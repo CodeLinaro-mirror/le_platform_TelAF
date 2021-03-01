@@ -1,0 +1,17 @@
+sources:
+{
+    tafVoiceCallTest.c
+}
+
+requires:
+{
+    api:
+    {
+        taf_voicecall.api
+    }
+}
+
+cxxflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+}

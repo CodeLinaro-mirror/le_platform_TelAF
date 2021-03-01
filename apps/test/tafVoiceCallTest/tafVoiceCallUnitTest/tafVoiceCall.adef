@@ -1,0 +1,29 @@
+sandboxed: false
+
+executables:
+{
+    tafVoiceCall = ( $TELAF_ROOT/apps/test/tafVoiceCallTest/tafVoiceCallUnitTest/tafVoiceCallComponent )
+}
+
+start: manual
+
+processes:
+{
+    run:
+    {
+        (tafVoiceCall)
+    }
+
+    faultAction: stopApp
+
+    #if ${LE_CONFIG_SERVICES_WATCHDOG} = y
+        maxWatchdogTimeout: 100000
+    #else
+        watchdogTimeout: never
+    #endif
+}
+
+bindings:
+{
+    tafVoiceCall.tafVoiceCallComponent.taf_voicecall -> tafVoiceCallSvc.taf_voicecall
+}

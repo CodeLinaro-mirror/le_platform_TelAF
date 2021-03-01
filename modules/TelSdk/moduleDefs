@@ -1,0 +1,20 @@
+$(info Module: Telsdk)
+
+export LEGATO_TELSDK_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+
+######### Platforms on which to use this module
+ifeq ($(TARGET),sa415m)
+     export READ_ONLY := 1
+
+     export SDEF_TO_USE ?= $(LEGATO_TELSDK_ROOT)/sa415m.sdef
+
+     export STRIP_STAGING_TREE ?= 1
+
+else ifeq ($(TARGET),sa515m)
+     export READ_ONLY := 1
+
+     export SDEF_TO_USE ?= $(LEGATO_TELSDK_ROOT)/sa515m.sdef
+
+     export STRIP_STAGING_TREE ?= 1
+
+endif

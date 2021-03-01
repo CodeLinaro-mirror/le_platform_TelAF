@@ -1,0 +1,33 @@
+sandboxed: false
+
+executables:
+{
+    tafVoiceCallSvc = ( $TELAF_ROOT/components/tafVoiceCallSvc )
+}
+
+start: auto
+
+processes:
+{
+    run:
+    {
+        (tafVoiceCallSvc)
+    }
+
+    faultAction: restart
+
+    #if ${LE_CONFIG_SERVICES_WATCHDOG} = y
+        maxWatchdogTimeout: 100000
+    #else
+        watchdogTimeout: never
+    #endif
+}
+
+bindings:
+{
+}
+
+extern:
+{
+    tafVoiceCallSvc.tafVoiceCallSvc.taf_voicecall
+}

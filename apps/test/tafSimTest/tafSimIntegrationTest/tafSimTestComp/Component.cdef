@@ -1,0 +1,13 @@
+sources:
+{
+    tafSimTest.c
+    main.c
+}
+
+requires:
+{
+    api:
+    {
+        taf_sim.api
+    }
+}

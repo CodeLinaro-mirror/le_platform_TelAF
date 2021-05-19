@@ -1,0 +1,127 @@
+/*
+ *  Copyright (c) 2021 The Linux Foundation. All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions are
+ *  met:
+ *    * Redistributions of source code must retain the above copyright
+ *      notice, this list of conditions and the following disclaimer.
+ *    * Redistributions in binary form must reproduce the above
+ *      copyright notice, this list of conditions and the following
+ *      disclaimer in the documentation and/or other materials provided
+ *      with the distribution.
+ *    * Neither the name of The Linux Foundation nor the names of its
+ *      contributors may be used to endorse or promote products derived
+ *      from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ *  WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ *  ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ *  BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ *  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ *  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ *  BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ *  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+USETYPES le_mdmDefs.api;
+
+/**
+ * To support legacy states
+ */
+DEFINE INSERTED = 0;
+DEFINE BLOCKED = 3;
+DEFINE POWER_DOWN = 8;
+
+/**
+ * To support legacy slot Id
+ */
+DEFINE EXTERNAL_SLOT_1 = 1;
+DEFINE EXTERNAL_SLOT_2 = 2;
+
+/**
+ * Defines states of SIM card
+ */
+ENUM States
+{
+    PRESENT,                   ///< SIM card is present.
+    ABSENT,                    ///< SIM card is absent.
+    READY,                     ///< SIM card is present and ready to use.
+    RESTRICTED,                ///< SIM Card is present but not usable due to carrier restrictions
+    BUSY,                      ///< Not supported.
+    ERROR,                     ///< SIM card has error, either card is removed or not readable.
+    STATE_UNKNOWN,             ///< SIM card state is unknown
+    ERROR_UNKNOWN,             ///< Unknown error. Not supported.
+    ERROR_POWER_DOWN,          ///< Power down. Not supported.
+    ERROR_POLL_ERROR,          ///< Poll error. Not supported.
+    ERROR_NO_ATR_RECEIVED,     ///< No ATR received. Not supported.
+    ERROR_VOLT_MISMATCH,       ///< Volt mismatch. Not supported.
+    ERROR_PARITY_ERROR,        ///< Parity error. Not supported.
+    ERROR_POSSIBLY_REMOVED,    ///< Unknown, possibly removed.Not supported.
+    ERROR_TECHNICAL_PROBLEMS,  ///< Card returned technical problems. Not supported.
+    ERROR_NULL_BYTES,          ///< Card returned NULL bytes. Not supported.
+    ERROR_SAP_CONNECTED,       ///< Terminal in SAP mode. Not supported.
+    ERROR_CMD_TIMEOUT          ///< Command timeout error. Not supported.
+};
+
+/**
+ * Defines Slot Id of SIM card
+ */
+ENUM Id
+{
+    EMBEDDED,           ///< Not supported
+    SLOT_ID_1,          ///< SIM inserted in slot 1.
+    SLOT_ID_2,          ///< SIM inserted in slot 2.
+    REMOTE,             ///< Not supported.
+    UNSPECIFIED,        ///< Slot Id is unspecified use current selected slot Id
+    ID_MAX
+};
+
+/**
+ * Handler for changes in SIM card state
+ */
+HANDLER NewStateHandler
+(
+    Id       slotId IN,
+    States   state IN
+);
+
+/**
+ * SIM card state change event
+ */
+EVENT NewState
+(
+    NewStateHandler handler
+);
+
+/**
+ * To check whether SIM card is present or absent
+ * @return true SIM card present
+ * @return false SIM card absent
+ */
+FUNCTION bool IsPresent
+(
+    Id      slotId IN
+);
+
+/**
+ * Get the state of the SIM card for given slotId
+ * @return Current state of SIM card
+ */
+FUNCTION States GetState
+(
+    Id slotId IN
+);
+
+/**
+ * To check whether SIM card is ready or not
+ * @return true if SIM card present and ready to use i.e unlocked
+ * @return false if SIM card absent or error or restricted to use or locked
+ */
+FUNCTION bool IsReady
+(
+    Id slotId IN
+);

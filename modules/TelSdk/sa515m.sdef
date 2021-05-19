@@ -16,6 +16,7 @@ apps:
     $LEGATO_ROOT/apps/platformServices/powerMgr
     $LEGATO_ROOT/apps/platformServices/secStore
     $TELAF_ROOT/apps/tafServices/tafVoiceCallSvc
+    $TELAF_ROOT/apps/tafServices/tafSimCardSvc
 
     // Command-line tools.
     $LEGATO_ROOT/apps/tools/tools
@@ -23,6 +24,7 @@ apps:
     // test apps
     $TELAF_ROOT/apps/test/tafVoiceCallTest/tafVoiceCallUnitTest/tafVoiceCall
     $LEGATO_ROOT/apps/sample/voiceCallApp/voiceCallApp
+    //$TELAF_ROOT/apps/test/tafSimTest/tafSimIntegrationTest/tafSimTest
 }
 
 commands:

@@ -1,0 +1,33 @@
+executables:
+{
+        tafAudioService = ( $TELAF_ROOT/components/tafAudioService )
+}
+
+start: auto
+
+processes:
+{
+        run:
+        {
+                (tafAudioService)
+        }
+
+        faultAction: restart
+
+        #if ${LE_CONFIG_SERVICES_WATCHDOG} = y
+                maxWatchdogTimeout: 100000
+        #else
+                watchdogTimeout: never
+        #endif
+}
+
+sandboxed: false
+
+bindings:
+{
+}
+
+extern:
+{
+        tafAudioService.tafAudioService.taf_audio
+}

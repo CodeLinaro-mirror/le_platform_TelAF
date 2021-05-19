@@ -1,0 +1,11 @@
+#include "$TELAF_ROOT/modules/TelSdk/sa515m.sdef"
+
+apps:
+{
+       tafAudioCallApp
+}
+
+commands:
+{
+        audiocall = tafAudioCallApp:/bin/audiocall
+}

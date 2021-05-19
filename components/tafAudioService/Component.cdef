@@ -1,0 +1,40 @@
+provides:
+{
+        api:
+        {
+                taf_audio.api
+        }
+}
+
+requires:
+{
+        component:
+        {
+                $LEGATO_ROOT/components/watchdogChain
+        }
+
+        lib:
+        {
+                lib/libtelux_audio.so
+        }
+
+}
+
+cxxflags:
+{
+        -I$LEGATO_ROOT/components/watchdogChain
+        -I$TELAF_ROOT/include
+        -ltelux_common
+        -ltelux_audio
+}
+
+cflags:
+{
+        -I$LEGATO_ROOT/components/watchdogChain
+}
+
+sources:
+{
+        tafAudioImpl.cpp
+        tafAudioService.cpp
+}

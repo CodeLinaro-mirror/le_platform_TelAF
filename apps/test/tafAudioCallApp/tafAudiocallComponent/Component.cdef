@@ -1,0 +1,21 @@
+provides:
+{
+    api:
+    {
+        tafAudioCtrl.api
+    }
+}
+
+requires:
+{
+    api:
+    {
+        taf_voicecall.api
+        taf_audio.api
+    }
+}
+
+sources:
+{
+    tafAudioCallApp.c
+}

@@ -1,0 +1,27 @@
+sandboxed: false
+
+executables:
+{
+    tafRadioSvc = ( $TELAF_ROOT/components/tafRadioSvc )
+}
+
+start: auto
+
+processes:
+{
+    run:
+    {
+        (tafRadioSvc)
+    }
+
+    faultAction: restart
+}
+
+bindings:
+{
+}
+
+extern:
+{
+    tafRadioSvc.tafRadioSvc.taf_radio
+}

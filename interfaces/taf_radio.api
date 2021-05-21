@@ -1,0 +1,100 @@
+/*
+ *  Copyright (c) 2021 The Linux Foundation. All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions are
+ *  met:
+ *    * Redistributions of source code must retain the above copyright
+ *      notice, this list of conditions and the following disclaimer.
+ *    * Redistributions in binary form must reproduce the above
+ *      copyright notice, this list of conditions and the following
+ *      disclaimer in the documentation and/or other materials provided
+ *      with the distribution.
+ *    * Neither the name of The Linux Foundation nor the names of its
+ *      contributors may be used to endorse or promote products derived
+ *      from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ *  WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ *  ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ *  BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ *  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ *  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ *  BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ *  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/*
+ * The mobile country code length.
+ */
+DEFINE MCC_LEN = 3;
+
+/*
+ * The mobile network code minimum length.
+ */
+DEFINE MNC_MIN_LEN = 2;
+
+/*
+ * The mobile network code maximum length.
+ */
+DEFINE MNC_MAX_LEN = 3;
+
+/*
+ * The mobile country code length, end with an addtional null character.
+ */
+DEFINE MCC_BYTES = (MCC_LEN + 1);
+
+/*
+ * The mobile network code length, end with an addtional null character.
+ */
+DEFINE MNC_BYTES = (MNC_MAX_LEN + 1);
+
+/*
+ * Set the radio power.
+ */
+FUNCTION le_result_t SetRadioPower
+(
+    le_onoff_t power IN, // Power on/off.
+    uint8 phoneId IN     // The phone id.
+);
+
+/*
+ * Get the radio power state.
+ */
+FUNCTION le_result_t GetRadioPower
+(
+    le_onoff_t power OUT, // Power state.
+    uint8 phoneId IN      // The phone id.
+);
+
+/*
+ * Set radio register to network automatically.
+ */
+FUNCTION le_result_t SetAutomaticRegisterMode
+(
+    uint8 phoneId IN // The phone id.
+);
+
+/*
+ * Set radio register to network manually.
+ */
+FUNCTION le_result_t SetManualRegisterMode
+(
+    string mcc[MCC_LEN] IN,     // The mobile country code.
+    string mnc[MNC_MAX_LEN] IN, // The mobile network code.
+    uint8 phoneId IN            // The phone id.
+);
+
+/*
+ * Get the radio register mode.
+ */
+FUNCTION le_result_t GetRegisterMode
+(
+    bool isManualPtr OUT,           // True if the register mode is manual, false if the register mode is automatic
+    string mccPtr[MCC_LEN] OUT,     // The mobile country code.
+    string mncPtr[MNC_MAX_LEN] OUT, // The mobile network code.
+    uint8 phoneId IN                // The phone id.
+);

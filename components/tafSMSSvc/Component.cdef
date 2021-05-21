@@ -1,0 +1,42 @@
+provides:
+{
+    api:
+    {
+        taf_sms.api
+    }
+}
+
+requires:
+{
+    component:
+    {
+        $LEGATO_ROOT/components/watchdogChain
+    }
+
+    lib:
+    {
+        lib/libtelux_tel.so
+    }
+
+}
+
+cxxflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+    -I$TELAF_ROOT/include
+    -ltelux_tel
+    //-DLEGATO_API_COMPAT
+}
+
+cflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+    //-DLEGATO_API_COMPAT
+}
+
+sources:
+{
+    tafSmsImpl.cpp
+    tafSmsSvc.cpp
+}
+

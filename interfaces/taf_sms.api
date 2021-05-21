@@ -1,0 +1,322 @@
+/*
+ *  Copyright (c) 2021 The Linux Foundation. All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions are
+ *  met:
+ *    * Redistributions of source code must retain the above copyright
+ *      notice, this list of conditions and the following disclaimer.
+ *    * Redistributions in binary form must reproduce the above
+ *      copyright notice, this list of conditions and the following
+ *      disclaimer in the documentation and/or other materials provided
+ *      with the distribution.
+ *    * Neither the name of The Linux Foundation nor the names of its
+ *      contributors may be used to endorse or promote products derived
+ *      from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ *  WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ *  ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ *  BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ *  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ *  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ *  BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ *  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+USETYPES taf_types.api;
+
+DEFINE  TIMESTAMP_LEN   = (20);
+DEFINE  TIMESTAMP_BYTES = (TIMESTAMP_LEN+1);
+DEFINE  TEXT_LEN    = (160);
+DEFINE  TEXT_BYTES  = (TEXT_LEN+1);
+DEFINE  BINARY_BYTES  = (140);
+DEFINE  UCS2_BYTES  = (140);
+DEFINE  UCS2_CHARS  = (70);
+DEFINE  PDU_PAYLOAD = (140);
+DEFINE  PDU_BYTES     = (36+PDU_PAYLOAD);
+
+ENUM Type
+{
+    TX,
+    RX,
+    TYPE_UNKNOWN
+};
+
+ENUM ReadStatus
+{
+    READ,
+    UNREAD,
+    READ_STATUS_UNKNOWN
+};
+
+ENUM SendStatus
+{
+    UNSENT,
+    SENDING,
+    SENT,
+    SENDING_FAILED,
+    SENDING_TIMEOUT,
+    SEND_STATUS_UNKNOWN
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reference type for SMS Message objects
+ */
+//--------------------------------------------------------------------------------------------------
+
+REFERENCE Msg;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reference type for SMS Message List
+ */
+//--------------------------------------------------------------------------------------------------
+
+REFERENCE MsgList;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Create message list for accessing messages
+ * @return the created message list
+ */
+//--------------------------------------------------------------------------------------------------
+
+FUNCTION MsgList CreateNewRxMsgList
+(
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Delete message list
+ */
+//--------------------------------------------------------------------------------------------------
+
+FUNCTION DeleteList
+(
+    MsgList msgListRef
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for sending message
+ */
+//--------------------------------------------------------------------------------------------------
+
+HANDLER CallbackResult
+(
+    Msg msgRef,
+    SendStatus status IN
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for receiving message
+ */
+//--------------------------------------------------------------------------------------------------
+
+HANDLER RxMsgHandler
+(
+    Msg  msgRef
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Event for handler usage
+ */
+//--------------------------------------------------------------------------------------------------
+
+EVENT RxMsg
+(
+    RxMsgHandler handler
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get first message of list
+ * @return the first message of message list
+ */
+//--------------------------------------------------------------------------------------------------
+
+FUNCTION Msg GetFirst
+(
+    MsgList msgListRef
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get next message of list
+ * @return the next message from tmp link of the message list
+ */
+//--------------------------------------------------------------------------------------------------
+
+FUNCTION Msg GetNext
+(
+    MsgList msgListRef
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get send status of message
+ * @return the send status of message
+ */
+//--------------------------------------------------------------------------------------------------
+
+FUNCTION SendStatus GetSendStatus
+(
+    Msg msgRef
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Create new message for sending
+ * @return the created message
+ */
+//--------------------------------------------------------------------------------------------------
+
+FUNCTION Msg Create
+(
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set dentination phone number for message
+ * @return the le_result of setting destination for message
+ */
+//--------------------------------------------------------------------------------------------------
+
+FUNCTION le_result_t SetDestination
+(
+    Msg     msgRef,
+    string  dest[taf_types.REMOTE_PARTY_NUM_MAX_BYTES] IN
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set text for message
+ * @return the le_result of setting text for message
+ */
+//--------------------------------------------------------------------------------------------------
+
+FUNCTION le_result_t SetText
+(
+    Msg     msgRef,
+    string  text[TEXT_LEN] IN
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set callback function for message
+ * @return the le_result of setting callback for message
+ */
+//--------------------------------------------------------------------------------------------------
+
+FUNCTION le_result_t SetCallback
+(
+    Msg     msgRef,
+    CallbackResult handler
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set phone ID function for message, phone ID must be 1 or 2 (for DSDA use case)
+ * @return the le_result of setting phone ID for message
+ */
+//--------------------------------------------------------------------------------------------------
+
+FUNCTION le_result_t SetPhoneId
+(
+    Msg     msgRef,
+    int8    phoneId
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Delete message from message list, if no message list reference, delete the message from storage
+ */
+//--------------------------------------------------------------------------------------------------
+
+FUNCTION Delete
+(
+    Msg msgRef
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get sender phone number of message
+ * @return the le_result of getting sender phone number from message
+ */
+//--------------------------------------------------------------------------------------------------
+
+FUNCTION le_result_t GetSenderTel
+(
+    Msg     msgRef,
+    string  tel[taf_types.REMOTE_PARTY_NUM_MAX_BYTES] OUT
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get text of message
+ * @return the le_result of getting text from message
+ */
+//--------------------------------------------------------------------------------------------------
+
+FUNCTION le_result_t GetText
+(
+    Msg     msgRef,
+    string  text[TEXT_LEN] OUT
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get type of message
+ * @return the type of message
+ */
+//--------------------------------------------------------------------------------------------------
+
+FUNCTION Type GetType
+(
+    Msg msgRef
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get text length of message
+ * @return the text length of message
+ */
+//--------------------------------------------------------------------------------------------------
+
+FUNCTION size GetUserdataLen
+(
+    Msg msgRef
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Send message
+ * @return the le_result of sending message
+ */
+//--------------------------------------------------------------------------------------------------
+
+FUNCTION le_result_t Send
+(
+    Msg msgRef
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Delete message from storage
+ * @return the le_result of deleting message from storage
+ */
+//--------------------------------------------------------------------------------------------------
+
+FUNCTION le_result_t DeleteFromStorage
+(
+    Msg msgRef
+);
+
+

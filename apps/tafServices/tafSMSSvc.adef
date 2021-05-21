@@ -1,0 +1,33 @@
+sandboxed: false
+
+executables:
+{
+    tafSMSSvc = ( $TELAF_ROOT/components/tafSMSSvc )
+}
+
+start: auto
+
+processes:
+{
+    run:
+    {
+        (tafSMSSvc)
+    }
+
+    faultAction: restart
+
+    #if ${LE_CONFIG_SERVICES_WATCHDOG} = y
+        maxWatchdogTimeout: 100000
+    #else
+        watchdogTimeout: never
+    #endif
+}
+
+bindings:
+{
+}
+
+extern:
+{
+    tafSMSSvc.tafSMSSvc.taf_sms
+}

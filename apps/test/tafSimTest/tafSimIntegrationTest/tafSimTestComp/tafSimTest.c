@@ -39,6 +39,20 @@ static void TestNewSimStateHandler
     LE_INFO("SIM state: %s", SimStateToString(simState));
 }
 
+static void TestAuthenticationResponse
+(
+    taf_sim_Id_t     simId,
+    taf_sim_LockResponse_t responseType,
+    le_result_t result,
+    void* contextPtr
+)
+{
+    LE_INFO("Authentication Response for SIM card: %d", simId);
+    LE_INFO("Authentication Response responseType: %d", (int) responseType);
+    LE_INFO("Authentication Response result : %d", result);
+}
+
+
 //Function to convert sim state to string
 char* SimStateToString(taf_sim_States_t state) {
     char *cardState;
@@ -83,4 +97,127 @@ void tafSimTest_state
     printf("\n Sim Card.%d state = %s\n" , simId ,SimStateToString(state));
     printf("\n Is SIM card Ready = %s\n", taf_sim_IsReady(simId) ? "true" : "false");
     printf("\n Is SIM card Present = %s \n", taf_sim_IsPresent(simId) ? "true" : "false");
+}
+
+//Function to test sim identification info like ICCID, IMSI, Phone number, operator name
+// MCC and MNC
+void tafSimTest_info
+(
+    taf_sim_Id_t simId
+)
+{
+    le_result_t     res;
+    char            iccid[TAF_SIM_ICCID_BYTES];
+    char            imsi[TAF_SIM_IMSI_BYTES];
+    char            phoneNumber[TAF_SIM_PHONE_NUM_MAX_BYTES];
+    char            operatorName[50];
+    char            mcc[4];
+    char            mnc[4];
+
+    memset(iccid, 0, TAF_SIM_ICCID_BYTES);
+    memset(imsi, 0, TAF_SIM_IMSI_BYTES);
+    memset(phoneNumber, 0, TAF_SIM_PHONE_NUM_MAX_BYTES);
+    memset(operatorName, 0, 50);
+    memset(mcc, 0, 4);
+    memset(mnc, 0, 4);
+
+    LE_INFO("SimId %d", simId);
+
+    // Get SIM ICCID
+    res = taf_sim_GetICCID(simId, iccid, sizeof(iccid));
+    LE_ASSERT(res == LE_OK);
+    printf("\nSIM Card ICCID: '%s'\n", iccid);
+
+    res = taf_sim_GetIMSI(simId, imsi, sizeof(imsi));
+    LE_ASSERT(res == LE_OK);
+    printf("\nSIM Card IMSI: '%s'\n", imsi);
+
+    res = taf_sim_GetSubscriberPhoneNumber(simId, phoneNumber, sizeof(phoneNumber));
+    LE_ASSERT(res == LE_OK);
+    printf("\nSIM Card PhoneNumber: '%s'\n", phoneNumber);
+
+    res = taf_sim_GetHomeNetworkOperator(simId, operatorName, sizeof(operatorName));
+    LE_ASSERT(res == LE_OK);
+    printf("\nSIM Card Network Operator name: '%s'\n", operatorName);
+
+    res = taf_sim_GetHomeNetworkMccMnc(simId, mcc, sizeof(mcc), mnc, sizeof(mnc));
+    LE_ASSERT(res == LE_OK);
+    printf("\nSIM Card MCC: '%s'\n", mcc);
+    printf("\nSIM Card MNC: '%s'\n", mnc);
+}
+void tafSimTest_selection
+(
+    taf_sim_Id_t slot
+)
+{
+    taf_sim_Id_t slotId = taf_sim_GetSelectedCard();
+    printf("\n Current SIM slot id = %d\n" ,slotId);
+
+    le_result_t res = taf_sim_SelectCard(slot);
+    LE_ASSERT(res == LE_OK);
+    slotId = taf_sim_GetSelectedCard();
+    printf("\n After selecting %d Current SIM slot id = %d\n" ,slot, slotId);
+}
+
+void tafSimTest_enterPin
+(
+    taf_sim_Id_t simId,
+    taf_sim_LockType_t lockType,
+    const char*  pinPtr
+)
+{
+    taf_sim_AuthenticationResponseHandlerRef_t responseHandlerRef_t;
+    responseHandlerRef_t =taf_sim_AddAuthenticationResponseHandler(TestAuthenticationResponse, NULL);
+    LE_ASSERT(responseHandlerRef_t != NULL);
+
+    le_result_t res;
+    res = taf_sim_EnterPIN(simId, lockType, pinPtr);
+    LE_ASSERT(res == LE_OK);
+    LE_INFO("EnterPIN done");
+}
+
+void tafSimTest_setLock
+(
+    taf_sim_Id_t simId,
+    taf_sim_LockType_t lockType,
+    const char*  pinPtr,
+	bool lock
+)
+{
+    le_result_t res;
+    if (lock) {
+        res = taf_sim_Lock(simId, lockType, pinPtr);
+        LE_ASSERT(res == LE_OK);
+        LE_INFO("Set lock request sent successfully");
+    } else {
+        res = taf_sim_Unlock(simId, lockType, pinPtr);
+        LE_ASSERT(res == LE_OK);
+        LE_INFO("Unlock request sent successfully");
+    }
+}
+
+void tafSimTest_Change_pin
+(
+    taf_sim_Id_t simId,
+    taf_sim_LockType_t lockType,
+    const char*  oldpinPtr,
+    const char*  newpinPtr
+)
+{
+    le_result_t res;
+    res = taf_sim_ChangePIN(simId, lockType, oldpinPtr, newpinPtr);
+    LE_ASSERT(res == LE_OK);
+}
+
+void tafSimTest_unblock_puk
+(
+    taf_sim_Id_t simId,
+    taf_sim_LockType_t lockType,
+    const char*  pukPtr,
+    const char*  newpinPtr
+)
+{
+    le_result_t res;
+    res = taf_sim_Unblock(simId, lockType, pukPtr, newpinPtr);
+    LE_ASSERT(res == LE_OK);
 }

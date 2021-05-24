@@ -4,7 +4,7 @@ executables:
 {
         tafSimCardSvc = ( $TELAF_ROOT/components/tafSimCardSvc )
 }
-start: manual
+start: auto
 
 processes:
 {

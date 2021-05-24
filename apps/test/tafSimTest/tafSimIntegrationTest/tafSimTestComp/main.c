@@ -31,9 +31,16 @@
 static taf_sim_NewStateHandlerRef_t NewSimStateHandlerRef = NULL;
 
 static void DisplayAppUsage(void) {
-     printf("Usage of the 'tafsimTest' application is:\n");
-     printf("Test SIM state: app runProc tafSimTest --exe=tafSimTest -- state <slot1/slot2/unknown>\n");
-     printf("Test SIM state change: app runProc tafSimTest --exe=tafSimTest -- events\n");
+    printf("Usage of the 'tafsimTest' application is:\n");
+    printf("Test SIM state: app runProc tafSimTest --exe=tafSimTest -- state <slot1/slot2/unknown>\n");
+    printf("Test SIM state change: app runProc tafSimTest --exe=tafSimTest -- events\n");
+    printf("SIM information test: app runProc tafSimTest --exe=tafSimTest -- info <slot1/slot2/unknown>\n");
+    printf("SIM selection test: app runProc tafSimTest --exe=tafSimTest -- select <slot1/slot2/unknown>\n");
+    printf("SIM authentication test: app runProc tafSimTest --exe=tafSimTest -- enterPin <slot1/slot2/unknown> <pin1/pin2> pin\n");
+    printf("SIM change pin  test: app runProc tafSimTest --exe=tafSimTest -- changePin <slot1/slot2/unknown> <pin1/pin2> old_pin new_pin\n");
+    printf("SIM unblock  test: app runProc tafSimTest --exe=tafSimTest -- unblock <slot1/slot2/unknown> <puk1/puk2> puk new_pin\n ");
+    printf("SIM lock test: app runProc tafSimTest --exe=tafSimTest -- lock <slot1/slot2/unknown> <pin1/fdn> pin\n");
+    printf("SIM unlock test: app runProc tafSimTest --exe=tafSimTest -- unlock <slot1/slot2/unknown> <pin1/fdn> pin\n");
 }
 
 static taf_sim_Id_t GetSimId(const char* simIdPtr) {
@@ -45,6 +52,23 @@ static taf_sim_Id_t GetSimId(const char* simIdPtr) {
         return TAF_SIM_UNSPECIFIED;
     }
     LE_ERROR("Unable to convert '%s' to a taf_sim_Id_t", simIdPtr);
+    DisplayAppUsage();
+    exit(EXIT_FAILURE);
+}
+
+static taf_sim_LockType_t GetLockType(const char* lockPtr) {
+    if(strcmp(lockPtr,"pin1") == 0) {
+        return TAF_SIM_PIN1;
+    } else if(strcmp(lockPtr,"pin2") == 0) {
+        return TAF_SIM_PIN2;
+    } else if(strcmp(lockPtr,"puk1") == 0) {
+        return TAF_SIM_PUK1;
+    } else if(strcmp(lockPtr,"puk2") == 0) {
+        return TAF_SIM_PUK2;
+    } else if(strcmp(lockPtr,"fdn") == 0) {
+        return TAF_SIM_FDN;
+    }
+    LE_ERROR("Unable to convert '%s' to a lockType", lockPtr);
     DisplayAppUsage();
     exit(EXIT_FAILURE);
 }
@@ -86,7 +110,129 @@ COMPONENT_INIT
     } else if (strcmp(testType, "events") == 0) {
         NewSimStateHandlerRef = taf_sim_AddNewStateHandler(TestNewSimStateHandler, NULL);
         LE_ASSERT(NewSimStateHandlerRef!=NULL);
+
+        exitApplication = true;
+    }
+    // Test: sim identification info
+    else if (strcmp(testType, "info") == 0)
+    {
+        tafSimTest_info(simId);
+    }
+    else if (strcmp(testType, "select") == 0)
+    {
+        tafSimTest_selection(simId);
+    }
+    else if (strcmp(testType, "enterPin") == 0)
+    {
+        const char* lockPtr = le_arg_GetArg(2);
+        if (NULL == lockPtr)
+        {
+            LE_ERROR("lockPtr is NULL");
+            DisplayAppUsage();
+            exit(EXIT_FAILURE);
+        }
+        taf_sim_LockType_t lockType = GetLockType(lockPtr);
+        const char* pinPtr = le_arg_GetArg(3);
+        if (NULL == pinPtr)
+        {
+            LE_ERROR("pinPtr is NULL");
+            DisplayAppUsage();
+            exit(EXIT_FAILURE);
+        }
         exitApplication = false;
+        tafSimTest_enterPin(simId,lockType,pinPtr);
+    }
+    else if (strcmp(testType, "changePin") == 0)
+    {
+        const char* lockPtr = le_arg_GetArg(2);
+        if (NULL == lockPtr)
+        {
+            LE_ERROR("lockPtr is NULL");
+            DisplayAppUsage();
+            exit(EXIT_FAILURE);
+        }
+        taf_sim_LockType_t lockType = GetLockType(lockPtr);
+        const char* oldpinPtr = le_arg_GetArg(3);
+        if (NULL == oldpinPtr)
+        {
+            LE_ERROR("oldpinPtr is NULL");
+            DisplayAppUsage();
+            exit(EXIT_FAILURE);
+        }
+        const char* newpinPtr = le_arg_GetArg(4);
+        if (NULL == newpinPtr)
+        {
+            LE_ERROR("newpinPtr is NULL");
+            DisplayAppUsage();
+            exit(EXIT_FAILURE);
+        }
+        tafSimTest_Change_pin(simId, lockType, oldpinPtr, newpinPtr);
+    }
+    else if (strcmp(testType, "unblock") == 0)
+    {
+        const char* lockPtr = le_arg_GetArg(2);
+        if (NULL == lockPtr)
+        {
+            LE_ERROR("lockPtr is NULL");
+            DisplayAppUsage();
+            exit(EXIT_FAILURE);
+        }
+        taf_sim_LockType_t lockType = GetLockType(lockPtr);
+        const char* pukPtr = le_arg_GetArg(3);
+        if (NULL == pukPtr)
+        {
+            LE_ERROR("pukPtr is NULL");
+            DisplayAppUsage();
+            exit(EXIT_FAILURE);
+        }
+        const char* pinPtr = le_arg_GetArg(4);
+        if (NULL == pinPtr)
+        {
+            LE_ERROR("pinPtr is NULL");
+            DisplayAppUsage();
+            exit(EXIT_FAILURE);
+        }
+        tafSimTest_unblock_puk(simId, lockType, pukPtr, pinPtr);
+    }
+    else if (strcmp(testType, "lock") == 0)
+    {
+        const char* lockPtr = le_arg_GetArg(2);
+        if (NULL == lockPtr)
+        {
+            LE_ERROR("lockPtr is NULL");
+            DisplayAppUsage();
+            exit(EXIT_FAILURE);
+        }
+        taf_sim_LockType_t lockType = GetLockType(lockPtr);
+        const char* pinPtr = le_arg_GetArg(3);
+        if (NULL == pinPtr)
+        {
+            LE_ERROR("pinPtr is NULL");
+            DisplayAppUsage();
+            exit(EXIT_FAILURE);
+        }
+        exitApplication = false;
+        tafSimTest_setLock(simId,lockType,pinPtr, true);
+    }
+    else if (strcmp(testType, "unlock") == 0)
+    {
+        const char* lockPtr = le_arg_GetArg(2);
+        if (NULL == lockPtr)
+        {
+            LE_ERROR("lockPtr is NULL");
+            DisplayAppUsage();
+            exit(EXIT_FAILURE);
+        }
+        taf_sim_LockType_t lockType = GetLockType(lockPtr);
+        const char* pinPtr = le_arg_GetArg(3);
+        if (NULL == pinPtr)
+        {
+            LE_ERROR("pinPtr is NULL");
+            DisplayAppUsage();
+            exit(EXIT_FAILURE);
+        }
+        exitApplication = false;
+        tafSimTest_setLock(simId,lockType,pinPtr, false);
     } else {
         DisplayAppUsage();
         exit(EXIT_FAILURE);

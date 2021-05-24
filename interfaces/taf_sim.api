@@ -27,8 +27,6 @@
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-USETYPES le_mdmDefs.api;
-
 /**
  * To support legacy states
  */
@@ -41,6 +39,27 @@ DEFINE POWER_DOWN = 8;
  */
 DEFINE EXTERNAL_SLOT_1 = 1;
 DEFINE EXTERNAL_SLOT_2 = 2;
+
+/**
+ * PIN length
+ */
+DEFINE  PIN_MIN_LEN     = (4);
+DEFINE  PIN_MAX_LEN     = (8);
+DEFINE  PIN_MAX_BYTES   = (PIN_MAX_LEN+1);
+
+/**
+ * PUK length)
+ */
+DEFINE  PUK_MAX_LEN     = (8);
+DEFINE  PUK_MAX_BYTES   = (PUK_MAX_LEN+1);
+DEFINE  IMSI_LEN    = (15);
+DEFINE  IMSI_BYTES  = (IMSI_LEN+1);
+DEFINE  RESPONSE_MAX_BYTES  = (256);
+DEFINE  PHONE_NUM_MAX_LEN   = (15+2);
+DEFINE  PHONE_NUM_MAX_BYTES = (PHONE_NUM_MAX_LEN+1);
+
+DEFINE  ICCID_LEN    = (20);
+DEFINE  ICCID_BYTES  = (ICCID_LEN+1);
 
 /**
  * Defines states of SIM card
@@ -81,6 +100,26 @@ ENUM Id
 };
 
 /**
+ * Defines all types of card locks which uses in PIN management APIs
+ */
+ENUM LockType
+{
+   PIN1 = 0,        ///<Lock type is PIN1
+   PIN2 = 1,        ///<Lock type is PIN2
+   PUK1 = 2,        ///<Lock type is Pin Unblocking Key1
+   PUK2 = 3,        ///<Lock type is Pin Unblocking Key2
+   FDN  = 4         ///<Lock type is Fixed Dialing Number
+};
+
+ENUM LockResponse
+{
+    CHANGE_PIN,
+    UNLOCK_BY_PIN,
+    UNLOCK_BY_PUK,
+    SET_LOCK
+};
+
+/**
  * Handler for changes in SIM card state
  */
 HANDLER NewStateHandler
@@ -97,6 +136,23 @@ EVENT NewState
     NewStateHandler handler
 );
 
+/**
+ * Handler for pin puk changes.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER AuthenticationResponseHandler
+(
+    Id             slotId IN,             ///< The SIM identifier.
+    LockResponse   responsetype,
+    le_result_t    result IN
+);
+EVENT AuthenticationResponse
+(
+    AuthenticationResponseHandler handler
+);
+
+//--------------------------------------------------------------------------------------------------
 /**
  * To check whether SIM card is present or absent
  * @return true SIM card present
@@ -125,3 +181,206 @@ FUNCTION bool IsReady
 (
     Id slotId IN
 );
+
+/**
+ * Retrieves the SIM's ICCID
+ *
+ * @return LE_OK                  ICCID was read successfully.
+ * @return LE_OVERFLOW            Buffer size is small.
+ * @return LE_BAD_PARAMETER       Invalid parameters.
+ * @return LE_FAULT               Failed to retrieve the ICCID.
+ *
+ */
+FUNCTION le_result_t GetICCID
+(
+    Id        slotId IN,
+    string    iccid[ICCID_LEN] OUT
+);
+
+/**
+ * Retrieves IMSI (International Mobile Subscriber Identity) for the SIM.
+ *
+ * @return LE_OVERFLOW         Buffer size is small.
+ * @return LE_BAD_PARAMETER    Invalid parameters.
+ * @return LE_FAULT            Failed to retrieve the IMSI.
+ * @return LE_OK               IMSI retrieved successfully.
+ *
+ */
+FUNCTION le_result_t GetIMSI
+(
+    Id        slotId IN,
+    string    imsi[IMSI_LEN] OUT
+);
+
+/**
+ * Retrieves the name of the carrier on which this subscription is made.
+ *
+ * @return LE_OVERFLOW         Buffer size is small.
+ * @return LE_BAD_PARAMETER    Invalid parameters.
+ * @return LE_FAULT            Failed to retrieve the carrier name.
+ * @return LE_OK               Carrier name retrieved successfully.
+ *
+ */
+FUNCTION le_result_t GetHomeNetworkOperator
+(
+    Id        slotId IN,
+    string    nameStr[100] OUT
+);
+
+/**
+ * Retrieves the phone number for the SIM subscription.
+ *
+ * @return LE_OVERFLOW         Buffer size is small.
+ * @return LE_BAD_PARAMETER    Invalid parameters.
+ * @return LE_FAULT            Failed to retrieve the phone number.
+ * @return LE_OK               phone number retrieved successfully.
+ *
+ */
+FUNCTION le_result_t GetSubscriberPhoneNumber
+(
+    Id        slotId IN,
+    string    phoneNumberStr[PHONE_NUM_MAX_LEN] OUT
+);
+
+/**
+ * Retrieves the mobile network code(MNC) and mubile country code(MCC) of the carrier
+ * to which phone is connected.
+ *
+ * @return LE_OVERFLOW         Buffer size is small.
+ * @return LE_BAD_PARAMETER    Invalid parameters.
+ * @return LE_FAULT            Failed to retrieve the phone number.
+ * @return LE_OK               phone number retrieved successfully.
+ *
+ */
+FUNCTION le_result_t GetHomeNetworkMccMnc
+(
+    Id     slotId IN,
+    string mccPtr[3] OUT,
+    string mncPtr[3] OUT
+);
+
+/**
+ * Get slotId of current selected SIM card.
+ *
+ * @return slotId of current selected card.
+ */
+FUNCTION Id GetSelectedCard
+(
+);
+
+/**
+ * Select a SIM.
+ *
+ * @return LE_FAULT            Failed to select SIM card.
+ * @return LE_OK               SIM card selected successfully.
+ *
+ */
+FUNCTION le_result_t SelectCard
+(
+    Id    slotId IN
+);
+
+/**
+ *  Unlock the Sim card for an app by entering PIN.
+ *
+ * @return LE_BAD_PARAMETER   Invalid SIM slot Id.
+ * @return LE_FAULT           Failed to send unlock SIM card by PIN request.
+ * @return LE_OK              Unlock SIM by password request sent successfully.
+ *
+ */
+FUNCTION le_result_t EnterPIN
+(
+    Id        slotId IN,           ///< Slot ID of SIM.
+    LockType  lockType IN,         ///< Applicable lock types are PIN1 and PIN2.
+    string    pin[PIN_MAX_LEN] IN  ///< PIN1/PIN2.
+);
+
+/**
+ * Change the password used in PIN1/PIN2 lock.
+ *
+ * @return LE_BAD_PARAMETER   Invalid SIM slot Id.
+ * @return LE_FAULT           Failed to send change password for lock SIM card request.
+ * @return LE_OK              Change SIM lock password request sent successfully.
+ *
+ */
+FUNCTION le_result_t ChangePIN
+(
+    Id        slotId IN,                  ///< Slot ID of SIM.
+    LockType  lockType IN,                ///< Applicable lock types are PIN1 and PIN2.
+    string    oldpin[PIN_MAX_LEN] IN,     ///< Old PIN1/PIN2
+    string    newpin[PIN_MAX_LEN] IN      ///< New PIN1/PIN2
+);
+
+/**
+ * Get the available retry count of PIN try.
+ *
+ * @return LE_BAD_PARAMETER   Invalid SIM slot Id.
+ * @return LE_FAULT           Failed to get the number of remaining PIN insertion tries.
+ * @return A positive value   Retry count value.
+ *
+ */
+FUNCTION int32 GetRemainingPINTries
+(
+    Id      slotId IN
+);
+
+/**
+ * Get the remaining PUK try count.
+ *
+ * @return LE_BAD_PARAMETER   Invalid SIM slot Id.
+ * @return LE_FAULT           Failed to get the number of remaining PUK insertion tries.
+ * @return A positive value   Retry count value.
+ *
+ */
+FUNCTION le_result_t GetRemainingPUKTries
+(
+    Id      slotId                 IN,
+    uint32  remainingPukTriesPtr  OUT
+);
+
+/**
+ * Disables PIN1 or FDN lock.
+ *
+ * @return LE_BAD_PARAMETER   Invalid SIM slot Id.
+ * @return LE_FAULT           Failed to send disable lock SIM card request.
+ * @return LE_OK              Disable SIM lock request sent successfully.
+ *
+ */
+FUNCTION le_result_t Unlock
+(
+    Id        slotId IN,           ///< Slot ID of SIM
+    LockType  lockType IN,         ///< Applicable lock types are PIN1 and FDN
+    string    pin[PIN_MAX_LEN] IN  ///< PIN1/PIN2
+);
+
+/**
+ * Enables PIN1 or FDN lock.
+ *
+ * @return LE_BAD_PARAMETER   Invalid SIM slot Id.
+ * @return LE_FAULT           Failed to send enable lock SIM card request.
+ * @return LE_OK              Enable SIM lock request sent successfully.
+ *
+ */
+FUNCTION le_result_t Lock
+(
+    Id        slotId IN,           ///< Slot ID of SIM.
+    LockType  lockType IN,         ///< Applicable lock types are PIN1 and FDN.
+    string    pin[PIN_MAX_LEN] IN  ///< PIN1/PIN2.
+);
+
+/**
+ * Unlock the Sim card for an app by entering PUK and new pin
+ *
+ * @return LE_BAD_PARAMETER   Invalid SIM slot Id.
+ * @return LE_FAULT           Failed to send unlock SIM card request.
+ * @return LE_OK              Unlock SIM request sent successfully.
+ *
+ */
+FUNCTION le_result_t Unblock
+(
+    Id        slotId IN,              ///< Slot ID of SIM.
+    LockType  lockType IN,            ///< Applicable lock types are PUK1 and PUK2.
+    string    puk[PUK_MAX_LEN] IN,    ///< PUK1/PUK2.
+    string    newpin[PIN_MAX_LEN] IN  ///< New PIN1/PIN2.
+);
+

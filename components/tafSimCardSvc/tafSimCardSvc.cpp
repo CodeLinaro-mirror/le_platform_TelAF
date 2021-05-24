@@ -97,3 +97,143 @@ bool taf_sim_IsReady(taf_sim_Id_t slotId) {
         return false;
     }
 }
+
+le_result_t taf_sim_GetICCID( taf_sim_Id_t slotId, char * iccidPtr,
+        size_t iccidLen) {
+    TAF_ERROR_IF_RET_VAL(iccidPtr == NULL, LE_BAD_PARAMETER, "iccidPtr is NULL");
+    TAF_ERROR_IF_RET_VAL(iccidLen < TAF_SIM_ICCID_BYTES, LE_OVERFLOW, "Incorrect buffer size");
+    LE_INFO("tafSimCard getICCID \n");
+    auto &sim = taf_sim::GetInstance();
+    return sim.getICCID(slotId, iccidPtr, iccidLen);
+}
+
+le_result_t taf_sim_GetIMSI( taf_sim_Id_t slotId, char * imsiPtr,
+        size_t imsiLen) {
+    TAF_ERROR_IF_RET_VAL(imsiPtr == NULL, LE_BAD_PARAMETER, "imsiPtr is NULL");
+    TAF_ERROR_IF_RET_VAL(imsiLen < TAF_SIM_IMSI_BYTES, LE_OVERFLOW, "Incorrect buffer size");
+    LE_INFO("tafSimCard getIMSI \n");
+    auto &sim = taf_sim::GetInstance();
+    return sim.getIMSI(slotId, imsiPtr, imsiLen);
+}
+
+le_result_t taf_sim_GetSubscriberPhoneNumber( taf_sim_Id_t slotId, char * phoneNumberPtr,
+        size_t phoneNumberLen) {
+    TAF_ERROR_IF_RET_VAL(phoneNumberPtr == NULL, LE_BAD_PARAMETER, "iccidPtr is NULL");
+    TAF_ERROR_IF_RET_VAL(phoneNumberLen < TAF_SIM_PHONE_NUM_MAX_BYTES, LE_OVERFLOW,
+            "Incorrect buffer size");
+    LE_INFO("tafSimCard taf_sim_GetSubscriberPhoneNumber \n");
+    auto &sim = taf_sim::GetInstance();
+    return sim.getSubscriberPhoneNumber(slotId, phoneNumberPtr, phoneNumberLen);
+}
+
+le_result_t taf_sim_GetHomeNetworkOperator( taf_sim_Id_t slotId, char * namePtr,
+        size_t nameLen) {
+    TAF_ERROR_IF_RET_VAL(namePtr == NULL, LE_BAD_PARAMETER, "iccidPtr is NULL");
+    LE_INFO("tafSimCard taf_sim_GetHomeNetworkOperator \n");
+    auto &sim = taf_sim::GetInstance();
+    return sim.getHomeNetworkOperator(slotId, namePtr, nameLen);
+}
+
+le_result_t taf_sim_GetHomeNetworkMccMnc( taf_sim_Id_t slotId,char * mccPtr,
+        size_t mccLen, char * mncPtr, size_t mncLen) {
+    TAF_ERROR_IF_RET_VAL(mccPtr == NULL, LE_BAD_PARAMETER, "mccPtr is NULL");
+    TAF_ERROR_IF_RET_VAL(mncPtr == NULL, LE_BAD_PARAMETER, "mncPtr is NULL");
+    LE_INFO("tafSimCard taf_sim_GetHomeNetworkMccMnc \n");
+    auto &sim = taf_sim::GetInstance();
+    return sim.getHomeNetworkMccMnc(slotId, mccPtr, mccLen, mncPtr, mncLen);
+}
+
+le_result_t taf_sim_SelectCard( taf_sim_Id_t slotId) {
+    auto &sim = taf_sim::GetInstance();
+    // Select the SIM card
+    if (sim.selectSimSlot(slotId) != LE_OK) {
+        LE_ERROR("Unable to select Sim Card slot %d !", slotId);
+        return LE_FAULT;
+    }
+    return LE_OK;
+}
+
+taf_sim_Id_t taf_sim_GetSelectedCard( void) {
+    auto &sim = taf_sim::GetInstance();
+    return (taf_sim_Id_t)sim.slot;
+}
+
+le_result_t taf_sim_EnterPIN( taf_sim_Id_t  slotId, taf_sim_LockType_t lockType,
+        const char* pinPtr) {
+    TAF_ERROR_IF_RET_VAL(pinPtr == NULL, LE_BAD_PARAMETER, "pinPtr is NULL");
+    LE_INFO("tafSimCard taf_sim_EnterPin \n");
+    auto &sim = taf_sim::GetInstance();
+    return sim.UnlockCardByPin(slotId, lockType, pinPtr);
+}
+
+le_result_t taf_sim_ChangePIN(taf_sim_Id_t slotId, taf_sim_LockType_t lockType,
+        const char* oldpinPtr, const char* newpinPtr) {
+    TAF_ERROR_IF_RET_VAL(oldpinPtr == NULL, LE_BAD_PARAMETER, "oldpinPtr is NULL");
+    TAF_ERROR_IF_RET_VAL(newpinPtr == NULL, LE_BAD_PARAMETER, "newpinPtr is NULL");
+    LE_INFO("tafSimCard taf_sim_EnterPin \n");
+    auto &sim = taf_sim::GetInstance();
+    return sim.ChangeCardPin(slotId, lockType, oldpinPtr, newpinPtr);
+}
+
+le_result_t taf_sim_Lock( taf_sim_Id_t slotId, taf_sim_LockType_t lockType,
+        const char* pinPtr) {
+    TAF_ERROR_IF_RET_VAL(pinPtr == NULL, LE_BAD_PARAMETER, "pinPtr is NULL");
+    LE_INFO("tafSimCard taf_sim_Lock \n");
+    auto &sim = taf_sim::GetInstance();
+    return sim.SetCardLock(slotId, lockType, pinPtr, true);
+
+    return LE_OK;
+}
+
+le_result_t taf_sim_Unlock( taf_sim_Id_t slotId, taf_sim_LockType_t lockType,
+        const char* pinPtr) {
+    TAF_ERROR_IF_RET_VAL(pinPtr == NULL, LE_BAD_PARAMETER, "pinPtr is NULL");
+    LE_INFO("tafSimCard taf_sim_UnLock \n");
+    auto &sim = taf_sim::GetInstance();
+    return sim.SetCardLock(slotId, lockType, pinPtr, false);
+}
+
+le_result_t taf_sim_Unblock( taf_sim_Id_t slotId, taf_sim_LockType_t lockType,
+        const char* pukPtr, const char* newpinPtr) {
+    TAF_ERROR_IF_RET_VAL(pukPtr == NULL, LE_BAD_PARAMETER, "pukPtr is NULL");
+    TAF_ERROR_IF_RET_VAL(newpinPtr == NULL, LE_BAD_PARAMETER, "newpinPtr is NULL");
+    LE_INFO("tafSimCard taf_sim_UnLock \n");
+    auto &sim = taf_sim::GetInstance();
+    return sim.UnlockCardByPuk(slotId, lockType, pukPtr, newpinPtr);
+}
+
+int32_t taf_sim_GetRemainingPINTries( taf_sim_Id_t slotId) {
+    auto &sim = taf_sim::GetInstance();
+    return sim.GetRemainingPINTries(slotId);
+}
+
+le_result_t taf_sim_GetRemainingPUKTries( taf_sim_Id_t slotId,
+        uint32_t* remainingPukTriesPtr) {
+    auto &sim = taf_sim::GetInstance();
+    return sim.GetRemainingPukTries(slotId, remainingPukTriesPtr);
+}
+
+taf_sim_AuthenticationResponseHandlerRef_t taf_sim_AddAuthenticationResponseHandler(
+        taf_sim_AuthenticationResponseHandlerFunc_t handlerPtr, void* contextPtr) {
+
+    le_event_HandlerRef_t handlerRef;
+    auto &sim = taf_sim::GetInstance();
+    if (NULL == handlerPtr)
+    {
+        LE_KILL_CLIENT("Handler function is NULL !");
+        return NULL;
+    }
+    handlerRef = (le_event_HandlerRef_t)sim.AddAuthenticationResponseHandler(handlerPtr,
+            contextPtr);
+
+    le_event_SetContextPtr(handlerRef, contextPtr);
+
+    return (taf_sim_AuthenticationResponseHandlerRef_t)(handlerRef);
+
+}
+
+void taf_sim_RemoveAuthenticationResponseHandler(
+        taf_sim_AuthenticationResponseHandlerRef_t  handlerRef) {
+    auto &sim = taf_sim::GetInstance();
+    sim.RemoveAuthenticationResponseHandler(handlerRef);
+}

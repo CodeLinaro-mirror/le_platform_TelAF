@@ -41,14 +41,47 @@ namespace telux {
 
         typedef struct
         {
-            taf_sim_Id_t      simId;   ///< SIM identififier
-            taf_sim_States_t  state;   ///< SIM state
+            taf_sim_Id_t      simId;
+            taf_sim_States_t  state;
         }
         sim_event_t;
+
+        typedef struct taf_sim_Obj
+        {
+            taf_sim_Id_t     simId;
+            char             ICCID[TAF_SIM_ICCID_BYTES];
+            char             IMSI[TAF_SIM_IMSI_BYTES];
+            char             phoneNumber[TAF_SIM_PHONE_NUM_MAX_BYTES];
+            int32_t          pinTryCount;
+            uint32_t         pukTryCount;
+        }
+        taf_sim_info_t ;
+
+        typedef struct
+        {
+            taf_sim_Id_t           simId;
+            taf_sim_LockResponse_t responseType;
+            le_result_t            result;
+        }
+        sim_response_event_t;
 
         class tafCardListener : public telux::tel::ICardListener {
             public:
                 void onCardInfoChanged(int slotId) override;
+        };
+
+        class tafSubscriptionListener : public telux::tel::ISubscriptionListener {
+            public:
+                void onSubscriptionInfoChanged(std::shared_ptr<telux::tel::ISubscription> subscription) override;
+        };
+
+        class tafAuthenticationResponseCallback {
+            public:
+             static void unlockCardByPinResponseCb(int retryCount, telux::common::ErrorCode error);
+            static void ChangeCardPinResponseCb(int retryCount, telux::common::ErrorCode error);
+            static void unlockCardByPukResponseCb(int retryCount, telux::common::ErrorCode error);
+            static void setCardLockResponseCb(int retryCount, telux::common::ErrorCode error);
+
         };
 
         class taf_sim :public ITafSvc {
@@ -61,10 +94,12 @@ namespace telux {
                 std::shared_ptr<telux::tel::ICardManager> cardManager;
                 std::shared_ptr<telux::tel::ICardListener> cardListener;
                 std::vector<std::shared_ptr<telux::tel::ICard>> cards;
-
+                std::shared_ptr<telux::tel::ISubscriptionManager> subMgr;
+                std::shared_ptr<telux::tel::ISubscriptionListener> subscriptionListener;
 
                 int slot = DEFAULT_SLOT_ID;
                 le_event_Id_t NewStateEventId;
+                le_event_Id_t ResponseEventId;
 
                 void RemoveStateHandler(taf_sim_NewStateHandlerRef_t handlerRef);
                 taf_sim_States_t getState(taf_sim_Id_t simId);
@@ -73,6 +108,31 @@ namespace telux {
                 static void FirstLayerNewSimStateHandler(void* reportPtr, void* secondLayerHandlerFunc);
                 taf_sim_NewStateHandlerRef_t AddStateHandler(taf_sim_NewStateHandlerFunc_t handlerPtr,
                         void* contextPtr);
+                bool isValidSimId(taf_sim_Id_t simId);
+                le_result_t selectSimSlot(taf_sim_Id_t simId);
+                taf_sim_info_t* GetSimContext(taf_sim_Id_t simId);
+                void InitializeSimInfo(std::shared_ptr<telux::tel::ISubscription> subscription, taf_sim_Id_t simId);
+                le_result_t getICCID(taf_sim_Id_t simId, char *iccid, int length);
+                le_result_t getSubscriberPhoneNumber(taf_sim_Id_t simId, char *phoneNumber, int length);
+                le_result_t getIMSI(taf_sim_Id_t simId, char *imsi, int length);
+                le_result_t getHomeNetworkOperator(taf_sim_Id_t simId, char *namePtr, int length);
+                le_result_t getHomeNetworkMccMnc(taf_sim_Id_t simId, char *mccPtr,
+                        int mccPtrSize, char *mncPtr, int mncPtrSize);
+
+                le_result_t UnlockCardByPin(taf_sim_Id_t  simId, taf_sim_LockType_t lockType, const char* pinPtr);
+                le_result_t ChangeCardPin( taf_sim_Id_t simId, taf_sim_LockType_t lockType, const char* oldpinPtr,
+                        const char*   newpinPtr);
+                le_result_t UnlockCardByPuk(taf_sim_Id_t  simId, taf_sim_LockType_t lockType, const char* pukPtr,
+                        const char* newpinPtr);
+                le_result_t SetCardLock(taf_sim_Id_t  simId, taf_sim_LockType_t lockType, const char* pinPtr,
+                        bool lockEnable);
+                int32_t GetRemainingPINTries(taf_sim_Id_t simId);
+                le_result_t GetRemainingPukTries(taf_sim_Id_t simId, uint32_t* remainingPukTriesPtr);
+
+                static void FirstLayerAuthenticationResponseHandler(void* reportPtr, void* secondLayerHandlerFunc);
+                taf_sim_AuthenticationResponseHandlerRef_t AddAuthenticationResponseHandler(
+                        taf_sim_AuthenticationResponseHandlerFunc_t handlerPtr, void* contextPtr);
+                void RemoveAuthenticationResponseHandler(taf_sim_AuthenticationResponseHandlerRef_t handlerRef);
         };
     }
 }

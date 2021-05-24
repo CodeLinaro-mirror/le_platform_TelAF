@@ -31,12 +31,15 @@
 #include "interfaces.h"
 
 
-char* SimStateToString
-(
-    taf_sim_States_t state
-);
-
-void tafSimTest_state
-(
-    taf_sim_Id_t slot
-);
+char* SimStateToString ( taf_sim_States_t state);
+void tafSimTest_state( taf_sim_Id_t slot );
+void tafSimTest_info( taf_sim_Id_t slot );
+void tafSimTest_selection( taf_sim_Id_t slot);
+void tafSimTest_enterPin( taf_sim_Id_t simId, taf_sim_LockType_t lockType,
+        const char*  pinPtr);
+void tafSimTest_setLock( taf_sim_Id_t simId, taf_sim_LockType_t lockType,
+        const char*  pinPtr, bool lock);
+void tafSimTest_Change_pin( taf_sim_Id_t simId, taf_sim_LockType_t lockType,
+        const char* oldpinPtr, const char* newpinPtr);
+void tafSimTest_unblock_puk( taf_sim_Id_t simId, taf_sim_LockType_t lockType,
+        const char* pukPtr, const char* newpinPtr);

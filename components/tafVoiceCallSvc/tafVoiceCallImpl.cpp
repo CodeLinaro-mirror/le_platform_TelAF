@@ -1033,7 +1033,15 @@ le_result_t taf_VoiceCall::StopCall(taf_voicecall_CallRef_t callRef, le_msg_Sess
     std::shared_ptr<ICall> iCall = callCtxPtr->iCall;
     if (iCall != nullptr)
     {
-        callCtxPtr->tafCallStatus = iCall->hangup(nullptr);
+        if(iCall->getCallState() == telux::tel::CallState::CALL_INCOMING)
+        {
+            callCtxPtr->tafCallStatus = iCall->reject(std::shared_ptr<telux::common::ICommandResponseCallback> (nullptr));
+        }
+        else
+        {
+            callCtxPtr->tafCallStatus = iCall->hangup(nullptr);
+        }
+
         if (callCtxPtr->tafCallStatus == telux::common::Status::SUCCESS)
         {
             return LE_OK;

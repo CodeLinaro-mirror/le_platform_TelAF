@@ -591,13 +591,17 @@ le_result_t taf_sim::UnlockCardByPuk(taf_sim_Id_t  simId, taf_sim_LockType_t loc
     applications = card->getApplications();
     if(applications.size() != 0)  {
         for(auto cardApp : applications) {
-            if(cardApp->getAppType() == telux::tel::AppType::APPTYPE_USIM
-                    && (cardApp->getAppState() == telux::tel::AppState::APPSTATE_PUK)) {
-                auto ret = cardApp->unlockCardByPuk(cardLockType,(string) pukPtr, newpinPtr,
-                        tafAuthenticationResponseCallback::unlockCardByPukResponseCb);
-                if(ret == telux::common::Status::SUCCESS) {
-                    LE_INFO("Unlock card by PUK request sent successfully\n");
-                } else {
+            if(cardApp->getAppType() == telux::tel::AppType::APPTYPE_USIM) {
+                if (cardApp->getAppState() == telux::tel::AppState::APPSTATE_PUK) {
+                    auto ret = cardApp->unlockCardByPuk(cardLockType,(string) pukPtr, newpinPtr,
+                            tafAuthenticationResponseCallback::unlockCardByPukResponseCb);
+                    if(ret == telux::common::Status::SUCCESS) {
+                        LE_INFO("Unlock card by PUK request sent successfully\n");
+                    } else {
+                        LE_INFO("Unlock card by PUK request failed\n");
+                        return LE_FAULT;
+                    }
+                }else {
                     LE_INFO("Unlock card by PUK request failed\n");
                     return LE_FAULT;
                 }
@@ -713,3 +717,19 @@ void taf_sim::FirstLayerAuthenticationResponseHandler(void* reportPtr,
     clientHandlerFunc(simResponsePtr->simId, simResponsePtr->responseType,
             simResponsePtr->result, le_event_GetContextPtr());
 }
+
+
+le_result_t  taf_sim::GetEID( taf_sim_Id_t slotId, char* eidPtr, size_t eidLen) {
+    return LE_UNSUPPORTED;
+}
+
+le_result_t taf_sim::SetAutomaticSelection( bool enable) {
+    EnableAutoSelection = enable;
+    return LE_OK;
+}
+
+le_result_t taf_sim::GetAutomaticSelection( bool* enablePtr) {
+    *enablePtr = EnableAutoSelection;
+    return LE_OK;
+}
+

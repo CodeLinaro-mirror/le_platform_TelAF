@@ -161,6 +161,10 @@ taf_sim_Id_t taf_sim_GetSelectedCard( void) {
 le_result_t taf_sim_EnterPIN( taf_sim_Id_t  slotId, taf_sim_LockType_t lockType,
         const char* pinPtr) {
     TAF_ERROR_IF_RET_VAL(pinPtr == NULL, LE_BAD_PARAMETER, "pinPtr is NULL");
+    TAF_ERROR_IF_RET_VAL(strlen(pinPtr) < TAF_SIM_PIN_MIN_LEN,
+                        LE_UNDERFLOW , "pin length is not enough");
+    TAF_ERROR_IF_RET_VAL(strlen(pinPtr) > TAF_SIM_PIN_MAX_LEN,
+                        LE_BAD_PARAMETER, "pin length is too long");
     LE_INFO("tafSimCard taf_sim_EnterPin \n");
     auto &sim = taf_sim::GetInstance();
     return sim.UnlockCardByPin(slotId, lockType, pinPtr);
@@ -170,6 +174,9 @@ le_result_t taf_sim_ChangePIN(taf_sim_Id_t slotId, taf_sim_LockType_t lockType,
         const char* oldpinPtr, const char* newpinPtr) {
     TAF_ERROR_IF_RET_VAL(oldpinPtr == NULL, LE_BAD_PARAMETER, "oldpinPtr is NULL");
     TAF_ERROR_IF_RET_VAL(newpinPtr == NULL, LE_BAD_PARAMETER, "newpinPtr is NULL");
+    TAF_ERROR_IF_RET_VAL(strlen(oldpinPtr) < TAF_SIM_PIN_MIN_LEN
+                        || strlen(newpinPtr) < TAF_SIM_PIN_MIN_LEN,
+                        LE_UNDERFLOW , "pin length is not enough");
     LE_INFO("tafSimCard taf_sim_EnterPin \n");
     auto &sim = taf_sim::GetInstance();
     return sim.ChangeCardPin(slotId, lockType, oldpinPtr, newpinPtr);
@@ -179,6 +186,8 @@ le_result_t taf_sim_Lock( taf_sim_Id_t slotId, taf_sim_LockType_t lockType,
         const char* pinPtr) {
     TAF_ERROR_IF_RET_VAL(pinPtr == NULL, LE_BAD_PARAMETER, "pinPtr is NULL");
     LE_INFO("tafSimCard taf_sim_Lock \n");
+    TAF_ERROR_IF_RET_VAL(strlen(pinPtr) < TAF_SIM_PIN_MIN_LEN,
+                        LE_UNDERFLOW , "pin length is not enough");
     auto &sim = taf_sim::GetInstance();
     return sim.SetCardLock(slotId, lockType, pinPtr, true);
 
@@ -188,6 +197,10 @@ le_result_t taf_sim_Lock( taf_sim_Id_t slotId, taf_sim_LockType_t lockType,
 le_result_t taf_sim_Unlock( taf_sim_Id_t slotId, taf_sim_LockType_t lockType,
         const char* pinPtr) {
     TAF_ERROR_IF_RET_VAL(pinPtr == NULL, LE_BAD_PARAMETER, "pinPtr is NULL");
+    TAF_ERROR_IF_RET_VAL(strlen(pinPtr) < TAF_SIM_PIN_MIN_LEN,
+                        LE_UNDERFLOW , "pin length is not enough");
+    TAF_ERROR_IF_RET_VAL(strlen(pinPtr) < TAF_SIM_PIN_MIN_LEN,
+                        LE_UNDERFLOW , "pin length is not enough");
     LE_INFO("tafSimCard taf_sim_UnLock \n");
     auto &sim = taf_sim::GetInstance();
     return sim.SetCardLock(slotId, lockType, pinPtr, false);
@@ -197,7 +210,11 @@ le_result_t taf_sim_Unblock( taf_sim_Id_t slotId, taf_sim_LockType_t lockType,
         const char* pukPtr, const char* newpinPtr) {
     TAF_ERROR_IF_RET_VAL(pukPtr == NULL, LE_BAD_PARAMETER, "pukPtr is NULL");
     TAF_ERROR_IF_RET_VAL(newpinPtr == NULL, LE_BAD_PARAMETER, "newpinPtr is NULL");
-    LE_INFO("tafSimCard taf_sim_UnLock \n");
+    TAF_ERROR_IF_RET_VAL(strlen(pukPtr) != TAF_SIM_PUK_MAX_LEN,
+                        LE_OUT_OF_RANGE , "puk length is wrong");
+    TAF_ERROR_IF_RET_VAL(strlen(newpinPtr) < TAF_SIM_PIN_MIN_LEN,
+                        LE_UNDERFLOW , "pin length is not enough");
+    LE_INFO("tafSimCard taf_sim_UnBlock \n");
     auto &sim = taf_sim::GetInstance();
     return sim.UnlockCardByPuk(slotId, lockType, pukPtr, newpinPtr);
 }
@@ -237,3 +254,22 @@ void taf_sim_RemoveAuthenticationResponseHandler(
     auto &sim = taf_sim::GetInstance();
     sim.RemoveAuthenticationResponseHandler(handlerRef);
 }
+
+le_result_t  taf_sim_GetEID( taf_sim_Id_t slotId, char* eidPtr, size_t eidLen) {
+    TAF_ERROR_IF_RET_VAL(eidPtr == NULL, LE_BAD_PARAMETER, "eidPtr is NULL");
+    TAF_ERROR_IF_RET_VAL(eidLen < TAF_SIM_EID_BYTES, LE_OVERFLOW, "Incorrect buffer size");
+    auto &sim = taf_sim::GetInstance();
+    return sim.GetEID(slotId, eidPtr, eidLen);
+}
+
+le_result_t taf_sim_SetAutomaticSelection( bool enable) {
+    auto &sim = taf_sim::GetInstance();
+    return sim.SetAutomaticSelection(enable);
+}
+
+le_result_t taf_sim_GetAutomaticSelection( bool* enablePtr) {
+    TAF_ERROR_IF_RET_VAL(enablePtr == NULL, LE_BAD_PARAMETER, "enablePtr is NULL");
+    auto &sim = taf_sim::GetInstance();
+    return sim.GetAutomaticSelection(enablePtr);
+}
+

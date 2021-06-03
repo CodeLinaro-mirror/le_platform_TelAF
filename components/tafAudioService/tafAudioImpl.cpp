@@ -223,13 +223,13 @@ le_result_t taf_Audio::StartAudio
                         p.set_value(true);
                         } else {
                         p.set_value(false);
-                        LE_DEBUG("failed to Create a stream");
+                        LE_ERROR("failed to Create a stream");
                         }
                         });
         if(audioStatus == Status::SUCCESS) {
                 LE_DEBUG("Request to create stream sent" );
         } else {
-                LE_DEBUG("Request to create stream failed"  );
+                LE_ERROR("Request to create stream failed: %d", int(audioStatus));
                 return LE_FAULT;
         }
 
@@ -274,7 +274,7 @@ le_result_t taf_Audio::StartAudio
                         }
                         mStreamBuffer->setDataSize(mSize);
                 } else {
-                        LE_DEBUG( "Failed to get Stream Buffer ");
+                        LE_ERROR( "Failed to get Stream Buffer ");
                         return LE_FAULT;
                 }
                 memset(mStreamBuffer->getRawBuffer(),0,mSize);
@@ -293,7 +293,7 @@ le_result_t taf_Audio::StartAudio
                                 mSize =  mStreamBuffer->getMaxSize();
                         }
                 } else {
-                        LE_DEBUG( "Failed to get Stream Buffer ");
+                        LE_ERROR( "Failed to get Stream Buffer ");
                         return LE_FAULT;
                 }
                 status = mAudioCaptureStream->read(mStreamBuffer, mSize, ReadCallback);
@@ -873,6 +873,7 @@ void taf_Audio::ReleaseStream( void *objPtr )
 
     le_hashmap_RemoveAll(streamPtr->connList);
     audio.ClearHashMap(streamPtr->connList);
+    le_ref_DeleteRef(audio.AudioRefMap, streamPtr->streamRef);
 }
 
 /**

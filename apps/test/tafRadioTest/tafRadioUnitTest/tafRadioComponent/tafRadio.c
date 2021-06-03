@@ -72,6 +72,9 @@ void Test_taf_radio_PowerManagement(void)
     LE_ASSERT(power == LE_ON);
 }
 
+#define TEST_RADIO_OPERATOR_NUM 4
+#define TEST_RADIO_ERROR_MCC_MNC_NUM 5
+
 /*======================================================================
 
  FUNCTION        Test_taf_radio_ConfigurationPreferences
@@ -89,8 +92,12 @@ void Test_taf_radio_PowerManagement(void)
 ======================================================================*/
 void Test_taf_radio_ConfigurationPreferences(void)
 {
+    LE_INFO("======== 2.1 Radio Register Mode Test ========");
+
     char mccStr[TAF_RADIO_MCC_BYTES] = {0};
     char mncStr[TAF_RADIO_MNC_BYTES] = {0};
+    const char* errMccStr[TEST_RADIO_ERROR_MCC_MNC_NUM] = {"abc", "12", "12a", "460", "460"};
+    const char* errMncStr[TEST_RADIO_ERROR_MCC_MNC_NUM] = {"001", "001", "001", "abc", "1"};
     bool mode = true;
 
     LE_ASSERT(taf_radio_SetAutomaticRegisterMode(0) == LE_OK);
@@ -104,12 +111,10 @@ void Test_taf_radio_ConfigurationPreferences(void)
     if (le_thread_Sleep(5)) {
         LE_ERROR("Failed to sleep\n");
     }
-    LE_ASSERT(taf_radio_SetManualRegisterMode("abc", "001", 0) == LE_BAD_PARAMETER);
-    LE_ASSERT(taf_radio_SetManualRegisterMode("12", "001", 0) == LE_BAD_PARAMETER);
-    LE_ASSERT(taf_radio_SetManualRegisterMode("12a", "001", 0) == LE_BAD_PARAMETER);
 
-    LE_ASSERT(taf_radio_SetManualRegisterMode("460", "abc", 0) == LE_BAD_PARAMETER);
-    LE_ASSERT(taf_radio_SetManualRegisterMode("460", "1", 0) == LE_BAD_PARAMETER);
+    for (size_t i = 0; i < TEST_RADIO_ERROR_MCC_MNC_NUM; i++) {
+        LE_ASSERT(taf_radio_SetManualRegisterMode(errMccStr[i], errMncStr[i], 0) == LE_BAD_PARAMETER);
+    }
 
     LE_ASSERT(taf_radio_GetRegisterMode(&mode, mccStr, TAF_RADIO_MCC_BYTES, mncStr, TAF_RADIO_MNC_BYTES, 0) == LE_OK);
     LE_ASSERT(mode == true);
@@ -124,6 +129,71 @@ void Test_taf_radio_ConfigurationPreferences(void)
 
     LE_ASSERT(taf_radio_GetRegisterMode(&mode, mccStr, TAF_RADIO_MCC_BYTES, mncStr, TAF_RADIO_MNC_BYTES, 0) == LE_OK);
     LE_ASSERT(mode == false);
+
+    LE_INFO("======== 2.2 Radio Prefered Operator Test ========");
+
+    const char* opMccStr[TEST_RADIO_OPERATOR_NUM] = {"460", "460", "460", "460"};
+    const char* opMncStr[TEST_RADIO_OPERATOR_NUM] = {"001", "009", "001", "009"};
+    taf_radio_RatBitMask_t opRatBitMask[TEST_RADIO_OPERATOR_NUM] =
+        {TAF_RADIO_RAT_BIT_MASK_LTE, TAF_RADIO_RAT_BIT_MASK_LTE, TAF_RADIO_RAT_BIT_MASK_UMTS, TAF_RADIO_RAT_BIT_MASK_UMTS};
+
+    for (size_t i = 0; i < TEST_RADIO_ERROR_MCC_MNC_NUM; i++) {
+        LE_ASSERT(taf_radio_AddPreferredOperator(errMccStr[i], errMncStr[i], TAF_RADIO_RAT_BIT_MASK_ALL, 0) == LE_BAD_PARAMETER);
+    }
+    LE_ASSERT(taf_radio_AddPreferredOperator("460", "001", TAF_RADIO_RAT_BIT_MASK_ALL + 1, 0) == LE_BAD_PARAMETER);
+
+    for (size_t i = 0; i < TEST_RADIO_OPERATOR_NUM; i++) {
+        LE_ASSERT(taf_radio_AddPreferredOperator(opMccStr[i], opMncStr[i], opRatBitMask[i], 0) == LE_OK);
+    }
+
+    taf_radio_PreferredOperatorListRef_t listRef = taf_radio_GetPreferredOperatorsList(0);
+    LE_ASSERT(listRef != NULL);
+
+    taf_radio_RatBitMask_t ratMask;
+    taf_radio_PreferredOperatorRef_t opRef = taf_radio_GetFirstPreferredOperator(listRef);
+    LE_ASSERT(opRef != NULL);
+    LE_ASSERT(taf_radio_GetPreferredOperatorDetails(NULL, mccStr, TAF_RADIO_MCC_BYTES, mncStr, TAF_RADIO_MNC_BYTES, &ratMask) == LE_BAD_PARAMETER);
+    LE_ASSERT(taf_radio_GetPreferredOperatorDetails(opRef, NULL, TAF_RADIO_MCC_BYTES, mncStr, TAF_RADIO_MNC_BYTES, &ratMask) == LE_BAD_PARAMETER);
+    LE_ASSERT(taf_radio_GetPreferredOperatorDetails(opRef, mccStr, TAF_RADIO_MCC_BYTES, NULL, TAF_RADIO_MNC_BYTES, &ratMask) == LE_BAD_PARAMETER);
+    LE_ASSERT(taf_radio_GetPreferredOperatorDetails(opRef, mccStr, TAF_RADIO_MCC_BYTES, mncStr, TAF_RADIO_MNC_BYTES, &ratMask) == LE_OK);
+    LE_ASSERT(strcmp("460", mccStr) == 0);
+    LE_ASSERT(strcmp("1", mncStr) == 0);
+    LE_ASSERT(ratMask == TAF_RADIO_RAT_BIT_MASK_LTE);
+
+    opRef = taf_radio_GetNextPreferredOperator(listRef);
+    LE_ASSERT(listRef != NULL);
+    LE_ASSERT(taf_radio_GetPreferredOperatorDetails(opRef, mccStr, TAF_RADIO_MCC_BYTES, mncStr, TAF_RADIO_MNC_BYTES, &ratMask) == LE_OK);
+    LE_ASSERT(strcmp("460", mccStr) == 0);
+    LE_ASSERT(strcmp("9", mncStr) == 0);
+    LE_ASSERT(ratMask == TAF_RADIO_RAT_BIT_MASK_LTE);
+
+    opRef = taf_radio_GetNextPreferredOperator(listRef);
+    LE_ASSERT(listRef != NULL);
+    LE_ASSERT(taf_radio_GetPreferredOperatorDetails(opRef, mccStr, TAF_RADIO_MCC_BYTES, mncStr, TAF_RADIO_MNC_BYTES, &ratMask) == LE_OK);
+    LE_ASSERT(strcmp("460", mccStr) == 0);
+    LE_ASSERT(strcmp("1", mncStr) == 0);
+    LE_ASSERT(ratMask == TAF_RADIO_RAT_BIT_MASK_UMTS);
+
+    opRef = taf_radio_GetNextPreferredOperator(listRef);
+    LE_ASSERT(listRef != NULL);
+    LE_ASSERT(taf_radio_GetPreferredOperatorDetails(opRef, mccStr, TAF_RADIO_MCC_BYTES, mncStr, TAF_RADIO_MNC_BYTES, &ratMask) == LE_OK);
+    LE_ASSERT(strcmp("460", mccStr) == 0);
+    LE_ASSERT(strcmp("9", mncStr) == 0);
+    LE_ASSERT(ratMask == TAF_RADIO_RAT_BIT_MASK_UMTS);
+
+    opRef = taf_radio_GetNextPreferredOperator(listRef);
+    LE_ASSERT(opRef == NULL);
+
+    for (size_t i = 0; i < TEST_RADIO_ERROR_MCC_MNC_NUM; i++) {
+        LE_ASSERT(taf_radio_RemovePreferredOperator(errMccStr[i], errMncStr[i], 0) == LE_BAD_PARAMETER);
+    }
+
+    LE_ASSERT(taf_radio_RemovePreferredOperator("460", "001", 0) == LE_OK);
+    LE_ASSERT(taf_radio_RemovePreferredOperator("460", "009", 0) == LE_OK);
+
+    LE_ASSERT(taf_radio_RemovePreferredOperator("460", "009", 0) == LE_NOT_FOUND);
+
+    LE_ASSERT(taf_radio_DeletePreferredOperatorsList(listRef) == LE_OK);
 }
 
 /*======================================================================

@@ -52,6 +52,117 @@ DEFINE MCC_BYTES = (MCC_LEN + 1);
  */
 DEFINE MNC_BYTES = (MNC_MAX_LEN + 1);
 
+DEFINE NETWORK_NAME_MAX_LEN = 100;
+
+/*
+ * The reference of an operator list.
+ */
+REFERENCE PreferredOperatorList;
+
+/*
+ * The reference of an operator.
+ */
+REFERENCE PreferredOperator;
+
+/*
+ * Radio Access Technology.
+ */
+ENUM Rat
+{
+    RAT_UNKNOWN,  // Unknown rat.
+    RAT_GPRS,     // General Packet Radio Service.
+    RAT_EDGE,     // Enhanced Data Rate for GSM Evolution.
+    RAT_UMTS,     // Universal Mobile Telecommunications System.
+    RAT_IS95A,    // A standard in CDMA.
+    RAT_IS95B,    // A standard in CDMA.
+    RAT_1xRTT,    // A 2.5G Technology in CDMA.
+    RAT_EVDO_0,   // EVolution Data Only Rev.0 in CDMA.
+    RAT_EVDO_A,   // EVolution Data Only Rev.A in CDMA.
+    RAT_HSDPA,    // High Speed Downlink Packet Access in WCDMA.
+    RAT_HSUPA,    // High Speed Uplink Packet Access in WCDMA.
+    RAT_HSPA,     // High-Speed Packet Access in WCDMA.
+    RAT_EVDO_B,   // EVolution Data Only Rev.B in CDMA.
+    RAT_EHRPD,    // Evolved High Rate Package Data.
+    RAT_LTE,      // Long Term Evolution.
+    RAT_HSPAP,    // A 3.5G Technology in WCDMA.
+    RAT_GSM,      // A 3.5G Technology in WCDMA.
+    RAT_TD_SCDMA, // Time Division-Synchronous Code Division Multiple Access.
+    RAT_IWLAN,    // Industrial Wireless Local Area Networks;
+    RAT_LTE_CA,   // Long Term Evolution Carrier Aggregation.
+};
+
+/*
+ * Network registration state.
+ */
+ENUM NetRegState
+{
+    NET_REG_STATE_NOT_REG_AND_NOT_SEARCHING,                         // Not registered and not searching.
+    NET_REG_STATE_REG_HOME,                                          // Home registered.
+    NET_REG_STATE_NOT_REG_AND_SEARCHING,                             // Not registered and searching.
+    NET_REG_STATE_REG_DENIED,                                        // Registered denied.
+    NET_REG_STATE_UNKNOWN,                                           // Unknown state.
+    NET_REG_STATE_REG_ROAMING,                                       // Roaming registered.
+    NET_REG_STATE_RSV_6,                                             // Reserved 6 register state.
+    NET_REG_STATE_RSV_7,                                             // Reserved 7 register state.
+    NET_REG_STATE_RSV_8,                                             // Reserved 8 register state.
+    NET_REG_STATE_RSV_9,                                             // Reserved 9 register state.
+    NET_REG_STATE_NOT_REG_AND_EMERGENCY_AVAILABLE_AND_NOT_SEARCHING, // Not registered and not searching, but emergency available.
+    NET_REG_STATE_RSV_11,                                            // Reserved 11 register state.
+    NET_REG_STATE_NOT_REG_AND_EMERGENCY_AVAILABLE_AND_SEARCHING,     // Not registered and searching, emergency available.
+    NET_REG_STATE_REG_DENIED_AND_EMERGENCY_AVAILABLE,                // Registered denied, but emergency available.
+    NET_REG_STATE_UNKNOWN_AND_EMERGENCY_AVAILABLE                    // Unknown state, but emergency available.
+};
+
+/*
+ * Service domain state.
+ */
+ENUM ServiceDomainState
+{
+    SERVICE_DOMAIN_STATE_UNKNOWN = -1, // Unknown state.
+    SERVICE_DOMAIN_STATE_CS_ONLY,      // Circuit Switched only.
+    SERVICE_DOMAIN_STATE_PS_ONLY,      // Packet Switched only.
+    SERVICE_DOMAIN_STATE_CS_AND_PS     // Circuit Switched and Packet Switched.
+};
+
+/*
+ * The RAT(Radio Access Technology) bit mask.
+ */
+BITMASK RatBitMask
+{
+    RAT_BIT_MASK_RSV_0,  // Reserved 0 bit mask.
+    RAT_BIT_MASK_RSV_1,  // Reserved 1 bit mask.
+    RAT_BIT_MASK_RSV_2,  // Reserved 2 bit mask.
+    RAT_BIT_MASK_RSV_3,  // Reserved 3 bit mask.
+    RAT_BIT_MASK_RSV_4,  // Reserved 4 bit mask.
+    RAT_BIT_MASK_RSV_5,  // Reserved 5 bit mask.
+    RAT_BIT_MASK_RSV_6,  // Reserved 6 bit mask.
+    RAT_BIT_MASK_GSM,    // GSM bit mask.
+    RAT_BIT_MASK_RSV_8,  // Reserved 8 bit mask.
+    RAT_BIT_MASK_RSV_9,  // Reserved 9 bit mask.
+    RAT_BIT_MASK_RSV_10, // Reserved 10 bit mask.
+    RAT_BIT_MASK_NR5G,   // NR5G bit mask.
+    RAT_BIT_MASK_RSV_12, // Reserved 12 bit mask.
+    RAT_BIT_MASK_RSV_13, // Reserved 13 bit mask.
+    RAT_BIT_MASK_LTE,    // LTE bit mask.
+    RAT_BIT_MASK_UMTS,   // UMTS bit mask.
+    RAT_BIT_MASK_ALL     // All(GSM + NR5G + LTE + UMTS) bit mask.
+};
+
+/*
+ * The RAT(Radio Access Technology) preference bit mask.
+ */
+BITMASK RatPrefMask
+{
+    RAT_PREF_MASK_CDMA_1X,   // CDMA_1X bit mask.
+    RAT_PREF_MASK_CDMA_EVDO, // CDMA_EVDO bit mask.
+    RAT_PREF_MASK_GSM,       // GSM bit mask.
+    RAT_PREF_MASK_WCDMA,     // WCDMA bit mask.
+    RAT_PREF_MASK_LTE,       // LTE bit mask.
+    RAT_PREF_MASK_TDSCDMA,   // TD-SCDMA bit mask.
+    RAT_PREF_MASK_NR5G,      // NR5G bit mask.
+    RAT_PREF_MASK_ALL        // All(CDMA + GSM + WCDMA + LTE + TD-SCDMA + NR5G) bit mask.
+};
+
 /*
  * Set the radio power.
  */
@@ -98,3 +209,128 @@ FUNCTION le_result_t GetRegisterMode
     string mncPtr[MNC_MAX_LEN] OUT, // The mobile network code.
     uint8 phoneId IN                // The phone id.
 );
+
+/*
+ * Add an operator for network preference.
+ */
+FUNCTION le_result_t AddPreferredOperator
+(
+    string mcc[MCC_LEN] IN,     // The mobile country code.
+    string mnc[MNC_MAX_LEN] IN, // The mobile network code.
+    RatBitMask ratMask IN,      // RAT bit mask.
+    uint8 phoneId IN            // The phone id.
+);
+
+/*
+ * Remove an operator for network preference.
+ */
+FUNCTION le_result_t RemovePreferredOperator
+(
+    string mcc[MCC_LEN] IN,     // The mobile country code.
+    string mnc[MNC_MAX_LEN] IN, // The mobile network code.
+    uint8 phoneId IN            // The phone id.
+);
+
+/*
+ * Delete an operator list.
+ */
+FUNCTION le_result_t DeletePreferredOperatorsList
+(
+    PreferredOperatorList  preferredOperatorListRef IN // The reference of an operator list.
+);
+
+/*
+ * Get an operator list with a phone id, each phone have only 1 list.
+ */
+FUNCTION PreferredOperatorList GetPreferredOperatorsList
+(
+    uint8 phoneId IN // The phone id.
+);
+
+/*
+ * Get the reference of the first operator with a list reference.
+ */
+FUNCTION PreferredOperator GetFirstPreferredOperator
+(
+    PreferredOperatorList  preferredOperatorListRef IN // The reference of an operator list.
+);
+
+/*
+ * Get the reference of the next operator with a list reference.
+ */
+FUNCTION PreferredOperator GetNextPreferredOperator
+(
+    PreferredOperatorList  preferredOperatorListRef IN // The reference of an operator list.
+);
+
+/*
+ * Get the infomation of an operator with an operator reference.
+ */
+FUNCTION le_result_t GetPreferredOperatorDetails
+(
+    PreferredOperator preferredOperatorRef IN, // Operator reference.
+    string mccPtr[MCC_LEN] OUT,                // The mobile country code.
+    string mncPtr[MNC_MAX_LEN] OUT,            // The mobile network code.
+    RatBitMask ratMask   OUT                   // RAT bit mask.
+);
+
+/*
+ * Get the rat in use.
+ */
+FUNCTION le_result_t GetRadioAccessTechInUse
+(
+    Rat rat OUT,     // RAT.
+    uint8 phoneId IN // The phone id.
+);
+
+/*
+ * Configure rat preferences.
+ */
+FUNCTION le_result_t SetRatPreferences
+(
+    RatPrefMask ratMask IN, // RAT prefences bit mask.
+    uint8 phoneId IN        // The phone id.
+);
+
+/*
+ * Get rat preferences.
+ */
+FUNCTION le_result_t GetRatPreferences
+(
+    RatPrefMask ratMaskPtr OUT, // RAT prefences bit mask.
+    uint8 phoneId IN            // The phone id.
+);
+
+/*
+ * Get network registration state.
+ */
+FUNCTION le_result_t GetNetRegState
+(
+    NetRegState state OUT, // Network registration state.
+    uint8 phoneId IN       // The phone id.
+);
+
+/*
+ * Get circuit switched and packet switched state.
+ */
+FUNCTION le_result_t GetPacketSwitchedState
+(
+    ServiceDomainState state OUT, // Circuit switched and packet switched state.
+    uint8 phoneId IN              // The phone id.
+);
+
+/*
+ * Get the signal quality.
+ */
+FUNCTION le_result_t GetSignalQual
+(
+    uint32 quality OUT, // Maximum signal strength level(0 ~ 5) from different RAT.
+    uint8 phoneId IN    // The phone id.
+);
+
+FUNCTION le_result_t GetCurrentNetworkName
+(
+    string nameStr[NETWORK_NAME_MAX_LEN] OUT, // Home network name.
+    uint8 phoneId IN                          // The phone id.
+);
+

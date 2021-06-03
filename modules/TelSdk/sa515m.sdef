@@ -51,3 +51,21 @@ interfaceSearch:
     interfaces/positioning
     $LEGATO_ROOT/apps/sample/voiceCallApp
 }
+
+cflags:
+{
+    #if ${TARGET} = sa515m
+        -DTARGET_SA515M
+    #elif ${TARGET} = sa415m
+        -DTARGET_SA415M
+    #endif
+}
+
+cxxflags:
+{
+    #if ${TARGET} = sa515m
+        -DTARGET_SA515M
+    #elif ${TARGET} = sa415m
+        -DTARGET_SA415M
+    #endif
+}

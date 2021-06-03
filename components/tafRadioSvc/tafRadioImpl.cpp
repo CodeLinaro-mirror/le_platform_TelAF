@@ -188,8 +188,7 @@ void taf_RadioSubscriptionListener::onNumberOfSubscriptionsChanged(int count)
  DEPENDENCIES    Call the low level function when powering on or off the
                  radio.
 
- PARAMETERS      [IN] telux::common::ErrorCode error:
-                          Error code defined in SDK.
+ PARAMETERS      [IN] telux::common::ErrorCode error: Error code defined in SDK.
 
  RETURN VALUE    None
 
@@ -206,7 +205,141 @@ void taf_RadioPowerCallback::commandResponse(telux::common::ErrorCode error)
 
 /*======================================================================
 
- FUNCTION        taf_RadioNetworkResponsecallback::setNetworkSelectionModeResponseCb
+ FUNCTION        taf_RadioVoiceRadioTechnologyCallback::voiceRadioTechnologyResponse
+
+ DESCRIPTION     The callback function used in getting rat in use.
+
+ DEPENDENCIES    Call the low level function when getting rat in use.
+
+ PARAMETERS      [IN] telux::tel::RadioTechnology radioTechnology:
+                          Rat in use.
+                 [IN] telux::common::ErrorCode error: Error code defined in SDK.
+
+ RETURN VALUE    None
+
+ SIDE EFFECTS
+
+======================================================================*/
+void taf_RadioVoiceRadioTechnologyCallback::voiceRadioTechnologyResponse
+(
+    telux::tel::RadioTechnology radioTechnology,
+    telux::common::ErrorCode error
+)
+{
+    LE_DEBUG("<SDK Callback> taf_RadioVoiceRadioTechnologyCallback --> voiceRadioTechnologyResponse");
+    if (error != telux::common::ErrorCode::SUCCESS) {
+        LE_ERROR("Error(%d)", (int)error);
+    }
+    radioTech = radioTechnology;
+    le_sem_Post(semaphore);
+}
+
+le_sem_Ref_t taf_RadioVoiceServiceStateCallback::semaphore = nullptr;
+
+telux::tel::VoiceServiceState taf_RadioVoiceServiceStateCallback::vocSrvState = telux::tel::VoiceServiceState::UNKNOWN;
+
+/*======================================================================
+
+ FUNCTION        taf_RadioVoiceServiceStateCallback::voiceServiceStateResponse
+
+ DESCRIPTION     The callback function used in getting the service state.
+
+ DEPENDENCIES    Call the low level function when getting the service state.
+
+ PARAMETERS      [IN] std::shared_ptr<telux::tel::VoiceServiceInfo> &serviceInfo:
+                          Service state information.
+                 [IN] telux::common::ErrorCode error: Error code defined in SDK.
+
+ RETURN VALUE    None
+
+ SIDE EFFECTS
+
+======================================================================*/
+void taf_RadioVoiceServiceStateCallback::voiceServiceStateResponse
+(
+    const std::shared_ptr<telux::tel::VoiceServiceInfo> &serviceInfo,
+    telux::common::ErrorCode error
+)
+{
+    LE_DEBUG("<SDK Callback> taf_RadioVoiceServiceStateCallback --> voiceServiceStateResponse");
+    if (error != telux::common::ErrorCode::SUCCESS) {
+        LE_ERROR("Error(%d)", (int)error);
+    }
+
+    vocSrvState = serviceInfo->getVoiceServiceState();
+
+    le_sem_Post(semaphore);
+}
+
+/*======================================================================
+
+ FUNCTION        taf_RadioSignalStrengthCallback::signalStrengthResponse
+
+ DESCRIPTION     The callback function used in getting the signal strength.
+
+ DEPENDENCIES    Call the low level function when getting the signal strength.
+
+ PARAMETERS      [IN] std::shared_ptr<telux::tel::SignalStrength> signalStrength:
+                          Signal strength information.
+                 [IN] telux::common::ErrorCode error: Error code defined in SDK.
+
+ RETURN VALUE    None
+
+ SIDE EFFECTS
+
+======================================================================*/
+void taf_RadioSignalStrengthCallback::signalStrengthResponse
+(
+    std::shared_ptr<telux::tel::SignalStrength> signalStrength,
+    telux::common::ErrorCode error
+)
+{
+    LE_DEBUG("<SDK Callback> taf_RadioSignalStrengthCallback --> signalStrengthResponse");
+    if (error != telux::common::ErrorCode::SUCCESS) {
+        LE_ERROR("Error(%d)", (int)error);
+    }
+
+    signalStrengthLevel = telux::tel::SignalStrengthLevel::LEVEL_UNKNOWN;
+    telux::tel::SignalStrengthLevel signalLevel = telux::tel::SignalStrengthLevel::LEVEL_UNKNOWN;
+
+    if (signalStrength->getGsmSignalStrength() != nullptr) {
+        signalLevel = signalStrength->getGsmSignalStrength()->getLevel();
+        signalStrengthLevel = (signalStrengthLevel > signalLevel ? signalStrengthLevel : signalLevel);
+        LE_DEBUG("GSM Signal Level: %d", int(signalLevel));
+    }
+
+    if (signalStrength->getCdmaSignalStrength() != nullptr) {
+        signalLevel = signalStrength->getCdmaSignalStrength()->getLevel();
+        signalStrengthLevel = (signalStrengthLevel > signalLevel ? signalStrengthLevel : signalLevel);
+        LE_DEBUG("CDMA Signal Level: %d", int(signalLevel));
+    }
+
+    if (signalStrength->getLteSignalStrength() != nullptr) {
+        signalLevel = signalStrength->getLteSignalStrength()->getLevel();
+        signalStrengthLevel = (signalStrengthLevel > signalLevel ? signalStrengthLevel : signalLevel);
+        LE_DEBUG("LTE Signal Level: %d", int(signalLevel));
+    }
+
+    if (signalStrength->getWcdmaSignalStrength() != nullptr) {
+        signalLevel = signalStrength->getWcdmaSignalStrength()->getLevel();
+        signalStrengthLevel = (signalStrengthLevel > signalLevel ? signalStrengthLevel : signalLevel);
+        LE_DEBUG("WCDMA Signal Level: %d", int(signalLevel));
+    }
+
+    if (signalStrength->getNr5gSignalStrength() != nullptr) {
+        signalLevel = signalStrength->getNr5gSignalStrength()->getLevel();
+        signalStrengthLevel = (signalStrengthLevel > signalLevel ? signalStrengthLevel : signalLevel);
+        LE_DEBUG("NR5G Signal Level: %d", int(signalLevel));
+    }
+
+    le_sem_Post(semaphore);
+}
+
+le_sem_Ref_t taf_RadioNetworkResponseCallback::semaphore = nullptr;
+
+/*======================================================================
+
+ FUNCTION        taf_RadioNetworkResponseCallback::setNetworkSelectionModeResponseCb
 
  DESCRIPTION     The callback function used in setting the network selection mode.
 
@@ -219,17 +352,43 @@ void taf_RadioPowerCallback::commandResponse(telux::common::ErrorCode error)
  SIDE EFFECTS
 
 ======================================================================*/
-void taf_RadioNetworkResponsecallback::setNetworkSelectionModeResponseCb(telux::common::ErrorCode error)
+void taf_RadioNetworkResponseCallback::setNetworkSelectionModeResponseCb(telux::common::ErrorCode error)
 {
-    LE_DEBUG("<SDK Callback> taf_RadioNetworkResponsecallback --> setNetworkSelectionModeResponseCb");
+    LE_DEBUG("<SDK Callback> taf_RadioNetworkResponseCallback --> setNetworkSelectionModeResponseCb");
     if (error != telux::common::ErrorCode::SUCCESS) {
         LE_ERROR("Error(%d)", (int)error);
     }
 }
 
+/*======================================================================
+
+ FUNCTION        taf_RadioNetworkResponseCallback::setPreferredNetworksResponseCb
+
+ DESCRIPTION     The callback function used in setting the network preference.
+
+ DEPENDENCIES    Call the low level function when setting the network preference.
+
+ PARAMETERS      [IN] telux::common::ErrorCode error: Error code defined in SDK.
+
+ RETURN VALUE    None
+
+ SIDE EFFECTS
+
+======================================================================*/
+void taf_RadioNetworkResponseCallback::setPreferredNetworksResponseCb(telux::common::ErrorCode error)
+{
+    LE_DEBUG("<SDK Callback> taf_RadioNetworkResponseCallback --> setPreferredNetworksResponseCb");
+    if (error != telux::common::ErrorCode::SUCCESS) {
+        LE_ERROR("Error(%d)", (int)error);
+    }
+
+    le_sem_Post(semaphore);
+}
+
+
 bool taf_RadioSelectionModeResponseCallback::isRegModeMannual = true;
 
-le_sem_Ref_t taf_RadioSelectionModeResponseCallback::semaphore = NULL;
+le_sem_Ref_t taf_RadioSelectionModeResponseCallback::semaphore = nullptr;
 
 /*======================================================================
 
@@ -269,6 +428,165 @@ void taf_RadioSelectionModeResponseCallback::selectionModeResponse
 
     le_sem_Post(semaphore);
 }
+
+std::vector<telux::tel::PreferredNetworkInfo> taf_RadioPreferredNetworksResponseCallback::preferredNetworksInfo;
+
+le_sem_Ref_t taf_RadioPreferredNetworksResponseCallback::semaphore = nullptr;
+
+/*======================================================================
+
+ FUNCTION        taf_RadioPreferredNetworksResponseCallback::preferredNetworksResponse
+
+ DESCRIPTION     The callback function used in getting the network preference.
+
+ DEPENDENCIES    Call the low level function when getting the network selection mode.
+
+ PARAMETERS      [IN] std::vector<telux::tel::PreferredNetworkInfo> preferredNetworks3gppInfo:
+                          Non-static network preference infomation.
+                 [IN] std::vector<telux::tel::PreferredNetworkInfo> staticPreferredNetworksInfo:
+                          Static network preference infomation.
+                 [IN] telux::common::ErrorCode error: Error code defined in SDK.
+
+ RETURN VALUE    None
+
+ SIDE EFFECTS
+
+======================================================================*/
+void taf_RadioPreferredNetworksResponseCallback::preferredNetworksResponse
+(
+    std::vector<telux::tel::PreferredNetworkInfo> preferredNetworks3gppInfo,
+    std::vector<telux::tel::PreferredNetworkInfo> staticPreferredNetworksInfo,
+    telux::common::ErrorCode error
+)
+{
+    LE_DEBUG("<SDK Callback> taf_RadioPreferredNetworksResponseCallback --> preferredNetworksResponse");
+
+    if (error != telux::common::ErrorCode::SUCCESS) {
+        LE_ERROR("Error(%d)", (int)error);
+    }
+
+    preferredNetworksInfo.assign(preferredNetworks3gppInfo.begin(), preferredNetworks3gppInfo.end());
+
+    le_sem_Post(semaphore);
+}
+
+le_sem_Ref_t taf_RadioServiceDomainResponseCallback::semaphore = nullptr;
+
+telux::tel::ServiceDomainPreference taf_RadioServiceDomainResponseCallback::svcDomainPref = telux::tel::ServiceDomainPreference::UNKNOWN;
+
+/*======================================================================
+
+ FUNCTION        taf_RadioServiceDomainResponseCallback::serviceDomainResponse
+
+ DESCRIPTION     The callback function used in getting the service domain preference.
+
+ DEPENDENCIES    Call the low level function when getting the service domain preference.
+
+ PARAMETERS      [IN] telux::tel::ServiceDomainPreference preference:
+                          The service domain preference.
+                 [IN] telux::common::ErrorCode error: Error code defined in SDK.
+
+ RETURN VALUE    None
+
+ SIDE EFFECTS
+
+======================================================================*/
+void taf_RadioServiceDomainResponseCallback::serviceDomainResponse
+(
+    telux::tel::ServiceDomainPreference preference,
+    telux::common::ErrorCode error
+)
+{
+    LE_DEBUG("<SDK Callback> taf_RadioServiceDomainResponseCallback --> serviceDomainResponse");
+
+    if (error != telux::common::ErrorCode::SUCCESS) {
+        LE_ERROR("Error(%d)", (int)error);
+    }
+
+    svcDomainPref = preference;
+
+    le_sem_Post(semaphore);
+}
+
+/*======================================================================
+
+ FUNCTION        taf_RadioServingSystemResponseCallback::servingSystemResponse
+
+ DESCRIPTION     The callback function used in configuring rat preference.
+
+ DEPENDENCIES    Call the low level function when configuring rat preference.
+
+ PARAMETERS      [IN] telux::common::ErrorCode error: Error code defined in SDK.
+
+ RETURN VALUE    None
+
+ SIDE EFFECTS
+
+======================================================================*/
+void taf_RadioServingSystemResponseCallback::servingSystemResponse(telux::common::ErrorCode error)
+{
+    LE_DEBUG("<SDK Callback> taf_RadioServingSystemResponseCallback --> servingSystemResponse");
+    if (error != telux::common::ErrorCode::SUCCESS) {
+        LE_ERROR("Error(%d)", (int)error);
+    }
+}
+
+le_sem_Ref_t taf_RadioRatPreferenceResponseCallback::semaphore = nullptr;
+
+telux::tel::RatPreference taf_RadioRatPreferenceResponseCallback::ratPref = 0;
+
+/*======================================================================
+
+ FUNCTION        taf_RadioRatPreferenceResponseCallback::ratPreferenceResponse
+
+ DESCRIPTION     The callback function used in getting rat preference.
+
+ DEPENDENCIES    Call the low level function when getting rat preference.
+
+ PARAMETERS      [IN] telux::tel::RatPreference preference:
+                          Rat preference.
+                 [IN] telux::common::ErrorCode error: Error code defined in SDK.
+
+ RETURN VALUE    None
+
+ SIDE EFFECTS
+
+======================================================================*/
+void taf_RadioRatPreferenceResponseCallback::ratPreferenceResponse
+(
+    telux::tel::RatPreference preference,
+    telux::common::ErrorCode error
+)
+{
+    LE_DEBUG("<SDK Callback> taf_RadioRatPreferenceResponseCallback --> ratPreferenceResponse");
+    if (error != telux::common::ErrorCode::SUCCESS) {
+        LE_ERROR("Error(%d)", (int)error);
+    }
+
+    ratPref = preference;
+
+    le_sem_Post(semaphore);
+}
+
+LE_MEM_DEFINE_STATIC_POOL(prefOpsListPool, TAF_RADIO_PREFERRED_OPERATORS_LISTS_MAX_NUM, sizeof(taf_RadioPrefOpList_t));
+
+LE_MEM_DEFINE_STATIC_POOL(prefOpPool, TAF_RADIO_PREFERRED_OPERATORS_MAX_NUM, sizeof(taf_RadioPrefOp_t));
+
+LE_MEM_DEFINE_STATIC_POOL(prefOpSafeRefPool, TAF_RADIO_PREFERRED_OPERATORS_MAX_NUM, sizeof(taf_RadioPrefOpSafeRef_t));
+
+LE_REF_DEFINE_STATIC_MAP(prefOpListRefMap, TAF_RADIO_PREFERRED_OPERATORS_LISTS_MAX_NUM);
+
+LE_REF_DEFINE_STATIC_MAP(prefOpSafeRefMap, TAF_RADIO_PREFERRED_OPERATORS_MAX_NUM);
+
+le_mem_PoolRef_t taf_Radio::prefOpsListPool = nullptr;
+
+le_mem_PoolRef_t taf_Radio::prefOpPool = nullptr;
+
+le_mem_PoolRef_t taf_Radio::prefOpSafeRefPool = nullptr;
+
+le_ref_MapRef_t taf_Radio::prefOpListRefMap = nullptr;
+
+le_ref_MapRef_t taf_Radio::prefOpSafeRefMap = nullptr;
 
 /*======================================================================
 
@@ -343,6 +661,10 @@ void taf_Radio::Init(void)
                 if (networkManager != nullptr) {
                     networkManagers.emplace_back(networkManager);
                 }
+                auto servingSystemManager = telux::tel::PhoneFactory::getInstance().getServingSystemManager(index);
+                if (servingSystemManager != nullptr) {
+                    servingSystemManagers.emplace_back(servingSystemManager);
+                }
             }
         }
 
@@ -356,6 +678,9 @@ void taf_Radio::Init(void)
 
         //  6. Instantiate RadioPowerCallback
         radioPowerCb = std::make_shared<taf_RadioPowerCallback>();
+        voiceSrvStateCb = std::make_shared<taf_RadioVoiceServiceStateCallback>();
+        voiceRadioTechCb = std::make_shared<taf_RadioVoiceRadioTechnologyCallback>();
+        signalStrengthCb = std::make_shared<taf_RadioSignalStrengthCallback>();
 
         //  7. Set the Radio power on
         for (size_t index = 0; index < phones.size(); index++) {
@@ -390,14 +715,35 @@ void taf_Radio::Init(void)
                 LE_ERROR("Failed to register network listener");
             }
         }
+
+        for (size_t index = 0; index < servingSystemManagers.size(); index++) {
+            startTime = std::chrono::system_clock::now();
+
+            //  11. Check if serving subsystem is ready
+            bool servingSystemStatus = servingSystemManagers[index]->isSubsystemReady();
+            if (!servingSystemStatus) {
+                LE_INFO("Serving subsystem wait to be ready...");
+                std::future<bool> f = servingSystemManagers[index]->onSubsystemReady();
+                //  Wait until the subsystem is ready.
+                servingSystemStatus = f.get();
+            }
+
+            if (servingSystemStatus) {
+                endTime = std::chrono::system_clock::now();
+                elapsedTime = endTime - startTime;
+                LE_INFO("Elapsed time for %d serving subsystem: %lfs", index, elapsedTime.count());
+            } else {
+                LE_ERROR("Fail to init %d serving subsystem", index);
+            }
+        }
     } else {
         LE_ERROR("Fail to init telephony subsystem");
     }
 
-    //  10. Get the SubscriptionManager instances
+    //  12. Get the SubscriptionManager instances
     subscriptionManager = phoneFactory.getSubscriptionManager();
 
-    //  11. Check if subscription subsystem is ready
+    //  13. Check if subscription subsystem is ready
     startTime = std::chrono::system_clock::now();
     subSystemStatus = subscriptionManager->isSubsystemReady();
 
@@ -416,9 +762,32 @@ void taf_Radio::Init(void)
         LE_ERROR("Fail to init subscription subsystem");
     }
 
-    // 12. Register listener with Subscription Manager for the notification
+    // 14. Register listener with Subscription Manager for the notification
     subscriptionListener = std::make_shared<taf_RadioSubscriptionListener>();
     subscriptionManager->registerListener(subscriptionListener);
 
+    // 15. Initiate the semaphore
     taf_RadioSelectionModeResponseCallback::semaphore = le_sem_Create("taf_RadioSelModeRespCbSem", 0);
+    taf_RadioPreferredNetworksResponseCallback::semaphore = le_sem_Create("taf_RadioPrefNetworkRespCbSem", 0);
+    taf_RadioNetworkResponseCallback::semaphore = le_sem_Create("taf_RadioNetworkRespCbSem", 0);
+    taf_RadioVoiceServiceStateCallback::semaphore = le_sem_Create("taf_RadioVocSvcStateCbSem", 0);
+    taf_RadioRatPreferenceResponseCallback::semaphore = le_sem_Create("taf_RadioRatPrefRespCbSem", 0);
+    taf_RadioServiceDomainResponseCallback::semaphore = le_sem_Create("taf_RadioSvcDomainRespCbSem", 0);
+    voiceRadioTechCb->semaphore = le_sem_Create("taf_RadioVocRATCbSem", 0);
+    signalStrengthCb->semaphore = le_sem_Create("taf_RadioSgnStrengthCbSem", 0);
+
+    // 16. Initiate the memory pool
+    prefOpsListPool = le_mem_InitStaticPool(prefOpsListPool,
+        TAF_RADIO_PREFERRED_OPERATORS_LISTS_MAX_NUM, sizeof(taf_RadioPrefOpList_t));
+
+    prefOpPool = le_mem_InitStaticPool(prefOpPool, TAF_RADIO_PREFERRED_OPERATORS_MAX_NUM,
+        sizeof(taf_RadioPrefOp_t));
+
+    prefOpSafeRefPool = le_mem_InitStaticPool(prefOpSafeRefPool, TAF_RADIO_PREFERRED_OPERATORS_MAX_NUM,
+        sizeof(taf_RadioPrefOpSafeRef_t));
+
+    // 17. Initiate the reference map.
+    prefOpListRefMap = le_ref_InitStaticMap(prefOpListRefMap, TAF_RADIO_PREFERRED_OPERATORS_LISTS_MAX_NUM);
+    prefOpSafeRefMap = le_ref_InitStaticMap(prefOpSafeRefMap, TAF_RADIO_PREFERRED_OPERATORS_MAX_NUM);
+
 }

@@ -205,6 +205,8 @@ le_result_t taf_Audio::StartAudio
  StreamConfig config
 )
 {
+// SA415M does not support slotId. Comment this function as a workaround.
+#ifdef TARGET_SA515M
         LE_DEBUG("Create and Start voice audio\n");
         resetCallbackPromise();
         auto status = Status::FAILED;
@@ -315,6 +317,7 @@ le_result_t taf_Audio::StartAudio
                 LE_ERROR("Request to start voice stream failed.\n");
                 return LE_FAULT;
         }
+#endif
         return LE_OK;
 }
 
@@ -564,7 +567,9 @@ le_result_t taf_Audio::CreateandStart
         if (mModemRx && mSpeaker)
         {
                 config.type = StreamType::VOICE_CALL;
+#ifdef TARGET_SA515M
                 config.slotId = (SlotId)mSlotId;
+#endif
                 config.sampleRate = 16000;
                 config.format = AudioFormat::PCM_16BIT_SIGNED;
                 config.channelTypeMask = ChannelType::LEFT;

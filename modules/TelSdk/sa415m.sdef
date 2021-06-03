@@ -16,13 +16,19 @@ apps:
     $LEGATO_ROOT/apps/platformServices/powerMgr
     $LEGATO_ROOT/apps/platformServices/secStore
     $TELAF_ROOT/apps/tafServices/tafVoiceCallSvc
+    $TELAF_ROOT/apps/tafServices/tafSimCardSvc
+    $TELAF_ROOT/apps/tafServices/tafRadioSvc
+    $TELAF_ROOT/apps/tafServices/tafAudioService
+    $TELAF_ROOT/apps/tafServices/tafSMSSvc
 
     // Command-line tools.
     $LEGATO_ROOT/apps/tools/tools
 
     // test apps
     $TELAF_ROOT/apps/test/tafVoiceCallTest/tafVoiceCallUnitTest/tafVoiceCall
+    $TELAF_ROOT/apps/test/tafRadioTest/tafRadioUnitTest/tafRadio
     $LEGATO_ROOT/apps/sample/voiceCallApp/voiceCallApp
+    $TELAF_ROOT/apps/test/tafSimTest/tafSimIntegrationTest/tafSimTest
 }
 
 commands:
@@ -44,4 +50,22 @@ interfaceSearch:
     interfaces/modemServices
     interfaces/positioning
     $LEGATO_ROOT/apps/sample/voiceCallApp
+}
+
+cflags:
+{
+    #if ${TARGET} = sa515m
+        -DTARGET_SA515M
+    #elif ${TARGET} = sa415m
+        -DTARGET_SA415M
+    #endif
+}
+
+cxxflags:
+{
+    #if ${TARGET} = sa515m
+        -DTARGET_SA515M
+    #elif ${TARGET} = sa415m
+        -DTARGET_SA415M
+    #endif
 }

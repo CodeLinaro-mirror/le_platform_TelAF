@@ -49,10 +49,7 @@ using namespace telux::common;
 
 #define MAX_SMS_SESSION 5
 
-#define DESTINATION_LEN 50
-#define DESTINATION_LEN_BYTE (DESTINATION_LEN+1)
-
-
+#define TIMEOUT_SEND_SEMAPHORE 2
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -62,7 +59,7 @@ using namespace telux::common;
 
 typedef struct taf_sms_Msg
 {
-   char                 tel[DESTINATION_LEN];
+   char                 tel[TAF_TYPES_REMOTE_PARTY_NUM_MAX_BYTES];
    char                 text[TAF_SMS_TEXT_BYTES];
    char                 timestamp[TAF_SMS_TIMESTAMP_BYTES];
    int8_t               phoneId;
@@ -180,7 +177,7 @@ namespace tafsvc {
 
    typedef struct
    {
-      char                 tel[DESTINATION_LEN];
+      char                 tel[TAF_TYPES_REMOTE_PARTY_NUM_MAX_BYTES];
       char                 text[TAF_SMS_TEXT_BYTES];
       char                 timestamp[TAF_SMS_TIMESTAMP_BYTES];
    } newSms_t;

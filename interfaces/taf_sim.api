@@ -61,6 +61,9 @@ DEFINE  PHONE_NUM_MAX_BYTES = (PHONE_NUM_MAX_LEN+1);
 DEFINE  ICCID_LEN    = (20);
 DEFINE  ICCID_BYTES  = (ICCID_LEN+1);
 
+DEFINE  EID_LEN    = (32);
+DEFINE  EID_BYTES  = (EID_LEN+1);
+
 /**
  * Defines states of SIM card
  */
@@ -284,6 +287,7 @@ FUNCTION le_result_t SelectCard
  *  Unlock the Sim card for an app by entering PIN.
  *
  * @return LE_BAD_PARAMETER   Invalid SIM slot Id.
+ * @return LE_UNDERFLOW       PIN code length is short (min 4 digits).
  * @return LE_FAULT           Failed to send unlock SIM card by PIN request.
  * @return LE_OK              Unlock SIM by password request sent successfully.
  *
@@ -299,6 +303,7 @@ FUNCTION le_result_t EnterPIN
  * Change the password used in PIN1/PIN2 lock.
  *
  * @return LE_BAD_PARAMETER   Invalid SIM slot Id.
+ * @return LE_UNDERFLOW       PIN code length is short (min 4 digits).
  * @return LE_FAULT           Failed to send change password for lock SIM card request.
  * @return LE_OK              Change SIM lock password request sent successfully.
  *
@@ -342,6 +347,7 @@ FUNCTION le_result_t GetRemainingPUKTries
  * Disables PIN1 or FDN lock.
  *
  * @return LE_BAD_PARAMETER   Invalid SIM slot Id.
+ * @return LE_UNDERFLOW       PIN code length is short (min 4 digits).
  * @return LE_FAULT           Failed to send disable lock SIM card request.
  * @return LE_OK              Disable SIM lock request sent successfully.
  *
@@ -357,6 +363,7 @@ FUNCTION le_result_t Unlock
  * Enables PIN1 or FDN lock.
  *
  * @return LE_BAD_PARAMETER   Invalid SIM slot Id.
+ * @return LE_UNDERFLOW       PIN code length is short (min 4 digits).
  * @return LE_FAULT           Failed to send enable lock SIM card request.
  * @return LE_OK              Enable SIM lock request sent successfully.
  *
@@ -372,6 +379,8 @@ FUNCTION le_result_t Lock
  * Unlock the Sim card for an app by entering PUK and new pin
  *
  * @return LE_BAD_PARAMETER   Invalid SIM slot Id.
+ * @return LE_OUT_OF_RANGE    PUK length is not correct (8 digits).
+ * @return LE_UNDERFLOW       PIN code length is short (min 4 digits).
  * @return LE_FAULT           Failed to send unlock SIM card request.
  * @return LE_OK              Unlock SIM request sent successfully.
  *
@@ -382,5 +391,30 @@ FUNCTION le_result_t Unblock
     LockType  lockType IN,            ///< Applicable lock types are PUK1 and PUK2.
     string    puk[PUK_MAX_LEN] IN,    ///< PUK1/PUK2.
     string    newpin[PIN_MAX_LEN] IN  ///< New PIN1/PIN2.
+);
+
+/**
+ * Request eUICC identifier(EID) for the slot.
+ */
+FUNCTION le_result_t GetEID
+(
+    Id       slotId IN,
+    string   eid[EID_LEN] OUT
+);
+
+/**
+ * Enable or disable the automatic SIM selection.
+ */
+FUNCTION le_result_t SetAutomaticSelection
+(
+    bool enable IN
+);
+
+/**
+ * Get the automatic SIM selection.
+ */
+FUNCTION le_result_t GetAutomaticSelection
+(
+    bool enable OUT
 );
 

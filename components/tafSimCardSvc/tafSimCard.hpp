@@ -100,6 +100,7 @@ namespace telux {
                 int slot = DEFAULT_SLOT_ID;
                 le_event_Id_t NewStateEventId;
                 le_event_Id_t ResponseEventId;
+                bool EnableAutoSelection = false;
 
                 void RemoveStateHandler(taf_sim_NewStateHandlerRef_t handlerRef);
                 taf_sim_States_t getState(taf_sim_Id_t simId);
@@ -133,6 +134,10 @@ namespace telux {
                 taf_sim_AuthenticationResponseHandlerRef_t AddAuthenticationResponseHandler(
                         taf_sim_AuthenticationResponseHandlerFunc_t handlerPtr, void* contextPtr);
                 void RemoveAuthenticationResponseHandler(taf_sim_AuthenticationResponseHandlerRef_t handlerRef);
+
+                le_result_t GetEID( taf_sim_Id_t slotId, char* eidPtr, size_t eidLen);
+                le_result_t SetAutomaticSelection( bool enable);
+                le_result_t GetAutomaticSelection( bool* enablePtr);
         };
     }
 }

@@ -1140,9 +1140,35 @@ le_result_t taf_Audio::PlayDtmf
  */
 void taf_Audio::Init(void)
 {
+        std::chrono::time_point<std::chrono::system_clock> startTime, endTime;
+        startTime = std::chrono::system_clock::now();
+
         auto &audioFactory = AudioFactory::getInstance();
 
         mAudioManager = audioFactory.getAudioManager();
+        bool isReady = false;
+        if (mAudioManager) {
+                isReady = mAudioManager->isSubsystemReady();
+        } else {
+                LE_ERROR("Invalid Audio Manager");
+                return;
+        }
+
+        if (!isReady) {
+                LE_DEBUG("Audio subsystem is not ready, Please wait ...");
+                std::future<bool> f = mAudioManager->onSubsystemReady();
+                isReady = f.get();
+        }
+
+        if (isReady) {
+                endTime = std::chrono::system_clock::now();
+                std::chrono::duration<double> elapsedTime = endTime - startTime;
+                LE_DEBUG("Elapsed Time for Audio Subsystems to ready : %f", elapsedTime.count());
+        } else {
+                LE_ERROR(" *** ERROR - Unable to initialize audio subsystem");
+                return;
+        }
+
         AudioPool  = le_mem_InitStaticPool(tafAudio,MAX_STREAM,sizeof(taf_audio_Stream_t));
         le_mem_SetDestructor(AudioPool,ReleaseStream);
         AudioConnPool  = le_mem_InitStaticPool(tafAudioConnector,MAX_CONNECTOR,sizeof(taf_audio_Connector_t));

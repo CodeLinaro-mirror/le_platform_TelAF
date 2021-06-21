@@ -600,8 +600,8 @@ void tafSmsListener::onIncomingSms(int phoneId, std::shared_ptr<SmsMessage> smsM
    LE_INFO("message: %s\n", smsMsg->toString().c_str());
 
    newSms_t newMsg = {0};
-   le_utf8_Copy(newMsg.tel, smsMsg->getSender().c_str(), DESTINATION_LEN, NULL);
-   le_utf8_Copy(newMsg.text, smsMsg->toString().c_str(), TAF_SMS_TEXT_BYTES, NULL);
+   le_utf8_Copy(newMsg.tel, smsMsg->getSender().c_str(), TAF_TYPES_REMOTE_PARTY_NUM_MAX_BYTES, NULL);
+   le_utf8_Copy(newMsg.text, smsMsg->getText().c_str(), TAF_SMS_TEXT_BYTES, NULL);
 
    le_event_Report(sms.NewMsgEvent, &newMsg, sizeof(newSms_t));
 }

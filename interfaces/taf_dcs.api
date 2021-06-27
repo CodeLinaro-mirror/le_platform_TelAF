@@ -1,0 +1,472 @@
+/*
+ *  Copyright (c) 2021 The Linux Foundation. All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions are
+ *  met:
+ *    * Redistributions of source code must retain the above copyright
+ *      notice, this list of conditions and the following disclaimer.
+ *    * Redistributions in binary form must reproduce the above
+ *      copyright notice, this list of conditions and the following
+ *      disclaimer in the documentation and/or other materials provided
+ *      with the distribution.
+ *    * Neither the name of The Linux Foundation nor the names of its
+ *      contributors may be used to endorse or promote products derived
+ *      from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ *  WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ *  ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ *  BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ *  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ *  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ *  BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ *  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+USETYPES taf_types.api;
+
+/**
+ * The Common Name String Max Len
+ */
+DEFINE NAME_MAX_LEN = 64;
+
+/**
+ * The Common Name String Max Bytes
+ */
+DEFINE NAME_MAX_BYTES = (NAME_MAX_LEN + 1);
+
+/**
+ * The Max Numbers Of Call Context
+ */
+DEFINE MAX_CALL_OBJ = 32;
+
+/**
+ * The Max Numbers Of Session Reference
+ */
+DEFINE MAX_SESSION_REF = 32;
+
+/**
+ * The APN Name String Max Len
+ */
+DEFINE APN_NAME_MAX_LEN = NAME_MAX_LEN;
+
+/**
+ * The APN Name String Max Bytes
+ */
+DEFINE APN_NAME_MAX_BYTES = (APN_NAME_MAX_LEN + 1);
+
+/**
+ * The Auth User Name String Max Len
+ */
+DEFINE  USER_NAME_MAX_LEN = NAME_MAX_LEN;
+
+/**
+ * The Auth User Passward String Max Len
+ */
+DEFINE  PASSWORD_NAME_MAX_LEN = NAME_MAX_LEN;
+
+/**
+ * The Auth User Name String Max Bytes
+ */
+DEFINE  USER_NAME_MAX_BYTES  = (USER_NAME_MAX_LEN + 1);
+
+/**
+ * The Auth User Passward String Max Bytes
+ */
+DEFINE  PASSWORD_NAME_MAX_BYTES  = (PASSWORD_NAME_MAX_LEN + 1);
+
+/**
+ * The IPv4 Addr Max Len
+ */
+DEFINE  IPV4_ADDR_MAX_LEN = 16;
+
+/**
+ * The IPv6 Addr("ffff:ffff:ffff:ffff:ffff:ffff:255:255:255:255") Max Len
+ */
+DEFINE  IPV6_ADDR_MAX_LEN = 45;
+
+/**
+ * The Default Cellular Profile Index
+ */
+DEFINE DEFAULT_PROFILE = 1;
+
+/**
+ * The Reference For Cellular Profile Context
+ */
+REFERENCE Profile;
+
+/**
+ * The Reference For Data call Session Context
+ */
+REFERENCE Call;
+
+/**
+ * The Max Entry for Cellular Profiles
+ */
+DEFINE PROFILE_LIST_MAX_ENTRY = 32;
+
+/**
+ * The squash gateway addresses used by net APIs
+ */
+STRUCT DefaultGatewayAddresses
+{
+    string  ipv4Addr[IPV4_ADDR_MAX_LEN];
+    string  ipv6Addr[IPV6_ADDR_MAX_LEN];
+};
+
+/**
+ * The squash dns addresses used by net APIs
+ */
+STRUCT DnsServerAddresses
+{
+    string  ipv4Addr1[IPV4_ADDR_MAX_LEN];
+    string  ipv4Addr2[IPV4_ADDR_MAX_LEN];
+    string  ipv6Addr1[IPV6_ADDR_MAX_LEN];
+    string  ipv6Addr2[IPV6_ADDR_MAX_LEN];
+};
+
+/**
+ * The Supported Data Bearer Technology
+ */
+ENUM DataBearerTechnology
+{
+    // CDMA related
+    DATA_BEARER_TECHNOLOGY_UNKNOWN,               ///< Unknown
+    DATA_BEARER_TECHNOLOGY_CDMA2000_1X,           ///< CDMA 1XF
+    DATA_BEARER_TECHNOLOGY_CDMA2000_EVDO,         ///< CDMA Rev 0
+    DATA_BEARER_TECHNOLOGY_CDMA2000_EVDO_REVA,    ///< CDMA Rev A
+    DATA_BEARER_TECHNOLOGY_CDMA2000_EVDO_REVB,    ///< CDMA Rev B
+    DATA_BEARER_TECHNOLOGY_CDMA2000_EHRPD,        ///< CDMA EHPRD
+    DATA_BEARER_TECHNOLOGY_CDMA2000_HRPD,         ///< CDMA HPRD
+    DATA_BEARER_TECHNOLOGY_CDMA_EVDO_FMC,         ///< CDMA FMC
+    DATA_BEARER_TECHNOLOGY_3GPP2_WLAN,            ///< IWLAN
+    //UMTS related
+    DATA_BEARER_TECHNOLOGY_WCDMA,                 ///< WCDMA (UMTS)
+    DATA_BEARER_TECHNOLOGY_GPRS,                  ///< GPRS
+    DATA_BEARER_TECHNOLOGY_HSDPA,                 ///< HSDPA
+    DATA_BEARER_TECHNOLOGY_HSUPA,                 ///< HSUPA
+    DATA_BEARER_TECHNOLOGY_EDGE,                  ///< EDGE
+    DATA_BEARER_TECHNOLOGY_LTE,                   ///< LTE
+    DATA_BEARER_TECHNOLOGY_HSDPA_PLUS,            ///< HSDPA_PLUS
+    DATA_BEARER_TECHNOLOGY_DC_HSDPA_PLUS,         ///< DC_HSDPA_PLUS
+    DATA_BEARER_TECHNOLOGY_HSPA,                  ///< HSPA
+    DATA_BEARER_TECHNOLOGY_64_QAM,                ///< 64 QAM
+    DATA_BEARER_TECHNOLOGY_TD_SCDMA,               ///< TDSCDMA
+    DATA_BEARER_TECHNOLOGY_GSM,                   ///< GSM
+    DATA_BEARER_TECHNOLOGY_3GPP_WLAN,             ///< IWLAN
+    DATA_BEARER_TECHNOLOGY_5G,                    ///< NR
+};
+
+/**
+ * The Supported Data Cellular Call Connection Event
+ */
+ENUM ConState
+{
+    DISCONNECTED,
+    CONNECTING,
+    CONNECTED,
+    DISCONNECTING,
+};
+
+/**
+ * The Data Profile PDP Type
+ */
+ENUM Pdp
+{
+    PDP_UNKNOWN,
+    PDP_IPV4,
+    PDP_IPV6,
+    PDP_IPV4V6
+};
+
+/**
+ * The Data Profile Auth Type
+ */
+BITMASK Auth
+{
+    AUTH_NONE,
+    AUTH_PAP,
+    AUTH_CHAP
+};
+
+/**
+ * The Data Profile Technology Type
+ */
+ENUM Tech
+{
+    TECH_UNKNOWN,
+    TECH_3GPP,
+    TECH_3GPP2,
+    TECH_ANY
+};
+
+/**
+ * Start a asynchronous data cellular session by given profile reference
+ */
+FUNCTION le_result_t StartSession
+(
+    Profile profileRef                         IN
+);
+
+/**
+ * Start a synchronous data cellular session by given profile reference
+ */
+FUNCTION le_result_t StartSessionAsync
+(
+    Profile profileRef                         IN
+);
+
+/**
+ * Synchronouly stop a data cellular session by given profile reference
+ */
+FUNCTION le_result_t StopSession
+(
+    Profile profileRef                         IN
+);
+
+/**
+ * Asynchronouly stop a data cellular session by given profile reference
+ */
+FUNCTION le_result_t StopSessionAsync
+(
+    Profile profileRef                         IN
+);
+
+
+/**
+ * Get An Connected Data Call Interface Name
+ */
+FUNCTION le_result_t GetInterfaceName
+(
+    Profile profileRef,
+    string  interfaceName[NAME_MAX_LEN] OUT
+);
+
+/**
+ * The Data Call Session Handler
+ */
+HANDLER SessionStateHandler
+(
+    Profile      profileRef                          IN,
+    ConState     event                               IN
+);
+
+/**
+ * The Data Call Session Event
+ */
+EVENT SessionState
+(
+    Profile             profileRef,
+    SessionStateHandler handler
+);
+
+/**
+ * Get the Connected Data Session IPV4 Address
+ */
+FUNCTION le_result_t GetIPv4Address
+(
+    Profile profileRef,
+    string  ipAddr[IPV4_ADDR_MAX_LEN] OUT
+);
+
+/**
+ * Get the Connected Data Session IPV4 Gateway
+ */
+FUNCTION le_result_t GetIPv4GatewayAddress
+(
+    Profile profileRef,
+    string  gatewayAddr[IPV4_ADDR_MAX_LEN] OUT
+);
+
+/**
+ * Get the Connected Data Session First And Secondary DNS
+ */
+FUNCTION le_result_t GetIPv4DNSAddresses
+(
+    Profile profileRef,
+    string  dns1AddrStr[IPV4_ADDR_MAX_LEN] OUT,
+    string  dns2AddrStr[IPV4_ADDR_MAX_LEN] OUT
+);
+
+/**
+ * Get the Connected Data Session IPV6 Address
+ */
+FUNCTION le_result_t GetIPv6Address
+(
+    Profile profileRef,
+    string  ipAddr[IPV6_ADDR_MAX_LEN] OUT
+);
+
+/**
+ * Get the Connected Data Session IPV6 Gateway
+ */
+FUNCTION le_result_t GetIPv6GatewayAddress
+(
+    Profile profileRef,
+    string  gatewayAddr[IPV6_ADDR_MAX_LEN] OUT
+);
+
+
+/**
+ * Get the Connected Data Session First And Secondary DNS
+ */
+FUNCTION le_result_t GetIPv6DNSAddresses
+(
+    Profile profileRef,
+    string  dns1AddrStr[IPV6_ADDR_MAX_LEN] OUT,
+    string  dns2AddrStr[IPV6_ADDR_MAX_LEN] OUT
+);
+
+/**
+ * Get the Data Session Current State
+ */
+FUNCTION le_result_t GetSessionState
+(
+    Profile       profileRef,
+    ConState      connectionState OUT
+);
+
+/**
+ * Check If The Data Session Is IPv4
+ */
+FUNCTION bool IsIPv4
+(
+    Profile profileRef
+);
+
+/**
+ * Check If The Data Session Is IPv6
+ */
+FUNCTION bool IsIPv6
+(
+    Profile profileRef
+);
+
+/**
+ * Get The Connected Data Session Data Bearer Technology
+ */
+FUNCTION le_result_t GetDataBearerTechnology
+(
+    Profile profileRef,
+    DataBearerTechnology dlDataBearerTechPtr OUT,
+    DataBearerTechnology ulDataBearerTechPtr OUT
+);
+
+/**
+ * The Data Profile Structure
+ */
+STRUCT ProfileInfo
+{
+    uint32 index;
+    Tech   tech;
+    string name[NAME_MAX_LEN];
+};
+
+/**
+ * The Handler Of Requesting Data Proflie List
+ */
+HANDLER ProfileListHandler
+(
+    le_result_t           result                                 IN,
+    ProfileInfo           profileList[PROFILE_LIST_MAX_ENTRY]    IN
+);
+
+/**
+ * The API Of Requesting Synchronous Data Proflie List
+ */
+FUNCTION le_result_t GetProfileList
+(
+    ProfileInfo profileList[PROFILE_LIST_MAX_ENTRY]  OUT
+);
+
+/**
+ * Get The Default Profile Index
+ */
+FUNCTION uint32 GetDefaultProfileIndex
+(
+);
+
+/**
+ * Set Default Profile Index Corresponding To Specified profile Index
+ */
+FUNCTION le_result_t SetDefaultProfileIndex
+(
+    uint32 profileId
+);
+
+/**
+ * Get Profile Reference By Given Profile Index
+ */
+FUNCTION Profile GetProfile
+(
+    uint32 profileId
+);
+
+/**
+ * Get Profile Index By Given Profile Reference
+ */
+FUNCTION uint32 GetProfileIndex
+(
+    Profile profileRef
+);
+
+/**
+ * Set The Data Profile Apn Name
+ */
+FUNCTION le_result_t SetAPN
+(
+    Profile profileRef,
+    string  apnName[APN_NAME_MAX_LEN] IN
+);
+
+/**
+ * Get The Data Profile Apn Name
+ */
+FUNCTION le_result_t GetAPN
+(
+    Profile profileRef,
+    string  apnName[APN_NAME_MAX_LEN] OUT
+);
+
+/**
+ * Set The Data Profile Pdp Type
+ */
+FUNCTION le_result_t SetPDP
+(
+    Profile      profileRef,
+    Pdp          pdp
+);
+
+/**
+ * Get The Data Profile Pdp Type
+ */
+FUNCTION Pdp GetPDP
+(
+    Profile profileRef
+);
+
+/**
+ * Set The Data Profile Authentication Type And User/Passward
+ */
+FUNCTION le_result_t SetAuthentication
+(
+    Profile       profileRef,
+    Auth          auth,
+    string        userName[USER_NAME_MAX_LEN] IN,
+    string        password[PASSWORD_NAME_MAX_LEN] IN
+);
+
+/**
+ * Get The Data Profile Authentication Type And User/Passward
+ */
+FUNCTION le_result_t GetAuthentication
+(
+    Profile       profileRef,
+    Auth          auth OUT,
+    string        userName[USER_NAME_MAX_LEN] OUT,
+    string        password[PASSWORD_NAME_MAX_LEN] OUT
+);

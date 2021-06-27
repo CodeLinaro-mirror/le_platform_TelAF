@@ -20,11 +20,13 @@ apps:
     $TELAF_ROOT/apps/tafServices/tafRadioSvc
     $TELAF_ROOT/apps/tafServices/tafAudioService
     $TELAF_ROOT/apps/tafServices/tafSMSSvc
+    $TELAF_ROOT/apps/tafServices/tafDataCallSvc
 
     // Command-line tools.
     $LEGATO_ROOT/apps/tools/tools
 
     // test apps
+    $TELAF_ROOT/apps/test/tafDataCallTest/tafDataCallUnitTest/tafDataCallUnitTest
     $TELAF_ROOT/apps/test/tafVoiceCallTest/tafVoiceCallUnitTest/tafVoiceCall
     $TELAF_ROOT/apps/test/tafRadioTest/tafRadioUnitTest/tafRadio
     $LEGATO_ROOT/apps/sample/voiceCallApp/voiceCallApp

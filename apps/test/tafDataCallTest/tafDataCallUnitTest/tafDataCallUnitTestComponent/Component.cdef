@@ -1,0 +1,17 @@
+sources:
+{
+    tafDataCallUnitTest.c
+}
+
+requires:
+{
+    api:
+    {
+        taf_dcs.api
+    }
+}
+
+cxxflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+}

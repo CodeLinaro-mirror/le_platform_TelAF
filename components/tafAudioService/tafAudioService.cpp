@@ -43,11 +43,11 @@ using namespace telux::tafsvc;
 
 COMPONENT_INIT
 {
-        LE_INFO("tafAudio Service Init...\n");
-        auto &audio = taf_Audio::GetInstance();
-        audio.Init();
+    LE_INFO("tafAudio Service Init...\n");
+    auto &audio = taf_Audio::GetInstance();
+    audio.Init();
 
-        LE_INFO(" Audio service Ready...\n");
+    LE_INFO(" Audio service Ready...\n");
 
 }
 
@@ -67,8 +67,8 @@ taf_audio_ConnectorRef_t taf_audio_CreateConnector
     void
 )
 {
-        auto &audio = taf_Audio::GetInstance();
-        return audio.CreateConnector();
+    auto &audio = taf_Audio::GetInstance();
+    return audio.CreateConnector();
 }
 
 /**
@@ -80,11 +80,11 @@ taf_audio_ConnectorRef_t taf_audio_CreateConnector
 */
 void taf_audio_DeleteConnector
 (
-    taf_audio_ConnectorRef_t connectorRef
+ taf_audio_ConnectorRef_t connectorRef
 )
 {
-        auto &audio = taf_Audio::GetInstance();
-        return audio.DeleteConnector(connectorRef);
+    auto &audio = taf_Audio::GetInstance();
+    return audio.DeleteConnector(connectorRef);
 }
 
 /**
@@ -96,12 +96,12 @@ void taf_audio_DeleteConnector
 */
 le_result_t taf_audio_Connect
 (
-    taf_audio_ConnectorRef_t connectorRef,
-    taf_audio_StreamRef_t    streamRef
+ taf_audio_ConnectorRef_t connectorRef,
+ taf_audio_StreamRef_t    streamRef
 )
 {
-        auto &audio = taf_Audio::GetInstance();
-        return audio.Connect(connectorRef, streamRef);
+    auto &audio = taf_Audio::GetInstance();
+    return audio.Connect(connectorRef, streamRef);
 }
 
 /**
@@ -113,12 +113,12 @@ le_result_t taf_audio_Connect
 */
 void taf_audio_Disconnect
 (
-    taf_audio_ConnectorRef_t connectorRef,
-    taf_audio_StreamRef_t    streamRef
+ taf_audio_ConnectorRef_t connectorRef,
+ taf_audio_StreamRef_t    streamRef
 )
 {
-        auto &audio = taf_Audio::GetInstance();
-        audio.Disconnect(connectorRef, streamRef);
+    auto &audio = taf_Audio::GetInstance();
+    audio.Disconnect(connectorRef, streamRef);
 }
 
 /**
@@ -133,8 +133,8 @@ void taf_audio_Close
  taf_audio_StreamRef_t    streamRef
 )
 {
-        auto &audio = taf_Audio::GetInstance();
-        audio.Close(streamRef);
+    auto &audio = taf_Audio::GetInstance();
+    audio.Close(streamRef);
 }
 
 /**
@@ -148,8 +148,8 @@ taf_audio_StreamRef_t taf_audio_OpenSpeaker
 (
 )
 {
-        auto &audio = taf_Audio::GetInstance();
-        return audio.OpenSpeaker();
+    auto &audio = taf_Audio::GetInstance();
+    return audio.OpenSpeaker();
 }
 
 /**
@@ -163,8 +163,8 @@ taf_audio_StreamRef_t taf_audio_OpenMic
 (
 )
 {
-        auto &audio = taf_Audio::GetInstance();
-        return audio.OpenMic();
+    auto &audio = taf_Audio::GetInstance();
+    return audio.OpenMic();
 }
 
 /**
@@ -179,8 +179,8 @@ taf_audio_StreamRef_t taf_audio_OpenModemVoiceRx
 uint32_t slotId
 )
 {
-        auto &audio = taf_Audio::GetInstance();
-        return audio.OpenModemVoiceRx(slotId);
+    auto &audio = taf_Audio::GetInstance();
+    return audio.OpenModemVoiceRx(slotId);
 }
 
 /**
@@ -195,8 +195,8 @@ taf_audio_StreamRef_t taf_audio_OpenModemVoiceTx
 uint32_t slotId
 )
 {
-        auto &audio = taf_Audio::GetInstance();
-        return audio.OpenModemVoiceTx(slotId);
+    auto &audio = taf_Audio::GetInstance();
+    return audio.OpenModemVoiceTx(slotId);
 }
 
 /**
@@ -214,8 +214,8 @@ uint32_t             duration,
 uint32_t             pause
 )
 {
-        auto &audio = taf_Audio::GetInstance();
-        return audio.PlayDtmf(streamRef, dtmfPtr, duration, pause);
+    auto &audio = taf_Audio::GetInstance();
+    return audio.PlayDtmf(streamRef, dtmfPtr, duration, pause);
 }
 
 /**
@@ -230,10 +230,10 @@ le_result_t taf_audio_Mute
 taf_audio_StreamRef_t    streamRef
 )
 {
-        auto &audio = taf_Audio::GetInstance();
-        StreamMute mute = {};
-        mute.enable = true;
-        return audio.Mute(streamRef, mute);
+    auto &audio = taf_Audio::GetInstance();
+    StreamMute mute = {};
+    mute.enable = true;
+    return audio.Mute(streamRef, mute);
 }
 
 /**
@@ -248,8 +248,8 @@ le_result_t taf_audio_Unmute
 taf_audio_StreamRef_t    streamRef
 )
 {
-        auto &audio = taf_Audio::GetInstance();
-        StreamMute mute = {};
-        mute.enable = false;
-        return audio.Mute(streamRef, mute);
+    auto &audio = taf_Audio::GetInstance();
+    StreamMute mute = {};
+    mute.enable = false;
+    return audio.Mute(streamRef, mute);
 }

@@ -38,9 +38,10 @@ static void DisplayAppUsage(void) {
     printf("SIM selection test: app runProc tafSimTest --exe=tafSimTest -- select <slot1/slot2/unknown>\n");
     printf("SIM authentication test: app runProc tafSimTest --exe=tafSimTest -- enterPin <slot1/slot2/unknown> <pin1/pin2> pin\n");
     printf("SIM change pin  test: app runProc tafSimTest --exe=tafSimTest -- changePin <slot1/slot2/unknown> <pin1/pin2> old_pin new_pin\n");
-    printf("SIM unblock  test: app runProc tafSimTest --exe=tafSimTest -- unblock <slot1/slot2/unknown> <puk1/puk2> puk new_pin\n ");
+    printf("SIM unblock  test: app runProc tafSimTest --exe=tafSimTest -- unblock <slot1/slot2/unknown> <puk1/puk2> puk new_pin\n");
     printf("SIM lock test: app runProc tafSimTest --exe=tafSimTest -- lock <slot1/slot2/unknown> <pin1/fdn> pin\n");
     printf("SIM unlock test: app runProc tafSimTest --exe=tafSimTest -- unlock <slot1/slot2/unknown> <pin1/fdn> pin\n");
+    printf("SIM access test: app runProc tafSimTest --exe=tafSimTest -- access <slot1/slot2/unknown>\n");
 }
 
 static taf_sim_Id_t GetSimId(const char* simIdPtr) {
@@ -77,6 +78,41 @@ static void TestNewSimStateHandler(taf_sim_Id_t simId, taf_sim_States_t simState
         void* contextPtr){
     LE_INFO("New SIM event for SIM card: %d", simId);
     LE_INFO("SIM state: %s", SimStateToString(simState));
+    exit(EXIT_SUCCESS);
+}
+
+static void TestAuthenticationResponse
+(
+    taf_sim_Id_t     simId,
+    taf_sim_LockResponse_t responseType,
+    le_result_t result,
+    void* contextPtr
+)
+{
+    LE_INFO("Authentication Response for SIM card: %d", simId);
+
+    if (LE_OK == result) {
+        switch(responseType) {
+            case TAF_SIM_CHANGE_PIN:
+                LE_INFO("Change pin successfull");
+                break;
+            case TAF_SIM_UNLOCK_BY_PIN:
+                LE_INFO("Enter pin successfull");
+                break;
+            case TAF_SIM_SET_LOCK:
+                LE_INFO("lock/unlock successfull");
+                break;
+            case TAF_SIM_UNLOCK_BY_PUK:
+                LE_INFO("unblock successfull");
+                break;
+            default:
+                LE_INFO("Unknown response");
+        }
+    } else {
+            LE_INFO("Error: %s\n", LE_RESULT_TXT(result));
+            LE_INFO("Remaining PIN tries: %d\n", taf_sim_GetRemainingPINTries(simId));
+    }
+    exit(EXIT_SUCCESS);
 }
 
 COMPONENT_INIT
@@ -105,13 +141,19 @@ COMPONENT_INIT
         simId = GetSimId(simIdPtr);
     }
 
+    if (NumberOfArgs > 2) {
+        taf_sim_AuthenticationResponseHandlerRef_t responseHandlerRef_t;
+        responseHandlerRef_t =taf_sim_AddAuthenticationResponseHandler(TestAuthenticationResponse, NULL);
+        LE_ASSERT(responseHandlerRef_t != NULL);
+    }
+
     if (strcmp(testType, "state") == 0) {
         tafSimTest_state(simId);
     } else if (strcmp(testType, "events") == 0) {
         NewSimStateHandlerRef = taf_sim_AddNewStateHandler(TestNewSimStateHandler, NULL);
         LE_ASSERT(NewSimStateHandlerRef!=NULL);
 
-        exitApplication = true;
+        exitApplication = false;
     }
     // Test: sim identification info
     else if (strcmp(testType, "info") == 0)
@@ -233,7 +275,12 @@ COMPONENT_INIT
         }
         exitApplication = false;
         tafSimTest_setLock(simId,lockType,pinPtr, false);
-    } else {
+
+    }else if (strcmp(testType, "access") == 0)
+    {
+        tafSimTest_sim_access(simId);
+    }
+     else {
         DisplayAppUsage();
         exit(EXIT_FAILURE);
     }

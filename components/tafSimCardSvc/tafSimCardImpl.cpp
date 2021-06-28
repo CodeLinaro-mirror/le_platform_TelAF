@@ -72,11 +72,11 @@ void tafAuthenticationResponseCallback:: ChangeCardPinResponseCb(int retryCount,
     if(error != telux::common::ErrorCode::SUCCESS) {
         LE_INFO("Change Card Pin Request failed with errorCode: %d",(int) error);
         LE_INFO("Change Card Pin Request failed retryCount:%d",retryCount);
-        simPtr->pinTryCount -= 1;
+        simPtr->pinTryCount = retryCount;
         simResponsePtr.result = LE_FAULT ;
     } else {
         LE_INFO("Change Card Pin Request successful retryCount:%d",retryCount);
-        simPtr->pinTryCount = 3;
+        simPtr->pinTryCount = retryCount;
         simResponsePtr.result = LE_OK;
     }
     le_event_Report(sim.ResponseEventId, &simResponsePtr,sizeof(simResponsePtr));
@@ -92,10 +92,11 @@ void tafAuthenticationResponseCallback:: unlockCardByPukResponseCb(int retryCoun
     if(error != telux::common::ErrorCode::SUCCESS) {
         LE_INFO("Unlock Card By Puk Request failed with errorCode:%d ",(int)error);
         LE_INFO("Unlock Card By Puk request failed retryCount:%d",retryCount);
-        simPtr->pukTryCount -= 1;
+        simPtr->pukTryCount = retryCount;
         simResponsePtr.result = LE_FAULT ;
     } else {
         LE_INFO("Unlock Card By Puk request successful retryCount:%d",retryCount);
+        simPtr->pinTryCount = 3;
         simPtr->pukTryCount = 10;
         simResponsePtr.result = LE_OK;
     }
@@ -109,12 +110,12 @@ void tafAuthenticationResponseCallback:: unlockCardByPinResponseCb(int retryCoun
     simResponsePtr.simId = (taf_sim_Id_t) sim.slot;
     simResponsePtr.responseType = TAF_SIM_UNLOCK_BY_PIN;
     if(error != telux::common::ErrorCode::SUCCESS) {
-        simPtr->pinTryCount -= 1;
+        simPtr->pinTryCount = retryCount;
         LE_INFO("Unlock Card By Pin Request failed with errorCode: %d ",(int)error);
         LE_INFO( "Unlock Card By Pin Request failed retryCount: %d",retryCount);
         simResponsePtr.result = LE_FAULT ;
     } else {
-        simPtr->pinTryCount = 3;
+        simPtr->pinTryCount = retryCount;
         simResponsePtr.result = LE_OK;
         LE_INFO( "Unlock Card By Pin Request successful retryCount: %d",retryCount);
     }
@@ -126,15 +127,64 @@ void tafAuthenticationResponseCallback::setCardLockResponseCb(int retryCount, te
     sim_response_event_t simResponsePtr;
     simResponsePtr.simId = (taf_sim_Id_t) sim.slot;
     simResponsePtr.responseType = TAF_SIM_SET_LOCK;
+    taf_sim_info_t* simPtr = sim.GetSimContext((taf_sim_Id_t)sim.slot);
     if(error != telux::common::ErrorCode::SUCCESS) {
         LE_INFO("Set card lock Request failed with errorCode: %d ",(int)error);
         LE_INFO( "Set card lock Request failed retryCount: %d",retryCount);
+        simPtr->pinTryCount = retryCount;
         simResponsePtr.result = LE_FAULT ;
     } else {
         LE_INFO( "Set card lock Request successful retryCount: %d",retryCount);
+        simPtr->pinTryCount = retryCount;
         simResponsePtr.result = LE_OK;
     }
     le_event_Report(sim.ResponseEventId, &simResponsePtr,sizeof(simResponsePtr));
+}
+
+void tafOpenLogicalChannelCallback::onChannelResponse(int channel, IccResult result,
+                                                     ErrorCode error) {
+    auto &sim = taf_sim::GetInstance();
+   std::unique_lock<std::mutex> lock(sim.eventMutex);
+   sim.errorCode = error;
+   sim.openChannel = (uint8_t)channel;
+   if(sim.cardEventExpected == CardEvent::OPEN_LOGICAL_CHANNEL) {
+       if(error == telux::common::ErrorCode::SUCCESS) {
+           LE_INFO("OpenLogicalChannel successful channel = %d", channel);
+       } else {
+           LE_INFO("OpenLogicalChannel failed");
+       }
+       LE_INFO("Card Event OPEN_LOGICAL_CHANNEL found with code : %d", int(error));
+       sim.eventCV.notify_one();
+   }
+}
+
+
+void tafCloseLogicalChannelCallback::commandResponse(telux::common::ErrorCode error) {
+   if(error == telux::common::ErrorCode::SUCCESS) {
+      LE_INFO("onCloseLogicalChannel successful.");
+   } else {
+      LE_INFO( "onCloseLogicalChannel failed\n error: %d ", static_cast<int>(error));
+   }
+   auto &sim = taf_sim::GetInstance();
+   std::unique_lock<std::mutex> lock(sim.eventMutex);
+   sim.errorCode = error;
+   if(sim.cardEventExpected == CardEvent::CLOSE_LOGICAL_CHANNEL) {
+      LE_INFO("Card Event CLOSE_LOGICAL_CHANNEL found with code : %d", int(error));
+      sim.eventCV.notify_one();
+   }
+}
+
+void tafTransmitApduResponseCallback::onResponse(IccResult result, ErrorCode error) {
+   LE_INFO("onResponse, error: %d ",(int)error);
+   auto &sim = taf_sim::GetInstance();
+   std::unique_lock<std::mutex> lock(sim.eventMutex);
+   sim.errorCode = error;
+   sim.apduResponse = result;
+   LE_INFO("onResponse: %s " , result.toString().c_str());
+   if(sim.cardEventExpected == CardEvent::TRANSMIT_APDU_CHANNEL) {
+      LE_INFO("Card Event TRANSMIT_APDU_CHANNEL found with code : %d", int(error));
+      sim.eventCV.notify_one();
+   }
 }
 
 void taf_sim::Init(void)
@@ -718,7 +768,6 @@ void taf_sim::FirstLayerAuthenticationResponseHandler(void* reportPtr,
             simResponsePtr->result, le_event_GetContextPtr());
 }
 
-
 le_result_t  taf_sim::GetEID( taf_sim_Id_t slotId, char* eidPtr, size_t eidLen) {
     return LE_UNSUPPORTED;
 }
@@ -733,3 +782,150 @@ le_result_t taf_sim::GetAutomaticSelection( bool* enablePtr) {
     return LE_OK;
 }
 
+// We are making a synchronized APDU card requests. So added wait logic
+// std::condition_variable
+bool taf_sim::waitForCardEvent(CardEvent cardEvent, int timeout) {
+   std::unique_lock<std::mutex> lock(eventMutex);
+   cardEventExpected = cardEvent;
+   auto cvStatus = eventCV.wait_for(lock, std::chrono::seconds(DEFAULT_TIMEOUT_IN_SECONDS));
+   if(cvStatus == std::cv_status::timeout) {
+      LE_INFO("Event:%d not found with in %decond(s)",  (int)cardEvent, DEFAULT_TIMEOUT_IN_SECONDS);
+   }
+   cardEventExpected = (CardEvent)0;  // reset message id to avoid further notifications
+   if(cvStatus != std::cv_status::timeout) {
+      if(cardEvent == CardEvent::OPEN_LOGICAL_CHANNEL
+         || cardEvent == CardEvent::CLOSE_LOGICAL_CHANNEL
+         || cardEvent == CardEvent::TRANSMIT_APDU_CHANNEL) {
+
+         if(errorCode == ErrorCode::SUCCESS)
+            return true;
+      }
+   } else {
+      LE_INFO("Unable to get the events, so timing out");
+      return false;
+   }
+   return false;
+}
+
+le_result_t taf_sim::OpenLogicalChannel( taf_sim_Id_t simId, taf_sim_AppType_t appType, uint8_t* channelPtr) {
+    if (selectSimSlot(simId) != LE_OK) {
+        return LE_BAD_PARAMETER;
+    }
+    auto card = cards[slot - 1];
+    std::vector<std::shared_ptr<ICardApp>> applications;
+    auto openLogicalCb = std::make_shared<tafOpenLogicalChannelCallback>();
+    std::string aid;
+    if(card) {
+        applications = card->getApplications();
+        for(auto cardApp : applications) {
+            if(cardApp->getAppType() == (AppType) appType) {
+                aid = cardApp->getAppId();
+                break;
+            }
+        }
+    }
+    if (aid.empty()) {
+        return LE_BAD_PARAMETER;
+    }
+    card->openLogicalChannel(aid, openLogicalCb);
+    if(!waitForCardEvent(CardEvent::OPEN_LOGICAL_CHANNEL)) {
+        LE_INFO("Opening Logical Channel failed ");
+        return LE_FAULT;
+    }
+    LE_INFO("Open Logical channel done channel = %d", openChannel);
+    *channelPtr = openChannel;
+    return LE_OK;
+}
+
+le_result_t taf_sim::CloseLogicalChannel( taf_sim_Id_t simId, uint8_t channel) {
+    if (selectSimSlot(simId) != LE_OK) {
+        return LE_BAD_PARAMETER;
+    }
+    auto closeLogicalChannelCb = std::make_shared<tafCloseLogicalChannelCallback>();
+    auto card = cards[slot - 1];
+    if(card) {
+        auto ret = card->closeLogicalChannel(channel, closeLogicalChannelCb);
+        if(ret != telux::common::Status::SUCCESS) {
+            return LE_FAULT;
+        }
+        if(!waitForCardEvent(CardEvent::CLOSE_LOGICAL_CHANNEL)) {
+            LE_INFO("Closing Logical Channel failed ");
+            return LE_FAULT;
+        }
+        return LE_OK;
+    }  else {
+        return LE_FAULT;
+    }
+}
+
+le_result_t taf_sim::SendApduOnChannel( taf_sim_Id_t simId, uint8_t channel,
+            const uint8_t* commandApduPtr, size_t commandApduNumElements,
+             uint8_t* responseApduPtr,size_t* responseApduNumElementsPtr){
+    uint8_t cla, instruction, p1, p2, p3;
+    std::vector<uint8_t> data;
+    auto tafTransmitApduCb = std::make_shared<tafTransmitApduResponseCallback>();
+    cla = commandApduPtr[0];
+    instruction = commandApduPtr[1];
+    p1 = commandApduPtr[2];
+    p2 = commandApduPtr[3];
+    p3 = commandApduPtr[4];
+    if (commandApduNumElements > 5) {
+        for(int i = 0; i < p3; i++) {
+          data.emplace_back(commandApduPtr[i+ 5]);
+        }
+    }
+    if (selectSimSlot(simId) != LE_OK) {
+        return LE_BAD_PARAMETER;
+    }
+    auto card = cards[slot - 1];
+    auto ret = card->transmitApduLogicalChannel(channel, cla, instruction,
+                                                   p1, p2, p3, data,
+                                                       tafTransmitApduCb);
+    if (ret != Status::SUCCESS) {
+        return LE_FAULT;
+    }
+    if(!waitForCardEvent(CardEvent::TRANSMIT_APDU_CHANNEL)) {
+        LE_INFO("Transmit APDU failed ");
+        return LE_FAULT;
+    }
+    responseApduPtr[0] = (uint8_t)apduResponse.sw1;
+    responseApduPtr[1] = (uint8_t)apduResponse.sw2;
+    int index = 2;
+    for(auto &i : data) {
+        responseApduPtr[index] = (uint8_t) i;
+        index++;
+    }
+    return LE_OK;
+}
+
+le_result_t taf_sim::SendApdu( taf_sim_Id_t simId,const uint8_t* commandApduPtr, size_t commandApduNumElements,
+             uint8_t* responseApduPtr,size_t* responseApduNumElementsPtr){
+    uint8_t cla, instruction, p1, p2, p3;
+    std::vector<uint8_t> data;
+    auto tafTransmitApduCb = std::make_shared<tafTransmitApduResponseCallback>();
+    cla = commandApduPtr[0];
+    instruction = commandApduPtr[1];
+    p1 = commandApduPtr[2];
+    p2 = commandApduPtr[3];
+    p3 = commandApduPtr[4];
+    if (commandApduNumElements > 5) {
+        for(int i = 0; i < p3; i++) {
+          data.emplace_back(commandApduPtr[i+ 5]);
+        }
+    }
+    if (selectSimSlot(simId) != LE_OK) {
+        return LE_BAD_PARAMETER;
+    }
+    auto card = cards[slot - 1];
+    auto ret = card->transmitApduBasicChannel(cla, instruction,
+                                                   p1, p2, p3, data,
+                                                       tafTransmitApduCb);
+    if (ret != Status::SUCCESS) {
+        return LE_FAULT;
+    }
+    if(!waitForCardEvent(CardEvent::TRANSMIT_APDU_CHANNEL)) {
+        LE_INFO("Transmit APDU failed failed ");
+        return LE_FAULT;
+    }
+    return LE_OK;
+}

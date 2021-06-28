@@ -39,20 +39,6 @@ static void TestNewSimStateHandler
     LE_INFO("SIM state: %s", SimStateToString(simState));
 }
 
-static void TestAuthenticationResponse
-(
-    taf_sim_Id_t     simId,
-    taf_sim_LockResponse_t responseType,
-    le_result_t result,
-    void* contextPtr
-)
-{
-    LE_INFO("Authentication Response for SIM card: %d", simId);
-    LE_INFO("Authentication Response responseType: %d", (int) responseType);
-    LE_INFO("Authentication Response result : %d", result);
-}
-
-
 //Function to convert sim state to string
 char* SimStateToString(taf_sim_States_t state) {
     char *cardState;
@@ -166,10 +152,6 @@ void tafSimTest_enterPin
     const char*  pinPtr
 )
 {
-    taf_sim_AuthenticationResponseHandlerRef_t responseHandlerRef_t;
-    responseHandlerRef_t =taf_sim_AddAuthenticationResponseHandler(TestAuthenticationResponse, NULL);
-    LE_ASSERT(responseHandlerRef_t != NULL);
-
     le_result_t res;
     res = taf_sim_EnterPIN(simId, lockType, pinPtr);
     LE_ASSERT(res == LE_OK);
@@ -220,4 +202,41 @@ void tafSimTest_unblock_puk
     le_result_t res;
     res = taf_sim_Unblock(simId, lockType, pukPtr, newpinPtr);
     LE_ASSERT(res == LE_OK);
+}
+
+void tafSimTest_sim_access
+(
+    taf_sim_Id_t simId
+)
+{
+     //APDU to open Master File
+    uint8_t selectMFAPDU[] = {0x00, 0xA4, 0x00, 0x0C, 0x02, 0x3F, 0x00};
+    uint8_t responseAPDU[100];
+    size_t responseLength = 100;
+    uint8_t channel = 0;
+
+    // Open a logical channel
+    LE_ASSERT_OK(taf_sim_OpenLogicalChannel(simId, TAF_SIM_APPTYPE_USIM, &channel));
+    LE_ASSERT(channel);
+
+    LE_ASSERT_OK(taf_sim_SendApduOnChannel(simId,
+                                          channel,
+                                          selectMFAPDU,
+                                          sizeof(selectMFAPDU),
+                                          responseAPDU,
+                                          &responseLength));
+    LE_INFO("APDU response sw1 = 0x%02X",responseAPDU[0]);
+    LE_INFO("APDU response sw2 = 0x%02X",responseAPDU[1]);
+
+    // Close the logical channel
+    LE_ASSERT_OK(taf_sim_CloseLogicalChannel(simId,channel));
+
+    LE_ASSERT_OK(taf_sim_SendApdu(simId,
+                                  selectMFAPDU,
+                                  sizeof(selectMFAPDU),
+                                  responseAPDU,
+                                  &responseLength));
+    LE_INFO("APDU response sw1 = 0x%02X",responseAPDU[0]);
+    LE_INFO("APDU response sw2 = 0x%02X",responseAPDU[1]);
+
 }

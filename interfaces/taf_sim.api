@@ -63,6 +63,12 @@ DEFINE  ICCID_BYTES  = (ICCID_LEN+1);
 
 DEFINE  EID_LEN    = (32);
 DEFINE  EID_BYTES  = (EID_LEN+1);
+DEFINE  APDU_MAX_BYTES  = (255);
+DEFINE  FILE_ID_LEN  = (4);
+DEFINE  FILE_ID_BYTES  = (FILE_ID_LEN+1);
+DEFINE  DATA_MAX_BYTES = (100);
+DEFINE  PATH_MAX_LEN  = (100);
+DEFINE  PATH_MAX_BYTES  = (PATH_MAX_LEN+1);
 
 /**
  * Defines states of SIM card
@@ -120,6 +126,18 @@ ENUM LockResponse
     UNLOCK_BY_PIN,
     UNLOCK_BY_PUK,
     SET_LOCK
+};
+
+/**
+ * Defines all type of UICC application such as SIM, RUIM, USIM, CSIM and ISIM.
+ */
+ENUM AppType {
+   APPTYPE_UNKNOWN = 0, ///< Unknown application type
+   APPTYPE_SIM = 1,     ///< UICC application type is SIM
+   APPTYPE_USIM = 2,    ///< UICC application type is USIM
+   APPTYPE_RUIM = 3,    ///< UICC application type is RSIM
+   APPTYPE_CSIM = 4,    ///< UICC application type is CSIM
+   APPTYPE_ISIM = 5,    ///< UICC application type is ISIM
 };
 
 /**
@@ -418,3 +436,63 @@ FUNCTION le_result_t GetAutomaticSelection
     bool enable OUT
 );
 
+/**
+ *Open a logical channel to the SIM.
+ *
+ * @return
+ *      - LE_OK             Open logical channel request succeessful.
+ *      - LE_BAD_PARAMETER  Invalid parameter.
+ *      - LE_FAULT          Failed to open logical channel.
+ */
+FUNCTION le_result_t OpenLogicalChannel
+(
+     Id slotId IN,
+     AppType apptype IN,
+     uint8 channelPtr OUT
+);
+
+/**
+ * Close a previously opened logical channel to the SIM.
+ *
+ * @return
+ *      - LE_OK       Close logical channel succesful.
+ *      - LE_FAULT    Failed to send request.
+ */
+FUNCTION le_result_t CloseLogicalChannel
+(
+    Id    slotId IN,
+    uint8 channel IN      ///<The channel ID to be closed.
+);
+
+/**
+ *  Transmit an APDU to the ICC card over a logical channel.
+ *
+ * @return
+ *      - LE_OK             Succeeded.
+ *      - LE_BAD_PARAMETER  Invalid parameter.
+ *      - LE_NOT_FOUND      Failed to select the SIM card.
+ *      - LE_FAULT          Failed to transmit APDU.
+ */
+FUNCTION le_result_t SendApduOnChannel
+(
+    Id           simId IN,
+    uint8        channel IN,
+    uint8        commandApdu[APDU_MAX_BYTES] IN,
+    uint8        responseApdu[RESPONSE_MAX_BYTES] OUT
+);
+
+/**
+ * Exchange APDUs with the SIM on a basic channel.
+ *
+ * @return
+ *      - LE_OK             Function succeeded.
+ *      - LE_FAULT          Failed to transmit APDU.
+ *      - LE_BAD_PARAMETER  Invalid parameter.
+ *      - LE_NOT_FOUND      Failed to select the SIM card.
+ */
+FUNCTION le_result_t SendApdu
+(
+    Id           simId IN,
+    uint8        commandApdu[APDU_MAX_BYTES] IN,
+    uint8        responseApdu[RESPONSE_MAX_BYTES] OUT
+);

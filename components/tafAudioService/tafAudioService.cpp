@@ -253,3 +253,235 @@ taf_audio_StreamRef_t    streamRef
     mute.enable = false;
     return audio.Mute(streamRef, mute);
 }
+
+/**
+ * FUNCTION     : OpenPlayer
+ * DESCRIPTION  : Gets the reference of Playing
+ * DEPENDECY    :
+ * PARAMETERS   :
+ * RETURN VALUES: Reference of a Stream, NULL on error
+ */
+taf_audio_StreamRef_t taf_audio_OpenPlayer
+(
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.OpenPlayer();
+}
+
+/**
+ * FUNCTION     : PlayFile
+ * DESCRIPTION  : Play a file on a playback stream
+ * DEPENDECY    :
+ * PARAMETERS   : Stream Reference for Audio and File descriptor
+ * RETURN VALUES: LE_OK on success, LE_FAULT for all errors
+ */
+le_result_t taf_audio_PlayFile
+(
+ taf_audio_StreamRef_t    streamRef,
+ int fd
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.PlayFile(streamRef, fd);
+}
+
+/**
+ * FUNCTION     : Stop
+ * DESCRIPTION  : Stop the file playback/recording
+ * DEPENDECY    :
+ * PARAMETERS   : Stream Reference for Audio
+ * RETURN VALUES: LE_OK on success, LE_FAULT for all errors
+ */
+le_result_t taf_audio_Stop
+(
+taf_audio_StreamRef_t    streamRef
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.Stop(streamRef);
+}
+
+/**
+ * FUNCTION     : SetGain
+ * DESCRIPTION  : Set the volume
+ * DEPENDECY    :
+ * PARAMETERS   : Stream Reference for Audio
+ * RETURN VALUES: LE_OK on success, LE_FAULT for all errors
+ */
+le_result_t taf_audio_SetGain
+(
+taf_audio_StreamRef_t    streamRef,
+int32_t  gain
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.SetVolume(streamRef, gain);
+}
+
+/**
+ * FUNCTION     : GetGain
+ * DESCRIPTION  : Get stream volume
+ * DEPENDECY    :
+ * PARAMETERS   : Stream Reference for Audio
+ * RETURN VALUES: LE_OK on success, LE_FAULT for all errors
+ */
+le_result_t taf_audio_GetGain
+(
+taf_audio_StreamRef_t    streamRef,
+int32_t  *gain
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.GetVolume(streamRef, gain);
+}
+
+/**
+ * FUNCTION     : StopDtmf
+ * DESCRIPTION  : Stop Dtmf
+ * DEPENDECY    :
+ * PARAMETERS   : Stream Reference for Audio
+ * RETURN VALUES: LE_OK on success, LE_FAULT for all errors
+ */
+void taf_audio_StopDtmf
+(
+taf_audio_StreamRef_t streamRef
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.StopDtmf(streamRef);
+}
+
+/**
+ * FUNCTION     : EnableNoiseSuppressor
+ * DESCRIPTION  : Enable NoiseSuppressor
+ * DEPENDECY    :
+ * PARAMETERS   : Stream Reference for Audio
+ * RETURN VALUES: LE_OK on success, LE_FAULT for all errors
+ */
+le_result_t taf_audio_EnableNoiseSuppressor
+(
+taf_audio_StreamRef_t streamRef
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.EnableNoiseSuppressor(streamRef);
+}
+
+/**
+ * FUNCTION     : EnableEchoCanceller
+ * DESCRIPTION  : Enable EchoCanceller
+ * DEPENDECY    :
+ * PARAMETERS   : Stream Reference for Audio
+ * RETURN VALUES: LE_OK on success, LE_FAULT for all errors
+ */
+le_result_t taf_audio_EnableEchoCanceller
+(
+taf_audio_StreamRef_t streamRef
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.EnableEchoCanceller(streamRef);
+}
+
+/**
+ * FUNCTION     : DisableNoiseSuppressor
+ * DESCRIPTION  : Disable NoiseSuppressor
+ * DEPENDECY    :
+ * PARAMETERS   : Stream Reference for Audio
+ * RETURN VALUES: LE_OK on success, LE_FAULT for all errors
+ */
+le_result_t taf_audio_DisableNoiseSuppressor
+(
+taf_audio_StreamRef_t streamRef
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.DisableNoiseSuppressor(streamRef);
+}
+
+/**
+ * FUNCTION     : DisableEchoCanceller
+ * DESCRIPTION  : Disable EchoCanceller
+ * DEPENDECY    :
+ * PARAMETERS   : Stream Reference for Audio
+ * RETURN VALUES: LE_OK on success, LE_FAULT for all errors
+ */
+le_result_t taf_audio_DisableEchoCanceller
+(
+taf_audio_StreamRef_t streamRef
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.DisableEchoCanceller(streamRef);
+}
+
+/**
+ * FUNCTION     : IsNoiseSuppressorEnabled
+ * DESCRIPTION  : Get status for Noise Suppressor
+ * DEPENDECY    :
+ * PARAMETERS   : Stream Reference for Audio
+ * RETURN VALUES: LE_OK on success, LE_FAULT for all errors
+ */
+le_result_t taf_audio_IsNoiseSuppressorEnabled
+(
+taf_audio_StreamRef_t streamRef,
+bool* status
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.IsNoiseSuppressorEnabled(streamRef, status);
+}
+
+/**
+ * FUNCTION     : IsEchoCancellerEnabled
+ * DESCRIPTION  : Get status for EchoCanceller
+ * DEPENDECY    :
+ * PARAMETERS   : Stream Reference for Audio
+ * RETURN VALUES: LE_OK on success, LE_FAULT for all errors
+ */
+le_result_t taf_audio_IsEchoCancellerEnabled
+(
+taf_audio_StreamRef_t streamRef,
+bool* status
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.IsEchoCancellerEnabled(streamRef, status);
+}
+
+/**
+ * FUNCTION     : AddMediaHandler
+ * DESCRIPTION  : Send media events notifications
+ * DEPENDECY    :
+ * PARAMETERS   : Stream Reference for Audio
+ * RETURN VALUES: LE_OK on success, LE_FAULT for all errors
+ */
+taf_audio_MediaHandlerRef_t taf_audio_AddMediaHandler
+(
+    taf_audio_StreamRef_t streamRef,
+    taf_audio_MediaHandlerFunc_t handlerPtr,
+    void* contextPtr
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return (taf_audio_MediaHandlerRef_t) audio.AddMediaHandler(streamRef, handlerPtr, contextPtr);
+}
+
+/**
+ * FUNCTION     : AddDtmfDetectorHandler
+ * DESCRIPTION  : Detect DTMF from far end
+ * DEPENDECY    :
+ * PARAMETERS   : Stream Reference for Audio
+ * RETURN VALUES: LE_OK on success, LE_FAULT for all errors
+ */
+taf_audio_DtmfDetectorHandlerRef_t taf_audio_AddDtmfDetectorHandler
+(
+ taf_audio_StreamRef_t               streamRef,
+ taf_audio_DtmfDetectorHandlerFunc_t handlerPtr,
+ void* contextPtr
+ )
+{
+    auto &audio = taf_Audio::GetInstance();
+    return (taf_audio_DtmfDetectorHandlerRef_t) audio.AddDtmfDetectorHandler(streamRef, handlerPtr, contextPtr);
+}

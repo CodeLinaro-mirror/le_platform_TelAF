@@ -38,6 +38,7 @@ REFERENCE Stream;
 REFERENCE Connector;
 
 DEFINE DTMF_MAXLEN   = (100);
+DEFINE NO_FD = (-1);
 
 /**
  * Close the Stream reference
@@ -136,4 +137,200 @@ FUNCTION le_result_t Mute
 FUNCTION le_result_t Unmute
 (
     Stream streamRef IN
+);
+
+/**
+ * Audio recording/playback events.
+ */
+ENUM MediaEvent
+{
+    MEDIA_ENDED,
+    MEDIA_NO_MORE_SAMPLES,
+    MEDIA_ERROR,
+    MEDIA_MAX
+};
+
+/**
+* Open the audio stream for playback
+* return Reference to audio stream, NULL on error
+*/
+FUNCTION Stream OpenPlayer
+(
+);
+
+/**
+* Play a file on a playback stream
+*
+* LE_FAULT  on failure
+* LE_BAD_PARAMETER Invalid stream reference
+* LE_BUSY          Already active
+* LE_OK            On Success
+*/
+FUNCTION le_result_t PlayFile
+(
+    Stream streamRef IN,
+    file fd  IN
+);
+
+/**
+ * Handler for audio stream event.
+ */
+HANDLER MediaHandler
+(
+    Stream     streamRef  IN,
+    MediaEvent event
+);
+
+/**
+ * This event provides information on player / recorder stream events.
+ */
+EVENT Media
+(
+    Stream       streamRef IN,
+    MediaHandler handler
+);
+
+/**
+ * Handler for DTMF decoding.
+ */
+HANDLER DtmfDetectorHandler
+(
+    Stream  streamRef  IN,
+    char    dtmf       IN
+);
+
+/**
+ * This event provides information on DTMF decoding for the specified streamRef
+ */
+EVENT DtmfDetector
+(
+    Stream              streamRef IN,
+    DtmfDetectorHandler handler
+);
+
+/**
+ * Stop the file playback/recording
+ */
+FUNCTION le_result_t Stop
+(
+    Stream streamRef IN
+);
+
+/**
+ * Set the volume
+ * LE_FAULT  on failure
+ * LE_OK     On Success
+*/
+FUNCTION le_result_t SetGain
+(
+    Stream streamRef IN,
+    int32  gain IN
+);
+
+/**
+ * Get the volume
+ * LE_FAULT  on failure
+ * LE_OK     On Success
+ */
+FUNCTION le_result_t GetGain
+(
+    Stream streamRef IN,
+    int32  gain OUT
+);
+
+/**
+ * Audio Format
+ */
+ENUM Format
+{
+    WAVE,
+    AMR,
+    FORMAT_MAX
+};
+
+/**
+ * AMR mode
+ */
+ENUM AmrMode
+{
+    AMR_NONE,
+    AMR_NB_4_75_KBPS,
+    AMR_NB_5_15_KBPS,
+    AMR_NB_5_9_KBPS,
+    AMR_NB_6_7_KBPS,
+    AMR_NB_7_4_KBPS,
+    AMR_NB_7_95_KBPS,
+    AMR_NB_10_2_KBPS,
+    AMR_NB_12_2_KBPS,
+    AMR_WB_6_6_KBPS,
+    AMR_WB_8_85_KBPS,
+    AMR_WB_12_65_KBPS,
+    AMR_WB_14_25_KBPS,
+    AMR_WB_15_85_KBPS,
+    AMR_WB_18_25_KBPS,
+    AMR_WB_19_85_KBPS,
+    AMR_WB_23_05_KBPS,
+    AMR_WB_23_85_KBPS
+};
+
+/**
+ * Enable NoiseSuppressor
+ * LE_FAULT  on failure
+ * LE_OK     On Success
+*/
+FUNCTION le_result_t EnableNoiseSuppressor
+(
+    Stream streamRef IN
+);
+
+/**
+ * Enable EchoCanceller
+ * LE_FAULT  on failure
+ * LE_OK     On Success
+*/
+FUNCTION le_result_t EnableEchoCanceller
+(
+    Stream streamRef IN
+);
+
+/**
+ * Disable NoiseSuppressor
+ * LE_FAULT  on failure
+ * LE_OK     On Success
+*/
+FUNCTION le_result_t DisableNoiseSuppressor
+(
+    Stream streamRef IN
+);
+
+/**
+ * Set the volume
+ * LE_FAULT  on failure
+ * LE_OK     On Success
+*/
+FUNCTION le_result_t DisableEchoCanceller
+(
+    Stream streamRef IN
+);
+
+/**
+ * Get status for IsEchoCancellerEnabled
+ * LE_FAULT  on failure
+ * LE_OK     On Success
+*/
+FUNCTION le_result_t IsEchoCancellerEnabled
+(
+    Stream streamRef IN,
+    bool   status    OUT
+);
+
+/**
+ * Get status for IsNoiseSuppressorEnabled
+ * LE_FAULT  on failure
+ * LE_OK     On Success
+*/
+FUNCTION le_result_t IsNoiseSuppressorEnabled
+(
+    Stream streamRef IN,
+    bool   status    OUT
 );

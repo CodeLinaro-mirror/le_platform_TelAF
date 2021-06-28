@@ -29,6 +29,7 @@
 
 #include "legato.h"
 #include "interfaces.h"
+#include <queue>
 #include <string>
 #include <memory>
 #include <vector>
@@ -42,21 +43,34 @@
 using namespace telux::common;
 using namespace telux::audio;
 
-#define TIMEOUT 5
+#define TIMEOUT                    5
 #define DEFAULT_STREAMPOOL_SIZE    1
 #define MAX_STREAM                 6
 #define HASHMAP_SIZE               10
 #define MAX_CONNECTOR              8
+#define TOTAL_BUFFERS              2
+#define BITS_PER_SAMPLE            16
+#define DEFAULT_SAMPLERATE         48000
 
 #define CHECK_OUTPUT_IF(interface)     (   (interface == TAF_AUDIO_IF_CODEC_SPEAKER) || \
         (interface == TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_TX) \
         )
+
+typedef struct StreamEventHandlerRef* StreamEventHandlerRef_t;
+typedef struct taf_audio_DtmfStreamEventHandlerRef* taf_audio_DtmfStreamEventHandlerRef_t;
 
 typedef struct
 {
     taf_audio_StreamRef_t  streamRef;
     le_dls_Link_t          RefNodeLink;
 } taf_StreamRefNode_t;
+
+typedef enum
+{
+    TAF_AUDIO_BITMASK_MEDIA_EVENT = 0x1,
+    TAF_AUDIO_BITMASK_DTMF_DETECTION = 0x02
+}
+taf_audio_StreamEventBitMask_t;
 
 typedef struct
 {
@@ -86,16 +100,83 @@ typedef enum
     TAF_AUDIO_IF_CODEC_SPEAKER,
     TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX,
     TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_TX,
+    TAF_AUDIO_IF_DSP_FRONTEND_FILE_PLAY,
     TAF_AUDIO_NUM_INTERFACES
 }
 taf_audio_If_t;
 
+struct tafEventIdList {
+    le_event_Id_t  eventId;
+    bool           inUse;
+    le_dls_Link_t  next;
+};
+
+/**
+ * Audio format.
+ */
+typedef enum
+{
+    TAF_AUDIO_FILE_WAVE,
+    TAF_AUDIO_FILE_AMR_NB,
+    TAF_AUDIO_FILE_AMR_WB,
+    TAF_AUDIO_FILE_MAX
+}
+taf_audio_FileFormat_t;
+
+typedef struct
+{
+    uint32_t sampleRate;
+    uint16_t channelsCount;
+    uint16_t bitsPerSample;
+    uint32_t byteRate;
+}
+taf_audio_SamplePcmConfig_t;
+
+/**
+ * Wave header file structure.
+ */
+typedef struct {
+    uint32_t riffId;
+    uint32_t riffSize;
+    uint32_t riffFmt;
+    uint32_t chunkId;
+    uint32_t chunkSize;
+    uint16_t formatTag;
+    uint16_t channelsCount;
+    uint32_t sampleRate;
+    uint32_t byteRate;
+    uint16_t blockAlign;
+    uint16_t bitsPerSample;
+    uint32_t chunkDataId;
+    uint32_t chunkDataSize;
+} WavHeader_t;
+
+/**
+ * Symbols used to populate wave header file.
+ */
+#define FORMAT_PCM 1
+#define ID_RIFF    0x46464952
+#define ID_WAVE    0x45564157
+#define ID_FMT     0x20746d66
+#define ID_DATA    0x61746164
+
 namespace telux {
 namespace tafsvc {
 
-    class tafVoiceListener : public IVoiceListener {
+    class tafAudioListener : public telux::audio::IAudioListener {
         public:
-            void onDtmfToneDetection(DtmfTone dtmfTone) override;
+            void Printfunc();
+    };
+
+    class tafVoiceListener : public telux::audio::IVoiceListener {
+        public:
+            virtual void onDtmfToneDetection(DtmfTone dtmfTone) override;
+    };
+
+    class tafPlayListener : public telux::audio::IPlayListener {
+        public:
+            void onReadyForWrite() override;
+            void onPlayStopped() override;
     };
 
     struct hashMapList {
@@ -114,14 +195,48 @@ namespace tafsvc {
 
     typedef struct taf_audio_Stream {
         bool             device;
+        bool             playFile;
+        bool echoCancellerEnabled;
         uint32_t         gain;
         int32_t          fd;
         taf_audio_If_t interface;
+        taf_audio_FileFormat_t format;
+        taf_audio_SamplePcmConfig_t  samplePcmConfig;
+        taf_audio_AmrMode_t amrMode;
         le_hashmap_Ref_t connList;
         taf_audio_StreamRef_t streamRef;
+        taf_audio_DtmfStreamEventHandlerRef_t dtmfEventHandler;
+        le_event_Id_t    eventId;
+        le_dls_List_t    streamRefWithEventHdlrList;
         le_dls_List_t    sessionRefList;
         le_dls_Link_t  streamLink;
     }taf_audio_Stream_t;
+
+    /**
+     * Stream Event Handler Reference Node structure
+     */
+    typedef struct
+    {
+        le_event_HandlerRef_t             handlerRef;
+        StreamEventHandlerRef_t           streamHandlerRef;
+        taf_audio_StreamEventBitMask_t    streamEventMask;
+        struct taf_audio_Stream*          streamPtr;
+        void*                             userCtx;
+        le_dls_Link_t                     next;
+    }
+    EventHandlerRefNode_t;
+
+    typedef struct
+    {
+        taf_audio_Stream_t*            streamPtr;
+        taf_audio_StreamEventBitMask_t streamEvent;
+        union
+        {
+            taf_audio_MediaEvent_t     mediaEvent;
+            char                       dtmf;
+        } event;
+    }
+    taf_audio_StreamEvent_t;
 
     class taf_Audio : public ITafSvc {
         public:
@@ -140,7 +255,11 @@ namespace tafsvc {
             std::shared_ptr<telux::audio::IAudioPlayStream> mAudioPlayStream;
             std::shared_ptr<telux::audio::IAudioCaptureStream> mAudioCaptureStream;
             std::shared_ptr<telux::audio::IStreamBuffer> mStreamBuffer;
-            std::shared_ptr<tafVoiceListener> mVoiceListener;
+            std::queue<std::shared_ptr<telux::audio::IStreamBuffer>> mFreeBuffers;
+            std::shared_ptr<telux::audio::IAudioListener> mAudioListener;
+            std::shared_ptr<telux::audio::IPlayListener> mPlayListener;
+            std::shared_ptr<telux::audio::IVoiceListener> mVoiceListener;
+            std::shared_ptr<telux::audio::IAudioStream> mStream;
 
             bool mAudioStarted = false;
             bool mVoiceEnabled1 = false;
@@ -149,8 +268,19 @@ namespace tafsvc {
             bool mModemTx = false;
             bool mSpeaker = false;
             bool mMic = false;
+            bool mPlayer = false;
+            bool mIsPlaying = false;
+            bool mIsPlayStreamCreated = false;
+            bool mEmptyPipeline = false;
+            bool mCallStarted = false;
             uint32_t mSlotId;
             uint32_t mSize;
+            uint32_t mBufferRecordedTillNow;
+            FILE *mFile;
+            int mFd = -1;
+            AudioFormat mFileFormat;
+            StreamVolume mVol;
+            le_sem_Ref_t mSemRef;
 
             le_result_t StartAudio( StreamConfig config );
             le_result_t StopAudio();
@@ -162,12 +292,16 @@ namespace tafsvc {
             le_mem_PoolRef_t AudioRefPool = NULL;
             le_mem_PoolRef_t AudioConnPool = NULL;
             le_mem_PoolRef_t HashMapPool = NULL;
+            le_mem_PoolRef_t EventHandlerRefNodePool = NULL;
+            le_mem_PoolRef_t EventIdPool = NULL;
 
             le_ref_MapRef_t AudioConnRefMap = NULL;
             le_ref_MapRef_t AudioRefMap = NULL;
+            le_ref_MapRef_t EventHandlerRefMap = NULL;
 
             le_dls_List_t  HashMapList = LE_DLS_LIST_INIT;
-            le_dls_List_t  ConnList=LE_DLS_LIST_INIT;
+            le_dls_List_t  ConnList = LE_DLS_LIST_INIT;
+            le_dls_List_t  EventIdList = LE_DLS_LIST_INIT;
 
             static void ReleaseStream( void* objPtr );
             void InitAudio( taf_audio_Stream_t* streamPtr );
@@ -197,8 +331,23 @@ namespace tafsvc {
             taf_audio_StreamRef_t OpenModemVoiceTx(uint32_t slotId);
             le_result_t PlayDtmf(taf_audio_StreamRef_t streamRef,
                     const char* dtmfPtr, uint32_t duration, uint32_t pause );
+            void StopDtmf(taf_audio_StreamRef_t streamRef);
             le_result_t Mute(taf_audio_StreamRef_t streamRef, StreamMute mute );
-
+            taf_audio_StreamRef_t OpenPlayer();
+            le_result_t PlayFile(taf_audio_StreamRef_t streamRef, int fd);
+            le_result_t Stop(taf_audio_StreamRef_t streamRef);
+            le_result_t SetVolume(taf_audio_StreamRef_t streamRef, int32_t gainPtr);
+            le_result_t GetVolume(taf_audio_StreamRef_t streamRef, int32_t* gainPtr);
+            le_result_t EnableNoiseSuppressor(taf_audio_StreamRef_t streamRef);
+            le_result_t EnableEchoCanceller(taf_audio_StreamRef_t streamRef);
+            le_result_t DisableNoiseSuppressor(taf_audio_StreamRef_t streamRef);
+            le_result_t DisableEchoCanceller(taf_audio_StreamRef_t streamRef);
+            le_result_t IsNoiseSuppressorEnabled(taf_audio_StreamRef_t streamRef, bool* status);
+            le_result_t IsEchoCancellerEnabled(taf_audio_StreamRef_t streamRef, bool* status);
+            taf_audio_MediaHandlerRef_t AddMediaHandler(taf_audio_StreamRef_t streamRef, taf_audio_MediaHandlerFunc_t handlerPtr,
+                        void* contextPtr);
+            taf_audio_DtmfDetectorHandlerRef_t AddDtmfDetectorHandler(taf_audio_StreamRef_t streamRef, taf_audio_DtmfDetectorHandlerFunc_t handlerPtr,
+                        void* contextPtr);
 
             // Callback methods for audio stream
             static void DeleteVoiceCallback(ErrorCode error);
@@ -213,7 +362,11 @@ namespace tafsvc {
             static void StreamMuteUnmuteCallback(ErrorCode error);
             static void WriteCallback(std::shared_ptr<telux::audio::IStreamBuffer> buffer, uint32_t bytes,
                     telux::common::ErrorCode error);
-            static void ReadCallback(std::shared_ptr<telux::audio::IStreamBuffer> buffer, ErrorCode error);
+            static void setStreamVolumeCallback(ErrorCode error);
+            static void getStreamVolumeCallback(StreamVolume volume, ErrorCode error);
+            static void FirstLayerEventHandler( void* reportPtr, void* secondLayerHandlerFunc );
+            static StreamEventHandlerRef_t AddStreamEventHandler( taf_audio_Stream_t* sPtr, le_event_HandlerFunc_t handlerPtr,
+                                 taf_audio_StreamEventBitMask_t streamEventBitMask, void* contextPtr );
     };
 }
 }

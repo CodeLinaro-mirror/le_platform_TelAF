@@ -65,6 +65,21 @@ REFERENCE PreferredOperatorList;
 REFERENCE PreferredOperator;
 
 /*
+ * The reference of signal metrics.
+ */
+REFERENCE Metrics;
+
+/*
+ * The reference of scan information list.
+ */
+REFERENCE ScanInformationList;
+
+/*
+ * The reference of scan information.
+ */
+REFERENCE ScanInformation;
+
+/*
  * Radio Access Technology.
  */
 ENUM Rat
@@ -89,6 +104,51 @@ ENUM Rat
     RAT_TD_SCDMA, // Time Division-Synchronous Code Division Multiple Access.
     RAT_IWLAN,    // Industrial Wireless Local Area Networks;
     RAT_LTE_CA,   // Long Term Evolution Carrier Aggregation.
+};
+
+/*
+ * Network reject cause.
+ */
+ENUM NetRejCause
+{
+    NET_REJ_CAUSE_UNDEFINED = -1,                    // Undefined.
+    NET_REJ_CAUSE_GENERAL,                           // General.
+    NET_REJ_CAUSE_AUTH_FAILURE,                      // Authentication Failure.
+    NET_REJ_CAUSE_IMSI_UNKNOWN,                      // IMSI unknown in HLR.
+    NET_REJ_CAUSE_ILLEGAL_MS,                        // Illegal Mobile Station (MS), network refuses service to the MS either because an identity of the MS is not acceptable to the network or because the MS does not pass the authentication check.
+    NET_REJ_CAUSE_IMSI_UNKNOWN_VLR,                  // IMSI unknown in Visitors Location Register (VLR).
+    NET_REJ_CAUSE_IMEI_NOT_ACCEPTED,                 // Network does not accept emergency call establishment using an IMEI or not accept attach procedure for emergency services using an IMEI.
+    NET_REJ_CAUSE_ILLEGAL_ME,                        // ME used is not acceptable to the network.
+    NET_REJ_CAUSE_GPRS_SERVICES_NOT_ALLOWED,         // Not allowed to operate GPRS services.
+    NET_REJ_CAUSE_GPRS_NON_GPRS_NOT_ALLOWED,         // Not allowed to operate either GPRS or non-GPRS services.
+    NET_REJ_CAUSE_MS_IDENTITY_FAILED,                // The network cannot derive the MS's identity from the P-TMSI/GUTI.
+    NET_REJ_CAUSE_IMPLICITLY_DETACHED,               // Network has implicitly detached the MS.
+    NET_REJ_CAUSE_PLMN_NOT_ALLOWED,                  // If the network initiates a detach request or UE requests a services, in a PLMN where the MS, by subscription or due to operator determined barring is not allowed to operate.
+    NET_REJ_CAUSE_LOCATION_AREA_NOT_ALLOWED,         // Network initiates a detach request, in a location area where the HPLMN determines that the MS, by subscription, is not allowed to operate  or roaming subscriber the subscriber is denied service even if other PLMNs are available on which registration was possible.
+    NET_REJ_CAUSE_ROAMING_NOT_ALLOWED,               // Roaming not allowed in this Location Area.
+    NET_REJ_CAUSE_GPRS_NOT_ALLOWED_IN_PLMN,          // GPRS services not allowed in this PLMN.
+    NET_REJ_CAUSE_NO_SUITABLE_CELLS,                 // No Suitable Cells in this Location Area.
+    NET_REJ_CAUSE_MSC_TEMPORARILY_NOT_REACHABLE,     // MSC temporarily not reachable.
+    NET_REJ_CAUSE_NETWORK_FAILURE,                   // Network Failure.
+    NET_REJ_CAUSE_MAC_FAILURE = 20,                  // MAC failure.
+    NET_REJ_CAUSE_SYNC_FAILURE,                      // USIM detects that the SQN in the AUTHENTICATION REQUEST or AUTHENTICATION_AND_CIPHERING REQUEST message is out of range.
+    NET_REJ_CAUSE_CONGESTION,                        // Network cannot serve a request from the MS because of congestion.
+    NET_REJ_CAUSE_GSM_AUTHENTICATION_UNACCEPTABLE,   // GSM Authentication unacceptable.
+    NET_REJ_CAUSE_NOT_AUTHORIZED = 25,               // Not Authorized for this CSG.
+    NET_REJ_CAUSE_SMS_PROVIDED_VIA_GPRS = 28,        // SMS provided via GPRS in this routing area.
+    NET_REJ_CAUSE_SERVICE_OPTION_NOT_SUPPORTED = 32, // Service option not supported.
+    NET_REJ_CAUSE_SERVICE_OPTION_NOT_SUBCRIBED,      // Requested service option not subscribed.
+    NET_REJ_CAUSE_SERVICE_OPTION_OUT_OF_ORDER,       // Service option temporarily out of order.
+    NET_REJ_CAUSE_CALL_NOT_IDENTIFIED = 38,          // Call cannot be identified.
+    NET_REJ_CAUSE_NO_PDP_CONTEXT_ACTIVATED = 40,     // No PDP context activated.
+    NET_REJ_CAUSE_RETRY_FOR_NEW_CELL = 48,           // Retry upon entry into a new cell.
+    NET_REJ_CAUSE_INCORRECT_MESSAGE = 95,            // Semantically incorrect message.
+    NET_REJ_CAUSE_INVALID_INFO,                      // Invalid mandatory information.
+    NET_REJ_CAUSE_MSG_TYPE_NOT_IMPLEMENTED,          // Message type non-existent or not implemented.
+    NET_REJ_CAUSE_MSG_NOT_COMPATIBLE,                // Message not compatible with protocol state.
+    NET_REJ_CAUSE_INFO_NOT_IMPLEMENTED,              // Information element non-existent or not implemented.
+    NET_REJ_CAUSE_CONDITIONAL_IE_ERROR,              // Conditional IE error.
+    NET_REJ_CAUSE_PROTOCOL_ERROR_UNSPECIFIED = 111   // Protocol error, unspecified.
 };
 
 /*
@@ -164,6 +224,46 @@ BITMASK RatPrefMask
 };
 
 /*
+ * Cell RAT bit mask.
+ */
+BITMASK CellRatMask
+{
+    CELL_RAT_MASK_GSM,     // GSM bit mask.
+    CELL_RAT_MASK_CDMA,    // CDMA bit mask.
+    CELL_RAT_MASK_LTE,     // LTE bit mask.
+    CELL_RAT_MASK_WCDMA,   // WCDMA bit mask.
+    CELL_RAT_MASK_TDSCDMA, // TDSCDMA bit mask.
+    CELL_RAT_MASK_UNKNOWN  // UNKNOWN bit mask.
+};
+
+/*
+ * Network rejection indication.
+ */
+STRUCT NetRegRejInd
+{
+    NetRejCause cause; // Network reject cause.
+    uint8 phoneId;     // The phone id.
+};
+
+/*
+ * RAT(Radio Access Technology) change indication.
+ */
+STRUCT RatChangeInd
+{
+    Rat rat;       // RAT.
+    uint8 phoneId; // The phone id.
+};
+
+/*
+ * Network registration state indication.
+ */
+STRUCT NetRegStateInd
+{
+    NetRegState state;   // Network registration state.
+    uint8 phoneId;       // The phone id.
+};
+
+/*
  * Set the radio power.
  */
 FUNCTION le_result_t SetRadioPower
@@ -200,6 +300,25 @@ FUNCTION le_result_t SetManualRegisterMode
 );
 
 /*
+ * Handler for manual selection.
+ */
+HANDLER ManualSelectionHandler
+(
+    le_result_t result IN // Result of the manual selection.
+);
+
+/*
+ * Set radio manual register mode asynchronously.
+ */
+FUNCTION SetManualRegisterModeAsync
+(
+    string mcc[MCC_LEN] IN,         // The mobile country code.
+    string mnc[MNC_MAX_LEN] IN,     // The mobile network code.
+    ManualSelectionHandler handler, // Handler for manual selection.
+    uint8 phoneId IN                // The phone id.
+);
+
+/*
  * Get the radio register mode.
  */
 FUNCTION le_result_t GetRegisterMode
@@ -208,6 +327,13 @@ FUNCTION le_result_t GetRegisterMode
     string mccPtr[MCC_LEN] OUT,     // The mobile country code.
     string mncPtr[MNC_MAX_LEN] OUT, // The mobile network code.
     uint8 phoneId IN                // The phone id.
+);
+
+/*
+ * Get the radio registration error code.
+ */
+FUNCTION int32 GetPlatformSpecificRegistrationErrorCode
+(
 );
 
 /*
@@ -328,9 +454,336 @@ FUNCTION le_result_t GetSignalQual
     uint8 phoneId IN    // The phone id.
 );
 
+/*
+ * Handler for network registration rejection.
+ */
+HANDLER NetRegRejectHandler
+(
+    NetRegRejInd rejInd IN // The reject indication.
+);
+
+/*
+ * Event to report network registration rejection.
+ */
+EVENT NetRegReject
+(
+    NetRegRejectHandler handler // Handler for network registration rejection.
+);
+
+/*
+ * Handler for RAT change.
+ */
+HANDLER RatChangeHandler
+(
+    RatChangeInd ratChangeInd IN // Indication for RAT change.
+);
+
+/*
+ * Event to report RAT change.
+ */
+EVENT RatChange
+(
+    RatChangeHandler handler // Handler for RAT change.
+);
+
+/*
+ * Handler for network registration state.
+ */
+HANDLER NetRegStateHandler
+(
+    NetRegStateInd stateInd IN // Indication for network registration state.
+);
+
+/*
+ * Event to report network registration state.
+ */
+EVENT NetRegStateEvent
+(
+    NetRegStateHandler handler // Handler for network registration state.
+);
+
+/*
+ * Handler for service domain state.
+ */
+HANDLER PacketSwitchedChangeHandler
+(
+    ServiceDomainState state IN // The service domain state.
+);
+
+/*
+ * Event to report service domain state.
+ */
+EVENT PacketSwitchedChange
+(
+    PacketSwitchedChangeHandler packetHandler // Handler for service domain state.
+);
+
+/*
+ * Get signal metrics with a phone id, each phone have only 1 metrics.
+ */
+FUNCTION Metrics MeasureSignalMetrics
+(
+    uint8 phoneId IN // The phone id.
+);
+
+/*
+ * Delete a signal metrics.
+ */
+FUNCTION le_result_t DeleteSignalMetrics
+(
+    Metrics MetricsRef IN // The reference of a signal metrics.
+);
+
+/*
+ * Get Cell RAT bitmask with a signal metrics reference
+ */
+FUNCTION CellRatMask GetRatOfSignalMetrics
+(
+    Metrics MetricsRef IN // The reference of a signal metrics.
+);
+
+/*
+ * Get GSM signal metrics with a signal metrics reference
+ */
+FUNCTION le_result_t GetGsmSignalMetrics
+(
+    Metrics MetricsRef IN, // The reference of a signal metrics.
+    int32 rssi OUT,        // The signal strength.
+    uint32 ber OUT         // The bit error rate.
+);
+
+/*
+ * Get UMTS signal metrics with a signal metrics reference
+ */
+FUNCTION le_result_t GetUmtsSignalMetrics
+(
+    Metrics MetricsRef IN, // The reference of a signal metrics.
+    int32 ss OUT,          // The signal strength, only applicatable for WCDMA.
+    uint32 ber OUT,        // The bit error rate, only applicatable for WCDMA.
+    int32 rscp OUT         // The reference signal code power in dBm, only applicatable for TD-SCDMA.
+);
+
+/*
+ * Get LTE signal metrics with a signal metrics reference
+ */
+FUNCTION le_result_t GetLteSignalMetrics
+(
+    Metrics MetricsRef IN, // The reference of a signal metrics.
+    int32 ss OUT,          // The signal strength.
+    int32 rsrq OUT,        // The reference signal receive quality in dB.
+    int32 rsrp OUT,        // The reference signal receive power in dBm.
+    int32 snr OUT          // The signal-to-noise ratio in dB.
+);
+
+/*
+ * Get CDMA signal metrics with a signal metrics reference
+ */
+FUNCTION le_result_t GetCdmaSignalMetrics
+(
+    Metrics MetricsRef IN, // The reference of a signal metrics.
+    int32 ss OUT,          // The signal strength in dBm.
+    int32 ecio OUT,        // The CDMA Ec/Io in dB.
+    int32 snr OUT,         // The signal-to-noise ratio in dB.
+    int32 io OUT           // The EVDO Ec/Io in dB.
+);
+
+/*
+ * Handler for signal strength change.
+ */
+HANDLER SignalStrengthChangeHandler
+(
+    int32 ss IN // The signal strength.
+);
+
+/*
+ * Event to report signal strength change.
+ */
+EVENT SignalStrengthChange
+(
+    CellRatMask ratMask IN,             // Cell RAT mask.
+    SignalStrengthChangeHandler handler // Handler for signal strength change.
+);
+
+/*
+ * Get the cell identity.
+ */
+FUNCTION uint32 GetServingCellId
+(
+    uint8 phoneId IN // The phone id.
+);
+
+/*
+ * Get the location area code.
+ */
+FUNCTION uint32 GetServingCellLocAreaCode
+(
+    uint8 phoneId IN // The phone id.
+);
+
+/*
+ * Get the tracking area code.
+ */
+FUNCTION uint16 GetServingCellLteTracAreaCode
+(
+    uint8 phoneId IN // The phone id.
+);
+
+/*
+ * Get the tracking area code.
+ */
+FUNCTION uint32 GetServingCellEarfcn
+(
+    uint8 phoneId IN // The phone id.
+);
+
+/*
+ * Get the timing advance.
+ */
+FUNCTION uint32 GetServingCellTimingAdvance
+(
+    uint8 phoneId IN // The phone id.
+);
+
+/*
+ * Get the physical cell identifier.
+ */
+FUNCTION uint16 GetPhysicalServingLteCellId
+(
+    uint8 phoneId IN // The phone id.
+);
+
+/*
+ * Get the base station identity code.
+ */
+FUNCTION le_result_t GetServingCellGsmBsic
+(
+    uint8 bsic OUT,  // The base station identity code.
+    uint8 phoneId IN // The phone id.
+);
+
+/*
+ * Get the primary scrambling code.
+ */
+FUNCTION uint16 GetServingCellScramblingCode
+(
+    uint8 phoneId IN // The phone id.
+);
+
+/*
+ * Get the current network name.
+ */
 FUNCTION le_result_t GetCurrentNetworkName
 (
     string nameStr[NETWORK_NAME_MAX_LEN] OUT, // Home network name.
     uint8 phoneId IN                          // The phone id.
 );
 
+/*
+ * Get the current mobile country code and mobile network code.
+ */
+FUNCTION le_result_t GetCurrentNetworkMccMnc
+(
+    string mccStr[MCC_LEN] OUT,     // Mobile country code.
+    string mncStr[MNC_MAX_LEN] OUT, // Mobile network code.
+    uint8 phoneId IN                // The phone id.
+);
+
+/*
+ * Perform celluar network scan.
+ */
+FUNCTION ScanInformationList PerformCellularNetworkScan
+(
+    uint8 phoneId IN // The phone id.
+);
+
+/*
+ * Handler for network scan.
+ */
+HANDLER CellularNetworkScanHandler
+(
+    ScanInformationList listRef IN // The scan information list reference.
+);
+
+/*
+ * Perform celluar network scan asynchronously.
+ */
+FUNCTION PerformCellularNetworkScanAsync
+(
+    CellularNetworkScanHandler handler, // Handler for network scan.
+    uint8 phoneId IN                    // The phone id.
+);
+
+/*
+ * Get the reference of the first operator with a list reference.
+ */
+FUNCTION ScanInformation GetFirstCellularNetworkScan
+(
+    ScanInformationList scanInformationListRef IN // The scan information list reference.
+);
+
+/*
+ * Get the reference of the next operator with a list reference.
+ */
+FUNCTION ScanInformation GetNextCellularNetworkScan
+(
+    ScanInformationList scanInformationListRef IN // The scan information list reference.
+);
+
+/*
+ * Delete the scan operator list.
+ */
+FUNCTION le_result_t DeleteCellularNetworkScan
+(
+    ScanInformationList scanInformationListRef IN // The scan information list reference.
+);
+
+/*
+ * Get MCC and MNC of network with a scan information reference.
+ */
+FUNCTION le_result_t GetCellularNetworkMccMnc
+(
+    ScanInformation scanInformationRef IN, // The scan information reference.
+    string mccPtr[MCC_LEN] OUT,            // The mobile country code.
+    string mncPtr[MNC_MAX_LEN] OUT         // The mobile network code.
+);
+
+/*
+ * Get the network name with a scan information reference.
+ */
+FUNCTION le_result_t GetCellularNetworkName
+(
+    ScanInformation scanInformationRef IN,   // The scan information reference.
+    string namePtr[NETWORK_NAME_MAX_LEN] OUT // The network name.
+);
+
+/*
+ * Check if the network is in use.
+ */
+FUNCTION bool IsCellularNetworkInUse
+(
+    ScanInformation scanInformationRef IN // The scan information reference.
+);
+
+/*
+ * Check if the network is available.
+ */
+FUNCTION bool IsCellularNetworkAvailable
+(
+    ScanInformation scanInformationRef IN // The scan information reference.
+);
+
+/*
+ * Check if the network is home mode.
+ */
+FUNCTION bool IsCellularNetworkHome
+(
+    ScanInformation scanInformationRef IN // The scan information reference.
+);
+
+/*
+ * Check if the network is forbidden.
+ */
+FUNCTION bool IsCellularNetworkForbidden
+(
+    ScanInformation scanInformationRef IN // The scan information reference.
+);

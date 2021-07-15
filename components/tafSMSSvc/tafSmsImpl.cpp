@@ -487,7 +487,6 @@ le_result_t taf_Sms::sendMessage()
 {
    taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(MsgRefMap, sendingMsgRef);
 
-   smsSentCb = std::make_shared<tafSmsCallback>();
    smsSentCb->msgRef = sendingMsgRef;
    auto smsManager = smsManagers[msgPtr->phoneId - 1];
    smsManager->sendSms(std::string(msgPtr->text), std::string(msgPtr->tel), smsSentCb);
@@ -544,6 +543,8 @@ void taf_Sms::Init(void)
    SessionList = LE_DLS_LIST_INIT;
 
    SmsSendSem = le_sem_Create("SmsSendSem", 1);
+   SmscGetSem = le_sem_Create("SmscGetSem", 0);
+   SmscSetSem = le_sem_Create("SmscSetSem", 0);
 
    // Handle telsdk call events
    NewMsgEvent = le_event_CreateId("tafSms Event", sizeof(newSms_t));
@@ -577,8 +578,8 @@ void taf_Sms::Init(void)
       }
    }
 
-   smsSentCb = std::shared_ptr<tafSmsCallback>();
-   smsDeliveryCb = std::shared_ptr<tafSmsDeliveryCallback>();
+   smsSentCb = std::make_shared<tafSmsCallback>();
+   getSmscCb = std::make_shared<tafSmscAddressCallback>();
 
    LE_INFO("System ready, start tafSms service!\n");
 }
@@ -644,20 +645,29 @@ void tafSmsDeliveryCallback::commandResponse(telux::common::ErrorCode error) {
 // Implementation of SMSC Address callback
 void tafSmscAddressCallback::smscAddressResponse(const std::string &address,
                                                 telux::common::ErrorCode error) {
+   auto &sms = taf_Sms::GetInstance();
+
    if(error == telux::common::ErrorCode::SUCCESS) {
       LE_INFO("requestSmscAddress smscAddressResponse:%s\n", address.c_str());
+      le_utf8_Copy(sms.smscAddr, address.c_str(), TAF_SMS_SMSC_ADDR_BYTES - 1, NULL);
    }
    else {
       LE_INFO("requestSmscAddress failed, errorCode: %d\n", static_cast<int>(error));
    }
+
+   le_sem_Post(sms.SmscGetSem);
 }
 
 // Implementation of set SMSC Address callback
 void tafSetSmscAddressResponseCallback::setSmscResponse(telux::common::ErrorCode error) {
+   auto &sms = taf_Sms::GetInstance();
+
    if(error == telux::common::ErrorCode::SUCCESS) {
       LE_INFO("setSmscAddress sent successfully\n");
    }
    else {
       LE_INFO("setSmscAddress failed with errorCode: %d\n", static_cast<int>(error));
    }
+
+   le_sem_Post(sms.SmscSetSem);
 }

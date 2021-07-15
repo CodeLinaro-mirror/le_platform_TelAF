@@ -29,6 +29,7 @@
 
 USETYPES taf_types.api;
 
+DEFINE  SMSC_ADDR_BYTES = (25);
 DEFINE  TIMESTAMP_LEN   = (20);
 DEFINE  TIMESTAMP_BYTES = (TIMESTAMP_LEN+1);
 DEFINE  TEXT_LEN    = (160);
@@ -349,4 +350,30 @@ FUNCTION MarkReadStatus_Read
 FUNCTION MarkReadStatus_Unread
 (
     Msg msgRef ///< Messages list.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get SMS center address
+ * @return the le_result of getting SMS center address
+ */
+//--------------------------------------------------------------------------------------------------
+
+FUNCTION le_result_t GetSmsCenterAddr
+(
+    int8    phoneId,
+    string  addr[taf_types.REMOTE_PARTY_NUM_MAX_BYTES] OUT
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set SMS center address
+ * @return the le_result of setting SMS center address
+ */
+//--------------------------------------------------------------------------------------------------
+
+FUNCTION le_result_t SetSmsCenterAddr
+(
+    int8    phoneId,
+    string  addr[taf_types.REMOTE_PARTY_NUM_MAX_BYTES] IN
 );

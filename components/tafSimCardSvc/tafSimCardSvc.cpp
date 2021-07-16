@@ -273,3 +273,56 @@ le_result_t taf_sim_GetAutomaticSelection( bool* enablePtr) {
     return sim.GetAutomaticSelection(enablePtr);
 }
 
+le_result_t taf_sim_OpenLogicalChannel( taf_sim_Id_t slotId,
+                taf_sim_AppType_t appType, uint8_t* channel) {
+    TAF_ERROR_IF_RET_VAL(channel == NULL, LE_BAD_PARAMETER, "channelPtr is NULL");
+    auto &sim = taf_sim::GetInstance();
+    return sim.OpenLogicalChannel(slotId, appType, channel);
+}
+
+le_result_t taf_sim_CloseLogicalChannel( taf_sim_Id_t simId, uint8_t channel) {
+    auto &sim = taf_sim::GetInstance();
+    return sim.CloseLogicalChannel(simId, channel);
+}
+
+le_result_t taf_sim_SendApduOnChannel
+(
+    taf_sim_Id_t simId,
+    uint8_t channel,
+    const uint8_t* commandApduPtr,
+    size_t commandApduNumElements,
+    uint8_t* responseApduPtr,
+    size_t* responseApduNumElementsPtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(commandApduPtr == NULL, LE_BAD_PARAMETER, "commandApduPtr is NULL");
+    TAF_ERROR_IF_RET_VAL(responseApduPtr == NULL, LE_BAD_PARAMETER, "responseApduPtr is NULL");
+    TAF_ERROR_IF_RET_VAL(responseApduNumElementsPtr == NULL, LE_BAD_PARAMETER, "responseApduNumElementsPtr is NULL");
+    TAF_ERROR_IF_RET_VAL(commandApduNumElements > TAF_SIM_APDU_MAX_BYTES, LE_BAD_PARAMETER, "Too many elements ");
+    TAF_ERROR_IF_RET_VAL(*responseApduNumElementsPtr > TAF_SIM_RESPONSE_MAX_BYTES, LE_BAD_PARAMETER, "Too many elements ");
+
+    auto &sim = taf_sim::GetInstance();
+    return sim.SendApduOnChannel(simId, channel, commandApduPtr,
+             commandApduNumElements, responseApduPtr, responseApduNumElementsPtr);
+
+}
+
+le_result_t taf_sim_SendApdu
+(
+    taf_sim_Id_t simId,
+    const uint8_t* commandApduPtr,
+    size_t commandApduNumElements,
+    uint8_t* responseApduPtr,
+    size_t* responseApduNumElementsPtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(commandApduPtr == NULL, LE_BAD_PARAMETER, "commandApduPtr is NULL");
+    TAF_ERROR_IF_RET_VAL(responseApduPtr == NULL, LE_BAD_PARAMETER, "responseApduPtr is NULL");
+    TAF_ERROR_IF_RET_VAL(responseApduNumElementsPtr == NULL, LE_BAD_PARAMETER, "responseApduNumElementsPtr is NULL");
+    TAF_ERROR_IF_RET_VAL(commandApduNumElements > TAF_SIM_APDU_MAX_BYTES, LE_BAD_PARAMETER, "Too many elements ");
+    TAF_ERROR_IF_RET_VAL(*responseApduNumElementsPtr > TAF_SIM_RESPONSE_MAX_BYTES, LE_BAD_PARAMETER, "Too many elements ");
+
+    auto &sim = taf_sim::GetInstance();
+    return sim.SendApdu(simId, commandApduPtr, commandApduNumElements, responseApduPtr, responseApduNumElementsPtr);
+
+}

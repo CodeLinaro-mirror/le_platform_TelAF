@@ -33,8 +33,11 @@
 #include "telux/common/CommonDefines.hpp"
 #include "tafSvcIF.hpp"
 
+#define DEFAULT_TIMEOUT_IN_SECONDS 5
+
 using namespace telux::tel;
 using namespace telux::common;
+using namespace std;
 
 namespace telux {
     namespace tafsvc {
@@ -65,6 +68,12 @@ namespace telux {
         }
         sim_response_event_t;
 
+        enum class CardEvent {
+            OPEN_LOGICAL_CHANNEL = 1,  /**<  Open Logical channel */
+            CLOSE_LOGICAL_CHANNEL = 2, /**<  Close Logical channel*/
+            TRANSMIT_APDU_CHANNEL = 3, /**<  Transmit of APDU on channel*/
+        };
+
         class tafCardListener : public telux::tel::ICardListener {
             public:
                 void onCardInfoChanged(int slotId) override;
@@ -73,6 +82,21 @@ namespace telux {
         class tafSubscriptionListener : public telux::tel::ISubscriptionListener {
             public:
                 void onSubscriptionInfoChanged(std::shared_ptr<telux::tel::ISubscription> subscription) override;
+        };
+
+        class tafOpenLogicalChannelCallback : public ICardChannelCallback {
+            public:
+                void onChannelResponse(int channel, IccResult result, ErrorCode error) override;
+        };
+
+        class tafCloseLogicalChannelCallback : public ICommandResponseCallback {
+            public:
+                void commandResponse(ErrorCode error) override;
+        };
+
+        class tafTransmitApduResponseCallback : public ICardCommandCallback {
+            public:
+                void onResponse(IccResult result, ErrorCode error) override;
         };
 
         class tafAuthenticationResponseCallback {
@@ -98,6 +122,13 @@ namespace telux {
                 std::shared_ptr<telux::tel::ISubscriptionListener> subscriptionListener;
 
                 int slot = DEFAULT_SLOT_ID;
+                std::condition_variable eventCV;
+                CardEvent cardEventExpected;
+                std::mutex eventMutex;
+                ErrorCode errorCode;
+                uint8_t openChannel = 0;
+                IccResult apduResponse;
+
                 le_event_Id_t NewStateEventId;
                 le_event_Id_t ResponseEventId;
                 bool EnableAutoSelection = false;
@@ -138,6 +169,15 @@ namespace telux {
                 le_result_t GetEID( taf_sim_Id_t slotId, char* eidPtr, size_t eidLen);
                 le_result_t SetAutomaticSelection( bool enable);
                 le_result_t GetAutomaticSelection( bool* enablePtr);
+                bool waitForCardEvent(CardEvent cardEvent, int timeout = DEFAULT_TIMEOUT_IN_SECONDS);
+                le_result_t OpenLogicalChannel(taf_sim_Id_t slotId, taf_sim_AppType_t appType, uint8_t* channelPtr);
+                le_result_t CloseLogicalChannel( taf_sim_Id_t simId, uint8_t channel);
+                le_result_t SendApduOnChannel( taf_sim_Id_t simId, uint8_t channel,
+                        const uint8_t* commandApduPtr, size_t commandApduNumElements,
+                        uint8_t* responseApduPtr,size_t* responseApduNumElementsPtr);
+                le_result_t SendApdu( taf_sim_Id_t simId,const uint8_t* commandApduPtr, size_t commandApduNumElements,
+                        uint8_t* responseApduPtr,size_t* responseApduNumElementsPtr);
+
         };
     }
 }

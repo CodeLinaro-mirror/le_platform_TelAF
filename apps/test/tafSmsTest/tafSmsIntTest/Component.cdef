@@ -1,0 +1,17 @@
+sources:
+{
+    tafSmsIntTest.c
+}
+
+requires:
+{
+    api:
+    {
+        taf_sms.api
+    }
+}
+
+cxxflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+}

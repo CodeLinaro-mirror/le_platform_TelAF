@@ -173,6 +173,18 @@ FUNCTION SendStatus GetSendStatus
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Get read status of message
+ * @return the read status of message
+ */
+//--------------------------------------------------------------------------------------------------
+
+FUNCTION ReadStatus GetReadStatus
+(
+    Msg msgRef
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Create new message for sending
  * @return the created message
  */
@@ -231,7 +243,7 @@ FUNCTION le_result_t SetCallback
 FUNCTION le_result_t SetPhoneId
 (
     Msg     msgRef,
-    int8    phoneId
+    uint8    phoneId
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -319,4 +331,22 @@ FUNCTION le_result_t DeleteFromStorage
     Msg msgRef
 );
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Mark message status as 'read'
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION MarkReadStatus_Read
+(
+    Msg msgRef ///< Messages list.
+);
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Mark message status as 'unread'
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION MarkReadStatus_Unread
+(
+    Msg msgRef ///< Messages list.
+);

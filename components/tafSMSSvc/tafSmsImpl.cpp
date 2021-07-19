@@ -73,7 +73,7 @@ void taf_Handler::ProcessNewMessage(void* incomingMsgPtr)
    newSms_t *newMsgPtr = (newSms_t*) incomingMsgPtr;
    taf_sms_Msg_t *tafNewMsg = (taf_sms_Msg_t*)le_mem_ForceAlloc(sms.MsgPool);
 
-   le_utf8_Copy(tafNewMsg->tel, newMsgPtr->tel, DESTINATION_LEN, NULL);
+   le_utf8_Copy(tafNewMsg->tel, newMsgPtr->tel, TAF_TYPES_REMOTE_PARTY_NUM_MAX_BYTES, NULL);
    le_utf8_Copy(tafNewMsg->text, newMsgPtr->text, TAF_SMS_TEXT_BYTES, NULL);
 
    size_t length = strnlen(tafNewMsg->text, TAF_SMS_TEXT_BYTES);
@@ -610,9 +610,12 @@ void tafSmsCallback::commandResponse(telux::common::ErrorCode error) {
 
    auto &sms = taf_Sms::GetInstance();
 
+   taf_sms_MsgRef_t tmpMsgRef = msgRef;
+   le_sem_Post(sms.SmsSendSem);
+
    LE_INFO("onSmsSent error = %d\n", (int)error);
 
-   taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(sms.MsgRefMap, msgRef);
+   taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(sms.MsgRefMap, tmpMsgRef);
 
    TAF_ERROR_IF_RET_NIL(msgPtr == nullptr, "msgPtr is nullptr!");
 
@@ -625,7 +628,7 @@ void tafSmsCallback::commandResponse(telux::common::ErrorCode error) {
       msgPtr->sendStatus = TAF_SMS_SENDING_FAILED;
    }
 
-   le_event_Report(sms.MsgSendCallbackEvent, &msgRef, sizeof(taf_sms_MsgRef_t));
+   le_event_Report(sms.MsgSendCallbackEvent, &tmpMsgRef, sizeof(taf_sms_MsgRef_t));
 }
 
 void tafSmsDeliveryCallback::commandResponse(telux::common::ErrorCode error) {

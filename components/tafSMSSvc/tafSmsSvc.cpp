@@ -311,13 +311,13 @@ le_result_t taf_sms_SetDestination
 
    TAF_KILL_CLIENT_IF_RET_VAL(msgPtr == NULL, LE_NOT_FOUND, "Invalid msgPtr provided");
 
-   size_t length = strnlen(destPtr, DESTINATION_LEN);
+   size_t length = strnlen(destPtr, TAF_TYPES_REMOTE_PARTY_NUM_MAX_BYTES);
 
-   TAF_KILL_CLIENT_IF_RET_VAL(length > (DESTINATION_LEN-1), LE_FAULT, "strlen(dest) > %d", (DESTINATION_LEN-1));
+   TAF_KILL_CLIENT_IF_RET_VAL(length > (TAF_TYPES_REMOTE_PARTY_NUM_MAX_BYTES-1), LE_FAULT, "strlen(dest) > %d", (TAF_TYPES_REMOTE_PARTY_NUM_MAX_BYTES-1));
 
    TAF_ERROR_IF_RET_VAL(length == 0, LE_BAD_PARAMETER, "Input string length = 0");
 
-   le_utf8_Copy(msgPtr->tel, destPtr, DESTINATION_LEN, NULL);
+   le_utf8_Copy(msgPtr->tel, destPtr, TAF_TYPES_REMOTE_PARTY_NUM_MAX_BYTES, NULL);
 
    return LE_OK;
 }
@@ -380,6 +380,7 @@ DEPENDENCIES   Create new message
 
 PARAMETERS     [IN] taf_sms_MsgListRef_t msgRef: specific message
                [IN] taf_sms_CallbackResultFunc_t handlerPtr: handler function
+               [IN] void* contextPtr: context pointer
 
 RETURN VALUE   le_result_t
                   LE_NOT_FOUND: Invalid message
@@ -393,7 +394,8 @@ SIDE EFFECTS
 le_result_t taf_sms_SetCallback
 (
    taf_sms_MsgRef_t              msgRef,
-   taf_sms_CallbackResultFunc_t  handlerPtr
+   taf_sms_CallbackResultFunc_t  handlerPtr,
+   void* contextPtr
 )
 {
    auto &mySms = taf_Sms::GetInstance();
@@ -405,6 +407,8 @@ le_result_t taf_sms_SetCallback
    TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, LE_BAD_PARAMETER, "Invalid handlerPtr");
 
    msgPtr->callBackPtr = (void*)handlerPtr;
+
+   msgPtr->ctxPtr = (void*)contextPtr;
 
    LE_DEBUG("Assign handler %p", handlerPtr);
 
@@ -420,7 +424,7 @@ DESCRIPTION    Set phone ID function for message
 DEPENDENCIES   Create new message
 
 PARAMETERS     [IN] taf_sms_MsgListRef_t msgRef: specific message
-               [IN] int phoneId: phone ID
+               [IN] uint8 phoneId: phone ID
 
 RETURN VALUE   le_result_t
                   LE_NOT_FOUND: Invalid message
@@ -433,7 +437,7 @@ SIDE EFFECTS
 le_result_t taf_sms_SetPhoneId
 (
    taf_sms_MsgRef_t  msgRef,
-   int               phoneId
+   uint8_t           phoneId
 )
 {
    auto &mySms = taf_Sms::GetInstance();
@@ -832,13 +836,12 @@ le_result_t taf_sms_Send
       msgPtr->phoneId = DEFAULT_SLOT_ID;
    }
 
-   le_sem_Wait(mySms.SmsSendSem);
+   le_clk_Time_t timeToWait = {TIMEOUT_SEND_SEMAPHORE, 0};
+   result = le_sem_WaitWithTimeOut(mySms.SmsSendSem, timeToWait);
 
    msgPtr->sendStatus = TAF_SMS_SENDING;
    mySms.sendingMsgRef = msgRef;
    mySms.sendMessage();
-
-   le_sem_Post(mySms.SmsSendSem);
 
    return result;
 }
@@ -875,6 +878,66 @@ le_result_t taf_sms_DeleteFromStorage
    LE_INFO("taf_sms_DeleteFromStorage is not implemented\n");
 
    return LE_OK;
+}
+
+/*======================================================================
+
+FUNCTION       MarkReadStatus_Read
+
+DESCRIPTION    Mark message status as 'read'
+
+DEPENDENCIES   Get RX message
+
+PARAMETERS     [IN] taf_sms_MsgRef_t msgRef: specific message
+
+RETURN VALUE   None
+
+SIDE EFFECTS   None
+
+======================================================================*/
+
+void MarkReadStatus_Read
+(
+    taf_sms_MsgRef_t msgRef
+)
+{
+   auto &mySms = taf_Sms::GetInstance();
+
+   taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(mySms.MsgRefMap, msgRef);
+
+   TAF_KILL_CLIENT_IF_RET_NIL(msgPtr == NULL, "Invalid msgPtr provided");
+
+   msgPtr->readStatus = TAF_SMS_READ;
+}
+
+/*======================================================================
+
+FUNCTION       MarkReadStatus_Unread
+
+DESCRIPTION    Mark message status as 'unread'
+
+DEPENDENCIES   Get RX message
+
+PARAMETERS     [IN] taf_sms_MsgRef_t msgRef: specific message
+
+RETURN VALUE   None
+
+SIDE EFFECTS   None
+
+======================================================================*/
+
+void MarkReadStatus_Unread
+(
+    taf_sms_MsgRef_t msgRef
+)
+{
+   auto &mySms = taf_Sms::GetInstance();
+
+   taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(mySms.MsgRefMap, msgRef);
+
+   TAF_KILL_CLIENT_IF_RET_NIL(msgPtr == NULL, "Invalid msgPtr provided");
+
+   msgPtr->readStatus = TAF_SMS_UNREAD;
 }
 
 /*======================================================================

@@ -1,0 +1,50 @@
+provides:
+{
+    api:
+    {
+        taf_dcs.api
+    }
+}
+
+requires:
+{
+    component:
+    {
+        $LEGATO_ROOT/components/watchdogChain
+    }
+
+    api:
+    {
+    }
+
+    lib:
+    {
+        lib/libtelux_tel.so
+        lib/libtelux_data.so
+    }
+
+}
+
+cxxflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+    -I$TELAF_ROOT/include
+    -ltelux_tel
+    -ltelux_data
+}
+
+cflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+    -I$TELAF_ROOT/include
+    -ltelux_tel
+    -ltelux_data
+}
+
+sources:
+{
+    tafDcsSvr.cpp
+    tafDcsConnectionImpl.cpp
+    tafDcsProfileImpl.cpp
+}
+

@@ -1,0 +1,33 @@
+sandboxed: false
+
+executables:
+{
+    tafDataCallSvc = ( $TELAF_ROOT/components/tafDataCallSvc )
+}
+
+start: auto
+
+processes:
+{
+    run:
+    {
+        (tafDataCallSvc)
+    }
+
+    faultAction: restart
+
+    #if ${LE_CONFIG_SERVICES_WATCHDOG} = y
+        maxWatchdogTimeout: 100000
+    #else
+        watchdogTimeout: never
+    #endif
+}
+
+bindings:
+{
+}
+
+extern:
+{
+    tafDataCallSvc.tafDataCallSvc.taf_dcs
+}

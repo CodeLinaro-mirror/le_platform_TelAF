@@ -121,9 +121,21 @@ void tafCallListener::onCallInfoChange(std::shared_ptr<telux::tel::ICall> iCall)
         iCall->getCallIndex(), callStateToString(state), callDirectionToString(iCall->getCallDirection()),
         iCall->getRemotePartyNumber().c_str());
 
+    // skip dialing event because it is a temporary status, and always come before makeCallResponse
+    if (state == telux::tel::CallState::CALL_DIALING)
+    {
+        LE_INFO("skip dialing event");
+        return;
+    }
+
+    // To fix the corner case, iCall is released later when testing with telsdk app,
+    // callRef is used for the event report.
+    taf_VoiceCtrl_t* callCtxPtr = myCall.GetCallCtx(iCall);
+    TAF_ERROR_IF_RET_NIL(callCtxPtr == NULL, "cannot get call context for event[%s]",
+        callStateToString(state));
+    msgCallEvent.callRef = callCtxPtr->callRef;
     le_utf8_Copy(msgCallEvent.dest, iCall->getRemotePartyNumber().c_str(), MAX_DESTINATION_LEN, NULL);
     msgCallEvent.phoneId = iCall->getPhoneId();
-    msgCallEvent.iCall = iCall;
     msgCallEvent.event = stateToEvent(state);
     msgCallEvent.inComingCall = isIncomingCall;
 

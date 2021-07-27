@@ -942,6 +942,92 @@ void MarkReadStatus_Unread
 
 /*======================================================================
 
+FUNCTION       taf_sms_GetSmsCenterAddr
+
+DESCRIPTION    Get SMS center address
+
+DEPENDENCIES   Initialization of SMS service
+
+PARAMETERS     [IN]  int8_t   phoneId: phone ID
+               [OUT] char*    addr: to store SMS center address
+               [IN]  size_t   len: expected max address length
+
+RETURN VALUE   le_result_t
+                  LE_OVERFLOW: expected len is not enough
+                  LE_OK: Success
+
+SIDE EFFECTS
+
+======================================================================*/
+
+le_result_t taf_sms_GetSmsCenterAddr
+(
+   int8_t   phoneId,
+   char*    addr,
+   size_t   len
+)
+{
+   auto &mySms = taf_Sms::GetInstance();
+   auto smsManager = mySms.smsManagers[phoneId - 1];
+
+   auto ret = smsManager->requestSmscAddress(mySms.getSmscCb);
+
+   TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS
+                        , LE_FAULT, "Set SmscAddress request failed");
+
+   le_clk_Time_t timeToWait = {TIMEOUT_GET_SMSC_SEMAPHORE, 0};
+   le_result_t res = le_sem_WaitWithTimeOut(mySms.SmscGetSem, timeToWait);
+
+   TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "SmscGetSem semaphore timeout");
+
+   TAF_KILL_CLIENT_IF_RET_VAL(strlen(addr) > (len - 1), LE_OVERFLOW, "address length overflow");
+
+   TAF_KILL_CLIENT_IF_RET_VAL(len > TAF_SMS_SMSC_ADDR_BYTES - 1, LE_OVERFLOW, "len is greater than TAF_SMS_SMSC_ADDR_LEN");
+
+   le_utf8_Copy(addr, mySms.smscAddr, len, NULL);
+
+   LE_DEBUG("returned smsc address: %s", addr);
+
+   return LE_OK;
+}
+
+le_result_t taf_sms_SetSmsCenterAddr
+(
+   int8_t      phoneId,
+   const char* addr
+)
+{
+   auto &mySms = taf_Sms::GetInstance();
+   auto smsManager = mySms.smsManagers[phoneId - 1];
+
+   TAF_KILL_CLIENT_IF_RET_VAL(addr == NULL, LE_FAULT, "Invalid address provided");
+
+   TAF_KILL_CLIENT_IF_RET_VAL(strlen(addr) > TAF_SMS_SMSC_ADDR_BYTES,
+                              LE_FAULT,
+                              "Invalid address provided");
+
+   LE_DEBUG("set smsc address as %s", addr);
+
+   auto ret = smsManager->setSmscAddress(addr, tafSetSmscAddressResponseCallback::setSmscResponse);
+
+   le_clk_Time_t timeToWait = {TIMEOUT_SET_SMSC_SEMAPHORE, 0};
+   le_result_t res = le_sem_WaitWithTimeOut(mySms.SmscSetSem, timeToWait);
+
+   TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "SmscSetSem semaphore timeout");
+
+   if(ret == telux::common::Status::SUCCESS) {
+      LE_INFO("Set SmscAddress request success\n");
+      return LE_OK;
+   }
+   else {
+      LE_INFO("Set SmscAddress request failed\n");
+      return LE_FAULT;
+   }
+}
+
+
+/*======================================================================
+
 FUNCTION       COMPONENT_INIT
 
 DESCRIPTION    The initialization of SMS component

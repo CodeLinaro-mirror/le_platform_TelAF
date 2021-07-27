@@ -49,7 +49,9 @@ using namespace telux::common;
 
 #define MAX_SMS_SESSION 5
 
-#define TIMEOUT_SEND_SEMAPHORE 2
+#define TIMEOUT_SEND_SEMAPHORE     2
+#define TIMEOUT_GET_SMSC_SEMAPHORE 2
+#define TIMEOUT_SET_SMSC_SEMAPHORE 2
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -226,7 +228,10 @@ namespace tafsvc {
       le_event_Id_t MsgSendEvent;
       le_event_Id_t MsgSendCallbackEvent;
 
-      le_sem_Ref_t SmsSendSem;
+      le_sem_Ref_t SmsSendSem = nullptr;
+      le_sem_Ref_t SmscGetSem = nullptr;
+      le_sem_Ref_t SmscSetSem = nullptr;
+
       taf_sms_MsgRef_t sendingMsgRef;
 
       // objects used by telSdk interfaces
@@ -235,8 +240,11 @@ namespace tafsvc {
       std::shared_ptr<tafSmsCallback> smsSentCb;
       std::shared_ptr<tafSmsDeliveryCallback> smsDeliveryCb;
       std::shared_ptr<tafSmsListener> mySmsListener;
+      std::shared_ptr<tafSmscAddressCallback> getSmscCb;
 
       std::vector<std::shared_ptr<telux::tel::ISmsManager>> smsManagers;
+
+      char smscAddr[TAF_SMS_SMSC_ADDR_BYTES];
    };
 
 

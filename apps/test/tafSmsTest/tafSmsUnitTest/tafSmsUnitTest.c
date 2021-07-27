@@ -48,10 +48,14 @@
 #define DEST_PATTERN_EMPTY  ""
 #define DEST_PATTERN_VALID  "0909070026"    // Use the same sim and device to send/receive message
 
+#define SMSC_ADDR_PATTERN_VALID "\"+886935874443\"" //SMS center address for TWN Mobile
+
 #define PHONE_ID_PATTERN_1  1               // Phone ID to test
 
 #define TIMEOUT_TX_TEST     3               // Time interval between sending message
 #define TIMEOUT_RX_TEST     25              // Wait for receicing message sent from this test app
+
+#define TIME_SET_SMSC       5               // Wait for settingi sms center take effect
 
 #define AMOUNT_MSG_TX       3               // Total message amount to send from this test app
 
@@ -421,6 +425,39 @@ static void Test_taf_sms_Receive
 
 /*======================================================================
 
+ FUNCTION        Test_taf_sms_Smsc
+
+ DESCRIPTION     Test get/set sms center address
+
+ DEPENDENCIES    None
+
+ PARAMETERS      void
+
+ RETURN VALUE    void
+
+ SIDE EFFECTS
+
+======================================================================*/
+
+static void Test_taf_sms_Smsc
+(
+    void
+)
+{
+    char addr[TAF_SMS_SMSC_ADDR_BYTES - 1];
+    size_t len = TAF_SMS_SMSC_ADDR_BYTES - 1;
+
+    LE_ASSERT(taf_sms_GetSmsCenterAddr(PHONE_ID_PATTERN_1, addr, len) == LE_OK);
+
+    LE_ASSERT(taf_sms_SetSmsCenterAddr(PHONE_ID_PATTERN_1, SMSC_ADDR_PATTERN_VALID) == LE_OK);
+
+    le_thread_Sleep(TIME_SET_SMSC);
+
+    return;
+}
+
+/*======================================================================
+
  FUNCTION        Test_main
 
  DESCRIPTION     Test main function, call each test sub-funct to me
@@ -451,6 +488,10 @@ void Test_main
     LE_INFO("===== Test_taf_sms_CreateDeleteRxMsgList =====");
     Test_taf_sms_CreateDeleteRxMsgList();
     LE_INFO("##### Test_taf_sms_CreateDeleteRxMsgList OK #####");
+
+    LE_INFO("===== Test_taf_sms_Smsc =====");
+    Test_taf_sms_Smsc();
+    LE_INFO("##### Test_taf_sms_Smsc OK #####");
 
     LE_INFO("===== Test_taf_sms_Receive =====");
     Test_taf_sms_Receive();

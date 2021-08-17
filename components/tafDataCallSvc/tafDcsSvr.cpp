@@ -373,7 +373,7 @@ static void FirstSessionStateHandler(void* reportPtr, void* subHandlerFunc)
     taf_dcs_ProfileRef_t profileRef = dataProfile.GetProfileRef(profileId);
     TAF_ERROR_IF_RET_NIL(profileRef == NULL, "cannot get profile reference from profile(%d)", profileId);
 
-    handlerFunc(profileRef, stateEvent->callEvent, le_event_GetContextPtr());
+    handlerFunc(profileRef, stateEvent->callEvent, &stateEvent->info, le_event_GetContextPtr());
 }
 
 /**
@@ -744,12 +744,13 @@ bool taf_dcs_IsIPv6(taf_dcs_ProfileRef_t profileRef)
 /**
  * Use this method to send call state event to registered clients.
  */
-void SendSessionStateEvent(taf_dcs_ConState_t event, taf_dcs_CallCtx_t *callCtxPtr)
+void SendSessionStateEvent(taf_dcs_ConState_t event, taf_dcs_StateInfo_t *infoPtr, taf_dcs_CallCtx_t *callCtxPtr)
 {
     DataCallState_t stateEvent;
 
     stateEvent.callRef   = callCtxPtr->callRef;
     stateEvent.callEvent = event;
+    memcpy((char *)&stateEvent.info, (char *)infoPtr, sizeof(taf_dcs_StateInfo_t));
     le_event_Report(callCtxPtr->sessionStateEvent, &stateEvent, sizeof(stateEvent));
     return;
 }

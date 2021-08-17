@@ -64,6 +64,7 @@ namespace tafsvc {
     {
         taf_dcs_CallRef_t       callRef;
         taf_dcs_ConState_t      callEvent;
+        taf_dcs_StateInfo_t     info;
         void*                   ptr;
     } DataCallState_t;
 
@@ -82,10 +83,10 @@ namespace tafsvc {
         le_dls_Link_t                           link;           // link to data call list
         bool                                    isInProgress;
         taf_dcs_ConState_t                      latestConState;
-        bool                                    isIpv4Connected;
-        bool                                    isIpv6Connected;
-        bool                                    isIpv4Type;
-        bool                                    isIpv6Type;
+        telux::data::DataCallStatus             callStatus;
+        telux::data::DataCallStatus             ipv4Status;
+        telux::data::DataCallStatus             ipv6Status;
+        telux::data::IpFamilyType               ipType;
         char                                    ipv4Addr[TAF_DCS_IPV4_ADDR_MAX_LEN];
         char                                    ipv4Gw[TAF_DCS_IPV4_ADDR_MAX_LEN];
         char                                    ipv4Dns1[TAF_DCS_IPV4_ADDR_MAX_LEN];
@@ -113,7 +114,7 @@ namespace tafsvc {
         telux::data::DataBearerTechnology       dataBearerTech;
     } dataCallEvent_t;
 
-    typedef void (*taf_dcs_SessionStateFunc_t)(taf_dcs_ConState_t event, taf_dcs_CallCtx_t *callCtxPtr);
+    typedef void (*taf_dcs_SessionStateFunc_t)(taf_dcs_ConState_t event, taf_dcs_StateInfo_t *infoPtr, taf_dcs_CallCtx_t *callCtxPtr);
 
     class taf_DataConnectionListener : public telux::data::IDataConnectionListener {
         public:
@@ -132,7 +133,7 @@ namespace tafsvc {
             static void StopDataCallCallback(const std::shared_ptr<telux::data::IDataCall> &iCall, telux::common::ErrorCode errorCode);
             static void SetDefaultProfileCallCallback(telux::common::ErrorCode errorCode);
             static void GetDefaultProfileCallCallback(int profileId, SlotId slotId, telux::common::ErrorCode error);
-            void SendNotificationStateEvent(taf_dcs_ConState_t conState, taf_dcs_CallCtx_t *callEventPtr);
+            void SendNotificationStateEvent(taf_dcs_ConState_t conState, taf_dcs_StateInfo_t *infoPtr, taf_dcs_CallCtx_t *callCtxPtr);
 
             le_result_t StartSession(int32_t profileId, taf_dcs_Pdp_t pdpType, le_msg_SessionRef_t sessionRef);
             le_result_t StartSessionCmdSync(int32_t profileId, taf_dcs_Pdp_t pdpType, le_msg_SessionRef_t sessionRef);
@@ -186,6 +187,7 @@ namespace tafsvc {
             std::promise<le_result_t> EventSynchronousPromise;
             static void* ConnectionEventThread(void* contextPtr);
             le_timer_Ref_t SynchronousTimerRef = NULL;
+            taf_dcs_Pdp_t GetEvtInfoFromConnStatus(taf_dcs_CallCtx_t *callCtxPtr, telux::data::DataCallStatus callStatus);
         private:
             std::shared_ptr<telux::data::IDataConnectionManager> ConnectionMgr;
             std::shared_ptr<telux::data::IDataConnectionListener> DataConnectionListener;

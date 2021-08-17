@@ -205,6 +205,16 @@ ENUM Tech
 };
 
 /**
+ * The additional state information.
+ * ip: The IP Type of this event, e.g.
+ *     which interface (IPv4/IPv6) is supported on CONNECTED event.
+ */
+STRUCT StateInfo
+{
+    Pdp      ipType;
+};
+
+/**
  * Start a asynchronous data cellular session by given profile reference
  */
 FUNCTION le_result_t StartSession
@@ -252,7 +262,8 @@ FUNCTION le_result_t GetInterfaceName
 HANDLER SessionStateHandler
 (
     Profile      profileRef                          IN,
-    ConState     event                               IN
+    ConState     state                               IN,
+    StateInfo    info                                IN
 );
 
 /**

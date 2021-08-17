@@ -381,7 +381,7 @@ le_result_t taf_DataProfile::GetAuthentication(
 
 le_result_t taf_DataProfile::GetApn(taf_dcs_ProfileRef_t profileRef, char *apnPtr, size_t apnSize)
 {
-    TAF_ERROR_IF_RET_VAL(apnSize < TAF_DCS_NAME_MAX_BYTES, LE_OVERFLOW, "apnSize(%d) is smaller than NAME_MAX_BYTES(%d)", apnSize, TAF_DCS_NAME_MAX_BYTES);
+    TAF_ERROR_IF_RET_VAL(apnSize < TAF_DCS_APN_NAME_MAX_LEN, LE_OVERFLOW, "apnSize(%d) is smaller than NAME_MAX_BYTES(%d)", apnSize, TAF_DCS_APN_NAME_MAX_LEN);
     TAF_ERROR_IF_RET_VAL((profileRef == NULL) || (apnPtr == NULL), LE_NOT_FOUND, "some pointers may be null");
     taf_dcs_ProfileCtx_t* profileCtxPtr = (taf_dcs_ProfileCtx_t* )le_ref_Lookup(ProfileRefMap, (void*)profileRef);
     TAF_ERROR_IF_RET_VAL(profileCtxPtr == NULL, LE_NOT_FOUND, "cannot get profile context from reference(%p)", profileRef);

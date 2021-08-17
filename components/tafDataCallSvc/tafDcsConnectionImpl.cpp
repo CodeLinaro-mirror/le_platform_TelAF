@@ -408,10 +408,9 @@ taf_dcs_CallCtx_t* taf_DataConnection::CreateDataCallCtx(int32_t profileId)
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, NULL, "cannot alloc callCtr");
 
     callCtxPtr->isInProgress = false;
-    callCtxPtr->isIpv4Connected = false;
-    callCtxPtr->isIpv6Connected = false;
-    callCtxPtr->isIpv4Type = false;
-    callCtxPtr->isIpv6Type = false;
+    callCtxPtr->ipv4Status = telux::data::DataCallStatus::INVALID;
+    callCtxPtr->ipv6Status = telux::data::DataCallStatus::INVALID;
+    callCtxPtr->ipType = telux::data::IpFamilyType::UNKNOWN;
     callCtxPtr->profileId = profileId;
     callCtxPtr->sessionRefList = LE_DLS_LIST_INIT;
     callCtxPtr->link = LE_DLS_LINK_INIT;
@@ -670,22 +669,28 @@ le_result_t taf_DataConnection::StartSessionAllSync(int32_t profileId, taf_dcs_P
     // initialize the synchronous promise
     EventSynchronousPromise = std::promise<le_result_t>();
     std::chrono::seconds span(SESSION_TIMEOUT);
+    taf_dcs_CallCtx_t* callCtxPtr;
 
     le_result_t result = StartSessionCmdSync(profileId, pdpType, sessionRef);
     if (result != LE_OK)
     {
-        LE_ERROR("start synchronous session cmd is failed");
+        LE_ERROR("start synchronous session cmd is failed, result: %d", result);
         return result;
     }
 
     IsOnSynchronousAction = true;
 
-    // blocking here to get response
+    // blocking here to get call event response
     std::future<le_result_t> futResult = EventSynchronousPromise.get_future();
     std::future_status waitStatus = futResult.wait_for(span);
     if (std::future_status::timeout == waitStatus)
     {
-        LE_ERROR("waiting promise timeout");
+        LE_ERROR("waiting promise timeout for %d seconds", SESSION_TIMEOUT);
+        callCtxPtr = GetCallCtx(profileId);
+        LE_INFO("Err profile[%d] for Type[%s] IPv4[%s] IPv6[%s]", profileId,
+            IpFamilyTypeToString(callCtxPtr->ipType),
+            CallStatusToString(callCtxPtr->ipv4Status),
+            CallStatusToString(callCtxPtr->ipv6Status));
         result = LE_TIMEOUT;
     }
     else
@@ -694,7 +699,7 @@ le_result_t taf_DataConnection::StartSessionAllSync(int32_t profileId, taf_dcs_P
     }
 
     IsOnSynchronousAction = false;
-    LE_INFO("start synchronous session is done, result: %d", result);
+    LE_INFO("start synchronous session is done, result: %s", LE_RESULT_TXT(result));
 
     return result;
 }
@@ -776,7 +781,7 @@ le_result_t taf_DataConnection::StopSessionAllSync(int32_t profileId, taf_dcs_Pd
     }
 
     IsOnSynchronousAction = false;
-    LE_DEBUG("stop synchronous session is done, result: %d", result);
+    LE_DEBUG("stop synchronous session is done, result: %s", LE_RESULT_TXT(result));
 
     return result;
 }
@@ -830,14 +835,16 @@ le_result_t taf_DataConnection::GetInterfaceName(int32_t profileId, char* namePt
     callCtxPtr = GetCallCtx(profileId);
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND, "cannot find call context from profile Id: %d", profileId);
 
-    if ((callCtxPtr->isInProgress == true) && ((callCtxPtr->isIpv4Connected == true) || (callCtxPtr->isIpv6Connected == true)))
+    if ((callCtxPtr->isInProgress == true) &&
+        ((callCtxPtr->ipv4Status == telux::data::DataCallStatus::NET_CONNECTED) ||
+         (callCtxPtr->ipv6Status == telux::data::DataCallStatus::NET_CONNECTED)))
     {
         le_utf8_Copy(namePtr, callCtxPtr->intfName, nameSize, NULL);
         return LE_OK;
     }
 
-    LE_ERROR("invalid connection status, inProgress: %d, ipv4Connected: %d, ipv6Connected: %d",
-        callCtxPtr->isInProgress, callCtxPtr->isIpv4Connected, callCtxPtr->isIpv6Connected);
+    LE_ERROR("invalid connection status, inProgress: %d, ipv4: %s, ipv6: %s",
+        callCtxPtr->isInProgress, CallStatusToString(callCtxPtr->ipv4Status), CallStatusToString(callCtxPtr->ipv6Status));
     return LE_NOT_POSSIBLE;
 }
 
@@ -950,43 +957,36 @@ le_event_Id_t taf_DataConnection::GetSessionStateEvent(int32_t profileId)
 
 le_result_t taf_DataConnection::SendStatusChangedNotification(taf_dcs_CallCtx_t *callCtxPtr, dataCallEvent_t *eventPtr)
 {
-    if ((callCtxPtr->isIpv4Type == true) && (callCtxPtr->isIpv6Type == true))
+    taf_dcs_StateInfo_t stateInfo;
+    stateInfo.ipType = TAF_DCS_PDP_UNKNOWN;
+
+    if (callCtxPtr->callStatus == telux::data::DataCallStatus::NET_CONNECTING)
     {
-        if ((callCtxPtr->isIpv4Connected == true) && (callCtxPtr->isIpv6Connected == true))
-        {
-            SendNotificationStateEvent(TAF_DCS_CONNECTED, callCtxPtr);
-        }
-        else if ((callCtxPtr->isIpv4Connected == false) && (callCtxPtr->isIpv6Connected == false))
-        {
-            SendNotificationStateEvent(TAF_DCS_DISCONNECTED, callCtxPtr);
-        }
+        stateInfo.ipType = GetEvtInfoFromConnStatus(callCtxPtr, callCtxPtr->callStatus);
+        SendNotificationStateEvent(TAF_DCS_CONNECTING, &stateInfo, callCtxPtr);
     }
-    else if (callCtxPtr->isIpv4Type == true)
+    else if (callCtxPtr->callStatus == telux::data::DataCallStatus::NET_CONNECTED)
     {
-        if (callCtxPtr->isIpv4Connected == true)
-        {
-            SendNotificationStateEvent(TAF_DCS_CONNECTED, callCtxPtr);
-        }
-        else if (callCtxPtr->isIpv4Connected == false)
-        {
-            SendNotificationStateEvent(TAF_DCS_DISCONNECTED, callCtxPtr);
-        }
+        stateInfo.ipType = GetEvtInfoFromConnStatus(callCtxPtr, callCtxPtr->callStatus);
+        SendNotificationStateEvent(TAF_DCS_CONNECTED, &stateInfo, callCtxPtr);
     }
-    else if (callCtxPtr->isIpv6Type == true)
+    else if (callCtxPtr->callStatus == telux::data::DataCallStatus::NET_NO_NET)
     {
-        if (callCtxPtr->isIpv6Connected == true)
-        {
-            SendNotificationStateEvent(TAF_DCS_CONNECTED, callCtxPtr);
-        }
-        else if (callCtxPtr->isIpv6Connected == false)
-        {
-            SendNotificationStateEvent(TAF_DCS_DISCONNECTED, callCtxPtr);
-        }
+        stateInfo.ipType = GetEvtInfoFromConnStatus(callCtxPtr, callCtxPtr->callStatus);
+        SendNotificationStateEvent(TAF_DCS_DISCONNECTED, &stateInfo, callCtxPtr);
+    }
+    else if (callCtxPtr->callStatus == telux::data::DataCallStatus::NET_DISCONNECTING)
+    {
+        stateInfo.ipType = GetEvtInfoFromConnStatus(callCtxPtr, callCtxPtr->callStatus);
+        SendNotificationStateEvent(TAF_DCS_DISCONNECTING, &stateInfo, callCtxPtr);
     }
     else
     {
-        LE_ERROR("wrong iptype, isIpv4Type: %d, isIpv6Type: %d", callCtxPtr->isIpv4Type, callCtxPtr->isIpv6Type);
-        return LE_FAULT;
+        LE_INFO("skip this event for type[%s] status[%s] IPv4[%s] IPv6[%s]",
+            IpFamilyTypeToString(callCtxPtr->ipType),
+            CallStatusToString(callCtxPtr->callStatus),
+            CallStatusToString(callCtxPtr->ipv4Status),
+            CallStatusToString(callCtxPtr->ipv6Status));
     }
 
     return LE_OK;
@@ -1075,24 +1075,15 @@ bool taf_DataConnection::updateStatus(taf_dcs_CallCtx_t *callCtxPtr, dataCallEve
 {
     bool isSendEvent = false;
 
+    callCtxPtr->callStatus = eventPtr->callStatus;
+    callCtxPtr->ipv4Status = eventPtr->ipv4Status;
+    callCtxPtr->ipv6Status = eventPtr->ipv6Status;
+
     switch (eventPtr->callStatus)
     {
         case  telux::data::DataCallStatus::NET_CONNECTING:
             callCtxPtr->isInProgress = true;
-
-            if (eventPtr->ipType == data::IpFamilyType::IPV4V6)
-            {
-                callCtxPtr->isIpv4Type = true;
-                callCtxPtr->isIpv6Type = true;
-            }
-            else if (eventPtr->ipType == data::IpFamilyType::IPV4)
-            {
-                callCtxPtr->isIpv4Type = true;
-            }
-            else if (eventPtr->ipType == data::IpFamilyType::IPV6)
-            {
-                callCtxPtr->isIpv6Type = true;
-            }
+            callCtxPtr->ipType     = eventPtr->ipType;
             isSendEvent = true;
         break;
 
@@ -1100,7 +1091,6 @@ bool taf_DataConnection::updateStatus(taf_dcs_CallCtx_t *callCtxPtr, dataCallEve
             le_utf8_Copy(callCtxPtr->intfName, eventPtr->ifName.c_str(), sizeof(callCtxPtr->intfName), NULL);
             if (eventPtr->ipv4Status == telux::data::DataCallStatus::NET_CONNECTED)
             {
-                callCtxPtr->isIpv4Connected = true;
                 le_utf8_Copy(callCtxPtr->ipv4Addr, eventPtr->ipv4AddrInfo.ifAddress.c_str(), TAF_DCS_IPV4_ADDR_MAX_LEN, NULL);
                 le_utf8_Copy(callCtxPtr->ipv4Gw, eventPtr->ipv4AddrInfo.gwAddress.c_str(), TAF_DCS_IPV4_ADDR_MAX_LEN, NULL);
                 le_utf8_Copy(callCtxPtr->ipv4Dns1, eventPtr->ipv4AddrInfo.primaryDnsAddress.c_str(), TAF_DCS_IPV4_ADDR_MAX_LEN, NULL);
@@ -1109,7 +1099,6 @@ bool taf_DataConnection::updateStatus(taf_dcs_CallCtx_t *callCtxPtr, dataCallEve
 
             if (eventPtr->ipv6Status == telux::data::DataCallStatus::NET_CONNECTED)
             {
-                callCtxPtr->isIpv6Connected = true;
                 le_utf8_Copy(callCtxPtr->ipv6Addr, eventPtr->ipv6AddrInfo.ifAddress.c_str(), TAF_DCS_IPV6_ADDR_MAX_LEN, NULL);
                 le_utf8_Copy(callCtxPtr->ipv6Gw, eventPtr->ipv6AddrInfo.gwAddress.c_str(), TAF_DCS_IPV6_ADDR_MAX_LEN, NULL);
                 le_utf8_Copy(callCtxPtr->ipv6Dns1, eventPtr->ipv6AddrInfo.primaryDnsAddress.c_str(), TAF_DCS_IPV6_ADDR_MAX_LEN, NULL);
@@ -1117,18 +1106,15 @@ bool taf_DataConnection::updateStatus(taf_dcs_CallCtx_t *callCtxPtr, dataCallEve
             }
 
             callCtxPtr->dataBearerTech = updateDataBearerTech(eventPtr->dataBearerTech);
-
             isSendEvent = true;
         break;
 
         case telux::data::DataCallStatus::NET_DISCONNECTING:
-            LE_INFO("nothing to do with event NET_DISCONNECTING");
+            isSendEvent = true;
         break;
 
         case telux::data::DataCallStatus::NET_NO_NET:
             callCtxPtr->isInProgress = false;
-            callCtxPtr->isIpv4Connected = false;
-            callCtxPtr->isIpv6Connected = false;
             memset(callCtxPtr->intfName, 0, sizeof(callCtxPtr->intfName));
             isSendEvent = true;
         break;
@@ -1142,6 +1128,25 @@ bool taf_DataConnection::updateStatus(taf_dcs_CallCtx_t *callCtxPtr, dataCallEve
     return isSendEvent;
 }
 
+taf_dcs_Pdp_t taf_DataConnection::GetEvtInfoFromConnStatus(taf_dcs_CallCtx_t *callCtxPtr, telux::data::DataCallStatus callStatus)
+{
+    taf_dcs_Pdp_t ipType = TAF_DCS_PDP_UNKNOWN;
+
+    if ((callCtxPtr->ipv4Status == callStatus) && (callCtxPtr->ipv6Status == callStatus))
+    {
+        ipType = TAF_DCS_PDP_IPV4V6;
+    }
+    else if (callCtxPtr->ipv4Status == callStatus)
+    {
+        ipType = TAF_DCS_PDP_IPV4;
+    }
+    else if (callCtxPtr->ipv6Status == callStatus)
+    {
+        ipType = TAF_DCS_PDP_IPV6;
+    }
+
+    return ipType;
+}
 
 void taf_DataConnection::InternalEventHandler(void* reportPtr)
 {
@@ -1150,6 +1155,7 @@ void taf_DataConnection::InternalEventHandler(void* reportPtr)
     dataCallEvent_t *eventPtr = (dataCallEvent_t *)reportPtr;
     int32_t profileId = eventPtr->profileId;
     taf_dcs_CallCtx_t *callCtxPtr;
+    taf_dcs_StateInfo_t stateInfo = {TAF_DCS_PDP_UNKNOWN};
 
     switch (eventPtr->event)
     {
@@ -1164,8 +1170,9 @@ void taf_DataConnection::InternalEventHandler(void* reportPtr)
             else
             {
                 isSendNotification = updateStatus(callCtxPtr, eventPtr);
+                stateInfo.ipType = GetEvtInfoFromConnStatus(callCtxPtr, telux::data::DataCallStatus::NET_CONNECTING);
                 TAF_ERROR_IF_RET_NIL(isSendNotification != true, "won't send notification to listener");
-                SendNotificationStateEvent(TAF_DCS_CONNECTING, callCtxPtr);
+                SendNotificationStateEvent(TAF_DCS_CONNECTING, &stateInfo, callCtxPtr);
             }
             CmdSynchronousPromise.set_value(result);
             break;
@@ -1180,7 +1187,10 @@ void taf_DataConnection::InternalEventHandler(void* reportPtr)
             }
             else
             {
-                SendNotificationStateEvent(TAF_DCS_DISCONNECTING, callCtxPtr);
+                isSendNotification = updateStatus(callCtxPtr, eventPtr);
+                stateInfo.ipType = GetEvtInfoFromConnStatus(callCtxPtr, telux::data::DataCallStatus::NET_CONNECTING);
+                TAF_ERROR_IF_RET_NIL(isSendNotification != true, "won't send notification to listener");
+                SendNotificationStateEvent(TAF_DCS_DISCONNECTING, &stateInfo, callCtxPtr);
             }
             CmdSynchronousPromise.set_value(result);
         break;
@@ -1237,17 +1247,52 @@ void taf_DataConnection::EventHandler(void* reportPtr)
     return dataConnection.InternalEventHandler(reportPtr);
 }
 
-void taf_DataConnection::SendNotificationStateEvent(taf_dcs_ConState_t conState, taf_dcs_CallCtx_t *callCtxPtr)
+void taf_DataConnection::SendNotificationStateEvent(taf_dcs_ConState_t conState, taf_dcs_StateInfo_t *infoPtr, taf_dcs_CallCtx_t *callCtxPtr)
 {
     callCtxPtr->latestConState = conState;
     TAF_ERROR_IF_RET_NIL(SessionStateFunc == NULL, "SessionStateFunc is NULL, drop this event");
-    LE_INFO("send status: %d", conState);
-    SessionStateFunc(callCtxPtr->latestConState, callCtxPtr);
+    LE_INFO("send connection status: %d", conState);
+    SessionStateFunc(callCtxPtr->latestConState, infoPtr, callCtxPtr);
 
+    // wakeup sync API
     if (((conState == TAF_DCS_CONNECTED) || (conState == TAF_DCS_DISCONNECTED)) && (IsOnSynchronousAction == true))
     {
-        EventSynchronousPromise.set_value(LE_OK);
+        if ((callCtxPtr->ipType == telux::data::IpFamilyType::IPV4) || (callCtxPtr->ipType == telux::data::IpFamilyType::IPV6))
+        {
+            LE_INFO("promise for Type[%s] IPv4[%s] IPv6[%s]", IpFamilyTypeToString(callCtxPtr->ipType),
+                CallStatusToString(callCtxPtr->ipv4Status),
+                CallStatusToString(callCtxPtr->ipv6Status));
+            EventSynchronousPromise.set_value(LE_OK);
+        }
+        else if (callCtxPtr->ipType == telux::data::IpFamilyType::IPV4V6)
+        {
+            if (((callCtxPtr->ipv4Status == telux::data::DataCallStatus::NET_CONNECTED) || (callCtxPtr->ipv4Status == telux::data::DataCallStatus::NET_NO_NET)) &&
+                ((callCtxPtr->ipv6Status == telux::data::DataCallStatus::NET_CONNECTED) || (callCtxPtr->ipv6Status == telux::data::DataCallStatus::NET_NO_NET)))
+            {
+                LE_INFO("promise for Conn[%d] Type[%s] IPv4[%s] IPv6[%s]", conState, IpFamilyTypeToString(callCtxPtr->ipType),
+                    CallStatusToString(callCtxPtr->ipv4Status),
+                    CallStatusToString(callCtxPtr->ipv6Status));
+                EventSynchronousPromise.set_value(LE_OK);
+            }
+            else
+            {
+                LE_INFO("no promise for Conn[%d] Type[%s] IPv4[%s] IPv6[%s]", conState, IpFamilyTypeToString(callCtxPtr->ipType),
+                    CallStatusToString(callCtxPtr->ipv4Status),
+                    CallStatusToString(callCtxPtr->ipv6Status));
+            }
+        }
+        else
+        {
+            LE_ERROR("invalid IP type: %s", IpFamilyTypeToString(callCtxPtr->ipType));
+        }
     }
+    else
+    {
+        LE_INFO("no promise for Conn[%d] Type[%s] IPv4[%s] IPv6[%s]", conState, IpFamilyTypeToString(callCtxPtr->ipType),
+            CallStatusToString(callCtxPtr->ipv4Status),
+            CallStatusToString(callCtxPtr->ipv6Status));
+    }
+
     return;
 }
 
@@ -1281,14 +1326,14 @@ bool taf_DataConnection::IsIpv4(int32_t profileId)
 {
     taf_dcs_CallCtx_t* callCtxPtr = GetCallCtx(profileId);
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, false, "cannot get call context form profile(%d)", profileId);
-    return callCtxPtr->isIpv4Connected;
+    return (callCtxPtr->ipv4Status == telux::data::DataCallStatus::NET_CONNECTED);
 }
 
 bool taf_DataConnection::IsIpv6(int32_t profileId)
 {
     taf_dcs_CallCtx_t* callCtxPtr = GetCallCtx(profileId);
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, false, "cannot get call context form profile(%d)", profileId);
-    return callCtxPtr->isIpv6Connected;
+    return (callCtxPtr->ipv6Status == telux::data::DataCallStatus::NET_CONNECTED);
 }
 
 taf_DataConnection &taf_DataConnection::GetInstance()

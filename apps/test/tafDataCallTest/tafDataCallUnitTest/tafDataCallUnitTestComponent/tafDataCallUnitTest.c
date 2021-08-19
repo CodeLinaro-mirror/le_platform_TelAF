@@ -34,6 +34,7 @@
 static le_sem_Ref_t TestSemRef;
 static taf_dcs_ProfileRef_t TestProfileRef = NULL;
 static taf_dcs_SessionStateHandlerRef_t TestSessionStateRef = NULL;
+char ApnStr_bak[TAF_DCS_APN_NAME_MAX_LEN];
 
 static char *callEventToString(taf_dcs_ConState_t callEvent)
 {
@@ -54,22 +55,24 @@ static char *callEventToString(taf_dcs_ConState_t callEvent)
     return "unknow status";
 }
 
-void data_event_handler(taf_dcs_ProfileRef_t profileRef, taf_dcs_ConState_t callEvent)
+void data_event_handler(taf_dcs_ProfileRef_t profileRef, taf_dcs_ConState_t callEvent, const taf_dcs_StateInfo_t *infoPtr, void* contextPtr)
 {
     char interfaceName[64];
+    taf_dcs_Pdp_t expectIpType = *(taf_dcs_Pdp_t *)contextPtr;
 
-    LE_INFO("get data handler event. profile ref: %p, callEvent: %s\n", profileRef, callEventToString(callEvent));
+    LE_INFO("get data handler event. profile ref: %p, callEvent: %s, ip: %d, expect ip: %d\n",
+        profileRef, callEventToString(callEvent), infoPtr->ipType, expectIpType);
 
-    if (callEvent == TAF_DCS_CONNECTED)
+    if ((callEvent == TAF_DCS_CONNECTED) && (infoPtr->ipType == expectIpType))
     {
         taf_dcs_GetInterfaceName(profileRef, interfaceName, 64);
         LE_INFO("data call connected, interface : %s", interfaceName);
         le_sem_Post(TestSemRef);
     }
-    else if (callEvent == TAF_DCS_DISCONNECTED)
+    else if ((callEvent == TAF_DCS_DISCONNECTED) && (infoPtr->ipType == expectIpType))
     {
         taf_dcs_GetInterfaceName(profileRef, interfaceName, 64);
-        LE_INFO("data call disconnected, interface : %s", interfaceName);
+        LE_INFO("data call disconnected");
         le_sem_Post(TestSemRef);
     }
 
@@ -141,7 +144,7 @@ static void* ut_taf_data_session_handler(void* ctxPtr)
 {
     taf_dcs_ConnectService();
 
-    TestSessionStateRef = taf_dcs_AddSessionStateHandler(TestProfileRef, (taf_dcs_SessionStateHandlerFunc_t)data_event_handler, NULL);
+    TestSessionStateRef = taf_dcs_AddSessionStateHandler(TestProfileRef, (taf_dcs_SessionStateHandlerFunc_t)data_event_handler, ctxPtr);
     LE_ASSERT(TestSessionStateRef != NULL);
 
     le_event_RunLoop();
@@ -152,8 +155,9 @@ static void* ut_taf_data_session_handler(void* ctxPtr)
 void ut_start_session_async_test()
 {
     le_result_t result;
+    taf_dcs_Pdp_t ipType = TAF_DCS_PDP_IPV4V6;
 
-    le_thread_Ref_t threadRef = le_thread_Create("taf_datacall_state_thread", ut_taf_data_session_handler, NULL);
+    le_thread_Ref_t threadRef = le_thread_Create("taf_datacall_state_thread", ut_taf_data_session_handler, &ipType);
     le_thread_Start(threadRef);
 
     result = taf_dcs_StartSessionAsync(TestProfileRef);
@@ -170,8 +174,9 @@ void ut_start_session_async_test()
 void ut_stop_session_async_test()
 {
     le_result_t result;
+    taf_dcs_Pdp_t ipType = TAF_DCS_PDP_IPV4V6;
 
-    le_thread_Ref_t threadRef = le_thread_Create("taf_datacall_state_thread", ut_taf_data_session_handler, NULL);
+    le_thread_Ref_t threadRef = le_thread_Create("taf_datacall_state_thread", ut_taf_data_session_handler, &ipType);
     le_thread_Start(threadRef);
 
     result = taf_dcs_StopSessionAsync(TestProfileRef);
@@ -185,7 +190,7 @@ void ut_stop_session_async_test()
     LE_ASSERT(result == LE_OK);
 }
 
-void ut_set_pdp_test()
+void ut_set_pdp_test(taf_dcs_Pdp_t pdp)
 {
     le_result_t result;
     taf_dcs_Pdp_t pdpGet;
@@ -208,22 +213,21 @@ void ut_set_pdp_test()
     pdpGet = taf_dcs_GetPDP(TestProfileRef);
     LE_ASSERT(pdpGet == TAF_DCS_PDP_IPV6);
 
-    result = taf_dcs_SetPDP(TestProfileRef, TAF_DCS_PDP_IPV4V6);
+    result = taf_dcs_SetPDP(TestProfileRef, pdp);
     LE_ASSERT(result == LE_OK);
 
     pdpGet = taf_dcs_GetPDP(TestProfileRef);
-    LE_ASSERT(pdpGet == TAF_DCS_PDP_IPV4V6);
+    LE_ASSERT(pdpGet == pdp);
 }
 
 void ut_set_apn_test()
 {
-    char apnStr_bak[TAF_DCS_APN_NAME_MAX_LEN];
     char apnStr[TAF_DCS_APN_NAME_MAX_LEN];
-    char *testApnStr = "testApn";
+    char *testApnStr = "";
 
     le_result_t result;
 
-    result = taf_dcs_GetAPN(TestProfileRef, apnStr_bak, TAF_DCS_APN_NAME_MAX_LEN);
+    result = taf_dcs_GetAPN(TestProfileRef, ApnStr_bak, TAF_DCS_APN_NAME_MAX_LEN);
     LE_ASSERT(result == LE_OK);
 
     result = taf_dcs_SetAPN(TestProfileRef, testApnStr);
@@ -233,12 +237,18 @@ void ut_set_apn_test()
     LE_ASSERT(result == LE_OK);
     int cmpVal = strncmp(apnStr, testApnStr, TAF_DCS_APN_NAME_MAX_LEN);
     LE_ASSERT(cmpVal == 0);
+}
 
-    result = taf_dcs_SetAPN(TestProfileRef, apnStr_bak);
+void ut_restore_apn_test()
+{
+    le_result_t result;
+    char apnStr[TAF_DCS_APN_NAME_MAX_LEN];
+
+    result = taf_dcs_SetAPN(TestProfileRef, ApnStr_bak);
     LE_ASSERT(result == LE_OK);
     result = taf_dcs_GetAPN(TestProfileRef, apnStr, TAF_DCS_APN_NAME_MAX_LEN);
     LE_ASSERT(result == LE_OK);
-    cmpVal = strncmp(apnStr, apnStr_bak, TAF_DCS_APN_NAME_MAX_LEN);
+    int cmpVal = strncmp(apnStr, ApnStr_bak, TAF_DCS_APN_NAME_MAX_LEN);
     LE_ASSERT(cmpVal == 0);
 }
 
@@ -263,6 +273,11 @@ void ut_ipv4_check()
     LE_INFO("IPv4 Dns0: %s, Dns1: %s", ipAddr0, ipAddr1);
 }
 
+void ut_non_ipv4_check()
+{
+    LE_ASSERT(taf_dcs_IsIPv4(TestProfileRef) == false);
+}
+
 void ut_ipv6_check()
 {
     le_result_t result;
@@ -284,6 +299,101 @@ void ut_ipv6_check()
     LE_INFO("IPv6 Dns0: %s, Dns1: %s", ipAddr0, ipAddr1);
 }
 
+void ut_non_ipv6_check()
+{
+    LE_ASSERT(taf_dcs_IsIPv6(TestProfileRef) == false);
+}
+
+void ut_do_session_sync_test_invalid_apn()
+{
+    le_result_t result;
+    char apnStr_bak[TAF_DCS_APN_NAME_MAX_LEN];
+    char *testApnStr = "ims";
+
+    result = taf_dcs_GetAPN(TestProfileRef, apnStr_bak, TAF_DCS_APN_NAME_MAX_LEN);
+    LE_ASSERT(result == LE_OK);
+
+    result = taf_dcs_SetAPN(TestProfileRef, testApnStr);
+    LE_ASSERT(result == LE_OK);
+    LE_INFO("set APN to %s, backup APN: %s", testApnStr, apnStr_bak);
+
+    result = taf_dcs_SetPDP(TestProfileRef, TAF_DCS_PDP_IPV4V6);
+    LE_ASSERT(result == LE_OK);
+
+    result = taf_dcs_StartSession(TestProfileRef);
+    LE_ASSERT(result == LE_OK);
+
+    result = taf_dcs_StopSession(TestProfileRef);
+    LE_ASSERT(result == LE_OK);
+
+    result = taf_dcs_SetAPN(TestProfileRef, apnStr_bak);
+    LE_ASSERT(result == LE_OK);
+}
+
+void ut_ipv4v6_async_datacall_test()
+{
+    ut_set_pdp_test(TAF_DCS_PDP_IPV4V6);
+
+    ut_set_apn_test();
+
+    ut_start_session_async_test();
+
+    ut_stop_session_async_test();
+
+    ut_restore_apn_test();
+}
+
+void ut_ipv4v6_datacall_test()
+{
+    ut_set_pdp_test(TAF_DCS_PDP_IPV4V6);
+
+    ut_set_apn_test();
+
+    ut_start_session_sync_test();
+
+    ut_ipv4_check();
+
+    ut_ipv6_check();
+
+    ut_stop_session_sync_test();
+
+    ut_restore_apn_test();
+}
+
+void ut_ipv4_datacall_test()
+{
+    ut_set_pdp_test(TAF_DCS_PDP_IPV4);
+
+    ut_set_apn_test();
+
+    ut_start_session_sync_test();
+
+    ut_ipv4_check();
+
+    ut_non_ipv6_check();
+
+    ut_stop_session_sync_test();
+
+    ut_restore_apn_test();
+}
+
+void ut_ipv6_datacall_test()
+{
+    ut_set_pdp_test(TAF_DCS_PDP_IPV6);
+
+    ut_set_apn_test();
+
+    ut_start_session_sync_test();
+
+    ut_non_ipv4_check();
+
+    ut_ipv6_check();
+
+    ut_stop_session_sync_test();
+
+    ut_restore_apn_test();
+}
+
 static void* UnitTestThread(void* contextPtr)
 {
     TestSemRef = le_sem_Create("taf_datacall_ut_sem", 0);
@@ -294,23 +404,20 @@ static void* UnitTestThread(void* contextPtr)
 
     ut_set_auth_test();
 
-    ut_set_pdp_test();
+    ut_ipv4v6_async_datacall_test();
 
-    ut_set_pdp_test();
+    ut_ipv4v6_datacall_test();
 
-    ut_start_session_sync_test();
+    ut_ipv4_datacall_test();
 
-    ut_ipv4_check();
+    ut_ipv6_datacall_test();
 
-    ut_ipv6_check();
+    ut_do_session_sync_test_invalid_apn();
 
-    ut_stop_session_sync_test();
+    /* redo session connection test after testing invalid apn */
+    ut_ipv4v6_datacall_test();
 
-    ut_start_session_async_test();
-
-    ut_stop_session_async_test();
-
-    LE_INFO("all tests are finished");
+    LE_INFO("all tests are passed");
 
     return NULL;
 }

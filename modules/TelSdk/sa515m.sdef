@@ -21,6 +21,7 @@ apps:
     $TELAF_ROOT/apps/tafServices/tafAudioService
     $TELAF_ROOT/apps/tafServices/tafSMSSvc
     $TELAF_ROOT/apps/tafServices/tafDataCallSvc
+    $TELAF_ROOT/apps/tafServices/tafRemoteSimSvc
 
     // Command-line tools.
     $LEGATO_ROOT/apps/tools/tools
@@ -32,6 +33,8 @@ apps:
     $LEGATO_ROOT/apps/sample/voiceCallApp/voiceCallApp
     $TELAF_ROOT/apps/test/tafSimTest/tafSimIntegrationTest/tafSimTest
     $TELAF_ROOT/apps/test/tafSmsTest/tafSmsUnitTest
+    $TELAF_ROOT/apps/test/tafrSimTest/tafrSimUnitTest/tafrSimUnitTest
+    $TELAF_ROOT/apps/test/tafrSimTest/tafSAPServerUnitTest/tafSAPServerUnitTest
 }
 
 commands:

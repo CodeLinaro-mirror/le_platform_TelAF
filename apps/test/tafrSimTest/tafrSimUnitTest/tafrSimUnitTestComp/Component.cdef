@@ -1,0 +1,13 @@
+sources:
+{
+    main.c
+}
+
+requires:
+{
+    api:
+    {
+        taf_rsim.api
+    }
+}
+

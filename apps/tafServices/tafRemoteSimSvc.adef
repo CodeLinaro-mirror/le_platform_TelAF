@@ -1,0 +1,40 @@
+sandboxed: false
+
+executables:
+{
+        tafRemoteSim = ( $TELAF_ROOT/components/tafRemoteSimSvc/RemoteSimDaemon)
+        tafSAPCard = ( $TELAF_ROOT/components/tafRemoteSimSvc/SAPProvider)
+}
+start: manual
+
+processes:
+{
+        run:
+        {
+                (tafRemoteSim)
+                (tafSAPCard)
+        }
+
+        faultAction: restart
+
+        #if ${LE_CONFIG_SERVICES_WATCHDOG} = y
+                maxWatchdogTimeout: 100000
+        #else
+                watchdogTimeout: never
+        #endif
+        envVars:
+        {
+              LE_LOG_LEVEL = DEBUG
+        }
+
+}
+
+bindings:
+{
+        tafSAPCard.SAPProvider.taf_sim -> tafSimCardSvc.taf_sim
+}
+extern:
+{
+        tafRemoteSim.RemoteSimDaemon.taf_rsim
+        tafSAPCard.SAPProvider.taf_sap
+}

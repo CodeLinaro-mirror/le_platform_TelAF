@@ -1,0 +1,26 @@
+sandboxed: false
+executables:
+{
+    tafrSimTest = ( tafrSimUnitTestComp )
+}
+
+
+processes:
+{
+    run:
+    {
+        (tafrSimTest)
+    }
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+}
+
+start: manual
+
+bindings:
+{
+    tafrSimTest.tafrSimUnitTestComp.taf_rsim -> tafRemoteSimSvc.taf_rsim
+}
+

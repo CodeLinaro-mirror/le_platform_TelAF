@@ -1,0 +1,50 @@
+provides:
+{
+    api:
+    {
+        taf_gnss.api
+        taf_pos.api
+        taf_posCtrl.api
+    }
+}
+
+requires:
+{
+    api:
+    {
+    #if ${LE_CONFIG_ENABLE_CONFIG_TREE} = y
+        le_cfg.api
+    #endif
+    }
+
+    component:
+    {
+        $LEGATO_ROOT/components/watchdogChain
+    }
+
+    lib:
+    {
+        lib/libtelux_loc.so
+    }
+}
+
+cxxflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+    -I$LEGATO_ROOT/components/cfgEntries
+    -I$TELAF_ROOT/include
+    -ltelux_loc
+    -ltelux_common
+}
+
+cflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+}
+
+sources:
+{
+    tafGnssImpl.cpp
+    tafPosImpl.cpp
+    tafLocationService.cpp
+}

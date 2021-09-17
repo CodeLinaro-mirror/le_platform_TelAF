@@ -1,0 +1,35 @@
+executables:
+{
+        tafLocationService = ( $TELAF_ROOT/components/tafLocationService )
+}
+
+start: auto
+
+processes:
+{
+        run:
+        {
+            (tafLocationService)
+        }
+
+        faultAction: restart
+
+        #if ${LE_CONFIG_SERVICES_WATCHDOG} = y
+                maxWatchdogTimeout: 100000
+        #else
+                watchdogTimeout: never
+        #endif
+}
+
+sandboxed: false
+
+bindings:
+{
+}
+
+extern:
+{
+        tafLocationService.tafLocationService.taf_gnss
+        tafLocationService.tafLocationService.taf_pos
+        tafLocationService.tafLocationService.taf_posCtrl
+}

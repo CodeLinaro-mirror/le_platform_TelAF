@@ -35,6 +35,7 @@ apps:
     $TELAF_ROOT/apps/test/tafSmsTest/tafSmsUnitTest
     $TELAF_ROOT/apps/test/tafrSimTest/tafrSimUnitTest/tafrSimUnitTest
     $TELAF_ROOT/apps/test/tafrSimTest/tafSAPServerUnitTest/tafSAPServerUnitTest
+    $TELAF_ROOT/apps/test/tafSimTest/tafRSPUnitTest/tafRSPUnitTest
 }
 
 commands:

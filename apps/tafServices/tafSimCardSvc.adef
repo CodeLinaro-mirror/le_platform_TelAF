@@ -29,5 +29,6 @@ bindings:
 extern:
 {
         tafSimCardSvc.tafSimCardSvc.taf_sim
+        tafSimCardSvc.tafSimCardSvc.taf_rsp
 }
 

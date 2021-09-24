@@ -34,6 +34,7 @@
 #include <memory>
 #include <telux/tel/PhoneFactory.hpp>
 #include "tafSimCard.hpp"
+#include "tafRSP.hpp"
 
 using namespace telux::tel;
 using namespace telux::common;
@@ -46,6 +47,10 @@ COMPONENT_INIT
     auto &sim = taf_sim::GetInstance();
     sim.Init();
     LE_INFO(" Sim Card service Ready...\n");
+    LE_INFO("tafRSP Service Init...\n");
+    auto &rsp = taf_rsp::GetInstance();
+    rsp.Init();
+    LE_INFO(" RSP service Ready...\n");
 
 }
 

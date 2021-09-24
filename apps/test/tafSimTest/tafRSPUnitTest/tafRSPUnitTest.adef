@@ -1,0 +1,26 @@
+sandboxed: false
+executables:
+{
+    tafRSPTest = ( tafRSPTestComp )
+}
+
+
+processes:
+{
+    run:
+    {
+        (tafRSPTest)
+    }
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+}
+
+start: manual
+
+bindings:
+{
+    tafRSPTest.tafRSPTestComp.taf_rsp -> tafSimCardSvc.taf_rsp
+}
+

@@ -1,34 +1,68 @@
 /*
- *  Copyright (c) 2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021 The Linux Foundation. All rights reserved.
  *
- *  Redistribution and use in source and binary forms, with or without
- *  modification, are permitted provided that the following conditions are
- *  met:
- *    * Redistributions of source code must retain the above copyright
- *      notice, this list of conditions and the following disclaimer.
- *    * Redistributions in binary form must reproduce the above
- *      copyright notice, this list of conditions and the following
- *      disclaimer in the documentation and/or other materials provided
- *      with the distribution.
- *    * Neither the name of The Linux Foundation nor the names of its
- *      contributors may be used to endorse or promote products derived
- *      from this software without specific prior written permission.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *     * Neither the name of The Linux Foundation nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
  *
- *  THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
- *  WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- *  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
- *  ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
- *  BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- *  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- *  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
- *  BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- *  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
- *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * ​​​​​Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MYSMSLISTENER_HPP
-#define MYSMSLISTENER_HPP
+#ifndef TAFSMS_HPP
+#define TAFSMS_HPP
 
 #include "legato.h"
 #include "interfaces.h"
@@ -39,6 +73,8 @@
 #include <telux/tel/SmsManager.hpp>
 #include "telux/common/CommonDefines.hpp"
 #include "tafSvcIF.hpp"
+#include "taf_pa_sms.hpp"
+#include "tafSmsPdu.hpp"
 
 using namespace telux::tel;
 using namespace telux::common;
@@ -62,19 +98,31 @@ using namespace telux::common;
 typedef struct taf_sms_Msg
 {
    char                 tel[TAF_TYPES_REMOTE_PARTY_NUM_MAX_BYTES];
-   char                 text[TAF_SMS_TEXT_BYTES];
+   taf_pa_sms_Pdu_t     pdu;
+   bool                 pduReady;
+
+   union
+   {
+      char              text[TAF_SMS_TEXT_BYTES];
+      uint8_t           binary[TAF_SMS_BINARY_BYTES];
+   };
+   size_t              userdataLen;
+
    char                 timestamp[TAF_SMS_TIMESTAMP_BYTES];
    int8_t               phoneId;
 
    taf_sms_Type_t       type;
+   taf_sms_Format_t     format;
    taf_sms_SendStatus_t sendStatus;
    taf_sms_ReadStatus_t readStatus;
    le_msg_SessionRef_t  sessionRef;
 
-   uint32_t             storageId;
+   taf_sms_Storage_t    storage;
+   uint8_t              storageIdx;
+   bool                 applyDel;
+
    bool                 inList;
-   size_t               userdataLen;
-   int32_t              smsUserCount;
+   uint8_t              userCount;
    void*                callBackPtr;
    void*                ctxPtr;
 }
@@ -209,6 +257,14 @@ namespace tafsvc {
       void MessageHandlers(taf_sms_Msg_t* msgPtr);
       void ReleaseSession(le_msg_SessionRef_t sessionRef, void* ctxPtr);
 
+      taf_sms_Msg_t* CreateRxMsgNode(taf_pa_sms_Pdu_t *pduMsg, char* phoneNum, taf_sms_Format_t format, char* data, int16_t dataLen);
+      taf_sms_Msg_t* CreateRxMsgNode(taf_pa_sms_Pdu_t *pduMsg);
+      taf_sms_Msg_t* CreateAndConstructMsg(taf_pa_sms_Pdu_t* pduMsgPtr, sms_PduMsg_t* decodedMsgPtr);
+      le_result_t constructSmsDeliver(taf_sms_Msg_t* msgObjPtr, taf_pa_sms_Pdu_t* pduMsgPtr, sms_PduMsg_t* decodedMsgPtr);
+      uint32_t GetMsgFromStorage(taf_sms_List_t *msgListPtr, taf_sms_Storage_t storage, uint32_t numOfMsg, uint32_t *arrayPtr);
+      uint32_t ListRxMsg(taf_sms_List_t *msgListPtr,taf_sms_ReadStatus_t rxStatus,taf_sms_Storage_t storage);
+      uint32_t ListAllRxMsg(taf_sms_List_t *msgListPtr);
+
       le_result_t sendMessage(void);
 
       le_ref_MapRef_t MsgRefMap = NULL;
@@ -227,12 +283,15 @@ namespace tafsvc {
       le_event_Id_t NewMsgEvent;
       le_event_Id_t MsgSendEvent;
       le_event_Id_t MsgSendCallbackEvent;
+      le_event_Id_t StorageEvent;
 
       le_sem_Ref_t SmsSendSem = nullptr;
       le_sem_Ref_t SmscGetSem = nullptr;
       le_sem_Ref_t SmscSetSem = nullptr;
 
-      taf_sms_MsgRef_t sendingMsgRef;
+      taf_sms_MsgRef_t sendingMsgRef = nullptr;
+
+      taf_pa_sms_RxMsgHandlerRef_t qmiRxMsgHandler = nullptr;
 
       // objects used by telSdk interfaces
       std::shared_ptr<telux::tel::IPhoneManager> phoneManager;

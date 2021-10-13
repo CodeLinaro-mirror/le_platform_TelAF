@@ -11,6 +11,7 @@ requires:
     component:
     {
         $LEGATO_ROOT/components/watchdogChain
+        taf_pa_sms
     }
 
     lib:
@@ -24,19 +25,20 @@ cxxflags:
 {
     -I$LEGATO_ROOT/components/watchdogChain
     -I$TELAF_ROOT/include
+    -I$TELAF_ROOT/components/tafSMSSvc/taf_pa_sms
     -ltelux_tel
-    //-DLEGATO_API_COMPAT
+    -lComponent_taf_pa_sms
 }
 
 cflags:
 {
     -I$LEGATO_ROOT/components/watchdogChain
-    //-DLEGATO_API_COMPAT
 }
 
 sources:
 {
     tafSmsImpl.cpp
     tafSmsSvc.cpp
+    tafSmsPdu.cpp
 }
 

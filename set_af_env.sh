@@ -12,6 +12,17 @@ fi
 
 umask 002
 
+if [ ! -e "./components/tafSMSSvc/taf_pa_sms" ]; then
+
+    if [ -e "../telaf-prop/platformAdaptor/" ]; then
+        echo "using platformAdaptor"
+        source ../telaf-prop/set_af_env.sh
+        ln -sf "../../../telaf-prop/platformAdaptor/taf_pa_sms" "./components/tafSMSSvc/taf_pa_sms"
+    else
+        echo "using stub for platformAdaptor"
+        ln -sf "./stub" "./components/tafSMSSvc/taf_pa_sms"
+    fi
+fi
 
 #build the target
 

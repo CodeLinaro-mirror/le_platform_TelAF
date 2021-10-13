@@ -1,30 +1,64 @@
 /*
- *  Copyright (c) 2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021 The Linux Foundation. All rights reserved.
  *
- *  Redistribution and use in source and binary forms, with or without
- *  modification, are permitted provided that the following conditions are
- *  met:
- *    * Redistributions of source code must retain the above copyright
- *      notice, this list of conditions and the following disclaimer.
- *    * Redistributions in binary form must reproduce the above
- *      copyright notice, this list of conditions and the following
- *      disclaimer in the documentation and/or other materials provided
- *      with the distribution.
- *    * Neither the name of The Linux Foundation nor the names of its
- *      contributors may be used to endorse or promote products derived
- *      from this software without specific prior written permission.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *     * Neither the name of The Linux Foundation nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
  *
- *  THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
- *  WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- *  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
- *  ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
- *  BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- *  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- *  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
- *  BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- *  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
- *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * ​​​​​Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 /*
@@ -204,7 +238,7 @@ SIDE EFFECTS
 
 taf_sms_MsgRef_t taf_sms_GetNext
 (
-    taf_sms_MsgRef_t        msgListRef
+    taf_sms_MsgListRef_t        msgListRef
 )
 {
    auto &mySms = taf_Sms::GetInstance();
@@ -266,14 +300,16 @@ taf_sms_MsgRef_t taf_sms_Create
    msgPtr->timestamp[0] = '\0';
    msgPtr->phoneId = DEFAULT_SLOT_ID;
 
-   msgPtr->type = TAF_SMS_TX;
-   msgPtr->sendStatus = TAF_SMS_UNSENT;
+   msgPtr->type = TAF_SMS_TYPE_TX;
+   msgPtr->sendStatus = TAF_SMS_TXSTS_UNSENT;
 
    msgPtr->userdataLen = 0;
-   msgPtr->smsUserCount = 1;
+   msgPtr->userCount = 1;
    msgPtr->inList = false;
    msgPtr->callBackPtr = NULL;
    msgPtr->ctxPtr = NULL;
+
+   msgPtr->applyDel = false;
 
    // Return a message reference
    return mySms.SetMsgRefForSessionCtx(msgPtr, sessionNode);
@@ -361,7 +397,9 @@ le_result_t taf_sms_SetText
 
    TAF_ERROR_IF_RET_VAL(length == 0, LE_BAD_PARAMETER, "Input string length = 0");
 
+   msgPtr->format = TAF_SMS_FORMAT_TEXT;
    msgPtr->userdataLen = length;
+
    LE_DEBUG("Try to copy data %s, len.%zd @ msgPtr->text.%p for msgPtr.%p",
             textPtr, length, msgPtr->text, msgPtr);
 
@@ -458,6 +496,12 @@ le_result_t taf_sms_SetPhoneId
    return LE_OK;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * ReInitialize message list when deleting list, for internal usage
+ */
+//--------------------------------------------------------------------------------------------------
+
 static void ReInitializeList
 (
     le_dls_List_t*  msgListPtr
@@ -479,9 +523,9 @@ static void ReInitializeList
 
          if (msgPtr != NULL)
          {
-            (msgPtr->smsUserCount)--;
+            (msgPtr->userCount)--;
 
-            if (msgPtr->smsUserCount == 0)
+            if (msgPtr->applyDel)
             {
                taf_sms_DeleteFromStorage(msgNode->msgRef);
             }
@@ -562,7 +606,20 @@ void taf_sms_Delete
 
    TAF_KILL_CLIENT_IF_RET_NIL(msgPtr->inList, "Since the message is in a RX list, please call 'DeleteList' as alternative");
 
-   (msgPtr->smsUserCount)--;
+   (msgPtr->userCount)--;
+
+   LE_DEBUG("userCount: %d", msgPtr->userCount);
+
+   if ((msgPtr->applyDel) && (msgPtr->userCount == 0))
+   {
+      taf_sms_DeleteFromStorage(msgRef);
+
+      msgPtr->callBackPtr = NULL;
+
+      le_mem_Release(msgPtr);
+
+      LE_DEBUG("userCount reaches 0, release the msgPtr");
+   }
 
    SessionNode_t* sessionNode = mySms.GetSessionNodeFromMsgRef(msgRef);
 
@@ -570,16 +627,6 @@ void taf_sms_Delete
 
    mySms.RemoveMsgRefFromSessionCtx(sessionNode, msgRef);
 
-   if (msgPtr->smsUserCount == 0)
-   {
-      msgPtr->callBackPtr = NULL;
-
-      le_mem_Release(msgPtr);
-
-      LE_DEBUG("smsUserCount reaches 0, release the msgPtr");
-   }
-
-   // delete the session node, if it is not used anymore
    if ((le_dls_NumLinks(&(sessionNode->handlerList)) == 0) &&
             (le_dls_NumLinks(&(sessionNode->msgRefList)) == 0))
    {
@@ -624,7 +671,9 @@ le_result_t taf_sms_GetSenderTel
 
    TAF_KILL_CLIENT_IF_RET_VAL(msgPtr == NULL, LE_NOT_FOUND, "Invalid msgPtr provided");
 
-   TAF_KILL_CLIENT_IF_RET_VAL(msgPtr->type != TAF_SMS_RX, LE_NOT_PERMITTED, "Not RX message type, not permitted to get sender");
+   TAF_KILL_CLIENT_IF_RET_VAL(msgPtr->type != TAF_SMS_TYPE_RX,
+                              LE_NOT_PERMITTED,
+                              "Not RX message type for msgRef(%p), not permitted to get sender", msgRef);
 
    TAF_KILL_CLIENT_IF_RET_VAL(telPtr == NULL, LE_FAULT, "telPtr is NULL");
 
@@ -662,9 +711,22 @@ size_t taf_sms_GetUserdataLen
 
    TAF_KILL_CLIENT_IF_RET_VAL(msgPtr == NULL, 0, "Invalid msgPtr provided");
 
-   msgPtr->userdataLen = strnlen(msgPtr->text, TAF_SMS_TEXT_BYTES);
+   size_t len = 0;
 
-   return msgPtr->userdataLen;
+   switch (msgPtr->format)
+   {
+      case TAF_SMS_FORMAT_TEXT:
+      case TAF_SMS_FORMAT_BINARY:
+         len = msgPtr->userdataLen;
+         break;
+      case TAF_SMS_FORMAT_UCS2:
+         len = (msgPtr->userdataLen / 2);
+         break;
+      default:
+         return 0;
+   }
+
+   return len;
 }
 
 /*======================================================================
@@ -692,8 +754,8 @@ SIDE EFFECTS
 le_result_t taf_sms_GetText
 (
     taf_sms_MsgRef_t  msgRef,
-    char*            textPtr,
-    size_t           len
+    char*             textPtr,
+    size_t            len
 )
 {
    auto &mySms = taf_Sms::GetInstance();
@@ -709,6 +771,211 @@ le_result_t taf_sms_GetText
    le_utf8_Copy(textPtr, msgPtr->text, len, NULL);
 
    return LE_OK;
+}
+
+/*======================================================================
+
+FUNCTION       taf_sms_GetBinary
+
+DESCRIPTION    Get binary data of message
+
+DEPENDENCIES   Get RX message
+
+PARAMETERS     [IN] taf_sms_MsgRef_t msgRef: specific message
+               [OUT] char* textPtr: string to copy text
+               [IN] size_t len: input string length
+
+RETURN VALUE   le_result_t
+                  LE_NOT_FOUND: Invalid message
+                  LE_FAULT: Invalid input string
+                  LE_OVERFLOW: String overflow
+                  LE_OK: Success
+
+SIDE EFFECTS
+
+======================================================================*/
+
+le_result_t taf_sms_GetBinary
+(
+    taf_sms_MsgRef_t  msgRef,
+    char*             binPtr,
+    size_t*           lenPtr
+)
+{
+   auto &mySms = taf_Sms::GetInstance();
+
+   taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(mySms.MsgRefMap, msgRef);
+
+   TAF_KILL_CLIENT_IF_RET_VAL(msgPtr == NULL, LE_NOT_FOUND, "Invalid msgPtr provided");
+
+   TAF_KILL_CLIENT_IF_RET_VAL(binPtr == NULL, LE_FAULT, "binPtr is NULL");
+
+   TAF_KILL_CLIENT_IF_RET_VAL(lenPtr == NULL, LE_FAULT, "lenPtr is NULL");
+
+   TAF_KILL_CLIENT_IF_RET_VAL(msgPtr->format != TAF_SMS_FORMAT_BINARY, LE_FAULT, "Invalid format");
+
+   if(msgPtr->userdataLen > *lenPtr)
+   {
+      memcpy(binPtr, msgPtr->binary, *lenPtr);
+      LE_ERROR("Input len is smaller than binary length");
+
+      return LE_OVERFLOW;
+   }
+
+   memcpy (binPtr, msgPtr->binary, msgPtr->userdataLen);
+   *lenPtr = msgPtr->userdataLen;
+   return LE_OK;
+}
+
+/*======================================================================
+
+FUNCTION       taf_sms_GetUCS2
+
+DESCRIPTION    Get UCS2 encoding of message
+
+DEPENDENCIES   Get RX message
+
+PARAMETERS     [IN] taf_sms_MsgRef_t msgRef: specific message
+               [OUT] char* textPtr: string to copy text
+               [IN] size_t len: input string length
+
+RETURN VALUE   le_result_t
+                  LE_NOT_FOUND: Invalid message
+                  LE_FAULT: Invalid input string
+                  LE_OVERFLOW: String overflow
+                  LE_OK: Success
+
+SIDE EFFECTS
+
+======================================================================*/
+
+le_result_t taf_sms_GetUCS2
+(
+   taf_sms_MsgRef_t  msgRef,
+   uint16_t*         ucs2Ptr,
+   size_t*           ucs2LenPtr
+)
+{
+   auto &mySms = taf_Sms::GetInstance();
+
+   taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(mySms.MsgRefMap, msgRef);
+
+   TAF_KILL_CLIENT_IF_RET_VAL(msgPtr == NULL, LE_NOT_FOUND, "Invalid msgPtr provided");
+
+   TAF_KILL_CLIENT_IF_RET_VAL(ucs2Ptr == NULL, LE_FAULT, "ucs2Ptr is NULL");
+
+   TAF_KILL_CLIENT_IF_RET_VAL(ucs2LenPtr == NULL, LE_FAULT, "ucs2LenPtr is NULL");
+
+   TAF_KILL_CLIENT_IF_RET_VAL(msgPtr->format != TAF_SMS_FORMAT_UCS2, LE_FAULT, "Invalid format");
+
+   if(msgPtr->userdataLen > (*ucs2LenPtr * 2))
+   {
+      memcpy(ucs2Ptr, msgPtr->binary, *ucs2LenPtr);
+      LE_ERROR("Input len is smaller than binary length");
+
+      return LE_OVERFLOW;
+   }
+
+   memcpy (ucs2Ptr, msgPtr->binary, msgPtr->userdataLen);
+   *ucs2LenPtr = (msgPtr->userdataLen) / 2;
+   return LE_OK;
+}
+
+/*======================================================================
+
+FUNCTION       taf_sms_GetPDU
+
+DESCRIPTION    Get PDU format of message
+
+DEPENDENCIES   Get RX message
+
+PARAMETERS     [IN] taf_sms_MsgRef_t msgRef: specific message
+               [OUT] char* textPtr: string to copy text
+               [IN] size_t len: input string length
+
+RETURN VALUE   le_result_t
+                  LE_NOT_FOUND: Invalid message
+                  LE_FAULT: Invalid input string
+                  LE_OVERFLOW: String overflow
+                  LE_OK: Success
+
+SIDE EFFECTS
+
+======================================================================*/
+
+le_result_t taf_sms_GetPDU
+(
+   taf_sms_MsgRef_t  msgRef,
+   uint8_t*          pduPtr,
+   size_t*           lenPtr
+)
+{
+   auto &mySms = taf_Sms::GetInstance();
+
+   taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(mySms.MsgRefMap, msgRef);
+
+   TAF_KILL_CLIENT_IF_RET_VAL(msgPtr == NULL, LE_NOT_FOUND, "Invalid msgPtr provided");
+
+   TAF_KILL_CLIENT_IF_RET_VAL(pduPtr == NULL, LE_FAULT, "pduPtr is NULL");
+
+   TAF_KILL_CLIENT_IF_RET_VAL(lenPtr == NULL, LE_FAULT, "lenPtr is NULL");
+
+   TAF_KILL_CLIENT_IF_RET_VAL(msgPtr->type != TAF_SMS_TYPE_RX, LE_FAULT, "Invalid type (not RX msg)");
+
+   if(msgPtr->pdu.length > *lenPtr)
+   {
+      memcpy(pduPtr, msgPtr->pdu.data, *lenPtr);
+      LE_ERROR("Input len is smaller than binary length");
+
+      return LE_OVERFLOW;
+   }
+
+   memcpy (pduPtr, msgPtr->pdu.data, msgPtr->pdu.length);
+   *lenPtr = msgPtr->pdu.length;
+   return LE_OK;
+}
+
+/*======================================================================
+
+FUNCTION       le_sms_GetPDULen
+
+DESCRIPTION    Get PDU length of message
+
+DEPENDENCIES   Get RX message
+
+PARAMETERS     [IN] taf_sms_MsgRef_t msgRef: specific message
+               [OUT] char* textPtr: string to copy text
+               [IN] size_t len: input string length
+
+RETURN VALUE   le_result_t
+                  LE_NOT_FOUND: Invalid message
+                  LE_FAULT: Invalid input string
+                  LE_OVERFLOW: String overflow
+                  LE_OK: Success
+
+SIDE EFFECTS
+
+======================================================================*/
+
+size_t le_sms_GetPDULen
+(
+   taf_sms_MsgRef_t  msgRef
+)
+{
+   auto &mySms = taf_Sms::GetInstance();
+
+   taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(mySms.MsgRefMap, msgRef);
+
+   TAF_KILL_CLIENT_IF_RET_VAL(msgPtr == NULL, LE_NOT_FOUND, "Invalid msgPtr provided");
+
+   TAF_KILL_CLIENT_IF_RET_VAL(msgPtr->type != TAF_SMS_TYPE_RX, LE_FAULT, "Invalid type (not RX msg)");
+
+   if (msgPtr->pduReady)
+   {
+      return (msgPtr->pdu.length);
+   }
+
+    return 0;
 }
 
 /*======================================================================
@@ -736,7 +1003,7 @@ taf_sms_SendStatus_t taf_sms_GetSendStatus
 
    taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(mySms.MsgRefMap, msgRef);
 
-   TAF_ERROR_IF_RET_VAL(msgPtr == NULL, TAF_SMS_SEND_STATUS_UNKNOWN, "msgPtr is NULL!");
+   TAF_ERROR_IF_RET_VAL(msgPtr == NULL, TAF_SMS_TXSTS_UNKNOWN, "msgPtr is NULL!");
 
    return msgPtr->sendStatus;
 }
@@ -766,7 +1033,7 @@ taf_sms_ReadStatus_t taf_sms_GetReadStatus
 
    taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(mySms.MsgRefMap, msgRef);
 
-   TAF_ERROR_IF_RET_VAL(msgPtr == NULL, TAF_SMS_READ_STATUS_UNKNOWN, "msgPtr is NULL!");
+   TAF_ERROR_IF_RET_VAL(msgPtr == NULL, TAF_SMS_RXSTS_UNKNOWN, "msgPtr is NULL!");
 
    return msgPtr->readStatus;
 }
@@ -781,7 +1048,7 @@ DEPENDENCIES   Access TX/RX message
 
 PARAMETERS     [IN] taf_sms_MsgRef_t msgRef: specific message
 
-RETURN VALUE   taf_sms_Type_t
+RETURN VALUE   taf_sms_Type_t: message type
 
 SIDE EFFECTS
 
@@ -799,6 +1066,36 @@ taf_sms_Type_t taf_sms_GetType
    TAF_ERROR_IF_RET_VAL(msgPtr == NULL, TAF_SMS_TYPE_UNKNOWN, "msgPtr is NULL!");
 
    return (msgPtr->type);
+}
+
+/*======================================================================
+
+FUNCTION       taf_sms_GetFormat
+
+DESCRIPTION    Get format of message
+
+DEPENDENCIES   Access TX/RX message
+
+PARAMETERS     [IN] taf_sms_MsgRef_t msgRef: specific message
+
+RETURN VALUE   taf_sms_Format_t: message format
+
+SIDE EFFECTS
+
+======================================================================*/
+
+taf_sms_Format_t taf_sms_GetFormat
+(
+   taf_sms_MsgRef_t msgRef
+)
+{
+   auto &mySms = taf_Sms::GetInstance();
+
+   taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(mySms.MsgRefMap, msgRef);
+
+   TAF_ERROR_IF_RET_VAL(msgPtr == NULL, TAF_SMS_FORMAT_UNKNOWN, "msgPtr is NULL!");
+
+   return (msgPtr->format);
 }
 
 /*======================================================================
@@ -839,7 +1136,7 @@ le_result_t taf_sms_Send
    le_clk_Time_t timeToWait = {TIMEOUT_SEND_SEMAPHORE, 0};
    result = le_sem_WaitWithTimeOut(mySms.SmsSendSem, timeToWait);
 
-   msgPtr->sendStatus = TAF_SMS_SENDING;
+   msgPtr->sendStatus = TAF_SMS_TXSTS_SENDING;
    mySms.sendingMsgRef = msgRef;
    mySms.sendMessage();
 
@@ -875,69 +1172,24 @@ le_result_t taf_sms_DeleteFromStorage
 
    TAF_KILL_CLIENT_IF_RET_VAL(msgPtr == NULL, LE_NOT_FOUND, "Invalid msgPtr provided");
 
-   LE_INFO("taf_sms_DeleteFromStorage is not implemented\n");
+   TAF_KILL_CLIENT_IF_RET_VAL(msgPtr->storage == TAF_SMS_STORAGE_NONE, LE_NO_MEMORY, "Invalid storage");
+
+   TAF_KILL_CLIENT_IF_RET_VAL(msgPtr->storage == TAF_SMS_STORAGE_UNKNOWN, LE_NO_MEMORY, "Invalid storage");
+
+   le_result_t   res = LE_OK;
+
+   if (msgPtr->userCount == 1)
+   {
+      res = taf_pa_sms_DelMsgFromStorage(msgPtr->storage, msgPtr->storageIdx);
+
+      if(res != LE_OK)
+      {
+         res = LE_FAULT;
+      }
+   }
+   msgPtr->applyDel = true;
 
    return LE_OK;
-}
-
-/*======================================================================
-
-FUNCTION       MarkReadStatus_Read
-
-DESCRIPTION    Mark message status as 'read'
-
-DEPENDENCIES   Get RX message
-
-PARAMETERS     [IN] taf_sms_MsgRef_t msgRef: specific message
-
-RETURN VALUE   None
-
-SIDE EFFECTS   None
-
-======================================================================*/
-
-void MarkReadStatus_Read
-(
-    taf_sms_MsgRef_t msgRef
-)
-{
-   auto &mySms = taf_Sms::GetInstance();
-
-   taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(mySms.MsgRefMap, msgRef);
-
-   TAF_KILL_CLIENT_IF_RET_NIL(msgPtr == NULL, "Invalid msgPtr provided");
-
-   msgPtr->readStatus = TAF_SMS_READ;
-}
-
-/*======================================================================
-
-FUNCTION       MarkReadStatus_Unread
-
-DESCRIPTION    Mark message status as 'unread'
-
-DEPENDENCIES   Get RX message
-
-PARAMETERS     [IN] taf_sms_MsgRef_t msgRef: specific message
-
-RETURN VALUE   None
-
-SIDE EFFECTS   None
-
-======================================================================*/
-
-void MarkReadStatus_Unread
-(
-    taf_sms_MsgRef_t msgRef
-)
-{
-   auto &mySms = taf_Sms::GetInstance();
-
-   taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(mySms.MsgRefMap, msgRef);
-
-   TAF_KILL_CLIENT_IF_RET_NIL(msgPtr == NULL, "Invalid msgPtr provided");
-
-   msgPtr->readStatus = TAF_SMS_UNREAD;
 }
 
 /*======================================================================
@@ -991,6 +1243,25 @@ le_result_t taf_sms_GetSmsCenterAddr
    return LE_OK;
 }
 
+/*======================================================================
+
+FUNCTION       taf_sms_SetSmsCenterAddr
+
+DESCRIPTION    Set SMS center address
+
+DEPENDENCIES   Initialization of SMS service
+
+PARAMETERS     [IN] int8_t       phoneId: phone ID
+               [IN] const char*  addr: to store SMS center address
+
+RETURN VALUE   le_result_t
+                  LE_FAULT: wait callback timeout or get error
+                  LE_OK: Success
+
+SIDE EFFECTS
+
+======================================================================*/
+
 le_result_t taf_sms_SetSmsCenterAddr
 (
    int8_t      phoneId,
@@ -1025,6 +1296,311 @@ le_result_t taf_sms_SetSmsCenterAddr
    }
 }
 
+/*======================================================================
+
+FUNCTION       MarkReadStatus_Read
+
+DESCRIPTION    Mark message status as 'read'
+
+DEPENDENCIES   Get RX message
+
+PARAMETERS     [IN] taf_sms_MsgRef_t msgRef: specific message
+
+RETURN VALUE   None
+
+SIDE EFFECTS   None
+
+======================================================================*/
+
+void MarkReadStatus_Read
+(
+    taf_sms_MsgRef_t msgRef
+)
+{
+   auto &mySms = taf_Sms::GetInstance();
+
+   taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(mySms.MsgRefMap, msgRef);
+
+   TAF_KILL_CLIENT_IF_RET_NIL(msgPtr == NULL, "Invalid msgPtr provided");
+
+   msgPtr->readStatus = TAF_SMS_RXSTS_READ;
+
+   taf_pa_sms_ModifyTag(msgPtr->storage, msgPtr->storageIdx, TAF_SMS_RXSTS_READ);
+}
+
+/*======================================================================
+
+FUNCTION       MarkReadStatus_Unread
+
+DESCRIPTION    Mark message status as 'unread'
+
+DEPENDENCIES   Get RX message
+
+PARAMETERS     [IN] taf_sms_MsgRef_t msgRef: specific message
+
+RETURN VALUE   None
+
+SIDE EFFECTS   None
+
+======================================================================*/
+
+void MarkReadStatus_Unread
+(
+    taf_sms_MsgRef_t msgRef
+)
+{
+   auto &mySms = taf_Sms::GetInstance();
+
+   taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(mySms.MsgRefMap, msgRef);
+
+   TAF_KILL_CLIENT_IF_RET_NIL(msgPtr == NULL, "Invalid msgPtr provided");
+
+   msgPtr->readStatus = TAF_SMS_RXSTS_UNREAD;
+
+   taf_pa_sms_ModifyTag(msgPtr->storage, msgPtr->storageIdx, TAF_SMS_RXSTS_UNREAD);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get messaga content from PA message indication, for internal usage
+ */
+//--------------------------------------------------------------------------------------------------
+
+static void taf_pa_sms_getNewRxMsgInd
+(
+   taf_pa_sms_RxMsgInd_t* pduMsgRef,
+   void* contextPtr
+)
+{
+   LE_DEBUG("pduMsgRef->index = %d", pduMsgRef->index);
+   LE_DEBUG("pduMsgRef->storage = %d", pduMsgRef->storage);
+
+   auto &mySms = taf_Sms::GetInstance();
+
+   taf_pa_sms_Pdu_t pduMsg = {0};
+   le_result_t res = taf_pa_sms_ReadPDUMsgFromStorage(pduMsgRef->storage, pduMsgRef->index, &pduMsg);
+
+   TAF_ERROR_IF_RET_NIL(res != LE_OK, "taf_pa_sms_ReadPDUMsgFromStorage failed, index[%d]", pduMsgRef->index);
+
+   TAF_ERROR_IF_RET_NIL(pduMsg.length > TAF_SMS_PDU_BYTES, "PDU length (%u) out of range for index[%d]", pduMsg.length, pduMsgRef->index);
+
+   sms_PduMsg_t decodedPduMsg;
+
+   if (smsPdu_Decode(SMS_PROTOCOL_GSM,
+                        pduMsg.data,
+                        &decodedPduMsg) == LE_OK)
+   {
+      LE_DEBUG("decodedPduMsg.type: %d", decodedPduMsg.type);
+
+      if (decodedPduMsg.type != SMS_TYPE_SUBMIT)
+      {
+         taf_sms_Msg_t* newMsg = mySms.CreateAndConstructMsg(&pduMsg, &decodedPduMsg);
+
+         newMsg->readStatus = TAF_SMS_RXSTS_UNREAD;
+         newMsg->type = TAF_SMS_TYPE_RX;
+
+         mySms.NewSmsHandler(newMsg);
+      }
+   }
+}
+
+/*======================================================================
+
+FUNCTION       taf_sms_SetPrefStorage
+
+DESCRIPTION    Set preferred SMS storage place
+
+DEPENDENCIES   Initialization of SMS service
+
+PARAMETERS     [IN] taf_sms_Storage_t: preferred storage place
+
+RETURN VALUE   le_result_t
+
+SIDE EFFECTS
+
+======================================================================*/
+
+le_result_t taf_sms_SetPrefStorage
+(
+   taf_sms_Storage_t prefStorage
+)
+{
+   auto &mySms = taf_Sms::GetInstance();
+
+//Currently only SIM storage is supported, this hard code will be removed when NV storage implementation is finished
+#ifndef SUPPORT_NV_STORAGE
+   LE_INFO("Currently only support SIM storage");
+   prefStorage = TAF_SMS_STORAGE_SIM;
+#endif
+
+   if(prefStorage == TAF_SMS_STORAGE_NV || prefStorage == TAF_SMS_STORAGE_SIM)
+   {
+      taf_pa_sms_SetRxMsgInd(true);
+      mySms.qmiRxMsgHandler = taf_pa_sms_AddNewMsgHandler((taf_pa_sms_RxMsgHandlerFunc_t)&taf_pa_sms_getNewRxMsgInd, NULL);
+   }
+   else
+   {
+      taf_pa_sms_SetRxMsgInd(false);
+      taf_pa_sms_RemoveRxMsgHandler(mySms.qmiRxMsgHandler);
+   }
+   return(taf_pa_sms_SetPrefStorage(prefStorage));
+}
+
+/*======================================================================
+
+FUNCTION       taf_sms_GetPrefStorage
+
+DESCRIPTION    Get preferred SMS storage place
+
+DEPENDENCIES   Initialization of SMS service
+
+PARAMETERS     [OUT] taf_sms_Storage_t: present preferred storage place
+
+RETURN VALUE   le_result_t
+
+SIDE EFFECTS
+
+======================================================================*/
+
+le_result_t taf_sms_GetPrefStorage
+(
+   taf_sms_Storage_t* prefStorage
+)
+{
+   return(taf_pa_sms_GetPrefStorage(prefStorage));
+}
+
+/*======================================================================
+
+FUNCTION       taf_sms_SendPduMsg
+
+DESCRIPTION    Send PDU message
+
+DEPENDENCIES   Initialization of SMS service
+
+PARAMETERS     uint32_t             length: message length
+               [IN] const uint8_t   dataPtr: data pointer
+               uint32_t             timeout: timeout value in milli-second
+
+RETURN VALUE   le_result_t
+
+SIDE EFFECTS
+
+======================================================================*/
+
+le_result_t taf_sms_SendPduMsg
+(
+   const uint8_t*   dataPtr,
+   size_t           dataSize,
+   uint32_t         timeout
+)
+{
+   return(taf_pa_sms_SendPduMsg(dataSize, dataPtr, timeout));
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The first-layer storage handler, for internal usage
+ */
+//--------------------------------------------------------------------------------------------------
+
+static void StorageHandler
+(
+    void* reportPtr,
+    void* secondLayerHandlerFunc
+)
+{
+   taf_sms_FullStorageHandlerFunc_t clientHandlerFunc =
+      (taf_sms_FullStorageHandlerFunc_t)secondLayerHandlerFunc;
+
+   taf_sms_Storage_t storage = *(taf_sms_Storage_t *)reportPtr;
+
+   clientHandlerFunc(storage, le_event_GetContextPtr());
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Storage memory full indication from PA layer, for internal usage
+ */
+//--------------------------------------------------------------------------------------------------
+
+static void taf_pa_sms_storageFullInd
+(
+   taf_pa_sms_StorageInd_t* ind,
+   void* contextPtr
+)
+{
+   LE_INFO("ind->storage = %d", ind->storage);
+
+   taf_sms_Storage_t storage = ind->storage;
+
+   auto &mySms = taf_Sms::GetInstance();
+
+   le_event_Report(mySms.StorageEvent, (void*)&storage, sizeof(taf_sms_Storage_t));
+}
+
+/*======================================================================
+
+FUNCTION       taf_sms_AddFullStorageEventHandler
+
+DESCRIPTION    Register event handler for storage
+
+DEPENDENCIES   Initialization of SMS service
+
+PARAMETERS     [IN] taf_sms_FullStorageHandlerFunc_t handlerFuncPtr: handler function
+               [IN] void*                            contextPtr:     context pointer
+
+RETURN VALUE   taf_sms_FullStorageEventHandlerRef_t
+
+SIDE EFFECTS
+
+======================================================================*/
+
+taf_sms_FullStorageEventHandlerRef_t taf_sms_AddFullStorageEventHandler
+(
+   taf_sms_FullStorageHandlerFunc_t handlerFuncPtr,
+   void*                            contextPtr
+)
+{
+   auto &mySms = taf_Sms::GetInstance();
+
+   le_event_HandlerRef_t handlerRef;
+
+   TAF_KILL_CLIENT_IF_RET_VAL(handlerFuncPtr == NULL, NULL, "handlerFuncPtr is NULL !");
+
+   handlerRef = le_event_AddLayeredHandler("StorageInd",
+                                           mySms.StorageEvent,
+                                           StorageHandler,
+                                           (void*)handlerFuncPtr);
+
+   le_event_SetContextPtr(handlerRef, contextPtr);
+
+   return (taf_sms_FullStorageEventHandlerRef_t)(handlerRef);
+}
+
+/*======================================================================
+
+FUNCTION       taf_sms_RemoveFullStorageEventHandler
+
+DESCRIPTION    Deregister event handler for storage
+
+DEPENDENCIES   Register storage event handler
+
+PARAMETERS     [IN] taf_sms_RxMsgHandlerRef_t handlerRef: Handler referenced
+
+RETURN VALUE   None
+
+SIDE EFFECTS
+
+======================================================================*/
+
+void taf_sms_RemoveFullStorageEventHandler
+(
+    taf_sms_FullStorageEventHandlerRef_t   handlerRef
+)
+{
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
+}
 
 /*======================================================================
 
@@ -1050,6 +1626,12 @@ COMPONENT_INIT
 
    // install the handler
    taf_Handler myHandler;
+
+   mySms.StorageEvent = le_event_CreateId("StorageEventId", sizeof(taf_sms_Storage_t));
+   taf_pa_sms_AddStorageHandler((taf_pa_sms_StorageHandlerFunc_t)&taf_pa_sms_storageFullInd, NULL);
+
+   // Only support SIM storage currently, so switch preferred storage to SIM temporarily
+   taf_sms_SetPrefStorage(TAF_SMS_STORAGE_SIM);
 
    LE_INFO("tafSms service Ready...\n");
 }

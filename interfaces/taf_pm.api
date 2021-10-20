@@ -1,0 +1,164 @@
+/*
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/**
+ * Maximum string length for a wake-up source tag (not including the null-terminator)
+ */
+DEFINE TAG_LEN = 31;
+
+/**
+ * Maximum string length for a wake-up source tag (including the null-terminator)
+ */
+DEFINE TAG_LEN_BYTES = TAG_LEN + 1;
+
+
+/**
+ * Option LE_PM_REF_COUNT to manage a reference counted wakeup source
+ */
+DEFINE REF_COUNT = 1;
+
+/**
+ * Defines power states of the system
+ */
+ENUM State
+{
+    STATE_UNKNOWN,       ///< System state is unknown
+    STATE_RESUME,        ///< System state is resume
+    STATE_SUSPEND,       ///< System state is suspend
+    STATE_SHUTDOWN       ///< System state is shutdown
+};
+
+/**
+ * Defines all the status codes of API processing
+ */
+ENUM Status
+{
+    SUCCESS,         ///< API processing is successful
+    FAILED,          ///< API processing failure
+    EXPIRED          ///< Expired
+};
+
+/**
+ * Handler for state change
+ */
+HANDLER StateChangeHandler
+(
+    State state IN
+);
+
+/**
+ * TCU state change event
+ */
+EVENT StateChange
+(
+    StateChangeHandler handler
+);
+
+/**
+ * Reference to wakeup source used by StayAwake and Relax function
+ */
+REFERENCE WakeupSource;
+
+/**
+ * Create a new wakeup source
+ *
+ * @return
+ *      - Reference to wakeup source (to be used later for acquiring/releasing)
+ *      - Null on failure
+ *
+ * @note The process exits if an invalid or existing tag is passed,
+ *       or on syscall failures
+ */
+FUNCTION WakeupSource NewWakeupSource
+(
+    uint32 createOpts IN,       ///< Wakeup source options
+    string wsTag[TAG_LEN] IN    ///< Context-specific wakeup source tag
+);
+
+/**
+ * Acquire a passed wakeup source ref
+ *
+ * @return
+ *     - LE_OK          if the wakeup source is acquired
+ *     - LE_NO_MEMORY   if the wakeup sources limit is reached
+ *     - LE_FAULT       for other errors
+ *
+ * @note The process exits with invalid reference
+ * @note CONFIG_PM_WAKELOCKS_LIMIT configuration variable is fixed by kernel to limit
+ *       the wakeup source
+ */
+FUNCTION le_result_t StayAwake
+(
+    WakeupSource wsRef IN      ///< Reference of wakeup source to be acquired
+);
+
+/**
+ * Release a previously acquired wakeup source
+ *
+ * @return
+ *     - LE_OK          if the wakeup source is acquired
+ *     - LE_NOT_FOUND   if the wakeup source was not currently acquired
+ *     - LE_FAULT       for other errors
+ *
+ * @note If an invalid reference is passed, process exits
+ */
+FUNCTION le_result_t Relax
+(
+    WakeupSource wsRef IN     ///< Reference of wakeup source to be released
+);
+
+/**
+ * Release and destroy all acquired wakeup source and kill all clients
+ *
+ * @return
+ *     - LE_OK              if the wakeup source is acquired
+ *     - LE_NOT_PERMITTED   if the taf_pm_StayAwake() has not failed with LE_NO_MEMORY
+ *     - LE_FAULT           for other errors
+ *
+ * @note The service is available only if taf_pm_StayAwake() has returned LE_NO_MEMORY. It should be
+ *       used in the way to release and destroy all wakeup sources.
+ */
+FUNCTION le_result_t ForceRelaxAndDestroyAllWakeupSource
+(
+);
+
+/**
+ * Get current system state
+ *
+ * @return State of the system
+ */
+FUNCTION State GetPowerState
+(
+);
+

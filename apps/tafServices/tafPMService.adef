@@ -1,0 +1,30 @@
+sandboxed: false
+executables:
+{
+    tafPMService = ( $TELAF_ROOT/components/tafPMService )
+}
+start: auto
+
+processes:
+{
+    run:
+    {
+        (tafPMService)
+    }
+
+
+    #if ${LE_CONFIG_SERVICES_WATCHDOG} = y
+        maxWatchdogTimeout: 100000
+    #else
+        watchdogTimeout: never
+    #endif
+}
+
+bindings:
+{
+}
+
+extern:
+{
+    tafPMService.tafPMService.taf_pm
+}

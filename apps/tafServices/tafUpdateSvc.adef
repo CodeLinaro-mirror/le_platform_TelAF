@@ -1,0 +1,31 @@
+sandboxed: false
+
+maxMemoryBytes: 60000K
+
+executables:
+{
+    tafUpdateSvc = ( $TELAF_ROOT/components/tafUpdateSvc )
+}
+
+start: auto
+
+processes:
+{
+    run:
+    {
+        (tafUpdateSvc)
+    }
+
+    maxFileBytes: 1048576K
+    faultAction: restart
+}
+
+bindings:
+{
+    tafUpdateSvc.tafUpdateSvc.taf_dcs -> tafDataCallSvc.taf_dcs
+}
+
+extern:
+{
+    tafUpdateSvc.tafUpdateSvc.taf_update
+}

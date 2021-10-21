@@ -13,7 +13,6 @@ fi
 umask 002
 
 if [ ! -e "./components/tafSMSSvc/taf_pa_sms" ]; then
-
     if [ -e "../telaf-prop/platformAdaptor/" ]; then
         echo "using platformAdaptor"
         source ../telaf-prop/set_af_env.sh
@@ -21,6 +20,17 @@ if [ ! -e "./components/tafSMSSvc/taf_pa_sms" ]; then
     else
         echo "using stub for platformAdaptor"
         ln -sf "./stub" "./components/tafSMSSvc/taf_pa_sms"
+    fi
+fi
+
+if [ ! -e "./components/tafUpdateSvc/taf_update_pa" ]; then
+    if [ -e "../telaf-internal/platformAdaptor/" ]; then
+        echo "using platformAdaptor"
+        source ../telaf-internal/set_af_env.sh
+        ln -sf "../../../telaf-internal/platformAdaptor/taf_update_pa" "./components/tafUpdateSvc/taf_update_pa"
+    else
+        echo "using stub for platformAdaptor"
+        ln -sf "./stub" "./components/tafUpdateSvc/taf_update_pa"
     fi
 fi
 

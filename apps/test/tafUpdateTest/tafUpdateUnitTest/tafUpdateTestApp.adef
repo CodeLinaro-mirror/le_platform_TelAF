@@ -1,0 +1,29 @@
+sandboxed: false
+
+executables:
+{
+    tafUpdate = ( $TELAF_ROOT/apps/test/tafUpdateTest/tafUpdateUnitTest/tafUpdateComponent )
+}
+
+start: manual
+
+processes:
+{
+    run:
+    {
+        (tafUpdate)
+    }
+
+    faultAction: stopApp
+
+    #if ${LE_CONFIG_SERVICES_WATCHDOG} = y
+        maxWatchdogTimeout: 100000
+    #else
+        watchdogTimeout: never
+    #endif
+}
+
+bindings:
+{
+    tafUpdate.tafUpdateComponent.taf_update -> tafUpdateSvc.taf_update
+}

@@ -1,0 +1,23 @@
+requires:
+{
+    api:
+    {
+        taf_update_pa.api    [types-only]
+    }
+}
+
+cxxflags:
+{
+    -I$TELAF_ROOT/include
+}
+
+cflags:
+{
+
+}
+
+sources:
+{
+    tafUpdatePa.cpp
+}
+

@@ -24,6 +24,7 @@ apps:
     $TELAF_ROOT/apps/tafServices/tafDataCallSvc
     $TELAF_ROOT/apps/tafServices/tafRemoteSimSvc
     $TELAF_ROOT/apps/tafServices/tafPMService
+    $TELAF_ROOT/apps/tafServices/tafUpdateSvc
 
     // Command-line tools.
     $LEGATO_ROOT/apps/tools/tools
@@ -38,9 +39,9 @@ apps:
     $TELAF_ROOT/apps/test/tafrSimTest/tafrSimUnitTest/tafrSimUnitTest
     $TELAF_ROOT/apps/test/tafrSimTest/tafSAPServerUnitTest/tafSAPServerUnitTest
     $TELAF_ROOT/apps/test/tafSimTest/tafRSPUnitTest/tafRSPUnitTest
-
     $TELAF_ROOT/apps/sample/remoteSim/tafrSim
     $TELAF_ROOT/apps/sample/sapCard/tafsapProvider
+    $TELAF_ROOT/apps/test/tafUpdateTest/tafUpdateUnitTest/tafUpdateTestApp
 }
 
 commands:
@@ -54,6 +55,7 @@ commands:
 bindings:
 {
     <root>.le_fwupdate -> fwupdateService.le_fwupdate
+    <root>.taf_update -> tafUpdateSvc.taf_update
 }
 
 interfaceSearch:

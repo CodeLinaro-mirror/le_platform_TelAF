@@ -2773,7 +2773,7 @@ bool taf_radio_IsCellularNetworkForbidden(taf_radio_ScanInformationRef_t scanInf
 
 /*======================================================================
 
- FUNCTION        le_mrc_DeleteCellularNetworkScan
+ FUNCTION        taf_radio_DeleteCellularNetworkScan
 
  DESCRIPTION     Delete a reference of a scan operator list.
 

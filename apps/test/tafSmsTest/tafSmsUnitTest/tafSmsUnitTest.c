@@ -1,30 +1,64 @@
 /*
- *  Copyright (c) 2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021 The Linux Foundation. All rights reserved.
  *
- *  Redistribution and use in source and binary forms, with or without
- *  modification, are permitted provided that the following conditions are
- *  met:
- *    * Redistributions of source code must retain the above copyright
- *      notice, this list of conditions and the following disclaimer.
- *    * Redistributions in binary form must reproduce the above
- *      copyright notice, this list of conditions and the following
- *      disclaimer in the documentation and/or other materials provided
- *      with the distribution.
- *    * Neither the name of The Linux Foundation nor the names of its
- *      contributors may be used to endorse or promote products derived
- *      from this software without specific prior written permission.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *     * Neither the name of The Linux Foundation nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
  *
- *  THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
- *  WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- *  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
- *  ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
- *  BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- *  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- *  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
- *  BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- *  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
- *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * ​​​​​Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 /*
@@ -58,6 +92,17 @@
 #define TIME_SET_SMSC       5               // Wait for settingi sms center take effect
 
 #define AMOUNT_MSG_TX       3               // Total message amount to send from this test app
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Message in PDU format, generated from PDU converter
+ * Message text: TAF test
+ */
+//--------------------------------------------------------------------------------------------------
+static uint8_t PDU_TEST_PATTERN_7BITS[]=
+{
+0x00,0x01,0x00,0x0C,0x91,0x88,0x96,0x87,0x71,0x92,0x20,0x00,0x11,0x08,0xD4,0xA0,0x11,0x44,0x2F,0xCF,0xE9
+};
 
 typedef union {
     char     text[TAF_SMS_TEXT_BYTES];
@@ -173,7 +218,7 @@ static void Test_taf_sms_SetGetParam
 
     LE_ASSERT(taf_sms_SetPhoneId(tmpMsg, PHONE_ID_PATTERN_1) == LE_OK);
 
-    LE_ASSERT(taf_sms_GetType(tmpMsg) == TAF_SMS_TX);
+    LE_ASSERT(taf_sms_GetType(tmpMsg) == TAF_SMS_TYPE_TX);
 
     taf_sms_Delete(tmpMsg);
 }
@@ -203,7 +248,7 @@ static void Callback_MsgSendStatus
 {
     LE_INFO("msg: %p, Sendstatus: %d", msgRef, status);
 
-    LE_ASSERT(status == TAF_SMS_SENT);
+    LE_ASSERT(status == TAF_SMS_TXSTS_SENT);
 
     TxCount++;
 
@@ -318,7 +363,9 @@ static void RxHandler
 
     RxSmsContent_t rxContent;
 
-    LE_ASSERT(taf_sms_GetType(msgRef) == TAF_SMS_RX);
+    memset(rxContent.text, 0, TAF_SMS_TEXT_BYTES);
+
+    LE_ASSERT(taf_sms_GetType(msgRef) == TAF_SMS_TYPE_RX);
 
     LE_ASSERT(taf_sms_GetSenderTel(msgRef, rxContent.text, sizeof(rxContent.text)) == LE_OK);
 
@@ -458,9 +505,39 @@ static void Test_taf_sms_Smsc
 
 /*======================================================================
 
+ FUNCTION        Test_taf_sms_SendPdu
+
+ DESCRIPTION     Test get/set sms center address
+
+ DEPENDENCIES    None
+
+ PARAMETERS      void
+
+ RETURN VALUE    void
+
+ SIDE EFFECTS
+
+======================================================================*/
+
+static void Test_taf_sms_SendPdu
+(
+    void
+)
+{
+#ifdef TEST_SMS_PDU
+    uint32_t dataSize = sizeof(PDU_TEST_PATTERN_7BITS)/sizeof(PDU_TEST_PATTERN_7BITS[0]);
+    taf_sms_SendPduMsg(PDU_TEST_PATTERN_7BITS, dataSize, 1000);
+#else
+    LE_UNUSED(PDU_TEST_PATTERN_7BITS);
+#endif
+    return;
+}
+
+/*======================================================================
+
  FUNCTION        Test_main
 
- DESCRIPTION     Test main function, call each test sub-funct to me
+ DESCRIPTION     Test main function, call each test sub-function
 
  DEPENDENCIES    None
 
@@ -492,6 +569,10 @@ void Test_main
     LE_INFO("===== Test_taf_sms_Smsc =====");
     Test_taf_sms_Smsc();
     LE_INFO("##### Test_taf_sms_Smsc OK #####");
+
+    LE_INFO("===== Test_taf_sms_SendPdu =====");
+    Test_taf_sms_SendPdu();
+    LE_INFO("##### Test_taf_sms_SendPdu OK #####");
 
     LE_INFO("===== Test_taf_sms_Receive =====");
     Test_taf_sms_Receive();

@@ -1,30 +1,64 @@
 /*
- *  Copyright (c) 2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021 The Linux Foundation. All rights reserved.
  *
- *  Redistribution and use in source and binary forms, with or without
- *  modification, are permitted provided that the following conditions are
- *  met:
- *    * Redistributions of source code must retain the above copyright
- *      notice, this list of conditions and the following disclaimer.
- *    * Redistributions in binary form must reproduce the above
- *      copyright notice, this list of conditions and the following
- *      disclaimer in the documentation and/or other materials provided
- *      with the distribution.
- *    * Neither the name of The Linux Foundation nor the names of its
- *      contributors may be used to endorse or promote products derived
- *      from this software without specific prior written permission.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *     * Neither the name of The Linux Foundation nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
  *
- *  THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
- *  WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- *  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
- *  ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
- *  BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- *  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- *  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
- *  BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- *  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
- *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * ​​​​​Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "legato.h"
@@ -84,8 +118,8 @@ void taf_Handler::ProcessNewMessage(void* incomingMsgPtr)
    }
 
    tafNewMsg->userdataLen = length;
-   tafNewMsg->readStatus = TAF_SMS_UNREAD;
-   tafNewMsg->type = TAF_SMS_RX;
+   tafNewMsg->readStatus = TAF_SMS_RXSTS_UNREAD;
+   tafNewMsg->type = TAF_SMS_TYPE_RX;
 
    sms.NewSmsHandler(tafNewMsg);
 }
@@ -379,12 +413,12 @@ void taf_Sms::MessageHandlers
             {
                if (newMessage)
                {
-                  msgPtr->smsUserCount = 1;
+                  msgPtr->userCount = 1;
                   newMessage = false;
                }
                else
                {
-                  msgPtr->smsUserCount++;
+                  msgPtr->userCount++;
                }
 
                HandlerNode_t * handlerCtxPtr = NULL;
@@ -411,10 +445,11 @@ taf_sms_MsgListRef_t taf_Sms::CreateNewMsgList
 {
    taf_sms_List_t* smsRxMsgList = (taf_sms_List_t*)le_mem_ForceAlloc(MsgListPool);
 
-   if (smsRxMsgList)
+   smsRxMsgList->list = LE_DLS_LIST_INIT;
+
+   if (ListAllRxMsg(smsRxMsgList) > 0)
    {
       smsRxMsgList->tmpLink = NULL;
-      smsRxMsgList->list = LE_DLS_LIST_INIT;
       smsRxMsgList->sessionRef = taf_sms_GetClientSessionRef();
       smsRxMsgList->msgListRef = (taf_sms_List_t*)le_ref_CreateRef(ListRefMap, smsRxMsgList);
 
@@ -425,6 +460,318 @@ taf_sms_MsgListRef_t taf_Sms::CreateNewMsgList
       le_mem_Release(smsRxMsgList);
       return NULL;
    }
+}
+
+taf_sms_Msg_t* taf_Sms::CreateRxMsgNode
+(
+   taf_pa_sms_Pdu_t *pduMsg,
+   char*            phoneNum,
+   taf_sms_Format_t format,
+   char*            data,
+   int16_t          dataLen
+)
+{
+   taf_sms_Msg_t  *msgPtr;
+
+   msgPtr = (taf_sms_Msg_t*)le_mem_ForceAlloc(MsgPool);
+
+   memset(msgPtr, 0, sizeof(taf_sms_Msg_t));
+
+   msgPtr->tel[0] = '\0';
+   msgPtr->text[0] = '\0';
+   msgPtr->timestamp[0] = '\0';
+   msgPtr->phoneId = DEFAULT_SLOT_ID;
+
+   memcpy(&(msgPtr->pdu), pduMsg, sizeof(taf_pa_sms_Pdu_t));
+   msgPtr->pduReady = true;
+
+   msgPtr->type = TAF_SMS_TYPE_RX;
+   msgPtr->format = format;
+   msgPtr->readStatus = pduMsg->rxStatus;
+
+   msgPtr->storage = pduMsg->storage;
+   msgPtr->storageIdx = pduMsg->index;
+   msgPtr->applyDel = false;
+
+   memcpy(msgPtr->tel, phoneNum, TAF_TYPES_REMOTE_PARTY_NUM_MAX_BYTES);
+
+   if(format == TAF_SMS_FORMAT_TEXT)
+   {
+      memcpy(msgPtr->text, data, TAF_SMS_TEXT_BYTES);
+   }
+   else
+   {
+      memcpy(msgPtr->binary, data, TAF_SMS_BINARY_BYTES);
+   }
+
+   msgPtr->userdataLen = (size_t)dataLen;
+
+   return msgPtr;
+}
+
+taf_sms_Msg_t* taf_Sms::CreateRxMsgNode
+(
+   taf_pa_sms_Pdu_t *pduMsg
+)
+{
+   taf_sms_Msg_t  *msgPtr;
+
+   msgPtr = (taf_sms_Msg_t*)le_mem_ForceAlloc(MsgPool);
+
+   memset(msgPtr, 0, sizeof(taf_sms_Msg_t));
+
+   memcpy(&(msgPtr->pdu), pduMsg, sizeof(taf_pa_sms_Pdu_t));
+   msgPtr->pduReady = true;
+
+   msgPtr->readStatus = pduMsg->rxStatus;
+   msgPtr->storage = pduMsg->storage;
+   msgPtr->storageIdx = pduMsg->index;
+
+   msgPtr->type = TAF_SMS_TYPE_RX;
+   msgPtr->applyDel = false;
+
+   msgPtr->tel[0] = '\0';
+   msgPtr->text[0] = '\0';
+   msgPtr->timestamp[0] = '\0';
+
+   return msgPtr;
+}
+
+le_result_t taf_Sms::constructSmsDeliver
+(
+   taf_sms_Msg_t*       msgPtr,
+   taf_pa_sms_Pdu_t*    pduMsgPtr,
+   sms_PduMsg_t*        decodedMsgPtr
+)
+{
+   msgPtr->type = TAF_SMS_TYPE_RX;
+
+   if(decodedMsgPtr->encoding == PDU_ENCODING_7_BITS)
+   {
+      msgPtr->format = TAF_SMS_FORMAT_TEXT;
+   }
+   else if(decodedMsgPtr->encoding == PDU_ENCODING_8_BITS)
+   {
+      msgPtr->format = TAF_SMS_FORMAT_BINARY;
+   }
+   else if(decodedMsgPtr->encoding == PDU_ENCODING_UCS2_16_BITS)
+   {
+      msgPtr->format = TAF_SMS_FORMAT_UCS2;
+   }
+   else
+   {
+      msgPtr->format = TAF_SMS_FORMAT_PDU;
+   }
+
+   switch (msgPtr->format)
+   {
+      case TAF_SMS_FORMAT_BINARY:
+
+         msgPtr->userdataLen = decodedMsgPtr->dataLen;
+         memcpy(msgPtr->binary, decodedMsgPtr->data, msgPtr->userdataLen);
+         break;
+
+      case TAF_SMS_FORMAT_TEXT:
+
+         msgPtr->userdataLen = decodedMsgPtr->dataLen;
+         memcpy(msgPtr->text, decodedMsgPtr->data, msgPtr->userdataLen);
+         break;
+
+      case TAF_SMS_FORMAT_UCS2:
+
+         msgPtr->userdataLen = decodedMsgPtr->dataLen;
+         memcpy(msgPtr->binary, decodedMsgPtr->data, msgPtr->userdataLen);
+         break;
+
+      case TAF_SMS_FORMAT_PDU:
+         break;
+
+      default:
+         LE_CRIT("Unknown format %d", msgPtr->format);
+         return LE_FAULT;
+   }
+
+   if (msgPtr->format != TAF_SMS_FORMAT_PDU)
+   {
+      memcpy(msgPtr->tel, decodedMsgPtr->addr, TAF_TYPES_REMOTE_PARTY_NUM_MAX_BYTES);
+   }
+
+   return LE_OK;
+}
+
+taf_sms_Msg_t* taf_Sms::CreateAndConstructMsg
+(
+    taf_pa_sms_Pdu_t*   pduMsgPtr,
+    sms_PduMsg_t*       decodedMsgPtr
+)
+{
+   taf_sms_Msg_t* newMsgPtr = CreateRxMsgNode(pduMsgPtr);
+
+   switch (decodedMsgPtr->type)
+   {
+      case SMS_TYPE_DELIVER:
+         if (constructSmsDeliver(newMsgPtr, pduMsgPtr, decodedMsgPtr) != LE_OK)
+         {
+            LE_INFO("constructSmsDeliver failed");
+            le_mem_Release(newMsgPtr);
+            newMsgPtr = NULL;
+         }
+         break;
+      case SMS_TYPE_PDU:
+         LE_INFO("SMS type: SMS_TYPE_PDU, currently not supported");
+         break;
+      case SMS_TYPE_CELL_BROADCAST:
+         LE_INFO("SMS type: SMS_TYPE_CELL_BROADCAST, currently not supported");
+         break;
+      case SMS_TYPE_STATUS_REPORT:
+         LE_INFO("SMS type: SMS_TYPE_STATUS_REPORT, currently not supported");
+         default:
+      break;
+   }
+
+   return newMsgPtr;
+}
+
+uint32_t taf_Sms::GetMsgFromStorage
+(
+   taf_sms_List_t      *msgListPtr,
+   taf_sms_Storage_t   storage,
+   uint32_t            numOfMsg,
+   uint32_t            *arrayPtr
+)
+{
+   TAF_ERROR_IF_RET_VAL(msgListPtr == nullptr, LE_FAULT, "msgListPtr is nullptr!");
+
+   TAF_ERROR_IF_RET_VAL(arrayPtr == nullptr, LE_FAULT, "arrayPtr is nullptr!");
+
+   uint32_t getMsgCount = 0;
+
+   for (uint32_t i = 0 ; i < numOfMsg ; i++)
+   {
+      taf_pa_sms_Pdu_t pduMsg = {0};
+      le_result_t res = taf_pa_sms_ReadPDUMsgFromStorage(storage, arrayPtr[i], &pduMsg);
+
+      if (res != LE_OK)
+      {
+         LE_ERROR("taf_pa_sms_ReadPDUMsgFromStorage failed, index[%d]", arrayPtr[i]);
+         continue;
+      }
+
+      if (pduMsg.length > TAF_SMS_PDU_BYTES)
+      {
+         LE_ERROR("PDU length (%u) out of range for index[%d]", pduMsg.length, arrayPtr[i]);
+         continue;
+      }
+
+      sms_Protocol_t msgType = SMS_PROTOCOL_GSM;
+      sms_PduMsg_t decodedPduMsg = {0};
+
+      if (smsPdu_Decode(msgType,
+                        pduMsg.data,
+                        &decodedPduMsg) == LE_OK)
+      {
+         LE_DEBUG("decodedPduMsg.type: %d", decodedPduMsg.type);
+
+         if (decodedPduMsg.type != SMS_TYPE_SUBMIT)
+         {
+            taf_sms_Msg_t* newMsg = CreateAndConstructMsg(&pduMsg, &decodedPduMsg);
+
+            if (newMsg == NULL)
+            {
+               LE_ERROR("create rx message node failed");
+               continue;
+            }
+
+            taf_sms_MsgNode_t* msgNodePtr = (taf_sms_MsgNode_t*)le_mem_ForceAlloc(MsgRefNodePool);
+            msgNodePtr->msgRef = (taf_sms_MsgRef_t)le_ref_CreateRef(MsgRefMap, newMsg);
+
+            newMsg->userCount++;
+
+            LE_DEBUG("create rx node[%p], obj[%p], ref[%p]", msgNodePtr, newMsg, msgNodePtr->msgRef);
+
+            msgNodePtr->listLink = LE_DLS_LINK_INIT;
+            le_dls_Queue(&(msgListPtr->list), &(msgNodePtr->listLink));
+
+            getMsgCount++;
+         }
+      }
+   }
+
+   return getMsgCount;
+}
+
+uint32_t taf_Sms::ListRxMsg
+(
+   taf_sms_List_t          *msgListPtr,
+   taf_sms_ReadStatus_t    rxStatus,
+   taf_sms_Storage_t       storage
+)
+{
+   le_result_t  result = LE_OK;
+
+   uint32_t numOfIdx;
+   uint32_t idxArray[MAX_OF_SMS_MSG_IN_STORAGE]={0};
+
+   uint32_t msgCount = 0;
+
+   TAF_ERROR_IF_RET_VAL(msgListPtr == nullptr, 0, "msgListPtr is nullptr!");
+
+   result = taf_pa_sms_ListMsgFromStorage(storage, rxStatus, &numOfIdx, idxArray);
+
+   TAF_ERROR_IF_RET_VAL(result != LE_OK, 0, "taf_pa_sms_ListMsgFromStorage result: %d", result);
+
+   TAF_ERROR_IF_RET_VAL(numOfIdx >= MAX_OF_SMS_MSG_IN_STORAGE, LE_FAULT, "Too much SMS to read %d", numOfIdx);
+
+   if (numOfIdx == 0)
+   {
+      return 0;
+   }
+   else
+   {
+      int32_t res;
+      res = GetMsgFromStorage(msgListPtr, storage, numOfIdx, idxArray);
+
+      if(res == LE_FAULT)
+      {
+         LE_WARN("No message retrieve for storage %d", storage);
+      }
+      else
+      {
+         msgCount = res;
+      }
+   }
+   return msgCount;
+}
+
+uint32_t taf_Sms::ListAllRxMsg
+(
+   taf_sms_List_t *msgListPtr
+)
+{
+   int32_t res;
+   int32_t msgCount = 0;
+
+   TAF_ERROR_IF_RET_VAL(msgListPtr == nullptr, 0, "msgListPtr is nullptr!");
+
+   res = ListRxMsg(msgListPtr, TAF_SMS_RXSTS_READ, TAF_SMS_STORAGE_SIM);
+   if (res < 0)
+   {
+         LE_ERROR("Read SIM storage unsuccessfully, return %d",res);
+         return LE_FAULT;
+   }
+   msgCount += res;
+
+   res = ListRxMsg(msgListPtr, TAF_SMS_RXSTS_UNREAD, TAF_SMS_STORAGE_SIM);
+   if (res < 0)
+   {
+         LE_ERROR("Read SIM storage unsuccessfully, return %d",res);
+         return LE_FAULT;
+   }
+   msgCount += res;
+
+   // Need to get messages from NV when NV storage is supported
+
+   return msgCount;
 }
 
 void taf_Sms::ReleaseSession
@@ -622,11 +969,11 @@ void tafSmsCallback::commandResponse(telux::common::ErrorCode error) {
 
    if(error == telux::common::ErrorCode::SUCCESS) {
       LE_INFO("onSmsSent successfully\n");
-      msgPtr->sendStatus = TAF_SMS_SENT;
+      msgPtr->sendStatus = TAF_SMS_TXSTS_SENT;
    }
    else {
       LE_INFO("onSmsSent failed\n");
-      msgPtr->sendStatus = TAF_SMS_SENDING_FAILED;
+      msgPtr->sendStatus = TAF_SMS_TXSTS_SENDING_FAILED;
    }
 
    le_event_Report(sms.MsgSendCallbackEvent, &tmpMsgRef, sizeof(taf_sms_MsgRef_t));
@@ -671,3 +1018,4 @@ void tafSetSmscAddressResponseCallback::setSmscResponse(telux::common::ErrorCode
 
    le_sem_Post(sms.SmscSetSem);
 }
+

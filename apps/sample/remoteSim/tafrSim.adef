@@ -1,0 +1,26 @@
+sandboxed: false
+executables:
+{
+    tafrSimDemo = ( remoteSimComp )
+}
+
+
+processes:
+{
+    run:
+    {
+        (tafrSimDemo)
+    }
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+}
+
+start: manual
+
+bindings:
+{
+    tafrSimDemo.remoteSimComp.taf_rsim -> tafRemoteSimSvc.taf_rsim
+}
+

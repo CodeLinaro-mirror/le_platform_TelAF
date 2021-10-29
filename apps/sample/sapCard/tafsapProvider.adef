@@ -1,0 +1,22 @@
+sandboxed: false
+executables:
+{
+    tafsapProvider = ( sapCardComp )
+}
+
+
+processes:
+{
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+}
+
+start: manual
+
+bindings:
+{
+    tafsapProvider.sapCardComp.taf_sap -> tafRemoteSimSvc.taf_sap
+}
+

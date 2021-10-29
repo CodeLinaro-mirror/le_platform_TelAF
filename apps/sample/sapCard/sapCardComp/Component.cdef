@@ -1,0 +1,13 @@
+sources:
+{
+    sapProvider.c
+}
+
+requires:
+{
+    api:
+    {
+        taf_sap.api
+    }
+}
+

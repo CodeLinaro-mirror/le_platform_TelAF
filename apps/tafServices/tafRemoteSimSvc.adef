@@ -5,7 +5,7 @@ executables:
         tafRemoteSim = ( $TELAF_ROOT/components/tafRemoteSimSvc/RemoteSimDaemon)
         tafSAPCard = ( $TELAF_ROOT/components/tafRemoteSimSvc/SAPProvider)
 }
-start: manual
+start: auto
 
 processes:
 {
@@ -22,10 +22,6 @@ processes:
         #else
                 watchdogTimeout: never
         #endif
-        envVars:
-        {
-              LE_LOG_LEVEL = DEBUG
-        }
 
 }
 

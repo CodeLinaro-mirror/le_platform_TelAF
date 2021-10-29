@@ -168,6 +168,7 @@
 #define STATUSCHANGE_CARD_RECOVERED   0x05
 
 #define MSB_SHIFT                   8
+#define APDU_CASE_3_HEADER_LENGTH   6
 #define CARD_POWER_ON_SHIFT         0
 #define CARD_PRESENT_SHIFT          1
 #define CARD_READER_ID1_SIZE_SHIFT  2

@@ -178,6 +178,7 @@ le_result_t taf_rsim::SendApduRequest(const unsigned int id, const std::vector<u
     } else {
         RsimMsg.msg[4]  = PARAMID_COMMAND_APDU_7816;
     }
+    RsimMsg.msg[4] = id;
     RsimMsg.msg[5]  = 0x00;
     RsimMsg.msg[6]  = ((apdu.size() & 0xFF00U) >> MSB_SHIFT);
     RsimMsg.msg[7]  = (apdu.size() & 0x00FF);
@@ -271,7 +272,7 @@ le_result_t taf_rsim::SendCardPowerUpRequest() {
 
     TAF_ERROR_IF_RET_VAL(RsimObj.sapState != SAP_STATE_CONNECTED
                             || RsimObj.sapSubState != SAP_CONNECTED_IDLE, LE_FAULT,
-                         "SAP is not connected");
+                         "SAP is not connected or not in idle state");
     taf_RsimMsg_t RsimMsg;
     memset(&RsimMsg, 0, sizeof(taf_RsimMsg_t));
 
@@ -288,9 +289,9 @@ le_result_t taf_rsim::SendCardPowerUpRequest() {
 
 le_result_t taf_rsim::SendCardPowerDownRequest() {
 
-    TAF_ERROR_IF_RET_VAL(SAP_STATE_CONNECTED != RsimObj.sapState,
+    TAF_ERROR_IF_RET_VAL(SAP_STATE_CONNECTED != RsimObj.sapState || RsimObj.sapSubState != SAP_CONNECTED_IDLE,
                          LE_FAULT,
-                         "SAP not connected");
+                         "SAP not connected or not in idle state");
     taf_RsimMsg_t RsimMsg;
     memset(&RsimMsg, 0, sizeof(taf_RsimMsg_t));
 
@@ -349,7 +350,6 @@ le_result_t taf_rsim::SendMessage(const uint8_t* messagePtr, size_t messageNumEl
     clientMsgPtr->message.msgSize = messageNumElements;
     clientMsgPtr->callbackRef = callbackPtr;
     clientMsgPtr->context = contextPtr;
-    LE_INFO("SendMessage clientMsgPtr initialized ");
 
     le_event_QueueFunctionToThread(MainThread, HandleClientMsg, clientMsgPtr, NULL);
 
@@ -567,8 +567,7 @@ le_result_t taf_rsim::HandleApduTransfer(const uint8_t* msgPtr, size_t msgSize) 
 le_result_t taf_rsim::SendApduResp(const uint8_t* msgPtr, size_t msgSize) {
 
     if (VerifyMessageLength(msgPtr, msgSize, 1) != LE_OK
-            ||(VerifyParameterCount( msgPtr, 1) != LE_OK)
-            || (VerifyAPDUParameter( msgPtr, msgSize) != LE_OK)) {
+            ||(VerifyParameterCount( msgPtr, 1) != LE_OK)) {
         return LE_FORMAT_ERROR;
     }
     uint8_t apduId = msgPtr[12];
@@ -580,7 +579,8 @@ le_result_t taf_rsim::SendApduResp(const uint8_t* msgPtr, size_t msgSize) {
         uint8_t apduStartByte = 16;
         uint16_t apduLength = (uint16_t)(((uint16_t)(msgPtr[LengthByte1] << MSB_SHIFT))
                     | msgPtr[LengthByte2]);
-        for (int i = apduStartByte; i < apduLength; i++) {
+        uint16_t apduLastByte = apduStartByte + apduLength;
+        for (int i = apduStartByte; i < apduLastByte; i++) {
             apdu.push_back(msgPtr[i]);
         }
 

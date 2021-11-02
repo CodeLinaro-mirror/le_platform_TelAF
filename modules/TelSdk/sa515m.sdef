@@ -37,6 +37,9 @@ apps:
     $TELAF_ROOT/apps/test/tafrSimTest/tafrSimUnitTest/tafrSimUnitTest
     $TELAF_ROOT/apps/test/tafrSimTest/tafSAPServerUnitTest/tafSAPServerUnitTest
     $TELAF_ROOT/apps/test/tafSimTest/tafRSPUnitTest/tafRSPUnitTest
+
+    $TELAF_ROOT/apps/sample/remoteSim/tafrSim
+    $TELAF_ROOT/apps/sample/sapCard/tafsapProvider
 }
 
 commands:

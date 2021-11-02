@@ -45,6 +45,9 @@ void tafOpenConnectionCallback::commandResponse(ErrorCode errorCode)
         sap.cardConnected = false;
     }
     sap.SendConnectResponse(errorCode, connectStatus);
+    if (errorCode == ErrorCode::SUCCESS) {
+        sap.SendStatusInd(STATUSCHANGE_CARD_RESET);
+    }
 }
 
 void tafCloseConnectionCallback::commandResponse(ErrorCode errorCode)
@@ -410,7 +413,7 @@ le_result_t taf_sap::SendApduToSim(const uint8_t *buf, int bytes)
 
     // If the message is less than 8 bytes, Lc is not included.
     uint8_t lc;
-    if (apduLength < 5) {
+    if (apduLength < APDU_CASE_3_HEADER_LENGTH) {
         lc = 0;
     } else {
         lc = buf[12];
@@ -657,7 +660,7 @@ void taf_sap::SendAPDUResponse(const std::vector<int> &data, uint8_t apduId, Err
     taf_SapMsg_t SapMsg;
     memset(&SapMsg, 0, sizeof(taf_SapMsg_t));
     uint8_t paramCount = 0;
-    uint8_t msgLength = 0;
+    uint16_t msgLength = 0;
     SapMsg.msg[0]  = MSGID_TRANSFER_APDU_RESP;
 
     paramCount++;
@@ -681,7 +684,7 @@ void taf_sap::SendAPDUResponse(const std::vector<int> &data, uint8_t apduId, Err
         SapMsg.msg[15] = (data.size() & 0x00FF);
 
         msgLength = 16;
-        for (uint8_t i = 0; i < data.size(); i++) {
+        for (uint16_t i = 0; i < data.size(); i++) {
             SapMsg.msg[i + 16] = data[i];
             msgLength++;
         }
@@ -698,7 +701,7 @@ void taf_sap::SendAPDUResponse(const std::vector<int> &data, uint8_t apduId, Err
 void taf_sap::SendResultCodeResponse(uint8_t msgId, uint8_t resultStatus) {
     taf_SapMsg_t SapMsg;
     memset(&SapMsg, 0, sizeof(taf_SapMsg_t));
-    SapMsg.msg[0]  = MSGID_TRANSFER_APDU_RESP;
+    SapMsg.msg[0]  = msgId;
     SapMsg.msg[1]  = 0x01;
 
     SapMsg.msg[4] = PARAMID_RESULT_CODE;

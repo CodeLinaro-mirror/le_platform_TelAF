@@ -1,0 +1,22 @@
+sandboxed: false
+executables:
+{
+    rsp = ( rspComp )
+}
+
+
+processes:
+{
+    run:
+    {
+        (rsp)
+    }
+}
+
+start: manual
+
+bindings:
+{
+    rsp.rspComp.taf_rsp -> tafSimCardSvc.taf_rsp
+}
+

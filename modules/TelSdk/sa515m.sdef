@@ -42,6 +42,7 @@ apps:
     $TELAF_ROOT/apps/sample/remoteSim/tafrSim
     $TELAF_ROOT/apps/sample/sapCard/tafsapProvider
     $TELAF_ROOT/apps/test/tafUpdateTest/tafUpdateUnitTest/tafUpdateTestApp
+    $TELAF_ROOT/apps/sample/rsp/tafRSPApp
 }
 
 commands:

@@ -25,6 +25,40 @@
  *  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+
+ *   * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "legato.h"
@@ -835,4 +869,233 @@ void taf_gnss_ReleaseSampleRef
 {
     auto &gnss = taf_Gnss::GetInstance();
     return gnss.ReleaseSampleRef(positionSampleRef);
+}
+
+/**
+* FUNCTION     : GetTimeAccuracy
+* DESCRIPTION  : Get the position sample's time accurary
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_OUT_OF_RANGE on failed
+*/
+le_result_t taf_gnss_GetTimeAccuracy
+(
+ taf_gnss_SampleRef_t    positionSampleRef,
+ uint32_t* timeAccuracyPtr
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetTimeAccuracy(positionSampleRef, timeAccuracyPtr);
+}
+
+/**
+* FUNCTION     : GetEpochTime
+* DESCRIPTION  : Get the position sample's epoch time
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_OUT_OF_RANGE on failed
+*/
+le_result_t taf_gnss_GetEpochTime
+(
+ taf_gnss_SampleRef_t    positionSampleRef,
+ uint64_t* millisecondsPtr
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetEpochTime(positionSampleRef, millisecondsPtr);
+}
+
+/**
+* FUNCTION     : SetDopResolution
+* DESCRIPTION  : Set the resolution for the DOP parameters
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_BAD_PARAMETER on failed
+*/
+le_result_t taf_gnss_SetDopResolution
+(
+ taf_gnss_Resolution_t resolution
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.SetDopResolution(resolution);
+}
+
+/**
+* FUNCTION     : GetDilutionOfPrecision
+* DESCRIPTION  : Get the DOP parameter (Dilution Of Precision) for the fixed position
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_OUT_OF_RANGE on failed
+*/
+le_result_t taf_gnss_GetDilutionOfPrecision
+(
+ taf_gnss_SampleRef_t    positionSampleRef,
+ taf_gnss_DopType_t dopType,
+ uint16_t* dopPtr
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetDilutionOfPrecision(positionSampleRef, dopType, dopPtr);
+}
+
+/**
+* FUNCTION     : GetLeapSeconds
+* DESCRIPTION  : This function gets leap seconds information
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_TIMEOUT LE_UNSUPPORTED LE_FAULT on failed
+*/
+le_result_t taf_gnss_GetLeapSeconds
+(
+ uint64_t* gpsTimePtr,
+ int32_t* currentLeapSecondsPtr,
+ uint64_t* changeEventTimePtr,
+ int32_t* nextLeapSecondsPtr
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetLeapSeconds(gpsTimePtr,currentLeapSecondsPtr,changeEventTimePtr,nextLeapSecondsPtr);
+}
+
+/**
+* FUNCTION     : GetGpsTime
+* DESCRIPTION  : Get the position sample's GPS time
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_OUT_OF_RANGE on failed
+*/
+le_result_t taf_gnss_GetGpsTime
+(
+ taf_gnss_SampleRef_t    positionSampleRef,
+ uint32_t* gpsWeekPtr,
+ uint32_t* gpsTimeOfWeekPtr
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetGpsTime(positionSampleRef, gpsWeekPtr, gpsTimeOfWeekPtr);
+}
+
+/**
+* FUNCTION     : SetAcquisitionRate
+* DESCRIPTION  : This function sets the GNSS device acquisition rate
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_OUT_OF_RANGE LE_NOT_PERMITTED LE_UNSUPPORTED on failed
+*/
+le_result_t taf_gnss_SetAcquisitionRate
+(
+ uint32_t  rate
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.SetAcquisitionRate(rate);
+}
+
+/**
+* FUNCTION     : ForceColdRestart
+* DESCRIPTION  : This function performs cold restart,Delete all Aiding data
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT on failed
+*/
+le_result_t taf_gnss_ForceColdRestart
+(
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.ForceColdRestart();
+}
+
+/**
+* FUNCTION     : ForceWarmRestart
+* DESCRIPTION  : This function performs warm restart, delete aiding data
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT on failed
+*/
+le_result_t taf_gnss_ForceWarmRestart
+(
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.ForceWarmRestart();
+}
+
+/**
+* FUNCTION     : ForceFactoryRestart
+* DESCRIPTION  :
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT on failed
+*/
+le_result_t taf_gnss_ForceFactoryRestart
+(
+)
+{
+    LE_DEBUG("Feature not Supported");
+    return LE_OK;
+}
+
+/**
+* FUNCTION     : ForceWarmRestart
+* DESCRIPTION  :
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT on failed
+*/
+le_result_t taf_gnss_ForceHotRestart
+(
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.ForceHotRestart();
+}
+
+/**
+* FUNCTION     : GetSupportedConstellations
+* DESCRIPTION  : Returns all supported satellite constellations
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_UNSUPPORTED on failed
+*/
+le_result_t taf_gnss_GetSupportedConstellations
+(
+ taf_gnss_ConstellationBitMask_t* constellationMaskPtr
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetSupportedConstellations(constellationMaskPtr);
+}
+
+/**
+* FUNCTION     : SetMinElevation
+* DESCRIPTION  : sets the GNSS minimum elevation
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_OUT_OF_RANGE LE_FAULT LE_UNSUPPORTED on failed
+*/
+le_result_t taf_gnss_SetMinElevation
+(
+ uint8_t  minElevation
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.SetMinElevation(minElevation);
+}
+
+/**
+* FUNCTION     : GetMinElevation
+* DESCRIPTION  : gets the GNSS minimum elevation
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED on failed
+*/
+le_result_t taf_gnss_GetMinElevation
+(
+ uint8_t*  minElevationPtr
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetMinElevation(minElevationPtr);
 }

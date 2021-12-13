@@ -25,6 +25,40 @@
  *  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+
+ *   * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "legato.h"
@@ -181,6 +215,7 @@ namespace tafsvc {
 
     class LocationCommandCallback : public telux::common::ICommandResponseCallback {
         public:
+            LocationCommandCallback(std::string cmdName);
             void commandResponse(telux::common::ErrorCode error);
 
             void onGnssEnergyConsumedInfo(telux::loc::GnssEnergyConsumedInfo gnssEnergyConsumed,
@@ -244,8 +279,13 @@ namespace tafsvc {
             static le_result_t CheckValidatePosition(
                     taf_gnss_PositionSampleRequest_t* positionSampleRequestNodePtr);
             static le_result_t PositionDataCoversion(int32_t value, taf_gnss_DataType_t dataType,int32_t* valuePtr);
+            static uint32_t TranslateDop(uint32_t dopValue);
+            static void InitializeClient(taf_gnss_Client_t* clientRequestPtr);
             static taf_gnss_Client_t* DiscoverSessionRef( le_msg_SessionRef_t sessionRef);
+            static taf_gnss_Client_t* AcquireSessionRef(void);
             static void GnssPositionHandler(void* reportPtr);
+            static void CopyPositionData(taf_gnss_PositionSample_t* posSampleDataPtr,
+                    taf_gnss_PositionSample_t* posDataPtr );
 
             taf_gnss_PositionHandlerRef_t AddPositionHandler(
                     taf_gnss_PositionHandlerFunc_t handlerPtr, void* contextPtr);
@@ -292,6 +332,19 @@ namespace tafsvc {
                     size_t* satConstNumElementsPtr, bool* satUsedPtr, size_t* satUsedNumElementsPtr,
                     uint8_t* satSnrPtr,size_t* satSnrNumElementsPtr,  uint16_t* satAzimPtr,
                     size_t* satAzimNumElementsPtr, uint8_t* satElevPtr, size_t* satElevNumElementsPtr);
+            le_result_t GetTimeAccuracy( taf_gnss_SampleRef_t positionSampleRef, uint32_t* timeAccuracyPtr);
+            le_result_t GetEpochTime( taf_gnss_SampleRef_t positionSampleRef, uint64_t* millisecondsPtr);
+            le_result_t SetDopResolution(taf_gnss_Resolution_t resolution);
+            le_result_t GetDilutionOfPrecision( taf_gnss_SampleRef_t positionSampleRef, taf_gnss_DopType_t dopType, uint16_t* dopPtr);
+            le_result_t GetGpsTime(taf_gnss_SampleRef_t positionSampleRef, uint32_t* gpsWeek, uint32_t* gpsTimeOfWeek);
+            le_result_t GetLeapSeconds( uint64_t* gpsTime, int32_t* currentLeapSeconds, uint64_t* changeEventTime,int32_t*  nextLeapSeconds);
+            le_result_t SetAcquisitionRate( uint32_t ratePtr);
+            le_result_t ForceColdRestart();
+            le_result_t ForceWarmRestart();
+            le_result_t ForceHotRestart();
+            le_result_t GetSupportedConstellations(taf_gnss_ConstellationBitMask_t* constellationMaskPtr);
+            le_result_t SetMinElevation( uint8_t  minElevation);
+            le_result_t GetMinElevation( uint8_t*  minElevationPtr);
             le_mem_PoolRef_t   PositionHandlerPoolRef;
             le_mem_PoolRef_t   PositionSampleRequestPoolRef;
             le_event_Id_t positionEventId;
@@ -301,24 +354,37 @@ namespace tafsvc {
             std::chrono::time_point<std::chrono::system_clock> mEndTime;
             std::condition_variable mCondVar;
             std::mutex mMutex;
+            std::mutex mGnssMutex;
+            le_mutex_Ref_t mGnssMutexRef = NULL;
             uint32_t mTtffPtr;
             int32_t NumOfPositionHandlers;
             uint8_t mLeapSeconds = 0;
+            uint8_t mMinElev = 0;
+            int mAcqRate;
             bool mStarted = false;
             bool mTtffEnabled = false;
+            bool mMinElelvEnabled = false;
             bool mConstellationEnabled = false;
+            bool mLocEnabled = false;
+            bool mSvEnabled = false;
+            bool mGnssSigEnabled = false;
+            bool mGnssNmeaEnabled = false;
             taf_gnss_ConstellationBitMask_t mConstellationMask;
+            le_dls_List_t    SvInfoList;
+            std::string mCommandName;
+            taf_gnss_SvInfo_t  mSatInfo[TAF_GNSS_SV_INFO_MAX_LEN];
+            taf_gnss_SvMeas_t  mSatMeas;
 
         private:
             std::shared_ptr<ILocationManager> mLocationManager = nullptr;
             std::shared_ptr<ILocationConfigurator> mLocationConfigurator = nullptr;
+            std::shared_ptr<IDgnssManager> mDgnssManager = nullptr;
             std::shared_ptr<LocationCommandCallback> mLocCmdResponseCb = nullptr;
             std::shared_ptr<tafLocationListener> mPosListener = nullptr;
             std::shared_ptr<ILocationInfoBase> mBaselocationInfo = nullptr;
             telux::common::Status LocationConfiguratorInit();
             telux::common::Status LocationManagerInit();
             telux::common::Status DgnssManagerInit();
-            std::shared_ptr<IDgnssManager> mDgnssManager = nullptr;
             le_mem_PoolRef_t   ClientPoolRef;
             le_ref_MapRef_t PositionSampleMap;
             le_ref_MapRef_t ClientRequestRefMap;

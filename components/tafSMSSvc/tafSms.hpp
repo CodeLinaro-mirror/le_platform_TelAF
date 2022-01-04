@@ -88,6 +88,7 @@ using namespace telux::common;
 #define TIMEOUT_SEND_SEMAPHORE     2
 #define TIMEOUT_GET_SMSC_SEMAPHORE 2
 #define TIMEOUT_SET_SMSC_SEMAPHORE 2
+#define TIMEOUT_SENDING_PDU        1000
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -106,7 +107,7 @@ typedef struct taf_sms_Msg
       char              text[TAF_SMS_TEXT_BYTES];
       uint8_t           binary[TAF_SMS_BINARY_BYTES];
    };
-   size_t              userdataLen;
+   size_t               userdataLen;
 
    char                 timestamp[TAF_SMS_TIMESTAMP_BYTES];
    int8_t               phoneId;

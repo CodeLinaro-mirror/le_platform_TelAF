@@ -66,6 +66,7 @@
 #include "telux/tel/PhoneFactory.hpp"
 #include "tafSms.hpp"
 #include <unistd.h>
+#include <stdlib.h>
 
 using namespace telux::tel;
 using namespace telux::common;
@@ -649,6 +650,7 @@ uint32_t taf_Sms::GetMsgFromStorage
    for (uint32_t i = 0 ; i < numOfMsg ; i++)
    {
       taf_pa_sms_Pdu_t pduMsg = {0};
+
       le_result_t res = taf_pa_sms_ReadPDUMsgFromStorage(storage, arrayPtr[i], &pduMsg);
 
       if (res != LE_OK)
@@ -709,7 +711,7 @@ uint32_t taf_Sms::ListRxMsg
 {
    le_result_t  result = LE_OK;
 
-   uint32_t numOfIdx;
+   uint32_t numOfIdx = 0;
    uint32_t idxArray[MAX_OF_SMS_MSG_IN_STORAGE]={0};
 
    uint32_t msgCount = 0;
@@ -769,7 +771,21 @@ uint32_t taf_Sms::ListAllRxMsg
    }
    msgCount += res;
 
-   // Need to get messages from NV when NV storage is supported
+   res = ListRxMsg(msgListPtr, TAF_SMS_RXSTS_READ, TAF_SMS_STORAGE_HLOS);
+   if (res < 0)
+   {
+      LE_ERROR("Read NV storage unsuccessfully, return %d",res);
+      return LE_FAULT;
+   }
+   msgCount += res;
+
+   res = ListRxMsg(msgListPtr, TAF_SMS_RXSTS_UNREAD, TAF_SMS_STORAGE_HLOS);
+   if (res < 0)
+   {
+      LE_ERROR("Read NV storage unsuccessfully, return %d",res);
+      return LE_FAULT;
+   }
+   msgCount += res;
 
    return msgCount;
 }

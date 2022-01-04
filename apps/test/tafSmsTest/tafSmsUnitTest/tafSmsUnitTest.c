@@ -169,7 +169,7 @@ static void Test_taf_sms_CreateDeleteRxMsgList
     void
 )
 {
-    RxMsgListRef = taf_sms_CreateNewRxMsgList();
+    RxMsgListRef = taf_sms_CreateRxMsgList();
 
     LE_ASSERT(RxMsgListRef != NULL);
 
@@ -494,9 +494,9 @@ static void Test_taf_sms_Smsc
     char addr[TAF_SMS_SMSC_ADDR_BYTES - 1];
     size_t len = TAF_SMS_SMSC_ADDR_BYTES - 1;
 
-    LE_ASSERT(taf_sms_GetSmsCenterAddr(PHONE_ID_PATTERN_1, addr, len) == LE_OK);
+    LE_ASSERT(taf_sms_GetSmsCenterAddress(PHONE_ID_PATTERN_1, addr, len) == LE_OK);
 
-    LE_ASSERT(taf_sms_SetSmsCenterAddr(PHONE_ID_PATTERN_1, SMSC_ADDR_PATTERN_VALID) == LE_OK);
+    LE_ASSERT(taf_sms_SetSmsCenterAddress(PHONE_ID_PATTERN_1, SMSC_ADDR_PATTERN_VALID) == LE_OK);
 
     le_thread_Sleep(TIME_SET_SMSC);
 

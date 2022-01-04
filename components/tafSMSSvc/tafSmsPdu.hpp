@@ -38,6 +38,7 @@
 #include "legato.h"
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
+#include "taf_pa_sms.hpp"
 
 #define BITMASK_7BITS                       0x7F
 #define BITMASK_8BITS                       0xFF
@@ -83,11 +84,29 @@ typedef struct {
 }
 sms_PduMsg_t;
 
+typedef struct
+{
+    sms_Protocol_t      protocol;
+    const uint8_t*      msgData;
+    size_t              msgDataLen;
+    const char*         addrData;
+    pdu_Encoding_t      encoding;
+    sms_Type_t          type;
+    bool                statusReport;
+}
+smsPdu_EncodeMsg_t;
+
 le_result_t smsPdu_Decode
 (
     sms_Protocol_t    protocol,
     const uint8_t*    dataPtr,
     sms_PduMsg_t*     smsPduPtr
+);
+
+le_result_t smsPdu_Encode
+(
+    smsPdu_EncodeMsg_t*   data,
+    taf_pa_sms_Pdu_t*     smsPdu
 );
 
 #endif   //_TAF_SMS_PDU_H_

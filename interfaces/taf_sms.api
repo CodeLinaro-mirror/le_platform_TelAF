@@ -76,9 +76,9 @@ DEFINE  PDU_BYTES   = (36+PDU_PAYLOAD);
 
 ENUM Storage
 {
-    STORAGE_NONE,
     STORAGE_NV,
     STORAGE_SIM,
+    STORAGE_HLOS,
     STORAGE_UNKNOWN
 };
 
@@ -138,7 +138,7 @@ REFERENCE MsgList;
  */
 //--------------------------------------------------------------------------------------------------
 
-FUNCTION MsgList CreateNewRxMsgList
+FUNCTION MsgList CreateRxMsgList
 (
 );
 
@@ -292,6 +292,46 @@ FUNCTION le_result_t SetText
 (
     Msg     msgRef,
     string  text[TEXT_LEN] IN
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set binary for message
+ * @return the le_result of setting binary for message
+ */
+//--------------------------------------------------------------------------------------------------
+
+FUNCTION le_result_t SetBinary
+(
+    Msg     msgRef,                 ///< Reference to the message object.
+    uint8   bin[BINARY_BYTES] IN  ///< Binary data.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set UCS2 for message
+ * @return the le_result of setting UCS2 for message
+ */
+//--------------------------------------------------------------------------------------------------
+
+
+FUNCTION le_result_t SetUCS2
+(
+    Msg     msgRef,                  ///< Reference to the message object.
+    uint16  ucs2[UCS2_CHARS] IN  ///< UCS2 message.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set PDU format for message
+ * @return the le_result of setting PDU format for message
+ */
+//--------------------------------------------------------------------------------------------------
+
+FUNCTION le_result_t SetPDU
+(
+    Msg     msgRef,               ///< Reference to the message object.
+    uint8   pdu[PDU_BYTES] IN ///< PDU message.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -473,7 +513,7 @@ FUNCTION le_result_t DeleteFromStorage
  * Mark message status as 'read'
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION MarkReadStatus_Read
+FUNCTION Markread
 (
     Msg msgRef
 );
@@ -483,7 +523,7 @@ FUNCTION MarkReadStatus_Read
  * Mark message status as 'unread'
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION MarkReadStatus_Unread
+FUNCTION MarkUnRead
 (
     Msg msgRef
 );
@@ -495,7 +535,7 @@ FUNCTION MarkReadStatus_Unread
  */
 //--------------------------------------------------------------------------------------------------
 
-FUNCTION le_result_t GetSmsCenterAddr
+FUNCTION le_result_t GetSmsCenterAddress
 (
     int8    phoneId,
     string  addr[taf_types.REMOTE_PARTY_NUM_MAX_BYTES] OUT
@@ -508,7 +548,7 @@ FUNCTION le_result_t GetSmsCenterAddr
  */
 //--------------------------------------------------------------------------------------------------
 
-FUNCTION le_result_t SetSmsCenterAddr
+FUNCTION le_result_t SetSmsCenterAddress
 (
     int8    phoneId,
     string  addr[taf_types.REMOTE_PARTY_NUM_MAX_BYTES] IN
@@ -521,7 +561,7 @@ FUNCTION le_result_t SetSmsCenterAddr
  */
 //--------------------------------------------------------------------------------------------------
 
-FUNCTION le_result_t SetPrefStorage
+FUNCTION le_result_t SetPreferredStorage
 (
     Storage prefStorage IN
 );
@@ -533,7 +573,7 @@ FUNCTION le_result_t SetPrefStorage
  */
 //--------------------------------------------------------------------------------------------------
 
-FUNCTION le_result_t GetPrefStorage
+FUNCTION le_result_t GetPreferredStorage
 (
     Storage prefStorage OUT
 );

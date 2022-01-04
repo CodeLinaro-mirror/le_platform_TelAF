@@ -12,6 +12,9 @@ requires:
     {
         taf_update_pa.api    [types-only]
         taf_dcs.api
+#if ${TARGET} = sa515m
+        taf_mrc.api
+#endif
     }
 
     component:

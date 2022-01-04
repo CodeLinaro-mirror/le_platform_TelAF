@@ -23,6 +23,9 @@ processes:
 bindings:
 {
     tafUpdateSvc.tafUpdateSvc.taf_dcs -> tafDataCallSvc.taf_dcs
+#if ${TARGET} = sa515m
+    tafUpdateSvc.tafUpdateSvc.taf_mrc -> tafMRCSvc.taf_mrc
+#endif
 }
 
 extern:

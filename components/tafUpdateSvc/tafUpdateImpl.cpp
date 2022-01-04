@@ -179,6 +179,10 @@ void taf_Update::UpdateTimerTick(le_timer_Ref_t timerRef)
 
     if (context->state == TAF_UPDATE_PROBATION && context->tick > TAF_UPDATE_PROBATION_TIME) {
         le_timer_Stop(timerRef);
+#ifdef TARGET_SA515M
+        LE_INFO("Sending AB Sync messgage to mrc daemon.");
+        TAF_ERROR_IF_RET_NIL(taf_mrc_SendOtaAbsyncMsg() != LE_OK, "Fail to send OTA AB Sync message to MRC daemon.");
+#endif
         context->state = TAF_UPDATE_REPORTING;
         context->tick = 0;
         LE_INFO("Probation stopped, reporting.");
@@ -257,6 +261,10 @@ void taf_Update::UpdateProcCmdHandler(void* cmdReqPtr)
                 stateInfo.state = TAF_UPDATE_INSTALLING;
                 UpdateSetState(stateInfo.state);
                 LE_INFO("Start install.");
+#ifdef TARGET_SA515M
+                TAF_ERROR_IF_RET_NIL(taf_mrc_SendOtaStartMsg() != LE_OK,
+                    "Fail to send OTA start message to MRC daemon.");
+#endif
                 char instCmd[TAF_UPDATE_INSTALL_CMD_LEN];
                 snprintf(instCmd, sizeof(instCmd), "recovery --update_package=%s", TAF_UPDATE_INSATLL_PAKCAGE);
                 system(instCmd);
@@ -280,8 +288,16 @@ void taf_Update::UpdateProcCmdHandler(void* cmdReqPtr)
 
                 if (stateInfo.state == TAF_UPDATE_REPORTING) {
                     LE_ERROR("Install failed.");
+#ifdef TARGET_SA515M
+                    TAF_ERROR_IF_RET_NIL(taf_mrc_SendOtaEndMsg(TAF_MRC_OTA_OP_STATUS_FAILURE) != LE_OK,
+                        "Send OTA end fail message to MRC daemon.");
+#endif
                 } else {
                     LE_INFO("Install success.");
+#ifdef TARGET_SA515M
+                    TAF_ERROR_IF_RET_NIL(taf_mrc_SendOtaEndMsg(TAF_MRC_OTA_OP_STATUS_SUCCESS) != LE_OK,
+                        "Send OTA end success message to MRC daemon.");
+#endif
                 }
                 UpdateSetState(stateInfo.state);
                 le_event_Report(tafUpdate.updateStateEvId, &stateInfo, sizeof(taf_update_StateInfo_t));

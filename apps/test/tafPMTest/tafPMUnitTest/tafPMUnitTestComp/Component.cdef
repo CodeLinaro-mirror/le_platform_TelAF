@@ -1,0 +1,18 @@
+sources:
+{
+    tafPMTest.c
+    main.c
+}
+
+requires:
+{
+    api:
+    {
+        taf_pm.api
+    }
+}
+
+cxxflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+}

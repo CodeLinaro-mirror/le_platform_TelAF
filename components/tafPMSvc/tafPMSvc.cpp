@@ -101,21 +101,6 @@ le_result_t taf_pm_Relax( taf_pm_WakeupSourceRef_t w)
 }
 
 /**
-* FUNCTION     : ForceRelaxAndDestroyAllWakeupSource
-* DESCRIPTION  : Release and destroy all acquired wakeup source, kill all clients
-* DEPENDECY    :
-* PARAMETERS   :
-* RETURN VALUES: LE_OK on success, LE_NOT_PERMITTED if taf_powermgr_StayAwake has not failed with
-*                LE_NO_MEMORY, LE_FAULT for all errors
-*/
-le_result_t taf_pm_ForceRelaxAndDestroyAllWakeupSource()
-{
-    LE_DEBUG("taf_pm_ForceRelaxAndDestroyAllWakeupSource");
-    auto &power = taf_PM::GetInstance();
-    return  power.ForceRelaxAndDestroyAllWakeupSource();
-}
-
-/**
 * FUNCTION     : GetPowerState
 * DESCRIPTION  : gives the current TCU state
 * DEPENDECY    :

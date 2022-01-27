@@ -44,7 +44,7 @@ DEFINE TAG_LEN_BYTES = TAG_LEN + 1;
 
 
 /**
- * Option LE_PM_REF_COUNT to manage a reference counted wakeup source
+ * Option TAF_PM_REF_COUNT to manage a reference counted wakeup source
  */
 DEFINE REF_COUNT = 1;
 
@@ -78,7 +78,7 @@ HANDLER StateChangeHandler
 );
 
 /**
- * TCU state change event
+ * TCU state change event of the local process
  */
 EVENT StateChange
 (
@@ -111,12 +111,9 @@ FUNCTION WakeupSource NewWakeupSource
  *
  * @return
  *     - LE_OK          if the wakeup source is acquired
- *     - LE_NO_MEMORY   if the wakeup sources limit is reached
  *     - LE_FAULT       for other errors
  *
  * @note The process exits with invalid reference
- * @note CONFIG_PM_WAKELOCKS_LIMIT configuration variable is fixed by kernel to limit
- *       the wakeup source
  */
 FUNCTION le_result_t StayAwake
 (
@@ -139,22 +136,7 @@ FUNCTION le_result_t Relax
 );
 
 /**
- * Release and destroy all acquired wakeup source and kill all clients
- *
- * @return
- *     - LE_OK              if the wakeup source is acquired
- *     - LE_NOT_PERMITTED   if the taf_pm_StayAwake() has not failed with LE_NO_MEMORY
- *     - LE_FAULT           for other errors
- *
- * @note The service is available only if taf_pm_StayAwake() has returned LE_NO_MEMORY. It should be
- *       used in the way to release and destroy all wakeup sources.
- */
-FUNCTION le_result_t ForceRelaxAndDestroyAllWakeupSource
-(
-);
-
-/**
- * Get current system state
+ * Get current system state of the local process
  *
  * @return State of the system
  */

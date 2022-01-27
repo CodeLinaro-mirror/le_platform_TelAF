@@ -44,12 +44,6 @@
 #include "tafSvcIF.hpp"
 
 /**
- * Power Management sysfs interface files
- */
-#define WAKE_LOCK_FILE      "/sys/power/wake_lock"
-#define WAKE_UNLOCK_FILE    "/sys/power/wake_unlock"
-
-/**
  * Telaf's prefix for wakeup source names
  */
 #define TAF_TAG_PREFIX   "taf"
@@ -96,8 +90,7 @@ taf_Client_t;
 
 #define TAF_PM_CLIENT_COOKIE 0x7732c691
 
-#define ONE_MSEC 1000
-#define TAF_PM_ACK_TIMEOUT 300*ONE_MSEC
+#define TAF_PM_TIMEOUT 10 * 60         // 10 mins
 
 namespace telux {
 namespace tafsvc {
@@ -113,9 +106,6 @@ namespace tafsvc {
      */
     typedef struct taf_powerManager_record
     {
-        bool                isExceeded;
-        int                 wlfd;
-        int                 wufd;
         int                 wsAcquired;
         le_ref_MapRef_t     refs;
         le_mem_PoolRef_t    clientpool;
@@ -125,8 +115,15 @@ namespace tafsvc {
     }
     taf_powerManager_t;
 
-    // define the callback class for TCU state change for TelSDK
+    // define the callback class for TCU state change of local proc
     class tafTcuStateListener : public telux::power::ITcuActivityListener {
+        public :
+            void onTcuActivityStateUpdate(telux::power::TcuActivityState state) override;
+            void onSlaveAckStatusUpdate(telux::common::Status status) override;
+    };
+
+    // define the callback class for TCU state change of remote proc
+    class tafRemoteTcuStateListener : public telux::power::ITcuActivityListener {
         public :
             void onTcuActivityStateUpdate(telux::power::TcuActivityState state) override;
             void onSlaveAckStatusUpdate(telux::common::Status status) override;
@@ -142,6 +139,7 @@ namespace tafsvc {
     class taf_PM : public ITafSvc {
     private:
         std::shared_ptr<telux::power::ITcuActivityListener> tcuStateListener;
+        std::shared_ptr<telux::power::ITcuActivityListener> remoteTcuStateListener;
         std::shared_ptr<telux::common::IServiceStatusListener> tcuServiceStatusListener;
         taf_pm_State_t tcuStateToTafPowerState(telux::power::TcuActivityState state);
         taf_pm_Status_t teluxStatustoTafStatus(telux::common::Status status);
@@ -150,25 +148,23 @@ namespace tafsvc {
         taf_PM() {};
         ~taf_PM() {};
         std::shared_ptr<telux::power::ITcuActivityManager> tcuActivityMgr;
+        std::shared_ptr<telux::power::ITcuActivityManager> RemoteTcuActivityMgr;
         le_event_Id_t StateChangeEvent;
-        static le_timer_Ref_t TimerRef;
+        le_event_Id_t AckEvent;
         static taf_PM &GetInstance();
         static void StateChanged(void* reportPtr, void* SecondLayeredHandlerFunc);
-        static void TimerHandler(le_timer_Ref_t timerRef);
-        static void StartTimer();
+        static void sendAck(void* reportPtr);
         void Init(void);
         static taf_Client_t *to_taf_Client_t(void *c);
         static taf_ws_t *ToTafWakeupSource(taf_pm_WakeupSourceRef_t w);
         taf_pm_WakeupSourceRef_t NewWakeupSource( uint32_t opts, const char *tag);
         le_result_t StayAwake( taf_pm_WakeupSourceRef_t w);
         le_result_t Relax( taf_pm_WakeupSourceRef_t w);
-        le_result_t ForceRelaxAndDestroyAllWakeupSource();
         taf_pm_State_t GetPowerState();
         const char* tcuStateToString(telux::power::TcuActivityState state);
         taf_pm_StateChangeHandlerRef_t AddStateChangeHandler
                 (taf_pm_StateChangeHandlerFunc_t handlerPtr, void* contextPtr);
         void RemoveStateChangeHandler(taf_pm_StateChangeHandlerRef_t handlerRef);
-        le_result_t WaitForSem_Timeout(le_sem_Ref_t semRef, long usecs);
     };
 
     class taf_Handler : public ITafSvc {

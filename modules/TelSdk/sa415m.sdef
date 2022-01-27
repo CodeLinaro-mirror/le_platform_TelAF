@@ -22,7 +22,6 @@ apps:
     $TELAF_ROOT/apps/tafServices/tafLocationSvc
     $TELAF_ROOT/apps/tafServices/tafSMSSvc
     $TELAF_ROOT/apps/tafServices/tafDataCallSvc
-    $TELAF_ROOT/apps/tafServices/tafPMSvc
 
     // Command-line tools.
     $LEGATO_ROOT/apps/tools/tools

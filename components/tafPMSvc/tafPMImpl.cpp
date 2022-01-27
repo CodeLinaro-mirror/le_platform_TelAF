@@ -44,7 +44,7 @@ using namespace telux::tafsvc;
 using namespace std;
 
 static taf_powerManager_t pm_recrd;
-le_timer_Ref_t taf_PM::TimerRef = nullptr;
+static bool isResumed = false;
 LE_REF_DEFINE_STATIC_MAP(tafPMReferences, TAF_PM_REFERENCE_DEFAULT_POOL_SIZE);
 
 /**
@@ -219,6 +219,18 @@ void taf_PM::Init(void)
         return;
     }
 #ifdef TARGET_SA515M
+    // Get TCU-activity manager object of remote proc
+    std::promise<telux::common::ServiceStatus> remProm = std::promise<telux::common::ServiceStatus>();
+    RemoteTcuActivityMgr = powerFactory.getTcuActivityManager(ClientType::MASTER, ProcType::REMOTE_PROC,
+                        [&](telux::common::ServiceStatus status) {
+                             remProm.set_value(status);
+                        });
+    if(RemoteTcuActivityMgr == nullptr) {
+        LE_INFO("RemoteTcuActivityMgr is null");
+        return;
+    }
+#endif
+#ifdef TARGET_SA515M
     // wait unconditionally till the service is avilable
     bool isReady = (prom.get_future().get() == telux::common::ServiceStatus::SERVICE_AVAILABLE);
     if(isReady){
@@ -235,9 +247,11 @@ void taf_PM::Init(void)
             LE_ERROR(" Failed to register for service state change ");
         }
 
-        // Registering a listener for TCU-activity state updates
+        // Registering a listener for Local proc TCU-activity state updates
         tcuStateListener = std::make_shared<tafTcuStateListener>();
         StateChangeEvent = le_event_CreateId("tafStateChangeEvent",sizeof(stateEvent_t));
+        AckEvent = le_event_CreateId("AckEvent",sizeof(TcuActivityState));
+        le_event_AddHandler("AckEventId", AckEvent, sendAck);
         telux::common::Status registerStatus = tcuActivityMgr->registerListener(tcuStateListener);
         if(registerStatus != telux::common::Status::SUCCESS) {
             LE_INFO(" ERROR - Failed to register for TCU-activity state updates");
@@ -248,24 +262,25 @@ void taf_PM::Init(void)
         LE_ERROR("ERROR Unable to intialize TCU activity service");
         return;
     }
-
+#ifdef TARGET_SA515M
+    bool isRemoteReady = (remProm.get_future().get() == telux::common::ServiceStatus::SERVICE_AVAILABLE);
+    if(isRemoteReady) {
+#endif
+#ifdef TARGET_SA415M
+    if(true){
+#endif
+        // Registering a listener for Remote  proc TCU-activity state updates
+        remoteTcuStateListener = std::make_shared<tafRemoteTcuStateListener>();
+        telux::common::Status remRegisterStatus =
+                RemoteTcuActivityMgr->registerListener(remoteTcuStateListener);
+        if(remRegisterStatus != telux::common::Status::SUCCESS) {
+            LE_INFO(" ERROR - Failed to register for TCU-activity state updates for remote proc");
+        } else {
+            LE_INFO(" Registered Listener for TCU-activity state updates for remote proc");
+        }
+    }
     // Initialize powermanager record
-    pm_recrd = {false, -1, -1, 0, NULL, NULL, NULL, NULL, NULL};
-
-    // initialize all items or fail
-    // Open wake lock file
-    pm_recrd.wlfd = open(WAKE_LOCK_FILE, O_RDWR);
-    if (-1 == pm_recrd.wlfd)
-    {
-        LE_FATAL("Failed to open %s: %m.", WAKE_LOCK_FILE);
-    }
-
-    // Open wake unlock file
-    pm_recrd.wufd = open(WAKE_UNLOCK_FILE, O_RDWR);
-    if (-1 == pm_recrd.wufd)
-    {
-        LE_FATAL("Failed to open %s: %m.", WAKE_UNLOCK_FILE);
-    }
+    pm_recrd = {0, NULL, NULL, NULL, NULL, NULL};
 
     // Create table of safe references
     pm_recrd.refs = le_ref_InitStaticMap(tafPMReferences, TAF_PM_REFERENCE_DEFAULT_POOL_SIZE);
@@ -301,29 +316,6 @@ void taf_PM::Init(void)
     le_msg_AddServiceOpenHandler(taf_pm_GetServiceRef(), taf_Handler::OnClientConnection, NULL);
     le_msg_AddServiceCloseHandler(taf_pm_GetServiceRef(), taf_Handler::OnClientDisconnection, NULL);
 
-    // Releasing all "telaf" wakeup sources remaining from a previous powerMgr daemon
-    FILE *wakeLockFd;
-
-    wakeLockFd = fopen(WAKE_LOCK_FILE, "r");
-    if (wakeLockFd)
-    {
-        char wsTag[TAF_WS_NAME_LEN * 2];
-        char wsScanFormatStr[10];
-        int rc;
-
-        snprintf(wsScanFormatStr, sizeof(wsScanFormatStr), "%%%zus ", sizeof(wsTag));
-        while (1 == fscanf(wakeLockFd, wsScanFormatStr, wsTag))
-        {
-            if (0 == strncmp(wsTag, TAF_TAG_PREFIX "_", sizeof(TAF_TAG_PREFIX)))
-            {
-                LE_INFO("Releasing wakeup source '%s'", wsTag);
-                rc = write(pm_recrd.wufd, wsTag, strlen(wsTag));
-                (void)rc;
-            }
-        }
-        snprintf(wsScanFormatStr, sizeof(wsScanFormatStr), "%%%zus", sizeof(wsTag));
-        fclose(wakeLockFd);
-    }
     LE_INFO("tafPM service init done...\n");
 }
 
@@ -412,10 +404,20 @@ le_result_t taf_PM::StayAwake(taf_pm_WakeupSourceRef_t wsRef)
     }
     pm_recrd.wsAcquired++;
 
-    // send resume state if its not in resume state
-    if( taf_pm_GetPowerState() != TAF_PM_STATE_RESUME) {
-        telux::common::Status status = tcuActivityMgr->setActivityState(TcuActivityState::RESUME,
+    // send resume state for local and remote proc if its not in resume state
+    if( RemoteTcuActivityMgr->getActivityState() != TcuActivityState::RESUME) {
+        telux::common::Status RemoteStatus =
+                RemoteTcuActivityMgr->setActivityState(TcuActivityState::RESUME,
                 &taf_Handler::commandCallback);
+        if( RemoteStatus == telux::common::Status::SUCCESS) {
+            LE_INFO("cmd send successfully to remote process");
+        } else {
+            LE_ERROR("sending cmd to remote process failed");
+        }
+    }
+    if(tcuActivityMgr->getActivityState() != TcuActivityState::RESUME) {
+        telux::common::Status status = tcuActivityMgr->setActivityState
+                (TcuActivityState::RESUME, &taf_Handler::commandCallback);
         if( status == telux::common::Status::SUCCESS) {
             LE_INFO("cmd send successfully");
         } else {
@@ -462,10 +464,18 @@ le_result_t taf_PM::Relax( taf_pm_WakeupSourceRef_t wsRef)
     {
         wsEntry->acquired = 0;
     }
+
     pm_recrd.wsAcquired--;
 
     // if all the wake sources are in released state and set SUSPEND state
-    if(pm_recrd.wsAcquired == 0 && taf_PM::TimerRef == nullptr) {
+    if(pm_recrd.wsAcquired == 0) {
+        telux::common::Status RemoteStatus = RemoteTcuActivityMgr->setActivityState(
+                TcuActivityState::SUSPEND, &taf_Handler::commandCallback);
+        if( RemoteStatus == telux::common::Status::SUCCESS) {
+            LE_INFO("cmd send successfully for remote proc");
+        } else {
+            LE_ERROR("sending cmd failed for remote proc");
+        }
         telux::common::Status status = tcuActivityMgr->setActivityState(
                 TcuActivityState::SUSPEND, &taf_Handler::commandCallback);
         if( status == telux::common::Status::SUCCESS) {
@@ -474,32 +484,6 @@ le_result_t taf_PM::Relax( taf_pm_WakeupSourceRef_t wsRef)
             LE_ERROR("sending cmd failed");
         }
     }
-    return LE_OK;
-}
-
-/**
- * Release and destroy all acquired wakeup source and kill all clients
- *
- */
-le_result_t taf_PM::ForceRelaxAndDestroyAllWakeupSource()
-{
-    taf_Client_t *client;
-    le_hashmap_It_Ref_t iter;
-
-    TAF_ERROR_IF_RET_VAL(!pm_recrd.isExceeded, LE_NOT_PERMITTED,
-            "Service is not permitted at this time.");
-
-    // Find and remove client record from table
-    iter = le_hashmap_GetIterator(pm_recrd.clients);
-    while (LE_OK == le_hashmap_NextNode(iter))
-    {
-        client = taf_PM::to_taf_Client_t(le_hashmap_GetValue(iter));
-        LE_INFO("Client %s/%d killed.", client->name, client->procId);
-        le_msg_CloseSession(client->sessionRef);
-    }
-
-    pm_recrd.isExceeded = false;
-
     return LE_OK;
 }
 
@@ -602,9 +586,6 @@ void taf_PM::StateChanged(void* reportPtr, void* SecondLayeredHandlerFunc)
     taf_pm_StateChangeHandlerFunc_t clientHandlerFunc =
         (taf_pm_StateChangeHandlerFunc_t)SecondLayeredHandlerFunc;
     clientHandlerFunc(stateEvent->state, le_event_GetContextPtr());
-    if(stateEvent->state == TAF_PM_STATE_SUSPEND) {
-        taf_PM::StartTimer();
-    }
 }
 
 /**
@@ -623,6 +604,7 @@ void tafTcuStateListener :: onTcuActivityStateUpdate(TcuActivityState state)
 {
     taf_PM tafPwrMgr = taf_PM::GetInstance();
     LE_INFO("onTcuActivityStateUpdate state is %s\n", tafPwrMgr.tcuStateToString(state));
+
     stateEvent_t evt;
     if(state == TcuActivityState::SUSPEND) {
         evt.state = TAF_PM_STATE_SUSPEND;
@@ -631,9 +613,30 @@ void tafTcuStateListener :: onTcuActivityStateUpdate(TcuActivityState state)
     } else if(state == TcuActivityState::RESUME) {
         evt.state = TAF_PM_STATE_RESUME;
     }
-    // send state change to all the handlers registered
-    le_event_Report(tafPwrMgr.StateChangeEvent, &evt, sizeof(evt));
-    LE_INFO("sent report state %s\n",tafPwrMgr.tcuStateToString(state));
+
+    // Send Resume request if WL is acquired, else send acknowledgement
+    if(pm_recrd.wsAcquired > 0 && (state == TcuActivityState::SUSPEND
+            || state == TcuActivityState::SHUTDOWN)) {
+        telux::common::Status status = tafPwrMgr.tcuActivityMgr->setActivityState(
+                TcuActivityState::RESUME, &taf_Handler::commandCallback);
+        if( status == telux::common::Status::SUCCESS) {
+            LE_INFO("Resume cmd sent successfully");
+            isResumed = true;
+        } else {
+            LE_ERROR("sending resume cmd failed");
+        }
+    } else {
+        // send state change to all the handlers registered, except Resume triggered
+        // from tafPMService if WL is acquired.
+        if(!isResumed) {
+            le_event_Report(tafPwrMgr.StateChangeEvent, &evt, sizeof(evt));
+        } else {
+            isResumed = false;
+        }
+        LE_INFO("sent report state %s\n",tafPwrMgr.tcuStateToString(state));
+        if (state != TcuActivityState::RESUME)
+            le_event_Report(tafPwrMgr.AckEvent, &state, sizeof(state));
+    }
 }
 
 /**
@@ -642,6 +645,55 @@ void tafTcuStateListener :: onTcuActivityStateUpdate(TcuActivityState state)
 void tafTcuStateListener :: onSlaveAckStatusUpdate(Status status)
 {
     LE_INFO("onSlaveAckStatusUpdate status %d\n", (int)status);
+}
+
+/**
+ * callback function to receive TCU activity state update from Remote Proc
+ */
+void tafRemoteTcuStateListener :: onTcuActivityStateUpdate(TcuActivityState state)
+{
+    taf_PM tafPwrMgr = taf_PM::GetInstance();
+    LE_INFO("onTcuActivityStateUpdate form remote proc state is %s\n",
+            tafPwrMgr.tcuStateToString(state));
+
+    // Send Resume request if WL is acquired, else send acknowledgement
+    if(pm_recrd.wsAcquired > 0 && (state == TcuActivityState::SUSPEND
+            || state == TcuActivityState::SHUTDOWN)) {
+        telux::common::Status status = tafPwrMgr.RemoteTcuActivityMgr->setActivityState(
+                TcuActivityState::RESUME, &taf_Handler::commandCallback);
+        if( status == telux::common::Status::SUCCESS) {
+            LE_INFO("Resume cmd sent successfully to remote proc");
+        } else {
+            LE_ERROR("sending resume cmd failed to remote proc");
+        }
+    } else {
+        Status ackStatus;
+        if(state == TcuActivityState::SUSPEND) {
+            ackStatus = tafPwrMgr.RemoteTcuActivityMgr->sendActivityStateAck(
+                                TcuActivityStateAck::SUSPEND_ACK);
+            if(ackStatus == Status::SUCCESS) {
+                LE_INFO("Sent Suspend acknowledgement successfully to remote proc");
+            } else {
+                LE_INFO("Failed to send suspend acknowledgement to remote proc!");
+            }
+        } else if(state == TcuActivityState::SHUTDOWN) {
+            ackStatus = tafPwrMgr.RemoteTcuActivityMgr->sendActivityStateAck(
+                                TcuActivityStateAck::SHUTDOWN_ACK);
+            if(ackStatus == Status::SUCCESS) {
+                LE_INFO("Sent shutdown acknowledgement successfully to remote proc");
+            } else {
+                LE_INFO("Failed to send shutdown acknowledgement to remote proc!");
+            }
+        }
+    }
+}
+
+/**
+ * callback received from remote proc on slave applications sending ACK
+ */
+void tafRemoteTcuStateListener :: onSlaveAckStatusUpdate(Status status)
+{
+    LE_INFO("onSlaveAckStatusUpdate status for remote proc %d\n", (int)status);
 }
 
 /**
@@ -655,45 +707,26 @@ void tafTcuServiceStatusListener::onServiceStatusChange(ServiceStatus status) {
     }
 }
 
-/**
- * Handler function trigerred after timeout
- * Releases all the acquired wakeup sources and sends ACK
- */
-void taf_PM::TimerHandler(le_timer_Ref_t timerRef)
+void taf_PM::sendAck(void* reportPtr)
 {
-    le_hashmap_It_Ref_t iter;
-    iter = le_hashmap_GetIterator(pm_recrd.locks);
-    taf_ws_t *ws;
-    taf_PM tafPwrMgr = taf_PM::GetInstance();
-    while (LE_OK == le_hashmap_NextNode(iter))
-    {
-        ws = (taf_ws_t*)le_hashmap_GetValue(iter);
-
-        // Release the aquired wakeup source
-        if (ws->acquired>0)
-        {
-            LE_WARN("Releasing wakeup source '%s' on behalf of %d on timeout.",
-                    ws->name, ws->clientPid);
-            ws->isRef = false;
-            tafPwrMgr.Relax((taf_pm_WakeupSourceRef_t)ws->wsRef);
+    Status ackStatus;
+    TcuActivityState state = *(TcuActivityState*)reportPtr;
+    taf_PM tafPwrMgr = GetInstance();
+    if(state == TcuActivityState::SUSPEND) {
+        ackStatus = tafPwrMgr.tcuActivityMgr->sendActivityStateAck(
+                            TcuActivityStateAck::SUSPEND_ACK);
+        if(ackStatus == Status::SUCCESS) {
+            LE_INFO("Sent SUSPEND acknowledgement successfully");
+        } else {
+            LE_INFO("Failed to send SUSPEND acknowledgement !");
+        }
+    } else if(state == TcuActivityState::SHUTDOWN) {
+        ackStatus = tafPwrMgr.tcuActivityMgr->sendActivityStateAck(
+                            TcuActivityStateAck::SHUTDOWN_ACK);
+        if(ackStatus == Status::SUCCESS) {
+            LE_INFO("Sent SHUTDOWN acknowledgement successfully");
+        } else {
+            LE_INFO("Failed to send SHUTDOWN acknowledgement !");
         }
     }
-    Status ackStatus = tafPwrMgr.tcuActivityMgr->sendActivityStateAck(
-            TcuActivityStateAck::SUSPEND_ACK);
-    if(ackStatus == Status::SUCCESS) {
-        LE_INFO( " Sent acknowledgement successfully");
-    } else {
-        LE_INFO(" Failed to send acknowledgement !");
-    }
-    le_timer_Delete(taf_PM::TimerRef);
-    taf_PM::TimerRef = nullptr;
-}
-
-void taf_PM::StartTimer()
-{
-    taf_PM::TimerRef = le_timer_Create("timer");
-    le_clk_Time_t Interval = {0, TAF_PM_ACK_TIMEOUT};
-    le_timer_SetInterval(taf_PM::TimerRef, Interval);
-    le_timer_SetHandler(taf_PM::TimerRef, taf_PM::TimerHandler);
-    le_timer_Start(taf_PM::TimerRef);
 }

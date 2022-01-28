@@ -1,0 +1,13 @@
+sources:
+{
+    taf_pa_keystore.c
+}
+
+requires:
+{
+    api:
+    {
+        le_appInfo.api
+        taf_ks.api [types-only]
+    }
+}

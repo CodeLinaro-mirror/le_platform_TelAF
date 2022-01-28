@@ -25,6 +25,7 @@ if [ -e "../telaf-noship/platformAdaptor/" ]; then
     source ../telaf-noship/set_af_env.sh
 else
     ln -sf "./stub" "./components/tafUpdateSvc/taf_update_pa"
+    ln -sf "./stub" "./components/tafKeyStoreSvc/taf_pa_keystore"
     echo "using stub for platformAdaptor"
 fi
 

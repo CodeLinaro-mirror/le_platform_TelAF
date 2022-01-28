@@ -1,0 +1,30 @@
+sources:
+{
+    tafKeyStoreSvc.c
+}
+
+cflags:
+{
+   -I$CURDIR/taf_pa_keystore
+}
+
+requires:
+{
+    api:
+    {
+        le_appInfo.api
+    }
+
+    component:
+    {
+        $CURDIR/taf_pa_keystore
+    }
+}
+
+provides:
+{
+    api:
+    {
+        taf_ks.api
+    }
+}

@@ -1,0 +1,571 @@
+/*
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+USETYPES le_limit.api;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The Maximum Size of the Key Name.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_KEY_ID_SIZE = 256;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The Maximum Size of Secure label.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_SEC_LABEL_SIZE = 256;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The Maximum Size for Data Packet in Bytes.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_PACKET_SIZE = 4096;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The Nonce or IV size for AES GCM, CBC, CTR in Bytes.
+ *
+ * For AES GCM the nonce size is 12 byte, for AES CBC, CTR the IV is 16 byte.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_AES_NONCE_SIZE = 16;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The Minimum and Maximum Size for HMAC key in Bytes.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MIN_HMAC_KEY_SIZE = 8;
+DEFINE MAX_HMAC_KEY_SIZE = 128;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Define the supported RSA key size.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM RsaKeySize
+{
+    RSA_SIZE_1024 = 1, ///< RSA key size is 1024 bit
+    RSA_SIZE_2048,     ///< RSA key size is 2048 bit
+    RSA_SIZE_3072,     ///< RSA key size is 3072 bit
+    RSA_SIZE_4096,     ///< RSA key size is 4096 bit
+    RSA_SIZE_MAX,
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Define the supported AES key size.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM AesKeySize
+{
+    AES_SIZE_128 = 1,  ///< AES key size is 128 bit
+    AES_SIZE_192,      ///< AES key size is 192 bit
+    AES_SIZE_256,      ///< AES key size is 256 bit
+    AES_SIZE_MAX,
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Define the supported ECC key size.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM EccKeySize
+{
+    ECC_SIZE_224 = 1,  ///< ECC key size is 224 bit
+    ECC_SIZE_256,      ///< ECC key size is 256 bit
+    ECC_SIZE_384,      ///< ECC key size is 384 bit
+    ECC_SIZE_521,      ///< ECC key size is 521 bit
+    ECC_SIZE_MAX,
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Define the key Usage.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM KeyUsage
+{
+    RSA_ENCRYPT_DECRYPT,    ///< RSA key for encryption and decryption
+    RSA_ENCRYPT_ONLY,       ///< RSA key for encryption only
+    RSA_DECRYPT_ONLY,       ///< RSA key for decryption only
+    RSA_SIGN_VERIFY,        ///< RSA key for signing and verification
+    RSA_SIGN_ONLY,          ///< RSA key for signing only
+    RSA_VERIFY_ONLY,        ///< RSA key for verification only
+    AES_ENCRYPT_DECRYPT,    ///< AES key for encryption and decryption
+    AES_ENCRYPT_ONLY,       ///< AES key for encryption only
+    AES_DECRYPT_ONLY,       ///< AES key for decryption only
+    ECDSA_SIGN_VERIFY,      ///< ECDSA key for signing and verification
+    ECDSA_SIGN_ONLY,        ///< ECDSA key for signing only
+    ECDSA_VERIFY_ONLY,      ///< ECDSA key for verfication only
+    HMAC_SIGN_VERIFY,       ///< HMAC for signing and verification
+    HMAC_SIGN_ONLY,         ///< HMAC for signing only
+    HMAC_VERIFY_ONLY,       ///< HMAC for verification only
+    KEYUSAGE_MAX,
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Define the Crypto Purpose for a crypto operation session.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM CryptoPurpose
+{
+    CRYPTO_ENCRYPT,         ///< Crypto operation for encryption
+    CRYPTO_DECRYPT,         ///< Crypto operation for decryption
+    CRYPTO_SIGN,            ///< Crypto operation for signing
+    CRYPTO_VERIFY,          ///< Crypto operation for verify
+    CRYPTO_MAX,
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Define the digest algorithms used for RSA, ECC and HMAC.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM Digest
+{
+    DIGEST_MD5 = 1,         ///< MD5
+    DIGEST_SHA1,            ///< SHA1
+    DIGEST_SHA2_224,        ///< SHA2-224
+    DIGEST_SHA2_256,        ///< SHA2-256
+    DIGEST_SHA2_384,        ///< SHA2-384
+    DIGEST_SHA2_512,        ///< SHA2-512
+    DIGEST_MAX,
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Define the Padding type for RSA encryption key.
+ *
+ * The specified hash function used in MFG1 is only for OAEP padding
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM RsaEncPadding
+{
+    RSA_ENC_PAD_NONE,            ///< No padding
+    RSA_ENC_PAD_PKCS1_V15,       ///< PKCS1 V1.5 padding
+    RSA_ENC_PAD_OAEP_MD5,        ///< OAEP with MD5 padding
+    RSA_ENC_PAD_OAEP_SHA1,       ///< OAEP with SHA1 padding
+    RSA_ENC_PAD_OAEP_SHA2_224,   ///< OAEP with SHA2-224 padding
+    RSA_ENC_PAD_OAEP_SHA2_256,   ///< OAEP with SHA2-256 padding
+    RSA_ENC_PAD_OAEP_SHA2_384,   ///< OAEP with SHA2-384 padding
+    RSA_ENC_PAD_OAEP_SHA2_512,   ///< OAEP with SHA2-512 padding
+    RSA_ENC_PAD_MAX,
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Define the Padding type for RSA signature key.
+ *
+ * The specified hash function used in MFG1 is both for PSS padding and generating digest to sign.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM RsaSigPadding
+{
+    RSA_SIG_PAD_NONE,               ///< No padding
+    RSA_SIG_PAD_PKCS1_V15_MD5,      ///< PKCS1 V1.5 padding, digest is MD5
+    RSA_SIG_PAD_PKCS1_V15_SHA1,     ///< PKCS1 V1.5 padding, digest is SHA1
+    RSA_SIG_PAD_PKCS1_V15_SHA2_224, ///< PKCS1 V1.5 padding, digest is SHA2-224
+    RSA_SIG_PAD_PKCS1_V15_SHA2_256, ///< PKCS1 V1.5 padding, digest is SHA2-256
+    RSA_SIG_PAD_PKCS1_V15_SHA2_384, ///< PKCS1 V1.5 padding, digest is SHA2-384
+    RSA_SIG_PAD_PKCS1_V15_SHA2_512, ///< PKCS1 V1.5 padding, digest is SHA2-512
+    RSA_SIG_PAD_PSS_MD5,            ///< PSS with MD5 padding, digest is MD5
+    RSA_SIG_PAD_PSS_SHA1,           ///< PSS with SHA1 padding, digest is SHA1
+    RSA_SIG_PAD_PSS_SHA2_224,       ///< PSS with SHA2-224 padding, digest is SHA2-224
+    RSA_SIG_PAD_PSS_SHA2_256,       ///< PSS with SHA2-256 padding, digest is SHA2-256
+    RSA_SIG_PAD_PSS_SHA2_384,       ///< PSS with SHA2-384 padding, digest is SHA2-384
+    RSA_SIG_PAD_PSS_SHA2_512,       ///< PSS with SHA2-512 padding, digest is SHA2-512
+    RSA_SIG_PAD_MAX,
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Define the AES Block Mode.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM AesBlockMode
+{
+    AES_MODE_ECB_PAD_NONE,  ///< AES ECB mode without padding
+    AES_MODE_ECB_PAD_PKCS7, ///< AES ECB mode with PKCS7 padding
+    AES_MODE_CBC_PAD_NONE,  ///< AES CBC mode without padding
+    AES_MODE_CBC_PAD_PKCS7, ///< AES CBC mode with PKCS7 padding
+    AES_MODE_CTR,           ///< AES CTR mode
+    AES_MODE_GCM,           ///< AES GCM mode
+    AES_MODE_MAX
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reference for key object.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE Key;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reference for crypto operation session.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE CryptoSession;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Creates a new key.
+ *
+ * New keys initially have no value and cannot be used for any crypto operations. Call KeySet API to
+ * set optional attributions for key access control if needed, then call Provision APIs to provision
+ * the key value and save the key into the backend storage. The GetKey API and Crypto APIs are
+ * available to use only after the key value is correctly provisioned.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t CreateKey
+(
+    string   keyName[MAX_KEY_ID_SIZE] IN, ///< Key name
+    KeyUsage keyUsage                 IN, ///< Key usage
+    Key      keyRef                   OUT ///< Key reference
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get a key reference by key name.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetKey
+(
+    string keyName[MAX_KEY_ID_SIZE] IN, ///< Key name
+    Key    keyRef                   OUT ///< Key reference
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Delete a key by key reference
+ *
+ * The key is only allowed to be deleted if it doesn't have ongoing crypto sessions, otherwise
+ * LE_BUSY will be returned.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DeleteKey
+(
+    Key    keyRef                   IN  ///< Key reference
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get key usage.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetKeyUsage
+(
+    Key       keyRef                      IN, ///< Key reference
+    KeyUsage  keyUsage                    OUT ///< Key usage
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set the maximum number of times that a key may be used between system reboots.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetKeyMaxUsesPerBoot
+(
+    Key    keyRef        IN,  ///< Key reference
+    uint32 value         IN   ///< Uses per boot
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set the minimum amount of time that elapses between allowed operations using a key.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetKeyMinSecondsBetweenOps
+(
+    Key    keyRef        IN,  ///< Key reference
+    uint32 value         IN   ///< Seconds interval between allowed operations.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set application data to the key.
+ *
+ * When the attribute is provided to the key, the same data must be also provided to crypto API.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetKeyAppData
+(
+    Key   keyRef                IN,  ///< Key reference
+    uint8 data[MAX_PACKET_SIZE] IN   ///< Data buffer to hold the application data
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set the date and time at which the key becomes active. Prior to this time any attempt to use the
+ * key will get failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetKeyActiveDateTime
+(
+    Key    keyRef        IN,  ///< Key reference
+    uint64 value         IN   ///< Milliseconds since January 1, 1970.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set the date and time at which the key expires for signing and encryption. After this time any
+ * attempt to use a key for signing or encryption will get failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetKeyOriginationExpireDateTime
+(
+    Key    keyRef        IN,  ///< Key reference
+    uint64 value         IN   ///< Milliseconds since January 1, 1970.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set the date and time at which the key expires for verification and decryption. After this time
+ * any attempt to use a key for verification and decryption will get failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetKeyUsageExpireDateTime
+(
+    Key    keyRef        IN,  ///< Key reference
+    uint64 value         IN   ///< Milliseconds since January 1, 1970.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Provison a RSA encryption key value to the new created key so that the key can be available to
+ * use for RSA encryption/decryption.
+ *
+ * The key value can be generated from either internal crypto engine or imported key data.
+ * The impData holds the RSA encryption key must be PKCS#8 der format if provided.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ProvisionRsaEncKeyValue
+(
+    Key              keyRef                   IN, ///< Key reference
+    RsaKeySize       keySize                  IN, ///< Key Size, ignored if impData is provided
+    RsaEncPadding    padding                  IN, ///< RSA encryption padding type
+    uint8            impData[MAX_PACKET_SIZE] IN  ///< Imported key data
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Provision a RSA signing key value to the new created key so that the key can be available to
+ * use for RSA signing/verification.
+ *
+ * The key value can be generated from either internal crypto engine or imported key data.
+ * The impData holds the RSA signing key must be PKCS#8 der format if provided.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ProvisionRsaSigKeyValue
+(
+    Key              keyRef                   IN, ///< Key reference
+    RsaKeySize       keySize                  IN, ///< Key Size, ignored if impData is provided
+    RsaSigPadding    padding                  IN, ///< RSA signature padding type
+    uint8            impData[MAX_PACKET_SIZE] IN  ///< Imported key data
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Provision an ECDSA key value to the new created key so that the key can be available to use for
+ * ECDSA signing/verification.
+ *
+ * The key value can be generated from either internal crypto engine or imported key data.
+ * The impData holds the ECDSA key must be PKCS#8 der format if provided.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ProvisionEcdsaKeyValue
+(
+    Key              keyRef                   IN, ///< Key reference
+    EccKeySize       keySize                  IN, ///< ECC curve, ignored if impData is provided
+    Digest           digest                   IN, ///< Digest
+    uint8            impData[MAX_PACKET_SIZE] IN  ///< Imported key data
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Provision an AES key value to the new created key so that the key can be available to use for
+ * AES encryption/decryption.
+ *
+ * The key value can be generated from either internal crypto engine or imported key data.
+ * The impData holds the AES key must be raw key bytes format if provided.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ProvisionAesKeyValue
+(
+    Key              keyRef                   IN, ///< Key reference
+    AesKeySize       keySize                  IN, ///< AES key size, ignored if impData is provided
+    AesBlockMode     mode                     IN, ///< AES block mode
+    uint8            impData[MAX_PACKET_SIZE] IN  ///< Imported key data
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Provision a HMAC key value to the new created key so that the key can be available to use for
+ * HMAC signing/verification.
+ *
+ * The key value can be generated from either internal crypto engine or imported key data.
+ * The impData holds the HMAC key must be raw key bytes format if provided.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ProvisionHmacKeyValue
+(
+    Key              keyRef                   IN, ///< Key reference
+    uint32           keySize                  IN, ///< HMAC Key Size, ignored if impData is provided
+    Digest           digest                   IN, ///< digest
+    uint8            impData[MAX_PACKET_SIZE] IN  ///< Imported key data
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Create a crypto operation session for the key.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t CryptoSessionCreate
+(
+    Key           keyRef      IN,     ///< Key to use for this crypto session.
+    CryptoSession sessionRef  OUT     ///< Session reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set the nonce or IVs for AES GCM, CBC, CTR for a crypto session. For AES GCM the nonce size must
+ * be 12 byte, for AES CBC, CTR the IV must be 16 byte.
+ *
+ * This API must be called before CryptoSessionStart API if needed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t CryptoSessionSetAesNonce
+(
+    CryptoSession   sessionRef     IN,  ///< Session reference
+    uint8 data[MAX_AES_NONCE_SIZE] IN   ///< Data buffer to hold the nonce or IV
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set the Application data for a crypto session.
+ *
+ * This API must be called before CryptoSessionStart API if need.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t CryptoSessionSetAppData
+(
+    CryptoSession   sessionRef     IN,  ///< Session reference
+    uint8 data[MAX_PACKET_SIZE]    IN   ///< Data buffer to hold the application data
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Start the crypto session for the given crypto operation.
+ *
+ * The crypto session will be automatically deleted if error is returned.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t CryptoSessionStart
+(
+    CryptoSession sessionRef         IN,  ///< Session reference
+    CryptoPurpose cryptoPurpose      IN   ///< Crypto purpose
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Provides AES AEAD to the running crypto session started with CryptoSessionStart API for AES GCM
+ * mode. This API can be called for multiple times but must before CryptoSessionProcess API.
+ *
+ * The crypto session will be automatically deleted if error is returned.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t CryptoSessionProcessAead
+(
+    CryptoSession   sessionRef     IN,  ///< Session reference
+    uint8 data[MAX_PACKET_SIZE]    IN   ///< Data buffer to hold the AEAD data
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Provides data to, and possibly receives output from, an runing crypto session started with
+ * CryptoSessionStart API. It can be called for multiple times before CryptoSessionEnd API is
+ * called.
+ *
+ * The crypto session will be automatically deleted if error is returned.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t CryptoSessionProcess
+(
+    CryptoSession sessionRef               IN, ///< Session reference
+    uint8   inputData[MAX_PACKET_SIZE]     IN, ///< InputData can be one of below 4 cases:
+                                               ///< 1: plain text for encryption session.
+                                               ///< 2: cipher text for decryption session.
+                                               ///< 3: message to sign for signing session.
+                                               ///< 4: message to verify for verification session.
+    uint8   outputData[MAX_PACKET_SIZE]    OUT ///< OutputData can be one of below 3 cases:
+                                               ///< 1: encrypted data for encryption session.
+                                               ///< 2: decrypted data for decryption session.
+                                               ///< 3: must set NULL for signing and verification sessions.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Finalizes the crypto session started with CryptoSessionStart API.
+ *
+ * The crypto session will be then automatically deleted.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t CryptoSessionEnd
+(
+    CryptoSession sessionRef               IN, ///< Session reference
+    uint8   inputData[MAX_PACKET_SIZE]     IN, ///< Signature to verify for verification session
+                                               ///< and must set NULL for other sessions.
+    uint8   outputData[MAX_PACKET_SIZE]    OUT ///< OutputData can be one of below 4 cases:
+                                               ///< 1: encrypted data for encryption session.
+                                               ///< 2: decrypted data for decryption session.
+                                               ///< 3: signature for signing session.
+                                               ///< 4: must set NULL for verfication session.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Abort the crypto session started with CryptoSessionStart API.
+ *
+ * The crypto session will be then automatically deleted.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t CryptoSessionAbort
+(
+    CryptoSession sessionRef               IN  ///< Session reference
+);

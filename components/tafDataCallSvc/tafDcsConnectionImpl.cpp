@@ -28,6 +28,42 @@
  */
 
 /*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *      * Redistributions of source code must retain the above copyright
+ *        notice, this list of conditions and the following disclaimer.
+ *
+ *      * Redistributions in binary form must reproduce the above
+ *        copyright notice, this list of conditions and the following
+ *        disclaimer in the documentation and/or other materials provided
+ *        with the distribution.
+ *
+ *      * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *        contributors may be used to endorse or promote products derived
+ *        from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/*
  * @file       tafDcsConnectionImpl.cpp
  * @brief      This file provides the implementation of taf data connection component.
  */
@@ -47,6 +83,39 @@ using namespace telux::tafsvc;
 LE_MEM_DEFINE_STATIC_POOL(tafDataCall, TAF_DCS_MAX_CALL_OBJ, sizeof(taf_dcs_CallCtx_t));
 LE_MEM_DEFINE_STATIC_POOL(tafSessionRef, TAF_DCS_MAX_SESSION_REF, sizeof(taf_SessionRef_t));
 
+#ifdef TARGET_SA515M
+taf_DataConnServingSystemListener::taf_DataConnServingSystemListener(SlotId slot) :
+   slotId(slot) {
+}
+
+void taf_DataConnServingSystemListener::onServiceStateChanged(telux::data::ServiceStatus status)
+{
+    std::lock_guard<std::mutex> lock(cv_mutex);
+    LE_DEBUG("<SDK Listener> taf_DataConnServingSystemListener --> onServiceStateChanged");
+
+    dsStatus = status.serviceState;
+    LE_DEBUG("status = %d", (int)dsStatus);
+    if (dsStatus == telux::data::DataServiceState::IN_SERVICE) {
+        conVar.notify_all();
+    }
+}
+
+void taf_DataConnRequestServiceStatusCallback::requestServiceStatus
+(
+    telux::data::ServiceStatus serviceStatus,
+    telux::common::ErrorCode error
+)
+{
+    LE_DEBUG("<SDK Callback> taf_DataConnRequestServiceStatusCallback --> requestServiceStatus");
+
+    if (error != telux::common::ErrorCode::SUCCESS) {
+        LE_ERROR("Error(%d)", (int)error);
+    }
+
+    status = serviceStatus;
+    le_sem_Post(semaphore);
+}
+#endif
 void taf_DataConnectionListener::onDataCallInfoChanged(const std::shared_ptr<telux::data::IDataCall> &iCall)
 {
     auto &dataConnection = taf_DataConnection::GetInstance();
@@ -512,7 +581,27 @@ le_result_t taf_DataConnection::SendGettingDefaultProfileIdCmd()
 
 le_result_t taf_DataConnection::MakeCall(int32_t profileId, telux::data::IpFamilyType ipType)
 {
-    telux::common::Status status = ConnectionMgr->startDataCall(profileId, ipType, StartDataCallCallback);
+    telux::common::Status status;
+#ifdef TARGET_SA515M
+    auto reqSvcStateCbFunc = std::bind(&taf_DataConnRequestServiceStatusCallback::requestServiceStatus, reqSvcStateCb, std::placeholders::_1, std::placeholders::_2);
+
+    status = dataServingSystemManagers[(SlotId)SLOT_ID_1]->requestServiceStatus(reqSvcStateCbFunc);
+    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT, "Call sdk function failed.");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(reqSvcStateCb->semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Wait semaphore timeout.");
+    LE_INFO("Current data service status: %d.", (int)reqSvcStateCb->status.serviceState);
+    if (reqSvcStateCb->status.serviceState != telux::data::DataServiceState::IN_SERVICE) {
+        std::unique_lock<std::mutex> uLock(connectionServingSystemlisteners[(SlotId)SLOT_ID_1]->cv_mutex);
+        connectionServingSystemlisteners[(SlotId)SLOT_ID_1]->conVar.wait_for(uLock, std::chrono::seconds(10));
+        if (connectionServingSystemlisteners[(SlotId)SLOT_ID_1]->dsStatus != telux::data::DataServiceState::IN_SERVICE) {
+            LE_ERROR("Wait for data in service time out.");
+            return LE_FAULT;
+        }
+    }
+#endif
+    status = ConnectionMgr->startDataCall(profileId, ipType, StartDataCallCallback);
     TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT, "start call failed, ret: %d", (int32_t)status);
 
     return LE_OK;
@@ -520,7 +609,27 @@ le_result_t taf_DataConnection::MakeCall(int32_t profileId, telux::data::IpFamil
 
 le_result_t taf_DataConnection::StopCall(int32_t profileId, telux::data::IpFamilyType ipType)
 {
-    telux::common::Status status = ConnectionMgr->stopDataCall(profileId, ipType, StopDataCallCallback);
+    telux::common::Status status;
+#ifdef TARGET_SA515M
+    auto reqSvcStateCbFunc = std::bind(&taf_DataConnRequestServiceStatusCallback::requestServiceStatus, reqSvcStateCb, std::placeholders::_1, std::placeholders::_2);
+
+    status = dataServingSystemManagers[(SlotId)SLOT_ID_1]->requestServiceStatus(reqSvcStateCbFunc);
+    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT, "Call sdk function failed.");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(reqSvcStateCb->semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Wait semaphore timeout.");
+    LE_INFO("Current data service status: %d.", (int)reqSvcStateCb->status.serviceState);
+    if (reqSvcStateCb->status.serviceState != telux::data::DataServiceState::IN_SERVICE) {
+        std::unique_lock<std::mutex> uLock(connectionServingSystemlisteners[(SlotId)SLOT_ID_1]->cv_mutex);
+        connectionServingSystemlisteners[(SlotId)SLOT_ID_1]->conVar.wait_for(uLock, std::chrono::seconds(10));
+        if (connectionServingSystemlisteners[(SlotId)SLOT_ID_1]->dsStatus != telux::data::DataServiceState::IN_SERVICE) {
+            LE_ERROR("Wait for data in service time out.");
+            return LE_FAULT;
+        }
+    }
+#endif
+    status = ConnectionMgr->stopDataCall(profileId, ipType, StopDataCallCallback);
     TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT, "stop call failed, ret: %d", (int32_t)status);
 
     return LE_OK;
@@ -826,6 +935,30 @@ le_result_t taf_DataConnection::GetDefaultProfileIdSync(uint32_t &profileId)
     }
 
     return result;
+}
+
+le_result_t taf_DataConnection::GetProfileIdByInterfaceName(const char* namePtr,uint32_t* profileId)
+{
+    TAF_ERROR_IF_RET_VAL(namePtr == NULL, LE_NOT_FOUND, "namePtr is null");
+    TAF_ERROR_IF_RET_VAL(profileId == NULL, LE_NOT_FOUND, "profileId is null");
+
+    le_dls_Link_t* linkPtr = NULL;
+
+    linkPtr = le_dls_Peek(&DataCallCtxList);
+
+    while (linkPtr)
+    {
+        taf_dcs_CallCtx_t* callCtxPtr = CONTAINER_OF(linkPtr, taf_dcs_CallCtx_t, link);
+        linkPtr = le_dls_PeekNext(&DataCallCtxList, linkPtr);
+
+        if (strncmp(callCtxPtr->intfName,namePtr,TAF_DCS_NAME_MAX_LEN)== 0)
+        {
+            *profileId = callCtxPtr->profileId;
+            return LE_OK;
+        }
+    }
+
+    return LE_NOT_FOUND;
 }
 
 le_result_t taf_DataConnection::GetInterfaceName(int32_t profileId, char* namePtr, size_t nameSize)
@@ -1359,7 +1492,14 @@ void* taf_DataConnection::ConnectionEventThread(void* contextPtr)
     le_event_RunLoop();
     return NULL;
 }
-
+#ifdef TARGET_SA515M
+void taf_DataConnection::onInitCompleted(telux::common::ServiceStatus status)
+{
+    std::lock_guard<std::mutex> lock(mtx);
+    subSystemStatusUpdated = true;
+    conVar.notify_all();
+}
+#endif
 void taf_DataConnection::Init(void)
 {
     auto &dataFactory = DataFactory::getInstance();
@@ -1386,7 +1526,45 @@ void taf_DataConnection::Init(void)
     DataConnectionListener = std::make_shared<taf_DataConnectionListener>();
     telux::common::Status status =  ConnectionMgr->registerListener(DataConnectionListener);
     TAF_ERROR_IF_RET_NIL(status != telux::common::Status::SUCCESS, "register listener failed, status: %d", (int32_t)status);
+#ifdef TARGET_SA515M
+    /* register data serving system manager */
+    connectionServingSystemlisteners[(SlotId)SLOT_ID_1] = std::make_shared<taf_DataConnServingSystemListener>((SlotId)SLOT_ID_1);
+    dataServingSystemListeners[(SlotId)SLOT_ID_1] = connectionServingSystemlisteners[(SlotId)SLOT_ID_1];
 
+    telux::common::ServiceStatus subSystemStatus = telux::common::ServiceStatus::SERVICE_FAILED;
+    subSystemStatusUpdated = false;
+    auto initCb = std::bind(&taf_DataConnection::onInitCompleted, this, std::placeholders::_1);
+    auto servingSystemMgr = dataFactory.getServingSystemManager((SlotId)SLOT_ID_1, initCb);
+    bool subSysReady = false;
+
+    if (servingSystemMgr) {
+        std::unique_lock<std::mutex> uLock(mtx);
+        conVar.wait(uLock, [this]{return this->subSystemStatusUpdated;});
+        subSystemStatus = servingSystemMgr->getServiceStatus();
+
+        if (subSystemStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE) {
+            LE_INFO("Serving system manager on slot %d is ready.", (int)SLOT_ID_1);
+            subSysReady = true;
+        } else {
+            LE_ERROR("Serving system manager on slot %d is not ready.", (int)SLOT_ID_1);
+            //If manager exist, deregister and remove it
+            if (dataServingSystemManagers.find((SlotId)SLOT_ID_1) != dataServingSystemManagers.end()) {
+                dataServingSystemManagers[(SlotId)SLOT_ID_1]->deregisterListener(dataServingSystemListeners[(SlotId)SLOT_ID_1]);
+                dataServingSystemManagers.erase((SlotId)SLOT_ID_1);
+            }
+            subSysReady = false;
+        }
+
+        //If it is new manager and initialization passed
+        if (subSysReady && (dataServingSystemManagers.find((SlotId)SLOT_ID_1) == dataServingSystemManagers.end())) {
+            dataServingSystemManagers.emplace((SlotId)SLOT_ID_1, servingSystemMgr);
+            dataServingSystemManagers[(SlotId)SLOT_ID_1]->registerListener(dataServingSystemListeners[(SlotId)SLOT_ID_1]);
+        }
+    }
+
+    reqSvcStateCb = std::make_shared<taf_DataConnRequestServiceStatusCallback>();
+    reqSvcStateCb->semaphore = le_sem_Create("taf_ConnectionReqSvcStateCbSem", 0);
+#endif
     DataCallCtxPool = le_mem_InitStaticPool(tafDataCall, TAF_DCS_MAX_CALL_OBJ, sizeof(taf_dcs_CallCtx_t));
     // le_mem_SetDestructor(DataCallCtxPool, taf_Handler::ReleaseCallCtrlHandler);
     SessionRefPool = le_mem_InitStaticPool(tafSessionRef, TAF_DCS_MAX_SESSION_REF, sizeof(taf_SessionRef_t));

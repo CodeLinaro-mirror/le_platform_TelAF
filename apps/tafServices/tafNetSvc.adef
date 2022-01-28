@@ -1,0 +1,27 @@
+sandboxed: false
+
+executables:
+{
+        tafNetSvc = ( $TELAF_ROOT/components/tafNetSvc/tafNetwork)
+}
+start: auto
+
+processes:
+{
+        run:
+        {
+                (tafNetSvc)
+        }
+
+        faultAction: restart
+
+}
+
+bindings:
+{
+    tafNetSvc.tafNetwork.taf_dcs -> tafDataCallSvc.taf_dcs
+}
+extern:
+{
+       tafNetSvc.tafNetwork.taf_net
+}

@@ -1,0 +1,40 @@
+provides:
+{
+    api:
+    {
+        taf_net.api
+    }
+}
+
+requires:
+{
+    api:
+    {
+        taf_dcs.api
+    }
+
+    component:
+    {
+        $LEGATO_ROOT/components/watchdogChain
+    }
+
+}
+
+cxxflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+    -I$TELAF_ROOT/include
+}
+
+cflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+}
+
+sources:
+{
+    tafNetworkImpl.cpp
+    tafNetworkSvc.cpp
+    tafRoutingDns.cpp
+}
+

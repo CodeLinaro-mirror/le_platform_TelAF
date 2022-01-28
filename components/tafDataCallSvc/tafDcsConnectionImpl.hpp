@@ -27,6 +27,42 @@
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *      * Redistributions of source code must retain the above copyright
+ *        notice, this list of conditions and the following disclaimer.
+ *
+ *      * Redistributions in binary form must reproduce the above
+ *        copyright notice, this list of conditions and the following
+ *        disclaimer in the documentation and/or other materials provided
+ *        with the distribution.
+ *
+ *      * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *        contributors may be used to endorse or promote products derived
+ *        from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 #include "legato.h"
 #include "interfaces.h"
 #include <string>
@@ -39,6 +75,9 @@
 #include "telux/data/DataProfile.hpp"
 #include "telux/tel/PhoneFactory.hpp"
 #include "telux/common/CommonDefines.hpp"
+#ifdef TARGET_SA515M
+#include <telux/tel/ServingSystemManager.hpp>
+#endif
 #include "tafSvcIF.hpp"
 
 using namespace telux::data;
@@ -116,17 +155,43 @@ namespace tafsvc {
 
     typedef void (*taf_dcs_SessionStateFunc_t)(taf_dcs_ConState_t event, taf_dcs_StateInfo_t *infoPtr, taf_dcs_CallCtx_t *callCtxPtr);
 
-    class taf_DataConnectionListener : public telux::data::IDataConnectionListener {
+    class taf_DataConnectionListener : public telux::data::IDataConnectionListener
+    {
         public:
            void onDataCallInfoChanged(const std::shared_ptr<telux::data::IDataCall> &iCall) override;
     };
+#ifdef TARGET_SA515M
+    class taf_DataConnServingSystemListener : public telux::data::IServingSystemListener
+    {
+        public:
+            std::mutex cv_mutex;
+            std::condition_variable conVar;
+            telux::data::DataServiceState dsStatus;
 
+            taf_DataConnServingSystemListener(SlotId slot);
+            void onServiceStateChanged(telux::data::ServiceStatus status) override;
+
+        private:
+            SlotId slotId;
+    };
+
+    class taf_DataConnRequestServiceStatusCallback
+    {
+        public:
+            le_sem_Ref_t semaphore;
+            telux::data::ServiceStatus status;
+            void requestServiceStatus(telux::data::ServiceStatus serviceStatus, telux::common::ErrorCode error);
+    };
+#endif
     // Data connection component implementation
     class taf_DataConnection: public ITafSvc
     {
         public:
             taf_DataConnection() {};
             ~taf_DataConnection() {};
+        #ifdef TARGET_SA515M
+            void onInitCompleted(telux::common::ServiceStatus status);
+        #endif
             void Init(void);
             static taf_DataConnection &GetInstance();
             static void StartDataCallCallback(const std::shared_ptr<telux::data::IDataCall> &iCall, telux::common::ErrorCode errorCode);
@@ -157,6 +222,7 @@ namespace tafsvc {
             taf_dcs_CallCtx_t* GetCallCtx(int32_t profileId);
             taf_dcs_CallCtx_t* GetCallCtx(taf_dcs_CallRef_t reference);
             int32_t GetProfileId(taf_dcs_CallRef_t reference);
+            le_result_t GetProfileIdByInterfaceName(const char* namePtr,uint32_t* profileId);
             le_result_t IsProfileUsing(int32_t profileId, bool *isUsingPtr);
             le_result_t MakeCall(int32_t profileId, telux::data::IpFamilyType ipType);
             le_result_t StopCall(int32_t profileId, telux::data::IpFamilyType ipType);
@@ -189,6 +255,15 @@ namespace tafsvc {
             le_timer_Ref_t SynchronousTimerRef = NULL;
             taf_dcs_Pdp_t GetEvtInfoFromConnStatus(taf_dcs_CallCtx_t *callCtxPtr, telux::data::DataCallStatus callStatus);
         private:
+        #ifdef TARGET_SA515M
+            bool subSystemStatusUpdated;
+            std::mutex mtx;
+            std::condition_variable conVar;
+            std::map<SlotId, std::shared_ptr<telux::data::IServingSystemManager>> dataServingSystemManagers;
+            std::map<SlotId, std::shared_ptr<telux::data::IServingSystemListener>> dataServingSystemListeners;
+            std::map<SlotId, std::shared_ptr<taf_DataConnServingSystemListener>> connectionServingSystemlisteners;
+            std::shared_ptr<taf_DataConnRequestServiceStatusCallback> reqSvcStateCb;
+        #endif
             std::shared_ptr<telux::data::IDataConnectionManager> ConnectionMgr;
             std::shared_ptr<telux::data::IDataConnectionListener> DataConnectionListener;
             le_dls_List_t    DataCallCtxList = LE_DLS_LIST_INIT;

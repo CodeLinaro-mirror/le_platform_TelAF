@@ -1,0 +1,29 @@
+sandboxed: false
+
+executables:
+{
+    tafNetUnitTest = ( $TELAF_ROOT/apps/test/tafNetTest/tafNetUnitTest/tafNetComponent )
+}
+
+start: manual
+
+processes:
+{
+    run:
+    {
+        (tafNetUnitTest)
+    }
+
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+
+    faultAction: stopApp
+
+}
+
+bindings:
+{
+    tafNetUnitTest.tafNetComponent.taf_net -> tafNetSvc.taf_net
+}

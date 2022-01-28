@@ -1,0 +1,23 @@
+sandboxed: false
+executables:
+{
+    tafGpioSvc = ( $TELAF_ROOT/components/tafGpioSvc )
+}
+start: auto
+
+processes:
+{
+    run:
+    {
+        (tafGpioSvc)
+    }
+}
+
+bindings:
+{
+}
+
+extern:
+{
+    tafGpioSvc.tafGpioSvc.taf_gpio
+}

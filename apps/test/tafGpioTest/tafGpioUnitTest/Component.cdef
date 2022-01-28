@@ -1,0 +1,17 @@
+sources:
+{
+    tafGpioUnitTest.c
+}
+
+requires:
+{
+    api:
+    {
+        taf_gpio.api
+    }
+}
+
+cxxflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+}

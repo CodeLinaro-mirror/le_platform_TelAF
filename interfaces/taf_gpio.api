@@ -1,0 +1,218 @@
+/*
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/**
+ * Define pin polarities.
+ */
+ENUM Polarity
+{
+    ACTIVE_HIGH,   // read/written 1 when its voltage is "high" and 0 when its voltage is "low"
+    ACTIVE_LOW     // read/written 0 when its voltage is "high" and 1 when its voltage is "low"
+};
+
+ENUM State
+{
+    BUSY = -1,
+    LOW,
+    HIGH
+};
+
+/**
+ * Configures the pin as an input pin.
+ *
+ * @return
+ *     - LE_OK           on success
+ *     - LE_BUSY         if GPIO is busy or locked by other client
+ *     - LE_IO_ERROR     in other errors
+ */
+FUNCTION le_result_t SetInput
+(
+    uint8    pinNum     IN,
+    Polarity polarity   IN,
+    bool     lock       IN
+);
+
+/**
+ * Set output pin to active state.
+ * @warning Valid only for output pins.
+ *
+ * @return
+ *     - LE_OK           on success
+ *     - LE_BUSY         if GPIO is busy or locked by other client
+ *     - LE_IO_ERROR     in other errors
+ */
+FUNCTION le_result_t Activate(
+    uint8    pinNum     IN,
+    bool     lock       IN
+);
+
+/**
+ * Set output pin to inactive state.
+ * @warning Valid only for output pins.
+ *
+ * @return
+ *     - LE_OK           on success
+ *     - LE_BUSY         if GPIO is busy or locked by other client
+ *     - LE_IO_ERROR     in other errors
+ */
+FUNCTION le_result_t Deactivate(
+    uint8    pinNum     IN,
+    bool     lock       IN
+);
+
+/**
+ * Read value of input GPIO pin.
+ *
+ * @return
+ *     - TAF_GPIO_BUSY - if GPIO pin is locked for the pin
+ *     - TAF_GPIO_OFF - if gpio pin voltage is "low"
+ *     - TAF_GPIO_ON - if gpio pin voltage is "high"
+ *
+ * @note Invalid to read an output pin.
+ */
+FUNCTION State Read(
+    uint8    pinNum     IN,
+    bool     lock       IN
+);
+
+/**
+ * State change event handler.
+ */
+HANDLER ChangeCallback
+(
+    uint8  pinNum  IN,    ///< pin num of the state change triggered GPIO
+    bool   state   IN     ///< New state of the pin
+);
+
+/**
+ * Define edge transitions.
+ */
+ENUM Edge
+{
+    EDGE_UNKNOWN = -1,
+    EDGE_NONE,
+    EDGE_RISING,
+    EDGE_FALLING,
+    EDGE_BOTH
+};
+
+/**
+ * Register a callback function to be called when an input pin changes state.
+ *
+ * If registering fails, either because the handler cannot be registered, or setting the
+ * edge detection fails, or gpio pin is locked by other client then it returns a NULL reference.
+ */
+EVENT ChangeEvent
+(
+    uint8          pinNum     IN,
+    Edge           trigger    IN,
+    bool           lock       IN,
+    ChangeCallback handler
+);
+
+/**
+ * Set the edge detection mode. This function can be used only when a handler is registered
+ * in order to prevent interrupts being generated and not handled
+ *
+ * @return
+ *     - LE_OK           on success
+ *     - LE_BUSY         if GPIO is busy or locked by other client
+ *     - LE_IO_ERROR     in other errors
+ */
+FUNCTION le_result_t SetEdgeSense
+(
+    uint8    pinNum     IN,
+    Edge     trigger    IN,
+    bool     lock       IN
+);
+
+/**
+ * Turns off edge detection of the input GPIO pin.
+ *
+ * @return
+ *     - LE_OK           on success
+ *     - LE_BUSY         if GPIO is busy or locked by other client
+ *     - LE_IO_ERROR     in other errors
+ */
+FUNCTION le_result_t DisableEdgeSense(
+    uint8    pinNum     IN,
+    bool     lock       IN
+);
+
+/**
+ * Checks if the pin is configured as an output.
+ *
+ * @return true if output, false if input.
+ */
+FUNCTION bool IsOutput(
+    uint8    pinNum     IN
+);
+
+/**
+ * Checks if the pin is configured as an input.
+ *
+ * @return true if output, false if input.
+ */
+FUNCTION bool IsInput(
+    uint8    pinNum     IN
+);
+
+/**
+ * Get the current value of edge sensing.
+ *
+ * @return The current configured Edge value
+ *
+ * @note Invalid to read the edge sense of an output
+ */
+FUNCTION Edge GetEdgeSense(
+    uint8    pinNum     IN
+);
+
+/**
+ * Get the current value the pin polarity.
+ */
+FUNCTION Polarity GetPolarity(
+    uint8    pinNum     IN
+);
+
+/**
+ * Checks if the pin is currently active.
+ *
+ * @return true if active, false if inactive.
+ *
+ * @note can only be used on output pins
+ */
+FUNCTION bool IsActive(
+    uint8    pinNum     IN
+);

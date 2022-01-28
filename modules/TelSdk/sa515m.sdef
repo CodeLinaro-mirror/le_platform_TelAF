@@ -19,6 +19,7 @@ apps:
     $TELAF_ROOT/apps/tafServices/tafUpdateSvc
     $TELAF_ROOT/apps/tafServices/tafECallSvc
     $TELAF_ROOT/apps/tafServices/tafMRCSvc
+    $TELAF_ROOT/apps/tafServices/tafGpioSvc
 
     // Command-line tools.
     $LEGATO_ROOT/apps/tools/tools

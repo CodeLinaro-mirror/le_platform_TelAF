@@ -82,12 +82,14 @@ namespace telux {
     namespace tafsvc {
         class tafRspListener : public telux::tel::ISimProfileListener {
             public:
+#ifdef TARGET_SA515M
+
             void onDownloadStatus(SlotId slotId, telux::tel::DownloadStatus status,
                     telux::tel::DownloadErrorCause cause) override;
             void onUserDisplayInfo(SlotId slotId, bool userConsentRequired,
                     telux::tel::PolicyRuleMask mask) override;
             void onConfirmationCodeRequired(SlotId slotId, std::string profileName) override;
-
+#endif
         };
         class tafRspCallback {
             public:

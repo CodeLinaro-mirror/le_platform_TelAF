@@ -12,26 +12,20 @@ fi
 
 umask 002
 
-if [ ! -e "./components/tafSMSSvc/taf_pa_sms" ]; then
-    if [ -e "../telaf-prop/platformAdaptor/" ]; then
-        echo "using platformAdaptor"
-        source ../telaf-prop/set_af_env.sh
-        ln -sf "../../../telaf-prop/platformAdaptor/taf_pa_sms" "./components/tafSMSSvc/taf_pa_sms"
-    else
-        echo "using stub for platformAdaptor"
-        ln -sf "./stub" "./components/tafSMSSvc/taf_pa_sms"
-    fi
+if [ -e "../telaf-prop/platformAdaptor/" ]; then
+    echo "using telaf-prop platformAdaptor"
+    source ../telaf-prop/set_af_env.sh
+else
+    echo "using stub for platformAdaptor"
+    ln -sf "./stub" "./components/tafSMSSvc/taf_pa_sms"
 fi
 
-if [ ! -e "./components/tafUpdateSvc/taf_update_pa" ]; then
-    if [ -e "../telaf-internal/platformAdaptor/" ]; then
-        echo "using platformAdaptor"
-        source ../telaf-internal/set_af_env.sh
-        ln -sf "../../../telaf-internal/platformAdaptor/taf_update_pa" "./components/tafUpdateSvc/taf_update_pa"
-    else
-        echo "using stub for platformAdaptor"
-        ln -sf "./stub" "./components/tafUpdateSvc/taf_update_pa"
-    fi
+if [ -e "../telaf-noship/platformAdaptor/" ]; then
+    echo "using telaf-noship platformAdaptor"
+    source ../telaf-noship/set_af_env.sh
+else
+    ln -sf "./stub" "./components/tafUpdateSvc/taf_update_pa"
+    echo "using stub for platformAdaptor"
 fi
 
 #build the target

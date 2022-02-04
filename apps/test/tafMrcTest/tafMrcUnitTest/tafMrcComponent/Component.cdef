@@ -1,0 +1,17 @@
+sources:
+{
+    tafMrc.c
+}
+
+requires:
+{
+    api:
+    {
+        taf_mrc.api
+    }
+}
+
+cxxflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+}

@@ -1,0 +1,31 @@
+sandboxed: false
+
+maxMemoryBytes: 60000K
+
+executables:
+{
+    tafMrc = ( $TELAF_ROOT/apps/test/tafMrcTest/tafMrcUnitTest/tafMrcComponent )
+}
+
+start: manual
+
+processes:
+{
+    run:
+    {
+        (tafMrc)
+    }
+    maxFileBytes: 1048576K
+    faultAction: stopApp
+
+    #if ${LE_CONFIG_SERVICES_WATCHDOG} = y
+        maxWatchdogTimeout: 100000
+    #else
+        watchdogTimeout: never
+    #endif
+}
+
+bindings:
+{
+    tafMrc.tafMrcComponent.taf_mrc -> tafMRCSvc.taf_mrc
+}

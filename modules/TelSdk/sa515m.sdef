@@ -25,6 +25,9 @@ apps:
     $TELAF_ROOT/apps/tafServices/tafRemoteSimSvc
     $TELAF_ROOT/apps/tafServices/tafPMService
     $TELAF_ROOT/apps/tafServices/tafUpdateSvc
+#if ${TARGET} = sa515m
+    $TELAF_ROOT/apps/tafServices/tafMRCSvc
+#endif
 
     // Command-line tools.
     $LEGATO_ROOT/apps/tools/tools
@@ -43,6 +46,9 @@ apps:
     $TELAF_ROOT/apps/sample/sapCard/tafsapProvider
     $TELAF_ROOT/apps/test/tafUpdateTest/tafUpdateUnitTest/tafUpdateTestApp
     $TELAF_ROOT/apps/sample/rsp/tafRSPApp
+#if ${TARGET} = sa515m
+    $TELAF_ROOT/apps/test/tafMrcTest/tafMrcUnitTest/tafMrcTestApp
+#endif
 }
 
 commands:

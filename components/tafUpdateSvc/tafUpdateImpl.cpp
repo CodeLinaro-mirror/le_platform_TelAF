@@ -329,6 +329,7 @@ void taf_Update::UpdateProcCmdHandler(void* cmdReqPtr)
 
 void* taf_Update::UpdateCmdThread(void* contextPtr)
 {
+    taf_mrc_ConnectService();
     le_event_AddHandler("UpdateProcCmdHandler", updateCmdEvId, UpdateProcCmdHandler);
     le_sem_Post((le_sem_Ref_t)contextPtr);
 

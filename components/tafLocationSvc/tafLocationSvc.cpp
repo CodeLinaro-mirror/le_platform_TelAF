@@ -1099,3 +1099,36 @@ le_result_t taf_gnss_GetMinElevation
     auto &gnss = taf_Gnss::GetInstance();
     return gnss.GetMinElevation(minElevationPtr);
 }
+
+/**
+* FUNCTION     : SetNmeaSentences
+* DESCRIPTION  : sets the enabled NMEA sentences using a bit mask.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED on failed
+*/
+
+le_result_t taf_gnss_SetNmeaSentences
+(
+    taf_gnss_NmeaBitMask_t nmeaMask ///< [IN] Bit mask for enabled NMEA sentences.
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.SetNmeaSentences(nmeaMask);
+}
+
+/**
+* FUNCTION     : SetNmeaSentences
+* DESCRIPTION  : Gets the bit mask for the enabled NMEA sentences.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED on failed
+*/
+le_result_t taf_gnss_GetNmeaSentences
+(
+    taf_gnss_NmeaBitMask_t* nmeaMaskPtr ///< [OUT] Bit mask for enabled NMEA sentences.
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetNmeaSentences(nmeaMaskPtr);
+}

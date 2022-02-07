@@ -678,6 +678,10 @@ void tafLocationListener::onGnssSignalInfo(
 
 void tafLocationListener::onGnssNmeaInfo(uint64_t timestamp, const std::string &nmea) {
     auto &gnss = taf_Gnss::GetInstance();
+    //Format : $GPGGA,075446.90,00-0.000000,S,00000.000000,E,1,00,1.0,936.4,M,-936.4,M,,*7D^M
+    gnss.mNmeaBitMask = nmea;
+    std::unique_lock<std::mutex> lock(gnss.mMutex);
+    gnss.mCondVar.notify_one();
     le_mutex_Lock(gnss.mGnssMutexRef);
     if(gnss.NumOfPositionHandlers ) {
         LE_DEBUG( "**** Gnss Nmea Information ****" );
@@ -2442,6 +2446,201 @@ le_result_t taf_Gnss::Stop
         }
         break;
     }
+    return result;
+}
+
+le_result_t taf_Gnss::SetNmeaSentences
+(
+    taf_gnss_NmeaBitMask_t nmeaMask ///< [IN] Bit mask for enabled NMEA sentences.
+)
+{
+    le_result_t result = LE_NOT_PERMITTED;
+
+    LE_DEBUG("SetNmeaSentences nmeaMask: %d", nmeaMask);
+
+    // Check if the bit mask is correct
+    if (nmeaMask & ~TAF_GNSS_NMEA_SENTENCES_MAX)
+    {
+        LE_ERROR("Unable to set the enabled NMEA sentences, wrong bit mask 0x%08X", nmeaMask);
+        result = LE_BAD_PARAMETER;
+    }
+    else
+    {
+        switch(nmeaMask)
+        {
+            case telux::loc::GGA:
+            case telux::loc::RMC:
+            case telux::loc::GSA:
+            case telux::loc::VTG:
+            case telux::loc::GNS:
+            case telux::loc::DTM:
+            case telux::loc::GPGSV:
+            case telux::loc::GLGSV:
+            case telux::loc::GAGSV:
+            case telux::loc::GQGSV:
+            case telux::loc::GBGSV:
+            case telux::loc::GIGSV:
+            case telux::loc::ALL:
+               LE_DEBUG("NmeaSentence type: Its a NMEA supported type");
+               break;
+            default:
+            {
+               LE_ERROR("Unknown NmeaSentenceType %d", nmeaMask);
+               result = LE_FAULT;
+               return result;
+            }
+        }
+
+        // Check the GNSS device state
+        switch (GnssState)
+        {
+            case TAF_GNSS_STATE_READY:
+            {
+                // Set the enabled NMEA sentences
+                mLocCmdResponseCb = std::make_shared<LocationCommandCallback> ("configureNmeaTypes");
+                telux::common::Status status = mLocationConfigurator->configureNmeaTypes(nmeaMask,
+                std::bind(&LocationCommandCallback::commandResponse, mLocCmdResponseCb,std::placeholders::_1));
+                if (status == telux::common::Status::FAILED) {
+                    LE_ERROR("SetNmeaSentences is failed");
+                    result = LE_FAULT;
+                } else if (telux::common::Status::SUCCESS == status) {
+                    LE_DEBUG("SetNmeaSentences is Success");
+                    result = LE_OK;
+                }
+                if (LE_OK != result)
+                {
+                    LE_ERROR("Unable to set the enabled NMEA sentences, error = %d (%s)",
+                              result, LE_RESULT_TXT(result));
+                }
+            }
+            break;
+            case TAF_GNSS_STATE_UNINITIALIZED:
+            case TAF_GNSS_STATE_ACTIVE:
+            case TAF_GNSS_STATE_DISABLED:
+            {
+                LE_ERROR("Bad state for that request [%d]", GnssState);
+                result = LE_NOT_PERMITTED;
+            }
+            break;
+            default:
+            {
+                LE_ERROR("Unknown GNSS state %d", GnssState);
+                result = LE_FAULT;
+            }
+            break;
+        }
+    }
+
+    return result;
+}
+
+le_result_t taf_Gnss::GetNmeaSentences
+(
+    taf_gnss_NmeaBitMask_t* nmeaMaskPtr
+)
+{
+
+    if (NULL == nmeaMaskPtr)
+    {
+        LE_KILL_CLIENT("nmeaMaskPtr is NULL !");
+        return LE_FAULT;
+    }
+
+     le_result_t result = LE_NOT_PERMITTED;
+
+    // Check the GNSS device state
+    switch (GnssState)
+    {
+        case TAF_GNSS_STATE_READY:
+        {
+            // Get the enabled NMEA sentences
+            std::unique_lock<std::mutex> lock(mMutex);
+            auto nmeaStatus = mCondVar.wait_for(lock,std::chrono::seconds(DEFAULT_TIMEOUT_IN_SECONDS));
+            if(nmeaStatus == std::cv_status::timeout) {
+                LE_DEBUG("NmeaSentence type not found within %d seconds",DEFAULT_TIMEOUT_IN_SECONDS);
+                result = LE_TIMEOUT;
+                return result;
+            }
+            //filling the bitmask values
+            if ((mNmeaBitMask.compare(0,5,"$GPGGA",0,5)) ==0)
+            {
+                *nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GPGGA;
+                result = LE_OK;
+                LE_DEBUG("NmeaSentence type is TAF_GNSS_NMEA_MASK_GPGGA");
+            } else if((mNmeaBitMask.compare(0,5,"$GPRMC",0,5)) ==0) {
+                *nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GPRMC;
+                result = LE_OK;
+                LE_DEBUG("NmeaSentence type is  TAF_GNSS_NMEA_MASK_GPRMC");
+            } else if((mNmeaBitMask.compare(0,5,"$GNGSA",0,5)) ==0) {
+                *nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GNGSA;
+                result = LE_OK;
+                LE_DEBUG("NmeaSentence type is TAF_GNSS_NMEA_MASK_GNGSA");
+            } else if((mNmeaBitMask.compare(0,5,"$GPVTG",0,5)) ==0) {
+                *nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GPVTG;
+                result = LE_OK;
+                LE_DEBUG("NmeaSentence type is TAF_GNSS_NMEA_MASK_GPVTG");
+            } else if((mNmeaBitMask.compare(0,5,"$GPGNS",0,5)) ==0) {
+                *nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GPGNS;
+                result = LE_OK;
+                LE_DEBUG("NmeaSentence type is TAF_GNSS_NMEA_MASK_GPGNS");
+            } else if((mNmeaBitMask.compare(0,5,"$GPDTM",0,5)) ==0) {
+                *nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GPDTM;
+                result = LE_OK;
+                LE_DEBUG("NmeaSentence type is TAF_GNSS_NMEA_MASK_GPDTM");
+            } else if((mNmeaBitMask.compare(0,5,"$GPGSV",0,5)) ==0) {
+                *nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GPGSV;
+                result = LE_OK;
+                LE_DEBUG("NmeaSentence type is TAF_GNSS_NMEA_MASK_GPGSV");
+            } else if((mNmeaBitMask.compare(0,5,"$GLGSV",0,5)) ==0) {
+                *nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GLGSV;
+                result = LE_OK;
+                LE_DEBUG("NmeaSentence type is  TAF_GNSS_NMEA_MASK_GLGSV");
+            } else if((mNmeaBitMask.compare(0,5,"$GAGSV",0,5)) ==0) {
+                *nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GAGSV;
+                result = LE_OK;
+                LE_DEBUG("NmeaSentence type is TAF_GNSS_NMEA_MASK_GAGSV");
+            } else if((mNmeaBitMask.compare(0,5,"$GQGSV",0,5)) ==0) {
+                *nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GQGSV;
+                result = LE_OK;
+                LE_DEBUG("NmeaSentence type is TAF_GNSS_NMEA_MASK_GQGSV");
+            } else if((mNmeaBitMask.compare(0,5,"$GBGSV",0,5)) ==0) {
+                *nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GBGSV;
+                result = LE_OK;
+                LE_DEBUG("NmeaSentence type is TAF_GNSS_NMEA_MASK_GBGSV");
+            } else if((mNmeaBitMask.compare(0,5,"$GIGSV",0,5)) ==0) {
+                *nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GIGSV;
+                result = LE_OK;
+                LE_DEBUG("NmeaSentence type is TAF_GNSS_NMEA_MASK_GIGSV");
+            }
+            else {
+                *nmeaMaskPtr = 0;;
+                LE_ERROR("NmeaSentence type is invalid");
+                result = LE_FAULT;
+            }
+
+            if (LE_OK != result)
+            {
+                LE_ERROR("Unable to get the enabled NMEA sentences, error = %d (%s)",
+                          result, LE_RESULT_TXT(result));
+            }
+        }
+        break;
+        case TAF_GNSS_STATE_UNINITIALIZED:
+        case TAF_GNSS_STATE_ACTIVE:
+        case TAF_GNSS_STATE_DISABLED:
+        {
+            LE_ERROR("Bad state for that request [%d]", GnssState);
+            result = LE_NOT_PERMITTED;
+        }
+        break;
+        default:
+        {
+            LE_ERROR("Unknown GNSS state %d", GnssState);
+            result = LE_FAULT;
+        }
+        break;
+    }
+
     return result;
 }
 

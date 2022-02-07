@@ -65,6 +65,18 @@ REFERENCE Sample;
 
 DEFINE SV_INFO_MAX_LEN = 80;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Define the maximal bit mask for enabled NMEA sentences
+ *
+ * @note This maximal value should be coherent with @ref le_gnss_NmeaBitMask_t
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE NMEA_SENTENCES_MAX = 0xFFFFFFFF;
+
+DEFINE NMEA_MASK_PQXFI        = 0x4000;
+
+
 /**
  * Define the maximal degree for the minimal elevation
  */
@@ -367,6 +379,37 @@ ENUM ConstellationArea
     OUTSIDE_US_AREA
 };
 
+BITMASK NmeaBitMask
+{
+    NMEA_MASK_GPGGA,
+    NMEA_MASK_GPRMC,
+    NMEA_MASK_GNGSA,
+    NMEA_MASK_GPVTG,
+    NMEA_MASK_GPGNS,
+    NMEA_MASK_GPDTM,
+    NMEA_MASK_GPGSV,
+    NMEA_MASK_GLGSV,
+    NMEA_MASK_GAGSV,
+    NMEA_MASK_GQGSV,
+    NMEA_MASK_GBGSV,
+    NMEA_MASK_GIGSV,
+    NMEA_MASK_GPGSA,//Not Supported by TelSDK
+    NMEA_MASK_GAGGA,//Not Supported by TelSDK
+    NMEA_MASK_GAGSA,//Not Supported by TelSDK
+    NMEA_MASK_GARMC,//Not Supported by TelSDK
+    NMEA_MASK_GAVTG,//Not Supported by TelSDK
+    NMEA_MASK_PSTIS,//Not Supported by TelSDK
+    NMEA_MASK_REMOVED,//Not Supported by TelSDK
+    NMEA_MASK_PTYPE,//Not Supported by TelSDK
+    NMEA_MASK_GPGRS,//Not Supported by TelSDK
+    NMEA_MASK_GPGLL,//Not Supported by TelSDK
+    NMEA_MASK_DEBUG,//Not Supported by TelSDK
+    NMEA_MASK_GAGNS,//Not Supported by TelSDK
+    NMEA_MASK_GNGNS,//Not Supported by TelSDK
+    NMEA_MASK_GPGST,//Not Supported by TelSDK
+    NMEA_MASK_GPZDA //Not Supported by TelSDK
+};
+
 /**
  * Set the area for the GNSS constellation
  *
@@ -513,4 +556,14 @@ FUNCTION le_result_t SetMinElevation
 FUNCTION le_result_t GetMinElevation
 (
  uint8  minElevationPtr OUT
+);
+
+FUNCTION le_result_t SetNmeaSentences
+(
+ NmeaBitMask nmeaMask      IN
+);
+
+FUNCTION le_result_t GetNmeaSentences
+(
+ NmeaBitMask nmeaMaskPtr     OUT
 );

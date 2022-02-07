@@ -83,6 +83,7 @@ using GnssReportTypeMask = uint32_t;
 #define TAF_CONFIG_POSITIONING_ACTIVATION_MAX 13
 #define GNSS_POSITION_SAMPLE_MAX         1
 #define GNSS_POSITION_HANDLER_HIGH       1
+#define DEFAULT_TIMEOUT_IN_SECONDS 5
 
 namespace telux {
 namespace tafsvc {
@@ -347,6 +348,8 @@ namespace tafsvc {
             le_result_t GetSupportedConstellations(taf_gnss_ConstellationBitMask_t* constellationMaskPtr);
             le_result_t SetMinElevation( uint8_t  minElevation);
             le_result_t GetMinElevation( uint8_t*  minElevationPtr);
+            le_result_t SetNmeaSentences(taf_gnss_NmeaBitMask_t nmeaMask);
+            le_result_t GetNmeaSentences(taf_gnss_NmeaBitMask_t* nmeaMaskPtr);
             le_mem_PoolRef_t   PositionHandlerPoolRef;
             le_mem_PoolRef_t   PositionSampleRequestPoolRef;
             le_event_Id_t positionEventId;
@@ -363,6 +366,7 @@ namespace tafsvc {
             uint8_t mLeapSeconds = 0;
             uint8_t mMinElev = 0;
             int mAcqRate;
+            std::string mNmeaBitMask;
             bool mStarted = false;
             bool mTtffEnabled = false;
             bool mMinElelvEnabled = false;

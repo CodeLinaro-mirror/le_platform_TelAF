@@ -41,7 +41,7 @@ using namespace telux::tafsvc;
 
 LE_MEM_DEFINE_STATIC_POOL(tafProfileListPool, TAF_RSP_MAX_PROFILE,
                            sizeof(taf_rsp_ProfileListNode_t));
-
+#ifdef TARGET_SA515M
 void tafRspListener::onDownloadStatus(SlotId slotId, telux::tel::DownloadStatus status,
     telux::tel::DownloadErrorCause cause) {
 
@@ -78,6 +78,7 @@ void tafRspListener::onConfirmationCodeRequired(SlotId slotId, std::string profi
     le_utf8_Copy(profileConfirmationCodeEvent.profileName, profileName.c_str(), TAF_RSP_NAME_BYTES, NULL);
     le_event_Report(rsp.ProfileConfirmationCodeEventId, &profileConfirmationCodeEvent, sizeof(taf_rsp_ConfirmationCodeEvent_t));
 }
+#endif
 
 void tafRspCallback::onEidResponse(std::string eid, telux::common::ErrorCode errorCode) {
         auto &rsp = taf_rsp::GetInstance();
@@ -425,17 +426,18 @@ le_result_t taf_rsp::RequestProfileList( taf_sim_Id_t slotId, taf_rsp_SimProfile
 
 le_result_t taf_rsp::GetServerAddress( taf_sim_Id_t slotId, char* smdpAddress, size_t smdpLength,char* smdsAddress,
         size_t smdsLength) {
+#ifdef TARGET_SA515M
     SlotId slot = (SlotId) slotId;
     ProfileSyncPromise = std::promise<le_result_t>();
 
     if( taf_sim_SelectCard(slotId)!= LE_OK) {
         slot = SlotId::DEFAULT_SLOT_ID;
     }
-
+#endif
     std::shared_ptr<tafRspCallback> getServerAddressCb = std::make_shared<tafRspCallback>();
     auto  responseCb = std::bind(&tafRspCallback::onServerAddressResponse, getServerAddressCb,
                              std::placeholders::_1, std::placeholders::_2,  std::placeholders::_3);
-
+#ifdef TARGET_SA515M
     Status status = simProfileManager->requestServerAddress(slot,responseCb);
 
     if (status == Status::SUCCESS) {
@@ -450,10 +452,12 @@ le_result_t taf_rsp::GetServerAddress( taf_sim_Id_t slotId, char* smdpAddress, s
         LE_INFO("ERROR - Failed to get server address request, Status:%d", static_cast<int>(status));
         return LE_FAULT;
     }
+#endif
     return LE_FAULT;
 }
 
 le_result_t taf_rsp::SetServerAddress( taf_sim_Id_t slotId, const char* smdpAddress) {
+#ifdef TARGET_SA515M
     SlotId slot = (SlotId) slotId;
     ProfileSyncPromise = std::promise<le_result_t>();
 
@@ -472,6 +476,8 @@ le_result_t taf_rsp::SetServerAddress( taf_sim_Id_t slotId, const char* smdpAddr
         LE_INFO("ERROR - Failed to set server address , Status:%d", static_cast<int>(status));
         return LE_FAULT;
     }
+#endif
+        return LE_FAULT;
 }
 
 le_result_t taf_rsp::CreateProfileListNode() {
@@ -601,6 +607,7 @@ void taf_rsp::FirstLayerProfileDownloadHandler(void* reportPtr,
 }
 
 le_result_t taf_rsp::ProvideUserConsent(taf_sim_Id_t slotId, bool userConsent, taf_rsp_UserConsentReasonType_t reason) {
+
     SlotId slot = (SlotId) slotId;
 
     if( taf_sim_SelectCard(slotId)!= LE_OK) {
@@ -611,10 +618,15 @@ le_result_t taf_rsp::ProvideUserConsent(taf_sim_Id_t slotId, bool userConsent, t
 
     std::shared_ptr<tafRspCallback> provideUserConsentCb = std::make_shared<tafRspCallback>();
     auto  responseCb = std::bind(&tafRspCallback::onResponseCallback, provideUserConsentCb, std::placeholders::_1);
-
-    Status status = simProfileManager->provideUserConsent(slot, userConsent,
+    Status status = Status::FAILED;
+#ifdef TARGET_SA515M
+    status = simProfileManager->provideUserConsent(slot, userConsent,
             static_cast<telux::tel::UserConsentReasonType>(reason), responseCb);
-
+#endif
+#ifdef TARGET_SA415M
+    status = simProfileManager->provideUserConsent(slot, userConsent,
+            responseCb);
+#endif
     if (status == Status::SUCCESS) {
         LE_INFO("ProvideUserConsent request sent successfully");
 
@@ -629,16 +641,19 @@ le_result_t taf_rsp::ProvideUserConsent(taf_sim_Id_t slotId, bool userConsent, t
 }
 
 le_result_t taf_rsp::ProvideConfirmationCode( taf_sim_Id_t slotId, const char* code, size_t codeLength) {
+
+#ifdef TARGET_SA515M
          SlotId slot = (SlotId) slotId;
     if( taf_sim_SelectCard(slotId)!= LE_OK) {
         slot = SlotId::DEFAULT_SLOT_ID;
     }
-
+#endif
     ProfileSyncPromise = std::promise<le_result_t>();
 
     std::shared_ptr<tafRspCallback> provideConfirmationCodeCb = std::make_shared<tafRspCallback>();
     auto  responseCb = std::bind(&tafRspCallback::onResponseCallback, provideConfirmationCodeCb, std::placeholders::_1);
 
+#ifdef TARGET_SA515M
     Status status = simProfileManager->provideConfirmationCode(slot, code, responseCb);
 
     if (status == Status::SUCCESS) {
@@ -650,7 +665,7 @@ le_result_t taf_rsp::ProvideConfirmationCode( taf_sim_Id_t slotId, const char* c
     } else {
         LE_INFO( "ERROR - Failed to send confirmation code request, Status:%d ", static_cast<int>(status));
     }
-
+#endif
     return LE_FAULT;
 
 }

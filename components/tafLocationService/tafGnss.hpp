@@ -230,8 +230,10 @@ namespace tafsvc {
             void onRobustLocationInfo(const telux::loc::RobustLocationConfiguration rLConfig,
                     telux::common::ErrorCode error);
 
+#ifdef TARGET_SA515M
             void onSecondaryBandInfo(const telux::loc::ConstellationSet set,
                     telux::common::ErrorCode error);
+#endif
 
             void onTerrestrialPositionInfo(const std::shared_ptr<
                     telux::loc::ILocationInfoBase> locationInfo);

@@ -86,13 +86,15 @@ taf_Gnss &taf_Gnss::GetInstance()
 telux::common::Status taf_Gnss::DgnssManagerInit() {
     if(mDgnssManager == nullptr) {
         std::promise<ServiceStatus> prom = std::promise<ServiceStatus>();
+        std::chrono::time_point<std::chrono::system_clock> startTime, endTime;
+#ifdef TARGET_SA515M
         auto &locationFactory = LocationFactory::getInstance();
         mDgnssManager = locationFactory.getDgnssManager(DgnssDataFormat::DATA_FORMAT_RTCM_3,
             [&](ServiceStatus status) {
                 if (status == ServiceStatus::SERVICE_AVAILABLE) {
                     prom.set_value(ServiceStatus::SERVICE_AVAILABLE);
                 } else {
-                    prom.set_value(ServiceStatus::SERVICE_FAILED);
+                    prom.set_value(ServiceStatus::SERVICE_UNAVAILABLE);
                 }
             });
         if (!mDgnssManager) {
@@ -100,7 +102,6 @@ telux::common::Status taf_Gnss::DgnssManagerInit() {
             return Status::FAILED;
         }
 
-        std::chrono::time_point<std::chrono::system_clock> startTime, endTime;
         startTime = std::chrono::system_clock::now();
         ServiceStatus dgnssMgrStatus = mDgnssManager->getServiceStatus();
         if(dgnssMgrStatus != ServiceStatus::SERVICE_AVAILABLE) {
@@ -115,6 +116,24 @@ telux::common::Status taf_Gnss::DgnssManagerInit() {
             LE_INFO( "ERROR - Unable to initialize Dgnss subsystem");
             return telux::common::Status::NOTREADY;
         }
+#endif
+#ifdef TARGET_SA415M
+        bool subSystemsStatus = mDgnssManager->isSubsystemReady();
+        if(!subSystemsStatus) {
+            LE_INFO( "Dgnss subsystem is not ready, Please wait");
+            std::future<bool> f = mDgnssManager->onSubsystemReady();
+            subSystemsStatus = f.get();
+        }
+
+        if(subSystemsStatus) {
+            endTime = std::chrono::system_clock::now();
+            std::chrono::duration<double> elapsedTime = endTime - startTime;
+            LE_INFO( "Elapsed Time for Dgnss subsystems to ready : %lf", elapsedTime.count());
+        } else {
+            LE_INFO( "ERROR - Unable to initialize Dgnss subsystem");
+            return telux::common::Status::NOTREADY;
+        }
+#endif
    } else {
        LE_INFO("Dgnss manager is already initialized");
    }
@@ -124,15 +143,16 @@ telux::common::Status taf_Gnss::DgnssManagerInit() {
 telux::common::Status taf_Gnss::LocationManagerInit() {
     if(mLocationManager == nullptr) {
         std::promise<ServiceStatus> prom = std::promise<ServiceStatus>();
+        std::chrono::time_point<std::chrono::system_clock> startTime, endTime;
+#ifdef TARGET_SA515M
         auto &locationFactory = LocationFactory::getInstance();
         mLocationManager = locationFactory.getLocationManager([&](ServiceStatus status) {
                 if (status == ServiceStatus::SERVICE_AVAILABLE) {
                 prom.set_value(ServiceStatus::SERVICE_AVAILABLE);
                 } else {
-                prom.set_value(ServiceStatus::SERVICE_FAILED);
+                prom.set_value(ServiceStatus::SERVICE_UNAVAILABLE);
                 }
                 });
-        std::chrono::time_point<std::chrono::system_clock> startTime, endTime;
         startTime = std::chrono::system_clock::now();
         ServiceStatus locMgrStatus = mLocationManager->getServiceStatus();
         if(locMgrStatus != ServiceStatus::SERVICE_AVAILABLE) {
@@ -147,6 +167,24 @@ telux::common::Status taf_Gnss::LocationManagerInit() {
             LE_INFO("ERROR - Unable to initialize Location subsystem");
             return telux::common::Status::FAILED;
         }
+#endif
+#ifdef TARGET_SA415M
+        bool subSystemsStatus = mLocationManager->isSubsystemReady();
+        if(!subSystemsStatus) {
+            LE_INFO( "Location subsystem is not ready, Please wait");
+            std::future<bool> f = mLocationManager->onSubsystemReady();
+            subSystemsStatus = f.get();
+        }
+
+        if(subSystemsStatus) {
+            endTime = std::chrono::system_clock::now();
+            std::chrono::duration<double> elapsedTime = endTime - startTime;
+            LE_INFO( "Elapsed Time for Subsystems to ready : %lf", elapsedTime.count());
+        } else {
+            LE_INFO( "ERROR - Unable to initialize Location subsystem");
+            return telux::common::Status::NOTREADY;
+        }
+#endif
         mPosListener = std::make_shared<tafLocationListener>();
         mLocationManager->registerListenerEx(mPosListener);
     } else {
@@ -158,17 +196,17 @@ telux::common::Status taf_Gnss::LocationManagerInit() {
 telux::common::Status taf_Gnss::LocationConfiguratorInit() {
     if(mLocationConfigurator == nullptr) {
         std::promise<ServiceStatus> prom = std::promise<ServiceStatus>();
+        std::chrono::time_point<std::chrono::system_clock> startTime, endTime;
+#ifdef TARGET_SA515M
         auto &locationFactory = LocationFactory::getInstance();
         mLocationConfigurator = locationFactory.getLocationConfigurator([&](ServiceStatus status) {
                 if (status == ServiceStatus::SERVICE_AVAILABLE) {
                 prom.set_value(ServiceStatus::SERVICE_AVAILABLE);
                 } else {
-                prom.set_value(ServiceStatus::SERVICE_FAILED);
+                prom.set_value(ServiceStatus::SERVICE_UNAVAILABLE);
                 }
                 });
-        std::chrono::time_point<std::chrono::system_clock> startTime, endTime;
         startTime = std::chrono::system_clock::now();
-
         ServiceStatus locCfgStatus = mLocationConfigurator->getServiceStatus();
         if(locCfgStatus != ServiceStatus::SERVICE_AVAILABLE) {
             LE_INFO("Location configuration subsystem is not ready, Please wait");
@@ -183,6 +221,24 @@ telux::common::Status taf_Gnss::LocationConfiguratorInit() {
                    );
             return telux::common::Status::FAILED;
         }
+#endif
+#ifdef TARGET_SA415M
+        bool subSystemsStatus = mLocationConfigurator->isSubsystemReady();
+        if(!subSystemsStatus) {
+            LE_INFO("Location configuration subsystem is not ready, Please wait");
+            std::future<bool> f = mLocationConfigurator->onSubsystemReady();
+            subSystemsStatus = f.get();
+        }
+
+        if(subSystemsStatus) {
+            endTime = std::chrono::system_clock::now();
+            std::chrono::duration<double> elapsedTime = endTime - startTime;
+            LE_INFO("Elapsed Time for configuration subsystems to ready : %lf",elapsedTime.count());
+        } else {
+            LE_INFO("ERROR - Unable to initialize Location configuration subsystem");
+            return telux::common::Status::NOTREADY;
+        }
+#endif
     } else {
         LE_INFO("Location configurator is already initialized");
     }

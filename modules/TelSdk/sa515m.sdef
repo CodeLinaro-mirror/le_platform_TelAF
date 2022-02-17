@@ -17,6 +17,7 @@ apps:
     $TELAF_ROOT/apps/tafServices/tafRemoteSimSvc
     $TELAF_ROOT/apps/tafServices/tafPMSvc
     $TELAF_ROOT/apps/tafServices/tafUpdateSvc
+    $TELAF_ROOT/apps/tafServices/tafECallSvc
     $TELAF_ROOT/apps/tafServices/tafMRCSvc
 
     // Command-line tools.
@@ -37,6 +38,7 @@ apps:
     // $TELAF_ROOT/apps/test/tafUpdateTest/tafUpdateUnitTest/tafUpdateTestApp
     // $TELAF_ROOT/apps/sample/rsp/tafRSPApp
     // $TELAF_ROOT/apps/test/tafMrcTest/tafMRCUnitTest/tafMRCUnitTest
+    // $TELAF_ROOT/apps/test/tafECallTest/tafECallUnitTest/tafECallUnitTest
 }
 
 commands:

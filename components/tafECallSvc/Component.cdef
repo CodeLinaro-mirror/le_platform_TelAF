@@ -1,0 +1,51 @@
+provides:
+{
+    api:
+    {
+        taf_ecall.api
+    }
+}
+
+requires:
+{
+    api:
+    {
+        le_cfg.api
+    }
+
+    api:
+    {
+        taf_sim.api
+    }
+
+    component:
+    {
+        $LEGATO_ROOT/components/watchdogChain
+    }
+
+    lib:
+    {
+        lib/libtelux_tel.so
+    }
+
+}
+
+cxxflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+    -I$LEGATO_ROOT/components/cfgEntries
+    -I$TELAF_ROOT/include
+    -ltelux_tel
+}
+
+cflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+}
+
+sources:
+{
+    tafECallImpl.cpp
+    tafECallSvc.cpp
+}
+

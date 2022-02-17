@@ -1,0 +1,26 @@
+sandboxed: false
+executables:
+{
+    tafeCallTest = ( tafeCallUnitTestComp )
+}
+
+
+processes:
+{
+    run:
+    {
+        (tafeCallTest)
+    }
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+}
+
+start: manual
+
+bindings:
+{
+    tafeCallTest.tafeCallUnitTestComp.taf_ecall -> tafECallSvc.taf_ecall
+}
+

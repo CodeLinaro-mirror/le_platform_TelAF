@@ -1,0 +1,36 @@
+sandboxed: false
+
+executables:
+{
+    tafECallSvc = ( $TELAF_ROOT/components/tafECallSvc )
+}
+
+start: auto
+
+processes:
+{
+    run:
+    {
+        (tafECallSvc)
+    }
+
+    faultAction: restart
+}
+
+requires:
+{
+    configTree:
+    {
+        [w] .
+    }
+}
+
+bindings:
+{
+    tafECallSvc.tafECallSvc.taf_sim -> tafSimCardSvc.taf_sim
+}
+
+extern:
+{
+    tafECallSvc.tafECallSvc.taf_ecall
+}

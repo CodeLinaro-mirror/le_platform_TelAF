@@ -1,0 +1,420 @@
+/*
+* Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+*
+* Redistribution and use in source and binary forms, with or without
+* modification, are permitted (subject to the limitations in the
+* disclaimer below) provided that the following conditions are met:
+*
+* * Redistributions of source code must retain the above copyright
+* notice, this list of conditions and the following disclaimer.
+*
+* * Redistributions in binary form must reproduce the above
+* copyright notice, this list of conditions and the following
+* disclaimer in the documentation and/or other materials provided
+* with the distribution.
+*
+* * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+* contributors may be used to endorse or promote products derived
+* from this software without specific prior written permission.
+*
+* NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+* GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+* HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+* MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+* IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+* ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+* DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+* GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+* INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+* IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+* OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+* IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+USETYPES taf_sim.api;
+REFERENCE Call;
+
+/**
+ * To support legacy opmode
+ */
+DEFINE NORMAL_MODE = 0;
+DEFINE FORCED_PERSISTENT_ONLY_MODE = 1;
+DEFINE ONLY_MODE = 3;
+DEFINE TX_MODE_PULL = 0;
+DEFINE TX_MODE_PUSH = 1;
+
+DEFINE MAX_VIN_LENGTH  =  (17);
+DEFINE MAX_VIN_BYTES  =  MAX_VIN_LENGTH + (1);
+DEFINE  MAX_MSD_LENGTH = (140);
+
+ENUM OpMode
+{
+    MODE_NORMAL,           ///< eCall and normal voice calls are allowed
+    MODE_ECALL,            ///< Only eCall is allowed.
+    NONE                   ///< Invalid mode
+};
+
+ENUM MsdTransmissionMode
+{
+    MSD_TX_MODE_PULL,
+    MSD_TX_MODE_PUSH
+};
+
+/**
+ *  Represents a vehicle class as per European eCall MSD standard.
+ *
+ */
+ENUM MsdVehicleType
+{
+    PASSENGER_VEHICLE_CLASS_M1,
+    BUSES_AND_COACHES_CLASS_M2,
+    BUSES_AND_COACHES_CLASS_M3,
+    LIGHT_COMMERCIAL_VEHICLES_CLASS_N1,
+    HEAVY_DUTY_VEHICLES_CLASS_N2,
+    HEAVY_DUTY_VEHICLES_CLASS_N3,
+    MOTOR_CYCLES_CLASS_L1E,
+    MOTOR_CYCLES_CLASS_L2E,
+    MOTOR_CYCLES_CLASS_L3E,
+    MOTOR_CYCLES_CLASS_L4E,
+    MOTOR_CYCLES_CLASS_L5E,
+    MOTOR_CYCLES_CLASS_L6E,
+    MOTOR_CYCLES_CLASS_L7E,
+};
+
+BITMASK PropulsionStorageType
+{
+    PROP_TYPE_GASOLINE_TANK,         ///< Represents the presence of Gasoline Tank in the vehicle.
+    PROP_TYPE_DIESEL_TANK,           ///< Represents the presence of Diesel Tank in the vehicle
+    PROP_TYPE_COMPRESSED_NATURALGAS, ///< Represents the presence of CNG in the vehicle
+    PROP_TYPE_PROPANE_GAS,           ///< Represents the presence of Liquid Propane Gas in the vehicle
+    PROP_TYPE_ELECTRIC,              ///< Represents the presence of Electronic Storage in the vehicle
+    PROP_TYPE_HYDROGEN,              ///< Represents the presence of Hydrogen Storage in the vehicle
+    PROP_TYPE_OTHER,                 ///< Represents the presence of Other types of storage in the vehicle
+};
+
+ENUM State
+{
+    STATE_UNKNOWN,                            ///< Unknown eCall state
+    STATE_ALERTING,                           ///< Alerting call, MO Call only
+    STATE_ACTIVE,                             ///< Active eCall
+    STATE_IDLE,                               ///< Idle
+    STATE_WAITING_PSAP_START_IND,             ///< Not supported
+    STATE_PSAP_START_RECEIVED,                ///< SEND-MSD(START) is received and SYNC is locked during in-band MSD transmission
+    STATE_MSD_TRANSMISSION_STARTED,           ///< In-band MSD transmission started
+    STATE_LLNACK_RECEIVED,                    ///< Not supported
+    STATE_LL_ACK_RECEIVED,                    ///< Link-Layer Acknowledgement(LL-ACK) is received during in-band MSD transmission
+    STATE_MSD_TRANSMISSION_SUCCESS,           ///< In-band MSD transmission is successful
+    STATE_MSD_TRANSMISSION_FAILED,            ///< In-band MSD transmission failed
+    STATE_ALACK_RECEIVED_POSITIVE,            ///< Not supported
+    STATE_ALACK_RECEIVED_CLEAR_DOWN,          ///< Not supported
+    STATE_ENDED,                              ///< Call stopped.
+    STATE_RESET,                              ///< Not supported
+    STATE_COMPLETED,                          ///< Not supported
+    STATE_FAILED,                             ///< eCall start failed.
+    STATE_END_OF_REDIAL_PERIOD,               ///< Not supported
+    STATE_T2_EXPIRED,                         ///< T2 Timer expired
+    STATE_TIMEOUT_T3,                         ///< Not  supported.
+    STATE_T5_EXPIRED,                         ///< T5 Timer expired
+    STATE_T6_EXPIRED,                         ///< T6 Timer expired
+    STATE_T7_EXPIRED,                         ///< T7 Timer expired
+    STATE_T9_EXPIRED,                         ///< T9 Timer expired
+    STATE_T10_EXPIRED,                        ///< T10 Timer expired
+    STATE_DIALING,                            ///< Outgoing call
+    STATE_NACK_OUT_OF_ORDER,                  ///< Out of order NACK message detected during in-band MSD transmission
+    STATE_ACK_OUT_OF_ORDER,                   ///< Out of order ACK message detected during in-band MSD transmission
+    STATE_OUTBAND_MSD_TRANSMISSION_STARTED,   ///< Outband MSD transmission started in NG eCall
+    STATE_OUTBAND_MSD_TRANSMISSION_SUCCESS,   ///< Outband MSD transmission succeeded in NG eCall
+    STATE_OUTBAND_MSD_TRANSMISSION_FAILURE    ///< Outband MSD transmission failed in NG eCall
+};
+
+
+/**
+ * Handler for changes in eCall state
+ *
+ */
+HANDLER StateChangeHandler
+(
+    Call  ecallRef IN,
+    State state    IN
+);
+
+EVENT StateChange
+(
+    StateChangeHandler handler
+);
+
+/**
+ *  Create eCall reference
+ *
+ */
+FUNCTION Call Create
+(
+);
+
+/**
+ * Call to free up a call reference.
+ *
+ */
+FUNCTION Delete
+(
+    Call ecallRef IN
+);
+
+/**
+ *  Switch to mode in which only eCall is allowed.
+ *
+ */
+FUNCTION le_result_t ForceOnlyMode
+(
+    taf_sim.Id         slotId  IN
+);
+
+/**
+ *  Switch to mode in which only eCall is allowed.
+ *
+ */
+FUNCTION le_result_t ForcePersistentOnlyMode
+(
+    taf_sim.Id         slotId  IN
+);
+
+/**
+ *  Exits from ECALL mode and switch to NORMAL mode.
+ *
+ */
+FUNCTION le_result_t ExitOnlyMode
+(
+    taf_sim.Id         slotId  IN
+);
+
+/**
+ * Get the ecall operating mode.
+ *
+ */
+FUNCTION le_result_t GetConfiguredOperationMode
+(
+    taf_sim.Id         slotId  IN,
+    OpMode             opMode  OUT
+);
+
+/**
+ *  Set MSD version.
+ *
+ */
+FUNCTION le_result_t SetMsdVersion
+(
+    uint32 msdVersion IN
+);
+
+/**
+ *  Get MSD version.
+ *
+ */
+FUNCTION le_result_t GetMsdVersion
+(
+    uint32 msdVer OUT
+);
+
+/**
+ *  Set vehicle type.
+ *
+ */
+FUNCTION le_result_t SetVehicleType
+(
+    MsdVehicleType vehType   IN
+);
+
+/**
+ *  Get vehicle type.
+ *
+ */
+FUNCTION le_result_t GetVehicleType
+(
+    MsdVehicleType vehType   OUT
+);
+
+/**
+ *  Set vehicle Identification Number.
+ *
+ */
+FUNCTION le_result_t SetVIN
+(
+    string vin[MAX_VIN_LENGTH] IN
+);
+
+/**
+ *  Get vehicle Identification Number.
+ *
+ */
+FUNCTION le_result_t GetVIN
+(
+    string vin[MAX_VIN_BYTES]  OUT
+);
+
+/**
+ * Set vehicle propulsion storage type.
+ *
+ */
+FUNCTION le_result_t SetPropulsionType
+(
+    PropulsionStorageType propulsionType IN
+);
+
+/**
+ *  Read vehicle propulsion storage type.
+ *
+ */
+FUNCTION le_result_t GetPropulsionType
+(
+    PropulsionStorageType propulsionType OUT
+);
+
+/**
+ *  Set MSD transmission mode.
+ *
+ */
+FUNCTION le_result_t SetMsdTxMode
+(
+    MsdTransmissionMode mode IN
+);
+
+/**
+ *  Read MSD transmission mode.
+ *
+ */
+FUNCTION le_result_t GetMsdTxMode
+(
+    MsdTransmissionMode mode OUT
+);
+
+/**
+ *  Set the latitude and longitude for MSD transmission.
+ *
+ */
+FUNCTION le_result_t SetMsdPosition
+(
+    Call  ecallRef   IN,
+    bool  isTrusted  IN,
+    int32 latitude   IN,
+    int32 longitude  IN,
+    int32 direction  IN
+);
+
+/**
+ * Set the change in latitude and longitude compared
+ * to the last MSD transmission.
+ *
+ */
+FUNCTION le_result_t SetMsdPositionN1
+(
+    Call  ecallRef   IN,
+    int32 latitudeDeltaN1 IN,
+    int32 longitudeDeltaN1 IN
+);
+
+/**
+ * Set the change in latitude and longitude compared
+ * to the last MSD transmission.
+ *
+ */
+FUNCTION le_result_t SetMsdPositionN2
+(
+    Call  ecallRef   IN,
+    int32 latitudeDeltaN2 IN,
+    int32 longitudeDeltaN2 IN
+);
+
+/**
+ *  Set number of passengers.
+ *
+ */
+FUNCTION le_result_t SetMsdPassengersCount
+(
+    Call   ecallRef IN,
+    uint32 passengersCount IN
+);
+
+/**
+ *  Import the PDU MSD
+ *
+ */
+FUNCTION le_result_t ImportMsd
+(
+    Call  ecallRef IN,
+    uint8 msd[MAX_MSD_LENGTH] IN
+);
+
+/**
+ * Export the PDU MSD.
+ *
+ */
+FUNCTION le_result_t ExportMsd
+(
+    Call  ecallRef IN,
+    uint8 msd[MAX_MSD_LENGTH] OUT
+);
+
+/**
+ *  Update the eCall MSD in modem to be sent to Public Safety Answering Point
+ * (PSAP) when requested.
+ *
+ */
+FUNCTION le_result_t SendMsd
+(
+    Call   ecallRef   IN
+);
+
+/**
+ * Start automatic emergency call.
+ *
+ */
+FUNCTION le_result_t StartAutomatic
+(
+    Call   ecallRef  IN
+);
+
+/**
+ *  Start manual emergency call.
+ *
+ */
+FUNCTION le_result_t StartManual
+(
+    Call ecallRef IN
+);
+
+/**
+ * Initiate a test voice eCall with a configured telephone
+ * number stored in the USIM
+ */
+FUNCTION le_result_t StartTest
+(
+    Call ecallRef IN
+);
+
+/**
+ *  Stop the ongoing ecall session.
+ *
+ */
+FUNCTION le_result_t End
+(
+    Call ecallRef IN
+);
+
+/**
+ *  Get currrent eCall state
+ *
+ */
+FUNCTION State GetState
+(
+    Call ecallRef IN
+);
+
+/**
+ * Get reason  for recently terminated call
+ *
+ */
+FUNCTION int32 GetPlatformSpecificTerminationCode
+(
+    Call ecallRef IN
+);

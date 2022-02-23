@@ -1,6 +1,6 @@
 executables:
 {
-        tafAudioService = ( $TELAF_ROOT/components/tafAudioService )
+        tafAudioSvc = ( $TELAF_ROOT/components/tafAudioSvc )
 }
 
 start: auto
@@ -9,7 +9,7 @@ processes:
 {
         run:
         {
-                (tafAudioService)
+                (tafAudioSvc)
         }
 
         faultAction: restart
@@ -29,5 +29,5 @@ bindings:
 
 extern:
 {
-        tafAudioService.tafAudioService.taf_audio
+        tafAudioSvc.tafAudioSvc.taf_audio
 }

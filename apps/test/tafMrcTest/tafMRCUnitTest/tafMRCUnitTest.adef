@@ -4,7 +4,7 @@ maxMemoryBytes: 60000K
 
 executables:
 {
-    tafMrc = ( $TELAF_ROOT/apps/test/tafMrcTest/tafMrcUnitTest/tafMrcComponent )
+    tafMRCUnitTest = ( $TELAF_ROOT/apps/test/tafMrcTest/tafMRCUnitTest/tafMRCComponent )
 }
 
 start: manual
@@ -13,7 +13,7 @@ processes:
 {
     run:
     {
-        (tafMrc)
+        (tafMRCUnitTest)
     }
     maxFileBytes: 1048576K
     faultAction: stopApp
@@ -27,5 +27,5 @@ processes:
 
 bindings:
 {
-    tafMrc.tafMrcComponent.taf_mrc -> tafMRCSvc.taf_mrc
+    tafMRCUnitTest.tafMRCComponent.taf_mrc -> tafMRCSvc.taf_mrc
 }

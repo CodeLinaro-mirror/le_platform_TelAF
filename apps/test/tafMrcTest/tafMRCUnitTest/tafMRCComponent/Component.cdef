@@ -1,6 +1,6 @@
 sources:
 {
-    tafMrc.c
+    tafMRCUnitTest.c
 }
 
 requires:

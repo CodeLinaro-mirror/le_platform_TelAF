@@ -1,6 +1,6 @@
 executables:
 {
-        tafLocationService = ( $TELAF_ROOT/components/tafLocationService )
+        tafLocationSvc = ( $TELAF_ROOT/components/tafLocationSvc )
 }
 
 start: auto
@@ -9,7 +9,7 @@ processes:
 {
         run:
         {
-            (tafLocationService)
+            (tafLocationSvc)
         }
 
         faultAction: restart
@@ -29,7 +29,7 @@ bindings:
 
 extern:
 {
-        tafLocationService.tafLocationService.taf_gnss
-        tafLocationService.tafLocationService.taf_pos
-        tafLocationService.tafLocationService.taf_posCtrl
+        tafLocationSvc.tafLocationSvc.taf_gnss
+        tafLocationSvc.tafLocationSvc.taf_pos
+        tafLocationSvc.tafLocationSvc.taf_posCtrl
 }

@@ -33,7 +33,7 @@
  */
 
 /*
- * @file       tafPMService.cpp
+ * @file       tafPMSvc.cpp
  * @brief      This file provides the taf power manager service as interfaces described
  *             in taf_pm.api. The power manager service will be started automatically.
  */

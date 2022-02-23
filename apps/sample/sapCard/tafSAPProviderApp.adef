@@ -1,7 +1,7 @@
 sandboxed: false
 executables:
 {
-    tafSimTest = ( tafSimTestComp )
+    tafSAPProviderApp = ( sapCardComp )
 }
 
 
@@ -17,6 +17,6 @@ start: manual
 
 bindings:
 {
-    tafSimTest.tafSimTestComp.taf_sim -> tafSimCardSvc.taf_sim
+    tafSAPProviderApp.sapCardComp.taf_sap -> tafRemoteSimSvc.taf_sap
 }
 

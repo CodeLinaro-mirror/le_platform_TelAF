@@ -36,5 +36,5 @@ cflags:
 sources:
 {
         tafAudioImpl.cpp
-        tafAudioService.cpp
+        tafAudioSvc.cpp
 }

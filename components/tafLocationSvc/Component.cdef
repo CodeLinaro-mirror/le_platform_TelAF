@@ -2,11 +2,21 @@ provides:
 {
     api:
     {
-        taf_pm.api
+        taf_gnss.api
+        taf_pos.api
+        taf_posCtrl.api
     }
 }
+
 requires:
 {
+    api:
+    {
+    #if ${LE_CONFIG_ENABLE_CONFIG_TREE} = y
+        le_cfg.api
+    #endif
+    }
+
     component:
     {
         $LEGATO_ROOT/components/watchdogChain
@@ -14,16 +24,16 @@ requires:
 
     lib:
     {
-        lib/libtelux_power.so
+        lib/libtelux_loc.so
     }
-
 }
 
 cxxflags:
 {
     -I$LEGATO_ROOT/components/watchdogChain
+    -I$LEGATO_ROOT/components/cfgEntries
     -I$TELAF_ROOT/include
-    -ltelux_power
+    -ltelux_loc
     -ltelux_common
 }
 
@@ -34,6 +44,7 @@ cflags:
 
 sources:
 {
-    tafPMImpl.cpp
-    tafPMService.cpp
+    tafGnssImpl.cpp
+    tafPosImpl.cpp
+    tafLocationSvc.cpp
 }

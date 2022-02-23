@@ -1,7 +1,7 @@
 sandboxed: false
 executables:
 {
-    tafrSimTest = ( tafSAPUnitTestComp )
+    tafRSimApp = ( remoteSimComp )
 }
 
 
@@ -9,7 +9,7 @@ processes:
 {
     run:
     {
-        (tafrSimTest)
+        (tafRSimApp)
     }
     envVars:
     {
@@ -21,6 +21,6 @@ start: manual
 
 bindings:
 {
-    tafrSimTest.tafSAPUnitTestComp.taf_sap -> tafRemoteSimSvc.taf_sap
+    tafRSimApp.remoteSimComp.taf_rsim -> tafRemoteSimSvc.taf_rsim
 }
 

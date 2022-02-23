@@ -1,7 +1,7 @@
 sandboxed: false
 executables:
 {
-    tafPMService = ( $TELAF_ROOT/components/tafPMService )
+    tafPMSvc = ( $TELAF_ROOT/components/tafPMSvc )
 }
 start: auto
 
@@ -9,7 +9,7 @@ processes:
 {
     run:
     {
-        (tafPMService)
+        (tafPMSvc)
     }
 
 
@@ -26,5 +26,5 @@ bindings:
 
 extern:
 {
-    tafPMService.tafPMService.taf_pm
+    tafPMSvc.tafPMSvc.taf_pm
 }

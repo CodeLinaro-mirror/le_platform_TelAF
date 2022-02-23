@@ -18,8 +18,8 @@ apps:
     $TELAF_ROOT/apps/tafServices/tafVoiceCallSvc
     $TELAF_ROOT/apps/tafServices/tafSimCardSvc
     $TELAF_ROOT/apps/tafServices/tafRadioSvc
-    $TELAF_ROOT/apps/tafServices/tafAudioService
-    $TELAF_ROOT/apps/tafServices/tafLocationService
+    $TELAF_ROOT/apps/tafServices/tafAudioSvc
+    $TELAF_ROOT/apps/tafServices/tafLocationSvc
     $TELAF_ROOT/apps/tafServices/tafSMSSvc
     $TELAF_ROOT/apps/tafServices/tafDataCallSvc
     $TELAF_ROOT/apps/tafServices/tafPMService

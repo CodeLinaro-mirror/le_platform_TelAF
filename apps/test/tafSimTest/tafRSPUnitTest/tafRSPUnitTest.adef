@@ -1,7 +1,7 @@
 sandboxed: false
 executables:
 {
-    tafRSPTest = ( tafRSPTestComp )
+    tafRSPUnitTest = ( tafRSPTestComp )
 }
 
 
@@ -9,7 +9,7 @@ processes:
 {
     run:
     {
-        (tafRSPTest)
+        (tafRSPUnitTest)
     }
     envVars:
     {
@@ -21,6 +21,6 @@ start: manual
 
 bindings:
 {
-    tafRSPTest.tafRSPTestComp.taf_rsp -> tafSimCardSvc.taf_rsp
+    tafRSPUnitTest.tafRSPTestComp.taf_rsp -> tafSimCardSvc.taf_rsp
 }
 

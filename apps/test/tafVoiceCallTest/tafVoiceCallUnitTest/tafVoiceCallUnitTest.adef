@@ -2,7 +2,7 @@ sandboxed: false
 
 executables:
 {
-    tafRadio = ( $TELAF_ROOT/apps/test/tafRadioTest/tafRadioUnitTest/tafRadioComponent )
+    tafVoiceCallUnitTest = ( $TELAF_ROOT/apps/test/tafVoiceCallTest/tafVoiceCallUnitTest/tafVoiceCallComponent )
 }
 
 start: manual
@@ -11,7 +11,7 @@ processes:
 {
     run:
     {
-        (tafRadio)
+        (tafVoiceCallUnitTest)
     }
 
     faultAction: stopApp
@@ -25,5 +25,5 @@ processes:
 
 bindings:
 {
-    tafRadio.tafRadioComponent.taf_radio -> tafRadioSvc.taf_radio
+    tafVoiceCallUnitTest.tafVoiceCallComponent.taf_voicecall -> tafVoiceCallSvc.taf_voicecall
 }

@@ -13,12 +13,6 @@ processes:
         }
 
         faultAction: restart
-
-        #if ${LE_CONFIG_SERVICES_WATCHDOG} = y
-                maxWatchdogTimeout: 100000
-        #else
-                watchdogTimeout: never
-        #endif
 }
 
 sandboxed: false

@@ -22,17 +22,17 @@ apps:
     $TELAF_ROOT/apps/tafServices/tafLocationSvc
     $TELAF_ROOT/apps/tafServices/tafSMSSvc
     $TELAF_ROOT/apps/tafServices/tafDataCallSvc
-    $TELAF_ROOT/apps/tafServices/tafPMService
+    $TELAF_ROOT/apps/tafServices/tafPMSvc
 
     // Command-line tools.
     $LEGATO_ROOT/apps/tools/tools
 
     // test apps
     $TELAF_ROOT/apps/test/tafDataCallTest/tafDataCallUnitTest/tafDataCallUnitTest
-    $TELAF_ROOT/apps/test/tafVoiceCallTest/tafVoiceCallUnitTest/tafVoiceCall
-    $TELAF_ROOT/apps/test/tafRadioTest/tafRadioUnitTest/tafRadio
+    $TELAF_ROOT/apps/test/tafVoiceCallTest/tafVoiceCallUnitTest/tafVoiceCallUnitTest
+    $TELAF_ROOT/apps/test/tafRadioTest/tafRadioUnitTest/tafRadioUnitTest
     $LEGATO_ROOT/apps/sample/voiceCallApp/voiceCallApp
-    $TELAF_ROOT/apps/test/tafSimTest/tafSimIntegrationTest/tafSimTest
+    $TELAF_ROOT/apps/test/tafSimTest/tafSimIntegrationTest/tafSimIntgTest
 }
 
 commands:

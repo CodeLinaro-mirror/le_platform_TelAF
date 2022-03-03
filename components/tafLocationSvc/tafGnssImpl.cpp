@@ -2644,6 +2644,55 @@ le_result_t taf_Gnss::GetNmeaSentences
     return result;
 }
 
+le_result_t taf_Gnss::GetSupportedNmeaSentences
+(
+    taf_gnss_NmeaBitMask_t* nmeaMaskPtr
+)
+{
+
+    TAF_ERROR_IF_RET_VAL( nmeaMaskPtr == NULL, LE_FAULT, "nmeaMaskPtr is NULL !");
+    le_result_t result = LE_NOT_PERMITTED;
+
+    // Check the GNSS device state
+    switch (GnssState)
+    {
+        case TAF_GNSS_STATE_READY:
+        {
+            //filling the supported bitmask values
+            *nmeaMaskPtr |= TAF_GNSS_NMEA_MASK_GPGGA;
+            *nmeaMaskPtr |= TAF_GNSS_NMEA_MASK_GPRMC;
+            *nmeaMaskPtr |= TAF_GNSS_NMEA_MASK_GNGSA;
+            *nmeaMaskPtr |= TAF_GNSS_NMEA_MASK_GPVTG;
+            *nmeaMaskPtr |= TAF_GNSS_NMEA_MASK_GPGNS;
+            *nmeaMaskPtr |= TAF_GNSS_NMEA_MASK_GPDTM;
+            *nmeaMaskPtr |= TAF_GNSS_NMEA_MASK_GPGSV;
+            *nmeaMaskPtr |= TAF_GNSS_NMEA_MASK_GLGSV;
+            *nmeaMaskPtr |= TAF_GNSS_NMEA_MASK_GAGSV;
+            *nmeaMaskPtr |= TAF_GNSS_NMEA_MASK_GQGSV;
+            *nmeaMaskPtr |= TAF_GNSS_NMEA_MASK_GBGSV;
+            *nmeaMaskPtr |= TAF_GNSS_NMEA_MASK_GIGSV;
+            result = LE_OK;
+        }
+        break;
+        case TAF_GNSS_STATE_UNINITIALIZED:
+        case TAF_GNSS_STATE_ACTIVE:
+        case TAF_GNSS_STATE_DISABLED:
+        {
+            LE_ERROR("Bad state for that request [%d]", GnssState);
+            result = LE_NOT_PERMITTED;
+        }
+        break;
+        default:
+        {
+            LE_ERROR("Unknown GNSS state %d", GnssState);
+            result = LE_FAULT;
+        }
+        break;
+    }
+
+    return result;
+}
+
 void taf_Gnss::RemovePositionHandler
 (
     taf_gnss_PositionHandlerRef_t handlerRef

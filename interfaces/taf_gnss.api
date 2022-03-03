@@ -567,3 +567,8 @@ FUNCTION le_result_t GetNmeaSentences
 (
  NmeaBitMask nmeaMaskPtr     OUT
 );
+
+FUNCTION le_result_t GetSupportedNmeaSentences
+(
+ NmeaBitMask nmeaMaskPtr     OUT
+);

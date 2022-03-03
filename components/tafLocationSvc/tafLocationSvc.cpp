@@ -1118,7 +1118,7 @@ le_result_t taf_gnss_SetNmeaSentences
 }
 
 /**
-* FUNCTION     : SetNmeaSentences
+* FUNCTION     : GetNmeaSentences
 * DESCRIPTION  : Gets the bit mask for the enabled NMEA sentences.
 * DEPENDECY    :
 * PARAMETERS   :
@@ -1131,4 +1131,20 @@ le_result_t taf_gnss_GetNmeaSentences
 {
     auto &gnss = taf_Gnss::GetInstance();
     return gnss.GetNmeaSentences(nmeaMaskPtr);
+}
+
+/**
+* FUNCTION     : GetSupportedNmeaSentences
+* DESCRIPTION  : Gets the bit mask for the supported NMEA sentences.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED on failed
+*/
+le_result_t taf_gnss_GetSupportedNmeaSentences
+(
+    taf_gnss_NmeaBitMask_t* nmeaMaskPtr ///< [OUT] Bit mask for supported NMEA sentences.
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetSupportedNmeaSentences(nmeaMaskPtr);
 }

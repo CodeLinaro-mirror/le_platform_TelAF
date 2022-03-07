@@ -42,6 +42,7 @@
 #include <string>
 #include <memory>
 #include "tafNetworkImpl.hpp"
+#include "tafNatImpl.hpp"
 
 using namespace telux::tafsvc;
 
@@ -54,6 +55,17 @@ void taf_net_init()
 
     return;
 }
+
+void taf_nat_init()
+{
+    LE_INFO("taf nat component init start...\n");
+    auto &nat = taf_Nat::GetInstance();
+    nat.Init();
+    LE_INFO("taf nat component init done...\n");
+
+    return;
+}
+
 /**
  * Get network interface List
  *
@@ -71,8 +83,8 @@ le_result_t taf_net_GetInterfaceList(taf_net_InterfaceInfo_t *intfInfoList, size
     char interfaceName[TAF_NET_INTERFACE_NAME_MAX_LEN];
     taf_dcs_ProfileRef_t profileRef = NULL;
 
-    TAF_ERROR_IF_RET_VAL(intfInfoList == NULL, LE_FAULT, "intfInfoList is NULL!");
-    TAF_ERROR_IF_RET_VAL(listSize == NULL, LE_FAULT, "listSize is NULL!");
+    TAF_ERROR_IF_RET_VAL(intfInfoList == NULL, LE_BAD_PARAMETER, "intfInfoList is NULL!");
+    TAF_ERROR_IF_RET_VAL(listSize == NULL, LE_BAD_PARAMETER, "listSize is NULL!");
 
     result = taf_dcs_GetProfileList(profilesInfoPtr, &profListSize);
 
@@ -84,7 +96,6 @@ le_result_t taf_net_GetInterfaceList(taf_net_InterfaceInfo_t *intfInfoList, size
 
     for (size_t i = 0; i < profListSize; i++)
     {
-
         const taf_dcs_ProfileInfo_t *profileInfoPtr = &profilesInfoPtr[i];
         profileRef=taf_dcs_GetProfile(profileInfoPtr->index);
 
@@ -242,9 +253,9 @@ le_result_t taf_net_ChangeRoute(const char *namePtr, const char *destAddrPtr, co
 
     auto &network = taf_Net::GetInstance();
 
-    TAF_ERROR_IF_RET_VAL(namePtr == NULL, LE_FAULT, "interface name is NULL!");
-    TAF_ERROR_IF_RET_VAL(destAddrPtr == NULL, LE_FAULT, "destination address is NULL!");
-    TAF_ERROR_IF_RET_VAL(preLenPtr == NULL, LE_FAULT, "prefixLength is NULL!");
+    TAF_ERROR_IF_RET_VAL(namePtr == NULL, LE_BAD_PARAMETER, "interface name is NULL!");
+    TAF_ERROR_IF_RET_VAL(destAddrPtr == NULL, LE_BAD_PARAMETER, "destination address is NULL!");
+    TAF_ERROR_IF_RET_VAL(preLenPtr == NULL, LE_BAD_PARAMETER, "prefixLength is NULL!");
 
     return network.ChangeRoute(namePtr, destAddrPtr, preLenPtr, metric, isAdd);
 }
@@ -334,9 +345,9 @@ le_result_t taf_net_SetDefaultGW(const char *namePtr)
  *
  * @param [in]  namePtr                 The interface name onto which to get the gateway addresses
  * @param [out] ipv4AddrPtr             The ipv4 gateway address
- * @param [out] ipv4AddrSize            The size of ip v4 gateway address
+ * @param [in] ipv4AddrSize             The size of ip v4 gateway address
  * @param [out] ipv6AddrPtr             The ipv6 gateway address
- * @param [out] ipv6AddrSize            The size of ip v6 gateway address
+ * @param [in] ipv6AddrSize             The size of ip v6 gateway address
  *
  * @returns LE_OK                       Get IPV4 and/or IPV6 gateway addresses from the interface successfully.
  *          OTHER                       Failed to get gateway addresses from the interface.
@@ -486,10 +497,331 @@ le_result_t taf_net_GetInterfaceDNS(const char *namePtr,taf_net_DnsServerAddress
     return LE_OK;
 }
 
+/*=============================Destination NAT=========================================*/
+/**
+ * Add a handler function for destination NAT change.
+ *
+ * @param [in] handlerPtr             The handler function.
+ * @param [in] contextPtr             The handler context.
+ *
+ * @returns reference                 Success to add destination NAT change handler.
+ *          NULL                      Failed to add destination NAT change handler.
+ */
+taf_net_DestNatChangeHandlerRef_t taf_net_AddDestNatChangeHandler
+(
+    taf_net_DestNatChangeHandlerFunc_t handlerFuncPtr,
+    void *contextPtr
+)
+{
+    auto &tafNat = taf_Nat::GetInstance();
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("DestNatChangeHandler",
+        tafNat.DestNatChangeEvId, taf_Nat::FirstLayerDestNatChangeHandler, (void*)handlerFuncPtr);
+
+    le_event_SetContextPtr(handlerRef, contextPtr);
+
+    return (taf_net_DestNatChangeHandlerRef_t)(handlerRef);
+}
+
+/**
+ * Remove destination NAT change handler.
+ *
+ * @param [in] handlerRef         The state handler reference returned by taf_net_AddDestNatChangeHandler().
+ *
+ * @returns NA
+ *
+ */
+void taf_net_RemoveDestNatChangeHandler
+(
+    taf_net_DestNatChangeHandlerRef_t handlerRef
+)
+{
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
+}
+
+/**
+ * Add a destination NAT entry on default PDN.
+ *
+ * @param [in] privateIpAddr          The private IP address.
+ * @param [in] privatePort            The private port.
+ * @param [in] globalPort             The global port.
+ * @param [in] ipProto                The ip protocol number.
+ *
+ * @returns LE_OK                     Success.
+ *          LE_BAD_PARAMETER          Invalid private ip address.
+ *          LE_FAULT                  Failed to add a destination NAT entry.
+ */
+le_result_t taf_net_AddDestNatEntryOnDefaultPdn
+(
+    const char* privateIpAddr,
+    uint16_t privatePort,
+    uint16_t globalPort,
+    taf_net_IpProto_t ipProto
+)
+{
+    le_result_t result;
+    uint32_t profileId;
+    auto &tafNat = taf_Nat::GetInstance();
+
+    TAF_ERROR_IF_RET_VAL(privateIpAddr == NULL, LE_BAD_PARAMETER, "private ip address is NULL!");
+
+    profileId = taf_dcs_GetDefaultProfileIndex();
+
+    if(!tafNat.IsRmnetBringUp(profileId))
+    {
+        LE_ERROR("Rmnet interface is not bringed up");
+        return LE_FAULT;
+    }
+
+    result=tafNat.AddDestNatEntry( profileId, privateIpAddr,privatePort,globalPort,ipProto);
+    return result;
+}
+
+/**
+ * Remove a destination NAT entry on default PDN.
+ *
+ * @param [in] privateIpAddr          The private IP address.
+ * @param [in] privatePort            The private port.
+ * @param [in] globalPort             The global port.
+ * @param [in] ipProto                The ip protocol number.
+ *
+ * @returns LE_OK                     Success.
+ *          LE_BAD_PARAMETER          Invalid private ip address.
+ *          LE_FAULT                  Failed to remove a destination NAT entry.
+ */
+le_result_t taf_net_RemoveDestNatEntryOnDefaultPdn
+(
+    const char* privateIpAddr,
+    uint16_t privatePort,
+    uint16_t globalPort,
+    taf_net_IpProto_t ipProto
+)
+{
+    le_result_t result;
+    uint32_t profileId;
+    auto &tafNat = taf_Nat::GetInstance();
+
+    TAF_ERROR_IF_RET_VAL(privateIpAddr == NULL, LE_BAD_PARAMETER, "private ip address is NULL!");
+
+    profileId = taf_dcs_GetDefaultProfileIndex();
+
+    if(!tafNat.IsRmnetBringUp(profileId))
+    {
+        LE_ERROR("Rmnet interface is not bringed up");
+        return LE_FAULT;
+    }
+
+    result=tafNat.RemoveDestNatEntry( profileId, privateIpAddr,privatePort,globalPort,ipProto);
+    return result;
+}
+
+/**
+ * Add a destination NAT entry on demand PDN.
+ *
+ * @param [in] profileId                The profile id.
+ * @param [in] privateIpAddr            The private IP address.
+ * @param [in] privatePort              The private port.
+ * @param [in] globalPort               The global port.
+ * @param [in] ipProto                  The ip protocol number.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_BAD_PARAMETER            Invalid private ip address.
+ *          LE_FAULT                    Failed to add a destination NAT entry.
+ */
+le_result_t taf_net_AddDestNatEntryOnDemandPdn
+(
+    uint32_t profileId,
+    const char* privateIpAddr,
+    uint16_t privatePort,
+    uint16_t globalPort,
+    taf_net_IpProto_t ipProto
+)
+{
+    le_result_t result;
+    auto &tafNat = taf_Nat::GetInstance();
+
+    TAF_ERROR_IF_RET_VAL(privateIpAddr == NULL, LE_BAD_PARAMETER, "private ip address is NULL!");
+
+    if(!tafNat.IsRmnetBringUp(profileId))
+    {
+        LE_ERROR("Rmnet interface is not bringed up");
+        return LE_FAULT;
+    }
+    //need to check if this profile id is bound to a VLAN id
+
+    result=tafNat.AddDestNatEntry( profileId, privateIpAddr,privatePort,globalPort,ipProto);
+    return result;
+}
+
+/**
+ * Remove a destination NAT entry on demand PDN.
+ *
+ * @param [in] profileId              The profile id.
+ * @param [in] privateIpAddr          The private IP address.
+ * @param [in] privatePort            The private port.
+ * @param [in] globalPort             The global port.
+ * @param [in] ipProto                The ip protocol number.
+ *
+ * @returns LE_OK                     Success.
+ *          LE_BAD_PARAMETER          Invalid private ip address.
+ *          LE_FAULT                  Failed to remove a destination NAT entry.
+ */
+le_result_t taf_net_RemoveDestNatEntryOnDemandPdn
+(
+    uint32_t profileId,
+    const char* privateIpAddr,
+    uint16_t privatePort,
+    uint16_t globalPort,
+    taf_net_IpProto_t ipProto
+)
+{
+    le_result_t result;
+    auto &tafNat = taf_Nat::GetInstance();
+
+    TAF_ERROR_IF_RET_VAL(privateIpAddr == NULL, LE_BAD_PARAMETER, "private ip address is NULL!");
+
+    if(!tafNat.IsRmnetBringUp(profileId))
+    {
+        LE_ERROR("Rmnet interface is not bringed up");
+        return LE_FAULT;
+    }
+    //need to check if this profile id is bound to a VLAN id
+    result=tafNat.RemoveDestNatEntry( profileId, privateIpAddr,privatePort,globalPort,ipProto);
+    return result;
+}
+
+/**
+ * Get a reference of an destination NAT entry list on default PDN.
+ *
+ * @returns nullptr                     Fail.
+ *          non-nullptr                 Success.
+ */
+taf_net_DestNatEntryListRef_t taf_net_GetDestNatEntryListOnDefaultPdn()
+{
+    uint32_t profileId;
+    auto &tafNat = taf_Nat::GetInstance();
+
+    profileId = taf_dcs_GetDefaultProfileIndex();
+
+    if(!tafNat.IsRmnetBringUp(profileId))
+        return NULL;
+
+    return tafNat.GetDestNatEntryList(profileId);
+}
+
+/**
+ * Get a reference of an destination NAT entry list on demand PDN.
+ *
+ * @param [in] profileId                The profile id.
+ *
+ * @returns nullptr                     Fail.
+ *          non-nullptr                 Success.
+ */
+taf_net_DestNatEntryListRef_t taf_net_GetDestNatEntryListOnDemandPdn
+(
+    uint32_t profileId
+)
+{
+    auto &tafNat = taf_Nat::GetInstance();
+
+    if(!tafNat.IsRmnetBringUp(profileId))
+    {
+        LE_ERROR("Rmnet interface is not bringed up");
+        return NULL;
+    }
+    //need to check if this profile id is bound to a VLAN id
+    return tafNat.GetDestNatEntryList(profileId);
+}
+
+/**
+ * Get the reference of the first destination NAT entry from a list.
+ *
+ * @param [in] destNatEntryListRef      The destination nat entry list reference.
+ *
+ * @returns nullptr                     Fail.
+ *          non-nullptr                 Success.
+ */
+taf_net_DestNatEntryRef_t taf_net_GetFirstDestNatEntry
+(
+    taf_net_DestNatEntryListRef_t destNatEntryListRef
+)
+{
+    auto &tafNat = taf_Nat::GetInstance();
+
+    return tafNat.GetFirstDestNatEntry(destNatEntryListRef);
+}
+
+/**
+ * Get the reference of the next destination NAT entry from a list.
+ *
+ * @param [in] destNatEntryListRef      The destination nat entry list reference.
+ *
+ * @returns nullptr                     Fail.
+ *          non-nullptr                 Success.
+ */
+taf_net_DestNatEntryRef_t taf_net_GetNextDestNatEntry
+(
+    taf_net_DestNatEntryListRef_t  destNatEntryListRef
+)
+{
+    auto &tafNat = taf_Nat::GetInstance();
+
+    return tafNat.GetNextDestNatEntry(destNatEntryListRef);
+}
+
+/**
+ * Get infomation of an destination NAT entry from a list.
+ *
+ * @param [in] destNatEntryRef          The entry reference.
+ * @param [out] privateIpAddrPtr        The private ip address.
+ * @param [in] privateIpAddrPtrSize     The private ip address length.
+ * @param [out] privatePortPtr          The private port.
+ * @param [out] globalPortPtr           The global port.
+ * @param [out] protoPtr                The ip protocol number.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_BAD_PARAMETER            Invalid parameter.
+ *          LE_FAULT                    Failed to get the destination NAT entry details.
+ */
+le_result_t taf_net_GetDestNatEntryDetails
+(
+    taf_net_DestNatEntryRef_t  destNatEntryRef,
+    char* privateIpAddrPtr,
+    size_t privateIpAddrPtrSize,
+    uint16_t* privatePortPtr,
+    uint16_t* globalPortPtr,
+    taf_net_IpProto_t* protoPtr
+)
+{
+    auto &tafNat = taf_Nat::GetInstance();
+
+    return tafNat.GetDestNatEntryDetails(destNatEntryRef,privateIpAddrPtr,privateIpAddrPtrSize,privatePortPtr,globalPortPtr,protoPtr);
+}
+
+/**
+ * Delete a reference of an destination nat entry list.
+ *
+  * @param [in] destNatEntryListRef      The destination nat entry list reference.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_BAD_PARAMETER            Invalid parameter.
+ *          LE_FAULT                    Failed to delete the reference.
+ */
+le_result_t taf_net_DeleteDestNatEntryList
+(
+    taf_net_DestNatEntryListRef_t  destNatEntryListRef
+)
+{
+    auto &tafNat = taf_Nat::GetInstance();
+
+    return tafNat.DeleteDestNatEntryList(destNatEntryListRef);
+}
+
 COMPONENT_INIT
 {
 
     taf_net_init();
+
+    taf_nat_init();
 
 }
 

@@ -13,6 +13,12 @@ requires:
         taf_dcs.api
     }
 
+    lib:
+    {
+        lib/libtelux_tel.so
+        lib/libtelux_data.so
+    }
+
     component:
     {
         $LEGATO_ROOT/components/watchdogChain
@@ -36,5 +42,6 @@ sources:
     tafNetworkImpl.cpp
     tafNetworkSvc.cpp
     tafRoutingDns.cpp
+    tafNatImpl.cpp
 }
 

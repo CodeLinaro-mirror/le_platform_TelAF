@@ -1,0 +1,17 @@
+sources:
+{
+    tafNetIntTest.c
+}
+
+requires:
+{
+    api:
+    {
+        taf_net.api
+    }
+}
+
+cxxflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+}

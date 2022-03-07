@@ -41,6 +41,8 @@ apps:
     // $TELAF_ROOT/apps/sample/rsp/tafRSPApp
     // $TELAF_ROOT/apps/test/tafMrcTest/tafMRCUnitTest/tafMRCUnitTest
     // $TELAF_ROOT/apps/test/tafECallTest/tafECallUnitTest/tafECallUnitTest
+    // $TELAF_ROOT/apps/test/tafNetTest/tafNetUnitTest/tafNetUnitTest
+    // $TELAF_ROOT/apps/test/tafNetTest/tafNetIntTest/tafNetIntTest
 }
 
 commands:

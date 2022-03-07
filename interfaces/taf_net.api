@@ -59,6 +59,20 @@ DEFINE  IPV6_ADDR_MAX_LEN = 46;
  */
 DEFINE  IP_ADDR_MAX_LEN = IPV6_ADDR_MAX_LEN;
 
+/**
+ * The MAX entry ENTRY for NAT memory pool
+ */
+DEFINE  MAX_NAT_ENTRY = (50);
+
+/*
+ * The ip protocol number
+ */
+ENUM IpProto
+{
+    TCP = 6,                    // TCP
+    UDP = 17                    // UDP
+};
+
 /*
  * Network action.
  */
@@ -94,6 +108,15 @@ ENUM State
 {
     STATE_DOWN,                 // DOWN
     STATE_UP                    // UP
+};
+
+/**
+ * The destination NAT change indication
+ */
+STRUCT DestNatChangeInd
+{
+    uint32  profileId;                                 ///< profile Id
+    NetAction action;                                  ///< Add or delete
 };
 
 /**
@@ -150,6 +173,16 @@ STRUCT DNSChangeInd
 };
 
 /*
+ * The reference of an destination NAT entry list.
+ */
+REFERENCE DestNatEntryList;
+
+/*
+ * The reference of an destination NAT entry.
+ */
+REFERENCE DestNatEntry;
+
+/*
  * Handler for route change.
  */
 HANDLER RouteChangeHandler
@@ -195,6 +228,22 @@ HANDLER DNSChangeHandler
 EVENT DNSChange
 (
     DNSChangeHandler handler // Handler for DNS change.
+);
+
+/*
+ * Handler for destination NAT change.
+ */
+HANDLER DestNatChangeHandler
+(
+    DestNatChangeInd destNatInd IN // The destination NAT change indication.
+);
+
+/*
+ * Event to report destination NAT change.
+ */
+EVENT DestNatChange
+(
+    DestNatChangeHandler handler // Handler for destination NAT change.
 );
 
 /**
@@ -267,4 +316,99 @@ FUNCTION le_result_t GetInterfaceDNS
     DnsServerAddresses  dnsServerAddresses           OUT ///< DNS addresses structure
 );
 
+/**
+ * Add destination NAT entry on default PDN
+ */
+FUNCTION le_result_t AddDestNatEntryOnDefaultPdn
+(
+    string privateIpAddr[IP_ADDR_MAX_LEN]     IN, ///< private IP address
+    uint16 privatePort                        IN, ///< Private port
+    uint16 globalPort                         IN, ///< Global port
+    IpProto ipProto                           IN  ///< IP protocol number
+);
 
+/**
+ * Delete destination NAT entry on default PDN
+ */
+FUNCTION le_result_t RemoveDestNatEntryOnDefaultPdn
+(
+    string privateIpAddr[IP_ADDR_MAX_LEN]     IN, ///< private IP address
+    uint16 privatePort                        IN, ///< Private port
+    uint16 globalPort                         IN, ///< Global port
+    IpProto ipProto                           IN  ///< IP protocol number
+);
+
+/**
+ * Add destination NAT entry on demand PDN
+ */
+FUNCTION le_result_t AddDestNatEntryOnDemandPdn
+(
+    uint32 profileId                          IN, ///< profile id
+    string privateIpAddr[IP_ADDR_MAX_LEN]     IN, ///< private IP address
+    uint16 privatePort                        IN, ///< Private port
+    uint16 globalPort                         IN, ///< Global port
+    IpProto ipProto                           IN  ///< IP protocol number
+);
+
+/**
+ * Delete destination NAT entry on demand PDN
+ */
+FUNCTION le_result_t RemoveDestNatEntryOnDemandPdn
+(
+    uint32 profileId                          IN, ///< profile id
+    string privateIpAddr[IP_ADDR_MAX_LEN]     IN, ///< private IP address
+    uint16 privatePort                        IN, ///< Private port
+    uint16 globalPort                         IN, ///< Global port
+    IpProto ipProto                           IN  ///< IP protocol number
+);
+
+/**
+ * Get the reference of destination NAT entry list on default PDN.
+ */
+FUNCTION DestNatEntryList GetDestNatEntryListOnDefaultPdn
+(
+);
+
+/**
+ * Get the reference of destination NAT entry list on demand PDN.
+ */
+FUNCTION DestNatEntryList GetDestNatEntryListOnDemandPdn
+(
+    uint32 profileId                          IN ///< The profile id
+);
+
+/*
+ * Get the reference of the first destination NAT entry with a list reference.
+ */
+FUNCTION DestNatEntry GetFirstDestNatEntry
+(
+    DestNatEntryList  destNatEntryListRef     IN ///< The reference of an destination entry list.
+);
+
+/*
+ * Get the reference of the next destination NAT entry with a list reference.
+ */
+FUNCTION DestNatEntry GetNextDestNatEntry
+(
+    DestNatEntryList  destNatEntryListRef     IN ///< The reference of an destination entry list.
+);
+
+/*
+ * Get the information of an destination nat entry with an entry reference.
+ */
+FUNCTION le_result_t GetDestNatEntryDetails
+(
+    DestNatEntry destNatEntryRef              IN,  ///< Entry reference.
+    string privateIpAddr[IP_ADDR_MAX_LEN]     OUT, ///< Private IP address.
+    uint16 privatePort                        OUT, ///< Private port.
+    uint16 globalPort                         OUT, ///< Global port.
+    IpProto ipProto                           OUT  ///< IP protocol number.
+);
+
+/*
+ * Delete the reference of the first destination NAT entry with a list reference.
+ */
+FUNCTION le_result_t DeleteDestNatEntryList
+(
+    DestNatEntryList  destNatEntryListRef     IN ///< The reference of an destination entry list.
+);

@@ -1,0 +1,29 @@
+sandboxed: false
+
+executables:
+{
+    tafNetIntTest = ( $TELAF_ROOT/apps/test/tafNetTest/tafNetIntTest/tafNetComponent )
+}
+
+start: manual
+
+processes:
+{
+    run:
+    {
+        (tafNetIntTest)
+    }
+
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+
+    faultAction: stopApp
+
+}
+
+bindings:
+{
+    tafNetIntTest.tafNetComponent.taf_net -> tafNetSvc.taf_net
+}

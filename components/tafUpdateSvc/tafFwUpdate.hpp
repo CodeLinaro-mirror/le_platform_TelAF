@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -32,61 +32,43 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-DEFINE MAX_PKG_NAME_LEN = 48;
+#ifndef TAFFWUPDATE_HPP
+#define TAFFWUPDATE_HPP
 
-ENUM State
+#include "legato.h"
+#include "interfaces.h"
+
+#include <fstream>
+#include <iostream>
+#include <string>
+
+#include "tafSvcIF.hpp"
+
+#define TAF_FWUPDATE_INSTALL_CMD_LEN 50
+
+#define TAF_FWUPDATE_RECOVERY_LOG_FILE "/tmp/recovery.log"
+#define TAF_FWUPDATE_VERSION_FILE "/etc/version"
+
+typedef enum
 {
-    IDLE,
-    DOWNLOAD_FAIL,
-    DOWNLOADING,
-    DOWNLAOD_PAUSED,
-    DOWNLOAD_SUCCESS,
-    INSTALLING,
-    INSTALL_SUCCESS,
-    INSTALL_FAIL,
-    PROBATION
-};
+    TAF_FWUPDATE_ERROR_NONE,
+    TAF_FWUPDATE_ERROR_MRC_FAULT,
+    TAF_FWUPDATE_ERROR_RCV_FAULT
+} taf_FwUpdateError_t;
 
-ENUM InstallError
-{
-    INSTALL_NONE,
-    INSTALLBAD_PACKAGE,
-    INSTALL_INTERNAL_ERROR,
-    INSTALL_SECURITY_FAILURE
-};
+namespace telux {
+namespace tafsvc {
+    class taf_FwUpdate : public ITafSvc {
+    public:
+        taf_FwUpdate() {};
+        ~taf_FwUpdate() {};
 
-ENUM Package
-{
-    PACKAGE_FOTA,
-    PACKAGE_SOTA,
-    PACKAGE_NON_QOTA
-};
+        static taf_FwUpdate &GetInstance();
+        le_result_t SendPipeCmd(const char* cmd, const char* mod);
+        taf_FwUpdateError_t Install(const char* filePath);
+        void Init(void);
+    };
+}
+}
 
-STRUCT StateInd
-{
-    State state;
-    InstallError error;
-    int32 percent;
-    Package pkgType;
-    string pkgName[MAX_PKG_NAME_LEN];
-};
-
-FUNCTION Download
-(
-);
-
-FUNCTION le_result_t Install
-(
-    Package packageType IN,
-    string name[MAX_PKG_NAME_LEN] IN
-);
-
-HANDLER StateHandler
-(
-    StateInd stateInd IN
-);
-
-EVENT State
-(
-    StateHandler handler
-);
+#endif

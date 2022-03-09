@@ -26,4 +26,6 @@ processes:
 bindings:
 {
     tafUpdate.tafUpdateComponent.taf_update -> tafUpdateSvc.taf_update
+    tafUpdate.tafUpdateComponent.taf_fwupdate -> tafUpdateSvc.taf_fwupdate
+    tafUpdate.tafUpdateComponent.taf_appMgmt -> tafUpdateSvc.taf_appMgmt
 }

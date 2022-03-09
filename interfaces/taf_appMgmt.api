@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -32,61 +32,110 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-DEFINE MAX_PKG_NAME_LEN = 48;
+DEFINE APP_NAME_BYTES = 48;
+DEFINE APP_VERSION_BYTES = 101;
+DEFINE APP_HASH_BYTES = 101;
 
-ENUM State
+/*
+ * The reference of app list.
+ */
+REFERENCE AppList;
+
+/*
+ * The reference of app.
+ */
+REFERENCE App;
+
+ENUM AppState
 {
-    IDLE,
-    DOWNLOAD_FAIL,
-    DOWNLOADING,
-    DOWNLAOD_PAUSED,
-    DOWNLOAD_SUCCESS,
-    INSTALLING,
-    INSTALL_SUCCESS,
-    INSTALL_FAIL,
-    PROBATION
+    STATE_STOPPED,
+    STATE_STARTED
 };
 
-ENUM InstallError
+ENUM AppStartMode
 {
-    INSTALL_NONE,
-    INSTALLBAD_PACKAGE,
-    INSTALL_INTERNAL_ERROR,
-    INSTALL_SECURITY_FAILURE
+    START_MANUAL,
+    START_AUTO
 };
 
-ENUM Package
+/*
+ * App information.
+ */
+STRUCT AppInfo
 {
-    PACKAGE_FOTA,
-    PACKAGE_SOTA,
-    PACKAGE_NON_QOTA
+    string name[APP_NAME_BYTES];       // App name.
+    string version[APP_VERSION_BYTES]; // App version.
+    string hash[APP_HASH_BYTES];       // App hash.
+    AppState state;                    // App state.
+    AppStartMode startMode;            // App start mode.
+    bool isSandboxed;                  // If it is a sandbox app.
 };
 
-STRUCT StateInd
-{
-    State state;
-    InstallError error;
-    int32 percent;
-    Package pkgType;
-    string pkgName[MAX_PKG_NAME_LEN];
-};
+FUNCTION AppState GetState
+(
+    string appName[APP_NAME_BYTES] IN // App name.
+);
 
-FUNCTION Download
+/*
+ * Start an app.
+ */
+FUNCTION le_result_t Start
+(
+    string appName[APP_NAME_BYTES] IN // App name.
+);
+
+/*
+ * Stop an app.
+ */
+FUNCTION le_result_t Stop
+(
+    string appName[APP_NAME_BYTES] IN // App name.
+);
+
+/*
+ * Uninstall an app.
+ */
+FUNCTION le_result_t Uninstall
+(
+    string appName[APP_NAME_BYTES] IN // App name.
+);
+
+/*
+ * Create app list.
+ */
+FUNCTION AppList CreateAppList
 (
 );
 
-FUNCTION le_result_t Install
+/*
+ * Delete app list.
+ */
+FUNCTION le_result_t DeleteAppList
 (
-    Package packageType IN,
-    string name[MAX_PKG_NAME_LEN] IN
+    AppList appListRef IN // App list reference.
 );
 
-HANDLER StateHandler
+/*
+ * Get the reference of the first app.
+ */
+FUNCTION App GetFirstApp
 (
-    StateInd stateInd IN
+    AppList appListRef IN // App list reference.
 );
 
-EVENT State
+/*
+ * Get the reference of the next app.
+ */
+FUNCTION App GetNextApp
 (
-    StateHandler handler
+    AppList appListRef IN // App list reference.
+);
+
+/*
+ * Get app infomation.
+ */
+FUNCTION le_result_t GetAppDetails
+(
+    App appRef IN,      // App reference.
+    AppInfo appInfo OUT // App info.
 );

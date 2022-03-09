@@ -47,6 +47,7 @@
 #include <future>
 #include <memory>
 #include <map>
+#include <string>
 
 #include <telux/common/CommonDefines.hpp>
 #include <telux/data/DataDefines.hpp>
@@ -56,38 +57,47 @@
 
 #include "tafSvcIF.hpp"
 #include "tafUpdatePa.hpp"
+#include "tafAppMgmt.hpp"
+#include "tafFwUpdate.hpp"
 
-#define TAF_UPDATE_INSATLL_PAKCAGE "/data/images/TCU_target"
-#define TAF_UPDATE_RECOVERY_LOG_FILE "/tmp/recovery.log"
-#define TAF_UPDATE_VERSION_FILE "/etc/version"
+#define TAF_UPDATE_PAKCAGE_FILE_PATH "/data/images/TCU_target"
 #define TAF_UPDATE_STATE_FILE "/taf_update_state"
 
 #define TAF_UPDATE_TIME_INTERVAL 1000
 #define TAF_UPDATE_THREAD_STACK_SIZE 0x20000
 #define TAF_UPDATE_INSTALL_CMD_LEN 50
 
+#define TAF_UPDATE_QOTA_HEADER_SEG_NUM 13
+#define TAF_UPDATE_QOTA_HEADER_SIZE 48
+
 #define TAF_UPDATE_DATA_SERVICE_TIME_OUT 20
-#define TAF_UPDATE_DOWNLOAD_TIME_OUT 600
-#define TAF_UPDATE_PROBATION_TIME 300
+#define TAF_UPDATE_PROBATION_TIME 60
+
+#define TAF_UPDATE_RW_BUFFER_SIZE 4096
 
 typedef enum
 {
-    TAF_UPDATE_CMD_TYPE_ASYNC_DOWNLOAD,
-    TAF_UPDATE_CMD_TYPE_ASYNC_INSTALL,
-    TAF_UPDATE_CMD_TYPE_ASYNC_SYNC
+    TAF_UPDATE_CMD_TYPE_DOWNLOAD,
+    TAF_UPDATE_CMD_TYPE_INSTALL
 } taf_UpdateCmdType_t;
 
 typedef struct
 {
+    const char* name;
+    size_t size;
+} taf_UpdateQotaHeaderSeg_t;
+
+typedef struct
+{
     taf_UpdateCmdType_t cmdType;
-    void* handlerFuncPtr;
-    void* contextPtr;
-    taf_update_ImageType_t imageType;
+    taf_update_Package_t pkgType;
+    const char* pkgName;
 } taf_UpdateCmdReq_t;
 
 typedef struct
 {
     taf_update_State_t state;
+    taf_update_Package_t pkgType;
     uint32_t tick;
 } taf_UpdateTimerContext;
 
@@ -121,14 +131,24 @@ namespace tafsvc {
 
         static taf_Update &GetInstance();
 
-        static void UpdateSetState(taf_update_State_t state);
-        static void UpdateGetState(taf_update_State_t* state);
+        bool CheckHeader(const char* src, const char* dst, int n);
+        le_result_t ParsePackage(const char* file);
+        le_result_t RemoveHeader(const char* file);
+        static void NameEventHandler(le_json_Event_t event);
+        static void JsonEventHandler(le_json_Event_t event);
+        static void JsonErrorHandler(le_json_Error_t error, const char* msg);
+        le_result_t ParseBundle(const char* file);
 
-        static void UpdateTimerTick(le_timer_Ref_t timerRef);
+        void UpdateSetState(taf_update_State_t state);
+        void UpdateGetState(taf_update_State_t* state);
 
-        static void FirstLayerStateHandler(void* reportPtr, void* secondLayerHandlerFunc);
+        static void DownloadTimerTick(le_timer_Ref_t timerRef);
+        static void ProbationTimerTick(le_timer_Ref_t timerRef);
 
+        static void AppInstallHandler(le_update_State_t updateState, uint percentDone,void* contextPtr);
+        static void UpdateStateLayeredHandler(void* reportPtr, void* secondLayerHandlerFunc);
         static void* UpdateCmdThread(void* contextPtr);
+
         static void UpdateProcCmdHandler(void* cmdReqPtr);
 
         void onInitCompleted(telux::common::ServiceStatus status);
@@ -142,6 +162,10 @@ namespace tafsvc {
         taf_UpdateTimerContext dlTimerContext;
         taf_UpdateTimerContext prbtTimerContext;
         taf_update_pa_SessionRef_t daSessionID;
+        std::map<std::string, char*> qotaHeader;
+        taf_update_Package_t pkgType;
+        char sotaAppName[TAF_APPMGMT_APP_NAME_BYTES];
+        int sotaFd;
 
     private:
         bool subSystemStatusUpdated;

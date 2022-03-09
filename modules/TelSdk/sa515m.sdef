@@ -54,6 +54,8 @@ commands:
 bindings:
 {
     <root>.taf_update -> tafUpdateSvc.taf_update
+    <root>.taf_appMgmt -> tafUpdateSvc.taf_appMgmt
+    <root>.taf_fwupdate -> tafUpdateSvc.taf_fwupdate
 }
 
 interfaceSearch:

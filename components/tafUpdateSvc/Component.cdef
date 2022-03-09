@@ -3,6 +3,8 @@ provides:
     api:
     {
         taf_update.api
+        taf_appMgmt.api
+        taf_fwupdate.api
     }
 }
 
@@ -10,6 +12,14 @@ requires:
 {
     api:
     {
+        le_update.api
+        le_updateCtrl.api
+
+        le_appRemove.api
+        le_appCtrl.api
+        le_appInfo.api
+        le_cfg.api
+
         taf_update_pa.api    [types-only]
         taf_dcs.api
 #if ${TARGET} = sa515m
@@ -47,7 +57,11 @@ cflags:
 
 sources:
 {
-    tafUpdateImpl.cpp
     tafUpdateSvc.cpp
+    tafUpdateImpl.cpp
+    tafAppMgmtSvc.cpp
+    tafAppMgmtImpl.cpp
+    tafFwUpdateSvc.cpp
+    tafFwUpdateImpl.cpp
 }
 

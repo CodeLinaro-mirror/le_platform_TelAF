@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -32,61 +32,17 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-DEFINE MAX_PKG_NAME_LEN = 48;
+DEFINE MAX_VERS_LEN = 257;
 
-ENUM State
-{
-    IDLE,
-    DOWNLOAD_FAIL,
-    DOWNLOADING,
-    DOWNLAOD_PAUSED,
-    DOWNLOAD_SUCCESS,
-    INSTALLING,
-    INSTALL_SUCCESS,
-    INSTALL_FAIL,
-    PROBATION
-};
-
-ENUM InstallError
-{
-    INSTALL_NONE,
-    INSTALLBAD_PACKAGE,
-    INSTALL_INTERNAL_ERROR,
-    INSTALL_SECURITY_FAILURE
-};
-
-ENUM Package
-{
-    PACKAGE_FOTA,
-    PACKAGE_SOTA,
-    PACKAGE_NON_QOTA
-};
-
-STRUCT StateInd
-{
-    State state;
-    InstallError error;
-    int32 percent;
-    Package pkgType;
-    string pkgName[MAX_PKG_NAME_LEN];
-};
-
-FUNCTION Download
+FUNCTION RebootToActive
 (
 );
 
-FUNCTION le_result_t Install
+FUNCTION le_result_t GetFirmwareVersion
 (
-    Package packageType IN,
-    string name[MAX_PKG_NAME_LEN] IN
+    string version[MAX_VERS_LEN] OUT
 );
 
-HANDLER StateHandler
+FUNCTION le_result_t ABSync
 (
-    StateInd stateInd IN
-);
-
-EVENT State
-(
-    StateHandler handler
 );

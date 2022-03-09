@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -32,61 +32,61 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-DEFINE MAX_PKG_NAME_LEN = 48;
+#ifndef TAFAPPMGMT_HPP
+#define TAFAPPMGMT_HPP
 
-ENUM State
+#include "legato.h"
+#include "interfaces.h"
+
+#include <vector>
+
+#include "tafSvcIF.hpp"
+
+#define TAF_APPMGMT_APP_LISTS_MAX_NUM 1
+#define TAF_APPMGMT_APP_MAX_NUM 128
+
+typedef struct
 {
-    IDLE,
-    DOWNLOAD_FAIL,
-    DOWNLOADING,
-    DOWNLAOD_PAUSED,
-    DOWNLOAD_SUCCESS,
-    INSTALLING,
-    INSTALL_SUCCESS,
-    INSTALL_FAIL,
-    PROBATION
-};
+    void* safeRef;
+    le_sls_Link_t link;
+} taf_AppMgmtAppInfoSafeRef_t;
 
-ENUM InstallError
+typedef struct
 {
-    INSTALL_NONE,
-    INSTALLBAD_PACKAGE,
-    INSTALL_INTERNAL_ERROR,
-    INSTALL_SECURITY_FAILURE
-};
+    char name[TAF_APPMGMT_APP_NAME_BYTES];
+    char version[TAF_APPMGMT_APP_VERSION_BYTES];
+    char hash[TAF_APPMGMT_APP_HASH_BYTES];
+    taf_appMgmt_AppState_t state;
+    bool isStartManual;
+    bool isSandboxed;
+    le_sls_Link_t link;
+} taf_AppMgmtAppInfo_t;
 
-ENUM Package
+typedef struct
 {
-    PACKAGE_FOTA,
-    PACKAGE_SOTA,
-    PACKAGE_NON_QOTA
-};
+    le_sls_List_t appList;
+    le_sls_List_t safeRefList;
+    le_sls_Link_t* currPtr;
+} taf_AppMgmtAppList_t;
 
-STRUCT StateInd
-{
-    State state;
-    InstallError error;
-    int32 percent;
-    Package pkgType;
-    string pkgName[MAX_PKG_NAME_LEN];
-};
+namespace telux {
+namespace tafsvc {
+    class taf_AppMgmt : public ITafSvc {
+    public:
+        taf_AppMgmt() {};
+        ~taf_AppMgmt() {};
 
-FUNCTION Download
-(
-);
+        static taf_AppMgmt &GetInstance();
+        void Init(void);
 
-FUNCTION le_result_t Install
-(
-    Package packageType IN,
-    string name[MAX_PKG_NAME_LEN] IN
-);
+        le_mem_PoolRef_t appListPool;
+        le_mem_PoolRef_t appInfoPool;
+        le_mem_PoolRef_t appInfoSafeRefPool;
 
-HANDLER StateHandler
-(
-    StateInd stateInd IN
-);
+        le_ref_MapRef_t appListRefMap;
+        le_ref_MapRef_t appInfoSafeRefMap;
+    };
+}
+}
 
-EVENT State
-(
-    StateHandler handler
-);
+#endif

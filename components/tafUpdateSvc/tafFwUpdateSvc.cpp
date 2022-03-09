@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -32,61 +32,53 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-DEFINE MAX_PKG_NAME_LEN = 48;
+#include "tafUpdate.hpp"
 
-ENUM State
+using namespace telux::tafsvc;
+
+void taf_fwupdate_RebootToActive()
 {
-    IDLE,
-    DOWNLOAD_FAIL,
-    DOWNLOADING,
-    DOWNLAOD_PAUSED,
-    DOWNLOAD_SUCCESS,
-    INSTALLING,
-    INSTALL_SUCCESS,
-    INSTALL_FAIL,
-    PROBATION
-};
+    auto &tafUpdate = taf_Update::GetInstance();
+    taf_update_pa_ReportState_t rState = TAF_UPDATE_PA_REPORT_REBOOT;
+    int retry = 5;
+    while (retry) {
+        int ret = taf_update_pa_Report(tafUpdate.daSessionID, rState);
+        if (ret) {
+            LE_ERROR("Download agent report failed, retry = %d, ret = %d.", 5 - retry, ret);
+        } else {
+            LE_INFO("Download agent report success.");
+            break;
+        }
+        retry--;
+        le_thread_Sleep(1);
+    }
 
-ENUM InstallError
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+    tafFwUpdate.SendPipeCmd("/sbin/reboot", "w");
+
+    // Just keep waiting.
+    while (true) {
+       ;
+    }
+}
+
+le_result_t taf_fwupdate_GetFirmwareVersion(char* versionPtr, size_t versionNumElements)
 {
-    INSTALL_NONE,
-    INSTALLBAD_PACKAGE,
-    INSTALL_INTERNAL_ERROR,
-    INSTALL_SECURITY_FAILURE
-};
+    std::ifstream fin(TAF_FWUPDATE_VERSION_FILE);
+    std::string verstr;
+    getline(fin, verstr);
+    le_utf8_Copy(versionPtr, verstr.c_str(), TAF_FWUPDATE_MAX_VERS_LEN, NULL);
 
-ENUM Package
+    return LE_OK;
+}
+
+le_result_t taf_fwupdate_ABSync()
 {
-    PACKAGE_FOTA,
-    PACKAGE_SOTA,
-    PACKAGE_NON_QOTA
-};
-
-STRUCT StateInd
-{
-    State state;
-    InstallError error;
-    int32 percent;
-    Package pkgType;
-    string pkgName[MAX_PKG_NAME_LEN];
-};
-
-FUNCTION Download
-(
-);
-
-FUNCTION le_result_t Install
-(
-    Package packageType IN,
-    string name[MAX_PKG_NAME_LEN] IN
-);
-
-HANDLER StateHandler
-(
-    StateInd stateInd IN
-);
-
-EVENT State
-(
-    StateHandler handler
-);
+#ifdef TARGET_SA515M
+    TAF_ERROR_IF_RET_VAL(taf_mrc_SendOtaAbsyncMsg() != LE_OK, LE_FAULT,
+        "Fail to send OTA AB Sync message to MRC daemon.");
+    return LE_OK;
+#else
+    return LE_UNSUPPORTED;
+#endif
+}

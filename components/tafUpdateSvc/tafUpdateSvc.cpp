@@ -44,72 +44,42 @@ using namespace telux::tafsvc;
 COMPONENT_INIT
 {
     LE_INFO("tafUpdate Service Init...\n");
+    LE_INFO("tafAppMgmt Component Init...\n");
+    auto &tafAppMgmt = taf_AppMgmt::GetInstance();
+    tafAppMgmt.Init();
+    LE_INFO("tafAppMgmt Component Ready...\n");
+    LE_INFO("tafFwUpdate Component Init...\n");
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+    tafFwUpdate.Init();
+    LE_INFO("tafFwUpdate Component Ready...\n");
+    LE_INFO("tafUpdate Component Init...\n");
     auto &tafUpdate = taf_Update::GetInstance();
     tafUpdate.Init();
+    LE_INFO("tafUpdate Component Ready...\n");
     LE_INFO("tafUpdate Service Ready...\n");
 }
 
-le_result_t taf_update_Download(taf_update_ImageType_t type)
+void taf_update_Download()
 {
     taf_UpdateCmdReq_t cmdReq;
     memset(&cmdReq, 0, sizeof(taf_UpdateCmdReq_t));
-    cmdReq.cmdType = TAF_UPDATE_CMD_TYPE_ASYNC_DOWNLOAD;
-    cmdReq.imageType = type;
+    cmdReq.cmdType = TAF_UPDATE_CMD_TYPE_DOWNLOAD;
     le_event_Report(taf_Update::updateCmdEvId, &cmdReq, sizeof(taf_UpdateCmdReq_t));
-    return LE_OK;
 }
 
-le_result_t taf_update_Install(void)
+le_result_t taf_update_Install(taf_update_Package_t packageType, const char* packageName)
 {
-    TAF_ERROR_IF_RET_VAL(access(TAF_UPDATE_INSATLL_PAKCAGE, 0), LE_NOT_FOUND,
-        "%s not found", TAF_UPDATE_INSATLL_PAKCAGE);
+    TAF_ERROR_IF_RET_VAL(!((packageType == TAF_UPDATE_PACKAGE_FOTA) || (packageType == TAF_UPDATE_PACKAGE_SOTA)), LE_FAULT,
+        "Invalid package type %d.", packageType);
 
     taf_UpdateCmdReq_t cmdReq;
     memset(&cmdReq, 0, sizeof(taf_UpdateCmdReq_t));
-    cmdReq.cmdType = TAF_UPDATE_CMD_TYPE_ASYNC_INSTALL;
+    cmdReq.cmdType = TAF_UPDATE_CMD_TYPE_INSTALL;
+    cmdReq.pkgType = packageType;
+    cmdReq.pkgName = packageName;
     le_event_Report(taf_Update::updateCmdEvId, &cmdReq, sizeof(taf_UpdateCmdReq_t));
 
     return LE_OK;
-}
-
-le_result_t taf_update_RebootToActive()
-{
-    auto &tafUpdate = taf_Update::GetInstance();
-    taf_update_pa_ReportState_t rState = TAF_UPDATE_PA_REPORT_REBOOT;
-    int retry = 5;
-    while (retry) {
-        int ret = taf_update_pa_Report(tafUpdate.daSessionID, rState);
-        if (ret) {
-            LE_ERROR("Download agent report failed, retry = %d, ret = %d.", 6 - retry, ret);
-        } else {
-            LE_INFO("Download agent report success.");
-            break;
-        }
-        retry--;
-        le_thread_Sleep(1);
-    }
-
-    system("/sbin/reboot");
-
-    // Just keep waiting.
-    while (true) {
-       ;
-    }
-
-    return LE_OK;
-}
-le_result_t taf_update_GetFirmwareVersion(char* versionPtr, size_t versionNumElements)
-{
-    std::ifstream fin(TAF_UPDATE_VERSION_FILE);
-    std::string verstr;
-    getline(fin, verstr);
-    le_utf8_Copy(versionPtr, verstr.c_str(), TAF_UPDATE_MAX_VERS_LEN, NULL);
-    return LE_OK;
-}
-
-le_result_t taf_update_Sync()
-{
-    return LE_UNSUPPORTED;
 }
 
 taf_update_StateHandlerRef_t taf_update_AddStateHandler
@@ -120,7 +90,7 @@ taf_update_StateHandlerRef_t taf_update_AddStateHandler
 {
     auto &tafUpdate = taf_Update::GetInstance();
     le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("UpdateStateHandler",
-        tafUpdate.updateStateEvId, taf_Update::FirstLayerStateHandler, (void*)handlerFuncPtr);
+        tafUpdate.updateStateEvId, taf_Update::UpdateStateLayeredHandler, (void*)handlerFuncPtr);
     le_event_SetContextPtr(handlerRef, contextPtr);
     return (taf_update_StateHandlerRef_t)handlerRef;
 }

@@ -2342,7 +2342,40 @@ le_result_t taf_Gnss::GetSupportedConstellations
  taf_gnss_ConstellationBitMask_t* constellationMaskPtr
 )
 {
-    return LE_OK;//GetSupportedConstellations(constellationMaskPtr);
+     TAF_ERROR_IF_RET_VAL( constellationMaskPtr == NULL, LE_FAULT, "constellationMaskPtr is NULL !");
+     le_result_t result = LE_NOT_PERMITTED;
+
+    // Check the GNSS device state
+    switch (GnssState)
+    {
+        case TAF_GNSS_STATE_READY:
+        {
+            //filling the supported bitmask values
+            *constellationMaskPtr |= TAF_GNSS_CONSTELLATION_GLONASS;
+            *constellationMaskPtr |= TAF_GNSS_CONSTELLATION_BEIDOU;
+            *constellationMaskPtr |= TAF_GNSS_CONSTELLATION_GALILEO;
+            *constellationMaskPtr |= TAF_GNSS_CONSTELLATION_SBAS;
+            *constellationMaskPtr |= TAF_GNSS_CONSTELLATION_QZSS;
+            result = LE_OK;
+        }
+        break;
+        case TAF_GNSS_STATE_UNINITIALIZED:
+        case TAF_GNSS_STATE_ACTIVE:
+        case TAF_GNSS_STATE_DISABLED:
+        {
+            LE_ERROR("Bad state for that request [%d]", GnssState);
+            result = LE_NOT_PERMITTED;
+        }
+        break;
+        default:
+        {
+            LE_ERROR("Unknown GNSS state %d", GnssState);
+            result = LE_FAULT;
+        }
+        break;
+    }
+
+    return result;
 }
 
 le_result_t taf_Gnss::SetMinElevation

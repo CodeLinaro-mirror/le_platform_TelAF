@@ -350,6 +350,7 @@ namespace tafsvc {
             le_result_t GetMinElevation( uint8_t*  minElevationPtr);
             le_result_t SetNmeaSentences(taf_gnss_NmeaBitMask_t nmeaMask);
             le_result_t GetNmeaSentences(taf_gnss_NmeaBitMask_t* nmeaMaskPtr);
+            le_result_t GetSupportedNmeaSentences(taf_gnss_NmeaBitMask_t* nmeaMaskPtr);
             le_mem_PoolRef_t   PositionHandlerPoolRef;
             le_mem_PoolRef_t   PositionSampleRequestPoolRef;
             le_event_Id_t positionEventId;

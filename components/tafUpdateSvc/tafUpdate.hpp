@@ -49,12 +49,6 @@
 #include <map>
 #include <string>
 
-#include <telux/common/CommonDefines.hpp>
-#include <telux/data/DataDefines.hpp>
-#include <telux/data/DataFactory.hpp>
-#include <telux/tel/ServingSystemManager.hpp>
-#include <telux/tel/PhoneFactory.hpp>
-
 #include "tafSvcIF.hpp"
 #include "tafUpdatePa.hpp"
 #include "tafAppMgmt.hpp"
@@ -62,7 +56,10 @@
 
 #define TAF_UPDATE_PAKCAGE_FILE_PATH "/data/images/TCU_target"
 #define TAF_UPDATE_STATE_FILE "/taf_update_state"
+#define TAF_UPDATE_PACKAGE_TYPE_FILE "/taf_update_package_type"
+#define TAF_UPDATE_APP_NAME_FILE "/taf_update_app_name"
 
+#define TAF_UPDATE_TIME_TO_ACCESS_FILE 10
 #define TAF_UPDATE_TIME_INTERVAL 1000
 #define TAF_UPDATE_THREAD_STACK_SIZE 0x20000
 #define TAF_UPDATE_INSTALL_CMD_LEN 50
@@ -71,7 +68,7 @@
 #define TAF_UPDATE_QOTA_HEADER_SIZE 48
 
 #define TAF_UPDATE_DATA_SERVICE_TIME_OUT 20
-#define TAF_UPDATE_PROBATION_TIME 60
+#define TAF_UPDATE_PROBATION_TIME 10
 
 #define TAF_UPDATE_RW_BUFFER_SIZE 4096
 
@@ -103,27 +100,6 @@ typedef struct
 
 namespace telux {
 namespace tafsvc {
-
-    class taf_UpdateServingSystemListener : public telux::data::IServingSystemListener {
-    public:
-        std::mutex cv_mutex;
-        std::condition_variable conVar;
-        telux::data::DataServiceState dsStatus;
-
-        taf_UpdateServingSystemListener(SlotId slot);
-        void onServiceStateChanged(telux::data::ServiceStatus status) override;
-
-    private:
-        SlotId slotId;
-    };
-
-    class taf_UpdateRequestServiceStatusCallback {
-    public:
-        le_sem_Ref_t semaphore;
-        telux::data::ServiceStatus status;
-        void requestServiceStatus(telux::data::ServiceStatus serviceStatus, telux::common::ErrorCode error);
-    };
-
     class taf_Update : public ITafSvc {
     public:
         taf_Update() {};
@@ -139,8 +115,8 @@ namespace tafsvc {
         static void JsonErrorHandler(le_json_Error_t error, const char* msg);
         le_result_t ParseBundle(const char* file);
 
-        void UpdateSetState(taf_update_State_t state);
-        void UpdateGetState(taf_update_State_t* state);
+        void UpdateWriteFs(const char* filePath, uint8_t* buffer, size_t bufferSize);
+        void UpdateReadFs(const char* filePath, uint8_t* buffer, size_t bufferSize);
 
         static void DownloadTimerTick(le_timer_Ref_t timerRef);
         static void ProbationTimerTick(le_timer_Ref_t timerRef);
@@ -150,8 +126,6 @@ namespace tafsvc {
         static void* UpdateCmdThread(void* contextPtr);
 
         static void UpdateProcCmdHandler(void* cmdReqPtr);
-
-        void onInitCompleted(telux::common::ServiceStatus status);
 
         void Init(void);
 
@@ -166,15 +140,6 @@ namespace tafsvc {
         taf_update_Package_t pkgType;
         char sotaAppName[TAF_APPMGMT_APP_NAME_BYTES];
         int sotaFd;
-
-    private:
-        bool subSystemStatusUpdated;
-        std::mutex mtx;
-        std::condition_variable conVar;
-        std::map<SlotId, std::shared_ptr<telux::data::IServingSystemManager>> dataServingSystemManagers;
-        std::map<SlotId, std::shared_ptr<telux::data::IServingSystemListener>> dataServingSystemListeners;
-        std::map<SlotId, std::shared_ptr<taf_UpdateServingSystemListener>> updateServingSystemlisteners;
-        std::shared_ptr<taf_UpdateRequestServiceStatusCallback> reqSvcStateCb;
     };
 }
 }

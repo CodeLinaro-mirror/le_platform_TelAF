@@ -118,7 +118,10 @@ telux::common::Status taf_Gnss::DgnssManagerInit() {
         }
 #endif
 #ifdef TARGET_SA415M
+        auto &locationFactory = LocationFactory::getInstance();
+        mDgnssManager = locationFactory.getDgnssManager(DgnssDataFormat::DATA_FORMAT_RTCM_3);
         bool subSystemsStatus = mDgnssManager->isSubsystemReady();
+        startTime = std::chrono::system_clock::now();
         if(!subSystemsStatus) {
             LE_INFO( "Dgnss subsystem is not ready, Please wait");
             std::future<bool> f = mDgnssManager->onSubsystemReady();
@@ -169,7 +172,10 @@ telux::common::Status taf_Gnss::LocationManagerInit() {
         }
 #endif
 #ifdef TARGET_SA415M
+        auto &locationFactory = LocationFactory::getInstance();
+        mLocationManager = locationFactory.getLocationManager();
         bool subSystemsStatus = mLocationManager->isSubsystemReady();
+        startTime = std::chrono::system_clock::now();
         if(!subSystemsStatus) {
             LE_INFO( "Location subsystem is not ready, Please wait");
             std::future<bool> f = mLocationManager->onSubsystemReady();
@@ -223,7 +229,10 @@ telux::common::Status taf_Gnss::LocationConfiguratorInit() {
         }
 #endif
 #ifdef TARGET_SA415M
+        auto &locationFactory = LocationFactory::getInstance();
+        mLocationConfigurator = locationFactory.getLocationConfigurator();
         bool subSystemsStatus = mLocationConfigurator->isSubsystemReady();
+        startTime = std::chrono::system_clock::now();
         if(!subSystemsStatus) {
             LE_INFO("Location configuration subsystem is not ready, Please wait");
             std::future<bool> f = mLocationConfigurator->onSubsystemReady();

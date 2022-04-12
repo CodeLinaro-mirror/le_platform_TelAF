@@ -56,7 +56,14 @@ using namespace std;
 #define CFG_NODE_PROPULSION_ELECTRIC "Electric"
 #define CFG_NODE_PROPULSION_HYDROGEN "Hydrogen"
 #define CFG_NODE_PROPULSION_OTHER "Other"
-
+#define ISOWMI_START 0
+#define ISOWMI_LENGTH 3
+#define ISOVDS_START (ISOWMI_START + ISOWMI_LENGTH)
+#define ISOVDS_LENGTH 6
+#define ISOVIS_MODEL_YEAR_START (ISOVDS_START + ISOVDS_LENGTH)
+#define ISOVIS_MODEL_YEAR_LENGTH 1
+#define ISOVIS_SEQ_PLANT_START (ISOVIS_MODEL_YEAR_START + ISOVIS_MODEL_YEAR_LENGTH)
+#define ISOVIS_SEQ_PLANT_LENGTH 7
 
 namespace telux {
     namespace tafsvc {
@@ -171,7 +178,8 @@ namespace telux {
                 void SetCallIndex(int32_t callIndex);
                 le_event_Id_t StateChangeEventId;
 
-                std::promise<telux::tel::ECallMode> opModeProm;
+                std::promise<telux::tel::ECallMode> getOpModeProm;
+                std::promise<telux::common::ErrorCode> setOpModeProm;
                 std::promise<telux::common::ErrorCode> updateMsdProm;
                 std::promise<telux::common::ErrorCode> makeEcallProm;
 

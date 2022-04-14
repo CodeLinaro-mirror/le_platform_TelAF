@@ -158,9 +158,11 @@ void tafECallListener::onCallInfoChange(std::shared_ptr<telux::tel::ICall> call)
     }
 }
 
+#ifdef TARGET_SA515M
 void tafECallListener::onEmergencyNetworkScanFail(int phoneId) {
 
 }
+#endif
 
 taf_ecall_State_t tafECallListener::eCallMsdTransmissionStatusToState(
    telux::tel::ECallMsdTransmissionStatus status)
@@ -237,9 +239,11 @@ void tafECallListener::onECallHlapTimerEvent(int phoneId, ECallHlapTimerEvents t
     if(timerEvents.t9 == HlapTimerEvent::EXPIRED) {
         state = TAF_ECALL_STATE_T5_EXPIRED;
     }
+#ifdef TARGET_SA515M
     if(timerEvents.t10 == HlapTimerEvent::EXPIRED) {
         state = TAF_ECALL_STATE_T5_EXPIRED;
     }
+#endif
     if (state != TAF_ECALL_STATE_UNKNOWN) {
         auto &eCall = taf_ecall::GetInstance();
         StateChangeEvent_t stateEvent;

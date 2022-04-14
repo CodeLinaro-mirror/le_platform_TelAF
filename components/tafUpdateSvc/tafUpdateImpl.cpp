@@ -498,8 +498,10 @@ void taf_Update::ProbationTimerTick(le_timer_Ref_t timerRef)
             LE_INFO("Mark good for application.");
             (void)le_updateCtrl_MarkGood(true);
         } else {
+#ifdef TARGET_SA515M
             TAF_ERROR_IF_RET_NIL(taf_mrc_SendOtaAbsyncMsg() != LE_OK,
                 "Fail to send OTA AB Sync message to MRC daemon.");
+#endif
         }
         auto &tafUpdate = taf_Update::GetInstance();
         taf_update_pa_ReportState_t rState = TAF_UPDATE_PA_REPORT_SUCCESS;
@@ -663,7 +665,9 @@ void taf_Update::UpdateProcCmdHandler(void* cmdReqPtr)
 ======================================================================*/
 void* taf_Update::UpdateCmdThread(void* contextPtr)
 {
+#ifdef TARGET_SA515M
     taf_mrc_ConnectService();
+#endif
     le_update_ConnectService();
 
     // Regster app install handler.
@@ -698,60 +702,6 @@ void taf_Update::onInitCompleted(telux::common::ServiceStatus status)
 void taf_Update::Init(void)
 {
     std::chrono::time_point<std::chrono::system_clock> startTime = std::chrono::system_clock::now();
-    // 1. Set up data call.
-    updateServingSystemlisteners[SlotId::DEFAULT_SLOT_ID] = std::make_shared<taf_UpdateServingSystemListener>(SlotId::DEFAULT_SLOT_ID);
-    dataServingSystemListeners[SlotId::DEFAULT_SLOT_ID] = updateServingSystemlisteners[SlotId::DEFAULT_SLOT_ID];
-
-    telux::common::ServiceStatus subSystemStatus = telux::common::ServiceStatus::SERVICE_FAILED;
-    subSystemStatusUpdated = false;
-    auto initCb = std::bind(&taf_Update::onInitCompleted, this, std::placeholders::_1);
-    auto &dataFactory = telux::data::DataFactory::getInstance();
-    auto servingSystemMgr = dataFactory.getServingSystemManager(SlotId::DEFAULT_SLOT_ID, initCb);
-    bool subSysReady = false;
-    if (servingSystemMgr) {
-        std::unique_lock<std::mutex> uLock(mtx);
-        conVar.wait(uLock, [this]{return this->subSystemStatusUpdated;});
-        subSystemStatus = servingSystemMgr->getServiceStatus();
-
-        if (subSystemStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE) {
-            LE_INFO("Serving system manager on slot %d is ready.", (int)SlotId::DEFAULT_SLOT_ID);
-            subSysReady = true;
-        } else {
-            LE_ERROR("Serving system manager on slot %d is not ready.", (int)SlotId::DEFAULT_SLOT_ID);
-            //If manager exist, deregister and remove it
-            if (dataServingSystemManagers.find(SlotId::DEFAULT_SLOT_ID) != dataServingSystemManagers.end()) {
-                dataServingSystemManagers[SlotId::DEFAULT_SLOT_ID]->deregisterListener(dataServingSystemListeners[SlotId::DEFAULT_SLOT_ID]);
-                dataServingSystemManagers.erase(SlotId::DEFAULT_SLOT_ID);
-            }
-            subSysReady = false;
-        }
-
-        //If it is new manager and initialization passed
-        if (subSysReady && (dataServingSystemManagers.find(SlotId::DEFAULT_SLOT_ID) == dataServingSystemManagers.end())) {
-            dataServingSystemManagers.emplace(SlotId::DEFAULT_SLOT_ID, servingSystemMgr);
-            dataServingSystemManagers[SlotId::DEFAULT_SLOT_ID]->registerListener(dataServingSystemListeners[SlotId::DEFAULT_SLOT_ID]);
-        }
-    }
-
-    reqSvcStateCb = std::make_shared<taf_UpdateRequestServiceStatusCallback>();
-    reqSvcStateCb->semaphore = le_sem_Create("taf_UpdateReqSvcStateCbSem", 0);
-    auto reqSvcStateCbFunc = std::bind(&taf_UpdateRequestServiceStatusCallback::requestServiceStatus, reqSvcStateCb, std::placeholders::_1, std::placeholders::_2);
-
-    telux::common::Status status = dataServingSystemManagers[SlotId::DEFAULT_SLOT_ID]->requestServiceStatus(reqSvcStateCbFunc);
-    TAF_ERROR_IF_RET_NIL(status != telux::common::Status::SUCCESS, "Call sdk function failed.");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(reqSvcStateCb->semaphore, timeToWait);
-    TAF_ERROR_IF_RET_NIL(res != LE_OK, "Wait semaphore timeout.");
-    LE_INFO("Current data service status: %d.", (int)reqSvcStateCb->status.serviceState);
-    if (reqSvcStateCb->status.serviceState != telux::data::DataServiceState::IN_SERVICE) {
-        std::unique_lock<std::mutex> uLock(updateServingSystemlisteners[SlotId::DEFAULT_SLOT_ID]->cv_mutex);
-        updateServingSystemlisteners[SlotId::DEFAULT_SLOT_ID]->conVar.wait_for(uLock,
-            std::chrono::seconds(TAF_UPDATE_DATA_SERVICE_TIME_OUT));
-        if (updateServingSystemlisteners[SlotId::DEFAULT_SLOT_ID]->dsStatus != telux::data::DataServiceState::IN_SERVICE) {
-            LE_ERROR("Wait for data in service time out.");
-        }
-    }
 
     uint32_t profileId = taf_dcs_GetDefaultProfileIndex();
     taf_dcs_ProfileRef_t profileRef = taf_dcs_GetProfile(profileId);

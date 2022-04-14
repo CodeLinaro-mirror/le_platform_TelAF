@@ -1,7 +1,5 @@
 //--------------------------------------------------------------------------------------------------
-// Sample system definition that includes essential modem and positioning services.
-//
-//
+// TelSDK sa415m system definition that includes essential services.
 //--------------------------------------------------------------------------------------------------
 
 #include "$LEGATO_ROOT/legatoTargetConfig.sinc"
@@ -9,12 +7,6 @@
 apps:
 {
     // Platform services.
-    $LEGATO_ROOT/apps/platformServices/audioService
-    $LEGATO_ROOT/apps/platformServices/cellNetService
-    $LEGATO_ROOT/apps/platformServices/fwupdateService
-    $LEGATO_ROOT/apps/platformServices/modemService
-    $LEGATO_ROOT/apps/platformServices/powerMgr
-    $LEGATO_ROOT/apps/platformServices/secStore
     $TELAF_ROOT/apps/tafServices/tafVoiceCallSvc
     $TELAF_ROOT/apps/tafServices/tafSimCardSvc
     $TELAF_ROOT/apps/tafServices/tafRadioSvc
@@ -22,53 +14,65 @@ apps:
     $TELAF_ROOT/apps/tafServices/tafLocationSvc
     $TELAF_ROOT/apps/tafServices/tafSMSSvc
     $TELAF_ROOT/apps/tafServices/tafDataCallSvc
+    $TELAF_ROOT/apps/tafServices/tafRemoteSimSvc
+    // $TELAF_ROOT/apps/tafServices/tafPMSvc
+    $TELAF_ROOT/apps/tafServices/tafUpdateSvc
+    $TELAF_ROOT/apps/tafServices/tafECallSvc
+    // $TELAF_ROOT/apps/tafServices/tafMRCSvc
+    $TELAF_ROOT/apps/tafServices/tafGpioSvc
+    // $TELAF_ROOT/apps/tafServices/tafNetSvc
+    $TELAF_ROOT/apps/tafServices/tafKeyStoreSvc
 
     // Command-line tools.
     $LEGATO_ROOT/apps/tools/tools
 
     // test apps
-    $TELAF_ROOT/apps/test/tafDataCallTest/tafDataCallUnitTest/tafDataCallUnitTest
-    $TELAF_ROOT/apps/test/tafVoiceCallTest/tafVoiceCallUnitTest/tafVoiceCallUnitTest
-    $TELAF_ROOT/apps/test/tafRadioTest/tafRadioUnitTest/tafRadioUnitTest
-    $LEGATO_ROOT/apps/sample/voiceCallApp/voiceCallApp
-    $TELAF_ROOT/apps/test/tafSimTest/tafSimIntegrationTest/tafSimIntgTest
+    // $TELAF_ROOT/apps/test/tafDataCallTest/tafDataCallUnitTest/tafDataCallUnitTest
+    // $TELAF_ROOT/apps/test/tafVoiceCallTest/tafVoiceCallUnitTest/tafVoiceCallUnitTest
+    // $TELAF_ROOT/apps/test/tafRadioTest/tafRadioUnitTest/tafRadioUnitTest
+    // $LEGATO_ROOT/apps/sample/voiceCallApp/voiceCallApp
+    // $TELAF_ROOT/apps/test/tafSimTest/tafSimIntegrationTest/tafSimIntgTest
+    // $TELAF_ROOT/apps/test/tafSmsTest/tafSMSUnitTest
+    // $TELAF_ROOT/apps/test/tafRSimTest/tafRSimUnitTest/tafRSimUnitTest
+    // $TELAF_ROOT/apps/test/tafRSimTest/tafSAPServerUnitTest/tafSAPServerUnitTest
+    // $TELAF_ROOT/apps/test/tafSimTest/tafRSPUnitTest/tafRSPUnitTest
+    // $TELAF_ROOT/apps/sample/remoteSim/tafRSimApp
+    // $TELAF_ROOT/apps/sample/sapCard/tafSAPProviderApp
+    // $TELAF_ROOT/apps/test/tafUpdateTest/tafUpdateUnitTest/tafUpdateTestApp
+    // $TELAF_ROOT/apps/sample/rsp/tafRSPApp
+    // $TELAF_ROOT/apps/test/tafMrcTest/tafMRCUnitTest/tafMRCUnitTest
+    // $TELAF_ROOT/apps/test/tafECallTest/tafECallUnitTest/tafECallUnitTest
+    // $TELAF_ROOT/apps/test/tafNetTest/tafNetUnitTest/tafNetUnitTest
+    // $TELAF_ROOT/apps/test/tafNetTest/tafNetIntTest/tafNetIntTest
+    // $TELAF_ROOT/apps/test/tafKeyStoreTest/tafKeyStoreUnitTest/tafKeyStoreUnitTest
 }
 
 commands:
 {
     cm = tools:/scripts/cm
-    fwupdate = tools:/bin/fwupdate
-    secstore = tools:/bin/secstore
     gnss = tools:/bin/gnss
 }
 
 bindings:
 {
-    <root>.le_fwupdate -> fwupdateService.le_fwupdate
+    <root>.taf_update -> tafUpdateSvc.taf_update
+    <root>.taf_appMgmt -> tafUpdateSvc.taf_appMgmt
+    <root>.taf_fwupdate -> tafUpdateSvc.taf_fwupdate
 }
 
 interfaceSearch:
 {
     $TELAF_ROOT/interfaces
-    interfaces/modemServices
     interfaces/positioning
-    $LEGATO_ROOT/apps/sample/voiceCallApp
+    // $LEGATO_ROOT/apps/sample/voiceCallApp
 }
 
 cflags:
 {
-    #if ${TARGET} = sa515m
-        -DTARGET_SA515M
-    #elif ${TARGET} = sa415m
-        -DTARGET_SA415M
-    #endif
+    -DTARGET_SA415M
 }
 
 cxxflags:
 {
-    #if ${TARGET} = sa515m
-        -DTARGET_SA515M
-    #elif ${TARGET} = sa415m
-        -DTARGET_SA415M
-    #endif
+    -DTARGET_SA415M
 }

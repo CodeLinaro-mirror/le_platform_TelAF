@@ -124,7 +124,9 @@ namespace telux {
             void onCallInfoChange(std::shared_ptr<telux::tel::ICall> call) override;
             void onECallMsdTransmissionStatus(
                     int phoneId, telux::tel::ECallMsdTransmissionStatus msdTransmissionStatus) override;
+#ifdef TARGET_SA515M
             void onEmergencyNetworkScanFail(int phoneId) override;
+#endif
             void onECallHlapTimerEvent(int phoneId, ECallHlapTimerEvents timerEvents) override;
 
              taf_ecall_State_t eCallMsdTransmissionStatusToState( ECallMsdTransmissionStatus status);

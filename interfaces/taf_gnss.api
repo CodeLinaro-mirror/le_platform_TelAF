@@ -410,6 +410,17 @@ BITMASK NmeaBitMask
     NMEA_MASK_GPZDA //Not Supported by TelSDK
 };
 
+STRUCT DrParams
+{
+   double rollOffset;
+   double yawOffset;
+   double pitchOffset;
+   double offsetUnc;
+   double speedFactor;
+   double speedFactorUnc;
+   double gyroFactor;
+   double gyroFactorUnc;
+};
 /**
  * Set the area for the GNSS constellation
  *
@@ -568,6 +579,10 @@ FUNCTION le_result_t GetNmeaSentences
  NmeaBitMask nmeaMaskPtr     OUT
 );
 
+FUNCTION le_result_t SetDRConfig
+(
+ DrParams drParamsPtr  IN
+);
 FUNCTION le_result_t GetSupportedNmeaSentences
 (
  NmeaBitMask nmeaMaskPtr     OUT

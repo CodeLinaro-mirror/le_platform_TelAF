@@ -1,0 +1,25 @@
+sandboxed: false
+executables:
+{
+    tafLocationUnitTest = ( tafLocationUnitTestComp )
+}
+
+
+processes:
+{
+    run:
+    {
+        (tafLocationUnitTest)
+    }
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+}
+
+start: manual
+
+bindings:
+{
+    tafLocationUnitTest.tafLocationUnitTestComp.taf_gnss -> tafLocationSvc.taf_gnss
+}

@@ -142,9 +142,11 @@ namespace tafsvc {
             le_result_t CleanListRef(taf_net_DestNatEntryListRef_t destNatEntryListRef);
 
             std::shared_ptr<telux::data::net::INatManager> staticNatManager = nullptr;
+#ifdef TARGET_SA515M //only sa515 using
             bool IsSubSystemStatusUpdated=false;
             std::mutex mMutex;
             std::condition_variable conVar;
+#endif
     };
 
 }

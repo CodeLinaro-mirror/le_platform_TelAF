@@ -398,11 +398,26 @@ void taf_DataConnection::StartDataCallCallback(const std::shared_ptr<telux::data
 
     callEvent.event         = EVT_START_CALLBACK;
     callEvent.errorCode     = errorCode;
+
+    // In SA415M with old telsdk version, when call telsdk startDataCall function,
+    // the callback handler will return errorCode with SUCCESS value and
+    // callStatus with INVALID value,not CONNECTING value
+#ifdef TARGET_SA415M
+    if(errorCode == telux::common::ErrorCode::SUCCESS)
+        callEvent.callStatus = telux::data::DataCallStatus::NET_CONNECTING;
+    else
+        callEvent.callStatus    = iCall->getDataCallStatus();
+#else
     callEvent.callStatus    = iCall->getDataCallStatus();
+#endif
+
     callEvent.profileId     = iCall->getProfileId();
     callEvent.ipType        = iCall->getIpFamilyType();
     callEvent.ipv4Status    = iCall->getIpv4Info().status;
     callEvent.ipv6Status    = iCall->getIpv6Info().status;
+    LE_DEBUG("event=%d,errcode=%d, callstatus=%s,profileId=%d,ipType=%d",
+            (int)callEvent.event,(int)callEvent.errorCode,dataConnection.CallStatusToString(callEvent.callStatus),
+            (int)callEvent.profileId,(int)callEvent.ipType);
     le_event_Report(dataConnection.CallEvent, &callEvent,sizeof(dataCallEvent_t));
 
     return;
@@ -784,6 +799,9 @@ le_result_t taf_DataConnection::StartSessionAllSync(int32_t profileId, taf_dcs_P
     if (result != LE_OK)
     {
         LE_ERROR("start synchronous session cmd is failed, result: %d", result);
+        //if start session failed ,remove sessionRef from callCtxPtr
+        callCtxPtr = GetCallCtx(profileId);
+        RemoveSessionFromCallCtx(callCtxPtr,sessionRef);
         return result;
     }
 
@@ -827,7 +845,8 @@ le_result_t taf_DataConnection::StopSession(int32_t profileId, taf_dcs_Pdp_t pdp
     if (numLinks > 0)
     {
         LE_INFO("profile(%d) is used by (%d) clients, nothing to do in this operation", profileId, numLinks);
-        return LE_OK;
+        //don't return LE_OK, if return LE_OK ,the caller StopSessionCmdSync will block, because CmdSynchronousPromise value is not set
+        return LE_DUPLICATE;
     }
 
     telux::data::IpFamilyType ipType = telux::data::IpFamilyType::IPV4V6;
@@ -848,7 +867,11 @@ le_result_t taf_DataConnection::StopSessionCmdSync(int32_t profileId, taf_dcs_Pd
     CmdSynchronousPromise = std::promise<le_result_t>();
 
     le_result_t result = StopSession(profileId, pdpType, sessionRef);
-    if (result != LE_OK)
+
+    //When result is equal to LE_DUPLICATE, return OK and don't block
+    if (result == LE_DUPLICATE)
+        return LE_OK;
+    else if (result != LE_OK)
     {
         LE_ERROR("stopping session command is failed, result: %d", result);
         return result;
@@ -920,9 +943,14 @@ le_result_t taf_DataConnection::GetDefaultProfileIdSync(uint32_t &profileId)
     le_result_t result = SendGettingDefaultProfileIdCmd();
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "setting default profile is failed");
 
+//In SA415M with old telsdk version, there is no getDefaultProfile function which will not set CmdSynchronousPromise value
+#ifdef TARGET_SA515M
     // blocking here to get response
     std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
     result = futResult.get();
+#else
+    result = LE_OK;
+#endif
 
     if (result == LE_OK)
     {

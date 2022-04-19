@@ -472,10 +472,8 @@ static int TafNatGetDestNatListOnDefaultPdn()
             else if(proto == NET_IP_PROTO_NUMBER_UDP)
                     le_utf8_Copy(ipProtoStr, "UDP", NET_IP_PROTO_NUMBER_LEN, NULL);
             else
-            {
                 LE_INFO("error ip proto number");
-                continue;
-            }
+
             LE_INFO("----ipaddr=%s private port=%d, global port=%d,proto=%s",ipaddr,priPort,glbPort,ipProtoStr);
 
             entryRef=taf_net_GetNextDestNatEntry(listRef);

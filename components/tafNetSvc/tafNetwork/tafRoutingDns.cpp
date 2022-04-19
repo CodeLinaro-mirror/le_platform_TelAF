@@ -409,8 +409,9 @@ static le_result_t SetLinuxIPv6DefaultGateway(const char *intfPtr, const char *g
                 return LE_DUPLICATE;
             }
 
-        // Delete the current default IPv6 gateway addr from the system
-        delRetLen=snprintf(systemCallDelCmd, sizeof(systemCallDelCmd), IP_COMMAND " -6 route del default");
+        // Delete the current default gateway with specified address from the system
+        delRetLen=snprintf(systemCallDelCmd, sizeof(systemCallDelCmd),
+                           IP_COMMAND " -6 route del default via %s",defaultGwBackup.ipV6Gateway);
         delRet=CallLinuxPopen(systemCallDelCmd,delRetLen);
         LE_DEBUG("delete old default gateway :%s", systemCallDelCmd);
         if(delRet != LE_OK)
@@ -677,7 +678,6 @@ le_result_t net_SetLinuxDnsNameServers(const char *dns1Ptr, const char *dns2Ptr,
     //rewrite the dns file
     file_handle=fileno(resolvFPtr);
     ftruncate(file_handle, 0);
-    lseek(file_handle, 0, SEEK_SET);
 
     if(fputs(filtered_str.c_str(), resolvFPtr) < 0)
     {

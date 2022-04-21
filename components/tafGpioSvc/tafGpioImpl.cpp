@@ -816,7 +816,7 @@ void taf_Gpio::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *ctxPt
 {
     taf_Gpio gpio = getInstance();
     LE_INFO("OnClientDisconnection");
-    for(int i=0; i < MAX_PIN_NUMBER; i++) {
+    for(int i=0; i < gpio.numOfGpios; i++) {
         // reset the gpio ref data on client disconnection
         if(gpio.tafGpioRefPin[i]->lockedSession == sessionRef) {
             gpio.tafGpioRefPin[i]->isLocked = false;

@@ -36,110 +36,126 @@
 #include "interfaces.h"
 
 static int pin61 = 61;
+static int outPinNum = -1;
+static int inPinNum = -1;
 static taf_gpio_ChangeEventHandlerRef_t ref;
 le_result_t res;
 static void Test_taf_gpio_IsOutput() {
-    LE_INFO("Test_taf_gpio_IsOutput for PIN 42 is %s", taf_gpio_IsOutput(42) ? "TRUE" : "FALSE");
+    LE_INFO("Test_taf_gpio_IsOutput for PIN %d is %s", outPinNum,
+            taf_gpio_IsOutput(outPinNum) ? "TRUE" : "FALSE");
     LE_INFO("Test_taf_gpio_IsOutput done");
 }
 static void Test_taf_gpio_Activate() {
-    LE_INFO("Test_taf_gpio_Activate, for PIN 42 sets the direction to OUT if its not out, and puts to active state");
-    res = taf_gpio_Activate(42, false);
+    LE_INFO("Test_taf_gpio_Activate, for PIN %d sets the direction to OUT if its not out,"
+           " and puts to active state", outPinNum);
+    res = taf_gpio_Activate(outPinNum, false);
     if(res == LE_OK) {
-        LE_INFO("Gpio pin 42 Activate Successful");
+        LE_INFO("Gpio pin %d Activate Successful", outPinNum);
     } else if (res == LE_BUSY) {
-        LE_INFO("Gpio pin 42 Activate results in GPIO_BUSY");
+        LE_INFO("Gpio pin %d Activate results in GPIO_BUSY", outPinNum);
+    } else if (res == LE_OUT_OF_RANGE) {
+        LE_INFO("Gpio pin %d is out of range", outPinNum);
     } else
-        LE_INFO("Gpio pin 42 Activate results in IO ERROR");
+        LE_INFO("Gpio pin %d Activate results in IO ERROR", outPinNum);
     LE_INFO("======Test_taf_gpio_Activate done======");
 }
 static void Test_taf_gpio_IsActive() {
-    LE_INFO("Test_taf_gpio_IsActive for PIN 42");
-    LE_INFO("Test_taf_gpio_IsActive is %s", taf_gpio_IsActive(42) ? "TRUE" : "FALSE");
+    LE_INFO("Test_taf_gpio_IsActive for PIN %d", outPinNum);
+    LE_INFO("Test_taf_gpio_IsActive is %s", taf_gpio_IsActive(outPinNum) ? "TRUE" : "FALSE");
     LE_INFO("Test_taf_gpio_IsActive done");
 }
 static void Test_taf_gpio_Deactivate() {
-    LE_INFO("Test_taf_gpio_Deactivate for PIN 42");
-    res = taf_gpio_Deactivate(42, false);
+    LE_INFO("Test_taf_gpio_Deactivate for PIN %d", outPinNum);
+    res = taf_gpio_Deactivate(outPinNum, false);
     if(res == LE_OK) {
-        LE_INFO("Gpio pin 42 Deactivate Successful");
+        LE_INFO("Gpio pin %d Deactivate Successful", outPinNum);
     } else if (res == LE_BUSY) {
-        LE_INFO("Gpio pin 42 Deactivate results in GPIO_BUSY");
-    } else
-        LE_INFO("Gpio pin 42 Deactivate results in IO ERROR");
+        LE_INFO("Gpio pin %d Deactivate results in GPIO_BUSY", outPinNum);
+    } else if (res == LE_OUT_OF_RANGE) {
+        LE_INFO("Gpio pin %d is out of range", outPinNum);
+    }  else
+        LE_INFO("Gpio pin %d Deactivate results in IO ERROR", outPinNum);
     LE_INFO("Test_taf_gpio_Deactivate done");
 }
 static void Test_taf_gpio_GetPolarity() {
-    LE_INFO("Test_taf_gpio_GetPolarity for PIN 42 %s",(taf_gpio_GetPolarity(42) == TAF_GPIO_ACTIVE_HIGH) ? "Active High" : "Active Low");
+    LE_INFO("Test_taf_gpio_GetPolarity for PIN %d %s",outPinNum, (taf_gpio_GetPolarity(outPinNum)
+            == TAF_GPIO_ACTIVE_HIGH) ? "Active High" : "Active Low");
     LE_INFO("Test_taf_gpio_GetPolarity done");
 }
 static void Test_taf_gpio_SetInput() {
-    LE_INFO("Test_taf_gpio_SetInput for PIN 61 with Active High polarity");
-    res = taf_gpio_SetInput(61, TAF_GPIO_ACTIVE_HIGH, false);
+    LE_INFO("Test_taf_gpio_SetInput for PIN %d with Active High polarity", inPinNum);
+    res = taf_gpio_SetInput(inPinNum, TAF_GPIO_ACTIVE_HIGH, false);
     if(res == LE_OK) {
-        LE_INFO("Gpio pin 61 SetInput Successful");
+        LE_INFO("Gpio pin %d SetInput Successful", inPinNum);
     } else if (res == LE_BUSY) {
-        LE_INFO("Gpio pin 61 SetInput results in GPIO_BUSY");
-    } else
-        LE_INFO("Gpio pin 61 SetInput results in IO ERROR");
+        LE_INFO("Gpio pin %d SetInput results in GPIO_BUSY", inPinNum);
+    } else if (res == LE_OUT_OF_RANGE) {
+        LE_INFO("Gpio pin %d is out of range", outPinNum);
+    }  else
+        LE_INFO("Gpio pin %d SetInput results in IO ERROR", inPinNum);
     LE_INFO("Test_taf_gpio_SetInput done");
 }
 static void Test_taf_gpio_IsInput() {
-    LE_INFO("Test_taf_gpio_IsInput for PIN 61 is %s", taf_gpio_IsInput(61) ? "TRUE" : "FALSE");
+    LE_INFO("Test_taf_gpio_IsInput for PIN %d is %s", inPinNum,
+            taf_gpio_IsInput(inPinNum) ? "TRUE" : "FALSE");
     LE_INFO("Test_taf_gpio_IsInput done");
 }
 static void Test_taf_gpio_Read() {
-    taf_gpio_State_t state = taf_gpio_Read(61, false);
+    taf_gpio_State_t state = taf_gpio_Read(inPinNum, false);
     if (state == TAF_GPIO_HIGH) {
-        LE_INFO("Test_taf_gpio_Read, value of PIN 61 is 1");
+        LE_INFO("Test_taf_gpio_Read, value of PIN %d is 1", inPinNum);
     } else if (state == TAF_GPIO_LOW) {
-        LE_INFO("Test_taf_gpio_Read, value of PIN 61 is 0");
+        LE_INFO("Test_taf_gpio_Read, value of PIN %d is 0", inPinNum);
     } else if (state == TAF_GPIO_BUSY) {
-        LE_INFO("Test_taf_gpio_Read, GPIO PIN 61 is BUSY");
+        LE_INFO("Test_taf_gpio_Read, GPIO PIN %d is BUSY", inPinNum);
     }
     LE_INFO("Test_taf_gpio_Read done");
 }
 static void Test_taf_gpio_SetEdgeSense() {
-    LE_INFO("Test_taf_gpio_SetEdgeSense both for PIN 61");
-    res = taf_gpio_SetEdgeSense(61, TAF_GPIO_EDGE_BOTH, false);
+    LE_INFO("Test_taf_gpio_SetEdgeSense both for PIN %d", inPinNum);
+    res = taf_gpio_SetEdgeSense(inPinNum, TAF_GPIO_EDGE_BOTH, false);
     if(res == LE_OK) {
-        LE_INFO("Gpio pin 61 SetEdgeSense Successful");
+        LE_INFO("Gpio pin %d SetEdgeSense Successful", inPinNum);
     } else if (res == LE_BUSY) {
-        LE_INFO("Gpio pin 61 SetEdgeSense results in GPIO_BUSY");
-    } else
-        LE_INFO("Gpio pin 61 SetEdgeSense results in IO ERROR");
+        LE_INFO("Gpio pin %d SetEdgeSense results in GPIO_BUSY", inPinNum);
+    } else if (res == LE_OUT_OF_RANGE) {
+        LE_INFO("Gpio pin %d is out of range", outPinNum);
+    }  else
+        LE_INFO("Gpio pin %d SetEdgeSense results in IO ERROR", inPinNum);
     LE_INFO("Test_taf_gpio_SetEdgeSense done");
 }
 static void Test_taf_gpio_GetEdgeSense() {
-    LE_INFO("Test_taf_gpio_GetEdgeSense for PIN 61");
-    taf_gpio_Edge_t edge = taf_gpio_GetEdgeSense(61);
+    LE_INFO("Test_taf_gpio_GetEdgeSense for PIN %d", inPinNum);
+    taf_gpio_Edge_t edge = taf_gpio_GetEdgeSense(inPinNum);
     if (edge == TAF_GPIO_EDGE_FALLING)
     {
-        LE_INFO("Pin 61 edge sense = falling");
+        LE_INFO("Pin %d edge sense = falling", inPinNum);
     }
     else if (edge == TAF_GPIO_EDGE_RISING)
     {
-        LE_INFO("Pin 61 edge sense = rising");
+        LE_INFO("Pin %d edge sense = rising", inPinNum);
     }
     else if (edge == TAF_GPIO_EDGE_BOTH)
     {
-        LE_INFO("Pin 61 edge sense = both");
+        LE_INFO("Pin %d edge sense = both", inPinNum);
     }
     else if (edge == TAF_GPIO_EDGE_NONE)
     {
-        LE_INFO("Pin 61 edge sense = none");
+        LE_INFO("Pin %d edge sense = none", inPinNum);
     }
     LE_INFO("Test_taf_gpio_GetEdgeSense done");
 }
 static void Test_taf_gpio_DisableEdgeSense() {
-    LE_INFO("Test_taf_gpio_DisableEdgeSense for PIN 61");
-    res = taf_gpio_DisableEdgeSense(61, false);
+    LE_INFO("Test_taf_gpio_DisableEdgeSense for PIN %d", inPinNum);
+    res = taf_gpio_DisableEdgeSense(inPinNum, false);
     if(res == LE_OK) {
-        LE_INFO("Gpio pin 61 DisableEdgeSense Successful");
+        LE_INFO("Gpio pin %d DisableEdgeSense Successful", inPinNum);
     } else if (res == LE_BUSY) {
-        LE_INFO("Gpio pin 61 DisableEdgeSense results in GPIO_BUSY");
-    } else
-        LE_INFO("Gpio pin 61 DisableEdgeSense results in IO ERROR");
+        LE_INFO("Gpio pin %d DisableEdgeSense results in GPIO_BUSY", inPinNum);
+    } else if (res == LE_OUT_OF_RANGE) {
+        LE_INFO("Gpio pin %d is out of range", outPinNum);
+    }  else
+        LE_INFO("Gpio pin %d DisableEdgeSense results in IO ERROR", inPinNum);
     LE_INFO("Test_taf_gpio_DisableEdgeSense done");
 }
 static void GpioChangeCallback(uint8_t pinNum, bool state, void *ctx){
@@ -147,8 +163,9 @@ static void GpioChangeCallback(uint8_t pinNum, bool state, void *ctx){
     LE_INFO("Context pointer came back as %d", *(int *)ctx);
 }
 static void Test_taf_gpio_ChangeCallback() {
-    LE_INFO("Test_taf_gpio_ChangeCallback for PIN 61");
-    ref = taf_gpio_AddChangeEventHandler(61, TAF_GPIO_EDGE_BOTH, false, GpioChangeCallback, &pin61);
+    LE_INFO("Test_taf_gpio_ChangeCallback for PIN %d", inPinNum);
+    ref = taf_gpio_AddChangeEventHandler(inPinNum, TAF_GPIO_EDGE_BOTH, false,
+            GpioChangeCallback, &pin61);
     if (ref != NULL) {
         LE_INFO("registered successfully for gpio pin trigger");
     } else {
@@ -157,7 +174,7 @@ static void Test_taf_gpio_ChangeCallback() {
 }
 static void Test_taf_gpio_RemoveCallback() {
     if (ref != NULL) {
-    LE_INFO("Test_taf_gpio_RemoveCallback for PIN 61");
+    LE_INFO("Test_taf_gpio_RemoveCallback for PIN %d", inPinNum);
     taf_gpio_RemoveChangeEventHandler(ref);
     LE_INFO("Test_taf_gpio_RemoveCallback done");
     } else
@@ -171,50 +188,87 @@ static void Test_gpio
     LE_INFO("====== Start GPIO test ======");
 
     LE_INFO("====== Test IsOutput ======");
-    Test_taf_gpio_IsOutput();
+    if(outPinNum != -1 && outPinNum >=0)
+    {
+        Test_taf_gpio_IsOutput();
 
-    LE_INFO("====== Test Activate ======");
-    Test_taf_gpio_Activate();
+        LE_INFO("====== Test Activate ======");
+        Test_taf_gpio_Activate();
 
-    LE_INFO("====== Test IsActive ======");
-    Test_taf_gpio_IsActive();
+        LE_INFO("====== Test IsActive ======");
+        Test_taf_gpio_IsActive();
 
-    LE_INFO("====== Test Deactivate ======");
-    Test_taf_gpio_Deactivate();
-    Test_taf_gpio_IsActive();
+        LE_INFO("====== Test Deactivate ======");
+        Test_taf_gpio_Deactivate();
+        Test_taf_gpio_IsActive();
 
-    LE_INFO("====== Test GetPolarity ======");
-    Test_taf_gpio_GetPolarity();
+        LE_INFO("====== Test GetPolarity ======");
+        Test_taf_gpio_GetPolarity();
+    }
+    else
+    {
+        printf("\nPlease enter proper Output Gpio pin num\n");
+        exit(EXIT_FAILURE);
+    }
 
-    LE_INFO("====== Test SetInput ======");
-    Test_taf_gpio_SetInput();
-    Test_taf_gpio_GetPolarity();
-    Test_taf_gpio_IsInput();
+    if(inPinNum != -1 && inPinNum >= 0)
+    {
+        LE_INFO("====== Test SetInput ======");
+        Test_taf_gpio_SetInput();
+        Test_taf_gpio_GetPolarity();
+        Test_taf_gpio_IsInput();
 
-    LE_INFO("====== Test Read ======");
-    Test_taf_gpio_Read();
+        LE_INFO("====== Test Read ======");
+        Test_taf_gpio_Read();
 
-    LE_INFO("====== Test ChangeCallback ======");
-    Test_taf_gpio_ChangeCallback();
+        LE_INFO("====== Test ChangeCallback ======");
+        Test_taf_gpio_ChangeCallback();
 
-    LE_INFO("====== Test SetEdgeSense and GetEdgeSence ======");
-    Test_taf_gpio_SetEdgeSense();
-    Test_taf_gpio_GetEdgeSense();
+        LE_INFO("====== Test SetEdgeSense and GetEdgeSence ======");
+        Test_taf_gpio_SetEdgeSense();
+        Test_taf_gpio_GetEdgeSense();
 
-    LE_INFO("====== Test DisableEdgeSense ======");
-    Test_taf_gpio_DisableEdgeSense();
-    Test_taf_gpio_GetEdgeSense();
-    Test_taf_gpio_SetEdgeSense();
+        LE_INFO("====== Test DisableEdgeSense ======");
+        Test_taf_gpio_DisableEdgeSense();
+        Test_taf_gpio_GetEdgeSense();
+        Test_taf_gpio_SetEdgeSense();
 
-    LE_INFO("====== Test Remove callback ======");
-    Test_taf_gpio_RemoveCallback();
+        LE_INFO("====== Test Remove callback ======");
+        Test_taf_gpio_RemoveCallback();
 
-    LE_INFO("====== Test ChangeCallback ======");
-    Test_taf_gpio_ChangeCallback();
+        LE_INFO("====== Test ChangeCallback ======");
+        Test_taf_gpio_ChangeCallback();
+    }
+    else
+    {
+        printf("\nPlease enter proper Input Gpio pin num\n");
+        exit(EXIT_FAILURE);
+    }
 }
 
 COMPONENT_INIT
 {
     LE_INFO("====== Start GPIO test ======");
+    int NumberOfArgs = le_arg_NumArgs();
+    if(NumberOfArgs >= 1)
+    {
+        outPinNum = atoi(le_arg_GetArg(0));
+    }
+    if(NumberOfArgs >= 2)
+    {
+        inPinNum = atoi(le_arg_GetArg(1));
+    }
+    if(NumberOfArgs >= 1)
+    {
+        const char* arg = "";
+        arg = le_arg_GetArg(0);
+        if(strcmp(arg,"help") == 0)
+        {
+            printf("Usage of tafGpioUnitTest:");
+            printf("\napp runProc tafGpioUnitTest --exe=tafGpioUnitTest -- <outputPinNum>"
+                    " <inputPinNum>\n");
+            exit(EXIT_FAILURE);
+        }
+    }
     Test_gpio();
 }

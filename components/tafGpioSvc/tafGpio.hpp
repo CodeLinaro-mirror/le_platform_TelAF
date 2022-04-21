@@ -42,8 +42,9 @@
 #include "tafSvcIF.hpp"
 
 #define GPIO_PATH           "/sys/class/gpio"
+#define NUM_OF_GPIOS_PATH   "/sys/class/gpio/gpiochip0/ngpio"
 
-#define MAX_PIN_NUMBER 107
+#define MAX_PIN_NUMBER 120
 #define MIN_PIN_NUMBER 0
 
 // Max handlers support simultaneously
@@ -100,8 +101,6 @@ namespace tafsvc{
             bool checkGpioPathExist(const char *gpioPath);
             le_result_t exportGpio(const taf_GpioRef_t gpioRef);
             le_result_t setGpioAttribute(const char *gpioPath, const char *attr);
-            le_result_t getGpioAttribute(const char *gpioPath,
-                    int attr_size, char *attribute);
             le_result_t writeGpioOutputValue(taf_GpioRef_t gpioRef,
                     taf_gpio_State_t value);
             le_result_t setDirection(taf_GpioRef_t gpioRef, taf_gpio_PinMode_t mode);
@@ -115,6 +114,8 @@ namespace tafsvc{
             static taf_Gpio &getInstance();
             static void OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *contextPtr);
             void Init();
+            le_result_t getGpioAttribute(const char *gpioPath,
+                    int attr_size, char *attribute);
             void inputMonitorHandlerFunc(int fd, short events);
             void callClientHandlerFunc(taf_gpioEvent_t *eventPtr);
             le_result_t setGpioAsInput(taf_GpioRef_t gpioRef, taf_gpio_ActiveType_t polarity, bool lock);
@@ -138,6 +139,7 @@ namespace tafsvc{
             le_ref_MapRef_t  HandlerRefMap = NULL;
             le_dls_List_t GpioHandlerList;
             le_event_Id_t tafGpioEvent;
+            int numOfGpios = -1;
     };
 }
 }

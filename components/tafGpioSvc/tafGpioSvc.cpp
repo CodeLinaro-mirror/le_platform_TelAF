@@ -47,6 +47,8 @@ le_result_t taf_gpio_SetInput (uint8_t pinNum, taf_gpio_Polarity_t polarity, boo
 {
     LE_DEBUG("taf_gpio_SetInput, pinNum :%d",pinNum);
     auto &gpio = taf_Gpio::getInstance();
+    TAF_ERROR_IF_RET_VAL(pinNum < 0 || pinNum >= gpio.numOfGpios, LE_OUT_OF_RANGE,
+            "Gpio pin %d is not available", pinNum);
     return gpio.setGpioAsInput(gpio.tafGpioRefPin[pinNum], (taf_gpio_ActiveType_t)polarity, lock);
 }
 
@@ -54,6 +56,8 @@ le_result_t taf_gpio_Activate (uint8_t pinNum, bool lock)
 {
     LE_DEBUG("taf_gpio_Activate, pinNum :%d",pinNum);
     auto &gpio = taf_Gpio::getInstance();
+    TAF_ERROR_IF_RET_VAL(pinNum < 0 || pinNum >= gpio.numOfGpios, LE_OUT_OF_RANGE,
+            "Gpio pin %d is not available", pinNum);
     return gpio.activate(gpio.tafGpioRefPin[pinNum], lock);
 }
 
@@ -61,6 +65,8 @@ le_result_t taf_gpio_Deactivate (uint8_t pinNum, bool lock)
 {
     LE_DEBUG("taf_gpio_Deactivate, pinNum :%d",pinNum);
     auto &gpio = taf_Gpio::getInstance();
+    TAF_ERROR_IF_RET_VAL(pinNum < 0 || pinNum >= gpio.numOfGpios, LE_OUT_OF_RANGE,
+            "Gpio pin %d is not available", pinNum);
     return gpio.deactivate(gpio.tafGpioRefPin[pinNum], lock);
 }
 
@@ -68,6 +74,8 @@ taf_gpio_State_t taf_gpio_Read (uint8_t pinNum, bool lock)
 {
     LE_DEBUG("taf_gpio_Read, pinNum :%d",pinNum);
     auto &gpio = taf_Gpio::getInstance();
+    TAF_ERROR_IF_RET_VAL(pinNum < 0 || pinNum >= gpio.numOfGpios, TAF_GPIO_BUSY,
+            "Gpio pin %d is not available", pinNum);
     return gpio.readValue(gpio.tafGpioRefPin[pinNum], lock);
 }
 
@@ -75,6 +83,8 @@ bool taf_gpio_IsActive (uint8_t pinNum)
 {
     LE_DEBUG("taf_gpio_IsActive, pinNum :%d",pinNum);
     auto &gpio = taf_Gpio::getInstance();
+    TAF_ERROR_IF_RET_VAL(pinNum < 0 || pinNum >= gpio.numOfGpios, false,
+            "Gpio pin %d is not available", pinNum);
     return gpio.isActive(gpio.tafGpioRefPin[pinNum]);
 }
 
@@ -82,6 +92,8 @@ bool taf_gpio_IsInput (uint8_t pinNum)
 {
     LE_DEBUG("taf_gpio_IsInput, pinNum :%d",pinNum);
     auto &gpio = taf_Gpio::getInstance();
+    TAF_ERROR_IF_RET_VAL(pinNum < 0 || pinNum >= gpio.numOfGpios, false,
+            "Gpio pin %d is not available", pinNum);
     return gpio.isInput(gpio.tafGpioRefPin[pinNum]);
 }
 
@@ -89,6 +101,8 @@ bool taf_gpio_IsOutput (uint8_t pinNum)
 {
     LE_DEBUG("taf_gpio_IsOutput, pinNum :%d",pinNum);
     auto &gpio = taf_Gpio::getInstance();
+    TAF_ERROR_IF_RET_VAL(pinNum < 0 || pinNum >= gpio.numOfGpios, false,
+            "Gpio pin %d is not available", pinNum);
     return gpio.isOutput(gpio.tafGpioRefPin[pinNum]);
 }
 
@@ -96,6 +110,8 @@ taf_gpio_Edge_t taf_gpio_GetEdgeSense (uint8_t pinNum)
 {
     LE_DEBUG("taf_gpio_GetEdgeSense, pinNum :%d",pinNum);
     auto &gpio = taf_Gpio::getInstance();
+    TAF_ERROR_IF_RET_VAL(pinNum < 0 || pinNum >= gpio.numOfGpios, TAF_GPIO_EDGE_UNKNOWN,
+            "Gpio pin %d is not available", pinNum);
     return (taf_gpio_Edge_t)gpio.getEdgeSense( gpio.tafGpioRefPin[pinNum]);
 }
 
@@ -103,6 +119,8 @@ taf_gpio_Polarity_t taf_gpio_GetPolarity (uint8_t pinNum)
 {
     LE_DEBUG("taf_gpio_GetPolarity, pinNum :%d",pinNum);
     auto &gpio = taf_Gpio::getInstance();
+    TAF_ERROR_IF_RET_VAL(pinNum < 0 || pinNum >= gpio.numOfGpios,
+            (taf_gpio_Polarity_t)GPIO_ACTIVE_TYPE_UNKNOWN, "Gpio pin %d is not available", pinNum);
     return (taf_gpio_Polarity_t)gpio.getPolarity( gpio.tafGpioRefPin[pinNum]);
 }
 
@@ -133,6 +151,8 @@ le_result_t taf_gpio_SetEdgeSense (uint8_t pinNum, taf_gpio_Edge_t trigger, bool
 {
     LE_DEBUG("taf_gpio_SetEdgeSense, pinNum :%d",pinNum);
     auto &gpio = taf_Gpio::getInstance();
+    TAF_ERROR_IF_RET_VAL(pinNum < 0 || pinNum >= gpio.numOfGpios, LE_OUT_OF_RANGE,
+            "Gpio pin %d is not available", pinNum);
     return gpio.setEdgeSense(gpio.tafGpioRefPin[pinNum], trigger, lock);
 }
 
@@ -140,14 +160,30 @@ le_result_t taf_gpio_DisableEdgeSense (uint8_t pinNum, bool lock)
 {
     LE_DEBUG("taf_gpio_DisableEdgeSense, pinNum :%d",pinNum);
     auto &gpio = taf_Gpio::getInstance();
+    TAF_ERROR_IF_RET_VAL(pinNum < 0 || pinNum >= gpio.numOfGpios, LE_OUT_OF_RANGE,
+            "Gpio pin %d is not available", pinNum);
     return gpio.disableEdgeSense(gpio.tafGpioRefPin[pinNum], lock);
 }
 
 COMPONENT_INIT{
     auto &gpio = taf_Gpio::getInstance();
     gpio.Init();
+    char result[9];
+    char path[64];
+    snprintf(path, sizeof(path), "%s", NUM_OF_GPIOS_PATH);
+    le_result_t res = gpio.getGpioAttribute(path, sizeof(result), result);
+    if(res == LE_OK)
+    {
+        gpio.numOfGpios = atoi(result);
+        LE_INFO("numOfGpios is %d", gpio.numOfGpios);
+    }
+    else
+    {
+        LE_ERROR("Could not get teh total num of GPIO pins available");
+        return;
+    }
     le_mem_PoolRef_t gpioRefPool = le_mem_CreatePool("gpioRefPool", sizeof(taf_gpio));
-    for(int i = 0; i < MAX_PIN_NUMBER; i++) {
+    for(int i = 0; i < gpio.numOfGpios; i++) {
         gpio.tafGpioRefPin[i] = (taf_gpio*)le_mem_ForceAlloc(gpioRefPool);
         gpio.tafGpioRefPin[i]->pinNum = i;
         gpio.tafGpioRefPin[i]->fdMonitor = -1;

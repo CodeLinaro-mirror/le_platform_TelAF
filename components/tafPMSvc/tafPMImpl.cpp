@@ -265,10 +265,6 @@ void taf_PM::Init(void)
 #ifdef TARGET_SA515M
     bool isRemoteReady = (remProm.get_future().get() == telux::common::ServiceStatus::SERVICE_AVAILABLE);
     if(isRemoteReady) {
-#endif
-#ifdef TARGET_SA415M
-    if(true){
-#endif
         // Registering a listener for Remote  proc TCU-activity state updates
         remoteTcuStateListener = std::make_shared<tafRemoteTcuStateListener>();
         telux::common::Status remRegisterStatus =
@@ -279,6 +275,8 @@ void taf_PM::Init(void)
             LE_INFO(" Registered Listener for TCU-activity state updates for remote proc");
         }
     }
+#endif
+
     // Initialize powermanager record
     pm_recrd = {0, NULL, NULL, NULL, NULL, NULL};
 
@@ -405,7 +403,8 @@ le_result_t taf_PM::StayAwake(taf_pm_WakeupSourceRef_t wsRef)
     pm_recrd.wsAcquired++;
 
     // send resume state for local and remote proc if its not in resume state
-    if( RemoteTcuActivityMgr->getActivityState() != TcuActivityState::RESUME) {
+    if( RemoteTcuActivityMgr != nullptr
+            && RemoteTcuActivityMgr->getActivityState() != TcuActivityState::RESUME) {
         telux::common::Status RemoteStatus =
                 RemoteTcuActivityMgr->setActivityState(TcuActivityState::RESUME,
                 &taf_Handler::commandCallback);
@@ -469,12 +468,15 @@ le_result_t taf_PM::Relax( taf_pm_WakeupSourceRef_t wsRef)
 
     // if all the wake sources are in released state and set SUSPEND state
     if(pm_recrd.wsAcquired == 0) {
-        telux::common::Status RemoteStatus = RemoteTcuActivityMgr->setActivityState(
-                TcuActivityState::SUSPEND, &taf_Handler::commandCallback);
-        if( RemoteStatus == telux::common::Status::SUCCESS) {
-            LE_INFO("cmd send successfully for remote proc");
-        } else {
-            LE_ERROR("sending cmd failed for remote proc");
+        if( RemoteTcuActivityMgr != nullptr)
+        {
+            telux::common::Status RemoteStatus = RemoteTcuActivityMgr->setActivityState(
+                    TcuActivityState::SUSPEND, &taf_Handler::commandCallback);
+            if( RemoteStatus == telux::common::Status::SUCCESS) {
+                LE_INFO("cmd send successfully for remote proc");
+            } else {
+                LE_ERROR("sending cmd failed for remote proc");
+            }
         }
         telux::common::Status status = tcuActivityMgr->setActivityState(
                 TcuActivityState::SUSPEND, &taf_Handler::commandCallback);

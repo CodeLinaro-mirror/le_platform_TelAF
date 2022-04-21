@@ -45,6 +45,7 @@ apps:
     // $TELAF_ROOT/apps/test/tafNetTest/tafNetUnitTest/tafNetUnitTest
     // $TELAF_ROOT/apps/test/tafNetTest/tafNetIntTest/tafNetIntTest
     // $TELAF_ROOT/apps/test/tafKeyStoreTest/tafKeyStoreUnitTest/tafKeyStoreUnitTest
+    // $TELAF_ROOT/apps/test/tafPMTest/tafPMUnitTest/tafPMUnitTest.adef
 }
 
 commands:

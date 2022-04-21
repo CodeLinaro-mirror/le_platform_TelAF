@@ -15,7 +15,7 @@ apps:
     $TELAF_ROOT/apps/tafServices/tafSMSSvc
     $TELAF_ROOT/apps/tafServices/tafDataCallSvc
     $TELAF_ROOT/apps/tafServices/tafRemoteSimSvc
-    // $TELAF_ROOT/apps/tafServices/tafPMSvc
+    $TELAF_ROOT/apps/tafServices/tafPMSvc
     $TELAF_ROOT/apps/tafServices/tafUpdateSvc
     $TELAF_ROOT/apps/tafServices/tafECallSvc
     // $TELAF_ROOT/apps/tafServices/tafMRCSvc
@@ -45,6 +45,7 @@ apps:
     // $TELAF_ROOT/apps/test/tafNetTest/tafNetUnitTest/tafNetUnitTest
     // $TELAF_ROOT/apps/test/tafNetTest/tafNetIntTest/tafNetIntTest
     // $TELAF_ROOT/apps/test/tafKeyStoreTest/tafKeyStoreUnitTest/tafKeyStoreUnitTest
+    // $TELAF_ROOT/apps/test/tafPMTest/tafPMUnitTest/tafPMUnitTest.adef
 }
 
 commands:

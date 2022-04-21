@@ -148,7 +148,7 @@ namespace tafsvc {
         taf_PM() {};
         ~taf_PM() {};
         std::shared_ptr<telux::power::ITcuActivityManager> tcuActivityMgr;
-        std::shared_ptr<telux::power::ITcuActivityManager> RemoteTcuActivityMgr;
+        std::shared_ptr<telux::power::ITcuActivityManager> RemoteTcuActivityMgr = nullptr;
         le_event_Id_t StateChangeEvent;
         le_event_Id_t AckEvent;
         static taf_PM &GetInstance();

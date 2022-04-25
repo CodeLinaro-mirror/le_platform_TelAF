@@ -78,9 +78,11 @@
 #define TEXT_PATTERN_TEST   "Unit test from telaf-1. Unit test from telaf-2. Unit test from telaf-3."
 #define TEXT_PATTERN_NUM    "0123456789 0123456789 0123456789 0123456789 0123456789"
 #define TEXT_PATTERN_SYMBOL "~!@#$^&*()_+{}:<>?"
+#define BINARY_PATTERN      {0, 255}
+#define UCS2_PATTERN        {0x6E2C, 0x8A66}
 
 #define DEST_PATTERN_EMPTY  ""
-#define DEST_PATTERN_VALID  "0909070026"    // Use the same sim and device to send/receive message
+#define DEST_PATTERN_VALID  "0979334397"    // Use the same sim and device to send/receive message
 
 #define SMSC_ADDR_PATTERN_VALID "\"+886935874443\"" //SMS center address for TWN Mobile
 
@@ -91,7 +93,7 @@
 
 #define TIME_SET_SMSC       5               // Wait for settingi sms center take effect
 
-#define AMOUNT_MSG_TX       3               // Total message amount to send from this test app
+#define AMOUNT_MSG_TX       5               // Total message amount to send from this test app
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -103,6 +105,9 @@ static uint8_t PDU_TEST_PATTERN_7BITS[]=
 {
 0x00,0x01,0x00,0x0C,0x91,0x88,0x96,0x87,0x71,0x92,0x20,0x00,0x11,0x08,0xD4,0xA0,0x11,0x44,0x2F,0xCF,0xE9
 };
+
+static uint8_t binary_pattern[2] = BINARY_PATTERN;
+static uint16_t ucs2_pattern[2]  = UCS2_PATTERN;
 
 typedef union {
     char     text[TAF_SMS_TEXT_BYTES];
@@ -174,6 +179,124 @@ static void Test_taf_sms_CreateDeleteRxMsgList
     LE_ASSERT(RxMsgListRef != NULL);
 
     taf_sms_DeleteList(RxMsgListRef);
+}
+
+/*======================================================================
+
+ FUNCTION        Test_taf_sms_DeleteMsgFromStorage
+
+ DESCRIPTION     Test deleting the last msg of list from storage
+
+ DEPENDENCIES    None
+
+ PARAMETERS      void
+
+ RETURN VALUE    void
+
+ SIDE EFFECTS
+
+======================================================================*/
+
+static void Test_taf_sms_DeleteMsgFromStorage
+(
+    void
+)
+{
+    RxMsgListRef = taf_sms_CreateRxMsgList();
+
+    taf_sms_MsgRef_t msgRef = NULL;
+    taf_sms_MsgRef_t lastMsgRef = NULL;
+
+    msgRef = taf_sms_GetFirst(RxMsgListRef);
+
+    do {
+        if (msgRef == NULL)
+        {
+            break;
+        }
+        lastMsgRef = msgRef;
+        msgRef = taf_sms_GetNext(RxMsgListRef);
+    }
+    while ( msgRef != NULL);
+
+    LE_ASSERT(taf_sms_DeleteFromStorage(lastMsgRef) == LE_OK);
+
+    taf_sms_DeleteList(RxMsgListRef);
+}
+
+/*======================================================================
+
+ FUNCTION        Test_taf_sms_SetGetPreferredStorage
+
+ DESCRIPTION     Test setting/getting preferred storage of SMS service.
+
+ DEPENDENCIES    None
+
+ PARAMETERS      void
+
+ RETURN VALUE    void
+
+ SIDE EFFECTS
+
+======================================================================*/
+
+static void Test_taf_sms_SetGetPreferredStorage
+(
+    void
+)
+{
+    taf_sms_Storage_t prefStorage = TAF_SMS_STORAGE_UNKNOWN;
+
+    LE_ASSERT(taf_sms_SetPreferredStorage(TAF_SMS_STORAGE_UNKNOWN) == LE_OK);
+
+    LE_ASSERT(taf_sms_GetPreferredStorage(&prefStorage) == LE_OK);
+
+    LE_ASSERT(prefStorage == TAF_SMS_STORAGE_UNKNOWN);
+
+    LE_ASSERT(taf_sms_SetPreferredStorage(TAF_SMS_STORAGE_HLOS) == LE_OK);
+
+    LE_ASSERT(taf_sms_GetPreferredStorage(&prefStorage) == LE_OK);
+
+    LE_ASSERT(prefStorage == TAF_SMS_STORAGE_HLOS);
+}
+
+/*======================================================================
+
+ FUNCTION        Test_taf_sms_AddRemoveFullStorageHandler
+
+ DESCRIPTION     Test adding/removing full storage handler API of SMS service.
+
+ DEPENDENCIES    None
+
+ PARAMETERS      void
+
+ RETURN VALUE    void
+
+ SIDE EFFECTS
+
+======================================================================*/
+
+static void FullStorageHandler
+(
+    taf_sms_Storage_t storage,
+    void* contextPtr
+)
+{
+    LE_INFO("Storage %d is full", storage);
+}
+
+static void Test_taf_sms_AddRemoveFullStorageHandler
+(
+    void
+)
+{
+    taf_sms_FullStorageEventHandlerRef_t handlerRef;
+
+    handlerRef = taf_sms_AddFullStorageEventHandler(FullStorageHandler, NULL);
+
+    LE_ASSERT(handlerRef != NULL);
+
+    taf_sms_RemoveFullStorageEventHandler(handlerRef);
 }
 
 /*======================================================================
@@ -262,51 +385,91 @@ static void* SmsTxThread
 {
     taf_sms_ConnectService();
 
-    taf_sms_MsgRef_t tmpMsg_1;
-    taf_sms_MsgRef_t tmpMsg_2;
-    taf_sms_MsgRef_t tmpMsg_3;
+    taf_sms_MsgRef_t tmpMsg_alphabet;
+    taf_sms_MsgRef_t tmpMsg_num;
+    taf_sms_MsgRef_t tmpMsg_symbol;
+    taf_sms_MsgRef_t tmpMsg_binary;
+    taf_sms_MsgRef_t tmpMsg_ucs2;
 
-    tmpMsg_1 = taf_sms_Create();
+    tmpMsg_alphabet = taf_sms_Create();
 
-    LE_ASSERT(tmpMsg_1);
+    LE_ASSERT(tmpMsg_alphabet);
 
-    LE_ASSERT(taf_sms_SetDestination(tmpMsg_1, DEST_TEST) == LE_OK);
+    LE_ASSERT(taf_sms_SetDestination(tmpMsg_alphabet, DEST_TEST) == LE_OK);
 
-    LE_ASSERT(taf_sms_SetCallback(tmpMsg_1, Callback_MsgSendStatus, NULL) == LE_OK);
+    LE_ASSERT(taf_sms_SetCallback(tmpMsg_alphabet, Callback_MsgSendStatus, NULL) == LE_OK);
 
-    LE_ASSERT(taf_sms_SetText(tmpMsg_1, TEXT_PATTERN_TEST) == LE_OK);
+    LE_ASSERT(taf_sms_SetText(tmpMsg_alphabet, TEXT_PATTERN_TEST) == LE_OK);
 
-    LE_ASSERT(taf_sms_Send(tmpMsg_1) == LE_OK);
-
-    le_thread_Sleep(TIMEOUT_TX_TEST);
-
-    tmpMsg_2 = taf_sms_Create();
-
-    LE_ASSERT(tmpMsg_2);
-
-    LE_ASSERT(taf_sms_SetDestination(tmpMsg_2, DEST_TEST) == LE_OK);
-
-    LE_ASSERT(taf_sms_SetCallback(tmpMsg_2, Callback_MsgSendStatus, NULL) == LE_OK);
-
-    LE_ASSERT(taf_sms_SetText(tmpMsg_2, TEXT_PATTERN_NUM) == LE_OK);
-
-    LE_ASSERT(taf_sms_Send(tmpMsg_2) == LE_OK);
+    LE_ASSERT(taf_sms_Send(tmpMsg_alphabet) == LE_OK);
 
     le_thread_Sleep(TIMEOUT_TX_TEST);
 
-    tmpMsg_3 = taf_sms_Create();
+    tmpMsg_num = taf_sms_Create();
 
-    LE_ASSERT(tmpMsg_3);
+    LE_ASSERT(tmpMsg_num);
 
-    LE_ASSERT(taf_sms_SetDestination(tmpMsg_3, DEST_TEST) == LE_OK);
+    LE_ASSERT(taf_sms_SetDestination(tmpMsg_num, DEST_TEST) == LE_OK);
 
-    LE_ASSERT(taf_sms_SetCallback(tmpMsg_3, Callback_MsgSendStatus, NULL) == LE_OK);
+    LE_ASSERT(taf_sms_SetCallback(tmpMsg_num, Callback_MsgSendStatus, NULL) == LE_OK);
 
-    LE_ASSERT(taf_sms_SetText(tmpMsg_3, TEXT_PATTERN_SYMBOL) == LE_OK);
+    LE_ASSERT(taf_sms_SetText(tmpMsg_num, TEXT_PATTERN_NUM) == LE_OK);
 
-    LE_ASSERT(taf_sms_Send(tmpMsg_3) == LE_OK);
+    LE_ASSERT(taf_sms_Send(tmpMsg_num) == LE_OK);
 
     le_thread_Sleep(TIMEOUT_TX_TEST);
+
+    tmpMsg_symbol = taf_sms_Create();
+
+    LE_ASSERT(tmpMsg_symbol);
+
+    LE_ASSERT(taf_sms_SetDestination(tmpMsg_symbol, DEST_TEST) == LE_OK);
+
+    LE_ASSERT(taf_sms_SetCallback(tmpMsg_symbol, Callback_MsgSendStatus, NULL) == LE_OK);
+
+    LE_ASSERT(taf_sms_SetText(tmpMsg_symbol, TEXT_PATTERN_SYMBOL) == LE_OK);
+
+    LE_ASSERT(taf_sms_Send(tmpMsg_symbol) == LE_OK);
+
+    le_thread_Sleep(TIMEOUT_TX_TEST);
+
+    tmpMsg_binary = taf_sms_Create();
+
+    LE_ASSERT(tmpMsg_binary);
+
+    LE_ASSERT(taf_sms_SetDestination(tmpMsg_binary, DEST_TEST) == LE_OK);
+
+    LE_ASSERT(taf_sms_SetCallback(tmpMsg_binary, Callback_MsgSendStatus, NULL) == LE_OK);
+
+    LE_ASSERT(taf_sms_SetBinary(tmpMsg_binary, binary_pattern, sizeof(binary_pattern)) == LE_OK);
+
+    LE_ASSERT(taf_sms_Send(tmpMsg_binary) == LE_OK);
+
+    le_thread_Sleep(TIMEOUT_TX_TEST);
+
+    tmpMsg_ucs2 = taf_sms_Create();
+
+    LE_ASSERT(tmpMsg_ucs2);
+
+    LE_ASSERT(taf_sms_SetDestination(tmpMsg_ucs2, DEST_TEST) == LE_OK);
+
+    LE_ASSERT(taf_sms_SetCallback(tmpMsg_ucs2, Callback_MsgSendStatus, NULL) == LE_OK);
+
+    LE_ASSERT(taf_sms_SetUCS2(tmpMsg_ucs2, ucs2_pattern, sizeof(ucs2_pattern)) == LE_OK);
+
+    LE_ASSERT(taf_sms_Send(tmpMsg_ucs2) == LE_OK);
+
+    le_thread_Sleep(TIMEOUT_TX_TEST);
+
+    LE_ASSERT(taf_sms_GetSendStatus(tmpMsg_alphabet) == TAF_SMS_TXSTS_SENT);
+
+    LE_ASSERT(taf_sms_GetSendStatus(tmpMsg_num) == TAF_SMS_TXSTS_SENT);
+
+    LE_ASSERT(taf_sms_GetSendStatus(tmpMsg_symbol) == TAF_SMS_TXSTS_SENT);
+
+    LE_ASSERT(taf_sms_GetSendStatus(tmpMsg_binary) == TAF_SMS_TXSTS_SENT);
+
+    LE_ASSERT(taf_sms_GetSendStatus(tmpMsg_ucs2) == TAF_SMS_TXSTS_SENT);
 
     le_event_RunLoop();
 }
@@ -362,6 +525,7 @@ static void RxHandler
 {
 
     RxSmsContent_t rxContent;
+    size_t len = 0;
 
     memset(rxContent.text, 0, TAF_SMS_TEXT_BYTES);
 
@@ -371,9 +535,42 @@ static void RxHandler
 
     LE_INFO("taf_sms_GetSenderTel = %s", rxContent.text);
 
-    LE_ASSERT(taf_sms_GetText(msgRef, rxContent.text, sizeof(rxContent.text)) == LE_OK);
+    switch(taf_sms_GetFormat(msgRef))
+    {
+        case TAF_SMS_FORMAT_TEXT:
+            LE_ASSERT(taf_sms_GetText(msgRef, rxContent.text, sizeof(rxContent.text)) == LE_OK);
+            LE_INFO("taf_sms_GetText = %s", rxContent.text);
+            break;
 
-    LE_INFO("taf_sms_GetText = %s", rxContent.text);
+        case TAF_SMS_FORMAT_BINARY:
+
+            len = sizeof(rxContent.binary);
+
+            LE_ASSERT(taf_sms_GetBinary(msgRef, rxContent.binary, &len) == LE_OK);
+
+            LE_INFO("taf_sms_GetBinary, len:%d", len);
+            for(int i = 0; i < len; i++)
+            {
+                LE_INFO("0x%.2X", rxContent.binary[i]);
+            }
+            break;
+
+        case TAF_SMS_FORMAT_UCS2:
+
+            len = sizeof(rxContent.ucs2);
+
+            LE_ASSERT(taf_sms_GetUCS2(msgRef, rxContent.ucs2, &len) == LE_OK);
+
+            LE_INFO("taf_sms_GetUCS2, len:%d", len);
+            for(int i = 0; i < len; i++)
+            {
+                LE_INFO("0x%.4X", rxContent.ucs2[i]);
+            }
+            break;
+
+        default:
+            break;
+    }
 
     RxCount++;
 
@@ -389,6 +586,14 @@ static void RxHandler
 
         case 3:
             LE_ASSERT(strstr(rxContent.text, TEXT_PATTERN_SYMBOL) != NULL);
+            break;
+
+        case 4:
+            LE_ASSERT(memcmp(rxContent.binary, binary_pattern, sizeof(binary_pattern)) == 0);
+            break;
+
+        case 5:
+            LE_ASSERT(memcmp(rxContent.binary, ucs2_pattern, sizeof(ucs2_pattern)) == 0);
             break;
 
         default:
@@ -554,6 +759,14 @@ void Test_main
     void
 )
 {
+    LE_INFO("===== Test_taf_sms_SetGetPreferredStorage =====");
+    Test_taf_sms_SetGetPreferredStorage();
+    LE_INFO("##### Test_taf_sms_SetGetPreferredStorage OK #####");
+
+    LE_INFO("===== Test_taf_sms_AddRemoveFullStorageHandler =====");
+    Test_taf_sms_AddRemoveFullStorageHandler();
+    LE_INFO("##### Test_taf_sms_AddRemoveFullStorageHandler OK #####");
+
     LE_INFO("===== Test_taf_sms_SetGetParam =====");
     Test_taf_sms_SetGetParam();
     LE_INFO("##### Test_taf_sms_SetGetParam OK #####");
@@ -561,10 +774,6 @@ void Test_main
     LE_INFO("===== Test_taf_sms_AddRemoveRxHandler =====");
     Test_taf_sms_AddRemoveRxHandler();
     LE_INFO("##### Test_taf_sms_AddRemoveRxHandler OK #####");
-
-    LE_INFO("===== Test_taf_sms_CreateDeleteRxMsgList =====");
-    Test_taf_sms_CreateDeleteRxMsgList();
-    LE_INFO("##### Test_taf_sms_CreateDeleteRxMsgList OK #####");
 
     LE_INFO("===== Test_taf_sms_Smsc =====");
     Test_taf_sms_Smsc();
@@ -593,6 +802,14 @@ void Test_main
     le_thread_Cancel(TxThreadRef);
 
     LE_INFO("##### Test_taf_sms_Send OK #####");
+
+    LE_INFO("===== Test_taf_sms_CreateDeleteRxMsgList =====");
+    Test_taf_sms_CreateDeleteRxMsgList();
+    LE_INFO("##### Test_taf_sms_CreateDeleteRxMsgList OK #####");
+
+    LE_INFO("===== Test_taf_sms_DeleteMsgFromStorage =====");
+    Test_taf_sms_DeleteMsgFromStorage();
+    LE_INFO("##### Test_taf_sms_DeleteMsgFromStorage OK #####");
 
     LE_INFO("##### taf SMS unit test PASS #####");
 

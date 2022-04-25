@@ -1403,6 +1403,13 @@ le_result_t taf_sms_Send
       mySms.sendMessage();
 #else
       result = taf_pa_sms_SendPduMsg(msgPtr->pdu.length, msgPtr->pdu.data, TIMEOUT_SENDING_PDU);
+
+      if(result == LE_OK){
+         msgPtr->sendStatus = TAF_SMS_TXSTS_SENT;
+      }
+      else{
+         msgPtr->sendStatus = TAF_SMS_TXSTS_SENDING_FAILED;
+      }
 #endif
 
    }

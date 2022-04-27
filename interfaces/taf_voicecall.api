@@ -27,6 +27,99 @@
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ *  Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ *  Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted (subject to the limitations in the
+ *  disclaimer below) provided that the following conditions are met:
+ *
+ *      * Redistributions of source code must retain the above copyright
+ *        notice, this list of conditions and the following disclaimer.
+ *
+ *      * Redistributions in binary form must reproduce the above
+ *        copyright notice, this list of conditions and the following
+ *        disclaimer in the documentation and/or other materials provided
+ *        with the distribution.
+ *
+ *      * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *        contributors may be used to endorse or promote products derived
+ *        from this software without specific prior written permission.
+ *
+ *  NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ *  GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ *  HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ *  WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ *  IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ *  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ *  DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ *  GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ *  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ *  IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ *  OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * @page c_tafvoicecall Voice Call Service API
+ *
+ * @ref taf_voicecall_interface.h "API Reference"
+ *
+ * <HR>
+ *
+ * A voice call is needed for applications that want to establish a voice communication with
+ *  a remote party.  The voice call can be over a mobile network, or over VoIP.
+ *
+ * @section taf_voicecall_binding IPC interfaces binding
+ *
+ * All the functions of this API are provided by the @b tafVoiceCallSvc application service.
+ *
+ * Here's a sample of how to bind to Voice Call services:
+ * @verbatim
+   bindings:
+   {
+       clientExe.clientComponent.taf_voicecall -> tafVoiceCallSvc.taf_voicecall
+   }
+   @endverbatim
+ *
+ * @section c_taf_vaoicecall_outgoing Starting a voice call
+ *
+ * A voice call can be started by using taf_voicecall_Start() with the destination identifier and sim slot No. passed as
+ * parameters.
+ * @verbatim
+   myTafCallRef = taf_voicecall_Start(DestinationNum, Slot);
+   if (!myTafCallRef)
+   {
+      res = taf_voicecall_GetEndCause(myTafCallRef, &reason);
+      LE_ASSERT(res == LE_OK);
+      LE_INFO("taf_voicecall_GetEndCause %d", reason);
+      return LE_FAULT;
+   }
+   @endverbatim
+ *
+ * Before the voice call is started, an application registers a state handler using
+ * taf_voicecall_AddStateHandler(). Once the voice call is established, the handler will be called
+ *  indicating it's now connected. If the state of the voice call changes, then the handler will be
+ *  called with the new state.
+ * @verbatim
+   TafVoiceCallHandlerRef = taf_voicecall_AddStateHandler((taf_voicecall_StateHandlerFunc_t)MyCallEventHandler, NULL);
+   @endverbatim
+ *
+ * To release a voice call, an application can use taf_voicecall_End().
+ *
+ * Application must use le_voicecall_Delete() to release @ref taf_voicecall_CallRef_t voice call
+ *  reference object when it is no more used.
+ *
+ * <HR>
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+
+
 USETYPES taf_types.api;
 
 /**
@@ -105,13 +198,20 @@ EVENT State
     StateHandler handler
 );
 
+//--------------------------------------------------------------------------------------------------
 /**
  * Start a call according to given phone number and slot id
+ *
+ * @return
+ *      - Reference to the voice call
+ *      - NULL if the voice call can not be processed
  */
+ //--------------------------------------------------------------------------------------------------
 FUNCTION Call Start
 (
-    string destinationID[taf_types.REMOTE_PARTY_NUM_MAX_BYTES] IN,
-    uint8 phoneId
+    string destinationID[taf_types.REMOTE_PARTY_NUM_MAX_BYTES] IN, ///< Destination phone number for
+                                                                   ///< the call establishment
+    uint8 phoneId                                                  ///< SIM slot id
 );
 
 /**

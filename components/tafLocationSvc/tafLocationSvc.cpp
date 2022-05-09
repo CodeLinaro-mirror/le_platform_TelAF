@@ -1134,6 +1134,21 @@ le_result_t taf_gnss_GetNmeaSentences
 }
 
 /**
+* FUNCTION     : SetDRConfig
+* DESCRIPTION  : Set the Dead Reckoing configuration Parameters
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
+*/
+le_result_t taf_gnss_SetDRConfig
+(
+    const taf_gnss_DrParams_t* drParamsPtr
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.SetDRConfig(drParamsPtr);
+}
+/**
 * FUNCTION     : GetSupportedNmeaSentences
 * DESCRIPTION  : Gets the bit mask for the supported NMEA sentences.
 * DEPENDECY    :

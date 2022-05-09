@@ -1,0 +1,18 @@
+sources:
+{
+    tafLocationTest.c
+    main.c
+}
+
+requires:
+{
+    api:
+    {
+        taf_gnss.api
+    }
+}
+
+cxxflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+}

@@ -76,6 +76,12 @@ LE_MEM_DEFINE_STATIC_POOL(PositionSample, GNSS_POSITION_SAMPLE_MAX, sizeof(taf_g
 LE_MEM_DEFINE_STATIC_POOL(PositionSampleRequest, GNSS_POSITION_SAMPLE_MAX, sizeof(taf_gnss_PositionSampleRequest_t));
 LE_MEM_DEFINE_STATIC_POOL(Client, LE_CONFIG_POSITIONING_ACTIVATION_MAX, sizeof(taf_gnss_Client_t));
 LE_REF_DEFINE_STATIC_MAP(PositionSampleMap, GNSS_POSITION_SAMPLE_MAX);
+void bodyToSensorUtility(telux::loc::DREngineConfiguration& drConfig,
+        const taf_gnss_DrParams_t* drParamsPtr);
+void speedScaleUtility(telux::loc::DREngineConfiguration& drConfig,
+        const taf_gnss_DrParams_t* drParamsPtr);
+void gyroScaleUtility(telux::loc::DREngineConfiguration& drConfig,
+        const taf_gnss_DrParams_t* drParamsPtr);
 
 taf_Gnss &taf_Gnss::GetInstance()
 {
@@ -612,8 +618,199 @@ void tafLocationListener::onDetailedLocationUpdate(const std::shared_ptr<telux::
 void tafLocationListener::onDetailedEngineLocationUpdate(
       const std::vector<std::shared_ptr<telux::loc::ILocationInfoEx> > &locationEngineInfo) {
     auto &gnss = taf_Gnss::GetInstance();
+    if (gnss.mTtffEnabled)
+    {
+        gnss.mEndTime = std::chrono::system_clock::now();
+        std::unique_lock<std::mutex> lock(gnss.mMutex);
+        gnss.mTtffEnabled = false;
+        gnss.mCondVar.notify_one();
+    }
     le_mutex_Lock(gnss.mGnssMutexRef);
-    LE_DEBUG("**** Detailed Engine Location Report ****");
+    if(gnss.NumOfPositionHandlers )
+    {
+        LE_DEBUG("**** Detailed Engine Location Report ****");
+        gnss.mLocEnabled = true;
+        for (auto locationInfo : locationEngineInfo) {
+            telux::loc::LocationTechnology techMask = locationInfo->getTechMask();
+            if((techMask & telux::loc::LOC_GNSS))
+            {
+               LE_INFO( "location calculated using GNSS" );
+            }
+            if((techMask & telux::loc::LOC_CELL))
+            {
+               LE_INFO( "location calculated using CELL" );
+            }
+            if((techMask & telux::loc::LOC_WIFI))
+            {
+               LE_INFO( "location calculated using WIFI" );
+            }
+            if((techMask & telux::loc::LOC_SENSORS))
+            {
+               LE_INFO( "location calculated using SENSORS" );
+            }
+            if((techMask & telux::loc::LOC_REFERENCE_LOCATION))
+            {
+               LE_INFO( "location calculated using Reference location" );
+            }
+            if((techMask & telux::loc::LOC_INJECTED_COARSE_POSITION))
+            {
+               LE_INFO("location calculated using Coarse position injected into the loca engine" );
+            }
+            if((techMask & telux::loc::LOC_AFLT))
+            {
+               LE_INFO( "location calculated using AFLT" );
+            }
+            if((techMask & telux::loc::LOC_HYBRID))
+            {
+               LE_INFO( "location calculated using GNSS and network-provided measurements" );
+            }
+            if((techMask & telux::loc::LOC_PPE))
+            {
+               LE_INFO( "location calculated using Precise position engine" );
+            }
+            if((techMask & telux::loc::LOC_VEH))
+            {
+               LE_INFO( "location calculated using Vehicular data" );
+            }
+            if((techMask & telux::loc::LOC_VIS))
+            {
+               LE_INFO( "location calculated using Visual data" );
+            }
+
+            if ( gnss.mSvEnabled && gnss.mGnssSigEnabled && gnss.mGnssNmeaEnabled )
+            {
+                taf_gnss_PositionSample_t* LocationData =
+                        (taf_gnss_PositionSample_t*)le_mem_ForceAlloc(gnss.PositionSamplePoolRef);
+                uint8_t i;
+                LocationData->fixState = TAF_GNSS_STATE_FIX_3D;
+                LocationData->latitudeValid = true;
+                LocationData->longitudeValid = true;
+                LocationData->hAccuracyValid = true;
+                LocationData->altitudeValid = true;
+                LocationData->altitudeOnWgs84Valid = false;
+                LocationData->horUncEllipseSemiMajorValid = true;
+                LocationData->horUncEllipseSemiMinorValid = true;
+                LocationData->horConfidenceValid = false;
+                LocationData->vAccuracyValid = true;
+                LocationData->hSpeedValid = true;
+                LocationData->hSpeedAccuracyValid = true;
+                LocationData->vSpeedValid = true;
+                LocationData->vSpeedAccuracyValid = true;
+                LocationData->directionValid = true;
+                LocationData->directionAccuracyValid = true;
+                LocationData->dateValid = true;
+                LocationData->timeValid = true;
+                LocationData->gpsTimeValid = true;
+                LocationData->timeAccuracyValid = true;
+                LocationData->leapSecondsValid = true;
+                LocationData->positionLatencyValid = false;
+                LocationData->hdopValid = true;
+                LocationData->vdopValid = true;
+                LocationData->pdopValid = true;
+                LocationData->gdopValid = true;
+                LocationData->tdopValid = true;
+                LocationData->magneticDeviationValid = true;
+                LocationData->satsInViewCountValid = true;
+                LocationData->satsTrackingCountValid = true;
+                LocationData->satsUsedCountValid = true;
+                LocationData->satInfoValid = true;
+                LocationData->satMeasValid = false;
+
+                LocationData->latitude = locationInfo->getLatitude() * 1e+6;
+                LocationData->longitude = locationInfo->getLongitude() * 1e+6;
+                LocationData->hAccuracy = locationInfo->getHorizontalUncertainty()* 1e+2;
+                LocationData->altitude = locationInfo->getAltitude() * 1e+3;
+                LocationData->vAccuracy = locationInfo->getVerticalUncertainty() * 10;
+                LocationData->altitudeOnWgs84 = 0;
+                LocationData->hSpeedAccuracy = 0;
+                LocationData->vSpeed = locationInfo->getSpeed();
+                LocationData->vSpeedAccuracy = locationInfo->getSpeedUncertainty();
+                LocationData->magneticDeviation = locationInfo->getMagneticDeviation();
+                LocationData->epochTime = locationInfo->getTimeStamp();
+                LocationData->horUncEllipseSemiMajor =
+                        locationInfo->getHorizontalUncertaintySemiMajor();
+                LocationData->horUncEllipseSemiMinor =
+                        locationInfo->getHorizontalUncertaintySemiMinor();
+                LocationData->hSpeed = 0;
+                LocationData->direction = locationInfo->getHeading();
+                LocationData->directionAccuracy = locationInfo->getHeadingUncertainty();
+                telux::loc::SystemTime sysTime = locationInfo->getGnssSystemTime();
+                telux::loc::GnssSystem system = sysTime.gnssSystemTimeSrc;
+                telux::loc::SystemTimeInfo sysTimeInfo = sysTime.time;
+                if(system == telux::loc::GnssSystem::GNSS_LOC_SV_SYSTEM_GPS) {
+                    telux::loc::TimeInfo timeInfo = sysTimeInfo.gps;
+                    LocationData->gpsWeek = timeInfo.systemWeek;
+                    LocationData->gpsTimeOfWeek = timeInfo.systemMsec;
+                }else {
+                    LocationData->gpsWeek = 0;
+                    LocationData->gpsTimeOfWeek = 0;
+                }
+                LocationData->timeAccuracy = locationInfo->getTimeUncMs();
+                LocationData->positionLatency = 0;
+                LocationData->hdop = locationInfo->getHorizontalDop() *1e+3;
+                LocationData->vdop = locationInfo->getVerticalDop() * 1e+3;
+                LocationData->pdop = locationInfo->getPositionDop() * 1e+3;
+                LocationData->gdop = locationInfo->getGeometricDop() * 1e+3;
+                LocationData->tdop = locationInfo->getTimeDop() * 1e+3;
+                if(locationInfo->getTimeStamp() != telux::loc::UNKNOWN_TIMESTAMP) {
+                    time_t realtime;
+                    realtime = (time_t)((locationInfo->getTimeStamp() / 1000));
+                    tm *ltm = localtime(&realtime);
+                    LocationData->year = 1900+ltm->tm_year;
+                    LocationData->month = 1+ltm->tm_mon;
+                    LocationData->day = ltm->tm_mday;
+                    LocationData->hours = 5+ltm->tm_hour;
+                    LocationData->minutes = 30+ltm->tm_min;
+                    LocationData->seconds = ltm->tm_sec;
+                    LocationData->milliseconds = 0;
+                } else {
+                    LE_DEBUG("Time stamp Not Valid");
+                    LocationData->year = 0;
+                    LocationData->month = 0;
+                    LocationData->day = 0;
+                    LocationData->hours = 0;
+                    LocationData->minutes = 0;
+                    LocationData->seconds = 0;
+                    LocationData->milliseconds = 0;
+                }
+                LocationData->horConfidence = 0;
+                if(locationInfo->getLeapSeconds(gnss.mLeapSeconds) ==
+                        telux::common::Status::SUCCESS)
+                {
+                    LocationData->leapSeconds = gnss.mLeapSeconds;
+                } else {
+                    LocationData->leapSeconds = 0;
+                }
+                LocationData->satsInViewCount = 0;
+                LocationData->satsTrackingCount = 0;
+                LocationData->satsUsedCount = locationInfo->getNumSvUsed();
+
+                for(i=0; i<TAF_GNSS_SV_INFO_MAX_LEN; i++)
+                {
+                    LocationData->satInfo[i].satId = gnss.mSatInfo[i].satId;
+                    LocationData->satInfo[i].satConst = gnss.mSatInfo[i].satConst;
+                    LocationData->satInfo[i].satUsed = gnss.mSatInfo[i].satUsed;
+                    LocationData->satInfo[i].satTracked = gnss.mSatInfo[i].satTracked;
+                    LocationData->satInfo[i].satSnr = gnss.mSatInfo[i].satSnr;
+                    LocationData->satInfo[i].satAzim = gnss.mSatInfo[i].satAzim;
+                    LocationData->satInfo[i].satElev = gnss.mSatInfo[i].satElev;
+                }
+
+                for(i=0; i<TAF_GNSS_SV_INFO_MAX_LEN; i++)
+                {
+                    LocationData->satMeas[i].satId = 0;
+                    LocationData->satMeas[i].satLatency = 0;
+                }
+                LocationData->next = LE_DLS_LINK_INIT;
+
+                le_event_ReportWithRefCounting(gnss.positionEventId, LocationData);
+                gnss.mLocEnabled = false;
+                gnss.mSvEnabled = false;
+                gnss.mGnssSigEnabled = false;
+                gnss.mGnssNmeaEnabled = false;
+            }
+        }
+    }
     le_mutex_Unlock(gnss.mGnssMutexRef);
 }
 
@@ -931,10 +1128,19 @@ taf_gnss_State_t taf_Gnss::GetState
             optInterval = 1000;
             mAcqRate = optInterval;
         }
+        #if 0
         mLocCmdResponseCb = std::make_shared<LocationCommandCallback>("startDetailedReports");
         mLocationManager->startDetailedReports((uint32_t)optInterval,
                 std::bind(&LocationCommandCallback::commandResponse,
                     mLocCmdResponseCb, std::placeholders::_1));
+        #else
+        LocReqEngine engineType = DEFAULT_UNKNOWN;
+        engineType |= 1UL << 0; //DRE+SPE+PPE engines supported
+        mLocCmdResponseCb = std::make_shared<LocationCommandCallback>("startDetailedEngineReports");
+        mLocationManager->startDetailedEngineReports((uint32_t)optInterval,engineType,
+                std::bind(&LocationCommandCallback::commandResponse,
+                    mLocCmdResponseCb, std::placeholders::_1));
+        #endif
         mStartTime = std::chrono::system_clock::now();
     }
 #if 0 // Start Detailed Reports with specific config
@@ -1422,10 +1628,20 @@ le_result_t taf_Gnss::GetTtff
                 mStarted = true;
                 int optInterval = 1000;
                 mAcqRate = optInterval;
+                #if 0
                 mLocCmdResponseCb = std::make_shared<LocationCommandCallback>("startDetailedReports");
                 mLocationManager->startDetailedReports((uint32_t)optInterval,
                         std::bind(&LocationCommandCallback::commandResponse,
                             mLocCmdResponseCb, std::placeholders::_1));
+                #else
+                LocReqEngine engineType = DEFAULT_UNKNOWN;
+                engineType |= 1UL << 0; //DRE+SPE+PPE engines supported
+                mLocCmdResponseCb = std::make_shared<LocationCommandCallback>
+                        ("startDetailedEngineReports");
+                mLocationManager->startDetailedEngineReports((uint32_t)optInterval,engineType,
+                        std::bind(&LocationCommandCallback::commandResponse,
+                            mLocCmdResponseCb, std::placeholders::_1));
+                #endif
             }
 #endif
             mStartTime = std::chrono::system_clock::now();
@@ -2328,10 +2544,20 @@ le_result_t taf_Gnss::ForceHotRestart
                         optInterval = 1000;
                         mAcqRate = optInterval;
                     }
+                    #if 0
                     mLocCmdResponseCb = std::make_shared<LocationCommandCallback>("startDetailedReports");
                     mLocationManager->startDetailedReports((uint32_t)optInterval,
                             std::bind(&LocationCommandCallback::commandResponse,
                                 mLocCmdResponseCb, std::placeholders::_1));
+                    #else
+                    LocReqEngine engineType = DEFAULT_UNKNOWN;
+                    engineType |= 1UL << 0; //DRE+SPE+PPE engines supported
+                    mLocCmdResponseCb = std::make_shared<LocationCommandCallback>
+                            ("startDetailedEngineReports");
+                    mLocationManager->startDetailedEngineReports((uint32_t)optInterval,engineType,
+                            std::bind(&LocationCommandCallback::commandResponse,
+                                mLocCmdResponseCb, std::placeholders::_1));
+                    #endif
                 }
             }
         break;
@@ -2733,6 +2959,88 @@ le_result_t taf_Gnss::GetSupportedNmeaSentences
     }
 
     return result;
+}
+
+le_result_t taf_Gnss::SetDRConfig(const taf_gnss_DrParams_t* drParamsPtr)
+{
+    le_result_t result = LE_NOT_PERMITTED;
+    telux::loc::DREngineConfiguration drConfig;
+    drConfig.validMask = static_cast<telux::loc::DRConfigValidity>(0);
+    TAF_KILL_CLIENT_IF_RET_VAL( NULL == drParamsPtr, LE_FAULT, "drParamsPtr is NULL");
+
+ // Check the GNSS device state
+    switch (GnssState)
+    {
+        case TAF_GNSS_STATE_READY:
+        {
+                //Filling the DR parameters
+            bodyToSensorUtility(drConfig,drParamsPtr);
+            speedScaleUtility(drConfig,drParamsPtr);
+            gyroScaleUtility(drConfig,drParamsPtr);
+
+            // Set the DR Configuration Validity
+            mLocCmdResponseCb = std::make_shared<LocationCommandCallback>
+                    ("Configure DREngineParameters");
+            telux::common::Status status = mLocationConfigurator->configureDR(drConfig,
+            std::bind(&LocationCommandCallback::commandResponse, mLocCmdResponseCb,
+                    std::placeholders::_1));
+            if (status == telux::common::Status::FAILED) {
+                LE_INFO("SetDRConfigValidity is failed");
+                result = LE_FAULT;
+            } else if (telux::common::Status::SUCCESS == status) {
+                LE_INFO("SetDRConfigValidity is Success");
+                result = LE_OK;
+            }
+            if (LE_OK != result)
+            {
+                LE_ERROR("Unable to set the DR Configuration Validity , error = %d (%s)",
+                          result, LE_RESULT_TXT(result));
+            }
+        }
+        break;
+        case TAF_GNSS_STATE_UNINITIALIZED:
+        case TAF_GNSS_STATE_ACTIVE:
+        case TAF_GNSS_STATE_DISABLED:
+        {
+            LE_ERROR("Bad state for that request [%d]", GnssState);
+            result = LE_NOT_PERMITTED;
+        }
+        break;
+        default:
+        {
+            LE_ERROR("Unknown GNSS state %d", GnssState);
+            result = LE_FAULT;
+        }
+        break;
+    }
+    return result;
+}
+void bodyToSensorUtility(telux::loc::DREngineConfiguration& drConfig,
+        const taf_gnss_DrParams_t* drParamsPtr)
+{
+    drConfig.validMask |= telux::loc::DRConfigValidityType::BODY_TO_SENSOR_MOUNT_PARAMS_VALID;
+    drConfig.mountParam.rollOffset =(float) drParamsPtr->rollOffset;
+    drConfig.mountParam.yawOffset = (float) drParamsPtr->yawOffset;
+    drConfig.mountParam.pitchOffset = (float) drParamsPtr->pitchOffset;
+    drConfig.mountParam.offsetUnc = (float) drParamsPtr->offsetUnc;
+}
+
+void speedScaleUtility(telux::loc::DREngineConfiguration& drConfig,
+        const taf_gnss_DrParams_t* drParamsPtr)
+{
+    drConfig.validMask |= telux::loc::DRConfigValidityType::VEHICLE_SPEED_SCALE_FACTOR_VALID;
+    drConfig.speedFactor = (float) drParamsPtr->speedFactor;
+    drConfig.validMask |= telux::loc::DRConfigValidityType::VEHICLE_SPEED_SCALE_FACTOR_UNC_VALID;
+    drConfig.speedFactorUnc = (float) drParamsPtr->speedFactorUnc;
+}
+
+void gyroScaleUtility(telux::loc::DREngineConfiguration& drConfig,
+        const taf_gnss_DrParams_t* drParamsPtr)
+{
+    drConfig.validMask |= telux::loc::DRConfigValidityType::GYRO_SCALE_FACTOR_VALID;
+    drConfig.gyroFactor = (float) drParamsPtr->gyroFactor;
+    drConfig.validMask |= telux::loc::DRConfigValidityType::GYRO_SCALE_FACTOR_UNC_VALID;
+    drConfig.gyroFactorUnc = (float) drParamsPtr->gyroFactorUnc;
 }
 
 void taf_Gnss::RemovePositionHandler

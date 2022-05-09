@@ -80,6 +80,8 @@
 
 using namespace telux::loc;
 using GnssReportTypeMask = uint32_t;
+using LocReqEngine = uint16_t;
+const int DEFAULT_UNKNOWN = 0;
 #define TAF_CONFIG_POSITIONING_ACTIVATION_MAX 13
 #define GNSS_POSITION_SAMPLE_MAX         1
 #define GNSS_POSITION_HANDLER_HIGH       1
@@ -351,6 +353,7 @@ namespace tafsvc {
             le_result_t SetNmeaSentences(taf_gnss_NmeaBitMask_t nmeaMask);
             le_result_t GetNmeaSentences(taf_gnss_NmeaBitMask_t* nmeaMaskPtr);
             le_result_t GetSupportedNmeaSentences(taf_gnss_NmeaBitMask_t* nmeaMaskPtr);
+            le_result_t SetDRConfig(const taf_gnss_DrParams_t* drParamsPtr);
             le_mem_PoolRef_t   PositionHandlerPoolRef;
             le_mem_PoolRef_t   PositionSampleRequestPoolRef;
             le_event_Id_t positionEventId;

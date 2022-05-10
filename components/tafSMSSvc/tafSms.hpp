@@ -79,6 +79,9 @@
 using namespace telux::tel;
 using namespace telux::common;
 
+#define MIN_SIM_SLOT_COUNT 1
+#define MAX_SIM_SLOT_COUNT 2
+
 #define MAX_OF_SMS_MSG_IN_STORAGE   256
 #define MAX_OF_SMS_MSG    (MAX_OF_SMS_MSG_IN_STORAGE*4)
 #define MAX_OF_LIST    128

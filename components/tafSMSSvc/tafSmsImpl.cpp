@@ -64,6 +64,7 @@
 #include "legato.h"
 #include "interfaces.h"
 #include "telux/tel/PhoneFactory.hpp"
+#include "telux/common/DeviceConfig.hpp"
 #include "tafSms.hpp"
 #include <unistd.h>
 #include <stdlib.h>
@@ -859,17 +860,6 @@ le_result_t taf_Sms::sendMessage()
 
 void taf_Sms::Init(void)
 {
-
-   auto &phoneFactory = PhoneFactory::getInstance();
-   phoneManager = phoneFactory.getPhoneManager();
-
-   bool subSystemsStatus = phoneManager->isSubsystemReady();
-   if(!subSystemsStatus) {
-      LE_INFO("wait for system ready\n");
-      std::future<bool> f = phoneManager->onSubsystemReady();
-      subSystemsStatus = f.get();
-   }
-
    MsgPool = le_mem_InitStaticPool(SmsMsg,
                                     MAX_OF_SMS_MSG,
                                     sizeof(taf_sms_Msg_t));
@@ -922,22 +912,35 @@ void taf_Sms::Init(void)
    // Init the handler class static member
    taf_Handler::TafSmsPtr = this;
 
-   smsMgr = phoneFactory.getSmsManager();
+   int noOfSlots = MIN_SIM_SLOT_COUNT;
+   if(telux::common::DeviceConfig::isMultiSimSupported()) {
+      noOfSlots = MAX_SIM_SLOT_COUNT;
+      LE_INFO("MultiSim supported");
+   }
+
+   auto &phoneFactory = telux::tel::PhoneFactory::getInstance();
    mySmsListener = std::make_shared<tafSmsListener>();
 
-   std::vector<int> phoneIds;
-   telux::common::Status status = phoneManager->getPhoneIds(phoneIds);
-   if (status == telux::common::Status::SUCCESS) {
-      for (auto index = 1; index <= (int)phoneIds.size(); index++) {
-         smsMgr = phoneFactory.getSmsManager(index);
-         if (smsMgr) {
-            // add listeners for incoming SMS notification
-            telux::common::Status status = smsMgr->registerListener(mySmsListener);
-            if(status != telux::common::Status::SUCCESS) {
-               LE_ERROR("Unable to register Listener\n");
-            }
-            smsManagers.emplace_back(smsMgr);
+   for(auto index = 1; index <= noOfSlots; index++) {
+     std::promise<telux::common::ServiceStatus> prom;
+     smsMgr = phoneFactory.getSmsManager(index, [&](telux::common::ServiceStatus status) {
+        prom.set_value(status);
+     });
+
+      if (!smsMgr) {
+         LE_ERROR("Failed to get SMS Manager instance ");
+      }
+
+      telux::common::ServiceStatus smsMgrStatus = prom.get_future().get();
+      if (smsMgrStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE) {
+         auto status = smsMgr->registerListener(mySmsListener);
+         if(status != telux::common::Status::SUCCESS) {
+            LE_ERROR("Unable to register Listener");
          }
+         smsManagers.emplace_back(smsMgr);
+      }
+      else {
+         LE_ERROR("Unable to initialize SMS Manager");
       }
    }
 

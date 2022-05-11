@@ -42,64 +42,11 @@
 #include <chrono>
 #include <fstream>
 #include <iostream>
-#include <string>
 
 #include "tafUpdate.hpp"
 
 using namespace std;
 using namespace telux::tafsvc;
-using namespace telux::data;
-
-/*======================================================================
- FUNCTION        taf_UpdateServingSystemListener::taf_UpdateServingSystemListener
- DESCRIPTION     Class constructor of taf_UpdateServingSystemListener
- PARAMETERS      [IN] slot: Slot index
- RETURN VALUE    void
-======================================================================*/
-taf_UpdateServingSystemListener::taf_UpdateServingSystemListener(SlotId slot) :
-   slotId(slot) {
-}
-
-/*======================================================================
- FUNCTION        taf_UpdateServingSystemListener::onServiceStateChanged
- DESCRIPTION     Listener for data service state
- PARAMETERS      [IN] status: Data service status
- RETURN VALUE    void
-======================================================================*/
-void taf_UpdateServingSystemListener::onServiceStateChanged(telux::data::ServiceStatus status)
-{
-    std::lock_guard<std::mutex> lock(cv_mutex);
-    LE_DEBUG("<SDK Listener> taf_UpdateServingSystemListener --> onServiceStateChanged");
-
-    dsStatus = status.serviceState;
-    LE_DEBUG("status = %d", (int)dsStatus);
-    if (dsStatus == telux::data::DataServiceState::IN_SERVICE) {
-        conVar.notify_all();
-    }
-}
-
-/*======================================================================
- FUNCTION        taf_UpdateRequestServiceStatusCallback::requestServiceStatus
- DESCRIPTION     Call back function for requesting data service status
- PARAMETERS      [IN] serviceStatus: Data service status
-                 [IN] error: Error of requesting data service status
- RETURN VALUE    void
-======================================================================*/
-void taf_UpdateRequestServiceStatusCallback::requestServiceStatus
-(
-    telux::data::ServiceStatus serviceStatus,
-    telux::common::ErrorCode error
-)
-{
-    LE_DEBUG("<SDK Callback> taf_UpdateRequestServiceStatusCallback --> requestServiceStatus");
-
-    if (error != telux::common::ErrorCode::SUCCESS) {
-        LE_ERROR("Error(%d)", (int)error);
-    }
-
-    status = serviceStatus;
-    le_sem_Post(semaphore);
-}
 
 le_event_Id_t taf_Update::updateCmdEvId = nullptr;
 
@@ -145,7 +92,15 @@ bool taf_Update::CheckHeader(const char* src, const char* dst, int n)
 ======================================================================*/
 le_result_t taf_Update::ParsePackage(const char* file)
 {
-    TAF_ERROR_IF_RET_VAL(access(file, 0), LE_NOT_FOUND,
+    int i;
+    for (i = 0; i < TAF_UPDATE_TIME_TO_ACCESS_FILE; i++) {
+        if (access(file, 0) == 0) {
+            break;
+        }
+        le_thread_Sleep(1);
+    }
+
+    TAF_ERROR_IF_RET_VAL(i == TAF_UPDATE_TIME_TO_ACCESS_FILE, LE_NOT_FOUND,
         "%s not found", file);
 
     // 1. Get the file size.
@@ -179,8 +134,8 @@ le_result_t taf_Update::ParsePackage(const char* file)
     const char qotaSota[] = {0x00, 0x01};
     const char qotaFota[] = {0x00, 0x02};
 
-    char* buffer = new char[size];
-    infile.read (buffer, size);
+    char* buffer = new char[TAF_UPDATE_QOTA_HEADER_SIZE];
+    infile.read (buffer, TAF_UPDATE_QOTA_HEADER_SIZE);
 
     auto &tafUpdate = taf_Update::GetInstance();
     tafUpdate.qotaHeader.clear();
@@ -269,6 +224,7 @@ void taf_Update::NameEventHandler(le_json_Event_t event)
 {
     TAF_ERROR_IF_RET_NIL(event != LE_JSON_STRING, "Not a string.");
     auto &tafUpdate = taf_Update::GetInstance();
+    memset(tafUpdate.sotaAppName, 0, TAF_APPMGMT_APP_NAME_BYTES);
     le_utf8_Copy(tafUpdate.sotaAppName, le_json_GetString(), TAF_APPMGMT_APP_NAME_BYTES, NULL);
     LE_INFO("App name is %s.", tafUpdate.sotaAppName);
 }
@@ -299,17 +255,17 @@ void taf_Update::JsonEventHandler(le_json_Event_t event)
             // Clean up json parsing session.
             sessRef = le_json_GetSession();
             le_json_Cleanup(sessRef);
-
-            tafUpdate.UpdateSetState(TAF_UPDATE_DOWNLOAD_SUCCESS);
             stateInd.pkgType = TAF_UPDATE_PACKAGE_SOTA;
             stateInd.state = TAF_UPDATE_DOWNLOAD_SUCCESS;
+            tafUpdate.UpdateWriteFs(TAF_UPDATE_STATE_FILE, (uint8_t*)&stateInd.state, sizeof(stateInd.state));
+            tafUpdate.UpdateWriteFs(TAF_UPDATE_APP_NAME_FILE, (uint8_t*)tafUpdate.sotaAppName, TAF_APPMGMT_APP_NAME_BYTES);
             le_utf8_Copy(stateInd.pkgName, tafUpdate.sotaAppName, TAF_APPMGMT_APP_NAME_BYTES, NULL);
             le_event_Report(tafUpdate.updateStateEvId, &stateInd, sizeof(taf_update_StateInd_t));
             close(tafUpdate.sotaFd);
             break;
         case LE_JSON_OBJECT_MEMBER:
             nameStr = le_json_GetString();
-            if (strcmp(nameStr, "name") == 0)
+            if (strncmp(nameStr, "name", 4) == 0)
                 le_json_SetEventHandler(NameEventHandler);
             break;
         case LE_JSON_NUMBER:
@@ -361,45 +317,46 @@ le_result_t taf_Update::ParseBundle(const char* file)
 }
 
 /*======================================================================
- FUNCTION        taf_Update::UpdateSetState
- DESCRIPTION     Set current update state
- PARAMETERS      [IN] state: Update state
+ FUNCTION        taf_Update::UpdateWriteFs
+ DESCRIPTION     Write file
+ PARAMETERS      [IN] filePath: File path.
+                 [IN] buffer: Buffer to write.
+                 [IN] bufferSize: Buffer size
  RETURN VALUE    void
 ======================================================================*/
-void taf_Update::UpdateSetState(taf_update_State_t state)
+void taf_Update::UpdateWriteFs(const char* filePath, uint8_t* buffer, size_t bufferSize)
 {
     le_fs_FileRef_t fileRef;
-    le_result_t res = le_fs_Open(TAF_UPDATE_STATE_FILE, LE_FS_CREAT | LE_FS_WRONLY, &fileRef);
-    TAF_ERROR_IF_RET_NIL(res != LE_OK, "Fail to open state file.");
+    le_result_t res = le_fs_Open(filePath, LE_FS_CREAT | LE_FS_WRONLY, &fileRef);
+    TAF_ERROR_IF_RET_NIL(res != LE_OK, "Fail to open file.");
 
-    res = le_fs_Write(fileRef, (uint8_t*)&state, sizeof(taf_update_State_t));
+    res = le_fs_Write(fileRef, buffer, bufferSize);
     if (res != LE_OK) {
-        LE_ERROR("Fail to write state.");
-    } else {
-        LE_DEBUG("Set state: %d.", state);
+        LE_ERROR("Fail to write file.");
     }
+
     le_fs_Close(fileRef);
 }
 
 /*======================================================================
- FUNCTION        taf_Update::UpdateGetState
- DESCRIPTION     Get current update state
- PARAMETERS      [OUT] state: Update state
+ FUNCTION        taf_Update::UpdateReadFs
+ DESCRIPTION     Read file
+ PARAMETERS      [IN] filePath: File path.
+                 [IN] buffer: Buffer to read.
+                 [IN] bufferSize: Buffer size
  RETURN VALUE    void
 ======================================================================*/
-void taf_Update::UpdateGetState(taf_update_State_t* state)
+void taf_Update::UpdateReadFs(const char* filePath, uint8_t* buffer, size_t bufferSize)
 {
     le_fs_FileRef_t fileRef;
-    le_result_t res = le_fs_Open(TAF_UPDATE_STATE_FILE, LE_FS_CREAT | LE_FS_RDONLY, &fileRef);
-    TAF_ERROR_IF_RET_NIL(res != LE_OK, "Fail to open state file.");
+    le_result_t res = le_fs_Open(filePath, LE_FS_RDONLY, &fileRef);
+    TAF_ERROR_IF_RET_NIL(res != LE_OK, "Fail to open file.");
 
-    size_t bufSize = sizeof(taf_update_State_t);
-    res = le_fs_Read(fileRef, (uint8_t*)state, &bufSize);
+    res = le_fs_Read(fileRef, buffer, &bufferSize);
     if (res != LE_OK) {
-        LE_ERROR("Fail to read state.");
-    } else {
-        LE_DEBUG("Get state: %d, size: %d bytes.", *state, bufSize);
+        LE_ERROR("Fail to read file.");
     }
+
     le_fs_Close(fileRef);
 }
 
@@ -418,6 +375,7 @@ void taf_Update::DownloadTimerTick(le_timer_Ref_t timerRef)
     auto &tafUpdate = taf_Update::GetInstance();
     taf_update_StateInd_t stateInd;
     taf_update_pa_ProgressState_t pState;
+    taf_update_State_t idleState = TAF_UPDATE_IDLE;
     int percent, ret;
 
     stateInd.state = context->state;
@@ -457,10 +415,11 @@ void taf_Update::DownloadTimerTick(le_timer_Ref_t timerRef)
             TAF_ERROR_IF_RET_NIL(tafUpdate.ParsePackage(TAF_UPDATE_PAKCAGE_FILE_PATH) != LE_OK, "Fail to parse download package.");
             TAF_ERROR_IF_RET_NIL(tafUpdate.RemoveHeader(TAF_UPDATE_PAKCAGE_FILE_PATH) != LE_OK, "Fail to remove QOTA header.");
             stateInd.pkgType = tafUpdate.pkgType;
+            tafUpdate.UpdateWriteFs(TAF_UPDATE_PACKAGE_TYPE_FILE, (uint8_t*)&stateInd.pkgType, sizeof(stateInd.pkgType));
             if (stateInd.pkgType == TAF_UPDATE_PACKAGE_SOTA) {
                 TAF_ERROR_IF_RET_NIL(tafUpdate.ParseBundle(TAF_UPDATE_PAKCAGE_FILE_PATH) != LE_OK, "Fail to parse app bundle.");
             } else {
-                tafUpdate.UpdateSetState(TAF_UPDATE_DOWNLOAD_SUCCESS);
+                tafUpdate.UpdateWriteFs(TAF_UPDATE_STATE_FILE, (uint8_t*)&stateInd.state, sizeof(stateInd.state));
                 le_event_Report(tafUpdate.updateStateEvId, &stateInd, sizeof(taf_update_StateInd_t));
             }
             break;
@@ -468,7 +427,7 @@ void taf_Update::DownloadTimerTick(le_timer_Ref_t timerRef)
         default:
             LE_ERROR("Stop timer with download failure.");
             le_timer_Stop(timerRef);
-            tafUpdate.UpdateSetState(TAF_UPDATE_IDLE);
+            tafUpdate.UpdateWriteFs(TAF_UPDATE_STATE_FILE, (uint8_t*)&idleState, sizeof(idleState));
             break;
     }
 
@@ -494,24 +453,37 @@ void taf_Update::ProbationTimerTick(le_timer_Ref_t timerRef)
     if (context->tick > TAF_UPDATE_PROBATION_TIME) {
         LE_INFO("Probation timer stopped, reporting.");
         le_timer_Stop(timerRef);
+        taf_update_pa_ReportState_t rState = TAF_UPDATE_PA_REPORT_SUCCESS;
+        auto &tafUpdate = taf_Update::GetInstance();
         if (context->pkgType == TAF_UPDATE_PACKAGE_SOTA) {
-            LE_INFO("Mark good for application.");
-            (void)le_updateCtrl_MarkGood(true);
+            // If app is not running.
+            if (le_appInfo_GetState(tafUpdate.sotaAppName) == LE_APPINFO_STOPPED) {
+                LE_ERROR("Fail in app probation.");
+                rState = TAF_UPDATE_PA_REPORT_FAILURE;
+                le_updateCtrl_FailProbation();
+            } else {
+                LE_INFO("Mark good for application.");
+                le_updateCtrl_MarkGood(true);
+            }
         } else {
 #ifdef TARGET_SA515M
-            TAF_ERROR_IF_RET_NIL(taf_mrc_SendOtaAbsyncMsg() != LE_OK,
-                "Fail to send OTA AB Sync message to MRC daemon.");
+            LE_INFO("Start AB Sync.");
+            if (taf_mrc_SendOtaAbsyncMsg() != LE_OK) {
+                rState = TAF_UPDATE_PA_REPORT_FAILURE;
+                LE_ERROR("Fail to send OTA AB Sync message to MRC daemon.");
+            } else {
+                LE_INFO("AB Sync successful.");
+            }
 #endif
         }
-        auto &tafUpdate = taf_Update::GetInstance();
-        taf_update_pa_ReportState_t rState = TAF_UPDATE_PA_REPORT_SUCCESS;
+
         int ret = taf_update_pa_Report(tafUpdate.daSessionID, rState);
         TAF_ERROR_IF_RET_NIL(ret, "Download agent report fail, ret = %d.", ret);
         LE_INFO("Report done, back to idle.");
 
-        tafUpdate.UpdateSetState(TAF_UPDATE_IDLE);
         taf_update_StateInd_t stateInd;
         stateInd.state = TAF_UPDATE_IDLE;
+        tafUpdate.UpdateWriteFs(TAF_UPDATE_STATE_FILE, (uint8_t*)&stateInd.state, sizeof(stateInd.state));
         le_event_Report(tafUpdate.updateStateEvId, &stateInd, sizeof(taf_update_StateInd_t));
     }
     le_timer_SetContextPtr(timerRef, context);
@@ -529,6 +501,7 @@ void taf_Update::AppInstallHandler(le_update_State_t state, uint percent, void* 
 {
     auto &tafUpdate = taf_Update::GetInstance();
     taf_update_StateInd_t stateInd;
+    taf_update_State_t idleState = TAF_UPDATE_IDLE;
     stateInd.pkgType = TAF_UPDATE_PACKAGE_SOTA;
 
     switch (state) {
@@ -553,7 +526,7 @@ void taf_Update::AppInstallHandler(le_update_State_t state, uint percent, void* 
             le_update_End();
             stateInd.percent = 100;
             stateInd.state = TAF_UPDATE_INSTALL_SUCCESS;
-            tafUpdate.UpdateSetState(TAF_UPDATE_INSTALL_SUCCESS);
+            tafUpdate.UpdateWriteFs(TAF_UPDATE_STATE_FILE, (uint8_t*)&stateInd.state, sizeof(stateInd.state));
             break;
         case LE_UPDATE_STATE_FAILED:
         default:
@@ -562,7 +535,7 @@ void taf_Update::AppInstallHandler(le_update_State_t state, uint percent, void* 
             stateInd.percent = 0;
             stateInd.state = TAF_UPDATE_INSTALL_FAIL;
             stateInd.error = (taf_update_InstallError_t)le_update_GetErrorCode();
-            tafUpdate.UpdateSetState(TAF_UPDATE_IDLE);
+            tafUpdate.UpdateWriteFs(TAF_UPDATE_STATE_FILE, (uint8_t*)&idleState, sizeof(idleState));
             break;
     }
 
@@ -599,22 +572,23 @@ void taf_Update::UpdateProcCmdHandler(void* cmdReqPtr)
 {
     taf_UpdateCmdReq_t* cmdReq = (taf_UpdateCmdReq_t*)cmdReqPtr;
     taf_update_StateInd_t stateInd;
+    taf_update_State_t idleState = TAF_UPDATE_IDLE;
     auto &tafUpdate = taf_Update::GetInstance();
-    tafUpdate.UpdateGetState(&stateInd.state);
+
+    tafUpdate.UpdateReadFs(TAF_UPDATE_STATE_FILE, (uint8_t*)&stateInd.state, sizeof(stateInd.state));
 
     switch (cmdReq->cmdType) {
         case TAF_UPDATE_CMD_TYPE_DOWNLOAD:
             if (stateInd.state == TAF_UPDATE_IDLE) {
                 int ret = taf_update_pa_Download(tafUpdate.daSessionID);
+                le_thread_Sleep(5);
                 if (ret) {
                     LE_ERROR("Download agent download failed, ret = %d.", ret);
-                    stateInd.state = TAF_UPDATE_DOWNLOAD_FAIL;
-                    tafUpdate.UpdateSetState(TAF_UPDATE_IDLE);
                     le_event_Report(tafUpdate.updateStateEvId, &stateInd, sizeof(taf_update_StateInd_t));
                 } else {
-                    tafUpdate.UpdateSetState(TAF_UPDATE_DOWNLOADING);
                     tafUpdate.dlTimerContext.state = TAF_UPDATE_DOWNLOADING;
                     tafUpdate.dlTimerContext.tick = 0;
+                    tafUpdate.UpdateWriteFs(TAF_UPDATE_STATE_FILE, (uint8_t*)&tafUpdate.dlTimerContext.state, sizeof(tafUpdate.dlTimerContext.state));
                     le_timer_SetContextPtr(tafUpdate.dlTimerRef, &tafUpdate.dlTimerContext);
                     LE_INFO("Start download timer.");
                     le_timer_Start(tafUpdate.dlTimerRef);
@@ -626,15 +600,14 @@ void taf_Update::UpdateProcCmdHandler(void* cmdReqPtr)
         case TAF_UPDATE_CMD_TYPE_INSTALL:
             if (stateInd.state == TAF_UPDATE_DOWNLOAD_SUCCESS) {
                 stateInd.state = TAF_UPDATE_INSTALLING;
-                tafUpdate.UpdateSetState(stateInd.state);
-                if (tafUpdate.pkgType == TAF_UPDATE_PACKAGE_FOTA) {
+                tafUpdate.UpdateWriteFs(TAF_UPDATE_STATE_FILE, (uint8_t*)&stateInd.state, sizeof(stateInd.state));
+                if (cmdReq->pkgType == TAF_UPDATE_PACKAGE_FOTA) {
                     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
                     if (tafFwUpdate.Install(cmdReq->pkgName) != TAF_FWUPDATE_ERROR_NONE) {
                         stateInd.state = TAF_UPDATE_INSTALL_FAIL;
-                        tafUpdate.UpdateSetState(TAF_UPDATE_IDLE);
                     } else {
                         stateInd.state = TAF_UPDATE_INSTALL_SUCCESS;
-                        tafUpdate.UpdateSetState(TAF_UPDATE_INSTALL_SUCCESS);
+                        tafUpdate.UpdateWriteFs(TAF_UPDATE_STATE_FILE, (uint8_t*)&stateInd.state, sizeof(stateInd.state));
                     }
                     stateInd.pkgType = TAF_UPDATE_PACKAGE_FOTA;
                     le_event_Report(tafUpdate.updateStateEvId, &stateInd, sizeof(taf_update_StateInd_t));
@@ -644,9 +617,15 @@ void taf_Update::UpdateProcCmdHandler(void* cmdReqPtr)
                     if (result != LE_OK) {
                         le_update_End();
                         stateInd.state = TAF_UPDATE_INSTALL_FAIL;
-                        tafUpdate.UpdateSetState(TAF_UPDATE_IDLE);
-                        le_event_Report(tafUpdate.updateStateEvId, &stateInd, sizeof(taf_update_StateInd_t));
                     }
+                }
+
+                if (stateInd.state == TAF_UPDATE_INSTALL_FAIL) {
+                    taf_update_pa_ReportState_t rState = TAF_UPDATE_PA_REPORT_FAILURE;
+                    int ret = taf_update_pa_Report(tafUpdate.daSessionID, rState);
+                    TAF_ERROR_IF_RET_NIL(ret, "Download agent report fail, ret = %d.", ret);
+                    tafUpdate.UpdateWriteFs(TAF_UPDATE_STATE_FILE, (uint8_t*)&idleState, sizeof(idleState));
+                    le_event_Report(tafUpdate.updateStateEvId, &stateInd, sizeof(taf_update_StateInd_t));
                 }
             } else {
                 LE_ERROR("Can not install, current state : %d.", stateInd.state);
@@ -681,19 +660,6 @@ void* taf_Update::UpdateCmdThread(void* contextPtr)
 }
 
 /*======================================================================
- FUNCTION        taf_Update::onInitCompleted
- DESCRIPTION     Call back function for data serving system initialization
- PARAMETERS      [IN] status: Data call service status
- RETURN VALUE    void
-======================================================================*/
-void taf_Update::onInitCompleted(telux::common::ServiceStatus status)
-{
-    std::lock_guard<std::mutex> lock(mtx);
-    subSystemStatusUpdated = true;
-    conVar.notify_all();
-}
-
-/*======================================================================
  FUNCTION        taf_Update::Init
  DESCRIPTION     Initialization of update service
  PARAMETERS      void
@@ -703,11 +669,14 @@ void taf_Update::Init(void)
 {
     std::chrono::time_point<std::chrono::system_clock> startTime = std::chrono::system_clock::now();
 
+#ifdef TARGET_SA515M
+    // 1. Set up data call.
     uint32_t profileId = taf_dcs_GetDefaultProfileIndex();
     taf_dcs_ProfileRef_t profileRef = taf_dcs_GetProfile(profileId);
     if (taf_dcs_StartSession(profileRef) != LE_OK) {
         LE_ERROR("Fail to set up data call.");
     }
+#endif
 
     daSessionID = taf_update_pa_GetSession();
     if (daSessionID == nullptr) {
@@ -738,24 +707,35 @@ void taf_Update::Init(void)
     le_timer_SetRepeat(prbtTimerRef, 0);
     le_timer_SetHandler(prbtTimerRef, ProbationTimerTick);
 
+    // 6. Check states when restarting service.
+    if (le_fs_Exists(TAF_UPDATE_APP_NAME_FILE)) {
+        UpdateReadFs(TAF_UPDATE_APP_NAME_FILE, (uint8_t*)sotaAppName, TAF_APPMGMT_APP_NAME_BYTES);
+    }
+
+    if (le_fs_Exists(TAF_UPDATE_PACKAGE_TYPE_FILE)) {
+        UpdateReadFs(TAF_UPDATE_PACKAGE_TYPE_FILE, (uint8_t*)&prbtTimerContext.pkgType, sizeof(prbtTimerContext.pkgType));
+    }
+
+    taf_update_State_t state = TAF_UPDATE_IDLE;
     if (!le_fs_Exists(TAF_UPDATE_STATE_FILE)) {
-        UpdateSetState(TAF_UPDATE_IDLE);
+        UpdateWriteFs(TAF_UPDATE_STATE_FILE, (uint8_t*)&state, sizeof(state));
     } else {
-        taf_update_State_t state;
-        UpdateGetState(&state);
+        UpdateReadFs(TAF_UPDATE_STATE_FILE, (uint8_t*)&state, sizeof(state));
         if (state == TAF_UPDATE_INSTALL_SUCCESS) {
-            // Probation start.
-            LE_INFO("Install success after reboot.");
-            state = TAF_UPDATE_PROBATION;
-            UpdateSetState(state);
-            prbtTimerContext.tick = 0;
-            prbtTimerContext.pkgType = TAF_UPDATE_PACKAGE_FOTA;
-            le_timer_SetContextPtr(prbtTimerRef, &prbtTimerContext);
-            LE_INFO("Start probation timer for firmware.");
-            le_timer_Start(prbtTimerRef);
-        } else if (state != TAF_UPDATE_IDLE) {
-            LE_WARN("Wrong state %d.", state);
-            UpdateSetState(TAF_UPDATE_IDLE);
+            if (prbtTimerContext.pkgType == TAF_UPDATE_PACKAGE_FOTA) {
+                state = TAF_UPDATE_PROBATION;
+                UpdateWriteFs(TAF_UPDATE_STATE_FILE, (uint8_t*)&state, sizeof(state));
+                prbtTimerContext.tick = 0;
+                le_timer_SetContextPtr(prbtTimerRef, &prbtTimerContext);
+                LE_INFO("Start probation timer for firmware.");
+                le_timer_Start(prbtTimerRef);
+            } else {
+                LE_INFO("App %s installed successfully before reboot, start probation or uninstall it.", sotaAppName);
+            }
+        } else {
+             LE_WARN("Wrong state %d.", state);
+             state = TAF_UPDATE_IDLE;
+             UpdateWriteFs(TAF_UPDATE_STATE_FILE, (uint8_t*)&state, sizeof(state));
         }
     }
 

@@ -230,19 +230,46 @@ taf_appMgmt_AppState_t taf_appMgmt_GetState(const char* appName)
 }
 
 /*======================================================================
+ FUNCTION        taf_appMgmt_StartProbation
+ DESCRIPTION     Start probation for an installed app, and start app if it is not running
+ PARAMETERS      [IN] appName: App name
+ RETURN VALUE    le_result_t: Result of starting probation
+======================================================================*/
+le_result_t taf_appMgmt_StartProbation(const char* appName)
+{
+    auto &tafUpdate = taf_Update::GetInstance();
+    taf_update_State_t state;
+    tafUpdate.UpdateReadFs(TAF_UPDATE_STATE_FILE, (uint8_t*)&state, sizeof(state));
+    TAF_ERROR_IF_RET_VAL(state != TAF_UPDATE_INSTALL_SUCCESS, LE_FAULT, "Current state(%d) not install success.", state);
+    if (le_appInfo_GetState(appName) == LE_APPINFO_STOPPED) {
+         TAF_ERROR_IF_RET_VAL(le_appCtrl_Start(appName) != LE_OK, LE_FAULT, "Fail to start application.");
+    }
+    state = TAF_UPDATE_PROBATION;
+    tafUpdate.UpdateWriteFs(TAF_UPDATE_STATE_FILE, (uint8_t*)&state, sizeof(state));
+    tafUpdate.prbtTimerContext.tick = 0;
+    tafUpdate.prbtTimerContext.pkgType = TAF_UPDATE_PACKAGE_SOTA;
+    le_timer_SetContextPtr(tafUpdate.prbtTimerRef, &tafUpdate.prbtTimerContext);
+    LE_INFO("Start probation timer for application.");
+    le_timer_Start(tafUpdate.prbtTimerRef);
+
+    return LE_OK;
+}
+
+/*======================================================================
  FUNCTION        taf_appMgmt_Start
- DESCRIPTION     Start an app and set probation state
+ DESCRIPTION     Start an app
  PARAMETERS      [IN] appName: App name
  RETURN VALUE    le_result_t: Result of starting an app
 ======================================================================*/
 le_result_t taf_appMgmt_Start(const char* appName)
 {
-    le_result_t ret = le_appCtrl_Start(appName);
     auto &tafUpdate = taf_Update::GetInstance();
     taf_update_State_t state;
-    tafUpdate.UpdateGetState(&state);
-    if (state == TAF_UPDATE_INSTALL_SUCCESS) {
-        tafUpdate.UpdateSetState(TAF_UPDATE_PROBATION);
+    tafUpdate.UpdateReadFs(TAF_UPDATE_STATE_FILE, (uint8_t*)&state, sizeof(state));
+    // If start sota app, start probation for the first time.
+    if ((strncmp(appName, tafUpdate.sotaAppName, TAF_APPMGMT_APP_NAME_BYTES) == 0) && (state == TAF_UPDATE_INSTALL_SUCCESS)) {
+        state = TAF_UPDATE_PROBATION;
+        tafUpdate.UpdateWriteFs(TAF_UPDATE_STATE_FILE, (uint8_t*)&state, sizeof(state));
         tafUpdate.prbtTimerContext.tick = 0;
         tafUpdate.prbtTimerContext.pkgType = TAF_UPDATE_PACKAGE_SOTA;
         le_timer_SetContextPtr(tafUpdate.prbtTimerRef, &tafUpdate.prbtTimerContext);
@@ -250,7 +277,7 @@ le_result_t taf_appMgmt_Start(const char* appName)
         le_timer_Start(tafUpdate.prbtTimerRef);
     }
 
-    return ret;
+    return le_appCtrl_Start(appName);
 }
 
 /*======================================================================
@@ -261,6 +288,15 @@ le_result_t taf_appMgmt_Start(const char* appName)
 ======================================================================*/
 le_result_t taf_appMgmt_Stop(const char* appName)
 {
+    auto &tafUpdate = taf_Update::GetInstance();
+    // If stop sota app.
+    if (strncmp(appName, tafUpdate.sotaAppName, TAF_APPMGMT_APP_NAME_BYTES) == 0) {
+        taf_update_State_t state;
+        tafUpdate.UpdateReadFs(TAF_UPDATE_STATE_FILE, (uint8_t*)&state, sizeof(state));
+        // If app is in probation time.
+        TAF_ERROR_IF_RET_VAL(state == TAF_UPDATE_PROBATION, LE_FAULT, "Fail to stop application during probation.");
+    }
+
     return le_appCtrl_Stop(appName);
 }
 
@@ -272,6 +308,21 @@ le_result_t taf_appMgmt_Stop(const char* appName)
 ======================================================================*/
 le_result_t taf_appMgmt_Uninstall(const char* appName)
 {
+    auto &tafUpdate = taf_Update::GetInstance();
+    // If uninstall sota app.
+    if (strncmp(appName, tafUpdate.sotaAppName, TAF_APPMGMT_APP_NAME_BYTES) == 0) {
+        taf_update_State_t state;
+        tafUpdate.UpdateReadFs(TAF_UPDATE_STATE_FILE, (uint8_t*)&state, sizeof(state));
+
+        TAF_ERROR_IF_RET_VAL(state == TAF_UPDATE_PROBATION, LE_FAULT, "Fail to uninstall application during probation.");
+
+        // If app is installed successfully, uninstall app should go back to idle state.
+        if (state == TAF_UPDATE_INSTALL_SUCCESS) {
+            state = TAF_UPDATE_IDLE;
+            tafUpdate.UpdateWriteFs(TAF_UPDATE_STATE_FILE, (uint8_t*)&state, sizeof(state));
+        }
+    }
+
     return le_appRemove_Remove(appName);
 }
 

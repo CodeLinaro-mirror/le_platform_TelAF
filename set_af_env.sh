@@ -45,6 +45,8 @@ function build-distclean-af(){
 
 function build-sa515m-af(){
     make sa515m
+    export AVBTOOL="${OECORE_NATIVE_SYSROOT}/usr/share/avb_py_tool/avbtool"
+    ${AVBTOOL} add_hashtree_footer --image ./build/sa515m/telaf_ro.squashfs --partition_name telaf --algorithm SHA256_RSA2048 --key ${OECORE_NATIVE_SYSROOT}/usr/share/avb_py_tool/qpsa_attest.key --public_key_metadata ${OECORE_NATIVE_SYSROOT}/usr/share/avb_py_tool/qpsa_attest.der --do_not_generate_fec --rollback_index 0
 }
 
 

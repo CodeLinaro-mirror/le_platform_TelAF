@@ -1147,15 +1147,16 @@ le_result_t taf_VoiceCall::DeleteCall(taf_voicecall_CallRef_t callRef, le_msg_Se
 void taf_VoiceCall::Init(void)
 {
     auto &phoneFactory = PhoneFactory::getInstance();
-    PhoneMgr = phoneFactory.getPhoneManager();
-    CallMgr = phoneFactory.getCallManager();
+    std::promise<telux::common::ServiceStatus> prom;
 
-    bool isSubSysReady = PhoneMgr->isSubsystemReady();
+    CallMgr = phoneFactory.getCallManager([&](telux::common::ServiceStatus status) {
+        prom.set_value(status);
+    });
 
-    if(!isSubSysReady){
-        LE_INFO("Waiting for sytem ready!\n");
-        std::future<bool> f = PhoneMgr->onSubsystemReady();
-        isSubSysReady = f.get();
+    telux::common::ServiceStatus mgrStatus = prom.get_future().get();
+    if (mgrStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE) {
+        LE_INFO("Cannot initialize all manager, ret: %d", (int)mgrStatus);
+        return;
     }
 
     // TelAF side initializations

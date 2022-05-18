@@ -237,7 +237,6 @@ namespace tafsvc {
         // objects used by telSdk interfaces
         std::shared_ptr<tafCallListener> CallLsn;
         std::shared_ptr<telux::tel::ICallManager> CallMgr;
-        std::shared_ptr<telux::tel::IPhoneManager> PhoneMgr;
         std::shared_ptr<tafDialCallback>    CallCb;
     };
 

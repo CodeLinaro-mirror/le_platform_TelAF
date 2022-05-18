@@ -317,9 +317,18 @@ void taf_ecall::Init(void)
 {
    //  Get the PhoneFactory and PhoneManager instances.
    auto &phoneFactory = telux::tel::PhoneFactory::getInstance();
-   PhoneManager = phoneFactory.getPhoneManager();
-   CallManager = phoneFactory.getCallManager();
 
+   std::promise<telux::common::ServiceStatus> prom;
+   CallManager = phoneFactory.getCallManager([&](telux::common::ServiceStatus status) {
+       prom.set_value(status);
+   });
+   telux::common::ServiceStatus mgrStatus = prom.get_future().get();
+   if (mgrStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE) {
+       LE_INFO("Cannot initialize all manager, ret: %d", (int)mgrStatus);
+       return;
+   }
+
+   PhoneManager = phoneFactory.getPhoneManager();
    //  Check if telephony subsystem is ready
    bool subSystemStatus = PhoneManager->isSubsystemReady();
 

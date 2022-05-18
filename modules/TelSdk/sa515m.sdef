@@ -69,6 +69,7 @@ interfaceSearch:
     $TELAF_ROOT/interfaces
     interfaces/positioning
     $LEGATO_ROOT/apps/sample/voiceCallApp
+    // $TELAF_ROOT/apps/test/tafPMTest/tafPMUnitTest
 }
 
 cflags:

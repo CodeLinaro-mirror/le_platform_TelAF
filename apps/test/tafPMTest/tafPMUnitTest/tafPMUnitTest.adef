@@ -2,6 +2,7 @@ sandboxed: false
 executables:
 {
     tafPMUnitTest = ( tafPMUnitTestComp )
+    pmTest = ( ctrlCmdComp )
 }
 
 
@@ -22,4 +23,5 @@ start: manual
 bindings:
 {
     tafPMUnitTest.tafPMUnitTestComp.taf_pm -> tafPMSvc.taf_pm
+    pmTest.ctrlCmdComp.ctrlCmd -> tafPMUnitTest.tafPMUnitTestComp.ctrlCmd
 }

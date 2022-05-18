@@ -218,18 +218,7 @@ void taf_PM::Init(void)
         LE_INFO("tafPowerMgr is null Init...\n");
         return;
     }
-#ifdef TARGET_SA515M
-    // Get TCU-activity manager object of remote proc
-    std::promise<telux::common::ServiceStatus> remProm = std::promise<telux::common::ServiceStatus>();
-    RemoteTcuActivityMgr = powerFactory.getTcuActivityManager(ClientType::MASTER, ProcType::REMOTE_PROC,
-                        [&](telux::common::ServiceStatus status) {
-                             remProm.set_value(status);
-                        });
-    if(RemoteTcuActivityMgr == nullptr) {
-        LE_INFO("RemoteTcuActivityMgr is null");
-        return;
-    }
-#endif
+
 #ifdef TARGET_SA515M
     // wait unconditionally till the service is avilable
     bool isReady = (prom.get_future().get() == telux::common::ServiceStatus::SERVICE_AVAILABLE);
@@ -262,20 +251,6 @@ void taf_PM::Init(void)
         LE_ERROR("ERROR Unable to intialize TCU activity service");
         return;
     }
-#ifdef TARGET_SA515M
-    bool isRemoteReady = (remProm.get_future().get() == telux::common::ServiceStatus::SERVICE_AVAILABLE);
-    if(isRemoteReady) {
-        // Registering a listener for Remote  proc TCU-activity state updates
-        remoteTcuStateListener = std::make_shared<tafRemoteTcuStateListener>();
-        telux::common::Status remRegisterStatus =
-                RemoteTcuActivityMgr->registerListener(remoteTcuStateListener);
-        if(remRegisterStatus != telux::common::Status::SUCCESS) {
-            LE_INFO(" ERROR - Failed to register for TCU-activity state updates for remote proc");
-        } else {
-            LE_INFO(" Registered Listener for TCU-activity state updates for remote proc");
-        }
-    }
-#endif
 
     // Initialize powermanager record
     pm_recrd = {0, NULL, NULL, NULL, NULL, NULL};
@@ -627,6 +602,7 @@ void tafTcuStateListener :: onTcuActivityStateUpdate(TcuActivityState state)
         } else {
             LE_ERROR("sending resume cmd failed");
         }
+        le_event_Report(tafPwrMgr.AckEvent, &state, sizeof(state));
     } else {
         // send state change to all the handlers registered, except Resume triggered
         // from tafPMService if WL is acquired.

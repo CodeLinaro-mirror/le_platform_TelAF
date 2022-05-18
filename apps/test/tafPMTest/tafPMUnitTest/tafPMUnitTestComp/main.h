@@ -38,32 +38,8 @@
 taf_pm_StateChangeHandlerRef_t StateChangeRefHandler;
 char* tafStateToString(taf_pm_State_t tafState);
 void TestStateChangeHandler(taf_pm_State_t state, void* contextPtr);
-taf_pm_WakeupSourceRef_t tafPowerMgrTest_create(const char* tag);
+taf_pm_WakeupSourceRef_t tafPMTest_create(const char* tag);
 void tafPMTest_acquire(taf_pm_WakeupSourceRef_t ref);
 void tafPMTest_release(taf_pm_WakeupSourceRef_t ref);
-void tafPMTest_getState();
-void tafPMTest_registerStateChangeListener();
 void tafPMTest_deregisterStateChangeListener();
-void tafPMTest_deregisterListenerTest();
-/*
- * To test suspend testcase when wakelock is acquired, and observe
- * device will not suspend when wakelock is acquired
- */
-void tafPMTest_test3();
-/*
- * To test remote proc suspend testcase when wakelock is acquired, and
- * observe device will not suspend when wakelock is acquired
- */
-void tafPMTest_test4();
-/*
- * To test suspend test case when WL is released, device suspends when no wakelock is held
- */
-void tafPMTest_test5();
-/*
- * To test suspend test case when app exits with wakelock acquired
- */
-void tafPMTest_test6();
-/*
- * To test acquire and release multiple times WL with reference
- */
-void tafPMTest_test8();
+

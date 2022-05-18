@@ -95,13 +95,14 @@ void tafPMTest_release(taf_pm_WakeupSourceRef_t ref)
 }
 
 //Function to get the State
-void tafPMTest_getState()
+le_result_t ctrlCmd_test6()
 {
     taf_pm_State_t state = taf_pm_GetPowerState();
     char* powerState = tafStateToString(state);
     LE_INFO("State is %s\n", powerState);
     printf("\n State : %s\n", powerState);
-    LE_ASSERT(state >= TAF_PM_STATE_RESUME && state <= TAF_PM_STATE_UNKNOWN);
+    LE_ASSERT(state <= TAF_PM_STATE_SHUTDOWN && state >= TAF_PM_STATE_UNKNOWN);
+    return LE_OK;
 }
 
 le_result_t WaitForSem_Timeout
@@ -124,33 +125,26 @@ static void* test_stateChangeHandler(void* ctxPtr)
     le_event_RunLoop();
 }
 
-void tafPMTest_registerStateChangeListener()
+le_result_t ctrlCmd_registerStateChangeListener()
 {
     LE_INFO("called registerStateChangeListener in app");
     handlerRef = taf_pm_AddStateChangeHandler(TestStateChangeHandler, NULL);
     printf("\n====== Register listener for state change Test ======\n"
             "ACTION : Trigger state change from telux_power_test_app and observe\n");
     LE_ASSERT(NULL != handlerRef);
+    return LE_OK;
 }
 
-void tafPMTest_deregisterListenerTest()
+le_result_t ctrlCmd_deregisterListenerTest()
 {
     semRef = le_sem_Create("SemRef", 0);
-    LE_INFO("===== power state handler test =====");
-    printf("\n====== power state handler test ======\n");
-    taf_pm_WakeupSourceRef_t wsRef = tafPMTest_create("listenerTest");
-    tafPMTest_acquire(wsRef);
-    sleep(2);
-    tafPMTest_release(wsRef);
+    LE_INFO("===== Remove power state handler test =====");
     le_thread_Ref_t threadRef = le_thread_Create("taf_PM_StateHandler", test_stateChangeHandler, NULL);
     le_thread_Start(threadRef);
     WaitForSem_Timeout(semRef, 5);
-    tafPMTest_acquire(wsRef);
-    sleep(5);
     tafPMTest_deregisterStateChangeListener();
-    printf("\nWL is released and suspend will not be notified as StateChangeListener is removed\n");
-    printf("\nACTION : Disconnect USB to SUSPEND the device\n");
-    tafPMTest_release(wsRef);
+    LE_INFO("Deregistered successfully");
+    return LE_OK;
 }
 
 void tafPMTest_deregisterStateChangeListener()
@@ -160,25 +154,22 @@ void tafPMTest_deregisterStateChangeListener()
     printf("\n====== StateChangeListener removed successfully ======\n");
 }
 
-void tafPMTest_test3()
+le_result_t ctrlCmd_test3()
 {
     LE_INFO("====== Suspend test case when WL is acquired ======");
     printf("\n====== Suspend test case when WL is acquired ======\n");
-    taf_pm_WakeupSourceRef_t ref = tafPMTest_create("suspendtest");
+    semRef = le_sem_Create("SemRef", 0);
+    le_thread_Ref_t threadRef = le_thread_Create("taf_PM_StateHandler",
+            test_stateChangeHandler, NULL);
+    le_thread_Start(threadRef);
+    WaitForSem_Timeout(semRef, 5);
+    taf_pm_WakeupSourceRef_t ref = tafPMTest_create("local_suspend");
     tafPMTest_acquire(ref);
     printf("\nACTION : Trigger suspend from telux_power_test_app and observe device will not suspend\n");
+    return LE_OK;
 }
 
-void tafPMTest_test4()
-{
-    LE_INFO("====== VT suspend test case when WL is acquired ======");
-    printf("\n====== VT suspend test case when WL is acquired ======\n");
-    taf_pm_WakeupSourceRef_t ref = tafPMTest_create("suspendtest");
-    tafPMTest_acquire(ref);
-    printf("\nACTION : Trigger suspend from VT telux_power_test_app and neither NAD ot VT device will not suspend\n");
-}
-
-void tafPMTest_test5()
+le_result_t ctrlCmd_test4()
 {
     LE_INFO("====== Suspend test case when WL is not acquired ======");
     printf("\n====== Suspend test case when WL is not acquired ======\n");
@@ -187,26 +178,29 @@ void tafPMTest_test5()
             test_stateChangeHandler, NULL);
     le_thread_Start(threadRef);
     WaitForSem_Timeout(semRef, 5);
-    taf_pm_WakeupSourceRef_t ref = tafPMTest_create("suspendtest");
+    taf_pm_WakeupSourceRef_t ref = tafPMTest_create("no_wl_suspend");
     tafPMTest_acquire(ref);
-    sleep(5);
+    sleep(3);
     printf("\nWL releases and device suspends as no WL is acquired\n");
     printf("\nACTION : Disconnect the USB to SUSPEND the device \n");
     tafPMTest_release(ref);
+    return LE_OK;
 }
 
-void tafPMTest_test6()
+le_result_t ctrlCmd_test5()
 {
     LE_INFO("====== Suspend test case when WL is acquired from app and app exits ======");
     printf("\n====== Suspend test case when WL is acquired from app and app exits ======\n");
-    taf_pm_WakeupSourceRef_t ref = tafPMTest_create("suspendtest");
+    taf_pm_WakeupSourceRef_t ref = tafPMTest_create("app_exit_suspend");
     tafPMTest_acquire(ref);
     sleep(2);
     printf("\nApp exits and device suspends\n");
     printf("\nACTION : Disconnect USB to SUSPEND the device\n");
+    exit(EXIT_SUCCESS);
+    return LE_OK;
 }
 
-void tafPMTest_test8()
+le_result_t ctrlCmd_test7()
 {
     LE_INFO("====== Test acquire and release multiple times WL with reference ======");
     printf("\n====== Test acquire and release multiple times WL with reference ======\n");
@@ -219,9 +213,15 @@ void tafPMTest_test8()
     for(int i = 0; i < 5; i++) {
         tafPMTest_acquire(ref);
     }
-    sleep(5);
+    sleep(3);
     for(int i = 0; i < 5; i++) {
         tafPMTest_release(ref);
     }
     printf("\nACTION : Disconnect USB to SUSPEND the device\n");
+    return LE_OK;
+}
+
+COMPONENT_INIT
+{
+    LE_INFO("tafPMUnitTest started");
 }

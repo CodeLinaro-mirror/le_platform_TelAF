@@ -57,10 +57,7 @@ COMPONENT_INIT
 
  PARAMETERS
 
- RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER:     Invalid parameters.
-                     LE_FAULT:             Fail.
-                     LE_OK:                Success.
+ RETURN VALUE
 
  SIDE EFFECTS
 
@@ -88,10 +85,7 @@ taf_ecall_StateChangeHandlerRef_t taf_ecall_AddStateChangeHandler (taf_ecall_Sta
 
  PARAMETERS
 
- RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER:     Invalid parameters.
-                     LE_FAULT:             Fail.
-                     LE_OK:                Success.
+ RETURN VALUE
 
  SIDE EFFECTS
 

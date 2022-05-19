@@ -47,6 +47,7 @@ apps:
     // $TELAF_ROOT/apps/test/tafKeyStoreTest/tafKeyStoreUnitTest/tafKeyStoreUnitTest
     // $TELAF_ROOT/apps/test/tafPMTest/tafPMUnitTest/tafPMUnitTest.adef
     // $TELAF_ROOT/apps/test/tafGpioTest/tafGpioUnitTest.adef
+    // $TELAF_ROOT/apps/sample/eCallDemo/tafECallApp
 }
 
 commands:

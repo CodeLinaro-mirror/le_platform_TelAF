@@ -1,0 +1,18 @@
+sources:
+{
+    eCall.c
+}
+
+requires:
+{
+    api:
+    {
+        taf_ecall.api
+        taf_pos.api
+        taf_posCtrl.api
+        taf_gpio.api
+        taf_audio.api
+        taf_gnss.api
+    }
+}
+

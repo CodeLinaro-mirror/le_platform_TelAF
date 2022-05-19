@@ -42,11 +42,13 @@ LE_REF_DEFINE_STATIC_MAP(ECallMap, MAX_ECALL);
 
 void tafECallOperatingModeCallback::setECallOperatingModeResponse(
     telux::common::ErrorCode error) {
+    auto &eCall = taf_ecall::GetInstance();
     if (error == telux::common::ErrorCode::SUCCESS) {
         LE_DEBUG("Set eCall operating mode request executed successfully");
     } else {
         LE_ERROR( "Set eCall operating mode request failed error = %d", (int)error);
     }
+    eCall.setOpModeProm.set_value(error);
 }
 
 void tafECallOperatingModeCallback::getECallOperatingModeResponse(
@@ -58,7 +60,7 @@ void tafECallOperatingModeCallback::getECallOperatingModeResponse(
     } else {
          LE_ERROR("Request eCall Operating Mode failed, errorCode: ");
     }
-    eCall.opModeProm.set_value(eCallMode);
+    eCall.getOpModeProm.set_value(eCallMode);
 }
 
 void tafCallCommandCallback::makeCallResponse(telux::common::ErrorCode errorCode,
@@ -225,23 +227,23 @@ void tafECallListener::onECallHlapTimerEvent(int phoneId, ECallHlapTimerEvents t
     LE_DEBUG("onECallHlapTimerEvent ");
     taf_ecall_State_t state = TAF_ECALL_STATE_UNKNOWN;
     if(timerEvents.t2 == HlapTimerEvent::EXPIRED) {
-        state = TAF_ECALL_STATE_T5_EXPIRED;
+        state = TAF_ECALL_STATE_T2_EXPIRED;
     }
     if(timerEvents.t5 == HlapTimerEvent::EXPIRED) {
         state = TAF_ECALL_STATE_T5_EXPIRED;
     }
     if(timerEvents.t6 == HlapTimerEvent::EXPIRED) {
-        state = TAF_ECALL_STATE_T5_EXPIRED;
+        state = TAF_ECALL_STATE_T6_EXPIRED;
     }
     if(timerEvents.t7 == HlapTimerEvent::EXPIRED) {
-        state = TAF_ECALL_STATE_T5_EXPIRED;
+        state = TAF_ECALL_STATE_T7_EXPIRED;
     }
     if(timerEvents.t9 == HlapTimerEvent::EXPIRED) {
-        state = TAF_ECALL_STATE_T5_EXPIRED;
+        state = TAF_ECALL_STATE_T9_EXPIRED;
     }
 #ifdef TARGET_SA515M
     if(timerEvents.t10 == HlapTimerEvent::EXPIRED) {
-        state = TAF_ECALL_STATE_T5_EXPIRED;
+        state = TAF_ECALL_STATE_T10_EXPIRED;
     }
 #endif
     if (state != TAF_ECALL_STATE_UNKNOWN) {
@@ -308,6 +310,7 @@ void taf_ecall::InitializeECallPtr()
     ECallObject.eCallSession = ECALL_INIT;
     ECallObject.state = TAF_ECALL_STATE_UNKNOWN;
 
+    ECallObject.isMsdUpdated = false;
 }
 
 void taf_ecall::Init(void)
@@ -387,44 +390,51 @@ void taf_ecall::Delete(taf_ecall_CallRef_t ecallRef)
 
 
 le_result_t taf_ecall::SetECallOperatingMode(taf_sim_Id_t slotId, taf_ecall_OpMode_t eCallMode) {
-    auto phone = Phones[slotId - 1];
-    if(phone) {
-        if(eCallMode == 0 || eCallMode == 1) {
-            auto ret = phone->setECallOperatingMode(
-                    static_cast<telux::tel::ECallMode>(eCallMode),
-                    tafECallOperatingModeCallback::setECallOperatingModeResponse);
-            if(ret == telux::common::Status::SUCCESS) {
-                LE_DEBUG("Set eCall operating mode request sent successfully \n");
-                return LE_OK;
+    if (Phones.size() >= slotId) {
+        auto phone = Phones[slotId - 1];
+        if(phone) {
+            if(eCallMode == TAF_ECALL_MODE_NORMAL  || eCallMode == TAF_ECALL_MODE_ECALL) {
+                auto ret = phone->setECallOperatingMode(
+                        static_cast<telux::tel::ECallMode>(eCallMode),
+                        tafECallOperatingModeCallback::setECallOperatingModeResponse);
+                if(ret == telux::common::Status::SUCCESS) {
+                    LE_DEBUG("Set eCall operating mode request sent successfully \n");
+                    setOpModeProm = std::promise<telux::common::ErrorCode>();
+                    telux::common::ErrorCode error = setOpModeProm.get_future().get();
+                    if (error == telux::common::ErrorCode::SUCCESS)
+                    {
+                        return LE_OK;
+                    }
+                } else {
+                    LE_ERROR("Set eCall operating mode request failed \n");
+                }
             } else {
-                LE_ERROR("Set eCall operating mode request failed \n");
+                LE_ERROR("Invalid input \n");
             }
-        } else {
-            LE_ERROR("Invalid input \n");
         }
-    } else {
-        LE_ERROR("No phone found corresponding to slot Id");
     }
+    LE_ERROR("No phone found corresponding to slot Id");
     return LE_FAULT;
 }
 
 le_result_t taf_ecall::GetECallOperatingMode(taf_sim_Id_t slotId, taf_ecall_OpMode_t *opMode) {
-   auto phone = Phones[slotId - 1];
-   if(phone) {
-        opModeProm = std::promise<telux::tel::ECallMode>();
-      auto ret = phone->requestECallOperatingMode(
-         tafECallOperatingModeCallback::getECallOperatingModeResponse);
-      if(ret == telux::common::Status::SUCCESS) {
-          LE_DEBUG("Get eCall Operating mode request sent successfully\n");
-          telux::tel::ECallMode mode = opModeProm.get_future().get();
-          *opMode = (taf_ecall_OpMode_t)mode;
-          return LE_OK;
-      } else {
-         LE_ERROR("Get eCall Operating mode request failed \n");
-      }
-   } else {
-      LE_ERROR("No phone found corresponding to default phoneId");
-   }
+    if (Phones.size() >= slotId) {
+        auto phone = Phones[slotId - 1];
+        if(phone) {
+            getOpModeProm = std::promise<telux::tel::ECallMode>();
+            auto ret = phone->requestECallOperatingMode(
+                    tafECallOperatingModeCallback::getECallOperatingModeResponse);
+            if(ret == telux::common::Status::SUCCESS) {
+                LE_DEBUG("Get eCall Operating mode request sent successfully\n");
+                telux::tel::ECallMode mode = getOpModeProm.get_future().get();
+                *opMode = (taf_ecall_OpMode_t)mode;
+                return LE_OK;
+            } else {
+                LE_ERROR("Get eCall Operating mode request failed \n");
+            }
+        }
+    }
+    LE_ERROR("No phone found corresponding to slotId");
     return LE_FAULT;
 }
 
@@ -465,6 +475,7 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
     }
 
     Status ret;
+
     //Check msd transmission mode to send msd or not
     if (ECallObject.msdTxMode == TAF_ECALL_MSD_TX_MODE_PUSH )
     {
@@ -478,8 +489,38 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
         else
         {
             ECallMsdData eCallMsdData = (ECallMsdData) eCallPtr->msd;
+
+            LE_DEBUG("MSD Information eCallMsdData.control.vehicleType = %d",
+                    eCallMsdData.control.vehicleType);
+            LE_DEBUG("MSD Information msd.vehicleIdentificationNumber.isowmi %s ",
+                    eCallMsdData.vehicleIdentificationNumber.isowmi.c_str());
+            LE_DEBUG("MSD Information msd.vehicleIdentificationNumber.isovds = %s ",
+                    eCallMsdData.vehicleIdentificationNumber.isovds.c_str());
+            LE_DEBUG("MSD Information msd.vehicleIdentificationNumber.isovisModelyear = %s",
+                    eCallMsdData.vehicleIdentificationNumber.isovisModelyear.c_str());
+            LE_DEBUG("MSD Information msd.vehicleIdentificationNumber.isovisSeqPlant  =%s",
+                    eCallMsdData.vehicleIdentificationNumber.isovisSeqPlant.c_str());
+            LE_DEBUG("MSD Information msd.vehiclePropulsionStorage.gasolineTankPresent = %d",
+                    eCallMsdData.vehiclePropulsionStorage.gasolineTankPresent);
+            LE_DEBUG("MSD Information msd.vehiclePropulsionStorage.dieselTankPresent = %d",
+                    eCallMsdData.vehiclePropulsionStorage.dieselTankPresent);
+            LE_DEBUG("MSD Information msd.timestamp = %d", eCallMsdData.timestamp);
+            LE_DEBUG("MSD Information msd.vehicleLocation.positionLatitude = %d",
+                    eCallMsdData.vehicleLocation.positionLatitude);
+            LE_DEBUG("MSD Information msd.vehicleLocation.positionLongitude = %d",
+                    eCallMsdData.vehicleLocation.positionLongitude);
+            LE_DEBUG("MSD Information msd.vehicleDirection = %d", eCallMsdData.vehicleDirection);
+            LE_DEBUG("MSD Information msd.recentVehicleLocationN1.latitudeDelta = %d ",
+                    eCallMsdData.recentVehicleLocationN1.latitudeDelta);
+            LE_DEBUG("MSD Information msd.recentVehicleLocationN1.longitudeDelta = %d",
+                    eCallMsdData.recentVehicleLocationN1.longitudeDelta);
+            LE_DEBUG("MSD Information msd.recentVehicleLocationN2.latitudeDelta = %d",
+                    eCallMsdData.recentVehicleLocationN2.latitudeDelta);
+            LE_DEBUG("MSD Information msd.recentVehicleLocationN2.longitudeDelta = %d",
+                    eCallMsdData.recentVehicleLocationN2.longitudeDelta);
+            LE_DEBUG("MSD Information msd.numberOfPassengers = %d", eCallMsdData.numberOfPassengers);
             ret = CallManager->makeECall((int)slotId, eCallMsdData, (int)emergencyCategory,
-                    (int)eCallVariant, CallCommandCb);
+                                    (int)eCallVariant, CallCommandCb);
         }
     }
     else
@@ -560,6 +601,10 @@ le_result_t taf_ecall::SetMsdPosition (taf_ecall_CallRef_t ecallRef, bool isTrus
         LE_ERROR("Invalid latitude value");
         return LE_FAULT;
     }
+    LE_DEBUG("SetMsdPosition isTrusted = %d ", isTrusted);
+    LE_DEBUG("SetMsdPosition latitude = %d ", latitude);
+    LE_DEBUG("SetMsdPosition longitude = %d ", longitude);
+    LE_DEBUG("SetMsdPosition direction = %d ", direction);
 
     eCallPtr->msd.control.positionCanBeTrusted = isTrusted;
     eCallPtr->msd.vehicleLocation.positionLatitude = latitude;
@@ -659,10 +704,12 @@ void taf_ecall::UpdateMsd ()
 
         std::string vinStr = vin;
 
-        ECallObject.msd.vehicleIdentificationNumber.isowmi = vinStr.substr(0, 2);
-        ECallObject.msd.vehicleIdentificationNumber.isovds = vinStr.substr(3,8);
-        ECallObject.msd.vehicleIdentificationNumber.isovisModelyear =  vinStr.substr(9,9);
-        ECallObject.msd.vehicleIdentificationNumber.isovisSeqPlant =  vinStr.substr(10, 16);
+        ECallObject.msd.vehicleIdentificationNumber.isowmi = vinStr.substr(ISOWMI_START, ISOWMI_LENGTH );
+        ECallObject.msd.vehicleIdentificationNumber.isovds = vinStr.substr(ISOVDS_START, ISOVDS_LENGTH);
+        ECallObject.msd.vehicleIdentificationNumber.isovisModelyear =
+                             vinStr.substr(ISOVIS_MODEL_YEAR_START, ISOVIS_MODEL_YEAR_LENGTH);
+        ECallObject.msd.vehicleIdentificationNumber.isovisSeqPlant =
+                                 vinStr.substr(ISOVIS_SEQ_PLANT_START, ISOVIS_SEQ_PLANT_LENGTH);
     }
 
     if (le_cfg_NodeExists(iteratorRef, CFG_NODE_MSDVEHTYPE))

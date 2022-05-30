@@ -1,0 +1,30 @@
+# Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+## <summary> devices interface </summary>
+
+#######################################
+# <summary>
+#        Allow tafAudioSvc to access client's fd
+# </summary>
+# <param name="domain">
+#        <summary>
+#        Type to be used as a daemon domain.
+#        </summary>
+# </param>
+# <param name="entry_point">
+#        <summary>
+#        Type of the program to be used as an entry point to this domain
+#        </summary>
+# </param>
+
+interface(`telaf_tafAudioSvc_play_files',`
+    gen_require(`
+            type telaf_tafAudioSvc_t;
+    ')
+
+    allow telaf_tafAudioSvc_t $1:fd { use };
+    allow telaf_tafAudioSvc_t $2:file { read_file_perms };
+
+')
+

@@ -25,14 +25,21 @@
 # OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 # IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+# Changes from Qualcomm Innovation Center are provided under the following license:
+# Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
 #!/bin/bash
 BASEDIR=$(dirname $(realpath $0))
 
-SEPOLICY_DIR=$(dirname ${BASEDIR})/sepolicy
-FILE_CONTEXTS_DIR=${SEPOLICY_DIR}/files
+SEPOLICY_SYS_DIR=$(dirname ${BASEDIR})/sepolicy
+SEPOLICY_COMPONENT_DIR=$(dirname ${BASEDIR})/../../components
+
+FILE_CONTEXTS_DIR=${SEPOLICY_SYS_DIR}/files
 FILE_CONTEXTS_FILE=${FILE_CONTEXTS_DIR}/file_contexts
 
-FC_FILES=$(find ${SEPOLICY_DIR} -type f -name "*.fc")
+FC_FILES=$(find ${SEPOLICY_SYS_DIR} ${SEPOLICY_COMPONENT_DIR} -type f -name "*.fc")
+
 if [ ! -z "$FC_FILES" ]
 then
     if [ ! -d ${FILE_CONTEXTS_DIR} ]
@@ -46,6 +53,7 @@ then
     touch ${FILE_CONTEXTS_FILE}
 fi
 
+
 for FC_FILE in ${FC_FILES}
 do
     while read file rule; do
@@ -55,6 +63,7 @@ do
             rule=${rule//gen_context(/};
             rule=${rule//t,s/t:s};
             rule=${rule//)/};
+
             if [ -z "${file:7}" ]
             then
                 echo "/    $rule" >> $FILE_CONTEXTS_FILE;

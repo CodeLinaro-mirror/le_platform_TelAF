@@ -1,0 +1,47 @@
+# Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+policy_module(tafNetSvc, 1.0)
+
+gen_require(`
+  type shell_exec_t;
+  type proc_t;
+  type ifconfig_exec_t;
+  type proc_net_t;
+  type etc_t;
+  type systemd_resolved_var_run_t;
+')
+
+# Framework definition for telaf
+type telaf_tafNetSvc_exec_t;
+files_type(telaf_tafNetSvc_exec_t);
+
+type telaf_tafNetSvc_t;
+
+type telaf_tafNetSvc_data_t;
+files_type(telaf_tafNetSvc_data_t);
+
+allow telaf_tafNetSvc_t self:netlink_route_socket rw_netlink_socket_perms;
+allow telaf_tafNetSvc_t shell_exec_t:file { exec_file_perms };
+# need to access /proc by adding route index
+allow telaf_tafNetSvc_t proc_t:file { read_file_perms };
+allow telaf_tafNetSvc_t ifconfig_exec_t:file { exec_file_perms };
+# gateway modification support
+allow telaf_tafNetSvc_t proc_net_t:file read_file_perms;
+# DNS modification, access resolv.conf
+allow telaf_tafNetSvc_t etc_t:{ file lnk_file } { rw_file_perms };
+allow telaf_tafNetSvc_t systemd_resolved_var_run_t:dir search_dir_perms;
+allow telaf_tafNetSvc_t systemd_resolved_var_run_t:file rw_file_perms;
+
+# Alloc to use ip command to set route
+allow telaf_tafNetSvc_t self:capability { net_admin };
+
+init_telaf_app_domain(telaf_tafNetSvc_t,telaf_tafNetSvc_exec_t)
+
+# Allow update daemon to install/uninstall this service
+telaf_admin_manage_all_files_perms(telaf_tafNetSvc_data_t)
+telaf_admin_manage_all_files_perms(telaf_tafNetSvc_exec_t)
+
+
+
+

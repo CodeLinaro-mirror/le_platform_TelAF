@@ -15,6 +15,7 @@ processes:
                 (tafSAPCard)
         }
 
+        maxFileBytes: 8192K
         faultAction: restart
 }
 

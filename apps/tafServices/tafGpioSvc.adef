@@ -11,6 +11,8 @@ processes:
     {
         (tafGpioSvc)
     }
+
+    maxFileBytes: 8192K
 }
 
 bindings:

@@ -13,6 +13,7 @@ processes:
                 (tafNetSvc)
         }
 
+        maxFileBytes: 8192K
         faultAction: restart
 
 }

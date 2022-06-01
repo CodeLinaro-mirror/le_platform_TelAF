@@ -14,6 +14,7 @@ processes:
         (tafSMSSvc)
     }
 
+    maxFileBytes: 8192K
     faultAction: restart
 }
 

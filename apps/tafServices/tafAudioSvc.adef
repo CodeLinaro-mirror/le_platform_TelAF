@@ -12,6 +12,7 @@ processes:
                 (tafAudioSvc)
         }
 
+        maxFileBytes: 8192K
         faultAction: restart
 }
 

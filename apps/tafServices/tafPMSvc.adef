@@ -11,6 +11,8 @@ processes:
     {
         (tafPMSvc)
     }
+
+    maxFileBytes: 8192K
 }
 
 bindings:

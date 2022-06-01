@@ -14,6 +14,7 @@ processes:
         (tafECallSvc)
     }
 
+    maxFileBytes: 8192K
     faultAction: restart
 }
 

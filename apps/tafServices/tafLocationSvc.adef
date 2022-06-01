@@ -12,6 +12,7 @@ processes:
             (tafLocationSvc)
         }
 
+        maxFileBytes: 8192K
         faultAction: restart
 }
 

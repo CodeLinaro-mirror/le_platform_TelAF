@@ -13,6 +13,7 @@ processes:
                 (tafSimCardSvc)
         }
 
+        maxFileBytes: 8192K
         faultAction: restart
 }
 

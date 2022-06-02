@@ -59,6 +59,7 @@ typedef struct {
     uint32_t                index;
     taf_sms_Storage_t       storage;
     taf_sms_ReadStatus_t    rxStatus;
+    taf_sms_LockStatus_t    lkStatus;
     uint8_t                 data[TAF_SMS_PDU_BYTES];
     uint32_t                length;
 }
@@ -158,14 +159,48 @@ LE_SHARED le_result_t taf_pa_sms_WriteRawMsg
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Modify message RX status to read/unread
+ * Set message RX status to read/unread
  */
 //--------------------------------------------------------------------------------------------------
-LE_SHARED le_result_t taf_pa_sms_ModifyTag
+LE_SHARED le_result_t taf_pa_sms_SetReadStatus
 (
     taf_sms_Storage_t       storage,
     uint32_t                index,
     taf_sms_ReadStatus_t    rxStatus
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set message lock status to locked/unlocked
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_sms_SetLockStatus
+(
+    taf_sms_Storage_t       storage,
+    uint32_t                index,
+    taf_sms_LockStatus_t    lkStatus
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get message RX status
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED taf_sms_ReadStatus_t taf_pa_sms_GetReadStatus
+(
+    taf_sms_Storage_t       storage,
+    uint32_t                index
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get message Lock status
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED taf_sms_LockStatus_t taf_pa_sms_GetLockStatus
+(
+    taf_sms_Storage_t       storage,
+    uint32_t                index
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -238,7 +273,7 @@ LE_SHARED void taf_pa_sms_RemoveRxMsgHandler
  */
 //--------------------------------------------------------------------------------------------------
 typedef struct {
-    taf_sms_Storage_t  storage;
+    taf_sms_StorageFullType_t  fullType;
 }
 taf_pa_sms_StorageInd_t;
 

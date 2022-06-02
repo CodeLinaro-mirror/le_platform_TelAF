@@ -121,6 +121,7 @@ void taf_Handler::ProcessNewMessage(void* incomingMsgPtr)
 
    tafNewMsg->userdataLen = length;
    tafNewMsg->readStatus = TAF_SMS_RXSTS_UNREAD;
+   tafNewMsg->lockStatus = TAF_SMS_LKSTS_UNLOCKED;
    tafNewMsg->type = TAF_SMS_TYPE_RX;
 
    sms.NewSmsHandler(tafNewMsg);
@@ -490,6 +491,7 @@ taf_sms_Msg_t* taf_Sms::CreateRxMsgNode
    msgPtr->type = TAF_SMS_TYPE_RX;
    msgPtr->format = format;
    msgPtr->readStatus = pduMsg->rxStatus;
+   msgPtr->lockStatus = pduMsg->lkStatus;
 
    msgPtr->storage = pduMsg->storage;
    msgPtr->storageIdx = pduMsg->index;
@@ -526,6 +528,7 @@ taf_sms_Msg_t* taf_Sms::CreateRxMsgNode
    msgPtr->pduReady = true;
 
    msgPtr->readStatus = pduMsg->rxStatus;
+   msgPtr->lockStatus = pduMsg->lkStatus;
    msgPtr->storage = pduMsg->storage;
    msgPtr->storageIdx = pduMsg->index;
 
@@ -556,7 +559,7 @@ le_result_t taf_Sms::constructSmsDeliver
    {
       msgPtr->format = TAF_SMS_FORMAT_BINARY;
    }
-   else if(decodedMsgPtr->encoding == PDU_ENCODING_UCS2_16_BITS)
+   else if(decodedMsgPtr->encoding == PDU_ENCODING_16_BITS)
    {
       msgPtr->format = TAF_SMS_FORMAT_UCS2;
    }

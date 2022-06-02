@@ -1217,6 +1217,36 @@ taf_sms_ReadStatus_t taf_sms_GetReadStatus
 
 /*======================================================================
 
+FUNCTION       taf_sms_GetLockStatus
+
+DESCRIPTION    Get lock status of message
+
+DEPENDENCIES   Get RX message
+
+PARAMETERS     [IN] taf_sms_MsgRef_t msgRef: specific message
+
+RETURN VALUE   taf_sms_LockStatus_t: lock status
+
+SIDE EFFECTS
+
+======================================================================*/
+
+taf_sms_LockStatus_t taf_sms_GetLockStatus
+(
+    taf_sms_MsgRef_t      msgRef
+)
+{
+   auto &mySms = taf_Sms::GetInstance();
+
+   taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(mySms.MsgRefMap, msgRef);
+
+   TAF_ERROR_IF_RET_VAL(msgPtr == NULL, TAF_SMS_LKSTS_UNKNOWN, "msgPtr is NULL!");
+
+   return msgPtr->lockStatus;
+}
+
+/*======================================================================
+
 FUNCTION       taf_sms_GetType
 
 DESCRIPTION    Get type of message
@@ -1327,7 +1357,7 @@ static le_result_t EncodeMsgToPdu
          LE_DEBUG("encode TAF_SMS_FORMAT_UCS2");
          encodeData.msgData = msgPtr->binary;
          encodeData.msgDataLen = msgPtr->userdataLen;
-         encodeData.encoding = PDU_ENCODING_8_BITS;
+         encodeData.encoding = PDU_ENCODING_16_BITS;
          encodeData.type = SMS_TYPE_SUBMIT;
          result = smsPdu_Encode(&encodeData, &(msgPtr->pdu));
          break;
@@ -1466,6 +1496,74 @@ le_result_t taf_sms_DeleteFromStorage
 
 /*======================================================================
 
+FUNCTION       taf_sms_DeleteAllFromStorage
+
+DESCRIPTION    Delete all messages from storage
+
+DEPENDENCIES   Get RX message
+
+PARAMETERS     [IN] taf_sms_Storage_t storage: specific storage
+
+RETURN VALUE   le_result_t
+
+                  LE_OK: Success
+
+SIDE EFFECTS
+
+======================================================================*/
+
+le_result_t taf_sms_DeleteAllFromStorage
+(
+   taf_sms_Storage_t storage
+)
+{
+   TAF_KILL_CLIENT_IF_RET_VAL(storage == TAF_SMS_STORAGE_UNKNOWN, LE_NO_MEMORY, "Invalid storage");
+
+   auto &mySms = taf_Sms::GetInstance();
+
+   taf_sms_MsgListRef_t listRef = NULL;
+   taf_sms_MsgRef_t msgRef = NULL;
+
+   listRef = taf_sms_CreateRxMsgList();
+   if (listRef == NULL)
+   {
+      return LE_OK;
+   }
+
+   msgRef = taf_sms_GetFirst(listRef);
+
+   do {
+         if(msgRef == NULL)
+         {
+               break;
+         }
+
+         taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(mySms.MsgRefMap, msgRef);
+
+         if(msgPtr->storage == storage)
+         {
+            le_result_t res = LE_OK;
+
+            if (msgPtr->userCount == 1)
+            {
+               res = taf_pa_sms_DelMsgFromStorage(msgPtr->storage, msgPtr->storageIdx);
+               LE_DEBUG("Delete result:%d, storage: %d, index:%d", res, msgPtr->storage, msgPtr->storageIdx);
+            }
+
+            msgPtr->applyDel = true;
+            LE_DEBUG("applyDel for storage: %d, index:%d", msgPtr->storage, msgPtr->storageIdx);
+         }
+
+   }
+   while ((msgRef = taf_sms_GetNext(listRef)) != NULL);
+
+   taf_sms_DeleteList(listRef);
+
+   return LE_OK;
+}
+
+/*======================================================================
+
 FUNCTION       taf_sms_GetSmsCenterAddress
 
 DESCRIPTION    Get SMS center address
@@ -1570,7 +1668,7 @@ le_result_t taf_sms_SetSmsCenterAddress
 
 /*======================================================================
 
-FUNCTION       taf_sms_Markread
+FUNCTION       taf_sms_MarkRead
 
 DESCRIPTION    Mark message status as 'read'
 
@@ -1584,7 +1682,7 @@ SIDE EFFECTS   None
 
 ======================================================================*/
 
-void taf_sms_Markread
+void taf_sms_MarkRead
 (
     taf_sms_MsgRef_t msgRef
 )
@@ -1597,12 +1695,12 @@ void taf_sms_Markread
 
    msgPtr->readStatus = TAF_SMS_RXSTS_READ;
 
-   taf_pa_sms_ModifyTag(msgPtr->storage, msgPtr->storageIdx, TAF_SMS_RXSTS_READ);
+   taf_pa_sms_SetReadStatus(msgPtr->storage, msgPtr->storageIdx, TAF_SMS_RXSTS_READ);
 }
 
 /*======================================================================
 
-FUNCTION       taf_sms_MarkUnRead
+FUNCTION       taf_sms_MarkUnread
 
 DESCRIPTION    Mark message status as 'unread'
 
@@ -1616,7 +1714,7 @@ SIDE EFFECTS   None
 
 ======================================================================*/
 
-void taf_sms_MarkUnRead
+void taf_sms_MarkUnread
 (
     taf_sms_MsgRef_t msgRef
 )
@@ -1629,7 +1727,89 @@ void taf_sms_MarkUnRead
 
    msgPtr->readStatus = TAF_SMS_RXSTS_UNREAD;
 
-   taf_pa_sms_ModifyTag(msgPtr->storage, msgPtr->storageIdx, TAF_SMS_RXSTS_UNREAD);
+   taf_pa_sms_SetReadStatus(msgPtr->storage, msgPtr->storageIdx, TAF_SMS_RXSTS_UNREAD);
+}
+
+/*======================================================================
+
+FUNCTION       taf_sms_LockFromStorage
+
+DESCRIPTION    Mark message lock status as 'locked', cannot be deleted from Storage
+
+DEPENDENCIES   Get RX message
+
+PARAMETERS     [IN] taf_sms_MsgRef_t msgRef: specific message
+
+RETURN VALUE   le_result_t
+                  LE_NOT_FOUND: Invalid message
+                  LE_FAULT: Function failed
+                  LE_OK: Function successful
+                  LE_NOT_PERMITTED: Message have been locked or is not stored in HLOS
+
+SIDE EFFECTS   None
+
+======================================================================*/
+
+le_result_t taf_sms_LockFromStorage
+(
+    taf_sms_MsgRef_t msgRef
+)
+{
+   auto &mySms = taf_Sms::GetInstance();
+
+   taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(mySms.MsgRefMap, msgRef);
+
+   TAF_ERROR_IF_RET_VAL(msgPtr == NULL, LE_NOT_FOUND, "Invalid msgPtr provided");
+
+   le_result_t res = taf_pa_sms_SetLockStatus(msgPtr->storage, msgPtr->storageIdx, TAF_SMS_LKSTS_LOCKED);
+
+   if(res == LE_OK)
+   {
+      msgPtr->lockStatus = TAF_SMS_LKSTS_LOCKED;
+   }
+
+   return res;
+}
+
+/*======================================================================
+
+FUNCTION       taf_sms_UnlockFromStorage
+
+DESCRIPTION    Mark message lock status as 'unlocked', can be deleted from Storage
+
+DEPENDENCIES   Get RX message
+
+PARAMETERS     [IN] taf_sms_MsgRef_t msgRef: specific message
+
+RETURN VALUE   le_result_t
+                  LE_NOT_FOUND: Invalid message
+                  LE_FAULT: Function failed
+                  LE_OK: Function successful
+                  LE_NOT_PERMITTED: Message is not locked or is not stored in HLOS
+
+SIDE EFFECTS   None
+
+======================================================================*/
+
+le_result_t taf_sms_UnlockFromStorage
+(
+    taf_sms_MsgRef_t msgRef
+)
+{
+   auto &mySms = taf_Sms::GetInstance();
+
+   taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(mySms.MsgRefMap, msgRef);
+
+   TAF_ERROR_IF_RET_VAL(msgPtr == NULL, LE_NOT_FOUND, "Invalid msgPtr provided");
+
+   le_result_t res = taf_pa_sms_SetLockStatus(msgPtr->storage, msgPtr->storageIdx, TAF_SMS_LKSTS_UNLOCKED);
+
+   if(res == LE_OK)
+   {
+      msgPtr->lockStatus = TAF_SMS_LKSTS_UNLOCKED;
+   }
+
+   return res;
 }
 
 /*======================================================================
@@ -1677,9 +1857,9 @@ static void StorageHandler
    taf_sms_FullStorageHandlerFunc_t clientHandlerFunc =
       (taf_sms_FullStorageHandlerFunc_t)secondLayerHandlerFunc;
 
-   taf_sms_Storage_t storage = *(taf_sms_Storage_t *)reportPtr;
+   taf_sms_StorageFullType_t fullType = *(taf_sms_StorageFullType_t *)reportPtr;
 
-   clientHandlerFunc(storage, le_event_GetContextPtr());
+   clientHandlerFunc(fullType, le_event_GetContextPtr());
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1694,13 +1874,13 @@ static void taf_pa_sms_storageFullInd
    void* contextPtr
 )
 {
-   LE_INFO("ind->storage = %d memory is full", ind->storage);
+   LE_INFO("ind->storage = %d memory is full", ind->fullType);
 
-   taf_sms_Storage_t storage = ind->storage;
+   taf_sms_StorageFullType_t fullType = ind->fullType;
 
    auto &mySms = taf_Sms::GetInstance();
 
-   le_event_Report(mySms.StorageEvent, (void*)&storage, sizeof(taf_sms_Storage_t));
+   le_event_Report(mySms.StorageEvent, (void*)&fullType, sizeof(taf_sms_StorageFullType_t));
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1741,6 +1921,7 @@ static void taf_pa_sms_getNewRxMsgInd
          taf_sms_Msg_t* newMsg = mySms.CreateAndConstructMsg(&pduMsg, &decodedPduMsg);
 
          newMsg->readStatus = TAF_SMS_RXSTS_UNREAD;
+         newMsg->lockStatus = TAF_SMS_LKSTS_UNLOCKED;
          newMsg->type = TAF_SMS_TYPE_RX;
 
          mySms.NewSmsHandler(newMsg);
@@ -1912,7 +2093,7 @@ COMPONENT_INIT
    // install the handler
    taf_Handler myHandler;
 
-   mySms.StorageEvent = le_event_CreateId("StorageEventId", sizeof(taf_sms_Storage_t));
+   mySms.StorageEvent = le_event_CreateId("StorageEventId", sizeof(taf_sms_StorageFullType_t));
    taf_pa_sms_AddStorageHandler((taf_pa_sms_StorageHandlerFunc_t)&taf_pa_sms_storageFullInd, NULL);
 
    // defualt set HLOS as preferred storage

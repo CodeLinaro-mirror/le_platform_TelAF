@@ -165,7 +165,7 @@ LE_SHARED le_result_t taf_pa_sms_WriteRawMsg
  * @return LE_OK            The function succeeded
  */
 //--------------------------------------------------------------------------------------------------
-LE_SHARED le_result_t taf_pa_sms_ModifyTag
+LE_SHARED le_result_t taf_pa_sms_SetReadStatus
 (
     taf_sms_Storage_t    storage,
     uint32_t                index,
@@ -173,6 +173,58 @@ LE_SHARED le_result_t taf_pa_sms_ModifyTag
 )
 {
     return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set message lock status to locked/unlocked
+ *
+ * @return LE_FAULT         The function failed, please refer to QMI error code
+ * @return LE_OK            The function succeeded
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_sms_SetLockStatus
+(
+    taf_sms_Storage_t       storage,
+    uint32_t                index,
+    taf_sms_LockStatus_t    lkStatus
+)
+{
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get message read status
+ *
+ * @return LE_FAULT         The function failed, please refer to QMI error code
+ * @return LE_OK            The function succeeded
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED taf_sms_ReadStatus_t taf_pa_sms_GetReadStatus
+(
+    taf_sms_Storage_t       storage,
+    uint32_t                index
+)
+{
+    return TAF_SMS_RXSTS_UNREAD;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get message lock status
+ *
+ * @return LE_FAULT         The function failed, please refer to QMI error code
+ * @return LE_OK            The function succeeded
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED taf_sms_LockStatus_t taf_pa_sms_GetLockStatus
+(
+    taf_sms_Storage_t       storage,
+    uint32_t                index
+)
+{
+    return TAF_SMS_LKSTS_UNLOCKED;
 }
 
 //--------------------------------------------------------------------------------------------------

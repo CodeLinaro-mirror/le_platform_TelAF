@@ -91,7 +91,7 @@ using namespace telux::common;
 #define TIMEOUT_SEND_SEMAPHORE     2
 #define TIMEOUT_GET_SMSC_SEMAPHORE 2
 #define TIMEOUT_SET_SMSC_SEMAPHORE 2
-#define TIMEOUT_SENDING_PDU        1000
+#define TIMEOUT_SENDING_PDU        10000
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -119,6 +119,7 @@ typedef struct taf_sms_Msg
    taf_sms_Format_t     format;
    taf_sms_SendStatus_t sendStatus;
    taf_sms_ReadStatus_t readStatus;
+   taf_sms_LockStatus_t lockStatus;
    le_msg_SessionRef_t  sessionRef;
 
    taf_sms_Storage_t    storage;

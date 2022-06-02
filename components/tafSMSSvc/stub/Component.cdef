@@ -3,6 +3,7 @@ requires:
     api:
     {
         taf_sms.api      [types-only]
+        taf_ks.api
     }
 }
 

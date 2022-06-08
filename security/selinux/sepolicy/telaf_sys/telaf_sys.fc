@@ -26,6 +26,10 @@
 # IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
+# Changes from Qualcomm Innovation Center are provided under the following license:
+# Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
 /legato                                                        gen_context(system_u:object_r:telaf_fw_t,s0)
 /legato/apps(/.*)?                                             gen_context(system_u:object_r:telaf_app_bundle_t,s0)
 /legato/systems(/.*)?                                          gen_context(system_u:object_r:telaf_sys_t,s0)
@@ -37,6 +41,8 @@
 /legato/systems/current/bin/logCtrlDaemon            --        gen_context(system_u:object_r:telaf_logd_exec_t,s0)
 /legato/systems/current/bin/configTree               --        gen_context(system_u:object_r:telaf_cfgtree_exec_t,s0)
 /legato/systems/current/bin/serviceDirectory         --        gen_context(system_u:object_r:telaf_sdir_exec_t,s0)
+/legato/systems/current/bin/watchdog                 --        gen_context(system_u:object_r:telaf_wdog_exec_t,s0)
+/legato/systems/current/bin/updateDaemon             --        gen_context(system_u:object_r:telaf_update_exec_t,s0)
 
 /legato/systems/current/lib(/.*)?                              gen_context(system_u:object_r:telaf_lib_t,s0)
 /legato/systems/current/appsWriteable(/.*)?                    gen_context(system_u:object_r:telaf_app_rw_t,s0)

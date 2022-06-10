@@ -27,21 +27,81 @@
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ *  Changes from Qualcomm Innovation Center are provided under the following license:
+ *  Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * @page c_tafposCtrl Positioning Control API
+ *
+ * @ref taf_posCtrl_interface.h "API Reference"
+ *
+ * <HR>
+ *
+ * This API is used to enable and disable the positioning service.
+ *
+ * @section taf_posCtrl_binding IPC interfaces binding
+ *
+ * All the functions of this API are provided by the @b tafLocationSvc application service.
+ *
+ * Here's a sample of how to bind to positioning services:
+ * @verbatim
+   bindings:
+   {
+       clientExe.clientComponent.taf_posCtrl -> tafLocationSvc.taf_posCtrl
+   }
+   @endverbatim
+ *
+ * @section taf_posCtrl_ctrl Positioning control
+ *
+ * To request that the positioning service be activated, call taf_posCtrl_Request()
+ * To release the positioning service when finished with it, call taf_posCtrl_Release().
+ *
+ * If the positioning service is already active when taf_posCtrl_Request() is called, it will remain
+ * active. This happens if another application has already requested that the position service
+ * be activated and not yet released the positioning service.
+ *
+ * The positioning service need not be swititched off when an application calls
+ * taf_posCtrl_Release(). The positioning service will be switched off only
+ * after all applications that have requested that the positioning service be active
+ * have also released the positioning service
+ *
+ * <HR>
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reference type for dealing with Position Service management.
+ */
+//--------------------------------------------------------------------------------------------------
 REFERENCE Activation;
 
+//--------------------------------------------------------------------------------------------------
 /**
  * Request activation of the positioning service.
  *
+ * @return
+ *      - Reference to the service activation request (to be used later for releasing the request).
+ *      - NULL if the service request could not be processed.
+ *
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION Activation Request
 (
 );
 
+//--------------------------------------------------------------------------------------------------
 /**
  * Release the positioning service.
  *
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION Release
 (
- Activation ref IN
+ Activation ref IN ///< Reference to a positioning service activation request.
 );

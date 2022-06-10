@@ -76,7 +76,7 @@ taf_pm_WakeupSourceRef_t taf_pm_NewWakeupSource(uint32_t opts, const char *tag)
 * DESCRIPTION  : Acquires the wakeup source
 * DEPENDECY    :
 * PARAMETERS   : wakeup source reference
-* RETURN VALUES: LE_OK on success, LE_NO_MEMORY on reaching the limit, LE_FAULT for all errors
+* RETURN VALUES: LE_OK on success, LE_FAULT for all errors
 */
 le_result_t taf_pm_StayAwake( taf_pm_WakeupSourceRef_t w)
 {
@@ -90,8 +90,7 @@ le_result_t taf_pm_StayAwake( taf_pm_WakeupSourceRef_t w)
 * DESCRIPTION  : Releases the previously acquired reference
 * DEPENDECY    :
 * PARAMETERS   : wakeup source reference
-* RETURN VALUES: LE_OK on success, LE_NOT_FOUND if wakeup source is not acquired currently,
-*                LE_FAULT for all errors
+* RETURN VALUES: LE_OK on success, LE_FAULT for all errors
 */
 le_result_t taf_pm_Relax( taf_pm_WakeupSourceRef_t w)
 {
@@ -120,7 +119,7 @@ taf_pm_State_t taf_pm_GetPowerState()
 * DESCRIPTION  : send state change notification
 * DEPENDECY    :
 * PARAMETERS   :
-* RETURN VALUES: LE_OK on success, LE_FAULT for all errors
+* RETURN VALUES: handlerRef if registered successfully or else NULL
 */
 taf_pm_StateChangeHandlerRef_t taf_pm_AddStateChangeHandler
 (taf_pm_StateChangeHandlerFunc_t handlerPtr, void* contextPtr)

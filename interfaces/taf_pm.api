@@ -32,6 +32,75 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * @page c_tafpm PM Service API
+ *
+ * @ref taf_pm_interface.h "API Reference"
+ *
+ * <HR>
+ *
+ * Components need access to the TelAF Power Manager to control the system's wake-up state.
+ * Operations that need fast response times (e.g., maintaining call state or playing/recording a
+ * media stream) result in high interrupt rates; keeping the system awake results in better
+ * performance and power efficiency.
+ *
+ * Telaf Power Manager keep the system awake when at least one of the registered components
+ * requests a wakeup source to be held. When all wakeup sources are released, the system may enter a
+ * suspend state depending on the status of other (unrelated) wakeup sources.
+ *
+ * @section taf_pm_binding IPC interfaces binding
+ *
+ * All the functions of this API are provided by the @b tafPMSvc application service.
+ *
+ * Here's a sample of how to bind to PM services:
+ * @verbatim
+   bindings:
+   {
+       clientExe.clientComponent.taf_pm -> tafPMSvc.taf_pm
+   }
+   @endverbatim
+ *
+ * @section taf_pm_request Requesting and releasing a wakeup source
+ *
+ * Telaf Power Manager service provides basic API for requesting and releasing a wakeup source.
+ * Telaf Power Manager's clients call taf_pm_NewWakeupSource() to create a wakeup source. This
+ * function returns a @ref taf_pm_WakeupSourceRef_t type that can later be used to acquire and
+ * release a wakeup source through taf_pm_StayAwake() and taf_pm_Relax(), respectively. Wakeup
+ * sources are not reference-counted, which means multiple calls to taf_pm_StayAwake() can be canceled
+ * by a single call to taf_pm_Relax().
+ *
+ * To have a reference-counted wakeup-source, set the TAF_PM_REF_COUNT bit in the opts argument.
+ * When this bit is set, each taf_pm_StayAwake() increments a counter, and multiple calls to
+ * taf_pm_Relax() is necessary to release the wakeup source.
+ * @verbatim
+    char tag[10];
+
+    snprintf(tag, sizeof(tag), "testpm");
+    taf_pm_WakeupSourceRef_t ref = taf_pm_NewWakeupSource(1, tag);
+
+    for(int i = 0; i < 5; i++) {
+        tafPMTest_acquire(ref);
+    }
+    for(int i = 0; i < 5; i++) {
+        tafPMTest_release(ref);
+    }
+   @endverbatim
+ *
+ * Telaf Power Manager service will automatically release and delete all wakeup sources held on behalf
+ * of an exiting or disconnecting client.
+ *
+ * Use the StateChange to register a notification callback function to be called before device state
+ * triggers.
+ * @verbatim
+   stateChangehandlerRef = taf_pm_AddStateChangeHandler(TestStateChangeHandler, NULL);
+   @endverbatim
+ *
+ * <HR>
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+
 /**
  * Maximum string length for a wake-up source tag (not including the null-terminator)
  */
@@ -90,6 +159,7 @@ EVENT StateChange
  */
 REFERENCE WakeupSource;
 
+//--------------------------------------------------------------------------------------------------
 /**
  * Create a new wakeup source
  *
@@ -100,12 +170,14 @@ REFERENCE WakeupSource;
  * @note The process exits if an invalid or existing tag is passed,
  *       or on syscall failures
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION WakeupSource NewWakeupSource
 (
     uint32 createOpts IN,       ///< Wakeup source options
     string wsTag[TAG_LEN] IN    ///< Context-specific wakeup source tag
 );
 
+//--------------------------------------------------------------------------------------------------
 /**
  * Acquire a passed wakeup source ref
  *
@@ -115,31 +187,35 @@ FUNCTION WakeupSource NewWakeupSource
  *
  * @note The process exits with invalid reference
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t StayAwake
 (
     WakeupSource wsRef IN      ///< Reference of wakeup source to be acquired
 );
 
+//--------------------------------------------------------------------------------------------------
 /**
  * Release a previously acquired wakeup source
  *
  * @return
  *     - LE_OK          if the wakeup source is acquired
- *     - LE_NOT_FOUND   if the wakeup source was not currently acquired
  *     - LE_FAULT       for other errors
  *
  * @note If an invalid reference is passed, process exits
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Relax
 (
     WakeupSource wsRef IN     ///< Reference of wakeup source to be released
 );
 
+//--------------------------------------------------------------------------------------------------
 /**
  * Get current system state of the local process
  *
  * @return State of the system
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION State GetPowerState
 (
 );

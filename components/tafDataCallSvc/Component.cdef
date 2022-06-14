@@ -3,6 +3,7 @@ provides:
     api:
     {
         taf_dcs.api
+        taf_mdc.api
     }
 }
 

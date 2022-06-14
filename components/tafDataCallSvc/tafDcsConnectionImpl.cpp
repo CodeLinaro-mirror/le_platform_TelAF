@@ -1520,6 +1520,79 @@ void* taf_DataConnection::ConnectionEventThread(void* contextPtr)
     le_event_RunLoop();
     return NULL;
 }
+
+// When the client closed, this event handler will close the data calls
+void taf_DataConnection::CloseEventHandler
+(
+    le_msg_SessionRef_t sessionRef,
+    void* contextPtr
+)
+{
+    taf_dcs_Pdp_t pdpType=TAF_DCS_PDP_IPV4V6;
+    le_dls_Link_t* linkPtr = NULL;
+    le_dls_Link_t* linkRefPtr = NULL;
+    taf_dcs_ProfileRef_t profileRef = NULL;
+
+    TAF_ERROR_IF_RET_NIL( sessionRef == NULL, "sessionRef is nullptr!");
+
+    auto &dataConnection = taf_DataConnection::GetInstance();
+
+    auto &dataProfile = taf_DataProfile::GetInstance();
+
+    LE_DEBUG("SessionRef (%p) has been closed", sessionRef);
+
+    // Find the data calls brought up by the sessionRef , and then stop them one by one
+    linkPtr = le_dls_Peek(&dataConnection.DataCallCtxList);
+    while (linkPtr)
+    {
+        taf_dcs_CallCtx_t* callCtxPtr = CONTAINER_OF(linkPtr, taf_dcs_CallCtx_t, link);
+
+        TAF_ERROR_IF_RET_NIL(callCtxPtr == NULL, "this call context is NULL");
+
+        linkRefPtr = le_dls_Peek(&(callCtxPtr->sessionRefList));
+        while (linkRefPtr)
+        {
+            taf_SessionRef_t* sessionRefPtr = CONTAINER_OF(linkRefPtr, taf_SessionRef_t, link);
+            linkRefPtr = le_dls_PeekNext(&(callCtxPtr->sessionRefList), linkRefPtr);
+
+            if (sessionRefPtr->sessionRef == sessionRef)
+            {
+                switch(callCtxPtr->ipType)
+                {
+                    case telux::data::IpFamilyType::IPV4:
+                        pdpType = TAF_DCS_PDP_IPV4;
+                    break;
+                    case telux::data::IpFamilyType::IPV6:
+                        pdpType = TAF_DCS_PDP_IPV6;
+                    break;
+                    case telux::data::IpFamilyType::IPV4V6:
+                        pdpType = TAF_DCS_PDP_IPV4V6;
+                    break;
+                    default:
+                        // In this case, when the client starts a data call and loses connection at
+                        // once, the callCtxPtr->ipType is not updated at this time, so get the pdp
+                        // type from the setting value.
+                        profileRef = dataProfile.GetProfileRef(callCtxPtr->profileId);
+
+                        pdpType = dataProfile.GetPdp(profileRef);
+
+                        LE_DEBUG("---setting pdpType=%d",pdpType);
+                    break;
+                }
+
+                LE_DEBUG("stop data call profileId=%d, pdpType=%d", callCtxPtr->profileId, pdpType);
+                dataConnection.StopSessionAllSync(callCtxPtr->profileId, pdpType, sessionRef);
+                break;
+            }
+        }
+
+        linkPtr = le_dls_PeekNext(&dataConnection.DataCallCtxList, linkPtr);
+
+    }
+
+    return;
+}
+
 #ifdef TARGET_SA515M
 void taf_DataConnection::onInitCompleted(telux::common::ServiceStatus status)
 {
@@ -1604,6 +1677,8 @@ void taf_DataConnection::Init(void)
     le_thread_Start(ConnectionEventThreadRef);
     le_sem_Wait(semRef);
     le_sem_Delete(semRef);
+
+    le_msg_AddServiceCloseHandler(taf_dcs_GetServiceRef(), CloseEventHandler, NULL);
 
     return;
 }

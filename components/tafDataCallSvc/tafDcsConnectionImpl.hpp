@@ -254,6 +254,7 @@ namespace tafsvc {
             static void* ConnectionEventThread(void* contextPtr);
             le_timer_Ref_t SynchronousTimerRef = NULL;
             taf_dcs_Pdp_t GetEvtInfoFromConnStatus(taf_dcs_CallCtx_t *callCtxPtr, telux::data::DataCallStatus callStatus);
+            static void CloseEventHandler(le_msg_SessionRef_t sessionRef, void* contextPtr);
         private:
         #ifdef TARGET_SA515M
             bool subSystemStatusUpdated;

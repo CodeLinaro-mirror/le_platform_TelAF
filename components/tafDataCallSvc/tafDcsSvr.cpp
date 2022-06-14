@@ -995,6 +995,120 @@ void taf_dcs_RestoreDNS(void)
     return;
 }
 
+
+/**
+ * Start to make a synchronous permanent call corresponding to specified profile reference.
+ *
+ * If this profile is not brought up so far, the call context will be created corresponding to
+ * specified profile index.
+ * This is a synchronous function call, the state events will be reported by session state handler.
+ *
+ * @param [in] profileRef               The profile reference to be started.
+ *
+ * @returns LE_OK                       Success to start this data session.
+ *          OTHER                       Failed to start this data session.
+ */
+le_result_t taf_mdc_StartSession(taf_dcs_ProfileRef_t profileRef)
+{
+    LE_DEBUG("-----------taf_mdc_StartSession------------");
+    auto &dataConnection = taf_DataConnection::GetInstance();
+    auto &dataProfile = taf_DataProfile::GetInstance();
+
+    int32_t profileId;
+    le_result_t result = dataProfile.GetProfileId(profileRef, &profileId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
+
+    taf_dcs_Pdp_t pdpType = dataProfile.GetPdp(profileRef);
+    // Start a data call with a fixed value 0 for sessionRef, and when the client loses the
+    // connection with data call service,the data call will not be stopped
+    return dataConnection.StartSessionAllSync(profileId, pdpType, 0);
+
+}
+
+/**
+ * Start to make a asynchronous call corresponding to specified profile reference.
+ *
+ * If this profile is not brought up so far, the call context will be created corresponding to
+ * specified profile index.
+ * This is an asynchronous function call, the state events will be reported by session state handler
+ *
+ * @param [in] profileRef               The profile reference to be started.
+ *
+ * @returns LE_OK                       Success to start this data session.
+ *          OTHER                       Failed to start this data session.
+ */
+le_result_t taf_mdc_StartSessionAsync(taf_dcs_ProfileRef_t profileRef)
+{
+    LE_DEBUG("-----------taf_mdc_StartSessionAsync------------");
+    auto &dataConnection = taf_DataConnection::GetInstance();
+    auto &dataProfile = taf_DataProfile::GetInstance();
+
+    int32_t profileId;
+    le_result_t result = dataProfile.GetProfileId(profileRef, &profileId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
+
+    taf_dcs_Pdp_t pdpType = dataProfile.GetPdp(profileRef);
+    // Start a data call with a fixed value 0 for sessionRef, and when the client loses the
+    // connection with data call service,the data call will not be stopped
+    return dataConnection.StartSessionCmdSync(profileId, pdpType, 0);
+}
+
+/**
+ * Synchronouly stop a permanent call corresponding to specified profile reference.
+ *
+ * If this profile is not brought up so far, the call context will be created corresponding to
+ * specified profile index.
+ * This is an asynchronous function call, the state events will be reported by session state handler
+ *
+ * @param [in] profileRef               The profile reference to be stopped.
+ *
+ * @returns LE_OK                       Success to stop this data session.
+ *          OTHER                       Failed to stop this data session.
+ */
+le_result_t taf_mdc_StopSession(taf_dcs_ProfileRef_t profileRef)
+{
+    LE_DEBUG("-----------taf_mdc_StopSession------------");
+    auto &dataConnection = taf_DataConnection::GetInstance();
+    auto &dataProfile = taf_DataProfile::GetInstance();
+
+    int32_t profileId;
+    le_result_t result = dataProfile.GetProfileId(profileRef, &profileId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
+
+    taf_dcs_Pdp_t pdpType = dataProfile.GetPdp(profileRef);
+    // When the application calls taf_mdc_StartSession() to start a data call, this function
+    // can stop that data call
+    return dataConnection.StopSessionAllSync(profileId, pdpType, 0);
+}
+
+/**
+ * Asynchronouly stop a call corresponding to specified profile reference.
+ *
+ * If this profile is not brought up so far, the call context will be created corresponding to
+ * specified profile index.
+ * This is an asynchronous function call, the state events will be reported by session state handler
+ *
+ * @param [in] profileRef               The profile reference to be stopped.
+ *
+ * @returns LE_OK                       Success to stop this data session.
+ *          OTHER                       Failed to stop this data session.
+ */
+le_result_t taf_mdc_StopSessionAsync(taf_dcs_ProfileRef_t profileRef)
+{
+    LE_DEBUG("-----------taf_mdc_StopSessionAsync------------");
+    auto &dataConnection = taf_DataConnection::GetInstance();
+    auto &dataProfile = taf_DataProfile::GetInstance();
+
+    int32_t profileId;
+    le_result_t result = dataProfile.GetProfileId(profileRef, &profileId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
+
+    taf_dcs_Pdp_t pdpType = dataProfile.GetPdp(profileRef);
+    // When the application calls taf_mdc_StartSessionAsync() to start a data call, this function
+    // can stop that data call
+    return dataConnection.StopSessionCmdSync(profileId, pdpType, 0);
+}
+
 COMPONENT_INIT
 {
     taf_dcs_profile_init();

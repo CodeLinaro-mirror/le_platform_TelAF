@@ -27,6 +27,238 @@
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ *  Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ *  Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted (subject to the limitations in the
+ *  disclaimer below) provided that the following conditions are met:
+ *
+ *      * Redistributions of source code must retain the above copyright
+ *        notice, this list of conditions and the following disclaimer.
+ *
+ *      * Redistributions in binary form must reproduce the above
+ *        copyright notice, this list of conditions and the following
+ *        disclaimer in the documentation and/or other materials provided
+ *        with the distribution.
+ *
+ *      * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *        contributors may be used to endorse or promote products derived
+ *        from this software without specific prior written permission.
+ *
+ *  NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ *  GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ *  HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ *  WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ *  IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ *  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ *  DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ *  GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ *  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ *  IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ *  OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * @page c_tafsim SIM Service
+ *
+ * @ref taf_sim_interface.h "API Reference"
+ *
+ * <HR>
+ *
+ * This file defines the prototype for TelAF SIM Service API.
+ *
+ * \b SIM: A Subscriber Identity Module or Subscriber Identification Module is an integrated circuit (IC)
+ * intended to securely store the international mobile subscriber identity (IMSI) number and some
+ * credentials to identify subscribers. SIM card can also store a number of SMS messages and phone contacts.
+ *
+ * @section taf_sim_binding IPC interfaces binding
+ *
+ * All functions of this service are provided by the @b tafSimCard service.
+ *
+ * Here's a sample of how to bind to SIM card service:
+ * @verbatim
+   bindings:
+   {
+       clientExe.clientComponent.taf_sim -> tafSimCardSvc.taf_sim
+   }
+   @endverbatim
+ *
+ * @section taf_sim_SelectCard Select a card to use
+ * taf_sim_SelectCard() is used to select the SIM card available on the user device. By default,
+ * the SIM card in slot1 is used for network camping.
+ * Additionally, if SIM card identifier passed in any TAF SIM API as a parameter, it will select that
+ * SIM and after this taf_sim_GetSelectedCard() will return the newly selected card, not necessarily
+ * the one which set previously by taf_sim_SelectCard().
+ *
+ * @note The SIM selection is not power off persistent. This function need to be called at each start-up.
+ *
+ * @note It is highly recommended to wait for a taf SIM handler notification after selecting a new SIM
+ * before calling taf_sim API functions.
+ *
+ * @section taf_sim_id SIM identification information
+ * \b ICCID:
+ * The SIM card is internationally identified by integrated circuit card identifier (ICCID).
+ * ICCID is stored in the SIM card and engraved or printed on body of the SIM card.
+ * The ICCID is defined by the ITU-T standard E.118 as the Primary Account Number.
+ * According to section E.118, the ICCID is up to 19 digits. It includes a single
+ * check digit computed by applying the Luhn algorithm. However, GSM Phase 1 (ETSI
+ * Standard GSM 11.11) defined the ICCID length in 10 octets (i.e. 20 digits) with
+ * network-specific structure.
+ *
+ * @ref taf_sim_GetICCID() API reads the identification number (ICCID).
+ * @ref taf_sim_AddNewStateHandler() function registers a handler to get notification when card state changes.
+ * @ref taf_sim_RemoveStateHandler() function unregisters the handler.
+ *
+ * @note During the initialization times of service, the new subscriptions of the ICCID change
+ * events are notified by the last changed events. This behavior exists only for 5 seconds and allows
+ * newly registered clients to get any ICCID changes that occured during the device power-on time.
+ *
+ * \b IMSI:
+ * The International Mobile Subscriber Identity (IMSI) is a unique identity associated with
+ * the cellular networks. It is used in any mobile network that connects with other networks.
+ * The IMSI is provisioned inside the SIM card in case of GSM, UMTS and LTE networks.
+ *
+ * The IMSI is generally a 15 digits long number, but it can be shorter also. The first 3 digits
+ * represent mobile country code (MCC) which followed by mobile network code (MNC), either 2
+ * digits (European standard) or 3 digits (North American standard) long. The length of MNC depends
+ * on the value of MCC. The remaining digits are the mobile subscription identification number (MSIN)
+ * within the operator's customer base.
+ *
+ * \b EID:
+ * The EID (also called as eUICCID) is unique identifier for the embedded Universal Integrated
+ * Circuit Card (eUICC).
+ * The eUICC is a SIM card having remote provisioning function, and is designed to not be removed or
+ * replaced. It ables to store multiple communication profiles but only one is active (recognized
+ * by equipment and used for communication with network). With conventional SIM card, the ICCID is
+ * unique key to distinguish the SIM card, but in case of eUICC, the ICCID is useful to identify
+ * a profile, and a new identifier is introduced, called eUICCID (EID), which is used as primary
+ * key of the embedded SIM (eSIM) to identify.
+ * @ref taf_sim_GetEID() API is used to retrieve the EID.
+ *
+ * \b Home \b Network \b Name:
+ * @ref taf_sim_GetHomeNetworkOperator() can retrieve name of the Home Network.
+ *
+ * @ref taf_sim_GetIMSI() API is used to get the international mobile subscriber identity (IMSI).
+ *
+ * Using this API get IMSI of the SIM.
+ *
+ * \b Phone \b Number:
+ * @ref taf_sim_GetSubscriberPhoneNumber() API reads the Phone Number of the SIM.
+ * If the phone number has not been assigned, it shall return the empty string.
+ *
+ * Using this API get subscriber phone number of the SIM.
+ *
+ * \b Home \b Network \b Information:
+ * - @ref taf_sim_GetHomeNetworkOperator() function retrieves name of the Home Network.
+ * - @ref taf_sim_GetHomeNetworkMccMnc() function retrieves MCC (Mobile Country Code)
+ * and MNC (Mobile Network Code) of the Home Network.
+ *
+ * @section taf_sim_auth SIM Authentication
+ * @ref taf_sim_EnterPIN() is used to enter the PIN (Personal Identification Number) code which
+ * is required before any mobile device functionality can be used.
+ *
+ * This API allows to enter PIN of the SIM.
+ *
+ * @ref taf_sim_GetRemainingPINTries() returns the number of remaining PIN entry attempts
+ * left before the SIM will be blocked.
+ *
+ *
+ * @ref taf_sim_GetRemainingPUKTries() returns the number of remaining PUK re-try attempts
+ * left before the SIM get blocked.
+ *
+ *
+ * @ref taf_sim_ChangePIN() must be called to change the PIN code.
+ *
+ *
+ * @ref taf_sim_Lock() locks the SIM card. It enables asking for the PIN code.
+ *
+ *
+ * @ref taf_sim_Unlock() unlocks the SIM card. It disables asking for the PIN code.
+ *
+ *
+ * @ref taf_sim_Unblock() unblocks the SIM card. If the SIM card is blocked after X unsuccessful
+ * attempts to enter the PIN then @ref taf_sim_Unblock() can be used with Personal Unblocking
+ * (PUK) code to set a new PIN code and unblock the SIM.
+ *
+ * @section taf_sim_state SIM states
+ * @ref taf_sim_IsPresent() API tells whether the SIM is present (and locked) or it's removed.
+ *
+ * Using this API get to know whether a SIM is present in device's slot.
+ *
+ * @ref taf_sim_IsReady() API tells whether the SIM is ready (PIN code correctly entered
+ * or not required) to use.
+ *
+ *
+ * The @ref taf_sim_GetState() API can retrieve the following SIM state:
+ * - @ref TAF_SIM_INSERTED      : SIM card is inserted and locked.
+ * - @ref TAF_SIM_ABSENT        : SIM card is not present i.e. not inserted.
+ * - @ref TAF_SIM_READY         : SIM card is present and unlocked.
+ * - @ref TAF_SIM_BLOCKED       : SIM card is blocked, can not be use unless unblock it.
+ * - @ref TAF_SIM_BUSY          : SIM card is busy, getting activated, getting unlock etc.
+ * - @ref TAF_SIM_POWER_DOWN    : SIM card is powered OFF.
+ * - @ref TAF_SIM_STATE_UNKNOWN : Unknown SIM state, can get it when state is not determined.
+ *
+ *
+ * A handler function should be registered to receive SIM's state notifications.
+ * @ref taf_sim_AddNewStateHandler() API allows user to register state change handler.
+ *
+ * The handler must follow the below prototype:
+ * typedef void(*taf_sim_NewStateHandlerFunc_t)(@ref taf_sim_Id_t simId, @ref taf_sim_States_t simState);
+ *
+ * When change of new SIM's state is notified, the handler function is invoked.
+ *
+ * Call @ref taf_sim_GetState() to retrieve new state of the SIM.
+ *
+ * @note If many applications register handlers for notifications, they
+ * will all receive it.
+ *
+ * An application may uninstall state change handler by calling @ref taf_sim_RemoveStateHandler() API.
+ *
+ * @warning Device may need a reboot to detect a SIM insertion or removal. So it is recommended to restart
+ * the device or NAD.
+ *
+ * @ref taf_sim_SetPower(): Not supported. Just a stub function.
+ *
+ * @subsection taf_sim_OpenLogicalChannel Logical channels
+ *
+ * Logical channel is specified by standard ETSI TS 102 221 in the section 8.7. If they are
+ * supported by SIM card, the logical channels allow to send autonomous APDUs on the different
+ * channels. In this case the major points are:
+ * - The basic channel 0 is available and opened all the time.
+ * - The card assigns a number to open new channel. This channel will remain open until
+ *   it is closed by application or until the SIM is deactivated.
+ *
+ * Use @ref taf_sim_OpenLogicalChannel() to open a logical channel in the SIM card. APDUs then can
+ * be sent to SIM card with @ref taf_sim_SendApduOnChannel(). When the logical channel is no
+ * longer needed, it can be closed using @ref taf_sim_CloseLogicalChannel().
+ *
+ * Before the SIM sends a message, an application registers a callback handler using taf_sim_AddNewStateHandler().
+ * Once the message is sent, the handler will be called
+ * indicating the sending status of the message. If the message sending failed, then the handler will be
+ * called with the error code.
+ * @verbatim
+   static void NewSimStateHandler(taf_sim_Id_t simId, taf_sim_States_t simState, void* contextPtr){
+   LE_INFO("New SIM event for SIM card: %d SIM state: %d", simId, simState);
+   exit(EXIT_SUCCESS);
+   }
+   taf_sim_NewStateHandlerRef_t msgHandlerRef = taf_sim_AddNewStateHandler(NewSimStateHandler, NULL);
+   @endverbatim
+ *
+ * Application must use taf_sim_RemoveStateHandler() to release @ref taf_sim_NewStateHandlerRef_t message handler
+ * reference object when it is no more used.
+ *
+ * <HR>
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+
+
 /**
  * To support legacy states
  */
@@ -122,10 +354,10 @@ ENUM LockType
 
 ENUM LockResponse
 {
-    CHANGE_PIN,
-    UNLOCK_BY_PIN,
-    UNLOCK_BY_PUK,
-    SET_LOCK
+    CHANGE_PIN,        ///<Change PIN
+    UNLOCK_BY_PIN,     ///<Unlock PIN
+    UNLOCK_BY_PUK,     ///<Unlock PUK
+    SET_LOCK           ///<Set lock
 };
 
 /**
@@ -140,69 +372,87 @@ ENUM AppType {
    APPTYPE_ISIM = 5,    ///< UICC application type is ISIM
 };
 
+//-------------------------------------------------------------------------------------------------
 /**
  * Handler for changes in SIM card state
  */
+//-------------------------------------------------------------------------------------------------
 HANDLER NewStateHandler
 (
-    Id       slotId IN,
-    States   state IN
+    Id       slotId IN,    ///<Slot Id
+    States   state IN      ///<State
 );
 
+//-------------------------------------------------------------------------------------------------
 /**
  * SIM card state change event
  */
+//-------------------------------------------------------------------------------------------------
 EVENT NewState
 (
-    NewStateHandler handler
+    NewStateHandler handler    ///< State change handler
 );
 
+//-------------------------------------------------------------------------------------------------
 /**
  * Handler for pin puk changes.
  *
  */
-//--------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
 HANDLER AuthenticationResponseHandler
 (
     Id             slotId IN,             ///< The SIM identifier.
-    LockResponse   responsetype,
-    le_result_t    result IN
-);
-EVENT AuthenticationResponse
-(
-    AuthenticationResponseHandler handler
+    LockResponse   responsetype,          ///< Lock response type
+    le_result_t    result IN              ///< Result
 );
 
-//--------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
+/**
+ * Response of authentication.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+EVENT AuthenticationResponse
+(
+    AuthenticationResponseHandler handler    ///< Authentication response handler
+);
+
+//-------------------------------------------------------------------------------------------------
 /**
  * To check whether SIM card is present or absent
  * @return true SIM card present
  * @return false SIM card absent
  */
+//-------------------------------------------------------------------------------------------------
 FUNCTION bool IsPresent
 (
-    Id      slotId IN
+    Id      slotId IN    ///< Slot id
 );
 
+//-------------------------------------------------------------------------------------------------
 /**
  * Get the state of the SIM card for given slotId
  * @return Current state of SIM card
  */
+//-------------------------------------------------------------------------------------------------
 FUNCTION States GetState
 (
-    Id slotId IN
+    Id slotId IN    ///< Slot id
 );
 
+//-------------------------------------------------------------------------------------------------
 /**
  * To check whether SIM card is ready or not
  * @return true if SIM card present and ready to use i.e unlocked
  * @return false if SIM card absent or error or restricted to use or locked
  */
+//-------------------------------------------------------------------------------------------------
 FUNCTION bool IsReady
 (
-    Id slotId IN
+    Id slotId IN    ///< Slot id
 );
 
+//-------------------------------------------------------------------------------------------------
 /**
  * Retrieves the SIM's ICCID
  *
@@ -212,12 +462,14 @@ FUNCTION bool IsReady
  * @return LE_FAULT               Failed to retrieve the ICCID.
  *
  */
+//-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetICCID
 (
-    Id        slotId IN,
-    string    iccid[ICCID_LEN] OUT
+    Id        slotId IN,                 ///< Slot id
+    string    iccid[ICCID_LEN] OUT       ///< ICC id as output
 );
 
+//-------------------------------------------------------------------------------------------------
 /**
  * Retrieves IMSI (International Mobile Subscriber Identity) for the SIM.
  *
@@ -227,12 +479,14 @@ FUNCTION le_result_t GetICCID
  * @return LE_OK               IMSI retrieved successfully.
  *
  */
+//-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetIMSI
 (
-    Id        slotId IN,
-    string    imsi[IMSI_LEN] OUT
+    Id        slotId IN,             ///< Slot id
+    string    imsi[IMSI_LEN] OUT     ///< IMSI as output
 );
 
+//-------------------------------------------------------------------------------------------------
 /**
  * Retrieves the name of the carrier on which this subscription is made.
  *
@@ -242,12 +496,14 @@ FUNCTION le_result_t GetIMSI
  * @return LE_OK               Carrier name retrieved successfully.
  *
  */
+//-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetHomeNetworkOperator
 (
-    Id        slotId IN,
-    string    nameStr[100] OUT
+    Id        slotId IN,             ///< Slot id
+    string    nameStr[100] OUT       ///< Network name as output
 );
 
+//-------------------------------------------------------------------------------------------------
 /**
  * Retrieves the phone number for the SIM subscription.
  *
@@ -257,12 +513,14 @@ FUNCTION le_result_t GetHomeNetworkOperator
  * @return LE_OK               phone number retrieved successfully.
  *
  */
+//-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetSubscriberPhoneNumber
 (
-    Id        slotId IN,
-    string    phoneNumberStr[PHONE_NUM_MAX_LEN] OUT
+    Id        slotId IN,                                ///< Slot id
+    string    phoneNumberStr[PHONE_NUM_MAX_LEN] OUT     ///< Phone number as output
 );
 
+//-------------------------------------------------------------------------------------------------
 /**
  * Retrieves the mobile network code(MNC) and mubile country code(MCC) of the carrier
  * to which phone is connected.
@@ -273,22 +531,26 @@ FUNCTION le_result_t GetSubscriberPhoneNumber
  * @return LE_OK               phone number retrieved successfully.
  *
  */
+//-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetHomeNetworkMccMnc
 (
-    Id     slotId IN,
-    string mccPtr[3] OUT,
-    string mncPtr[3] OUT
+    Id     slotId IN,        ///< Slot id
+    string mccPtr[3] OUT,    ///< MCC string as output
+    string mncPtr[3] OUT     ///< MNC string as outputd
 );
 
+//-------------------------------------------------------------------------------------------------
 /**
  * Get slotId of current selected SIM card.
  *
  * @return slotId of current selected card.
  */
+//-------------------------------------------------------------------------------------------------
 FUNCTION Id GetSelectedCard
 (
 );
 
+//-------------------------------------------------------------------------------------------------
 /**
  * Select a SIM.
  *
@@ -296,11 +558,13 @@ FUNCTION Id GetSelectedCard
  * @return LE_OK               SIM card selected successfully.
  *
  */
+//-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SelectCard
 (
-    Id    slotId IN
+    Id    slotId IN    ///< Slot id
 );
 
+//-------------------------------------------------------------------------------------------------
 /**
  *  Unlock the Sim card for an app by entering PIN.
  *
@@ -310,6 +574,7 @@ FUNCTION le_result_t SelectCard
  * @return LE_OK              Unlock SIM by password request sent successfully.
  *
  */
+//-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t EnterPIN
 (
     Id        slotId IN,           ///< Slot ID of SIM.
@@ -317,6 +582,7 @@ FUNCTION le_result_t EnterPIN
     string    pin[PIN_MAX_LEN] IN  ///< PIN1/PIN2.
 );
 
+//-------------------------------------------------------------------------------------------------
 /**
  * Change the password used in PIN1/PIN2 lock.
  *
@@ -326,6 +592,7 @@ FUNCTION le_result_t EnterPIN
  * @return LE_OK              Change SIM lock password request sent successfully.
  *
  */
+//-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ChangePIN
 (
     Id        slotId IN,                  ///< Slot ID of SIM.
@@ -334,6 +601,7 @@ FUNCTION le_result_t ChangePIN
     string    newpin[PIN_MAX_LEN] IN      ///< New PIN1/PIN2
 );
 
+//-------------------------------------------------------------------------------------------------
 /**
  * Get the available retry count of PIN try.
  *
@@ -342,11 +610,13 @@ FUNCTION le_result_t ChangePIN
  * @return A positive value   Retry count value.
  *
  */
+//-------------------------------------------------------------------------------------------------
 FUNCTION int32 GetRemainingPINTries
 (
-    Id      slotId IN
+    Id      slotId IN        ///< Slot id
 );
 
+//-------------------------------------------------------------------------------------------------
 /**
  * Get the remaining PUK try count.
  *
@@ -355,12 +625,14 @@ FUNCTION int32 GetRemainingPINTries
  * @return A positive value   Retry count value.
  *
  */
+//-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetRemainingPUKTries
 (
-    Id      slotId                 IN,
-    uint32  remainingPukTriesPtr  OUT
+    Id      slotId                 IN,    ///< Slot id
+    uint32  remainingPukTriesPtr  OUT     ///< Number of PUK retries remaining
 );
 
+//-------------------------------------------------------------------------------------------------
 /**
  * Disables PIN1 or FDN lock.
  *
@@ -370,6 +642,7 @@ FUNCTION le_result_t GetRemainingPUKTries
  * @return LE_OK              Disable SIM lock request sent successfully.
  *
  */
+//-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Unlock
 (
     Id        slotId IN,           ///< Slot ID of SIM
@@ -377,6 +650,7 @@ FUNCTION le_result_t Unlock
     string    pin[PIN_MAX_LEN] IN  ///< PIN1/PIN2
 );
 
+//-------------------------------------------------------------------------------------------------
 /**
  * Enables PIN1 or FDN lock.
  *
@@ -386,6 +660,7 @@ FUNCTION le_result_t Unlock
  * @return LE_OK              Enable SIM lock request sent successfully.
  *
  */
+//-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Lock
 (
     Id        slotId IN,           ///< Slot ID of SIM.
@@ -393,6 +668,7 @@ FUNCTION le_result_t Lock
     string    pin[PIN_MAX_LEN] IN  ///< PIN1/PIN2.
 );
 
+//-------------------------------------------------------------------------------------------------
 /**
  * Unlock the Sim card for an app by entering PUK and new pin
  *
@@ -403,6 +679,7 @@ FUNCTION le_result_t Lock
  * @return LE_OK              Unlock SIM request sent successfully.
  *
  */
+//-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Unblock
 (
     Id        slotId IN,              ///< Slot ID of SIM.
@@ -411,31 +688,50 @@ FUNCTION le_result_t Unblock
     string    newpin[PIN_MAX_LEN] IN  ///< New PIN1/PIN2.
 );
 
+//-------------------------------------------------------------------------------------------------
 /**
  * Request eUICC identifier(EID) for the slot.
+ *
+ * @return
+ *      - LE_OK       on success
+ *      - LE_FAULT    on failure
  */
+//-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetEID
 (
-    Id       slotId IN,
-    string   eid[EID_LEN] OUT
+    Id       slotId IN,            ///< Slot id
+    string   eid[EID_LEN] OUT      ///< eid
 );
 
+//-------------------------------------------------------------------------------------------------
 /**
  * Enable or disable the automatic SIM selection.
+ *
+ * @return
+ *      - LE_OK       on success
+ *      - LE_FAULT    on failure
  */
+//-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetAutomaticSelection
 (
-    bool enable IN
+    bool enable IN      ///< Enable flag
 );
 
+//-------------------------------------------------------------------------------------------------
 /**
  * Get the automatic SIM selection.
+ *
+ * @return
+ *      - LE_OK       on success
+ *      - LE_FAULT    on failure
  */
+//-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetAutomaticSelection
 (
-    bool enable OUT
+    bool enable OUT        ///< Enable flag as output
 );
 
+//-------------------------------------------------------------------------------------------------
 /**
  *Open a logical channel to the SIM.
  *
@@ -444,13 +740,15 @@ FUNCTION le_result_t GetAutomaticSelection
  *      - LE_BAD_PARAMETER  Invalid parameter.
  *      - LE_FAULT          Failed to open logical channel.
  */
+//-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t OpenLogicalChannel
 (
-     Id slotId IN,
-     AppType apptype IN,
-     uint8 channelPtr OUT
+     Id slotId IN,           ///< Slot id
+     AppType apptype IN,     ///< App type
+     uint8 channelPtr OUT    ///< Channel as output
 );
 
+//-------------------------------------------------------------------------------------------------
 /**
  * Close a previously opened logical channel to the SIM.
  *
@@ -458,12 +756,14 @@ FUNCTION le_result_t OpenLogicalChannel
  *      - LE_OK       Close logical channel succesful.
  *      - LE_FAULT    Failed to send request.
  */
+//-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t CloseLogicalChannel
 (
-    Id    slotId IN,
+    Id    slotId IN,      ///< Slot id
     uint8 channel IN      ///<The channel ID to be closed.
 );
 
+//-------------------------------------------------------------------------------------------------
 /**
  *  Transmit an APDU to the ICC card over a logical channel.
  *
@@ -473,14 +773,16 @@ FUNCTION le_result_t CloseLogicalChannel
  *      - LE_NOT_FOUND      Failed to select the SIM card.
  *      - LE_FAULT          Failed to transmit APDU.
  */
+//-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendApduOnChannel
 (
-    Id           simId IN,
-    uint8        channel IN,
-    uint8        commandApdu[APDU_MAX_BYTES] IN,
-    uint8        responseApdu[RESPONSE_MAX_BYTES] OUT
+    Id           simId IN,                                ///< Slot id
+    uint8        channel IN,                              ///< Channel
+    uint8        commandApdu[APDU_MAX_BYTES] IN,          ///< APDU
+    uint8        responseApdu[RESPONSE_MAX_BYTES] OUT     ///< Response of APDU as output
 );
 
+//-------------------------------------------------------------------------------------------------
 /**
  * Exchange APDUs with the SIM on a basic channel.
  *
@@ -490,9 +792,10 @@ FUNCTION le_result_t SendApduOnChannel
  *      - LE_BAD_PARAMETER  Invalid parameter.
  *      - LE_NOT_FOUND      Failed to select the SIM card.
  */
+//-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendApdu
 (
-    Id           simId IN,
-    uint8        commandApdu[APDU_MAX_BYTES] IN,
-    uint8        responseApdu[RESPONSE_MAX_BYTES] OUT
+    Id           simId IN,                                 ///< Slot id
+    uint8        commandApdu[APDU_MAX_BYTES] IN,           ///< APDU command
+    uint8        responseApdu[RESPONSE_MAX_BYTES] OUT      ///< Response of APDU as output
 );

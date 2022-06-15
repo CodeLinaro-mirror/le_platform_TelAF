@@ -32,40 +32,130 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/*
- * OTA operation status.
+//--------------------------------------------------------------------------------------------------
+/**
+ * @page c_tafMRC MRC Service
+ *
+ * @ref taf_mrc_interface.h "API Reference"
+ *
+ * <HR>
+ *
+ * The MRC Service APIs are designed for operations on Memory Robustness Criteria Daemon. The MRC
+ * service is mainly applied in Firmware update Over The Air and mirror system. The MRCD runs in the
+ * the background to support EFS2 backup and restore, mirror system, flash scrubbing, suspending for
+ * eCall and FOTA flash access arbitration. MRCD processes them by priority, and the MRC Service APIs
+ * notify MRCD of FOTA events.
+ *
+ * @section taf_mrc_binding IPC interfaces binding
+ *
+ * All the functions of this API are provided by the @b tafMRCSvc service.
+ *
+ * Here's a sample of how to bind to MRC Service:
+ * @verbatim
+ *
+   bindings:
+   {
+       clientExe.clientComponent.taf_mrc -> tafMRCSvc.taf_mrc
+   }
+ *
+   @endverbatim
+ *
+ * @section c_taf_mrc_ota FOTA Supplementary Operations
+ *
+ * - taf_mrc_SendOtaStartMsg() supports to send OTA start notification to MRCD before FOTA starts.
+ *
+ * - taf_mrc_SendOtaResumeMsg() supports to send OTA resume notification to MRCD when FOTA resumes.
+ *
+ * - taf_mrc_SendOtaEndMsg() supports to send OTA end notification to MRCD when FOTA completes.
+ *
+ * - taf_mrc_SendOtaAbsyncMsg() supports to synchronize active slot to inactive slot.
+ *
+ * Here is the example of FOTA operations with MRCD.
+ *
+ * @code
+ *
+   // When FOTA starts.
+   LE_ASSERT(taf_mrc_SendOtaStartMsg() == LE_OK);
+
+   // Perform FOTA with recovery client or flash acesss.
+
+   // When FOTA completes.
+   LE_ASSERT(taf_mrc_SendOtaEndMsg(TAF_MRC_OTA_OP_STATUS_SUCCESS) == LE_OK);
+
+   // Swicth to active slot.
+
+   // Slot synchronization.
+   LE_ASSERT(taf_mrc_SendOtaStartMsg() == LE_OK);
+ *
+   @endcode
+ *
+ * <HR>
+ *
  */
+//--------------------------------------------------------------------------------------------------
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * OTA operation status enum.
+ *
+ * @note OTA status notified to MRCD.
+ */
+//--------------------------------------------------------------------------------------------------
 ENUM OtaOperationStatus
 {
-    OTA_OP_STATUS_SUCCESS = 1, // The OTA operation status is success.
-    OTA_OP_STATUS_FAILURE      // The OTA operation status is failure.
+    OTA_OP_STATUS_SUCCESS = 1, ///< OTA operation status is success.
+    OTA_OP_STATUS_FAILURE      ///< OTA operation status is failure.
 };
 
-/*
- * Send OTA start message to mrc daemon.
+//--------------------------------------------------------------------------------------------------
+/**
+ * This function sends OTA start message to MRCD.
+ *
+ * @return
+ *  - LE_FAULT : On failure.
+ *  - LE_OK : On success.
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendOtaStartMsg
 (
 );
 
-/*
- * Send OTA resume message to mrc daemon.
+//--------------------------------------------------------------------------------------------------
+/**
+ * This function sends OTA resume message to MRCD.
+ *
+ * @return
+ *  - LE_FAULT : On failure.
+ *  - LE_OK : On success.
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendOtaResumeMsg
 (
 );
 
-/*
- * Send OTA end message to mrc daemon.
+//--------------------------------------------------------------------------------------------------
+/**
+ * This function sends OTA end message to MRCD.
+ *
+ * @return
+ *  - LE_FAULT : On failure.
+ *  - LE_OK : On success.
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendOtaEndMsg
 (
-    OtaOperationStatus otaStatus IN // OTA operation status.
+    OtaOperationStatus otaStatus IN ///< OTA operation status.
 );
 
-/*
- * Send OTA AB sync message to mrc daemon.
+//--------------------------------------------------------------------------------------------------
+/**
+ * This function sends message to MRCD to synchronize acative slot to inactive slot.
+ *
+ * @return
+ *  - LE_FAULT : On failure.
+ *  - LE_OK : On success.
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendOtaAbsyncMsg
 (
 );

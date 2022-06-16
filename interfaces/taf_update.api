@@ -32,61 +32,235 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * @page c_tafUpdate Update Service
+ *
+ * @ref taf_update_interface.h "API Reference"
+ *
+ * <HR>
+ *
+ * The Update Service APIs are designed for Over The Air solutions. The OTA package is encapsulated
+ * with a QOTA header, which can be uploaded to the cloud server and downloaded to the target device.
+ * In QOTA header, the package can be marked as firmware or application bundle. Update Service
+ * supports to install firmware and application, and it parses the bundle when OTA package is
+ * downloaded on target device. Users can register a handler to get the update progress with details.
+ *
+ * @note Currently update service does not support firmware update and application update at the same
+ * time. Users should install the OTA package after it's downloaded successfully.
+ *
+ * @section taf_update_binding IPC interfaces binding
+ *
+ * All the functions of this API are provided by the @b tafUpdateSvc service.
+ *
+ * Here's a sample of how to bind to Update Service:
+ * @verbatim
+ *
+   bindings:
+   {
+       clientExe.clientComponent.taf_update -> tafUpdateSvc.taf_update
+   }
+ *
+   @endverbatim
+ *
+ * @section c_taf_update_ota_function OTA Functions
+ *
+ * - taf_update_Download() supports download package from cloud server.
+ *
+ * - taf_update_Install() supports to install firmware or application on target device.
+ *
+ * - taf_update_AddStateHandler() / taf_update_RemoveStateHandler() supports to add/remove handler
+ * for update states.
+ *
+ * Here is the example of registering handler for update state.
+ *
+ * We can use taf_update_AddStateHandler() to register handler as callback for update state, and handle
+ * different state when indication arrives.
+ *
+ * @code
+ *
+   #define TAF_UPDATE_INSTALL_PACKAGE "/data/images/TCU_target"
+
+   void UpdateStateHandler(taf_update_StateInd_t* indication, void* contextPtr)
+   {
+       switch (indication->state) {
+           case TAF_UPDATE_IDLE:
+
+               // Check download consent from user.
+
+               // Start to download.
+               taf_update_Download();
+
+               break;
+           case TAF_UPDATE_DOWNLOADING:
+
+               // Show download progress.
+               LE_INFO("Downloading %d%% .", indication->percent);
+
+               break;
+           case TAF_UPDATE_DOWNLOAD_FAIL:
+
+               LE_ERROR("Download fail.");
+
+               break;
+           case TAF_UPDATE_DOWNLOAD_SUCCESS:
+
+               // Check install consent from user.
+
+               // Start to install.
+               if (indication->pkgType == TAF_UPDATE_PACKAGE_FOTA) {
+
+                   LE_INFO("Install firmware.");
+
+                   LE_ASSERT(taf_update_Install(TAF_UPDATE_PACKAGE_FOTA, TAF_UPDATE_INSTALL_PACKAGE) == LE_OK);
+
+               } else {
+
+                   LE_INFO("Install application.");
+
+                   // Show app name.
+                   if (indication->pkgName != NULL) {
+                       LE_INFO("App name is %s", indication->pkgName);
+                       LE_ASSERT(taf_update_Install(TAF_UPDATE_PACKAGE_SOTA, TAF_UPDATE_INSTALL_PACKAGE) == LE_OK);
+                   }
+               }
+               break;
+           case TAF_UPDATE_INSTALLING:
+
+               // Show install progress.
+               LE_INFO("Installing %d%% .", indication->percent);
+
+               break;
+           case TAF_UPDATE_INSTALL_SUCCESS:
+
+               // Reboot to active for firmware upgrade or start app probation.
+
+               break;
+           case TAF_UPDATE_PROBATION:
+
+               // Do not perform any OTA operations during probation.
+
+               break;
+        }
+   }
+
+   // Register handler for update state.
+   handlerRef = taf_update_AddStateHandler((taf_update_StateHandlerFunc_t)UpdateStateHandler, NULL);
+   LE_ASSERT(handlerRef != NULL);
+ *
+   @endcode
+ *
+ * <HR>
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Maximum OTA package name length with null character.
+ */
+//--------------------------------------------------------------------------------------------------
 DEFINE MAX_PKG_NAME_LEN = 48;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Update state enum.
+ */
+//--------------------------------------------------------------------------------------------------
 ENUM State
 {
-    IDLE,
-    DOWNLOAD_FAIL,
-    DOWNLOADING,
-    DOWNLAOD_PAUSED,
-    DOWNLOAD_SUCCESS,
-    INSTALLING,
-    INSTALL_SUCCESS,
-    INSTALL_FAIL,
-    PROBATION
+    IDLE,             ///< Idle state, user is allow to download OTA package.
+    DOWNLOAD_FAIL,    ///< Download fail state, user is allow to retry download.
+    DOWNLOADING,      ///< Downloading state, user is able to query download progress.
+    DOWNLAOD_PAUSED,  ///< Download paused state, not supported.
+    DOWNLOAD_SUCCESS, ///< Dowmload success state, user is allow to install OTA package.
+    INSTALLING,       ///< Installing state, user is able to query install progress.
+    INSTALL_SUCCESS,  ///< Install success state, user is allow to reboot to active if firmware installed or start probation if app installed.
+    INSTALL_FAIL,     ///< Install fail state, update service drives to idle state later.
+    PROBATION         ///< Probation state, during probation, update service checks if newly installed firmware or app is stable, dirves to idle state later.
 };
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Installation error code enum.
+ */
+//--------------------------------------------------------------------------------------------------
 ENUM InstallError
 {
-    INSTALL_NONE,
-    INSTALLBAD_PACKAGE,
-    INSTALL_INTERNAL_ERROR,
-    INSTALL_SECURITY_FAILURE
+    INSTALL_NONE,            ///< No errors.
+    INSTALLBAD_PACKAGE,      ///< Bad package.
+    INSTALL_INTERNAL_ERROR,  ///< Internal error.
+    INSTALL_SECURITY_FAILURE ///< Security check failure.
 };
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * OTA package type enum.
+ */
+//--------------------------------------------------------------------------------------------------
 ENUM Package
 {
-    PACKAGE_FOTA,
-    PACKAGE_SOTA,
-    PACKAGE_NON_QOTA
+    PACKAGE_FOTA,    ///< Package for firmware update.
+    PACKAGE_SOTA,    ///< Package for application update.
+    PACKAGE_NON_QOTA ///< Not QOTA formatted package.
 };
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Update state indication structure.
+ */
+//--------------------------------------------------------------------------------------------------
 STRUCT StateInd
 {
-    State state;
-    InstallError error;
-    int32 percent;
-    Package pkgType;
-    string pkgName[MAX_PKG_NAME_LEN];
+    State state;                      ///< Update state.
+    InstallError error;               ///< Install error, applicatible for install fail state.
+    int32 percent;                    ///< Percentage of progress, applicatible for downloading or installing state.
+    Package pkgType;                  ///< OTA pakcage type.
+    string pkgName[MAX_PKG_NAME_LEN]; ///< OTA pakcage name.
 };
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for update state.
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER StateHandler
+(
+    StateInd stateInd IN ///< Update state indication.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Event to report update progress.
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT State
+(
+    StateHandler handler ///< Handler for update state.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This function downloads OTA package from cloud server.
+ *
+ * @note Update service will parse download package and remove QOTA header once download completed.
+ */
+//--------------------------------------------------------------------------------------------------
 FUNCTION Download
 (
 );
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * This function installs OTA package on target device.
+ *
+ * @return
+ *  - LE_FAULT : On failure.
+ *  - LE_OK : On success.
+ */
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Install
 (
-    Package packageType IN,
-    string name[MAX_PKG_NAME_LEN] IN
-);
-
-HANDLER StateHandler
-(
-    StateInd stateInd IN
-);
-
-EVENT State
-(
-    StateHandler handler
+    Package packageType IN,          ///< OTA pakcage type.
+    string name[MAX_PKG_NAME_LEN] IN ///< OTA pakcage name.
 );

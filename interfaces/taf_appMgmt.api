@@ -32,110 +32,285 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * @page c_tafAppMgmt Application Management Service
+ *
+ * @ref taf_appMgmt_interface.h "API Reference"
+ *
+ * <HR>
+ *
+ * The Application Management Service APIs help to control and obtain information of applications.
+ *
+ * @section taf_appMgmt_binding IPC interfaces binding
+ *
+ * All the functions of this API are provided by the @b tafUpdateSvc service.
+ *
+ * Here's a sample of how to bind to App Management Service:
+ * @verbatim
+ *
+   bindings:
+   {
+       clientExe.clientComponent.taf_appMgmt -> tafUpdateSvc.taf_appMgmt
+   }
+ *
+   @endverbatim
+ *
+ * @section c_taf_appMgmt_control Application Control
+ *
+ * - taf_appMgmt_Start() supports to start an application.
+ *
+ * - taf_appMgmt_Stop() supports to stop an application.
+ *
+ * - taf_appMgmt_Uninstall() supports to uninstall an application.
+ *
+ * @section c_taf_appMgmt_information Application Information Query
+ *
+ * User can get application information through app list.
+ *
+ *  - taf_appMgmt_CreateAppList() / taf_appMgmt_DeleteAppList() supports to create/delete app list reference.
+ *
+ *  - taf_appMgmt_GetFirstApp() / taf_appMgmt_GetNextApp() supports to get the first/next app reference.
+ *
+ *  - taf_appMgmt_GetAppDetails() supports to get the operator details.
+ *
+ *  - taf_appMgmt_GetState() supports to get application state.
+ *
+ * Here is the example of obtaining application information.
+ *
+ * @code
+ *
+   // Create list.
+   listRef = taf_appMgmt_CreateAppList();
+
+   // Traverse list
+   appRef = taf_appMgmt_GetFirstApp(listRef);
+   while (appRef != nullptr) {
+       taf_appMgmt_GetAppDetails(appRef, appInfoPtr);
+
+       // Do something with appInfoPtr.
+
+       appRef = taf_appMgmt_GetNextApp(listRef);
+   }
+
+   // Delete list.
+   taf_appMgmt_DeleteAppList(listRef);
+ *
+   @endcode
+ *
+ * <HR>
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * App name length without null character.
+ */
+//--------------------------------------------------------------------------------------------------
 DEFINE APP_NAME_BYTES = 48;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * App version length without null character.
+ */
+//--------------------------------------------------------------------------------------------------
 DEFINE APP_VERSION_BYTES = 101;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * App hash length without null character.
+ */
+//--------------------------------------------------------------------------------------------------
 DEFINE APP_HASH_BYTES = 101;
 
-/*
+//--------------------------------------------------------------------------------------------------
+/**
  * The reference of app list.
  */
+//--------------------------------------------------------------------------------------------------
 REFERENCE AppList;
 
-/*
+//--------------------------------------------------------------------------------------------------
+/**
  * The reference of app.
  */
+//--------------------------------------------------------------------------------------------------
 REFERENCE App;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * App state enum.
+ */
+//--------------------------------------------------------------------------------------------------
 ENUM AppState
 {
-    STATE_STOPPED,
-    STATE_STARTED
+    STATE_STOPPED, ///< App is not runnig.
+    STATE_STARTED  ///< App is runnig.
 };
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * App start mode enum.
+ */
+//--------------------------------------------------------------------------------------------------
 ENUM AppStartMode
 {
-    START_MANUAL,
-    START_AUTO
+    START_MANUAL, ///< App is started manually.
+    START_AUTO    ///< App is started automatically.
 };
 
-/*
- * App information.
+//--------------------------------------------------------------------------------------------------
+/**
+ * App information structure.
  */
+//--------------------------------------------------------------------------------------------------
 STRUCT AppInfo
 {
-    string name[APP_NAME_BYTES];       // App name.
-    string version[APP_VERSION_BYTES]; // App version.
-    string hash[APP_HASH_BYTES];       // App hash.
-    AppState state;                    // App state.
-    AppStartMode startMode;            // App start mode.
-    bool isSandboxed;                  // If it is a sandbox app.
+    string name[APP_NAME_BYTES];       ///< App name.
+    string version[APP_VERSION_BYTES]; ///< App version.
+    string hash[APP_HASH_BYTES];       ///< App hash code.
+    AppState state;                    ///< App state.
+    AppStartMode startMode;            ///< App start mode.
+    bool isSandboxed;                  ///< True if sandboxed app, false if not sandboxed app.
 };
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * This function gets app state.
+ *
+ * @return
+ *  - TAF_APPMGMT_STATE_STOPPED : App is not runnig.
+ *  - TAF_APPMGMT_STATE_STARTED : App is runnig.
+ */
+//--------------------------------------------------------------------------------------------------
 FUNCTION AppState GetState
 (
-    string appName[APP_NAME_BYTES] IN // App name.
+    string appName[APP_NAME_BYTES] IN ///< App name.
 );
 
-/*
- * Start an app.
+//--------------------------------------------------------------------------------------------------
+/**
+ * This function starts an app.
+ *
+ * @return
+ *  - LE_DUPLICATE : App is already runnig.
+ *  - LE_BUSY : System is busy.
+ *  - LE_FAULT : On failure.
+ *  - LE_OK : On success.
+ *
+ * @note Installed app will be activated to probation if started for the first time.
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Start
 (
-    string appName[APP_NAME_BYTES] IN // App name.
+    string appName[APP_NAME_BYTES] IN ///< App name.
 );
 
-/*
- * Stop an app.
+//--------------------------------------------------------------------------------------------------
+/**
+ * This function stops an app.
+ *
+ * @return
+ *  - LE_NOT_FOUND : App not found.
+ *  - LE_OK : On success.
+ *
+ * @note Installed app is not allow to stop if in probation state.
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Stop
 (
-    string appName[APP_NAME_BYTES] IN // App name.
+    string appName[APP_NAME_BYTES] IN ///< App name.
 );
 
-/*
- * Uninstall an app.
+//--------------------------------------------------------------------------------------------------
+/**
+ * This function uninstalls an app.
+ *
+ * @return
+ *  - LE_NOT_FOUND : App not found.
+ *  - LE_BUSY : System is busy.
+ *  - LE_FAULT : On failure.
+ *  - LE_OK : On success.
+ *
+ * @note Installed app is not allow to uninstall if in probation state.
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Uninstall
 (
-    string appName[APP_NAME_BYTES] IN // App name.
+    string appName[APP_NAME_BYTES] IN ///< App name.
 );
 
-/*
- * Create app list.
+//--------------------------------------------------------------------------------------------------
+/**
+ * This function creates app list.
+ *
+ * @return
+ *  - Non-null pointer : The reference of app list.
+ *  - Null pointer : Internal error.
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION AppList CreateAppList
 (
 );
 
-/*
- * Delete app list.
+//--------------------------------------------------------------------------------------------------
+/**
+ * This function deletes app list.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER : Bad parameters.
+ *  - LE_NOT_FOUND : Reference not found.
+ *  - LE_OK : On success.
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DeleteAppList
 (
-    AppList appListRef IN // App list reference.
+    AppList appListRef IN ///< The reference of app list.
 );
 
-/*
- * Get the reference of the first app.
+//--------------------------------------------------------------------------------------------------
+/**
+ * This function gets the first app.
+ *
+ * @return
+ *  - Non-null pointer : The reference of the first app.
+ *  - Null pointer : Internal error or empty list.
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION App GetFirstApp
 (
-    AppList appListRef IN // App list reference.
+    AppList appListRef IN ///< The reference of app list.
 );
 
-/*
- * Get the reference of the next app.
+//--------------------------------------------------------------------------------------------------
+/**
+ * This function gets the next app based on the current position in the list.
+ *
+ * @return
+ *  - Non-null pointer : The reference of the next app.
+ *  - Null pointer : Internal error or empty list.
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION App GetNextApp
 (
-    AppList appListRef IN // App list reference.
+    AppList appListRef IN ///< The reference of app list.
 );
 
-/*
- * Get app infomation.
+//--------------------------------------------------------------------------------------------------
+/**
+ * This function gets the information of app.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER : Bad parameters.
+ *  - LE_NOT_FOUND : Reference not found.
+ *  - LE_OK : On success.
+ *
+ * @note Get static information when creating app list.
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetAppDetails
 (
-    App appRef IN,      // App reference.
-    AppInfo appInfo OUT // App info.
+    App appRef IN,      ///< The reference of app.
+    AppInfo appInfo OUT ///< App information.
 );

@@ -27,6 +27,233 @@
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * @page c_tafaudio Audio Service API
+ *
+ * @ref taf_audio_interface.h "API Reference"
+ *
+ * <HR>
+ * Audio service provides an interface to playback, recording.
+ * TelAf Auido is connector based, Audio connectors will have one input interface and output interface, which is responsible to route audio data.
+ * Audio Stream Reference represents the audio interfaces for the given connectors.
+ *
+ * For any stream types, maximum device supported would be one. Single stream per multiple devices is not supported.
+ *
+ * Example, for voice call audio path, we need MIC and SPEAKER connectors but in down layers, Audio stream is closely coupled, once we set stream type to VOICE, both MIC and SPEAKER get configured.
+ *
+ * @section taf_audio_binding IPC interfaces binding
+ *
+ * All the functions of this API are provided by the @b tafAudioSvc application service.
+ *
+ * Here's a sample of how to bind to Audio services:
+ *
+ * IPC binding an interface
+ * In application.adef add taf_audio API in bindings.
+
+ * @verbatim
+
+   bindings:
+   {
+      clientExe.clientComponent.taf_audio -> tafAudioService.taf_audio
+   }
+
+   @endverbatim
+
+ * In Component.cdef add below interface
+
+ * @verbatim
+
+   requires:
+   {
+    api:
+    {
+      taf_audio.api
+    }
+   }
+
+   @endverbatim
+ *
+ *
+ * @section c_taf_audio_play Audio playback
+ *
+ * To do playback of an audio with supported formats(such  as wav, amr), the following API should be called in sequence
+ *
+ * @verbatim
+
+    OutRef = taf_audio_OpenSpeaker();
+    LE_ERROR_IF((NULL == OutRef), "taf_audio_OpenSpeaker returns NULL!");
+
+    OutputConnectorRef  = taf_audio_CreateConnector();
+    LE_ERROR_IF((NULL == OutputConnectorRef), "OutputConnectorRef  is NULL!");
+
+    FileRef = taf_audio_OpenPlayer();
+    LE_ERROR_IF((NULL == FileRef), "OpenFilePlayback returns NULL!");
+
+   @endverbatim
+ *
+ * @subsection c_taf_audio_AddMediaHandler MediaHandler and Media Events
+ *
+ * Handler for media events, such as start, stop and end
+ *
+ * @verbatim
+
+    MediaHandlerRef = taf_audio_AddMediaHandler(FileRef, MediaEventHandler, NULL);
+
+   @endverbatim
+
+ * @subsection c_connectors Connector and open file from location
+ *
+ * @verbatim
+
+        res = taf_audio_Connect(OutputConnectorRef, OutRef);
+        LE_ERROR_IF((LE_OK != res), "Failed on Output connector (res %s)!", LE_RESULT_TXT(res));
+
+        res = taf_audio_Connect(OutputConnectorRef , FileRef);
+        LE_ERROR_IF((LE_OK != res), "Playback failed on input connector!");
+
+        if ((FileFd = open(FilePath, O_RDONLY)) == -1)
+        {
+            LE_ERROR("Open file %s failure: errno.%d (%s)", FilePath, errno, LE_ERRNO_TXT(errno));
+            taf_audio_Disconnect(OutputConnectorRef, OutRef);
+            taf_audio_Disconnect(OutputConnectorRef, FileRef);
+            taf_audio_DeleteConnector(InputConnectorRef);
+            taf_audio_Close(OutRef);
+
+            return LE_FAULT;
+        }
+
+   @endverbatim
+ *
+ * @subsection c_Play Play file from location
+ *
+ * @verbatim
+
+        res = taf_audio_PlayFile(FileRef, FileFd);
+
+        LE_ERROR_IF((LE_OK != res), "Playback failed...!");
+
+   @endverbatim
+ *
+ * @subsection c_Mute_and_Unmute Mute and Unmute
+ *
+ * @verbatim
+
+        // Mute and UnMute can be called only on active stream
+        res = taf_audio_Mute(FileRef);
+        res = taf_audio_Unmute(FileRef);
+
+   @endverbatim
+ *
+ * @subsection c_Close Close and Delete connector's
+ *
+ * Delete and close the connector's when finished
+ *
+ * @verbatim
+
+   taf_audio_Disconnect(OutputConnectorRef, OutRef);
+   taf_audio_Disconnect(OutputConnectorRef, FileRef);
+   taf_audio_DeleteConnector(InputConnectorRef);
+   taf_audio_Close(OutRef);
+
+   @endverbatim
+ *
+ * @section c_taf_audio_voicecall Audio voice call
+ *
+ * @subsection c_ECNR Echo Cancellation and Noise Reduction
+ * This need to be called before starting voice call
+ *
+ * EnableNoiseSuppressor and EnableEchoCanceller API's are handled in single configuration.
+ *
+ * @verbatim
+
+   if (LE_OK != (res = taf_audio_EnableNoiseSuppressor(AudioRef)))
+    {
+        LE_ERROR("Set EnableNoiseSuppressor failed (res.%d)", res);
+    }
+
+    if (LE_OK != ((res = taf_audio_EnableEchoCanceller(AudioRef)))
+    {
+        LE_ERROR("Set EnableEchoCanceller failed! (res.%d)", res);
+    }
+
+   @endverbatim
+ *
+ *
+ * DisableEchoCanceller and DisableNoiseSuppressor API's are handled in single configuration.
+ * This need to be called before starting voice call
+ *
+ * @verbatim
+
+    if (LE_OK != ((res = taf_audio_DisableEchoCanceller(AudioRef)))
+    {
+        LE_ERROR(" DisableEchoCanceller failed! (res.%d)", res);
+    }
+
+    if (LE_OK != ((res = taf_audio_DisableNoiseSuppressor(AudioRef)))
+    {
+        LE_ERROR(" DisableNoiseSuppressor failed! (res.%d)", res);
+    }
+   @endverbatim
+
+ *
+ * The following API should be called in sequence for Voicecall
+ * Open modemvoice Rx with slot id
+ *
+ *
+ * @verbatim
+
+    RxMdmRef = taf_audio_OpenModemVoiceRx(1);
+    LE_ERROR_IF(( NULL == RxMdmRef), "taf_audio_OpenModemVoiceRx returns NULL!");
+
+    OutRef = taf_audio_OpenSpeaker();
+    LE_ERROR_IF((NULL == OutRef), "taf_audio_OpenSpeaker returns NULL!");
+
+   @endverbatim
+
+ * @subsection c_connectors Connector and open file from location when call is hold
+ * When call on hold, there will local file play back of audio
+ *
+ * @verbatim
+
+    OutputConnectorRef = taf_audio_CreateConnector();
+    LE_ERROR_IF((NULL == OutputConnectorRef), "OutputConnectorRef is NULL!");
+
+    taf_audio_Connect(OutputConnectorRef, OutRef);
+   @endverbatim
+
+ * @note This need to be called, when call is on hold
+ *
+ * @verbatim
+    if ((FileFd = open(FilePath, O_RDONLY)) == -1)
+       {
+           LE_ERROR_IF((LE_OK != res), "Playback failed...!");
+           return LE_FAULT;
+       }
+        res = taf_audio_PlayFile(FileRef, FileFd);
+
+        LE_ERROR_IF((LE_OK != res), "Playback failed...!");
+
+   @endverbatim
+
+ *
+ * @subsection c_Close Close and Delete connector's
+ *
+ * Delete and close the connector's when finished
+ *
+ * @verbatim
+    taf_audio_Disconnect(InputConnectorRef, InRef);
+
+    taf_audio_DeleteConnector(InputConnectorRef);
+
+    taf_audio_Close(InRef);
+
+   @endverbatim
+ * <HR>
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+
 /**
  * Reference type for Audio Stream
  */
@@ -45,11 +272,12 @@ DEFINE NO_FD = (-1);
  */
 FUNCTION Close
 (
-    Stream sRef IN
+    Stream sRef IN ///< Audio reference
 );
 
 /**
  * Create new Connector
+ * @return Reference to audio stream, NULL on error
  */
 FUNCTION Connector CreateConnector
 (
@@ -57,32 +285,38 @@ FUNCTION Connector CreateConnector
 
 /**
  * Delete connected Connector
+ * @note This function will not return, if caller passes bad reference
  */
 FUNCTION DeleteConnector
 (
-    Connector connRef IN
+    Connector connRef IN ///< Connector reference
 );
 
 /**
  * Connect Connector for Stream reference
+ * @return LE_OK     On Success
+ * @return LE_FAULT  on failure
+ * @note This function will not return, if caller passes bad reference
  */
 FUNCTION le_result_t Connect
 (
-    Connector connRef IN,
-    Stream    sRef IN
+    Connector connRef IN, ///< Connector reference
+    Stream    sRef IN ///< Audio reference
 );
 
 /**
- * Diconnect Connector for Stream reference
+ * Disconnect Connector for Stream reference
+ * @note This function will not return, if caller passes bad reference
  */
 FUNCTION Disconnect
 (
-    Connector connRef IN,
-    Stream    sRef IN
+    Connector connRef IN, ///< Connector reference
+    Stream    sRef IN ///< Audio reference
 );
 
 /**
  * Stream reference for Speaker
+ * @return Reference to audio stream, NULL on error
  */
 FUNCTION Stream OpenSpeaker
 (
@@ -90,6 +324,7 @@ FUNCTION Stream OpenSpeaker
 
 /**
  * Stream reference for MIC
+ * @return Reference to audio stream, NULL on error
  */
 FUNCTION Stream OpenMic
 (
@@ -97,18 +332,20 @@ FUNCTION Stream OpenMic
 
 /**
  * Stream reference for VoiceRx
+ * @return Reference to audio stream, NULL on error
  */
 FUNCTION Stream OpenModemVoiceRx
 (
-uint32 slotId
+uint32 slotId ///< Slot value
 );
 
 /**
  * Stream Reference for VoiceTx
+ * @return Reference to audio stream, NULL on error
  */
 FUNCTION Stream OpenModemVoiceTx
 (
-uint32 slotId
+uint32 slotId ///< Slot value
 );
 
 /**
@@ -117,26 +354,30 @@ uint32 slotId
  */
 FUNCTION le_result_t PlayDtmf
 (
-    Stream  streamRef           IN,
-    string  dtmf[DTMF_MAXLEN]   IN,
-    uint32  duration            IN,
-    uint32  pause               IN
+    Stream  streamRef           IN, ///< Audio reference
+    string  dtmf[DTMF_MAXLEN]   IN, ///< DTMF Data
+    uint32  duration            IN, ///< Duration to play
+    uint32  pause               IN  ///< Pause between tones
 );
 
 /**
  * Mute Audio Stream
+ * @return LE_OK     On Success
+ * @return LE_FAULT  on failure
  */
 FUNCTION le_result_t Mute
 (
-    Stream streamRef IN
+    Stream streamRef IN ///< Audio reference
 );
 
 /**
  * UnMute Audio Stream
+ * @return LE_OK     On Success
+ * @return LE_FAULT  on failure
  */
 FUNCTION le_result_t Unmute
 (
-    Stream streamRef IN
+    Stream streamRef IN ///< Audio reference
 );
 
 /**
@@ -144,15 +385,15 @@ FUNCTION le_result_t Unmute
  */
 ENUM MediaEvent
 {
-    MEDIA_ENDED,
-    MEDIA_NO_MORE_SAMPLES,
-    MEDIA_ERROR,
-    MEDIA_MAX
+    MEDIA_ENDED,             ///< End of Playback
+    MEDIA_NO_MORE_SAMPLES,   ///< End of Sample
+    MEDIA_ERROR,             ///< Error notification
+    MEDIA_MAX                ///< Max value
 };
 
 /**
-* Open the audio stream for playback
-* return Reference to audio stream, NULL on error
+* Opens the stream for Audio playback
+* @return Reference to audio stream, NULL on error
 */
 FUNCTION Stream OpenPlayer
 (
@@ -161,15 +402,15 @@ FUNCTION Stream OpenPlayer
 /**
 * Play a file on a playback stream
 *
-* LE_FAULT  on failure
-* LE_BAD_PARAMETER Invalid stream reference
-* LE_BUSY          Already active
-* LE_OK            On Success
+* @return LE_FAULT  on failure
+* @return LE_BAD_PARAMETER Invalid stream reference
+* @return LE_BUSY          Already active
+* @return LE_OK            On Success
 */
 FUNCTION le_result_t PlayFile
 (
-    Stream streamRef IN,
-    file fd  IN
+    Stream streamRef IN, ///< Audio reference
+    file fd  IN ///< File descriptor
 );
 
 /**
@@ -177,8 +418,8 @@ FUNCTION le_result_t PlayFile
  */
 HANDLER MediaHandler
 (
-    Stream     streamRef  IN,
-    MediaEvent event
+    Stream     streamRef  IN, ///< Audio reference
+    MediaEvent event ///< Media event params
 );
 
 /**
@@ -186,8 +427,8 @@ HANDLER MediaHandler
  */
 EVENT Media
 (
-    Stream       streamRef IN,
-    MediaHandler handler
+    Stream       streamRef IN, ///< Audio reference
+    MediaHandler handler ///< Media handler
 );
 
 /**
@@ -195,8 +436,8 @@ EVENT Media
  */
 HANDLER DtmfDetectorHandler
 (
-    Stream  streamRef  IN,
-    char    dtmf       IN
+    Stream  streamRef  IN, ///< Audio reference
+    char    dtmf       IN ///<  DTMF detection
 );
 
 /**
@@ -204,38 +445,40 @@ HANDLER DtmfDetectorHandler
  */
 EVENT DtmfDetector
 (
-    Stream              streamRef IN,
-    DtmfDetectorHandler handler
+    Stream              streamRef IN, ///< Audio reference
+    DtmfDetectorHandler handler       ///< Dtmf Handler
 );
 
 /**
  * Stop the file playback/recording
+ * @return LE_OK            On Success
+ * @return LE_FAULT         On Failure
  */
 FUNCTION le_result_t Stop
 (
-    Stream streamRef IN
+    Stream streamRef IN ///< Audio reference
 );
 
 /**
  * Set the volume
- * LE_FAULT  on failure
- * LE_OK     On Success
+ * @return LE_FAULT  on failure
+ * @return LE_OK     On Success
 */
 FUNCTION le_result_t SetGain
 (
-    Stream streamRef IN,
-    int32  gain IN
+    Stream streamRef IN, ///< Audio reference
+    int32  gain IN ///< Set gain param
 );
 
 /**
  * Get the volume
- * LE_FAULT  on failure
- * LE_OK     On Success
+ * @return LE_FAULT  on failure
+ * @return LE_OK     On Success
  */
 FUNCTION le_result_t GetGain
 (
-    Stream streamRef IN,
-    int32  gain OUT
+    Stream streamRef IN, ///< Audio reference
+    int32  gain OUT ///< Gain param
 );
 
 /**
@@ -243,8 +486,8 @@ FUNCTION le_result_t GetGain
  */
 ENUM Format
 {
-    WAVE,
-    AMR,
+    WAVE,          ///< Waveform
+    AMR,           ///< Adaptive Multi Rate
     FORMAT_MAX
 };
 
@@ -253,84 +496,84 @@ ENUM Format
  */
 ENUM AmrMode
 {
-    AMR_NONE,
-    AMR_NB_4_75_KBPS,
-    AMR_NB_5_15_KBPS,
-    AMR_NB_5_9_KBPS,
-    AMR_NB_6_7_KBPS,
-    AMR_NB_7_4_KBPS,
-    AMR_NB_7_95_KBPS,
-    AMR_NB_10_2_KBPS,
-    AMR_NB_12_2_KBPS,
-    AMR_WB_6_6_KBPS,
-    AMR_WB_8_85_KBPS,
-    AMR_WB_12_65_KBPS,
-    AMR_WB_14_25_KBPS,
-    AMR_WB_15_85_KBPS,
-    AMR_WB_18_25_KBPS,
-    AMR_WB_19_85_KBPS,
-    AMR_WB_23_05_KBPS,
-    AMR_WB_23_85_KBPS
+    AMR_NONE,                ///< No modes
+    AMR_NB_4_75_KBPS,        ///< 4.75 kbps
+    AMR_NB_5_15_KBPS,        ///< 5.15 kbps
+    AMR_NB_5_9_KBPS,         ///< 5.9  kbps
+    AMR_NB_6_7_KBPS,         ///< 6.7  kbps
+    AMR_NB_7_4_KBPS,         ///< 7.4  kbps
+    AMR_NB_7_95_KBPS,        ///< 7.95 kbps
+    AMR_NB_10_2_KBPS,        ///< 10.2 kbps
+    AMR_NB_12_2_KBPS,        ///< 12.2 kbps
+    AMR_WB_6_6_KBPS,         ///< 6.6  kbps
+    AMR_WB_8_85_KBPS,        ///< 8.85 kbps
+    AMR_WB_12_65_KBPS,       ///< 12.65 kbps
+    AMR_WB_14_25_KBPS,       ///< 14.25 kbps
+    AMR_WB_15_85_KBPS,       ///< 15.85 kbps
+    AMR_WB_18_25_KBPS,       ///< 18.25 kbps
+    AMR_WB_19_85_KBPS,       ///< 19.85 kbps
+    AMR_WB_23_05_KBPS,       ///< 23.05 kbps
+    AMR_WB_23_85_KBPS        ///< 23.85 kbps
 };
 
 /**
  * Enable NoiseSuppressor
- * LE_FAULT  on failure
- * LE_OK     On Success
+ * @return LE_FAULT  on failure
+ * @return LE_OK     On Success
 */
 FUNCTION le_result_t EnableNoiseSuppressor
 (
-    Stream streamRef IN
+    Stream streamRef IN ///< Audio reference
 );
 
 /**
  * Enable EchoCanceller
- * LE_FAULT  on failure
- * LE_OK     On Success
+ * @return LE_FAULT  on failure
+ * @return LE_OK     On Success
 */
 FUNCTION le_result_t EnableEchoCanceller
 (
-    Stream streamRef IN
+    Stream streamRef IN ///< Audio reference
 );
 
 /**
  * Disable NoiseSuppressor
- * LE_FAULT  on failure
- * LE_OK     On Success
+ * @return LE_FAULT  on failure
+ * @return LE_OK     On Success
 */
 FUNCTION le_result_t DisableNoiseSuppressor
 (
-    Stream streamRef IN
+    Stream streamRef IN ///< Audio reference
 );
 
 /**
  * Set the volume
- * LE_FAULT  on failure
- * LE_OK     On Success
+ * @return LE_FAULT  on failure
+ * @return LE_OK     On Success
 */
 FUNCTION le_result_t DisableEchoCanceller
 (
-    Stream streamRef IN
+    Stream streamRef IN ///< Audio reference
 );
 
 /**
  * Get status for IsEchoCancellerEnabled
- * LE_FAULT  on failure
- * LE_OK     On Success
+ * @return LE_FAULT  on failure
+ * @return LE_OK     On Success
 */
 FUNCTION le_result_t IsEchoCancellerEnabled
 (
-    Stream streamRef IN,
-    bool   status    OUT
+    Stream streamRef IN, ///< Audio reference
+    bool   status    OUT ///< check for EchoCanceller flag
 );
 
 /**
  * Get status for IsNoiseSuppressorEnabled
- * LE_FAULT  on failure
- * LE_OK     On Success
+ * @return LE_FAULT  on failure
+ * @return LE_OK     On Success
 */
 FUNCTION le_result_t IsNoiseSuppressorEnabled
 (
-    Stream streamRef IN,
-    bool   status    OUT
+    Stream streamRef IN, ///< Audio reference
+    bool   status    OUT ///< check for NoiseSuppressor flag
 );

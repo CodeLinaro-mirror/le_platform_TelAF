@@ -108,6 +108,7 @@ static uint8_t PDU_TEST_PATTERN_7BITS[]=
 };
 
 static uint8_t binary_pattern[2] = BINARY_PATTERN;
+
 static uint16_t ucs2_pattern[2]  = UCS2_PATTERN;
 
 typedef union {
@@ -385,11 +386,11 @@ static void Test_taf_sms_SetGetPreferredStorage
 {
     taf_sms_Storage_t prefStorage = TAF_SMS_STORAGE_UNKNOWN;
 
-    LE_ASSERT(taf_sms_SetPreferredStorage(TAF_SMS_STORAGE_UNKNOWN) == LE_OK);
+    LE_ASSERT(taf_sms_SetPreferredStorage(TAF_SMS_STORAGE_NONE) == LE_OK);
 
     LE_ASSERT(taf_sms_GetPreferredStorage(&prefStorage) == LE_OK);
 
-    LE_ASSERT(prefStorage == TAF_SMS_STORAGE_UNKNOWN);
+    LE_ASSERT(prefStorage == TAF_SMS_STORAGE_NONE);
 
     LE_ASSERT(taf_sms_SetPreferredStorage(TAF_SMS_STORAGE_HLOS) == LE_OK);
 
@@ -1020,6 +1021,9 @@ void Test_main
     LE_INFO("##### Test_taf_sms_DeleteAllMsgFromStorage OK #####");
 
     LE_INFO("##### taf SMS unit test PASS #####");
+
+    // switch back to TAF_SMS_STORAGE_NONE
+    taf_sms_SetPreferredStorage(TAF_SMS_STORAGE_NONE);
 
     exit(EXIT_SUCCESS);
 }

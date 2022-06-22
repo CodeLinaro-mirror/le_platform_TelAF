@@ -8,6 +8,11 @@ provides:
 
 requires:
 {
+    api:
+    {
+        le_cfg.api
+    }
+
     component:
     {
         $LEGATO_ROOT/components/watchdogChain
@@ -25,6 +30,7 @@ cxxflags:
 {
     -I$TELAF_ROOT/components/stub/taf_pa_sms
     -I$LEGATO_ROOT/components/watchdogChain
+    -I$LEGATO_ROOT/components/cfgEntries
     -I$TELAF_ROOT/include
     -ltelux_tel
 }

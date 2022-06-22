@@ -71,10 +71,9 @@ taf_pa_sms_Pdu_t;
  */
 //--------------------------------------------------------------------------------------------------
 typedef struct {
-    uint32_t                index;
     taf_pa_sms_Protocol_t   protocol;
     taf_sms_Storage_t       storage;
-    uint8_t                 pduLen;
+    uint32_t index;
 }
 taf_pa_sms_RxMsgInd_t;
 
@@ -117,7 +116,7 @@ LE_SHARED le_result_t taf_pa_sms_SendPduMsg
 //--------------------------------------------------------------------------------------------------
 LE_SHARED le_result_t taf_pa_sms_ListMsgFromStorage
 (
-    taf_sms_Storage_t    storage,
+    taf_sms_Storage_t       storage,
     taf_sms_ReadStatus_t    rxStatus,
     uint32_t                *numOfIdx,
     uint32_t                *idxArray
@@ -305,11 +304,14 @@ LE_SHARED void taf_pa_sms_RemoveStorageHandler
     taf_pa_sms_StorageHandlerRef_t  handlerRef
 );
 
-class taf_pa_sms{
-    public:
-    static taf_pa_sms &GetInstance();
-    taf_pa_sms() {};
-    ~taf_pa_sms() {};
-};
+//--------------------------------------------------------------------------------------------------
+/**
+ * Store new message to HLOS storage
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED void taf_pa_sms_StoreNewMsgToHLOS
+(
+    void* newMsg
+);
 
 #endif /* TAF_PA_SMS_H_ */

@@ -338,11 +338,15 @@ LE_SHARED void taf_pa_sms_RemoveStorageHandler
 {
 }
 
-taf_pa_sms &taf_pa_sms::GetInstance()
-{
-   static taf_pa_sms instance;
-   return instance;
-}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Store new message to HLOS storage
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED void taf_pa_sms_StoreNewMsgToHLOS
+(
+    void* newMsg
+);
 
 //--------------------------------------------------------------------------------------------------
 /**

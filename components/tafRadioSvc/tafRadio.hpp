@@ -388,17 +388,10 @@ namespace tafsvc {
         void onNumberOfSubscriptionsChanged(int count) override;
     };
 
-    /*
-     * @brief A radio power callback class must be provided when configuring the radio power.
-     */
-    class taf_RadioPowerCallback : public telux::common::ICommandResponseCallback {
+    class taf_RadioSetOperatingModeCallback {
     public:
-        /*
-         * This function is called after configuration of radio power.
-         *
-         * @param [in] error    The error code of radio power configuration.
-         */
-        void commandResponse(telux::common::ErrorCode error);
+        le_sem_Ref_t semaphore;
+        void setOperatingModeResponse(telux::common::ErrorCode error);
     };
 
     /*
@@ -694,17 +687,17 @@ namespace tafsvc {
         le_event_Id_t lteSsChangeEvId;
         le_event_Id_t wcdmaSsChangeEvId;
         le_event_Id_t tdscdmaSsChangeEvId;
-        std::shared_ptr<taf_RadioPowerCallback> radioPowerCb;
         std::shared_ptr<taf_RadioVoiceServiceStateCallback> voiceSrvStateCb;
         std::shared_ptr<taf_RadioVoiceRadioTechnologyCallback> voiceRadioTechCb;
         std::shared_ptr<taf_RadioSignalStrengthCallback> signalStrengthCb;
+        std::shared_ptr<taf_RadioSetOperatingModeCallback> setOperatingModeCb;
         std::vector<std::shared_ptr<telux::tel::IPhone>> phones;
         std::vector<std::shared_ptr<telux::tel::INetworkSelectionManager>> networkManagers;
         std::vector<std::shared_ptr<telux::tel::IServingSystemManager>> servingSystemManagers;
         std::shared_ptr<telux::tel::ISubscriptionManager> subscriptionManager;
+        std::shared_ptr<telux::tel::IPhoneManager> phoneManager;
 
     private:
-        std::shared_ptr<telux::tel::IPhoneManager> phoneManager;
         std::shared_ptr<telux::tel::IPhoneListener> phoneListener;
         std::shared_ptr<telux::tel::INetworkSelectionListener> networkListener;
         std::shared_ptr<telux::tel::IServingSystemListener> servingSystemListener;

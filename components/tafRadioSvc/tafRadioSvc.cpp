@@ -105,9 +105,24 @@ le_result_t taf_radio_SetRadioPower(le_onoff_t power, uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId] == nullptr, LE_FAULT,
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
-    auto ret = tafRadio.phones[phoneId]->setRadioPower((bool)power, tafRadio.radioPowerCb);
+    telux::tel::OperatingMode mode =
+        power == LE_ON ? telux::tel::OperatingMode::ONLINE : telux::tel::OperatingMode::AIRPLANE;
+
+    std::chrono::time_point<std::chrono::system_clock> startTime = std::chrono::system_clock::now();
+    auto respenseCb = std::bind(&taf_RadioSetOperatingModeCallback::setOperatingModeResponse,
+        tafRadio.setOperatingModeCb, std::placeholders::_1);
+
+    auto ret = tafRadio.phoneManager->setOperatingMode(mode, respenseCb);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
         "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(tafRadio.setOperatingModeCb->semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout\n");
+
+    std::chrono::time_point<std::chrono::system_clock> endTime = std::chrono::system_clock::now();
+    std::chrono::duration<double> elapsedTime = endTime - startTime;
+    LE_DEBUG("Elapsed time: %lfs\n", elapsedTime.count());
 
     return LE_OK;
 }

@@ -22,4 +22,6 @@ start: manual
 bindings:
 {
     tafLocationUnitTest.tafLocationUnitTestComp.taf_gnss -> tafLocationSvc.taf_gnss
+    tafLocationUnitTest.tafLocationUnitTestComp.taf_pos -> tafLocationSvc.taf_pos
+    tafLocationUnitTest.tafLocationUnitTestComp.taf_posCtrl -> tafLocationSvc.taf_posCtrl
 }

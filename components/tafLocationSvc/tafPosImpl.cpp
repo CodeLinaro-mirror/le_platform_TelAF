@@ -813,6 +813,25 @@ le_result_t taf_Pos::GetTime
     return resPos;
 }
 
+le_result_t taf_Pos::GetDate
+(
+    uint16_t* yearPtr,
+    uint16_t* monthPtr,
+    uint16_t* dayPtr
+)
+{
+    TAF_KILL_CLIENT_IF_RET_VAL((yearPtr == NULL) || (monthPtr == NULL) || (dayPtr == NULL),
+            LE_FAULT, "Invalid input parameters");
+    le_result_t posResult = LE_OK;
+    taf_gnss_SampleRef_t positionSampleRef = taf_gnss_GetLastSampleRef();
+
+    posResult = taf_gnss_GetDate(positionSampleRef, yearPtr, monthPtr, dayPtr);
+
+    taf_gnss_ReleaseSampleRef(positionSampleRef);
+
+    return posResult;
+}
+
 le_result_t taf_Pos::Get3DLocation
 (
     int32_t* latPtr, int32_t* longPtr,
@@ -1064,6 +1083,60 @@ le_result_t taf_Pos::sample_GetTime
     return result;
 }
 
+le_result_t taf_Pos::sample_GetDate
+(
+    taf_pos_SampleRef_t positionSampleRef,
+    uint16_t* yearPtr,
+    uint16_t* monthPtr,
+    uint16_t* dayPtr
+)
+{
+
+    le_result_t result = LE_OK;
+    PosSampleRequest_t* posSampleRequestPtr = (PosSampleRequest_t*)le_ref_Lookup(PosSampleMap,
+            positionSampleRef);
+
+    TAF_KILL_CLIENT_IF_RET_VAL((posSampleRequestPtr == NULL), LE_BAD_PARAMETER,
+            "Invalid reference (%p) provided!",positionSampleRef);
+
+    TAF_KILL_CLIENT_IF_RET_VAL(( posSampleRequestPtr->posSampleNodePtr == NULL), LE_FAULT,
+            "Invalid reference (%p) provided!",positionSampleRef);
+
+    if (posSampleRequestPtr->posSampleNodePtr->dateValid)
+    {
+        result = LE_OK;
+        if (yearPtr)
+        {
+            *yearPtr = posSampleRequestPtr->posSampleNodePtr->year;
+        }
+        if (monthPtr)
+        {
+            *monthPtr = posSampleRequestPtr->posSampleNodePtr->month;
+        }
+        if (dayPtr)
+        {
+            *dayPtr = posSampleRequestPtr->posSampleNodePtr->day;
+        }
+    }
+    else
+    {
+        result = LE_OUT_OF_RANGE;
+        if (dayPtr)
+        {
+            *dayPtr = 0;
+        }
+        if (monthPtr)
+        {
+            *monthPtr = 0;
+        }
+        if (yearPtr)
+        {
+            *yearPtr = 0;
+        }
+    }
+
+    return result;
+}
 le_result_t taf_Pos::sample_GetHorizontalSpeed
 (
     taf_pos_SampleRef_t positionSampleRef,

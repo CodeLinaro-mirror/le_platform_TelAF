@@ -32,17 +32,87 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * @page c_tafFwUpdate Firmware Update Service
+ *
+ * @ref taf_fwupdate_interface.h "API Reference"
+ *
+ * <HR>
+ *
+ * The Firmware Update Service APIs are part of Update Service, and support Firmware update Over The
+ * Air solutions.
+ *
+ * @section taf_fwupdate_binding IPC interfaces binding
+ *
+ * All the functions of this API are provided by the @b tafUpdateSvc service.
+ *
+ * Here's a sample of how to bind to Firmware Update Service:
+ * @verbatim
+ *
+   bindings:
+   {
+       clientExe.clientComponent.taf_fwupdate -> tafUpdateSvc.taf_fwupdate
+   }
+ *
+   @endverbatim
+ *
+ * @section c_taf_update_fota_function FOTA Functions
+ *
+ * - taf_fwupdate_RebootToActive() supports to reboot the target device to active slot if firmware
+ * is installed successfully.
+ *
+ * - taf_fwupdate_GetFirmwareVersion() supports to get firmware version.
+ *
+ * - taf_fwupdate_ABSync() supports to synchronize active slot to inactive slot.
+ *
+ * <HR>
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Maximum firmware version length with null character.
+ */
+//--------------------------------------------------------------------------------------------------
 DEFINE MAX_VERS_LEN = 257;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * This function reboots the target device to active slot.
+ */
+//--------------------------------------------------------------------------------------------------
 FUNCTION RebootToActive
 (
 );
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * This function gets firmware version.
+ *
+ * @return
+ *  - LE_FAULT : On failure.
+ *  - LE_OK : On success.
+ */
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetFirmwareVersion
 (
-    string version[MAX_VERS_LEN] OUT
+    string version[MAX_VERS_LEN] OUT ///< Firmware version.
 );
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * This function synchronizes active slot to inactive slot.
+ *
+ * @return
+ *  - LE_FAULT : On failure.
+ *  - LE_OK : On success.
+ *
+ * @note It is a deprecated API. Update service will synchronize slots after rebooting to active slot.
+ * Same functionality as taf_mrc_SendOtaAbsyncMsg()
+ */
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ABSync
 (
 );

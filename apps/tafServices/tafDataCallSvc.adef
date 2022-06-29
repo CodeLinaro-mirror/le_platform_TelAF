@@ -25,4 +25,5 @@ bindings:
 extern:
 {
     tafDataCallSvc.tafDataCallSvc.taf_dcs
+    tafDataCallSvc.tafDataCallSvc.taf_mdc
 }

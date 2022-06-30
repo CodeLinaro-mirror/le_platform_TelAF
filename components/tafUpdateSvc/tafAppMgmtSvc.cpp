@@ -32,7 +32,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "tafUpdate.hpp"
+#include "tafAppMgmt.hpp"
 
 using namespace telux::tafsvc;
 
@@ -44,9 +44,12 @@ using namespace telux::tafsvc;
 ======================================================================*/
 taf_appMgmt_AppListRef_t taf_appMgmt_CreateAppList(void)
 {
-    le_cfg_IteratorRef_t cfgIter = le_cfg_CreateReadTxn("system:/apps");
-    TAF_ERROR_IF_RET_VAL(le_cfg_GoToFirstChild(cfgIter) == LE_NOT_FOUND, nullptr,
-        "No apps installed.");
+    le_cfg_IteratorRef_t cfgIter = le_cfg_CreateReadTxn(TAF_APPMGMT_UPDATE_APPS);
+    if (le_cfg_GoToFirstChild(cfgIter) == LE_NOT_FOUND) {
+        LE_ERROR("No apps installed.");
+        le_cfg_CancelTxn(cfgIter);
+        return nullptr;
+    }
 
     auto &tafAppMgmt = taf_AppMgmt::GetInstance();
     taf_AppMgmtAppList_t* appList = (taf_AppMgmtAppList_t*)le_mem_ForceAlloc(tafAppMgmt.appListPool);
@@ -57,32 +60,41 @@ taf_appMgmt_AppListRef_t taf_appMgmt_CreateAppList(void)
     do {
         // Get app name
         char appName[TAF_APPMGMT_APP_NAME_BYTES];
-        TAF_ERROR_IF_RET_VAL(le_cfg_GetNodeName(cfgIter, "", appName, TAF_APPMGMT_APP_NAME_BYTES) != LE_OK, nullptr,
-            "Failed to get app name.");
+        if (le_cfg_GetNodeName(cfgIter, "", appName, TAF_APPMGMT_APP_NAME_BYTES) != LE_OK) {
+            LE_ERROR("Failed to get app name.");
+            le_cfg_CancelTxn(cfgIter);
+            return nullptr;
+        }
 
         // Get app version
         char appVersion[TAF_APPMGMT_APP_VERSION_BYTES];
-        TAF_ERROR_IF_RET_VAL(le_cfg_GetString(cfgIter, "version", appVersion, TAF_APPMGMT_APP_VERSION_BYTES, "") != LE_OK, nullptr,
-            "Failed to get app version.");
+        if (le_cfg_GetString(cfgIter, "version", appVersion, TAF_APPMGMT_APP_VERSION_BYTES, "") != LE_OK) {
+            LE_ERROR("Failed to get app version.");
+            le_cfg_CancelTxn(cfgIter);
+            return nullptr;
+        }
 
         // Get app hash
         char appHash[TAF_APPMGMT_APP_HASH_BYTES];
-        TAF_ERROR_IF_RET_VAL(le_appInfo_GetHash(appName, appHash, TAF_APPMGMT_APP_HASH_BYTES) != LE_OK, nullptr,
-            "Fail to get app hash.");
+        if (le_appInfo_GetHash(appName, appHash, TAF_APPMGMT_APP_HASH_BYTES) != LE_OK) {
+            LE_ERROR("Fail to get app hash.");
+            le_cfg_CancelTxn(cfgIter);
+            return nullptr;
+        }
 
         taf_AppMgmtAppInfo_t* appInfoPtr = (taf_AppMgmtAppInfo_t*)le_mem_ForceAlloc(tafAppMgmt.appInfoPool);
         le_utf8_Copy(appInfoPtr->name, appName, TAF_APPMGMT_APP_NAME_BYTES, NULL);
         le_utf8_Copy(appInfoPtr->version, appVersion, TAF_APPMGMT_APP_VERSION_BYTES, NULL);
         le_utf8_Copy(appInfoPtr->hash, appHash, TAF_APPMGMT_APP_HASH_BYTES, NULL);
 
-        // Get app state
-        appInfoPtr->state = (taf_appMgmt_AppState_t)le_appInfo_GetState(appName);
-
         // Get app start mode
-        appInfoPtr->isStartManual = le_cfg_GetBool(cfgIter, "startManual", false);
+        appInfoPtr->isStartManual = le_cfg_GetBool(cfgIter, "manual-start", false);
 
         // If app is sandboxed
         appInfoPtr->isSandboxed = le_cfg_GetBool(cfgIter, "sandboxed", true);
+
+        // If app is activated
+        appInfoPtr->isActivated = le_cfg_GetBool(cfgIter, "activated", true);
 
         appInfoPtr->link = LE_SLS_LINK_INIT;
         le_sls_Queue(&(appList->appList), &(appInfoPtr->link));
@@ -211,9 +223,10 @@ le_result_t taf_appMgmt_GetAppDetails(taf_appMgmt_AppRef_t appInfoRef, taf_appMg
     le_utf8_Copy(appInfoPtr->name, infoPtr->name, TAF_APPMGMT_APP_NAME_BYTES, NULL);
     le_utf8_Copy(appInfoPtr->version, infoPtr->version, TAF_APPMGMT_APP_VERSION_BYTES, NULL);
     le_utf8_Copy(appInfoPtr->hash, infoPtr->hash, TAF_APPMGMT_APP_HASH_BYTES, NULL);
-    appInfoPtr->state = infoPtr->state;
+
     appInfoPtr->startMode = infoPtr->isStartManual ? TAF_APPMGMT_START_MANUAL : TAF_APPMGMT_START_AUTO;
     appInfoPtr->isSandboxed = infoPtr->isSandboxed;
+    appInfoPtr->isActivated = infoPtr->isActivated;
 
     return LE_OK;
 }
@@ -230,29 +243,43 @@ taf_appMgmt_AppState_t taf_appMgmt_GetState(const char* appName)
 }
 
 /*======================================================================
- FUNCTION        taf_appMgmt_StartProbation
- DESCRIPTION     Start probation for an installed app, and start app if it is not running
+ FUNCTION        taf_appMgmt_GetVersion
+ DESCRIPTION     Get the app version
  PARAMETERS      [IN] appName: App name
- RETURN VALUE    le_result_t: Result of starting probation
+                 [OUT] versionPtr: App version
+                 [IN] versionNumElements: App version length
+ RETURN VALUE    le_result_t: Result of getting app version
 ======================================================================*/
-le_result_t taf_appMgmt_StartProbation(const char* appName)
+le_result_t taf_appMgmt_GetVersion(const char* appName, char* versionPtr, size_t versionNumElements)
 {
-    auto &tafUpdate = taf_Update::GetInstance();
-    taf_update_State_t state;
-    tafUpdate.UpdateReadFs(TAF_UPDATE_STATE_FILE, (uint8_t*)&state, sizeof(state));
-    TAF_ERROR_IF_RET_VAL(state != TAF_UPDATE_INSTALL_SUCCESS, LE_FAULT, "Current state(%d) not install success.", state);
-    if (le_appInfo_GetState(appName) == LE_APPINFO_STOPPED) {
-         TAF_ERROR_IF_RET_VAL(le_appCtrl_Start(appName) != LE_OK, LE_FAULT, "Fail to start application.");
-    }
-    state = TAF_UPDATE_PROBATION;
-    tafUpdate.UpdateWriteFs(TAF_UPDATE_STATE_FILE, (uint8_t*)&state, sizeof(state));
-    tafUpdate.prbtTimerContext.tick = 0;
-    tafUpdate.prbtTimerContext.pkgType = TAF_UPDATE_PACKAGE_SOTA;
-    le_timer_SetContextPtr(tafUpdate.prbtTimerRef, &tafUpdate.prbtTimerContext);
-    LE_INFO("Start probation timer for application.");
-    le_timer_Start(tafUpdate.prbtTimerRef);
+    TAF_ERROR_IF_RET_VAL(appName == nullptr, LE_BAD_PARAMETER, "Null ptr(appName)");
 
-    return LE_OK;
+    TAF_ERROR_IF_RET_VAL(versionPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(versionPtr)");
+
+    le_cfg_IteratorRef_t rdIter = le_cfg_CreateReadTxn(TAF_APPMGMT_UPDATE_APPS);
+    if (le_cfg_GoToFirstChild(rdIter) == LE_NOT_FOUND) {
+        LE_ERROR("No apps installed.");
+        le_cfg_CancelTxn(rdIter);
+        return LE_NOT_FOUND;
+    }
+
+    le_result_t result = LE_NOT_FOUND;
+    do {
+        // Get app name
+        char name[TAF_APPMGMT_APP_NAME_BYTES];
+        le_cfg_GetNodeName(rdIter, "", name, TAF_APPMGMT_APP_NAME_BYTES);
+
+        if (strcmp(appName, name) == 0) {
+            // Get app version
+            le_cfg_GetString(rdIter, "version", versionPtr, versionNumElements, "");
+            result = LE_OK;
+            break;
+        }
+    } while (le_cfg_GoToNextSibling(rdIter) == LE_OK);
+
+    le_cfg_CancelTxn(rdIter);
+
+    return result;
 }
 
 /*======================================================================
@@ -263,18 +290,13 @@ le_result_t taf_appMgmt_StartProbation(const char* appName)
 ======================================================================*/
 le_result_t taf_appMgmt_Start(const char* appName)
 {
-    auto &tafUpdate = taf_Update::GetInstance();
-    taf_update_State_t state;
-    tafUpdate.UpdateReadFs(TAF_UPDATE_STATE_FILE, (uint8_t*)&state, sizeof(state));
+    auto &tafAppMgmt = taf_AppMgmt::GetInstance();
+
     // If start sota app, start probation for the first time.
-    if ((strncmp(appName, tafUpdate.sotaAppName, TAF_APPMGMT_APP_NAME_BYTES) == 0) && (state == TAF_UPDATE_INSTALL_SUCCESS)) {
-        state = TAF_UPDATE_PROBATION;
-        tafUpdate.UpdateWriteFs(TAF_UPDATE_STATE_FILE, (uint8_t*)&state, sizeof(state));
-        tafUpdate.prbtTimerContext.tick = 0;
-        tafUpdate.prbtTimerContext.pkgType = TAF_UPDATE_PACKAGE_SOTA;
-        le_timer_SetContextPtr(tafUpdate.prbtTimerRef, &tafUpdate.prbtTimerContext);
-        LE_INFO("Start probation timer for application.");
-        le_timer_Start(tafUpdate.prbtTimerRef);
+    if (strcmp(appName, tafAppMgmt.sotaApp) == 0) {
+        taf_AppMgmtUpdateReq_t updateReq;
+        updateReq.event = TAF_APPMGMT_EV_START_PROBATION;
+        le_event_Report(tafAppMgmt.appUpdateEvId, &updateReq, sizeof(taf_AppMgmtUpdateReq_t));
     }
 
     return le_appCtrl_Start(appName);
@@ -288,13 +310,11 @@ le_result_t taf_appMgmt_Start(const char* appName)
 ======================================================================*/
 le_result_t taf_appMgmt_Stop(const char* appName)
 {
-    auto &tafUpdate = taf_Update::GetInstance();
+    auto &tafAppMgmt = taf_AppMgmt::GetInstance();
+
     // If stop sota app.
-    if (strncmp(appName, tafUpdate.sotaAppName, TAF_APPMGMT_APP_NAME_BYTES) == 0) {
-        taf_update_State_t state;
-        tafUpdate.UpdateReadFs(TAF_UPDATE_STATE_FILE, (uint8_t*)&state, sizeof(state));
-        // If app is in probation time.
-        TAF_ERROR_IF_RET_VAL(state == TAF_UPDATE_PROBATION, LE_FAULT, "Fail to stop application during probation.");
+    if (strcmp(appName, tafAppMgmt.sotaApp) == 0) {
+        TAF_ERROR_IF_RET_VAL(tafAppMgmt.sotaState == TAF_UPDATE_PROBATION, LE_FAULT, "Fail to stop application during probation.");
     }
 
     return le_appCtrl_Stop(appName);
@@ -308,21 +328,22 @@ le_result_t taf_appMgmt_Stop(const char* appName)
 ======================================================================*/
 le_result_t taf_appMgmt_Uninstall(const char* appName)
 {
-    auto &tafUpdate = taf_Update::GetInstance();
+    auto &tafAppMgmt = taf_AppMgmt::GetInstance();
+
     // If uninstall sota app.
-    if (strncmp(appName, tafUpdate.sotaAppName, TAF_APPMGMT_APP_NAME_BYTES) == 0) {
-        taf_update_State_t state;
-        tafUpdate.UpdateReadFs(TAF_UPDATE_STATE_FILE, (uint8_t*)&state, sizeof(state));
-
-        TAF_ERROR_IF_RET_VAL(state == TAF_UPDATE_PROBATION, LE_FAULT, "Fail to uninstall application during probation.");
-
-        // If app is installed successfully, uninstall app should go back to idle state.
-        if (state == TAF_UPDATE_INSTALL_SUCCESS) {
-            state = TAF_UPDATE_IDLE;
-            tafUpdate.UpdateWriteFs(TAF_UPDATE_STATE_FILE, (uint8_t*)&state, sizeof(state));
+    if ((strcmp(appName, tafAppMgmt.sotaApp) == 0) && (tafAppMgmt.sotaState == TAF_UPDATE_INSTALL_SUCCESS)) {
+        taf_AppMgmtUpdateReq_t updateReq;
+        updateReq.event = TAF_APPMGMT_EV_START_UNINSTALL;
+        le_event_Report(tafAppMgmt.appUpdateEvId, &updateReq, sizeof(taf_AppMgmtUpdateReq_t));
+    } else {
+        if (le_appRemove_Remove(appName) != LE_OK) {
+            LE_ERROR("Fail to remove app %s.", appName);
+            return LE_FAULT;
+        } else {
+            tafAppMgmt.DeleteAppNode(appName);
         }
     }
 
-    return le_appRemove_Remove(appName);
+    return LE_OK;
 }
 

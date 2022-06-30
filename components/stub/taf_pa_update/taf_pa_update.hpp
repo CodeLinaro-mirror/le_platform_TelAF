@@ -32,61 +32,54 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <fstream>
+/*
+ * @file       taf_pa_update.hpp
+ * @brief      Internal interface for Update Service PA.
+ */
 
-#include "tafUpdate.hpp"
-#include "tafFwUpdate.hpp"
-
-using namespace telux::tafsvc;
+#ifndef TAF_PA_UPDATE_HPP
+#define TAF_PA_UPDATE_HPP
 
 /*======================================================================
- FUNCTION        taf_fwupdate_RebootToActive
- DESCRIPTION     Reboot to active slot
+ FUNCTION        taf_pa_update_GetSession
+ DESCRIPTION     Get download session
  PARAMETERS      void
- RETURN VALUE    void
+ RETURN VALUE    taf_update_SessionRef_t : Session reference
 ======================================================================*/
-void taf_fwupdate_RebootToActive()
-{
-    taf_FwUpdateReq_t updateReq;
-    updateReq.event = TAF_FWUPDATE_EV_REBOOT_TO_ACTIVE;
-    le_event_Report(taf_FwUpdate::fwUpdateEvId, &updateReq, sizeof(taf_FwUpdateReq_t));
-}
+LE_SHARED taf_update_SessionRef_t taf_pa_update_GetSession();
 
 /*======================================================================
- FUNCTION        taf_fwupdate_GetFirmwareVersion
- DESCRIPTION     Get firmware version
- PARAMETERS      [OUT] versionPtr: Firmware version
-                 [IN] versionNumElements: version size in bytes
+ FUNCTION        taf_pa_update_DeleteSession
+ DESCRIPTION     Delete download session
+ PARAMETERS      [IN] sessionRef : Session reference
  RETURN VALUE    void
 ======================================================================*/
-le_result_t taf_fwupdate_GetFirmwareVersion(char* versionPtr, size_t versionNumElements)
-{
-    TAF_ERROR_IF_RET_VAL(versionPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(versionPtr)");
-
-    std::ifstream fin(TAF_FWUPDATE_VERSION_FILE);
-    std::string verstr;
-    getline(fin, verstr);
-    le_utf8_Copy(versionPtr, verstr.c_str(), TAF_FWUPDATE_MAX_VERS_LEN, NULL);
-    fin.close();
-
-    return LE_OK;
-}
+LE_SHARED void taf_pa_update_DeleteSession(taf_update_SessionRef_t sessionRef);
 
 /*======================================================================
- FUNCTION        taf_fwupdate_Install
- DESCRIPTION     Install firmware
- PARAMETERS      void
- RETURN VALUE    void
+ FUNCTION        taf_pa_update_Download
+ DESCRIPTION     Download update package
+ PARAMETERS      [IN] sessionRef : Session reference
+ RETURN VALUE    int : 0 - On success, -1 - On failure.
 ======================================================================*/
-le_result_t taf_fwupdate_Install()
-{
-    auto &tafUpdate = taf_Update::GetInstance();
-    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
-    tafFwUpdate.isLocalUpgrade = true;
-    tafUpdate.WriteFs(TAF_FWUPDATE_FOTA_IS_LOCAL, (uint8_t*)&tafFwUpdate.isLocalUpgrade, sizeof(bool));
+LE_SHARED int taf_pa_update_Download(taf_update_SessionRef_t sessionRef);
 
-    taf_FwUpdateReq_t fwupdateReq;
-    fwupdateReq.event = TAF_FWUPDATE_EV_START_INSTALL;
-    le_event_Report(taf_FwUpdate::fwUpdateEvId, &fwupdateReq, sizeof(taf_FwUpdateReq_t));
-    return LE_OK;
-}
+/*======================================================================
+ FUNCTION        taf_pa_update_GetProgress
+ DESCRIPTION     Download update package
+ PARAMETERS      [OUT] state : Download progress state
+                 [OUT] percent : Download percent
+ RETURN VALUE    int : 0 - On success, -1 - On failure.
+======================================================================*/
+LE_SHARED int taf_pa_update_GetProgress(taf_update_ProgressState_t* state, int* percent);
+
+/*======================================================================
+ FUNCTION        taf_pa_update_Report
+ DESCRIPTION     Report update state
+ PARAMETERS      [IN] sessionRef : Session reference
+                 [IN] state : Report state
+ RETURN VALUE    int : 0 - On success, -1 - On failure.
+======================================================================*/
+LE_SHARED int taf_pa_update_Report(taf_update_SessionRef_t sessionRef, taf_update_ReportState_t state);
+
+#endif

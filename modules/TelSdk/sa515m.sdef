@@ -39,7 +39,8 @@ apps:
     // $TELAF_ROOT/apps/test/tafSimTest/tafRSPUnitTest/tafRSPUnitTest
     // $TELAF_ROOT/apps/sample/remoteSim/tafRSimApp
     // $TELAF_ROOT/apps/sample/sapCard/tafSAPProviderApp
-    // $TELAF_ROOT/apps/test/tafUpdateTest/tafUpdateUnitTest/tafUpdateTestApp
+    // $TELAF_ROOT/apps/test/tafUpdateTest/tafUpdateUnitTest
+    // $TELAF_ROOT/apps/test/tafUpdateTest/tafUpdateIntTest
     // $TELAF_ROOT/apps/sample/rsp/tafRSPApp
     // $TELAF_ROOT/apps/test/tafMrcTest/tafMRCUnitTest/tafMRCUnitTest
     // $TELAF_ROOT/apps/test/tafECallTest/tafECallUnitTest/tafECallUnitTest
@@ -57,6 +58,7 @@ commands:
 {
     cm = tools:/scripts/cm
     gnss = tools:/bin/gnss
+    fwupdate = tools:/bin/fwupdate
 }
 
 bindings:
@@ -64,6 +66,7 @@ bindings:
     <root>.taf_update -> tafUpdateSvc.taf_update
     <root>.taf_appMgmt -> tafUpdateSvc.taf_appMgmt
     <root>.taf_fwupdate -> tafUpdateSvc.taf_fwupdate
+    <root>.taf_dcs -> tafDataCallSvc.taf_dcs
 }
 
 interfaceSearch:

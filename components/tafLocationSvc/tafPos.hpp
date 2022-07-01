@@ -186,6 +186,7 @@ namespace tafsvc {
                 void posCtrl_Release( taf_posCtrl_ActivationRef_t ref);
                 taf_posCtrl_ActivationRef_t posCtrl_Request( void);
                 le_result_t GetTime( uint16_t* hoursPtr, uint16_t* minutesPtr, uint16_t* secondsPtr, uint16_t* millisecondsPtr);
+                le_result_t GetDate( uint16_t* yearPtr, uint16_t* monthPtr, uint16_t* dayPtr);
                 le_result_t Get2DLocation(int32_t* latitudePtr, int32_t* longitudePtr, int32_t* hAccuracyPtr);
                 le_result_t GetDirection( uint32_t* directionPtr, uint32_t* directionAccuracyPtr);
                 le_result_t Get3DLocation( int32_t* latitudePtr, int32_t* longitudePtr, int32_t* hAccuracyPtr, int32_t* altitudePtr,
@@ -195,6 +196,8 @@ namespace tafsvc {
                 le_result_t sample_GetAltitude(taf_pos_SampleRef_t positionSampleRef, int32_t* altitudePtr, int32_t* altitudeAccuracyPtr);
                 le_result_t sample_GetTime( taf_pos_SampleRef_t  positionSampleRef,
                         uint16_t* hoursPtr, uint16_t* minutesPtr, uint16_t* secondsPtr, uint16_t* millisecondsPtr);
+                le_result_t sample_GetDate(taf_pos_SampleRef_t  positionSampleRef,
+                        uint16_t* yearPtr, uint16_t* monthPtr, uint16_t* dayPtr);
                 le_result_t sample_GetHorizontalSpeed(taf_pos_SampleRef_t positionSampleRef, uint32_t* hSpeedPtr, uint32_t* hSpeedAccuracyPtr);
                 le_result_t sample_GetDirection(taf_pos_SampleRef_t  positionSampleRef, uint32_t* directionPtr, uint32_t* directionAccuracyPtr);
                 le_result_t sample_GetVerticalSpeed( taf_pos_SampleRef_t  positionSampleRef, int32_t* vSpeedPtr, int32_t* vSpeedAccuracyPtr);

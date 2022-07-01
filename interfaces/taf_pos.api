@@ -215,6 +215,15 @@
      //Process after succesfully getting the time information.
    }
    @endverbatim
+ * - taf_pos_sample_GetDate()
+ * The API is triggered inside NavigationHandler() function to get positionSampleRef.
+ * @verbatim
+   int32_t  year, month, day;
+   if(taf_pos_sample_GetDate(positionSampleRef, &year, &month, &day) == LE_OK)
+   {
+     //Process after succesfully getting the time information.
+   }
+   @endverbatim
  * - taf_pos_sample_GetAltitude()
  * The API is triggered inside NavigationHandler() function to get positionSampleRef.
  * @verbatim
@@ -708,4 +717,22 @@ FUNCTION le_result_t sample_GetFixState
 (
     Sample positionSampleRef,           ///< Position sample reference.
     taf_gnss.FixState state OUT         ///< Position fix state.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the position sample date.
+ *
+ * @return LE_FAULT         On failure in getting the date.
+ * @return LE_OUT_OF_RANGE  The retrieved date is invalid.
+ * @return LE_OK            On Success.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t sample_GetDate
+(
+    Sample positionSampleRef,    ///< Position sample reference.
+    uint16 year OUT,             ///< UTC Year
+    uint16 month OUT,            ///< UTC Month of the year [range 1 to 12].
+    uint16 day OUT               ///< UTC Days of the month [range 1 to 31].
 );

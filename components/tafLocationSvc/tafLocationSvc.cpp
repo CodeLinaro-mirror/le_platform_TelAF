@@ -196,6 +196,23 @@ le_result_t taf_pos_GetTime
 }
 
 /**
+* FUNCTION     : GetDate
+* DESCRIPTION  : Get the date of the last updated location
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_OUT_OF_RANGE LE_FAULT on fail
+*/
+le_result_t taf_pos_GetDate
+(
+ uint16_t* yearPtr,
+ uint16_t* monthPtr,
+ uint16_t* dayPtr
+)
+{
+    auto &pos = taf_Pos::GetInstance();
+    return pos.GetDate(yearPtr, monthPtr, dayPtr);
+}
+/**
 * FUNCTION     : Get2DLocation
 * DESCRIPTION  : Get the 2D location's data (Latitude, Longitude, Horizontal
 *                accuracy)
@@ -293,6 +310,24 @@ le_result_t taf_pos_sample_GetTime
     return pos.sample_GetTime(positionSampleRef,hoursPtr,minutesPtr,secondsPtr,millisecondsPtr);
 }
 
+/**
+* FUNCTION     : sample_GetDate
+* DESCRIPTION  : This function is called to get the position sample's date
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_OUT_OF_RANGE LE_FAULT on fail
+*/
+le_result_t taf_pos_sample_GetDate
+(
+   taf_pos_SampleRef_t positionSampleRef,
+   uint16_t* yearPtr,
+   uint16_t* monthPtr,
+   uint16_t* dayPtr
+)
+{
+    auto &pos = taf_Pos::GetInstance();
+    return pos.sample_GetDate(positionSampleRef,yearPtr,monthPtr,dayPtr);
+}
 /**
 * FUNCTION     : sample_GetHorizontalSpeed
 * DESCRIPTION  : Get the position sample's horizontal speed
@@ -1162,4 +1197,102 @@ le_result_t taf_gnss_GetSupportedNmeaSentences
 {
     auto &gnss = taf_Gnss::GetInstance();
     return gnss.GetSupportedNmeaSentences(nmeaMaskPtr);
+}
+/**
+* FUNCTION     : ConfigureEngineState
+* DESCRIPTION  : Set the Engine state for SPE/PPE/DRE/VPE Engines
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
+*/
+le_result_t taf_gnss_ConfigureEngineState
+(
+    taf_gnss_EngineType_t engtype,
+    taf_gnss_EngineState_t engState
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.ConfigureEngineState(engtype,engState);
+}
+/**
+* FUNCTION     : ConfigureRobustLocation
+* DESCRIPTION  : Enable or Disable Robust Location for 911 enable or disable
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
+*/
+le_result_t taf_gnss_ConfigureRobustLocation
+(
+    uint8_t enable,
+    uint8_t enabled911
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.ConfigureRobustLocation(enable,enabled911);
+}
+
+/**
+* FUNCTION     : RobustLocationInformation
+* DESCRIPTION  : Get the Robust Location information for Enable/Disable, 911 enable or disable, major & minor version numbers
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
+*/
+le_result_t taf_gnss_RobustLocationInformation
+(
+   uint8_t* enable,
+   uint8_t* enabled911,
+   uint8_t* majorVersion,
+   uint8_t* minorVersion
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.RobustLocationInformation(enable,enabled911,majorVersion,minorVersion);
+}
+
+/**
+* FUNCTION     : EmptySecondaryBandConstellation
+* DESCRIPTION  : Set the Secondary Band Empty Constellations
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
+*/
+le_result_t taf_gnss_DefaultSecondaryBandConstellations
+(
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.DefaultSecondaryBandConstellations();
+}
+
+/**
+* FUNCTION     : RequestSecondaryBandConstellation
+* DESCRIPTION  : Get the Secondary Band GNSS constellation type disabled
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
+*/
+le_result_t taf_gnss_RequestSecondaryBandConstellations
+(
+   int32_t* constellationSb
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.RequestSecondaryBandConstellations(constellationSb);
+}
+
+/**
+* FUNCTION     : ConfigureSecondaryBandConstellation
+* DESCRIPTION  : Configure Secondary Band GNSS constellation type to be disabled
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
+*/
+le_result_t taf_gnss_ConfigureSecondaryBandConstellations
+(
+    uint32_t constellationSb
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.ConfigureSecondaryBandConstellations(constellationSb);
 }

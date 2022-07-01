@@ -181,6 +181,7 @@ namespace tafsvc {
         uint8_t   satsUsedCount;
         taf_gnss_SvInfo_t  satInfo[TAF_GNSS_SV_INFO_MAX_LEN];
         taf_gnss_SvMeas_t  satMeas[TAF_GNSS_SV_INFO_MAX_LEN];
+        float    robustConformity;
         le_dls_Link_t   next;
     }
     taf_gnss_PositionSample_t;
@@ -354,6 +355,14 @@ namespace tafsvc {
             le_result_t GetNmeaSentences(taf_gnss_NmeaBitMask_t* nmeaMaskPtr);
             le_result_t GetSupportedNmeaSentences(taf_gnss_NmeaBitMask_t* nmeaMaskPtr);
             le_result_t SetDRConfig(const taf_gnss_DrParams_t* drParamsPtr);
+            le_result_t ConfigureEngineState(taf_gnss_EngineType_t engtype,
+                    taf_gnss_EngineState_t engState);
+            le_result_t ConfigureRobustLocation(uint8_t enable,uint8_t enabled911);
+            le_result_t RobustLocationInformation(uint8_t* enable, uint8_t* enabled911,
+                    uint8_t* majorVersion,uint8_t* minorVersion);
+            le_result_t DefaultSecondaryBandConstellations();
+            le_result_t RequestSecondaryBandConstellations(int32_t* constellationSb);
+            le_result_t ConfigureSecondaryBandConstellations(uint32_t constellationSb);
             le_mem_PoolRef_t   PositionHandlerPoolRef;
             le_mem_PoolRef_t   PositionSampleRequestPoolRef;
             le_event_Id_t positionEventId;
@@ -368,9 +377,16 @@ namespace tafsvc {
             uint32_t mTtffPtr;
             int32_t NumOfPositionHandlers;
             uint8_t mLeapSeconds = 0;
+            std::vector<float> mVerticalSpeed;
+            std::vector<float> mVerticalSpeedAccuracy;
             uint8_t mMinElev = 0;
             int mAcqRate;
             std::string mNmeaBitMask;
+            uint8_t mEnable;
+            uint8_t mEnabled911;
+            uint8_t mMajorVersion;
+            uint8_t mMinorVersion;
+            int mRequestSB;
             bool mStarted = false;
             bool mTtffEnabled = false;
             bool mMinElelvEnabled = false;
@@ -379,6 +395,7 @@ namespace tafsvc {
             bool mSvEnabled = false;
             bool mGnssSigEnabled = false;
             bool mGnssNmeaEnabled = false;
+            bool mTtffEnable;
             taf_gnss_ConstellationBitMask_t mConstellationMask;
             le_dls_List_t    SvInfoList;
             std::string mCommandName;

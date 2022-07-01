@@ -533,7 +533,62 @@
      //Process after succesfully getting the satellite status information.
    }
    @endverbatim
-
+ * - taf_gnss_ConfigureEngineState()
+ * The API is triggered to set Engine state for the given Engine type.
+ * @verbatim
+   if(taf_gnss_ConfigureEngineState(TAF_GNSS_ENGINE_TYPE_SPE,TAF_GNSS_ENGINE_STATE_SUSPENDED) == LE_OK)
+   {
+     //Process after succesfully configuring Engine state for the given Engine type
+   }
+   @endverbatim
+ * - taf_gnss_ConfigureRobustLocation()
+ * The API is triggered to Enable or Disable Robust Location for 911 enable or disable.
+ * @verbatim
+   int enable = 1;
+   int enabled911 =1;
+   if(taf_gnss_ConfigureRobustLocation(enable,enabled911) == LE_OK)
+   {
+     //Process after succesfully configuring Engine state for the given Engine type
+   }
+   @endverbatim
+ * - taf_gnss_RobustLocationInformation()
+ * The API is triggered to get Location for Enable/Disable, 911 enable or disable, major & minor version numbers.
+ * @verbatim
+   uint8_t enable;
+   uint8_t enabled911;
+   uint8_t majorVersion;
+   uint8_t minorVersion;
+   if(taf_gnss_RobustLocationInformation(&enable,&enabled911, &majorVersion,&minorVersion) == LE_OK)
+   {
+     //Process after succesfully getting Robust location information for Enable/Disable, 911 enable or disable, major & minor version numbers
+   }
+   @endverbatim
+ * - taf_gnss_DefaultSecondaryBandConstellations()
+ * The API is triggered to get default secondary band constellations.
+ * @verbatim
+   if(taf_gnss_DefaultSecondaryBandConstellations() == LE_OK)
+   {
+     //Process after succesfully getting default secondary Band constellations
+   }
+   @endverbatim
+ * - taf_gnss_RequestSecondaryBandConstellations()
+ * The API is triggered to get secondary band constellations set
+ * @verbatim
+   int32_t constellationSb=0;
+   if(taf_gnss_RequestSecondaryBandConstellations(&constellationSb)==LE_OK)
+   {
+     //Process after succesfully getting secondary band constellations set
+   }
+   @endverbatim
+ * - taf_gnss_ConfigureSecondaryBandConstellations()
+ * The API is triggered to set secondary band constellation using bitmask.
+ * @verbatim
+   uint32_t constellationSb = 1;
+   if(taf_gnss_ConfigureSecondaryBandConstellations(constellationSb)==LE_OK)
+   {
+     //Process after succesfully configuring secondary Band constellations
+   }
+   @endverbatim
  * - taf_gnss_GetDilutionOfPrecision()
  * The API is triggered inside PositionHandlerFunction() function to get positionSampleRef.
  * @verbatim
@@ -585,6 +640,13 @@ REFERENCE Sample;
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE SV_INFO_MAX_LEN = 80;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Define the maximum count of the Secondary Band constellations
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE SB_CONST_MAX_LEN = 8;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -640,6 +702,24 @@ ENUM Constellation
     SV_CONSTELLATION_BEIDOU,           ///< Satellite Vehicle of BEIDOU constellation.
     SV_CONSTELLATION_QZSS,             ///< Satellite Vehicle of QZSS constellation.
     SV_CONSTELLATION_MAX               ///< Maximum value of constellation
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  GNSS Secondary Band constellation types.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM SBConstellation
+{
+    SB_CONSTELLATION_UNKNOWN = -1,     ///< Unknown Secondary Band constellation
+    SB_CONSTELLATION_GPS = 1,          ///< GPS secondary Band constellation
+    SB_CONSTELLATION_GALILEO = 2,      ///< GALILEO secondary Band constellation
+    SB_CONSTELLATION_SBAS = 3,         ///< SBAS secondary Band constellation
+    SB_CONSTELLATION_COMPASS = 4,      ///< Not Supported
+    SB_CONSTELLATION_GLONASS = 5,      ///< GLONASS secondary Band constellation
+    SB_CONSTELLATION_BDS = 6,          ///< BDAS secondary Band constellation
+    SB_CONSTELLATION_QZSS = 7,         ///< QZSS secondary band constellation
+    SB_CONSTELLATION_NAVIC = 8         ///< NAVIC secondary band constellation
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -1108,7 +1188,6 @@ FUNCTION le_result_t SetConstellation
  * @note If the caller is passing a null pointer into this function, it is a fatal error, the
  *       function will not return.
  *
- * @note Currently the API implementation is in progress.
 */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetConstellation
@@ -1127,6 +1206,32 @@ ENUM ConstellationArea
     UNSET_AREA,               ///< Unset area for constellation.
     WORLDWIDE_AREA,           ///< World wide area for constellation.
     OUTSIDE_US_AREA           ///< Outside US area for constellation.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Setting Engine States
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM EngineState
+{
+    ENGINE_STATE_UNKNOWN,    ///< Unknown Engine State
+    ENGINE_STATE_SUSPENDED,  ///< Suspended state
+    ENGINE_STATE_RUNNING     ///< Running State
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Setting Engine Types
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM EngineType
+{
+    ENGINE_TYPE_UNKNOWN,    ///< Unknown Engine Type
+    ENGINE_TYPE_SPE,        ///< Special Positioning Engine Type
+    ENGINE_TYPE_PPE,        ///< Precise Positioning Engine Type
+    ENGINE_TYPE_DRE,        ///< Dead reckoning Engine Type
+    ENGINE_TYPE_VPE         ///< Vision Positioning Engine Type
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -1710,4 +1815,115 @@ FUNCTION le_result_t SetDRConfig
 FUNCTION le_result_t GetSupportedNmeaSentences
 (
  NmeaBitMask nmeaMaskPtr     OUT  ///< Supported NMEA sentence types
+);
+//--------------------------------------------------------------------------------------------------
+/**
+ * This function Set the Engine state for SPE/PPE/DRE/VPE Engines
+ *
+ * @return
+ *  - LE_OK             Success
+ *  - LE_FAULT          Failure
+ *  - LE_NOT_PERMITTED  GNSS device is not in "Active" state
+ *
+ * @note If the caller is passing a null pointer to this function, it is a fatal error, the
+ *       function will not return.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ConfigureEngineState
+(
+    EngineType engtype IN,  ///< Supported Engine Type
+    EngineState engState IN ///< Supported Engine State
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This function Enable or Disable Robust Location for 911 enable or disable
+ *
+ * @return
+ *  - LE_OK             Success
+ *  - LE_FAULT          Failure
+ *  - LE_NOT_PERMITTED  GNSS device is not in "Active" state
+ *
+ * @note If the caller is passing a null pointer to this function, it is a fatal error, the
+ *       function will not return.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ConfigureRobustLocation
+(
+    uint8 enable IN,     ///< Enable(1) or Disable(0)
+    uint8 enabled911 IN  ///< Enable(1) or Diable for Enable911
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This function get the Robust Location information for Enable/Disable, 911 enable or disable, major & minor version numbers
+ *
+ * @return
+ *  - LE_OK             Success
+ *  - LE_FAULT          Failure
+ *  - LE_NOT_PERMITTED  GNSS device is not in "Active" state
+ *
+ * @note If the caller is passing a null pointer to this function, it is a fatal error, the
+ *       function will not return.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t RobustLocationInformation
+(
+    uint8 enable OUT,       ///< Enable(1) or Disable(0)
+    uint8 enabled911 OUT,   ///< enabled911 enable(1) or Disable(0)
+    uint8 majorVersion OUT, ///< major version number
+    uint8 minorVersion OUT  ///< minor version number
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This function Set the Secondary Band default Constellations
+ *
+ * @return
+ *  - LE_OK             Success
+ *  - LE_FAULT          Failure
+ *  - LE_NOT_PERMITTED  GNSS device is not in "ready" state
+ *
+ * @note If the caller is passing a null pointer to this function, it is a fatal error, the
+ *       function will not return.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DefaultSecondaryBandConstellations
+(
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This function to get the Secondary Band GNSS constellation type disabled
+ *
+ * @return
+ *  - LE_OK             Success
+ *  - LE_FAULT          Failure
+ *  - LE_NOT_PERMITTED  GNSS device is not in "ready" state
+ *
+ * @note If the caller is passing a null pointer to this function, it is a fatal error, the
+ *       function will not return.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t RequestSecondaryBandConstellations
+(
+    int32 constellationSb OUT ///<bitmask to get enabled secondary band constellations
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This function to configure Secondary Band GNSS constellation type to be disabled
+ *
+ * @return
+ *  - LE_OK             Success
+ *  - LE_FAULT          Failure
+ *  - LE_NOT_PERMITTED  GNSS device is not in "ready" state
+ *
+ * @note If the caller is passing a null pointer to this function, it is a fatal error, the
+ *       function will not return.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ConfigureSecondaryBandConstellations
+(
+    uint32 constellationSb IN ///<bitmask to set secondary band constellations to be disabled
 );

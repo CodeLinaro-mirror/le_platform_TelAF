@@ -26,7 +26,7 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * ​​​​​Changes from Qualcomm Innovation Center are provided under the following license:
+ * Changes from Qualcomm Innovation Center are provided under the following license:
  *
  * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
  *
@@ -61,25 +61,234 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * @page c_tafsms SMS Service API
+ *
+ * @ref taf_sms_interface.h "API Reference"
+ *
+ * <HR>
+ *
+ * This file contains APIs which can be used to send/receive SMS and access messages from storages.
+ * SMS is an easy and fast way to communicate or transmit data between devices in cellular network.
+ * It's also a good way to wake-up a device in low power mode.
+ *
+ * @section taf_sms_binding IPC interfaces binding
+ *
+ * All the functions of this API are provided by the @b tafSMSSvc application service.
+ *
+ * Here's a sample of how to bind to SMS services:
+ * @verbatim
+ *
+   bindings:
+   {
+       clientExe.clientComponent.taf_sms -> tafSMSSvc.taf_sms
+   }
+   @endverbatim
+ *
+ * @section c_taf_sms_Create Creating a message object
+ *
+ * Before setting up and sending message via APIs, you need to create a message object by calling taf_sms_Create()
+ *
+ * - taf_sms_Create() to create a message object
+ *
+ * @section c_taf_sms_Delete Deleting a message object
+ *
+ * When a message object is no longer used, call taf_sms_Delete to free the resources and delete the object
+ *
+ * - taf_sms_Delete() to delete the object
+ *
+ * @section c_taf_sms_Set Message object parameters configuration
+ *
+ * - taf_sms_SetDestination() set destination phone number for sending message
+ *
+ * - taf_sms_SetCallback() set callback function to get result of sending message
+ *
+ * - taf_sms_SetPhoneId() with dual SIMs in device, set source phone ID for sending message
+ *
+ * @section c_taf_sms_Set Message content and format configuration
+ *
+ * There are 3 types of message formats can be assigned, either text messages(7-bit), binary messages(8-bit),
+ * or UCS2 messages(16-bit). You can encode message in PDU format directly as well. Message data length is
+ * set with these APIs accordingly. For text message, maximum 160 characters is supported. For text message,
+ * maximum 140 characters is supported. For UCS2 message, maximum 70 characters is supported.
+ *
+ * - taf_sms_SetText() to set message content as alphabet text
+ *
+ * - taf_sms_SetBinary() to set message content as binary data
+ *
+ * - taf_sms_SetUCS2() to set message as UCS2 text
+ *
+ * - taf_sms_SetPDU() to set message with PDU format
+ *
+ * Here is the example of creating, setting up and deleting a message object
+ *
+ * @code
+
+    taf_sms_MsgRef_t    tmpMsg;
+    char                text[TAF_SMS_TEXT_BYTES] = {0};
+
+    tmpMsg = taf_sms_Create();
+
+    LE_ASSERT(tmpMsg);
+
+    LE_ASSERT(taf_sms_SetText(tmpMsg, TEXT_PATTERN_EMPTY) == LE_BAD_PARAMETER);
+
+    LE_ASSERT(taf_sms_SetText(tmpMsg, TEXT_PATTERN_TEST) == LE_OK);
+
+    LE_ASSERT(taf_sms_SetDestination(tmpMsg, DEST_TEST) == LE_OK);
+
+    LE_ASSERT(taf_sms_SetPhoneId(tmpMsg, PHONE_ID_PATTERN_1) == LE_OK);
+
+    taf_sms_Delete(tmpMsg);
+
+ * @endcode
+ *
+ * @section c_taf_sms_Send Sending a message
+ *
+ * When message is ready, taf_sms_Send() can be called to send it. taf_sms_Send() is returned with modem
+ * feedback, and with maximum 10 seconds timeout.
+ *
+ * Message object can only be used once for sending, no matter what sending result is, need to be deleted by caller.
+ *
+ * @section c_taf_sms_Receive Receiving messages
+ * To receive incoming messages, register handler function with taf_sms_AddRxMsgHandler() and follow the
+ * handler type definition: void (*taf_sms_RxMsgHandlerFunc_t)(taf_sms_MsgRef_t msg)
+ *
+ * Message object will be created automatically when incoming message is received, the registered handler will be
+ * triggered and do further process on the received message.
+ *
+ * To remove the handler function, call taf_sms_RemoveRxMsgHandler(). Caller have to delete message object
+ * when message is no longer needed.
+ *
+ * @section c_taf_sms_Get Getting content and information of the message object
+ *
+ * - taf_sms_GetUserdataLen() to get the data length of content
+ * - taf_sms_GetText() to get the text content of message
+ * - taf_sms_GetUCS2() to get the UCS2 text of message
+ * - taf_sms_GetPDU() to get the PDU format of message
+ * - taf_sms_GetSendStatus() to get the sending status from TX message
+ * - taf_sms_GetReadStatus() to get the read status from RX message
+ *
+ * @section c_taf_sms_Storage Storage configuration
+ * SMS service provides two types of storage to store messages, SIM card and HLOS(high-level OS).
+ * HLOS is suggested to use to maintain storage with full-function mechanism, including different type of
+ * storage indication, message encryption and storage recycling mechanism.
+ *
+ * - taf_sms_SetPreferredStorage() to set preferred storage
+ * - taf_sms_GetPreferredStorage() to get preferred storage
+ *
+ * @section c_taf_sms_Storage Receiving full storage indication
+ * To receive storage indication, register handler function with taf_sms_AddFullStorageEventHandler() and follow the
+ * handler type definition: void (*taf_sms_FullStorageHandlerFunc_t)(taf_sms_StorageFullType_t type)
+ *
+ * To remove the handler function, call taf_sms_RemoveFullStorageEventHandler().
+ *
+ * @section c_taf_sms_RX Manipulating message in storage
+ *
+ * - taf_sms_DeleteFromStorage() to delete message from its storage location
+ * - taf_sms_MarkRead() to mark message status as 'read'
+ * - taf_sms_MarkUnread() to mark message status as 'unread'
+ *
+ * High-level OS storage provides more functions to maintain messsages configurations.
+ *
+ * - taf_sms_lockFromStorage() to mark message as 'locked' status and the marked message cannot be deleted
+ * - taf_sms_unlockFromStorage() to mark message as 'unlocked' status and the marked message available to be deleted
+ *
+ * @section le_sms_SmsCenter SMS center configuration
+ *
+ * - taf_sms_GetSmsCenterAddress() to get SMS center address
+ * - taf_sms_SetSmsCenterAddress() to set SMS center address
+ *
+ * <HR>
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+
 USETYPES taf_types.api;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * SMS center length.
+ */
+//--------------------------------------------------------------------------------------------------
 DEFINE  SMSC_ADDR_BYTES = (25);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Time stamp string length.
+ */
+//--------------------------------------------------------------------------------------------------
 DEFINE  TIMESTAMP_LEN   = (20);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Time stamp string length (including the null-terminator).
+ */
+//--------------------------------------------------------------------------------------------------
 DEFINE  TIMESTAMP_BYTES = (TIMESTAMP_LEN+1);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The text message length.
+ */
+//--------------------------------------------------------------------------------------------------
 DEFINE  TEXT_LEN    = (160);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The text message length (including the null-terminator).
+ */
+//--------------------------------------------------------------------------------------------------
 DEFINE  TEXT_BYTES  = (TEXT_LEN+1);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The binary message length.
+ */
+//--------------------------------------------------------------------------------------------------
 DEFINE  BINARY_BYTES  = (140);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The UCS2 message length.
+ */
+//--------------------------------------------------------------------------------------------------
 DEFINE  UCS2_BYTES  = (140);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The UCS2 message characters length.
+ */
+//--------------------------------------------------------------------------------------------------
 DEFINE  UCS2_CHARS  = (70);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The PDU payload bytes length.
+ */
+//--------------------------------------------------------------------------------------------------
 DEFINE  PDU_PAYLOAD = (140);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The PDU message length.
+ * 36 bytes heaher.
+ */
+//--------------------------------------------------------------------------------------------------
 DEFINE  PDU_BYTES   = (36+PDU_PAYLOAD);
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Message storage type.
+ */
+//--------------------------------------------------------------------------------------------------
 ENUM Storage
 {
-    STORAGE_NV,
-    STORAGE_SIM,
-    STORAGE_HLOS,
-    STORAGE_UNKNOWN
+    STORAGE_NV,      ///< NV storage (not supported).
+    STORAGE_SIM,     ///< SIM storage.
+    STORAGE_HLOS,    ///< High-level OS storage.
+    STORAGE_UNKNOWN, ///< Unknown storage.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -90,7 +299,7 @@ ENUM Storage
  * sent to client with storage full indications
  *
  * When preferred storage is set as HLOS:
- * - FULL_HLOS_ALERT:        means HLOS stoage reaches the alert threshold (currently 80%)
+ * - FULL_HLOS_ALERT:        means HLOS storage reaches the alert threshold (currently 80%)
  *                           of usage
  * - FULL_HLOS:              means HLOS storage reaches 100% usage, there is no free slot
  * - FULL_HLOS_STORE_TO_SIM: means delivered message is stored to SIM
@@ -101,12 +310,20 @@ ENUM Storage
  *
  * When preferred storage is set as SIM:
  * - FULL_SIM: means SIM storage is full
+ * To notify client app with differet storage status, the following notifications will
+ * be sent to client with storage full indications
+ * - FULL_STORAGE_HLOS_ALERT: means HLOS storage reaches above 80% usage
+ * - FULL_STORAGE_HLOS: means HLOS storage is full, system runs out of all slots
+ * - FULL_STORAGE_HLOS_STORE_TO_SIM: means delivered message is stored to SIM
+ * - FULL_STORAGE_BOTH_HLOS_AND_SIM: means both HLOS and SIM storage is run out
+ * - FULL_STORAGE_NV: currently is not supported
+ * - FULL_STORAGE_SIM: means SIM storage is full (when the preferred storage is set as SIM)
 */
 //--------------------------------------------------------------------------------------------------
 ENUM StorageFullType
 {
     FULL_UNKNOWN,           ///< Unknown.
-    FULL_HLOS_ALERT,        ///< HLOS storage is goint to be full.
+    FULL_HLOS_ALERT,        ///< HLOS storage is going to be full.
     FULL_HLOS,              ///< HLOS storage is full.
     FULL_HLOS_STORE_TO_SIM, ///< HLOS storage is full and message is stored in SIM.
     FULL_BOTH_HLOS_AND_SIM, ///< Both HLOS storage and SIM storage are full.
@@ -114,69 +331,92 @@ ENUM StorageFullType
     FULL_SIM                ///< SIM storage is full.
 };
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Message type.
+ */
+//--------------------------------------------------------------------------------------------------
 ENUM Type
 {
-    TYPE_TX,
-    TYPE_RX,
-    TYPE_UNKNOWN
-};
-
-ENUM ReadStatus
-{
-    RXSTS_READ,
-    RXSTS_UNREAD,
-    RXSTS_UNKNOWN
-};
-
-ENUM SendStatus
-{
-    TXSTS_UNSENT,
-    TXSTS_SENDING,
-    TXSTS_SENT,
-    TXSTS_SENDING_FAILED,
-    TXSTS_SENDING_TIMEOUT,
-    TXSTS_UNKNOWN
-};
-
-ENUM LockStatus
-{
-    LKSTS_LOCKED,
-    LKSTS_UNLOCKED,
-    LKSTS_UNKNOWN
-};
-
-ENUM Format
-{
-    FORMAT_TEXT,
-    FORMAT_BINARY,
-    FORMAT_UCS2,
-    FORMAT_PDU,
-    FORMAT_UNKNOWN
+    TYPE_TX,     ///< TX message.
+    TYPE_RX,     ///< RX message.
+    TYPE_UNKNOWN ///< Unknown type.
 };
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Reference type for SMS Message objects
+ * Read status type (for RX message).
  */
 //--------------------------------------------------------------------------------------------------
+ENUM ReadStatus
+{
+    RXSTS_READ,   ///< Message is read.
+    RXSTS_UNREAD, ///< Message is unread.
+    RXSTS_UNKNOWN ///< Unknown status.
+};
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Send status type (for TX message).
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM SendStatus
+{
+    TXSTS_UNSENT,          ///< Message is unsent.
+    TXSTS_SENDING,         ///< Message is being sent.
+    TXSTS_SENT,            ///< Message is sent.
+    TXSTS_SENDING_FAILED,  ///< Message is failed to be sent.
+    TXSTS_SENDING_TIMEOUT, ///< Message is timeout in sending.
+    TXSTS_UNKNOWN          ///< Unknown status.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Lock status type (for RX message stored in HLOS).
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM LockStatus
+{
+    LKSTS_LOCKED,   ///< Locked status.
+    LKSTS_UNLOCKED, ///< Unlocked status.
+    LKSTS_UNKNOWN   ///< Unknown status.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Message format type.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM Format
+{
+    FORMAT_TEXT,   ///< Text format.
+    FORMAT_BINARY, ///< Binary format.
+    FORMAT_UCS2,   ///< UCS2 format.
+    FORMAT_PDU,    ///< PDU format.
+    FORMAT_UNKNOWN ///< Unknown.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reference type for SMS Message objects.
+ */
+//--------------------------------------------------------------------------------------------------
 REFERENCE Msg;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Reference type for SMS Message List
+ * Reference type for SMS Message List.
  */
 //--------------------------------------------------------------------------------------------------
-
 REFERENCE MsgList;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Create message list for accessing messages
- * @return the created message list
+ * Create message list for accessing messages.
+ * @return
+ *      - Reference of the created message list.
  */
 //--------------------------------------------------------------------------------------------------
-
 FUNCTION MsgList CreateRxMsgList
 (
 );
@@ -186,10 +426,9 @@ FUNCTION MsgList CreateRxMsgList
  * Delete message list
  */
 //--------------------------------------------------------------------------------------------------
-
 FUNCTION DeleteList
 (
-    MsgList msgListRef
+    MsgList msgListRef ///< Message list reference.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -197,11 +436,10 @@ FUNCTION DeleteList
  * Handler for sending message
  */
 //--------------------------------------------------------------------------------------------------
-
 HANDLER CallbackResult
 (
-    Msg msgRef,
-    SendStatus status IN
+    Msg msgRef,          ///< Message list reference.
+    SendStatus status IN ///< Sending status.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -209,10 +447,9 @@ HANDLER CallbackResult
  * Handler for receiving message
  */
 //--------------------------------------------------------------------------------------------------
-
 HANDLER RxMsgHandler
 (
-    Msg  msgRef
+    Msg  msgRef ///< Message reference.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -220,10 +457,9 @@ HANDLER RxMsgHandler
  * Event for handler usage
  */
 //--------------------------------------------------------------------------------------------------
-
 EVENT RxMsg
 (
-    RxMsgHandler handler
+    RxMsgHandler handler ///< Handler for receiving messages.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -231,10 +467,9 @@ EVENT RxMsg
  * Handler for full storage notification
  */
 //--------------------------------------------------------------------------------------------------
-
 HANDLER FullStorageHandler
 (
-    StorageFullType  fullType
+    StorageFullType  fullType ///< Full storage indication type.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -242,79 +477,78 @@ HANDLER FullStorageHandler
  * Event for information on full storage notification
  */
 //--------------------------------------------------------------------------------------------------
-
 EVENT FullStorageEvent
 (
-    FullStorageHandler handler
+    FullStorageHandler handler ///< Handler for full storage indication.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Get first message of list
- * @return the first message of message list
+ * @return
+ *      - The first message reference of message list
  */
 //--------------------------------------------------------------------------------------------------
-
 FUNCTION Msg GetFirst
 (
-    MsgList msgListRef
+    MsgList msgListRef ///< Message list reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Get next message of list
- * @return the next message from tmp link of the message list
+ * @return
+ *      - The next message reference from tmp link of the message list
  */
 //--------------------------------------------------------------------------------------------------
-
 FUNCTION Msg GetNext
 (
-    MsgList msgListRef
+    MsgList msgListRef ///< Message list reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Get send status of message
- * @return the send status of message
+ * @return
+ *      - The sending status of message
  */
 //--------------------------------------------------------------------------------------------------
-
 FUNCTION SendStatus GetSendStatus
 (
-    Msg msgRef
+    Msg msgRef ///< Message reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Get read status of message
- * @return the read status of message
+ * @return
+ *      - The read status of message
  */
 //--------------------------------------------------------------------------------------------------
-
 FUNCTION ReadStatus GetReadStatus
 (
-    Msg msgRef
+    Msg msgRef ///< Message reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Get lock status of message
- * @return the lock status of message
+ * @return
+ *      - The lock status of message
  */
 //--------------------------------------------------------------------------------------------------
-
 FUNCTION LockStatus GetLockStatus
 (
-    Msg msgRef
+    Msg msgRef ///< Message reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Create new message for sending
- * @return the created message
+ * @return
+ *      - The reference of created message.
  */
 //--------------------------------------------------------------------------------------------------
-
 FUNCTION Msg Create
 (
 );
@@ -322,93 +556,110 @@ FUNCTION Msg Create
 //--------------------------------------------------------------------------------------------------
 /**
  * Set dentination phone number for message
- * @return the le_result of setting destination for message
+ * @return
+ *      - LE_BAD_PARAMETER: Invalid input
+ *      - LE_NOT_FOUND: Invalid message
+ *      - LE_FAULT: Function failed
+ *      - LE_OK: Function successful
  */
 //--------------------------------------------------------------------------------------------------
-
 FUNCTION le_result_t SetDestination
 (
-    Msg     msgRef,
-    string  dest[taf_types.REMOTE_PARTY_NUM_MAX_BYTES] IN
+    Msg     msgRef,                                       ///< Message reference.
+    string  dest[taf_types.REMOTE_PARTY_NUM_MAX_BYTES] IN ///< Destination number.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Set text for message
- * @return the le_result of setting text for message
+ * @return
+ *      - LE_BAD_PARAMETER: Invalid input
+ *      - LE_NOT_FOUND: Invalid message
+ *      - LE_FAULT: Function failed
+ *      - LE_OK: Function successful
  */
 //--------------------------------------------------------------------------------------------------
-
 FUNCTION le_result_t SetText
 (
-    Msg     msgRef,
-    string  text[TEXT_LEN] IN
+    Msg     msgRef,           ///< Message reference.
+    string  text[TEXT_LEN] IN ///< Text message.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Set binary for message
- * @return the le_result of setting binary for message
+ * @return
+ *     - LE_BAD_PARAMETER: Invalid input
+ *     - LE_NOT_FOUND: Invalid message
+ *     - LE_FAULT: Function failed
+ *     - LE_OK: Function successful
  */
 //--------------------------------------------------------------------------------------------------
-
 FUNCTION le_result_t SetBinary
 (
-    Msg     msgRef,                 ///< Reference to the message object.
+    Msg     msgRef,               ///< Message reference.
     uint8   bin[BINARY_BYTES] IN  ///< Binary data.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Set UCS2 for message
- * @return the le_result of setting UCS2 for message
+ * @return
+ *      - LE_BAD_PARAMETER - Invalid input
+ *      - LE_NOT_FOUND - Invalid message
+ *      - LE_FAULT - Function failed
+ *      - LE_OK - Function successful
  */
 //--------------------------------------------------------------------------------------------------
-
-
 FUNCTION le_result_t SetUCS2
 (
-    Msg     msgRef,                  ///< Reference to the message object.
+    Msg     msgRef,              ///< Message reference.
     uint16  ucs2[UCS2_CHARS] IN  ///< UCS2 message.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Set PDU format for message
- * @return the le_result of setting PDU format for message
+ * @return
+ *      - LE_BAD_PARAMETER - Invalid input
+ *      - LE_NOT_FOUND - Invalid message
+ *      - LE_FAULT - Function failed
+ *      - LE_OK - Function successful
  */
 //--------------------------------------------------------------------------------------------------
-
 FUNCTION le_result_t SetPDU
 (
-    Msg     msgRef,               ///< Reference to the message object.
-    uint8   pdu[PDU_BYTES] IN ///< PDU message.
+    Msg     msgRef,           ///< Message reference.
+    uint8   pdu[PDU_BYTES] IN ///< Message in PDU format.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Set callback function for message
- * @return the le_result of setting callback for message
+ * @return
+ *      - LE_BAD_PARAMETER - Invalid input
+ *      - LE_NOT_FOUND - Invalid message
+ *      - LE_OK - Function successful
  */
 //--------------------------------------------------------------------------------------------------
-
 FUNCTION le_result_t SetCallback
 (
-    Msg     msgRef,
-    CallbackResult handler
+    Msg     msgRef,        ///< Message reference.
+    CallbackResult handler ///< handler for sending message.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Set phone ID function for message, phone ID must be 1 or 2 (for DSDA use case)
- * @return the le_result of setting phone ID for message
+ * @return
+ *      - LE_NOT_FOUND - Invalid message
+ *      - LE_OK - Function successful
  */
 //--------------------------------------------------------------------------------------------------
-
 FUNCTION le_result_t SetPhoneId
 (
-    Msg     msgRef,
-    uint8    phoneId
+    Msg     msgRef,  ///< Message reference.
+    uint8   phoneId  ///< phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -416,158 +667,177 @@ FUNCTION le_result_t SetPhoneId
  * Delete message from message list, if no message list reference, delete the message from storage
  */
 //--------------------------------------------------------------------------------------------------
-
 FUNCTION Delete
 (
-    Msg msgRef
+    Msg msgRef ///< Message reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Get sender phone number of message
- * @return the le_result of getting sender phone number from message
+ * @return
+ *      - LE_NOT_FOUND - Invalid message
+ *      - LE_NOT_PERMITTED - Invalid message type
+ *      - LE_FAULT - Invalid input string
+ *      - LE_OVERFLOW - String overflow
+ *      - LE_OK - Function successful
  */
 //--------------------------------------------------------------------------------------------------
-
 FUNCTION le_result_t GetSenderTel
 (
-    Msg     msgRef,
-    string  tel[taf_types.REMOTE_PARTY_NUM_MAX_BYTES] OUT
+    Msg     msgRef,                                       ///< Message reference.
+    string  tel[taf_types.REMOTE_PARTY_NUM_MAX_BYTES] OUT ///< Buffer to store sender number.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Get text of message
- * @return the le_result of getting text from message
+ * @return
+ *     - LE_NOT_FOUND - Invalid message
+ *     - LE_FAULT - Invalid input string
+ *     - LE_OVERFLOW - String overflow
+ *     - LE_OK - Function successful
  */
 //--------------------------------------------------------------------------------------------------
-
 FUNCTION le_result_t GetText
 (
-    Msg     msgRef,
-    string  text[TEXT_LEN] OUT
+    Msg     msgRef,            ///< Message reference.
+    string  text[TEXT_LEN] OUT ///< Buffer to store message text.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Get binary data of message
- * @return the le_result of getting binary data from message
+ * @return
+ *     - LE_NOT_FOUND - Invalid message
+ *     - LE_FAULT - Invalid input string
+ *     - LE_OVERFLOW - String overflow
+ *     - LE_OK - Function successful
  */
 //--------------------------------------------------------------------------------------------------
-
 FUNCTION le_result_t GetBinary
 (
-    Msg     msgRef,
-    uint8   bin[BINARY_BYTES] OUT
+    Msg     msgRef,               ///< Message reference.
+    uint8   bin[BINARY_BYTES] OUT ///< Buffer to store binary data.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Get UCS2 encoding of message
- * @return the le_result of getting UCS2 encoding from message
+ * @return
+ *     - LE_NOT_FOUND - Invalid message
+ *     - LE_FAULT - Invalid input string
+ *     - LE_OVERFLOW - String overflow
+ *     - LE_OK - Function successful
  */
 //--------------------------------------------------------------------------------------------------
-
 FUNCTION le_result_t GetUCS2
 (
-    Msg     msgRef,
-    uint16  ucs2[UCS2_CHARS] OUT
+    Msg     msgRef,               ///< Message reference.
+    uint16  ucs2[UCS2_CHARS] OUT  ///< Buffer to store UCS2 characters.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Get PDU format of message
- * @return the le_result of getting PDU format from message
+ * @return
+ *     - LE_NOT_FOUND - Invalid message
+ *     - LE_FAULT - Invalid input string
+ *     - LE_OVERFLOW - String overflow
+ *     - LE_OK - Function successful
  */
 //--------------------------------------------------------------------------------------------------
-
 FUNCTION le_result_t GetPDU
 (
-    Msg   msgRef,
-    uint8 pdu[PDU_BYTES] OUT
+    Msg   msgRef,            ///< Message reference.
+    uint8 pdu[PDU_BYTES] OUT ///< Buffer to store PDU format.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Get PDU length of message
- * @return the le_result of getting PDU length from message
+ * @return
+ * - LE_NOT_FOUND - Invalid message
+ * - LE_FAULT - Invalid input string
+ * - LE_OVERFLOW - String overflow
+ * - LE_OK - Function successful
  */
 //--------------------------------------------------------------------------------------------------
-
 FUNCTION size GetPDULen
 (
-    Msg msgRef
+    Msg msgRef ///< Message reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Get type of message
- * @return the type of message
+ * @return
+ *     - The type of message
  */
 //--------------------------------------------------------------------------------------------------
-
 FUNCTION Type GetType
 (
-    Msg msgRef
+    Msg msgRef ///< Message reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Get format of message
- * @return the format of message
+ * @return
+ *     - The format of message
  */
 //--------------------------------------------------------------------------------------------------
-
 FUNCTION Format GetFormat
 (
-    Msg msgRef
+    Msg msgRef ///< Message reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Get text length of message
- * @return the text length of message
+ * @return
+ *     - The text length of message
  */
 //--------------------------------------------------------------------------------------------------
-
 FUNCTION size GetUserdataLen
 (
-    Msg msgRef
+    Msg msgRef ///< Message reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Send message
- * @return the le_result of sending message
+ * @return
+ *     - LE_NOT_FOUND - Invalid message
+ *     - LE_OK - Function successful
  */
 //--------------------------------------------------------------------------------------------------
-
 FUNCTION le_result_t Send
 (
-    Msg msgRef
+    Msg msgRef ///< Message reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Delete message from storage
- * @return the le_result of deleting message from storage
+ * @return
+ *     - LE_NOT_FOUND - Invalid message
+ *     - LE_OK - Function successful
  */
 //--------------------------------------------------------------------------------------------------
-
 FUNCTION le_result_t DeleteFromStorage
 (
-    Msg msgRef
+    Msg msgRef ///< Message reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Delete all messages from storage
- * @return the le_result of deleting all messages from storage
- *
  * In the case of HLOS storage, this API only delete those unlocked messages
+ * @return
+ *     - LE_OK - Function successful
  */
 //--------------------------------------------------------------------------------------------------
-
 FUNCTION le_result_t DeleteAllFromStorage
 (
     Storage  storage
@@ -580,7 +850,7 @@ FUNCTION le_result_t DeleteAllFromStorage
 //--------------------------------------------------------------------------------------------------
 FUNCTION MarkRead
 (
-    Msg msgRef
+    Msg msgRef ///< Message reference.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -590,88 +860,103 @@ FUNCTION MarkRead
 //--------------------------------------------------------------------------------------------------
 FUNCTION MarkUnread
 (
-    Msg msgRef
+    Msg msgRef ///< Message reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Mark message lock status as 'Locked', cannot be deleted from Storage
+ * @return
+ *     - LE_NOT_FOUND: Invalid message
+ *     - LE_FAULT: Function failed
+ *     - LE_OK: Function successful
+ *     - LE_NOT_PERMITTED: Message have been locked or is not stored in HLOS
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t LockFromStorage
 (
-    Msg msgRef
+    Msg msgRef  ///< Message reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Mark message lock status as 'unlocked', can be deleted from Storage
+ * @return
+ *     - LE_NOT_FOUND: Invalid message
+ *     - LE_FAULT: Function failed
+ *     - LE_OK: Function successful
+ *     - LE_NOT_PERMITTED: Message is not locked or is not stored in HLOS
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t UnlockFromStorage
 (
-    Msg msgRef
+    Msg msgRef  ///< Message reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Get SMS center address
- * @return the le_result of getting SMS center address
+ * @return
+ *     - LE_OVERFLOW - Expected len is not enough
+ *     - LE_OK - Function successful
  */
 //--------------------------------------------------------------------------------------------------
-
 FUNCTION le_result_t GetSmsCenterAddress
 (
-    int8    phoneId,
-    string  addr[taf_types.REMOTE_PARTY_NUM_MAX_BYTES] OUT
+    int8    phoneId,                                        ///< Phone ID.
+    string  addr[taf_types.REMOTE_PARTY_NUM_MAX_BYTES] OUT  ///< Buffer to store SMS center address.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Set SMS center address
- * @return the le_result of setting SMS center address
+ * @return
+ *     - LE_FAULT - Wait callback timeout or get error
+ *     - LE_OK - Function successful
  */
 //--------------------------------------------------------------------------------------------------
-
 FUNCTION le_result_t SetSmsCenterAddress
 (
-    int8    phoneId,
-    string  addr[taf_types.REMOTE_PARTY_NUM_MAX_BYTES] IN
+    int8    phoneId,                                      ///< Phone ID.
+    string  addr[taf_types.REMOTE_PARTY_NUM_MAX_BYTES] IN ///< SMS center address.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Set preferred SMS storage place
- * @return the le_result of setting preferred SMS storage place
+ * @return
+ *     - LE_FAULT - Function failed
+ *     - LE_OK - Function successful
  */
 //--------------------------------------------------------------------------------------------------
-
 FUNCTION le_result_t SetPreferredStorage
 (
-    Storage prefStorage IN
+    Storage prefStorage IN ///< Preferred storage type.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Get preferred SMS storage place
- * @return the le_result of getting preferred SMS storage place
+ * @return
+ *     - LE_FAULT - Function failed
+ *     - LE_OK - Function successful
  */
 //--------------------------------------------------------------------------------------------------
-
 FUNCTION le_result_t GetPreferredStorage
 (
-    Storage prefStorage OUT
+    Storage prefStorage OUT ///< Preferred storage type.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Send PDU message
- * @return the le_result of sending PDU message
+ * @return
+ * - LE_FAULT - Function failed
+ * - LE_OK - Function successful
  */
 //--------------------------------------------------------------------------------------------------
-
 FUNCTION le_result_t SendPduMsg
 (
-    uint8   dataPtr[PDU_BYTES] IN,
-    uint32  timeout
+    uint8   dataPtr[PDU_BYTES] IN,  ///< Message in PDU format
+    uint32  timeout                 ///< Timeout value for sending message
 );

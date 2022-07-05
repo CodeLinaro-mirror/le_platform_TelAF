@@ -183,6 +183,114 @@ static void Test_taf_sms_CreateDeleteRxMsgList
 
 /*======================================================================
 
+ FUNCTION        Test_taf_sms_SetGetReadStatus
+
+ DESCRIPTION     Test setting/getting read status of msg
+
+ DEPENDENCIES    None
+
+ PARAMETERS      void
+
+ RETURN VALUE    void
+
+ SIDE EFFECTS
+
+======================================================================*/
+
+static void Test_taf_sms_SetGetReadStatus
+(
+    void
+)
+{
+    RxMsgListRef = taf_sms_CreateRxMsgList();
+
+    taf_sms_MsgRef_t msgRef = NULL;
+    taf_sms_MsgRef_t lastMsgRef = NULL;
+
+    msgRef = taf_sms_GetFirst(RxMsgListRef);
+
+    do
+    {
+        if (msgRef == NULL)
+        {
+            break;
+        }
+        lastMsgRef = msgRef;
+        msgRef = taf_sms_GetNext(RxMsgListRef);
+    }
+
+    while ( msgRef != NULL);
+
+    LE_ASSERT(taf_sms_GetReadStatus(lastMsgRef) == TAF_SMS_RXSTS_UNREAD);
+
+    taf_sms_MarkRead(lastMsgRef);
+
+    LE_ASSERT(taf_sms_GetReadStatus(lastMsgRef) == TAF_SMS_RXSTS_READ);
+
+    taf_sms_MarkUnread(lastMsgRef);
+
+    LE_ASSERT(taf_sms_GetReadStatus(lastMsgRef) == TAF_SMS_RXSTS_UNREAD);
+
+    taf_sms_DeleteList(RxMsgListRef);
+}
+
+/*======================================================================
+
+ FUNCTION        Test_taf_sms_SetGetLockStatus
+
+ DESCRIPTION     Test setting/getting lock status of msg
+
+ DEPENDENCIES    None
+
+ PARAMETERS      void
+
+ RETURN VALUE    void
+
+ SIDE EFFECTS
+
+======================================================================*/
+
+static void Test_taf_sms_SetGetLockStatus
+(
+    void
+)
+{
+    RxMsgListRef = taf_sms_CreateRxMsgList();
+
+    taf_sms_MsgRef_t msgRef = NULL;
+    taf_sms_MsgRef_t lastMsgRef = NULL;
+
+    msgRef = taf_sms_GetFirst(RxMsgListRef);
+
+    do {
+        if (msgRef == NULL)
+        {
+            break;
+        }
+        lastMsgRef = msgRef;
+        msgRef = taf_sms_GetNext(RxMsgListRef);
+    }
+    while ( msgRef != NULL);
+
+    LE_ASSERT(taf_sms_GetLockStatus(lastMsgRef) == TAF_SMS_LKSTS_UNLOCKED);
+
+    LE_ASSERT(taf_sms_LockFromStorage(lastMsgRef) == LE_OK);
+
+    LE_ASSERT(taf_sms_GetLockStatus(lastMsgRef) == TAF_SMS_LKSTS_LOCKED);
+
+    LE_ASSERT(taf_sms_DeleteFromStorage(lastMsgRef) == LE_BUSY);
+
+    LE_ASSERT(taf_sms_UnlockFromStorage(lastMsgRef) == LE_OK);
+
+    LE_ASSERT(taf_sms_GetLockStatus(lastMsgRef) == TAF_SMS_LKSTS_UNLOCKED);
+
+    LE_ASSERT(taf_sms_DeleteFromStorage(lastMsgRef) == LE_OK);
+
+    taf_sms_DeleteList(RxMsgListRef);
+}
+
+/*======================================================================
+
  FUNCTION        Test_taf_sms_DeleteMsgFromStorage
 
  DESCRIPTION     Test deleting the last msg of list from storage
@@ -210,6 +318,7 @@ static void Test_taf_sms_DeleteMsgFromStorage
     msgRef = taf_sms_GetFirst(RxMsgListRef);
 
     do {
+
         if (msgRef == NULL)
         {
             break;
@@ -222,6 +331,34 @@ static void Test_taf_sms_DeleteMsgFromStorage
     LE_ASSERT(taf_sms_DeleteFromStorage(lastMsgRef) == LE_OK);
 
     taf_sms_DeleteList(RxMsgListRef);
+}
+
+/*======================================================================
+
+ FUNCTION        Test_taf_sms_DeleteAllMsgFromStorage
+
+ DESCRIPTION     Test deleting all the msgs from preferred storage
+
+ DEPENDENCIES    None
+
+ PARAMETERS      void
+
+ RETURN VALUE    void
+
+ SIDE EFFECTS
+
+======================================================================*/
+
+static void Test_taf_sms_DeleteAllMsgFromStorage
+(
+    void
+)
+{
+    taf_sms_Storage_t prefStorage = TAF_SMS_STORAGE_UNKNOWN;
+
+    LE_ASSERT(taf_sms_GetPreferredStorage(&prefStorage) == LE_OK);
+
+    LE_ASSERT(taf_sms_DeleteAllFromStorage(prefStorage) == LE_OK);
 }
 
 /*======================================================================
@@ -278,11 +415,11 @@ static void Test_taf_sms_SetGetPreferredStorage
 
 static void FullStorageHandler
 (
-    taf_sms_Storage_t storage,
+    taf_sms_StorageFullType_t type,
     void* contextPtr
 )
 {
-    LE_INFO("Storage %d is full", storage);
+    LE_INFO("Storage is %d", type);
 }
 
 static void Test_taf_sms_AddRemoveFullStorageHandler
@@ -807,9 +944,21 @@ void Test_main
     Test_taf_sms_CreateDeleteRxMsgList();
     LE_INFO("##### Test_taf_sms_CreateDeleteRxMsgList OK #####");
 
+    LE_INFO("===== Test_taf_sms_SetGetReadStatus =====");
+    Test_taf_sms_SetGetReadStatus();
+    LE_INFO("##### Test_taf_sms_SetGetReadStatus OK #####");
+
+    LE_INFO("===== Test_taf_sms_SetGetLockStatus =====");
+    Test_taf_sms_SetGetLockStatus();
+    LE_INFO("##### Test_taf_sms_SetGetLockStatus OK #####");
+
     LE_INFO("===== Test_taf_sms_DeleteMsgFromStorage =====");
     Test_taf_sms_DeleteMsgFromStorage();
     LE_INFO("##### Test_taf_sms_DeleteMsgFromStorage OK #####");
+
+    LE_INFO("===== Test_taf_sms_DeleteAllMsgFromStorage =====");
+    Test_taf_sms_DeleteAllMsgFromStorage();
+    LE_INFO("##### Test_taf_sms_DeleteAllMsgFromStorage OK #####");
 
     LE_INFO("##### taf SMS unit test PASS #####");
 

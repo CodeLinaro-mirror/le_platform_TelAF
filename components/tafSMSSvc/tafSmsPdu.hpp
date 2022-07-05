@@ -70,7 +70,7 @@ typedef enum
 {
     PDU_ENCODING_7_BITS           = 0x0,
     PDU_ENCODING_8_BITS           = 0x1,
-    PDU_ENCODING_UCS2_16_BITS     = 0x2,
+    PDU_ENCODING_16_BITS          = 0x2,
     PDU_ENCODING_UNKNOWN          = 0x3
 }
 pdu_Encoding_t;

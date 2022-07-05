@@ -82,6 +82,38 @@ ENUM Storage
     STORAGE_UNKNOWN
 };
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Full storage indication type.
+ *
+ * To notify client app with differet storage status, the following notifications will be
+ * sent to client with storage full indications
+ *
+ * When preferred storage is set as HLOS:
+ * - FULL_HLOS_ALERT:        means HLOS stoage reaches the alert threshold (currently 80%)
+ *                           of usage
+ * - FULL_HLOS:              means HLOS storage reaches 100% usage, there is no free slot
+ * - FULL_HLOS_STORE_TO_SIM: means delivered message is stored to SIM
+ * - FULL_BOTH_HLOS_AND_SIM: means both HLOS and SIM storage is run out
+ *
+ * When preferred storage is set as NV (not supported):
+ * - FULL_NV: currently is not supported
+ *
+ * When preferred storage is set as SIM:
+ * - FULL_SIM: means SIM storage is full
+*/
+//--------------------------------------------------------------------------------------------------
+ENUM StorageFullType
+{
+    FULL_UNKNOWN,           ///< Unknown.
+    FULL_HLOS_ALERT,        ///< HLOS storage is goint to be full.
+    FULL_HLOS,              ///< HLOS storage is full.
+    FULL_HLOS_STORE_TO_SIM, ///< HLOS storage is full and message is stored in SIM.
+    FULL_BOTH_HLOS_AND_SIM, ///< Both HLOS storage and SIM storage are full.
+    FULL_NV,                ///< NV storage is full.
+    FULL_SIM                ///< SIM storage is full.
+};
+
 ENUM Type
 {
     TYPE_TX,
@@ -104,6 +136,13 @@ ENUM SendStatus
     TXSTS_SENDING_FAILED,
     TXSTS_SENDING_TIMEOUT,
     TXSTS_UNKNOWN
+};
+
+ENUM LockStatus
+{
+    LKSTS_LOCKED,
+    LKSTS_UNLOCKED,
+    LKSTS_UNKNOWN
 };
 
 ENUM Format
@@ -195,7 +234,7 @@ EVENT RxMsg
 
 HANDLER FullStorageHandler
 (
-    Storage  storage
+    StorageFullType  fullType
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -253,6 +292,18 @@ FUNCTION SendStatus GetSendStatus
 //--------------------------------------------------------------------------------------------------
 
 FUNCTION ReadStatus GetReadStatus
+(
+    Msg msgRef
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get lock status of message
+ * @return the lock status of message
+ */
+//--------------------------------------------------------------------------------------------------
+
+FUNCTION LockStatus GetLockStatus
 (
     Msg msgRef
 );
@@ -510,10 +561,24 @@ FUNCTION le_result_t DeleteFromStorage
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Delete all messages from storage
+ * @return the le_result of deleting all messages from storage
+ *
+ * In the case of HLOS storage, this API only delete those unlocked messages
+ */
+//--------------------------------------------------------------------------------------------------
+
+FUNCTION le_result_t DeleteAllFromStorage
+(
+    Storage  storage
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Mark message status as 'read'
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION Markread
+FUNCTION MarkRead
 (
     Msg msgRef
 );
@@ -523,7 +588,27 @@ FUNCTION Markread
  * Mark message status as 'unread'
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION MarkUnRead
+FUNCTION MarkUnread
+(
+    Msg msgRef
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Mark message lock status as 'Locked', cannot be deleted from Storage
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t LockFromStorage
+(
+    Msg msgRef
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Mark message lock status as 'unlocked', can be deleted from Storage
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t UnlockFromStorage
 (
     Msg msgRef
 );

@@ -656,7 +656,7 @@ static int16_t pduDecodeUserData
             break;
         }
 
-        case PDU_ENCODING_UCS2_16_BITS:
+        case PDU_ENCODING_16_BITS:
         {
             outputDataLen = userDataLen;
             memcpy(userData, buffer, userDataLen);
@@ -959,7 +959,7 @@ le_result_t sms_EncodeGsm
             tpDcs = TP_DCS_8_BIT;
             break;
 
-        case PDU_ENCODING_UCS2_16_BITS:
+        case PDU_ENCODING_16_BITS:
 
             tpDcs = TP_DCS_16_BIT;
             break;
@@ -1033,7 +1033,7 @@ le_result_t sms_EncodeGsm
 
             break;
         }
-        case PDU_ENCODING_UCS2_16_BITS:
+        case PDU_ENCODING_16_BITS:
         {
             TAF_ERROR_IF_RET_VAL(msgLen > TAF_SMS_PDU_PAYLOAD, LE_OVERFLOW, "Overflow - encoding 16-bit PDU");
 

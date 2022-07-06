@@ -1014,6 +1014,7 @@ void LocationCommandCallback::onRobustLocationInfo(const telux::loc::RobustLocat
     LE_INFO("***onRobustLocationInfo gnss.minorVersion: %d", gnss.mMinorVersion);
     gnss.mCondVar.notify_one();
 }
+#ifdef TARGET_SA515M
 void LocationCommandCallback::onSecondaryBandInfo(telux::loc::ConstellationSet set,
     telux::common::ErrorCode error) {
     auto &gnss = taf_Gnss::GetInstance();
@@ -1068,7 +1069,7 @@ void LocationCommandCallback::onSecondaryBandInfo(telux::loc::ConstellationSet s
     }
     gnss.mCondVar.notify_one();
 }
-
+#endif
 le_result_t taf_Gnss::PositionDataCoversion
 (
  int32_t value,
@@ -3188,7 +3189,7 @@ void gyroScaleUtility(telux::loc::DREngineConfiguration& drConfig,
     drConfig.validMask |= telux::loc::DRConfigValidityType::GYRO_SCALE_FACTOR_UNC_VALID;
     drConfig.gyroFactorUnc = (float) drParamsPtr->gyroFactorUnc;
 }
-
+#ifdef TARGET_SA515M
 le_result_t taf_Gnss::ConfigureEngineState
 (
     taf_gnss_EngineType_t engtype,///< [IN] value for Engine type.
@@ -3276,7 +3277,7 @@ le_result_t taf_Gnss::ConfigureEngineState
 
     return result;
 }
-
+#endif
 le_result_t taf_Gnss::ConfigureRobustLocation
 (
     uint8_t enable,///< [IN] value for enable/disable.
@@ -3413,7 +3414,7 @@ le_result_t taf_Gnss::RobustLocationInformation
 
     return result;
 }
-
+#ifdef TARGET_SA515M
 le_result_t taf_Gnss::DefaultSecondaryBandConstellations
 (
 )
@@ -3603,6 +3604,7 @@ le_result_t taf_Gnss::ConfigureSecondaryBandConstellations
     }
     return result;
 }
+#endif
 void taf_Gnss::RemovePositionHandler
 (
     taf_gnss_PositionHandlerRef_t handlerRef

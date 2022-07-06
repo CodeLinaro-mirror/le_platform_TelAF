@@ -1205,6 +1205,7 @@ le_result_t taf_gnss_GetSupportedNmeaSentences
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
 */
+#ifdef TARGET_SA515M
 le_result_t taf_gnss_ConfigureEngineState
 (
     taf_gnss_EngineType_t engtype,
@@ -1214,6 +1215,7 @@ le_result_t taf_gnss_ConfigureEngineState
     auto &gnss = taf_Gnss::GetInstance();
     return gnss.ConfigureEngineState(engtype,engState);
 }
+#endif
 /**
 * FUNCTION     : ConfigureRobustLocation
 * DESCRIPTION  : Enable or Disable Robust Location for 911 enable or disable
@@ -1257,6 +1259,7 @@ le_result_t taf_gnss_RobustLocationInformation
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
 */
+#ifdef TARGET_SA515M
 le_result_t taf_gnss_DefaultSecondaryBandConstellations
 (
 )
@@ -1264,7 +1267,7 @@ le_result_t taf_gnss_DefaultSecondaryBandConstellations
     auto &gnss = taf_Gnss::GetInstance();
     return gnss.DefaultSecondaryBandConstellations();
 }
-
+#endif
 /**
 * FUNCTION     : RequestSecondaryBandConstellation
 * DESCRIPTION  : Get the Secondary Band GNSS constellation type disabled
@@ -1272,6 +1275,7 @@ le_result_t taf_gnss_DefaultSecondaryBandConstellations
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
 */
+#ifdef TARGET_SA515M
 le_result_t taf_gnss_RequestSecondaryBandConstellations
 (
    int32_t* constellationSb
@@ -1280,7 +1284,7 @@ le_result_t taf_gnss_RequestSecondaryBandConstellations
     auto &gnss = taf_Gnss::GetInstance();
     return gnss.RequestSecondaryBandConstellations(constellationSb);
 }
-
+#endif
 /**
 * FUNCTION     : ConfigureSecondaryBandConstellation
 * DESCRIPTION  : Configure Secondary Band GNSS constellation type to be disabled
@@ -1288,6 +1292,7 @@ le_result_t taf_gnss_RequestSecondaryBandConstellations
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
 */
+#ifdef TARGET_SA515M
 le_result_t taf_gnss_ConfigureSecondaryBandConstellations
 (
     uint32_t constellationSb
@@ -1296,3 +1301,4 @@ le_result_t taf_gnss_ConfigureSecondaryBandConstellations
     auto &gnss = taf_Gnss::GetInstance();
     return gnss.ConfigureSecondaryBandConstellations(constellationSb);
 }
+#endif

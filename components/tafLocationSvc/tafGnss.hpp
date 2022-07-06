@@ -355,14 +355,18 @@ namespace tafsvc {
             le_result_t GetNmeaSentences(taf_gnss_NmeaBitMask_t* nmeaMaskPtr);
             le_result_t GetSupportedNmeaSentences(taf_gnss_NmeaBitMask_t* nmeaMaskPtr);
             le_result_t SetDRConfig(const taf_gnss_DrParams_t* drParamsPtr);
+            #ifdef TARGET_SA515M
             le_result_t ConfigureEngineState(taf_gnss_EngineType_t engtype,
                     taf_gnss_EngineState_t engState);
+            #endif
             le_result_t ConfigureRobustLocation(uint8_t enable,uint8_t enabled911);
             le_result_t RobustLocationInformation(uint8_t* enable, uint8_t* enabled911,
                     uint8_t* majorVersion,uint8_t* minorVersion);
+            #ifdef TARGET_SA515M
             le_result_t DefaultSecondaryBandConstellations();
             le_result_t RequestSecondaryBandConstellations(int32_t* constellationSb);
             le_result_t ConfigureSecondaryBandConstellations(uint32_t constellationSb);
+            #endif
             le_mem_PoolRef_t   PositionHandlerPoolRef;
             le_mem_PoolRef_t   PositionSampleRequestPoolRef;
             le_event_Id_t positionEventId;

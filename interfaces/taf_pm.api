@@ -34,7 +34,7 @@
 
 //--------------------------------------------------------------------------------------------------
 /**
- * @page c_tafpm PM Service API
+ * @page c_tafpm Power Management Service
  *
  * @ref taf_pm_interface.h "API Reference"
  *

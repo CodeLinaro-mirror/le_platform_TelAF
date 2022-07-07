@@ -71,7 +71,7 @@
  *
  * <HR>
  *
- * This file defines the prototype for TelAF SIM Service API.
+ * TelAF SIM service defines the APIs related to SIM Configuration.
  *
  * \b SIM: A Subscriber Identity Module or Subscriber Identification Module is an integrated circuit (IC)
  * intended to securely store the international mobile subscriber identity (IMSI) number and some
@@ -113,7 +113,7 @@
  *
  * @ref taf_sim_GetICCID() API reads the identification number (ICCID).
  * @ref taf_sim_AddNewStateHandler() function registers a handler to get notification when card state changes.
- * @ref taf_sim_RemoveStateHandler() function unregisters the handler.
+ * @ref taf_sim_RemoveNewStateHandler() function unregisters the handler.
  *
  * @note During the initialization times of service, the new subscriptions of the ICCID change
  * events are notified by the last changed events. This behavior exists only for 5 seconds and allows
@@ -218,12 +218,11 @@
  * @note If many applications register handlers for notifications, they
  * will all receive it.
  *
- * An application may uninstall state change handler by calling @ref taf_sim_RemoveStateHandler() API.
+ * An application may uninstall state change handler by calling @ref taf_sim_RemoveNewStateHandler() API.
  *
  * @warning Device may need a reboot to detect a SIM insertion or removal. So it is recommended to restart
  * the device or NAD.
  *
- * @ref taf_sim_SetPower(): Not supported. Just a stub function.
  *
  * @subsection taf_sim_OpenLogicalChannel Logical channels
  *
@@ -250,7 +249,7 @@
    taf_sim_NewStateHandlerRef_t msgHandlerRef = taf_sim_AddNewStateHandler(NewSimStateHandler, NULL);
    @endverbatim
  *
- * Application must use taf_sim_RemoveStateHandler() to release @ref taf_sim_NewStateHandlerRef_t message handler
+ * Application must use taf_sim_RemoveNewStateHandler() to release @ref taf_sim_NewStateHandlerRef_t message handler
  * reference object when it is no more used.
  *
  * <HR>

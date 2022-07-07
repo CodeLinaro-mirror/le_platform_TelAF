@@ -64,9 +64,9 @@
  */
 
 /**
- * @page c_tafDataCallSvc Data Call Service API
+ * @page c_tafDataCallSvc Data Call Service
  *
- * @ref taf_dcs_interface.h "DCS API Reference"
+ * @ref taf_dcs_interface.h "API Reference"
  *
  * <HR>
  *

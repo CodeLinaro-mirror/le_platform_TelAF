@@ -29,7 +29,7 @@
 
 //--------------------------------------------------------------------------------------------------
 /**
- * @page c_tafaudio Audio Service API
+ * @page c_tafaudio Audio Service
  *
  * @ref taf_audio_interface.h "API Reference"
  *
@@ -48,7 +48,6 @@
  *
  * Here's a sample of how to bind to Audio services:
  *
- * IPC binding an interface
  * In application.adef add taf_audio API in bindings.
 
  * @verbatim

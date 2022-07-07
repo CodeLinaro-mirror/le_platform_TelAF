@@ -65,7 +65,7 @@
 
 //--------------------------------------------------------------------------------------------------
 /**
- * @page c_tafvoicecall Voice Call Service API
+ * @page c_tafvoicecall Voice Call Service
  *
  * @ref taf_voicecall_interface.h "API Reference"
  *
@@ -106,12 +106,12 @@
  *  indicating it's now connected. If the state of the voice call changes, then the handler will be
  *  called with the new state.
  * @verbatim
-   TafVoiceCallHandlerRef = taf_voicecall_AddStateHandler((taf_voicecall_StateHandlerFunc_t)MyCallEventHandler, NULL);
+   tafVoiceCallHandlerRef = taf_voicecall_AddStateHandler((taf_voicecall_StateHandlerFunc_t)MyCallEventHandler, NULL);
    @endverbatim
  *
- * To hang up a voice call, an application can use taf_voicecall_End(myTafCallRef).
+ * To hang up a voice call, an application can use taf_voicecall_End().
  *
- * Application must use le_voicecall_Delete() to release @ref taf_voicecall_CallRef_t voice call
+ * Application must use taf_voicecall_Delete() to release @ref taf_voicecall_CallRef_t voice call
  *  reference object when it is no more used.
  *
  * <HR>

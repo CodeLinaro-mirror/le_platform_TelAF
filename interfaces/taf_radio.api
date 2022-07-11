@@ -100,9 +100,15 @@
  * @code
  *
    le_onoff_t power = LE_OFF;
-   LE_ASSERT(taf_radio_SetRadioPower(LE_ON, slotId) == LE_OK);
-   LE_ASSERT(taf_radio_GetRadioPower(&power, slotId) == LE_OK);
-   LE_ASSERT(power == LE_ON);
+
+   if (taf_radio_SetRadioPower(LE_ON, slotId) != LE_OK)
+       LE_ERROR("Fail to set radio power.");
+
+   if (taf_radio_GetRadioPower(&power, slotId) != LE_OK)
+       LE_ERROR("Fail to get radio power status.");
+
+   if (power != LE_ON)
+       LE_ERROR("Unexpected power status.");
  *
    @endcode
  *
@@ -128,14 +134,24 @@
  *
  * @code
  *
-   LE_ASSERT(taf_radio_SetManualRegisterMode(mccStr1, mncStr1, slotId) == LE_OK);
-   LE_ASSERT(taf_radio_GetPlatformSpecificRegistrationErrorCode() == 0);
-   bool isManualMode = true;
-   LE_ASSERT(taf_radio_GetRegisterMode(&isManualMode, mccStr2, TAF_RADIO_MCC_BYTES, mncStr2,
-       TAF_RADIO_MNC_BYTES, slotId) == LE_OK);
-   LE_ASSERT(isManualMode == true);
-   LE_ASSERT(strcmp(mccStr1, mccStr2) == 0);
-   LE_ASSERT(strcmp(mncStr1, mncStr2) == 0);
+   if (taf_radio_SetManualRegisterMode(mccStr1, mncStr1, slotId) == LE_OK)
+       LE_ERROR("Fail to set manual register mode.");
+
+   LE_INFO("Platform registration error code: %d.", taf_radio_GetPlatformSpecificRegistrationErrorCode());
+
+   bool isManualMode = false;
+   if (taf_radio_GetRegisterMode(&isManualMode, mccStr2, TAF_RADIO_MCC_BYTES, mncStr2,
+       TAF_RADIO_MNC_BYTES, slotId) != LE_OK)
+       LE_ERROR("Fail to get register mode.");
+
+   if (!isManualMode)
+       LE_ERROR("Unexpected register mode.");
+
+   if (strcmp(mccStr1, mccStr2) != 0)
+       LE_ERROR("Unexpected MCC.");
+
+   if (strcmp(mncStr1, mncStr2) != 0)
+       LE_ERROR("Unexpected MNC.");
  *
    @endcode
  *
@@ -267,11 +283,14 @@
    metricRef = taf_radio_MeasureSignalMetrics(slotId);
    ratMask = taf_radio_GetRatOfSignalMetrics(metricRef);
    if (ratMask & TAF_RADIO_CELL_RAT_MASK_LTE) {
-       LE_ASSERT(taf_radio_GetLteSignalMetrics(metricsRef, &ss, &rsrq, &rsrp, &snr) == LE_OK);
-       LE_INFO("LTE signal strength in dBm: %d\n", ss);
-       LE_INFO("LTE reference signal receive quality in dB : %d\n", rsrq);
-       LE_INFO("LTE reference signal receive power in dBm : %d\n", rsrp);
-       LE_INFO("LTE signal-to-noise ratio in dB : %d\n", snr);
+       if (taf_radio_GetLteSignalMetrics(metricsRef, &ss, &rsrq, &rsrp, &snr) == LE_OK) {
+           LE_INFO("LTE signal strength in dBm: %d\n", ss);
+           LE_INFO("LTE reference signal receive quality in dB : %d\n", rsrq);
+           LE_INFO("LTE reference signal receive power in dBm : %d\n", rsrp);
+           LE_INFO("LTE signal-to-noise ratio in dB : %d\n", snr);
+       } else {
+           LE_ERROR("Fail to get LTE signal metrics.");
+       }
    }
  *
    @endcode
@@ -324,7 +343,7 @@
  *
  *  - taf_radio_GetCellularNetworkMccMnc() supports to get MCC and MNC of a network scan operator.
  *
- *  - taf_radio_GetCellularNetworkMccMnc() supports to get the name of a network scan operator.
+ *  - taf_radio_GetCellularNetworkName() supports to get the name of a network scan operator.
  *
  *  - taf_radio_IsCellularNetworkInUse() supports to check if using the network scan operator's network.
  *
@@ -345,9 +364,17 @@
    // Traverse list
    opRef = taf_radio_GetFirstCellularNetworkScan(listRef);
    while (opRef != nullptr) {
-       LE_ASSERT(taf_radio_GetCellularNetworkName(opRef, name, TAF_RADIO_NETWORK_NAME_MAX_LEN) == LE_OK);
-       LE_ASSERT(taf_radio_GetCellularNetworkMccMnc(opRef, mcc, TAF_RADIO_MCC_BYTES,
-           mnc, TAF_RADIO_MNC_BYTES) == LE_OK);
+       if (taf_radio_GetCellularNetworkName(opRef, name, TAF_RADIO_NETWORK_NAME_MAX_LEN) != LE_OK) {
+           LE_ERROR("Fail to get network name.");
+           break;
+       }
+
+       if (taf_radio_GetCellularNetworkMccMnc(opRef, mcc, TAF_RADIO_MCC_BYTES,
+           mnc, TAF_RADIO_MNC_BYTES) != LE_OK) {
+           LE_ERROR("Fail to get network MCC and MNC.");
+           break;
+       }
+
        inUse = taf_radio_IsCellularNetworkInUse(opRef);
        available = taf_radio_IsCellularNetworkAvailable(opRef);
        fobbiden = taf_radio_IsCellularNetworkForbidden(opRef);

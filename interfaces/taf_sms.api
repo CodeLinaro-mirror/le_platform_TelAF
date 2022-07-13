@@ -71,7 +71,6 @@
  *
  * This file contains APIs which can be used to send/receive SMS and access messages from storages.
  * SMS is an easy and fast way to communicate or transmit data between devices in cellular network.
- * It's also a good way to wake-up a device in low power mode.
  *
  * @section taf_sms_binding IPC interfaces binding
  *
@@ -110,8 +109,8 @@
  *
  * There are 3 types of message formats can be assigned, either text messages(7-bit), binary messages(8-bit),
  * or UCS2 messages(16-bit). You can encode message in PDU format directly as well. Message data length is
- * set with these APIs accordingly. For text message, maximum 160 characters is supported. For text message,
- * maximum 140 characters is supported. For UCS2 message, maximum 70 characters is supported.
+ * set with these APIs accordingly. For text message, maximum 160 characters is supported. For binary message,
+ * maximum 140 bytes is supported. For UCS2 message, maximum 70 characters is supported.
  *
  * - taf_sms_SetText() to set message content as alphabet text
  *
@@ -130,17 +129,29 @@
 
     tmpMsg = taf_sms_Create();
 
-    LE_ASSERT(tmpMsg);
+    if(tmpMsg)
+    {
+        if(taf_sms_SetText(tmpMsg, "test set next") != LE_OK)
+        {
+            LE_ERROR("set text failed");
+        }
 
-    LE_ASSERT(taf_sms_SetText(tmpMsg, TEXT_PATTERN_EMPTY) == LE_BAD_PARAMETER);
+        if(taf_sms_SetDestination(tmpMsg, "123456789") != LE_OK)
+        {
+            LE_ERROR("set destination failed");
+        }
 
-    LE_ASSERT(taf_sms_SetText(tmpMsg, TEXT_PATTERN_TEST) == LE_OK);
+        if(taf_sms_SetPhoneId(tmpMsg, 1) != LE_OK);
+        {
+            LE_ERROR("set phone ID failed");
+        }
 
-    LE_ASSERT(taf_sms_SetDestination(tmpMsg, DEST_TEST) == LE_OK);
-
-    LE_ASSERT(taf_sms_SetPhoneId(tmpMsg, PHONE_ID_PATTERN_1) == LE_OK);
-
-    taf_sms_Delete(tmpMsg);
+        taf_sms_Delete(tmpMsg);
+    }
+    else
+    {
+        LE_ERROR("tmpMsg is NULL");
+    }
 
  * @endcode
  *

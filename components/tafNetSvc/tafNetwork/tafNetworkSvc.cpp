@@ -43,6 +43,7 @@
 #include <memory>
 #include "tafNetworkImpl.hpp"
 #include "tafNatImpl.hpp"
+#include "tafVlanImpl.hpp"
 
 using namespace telux::tafsvc;
 
@@ -66,6 +67,17 @@ void taf_nat_init()
     return;
 }
 
+void taf_vlan_init()
+{
+    LE_INFO("taf vlan component init start...\n");
+    auto &vlan = taf_Vlan::GetInstance();
+    vlan.Init();
+    LE_INFO("taf vlan component init done...\n");
+
+    return;
+}
+
+
 /**
  * Get network interface List
  *
@@ -73,7 +85,7 @@ void taf_nat_init()
  * @param [out] listSize                   The size of the network interface list
  *
  * @returns LE_OK                          Success
- *          OTHER                          Failed to get the network interface information list.
+ *          LE_FAULT                       Failed to get the network interface information list.
  */
 le_result_t taf_net_GetInterfaceList(taf_net_InterfaceInfo_t *intfInfoList, size_t *listSize)
 {
@@ -107,7 +119,8 @@ le_result_t taf_net_GetInterfaceList(taf_net_InterfaceInfo_t *intfInfoList, size
         if(result != LE_OK)
             continue;
 
-        le_utf8_Copy(intfInfoList[intfIdx].interfaceName, interfaceName, TAF_NET_INTERFACE_NAME_MAX_LEN, NULL);
+        le_utf8_Copy(intfInfoList[intfIdx].interfaceName, interfaceName,
+                     TAF_NET_INTERFACE_NAME_MAX_LEN, NULL);
         intfInfoList[intfIdx].tech = TAF_NET_TECH_CELLULAR;
         intfInfoList[intfIdx].state = TAF_NET_STATE_UP;
         intfIdx++;
@@ -147,7 +160,8 @@ taf_net_RouteChangeHandlerRef_t taf_net_AddRouteChangeHandler
 /**
  * Remove route change handler.
  *
- * @param [in] handlerRef               The state handler reference returned by taf_net_AddRouteChangeHandler().
+ * @param [in] handlerRef               The state handler reference returned by
+ *                                      taf_net_AddRouteChangeHandler().
  *
  * @returns NA
  *
@@ -186,7 +200,8 @@ taf_net_GatewayChangeHandlerRef_t taf_net_AddGatewayChangeHandler
 /**
  * Remove gateway change handler.
  *
- * @param [in] handlerRef               The state handler reference returned by taf_net_AddGatewayChangeHandler().
+ * @param [in] handlerRef               The state handler reference returned by
+ *                                      taf_net_AddGatewayChangeHandler().
  *
  * @returns NA
  *
@@ -225,7 +240,8 @@ taf_net_DNSChangeHandlerRef_t taf_net_AddDNSChangeHandler
 /**
  * Remove DNS change handler.
  *
- * @param [in] handlerRef               The state handler reference returned by taf_net_AddDNSChangeHandler().
+ * @param [in] handlerRef               The state handler reference returned by
+ *                                      taf_net_AddDNSChangeHandler().
  *
  * @returns NA
  *
@@ -240,15 +256,17 @@ void taf_net_RemoveDNSChangeHandler(taf_net_DNSChangeHandlerRef_t handlerRef)
  *
  * @param [in] namePtr                     The network interface to be used to change route
  * @param [in] destAddrPtr                 The destination address to be used to change route
- * @param [in] preLenPtr                   The destination subnet mask or length to be used to change route
+ * @param [in] preLenPtr                   The destination prefix length to be used to change route
  * @param [in] metric                      The metric to be used to change route
  * @param [in] isAdd                       Add or delete a route
  *
  * @returns LE_OK                          Success
- *          OTHER                          Failed to add or remove a route.
+ *          LE_BAD_PARAMETER               Invalid parameter.
+ *          LE_FAULT                       Failed to add or remove a route.
  */
 
-le_result_t taf_net_ChangeRoute(const char *namePtr, const char *destAddrPtr, const char *preLenPtr, uint16_t metric, taf_net_NetAction_t isAdd)
+le_result_t taf_net_ChangeRoute(const char *namePtr, const char *destAddrPtr, const char *preLenPtr,
+                                uint16_t metric, taf_net_NetAction_t isAdd)
 {
 
     auto &network = taf_Net::GetInstance();
@@ -280,7 +298,8 @@ le_result_t taf_net_BackupDefaultGW()
  * Only the gateway was backed up and set by the same session,it can be restored.
  *
  * @returns LE_OK                       Restore IPV4 and/or IPV6 gateway successfully.
- *          OTHER                       Failed to Restore default gateway.
+ *          LE_NOT_FOUND                No backup.
+ *          LE_FAULT                    Failed to Restore default gateway.
  */
 le_result_t taf_net_RestoreDefaultGW()
 {
@@ -296,7 +315,9 @@ le_result_t taf_net_RestoreDefaultGW()
  * @param [in] namePtr                  The interface name onto which to get the gateway addresses
  *
  * @returns LE_OK                       Set IPV4 and/or IPV6 gateway successfully.
- *          OTHER                       Failed to set default gateway.
+ *          LE_NOT_FOUND                No gateway address from the interface.
+ *          LE_BAD_PARAMETER            Invalid interface name.
+ *          LE_FAULT                    Failed to set default gateway.
  */
 le_result_t taf_net_SetDefaultGW(const char *namePtr)
 {
@@ -349,10 +370,13 @@ le_result_t taf_net_SetDefaultGW(const char *namePtr)
  * @param [out] ipv6AddrPtr             The ipv6 gateway address
  * @param [in] ipv6AddrSize             The size of ip v6 gateway address
  *
- * @returns LE_OK                       Get IPV4 and/or IPV6 gateway addresses from the interface successfully.
- *          OTHER                       Failed to get gateway addresses from the interface.
+ * @returns LE_OK           Get IPV4 and/or IPV6 gateway addresses from the interface successfully.
+ *          LE_NOT_FOUND                No gateway address from the interface.
+ *          LE_BAD_PARAMETER            Invalid interface name.
+ *          LE_FAULT                    Failed to get gateway addresses from the interface.
  */
-le_result_t taf_net_GetInterfaceGW(const char *namePtr, char *ipv4AddrPtr, size_t ipv4AddrSize, char *ipv6AddrPtr, size_t ipv6AddrSize)
+le_result_t taf_net_GetInterfaceGW(const char *namePtr, char *ipv4AddrPtr, size_t ipv4AddrSize,
+                                   char *ipv6AddrPtr, size_t ipv6AddrSize)
 {
     taf_dcs_ProfileRef_t profileRef=NULL;
     uint32_t profileId=0;
@@ -398,10 +422,9 @@ le_result_t taf_net_GetInterfaceGW(const char *namePtr, char *ipv4AddrPtr, size_
  * @param [in] namePtr                The interface Name onto which to get the DNS addresses
  *
  * @returns LE_OK                     Set IPV4 and/or IPV6 DNS into system successfully.
- *          LE_DUPLICATE              IPV4 exists in the system and can't get ipv6 dns address to be set from interface .
- *          LE_DUPLICATE              IPV6 exists in the system and can't get ipv4 dns address to be set from interface.
- *          LE_DUPLICATE              IPV6 and IPV4 exist in the system.
- *          OTHER                     Failed to set DNS addresses.
+ *          LE_NOT_FOUND              No DNS addresses from the interface.
+ *          LE_BAD_PARAMETER          Invalid interface name.
+ *          LE_FAULT                  Failed to set DNS addresses.
  */
 le_result_t taf_net_SetDNS(const char *namePtr)
 {
@@ -453,10 +476,14 @@ le_result_t taf_net_SetDNS(const char *namePtr)
  * @param [in]  namePtr                 The interface name onto which to get the DNS addresses
  * @param [out] dnsSvrAddrsPtr          DNS addresses structure
  *
- * @returns LE_OK                       Get IPV4 and/or IPV6 DNS addresses successfully from the interfaces.
- *          OTHER                       Failed to get DNS addresses.
+ * @returns LE_OK                       Get IPV4 and/or IPV6 DNS addresses successfully
+ *                                      from the interfaces.
+ *          LE_NOT_FOUND                No DNS addresses from the interface.
+ *          LE_BAD_PARAMETER            Invalid interface name.
+ *          LE_FAULT                    Failed to get DNS addresses.
  */
-le_result_t taf_net_GetInterfaceDNS(const char *namePtr,taf_net_DnsServerAddresses_t *dnsSvrAddrsPtr)
+le_result_t taf_net_GetInterfaceDNS(const char *namePtr,
+                                    taf_net_DnsServerAddresses_t *dnsSvrAddrsPtr)
 {
     taf_dcs_ProfileRef_t profileRef=NULL;
     uint32_t profileId=0;
@@ -482,11 +509,15 @@ le_result_t taf_net_GetInterfaceDNS(const char *namePtr,taf_net_DnsServerAddress
         return LE_NOT_FOUND;
     }
 
-    ipv6Ret = taf_dcs_GetIPv6DNSAddresses(profileRef, dnsSvrAddrsPtr->ipv6Addr1, sizeof(dnsSvrAddrsPtr->ipv6Addr1),
-                                                      dnsSvrAddrsPtr->ipv6Addr2, sizeof(dnsSvrAddrsPtr->ipv6Addr2));
+    ipv6Ret = taf_dcs_GetIPv6DNSAddresses(profileRef, dnsSvrAddrsPtr->ipv6Addr1,
+                                          sizeof(dnsSvrAddrsPtr->ipv6Addr1),
+                                          dnsSvrAddrsPtr->ipv6Addr2,
+                                          sizeof(dnsSvrAddrsPtr->ipv6Addr2));
 
-    ipv4Ret = taf_dcs_GetIPv4DNSAddresses(profileRef, dnsSvrAddrsPtr->ipv4Addr1, sizeof(dnsSvrAddrsPtr->ipv4Addr1),
-                                                      dnsSvrAddrsPtr->ipv4Addr2, sizeof(dnsSvrAddrsPtr->ipv4Addr2));
+    ipv4Ret = taf_dcs_GetIPv4DNSAddresses(profileRef, dnsSvrAddrsPtr->ipv4Addr1,
+                                          sizeof(dnsSvrAddrsPtr->ipv4Addr1),
+                                          dnsSvrAddrsPtr->ipv4Addr2,
+                                          sizeof(dnsSvrAddrsPtr->ipv4Addr2));
 
     if(ipv6Ret != LE_OK && ipv4Ret != LE_OK)
     {
@@ -525,7 +556,8 @@ taf_net_DestNatChangeHandlerRef_t taf_net_AddDestNatChangeHandler
 /**
  * Remove destination NAT change handler.
  *
- * @param [in] handlerRef         The state handler reference returned by taf_net_AddDestNatChangeHandler().
+ * @param [in] handlerRef         The state handler reference returned by
+ *                                taf_net_AddDestNatChangeHandler().
  *
  * @returns NA
  *
@@ -646,7 +678,6 @@ le_result_t taf_net_AddDestNatEntryOnDemandPdn
         LE_ERROR("Rmnet interface is not bringed up");
         return LE_FAULT;
     }
-    //need to check if this profile id is bound to a VLAN id
 
     result=tafNat.AddDestNatEntry( profileId, privateIpAddr,privatePort,globalPort,ipProto);
     return result;
@@ -684,7 +715,7 @@ le_result_t taf_net_RemoveDestNatEntryOnDemandPdn
         LE_ERROR("Rmnet interface is not bringed up");
         return LE_FAULT;
     }
-    //need to check if this profile id is bound to a VLAN id
+
     result=tafNat.RemoveDestNatEntry( profileId, privateIpAddr,privatePort,globalPort,ipProto);
     return result;
 }
@@ -692,8 +723,8 @@ le_result_t taf_net_RemoveDestNatEntryOnDemandPdn
 /**
  * Get a reference of an destination NAT entry list on default PDN.
  *
- * @returns nullptr                     Fail.
- *          non-nullptr                 Success.
+ * @returns NULL                     If there was some other error
+ *          Others                   The reference of destination NAT entry list.
  */
 taf_net_DestNatEntryListRef_t taf_net_GetDestNatEntryListOnDefaultPdn()
 {
@@ -713,8 +744,8 @@ taf_net_DestNatEntryListRef_t taf_net_GetDestNatEntryListOnDefaultPdn()
  *
  * @param [in] profileId                The profile id.
  *
- * @returns nullptr                     Fail.
- *          non-nullptr                 Success.
+ * @returns NULL                     If there was some other error
+ *          Others                   The reference of destination NAT entry list.
  */
 taf_net_DestNatEntryListRef_t taf_net_GetDestNatEntryListOnDemandPdn
 (
@@ -728,7 +759,7 @@ taf_net_DestNatEntryListRef_t taf_net_GetDestNatEntryListOnDemandPdn
         LE_ERROR("Rmnet interface is not bringed up");
         return NULL;
     }
-    //need to check if this profile id is bound to a VLAN id
+
     return tafNat.GetDestNatEntryList(profileId);
 }
 
@@ -737,8 +768,8 @@ taf_net_DestNatEntryListRef_t taf_net_GetDestNatEntryListOnDemandPdn
  *
  * @param [in] destNatEntryListRef      The destination nat entry list reference.
  *
- * @returns nullptr                     Fail.
- *          non-nullptr                 Success.
+ * @returns NULL                     If there was some other error
+ *          Others                   The reference of the first destination NAT entry.
  */
 taf_net_DestNatEntryRef_t taf_net_GetFirstDestNatEntry
 (
@@ -755,8 +786,8 @@ taf_net_DestNatEntryRef_t taf_net_GetFirstDestNatEntry
  *
  * @param [in] destNatEntryListRef      The destination nat entry list reference.
  *
- * @returns nullptr                     Fail.
- *          non-nullptr                 Success.
+ * @returns NULL                        If there was some other error
+ *          Others                      The reference of the next destination NAT entry.
  */
 taf_net_DestNatEntryRef_t taf_net_GetNextDestNatEntry
 (
@@ -794,13 +825,14 @@ le_result_t taf_net_GetDestNatEntryDetails
 {
     auto &tafNat = taf_Nat::GetInstance();
 
-    return tafNat.GetDestNatEntryDetails(destNatEntryRef,privateIpAddrPtr,privateIpAddrPtrSize,privatePortPtr,globalPortPtr,protoPtr);
+    return tafNat.GetDestNatEntryDetails(destNatEntryRef, privateIpAddrPtr, privateIpAddrPtrSize,
+                                         privatePortPtr, globalPortPtr, protoPtr);
 }
 
 /**
  * Delete a reference of an destination nat entry list.
  *
-  * @param [in] destNatEntryListRef      The destination nat entry list reference.
+ * @param [in] destNatEntryListRef      The destination nat entry list reference.
  *
  * @returns LE_OK                       Success.
  *          LE_BAD_PARAMETER            Invalid parameter.
@@ -816,12 +848,398 @@ le_result_t taf_net_DeleteDestNatEntryList
     return tafNat.DeleteDestNatEntryList(destNatEntryListRef);
 }
 
+/*=========================================VLAN=========================================*/
+/**
+ * Create a VLAN.
+ *
+ * @param [in] vlanId                   The VLAN id(i.e 1-4094).
+ * @param [in] isAccelerated            Is acceleration allowed.
+ *
+ * @returns NULL                        If isAccelerated conflicts with the old vlue
+ *          Others                      The reference of VLAN.
+ */
+taf_net_VlanRef_t taf_net_CreateVlan
+(
+    uint16_t vlanId,
+    bool isAccelerated
+)
+{
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    return tafVlan.CreateVlan(vlanId, isAccelerated, taf_net_GetClientSessionRef());
+}
+
+/**
+ * Remove a VLAN. If the VLAN interface is present in this VLAN, it can't be removed.
+ *
+ * @param [in] vlanRef                  The VLAN reference.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_NOT_FOUND                VLAN is not found.
+ *          LE_BAD_PARAMETER            Invalid parameter.
+ *          LE_FAULT                    Interface is present in this VLAN.
+ */
+le_result_t taf_net_RemoveVlan
+(
+    taf_net_VlanRef_t vlanRef
+)
+{
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    return tafVlan.RemoveVlan(vlanRef);
+}
+
+/**
+ * Get the VLAN reference by VLAN id.
+ *
+ * @param [in] vlanId                   VLAN id.
+ *
+ * @returns NULL                        Not found.
+ *          Others                      The VLAN reference.
+ */
+taf_net_VlanRef_t taf_net_GetVlanById
+(
+    uint16_t vlanId
+)
+{
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    return tafVlan.GetVlanRefById(vlanId, taf_net_GetClientSessionRef());
+}
+
+/**
+ * Add a VLAN interface.
+ *
+ * @param [in] vlanRef                  The VLAN reference.
+ * @param [in] ifType                   The interface type.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_NOT_FOUND                VLAN is not present.
+ *          LE_BAD_PARAMETER            Invalid parameter.
+ *          LE_FAULT                    Failed to add a VLAN interface.
+ *          LE_TIMEOUT                  Time out.
+ *
+ * @note  Note:If the parameter isAccelerated is true when create VLAN, and then add the VLAN
+ *             interface at the first time, the system will auto reboot after 5 seconds.
+ */
+le_result_t taf_net_AddVlanInterface
+(
+    taf_net_VlanRef_t vlanRef,
+    taf_net_VlanIfType_t ifType
+)
+{
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    return tafVlan.AddVlanInterface(vlanRef, ifType);
+}
+
+/**
+ * Remove a VLAN interface.
+ *
+ * @param [in] vlanRef                  The VLAN reference.
+ * @param [in] ifType                   The interface type.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_NOT_FOUND                VLAN is not present.
+ *          LE_BAD_PARAMETER            Invalid parameter.
+ *          LE_FAULT                    Failed to remove a VLAN interface.
+ *          LE_TIMEOUT                  Time out.
+ *
+ * @note  Note:If the parameter isAccelerated is true when create VLAN, and then remove the VLAN
+ *             interface at the last time, the system will auto reboot after 5 seconds.
+ */
+le_result_t taf_net_RemoveVlanInterface
+(
+    taf_net_VlanRef_t vlanRef,
+    taf_net_VlanIfType_t ifType
+)
+{
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    return tafVlan.RemoveVlanInterface(vlanRef, ifType);
+}
+
+/**
+ * Get the reference of the VLAN interface list.
+ *
+ * @param [in] vlanRef                  The VLAN reference.
+ *
+ * @returns NULL                        Failure
+ *          Others                      The reference of the VLAN interface list.
+ */
+taf_net_VlanIfListRef_t taf_net_GetVlanInterfaceList
+(
+    taf_net_VlanRef_t vlanRef
+)
+{
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    return tafVlan.GetVlanInterfaceList(vlanRef);
+}
+
+/**
+ * Get the reference of the first VLAN interface with a list reference.
+ *
+ * @param [in] vlanIfListRef            The VLAN interface list reference.
+ *
+ * @returns NULL                        Failure
+ *          Others                      The reference of the first VLAN interface.
+ */
+taf_net_VlanIfRef_t taf_net_GetFirstVlanInterface
+(
+    taf_net_VlanIfListRef_t vlanIfListRef
+)
+{
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    return tafVlan.GetFirstVlanInterface(vlanIfListRef);
+}
+
+/**
+ * Get the reference of the next VLAN interface with a list reference.
+ *
+ * @param [in] vlanIfListRef            The reference of a VLAN interface list.
+ *
+ * @returns NULL                        Failure
+ *          Others                      The reference of the next VLAN interface.
+ */
+taf_net_VlanIfRef_t taf_net_GetNextVlanInterface
+(
+    taf_net_VlanIfListRef_t  vlanIfListRef
+)
+{
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    return tafVlan.GetNextVlanInterface(vlanIfListRef);
+}
+
+/**
+ * Delete the VLAN interface list.
+ *
+ * @param [in] vlanIfListRef            The reference of a VLAN interface list.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_BAD_PARAMETER            Invalid parameter.
+ *          LE_FAULT                    Failed to delete the reference.
+ */
+le_result_t taf_net_DeleteVlanInterfaceList
+(
+    taf_net_VlanIfListRef_t vlanIfListRef
+)
+{
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    return tafVlan.DeleteVlanInterfaceList(vlanIfListRef);
+}
+
+/**
+ * Get the VLAN interface type with a VLAN interface reference.
+ *
+ * @param [in] vlanIfRef                The interface reference.
+ *
+ * @returns taf_net_VlanIfType_t        The interface type.
+ */
+taf_net_VlanIfType_t taf_net_GetVlanInterfaceType
+(
+    taf_net_VlanIfRef_t  vlanIfRef
+)
+{
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    return tafVlan.GetVlanInterfaceType(vlanIfRef);
+}
+
+/**
+ * Get the reference of the VLAN entry list.
+ *
+ * @returns NULL                        Failure.
+ *          Others                      The reference of the VLAN entry list.
+ */
+taf_net_VlanEntryListRef_t taf_net_GetVlanEntryList
+(
+)
+{
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    return tafVlan.GetVlanEntryList();
+}
+
+/**
+ * Get the reference of the first VLAN entry with a list reference.
+ *
+ * @param [in] vlanEntryListRef         The VLAN entry list reference.
+ *
+ * @returns NULL                        Failure.
+ *          Others                      The reference of the first VLAN entry.
+ */
+taf_net_VlanEntryRef_t taf_net_GetFirstVlanEntry
+(
+    taf_net_VlanEntryListRef_t vlanEntryListRef
+)
+{
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    return tafVlan.GetFirstVlanEntry(vlanEntryListRef);
+}
+
+/**
+ * Get the reference of the next VLAN entry with a list reference.
+ *
+ * @param [in] vlanEntryListRef         The VLAN entry list reference.
+ *
+ * @returns NULL                        Failure.
+ *          Others                      The reference of the next VLAN entry.
+ */
+taf_net_VlanEntryRef_t taf_net_GetNextVlanEntry
+(
+    taf_net_VlanEntryListRef_t  vlanEntryListRef
+)
+{
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    return tafVlan.GetNextVlanEntry(vlanEntryListRef);
+}
+
+/**
+ * Delete the VLAN entry reference.
+ *
+ * @param [in] vlanEntryListRef         The VLAN entry list reference.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_BAD_PARAMETER            Invalid parameter.
+ *          LE_FAULT                    Failed to delete the VLAN entry list.
+ */
+le_result_t taf_net_DeleteVlanEntryList
+(
+    taf_net_VlanEntryListRef_t vlanEntryListRef
+)
+{
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    return tafVlan.DeleteVlanEntryList(vlanEntryListRef);
+}
+
+/**
+ * Get VLAN ID.
+ *
+ * @param [in] vlanEntryRef             The VLAN entry reference.
+ *
+ * @returns Others                      Reference is null or can't find VLAN id.
+ *          1-4094                      Success
+ */
+int16_t taf_net_GetVlanId
+(
+    taf_net_VlanEntryRef_t  vlanEntryRef
+)
+{
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    return tafVlan.GetVlanId(vlanEntryRef);
+}
+
+/**
+ * Is VLAN accelerated or not.
+ *
+ * @param [in] vlanEntryRef             The VLAN entry reference.
+ * @param [out] isAcceleratedPtr        Is VLAN accelerated or not.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_NOT_FOUND                VLAN is not present.
+ *          LE_BAD_PARAMETER            Invalid parameter.
+ */
+le_result_t taf_net_IsVlanAccelerated
+(
+    taf_net_VlanEntryRef_t vlanEntryRef,
+    bool* isAcceleratedPtr
+)
+{
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    return tafVlan.IsVlanAccelerated(vlanEntryRef, isAcceleratedPtr);
+}
+
+/**
+ * Get the bound profile ID.
+ *
+ * @param [in] vlanEntryRef             The VLAN entry reference.
+ *
+ * @returns less than 0                 Reference is null or can't find profile id.
+ *          Others                      Success
+ */
+int32_t taf_net_GetVlanBoundProfileId
+(
+    taf_net_VlanEntryRef_t vlanEntryRef
+)
+{
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    return tafVlan.GetVlanProfileId(vlanEntryRef);
+}
+
+/**
+ * Bind a VLAN with a particular profile ID. This API can only be supported on device mode 0
+ *
+ * @param [in] vlanRef                  The VLAN Reference.
+ * @param [in] profileId                The profile id for VLAN association.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_NOT_FOUND:               VLAN not found
+ *          LE_BAD_PARAMETER            Invalid parameter.
+ *          LE_FAULT                    Failed to bind VLAN with profile.
+ *          LE_TIMEOUT                  Time out.
+ *
+ * @note  If bind VLAN with default profile id, the system will auto reboot after 5 seconds
+ */
+le_result_t taf_net_BindVlanWithProfile
+(
+    taf_net_VlanRef_t vlanRef,
+    uint32_t profileId
+)
+{
+    le_result_t result;
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    TAF_ERROR_IF_RET_VAL(vlanRef == nullptr , LE_BAD_PARAMETER, "vlanRef is null");
+
+    result=tafVlan.BindVlanWithProfile(vlanRef, profileId);
+    return result;
+}
+
+/**
+ * Unbind a VLAN From a particular profile ID.
+ *
+ * @param [in] vlanRef                  The VLAN Reference.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_NOT_FOUND:               VLAN not found
+ *          LE_BAD_PARAMETER            Invalid parameter.
+ *          LE_FAULT                    Failed to unbind VLAN from profile.
+ *          LE_TIMEOUT                  Time out.
+ *
+ * @note if unbind VLAN from default profile id, the system will auto reboot after 5 seconds
+ */
+le_result_t taf_net_UnbindVlanFromProfile
+(
+    taf_net_VlanRef_t vlanRef
+)
+{
+    le_result_t result;
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    TAF_ERROR_IF_RET_VAL(vlanRef == nullptr , LE_BAD_PARAMETER, "vlanRef is null");
+
+    result=tafVlan.UnbindVlanFromProfile(vlanRef);
+    return result;
+}
+
 COMPONENT_INIT
 {
 
     taf_net_init();
 
     taf_nat_init();
+
+    taf_vlan_init();
 
 }
 

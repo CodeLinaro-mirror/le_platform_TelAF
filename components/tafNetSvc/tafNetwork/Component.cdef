@@ -43,5 +43,6 @@ sources:
     tafNetworkSvc.cpp
     tafRoutingDns.cpp
     tafNatImpl.cpp
+    tafVlanImpl.cpp
 }
 

@@ -209,6 +209,7 @@ static le_result_t GetIpv6DefaultGatewayFromFile(char *defaultGWPtr, size_t defa
 
     TAF_ERROR_IF_RET_VAL(resolvFPtr == NULL, LE_FAULT, "Open route information file '%s' failed,can't get default gateway", IPV6_ROUTE_INFO_FILE);
 
+    result = LE_NOT_FOUND;
     while (fgets(lineStr, sizeof(lineStr), resolvFPtr))
     {
         //IPV6 route table format: dst| dst pfx | src| src pfx| nexthop|metric|refNum|UseNum|Flag|iFace
@@ -384,6 +385,12 @@ static le_result_t SetLinuxIPv6DefaultGateway(const char *intfPtr, const char *g
     le_result_t ret,delRet;
     uint16_t addRetLen=0,delRetLen=0;
     taf_net_DfltGwBackup_t defaultGwBackup;
+
+    //After do some operation(add delete) for ipv6 default gateway on SA415M, the modem will crash
+    //here don't set ipv6 default gateway, just use the default gateway added by telSDK
+    #ifdef TARGET_SA415M
+        return LE_OK;
+    #endif
 
     TAF_ERROR_IF_RET_VAL(intfPtr == NULL, LE_FAULT, "intfPtr is NULL!");
     TAF_ERROR_IF_RET_VAL(gatewayPtr == NULL, LE_FAULT, "gatewayPtr is NULL!");

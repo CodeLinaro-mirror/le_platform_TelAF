@@ -42,8 +42,6 @@
 #include <telux/data/net/NatManager.hpp>
 #include "tafSvcIF.hpp"
 
-#define SESSION_TIMEOUT 60
-
 using namespace telux::data;
 using namespace telux::common;
 

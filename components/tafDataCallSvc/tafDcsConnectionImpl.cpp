@@ -427,6 +427,8 @@ void taf_DataConnection::StopDataCallCallback(const std::shared_ptr<telux::data:
 {
     dataCallEvent_t callEvent;
     auto &dataConnection = taf_DataConnection::GetInstance();
+    //Check if iCall is a null pointer to avoid crashing
+    TAF_ERROR_IF_RET_NIL(iCall == NULL, "iCall is NULL, drop this event");
     int32_t profileId = iCall->getProfileId();
 
     dataConnection.LogDataCallInfo(iCall, __func__);
@@ -826,6 +828,19 @@ le_result_t taf_DataConnection::StartSessionAllSync(int32_t profileId, taf_dcs_P
     }
 
     IsOnSynchronousAction = false;
+    //If call status is NET_NO_NET(disconnected), telsdk will return a NULL pointer for the iCall
+    //parameter of the StopDataCallCallback when invoke stopCall function.
+    //Remove session since there is no need to call stopCall
+    if(result == LE_OK)
+    {
+        callCtxPtr = GetCallCtx(profileId);
+        if(callCtxPtr->callStatus == telux::data::DataCallStatus::NET_NO_NET)
+        {
+            LE_ERROR("callStatus is disconnected");
+            RemoveSessionFromCallCtx(callCtxPtr, sessionRef);
+            return LE_TERMINATED;
+        }
+    }
     LE_INFO("start synchronous session is done, result: %s", LE_RESULT_TXT(result));
 
     return result;

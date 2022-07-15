@@ -259,14 +259,6 @@
      //Process after succesfully getting the costellation type.
    }
    @endverbatim
- * @note Currently this API implementation is in progress.
- *
- * taf_gnss_SetConstellationArea() sets the area for a GNSS constellation. taf_gnss_GetConstellationArea()
- * gets the area for a GNSS constellation.
- *
- * @note Currently TelSDK doesn't support taf_gnss_SetConstellationArea()
- *       and taf_gnss_GetConstellationArea() functionalities.
- *       Hence the APIs are not implemented.
  *
  * The taf_gnss_GetSupportedConstellations() function gets a bit mask of the constellations
  * supported on the platform.
@@ -344,17 +336,6 @@
      //Process after succesfully getting a list of supported NMEA sentence types.
    }
    @endverbatim
- *
- * @subsection taf_gnss_GetMinMaxNmeaRate Get the supported NMEA rates
- * The taf_gnss_GetMinNmeaRate() function gets the minimum NMEA rate supported on the platform
- * in milliseconds.
- *
- * The taf_gnss_GetMaxNmeaRate() function gets the maximum NMEA rate supported on the platform
- * in milliseconds.
- *
- * @note Currently TelSDK doesn't support taf_gnss_GetMinNmeaRate()
- *       and taf_gnss_GetMaxNmeaRate() functionalities.
- *       Hence the APIs are not implemented.
  *
  * @subsection taf_gnss_GetInfo Get position information
  * The position information is referenced to a position sample object.
@@ -441,10 +422,9 @@
    uint8_t leapSeconds = 0;
    if(taf_gnss_GetGpsLeapSeconds(positionSampleRef,&leapSeconds) == LE_OK)
    {
-     //Process after succesfully getting the GPS leap second information
+     //Process after succesfully getting the GPS Leap second information
    }
    @endverbatim
- * @note Currently the API implementation is in progress.
  *
  * - taf_gnss_GetEpochTime()
  * The API is triggered inside PositionHandlerFunction() function to get positionSampleRef.
@@ -474,7 +454,6 @@
      //Process after succesfully getting the horizontal speed
    }
    @endverbatim
- * @note Currently the API is not implemented. TelSDK supports only one speed type.It is under discussion.
  *
  * - taf_gnss_GetVerticalSpeed()
  * The API is triggered inside PositionHandlerFunction() function to get positionSampleRef.
@@ -486,7 +465,6 @@
      //Process after succesfully getting the vertical speed.
    }
    @endverbatim
- * @note Currently the API is not implemented. TelSDK supports only one speed type.It is under discussion.
  *
  * - taf_gnss_GetDirection()
  * The API is triggered inside PositionHandlerFunction() function to get positionSampleRef.
@@ -520,6 +498,7 @@
                                                   ,satAzimPtr,&satAzimNumElements
                                                   ,satElevPtr,&satElevNumElements) == LE_OK)
    {
+     //Process after succesfully getting the satellite information.
    }
    @endverbatim
  * - taf_gnss_GetSatellitesStatus()
@@ -603,7 +582,8 @@
  * resolution of 3 decimal places by default. This resolution can be modified by calling the
  * @c taf_gnss_SetDopResolution() function first.
  *
- * As @c taf_gnss_SetDopResolution() sets the resolution per client session,
+ * - taf_gnss_SetDopResolution()
+ * The API sets the resolution per client session,
  * @verbatim
    static taf_gnss_Resolution_t DopRes = TAF_GNSS_RES_ONE_DECIMAL;
    if(taf_gnss_SetDopResolution(DopRes) == LE_OK)
@@ -611,7 +591,7 @@
      //Process after succesfully setting the dilute of precision resolution
    }
    @endverbatim
- * @c taf_gnss_SetDopResolution() and @c taf_gnss_GetDilutionOfPrecision() functions should be called
+ * taf_gnss_SetDopResolution() and @c taf_gnss_GetDilutionOfPrecision() functions should be called
  * in the same thread or client session.
  *
  * @subsection taf_gnss_GetLeapSeconds Get leap seconds event information
@@ -620,7 +600,6 @@
  * and next leap seconds.
  * Insertion of each UTC leap second is usually decided about six months in advance by the
  * International Earth Rotation and Reference Systems Service (IERS).
- * @note Currently the API is not implemented.
  *
  * <HR>
  *
@@ -932,7 +911,6 @@ FUNCTION le_result_t GetAltitude
  * @note If the caller is passing an invalid Position sample reference into this function,
  *       it is a fatal error, the function will not return.
  *
- * @note Currently the API is not implemented. TelSDK supports only one speed type.It is under discussion.
  *
  * @warning The Horizontal speed accuracy is platform dependent.
  */
@@ -969,7 +947,6 @@ FUNCTION le_result_t GetHorizontalSpeed
  * @note If the caller is passing an invalid Position sample reference into this function,
  *       it is a fatal error, the function will not return.
  *
- * @note Currently the API is not implemented. TelSDK supports only one speed type.It is under discussion.
  *
  * @warning The Vertical speed accuracy is platform dependent.
 */
@@ -994,7 +971,6 @@ FUNCTION le_result_t GetVerticalSpeed
  * @note If the caller is passing an invalid position sample reference or a null pointer into this
  *       function, it is a fatal error, the function will not return.
  *
- * @note Currently the API implementation is in progress.
  *
  * This function is deprecated, le_gnss_GetLeapSeconds should be used instead.
  *
@@ -1324,8 +1300,7 @@ STRUCT DrParams
  *  - LE_NOT_PERMITTED If the GNSS device state is not initialized, disabled or active.
  *  - LE_BAD_PARAMETER Invalid constellation area.
  *
- * @note Currently TelSDK doesn't support taf_gnss_SetConstellationArea() functionality.
- *       This API is not supported.
+ * @note This API is not supported.
  *
  * @warning The settings are platform dependent.
 */
@@ -1405,8 +1380,7 @@ FUNCTION le_result_t GetAcquisitionRate
  * @note If the caller is passing a null pointer into this function, it is a fatal error, the
  *       function will not return.
  *
- * @note Currently TelSDK doesn't support taf_gnss_GetConstellationArea() functionality.
- *       This API is not supported.
+ * @note This API is not supported.
 */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetConstellationArea

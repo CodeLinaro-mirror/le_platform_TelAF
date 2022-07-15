@@ -271,7 +271,7 @@
  *
  * @c taf_pos_sample_Release() releases the object.
  *
- * You can uninstall the handler function by calling the taf_pos_RemoveMovementHandler() API.
+ * You can remove the handler function by calling the taf_pos_RemoveMovementHandler() API.
  * @note The taf_pos_RemoveMovementHandler() API does not delete the Position Object. The caller has
  *       to delete it by calling the taf_pos_sample_Release() function.
  *
@@ -693,8 +693,6 @@ FUNCTION le_result_t sample_GetVerticalSpeed
  *       position accuracy and the vertical position accuracy. The API sets the same resolution to
  *       all distance values. The resolution change request takes effect immediately.
  *
- * @warning The positioning distance values resolutions are platform dependent. Please refer to
- *          @ref platformConstraintsPositioning_SettingResolution section for full details.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetDistanceResolution

@@ -94,7 +94,7 @@
  *
  * @subsection c_taf_audio_AddMediaHandler MediaHandler and Media Events
  *
- * Handler for media events, such as start, stop and end
+ * Handler for media events, such as Error and Media End
  *
  * @verbatim
 

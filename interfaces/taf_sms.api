@@ -63,7 +63,7 @@
 
 //--------------------------------------------------------------------------------------------------
 /**
- * @page c_tafsms SMS Service API
+ * @page c_tafsms SMS Service 
  *
  * @ref taf_sms_interface.h "API Reference"
  *
@@ -189,9 +189,9 @@
  * - taf_sms_SetPreferredStorage() to set preferred storage
  * - taf_sms_GetPreferredStorage() to get preferred storage
  *
- * @section c_taf_sms_Storage Receiving full storage indication
+ * @section c_taf_sms_Storage_Indication Receiving full storage indication
  * To receive storage indication, register handler function with taf_sms_AddFullStorageEventHandler() and follow the
- * handler type definition: void (*taf_sms_FullStorageHandlerFunc_t)(taf_sms_StorageFullType_t type)
+ * handler type definition of @ref taf_sms_FullStorageHandlerFunc_t
  *
  * To remove the handler function, call taf_sms_RemoveFullStorageEventHandler().
  *

@@ -70,7 +70,7 @@
    int32_t hAccuracy;
    if (taf_pos_Get2DLocation(&latitude, &longitude, &hAccuracy) == LE_OK)
    {
-     //Process after succesfully getting the 2 dimension location information.
+     // Process after succesfully getting the 2 dimension location information.
    }
    @endverbatim
  *
@@ -91,7 +91,7 @@
    int32_t vAccuracy;
    if (taf_pos_Get3DLocation(&latitude, &longitude, &hAccuracy,&altitude, &vAccuracy) == LE_OK)
    {
-     //Process after succesfully getting the 3 dimensional location information.
+     // Process after succesfully getting the 3 dimensional location information.
    }
    @endverbatim
  *
@@ -107,7 +107,7 @@
    uint16_t msecondsPtr;
    if (taf_pos_GetTime(&hrsPtr, &minPtr, &secPtr,&msecondsPtr) == LE_OK)
    {
-     //Process after succesfully getting the time information.
+     // Process after succesfully getting the time information.
    }
    @endverbatim
  *
@@ -121,7 +121,7 @@
    uint16_t dayPtr;
    if (taf_pos_GetDate(&yearPtr, &monthPtr, &dayPtr) == LE_OK)
    {
-     //Process after succesfully getting the date information.
+     // Process after succesfully getting the date information.
    }
    @endverbatim
  *
@@ -134,7 +134,7 @@
    uint32_t headingAccuracy;
    if (taf_pos_GetHeading(&heading, &headingAccuracy) == LE_OK)
    {
-     //Process after succesfully getting the heading information.
+     // Process after succesfully getting the heading information.
    }
    @endverbatim
  *
@@ -147,7 +147,7 @@
    uint32_t directionAccuracy;
    if (taf_pos_GetDirection(&direction, &directionAccuracy) == LE_OK)
    {
-     //Process after succesfully getting the direction information.
+     // Process after succesfully getting the direction information.
    }
    @endverbatim
  *
@@ -157,7 +157,7 @@
    taf_pos_FixState_t fixState;
    if(taf_pos_GetFixState(&fixState)== LE_OK)
    {
-     //Process after succesfully getting the fix state.
+     // Process after succesfully getting the fix state.
    }
    @endverbatim
  *
@@ -166,7 +166,7 @@
  * @verbatim
    if(taf_pos_SetDistanceResolution(RES_DECIMETER) == LE_OK))
    {
-     //Process after succesfully setting the distance resolution.
+     // Process after succesfully setting the distance resolution.
    }
    @endverbatim
  *
@@ -203,7 +203,7 @@
    int32_t  longi, lat, haccuracy;
    if(taf_pos_sample_Get2DLocation(positionSampleRef, &longi, &lat, &haccuracy) == LE_OK)
    {
-     //Process after succesfully getting the 2 dimensional location information.
+     // Process after succesfully getting the 2 dimensional location information.
    }
    @endverbatim
  * - taf_pos_sample_GetTime()
@@ -212,7 +212,7 @@
    int32_t  hours, min, sec;
    if(taf_pos_sample_GetTime(positionSampleRef, &hours, &min, &sec) == LE_OK)
    {
-     //Process after succesfully getting the time information.
+     // Process after succesfully getting the time information.
    }
    @endverbatim
  * - taf_pos_sample_GetDate()
@@ -221,7 +221,7 @@
    int32_t  year, month, day;
    if(taf_pos_sample_GetDate(positionSampleRef, &year, &month, &day) == LE_OK)
    {
-     //Process after succesfully getting the time information.
+     // Process after succesfully getting the time information.
    }
    @endverbatim
  * - taf_pos_sample_GetAltitude()
@@ -230,7 +230,7 @@
    int32_t  altitude,altitudeAccuracy,
    if(taf_pos_sample_GetAltitude(positionSampleRef, &altitude, &altitudeAccuracy) == LE_OK)
    {
-     //Process after succesfully getting the altitude information.
+     // Process after succesfully getting the altitude information.
    }
    @endverbatim
  * - taf_pos_sample_GetHorizontalSpeed()
@@ -239,7 +239,7 @@
    int32_t  hSpeed,hSpeedAccuracy,
    if(taf_pos_sample_GetHorizontalSpeed(positionSampleRef, &hSpeed, &hSpeedAccuracy) == LE_OK)
    {
-     //Process after succesfully getting the horizontal speed information.
+     // Process after succesfully getting the horizontal speed information.
    }
    @endverbatim
  * - taf_pos_sample_GetVerticalSpeed()
@@ -248,7 +248,7 @@
    int32_t  vSpeed,vSpeedAccuracy,
    if(taf_pos_sample_GetVerticalSpeed(positionSampleRef, &vSpeed, &vSpeedAccuracy) == LE_OK)
    {
-     //Process after succesfully getting the vertifical speed information.
+     // Process after succesfully getting the vertifical speed information.
    }
    @endverbatim
  * - taf_pos_sample_GetDirection()
@@ -257,7 +257,7 @@
    int32_t  direction,directionAccuracy,
    if(taf_pos_sample_GetDirection(positionSampleRef, &direction, &directionAccuracy) == LE_OK)
    {
-     //Process after succesfully getting the direction information.
+     // Process after succesfully getting the direction information.
    }
    @endverbatim
  * - taf_pos_sample_GetFixState()
@@ -265,7 +265,7 @@
    taf_pos_FixState_t fixState;
    if(taf_pos_sample_GetFixState(&fixState)== LE_OK)
    {
-     //Process after succesfully getting the fix state.
+     // Process after succesfully getting the fix state.
    }
    @endverbatim
  *
@@ -285,14 +285,14 @@
  * @verbatim
    if(taf_pos_SetAcquisitionRate(3000) == LE_OK)
    {
-     //Process after succesfully setting the acquisition rate.
+     // Process after succesfully setting the acquisition rate.
    }
    @endverbatim
  * @verbatim
    uint32_t acquisitionRate=0;
    if(taf_pos_GetAcquisitionRate(&fixState)== LE_OK)
    {
-     //Process after succesfully getting the acquisition rate.
+     // Process after succesfully getting the acquisition rate.
    }
    @endverbatim
  * @note

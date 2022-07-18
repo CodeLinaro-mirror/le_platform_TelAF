@@ -150,8 +150,7 @@
  * - the application successfully stops it with taf_ecall_End() returning @c LE_OK
  * - or the event @ref TAF_ECALL_STATE_ENDED arrives
  * - or the event @ref TAF_ECALL_STATE_ALACK_RECEIVED_CLEAR_DOWN is notified
- * - or the event @ref TAF_ECALL_STATE_FAILED is notified and no redial is initiated (see
- * @ref taf_ecall_redial section for further information on redial mechanism).
+ * - or the event @ref TAF_ECALL_STATE_FAILED is notified and no redial is initiated.
  *
  * If the eCall object is no more required, application can call taf_ecall_Delete() to free
  * all allocated resources of the eCall object.

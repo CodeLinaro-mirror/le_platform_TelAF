@@ -34,7 +34,7 @@
 
 //--------------------------------------------------------------------------------------------------
 /**
- * @page c_tafgpio Gpio Service API
+ * @page c_tafgpio GPIO Service
  *
  * @ref taf_gpio_interface.h "API Reference"
  *
@@ -95,6 +95,7 @@
  * @note The client will be killed for below scenarios:
  * - If the GPIO object reference is NULL or not initialized.
  * - When unable to set edge detection correctly.
+ *
  * @verbatim
    gpiohandlerRef = taf_gpio_AddChangeEventHandler(inPinNum, TAF_GPIO_EDGE_BOTH, false,
             GpioChangeCallback, NULL);

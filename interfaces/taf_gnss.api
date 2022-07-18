@@ -63,7 +63,7 @@
 
 //--------------------------------------------------------------------------------------------------
 /**
- * @page c_tafgnss Location Service API
+ * @page c_tafgnss Location Service
  *
  * @ref taf_gnss_interface.h "API Reference"
  *
@@ -1606,7 +1606,7 @@ FUNCTION le_result_t SetAcquisitionRate
  *  - LE_NOT_PERMITTED If the GNSS device state is not enabled or not started.
  *  - LE_OK            On Success.
  *
- * @Note This API has a platform dependent feature.
+ * @note This API has a platform dependent feature.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ForceWarmRestart
@@ -1652,7 +1652,7 @@ FUNCTION le_result_t ForceFactoryRestart
  *  - LE_NOT_PERMITTED If the GNSS device state is not enabled or not started.
  *  - LE_OK            On Success.
  *
- * @Note This API can be used to restart the GNSS device. It is equivalent calling taf_gnss_Stop()
+ * @note This API can be used to restart the GNSS device. It is equivalent calling taf_gnss_Stop()
  *       and taf_gnss_Start().
  */
 //--------------------------------------------------------------------------------------------------

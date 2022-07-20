@@ -866,7 +866,7 @@ __attribute__((unused)) static void EncDataFileTest(void)
     }
 
     // Open the output data file.
-    ofd = le_fd_Open(encryptedFilePath, O_CREAT|O_WRONLY|O_TRUNC);
+    ofd = open(encryptedFilePath, O_CREAT|O_WRONLY|O_TRUNC, S_IRWXU);
     if (ofd < 0)
     {
         LE_ERROR("Failed to open data file '%s'.", encryptedFilePath);
@@ -1073,7 +1073,7 @@ __attribute__((unused)) static void DecDataFileTest(void)
     }
 
     // Open the output data file.
-    ofd = le_fd_Open(decryptedFilePath, O_CREAT|O_WRONLY|O_TRUNC);
+    ofd = open(decryptedFilePath, O_CREAT|O_WRONLY|O_TRUNC, S_IRWXU);
     if (ofd < 0)
     {
         LE_ERROR("Failed to open data file '%s'.", decryptedFilePath);

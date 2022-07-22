@@ -29,9 +29,10 @@ COMPONENT_INIT
  *  Gets the kernel version.
  *
  * @return
- *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_FAULT -- Failed.
- *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- versionPtr is NULL.
+ *  - LE_FAULT -- Baseline boot revision retrieval failed in the version plug-in.
+ *  - LE_OK -- Kernel version was read successfully, or the kernel version was returned without an
+ *             appended boot revision when no version plug-in is loaded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_verInfo_GetKernelVersion
@@ -70,9 +71,11 @@ le_result_t taf_verInfo_GetKernelVersion
  *  Gets the firmware version.
  *
  * @return
- *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_FAULT -- Failed.
- *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- versionPtr is NULL.
+ *  - LE_FAULT -- Firmware version format is invalid in Ver_Info.txt, or baseline firmware revision
+ *             retrieval failed in the version plug-in.
+ *  - LE_OK -- Firmware version was read successfully, or the firmware version was returned without
+ *             an appended baseline revision when no version plug-in is loaded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_verInfo_GetFirmwareVersion
@@ -128,9 +131,11 @@ le_result_t taf_verInfo_GetFirmwareVersion
  *  Gets the TZ version.
  *
  * @return
- *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_FAULT -- Failed.
- *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- versionPtr is NULL.
+ *  - LE_FAULT -- TZ version format is invalid in Ver_Info.txt, or baseline TZ revision retrieval
+ *             failed in the version plug-in.
+ *  - LE_OK -- TZ version was read successfully, or the TZ version was returned without an appended
+ *             baseline revision when no version plug-in is loaded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_verInfo_GetTZVersion
@@ -186,9 +191,10 @@ le_result_t taf_verInfo_GetTZVersion
  *  Gets the TelAF version.
  *
  * @return
- *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_FAULT -- Failed.
- *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- versionPtr is NULL.
+ *  - LE_FAULT -- Baseline TelAF revision retrieval failed in the version plug-in.
+ *  - LE_OK -- TelAF version was read successfully, or the TelAF version was returned without an
+ *             appended baseline revision when no version plug-in is loaded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_verInfo_GetTelAFVersion
@@ -226,9 +232,10 @@ le_result_t taf_verInfo_GetTelAFVersion
  *  Gets the rootFS version.
  *
  * @return
- *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_FAULT -- Failed.
- *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- versionPtr is NULL.
+ *  - LE_FAULT -- Baseline rootFS revision retrieval failed in the version plug-in.
+ *  - LE_OK -- RootFS version was read successfully, or the rootFS version was returned without an
+ *             appended baseline revision when no version plug-in is loaded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_verInfo_GetRootFSVersion
@@ -266,9 +273,11 @@ le_result_t taf_verInfo_GetRootFSVersion
  *  Gets the LXC version.
  *
  * @return
- *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_FAULT -- Failed.
- *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- versionPtr is NULL.
+ *  - LE_UNSUPPORTED -- LXC version file is not present on the target.
+ *  - LE_FAULT -- Baseline LXC revision retrieval failed in the version plug-in.
+ *  - LE_OK -- LXC version was read successfully, or the LXC version was returned without an
+ *             appended baseline revision when no version plug-in is loaded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_verInfo_GetLXCVersion
@@ -313,10 +322,12 @@ le_result_t taf_verInfo_GetLXCVersion
  *  Gets the TelAF hash.
  *
  * @return
- *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_UNSUPPORTED -- Not supported.
- *  - LE_FAULT -- Failed.
- *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- hashPtr or hashSizePtr is NULL, or bank is neither BANK_A nor BANK_B.
+ *  - LE_UNSUPPORTED -- Without the hash plug-in, the requested bank is not the current boot bank.
+ *  - LE_FAULT -- Boot bank detection failed, TelAF version file content cannot provide a hash, or
+ *             the hash plug-in reported a failure.
+ *  - LE_OK -- TelAF hash was obtained from the hash plug-in, or derived from the TelAF version
+ *             string for the current boot bank.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_verInfo_GetTelAFHash
@@ -396,10 +407,10 @@ le_result_t taf_verInfo_GetTelAFHash
  *  Gets the boot hash.
  *
  * @return
- *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_UNSUPPORTED -- Not supported.
- *  - LE_FAULT -- Failed.
- *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- hashPtr or hashSizePtr is NULL, or bank is neither BANK_A nor BANK_B.
+ *  - LE_UNSUPPORTED -- Hash plug-in is not loaded.
+ *  - LE_FAULT -- Hash plug-in reported a failure while retrieving the boot hash.
+ *  - LE_OK -- Boot hash was obtained successfully from the hash plug-in.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_verInfo_GetBootHash
@@ -443,10 +454,10 @@ le_result_t taf_verInfo_GetBootHash
  *  Gets the rootFS hash.
  *
  * @return
- *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_UNSUPPORTED -- Not supported.
- *  - LE_FAULT -- Failed.
- *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- hashPtr or hashSizePtr is NULL, or bank is neither BANK_A nor BANK_B.
+ *  - LE_UNSUPPORTED -- Hash plug-in is not loaded.
+ *  - LE_FAULT -- Hash plug-in reported a failure while retrieving the rootFS hash.
+ *  - LE_OK -- RootFS hash was obtained successfully from the hash plug-in.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_verInfo_GetRootFSHash
@@ -490,10 +501,10 @@ le_result_t taf_verInfo_GetRootFSHash
  *  Gets the firmware hash.
  *
  * @return
- *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_UNSUPPORTED -- Not supported.
- *  - LE_FAULT -- Failed.
- *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- hashPtr or hashSizePtr is NULL, or bank is neither BANK_A nor BANK_B.
+ *  - LE_UNSUPPORTED -- Hash plug-in is not loaded.
+ *  - LE_FAULT -- Hash plug-in reported a failure while retrieving the firmware hash.
+ *  - LE_OK -- Firmware hash was obtained successfully from the hash plug-in.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_verInfo_GetFirmwareHash
@@ -537,10 +548,13 @@ le_result_t taf_verInfo_GetFirmwareHash
  *  Gets the LXC hash.
  *
  * @return
- *  - LE_BAD_PARAMETER -- Bad parameters.
- *  - LE_UNSUPPORTED -- Not supported.
- *  - LE_FAULT -- Failed.
- *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- hashPtr or hashSizePtr is NULL, or bank is neither BANK_A nor BANK_B.
+ *  - LE_UNSUPPORTED -- LXC is not supported on the target, or without the hash plug-in the
+ *             requested bank is not the current boot bank.
+ *  - LE_FAULT -- Boot bank detection failed, LXC hash file read failed, or the hash plug-in
+ *             reported a failure.
+ *  - LE_OK -- LXC hash was obtained from the hash plug-in, or parsed from the LXC hash file for
+ *             the current boot bank.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_verInfo_GetLXCHash

@@ -7,7 +7,7 @@ elif [ "$1" == "sa515m" ]; then
 else
     echo " Missing target parameter!"
     echo " e.g. $0 sa415m"
-    exit
+    return
 fi
 
 umask 002
@@ -45,8 +45,13 @@ function build-distclean-af(){
 
 function build-sa515m-af(){
     make sa515m
+    KEYS=/opt/qct/sa515m/AVBTOOL/keys
     export AVBTOOL="${OECORE_NATIVE_SYSROOT}/usr/share/avb_py_tool/avbtool"
-    ${AVBTOOL} add_hashtree_footer --image ./build/sa515m/telaf_ro.squashfs --partition_name telaf --algorithm SHA256_RSA2048 --key ${OECORE_NATIVE_SYSROOT}/usr/share/avb_py_tool/qpsa_attest.key --public_key_metadata ${OECORE_NATIVE_SYSROOT}/usr/share/avb_py_tool/qpsa_attest.der --do_not_generate_fec --rollback_index 0
+    if [ ! -d $KEYS ]; then
+        ${AVBTOOL} add_hashtree_footer --image ./build/sa515m/telaf_ro.squashfs --partition_name telaf --do_not_generate_fec --rollback_index 0
+    else
+        ${AVBTOOL} add_hashtree_footer --image ./build/sa515m/telaf_ro.squashfs --partition_name telaf --algorithm SHA256_RSA2048 --key $KEYS/attest.key --public_key_metadata $KEYS/attest.der --do_not_generate_fec --rollback_index 0
+   fi
 }
 
 

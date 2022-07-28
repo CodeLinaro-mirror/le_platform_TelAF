@@ -32,41 +32,192 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * @page c_tafKeyStore Key Store Service
+ *
+ * @ref taf_ks_interface.h "API Reference"
+ *
+ * <HR>
+ * Key Store is an access control-based service with access to trusted hardware bound crypto. It
+ * ensures all cryptographic keys generated are bound to the device crytographically and all crypto
+ * operations are running in a trusted execution environment.
+ *
+ * Key Store service provides APIs to application for key management, key access control and crypto
+ * operations. It has a built-in reliable and secure backend storage to save cryptographic keys
+ * created by client applications. It also supports client authentication which means only the key
+ * owner has the permission to access or use the key for certain purpose.
+ *
+ * @section taf_ks_binding IPC interfaces binding
+ *
+ * All the functions of this API are provided by the @b tafKeyStoreSvc application service.
+ *
+ * Here's a sample of how to bind to Key Store service:
+ * @verbatim
+   bindings:
+   {
+       clientExe.clientComponent.taf_ks -> tafKeyStoreSvc.taf_ks
+   }
+   @endverbatim
+ *
+ * @section c_taf_ks_key_management Key management
+ *
+ * A new key can be created by using taf_ks_CreateKey() with desired key name and key usage passed
+ * as input parameters, a key reference as output parameter is returned to client for subsequent
+ * operations.
+ *
+ * New keys initially have no value and cannot be used for any crypto operations. Application shall
+ * call taf_ks_ProvisionXXX() API to provision or import the key value and save the key into backend
+ * storage. Following key provision/import APIs are supported:
+ * - taf_ks_ProvisionRsaEncKeyValue() - Provision or import a RSA encryption key value.
+ * - taf_ks_ProvisionRsaSigKeyValue() - Provision or import a RSA signing key value.
+ * - taf_ks_ProvisionAesKeyValue() - Provision or import an AES key value.
+ * - taf_ks_ProvisionEcdsaKeyValue() - Provision or import an ECDSA key value.
+ * - taf_ks_ProvisionHmacKeyValue() - Provision or import a HMAC key value.
+ *
+ * Here is an example of how an AES GCM key is created and provisioned:
+ * @verbatim
+   const char keyId[] = "MyAesGcmKey";
+   taf_ks_KeyRef_t keyRef;
+   if (LE_NOT_FOUND == taf_ks_GetKey(keyId, &keyRef))
+   {
+       LE_ASSERT(LE_OK == taf_ks_CreateKey(keyId,TAF_KS_AES_ENCRYPT_DECRYPT, &keyRef));
+       LE_ASSERT(LE_OK == taf_ks_ProvisionAesKeyValue(keyRef,
+                                                      TAF_KS_AES_SIZE_256,
+                                                      TAF_KS_AES_MODE_GCM,
+                                                      NULL, 0));
+   }
+   @endverbatim
+ *
+ * @note A key only allows one-shot provisioning after creation.
+ *
+ * Optionally, application can call taf_ks_SetKeyXXX() to set the attribute of key access control
+ * before key provisioning. Following key access control APIs are supported:
+ * - taf_ks_SetKeyMaxUsesPerBoot() - Set the maximum number of times that a key can be used per
+ *   system boot.
+ * - taf_ks_SetKeyMinSecondsBetweenOps() - Set the minimum amount of time that elapses between
+ *   allowed cryptographic operations using a key.
+ * - taf_ks_SetKeyActiveDateTime() - Set the date and time at which the key becomes active. Prior to
+ *   this time any attempt to use the key will fail.
+ * - taf_ks_SetKeyOriginationExpireDateTime() - Set the date and time at which the key expires for
+ *   signing and encryption. After this time any attempt to use a key for signing or encryption will
+ *   fail.
+ * - taf_ks_SetKeyUsageExpireDateTime() - Set the date and time at which the key expires for
+ *   verification and decryption. After this time any attempt to use a key for verification and
+ *   decryption will fail.
+ *
+ * @note currently all the key access control APIs are not implemented yet.
+ *
+ * Call taf_ks_GetKey() to get key reference by key name, call taf_ks_GetKeyUsage() to get the key
+ * usage by key reference.
+ *
+ * @note taf_ks_GetKey() will return LE_NOT_FOUND if the key is created but not provisioned yet.
+ *
+ * Call taf_ks_DeleteKey() to delete a key from the backend storage.
+ *
+ * @section c_taf_ks_crypto_operation Cryptographic operation
+ *
+ * The typical use cases are data encryption/decryption and message signing/verification. Each
+ * crypto operation must be processed within a context. A crypto session bound to the context must
+ * be created to use a key for certain cryptographic operation.
+ *
+ * @subsection c_taf_ks_create_session Create and start context session
+ * Call taf_ks_CryptoSessionCreate() to create a session and get session reference for subsequent
+ * operations.
+ *
+ * Call taf_ks_CryptoSessionSetAesNonce() to set the NONCE specifically for the AES CBC/CTR/GCM key.
+ *
+ * Call taf_ks_CryptoSessionStart() to start the session.
+ *
+ * Here is an example of how to create a crypto session and start the session for data encryption:
+ * @verbatim
+   taf_ks_CryptoSessionRef_t sessionRef;
+   const uint8_t nonce[12] = {"abcdefghijk"}; // Shall be customized and filled by application.
+   LE_ASSERT(LE_OK == taf_ks_CryptoSessionCreate(keyRef, &sessionRef));
+   LE_ASSERT(LE_OK == taf_ks_CryptoSessionSetAesNonce(sessionRef, nonce, sizeof(nonce)));
+   LE_ASSERT(LE_OK == taf_ks_CryptoSessionStart(sessionRef, TAF_KS_CRYPTO_ENCRYPT));
+   @endverbatim
+ *
+ * @subsection c_taf_ks_process_session Process data within the session
+ * Call taf_ks_CryptoSessionProcess() to process the input data and get the output data in a running
+ * crypto session started with taf_ks_CryptoSessionStart(). It shall be called for multiple times if
+ * the input data size is greater than TAF_KS_MAX_PACKET_SIZE, which means the input data shall be
+ * split into small pieces with the size of each piece less than TAF_KS_MAX_PACKET_SIZE.
+ *
+ * @note For AES GCM key, taf_ks_CryptoSessionProcessAead() must be called for one time or multiple
+ * times to pass the AEAD before calling taf_ks_CryptoSessionProcess(). taf_ks_CryptoSessionAbort()
+ * is used to abort a running session if needed.
+ *
+ * Call taf_ks_CryptoSessionEnd() to normally finish the cryptographic operation in the running
+ * session after all input data get processed by taf_ks_CryptoSessionProcess().
+ *
+ * Here is an example of how to process the input plain text and get the encrypted data, the
+ * encrypted data will be saved in the byte array of @b encryptedData with size of @b totalEncSize .
+ * @verbatim
+   const uint8_t plainText[] = "Keystore service for AES GCM test messages.";
+   uint8_t encryptedData[TAF_KS_MAX_PACKET_SIZE] = {0};
+   size_t encryptedDataSize = sizeof(encryptedData);
+   const uint8_t aead[] = {"123456789"}; // Shall be customized and filled by application.
+   LE_ASSERT(LE_OK == taf_ks_CryptoSessionProcessAead(sessionRef, aead, sizeof(aead)));
+   LE_ASSERT(LE_OK == taf_ks_CryptoSessionProcess(sessionRef,
+                                                  plainText,
+                                                  sizeof(plainText),
+                                                  encryptedData,
+                                                  &encryptedDataSize));
+   size_t totalEncSize = encryptedDataSize;
+   encryptedDataSize = sizeof(encryptedData) - totalEncSize;
+   LE_ASSERT(LE_OK == taf_ks_CryptoSessionEnd(sessionRef,
+                                              NULL, 0,
+                                              encryptedData + totalEncSize,
+                                              &encryptedDataSize));
+   totalEncSize = totalEncSize + encryptedDataSize;
+   @endverbatim
+ *
+ * @note The crypto session is automatically deleted after the taf_ks_CryptoSessionAbort() or the
+ * taf_ks_CryptoSessionEnd() is called, or when any error occurs in taf_ks_CryptoSessionStart() and
+ * taf_ks_CryptoSessionProcess().
+ *
+ * <HR>
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+
 USETYPES le_limit.api;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The Maximum Size of the Key Name.
+ * The maximum size of the key name in bytes.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE MAX_KEY_ID_SIZE = 256;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The Maximum Size of Secure label.
+ * The maximum size of the secure label in bytes.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE MAX_SEC_LABEL_SIZE = 256;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The Maximum Size for Data Packet in Bytes.
+ * The maximum size of the data packet in bytes.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE MAX_PACKET_SIZE = 4096;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The Nonce or IV size for AES GCM, CBC, CTR in Bytes.
+ * The maximum nonce or IV size for AES GCM, CBC, CTR in bytes.
  *
- * For AES GCM the nonce size is 12 byte, for AES CBC, CTR the IV is 16 byte.
+ * AES GCM nonce size must be fixed length of 12 bytes. AES CBC/CTR IV size must be fixed length of
+ * 16 bytes.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE MAX_AES_NONCE_SIZE = 16;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The Minimum and Maximum Size for HMAC key in Bytes.
+ * The minimum and maximum size for HMAC key in bytes.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE MIN_HMAC_KEY_SIZE = 8;
@@ -106,16 +257,16 @@ ENUM AesKeySize
 //--------------------------------------------------------------------------------------------------
 ENUM EccKeySize
 {
-    ECC_SIZE_224 = 1,  ///< ECC key size is 224 bit
-    ECC_SIZE_256,      ///< ECC key size is 256 bit
-    ECC_SIZE_384,      ///< ECC key size is 384 bit
-    ECC_SIZE_521,      ///< ECC key size is 521 bit
+    ECC_SIZE_224 = 1,  ///< NIST/SECG curve over a 224 bit prime field
+    ECC_SIZE_256,      ///< NIST/SECG curve over a 256 bit prime field
+    ECC_SIZE_384,      ///< NIST/SECG curve over a 384 bit prime field
+    ECC_SIZE_521,      ///< NIST/SECG curve over a 521 bit prime field
     ECC_SIZE_MAX,
 };
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Define the key Usage.
+ * Define the key usage.
  */
 //--------------------------------------------------------------------------------------------------
 ENUM KeyUsage
@@ -140,7 +291,7 @@ ENUM KeyUsage
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Define the Crypto Purpose for a crypto operation session.
+ * Define the crypto purpose for a cryptographic operation session.
  */
 //--------------------------------------------------------------------------------------------------
 ENUM CryptoPurpose
@@ -154,7 +305,7 @@ ENUM CryptoPurpose
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Define the digest algorithms used for RSA, ECC and HMAC.
+ * Define the digest algorithms used by RSA, ECC and HMAC.
  */
 //--------------------------------------------------------------------------------------------------
 ENUM Digest
@@ -170,7 +321,7 @@ ENUM Digest
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Define the Padding type for RSA encryption key.
+ * Define the padding type for RSA encryption key.
  *
  * The specified hash function used in MFG1 is only for OAEP padding
  */
@@ -190,9 +341,9 @@ ENUM RsaEncPadding
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Define the Padding type for RSA signature key.
+ * Define the padding type for RSA signature key.
  *
- * The specified hash function used in MFG1 is both for PSS padding and generating digest to sign.
+ * The specified hash function used in MFG1 is for both PSS padding and digest to sign.
  */
 //--------------------------------------------------------------------------------------------------
 ENUM RsaSigPadding
@@ -215,7 +366,7 @@ ENUM RsaSigPadding
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Define the AES Block Mode.
+ * Define the AES block mode.
  */
 //--------------------------------------------------------------------------------------------------
 ENUM AesBlockMode
@@ -238,19 +389,20 @@ REFERENCE Key;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Reference for crypto operation session.
+ * Reference for cryptographic operation session.
  */
 //--------------------------------------------------------------------------------------------------
 REFERENCE CryptoSession;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Creates a new key.
+ * Create a new key.
  *
- * New keys initially have no value and cannot be used for any crypto operations. Call KeySet API to
- * set optional attributions for key access control if needed, then call Provision APIs to provision
- * the key value and save the key into the backend storage. The GetKey API and Crypto APIs are
- * available to use only after the key value is correctly provisioned.
+ * @return
+ *     - LE_OK if successful.
+ *     - LE_BAD_PARAMETER if bad parameters.
+ *     - LE_NOT_PERMITTED if the key already exists.
+ *     - LE_FAULT if error occurs.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t CreateKey
@@ -262,7 +414,13 @@ FUNCTION le_result_t CreateKey
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get a key reference by key name.
+ * Get key by key name.
+ *
+ * @return
+ *     - LE_OK if successful.
+ *     - LE_BAD_PARAMETER if bad parameters.
+ *     - LE_NOT_FOUND if the key doesn't exist or isn't provisioned yet.
+ *     - LE_FAULT if error occurs.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetKey
@@ -273,10 +431,13 @@ FUNCTION le_result_t GetKey
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Delete a key by key reference
+ * Delete key by key reference.
  *
- * The key is only allowed to be deleted if it doesn't have ongoing crypto sessions, otherwise
- * LE_BUSY will be returned.
+ * @return
+ *     - LE_OK if successful.
+ *     - LE_NOT_FOUND if the key doesn't exist.
+ *     - LE_NOT_PERMITTED if the key has running crypto session.
+ *     - LE_FAULT if error occurs.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DeleteKey
@@ -287,6 +448,12 @@ FUNCTION le_result_t DeleteKey
 //--------------------------------------------------------------------------------------------------
 /**
  * Get key usage.
+ *
+ * @return
+ *     - LE_OK if successful.
+ *     - LE_BAD_PARAMETER if bad parameters.
+ *     - LE_NOT_FOUND if the key doesn't exist.
+ *     - LE_FAULT if error occurs.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetKeyUsage
@@ -298,6 +465,11 @@ FUNCTION le_result_t GetKeyUsage
 //--------------------------------------------------------------------------------------------------
 /**
  * Set the maximum number of times that a key may be used between system reboots.
+ *
+ * @return
+ *     - LE_OK if successful.
+ *     - LE_NOT_FOUND if the key doesn't exist.
+ *     - LE_NOT_PERMITTED if the key is already provisioned.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetKeyMaxUsesPerBoot
@@ -309,19 +481,31 @@ FUNCTION le_result_t SetKeyMaxUsesPerBoot
 //--------------------------------------------------------------------------------------------------
 /**
  * Set the minimum amount of time that elapses between allowed operations using a key.
+ *
+ * @return
+ *     - LE_OK if successful.
+ *     - LE_NOT_FOUND if the key doesn't exist.
+ *     - LE_NOT_PERMITTED if the key is already provisioned.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetKeyMinSecondsBetweenOps
 (
     Key    keyRef        IN,  ///< Key reference
-    uint32 value         IN   ///< Seconds interval between allowed operations.
+    uint32 value         IN   ///< Seconds interval between allowed operations
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Set application data to the key.
  *
- * When the attribute is provided to the key, the same data must be also provided to crypto API.
+ * When this attribute is provided to the key, the same data must be also provided through
+ * taf_ks_CryptoSessionSetAppData() for each cryptographic operation using the key.
+ *
+ * @return
+ *     - LE_OK if successful.
+ *     - LE_BAD_PARAMETER if bad parameters.
+ *     - LE_NOT_FOUND if the key doesn't exist.
+ *     - LE_NOT_PERMITTED if the key is already provisioned.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetKeyAppData
@@ -334,6 +518,11 @@ FUNCTION le_result_t SetKeyAppData
 /**
  * Set the date and time at which the key becomes active. Prior to this time any attempt to use the
  * key will get failed.
+ *
+ * @return
+ *     - LE_OK if successful.
+ *     - LE_NOT_FOUND if the key doesn't exist.
+ *     - LE_NOT_PERMITTED if the key is already provisioned.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetKeyActiveDateTime
@@ -346,6 +535,11 @@ FUNCTION le_result_t SetKeyActiveDateTime
 /**
  * Set the date and time at which the key expires for signing and encryption. After this time any
  * attempt to use a key for signing or encryption will get failed.
+ *
+ * @return
+ *     - LE_OK if successful.
+ *     - LE_NOT_FOUND if the key doesn't exist.
+ *     - LE_NOT_PERMITTED if the key is already provisioned.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetKeyOriginationExpireDateTime
@@ -358,6 +552,11 @@ FUNCTION le_result_t SetKeyOriginationExpireDateTime
 /**
  * Set the date and time at which the key expires for verification and decryption. After this time
  * any attempt to use a key for verification and decryption will get failed.
+ *
+ * @return
+ *     - LE_OK if successful.
+ *     - LE_NOT_FOUND if the key doesn't exist.
+ *     - LE_NOT_PERMITTED if the key is already provisioned.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetKeyUsageExpireDateTime
@@ -368,92 +567,128 @@ FUNCTION le_result_t SetKeyUsageExpireDateTime
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Provison a RSA encryption key value to the new created key so that the key can be available to
- * use for RSA encryption/decryption.
+ * Provison or import a RSA encryption key value to the new created key.
  *
- * The key value can be generated from either internal crypto engine or imported key data.
- * The impData holds the RSA encryption key must be PKCS#8 der format if provided.
+ * The impData parameter if provided shall hold PKCS#8 DER format of RSA key data for import.
+ *
+ * @return
+ *     - LE_OK if successful.
+ *     - LE_BAD_PARAMETER if bad parameters.
+ *     - LE_NOT_FOUND if the key doesn't exist.
+ *     - LE_NOT_PERMITTED if the key is already provisioned or the key is not suitable for this
+ *       provision or the key is not created by the client.
+ *     - LE_FAULT if error occurs.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ProvisionRsaEncKeyValue
 (
     Key              keyRef                   IN, ///< Key reference
-    RsaKeySize       keySize                  IN, ///< Key Size, ignored if impData is provided
-    RsaEncPadding    padding                  IN, ///< RSA encryption padding type
+    RsaKeySize       keySize                  IN, ///< Key size, set 0 if impData is provided
+    RsaEncPadding    padding                  IN, ///< Padding type of RSA encryption key
     uint8            impData[MAX_PACKET_SIZE] IN  ///< Imported key data
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Provision a RSA signing key value to the new created key so that the key can be available to
- * use for RSA signing/verification.
+ * Provision or import a RSA signing key value to the new created key.
  *
- * The key value can be generated from either internal crypto engine or imported key data.
- * The impData holds the RSA signing key must be PKCS#8 der format if provided.
+ * The impData parameter if provided shall hold PKCS#8 DER format of RSA key data for import.
+ *
+ * @return
+ *     - LE_OK if successful.
+ *     - LE_BAD_PARAMETER if bad parameters.
+ *     - LE_NOT_FOUND if the key doesn't exist.
+ *     - LE_NOT_PERMITTED if the key is already provisioned or the key is not suitable for this
+ *       provision or the key is not created by the client.
+ *     - LE_FAULT if error occurs.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ProvisionRsaSigKeyValue
 (
     Key              keyRef                   IN, ///< Key reference
-    RsaKeySize       keySize                  IN, ///< Key Size, ignored if impData is provided
-    RsaSigPadding    padding                  IN, ///< RSA signature padding type
+    RsaKeySize       keySize                  IN, ///< Key Size, set 0 if impData is provided
+    RsaSigPadding    padding                  IN, ///< Padding type of RSA signing key
     uint8            impData[MAX_PACKET_SIZE] IN  ///< Imported key data
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Provision an ECDSA key value to the new created key so that the key can be available to use for
- * ECDSA signing/verification.
+ * Provision or import an ECDSA key value to the new created key.
  *
- * The key value can be generated from either internal crypto engine or imported key data.
- * The impData holds the ECDSA key must be PKCS#8 der format if provided.
+ * The impData parameter if provided shall hold PKCS#8 DER format of ECDSA key data for import.
+ *
+ * @return
+ *     - LE_OK if successful.
+ *     - LE_BAD_PARAMETER if bad parameters.
+ *     - LE_NOT_FOUND if the key doesn't exist.
+ *     - LE_NOT_PERMITTED if the key is already provisioned or the key is not suitable for this
+ *       provision or the key is not created by the client.
+ *     - LE_FAULT if error occurs.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ProvisionEcdsaKeyValue
 (
     Key              keyRef                   IN, ///< Key reference
-    EccKeySize       keySize                  IN, ///< ECC curve, ignored if impData is provided
+    EccKeySize       keySize                  IN, ///< ECC curve, set 0 if impData is provided
     Digest           digest                   IN, ///< Digest
     uint8            impData[MAX_PACKET_SIZE] IN  ///< Imported key data
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Provision an AES key value to the new created key so that the key can be available to use for
- * AES encryption/decryption.
+ * Provision or import an AES key value to the new created key.
  *
- * The key value can be generated from either internal crypto engine or imported key data.
- * The impData holds the AES key must be raw key bytes format if provided.
+ * The impData parameter if provided shall hold the AES raw key data for import.
+ *
+ * @return
+ *     - LE_OK if successful.
+ *     - LE_BAD_PARAMETER if bad parameters.
+ *     - LE_NOT_FOUND if the key doesn't exist.
+ *     - LE_NOT_PERMITTED if the key is already provisioned or the key is not suitable for this
+ *       provision or the key is not created by the client.
+ *     - LE_FAULT if error occurs.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ProvisionAesKeyValue
 (
     Key              keyRef                   IN, ///< Key reference
-    AesKeySize       keySize                  IN, ///< AES key size, ignored if impData is provided
+    AesKeySize       keySize                  IN, ///< AES key size, set 0 if impData is provided
     AesBlockMode     mode                     IN, ///< AES block mode
     uint8            impData[MAX_PACKET_SIZE] IN  ///< Imported key data
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Provision a HMAC key value to the new created key so that the key can be available to use for
- * HMAC signing/verification.
+ * Provision or import a HMAC key value to the new created key.
  *
- * The key value can be generated from either internal crypto engine or imported key data.
- * The impData holds the HMAC key must be raw key bytes format if provided.
+ * The impData parameter if provided shall hold the HMAC raw key data for import.
+ *
+ * @return
+ *     - LE_OK if successful.
+ *     - LE_BAD_PARAMETER if bad parameters.
+ *     - LE_NOT_FOUND if the key doesn't exist.
+ *     - LE_NOT_PERMITTED if the key is already provisioned or the key is not suitable for this
+ *       provision or the key is not created by the client.
+ *     - LE_FAULT if error occurs.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ProvisionHmacKeyValue
 (
     Key              keyRef                   IN, ///< Key reference
-    uint32           keySize                  IN, ///< HMAC Key Size, ignored if impData is provided
+    uint32           keySize                  IN, ///< HMAC Key Size, set 0 if impData is provided
     Digest           digest                   IN, ///< digest
     uint8            impData[MAX_PACKET_SIZE] IN  ///< Imported key data
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Create a crypto operation session for the key.
+ * Create a crypto operation session for a key.
+ *
+ * @return
+ *     - LE_OK if successful.
+ *     - LE_BAD_PARAMETER if bad parameters.
+ *     - LE_NOT_FOUND if the key doesn't exist.
+ *     - LE_NOT_PERMITTED if the key is not provisioned yet.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t CryptoSessionCreate
@@ -465,9 +700,14 @@ FUNCTION le_result_t CryptoSessionCreate
 //--------------------------------------------------------------------------------------------------
 /**
  * Set the nonce or IVs for AES GCM, CBC, CTR for a crypto session. For AES GCM the nonce size must
- * be 12 byte, for AES CBC, CTR the IV must be 16 byte.
+ * be 12 bytes, for AES CBC, CTR the IV must be 16 bytes.
  *
- * This API must be called before CryptoSessionStart API if needed.
+ * @return
+ *     - LE_OK if successful.
+ *     - LE_BAD_PARAMETER if bad parameters.
+ *     - LE_NOT_FOUND if the session or the key doesn't exist.
+ *     - LE_NOT_PERMITTED if the key is not provisioned yet or the session is not created by the
+ *       client.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t CryptoSessionSetAesNonce
@@ -480,7 +720,15 @@ FUNCTION le_result_t CryptoSessionSetAesNonce
 /**
  * Set the Application data for a crypto session.
  *
- * This API must be called before CryptoSessionStart API if need.
+ * This API must be called before taf_ks_CryptoSessionStart() if the key has set the attribute of
+ * application data by taf_ks_SetKeyAppData().
+ *
+ * @return
+ *     - LE_OK if successful.
+ *     - LE_BAD_PARAMETER if bad parameters.
+ *     - LE_NOT_FOUND if the session or the key doesn't exist.
+ *     - LE_NOT_PERMITTED if the key is not provisioned yet or the session is not created by the
+ *       client.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t CryptoSessionSetAppData
@@ -491,9 +739,17 @@ FUNCTION le_result_t CryptoSessionSetAppData
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Start the crypto session for the given crypto operation.
+ * Start the crypto session for the given crypto operation. The crypto session will be automatically
+ * deleted if error occurs.
  *
- * The crypto session will be automatically deleted if error is returned.
+ * @return
+ *     - LE_OK if successful.
+ *     - LE_BAD_PARAMETER if bad parameters.
+ *     - LE_NOT_FOUND if the session or the key doesn't exist.
+ *     - LE_NOT_PERMITTED if the key is not provisioned yet or the session is not created by the
+ *       client.
+ *     - LE_DUPLICATE if the session is already started.
+ *     - LE_FAULT if error occurs.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t CryptoSessionStart
@@ -504,10 +760,17 @@ FUNCTION le_result_t CryptoSessionStart
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Provides AES AEAD to the running crypto session started with CryptoSessionStart API for AES GCM
- * mode. This API can be called for multiple times but must before CryptoSessionProcess API.
+ * Provide AEAD to a AES GCM crypto session started with taf_ks_CryptoSessionStart().
+ * This API can be called for multiple times before taf_ks_CryptoSessionProcess(). And the crypto
+ * session will be automatically deleted if error occurs.
  *
- * The crypto session will be automatically deleted if error is returned.
+ * @return
+ *     - LE_OK if successful.
+ *     - LE_BAD_PARAMETER if bad parameters.
+ *     - LE_NOT_FOUND if the session or the key doesn't exist.
+ *     - LE_NOT_PERMITTED if the key is not provisioned yet or the session is not created by the
+ *       client, or the session is not started.
+ *     - LE_FAULT if error occurs.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t CryptoSessionProcessAead
@@ -519,50 +782,70 @@ FUNCTION le_result_t CryptoSessionProcessAead
 //--------------------------------------------------------------------------------------------------
 /**
  * Provides data to, and possibly receives output from, an runing crypto session started with
- * CryptoSessionStart API. It can be called for multiple times before CryptoSessionEnd API is
- * called.
+ * taf_ks_CryptoSessionStart(). It can be called for multiple times before taf_ks_CryptoSessionEnd()
+ * is called. The crypto session will be automatically deleted if error occurs.
  *
- * The crypto session will be automatically deleted if error is returned.
+ * @return
+ *     - LE_OK if successful.
+ *     - LE_BAD_PARAMETER if bad parameters.
+ *     - LE_NOT_FOUND if the session or the key doesn't exist.
+ *     - LE_NOT_PERMITTED if the key is not provisioned yet or the session is not created by the
+ *       client, or the session is not started.
+ *     - LE_FAULT if error occurs.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t CryptoSessionProcess
 (
     CryptoSession sessionRef               IN, ///< Session reference
     uint8   inputData[MAX_PACKET_SIZE]     IN, ///< InputData can be one of below 4 cases:
-                                               ///< 1: plain text for encryption session.
-                                               ///< 2: cipher text for decryption session.
-                                               ///< 3: message to sign for signing session.
-                                               ///< 4: message to verify for verification session.
+                                               ///< 1: Plain text for encryption session.
+                                               ///< 2: Cipher text for decryption session.
+                                               ///< 3: Message to sign for signing session.
+                                               ///< 4: Message to verify for verification session.
     uint8   outputData[MAX_PACKET_SIZE]    OUT ///< OutputData can be one of below 3 cases:
-                                               ///< 1: encrypted data for encryption session.
-                                               ///< 2: decrypted data for decryption session.
-                                               ///< 3: must set NULL for signing and verification sessions.
+                                               ///< 1: Encrypted data for encryption session.
+                                               ///< 2: Decrypted data for decryption session.
+                                               ///< 3: Shall set NULL for signing and verification
+                                               ///     sessions.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Finalizes the crypto session started with CryptoSessionStart API.
+ * Finalize the crypto session started with taf_ks_CryptoSessionStart(). This API shall be called
+ * once all input data get processed by taf_ks_CryptoSessionProcess(), and the crypto session
+ * will be then automatically deleted.
  *
- * The crypto session will be then automatically deleted.
+ * @return
+ *     - LE_OK if successful.
+ *     - LE_NOT_FOUND if the session or the key doesn't exist.
+ *     - LE_NOT_PERMITTED if the key is not provisioned yet or the session is not created by the
+ *       client, or the session is not started.
+ *     - LE_FAULT if error occurs.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t CryptoSessionEnd
 (
     CryptoSession sessionRef               IN, ///< Session reference
     uint8   inputData[MAX_PACKET_SIZE]     IN, ///< Signature to verify for verification session
-                                               ///< and must set NULL for other sessions.
+                                               ///< and shall set to NULL for other sessions.
     uint8   outputData[MAX_PACKET_SIZE]    OUT ///< OutputData can be one of below 4 cases:
-                                               ///< 1: encrypted data for encryption session.
-                                               ///< 2: decrypted data for decryption session.
-                                               ///< 3: signature for signing session.
-                                               ///< 4: must set NULL for verfication session.
+                                               ///< 1: Encrypted data for encryption session.
+                                               ///< 2: Decrypted data for decryption session.
+                                               ///< 3: Signature for signing session.
+                                               ///< 4: Shall set to NULL for verfication session.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Abort the crypto session started with CryptoSessionStart API.
+ * Abort the crypto session started with taf_ks_CryptoSessionStart(), and the crypto session will be
+ * then automatically deleted.
  *
- * The crypto session will be then automatically deleted.
+ * @return
+ *     - LE_OK if successful.
+ *     - LE_NOT_FOUND if the session or the key doesn't exist.
+ *     - LE_NOT_PERMITTED if the key is not provisioned yet or the session is not created by the
+ *       client, or the session is not started.
+ *     - LE_FAULT if error occurs.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t CryptoSessionAbort

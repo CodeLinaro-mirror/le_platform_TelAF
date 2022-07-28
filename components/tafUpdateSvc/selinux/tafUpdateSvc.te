@@ -7,6 +7,7 @@ gen_require(`
     class blk_file { open read write };
     type cache_t;
     type cache_recovery_t;
+    type cgroup_t;
     type device_t;
     type etc_t;
     type fixed_disk_device_t;
@@ -14,15 +15,19 @@ gen_require(`
     type home_root_t;
     type init_t;
     type init_var_run_t;
+    type initctl_t;
     type leprop_t;
     type leprop_sock_t;
     type kernel_t;
     type kmsg_device_t;
+    type mtd_block_t;
     type mtd_device_t;
     type ota_master_da_data_t;
 #    type ota_manager_exec_t;
+    type power_unit_t;
     type proc_t;
     type shell_exec_t;
+    type systemd_logind_var_run_t;
     type telaf_admin_t;
     type telaf_update_t;
     type tmp_t;
@@ -63,24 +68,29 @@ allow telaf_tafUpdateSvc_t device_t:dir { write };
 allow telaf_tafUpdateSvc_t cache_recovery_t:dir { manage_dir_perms };
 allow telaf_tafUpdateSvc_t cache_recovery_t:file { manage_file_perms };
 allow telaf_tafUpdateSvc_t mtd_device_t:chr_file { rw_file_perms };
+allow telaf_tafUpdateSvc_t mtd_block_t:blk_file {rw_file_perms};
 allow telaf_tafUpdateSvc_t self:capability2 { syslog };
 allow telaf_tafUpdateSvc_t kernel_t:system { syslog_read };
 allow telaf_tafUpdateSvc_t leprop_sock_t:sock_file { write };
 allow telaf_tafUpdateSvc_t cache_t:dir { search_dir_perms write };
 allow telaf_tafUpdateSvc_t leprop_t:unix_stream_socket { connectto };
-allow telaf_tafUpdateSvc_t fs_t:filesystem { getattr };
+allow telaf_tafUpdateSvc_t fs_t:filesystem { getattr unmount };
 # allow access to /dev/mtd devices
 storage_raw_write_fixed_disk(telaf_tafUpdateSvc_t)
 storage_raw_read_fixed_disk(telaf_tafUpdateSvc_t)
 
 # reboot policy
 allow telaf_tafUpdateSvc_t init_t:dir { search };
-allow telaf_tafUpdateSvc_t init_t:file { read_file_perms };
+allow telaf_tafUpdateSvc_t init_t:file { exec_file_perms };
 allow telaf_tafUpdateSvc_t init_t:lnk_file { read };
 allow telaf_tafUpdateSvc_t init_t:unix_stream_socket { connectto };
 allow telaf_tafUpdateSvc_t telaf_admin_t:fifo_file { ioctl };
 allow telaf_tafUpdateSvc_t self:capability { fowner fsetid dac_read_search net_admin };
-allow telaf_tafUpdateSvc_t init_var_run_t:sock_file { write };
+allow telaf_tafUpdateSvc_t init_var_run_t:sock_file { open write };
+allow telaf_tafUpdateSvc_t systemd_logind_var_run_t:sock_file { open write };
+allow telaf_tafUpdateSvc_t initctl_t:fifo_file { open write };
+allow telaf_tafUpdateSvc_t cgroup_t:dir { manage_dir_perms };
+systemd_start_power_units(telaf_tafUpdateSvc_t)
 
 init_telaf_app_domain(telaf_tafUpdateSvc_t,telaf_tafUpdateSvc_exec_t)
 

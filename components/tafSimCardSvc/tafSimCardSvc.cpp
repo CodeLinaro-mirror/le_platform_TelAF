@@ -357,3 +357,12 @@ le_result_t taf_sim_SendCommand
         auto &sim = taf_sim::GetInstance();
         return sim.SendCommand(simId, command, fileIdentifierPtr, &p1, &p2, &p3, dataPtr, dataNumElements, pathPtr, sw1, sw2, responsePtr, responseNumElementsPtr);
 }
+le_result_t taf_sim_SetPower
+(
+    taf_sim_Id_t simId,
+    le_onoff_t powerState
+)
+{
+    auto &sim = taf_sim::GetInstance();
+    return sim.SetPower(simId, powerState);
+}

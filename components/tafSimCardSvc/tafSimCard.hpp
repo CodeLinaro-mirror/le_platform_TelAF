@@ -136,6 +136,7 @@ namespace telux {
                 void RemoveStateHandler(taf_sim_NewStateHandlerRef_t handlerRef);
                 taf_sim_States_t getState(taf_sim_Id_t simId);
                 const char* cardStateToString(CardState state);
+                const char* statusToString(telux::common::Status status);
                 taf_sim_States_t cardStateToTafSimStates(CardState state);
                 static void FirstLayerNewSimStateHandler(void* reportPtr, void* secondLayerHandlerFunc);
                 taf_sim_NewStateHandlerRef_t AddStateHandler(taf_sim_NewStateHandlerFunc_t handlerPtr,
@@ -182,6 +183,7 @@ namespace telux {
                         uint8_t *p1, uint8_t *p2,uint8_t *p3, const uint8_t* dataPtr,
                         size_t dataNumElements, const char* pathPtr, uint8_t* sw1,uint8_t* sw2,
                         uint8_t* responsePtr, size_t* responseNumElementsPtr);
+                le_result_t SetPower( taf_sim_Id_t simId, le_onoff_t powerState);
         };
     }
 }

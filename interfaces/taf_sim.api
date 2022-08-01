@@ -223,6 +223,7 @@
  * @warning Device may need a reboot to detect a SIM insertion or removal. So it is recommended to restart
  * the device or NAD.
  *
+ * taf_sim_SetPower() powers up or down the current SIM card.
  *
  * @subsection taf_sim_OpenLogicalChannel Logical channels
  *
@@ -843,3 +844,22 @@ FUNCTION le_result_t SendCommand
     uint8          sw2 OUT,                                 ///< Status Word 2 received from the SIM
     uint8          response[RESPONSE_MAX_BYTES] OUT         ///< SIM response.
 );
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Power up or down the current SIM.
+ *
+ * @return LE_OK                  Function succeeded.
+ * @return LE_FAULT               Function failed.
+ * @return LE_BAD_PARAMETER       Incorrect parameters.
+ *
+ * @note For SIM power cycle operation, it must wait until SIM state is LE_SIM_POWER_DOWN
+ *       before powering on the SIM, otherwise power up SIM will fail.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetPower
+(
+    Id           simId IN,                  ///< The SIM identifier.
+    le_onoff_t   power IN                   ///< The power state.
+);
+

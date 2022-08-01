@@ -308,6 +308,61 @@ taf_sim_States_t taf_sim::getState(taf_sim_Id_t simId) {
     return cardStateToTafSimStates(cardState);
 }
 
+const char* taf_sim::statusToString(telux::common::Status status) {
+    const char *statusString;
+    switch(status) {
+        case telux::common::Status::SUCCESS:
+            statusString = "SUCCESS";
+            break;
+        case telux::common::Status::FAILED:
+            statusString = "FAILED";
+            break;
+        case telux::common::Status::NOCONNECTION:
+            statusString = "NOCONNECTION";
+            break;
+        case telux::common::Status::NOSUBSCRIPTION:
+            statusString = "NOSUBSCRIPTION";
+            break;
+        case telux::common::Status::INVALIDPARAM:
+            statusString = "INVALIDPARAM";
+            break;
+        case telux::common::Status::INVALIDSTATE:
+            statusString = "INVALIDSTATE";
+            break;
+        case telux::common::Status::NOTREADY:
+            statusString = "NOTREADY";
+            break;
+        case telux::common::Status::NOTALLOWED:
+            statusString = "NOTALLOWED";
+            break;
+        case telux::common::Status::NOTIMPLEMENTED:
+            statusString = "NOTIMPLEMENTED";
+            break;
+        case telux::common::Status::CONNECTIONLOST:
+            statusString = "CONNECTIONLOST";
+            break;
+        case telux::common::Status::EXPIRED:
+            statusString = "EXPIRED ";
+            break;
+        case telux::common::Status::ALREADY:
+            statusString = "ALREADY";
+            break;
+        case telux::common::Status::NOSUCH:
+            statusString = "NOSUCH";
+            break;
+        case telux::common::Status::NOTSUPPORTED:
+            statusString = "NOTSUPPORTED";
+            break;
+        case telux::common::Status::NOMEMORY:
+            statusString = "NOMEMORY";
+            break;
+        default:
+            statusString = "Unknown State";
+            break;
+    }
+    return statusString;
+}
+
 const char* taf_sim::cardStateToString(CardState state) {
     const char *cardState;
     switch(state) {
@@ -978,4 +1033,36 @@ le_result_t taf_sim::SendCommand(
         index++;
     }
     return LE_OK;
+}
+le_result_t taf_sim::SetPower(taf_sim_Id_t simId, le_onoff_t powerState)
+{
+    if (selectSimSlot(simId) != LE_OK)
+    {
+        LE_INFO("Sim ID %d Invalid", simId);
+        return LE_BAD_PARAMETER;
+    }
+    if(!(powerState==LE_OFF || powerState==LE_ON))
+    {
+        LE_INFO("Invalid powerState given %d", powerState);
+        return LE_BAD_PARAMETER;
+    }
+    telux::common::Status status;
+    auto ICard = cardManager->getCard(simId, &status);
+    SlotId slotId_for_card = SlotId(ICard->getSlotId());
+    std::promise<telux::common::ErrorCode> p;
+    telux::common::ResponseCallback setPowerResponseCb = [&p]
+            (telux::common::ErrorCode error) {p.set_value(error);};
+    status = (powerState==LE_OFF)?cardManager->cardPowerDown(slotId_for_card, setPowerResponseCb):
+            cardManager->cardPowerUp(slotId_for_card, setPowerResponseCb);
+    if(status == Status::SUCCESS)
+    {
+        telux::common::ErrorCode error = p.get_future().get();
+        if(error == ErrorCode::SUCCESS)
+        {
+            return LE_OK;
+        }
+    }
+    LE_INFO("Set Power operation failed, with status %s , simId %d , powerState %d",
+            statusToString(status), simId, powerState);
+    return LE_FAULT;
 }

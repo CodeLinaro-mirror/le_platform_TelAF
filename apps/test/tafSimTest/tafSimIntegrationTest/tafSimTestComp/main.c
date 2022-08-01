@@ -42,6 +42,7 @@ static void DisplayAppUsage(void) {
     printf("SIM lock test: app runProc tafSimTest --exe=tafSimTest -- lock <slot1/slot2/unknown> <pin1/fdn> pin\n");
     printf("SIM unlock test: app runProc tafSimTest --exe=tafSimTest -- unlock <slot1/slot2/unknown> <pin1/fdn> pin\n");
     printf("SIM access test: app runProc tafSimTest --exe=tafSimTest -- access <slot1/slot2/unknown>\n");
+    printf("SIM SetPower test: app runProc tafSimTest --exe=tafSimTest -- setPower <slot1/slot2/unknown> <ON/OFF>\n");
 }
 
 static taf_sim_Id_t GetSimId(const char* simIdPtr) {
@@ -53,6 +54,20 @@ static taf_sim_Id_t GetSimId(const char* simIdPtr) {
         return TAF_SIM_UNSPECIFIED;
     }
     LE_ERROR("Unable to convert '%s' to a taf_sim_Id_t", simIdPtr);
+    DisplayAppUsage();
+    exit(EXIT_FAILURE);
+}
+
+static le_onoff_t GetPowerStatus(const char* powerStatusPtr)
+{
+    if(strcmp(powerStatusPtr, "ON")==0)
+    {
+        return LE_ON;
+    } else if(strcmp(powerStatusPtr, "OFF")==0)
+    {
+        return LE_OFF;
+    }
+    LE_ERROR("Unable to convert '%s' to a powerStatusPtr", powerStatusPtr);
     DisplayAppUsage();
     exit(EXIT_FAILURE);
 }
@@ -279,6 +294,12 @@ COMPONENT_INIT
     }else if (strcmp(testType, "access") == 0)
     {
         tafSimTest_sim_access(simId);
+    }
+    else if (strcmp(testType, "setPower") == 0)
+    {
+        const char* powerStatusPtr = le_arg_GetArg(2);
+        le_onoff_t powerStatus = GetPowerStatus(powerStatusPtr);
+        tafSimTest_SetPowerCheck(simId, powerStatus);
     }
      else {
         DisplayAppUsage();

@@ -259,3 +259,19 @@ void tafSimTest_sim_access
     LE_INFO("APDU response sw1 = 0x%02X",sw1);
     LE_INFO("APDU response sw2 = 0x%02X",sw2);
 }
+
+void tafSimTest_SetPowerCheck
+(
+    taf_sim_Id_t simId,
+    le_onoff_t powerStatus
+)
+{
+    le_result_t r;
+    r = taf_sim_SetPower(simId, powerStatus);
+    if(r != LE_OK)
+    {
+        LE_INFO("SetPower : failed to change to %d , SetPower returned \'%d\'",powerStatus, r);
+        return;
+    }
+    LE_INFO("SetPower API working fine");
+}

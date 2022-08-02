@@ -1081,3 +1081,28 @@ taf_ecall_State_t taf_ecall_GetState
     return ecall.GetState(ecallRef);
 }
 
+/*======================================================================
+
+ FUNCTION       taf_ecall_GetTerminationReason
+
+ DESCRIPTION    Get eCall terminate reason
+
+ DEPENDENCIES   Initialization of ECall service
+
+ PARAMETERS     [IN] ecallRef: ecall reference
+
+ RETURN VALUE   The termination reason
+
+ SIDE EFFECTS
+
+======================================================================*/
+taf_ecall_TerminationReason_t taf_ecall_GetTerminationReason
+
+(
+    taf_ecall_CallRef_t    ecallRef
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.GetTerminationReason(ecallRef);
+}
+

@@ -119,6 +119,9 @@ void tafECallListener::onCallInfoChange(std::shared_ptr<telux::tel::ICall> call)
 
     bool isCallStateSet = false;
 
+    eCall.CallEndError = telux::tel::CallEndCause::NORMAL;
+    LE_INFO("CallID = %d, State: %d", (int) call->getCallIndex(), (int) callState);
+
     if (callState == CallState::CALL_ACTIVE)
     {
         sessionState = ECALL_ACTIVE;
@@ -146,6 +149,8 @@ void tafECallListener::onCallInfoChange(std::shared_ptr<telux::tel::ICall> call)
     {
         sessionState = ECALL_ENDED;
         state = TAF_ECALL_STATE_ENDED;
+        eCall.CallEndError = call->getCallEndCause();
+        LE_INFO("ECall ENDed terminate reason = %d", (int) eCall.CallEndError);
         isCallStateSet = true;
 
     }
@@ -461,7 +466,7 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
     //Check ECall session
     if (eCallPtr->eCallSession != ECALL_INIT && (eCallPtr->eCallSession != ECALL_ENDED)) {
         LE_ERROR("Already ecall in progress");
-        return LE_FAULT;
+        return LE_BUSY;
     }
     makeEcallProm = std::promise<telux::common::ErrorCode>();
 
@@ -900,6 +905,25 @@ taf_ecall_State_t taf_ecall::GetState ( taf_ecall_CallRef_t ecallRef)
 
     return eCallPtr->state;
 
+}
+
+taf_ecall_TerminationReason_t taf_ecall::GetTerminationReason ( taf_ecall_CallRef_t ecallRef)
+{
+    taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(ECallPtrRefMap, ecallRef);
+
+    TAF_ERROR_IF_RET_VAL(eCallPtr == NULL,
+            TAF_ECALL_REASON_ERROR_UNSPECIFIED, "Invalid eCall reference");
+    TAF_ERROR_IF_RET_VAL(TAF_ECALL_STATE_ENDED != taf_ecall::GetState(ecallRef),
+            TAF_ECALL_REASON_NORMAL_UNSPECIFIED, "The eCall is not ENDed");
+
+    auto &eCall = taf_ecall::GetInstance();
+    // Map CDMA specific call end causes
+    if (eCall.CallEndError >= telux::tel::CallEndCause::CDMA_LOCKED_UNTIL_POWER_CYCLE &&
+            eCall.CallEndError <= telux::tel::CallEndCause::CDMA_ACCESS_BLOCKED) {
+        eCall.CallEndError = telux::tel::CallEndCause::NORMAL_UNSPECIFIED;
+    }
+    LE_INFO("GetTerminationReason call end error = %d", (int) eCall.CallEndError);
+    return (taf_ecall_TerminationReason_t) eCall.CallEndError;
 }
 
 taf_ecall_StateChangeHandlerRef_t taf_ecall::AddStateChangeHandler

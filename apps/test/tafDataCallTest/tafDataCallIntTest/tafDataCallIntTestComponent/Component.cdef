@@ -1,0 +1,12 @@
+sources:
+{
+    tafDataCallIntTest.cpp
+}
+
+requires:
+{
+    api:
+    {
+        taf_dcs.api
+    }
+}

@@ -325,20 +325,37 @@ le_result_t taf_dcs_StartSession(taf_dcs_ProfileRef_t profileRef)
  *
  * @param [in] profileRef               The profile reference to be started.
  *
- * @returns LE_OK                       Success to start this data session.
- *          OTHER                       Failed to start this data session.
+ * @returns None.
  */
-le_result_t taf_dcs_StartSessionAsync(taf_dcs_ProfileRef_t profileRef)
+void taf_dcs_StartSessionAsync
+(
+    taf_dcs_ProfileRef_t profileRef,
+    taf_dcs_AsyncSessionHandlerFunc_t handlerPtr,
+    void* contextPtr
+)
 {
+#if 0
     auto &dataConnection = taf_DataConnection::GetInstance();
     auto &dataProfile = taf_DataProfile::GetInstance();
+    taf_ConnectionCmdReq_t cmdReq;
+
+    TAF_ERROR_IF_RET_NIL(handlerPtr == NULL, "Handler function is NULL");
 
     int32_t profileId;
     le_result_t result = dataProfile.GetProfileId(profileRef, &profileId);
-    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
+    TAF_ERROR_IF_RET_NIL(result != LE_OK, "profile reference(%p) is invalid", profileRef);
 
-    taf_dcs_Pdp_t pdpType = dataProfile.GetPdp(profileRef);
-    return dataConnection.StartSessionCmdSync(profileId, pdpType, taf_dcs_GetClientSessionRef());
+    cmdReq.cmdType = ASYNC_START_SESSION;
+    cmdReq.profileRef = profileRef;
+    cmdReq.sessionRef = taf_dcs_GetClientSessionRef();
+    cmdReq.contextPtr = contextPtr;
+    cmdReq.handlerFuncPtr = handlerPtr;
+
+   dataConnection.AddHandlerSessionMapping(cmdReq.sessionRef, handlerPtr);
+
+    // Sending start data session command
+    le_event_Report(taf_DataConnection::connectionAsyncCmdEvId, &cmdReq, sizeof(cmdReq));
+#endif
 }
 
 /**
@@ -373,20 +390,37 @@ le_result_t taf_dcs_StopSession(taf_dcs_ProfileRef_t profileRef)
  *
  * @param [in] profileRef               The profile reference to be stopped.
  *
- * @returns LE_OK                       Success to stop this data session.
- *          OTHER                       Failed to stop this data session.
+ * @returns None.
  */
-le_result_t taf_dcs_StopSessionAsync(taf_dcs_ProfileRef_t profileRef)
+void taf_dcs_StopSessionAsync
+(
+    taf_dcs_ProfileRef_t profileRef,
+    taf_dcs_AsyncSessionHandlerFunc_t handlerPtr,
+    void* contextPtr
+)
 {
+#if 0
     auto &dataConnection = taf_DataConnection::GetInstance();
     auto &dataProfile = taf_DataProfile::GetInstance();
+    taf_ConnectionCmdReq_t cmdReq;
+
+    TAF_ERROR_IF_RET_NIL(handlerPtr == NULL, "Handler function is NULL");
 
     int32_t profileId;
     le_result_t result = dataProfile.GetProfileId(profileRef, &profileId);
-    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
+    TAF_ERROR_IF_RET_NIL(result != LE_OK, "profile reference(%p) is invalid", profileRef);
 
-    taf_dcs_Pdp_t pdpType = dataProfile.GetPdp(profileRef);
-    return dataConnection.StopSessionCmdSync(profileId, pdpType, taf_dcs_GetClientSessionRef());
+    cmdReq.cmdType = ASYNC_STOP_SESSION;
+    cmdReq.profileRef = profileRef;
+    cmdReq.sessionRef = taf_dcs_GetClientSessionRef();
+    cmdReq.contextPtr = contextPtr;
+    cmdReq.handlerFuncPtr = handlerPtr;
+
+    dataConnection.AddHandlerSessionMapping(cmdReq.sessionRef, handlerPtr);
+
+    // Sending stop data session command
+    le_event_Report(taf_DataConnection::connectionAsyncCmdEvId, &cmdReq, sizeof(cmdReq));
+#endif
 }
 
 /**

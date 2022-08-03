@@ -82,6 +82,11 @@ using namespace telux::tafsvc;
 
 LE_MEM_DEFINE_STATIC_POOL(tafDataCall, TAF_DCS_MAX_CALL_OBJ, sizeof(taf_dcs_CallCtx_t));
 LE_MEM_DEFINE_STATIC_POOL(tafSessionRef, TAF_DCS_MAX_SESSION_REF, sizeof(taf_SessionRef_t));
+LE_MEM_DEFINE_STATIC_POOL(HandlerSessionMappingPool,
+                                    TAF_DCS_MAX_ASYNC_HANDLER_MAPPING,
+                                    sizeof(HandlerSessionMapping_t));
+
+le_event_Id_t taf_DataConnection::connectionAsyncCmdEvId = nullptr;
 
 #ifdef TARGET_SA515M
 taf_DataConnServingSystemListener::taf_DataConnServingSystemListener(SlotId slot) :
@@ -1536,7 +1541,215 @@ void* taf_DataConnection::ConnectionEventThread(void* contextPtr)
     return NULL;
 }
 
-// When the client closed, this event handler will close the data calls
+/*======================================================================
+ FUNCTION        taf_DataConnection::ConnectionProcAsyncCmdHandler
+ DESCRIPTION     Asyncrous connection command handler.
+
+ DEPENDENCIES    The initialization of data connection command thread.
+
+ PARAMETERS      [IN] void* cmdReqPtr: Command request pointer.
+
+ RETURN VALUE    None
+
+======================================================================*/
+void taf_DataConnection::ConnectionProcAsyncCmdHandler(void* cmdReqPtr)
+{
+    taf_ConnectionCmdReq_t* cmdReq = (taf_ConnectionCmdReq_t*)cmdReqPtr;
+    auto &dataConnection = taf_DataConnection::GetInstance();
+    auto &dataProfile = taf_DataProfile::GetInstance();
+    int32_t profileId;
+
+    TAF_ERROR_IF_RET_NIL(cmdReqPtr == NULL, "Parameter is NULL");
+
+    le_result_t result = dataProfile.GetProfileId(cmdReq->profileRef, &profileId);
+    TAF_ERROR_IF_RET_NIL(result != LE_OK, "profile reference is invalid");
+
+    taf_dcs_Pdp_t pdpType = dataProfile.GetPdp(cmdReq->profileRef);
+
+    switch(cmdReq->cmdType)
+    {
+        case ASYNC_START_SESSION:
+            LE_DEBUG("-ASYNC_START_SESSION-");
+            result = dataConnection.StartSessionAllSync(profileId,
+                                                        pdpType,
+                                                        cmdReq->sessionRef);
+            if (result != LE_OK)
+            {
+                LE_ERROR("StartSession error %d", result);
+            }
+        break;
+        case ASYNC_STOP_SESSION:
+            LE_DEBUG("-ASYNC_STOP_SESSION-");
+            result = dataConnection.StopSessionAllSync(profileId,
+                                                       pdpType,
+                                                       cmdReq->sessionRef);
+            if (result != LE_OK)
+            {
+                LE_ERROR("StopSession error %d", result);
+            }
+        break;
+        default:
+                LE_ERROR("Command error");
+        break;
+    }
+
+    if (cmdReq->handlerFuncPtr)
+    {
+        // Check if handler is in the mapping list before calling an async handler
+        HandlerSessionMapping_t *asyncHandlerDb =  dataConnection.FindAsyncHandler(
+                                                                           cmdReq->handlerFuncPtr);
+        if (!asyncHandlerDb)
+        {
+            LE_DEBUG("Don't call Async handler %p since the client session is already closed",
+            cmdReq->handlerFuncPtr);
+            //If a client session starts a data call and the client session is closed, stop the
+            //data call
+            if(cmdReq->cmdType == ASYNC_START_SESSION && result == LE_OK)
+            {
+                LE_DEBUG("--stop the data call since the client session is closed--");
+                dataConnection.StopSessionCmdSync(profileId, pdpType, cmdReq->sessionRef);
+            }
+            return;
+        }
+        LE_DEBUG("Calling async handler %p with status %d", cmdReq->handlerFuncPtr, result);
+        cmdReq->handlerFuncPtr(cmdReq->profileRef, result, cmdReq->contextPtr);
+        dataConnection.DeleteHandlerInfo(asyncHandlerDb->asyncHandler);
+    }
+    else
+    {
+        LE_WARN("No handler function, result %d!!", result);
+    }
+
+}
+
+/*======================================================================
+
+ FUNCTION        taf_DataConnection::ConnectionAsyncCmdThread
+
+ DESCRIPTION     Data connection command thread for handling asynchronous request.
+
+ DEPENDENCIES    The initialization of DataConnection.
+
+ PARAMETERS      [IN] void* contextPtr: Context pointer.
+
+ RETURN VALUE    void*
+                     NULL: Success.
+
+======================================================================*/
+void* taf_DataConnection::ConnectionAsyncCmdThread(void* contextPtr)
+{
+    le_event_AddHandler("ConnectionProcAsyncCmdHandler", connectionAsyncCmdEvId,
+                                                         ConnectionProcAsyncCmdHandler);
+    le_sem_Post((le_sem_Ref_t)contextPtr);
+
+    le_event_RunLoop();
+    return nullptr;
+}
+
+void taf_DataConnection::AddHandlerSessionMapping
+(
+    le_msg_SessionRef_t sessionRef,
+    taf_dcs_AsyncSessionHandlerFunc_t asyncHandler
+)
+{
+    HandlerSessionMapping_t *handlerSessionMapping;
+
+    TAF_ERROR_IF_RET_NIL(sessionRef == nullptr || asyncHandler == nullptr, "Null ptr");
+
+    handlerSessionMapping = (HandlerSessionMapping_t *)le_mem_ForceAlloc(HandlerSessionMappingPool);
+
+    TAF_ERROR_IF_RET_NIL(handlerSessionMapping == nullptr ,
+                         "Failed to alloc memory for handlerSessionMapping");
+
+    memset(handlerSessionMapping, 0, sizeof(HandlerSessionMapping_t));
+    handlerSessionMapping->asyncHandler = asyncHandler;
+    handlerSessionMapping->sessionRef = sessionRef;
+    handlerSessionMapping->handlerLink = LE_DLS_LINK_INIT;
+    le_dls_Queue(&HandlerSessionMappingList, &handlerSessionMapping->handlerLink);
+
+    LE_DEBUG("Added async handler %p for session reference %p", asyncHandler, sessionRef);
+}
+
+HandlerSessionMapping_t* taf_DataConnection::FindAsyncHandler
+(
+    taf_dcs_AsyncSessionHandlerFunc_t asyncHandler
+)
+{
+    HandlerSessionMapping_t *handlerSessionInfo;
+    le_dls_Link_t *handlerLinkPtr = le_dls_Peek(&HandlerSessionMappingList);
+    while (handlerLinkPtr)
+    {
+        handlerSessionInfo = CONTAINER_OF(handlerLinkPtr, HandlerSessionMapping_t, handlerLink);
+        if (handlerSessionInfo->asyncHandler == asyncHandler)
+        {
+            LE_DEBUG("Found async handler %p for session reference %p", asyncHandler,
+                     handlerSessionInfo->sessionRef);
+            return handlerSessionInfo;
+        }
+        handlerLinkPtr = le_dls_PeekNext(&HandlerSessionMappingList, handlerLinkPtr);
+    }
+
+    return NULL;
+}
+
+bool taf_DataConnection::IsSessionPresentInMappingList
+(
+    le_msg_SessionRef_t sessionRef
+)
+{
+    HandlerSessionMapping_t *handlerSessionInfo;
+    le_dls_Link_t *handlerLinkPtr = le_dls_Peek(&HandlerSessionMappingList);
+    while (handlerLinkPtr)
+    {
+        handlerSessionInfo = CONTAINER_OF(handlerLinkPtr, HandlerSessionMapping_t, handlerLink);
+        handlerLinkPtr = le_dls_PeekNext(&HandlerSessionMappingList, handlerLinkPtr);
+        if (handlerSessionInfo->sessionRef == sessionRef)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void taf_DataConnection::DeleteSessionHandlersInfo
+(
+    le_msg_SessionRef_t sessionRef
+)
+{
+    HandlerSessionMapping_t *handlerSessionInfo;
+    le_dls_Link_t *handlerLinkPtr = le_dls_Peek(&HandlerSessionMappingList);
+    while (handlerLinkPtr)
+    {
+        handlerSessionInfo = CONTAINER_OF(handlerLinkPtr, HandlerSessionMapping_t, handlerLink);
+        handlerLinkPtr = le_dls_PeekNext(&HandlerSessionMappingList, handlerLinkPtr);
+        if (handlerSessionInfo->sessionRef == sessionRef)
+        {
+            le_dls_Remove(&HandlerSessionMappingList, &handlerSessionInfo->handlerLink);
+            le_mem_Release(handlerSessionInfo);
+        }
+    }
+}
+
+void taf_DataConnection::DeleteHandlerInfo(taf_dcs_AsyncSessionHandlerFunc_t asyncHandler)
+{
+    HandlerSessionMapping_t *handlerSessionInfo;
+    le_dls_Link_t *handlerLinkPtr = le_dls_Peek(&HandlerSessionMappingList);
+    while (handlerLinkPtr)
+    {
+        handlerSessionInfo = CONTAINER_OF(handlerLinkPtr, HandlerSessionMapping_t, handlerLink);
+        handlerLinkPtr = le_dls_PeekNext(&HandlerSessionMappingList, handlerLinkPtr);
+        if (handlerSessionInfo->asyncHandler == asyncHandler)
+        {
+            le_dls_Remove(&HandlerSessionMappingList, &handlerSessionInfo->handlerLink);
+
+            le_mem_Release(handlerSessionInfo);
+            break;
+        }
+    }
+}
+
+// When the client closed, this event handler will process the data calls
 void taf_DataConnection::CloseEventHandler
 (
     le_msg_SessionRef_t sessionRef,
@@ -1572,18 +1785,28 @@ void taf_DataConnection::CloseEventHandler
 
             if (sessionRefPtr->sessionRef == sessionRef)
             {
-                switch(callCtxPtr->ipType)
+                // If the client starts a data call with async api and loses connection before the
+                // data call is completed, need to stop the data call after it is completed, see
+                // function ConnectionProcAsyncCmdHandler()
+                if(dataConnection.IsSessionPresentInMappingList(sessionRef))
                 {
-                    case telux::data::IpFamilyType::IPV4:
-                        pdpType = TAF_DCS_PDP_IPV4;
-                    break;
-                    case telux::data::IpFamilyType::IPV6:
-                        pdpType = TAF_DCS_PDP_IPV6;
-                    break;
-                    case telux::data::IpFamilyType::IPV4V6:
-                        pdpType = TAF_DCS_PDP_IPV4V6;
-                    break;
-                    default:
+                    LE_DEBUG("---async api is called,don't stop data call here ---");
+                    dataConnection.DeleteSessionHandlersInfo(sessionRef);
+                }
+                else
+                {
+                    switch(callCtxPtr->ipType)
+                    {
+                        case telux::data::IpFamilyType::IPV4:
+                            pdpType = TAF_DCS_PDP_IPV4;
+                        break;
+                        case telux::data::IpFamilyType::IPV6:
+                            pdpType = TAF_DCS_PDP_IPV6;
+                        break;
+                        case telux::data::IpFamilyType::IPV4V6:
+                            pdpType = TAF_DCS_PDP_IPV4V6;
+                        break;
+                        default:
                         // In this case, when the client starts a data call and loses connection at
                         // once, the callCtxPtr->ipType is not updated at this time, so get the pdp
                         // type from the setting value.
@@ -1592,11 +1815,14 @@ void taf_DataConnection::CloseEventHandler
                         pdpType = dataProfile.GetPdp(profileRef);
 
                         LE_DEBUG("---setting pdpType=%d",pdpType);
-                    break;
+                        break;
+                    }
+
+                    LE_DEBUG("stop data call profileId=%d, pdpType=%d", callCtxPtr->profileId, pdpType);
+
+                    dataConnection.StopSessionAllSync(callCtxPtr->profileId, pdpType, sessionRef);
                 }
 
-                LE_DEBUG("stop data call profileId=%d, pdpType=%d", callCtxPtr->profileId, pdpType);
-                dataConnection.StopSessionAllSync(callCtxPtr->profileId, pdpType, sessionRef);
                 break;
             }
         }
@@ -1684,6 +1910,9 @@ void taf_DataConnection::Init(void)
     DataCallCtxPool = le_mem_InitStaticPool(tafDataCall, TAF_DCS_MAX_CALL_OBJ, sizeof(taf_dcs_CallCtx_t));
     // le_mem_SetDestructor(DataCallCtxPool, taf_Handler::ReleaseCallCtrlHandler);
     SessionRefPool = le_mem_InitStaticPool(tafSessionRef, TAF_DCS_MAX_SESSION_REF, sizeof(taf_SessionRef_t));
+    HandlerSessionMappingPool = le_mem_InitStaticPool(HandlerSessionMappingPool,
+                                                      TAF_DCS_MAX_ASYNC_HANDLER_MAPPING,
+                                                      sizeof(HandlerSessionMapping_t));
 
     DataCallRefMap = le_ref_CreateMap("Call Context Reference", TAF_DCS_MAX_CALL_OBJ);
 
@@ -1692,6 +1921,14 @@ void taf_DataConnection::Init(void)
     le_thread_Start(ConnectionEventThreadRef);
     le_sem_Wait(semRef);
     le_sem_Delete(semRef);
+
+    // Create and start connection command thread.
+    le_sem_Ref_t connectionCmdThreadSem = le_sem_Create("connectionCmdThreadSem", 0);
+    connectionAsyncCmdEvId = le_event_CreateId("connectionCmd", sizeof(taf_ConnectionCmdReq_t));
+    le_thread_Ref_t connectionCmdThreadRef = le_thread_Create("connectionCmdThread", ConnectionAsyncCmdThread, (void*)connectionCmdThreadSem);
+    le_thread_Start(connectionCmdThreadRef);
+    le_sem_Wait(connectionCmdThreadSem);
+    le_sem_Delete(connectionCmdThreadSem);
 
     le_msg_AddServiceCloseHandler(taf_dcs_GetServiceRef(), CloseEventHandler, NULL);
 

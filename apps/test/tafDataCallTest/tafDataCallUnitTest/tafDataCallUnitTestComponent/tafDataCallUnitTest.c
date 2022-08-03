@@ -33,7 +33,6 @@
 #define TEST_PROFILE   2
 static le_sem_Ref_t TestSemRef;
 static taf_dcs_ProfileRef_t TestProfileRef = NULL;
-static taf_dcs_SessionStateHandlerRef_t TestSessionStateRef = NULL;
 char ApnStr_bak[TAF_DCS_APN_NAME_MAX_LEN];
 
 static char *callEventToString(taf_dcs_ConState_t callEvent)
@@ -140,54 +139,42 @@ void ut_stop_session_sync_test()
     LE_ASSERT(result == LE_OK);
 }
 
-static void* ut_taf_data_session_handler(void* ctxPtr)
+void ut_start_session_async_handler_func(taf_dcs_ProfileRef_t profileRef, le_result_t result, void* contextPtr)
 {
-    taf_dcs_ConnectService();
+    int32_t profileId = taf_dcs_GetProfileIndex(profileRef);
 
-    TestSessionStateRef = taf_dcs_AddSessionStateHandler(TestProfileRef, (taf_dcs_SessionStateHandlerFunc_t)data_event_handler, ctxPtr);
-    LE_ASSERT(TestSessionStateRef != NULL);
+    LE_INFO("**** Handler for Start Session Asynchronously (Begin)****");
+    LE_INFO("profileId= %d, result: %d", profileId, result);
+    LE_INFO("**** Handler for Start Session Asynchronously (End)****");
 
-    le_event_RunLoop();
-
-    return NULL;
+    le_sem_Post(TestSemRef);
 }
 
 void ut_start_session_async_test()
 {
-    le_result_t result;
-    taf_dcs_Pdp_t ipType = TAF_DCS_PDP_IPV4V6;
+    LE_INFO("asynchronous start session %p",TestProfileRef);
 
-    le_thread_Ref_t threadRef = le_thread_Create("taf_datacall_state_thread", ut_taf_data_session_handler, &ipType);
-    le_thread_Start(threadRef);
+    taf_dcs_StartSessionAsync(TestProfileRef, ut_start_session_async_handler_func, NULL);
 
-    result = taf_dcs_StartSessionAsync(TestProfileRef);
-    LE_ASSERT(result == LE_OK);
-
-    le_sem_Wait(TestSemRef);
     LE_INFO("asynchronous start session done");
+}
 
-    taf_dcs_RemoveSessionStateHandler(TestSessionStateRef);
-    result = le_thread_Cancel(threadRef);
-    LE_ASSERT(result == LE_OK);
+void ut_stop_session_async_handler_func(taf_dcs_ProfileRef_t profileRef, le_result_t result, void* contextPtr)
+{
+    int32_t profileId = taf_dcs_GetProfileIndex(profileRef);
+
+    LE_INFO("**** Handler for Stop Session Asynchronously (Begin)****");
+    LE_INFO("profileId= %d, result: %d", profileId, result);
+    LE_INFO("**** Handler for Stop Session Asynchronously (End)****");
 }
 
 void ut_stop_session_async_test()
 {
-    le_result_t result;
-    taf_dcs_Pdp_t ipType = TAF_DCS_PDP_IPV4V6;
+    LE_INFO("asynchronous stop session %p",TestProfileRef);
 
-    le_thread_Ref_t threadRef = le_thread_Create("taf_datacall_state_thread", ut_taf_data_session_handler, &ipType);
-    le_thread_Start(threadRef);
-
-    result = taf_dcs_StopSessionAsync(TestProfileRef);
-    LE_ASSERT(result == LE_OK);
-
-    le_sem_Wait(TestSemRef);
+    taf_dcs_StopSessionAsync(TestProfileRef, ut_stop_session_async_handler_func, NULL);
 
     LE_INFO("asynchronous stop session done");
-    taf_dcs_RemoveSessionStateHandler(TestSessionStateRef);
-    result = le_thread_Cancel(threadRef);
-    LE_ASSERT(result == LE_OK);
 }
 
 void ut_set_pdp_test(taf_dcs_Pdp_t pdp)
@@ -404,8 +391,6 @@ static void* UnitTestThread(void* contextPtr)
 
     ut_set_auth_test();
 
-    ut_ipv4v6_async_datacall_test();
-
     ut_ipv4v6_datacall_test();
 
     ut_ipv4_datacall_test();
@@ -416,6 +401,8 @@ static void* UnitTestThread(void* contextPtr)
 
     /* redo session connection test after testing invalid apn */
     ut_ipv4v6_datacall_test();
+
+     ut_ipv4v6_async_datacall_test();
 
     LE_INFO("all tests are passed");
 

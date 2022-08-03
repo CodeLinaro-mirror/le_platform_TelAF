@@ -251,7 +251,14 @@ DEFINE PROFILE_LIST_MAX_ENTRY = 32;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The squash gateway addresses used by net APIs.
+ * The maximum number of mappings for handler session.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_ASYNC_HANDLER_MAPPING = 20;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The squash gateway addresses used by net APIs
  */
 //--------------------------------------------------------------------------------------------------
 STRUCT DefaultGatewayAddresses
@@ -374,7 +381,7 @@ STRUCT StateInfo
 /**
  * Starts a synchronous data cellular session for the given profile reference.
  *
- * @return 
+ * @return
  * - LE_OK                           Succeessfully started the data call.
  * - LE_NOT_FOUND                    Parameter is invalid or couldn't create the data call.
  * - LE_OUT_OF_RANGE                 PDP type is unknown.
@@ -390,21 +397,29 @@ FUNCTION le_result_t StartSession
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Starts an asynchronous cellular data session for the given profile reference.
+ *  The handler of the result response for asynchronous starting or stopping session.
  *
- * @return 
- * - LE_OK                           Successfully started the data call.
- * - LE_NOT_FOUND                    Parameter is invalid or couldn't create the data call
- * - LE_OUT_OF_RANGE                 PDP type is unknown.
- * - LE_BUSY                         Profile is in use.
- * - LE_TIMEOUT                      Timed out when attempting to make the data call.
- * - LE_FAULT                        Failed to make the data call.
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t StartSessionAsync
+HANDLER AsyncSessionHandler
 (
-    Profile profileRef                      IN ///< The profile reference.
+    Profile      profileRef                 IN, ///< The profile reference.
+    le_result_t  result                     IN  ///< The result of starting or stopping session.
 );
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Starts (asynchronously) a cellular data session for the given profile reference.
+ *
+ * @returns None
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION StartSessionAsync
+(
+    Profile profileRef                      IN, ///< The profile reference.
+    AsyncSessionHandler handler             IN  ///< The handler.
+);
+
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -428,25 +443,20 @@ FUNCTION le_result_t StopSession
 /**
  * Stops (asynchronously) a cellular data session for the given profile reference.
  *
- * @return 
- * - LE_OK                           Successfully stopped the data call.
- * - LE_NOT_FOUND                    Couldn't find the data call to stop.
- * - LE_OUT_OF_RANGE                 PDP type is unknown.
- * - LE_BAD_PARAMETER                Call context is NULL.
- * - LE_TIMEOUT                      Timed out when attempting to stop the data call.
- * - LE_FAULT                        Failed to stop the data call.
+ * @returns None.
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t StopSessionAsync
+FUNCTION StopSessionAsync
 (
-    Profile profileRef                      IN ///< The profile reference.
+    Profile profileRef                      IN, ///< The profile reference.
+    AsyncSessionHandler handler             IN  ///< The handler.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets a connected data call interface name.
  *
- * @return 
+ * @return
  * - LE_OK                           Successfully retrieved the interface name.
  * - LE_NOT_POSSIBLE                 Invalid status.
  * - LE_NOT_FOUND                    Failed to get the interface name.
@@ -485,7 +495,7 @@ EVENT SessionState
 /**
  * Gets the connected data session IPv4 address.
  *
- * @return 
+ * @return
  * - LE_OK                           Successfully retrieved the IPv4 address.
  * - LE_NOT_FOUND                    Failed to get the IPv4 address.
  */
@@ -500,7 +510,7 @@ FUNCTION le_result_t GetIPv4Address
 /**
  * Gets the connected data session IPv4 gateway address.
  *
- * @return 
+ * @return
  * - LE_OK                           Successfully retrieved the IPv4 gateway address.
  * - LE_NOT_FOUND                    Failed to get the IPv4 gateway address.
  */
@@ -515,7 +525,7 @@ FUNCTION le_result_t GetIPv4GatewayAddress
 /**
  * Gets the connected data session primary and secondary DNS IPv4 addresses.
  *
- * @return 
+ * @return
  * - LE_OK                           Successfully retrieved the IPv4 DNS address.
  * - LE_NOT_FOUND                    Failed to get the IPv4 DNS address.
  */
@@ -531,7 +541,7 @@ FUNCTION le_result_t GetIPv4DNSAddresses
 /**
  * Gets the connected data session IPv6 address.
  *
- * @return 
+ * @return
  * - LE_OK                           Successfully retrieved the IPv6 address.
  * - LE_NOT_FOUND                    Failed to get the IPv6 address.
  */
@@ -546,7 +556,7 @@ FUNCTION le_result_t GetIPv6Address
 /**
  * Gets the connected data session IPv6 gateway address.
  *
- * @return 
+ * @return
  * - LE_OK                           Successfully retrieved the IPv6 gateway address.
  * - LE_NOT_FOUND                    Failed to get IPv6 gateway address.
  */
@@ -561,7 +571,7 @@ FUNCTION le_result_t GetIPv6GatewayAddress
 /**
  * Gets the connected data session primary and secondary DNS IPv6 addresses.
  *
- * @return 
+ * @return
  * - LE_OK                           Successfully retrieved the IPv6 DNS address.
  * - LE_NOT_FOUND                    Failed to get IPv6 DNS address.
  */
@@ -577,7 +587,7 @@ FUNCTION le_result_t GetIPv6DNSAddresses
 /**
  * Gets the data session's current state.
  *
- * @return 
+ * @return
  * - LE_OK                           Successfully retrieved the session state.
  * - LE_NOT_FOUND                    Failed to get the session state.
  */
@@ -592,7 +602,7 @@ FUNCTION le_result_t GetSessionState
 /**
  * Checks if the data session is IPv4.
  *
- * @return 
+ * @return
  * - True         IPv4.
  * - False        Not IPv4 or the profile reference is invalid.
  */
@@ -606,7 +616,7 @@ FUNCTION bool IsIPv4
 /**
  * Checks if the data session is IPv6.
  *
- * @return 
+ * @return
  * - True         IPv6.
  * - False        Not IPv6 or the profile reference is invalid.
  */
@@ -620,7 +630,7 @@ FUNCTION bool IsIPv6
 /**
  * Gets the connected data session data bearer technology.
  *
- * @return 
+ * @return
  * - LE_OK                           Successfully retrieved the data bearer technology.
  * - LE_NOT_FOUND                    Failed to get the data bearer technology.
  */
@@ -659,7 +669,7 @@ HANDLER ProfileListHandler
 /**
  * Gets the data profile list.
  *
- * @return 
+ * @return
  * - LE_OK                           Successfully retrieved the profile list.
  * - LE_FAULT                        Failed to get the profile list.
  */
@@ -683,7 +693,7 @@ FUNCTION uint32 GetDefaultProfileIndex
 /**
  * Sets the default profile index corresponding to the specified profile index.
  *
- * @return 
+ * @return
  * - LE_OK                           Successfully set the default data profile index.
  * - LE_FAULT                        Failed to set the default data profile index.
  */
@@ -697,7 +707,7 @@ FUNCTION le_result_t SetDefaultProfileIndex
 /**
  * Gets the profile reference for the given profile index.
  *
- * @return 
+ * @return
  * - NULL                            Error. 
  * - Others                          The profile reference.
  */
@@ -723,7 +733,7 @@ FUNCTION uint32 GetProfileIndex
 /**
  * Sets the data profile APN name.
  *
- * @return 
+ * @return
  * - LE_OK                           Successfully set the APN.
  * - LE_NOT_FOUND                    Profile reference was not found.
  * - LE_FAULT                        Failed to set the APN.
@@ -802,7 +812,7 @@ FUNCTION le_result_t SetAuthentication
 /**
  * Gets the data profile authentication type and username/password.
  *
- * @return 
+ * @return
  * - LE_OK                           Succesfully retrieved the authentication information.
  * - LE_NOT_FOUND                    Failed to get the authentication information.
  * - LE_OUT_OF_RANGE                 The size of username or password is invalid.
@@ -820,7 +830,7 @@ FUNCTION le_result_t GetAuthentication
 /**
  * Gets the data profile ID by the interface name.
  *
- * @return 
+ * @return
  * - LE_OK                           Successfully retrieved the profile ID.
  * - LE_NOT_FOUND                    Failed to retrieve the profile ID.
  */

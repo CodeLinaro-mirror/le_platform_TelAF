@@ -153,6 +153,34 @@ namespace tafsvc {
         telux::data::DataBearerTechnology       dataBearerTech;
     } dataCallEvent_t;
 
+    /**
+    * @brief The emum of async connection command type.
+    */
+    typedef enum
+    {
+        ASYNC_STOP_SESSION  = 0,
+        ASYNC_START_SESSION = 1
+    } taf_ConnectionCmdType_t;
+
+    /*
+    * @brief The struct of async connection command request.
+    */
+    typedef struct
+    {
+        taf_ConnectionCmdType_t cmdType;
+        taf_dcs_ProfileRef_t profileRef;
+        le_msg_SessionRef_t sessionRef;
+        void* contextPtr;
+        taf_dcs_AsyncSessionHandlerFunc_t handlerFuncPtr;
+    } taf_ConnectionCmdReq_t;
+
+    typedef struct
+    {
+        le_msg_SessionRef_t sessionRef;   ///< handler's owner session's reference
+        taf_dcs_AsyncSessionHandlerFunc_t asyncHandler;  ///< async handler
+        le_dls_Link_t handlerLink;   ///< double link list's link element
+    }HandlerSessionMapping_t;
+
     typedef void (*taf_dcs_SessionStateFunc_t)(taf_dcs_ConState_t event, taf_dcs_StateInfo_t *infoPtr, taf_dcs_CallCtx_t *callCtxPtr);
 
     class taf_DataConnectionListener : public telux::data::IDataConnectionListener
@@ -194,6 +222,15 @@ namespace tafsvc {
         #endif
             void Init(void);
             static taf_DataConnection &GetInstance();
+            static void* ConnectionAsyncCmdThread(void* contextPtr);
+            static void ConnectionProcAsyncCmdHandler(void* cmdReqPtr);
+            void AddHandlerSessionMapping(le_msg_SessionRef_t sessionRef,
+                                                          taf_dcs_AsyncSessionHandlerFunc_t asyncHandler);
+            HandlerSessionMapping_t* FindAsyncHandler(
+                                                          taf_dcs_AsyncSessionHandlerFunc_t asyncHandler);
+            void DeleteSessionHandlersInfo(le_msg_SessionRef_t sessionRef);
+            void DeleteHandlerInfo(taf_dcs_AsyncSessionHandlerFunc_t asyncHandler);
+            bool IsSessionPresentInMappingList(le_msg_SessionRef_t sessionRef);
             static void StartDataCallCallback(const std::shared_ptr<telux::data::IDataCall> &iCall, telux::common::ErrorCode errorCode);
             static void StopDataCallCallback(const std::shared_ptr<telux::data::IDataCall> &iCall, telux::common::ErrorCode errorCode);
             static void SetDefaultProfileCallCallback(telux::common::ErrorCode errorCode);
@@ -254,6 +291,7 @@ namespace tafsvc {
             static void* ConnectionEventThread(void* contextPtr);
             le_timer_Ref_t SynchronousTimerRef = NULL;
             taf_dcs_Pdp_t GetEvtInfoFromConnStatus(taf_dcs_CallCtx_t *callCtxPtr, telux::data::DataCallStatus callStatus);
+            static le_event_Id_t connectionAsyncCmdEvId;
             static void CloseEventHandler(le_msg_SessionRef_t sessionRef, void* contextPtr);
         private:
         #ifdef TARGET_SA515M
@@ -268,6 +306,8 @@ namespace tafsvc {
             std::shared_ptr<telux::data::IDataConnectionManager> ConnectionMgr;
             std::shared_ptr<telux::data::IDataConnectionListener> DataConnectionListener;
             le_dls_List_t    DataCallCtxList = LE_DLS_LIST_INIT;
+            le_dls_List_t HandlerSessionMappingList = LE_DLS_LIST_INIT;
+            le_mem_PoolRef_t HandlerSessionMappingPool = NULL;
             le_mem_PoolRef_t SessionRefPool = NULL;
             le_mem_PoolRef_t DataCallCtxPool = NULL;
             le_ref_MapRef_t  DataCallRefMap = NULL;

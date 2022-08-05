@@ -949,7 +949,7 @@ FUNCTION le_result_t LocalSwapToCommercialSubscription
  * @return LE_FAULT               Function failed.
  * @return LE_BAD_PARAMETER       Incorrect parameters.
  *
- * @note For SIM power cycle operation, it must wait until SIM state is LE_SIM_POWER_DOWN
+ * @note For SIM power cycle operation, it must wait until SIM state is LE_OFF
  *       before powering on the SIM, otherwise power up SIM will fail.
  */
 //--------------------------------------------------------------------------------------------------
@@ -990,4 +990,27 @@ FUNCTION le_result_t IsEmergencyCallSubscriptionSelected
     Id    simId IN,  ///< The SIM identifier.
     bool  isEcs OUT  ///< True if Emergency Call Subscription (ECS) is selected.
                      ///< False if Commercial Subscription is selected.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for ICCID change events.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER IccidChangeHandler
+(
+    Id       simId IN,               ///< The SIM identifier.
+    string   iccid[ICCID_LEN] IN     ///< ICCID
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This event provides information on ICCID
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT IccidChange
+(
+    IccidChangeHandler handler
 );

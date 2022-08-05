@@ -331,3 +331,29 @@ le_result_t taf_sim_SendApdu
     return sim.SendApdu(simId, commandApduPtr, commandApduNumElements, responseApduPtr, responseApduNumElementsPtr);
 
 }
+
+le_result_t taf_sim_SendCommand
+(
+        taf_sim_Id_t simId,
+        taf_sim_Command_t command,
+        const char* LE_NONNULL fileIdentifierPtr,
+        uint8_t p1,
+        uint8_t p2,
+        uint8_t p3,
+        const uint8_t* dataPtr,
+        size_t dataNumElements,
+        const char* LE_NONNULL pathPtr,
+        uint8_t *sw1,
+        uint8_t *sw2,
+        uint8_t* responsePtr,
+        size_t* responseNumElementsPtr
+)
+{
+        TAF_ERROR_IF_RET_VAL(fileIdentifierPtr == NULL, LE_BAD_PARAMETER, "fileIdentifierPtr is NULL");
+        TAF_ERROR_IF_RET_VAL(dataPtr == NULL, LE_BAD_PARAMETER, "dataPtr is NULL");
+        TAF_ERROR_IF_RET_VAL(responsePtr==NULL, LE_BAD_PARAMETER, "responsePtr is NULL");
+        TAF_ERROR_IF_RET_VAL(dataNumElements > TAF_SIM_DATA_MAX_BYTES, LE_BAD_PARAMETER, "Too many elements for data");
+        TAF_ERROR_IF_RET_VAL(*responseNumElementsPtr > TAF_SIM_RESPONSE_MAX_BYTES, LE_BAD_PARAMETER, "Too many elements for response");
+        auto &sim = taf_sim::GetInstance();
+        return sim.SendCommand(simId, command, fileIdentifierPtr, &p1, &p2, &p3, dataPtr, dataNumElements, pathPtr, sw1, sw2, responsePtr, responseNumElementsPtr);
+}

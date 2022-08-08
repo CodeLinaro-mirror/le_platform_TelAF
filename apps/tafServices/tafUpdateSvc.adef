@@ -1,3 +1,13 @@
+maxThreads: 300
+groups:
+{
+        system
+        diag
+        radio
+        inet
+        locclient
+}
+
 sandboxed: false
 
 maxMemoryBytes: 60000K

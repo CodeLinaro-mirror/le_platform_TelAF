@@ -163,7 +163,7 @@ void tafSimTest_setLock
     taf_sim_Id_t simId,
     taf_sim_LockType_t lockType,
     const char*  pinPtr,
-	bool lock
+    bool lock
 )
 {
     le_result_t res;
@@ -274,4 +274,26 @@ void tafSimTest_SetPowerCheck
         return;
     }
     LE_INFO("SetPower API working fine");
+}
+
+void tafSimTest_sim_isEmergency
+(
+    taf_sim_Id_t simId
+)
+{
+    bool state = false;
+    LE_ASSERT_OK(taf_sim_IsEmergencyCallSubscriptionSelected(simId, &state));
+    LE_INFO("Emergency Check working");
+}
+
+void tafSimTest_swapToEmergencyAndBack
+(
+    taf_sim_Id_t simId,
+    taf_sim_Manufacturer_t manufacturer
+)
+{
+    LE_ASSERT_OK(taf_sim_LocalSwapToEmergencyCallSubscription(simId, manufacturer));
+    LE_INFO("SwapToEmergency success");
+    LE_ASSERT_OK(taf_sim_LocalSwapToCommercialSubscription(simId, manufacturer));
+    LE_INFO("SwapToRegular success");
 }

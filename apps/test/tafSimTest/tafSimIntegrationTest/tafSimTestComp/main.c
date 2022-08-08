@@ -44,6 +44,8 @@ static void DisplayAppUsage(void) {
     printf("SIM access test: app runProc tafSimTest --exe=tafSimTest -- access <slot1/slot2/unknown>\n");
     printf("SIM SetPower test: app runProc tafSimTest --exe=tafSimTest -- setPower <slot1/slot2/unknown> <ON/OFF>\n");
     printf("SIM Reset test: app runProc tafSimIntgTest --exe=tafSimIntgTest -- Reset <slot1/slot2/unknown>\n");
+    printf("SIM EMERGENCY test: app runProc tafSimIntgTest --exe=tafSimIntgTest -- isEmergency <slot1/slot2/unknown>\n");
+    printf("SIM Swap Profiles test: app runProc tafSimIntgTest --exe=tafSimIntgTest -- swapProfiles <slot1/slot2/unknown> <0/1/2/3/4/5>\n");
 }
 
 static taf_sim_Id_t GetSimId(const char* simIdPtr) {
@@ -137,7 +139,7 @@ COMPONENT_INIT
     bool exitApplication = true;
     const char* testType = "";
 
-    LE_INFO("Start tafSimTest app.");
+    LE_INFO("Start tafSimIntgTest app.");
     int NumberOfArgs = le_arg_NumArgs();
 
     if (NumberOfArgs >= 1) {
@@ -295,6 +297,10 @@ COMPONENT_INIT
     }else if (strcmp(testType, "access") == 0)
     {
         tafSimTest_sim_access(simId);
+    }else if(strcmp(testType, "swapProfiles") == 0)
+    {
+        taf_sim_Manufacturer_t manufacturer = (taf_sim_Manufacturer_t)le_arg_GetArg(2);
+        tafSimTest_swapToEmergencyAndBack(simId, manufacturer);
     }
     else if (strcmp(testType, "setPower") == 0)
     {
@@ -307,6 +313,10 @@ COMPONENT_INIT
         LE_ASSERT_OK(taf_sim_Reset(simId));
         LE_INFO("SIM Reset successfull");
     }
+    else if (strncmp(testType, "isEmergency", 11) == 0)
+    {
+        tafSimTest_sim_isEmergency(simId);
+    }
     else {
         DisplayAppUsage();
         exit(EXIT_FAILURE);
@@ -314,7 +324,7 @@ COMPONENT_INIT
 
     if (exitApplication)
     {
-        LE_INFO("Exit tafSimTest App");
+        LE_INFO("Exit tafSimIntgTest App");
         exit(EXIT_SUCCESS);
     }
 }

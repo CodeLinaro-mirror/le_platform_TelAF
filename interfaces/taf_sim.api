@@ -235,6 +235,10 @@
  * be sent to SIM card with @ref taf_sim_SendApduOnChannel(). When the logical channel is no
  * longer needed, it can be closed using @ref taf_sim_CloseLogicalChannel().
  *
+ * Use @ref taf_sim_IsEmergencyCallSubscriptionSelected() to know if EMERGENCY type profile is activ
+ ated for the specified sim slot.
+ * @warning If no profile is active, it returns LE_NOT_FOUND.
+ *
  * Before the SIM sends a message, an application registers a callback handler using taf_sim_AddNewStateHandler().
  * Once the message is sent, the handler will be called indicating the sending status of the message. 
  * If the message sending failed, then the handler will be called with the error code.
@@ -249,6 +253,27 @@
  *
  * Applications must use taf_sim_RemoveNewStateHandler() to release @ref taf_sim_NewStateHandlerRef_t 
  * message handler reference object when it is no longer used.
+ *
+ * @section taf_sim_profile_switch SIM profile switch
+ *
+ * As soon as there are several subscriptions/profiles in the eUICC (multi-profile), and one of
+ * them is dedicated to emergency calls (ex: eCall, ERA-Glonass), local swap is needed to swap as
+ * quickly as possible to the emergency profile in case of need.
+ *
+ * “Local swap” means that the user's application must be able to directly request the eUICC to
+ * swap to Emergency Call Subscription (ECS).
+ *
+ * Local swap puts the eUICC in a temporary state, meaning the commercial subscription is replaced
+ * by emergency subscription for a limited time, event triggering the swap back to commercial
+ * subscription being controlled by the user's application.
+ *
+ * The taf_sim_LocalSwapToEmergencyCallSubscription() function requests the multi-profile eUICC to
+ * swap to ECS and to reboot. The User's application must wait for eUICC reboot to be finished and
+ * network connection available.
+ *
+ * The taf_sim_LocalSwapToCommercialSubscription() function requests the multi-profile eUICC to swap
+ * back to commercial subscription and to reboot. The user's application must wait for eUICC reboot
+ * to be finished and network connection available.
  *
  * <HR>
  *
@@ -369,6 +394,22 @@ ENUM AppType {
    APPTYPE_RUIM = 3,    ///< UICC application type is RSIM.
    APPTYPE_CSIM = 4,    ///< UICC application type is CSIM.
    APPTYPE_ISIM = 5,    ///< UICC application type is ISIM.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Card Manufacturer.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM Manufacturer
+{
+    OBERTHUR,           ///< Oberthur.
+    GEMALTO,            ///< Gemalto.
+    G_AND_D,            ///< G&D.
+    MORPHO,             ///< Morpho.
+    VALID,              ///< Valid.
+    MANUFACTURER_MAX
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -857,6 +898,49 @@ FUNCTION le_result_t SendCommand
     uint8          response[RESPONSE_MAX_BYTES] OUT         ///< SIM response.
 );
 
+/**
+ * Switches the given sim to the Emergency Call subscription.
+ * The eUICC reboots after switching the profile, and hence the clien't app must wait for it.
+ *
+ * @return
+ *      - LE_OK -- success
+ *      - LE_BAD_PARAMETER -- invalid SIM identifier
+ *      - LE_FAULT -- unexpected error
+ *
+ * @note The eUICC should be in a ready state.
+ *
+ * @note Please ensure the profile of Emergency type is available on the eUICC, or it would throw
+ * an error.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t LocalSwapToEmergencyCallSubscription
+(
+    Id           simId IN,                ///< The SIM identifier.
+    Manufacturer manufacturer IN          ///< The card manufacturer.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Switches the given sim to the Commercial subscription.
+ * The eUICC reboots after switching the profile, and hence the clien't app must wait for it.
+ *
+ * @return
+ *      - LE_OK -- success
+ *      - LE_BAD_PARAMETER -- invalid SIM identifier
+ *      - LE_FAULT -- unexpected error
+ *
+ * @note The eUICC should be in a ready state.
+ *
+ * @note Please ensure the profile of Commercial type is available on the eUICC, or it would throw
+ * an error.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t LocalSwapToCommercialSubscription
+(
+    Id           simId IN,                ///< The SIM identifier.
+    Manufacturer manufacturer IN          ///< The card manufacturer.
+);
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Power up or down the current SIM.
@@ -887,4 +971,23 @@ FUNCTION le_result_t SetPower
 FUNCTION le_result_t Reset
 (
     Id simId IN                          ///< The SIM identifier.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Checks if EMERGENCY type profile is activated for the sim slot.
+ *
+ * @return
+ *      - LE_OK -- success
+ *      - LE_BAD_PARAMETER -- invalid SIM identifier or null ECS pointer is passed
+ *      - LE_NOT_FOUND -- cannot determine the current selected subscription
+ *      - LE_FAULT -- unexpected errors
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t IsEmergencyCallSubscriptionSelected
+(
+    Id    simId IN,  ///< The SIM identifier.
+    bool  isEcs OUT  ///< True if Emergency Call Subscription (ECS) is selected.
+                     ///< False if Commercial Subscription is selected.
 );

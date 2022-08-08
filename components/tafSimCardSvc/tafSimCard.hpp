@@ -108,6 +108,13 @@ namespace telux {
 
         };
 
+        class tafSimProfileCallback {
+            public:
+            void profileListCallBack(
+                    const std::vector<std::shared_ptr<telux::tel::SimProfile>> &profiles,
+                    telux::common::ErrorCode errorCode);
+        };
+
         class taf_sim :public ITafSvc {
             public:
                 void Init(void);
@@ -120,6 +127,8 @@ namespace telux {
                 std::vector<std::shared_ptr<telux::tel::ICard>> cards;
                 std::shared_ptr<telux::tel::ISubscriptionManager> subMgr;
                 std::shared_ptr<telux::tel::ISubscriptionListener> subscriptionListener;
+                std::shared_ptr<telux::tel::ISimProfileManager> simProfileManager;
+                std::promise<le_result_t> ProfileSyncPromise = std::promise<le_result_t>();
 
                 int slot = DEFAULT_SLOT_ID;
                 std::condition_variable eventCV;
@@ -128,9 +137,11 @@ namespace telux {
                 ErrorCode errorCode;
                 uint8_t openChannel = 0;
                 IccResult apduResponse;
+                bool isEcs=false;
 
                 le_event_Id_t NewStateEventId;
                 le_event_Id_t ResponseEventId;
+                le_event_Id_t ProfileListEventId;
                 bool EnableAutoSelection = false;
 
                 void RemoveStateHandler(taf_sim_NewStateHandlerRef_t handlerRef);
@@ -185,6 +196,17 @@ namespace telux {
                         uint8_t* responsePtr, size_t* responseNumElementsPtr);
                 le_result_t SetPower( taf_sim_Id_t simId, le_onoff_t powerState);
                 le_result_t Reset(taf_sim_Id_t simId);
+                le_result_t IsEmergencyCallSubscriptionSelected (taf_sim_Id_t simId, bool* isEcs);
+                le_result_t LocalSwapToEmergencyCallSubscription(taf_sim_Id_t simId);
+                le_result_t LocalSwapToCommercialCallSubscription(taf_sim_Id_t simId);
+                le_result_t profileListCallbackEm(
+                        const std::vector<std::shared_ptr<telux::tel::SimProfile>> &profiles,
+                        telux::common::ErrorCode error,
+                        SlotId simId);
+                le_result_t profileListCallbackCo(
+                        const std::vector<std::shared_ptr<telux::tel::SimProfile>> &profiles,
+                        telux::common::ErrorCode error,
+                        SlotId simId);
         };
     }
 }

@@ -357,6 +357,7 @@ le_result_t taf_sim_SendCommand
         auto &sim = taf_sim::GetInstance();
         return sim.SendCommand(simId, command, fileIdentifierPtr, &p1, &p2, &p3, dataPtr, dataNumElements, pathPtr, sw1, sw2, responsePtr, responseNumElementsPtr);
 }
+
 le_result_t taf_sim_SetPower
 (
     taf_sim_Id_t simId,
@@ -374,4 +375,35 @@ le_result_t taf_sim_Reset
 {
     auto &sim = taf_sim::GetInstance();
     return sim.Reset(simId);
+}
+
+le_result_t taf_sim_IsEmergencyCallSubscriptionSelected
+(
+    taf_sim_Id_t simId,
+    bool* isEcs
+)
+{
+    TAF_ERROR_IF_RET_VAL(isEcs == NULL, LE_BAD_PARAMETER, "isEcs Pointer is NULL");
+    auto &sim = taf_sim::GetInstance();
+    return sim.IsEmergencyCallSubscriptionSelected(simId, isEcs);
+}
+
+le_result_t taf_sim_LocalSwapToEmergencyCallSubscription
+(
+    taf_sim_Id_t simId,
+    taf_sim_Manufacturer_t manufacturer
+)
+{
+    auto &sim = taf_sim::GetInstance();
+    return sim.LocalSwapToEmergencyCallSubscription(simId);
+}
+
+le_result_t taf_sim_LocalSwapToCommercialCallSubscription
+(
+    taf_sim_Id_t simId,
+    taf_sim_Manufacturer_t manufacturer
+)
+{
+    auto &sim = taf_sim::GetInstance();
+    return sim.LocalSwapToCommercialCallSubscription(simId);
 }

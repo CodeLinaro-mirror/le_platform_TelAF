@@ -40,13 +40,14 @@
  *
  * <HR>
  *
- * The Application Management Service APIs help to control and obtain information of applications.
+ * The Application Management service APIs help to control and obtain information about
+ * applications.
  *
  * @section taf_appMgmt_binding IPC interfaces binding
  *
- * All the functions of this API are provided by the @b tafUpdateSvc service.
+ * All functions of this API are provided by the @b tafUpdateSvc service.
  *
- * Here's a sample of how to bind to App Management Service:
+ * The following example shows how to bind to the application management service.
  * @verbatim
  *
    bindings:
@@ -58,25 +59,26 @@
  *
  * @section c_taf_appMgmt_control Application Control
  *
- * - taf_appMgmt_Start() supports to start an application.
+ * - taf_appMgmt_Start() starts an application.
  *
- * - taf_appMgmt_Stop() supports to stop an application.
+ * - taf_appMgmt_Stop() stops an application.
  *
- * - taf_appMgmt_Uninstall() supports to uninstall an application.
+ * - taf_appMgmt_Uninstall() uninstalls an application.
  *
  * @section c_taf_appMgmt_information Application Information Query
  *
- * User can get application information through app list.
+ * Users can get application information through the app list using the following functions.
  *
- *  - taf_appMgmt_CreateAppList() / taf_appMgmt_DeleteAppList() supports to create/delete app list reference.
+ *  - taf_appMgmt_CreateAppList() / taf_appMgmt_DeleteAppList() creates and deletes app list 
+ *    references.
  *
- *  - taf_appMgmt_GetFirstApp() / taf_appMgmt_GetNextApp() supports to get the first/next app reference.
+ *  - taf_appMgmt_GetFirstApp() / taf_appMgmt_GetNextApp() get the first or next app reference.
  *
- *  - taf_appMgmt_GetAppDetails() supports to get the operator details.
+ *  - taf_appMgmt_GetAppDetails() gets the operator details.
  *
- *  - taf_appMgmt_GetState() supports to get application state.
+ *  - taf_appMgmt_GetState() gets the current application state.
  *
- * Here is the example of obtaining application information.
+ * The following example illustrates how to obtain application information.
  *
  * @code
  *
@@ -96,7 +98,7 @@
    // Delete list.
    taf_appMgmt_DeleteAppList(listRef);
  *
-   @endcode
+ *  @endcode
  *
  * <HR>
  *
@@ -105,35 +107,35 @@
 
 //--------------------------------------------------------------------------------------------------
 /**
- * App name length without null character.
+ * App name length without null characters.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE APP_NAME_BYTES = 48;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * App version length without null character.
+ * App version length without null characters.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE APP_VERSION_BYTES = 101;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * App hash length without null character.
+ * App hash length without null characters.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE APP_HASH_BYTES = 101;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The reference of app list.
+ * The reference to the app list.
  */
 //--------------------------------------------------------------------------------------------------
 REFERENCE AppList;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The reference of app.
+ * The reference to the app.
  */
 //--------------------------------------------------------------------------------------------------
 REFERENCE App;
@@ -145,8 +147,8 @@ REFERENCE App;
 //--------------------------------------------------------------------------------------------------
 ENUM AppState
 {
-    STATE_STOPPED, ///< App is not runnig.
-    STATE_STARTED  ///< App is runnig.
+    STATE_STOPPED, ///< App is not running.
+    STATE_STARTED  ///< App is running.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -156,8 +158,8 @@ ENUM AppState
 //--------------------------------------------------------------------------------------------------
 ENUM AppStartMode
 {
-    START_MANUAL, ///< App is started manually.
-    START_AUTO    ///< App is started automatically.
+    START_MANUAL, ///< App started manually.
+    START_AUTO    ///< App started automatically.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -172,16 +174,16 @@ STRUCT AppInfo
     string hash[APP_HASH_BYTES];       ///< App hash code.
     AppState state;                    ///< App state.
     AppStartMode startMode;            ///< App start mode.
-    bool isSandboxed;                  ///< True if sandboxed app, false if not sandboxed app.
+    bool isSandboxed;                  ///< True if sandboxed app, false if not sandboxed.
 };
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets app state.
+ * Gets the application's current state.
  *
  * @return
- *  - TAF_APPMGMT_STATE_STOPPED : App is not runnig.
- *  - TAF_APPMGMT_STATE_STARTED : App is runnig.
+ *  - TAF_APPMGMT_STATE_STOPPED -- App is not running.
+ *  - TAF_APPMGMT_STATE_STARTED -- App is running.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION AppState GetState
@@ -191,15 +193,15 @@ FUNCTION AppState GetState
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function starts an app.
+ * Starts an app.
  *
  * @return
- *  - LE_DUPLICATE : App is already runnig.
- *  - LE_BUSY : System is busy.
- *  - LE_FAULT : On failure.
- *  - LE_OK : On success.
+ *  - LE_DUPLICATE -- App is already running.
+ *  - LE_BUSY -- System is busy.
+ *  - LE_FAULT -- Failure.
+ *  - LE_OK -- Success.
  *
- * @note Installed app will be activated to probation if started for the first time.
+ * @note Installed apps are activated in a probation state when started for the first time.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Start
@@ -209,13 +211,13 @@ FUNCTION le_result_t Start
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function stops an app.
+ * Stops an app.
  *
  * @return
- *  - LE_NOT_FOUND : App not found.
- *  - LE_OK : On success.
+ *  - LE_NOT_FOUND -- App not found or not currently running; see note.
+ *  - LE_OK -- Success.
  *
- * @note Installed app is not allow to stop if in probation state.
+ * @note Installed apps are not stopped if they are running in a Probation state.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Stop
@@ -225,13 +227,13 @@ FUNCTION le_result_t Stop
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function uninstalls an app.
+ * Uninstalls an app.
  *
  * @return
- *  - LE_NOT_FOUND : App not found.
- *  - LE_BUSY : System is busy.
- *  - LE_FAULT : On failure.
- *  - LE_OK : On success.
+ *  - LE_NOT_FOUND -- App not found.
+ *  - LE_BUSY -- System is busy.
+ *  - LE_FAULT -- Failure.
+ *  - LE_OK -- Success.
  *
  * @note Installed app is not allow to uninstall if in probation state.
  */
@@ -243,11 +245,11 @@ FUNCTION le_result_t Uninstall
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function creates app list.
+ * Creates an app list.
  *
  * @return
- *  - Non-null pointer : The reference of app list.
- *  - Null pointer : Internal error.
+ *  - Non-null pointer -- The reference to the app list.
+ *  - Null pointer -- Internal error.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION AppList CreateAppList
@@ -256,61 +258,61 @@ FUNCTION AppList CreateAppList
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function deletes app list.
+ * Deletes app list.
  *
  * @return
- *  - LE_BAD_PARAMETER : Bad parameters.
- *  - LE_NOT_FOUND : Reference not found.
- *  - LE_OK : On success.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_OK -- Success.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DeleteAppList
 (
-    AppList appListRef IN ///< The reference of app list.
+    AppList appListRef IN ///< The reference to the app list.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets the first app.
+ * Gets the first app.
  *
  * @return
- *  - Non-null pointer : The reference of the first app.
- *  - Null pointer : Internal error or empty list.
+ *  - Non-null pointer -- The reference to the first app.
+ *  - Null pointer -- Internal error or empty list.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION App GetFirstApp
 (
-    AppList appListRef IN ///< The reference of app list.
+    AppList appListRef IN ///< The reference to the app list.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets the next app based on the current position in the list.
+ * Gets the next app based on the current position in the list.
  *
  * @return
- *  - Non-null pointer : The reference of the next app.
- *  - Null pointer : Internal error or empty list.
+ *  - Non-null pointer -- The reference to the next app.
+ *  - Null pointer -- Internal error or empty list.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION App GetNextApp
 (
-    AppList appListRef IN ///< The reference of app list.
+    AppList appListRef IN ///< The reference to the app list.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets the information of app.
+ * Gets app information.
  *
  * @return
- *  - LE_BAD_PARAMETER : Bad parameters.
- *  - LE_NOT_FOUND : Reference not found.
- *  - LE_OK : On success.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_OK -- Success.
  *
  * @note Get static information when creating app list.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetAppDetails
 (
-    App appRef IN,      ///< The reference of app.
+    App appRef IN,      ///< The reference to the app.
     AppInfo appInfo OUT ///< App information.
 );

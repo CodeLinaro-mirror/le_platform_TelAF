@@ -72,17 +72,17 @@
  * <HR>
  *
  * The SIM Access Profile (SAP) is an interface to communicate between remote SIM (RSIM) service
- * and application. This service is based on the SIM Access Profile (SAP) specification and a
+ * and applications. This service is based on the SIM Access Profile (SAP) specification and a
  * bridge between RSIM and the host applications. This allows an application to convey APDU
- * requests to the remote SIM and help APDU to get responses from modem through the RSIM service.
+ * requests to the remote SIM and help APDU to get responses from the modem through the RSIM service.
  * A SAP service is needed for applications that want to communicate through RSIM service related
  * to SIM I/O e.g. APDU, ATR sends messages to the SIM which located at remote side.
  *
  * @section taf_sap_binding IPC interfaces binding
  *
- * All the functions of this API are provided by the @b tafSAP application service.
+ * The functions of this API are provided by the @b tafSAP application service.
  *
- * Here's a sample of how to bind to SAP service:
+ * The following example illustrates how to bind to the SAP service.
  * @verbatim
    bindings:
    {
@@ -92,7 +92,7 @@
  *
  * @section c_taf_sap_SendMessage Send message from app
  *
- * A message can be sent to service which inturn sends commands to modem by using taf_sap_SendMessage()
+ * A message can be sent to the service which then sends commands to the modem using taf_sap_SendMessage()
  * with the messagePtr and messageNumElements passed as parameters.
  * @verbatim
    uint8_t buffer[TAF_SAP_MAX_MSG_SIZE];
@@ -114,14 +114,14 @@
  *
  * Before an application starts to send message, the application needs to register a callback handler
  * using @ref taf_sap_AddMessageHandler(). Once the message is sent, the handler will be called
- * indicating the sending status of the message. If the message sending failed, then the handler will
+ * indicating the sending status of the message. If the message failed to send, the handler will
  * be called with the error code.
  * @verbatim
    taf_sap_MessageHandlerRef_t msgHandlerRef = taf_sap_AddMessageHandler(SAPMessageHandler, NULL);
    @endverbatim
  *
- * Application must use @ref taf_sap_RemoveMessageHandler() to release @ref taf_sap_MessageHandlerRef_t
- * message handler reference object when it is no more used.
+ * Applications must use @ref taf_sap_RemoveMessageHandler() to release the @ref taf_sap_MessageHandlerRef_t
+ * message handler reference object when it is no longer used.
  *
  * <HR>
  *
@@ -130,13 +130,13 @@
 
 
 /**
- * Maximum message size
+ * Maximum message size.
  *
  */
 DEFINE MAX_MSG_SIZE = (276);
 
 /**
-* Minimum message size
+* Minimum message size.
 */
 DEFINE MIN_MSG_SIZE = (200);
 
@@ -148,30 +148,31 @@ DEFINE MIN_MSG_SIZE = (200);
 //------------------------------------------------------------------------------------------------
 HANDLER MessageHandler
 (
-    uint8 message[MAX_MSG_SIZE]    ///< The message
+    uint8 message[MAX_MSG_SIZE]    ///< The message.
 );
 
 //------------------------------------------------------------------------------------------------
 /**
- * Event to notify and send a message
+ * Event to notify and send a message.
  */
 //------------------------------------------------------------------------------------------------
 EVENT Message
 (
-    MessageHandler handler    ///< Message handler
+    MessageHandler handler    ///< Message handler.
 );
 
 //------------------------------------------------------------------------------------------------
 /**
- * Send message to service which inturn sends it to subscription module.
+ * Sends a message to the service which the sends it to the subscription module.
  *
- * @return LE_OK             Function succeeded
- * @return LE_BAD_PARAMETER  Message is too long
+ * @return
+ * - LE_OK -- Succeeded.
+ * - LE_BAD_PARAMETER -- Message is too long.
  *
  */
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendMessage
 (
-    uint8 message[MAX_MSG_SIZE]     IN    ///< The message
+    uint8 message[MAX_MSG_SIZE]     IN    ///< The message.
 );
 

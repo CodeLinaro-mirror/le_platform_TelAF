@@ -71,15 +71,15 @@
  *
  * <HR>
  *
- * The Radio Service APIs contain phone and network functions, and it is applied to configure and
- * obtain information of wireless cellular network. By default, radio service is powered on and
+ * The Radio Service APIs contain phone and network functions and is applied to configure and
+ * obtain wireless cellular network information. By default, the radio service is powered on and
  * available by the system.
  *
  * @section taf_radio_binding IPC interfaces binding
  *
- * All the functions of this API are provided by the @b tafRadioSvc service.
+ * The functions of this API are provided by the @b tafRadioSvc service.
  *
- * Here's a sample of how to bind to Radio Service:
+ * The following example illustrates how to bind to the Radio service.
  * @verbatim
  *
    bindings:
@@ -91,11 +91,11 @@
  *
  * @section c_taf_radio_power Power Management
  *
- * In this section, user can power on or power off the radio. By default, it is powered on.
+ * Users can power on or power off the radio, but by default it is powered on.
  *
- * - taf_radio_SetRadioPower() / taf_radio_GetRadioPower() supports to set/get raido power status.
+ * - taf_radio_SetRadioPower() / taf_radio_GetRadioPower() -- Sets/gets radio power status.
  *
- * Here is the example of powering on radio.
+ * The following example illustrates powering on the radio.
  *
  * @code
  *
@@ -114,23 +114,22 @@
  *
  * @section c_taf_radio_registartion Network Registration
  *
- * In this section, user can register to network automatically or manually with specific MCC and MNC.
+ * Users can register with the network automatically or manually with specific MCC and MNC.
  *
- *  - taf_radio_SetAutomaticRegisterMode() supports to register to network automatically.
+ *  - taf_radio_SetAutomaticRegisterMode() -- Registers with a network automatically.
  *
- *  - taf_radio_SetManualRegisterMode() supports to register to network with MCC and MNC manually.
+ *  - taf_radio_SetManualRegisterMode() -- Registers with a network with MCC and MNC manually.
  *
- *  - taf_radio_GetRegisterMode() supports to get the network register mode.
+ *  - taf_radio_GetRegisterMode() -- Gets the network register mode.
  *
- *  - taf_radio_SetManualRegisterModeAsync() supports to register to network with handler asynchronously.
+ *  - taf_radio_SetManualRegisterModeAsync() -- Registers with a network asynchronously with a handler.
  *
- *  - taf_radio_AddNetRegRejectHandler() / taf_radio_RemoveNetRegRejectHandler() supports to add/remove
- * handler for network registration rejection.
+ *  - taf_radio_AddNetRegRejectHandler() / taf_radio_RemoveNetRegRejectHandler() -- Adds/removes
+ *    handler for network registration rejection.
  *
- *  - taf_radio_GetPlatformSpecificRegistrationErrorCode() supports to get the error code of network
- * registration.
+ *  - taf_radio_GetPlatformSpecificRegistrationErrorCode() -- Gets the network registration error code. 
  *
- * Here is the example of network registration.
+ * The following example illustrates network registration.
  *
  * @code
  *
@@ -157,21 +156,21 @@
  *
  * @section c_taf_radio_preferred_operator Preferred Operators
  *
- * In this section, user can configure the preferences of operators, and get the configuration details
+ * Users can configure the preferences of operators and get the configuration details
  * with a list.
  *
- *  - taf_radio_GetPreferredOperatorsList() / taf_radio_DeletePreferredOperatorsList() supports to
-   create/delete preferred operator list reference.
+ *  - taf_radio_GetPreferredOperatorsList() / taf_radio_DeletePreferredOperatorsList() -- Creates/deletes
+ *    a preferred operator list reference.
  *
- *  - taf_radio_AddPreferredOperator() / taf_radio_RemovePreferredOperator() supports to add/remove a
- * preferred operator.
+ *  - taf_radio_AddPreferredOperator() / taf_radio_RemovePreferredOperator() -- Adds/removes a
+ *    preferred operator.
  *
- *  - taf_radio_GetFirstPreferredOperator() / taf_radio_GetNextPreferredOperator() supports to get the
- * first/next preferred operator reference.
+ *  - taf_radio_GetFirstPreferredOperator() / taf_radio_GetNextPreferredOperator() -- Gets the
+ *    first/next preferred operator reference.
  *
- *  - taf_radio_GetPreferredOperatorDetails() supports to get the operator details.
+ *  - taf_radio_GetPreferredOperatorDetails() -- Gets the operator details.
  *
- * Here is the example of preferred operator list management.
+ * The following example illustrates preferred operator list management.
  *
  * @code
  *
@@ -206,16 +205,16 @@
  *
  * @section c_taf_radio_rat Radio Access Technology
  *
- * In this section, user can get RAT in use, and configure RAT preferences.
+ * Users can get RAT in use, and configure RAT preferences.
  *
- *  - taf_radio_GetRadioAccessTechInUse() supports to get radio access technology in use.
+ *  - taf_radio_GetRadioAccessTechInUse() -- Gets radio access technology in use.
  *
- *  - taf_radio_AddRatChangeHandler() / taf_radio_RemoveRatChangeHandler() supports to add/remove
- * handler for RAT change.
+ *  - taf_radio_AddRatChangeHandler() / taf_radio_RemoveRatChangeHandler() -- Adds/removes
+ *    RAT change handler.
  *
- *  - taf_radio_SetRatPreferences() / taf_radio_GetRatPreferences() supports to set/get RAT peferences.
+ *  - taf_radio_SetRatPreferences() / taf_radio_GetRatPreferences() -- Sets/gets RAT peferences.
  *
- * Here is the example of RAT change indication.
+ * The following example illustrates RAT change indication.
  *
  * @code
  *
@@ -232,16 +231,16 @@
  *
    @endcode
  *
- * @section c_taf_radio_cs_ps Circuit Switched and Packet Switched State
+ * @section c_taf_radio_cs_ps Circuit-Switched and Packet-Switched State
  *
- * In this section, user can get the circuit switched and packet switched state.
+ * Users can get the circuit-switched (CS) and packet-switched (PS) state.
  *
- * - taf_radio_GetPacketSwitchedState() supports to get the circuit switched and packet switched state.
+ * - taf_radio_GetPacketSwitchedState() -- Gets the CS and PS state.
  *
- * - taf_radio_AddPacketSwitchedChangeHandler() / taf_radio_RemovePacketSwitchedChangeHandler() supports to
- * add/remove handler for CS/PS change.
+ * - taf_radio_AddPacketSwitchedChangeHandler() / taf_radio_RemovePacketSwitchedChangeHandler() -- Adds/removes
+ *   CS/PS change handler.
  *
- * Here is the example of CS/PS change indication.
+ * The following example illustrates the CS/PS change indication.
  *
  * @code
  *
@@ -261,22 +260,22 @@
  *
  * @section c_taf_radio_signal_metrics Signal Metrics
  *
- * In this section, user can measure signal and get metrics of different RATs.
+ * Users can measure signal and get metrics for different RATs.
  *
- *  - taf_radio_GetSignalQual() supports to get the highest signal strength level.
+ *  - taf_radio_GetSignalQual() -- Gets the highest signal strength level.
  *
- *  - taf_radio_MeasureSignalMetrics() / taf_radio_DeleteSignalMetrics() supports to create/delete signal
- * metrics reference.
+ *  - taf_radio_MeasureSignalMetrics() / taf_radio_DeleteSignalMetrics() -- Creates/deletes the signal
+ *    metrics reference.
  *
- *  - taf_radio_GetRatOfSignalMetrics() supports to get cell RATs.
+ *  - taf_radio_GetRatOfSignalMetrics() -- Gets cell RATs.
  *
  *  - taf_radio_GetGsmSignalMetrics() / taf_radio_GetUmtsSignalMetrics() / taf_radio_GetLteSignalMetrics() /
- * taf_radio_GetCdmaSignalMetrics() supports to get GSM/UMTS/LTE/CDMA signal metrics.
+ *    taf_radio_GetCdmaSignalMetrics() -- Gets GSM/UMTS/LTE/CDMA signal metrics.
  *
- *  - taf_radio_AddSignalStrengthChangeHandler() / taf_radio_RemoveSignalStrengthChangeHandler() supports to
- * add/remove handler for signal strength change.
+ *  - taf_radio_AddSignalStrengthChangeHandler() / taf_radio_RemoveSignalStrengthChangeHandler() -- Adds/removes
+ *    signal strength change handler.
  *
- * Here is the example of getting LTE signal metrics.
+ * The following example illustrates getting LTE signal metrics.
  *
  * @code
  *
@@ -297,64 +296,63 @@
  *
  * @section c_taf_radio_serving_cell Serving Cellular Network Information
  *
- * In this section, user can get information of serving cellular network.
+ * Users can get serving cellular network information.
  *
- *  - taf_radio_GetServingCellId() supports to get the Cell ID.
- * @warning Only applicatable for GSM/LTE/WCDMA/TDSCDMA.
+ *  - taf_radio_GetServingCellId() -- Gets the cell ID.
+ * @warning Only applicable for GSM/LTE/WCDMA/TDSCDMA.
  *
- *  - taf_radio_GetServingCellLocAreaCode() supports to get the Location Area Code.
- * @warning Only applicatable for  GSM/WCDMA/TDSCDMA.
+ *  - taf_radio_GetServingCellLocAreaCode() -- Gets the location area code.
+ * @warning Only applicable for  GSM/WCDMA/TDSCDMA.
  *
- *  - taf_radio_GetServingCellLteTracAreaCode() supports to get the Tracking Area Code.
- * @warning Only applicatable for LTE.
+ *  - taf_radio_GetServingCellLteTracAreaCode() -- Gets the tracking area code.
+ * @warning Only applicable for LTE.
  *
- *  - taf_radio_GetServingCellEarfcn() supports to get the E-UTRA Absolute Radio Frequency Channel Number.
- * @warning Only applicatable for LTE.
+ *  - taf_radio_GetServingCellEarfcn() -- Gets the E-UTRA absolute radio frequency channel number.
+ * @warning Only applicable for LTE.
  *
- *  - taf_radio_GetServingCellTimingAdvance() supports to get the Timing Advance.
- * @warning Only applicatable for GSM/LTE.
+ *  - taf_radio_GetServingCellTimingAdvance() -- Gets the timing advance.
+ * @warning Only applicable for GSM/LTE.
  *
- *  - taf_radio_GetPhysicalServingLteCellId() supports to get the Physical cell ID.
- * @warning Only applicatable for LTE.
+ *  - taf_radio_GetPhysicalServingLteCellId() -- Gets the physical cell ID.
+ * @warning Only applicable for LTE.
  *
- *  - taf_radio_GetServingCellGsmBsic() supports to get the Base Statation ID.
- * @warning Only applicatable for GSM.
+ *  - taf_radio_GetServingCellGsmBsic() -- Gets the base station ID.
+ * @warning Only applicable for GSM.
  *
- *  - taf_radio_GetServingCellScramblingCode() supports to get the Primary Scrambling Code.
- * @warning Only applicatable for WCDMA.
+ *  - taf_radio_GetServingCellScramblingCode() -- Gets the primary scrambling code.
+ * @warning Only applicable for WCDMA.
  *
  * @section c_taf_radio_network Network Information
  *
- * APIs described in this section, the user can use them to get the current network, and discover nearby networks
+ * Users can use the following APIs to get the current network and discover nearby networks
  * by scanning.
  *
- *  - taf_radio_GetCurrentNetworkName() supports to get current network name.
+ *  - taf_radio_GetCurrentNetworkName() -- Gets the current network name.
  *
- *  - taf_radio_GetCurrentNetworkMccMnc() supports to get current network MCC and MNC.
+ *  - taf_radio_GetCurrentNetworkMccMnc() -- Gets the current network MCC and MNC.
  *
- *  - taf_radio_PerformCellularNetworkScan() / taf_radio_DeleteCellularNetworkScan() supports to create/delete
- * a list reference for performing network scan.
+ *  - taf_radio_PerformCellularNetworkScan() / taf_radio_DeleteCellularNetworkScan() -- Creates/deletes
+ *    a list reference for network scanning.
  *
- *  - taf_radio_PerformCellularNetworkScanAsync() supports to perform network scan with handler
- * asynchronously.
+ *  - taf_radio_PerformCellularNetworkScanAsync() -- Asynchronously performs a network scan with a handler.
  *
- *  - taf_radio_GetFirstCellularNetworkScan() / taf_radio_GetNextCellularNetworkScan() supports to get
- * first/next reference of operator in network scan list.
+ *  - taf_radio_GetFirstCellularNetworkScan() / taf_radio_GetNextCellularNetworkScan() -- Gets
+ *    the first/next operator reference in the network scan list.
  *
- *  - taf_radio_GetCellularNetworkMccMnc() supports to get MCC and MNC of a network scan operator.
+ *  - taf_radio_GetCellularNetworkMccMnc() -- Gets MCC and MNC of a network scan operator.
  *
- *  - taf_radio_GetCellularNetworkName() supports to get the name of a network scan operator.
+ *  - taf_radio_GetCellularNetworkName() -- Gets the name of a network scan operator.
  *
- *  - taf_radio_IsCellularNetworkInUse() supports to check if using the network scan operator's network.
+ *  - taf_radio_IsCellularNetworkInUse() -- Checks if using the network scan operator's network.
  *
- *  - taf_radio_IsCellularNetworkAvailable() supports to check if network is available.
+ *  - taf_radio_IsCellularNetworkAvailable() -- Checks if the network is available.
  *
- *  - taf_radio_IsCellularNetworkHome() supports to check if it is home network.
+ *  - taf_radio_IsCellularNetworkHome() -- Checks if it is the home network.
  *
- *  - taf_radio_IsCellularNetworkForbidden() supports to check if network is forbidden.
+ *  - taf_radio_IsCellularNetworkForbidden() -- Checks if the network is forbidden.
  *
- * When users fail to register to current network, they may scan and find the nearby networks, and register to
- * an available network with MCC and MNC manually. Here is the example of scanning network.
+ * When users fail to register to the current network, they may scan and find the nearby networks, and register to
+ * an available network with MCC and MNC manually. The following example illustrates network scanning.
  *
  * @code
  *
@@ -397,141 +395,161 @@
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Mobile Country Code length without null character.
+ * Mobile Country Code (MCC) length without null characters.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE MCC_LEN = 3;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Mobile Network Code minimum length without null character.
+ * Mobile Network Code (MNC) minimum length without null characters.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE MNC_MIN_LEN = 2;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Mobile Network Code maximum length without null character.
+ * MNC maximum length without null characters.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE MNC_MAX_LEN = 3;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Mobile Country Code length with null character.
+ * MCC length with null characters.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE MCC_BYTES = (MCC_LEN + 1);
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Mobile Network Code maximum length with null character.
+ * MNC maximum length with null characters.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE MNC_BYTES = (MNC_MAX_LEN + 1);
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Network maximum name length without null character.
+ * Network maximum name length without null characters.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE NETWORK_NAME_MAX_LEN = 100;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The reference of preferred operator list.
+ * The preferred operator list reference.
  */
 //--------------------------------------------------------------------------------------------------
 REFERENCE PreferredOperatorList;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The reference of preferred operator.
+ * The preferred operator reference.
  */
 //--------------------------------------------------------------------------------------------------
 REFERENCE PreferredOperator;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The reference of signal metrics.
+ * The signal metrics reference.
  */
 //--------------------------------------------------------------------------------------------------
 REFERENCE Metrics;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The reference of network scan information list.
+ * The network scan information list reference.
  */
 //--------------------------------------------------------------------------------------------------
 REFERENCE ScanInformationList;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The reference of network scan information.
+ * The network scan information reference.
  */
 //--------------------------------------------------------------------------------------------------
 REFERENCE ScanInformation;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Radio Access Technology (RAT) enum.
+ * Radio Access Technology (RAT).
  */
 //--------------------------------------------------------------------------------------------------
 ENUM Rat
 {
-    RAT_UNKNOWN,  ///< Unknown rat.
-    RAT_GPRS,     ///< General Packet Radio Service.
-    RAT_EDGE,     ///< Enhanced Data Rate for GSM Evolution.
-    RAT_UMTS,     ///< Universal Mobile Telecommunications System.
+    RAT_UNKNOWN,  ///< Unknown RAT.
+    RAT_GPRS,     ///< General packet radio service.
+    RAT_EDGE,     ///< Enhanced data rate for GSM evolution.
+    RAT_UMTS,     ///< Universal mobile telecommunications system.
     RAT_IS95A,    ///< A standard in CDMA.
     RAT_IS95B,    ///< A standard in CDMA.
-    RAT_1xRTT,    ///< A 2.5G Technology in CDMA.
-    RAT_EVDO_0,   ///< EVolution Data Only Rev.0 in CDMA.
-    RAT_EVDO_A,   ///< EVolution Data Only Rev.A in CDMA.
-    RAT_HSDPA,    ///< High Speed Downlink Packet Access in WCDMA.
-    RAT_HSUPA,    ///< High Speed Uplink Packet Access in WCDMA.
-    RAT_HSPA,     ///< High-Speed Packet Access in WCDMA.
-    RAT_EVDO_B,   ///< EVolution Data Only Rev.B in CDMA.
-    RAT_EHRPD,    ///< Evolved High Rate Package Data.
-    RAT_LTE,      ///< Long Term Evolution.
-    RAT_HSPAP,    ///< A 3.5G Technology in WCDMA.
-    RAT_GSM,      ///< A 3.5G Technology in WCDMA.
-    RAT_TD_SCDMA, ///< Time Division-Synchronous Code Division Multiple Access.
-    RAT_IWLAN,    ///< Industrial Wireless Local Area Networks.
-    RAT_LTE_CA,   ///< Long Term Evolution Carrier Aggregation.
+    RAT_1xRTT,    ///< A 2.5G technology in CDMA.
+    RAT_EVDO_0,   ///< Evolution data only Rev.0 in CDMA.
+    RAT_EVDO_A,   ///< Evolution data only Rev.A in CDMA.
+    RAT_HSDPA,    ///< High speed downlink packet access in WCDMA.
+    RAT_HSUPA,    ///< High speed uplink packet access in WCDMA.
+    RAT_HSPA,     ///< High speed packet access in WCDMA.
+    RAT_EVDO_B,   ///< Evolution data only Rev.B in CDMA.
+    RAT_EHRPD,    ///< Evolved high rate package data.
+    RAT_LTE,      ///< Long term evolution.
+    RAT_HSPAP,    ///< A 3.5G technology in WCDMA.
+    RAT_GSM,      ///< A 3.5G technology in WCDMA.
+    RAT_TD_SCDMA, ///< Time division-synchronous code division multiple access.
+    RAT_IWLAN,    ///< Industrial wireless local area networks.
+    RAT_LTE_CA,   ///< Long term evolution carrier aggregation.
 };
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Network reject cause enum.
+ * Network reject cause.
  */
 //--------------------------------------------------------------------------------------------------
 ENUM NetRejCause
 {
     NET_REJ_CAUSE_UNDEFINED = -1,                    ///< Undefined.
     NET_REJ_CAUSE_GENERAL,                           ///< General.
-    NET_REJ_CAUSE_AUTH_FAILURE,                      ///< Authentication Failure.
+    NET_REJ_CAUSE_AUTH_FAILURE,                      ///< Authentication failure.
     NET_REJ_CAUSE_IMSI_UNKNOWN,                      ///< IMSI unknown in HLR.
-    NET_REJ_CAUSE_ILLEGAL_MS,                        ///< Illegal Mobile Station (MS), network refuses service to the MS either because an identity of the MS is not acceptable to the network or because the MS does not pass the authentication check.
+    NET_REJ_CAUSE_ILLEGAL_MS,                        ///< Illegal Mobile Station (MS); network refuses 
+                                                     ///  service to the MS either because an identity 
+                                                     ///  of the MS is not acceptable to the network 
+                                                     ///  or because the MS does not pass the 
+                                                     ///  authentication check.
     NET_REJ_CAUSE_IMSI_UNKNOWN_VLR,                  ///< IMSI unknown in Visitors Location Register (VLR).
-    NET_REJ_CAUSE_IMEI_NOT_ACCEPTED,                 ///< Network does not accept emergency call establishment using an IMEI or not accept attach procedure for emergency services using an IMEI.
+    NET_REJ_CAUSE_IMEI_NOT_ACCEPTED,                 ///< Network does not accept emergency call 
+                                                     ///  establishment using an IMEI or not accept 
+                                                     ///  attach procedure for emergency services using 
+                                                     ///  an IMEI.
     NET_REJ_CAUSE_ILLEGAL_ME,                        ///< ME used is not acceptable to the network.
     NET_REJ_CAUSE_GPRS_SERVICES_NOT_ALLOWED,         ///< Not allowed to operate GPRS services.
-    NET_REJ_CAUSE_GPRS_NON_GPRS_NOT_ALLOWED,         ///< Not allowed to operate either GPRS or non-GPRS services.
-    NET_REJ_CAUSE_MS_IDENTITY_FAILED,                ///< The network cannot derive the MS's identity from the P-TMSI/GUTI.
+    NET_REJ_CAUSE_GPRS_NON_GPRS_NOT_ALLOWED,         ///< Not allowed to operate either GPRS or 
+                                                     ///  non-GPRS services.
+    NET_REJ_CAUSE_MS_IDENTITY_FAILED,                ///< The network cannot derive the MS's identity 
+                                                     ///  from the P-TMSI/GUTI.
     NET_REJ_CAUSE_IMPLICITLY_DETACHED,               ///< Network has implicitly detached the MS.
-    NET_REJ_CAUSE_PLMN_NOT_ALLOWED,                  ///< If the network initiates a detach request or UE requests a services, in a PLMN where the MS, by subscription or due to operator determined barring is not allowed to operate.
-    NET_REJ_CAUSE_LOCATION_AREA_NOT_ALLOWED,         ///< Network initiates a detach request, in a location area where the HPLMN determines that the MS, by subscription, is not allowed to operate or roaming subscriber the subscriber is denied service even if other PLMNs are available on which registration was possible.
+    NET_REJ_CAUSE_PLMN_NOT_ALLOWED,                  ///< If the network initiates a detach request or 
+                                                     ///  UE requests a services, in a PLMN where the MS, 
+                                                     ///  by subscription or due to operator determined 
+                                                     ///  barring is not allowed to operate.
+    NET_REJ_CAUSE_LOCATION_AREA_NOT_ALLOWED,         ///< Network initiates a detach request, in a 
+                                                     ///  location area where the HPLMN determines that 
+                                                     ///  the MS, by subscription, is not allowed to operate 
+                                                     ///  or roaming subscriber the subscriber is denied 
+                                                     ///  service even if other PLMNs are available on 
+                                                     ///  which registration was possible.
     NET_REJ_CAUSE_ROAMING_NOT_ALLOWED,               ///< Roaming not allowed in this Location Area.
     NET_REJ_CAUSE_GPRS_NOT_ALLOWED_IN_PLMN,          ///< GPRS services not allowed in this PLMN.
     NET_REJ_CAUSE_NO_SUITABLE_CELLS,                 ///< No Suitable Cells in this Location Area.
     NET_REJ_CAUSE_MSC_TEMPORARILY_NOT_REACHABLE,     ///< MSC temporarily not reachable.
     NET_REJ_CAUSE_NETWORK_FAILURE,                   ///< Network Failure.
     NET_REJ_CAUSE_MAC_FAILURE = 20,                  ///< MAC failure.
-    NET_REJ_CAUSE_SYNC_FAILURE,                      ///< USIM detects that the SQN in the AUTHENTICATION REQUEST or AUTHENTICATION_AND_CIPHERING REQUEST message is out of range.
-    NET_REJ_CAUSE_CONGESTION,                        ///< Network cannot serve a request from the MS because of congestion.
-    NET_REJ_CAUSE_GSM_AUTHENTICATION_UNACCEPTABLE,   ///< GSM Authentication unacceptable.
-    NET_REJ_CAUSE_NOT_AUTHORIZED = 25,               ///< Not Authorized for this CSG.
+    NET_REJ_CAUSE_SYNC_FAILURE,                      ///< USIM detects that the SQN in the AUTHENTICATION REQUEST 
+                                                     ///  or AUTHENTICATION_AND_CIPHERING REQUEST message is 
+                                                     ///  out of range.
+    NET_REJ_CAUSE_CONGESTION,                        ///< Network cannot serve a request from the MS because 
+                                                     ///  of congestion.
+    NET_REJ_CAUSE_GSM_AUTHENTICATION_UNACCEPTABLE,   ///< GSM authentication unacceptable.
+    NET_REJ_CAUSE_NOT_AUTHORIZED = 25,               ///< Not authorized for this CSG.
     NET_REJ_CAUSE_SMS_PROVIDED_VIA_GPRS = 28,        ///< SMS provided via GPRS in this routing area.
     NET_REJ_CAUSE_SERVICE_OPTION_NOT_SUPPORTED = 32, ///< Service option not supported.
     NET_REJ_CAUSE_SERVICE_OPTION_NOT_SUBCRIBED,      ///< Requested service option not subscribed.
@@ -545,12 +563,12 @@ ENUM NetRejCause
     NET_REJ_CAUSE_MSG_NOT_COMPATIBLE,                ///< Message not compatible with protocol state.
     NET_REJ_CAUSE_INFO_NOT_IMPLEMENTED,              ///< Information element non-existent or not implemented.
     NET_REJ_CAUSE_CONDITIONAL_IE_ERROR,              ///< Conditional IE error.
-    NET_REJ_CAUSE_PROTOCOL_ERROR_UNSPECIFIED = 111   ///< Protocol error, unspecified.
+    NET_REJ_CAUSE_PROTOCOL_ERROR_UNSPECIFIED = 111   ///< Protocol error; unspecified.
 };
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Network registration state enum.
+ * Network registration state.
  */
 //--------------------------------------------------------------------------------------------------
 ENUM NetRegState
@@ -565,82 +583,86 @@ ENUM NetRegState
     NET_REG_STATE_RSV_7,                                             ///< Reserved 7 register state.
     NET_REG_STATE_RSV_8,                                             ///< Reserved 8 register state.
     NET_REG_STATE_RSV_9,                                             ///< Reserved 9 register state.
-    NET_REG_STATE_NOT_REG_AND_EMERGENCY_AVAILABLE_AND_NOT_SEARCHING, ///< Not registered and not searching, but emergency available.
+    NET_REG_STATE_NOT_REG_AND_EMERGENCY_AVAILABLE_AND_NOT_SEARCHING, ///< Not registered and not searching, 
+                                                                     ///  but emergency available.
     NET_REG_STATE_RSV_11,                                            ///< Reserved 11 register state.
-    NET_REG_STATE_NOT_REG_AND_EMERGENCY_AVAILABLE_AND_SEARCHING,     ///< Not registered and searching, emergency available.
-    NET_REG_STATE_REG_DENIED_AND_EMERGENCY_AVAILABLE,                ///< Registered denied, but emergency available.
-    NET_REG_STATE_UNKNOWN_AND_EMERGENCY_AVAILABLE                    ///< Unknown state, but emergency available.
+    NET_REG_STATE_NOT_REG_AND_EMERGENCY_AVAILABLE_AND_SEARCHING,     ///< Not registered and searching, 
+                                                                     ///  but emergency available.
+    NET_REG_STATE_REG_DENIED_AND_EMERGENCY_AVAILABLE,                ///< Registered denied, but emergency 
+                                                                     ///  available.
+    NET_REG_STATE_UNKNOWN_AND_EMERGENCY_AVAILABLE                    ///< Unknown state, but emergency 
+                                                                     ///  available.
 };
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Service domain state enum.
+ * Service domain state.
  */
 //--------------------------------------------------------------------------------------------------
 ENUM ServiceDomainState
 {
     SERVICE_DOMAIN_STATE_UNKNOWN = -1, ///< Unknown state.
-    SERVICE_DOMAIN_STATE_CS_ONLY,      ///< Circuit Switched only.
-    SERVICE_DOMAIN_STATE_PS_ONLY,      ///< Packet Switched only.
-    SERVICE_DOMAIN_STATE_CS_AND_PS     ///< Circuit Switched and Packet Switched.
+    SERVICE_DOMAIN_STATE_CS_ONLY,      ///< CS only.
+    SERVICE_DOMAIN_STATE_PS_ONLY,      ///< PS only.
+    SERVICE_DOMAIN_STATE_CS_AND_PS     ///< CS and PS.
 };
 
 //--------------------------------------------------------------------------------------------------
 /**
- * RAT bit mask.
+ * RAT bitmask.
  */
 //--------------------------------------------------------------------------------------------------
 BITMASK RatBitMask
 {
-    RAT_BIT_MASK_RSV_0,  ///< Reserved 0 bit mask.
-    RAT_BIT_MASK_RSV_1,  ///< Reserved 1 bit mask.
-    RAT_BIT_MASK_RSV_2,  ///< Reserved 2 bit mask.
-    RAT_BIT_MASK_RSV_3,  ///< Reserved 3 bit mask.
-    RAT_BIT_MASK_RSV_4,  ///< Reserved 4 bit mask.
-    RAT_BIT_MASK_RSV_5,  ///< Reserved 5 bit mask.
-    RAT_BIT_MASK_RSV_6,  ///< Reserved 6 bit mask.
-    RAT_BIT_MASK_GSM,    ///< GSM bit mask.
-    RAT_BIT_MASK_RSV_8,  ///< Reserved 8 bit mask.
-    RAT_BIT_MASK_RSV_9,  ///< Reserved 9 bit mask.
-    RAT_BIT_MASK_RSV_10, ///< Reserved 10 bit mask.
-    RAT_BIT_MASK_NR5G,   ///< NR5G bit mask.
-    RAT_BIT_MASK_RSV_12, ///< Reserved 12 bit mask.
-    RAT_BIT_MASK_RSV_13, ///< Reserved 13 bit mask.
-    RAT_BIT_MASK_LTE,    ///< LTE bit mask.
-    RAT_BIT_MASK_UMTS,   ///< UMTS bit mask.
-    RAT_BIT_MASK_ALL     ///< All(GSM + NR5G + LTE + UMTS) bit mask.
+    RAT_BIT_MASK_RSV_0,  ///< Reserved 0 bitmask.
+    RAT_BIT_MASK_RSV_1,  ///< Reserved 1 bitmask.
+    RAT_BIT_MASK_RSV_2,  ///< Reserved 2 bitmask.
+    RAT_BIT_MASK_RSV_3,  ///< Reserved 3 bitmask.
+    RAT_BIT_MASK_RSV_4,  ///< Reserved 4 bitmask.
+    RAT_BIT_MASK_RSV_5,  ///< Reserved 5 bitmask.
+    RAT_BIT_MASK_RSV_6,  ///< Reserved 6 bitmask.
+    RAT_BIT_MASK_GSM,    ///< GSM bitmask.
+    RAT_BIT_MASK_RSV_8,  ///< Reserved 8 bitmask.
+    RAT_BIT_MASK_RSV_9,  ///< Reserved 9 bitmask.
+    RAT_BIT_MASK_RSV_10, ///< Reserved 10 bitmask.
+    RAT_BIT_MASK_NR5G,   ///< NR5G bitmask.
+    RAT_BIT_MASK_RSV_12, ///< Reserved 12 bitmask.
+    RAT_BIT_MASK_RSV_13, ///< Reserved 13 bitmask.
+    RAT_BIT_MASK_LTE,    ///< LTE bitmask.
+    RAT_BIT_MASK_UMTS,   ///< UMTS bitmask.
+    RAT_BIT_MASK_ALL     ///< All (GSM + NR5G + LTE + UMTS) bitmask.
 };
 
 //--------------------------------------------------------------------------------------------------
 /**
- * RAT preference bit mask.
+ * RAT preference bitmask.
  */
 //--------------------------------------------------------------------------------------------------
 BITMASK RatPrefMask
 {
-    RAT_PREF_MASK_CDMA_1X,   ///< CDMA_1X bit mask.
-    RAT_PREF_MASK_CDMA_EVDO, ///< CDMA_EVDO bit mask.
-    RAT_PREF_MASK_GSM,       ///< GSM bit mask.
-    RAT_PREF_MASK_WCDMA,     ///< WCDMA bit mask.
-    RAT_PREF_MASK_LTE,       ///< LTE bit mask.
-    RAT_PREF_MASK_TDSCDMA,   ///< TD-SCDMA bit mask.
-    RAT_PREF_MASK_NR5G,      ///< NR5G bit mask.
-    RAT_PREF_MASK_ALL        ///< All(CDMA + GSM + WCDMA + LTE + TD-SCDMA + NR5G) bit mask.
+    RAT_PREF_MASK_CDMA_1X,   ///< CDMA_1X bitmask.
+    RAT_PREF_MASK_CDMA_EVDO, ///< CDMA_EVDO bitmask.
+    RAT_PREF_MASK_GSM,       ///< GSM bitmask.
+    RAT_PREF_MASK_WCDMA,     ///< WCDMA bitmask.
+    RAT_PREF_MASK_LTE,       ///< LTE bitmask.
+    RAT_PREF_MASK_TDSCDMA,   ///< TD-SCDMA bitmask.
+    RAT_PREF_MASK_NR5G,      ///< NR5G bitmask.
+    RAT_PREF_MASK_ALL        ///< All (CDMA + GSM + WCDMA + LTE + TD-SCDMA + NR5G) bitmask.
 };
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Cell RAT bit mask.
+ * Cell RAT bitmask.
  */
 //--------------------------------------------------------------------------------------------------
 BITMASK CellRatMask
 {
-    CELL_RAT_MASK_GSM,     ///< GSM bit mask.
-    CELL_RAT_MASK_CDMA,    ///< CDMA bit mask.
-    CELL_RAT_MASK_LTE,     ///< LTE bit mask.
-    CELL_RAT_MASK_WCDMA,   ///< WCDMA bit mask.
-    CELL_RAT_MASK_TDSCDMA, ///< TDSCDMA bit mask.
-    CELL_RAT_MASK_UNKNOWN  ///< UNKNOWN bit mask.
+    CELL_RAT_MASK_GSM,     ///< GSM bitmask.
+    CELL_RAT_MASK_CDMA,    ///< CDMA bitmask.
+    CELL_RAT_MASK_LTE,     ///< LTE bitmask.
+    CELL_RAT_MASK_WCDMA,   ///< WCDMA bitmask.
+    CELL_RAT_MASK_TDSCDMA, ///< TDSCDMA bitmask.
+    CELL_RAT_MASK_UNKNOWN  ///< UNKNOWN bitmask.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -718,7 +740,7 @@ HANDLER NetRegStateHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Handler for circuit and packet switched change.
+ * Handler for CS and PS changes.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER PacketSwitchedChangeHandler
@@ -736,12 +758,12 @@ HANDLER SignalStrengthChangeHandler
     int32 ss IN ///< The signal strength.
 );
 
-/*
+/**
  * Handler for network scan.
  */
 HANDLER CellularNetworkScanHandler
 (
-    ScanInformationList listRef IN ///< The reference of network scan information list.
+    ScanInformationList listRef IN ///< The network scan information list reference.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -776,12 +798,12 @@ EVENT NetRegStateEvent
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Event to report circuit and packet switched change.
+ * Event to report CS and PS changes.
  */
 //--------------------------------------------------------------------------------------------------
 EVENT PacketSwitchedChange
 (
-    PacketSwitchedChangeHandler handler ///< Handler for circuit and packet switched change.
+    PacketSwitchedChangeHandler handler ///< Handler for CS and PS changes.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -797,12 +819,12 @@ EVENT SignalStrengthChange
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function sets the radio power state.
+ * Sets the radio power state.
  *
  * @return
- *  - LE_BAD_PARAMETER : Bad parameters.
- *  - LE_FAULT : On failure.
- *  - LE_OK : On success.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetRadioPower
@@ -813,12 +835,12 @@ FUNCTION le_result_t SetRadioPower
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets the radio power state.
+ *  Gets the radio power state.
  *
  * @return
- *  - LE_BAD_PARAMETER : Bad parameters.
- *  - LE_FAULT : On failure.
- *  - LE_OK : On success.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetRadioPower
@@ -829,13 +851,13 @@ FUNCTION le_result_t GetRadioPower
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function registers to network using automatic mode.
+ *  Registers to network using automatic mode.
  *
  * @return
- *  - LE_BAD_PARAMETER : Bad parameters.
- *  - LE_TIMEOUT : Response time out.
- *  - LE_FAULT : On failure.
- *  - LE_OK : On success.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetAutomaticRegisterMode
@@ -845,60 +867,60 @@ FUNCTION le_result_t SetAutomaticRegisterMode
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function registers to network using manual mode.
+ *  Registers to network using manual mode.
  *
  * @return
- *  - LE_BAD_PARAMETER : Bad parameters.
- *  - LE_TIMEOUT : Response time out.
- *  - LE_FAULT : On failure.
- *  - LE_OK : On success.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetManualRegisterMode
 (
-    string mcc[MCC_LEN] IN,     ///< Mobile Country Code.
-    string mnc[MNC_MAX_LEN] IN, ///< Mobile Network Code.
+    string mcc[MCC_LEN] IN,     ///< MCC. 
+    string mnc[MNC_MAX_LEN] IN, ///< MNC.
     uint8 phoneId IN            ///< Slot ID.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function registers to network asynchronously using manual mode.
+ *  Registers to network asynchronously using manual mode.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION SetManualRegisterModeAsync
 (
-    string mcc[MCC_LEN] IN,         ///< Mobile Country Code.
-    string mnc[MNC_MAX_LEN] IN,     ///< Mobile Network Code.
+    string mcc[MCC_LEN] IN,         ///< MCC.
+    string mnc[MNC_MAX_LEN] IN,     ///< MNC.
     ManualSelectionHandler handler, ///< Handler for manual selection.
     uint8 phoneId IN                ///< Slot ID.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets network registration mode.
+ *  Gets the network registration mode.
  *
  * @return
- *  - LE_BAD_PARAMETER : Bad parameters.
- *  - LE_TIMEOUT : Response time out.
- *  - LE_FAULT : On failure.
- *  - LE_OK : On success.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetRegisterMode
 (
-    bool isManualPtr OUT,           ///< True if manual mode, false if automatic mode.
-    string mccPtr[MCC_LEN] OUT,     ///< Mobile Country Code.
-    string mncPtr[MNC_MAX_LEN] OUT, ///< Mobile Network Code.
+    bool isManualPtr OUT,           ///< True if manual, false if automatic.
+    string mccPtr[MCC_LEN] OUT,     ///< MCC.
+    string mncPtr[MNC_MAX_LEN] OUT, ///< MNC.
     uint8 phoneId IN                ///< Slot ID.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets platform specific error code of network registration.
+ *  Gets platform-specific network registration error code.
  *
  * @return
- * - Platform specific error code of network registration.
+ * Platform-specific network registration error code.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION int32 GetPlatformSpecificRegistrationErrorCode
@@ -907,65 +929,65 @@ FUNCTION int32 GetPlatformSpecificRegistrationErrorCode
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function adds a preferred operator.
+ *  Adds a preferred operator.
  *
  * @return
- *  - LE_BAD_PARAMETER : Bad parameters.
- *  - LE_TIMEOUT : Response time out.
- *  - LE_DUPLICATE : Duplicate preferred operator.
- *  - LE_FAULT : On failure.
- *  - LE_OK : On success.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response timed out.
+ *  - LE_DUPLICATE -- Duplicate preferred operator.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t AddPreferredOperator
 (
-    string mcc[MCC_LEN] IN,     ///< Mobile Country Code.
-    string mnc[MNC_MAX_LEN] IN, ///< Mobile Network Code.
-    RatBitMask ratMask IN,      ///< RAT bit mask.
+    string mcc[MCC_LEN] IN,     ///< MCC.
+    string mnc[MNC_MAX_LEN] IN, ///< MNC.
+    RatBitMask ratMask IN,      ///< RAT bitmask.
     uint8 phoneId IN            ///< Slot ID.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function removes a preferred operator.
+ *  Removes a preferred operator.
  *
  * @return
- *  - LE_BAD_PARAMETER : Bad parameters.
- *  - LE_TIMEOUT : Response time out.
- *  - LE_NOT_FOUND : Preferred operator not found.
- *  - LE_FAULT : On failure.
- *  - LE_OK : On success.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response timed out.
+ *  - LE_NOT_FOUND -- Preferred operator not found.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t RemovePreferredOperator
 (
-    string mcc[MCC_LEN] IN,     ///< Mobile Country Code.
-    string mnc[MNC_MAX_LEN] IN, ///< Mobile Network Code.
+    string mcc[MCC_LEN] IN,     ///< MCC.
+    string mnc[MNC_MAX_LEN] IN, ///< MNC.
     uint8 phoneId IN            ///< Slot ID.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function deletes preferred operators list.
+ *  Deletes the preferred operators list.
  *
  * @return
- *  - LE_BAD_PARAMETER : Bad parameters.
- *  - LE_NOT_FOUND : Preferred operator not found.
- *  - LE_OK : On success.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Preferred operator not found.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DeletePreferredOperatorsList
 (
-    PreferredOperatorList preferredOperatorListRef IN ///< The reference of preferred operators list.
+    PreferredOperatorList preferredOperatorListRef IN ///< The preferred operators list reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function creates preferred operators list.
+ *  Creates a preferred operators list.
  *
  * @return
- *  - Non-null pointer : The reference of preferred operators list.
- *  - Null pointer : Internal error or no preferred operators list.
+ *  - Non-null pointer -- The preferred operators list reference.
+ *  - Null pointer -- Internal error or no preferred operators list.
  *
  * @note At most 1 preferred operator list per slot.
  */
@@ -977,59 +999,59 @@ FUNCTION PreferredOperatorList GetPreferredOperatorsList
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets the first preferred operator.
+ *  Gets the first preferred operator.
  *
  * @return
- *  - Non-null pointer : The reference of the first preferred operator.
- *  - Null pointer : Internal error or empty list.
+ *  - Non-null pointer -- The first preferred operator reference.
+ *  - Null pointer -- Internal error or empty list.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION PreferredOperator GetFirstPreferredOperator
 (
-    PreferredOperatorList  preferredOperatorListRef IN ///< The reference of preferred operators list.
+    PreferredOperatorList  preferredOperatorListRef IN ///< The preferred operators list reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets the next preferred operator based on the current position in the list.
+ *  Gets the next preferred operator based on the current position in the list.
  *
  * @return
- *  - Non-null pointer : The reference of next preferred operator.
- *  - Null pointer : Internal error or empty list.
+ *  - Non-null pointer -- The next preferred operator reference.
+ *  - Null pointer -- Internal error or empty list.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION PreferredOperator GetNextPreferredOperator
 (
-    PreferredOperatorList  preferredOperatorListRef IN ///< The reference of preferred operators list.
+    PreferredOperatorList  preferredOperatorListRef IN ///< The preferred operators list reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets the details of preferred operator.
+ *  Gets the details of the given preferred operator.
  *
  * @return
- *  - LE_BAD_PARAMETER : Bad parameters.
- *  - LE_NOT_FOUND : Preferred operator not found.
- *  - LE_OK : On success.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Preferred operator not found.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetPreferredOperatorDetails
 (
-    PreferredOperator preferredOperatorRef IN, ///< The reference of preferred operator.
-    string mccPtr[MCC_LEN] OUT,                ///< Mobile Country Code.
-    string mncPtr[MNC_MAX_LEN] OUT,            ///< Mobile Network Code.
-    RatBitMask ratMask OUT                     ///< RAT bit mask.
+    PreferredOperator preferredOperatorRef IN, ///< The preferred operator reference.
+    string mccPtr[MCC_LEN] OUT,                ///< MCC.
+    string mncPtr[MNC_MAX_LEN] OUT,            ///< MNC.
+    RatBitMask ratMask OUT                     ///< RAT bitmask.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets the RAT in use.
+ *  Gets the RAT in use.
  *
  * @return
- *  - LE_BAD_PARAMETER : Bad parameters.
- *  - LE_TIMEOUT : Response time out.
- *  - LE_FAULT : On failure.
- *  - LE_OK : On success.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response timed out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetRadioAccessTechInUse
@@ -1040,46 +1062,46 @@ FUNCTION le_result_t GetRadioAccessTechInUse
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function sets RAT preferences.
+ *  Sets the RAT preferences.
  *
  * @return
- *  - LE_BAD_PARAMETER : Bad parameters.
- *  - LE_FAULT : On failure.
- *  - LE_OK : On success.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetRatPreferences
 (
-    RatPrefMask ratMask IN, ///< Bit mask for RAT prefences.
+    RatPrefMask ratMask IN, ///< Bitmask for RAT prefences.
     uint8 phoneId IN        ///< Slot ID.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets RAT preferences.
+ *  Gets the RAT preferences.
  *
  * @return
- *  - LE_BAD_PARAMETER : Bad parameters.
- *  - LE_TIMEOUT : Response time out.
- *  - LE_FAULT : On failure.
- *  - LE_OK : On success.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response timed out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetRatPreferences
 (
-    RatPrefMask ratMaskPtr OUT, ///< Bit mask for RAT prefences.
+    RatPrefMask ratMaskPtr OUT, ///< Bitmask for RAT prefences.
     uint8 phoneId IN            ///< Slot ID.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets network registration state.
+ *  Gets the network registration state.
  *
  * @return
- *  - LE_BAD_PARAMETER : Bad parameters.
- *  - LE_TIMEOUT : Response time out.
- *  - LE_FAULT : On failure.
- *  - LE_OK : On success.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response timed out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetNetRegState
@@ -1090,50 +1112,50 @@ FUNCTION le_result_t GetNetRegState
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets circuit and packet switched state.
+ *  Gets the CS and PS state.
  *
  * @return
- *  - LE_BAD_PARAMETER : Bad parameters.
- *  - LE_TIMEOUT : Response time out.
- *  - LE_FAULT : On failure.
- *  - LE_OK : On success.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response timed out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetPacketSwitchedState
 (
-    ServiceDomainState state OUT, ///< Circuit and packet switched state.
+    ServiceDomainState state OUT, ///< CS and PS state.
     uint8 phoneId IN              ///< Slot ID.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets signal quality.
+ *  Gets the signal quality.
  *
  * @return
- *  - LE_BAD_PARAMETER : Bad parameters.
- *  - LE_TIMEOUT : Response time out.
- *  - LE_FAULT : On failure.
- *  - LE_OK : On success.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response timed out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  *
  * @note This function gets the highest signal strength level of RATs.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetSignalQual
 (
-    uint32 quality OUT, ///< Signal qulity level, range from 0 to 5.
+    uint32 quality OUT, ///< Signal qulity level, range is 0 to 5.
     uint8 phoneId IN    ///< Slot ID.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function creates signal metrics.
+ *  Creates signal metrics.
  *
  * @return
- *  - Non-null pointer : The reference of signal metrics.
- *  - Null pointer : Internal error.
+ *  - Non-null pointer -- The signal metrics reference.
+ *  - Null pointer -- Internal error.
  *
- * @note At most 1 signal metrics reference per slot. taf_radio_DeleteSignalMetrics() help to release
- *       the reference of signal metrics before measuring.
+ * @note At most 1 signal metrics reference per slot. taf_radio_DeleteSignalMetrics() releases
+ *       signal metrics reference before measuring.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION Metrics MeasureSignalMetrics
@@ -1143,117 +1165,117 @@ FUNCTION Metrics MeasureSignalMetrics
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function deletes signal metrics.
+ *  Deletes signal metrics.
  *
  * @return
- *  - LE_BAD_PARAMETER : Bad parameters.
- *  - LE_NOT_FOUND : Preferred operator not found.
- *  - LE_OK : On success.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Preferred operator not found.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DeleteSignalMetrics
 (
-    Metrics MetricsRef IN ///< The reference of signal metrics.
+    Metrics MetricsRef IN ///< The signal metrics reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets cell RAT bitmask of signal metrics.
+ *  Gets cell RAT bitmask of signal metrics.
  *
  * @return
- *  - TAF_RADIO_CELL_RAT_MASK_UNKNOWN : Internal error.
- *  - Others : Cell Rat bitmask of signal metrics.
+ *  - TAF_RADIO_CELL_RAT_MASK_UNKNOWN -- Internal error.
+ *  - Others -- Cell RAT bitmask of signal metrics.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION CellRatMask GetRatOfSignalMetrics
 (
-    Metrics MetricsRef IN ///< The reference of signal metrics.
+    Metrics MetricsRef IN ///< The signal metrics reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets GSM signal metrics.
+ *  Gets GSM signal metrics.
  *
  * @return
- *  - LE_BAD_PARAMETER : Bad parameters.
- *  - LE_NOT_FOUND : Reference not found.
- *  - LE_UNAVAILABLE : GSM unavailable.
- *  - LE_OK : On success.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_UNAVAILABLE -- GSM unavailable.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetGsmSignalMetrics
 (
-    Metrics MetricsRef IN, ///< The reference of signal metrics.
-    int32 rssi OUT,        ///< Signal Strength.
-    uint32 ber OUT         ///< Bit Error Rate.
+    Metrics MetricsRef IN, ///< The signal metrics reference.
+    int32 rssi OUT,        ///< Signal strength.
+    uint32 ber OUT         ///< Bit error rate.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets UMTS signal metrics.
+ *  Gets UMTS signal metrics.
  *
  * @return
- *  - LE_BAD_PARAMETER : Bad parameters.
- *  - LE_NOT_FOUND : Reference not found.
- *  - LE_UNAVAILABLE : UMTS unavailable.
- *  - LE_OK : On success.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_UNAVAILABLE -- UMTS unavailable.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetUmtsSignalMetrics
 (
-    Metrics MetricsRef IN, ///< The reference of signal metrics.
-    int32 ss OUT,          ///< Signal Strength, only applicatable for WCDMA.
-    uint32 ber OUT,        ///< Bit Error Rate, only applicatable for WCDMA.
-    int32 rscp OUT         ///< Reference Signal Code Power in dBm, only applicatable for TD-SCDMA.
+    Metrics MetricsRef IN, ///< The signal metrics reference.
+    int32 ss OUT,          ///< Signal strength, only applicable for WCDMA.
+    uint32 ber OUT,        ///< Bit error rate, only applicable for WCDMA.
+    int32 rscp OUT         ///< Reference signal code power in dBm, only applicable for TD-SCDMA.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets LTE signal metrics.
+ *  Gets LTE signal metrics.
  *
  * @return
- *  - LE_BAD_PARAMETER : Bad parameters.
- *  - LE_NOT_FOUND : Reference not found.
- *  - LE_UNAVAILABLE : LTE unavailable.
- *  - LE_OK : On success.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_UNAVAILABLE -- LTE unavailable.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetLteSignalMetrics
 (
-    Metrics MetricsRef IN, ///< The reference of signal metrics.
-    int32 ss OUT,          ///< Signal Strength.
-    int32 rsrq OUT,        ///< Reference Signal Receive Quality in dB.
-    int32 rsrp OUT,        ///< Reference Signal Receive Power in dBm.
-    int32 snr OUT          ///< Signal-to-Noise Ratio in dB.
+    Metrics MetricsRef IN, ///< The signal metrics reference.
+    int32 ss OUT,          ///< Signal strength.
+    int32 rsrq OUT,        ///< Reference signal receive quality in dB.
+    int32 rsrp OUT,        ///< Reference signal receive power in dBm.
+    int32 snr OUT          ///< Signal-to-noise ratio in dB.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets CDMA signal metrics.
+ *  Gets CDMA signal metrics.
  *
  * @return
- *  - LE_BAD_PARAMETER : Bad parameters.
- *  - LE_NOT_FOUND : Reference not found.
- *  - LE_UNAVAILABLE : CDMA unavailable.
- *  - LE_OK : On success.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_UNAVAILABLE -- CDMA unavailable.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetCdmaSignalMetrics
 (
-    Metrics MetricsRef IN, ///< The reference of signal metrics.
-    int32 ss OUT,          ///< Signal Strength in dBm.
+    Metrics MetricsRef IN, ///< The signal metrics reference.
+    int32 ss OUT,          ///< Signal strength in dBm.
     int32 ecio OUT,        ///< CDMA Ec/Io in dB.
-    int32 snr OUT,         ///< Signal-to-Noise Ratio in dB.
-    int32 io OUT           ///< EVDO Ec/Io in dB.
+    int32 snr OUT,         ///< Signal-to-noise ratio in dB.
+    int32 io OUT           ///< EV-DO Ec/Io in dB.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets Cell ID.
+ *  Gets cell ID.
  *
  * @return
- *  - UINT32_MAX : Internal error.
- *  - Others : Cell ID.
+ *  - UINT32_MAX -- Internal error.
+ *  - Others -- Cell ID.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION uint32 GetServingCellId
@@ -1263,11 +1285,11 @@ FUNCTION uint32 GetServingCellId
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets Location Area Code.
+ *  Gets the location area code.
  *
  * @return
- *  - UINT32_MAX : Internal error.
- *  - Others : Location Area Code.
+ *  - UINT32_MAX -- Internal error.
+ *  - Others -- Location area code.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION uint32 GetServingCellLocAreaCode
@@ -1277,11 +1299,11 @@ FUNCTION uint32 GetServingCellLocAreaCode
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets LTE Tracking Area Code.
+ *  Gets the LTE tracking area code.
  *
  * @return
- *  - UINT16_MAX : Internal error.
- *  - Others : LTE Tracking Area Code.
+ *  - UINT16_MAX -- Internal error.
+ *  - Others -- LTE tracking area code.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION uint16 GetServingCellLteTracAreaCode
@@ -1291,11 +1313,11 @@ FUNCTION uint16 GetServingCellLteTracAreaCode
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets E-UTRA Absolute Radio Frequency Channel Number.
+ *  Gets E-UTRA absolute radio frequency channel number.
  *
  * @return
- *  - UINT16_MAX : Internal error.
- *  - Others : E-UTRA Absolute Radio Frequency Channel Number.
+ *  - UINT16_MAX -- Internal error.
+ *  - Others -- E-UTRA absolute radio frequency channel number.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION uint32 GetServingCellEarfcn
@@ -1305,11 +1327,11 @@ FUNCTION uint32 GetServingCellEarfcn
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets Timing Advance.
+ *  Gets timing advance.
  *
  * @return
- *  - UINT32_MAX : Internal error.
- *  - Others : Timing Advance.
+ *  - UINT32_MAX -- Internal error.
+ *  - Others -- Timing advance.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION uint32 GetServingCellTimingAdvance
@@ -1319,11 +1341,11 @@ FUNCTION uint32 GetServingCellTimingAdvance
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets Physical LTE Cell ID.
+ *  Gets physical LTE cell ID.
  *
  * @return
- *  - UINT16_MAX : Internal error.
- *  - Others : Physical LTE Cell ID.
+ *  - UINT16_MAX -- Internal error.
+ *  - Others -- Physical LTE cell ID.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION uint16 GetPhysicalServingLteCellId
@@ -1333,30 +1355,30 @@ FUNCTION uint16 GetPhysicalServingLteCellId
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets GSM Base Station Identity Code.
+ *  Gets the GSM base station identity code.
  *
  * @return
- *  - LE_BAD_PARAMETER : Bad parameters.
- *  - LE_TIMEOUT : Response time out.
- *  - LE_FAULT : On failure.
- *  - LE_OK : On success.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response time out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetServingCellGsmBsic
 (
-    uint8 bsic OUT,  ///< GSM Base Station Identity Code.
+    uint8 bsic OUT,  ///< GSM base station identity code.
     uint8 phoneId IN ///< Slot ID.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets Primary Scrambling Code.
+ *  Gets the primary scrambling code.
  *
  * @return
- *  - UINT16_MAX : Internal error.
- *  - Others : Primary Scrambling Code.
+ *  - UINT16_MAX -- Internal error.
+ *  - Others -- Primary scrambling code.
  *
- * @note Only applicatable for WCDMA.
+ * @note Only applicable for WCDMA.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION uint16 GetServingCellScramblingCode
@@ -1366,12 +1388,12 @@ FUNCTION uint16 GetServingCellScramblingCode
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets current network name.
+ *  Gets the current network name.
  *
  * @return
- *  - LE_BAD_PARAMETER : Bad parameters.
- *  - LE_FAULT : On failure.
- *  - LE_OK : On success.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetCurrentNetworkName
@@ -1382,28 +1404,28 @@ FUNCTION le_result_t GetCurrentNetworkName
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets current Mobile Country Code and Mobile Network Code.
+ *  Gets the current MCC and MNC.
  *
  * @return
- *  - LE_BAD_PARAMETER : Bad parameters.
- *  - LE_FAULT : On failure.
- *  - LE_OK : On success.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetCurrentNetworkMccMnc
 (
-    string mccStr[MCC_LEN] OUT,     ///< Mobile Country Code.
-    string mncStr[MNC_MAX_LEN] OUT, ///< Mobile Network Code.
+    string mccStr[MCC_LEN] OUT,     ///< MCC.
+    string mncStr[MNC_MAX_LEN] OUT, ///< MNC.
     uint8 phoneId IN                ///< Slot ID.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function performs celluar network scan, and get the reference of network scan information list.
+ *  Performs celluar network scan and gets the network scan information list reference.
  *
  * @return
- *  - Non-null pointer : The reference of network scan information list.
- *  - Null pointer : Internal error.
+ *  - Non-null pointer -- The network scan information list reference.
+ *  - Null pointer -- Internal error.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION ScanInformationList PerformCellularNetworkScan
@@ -1413,7 +1435,7 @@ FUNCTION ScanInformationList PerformCellularNetworkScan
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function performs celluar network scan asynchronously.
+ *  Asynchronously performs a celluar network scan.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION PerformCellularNetworkScanAsync
@@ -1424,133 +1446,133 @@ FUNCTION PerformCellularNetworkScanAsync
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets the reference of the first operator in network scan information list.
+ *  Gets the reference of the first operator in the network scan information list.
  *
  * @return
- *  - Non-null pointer : The reference of the first operator in network scan list.
- *  - Null pointer : Internal error.
+ *  - Non-null pointer -- The reference of the first operator in the network scan list.
+ *  - Null pointer -- Internal error.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION ScanInformation GetFirstCellularNetworkScan
 (
-    ScanInformationList scanInformationListRef IN ///< The reference of network scan information list.
+    ScanInformationList scanInformationListRef IN ///< The network scan information list reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets the reference of next operator based on the current position of network scan
+ * Gets the reference of the next operator based on the current position in the network scan
  * information list.
  *
  * @return
- *  - Non-null pointer : The reference of next operator in network scan list.
- *  - Null pointer : Internal error or the end of the list.
+ *  - Non-null pointer -- The reference to the next operator in the network scan list.
+ *  - Null pointer -- Internal error or the end of the list.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION ScanInformation GetNextCellularNetworkScan
 (
-    ScanInformationList scanInformationListRef IN ///< The reference of network scan information list.
+    ScanInformationList scanInformationListRef IN ///< The network scan information list reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function deletes the reference of network scan information list.
+ *  Deletes the network scan information list reference.
  *
  * @return
- *  - LE_BAD_PARAMETER : Bad parameters.
- *  - LE_NOT_FOUND : Reference not found.
- *  - LE_OK : On success.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DeleteCellularNetworkScan
 (
-    ScanInformationList scanInformationListRef IN ///< The reference of network scan information list.
+    ScanInformationList scanInformationListRef IN ///< The network scan information list reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets MCC and MNC of a network scan operator.
+ *  Gets MCC and MNC of a network scan operator.
  *
  * @return
- *  - LE_BAD_PARAMETER : Bad parameters.
- *  - LE_NOT_FOUND : Reference not found.
- *  - LE_OK : On success.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetCellularNetworkMccMnc
 (
-    ScanInformation scanInformationRef IN, ///< The reference of scan information list.
-    string mccPtr[MCC_LEN] OUT,            ///< Mobile Country Code.
-    string mncPtr[MNC_MAX_LEN] OUT         ///< Mobile Network Code.
+    ScanInformation scanInformationRef IN, ///< The scan information list reference.
+    string mccPtr[MCC_LEN] OUT,            ///< MCC.
+    string mncPtr[MNC_MAX_LEN] OUT         ///< MNC.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets network name of a network scan operator.
+ *  Gets the network name of a network scan operator.
  *
  * @return
- *  - LE_BAD_PARAMETER : Bad parameters.
- *  - LE_NOT_FOUND : Reference not found.
- *  - LE_OK : On success.
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetCellularNetworkName
 (
-    ScanInformation scanInformationRef IN,   ///< The reference of scan information list.
+    ScanInformation scanInformationRef IN,   ///< The scan information list reference.
     string namePtr[NETWORK_NAME_MAX_LEN] OUT ///< Network name.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function checks if a scan operator's network is in use.
+ *  Checks if a scan operator's network is in use.
  *
  * @return
- *  - True : If network is in use.
- *  - False : If invalid reference or network is not in use.
+ *  - True -- Network is in use.
+ *  - False -- Invalid reference or network is not in use.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION bool IsCellularNetworkInUse
 (
-    ScanInformation scanInformationRef IN ///< The reference of network scan operator.
+    ScanInformation scanInformationRef IN ///< The network scan operator reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function checks if scan operator's network is available.
+ *  Checks if the scan operator's network is available.
  *
  * @return
- *  - True : If network is available.
- *  - False : If invalid reference or network is available.
+ *  - True -- Network is available.
+ *  - False -- Invalid reference or network is available.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION bool IsCellularNetworkAvailable
 (
-    ScanInformation scanInformationRef IN ///< The reference of network scan operator.
+    ScanInformation scanInformationRef IN ///< The network scan operator reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function checks if scan operator is home network.
+ *  Checks if scan operator is home network.
  *
  * @return
- *  - True : If it is home network.
- *  - False : If invalid reference or it is not home network.
+ *  - True -- It is home network.
+ *  - False -- Invalid reference or it is not home network.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION bool IsCellularNetworkHome
 (
-    ScanInformation scanInformationRef IN ///< The reference of network scan operator.
+    ScanInformation scanInformationRef IN ///< The network scan operator reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function checks if scan operator's network is forbidden.
+ * Checks if scan operator's network is forbidden.
  *
  * @return
- *  - True : If network is forbidden.
- *  - False : If invalid reference or network is forbidden.
+ *  - True -- Network is forbidden.
+ *  - False -- Invalid reference or network is forbidden.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION bool IsCellularNetworkForbidden
 (
-    ScanInformation scanInformationRef IN ///< The reference of network scan operator.
+    ScanInformation scanInformationRef IN ///< The network scan operator reference.
 );

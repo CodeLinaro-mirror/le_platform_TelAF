@@ -40,14 +40,14 @@
  *
  * <HR>
  *
- * The Firmware Update Service APIs are part of Update Service, and support Firmware update Over The
- * Air solutions.
+ * The Firmware Update service APIs are part of the Update service and support over-the-air (OTA)
+ * firmware update solutions.
  *
  * @section taf_fwupdate_binding IPC interfaces binding
  *
- * All the functions of this API are provided by the @b tafUpdateSvc service.
+ * The functions of this API are provided by the @b tafUpdateSvc service.
  *
- * Here's a sample of how to bind to Firmware Update Service:
+ * The following example illustrates how to bind to the Firmware Update service:
  * @verbatim
  *
    bindings:
@@ -59,12 +59,12 @@
  *
  * @section c_taf_update_fota_function FOTA Functions
  *
- * - taf_fwupdate_RebootToActive() supports to reboot the target device to active slot if firmware
- * is installed successfully.
+ * - taf_fwupdate_RebootToActive() -- Reboots the target device to the active slot if firmware
+ *   is installed successfully.
  *
- * - taf_fwupdate_GetFirmwareVersion() supports to get firmware version.
+ * - taf_fwupdate_GetFirmwareVersion() -- Gets the firmware version.
  *
- * - taf_fwupdate_ABSync() supports to synchronize active slot to inactive slot.
+ * - taf_fwupdate_ABSync() -- Synchronizes active and inactive slots.
  *
  * <HR>
  *
@@ -73,14 +73,14 @@
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Maximum firmware version length with null character.
+ * Maximum firmware version length with null characters.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE MAX_VERS_LEN = 257;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function reboots the target device to active slot.
+ * Reboots the target device to an active slot.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION RebootToActive
@@ -89,11 +89,11 @@ FUNCTION RebootToActive
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function gets firmware version.
+ * Gets the firmware version.
  *
  * @return
- *  - LE_FAULT : On failure.
- *  - LE_OK : On success.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetFirmwareVersion
@@ -103,14 +103,14 @@ FUNCTION le_result_t GetFirmwareVersion
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function synchronizes active slot to inactive slot.
+ * Synchronizes active and inactive slots.
  *
  * @return
- *  - LE_FAULT : On failure.
- *  - LE_OK : On success.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  *
- * @note It is a deprecated API. Update service will synchronize slots after rebooting to active slot.
- * Same functionality as taf_mrc_SendOtaAbsyncMsg()
+ * @note This API has been deprecated. The Update service synchronizes slots after rebooting to 
+ * an active slot; the same functionality as @ref taf_mrc_SendOtaAbsyncMsg().
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ABSync

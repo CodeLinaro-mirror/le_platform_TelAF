@@ -35,37 +35,37 @@
 USETYPES taf_types.api;
 
 /**
- * The interface name max number
+ * The interface name maximum number.
  */
 DEFINE INTERFACE_NAME_MAX_NUM = 100;
 
 /**
- * The interface name max length
+ * The interface name maximum length.
  */
 DEFINE INTERFACE_NAME_MAX_LEN = 100;
 
 /**
- * The IPv4 Address Max Length
+ * The IPv4 address maximum length.
  */
 DEFINE  IPV4_ADDR_MAX_LEN = 16;
 
 /**
- * The IPv6 Address Max Length
+ * The IPv6 address maximum length.
  */
 DEFINE  IPV6_ADDR_MAX_LEN = 46;
 
 /**
- * The IP Address Max Length
+ * The IP address maximum length.
  */
 DEFINE  IP_ADDR_MAX_LEN = IPV6_ADDR_MAX_LEN;
 
 /**
- * The MAX entry ENTRY for NAT memory pool
+ * The maximum number of entries in the NAT memory pool.
  */
 DEFINE  MAX_NAT_ENTRY = (50);
 
 /*
- * The ip protocol number
+ * IP protocol.
  */
 ENUM IpProto
 {
@@ -83,16 +83,16 @@ ENUM NetAction
 };
 
 /*
- * Network IP TYPE.
+ * Network IP type.
  */
 ENUM NetIpType
 {
-    IPV4,                   // IPV4.
-    IPV6                    // IPV6.
+    IPV4,                   // IPv4.
+    IPV6                    // IPv6.
 };
 
 /*
- * The technology.
+ * Technology type.
  */
 ENUM TechType
 {
@@ -111,74 +111,74 @@ ENUM State
 };
 
 /**
- * The destination NAT change indication
+ * The destination NAT change indication.
  */
 STRUCT DestNatChangeInd
 {
-    uint32  profileId;                                 ///< profile Id
-    NetAction action;                                  ///< Add or delete
+    uint32  profileId;                                 ///< Profile ID.
+    NetAction action;                                  ///< Add or delete.
 };
 
 /**
- * The interface information
+ * The interface information.
  */
 STRUCT InterfaceInfo
 {
-    string       interfaceName[INTERFACE_NAME_MAX_LEN];   ///< The interface name
-    TechType     tech;                                    ///< The technology
-    State        state;                                   ///< The state
+    string       interfaceName[INTERFACE_NAME_MAX_LEN];   ///< The interface name.
+    TechType     tech;                                    ///< The technology.
+    State        state;                                   ///< The state.
 };
 
 /**
- * The DNS server addresses
+ * The DNS server addresses.
  */
 STRUCT DnsServerAddresses
 {
-    string   ipv4Addr1[IPV4_ADDR_MAX_LEN]; ///< The first IPv4 DNS address
-    string   ipv4Addr2[IPV4_ADDR_MAX_LEN]; ///< The second IPv4 DNS address
-    string   ipv6Addr1[IPV6_ADDR_MAX_LEN]; ///< The first IPv6 DNS address
-    string   ipv6Addr2[IPV6_ADDR_MAX_LEN]; ///< The second IPv6 DNS address
+    string   ipv4Addr1[IPV4_ADDR_MAX_LEN]; ///< The first IPv4 DNS address.
+    string   ipv4Addr2[IPV4_ADDR_MAX_LEN]; ///< The second IPv4 DNS address.
+    string   ipv6Addr1[IPV6_ADDR_MAX_LEN]; ///< The first IPv6 DNS address.
+    string   ipv6Addr2[IPV6_ADDR_MAX_LEN]; ///< The second IPv6 DNS address.
 };
 
 /**
- * The route change indication
+ * The route change indication.
  */
 STRUCT RouteChangeInd
 {
-    string interfaceName[INTERFACE_NAME_MAX_LEN];      ///< The interface name
-    string destAddr[IP_ADDR_MAX_LEN];                  ///< Destination IP address
-    string prefixLength[IP_ADDR_MAX_LEN];              ///< Destination's subnet mask or length
-    uint16 metric;                                     ///< Metric
-    NetAction action;                                  ///< Add or delete
+    string interfaceName[INTERFACE_NAME_MAX_LEN];      ///< The interface name.
+    string destAddr[IP_ADDR_MAX_LEN];                  ///< Destination IP address.
+    string prefixLength[IP_ADDR_MAX_LEN];              ///< Destination's subnet mask or length.
+    uint16 metric;                                     ///< Metric.
+    NetAction action;                                  ///< Add or delete.
 };
 
 /**
- * The gateway change indication
+ * The gateway change indication.
  */
 STRUCT GatewayChangeInd
 {
-    string interfaceName[INTERFACE_NAME_MAX_LEN];      ///< The interface name
-    string gatewayAddr[IP_ADDR_MAX_LEN];                  ///< Destination IP address
-    NetIpType ipType;                                  ///< Ip type
+    string interfaceName[INTERFACE_NAME_MAX_LEN];      ///< The interface name.
+    string gatewayAddr[IP_ADDR_MAX_LEN];               ///< Destination IP address.
+    NetIpType ipType;                                  ///< IP type.
 };
 
 /**
- * The DNS change indication
+ * The DNS change indication.
  */
 STRUCT DNSChangeInd
 {
-    string ipAddr1[IP_ADDR_MAX_LEN];                   ///< The first DNS address
-    string ipAddr2[IP_ADDR_MAX_LEN];                   ///< The second DNS address
-    NetIpType ipType;                                  ///< Ip type
+    string ipAddr1[IP_ADDR_MAX_LEN];                   ///< The first DNS address.
+    string ipAddr2[IP_ADDR_MAX_LEN];                   ///< The second DNS address.
+    NetIpType ipType;                                  ///< IP type.
 };
 
 /*
- * The reference of an destination NAT entry list.
+ * Reference to a destination NAT entry list.
  */
 REFERENCE DestNatEntryList;
 
 /*
- * The reference of an destination NAT entry.
+ * Reference to a destination NAT entry.
  */
 REFERENCE DestNatEntry;
 
@@ -247,7 +247,7 @@ EVENT DestNatChange
 );
 
 /**
- * Get interface infomation List
+ * Gets the interface infomation list.
  */
 FUNCTION le_result_t GetInterfaceList
 (
@@ -255,146 +255,146 @@ FUNCTION le_result_t GetInterfaceList
 );
 
 /**
- * function to add or remove a route
+ * Adds or removes a route.
  */
 FUNCTION le_result_t ChangeRoute
 (
-    string interfaceName[INTERFACE_NAME_MAX_LEN]      IN, ///< The interface name
-    string destAddr[IP_ADDR_MAX_LEN]                  IN, ///< Destination IP address
-    string subnetMask[IP_ADDR_MAX_LEN]                IN, ///< Destination's subnet mask or length string
-    uint16 metric                                     IN, ///< Metric
-    NetAction isAdd                                   IN  ///< Add or delete
+    string interfaceName[INTERFACE_NAME_MAX_LEN]      IN, ///< The interface name.
+    string destAddr[IP_ADDR_MAX_LEN]                  IN, ///< Destination IP address.
+    string subnetMask[IP_ADDR_MAX_LEN]                IN, ///< Destination's subnet mask or length string.
+    uint16 metric                                     IN, ///< Metric.
+    NetAction isAdd                                   IN  ///< Add or delete.
 );
 
 /**
- * Backup the current default gateway of the system into db, including both IPv4 and IPv6.
+ * Backs up the current default gateway of the system into DB, including both IPv4 and IPv6.
  */
 FUNCTION le_result_t BackupDefaultGW
 (
 );
 
 /**
- * Restore the default gateway of the system from the last backed up ones, including IPv4 and/or IPv6
- * Only the gateway was backed up and set by the same client session,it can be restored
+ * Restores the default gateway of the system from the last backed up one, including IPv4 and/or IPv6.
+ * Only gateways backed up and set by the same client session can be restored.
  */
 FUNCTION le_result_t RestoreDefaultGW
 (
 );
 
 /**
- * Set the default gateway address which got from the interface into the system
+ * Sets the default gateway address received from the interface into the system.
  */
 FUNCTION le_result_t SetDefaultGW
 (
-    string  interfaceName[INTERFACE_NAME_MAX_LEN]    IN ///< the interface onto which to get the default gateway addresses,and set them into the system
+    string  interfaceName[INTERFACE_NAME_MAX_LEN]    IN ///< The interface to retrieve the default gateway addresses from.
 );
 
 /**
- * Get the gateway addresses from the specified interface.
+ * Gets the gateway addresses from the specified interface.
  */
 FUNCTION le_result_t GetInterfaceGW
 (
-    string  interfaceName[INTERFACE_NAME_MAX_LEN]    IN,///< Interaface name to get the gateway
-    string  ipv4Addr[IPV4_ADDR_MAX_LEN]              OUT, ///< IPv4 address
-    string  ipv6Addr[IPV6_ADDR_MAX_LEN]              OUT  ///< IPv6 address
+    string  interfaceName[INTERFACE_NAME_MAX_LEN]    IN,  ///< Interaface name to get the gateway.
+    string  ipv4Addr[IPV4_ADDR_MAX_LEN]              OUT, ///< IPv4 address.
+    string  ipv6Addr[IPV6_ADDR_MAX_LEN]              OUT  ///< IPv6 address.
 );
 
 /**
- * Set the DNS addresses which got from the interface into the system
+ * Sets the DNS addresses received from the interface into the system.
  */
 FUNCTION le_result_t SetDNS
 (
-    string  interfaceName[INTERFACE_NAME_MAX_LEN]    IN///< The interface onto which to get the DNS addresses
+    string  interfaceName[INTERFACE_NAME_MAX_LEN]    IN ///< The interface from which to get the DNS addresses.
 );
 
 /**
- * get the DNS addresses from the interface,including ipv4 and ipv6 addresses
+ * Gets the DNS addresses from the interface, including IPv4 and IPv6 addresses.
  */
 FUNCTION le_result_t GetInterfaceDNS
 (
-    string  interfaceName[INTERFACE_NAME_MAX_LEN]    IN, ///< The interaface name to get the DNS addresses
-    DnsServerAddresses  dnsServerAddresses           OUT ///< DNS addresses structure
+    string  interfaceName[INTERFACE_NAME_MAX_LEN]    IN, ///< The interaface name to get the DNS addresses.
+    DnsServerAddresses  dnsServerAddresses           OUT ///< DNS addresses structure.
 );
 
 /**
- * Add destination NAT entry on default PDN
+ * Adds a destination NAT entry on the default PDN.
  */
 FUNCTION le_result_t AddDestNatEntryOnDefaultPdn
 (
-    string privateIpAddr[IP_ADDR_MAX_LEN]     IN, ///< private IP address
-    uint16 privatePort                        IN, ///< Private port
-    uint16 globalPort                         IN, ///< Global port
-    IpProto ipProto                           IN  ///< IP protocol number
+    string privateIpAddr[IP_ADDR_MAX_LEN]     IN, ///< Private IP address.
+    uint16 privatePort                        IN, ///< Private port.
+    uint16 globalPort                         IN, ///< Global port.
+    IpProto ipProto                           IN  ///< IP protocol number.
 );
 
 /**
- * Delete destination NAT entry on default PDN
+ * Deletes a destination NAT entry on the default PDN.
  */
 FUNCTION le_result_t RemoveDestNatEntryOnDefaultPdn
 (
-    string privateIpAddr[IP_ADDR_MAX_LEN]     IN, ///< private IP address
-    uint16 privatePort                        IN, ///< Private port
-    uint16 globalPort                         IN, ///< Global port
-    IpProto ipProto                           IN  ///< IP protocol number
+    string privateIpAddr[IP_ADDR_MAX_LEN]     IN, ///< Private IP address.
+    uint16 privatePort                        IN, ///< Private port.
+    uint16 globalPort                         IN, ///< Global port.
+    IpProto ipProto                           IN  ///< IP protocol number.
 );
 
 /**
- * Add destination NAT entry on demand PDN
+ * Adds a destination NAT entry to the specified PDN.
  */
 FUNCTION le_result_t AddDestNatEntryOnDemandPdn
 (
-    uint32 profileId                          IN, ///< profile id
-    string privateIpAddr[IP_ADDR_MAX_LEN]     IN, ///< private IP address
-    uint16 privatePort                        IN, ///< Private port
-    uint16 globalPort                         IN, ///< Global port
-    IpProto ipProto                           IN  ///< IP protocol number
+    uint32 profileId                          IN, ///< Profile ID.
+    string privateIpAddr[IP_ADDR_MAX_LEN]     IN, ///< Private IP address.
+    uint16 privatePort                        IN, ///< Private port.
+    uint16 globalPort                         IN, ///< Global port.
+    IpProto ipProto                           IN  ///< IP protocol number.
 );
 
 /**
- * Delete destination NAT entry on demand PDN
+ * Deletes a destination NAT entry from the specified PDN.
  */
 FUNCTION le_result_t RemoveDestNatEntryOnDemandPdn
 (
-    uint32 profileId                          IN, ///< profile id
-    string privateIpAddr[IP_ADDR_MAX_LEN]     IN, ///< private IP address
-    uint16 privatePort                        IN, ///< Private port
-    uint16 globalPort                         IN, ///< Global port
-    IpProto ipProto                           IN  ///< IP protocol number
+    uint32 profileId                          IN, ///< Profile ID.
+    string privateIpAddr[IP_ADDR_MAX_LEN]     IN, ///< Private IP address.
+    uint16 privatePort                        IN, ///< Private port.
+    uint16 globalPort                         IN, ///< Global port.
+    IpProto ipProto                           IN  ///< IP protocol number.
 );
 
 /**
- * Get the reference of destination NAT entry list on default PDN.
+ * Gets the reference to the destination NAT entry list on the default PDN.
  */
 FUNCTION DestNatEntryList GetDestNatEntryListOnDefaultPdn
 (
 );
 
 /**
- * Get the reference of destination NAT entry list on demand PDN.
+ * Gets the reference of the destination NAT entry list on the specified PDN.
  */
 FUNCTION DestNatEntryList GetDestNatEntryListOnDemandPdn
 (
-    uint32 profileId                          IN ///< The profile id
+    uint32 profileId                          IN ///< The profile ID.
 );
 
-/*
- * Get the reference of the first destination NAT entry with a list reference.
+/**
+ * Gets the reference of the first destination NAT entry with a list reference.
  */
 FUNCTION DestNatEntry GetFirstDestNatEntry
 (
-    DestNatEntryList  destNatEntryListRef     IN ///< The reference of an destination entry list.
+    DestNatEntryList  destNatEntryListRef     IN ///< The reference of a destination entry list.
 );
 
-/*
- * Get the reference of the next destination NAT entry with a list reference.
+/**
+ * Gets the reference of the next destination NAT entry with a list reference.
  */
 FUNCTION DestNatEntry GetNextDestNatEntry
 (
-    DestNatEntryList  destNatEntryListRef     IN ///< The reference of an destination entry list.
+    DestNatEntryList  destNatEntryListRef     IN ///< The reference of a destination entry list.
 );
 
-/*
- * Get the information of an destination nat entry with an entry reference.
+/**
+ * Gets the information of a destination NAT entry with an entry reference.
  */
 FUNCTION le_result_t GetDestNatEntryDetails
 (
@@ -405,10 +405,10 @@ FUNCTION le_result_t GetDestNatEntryDetails
     IpProto ipProto                           OUT  ///< IP protocol number.
 );
 
-/*
- * Delete the reference of the first destination NAT entry with a list reference.
+/**
+ * Deletes the reference of the first destination NAT entry with a list reference.
  */
 FUNCTION le_result_t DeleteDestNatEntryList
 (
-    DestNatEntryList  destNatEntryListRef     IN ///< The reference of an destination entry list.
+    DestNatEntryList  destNatEntryListRef     IN ///< The reference of a destination entry list.
 );

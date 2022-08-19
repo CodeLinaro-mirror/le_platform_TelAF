@@ -71,14 +71,14 @@
  *
  * <HR>
  *
- * A voice call is needed for applications that want to establish a voice communication with
- *  a remote party.  The voice call can be over a mobile network, or over VoIP.
+ * A voice call is needed for applications that want to establish voice communication with
+ * a remote party. The voice call can be over a mobile network or over VoIP.
  *
  * @section taf_voicecall_binding IPC interfaces binding
  *
- * All the functions of this API are provided by the @b tafVoiceCallSvc application service.
+ * The functions of this API are provided by the @b tafVoiceCallSvc application service.
  *
- * Here's a sample of how to bind to Voice Call services:
+ * The following example illustrates how to bind to the Voice Call service.
  * @verbatim
    bindings:
    {
@@ -88,8 +88,8 @@
  *
  * @section c_taf_vaoicecall_outgoing Starting a voice call
  *
- * A voice call can be started by using taf_voicecall_Start() with the destination identifier and sim slot No. passed as
- * parameters.
+ * A voice call can be started using taf_voicecall_Start() with the destination identifier and 
+ * SIM slot number passed as parameters.
  * @verbatim
    myTafCallRef = taf_voicecall_Start(DestinationNum, Slot);
    if (!myTafCallRef)
@@ -102,17 +102,18 @@
    @endverbatim
  *
  * Before the voice call is started, an application registers a state handler using
- * taf_voicecall_AddStateHandler(). Once the voice call is established, the handler will be called
- *  indicating it's now connected. If the state of the voice call changes, then the handler will be
- *  called with the new state.
+ * taf_voicecall_AddStateHandler(). Once the voice call is established, the handler will be called 
+ * indicating it's now connected. If the state of the voice call changes, the handler will be
+ * called with the new state.
+ *
  * @verbatim
    tafVoiceCallHandlerRef = taf_voicecall_AddStateHandler((taf_voicecall_StateHandlerFunc_t)MyCallEventHandler, NULL);
    @endverbatim
  *
  * To hang up a voice call, an application can use taf_voicecall_End().
  *
- * Application must use taf_voicecall_Delete() to release @ref taf_voicecall_CallRef_t voice call
- *  reference object when it is no more used.
+ * Applications must use taf_voicecall_Delete() to release the @ref taf_voicecall_CallRef_t voice call
+ * reference object when it is no longer used.
  *
  * <HR>
  *
@@ -122,22 +123,27 @@
 
 USETYPES taf_types.api;
 
+//-------------------------------------------------------------------------------------------------
 /**
- * use the one returned from start defined in le_voicecall.api
+ * Uses the call reference returned from start defined in le_voicecall.api
  */
-
+//-------------------------------------------------------------------------------------------------
 REFERENCE Call;
 
+//-------------------------------------------------------------------------------------------------
 /**
- * To support Legacy EVENT
+ * Legacy event suppport.
  */
+//-------------------------------------------------------------------------------------------------
 DEFINE EVENT_CONNECTED = 2 ;
 DEFINE EVENT_TERMINATED = 3;
 DEFINE EVENT_BUSY = 5;
 
+//-------------------------------------------------------------------------------------------------
 /**
- * To support Legacy TERM
+ * Legacy term support.
  */
+//-------------------------------------------------------------------------------------------------
 DEFINE TERM_NETWORK_FAIL = 1 ;
 DEFINE TERM_BAD_ADDRESS = 2 ;
 DEFINE TERM_BUSY = 3 ;
@@ -145,47 +151,59 @@ DEFINE TERM_LOCAL_ENDED = 4 ;
 DEFINE TERM_REMOTE_ENDED = 5 ;
 DEFINE TERM_UNDEFINED = 6 ;
 
+//-------------------------------------------------------------------------------------------------
+/**
+ * Call events.
+ */
+//-------------------------------------------------------------------------------------------------
 ENUM Event
 {
-    EVENT_ALERTING = 1,             ///< Alerting call, MO only
-    EVENT_ACTIVE = 2 ,              ///< Active Call,Map to leagcy Connected
-    EVENT_ENDED = 3 ,               ///< Call End
-    EVENT_OFFLINE = 4 ,             ///< Not support
-    EVENT_WAITING = 5,              ///< Waitingall, Map to leagcy busy
-    EVENT_RESOURCE_BUSY = 6,        ///< Not support
-    EVENT_CALL_END_FAILED = 7,      ///< Not support
-    EVENT_CALL_ANSWER_FAILED = 8,   ///< Not support
-    EVENT_INCOMING = 9,             ///< Incoming Call, not answered yet
-    EVENT_ONHOLD = 10,              ///< On hold call
-    EVENT_DIALING = 11,             ///< MO Call, dialing
-    EVENT_CALL_HOLD_FAILED = 12,    ///< Not support
-    EVENT_CALL_RESUME_FAILED = 13,  ///< Not support
+    EVENT_ALERTING = 1,             ///< Alerting call; MO only.
+    EVENT_ACTIVE = 2 ,              ///< Active call; map to legacy connected.
+    EVENT_ENDED = 3 ,               ///< Call end.
+    EVENT_OFFLINE = 4 ,             ///< Not supported.
+    EVENT_WAITING = 5,              ///< Waiting call; map to legacy busy.
+    EVENT_RESOURCE_BUSY = 6,        ///< Not supported.
+    EVENT_CALL_END_FAILED = 7,      ///< Not supported.
+    EVENT_CALL_ANSWER_FAILED = 8,   ///< Not supported.
+    EVENT_INCOMING = 9,             ///< Incoming call; not answered yet.
+    EVENT_ONHOLD = 10,              ///< On hold call.
+    EVENT_DIALING = 11,             ///< MO call; dialing.
+    EVENT_CALL_HOLD_FAILED = 12,    ///< Not supported.
+    EVENT_CALL_RESUME_FAILED = 13,  ///< Not supported.
 };
 
+//-------------------------------------------------------------------------------------------------
+/**
+ * Call end causes.
+ */
+//-------------------------------------------------------------------------------------------------
 ENUM CallEndCause
 {
-    END_NORMAL = 0,                 ///< Call Normal End
-    END_NETWORK_FAIL = 1,           ///< Map to legacy NW FAIL
-    END_UNOBTAINABLE_NUMBER = 2,    ///< Map to Legacy BAD ADDR
-    END_BUSY = 3,                   ///< Remote busy
-    END_LOCAL = 4,                  ///< Not supported
-    END_REMOTE = 5,                 ///< Not supported
-    END_UNDEFINED = 6,              ///< End cause undefined for telAF
-    END_REJECTED = 7,               ///< Call get rejected,
-    END_NORESPONSE = 8,             ///< remote no response
+    END_NORMAL = 0,                 ///< Normal call end.
+    END_NETWORK_FAIL = 1,           ///< Map to legacy network fail.
+    END_UNOBTAINABLE_NUMBER = 2,    ///< Map to legacy bad address.
+    END_BUSY = 3,                   ///< Remote busy.
+    END_LOCAL = 4,                  ///< Not supported.
+    END_REMOTE = 5,                 ///< Not supported.
+    END_UNDEFINED = 6,              ///< End cause undefined for TelAF.
+    END_REJECTED = 7,               ///< Call rejected.
+    END_NORESPONSE = 8,             ///< No remote response.
 
 };
 
 
 //-------------------------------------------------------------------------------------------------
-/**
+/*
  * New APIs Avaiable in TelAF services.
  */
 //-------------------------------------------------------------------------------------------------
 
+//-------------------------------------------------------------------------------------------------
 /*
- * The user event handler
+ * The user event handler.
  */
+//-------------------------------------------------------------------------------------------------
 HANDLER StateHandler
 (
     Call reference IN,
@@ -200,105 +218,104 @@ EVENT State
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Start a call according to given phone number and slot id.
+ * Starts a call according to a given phone number and slot ID.
  *
  * @return
- *      - Reference to the voice call
- *      - NULL if the voice call can not be processed
+ * - Reference to the voice call.
+ * - NULL if the voice call can not be processed.
  */
- //--------------------------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
 FUNCTION Call Start
 (
     string destinationID[taf_types.REMOTE_PARTY_NUM_MAX_BYTES] IN, ///< Destination phone number for
-                                                                   ///< the call establishment
-    uint8 phoneId                                                  ///< SIM slot id
+                                                                   ///  call establishment.
+    uint8 phoneId                                                  ///< SIM slot ID.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Stop a call according to given reference ID.
+ * Stops a call according to the given reference ID.
  *
  * @return
- *      - LE_OK         on success
- *      - Others        Failure
+ * - LE_OK -- Succeeded.
+ * - Others -- Failed.
  */
- //--------------------------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t End
 (
-    Call reference IN                                              ///< The call reference
+    Call reference IN                                              ///< The call reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Delete a call according to given call reference.
+ * Deletes a call according to the given call reference.
  *
  * @return
- *      - LE_OK         on success
- *      - Others        Failure
+ * - LE_OK -- Succeeded. 
+ * - Others -- Failed.
  */
- //--------------------------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Delete
 (
-    Call reference IN                                              ///< The call reference
+    Call reference IN                                              ///< The call reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Answer a incoming call. The call reference can be got from call state handler.
+ * Answers an incoming call. The call reference can be retrieved from the call state handler.
  *
  * @return
- *      - LE_OK         on success
- *      - Others        Failure
+ * - LE_OK -- Succeeded. 
+ * - Others -- Failed.
  */
- //--------------------------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Answer
 (
-    Call reference IN                                              ///< The call reference
+    Call reference IN                                              ///< The call reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get the call end reason according to call reference. This call should be in END state.
- * The call should be on idle state when calling this API.
+ * Gets the call end reason according to the call reference. This call should be in the END state.
+ * The call should be in the idle state when calling this API.
  *
  * @return
- *      - LE_OK         on success
- *      - Others        Failure
+ * - LE_OK -- Succeeded. 
+ * - Others -- Failed.
  */
- //--------------------------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetEndCause
 (
-    Call reference IN,                                             ///< The call reference
-    CallEndCause cause OUT                                         ///< The end cause enumeration
+    Call reference IN,                                             ///< The call reference.
+    CallEndCause cause OUT                                         ///< The end cause enumeration.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Hold the active call. This call should be in ACTIVE state.
+ * Holds the active call. This call should be in the ACTIVE state.
  *
  * @return
- *      - LE_OK         on success
- *      - Others        Failure
+ * - LE_OK -- Succeeded. 
+ * - Others -- Failed.
  */
- //--------------------------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Hold
 (
-    Call reference IN                                              ///< The call reference
+    Call reference IN                                              ///< The call reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Resume the holding call. This call should be in HOLD state.
+ * Resumes the holding call. This call should be in the HOLD state.
  *
  * @return
- *      - LE_OK         on success
- *      - Others        Failure
+ * - LE_OK -- Succeeded. 
+ * - Others -- Failed.
  */
- //--------------------------------------------------------------------------------------------------
-
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Resume
 (
-    Call reference IN                                              ///< The call reference
+    Call reference IN                                              ///< The call reference.
 );
 
 

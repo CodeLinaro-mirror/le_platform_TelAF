@@ -71,17 +71,17 @@
  *
  * <HR>
  *
- * The remote SIM profile is a profile of a SIM card placed remotely. User can manage
- * the profile of remote SIM using this service and interface between the application and
+ * The remote SIM profile is a profile of a SIM card placed remotely. Users can manage
+ * the remote SIM profile using this service and interface between the application and
  * the RSIM service based on the SIM Access Profile (SAP) specification.
- * A remote SIM profile is needed for applications that want to add, delete, enable, disable
- * SIM profile locally or remotely.
+ * A remote SIM profile is needed for applications that want to add, delete, enable, or disable
+ * a SIM profile locally or remotely.
  *
  * @section taf_rsp_binding IPC interfaces binding
  *
- * All the functions of this API are provided by the @b tafRSP application service.
+ * The functions this API are provided by the @b tafRSP application service.
  *
- * Here's a sample of how to bind to Remote SIM Profile service:
+ * The follwoing example illustrates how to bind to the Remote SIM Profile service.
  * @verbatim
    bindings:
    {
@@ -91,7 +91,7 @@
  *
  * @section c_taf_rsp_AddProfile Adding a SIM profile
  *
- * A SIM profile can be added remotely by using taf_rsp_AddProfile() with slotId, activationCode,
+ * A SIM profile can be added remotely using taf_rsp_AddProfile() with slotId, activationCode,
  * confirmationCode and userConsentSupported passed as parameters.
  * @verbatim
    #define SLOT_ID  TAF_SIM_EXTERNAL_SLOT_1
@@ -102,8 +102,8 @@
  *
  * Before the SIM profile download is started, an application registers a state change handler
  * using taf_rsp_AddProfileDownloadHandler(). Once the profile download is completed, the handler
- * will be called indicating it's now completed. If profile downloading failed or the downloading state
- * changed, then the handler will be called with the error code or new state.
+ * will be called indicating it's completed. If profile downloading failed or the downloading state
+ * changed, the handler will be called with the error code or new state.
  * @verbatim
    taf_rsp_ProfileDownloadHandlerRef_t pdHandlerRef = taf_rsp_AddProfileDownloadHandler(ProfileDownloadHandler, NULL);
    @endverbatim
@@ -113,8 +113,8 @@
  * To delete a SIM profile, an application can use @ref taf_rsp_DeleteProfile() with the slotId and
  * profileId passed as parameters.
  *
- * Application must use @ref taf_rsp_RemoveProfileDownloadHandler() to release @ref taf_rsp_ProfileDownloadHandlerRef_t
- * download handler reference object when it is no more used.
+ * Applications must use @ref taf_rsp_RemoveProfileDownloadHandler() to release the @ref taf_rsp_ProfileDownloadHandlerRef_t
+ * download handler reference object when it is no longer used.
  *
  * <HR>
  *
@@ -140,81 +140,81 @@ DEFINE  CODE_BYTES  = (CODE_LEN+1);
 
 
 /**
- * Indicates profile type of card
+ * Indicates card's profile type.
  */
 ENUM ProfileType
 {
     UNKNOWN = -1,
-    REGULAR = 0,    ///< Regular profile
-    EMERGENCY,      ///< Emergency profile
+    REGULAR = 0,    ///< Regular profile.
+    EMERGENCY,      ///< Emergency profile.
 };
 
 /**
- * Indicates profile icon type.
+ * Indicates the profile's icon type.
  */
 ENUM IconType
 {
-    NONE = 0,       ///< No icon information
-    JPEG,           ///< JPEG icon
-    PNG,            ///< PNG icon
+    NONE = 0,       ///< No icon information.
+    JPEG,           ///< JPEG icon.
+    PNG,            ///< PNG icon.
 };
 
 /**
- * Indicates profile class.
+ * Indicates the profile's class.
  */
 ENUM ProfileClass
 {
-    TEST = 0,        ///< Test profile
-    PROVISIONING,    ///< Provisioning profile
-    OPERATIONAL      ///< Operational  profile
+    TEST = 0,        ///< Test profile.
+    PROVISIONING,    ///< Provisioning profile.
+    OPERATIONAL      ///< Operational  profile.
 };
 
 /**
- * Defines profile policy rules(PPR). Each value represents
- * corresponding bit for PprMask bitset.
+ * Defines profile policy rules (PPR). Each value represents
+ * the corresponding bit for the PprMask bitset.
  */
 ENUM PolicyRuleType
 {
-    PROFILE_DISABLE_NOT_ALLOWED,     ///< Disabling of the profile is not allowed
-    PROFILE_DELETE_NOT_ALLOWED,      ///< Deletion of the profile is not allowed
-    PROFILE_DELETE_ON_DISABLE,       ///< Deletion of the profile is required on successful disabling
+    PROFILE_DISABLE_NOT_ALLOWED,     ///< Disabling the profile is not allowed.
+    PROFILE_DELETE_NOT_ALLOWED,      ///< Deletion of the profile is not allowed.
+    PROFILE_DELETE_ON_DISABLE,       ///< Deletion of the profile is required when it is successfully disabled.
 };
 
 /**
- * Indicates profile download status.
+ * Indicates the profile download status.
  */
 ENUM DownloadStatus
 {
-    DOWNLOAD_ERROR = 0,                  ///< Profile download error
-    DOWNLOAD_INSTALLATION_COMPLETE,      ///< Profile download and installation is complete
+    DOWNLOAD_ERROR = 0,                  ///< Profile download error.
+    DOWNLOAD_INSTALLATION_COMPLETE,      ///< Profile download and installation is complete.
 };
 
 /**
- * Indicates profile download error cause.
+ * Indicates the profile download error cause.
  */
 ENUM DownloadErrorCause
 {
-    GENERIC = 1,                      ///< Generic error
-    SIM,                              ///< Error from the SIM card
-    NETWORK,                          ///< Error from the network
-    MEMORY,                           ///< Error due to no memory
-    UNSUPPORTED_PROFILE_CLASS,        ///< Unsupported profile class
-    PPR_NOT_ALLOWED,                  ///< Profile policy rules not allowed
-    END_USER_REJECTION,               ///< End user rejection
-    END_USER_POSTPONED,               ///< End user postponed
+    GENERIC = 1,                      ///< Generic error.
+    SIM,                              ///< Error from the SIM card.
+    NETWORK,                          ///< Error from the network.
+    MEMORY,                           ///< Error due to no memory.
+    UNSUPPORTED_PROFILE_CLASS,        ///< Unsupported profile class.
+    PPR_NOT_ALLOWED,                  ///< Profile policy rules not allowed.
+    END_USER_REJECTION,               ///< End user rejection.
+    END_USER_POSTPONED,               ///< End user postponed.
 };
 
 /**
- * Indicates user consent reason type.
+ * Indicates the user consent reason type.
  */
 ENUM UserConsentReasonType
 {
-    USER_REJECTION = 0,          ///< End user rejection
-    USER_POSTPONED               ///< End user postponed
+    USER_REJECTION = 0,          ///< End user rejection.
+    USER_POSTPONED               ///< End user postponed.
 };
 
 /**
- * Structure of Sim Profile Info.
+ * Structure of SIM profile info.
  */
 STRUCT SimProfileInfo
 {
@@ -237,9 +237,9 @@ STRUCT SimProfileInfo
 //-------------------------------------------------------------------------------------------------
 HANDLER  ProfileDownloadHandler
 (
-    taf_sim.Id         slotId  IN,            ///< SIM slot id
-    DownloadStatus     downloadStatus IN,     ///< Downlpoad status
-    DownloadErrorCause errorCause IN          ///< Download error cause
+    taf_sim.Id         slotId  IN,            ///< SIM slot ID.
+    DownloadStatus     downloadStatus IN,     ///< Download status.
+    DownloadErrorCause errorCause IN          ///< Download error cause.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -249,7 +249,7 @@ HANDLER  ProfileDownloadHandler
 //-------------------------------------------------------------------------------------------------
 EVENT  ProfileDownload
 (
-    ProfileDownloadHandler handler    ///< Handler for profile download
+    ProfileDownloadHandler handler    ///< Handler for profile download.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -259,9 +259,9 @@ EVENT  ProfileDownload
 //-------------------------------------------------------------------------------------------------
 HANDLER  ProfileUserConsentHandler
 (
-    taf_sim.Id         slotId  IN,              ///< SIM slot id
-    bool               userConsentRequired IN,  ///< user consent require or not
-    uint8              mask                     ///< Mask
+    taf_sim.Id         slotId  IN,              ///< SIM slot ID.
+    bool               userConsentRequired IN,  ///< Whether user consent is required or not.
+    uint8              mask                     ///< Mask.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -271,7 +271,7 @@ HANDLER  ProfileUserConsentHandler
 //-------------------------------------------------------------------------------------------------
 EVENT  ProfileUserConsent
 (
-    ProfileUserConsentHandler handler    ///< Handler of user consent
+    ProfileUserConsentHandler handler    ///< Handler of user consent.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -281,8 +281,8 @@ EVENT  ProfileUserConsent
 //-------------------------------------------------------------------------------------------------
 HANDLER  ProfileConfirmationCodeHandler
 (
-    taf_sim.Id         slotId  IN,            ///< SIM slot id
-    string             profileName[NAME_LEN]  ///< Profile name
+    taf_sim.Id         slotId  IN,            ///< SIM slot ID.
+    string             profileName[NAME_LEN]  ///< Profile name.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -292,175 +292,176 @@ HANDLER  ProfileConfirmationCodeHandler
 //-------------------------------------------------------------------------------------------------
 EVENT  ProfileConfirmationCode
 (
-    ProfileConfirmationCodeHandler handler    ///< Handler of profile confirmation code
+    ProfileConfirmationCodeHandler handler    ///< Handler of profile confirmation code.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Request eUICC identifier(EID) for the slot.
+ * Request eUICC identifier (EID) for the slot.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ * - LE_OK -- Succeeded. 
+ * - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetEID
 (
-    taf_sim.Id       slotId IN,                 ///< SIM slot id
-    string           eid[EID_LEN] OUT           ///< EID as output
+    taf_sim.Id       slotId IN,                 ///< SIM slot ID.
+    string           eid[EID_LEN] OUT           ///< EID as output.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Add new profile to eUICC card and download and install the profile on eUICC.
+ * Adds a new profile to the eUICC card and downloads and installs the profile on the eUICC.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ * - LE_OK -- Succeeded.
+ * - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t AddProfile
 (
-    taf_sim.Id       slotId IN,                                 ///< SIM slot id
-    string           activationCode[ACTIVATION_CODE_LEN] IN,    ///< Activation code
-    string           confirmationCode[CODE_LEN] IN,             ///< Confirmation code
-    bool             userConsentSupported IN                    ///< user consent supported or not
+    taf_sim.Id       slotId IN,                                 ///< SIM slot ID.
+    string           activationCode[ACTIVATION_CODE_LEN] IN,    ///< Activation code.
+    string           confirmationCode[CODE_LEN] IN,             ///< Confirmation code.
+    bool             userConsentSupported IN                    ///< Whether user consent is
+                                                                ///  supported or not.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Delete profile from eUICC card.
+ *  Deletes a profile from the eUICC card.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ * - LE_OK -- Succeeded.
+ * - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DeleteProfile
 (
-    taf_sim.Id       slotId IN,      ///< SIM slot id
-    uint32           profileId IN    ///< Profile id
+    taf_sim.Id       slotId IN,      ///< SIM slot ID.
+    uint32           profileId IN    ///< Profile ID.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- *   Enable or disable profile which allows to switch to other profile on eUICC card.
+ * Enables or disables the profile which allows switching another profile on the eUICC card.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ * - LE_OK -- Succeeded.
+ * - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetProfile
 (
-    taf_sim.Id       slotId IN,     ///< SIM slot id
-    uint32           profileId IN,  ///< Profile id
-    bool             enable    IN   ///< Whether enable
+    taf_sim.Id       slotId IN,     ///< SIM slot ID.
+    uint32           profileId IN,  ///< Profile ID.
+    bool             enable    IN   ///< Enable or not, true for enabling, false for disabling.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Update nick name of the profile
+ * Updates the profile's nick name.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ *      - LE_OK -- Succeeded.
+ *      - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t UpdateNickName
 (
-    taf_sim.Id       slotId IN,                  ///< SIM slot id
-    uint32           profileId IN,               ///< Profile id
-    string           nickName[NICKNAME_LEN] IN   ///< Nick name
+    taf_sim.Id       slotId IN,                  ///< SIM slot ID.
+    uint32           profileId IN,               ///< Profile ID.
+    string           nickName[NICKNAME_LEN] IN   ///< Nick name.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Request list of profiles supported by the eUICC card.
+ * Requests a list of profiles supported by the eUICC card.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ * - LE_OK -- Succeeded.
+ * - LE_FAULT-- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetProfileList
 (
-    taf_sim.Id        slotId IN,                      ///< SIM slot id
-    SimProfileInfo    profileList[MAX_PROFILE] OUT    ///< Profile List as output
+    taf_sim.Id        slotId IN,                      ///< SIM slot ID.
+    SimProfileInfo    profileList[MAX_PROFILE] OUT    ///< Profile list as output.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Set Subscription Manager Data Preparation (SM-DP+) address on the eUICC. If SMDP+
- * address length is zero then the existing SM-DP+ address on the eUICC is removed
+ * Sets the Subscription Manager Data Preparation (SM-DP+) address on the eUICC. If the SM-DP+
+ * address length is zero then the existing SM-DP+ address on the eUICC is removed.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ * - LE_OK -- Succeeded.
+ * - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetServerAddress
 (
-    taf_sim.Id       slotId IN,                ///< SIM slot id
-    string           smdpAdress[SMDP_LEN] IN   ///< SMDP address
+    taf_sim.Id       slotId IN,                ///< SIM slot ID.
+    string           smdpAdress[SMDP_LEN] IN   ///< SM-DP+ address.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Get Subscription Manager Data Preparation (SM-DP+) address and the Subscription Manager
- * Discovery Server (SMDS) address configured on the eUICC.
+ * Gets the SM-DP+ address and the Subscription Manager Discovery Server (SMDS) address configured 
+ * on the eUICC.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ * - LE_OK -- Succeeded.
+ * - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetServerAddress
 (
-    taf_sim.Id           slotId IN,                   ///< SIM slot id
-    string               smdpAdress[SMDP_LEN]  OUT,   ///< SMDP address
-    string               smdsdress[SMDP_LEN] OUT      ///< SMDS address
+    taf_sim.Id           slotId IN,                   ///< SIM slot ID.
+    string               smdpAdress[SMDP_LEN]  OUT,   ///< SM-DP+ address.
+    string               smdsdress[SMDP_LEN] OUT      ///< SMDS address.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Provide user consent required for downloading and installing profile.
- * This API should be called in response to ProfileUserConsent event
+ * Provides user consent required for downloading and installing a profile.
+ * This API should be called in response to a ProfileUserConsent event.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ * - LE_OK -- Succeeded. 
+ * - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ProvideUserConsent
 (
-    taf_sim.Id              slotId IN,       ///< SIM slot id
-    bool                    userConsent IN,  ///< User consent
-    UserConsentReasonType   reason           ///< User consent reason
+    taf_sim.Id              slotId IN,       ///< SIM slot ID.
+    bool                    userConsent IN,  ///< User consent.
+    UserConsentReasonType   reason           ///< User consent reason.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Provide confirmation code required for downloading and installing profile.
- * This API should be called in response to ProfileConfirmationCode event
+ * Provides the confirmation code required for downloading and installing the profile.
+ * This API should be called in response to a ProfileConfirmationCode event.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ * - LE_OK -- Succeeded.
+ * - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ProvideConfirmationCode
 (
-    taf_sim.Id              slotId IN,          ///< SIM slot id
-    string                  code[CODE_LEN] IN   ///< Confirmation code
+    taf_sim.Id              slotId IN,          ///< SIM slot ID.
+    string                  code[CODE_LEN] IN   ///< Confirmation code.
 );

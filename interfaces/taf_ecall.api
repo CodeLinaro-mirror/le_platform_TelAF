@@ -76,23 +76,24 @@
  *
  * <HR>
  *
- * eCall is a technology initiative intended to bring rapid assistance to auto accidents anywhere.
- * When a serious vehicle accident occurs, sensors automatically trigger an eCall.
- * When activated, the in-vehicle system (IVS) establishes a voice connection to Public Safety
- * Answering Point (PSAP). At the same time, a digital "minimum set of data" (MSD) message is sent
+ * eCall is a technology initiative intended to bring rapid assistance to automotive accidents 
+ * anywhere. When a serious vehicle accident occurs, sensors automatically trigger an eCall.
+ * When activated, the in-vehicle system (IVS) establishes a voice connection to a Public Safety
+ * Answering Point (PSAP). At the same time, a digital minimum set of data (MSD) message is sent
  * over the voice call using in-band modem signals. The MSD includes accident information like
  * time, location, driving direction, and vehicle description.
- * The eCall can also be triggered manually.
- * An emergency call is needed for applications that want to establish an emergency communication
- * with a remote party. The emergency call can be over an emergency mobile network, or over VoIP.
+ * An eCall can also be triggered manually.
+ * An emergency call is needed for applications that want to establish emergency communication
+ * with a remote party. The emergency call can be over an emergency mobile network or VoIP.
  *
  * @section taf_ecall_binding IPC interfaces binding
  *
- * All these functions of the API are provided by @b tafECallSvc application service.
- * TafECallSvc allows to start an ecall, talk/conversation through ecall, send MSD information.
- * It also allows to send location info to Public Safety Answering Point (PSAP).
+ * All functions of the eCall API are provided by the @b tafECallSvc application service.
+ * TafECallSvc allows users to start an eCall, talk/converse through an eCall, send MSD 
+ * information, and send location info to PSAPs.
  *
- * Here's a sample of how to bind to Emergency Call services:
+ * The following example illustrates how to bind to eCall services.
+ *
  * @verbatim
    bindings:
    {
@@ -102,110 +103,109 @@
  *
  * @section taf_ecall_operation Operation modes of eCall
  *
- * The modem is capable to operate in three different eCall operation modes:
- * - taf_ecall_ForceOnlyMode(): This API makes the eCall operating mode to eCall only, in this mode,
- *   to start an eCall session only emergency number should be used. The modem may not try to register
- *   in the Cellular network. The modem is forced to behave as only eCall allow mode by this function
- *   whatever the U/SIM operation mode. The change is not persistent if device reboot.
- *   So this function may need to be called before start an eCall.
+ * The modem can operate in three different eCall modes.
+ * 
+ * - taf_ecall_ForceOnlyMode() -- This API makes the eCall operating mode eCall only. Only emergency 
+ *   numbers should be used to start eCall sessions in this mode. The modem may not try to register
+ *   with the cellular network. The modem is forced to behave as only eCalls are allowed regardless
+ *   of the the U/SIM operation mode. The change is not persistent if the device is rebooted, so this
+ *   function may need to be called before starting an eCall.
  *
- * - taf_ecall_ForcePersistentOnlyMode(): Same as taf_ecall_ForceOnlyMode(), but this change persists
- *   over device restart i.e. power cycles.
+ * - taf_ecall_ForcePersistentOnlyMode() -- Same as taf_ecall_ForceOnlyMode(), but this change persists
+ *   through device reboot, i.e., power cycles.
  *
- * - taf_ecall_ExitOnlyMode(): This function comes out from eCall Only mode. It changes the eCall
- *   operation mode to Normal. Generally modem applies default operation mode at boot up (and
- *   after U/SIM hotswap). The modem acts following the U/SIM eCall operation mode. For example the
- *   U/SIM can be setup only for eCall, or a combination of the eCall and also normal commercial
- *   service provision.
+ * - taf_ecall_ExitOnlyMode() -- This function causes the device to exit eCall Only mode. It changes the 
+ *   eCall operation mode to Normal. Generally the modem applies the default operation mode at boot up 
+ *   (and after U/SIM hotswap). The modem acts following the U/SIM eCall operation mode. For example the
+ *   U/SIM can be setup only for eCall or a combination of eCall and normal commercial service provision.
  *
- * - taf_ecall_GetConfiguredOperationMode(): This function helps the user to fetch configured
- *   Operation mode in modem or NAD.
+ * - taf_ecall_GetConfiguredOperationMode() -- This function helps the user fetch the configured
+ *   operation mode of the modem or NAD.
  *   The various operation modes can be:
- *   - @ref TAF_ECALL_MODE_NORMAL : It's normal mode. The modem acts as the U/SIM eCall operation
- *                                  mode.
- *   - @ref TAF_ECALL_MODE_ECALL : eCall only mode as per U/SIM operation mode or forced by
- *                                 the application through taf_ecall_ForceOnlyMode() API.
- *   - @ref TAF_ECALL_FORCED_PERSISTENT_ONLY_MODE : It's eCall only mode and persistent over power cycles.
+ *   - @ref TAF_ECALL_MODE_NORMAL -- The modem acts as the U/SIM eCall operation mode.
+ *   - @ref TAF_ECALL_MODE_ECALL -- eCall only mode as per U/SIM operation mode or forced by
+ *                                  the application through the taf_ecall_ForceOnlyMode() API.
+ *   - @ref TAF_ECALL_FORCED_PERSISTENT_ONLY_MODE -- eCall only that persists over power cycles.
  *
  * @section taf_ecall_session Session of eCall
  *
- * taf_ecall_Create() helps to create a new eCall object and it returns a reference of eCall session.
+ * taf_ecall_Create() helps to create a new eCall object and returns a reference to the eCall session.
  * At this point the eCall is not yet started, the eCall session must be started using one of the
- * below functions:
- * - taf_ecall_StartManual(): To initiate a manual eCall session (triggered by a passenger)
- * - taf_ecall_StartAutomatic(): It initiates an automatic eCall session which triggered automatically
- *   by the IVS if there is an accident or emrgency.
- * - taf_ecall_StartTest(): It initiates a test eCall session (mainly to test the communication between
- *   the IVS and the PSAP)
+ * following functions.
+ * - taf_ecall_StartManual() -- Initiates a manual eCall session; triggered by a passenger
+ * - taf_ecall_StartAutomatic() -- Initiates an automatic eCall session; triggered automatically
+ *                                 by the IVS if there is an accident or emrgency.
+ * - taf_ecall_StartTest() -- Initiates a test eCall session; mainly used to test the communication between
+ *   the IVS and the PSAP
  *
  * The eCall session can be ended by calling taf_ecall_End(). Note that sometimes, the ongoing eCall
- * session cannot be stopped until a specific eCall state is arrived. Such cases are as below:
+ * session cannot be stopped until a specific eCall state is entered as in the following use cases.
  * - When an automatic eCall session is in progress, it is not possible to stop the ongoing session
  *   until @ref TAF_ECALL_STATE_ENDED event is reached.
- * - For manual session, it is allowed to end the ongoing session if eCall is not connected/active
- *   (@ref TAF_ECALL_STATE_ACTIVE not yet come) and after @ref TAF_ECALL_STATE_ENDED event is received.
+ * - For a manual eCall session, it is allowed to end the ongoing session if eCall is not connected/active
+ *   (@ref TAF_ECALL_STATE_ACTIVE not yet come) and after the @ref TAF_ECALL_STATE_ENDED event is received.
  *
  * @warning An application should wait for end of the existing eCall before dialing another
- * one with the @c taf_ecall_StartXxx() APIs. An eCall is stopped when:
- * - the application successfully stops it with taf_ecall_End() returning @c LE_OK
- * - or the event @ref TAF_ECALL_STATE_ENDED arrives
- * - or the event @ref TAF_ECALL_STATE_ALACK_RECEIVED_CLEAR_DOWN is notified
- * - or the event @ref TAF_ECALL_STATE_FAILED is notified and no redial is initiated.
+ * with the @c taf_ecall_StartXxx() APIs. An eCall is stopped when any of the following occurs.
+ * - The application successfully stops it with taf_ecall_End() returning @c LE_OK
+ * - The @ref TAF_ECALL_STATE_ENDED event arrives
+ * - The @ref TAF_ECALL_STATE_ALACK_RECEIVED_CLEAR_DOWN event is notified
+ * - The @ref TAF_ECALL_STATE_FAILED event is notified and no redial is initiated
  *
- * If the eCall object is no more required, application can call taf_ecall_Delete() to free
+ * If the eCall object is no longer required, the application can call taf_ecall_Delete() to free
  * all allocated resources of the eCall object.
  *
  * The current state of the eCall session may be queried by taf_ecall_GetState().
- * Apart from this, an application may register a state change handler to get notified when the
+ * Apart from this, an application may register a state change handler to be notified when the
  * session state changes. The handler can be controlled using taf_ecall_AddStateChangeHandler()
  * and taf_ecall_RemoveStateChangeHandler().
  *
- * An application may also call taf_ecall_GetTerminationReason() to get end reason of the eCall
- * when eCall state is @ref TAF_ECALL_STATE_ENDED, and also
- * taf_ecall_GetPlatformSpecificTerminationCode() to get platform related termination code.
+ * An application may call taf_ecall_GetTerminationReason() to get the end reason of the eCall
+ * when the eCall state is @ref TAF_ECALL_STATE_ENDED and and
+ * taf_ecall_GetPlatformSpecificTerminationCode() to get the platform-related termination code.
  *
  * @section taf_ecall_concurrency Concurrency of eCall
  *
- * If other application wants to use the eCall service when a session is already in active, the
+ * If another application wants to use the eCall service when a session is already active, the
  * taf_ecall_StartManual(), taf_ecall_StartAutomatic(), taf_ecall_StartTest() functions will return
- * @ref LE_BUSY error and the eCall session which is in progress won't be interrupted or disturbed.
+ * @ref LE_BUSY error and the eCall session which is in progress will not be interrupted or disturbed.
  * The application may get the session progress 'state' using API like @ref taf_ecall_GetState() and
  * @ref taf_ecall_AddStateChangeHandler().
- * Another point is, a manual eCall can't disturb an automatic eCall and vice-versa.
+ * A manual eCall cannot disturb an automatic eCall and vice-versa.
  *
  * @section taf_ecall_msd Minimum Set of Data (MSD)
  *
- * The dynamic values of MSD can be written with:
- * - taf_ecall_SetMsdPosition() : It sets position of the vehicle.
- * - taf_ecall_SetMsdPositionN1() : It sets first delta position of the vehicle.
- * - taf_ecall_SetMsdPositionN2() : It sets second delta position of the vehicle.
- * - taf_ecall_SetMsdPassengersCount() : It sets the number of passengers.
+ * The dynamic values of MSD can be written with the following APIs.
+ * - taf_ecall_SetMsdPosition() -- Sets the position of the vehicle.
+ * - taf_ecall_SetMsdPositionN1() -- Sets the first delta position of the vehicle.
+ * - taf_ecall_SetMsdPositionN2() -- Sets the second delta position of the vehicle.
+ * - taf_ecall_SetMsdPassengersCount() -- Sets the number of passengers.
  *
  * The MSD is automatically encoded with the previous MSD values set earlier.
  *
- * @warning Above functions may return a @ref LE_DUPLICATE error when MSD has been already imported
- * using taf_ecall_ImportMsd() API.
+ * @warning The above functions may return a @ref LE_DUPLICATE error when MSD has already been imported
+ * using the taf_ecall_ImportMsd() API.
  *
- * The MSD transmission mode can be set and got using below API:
+ * The MSD transmission mode can be set and retrieved using the following APIs.
  *  - taf_ecall_SetMsdTxMode()
  *  - taf_ecall_GetMsdTxMode()
  *
- * The transmission modes can be as follows:
- * - @ref TAF_ECALL_TX_MODE_PUSH : The MSD has been pushed by the IVS
- * - @ref TAF_ECALL_TX_MODE_PULL : The MSD has been sent when asked by the PSAP
+ * The transmission modes can be:
+ * - @ref TAF_ECALL_TX_MODE_PUSH -- MSD has been pushed by the IVS
+ * - @ref TAF_ECALL_TX_MODE_PULL -- MSD has been sent when asked by the PSAP
  *
  * An application can import an existing MSD using the taf_ecall_ImportMsd() API.
- * The existing MSD must follow requirements presented in the "EN 15722:2013" publication (this
+ * The existing MSD must follow the requirements presented in the "EN 15722:2013" publication (this
  * publication is prepared by Technical Committee CEN/TC 278 “Intelligent Transport Systems").
  *
- * @warning The imported MSD doesn't consider the values provided by the
+ * @warning The imported MSD does not consider the values provided by the
  * taf_ecall_SetMsdXxx() APIs. It overwrites any MSD imported or encoded previously.
  *
  * @warning The imported MSD may overwrite the control flags (automatic and test eCall) set by
- * taf_ecall_StartXxx() APIs (Manual, Automatic, Test). The user App is responsible for the
+ * taf_ecall_StartXxx() APIs (Manual, Automatic, Test). The user app is responsible for the
  * proper settings.
  *
- * The encoded MSD can be fetched with taf_ecall_ExportMsd() API.
+ * The encoded MSD can be fetched with the taf_ecall_ExportMsd() API.
  *
  * @note The user application should perform the MSD transmission by using taf_ecall_SendMsd() when the
  * @ref TAF_ECALL_STATE_PSAP_START_RECEIVED event arrives.
@@ -215,9 +215,9 @@
  * @section c_taf_ecall_outgoing Start of emergency call
  *
  * An emergency call can be started by using taf_ecall_StartAutomatic() with the ecallRef passed as
- * parameter.
- * To get ECallRef we need to call taf_ecall_Create() with no parameter. This function will create
- * an ECallRef object and return it. App can cache the ECallRef for future usages.
+ * a parameter.
+ * To get ECallRef we need to call taf_ecall_Create() with no parameters. This creates
+ * an ECallRef object and returns it. Applicatons can cache the ECallRef for future use.
  * @verbatim
    static taf_ecall_CallRef_t ECallRef = taf_ecall_Create();
    if (!ECallRef)
@@ -237,8 +237,8 @@
  *
  * To stop an emergency call, an application can use taf_ecall_End().
  *
- * Application must use taf_ecall_Delete() to release @ref taf_ecall_CallRef_t emergency call
- * reference object when it is no more used.
+ * Applications must use taf_ecall_Delete() to release @ref taf_ecall_CallRef_t emergency call
+ * reference object when it is no longer used.
  *
  * <HR>
  *
@@ -250,7 +250,7 @@ USETYPES taf_sim.api;
 REFERENCE Call;
 
 /**
- * To support legacy opmode
+ * Support for legacy operational modes.
  */
 DEFINE NORMAL_MODE = 0;
 DEFINE FORCED_PERSISTENT_ONLY_MODE = 1;
@@ -263,32 +263,32 @@ DEFINE MAX_VIN_BYTES  =  MAX_VIN_LENGTH + (1);
 DEFINE  MAX_MSD_LENGTH = (140);
 
 /**
- *  Represents an operational mode
+ *  Operational modes.
  */
 ENUM OpMode
 {
     MODE_NORMAL,           ///< eCall and normal voice calls are allowed
-    MODE_ECALL,            ///< Only eCall is allowed.
-    NONE                   ///< Invalid mode
+    MODE_ECALL,            ///< Only eCalls are allowed.
+    NONE                   ///< Invalid mode.
 };
 
 /**
- *  Represents MSD transmission mode as per eCall MSD standard
+ *  MSD transmission modes per the eCall MSD standard.
  */
 ENUM MsdTransmissionMode
 {
-    MSD_TX_MODE_PULL,  ///< Pull mode (modem/host waits for MSD request from PSAP to send MSD).
-    MSD_TX_MODE_PUSH   ///< Push mode (modem/host sends MSD to PSAP right after eCall connected).
+    MSD_TX_MODE_PULL,  ///< Pull mode; modem/host waits for MSD request from PSAP to send MSD.
+    MSD_TX_MODE_PUSH   ///< Push mode; modem/host sends MSD to PSAP after the eCall is connected.
 };
 
 /**
- *  Represents a vehicle class as per European eCall MSD standard.
+ *  Vehicle classes per the European eCall MSD standard.
  *
  */
 ENUM MsdVehicleType
 {
     PASSENGER_VEHICLE_CLASS_M1,            ///< Passenger vehicle (Class M1)
-    BUSES_AND_COACHES_CLASS_M2,            ///< Passenger vehicle (Class M1)
+    BUSES_AND_COACHES_CLASS_M2,            ///< Buses and coaches (Class M2)
     BUSES_AND_COACHES_CLASS_M3,            ///< Buses and coaches (Class M3)
     LIGHT_COMMERCIAL_VEHICLES_CLASS_N1,    ///< Light commercial vehicles (Class N1)
     HEAVY_DUTY_VEHICLES_CLASS_N2,          ///< Heavy duty vehicles (Class N2)
@@ -304,57 +304,56 @@ ENUM MsdVehicleType
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Propulsion type Bit Mask
+ * Propulsion storage type bitmask
  */
 //-------------------------------------------------------------------------------------------------
 BITMASK PropulsionStorageType
 {
-    PROP_TYPE_GASOLINE_TANK,         ///< Represents the presence of Gasoline Tank in the vehicle.
-    PROP_TYPE_DIESEL_TANK,           ///< Represents the presence of Diesel Tank in the vehicle
-    PROP_TYPE_COMPRESSED_NATURALGAS, ///< Represents the presence of CNG in the vehicle
-    PROP_TYPE_PROPANE_GAS,           ///< Represents the presence of Liquid Propane Gas in the vehicle
-    PROP_TYPE_ELECTRIC,              ///< Represents the presence of Electronic Storage in the vehicle
-    PROP_TYPE_HYDROGEN,              ///< Represents the presence of Hydrogen Storage in the vehicle
-    PROP_TYPE_OTHER,                 ///< Represents the presence of Other types of storage in the vehicle
+    PROP_TYPE_GASOLINE_TANK,         ///< Indicates the presence of a gasoline tank in the vehicle.
+    PROP_TYPE_DIESEL_TANK,           ///< Indicates the presence of diesel tank in the vehicle
+    PROP_TYPE_COMPRESSED_NATURALGAS, ///< Indicates the presence of CNG in the vehicle
+    PROP_TYPE_PROPANE_GAS,           ///< Indicates the presence of liquid propane in the vehicle
+    PROP_TYPE_ELECTRIC,              ///< Indicates the presence of electronic storage in the vehicle
+    PROP_TYPE_HYDROGEN,              ///< Indicates the presence of hydrogen Storage in the vehicle
+    PROP_TYPE_OTHER,                 ///< Indicates the presence of other types of storage in the vehicle
 };
 
 /**
- *  Represents states of the eCall
- *
+ *  eCall states.
  */
 ENUM State
 {
-    STATE_UNKNOWN,                            ///< Unknown eCall state
-    STATE_ALERTING,                           ///< Alerting call, MO Call only
-    STATE_ACTIVE,                             ///< Active eCall
-    STATE_IDLE,                               ///< Idle
-    STATE_WAITING_PSAP_START_IND,             ///< Not supported
-    STATE_PSAP_START_RECEIVED,                ///< SEND-MSD(START) is received and SYNC is locked during in-band MSD transmission
-    STATE_MSD_TRANSMISSION_STARTED,           ///< In-band MSD transmission started
-    STATE_LLNACK_RECEIVED,                    ///< Not supported
-    STATE_LL_ACK_RECEIVED,                    ///< Link-Layer Acknowledgement(LL-ACK) is received during in-band MSD transmission
-    STATE_MSD_TRANSMISSION_SUCCESS,           ///< In-band MSD transmission is successful
-    STATE_MSD_TRANSMISSION_FAILED,            ///< In-band MSD transmission failed
-    STATE_ALACK_RECEIVED_POSITIVE,            ///< Not supported
-    STATE_ALACK_RECEIVED_CLEAR_DOWN,          ///< Not supported
+    STATE_UNKNOWN,                            ///< Unknown eCall state.
+    STATE_ALERTING,                           ///< Alerting call; MO call only.
+    STATE_ACTIVE,                             ///< Active eCall.
+    STATE_IDLE,                               ///< Idle.
+    STATE_WAITING_PSAP_START_IND,             ///< Not supported.
+    STATE_PSAP_START_RECEIVED,                ///< Send MSD (start) is received and sync is locked during in-band MSD transmission.
+    STATE_MSD_TRANSMISSION_STARTED,           ///< In-band MSD transmission started.
+    STATE_LLNACK_RECEIVED,                    ///< Not supported.
+    STATE_LL_ACK_RECEIVED,                    ///< Link-Layer Acknowledgement (LL-ACK) is received during in-band MSD transmission.
+    STATE_MSD_TRANSMISSION_SUCCESS,           ///< In-band MSD transmission succeeded.
+    STATE_MSD_TRANSMISSION_FAILED,            ///< In-band MSD transmission failed.
+    STATE_ALACK_RECEIVED_POSITIVE,            ///< Not supported.
+    STATE_ALACK_RECEIVED_CLEAR_DOWN,          ///< Not supported.
     STATE_ENDED,                              ///< Call stopped.
-    STATE_RESET,                              ///< Not supported
-    STATE_COMPLETED,                          ///< Not supported
+    STATE_RESET,                              ///< Not supported.
+    STATE_COMPLETED,                          ///< Not supported.
     STATE_FAILED,                             ///< eCall start failed.
-    STATE_END_OF_REDIAL_PERIOD,               ///< Not supported
-    STATE_T2_EXPIRED,                         ///< T2 Timer expired
+    STATE_END_OF_REDIAL_PERIOD,               ///< Not supported.
+    STATE_T2_EXPIRED,                         ///< T2 timer expired.
     STATE_TIMEOUT_T3,                         ///< Not  supported.
-    STATE_T5_EXPIRED,                         ///< T5 Timer expired
-    STATE_T6_EXPIRED,                         ///< T6 Timer expired
-    STATE_T7_EXPIRED,                         ///< T7 Timer expired
-    STATE_T9_EXPIRED,                         ///< T9 Timer expired
-    STATE_T10_EXPIRED,                        ///< T10 Timer expired
-    STATE_DIALING,                            ///< Outgoing call
-    STATE_NACK_OUT_OF_ORDER,                  ///< Out of order NACK message detected during in-band MSD transmission
-    STATE_ACK_OUT_OF_ORDER,                   ///< Out of order ACK message detected during in-band MSD transmission
-    STATE_OUTBAND_MSD_TRANSMISSION_STARTED,   ///< Outband MSD transmission started in NG eCall
-    STATE_OUTBAND_MSD_TRANSMISSION_SUCCESS,   ///< Outband MSD transmission succeeded in NG eCall
-    STATE_OUTBAND_MSD_TRANSMISSION_FAILURE    ///< Outband MSD transmission failed in NG eCall
+    STATE_T5_EXPIRED,                         ///< T5 Timer expired.
+    STATE_T6_EXPIRED,                         ///< T6 Timer expired.
+    STATE_T7_EXPIRED,                         ///< T7 Timer expired.
+    STATE_T9_EXPIRED,                         ///< T9 Timer expired.
+    STATE_T10_EXPIRED,                        ///< T10 Timer expired.
+    STATE_DIALING,                            ///< Outgoing call.
+    STATE_NACK_OUT_OF_ORDER,                  ///< Out of order NACK message detected during in-band MSD transmission.
+    STATE_ACK_OUT_OF_ORDER,                   ///< Out of order ACK message detected during in-band MSD transmission.
+    STATE_OUTBAND_MSD_TRANSMISSION_STARTED,   ///< Out-band MSD transmission started in NG eCall.
+    STATE_OUTBAND_MSD_TRANSMISSION_SUCCESS,   ///< Out-band MSD transmission succeeded in NG eCall.
+    STATE_OUTBAND_MSD_TRANSMISSION_FAILURE    ///< Out-band MSD transmission failed in NG eCall.
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -435,34 +434,32 @@ ENUM TerminationReason
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Handler for changes in eCall state
- *
+ * Handler for changes in eCall state.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER StateChangeHandler
 (
-    Call  ecallRef IN,    ///< Emergency call reference
-    State state    IN     ///< Emergency call state
+    Call  ecallRef IN,    ///< Emergency call reference.
+    State state    IN     ///< Emergency call state.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Events of eCall state changes
- *
+ * eCall state change event handler.
  */
 //-------------------------------------------------------------------------------------------------
 EVENT StateChange
 (
-    StateChangeHandler handler ///< State change handler of Emergency call
+    StateChangeHandler handler ///< State change handler for emergency calls.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Create eCall reference
+ *  Creates an eCall reference.
  *
  * @return
- *      - Reference to the emergency call
- *      - NULL if the emergency call can not be created
+ *      - Reference to the emergency call.
+ *      - NULL if the emergency call can not be created.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION Call Create
@@ -471,83 +468,83 @@ FUNCTION Call Create
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Call to free up a call reference according to given ecall reference.
+ * Releases (frees) a call reference according to the given eCall reference.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION Delete
 (
-    Call ecallRef IN   ///< Emergency call reference
+    Call ecallRef IN   ///< Emergency call reference.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Switch to mode in which only eCall is allowed according to given slot id.
+ *  Switches to eCall only mode according to the given slot ID.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ *      - LE_OK -- Succeeded.
+ *      - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ForceOnlyMode
 (
-    taf_sim.Id         slotId  IN                  ///< SIM slot id
+    taf_sim.Id         slotId  IN                  ///< SIM slot ID.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Switch to mode in which only eCall is allowed according to given slot id.
+ *  Switches to persistent eCall Only mode according to the given slot ID.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ *      - LE_OK -- Succeeded.
+ *      - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ForcePersistentOnlyMode
 (
-    taf_sim.Id         slotId  IN                  ///< SIM slot id
+    taf_sim.Id         slotId  IN                  ///< SIM slot ID.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Exits from ECALL mode and switch to NORMAL mode according to given slot id.
+ *  Exits eCall Only mode and switches to Normal mode according to the given slot ID.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ *      - LE_OK -- Succeeded.
+ *      - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ExitOnlyMode
 (
-    taf_sim.Id         slotId  IN                 ///< SIM slot id
+    taf_sim.Id         slotId  IN                 ///< SIM slot ID.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Get the ecall operating mode according to given slot id.
+ * Gets the ecall operating mode according to the given slot ID.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ *      - LE_OK -- Succeeded.
+ *      - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetConfiguredOperationMode
 (
-    taf_sim.Id         slotId  IN,     ///< SIM slot id
-    OpMode             opMode  OUT     ///< Operating mode
+    taf_sim.Id         slotId  IN,     ///< SIM slot ID.
+    OpMode             opMode  OUT     ///< Operating mode.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Set MSD version.
+ *  Sets the MSD version.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ *      - LE_OK -- Succeeded.
+ *      - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -558,32 +555,32 @@ FUNCTION le_result_t SetMsdVersion
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Get MSD version.
+ *  Gets the MSD version.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ *      - LE_OK -- Succeeded.
+ *      - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetMsdVersion
 (
-    uint32 msdVer OUT    ///< MSD version as output
+    uint32 msdVer OUT    ///< MSD version as output.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Set vehicle type.
+ *  Sets the vehicle type.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ *      - LE_OK -- Succeeded.
+ *      - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetVehicleType
 (
-    MsdVehicleType vehType   IN     ///< Vehicle type
+    MsdVehicleType vehType   IN     ///< Vehicle type.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -591,317 +588,318 @@ FUNCTION le_result_t SetVehicleType
  *  Get vehicle type.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ *      - LE_OK -- Succeeded.
+ *      - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetVehicleType
 (
-    MsdVehicleType vehType   OUT  ///< Vehicle type as output
+    MsdVehicleType vehType   OUT  ///< Vehicle type as output.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Set vehicle Identification Number.
+ *  Sets the vehicle identification number.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ *      - LE_OK -- Succeeded.
+ *      - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetVIN
 (
-    string vin[MAX_VIN_LENGTH] IN    ///< Vehicle Identification Number
+    string vin[MAX_VIN_LENGTH] IN    ///< Vehicle identification number.
 );
 
 /**
- *  Get vehicle Identification Number.
+ *  Gets the vehicle identification number.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ *      - LE_OK -- Succeeded.
+ *      - LE_FAULT -- Failed.
  *
  */
 FUNCTION le_result_t GetVIN
 (
-    string vin[MAX_VIN_BYTES]  OUT    ///< Vehicle Identification Number as output
+    string vin[MAX_VIN_BYTES]  OUT    ///< Vehicle identification number as output.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Set vehicle propulsion storage type.
+ * Sets the vehicle propulsion storage type.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ *      - LE_OK -- Succeeded.
+ *      - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetPropulsionType
 (
-    PropulsionStorageType propulsionType IN    ///< Vehicle propulsion storage
+    PropulsionStorageType propulsionType IN    ///< Vehicle propulsion storage type.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Read vehicle propulsion storage type.
+ *  Reads the vehicle propulsion storage type.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ *      - LE_OK -- Succeeded.
+ *      - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetPropulsionType
 (
-    PropulsionStorageType propulsionType OUT    ///< Vehicle propulsion storage as output
+    PropulsionStorageType propulsionType OUT    ///< Vehicle propulsion storage type as output.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Set MSD transmission mode.
+ *  Sets the MSD transmission mode.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ *      - LE_OK -- Succeeded.
+ *      - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetMsdTxMode
 (
-    MsdTransmissionMode mode IN    ///< MSD transmission mode
+    MsdTransmissionMode mode IN    ///< MSD transmission mode.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Read MSD transmission mode.
+ *  Reads the MSD transmission mode.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ *      - LE_OK -- Succeeded.
+ *      - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetMsdTxMode
 (
-    MsdTransmissionMode mode OUT    ///< MSD transmission mode as output
+    MsdTransmissionMode mode OUT    ///< MSD transmission mode as output.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Set the latitude and longitude for MSD transmission.
+ *  Sets the latitude and longitude for MSD transmission.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ *      - LE_OK -- Succeeded.
+ *      - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetMsdPosition
 (
-    Call  ecallRef   IN,   ///< SIM slot id
-    bool  isTrusted  IN,   ///< Is trusted or not
-    int32 latitude   IN,   ///< Latitude value
-    int32 longitude  IN,   ///< Longitude value
-    int32 direction  IN    ///< Direction
+    Call  ecallRef   IN,   ///< SIM slot ID.
+    bool  isTrusted  IN,   ///< Is trusted or not.
+    int32 latitude   IN,   ///< Latitude value.
+    int32 longitude  IN,   ///< Longitude value.
+    int32 direction  IN    ///< Direction.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Set the change in latitude and longitude compared
+ * Sets the change in latitude and longitude compared
  * to the last MSD transmission.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ *      - LE_OK -- Succeeded.
+ *      - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetMsdPositionN1
 (
-    Call  ecallRef   IN,        ///< SIM slot id
-    int32 latitudeDeltaN1 IN,   ///< First Latitude delta
-    int32 longitudeDeltaN1 IN   ///< First Longitude delta
+    Call  ecallRef   IN,        ///< SIM slot ID.
+    int32 latitudeDeltaN1 IN,   ///< First latitude delta.
+    int32 longitudeDeltaN1 IN   ///< First longitude delta.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Set the change in latitude and longitude compared
+ * Sets the change in latitude and longitude compared
  * to the last MSD transmission.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ *      - LE_OK -- Succeeded.
+ *      - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetMsdPositionN2
 (
-    Call  ecallRef   IN,        ///< SIM slot id
-    int32 latitudeDeltaN2 IN,   ///< Second Latitude delta
-    int32 longitudeDeltaN2 IN   ///< Second Longitude delta
+    Call  ecallRef   IN,        ///< SIM slot ID.
+    int32 latitudeDeltaN2 IN,   ///< Second latitude delta.
+    int32 longitudeDeltaN2 IN   ///< Second longitude delta.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Set number of passengers according to given ecall reference.
+ *  Sets the number of passengers according to the given eCall reference.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ *      - LE_OK -- Succeeded.
+ *      - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetMsdPassengersCount
 (
-    Call   ecallRef IN,        ///< SIM slot id
-    uint32 passengersCount IN  ///< Passengers count
+    Call   ecallRef IN,        ///< SIM slot ID.
+    uint32 passengersCount IN  ///< Passenger count.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Import the PDU MSD according to given ecall reference
+ *  Imports the PDU MSD according to the given eCall reference.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ *      - LE_OK -- Succeeded.
+ *      - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ImportMsd
 (
-    Call  ecallRef IN,              ///< SIM slot id
-    uint8 msd[MAX_MSD_LENGTH] IN    ///< MSD
+    Call  ecallRef IN,              ///< SIM slot ID.
+    uint8 msd[MAX_MSD_LENGTH] IN    ///< MSD.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Export the PDU MSD according to given ecall reference.
+ * Exports the PDU MSD according to the given eCall reference.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ *      - LE_OK -- Succeeded.
+ *      - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ExportMsd
 (
-    Call  ecallRef IN,              ///< SIM slot id
-    uint8 msd[MAX_MSD_LENGTH] OUT   ///< MSD output
+    Call  ecallRef IN,              ///< SIM slot ID.
+    uint8 msd[MAX_MSD_LENGTH] OUT   ///< MSD output.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Update the eCall MSD in modem to be sent to Public Safety Answering Point
+ *  Updates the eCall MSD in modem to be sent to a Public Safety Answering Point
  * (PSAP) when requested.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ *      - LE_OK -- Succeeded.
+ *      - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendMsd
 (
-    Call   ecallRef   IN    ///< Emergency call reference
+    Call   ecallRef   IN    ///< eCall reference.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Start automatic emergency call according to given ecall reference.
+ * Starts an automatic emergency call according to the given eCall reference.
  *
  * @return
- *      - LE_OK on success
- *      - LE_BUSY an eCall session is already in progress
- *      - LE_BAD_PARAMETER bad eCall reference
- *      - LE_FAULT on failure
+ *      - LE_OK -- Succeeded.
+ *      - LE_BUSY -- an eCall session is already in progress.
+ *      - LE_BAD_PARAMETER -- bad eCall reference.
+ *      - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t StartAutomatic
 (
-    Call   ecallRef  IN   ///< Emergency call reference
+    Call   ecallRef  IN   ///< eCall reference.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Start manual emergency call according to given ecall reference.
+ *  Starts a manual eCall according to the given eCall reference.
  *
  * @return
- *      - LE_OK on success
- *      - LE_BUSY an eCall session is already in progress
- *      - LE_BAD_PARAMETER bad eCall reference
- *      - LE_FAULT on failure
+ *      - LE_OK -- Succeeded.
+ *      - LE_BUSY -- an eCall session is already in progress.
+ *      - LE_BAD_PARAMETER -- bad eCall reference.
+ *      - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t StartManual
 (
-    Call ecallRef IN      ///< Emergency call reference
+    Call ecallRef IN      ///< eCall reference.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Initiate a test voice eCall with a configured telephone
- * number stored in the USIM
+ * Initiates a test voice eCall with a configured telephone
+ * number stored in the USIM.
  *
  * @return
- *      - LE_OK on success
- *      - LE_BUSY an eCall session is already in progress
- *      - LE_BAD_PARAMETER bad eCall reference
- *      - LE_FAULT on failure
+ *      - LE_OK -- Succeeded.
+ *      - LE_BUSY -- an eCall session is already in progress.
+ *      - LE_BAD_PARAMETER -- bad eCall reference.
+ *      - LE_FAULT -- Failed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t StartTest
 (
-    Call ecallRef IN      ///< Emergency call reference
+    Call ecallRef IN      ///< eCall reference.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Stop the ongoing ecall session according to given ecall reference.
+ *  Stops the ongoing eCall session according to the given eCall reference.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ *      - LE_OK -- Succeeded.
+ *      - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t End
 (
-    Call ecallRef IN      ///< Emergency call reference
+    Call ecallRef IN      ///< eCall reference.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Get currrent eCall state according to given ecall reference
+ *  Gets the currrent eCall state according to the given eCall reference.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ *      - LE_OK -- Succeeded.
+ *      - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION State GetState
 (
-    Call ecallRef IN      ///< Emergency call reference
+    Call ecallRef IN      ///< eCall reference.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Get reason for recently terminated call according to given ecall reference
+ * Gets the platform-specific reason for a recently terminated call according to the given 
+ * eCall reference.
  *
  * @return
- *      - LE_OK on success
- *      - LE_FAULT on failure
+ *      - LE_OK -- Succeeded.
+ *      - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION int32 GetPlatformSpecificTerminationCode
 (
-    Call ecallRef IN      ///< Emergency call reference
+    Call ecallRef IN      ///< eCall reference.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -916,5 +914,5 @@ FUNCTION int32 GetPlatformSpecificTerminationCode
 //-------------------------------------------------------------------------------------------------
 FUNCTION TerminationReason GetTerminationReason
 (
-    Call ecallRef IN        ///< Emergency call reference
+    Call ecallRef IN        ///< eCall reference.
 );

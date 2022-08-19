@@ -40,14 +40,15 @@ USETYPES taf_dcs.api;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Start a permanent synchronous data cellular session by given profile reference
+ * Starts a permanent synchronous data cellular session for the given profile reference.
  *
- * @returns LE_OK                           Succeeded to make a data call.
- *          LE_NOT_FOUND                    Parameter is invalid or can't create a data call
- *          LE_OUT_OF_RANGE                 PdpType type is unknown.
- *          LE_BUSY                         Profile is in using
- *          LE_TIMEOUT                      Timeout to make a data call
- *          LE_FAULT                        Failed to make a data call.
+ * @returns 
+ * - LE_OK                           Successfully made the data call.
+ * - LE_NOT_FOUND                    Parameter is invalid or cannot create the data call.
+ * - LE_OUT_OF_RANGE                 PDP type is unknown.
+ * - LE_BUSY                         Profile is in use.
+ * - LE_TIMEOUT                      Timed out while attempting to make the data call.
+ * - LE_FAULT                        Failed to make the data call.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t StartSession
@@ -57,14 +58,15 @@ FUNCTION le_result_t StartSession
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Start a permanent asynchronous data cellular session by given profile reference
+ * Starts a permanent asynchronous data cellular session for the given profile reference.
  *
- * @returns LE_OK                           Succeeded to make a data call.
- *          LE_NOT_FOUND                    Parameter is invalid or can't create a data call
- *          LE_OUT_OF_RANGE                 PdpType type is unknown.
- *          LE_BUSY                         Profile is in using
- *          LE_TIMEOUT                      Timeout to make a data call
- *          LE_FAULT                        Failed to make a data call.
+ * @returns 
+ * - LE_OK                           Successfully made the data call.
+ * - LE_NOT_FOUND                    Parameter is invalid or cannot create the data call.
+ * - LE_OUT_OF_RANGE                 PDP type is unknown.
+ * - LE_BUSY                         Profile is in use.
+ * - LE_TIMEOUT                      Timed out while attempting to make the data call.
+ * - LE_FAULT                        Failed to make the data call.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t StartSessionAsync
@@ -74,14 +76,15 @@ FUNCTION le_result_t StartSessionAsync
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Synchronously stop a permanent data cellular session by given profile reference
+ * Synchronously stops a permanent data cellular session for the given profile reference.
  *
- * @returns LE_OK                           Succeeded to stop a data call.
- *          LE_NOT_FOUND                    Can't find a data call.
- *          LE_OUT_OF_RANGE                 PdpType type is unknown.
- *          LE_BAD_PARAMETER                Call context is NULL.
- *          LE_TIMEOUT                      Timeout to stop a data call.
- *          LE_FAULT                        Failed to stop a data call.
+ * @returns 
+ * - LE_OK                           Successfully stopped the data call.
+ * - LE_NOT_FOUND                    Could not find the data call to stop.
+ * - LE_OUT_OF_RANGE                 PDP type is unknown.
+ * - LE_BAD_PARAMETER                Call context is NULL.
+ * - LE_TIMEOUT                      Timed out while attempting to stop the data call.
+ * - LE_FAULT                        Failed to stop the data call.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t StopSession
@@ -91,14 +94,15 @@ FUNCTION le_result_t StopSession
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Asynchronously stop a permanent data cellular session by given profile reference
+ * Asynchronously stops a permanent data cellular session for the given profile reference.
  *
- * @returns LE_OK                           Succeeded to stop a data call.
- *          LE_NOT_FOUND                    Can't find a data call.
- *          LE_OUT_OF_RANGE                 PdpType type is unknown.
- *          LE_BAD_PARAMETER                Call context is NULL.
- *          LE_TIMEOUT                      Timeout to stop a data call.
- *          LE_FAULT                        Failed to stop a data call.
+ * @returns 
+ * - LE_OK                           Successfully stopped the data call.
+ * - LE_NOT_FOUND                    Could not find the data call to stop .
+ * - LE_OUT_OF_RANGE                 PDP type is unknown.
+ * - LE_BAD_PARAMETER                Call context is NULL.
+ * - LE_TIMEOUT                      Timed out while attempting to stop the data call.
+ * - LE_FAULT                        Failed to stop the data call.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t StopSessionAsync

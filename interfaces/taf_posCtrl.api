@@ -41,13 +41,13 @@
  *
  * <HR>
  *
- * This API is used to enable and disable the positioning service.
+ * This API is used to enable and disable the Positioning Control service.
  *
  * @section taf_posCtrl_binding IPC interfaces binding
  *
- * All the functions of this API are provided by the @b tafLocationSvc application service.
+ * The functions of this API are provided by the @b tafLocationSvc application service.
  *
- * Here's a sample of how to bind to positioning services:
+ * The following example illustrates how how to bind to the Positioning Control service.
  * @verbatim
    bindings:
    {
@@ -57,17 +57,16 @@
  *
  * @section taf_posCtrl_ctrl Positioning control
  *
- * To request that the positioning service be activated, call taf_posCtrl_Request()
- * To release the positioning service when finished with it, call taf_posCtrl_Release().
+ * To request that the Positioning Control service be activated, call taf_posCtrl_Request()
+ * To release the Positioning Control service when finished with it, call taf_posCtrl_Release().
  *
- * If the positioning service is already active when taf_posCtrl_Request() is called, it will remain
- * active. This happens if another application has already requested that the position service
- * be activated and not yet released the positioning service.
+ * If the Positioning Control service is already active when taf_posCtrl_Request() is called, 
+ * it will remain active. This happens if another application has already requested that the service
+ * be activated and not yet released the Positioning Control service.
  *
- * The positioning service need not be swititched off when an application calls
- * taf_posCtrl_Release(). The positioning service will be switched off only
- * after all applications that have requested that the positioning service be active
- * have also released the positioning service
+ * The Positioning Control service need not be swititched off when an application calls
+ * taf_posCtrl_Release(). The service will be switched off only after all applications that have 
+ * requested that the service be active have also released the Positioning Control service.
  *
  * <HR>
  *
@@ -76,18 +75,18 @@
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Reference type for dealing with Position Service management.
+ * Reference type used to for Positioning Control service management.
  */
 //--------------------------------------------------------------------------------------------------
 REFERENCE Activation;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Request activation of the positioning service.
+ * Requests activation of the Positioning Control service.
  *
  * @return
- *      - Reference to the service activation request (to be used later for releasing the request).
- *      - NULL if the service request could not be processed.
+ * - Reference to the service activation request; used later to release the request.
+ * - NULL if the service request could not be processed.
  *
  */
 //--------------------------------------------------------------------------------------------------
@@ -97,11 +96,11 @@ FUNCTION Activation Request
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Release the positioning service.
+ * Releases the Positioning Control service.
  *
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION Release
 (
- Activation ref IN ///< Reference to a positioning service activation request.
+ Activation ref IN ///< Reference to a Positioning Control service activation request.
 );

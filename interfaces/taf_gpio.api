@@ -43,9 +43,9 @@
  * This API is used by apps to control general-purpose digital input/output pins.
  *
  * A GPIO pin typically has one of the following features:
- * - configured as an input pin or an output pin.
- * - if an output, can be activated or deactivated.
- * - if an input, can trigger an @e interrupt (asynchronous notification of state change).
+ * - Configured as an input pin or an output pin.
+ * - If configured as an output, can be activated or deactivated.
+ * - If configured as an input, can trigger an @e interrupt (asynchronous notification of state change).
  *
  * Pins also have a @e polarity mode:
  * - <b> active-high </b> polarity pin is read/written as a digital 1 (true) when its voltage is
@@ -56,9 +56,9 @@
  *
  * @section taf_gpio_binding IPC interfaces binding
  *
- * All the functions of this API are provided by the @b tafGpioSvc application service.
+ * The functions of this API are provided by the @b tafGpioSvc application service.
  *
- * Here's a sample of how to bind to Gpio services:
+ * The following example illustrates how to bind to GPIO services.
  * @verbatim
    bindings:
    {
@@ -66,11 +66,11 @@
    }
    @endverbatim
  *
- * The following functions are used to configure the GPIO pin and lock the pin using from other
- * clients:
- * - taf_gpio_SetInput() - Configure as an input pin.
- * - taf_gpio_SetEdgeSense() - Set the edge sensing on an input pin(only works if you have an
- * EventHandler).
+ * The following functions are used to configure the GPIO pin and lock the pin from being used by other
+ * clients.
+ * - taf_gpio_SetInput() - Configures the pin as an input pin.
+ * - taf_gpio_SetEdgeSense() - Sets the edge sensing on an input pin (only works if you have an
+ *   EventHandler).
  *
  * @verbatim
    res = taf_gpio_SetInput(inPinNum, TAF_GPIO_ACTIVE_HIGH, false);
@@ -84,15 +84,15 @@
         LE_INFO("Gpio pin %d SetInput results in IO ERROR", inPinNum);
    @endverbatim
  *
- * To set the level of an output pin and lock the pin using from other clients, call
+ * To set the level of an output pin and lock the pin from being used by other clients, call
  * taf_gpio_Activate() or taf_gpio_Deactivate().
  *
  * To poll the value of an input pin, call taf_gpio_Read().
  *
  * Use the ChangeEvent to register a notification callback function to be called when the
  * state of an input pin changes. The type of edge detection can then be modified by calling
- * taf_gpio_SetEdgeSense() or taf_gpio_DisableEdgeSense()
- * @note The client will be killed for below scenarios:
+ * taf_gpio_SetEdgeSense() or taf_gpio_DisableEdgeSense().
+ * @note The client will be killed in the following scenarios.
  * - If the GPIO object reference is NULL or not initialized.
  * - When unable to set edge detection correctly.
  *
@@ -101,14 +101,14 @@
             GpioChangeCallback, NULL);
    @endverbatim
  *
- * The following functions can be used to read the current setting for a GPIO Pin and also can be
- * used even if the GPIO pin is locked by other client. In a Linux environment these values are
+ * The following functions can be used to read the current setting for a GPIO pin even if the GPIO
+ * pin is locked by another client. In a Linux environment these values are
  * read from the sysfs and reflect the actual value at the time the function is called.
  * - taf_gpio_IsOutput() - Is the pin currently an output?
  * - taf_gpio_IsInput() - Is the pin currently an input?
  * - taf_gpio_IsActive() - Is an output pin currently being driven? (corresponds to the value file
  * in sysfs)
- * - taf_gpio_GetPolarity() - Retrieve the current polarity (active-low or active-high)
+ * - taf_gpio_GetPolarity() - Retrieves the current polarity (active-low or active-high).
  * - taf_gpio_GetEdgeSense() - What edge sensing has been enabled on an input pin?
  *
  * <HR>
@@ -118,12 +118,12 @@
 
 
 /**
- * Define pin polarities.
+ * Pin polarities.
  */
 ENUM Polarity
 {
-    ACTIVE_HIGH,   // read/written 1 when its voltage is "high" and 0 when its voltage is "low"
-    ACTIVE_LOW     // read/written 0 when its voltage is "high" and 1 when its voltage is "low"
+    ACTIVE_HIGH,   // Read/written 1 when its voltage is "high" and 0 when its voltage is "low"
+    ACTIVE_LOW     // Read/written 0 when its voltage is "high" and 1 when its voltage is "low"
 };
 
 ENUM State
@@ -138,65 +138,65 @@ ENUM State
  * Configures the pin as an input pin.
  *
  * @return
- *     - LE_OK           on success
- *     - LE_BUSY         if GPIO is busy or locked by other client
- *     - LE_IO_ERROR     in other errors
+ *     - LE_OK           Succeeded. 
+ *     - LE_BUSY         GPIO is busy or locked by another client.
+ *     - LE_IO_ERROR     Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetInput
 (
-    uint8    pinNum     IN,   ///< GPIO pin number
-    Polarity polarity   IN,   ///< Active-high or active-low
-    bool     lock       IN    ///< True to lock this GPIO pin using from other clients
+    uint8    pinNum     IN,   ///< GPIO pin number.
+    Polarity polarity   IN,   ///< Active-high or active-low.
+    bool     lock       IN    ///< Set to True to lock this GPIO pin from being used by other clients.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Set output pin to active state.
+ * Sets an output pin to Active state.
  * @warning Valid only for output pins.
  *
  * @return
- *     - LE_OK           on success
- *     - LE_BUSY         if GPIO is busy or locked by other client
- *     - LE_IO_ERROR     in other errors
+ *     - LE_OK           Succeeded.
+ *     - LE_BUSY         GPIO is busy or locked by another client.
+ *     - LE_IO_ERROR     Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Activate(
-    uint8    pinNum     IN,    ///< GPIO pin number
-    bool     lock       IN     ///< True to lock this GPIO pin using from other clients
+    uint8    pinNum     IN,    ///< GPIO pin number.
+    bool     lock       IN     ///< Set to True to lock this GPIO pin from being used by other clients.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Set output pin to inactive state.
+ * Sets an output pin to Inactive state.
  * @warning Valid only for output pins.
  *
  * @return
- *     - LE_OK           on success
- *     - LE_BUSY         if GPIO is busy or locked by other client
- *     - LE_IO_ERROR     in other errors
+ *     - LE_OK           Succeeded.
+ *     - LE_BUSY         GPIO is busy or locked by another client.
+ *     - LE_IO_ERROR     Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Deactivate(
-    uint8    pinNum     IN,    ///< GPIO pin number
-    bool     lock       IN     ///< True to lock this GPIO pin using from other clients
+    uint8    pinNum     IN,    ///< GPIO pin number.
+    bool     lock       IN     ///< Set to True to lock this GPIO pin from being used by other clients.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Read value of input GPIO pin.
+ * Reads the value of an input GPIO pin.
  *
  * @return
- *     - TAF_GPIO_BUSY - if GPIO pin is locked for the pin
- *     - TAF_GPIO_OFF - if gpio pin voltage is "low"
- *     - TAF_GPIO_ON - if gpio pin voltage is "high"
+ *     - TAF_GPIO_BUSY  GPIO pin is locked for the pin.
+ *     - TAF_GPIO_OFF   GPIO pin voltage is low.
+ *     - TAF_GPIO_ON    GPIO pin voltage is high.
  *
  * @note Invalid to read an output pin.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION State Read(
-    uint8    pinNum     IN,    ///< GPIO pin number
-    bool     lock       IN     ///< True to lock this GPIO pin using from other clients
+    uint8    pinNum     IN,    ///< GPIO pin number.
+    bool     lock       IN     ///< Set to True to lock this GPIO pin from being used by other clients.
 );
 
 /**
@@ -204,52 +204,53 @@ FUNCTION State Read(
  */
 HANDLER ChangeCallback
 (
-    uint8  pinNum  IN,    ///< pin num of the state change triggered GPIO
-    bool   state   IN     ///< New state of the pin
+    uint8  pinNum  IN,    ///< Pin number of the state change triggered GPIO.
+    bool   state   IN     ///< New state of the pin.
 );
 
 /**
- * Define edge transitions.
+ * Edge transitions.
  */
 ENUM Edge
 {
     EDGE_UNKNOWN = -1,
-    EDGE_NONE,            ///< No edge detection
+    EDGE_NONE,            ///< No edge detection.
     EDGE_RISING,          ///< Notify when voltage goes from low to high.
     EDGE_FALLING,         ///< Notify when voltage goes from high to low.
     EDGE_BOTH             ///< Notify when pin voltage changes state in either direction.
 };
 
 /**
- * Register a callback function to be called when an input pin changes state.
+ * Registers a callback function to be called when an input pin changes state.
  *
- * If registering fails, either because the handler cannot be registered, or setting the
- * edge detection fails, or gpio pin is locked by other client then it returns a NULL reference.
+ * If registering fails, because the handler cannot be registered, setting the
+ * edge detection fails, or the GPIO pin is locked by other client then this call
+ * returns a NULL reference.
  */
 EVENT ChangeEvent
 (
-    uint8          pinNum     IN,    ///< GPIO pin number
+    uint8          pinNum     IN,    ///< GPIO pin number.
     Edge           trigger    IN,    ///< Change(s) that should trigger the callback to be called.
-    bool           lock       IN,    ///< True to lock this GPIO pin using from other clients
+    bool           lock       IN,    ///< Set to True to lock this GPIO pin from being used by other clients.
     ChangeCallback handler           ///< The callback function.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Set the edge detection mode. This function can be used only when a handler is registered
- * in order to prevent interrupts being generated and not handled
+ * Sets the edge detection mode. This function can only be used when a handler is registered
+ * in order to prevent interrupts being generated and not handled.
  *
  * @return
- *     - LE_OK           on success
- *     - LE_BUSY         if GPIO is busy or locked by other client
- *     - LE_IO_ERROR     in other errors
+ *     - LE_OK           Succeeded.
+ *     - LE_BUSY         GPIO is busy or locked by another client.
+ *     - LE_IO_ERROR     Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetEdgeSense
 (
-    uint8    pinNum     IN,    ///< GPIO pin number
+    uint8    pinNum     IN,    ///< GPIO pin number.
     Edge     trigger    IN,    ///< Change(s) that should trigger the callback to be called.
-    bool     lock       IN     ///< True to lock this GPIO pin using from other clients
+    bool     lock       IN     ///< Set to True to lock this GPIO pin from being used by other clients.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -257,71 +258,76 @@ FUNCTION le_result_t SetEdgeSense
  * Turns off edge detection of the input GPIO pin.
  *
  * @return
- *     - LE_OK           on success
- *     - LE_BUSY         if GPIO is busy or locked by other client
- *     - LE_IO_ERROR     in other errors
+ *     - LE_OK           Succeeded.
+ *     - LE_BUSY         GPIO is busy or locked by another client.
+ *     - LE_IO_ERROR     Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DisableEdgeSense(
-    uint8    pinNum     IN,    ///< GPIO pin number
-    bool     lock       IN     ///< True to lock this GPIO pin using from other clients
+    uint8    pinNum     IN,    ///< GPIO pin number.
+    bool     lock       IN     ///< Set to True to lock this GPIO pin from being used by other clients.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Checks if the pin is configured as an output.
  *
- * @return true if output, false if input.
+ * @return 
+ * Ttrue if output; false if input.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION bool IsOutput(
-    uint8    pinNum     IN    ///< GPIO pin number
+    uint8    pinNum     IN    ///< GPIO pin number.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Checks if the pin is configured as an input.
  *
- * @return true if output, false if input.
+ * @return
+ * True if output; false if input.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION bool IsInput(
-    uint8    pinNum     IN    ///< GPIO pin number
+    uint8    pinNum     IN    ///< GPIO pin number.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get the current value of edge sensing.
+ * Gets the current value of edge sensing.
  *
- * @return The current configured Edge value
+ * @return 
+ * The current configured edge value.
  *
- * @note Invalid to read the edge sense of an output
+ * @note Invalid to read the edge sense of an output pin.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION Edge GetEdgeSense(
-    uint8    pinNum     IN    ///< GPIO pin number
+    uint8    pinNum     IN    ///< GPIO pin number.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get the current value of the pin polarity.
+ * Gets the current value of the pin polarity.
  *
- * @return The current pin polarity
+ * @return 
+ * The current pin polarity.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION Polarity GetPolarity(
-    uint8    pinNum     IN    ///< GPIO pin number
+    uint8    pinNum     IN    ///< GPIO pin number.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Checks if the pin is currently active.
  *
- * @return true if active, false if inactive.
+ * @return 
+ * True if active; false if inactive.
  *
- * @note can only be used on output pins
+ * @note This can only be used on output pins.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION bool IsActive(
-    uint8    pinNum     IN    ///< GPIO pin number
+    uint8    pinNum     IN    ///< GPIO pin number.
 );

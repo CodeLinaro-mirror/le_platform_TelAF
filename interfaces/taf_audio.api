@@ -34,21 +34,26 @@
  * @ref taf_audio_interface.h "API Reference"
  *
  * <HR>
- * Audio service provides an interface to playback, recording.
- * TelAf Auido is connector based, Audio connectors will have one input interface and output interface, which is responsible to route audio data.
- * Audio Stream Reference represents the audio interfaces for the given connectors.
+ * The Audio service APIs provide an interface to playback and record audio.
+ * TelAf audio is connector based and audio connectors have one input and output interface, which 
+ * is responsible for routing audio data.
  *
- * For any stream types, maximum device supported would be one. Single stream per multiple devices is not supported.
+ * The audio stream reference represents the audio interfaces for the given connectors.
  *
- * Example, for voice call audio path, we need MIC and SPEAKER connectors but in down layers, Audio stream is closely coupled, once we set stream type to VOICE, both MIC and SPEAKER get configured.
+ * For any stream types the maximum number of supported devices is one. A single stream for multiple 
+ * devices is not supported.
+ *
+ * For example, for a voice call audio path, MIC and SPEAKER connectors are required, but in lower
+ * layers the audio stream is closely coupled, so once the stream type is set to to VOICE both the
+ * MIC and SPEAKER are configured.
  *
  * @section taf_audio_binding IPC interfaces binding
  *
- * All the functions of this API are provided by the @b tafAudioSvc application service.
+ * All functions of this API are provided by the @b tafAudioSvc application service.
  *
- * Here's a sample of how to bind to Audio services:
+ * The following example shows how to bind to the audio service.
  *
- * In application.adef add taf_audio API in bindings.
+ * In application.adef add the taf_audio API in bindings.
 
  * @verbatim
 
@@ -59,7 +64,7 @@
 
    @endverbatim
 
- * In Component.cdef add below interface
+ * In Component.cdef add the taf_audio interface.
 
  * @verbatim
 
@@ -76,7 +81,8 @@
  *
  * @section c_taf_audio_play Audio playback
  *
- * To do playback of an audio with supported formats(such  as wav, amr), the following API should be called in sequence
+ * To do playback of audio with a supported format (such as .wav / .amr), the following APIs
+ * should be called in sequence.
  *
  * @verbatim
 
@@ -93,7 +99,7 @@
  *
  * @subsection c_taf_audio_AddMediaHandler MediaHandler and Media Events
  *
- * Handler for media events, such as Error and Media End
+ * Handler for media events, such as error and media end.
  *
  * @verbatim
 
@@ -144,9 +150,9 @@
 
    @endverbatim
  *
- * @subsection c_Close Close and Delete connector's
+ * @subsection c_Close Close and Delete connectors
  *
- * Delete and close the connector's when finished
+ * Delete and close the connectors when finished.
  *
  * @verbatim
 
@@ -160,9 +166,9 @@
  * @section c_taf_audio_voicecall Audio voice call
  *
  * @subsection c_ECNR Echo Cancellation and Noise Reduction
- * This need to be called before starting voice call
+ * This needs to be called before starting a voice call.
  *
- * EnableNoiseSuppressor and EnableEchoCanceller API's are handled in single configuration.
+ * EnableNoiseSuppressor and EnableEchoCanceller API's are handled in a single configuration.
  *
  * @verbatim
 
@@ -179,8 +185,8 @@
    @endverbatim
  *
  *
- * DisableEchoCanceller and DisableNoiseSuppressor API's are handled in single configuration.
- * This need to be called before starting voice call
+ * DisableEchoCanceller and DisableNoiseSuppressor APIs are handled in a single configuration.
+ * This needs to be called before starting a voice call.
  *
  * @verbatim
 
@@ -196,8 +202,7 @@
    @endverbatim
 
  *
- * The following API should be called in sequence for Voicecall
- * Open modemvoice Rx with slot id
+ * The OpenModemVoiceRx API with the slot ID should be called in sequence as the following sample for a voice call.
  *
  *
  * @verbatim
@@ -210,8 +215,8 @@
 
    @endverbatim
 
- * @subsection c_connectors Connector and open file from location when call is hold
- * When call on hold, there will local file play back of audio
+ * @subsection c_connectors Connector and open file from location when call is on hold
+ * When a voice call is on hold there will be local file playback of audio.
  *
  * @verbatim
 
@@ -221,7 +226,7 @@
     taf_audio_Connect(OutputConnectorRef, OutRef);
    @endverbatim
 
- * @note This need to be called, when call is on hold
+ * @note This need to be called when a voice call is on hold.
  *
  * @verbatim
     if ((FileFd = open(FilePath, O_RDONLY)) == -1)
@@ -236,9 +241,9 @@
    @endverbatim
 
  *
- * @subsection c_Close Close and Delete connector's
+ * @subsection c_Close Close and Delete connectors
  *
- * Delete and close the connector's when finished
+ * Delete and close the connectors when finished.
  *
  * @verbatim
     taf_audio_Disconnect(InputConnectorRef, InRef);
@@ -254,12 +259,12 @@
 //--------------------------------------------------------------------------------------------------
 
 /**
- * Reference type for Audio Stream
+ * Reference type for audio stream.
  */
 REFERENCE Stream;
 
 /**
- * Reference type for Audio Connector
+ * Reference type for audio connector.
  */
 REFERENCE Connector;
 
@@ -267,71 +272,77 @@ DEFINE DTMF_MAXLEN   = (100);
 DEFINE NO_FD = (-1);
 
 /**
- * Close the Stream reference
+ * Closes the stream reference.
  */
 FUNCTION Close
 (
-    Stream sRef IN ///< Audio reference
+    Stream sRef IN ///< Audio stream reference.
 );
 
 /**
- * Create new Connector
- * @return Reference to audio stream, NULL on error
+ * Creates a new connector.
+ * @return Reference to the audio stream, NULL on error.
  */
 FUNCTION Connector CreateConnector
 (
 );
 
 /**
- * Delete connected Connector
- * @note This function will not return, if caller passes bad reference
+ * Deletes a connected connector.
+ * @note This function will not return if passed a bad reference.
  */
 FUNCTION DeleteConnector
 (
-    Connector connRef IN ///< Connector reference
+    Connector connRef IN ///< Connector reference.
 );
 
 /**
- * Connect Connector for Stream reference
- * @return LE_OK     On Success
- * @return LE_FAULT  on failure
- * @note This function will not return, if caller passes bad reference
+ * Connects a connector for an audio stream reference.
+ * @return
+ * - LE_OK Success.
+ * - LE_FAULT  Failure.
+ *
+ * @note This function will not return if passed a bad reference.
  */
 FUNCTION le_result_t Connect
 (
-    Connector connRef IN, ///< Connector reference
-    Stream    sRef IN ///< Audio reference
+    Connector connRef IN, ///< Connector reference.
+    Stream    sRef IN ///< Audio stream reference.
 );
 
 /**
- * Disconnect Connector for Stream reference
- * @note This function will not return, if caller passes bad reference
+ * Disconnects a connector for an audio stream reference.
+ *
+ * @note This function will not return if passed a bad reference.
  */
 FUNCTION Disconnect
 (
-    Connector connRef IN, ///< Connector reference
-    Stream    sRef IN ///< Audio reference
+    Connector connRef IN, ///< Connector reference.
+    Stream    sRef IN ///< Audio stream reference.
 );
 
 /**
- * Stream reference for Speaker
- * @return Reference to audio stream, NULL on error
+ * Opens an audio stream reference for speaker use.
+ *
+ * @return Reference to the audio stream, NULL on error.
  */
 FUNCTION Stream OpenSpeaker
 (
 );
 
 /**
- * Stream reference for MIC
- * @return Reference to audio stream, NULL on error
+ * Opens an audio stream reference for microphone use.
+ * 
+ * @return Reference to an audio stream, NULL on error.
  */
 FUNCTION Stream OpenMic
 (
 );
 
 /**
- * Stream reference for VoiceRx
- * @return Reference to audio stream, NULL on error
+ * Opens an audio stream reference for voice Rx.
+ *
+ * @return Reference to an audio stream, NULL on error.
  */
 FUNCTION Stream OpenModemVoiceRx
 (
@@ -339,44 +350,50 @@ uint32 slotId ///< Slot value
 );
 
 /**
- * Stream Reference for VoiceTx
- * @return Reference to audio stream, NULL on error
+ * Opens an audio stream reference for voice Tx.
+ *
+ * @return Reference to an audio stream, NULL on error.
  */
 FUNCTION Stream OpenModemVoiceTx
 (
-uint32 slotId ///< Slot value
+uint32 slotId ///< Slot value.
 );
 
 /**
- * DTMF Playback for Inband
- * Applicable only for Voice Stream
+ * DTMF playback for inband.
+ *
+ * @note Applicable only for voice streams.
  */
 FUNCTION le_result_t PlayDtmf
 (
-    Stream  streamRef           IN, ///< Audio reference
-    string  dtmf[DTMF_MAXLEN]   IN, ///< DTMF Data
-    uint32  duration            IN, ///< Duration to play
-    uint32  pause               IN  ///< Pause between tones
+    Stream  streamRef           IN, ///< Audio stream reference.
+    string  dtmf[DTMF_MAXLEN]   IN, ///< DTMF data.
+    uint32  duration            IN, ///< Duration to play.
+    uint32  pause               IN  ///< Pause between tones.
 );
 
 /**
- * Mute Audio Stream
- * @return LE_OK     On Success
- * @return LE_FAULT  on failure
+ * Mutes an audio stream.
+ * 
+ * @return 
+ * - LE_OK    Success.
+ * - LE_FAULT Failure.
  */
 FUNCTION le_result_t Mute
 (
-    Stream streamRef IN ///< Audio reference
+    Stream streamRef IN ///< Audio stream reference.
 );
 
 /**
- * UnMute Audio Stream
- * @return LE_OK     On Success
- * @return LE_FAULT  on failure
+ * Unmutes an audio stream.
+ *
+ * @return 
+ * - LE_OK     Success.
+ * - LE_FAULT  Failure.
  */
 FUNCTION le_result_t Unmute
 (
-    Stream streamRef IN ///< Audio reference
+    Stream streamRef IN ///< Audio stream reference.
 );
 
 /**
@@ -384,32 +401,34 @@ FUNCTION le_result_t Unmute
  */
 ENUM MediaEvent
 {
-    MEDIA_ENDED,             ///< End of Playback
-    MEDIA_NO_MORE_SAMPLES,   ///< End of Sample
-    MEDIA_ERROR,             ///< Error notification
-    MEDIA_MAX                ///< Max value
+    MEDIA_ENDED,             ///< End of playback.
+    MEDIA_NO_MORE_SAMPLES,   ///< End of sample.
+    MEDIA_ERROR,             ///< Error notification.
+    MEDIA_MAX                ///< Indicates the maximum value.
 };
 
 /**
-* Opens the stream for Audio playback
-* @return Reference to audio stream, NULL on error
-*/
+ * Opens a stream for audio playback.
+ *
+ * @return Reference to an audio stream, NULL on error.
+ */
 FUNCTION Stream OpenPlayer
 (
 );
 
 /**
-* Play a file on a playback stream
+* Plays a file on a playback stream.
 *
-* @return LE_FAULT  on failure
-* @return LE_BAD_PARAMETER Invalid stream reference
-* @return LE_BUSY          Already active
-* @return LE_OK            On Success
+* @return 
+* - LE_FAULT         Failure.
+* - LE_BAD_PARAMETER Invalid stream reference.
+* - LE_BUSY          Already active.
+* - LE_OK            Success.
 */
 FUNCTION le_result_t PlayFile
 (
-    Stream streamRef IN, ///< Audio reference
-    file fd  IN ///< File descriptor
+    Stream streamRef IN, ///< Audio stream reference.
+    file fd  IN          ///< File descriptor.
 );
 
 /**
@@ -417,17 +436,17 @@ FUNCTION le_result_t PlayFile
  */
 HANDLER MediaHandler
 (
-    Stream     streamRef  IN, ///< Audio reference
-    MediaEvent event ///< Media event params
+    Stream     streamRef  IN, ///< Audio stream reference.
+    MediaEvent event          ///< Media event parameters.
 );
 
 /**
- * This event provides information on player / recorder stream events.
+ * This event provides information on player/recorder stream events.
  */
 EVENT Media
 (
-    Stream       streamRef IN, ///< Audio reference
-    MediaHandler handler ///< Media handler
+    Stream       streamRef IN, ///< Audio stream reference.
+    MediaHandler handler       ///< Media handler.
 );
 
 /**
@@ -435,63 +454,69 @@ EVENT Media
  */
 HANDLER DtmfDetectorHandler
 (
-    Stream  streamRef  IN, ///< Audio reference
-    char    dtmf       IN ///<  DTMF detection
+    Stream  streamRef  IN, ///< Audio stream reference.
+    char    dtmf       IN  ///< DTMF detection.
 );
 
 /**
- * This event provides information on DTMF decoding for the specified streamRef
+ * This event provides information on DTMF decoding for the specified streamRef.
  */
 EVENT DtmfDetector
 (
-    Stream              streamRef IN, ///< Audio reference
-    DtmfDetectorHandler handler       ///< Dtmf Handler
+    Stream              streamRef IN, ///< Audio stream reference.
+    DtmfDetectorHandler handler       ///< DTMF Handler.
 );
 
 /**
- * Stop the file playback/recording
- * @return LE_OK            On Success
- * @return LE_FAULT         On Failure
+ * Stops the file playback or recording.
+ *
+ * @return 
+ * - LE_OK     Success.
+ * - LE_FAULT  Failure.
  */
 FUNCTION le_result_t Stop
 (
-    Stream streamRef IN ///< Audio reference
+    Stream streamRef IN ///< Audio stream reference.
 );
 
 /**
- * Set the volume
- * @return LE_FAULT  on failure
- * @return LE_OK     On Success
+ * Sets the volume.
+ *
+ * @return 
+ * - LE_FAULT Failure.
+ * - LE_OK    Success.
 */
 FUNCTION le_result_t SetGain
 (
-    Stream streamRef IN, ///< Audio reference
-    int32  gain IN ///< Set gain param
+    Stream streamRef IN, ///< Audio stream reference.
+    int32  gain IN       ///< Set gain parameter.
 );
 
 /**
- * Get the volume
- * @return LE_FAULT  on failure
- * @return LE_OK     On Success
+ * Gets the volume.
+ *
+ * @return 
+ * - LE_FAULT Failure.
+ * - LE_OK    Success.
  */
 FUNCTION le_result_t GetGain
 (
-    Stream streamRef IN, ///< Audio reference
-    int32  gain OUT ///< Gain param
+    Stream streamRef IN, ///< Audio stream reference.
+    int32  gain OUT ///< Gain parameter.
 );
 
 /**
- * Audio Format
+ * Audio format.
  */
 ENUM Format
 {
-    WAVE,          ///< Waveform
-    AMR,           ///< Adaptive Multi Rate
-    FORMAT_MAX
+    WAVE,          ///< Waveform.
+    AMR,           ///< Adaptive multi rate.
+    FORMAT_MAX     ///< Indicates the maximum value.
 };
 
 /**
- * AMR mode
+ * AMR .
  */
 ENUM AmrMode
 {
@@ -516,63 +541,75 @@ ENUM AmrMode
 };
 
 /**
- * Enable NoiseSuppressor
- * @return LE_FAULT  on failure
- * @return LE_OK     On Success
+ * Enables noise suppression.
+ * 
+ * @return 
+ * - LE_FAULT  Failure.
+ * - LE_OK     Success.
 */
 FUNCTION le_result_t EnableNoiseSuppressor
 (
-    Stream streamRef IN ///< Audio reference
+    Stream streamRef IN ///< Audio stream reference.
 );
 
 /**
- * Enable EchoCanceller
- * @return LE_FAULT  on failure
- * @return LE_OK     On Success
+ * Enables echo cancellation.
+ * 
+ * @return 
+ * - LE_FAULT  Failure.
+ * - LE_OK     Success.
 */
 FUNCTION le_result_t EnableEchoCanceller
 (
-    Stream streamRef IN ///< Audio reference
+    Stream streamRef IN ///< Audio stream reference.
 );
 
 /**
- * Disable NoiseSuppressor
- * @return LE_FAULT  on failure
- * @return LE_OK     On Success
+ * Disables noise suppression.
+ * 
+ * @return 
+ * - LE_FAULT  Failure.
+ * - LE_OK     Success.
 */
 FUNCTION le_result_t DisableNoiseSuppressor
 (
-    Stream streamRef IN ///< Audio reference
+    Stream streamRef IN ///< Audio stream reference.
 );
 
 /**
- * Set the volume
- * @return LE_FAULT  on failure
- * @return LE_OK     On Success
+ * Sets the volume.
+ *
+ * @return 
+ * - LE_FAULT  Failure.
+ * - LE_OK     Success.
 */
 FUNCTION le_result_t DisableEchoCanceller
 (
-    Stream streamRef IN ///< Audio reference
+    Stream streamRef IN ///< Audio stream reference.
 );
 
 /**
- * Get status for IsEchoCancellerEnabled
- * @return LE_FAULT  on failure
- * @return LE_OK     On Success
+ * Gets echo cancellation status.
+ *
+ * @return 
+ * - LE_FAULT  Failure.
+ * - LE_OK     Success.
 */
 FUNCTION le_result_t IsEchoCancellerEnabled
 (
-    Stream streamRef IN, ///< Audio reference
-    bool   status    OUT ///< check for EchoCanceller flag
+    Stream streamRef IN, ///< Audio stream reference.
+    bool   status    OUT ///< Check for EchoCanceller flag.
 );
 
 /**
- * Get status for IsNoiseSuppressorEnabled
- * @return LE_FAULT  on failure
- * @return LE_OK     On Success
+ * Gets noise suppression status.
+ *
+ * @return
+ * - LE_FAULT  Failure.
+ * - LE_OK     Success.
 */
 FUNCTION le_result_t IsNoiseSuppressorEnabled
 (
-    Stream streamRef IN, ///< Audio reference
-    bool   status    OUT ///< check for NoiseSuppressor flag
+    Stream streamRef IN, ///< Audio stream reference.
+    bool   status    OUT ///< Check for NoiseSuppressor flag.
 );

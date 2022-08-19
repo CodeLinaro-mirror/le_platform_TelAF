@@ -70,14 +70,15 @@
  *
  * <HR>
  *
- * Data call service is used for applications to manage data calls and data profiles.
- * The data call service provides the APIs over mobile network.
+ * The Data Call service API is used for applications to manage data calls and data profiles.
+ * It provides APIs over a mobile network.
  *
  * @section c_taf_dcs_binding IPC interfaces binding
  *
- * All the functions of this API are provided by the @b tafDataCallSvc application service.
+ * All functions of this API are provided by the @b tafDataCallSvc application service.
  *
- * Here's a sample of how to bind to Data Call service:
+ * The following example illustrates how to bind to the data call service.
+ *
  * @verbatim
    bindings:
    {
@@ -87,8 +88,9 @@
  *
  * @section c_taf_dcs_start_data_call Starting a data call
  *
- * A synchronous data call can be started by using taf_dcs_StartSession() with the profile reference
- * passed as parameters.
+ * A synchronous data call can be started using taf_dcs_StartSession() with the profile 
+ * reference passed as parameters.
+ *
  * @verbatim
    result = taf_dcs_StartSession(profileReference);
    if (result != LE_OK)
@@ -98,8 +100,9 @@
    }
    @endverbatim
  *
- * An asynchronous data call can be started by using taf_dcs_StartSessionAsync() with the profile
+ * An asynchronous data call can be started using taf_dcs_StartSessionAsync() with the profile
  * reference passed as parameters.
+ *
  * @verbatim
    result = taf_dcs_StartSessionAsync(profileReference);
    if (result != LE_OK)
@@ -108,22 +111,24 @@
       return result;
    }
    @endverbatim
+ *
  * Before starting an asynchronous data call, an application registers a state handler using
- * taf_dcs_AddSessionStateHandler(). Once the data call state changes, the handler will be called
+ * taf_dcs_AddSessionStateHandler(). Once the data call state changes the handler will be called
  * indicating the new state.
+ *
  * @verbatim
    sessionStateRef = taf_dcs_AddSessionStateHandler(profileReference,
                     (taf_dcs_SessionStateHandlerFunc_t)data_event_handler, NULL);
    @endverbatim
  *
- * An application can stop a synchronous data call by using taf_dcs_StopSession(), and stop an
- * asynchronous data call by using taf_dcs_StopSessionAsync(). To stopping an asynchronous data
- * call, an application need to invoke taf_dcs_RemoveSessionStateHandler() to remove the session
+ * An application can stop a synchronous data call by using taf_dcs_StopSession() and stop an
+ * asynchronous data call by using taf_dcs_StopSessionAsync(). To stop an asynchronous data
+ * call, an application needs to invoke taf_dcs_RemoveSessionStateHandler() to remove the session
  * handler.
  *
- * @note When an application starts a data call by using taf_dcs_StartSession() or
- * taf_dcs_StartSessionAsync(), and the application loses the connection with data call service,
- * the data call will be stopped by the data call service automatically.
+ * @note When an application starts a data call using taf_dcs_StartSession() or
+ * taf_dcs_StartSessionAsync() and the application loses the connection with the data call service,
+ * the data call will be automatically stopped by the data call service.
  *
  * <HR>
  *
@@ -134,177 +139,177 @@ USETYPES taf_types.api;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The Common Name String Max Len
+ * The common name (string) maximum length.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE NAME_MAX_LEN = 64;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The Common Name String Max Bytes
+ * The common name (string) maximum Bytes.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE NAME_MAX_BYTES = (NAME_MAX_LEN + 1);
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The Max Numbers Of Call Context
+ * The maximum number of call contexts.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE MAX_CALL_OBJ = 32;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The Max Numbers Of Session Reference
+ * The maximum number of session references.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE MAX_SESSION_REF = 32;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The APN Name String Max Len
+ * The APN name (string) maximum length.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE APN_NAME_MAX_LEN = NAME_MAX_LEN;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The APN Name String Max Bytes
+ * The APN name (string) maximum Bytes.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE APN_NAME_MAX_BYTES = (APN_NAME_MAX_LEN + 1);
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The Auth User Name String Max Len
+ * The authorized username (string) maximum length.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE  USER_NAME_MAX_LEN = NAME_MAX_LEN;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The Auth User Passward String Max Len
+ * The authorized user's password (string) maximum length.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE  PASSWORD_NAME_MAX_LEN = NAME_MAX_LEN;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The Auth User Name String Max Bytes
+ * The authorized user's username (string) maximum Bytes.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE  USER_NAME_MAX_BYTES  = (USER_NAME_MAX_LEN + 1);
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The Auth User Passward String Max Bytes
+ * The authorized user's password (string) maximum Bytes.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE  PASSWORD_NAME_MAX_BYTES  = (PASSWORD_NAME_MAX_LEN + 1);
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The IPv4 Addr Max Len
+ * The IPv4 address maximum length.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE  IPV4_ADDR_MAX_LEN = 16;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The IPv6 Addr("ffff:ffff:ffff:ffff:ffff:ffff:255:255:255:255") Max Len
+ * The IPv6 address ("ffff:ffff:ffff:ffff:ffff:ffff:255:255:255:255") maximum length.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE  IPV6_ADDR_MAX_LEN = 45;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The Default Cellular Profile Index
+ * The default cellular profile index.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE DEFAULT_PROFILE = 1;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The Reference For Cellular Profile Context
+ * Reference to the cellular profile context.
  */
 //--------------------------------------------------------------------------------------------------
 REFERENCE Profile;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The Reference For Data call Session Context
+ * Reference to the data call session context.
  */
 //--------------------------------------------------------------------------------------------------
 REFERENCE Call;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The Max Entry for Cellular Profiles
+ * The maximum number of entries for cellular profiles.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE PROFILE_LIST_MAX_ENTRY = 32;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The squash gateway addresses used by net APIs
+ * The squash gateway addresses used by net APIs.
  */
 //--------------------------------------------------------------------------------------------------
 STRUCT DefaultGatewayAddresses
 {
-    string  ipv4Addr[IPV4_ADDR_MAX_LEN];    ///< The IP V4 address.
-    string  ipv6Addr[IPV6_ADDR_MAX_LEN];    ///< The IP V6 address.
+    string  ipv4Addr[IPV4_ADDR_MAX_LEN];    ///< The IPv4 address.
+    string  ipv6Addr[IPV6_ADDR_MAX_LEN];    ///< The IPv6 address.
 };
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The squash dns addresses used by net APIs
+ * The squash DNS addresses used by net APIs.
  */
 //--------------------------------------------------------------------------------------------------
 STRUCT DnsServerAddresses
 {
-    string  ipv4Addr1[IPV4_ADDR_MAX_LEN];   ///< The primary IP V4 DNS address.
-    string  ipv4Addr2[IPV4_ADDR_MAX_LEN];   ///< The secondary IP V4 DNS address.
-    string  ipv6Addr1[IPV6_ADDR_MAX_LEN];   ///< The primary IP V6 DNS address.
-    string  ipv6Addr2[IPV6_ADDR_MAX_LEN];   ///< The secondary IP V6 DNS address.
+    string  ipv4Addr1[IPV4_ADDR_MAX_LEN];   ///< The primary IPv4 DNS address.
+    string  ipv4Addr2[IPV4_ADDR_MAX_LEN];   ///< The secondary IPv4 DNS address.
+    string  ipv6Addr1[IPV6_ADDR_MAX_LEN];   ///< The primary IPv6 DNS address.
+    string  ipv6Addr2[IPV6_ADDR_MAX_LEN];   ///< The secondary IPv6 DNS address.
 };
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The Supported Data Bearer Technology
+ * The supported data bearer technology.
  */
 //--------------------------------------------------------------------------------------------------
 ENUM DataBearerTechnology
 {
     // CDMA related
-    DATA_BEARER_TECHNOLOGY_UNKNOWN,               ///< Unknown
-    DATA_BEARER_TECHNOLOGY_CDMA2000_1X,           ///< CDMA 1XF
-    DATA_BEARER_TECHNOLOGY_CDMA2000_EVDO,         ///< CDMA Rev 0
-    DATA_BEARER_TECHNOLOGY_CDMA2000_EVDO_REVA,    ///< CDMA Rev A
-    DATA_BEARER_TECHNOLOGY_CDMA2000_EVDO_REVB,    ///< CDMA Rev B
-    DATA_BEARER_TECHNOLOGY_CDMA2000_EHRPD,        ///< CDMA EHPRD
-    DATA_BEARER_TECHNOLOGY_CDMA2000_HRPD,         ///< CDMA HPRD
-    DATA_BEARER_TECHNOLOGY_CDMA_EVDO_FMC,         ///< CDMA FMC
-    DATA_BEARER_TECHNOLOGY_3GPP2_WLAN,            ///< IWLAN
+    DATA_BEARER_TECHNOLOGY_UNKNOWN,               ///< Unknown.
+    DATA_BEARER_TECHNOLOGY_CDMA2000_1X,           ///< CDMA 1XF.
+    DATA_BEARER_TECHNOLOGY_CDMA2000_EVDO,         ///< CDMA Rev 0.
+    DATA_BEARER_TECHNOLOGY_CDMA2000_EVDO_REVA,    ///< CDMA Rev A.
+    DATA_BEARER_TECHNOLOGY_CDMA2000_EVDO_REVB,    ///< CDMA Rev B.
+    DATA_BEARER_TECHNOLOGY_CDMA2000_EHRPD,        ///< CDMA EHPRD.
+    DATA_BEARER_TECHNOLOGY_CDMA2000_HRPD,         ///< CDMA HPRD.
+    DATA_BEARER_TECHNOLOGY_CDMA_EVDO_FMC,         ///< CDMA FMC.
+    DATA_BEARER_TECHNOLOGY_3GPP2_WLAN,            ///< IWLAN.
     //UMTS related
-    DATA_BEARER_TECHNOLOGY_WCDMA,                 ///< WCDMA (UMTS)
-    DATA_BEARER_TECHNOLOGY_GPRS,                  ///< GPRS
-    DATA_BEARER_TECHNOLOGY_HSDPA,                 ///< HSDPA
-    DATA_BEARER_TECHNOLOGY_HSUPA,                 ///< HSUPA
-    DATA_BEARER_TECHNOLOGY_EDGE,                  ///< EDGE
-    DATA_BEARER_TECHNOLOGY_LTE,                   ///< LTE
-    DATA_BEARER_TECHNOLOGY_HSDPA_PLUS,            ///< HSDPA_PLUS
-    DATA_BEARER_TECHNOLOGY_DC_HSDPA_PLUS,         ///< DC_HSDPA_PLUS
-    DATA_BEARER_TECHNOLOGY_HSPA,                  ///< HSPA
-    DATA_BEARER_TECHNOLOGY_64_QAM,                ///< 64 QAM
-    DATA_BEARER_TECHNOLOGY_TD_SCDMA,              ///< TDSCDMA
-    DATA_BEARER_TECHNOLOGY_GSM,                   ///< GSM
-    DATA_BEARER_TECHNOLOGY_3GPP_WLAN,             ///< IWLAN
-    DATA_BEARER_TECHNOLOGY_5G,                    ///< NR
+    DATA_BEARER_TECHNOLOGY_WCDMA,                 ///< WCDMA (UMTS).
+    DATA_BEARER_TECHNOLOGY_GPRS,                  ///< GPRS.
+    DATA_BEARER_TECHNOLOGY_HSDPA,                 ///< HSDPA.
+    DATA_BEARER_TECHNOLOGY_HSUPA,                 ///< HSUPA.
+    DATA_BEARER_TECHNOLOGY_EDGE,                  ///< EDGE.
+    DATA_BEARER_TECHNOLOGY_LTE,                   ///< LTE.
+    DATA_BEARER_TECHNOLOGY_HSDPA_PLUS,            ///< HSDPA_PLUS.
+    DATA_BEARER_TECHNOLOGY_DC_HSDPA_PLUS,         ///< DC_HSDPA_PLUS.
+    DATA_BEARER_TECHNOLOGY_HSPA,                  ///< HSPA.
+    DATA_BEARER_TECHNOLOGY_64_QAM,                ///< 64 QAM.
+    DATA_BEARER_TECHNOLOGY_TD_SCDMA,              ///< TDS-CDMA.
+    DATA_BEARER_TECHNOLOGY_GSM,                   ///< GSM.
+    DATA_BEARER_TECHNOLOGY_3GPP_WLAN,             ///< IWLAN.
+    DATA_BEARER_TECHNOLOGY_5G,                    ///< NR5G.
 };
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The Supported Data Cellular Call Connection Event
+ * The supported data cellular call connection event.
  */
 //--------------------------------------------------------------------------------------------------
 ENUM ConState
@@ -317,20 +322,20 @@ ENUM ConState
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The Data Profile PDP Type
+ * The data profile PDP type.
  */
 //--------------------------------------------------------------------------------------------------
 ENUM Pdp
 {
     PDP_UNKNOWN,                            ///< Unknown.
-    PDP_IPV4,                               ///< IPV4.
-    PDP_IPV6,                               ///< IPV6.
-    PDP_IPV4V6                              ///< IPV4 and IPV6.
+    PDP_IPV4,                               ///< IPv4.
+    PDP_IPV6,                               ///< IPv6.
+    PDP_IPV4V6                              ///< IPv4 and IPv6.
 };
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The Data Profile Auth Type
+ * The data profile authentication type.
  */
 //--------------------------------------------------------------------------------------------------
 BITMASK Auth
@@ -342,7 +347,7 @@ BITMASK Auth
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The Data Profile Technology Type
+ * The data profile technology type.
  */
 //--------------------------------------------------------------------------------------------------
 ENUM Tech
@@ -350,14 +355,14 @@ ENUM Tech
     TECH_UNKNOWN,                           ///< Unknown.
     TECH_3GPP,                              ///< 3GPP.
     TECH_3GPP2,                             ///< 3GPP2.
-    TECH_ANY                                ///< ANY.
+    TECH_ANY                                ///< Any.
 };
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The additional state information.
- * ip: The IP Type of this event, e.g.
- *     which interface (IPv4/IPv6) is supported on CONNECTED event.
+ * Additional state information.
+ * IP: The IP Type of this event, e.g.,
+ *     which interface (IPv4/IPv6) is supported on a CONNECTED event.
  */
 //--------------------------------------------------------------------------------------------------
 STRUCT StateInfo
@@ -367,14 +372,15 @@ STRUCT StateInfo
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Start a synchronous data cellular session by given profile reference
+ * Starts a synchronous data cellular session for the given profile reference.
  *
- * @returns LE_OK                           Succeeded to make a data call.
- *          LE_NOT_FOUND                    Parameter is invalid or can't create a data call
- *          LE_OUT_OF_RANGE                 PdpType type is unknown.
- *          LE_BUSY                         Profile is in using
- *          LE_TIMEOUT                      Timeout to make a data call
- *          LE_FAULT                        Failed to make a data call.
+ * @return 
+ * - LE_OK                           Succeessfully started the data call.
+ * - LE_NOT_FOUND                    Parameter is invalid or couldn't create the data call.
+ * - LE_OUT_OF_RANGE                 PDP type is unknown.
+ * - LE_BUSY                         Profile is in use.
+ * - LE_TIMEOUT                      Timed out when attempting to make the data call.
+ * - LE_FAULT                        Failed to make the data call.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t StartSession
@@ -384,14 +390,15 @@ FUNCTION le_result_t StartSession
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Start an asynchronous data cellular session by given profile reference
+ * Starts an asynchronous cellular data session for the given profile reference.
  *
- * @returns LE_OK                           Succeeded to make a data call.
- *          LE_NOT_FOUND                    Parameter is invalid or can't create a data call
- *          LE_OUT_OF_RANGE                 PdpType type is unknown.
- *          LE_BUSY                         Profile is in using
- *          LE_TIMEOUT                      Timeout to make a data call
- *          LE_FAULT                        Failed to make a data call.
+ * @return 
+ * - LE_OK                           Successfully started the data call.
+ * - LE_NOT_FOUND                    Parameter is invalid or couldn't create the data call
+ * - LE_OUT_OF_RANGE                 PDP type is unknown.
+ * - LE_BUSY                         Profile is in use.
+ * - LE_TIMEOUT                      Timed out when attempting to make the data call.
+ * - LE_FAULT                        Failed to make the data call.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t StartSessionAsync
@@ -401,14 +408,15 @@ FUNCTION le_result_t StartSessionAsync
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Synchronously stop a data cellular session by given profile reference
+ * Stops (synchronously) a cellular data session for the given profile reference.
  *
- * @returns LE_OK                           Succeeded to stop a data call.
- *          LE_NOT_FOUND                    Can't find a data call.
- *          LE_OUT_OF_RANGE                 PdpType type is unknown.
- *          LE_BAD_PARAMETER                Call context is NULL.
- *          LE_TIMEOUT                      Timeout to stop a data call.
- *          LE_FAULT                        Failed to stop a data call.
+ * @return
+ * - LE_OK                           Successfully stopped the data call.
+ * - LE_NOT_FOUND                    Can't find a data call.
+ * - LE_OUT_OF_RANGE                 PdpType type is unknown.
+ * - LE_BAD_PARAMETER                Call context is NULL.
+ * - LE_TIMEOUT                      Timeout to stop a data call.
+ * - LE_FAULT                        Failed to stop a data call.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t StopSession
@@ -418,14 +426,15 @@ FUNCTION le_result_t StopSession
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Asynchronously stop a data cellular session by given profile reference
+ * Stops (asynchronously) a cellular data session for the given profile reference.
  *
- * @returns LE_OK                           Succeeded to stop a data call.
- *          LE_NOT_FOUND                    Can't find a data call.
- *          LE_OUT_OF_RANGE                 PdpType type is unknown.
- *          LE_BAD_PARAMETER                Call context is NULL.
- *          LE_TIMEOUT                      Timeout to stop a data call.
- *          LE_FAULT                        Failed to stop a data call.
+ * @return 
+ * - LE_OK                           Successfully stopped the data call.
+ * - LE_NOT_FOUND                    Couldn't find the data call to stop.
+ * - LE_OUT_OF_RANGE                 PDP type is unknown.
+ * - LE_BAD_PARAMETER                Call context is NULL.
+ * - LE_TIMEOUT                      Timed out when attempting to stop the data call.
+ * - LE_FAULT                        Failed to stop the data call.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t StopSessionAsync
@@ -435,11 +444,12 @@ FUNCTION le_result_t StopSessionAsync
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get a connected data call interface name
+ * Gets a connected data call interface name.
  *
- * @returns LE_OK                           Succeeded to get interface name.
- *          LE_NOT_POSSIBLE                 Invalid status.
- *          LE_NOT_FOUND                    Failed to get interface name.
+ * @return 
+ * - LE_OK                           Successfully retrieved the interface name.
+ * - LE_NOT_POSSIBLE                 Invalid status.
+ * - LE_NOT_FOUND                    Failed to get the interface name.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetInterfaceName
@@ -450,33 +460,34 @@ FUNCTION le_result_t GetInterfaceName
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The data call session handler
+ * The data call session handler.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER SessionStateHandler
 (
     Profile      profileRef                 IN, ///< The profile reference.
-    ConState     state                      IN, ///< The state.
-    StateInfo    info                       IN  ///< The information of the state.
+    ConState     state                      IN, ///< The connection state.
+    StateInfo    info                       IN  ///< The information of the connection.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The data call session event
+ * The data call session event.
  */
 //--------------------------------------------------------------------------------------------------
 EVENT SessionState
 (
-    Profile             profileRef,
-    SessionStateHandler handler
+    Profile             profileRef, ///< The profile reference.
+    SessionStateHandler handler     ///< The event handler reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get the connected data session IPv4 address
+ * Gets the connected data session IPv4 address.
  *
- * @returns LE_OK                           Succeeded to get IPv4 address.
- *          LE_NOT_FOUND                    Failed to get IPv4 address.
+ * @return 
+ * - LE_OK                           Successfully retrieved the IPv4 address.
+ * - LE_NOT_FOUND                    Failed to get the IPv4 address.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetIPv4Address
@@ -487,24 +498,26 @@ FUNCTION le_result_t GetIPv4Address
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get the connected data session IPv4 gateway address
+ * Gets the connected data session IPv4 gateway address.
  *
- * @returns LE_OK                           Succeeded to get IPv4 gateway address.
- *          LE_NOT_FOUND                    Failed to get IPv4 gateway address.
+ * @return 
+ * - LE_OK                           Successfully retrieved the IPv4 gateway address.
+ * - LE_NOT_FOUND                    Failed to get the IPv4 gateway address.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetIPv4GatewayAddress
 (
-    Profile profileRef                      IN, ///< The profile reference.
+    Profile profileRef                      IN,  ///< The profile reference.
     string  gatewayAddr[IPV4_ADDR_MAX_LEN]  OUT  ///< The IPv4 gateway address.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get the connected data session primary and secondary DNS IPv4 addresses
+ * Gets the connected data session primary and secondary DNS IPv4 addresses.
  *
- * @returns LE_OK                           Succeeded to get IPv4 DNS address.
- *          LE_NOT_FOUND                    Failed to get IPv4 DNS address.
+ * @return 
+ * - LE_OK                           Successfully retrieved the IPv4 DNS address.
+ * - LE_NOT_FOUND                    Failed to get the IPv4 DNS address.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetIPv4DNSAddresses
@@ -516,10 +529,11 @@ FUNCTION le_result_t GetIPv4DNSAddresses
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get the connected data session IPv6 address
+ * Gets the connected data session IPv6 address.
  *
- * @returns LE_OK                           Succeeded to get IPv6 address.
- *          LE_NOT_FOUND                    Failed to get IPv6 address.
+ * @return 
+ * - LE_OK                           Successfully retrieved the IPv6 address.
+ * - LE_NOT_FOUND                    Failed to get the IPv6 address.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetIPv6Address
@@ -530,10 +544,11 @@ FUNCTION le_result_t GetIPv6Address
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get the connected data session IPv6 gateway address
+ * Gets the connected data session IPv6 gateway address.
  *
- * @returns LE_OK                           Succeeded to get IPv6 gateway address.
- *          LE_NOT_FOUND                    Failed to get IPv6 gateway address.
+ * @return 
+ * - LE_OK                           Successfully retrieved the IPv6 gateway address.
+ * - LE_NOT_FOUND                    Failed to get IPv6 gateway address.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetIPv6GatewayAddress
@@ -544,10 +559,11 @@ FUNCTION le_result_t GetIPv6GatewayAddress
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get the connected data session primary and secondary DNS IPv6 addresses
+ * Gets the connected data session primary and secondary DNS IPv6 addresses.
  *
- * @returns LE_OK                           Succeeded to get IPv6 DNS address.
- *          LE_NOT_FOUND                    Failed to get IPv6 DNS address.
+ * @return 
+ * - LE_OK                           Successfully retrieved the IPv6 DNS address.
+ * - LE_NOT_FOUND                    Failed to get IPv6 DNS address.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetIPv6DNSAddresses
@@ -559,10 +575,11 @@ FUNCTION le_result_t GetIPv6DNSAddresses
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get the data session current state
+ * Gets the data session's current state.
  *
- * @returns LE_OK                           Succeeded to get session state.
- *          LE_NOT_FOUND                    Failed to get session state.
+ * @return 
+ * - LE_OK                           Successfully retrieved the session state.
+ * - LE_NOT_FOUND                    Failed to get the session state.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetSessionState
@@ -573,10 +590,11 @@ FUNCTION le_result_t GetSessionState
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Check if the data session is IPv4
+ * Checks if the data session is IPv4.
  *
- * @returns true                            Support IPv4.
- *          false                           NOT support IPv4 or profile reference is invalid.
+ * @return 
+ * - True         IPv4.
+ * - False        Not IPv4 or the profile reference is invalid.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION bool IsIPv4
@@ -586,10 +604,11 @@ FUNCTION bool IsIPv4
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Check if the data session is IPv6
+ * Checks if the data session is IPv6.
  *
- * @returns true                            Support IPv6.
- *          false                           NOT support IPv6 or profile reference is invalid.
+ * @return 
+ * - True         IPv6.
+ * - False        Not IPv6 or the profile reference is invalid.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION bool IsIPv6
@@ -599,22 +618,23 @@ FUNCTION bool IsIPv6
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get the connected data session data bearer technology
+ * Gets the connected data session data bearer technology.
  *
- * @returns LE_OK                           Succeeded to get data bearer technology.
- *          LE_NOT_FOUND                    Failed to get data bearer technology.
+ * @return 
+ * - LE_OK                           Successfully retrieved the data bearer technology.
+ * - LE_NOT_FOUND                    Failed to get the data bearer technology.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetDataBearerTechnology
 (
     Profile profileRef                       IN,  ///< The profile reference.
-    DataBearerTechnology dlDataBearerTechPtr OUT, ///< The down link data bearer technology.
-    DataBearerTechnology ulDataBearerTechPtr OUT  ///< The up link data bearer technology.
+    DataBearerTechnology dlDataBearerTechPtr OUT, ///< The downlink data bearer technology.
+    DataBearerTechnology ulDataBearerTechPtr OUT  ///< The uplink data bearer technology.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The data profile structure
+ * The data profile structure.
  */
 //--------------------------------------------------------------------------------------------------
 STRUCT ProfileInfo
@@ -626,7 +646,7 @@ STRUCT ProfileInfo
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The handler Of requesting data proflie list
+ * The handler of the requesting data profile list.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER ProfileListHandler
@@ -637,21 +657,22 @@ HANDLER ProfileListHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The API of requesting synchronous data proflie list
+ * Gets the data profile list.
  *
- * @returns LE_OK                           Succeeded to get profile list.
- *          LE_FAULT                        Failed to get profile list.
+ * @return 
+ * - LE_OK                           Successfully retrieved the profile list.
+ * - LE_FAULT                        Failed to get the profile list.
  */
 FUNCTION le_result_t GetProfileList
 (
-    ProfileInfo profileList[PROFILE_LIST_MAX_ENTRY]  OUT    ///< The profile list information
+    ProfileInfo profileList[PROFILE_LIST_MAX_ENTRY]  OUT    ///< The profile list information.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get the default profile index
+ * Gets the default profile index.
  *
- * @returns uint32                          The profile index.
+ * @return uint32                          The profile index.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION uint32 GetDefaultProfileIndex
@@ -660,10 +681,11 @@ FUNCTION uint32 GetDefaultProfileIndex
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Set default profile index corresponding to specified profile index
+ * Sets the default profile index corresponding to the specified profile index.
  *
- * @returns LE_OK                           Succeeded to set the deafult data profile index.
- *          LE_FAULT                        Failed to set the deafult data profile index.
+ * @return 
+ * - LE_OK                           Successfully set the default data profile index.
+ * - LE_FAULT                        Failed to set the default data profile index.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetDefaultProfileIndex
@@ -673,10 +695,11 @@ FUNCTION le_result_t SetDefaultProfileIndex
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get profile reference by given profile index
+ * Gets the profile reference for the given profile index.
  *
- * @returns NULL                            If error occurs.
- *          Others                          The profile reference.
+ * @return 
+ * - NULL                            Error. 
+ * - Others                          The profile reference.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION Profile GetProfile
@@ -686,9 +709,9 @@ FUNCTION Profile GetProfile
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get profile index by given profile reference
+ * Gets the profile index for the given profile reference.
  *
- * @returns uint32                          The profile index.
+ * @return uint32                          The profile index.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION uint32 GetProfileIndex
@@ -698,54 +721,57 @@ FUNCTION uint32 GetProfileIndex
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Set the data profile apn name
+ * Sets the data profile APN name.
  *
- * @returns LE_OK                           Succeeded to set APN.
- *          LE_NOT_FOUND                    Profile reference is not found.
- *          LE_FAULT                        Failed to set APN.
+ * @return 
+ * - LE_OK                           Successfully set the APN.
+ * - LE_NOT_FOUND                    Profile reference was not found.
+ * - LE_FAULT                        Failed to set the APN.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetAPN
 (
     Profile profileRef                      IN, ///< The profile reference.
-    string  apnName[APN_NAME_MAX_LEN]       IN  ///< The apn name.
+    string  apnName[APN_NAME_MAX_LEN]       IN  ///< The APN name.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get the data profile apn name
+ * Gets the data profile APN name.
  *
- * @returns LE_OK                           Succeeded to get apn.
- *          LE_NOT_FOUND                    Failed to get apn.
- *          LE_OVERFLOW                     Apn size is smaller than APN_NAME_MAX_BYTES.
+ * @return
+ * - LE_OK                           Successfully retrieved the APN.
+ * - LE_NOT_FOUND                    Failed to get the APN.
+ * - LE_OVERFLOW                     Apn size is smaller than APN_NAME_MAX_BYTES.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetAPN
 (
     Profile profileRef                      IN, ///< The profile reference.
-    string  apnName[APN_NAME_MAX_LEN]       OUT ///< The apn name.
+    string  apnName[APN_NAME_MAX_LEN]       OUT ///< The APN name.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Set the data profile pdp type
+ * Sets the data profile PDP type.
  *
- * @returns LE_OK                           Succeeded to set PDP.
- *          LE_NOT_FOUND                    Profile reference is not found.
- *          LE_FAULT                        Failed to set PDP.
+ * @return
+ * - LE_OK                           Successfully set the PDP type.
+ * - LE_NOT_FOUND                    Profile reference was not found.
+ * - LE_FAULT                        Failed to set the PDP type.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetPDP
 (
     Profile profileRef                      IN, ///< The profile reference.
-    Pdp     pdp                             IN  ///< The pdp type.
+    Pdp     pdp                             IN  ///< The PDP type.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get the data profile pdp type
+ * Gets the data profile PDP type.
  *
- * @returns taf_dcs_Pdp_t                   Pdp type.
+ * @return taf_dcs_Pdp_t                   PDP type.
  *
  */
 //--------------------------------------------------------------------------------------------------
@@ -756,48 +782,51 @@ FUNCTION Pdp GetPDP
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Set the data profile authentication type and user/passward
+ * Set the data profile authentication type and username/password.
  *
- * @returns LE_OK                           Succeeded to set auth type,username and password.
- *          LE_NOT_FOUND                    Parameter is error,or can't get profile information.
- *          LE_FAULT                        Failed to set auth type, username and password.
+ * @return
+ * - LE_OK                           Successfully set the authentication type, username, and password.
+ * - LE_NOT_FOUND                    Parameter error or couldn't retrieve the profile information.
+ * - LE_FAULT                        Failed to set authentication type, username, and password.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetAuthentication
 (
     Profile profileRef                      IN, ///< The profile reference.
     Auth    auth                            IN, ///< The authentication type.
-    string  userName[USER_NAME_MAX_LEN]     IN, ///< The user name.
+    string  userName[USER_NAME_MAX_LEN]     IN, ///< The username.
     string  password[PASSWORD_NAME_MAX_LEN] IN  ///< The password.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get the data profile authentication type and user/passward
+ * Gets the data profile authentication type and username/password.
  *
- * @returns LE_OK                           Succeeded to get authentication information.
- *          LE_NOT_FOUND                    Failed to get authentication information.
- *          LE_OUT_OF_RANGE                 The size of user name or password is invalid.
+ * @return 
+ * - LE_OK                           Succesfully retrieved the authentication information.
+ * - LE_NOT_FOUND                    Failed to get the authentication information.
+ * - LE_OUT_OF_RANGE                 The size of username or password is invalid.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetAuthentication
 (
     Profile profileRef                      IN,  ///< The profile reference.
     Auth    auth                            OUT, ///< The authentication type.
-    string  userName[USER_NAME_MAX_LEN]     OUT, ///< The user name.
+    string  userName[USER_NAME_MAX_LEN]     OUT, ///< The username.
     string  password[PASSWORD_NAME_MAX_LEN] OUT  ///< The password.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get the data profile id by interface name
+ * Gets the data profile ID by the interface name.
  *
- * @returns LE_OK                           Succeeded to get profile id by interface name.
- *          LE_NOT_FOUND                    Failed get profile id by interface name.
+ * @return 
+ * - LE_OK                           Successfully retrieved the profile ID.
+ * - LE_NOT_FOUND                    Failed to retrieve the profile ID.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetProfileIdByInterfaceName
 (
     string        ifName[NAME_MAX_LEN]      IN, ///< The interface name.
-    uint32        profileId                 OUT ///< The profile id.
+    uint32        profileId                 OUT ///< The profile ID.
 );

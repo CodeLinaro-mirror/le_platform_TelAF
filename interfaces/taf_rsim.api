@@ -71,18 +71,18 @@
  *
  * <HR>
  *
- * The remote SIM (RSIM) service allows to manage a remote SIM instead of the internal SIM cards.
+ * The Remote SIM (RSIM) service allows apps to manage a remote SIM instead of the internal SIM card.
  * This service allows a user application to convey APDU requests to the remote SIM and APDU
  * responses to the modem through the RSIM service. The link between the application and the
  * RSIM service is based on the SIM Access Profile (SAP) specification.
- * A remote SIM service is needed for applications that want to communicate related to SIM I/O
- * e.g. APDU, ATR sends a message to the SIM which located at remote side.
+ * A remote SIM service is needed for applications that want to communicate related to SIM I/O,
+ * e.g., APDU, ATR sends a message to the SIM located at the remote side.
  *
  * @section taf_rsim_binding IPC interfaces binding
  *
- * All the functions of this API are provided by the @b tafRSIM application service.
+ * The functions of this API are provided by the @b tafRSIM application service.
  *
- * Here's a sample of how to bind to rSIM service:
+ * The following example illustrates how to bind to the rSIM service.
  * @verbatim
    bindings:
    {
@@ -124,9 +124,9 @@
  * <tr>                                             <td>MSGID_SET_TRANSPORT_PROTOCOL_RESP                                <td>Not supported
  * </table>
  *
- * A message can be sent to service which inturn sends commands to modem by using @ref taf_rsim_SendMessage()
+ * A message can be sent to the service which the sends commands to the modem using @ref taf_rsim_SendMessage()
  * with the messagePtr, messageNumElements, callbackPtr and contextPtr passed as parameters.
- * This message sending is an asynchronous process: a callback pointer can therefore be passed to
+ * This message sending is an asynchronous process. A callback pointer can therefore be passed to
  * @ref taf_rsim_SendMessage() in order to receive the sending result for the message.
  * @verbatim
    static le_mem_PoolRef_t RsimMsgsPool;
@@ -147,24 +147,24 @@
  *
  * Before the rSIM message sending is started, an application registers a callback handler using
  * @ref taf_rsim_AddMessageHandler().
- * Once the message is sent, handler will be called indicating sending status of the message.
- * If the message sending failed, then the handler will be called with the error code.
+ * Once the message is sent, the handler will be called indicating the sending status of the message.
+ * If sending the message failed, the handler will be called with the error code.
  * @verbatim
    taf_rsim_MessageHandlerRef_t msgHandlerRef = @ref taf_rsim_AddMessageHandler(SAPMessageHandler, NULL);
    @endverbatim
  *
- * Application must use @ref taf_rsim_RemoveMessageHandler() to release @ref taf_rsim_MessageHandlerRef_t message
- * handler reference object when it is no more used.
+ * Applications must use @ref taf_rsim_RemoveMessageHandler() to release @ref taf_rsim_MessageHandlerRef_t message
+ * handler reference object when it is no longer used.
  *
  * @warning The remote SIM service supports only one remote SIM card and can therefore be
- * connected with only one application.
+ *          connected with only one application.
  *
  * @note
  * - The remote SIM service has to be supported by the modem to be used: check your platform
- * documentation.
+ *   documentation.
  * - The remote SIM card should be selected in order to use the remote SIM service.
  * - As runtime switch is not currently supported, the switch between local and remote SIM card
- * requires a platform reset to take effect.
+ *   requires a platform reset to take effect.
  *
  * <HR>
  *
@@ -173,59 +173,59 @@
 
 
 /**
- * Maximum message size
+ * Maximum message size.
  */
 DEFINE MAX_MSG_SIZE = (276);
 
 /**
-* Minimum message size
+* Minimum message size.
 */
 DEFINE MIN_MSG_SIZE = (200);
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Handler to get notification for specific messages when there is updates
+ *  Handler to get notifications for specific messages when there are updates
  *  from the modem.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER MessageHandler
 (
-    uint8 message[MAX_MSG_SIZE]    ///< The message
+    uint8 message[MAX_MSG_SIZE]    ///< The message.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Callback to get result for sent message.
+ * Callback to get send message result.
  */
 //-------------------------------------------------------------------------------------------------
 HANDLER CallbackHandler
 (
-    uint8 messageId     IN,    ///< Message id
-    le_result_t result  IN     ///< Result
+    uint8 messageId     IN,    ///< Message ID.
+    le_result_t result  IN     ///< Result.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Event to notify and send a message
+ * Event to notify and send a message.
  */
 //-------------------------------------------------------------------------------------------------
 EVENT Message
 (
-    MessageHandler handler    ///< The message handler
+    MessageHandler handler    ///< The message handler.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Send message to rSIM service which inturn sends the message to modem.
+ * Sends a message to the rSIM service which the sends the message to the modem.
  *
  * @return
- *      - LE_OK Message sent successfully.
- *      - LE_BAD_PARAMETER Length of message is too long
+ * - LE_OK -- Successfully sent the message.
+ * - LE_BAD_PARAMETER -- Length of the message is too long.
  *
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendMessage
 (
-    uint8 message[MAX_MSG_SIZE]     IN,    ///< The message
-    CallbackHandler callback        IN     ///< The callback handler
+    uint8 message[MAX_MSG_SIZE]     IN,    ///< The message.
+    CallbackHandler callback        IN     ///< The callback handler.
 );

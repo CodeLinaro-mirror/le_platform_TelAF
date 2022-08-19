@@ -40,17 +40,18 @@
  *
  * <HR>
  *
- * The MRC Service APIs are designed for operations on Memory Robustness Criteria Daemon. The MRC
- * service is mainly applied in Firmware update Over The Air and mirror system. The MRCD runs in the
- * the background to support EFS2 backup and restore, mirror system, flash scrubbing, suspending for
- * eCall and FOTA flash access arbitration. MRCD processes them by priority, and the MRC Service APIs
- * notify MRCD of FOTA events.
+ * The memory robustness criteria (MRC) service APIs are designed for operations on an MRC daemon (M
+ * RCD).
+ * The MRC service is mainly applied in over-the-air firmware updates and mirrored systems. The MRCD
+ * runs in the the background to support EFS2 backup and restore, system mirroring, flash scrubbing,
+ * suspending for eCall, and FOTA flash access arbitration. MRCD processes them by priority, and the
+ * MRC service APIs notify MRCD of FOTA events.
  *
  * @section taf_mrc_binding IPC interfaces binding
  *
- * All the functions of this API are provided by the @b tafMRCSvc service.
+ * The functions of this API are provided by the @b tafMRCSvc service.
  *
- * Here's a sample of how to bind to MRC Service:
+ * The following example illustrates how to bind to the MRC service.
  * @verbatim
  *
    bindings:
@@ -62,15 +63,15 @@
  *
  * @section c_taf_mrc_ota FOTA Supplementary Operations
  *
- * - taf_mrc_SendOtaStartMsg() supports to send OTA start notification to MRCD before FOTA starts.
+ * - taf_mrc_SendOtaStartMsg() - Sends an OTA start notification to MRCD before FOTA starts.
  *
- * - taf_mrc_SendOtaResumeMsg() supports to send OTA resume notification to MRCD when FOTA resumes.
+ * - taf_mrc_SendOtaResumeMsg() - Sends an OTA resume notification to MRCD when FOTA resumes.
  *
- * - taf_mrc_SendOtaEndMsg() supports to send OTA end notification to MRCD when FOTA completes.
+ * - taf_mrc_SendOtaEndMsg() Sends an OTA end notification to MRCD when FOTA completes.
  *
- * - taf_mrc_SendOtaAbsyncMsg() supports to synchronize active slot to inactive slot.
+ * - taf_mrc_SendOtaAbsyncMsg() - Synchronizes active and inactive slots.
  *
- * Here is the example of FOTA operations with MRCD.
+ * The following example illustrates FOTA operations with MRCD.
  *
  * @code
  *
@@ -109,11 +110,11 @@ ENUM OtaOperationStatus
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function sends OTA start message to MRCD.
+ * Sends an OTA start message to MRCD.
  *
  * @return
- *  - LE_FAULT : On failure.
- *  - LE_OK : On success.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendOtaStartMsg
@@ -122,11 +123,11 @@ FUNCTION le_result_t SendOtaStartMsg
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function sends OTA resume message to MRCD.
+ * Sends an OTA resume message to MRCD.
  *
  * @return
- *  - LE_FAULT : On failure.
- *  - LE_OK : On success.
+ *  - LE_FAULT -- Failed. 
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendOtaResumeMsg
@@ -135,11 +136,11 @@ FUNCTION le_result_t SendOtaResumeMsg
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function sends OTA end message to MRCD.
+ * Sends an OTA end message to MRCD.
  *
  * @return
- *  - LE_FAULT : On failure.
- *  - LE_OK : On success.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendOtaEndMsg
@@ -149,11 +150,11 @@ FUNCTION le_result_t SendOtaEndMsg
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This function sends message to MRCD to synchronize acative slot to inactive slot.
+ * Sends a message to MRCD to synchronize active and inactive slots.
  *
  * @return
- *  - LE_FAULT : On failure.
- *  - LE_OK : On success.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SendOtaAbsyncMsg

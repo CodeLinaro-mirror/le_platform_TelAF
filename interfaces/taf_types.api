@@ -28,13 +28,14 @@
  */
 
 /**
- * The common type definitions for telaf
+ * The common type definitions for TelAF.
  */
 
 /**
- * According to ITU-T recommendations E.164/E.163. The phone numbers can be a maximum of 15 digits,
- * and appending profix('+' / '00') should be: 15 + 2. 
- * Finally adding one byte for null character should be: 15 + 2 + 1.
+ * According to ITU-T recommendations E.164/E.163. The phone numbers can be 
+ * a maximum of 15 digits, and appending prefix('+' / '00') should be: 15 + 2.
+ *
+ * Finally adding one byte for a null character should be: 15 + 2 + 1.
  */
 DEFINE  REMOTE_PARTY_NUM_MAX_BYTES = (15+2+1);
 

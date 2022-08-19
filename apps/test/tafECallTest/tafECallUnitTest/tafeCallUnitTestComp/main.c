@@ -123,6 +123,11 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         case TAF_ECALL_STATE_ENDED:
         {
             LE_INFO("TAF_ECALL_STATE_ENDED");
+            if (eCallReference != NULL)
+            {
+                taf_ecall_TerminationReason_t lcf = taf_ecall_GetTerminationReason(eCallReference);
+                LE_INFO("ECall ENDed, terminate reason  = %d", lcf );
+            }
             le_sem_Post(TestSemaphoreRef);
             break;
         }

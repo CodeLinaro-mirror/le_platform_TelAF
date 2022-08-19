@@ -160,6 +160,7 @@ namespace telux {
                 le_result_t SetMsdTxMode (taf_ecall_MsdTransmissionMode_t txMode);
                 le_result_t GetMsdTxMode ( taf_ecall_MsdTransmissionMode_t* modePtr);
                 taf_ecall_State_t GetState ( taf_ecall_CallRef_t ecallRef);
+                taf_ecall_TerminationReason_t GetTerminationReason ( taf_ecall_CallRef_t ecallRef);
                 taf_ecall_StateChangeHandlerRef_t AddStateChangeHandler (taf_ecall_StateChangeHandlerFunc_t handlerPtr,
                                                                                         void* contextPtr);
                 void RemoveStateChangeHandler (taf_ecall_StateChangeHandlerRef_t handlerRef);
@@ -182,6 +183,7 @@ namespace telux {
                 std::promise<telux::common::ErrorCode> setOpModeProm;
                 std::promise<telux::common::ErrorCode> updateMsdProm;
                 std::promise<telux::common::ErrorCode> makeEcallProm;
+                CallEndCause CallEndError = telux::tel::CallEndCause::NORMAL;
 
             private:
                 std::shared_ptr<telux::tel::IPhoneManager> PhoneManager;

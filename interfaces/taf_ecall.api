@@ -357,6 +357,81 @@ ENUM State
     STATE_OUTBAND_MSD_TRANSMISSION_FAILURE    ///< Outband MSD transmission failed in NG eCall
 };
 
+//-------------------------------------------------------------------------------------------------
+/**
+ * Reason for the recently terminated call (either normally ended or failed)
+ */
+//-------------------------------------------------------------------------------------------------
+ENUM TerminationReason
+{
+   REASON_UNOBTAINABLE_NUMBER = 1,
+   REASON_NO_ROUTE_TO_DESTINATION = 3,
+   REASON_CHANNEL_UNACCEPTABLE = 6,
+   REASON_OPERATOR_DETERMINED_BARRING = 8,
+   REASON_NORMAL = 16,
+   REASON_BUSY = 17,
+   REASON_NO_USER_RESPONDING = 18,
+   REASON_NO_ANSWER_FROM_USER = 19,
+   REASON_NOT_REACHABLE = 20,
+   REASON_CALL_REJECTED = 21,
+   REASON_NUMBER_CHANGED = 22,
+   REASON_PREEMPTION = 25,
+   REASON_DESTINATION_OUT_OF_ORDER = 27,
+   REASON_INVALID_NUMBER_FORMAT = 28,
+   REASON_FACILITY_REJECTED = 29,
+   REASON_RESP_TO_STATUS_ENQUIRY = 30,
+   REASON_NORMAL_UNSPECIFIED = 31,
+   REASON_CONGESTION = 34,
+   REASON_NETWORK_OUT_OF_ORDER = 38,
+   REASON_TEMPORARY_FAILURE = 41,
+   REASON_SWITCHING_EQUIPMENT_CONGESTION = 42,
+   REASON_ACCESS_INFORMATION_DISCARDED = 43,
+   REASON_REQUESTED_CIRCUIT_OR_CHANNEL_NOT_AVAILABLE = 44,
+   REASON_RESOURCES_UNAVAILABLE_OR_UNSPECIFIED = 47,
+   REASON_QOS_UNAVAILABLE = 49,
+   REASON_REQUESTED_FACILITY_NOT_SUBSCRIBED = 50,
+   REASON_INCOMING_CALLS_BARRED_WITHIN_CUG = 55,
+   REASON_BEARER_CAPABILITY_NOT_AUTHORIZED = 57,
+   REASON_BEARER_CAPABILITY_UNAVAILABLE = 58,
+   REASON_SERVICE_OPTION_NOT_AVAILABLE = 63,
+   REASON_BEARER_SERVICE_NOT_IMPLEMENTED = 65,
+   REASON_ACM_LIMIT_EXCEEDED = 68,
+   REASON_REQUESTED_FACILITY_NOT_IMPLEMENTED = 69,
+   REASON_ONLY_DIGITAL_INFORMATION_BEARER_AVAILABLE = 70,
+   REASON_SERVICE_OR_OPTION_NOT_IMPLEMENTED = 79,
+   REASON_INVALID_TRANSACTION_IDENTIFIER = 81,
+   REASON_USER_NOT_MEMBER_OF_CUG = 87,
+   REASON_INCOMPATIBLE_DESTINATION = 88,
+   REASON_INVALID_TRANSIT_NW_SELECTION = 91,
+   REASON_SEMANTICALLY_INCORRECT_MESSAGE = 95,
+   REASON_INVALID_MANDATORY_INFORMATION = 96,
+   REASON_MESSAGE_TYPE_NON_IMPLEMENTED = 97,
+   REASON_MESSAGE_TYPE_NOT_COMPATIBLE_WITH_PROTOCOL_STATE = 98,
+   REASON_INFORMATION_ELEMENT_NON_EXISTENT = 99,
+   REASON_CONDITIONAL_IE_ERROR = 100,
+   REASON_MESSAGE_NOT_COMPATIBLE_WITH_PROTOCOL_STATE = 101,
+   REASON_RECOVERY_ON_TIMER_EXPIRED = 102,
+   REASON_PROTOCOL_ERROR_UNSPECIFIED = 111,
+   REASON_INTERWORKING_UNSPECIFIED = 127,
+   REASON_CALL_BARRED = 240,
+   REASON_FDN_BLOCKED = 241,
+   REASON_IMSI_UNKNOWN_IN_VLR = 242,
+   REASON_IMEI_NOT_ACCEPTED = 243,
+   REASON_DIAL_MODIFIED_TO_USSD = 244,
+   REASON_DIAL_MODIFIED_TO_SS = 245,
+   REASON_DIAL_MODIFIED_TO_DIAL = 246,
+   REASON_CDMA_LOCKED_UNTIL_POWER_CYCLE = 1000,
+   REASON_CDMA_DROP = 1001,
+   REASON_CDMA_INTERCEPT = 1002,
+   REASON_CDMA_REORDER = 1003,
+   REASON_CDMA_SO_REJECT = 1004,
+   REASON_CDMA_RETRY_ORDER = 1005,
+   REASON_CDMA_ACCESS_FAILURE = 1006,
+   REASON_CDMA_PREEMPTED = 1007,
+   REASON_CDMA_NOT_EMERGENCY = 1008,
+   REASON_CDMA_ACCESS_BLOCKED = 1009,
+   REASON_ERROR_UNSPECIFIED = 0xffff
+};
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -739,6 +814,8 @@ FUNCTION le_result_t SendMsd
  *
  * @return
  *      - LE_OK on success
+ *      - LE_BUSY an eCall session is already in progress
+ *      - LE_BAD_PARAMETER bad eCall reference
  *      - LE_FAULT on failure
  *
  */
@@ -754,6 +831,8 @@ FUNCTION le_result_t StartAutomatic
  *
  * @return
  *      - LE_OK on success
+ *      - LE_BUSY an eCall session is already in progress
+ *      - LE_BAD_PARAMETER bad eCall reference
  *      - LE_FAULT on failure
  *
  */
@@ -770,6 +849,8 @@ FUNCTION le_result_t StartManual
  *
  * @return
  *      - LE_OK on success
+ *      - LE_BUSY an eCall session is already in progress
+ *      - LE_BAD_PARAMETER bad eCall reference
  *      - LE_FAULT on failure
  */
 //-------------------------------------------------------------------------------------------------
@@ -821,4 +902,19 @@ FUNCTION State GetState
 FUNCTION int32 GetPlatformSpecificTerminationCode
 (
     Call ecallRef IN      ///< Emergency call reference
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get termionate reason of recently terminated ecall
+ *
+ * @return The termination reason.
+ *
+ * @note If the caller is passing a bad or null pointer into this function, it is a fatal error,
+ *         the function may not return.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION TerminationReason GetTerminationReason
+(
+    Call ecallRef IN        ///< Emergency call reference
 );

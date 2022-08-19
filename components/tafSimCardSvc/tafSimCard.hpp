@@ -177,7 +177,11 @@ namespace telux {
                         uint8_t* responseApduPtr,size_t* responseApduNumElementsPtr);
                 le_result_t SendApdu( taf_sim_Id_t simId,const uint8_t* commandApduPtr, size_t commandApduNumElements,
                         uint8_t* responseApduPtr,size_t* responseApduNumElementsPtr);
-
+                le_result_t SendCommand(taf_sim_Id_t simId, taf_sim_Command_t command,
+                        const char* fileIdentifierPtr,
+                        uint8_t *p1, uint8_t *p2,uint8_t *p3, const uint8_t* dataPtr,
+                        size_t dataNumElements, const char* pathPtr, uint8_t* sw1,uint8_t* sw2,
+                        uint8_t* responsePtr, size_t* responseNumElementsPtr);
         };
     }
 }

@@ -230,13 +230,32 @@ void tafSimTest_sim_access
 
     // Close the logical channel
     LE_ASSERT_OK(taf_sim_CloseLogicalChannel(simId,channel));
-
-    LE_ASSERT_OK(taf_sim_SendApdu(simId,
-                                  selectMFAPDU,
-                                  sizeof(selectMFAPDU),
-                                  responseAPDU,
-                                  &responseLength));
-    LE_INFO("APDU response sw1 = 0x%02X",responseAPDU[0]);
-    LE_INFO("APDU response sw2 = 0x%02X",responseAPDU[1]);
-
+    le_result_t reqStatus;
+    taf_sim_Command_t command = (taf_sim_Command_t)0xc0;
+    char fileIdentifier[5]={'2', 'f', 'e', '2', '\0'};
+    LE_INFO("fileIdeentifier");
+    uint8_t p1 = 0;
+    uint8_t p2 = 0;
+    uint8_t p3 = 15;
+    LE_INFO("p1,p2,p3");
+    uint8_t data[1];
+    data[0] = '\0';
+    LE_INFO("DATA");
+    uint8_t sw1=0, sw2=0;
+    LE_INFO("sw1sw2");
+    uint8_t response[100];
+    LE_INFO("responsee");
+    size_t responseSize = sizeof(response)/sizeof(response[0]);
+    LE_INFO("responseSize");
+    char filePath[5] = {'3', 'F', '0', '0', '\0'};
+    LE_INFO("filePath");
+    reqStatus = taf_sim_SendCommand(simId, command, fileIdentifier, p1, p2, p3, data, sizeof(data)/sizeof(data[0]), filePath, &sw1, &sw2, response, &responseSize);
+    LE_INFO("REQSTATUS");
+    if(reqStatus != LE_OK) {
+        LE_INFO("reqStatus is %d", reqStatus);
+        return;
+    }
+    LE_INFO("SendCommand API working");
+    LE_INFO("APDU response sw1 = 0x%02X",sw1);
+    LE_INFO("APDU response sw2 = 0x%02X",sw2);
 }

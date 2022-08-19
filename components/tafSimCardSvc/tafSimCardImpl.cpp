@@ -929,3 +929,53 @@ le_result_t taf_sim::SendApdu( taf_sim_Id_t simId,const uint8_t* commandApduPtr,
     }
     return LE_OK;
 }
+
+le_result_t taf_sim::SendCommand(
+    taf_sim_Id_t simId, taf_sim_Command_t command,
+    const char* fileIdentifierPtr,
+    uint8_t *p1, uint8_t *p2,
+    uint8_t *p3,     const uint8_t* dataPtr,
+    size_t dataNumElements,const char* pathPtr,
+    uint8_t *sw1,uint8_t *sw2,
+    uint8_t* responsePtr, size_t* responseNumElementsPtr
+)
+{
+    if(selectSimSlot(simId) != LE_OK)
+        return LE_BAD_PARAMETER;
+    char* fileId_end=(char*)fileIdentifierPtr+4;
+    uint16_t field = strtol(fileIdentifierPtr, &fileId_end , 16);
+    LE_INFO("field: %d", field);
+    if (selectSimSlot(simId) != LE_OK) {
+        LE_INFO("Issue with simId");
+        return LE_BAD_PARAMETER;
+    }
+    auto card = cards[slot - 1];
+    string filePath = std::string(pathPtr, 5);
+    std::vector<uint8_t> data(dataPtr, dataPtr+dataNumElements);
+    auto tafTransmitApduCb = std::make_shared<tafTransmitApduResponseCallback>();
+    auto returnStatus = card->exchangeSimIO(field,
+                                            command,
+                                            *p1,
+                                            *p2,
+                                            *p3,
+                                            filePath,
+                                            data,
+                                            "",
+                                            "",
+                                            tafTransmitApduCb);
+    if(returnStatus != Status::SUCCESS){
+        return LE_FAULT;
+    }
+    if(!waitForCardEvent(CardEvent::TRANSMIT_APDU_CHANNEL)){
+        LE_INFO("Command SIM IO failed");;
+        return LE_FAULT;
+    }
+    *sw1 = (uint8_t)apduResponse.sw1;
+    *sw2 = (uint8_t)apduResponse.sw2;
+    int index = 0;
+    for(auto &i : data){
+        responsePtr[index] = (uint8_t) i;
+        index++;
+    }
+    return LE_OK;
+}

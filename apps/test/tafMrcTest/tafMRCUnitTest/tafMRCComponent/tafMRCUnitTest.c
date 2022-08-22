@@ -54,7 +54,7 @@ COMPONENT_INIT
             LE_ASSERT(taf_mrc_SendOtaStartMsg() == LE_OK);
             break;
         case 2:
-            system("recovery --update_package=/data/update.zip");
+            LE_ASSERT(system("recovery --update_package=/data/update.zip") == 0);
             break;
         case 3:
             LE_ASSERT(taf_mrc_SendOtaEndMsg(TAF_MRC_OTA_OP_STATUS_SUCCESS) == LE_OK);

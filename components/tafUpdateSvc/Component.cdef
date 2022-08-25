@@ -30,7 +30,7 @@ requires:
     component:
     {
         $LEGATO_ROOT/components/watchdogChain
-        taf_update_pa
+        $TELAF_ROOT/components/stub/taf_update_pa
     }
 
     lib:
@@ -43,11 +43,10 @@ requires:
 cxxflags:
 {
     -I$LEGATO_ROOT/components/watchdogChain
-    -I$TELAF_ROOT/components/tafUpdateSvc/taf_update_pa
+    -I$TELAF_ROOT/components/stub/taf_update_pa
     -I$TELAF_ROOT/include
     -ltelux_tel
     -ltelux_data
-    -lComponent_taf_update_pa
 }
 
 cflags:

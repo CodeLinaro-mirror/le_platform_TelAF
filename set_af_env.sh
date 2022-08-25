@@ -1,5 +1,20 @@
 #setup toolchain - this can be optimized later with findtoolchain script
 
+# set global variables
+export CURDIR=$(cd `dirname $1` ; pwd)
+export TELAF_ROOT=${CURDIR}
+export LEGATO_ROOT=${CURDIR}/../legato/legato-af
+
+export TELAF_PROP=${CURDIR}/../telaf-prop
+if [ ! -f "${TELAF_PROP}/build.sh" ]; then
+    export TELAF_PROP=${CURDIR}/../prebuilt_HY11/${1}/telaf-prop-build/telaf-prop/lib
+fi
+
+export TELAF_NOSHIP=${CURDIR}/../telaf-noship
+if [ ! -f "${TELAF_NOSHIP}/build.sh" ]; then
+    export TELAF_NOSHIP=${CURDIR}/../prebuilt_HY11/${1}/telaf-noship-build/telaf-noship/lib
+fi
+
 if [ "$1" == "sa415m" ]; then
     source /opt/qct/sa415m/environment-setup-armv7at2hf-neon-oe-linux-gnueabi
 elif [ "$1" == "sa515m" ]; then
@@ -11,23 +26,6 @@ else
 fi
 
 umask 002
-
-if [ -e "../telaf-prop/platformAdaptor/" ]; then
-    echo "using telaf-prop platformAdaptor"
-    source ../telaf-prop/set_af_env.sh
-else
-    echo "using stub for platformAdaptor"
-    ln -sf "./stub" "./components/tafSMSSvc/taf_pa_sms"
-fi
-
-if [ -e "../telaf-noship/platformAdaptor/" ]; then
-    echo "using telaf-noship platformAdaptor"
-    source ../telaf-noship/set_af_env.sh
-else
-    ln -sf "./stub" "./components/tafUpdateSvc/taf_update_pa"
-    ln -sf "./stub" "./components/tafKeyStoreSvc/taf_pa_keystore"
-    echo "using stub for platformAdaptor"
-fi
 
 #build the target
 
@@ -44,8 +42,28 @@ function build-distclean-af(){
 }
 
 function build-sa515m-af(){
-    make sa515m
-    KEYS=/opt/qct/sa515m/AVBTOOL/keys
+    TARGET=sa515m
+    KEYS=/opt/qct/${TARGET}/AVBTOOL/keys
+
+    # build TelAF OSS source code
+    make ${TARGET}
+
+    # build telaf-prop source code if exists
+    if [ -f "${TELAF_PROP}/build.sh" ]; then
+        TELAF_SYS_QMI_ROOT=${CURDIR}/../qmi/services/
+        TELAF_SYS_QMI_FRAMEWORK_ROOT=${CURDIR}/../qmi-framework/inc/
+        ${TELAF_PROP}/build.sh ${TARGET} "$TELAF_SYS_QMI_ROOT" "$TELAF_SYS_QMI_FRAMEWORK_ROOT"
+    fi
+
+    ## build telaf-noship source code if exists
+    if [ -f "${TELAF_NOSHIP}/build.sh" ]; then
+        ${TELAF_NOSHIP}/build.sh ${TARGET}
+    fi
+
+    ## repack TelAF image
+    ${TELAF_ROOT}/mkimg.sh ${TARGET} "$TELAF_ROOT/build/$TARGET/"
+
+    # sign TelAF image
     export AVBTOOL="${OECORE_NATIVE_SYSROOT}/usr/share/avb_py_tool/avbtool"
     if [ ! -d $KEYS ]; then
         ${AVBTOOL} add_hashtree_footer --image ./build/sa515m/telaf_ro.squashfs --partition_name telaf --do_not_generate_fec --rollback_index 0

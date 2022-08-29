@@ -2,15 +2,17 @@ sandboxed: false
 executables:
 {
     tafPMUnitTest = ( tafPMUnitTestComp )
-    pmTest = ( ctrlCmdComp )
 }
-
 
 processes:
 {
     run:
     {
-        (tafPMUnitTest)
+        proc1 = (tafPMUnitTest --proc1)
+        proc2 = (tafPMUnitTest --proc2)
+        proc3 = (tafPMUnitTest --proc3)
+        proc4 = (tafPMUnitTest --proc4)
+        proc5 = (tafPMUnitTest --proc5)
     }
     envVars:
     {
@@ -23,5 +25,4 @@ start: manual
 bindings:
 {
     tafPMUnitTest.tafPMUnitTestComp.taf_pm -> tafPMSvc.taf_pm
-    pmTest.ctrlCmdComp.ctrlCmd -> tafPMUnitTest.tafPMUnitTestComp.ctrlCmd
 }

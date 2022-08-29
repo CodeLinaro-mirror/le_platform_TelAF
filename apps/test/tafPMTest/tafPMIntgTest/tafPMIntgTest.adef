@@ -1,0 +1,29 @@
+sandboxed: false
+executables:
+{
+    tafPMIntgTest = ( tafPMIntgTestComp )
+    pmTest = ( ctrlCmdComp )
+}
+
+
+processes:
+{
+    run:
+    {
+        (tafPMIntgTest)
+    }
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+}
+
+
+
+start: manual
+
+bindings:
+{
+    tafPMIntgTest.tafPMIntgTestComp.taf_pm -> tafPMSvc.taf_pm
+    pmTest.ctrlCmdComp.ctrlCmd -> tafPMIntgTest.tafPMIntgTestComp.ctrlCmd
+}

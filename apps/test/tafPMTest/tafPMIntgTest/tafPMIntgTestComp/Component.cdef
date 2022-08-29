@@ -3,6 +3,14 @@ sources:
     tafPMTest.c
 }
 
+provides:
+{
+    api:
+    {
+        ctrlCmd.api
+    }
+}
+
 requires:
 {
     api:

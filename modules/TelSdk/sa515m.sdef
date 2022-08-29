@@ -47,7 +47,8 @@ apps:
     // $TELAF_ROOT/apps/test/tafNetTest/tafNetUnitTest/tafNetUnitTest
     // $TELAF_ROOT/apps/test/tafNetTest/tafNetIntTest/tafNetIntTest
     // $TELAF_ROOT/apps/test/tafKeyStoreTest/tafKeyStoreUnitTest/tafKeyStoreUnitTest
-    // $TELAF_ROOT/apps/test/tafPMTest/tafPMUnitTest/tafPMUnitTest.adef
+    // $TELAF_ROOT/apps/test/tafPMTest/tafPMUnitTest/tafPMUnitTest
+    // $TELAF_ROOT/apps/test/tafPMTest/tafPMUnitTest/tafPMIntgTest
     // $TELAF_ROOT/apps/test/tafGpioTest/tafGpioUnitTest.adef
     // $TELAF_ROOT/apps/sample/eCallDemo/tafECallApp
     // $TELAF_ROOT/apps/test/tafLocationTest/tafLocationUnitTest/tafLocationUnitTest.adef
@@ -76,7 +77,7 @@ interfaceSearch:
     $TELAF_ROOT/interfaces/tafVNW
     interfaces/positioning
     $LEGATO_ROOT/apps/sample/voiceCallApp
-    // $TELAF_ROOT/apps/test/tafPMTest/tafPMUnitTest
+    // $TELAF_ROOT/apps/test/tafPMTest/tafPMIntgTest
 }
 
 cflags:

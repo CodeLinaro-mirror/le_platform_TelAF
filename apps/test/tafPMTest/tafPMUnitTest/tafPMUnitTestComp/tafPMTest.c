@@ -32,10 +32,13 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "main.h"
+#include "legato.h"
+#include "interfaces.h"
 
+taf_pm_WakeupSourceRef_t ws, wsRef, ws1;
 taf_pm_StateChangeHandlerRef_t handlerRef;
 static le_sem_Ref_t semRef;
+le_result_t res;
 
 //Function to convert taf state to string
 char* tafStateToString(taf_pm_State_t tafState)
@@ -59,50 +62,64 @@ char* tafStateToString(taf_pm_State_t tafState)
 }
 
 //Function called on state change
-void TestStateChangeHandler(taf_pm_State_t state, void* contextPtr)
+void StateChangeHandler(taf_pm_State_t state, void* contextPtr)
 {
     LE_INFO("State change triggered for %s\n", tafStateToString(state));
     printf("\nState change triggered for %s\n", tafStateToString(state));
 }
 
-taf_pm_WakeupSourceRef_t tafPMTest_create(const char* tag)
+void Test_tafPM_createWakeupSource()
 {
-    taf_pm_WakeupSourceRef_t ref = taf_pm_NewWakeupSource(0, tag);
-    if(ref != NULL) {
-        printf("\n created successfull\n");
-        return ref;
-    }
-    printf("\n wakeSource Creation failed\n");
-    return NULL;
+    LE_TEST_INFO("Testing creating of wake source with out ref");
+    ws = taf_pm_NewWakeupSource(0, "pmtest1");
+    LE_TEST_OK(ws != NULL, "taf_pm_NewWakeupSource is successfull");
+
+    LE_TEST_INFO("Testing creating of wake source with ref");
+    wsRef = taf_pm_NewWakeupSource(1, "pmtest_ref");
+    LE_TEST_OK(wsRef != NULL, "taf_pm_NewWakeupSource as ref is successfull");
 }
 
-void tafPMTest_acquire(taf_pm_WakeupSourceRef_t ref)
+void Test_tafPM_StayAwake()
 {
-    if(taf_pm_StayAwake(ref) == LE_OK) {
-        printf("\n stay awake successfull\n");
-    } else {
-        printf("\n stay awake failed\n");
-    }
+    LE_TEST_INFO("Testing taf_pm_StayAwake on wake source without reference");
+    res = taf_pm_StayAwake(ws);
+    LE_TEST_OK(res == LE_OK, "wake source without ref has acquired succesfully");
+
+    LE_TEST_INFO("Testing taf_pm_StayAwake on already acquired wake source without reference");
+    res = taf_pm_StayAwake(ws);
+    LE_TEST_OK(res == LE_OK, "StayAwake on already acquired wake source success with warning");
+
+    LE_TEST_INFO("Testing taf_pm_StayAwake on wake source with reference");
+    res = taf_pm_StayAwake(wsRef);
+    LE_TEST_OK(res == LE_OK, "wake source with ref is acquired successfully");
+
+    LE_TEST_INFO("Testing taf_pm_StayAwake multiple times on wake source with reference");
+    res = taf_pm_StayAwake(wsRef);
+    LE_TEST_OK(res == LE_OK, "wake source with ref is acquired multiple times successfully");
 }
 
-void tafPMTest_release(taf_pm_WakeupSourceRef_t ref)
+void Test_tafPM_Relax()
 {
-    if(taf_pm_Relax(ref) == LE_OK) {
-        printf("\n Release successfull\n");
-    } else {
-        printf("\n Release failed\n");
-    }
+    LE_TEST_INFO("Testing taf_pm_Relax on wake source without reference");
+    res = taf_pm_Relax(ws);
+    LE_TEST_OK(res == LE_OK, "wake source without ref has acquired succesfully");
+
+    LE_TEST_INFO("Testing taf_pm_Relax on already released wake source without reference");
+    res = taf_pm_Relax(ws);
+    LE_TEST_OK(res == LE_OK, "StayAwake on already released wake source success with warning");
+
+    LE_TEST_INFO("Testing taf_pm_Relax on wake source with reference");
+    res = taf_pm_Relax(wsRef);
+    LE_TEST_OK(res == LE_OK, "wake source with ref is released successfully");
+
+    LE_TEST_INFO("Testing taf_pm_Relax multiple times on wake source with reference");
+    res = taf_pm_Relax(wsRef);
+    LE_TEST_OK(res == LE_OK, "wake source with ref is released multiple times successfully");
 }
 
-//Function to get the State
-le_result_t ctrlCmd_test6()
+taf_pm_State_t Test_tafPM_GetState()
 {
-    taf_pm_State_t state = taf_pm_GetPowerState();
-    char* powerState = tafStateToString(state);
-    LE_INFO("State is %s\n", powerState);
-    printf("\n State : %s\n", powerState);
-    LE_ASSERT(state <= TAF_PM_STATE_SHUTDOWN && state >= TAF_PM_STATE_UNKNOWN);
-    return LE_OK;
+    return taf_pm_GetPowerState();
 }
 
 le_result_t WaitForSem_Timeout
@@ -115,113 +132,134 @@ le_result_t WaitForSem_Timeout
     return le_sem_WaitWithTimeOut(semRef, timeToWait);
 }
 
+//Function called on state change
+void TestStateChangeHandler(taf_pm_State_t state, void* contextPtr)
+{
+    LE_INFO("State change triggered for %s\n", tafStateToString(state));
+    printf("\nState change triggered for %s\n", tafStateToString(state));
+}
+
 static void* test_stateChangeHandler(void* ctxPtr)
 {
     taf_pm_ConnectService();
+
+    LE_TEST_INFO("Testing taf_pm_AddStateChangeHandler on invalid handler reference");
+    handlerRef = taf_pm_AddStateChangeHandler(NULL, NULL);
+    LE_TEST_OK(handlerRef == NULL,"Register state change handler is failed with INVALID reference");
+
     handlerRef = taf_pm_AddStateChangeHandler(TestStateChangeHandler, NULL);
-    printf("\nRegistered successfully for StateChangeListener\n");
-    LE_ASSERT(handlerRef != NULL);
+    LE_TEST_OK(handlerRef != NULL,"Register state change handler is successfull");
     le_sem_Post(semRef);
     le_event_RunLoop();
 }
 
-le_result_t ctrlCmd_registerStateChangeListener()
+void Test_tafPM_registerListener()
 {
-    LE_INFO("called registerStateChangeListener in app");
-    handlerRef = taf_pm_AddStateChangeHandler(TestStateChangeHandler, NULL);
-    printf("\n====== Register listener for state change Test ======\n"
-            "ACTION : Trigger state change from telux_power_test_app and observe\n");
-    LE_ASSERT(NULL != handlerRef);
-    return LE_OK;
-}
-
-le_result_t ctrlCmd_deregisterListenerTest()
-{
+    LE_INFO("Test_tafPM_registerListener");
     semRef = le_sem_Create("SemRef", 0);
-    LE_INFO("===== Remove power state handler test =====");
+    LE_TEST_INFO("Test register power state handler");
     le_thread_Ref_t threadRef = le_thread_Create("taf_PM_StateHandler", test_stateChangeHandler, NULL);
     le_thread_Start(threadRef);
     WaitForSem_Timeout(semRef, 5);
-    tafPMTest_deregisterStateChangeListener();
-    LE_INFO("Deregistered successfully");
-    return LE_OK;
 }
 
-void tafPMTest_deregisterStateChangeListener()
+void Test_tafPM_deregisterStateChangeListener()
 {
-    LE_INFO("tafPMTest_deregisterStateChangeListener");
+    LE_TEST_INFO("Test deregisterStateChangeListener");
     taf_pm_RemoveStateChangeHandler(handlerRef);
-    printf("\n====== StateChangeListener removed successfully ======\n");
+    LE_TEST_OK(true, "deregisterstate change listener is successfull");
 }
 
-le_result_t ctrlCmd_test3()
+void Test_tafPM_NewWakeupSourceDuplicateTag()
 {
-    LE_INFO("====== Suspend test case when WL is acquired ======");
-    printf("\n====== Suspend test case when WL is acquired ======\n");
-    semRef = le_sem_Create("SemRef", 0);
-    le_thread_Ref_t threadRef = le_thread_Create("taf_PM_StateHandler",
-            test_stateChangeHandler, NULL);
-    le_thread_Start(threadRef);
-    WaitForSem_Timeout(semRef, 5);
-    taf_pm_WakeupSourceRef_t ref = tafPMTest_create("local_suspend");
-    tafPMTest_acquire(ref);
-    printf("\nACTION : Trigger suspend from telux_power_test_app and observe device will not suspend\n");
-    return LE_OK;
+    LE_TEST_INFO("Testing creating of wake source with duplicate tag");
+    ws = taf_pm_NewWakeupSource(0, "pmtest1");
+    LE_TEST_OK(ws != NULL, "taf_pm_NewWakeupSource is successfull");
+
+    LE_TEST_INFO("Testing creating of wake source with same tag, and the app will be killed");
+    ws1 = taf_pm_NewWakeupSource(0, "pmtest1");
 }
 
-le_result_t ctrlCmd_test4()
+void Test_tafPM_StayAwakeInvalidRef()
 {
-    LE_INFO("====== Suspend test case when WL is not acquired ======");
-    printf("\n====== Suspend test case when WL is not acquired ======\n");
-    semRef = le_sem_Create("SemRef", 0);
-    le_thread_Ref_t threadRef = le_thread_Create("taf_PM_StateHandler",
-            test_stateChangeHandler, NULL);
-    le_thread_Start(threadRef);
-    WaitForSem_Timeout(semRef, 5);
-    taf_pm_WakeupSourceRef_t ref = tafPMTest_create("no_wl_suspend");
-    tafPMTest_acquire(ref);
-    sleep(3);
-    printf("\nWL releases and device suspends as no WL is acquired\n");
-    printf("\nACTION : Disconnect the USB to SUSPEND the device \n");
-    tafPMTest_release(ref);
-    return LE_OK;
+    LE_TEST_INFO("Testing taf_pm_StayAwake on wake source with invalid reference, which will kill the app");
+    res = taf_pm_StayAwake(ws);
 }
 
-le_result_t ctrlCmd_test5()
+void Test_tafPM_RelaxInvalidRef()
 {
-    LE_INFO("====== Suspend test case when WL is acquired from app and app exits ======");
-    printf("\n====== Suspend test case when WL is acquired from app and app exits ======\n");
-    taf_pm_WakeupSourceRef_t ref = tafPMTest_create("app_exit_suspend");
-    tafPMTest_acquire(ref);
-    sleep(2);
-    printf("\nApp exits and device suspends\n");
-    printf("\nACTION : Disconnect USB to SUSPEND the device\n");
-    exit(EXIT_SUCCESS);
-    return LE_OK;
+    LE_TEST_INFO("Testing taf_pm_Relax on wake source with invalid reference, which will kill the app");
+    res = taf_pm_Relax(ws);
 }
 
-le_result_t ctrlCmd_test7()
+void Test_tafPM_RelaxOverlap()
 {
-    LE_INFO("====== Test acquire and release multiple times WL with reference ======");
-    printf("\n====== Test acquire and release multiple times WL with reference ======\n");
-    taf_pm_WakeupSourceRef_t ref;
-    char tag[10];
+    LE_TEST_INFO("Testing creating of wake source with ref");
+    wsRef = taf_pm_NewWakeupSource(1, "pmtest_ref");
+    LE_TEST_OK(wsRef != NULL, "taf_pm_NewWakeupSource as ref is successfull");
 
-    snprintf(tag, sizeof(tag), "testpm");
-    ref = taf_pm_NewWakeupSource(1, tag);
+    LE_TEST_INFO("Testing taf_pm_StayAwake on wake source with reference");
+    res = taf_pm_StayAwake(wsRef);
+    LE_TEST_OK(res == LE_OK, "wake source with ref is acquired successfully");
 
-    for(int i = 0; i < 5; i++) {
-        tafPMTest_acquire(ref);
-    }
-    sleep(3);
-    for(int i = 0; i < 5; i++) {
-        tafPMTest_release(ref);
-    }
-    printf("\nACTION : Disconnect USB to SUSPEND the device\n");
-    return LE_OK;
+    LE_TEST_INFO("Testing taf_pm_Relax on wake source with reference");
+    res = taf_pm_Relax(wsRef);
+    LE_TEST_OK(res == LE_OK, "wake source with ref is released successfully");
+
+    LE_TEST_INFO("Testing overlap taf_pm_Relax on wake source with reference,"
+            "this will kill the client");
+    res = taf_pm_Relax(wsRef);
 }
 
 COMPONENT_INIT
 {
     LE_INFO("tafPMUnitTest started");
+
+    const char* procName = le_arg_GetProgramName();
+    LE_INFO("procName is %s", procName);
+    if (strcmp(procName, "proc1") == 0)
+    {
+        Test_tafPM_registerListener();
+
+        Test_tafPM_createWakeupSource();
+
+        Test_tafPM_StayAwake();
+
+        LE_TEST_INFO("Testing taf_pm_GetState when wake source is acquired");
+        taf_pm_State_t state = Test_tafPM_GetState();
+        char* powerState = tafStateToString(state);
+        LE_INFO("State is %s\n", powerState);
+        printf("\n State : %s\n", powerState);
+        LE_TEST_OK(state == TAF_PM_STATE_RESUME,
+            "Get state is resume as at least one wake source is acquired successful");
+
+        Test_tafPM_Relax();
+
+        LE_TEST_INFO("Testing taf_pm_GetState when wake source is released");
+        state = Test_tafPM_GetState();
+        powerState = tafStateToString(state);
+        LE_INFO("State is %s\n", powerState);
+        printf("\n State : %s\n", powerState);
+        LE_TEST_OK(state == TAF_PM_STATE_SUSPEND,
+            "Get state is suspend as no wake source is acquired");
+
+        Test_tafPM_deregisterStateChangeListener();
+    }
+    else if (strcmp(procName, "proc2") == 0)
+    {
+        Test_tafPM_NewWakeupSourceDuplicateTag();
+    }
+    else if (strcmp(procName, "proc3") == 0)
+    {
+        Test_tafPM_StayAwakeInvalidRef();
+    }
+    else if (strcmp(procName, "proc4") == 0)
+    {
+        Test_tafPM_RelaxInvalidRef();
+    }
+    else if (strcmp(procName, "proc5") == 0)
+    {
+        Test_tafPM_RelaxOverlap();
+    }
+    exit(EXIT_SUCCESS);
 }

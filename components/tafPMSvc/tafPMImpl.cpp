@@ -551,6 +551,7 @@ taf_pm_StateChangeHandlerRef_t taf_PM::AddStateChangeHandler(
 taf_pm_StateChangeHandlerFunc_t handlerPtr, void* contextPtr)
 {
     LE_INFO("AddStateChangeHandler");
+    TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, NULL, "INVALID handler reference.");
     le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("tafStateChange EventId",
             StateChangeEvent, StateChanged, (void*)handlerPtr);
     le_event_SetContextPtr(handlerRef, contextPtr);

@@ -1355,30 +1355,6 @@ void taf_Radio::Init(void)
         signalStrengthCb->semaphore = le_sem_Create("taf_RadioSgnStrengthCbSem", 0);
         setOperatingModeCb->semaphore = le_sem_Create("taf_RadioSetOpModeCbSem", 0);
 
-        // 11. Set the Radio power on
-        bool isRadioOn = true;
-        for (size_t index = 0; index < phones.size(); index++) {
-            if(phones[index]->getRadioState() != telux::tel::RadioState::RADIO_STATE_ON) {
-                isRadioOn = false;
-                break;
-            }
-        }
-
-        if (!isRadioOn) {
-            auto respenseCb = std::bind(&taf_RadioSetOperatingModeCallback::setOperatingModeResponse,
-                setOperatingModeCb, std::placeholders::_1);
-            auto ret = phoneManager->setOperatingMode(telux::tel::OperatingMode::ONLINE, respenseCb);
-            if (ret != telux::common::Status::SUCCESS) {
-                LE_ERROR("Call sdk function failed");
-            } else {
-                le_clk_Time_t timeToWait = {1, 0};
-                le_result_t res = le_sem_WaitWithTimeOut(setOperatingModeCb->semaphore, timeToWait);
-                if (res != LE_OK) {
-                    LE_ERROR("Fail to power on the radio, result = %d.", res);
-                }
-            }
-        }
-
         for (size_t index = 0; index < networkManagers.size(); index++) {
             startTime = std::chrono::system_clock::now();
 

@@ -583,8 +583,8 @@ void tafLocationListener::onDetailedLocationUpdate(const std::shared_ptr<telux::
             } else {
                 LocationData->leapSeconds = 0;
             }
-            LocationData->satsInViewCount = 0;
-            LocationData->satsTrackingCount = 0;
+            LocationData->satsInViewCount = gnss.mSatParams.satsInViewCount;
+            LocationData->satsTrackingCount = gnss.mTotalSVTracked;
             LocationData->satsUsedCount = locationInfo->getNumSvUsed();
 
             for(i=0; i<TAF_GNSS_SV_INFO_MAX_LEN; i++)
@@ -793,8 +793,9 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                     LocationData->year = 1900+ltm->tm_year;
                     LocationData->month = 1+ltm->tm_mon;
                     LocationData->day = ltm->tm_mday;
-                    LocationData->hours = 5+ltm->tm_hour;
-                    LocationData->minutes = 30+ltm->tm_min;
+                    //To match UTC time
+                    LocationData->hours = ltm->tm_hour;
+                    LocationData->minutes = ltm->tm_min;
                     LocationData->seconds = ltm->tm_sec;
                     LocationData->milliseconds = 0;
                 } else {
@@ -815,8 +816,8 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 } else {
                     LocationData->leapSeconds = 0;
                 }
-                LocationData->satsInViewCount = 0;
-                LocationData->satsTrackingCount = 0;
+                LocationData->satsInViewCount = gnss.mSatParams.satsInViewCount;
+                LocationData->satsTrackingCount = gnss.mTotalSVTracked;
                 LocationData->satsUsedCount = locationInfo->getNumSvUsed();
 
                 for(i=0; i<TAF_GNSS_SV_INFO_MAX_LEN; i++)
@@ -900,6 +901,8 @@ void tafLocationListener::onGnssSVInfo(const std::shared_ptr<telux::loc::IGnssSV
         LE_DEBUG("**** Satellite Vehicle Information ****");
         int i = 0;
         gnss.mConstellationEnabled = false;
+        gnss.mSatParams.satsInViewCount = gnssSVInfo->getSVInfoList().size();
+        gnss.mTotalSVTracked = 0;
         for(auto svInfo : gnssSVInfo->getSVInfoList()) {
             switch(svInfo->getConstellation()) {
                 case telux::loc::GnssConstellationType::GPS:
@@ -927,14 +930,32 @@ void tafLocationListener::onGnssSVInfo(const std::shared_ptr<telux::loc::IGnssSV
             }
 
             gnss.mSatInfo[i].satId = svInfo->getId();
-            gnss.mSatInfo[i].satUsed = 0;
-            gnss.mSatInfo[i].satTracked = 0;
+            if(svInfo->getHasFix() == SVInfoAvailability::YES)
+            {
+                gnss.mSatInfo[i].satUsed = true;
+                LE_DEBUG("onGnssSVInfo: svInfo->getHasFix()->SVInfoAvailability::YES");
+            }
+            else
+            {
+                gnss.mSatInfo[i].satUsed = false;
+            }
+            if(svInfo->getSnr()!=0)
+            {
+                gnss.mTotalSVTracked++;
+                gnss.mSatInfo[i].satTracked = true;
+                LE_DEBUG("onGnssSVInfo: svInfo->getSnr() is NON ZERO");
+            }
+            else
+            {
+            gnss.mSatInfo[i].satTracked = false;
+            }
             gnss.mSatInfo[i].satSnr = svInfo->getSnr();
             gnss.mSatInfo[i].satAzim = svInfo->getAzimuth();
             gnss.mSatInfo[i].satElev = svInfo->getElevation();
             i++;
         }
         gnss.mSvEnabled = true;
+        gnss.mSatParams.satsTrackingCount = gnss.mTotalSVTracked;
     }
     le_mutex_Unlock(gnss.mGnssMutexRef);
 }
@@ -1258,6 +1279,7 @@ taf_gnss_State_t taf_Gnss::GetState
  void
 )
 {
+#if 0
     if (!mStarted) {
         mStarted = true;
         int optInterval = mAcqRate;
@@ -1281,6 +1303,7 @@ taf_gnss_State_t taf_Gnss::GetState
         #endif
         mStartTime = std::chrono::system_clock::now();
     }
+#endif
 #if 0 // Start Detailed Reports with specific config
     //0 - Location 1 - SV 2 - NMEA 3 - DATA 4 - Measurement 5 - NHzMeasurement
     int opt = 1000;
@@ -1378,13 +1401,13 @@ le_result_t taf_Gnss::SetConstellation
     {
         case TAF_GNSS_STATE_UNINITIALIZED:
         case TAF_GNSS_STATE_DISABLED:
-        case TAF_GNSS_STATE_ACTIVE:
+        case TAF_GNSS_STATE_READY:
         {
             LE_ERROR("Bad state for that request [%d]", GnssState);
             result = LE_NOT_PERMITTED;
         }
         break;
-        case TAF_GNSS_STATE_READY:
+        case TAF_GNSS_STATE_ACTIVE:
         {
             // Set GNSS constellation
             mLocCmdResponseCb = std::make_shared<LocationCommandCallback> ("configureConstellations");
@@ -1423,6 +1446,26 @@ le_result_t taf_Gnss::Start
         {
             // Start GNSS
             GnssState = TAF_GNSS_STATE_ACTIVE;
+            if (!mStarted)
+            {
+                mStarted = true;
+                int optInterval = mAcqRate;
+                LE_INFO("Start->  mAcqRate: %d",mAcqRate);
+                if( optInterval == 0  || optInterval < 1000)
+                {
+                    LE_DEBUG("Start->mAcqRate is zero, so set default to 1000ms");
+                    optInterval = 1000;
+                    mAcqRate = optInterval;
+                }
+                LocReqEngine engineType = DEFAULT_UNKNOWN;
+                engineType |= 1UL << 0; //DRE+SPE+PPE engines supported
+                mLocCmdResponseCb = std::make_shared<LocationCommandCallback>
+                        ("startDetailedEngineReports");
+                mLocationManager->startDetailedEngineReports((uint32_t)optInterval,engineType,
+                        std::bind(&LocationCommandCallback::commandResponse,
+                            mLocCmdResponseCb, std::placeholders::_1));
+                mStartTime = std::chrono::system_clock::now();
+            }
             result = LE_OK;
         }
         break;
@@ -1557,14 +1600,14 @@ le_result_t taf_Gnss::GetAcquisitionRate
     switch (GnssState)
     {
         case TAF_GNSS_STATE_UNINITIALIZED:
-        case TAF_GNSS_STATE_ACTIVE:
+        case TAF_GNSS_STATE_READY:
         case TAF_GNSS_STATE_DISABLED:
         {
             LE_ERROR("Bad state for that request [%d]", GnssState);
             result = LE_NOT_PERMITTED;
         }
         break;
-        case TAF_GNSS_STATE_READY:
+        case TAF_GNSS_STATE_ACTIVE:
         {
             // Set the GNSS device acquisition rate
             *ratePtr = mAcqRate;
@@ -1753,12 +1796,12 @@ le_result_t taf_Gnss::GetTtff
     {
         case TAF_GNSS_STATE_DISABLED:
         case TAF_GNSS_STATE_UNINITIALIZED:
+        case TAF_GNSS_STATE_READY:
         {
             LE_ERROR("Bad state for that request [%d]", GnssState);
             result = LE_NOT_PERMITTED;
         }
         break;
-        case TAF_GNSS_STATE_READY:
         case TAF_GNSS_STATE_ACTIVE:
         {
 #if 1 // Start Detailed Reports, if not already started
@@ -1782,7 +1825,7 @@ le_result_t taf_Gnss::GetTtff
                 #endif
             }
 #endif
-            if(!mTtffEnable) //for the first time calculate ttff value
+            if(!mTtffPtr) //for the first time calculate ttff value
             {
                 mStartTime = std::chrono::system_clock::now();
                 std::unique_lock<std::mutex> lock(mMutex);
@@ -1844,19 +1887,20 @@ le_result_t taf_Gnss::GetConstellation
     {
         case TAF_GNSS_STATE_UNINITIALIZED:
         case TAF_GNSS_STATE_DISABLED:
-        case TAF_GNSS_STATE_ACTIVE:
+        case TAF_GNSS_STATE_READY:
             {
                 LE_ERROR("Bad state for that request [%d]", GnssState);
                 result = LE_NOT_PERMITTED;
             }
             break;
-        case TAF_GNSS_STATE_READY:
+        case TAF_GNSS_STATE_ACTIVE:
             {
                 // Get GNSS constellation
                 std::unique_lock<std::mutex> lock(mMutex);
                 mCondVar.wait(lock);
                 *constellationMaskPtr = mConstellationMask;
                 LE_INFO("GetConstellation *constellationMaskPtr: %d", *constellationMaskPtr);
+                mConstellationMask = 0;//reset the mask
                 result = LE_OK;
             }
             break;
@@ -2479,6 +2523,8 @@ le_result_t taf_Gnss::GetLeapSeconds
  int32_t* nextLeapSeconds
 )
 {
+    LE_DEBUG("GetLeapSeconds is not implemented");
+    return LE_UNSUPPORTED;
     if ((!gpsTime) || (!currentLeapSeconds) || (!changeEventTime) || (!nextLeapSeconds))
     {
         LE_ERROR("Null pointer provided: gpsTime: %p, currentLeapSeconds: %p, "
@@ -2542,15 +2588,20 @@ le_result_t taf_Gnss::SetAcquisitionRate
     // Check the GNSS device state
     switch (GnssState)
     {
-        case TAF_GNSS_STATE_READY:
+        case TAF_GNSS_STATE_ACTIVE:
         {
             // Set the GNSS device acquisition rate
+            if(rate == 0 || rate < 1000)
+            {
+                rate = 1000;
+                LE_DEBUG("SetAcquisitionRate -> mAcqRate is zero, so set default to 1000ms");
+            }
             mAcqRate = rate;
             result = LE_OK;
         }
         break;
         case TAF_GNSS_STATE_UNINITIALIZED:
-        case TAF_GNSS_STATE_ACTIVE:
+        case TAF_GNSS_STATE_READY:
         case TAF_GNSS_STATE_DISABLED:
         {
             result = LE_NOT_PERMITTED;
@@ -2775,13 +2826,37 @@ le_result_t taf_Gnss::GetMinElevation
    uint8_t*  minElevationPtr
 )
 {
+    le_result_t result = LE_FAULT;
     TAF_KILL_CLIENT_IF_RET_VAL( NULL == minElevationPtr, LE_FAULT, "minElevationPtr is NULL");
-    mMinElelvEnabled = true;
-    std::unique_lock<std::mutex> lock(mMutex);
-    mCondVar.wait(lock);
-    *minElevationPtr =  mMinElev;
 
-    return LE_OK;
+    switch (GnssState)
+    {
+        case TAF_GNSS_STATE_READY:
+        case TAF_GNSS_STATE_DISABLED:
+        case TAF_GNSS_STATE_UNINITIALIZED:
+        {
+            LE_ERROR("Wrong Gnss State [%d]", GnssState);
+            result = LE_NOT_PERMITTED;
+        }
+        break;
+        case TAF_GNSS_STATE_ACTIVE:
+        {
+            mMinElelvEnabled = true;
+            std::unique_lock<std::mutex> lock(mMutex);
+            mCondVar.wait(lock);
+            *minElevationPtr =  mMinElev;
+            result = LE_OK;
+        }
+        break;
+        default:
+        {
+            result = LE_FAULT;
+            LE_ERROR("Invalid GNSS state %d", GnssState);
+        }
+        break;
+    }
+
+    return result;
 }
 
 le_result_t taf_Gnss::Disable
@@ -2838,6 +2913,13 @@ le_result_t taf_Gnss::Stop
                 /*mLocCmdResponseCb = std::make_shared<LocationCommandCallback>();
                   mLocationManager->stopReports(std::bind(&LocationCommandCallback::commandResponse,
                   mLocCmdResponseCb, std::placeholders::_1));*/
+                if (mStarted)
+                {
+                    mLocCmdResponseCb = std::make_shared<LocationCommandCallback>("stopReports");
+                    mLocationManager->stopReports(std::bind(&LocationCommandCallback::commandResponse,
+                            mLocCmdResponseCb, std::placeholders::_1));
+                    mStarted = false;
+                }
                 result = LE_OK;
             }
         break;
@@ -2909,7 +2991,7 @@ le_result_t taf_Gnss::SetNmeaSentences
         // Check the GNSS device state
         switch (GnssState)
         {
-            case TAF_GNSS_STATE_READY:
+            case TAF_GNSS_STATE_ACTIVE:
             {
                 // Set the enabled NMEA sentences
                 mLocCmdResponseCb = std::make_shared<LocationCommandCallback> ("configureNmeaTypes");
@@ -2930,7 +3012,7 @@ le_result_t taf_Gnss::SetNmeaSentences
             }
             break;
             case TAF_GNSS_STATE_UNINITIALIZED:
-            case TAF_GNSS_STATE_ACTIVE:
+            case TAF_GNSS_STATE_READY:
             case TAF_GNSS_STATE_DISABLED:
             {
                 LE_ERROR("Bad state for that request [%d]", GnssState);
@@ -2966,7 +3048,7 @@ le_result_t taf_Gnss::GetNmeaSentences
     // Check the GNSS device state
     switch (GnssState)
     {
-        case TAF_GNSS_STATE_READY:
+        case TAF_GNSS_STATE_ACTIVE:
         {
             // Get the enabled NMEA sentences
             std::unique_lock<std::mutex> lock(mMutex);
@@ -3032,7 +3114,10 @@ le_result_t taf_Gnss::GetNmeaSentences
                 LE_ERROR("NmeaSentence type is invalid");
                 result = LE_FAULT;
             }
-
+            if(result == LE_OK)
+            {
+               mNmeaBitMask = "";//initialize to empty string
+            }
             if (LE_OK != result)
             {
                 LE_ERROR("Unable to get the enabled NMEA sentences, error = %d (%s)",
@@ -3041,7 +3126,7 @@ le_result_t taf_Gnss::GetNmeaSentences
         }
         break;
         case TAF_GNSS_STATE_UNINITIALIZED:
-        case TAF_GNSS_STATE_ACTIVE:
+        case TAF_GNSS_STATE_READY:
         case TAF_GNSS_STATE_DISABLED:
         {
             LE_ERROR("Bad state for that request [%d]", GnssState);
@@ -3747,12 +3832,14 @@ void taf_Gnss::CloseEventHandler
 
     TAF_ERROR_IF_RET_NIL( sessionRef == NULL, "sessionRef is NULL");
     // stop Detailed Reports
+    #if 0
     if (gnss.mStarted) {
         gnss.mLocCmdResponseCb = std::make_shared<LocationCommandCallback>("stopReports");
         gnss.mLocationManager->stopReports(std::bind(&LocationCommandCallback::commandResponse,
                     gnss.mLocCmdResponseCb, std::placeholders::_1));
         gnss.mStarted = false;
     }
+    #endif
 
     le_ref_IterRef_t iterRef = le_ref_GetIterator(gnss.PositionSampleMap);
     le_result_t result = le_ref_NextNode(iterRef);
@@ -3822,6 +3909,7 @@ void taf_Gnss::Init()
     NumOfPositionHandlers = 0;
     memset(&LastPositionSample, 0, sizeof(LastPositionSample));
     LastPositionSample.fixState = TAF_GNSS_STATE_FIX_NO_POS;
+    memset(&mSatParams, 0, sizeof(mSatParams));
     memset(&mSatInfo, 0, sizeof(mSatInfo));
 
     status = LocationManagerInit();

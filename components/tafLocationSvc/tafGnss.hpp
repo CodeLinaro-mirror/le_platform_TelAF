@@ -324,6 +324,8 @@ namespace tafsvc {
             le_result_t SetConstellationArea( taf_gnss_Constellation_t satConstellation,
                     taf_gnss_ConstellationArea_t constellationArea);
 
+            le_result_t GetConstellationArea( taf_gnss_Constellation_t satConstellation,
+                    taf_gnss_ConstellationArea_t* constellationArea);
             le_result_t GetConstellation( taf_gnss_ConstellationBitMask_t *constellationMaskPtr);
             le_result_t Disable(void);
             le_result_t Stop(void);
@@ -372,6 +374,7 @@ namespace tafsvc {
             le_event_Id_t positionEventId;
             le_mem_PoolRef_t   PositionSamplePoolRef;
             taf_gnss_PositionSample_t   LastPositionSample;
+            taf_gnss_PositionSample_t mSatParams;
             std::chrono::time_point<std::chrono::system_clock> mStartTime;
             std::chrono::time_point<std::chrono::system_clock> mEndTime;
             std::condition_variable mCondVar;
@@ -400,6 +403,7 @@ namespace tafsvc {
             bool mGnssSigEnabled = false;
             bool mGnssNmeaEnabled = false;
             bool mTtffEnable;
+            uint8_t mTotalSVTracked;
             taf_gnss_ConstellationBitMask_t mConstellationMask;
             le_dls_List_t    SvInfoList;
             std::string mCommandName;

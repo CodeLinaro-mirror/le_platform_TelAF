@@ -97,13 +97,13 @@
  * @verbatim
    if(taf_gnss_Enable() == LE_OK)
    {
-     //Process after succesfully enabling the GNSS device
+     // Process after succesfully enabling the GNSS device
    }
    @endverbatim
  * @verbatim
    if(taf_gnss_Disable() == LE_OK)
    {
-     //Process after succesfully disabling the GNSS device
+     // Process after succesfully disabling the GNSS device
    }
    @endverbatim
  *
@@ -114,13 +114,13 @@
  * @verbatim
    if(taf_gnss_Start() == LE_OK)
    {
-     //Process after succesfully starting the GNSS device
+     // Process after succesfully starting the GNSS device
    }
    @endverbatim
  * @verbatim
    if(taf_gnss_Stop() == LE_OK)
    {
-     //Process after succesfully stopping the GNSS device
+     // Process after succesfully stopping the GNSS device
    }
    @endverbatim
  *
@@ -166,7 +166,7 @@
  * @verbatim
    if(taf_gnss_ForceHotRestart() == LE_OK)
    {
-     //Process after succesfully restarting the GNSS device in Force Hot mode
+     // Process after succesfully restarting the GNSS device in Force Hot mode
    }
    @endverbatim
  *
@@ -177,7 +177,7 @@
  * @verbatim
    if(taf_gnss_ForceWarmRestart() == LE_OK)
    {
-     //Process after succesfully restarting the GNSS device in Force warm mode
+     // Process after succesfully restarting the GNSS device in Force warm mode
    }
    @endverbatim
  *
@@ -188,7 +188,7 @@
  * @verbatim
    if(taf_gnss_ForceColdRestart() == LE_OK)
    {
-     //Process after succesfully restarting the GNSS device in Force cold mode
+     // Process after succesfully restarting the GNSS device in Force cold mode
    }
    @endverbatim
  *
@@ -200,7 +200,7 @@
    uint32_t ttff = 0;
    if(taf_gnss_GetTtff(&ttff) == LE_OK)
    {
-     //Process after succesfully getting the time of computing the first GNSS fix
+     // Process after succesfully getting the time of computing the first GNSS fix
    }
    @endverbatim
  * The GNSS fix position is calculated by the GNSS engine. Its state can be retrieved with the
@@ -210,7 +210,7 @@
    taf_gnss_FixState_t fixState;
    if(taf_gnss_GetPositionState(positionSampleRef,&fixState)== LE_OK)
    {
-     //Process after succesfully getting the position state of GNSS device.
+     // Process after succesfully getting the position state of GNSS device.
    }
    @endverbatim
  *
@@ -224,14 +224,14 @@
  * @verbatim
    if(taf_gnss_SetAcquisitionRate(3000)== LE_OK)
    {
-     //Process after succesfully setting the acquisition rate
+     // Process after succesfully setting the acquisition rate
    }
    @endverbatim
  * @verbatim
    uint32_t acqRate = 0;
    if(taf_gnss_GetAcquisitionRate(&acqRate)== LE_OK)
    {
-     //Process after succesfully getting the acquisition rate
+     // Process after succesfully getting the acquisition rate
    }
    @endverbatim
  *
@@ -244,7 +244,7 @@
    constellationMask = TAF_GNSS_CONSTELLATION_GPS;
    if(taf_gnss_SetConstellation(constellationMask)== LE_OK)
    {
-     //Process after succesfully setting the costellation type.
+     // Process after succesfully setting the costellation type.
    }
    @endverbatim
  *
@@ -262,7 +262,7 @@
    taf_gnss_ConstellationBitMask_t constellationMask;
    if(taf_gnss_GetConstellation(&constellationMask)== LE_OK)
    {
-     //Process after succesfully getting the costellation type.
+     // Process after succesfully getting the costellation type.
    }
    @endverbatim
  *
@@ -272,7 +272,7 @@
    taf_gnss_ConstellationBitMask_t supportedConstellations;
    if(taf_gnss_GetSupportedConstellations(&supportedConstellations)== LE_OK)
    {
-     //Process after succesfully getting the list of supported constellations in the device.
+     // Process after succesfully getting the list of supported constellations in the device.
    }
    @endverbatim
  *
@@ -285,7 +285,7 @@
    minElevation = 40;
    if(taf_gnss_SetMinElevation(minElevation)== LE_OK)
    {
-     //Process after succesfully setting the minimum elevation.
+     // Process after succesfully setting the minimum elevation.
    }
    @endverbatim
  *
@@ -294,7 +294,7 @@
    uint8_t  minElevation;
    if(taf_gnss_GetMinElevation(&minElevation)== LE_OK)
    {
-     //Process after succesfully getting the minimum elevation.
+     // Process after succesfully getting the minimum elevation.
    }
    @endverbatim
  *
@@ -312,7 +312,7 @@
    nmeaMask = TAF_GNSS_NMEA_MASK_GPGGA;
    if(taf_gnss_SetNmeaSentences(nmeaMask)== LE_OK)
    {
-     //Process after succesfully setting a NMEA sentence type.
+     // Process after succesfully setting a NMEA sentence type.
    }
    @endverbatim
  *
@@ -329,7 +329,7 @@
    taf_gnss_NmeaBitMask_t nmeaMask;
    if(taf_gnss_GetNmeaSentences(&nmeaMask)== LE_OK)
    {
-     //Process after succesfully getting a NMEA sentence type.
+     // Process after succesfully getting a NMEA sentence type.
    }
    @endverbatim
  *
@@ -339,7 +339,7 @@
    taf_gnss_NmeaBitMask_t supportedNmeaSentences;
    if(taf_gnss_GetSupportedNmeaSentences(&supportedNmeaSentences)== LE_OK)
    {
-     //Process after succesfully getting a list of supported NMEA sentence types.
+     // Process after succesfully getting a list of supported NMEA sentence types.
    }
    @endverbatim
  *
@@ -357,7 +357,7 @@
  * @verbatim
    if(taf_gnss_GetState()== TAF_GNSS_STATE_READY)
    {
-     //Process after succesfully getting the status of device.
+     // Process after succesfully getting the status of device.
    }
    @endverbatim
  * - taf_gnss_GetPositionState() -- Triggered inside PositionHandlerFunction() function to get 
@@ -366,7 +366,7 @@
    taf_gnss_FixState_t state;
    if(taf_gnss_GetPositionState(positionSampleRef,&state)
    {
-     //Process after succesfully getting position state of the device.
+     // Process after succesfully getting position state of the device.
    }
    @endverbatim
  * - taf_gnss_GetLocation() -- Triggered inside PositionHandlerFunction() function to get 
@@ -377,7 +377,7 @@
    int32_t     hAccuracy;
    if(taf_gnss_GetLocation(positionSampleRef,&latitude,&longitude,&hAccuracy) == LE_OK)
    {
-     //Process after succesfully getting the location information.
+     // Process after succesfully getting the location information.
    }
    @endverbatim
  * - taf_gnss_GetAltitude() -- Triggered inside PositionHandlerFunction() function to get 
@@ -387,7 +387,7 @@
    int32_t     vAccuracy;
    if(taf_gnss_GetAltitude(positionSampleRef,&altitude,&vAccuracy) == LE_OK)
    {
-     //Process after succesfully getting the altitude.
+     // Process after succesfully getting the altitude.
    }
    @endverbatim
  * - taf_gnss_GetDate() -- Triggered inside PositionHandlerFunction() function to get 
@@ -398,7 +398,7 @@
    uint16_t day;
    if(taf_gnss_GetDate(positionSampleRef,&year,&month, &day) == LE_OK)
    {
-     //Process after succesfully getting the date information.
+     // Process after succesfully getting the date information.
    }
    @endverbatim
  * - taf_gnss_GetTime() -- Triggered inside PositionHandlerFunction() function to get 
@@ -410,7 +410,7 @@
    uint16_t milliseconds;
    if(taf_gnss_GetTime(positionSampleRef,&hours,&minutes, &seconds, &milliseconds) == LE_OK)
    {
-     //Process after succesfully getting the time information.
+     // Process after succesfully getting the time information.
    }
    @endverbatim
  * - taf_gnss_GetGpsTime() -- Triggered inside PositionHandlerFunction() function to get 
@@ -420,7 +420,7 @@
    uint32_t gpsTimeOfWeek;
    if(taf_gnss_GetGpsTime(positionSampleRef,&gpsWeek,&gpsTimeOfWeek) == LE_OK)
    {
-     //Process after succesfully getting the gps time information.
+     // Process after succesfully getting the gps time information.
    }
    @endverbatim
  * - taf_gnss_GetGpsLeapSeconds() -- Triggered inside PositionHandlerFunction() function to get 
@@ -429,7 +429,7 @@
    uint8_t leapSeconds = 0;
    if(taf_gnss_GetGpsLeapSeconds(positionSampleRef,&leapSeconds) == LE_OK)
    {
-     //Process after succesfully getting the GPS Leap second information
+     // Process after succesfully getting the GPS leap second information
    }
    @endverbatim
  *
@@ -439,7 +439,7 @@
    uint64_t epochTime;
    if(taf_gnss_GetEpochTime(positionSampleRef,&epochTime) == LE_OK)
    {
-     //Process after succesfully getting the Epoch time.
+     // Process after succesfully getting the Epoch time.
    }
    @endverbatim
  * - taf_gnss_GetTimeAccuracy() -- Triggered inside PositionHandlerFunction() function to get 
@@ -448,7 +448,7 @@
    uint32_t TimeAccuracy=0;
    if(taf_gnss_GetTimeAccuracy(positionSampleRef,&TimeAccuracy) == LE_OK)
    {
-     //Process after succesfully getting the time accuracy.
+     // Process after succesfully getting the time accuracy.
    }
    @endverbatim
  * - taf_gnss_GetHorizontalSpeed() -- Triggered inside PositionHandlerFunction() function to get 
@@ -458,7 +458,7 @@
    uint32_t hSpeedAccuracy;
    if(taf_gnss_GetHorizontalSpeed(positionSampleRef,&hSpeed,&hSpeedAccuracy) == LE_OK)
    {
-     //Process after succesfully getting the horizontal speed
+     // Process after succesfully getting the horizontal speed
    }
    @endverbatim
  *
@@ -469,7 +469,7 @@
    int32_t vSpeedAccuracy = 0;
    if(taf_gnss_GetVerticalSpeed(positionSampleRef,&vSpeed,&vSpeedAccuracy) == LE_OK)
    {
-     //Process after succesfully getting the vertical speed.
+     // Process after succesfully getting the vertical speed.
    }
    @endverbatim
  *
@@ -480,7 +480,7 @@
    uint32_t directionAccuracy = 0;
    if(taf_gnss_GetDirection(positionSampleRef,&direction,&directionAccuracy) == LE_OK)
    {
-     //Process after succesfully getting the direction information.
+     // Process after succesfully getting the direction information.
    }
    @endverbatim
  * - taf_gnss_GetSatellitesInfo() -- Triggered inside PositionHandlerFunction() function to get 
@@ -505,7 +505,7 @@
                                                   ,satAzimPtr,&satAzimNumElements
                                                   ,satElevPtr,&satElevNumElements) == LE_OK)
    {
-     //Process after succesfully getting the satellite information.
+     // Process after succesfully getting the satellite information.
    }
    @endverbatim
  * - taf_gnss_GetSatellitesStatus() -- Triggered inside PositionHandlerFunction() function to get 
@@ -516,14 +516,14 @@
    uint8_t satsUsedCount;
    if(taf_gnss_GetSatellitesStatus(positionSampleRef,&satsInViewCount,&satsTrackingCount,&satsUsedCount) == LE_OK)
    {
-     //Process after succesfully getting the satellite status information.
+     // Process after succesfully getting the satellite status information.
    }
    @endverbatim
  * - taf_gnss_ConfigureEngineState() -- Triggered to set the engine state for the given engine type.
  * @verbatim
    if(taf_gnss_ConfigureEngineState(TAF_GNSS_ENGINE_TYPE_SPE,TAF_GNSS_ENGINE_STATE_SUSPENDED) == LE_OK)
    {
-     //Process after succesfully configuring Engine state for the given Engine type
+     // Process after succesfully configuring Engine state for the given Engine type
    }
    @endverbatim
  * - taf_gnss_ConfigureRobustLocation() -- Triggered to enable or disable robust location for 911 enable/disable.
@@ -532,7 +532,7 @@
    int enabled911 =1;
    if(taf_gnss_ConfigureRobustLocation(enable,enabled911) == LE_OK)
    {
-     //Process after succesfully configuring Engine state for the given Engine type
+     // Process after succesfully configuring Engine state for the given Engine type
    }
    @endverbatim
  * - taf_gnss_RobustLocationInformation() -- Triggered to get location for enable/disable, 911 enable/disable, and major/minor version numbers.
@@ -543,14 +543,14 @@
    uint8_t minorVersion;
    if(taf_gnss_RobustLocationInformation(&enable,&enabled911, &majorVersion,&minorVersion) == LE_OK)
    {
-     //Process after succesfully getting Robust location information for Enable/Disable, 911 enable or disable, major & minor version numbers
+     // Process after succesfully getting Robust location information for Enable/Disable, 911 enable or disable, major & minor version numbers
    }
    @endverbatim
  * - taf_gnss_DefaultSecondaryBandConstellations() -- Triggered to get the default secondary band constellations.
  * @verbatim
    if(taf_gnss_DefaultSecondaryBandConstellations() == LE_OK)
    {
-     //Process after succesfully getting default secondary Band constellations
+     // Process after succesfully getting default secondary Band constellations
    }
    @endverbatim
  * - taf_gnss_RequestSecondaryBandConstellations() -- Triggered to get the secondary band constellations set.
@@ -558,7 +558,7 @@
    int32_t constellationSb=0;
    if(taf_gnss_RequestSecondaryBandConstellations(&constellationSb)==LE_OK)
    {
-     //Process after succesfully getting secondary band constellations set
+     // Process after succesfully getting secondary band constellations set
    }
    @endverbatim
  * - taf_gnss_ConfigureSecondaryBandConstellations() -- Triggered to set the secondary band constellation using a bitmask.
@@ -566,7 +566,7 @@
    uint32_t constellationSb = 1;
    if(taf_gnss_ConfigureSecondaryBandConstellations(constellationSb)==LE_OK)
    {
-     //Process after succesfully configuring secondary Band constellations
+     // Process after succesfully configuring secondary Band constellations
    }
    @endverbatim
  * - taf_gnss_GetDilutionOfPrecision() -- Triggered inside PositionHandlerFunction() function to get 
@@ -576,7 +576,7 @@
    taf_gnss_DopType_t dopType = TAF_GNSS_PDOP;
    if(taf_gnss_GetDilutionOfPrecision(positionSampleRef,dopType,&dop) == LE_OK)
    {
-     //Process after succesfully getting the dilute of precision for dilute of precision type.
+     // Process after succesfully getting the dilute of precision for dilute of precision type.
    }
    @endverbatim
  * taf_gnss_GetDilutionOfPrecision() -- Gets the Dilution of Precision (DOP) paramters with a
@@ -588,7 +588,7 @@
    static taf_gnss_Resolution_t DopRes = TAF_GNSS_RES_ONE_DECIMAL;
    if(taf_gnss_SetDopResolution(DopRes) == LE_OK)
    {
-     //Process after succesfully setting the dilute of precision resolution
+     // Process after succesfully setting the dilute of precision resolution
    }
    @endverbatim
  * taf_gnss_SetDopResolution() and @c taf_gnss_GetDilutionOfPrecision() functions should be called
@@ -1163,6 +1163,8 @@ FUNCTION le_result_t SetConstellation
  * @return
  *  - LE_OK    Succeeded
  *  - LE_FAULT Failed
+ *  - LE_OK    On success
+ *  - LE_FAULT On failure
  *
  * @note If the caller passes a null pointer to this function, it is a fatal error and the
  *       function will not return.

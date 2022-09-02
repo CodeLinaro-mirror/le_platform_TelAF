@@ -707,8 +707,25 @@ taf_gnss_Constellation_t satConstellation,
 taf_gnss_ConstellationArea_t constellationArea
 )
 {
-    auto &gnss = taf_Gnss::GetInstance();
-    return gnss.SetConstellationArea(satConstellation, constellationArea);
+    LE_DEBUG("Set Constellation Area is not supported");
+    return LE_UNSUPPORTED;
+}
+
+/**
+* FUNCTION     : GetConstellationArea
+* DESCRIPTION  : Get the area for the GNSS constellation for the constellation type
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
+*/
+le_result_t taf_gnss_GetConstellationArea
+(
+taf_gnss_Constellation_t satConstellation,
+taf_gnss_ConstellationArea_t* constellationArea
+)
+{
+    LE_DEBUG("Get Constellation Area is not supported");
+    return LE_UNSUPPORTED;
 }
 
 /**
@@ -1069,7 +1086,7 @@ le_result_t taf_gnss_ForceFactoryRestart
 )
 {
     LE_DEBUG("Feature not Supported");
-    return LE_OK;
+    return LE_UNSUPPORTED;
 }
 
 /**

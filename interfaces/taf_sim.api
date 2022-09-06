@@ -217,6 +217,8 @@
  *
  * - @ref taf_sim_SetPower() -- Powers up or down the current SIM card.
  *
+ * taf_sim_Reset() is used to reset the specified card using the sim-slot.
+ *
  * @warning The device may need a reboot to detect a SIM insertion or removal. So it is recommended to restart
  *          the device or NAD.
  *
@@ -873,3 +875,16 @@ FUNCTION le_result_t SetPower
     le_onoff_t   power IN                   ///< The power state.
 );
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reset the SIM.
+ *
+ * @return
+ *      - LE_FAULT         Function failed.
+ *      - LE_OK            Function succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t Reset
+(
+    Id simId IN                          ///< The SIM identifier.
+);

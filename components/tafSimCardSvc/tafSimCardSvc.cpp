@@ -366,3 +366,12 @@ le_result_t taf_sim_SetPower
     auto &sim = taf_sim::GetInstance();
     return sim.SetPower(simId, powerState);
 }
+
+le_result_t taf_sim_Reset
+(
+    taf_sim_Id_t simId
+)
+{
+    auto &sim = taf_sim::GetInstance();
+    return sim.Reset(simId);
+}

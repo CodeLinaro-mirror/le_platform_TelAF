@@ -1066,3 +1066,20 @@ le_result_t taf_sim::SetPower(taf_sim_Id_t simId, le_onoff_t powerState)
             statusToString(status), simId, powerState);
     return LE_FAULT;
 }
+
+le_result_t taf_sim::Reset(taf_sim_Id_t simId)
+{
+    LE_INFO("Resetting sim card");
+    le_result_t r=SetPower(simId, LE_OFF);
+    if(r!=LE_OK){
+        LE_INFO("Powering off while resetting failed");
+        return LE_FAULT;
+    }
+    r = SetPower(simId, LE_ON);
+    if(r!=LE_OK){
+        LE_INFO("Powering on while resetting failed");
+        return LE_FAULT;
+    }
+    LE_INFO("SIM Reset successful");
+    return LE_OK;
+}

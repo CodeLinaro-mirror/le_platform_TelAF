@@ -54,15 +54,21 @@
 #define NAT_ENTRY_PRIVATE_IP_ADDR       "111.111.111.11"
 #define TEST_DESTINATION_NAT_ENTRY_NUM  3
 #define TEST_VLAN_ENTRY_NUM  3
+#define DEFAULT_MTU_SIZE 1422
 
 le_sem_Ref_t semaphore;
+int stopping_num = 0;
 
 taf_net_RouteChangeHandlerRef_t routeChangeHandlerRef;
 taf_net_GatewayChangeHandlerRef_t gatewayChangeHandlerRef;
 taf_net_DNSChangeHandlerRef_t DNSChangeHandlerRef;
 taf_net_DestNatChangeHandlerRef_t DestNatChangeHandlerRef;
 
-static void NetRouteChangeHandlerFunc(const taf_net_RouteChangeInd_t* routeChangeIndPtr, void* contextPtr)
+static void NetRouteChangeHandlerFunc
+(
+    const taf_net_RouteChangeInd_t* routeChangeIndPtr,
+    void* contextPtr
+)
 {
     LE_INFO("**** Handler for route Change Indication (Begin)****");
     LE_INFO("----interface name: %s", routeChangeIndPtr->interfaceName);
@@ -88,7 +94,11 @@ static void* NetRouteThread(void* contextPtr)
     return NULL;
 }
 
-static void NetGatewayChangeHandlerFunc(const taf_net_GatewayChangeInd_t* gatewayChangeIndPtr, void* contextPtr)
+static void NetGatewayChangeHandlerFunc
+(
+    const taf_net_GatewayChangeInd_t* gatewayChangeIndPtr,
+    void* contextPtr
+)
 {
     LE_INFO("**** Handler for gateway change Indication (Begin)****");
     LE_INFO("----interface name: %s", gatewayChangeIndPtr->interfaceName);
@@ -138,7 +148,11 @@ static void* NetDNSThread(void* contextPtr)
     return NULL;
 }
 
-static void DestNatChangeHandlerFunc(const taf_net_DestNatChangeInd_t* DestNatChangeIndPtr, void* contextPtr)
+static void DestNatChangeHandlerFunc
+(
+    const taf_net_DestNatChangeInd_t* DestNatChangeIndPtr,
+    void* contextPtr
+)
 {
     LE_INFO("**** Handler for Destination Nat Change Indication (Begin)****");
     LE_INFO("----profileId: %d", DestNatChangeIndPtr->profileId);
@@ -188,7 +202,8 @@ static void NetworkChangeIpRouteTest()
 
     LE_INFO("----add ip v4 route start");
 
-    result=taf_net_ChangeRoute(CHANGE_ROUTE_INTERFACE,CHANGE_ROUTE_IP_V4_DEST_ADDR,CHANGE_ROUTE_IP_V4_PREFIX_LEN,METRIC,TAF_NET_ADD);
+    result=taf_net_ChangeRoute(CHANGE_ROUTE_INTERFACE,CHANGE_ROUTE_IP_V4_DEST_ADDR,
+                               CHANGE_ROUTE_IP_V4_PREFIX_LEN,METRIC,TAF_NET_ADD);
     LE_ASSERT(result == LE_OK);
 
     if (le_thread_Sleep(1))
@@ -198,7 +213,8 @@ static void NetworkChangeIpRouteTest()
 
     LE_INFO("----delete ip v4 route start");
 
-    result=taf_net_ChangeRoute(CHANGE_ROUTE_INTERFACE,CHANGE_ROUTE_IP_V4_DEST_ADDR,CHANGE_ROUTE_IP_V4_PREFIX_LEN,METRIC,TAF_NET_DELETE);
+    result=taf_net_ChangeRoute(CHANGE_ROUTE_INTERFACE,CHANGE_ROUTE_IP_V4_DEST_ADDR,
+                               CHANGE_ROUTE_IP_V4_PREFIX_LEN,METRIC,TAF_NET_DELETE);
     LE_ASSERT(result == LE_OK);
 
     if (le_thread_Sleep(1))
@@ -208,7 +224,8 @@ static void NetworkChangeIpRouteTest()
 
     LE_INFO("----add ip v6 route start");
 
-    result=taf_net_ChangeRoute(CHANGE_ROUTE_INTERFACE,CHANGE_ROUTE_IP_V6_DEST_ADDR,CHANGE_ROUTE_IP_V6_PREFIX_LEN,METRIC,TAF_NET_ADD);
+    result=taf_net_ChangeRoute(CHANGE_ROUTE_INTERFACE,CHANGE_ROUTE_IP_V6_DEST_ADDR,
+                               CHANGE_ROUTE_IP_V6_PREFIX_LEN,METRIC,TAF_NET_ADD);
     LE_ASSERT(result == LE_OK);
 
     if (le_thread_Sleep(1))
@@ -218,7 +235,8 @@ static void NetworkChangeIpRouteTest()
 
     LE_INFO("----delete ip v6 route start");
 
-    result=taf_net_ChangeRoute(CHANGE_ROUTE_INTERFACE,CHANGE_ROUTE_IP_V6_DEST_ADDR,CHANGE_ROUTE_IP_V6_PREFIX_LEN,METRIC,TAF_NET_DELETE);
+    result=taf_net_ChangeRoute(CHANGE_ROUTE_INTERFACE,CHANGE_ROUTE_IP_V6_DEST_ADDR,
+                               CHANGE_ROUTE_IP_V6_PREFIX_LEN,METRIC,TAF_NET_DELETE);
     LE_ASSERT(result == LE_OK);
 
 }
@@ -233,9 +251,12 @@ static void NetworkGetInterfaceDefaultGatewayTest()
     memset(ipv4addr, 0 , NET_IPV4_ADDR_MAX_BYTES);
     memset(ipv6addr, 0 , NET_IPV6_ADDR_MAX_BYTES);
 
-    LE_ASSERT(taf_net_GetInterfaceGW(CELLULAR_INTERFACE,NULL , sizeof(ipv4addr), ipv6addr, sizeof(ipv6addr)) == LE_BAD_PARAMETER);
-    LE_ASSERT(taf_net_GetInterfaceGW(CELLULAR_INTERFACE,ipv4addr , sizeof(ipv4addr), NULL, sizeof(ipv6addr)) == LE_BAD_PARAMETER);
-    LE_ASSERT(taf_net_GetInterfaceGW(CELLULAR_INTERFACE,ipv4addr , sizeof(ipv4addr), ipv6addr, sizeof(ipv6addr)) == LE_OK);
+    LE_ASSERT(taf_net_GetInterfaceGW(CELLULAR_INTERFACE,NULL , sizeof(ipv4addr),
+                                     ipv6addr, sizeof(ipv6addr)) == LE_BAD_PARAMETER);
+    LE_ASSERT(taf_net_GetInterfaceGW(CELLULAR_INTERFACE,ipv4addr , sizeof(ipv4addr),
+                                     NULL, sizeof(ipv6addr)) == LE_BAD_PARAMETER);
+    LE_ASSERT(taf_net_GetInterfaceGW(CELLULAR_INTERFACE,ipv4addr , sizeof(ipv4addr),
+                                     ipv6addr, sizeof(ipv6addr)) == LE_OK);
 
     LE_INFO("----got default gateway address ipv4addr= %s,ipv6addr=%s",ipv4addr,ipv6addr);
 
@@ -251,8 +272,10 @@ static void NetworkGetInterfaceDnsTest()
     LE_ASSERT(taf_net_GetInterfaceDNS(CELLULAR_INTERFACE,NULL) == LE_BAD_PARAMETER);
     LE_ASSERT(taf_net_GetInterfaceDNS(CELLULAR_INTERFACE,&dnsServerAddressesPtr) == LE_OK);
 
-    LE_INFO("----got ipv4 DNS1 is %s ,DNS2 is %s",dnsServerAddressesPtr.ipv4Addr1,dnsServerAddressesPtr.ipv4Addr2);
-    LE_INFO("----got ipv6 DNS1 is %s ,DNS2 is %s",dnsServerAddressesPtr.ipv6Addr1,dnsServerAddressesPtr.ipv6Addr2);
+    LE_INFO("----got ipv4 DNS1 is %s ,DNS2 is %s",dnsServerAddressesPtr.ipv4Addr1,
+                                                  dnsServerAddressesPtr.ipv4Addr2);
+    LE_INFO("----got ipv6 DNS1 is %s ,DNS2 is %s",dnsServerAddressesPtr.ipv6Addr1,
+                                                  dnsServerAddressesPtr.ipv6Addr2);
 
     return ;
 }
@@ -283,7 +306,8 @@ static void NetworkBackupSetRestoreDefaultGatewayTest()
         LE_INFO("----Set default gateway test start");
         result=taf_net_SetDefaultGW(CELLULAR_INTERFACE);
         if(result == LE_NOT_FOUND)
-            LE_INFO("----Can't find default gateway to be set from interface =%s,result =%d", CELLULAR_INTERFACE, result);
+            LE_INFO("----Can't find default gateway to be set from interface =%s,result =%d",
+                     CELLULAR_INTERFACE, result);
         else
         {
             LE_INFO("----Restore default gateway test start");
@@ -389,6 +413,383 @@ void VlanUnitTestFunc(void)
 
 }
 
+static void StopTunnelAsyncHandlerFunc
+(
+    taf_net_TunnelRef_t tunnelRef,
+    le_result_t result, void* contextPtr
+)
+{
+    stopping_num++ ;
+    LE_INFO("**** Handler for stop Tunnel Asynchronously (Begin)****");
+    LE_INFO("tunnelRef= %p, result: %d", tunnelRef, result);
+    //remove tunnel
+    LE_ASSERT(taf_net_RemoveTunnel(tunnelRef) == LE_OK);
+    //disable l2tp
+    if(stopping_num == TAF_NET_L2TP_MAX_TUNNEL_NUMBER)
+    {
+        LE_INFO("----Synchronously disable L2TP----");
+        if(taf_net_DisableL2tp() == LE_OK)
+        {
+            LE_INFO(" Unit test successful");
+            exit(EXIT_SUCCESS);
+        }
+        else
+            exit(EXIT_FAILURE);
+    }
+    LE_INFO("**** Handler for stop Tunnel Asynchronously (End)****");
+}
+
+static void StartTunnelAsyncHandlerFunc
+(
+    taf_net_TunnelRef_t tunnelRef,
+    le_result_t result, void* contextPtr
+)
+{
+
+    taf_net_TunnelEntryListRef_t listRef= NULL;
+    taf_net_L2tpEncapProtocol_t encaproto;
+    taf_net_IpFamilyType_t ipType;
+    char ipv6addr[TAF_NET_IPV6_ADDR_MAX_LEN];
+    char retInterface[TAF_NET_INTERFACE_NAME_MAX_LEN];
+    taf_net_L2tpSessionConfig_t sessionConfig[2];
+    size_t sessionNum=3;
+
+    listRef = taf_net_GetTunnelEntryList();
+
+    LE_INFO("**** Handler for Start Tunnel Asynchronously (Begin)****");
+    LE_INFO("tunnelRef= %p, result: %d", tunnelRef, result);
+
+    if(listRef !=NULL)
+    {
+        taf_net_TunnelEntryRef_t entryRef = taf_net_GetFirstTunnelEntry(listRef);
+
+        while(entryRef != NULL)
+        {
+            LE_INFO("Async start tunnel end:local tunnel id =%d peer tunnel id = %d",
+                    taf_net_GetTunnelLocalId(entryRef),taf_net_GetTunnelPeerId(entryRef));
+
+            encaproto = taf_net_GetTunnelEncapProto(entryRef);
+            LE_INFO("Async start tunnel end:encapsulation protocol =%d",
+                    (int)taf_net_GetTunnelEncapProto(entryRef));
+
+            if(encaproto == TAF_NET_L2TP_UDP)
+            {
+                LE_INFO("Async start tunnel end:local udp port = %d, peer udp port = %d",
+                        taf_net_GetTunnelLocalUdpPort(entryRef),
+                        taf_net_GetTunnelPeerUdpPort(entryRef));
+            }
+
+            ipType=taf_net_GetTunnelIpType(entryRef);
+            if(ipType == TAF_NET_L2TP_IPV6)
+            {
+                taf_net_GetTunnelPeerIpv6Addr(entryRef, ipv6addr,
+                                                           TAF_NET_IPV6_ADDR_MAX_LEN);
+                LE_INFO("Async start tunnel end:ip addr =%s", ipv6addr);
+            }
+
+            taf_net_GetTunnelInterfaceName(entryRef, retInterface,
+                                                       TAF_NET_INTERFACE_NAME_MAX_LEN);
+            LE_INFO("Async start tunnel end:retInterface =%s", retInterface);
+
+            taf_net_GetSessionConfig(entryRef, sessionConfig, &sessionNum);
+            for(int j =0; j< sessionNum;j++)
+            {
+                LE_INFO("Async start tunnel end:%d, local session id = %d, peer session id = %d",
+                        j,sessionConfig[j].locId, sessionConfig[j].peerId);
+            }
+
+            entryRef=taf_net_GetNextTunnelEntry(listRef);
+        }
+
+        taf_net_DeleteTunnelEntryList(listRef);
+
+    }
+
+    taf_net_StopTunnelAsync(tunnelRef,StopTunnelAsyncHandlerFunc,NULL);
+    LE_INFO("**** Handler for Start Tunnel Asynchronously (End)****");
+}
+
+void L2tpUnitTestFunc(void)
+{
+    int i = 0;
+    le_result_t ret = LE_OK;
+    size_t sessionNum=3;
+    taf_net_IpFamilyType_t ipType;
+    const uint32_t localUdpPort = 5555, peerUdpPort = 6666;
+    taf_net_TunnelEntryListRef_t listRef= NULL;
+    char ipv6addr[TAF_NET_IPV6_ADDR_MAX_LEN];
+    char retInterface[TAF_NET_INTERFACE_NAME_MAX_LEN];
+    taf_net_L2tpSessionConfig_t sessionConfig[2];
+    taf_net_VlanRef_t vlanRef[TAF_NET_L2TP_MAX_TUNNEL_NUMBER] = {NULL,NULL};
+    const uint16_t vlanId[TAF_NET_L2TP_MAX_TUNNEL_NUMBER] = {5, 6};
+
+    taf_net_TunnelRef_t tunnelRef[TAF_NET_L2TP_MAX_TUNNEL_NUMBER] = {NULL,NULL};
+
+    const uint32_t localTunnelId[TAF_NET_L2TP_MAX_TUNNEL_NUMBER] = {1, 2};
+    const uint32_t peerTunnelId[TAF_NET_L2TP_MAX_TUNNEL_NUMBER] = {1, 2};
+    taf_net_L2tpEncapProtocol_t encaproto[TAF_NET_L2TP_MAX_TUNNEL_NUMBER]={TAF_NET_L2TP_IP,
+                                                                           TAF_NET_L2TP_UDP};
+    const uint32_t localSessionId[TAF_NET_L2TP_MAX_TUNNEL_NUMBER]
+                                 [TAF_NET_L2TP_MAX_SESSION_NUMBER_PER_TUNNEL]
+                                                                           = {{1, 2, 3}, {4, 5, 6}};
+    const uint32_t peerSessionId[TAF_NET_L2TP_MAX_TUNNEL_NUMBER]
+                                [TAF_NET_L2TP_MAX_SESSION_NUMBER_PER_TUNNEL]
+                                                                     = {{11, 22, 33}, {44, 55, 66}};
+    const char ipaddr[TAF_NET_L2TP_MAX_TUNNEL_NUMBER][TAF_NET_IPV6_ADDR_MAX_LEN] =
+                                                       {"fd53:7cb8:383:5::2", "fd53:7cb8:383:6::2"};
+    const char interface[TAF_NET_L2TP_MAX_TUNNEL_NUMBER][TAF_NET_INTERFACE_NAME_MAX_LEN] ={"eth0.5",
+                                                                                          "eth0.6"};
+
+    LE_INFO("======== Create vlan ========");
+
+    for(i = 0; i < TAF_NET_L2TP_MAX_TUNNEL_NUMBER; i++)
+    {
+        //create vlan
+        vlanRef[i] = taf_net_CreateVlan(vlanId[i], 1);
+        LE_ASSERT(vlanRef[i] != NULL);
+        //add vlan interface
+        LE_ASSERT(taf_net_AddVlanInterface(vlanRef[i],TAF_NET_ETH) == LE_OK);
+    }
+
+    LE_INFO("======== Enable/disable l2tp ========");
+    //telsdk has issues, need to set 0 0 0 then enable with other parameters
+    LE_ASSERT(taf_net_EnableL2tp(0,0,0) == LE_OK);
+
+    LE_ASSERT(taf_net_EnableL2tp(1,0,0) == LE_OK);
+
+    LE_ASSERT(taf_net_IsL2tpEnabled() == true);
+
+    LE_ASSERT(taf_net_IsL2tpMssEnabled() == true);
+
+    LE_ASSERT(taf_net_IsL2tpMtuEnabled() == false);
+
+    LE_ASSERT(taf_net_GetL2tpMtuSize() == DEFAULT_MTU_SIZE);
+
+    LE_ASSERT(taf_net_DisableL2tp() == LE_OK);
+
+    //telsdk has issues, need to set 0 0 0 ,then enable with other parameters
+    LE_ASSERT(taf_net_EnableL2tp(0,0,0) == LE_OK);
+
+    LE_ASSERT(taf_net_EnableL2tp(1,1,0) == LE_OK);
+
+    LE_ASSERT(taf_net_IsL2tpEnabled() == true);
+
+    LE_ASSERT(taf_net_IsL2tpMssEnabled() == true);
+
+    LE_ASSERT(taf_net_IsL2tpMtuEnabled() == true);
+
+    LE_ASSERT(taf_net_GetL2tpMtuSize() == DEFAULT_MTU_SIZE);
+
+    LE_ASSERT(taf_net_DisableL2tp() == LE_OK);
+
+    LE_ASSERT(taf_net_EnableL2tp(0,0,0) == LE_OK);
+
+    LE_ASSERT(taf_net_EnableL2tp(1,1,1300) == LE_OK);
+
+    LE_ASSERT(taf_net_IsL2tpEnabled() == true);
+
+    LE_ASSERT(taf_net_IsL2tpMssEnabled() == true);
+
+    LE_ASSERT(taf_net_IsL2tpMtuEnabled() == true);
+
+    LE_ASSERT(taf_net_GetL2tpMtuSize() == 1300);
+
+    LE_INFO("======== Create tunnel========");
+
+    for(i = 0; i < TAF_NET_L2TP_MAX_TUNNEL_NUMBER; i++)
+    {
+        //test to create tunnel with bad parameter
+        tunnelRef[i]=taf_net_CreateTunnel(encaproto[i], localTunnelId[i], peerTunnelId[i],
+                                          "8.8.8", interface[i]);
+        LE_ASSERT(tunnelRef[i] == NULL);
+
+        //test to create tunnel with correct parameter
+        tunnelRef[i]=taf_net_CreateTunnel(encaproto[i], localTunnelId[i], peerTunnelId[i],
+                                          ipaddr[i], interface[i]);
+        LE_ASSERT(tunnelRef[i] != NULL);
+
+        //test to remove tunnel with NULL pointer
+        LE_ASSERT(taf_net_RemoveTunnel(NULL) == LE_BAD_PARAMETER);
+
+        //test to remove tunnel
+        LE_ASSERT(taf_net_RemoveTunnel(tunnelRef[i]) == LE_OK);
+
+        //test to create tunnel with correct parameter
+        tunnelRef[i]=taf_net_CreateTunnel(encaproto[i], localTunnelId[i], peerTunnelId[i],
+                                          ipaddr[i], interface[i]);
+        LE_ASSERT(tunnelRef[i] != NULL);
+
+        //test to set udp port with NULL pointer
+        LE_ASSERT(taf_net_SetTunnelUdpPort(NULL, localUdpPort, peerUdpPort) == LE_BAD_PARAMETER);
+
+        //test to set udp port for IP encapsulation protocol
+        if(encaproto[i] == TAF_NET_L2TP_IP)
+            LE_ASSERT(taf_net_SetTunnelUdpPort(tunnelRef[i], localUdpPort, peerUdpPort) ==
+                                                                                          LE_FAULT);
+
+        //test to add session with NULL pointer
+        LE_ASSERT(taf_net_AddSession(NULL, localSessionId[i][0], peerSessionId[i][0]) ==
+                                                                                LE_BAD_PARAMETER);
+
+        //test to add the first session
+        LE_ASSERT(taf_net_AddSession(tunnelRef[i], localSessionId[i][0], peerSessionId[i][0]) ==
+                                                                                             LE_OK);
+
+        //test to add session with same local session id
+        LE_ASSERT(taf_net_AddSession(tunnelRef[i], localSessionId[i][0], 0) == LE_FAULT);
+
+        //test to add session with same peer session id
+        LE_ASSERT(taf_net_AddSession(tunnelRef[i], 0, peerSessionId[i][0]) == LE_FAULT);
+
+        //test to add the second session
+        LE_ASSERT(taf_net_AddSession(tunnelRef[i], localSessionId[i][1], peerSessionId[i][1]) ==
+                                                                                             LE_OK);
+
+        //test to add the third session
+        LE_ASSERT(taf_net_AddSession(tunnelRef[i], localSessionId[i][2], peerSessionId[i][2]) ==
+                                                                                             LE_OK);
+
+        //test to add the fourth session
+        LE_ASSERT(taf_net_AddSession(tunnelRef[i], 44, 44) == LE_FAULT);
+
+        //test to remove session with bad parameter
+        LE_ASSERT(taf_net_RemoveSession(tunnelRef[i], localSessionId[i][2], 0) == LE_FAULT);
+
+        //test to remove the third session
+        LE_ASSERT(taf_net_RemoveSession(tunnelRef[i], localSessionId[i][2], peerSessionId[i][2]) ==
+                                                                                             LE_OK);
+
+        //test to remove the second session
+        LE_ASSERT(taf_net_RemoveSession(tunnelRef[i], localSessionId[i][1], peerSessionId[i][1]) ==
+                                                                                             LE_OK);
+
+        //test to start tunnel with NULL parameter
+        LE_ASSERT(taf_net_StartTunnel(NULL) == LE_BAD_PARAMETER);
+
+        if(encaproto[i] == TAF_NET_L2TP_UDP)
+        {
+            //test to set udp port
+            LE_ASSERT(taf_net_SetTunnelUdpPort(tunnelRef[i], localUdpPort, peerUdpPort) == LE_OK);
+        }
+
+        //test to get tunnel reference
+        LE_ASSERT(taf_net_GetTunnelRefById(localTunnelId[i]) == tunnelRef[i]);
+
+        //test to start tunnel
+        LE_ASSERT(taf_net_StartTunnel(tunnelRef[i]) == LE_OK);
+        le_thread_Sleep(3);
+    }
+
+    listRef = taf_net_GetTunnelEntryList();
+
+    if(listRef !=NULL)
+    {
+        taf_net_TunnelEntryRef_t entryRef = taf_net_GetFirstTunnelEntry(listRef);
+        i=0;
+        while(entryRef != NULL)
+        {
+            LE_ASSERT(taf_net_GetTunnelLocalId(entryRef) == localTunnelId[i]);
+
+            LE_ASSERT(taf_net_GetTunnelPeerId(entryRef) == peerTunnelId[i]);
+
+            LE_ASSERT(taf_net_GetTunnelEncapProto(entryRef) == encaproto[i]);
+
+            if(encaproto[i] == TAF_NET_L2TP_UDP)
+            {
+                LE_ASSERT(taf_net_GetTunnelLocalUdpPort(entryRef) == localUdpPort);
+                LE_ASSERT(taf_net_GetTunnelPeerUdpPort(entryRef) == peerUdpPort);
+            }
+
+            ipType=taf_net_GetTunnelIpType(entryRef);
+            if(ipType == TAF_NET_L2TP_IPV6)
+            {
+                ret=taf_net_GetTunnelPeerIpv6Addr(entryRef, ipv6addr,
+                                                           TAF_NET_IPV6_ADDR_MAX_LEN);
+                LE_ASSERT(ret == LE_OK);
+                LE_ASSERT(strncmp(ipv6addr, ipaddr[i], TAF_NET_IPV6_ADDR_MAX_LEN) == 0);
+            }
+
+            ret=taf_net_GetTunnelInterfaceName(entryRef, retInterface,
+                                                       TAF_NET_INTERFACE_NAME_MAX_LEN);
+            LE_ASSERT(ret == LE_OK);
+            LE_ASSERT(strncmp(retInterface, interface[i], TAF_NET_INTERFACE_NAME_MAX_LEN) == 0);
+
+            ret=taf_net_GetSessionConfig(entryRef, sessionConfig, &sessionNum);
+            LE_ASSERT(ret == LE_OK);
+
+            for(int j =0; j< sessionNum;j++)
+            {
+                LE_ASSERT(sessionConfig[j].locId == localSessionId[i][j]);
+                LE_ASSERT(sessionConfig[j].peerId == peerSessionId[i][j]);
+            }
+
+            entryRef=taf_net_GetNextTunnelEntry(listRef);
+            i++;
+        }
+
+        taf_net_DeleteTunnelEntryList(listRef);
+
+    }
+
+    LE_INFO("======== stop tunnel ========");
+    for(i = 0; i < TAF_NET_L2TP_MAX_TUNNEL_NUMBER; i++)
+    {
+        //stop tunnel
+        LE_ASSERT(taf_net_StopTunnel(tunnelRef[i]) == LE_OK);
+    }
+
+    //Asynchronously starts tunnel
+    for(i = 0; i < TAF_NET_L2TP_MAX_TUNNEL_NUMBER; i++)
+    {
+        taf_net_StartTunnelAsync(tunnelRef[i],StartTunnelAsyncHandlerFunc,NULL);
+    }
+
+    le_event_RunLoop();
+}
+
+static void DisableL2tpAsyncHandlerFunc
+(
+    le_result_t result, void* contextPtr
+)
+{
+    LE_INFO("**** Handler for disable L2tp Asynchronously (Begin)****");
+
+    if(result == LE_OK)
+    {
+        LE_INFO("Asynchronously enable/disable L2TP successfully");
+        exit(EXIT_SUCCESS);
+    }
+    else
+        exit(EXIT_FAILURE);
+
+    LE_INFO("**** Handler for disable L2tp Asynchronously (End)****");
+}
+
+static void EnableL2tpAsyncHandlerFunc
+(
+    le_result_t result, void* contextPtr
+)
+{
+    LE_INFO("**** Handler for enable L2tp Asynchronously (Begin)****");
+    LE_INFO("result: %d", result);
+    if(result == LE_OK)
+    {
+        LE_INFO("----Asynchronously disable L2TP----");
+        taf_net_DisableL2tpAsync(DisableL2tpAsyncHandlerFunc, NULL);
+    }
+
+    LE_INFO("**** Handler for enable L2tp Asynchronously (End)****");
+}
+
+static void* UnitTestAsyncL2tpThread(void* contextPtr)
+{
+    taf_net_ConnectService();
+    taf_net_EnableL2tpAsync(0,0,0,EnableL2tpAsyncHandlerFunc, NULL);
+
+    le_event_RunLoop();
+  return NULL;
+}
+
 void NatDestNatUnitTestFunc(void)
 {
     LE_INFO("======== 3.1 Destination NAT Entry Test ========");
@@ -400,23 +801,31 @@ void NatDestNatUnitTestFunc(void)
     const uint16_t privatePort[TEST_DESTINATION_NAT_ENTRY_NUM] = {6000, 6001, 6002};
     const uint16_t ipProtoNum[TEST_DESTINATION_NAT_ENTRY_NUM] = {6, 17, 6};//TCP,UDP,TCP
 
-    LE_ASSERT(taf_net_AddDestNatEntryOnDefaultPdn("200.200.200", privatePort[0], globalPort[0], 6) == LE_BAD_PARAMETER);
+    LE_ASSERT(taf_net_AddDestNatEntryOnDefaultPdn("200.200.200", privatePort[0], globalPort[0], 6)==
+                                                   LE_BAD_PARAMETER);
 
     for (size_t i = 0; i < TEST_DESTINATION_NAT_ENTRY_NUM; i++)
     {
-        LE_ASSERT(taf_net_AddDestNatEntryOnDefaultPdn(NAT_ENTRY_PRIVATE_IP_ADDR, privatePort[i], globalPort[i], ipProtoNum[i]) == LE_OK);
+        LE_ASSERT(taf_net_AddDestNatEntryOnDefaultPdn(NAT_ENTRY_PRIVATE_IP_ADDR, privatePort[i],
+                                                      globalPort[i], ipProtoNum[i]) == LE_OK);
     }
 
     taf_net_DestNatEntryListRef_t listRef=taf_net_GetDestNatEntryListOnDefaultPdn();
     LE_ASSERT(listRef != NULL);
     taf_net_DestNatEntryRef_t entryRef = taf_net_GetFirstDestNatEntry(listRef);
     LE_ASSERT(entryRef != NULL);
-    LE_ASSERT(taf_net_GetDestNatEntryDetails(NULL, ipaddr, NET_IPV6_ADDR_MAX_BYTES, &priPort, &glbPort, &proto) == LE_BAD_PARAMETER);
-    LE_ASSERT(taf_net_GetDestNatEntryDetails(entryRef, NULL, NET_IPV6_ADDR_MAX_BYTES, &priPort, &glbPort, &proto) == LE_BAD_PARAMETER);
-    LE_ASSERT(taf_net_GetDestNatEntryDetails(entryRef, ipaddr, NET_IPV6_ADDR_MAX_BYTES, NULL, &glbPort, &proto) == LE_BAD_PARAMETER);
-    LE_ASSERT(taf_net_GetDestNatEntryDetails(entryRef, ipaddr, NET_IPV6_ADDR_MAX_BYTES, &priPort, NULL, &proto) == LE_BAD_PARAMETER);
-    LE_ASSERT(taf_net_GetDestNatEntryDetails(entryRef, ipaddr, NET_IPV6_ADDR_MAX_BYTES, &priPort, &glbPort, NULL) == LE_BAD_PARAMETER);
-    LE_ASSERT(taf_net_GetDestNatEntryDetails(entryRef, ipaddr, NET_IPV6_ADDR_MAX_BYTES, &priPort, &glbPort, &proto) == LE_OK);
+    LE_ASSERT(taf_net_GetDestNatEntryDetails(NULL, ipaddr, NET_IPV6_ADDR_MAX_BYTES, &priPort,
+                                             &glbPort, &proto) == LE_BAD_PARAMETER);
+    LE_ASSERT(taf_net_GetDestNatEntryDetails(entryRef, NULL, NET_IPV6_ADDR_MAX_BYTES, &priPort,
+                                             &glbPort, &proto) == LE_BAD_PARAMETER);
+    LE_ASSERT(taf_net_GetDestNatEntryDetails(entryRef, ipaddr, NET_IPV6_ADDR_MAX_BYTES, NULL,
+                                             &glbPort, &proto) == LE_BAD_PARAMETER);
+    LE_ASSERT(taf_net_GetDestNatEntryDetails(entryRef, ipaddr, NET_IPV6_ADDR_MAX_BYTES, &priPort,
+                                             NULL, &proto) == LE_BAD_PARAMETER);
+    LE_ASSERT(taf_net_GetDestNatEntryDetails(entryRef, ipaddr, NET_IPV6_ADDR_MAX_BYTES, &priPort,
+                                             &glbPort, NULL) == LE_BAD_PARAMETER);
+    LE_ASSERT(taf_net_GetDestNatEntryDetails(entryRef, ipaddr, NET_IPV6_ADDR_MAX_BYTES, &priPort,
+                                             &glbPort, &proto) == LE_OK);
 
     entryRef=taf_net_GetNextDestNatEntry(listRef);
     LE_ASSERT(entryRef != NULL);
@@ -425,7 +834,8 @@ void NatDestNatUnitTestFunc(void)
 
     for (size_t i = 0; i < TEST_DESTINATION_NAT_ENTRY_NUM; i++)
     {
-        LE_ASSERT(taf_net_RemoveDestNatEntryOnDefaultPdn(NAT_ENTRY_PRIVATE_IP_ADDR, privatePort[i], globalPort[i], ipProtoNum[i]) == LE_OK);
+        LE_ASSERT(taf_net_RemoveDestNatEntryOnDefaultPdn(NAT_ENTRY_PRIVATE_IP_ADDR, privatePort[i],
+                                                         globalPort[i], ipProtoNum[i]) == LE_OK);
     }
 
     LE_ASSERT(taf_net_DeleteDestNatEntryList(NULL) == LE_BAD_PARAMETER);
@@ -499,8 +909,19 @@ static void* UnitTestNetThread(void* contextPtr)
     LE_INFO("======== 3 Destination NAT unit test start========");
     NatDestNatUnitTestFunc();
 
-    LE_INFO("======== 4 Vlan unit test start========");
-    VlanUnitTestFunc();
+    taf_net_DeviceMode_t devicemode=taf_net_GetDeviceMode();
+
+    if(devicemode == TAF_NET_DEVICE_NONE)
+    {
+        LE_INFO("======== 4 Vlan unit test to start========");
+        VlanUnitTestFunc();
+    }
+    else if(devicemode == TAF_NET_DEVICE_L2L)
+    {
+        LE_INFO("======== 4 L2tp unit test to start========");
+        L2tpUnitTestFunc();
+    }
+
     LE_INFO("----all tests are passed");
     return NULL;
 }
@@ -522,5 +943,18 @@ static void* UnitTestNetThread(void* contextPtr)
 ======================================================================*/
 COMPONENT_INIT
 {
-    le_thread_Start(le_thread_Create("NetTestThread", UnitTestNetThread, NULL));
+    const char* testType = "";
+
+    if(le_arg_NumArgs() == 0)
+        return;
+
+    LE_INFO("number = %d",le_arg_NumArgs());
+    testType = le_arg_GetArg(0);
+    LE_INFO("arg0=%s ",testType);
+
+    if(strcmp(testType, "sync") ==0)
+        le_thread_Start(le_thread_Create("NetTestThread", UnitTestNetThread, NULL));
+    else if(strcmp(testType, "async") ==0)
+        le_thread_Start(le_thread_Create("NetTestAsyncL2tp", UnitTestAsyncL2tpThread, NULL));
+
 }

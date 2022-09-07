@@ -77,18 +77,35 @@ static void PrintUsage ()
 <profileid> <privateipaddr> <privateport> <globalport> <tcp/udp>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- getdestnatlistondemandpdn \
 <profileid>\n"
-            "app runProc tafNetIntTest --exe=tafNetIntTest -- createvlan <vlanId> <type> <isAccelerated>\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- createvlan <vlanId> <type> \
+<isAccelerated>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- removevlan <vlanId> <type>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- getvlaninterfaceinfo <vlanid>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- bindwithprofile \
 <vlanid> <profileid>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- unbindwithprofile <vlanid>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- getvlanentryinfo\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- setdevicemode <devicemode>\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- getdevicemode\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- enablel2tp <enablemss> <enablemtu> \
+<mtusize>\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- disablel2tp\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- getl2tpinfo\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- addtunnel <locId> <peerId> \
+<encaproto> [<localudpport> <peerudpport>] <peerIpAddrPtr> <ifNamePtr> \
+<sessionNum> [<localsessionId> <peersessionId> <localsessionId> <peersessionId> <localsessionId> \
+<peersessionId>\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- removetunnel <locId>\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- gettunnelinfo <locId>\n"
             "\n");
 }
 
 
-static void NetRouteChangeHandlerFunc(const taf_net_RouteChangeInd_t* routeChangeIndPtr, void* contextPtr)
+static void NetRouteChangeHandlerFunc
+(
+    const taf_net_RouteChangeInd_t* routeChangeIndPtr,
+    void* contextPtr
+)
 {
     LE_INFO("**** Handler for route Change Indication (Begin)****");
     LE_INFO("----interface name: %s", routeChangeIndPtr->interfaceName);
@@ -114,7 +131,11 @@ static void* NetRouteThread(void* contextPtr)
     return NULL;
 }
 
-static void NetGatewayChangeHandlerFunc(const taf_net_GatewayChangeInd_t* gatewayChangeIndPtr, void* contextPtr)
+static void NetGatewayChangeHandlerFunc
+(
+    const taf_net_GatewayChangeInd_t* gatewayChangeIndPtr,
+    void* contextPtr
+)
 {
     LE_INFO("**** Handler for gateway change Indication (Begin)****");
     LE_INFO("----interface name: %s", gatewayChangeIndPtr->interfaceName);
@@ -164,7 +185,11 @@ static void* NetDNSThread(void* contextPtr)
     return NULL;
 }
 
-static void DestNatChangeHandlerFunc(const taf_net_DestNatChangeInd_t* DestNatChangeIndPtr, void* contextPtr)
+static void DestNatChangeHandlerFunc
+(
+    const taf_net_DestNatChangeInd_t* DestNatChangeIndPtr,
+    void* contextPtr
+)
 {
     LE_INFO("**** Handler for Destination Nat Change Indication (Begin)****");
     LE_INFO("----profileId: %d", DestNatChangeIndPtr->profileId);
@@ -238,7 +263,8 @@ static int TafNetGetInterfaceList()
     LE_INFO("----interface number=%d,result=%d\n",listSize,result);
     for(int i=0;i<listSize;i++)
     {
-        LE_INFO("----interface name =%s,technology =%d,state =%d",intfInfoListPtr[i].interfaceName,intfInfoListPtr[i].tech,intfInfoListPtr[i].state);
+        LE_INFO("----interface name =%s,technology =%d,state =%d",intfInfoListPtr[i].interfaceName,
+                intfInfoListPtr[i].tech,intfInfoListPtr[i].state);
     }
 
     if(result !=LE_OK)
@@ -321,8 +347,10 @@ static int TafNetGetInterfaceDns()
     if(result !=LE_OK)
         return EXIT_FAILURE;
 
-    LE_INFO("----got ipv4 DNS1 is %s,DNS2 is %s",dnsServerAddressesPtr.ipv4Addr1,dnsServerAddressesPtr.ipv4Addr2);
-    LE_INFO("----got ipv6 DNS1 is %s,DNS2 is %s",dnsServerAddressesPtr.ipv6Addr1,dnsServerAddressesPtr.ipv6Addr2);
+    LE_INFO("----got ipv4 DNS1 is %s,DNS2 is %s",dnsServerAddressesPtr.ipv4Addr1,
+                                                 dnsServerAddressesPtr.ipv4Addr2);
+    LE_INFO("----got ipv6 DNS1 is %s,DNS2 is %s",dnsServerAddressesPtr.ipv6Addr1,
+                                                 dnsServerAddressesPtr.ipv6Addr2);
 
     return EXIT_SUCCESS;
 }
@@ -418,9 +446,11 @@ static int TafNatAddDestNatOnDefaultPdn()
 
     const char* ipproto = le_arg_GetArg(4);
 
-    if(strncmp(ipproto,"tcp",NET_IP_PROTO_NUMBER_LEN) ==0 ||strncmp(ipproto,"TCP",NET_IP_PROTO_NUMBER_LEN) ==0)
+    if(strncmp(ipproto,"tcp",NET_IP_PROTO_NUMBER_LEN) ==0 ||
+       strncmp(ipproto,"TCP",NET_IP_PROTO_NUMBER_LEN) ==0)
         protonum = NET_IP_PROTO_NUMBER_TCP;
-    else if(strncmp(ipproto,"udp",NET_IP_PROTO_NUMBER_LEN) ==0 || strncmp(ipproto,"UDP",NET_IP_PROTO_NUMBER_LEN) ==0)
+    else if(strncmp(ipproto,"udp",NET_IP_PROTO_NUMBER_LEN) ==0 ||
+            strncmp(ipproto,"UDP",NET_IP_PROTO_NUMBER_LEN) ==0)
         protonum = NET_IP_PROTO_NUMBER_UDP;
     else
     {
@@ -452,9 +482,11 @@ static int TafNatDelDestNatOnDefaultPdn()
 
     const char* ipproto = le_arg_GetArg(4);
 
-    if(strncmp(ipproto,"tcp",NET_IP_PROTO_NUMBER_LEN) ==0 ||strncmp(ipproto,"TCP",NET_IP_PROTO_NUMBER_LEN) ==0)
+    if(strncmp(ipproto,"tcp",NET_IP_PROTO_NUMBER_LEN) ==0 ||
+       strncmp(ipproto,"TCP",NET_IP_PROTO_NUMBER_LEN) ==0)
         protonum = NET_IP_PROTO_NUMBER_TCP;
-    else if(strncmp(ipproto,"udp",NET_IP_PROTO_NUMBER_LEN) ==0 || strncmp(ipproto,"UDP",NET_IP_PROTO_NUMBER_LEN) ==0)
+    else if(strncmp(ipproto,"udp",NET_IP_PROTO_NUMBER_LEN) ==0 ||
+            strncmp(ipproto,"UDP",NET_IP_PROTO_NUMBER_LEN) ==0)
         protonum = NET_IP_PROTO_NUMBER_UDP;
     else
     {
@@ -483,7 +515,8 @@ static int TafNatGetDestNatListOnDefaultPdn()
             uint16_t priPort;
             uint16_t glbPort;
             taf_net_IpProto_t proto;
-            taf_net_GetDestNatEntryDetails(entryRef, ipaddr, NET_IPV6_ADDR_MAX_BYTES, &priPort, &glbPort, &proto);
+            taf_net_GetDestNatEntryDetails(entryRef, ipaddr, NET_IPV6_ADDR_MAX_BYTES,
+                                           &priPort, &glbPort, &proto);
             if(proto == NET_IP_PROTO_NUMBER_TCP)
                     le_utf8_Copy(ipProtoStr, "TCP", NET_IP_PROTO_NUMBER_LEN, NULL);
             else if(proto == NET_IP_PROTO_NUMBER_UDP)
@@ -491,7 +524,8 @@ static int TafNatGetDestNatListOnDefaultPdn()
             else
                 LE_INFO("error ip proto number");
 
-            LE_INFO("----ipaddr=%s private port=%d, global port=%d,proto=%s",ipaddr,priPort,glbPort,ipProtoStr);
+            LE_INFO("----ipaddr=%s private port=%d, global port=%d,proto=%s",ipaddr,
+                                                        priPort,glbPort,ipProtoStr);
 
             entryRef=taf_net_GetNextDestNatEntry(listRef);
         }
@@ -529,9 +563,11 @@ static int TafNatAddDestNatOnDemandPdn()
 
     const char* ipproto = le_arg_GetArg(5);
 
-    if(strncmp(ipproto,"tcp",NET_IP_PROTO_NUMBER_LEN) ==0 ||strncmp(ipproto,"TCP",NET_IP_PROTO_NUMBER_LEN) ==0)
+    if(strncmp(ipproto,"tcp",NET_IP_PROTO_NUMBER_LEN) ==0 ||
+       strncmp(ipproto,"TCP",NET_IP_PROTO_NUMBER_LEN) ==0)
         protonum = NET_IP_PROTO_NUMBER_TCP;
-    else if(strncmp(ipproto,"udp",NET_IP_PROTO_NUMBER_LEN) ==0 || strncmp(ipproto,"UDP",NET_IP_PROTO_NUMBER_LEN) ==0)
+    else if(strncmp(ipproto,"udp",NET_IP_PROTO_NUMBER_LEN) ==0 ||
+            strncmp(ipproto,"UDP",NET_IP_PROTO_NUMBER_LEN) ==0)
         protonum = NET_IP_PROTO_NUMBER_UDP;
     else
     {
@@ -563,9 +599,11 @@ static int TafNatDelDestNatOnDemandPdn()
     uint16_t gblPort = strtol(le_arg_GetArg(4), NULL, 0);
     const char* ipproto = le_arg_GetArg(5);
 
-    if(strncmp(ipproto,"tcp",NET_IP_PROTO_NUMBER_LEN) ==0 ||strncmp(ipproto,"TCP",NET_IP_PROTO_NUMBER_LEN) ==0)
+    if(strncmp(ipproto,"tcp",NET_IP_PROTO_NUMBER_LEN) ==0 ||
+       strncmp(ipproto,"TCP",NET_IP_PROTO_NUMBER_LEN) ==0)
         protonum = NET_IP_PROTO_NUMBER_TCP;
-    else if(strncmp(ipproto,"udp",NET_IP_PROTO_NUMBER_LEN) ==0 || strncmp(ipproto,"UDP",NET_IP_PROTO_NUMBER_LEN) ==0)
+    else if(strncmp(ipproto,"udp",NET_IP_PROTO_NUMBER_LEN) ==0 ||
+            strncmp(ipproto,"UDP",NET_IP_PROTO_NUMBER_LEN) ==0)
         protonum = NET_IP_PROTO_NUMBER_UDP;
     else
     {
@@ -600,7 +638,8 @@ static int TafNatGetDestNatListOnDemandPdn()
             uint16_t priPort;
             uint16_t glbPort;
             taf_net_IpProto_t proto;
-            taf_net_GetDestNatEntryDetails(entryRef, ipaddr, NET_IPV6_ADDR_MAX_BYTES, &priPort, &glbPort, &proto);
+            taf_net_GetDestNatEntryDetails(entryRef, ipaddr, NET_IPV6_ADDR_MAX_BYTES,
+                                           &priPort, &glbPort, &proto);
 
             if(proto == NET_IP_PROTO_NUMBER_TCP)
                     le_utf8_Copy(ipProtoStr, "TCP", NET_IP_PROTO_NUMBER_LEN, NULL);
@@ -611,7 +650,8 @@ static int TafNatGetDestNatListOnDemandPdn()
                 LE_INFO("----error ip proto number");
                 continue;
             }
-            LE_INFO("ipaddr=%s private port=%d, global port=%d,proto=%s",ipaddr,priPort,glbPort,ipProtoStr);
+            LE_INFO("ipaddr=%s private port=%d, global port=%d,proto=%s",ipaddr,priPort,
+                                                                         glbPort,ipProtoStr);
             entryRef=taf_net_GetNextDestNatEntry(listRef);
         }
 
@@ -831,6 +871,412 @@ static int TafVlanUnBindWithProfile()
     return EXIT_SUCCESS;
 }
 
+static int TafGetDeviceMode()
+{
+
+    taf_net_DeviceMode_t devicemode=taf_net_GetDeviceMode();
+
+    LE_INFO("----devicemode =%d",(int)devicemode);
+
+    return EXIT_SUCCESS;
+}
+
+static int TafSetDeviceMode()
+{
+    le_result_t ret;
+
+    if (le_arg_NumArgs() !=2)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+    uint32_t devicemodevalue = strtol(le_arg_GetArg(1), NULL, 0);
+    #if 0
+    switch(devicemodevalue)
+    {
+        case 0:
+            devicemode=QCMAP_MSGR_DEVICE_NONE_V01;
+            break;
+        case 1:
+            devicemode=QCMAP_MSGR_DEVICE_L2L_V01;
+            break;
+        case 2:
+            devicemode=QCMAP_MSGR_DEVICE_E2E_V01;
+            break;
+        default:
+            LE_ERROR("Invalid parameter");
+            exit(EXIT_FAILURE);
+    }
+#endif
+    ret = taf_net_SetDeviceMode(devicemodevalue);
+    if(ret == LE_OK)
+    {
+        LE_INFO("----set device mode  ok");
+    }
+    else
+    {
+        LE_INFO("----set device error");
+    }
+
+    return EXIT_SUCCESS;
+}
+
+static int TafEnableL2tp()
+{
+    le_result_t ret;
+    if (le_arg_NumArgs() !=4)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    bool enablemss = strtol(le_arg_GetArg(1), NULL, 0);
+    bool enablemtu = strtol(le_arg_GetArg(2), NULL, 0);
+    uint32_t mtusize = strtol(le_arg_GetArg(3), NULL, 0);
+
+    ret=taf_net_EnableL2tp(enablemss, enablemtu, mtusize);
+    LE_INFO("enablemss =%d, enablemtu=%d, mtusize=%d",enablemss, enablemtu, mtusize);
+    if(ret == LE_OK)
+    {
+        LE_INFO("----enable l2tp ok");
+    }
+    else
+    {
+        LE_INFO("----enable l2tp faied");
+    }
+
+    return EXIT_SUCCESS;
+}
+
+static int TafDisableL2tp()
+{
+    le_result_t ret;
+    if (le_arg_NumArgs() !=1)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    ret=taf_net_DisableL2tp();
+    if(ret == LE_OK)
+    {
+        LE_INFO("----disable l2tp ok");
+    }
+    else
+    {
+        LE_INFO("----disable l2tp failed");
+    }
+
+    return EXIT_SUCCESS;
+}
+
+static int TafGetL2tpInfo()
+{
+    bool status = false;
+
+    status=taf_net_IsL2tpEnabled();
+    if(status == true)
+    {
+        LE_INFO("L2TP is enabled");
+
+        if(taf_net_IsL2tpMssEnabled() == true)
+            LE_INFO("L2TP Mss is enabled");
+        else
+            LE_INFO("L2TP Mss is disabled");
+
+        if(taf_net_IsL2tpMtuEnabled() == true)
+        {
+            LE_INFO("L2TP Mtu is enabled");
+            LE_INFO("Mtu size = %d",taf_net_GetL2tpMtuSize());
+        }
+        else
+            LE_INFO("L2TP Mss is disabled");
+    }
+    else
+        LE_INFO("L2TP is disabled");
+
+    return EXIT_SUCCESS;
+}
+
+/**
+* taf_net_CreateTunnel API returns tunnelRef which will be used by taf_net_SetTunnelUdpPort,
+* taf_net_AddSession and taf_net_StartTunnel APIs, but tafNetSvc will release tunnelRef when the
+* client disconnected, so we use one command to call these APIs. The following is the command:
+* app runProc tafNetIntTest --exe=tafNetIntTest -- createtunnel <locId> <peerId> \
+* <encaproto> [<localudpport> <peerudpport>] <peerIpAddrPtr> <ifNamePtr> \
+* <sessionNum> [<localsessionId> <peersessionId> <localsessionId> <peersessionId> <localsessionId>
+* <peersessionId>
+* if encaproto is udp ,and the next 2 parameters must be localudpport and peerudpport
+* and the sessionNum specify the next local session id and peer session id number.
+* e.g: app runProc tafNetIntTest --exe=tafNetIntTest -- createtunnel 1 1 1 fd53:7cb8:383:5::2
+* eth0.5 2 3 3 4 4, this means encapsulation protocol is ip, session number is 2, and local session
+* id and remote id are 3,3, and 4,4
+*/
+static int TafCreateL2tpTunnel()
+{
+    int paramIndex=1, i = 0;
+    le_result_t ret = LE_OK;
+    uint32_t localtunnelId = 0, peertunnelId=0, encaproto = 0, localudpport = 0, peerudpport = 0;
+    const char* peerIpAddrPtr = NULL;
+    const char* ifNamePtr = NULL;
+    taf_net_TunnelRef_t tunnelRef = NULL;
+    uint32_t localsessionId[3];
+    uint32_t peersessionId[3];
+    uint32_t sessionNum=0;
+
+    if( (le_arg_NumArgs() < 9) || (le_arg_NumArgs() > 15) )
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    //Get local tunnel id
+    localtunnelId = strtol(le_arg_GetArg(paramIndex), NULL, 0);//paramIndex=1
+    paramIndex++;
+    //Get peer tunnel id
+    peertunnelId = strtol(le_arg_GetArg(paramIndex), NULL, 0);//paramIndex=2
+    paramIndex++;
+    //Get encapsulation protocol
+    encaproto = strtol(le_arg_GetArg(paramIndex), NULL, 0);//paramIndex=3
+    paramIndex++;
+
+    if(encaproto == (int)TAF_NET_L2TP_UDP)
+    {
+        //Get local udp port
+        localudpport = strtol(le_arg_GetArg(paramIndex), NULL, 0);//paramIndex=4
+        paramIndex++;
+        //Get peer udp port
+        peerudpport = strtol(le_arg_GetArg(paramIndex), NULL, 0);//paramIndex=5
+        paramIndex++;
+
+        //Check if udp port is valid
+        if(localudpport == 0 || peerudpport == 0)
+        {
+            puts("----Udp port is error");
+            exit(EXIT_FAILURE);
+        }
+        //Check param number
+        if (le_arg_NumArgs() < 11)
+        {
+            puts("----Encapsulation protocol is udp, need set udp port param");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    //Get peer ip address
+    peerIpAddrPtr = le_arg_GetArg(paramIndex);//paramIndex=4 or paramIndex=6
+    paramIndex++;
+
+    //Get interface name
+    ifNamePtr = le_arg_GetArg(paramIndex);//paramIndex=5 or paramIndex=7
+    paramIndex++;
+
+    //Get session number
+    sessionNum = strtol(le_arg_GetArg(paramIndex), NULL, 0);//paramIndex=6 or paramIndex=8
+    paramIndex++;
+
+    //Check if the session number is valid
+    if(sessionNum <= 0 || sessionNum > 3 )
+    {
+        puts("----SessionNum is invalid");
+        exit(EXIT_FAILURE);
+    }
+
+    //Check if the param number is valid
+    if(encaproto == (int)TAF_NET_L2TP_UDP && le_arg_NumArgs() != 9+ sessionNum*2 )
+    {
+        puts("----Session parameter is invalid");
+        exit(EXIT_FAILURE);
+    }
+    else if(encaproto == (int)TAF_NET_L2TP_IP && le_arg_NumArgs() != 7+ sessionNum*2 )
+    {
+        puts("----Session parameter is invalid");
+        exit(EXIT_FAILURE);
+    }
+
+    //Get local session ids and peer session ids
+    for(i=0;i<sessionNum;i++)
+    {
+        localsessionId[i] = strtol(le_arg_GetArg(paramIndex), NULL, 0);
+        paramIndex++;
+        peersessionId[i] = strtol(le_arg_GetArg(paramIndex), NULL, 0);
+        paramIndex++;
+    }
+
+    //Create tunnel
+    tunnelRef=taf_net_CreateTunnel((taf_net_L2tpEncapProtocol_t) encaproto, localtunnelId,
+                                   peertunnelId, peerIpAddrPtr, ifNamePtr);
+
+    if(tunnelRef == NULL)
+    {
+        puts("----Failed to create tunnel reference ");
+        exit(EXIT_FAILURE);
+    }
+
+    //Set udp port if needed
+    if(encaproto == TAF_NET_L2TP_UDP)
+        ret=taf_net_SetTunnelUdpPort(tunnelRef, localudpport, peerudpport);
+
+    if(ret != LE_OK)
+    {
+        puts("----Failed to set tunnel udp port");
+        taf_net_RemoveTunnel(tunnelRef);
+        exit(EXIT_FAILURE);
+    }
+
+    //Add session into tunnel
+    for(i=0;i<sessionNum;i++)
+    {
+        ret = taf_net_AddSession(tunnelRef, localsessionId[i], peersessionId[i]);
+        if(ret != LE_OK)
+            break;
+    }
+
+    if(ret != LE_OK)
+    {
+        puts("----Failed to add session");
+        //Restore session number
+        sessionNum = 0;
+        taf_net_RemoveTunnel(tunnelRef);
+        exit(EXIT_FAILURE);
+    }
+
+    //Start tunnel
+    ret=taf_net_StartTunnel(tunnelRef);
+    if(ret != LE_OK)
+    {
+        puts("----Failed to start tunnel");
+        for(i=0;i<sessionNum;i++)
+            taf_net_RemoveSession(tunnelRef, localsessionId[i], peersessionId[i]);
+
+        //Restore session number
+        sessionNum = 0;
+        taf_net_RemoveTunnel(tunnelRef);
+        exit(EXIT_FAILURE);
+    }
+
+    LE_INFO("--Add tunnel successfully--");
+    return EXIT_SUCCESS;
+}
+
+//Just stop tunnel since session id is not known, and the reference will be released by closehandler
+static int TafRemoveL2tpTunnel()
+{
+    le_result_t ret;
+
+    if (le_arg_NumArgs() !=2)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    uint32_t localtunnelId = strtol(le_arg_GetArg(1), NULL, 0);
+
+    taf_net_TunnelRef_t tunnelRef= taf_net_GetTunnelRefById(localtunnelId);
+
+    if(tunnelRef == NULL)
+    {
+        puts("----Failed to get tunnel reference ");
+        exit(EXIT_FAILURE);
+    }
+
+    ret=taf_net_StopTunnel(tunnelRef);
+    if(ret != LE_OK)
+    {
+        puts("----Failed to stop l2tp tunnel ");
+        exit(EXIT_FAILURE);
+    }
+
+    LE_INFO("--Remove tunnel successfully--");
+    return EXIT_SUCCESS;
+}
+
+static int TafGetTunnelInfo()
+{
+    le_result_t ret;
+    taf_net_TunnelEntryListRef_t listRef=taf_net_GetTunnelEntryList();
+    uint32_t localTunnelId=0;
+    uint32_t peerTunnelId=0;
+
+    uint32_t localUdpPort=0;
+    uint32_t peerUdpPort=0;
+    taf_net_L2tpEncapProtocol_t l2tpEncaproto;
+    char ipv4addr[NET_IPV4_ADDR_MAX_BYTES];
+    char ipv6addr[NET_IPV6_ADDR_MAX_BYTES];
+    char interfacename[TAF_NET_INTERFACE_NAME_MAX_LEN];
+    taf_net_IpFamilyType_t ipType;
+    taf_net_L2tpSessionConfig_t sessionConfig[2];
+    size_t sessionNum=2;
+
+    if(listRef !=NULL)
+    {
+        taf_net_TunnelEntryRef_t entryRef = taf_net_GetFirstTunnelEntry(listRef);
+        while(entryRef != NULL)
+        {
+            localTunnelId=taf_net_GetTunnelLocalId(entryRef);
+            LE_INFO("----tunnel info start----");
+            LE_INFO("----localTunnelId=%d",localTunnelId);
+
+            peerTunnelId=taf_net_GetTunnelPeerId(entryRef);
+
+            LE_INFO("----peerTunnelId=%d",peerTunnelId);
+
+            l2tpEncaproto=taf_net_GetTunnelEncapProto(entryRef);
+            if(l2tpEncaproto == TAF_NET_L2TP_UDP)
+            {
+                LE_INFO("----encapsulation protocol is UDP");
+                localUdpPort=taf_net_GetTunnelLocalUdpPort(entryRef);
+                LE_INFO("----local udp port is %d",localUdpPort);
+                peerUdpPort=taf_net_GetTunnelPeerUdpPort(entryRef);
+                LE_INFO("----peer udp port is %d",peerUdpPort);
+            }
+            else if(l2tpEncaproto == TAF_NET_L2TP_IP)
+                LE_INFO("----encapsulation protocol is IP");
+
+            ipType=taf_net_GetTunnelIpType(entryRef);
+            if(ipType == TAF_NET_L2TP_IPV4)
+            {
+                LE_INFO("----IP version is IPV4");
+                ret=taf_net_GetTunnelPeerIpv4Addr(entryRef, ipv4addr,
+                                                           NET_IPV4_ADDR_MAX_BYTES);
+                if(ret == LE_OK)
+                    LE_INFO("----ipv4 address is %s",ipv4addr);
+            }
+            else if(ipType == TAF_NET_L2TP_IPV6)
+            {
+                LE_INFO("----IP version is IPV6");
+                ret=taf_net_GetTunnelPeerIpv6Addr(entryRef, ipv6addr,
+                                                           NET_IPV6_ADDR_MAX_BYTES);
+                if(ret == LE_OK)
+                    LE_INFO("----ipv6 address is %s",ipv6addr);
+            }
+
+            ret=taf_net_GetTunnelInterfaceName(entryRef, interfacename,
+                                                       TAF_NET_INTERFACE_NAME_MAX_LEN);
+            if(ret == LE_OK)
+                LE_INFO("----interfacename is %s",interfacename);
+
+            ret=taf_net_GetSessionConfig(entryRef, sessionConfig, &sessionNum);
+            if(ret == LE_OK)
+            {
+
+                for(int i=0;i<sessionNum;i++)
+                {
+                    LE_INFO("----session %d local id is %d", i, sessionConfig[i].locId);
+                    LE_INFO("----session %d peer id is %d",i, sessionConfig[i].peerId);
+                }
+            }
+            LE_INFO("----session num = %d",sessionNum);
+            entryRef=taf_net_GetNextTunnelEntry(listRef);
+        }
+
+        taf_net_DeleteTunnelEntryList(listRef);
+
+    }
+
+    return EXIT_SUCCESS;
+}
+
 COMPONENT_INIT
 {
     int status = EXIT_SUCCESS;
@@ -926,6 +1372,42 @@ COMPONENT_INIT
         else if(strcmp(testType, "unbindwithprofile") == 0)
         {
             status=TafVlanUnBindWithProfile();
+        }
+        else if(strcmp(testType, "setdevicemode") == 0)
+        {
+            status=TafSetDeviceMode();
+        }
+        else if(strcmp(testType, "getdevicemode") == 0)
+        {
+            status=TafGetDeviceMode();
+        }
+        else if(strcmp(testType, "enablel2tp") == 0)
+        {
+            status=TafEnableL2tp();
+        }
+        else if(strcmp(testType, "disablel2tp") == 0)
+        {
+            status=TafDisableL2tp();
+        }
+        else if(strcmp(testType, "getl2tpinfo") == 0)
+        {
+            status=TafGetL2tpInfo();
+            LE_INFO("status =%d",status);
+        }
+        else if(strcmp(testType, "addtunnel") == 0)
+        {
+            status=TafCreateL2tpTunnel();
+            LE_INFO("status =%d",status);
+        }
+        else if(strcmp(testType, "removetunnel") == 0)
+        {
+            status=TafRemoveL2tpTunnel();
+            LE_INFO("status =%d",status);
+        }
+        else if(strcmp(testType, "gettunnelinfo") == 0)
+        {
+            status=TafGetTunnelInfo();
+            LE_INFO("status =%d",status);
         }
         exit(status);
     }

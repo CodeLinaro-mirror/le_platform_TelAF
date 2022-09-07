@@ -40,6 +40,9 @@ using namespace telux::tafsvc;
 
 LE_REF_DEFINE_STATIC_MAP(ECallMap, MAX_ECALL);
 
+char fdn[TAF_TYPES_REMOTE_PARTY_NUM_MAX_BYTES];
+char sdn[TAF_TYPES_REMOTE_PARTY_NUM_MAX_BYTES];
+
 void tafECallOperatingModeCallback::setECallOperatingModeResponse(
     telux::common::ErrorCode error) {
     auto &eCall = taf_ecall::GetInstance();
@@ -387,6 +390,66 @@ taf_ecall &taf_ecall::GetInstance()
     return instance;
 }
 
+char* getUsimNumber()
+{
+    le_result_t res = taf_pa_ecall_GetPbNumber(fdn, sizeof(fdn), sdn, sizeof(sdn));
+
+    if (res != LE_OK)
+    {
+        return NULL;
+    }
+
+    LE_INFO("getUsimNumber: FDN number: %s and SDN number: %s", fdn, sdn);
+
+    if(strlen(fdn) > 0)
+    {
+        return fdn;
+    }
+    else if(strlen(sdn) > 0)
+    {
+        return fdn;
+    }
+    return NULL;
+}
+
+le_result_t taf_ecall::SetPsapNumber(const char* psapNumber)
+{
+    TAF_ERROR_IF_RET_VAL(strlen(psapNumber) > TAF_SIM_PHONE_NUM_MAX_LEN, LE_FAULT,
+            "PsapNumber length is wrong");
+
+    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn( CFG_MODEMSERVICE_ECALL_PATH );
+
+    le_cfg_SetString(iteratorRef, CFG_PSAP_NUMBER, psapNumber);
+    le_cfg_CommitTxn(iteratorRef);
+
+    LE_INFO("Set PSAP number as %s", psapNumber);
+
+    return LE_OK;
+}
+
+le_result_t taf_ecall::GetPsapNumber(char* psapNumber, size_t psapNumLength)
+{
+    TAF_ERROR_IF_RET_VAL(psapNumber == NULL, LE_BAD_PARAMETER, "PsapNumber is NULL");
+
+    le_result_t res = LE_FAULT;
+
+    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateReadTxn( CFG_MODEMSERVICE_ECALL_PATH );
+
+    if (le_cfg_NodeExists(iteratorRef, CFG_PSAP_NUMBER))
+    {
+        res = le_cfg_GetString(iteratorRef, CFG_PSAP_NUMBER, psapNumber, TAF_SIM_PHONE_NUM_MAX_LEN, "None");
+
+        TAF_ERROR_IF_RET_VAL(strncmp(psapNumber, "None", sizeof("None")) == 0, LE_FAULT, "PsapNumber is not found");
+        TAF_ERROR_IF_RET_VAL(psapNumLength < sizeof(psapNumber), LE_OVERFLOW, "PsapNumber length is wrong");
+
+        LE_INFO("PSAP number is =  %s", psapNumber);
+        le_cfg_CancelTxn(iteratorRef);
+        return res;
+    }
+    le_cfg_CancelTxn(iteratorRef);
+    return res;
+}
+
 taf_ecall_CallRef_t taf_ecall::CreateECallReference()
 {
     if (ECallObject.reference == NULL)
@@ -460,6 +523,24 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
 
     TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
 
+    char psapNumber[TAF_SIM_PHONE_NUM_MAX_LEN] = {0};
+
+    if(isUseUSimNumbers && getUsimNumber() != NULL)
+    {
+        le_utf8_Copy(psapNumber, getUsimNumber(), sizeof(psapNumber), NULL);
+    }
+    else if(GetPsapNumber(psapNumber, TAF_SIM_PHONE_NUM_MAX_LEN) == LE_OK)
+    {
+        LE_INFO("Psap number: %s\n", psapNumber);
+    }
+    else
+    {
+        LE_INFO("Not able to retrieve psap number, use defaul number: %s\n", DEFAULT_ECALL_NUM);
+        le_utf8_Copy(psapNumber, DEFAULT_ECALL_NUM, sizeof(psapNumber), NULL);
+    }
+
+
+
     //Get Selected card
     taf_sim_Id_t slotId = taf_sim_GetSelectedCard();
 
@@ -490,6 +571,9 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
 
     Status ret;
 
+    LE_INFO("PsapNumber: %s, ECall Variant: %d, useUSimNumber: %d\n", psapNumber,
+            (int) eCallVariant, isUseUSimNumbers);
+
     //Check msd transmission mode to send msd or not
     if (ECallObject.msdTxMode == TAF_ECALL_MSD_TX_MODE_PUSH )
     {
@@ -497,8 +581,13 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
         if (ECallObject.isMsdUpdated)
         {
             const std::vector< uint8_t > eCallMsdData(begin(eCallPtr->msdPdu),end(eCallPtr->msdPdu));
-            ret = CallManager->makeECall((int)slotId, eCallMsdData, (int)emergencyCategory,
-                    (int)eCallVariant, tafCallCommandCallback::makeECallResponse);
+            if (eCallVariant == ECallVariant::ECALL_TEST) {
+                ret = CallManager->makeECall((int)slotId, psapNumber, eCallMsdData,
+                            (int)emergencyCategory, tafCallCommandCallback::makeECallResponse);
+            } else {
+                ret = CallManager->makeECall((int)slotId, eCallMsdData, (int)emergencyCategory,
+                        (int)eCallVariant, tafCallCommandCallback::makeECallResponse);
+            }
         }
         else
         {
@@ -533,19 +622,31 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
             LE_DEBUG("MSD Information msd.recentVehicleLocationN2.longitudeDelta = %d",
                     eCallMsdData.recentVehicleLocationN2.longitudeDelta);
             LE_DEBUG("MSD Information msd.numberOfPassengers = %d", eCallMsdData.numberOfPassengers);
-            ret = CallManager->makeECall((int)slotId, eCallMsdData, (int)emergencyCategory,
-                                    (int)eCallVariant, CallCommandCb);
+
+            if (eCallVariant == ECallVariant::ECALL_TEST) {
+                ret = CallManager->makeECall((int)slotId, psapNumber, eCallMsdData,
+                            (int)emergencyCategory, CallCommandCb);
+            } else {
+                ret = CallManager->makeECall((int)slotId, eCallMsdData, (int)emergencyCategory,
+                        (int)eCallVariant, CallCommandCb);
+            }
         }
     }
     else
     {
-        ret = CallManager->makeECall((int)slotId, (int)emergencyCategory,
-                (int)eCallVariant, tafCallCommandCallback::makeECallResponse);
+        if (eCallVariant == ECallVariant::ECALL_TEST) {
+            ret = CallManager->makeECall((int)slotId, psapNumber, (int)emergencyCategory,
+                        tafCallCommandCallback::makeECallResponse);
+        } else {
+            ret = CallManager->makeECall((int)slotId, (int)emergencyCategory,
+                    (int)eCallVariant, tafCallCommandCallback::makeECallResponse);
+        }
     }
 
     if(ret == Status::SUCCESS)
     {
         LE_DEBUG("Start ECall request sent successfully");
+        isUseUSimNumbers = false;
         ECallObject.eCallSession = ECALL_REQUEST;
         telux::common::ErrorCode error = makeEcallProm.get_future().get();
         if (error == ErrorCode::SUCCESS) {
@@ -924,6 +1025,12 @@ taf_ecall_TerminationReason_t taf_ecall::GetTerminationReason ( taf_ecall_CallRe
     }
     LE_INFO("GetTerminationReason call end error = %d", (int) eCall.CallEndError);
     return (taf_ecall_TerminationReason_t) eCall.CallEndError;
+}
+
+le_result_t taf_ecall::UseUSimNumbers()
+{
+    isUseUSimNumbers = true;
+    return LE_OK;
 }
 
 taf_ecall_StateChangeHandlerRef_t taf_ecall::AddStateChangeHandler

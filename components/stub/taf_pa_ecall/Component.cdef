@@ -1,0 +1,23 @@
+requires:
+{
+    api:
+    {
+        taf_types.api    [types-only]
+        taf_sim.api
+    }
+}
+
+sources:
+{
+    taf_pa_ecall_qmi.cpp
+}
+
+cxxflags:
+{
+    -I$TELAF_ROOT/include
+}
+
+cflags:
+{
+
+}

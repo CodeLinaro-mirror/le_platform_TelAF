@@ -651,6 +651,31 @@ static void RemoveCryptoSessionsForClient
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Check if there is running crypto session for a given key.
+ */
+//--------------------------------------------------------------------------------------------------
+static bool HasRunningCryptoSession
+(
+    le_dls_List_t cryptoSessionList
+)
+{
+    le_dls_Link_t* linkPtr = le_dls_Peek(&cryptoSessionList);
+
+    while (linkPtr != NULL)
+    {
+        taf_ks_CryptoSession_t* sessionPtr = CONTAINER_OF(linkPtr, taf_ks_CryptoSession_t, link);
+        if (sessionPtr->started)
+        {
+            return true;
+        }
+        linkPtr = le_dls_PeekNext(&cryptoSessionList, linkPtr);
+    }
+
+    return false;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Creates a new key.
  *
  * New keys initially have no value and cannot be used for any crypto operations. Call SetKey API to
@@ -849,17 +874,18 @@ le_result_t taf_ks_DeleteKey
         ///< [IN] Key reference
 )
 {
-    if (keyRef == NULL)
-    {
-        LE_KILL_CLIENT("Bad parameter.");
-        return LE_BAD_PARAMETER;
-    }
-
     taf_ks_Key_t* keyPtr = le_ref_Lookup(KeyRefMap, keyRef);
     if (keyPtr == NULL)
     {
         LE_ERROR("Key is not found.");
         return LE_NOT_FOUND;
+    }
+
+    // Key is not allowed to be deleted if it has running crypto session.
+    if (HasRunningCryptoSession(keyPtr->cryptoSessionList))
+    {
+        LE_WARN("The key has running crypto session.");
+        return LE_NOT_PERMITTED;
     }
 
     if (keyPtr->keyFilePtr != NULL)
@@ -909,7 +935,7 @@ le_result_t taf_ks_GetKeyUsage
         ///< [OUT] Key usage
 )
 {
-    if ((keyRef == NULL) || (keyUsagePtr == NULL))
+    if (keyUsagePtr == NULL)
     {
         LE_KILL_CLIENT("Bad parameter.");
         return LE_BAD_PARAMETER;
@@ -953,12 +979,6 @@ le_result_t taf_ks_SetKeyMaxUsesPerBoot
         ///< [IN] Uses per boot
 )
 {
-    if (keyRef == NULL)
-    {
-        LE_KILL_CLIENT("Bad parameter.");
-        return LE_BAD_PARAMETER;
-    }
-
     taf_ks_Key_t* keyPtr = le_ref_Lookup(KeyRefMap, keyRef);
     if (keyPtr == NULL)
     {
@@ -996,12 +1016,6 @@ le_result_t taf_ks_SetKeyMinSecondsBetweenOps
         ///< [IN] Seconds interval between allowed operations.
 )
 {
-    if (keyRef == NULL)
-    {
-        LE_KILL_CLIENT("Bad parameter.");
-        return LE_BAD_PARAMETER;
-    }
-
     taf_ks_Key_t* keyPtr = le_ref_Lookup(KeyRefMap, keyRef);
     if (keyPtr == NULL)
     {
@@ -1043,7 +1057,7 @@ le_result_t taf_ks_SetKeyAppData
         ///< [IN]
 )
 {
-    if ((keyRef == NULL) || (dataPtr == NULL) || (dataSize == 0))
+    if ((dataPtr == NULL) || (dataSize == 0))
     {
         LE_KILL_CLIENT("Bad parameter.");
         return LE_BAD_PARAMETER;
@@ -1089,12 +1103,6 @@ le_result_t taf_ks_SetKeyActiveDateTime
         ///< [IN] Milliseconds since January 1, 1970.
 )
 {
-    if (keyRef == NULL)
-    {
-        LE_KILL_CLIENT("Bad parameter.");
-        return LE_BAD_PARAMETER;
-    }
-
     taf_ks_Key_t* keyPtr = le_ref_Lookup(KeyRefMap, keyRef);
     if (keyPtr == NULL)
     {
@@ -1133,12 +1141,6 @@ le_result_t taf_ks_SetKeyOriginationExpireDateTime
         ///< [IN] Milliseconds since January 1, 1970.
 )
 {
-    if (keyRef == NULL)
-    {
-        LE_KILL_CLIENT("Bad parameter.");
-        return LE_BAD_PARAMETER;
-    }
-
     taf_ks_Key_t* keyPtr = le_ref_Lookup(KeyRefMap, keyRef);
     if (keyPtr == NULL)
     {
@@ -1177,12 +1179,6 @@ le_result_t taf_ks_SetKeyUsageExpireDateTime
         ///< [IN] Milliseconds since January 1, 1970.
 )
 {
-    if (keyRef == NULL)
-    {
-        LE_KILL_CLIENT("Bad parameter.");
-        return LE_BAD_PARAMETER;
-    }
-
     taf_ks_Key_t* keyPtr = le_ref_Lookup(KeyRefMap, keyRef);
     if (keyPtr == NULL)
     {
@@ -1235,9 +1231,7 @@ le_result_t taf_ks_ProvisionRsaEncKeyValue
     taf_pa_ks_EncPurpose_t keyUsage;
     taf_ks_Key_t* keyPtr;
 
-    if ((keyRef == NULL) ||
-        (keySize >= TAF_KS_RSA_SIZE_MAX) ||
-        (padding >= TAF_KS_RSA_ENC_PAD_MAX))
+    if ((keySize >= TAF_KS_RSA_SIZE_MAX) || (padding >= TAF_KS_RSA_ENC_PAD_MAX))
     {
         LE_KILL_CLIENT("Bad parameter.");
         return LE_BAD_PARAMETER;
@@ -1323,9 +1317,7 @@ le_result_t taf_ks_ProvisionRsaSigKeyValue
     taf_pa_ks_SigPurpose_t keyUsage;
     taf_ks_Key_t* keyPtr;
 
-    if ((keyRef == NULL) ||
-        (keySize >= TAF_KS_RSA_SIZE_MAX) ||
-        (padding >= TAF_KS_RSA_SIG_PAD_MAX))
+    if ((keySize >= TAF_KS_RSA_SIZE_MAX) || (padding >= TAF_KS_RSA_SIG_PAD_MAX))
     {
         LE_KILL_CLIENT("Bad parameter.");
         return LE_BAD_PARAMETER;
@@ -1411,9 +1403,7 @@ le_result_t taf_ks_ProvisionEcdsaKeyValue
     taf_pa_ks_SigPurpose_t keyUsage;
     taf_ks_Key_t* keyPtr;
 
-    if ((keyRef == NULL) ||
-        (keySize >= TAF_KS_ECC_SIZE_MAX) ||
-        (digest >= TAF_KS_DIGEST_MAX))
+    if ((keySize >= TAF_KS_ECC_SIZE_MAX) || (digest >= TAF_KS_DIGEST_MAX))
     {
         LE_KILL_CLIENT("Bad parameter.");
         return LE_BAD_PARAMETER;
@@ -1499,9 +1489,7 @@ le_result_t taf_ks_ProvisionAesKeyValue
     taf_pa_ks_EncPurpose_t keyUsage;
     taf_ks_Key_t* keyPtr;
 
-    if ((keyRef == NULL) ||
-        (keySize >= TAF_KS_AES_SIZE_MAX) ||
-        (mode >= TAF_KS_AES_MODE_MAX))
+    if ((keySize >= TAF_KS_AES_SIZE_MAX) || (mode >= TAF_KS_AES_MODE_MAX))
     {
         LE_KILL_CLIENT("Bad parameter.");
         return LE_BAD_PARAMETER;
@@ -1587,8 +1575,7 @@ le_result_t taf_ks_ProvisionHmacKeyValue
     taf_pa_ks_SigPurpose_t keyUsage;
     taf_ks_Key_t* keyPtr;
 
-    if ((keyRef == NULL) ||
-        (keySize < TAF_KS_MIN_HMAC_KEY_SIZE) ||
+    if ((keySize < TAF_KS_MIN_HMAC_KEY_SIZE) ||
         (keySize > TAF_KS_MAX_HMAC_KEY_SIZE) ||
         (digest >= TAF_KS_DIGEST_MAX))
     {
@@ -1650,6 +1637,52 @@ le_result_t taf_ks_ProvisionHmacKeyValue
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Export a key into specified key data format.
+ *
+ * For AES and HMAC key the API exports raw key data. For RSA and ECDSA key the API exports x.509
+ * DER format certificate which only contains the public key.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_ks_ExportKey
+(
+    taf_ks_KeyRef_t    keyRef, ///< [IN] Key reference
+    const uint8_t* appDataPtr, ///< [IN] Application data
+    size_t appDataSize,        ///< [IN]
+    uint8_t* expDataPtr,       ///< [OUT] Export data
+    size_t* expDataSizePtr     ///< [INOUT]
+)
+{
+    if ((expDataPtr == NULL) || (expDataSizePtr == NULL))
+    {
+        LE_KILL_CLIENT("Bad parameter.");
+        return LE_BAD_PARAMETER;
+    }
+
+    taf_ks_Key_t* keyPtr = le_ref_Lookup(KeyRefMap, keyRef);
+    if (keyPtr == NULL)
+    {
+        LE_ERROR("Key is not found.");
+        return LE_NOT_FOUND;
+    }
+
+    // Check if it's a provisioned key, only provisioned key is allowed to export the key.
+    if ((keyPtr->newKeyPtr != NULL) || (keyPtr->keyFilePtr == NULL))
+    {
+        LE_ERROR("Not permitted.");
+        return LE_NOT_PERMITTED;
+    }
+
+    // Export the key data.
+    return taf_pa_ks_ExportKey(taf_ks_GetClientSessionRef(),
+                               keyPtr->keyFilePtr,
+                               appDataPtr,
+                               appDataSize,
+                               expDataPtr,
+                               expDataSizePtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Create a crypto operation session for the key.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1664,7 +1697,7 @@ le_result_t taf_ks_CryptoSessionCreate
     taf_ks_Key_t* keyPtr = NULL;
     taf_ks_CryptoSession_t* sessionPtr = NULL;
 
-    if ((keyRef == NULL) || (sessionRefPtr == NULL))
+    if (sessionRefPtr == NULL)
     {
         LE_KILL_CLIENT("Bad parameter.");
         return LE_BAD_PARAMETER;
@@ -1726,7 +1759,7 @@ le_result_t taf_ks_CryptoSessionSetAesNonce
     taf_ks_CryptoSession_t* sessionPtr = NULL;
     taf_ks_Key_t* keyPtr = NULL;
 
-    if ((sessionRef == NULL) || (dataPtr == NULL) ||
+    if ((dataPtr == NULL) ||
         ((dataSize != TAF_PA_KS_AES_GCM_NONCE_SIZE) &&
          (dataSize != TAF_PA_KS_AES_CBC_NONCE_SIZE)))
     {
@@ -1790,7 +1823,7 @@ le_result_t taf_ks_CryptoSessionSetAppData
     taf_ks_CryptoSession_t* sessionPtr = NULL;
     taf_ks_Key_t* keyPtr = NULL;
 
-    if ((sessionRef == NULL) || (dataPtr == NULL) || (dataSize == 0))
+    if ((dataPtr == NULL) || (dataSize == 0))
     {
         LE_KILL_CLIENT("Bad parameter.");
         return LE_BAD_PARAMETER;
@@ -1853,7 +1886,7 @@ le_result_t taf_ks_CryptoSessionStart
     taf_ks_Key_t* keyPtr = NULL;
     uint64_t handle;
 
-    if ((sessionRef == NULL) || (cryptoPurpose >= TAF_KS_CRYPTO_MAX))
+    if (cryptoPurpose >= TAF_KS_CRYPTO_MAX)
     {
         LE_KILL_CLIENT("Bad parameter.");
         return LE_BAD_PARAMETER;
@@ -1933,9 +1966,7 @@ le_result_t taf_ks_CryptoSessionProcessAead
     taf_ks_CryptoSession_t* sessionPtr = NULL;
     taf_ks_Key_t* keyPtr = NULL;
 
-    if ((sessionRef == NULL) ||
-        (inputDataPtr == NULL) ||
-        (inputDataSize == 0))
+    if ((inputDataPtr == NULL) || (inputDataSize == 0))
     {
         LE_KILL_CLIENT("Bad parameter.");
         return LE_BAD_PARAMETER;
@@ -2021,9 +2052,7 @@ le_result_t taf_ks_CryptoSessionProcess
     taf_ks_CryptoSession_t* sessionPtr = NULL;
     taf_ks_Key_t* keyPtr = NULL;
 
-    if ((sessionRef == NULL) ||
-        (inputDataPtr == NULL) ||
-        (inputDataSize == 0))
+    if ((inputDataPtr == NULL) || (inputDataSize == 0))
     {
         LE_KILL_CLIENT("Bad parameter.");
         return LE_BAD_PARAMETER;
@@ -2107,12 +2136,6 @@ le_result_t taf_ks_CryptoSessionEnd
     taf_ks_CryptoSession_t* sessionPtr = NULL;
     taf_ks_Key_t* keyPtr = NULL;
 
-    if (sessionRef == NULL)
-    {
-        LE_KILL_CLIENT("Bad parameter.");
-        return LE_BAD_PARAMETER;
-    }
-
     sessionPtr = le_ref_Lookup(CryptoSessionRefMap, sessionRef);
     if (sessionPtr == NULL)
     {
@@ -2176,12 +2199,6 @@ le_result_t taf_ks_CryptoSessionAbort
     taf_ks_CryptoSession_t* sessionPtr = NULL;
     taf_ks_Key_t* keyPtr = NULL;
 
-    if (sessionRef == NULL)
-    {
-        LE_KILL_CLIENT("Bad parameter.");
-        return LE_BAD_PARAMETER;
-    }
-
     sessionPtr = le_ref_Lookup(CryptoSessionRefMap, sessionRef);
     if (sessionPtr == NULL)
     {
@@ -2204,13 +2221,18 @@ le_result_t taf_ks_CryptoSessionAbort
         return LE_NOT_PERMITTED;
     }
 
-    // Abort the session.
-    if (sessionPtr->started)
+    // Check if the session is started.
+    if (sessionPtr->started == false)
     {
-        result = taf_pa_ks_CryptoSessionAbort(sessionPtr->handle);
-        sessionPtr->started = false;
-        sessionPtr->handle = 0;
+        LE_WARN("Session(%p) for provisioned key(%p) is not started.",
+                sessionPtr, keyPtr->keyFilePtr);
+        return LE_NOT_PERMITTED;
     }
+
+    // Abort the session.
+    result = taf_pa_ks_CryptoSessionAbort(sessionPtr->handle);
+    sessionPtr->started = false;
+    sessionPtr->handle = 0;
 
     // Delete the crypto session.
     le_dls_Remove(&(keyPtr->cryptoSessionList), &(sessionPtr->link));

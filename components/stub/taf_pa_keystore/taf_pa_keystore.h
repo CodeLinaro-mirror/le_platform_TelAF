@@ -297,6 +297,21 @@ LE_SHARED le_result_t taf_pa_ks_GenerateHmacKey
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Export a key into specified key data format.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_ks_ExportKey
+(
+    le_msg_SessionRef_t clientSessionRef, ///< [IN] Client session reference
+    taf_pa_ks_KeyFileRef_t keyFileRef,    ///< [IN] Key file reference
+    const uint8_t* appDataPtr,            ///< [IN] Application data
+    size_t appDataSize,                   ///< [IN]
+    uint8_t* expDataPtr,                  ///< [OUT] exported key data
+    size_t* expDataSizePtr                ///< [INOUT]
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Delete a key file by key name.
  */
 //--------------------------------------------------------------------------------------------------

@@ -407,3 +407,22 @@ le_result_t taf_sim_LocalSwapToCommercialCallSubscription
     auto &sim = taf_sim::GetInstance();
     return sim.LocalSwapToCommercialCallSubscription(simId);
 }
+
+taf_sim_IccidChangeHandlerRef_t taf_sim_AddIccidChangeHandler(
+        taf_sim_IccidChangeHandlerFunc_t handlerPtr,
+        void* contextPtr){
+
+    le_event_HandlerRef_t handlerRef;
+    auto &sim = taf_sim::GetInstance();
+    handlerRef = (le_event_HandlerRef_t)sim.AddIccidChangeHandler(handlerPtr);
+
+    le_event_SetContextPtr(handlerRef, contextPtr);
+
+    return (taf_sim_IccidChangeHandlerRef_t)(handlerRef);
+
+}
+
+void taf_sim_RemoveIccidChangeHandler(taf_sim_IccidChangeHandlerRef_t handlerRef){
+    auto &sim = taf_sim::GetInstance();
+    sim.RemoveIccidChangeHandler(handlerRef);
+}

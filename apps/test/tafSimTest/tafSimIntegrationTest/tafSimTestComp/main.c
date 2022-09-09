@@ -29,6 +29,7 @@
 #include "main.h"
 
 static taf_sim_NewStateHandlerRef_t NewSimStateHandlerRef = NULL;
+static taf_sim_IccidChangeHandlerRef_t IccidChangeHandlerRef = NULL;
 
 static void DisplayAppUsage(void) {
     printf("Usage of the 'tafsimTest' application is:\n");
@@ -96,6 +97,12 @@ static void TestNewSimStateHandler(taf_sim_Id_t simId, taf_sim_States_t simState
         void* contextPtr){
     LE_INFO("New SIM event for SIM card: %d", simId);
     LE_INFO("SIM state: %s", SimStateToString(simState));
+    exit(EXIT_SUCCESS);
+}
+
+static void TestIccidChangeHandler(taf_sim_Id_t simId, const char* Iccid, void* contextPtr) {
+    LE_INFO("Iccid Change event for SIM card: %d", simId);
+    LE_INFO("ICCID is: %s", (const char*)Iccid);
     exit(EXIT_SUCCESS);
 }
 
@@ -168,9 +175,10 @@ COMPONENT_INIT
     if (strcmp(testType, "state") == 0) {
         tafSimTest_state(simId);
     } else if (strcmp(testType, "events") == 0) {
+        IccidChangeHandlerRef = taf_sim_AddIccidChangeHandler(TestIccidChangeHandler, NULL);
+        LE_ASSERT(IccidChangeHandlerRef!=NULL);
         NewSimStateHandlerRef = taf_sim_AddNewStateHandler(TestNewSimStateHandler, NULL);
         LE_ASSERT(NewSimStateHandlerRef!=NULL);
-
         exitApplication = false;
     }
     // Test: sim identification info

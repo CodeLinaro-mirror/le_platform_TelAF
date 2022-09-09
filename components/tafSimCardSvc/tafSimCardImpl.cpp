@@ -55,12 +55,20 @@ void tafCardListener:: onCardInfoChanged(int slotId)
 void tafSubscriptionListener:: onSubscriptionInfoChanged
                          (std::shared_ptr<telux::tel::ISubscription> subscription) {
     LE_INFO("onSubscriptionInfoChanged");
+    auto &sim = taf_sim::GetInstance();
+    taf_sim_info_t* simPtr = NULL;
     if(subscription) {
-        auto &sim = taf_sim::GetInstance();
         sim.InitializeSimInfo(subscription,(taf_sim_Id_t) subscription->getSlotId());
+        simPtr = sim.GetSimContext((taf_sim_Id_t) subscription->getSlotId());
     } else {
         LE_INFO("Subscription is empty");
+        sim.InitializeSimInfo(nullptr, (taf_sim_Id_t)sim.slot);
+        simPtr = sim.GetSimContext((taf_sim_Id_t)sim.slot);
     }
+    sim_iccid_event_t simIccidEvent;
+    simIccidEvent.simId = (taf_sim_Id_t)simPtr->simId;
+    simIccidEvent.ICCID = simPtr->ICCID;
+    le_event_Report(sim.IccidChangeEventId, &simIccidEvent, sizeof(simIccidEvent));
 }
 
 void tafAuthenticationResponseCallback:: ChangeCardPinResponseCb(int retryCount, telux::common::ErrorCode error) {
@@ -239,6 +247,7 @@ void taf_sim::Init(void)
         // Create an event Id for change in card info notification
         NewStateEventId = le_event_CreateId("NewStateEventId", sizeof(sim_event_t));
         ResponseEventId = le_event_CreateId("ResponseEventId", sizeof(sim_response_event_t));
+        IccidChangeEventId = le_event_CreateId("IccidChangeEventId", sizeof(sim_iccid_event_t));
     }
 
     bool subscriptionSubSystemStatus = subMgr->isSubsystemReady();
@@ -448,6 +457,38 @@ void taf_sim::FirstLayerNewSimStateHandler(void* reportPtr,
         (taf_sim_NewStateHandlerFunc_t)secondLayerHandlerFunc;
 
     clientHandlerFunc(simEventPtr->simId, simEventPtr->state, le_event_GetContextPtr());
+}
+
+taf_sim_IccidChangeHandlerRef_t taf_sim:: AddIccidChangeHandler(taf_sim_IccidChangeHandlerFunc_t handlerPtr) {
+    le_event_HandlerRef_t handlerRef;
+    LE_INFO("Add Iccid Change handler");
+    if (NULL == handlerPtr)
+    {
+        LE_KILL_CLIENT("Handler pointer is NULL");
+        return NULL;
+    }
+
+    handlerRef = le_event_AddLayeredHandler("IccidChangeHandler", IccidChangeEventId,
+            FirstLayerIccidChangeHandler, (void*)handlerPtr);
+
+    return (taf_sim_IccidChangeHandlerRef_t)(handlerRef);
+
+}
+
+void taf_sim::RemoveIccidChangeHandler(taf_sim_IccidChangeHandlerRef_t handlerRef){
+        le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
+}
+
+void taf_sim::FirstLayerIccidChangeHandler(void* reportPtr,
+        void* secondLayerHandlerFunc){
+    sim_iccid_event_t* simEventPtr = (sim_iccid_event_t*)reportPtr;
+
+    TAF_ERROR_IF_RET_NIL(simEventPtr == NULL, "simEventPtr is NULL");
+
+    taf_sim_IccidChangeHandlerFunc_t clientHandlerFunc =
+        (taf_sim_IccidChangeHandlerFunc_t)secondLayerHandlerFunc;
+
+    clientHandlerFunc(simEventPtr->simId, (simEventPtr->ICCID).c_str(), le_event_GetContextPtr());
 }
 
 taf_sim_info_t* taf_sim::GetSimContext(taf_sim_Id_t simId) {

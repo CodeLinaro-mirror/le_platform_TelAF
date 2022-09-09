@@ -49,6 +49,13 @@ namespace telux {
         }
         sim_event_t;
 
+        typedef struct
+        {
+            taf_sim_Id_t        simId;
+            string              ICCID;
+        }
+        sim_iccid_event_t;
+
         typedef struct taf_sim_Obj
         {
             taf_sim_Id_t     simId;
@@ -142,6 +149,7 @@ namespace telux {
                 le_event_Id_t NewStateEventId;
                 le_event_Id_t ResponseEventId;
                 le_event_Id_t ProfileListEventId;
+                le_event_Id_t IccidChangeEventId;
                 bool EnableAutoSelection = false;
 
                 void RemoveStateHandler(taf_sim_NewStateHandlerRef_t handlerRef);
@@ -207,6 +215,9 @@ namespace telux {
                         const std::vector<std::shared_ptr<telux::tel::SimProfile>> &profiles,
                         telux::common::ErrorCode error,
                         SlotId simId);
+                void RemoveIccidChangeHandler(taf_sim_IccidChangeHandlerRef_t);
+                taf_sim_IccidChangeHandlerRef_t AddIccidChangeHandler(taf_sim_IccidChangeHandlerFunc_t handlerPtr);
+                static void FirstLayerIccidChangeHandler(void* reportPtr, void* secondLayerHandlerFunc);
         };
     }
 }

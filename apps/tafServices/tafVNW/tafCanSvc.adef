@@ -1,0 +1,27 @@
+sandboxed: false
+
+executables:
+{
+    tafCanSvc = ( $TELAF_ROOT/components/tafVNW/tafCanSvc )
+}
+
+start: auto
+
+processes:
+{
+    run:
+    {
+        (tafCanSvc)
+    }
+
+    faultAction: restart
+}
+
+bindings:
+{
+}
+
+extern:
+{
+    tafCanSvc.tafCanSvc.taf_can
+}

@@ -1,0 +1,18 @@
+provides:
+{
+    api:
+    {
+        tafVNW/taf_can.api
+    }
+}
+
+cxxflags:
+{
+    -I$TELAF_ROOT/include
+}
+
+sources:
+{
+    tafCANImpl.cpp
+    tafVNWSvc.cpp
+}

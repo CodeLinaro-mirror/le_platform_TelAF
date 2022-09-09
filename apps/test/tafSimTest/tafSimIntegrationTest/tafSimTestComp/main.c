@@ -43,6 +43,7 @@ static void DisplayAppUsage(void) {
     printf("SIM unlock test: app runProc tafSimTest --exe=tafSimTest -- unlock <slot1/slot2/unknown> <pin1/fdn> pin\n");
     printf("SIM access test: app runProc tafSimTest --exe=tafSimTest -- access <slot1/slot2/unknown>\n");
     printf("SIM SetPower test: app runProc tafSimTest --exe=tafSimTest -- setPower <slot1/slot2/unknown> <ON/OFF>\n");
+    printf("SIM Reset test: app runProc tafSimIntgTest --exe=tafSimIntgTest -- Reset <slot1/slot2/unknown>\n");
 }
 
 static taf_sim_Id_t GetSimId(const char* simIdPtr) {
@@ -301,7 +302,12 @@ COMPONENT_INIT
         le_onoff_t powerStatus = GetPowerStatus(powerStatusPtr);
         tafSimTest_SetPowerCheck(simId, powerStatus);
     }
-     else {
+    else if (strncmp(testType, "Reset", 5) == 0)
+    {
+        LE_ASSERT_OK(taf_sim_Reset(simId));
+        LE_INFO("SIM Reset successfull");
+    }
+    else {
         DisplayAppUsage();
         exit(EXIT_FAILURE);
     }

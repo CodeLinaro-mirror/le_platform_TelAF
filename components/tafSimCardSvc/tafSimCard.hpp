@@ -184,6 +184,7 @@ namespace telux {
                         size_t dataNumElements, const char* pathPtr, uint8_t* sw1,uint8_t* sw2,
                         uint8_t* responsePtr, size_t* responseNumElementsPtr);
                 le_result_t SetPower( taf_sim_Id_t simId, le_onoff_t powerState);
+                le_result_t Reset(taf_sim_Id_t simId);
         };
     }
 }

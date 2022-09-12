@@ -25,6 +25,10 @@
  *  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ *  Changes from Qualcomm Innovation Center are provided under the following license:
+ *  Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include "legato.h"
@@ -484,4 +488,90 @@ taf_audio_DtmfDetectorHandlerRef_t taf_audio_AddDtmfDetectorHandler
 {
     auto &audio = taf_Audio::GetInstance();
     return (taf_audio_DtmfDetectorHandlerRef_t) audio.AddDtmfDetectorHandler(streamRef, handlerPtr, contextPtr);
+}
+
+/**
+* FUNCTION     : OpenI2sRx
+* DESCRIPTION  : Open I2s interface Rx
+* DEPENDECY    :
+* PARAMETERS   : channel mode
+* RETURN VALUES: Stream Reference, NULL on error
+*/
+taf_audio_StreamRef_t taf_audio_OpenI2sRx
+(
+    taf_audio_I2SChannel_t mode  ///< [IN] The channel mode.
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.OpenI2sRx(mode);
+
+}
+
+/**
+* FUNCTION     : OpenI2sTx
+* DESCRIPTION  : Open I2s interface Tx
+* DEPENDECY    :
+* PARAMETERS   : channel mode
+* RETURN VALUES: Stream Reference, NULL on error
+*/
+taf_audio_StreamRef_t taf_audio_OpenI2sTx
+(
+    taf_audio_I2SChannel_t mode  ///< [IN] The channel mode.
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.OpenI2sTx(mode);
+
+}
+
+/**
+* FUNCTION     : OpenPcmRx
+* DESCRIPTION  : Open Pcm Rx interface
+* DEPENDECY    :
+* PARAMETERS   : time slot number
+* RETURN VALUES: Stream Reference, NULL on error
+*/
+taf_audio_StreamRef_t taf_audio_OpenPcmRx
+(
+    uint32_t timeslot  ///< [IN] The time slot number.
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.OpenPcmRx(timeslot);
+
+}
+
+/**
+* FUNCTION     : OpenPcmTx
+* DESCRIPTION  : Open Pcm Tx interface
+* DEPENDECY    :
+* PARAMETERS   : time slot number
+* RETURN VALUES: Stream Reference, NULL on error
+*/
+taf_audio_StreamRef_t taf_audio_OpenPcmTx
+(
+    uint32_t timeslot  ///< [IN] The time slot number.
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.OpenPcmTx(timeslot);
+
+}
+
+/**
+* FUNCTION     : SetSamplePcmSamplingRate
+* DESCRIPTION  : Set sampling rate for the stream
+* DEPENDECY    :
+* PARAMETERS   : Stream refernce and sampling rate
+* RETURN VALUES: LE_OK on success, LE_FAULT on error
+*/
+le_result_t taf_audio_SetSamplePcmSamplingRate
+(
+    taf_audio_StreamRef_t    streamRef,  ///< [IN] The Stream Ref.
+    uint32_t                 samplingRate  ///< [IN] The sampling rate.
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.SetSamplePcmSamplingRate(streamRef , samplingRate);
+
 }

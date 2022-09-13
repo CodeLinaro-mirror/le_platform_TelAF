@@ -1099,6 +1099,7 @@ le_result_t taf_sim::SetPower(taf_sim_Id_t simId, le_onoff_t powerState)
         return LE_BAD_PARAMETER;
     }
     telux::common::Status status;
+#ifdef TARGET_SA515M
     auto ICard = cardManager->getCard(simId, &status);
     SlotId slotId_for_card = SlotId(ICard->getSlotId());
     std::promise<telux::common::ErrorCode> p;
@@ -1114,6 +1115,10 @@ le_result_t taf_sim::SetPower(taf_sim_Id_t simId, le_onoff_t powerState)
             return LE_OK;
         }
     }
+#endif
+#ifdef TARGET_SA415M
+    status = Status::NOTSUPPORTED;
+#endif
     LE_INFO("Set Power operation failed, with status %s , simId %d , powerState %d",
             statusToString(status), simId, powerState);
     return LE_FAULT;

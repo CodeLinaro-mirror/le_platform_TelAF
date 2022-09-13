@@ -149,7 +149,6 @@ namespace tafsvc {
             taf_dcs_Tech_t MapTechPreference(telux::data::TechPreference techPref);
             telux::data::TechPreference MapTechPreference(taf_dcs_Tech_t techPref);
             std::promise<le_result_t> CmdSynchronousPromise;
-            bool IsOnSynchronousAction = false;
             uint32_t GetProfileNum();
         private:
             le_mem_PoolRef_t ListEventPool = NULL;

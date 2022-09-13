@@ -288,15 +288,14 @@ le_result_t taf_DataProfile::ListProfile(taf_dcs_ProfileInfo_t *profileList, siz
     // initialize the synchronous promise
     CmdSynchronousPromise = std::promise<le_result_t>();
 
-    result = SendProfileListReq();
+    //Remove IsOnSynchronousAction, otherwise CmdSynchronousPromise will not be set and program
+    //will be stuck.
 
-    IsOnSynchronousAction = true;
+    result = SendProfileListReq();
 
     // blocking here to get response
     std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
     result = futResult.get();
-
-    IsOnSynchronousAction = false;
 
     if (result != LE_OK)
     {
@@ -713,10 +712,7 @@ void taf_DataProfile::ProcessListReq(void *listEvent)
     myProfile.show();
 
     LE_DEBUG("getting profile list, profileListEvtPtr->ret: %d", profileListEvtPtr->ret);
-    if (myProfile.IsOnSynchronousAction == true)
-    {
-        myProfile.CmdSynchronousPromise.set_value(profileListEvtPtr->ret);
-    }
+    myProfile.CmdSynchronousPromise.set_value(profileListEvtPtr->ret);
 
     return;
 }

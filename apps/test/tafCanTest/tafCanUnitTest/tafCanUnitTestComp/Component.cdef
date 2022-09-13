@@ -1,0 +1,17 @@
+sources:
+{
+    tafCanUnitTest.c
+}
+
+requires:
+{
+    api:
+    {
+        tafVNW/taf_can.api
+    }
+}
+
+cxxflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+}

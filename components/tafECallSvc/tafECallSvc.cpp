@@ -1106,3 +1106,100 @@ taf_ecall_TerminationReason_t taf_ecall_GetTerminationReason
     return ecall.GetTerminationReason(ecallRef);
 }
 
+/*======================================================================
+
+ FUNCTION        taf_ecall_SetPsapNumber
+
+ DESCRIPTION     Set the Public Safely Answering Point telephone number.
+
+ @note That PSAP number is not applied to Manually or Automatically initiated eCall. For those
+   modes, an emergency call is launched.
+
+ @warning This function doesn't modify the U/SIM content.
+
+ DEPENDENCIES    Initialization of ECall Service
+
+ PARAMETERS      [IN] psapNumber: PSAP number
+
+ RETURN VALUE    le_result_t
+    - LE_OK            On success
+    - LE_FAULT         For other failures
+
+ @note If PSAP number is empty or too long (max TAF_SIM_PHONE_NUM_MAX_LEN digits), it is a
+   fatal error, the function will not return.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_ecall_SetPsapNumber
+(
+  const char* psapNumber
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.SetPsapNumber(psapNumber);
+}
+
+/*======================================================================
+
+ FUNCTION        taf_ecall_GetPsapNumber
+
+ DESCRIPTION     Get the Public Safely Answering Point telephone number set with
+   taf_ecall_SetPsapNumber() function.
+
+ @note That PSAP number is not applied to Manually or Automatically initiated eCall. For those
+   modes, an emergency call is launched.
+
+ @warning This function doesn't read the U/SIM content.
+
+ DEPENDENCIES    Initialization of ECall Service
+
+ PARAMETERS      [OUT] psapNumber: Ptr to save PSAP number
+
+ RETURN VALUE             le_result_t
+    - LE_OK               On success
+    - LE_FAULT            On failures or if le_ecall_SetPsapNumber() has never been called before
+    - LE_OVERFLOW         Retrieved PSAP number is too long for the out parameter
+    - LE_BAD_PARAMETER    If Psap number is null
+
+ @note If the passed PSAP pointer is NULL, a fatal error is raised and the function will not
+   return.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_ecall_GetPsapNumber
+(
+  char* psapNumber,
+  size_t psapNumLength
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.GetPsapNumber(psapNumber, psapNumLength);
+}
+
+/*======================================================================
+
+ FUNCTION      taf_ecall_UseUSimNumbers
+
+ When modem is in ECALL_FORCED_PERSISTENT_ONLY_MODE or ECALL_ONLY_MODE, this function
+ can be called to request the modem to read the number to dial from the FDN/SDN of the U/SIM.
+
+ @note If FDN directory is updated with new dial numbers, be sure that the SIM card is refreshed.
+
+  @return
+   - LE_OK on success
+   - LE_FAULT for other failures
+
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_ecall_UseUSimNumbers
+(
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.UseUSimNumbers();
+}
+

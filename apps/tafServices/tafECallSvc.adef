@@ -29,6 +29,7 @@ requires:
 bindings:
 {
     tafECallSvc.tafECallSvc.taf_sim -> tafSimCardSvc.taf_sim
+    tafECallSvc.taf_pa_ecall.taf_sim -> tafSimCardSvc.taf_sim
 }
 
 extern:

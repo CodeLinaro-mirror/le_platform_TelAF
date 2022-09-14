@@ -36,6 +36,8 @@
 #include "interfaces.h"
 
 #define EVENTS_POOL_SIZE   2
+#define TEST_PSAP_NUMBER "0909070026"
+
 static le_sem_Ref_t TestSemaphoreRef;
 static le_thread_Ref_t ThreadRef;
 static taf_ecall_State_t ECallState;
@@ -335,6 +337,20 @@ static void Test_ECall_StartTest() {
     eCallRef = NULL;
 }
 
+static void Test_ECall_SetGetPsapNumber() {
+
+    le_result_t res = taf_ecall_SetPsapNumber(TEST_PSAP_NUMBER);
+    LE_ASSERT(res == LE_OK);
+
+    char num[15];
+    res = taf_ecall_GetPsapNumber(num, 15);
+    LE_ASSERT(res == LE_OK);
+    LE_ASSERT(strncmp(num, TEST_PSAP_NUMBER, sizeof(TEST_PSAP_NUMBER)) == 0);
+
+    res = taf_ecall_UseUSimNumbers();
+    LE_ASSERT(res == LE_OK);
+}
+
 static void* Test_taf_ecall_AddHandler(void* context) {
 
     taf_ecall_ConnectService();
@@ -361,6 +377,8 @@ COMPONENT_INIT
     Test_ECall_OperatingMode();
 
     Test_MSD_Information();
+
+    Test_ECall_SetGetPsapNumber();
 
     TestSemaphoreRef = le_sem_Create("ECallSem", 0);
 

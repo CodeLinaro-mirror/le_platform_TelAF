@@ -164,6 +164,19 @@
  * when the eCall state is @ref TAF_ECALL_STATE_ENDED and and
  * taf_ecall_GetPlatformSpecificTerminationCode() to get the platform-related termination code.
  *
+ * @section taf_ecall_PsapNumber eCall number
+ *
+ * According to operating mode, standard eCall number is defined by modem or read from USIM FDN/SDN
+ * (Fixed Dialling Numbers/Service Dialling Numbers).
+ *
+ * Third party eCall number can be set/get with:
+ *  - taf_ecall_SetPsapNumber()
+ *  - taf_ecall_GetPsapNumber()
+ * These configurations will take effect with test eCall.
+ *
+ * To request modem to read the number from FDN/SDN, call taf_ecall_UseUSimNumbers() before start
+ * an ECall.
+ *
  * @section taf_ecall_concurrency Concurrency of eCall
  *
  * If another application wants to use the eCall service when a session is already active, the
@@ -245,7 +258,7 @@
  */
 //-------------------------------------------------------------------------------------------------
 
-
+USETYPES taf_types.api;
 USETYPES taf_sim.api;
 REFERENCE Call;
 
@@ -915,4 +928,67 @@ FUNCTION int32 GetPlatformSpecificTerminationCode
 FUNCTION TerminationReason GetTerminationReason
 (
     Call ecallRef IN        ///< eCall reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set the Public Safely Answering Point (PSAP) telephone number for ECall.
+ *
+ * @note The PSAP number is not applicable in eCall which is dialed manually or automatically. It
+ *       is applicable to test type ECall which is dialed intentionally for testng, validation
+ *       or certification.
+ *
+ * @warning This function doesn't modify the U/SIM content.
+ *
+ * @return
+ *  - LE_OK           On success
+ *  - LE_FAULT        For other failures
+ *
+ * @note If PSAP number is empty or too long (max TAF_SIM_PHONE_NUM_MAX_LEN digits), it is a
+ *       fatal error, the function will not return.
+ */
+//--------------------------------------------------------------------------------------------------
+ FUNCTION le_result_t SetPsapNumber
+ (
+     string psap[taf_sim.PHONE_NUM_MAX_LEN] IN ///< Public Safely Answering Point number
+ );
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the Public Safely Answering Point telephone number set with taf_ecall_SetPsapNumber()
+ * function.
+ *
+ * @note The PSAP number is not applicable to eCall which is dialed manually or automatically. It
+ *       is applicable to test type eCall which is dialed intentionally for testng, validation
+ *       or certification.
+ *
+ * @warning This function doesn't read the U/SIM content.
+ *
+ * @return
+ *  - LE_OK               On success
+ *  - LE_FAULT            On failures or if taf_ecall_SetPsapNumber() has never been called before
+ *  - LE_OVERFLOW         Retrieved PSAP number is too long for the out parameter
+ *  - LE_BAD_PARAMETER    If Psap number is null
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetPsapNumber
+(
+    string psap[taf_sim.PHONE_NUM_MAX_LEN] OUT ///< Public Safely Answering Point telephone number
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * We can call this function to request modem to read FDN/SDN numbers from U/SIM to dial test type eCall
+ * when modem is in TAF_ECALL_FORCED_PERSISTENT_ONLY_MODE or TAF_ECALL_ONLY_MODE.
+ *
+ * @note If FDN number is updated with new dial number, make sure the SIM card is refreshed.
+ *
+ * @return
+ *  - LE_OK         On success
+ *  - LE_FAULT      On failures
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t UseUSimNumbers
+(
 );

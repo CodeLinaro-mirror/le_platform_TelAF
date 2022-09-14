@@ -36,6 +36,7 @@
 #include <telux/tel/PhoneFactory.hpp>
 #include "telux/common/CommonDefines.hpp"
 #include "tafSvcIF.hpp"
+#include "taf_pa_ecall.hpp"
 
 using namespace telux::tel;
 using namespace telux::common;
@@ -64,6 +65,9 @@ using namespace std;
 #define ISOVIS_MODEL_YEAR_LENGTH 1
 #define ISOVIS_SEQ_PLANT_START (ISOVIS_MODEL_YEAR_START + ISOVIS_MODEL_YEAR_LENGTH)
 #define ISOVIS_SEQ_PLANT_LENGTH 7
+
+#define DEFAULT_ECALL_NUM "112"
+#define CFG_PSAP_NUMBER "PsapNum"
 
 namespace telux {
     namespace tafsvc {
@@ -159,6 +163,9 @@ namespace telux {
                 le_result_t SetMsdPassengersCount (taf_ecall_CallRef_t  ecallRef, uint32_t passengerCount);
                 le_result_t SetMsdTxMode (taf_ecall_MsdTransmissionMode_t txMode);
                 le_result_t GetMsdTxMode ( taf_ecall_MsdTransmissionMode_t* modePtr);
+                le_result_t SetPsapNumber( const char* psapNumber );
+                le_result_t GetPsapNumber( char* psapNumber, size_t psapNumLength );
+                le_result_t UseUSimNumbers();
                 taf_ecall_State_t GetState ( taf_ecall_CallRef_t ecallRef);
                 taf_ecall_TerminationReason_t GetTerminationReason ( taf_ecall_CallRef_t ecallRef);
                 taf_ecall_StateChangeHandlerRef_t AddStateChangeHandler (taf_ecall_StateChangeHandlerFunc_t handlerPtr,
@@ -196,6 +203,7 @@ namespace telux {
 
                 taf_ECall_t ECallObject;
                 le_ref_MapRef_t ECallPtrRefMap = NULL;
+                bool isUseUSimNumbers = false;
                 void InitializeECallPtr();
 
         };

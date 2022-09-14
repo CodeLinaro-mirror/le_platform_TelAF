@@ -44,9 +44,23 @@ using namespace telux::tel;
 using namespace telux::common;
 using namespace std;
 
-typedef struct
+typedef struct taf_rsp_SimProfileInfo
 {
-    //taf_rsp_ProfileListRef_t    profileListRef;
+    uint32_t         profileId;
+    taf_rsp_ProfileType_t    profileType;
+    char         iccid[TAF_RSP_ICCID_LEN];
+    bool           isActive;
+    char         nickName[TAF_RSP_NICKNAME_LEN];
+    char         name[TAF_RSP_NAME_LEN];
+    char         spn[TAF_RSP_SPN_LEN];
+    taf_rsp_IconType_t       iconType;
+    taf_rsp_ProfileClass_t   profileClass;
+    uint8_t          mask;
+}taf_rsp_SimProfileInfo_t;
+
+typedef struct taf_rsp_ProfileListNode
+{
+    taf_rsp_ProfileListNodeRef_t profileListRef;
     taf_rsp_SimProfileInfo_t    profileInfo;
     le_dls_Link_t               link;
 }taf_rsp_ProfileListNode_t;
@@ -129,6 +143,7 @@ namespace telux {
                 std::string SmdpAddress;
                 std::string SmdsAddress;
                 le_result_t CreateProfileListNode();
+                le_ref_MapRef_t ProfileListNodeRefMap = NULL;
 
             public:
                 std::promise<std:: string> EidSynchronousPromise;
@@ -140,7 +155,7 @@ namespace telux {
                 le_result_t SetProfile( taf_sim_Id_t slotId, uint32_t profileId, bool enable);
                 le_result_t UpdateNickName( taf_sim_Id_t slotId, uint32_t profileId,
                          const char* nickName);
-                le_result_t RequestProfileList( taf_sim_Id_t slotId, taf_rsp_SimProfileInfo_t* profileListPtr, size_t *profileCount);
+                le_result_t RequestProfileList( taf_sim_Id_t slotId, taf_rsp_ProfileListNodeRef_t* profileListPtr, size_t *profileCount);
                 le_result_t GetServerAddress( taf_sim_Id_t slotId, char* smdpAddress, size_t smdpLength,char* smdsAddress,
                                              size_t smdsLength);
                 le_result_t SetServerAddress( taf_sim_Id_t slotId, const char* smdpAddress);
@@ -175,7 +190,17 @@ namespace telux {
                                                         void* contextPtr);
                 void RemoveProfileConfirmationCodeHandler(taf_rsp_ProfileConfirmationCodeHandlerRef_t handlerRef);
                 static void FirstLayerProfileConfirmationCodeHandler(void* reportPtr,void* secondLayerHandlerFunc);
+                taf_rsp_ProfileListNodeRef_t GetProfileListNodeRef(uint32_t index);
+                uint32_t GetProfileIndex(taf_rsp_ProfileListNodeRef_t profileRef);
+                taf_rsp_ProfileType_t GetProfileType(taf_rsp_ProfileListNodeRef_t profileRef);
+                le_result_t GetIccid(taf_rsp_ProfileListNodeRef_t profileRef, char* iccidPtr, size_t iccidLen);
+                bool GetProfileActiveStatus(taf_rsp_ProfileListNodeRef_t profileRef);
+                le_result_t GetNickName(taf_rsp_ProfileListNodeRef_t profileRef, char* nickNamePtr, size_t nickNameLen);
+                le_result_t GetName(taf_rsp_ProfileListNodeRef_t profileRef,char * namePtr,size_t nameLen);
+                le_result_t GetSpn(taf_rsp_ProfileListNodeRef_t profileRef, char * spnPtr, size_t spnLen);
+                taf_rsp_IconType_t GetIconType(taf_rsp_ProfileListNodeRef_t profileRef);
+                taf_rsp_ProfileClass_t GetProfileClass(taf_rsp_ProfileListNodeRef_t profileRef);
+                uint32_t GetMask(taf_rsp_ProfileListNodeRef_t profileRef);
         };
-
     }
 }

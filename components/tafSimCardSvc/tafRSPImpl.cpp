@@ -175,7 +175,7 @@ void* taf_rsp::ProfileAddHandlerThread(void* contextPtr)
 
 void taf_rsp::Init(void)
 {
-//  Get the PhoneFactory and SimProfileManager instances.
+    //  Get the PhoneFactory and SimProfileManager instances.
     auto &phoneFactory = telux::tel::PhoneFactory::getInstance();
     simProfileManager = phoneFactory.getSimProfileManager();
 
@@ -203,6 +203,7 @@ void taf_rsp::Init(void)
 
             ProfileListPool = le_mem_InitStaticPool(tafProfileListPool,
                         TAF_RSP_MAX_PROFILE, sizeof(taf_rsp_ProfileListNode_t));
+            ProfileListNodeRefMap = le_ref_CreateMap("tafRspProfileRefMap", TAF_RSP_MAX_PROFILE);
 
 
             ProfileDownloadEventId = le_event_CreateId("ProfileDownloadEventId", sizeof(taf_rsp_DownloadEvent_t));
@@ -369,7 +370,7 @@ le_result_t taf_rsp::UpdateNickName( taf_sim_Id_t slotId, uint32_t profileId,
     return LE_FAULT;
 }
 
-le_result_t taf_rsp::RequestProfileList( taf_sim_Id_t slotId, taf_rsp_SimProfileInfo_t* profileListPtr,
+le_result_t taf_rsp::RequestProfileList( taf_sim_Id_t slotId, taf_rsp_ProfileListNodeRef_t* profileListPtr,
         size_t *profileCount) {
     SlotId slot = (SlotId) slotId;
     ProfileSyncPromise = std::promise<le_result_t>();
@@ -406,7 +407,7 @@ le_result_t taf_rsp::RequestProfileList( taf_sim_Id_t slotId, taf_rsp_SimProfile
                 while (linkPtr)
                 {
                     taf_rsp_ProfileListNode_t* profileNode = CONTAINER_OF(linkPtr, taf_rsp_ProfileListNode_t, link);
-                    memcpy((char *)&profileListPtr[count], (const char *)&profileNode->profileInfo, sizeof(taf_rsp_SimProfileInfo_t));
+                    memcpy((char *)&profileListPtr[count], (const char *)&profileNode->profileListRef, sizeof(taf_rsp_ProfileListNodeRef_t));
                     count++;
                     linkPtr = le_dls_PeekNext(&ProfileList, linkPtr);
                 }
@@ -525,8 +526,9 @@ void taf_rsp::UpdateProfileList(taf_rsp_ProfileListEvent_t *profileListEvent)
                 le_utf8_Copy(profileNode->profileInfo.spn, profileListEvent->simProfileInfo[i].spn, TAF_RSP_SPN_LEN, NULL);
                 profileNode->profileInfo.iconType = profileListEvent->simProfileInfo[i].iconType;
                 profileNode->profileInfo.profileClass = profileListEvent->simProfileInfo[i].profileClass;
-
                 profileId[profileUpdateCount] = profileNode->profileInfo.profileId;
+                le_ref_DeleteRef(ProfileListNodeRefMap, profileNode->profileListRef);
+                profileNode->profileListRef = (taf_rsp_ProfileListNodeRef_t)le_ref_CreateRef(ProfileListNodeRefMap, profileNode);
                 profileUpdateCount++;
                 break;
             }
@@ -560,6 +562,7 @@ void taf_rsp::UpdateProfileList(taf_rsp_ProfileListEvent_t *profileListEvent)
                 profileNode->profileInfo.profileClass = profileListEvent->simProfileInfo[i].profileClass;
                 // Initialize the node's link.
                 profileNode->link = LE_DLS_LINK_INIT;
+                profileNode->profileListRef = (taf_rsp_ProfileListNodeRef_t)le_ref_CreateRef(ProfileListNodeRefMap, profileNode);
 
                 // Add the node to the tail of the list by passing in the node's link.
                 le_dls_Queue(&ProfileList, &(profileNode->link));
@@ -742,4 +745,206 @@ void taf_rsp::FirstLayerProfileConfirmationCodeHandler(void* reportPtr,
 
     clientHandlerFunc( confirmationCodeEventPtr->slotId,  confirmationCodeEventPtr->profileName,
                                          le_event_GetContextPtr());
+}
+
+taf_rsp_ProfileListNodeRef_t taf_rsp::GetProfileListNodeRef(uint32_t index)
+{
+    //Use requestProfileList from telsdk to update ProfileList.
+    //Traverse and look for id, if present, return the reference type pointer.
+    //If not present, add a node with that index, with default information.
+    auto slot = taf_sim_GetSelectedCard();
+    ProfileSyncPromise = std::promise<le_result_t>();
+    std::chrono::seconds span(SESSION_TIMEOUT);
+    le_dls_Link_t* linkPtr = NULL;
+
+    if(simProfileManager) {
+        std::shared_ptr<tafRspCallback> profileListCb = std::make_shared<tafRspCallback>();
+
+        auto  responseCb = std::bind(&tafRspCallback::onProfileListResponse, profileListCb, std::placeholders::_1,std::placeholders::_2);
+
+        telux::common::Status status = simProfileManager->requestProfileList(SlotId(slot), responseCb);
+
+        if (status == telux::common::Status::SUCCESS) {
+            LE_DEBUG("Request profile list sent successfully");
+            std::future<le_result_t> futureResult = ProfileSyncPromise.get_future();
+            std::future_status waitStatus = futureResult.wait_for(span);
+
+            if (std::future_status::timeout == waitStatus) {
+                LE_INFO("Unable to read profile list");
+                return NULL;
+            }
+            if (futureResult.get() == LE_OK) {
+                linkPtr = le_dls_Peek(&ProfileList);
+                while (linkPtr)
+                {
+                    taf_rsp_ProfileListNode_t* profileNode = CONTAINER_OF(linkPtr, taf_rsp_ProfileListNode_t, link);
+                    if(profileNode->profileInfo.profileId == (index)){
+                        return (taf_rsp_ProfileListNode_t*)(profileNode->profileListRef);
+                    }
+                    linkPtr = le_dls_PeekNext(&ProfileList, linkPtr);
+                }
+            }
+        }
+    }
+    return NULL;
+}
+
+uint32_t taf_rsp::GetProfileIndex
+(
+    taf_rsp_ProfileListNodeRef_t profileRef
+)
+{
+    taf_rsp_ProfileListNode_t* profilePtr = (taf_rsp_ProfileListNode_t*)le_ref_Lookup(ProfileListNodeRefMap, profileRef);
+    if(profilePtr == NULL)
+    {
+        LE_INFO("Profile not found");
+        return 0;
+    }
+    return (uint32_t)(profilePtr->profileInfo.profileId);
+}
+
+taf_rsp_ProfileType_t taf_rsp::GetProfileType
+(
+    taf_rsp_ProfileListNodeRef_t profileRef
+)
+{
+    taf_rsp_ProfileListNode_t* profilePtr = (taf_rsp_ProfileListNode_t*)le_ref_Lookup(ProfileListNodeRefMap, profileRef);
+    if(profilePtr == NULL)
+    {
+        LE_INFO("Profile not found");
+        return (taf_rsp_ProfileType_t)(-1);
+    }
+    return (taf_rsp_ProfileType_t)(profilePtr->profileInfo.profileType);
+}
+
+le_result_t taf_rsp::GetIccid
+(
+    taf_rsp_ProfileListNodeRef_t profileRef,
+    char* iccidPtr,
+    size_t iccidLen
+)
+{
+    taf_rsp_ProfileListNode_t* profilePtr = (taf_rsp_ProfileListNode_t*)le_ref_Lookup(ProfileListNodeRefMap, profileRef);
+    if(profilePtr == NULL)
+    {
+        LE_INFO("Profile not found");
+        return LE_FAULT;
+    }
+    if(iccidLen != TAF_SIM_ICCID_BYTES)
+        return LE_FAULT;
+    le_utf8_Copy(iccidPtr, profilePtr->profileInfo.iccid, TAF_SIM_ICCID_BYTES, NULL);
+    return LE_OK;
+}
+
+bool taf_rsp::GetProfileActiveStatus
+(
+    taf_rsp_ProfileListNodeRef_t profileRef
+)
+{
+    taf_rsp_ProfileListNode_t* profilePtr = (taf_rsp_ProfileListNode_t*)le_ref_Lookup(ProfileListNodeRefMap, profileRef);
+    if(profilePtr == NULL)
+    {
+        LE_INFO("Profile not found");
+        return false;
+    }
+    return (bool)(profilePtr->profileInfo.isActive);
+}
+
+le_result_t taf_rsp::GetNickName
+(
+    taf_rsp_ProfileListNodeRef_t profileRef,
+    char* nickNamePtr,
+    size_t nickNameLen
+)
+{
+    taf_rsp_ProfileListNode_t* profilePtr = (taf_rsp_ProfileListNode_t*)le_ref_Lookup(ProfileListNodeRefMap, profileRef);
+    if(profilePtr == NULL)
+    {
+        LE_INFO("Profile not found");
+        return LE_FAULT;
+    }
+    if(nickNameLen != TAF_RSP_NAME_BYTES)
+        return LE_FAULT;
+    le_utf8_Copy(nickNamePtr, profilePtr->profileInfo.nickName, TAF_RSP_NAME_BYTES, NULL);
+    return LE_OK;
+}
+
+le_result_t taf_rsp::GetName
+(
+    taf_rsp_ProfileListNodeRef_t profileRef,
+    char * namePtr,
+    size_t nameLen
+)
+{
+    taf_rsp_ProfileListNode_t* profilePtr = (taf_rsp_ProfileListNode_t*)le_ref_Lookup(ProfileListNodeRefMap, profileRef);
+    if(profilePtr == NULL)
+    {
+        LE_INFO("Profile not found");
+        return LE_FAULT;
+    }
+    if(nameLen != TAF_RSP_NAME_BYTES)
+        return LE_FAULT;
+    le_utf8_Copy(namePtr, profilePtr->profileInfo.name, TAF_RSP_NAME_BYTES, NULL);
+    return LE_OK;
+}
+
+le_result_t taf_rsp::GetSpn
+(
+    taf_rsp_ProfileListNodeRef_t profileRef,
+    char * spnPtr,
+    size_t spnLen
+)
+{
+    taf_rsp_ProfileListNode_t* profilePtr = (taf_rsp_ProfileListNode_t*)le_ref_Lookup(ProfileListNodeRefMap, profileRef);
+    if(profilePtr == NULL)
+    {
+        LE_INFO("Profile not found");
+        return LE_FAULT;
+    }
+    if(spnLen != TAF_RSP_NAME_BYTES)
+        return LE_FAULT;
+    le_utf8_Copy(spnPtr, profilePtr->profileInfo.spn, TAF_RSP_SPN_LEN, NULL);
+    return LE_OK;
+}
+
+taf_rsp_IconType_t taf_rsp::GetIconType
+(
+    taf_rsp_ProfileListNodeRef_t profileRef
+)
+{
+    taf_rsp_ProfileListNode_t* profilePtr = (taf_rsp_ProfileListNode_t*)le_ref_Lookup(ProfileListNodeRefMap, profileRef);
+    if(profilePtr == NULL)
+    {
+        LE_INFO("Profile not found");
+        return (taf_rsp_IconType_t)(-1);
+    }
+    return (taf_rsp_IconType_t)(profilePtr->profileInfo.iconType);
+}
+
+taf_rsp_ProfileClass_t taf_rsp::GetProfileClass
+(
+    taf_rsp_ProfileListNodeRef_t profileRef
+)
+{
+    taf_rsp_ProfileListNode_t* profilePtr = (taf_rsp_ProfileListNode_t*)le_ref_Lookup(ProfileListNodeRefMap, profileRef);
+    if(profilePtr == NULL)
+    {
+        LE_INFO("Profile not found");
+        return (taf_rsp_ProfileClass_t)(0);
+    }
+    return (taf_rsp_ProfileClass_t)(profilePtr->profileInfo.profileClass);
+}
+
+uint32_t taf_rsp::GetMask
+(
+    taf_rsp_ProfileListNodeRef_t profileRef
+)
+{
+    taf_rsp_ProfileListNode_t* profilePtr = (taf_rsp_ProfileListNode_t*)le_ref_Lookup(ProfileListNodeRefMap, profileRef);
+    if(profilePtr == NULL)
+    {
+        LE_INFO("Profile not found");
+        return (uint32_t)(0);
+    }
+    return (uint32_t)(profilePtr->profileInfo.mask);
 }

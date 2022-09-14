@@ -49,6 +49,7 @@ static void PrintUsage () {
             "rsp -- enableprofile <profileId> \n"
             "rsp -- disableprofile <profileId> \n"
             "rsp -- list \n"
+            "rsp -- getProfile <index> \n"
             "rsp -- nickname <profileId> <name>\n"
             "rsp -- getsmdp\n"
             "rsp -- setAddress <smdpAddress>\n"
@@ -242,19 +243,91 @@ static char* ProfileClassToString(taf_rsp_ProfileClass_t profileClass) {
 }
 
 static int GetProfileList() {
-     taf_rsp_SimProfileInfo_t    profileListPtr[TAF_RSP_MAX_PROFILE];
-     size_t count;
-    LE_ASSERT_OK(taf_rsp_GetProfileList(SimId, profileListPtr, &count));
+    taf_rsp_ProfileListNodeRef_t    profileListPtr[TAF_RSP_MAX_PROFILE];
+    size_t count;
     uint8_t i = 0;
+    le_result_t     res;
+    char            iccid[TAF_RSP_ICCID_BYTES];
+    char            nickName[TAF_RSP_NICKNAME_BYTES];
+    char            name[TAF_RSP_NAME_BYTES];
+    char            spn[TAF_RSP_SPN_LEN];
+
+    memset(iccid, 0, TAF_RSP_ICCID_BYTES);
+    memset(nickName, 0, TAF_RSP_NICKNAME_BYTES);
+    memset(name, 0, TAF_RSP_NAME_BYTES);
+    memset(spn, 0, TAF_RSP_SPN_LEN);
+
+    LE_INFO("GetProfileList: Retrieving profile list...");
+
+    res = taf_rsp_GetProfileList(SimId, profileListPtr, &count);
+
+    LE_INFO("Get profile list: result %d, no of profiles: %d", (int) res, count);
+
     for (i = 0; i < count; i++) {
-        printf("Profile %d:\n", i);
-        printf("ProfileId = %d  ProfileType = %s  iccid = %s   isActive = %d nickName = %s name = %s spn = %s  iconType = %d  profileClass = %s \n",
-                profileListPtr[i].profileId, ProfileTypeToString(profileListPtr[i].profileType),
-                profileListPtr[i].iccid, profileListPtr[i].isActive, profileListPtr[i].nickName, profileListPtr[i].name,
-                profileListPtr[i].spn,  profileListPtr[i].iconType, ProfileClassToString(profileListPtr[i].profileClass));
-        printf(" name = %s spn = %s  iconType = %d  profileClass = %s \n",
-                 profileListPtr[i].name, profileListPtr[i].spn,  profileListPtr[i].iconType, ProfileClassToString(profileListPtr[i].profileClass));
+        if (profileListPtr[i] != NULL) {
+            res = taf_rsp_GetIccid(profileListPtr[i], iccid, sizeof(iccid));
+            LE_TEST_OK(res == LE_OK, "taf_sim_GetICCID done");
+            res = taf_rsp_GetNickName(profileListPtr[i], nickName, sizeof(nickName));
+            LE_TEST_OK(res == LE_OK, "taf_rsp_GetNickName done");
+            res = taf_rsp_GetName(profileListPtr[i], name, sizeof(name));
+            LE_TEST_OK(res == LE_OK, "taf_rsp_GetName done");
+            res = taf_rsp_GetSpn(profileListPtr[i], spn, sizeof(spn));
+            LE_TEST_OK(res == LE_OK, "taf_rsp_GetSpn done");
+
+            printf("Profile# %d: \n", i+1);
+            printf("ProfileId = %d,  ProfileType = %s,  iccid = %s,  isActive = %d, nickName = %s ",
+                taf_rsp_GetProfileIndex(profileListPtr[i]), ProfileTypeToString(taf_rsp_GetProfileType(profileListPtr[i])),
+                iccid, taf_rsp_GetProfileActiveStatus(profileListPtr[i]), nickName);
+            printf(" name = %s, spn = %s,  iconType = %d,  profileClass = %s, profileMask = %d \n ",
+                name, spn,  taf_rsp_GetIconType(profileListPtr[i]),
+                ProfileClassToString(taf_rsp_GetProfileClass(profileListPtr[i])), taf_rsp_GetMask(profileListPtr[i]));
+        }
     }
+
+    return EXIT_SUCCESS;
+}
+
+static int GetProfileByIndex() {
+    taf_rsp_ProfileListNodeRef_t    profileListNodeRef;
+    le_result_t     res;
+    char            iccid[TAF_RSP_ICCID_BYTES];
+    char            nickName[TAF_RSP_NICKNAME_BYTES];
+    char            name[TAF_RSP_NAME_BYTES];
+    char            spn[TAF_RSP_SPN_LEN];
+
+    memset(iccid, 0, TAF_RSP_ICCID_BYTES);
+    memset(nickName, 0, TAF_RSP_NICKNAME_BYTES);
+    memset(name, 0, TAF_RSP_NAME_BYTES);
+    memset(spn, 0, TAF_RSP_SPN_LEN);
+    if (le_arg_NumArgs() < 3) {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
+    const char* id = le_arg_GetArg(2);
+    uint32_t profileId = atoi(id);
+
+    LE_INFO("GetProfileByIndex: Retrieving profile of index %d", profileId);
+
+    profileListNodeRef = taf_rsp_GetProfile(profileId);
+    if (profileListNodeRef != NULL) {
+        res = taf_rsp_GetIccid(profileListNodeRef, iccid, sizeof(iccid));
+        LE_TEST_OK(res == LE_OK, "taf_sim_GetICCID done");
+        res = taf_rsp_GetNickName(profileListNodeRef, nickName, sizeof(nickName));
+        LE_TEST_OK(res == LE_OK, "taf_rsp_GetNickName done");
+        res = taf_rsp_GetName(profileListNodeRef, name, sizeof(name));
+        LE_TEST_OK(res == LE_OK, "taf_rsp_GetName done");
+        res = taf_rsp_GetSpn(profileListNodeRef, spn, sizeof(spn));
+        LE_TEST_OK(res == LE_OK, "taf_rsp_GetSpn done");
+
+        printf("Profile# %d: \n", profileId);
+        printf("ProfileId = %d,  ProfileType = %s,  iccid = %s,  isActive = %d, nickName = %s ",
+            taf_rsp_GetProfileIndex(profileListNodeRef), ProfileTypeToString(taf_rsp_GetProfileType(profileListNodeRef)),
+            iccid, taf_rsp_GetProfileActiveStatus(profileListNodeRef), nickName);
+        printf(" name = %s, spn = %s,  iconType = %d,  profileClass = %s, profileMask = %d \n",
+            name, spn,  taf_rsp_GetIconType(profileListNodeRef),
+            ProfileClassToString(taf_rsp_GetProfileClass(profileListNodeRef)), taf_rsp_GetMask(profileListNodeRef));
+    }
+    LE_INFO("GetProfileByIndex tests completed.");
     return EXIT_SUCCESS;
 }
 
@@ -357,6 +430,10 @@ COMPONENT_INIT
     else if (strcmp(command, "list") == 0)
     {
         status = GetProfileList();
+    }
+    else if (strcmp(command, "getProfile") == 0)
+    {
+        status = GetProfileByIndex();
     }
     else if (strcmp(command, "nickname") == 0)
     {

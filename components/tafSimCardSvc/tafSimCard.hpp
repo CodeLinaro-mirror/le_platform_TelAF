@@ -91,6 +91,12 @@ namespace telux {
                 void onSubscriptionInfoChanged(std::shared_ptr<telux::tel::ISubscription> subscription) override;
         };
 
+        class tafMultiSimListener : public telux::tel::IMultiSimListener {
+            public:
+                void onSlotStatusChanged(
+                std::map<SlotId, telux::tel::SlotStatus> slotStatus) override;
+        };
+
         class tafOpenLogicalChannelCallback : public ICardChannelCallback {
             public:
                 void onChannelResponse(int channel, IccResult result, ErrorCode error) override;
@@ -104,6 +110,13 @@ namespace telux {
         class tafTransmitApduResponseCallback : public ICardCommandCallback {
             public:
                 void onResponse(IccResult result, ErrorCode error) override;
+        };
+
+        class tafMultiSimCallback {
+            public:
+                static void requestsSlotsStatusResponse(std::map<SlotId,
+                                            telux::tel::SlotStatus> slotStatus,
+                                            telux::common::ErrorCode error);
         };
 
         class tafAuthenticationResponseCallback {
@@ -131,13 +144,18 @@ namespace telux {
 
                 std::shared_ptr<telux::tel::ICardManager> cardManager;
                 std::shared_ptr<telux::tel::ICardListener> cardListener;
-                std::vector<std::shared_ptr<telux::tel::ICard>> cards;
+                std::map<int, std::shared_ptr<telux::tel::ICard>> cards;
                 std::shared_ptr<telux::tel::ISubscriptionManager> subMgr;
                 std::shared_ptr<telux::tel::ISubscriptionListener> subscriptionListener;
                 std::shared_ptr<telux::tel::ISimProfileManager> simProfileManager;
                 std::promise<le_result_t> ProfileSyncPromise = std::promise<le_result_t>();
+                std::shared_ptr<telux::tel::IMultiSimManager> multiSimMgr;
+                std::shared_ptr<telux::tel::IMultiSimListener> multiSimListener;
+                std::promise<telux::common::ErrorCode> slotStatusCbPromise;
 
                 int slot = DEFAULT_SLOT_ID;
+                int slotCount = 0;
+                bool isSingleActive = false;
                 std::condition_variable eventCV;
                 CardEvent cardEventExpected;
                 std::mutex eventMutex;
@@ -164,6 +182,7 @@ namespace telux {
                 le_result_t selectSimSlot(taf_sim_Id_t simId);
                 taf_sim_info_t* GetSimContext(taf_sim_Id_t simId);
                 void InitializeSimInfo(std::shared_ptr<telux::tel::ISubscription> subscription, taf_sim_Id_t simId);
+                std::shared_ptr<telux::tel::ISubscription> getSubscription(taf_sim_Id_t simId);
                 le_result_t getICCID(taf_sim_Id_t simId, char *iccid, int length);
                 le_result_t getSubscriberPhoneNumber(taf_sim_Id_t simId, char *phoneNumber, int length);
                 le_result_t getIMSI(taf_sim_Id_t simId, char *imsi, int length);

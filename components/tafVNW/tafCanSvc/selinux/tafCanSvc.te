@@ -1,0 +1,23 @@
+# Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+policy_module(tafCanSvc, 1.0)
+
+gen_require(`
+  type sysfs_t;
+')
+
+# Framework definition for telaf
+type telaf_tafCanSvc_exec_t;
+files_type(telaf_tafCanSvc_exec_t);
+
+type telaf_tafCanSvc_t;
+
+type telaf_tafCanSvc_data_t;
+files_type(telaf_tafCanSvc_data_t);
+
+init_telaf_app_domain(telaf_tafCanSvc_t,telaf_tafCanSvc_exec_t)
+
+# Allow update daemon to install/uninstall this service
+telaf_admin_manage_all_files_perms(telaf_tafCanSvc_data_t)
+telaf_admin_manage_all_files_perms(telaf_tafCanSvc_exec_t)

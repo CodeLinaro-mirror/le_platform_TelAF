@@ -1,0 +1,26 @@
+sandboxed: false
+executables:
+{
+    tafECallIntTest = ( $TELAF_ROOT/apps/test/tafECallTest/tafECallIntTest/tafECallIntTestComponent )
+}
+
+
+processes:
+{
+    run:
+    {
+        ( tafECallIntTest )
+    }
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+}
+
+start: manual
+
+bindings:
+{
+    tafECallIntTest.tafECallIntTestComponent.taf_ecall -> tafECallSvc.taf_ecall
+}
+

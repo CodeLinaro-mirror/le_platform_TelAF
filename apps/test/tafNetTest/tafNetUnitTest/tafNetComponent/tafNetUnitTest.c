@@ -53,7 +53,7 @@
 #define CELLULAR_INTERFACE              "rmnet_data0"
 #define NAT_ENTRY_PRIVATE_IP_ADDR       "111.111.111.11"
 #define TEST_DESTINATION_NAT_ENTRY_NUM  3
-
+#define TEST_VLAN_ENTRY_NUM  3
 
 le_sem_Ref_t semaphore;
 
@@ -177,7 +177,8 @@ static void NetworkGetInterfaceListTest()
 
     for(int i=0;i<listSize;i++)
     {
-        LE_INFO("----interface name =%s, technology=%d,state=%d",intfInfoListPtr[i].interfaceName,intfInfoListPtr[i].tech,intfInfoListPtr[i].state);
+        LE_INFO("----interface name =%s, technology=%d,state=%d",intfInfoListPtr[i].interfaceName,
+                intfInfoListPtr[i].tech,intfInfoListPtr[i].state);
     }
 }
 
@@ -292,6 +293,102 @@ static void NetworkBackupSetRestoreDefaultGatewayTest()
     return;
 }
 
+void VlanUnitTestFunc(void)
+{
+    LE_INFO("======== 4.1 Vlan Test ========");
+    taf_net_VlanRef_t vlanRef[TEST_VLAN_ENTRY_NUM];
+    int16_t retVlanId;
+    int32_t retProfileId;
+    bool isAccelerated=false;
+    taf_net_VlanEntryRef_t vlanEntryRef;
+    taf_net_VlanEntryListRef_t vlanEntryList;
+    taf_net_VlanIfRef_t vlanIfRef;
+    taf_net_VlanIfType_t vlanIfType;
+    taf_net_VlanIfListRef_t vlanIfList[TEST_VLAN_ENTRY_NUM];
+    const uint16_t vlanId[TEST_VLAN_ENTRY_NUM] = {103, 105, 107};
+    const uint16_t profileId[TEST_VLAN_ENTRY_NUM] = {3, 5, 6};
+
+    LE_ASSERT(taf_net_CreateVlan(5000, 0) == NULL);
+    LE_ASSERT(taf_net_AddVlanInterface(NULL,TAF_NET_ETH) == LE_BAD_PARAMETER);
+    LE_ASSERT(taf_net_BindVlanWithProfile(NULL,5) == LE_BAD_PARAMETER);
+
+    for (size_t i = 0; i < TEST_VLAN_ENTRY_NUM; i++)
+    {
+        //create vlan
+        LE_ASSERT(taf_net_CreateVlan(vlanId[i], 0) != NULL);
+
+        vlanRef[i]=taf_net_GetVlanById(vlanId[i]);
+        LE_ASSERT(vlanRef[i] != NULL);
+
+        //add vlan interface
+        LE_ASSERT(taf_net_AddVlanInterface(vlanRef[i],TAF_NET_ETH) == LE_OK);
+
+        LE_ASSERT(taf_net_AddVlanInterface(vlanRef[i],TAF_NET_ECM) == LE_OK);
+
+        vlanIfList[i]=taf_net_GetVlanInterfaceList(vlanRef[i]);
+        LE_ASSERT(vlanIfList[i] != NULL);
+
+        vlanIfRef = taf_net_GetFirstVlanInterface(vlanIfList[i]);
+        LE_ASSERT(vlanIfRef != NULL);
+
+        vlanIfType=taf_net_GetVlanInterfaceType(vlanIfRef);
+        LE_ASSERT(vlanIfType == TAF_NET_ETH);
+
+        vlanIfRef = taf_net_GetNextVlanInterface(vlanIfList[i]);
+        LE_ASSERT(vlanIfRef != NULL);
+
+        vlanIfType=taf_net_GetVlanInterfaceType(vlanIfRef);
+        LE_ASSERT(vlanIfType == TAF_NET_ECM);
+        LE_ASSERT(taf_net_BindVlanWithProfile(vlanRef[i],profileId[i]) == LE_OK);
+    }
+
+    vlanEntryList=taf_net_GetVlanEntryList();
+    LE_ASSERT(vlanEntryList != NULL);
+
+    vlanEntryRef = taf_net_GetFirstVlanEntry(vlanEntryList);
+    retVlanId = taf_net_GetVlanId(vlanEntryRef);
+    LE_ASSERT(retVlanId == vlanId[0]);
+
+    LE_ASSERT(taf_net_IsVlanAccelerated(vlanEntryRef,&isAccelerated) == LE_OK);
+
+    retProfileId = taf_net_GetVlanBoundProfileId(vlanEntryRef);
+    LE_ASSERT(retProfileId == profileId[0]);
+
+    vlanEntryRef = taf_net_GetNextVlanEntry(vlanEntryList);
+    retVlanId = taf_net_GetVlanId(vlanEntryRef);
+    LE_ASSERT(retVlanId == vlanId[1]);
+
+    LE_ASSERT(taf_net_IsVlanAccelerated(vlanEntryRef,&isAccelerated) == LE_OK);
+
+    retProfileId = taf_net_GetVlanBoundProfileId(vlanEntryRef);
+    LE_ASSERT(retProfileId == profileId[1]);
+
+    vlanEntryRef = taf_net_GetNextVlanEntry(vlanEntryList);
+    retVlanId = taf_net_GetVlanId(vlanEntryRef);
+    LE_ASSERT(retVlanId == vlanId[2]);
+
+    LE_ASSERT(taf_net_IsVlanAccelerated(vlanEntryRef,&isAccelerated) == LE_OK);
+
+    retProfileId = taf_net_GetVlanBoundProfileId(vlanEntryRef);
+    LE_ASSERT(retProfileId == profileId[2]);
+
+    for (size_t i = 0; i < TEST_VLAN_ENTRY_NUM; i++)
+    {
+        LE_ASSERT(taf_net_UnbindVlanFromProfile(vlanRef[i]) == LE_OK);
+
+        LE_ASSERT(taf_net_RemoveVlanInterface(vlanRef[i],TAF_NET_ECM) == LE_OK);
+
+        LE_ASSERT(taf_net_RemoveVlanInterface(vlanRef[i],TAF_NET_ETH) == LE_OK);
+
+        LE_ASSERT(taf_net_RemoveVlan(vlanRef[i]) == LE_OK);
+
+        LE_ASSERT(taf_net_DeleteVlanInterfaceList(vlanIfList[i]) == LE_OK);
+    }
+
+    LE_ASSERT(taf_net_DeleteVlanEntryList(vlanEntryList) == LE_OK);
+
+}
+
 void NatDestNatUnitTestFunc(void)
 {
     LE_INFO("======== 3.1 Destination NAT Entry Test ========");
@@ -401,8 +498,10 @@ static void* UnitTestNetThread(void* contextPtr)
 
     LE_INFO("======== 3 Destination NAT unit test start========");
     NatDestNatUnitTestFunc();
-    LE_INFO("----all tests are passed");
 
+    LE_INFO("======== 4 Vlan unit test start========");
+    VlanUnitTestFunc();
+    LE_INFO("----all tests are passed");
     return NULL;
 }
 

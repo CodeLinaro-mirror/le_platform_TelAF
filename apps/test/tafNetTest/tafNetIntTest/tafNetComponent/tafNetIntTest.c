@@ -58,16 +58,32 @@ static void PrintUsage ()
     puts("\n"
             "app start tafNetIntTest\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- getinterfacelist\n"
-            "app runProc tafNetIntTest --exe=tafNetIntTest -- changeiproute <interfacename> <destination> <subnetmask> <metric> <1/0> \n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- changeiproute \
+<interfacename> <destination> <subnetmask> <metric> <1/0> \n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- getinterfacegw <interfacename>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- getinterfacedns <interfacename>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- setdefaultgw <interfacename>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- setdns <interfacename>\n"
-            "app runProc tafNetIntTest --exe=tafNetIntTest -- backupsetandrestoregw <interfacename>\n"
-            "app runProc tafNetIntTest --exe=tafNetIntTest -- adddestnatondefaultpdn <privateipaddr> <privateport> <globalport> <tcp/udp>\n"
-            "app runProc tafNetIntTest --exe=tafNetIntTest -- deldestnatondefaultpdn <privateipaddr> <privateport> <globalport> <tcp/udp>\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- backupsetandrestoregw \
+<interfacename>\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- adddestnatondefaultpdn \
+<privateipaddr> <privateport> <globalport> <tcp/udp>\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- deldestnatondefaultpdn \
+<privateipaddr> <privateport> <globalport> <tcp/udp>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- getdestnatlistondefaultpdn\n"
-            "app runProc tafNetIntTest --exe=tafNetIntTest -- deldestnatlistrefondefaultpdn\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- adddestnatondemandpdn \
+<profileid> <privateipaddr> <privateport> <globalport> <tcp/udp>\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- deldestnatondemandpdn \
+<profileid> <privateipaddr> <privateport> <globalport> <tcp/udp>\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- getdestnatlistondemandpdn \
+<profileid>\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- createvlan <vlanId> <type> <isAccelerated>\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- removevlan <vlanId> <type>\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- getvlaninterfaceinfo <vlanid>\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- bindwithprofile \
+<vlanid> <profileid>\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- unbindwithprofile <vlanid>\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- getvlanentryinfo\n"
             "\n");
 }
 
@@ -454,6 +470,7 @@ static int TafNatDelDestNatOnDefaultPdn()
 
 static int TafNatGetDestNatListOnDefaultPdn()
 {
+    le_result_t ret;
     char ipProtoStr[NET_IP_PROTO_NUMBER_LEN];
     taf_net_DestNatEntryListRef_t listRef=taf_net_GetDestNatEntryListOnDefaultPdn();
 
@@ -478,30 +495,16 @@ static int TafNatGetDestNatListOnDefaultPdn()
 
             entryRef=taf_net_GetNextDestNatEntry(listRef);
         }
-    }
 
-    return EXIT_SUCCESS;
-}
-
-static int TafNatDelDestNatListRefOnDefaultPdn()
-{
-    le_result_t ret;
-    taf_net_DestNatEntryListRef_t listRef=taf_net_GetDestNatEntryListOnDefaultPdn();
-    if(listRef !=NULL)
-    {
         ret = taf_net_DeleteDestNatEntryList(listRef);
         if(ret == LE_OK)
         {
-            LE_INFO("----delete ok");
+            LE_INFO("----OK");
         }
         else
         {
-            LE_INFO("----delete error");
+            LE_INFO("----delete dest Nat reference list ERROR");
         }
-    }
-    else
-    {
-        LE_INFO("----No list exist");
     }
 
     return EXIT_SUCCESS;
@@ -578,6 +581,7 @@ static int TafNatDelDestNatOnDemandPdn()
 
 static int TafNatGetDestNatListOnDemandPdn()
 {
+    le_result_t ret;
     if (le_arg_NumArgs() !=2)
     {
         PrintUsage();
@@ -611,32 +615,217 @@ static int TafNatGetDestNatListOnDemandPdn()
             entryRef=taf_net_GetNextDestNatEntry(listRef);
         }
 
+        ret = taf_net_DeleteDestNatEntryList(listRef);
+        if(ret == LE_OK)
+        {
+            LE_INFO("----OK");
+        }
+        else
+        {
+            LE_INFO("----delete dest Nat reference list ERROR");
+        }
     }
 
     return EXIT_SUCCESS;
 }
 
-static int TafNatDelDestNatListRefOnDemandPdn()
+static int TafVlanInterfaceInfo()
 {
     le_result_t ret;
+    int ifType=0;
     if (le_arg_NumArgs() !=2)
     {
         PrintUsage();
         exit(EXIT_FAILURE);
     }
-    uint32_t profileId = strtol(le_arg_GetArg(1), NULL, 0);
-    taf_net_DestNatEntryListRef_t listRef=taf_net_GetDestNatEntryListOnDemandPdn(profileId);
+    uint16_t vlanId = strtol(le_arg_GetArg(1), NULL, 0);
+
+    taf_net_VlanRef_t vlanRef=taf_net_GetVlanById(vlanId);
+
+    taf_net_VlanIfListRef_t listRef=taf_net_GetVlanInterfaceList(vlanRef);
+
     if(listRef !=NULL)
     {
-        ret = taf_net_DeleteDestNatEntryList(listRef);
+        taf_net_VlanIfRef_t entryRef = taf_net_GetFirstVlanInterface(listRef);
+        while(entryRef != NULL)
+        {
+
+            ifType=taf_net_GetVlanInterfaceType(entryRef);
+
+            LE_INFO("ifType=%d",ifType);
+            entryRef=taf_net_GetNextVlanInterface(listRef);
+        }
+
+        ret = taf_net_DeleteVlanInterfaceList(listRef);
         if(ret == LE_OK)
         {
-            LE_INFO("----delete ok");
+            LE_INFO("----OK");
         }
         else
         {
-            LE_INFO("----delete error");
+            LE_INFO("----delete vlan interface reference list ERROR");
         }
+    }
+
+    return EXIT_SUCCESS;
+}
+
+//when client session closed, vlanRef is removed from vlanRefMap, call 2 APIs in this command
+static int TafCreateVlan()
+{
+    le_result_t ret;
+    if (le_arg_NumArgs() !=4)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    uint16_t vlanId = strtol(le_arg_GetArg(1), NULL, 0);
+    taf_net_VlanIfType_t ifType = (taf_net_VlanIfType_t)strtol(le_arg_GetArg(2), NULL, 0);
+    bool isAccelerated = strtol(le_arg_GetArg(3), NULL, 0);
+    taf_net_VlanRef_t vlanRef=taf_net_CreateVlan(vlanId,isAccelerated);
+    if(vlanRef != NULL)
+    {
+        ret=taf_net_AddVlanInterface(vlanRef,ifType);
+        if(ret == LE_OK)
+            LE_INFO("---Creating VLAN OK");
+        else
+            LE_INFO("---Creating VLAN error");
+    }
+    else
+        LE_INFO("---IsAccelerated conflict with the old vlue");
+
+    return EXIT_SUCCESS;
+}
+
+static int TafRemoveVlan()
+{
+    le_result_t ret;
+    if (le_arg_NumArgs() !=3)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    uint16_t vlanId = strtol(le_arg_GetArg(1), NULL, 0);
+    taf_net_VlanIfType_t ifType = (taf_net_VlanIfType_t)strtol(le_arg_GetArg(2), NULL, 0);
+
+    taf_net_VlanRef_t vlanRef=taf_net_GetVlanById(vlanId);
+
+    ret=taf_net_RemoveVlanInterface(vlanRef,ifType);
+    if(ret == LE_OK)
+        LE_INFO("---Removing VLAN OK---");
+    else
+        LE_INFO("---Removing VLAN error---");
+
+    return EXIT_SUCCESS;
+}
+
+static int TafVlanInfo()
+{
+    int vlanId=0;
+    int profileId=0;
+    le_result_t ret;
+    bool isAccelerated=false;
+
+    if (le_arg_NumArgs() !=1)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    taf_net_VlanEntryListRef_t listRef=taf_net_GetVlanEntryList();
+
+    if(listRef !=NULL)
+    {
+        taf_net_VlanEntryRef_t entryRef = taf_net_GetFirstVlanEntry(listRef);
+        while(entryRef != NULL)
+        {
+
+            vlanId=taf_net_GetVlanId(entryRef);
+
+            LE_INFO("----vlanId=%d",vlanId);
+
+            ret =taf_net_IsVlanAccelerated(entryRef,&isAccelerated);
+            if(ret == LE_OK)
+            {
+                LE_INFO("----isAccelerated=%d",isAccelerated);
+            }
+
+            profileId=taf_net_GetVlanBoundProfileId(entryRef);
+
+            if(profileId == -1)
+                LE_INFO("----no binding----");
+            else
+                LE_INFO("----profile id=%d----",profileId);
+
+            entryRef=taf_net_GetNextVlanEntry(listRef);
+        }
+
+        ret = taf_net_DeleteVlanEntryList(listRef);
+        if(ret == LE_OK)
+        {
+            LE_INFO("----OK");
+        }
+        else
+        {
+            LE_INFO("----delete vlan entry reference list ERROR");
+        }
+    }
+
+    return EXIT_SUCCESS;
+}
+
+static int TafVlanBindWithProfile()
+{
+    le_result_t ret;
+
+    if (le_arg_NumArgs() !=3)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    uint32_t vlanid = strtol(le_arg_GetArg(1), NULL, 0);
+    uint32_t profileid = strtol(le_arg_GetArg(2), NULL, 0);
+
+    taf_net_VlanRef_t vlanRef=taf_net_GetVlanById(vlanid);
+
+    ret = taf_net_BindVlanWithProfile(vlanRef,profileid);
+    if(ret == LE_OK)
+    {
+        LE_INFO("----bind with profile  ok");
+    }
+    else
+    {
+        LE_INFO("----bind with profile error");
+    }
+
+    return EXIT_SUCCESS;
+}
+
+static int TafVlanUnBindWithProfile()
+{
+    le_result_t ret;
+
+    if (le_arg_NumArgs() !=2)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    uint32_t vlanid = strtol(le_arg_GetArg(1), NULL, 0);
+
+    taf_net_VlanRef_t vlanRef=taf_net_GetVlanById(vlanid);
+
+    ret = taf_net_UnbindVlanFromProfile(vlanRef);
+    if(ret == LE_OK)
+    {
+        LE_INFO("----unbind with profile  ok");
+    }
+    else
+    {
+        LE_INFO("----unbind with profile error");
     }
 
     return EXIT_SUCCESS;
@@ -702,10 +891,6 @@ COMPONENT_INIT
         {
             status=TafNatGetDestNatListOnDefaultPdn();
         }
-        else if(strcmp(testType, "deldestnatlistrefondefaultpdn") == 0)
-        {
-            status=TafNatDelDestNatListRefOnDefaultPdn();
-        }
         else if(strcmp(testType, "adddestnatondemandpdn") == 0)
         {
             status=TafNatAddDestNatOnDemandPdn();
@@ -718,9 +903,29 @@ COMPONENT_INIT
         {
             status=TafNatGetDestNatListOnDemandPdn();
         }
-        else if(strcmp(testType, "deldestnatlistrefondemandpdn") == 0)
+        else if(strcmp(testType, "createvlan") == 0)
         {
-            status=TafNatDelDestNatListRefOnDemandPdn();
+            status=TafCreateVlan();
+        }
+        else if(strcmp(testType, "removevlan") == 0)
+        {
+            status=TafRemoveVlan();
+        }
+        else if(strcmp(testType, "getvlanentryinfo") == 0)
+        {
+            status=TafVlanInfo();
+        }
+        else if(strcmp(testType, "getvlaninterfaceinfo") == 0)
+        {
+            status=TafVlanInterfaceInfo();
+        }
+        else if(strcmp(testType, "bindwithprofile") == 0)
+        {
+            status=TafVlanBindWithProfile();
+        }
+        else if(strcmp(testType, "unbindwithprofile") == 0)
+        {
+            status=TafVlanUnBindWithProfile();
         }
         exit(status);
     }

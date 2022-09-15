@@ -32,96 +32,393 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+//--------------------------------------------------------------------------------------------------
+
+/**
+ * @page c_tafNetwork Network Service
+ *
+ * @ref taf_net_interface.h "API Reference"
+ *
+ * <HR>
+ *
+ * Network service is a data network configuration service. It provides unified TelAF networking
+ * APIs for configuration.
+ *
+ * Network service provides APIs for applications to manage route, gateway, DNS, NAT, GSB, VLAN,
+ * Socksv5, L2tp, filter and firewall.
+ *
+ * @section c_taf_net_binding IPC interfaces binding
+ *
+ * All the functions of this API are provided by the @b tafNetSvc application service.
+ *
+ * Here's a sample of how to bind to Network service:
+ * @verbatim
+   bindings:
+   {
+       clientExe.clientComponent.taf_net -> tafNetSvc.taf_net
+   }
+   @endverbatim
+ *
+ * @section c_taf_net_route_management Route management
+ *
+ * Route can be changed by using taf_net_ChangeRoute with interface name, destination address,
+ * prefix length, metric, isAdd passed as parameters.
+ *
+ * Here's a sample of how to change a route. In this example, it will add a route with interface
+ * "eth0", destination address "192.168.10.0", subnet mask "255.255.255.0", metric 0.
+ * @verbatim
+   result=taf_net_ChangeRoute("eth0","192.168.10.0",24,0,TAF_NET_ADD);
+   @endverbatim
+ *
+ * Before changing the route, an application can register a state handler using
+ * taf_net_AddRouteChangeHandler(). Once the route is changed, the handler will be called.
+ * @verbatim
+   routeChangeHandlerRef = taf_net_AddRouteChangeHandler(
+                           (taf_net_RouteChangeHandlerFunc_t)NetRouteChangeHandlerFunc, NULL);
+   @endverbatim
+ *
+ * To remove the handler, an application can use
+ * taf_net_RemoveRouteChangeHandler(routeChangeHandlerRef);
+ *
+ * @section c_taf_net_gateway_management Gateway management
+ *
+ * Gateway management provides APIs to set, backup, restore system default gateway, and query
+ * interface gateway, including IPV4 address and IPV6 address.
+ *
+ * Default gateway can be set by using taf_net_SetDefaultGW with interface name passed as parameter.
+ * The gateway addresses of the interface will be retrieved and set into the system.
+ *
+ * Here's a sample of how to set default gateway. In this example, it will set system default gateways
+ * with gateway addresses from interface "rmnet_data1", including IPV4 and IPV6 gateways:
+ * @verbatim
+   result=taf_net_SetDefaultGW("rmnet_data1");
+   @endverbatim
+ *
+ * Before setting the default gateway, an application can register a state handler using
+ * taf_net_AddGatewayChangeHandler(). Once the default gateway is set, the handler will be called.
+ * @verbatim
+   gatewayChangeHandlerRef = taf_net_AddGatewayChangeHandler(
+                           (taf_net_GatewayChangeHandlerFunc_t)NetGatewayChangeHandlerFunc, NULL);
+   @endverbatim
+ *
+ * To remove the handler, an application can use
+ * taf_net_RemoveGatewayChangeHandler(gatewayChangeHandlerRef);
+ *
+ * The following APIs are supported for gateway management
+ *
+ * - taf_net_SetDefaultGW()    -- Sets system default gateway.
+ * - taf_net_GetInterfaceGW()    -- Gets interface gateway.
+ * - taf_net_BackupDefaultGW()   -- Backups system gateway.
+ * - taf_net_RestoreDefaultGW()  -- Restores system gateway.
+ * - taf_net_AddGatewayChangeHandler()  -- Adds a handler for gateway change.
+ * - taf_net_RemoveGatewayChangeHandler()  -- Removes a handler for gateway change.
+ *
+ * @section c_taf_net_DNS_management DNS management
+ *
+ * DNS can be set by using taf_net_SetDNS with interface name, passed as parameter.
+ * The DNS addresses of the interface will be retrieved and set into the system including
+ * primary IPV4 and IPV6 addresses and secondary IPV4 and IPV6 addresses.
+ *
+ * Here's a sample of how to set DNS. In this example, it will set system DNS addresses with DNS
+ * addresses from interface "rmnet_data1", including IPV4 and IPV6 DNS addresses:
+ * @verbatim
+   result=taf_net_SetDNS("rmnet_data1");
+   @endverbatim
+ *
+ * Before setting the DNS, an application can register a state handler using
+ * taf_net_AddDNSChangeHandler(). Once the DNS is set, the handler will be called.
+ * @verbatim
+   DNSChangeHandlerRef = taf_net_AddDNSChangeHandler(
+                           (taf_net_DNSChangeHandlerFunc_t)NetDNSChangeHandlerFunc, NULL);
+   @endverbatim
+ *
+ * To remove the handler, an application can use
+ * taf_net_RemoveDNSChangeHandler(DNSChangeHandlerRef).
+ *
+ * taf_net_GetInterfaceDNS() can be used to query the interface DNS addresses, including primary
+ * IPV4 and IPV6 addresses and secondary IPV4 and IPV6 addresses.
+ *
+ * @section c_taf_net_DestNat_management Static destination NAT management.
+ *
+ * Static destination NAT can be added, removed, retrieved for default PDN and on-demand PDN.
+ *
+ * Static destination NAT can be added by using taf_net_AddDestNatEntryOnDefaultPdn with
+ * private IP address, private port, global port, IP protocol type, passed as parameter.
+ * The destination NAT will be added into iptables if the default PDN is brought up.
+ *
+ * Here's a sample of how to add a static destination NAT entry on default PDN. In this example,
+ * it will add a static destination NAT entry on default PDN with private ip address
+ * "192.168.225.30", private port 5000, global port 5000 and TCP protocol type:
+ * @verbatim
+   result=taf_net_AddDestNatEntryOnDefaultPdn("192.168.225.30", 5000, 5000, TAF_NET_TCP);
+   @endverbatim
+ *
+ * The following APIs are supported for NAT management
+ *
+ * - taf_net_AddDestNatEntryOnDefaultPdn()      -- Adds destination NAT for default PDN.
+ * - taf_net_RemoveDestNatEntryOnDefaultPdn()   -- Removes destination NAT for default PDN.
+ * - taf_net_AddDestNatEntryOnDemandPdn()       -- Adds destination NAT for on-demand PDN.
+ * - taf_net_RemoveDestNatEntryOnDemandPdn()    -- Removes destination NAT for on-demand PDN.
+ * - taf_net_GetDestNatEntryListOnDefaultPdn()  -- Gets the reference of destination NAT entry list.
+ * - taf_net_GetDestNatEntryListOnDemandPdn()   -- Gets the reference of destination NAT entry list.
+ * - taf_net_GetFirstDestNatEntry()  -- Gets the reference of the first destination NAT entry.
+ * - taf_net_GetNextDestNatEntry()   -- Gets the reference of the next destination NAT entry.
+ * - taf_net_GetDestNatEntryDetails()  -- Gets the details of destination NAT entry.
+ * - taf_net_DeleteDestNatEntryList()  -- Deletes the reference of destination NAT entry list.
+ * - taf_net_AddDestNatChangeHandler()  -- Adds a handler for NAT change.
+ * - taf_net_RemoveDestNatChangeHandler()  -- Removes a handler for NAT change.
+
+ * @note When adding a static destination NAT entry, and then changing the default profile ID, the
+ * static destination NAT entry will be changed accordingly.
+ *
+ * @note After binding VLAN with the profile id, the corresponding destination NAT for
+ * on-demand PDN can be added into iptables.
+ *
+ * @section c_taf_net_Vlan_management VLAN management
+ *
+ * VLAN management provides APIs for VLAN creation, VLAN binding and VLAN information query.
+ *
+ * VLAN can be created using taf_net_CreateVlan with VLAN Id and isAccelerated passed as parameters.
+ * After VLAN is created, the application can use taf_net_AddVlanInterface to add VLAN
+ * interface, and then use taf_net_BindVlanWithProfile to bind VLAN with profile.
+ *
+ * Here's a sample of how to create a VLAN. In this example, it will create a VLAN with VLAN ID 5,
+ * and the VLAN will not be accelerated. The return value is VLAN reference:
+ * @verbatim
+   vlanReference = taf_net_CreateVlan(5, false);
+   if (!vlanReference)
+   {
+      LE_INFO("isAccelerated conflicts with old value");
+      return LE_FAULT;
+   }
+   @endverbatim
+ *
+ * The following APIs are supported for VLAN
+ *
+ * - taf_net_CreateVlan()       -- Creates a VLAN.
+ * - taf_net_RemoveVlan()       -- Removes a VLAN.
+ * - taf_net_GetVlanById()      -- Gets a VLAN reference.
+
+ * VLAN interface can be added using taf_net_AddVlanInterface with VLAN reference and interface
+ * type, passed as parameter.
+ *
+ * Here's a sample of how to add a VLAN interface, In this example, it will add a VLAN interface
+ * into VLAN with interface type TAF_NET_ETH:
+ * @verbatim
+   result = taf_net_AddVlanInterface(vlanReference, TAF_NET_ETH);
+   @endverbatim
+ *
+ * The following APIs are supported for VLAN interface
+ *
+ * - taf_net_AddVlanInterface()       -- Adds a VLAN interface.
+ * - taf_net_RemoveVlanInterface()    -- Removes a VLAN interface.
+ * - taf_net_GetVlanInterfaceList()   -- Gets the reference of the VLAN interface list.
+ * - taf_net_GetFirstVlanInterface()  -- Gets the reference of the first VLAN interface.
+ * - taf_net_GetNextVlanInterface()   -- Gets the reference of the next VLAN interface.
+ * - taf_net_DeleteVlanInterfaceList()   -- Deletes the reference of the VLAN interface list.
+ * - taf_net_GetVlanInterfaceType()   -- Gets the VLAN interface type.
+ *
+ * @note When adding a VLAN interface for a VLAN with isAccelerated as true, if the interface is
+ * the first added for the interface type in the system, the system will be rebooted automatically
+ * after 5 seconds.
+ *
+ * @note When deleting a VLAN interface for a VLAN with isAccelerated as true, if the interface is
+ * the last deleted for the interface type in the system, the system will be rebooted automatically
+ * after 5 seconds.
+ *
+ * The following APIs are supported for VLAN information retrieving.
+ *
+ * - taf_net_GetVlanEntryList()       -- Gets the reference of the VLAN entry list.
+ * - taf_net_GetFirstVlanEntry()      -- Gets the reference of the first VLAN entry.
+ * - taf_net_GetNextVlanEntry()       -- Gets the reference of the next VLAN entry.
+ * - taf_net_DeleteVlanEntryList()    -- Deletes the reference of the VLAN entry list.
+ * - taf_net_GetVlanId()              -- Gets the VLAN id.
+ * - taf_net_IsVlanAccelerated()      -- Checks if the VLAN is accelerated.
+ * - taf_net_GetVlanBoundProfileId()  -- Gets the profile id bound with this VLAN.
+ *
+ * VLAN can be bound with profile by using taf_net_BindVlanWithProfile with VLAN reference and
+ * profile id passed as parameter.
+ *
+ * Here's a sample of how to bind VLAN with profile. In this example, it will bind VLAN with
+ * profile id 5:
+ * @verbatim
+   result = taf_net_BindVlanWithProfile(vlanReference, 5);
+   @endverbatim
+ *
+ * The API taf_net_UnbindVlanFromProfile can be used to unbind VLAN from profile.
+ *
+ * @note If binding VLAN with default profile id, the system will auto reboot after 5 seconds.
+ *
+ * @note If unbinding VLAN from default profile id, the system will auto reboot after 5 seconds.
+ *
+ * <HR>
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+
 USETYPES taf_types.api;
 
+//--------------------------------------------------------------------------------------------------
 /**
  * The interface name maximum number.
  */
-DEFINE INTERFACE_NAME_MAX_NUM = 100;
+//--------------------------------------------------------------------------------------------------
+DEFINE INTERFACE_NAME_MAX_NUM = 36;
 
+//--------------------------------------------------------------------------------------------------
 /**
  * The interface name maximum length.
  */
-DEFINE INTERFACE_NAME_MAX_LEN = 100;
+//--------------------------------------------------------------------------------------------------
+DEFINE INTERFACE_NAME_MAX_LEN = 30;
 
+//--------------------------------------------------------------------------------------------------
 /**
  * The IPv4 address maximum length.
  */
+//--------------------------------------------------------------------------------------------------
 DEFINE  IPV4_ADDR_MAX_LEN = 16;
 
+//--------------------------------------------------------------------------------------------------
 /**
  * The IPv6 address maximum length.
  */
+//--------------------------------------------------------------------------------------------------
 DEFINE  IPV6_ADDR_MAX_LEN = 46;
 
+//--------------------------------------------------------------------------------------------------
 /**
  * The IP address maximum length.
  */
+//--------------------------------------------------------------------------------------------------
 DEFINE  IP_ADDR_MAX_LEN = IPV6_ADDR_MAX_LEN;
 
+//--------------------------------------------------------------------------------------------------
 /**
  * The maximum number of entries in the NAT memory pool.
  */
+//--------------------------------------------------------------------------------------------------
 DEFINE  MAX_NAT_ENTRY = (50);
 
-/*
+//--------------------------------------------------------------------------------------------------
+/**
+ * The maximum entry for VLAN memory pool.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE  MAX_VLAN_ENTRY = (100);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The maximum entry list for VLAN memory pool.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE  MAX_VLAN_ENTRY_LIST = (2);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The maximum interface for VLAN memory pool.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE  MAX_VLAN_INTERFACE = (5);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * IP protocol.
  */
+//--------------------------------------------------------------------------------------------------
 ENUM IpProto
 {
-    TCP = 6,                    // TCP
-    UDP = 17                    // UDP
+    TCP = 6,                    ///< TCP.
+    UDP = 17                    ///< UDP.
 };
 
-/*
+//--------------------------------------------------------------------------------------------------
+/**
  * Network action.
  */
+//--------------------------------------------------------------------------------------------------
 ENUM NetAction
 {
-    DELETE,                   // DELETE.
-    ADD                       // ADD.
+    DELETE,                     ///< Deletion operation.
+    ADD                         ///< Addition operation.
 };
 
-/*
+//--------------------------------------------------------------------------------------------------
+/**
  * Network IP type.
  */
+//--------------------------------------------------------------------------------------------------
 ENUM NetIpType
 {
-    IPV4,                   // IPv4.
-    IPV6                    // IPv6.
+    IPV4,                       ///< IPV4.
+    IPV6                        ///< IPV6.
 };
 
-/*
- * Technology type.
+//--------------------------------------------------------------------------------------------------
+/**
+ * The technology.
  */
+//--------------------------------------------------------------------------------------------------
 ENUM TechType
 {
-    TECH_CELLULAR,                   // CELLULAR
-    TECH_WIFI,                       // WIFI
-    TECH_ETHERNET                    // ETHERNET
+    TECH_CELLULAR,              ///< CELLULAR.
+    TECH_WIFI,                  ///< WIFI.
+    TECH_ETHERNET               ///< ETHERNET.
 };
 
-/*
+//--------------------------------------------------------------------------------------------------
+/**
  * The state
  */
+//--------------------------------------------------------------------------------------------------
 ENUM State
 {
-    STATE_DOWN,                 // DOWN
-    STATE_UP                    // UP
+    STATE_DOWN,                 ///< DOWN.
+    STATE_UP                    ///< UP.
 };
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * The VLAN interface type
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM VlanIfType
+{
+    IFACE_UNKNOWN,              ///< UNKNOWN interface.
+    WLAN,                       ///< Wireless Local Area Network (WLAN).
+    ETH,                        ///< Ethernet (ETH).
+    ECM,                        ///< Ethernet Control Model (ECM).
+    RNDIS,                      ///< Remote Network Driver Interface Specification (RNDIS).
+    MHI                         ///< Modem Host Interface (MHI).
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Binding action.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM BindingAction
+{
+    BIND,                       ///< Bind.
+    UNBIND                      ///< Unbind.
+};
+
+//--------------------------------------------------------------------------------------------------
 /**
  * The destination NAT change indication.
  */
+//--------------------------------------------------------------------------------------------------
 STRUCT DestNatChangeInd
 {
-    uint32  profileId;                                 ///< Profile ID.
-    NetAction action;                                  ///< Add or delete.
+    uint32  profileId;                        ///< Profile ID.
+    NetAction action;                         ///< Add or delete.
 };
 
+//--------------------------------------------------------------------------------------------------
 /**
  * The interface information.
  */
+//--------------------------------------------------------------------------------------------------
 STRUCT InterfaceInfo
 {
     string       interfaceName[INTERFACE_NAME_MAX_LEN];   ///< The interface name.
@@ -129,20 +426,24 @@ STRUCT InterfaceInfo
     State        state;                                   ///< The state.
 };
 
+//--------------------------------------------------------------------------------------------------
 /**
  * The DNS server addresses.
  */
+//--------------------------------------------------------------------------------------------------
 STRUCT DnsServerAddresses
 {
-    string   ipv4Addr1[IPV4_ADDR_MAX_LEN]; ///< The first IPv4 DNS address.
-    string   ipv4Addr2[IPV4_ADDR_MAX_LEN]; ///< The second IPv4 DNS address.
-    string   ipv6Addr1[IPV6_ADDR_MAX_LEN]; ///< The first IPv6 DNS address.
-    string   ipv6Addr2[IPV6_ADDR_MAX_LEN]; ///< The second IPv6 DNS address.
+    string   ipv4Addr1[IPV4_ADDR_MAX_LEN];    ///< The first IPv4 DNS address.
+    string   ipv4Addr2[IPV4_ADDR_MAX_LEN];    ///< The second IPv4 DNS address.
+    string   ipv6Addr1[IPV6_ADDR_MAX_LEN];    ///< The first IPv6 DNS address.
+    string   ipv6Addr2[IPV6_ADDR_MAX_LEN];    ///< The second IPv6 DNS address.
 };
 
+//--------------------------------------------------------------------------------------------------
 /**
  * The route change indication.
  */
+//--------------------------------------------------------------------------------------------------
 STRUCT RouteChangeInd
 {
     string interfaceName[INTERFACE_NAME_MAX_LEN];      ///< The interface name.
@@ -152,9 +453,11 @@ STRUCT RouteChangeInd
     NetAction action;                                  ///< Add or delete.
 };
 
+//--------------------------------------------------------------------------------------------------
 /**
  * The gateway change indication.
  */
+//--------------------------------------------------------------------------------------------------
 STRUCT GatewayChangeInd
 {
     string interfaceName[INTERFACE_NAME_MAX_LEN];      ///< The interface name.
@@ -162,101 +465,171 @@ STRUCT GatewayChangeInd
     NetIpType ipType;                                  ///< IP type.
 };
 
+//--------------------------------------------------------------------------------------------------
 /**
  * The DNS change indication.
  */
+//--------------------------------------------------------------------------------------------------
 STRUCT DNSChangeInd
 {
-    string ipAddr1[IP_ADDR_MAX_LEN];                   ///< The first DNS address.
-    string ipAddr2[IP_ADDR_MAX_LEN];                   ///< The second DNS address.
-    NetIpType ipType;                                  ///< IP type.
+    string ipAddr1[IP_ADDR_MAX_LEN];          ///< The first DNS address.
+    string ipAddr2[IP_ADDR_MAX_LEN];          ///< The second DNS address.
+    NetIpType ipType;                         ///< IP type.
 };
 
-/*
+//--------------------------------------------------------------------------------------------------
+/**
  * Reference to a destination NAT entry list.
  */
+//--------------------------------------------------------------------------------------------------
 REFERENCE DestNatEntryList;
 
+//--------------------------------------------------------------------------------------------------
 /*
  * Reference to a destination NAT entry.
  */
+//--------------------------------------------------------------------------------------------------
 REFERENCE DestNatEntry;
 
-/*
+//--------------------------------------------------------------------------------------------------
+/**
+ * The reference of a VLAN.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE Vlan;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The reference of a VLAN entry list.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE VlanEntryList;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The reference of a VLAN entry.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE VlanEntry;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The reference of a VLAN interface list.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE VlanIfList;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The reference of a VLAN interface.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE VlanIf;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Handler for route change.
  */
+//--------------------------------------------------------------------------------------------------
 HANDLER RouteChangeHandler
 (
-    RouteChangeInd routeInd IN // The route indication.
+    RouteChangeInd routeInd IN                ///< Route indication.
 );
 
-/*
+//--------------------------------------------------------------------------------------------------
+/**
  * Event to report route change.
  */
+//--------------------------------------------------------------------------------------------------
 EVENT RouteChange
 (
-    RouteChangeHandler handler // Handler for route change.
+    RouteChangeHandler handler                ///< Handler for route change.
 );
 
-/*
+//--------------------------------------------------------------------------------------------------
+/**
  * Handler for gateway change.
  */
+//--------------------------------------------------------------------------------------------------
 HANDLER GatewayChangeHandler
 (
-    GatewayChangeInd routeInd IN // The route indication.
+    GatewayChangeInd gatewayInd IN            ///< Gateway indication.
 );
 
-/*
+//--------------------------------------------------------------------------------------------------
+/**
  * Event to report gateway change.
  */
+//--------------------------------------------------------------------------------------------------
 EVENT GatewayChange
 (
-    GatewayChangeHandler handler // Handler for route change.
+    GatewayChangeHandler handler              ///< Handler for gateway change.
 );
 
-/*
+//--------------------------------------------------------------------------------------------------
+/**
  * Handler for DNS change.
  */
+//--------------------------------------------------------------------------------------------------
 HANDLER DNSChangeHandler
 (
-    DNSChangeInd DNSInd IN // The DNS indication.
+    DNSChangeInd DNSInd IN                    ///< DNS indication.
 );
 
-/*
+//--------------------------------------------------------------------------------------------------
+/**
  * Event to report DNS change.
  */
+//--------------------------------------------------------------------------------------------------
 EVENT DNSChange
 (
-    DNSChangeHandler handler // Handler for DNS change.
+    DNSChangeHandler handler                  ///< Handler for DNS change.
 );
 
-/*
+//--------------------------------------------------------------------------------------------------
+/**
  * Handler for destination NAT change.
  */
+//--------------------------------------------------------------------------------------------------
 HANDLER DestNatChangeHandler
 (
-    DestNatChangeInd destNatInd IN // The destination NAT change indication.
+    DestNatChangeInd destNatInd IN            ///< Destination NAT indication.
 );
 
-/*
+//--------------------------------------------------------------------------------------------------
+/**
  * Event to report destination NAT change.
  */
+//--------------------------------------------------------------------------------------------------
 EVENT DestNatChange
 (
-    DestNatChangeHandler handler // Handler for destination NAT change.
+    DestNatChangeHandler handler              ///< Handler for destination NAT change.
 );
 
+//--------------------------------------------------------------------------------------------------
 /**
  * Gets the interface infomation list.
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_FAULT -- Failure.
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetInterfaceList
 (
-    InterfaceInfo intfInfoList[INTERFACE_NAME_MAX_NUM]  OUT
+    InterfaceInfo ifInfoList[INTERFACE_NAME_MAX_NUM]  OUT ///< Interface information list.
 );
 
+//--------------------------------------------------------------------------------------------------
 /**
  * Adds or removes a route.
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failure.
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ChangeRoute
 (
     string interfaceName[INTERFACE_NAME_MAX_LEN]      IN, ///< The interface name.
@@ -266,59 +639,112 @@ FUNCTION le_result_t ChangeRoute
     NetAction isAdd                                   IN  ///< Add or delete.
 );
 
+//--------------------------------------------------------------------------------------------------
 /**
  * Backs up the current default gateway of the system into DB, including both IPv4 and IPv6.
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_NOT_FOUND -- No default gateway.
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t BackupDefaultGW
 (
 );
 
+//--------------------------------------------------------------------------------------------------
+
 /**
  * Restores the default gateway of the system from the last backed up one, including IPv4 and/or IPv6.
  * Only gateways backed up and set by the same client session can be restored.
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_NOT_FOUND -- No backup.
+ *   - LE_FAULT -- Failure.
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t RestoreDefaultGW
 (
 );
 
+//--------------------------------------------------------------------------------------------------
 /**
  * Sets the default gateway address received from the interface into the system.
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_NOT_FOUND -- No gateway address from the interface.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failure.
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetDefaultGW
 (
-    string  interfaceName[INTERFACE_NAME_MAX_LEN]    IN ///< The interface to retrieve the default gateway addresses from.
+    string  ifName[INTERFACE_NAME_MAX_LEN]    IN ///< The interface to retrieve the default gateway addresses from.
 );
 
+//--------------------------------------------------------------------------------------------------
 /**
  * Gets the gateway addresses from the specified interface.
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_NOT_FOUND -- No gateway address from the interface.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failure.
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetInterfaceGW
 (
-    string  interfaceName[INTERFACE_NAME_MAX_LEN]    IN,  ///< Interaface name to get the gateway.
+    string  ifName[INTERFACE_NAME_MAX_LEN]           IN,  ///< Interaface name to get the gateway.
     string  ipv4Addr[IPV4_ADDR_MAX_LEN]              OUT, ///< IPv4 address.
     string  ipv6Addr[IPV6_ADDR_MAX_LEN]              OUT  ///< IPv6 address.
 );
 
+//--------------------------------------------------------------------------------------------------
 /**
  * Sets the DNS addresses received from the interface into the system.
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_NOT_FOUND -- No DNS addresses from the interface.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failure.
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetDNS
 (
-    string  interfaceName[INTERFACE_NAME_MAX_LEN]    IN ///< The interface from which to get the DNS addresses.
+    string  ifName[INTERFACE_NAME_MAX_LEN]    IN ///< The interface from which to get the DNS addresses.
 );
 
+//--------------------------------------------------------------------------------------------------
 /**
  * Gets the DNS addresses from the interface, including IPv4 and IPv6 addresses.
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_NOT_FOUND -- Not found DNS addresses from the interface.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failure.
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetInterfaceDNS
 (
-    string  interfaceName[INTERFACE_NAME_MAX_LEN]    IN, ///< The interaface name to get the DNS addresses.
-    DnsServerAddresses  dnsServerAddresses           OUT ///< DNS addresses structure.
+    string  ifName[INTERFACE_NAME_MAX_LEN]    IN, ///< The interaface name to get the DNS addresses.
+    DnsServerAddresses  dnsServerAddresses    OUT ///< DNS addresses structure.
 );
 
+//--------------------------------------------------------------------------------------------------
 /**
  * Adds a destination NAT entry on the default PDN.
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failure.
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t AddDestNatEntryOnDefaultPdn
 (
     string privateIpAddr[IP_ADDR_MAX_LEN]     IN, ///< Private IP address.
@@ -327,9 +753,16 @@ FUNCTION le_result_t AddDestNatEntryOnDefaultPdn
     IpProto ipProto                           IN  ///< IP protocol number.
 );
 
+//--------------------------------------------------------------------------------------------------
 /**
  * Deletes a destination NAT entry on the default PDN.
+ *
+ * @return
+ *   - LE_OK -- Success
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failure.
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t RemoveDestNatEntryOnDefaultPdn
 (
     string privateIpAddr[IP_ADDR_MAX_LEN]     IN, ///< Private IP address.
@@ -338,9 +771,16 @@ FUNCTION le_result_t RemoveDestNatEntryOnDefaultPdn
     IpProto ipProto                           IN  ///< IP protocol number.
 );
 
+//--------------------------------------------------------------------------------------------------
 /**
  * Adds a destination NAT entry to the specified PDN.
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failure.
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t AddDestNatEntryOnDemandPdn
 (
     uint32 profileId                          IN, ///< Profile ID.
@@ -350,9 +790,16 @@ FUNCTION le_result_t AddDestNatEntryOnDemandPdn
     IpProto ipProto                           IN  ///< IP protocol number.
 );
 
+//--------------------------------------------------------------------------------------------------
 /**
  * Deletes a destination NAT entry from the specified PDN.
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failure.
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t RemoveDestNatEntryOnDemandPdn
 (
     uint32 profileId                          IN, ///< Profile ID.
@@ -362,40 +809,71 @@ FUNCTION le_result_t RemoveDestNatEntryOnDemandPdn
     IpProto ipProto                           IN  ///< IP protocol number.
 );
 
+//--------------------------------------------------------------------------------------------------
 /**
  * Gets the reference to the destination NAT entry list on the default PDN.
+ *
+ * @return
+ *   - NULL -- If there was some other error.
+ *   - Others -- The reference to the destination NAT entry list.
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION DestNatEntryList GetDestNatEntryListOnDefaultPdn
 (
 );
 
+//--------------------------------------------------------------------------------------------------
 /**
- * Gets the reference of the destination NAT entry list on the specified PDN.
+ * Gets the reference to the destination NAT entry list on the specified PDN.
+ *
+ * @return
+ *   - NULL -- If there was some other error.
+ *   - Others -- The reference to the destination NAT entry list.
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION DestNatEntryList GetDestNatEntryListOnDemandPdn
 (
     uint32 profileId                          IN ///< The profile ID.
 );
 
+//--------------------------------------------------------------------------------------------------
 /**
- * Gets the reference of the first destination NAT entry with a list reference.
+ * Gets the reference to the first destination NAT entry with a list reference.
+ *
+ * @return
+ *   - NULL -- If there was some other error.
+ *   - Others -- The reference to the first destination NAT entry.
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION DestNatEntry GetFirstDestNatEntry
 (
     DestNatEntryList  destNatEntryListRef     IN ///< The reference of a destination entry list.
 );
 
+//--------------------------------------------------------------------------------------------------
 /**
- * Gets the reference of the next destination NAT entry with a list reference.
+ * Gets the reference to the next destination NAT entry with a list reference.
+ *
+ * @return
+ *   - NULL -- If there was some other error.
+ *   - Others -- The reference of the next destination NAT entry.
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION DestNatEntry GetNextDestNatEntry
 (
     DestNatEntryList  destNatEntryListRef     IN ///< The reference of a destination entry list.
 );
 
+//--------------------------------------------------------------------------------------------------
 /**
  * Gets the information of a destination NAT entry with an entry reference.
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failure.
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetDestNatEntryDetails
 (
     DestNatEntry destNatEntryRef              IN,  ///< Entry reference.
@@ -405,10 +883,312 @@ FUNCTION le_result_t GetDestNatEntryDetails
     IpProto ipProto                           OUT  ///< IP protocol number.
 );
 
+//--------------------------------------------------------------------------------------------------
 /**
- * Deletes the reference of the first destination NAT entry with a list reference.
+ * Deletes the reference to the destination NAT entry list.
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failure.
  */
+//--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DeleteDestNatEntryList
 (
     DestNatEntryList  destNatEntryListRef     IN ///< The reference of a destination entry list.
 );
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Creates a VLAN
+ *
+ * @return
+ *   - NULL -- Failure.
+ *   - Others -- The reference of VLAN.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Vlan CreateVlan
+(
+    uint16 vlanId                             IN, ///< VLAN identifier (i.e 1-4094).
+    bool isAccelerated                        IN  ///< Is acceleration allowed.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Removes a VLAN. It's not allowed to remove a VLAN if the VLAN interface list is not empty.
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_NOT_FOUND -- VLAN is not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failure.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t RemoveVlan
+(
+    Vlan vlanRef                              IN ///< VLAN reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets VLAN by VLAN id
+ *
+ * @return
+ *   - NULL -- Not found.
+ *   - Others -- The VLAN reference.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Vlan GetVlanById
+(
+    uint16 vlanId                             IN ///< VLAN id.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Adds a VLAN interface into the VLAN interface list.
+ *
+ * Note: Adds the first interface into the VLAN interface list with the same interface type will
+ * trigger a system reboot if the VLAN acceleration has been allowed
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_NOT_FOUND -- VLAN is not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_DUPLICATE -- ifType already added into the VLAN.
+ *   - LE_FAULT -- Failure.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t AddVlanInterface
+(
+    Vlan vlanRef                              IN, ///< VLAN Reference.
+    VlanIfType ifType                         IN  ///< Interface type.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Removes a VLAN interface from the VLAN interface list.
+ * Note: Remove the last interface from the VLAN interface list with the same interface type will
+ * trigger a system reboot if the VLAN acceleration has been allowed.
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_NOT_FOUND -- VLAN is not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failure.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t RemoveVlanInterface
+(
+    Vlan vlanRef                              IN, ///< VLAN Reference.
+    VlanIfType ifType                         IN  ///< Interface type.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the VLAN interface list.
+ *
+ * @return
+ *   - NULL -- If the VLAN is not found or the VLAN interface list is empty.
+ *   - Others -- The reference of VLAN interface list.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION VlanIfList GetVlanInterfaceList
+(
+    Vlan vlanRef                              IN ///< VLAN Reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the first VLAN interface reference with a list.
+ *
+ * @return
+ *   - NULL -- If the interface list doesn't exist.
+ *   - Others -- The reference of the first VLAN interface.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION VlanIf GetFirstVlanInterface
+(
+    VlanIfList  vlanIfListRef                 IN ///< Reference of a VLAN interface list.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the next VLAN interface reference with a list.
+ *
+ * @return
+ *   - NULL -- If the VLAN interface list or the next interface doesn't exist.
+ *   - Others -- The reference of the next VLAN interface.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION VlanIf GetNextVlanInterface
+(
+    VlanIfList  vlanIfListRef                 IN ///< Reference of a VLAN interface list.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deletes the VLAN interface list.
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_NOT_FOUND -- VLAN interface list is not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DeleteVlanInterfaceList
+(
+    VlanIfList  vlanIfListRef                 IN ///< Reference of a VLAN interface list.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the interface type of a VLAN interface.
+ *
+ * @return
+ *   - taf_net_VlanIfType_t -- VLAN interface type.
+ *   - TAF_NET_IFACE_UNKNOWN -- VLAN interface is not found.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION VlanIfType GetVlanInterfaceType
+(
+    VlanIf vlanIfRef                          IN ///< VLAN interface reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the VLAN entry list.
+ *
+ * @return
+ *   - NULL -- If the VLAN entry list is empty.
+ *   - Others -- The reference of VLAN entry list.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION VlanEntryList GetVlanEntryList
+(
+
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the reference of the first VLAN entry with a list.
+ *
+ * @return
+ *   - NULL -- The VLAN entry list doesn't exist.
+ *   - Others -- The reference of the first VLAN entry.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION VlanEntry GetFirstVlanEntry
+(
+    VlanEntryList  vlanEntryListRef           IN ///< Reference of a VLAN entry list.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the reference of the next VLAN entry with a list.
+ *
+ * @return
+ *   - NULL -- The VLAN entry list or the next VLAN doesn't exist.
+ *   - Others -- The reference of the next VLAN entry.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION VlanEntry GetNextVlanEntry
+(
+    VlanEntryList  vlanEntryListRef           IN ///< Reference of a VLAN entry list.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deletes the VLAN entry list.
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_NOT_FOUND -- Failed to delete the reference.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DeleteVlanEntryList
+(
+    VlanEntryList  vlanEntryListRef           IN ///< Reference of a VLAN entry list.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the VLAN Id by the VLAN entry reference.
+ *
+ * @return
+ *   - 1-4094 -- Success.
+ *   - others -- Failure.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION int16 GetVlanId
+(
+    VlanEntry vlanEntryRef                    IN ///< VLAN entry reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Is VLAN accelerated or not by a VLAN entry reference.
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_NOT_FOUND -- VLAN is not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t IsVlanAccelerated
+(
+    VlanEntry vlanEntryRef                    IN, ///< VLAN entry reference.
+    bool isAccelerated                        OUT  ///< Is accelerated or not.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the profile id bound with a VLAN by the VLAN entry reference.
+ *
+ * @return
+ *   - Others -- Success.
+ *   - -1 -- No binding.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION int32 GetVlanBoundProfileId
+(
+    VlanEntry vlanEntryRef                    IN ///< VLAN entry reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Binds a VLAN with a specified profile ID.
+ * Note: if bind VLAN with default profile id, the system will auto reboot after 5 seconds
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_NOT_FOUND -- VLAN is not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failure.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t BindVlanWithProfile
+(
+    Vlan vlanRef                              IN, ///< VLAN Reference.
+    uint32 profileId                          IN  ///< Profile id for VLAN association.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Unbinds a VLAN from previous profile ID.
+ * Note: if unbind VLAN from default profile id, the system will auto reboot after 5 seconds
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_NOT_FOUND -- VLAN is not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failure.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t UnbindVlanFromProfile
+(
+    Vlan vlanRef                              IN ///< VLAN Reference.
+);
+
+

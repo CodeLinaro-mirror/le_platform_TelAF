@@ -754,11 +754,7 @@ le_result_t taf_Nat::DeleteDestNatEntryList
 
  DEPENDENCIES    The initialization of Nat.
 
- PARAMETERS      [IN] uint32_t profileId: The profile Id which bring up the rmnet interface.
-                 [IN] const char *priIpAddrPtr: The private IP address.
-                 [IN] uint16_t priPort: The private port.
-                 [IN] uint16_t globalPort: The global port.
-                 [IN] taf_net_IpProto_t ipProto: The ip protocol number.
+ PARAMETERS      [IN] taf_net_DestNatEntryListRef_t destNatEntryListRef: The destination nat entry list reference
 
  RETURN VALUE    None
 

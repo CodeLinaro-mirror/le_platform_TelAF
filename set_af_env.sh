@@ -57,7 +57,10 @@ function build-sa515m-af(){
 
     ## build telaf-noship source code if exists
     if [ -f "${TELAF_NOSHIP}/build.sh" ]; then
-        ${TELAF_NOSHIP}/build.sh ${TARGET}
+        TELAF_SYS_QMI_ROOT=${CURDIR}/../qmi/services/
+        TELAF_SYS_QMI_FRAMEWORK_ROOT=${CURDIR}/../qmi-framework/inc/
+        TELAF_SYS_DSUTIL_ROOT=${CURDIR}/../data/dsutils/inc/
+        ${TELAF_NOSHIP}/build.sh ${TARGET} "$TELAF_SYS_QMI_ROOT" "$TELAF_SYS_QMI_FRAMEWORK_ROOT" "$TELAF_SYS_DSUTIL_ROOT"
     fi
 
     ## repack TelAF image

@@ -22,6 +22,7 @@ requires:
     component:
     {
         $LEGATO_ROOT/components/watchdogChain
+        $TELAF_ROOT/components/stub/taf_pa_net
     }
 
 }
@@ -30,6 +31,7 @@ cxxflags:
 {
     -I$LEGATO_ROOT/components/watchdogChain
     -I$TELAF_ROOT/include
+    -I$TELAF_ROOT/components/stub/taf_pa_net
 }
 
 cflags:
@@ -44,5 +46,6 @@ sources:
     tafRoutingDns.cpp
     tafNatImpl.cpp
     tafVlanImpl.cpp
+    tafL2tpImpl.cpp
 }
 

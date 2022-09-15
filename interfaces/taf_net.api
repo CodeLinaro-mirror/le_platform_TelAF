@@ -251,6 +251,111 @@
  *
  * @note If unbinding VLAN from default profile id, the system will auto reboot after 5 seconds.
  *
+ * @section c_taf_net_DeviceMode_management Device mode management
+ *
+ * Device mode is the configuration of device network connection, such as VLAN binding, L2TP and
+ * SOCKS.
+ *
+ *    Mode 0 -- Default mode which supports VLAN binding.
+ *    Mode 1 -- L2L mode which supports L2TP.
+ *    Mode 2 -- E2E mode which supports SOCKS.
+ *
+ * The device mode can be set using taf_net_SetDeviceMode() with device mode passed as parameter.
+ *
+ * Here's a sample of how to set device mode. In this example, it will set system device mode 0:
+ * @verbatim
+   result = taf_net_SetDeviceMode(TAF_NET_DEVICE_NONE);
+   @endverbatim
+ *
+ * @note If device mode is changed, the system will auto reboot after 5 seconds.
+ *
+ * The API taf_net_GetDeviceMode can be used to get current device mode.
+ *
+ * @section c_taf_net_L2TP_management L2TP management
+ *
+ * L2TP management provides APIs for enabling and disabling L2TP, creating and removing tunnel,
+ * adding and removing session, setting UDP port, starting and stopping tunnel, querying L2TP
+ * information etc.
+ *
+ * Tunnel can be created by using taf_net_CreateTunnel. After creating tunnel, the application can
+ * use taf_net_SetTunnelUdpPort to set UDP port for UDP encapsulation protocol, taf_net_AddSession
+ * to add session into tunnel, and then use taf_net_StartTunnel to start this tunnel.
+ *
+ * Here's a sample of how to create a tunnel. In this example, it will create a tunnel with IP
+ * encapsulation protocol, local tunnel id 1, peer tunnel id 1, peer IP address fd53:7cb8:383:5::2
+ * and interface name eth0.5. The return value is the tunnel reference:
+ * @verbatim
+   tunnelReference = taf_net_CreateTunnel(TAF_NET_L2TP_IP, 1, 1, "fd53:7cb8:383:5::2", "eth0.5");
+   if (!tunnelReference)
+   {
+      LE_INFO("Failed to create a tunnel");
+      return LE_FAULT;
+   }
+   @endverbatim
+ *
+ * An application can synchrounously start a tunnel using taf_net_StartTunnel with tunnel
+ * reference passed as parameter.
+ *
+ * @verbatim
+   result = taf_net_StartTunnel(tunnelReference);
+   if (result !LE_OK)
+   {
+      LE_INFO("Failed to start a tunnel");
+      return LE_FAULT;
+   }
+   @endverbatim
+ *
+ * An application can asynchrounously start a tunnel using taf_net_StartTunnelAsync with tunnel
+ * reference and handler function passed as parameters.
+ *
+ * @verbatim
+   taf_net_StartTunnelAsync(tunnelRef,StartTunnelAsyncHandlerFunc,NULL);
+   @endverbatim
+ *
+ * Before asynchrounously starting a tunnel, an application defines a handler function. Once the
+ * tunnel is started, the handler function will be called.
+ *
+ * @verbatim
+   void StartTunnelAsyncHandlerFunc(taf_net_TunnelRef_t tunnelRef,
+                                    le_result_t result,
+                                    void* contextPtr)
+   {
+       LE_INFO("**** Handler for Start Tunnel Asynchronously (Begin)****");
+       LE_INFO("tunnelRef= %p, result: %d", tunnelRef, result);
+       LE_INFO("**** Handler for Start Tunnel Asynchronously (End)****");
+   }
+   @endverbatim
+ *
+ * The following APIs are supported for tunnel configuration.
+ *
+ * - taf_net_CreateTunnel()       -- Creates a tunnel.
+ * - taf_net_RemoveTunnel()       -- Removes a tunnel.
+ * - taf_net_SetTunnelUdpPort()   -- Sets UDP port for a tunnel.
+ * - taf_net_AddSession()         -- Adds session into a tunnel.
+ * - taf_net_RemoveSession()      -- Removes session from a tunnel.
+ * - taf_net_StartTunnel()        -- Synchronously starts a tunnel.
+ * - taf_net_StartTunnelAsync()   -- Asynchronously starts a tunnel.
+ * - taf_net_StopTunnel()         -- Synchronously stops a tunnel.
+ * - taf_net_StopTunnelAsync()    -- Asynchronously stops a tunnel.
+ * - taf_net_GetTunnelRefById()   -- Gets a tunnel reference.
+ *
+ * The following APIs are supported for tunnel information retrieving.
+ *
+ * - taf_net_GetTunnelEntryList()       -- Gets the reference of the tunnel entry list.
+ * - taf_net_GetFirstTunnelEntry()      -- Gets the reference of the first tunnel entry.
+ * - taf_net_GetNextTunnelEntry()       -- Gets the reference of the next tunnel entry.
+ * - taf_net_DeleteTunnelEntryList()    -- Deletes the reference of the tunnel entry list.
+ * - taf_net_GetTunnelEncapProto()      -- Gets encapsulation protocol of a tunnel.
+ * - taf_net_GetTunnelLocalId()         -- Gets local id of a tunnel.
+ * - taf_net_GetTunnelPeerId()          -- Gets peer id of a tunnel.
+ * - taf_net_GetTunnelLocalUdpPort()    -- Gets local UDP port of a tunnel.
+ * - taf_net_GetTunnelPeerUdpPort()     -- Gets peer UDP port of a tunnel.
+ * - taf_net_GetTunnelPeerIpv6Addr()    -- Gets peer IP v6 address of a tunnel.
+ * - taf_net_GetTunnelPeerIpv4Addr()    -- Gets peer IP v4 address of a tunnel.
+ * - taf_net_GetTunnelInterfaceName()   -- Gets interface name of a tunnel.
+ * - taf_net_GetTunnelIpType()          -- Gets IP type of a tunnel.
+ * - taf_net_GetSessionConfig()         -- Gets session config of a tunnel.
+ *
  * <HR>
  *
  */
@@ -323,6 +428,21 @@ DEFINE  MAX_VLAN_INTERFACE = (5);
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * The maximum tunnel number.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE L2TP_MAX_TUNNEL_NUMBER = 2;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The maximum session per tunnel.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE L2TP_MAX_SESSION_NUMBER_PER_TUNNEL = 3;
+
+
+//--------------------------------------------------------------------------------------------------
+/**
  * IP protocol.
  */
 //--------------------------------------------------------------------------------------------------
@@ -368,13 +488,38 @@ ENUM TechType
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The state
+ * The state.
  */
 //--------------------------------------------------------------------------------------------------
 ENUM State
 {
     STATE_DOWN,                 ///< DOWN.
     STATE_UP                    ///< UP.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * L2TP encapsulation protocols.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM L2tpEncapProtocol
+{
+    L2TP_NONE,
+    L2TP_IP,                      // IP Protocol used for encapsulation.
+    L2TP_UDP                      // UDP Protocol used for encapsulation.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Preferred IP family for the connection.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM IpFamilyType
+{
+    L2TP_UNKNOWN = -1,
+    L2TP_IPV4 = 0x04,             // IPv4 data connection.
+    L2TP_IPV6 = 0x06,             // IPv6 data connection.
+    L2TP_IPV4V6 = 0x0A,           // IPv4 and IPv6 data connection.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -401,6 +546,19 @@ ENUM BindingAction
 {
     BIND,                       ///< Bind.
     UNBIND                      ///< Unbind.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The device mode.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM DeviceMode
+{
+    DEVICE_UNKNOWN = -1,        ///< UNKNOWN.
+    DEVICE_NONE,                ///< NONE.
+    DEVICE_L2L,                 ///< Device Lan to Lan mode.
+    DEVICE_E2E                  ///< Device End to End mode.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -479,6 +637,17 @@ STRUCT DNSChangeInd
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * L2TP tunnel session configuration.
+ */
+//--------------------------------------------------------------------------------------------------
+STRUCT L2tpSessionConfig
+{
+    uint32 locId;                       ///< Local session id.
+    uint32 peerId;                      ///< Peer session id.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Reference to a destination NAT entry list.
  */
 //--------------------------------------------------------------------------------------------------
@@ -525,6 +694,27 @@ REFERENCE VlanIfList;
  */
 //--------------------------------------------------------------------------------------------------
 REFERENCE VlanIf;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The reference of a Tunnel entry list.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE TunnelEntryList;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The reference of a Tunnel entry.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE TunnelEntry;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The reference of a Tunnel.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE Tunnel;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -594,6 +784,29 @@ EVENT DNSChange
 HANDLER DestNatChangeHandler
 (
     DestNatChangeInd destNatInd IN            ///< Destination NAT indication.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Handler for asynchronous starting or stopping tunnel result response.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER AsyncTunnelHandler
+(
+    Tunnel       tunnelRef                    IN,  ///< Tunnel reference.
+    le_result_t  result                       IN   ///< The result of starting or stopping tunnel.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Handler for asynchronous enabling or disabling L2TP result response.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER AsyncL2tpHandler
+(
+    le_result_t  result                       IN   ///< The result of enabling or disabling L2TP.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1191,4 +1404,504 @@ FUNCTION le_result_t UnbindVlanFromProfile
     Vlan vlanRef                              IN ///< VLAN Reference.
 );
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Synchronously enables L2TP for unmanaged Tunnel State.
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_NOT_FOUND -- Not found.
+ *   - LE_FAULT -- Failure.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t EnableL2tp
+(
+    bool enableMss                       IN,///< Enable TCP MSS to be clamped on L2TP interfaces.
+    bool enableMtu                       IN,///< Enable MTU size to be set on underlying interfaces.
+    uint32 mtuSize                       IN ///< Optional MTU size in bytes, default is 1422.
+);
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Asynchronously enables L2TP for unmanaged Tunnel State
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION EnableL2tpAsync
+(
+    bool enableMss                       IN,///< Enable TCP MSS to be clamped on L2TP interfaces.
+    bool enableMtu                       IN,///< Enable MTU size to be set on underlying interfaces.
+    uint32 mtuSize                       IN, ///< optional MTU size in bytes, default is 1422.
+    AsyncL2tpHandler handler             IN  ///< The handler.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Synchronously disables L2TP for unmanaged Tunnel State.
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_NOT_FOUND -- Not found.
+ *   - LE_FAULT -- Failure.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DisableL2tp
+(
+);
+
+/**
+ * Asynchronously disables L2TP for unmanaged Tunnel State.
+ *
+ * @return None.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION DisableL2tpAsync
+(
+    AsyncL2tpHandler handler                IN  ///< The handler.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Is L2TP enabled.
+ *
+ * @return
+ *   - false -- L2TP is disabled.
+ *   - true -- L2TP is enabled.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION bool IsL2tpEnabled
+(
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Is Mss(Maximum Segment Size) enabled.
+ *
+ * @return
+ *   - false -- Mss is disabled for L2TP.
+ *   - true -- Mss is enabled for L2TP.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION bool IsL2tpMssEnabled
+(
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Is Mtu(Maximum Transmission Unit) enabled.
+ *
+ * @return
+ *   - false -- Mtu is disabled for L2TP.
+ *   - true -- Mtu is enabled for L2TP.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION bool IsL2tpMtuEnabled
+(
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets L2TP MTU size.
+ *
+ * @return
+ *   - 0 -- Failure.
+ *   - Others -- Success.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION uint32 GetL2tpMtuSize
+(
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Creates a L2TP tunnel.
+ *
+ * @return
+ *   - NULL -- Failure.
+ *   - Others -- The reference of a tunnel.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Tunnel CreateTunnel
+(
+    L2tpEncapProtocol encaProto               IN, ///< Encapsulation protocol, UDP or IP.
+    uint32 locId                              IN, ///< Local tunnel id.
+    uint32 peerId                             IN, ///< Peer tunnel id.
+    string peerIpAddr[IPV6_ADDR_MAX_LEN]      IN, ///< Peer IP addr.
+    string ifName[INTERFACE_NAME_MAX_LEN]     IN  ///< Interface name.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Removes an L2TP tunnel.
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_NOT_FOUND -- Not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failure.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t RemoveTunnel
+(
+    Tunnel tunnelRef                          IN ///< Tunnel reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets UDP ports for a tunnel.
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_NOT_FOUND -- Not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failure.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetTunnelUdpPort
+(
+    Tunnel tunnelRef                          IN, ///< Tunnel reference.
+    uint32 localUdpPort                       IN, ///< Local UDP port - if UDP encapsulation is used.
+    uint32 peerUdpPort                        IN  ///< Peer UDP port - if IP encapsulation is used.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Adds a session into a tunnel
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_NOT_FOUND -- Not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failure.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t AddSession
+(
+    Tunnel tunnelRef                          IN, ///< Tunnel reference.
+    uint32 locId                              IN, ///< Local session id.
+    uint32 peerId                             IN  ///< Peer session id.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Removes a session from a tunnel.
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_NOT_FOUND -- Not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failure.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t RemoveSession
+(
+    Tunnel tunnelRef                          IN, ///< Tunnel reference.
+    uint32 locId                              IN, ///< Local session id.
+    uint32 peerId                             IN  ///< Peer session id.
+);
+
+/**
+ * Synchronously starts a tunnel
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_NOT_FOUND -- Not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failure.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t StartTunnel
+(
+    Tunnel tunnelRef                          IN ///< Tunnel reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Asynchronously starts a tunnel
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION StartTunnelAsync
+(
+    Tunnel tunnelRef                          IN, ///< Tunnel reference.
+    AsyncTunnelHandler handler                IN  ///< The handler.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Synchronously stops a tunnel.
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_NOT_FOUND -- Not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failure.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t StopTunnel
+(
+    Tunnel tunnelRef                          IN ///< Tunnel reference.
+);
+
+/**
+ * Asynchronously stops a tunnel.
+ *
+ * @return None.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION StopTunnelAsync
+(
+    Tunnel tunnelRef                          IN, ///< Tunnel reference.
+    AsyncTunnelHandler handler                IN  ///< The handler.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets tunnel reference by local tunnel id.
+ *
+ * @return
+ *   - NULL -- Failure.
+ *   - Others -- The reference of a created tunnel.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Tunnel GetTunnelRefById
+(
+    uint32 locId                              IN ///< Local tunnel id.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets tunnel entry list.
+ *
+ * @return
+ *   - NULL -- Failure.
+ *   - Others -- The reference of the tunnel entry list.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION TunnelEntryList GetTunnelEntryList
+(
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the reference of the first tunnel entry.
+ *
+ * @return
+ *   - NULL -- Failure.
+ *   - Others -- The reference of the first tunnel entry.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION TunnelEntry GetFirstTunnelEntry
+(
+    TunnelEntryList  tunnelEntryListRef       IN ///< Reference of a tunnel entry list.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the reference of the next tunnel entry.
+ *
+ * @return
+ *   - NULL -- Failure.
+ *   - Others -- The reference of the next tunnel entry.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION TunnelEntry GetNextTunnelEntry
+(
+    TunnelEntryList  tunnelEntryListRef       IN ///< Reference of a tunnel entry list.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deletes tunnel entry list.
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_NOT_FOUND -- Not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failure.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DeleteTunnelEntryList
+(
+    TunnelEntryList  tunnelEntryListRef            IN ///< Reference of a tunnel entry list.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets encapsulation protocol of a tunnel.
+ *
+ * @return
+ *   - TAF_NET_L2TP_NONE -- Failure.
+ *   - TAF_NET_L2TP_IP -- IP Protocol used for encapsulation.
+ *   - TAF_NET_L2TP_UDP -- UDP Protocol used for encapsulation.
+ */
+FUNCTION L2tpEncapProtocol GetTunnelEncapProto
+(
+    TunnelEntry tunnelEntryRef                IN ///< Tunnel entry reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets local id of a tunnel.
+ *
+ * @return
+ *   - 0 -- Failure.
+ *   - Others -- Success.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION uint32 GetTunnelLocalId
+(
+    TunnelEntry tunnelEntryRef                IN ///< Tunnel entry reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets peer id of a tunnel.
+ *
+ * @return
+ *   - 0 -- Failure.
+ *   - Others -- Success.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION uint32 GetTunnelPeerId
+(
+    TunnelEntry tunnelEntryRef                IN ///< Tunnel entry reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets local UDP port of a tunnel.
+ *
+ * @return
+ *   - 0 -- Failure.
+ *   - Others -- Success.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION uint32 GetTunnelLocalUdpPort
+(
+    TunnelEntry tunnelEntryRef                IN ///< Tunnel entry reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets peer UDP port of a tunnel.
+ *
+ * @return
+ *   - 0 -- Failure.
+ *   - Others -- Success.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION uint32 GetTunnelPeerUdpPort
+(
+    TunnelEntry tunnelEntryRef                IN ///< Tunnel entry reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets peer IP v6 address of a tunnel.
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_NOT_FOUND -- Not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failure.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetTunnelPeerIpv6Addr
+(
+    TunnelEntry tunnelEntryRef                IN, ///< Tunnel entry reference.
+    string peerIpv6Addr[IPV6_ADDR_MAX_LEN]    OUT ///< Peer IP v6 address.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets peer IP v4 address of a tunnel.
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_NOT_FOUND -- Not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failure.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetTunnelPeerIpv4Addr
+(
+    TunnelEntry tunnelEntryRef                IN, ///< Tunnel entry reference.
+    string peerIpv4Addr[IPV6_ADDR_MAX_LEN]    OUT ///< Peer IP v4 address.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets interface name of a tunnel.
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_NOT_FOUND -- Not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetTunnelInterfaceName
+(
+    TunnelEntry tunnelEntryRef                IN, ///< Tunnel entry reference.
+    string ifName[INTERFACE_NAME_MAX_LEN]     OUT ///< Interface name.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets IP type of a tunnel.
+ *
+ *   - TAF_NET_L2TP_UNKNOWN -- Failure.
+ *   - TAF_NET_L2TP_IPV4 -- IPV4.
+ *   - TAF_NET_L2TP_IPV6 -- IPV6.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION IpFamilyType GetTunnelIpType
+(
+    TunnelEntry tunnelEntryRef                IN ///< Tunnel entry reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets session config of a tunnel.
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_NOT_FOUND -- Not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failure.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetSessionConfig
+(
+    TunnelEntry tunnelEntryRef                IN, ///< Tunnel entry reference.
+    L2tpSessionConfig sessionConfig[L2TP_MAX_SESSION_NUMBER_PER_TUNNEL]  OUT ///< Session config.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets device mode
+ * Note:if device mode is changed, the system will auto reboot after 5 seconds.
+ *
+ * @return
+ *   - LE_OK -- Success.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failure.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetDeviceMode
+(
+    DeviceMode deviceMode                     IN ///< Device mode.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets device mode
+ *
+ * @return
+ *   - TAF_NET_DEVICE_UNKNOWN -- Failure.
+ *   - TAF_NET_DEVICE_NONE -- None.
+ *   - TAF_NET_DEVICE_L2L -- Device Lan to Lan mode.
+ *   - TAF_NET_DEVICE_E2E -- Device End to End mode.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION DeviceMode GetDeviceMode
+(
+);

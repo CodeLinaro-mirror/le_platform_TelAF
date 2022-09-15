@@ -44,6 +44,8 @@
 #include "tafNetworkImpl.hpp"
 #include "tafNatImpl.hpp"
 #include "tafVlanImpl.hpp"
+#include "tafL2tpImpl.hpp"
+#include "taf_pa_net.hpp"
 
 using namespace telux::tafsvc;
 
@@ -77,6 +79,15 @@ void taf_vlan_init()
     return;
 }
 
+void taf_l2tp_init()
+{
+    LE_INFO("taf l2tp component init start...\n");
+    auto &l2tp = taf_L2tp::GetInstance();
+    l2tp.Init();
+    LE_INFO("taf l2tp component init done...\n");
+
+    return;
+}
 
 /**
  * Get network interface List
@@ -1232,6 +1243,724 @@ le_result_t taf_net_UnbindVlanFromProfile
     return result;
 }
 
+/*=========================================L2TP=========================================*/
+
+/**
+ * Enable L2TP.
+ *
+ * @param [in] enableMss                Enable or disable MSS.
+ * @param [in] enableMtu                Enable or disable MTU.
+ * @param [in] mtuSize                  MTU size.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_NOT_FOUND                L2TP is not found.
+ *          LE_DUPLICATE                L2TP is already enabled.
+ *          LE_FAULT                    Failed to enable L2TP.
+ */
+le_result_t taf_net_EnableL2tp
+(
+    bool enableMss,
+    bool enableMtu,
+    uint32_t mtuSize
+)
+{
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    return tafL2tp.EnableL2tp(enableMss, enableMtu, mtuSize);
+}
+
+/**
+ *  Asynchronously enables L2TP.
+ *
+ * @param [in] enableMss                Enable or disable MSS.
+ * @param [in] enableMtu                Enable or disable MTU.
+ * @param [in] mtuSize                  MTU size.
+ * @param [in] handlerPtr               Asynchronous handler function.
+ * @param [in] contextPtr               Context pointer.
+ *
+ * @returns None
+ */
+void taf_net_EnableL2tpAsync
+(
+    bool enableMss,
+    bool enableMtu,
+    uint32_t mtuSize,
+    taf_net_AsyncL2tpHandlerFunc_t handlerPtr,
+    void* contextPtr
+)
+{
+     taf_L2tpAsyncCmdReq_t cmdReq;
+
+     TAF_ERROR_IF_RET_NIL(handlerPtr == NULL, "Handler function is NULL");
+
+     cmdReq.cmdType = ASYNC_ENABLE_L2TP;
+     cmdReq.enableMss = enableMss;
+     cmdReq.enableMtu = enableMtu;
+     cmdReq.mtuSize = mtuSize;
+     cmdReq.contextPtr = contextPtr;
+     cmdReq.handlerFuncPtr = handlerPtr;
+
+     // Sending enable L2TP command
+     le_event_Report(taf_L2tp::l2tpAsyncCmdEvId, &cmdReq, sizeof(cmdReq));
+
+    return;
+}
+
+/**
+ * Disable L2TP.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_NOT_FOUND                L2TP is not found.
+ *          LE_BAD_PARAMETER            Bad parameter.
+ *          LE_DUPLICATE                L2TP is already disabled.
+ *          LE_FAULT                    Failed to disable L2TP.
+ */
+le_result_t taf_net_DisableL2tp
+(
+    void
+)
+{
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    return tafL2tp.DisableL2tp(taf_net_GetClientSessionRef());
+}
+
+/**
+ *  Asynchronously disables L2TP.
+ *
+ * @param [in] handlerPtr               Asynchronous handler function.
+ * @param [in] contextPtr               Context pointer.
+ *
+ * @returns None
+ */
+void taf_net_DisableL2tpAsync
+(
+    taf_net_AsyncL2tpHandlerFunc_t handlerPtr,
+    void* contextPtr
+)
+{
+     taf_L2tpAsyncCmdReq_t cmdReq;
+
+     TAF_ERROR_IF_RET_NIL(handlerPtr == NULL, "Handler function is NULL");
+
+     cmdReq.cmdType = ASYNC_DISABLE_L2TP;
+     cmdReq.contextPtr = contextPtr;
+     cmdReq.handlerFuncPtr = handlerPtr;
+     cmdReq.sessionRef = taf_net_GetClientSessionRef();
+
+     // Sending disable L2TP command
+     le_event_Report(taf_L2tp::l2tpAsyncCmdEvId, &cmdReq, sizeof(cmdReq));
+
+    return;
+}
+
+/**
+ * Is L2TP enabled or not.
+ *
+ * @returns true                        L2TP is enabled.
+ *          false                       L2TP is disabled.
+ */
+bool taf_net_IsL2tpEnabled
+(
+    void
+)
+{
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    return tafL2tp.IsL2tpEnabled();
+}
+
+/**
+ * Is L2TP MSS enabled or not.
+ *
+ * @returns true                        L2TP MSS is enabled.
+ *          false                       L2TP MSS is disabled.
+ */
+bool taf_net_IsL2tpMssEnabled
+(
+    void
+)
+{
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    return tafL2tp.IsL2tpMssEnabled();
+}
+
+/**
+ * Is L2TP MTU enabled or not.
+ *
+ * @returns true                        L2TP MTU is enabled.
+ *          false                       L2TP MTU is disabled.
+ */
+bool taf_net_IsL2tpMtuEnabled
+(
+    void
+)
+{
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    return tafL2tp.IsL2tpMtuEnabled();
+}
+
+/**
+ * Is L2TP MTU enabled or not.
+ *
+ * @returns uint32_t                    L2TP MTU size.
+ */
+uint32_t  taf_net_GetL2tpMtuSize
+(
+    void
+)
+{
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    return tafL2tp.GetL2tpMtuSize();
+}
+
+/**
+ * Create L2TP tunnel.
+ *
+ * @param [in] encaProto                Encapsulation protocol.
+ * @param [in] locId                    Local tunnel id.
+ * @param [in] peerId                   Peer tunnel id.
+ * @param [in] peerIpAddr               Peer ip address.
+ * @param [in] ifName                   Interface name.
+ *
+ * @returns nullptr                     Failed to create tunnel.
+ *          others                      The reference of tunnel.
+ */
+taf_net_TunnelRef_t taf_net_CreateTunnel
+(
+    taf_net_L2tpEncapProtocol_t encaProto,
+    uint32_t locId,
+    uint32_t peerId,
+    const char* peerIpAddr,
+    const char* ifName
+)
+{
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    return tafL2tp.CreateTunnel(encaProto, locId, peerId, peerIpAddr,
+                                ifName, taf_net_GetClientSessionRef());
+}
+
+/**
+ * Remove L2TP tunnel.
+ *
+ * @param [in] tunnelRef                Tunnel reference.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_NOT_FOUND                Tunnel is not found.
+ *          LE_BAD_PARAMETER            Invalid parameter.
+ *          LE_FAULT                    Failed to remove tunnel.
+ */
+le_result_t taf_net_RemoveTunnel
+(
+    taf_net_TunnelRef_t tunnelRef
+)
+{
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    return tafL2tp.RemoveTunnel(tunnelRef);
+}
+
+/**
+ * Set udp port if the encapsulation protocol is UDP.
+ *
+ * @param [in] tunnelRef                Tunnel reference.
+ * @param [in] localUdpPort             Local udp port.
+ * @param [in] peerUdpPort              Peer udp port.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_NOT_FOUND                Tunnel is not found.
+ *          LE_BAD_PARAMETER            Invalid parameter.
+ *          LE_FAULT                    Encapsulation protol is not UDP.
+ */
+le_result_t taf_net_SetTunnelUdpPort
+(
+    taf_net_TunnelRef_t tunnelRef,
+    uint32_t localUdpPort,
+    uint32_t peerUdpPort
+)
+{
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    return tafL2tp.SetTunnelUdpPort(tunnelRef, localUdpPort, peerUdpPort);
+}
+
+/**
+ *  Add a session into the tunnel.
+ *
+ * @param [in] tunnelRef                Tunnel reference.
+ * @param [in] locId                    Local session id.
+ * @param [in] peerId                   Peer session id.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_NOT_FOUND                Tunnel is not found.
+ *          LE_BAD_PARAMETER            Invalid parameter.
+ *          LE_FAULT                    Failed to add session.
+ */
+
+le_result_t taf_net_AddSession
+(
+    taf_net_TunnelRef_t tunnelRef,
+    uint32_t locId,
+    uint32_t peerId
+)
+{
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    return tafL2tp.AddSession(tunnelRef, locId, peerId);
+}
+
+/**
+ *  Remove a session from the tunnel.
+ *
+ * @param [in] tunnelRef                Tunnel reference.
+ * @param [in] locId                    Local session id.
+ * @param [in] peerId                   Peer session id.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_NOT_FOUND                Tunnel is not found.
+ *          LE_BAD_PARAMETER            Invalid parameter.
+ *          LE_FAULT                    Failed to remove session.
+ */
+le_result_t taf_net_RemoveSession
+(
+    taf_net_TunnelRef_t tunnelRef,
+    uint32_t locId,
+    uint32_t peerId
+)
+{
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    return tafL2tp.RemoveSession(tunnelRef, locId, peerId);
+}
+
+/**
+ *  Synchronously starts a tunnel.
+ *
+ * @param [in] tunnelRef                Tunnel reference.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_NOT_FOUND                Tunnel is not found.
+ *          LE_BAD_PARAMETER            Invalid parameter.
+ *          LE_FAULT                    Failed to start tunnel.
+ */
+
+le_result_t taf_net_StartTunnel
+(
+    taf_net_TunnelRef_t tunnelRef
+)
+{
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    return tafL2tp.StartTunnel(tunnelRef);
+}
+
+/**
+ *  Asynchronously starts a tunnel.
+ *
+ * @param [in] tunnelRef                Tunnel reference.
+ * @param [in] handlerPtr               Asynchronous handler function.
+ * @param [in] contextPtr               Context pointer.
+ *
+ * @returns None
+ */
+void taf_net_StartTunnelAsync
+(
+    taf_net_TunnelRef_t tunnelRef,
+    taf_net_AsyncTunnelHandlerFunc_t handlerPtr,
+    void* contextPtr
+)
+{
+     taf_TunnelAsyncCmdReq_t cmdReq;
+
+     TAF_ERROR_IF_RET_NIL(handlerPtr == NULL, "Handler function is NULL");
+     TAF_ERROR_IF_RET_NIL(tunnelRef == NULL, "tunnelRef is NULL");
+
+     cmdReq.cmdType = ASYNC_START_TUNNEL;
+     cmdReq.tunnelRef = tunnelRef;
+     cmdReq.contextPtr = contextPtr;
+     cmdReq.handlerFuncPtr = handlerPtr;
+
+     // Sending start tunnel command
+     le_event_Report(taf_L2tp::tunnelAsyncCmdEvId, &cmdReq, sizeof(cmdReq));
+
+    return;
+}
+
+/**
+ *  Synchronously stops a tunnel.
+ *
+ * @param [in] tunnelRef                Tunnel reference.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_NOT_FOUND                Tunnel is not found.
+ *          LE_BAD_PARAMETER            Invalid parameter.
+ *          LE_FAULT                    Failed to stop tunnel.
+ */
+le_result_t taf_net_StopTunnel
+(
+    taf_net_TunnelRef_t tunnelRef
+)
+{
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    return tafL2tp.StopTunnel(tunnelRef);
+}
+
+/**
+ *  Asynchronously stops a tunnel.
+ *
+ * @param [in] tunnelRef                Tunnel reference.
+ * @param [in] handlerPtr               Asynchronous handler function.
+ * @param [in] contextPtr               Context pointer.
+ *
+ * @returns None
+ */
+void taf_net_StopTunnelAsync
+(
+    taf_net_TunnelRef_t tunnelRef,
+    taf_net_AsyncTunnelHandlerFunc_t handlerPtr,
+    void* contextPtr
+)
+{
+     taf_TunnelAsyncCmdReq_t cmdReq;
+
+     TAF_ERROR_IF_RET_NIL(handlerPtr == NULL, "Handler function is NULL");
+     TAF_ERROR_IF_RET_NIL(tunnelRef == NULL, "tunnelRef is NULL");
+
+     cmdReq.cmdType = ASYNC_STOP_TUNNEL;
+     cmdReq.tunnelRef = tunnelRef;
+     cmdReq.contextPtr = contextPtr;
+     cmdReq.handlerFuncPtr = handlerPtr;
+
+     // Sending stop tunnel command
+     le_event_Report(taf_L2tp::tunnelAsyncCmdEvId, &cmdReq, sizeof(cmdReq));
+
+    return;
+}
+
+/**
+ * Get tunnel reference by local tunnel id.
+ *
+ * @param [in] locId                    Local tunnel id.
+ *
+ * @returns NULL                        Not found.
+ *          others                      Reference of the tunnel.
+ */
+taf_net_TunnelRef_t taf_net_GetTunnelRefById
+(
+    uint32_t locId
+)
+{
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    return tafL2tp.GetTunnelRefById(locId, taf_net_GetClientSessionRef());
+}
+
+/**
+ * Get the reference of L2TP tunnel entry list.
+ *
+ * @param [in]                          None.
+ *
+ * @returns NULL                        Failure
+ *          Others                      The reference of the L2TP tunnel entry list.
+ */
+taf_net_TunnelEntryListRef_t taf_net_GetTunnelEntryList
+(
+    void
+)
+{
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    return tafL2tp.GetTunnelEntryList();
+}
+
+/**
+ * Get the reference of the first L2TP tunnel with a list reference.
+ *
+ * @param [in] tunnelEntryListRef       Tunnel entry list reference.
+ *
+ * @returns NULL                        Failure
+ *          Others                      Reference of the first L2TP tunnel entry.
+ */
+taf_net_TunnelEntryRef_t taf_net_GetFirstTunnelEntry
+(
+    taf_net_TunnelEntryListRef_t tunnelEntryListRef
+)
+{
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    return tafL2tp.GetFirstTunnelEntry(tunnelEntryListRef);
+}
+
+/**
+ * Get the reference of the next L2TP tunnel with a list reference.
+ *
+ * @param [in] tunnelEntryListRef       Tunnel entry list reference.
+ *
+ * @returns NULL                        Failure
+ *          Others                      Reference of the next L2TP tunnel entry.
+ */
+taf_net_TunnelEntryRef_t taf_net_GetNextTunnelEntry
+(
+    taf_net_TunnelEntryListRef_t tunnelEntryListRef
+)
+{
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    return tafL2tp.GetNextTunnelEntry(tunnelEntryListRef);
+}
+
+/**
+ * Delete the L2TP tunnel entry list.
+ *
+ * @param [in] tunnelEntryListRef       Tunnel entry list reference.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_NOT_FOUND                Not found.
+ *          LE_BAD_PARAMETER            Invalid parameter.
+ *          LE_FAULT                    Failed to delete the L2TP tunnel entry list.
+ */
+le_result_t taf_net_DeleteTunnelEntryList
+(
+    taf_net_TunnelEntryListRef_t tunnelEntryListRef
+)
+{
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    return tafL2tp.DeleteTunnelEntryList(tunnelEntryListRef);
+}
+
+/**
+ * Get encapsulation protocol of a tunnel.
+ *
+ * @param [in] tunnelEntryRef           Reference of a L2TP tunnel entry.
+ *
+ * @returns taf_net_L2tpEncapProtocol_t
+ */
+taf_net_L2tpEncapProtocol_t taf_net_GetTunnelEncapProto
+(
+    taf_net_TunnelEntryRef_t tunnelEntryRef
+)
+{
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    return tafL2tp.GetTunnelEncapProto(tunnelEntryRef);
+}
+
+/**
+ * Get local id of a tunnel.
+ *
+ * @param [in] tunnelEntryRef           Reference of a L2TP tunnel entry.
+ *
+ * @returns 0                           Failed to get the local id.
+ *          Others                      The local id of the tunnel.
+ */
+uint32_t taf_net_GetTunnelLocalId
+(
+    taf_net_TunnelEntryRef_t tunnelEntryRef
+)
+{
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    return tafL2tp.GetTunnelLocalId(tunnelEntryRef);
+}
+
+/**
+ * Get peer id of a tunnel.
+ *
+ * @param [in] tunnelEntryRef           Reference of a L2TP tunnel entry.
+ *
+ * @returns 0                           Failed to get peer id.
+ *          Others                      Success.
+ */
+uint32_t taf_net_GetTunnelPeerId
+(
+    taf_net_TunnelEntryRef_t tunnelEntryRef
+)
+{
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    return tafL2tp.GetTunnelPeerId(tunnelEntryRef);
+}
+
+/**
+ * Get local udp port of a tunnel.
+ *
+ * @param [in] tunnelEntryRef           Reference of a L2TP tunnel entry.
+ *
+ * @returns 0                           Failed to get local udp port.
+ *          Others                      Success.
+ */
+uint32_t taf_net_GetTunnelLocalUdpPort
+(
+    taf_net_TunnelEntryRef_t tunnelEntryRef
+)
+{
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    return tafL2tp.GetTunnelLocalUdpPort(tunnelEntryRef);
+}
+
+/**
+ * Get peer udp port of a tunnel.
+ *
+ * @param [in] tunnelEntryRef           Reference of a L2TP tunnel entry.
+ *
+ * @returns 0                           Failed to get peer udp port.
+ *          Others                      Success.
+ */
+uint32_t taf_net_GetTunnelPeerUdpPort
+(
+    taf_net_TunnelEntryRef_t tunnelEntryRef
+)
+{
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    return tafL2tp.GetTunnelPeerUdpPort(tunnelEntryRef);
+}
+
+/**
+ * Get peer IP v6 address of a tunnel.
+ *
+ * @param [in] tunnelEntryRef           Reference of a L2TP tunnel entry.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_NOT_FOUND                Not found.
+ *          LE_BAD_PARAMETER            Invalid parameter.
+ *          LE_FAULT                    Failed to get peer ipv6 address.
+ */
+le_result_t taf_net_GetTunnelPeerIpv6Addr
+(
+    taf_net_TunnelEntryRef_t tunnelEntryRef,
+    char* peerIpv6Addr,
+    size_t peerIpv6AddrSize
+)
+{
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    return tafL2tp.GetTunnelPeerIpv6Addr(tunnelEntryRef, peerIpv6Addr, peerIpv6AddrSize);
+}
+
+/**
+ * Get peer IP v4 address of a tunnel.
+ *
+ * @param [in] tunnelEntryRef           Reference of a L2TP tunnel entry.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_NOT_FOUND                Not found.
+ *          LE_BAD_PARAMETER            Invalid parameter.
+ *          LE_FAULT                    Failed to get peer ipv4 address.
+ */
+le_result_t taf_net_GetTunnelPeerIpv4Addr
+(
+    taf_net_TunnelEntryRef_t tunnelEntryRef,
+    char* peerIpv4Addr,
+    size_t peerIpv4AddrSize
+)
+{
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    return tafL2tp.GetTunnelPeerIpv4Addr(tunnelEntryRef, peerIpv4Addr, peerIpv4AddrSize);
+}
+
+/**
+ * Get interface name of a tunnel.
+ *
+ * @param [in] tunnelEntryRef           Reference of a L2TP tunnel entry.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_NOT_FOUND                Not found.
+ *          LE_BAD_PARAMETER            Invalid parameter.
+ */
+le_result_t taf_net_GetTunnelInterfaceName
+(
+    taf_net_TunnelEntryRef_t tunnelEntryRef,
+    char* ifName,
+    size_t ifNameSize
+)
+{
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    return tafL2tp.GetTunnelInterfaceName(tunnelEntryRef, ifName, ifNameSize);
+}
+
+/**
+ * Get ip type of a tunnel.
+ *
+ * @param [in] tunnelEntryRef           Reference of a L2TP tunnel entry.
+ *
+ * @returns taf_net_IpFamilyType_t
+ */
+taf_net_IpFamilyType_t taf_net_GetTunnelIpType
+(
+    taf_net_TunnelEntryRef_t tunnelEntryRef
+)
+{
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    return tafL2tp.GetTunnelIpType(tunnelEntryRef);
+}
+
+/**
+ * Get session config of a tunnel.
+ *
+ * @param [in] tunnelEntryRef           Reference of a L2TP tunnel entry.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_NOT_FOUND                Not found.
+ *          LE_BAD_PARAMETER            Invalid parameter.
+ *          LE_FAULT                    Failed to get session config.
+ */
+le_result_t taf_net_GetSessionConfig
+(
+    taf_net_TunnelEntryRef_t tunnelEntryRef,
+    taf_net_L2tpSessionConfig_t* sessionConfigPtr,
+    size_t* sessionConfigSizePtr
+)
+{
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    return tafL2tp.GetSessionConfig(tunnelEntryRef, sessionConfigPtr, sessionConfigSizePtr);
+}
+
+/**
+ * Set device mode.
+ *
+ * @param [in] deviceMode            Device mode value.
+ *
+ * @returns LE_OK                    Success.
+ *          LE_BAD_PARAMETER         Invalid device mode.
+ *          LE_FAULT                 Failed to set device mode
+ *
+ * @note    if device mode is changed, the system will auto reboot after 5 seconds
+ */
+le_result_t taf_net_SetDeviceMode
+(
+    taf_net_DeviceMode_t deviceMode
+)
+{
+    return taf_pa_net_SetDeviceMode(deviceMode);
+}
+
+/**
+ * Get device mode.
+ *
+ * @param   None.
+ *
+ * @returns taf_net_DeviceMode_t.
+ */
+taf_net_DeviceMode_t taf_net_GetDeviceMode
+(
+    void
+)
+{
+    return taf_pa_net_GetDeviceMode();
+}
+
 COMPONENT_INIT
 {
 
@@ -1240,6 +1969,8 @@ COMPONENT_INIT
     taf_nat_init();
 
     taf_vlan_init();
+
+    taf_l2tp_init();
 
 }
 

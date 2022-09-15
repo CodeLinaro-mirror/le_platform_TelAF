@@ -1,0 +1,22 @@
+requires:
+{
+    api:
+    {
+        taf_net.api      [types-only]
+    }
+}
+
+sources:
+{
+    taf_pa_net_devmode.cpp
+}
+
+cxxflags:
+{
+    -I$TELAF_ROOT/include
+}
+
+cflags:
+{
+
+}

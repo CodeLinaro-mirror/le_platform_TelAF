@@ -85,8 +85,6 @@ static void PrintUsage ()
 <vlanid> <profileid>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- unbindwithprofile <vlanid>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- getvlanentryinfo\n"
-            "app runProc tafNetIntTest --exe=tafNetIntTest -- setdevicemode <devicemode>\n"
-            "app runProc tafNetIntTest --exe=tafNetIntTest -- getdevicemode\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- enablel2tp <enablemss> <enablemtu> \
 <mtusize>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- disablel2tp\n"
@@ -96,7 +94,7 @@ static void PrintUsage ()
 <sessionNum> [<localsessionId> <peersessionId> <localsessionId> <peersessionId> <localsessionId> \
 <peersessionId>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- removetunnel <locId>\n"
-            "app runProc tafNetIntTest --exe=tafNetIntTest -- gettunnelinfo <locId>\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- gettunnelinfo\n"
             "\n");
 }
 
@@ -871,56 +869,6 @@ static int TafVlanUnBindWithProfile()
     return EXIT_SUCCESS;
 }
 
-static int TafGetDeviceMode()
-{
-
-    taf_net_DeviceMode_t devicemode=taf_net_GetDeviceMode();
-
-    LE_INFO("----devicemode =%d",(int)devicemode);
-
-    return EXIT_SUCCESS;
-}
-
-static int TafSetDeviceMode()
-{
-    le_result_t ret;
-
-    if (le_arg_NumArgs() !=2)
-    {
-        PrintUsage();
-        exit(EXIT_FAILURE);
-    }
-    uint32_t devicemodevalue = strtol(le_arg_GetArg(1), NULL, 0);
-    #if 0
-    switch(devicemodevalue)
-    {
-        case 0:
-            devicemode=QCMAP_MSGR_DEVICE_NONE_V01;
-            break;
-        case 1:
-            devicemode=QCMAP_MSGR_DEVICE_L2L_V01;
-            break;
-        case 2:
-            devicemode=QCMAP_MSGR_DEVICE_E2E_V01;
-            break;
-        default:
-            LE_ERROR("Invalid parameter");
-            exit(EXIT_FAILURE);
-    }
-#endif
-    ret = taf_net_SetDeviceMode(devicemodevalue);
-    if(ret == LE_OK)
-    {
-        LE_INFO("----set device mode  ok");
-    }
-    else
-    {
-        LE_INFO("----set device error");
-    }
-
-    return EXIT_SUCCESS;
-}
-
 static int TafEnableL2tp()
 {
     le_result_t ret;
@@ -1205,8 +1153,8 @@ static int TafGetTunnelInfo()
     char ipv6addr[NET_IPV6_ADDR_MAX_BYTES];
     char interfacename[TAF_NET_INTERFACE_NAME_MAX_LEN];
     taf_net_IpFamilyType_t ipType;
-    taf_net_L2tpSessionConfig_t sessionConfig[2];
-    size_t sessionNum=2;
+    taf_net_L2tpSessionConfig_t sessionConfig[3];
+    size_t sessionNum=0;
 
     if(listRef !=NULL)
     {
@@ -1256,6 +1204,7 @@ static int TafGetTunnelInfo()
             if(ret == LE_OK)
                 LE_INFO("----interfacename is %s",interfacename);
 
+            sessionNum = 3;
             ret=taf_net_GetSessionConfig(entryRef, sessionConfig, &sessionNum);
             if(ret == LE_OK)
             {
@@ -1372,14 +1321,6 @@ COMPONENT_INIT
         else if(strcmp(testType, "unbindwithprofile") == 0)
         {
             status=TafVlanUnBindWithProfile();
-        }
-        else if(strcmp(testType, "setdevicemode") == 0)
-        {
-            status=TafSetDeviceMode();
-        }
-        else if(strcmp(testType, "getdevicemode") == 0)
-        {
-            status=TafGetDeviceMode();
         }
         else if(strcmp(testType, "enablel2tp") == 0)
         {

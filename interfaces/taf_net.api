@@ -251,26 +251,6 @@
  *
  * @note If unbinding VLAN from default profile id, the system will auto reboot after 5 seconds.
  *
- * @section c_taf_net_DeviceMode_management Device mode management
- *
- * Device mode is the configuration of device network connection, such as VLAN binding, L2TP and
- * SOCKS.
- *
- *    Mode 0 -- Default mode which supports VLAN binding.
- *    Mode 1 -- L2L mode which supports L2TP.
- *    Mode 2 -- E2E mode which supports SOCKS.
- *
- * The device mode can be set using taf_net_SetDeviceMode() with device mode passed as parameter.
- *
- * Here's a sample of how to set device mode. In this example, it will set system device mode 0:
- * @verbatim
-   result = taf_net_SetDeviceMode(TAF_NET_DEVICE_NONE);
-   @endverbatim
- *
- * @note If device mode is changed, the system will auto reboot after 5 seconds.
- *
- * The API taf_net_GetDeviceMode can be used to get current device mode.
- *
  * @section c_taf_net_L2TP_management L2TP management
  *
  * L2TP management provides APIs for enabling and disabling L2TP, creating and removing tunnel,
@@ -1116,6 +1096,9 @@ FUNCTION le_result_t DeleteDestNatEntryList
 /**
  * Creates a VLAN
  *
+ * Note: If wants to use VLAN bridge and VLAN binding feature, need to set device mode with value 0
+ * firstly.
+ *
  * @return
  *   - NULL -- Failure.
  *   - Others -- The reference of VLAN.
@@ -1407,6 +1390,8 @@ FUNCTION le_result_t UnbindVlanFromProfile
 //--------------------------------------------------------------------------------------------------
 /**
  * Synchronously enables L2TP for unmanaged Tunnel State.
+ *
+ * Note: If wants to use L2TP feature, need to set device mode with value 1 firstly.
  *
  * @return
  *   - LE_OK -- Success.
@@ -1873,35 +1858,4 @@ FUNCTION le_result_t GetSessionConfig
 (
     TunnelEntry tunnelEntryRef                IN, ///< Tunnel entry reference.
     L2tpSessionConfig sessionConfig[L2TP_MAX_SESSION_NUMBER_PER_TUNNEL]  OUT ///< Session config.
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Sets device mode
- * Note:if device mode is changed, the system will auto reboot after 5 seconds.
- *
- * @return
- *   - LE_OK -- Success.
- *   - LE_BAD_PARAMETER -- Bad parameter.
- *   - LE_FAULT -- Failure.
- */
-//--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t SetDeviceMode
-(
-    DeviceMode deviceMode                     IN ///< Device mode.
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Gets device mode
- *
- * @return
- *   - TAF_NET_DEVICE_UNKNOWN -- Failure.
- *   - TAF_NET_DEVICE_NONE -- None.
- *   - TAF_NET_DEVICE_L2L -- Device Lan to Lan mode.
- *   - TAF_NET_DEVICE_E2E -- Device End to End mode.
- */
-//--------------------------------------------------------------------------------------------------
-FUNCTION DeviceMode GetDeviceMode
-(
 );

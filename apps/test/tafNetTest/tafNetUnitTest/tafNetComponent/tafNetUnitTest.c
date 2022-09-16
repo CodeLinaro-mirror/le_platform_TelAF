@@ -55,6 +55,7 @@
 #define TEST_DESTINATION_NAT_ENTRY_NUM  3
 #define TEST_VLAN_ENTRY_NUM  3
 #define DEFAULT_MTU_SIZE 1422
+#define DEVICE_MODE 0
 
 le_sem_Ref_t semaphore;
 int stopping_num = 0;
@@ -465,16 +466,16 @@ static void StartTunnelAsyncHandlerFunc
 
         while(entryRef != NULL)
         {
-            LE_INFO("Async start tunnel end:local tunnel id =%d peer tunnel id = %d",
+            LE_INFO("local tunnel id =%d peer tunnel id = %d",
                     taf_net_GetTunnelLocalId(entryRef),taf_net_GetTunnelPeerId(entryRef));
 
             encaproto = taf_net_GetTunnelEncapProto(entryRef);
-            LE_INFO("Async start tunnel end:encapsulation protocol =%d",
+            LE_INFO("encapsulation protocol =%d",
                     (int)taf_net_GetTunnelEncapProto(entryRef));
 
             if(encaproto == TAF_NET_L2TP_UDP)
             {
-                LE_INFO("Async start tunnel end:local udp port = %d, peer udp port = %d",
+                LE_INFO("local udp port = %d, peer udp port = %d",
                         taf_net_GetTunnelLocalUdpPort(entryRef),
                         taf_net_GetTunnelPeerUdpPort(entryRef));
             }
@@ -484,17 +485,18 @@ static void StartTunnelAsyncHandlerFunc
             {
                 taf_net_GetTunnelPeerIpv6Addr(entryRef, ipv6addr,
                                                            TAF_NET_IPV6_ADDR_MAX_LEN);
-                LE_INFO("Async start tunnel end:ip addr =%s", ipv6addr);
+                LE_INFO("ip addr =%s", ipv6addr);
             }
 
             taf_net_GetTunnelInterfaceName(entryRef, retInterface,
                                                        TAF_NET_INTERFACE_NAME_MAX_LEN);
-            LE_INFO("Async start tunnel end:retInterface =%s", retInterface);
+            LE_INFO("retInterface =%s", retInterface);
 
+            sessionNum=3;
             taf_net_GetSessionConfig(entryRef, sessionConfig, &sessionNum);
             for(int j =0; j< sessionNum;j++)
             {
-                LE_INFO("Async start tunnel end:%d, local session id = %d, peer session id = %d",
+                LE_INFO("session:%d, local session id = %d, peer session id = %d",
                         j,sessionConfig[j].locId, sessionConfig[j].peerId);
             }
 
@@ -545,28 +547,13 @@ void L2tpUnitTestFunc(void)
     for(i = 0; i < TAF_NET_L2TP_MAX_TUNNEL_NUMBER; i++)
     {
         //create vlan
-        vlanRef[i] = taf_net_CreateVlan(vlanId[i], 1);
+        vlanRef[i] = taf_net_CreateVlan(vlanId[i], 0);
         LE_ASSERT(vlanRef[i] != NULL);
         //add vlan interface
         LE_ASSERT(taf_net_AddVlanInterface(vlanRef[i],TAF_NET_ETH) == LE_OK);
     }
 
     LE_INFO("======== Enable/disable l2tp ========");
-    //telsdk has issues, need to set 0 0 0 then enable with other parameters
-    LE_ASSERT(taf_net_EnableL2tp(0,0,0) == LE_OK);
-
-    LE_ASSERT(taf_net_EnableL2tp(1,0,0) == LE_OK);
-
-    LE_ASSERT(taf_net_IsL2tpEnabled() == true);
-
-    LE_ASSERT(taf_net_IsL2tpMssEnabled() == true);
-
-    LE_ASSERT(taf_net_IsL2tpMtuEnabled() == false);
-
-    LE_ASSERT(taf_net_GetL2tpMtuSize() == DEFAULT_MTU_SIZE);
-
-    LE_ASSERT(taf_net_DisableL2tp() == LE_OK);
-
     //telsdk has issues, need to set 0 0 0 ,then enable with other parameters
     LE_ASSERT(taf_net_EnableL2tp(0,0,0) == LE_OK);
 
@@ -909,14 +896,12 @@ static void* UnitTestNetThread(void* contextPtr)
     LE_INFO("======== 3 Destination NAT unit test start========");
     NatDestNatUnitTestFunc();
 
-    taf_net_DeviceMode_t devicemode=taf_net_GetDeviceMode();
-
-    if(devicemode == TAF_NET_DEVICE_NONE)
+    if(DEVICE_MODE == TAF_NET_DEVICE_NONE)
     {
         LE_INFO("======== 4 Vlan unit test to start========");
         VlanUnitTestFunc();
     }
-    else if(devicemode == TAF_NET_DEVICE_L2L)
+    else if(DEVICE_MODE == TAF_NET_DEVICE_L2L)
     {
         LE_INFO("======== 4 L2tp unit test to start========");
         L2tpUnitTestFunc();

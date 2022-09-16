@@ -43,7 +43,7 @@
 #include "tafL2tpImpl.hpp"
 #include "tafSvcIF.hpp"
 
-#define REQUEST_L2TP_CONF_TIMEOUT 3
+#define REQUEST_L2TP_CONF_TIMEOUT 30
 #define ENABLE_L2TP_TIMEOUT 30
 #define START_TUNNEL_TIMEOUT 30
 
@@ -1653,7 +1653,6 @@ taf_net_TunnelEntryListRef_t taf_L2tp::GetTunnelEntryList
             tunnelEntryPtr->info.locTunnelId=info.locId;
             tunnelEntryPtr->info.peerTunnelId=info.peerId;
             tunnelEntryPtr->info.localUdpPort=info.localUdpPort;
-            tunnelEntryPtr->info.locTunnelId=info.locId;
             tunnelEntryPtr->info.peerUdpPort=info.peerUdpPort;
             tunnelEntryPtr->info.encaProto=(taf_net_L2tpEncapProtocol_t)info.prot;
 

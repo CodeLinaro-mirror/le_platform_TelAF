@@ -147,6 +147,9 @@ const char* return_val(le_result_t result)
         case -24:
             ret_val = "LE_SUSPENDED";
             break;
+        default:
+            ret_val = "LE_OK";
+            break;
     }
     return ret_val;
 }

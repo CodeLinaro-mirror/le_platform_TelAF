@@ -32,18 +32,25 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <chrono>
-#include <fstream>
-#include <iostream>
-#include <string>
-
 #include "tafUpdate.hpp"
+#include "tafFwUpdate.hpp"
+#include "tafAppMgmt.hpp"
 
 using namespace telux::tafsvc;
 
+/*======================================================================
+ FUNCTION        COMPONENT_INIT
+ DESCRIPTION     Update service component initialization
+ PARAMETERS      void
+ RETURN VALUE    void
+======================================================================*/
 COMPONENT_INIT
 {
     LE_INFO("tafUpdate Service Init...\n");
+    LE_INFO("tafUpdate Component Init...\n");
+    auto &tafUpdate = taf_Update::GetInstance();
+    tafUpdate.Init();
+    LE_INFO("tafUpdate Component Ready...\n");
     LE_INFO("tafAppMgmt Component Init...\n");
     auto &tafAppMgmt = taf_AppMgmt::GetInstance();
     tafAppMgmt.Init();
@@ -52,36 +59,47 @@ COMPONENT_INIT
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
     tafFwUpdate.Init();
     LE_INFO("tafFwUpdate Component Ready...\n");
-    LE_INFO("tafUpdate Component Init...\n");
-    auto &tafUpdate = taf_Update::GetInstance();
-    tafUpdate.Init();
-    LE_INFO("tafUpdate Component Ready...\n");
     LE_INFO("tafUpdate Service Ready...\n");
 }
 
+/*======================================================================
+ FUNCTION        taf_update_Download
+ DESCRIPTION     Download update package
+ PARAMETERS      void
+ RETURN VALUE    void
+======================================================================*/
 void taf_update_Download()
 {
-    taf_UpdateCmdReq_t cmdReq;
-    memset(&cmdReq, 0, sizeof(taf_UpdateCmdReq_t));
-    cmdReq.cmdType = TAF_UPDATE_CMD_TYPE_DOWNLOAD;
-    le_event_Report(taf_Update::updateCmdEvId, &cmdReq, sizeof(taf_UpdateCmdReq_t));
+    taf_UpdateUsrReq_t usrReq;
+    usrReq.event = TAF_UPDATE_REQ_DOWNLOAD;
+    le_event_Report(taf_Update::requestEvId, &usrReq, sizeof(taf_UpdateUsrReq_t));
 }
 
-le_result_t taf_update_Install(taf_update_Package_t packageType, const char* packageName)
+/*======================================================================
+ FUNCTION        taf_update_Install
+ DESCRIPTION     Install update package
+ PARAMETERS      [IN] ota: FOTA or SOTA
+                 [IN] name: Update package name
+ RETURN VALUE    le_result_t: Result of install request
+======================================================================*/
+le_result_t taf_update_Install(taf_update_OTA_t ota, const char* name)
 {
-    TAF_ERROR_IF_RET_VAL(!((packageType == TAF_UPDATE_PACKAGE_FOTA) || (packageType == TAF_UPDATE_PACKAGE_SOTA)), LE_FAULT,
-        "Invalid package type %d.", packageType);
-
-    taf_UpdateCmdReq_t cmdReq;
-    memset(&cmdReq, 0, sizeof(taf_UpdateCmdReq_t));
-    cmdReq.cmdType = TAF_UPDATE_CMD_TYPE_INSTALL;
-    cmdReq.pkgType = packageType;
-    cmdReq.pkgName = packageName;
-    le_event_Report(taf_Update::updateCmdEvId, &cmdReq, sizeof(taf_UpdateCmdReq_t));
+    taf_UpdateUsrReq_t usrReq;
+    usrReq.event = TAF_UPDATE_REQ_INSTALL;
+    usrReq.ota = ota;
+    le_utf8_Copy(usrReq.name, name, TAF_UPDATE_MAX_PKG_NAME_LEN, NULL);
+    le_event_Report(taf_Update::requestEvId, &usrReq, sizeof(taf_UpdateUsrReq_t));
 
     return LE_OK;
 }
 
+/*======================================================================
+ FUNCTION        taf_update_AddStateHandler
+ DESCRIPTION     Add state handler for update
+ PARAMETERS      [IN] handlerFuncPtr: Update state handler
+                 [IN] contextPtr: Context
+ RETURN VALUE    taf_update_StateHandlerRef_t: Handler reference
+======================================================================*/
 taf_update_StateHandlerRef_t taf_update_AddStateHandler
 (
     taf_update_StateHandlerFunc_t handlerFuncPtr,
@@ -90,11 +108,17 @@ taf_update_StateHandlerRef_t taf_update_AddStateHandler
 {
     auto &tafUpdate = taf_Update::GetInstance();
     le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("UpdateStateHandler",
-        tafUpdate.updateStateEvId, taf_Update::UpdateStateLayeredHandler, (void*)handlerFuncPtr);
+        tafUpdate.stateEvId, taf_Update::StateLayeredHandler, (void*)handlerFuncPtr);
     le_event_SetContextPtr(handlerRef, contextPtr);
     return (taf_update_StateHandlerRef_t)handlerRef;
 }
 
+/*======================================================================
+ FUNCTION        taf_update_RemoveStateHandler
+ DESCRIPTION     Remove state handler for update
+ PARAMETERS      [IN] taf_update_StateHandlerRef_t: Handler reference
+ RETURN VALUE    void
+======================================================================*/
 void taf_update_RemoveStateHandler(taf_update_StateHandlerRef_t handlerRef)
 {
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);

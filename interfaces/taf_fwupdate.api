@@ -64,7 +64,7 @@
  *
  * - taf_fwupdate_GetFirmwareVersion() -- Gets the firmware version.
  *
- * - taf_fwupdate_ABSync() -- Synchronizes active and inactive slots.
+ * - taf_fwupdate_Install() supports to install firmware.
  *
  * <HR>
  *
@@ -76,7 +76,7 @@
  * Maximum firmware version length with null characters.
  */
 //--------------------------------------------------------------------------------------------------
-DEFINE MAX_VERS_LEN = 257;
+DEFINE MAX_VERS_LEN = 256;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -92,7 +92,7 @@ FUNCTION RebootToActive
  * Gets the firmware version.
  *
  * @return
- *  - LE_FAULT -- Failed.
+ *  - LE_BAD_PAREMETER -- Bad parameters.
  *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
@@ -103,16 +103,14 @@ FUNCTION le_result_t GetFirmwareVersion
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Synchronizes active and inactive slots.
+ * Installs firmware.
  *
  * @return
- *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
  *
- * @note This API has been deprecated. The Update service synchronizes slots after rebooting to 
- * an active slot; the same functionality as @ref taf_mrc_SendOtaAbsyncMsg().
+ * @note Only used for local firmware update.
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t ABSync
+FUNCTION le_result_t Install
 (
 );

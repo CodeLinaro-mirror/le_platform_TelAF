@@ -38,12 +38,21 @@
 #include "legato.h"
 #include "interfaces.h"
 
-#include <vector>
-
 #include "tafSvcIF.hpp"
+
+#define TAF_APPMGMT_SYSTEM_APPS "system:/apps"
+#define TAF_APPMGMT_UPDATE_APPS "tafUpdateSvc:/apps"
+#define TAF_APPMGMT_UPDATE_APP_NODE "tafUpdateSvc:/apps/%s"
+#define TAF_APPMGMT_SOTA_STATE "/sotaState"
+#define TAF_APPMGMT_SOTA_REPORT_STATE "/sotaReportState"
+#define TAF_APPMGMT_SOTA_APP_START_MODE "/sotaAppStartMode"
+#define TAF_APPMGMT_SOTA_APP "/sotaApp"
 
 #define TAF_APPMGMT_APP_LISTS_MAX_NUM 1
 #define TAF_APPMGMT_APP_MAX_NUM 128
+
+#define TAF_APP_PROBATION_TIME_INTERVAL 10000
+#define TAF_APP_REPORT_TIME_INTERVAL 60000
 
 typedef struct
 {
@@ -56,9 +65,9 @@ typedef struct
     char name[TAF_APPMGMT_APP_NAME_BYTES];
     char version[TAF_APPMGMT_APP_VERSION_BYTES];
     char hash[TAF_APPMGMT_APP_HASH_BYTES];
-    taf_appMgmt_AppState_t state;
     bool isStartManual;
     bool isSandboxed;
+    bool isActivated;
     le_sls_Link_t link;
 } taf_AppMgmtAppInfo_t;
 
@@ -68,6 +77,23 @@ typedef struct
     le_sls_List_t safeRefList;
     le_sls_Link_t* currPtr;
 } taf_AppMgmtAppList_t;
+
+// App update event
+typedef enum {
+    TAF_APPMGMT_EV_START_INSTALL,
+    TAF_APPMGMT_EV_START_PROBATION,
+    TAF_APPMGMT_EV_START_UNINSTALL,
+    TAF_APPMGMT_EV_START_ROLLBACK,
+    TAF_APPMGMT_EV_START_REPORT,
+    TAF_APPMGMT_EV_REPORT_FAIL,
+    TAF_APPMGMT_EV_REPORT_SUCCESS
+} taf_AppMgmtUpdateEvent_t;
+
+// App update request
+typedef struct {
+    taf_AppMgmtUpdateEvent_t event;
+    char name[TAF_APPMGMT_APP_NAME_BYTES];
+} taf_AppMgmtUpdateReq_t;
 
 namespace telux {
 namespace tafsvc {
@@ -79,12 +105,30 @@ namespace tafsvc {
         static taf_AppMgmt &GetInstance();
         void Init(void);
 
+        void CreateAppNode(const char* name);
+        void DeleteAppNode(const char* name);
+        void NotifyProgress(taf_update_State_t state, uint32_t percent, taf_update_Error_t error);
+        void ReportState(taf_update_ReportState_t rState);
+        static void ProbationTimerHandler(le_timer_Ref_t timerRef);
+        static void ReportTimerHandler(le_timer_Ref_t timerRef);
+        static void InstallHandler(le_update_State_t state, uint percent,void* contextPtr);
+        static void AppUpdateHandler(void* reqPtr);
+        static void* AppUpdateThread(void* contextPtr);
+
         le_mem_PoolRef_t appListPool;
         le_mem_PoolRef_t appInfoPool;
         le_mem_PoolRef_t appInfoSafeRefPool;
 
         le_ref_MapRef_t appListRefMap;
         le_ref_MapRef_t appInfoSafeRefMap;
+
+        static le_event_Id_t appUpdateEvId;
+        le_timer_Ref_t prbtTimerRef;
+        le_timer_Ref_t rptTimerRef;
+        taf_update_State_t sotaState = TAF_UPDATE_IDLE;
+        taf_update_ReportState_t rState;
+        bool isManualStart = false;
+        char sotaApp[TAF_APPMGMT_APP_NAME_BYTES] = {0};
     };
 }
 }

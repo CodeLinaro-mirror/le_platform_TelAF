@@ -1,6 +1,6 @@
 sources:
 {
-    tafUpdate.c
+    tafUpdateUnitTest.c
 }
 
 requires:

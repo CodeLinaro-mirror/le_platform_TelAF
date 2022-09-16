@@ -79,8 +79,6 @@
  *
  * @code
  *
-   #define TAF_UPDATE_INSTALL_PACKAGE "/data/images/TCU_target"
-
    void UpdateStateHandler(taf_update_StateInd_t* indication, void* contextPtr)
    {
        switch (indication->state) {
@@ -108,20 +106,20 @@
                // Check install consent from user.
 
                // Start to install.
-               if (indication->pkgType == TAF_UPDATE_PACKAGE_FOTA) {
+               if (indication->ota == TAF_UPDATE_PACKAGE_FOTA) {
 
                    LE_INFO("Install firmware.");
 
-                   LE_ASSERT(taf_update_Install(TAF_UPDATE_PACKAGE_FOTA, TAF_UPDATE_INSTALL_PACKAGE) == LE_OK);
+                   LE_ASSERT(taf_update_Install(TAF_UPDATE_FOTA, indication->name) == LE_OK);
 
                } else {
 
                    LE_INFO("Install application.");
 
                    // Show app name.
-                   if (indication->pkgName != NULL) {
-                       LE_INFO("App name is %s", indication->pkgName);
-                       LE_ASSERT(taf_update_Install(TAF_UPDATE_PACKAGE_SOTA, TAF_UPDATE_INSTALL_PACKAGE) == LE_OK);
+                   if (indication->name != NULL) {
+                       LE_INFO("App name is %s", indication->name);
+                       LE_ASSERT(taf_update_Install(TAF_UPDATE_SOTA, indication->name) == LE_OK);
                    }
                }
                break;
@@ -164,47 +162,97 @@ DEFINE MAX_PKG_NAME_LEN = 48;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * The reference of download session.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE Session;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Update states.
  */
 //--------------------------------------------------------------------------------------------------
 ENUM State
 {
-    IDLE,             ///< Idle state; user can download OTA packages.
-    DOWNLOAD_FAIL,    ///< Download failed state; user can to retry the download.
-    DOWNLOADING,      ///< Downloading state; user is can query download progress.
-    DOWNLAOD_PAUSED,  ///< Download paused state; not supported.
-    DOWNLOAD_SUCCESS, ///< Download success state; user can install the OTA package.
-    INSTALLING,       ///< Installing state; user can query installation progress.
-    INSTALL_SUCCESS,  ///< Install success state; user can reboot to active if firmware installed 
-                      ///  or start probation if an app installed.
-    INSTALL_FAIL,     ///< Install failed state; update service drives to idle state later.
-    PROBATION         ///< Probation state; during probation, the update service checks if newly 
-                      ///  installed firmware or app is stable and drives to idle state later.
+    IDLE,              ///< Idle state, user can download OTA packages.
+    DOWNLOADING,       ///< Downloading state, user can query download progress.
+    DOWNLOAD_PAUSED,   ///< Download paused state, not supported.
+    DOWNLOAD_SUCCESS,  ///< Dowmload success state, download OTA package successfully.
+    DOWNLOAD_FAIL,     ///< Download fail state, user can to retry the download.
+    INSTALLING,        ///< Installing state, user can query installation progress.
+    INSTALL_SUCCESS,   ///< Install success state, user can reboot to active if firmware installed or start probation if app installed.
+    INSTALL_FAIL,      ///< Install fail state, update service drives to idle state later.
+    PROBATION,         ///< Probation state, during probation, update service checks if newly installed firmware or app is stable and dirves to idle state later.
+    PROBATION_SUCCESS, ///< Probation success state, application or firmware is working properly without errors.
+    PROBATION_FAIL,    ///< Probation fail state, update service drives to idle state later.
+    ROLLBACK,          ///< Rollback state, rollback to the original system.
+    ROLLBACK_SUCCESS,  ///< Rollback success state, rollback to the original system successfully.
+    ROLLBACK_FAIL,     ///< Rollback fail state, fail to rollback to the original system.
+    REPORTING          ///< Reporting state, update service is reporting state to server.
 };
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Installation error codes.
+ * Error code enum.
  */
 //--------------------------------------------------------------------------------------------------
-ENUM InstallError
+ENUM Error
 {
-    INSTALL_NONE,            ///< No errors.
-    INSTALLBAD_PACKAGE,      ///< Bad package.
-    INSTALL_INTERNAL_ERROR,  ///< Internal error.
-    INSTALL_SECURITY_FAILURE ///< Security check failure.
+    NONE,              ///< No errors.
+    BAD_PACKAGE,       ///< Bad package.
+    INTERNAL_ERROR,    ///< Internal error.
+    SECURITY_FAILURE,  ///< Security check failure.
+    PACKAGE_NOT_FOUND, ///< Package not found.
+    APP_NOT_FOUND,     ///< App not found.
+    APP_NOT_RUNNING    ///< App is not in runnig state.
 };
 
 //--------------------------------------------------------------------------------------------------
 /**
- * OTA package type.
+ * OTA workflow enum.
  */
 //--------------------------------------------------------------------------------------------------
-ENUM Package
+ENUM OTA
 {
-    PACKAGE_FOTA,    ///< Package for firmware update.
-    PACKAGE_SOTA,    ///< Package for application update.
-    PACKAGE_NON_QOTA ///< Not a QOTA formatted package.
+    FOTA,    ///< Firmware update workflow.
+    SOTA,    ///< Application update workflow.
+    NON_QOTA ///< Not QOTA workflow.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Download progress state enum.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM ProgressState
+{
+    PROGRESS_INIT,        ///< Download initialized.
+    PROGRESS_DOWNLOADING, ///< Downloading.
+    PROGRESS_FINISH,      ///< Download finished.
+    PROGRESS_ERROR        ///< Error occurred during the download process.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Report state enum.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM ReportState
+{
+    REPORT_RECEIVED = 1,      ///< Download agent has received the update script.
+    REPORT_CANCEL,            ///< User has cancelled the update.
+    REPORT_DOWNLOADING,       ///< Downloading package.
+    REPORT_DOWNLOADED,        ///< Package downloaded to the device.
+    REPORT_REBOOT,            ///< Device start to reboot.
+    REPORT_SUCCESS,           ///< Update successfully.
+    REPORT_FAILURE,           ///< Fail to update.
+    REPORT_DOWNLOAD_FAIL,     ///< Fail to download package.
+    REPORT_MD5_CHECK_SUCCESS, ///< Package passes MD5 check.
+    REPORT_MD5_CHECK_FAIL,    ///< Package fail to pass MD5 check.
+    REPORT_PKI_CHECK_SUCCESS, ///< Package passes PKI vertification.
+    REPORT_PKI_CHECK_FAIL,    ///< Package fails to pass PKI vertification.
+    REPORT_ROLLBACK_SUCCESS,  ///< Device rollbacks successfully.
+    REPORT_ROLLBACK_FAIL      ///< Device fails to rollback.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -214,12 +262,11 @@ ENUM Package
 //--------------------------------------------------------------------------------------------------
 STRUCT StateInd
 {
-    State state;                      ///< Update state.
-    InstallError error;               ///< Install error; applicable for install failed state.
-    int32 percent;                    ///< Percentage of progress; applicable for downloading or 
-                                      ///  installing state.
-    Package pkgType;                  ///< OTA package type.
-    string pkgName[MAX_PKG_NAME_LEN]; ///< OTA package name.
+    State state;                   ///< Update state.
+    Error error;                   ///< Error in update progress.
+    uint32 percent;                ///< Percentage of progress, applicatible for downloading or installing state.
+    OTA ota;                       ///< OTA workflow type.
+    string name[MAX_PKG_NAME_LEN]; ///< OTA package name.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -265,6 +312,6 @@ FUNCTION Download
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Install
 (
-    Package packageType IN,          ///< OTA package type.
+    OTA ota IN,                      ///< OTA workflow type.
     string name[MAX_PKG_NAME_LEN] IN ///< OTA package name.
 );

@@ -1,0 +1,19 @@
+sources:
+{
+    tafUpdateIntTest.c
+}
+
+requires:
+{
+    api:
+    {
+        taf_update.api
+        taf_fwupdate.api
+        taf_appMgmt.api
+    }
+}
+
+cxxflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+}

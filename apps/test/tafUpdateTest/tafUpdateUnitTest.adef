@@ -1,0 +1,31 @@
+sandboxed: false
+
+executables:
+{
+    tafUpdateUnitTest = ( tafUpdateUnitTest )
+}
+
+start: manual
+
+processes:
+{
+    run:
+    {
+        (tafUpdateUnitTest)
+    }
+
+    faultAction: stopApp
+
+    #if ${LE_CONFIG_SERVICES_WATCHDOG} = y
+        maxWatchdogTimeout: 100000
+    #else
+        watchdogTimeout: never
+    #endif
+}
+
+bindings:
+{
+    tafUpdateUnitTest.tafUpdateUnitTest.taf_update -> tafUpdateSvc.taf_update
+    tafUpdateUnitTest.tafUpdateUnitTest.taf_fwupdate -> tafUpdateSvc.taf_fwupdate
+    tafUpdateUnitTest.tafUpdateUnitTest.taf_appMgmt -> tafUpdateSvc.taf_appMgmt
+}

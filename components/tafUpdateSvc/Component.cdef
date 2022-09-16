@@ -20,8 +20,6 @@ requires:
         le_appInfo.api
         le_cfg.api
 
-        taf_update_pa.api    [types-only]
-        taf_dcs.api
 #if ${TARGET} = sa515m
         taf_mrc.api
 #endif
@@ -30,23 +28,16 @@ requires:
     component:
     {
         $LEGATO_ROOT/components/watchdogChain
-        $TELAF_ROOT/components/stub/taf_update_pa
-    }
-
-    lib:
-    {
-        lib/libtelux_tel.so
-        lib/libtelux_data.so
+        $TELAF_ROOT/components/stub/taf_pa_update
     }
 }
 
 cxxflags:
 {
     -I$LEGATO_ROOT/components/watchdogChain
-    -I$TELAF_ROOT/components/stub/taf_update_pa
+    -I$TELAF_ROOT/components/stub/taf_pa_update
     -I$TELAF_ROOT/include
-    -ltelux_tel
-    -ltelux_data
+    -lComponent_taf_pa_update
 }
 
 cflags:

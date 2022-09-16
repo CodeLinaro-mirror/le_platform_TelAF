@@ -2,7 +2,7 @@ requires:
 {
     api:
     {
-        taf_update_pa.api    [types-only]
+        taf_update.api    [types-only]
     }
 }
 
@@ -18,6 +18,6 @@ cflags:
 
 sources:
 {
-    tafUpdatePa.cpp
+    taf_pa_update.cpp
 }
 

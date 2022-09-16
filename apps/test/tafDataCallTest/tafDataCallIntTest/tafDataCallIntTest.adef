@@ -1,0 +1,25 @@
+executables:
+{
+    tafDataCallIntTest = ( $TELAF_ROOT/apps/test/tafDataCallTest/tafDataCallIntTest/tafDataCallIntTestComponent )
+}
+
+processes:
+{
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+
+    run:
+    {
+        ( tafDataCallIntTest )
+    }
+}
+
+start: manual
+
+bindings:
+{
+    tafDataCallIntTest.tafDataCallIntTestComponent.taf_dcs -> tafDataCallSvc.taf_dcs
+}
+

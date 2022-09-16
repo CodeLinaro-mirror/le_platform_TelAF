@@ -40,6 +40,11 @@
 #include "legato.h"
 #include "interfaces.h"
 #include "linux/file.h"
+#include <openssl/hmac.h>
+#include <openssl/sha.h>
+#include <openssl/rsa.h>
+#include <openssl/md5.h>
+#include <openssl/x509.h>
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -52,6 +57,7 @@ __attribute__((unused)) static void KeyManagementTest(void)
     const char keyId[] = "KeyManagementTest";
     taf_ks_KeyRef_t keyRef, keyRef1;
     taf_ks_KeyUsage_t keyUsage;
+    taf_ks_CryptoSessionRef_t sessionRef;
 
     LE_TEST_ASSERT(LE_OK == taf_ks_CreateKey(keyId, TAF_KS_RSA_ENCRYPT_DECRYPT, &keyRef),
                    "Test RSA encryption/decryption key creation.");
@@ -97,6 +103,17 @@ __attribute__((unused)) static void KeyManagementTest(void)
                                             NULL, 0);
     LE_TEST_ASSERT(LE_NOT_PERMITTED == result,
                    "Test correct key value provision again.");
+
+    LE_TEST_ASSERT(LE_OK == taf_ks_CryptoSessionCreate(keyRef, &sessionRef),
+                   "Test session creation.");
+
+    LE_TEST_ASSERT(LE_OK == taf_ks_CryptoSessionStart(sessionRef, TAF_KS_CRYPTO_ENCRYPT),
+                   "Test start session for data encryption.");
+
+    LE_TEST_ASSERT(LE_NOT_PERMITTED == taf_ks_DeleteKey(keyRef),
+                   "Test key deletion after session start.");
+
+    LE_TEST_ASSERT(LE_OK == taf_ks_CryptoSessionAbort(sessionRef), "Test abort session.");
 
     result = taf_ks_GetKey(keyId, &keyRef1);
     LE_TEST_ASSERT((LE_OK == result) && (keyRef1 == keyRef),
@@ -1367,6 +1384,77 @@ __attribute__((unused)) static void HmacSigTest(void)
     LE_TEST_ASSERT(LE_FAULT == result, "Test data verification using a wrong signature.");
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * RSA key export test
+ */
+//--------------------------------------------------------------------------------------------------
+__attribute__((unused)) static void RsaKeyExportTest(void)
+{
+    le_result_t result;
+    const char keyId[] = "rsaExportKeySigningTest";
+    taf_ks_KeyRef_t keyRef;
+    taf_ks_CryptoSessionRef_t sessionRef;
+    const uint8_t message[] =
+        "Keystore service export RSA key Signing Verification test message.";
+    uint8_t signature[TAF_KS_MAX_PACKET_SIZE] = { 0 };
+    size_t signatureSize = sizeof(signature);
+    uint8_t expKeyData[TAF_KS_MAX_PACKET_SIZE] = { 0 };
+    size_t expKeySize = sizeof(expKeyData);
+
+    if (LE_NOT_FOUND == taf_ks_GetKey(keyId, &keyRef))
+    {
+        LE_TEST_ASSERT(LE_OK == taf_ks_CreateKey(keyId, TAF_KS_RSA_SIGN_VERIFY, &keyRef),
+                       "Test RSA export signing key creation");
+        result = taf_ks_ProvisionRsaSigKeyValue(keyRef,
+                                                TAF_KS_RSA_SIZE_1024,
+                                                TAF_KS_RSA_SIG_PAD_PKCS1_V15_MD5,
+                                                NULL, 0);
+        LE_TEST_ASSERT(LE_OK == result, "Test RSA export signing key value provision.");
+    }
+
+    LE_TEST_ASSERT(LE_OK == taf_ks_CryptoSessionCreate(keyRef, &sessionRef),
+                   "Test session creation.");
+    LE_TEST_ASSERT(LE_OK == taf_ks_CryptoSessionStart(sessionRef, TAF_KS_CRYPTO_SIGN),
+                   "Test start session for data signing.");
+    result = taf_ks_CryptoSessionProcess(sessionRef,
+                                         message,
+                                         sizeof(message),
+                                         NULL, 0);
+    LE_TEST_ASSERT(LE_OK == result,
+                   "Message to sign(size = %"PRIuS"): %s", sizeof(message), message);
+    result = taf_ks_CryptoSessionEnd(sessionRef,
+                                     NULL, 0,
+                                     signature,
+                                     &signatureSize);
+    LE_TEST_ASSERT(LE_OK == result, "Test signature size = %"PRIuS".", signatureSize);
+
+    // Export the RSA signing key.
+    result = taf_ks_ExportKey(keyRef, NULL, 0, expKeyData, &expKeySize);
+    LE_TEST_ASSERT(LE_OK == result, "Test export RSA public key with X.509 format.");
+    LE_INFO("x.509 public key size = %"PRIuS"", expKeySize);
+
+    // Verify the signature using the OpenSSL APIs.
+    MD5_CTX md5ctx;
+    uint8_t md5Digest[MD5_DIGEST_LENGTH] = {0};
+    RSA *rsaPubPtr = NULL;
+    const uint8_t* expDataPtr = expKeyData;
+    // Import a x.509 public key.
+    rsaPubPtr = d2i_RSA_PUBKEY(NULL, &expDataPtr, expKeySize);
+    LE_TEST_ASSERT(rsaPubPtr != NULL, "Test import the RSA public key to OpenSSL key object.");
+
+    MD5_Init(&md5ctx);
+    MD5_Update(&md5ctx, message, sizeof(message));
+    MD5_Final(md5Digest, &md5ctx);
+
+    int err = RSA_verify(NID_md5, md5Digest, sizeof(md5Digest), signature, signatureSize, rsaPubPtr);
+    LE_TEST_ASSERT(err == 1, "Verify the signature with OpenSSL API.");
+
+    memset(signature, 0, signatureSize);
+    err = RSA_verify(NID_md5, md5Digest, sizeof(md5Digest), signature, signatureSize, rsaPubPtr);
+    LE_TEST_ASSERT(err != 1, "Verify wrong signature with OpenSSL API.");
+    RSA_free(rsaPubPtr);
+}
 
 COMPONENT_INIT
 {
@@ -1374,7 +1462,7 @@ COMPONENT_INIT
 
     LE_TEST_INFO("=== telaf keyStore test BEGIN ===");
 
-    KeyManagementTest(); // Basic key management API test
+    KeyManagementTest();       // Basic key management API test
     RsaEncTest();              // RSA Encryption/Decryption test
     RsaSigTest();              // RSA signing/verfication test
     EcdsaSigTest();            // ECDSA signing/verfication test
@@ -1385,6 +1473,7 @@ COMPONENT_INIT
     AesGcmTest();              // AES GCM test
     EncDataFileTest();         // Encrypt file test
     DecDataFileTest();         // Decrypt file test
+    RsaKeyExportTest();        // Export RSA key test
 
     LE_TEST_INFO("=== telaf Keystore test END ===");
 

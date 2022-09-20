@@ -63,10 +63,10 @@ commands:
 
 bindings:
 {
-    <root>.taf_update -> tafUpdateSvc.taf_update
-    <root>.taf_appMgmt -> tafUpdateSvc.taf_appMgmt
-    <root>.taf_fwupdate -> tafUpdateSvc.taf_fwupdate
-    <root>.taf_dcs -> tafDataCallSvc.taf_dcs
+    <c2c>.taf_update -> tafUpdateSvc.taf_update
+    <c2c>.taf_appMgmt -> tafUpdateSvc.taf_appMgmt
+    <c2c>.taf_fwupdate -> tafUpdateSvc.taf_fwupdate
+    <c2c>.taf_dcs -> tafDataCallSvc.taf_dcs
 }
 
 interfaceSearch:

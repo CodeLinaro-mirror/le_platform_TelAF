@@ -50,6 +50,8 @@ const std::string DONE = "\033[0m";  // No color
 
 using namespace std;
 
+static le_sem_Ref_t TestSemRef;
+static le_thread_Ref_t threadRef = NULL;
 static taf_ecall_State_t ECallState;
 static taf_ecall_StateChangeHandlerRef_t HandlerRef;
 static taf_ecall_CallRef_t ECallRef = NULL;
@@ -155,6 +157,42 @@ const char* return_val(le_result_t result)
             break;
     }
     return ret_val;
+}
+
+void printResultMsg()
+{
+    std::cout <<endl;
+    std::cout <<"*******************RESULTS**********************" << endl;
+    std::cout <<"ECall Integration Tests are executed successfully." << endl;
+    std::cout <<"Please check test results above and logs." << endl;
+    std::cout <<"The pre-conditions and usages are mentioned at begining." << endl;
+    std::cout <<"These help to learn test environment and identify false-alarm." << endl;
+    std::cout <<"******************THANK YOU*********************" << endl;
+    std::cout <<endl;
+}
+
+void printPreCondition()
+{
+    std::cout <<endl;
+    std::cout <<"************************************************" << endl;
+    std::cout <<"Pre-Conditions:" << endl;
+    std::cout <<"Make sure device/Call-box/Agilent setup/NAD are in proper state." << endl;
+    std::cout <<"Device should have valid IMEI, serial number programmed." << endl;
+    std::cout <<"A SIM card (with valid IMSI, SDN/FDN numbers) should be inserted in device." << endl;
+    std::cout <<"GPS/GNSS should be working fine to fetch location info for the eCall." << endl;
+    std::cout <<"************************************************" << endl;
+
+}
+
+void printUsages()
+{
+    std::cout <<endl;
+    std::cout <<"************************************************" << endl;
+    std::cout <<"Usages:" << endl;
+    std::cout <<"First, install this tafECallIntTest app (if not already installed)." << endl;
+    std::cout <<"Go to device path: /legato/systems/current/appsWriteable/tafECallIntTest/bin/" << endl;
+    std::cout <<"Run: ./tafECallIntTest <SLOT1/SLOT2> <AUTO/MANUAL/TEST> <True/False> <PSAP Number>" << endl;
+    std::cout <<"************************************************" << endl;
 }
 
 void report(le_result_t expected_result, le_result_t actual_result, string API_Name)
@@ -499,16 +537,7 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         }
     }
     if (exitApp) {
-        taf_ecall_RemoveStateChangeHandler_test();
-        std::cout <<endl;
-        std::cout <<"*******************RESULTS**********************" << endl;
-        std::cout <<"ECall Integration Tests are executed successfully." << endl;
-        std::cout <<"Please check test results above and logs." << endl;
-        std::cout <<"The pre-conditions and usages are mentioned at begining." << endl;
-        std::cout <<"These help to learn test environment and identify false-alarm." << endl;
-        std::cout <<"******************THANK YOU*********************" << endl;
-        std::cout <<endl;
-        exit(EXIT_SUCCESS);
+        le_sem_Post(TestSemRef);
     }
 }
 
@@ -1035,11 +1064,102 @@ static void updateMsdInformation()
     } else {
         std::cout<<"Updating MSD info .............."<<endl;
     }
+    std::cout<<endl;
 }
 
-static int taf_ecall_startECall_test(const char* eCallType)
+static void* taf_ecall_GetPsapNumber_test()
 {
+    // Test Case
+    char psapNum[TAF_SIM_PHONE_NUM_MAX_LEN] = "Nil";
+    le_result_t result = taf_ecall_GetPsapNumber(psapNum, TAF_SIM_PHONE_NUM_MAX_LEN);
+    LE_TEST_OK(result == LE_OK || strcmp("None", psapNum) == 0, "taf_ecall_GetPsapNumber - LE_OK");
+    report(LE_OK,result,"taf_ecall_GetPsapNumber");
+    std::cout<<"*** psapNumber: "<<psapNum<<endl;
+    LE_TEST_INFO("taf_ecall_GetPsapNumber done");
+
+    return NULL;
+}
+
+static void* taf_ecall_UseUSimNumbers_test()
+{
+    // Test Case
+    le_result_t result = taf_ecall_UseUSimNumbers();
+    LE_TEST_OK(result == LE_OK, "taf_ecall_UseUSimNumbers_test - LE_OK");
+    report(LE_OK,result,"taf_ecall_UseUSimNumbers_test");
+    LE_TEST_INFO("taf_ecall_UseUSimNumbers_test done");
+
+    return NULL;
+}
+
+static void* taf_ecall_SetPsapNumber_test()
+{
+    char psapNum[TAF_SIM_PHONE_NUM_MAX_LEN] = "None";
+    le_result_t result = taf_ecall_GetPsapNumber(psapNum, TAF_SIM_PHONE_NUM_MAX_LEN);
+    result = taf_ecall_SetPsapNumber("911");
+    LE_TEST_OK(result == LE_OK, "taf_ecall_SetPsapNumber_test - LE_OK");
+    report(LE_OK,result,"taf_ecall_SetPsapNumber_test");
+
+    // Test Case
+    char psapNumber[TAF_SIM_PHONE_NUM_MAX_LEN];
+    result = taf_ecall_GetPsapNumber(psapNumber, TAF_SIM_PHONE_NUM_MAX_LEN);
+    LE_TEST_OK(result == LE_OK, "taf_ecall_GetPsapNumber - LE_OK");
+    report(LE_OK,result,"taf_ecall_GetPsapNumber");
+    std::cout<<"*** psapNumber: "<<psapNumber<<endl;
+
+    // Test Case
+    LE_TEST_OK(strcmp("911", psapNumber) == 0, "Checking if psapNumber set properly");
+    if(strcmp("911", psapNumber) == 0)
+    {
+        std::cout<<TC_No<<". Checking if psapNumber set properly " + GREEN + "- Pass" + DONE<<endl;
+    }
+    else
+    {
+        std::cout<<TC_No<<". Checking if psapNumber set properly " + RED + "- Fail" + DONE<<endl;
+    }
+
+    result = taf_ecall_SetPsapNumber("1800233233");
+    LE_TEST_OK(result == LE_OK, "taf_ecall_SetPsapNumber_test - LE_OK");
+    report(LE_OK,result,"taf_ecall_SetPsapNumber_test");
+
+    // Test Case
+    result = taf_ecall_GetPsapNumber(psapNumber, TAF_SIM_PHONE_NUM_MAX_LEN);
+    LE_TEST_OK(result == LE_OK, "taf_ecall_GetPsapNumber - LE_OK");
+    report(LE_OK,result,"taf_ecall_GetPsapNumber");
+    std::cout<<"*** psapNumber: "<<psapNumber<<endl;
+
+    // Test Case
+    LE_TEST_OK(strcmp("1800233233", psapNumber) == 0, "Checking if psapNumber set properly");
+    if(strcmp("1800233233", psapNumber) == 0)
+    {
+        std::cout<<TC_No<<". Checking if psapNumber set properly " + GREEN + "- Pass" + DONE<<endl;
+    }
+    else
+    {
+        std::cout<<TC_No<<". Checking if psapNumber set properly " + RED + "- Fail" + DONE<<endl;
+    }
+
+    //Put back the psap number
+    if(strcmp("None", psapNum) != 0)
+    {
+        result = taf_ecall_SetPsapNumber(psapNum);
+    }
+
+    TC_No += 1;
+
+    return NULL;
+}
+
+static le_result_t taf_ecall_startECall_test
+(
+    const char* eCallType,
+    const char* useUsimNumber,
+    const char* psapNumber
+)
+{
+    LE_INFO("Start eCall test with eCallType: %s, useUsimNumber: %s, psapNumber: %s",
+            eCallType, useUsimNumber, psapNumber);
     le_result_t result;
+
     ECallRef = taf_ecall_Create();
 
     updateMsdInformation();
@@ -1048,6 +1168,16 @@ static int taf_ecall_startECall_test(const char* eCallType)
 
     if (strcmp(eCallType, "TEST") == 0)
     {
+        if (strcmp(useUsimNumber, "True") == 0)
+        {
+            taf_ecall_UseUSimNumbers_test();
+        }
+        if (strcmp(psapNumber, "None") != 0)
+        {
+            result = taf_ecall_SetPsapNumber(psapNumber);
+            LE_TEST_OK(result == LE_OK, "taf_ecall_SetPsapNumber - LE_OK");
+            report(LE_OK,result,"taf_ecall_SetPsapNumber");
+        }
         result = taf_ecall_StartTest(ECallRef);
     }
     else if (strcmp(eCallType, "MANUAL") == 0)
@@ -1062,12 +1192,35 @@ static int taf_ecall_startECall_test(const char* eCallType)
     LE_TEST_OK(result == LE_OK, "taf_ecall_startECall_test - LE_OK");
     report(LE_OK,result,"taf_ecall_startECall_test");
 
-    return EXIT_SUCCESS;
+    return result;
+}
+
+static void* tafECallHandlerThread
+(
+    void* contextPtr
+)
+{
+    taf_ecall_ConnectService();
+
+    LE_TEST_INFO("Test register eCall state change handler");
+    std::cout <<endl;
+    std::cout <<"************************************************" << endl;
+    std::cout <<"Test register eCall state change handler" << endl;
+    std::cout <<"************************************************" << endl;
+    HandlerRef = taf_ecall_AddStateChangeHandler(tafECallStateHandler, NULL);
+    LE_TEST_OK(HandlerRef != NULL, "taf_ecall_AddStateChangeHandler - LE_OK");
+    report(LE_OK,HandlerRef != NULL?LE_OK:LE_FAULT,"taf_ecall_AddStateChangeHandler");
+    LE_TEST_INFO("taf_ecall_AddStateChangeHandler done");
+
+    le_event_RunLoop();
+
+    return NULL;
 }
 
 COMPONENT_INIT
 {
     int status = EXIT_SUCCESS;
+    le_result_t result;
 
     signal(SIGINT, SignalHandler);
     signal(SIGTERM, SignalHandler);
@@ -1084,12 +1237,7 @@ COMPONENT_INIT
             LE_ERROR("slotId input is NULL, input correct slot id. Check usages for details.");
             std::cout <<"slotId input is NULL, input correct slot id. Check usages for details." << endl;
 
-            std::cout <<"************************************************" << endl;
-            std::cout <<"Usages:" << endl;
-            std::cout <<"First, install this tafECallIntTest app (if not already installed)." << endl;
-            std::cout <<"Go to device path: /legato/systems/current/appsWriteable/tafECallIntTest/bin/" << endl;
-            std::cout <<"Run: ./tafECallIntTest <SLOT1/SLOT2> <AUTO/MANUAL/TEST>" << endl;
-            std::cout <<"************************************************" << endl;
+            printUsages();
 
             exit(EXIT_SUCCESS);
         } else {
@@ -1101,12 +1249,7 @@ COMPONENT_INIT
         LE_ERROR("No Parameter passed, provide slotId. Check usages for details.");
         std::cout <<"No Parameter passed, provide slotId. Check usages for details." << endl;
 
-        std::cout <<"************************************************" << endl;
-        std::cout <<"Usages:" << endl;
-        std::cout <<"First, install this tafECallIntTest app (if not already installed)." << endl;
-        std::cout <<"Go to device path: /legato/systems/current/appsWriteable/tafECallIntTest/bin/" << endl;
-        std::cout <<"Run: ./tafECallIntTest <SLOT1/SLOT2> <AUTO/MANUAL/TEST>" << endl;
-        std::cout <<"************************************************" << endl;
+        printUsages();
 
         exit(EXIT_SUCCESS);
     }
@@ -1123,21 +1266,24 @@ COMPONENT_INIT
         }
     }
 
-    std::cout <<"************************************************" << endl;
-    std::cout <<"Usages:" << endl;
-    std::cout <<"First, install this tafECallIntTest app (if not already installed)." << endl;
-    std::cout <<"Go to device path: /legato/systems/current/appsWriteable/tafECallIntTest/bin/" << endl;
-    std::cout <<"Run: ./tafECallIntTest <SLOT1/SLOT2> <AUTO/MANUAL/TEST>" << endl;
-    std::cout <<"************************************************" << endl;
+    const char* useUsimNumber =  "False";
+    if (NumberOfArgs > 2)
+    {
+        useUsimNumber = le_arg_GetArg(2);
+        LE_INFO("Input useUsimNumber: %s", useUsimNumber);
+    }
 
-    std::cout <<endl;
-    std::cout <<"************************************************" << endl;
-    std::cout <<"Pre-Conditions:" << endl;
-    std::cout <<"Make sure device/Call-box/Agilent setup/NAD are in proper state." << endl;
-    std::cout <<"Device should have valid IMEI, serial number programmed." << endl;
-    std::cout <<"A SIM card (with valid IMSI, SDN/FDN numbers) should be inserted in device." << endl;
-    std::cout <<"GPS/GNSS should be working fine to fetch location info for the eCall." << endl;
-    std::cout <<"************************************************" << endl;
+    const char* psapNumber =  "None";
+    if (NumberOfArgs > 3)
+    {
+        psapNumber = le_arg_GetArg(3);
+        LE_INFO("Input psapNumber: %s", psapNumber);
+    }
+
+    TestSemRef = le_sem_Create("tafeCallTestAppSem", 0);
+
+    printPreCondition();
+    printUsages();
 
     LE_TEST_INFO("Test MSD transmition mode of ECall");
     std::cout <<endl;
@@ -1187,15 +1333,12 @@ COMPONENT_INIT
     taf_ecall_getPropulsionType_test();
     taf_ecall_setPropulsionType_test();
 
-    LE_TEST_INFO("Test register eCall state change handler");
-    std::cout <<endl;
-    std::cout <<"************************************************" << endl;
-    std::cout <<"Test register eCall state change handler" << endl;
-    std::cout <<"************************************************" << endl;
-    HandlerRef = taf_ecall_AddStateChangeHandler(tafECallStateHandler, NULL);
-    LE_TEST_OK(HandlerRef != NULL, "taf_ecall_AddStateChangeHandler - LE_OK");
-    report(LE_OK,HandlerRef != NULL?LE_OK:LE_FAULT,"taf_ecall_AddStateChangeHandler");
-    LE_TEST_INFO("taf_ecall_AddStateChangeHandler done");
+    if(threadRef == NULL) {
+        threadRef = le_thread_Create("taf_ecall_state_thread", tafECallHandlerThread, NULL);
+        le_thread_Start(threadRef);
+    }
+
+    sleep(1); //Wait to register handler...
 
     LE_TEST_INFO("Test MSD position of an ECall");
     std::cout <<endl;
@@ -1211,15 +1354,31 @@ COMPONENT_INIT
     std::cout <<"************************************************" << endl;
     taf_ecall_setMsdPassengersCount_tests();
 
+    LE_TEST_INFO("Test PSAP Number of ECall");
+    std::cout <<endl;
+    std::cout <<"************************************************" << endl;
+    std::cout <<"Test PSAP Number of ECall" << endl;
+    std::cout <<"************************************************" << endl;
+    taf_ecall_GetPsapNumber_test();
+    taf_ecall_SetPsapNumber_test();
+
     LE_TEST_INFO("Test start eCall (AUTO/MANUAL)");
     std::cout <<endl;
     std::cout <<"************************************************" << endl;
     std::cout <<"Test start eCall (AUTO/MANUAL)" << endl;
     std::cout <<"************************************************" << endl;
-    status = taf_ecall_startECall_test(eCallType);
-    exitApp = false;
+    result = taf_ecall_startECall_test(eCallType, useUsimNumber, psapNumber);
+    if (result == LE_OK) {
+        exitApp = false;
+        le_sem_Wait(TestSemRef);
+    }
+
+    le_thread_Cancel(threadRef);
+    taf_ecall_RemoveStateChangeHandler_test();
+    printResultMsg();
 
     if (exitApp) {
+        le_sem_Delete(TestSemRef);
         exit(status);
     }
 }

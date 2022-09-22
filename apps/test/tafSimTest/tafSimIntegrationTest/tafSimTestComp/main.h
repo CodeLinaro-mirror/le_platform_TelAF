@@ -30,6 +30,7 @@
 #include "legato.h"
 #include "interfaces.h"
 
+taf_sim_FPLMNListRef_t FplmnListRef;
 
 char* SimStateToString ( taf_sim_States_t state);
 void tafSimTest_state( taf_sim_Id_t slot );
@@ -47,3 +48,12 @@ void tafSimTest_sim_access( taf_sim_Id_t simId);
 void tafSimTest_SetPowerCheck(taf_sim_Id_t simId, le_onoff_t powerStatus);
 void tafSimTest_sim_isEmergency(taf_sim_Id_t simId);
 void tafSimTest_swapToEmergencyAndBack(taf_sim_Id_t simId, taf_sim_Manufacturer_t manufacturer);
+void tafSimTest_fplmnList_test(taf_sim_Id_t simId);
+void tafSimTest_createFplmnList_test(taf_sim_Id_t simId);
+void tafSimTest_addFplmnOperator_test(taf_sim_Id_t simId, const char* mcc, const char* mnc);
+void tafSimTest_writeFplmnList_test(taf_sim_Id_t simId, const char* mcc, const char* mnc);
+void tafSimTest_writeFplmnLists_test(taf_sim_Id_t simId);
+
+void tafSimTest_getFirstFplmnOperator_test(taf_sim_Id_t simId);
+void tafSimTest_getNextFplmnOperator_test(taf_sim_Id_t simId);
+void tafSimTest_deleteFplmnList_test(taf_sim_Id_t simId);

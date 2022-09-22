@@ -73,8 +73,8 @@
  *
  * The TelAF Subscriber Identity Module (SIM) service defines APIs related to SIM configuration.
  *
- * SIM is an integrated circuit (IC) intended to securely store the international mobile subscriber 
- * identity (IMSI) number and some credentials to identify subscribers. SIM cards can also store a 
+ * SIM is an integrated circuit (IC) intended to securely store the international mobile subscriber
+ * identity (IMSI) number and some credentials to identify subscribers. SIM cards can also store a
  * number of SMS messages and phone contacts.
  *
  * @section taf_sim_binding IPC interfaces binding
@@ -184,7 +184,7 @@
  *
  * @section taf_sim_state SIM states
  *
- * - @ref taf_sim_IsPresent() -- Indicates whether the SIM is present (and locked) or if it's removed. 
+ * - @ref taf_sim_IsPresent() -- Indicates whether the SIM is present (and locked) or if it's removed.
  *   Using this API allows client apps to know whether a SIM is present in device's slot.
  *
  * - @ref taf_sim_IsReady() -- Indicates whether the SIM is ready (PIN code correctly entered
@@ -241,7 +241,7 @@
  * @warning If no profile is active, it returns LE_NOT_FOUND.
  *
  * Before the SIM sends a message, an application registers a callback handler using taf_sim_AddNewStateHandler().
- * Once the message is sent, the handler will be called indicating the sending status of the message. 
+ * Once the message is sent, the handler will be called indicating the sending status of the message.
  * If the message sending failed, then the handler will be called with the error code.
  *
  * @verbatim
@@ -252,7 +252,7 @@
    taf_sim_NewStateHandlerRef_t msgHandlerRef = taf_sim_AddNewStateHandler(NewSimStateHandler, NULL);
    @endverbatim
  *
- * Applications must use taf_sim_RemoveNewStateHandler() to release @ref taf_sim_NewStateHandlerRef_t 
+ * Applications must use taf_sim_RemoveNewStateHandler() to release @ref taf_sim_NewStateHandlerRef_t
  * message handler reference object when it is no longer used.
  *
  * @section taf_sim_profile_switch SIM profile switch
@@ -281,6 +281,7 @@
  */
 //-------------------------------------------------------------------------------------------------
 
+REFERENCE FPLMNList;
 
 /**
  * Legacy state support.
@@ -326,6 +327,9 @@ DEFINE  PATH_MAX_LEN  = (100);
 DEFINE  PATH_MAX_BYTES  = (PATH_MAX_LEN+1);
 
 DEFINE AID_MAX_LEN = (4);
+
+DEFINE FPLMN_MAX_LISTS = (1);
+DEFINE FPLMN_MAX_OPERATORS_PER_LIST = (5);
 
 /**
  * Defines SIM card states.
@@ -476,7 +480,7 @@ EVENT AuthenticationResponse
 /**
  * Checks whether SIM card is present or absent.
  *
- * @return 
+ * @return
  * - True -- SIM card present.
  * - False -- SIM card absent.
  */
@@ -502,7 +506,7 @@ FUNCTION States GetState
 /**
  * Checks whether the SIM card is ready or not
  *
- * @return 
+ * @return
  * - True -- SIM card is present and ready to use, i.e., unlocked.
  * - False -- SIM card is absent or restricted to use, i.e., locked.
  */
@@ -534,7 +538,7 @@ FUNCTION le_result_t GetICCID
 /**
  * Retrieves the IMSI for the SIM.
  *
- * @return 
+ * @return
  * - LE_OVERFLOW         Buffer size is too small.
  * - LE_BAD_PARAMETER    Invalid parameters.
  * - LE_FAULT            Failed to retrieve the IMSI.
@@ -570,7 +574,7 @@ FUNCTION le_result_t GetHomeNetworkOperator
 /**
  * Retrieves the phone number for the SIM subscription.
  *
- * @return 
+ * @return
  * - LE_OVERFLOW         Buffer size is too small.
  * - LE_BAD_PARAMETER    Invalid parameters.
  * - LE_FAULT            Failed to retrieve the phone number.
@@ -618,7 +622,7 @@ FUNCTION Id GetSelectedCard
 /**
  * Selects a SIM.
  *
- * @return 
+ * @return
  * - LE_FAULT            Failed to select SIM card.
  * - LE_OK               SIM card selected successfully.
  *
@@ -633,7 +637,7 @@ FUNCTION le_result_t SelectCard
 /**
  * Unlocks the Sim card for an app by entering PIN.
  *
- * @return 
+ * @return
  * - LE_BAD_PARAMETER   Invalid SIM slot ID.
  * - LE_UNDERFLOW       PIN code length is too short (minimum 4 digits).
  * - LE_FAULT           Failed to send unlock SIM card by PIN request.
@@ -671,7 +675,7 @@ FUNCTION le_result_t ChangePIN
 /**
  * Gets the available retry count of PIN tries.
  *
- * @return 
+ * @return
  * - LE_BAD_PARAMETER   Invalid SIM slot ID.
  * - LE_FAULT           Failed to get the number of remaining PIN insertion tries.
  * - A positive value   Retry count value.
@@ -687,7 +691,7 @@ FUNCTION int32 GetRemainingPINTries
 /**
  * Gets the remaining PUK try count.
  *
- * @return 
+ * @return
  * - LE_BAD_PARAMETER   Invalid SIM slot ID.
  * - LE_FAULT           Failed to get the number of remaining PUK insertion tries.
  * - A positive value   Retry count value.
@@ -722,7 +726,7 @@ FUNCTION le_result_t Unlock
 /**
  * Enables PIN1 or FDN lock.
  *
- * @return 
+ * @return
  * - LE_BAD_PARAMETER   Invalid SIM slot ID.
  * - LE_UNDERFLOW       PIN code length is too short (minimum 4 digits).
  * - LE_FAULT           Failed to send enable lock SIM card request.
@@ -741,7 +745,7 @@ FUNCTION le_result_t Lock
 /**
  * Unlocks the SIM card for an app by entering PUK and new PIN.
  *
- * @return 
+ * @return
  * - LE_BAD_PARAMETER   Invalid SIM slot ID.
  * - LE_OUT_OF_RANGE    PUK length is not correct (8 digits).
  * - LE_UNDERFLOW       PIN code length is too short (minimum 4 digits).
@@ -1013,4 +1017,122 @@ HANDLER IccidChangeHandler
 EVENT IccidChange
 (
     IccidChangeHandler handler
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Create empty FPLMN list to insert FPLMN operators.
+ *
+ * @return
+ *      - Reference to the List object.
+ *      - Null pointer if not able to create list reference.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION FPLMNList CreateFPLMNList
+(
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Add FPLMN network into the newly created FPLMN list.
+ * If the fplmnListRef, mcc or mnc is not valid then this function will kill the calling client.
+ *
+ * @return
+ *      - LE_FAULT         Function failed.
+ *      - LE_OK            Function succeeded.
+ *      - LE_OVERFLOW      If FPLMN operator can not be inserted into FPLMN list.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t AddFPLMNOperator
+(
+    FPLMNList fplmnListRef IN,                    ///< FPLMN list reference.
+    string    mcc[3]       IN,                    ///< Mobile Country Code.
+    string    mnc[3]       IN                     ///< Mobile Network Code.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Read the first FPLMN network from the list of FPLMN objects retrieved with
+ * taf_sim_ReadFPLMNList().
+ * If the fplmnListRef, mccPtr or mncPtr is not valid then this function will kill the calling
+ * client.
+ *
+ * @return
+ *      - LE_FAULT         Function failed.
+ *      - LE_OK            Function succeeded.
+ *      - LE_OVERFLOW      MCC/MNC string size is greater than string length parameter which has
+ *                         been given into this function.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetFirstFPLMNOperator
+(
+    FPLMNList fplmnListRef IN,               ///< FPLMN list reference.
+    string mccPtr[3] OUT,                    ///< Mobile Country Code.
+    string mncPtr[3] OUT                     ///< Mobile Network Code.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Read the next FPLMN network from the list of FPLMN objects retrieved with le_sim_ReadFPLMNList().
+ * If the fplmnListRef, mccPtr or mncPtr is not valid then this function will kill the calling
+ * client.
+ *
+ * @return
+ *      - LE_FAULT         Function failed.
+ *      - LE_OK            Function succeeded.
+ *      - LE_OVERFLOW      MCC/MNC string size is greater than string length parameter which has
+ *                         been given into this function.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetNextFPLMNOperator
+(
+    FPLMNList fplmnListRef IN,               ///< FPLMN list reference.
+    string mccPtr[3] OUT,                    ///< Mobile Country Code.
+    string mncPtr[3] OUT                     ///< Mobile Network Code.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Read FPLMN list from the SIM.
+ *
+ * @return
+ *      - Reference to the List object.
+ *      - Null pointer if FPLMN list is not able to read from the SIM.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION FPLMNList ReadFPLMNList
+(
+    Id       simId IN                       ///< The SIM identifier.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Delete the FPLMN list created by le_sim_ReadFPLMNList() or le_sim_CreateFPLMNList().
+ * If the fplmnListRef is not valid then this function will kill the calling client.
+ *
+ * @note
+ *      On failure, the process exits, so you don't have to worry about checking the returned
+ *      reference for validity.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION DeleteFPLMNList
+(
+    FPLMNList fplmnListRef IN               ///< FPLMN list reference.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Write FPLMN list into the SIM.
+ * If the fplmnListRef is not valid then this function will kill the calling client.
+ *
+ * @return
+ *      - LE_FAULT         Function failed.
+ *      - LE_OK            Function succeeded.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t WriteFPLMNList
+(
+    Id        simId IN,                     ///< The SIM identifier.
+    FPLMNList fplmnListRef IN               ///< FPLMN list reference.
 );

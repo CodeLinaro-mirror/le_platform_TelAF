@@ -44,9 +44,17 @@ static void DisplayAppUsage(void) {
     printf("SIM unlock test: app runProc tafSimTest --exe=tafSimTest -- unlock <slot1/slot2/unknown> <pin1/fdn> pin\n");
     printf("SIM access test: app runProc tafSimTest --exe=tafSimTest -- access <slot1/slot2/unknown>\n");
     printf("SIM SetPower test: app runProc tafSimTest --exe=tafSimTest -- setPower <slot1/slot2/unknown> <ON/OFF>\n");
-    printf("SIM Reset test: app runProc tafSimIntgTest --exe=tafSimIntgTest -- Reset <slot1/slot2/unknown>\n");
-    printf("SIM EMERGENCY test: app runProc tafSimIntgTest --exe=tafSimIntgTest -- isEmergency <slot1/slot2/unknown>\n");
-    printf("SIM Swap Profiles test: app runProc tafSimIntgTest --exe=tafSimIntgTest -- swapProfiles <slot1/slot2/unknown> <0/1/2/3/4/5>\n");
+    printf("SIM Reset test: app runProc tafSimIntTest --exe=tafSimIntTest -- Reset <slot1/slot2/unknown>\n");
+    printf("SIM EMERGENCY test: app runProc tafSimIntTest --exe=tafSimIntTest -- isEmergency <slot1/slot2/unknown>\n");
+    printf("SIM Swap Profiles test: app runProc tafSimIntTest --exe=tafSimIntTest -- swapProfiles <slot1/slot2/unknown> <0/1/2/3/4/5>\n");
+    printf("Get Forbidden PLMN list: app runProc tafSimIntTest --exe=tafSimIntTest -- fplmnList <slot1/slot2/unknown>\n");
+    printf("Create Forbidden PLMN list: app runProc tafSimIntTest --exe=tafSimIntTest -- createFplmnList <slot1/slot2/unknown>\n");
+    printf("Add Forbidden PLMN operator: app runProc tafSimIntTest --exe=tafSimIntTest -- addFplmnOp <slot1/slot2/unknown> <mcc> <mnc>\n");
+    printf("Write Forbidden PLMN list: app runProc tafSimIntTest --exe=tafSimIntTest -- writeFplmnOp <slot1/slot2/unknown> <mcc> <mnc>\n");
+    printf("Write Forbidden PLMNs list: app runProc tafSimIntTest --exe=tafSimIntTest -- writeFplmnList <slot1/slot2/unknown>\n");
+    printf("Get First FPLMN operator: app runProc tafSimIntTest --exe=tafSimIntTest -- firstFplmnOp <slot1/slot2/unknown>\n");
+    printf("Get Next FPLMN operator: app runProc tafSimIntTest --exe=tafSimIntTest -- nextFplmnOp <slot1/slot2/unknown>\n");
+    printf("Delete Next FPLMN List: app runProc tafSimIntTest --exe=tafSimIntTest -- deleteFplmnList <slot1/slot2/unknown>\n");
 }
 
 static taf_sim_Id_t GetSimId(const char* simIdPtr) {
@@ -148,7 +156,7 @@ COMPONENT_INIT
     bool exitApplication = true;
     const char* testType = "";
 
-    LE_INFO("Start tafSimIntgTest app.");
+    LE_INFO("Start tafSimIntTest app.");
     int NumberOfArgs = le_arg_NumArgs();
 
     if (NumberOfArgs >= 1) {
@@ -167,6 +175,8 @@ COMPONENT_INIT
         }
         simId = GetSimId(simIdPtr);
     }
+
+    LE_INFO("TafSimIntgTest testType: %s", testType);
 
     if (NumberOfArgs > 2) {
         taf_sim_AuthenticationResponseHandlerRef_t responseHandlerRef_t;
@@ -327,6 +337,66 @@ COMPONENT_INIT
     {
         tafSimTest_sim_isEmergency(simId);
     }
+    else if (strncmp(testType, "fplmnList", 9) == 0)
+    {
+        tafSimTest_fplmnList_test(simId);
+    }
+    else if (strncmp(testType, "createFplmnList", 15) == 0)
+    {
+        tafSimTest_createFplmnList_test(simId);
+    }
+    else if (strncmp(testType, "addFplmnOp", 10) == 0)
+    {
+        const char* mcc = le_arg_GetArg(2);
+        if (NULL == mcc)
+        {
+            LE_ERROR("mcc is NULL");
+            DisplayAppUsage();
+            exit(EXIT_FAILURE);
+        }
+        const char* mnc = le_arg_GetArg(3);
+        if (NULL == mnc)
+        {
+            LE_ERROR("mnc is NULL");
+            DisplayAppUsage();
+            exit(EXIT_FAILURE);
+        }
+        tafSimTest_addFplmnOperator_test(simId, mcc, mnc);
+    }
+    else if (strcmp(testType, "writeFplmnOp") == 0)
+    {
+        const char* mccPtr = le_arg_GetArg(2);
+        if (NULL == mccPtr)
+        {
+            LE_ERROR("mcc is NULL");
+            DisplayAppUsage();
+            exit(EXIT_FAILURE);
+        }
+        const char* mncPtr = le_arg_GetArg(3);
+        if (NULL == mncPtr)
+        {
+            LE_ERROR("mnc is NULL");
+            DisplayAppUsage();
+            exit(EXIT_FAILURE);
+        }
+        tafSimTest_writeFplmnList_test(simId, mccPtr, mncPtr);
+    }
+    else if (strcmp(testType, "writeFplmnList") == 0)
+    {
+        tafSimTest_writeFplmnLists_test(simId);
+    }
+    else if (strncmp(testType, "firstFplmnOp", 13) == 0)
+    {
+        tafSimTest_getFirstFplmnOperator_test(simId);
+    }
+    else if (strncmp(testType, "nextFplmnOp", 11) == 0)
+    {
+        tafSimTest_getNextFplmnOperator_test(simId);
+    }
+    else if (strncmp(testType, "deleteFplmnList", 15) == 0)
+    {
+        tafSimTest_deleteFplmnList_test(simId);
+    }
     else {
         DisplayAppUsage();
         exit(EXIT_FAILURE);
@@ -334,7 +404,7 @@ COMPONENT_INIT
 
     if (exitApplication)
     {
-        LE_INFO("Exit tafSimIntgTest App");
+        LE_INFO("Exit tafSimIntTest App");
         exit(EXIT_SUCCESS);
     }
 }

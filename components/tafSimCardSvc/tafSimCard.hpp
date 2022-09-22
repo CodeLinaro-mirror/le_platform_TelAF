@@ -42,6 +42,19 @@ using namespace std;
 namespace telux {
     namespace tafsvc {
 
+        typedef struct FPLMNNode
+        {
+            char              mcc[4];
+            char              mnc[4];
+            le_dls_Link_t     link;
+        }FPLMNNode_t;
+
+        typedef struct taf_sim_FPLMNList
+        {
+            taf_sim_FPLMNListRef_t ref;
+            le_dls_List_t          link;
+        }taf_sim_FPLMNList_t;
+
         typedef struct
         {
             taf_sim_Id_t      simId;
@@ -136,6 +149,11 @@ namespace telux {
         };
 
         class taf_sim :public ITafSvc {
+            private:
+                le_mem_PoolRef_t FPLMNNodePool = NULL;
+                le_mem_PoolRef_t FPLMNListPool = NULL;
+                le_ref_MapRef_t FPLMNListRefMap;
+
             public:
                 void Init(void);
                 static taf_sim &GetInstance();
@@ -237,6 +255,13 @@ namespace telux {
                 void RemoveIccidChangeHandler(taf_sim_IccidChangeHandlerRef_t);
                 taf_sim_IccidChangeHandlerRef_t AddIccidChangeHandler(taf_sim_IccidChangeHandlerFunc_t handlerPtr);
                 static void FirstLayerIccidChangeHandler(void* reportPtr, void* secondLayerHandlerFunc);
+                taf_sim_FPLMNListRef_t CreateFPLMNList();
+                taf_sim_FPLMNListRef_t ReadFPLMNList(taf_sim_Id_t simId);
+                le_result_t AddFPLMNOperator(taf_sim_FPLMNListRef_t FPLMNListRef, char* mccPtr, char* mncPtr);
+                le_result_t GetFirstFPLMNOperator(taf_sim_FPLMNListRef_t FPLMNListRef, char* mccPtr, size_t mccLen, char* mncPtr, size_t mncLen);
+                le_result_t GetNextFPLMNOperator(taf_sim_FPLMNListRef_t FPLMNListRef, char* mccPtr, size_t mccLen, char* mncPtr, size_t mncLen);
+                void DeleteFPLMNList(taf_sim_FPLMNListRef_t FPLMNListRef);
+                le_result_t WriteFPLMNList(taf_sim_Id_t simId, taf_sim_FPLMNListRef_t FPLMNListRef);
         };
     }
 }

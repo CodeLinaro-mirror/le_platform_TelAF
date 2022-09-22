@@ -426,3 +426,73 @@ void taf_sim_RemoveIccidChangeHandler(taf_sim_IccidChangeHandlerRef_t handlerRef
     auto &sim = taf_sim::GetInstance();
     sim.RemoveIccidChangeHandler(handlerRef);
 }
+
+taf_sim_FPLMNListRef_t taf_sim_CreateFPLMNList(){
+    auto &sim = taf_sim::GetInstance();
+    return sim.CreateFPLMNList();
+}
+
+le_result_t taf_sim_AddFPLMNOperator
+(
+    taf_sim_FPLMNListRef_t FPLMNListRef,
+    const char* LE_NONNULL mccPtr,
+    const char* LE_NONNULL mncPtr
+)
+{
+    auto &sim = taf_sim::GetInstance();
+    return sim.AddFPLMNOperator(FPLMNListRef, const_cast<char*>(mccPtr), const_cast<char*>(mncPtr));
+}
+
+le_result_t taf_sim_GetFirstFPLMNOperator
+(
+    taf_sim_FPLMNListRef_t FPLMNListRef,
+    char* LE_NONNULL mccPtr,
+    size_t mccLen,
+    char* LE_NONNULL mncPtr,
+    size_t mncLen
+)
+{
+    auto &sim = taf_sim::GetInstance();
+    return sim.GetFirstFPLMNOperator(FPLMNListRef, mccPtr, mccLen, mncPtr, mncLen);
+}
+
+le_result_t taf_sim_GetNextFPLMNOperator
+(
+    taf_sim_FPLMNListRef_t FPLMNListRef,
+    char* LE_NONNULL mccPtr,
+    size_t mccLen,
+    char* LE_NONNULL mncPtr,
+    size_t mncLen
+)
+{
+    auto &sim = taf_sim::GetInstance();
+    return sim.GetNextFPLMNOperator(FPLMNListRef, mccPtr, mccLen, mncPtr, mncLen);
+}
+
+taf_sim_FPLMNListRef_t taf_sim_ReadFPLMNList
+(
+    taf_sim_Id_t simId
+)
+{
+    auto &sim=taf_sim::GetInstance();
+    return sim.ReadFPLMNList(simId);
+}
+
+void taf_sim_DeleteFPLMNList
+(
+    taf_sim_FPLMNListRef_t FPLMNListRef
+)
+{
+    auto &sim=taf_sim::GetInstance();
+    sim.DeleteFPLMNList(FPLMNListRef);
+}
+
+le_result_t taf_sim_WriteFPLMNList
+(
+    taf_sim_Id_t simId,
+    taf_sim_FPLMNListRef_t FPLMNListRef
+)
+{
+    auto &sim=taf_sim::GetInstance();
+    return sim.WriteFPLMNList(simId, FPLMNListRef);
+}

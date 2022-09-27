@@ -132,10 +132,12 @@ static void TestAuthenticationResponse
                 break;
             default:
                 LE_INFO("Unknown response");
+                exit(EXIT_FAILURE);
         }
     } else {
             LE_INFO("Error: %s\n", LE_RESULT_TXT(result));
             LE_INFO("Remaining PIN tries: %d\n", taf_sim_GetRemainingPINTries(simId));
+            exit(EXIT_FAILURE);
     }
     exit(EXIT_SUCCESS);
 }

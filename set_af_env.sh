@@ -4,6 +4,9 @@
 export CURDIR=$(cd `dirname $1` ; pwd)
 export TELAF_ROOT=${CURDIR}
 export LEGATO_ROOT=${CURDIR}/../legato/legato-af
+if [ -f ${TELAF_ROOT}/VERSION ]; then
+    export LEGATO_VERSION=`cat ${TELAF_ROOT}/VERSION 2>/dev/null`
+fi
 
 export TELAF_PROP=${CURDIR}/../telaf-prop
 if [ ! -f "${TELAF_PROP}/build.sh" ]; then

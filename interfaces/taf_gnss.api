@@ -619,7 +619,7 @@ REFERENCE Sample;
  * Defines the maximum length of the satellite vehicle information.
  */
 //--------------------------------------------------------------------------------------------------
-DEFINE SV_INFO_MAX_LEN = 80;
+DEFINE SV_INFO_MAX_LEN = 150;
 
 //--------------------------------------------------------------------------------------------------
 /**

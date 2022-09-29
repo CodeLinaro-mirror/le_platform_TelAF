@@ -904,6 +904,13 @@ void tafLocationListener::onGnssSVInfo(const std::shared_ptr<telux::loc::IGnssSV
         gnss.mSatParams.satsInViewCount = gnssSVInfo->getSVInfoList().size();
         gnss.mTotalSVTracked = 0;
         for(auto svInfo : gnssSVInfo->getSVInfoList()) {
+
+            if(i >= TAF_GNSS_SV_INFO_MAX_LEN)
+            {
+                LE_WARN("SvInfo overflows");
+                continue;
+            }
+
             switch(svInfo->getConstellation()) {
                 case telux::loc::GnssConstellationType::GPS:
                     gnss.mSatInfo[i].satConst = TAF_GNSS_SV_CONSTELLATION_GPS;

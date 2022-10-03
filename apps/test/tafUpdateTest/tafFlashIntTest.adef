@@ -1,0 +1,21 @@
+sandboxed: false
+
+executables:
+{
+    tafFlashIntTest = ( tafFlashIntTest )
+}
+
+start: manual
+
+processes:
+{
+    run:
+    {
+        (tafFlashIntTest)
+    }
+
+    faultAction: stopApp
+
+    maxFileBytes: 1048576K
+    maxFileDescriptors: 512
+}

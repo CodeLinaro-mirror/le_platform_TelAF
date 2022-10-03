@@ -1,0 +1,17 @@
+sources:
+{
+    tafFlashIntTest.c
+}
+
+requires:
+{
+    component:
+    {
+        $TELAF_ROOT/components/stub/taf_lib_flash
+    }
+}
+
+cflags:
+{
+    -I$TELAF_ROOT/components/stub/taf_lib_flash
+}

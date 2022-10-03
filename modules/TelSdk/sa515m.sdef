@@ -41,6 +41,8 @@ apps:
     // $TELAF_ROOT/apps/sample/sapCard/tafSAPProviderApp
     // $TELAF_ROOT/apps/test/tafUpdateTest/tafUpdateUnitTest
     // $TELAF_ROOT/apps/test/tafUpdateTest/tafUpdateIntTest
+    // $TELAF_ROOT/apps/test/tafUpdateTest/tafFlashUnitTest
+    // $TELAF_ROOT/apps/test/tafUpdateTest/tafFlashIntTest
     // $TELAF_ROOT/apps/sample/rsp/tafRSPApp
     // $TELAF_ROOT/apps/test/tafMrcTest/tafMRCUnitTest/tafMRCUnitTest
     // $TELAF_ROOT/apps/test/tafECallTest/tafECallUnitTest/tafECallUnitTest

@@ -1,0 +1,20 @@
+sandboxed: false
+
+executables:
+{
+    tafFlashUnitTest = ( tafFlashUnitTest )
+}
+
+start: manual
+
+processes:
+{
+    run:
+    {
+        (tafFlashUnitTest)
+    }
+
+    faultAction: stopApp
+
+    maxFileBytes: 1048576K
+}

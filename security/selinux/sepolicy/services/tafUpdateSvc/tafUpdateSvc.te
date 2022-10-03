@@ -31,6 +31,7 @@ gen_require(`
     type telaf_admin_t;
     type telaf_update_t;
     type tmp_t;
+    type ubi_device_t;
     type unreserved_port_t;
     type user_home_dir_t;
 ')
@@ -85,12 +86,15 @@ allow telaf_tafUpdateSvc_t init_t:file { exec_file_perms };
 allow telaf_tafUpdateSvc_t init_t:lnk_file { read };
 allow telaf_tafUpdateSvc_t init_t:unix_stream_socket { connectto };
 allow telaf_tafUpdateSvc_t telaf_admin_t:fifo_file { ioctl };
-allow telaf_tafUpdateSvc_t self:capability { fowner fsetid dac_read_search net_admin };
+allow telaf_tafUpdateSvc_t self:capability { fowner fsetid dac_read_search net_admin sys_resource};
 allow telaf_tafUpdateSvc_t init_var_run_t:sock_file { open write };
 allow telaf_tafUpdateSvc_t systemd_logind_var_run_t:sock_file { open write };
 allow telaf_tafUpdateSvc_t initctl_t:fifo_file { open write };
 allow telaf_tafUpdateSvc_t cgroup_t:dir { manage_dir_perms };
 systemd_start_power_units(telaf_tafUpdateSvc_t)
+
+# flash access
+allow telaf_tafUpdateSvc_t ubi_device_t:chr_file { rw_file_perms };
 
 init_telaf_app_domain(telaf_tafUpdateSvc_t,telaf_tafUpdateSvc_exec_t)
 

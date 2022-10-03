@@ -1,0 +1,12 @@
+provides:
+{
+    api:
+    {
+        taf_flash.api [direct]
+    }
+}
+
+sources:
+{
+    taf_lib_flash.c
+}

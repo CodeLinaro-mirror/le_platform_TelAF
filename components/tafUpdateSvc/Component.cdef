@@ -29,6 +29,7 @@ requires:
     {
         $LEGATO_ROOT/components/watchdogChain
         $TELAF_ROOT/components/stub/taf_pa_update
+        $TELAF_ROOT/components/stub/taf_lib_flash
     }
 }
 
@@ -36,6 +37,7 @@ cxxflags:
 {
     -I$LEGATO_ROOT/components/watchdogChain
     -I$TELAF_ROOT/components/stub/taf_pa_update
+
     -I$TELAF_ROOT/include
     -lComponent_taf_pa_update
 }

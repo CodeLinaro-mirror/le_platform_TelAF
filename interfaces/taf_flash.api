@@ -1,0 +1,491 @@
+/*
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * @page c_tafFlash Flash Access Service
+ *
+ * @ref taf_flash_interface.h "API Reference"
+ *
+ * <HR>
+ *
+ * The Flash Access Service APIs are applied in Firmware Over The Air (FOTA) to flash MTD partitions
+ * or UBI volumes.
+ *
+ * @section taf_flash_binding IPC interfaces binding
+ *
+ * All the functions of this API are provided by the @b tafUpdateSvc service.
+ *
+ * Here's a sample of how to bind to Flash Access Service:
+ * @verbatim
+ *
+   bindings:
+   {
+       clientExe.clientComponent.taf_flash -> tafUpdateSvc.taf_flash
+   }
+ *
+   @endverbatim
+ *
+ * @section c_taf_flash_Init Flash Access Initialization
+ *
+ * - taf_flash_Init() -- Intiates flash access reference map and memory pool.
+ *
+ * @section c_taf_flash_Mtd MTD Partition Flash Access
+ *
+ * - taf_flash_MtdOpen() -- Opens MTD partition for read or write.
+ *
+ * - taf_flash_MtdClose() -- Closes MTD partition.
+ *
+ * - taf_flash_MtdInformation() -- Gets MTD partition information.
+ *
+ * - taf_flash_MtdIsBlockGood -- Checks if MTD block is good.
+ *
+ * - taf_flash_MtdEraseBlock() -- Erases a MTD block.
+ *
+ * - taf_flash_MtdReadBlock() -- Reads data from a MTD block.
+ *
+ * - taf_flash_MtdWriteBlock() -- Writes date to a MTD block.
+ *
+ * - taf_flash_MtdReadPage() -- Reads data from a MTD page.
+ *
+ * - taf_flash_MtdWritePage() -- Writes date to a MTD page.
+ *
+ * Here is the example of reading MTD block.
+ *
+ * @code
+ *
+   // Open MTD partition.
+   taf_flash_MtdOpen(partitionName, TAF_FLASH_READ_WRITE, &partitionRef);
+
+   // Read MTD block.
+   taf_flash_MtdReadBlock(partitionRef, blockIndex, data, &dataSize);
+
+   // Close MTD partition.
+   taf_flash_MtdClose(partitionRef);
+ *
+   @endcode
+ *
+ * @section c_taf_flash_Ubi UBI Volume Flash Access
+ *
+ * - taf_flash_UbiOpen() -- Opens UBI volume for read or write.
+ *
+ * - taf_flash_UbiClose() -- Closes UBI volume.
+ *
+ * - taf_flash_UbiInfo() -- Gets UBI volume information
+ *
+ * - taf_flash_UbiRead() -- Reads data from UBI volume.
+ *
+ * - taf_flash_UbiInitWrite() -- Initiates write size of UBI volume.
+ *
+ * - taf_flash_UbiWrite() -- Writes data to UBI volume.
+ *
+ * Here is the example of writing UBI volume.
+ *
+ * @code
+ *
+   // Open UBI volume.
+   taf_flash_UbiOpen(volumeName, TAF_FLASH_READ_WRITE, &volumeRef);
+
+   // Write UBI volume.
+   taf_flash_UbiInitWrite(volumeRef, volumeSize);
+
+   taf_flash_UbiWrite(volumeRef, data, dataSize);
+
+   // Close UBI volume.
+   taf_flash_UbiClose(volumeRef);
+ *
+   @endcode
+ *
+ * <HR>
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Maximum partition name length with null character.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE PARTITION_NAME_MAX_BYTES = 128;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Maximum byte size for buffer to write data to MTD block.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MTD_BLOCK_MAX_WRITE_SIZE = 256 * 1024;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Maximum byte size for buffer to read data from MTD block.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MTD_BLOCK_MAX_READ_SIZE = 256 * 1024;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Maximum byte size for buffer to write data to MTD page.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MTD_PAGE_MAX_WRITE_SIZE = 4 * 1024;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Maximum byte size for buffer to read data from MTD page.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MTD_PAGE_MAX_READ_SIZE = 4 * 1024;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Maximum volume name length with null character.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE VOLUME_NAME_MAX_BYTES = 64;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Maximum volume type length with null character.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE VOLUME_TYPE_MAX_BYTES = 128;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Maximum byte size for buffer to read data from UBI volume.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE UBI_MAX_READ_SIZE = 248 * 1024;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Maximum byte size for buffer to write data to UBI volume.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE UBI_MAX_WRITE_SIZE = 248 * 1024;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The reference of a partition.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE Partition;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The reference of a volume.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE Volume;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Open mode enum.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM OpenMode
+{
+    READ_ONLY = 1, ///< Read only mode.
+    WRITE_ONLY,    ///< Write only mode.
+    READ_WRITE     ///< Read and write mode.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Intiates flash access reference map and memory pool.
+ *
+ * @note This function should be called once before calling other flash access API.
+ *
+ * @return
+ *  - LE_FAULT -- On failure.
+ *  - LE_OK -- On success.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Init
+(
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Opens MTD partition for read and write.
+ *
+ * @return
+ *  - LE_FAULT -- On failure.
+ *  - LE_OK -- On success.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t MtdOpen
+(
+    string partitionName[PARTITION_NAME_MAX_BYTES] IN, ///< MTD partition name.
+    OpenMode mode IN,                                  ///< Opening mode.
+    Partition partitionRef OUT                         ///< The reference of MTD partition.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Closes MTD partition.
+ *
+ * @return
+ *  - LE_FAULT -- On failure.
+ *  - LE_OK -- On success.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t MtdClose
+(
+    Partition partitionRef IN ///< The reference of MTD partition.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets MTD partition information.
+ *
+ * @return
+ *  - LE_FAULT -- On failure.
+ *  - LE_OK -- On success.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t MtdInformation
+(
+    Partition partitionRef IN,  ///< The reference of MTD partition.
+    uint32 blocksNumber OUT,    ///< Total blocks number.
+    uint32 badBlocksNumber OUT, ///< Bad blocks number.
+    uint32 blockSize OUT,       ///< Block size.
+    uint32 pageSize OUT         ///< Page size.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Erases a MTD block.
+ *
+ * @return
+ *  - LE_FAULT -- On failure.
+ *  - LE_OK -- On success.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t MtdEraseBlock
+(
+    Partition partitionRef IN, ///< The reference of MTD partition.
+    uint32 blockIndex IN       ///< Logical block index.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reads MTD block.
+ *
+ * @return
+ *  - LE_FAULT -- On failure.
+ *  - LE_OK -- On success.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t MtdReadBlock
+(
+    Partition partitionRef IN,                  ///< The reference of MTD partition.
+    uint32 blockIndex IN,                       ///< Logical block index.
+    uint8 readData[MTD_BLOCK_MAX_READ_SIZE] OUT ///< Buffer read from MTD block.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Writes MTD block.
+ *
+ * @return
+ *  - LE_FAULT -- On failure.
+ *  - LE_OK -- On success.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t MtdWriteBlock
+(
+    Partition partitionRef IN,                   ///< The reference of MTD partition.
+    uint32 blockIndex IN,                        ///< Logical block index.
+    uint8 writeData[MTD_BLOCK_MAX_WRITE_SIZE] IN ///< Buffer to be written to MTD block.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reads MTD page.
+ *
+ * @return
+ *  - LE_FAULT -- On failure.
+ *  - LE_OK -- On success.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t MtdReadPage
+(
+    Partition partitionRef IN,                 ///< The reference of MTD partition.
+    uint32 pageIndex IN,                       ///< Page index.
+    uint8 readData[MTD_PAGE_MAX_READ_SIZE] OUT ///< Buffer read from MTD page.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Writes MTD page.
+ *
+ * @return
+ *  - LE_FAULT -- On failure.
+ *  - LE_OK -- On success.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t MtdWritePage
+(
+    Partition partitionRef IN,                  ///< The reference of MTD partition.
+    uint32 pageIndex IN,                        ///< Page index.
+    uint8 writeData[MTD_PAGE_MAX_WRITE_SIZE] IN ///< Buffer to be written to MTD block.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Checks if MTD block is good.
+ *
+ * @return
+ *  - true -- Good block.
+ *  - false -- Bad block.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION bool MtdIsBlockGood
+(
+    Partition partitionRef IN, ///< The reference of MTD partition.
+    uint32 blockIndex IN       ///< Logical block index.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Opens UBI volume for read and write.
+ *
+ * @return
+ *  - LE_FAULT -- On failure.
+ *  - LE_OK -- On success.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t UbiOpen
+(
+    string volumeName[VOLUME_NAME_MAX_BYTES] IN, ///< UBI volume name.
+    OpenMode mode IN,                            ///< Opening mode.
+    Volume volumeRef OUT                         ///< The reference of UBI volume.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Closes UBI volume.
+ *
+ * @return
+ *  - LE_FAULT -- On failure.
+ *  - LE_OK -- On success.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t UbiClose
+(
+    Volume volumeRef IN ///< The reference of UBI volume.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets UBI volume information.
+ *
+ * @return
+ *  - LE_FAULT -- On failure.
+ *  - LE_OK -- On success.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t UbiInformation
+(
+    Volume volumeRef IN,      ///< The reference of UBI volume.
+    uint32 lebNumber OUT,     ///< Total logical erase blocks number.
+    uint32 freeLebNumber OUT, ///< Free logical erase blocks number.
+    uint32 volumeSize OUT     ///< Volume size.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reads UBI volume.
+ *
+ * @return
+ *  - LE_FAULT -- On failure.
+ *  - LE_OK -- On success.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t UbiRead
+(
+    Volume volumeRef IN,                  ///< The reference of UBI volume.
+    uint32 offset IN,                     ///< The offset of UBI volume.
+    uint8 readData[UBI_MAX_READ_SIZE] OUT ///< Buffer read from UBI volume.
+);
+
+/**
+ * Initiates write size of UBI volume.
+ *
+ * @note User should set the number of bytes before subsequent write operations.
+ *
+ * @return
+ *  - LE_FAULT -- On failure.
+ *  - LE_OK -- On success.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t UbiInitWrite
+(
+    Volume volumeRef IN, ///< The reference of UBI volume.
+    int64 writeBytes IN  ///< The number of bytes set to write a UBI volume.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Writes UBI volume.
+ *
+ * @note User should keep the context of writing UBI volume.
+ *
+ * @return
+ *  - LE_FAULT -- On failure.
+ *  - LE_OK -- On success.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t UbiWrite
+(
+    Volume volumeRef IN,                   ///< The reference of UBI volume.
+    uint8 writeData[UBI_MAX_WRITE_SIZE] IN ///< Buffer to be written to UBI volume.
+);

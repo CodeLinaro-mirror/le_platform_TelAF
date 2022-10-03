@@ -59,7 +59,10 @@ do
     echo "*** try to use ${base_name} replace telaf-noship stub library ***"
     full_name_telaf=`find ${TARGET_STAGE_DIR} -type f -name ${base_name}`
     if [ -n "${full_name_telaf}" ]; then
-        cp -rf ${full_name_noship} ${full_name_telaf}
+        for each_lib_name in ${full_name_telaf}
+        do
+            cp -rf ${full_name_noship} ${each_lib_name}
+        done
     fi
 done
 

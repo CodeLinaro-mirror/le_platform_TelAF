@@ -1,0 +1,20 @@
+start: manual
+sandboxed: false
+
+executables:
+{
+    tafFSCryptUnitTest = ( tafFSCryptUnitTest )
+}
+
+processes:
+{
+    run:
+    {
+        ( tafFSCryptUnitTest )
+    }
+}
+
+bindings:
+{
+    tafFSCryptUnitTest.tafFSCryptUnitTest.taf_fsc -> tafKeyStoreSvc.taf_fsc
+}

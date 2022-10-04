@@ -1,0 +1,195 @@
+/*
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * @page c_tafFSCrypt FS-Crypt Service
+ *
+ * @ref taf_fsc_interface.h "API Reference"
+ *
+ * <HR>
+ * Some of the directories in UBFS or the whole UBIFS volume which are used to store important
+ * data need to be encrypted, FS-Crypt solution is used to encrypt the directories/volumes.
+ *
+ * FS-Crypt provides interfaces that creates encryption directories working with FS-Crypt, client
+ * applications can lock/unlock specified directory. This component generates 156-bit AES keys, sets
+ * policy to specified directories with generated key and lock/unlock data via add/remove keys to/from
+ * kernel keyring.
+ *
+ * @section taf_fsc_binding IPC interfaces binding
+ *
+ * The functions of this API are provided by the @b tafKeyStoreSvc application service.
+ *
+ * The following example illustrates how to bind to the FS-Crypt service.
+ * @verbatim
+   bindings:
+   {
+       clientExe.clientComponent.taf_fsc -> tafKeyStoreSvc.taf_fsc
+   }
+   @endverbatim
+ *
+ * @section c_taf_fsc_storage_management Storage Management
+ *
+ * A FS-Crypt storage can be initialized by calling taf_fsc_GetStorageRef() with the specified
+ * directory path as the input parameter, if the specified directory doesn't exist in current system,
+ * a new one with the given name will be created. A storage reference is returned to the client for
+ * operating FS-Crypt storage.
+ *
+ * Applications only call the following interfaces to finish storage manipulation, no need to care
+ * about key management, encryption and decryption operation, these actions will be maintained at
+ * the backend of service.
+ * The following storage APIs are supported.
+ * - taf_fsc_GetStorageRef() -- Get the reference of FS-Crypt storage object.
+ * - taf_fsc_LockStorage() -- Remove FS-Crypt key from kernel keyring to lock the directory.
+ * - taf_fsc_UnlockStorage() -- Add FS-Crypt key to kernel keyring to unlock the directory.
+ * - taf_fsc_DeleteStorage() -- Clean up the whole FS-Crypt directory and ecryption key.
+ *
+ * The following example illustrates how to initialize FS-Crypt storage, and lock the directory.
+ * @code
+   le_result_t result;
+   taf_fsc_StorageRef_t storageRef = taf_fsc_GetStorageRef("/app/test", &result);
+
+   if(LE_OK == result){
+       // Process of the storage
+   }
+   else{
+       // Error process
+   }
+
+   result == taf_fsc_LockStorage(storageRef);
+
+   if(LE_OK == result){
+       // Process of the storage
+   }
+   else{
+       // Error process
+   }
+
+   @endcode
+ *
+ * @note Storage will be in unlocked status after calling taf_fsc_GetStorageRef.
+ *
+ * After calling taf_fsc_GetStorageRef, the generated key for the specified directory is already
+ * added to kernel keyring, which means the storage is in unlocked status, client app can access
+ * the directory without calling taf_fsc_UnlockStorage().
+ *
+ * @note Key removing mechanim will be triggered during shutdown process.
+ *
+ * To avoid raw key being copy from non-volatile storage, service will remove all the keys from
+ * kernel keyring when system is shutting down.
+ *
+ * FS-Crypt encryption feature only supports "UBIFS on-flash format version 5", trying to encrypt
+ * for unexpected UBIFS format version will get error notification.
+ *
+ * <HR>
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The maximum size of the directory path in bytes.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_STORAGE_NAME_SIZE = 256;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reference for FS-Crypt storage object.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE Storage;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the reference of FS-Crypt storage object, including initialization for FS-Crypt directory.
+ *
+ * @return
+ *     - Storage -- The reference of FS-Crypt storage object.
+ *     - NULL -- Fail in process.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Storage GetStorageRef
+(
+    string      dirPath[MAX_STORAGE_NAME_SIZE] IN,  ///< Storage name.
+    le_result_t result                        OUT   ///< error status.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Removes FS-Crypt key from kernel keyring to lock the directory.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Bad parameters.
+ *     - LE_NOT_FOUND -- The key does not exist or is not provisioned.
+ *     - LE_FAULT -- Error in process.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t LockStorage
+(
+    Storage StorageRef ///< Storage reference
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Adds FS-Crypt key to kernel keyring to unlock the directory.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Bad parameters.
+ *     - LE_NOT_FOUND -- Key does not exist.
+ *     - LE_FAULT -- Error in process.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t UnlockStorage
+(
+    Storage StorageRef ///< Storage reference
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Cleans up the whole FS-Crypt directory and ecryption key.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Bad parameters.
+ *     - LE_NOT_FOUND -- Key does not exist.
+ *     - LE_FAULT -- Error in process.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DeleteStorage
+(
+    Storage StorageRef ///< Storage reference
+);

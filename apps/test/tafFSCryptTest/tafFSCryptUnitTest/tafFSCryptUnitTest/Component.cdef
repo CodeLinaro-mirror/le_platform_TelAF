@@ -1,0 +1,17 @@
+sources:
+{
+    tafFSCryptUnitTest.c
+}
+
+requires:
+{
+    api:
+    {
+        $TELAF_ROOT/interfaces/taf_fsc.api
+    }
+}
+
+cflags:
+{
+    -I${LEGATO_ROOT}/framework/liblegato
+}

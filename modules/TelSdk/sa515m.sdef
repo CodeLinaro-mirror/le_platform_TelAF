@@ -52,6 +52,7 @@ apps:
     // $TELAF_ROOT/apps/sample/eCallDemo/tafECallApp
     // $TELAF_ROOT/apps/test/tafLocationTest/tafLocationUnitTest/tafLocationUnitTest.adef
     // $TELAF_ROOT/apps/test/tafCanTest/tafCanUnitTest
+    // $TELAF_ROOT/apps/test/tafFSCryptTest/tafFSCryptUnitTest/tafFSCryptUnitTest
 }
 
 commands:

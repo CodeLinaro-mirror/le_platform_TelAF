@@ -28,7 +28,7 @@
 
  * Changes from Qualcomm Innovation Center are provided under the following license:
 
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -98,25 +98,18 @@ uint32_t taf_Pos::ComputeCommonSmallestRate
 )
 {
     taf_pos_SampleHandler_t *posHandlerNodePtr;
-    le_dls_Link_t          *linkPtr;
 
-    linkPtr = le_dls_Peek(&PosHandlerList);
-    if (linkPtr != NULL)
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(MovementHandlerRefMap);
+
+    while(le_ref_NextNode(iterRef) == LE_OK)
     {
-        do
+        posHandlerNodePtr = (taf_pos_SampleHandler_t*)le_ref_GetValue(iterRef);
+        LE_ASSERT(posHandlerNodePtr != NULL);
+        if (posHandlerNodePtr->acquisitionRate < rate)
         {
-            posHandlerNodePtr = (taf_pos_SampleHandler_t*)CONTAINER_OF(linkPtr,
-                                                taf_pos_SampleHandler_t, next);
-            if (posHandlerNodePtr->acquisitionRate < rate)
-            {
-                rate = posHandlerNodePtr->acquisitionRate;
-                linkPtr=NULL;
-            }
-            else
-            {
-                linkPtr = le_dls_PeekNext(&PosHandlerList, linkPtr);
-            }
-        } while (linkPtr != NULL);
+            rate = posHandlerNodePtr->acquisitionRate;
+            return rate;
+        }
     }
 
     return rate;
@@ -295,7 +288,105 @@ le_result_t taf_Pos::GetDirection
 
     return resPos;
 }
+le_result_t taf_Pos::GetMotion
+(
+    uint32_t*   horiSpeedPtr,
+    uint32_t*   horiSpeedAccuracyPtr,
+    int32_t*    vertSpeedPtr,
+    int32_t*    vertSpeedAccuracyPtr
+)
+{
+    if ((horiSpeedPtr == NULL)&&
+        (horiSpeedAccuracyPtr == NULL)&&
+        (vertSpeedPtr == NULL)&&
+        (vertSpeedAccuracyPtr == NULL))
+    {
+        LE_KILL_CLIENT("Invalid input parameters!");
+        return LE_FAULT;
+    }
 
+    uint32_t horiSpeed;
+    uint32_t horiSpeedAccuracy;
+    int32_t vertSpeed;
+    int32_t vertSpeedAccuracy;
+    le_result_t Result = LE_OK;
+    le_result_t posResult = LE_OK;
+    taf_gnss_SampleRef_t positionSampleRef = taf_gnss_GetLastSampleRef();
+
+    // Get horizontal speed
+    Result = taf_gnss_GetHorizontalSpeed(positionSampleRef, &horiSpeed, &horiSpeedAccuracy);
+    if ((Result == LE_OK)||(Result == LE_OUT_OF_RANGE))
+    {
+        if (horiSpeedPtr)
+        {
+            if (horiSpeed != UINT32_MAX)
+            {
+                *horiSpeedPtr = horiSpeed/100;
+            }
+            else
+            {
+                *horiSpeedPtr = horiSpeed;
+                posResult = LE_OUT_OF_RANGE;
+            }
+        }
+        if (horiSpeedAccuracyPtr)
+        {
+            if (horiSpeedAccuracy != UINT32_MAX)
+            {
+               *horiSpeedAccuracyPtr = horiSpeedAccuracy/10;
+            }
+            else
+            {
+               *horiSpeedAccuracyPtr = horiSpeedAccuracy;
+                posResult = LE_OUT_OF_RANGE;
+            }
+        }
+    }
+    else
+    {
+         posResult = LE_FAULT;
+    }
+
+    // Get vertical speed
+    Result = taf_gnss_GetVerticalSpeed(positionSampleRef, &vertSpeed, &vertSpeedAccuracy);
+
+    if (((Result == LE_OK)||(Result == LE_OUT_OF_RANGE))
+        &&(posResult != LE_FAULT))
+    {
+        if (vertSpeedPtr)
+        {
+            if (vertSpeed != INT32_MAX)
+            {
+                *vertSpeedPtr = vertSpeed/100;
+            }
+            else
+            {
+                *vertSpeedPtr = vertSpeed;
+                 posResult = LE_OUT_OF_RANGE;
+            }
+        }
+        if (vertSpeedAccuracyPtr)
+        {
+            if (vertSpeedAccuracy != INT32_MAX)
+            {
+                *vertSpeedAccuracyPtr = vertSpeedAccuracy/10;
+            }
+            else
+            {
+                *vertSpeedAccuracyPtr = vertSpeedAccuracy;
+                posResult = LE_OUT_OF_RANGE;
+            }
+        }
+    }
+    else
+    {
+        posResult = LE_FAULT;
+    }
+
+    taf_gnss_ReleaseSampleRef(positionSampleRef);
+
+    return posResult;
+}
 le_result_t taf_Pos::CalculateMove
 (
   taf_pos_SampleHandler_t *posHandlerNodePtr,
@@ -430,7 +521,6 @@ void taf_Pos::PositionHandler
     taf_gnss_FixState_t gnssState;
 
     taf_pos_SampleHandler_t* posHandlerNodePtr;
-    le_dls_Link_t*          linkPtr;
     PosSampleRequest_t*     posRequestPtr = NULL;
 
     TAF_ERROR_IF_RET_NIL( positionRef == NULL, "positionRef is Null");
@@ -472,13 +562,7 @@ void taf_Pos::PositionHandler
         altitudeValid = false;
     }
 
-    linkPtr = le_dls_Peek(&pos.PosHandlerList);
-
-    if (NULL == linkPtr)
-    {
-        taf_gnss_ReleaseSampleRef(positionRef);
-        return;
-    }
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(pos.MovementHandlerRefMap);
 
     posObj.locationValid = locationValid;
     posObj.altitudeValid = altitudeValid;
@@ -488,11 +572,11 @@ void taf_Pos::PositionHandler
     posObj.altitude = altitude;
     posObj.vAccuracy = vAccuracy;
 
-    //Traverse a List
-    do
+    while(le_ref_NextNode(iterRef) == LE_OK)
     {
         bool horizontalFlag, verticalFlag;
-        posHandlerNodePtr = (taf_pos_SampleHandler_t*)CONTAINER_OF(linkPtr, taf_pos_SampleHandler_t, next);
+        posHandlerNodePtr = (taf_pos_SampleHandler_t*)le_ref_GetValue(iterRef);
+        LE_ASSERT(posHandlerNodePtr != NULL);
 
         if (LE_FAULT == CalculateMove(posHandlerNodePtr, &posObj, &horizontalFlag, &verticalFlag))
         {
@@ -506,7 +590,9 @@ void taf_Pos::PositionHandler
              ((0 != posHandlerNodePtr->horizontalMagnitude) && (horizontalFlag)))
         {
             posRequestPtr = (PosSampleRequest_t*)le_mem_ForceAlloc(pos.PosRequestPoolRef);
+            memset(posRequestPtr,0,sizeof(PosSampleRequest_t));
             posRequestPtr->posSampleNodePtr = (taf_pos_Sample_t*)le_mem_ForceAlloc(pos.PosPoolRef);
+            memset(posRequestPtr->posSampleNodePtr,0,sizeof(taf_pos_Sample_t));
             posRequestPtr->posSampleNodePtr->latitudeValid = CHECK_VALIDITY(latitude,INT32_MAX);
             posRequestPtr->posSampleNodePtr->latitude = latitude;
 
@@ -591,15 +677,11 @@ void taf_Pos::PositionHandler
                 posRequestPtr->posSampleNodePtr->fixState = (taf_gnss_FixState_t)gnssState;
             }
 
-            posRequestPtr->posSampleNodePtr->next = LE_DLS_LINK_INIT;
-
-            le_dls_Queue(&pos.PosSampleList, &(posRequestPtr->posSampleNodePtr->next));
-
             posHandlerNodePtr->lastLat = latitude;
             posHandlerNodePtr->lastLong = longitude;
             posHandlerNodePtr->lastAlt = altitude;
 
-            LE_DEBUG("Report sample %p to the corresponding handler (handler %p)",
+            LE_DEBUG("Report sampleRef %p to the corresponding handler (handlerPtr %p)",
                      posRequestPtr->posSampleNodePtr, posHandlerNodePtr->handlerFuncPtr);
 
             taf_pos_SampleRef_t reqRef = (taf_pos_SampleRef_t)le_ref_CreateRef(pos.PosSampleMap, posRequestPtr);
@@ -611,8 +693,7 @@ void taf_Pos::PositionHandler
             posHandlerNodePtr->handlerFuncPtr(reqRef, posHandlerNodePtr->handlerContextPtr);
         }
 
-        linkPtr = le_dls_PeekNext(&pos.PosHandlerList, linkPtr);
-    } while (NULL != linkPtr);
+    }
 
     taf_gnss_ReleaseSampleRef(positionRef);
 }
@@ -629,12 +710,15 @@ taf_pos_MovementHandlerRef_t taf_Pos::AddMovementHandler
     TAF_KILL_CLIENT_IF_RET_VAL((handlerPtr == NULL), NULL, "handlerPtr pointer is NULL");
 
     posHandlerNodePtr = (taf_pos_SampleHandler_t*)le_mem_ForceAlloc(PosHandlerPoolRef);
+    memset(posHandlerNodePtr, 0, sizeof(taf_pos_SampleHandler_t));
     posHandlerNodePtr->next = LE_DLS_LINK_INIT;
     posHandlerNodePtr->handlerFuncPtr = handlerPtr;
     posHandlerNodePtr->handlerContextPtr = contextPtr;
     posHandlerNodePtr->acquisitionRate = CalculateAcquisitionRate(SUPPOSED_AVERAGE_SPEED,
                                                   horizontalMagnitude, verticalMagnitude) * SEC_TO_MSEC;
     posHandlerNodePtr->sessionRef = taf_pos_GetClientSessionRef();
+    posHandlerNodePtr->handlerRef =
+        (taf_pos_MovementHandlerRef_t)le_ref_CreateRef(MovementHandlerRefMap, posHandlerNodePtr);
     AcqRate = ComputeCommonSmallestRate(posHandlerNodePtr->acquisitionRate);
 
     LE_DEBUG("Calculated acquisition rate %" PRIu32 " msec for an average speed of %d km/h",
@@ -666,9 +750,8 @@ taf_pos_MovementHandlerRef_t taf_Pos::AddMovementHandler
         }
     }
 
-    le_dls_Queue(&PosHandlerList, &(posHandlerNodePtr->next));
     NumOfHandlers++;
-    return (taf_pos_MovementHandlerRef_t)posHandlerNodePtr;
+    return posHandlerNodePtr->handlerRef;
 }
 
 le_result_t taf_Pos::SetAcquisitionRate
@@ -1299,28 +1382,21 @@ void taf_Pos::RemoveMovementHandler
  taf_pos_MovementHandlerRef_t handlerRef
 )
 {
-    taf_pos_SampleHandler_t* posHandlerNodePtr;
-    le_dls_Link_t* linkPtr;
+    taf_pos_SampleHandler_t* posHandlerNodePtr =
+        (taf_pos_SampleHandler_t*)le_ref_Lookup(MovementHandlerRefMap, handlerRef);
 
-    linkPtr = le_dls_Peek(&PosHandlerList);
-    if (linkPtr != NULL)
+    if (posHandlerNodePtr != NULL)
     {
-        do
-        {
-            posHandlerNodePtr = (taf_pos_SampleHandler_t*)CONTAINER_OF(linkPtr,
-                                                                            taf_pos_SampleHandler_t,
-                                                                            next);
-            if ((taf_pos_MovementHandlerRef_t)posHandlerNodePtr == handlerRef)
-            {
-                le_mem_Release(posHandlerNodePtr);
-                NumOfHandlers--;
-                linkPtr=NULL;
-            }
-            else
-            {
-                linkPtr = le_dls_PeekNext(&PosHandlerList, linkPtr);
-            }
-        } while (linkPtr != NULL);
+        LE_ASSERT(posHandlerNodePtr->handlerRef == handlerRef);
+        NumOfHandlers--;
+        LE_DEBUG("Removed positionHandlerRef(%p) for posHandlerNodePtr(%p) (totalCnt=0x%x).",
+            posHandlerNodePtr->handlerRef, posHandlerNodePtr, NumOfHandlers);
+        le_mem_Release(posHandlerNodePtr);
+        le_ref_DeleteRef(MovementHandlerRefMap, handlerRef);
+    }
+    else
+    {
+        LE_ERROR("Invaild handlerRef(%p).", handlerRef);
     }
 
     if (NumOfHandlers == 0)
@@ -1365,65 +1441,6 @@ void taf_Pos::PosCtrlCloseSessionEventHandler
     }
 }
 
-void taf_Pos::PosHandlerDestructor
-(
- void* obj
-)
-{
-    auto &pos = taf_Pos::GetInstance();
-    taf_pos_SampleHandler_t *posHandlerNodePtr;
-    le_dls_Link_t          *linkPtr;
-
-    linkPtr = le_dls_Peek(&pos.PosHandlerList);
-    if (linkPtr != NULL)
-    {
-        do
-        {
-            posHandlerNodePtr = (taf_pos_SampleHandler_t*)CONTAINER_OF(linkPtr,
-                                                                            taf_pos_SampleHandler_t,
-                                                                            next);
-            if (posHandlerNodePtr == (taf_pos_SampleHandler_t*)obj)
-            {
-                le_dls_Remove(&pos.PosHandlerList, linkPtr);
-                linkPtr=NULL;
-            }
-            else
-            {
-                linkPtr = le_dls_PeekNext(&pos.PosHandlerList, linkPtr);
-            }
-        } while (linkPtr != NULL);
-    }
-}
-
-void taf_Pos::PosSampleDestructor
-(
-    void* obj
-)
-{
-    auto &pos = taf_Pos::GetInstance();
-    taf_pos_Sample_t *posSampleNodePtr;
-    le_dls_Link_t   *linkPtr;
-
-    LE_FATAL_IF((obj == NULL), "Position Sample Object does not exist!");
-
-    linkPtr = le_dls_Peek(&pos.PosSampleList);
-    if (linkPtr != NULL)
-    {
-        do
-        {
-            posSampleNodePtr = (taf_pos_Sample_t*)CONTAINER_OF(linkPtr, taf_pos_Sample_t, next);
-            if (posSampleNodePtr == (taf_pos_Sample_t*)obj)
-            {
-                le_dls_Remove(&pos.PosSampleList, linkPtr);
-                linkPtr=NULL;
-            }
-            else
-            {
-                linkPtr = le_dls_PeekNext(&pos.PosSampleList, linkPtr);
-            }
-        } while (linkPtr != NULL);
-    }
-}
 
 void taf_Pos::posCtrl_Release
 (
@@ -1499,7 +1516,6 @@ void taf_Pos::PosCloseSessionEventHandler
 void taf_Pos::Init()
 {
    PosPoolRef = le_mem_InitStaticPool(PosSample, TAF_POS_MAX_OBJ, sizeof(taf_pos_Sample_t));
-   le_mem_SetDestructor(PosPoolRef, PosSampleDestructor);
    PosRequestPoolRef = le_mem_InitStaticPool(PosSampleRequest, TAF_POS_MAX_OBJ, sizeof(PosSampleRequest_t));
 
    posMsgService = taf_pos_GetServiceRef();
@@ -1508,13 +1524,11 @@ void taf_Pos::Init()
    posCtrlMsgService = taf_posCtrl_GetServiceRef();
    le_msg_AddServiceCloseHandler(posCtrlMsgService, PosCtrlCloseSessionEventHandler, NULL);
    PosHandlerPoolRef = le_mem_InitStaticPool(PosHandler, HIGH_POS_HANDLER_COUNT, sizeof(taf_pos_SampleHandler_t));
-   le_mem_SetDestructor(PosHandlerPoolRef, PosHandlerDestructor);
    PosSampleMap = le_ref_InitStaticMap(PosSampleMap, POSITIONING_SAMPLE_MAX);
    ActivationRequestRefMap = le_ref_InitStaticMap(PositioningClient, TAF_CONFIG_POSITIONING_ACTIVATION_MAX);
    PosCtrlHandlerPoolRef = le_mem_InitStaticPool(PosCtrlHandler, TAF_CONFIG_POSITIONING_ACTIVATION_MAX,
            sizeof(ClientRequest_t));
-   PosHandlerList = LE_DLS_LIST_DECL_INIT;
-   PosSampleList = LE_DLS_LIST_DECL_INIT;
+   MovementHandlerRefMap = le_ref_CreateMap("MovementHandlerRefMap", 16);
    DistanceResolution = TAF_POS_RES_METER;
    AcqRate = DEFAULT_ACQUISITION_RATE;
    CurrentActivationsCount = 0;

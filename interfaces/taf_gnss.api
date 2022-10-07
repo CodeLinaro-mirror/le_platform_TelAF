@@ -28,7 +28,7 @@
 
  * Changes from Qualcomm Innovation Center are provided under the following license:
 
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -577,6 +577,25 @@
    if(taf_gnss_GetDilutionOfPrecision(positionSampleRef,dopType,&dop) == LE_OK)
    {
      // Process after succesfully getting the dilute of precision for dilute of precision type.
+   }
+   @endverbatim
+ * - taf_gnss_GetMagneticDeviation()-- Triggered inside PositionHandlerFunction() function to
+ * get positionSampleRef.
+ * @verbatim
+   int32_t magneticDeviation;
+   if(taf_gnss_GetMagneticDeviation(positionSampleRef,&magneticDeviation) == LE_OK)
+   {
+     // Process after succesfully getting the magnetic deviation.
+   }
+   @endverbatim
+ * - taf_gnss_GetEllipticalUncertainty()-- Triggered inside PositionHandlerFunction()
+ * function to get positionSampleRef.
+ * @verbatim
+   uint32_t SemiMajor;
+   uint32_t SemiMinor;
+   if(taf_gnss_GetEllipticalUncertainty(positionSampleRef,&SemiMajor, &SemiMinor) == LE_OK)
+   {
+     // Process after succesfully getting the elliptical uncertainty values.
    }
    @endverbatim
  * taf_gnss_GetDilutionOfPrecision() -- Gets the Dilution of Precision (DOP) paramters with a
@@ -1256,6 +1275,20 @@ BITMASK NmeaBitMask
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Type of GNSS start.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM StartMode
+{
+    HOT_START,         ///< Hot start.
+    WARM_START,        ///< Warm start.
+    COLD_START,        ///< Cold start.
+    FACTORY_START,     ///< Factory start.
+    UNKNOWN_START      ///< Unknown start.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Dead reckoning configuration parameters.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1291,28 +1324,6 @@ STRUCT DrParams
                          ///  @note The scale factor uncertainty is specific to the Gyroscope sensor and typically 
                          ///        derived from either the sensor's data-sheet or from actual calibration.
 };
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Sets the area for the GNSS constellation.
- *
- * @return
- *  - LE_OK            Succeeded.
- *  - LE_FAULT         Failed.
- *  - LE_UNSUPPORTED   Not supported.
- *  - LE_NOT_PERMITTED The GNSS device state is not initialized, disabled, or active.
- *  - LE_BAD_PARAMETER Invalid constellation area.
- *
- * @note This API is not supported.
- *
- * @warning The settings are platform dependent.
-*/
-//--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t SetConstellationArea
-(
-Constellation satConstellation        IN,  ///< GNSS satellite constellation type.
-ConstellationArea constellationArea   IN   ///< GNSS constellation area to be set.
-);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1368,28 +1379,6 @@ FUNCTION le_result_t GetSatellitesStatus
 FUNCTION le_result_t GetAcquisitionRate
 (
  uint32 rate      OUT  ///< Acquisition rate in milliseconds for GNSS.
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Gets the area for the GNSS constellation
- *
- * @return
- *  - LE_OK            Succeeded.
- *  - LE_FAULT         Failed.
- *  - LE_UNSUPPORTED   Not supported.
- *  - LE_NOT_PERMITTED The GNSS device state is not initialized, disabled, or active.
- *
- * @note If the caller passes a null pointer to this function, it is a fatal error and the
- *       function will not return.
- *
- * @note This API is not supported.
-*/
-//--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t GetConstellationArea
-(
- Constellation satConstellation        IN,   ///< Constellation type for GNSS.
- ConstellationArea constellationArea   OUT   ///< Constellation area for GNSS.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1697,6 +1686,23 @@ FUNCTION le_result_t SetMinElevation
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Starts the GNSS device in the specified start mode.
+ *
+ * @return
+ *  - LE_OK           Succeeded.
+ *  - LE_FAULT        Failed.
+ *  - LE_UNSUPPORTED  Not supported.
+ *
+ * @warning The settings are platform dependent.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t StartMode
+(
+ StartMode mode IN  ///< Start Mode.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Gets the GNSS minimum elevation.
  *
  * @return
@@ -1906,4 +1912,45 @@ FUNCTION le_result_t RequestSecondaryBandConstellations
 FUNCTION le_result_t ConfigureSecondaryBandConstellations
 (
     uint32 constellationSb IN ///< Bitmask of secondary band constellations to disable.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the position sample's magnetic deviation.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_NOT_PERMITTED  The GNSS device is not in "active" state.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the function will not return.
+ */
+
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetMagneticDeviation
+(
+    Sample positionSampleRef    IN, ///< Position sample reference.
+    int32 magneticDeviationPtr  OUT ///< MagneticDeviation in degrees.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the semi-major and semi-minor horizontal elliptical uncertainty.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_NOT_PERMITTED  The GNSS device is not in "active" state.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the function will not return.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetEllipticalUncertainty
+(
+    Sample positionSampleRef          IN, ///< Position sample reference.
+    uint32 horUncEllipseSemiMajorPtr OUT, ///< Horizontal semi major elliptical uncertainty.
+    uint32 horUncEllipseSemiMinorPtr OUT, ///< Horizontal semi minor elliptical uncertainty.
+    uint8  horConfidencePtr          OUT  ///< Horizontal confidence level.
 );

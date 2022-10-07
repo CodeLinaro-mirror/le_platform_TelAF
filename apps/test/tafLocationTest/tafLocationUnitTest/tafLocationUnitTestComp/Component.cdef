@@ -1,6 +1,5 @@
 sources:
 {
-    tafLocationTest.c
     main.c
 }
 

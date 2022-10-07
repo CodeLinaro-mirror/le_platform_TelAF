@@ -28,7 +28,7 @@
 
  * Changes from Qualcomm Innovation Center are provided under the following license:
 
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -212,6 +212,27 @@ le_result_t taf_pos_GetDate
     auto &pos = taf_Pos::GetInstance();
     return pos.GetDate(yearPtr, monthPtr, dayPtr);
 }
+
+/**
+* FUNCTION     : GetMotion
+* DESCRIPTION  : Get the date of the last updated location
+* DEPENDECY    : Get the motion's data (Horizontal Speed, Horizontal Speed's
+* accuracy, Vertical Speed, Vertical Speed's accuracy).
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_OUT_OF_RANGE LE_FAULT on fail
+*/
+le_result_t taf_pos_GetMotion
+(
+ uint32_t* hSpeed,
+ uint32_t* hSpeedAccuracy,
+ int32_t*  vSpeed,
+ int32_t*  vSpeedAccuracy
+)
+{
+    auto &pos = taf_Pos::GetInstance();
+    return pos.GetMotion(hSpeed,hSpeedAccuracy,vSpeed,vSpeedAccuracy);
+}
+
 /**
 * FUNCTION     : Get2DLocation
 * DESCRIPTION  : Get the 2D location's data (Latitude, Longitude, Horizontal
@@ -695,40 +716,6 @@ le_result_t taf_gnss_Start
 }
 
 /**
-* FUNCTION     : SetConstellationArea
-* DESCRIPTION  : Set the area for the GNSS constellation
-* DEPENDECY    :
-* PARAMETERS   :
-* RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
-*/
-le_result_t taf_gnss_SetConstellationArea
-(
-taf_gnss_Constellation_t satConstellation,
-taf_gnss_ConstellationArea_t constellationArea
-)
-{
-    LE_DEBUG("Set Constellation Area is not supported");
-    return LE_UNSUPPORTED;
-}
-
-/**
-* FUNCTION     : GetConstellationArea
-* DESCRIPTION  : Get the area for the GNSS constellation for the constellation type
-* DEPENDECY    :
-* PARAMETERS   :
-* RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
-*/
-le_result_t taf_gnss_GetConstellationArea
-(
-taf_gnss_Constellation_t satConstellation,
-taf_gnss_ConstellationArea_t* constellationArea
-)
-{
-    LE_DEBUG("Get Constellation Area is not supported");
-    return LE_UNSUPPORTED;
-}
-
-/**
 * FUNCTION     : GetConstellation
 * DESCRIPTION  : Get the GNSS constellation bit mask
 * DEPENDECY    :
@@ -1137,6 +1124,22 @@ le_result_t taf_gnss_SetMinElevation
 }
 
 /**
+* FUNCTION     : StartMode
+* DESCRIPTION  : starts the GNSS device in the specified start mode
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_NOT_PERMITTED LE_FAULT LE_UNSUPPORTED on failed
+*/
+le_result_t taf_gnss_StartMode
+(
+ taf_gnss_StartMode_t  mode
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.StartMode(mode);
+}
+
+/**
 * FUNCTION     : GetMinElevation
 * DESCRIPTION  : gets the GNSS minimum elevation
 * DEPENDECY    :
@@ -1319,3 +1322,39 @@ le_result_t taf_gnss_ConfigureSecondaryBandConstellations
     return gnss.ConfigureSecondaryBandConstellations(constellationSb);
 }
 #endif
+/**
+* FUNCTION     : GetMagneticDeviation
+* DESCRIPTION  : Get the position sample's magnetic deviation
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
+*/
+le_result_t taf_gnss_GetMagneticDeviation
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    int32_t* magneticDeviationPtr
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetMagneticDeviation(positionSampleRef,magneticDeviationPtr);
+}
+
+/**
+* FUNCTION     : GetEllipticalUncertainty
+* DESCRIPTION  : Get the semi-major and semi-minor horizontal elliptical uncertainty.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
+*/
+le_result_t taf_gnss_GetEllipticalUncertainty
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    uint32_t* horUncEllipseSemiMajorPtr,
+    uint32_t* horUncEllipseSemiMinorPtr,
+    uint8_t*  horConfidencePtr
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetEllipticalUncertainty(positionSampleRef,horUncEllipseSemiMajorPtr,
+            horUncEllipseSemiMinorPtr,horConfidencePtr);
+}

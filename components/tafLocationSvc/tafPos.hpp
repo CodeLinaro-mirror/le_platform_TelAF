@@ -25,6 +25,10 @@
  *  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ *  Changes from Qualcomm Innovation Center are provided under the following license:
+ *  Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include "legato.h"
@@ -137,6 +141,7 @@ namespace tafsvc {
         typedef struct taf_pos_SampleHandler
         {
             taf_pos_MovementHandlerFunc_t handlerFuncPtr;
+            taf_pos_MovementHandlerRef_t handlerRef;
             void*                        handlerContextPtr;
             uint32_t                     acquisitionRate;
             uint32_t                     verticalMagnitude;
@@ -175,8 +180,6 @@ namespace tafsvc {
                 static void PositionHandler(taf_gnss_SampleRef_t positionSampleRef, void* contextPtr);
                 static void PosCloseSessionEventHandler(le_msg_SessionRef_t sessionRef, void* contextPtr);
                 static void PosCtrlCloseSessionEventHandler(le_msg_SessionRef_t sessionRef, void* contextPtr);
-                static void PosHandlerDestructor(void* obj);
-                static void PosSampleDestructor(void* obj);
                 static le_result_t CalculateMove(taf_pos_SampleHandler_t *posSampleHandlerNodePtr, const PositionParam_t  *posParamPtr,
                         bool *hflagPtr, bool *vflagPtr);
                 static int32_t TransformDistance( int32_t value, taf_pos_DistanceValueType_t type);
@@ -189,6 +192,8 @@ namespace tafsvc {
                 le_result_t GetDate( uint16_t* yearPtr, uint16_t* monthPtr, uint16_t* dayPtr);
                 le_result_t Get2DLocation(int32_t* latitudePtr, int32_t* longitudePtr, int32_t* hAccuracyPtr);
                 le_result_t GetDirection( uint32_t* directionPtr, uint32_t* directionAccuracyPtr);
+                le_result_t GetMotion( uint32_t* hSpeed, uint32_t* hSpeedAccuracy,int32_t* vSpeed,
+                        int32_t* vSpeedAccuracy);
                 le_result_t Get3DLocation( int32_t* latitudePtr, int32_t* longitudePtr, int32_t* hAccuracyPtr, int32_t* altitudePtr,
                         int32_t* vAccuracyPtr);
                 le_result_t sample_Get2DLocation(taf_pos_SampleRef_t positionSampleRef, int32_t* latitudePtr, int32_t* longitudePtr,
@@ -211,10 +216,9 @@ namespace tafsvc {
                 le_mem_PoolRef_t PosCtrlHandlerPoolRef;
                 le_ref_MapRef_t PosSampleMap;
                 le_ref_MapRef_t ActivationRequestRefMap;
+                le_ref_MapRef_t MovementHandlerRefMap;
                 le_msg_ServiceRef_t posMsgService;
                 le_msg_ServiceRef_t posCtrlMsgService;
-                le_dls_List_t PosHandlerList;
-                le_dls_List_t PosSampleList;
                 taf_pos_Resolution_t DistanceResolution;
                 taf_gnss_PositionHandlerRef_t GnssHandlerRef;
                 uint32_t AcqRate;

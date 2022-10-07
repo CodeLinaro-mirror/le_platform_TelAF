@@ -28,7 +28,7 @@
 
  * Changes from Qualcomm Innovation Center are provided under the following license:
 
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -280,8 +280,6 @@ namespace tafsvc {
             ~taf_Gnss();
             void Init();
             static taf_Gnss &GetInstance();
-            static void PosHandleDestructor( void* obj);
-            static void PosDestructor( void* obj);
             static le_result_t CheckValidatePosition(
                     taf_gnss_PositionSampleRequest_t* positionSampleRequestNodePtr);
             static le_result_t PositionDataCoversion(int32_t value, taf_gnss_DataType_t dataType,int32_t* valuePtr);
@@ -321,11 +319,6 @@ namespace tafsvc {
             le_result_t Enable(void);
             le_result_t SetConstellation(taf_gnss_ConstellationBitMask_t constellationMask);
             le_result_t Start(void);
-            le_result_t SetConstellationArea( taf_gnss_Constellation_t satConstellation,
-                    taf_gnss_ConstellationArea_t constellationArea);
-
-            le_result_t GetConstellationArea( taf_gnss_Constellation_t satConstellation,
-                    taf_gnss_ConstellationArea_t* constellationArea);
             le_result_t GetConstellation( taf_gnss_ConstellationBitMask_t *constellationMaskPtr);
             le_result_t Disable(void);
             le_result_t Stop(void);
@@ -352,6 +345,7 @@ namespace tafsvc {
             le_result_t ForceHotRestart();
             le_result_t GetSupportedConstellations(taf_gnss_ConstellationBitMask_t* constellationMaskPtr);
             le_result_t SetMinElevation( uint8_t  minElevation);
+            le_result_t StartMode(taf_gnss_StartMode_t mode);
             le_result_t GetMinElevation( uint8_t*  minElevationPtr);
             le_result_t SetNmeaSentences(taf_gnss_NmeaBitMask_t nmeaMask);
             le_result_t GetNmeaSentences(taf_gnss_NmeaBitMask_t* nmeaMaskPtr);
@@ -369,6 +363,11 @@ namespace tafsvc {
             le_result_t RequestSecondaryBandConstellations(int32_t* constellationSb);
             le_result_t ConfigureSecondaryBandConstellations(uint32_t constellationSb);
             #endif
+            le_result_t GetMagneticDeviation(taf_gnss_SampleRef_t positionSampleRef,
+                    int32_t* magneticDeviationPtr);
+            le_result_t GetEllipticalUncertainty(taf_gnss_SampleRef_t positionSampleRef,
+                    uint32_t* horUncEllipseSemiMajorPtr,uint32_t* horUncEllipseSemiMinorPtr,
+                    uint8_t*  horConfidencePtr);
             le_mem_PoolRef_t   PositionHandlerPoolRef;
             le_mem_PoolRef_t   PositionSampleRequestPoolRef;
             le_event_Id_t positionEventId;
@@ -423,15 +422,10 @@ namespace tafsvc {
             le_mem_PoolRef_t   ClientPoolRef;
             le_ref_MapRef_t PositionSampleMap;
             le_ref_MapRef_t ClientRequestRefMap;
-            le_dls_List_t PositionHandlerList;
-            le_dls_List_t PositionSampleList;
+            le_ref_MapRef_t PositionHandlerRefMap;
             le_dls_List_t    SessionCtxList;
             taf_gnss_State_t GnssState;
-            taf_gnss_SampleRef_t positionSampleRef;
             le_event_HandlerRef_t HandlerRef;
-            le_mem_PoolRef_t HandlerPool;
-            le_mem_PoolRef_t SessionCtxPool;
-            le_mem_PoolRef_t SessionRefPool;
     };
     }
 }

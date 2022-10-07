@@ -28,7 +28,7 @@
 
  * Changes from Qualcomm Innovation Center are provided under the following license:
 
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -366,8 +366,6 @@ void taf_Gnss::GnssPositionHandler
 {
     auto &gnss = taf_Gnss::GetInstance();
     taf_gnss_PositionHandler_t*  posHandlerPtr;
-    le_dls_Link_t* linkPtr;
-    uint8_t i;
     taf_gnss_PositionSampleRequest_t*    posSampleReqPtr=NULL;
     taf_gnss_PositionSample_t* currentPosPtr = (taf_gnss_PositionSample_t*)reportPtr;
 
@@ -383,50 +381,32 @@ void taf_Gnss::GnssPositionHandler
         return;
     }
 
-    linkPtr = le_dls_Peek(&gnss.PositionHandlerList);
-    if (NULL != linkPtr)
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(gnss.PositionHandlerRefMap);
+    while (le_ref_NextNode(iterRef) == LE_OK)
     {
+        posHandlerPtr = (taf_gnss_PositionHandler_t*)le_ref_GetValue(iterRef);
+        LE_ASSERT(posHandlerPtr != NULL);
         posSampleReqPtr = (taf_gnss_PositionSampleRequest_t*)le_mem_ForceAlloc(gnss.PositionSampleRequestPoolRef);
+        memset(posSampleReqPtr, 0, sizeof(taf_gnss_PositionSampleRequest_t));
 
         posSampleReqPtr->positionSampleNodePtr =
             (taf_gnss_PositionSample_t*)le_mem_ForceAlloc(gnss.PositionSamplePoolRef);
-
-        // No need to add reference for single Handler
-        for(i=0 ; i<gnss.NumOfPositionHandlers-1 ; i++)
-        {
-            le_mem_AddRef((void *)posSampleReqPtr);
-            le_mem_AddRef((void *)posSampleReqPtr->positionSampleNodePtr);
-        }
+        memset(posSampleReqPtr->positionSampleNodePtr, 0, sizeof(taf_gnss_PositionSample_t));
 
         memcpy(posSampleReqPtr->positionSampleNodePtr, &gnss.LastPositionSample,
                 sizeof(taf_gnss_PositionSample_t));
 
-        posSampleReqPtr->positionSampleNodePtr->next = LE_DLS_LINK_INIT;
-        le_dls_Queue(&gnss.PositionSampleList, &(posSampleReqPtr->positionSampleNodePtr->next));
+        posSampleReqPtr->sessionRef = posHandlerPtr->sessionRef;
 
-        do
-        {
-            posHandlerPtr =
-                (taf_gnss_PositionHandler_t*)CONTAINER_OF(linkPtr, taf_gnss_PositionHandler_t, next);
+        posSampleReqPtr->positionSampleRef =
+           (taf_gnss_SampleRef_t)le_ref_CreateRef(gnss.PositionSampleMap, posSampleReqPtr);
 
-            LE_DEBUG("Report sample %p to the corresponding handler (handler %p)",
-                    posSampleReqPtr->positionSampleNodePtr, posHandlerPtr->handlerFuncPtr);
+        LE_DEBUG("Report sampleRef %p to the corresponding handler (handlerPtr %p)",
+            posSampleReqPtr->positionSampleRef, posHandlerPtr->handlerFuncPtr);
 
-            taf_gnss_SampleRef_t safePositionSampleRef = (taf_gnss_SampleRef_t)le_ref_CreateRef(gnss.PositionSampleMap,
-                    posSampleReqPtr);
+        posHandlerPtr->handlerFuncPtr(posSampleReqPtr->positionSampleRef,
+                                      posHandlerPtr->handlerContextPtr);
 
-            posSampleReqPtr->sessionRef = posHandlerPtr->sessionRef;
-
-            posSampleReqPtr->positionSampleRef = safePositionSampleRef;
-
-            if(safePositionSampleRef != NULL)
-            {
-                posHandlerPtr->handlerFuncPtr(safePositionSampleRef,
-                        posHandlerPtr->handlerContextPtr);
-            }
-
-            linkPtr = le_dls_PeekNext(&gnss.PositionHandlerList, linkPtr);
-        } while (NULL != linkPtr);
     }
 
     le_mem_Release(currentPosPtr);
@@ -692,7 +672,7 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 LocationData->altitudeOnWgs84Valid = false;
                 LocationData->horUncEllipseSemiMajorValid = true;
                 LocationData->horUncEllipseSemiMinorValid = true;
-                LocationData->horConfidenceValid = false;
+                LocationData->horConfidenceValid = true;
                 LocationData->vAccuracyValid = true;
                 LocationData->hSpeedValid = true;
                 LocationData->hSpeedAccuracyValid = true;
@@ -1499,40 +1479,6 @@ le_result_t taf_Gnss::Start
     return result;
 }
 
-le_result_t taf_Gnss::SetConstellationArea
-(
-    taf_gnss_Constellation_t satConstellation,
-    taf_gnss_ConstellationArea_t constellationArea
-)
-{
-    le_result_t result = LE_FAULT;
-
-    switch (GnssState)
-    {
-        case TAF_GNSS_STATE_ACTIVE:
-        case TAF_GNSS_STATE_UNINITIALIZED:
-        case TAF_GNSS_STATE_DISABLED:
-        {
-            LE_ERROR("Bad state for that request [%d]", GnssState);
-            result = LE_NOT_PERMITTED;
-        }
-        break;
-        case TAF_GNSS_STATE_READY:
-        {
-            // Set GNSS constellation area
-            result = LE_OK; // by default all constellation is set in TelSDK
-        }
-        break;
-        default:
-        {
-            result = LE_FAULT;
-            LE_ERROR("Unknown GNSS state %d", GnssState);
-        }
-        break;
-    }
-    return result;
-}
-
 le_result_t taf_Gnss::GetSatellitesStatus
 (
     taf_gnss_SampleRef_t positionSampleRef,
@@ -1865,19 +1811,22 @@ taf_gnss_PositionHandlerRef_t taf_Gnss::AddPositionHandler
  void* contextPtr
 )
 {
-    taf_gnss_PositionHandler_t*  positionHandlerPtr = (taf_gnss_PositionHandler_t*)le_mem_ForceAlloc(PositionHandlerPoolRef);
+    taf_gnss_PositionHandler_t*  positionHandlerPtr =
+        (taf_gnss_PositionHandler_t*)le_mem_ForceAlloc(PositionHandlerPoolRef);
+    memset(positionHandlerPtr, 0, sizeof(taf_gnss_PositionHandler_t));
     positionHandlerPtr->next = LE_DLS_LINK_INIT;
     positionHandlerPtr->handlerFuncPtr = handlerPtr;
     positionHandlerPtr->handlerContextPtr = contextPtr;
     positionHandlerPtr->sessionRef = taf_gnss_GetClientSessionRef();
+    positionHandlerPtr->handlerRef =
+        (taf_gnss_PositionHandlerRef_t)le_ref_CreateRef(PositionHandlerRefMap, positionHandlerPtr);
 
-    HandlerRef = le_event_AddHandler("LocUpdateEventId", positionEventId, GnssPositionHandler);
-    le_event_SetContextPtr(HandlerRef, contextPtr);
-    le_dls_Queue(&PositionHandlerList, &(positionHandlerPtr->next));
     NumOfPositionHandlers++;
-    LE_DEBUG("Position handler %p added", HandlerRef);
 
-    return (taf_gnss_PositionHandlerRef_t)positionHandlerPtr;
+    LE_DEBUG("Created positionHandlerRef(%p) for positionHandlerPtr(%p) (totalCnt=0x%x).",
+        positionHandlerPtr->handlerRef, positionHandlerPtr, NumOfPositionHandlers);
+
+    return positionHandlerPtr->handlerRef;
 }
 
 le_result_t taf_Gnss::GetConstellation
@@ -1927,20 +1876,23 @@ taf_gnss_SampleRef_t taf_Gnss::GetLastSampleRef
     void
 )
 {
-    auto &gnss = taf_Gnss::GetInstance();
-    taf_gnss_PositionSampleRequest_t* posSampleReqPtr = (taf_gnss_PositionSampleRequest_t*)le_mem_ForceAlloc(PositionSampleRequestPoolRef);
-    posSampleReqPtr->positionSampleNodePtr = (taf_gnss_PositionSample_t*)le_mem_ForceAlloc(PositionSamplePoolRef);
+    taf_gnss_PositionSampleRequest_t* posSampleReqPtr =
+        (taf_gnss_PositionSampleRequest_t*)le_mem_ForceAlloc(PositionSampleRequestPoolRef);
+
+    memset(posSampleReqPtr, 0, sizeof(taf_gnss_PositionSampleRequest_t));
+
+    posSampleReqPtr->positionSampleNodePtr =
+       (taf_gnss_PositionSample_t*)le_mem_ForceAlloc(PositionSamplePoolRef);
+    memset(posSampleReqPtr->positionSampleNodePtr, 0, sizeof(taf_gnss_PositionSample_t));
 
     memcpy(posSampleReqPtr->positionSampleNodePtr, &LastPositionSample, sizeof(taf_gnss_PositionSample_t));
 
-    posSampleReqPtr->positionSampleNodePtr->next = LE_DLS_LINK_INIT;
-    le_dls_Queue(&PositionSampleList, &(posSampleReqPtr->positionSampleNodePtr->next));
 
     LE_DEBUG("Get sample %p", posSampleReqPtr->positionSampleNodePtr);
 
     posSampleReqPtr->sessionRef = taf_gnss_GetClientSessionRef();
 
-    taf_gnss_SampleRef_t reqRef = (taf_gnss_SampleRef_t)le_ref_CreateRef(gnss.PositionSampleMap, posSampleReqPtr);
+    taf_gnss_SampleRef_t reqRef = (taf_gnss_SampleRef_t)le_ref_CreateRef(PositionSampleMap, posSampleReqPtr);
     posSampleReqPtr->positionSampleRef = reqRef;
 
     return reqRef;
@@ -2369,6 +2321,98 @@ le_result_t taf_Gnss::GetGpsLeapSeconds
     return result;
 }
 
+le_result_t taf_Gnss::GetMagneticDeviation
+(
+ taf_gnss_SampleRef_t positionSampleRef,
+ int32_t* magneticDeviationPtr
+)
+{
+    le_result_t result;
+    taf_gnss_PositionSampleRequest_t* posSampleReqPtr
+                                            = (taf_gnss_PositionSampleRequest_t*)le_ref_Lookup(PositionSampleMap,positionSampleRef);
+
+    TAF_KILL_CLIENT_IF_RET_VAL((magneticDeviationPtr == NULL), LE_FAULT, "Invalid reference");
+
+    result = CheckValidatePosition(posSampleReqPtr);
+    if (result != LE_OK)
+    {
+        return result;
+    }
+
+    if (posSampleReqPtr->positionSampleNodePtr->magneticDeviationValid)
+    {
+        result = LE_OK;
+        *magneticDeviationPtr = posSampleReqPtr->positionSampleNodePtr->magneticDeviation;
+    }
+    else
+    {
+        result = LE_OUT_OF_RANGE;
+        *magneticDeviationPtr = INT32_MAX;
+    }
+
+    return result;
+}
+
+le_result_t taf_Gnss::GetEllipticalUncertainty
+(
+ taf_gnss_SampleRef_t positionSampleRef,
+ uint32_t* horUncEllipseSemiMajorPtr,
+ uint32_t* horUncEllipseSemiMinorPtr,
+ uint8_t*  horConfidencePtr
+)
+{
+    le_result_t result;
+    taf_gnss_PositionSampleRequest_t* posSampleReqPtr
+                                            = (taf_gnss_PositionSampleRequest_t*)le_ref_Lookup(PositionSampleMap,positionSampleRef);
+
+    result = CheckValidatePosition(posSampleReqPtr);
+    if (result != LE_OK)
+    {
+        return result;
+    }
+    if(horUncEllipseSemiMajorPtr)
+    {
+        if (posSampleReqPtr->positionSampleNodePtr->horUncEllipseSemiMajorValid)
+        {
+            result = LE_OK;
+            *horUncEllipseSemiMajorPtr = posSampleReqPtr->positionSampleNodePtr->horUncEllipseSemiMajor;
+        }
+        else
+        {
+            result = LE_OUT_OF_RANGE;
+            *horUncEllipseSemiMajorPtr = UINT32_MAX;
+        }
+    }
+    if(horUncEllipseSemiMinorPtr)
+    {
+        if (posSampleReqPtr->positionSampleNodePtr->horUncEllipseSemiMinorValid)
+        {
+            result = LE_OK;
+            *horUncEllipseSemiMinorPtr = posSampleReqPtr->positionSampleNodePtr->horUncEllipseSemiMinor;
+        }
+        else
+        {
+            result = LE_OUT_OF_RANGE;
+            *horUncEllipseSemiMinorPtr = UINT32_MAX;
+        }
+    }
+    if(horConfidencePtr)
+    {
+        if (posSampleReqPtr->positionSampleNodePtr->horConfidenceValid)
+        {
+            result = LE_OK;
+            *horConfidencePtr = posSampleReqPtr->positionSampleNodePtr->horConfidence;
+        }
+        else
+        {
+            result = LE_OUT_OF_RANGE;
+            *horConfidencePtr = UINT8_MAX;
+        }
+    }
+
+    return result;
+}
+
 le_result_t taf_Gnss::GetTimeAccuracy
 (
  taf_gnss_SampleRef_t posRef,
@@ -2598,7 +2642,7 @@ le_result_t taf_Gnss::SetAcquisitionRate
         case TAF_GNSS_STATE_ACTIVE:
         {
             // Set the GNSS device acquisition rate
-            if(rate == 0 || rate < 1000)
+            if(rate < 1000)
             {
                 rate = 1000;
                 LE_DEBUG("SetAcquisitionRate -> mAcqRate is zero, so set default to 1000ms");
@@ -2654,6 +2698,39 @@ le_result_t taf_Gnss::ForceColdRestart
                     GnssState = TAF_GNSS_STATE_READY;
                     result = LE_FAULT;
                 }
+                if(result == LE_OK)
+                {
+                    // stop Detailed Reports
+                    if (mStarted) {
+                        mLocCmdResponseCb =std::make_shared<LocationCommandCallback>("stopReports");
+                        mLocationManager->stopReports(std::bind(
+                                &LocationCommandCallback::commandResponse,
+                                    mLocCmdResponseCb, std::placeholders::_1));
+                        mStarted = false;
+                        LE_DEBUG("ForceColdRestart ->StopReports()");
+                    }
+                    sleep(5); // 5sec sleep required to stop and start Gnss engine
+
+                    //start Detailed report
+                    if (!mStarted) {
+                        mStarted = true;
+                        int optInterval = mAcqRate;
+                        if( optInterval == 0  || optInterval < 1000) {
+                            LE_DEBUG("ForceColdRestart mAcqRate is zero, so set default to 1000ms");
+                            optInterval = 1000;
+                            mAcqRate = optInterval;
+                        }
+
+                        LocReqEngine engineType = DEFAULT_UNKNOWN;
+                        engineType |= 1UL << 0; //DRE+SPE+PPE engines supported
+                        mLocCmdResponseCb = std::make_shared<LocationCommandCallback>
+                                ("startDetailedEngineReports");
+                        mLocationManager->startDetailedEngineReports((uint32_t)optInterval,
+                                engineType,std::bind(&LocationCommandCallback::commandResponse,
+                                    mLocCmdResponseCb, std::placeholders::_1));
+                        LE_DEBUG("ForceColdRestart ->startDetailedEngineReports()");
+                    }
+                }
             }
         break;
         default:
@@ -2695,9 +2772,42 @@ le_result_t taf_Gnss::ForceWarmRestart
                 telux::common::Status status = mLocationConfigurator->deleteAidingData(AidingData,
                         std::bind(&LocationCommandCallback::commandResponse, mLocCmdResponseCb, std::placeholders::_1));
                 if (status == telux::common::Status::NOTIMPLEMENTED) {
-                    LE_ERROR("ForceColdRestart failed or Not Implemented");
+                    LE_ERROR("ForceWarmRestart failed or Not Implemented");
                     GnssState = TAF_GNSS_STATE_READY;
                     result = LE_FAULT;
+                }
+                if(result == LE_OK)
+                {
+                    // stop Detailed Reports
+                    if (mStarted) {
+                        mLocCmdResponseCb =std::make_shared<LocationCommandCallback>("stopReports");
+                        mLocationManager->stopReports(std::bind(
+                                &LocationCommandCallback::commandResponse,
+                                    mLocCmdResponseCb, std::placeholders::_1));
+                        mStarted = false;
+                        LE_DEBUG("ForceWarmRestart ->StopReports()");
+                    }
+                    sleep(5); // 5sec sleep required to stop and start Gnss engine
+
+                    //start Detailed report
+                    if (!mStarted) {
+                        mStarted = true;
+                        int optInterval = mAcqRate;
+                        if( optInterval == 0  || optInterval < 1000) {
+                            LE_DEBUG("ForceWarmRestart mAcqRate is zero, so set default to 1000ms");
+                            optInterval = 1000;
+                            mAcqRate = optInterval;
+                        }
+
+                        LocReqEngine engineType = DEFAULT_UNKNOWN;
+                        engineType |= 1UL << 0; //DRE+SPE+PPE engines supported
+                        mLocCmdResponseCb = std::make_shared<LocationCommandCallback>
+                                ("startDetailedEngineReports");
+                        mLocationManager->startDetailedEngineReports((uint32_t)optInterval,
+                                engineType,std::bind(&LocationCommandCallback::commandResponse,
+                                    mLocCmdResponseCb, std::placeholders::_1));
+                        LE_DEBUG("ForceWarmRestart ->startDetailedEngineReports()");
+                    }
                 }
         }
         break;
@@ -2745,16 +2855,10 @@ le_result_t taf_Gnss::ForceHotRestart
                     mStarted = true;
                     int optInterval = mAcqRate;
                     if( optInterval == 0  || optInterval < 1000) {
-                        LE_DEBUG("mAcqRate is zero, so set default to 1000ms");
+                        LE_DEBUG("ForceHotRestart()->mAcqRate is zero, so set default to 1000ms");
                         optInterval = 1000;
                         mAcqRate = optInterval;
                     }
-                    #if 0
-                    mLocCmdResponseCb = std::make_shared<LocationCommandCallback>("startDetailedReports");
-                    mLocationManager->startDetailedReports((uint32_t)optInterval,
-                            std::bind(&LocationCommandCallback::commandResponse,
-                                mLocCmdResponseCb, std::placeholders::_1));
-                    #else
                     LocReqEngine engineType = DEFAULT_UNKNOWN;
                     engineType |= 1UL << 0; //DRE+SPE+PPE engines supported
                     mLocCmdResponseCb = std::make_shared<LocationCommandCallback>
@@ -2762,7 +2866,7 @@ le_result_t taf_Gnss::ForceHotRestart
                     mLocationManager->startDetailedEngineReports((uint32_t)optInterval,engineType,
                             std::bind(&LocationCommandCallback::commandResponse,
                                 mLocCmdResponseCb, std::placeholders::_1));
-                    #endif
+                    LE_DEBUG("ForceHotRestart()->startDetailedEngineReports");
                 }
             }
         break;
@@ -2823,9 +2927,173 @@ le_result_t taf_Gnss::SetMinElevation
     uint8_t  minElevation
 )
 {
+    le_result_t result = LE_FAULT;
     TAF_ERROR_IF_RET_VAL( minElevation > TAF_GNSS_MIN_ELEVATION_MAX_DEGREE, LE_OUT_OF_RANGE, "minimum elevation is above maximal range");
 
-    return LE_UNSUPPORTED;//No support to set MinElevation in TelSDK
+    switch (GnssState)
+    {
+        case TAF_GNSS_STATE_READY:
+        case TAF_GNSS_STATE_DISABLED:
+        case TAF_GNSS_STATE_UNINITIALIZED:
+        {
+             LE_ERROR("Wrong Gnss State [%d]", GnssState);
+             result = LE_NOT_PERMITTED;
+        }
+        break;
+        case TAF_GNSS_STATE_ACTIVE:
+        {
+             mLocCmdResponseCb = std::make_shared<LocationCommandCallback>
+                     ("Configure-Minimum SV Elevation");
+             telux::common::Status status = mLocationConfigurator->configureMinSVElevation(
+                     minElevation,std::bind(&LocationCommandCallback::commandResponse,
+                         mLocCmdResponseCb,std::placeholders::_1));
+             if (status == telux::common::Status::NOTIMPLEMENTED)
+             {
+                 LE_INFO("Not implemented");
+                 result = LE_FAULT;
+             }
+             else if (telux::common::Status::SUCCESS == status)
+             {
+                 LE_INFO("Success");
+                 result = LE_OK;
+             }
+        }
+        break;
+        default:
+        {
+            result = LE_FAULT;
+            LE_ERROR("Invalid GNSS state %d", GnssState);
+        }
+        break;
+    }
+
+   return result;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This function starts the GNSS device in the specified start mode.
+ *
+ * @return
+ *  - LE_OK              The function succeeded.
+ *  - LE_BAD_PARAMETER   Invalid start mode
+ *  - LE_FAULT           The function failed.
+ *  - LE_DUPLICATE       If the GNSS device is already started.
+ *  - LE_NOT_PERMITTED   If the GNSS device is not initialized or disabled.
+ *
+ * @warning This function may be subject to limitations depending on the platform. Please refer to
+ *          the @ref platformConstraintsGnss page.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_Gnss::StartMode
+(
+    taf_gnss_StartMode_t mode    ///< [IN] Start mode
+)
+{
+    le_result_t result = LE_OK;
+
+    if (mode >= TAF_GNSS_UNKNOWN_START)
+    {
+        LE_ERROR("Invalid start mode %d", mode);
+        return LE_BAD_PARAMETER;
+    }
+    switch (GnssState)
+    {
+        case TAF_GNSS_STATE_READY:
+        {
+            if(mode == TAF_GNSS_HOT_START) //Hot Start
+            {
+                LE_INFO("Hot Start! No operation\n");
+            }
+            else if(mode == TAF_GNSS_WARM_START) //Warm Start
+            {
+                LE_DEBUG("Warm Start Mode");
+                /* Specifies AidingDataType mask */
+                /* 0 - EPHEMERIS 1 - DR_SENSOR_CALIBRATION
+                AidingData |1UL << (0,1) which is 3*/
+
+                uint32_t AidingData = 3;
+                mLocCmdResponseCb = std::make_shared<LocationCommandCallback>
+                        ("Delete Aiding Data warm Start");
+                telux::common::Status status = mLocationConfigurator->deleteAidingData(
+                        AidingData,std::bind(&LocationCommandCallback::commandResponse,
+                                mLocCmdResponseCb, std::placeholders::_1));
+                if (status == telux::common::Status::NOTIMPLEMENTED)
+                {
+                    LE_ERROR("StartMode()-> Warm start failed or Not Implemented");
+                    result = LE_FAULT;
+                }
+            }
+            //Cold or Factory Start
+            else if((mode == TAF_GNSS_COLD_START) || (mode == TAF_GNSS_FACTORY_START))
+            {
+
+                LE_DEBUG("Cold/Factory called");
+                mLocCmdResponseCb = std::make_shared<LocationCommandCallback>
+                       ("Delete All Aiding Data Cold Start");
+                telux::common::Status status = mLocationConfigurator->deleteAllAidingData(
+                    std::bind(&LocationCommandCallback::commandResponse, mLocCmdResponseCb,
+                            std::placeholders::_1));
+                if (status == telux::common::Status::NOTIMPLEMENTED)
+                {
+                    LE_ERROR("StartMode()-> Cold or factory start failed or Not Implemented");
+                    result = LE_FAULT;
+                }
+            }
+            else
+            {
+
+                LE_INFO("Invalid Start Mode!\n");
+                result = LE_FAULT;
+            }
+
+            if(result == LE_OK)
+            {
+                GnssState = TAF_GNSS_STATE_ACTIVE;
+                if (!mStarted)
+                {
+                    mStarted = true;
+                    int optInterval = mAcqRate;
+                    LE_INFO("StartMode()->  mAcqRate: %d",mAcqRate);
+                    if( optInterval == 0  || optInterval < 1000)
+                    {
+                        LE_DEBUG("StartMode()->mAcqRate is zero, so set default to 1000ms");
+                        optInterval = 1000;
+                        mAcqRate = optInterval;
+                    }
+                    LocReqEngine engineType = DEFAULT_UNKNOWN;
+                    engineType |= 1UL << 0; //DRE+SPE+PPE engines supported
+                    mLocCmdResponseCb = std::make_shared<LocationCommandCallback>
+                            ("startDetailedEngineReports");
+                    mLocationManager->startDetailedEngineReports((uint32_t)optInterval,engineType,
+                            std::bind(&LocationCommandCallback::commandResponse,
+                                mLocCmdResponseCb, std::placeholders::_1));
+                    mStartTime = std::chrono::system_clock::now();
+                }
+            }
+        }
+        break;
+        case TAF_GNSS_STATE_UNINITIALIZED:
+        case TAF_GNSS_STATE_DISABLED:
+        {
+            LE_ERROR("Bad state for that request [%d]", GnssState);
+            result = LE_NOT_PERMITTED;
+        }
+        break;
+        case TAF_GNSS_STATE_ACTIVE:
+        {
+            LE_ERROR("Bad state for that request [%d]", GnssState);
+            result = LE_DUPLICATE;
+        }
+        break;
+        default:
+        {
+            result = LE_FAULT;
+            LE_ERROR("Unknown GNSS state %d", GnssState);
+        }
+        break;
+    }
+    return result;
 }
 
 le_result_t taf_Gnss::GetMinElevation
@@ -3595,7 +3863,15 @@ le_result_t taf_Gnss::RequestSecondaryBandConstellations
                 LE_INFO("Success");
                 result = LE_OK;
                 std::unique_lock<std::mutex> lock(mMutex);
-                mCondVar.wait(lock);
+                auto secbandStatus = mCondVar.wait_for(lock,
+                                     std::chrono::seconds(DEFAULT_TIMEOUT_IN_SECONDS));
+                if(secbandStatus == std::cv_status::timeout)
+                {
+                    LE_DEBUG("RequestSecondaryBandConstellation type is not found within %d seconds",
+                             DEFAULT_TIMEOUT_IN_SECONDS);
+                    result = LE_FAULT;
+                    return result;
+                }
                 *constellationSb = mRequestSB;
             }
         }
@@ -3702,90 +3978,22 @@ void taf_Gnss::RemovePositionHandler
     taf_gnss_PositionHandlerRef_t handlerRef
 )
 {
-    auto &gnss = taf_Gnss::GetInstance();
-    taf_gnss_PositionHandler_t* posHandlerPtr;
-    le_dls_Link_t* linkPtr;
+    taf_gnss_PositionHandler_t* positionHandlerPtr =
+        (taf_gnss_PositionHandler_t*)le_ref_Lookup(PositionHandlerRefMap, handlerRef);
 
-    linkPtr = le_dls_Peek(&gnss.PositionHandlerList);
-    if (linkPtr != NULL)
+    if (positionHandlerPtr != NULL)
     {
-        do
-        {
-            posHandlerPtr =
-                (taf_gnss_PositionHandler_t*)CONTAINER_OF(linkPtr, taf_gnss_PositionHandler_t, next);
+        LE_ASSERT(positionHandlerPtr->handlerRef == handlerRef);
+        NumOfPositionHandlers--;
 
-            if ((taf_gnss_PositionHandlerRef_t)posHandlerPtr == handlerRef)
-            {
-                le_mem_Release(posHandlerPtr);
-                NumOfPositionHandlers--;
-                linkPtr=NULL;
-            }
-            else
-            {
-                linkPtr = le_dls_PeekNext(&gnss.PositionHandlerList, linkPtr);
-            }
-        } while (linkPtr != NULL);
+        LE_DEBUG("Removed positionHandlerRef(%p) for positionHandlerPtr(%p) (totalCnt=0x%x).",
+                 positionHandlerPtr->handlerRef, positionHandlerPtr, NumOfPositionHandlers);
+        le_mem_Release(positionHandlerPtr);
+        le_ref_DeleteRef(PositionHandlerRefMap, handlerRef);
     }
-}
-
-void taf_Gnss::PosDestructor
-(
-    void* obj
-)
-{
-    auto &gnss = taf_Gnss::GetInstance();
-    taf_gnss_PositionSample_t *positionSampleNodePtr;
-    le_dls_Link_t   *linkPtr;
-
-    LE_FATAL_IF((NULL == obj), "Position Sample Object does not exist!");
-
-    linkPtr = le_dls_Peek(&gnss.PositionSampleList);
-    if (linkPtr != NULL)
+    else
     {
-        do
-        {
-            positionSampleNodePtr = (taf_gnss_PositionSample_t*)
-                                    CONTAINER_OF(linkPtr, taf_gnss_PositionSample_t, next);
-            if (positionSampleNodePtr == (taf_gnss_PositionSample_t*)obj)
-            {
-                le_dls_Remove(&gnss.PositionSampleList, linkPtr);
-                linkPtr=NULL;
-            }
-            else
-            {
-                linkPtr = le_dls_PeekNext(&gnss.PositionSampleList, linkPtr);
-            }
-        } while (linkPtr != NULL);
-    }
-}
-
-void taf_Gnss::PosHandleDestructor
-(
-    void* obj
-)
-{
-    auto &gnss = taf_Gnss::GetInstance();
-    taf_gnss_PositionHandler_t *posHandlerPtr;
-    le_dls_Link_t *linkPtr;
-
-    linkPtr = le_dls_Peek(&gnss.PositionHandlerList);
-    if (linkPtr != NULL)
-    {
-        do
-        {
-            posHandlerPtr =
-                (taf_gnss_PositionHandler_t*)CONTAINER_OF(linkPtr, taf_gnss_PositionHandler_t, next);
-
-            if (posHandlerPtr == (taf_gnss_PositionHandler_t*)obj)
-            {
-                le_dls_Remove(&gnss.PositionHandlerList, linkPtr);
-                linkPtr=NULL;
-            }
-            else
-            {
-                linkPtr = le_dls_PeekNext(&gnss.PositionHandlerList, linkPtr);
-            }
-        } while (linkPtr != NULL);
+        LE_ERROR("Invaild handlerRef(%p).", handlerRef);
     }
 }
 
@@ -3861,7 +4069,9 @@ void taf_Gnss::CloseEventHandler
             taf_gnss_SampleRef_t safeRef = (taf_gnss_SampleRef_t)le_ref_GetSafeRef(iterRef);
             LE_DEBUG("Release taf_gnss_ReleaseSampleRef 0x%p, Session 0x%p", safeRef, sessionRef);
 
-            taf_gnss_ReleaseSampleRef(safeRef);
+            le_ref_DeleteRef(gnss.PositionSampleMap, safeRef);
+            le_mem_Release(positionSampleRequestPtr->positionSampleNodePtr);
+            le_mem_Release(positionSampleRequestPtr);
         }
 
         result = le_ref_NextNode(iterRef);
@@ -3904,12 +4114,7 @@ void taf_Gnss::Init()
 {
 
     telux::common::Status status = telux::common::Status::FAILED;
-    PositionHandlerList = LE_DLS_LIST_DECL_INIT;
-    PositionSampleList = LE_DLS_LIST_DECL_INIT;
     SessionCtxList = LE_DLS_LIST_INIT;
-    SessionCtxPool = NULL;
-    HandlerPool = NULL;
-    SessionRefPool = NULL;
     mTtffEnable = false;
     mTtffPtr = 0;
     GnssState = TAF_GNSS_STATE_UNINITIALIZED;
@@ -3958,14 +4163,14 @@ void taf_Gnss::Init()
 
     PositionHandlerPoolRef = le_mem_InitStaticPool(PositionHandler, GNSS_POSITION_HANDLER_HIGH,
             sizeof(taf_gnss_PositionHandler_t));
-    le_mem_SetDestructor(PositionHandlerPoolRef, PosHandleDestructor);
 
     PositionSamplePoolRef = le_mem_InitStaticPool(PositionSample, GNSS_POSITION_SAMPLE_MAX,
             sizeof(taf_gnss_PositionSample_t));
-    le_mem_SetDestructor(PositionSamplePoolRef, PosDestructor);
 
     PositionSampleRequestPoolRef = le_mem_InitStaticPool(PositionSampleRequest,
             GNSS_POSITION_SAMPLE_MAX, sizeof(taf_gnss_PositionSampleRequest_t));
+
+    PositionHandlerRefMap = le_ref_CreateMap("PositionHandlerRefMap", 16);
 
     PositionSampleMap = le_ref_InitStaticMap(PositionSampleMap, GNSS_POSITION_SAMPLE_MAX);
 
@@ -3974,6 +4179,8 @@ void taf_Gnss::Init()
     ClientPoolRef = le_mem_InitStaticPool(Client, TAF_CONFIG_POSITIONING_ACTIVATION_MAX, sizeof(taf_gnss_Client_t));
 
     positionEventId = le_event_CreateIdWithRefCounting("positionEventId");
+
+    HandlerRef = le_event_AddHandler("LocUpdateEventId", positionEventId, taf_Gnss::GnssPositionHandler);
 
     le_msg_ServiceRef_t msgService = taf_gnss_GetServiceRef();
     le_msg_AddServiceCloseHandler(msgService, CloseEventHandler, NULL);

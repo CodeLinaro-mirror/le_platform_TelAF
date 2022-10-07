@@ -34,11 +34,5 @@
 #include "legato.h"
 #include "interfaces.h"
 
-void tafLocationTest_DR(taf_gnss_DrParams_t* drParams);
-void tafLocationTest_EngineState(int EngineType, int EngState);
-void tafLocationTest_ConfigureRobustLocation(int enable, int enabled911);
-void tafLocationTest_RobustLocationInformation(void);
-void tafLocationTest_DefaultSecondaryBandConstellations(void);
-void tafLocationTest_RequestSecondaryBandConstellations(void);
-void tafLocationTest_DisplayConfigureSecondaryBandConstellations(uint32_t constellationSb);
+#define DEFAULT_ACQUISITION_RATE 1000
 

@@ -132,21 +132,6 @@
    }
    @endverbatim
  *
- * The @c taf_pos_GetHeading() function gets the last updated heading value in degrees and
- * its associated accuracy value.
- *
- * - Heading in degrees; range is 0 to 359 with 0 being true North.
- * Heading is the direction that the vehicle or person is facing.
- *
- * @verbatim
-   uint32_t heading;
-   uint32_t headingAccuracy;
-   if (taf_pos_GetHeading(&heading, &headingAccuracy) == LE_OK)
-   {
-     // Process after succesfully getting the heading information.
-   }
-   @endverbatim
- *
  * The @c taf_pos_GetDirection() function gets the last updated direction value in degrees and
  * its associated accuracy value.
  *
@@ -159,6 +144,17 @@
    if (taf_pos_GetDirection(&direction, &directionAccuracy) == LE_OK)
    {
      // Process after succesfully getting the direction information.
+   }
+   @endverbatim
+ *
+ * The @c taf_pos_GetMotion() function gets motion's data(horizontal speed & its accuracy,
+ * verticial speed & its accuracy).
+ * @verbatim
+   uint32_t hSpeed, hAccuracy;
+   int32_t vSpeed, vAccuracy;
+   if (taf_pos_GetMotion(&hSpeed, &hAccuracy, &vSpeed, &vAccuracy)) == LE_OK)
+   {
+     // Process after succesfully getting the Motion data.
    }
    @endverbatim
  *
@@ -427,27 +423,6 @@ FUNCTION le_result_t GetDate
 FUNCTION le_result_t GetFixState
 (
  taf_gnss.FixState state OUT              ///< Position fix state.
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Gets the position sample's heading. Heading is the direction that the vehicle or person is facing.
- *
- * @return 
- * - LE_FAULT         Failed to get the heading indication.
- * - LE_OUT_OF_RANGE  One, or more, of the retrieved parameters is invalid (set to UINT32_MAX).
- * - LE_OK            Succeeded.
- *
- * @note Heading is given in degrees.
- *       Heading ranges from 0 to 359 degrees, where 0 is true North.
- *
- * @note headingPtr and headingAccuracyPtr can be set to NULL if not needed.
- */
-//--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t GetHeading
-(
- uint32 heading OUT,          ///< Heading in degrees.
- uint32 headingAccuracy OUT   ///< Heading's accuracy in degrees.
 );
 
 //--------------------------------------------------------------------------------------------------

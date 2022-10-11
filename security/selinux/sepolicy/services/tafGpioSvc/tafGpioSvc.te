@@ -4,7 +4,12 @@
 policy_module(tafGpioSvc, 1.0)
 
 gen_require(`
-  type sysfs_t;
+  type device_t;
+  type shell_exec_t;
+  type kmod_exec_t;
+  type telaf_app_rw_t;
+  type proc_t;
+  attribute can_load_kernmodule;
 ')
 
 # Framework definition for telaf
@@ -16,10 +21,24 @@ type telaf_tafGpioSvc_t;
 type telaf_tafGpioSvc_data_t;
 files_type(telaf_tafGpioSvc_data_t);
 
-# Allow to access /sys/class/gpio
-allow telaf_tafGpioSvc_t sysfs_t:file { rw_file_perms };
-
 init_telaf_app_domain(telaf_tafGpioSvc_t,telaf_tafGpioSvc_exec_t)
+
+# read /dev/gpio* device
+allow telaf_tafGpioSvc_t device_t:chr_file { read open ioctl };
+
+# system command
+allow telaf_tafGpioSvc_t shell_exec_t:file { exec_file_perms };
+
+# read /proc/filesystems
+allow telaf_tafGpioSvc_t proc_t:file { read_file_perms };
+
+# run insmod
+typeattribute telaf_tafGpioSvc_t can_load_kernmodule;
+allow telaf_tafGpioSvc_t kmod_exec_t:file { exec_file_perms };
+modutils_read_module_deps(telaf_tafGpioSvc_t)
+
+# read gpioWakeupPin.conf
+allow telaf_tafGpioSvc_t telaf_app_rw_t:lnk_file { read_file_perms };
 
 # Allow update daemon to install/uninstall this service
 telaf_admin_manage_all_files_perms(telaf_tafGpioSvc_data_t)

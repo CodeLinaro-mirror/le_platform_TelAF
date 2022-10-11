@@ -135,6 +135,12 @@ taf_gpio_ChangeEventHandlerRef_t taf_gpio_AddChangeEventHandler
 {
     LE_DEBUG("taf_gpio_AddChangeEventHandler, pinNum :%d",pinNum);
     auto &gpio = taf_Gpio::getInstance();
+    TAF_ERROR_IF_RET_VAL(pinNum < 0 || pinNum >= gpio.numOfGpios,
+            NULL, "Gpio pin %d is not available", pinNum);
+
+    TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, NULL,
+            "handlerPtr is NULL");
+
     return (taf_gpio_ChangeEventHandlerRef_t)gpio.setChangeCallback(
                 gpio.tafGpioRefPin[pinNum], tafGpio_InputMonitorHandlerFunc,
                 trigger, lock, handlerPtr, contextPtr);
@@ -153,7 +159,8 @@ le_result_t taf_gpio_SetEdgeSense (uint8_t pinNum, taf_gpio_Edge_t trigger, bool
     auto &gpio = taf_Gpio::getInstance();
     TAF_ERROR_IF_RET_VAL(pinNum < 0 || pinNum >= gpio.numOfGpios, LE_OUT_OF_RANGE,
             "Gpio pin %d is not available", pinNum);
-    return gpio.setEdgeSense(gpio.tafGpioRefPin[pinNum], trigger, lock);
+    return gpio.setEdgeSense(gpio.tafGpioRefPin[pinNum], trigger, lock,
+            tafGpio_InputMonitorHandlerFunc);
 }
 
 le_result_t taf_gpio_DisableEdgeSense (uint8_t pinNum, bool lock)
@@ -168,20 +175,28 @@ le_result_t taf_gpio_DisableEdgeSense (uint8_t pinNum, bool lock)
 COMPONENT_INIT{
     auto &gpio = taf_Gpio::getInstance();
     gpio.Init();
-    char result[9];
-    char path[64];
-    snprintf(path, sizeof(path), "%s", NUM_OF_GPIOS_PATH);
-    le_result_t res = gpio.getGpioAttribute(path, sizeof(result), result);
-    if(res == LE_OK)
+    int fd, ret;
+    struct gpiochip_info info;
+
+    // open the device
+    fd = le_fd_Open(DEV_NAME, O_RDONLY);
+    if (fd < 0)
     {
-        gpio.numOfGpios = atoi(result);
-        LE_INFO("numOfGpios is %d", gpio.numOfGpios);
-    }
-    else
-    {
-        LE_ERROR("Could not get teh total num of GPIO pins available");
+        LE_ERROR("Unabled to open %s: %s", DEV_NAME, strerror(errno));
         return;
     }
+
+    // Query GPIO chip information
+    ret = ioctl(fd, GPIO_GET_CHIPINFO_IOCTL, &info);
+    if (ret == -1)
+    {
+        LE_ERROR("Unable to get chip info from ioctl: %s", strerror(errno));
+        close(fd);
+        return;
+    }
+    LE_INFO("Number of gpio lines available: %d\n", info.lines);
+    gpio.numOfGpios = info.lines;
+    le_fd_Close(fd);
     le_mem_PoolRef_t gpioRefPool = le_mem_CreatePool("gpioRefPool", sizeof(taf_gpio));
     for(int i = 0; i < gpio.numOfGpios; i++) {
         gpio.tafGpioRefPin[i] = (taf_gpio*)le_mem_ForceAlloc(gpioRefPool);
@@ -192,5 +207,8 @@ COMPONENT_INIT{
         gpio.tafGpioRefPin[i]->handlerCount = 0;
         gpio.tafGpioRefPin[i]->fdMonitorRef = NULL;
         gpio.tafGpioRefPin[i]->lockedSession = NULL;
+        gpio.tafGpioRefPin[i]->edge = TAF_GPIO_EDGE_NONE;
+        gpio.tafGpioRefPin[i]->clientHashMap =  le_hashmap_Create(gpio.tafGpioRefPin[i]->gpioName,
+                31, le_hashmap_HashVoidPointer, le_hashmap_EqualsVoidPointer);
     }
 }

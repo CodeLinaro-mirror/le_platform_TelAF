@@ -36,8 +36,15 @@
 #include "interfaces.h"
 #include "tafGpio.hpp"
 
-using namespace telux::tafsvc;
+#define wakeupPinConfFile "/legato/systems/current/appsWriteable/tafGpioSvc/gpioWakeupPin.conf"
+#define KO_MODULE "/usr/lib/modules/4.14.206/extra/gpioWakeup.ko"
+#define COMPONENT_NAME "tafGpioSvc"
 
+static le_json_ParsingSessionRef_t JsonParsingSessionRef = NULL;
+static int jsonFd = -1;
+static bool isWakeupPin;
+
+using namespace telux::tafsvc;
 
 /**
  * Returns Gpio instance
@@ -48,127 +55,42 @@ taf_Gpio &taf_Gpio::getInstance()
     return instance;
 }
 
+int taf_Gpio::popen_call(const char *cmd)
+{
+    FILE *stream = NULL;
+    int rst = -1;
+
+    stream = popen(cmd, "w");
+    if (stream == NULL)
+    {
+        LE_ERROR("cmd %s running failed", cmd);
+        return rst;
+    }
+
+    rst = pclose(stream);
+    if (WIFEXITED(rst))
+    {
+        rst = WEXITSTATUS(rst);
+    }
+    return rst;
+}
+
 void taf_Gpio::Init()
 {
     LE_INFO("tafGpioSvc started");
     le_msg_AddServiceCloseHandler(taf_gpio_GetServiceRef(), OnClientDisconnection, NULL);
-    HandlerPool = le_mem_CreatePool("tafpioHandlerPool", sizeof(taf_InterruptHandlerCtx_t));
+    HandlerPool = le_mem_CreatePool("tafgpioHandlerPool", sizeof(taf_InterruptHandlerCtx_t));
     HandlerRefMap = le_ref_CreateMap("tafGpioHandler", MAX_TAF_GPIO_HANLDER*2);
     GpioHandlerList = LE_DLS_LIST_INIT;
     tafGpioEvent = le_event_CreateId("tafGpio Event",sizeof(taf_gpioEvent_t));
     le_event_AddHandler("tafgpio input pin interrupt", tafGpioEvent, callHandler);
-}
-
-bool taf_Gpio::checkGpioPathExist
-(
-    const char *gpioPath
-)
-{
-    DIR* gpioDir;
-
-    gpioDir = opendir(gpioPath);
-    if (gpioDir)
+    jsonFd = le_fd_Open(wakeupPinConfFile, O_RDONLY);
+    if(jsonFd != -1)
+        JsonParsingSessionRef = le_json_Parse(jsonFd, JsonEventHandler, JsonErrorHandler, NULL);
+    if(JsonParsingSessionRef == NULL)
     {
-        /* If directory exists close & return true */
-        closedir(gpioDir);
+        LE_ERROR("JsonParsingSessionRef is NULL");
     }
-    else if (ENOENT == errno)
-    {
-        return false;
-    }
-
-    return true;
-}
-
-le_result_t taf_Gpio::exportGpio
-(
-    const taf_GpioRef_t tafGpioRef
-)
-{
-    char gpioPath[128];
-    char exportPath[128];
-    char gpioNum[8];
-
-    // Return success, if its already exported
-    snprintf(gpioPath, sizeof(gpioPath), "%s/%s", GPIO_PATH, tafGpioRef->gpioName);
-    if (checkGpioPathExist(gpioPath))
-    {
-        return LE_OK;
-    }
-
-    snprintf(exportPath, sizeof(exportPath), "%s/%s", GPIO_PATH, "export");
-    snprintf(gpioNum, sizeof(gpioNum), "%d", tafGpioRef->pinNum);
-
-    int exportFd = le_fd_Open(exportPath, O_WRONLY );
-    if (exportFd == -1) {
-        return LE_IO_ERROR;
-    }
-
-    ssize_t written = le_fd_Write(exportFd, gpioNum, le_utf8_NumChars(gpioNum));
-    le_fd_Close(exportFd);
-    if (written == -1) {
-        LE_WARN("Failed to export GPIO %s", gpioNum);
-        return LE_IO_ERROR;
-    } else if (written < le_utf8_NumChars(gpioNum)) {
-        LE_WARN("Data truncated while exporting GPIO %s.", gpioNum);
-        return LE_IO_ERROR;
-    }
-
-    if (checkGpioPathExist(gpioPath))
-    {
-        return LE_OK;
-    }
-    LE_WARN("Unable to export GPIO %s.", gpioNum);
-    return LE_IO_ERROR;
-}
-
-le_result_t taf_Gpio::setGpioAttribute
-(
-    const char *gpioPath,
-    const char *attribute
-)
-{
-    int fileFd = le_fd_Open(gpioPath, O_WRONLY );
-    if (fileFd == -1) {
-        LE_ERROR("Failed to open file %s for writing", gpioPath);
-        return LE_IO_ERROR;
-    }
-
-    ssize_t written = le_fd_Write(fileFd, attribute, le_utf8_NumChars(attribute));
-    le_fd_Close(fileFd);
-
-    if (written == -1) {
-        LE_EMERG("Failed to write %s to GPIO config %s", attribute, gpioPath);
-        return LE_IO_ERROR;
-    } else if (written < le_utf8_NumChars(attribute)) {
-        LE_EMERG("Data truncated while writing to %s GPIO config %s.", gpioPath, attribute);
-        return LE_IO_ERROR;
-    }
-    return LE_OK;
-}
-
-le_result_t taf_Gpio::getGpioAttribute
-(
-    const char *gpioPath,
-    int attr_size,
-    char *gpioAttr
-)
-{
-    char *res = gpioAttr;
-
-    int gpioFd = le_fd_Open(gpioPath, O_RDONLY);
-    if (gpioFd == -1)
-    {
-        LE_ERROR("Failed to open file %s for reading", gpioPath);
-        return LE_IO_ERROR;
-    }
-
-    le_fd_Read(gpioFd, res, attr_size);
-
-    LE_DEBUG("Read result: %s from %s", res, gpioPath);
-    le_fd_Close(gpioFd);
-
-    return LE_OK;
 }
 
 le_result_t taf_Gpio::writeGpioOutputValue
@@ -177,52 +99,124 @@ le_result_t taf_Gpio::writeGpioOutputValue
     taf_gpio_State_t value
 )
 {
-    char gpioPath[64];
-    char gpioAttr[16];
 
     TAF_ERROR_IF_RET_VAL(tafGpioRef == NULL, LE_BAD_PARAMETER,
             "tafGpioRef is NULL or gpio not initialized");
 
-    snprintf(gpioPath, sizeof(gpioPath), "%s/%s/%s", GPIO_PATH,
-                          tafGpioRef->gpioName, "value");
-    snprintf(gpioAttr, sizeof(gpioAttr), "%d", value);
-    LE_DEBUG("gpioPath:%s, gpioAttr:%s", gpioPath, gpioAttr);
+    struct gpiohandle_request rq;
+    struct gpiohandle_data data;
+    int fd, ret;
+    LE_DEBUG("Write value %d to GPIOPIN %d (OUTPUT mode)\n", value, tafGpioRef->pinNum);
 
-    return setGpioAttribute(gpioPath, gpioAttr);
+    if (tafGpioRef->fdMonitor != -1) {
+        le_fd_Close(tafGpioRef->fdMonitor);
+        tafGpioRef->fdMonitor = -1;
+    }
+
+    fd = le_fd_Open(DEV_NAME, O_RDONLY);
+    if (fd < 0)
+    {
+        LE_ERROR("Unabled to open %s: %s", DEV_NAME, strerror(errno));
+        return LE_IO_ERROR;
+    }
+    rq.lineoffsets[0] = tafGpioRef->pinNum;
+    rq.flags = GPIOHANDLE_REQUEST_OUTPUT;
+    rq.lines = 1;
+    snprintf(rq.consumer_label, sizeof(rq.consumer_label), COMPONENT_NAME);
+    ret = ioctl(fd, GPIO_GET_LINEHANDLE_IOCTL, &rq);
+    le_fd_Close(fd);
+    if (ret == -1)
+    {
+        LE_ERROR("Unable to line handle from ioctl : %s", strerror(errno));
+        return LE_IO_ERROR;
+    }
+
+    tafGpioRef->fdMonitor = rq.fd;
+    data.values[0] = value;
+    ret = ioctl(tafGpioRef->fdMonitor, GPIOHANDLE_SET_LINE_VALUES_IOCTL, &data);
+
+    if (ret == -1)
+    {
+        LE_ERROR("Unable to set line value using ioctl : %s", strerror(errno));
+        le_fd_Close(rq.fd);
+        tafGpioRef->fdMonitor = -1;
+        return LE_BUSY;
+    }
+    else
+    {
+        LE_INFO("Succesfully wrote %d the GPIOPIN %d", data.values[0], tafGpioRef->pinNum);
+        return LE_OK;
+    }
 }
 
 le_result_t taf_Gpio::setEdgeType
 (
     taf_GpioRef_t tafGpioRef,
-    taf_gpio_Edge_t tafEdge
+    taf_gpio_Edge_t tafEdge,
+    le_fdMonitor_HandlerFunc_t fdMonFunc
 )
 {
-    char filePath[64];
-    const char *attr;
 
     TAF_ERROR_IF_RET_VAL(tafGpioRef == NULL, LE_BAD_PARAMETER,
             "tafGpioRef is NULL or gpio not initialized");
 
-    snprintf(filePath, sizeof(filePath), "%s/%s/%s", GPIO_PATH,
-             tafGpioRef->gpioName, "edge");
+    if (tafGpioRef->edge == tafEdge)
+    {
+        LE_INFO("Edge type is already set");
+        return LE_OK;
+    }
+    if(tafGpioRef->fdMonitorRef != NULL) {
+        LE_INFO("Stopping fd monitor");
+        le_fdMonitor_Delete(tafGpioRef->fdMonitorRef);
+        tafGpioRef->fdMonitorRef = NULL;
+    }
+    if (tafGpioRef->fdMonitor != -1)
+    {
+        le_fd_Close(tafGpioRef->fdMonitor);
+        tafGpioRef->fdMonitor = -1;
+    }
+    int fd, ret;
+    struct gpioevent_request rq;
 
+    // open the device
+    fd = le_fd_Open(DEV_NAME, O_RDONLY);
+
+    rq.lineoffset = tafGpioRef->pinNum;
+    rq.handleflags = GPIOHANDLE_REQUEST_INPUT;
+    snprintf(rq.consumer_label, sizeof(rq.consumer_label), COMPONENT_NAME);
     switch(tafEdge)
     {
         case TAF_GPIO_EDGE_RISING:
-            attr = "rising";
+            rq.eventflags = GPIOEVENT_REQUEST_RISING_EDGE;
             break;
         case TAF_GPIO_EDGE_FALLING:
-            attr = "falling";
+            rq.eventflags = GPIOEVENT_REQUEST_FALLING_EDGE;
             break;
         case TAF_GPIO_EDGE_BOTH:
-            attr = "both";
+            rq.eventflags = GPIOEVENT_REQUEST_BOTH_EDGES;
             break;
         default:
-            attr = "none";
+            rq.eventflags = GPIOEVENT_EVENT_FALLING_EDGE & GPIOEVENT_REQUEST_RISING_EDGE;
             break;
     }
-    LE_INFO("path:%s, attr:%s", filePath, attr);
-    return setGpioAttribute(filePath, attr);
+    ret = ioctl(fd, GPIO_GET_LINEEVENT_IOCTL, &rq);
+    le_fd_Close(fd);
+    if (ret == -1)
+    {
+        LE_INFO("Unable to get line event from ioctl : %s", strerror(errno));
+        return LE_IO_ERROR;
+    }
+    else
+    {
+        tafGpioRef->fdMonitorRef = le_fdMonitor_Create (tafGpioRef->gpioName, rq.fd, fdMonFunc,
+                POLLIN);
+        tafGpioRef->edge = tafEdge;
+        tafGpioRef->fdMonitor = rq.fd;
+        LE_INFO("Successfully set the edge type");
+        le_msg_SessionRef_t sessionRef = taf_gpio_GetClientSessionRef();
+        le_hashmap_Put(tafGpioRef->clientHashMap, sessionRef, sessionRef);
+        return LE_OK;
+    }
 }
 
 le_result_t taf_Gpio::setDirection
@@ -231,8 +225,6 @@ le_result_t taf_Gpio::setDirection
     taf_gpio_PinMode_t tafPinMode
 )
 {
-    char filePath[64];
-    const char *attr;
     taf_gpio_PinMode_t currentMode;
 
     TAF_ERROR_IF_RET_VAL(tafGpioRef == NULL, LE_BAD_PARAMETER,
@@ -245,13 +237,33 @@ le_result_t taf_Gpio::setDirection
         // Direction is already correct, do nothing.
         return LE_OK;
     }
-
-    snprintf(filePath, sizeof(filePath), "%s/%s/%s", GPIO_PATH,
-            tafGpioRef->gpioName, "direction");
-    attr = (tafPinMode == GPIO_PIN_MODE_OUTPUT) ? "out": "in";
-    LE_INFO("path:%s, attribute:%s", filePath, attr);
-
-    return setGpioAttribute(filePath, attr);
+    if (tafGpioRef->fdMonitor != -1)
+    {
+        le_fd_Close(tafGpioRef->fdMonitor);
+        tafGpioRef->fdMonitor = -1;
+    }
+    int fd, ret;
+    fd = le_fd_Open(DEV_NAME, O_RDONLY);
+    struct gpiohandle_request rq;
+    rq.lineoffsets[0] = tafGpioRef->pinNum;
+    rq.lines = 1;
+    snprintf(rq.consumer_label, sizeof(rq.consumer_label), COMPONENT_NAME);
+    rq.flags = (tafPinMode == GPIO_PIN_MODE_OUTPUT) ?
+            GPIOHANDLE_REQUEST_OUTPUT : GPIOHANDLE_REQUEST_INPUT;
+    ret = ioctl(fd, GPIO_GET_LINEHANDLE_IOCTL, &rq);
+    le_fd_Close(fd);
+    if (ret == -1)
+    {
+        LE_INFO("Unable to line handle from ioctl : %s", strerror(errno));
+        return LE_IO_ERROR;
+    }
+    else
+    {
+        tafGpioRef->fdMonitor = rq.fd;
+        LE_INFO("Gpio %d direction changed to %s", tafGpioRef->pinNum,
+                ((tafPinMode == GPIO_PIN_MODE_OUTPUT) ? "OUT" : "IN"));
+        return LE_OK;
+    }
 }
 
 le_result_t taf_Gpio::setGpioAsInput
@@ -261,8 +273,6 @@ le_result_t taf_Gpio::setGpioAsInput
     bool lock
 )
 {
-    TAF_ERROR_IF_RET_VAL(LE_OK != exportGpio(tafGpioRef), LE_BUSY,
-            "Unable to export GPIO %s for use", tafGpioRef->gpioName);
 
     le_msg_SessionRef_t sessionRef = taf_gpio_GetClientSessionRef();
     if (tafGpioRef->isLocked && tafGpioRef->lockedSession != sessionRef) {
@@ -283,7 +293,13 @@ le_result_t taf_Gpio::setGpioAsInput
     tafGpioRef->isLocked = lock;
     tafGpioRef->lockedSession = sessionRef;
 
-    return setPolarity(tafGpioRef, polarity);
+    le_hashmap_Put(tafGpioRef->clientHashMap, sessionRef, sessionRef);
+
+    if (getPolarity(tafGpioRef) != polarity)
+    {
+        return setPolarity(tafGpioRef, polarity);
+    }
+    return LE_OK;
 }
 
 le_result_t taf_Gpio::setPolarity
@@ -292,20 +308,48 @@ le_result_t taf_Gpio::setPolarity
     taf_gpio_ActiveType_t level
 )
 {
-    char filePath[64];
-    char attr[16];
-
     TAF_ERROR_IF_RET_VAL(tafGpioRef == NULL, LE_BAD_PARAMETER,
             "tafGpioRef is NULL or gpio not initialized");
 
-    snprintf(filePath, sizeof(filePath), "%s/%s/%s", GPIO_PATH,
-             tafGpioRef->gpioName, "active_low");
-    snprintf(attr, sizeof(attr), "%d", level);
-    LE_INFO("path:%s, attr:%s", filePath, attr);
+    int fd, ret;
+    struct gpiohandle_request rq;
+    fd = le_fd_Open(DEV_NAME, O_RDONLY);
+    if (fd < 0)
+    {
+        LE_ERROR("Unabled to open %s: %s", DEV_NAME, strerror(errno));
+        return LE_IO_ERROR;
+    }
+    if (tafGpioRef->fdMonitor != -1)
+    {
+        le_fd_Close(tafGpioRef->fdMonitor);
+        tafGpioRef->fdMonitor = -1;
+    }
+    rq.lineoffsets[0] = tafGpioRef->pinNum;
+    if(level == GPIO_ACTIVE_TYPE_LOW)
+    {
+        rq.flags = GPIOHANDLE_REQUEST_ACTIVE_LOW|GPIOHANDLE_REQUEST_INPUT;
+    }
+    else if(level == GPIO_ACTIVE_TYPE_HIGH)
+    {
+        rq.flags = GPIOHANDLE_REQUEST_INPUT;
+    }
+    rq.lines = 1;
+    snprintf(rq.consumer_label, sizeof(rq.consumer_label), COMPONENT_NAME);
+    ret = ioctl(fd, GPIO_GET_LINEHANDLE_IOCTL, &rq);
+    le_fd_Close(fd);
+    if (ret == -1)
+    {
+        LE_ERROR("Unable to get line handle from ioctl : %s", strerror(errno));
+        return LE_IO_ERROR;
+    }
+    else
+    {
+        LE_INFO("Succesfully set the polarity");
+        tafGpioRef->fdMonitor = rq.fd;
+    }
 
-    return setGpioAttribute(filePath, attr);
+    return LE_OK;
 }
-
 void* taf_Gpio::setChangeCallback
 (
     taf_GpioRef_t tafGpioRef,
@@ -316,15 +360,8 @@ void* taf_Gpio::setChangeCallback
     void* contextPtr
 )
 {
-    char monFile[128];
-    int monFd = -1;
-    le_result_t leResult;
-
     TAF_ERROR_IF_RET_VAL(tafGpioRef == NULL, NULL,
             "tafGpioRef is NULL or object not initialized");
-
-    TAF_ERROR_IF_RET_VAL(LE_OK != exportGpio(tafGpioRef), NULL,
-            "Failed to export GPIO %s for use", tafGpioRef->gpioName);
 
     le_msg_SessionRef_t sessionRef = taf_gpio_GetClientSessionRef();
     if (tafGpioRef->isLocked && tafGpioRef->lockedSession != sessionRef) {
@@ -349,48 +386,64 @@ void* taf_Gpio::setChangeCallback
     le_dls_Queue(&GpioHandlerList, &handlerCtxPtr->link);
     tafGpioRef->handlerCount++;
 
-    leResult = setEdgeSense(tafGpioRef, edge, lock);
-    // Set the edge detection mode
-    if (leResult != LE_OK)
-    {
-        TAF_ERROR_IF_RET_VAL(leResult == LE_BAD_PARAMETER, NULL,
-                "Path doesn't exist to set edge detection");
-        TAF_ERROR_IF_RET_VAL(leResult != LE_BAD_PARAMETER, NULL,
-                "Failed to set edge detection");
-    }
-    if (tafGpioRef->fdMonitor != -1) {
-        LE_INFO("Monitor is already created for the GPIO %d", tafGpioRef->pinNum);
+    if (tafGpioRef->fdMonitorRef != NULL && edge == tafGpioRef->edge) {
+        LE_INFO("Monitor is already created for the same edge type for GPIO %d",
+                tafGpioRef->pinNum);
+        le_hashmap_Put(tafGpioRef->clientHashMap, sessionRef, sessionRef);
         return handlerCtxPtr->handlerRef;
     }
     // Start monitoring the fd for the correct GPIO
-    snprintf(monFile, sizeof(monFile), "%s/%s/%s", GPIO_PATH,
-             tafGpioRef->gpioName, "value");
-
-    do
+    int fd, ret;
+    struct gpioevent_request rq;
+    fd = le_fd_Open(DEV_NAME, O_RDONLY);
+    if (fd < 0)
     {
-        monFd = open(monFile, O_RDONLY);
+        LE_ERROR("Unabled to open %s: %s", DEV_NAME, strerror(errno));
+        return NULL;
     }
-    while ((monFd < 0) && (errno == EINTR));
-
-    TAF_ERROR_IF_RET_VAL(monFd < 0, NULL, "Failed to open GPIO file for monitoring");
-
-    LE_DEBUG("Seek to start of file %d", monFd);
-
-    TAF_ERROR_IF_RET_VAL(lseek(monFd, 0, SEEK_SET) == (off_t)(-1), NULL,
-            "Failed to SEEK_SET for GPIO '%s'. %m.", tafGpioRef->gpioName );
-
-    //We will read a single character
-    char buf[1];
-
-    if (read(monFd, buf, 1) != 1)
+    if(tafGpioRef->fdMonitorRef != NULL) {
+            LE_INFO("Stopping fd monitor");
+            le_fdMonitor_Delete(tafGpioRef->fdMonitorRef);
+            tafGpioRef->fdMonitorRef = NULL;
+    }
+    if(tafGpioRef->fdMonitor != -1)
     {
-        LE_ERROR("Unable to read value for GPIO %s. %m", tafGpioRef->gpioName);
+        le_fd_Close(tafGpioRef->fdMonitor);
+        tafGpioRef->fdMonitor = -1;
+    }
+    rq.lineoffset = tafGpioRef->pinNum;
+    if (edge == TAF_GPIO_EDGE_RISING)
+    {
+        rq.eventflags = GPIOEVENT_REQUEST_RISING_EDGE;
+    }
+    else if(edge == TAF_GPIO_EDGE_FALLING)
+    {
+        rq.eventflags = GPIOEVENT_REQUEST_FALLING_EDGE;
+    }
+    else if(edge == TAF_GPIO_EDGE_BOTH)
+    {
+        rq.eventflags = GPIOEVENT_REQUEST_BOTH_EDGES;
+    }
+    else if(edge == TAF_GPIO_EDGE_NONE)
+    {
+        rq.eventflags = GPIOEVENT_REQUEST_RISING_EDGE & GPIOEVENT_REQUEST_FALLING_EDGE;
+    }
+    rq.handleflags = GPIOHANDLE_REQUEST_INPUT;
+    snprintf(rq.consumer_label, sizeof(rq.consumer_label), COMPONENT_NAME);
+    ret = ioctl(fd, GPIO_GET_LINEEVENT_IOCTL, &rq);
+    le_fd_Close(fd);
+    if (ret == -1)
+    {
+        LE_ERROR("Unable to get line event from ioctl : %s", strerror(errno));
+        return NULL;
     }
 
-    LE_DEBUG("Setting up file monitor for fd %d and pin %s", monFd, tafGpioRef->gpioName);
-    tafGpioRef->fdMonitorRef = le_fdMonitor_Create (tafGpioRef->gpioName, monFd, fdMonFunc,
-            POLLPRI);
-    tafGpioRef->fdMonitor = monFd;
+    tafGpioRef->fdMonitorRef = le_fdMonitor_Create (tafGpioRef->gpioName, rq.fd, fdMonFunc,
+            POLLIN);
+
+    tafGpioRef->fdMonitor = rq.fd;
+    tafGpioRef->edge = edge;
+    le_hashmap_Put(tafGpioRef->clientHashMap, sessionRef, sessionRef);
     return handlerCtxPtr->handlerRef;
 }
 
@@ -417,18 +470,11 @@ void taf_Gpio::removeChangeCallback
             gpioRef->handlerCount--;
         }
     }
-    if (gpioRef->handlerCount == 0) {
-        if (gpioRef->fdMonitorRef != NULL)
-        {
+
+    if (gpioRef->handlerCount == 0 && gpioRef->fdMonitorRef != NULL) {
             LE_INFO("Stopping fd monitor");
-            const int fd = le_fdMonitor_GetFd(gpioRef->fdMonitorRef);
             le_fdMonitor_Delete(gpioRef->fdMonitorRef);
             gpioRef->fdMonitorRef = NULL;
-            const int ret = close(fd);
-            LE_WARN_IF(ret == -1, "Failed to close file descriptor for gpio %d",
-                    gpioRef->pinNum);
-        }
-        gpioRef->fdMonitor = -1;
     }
     LE_INFO("removeChangeCallback handlerRef");
 }
@@ -439,9 +485,6 @@ le_result_t taf_Gpio::disableEdgeSense
     bool lock
 )
 {
-    TAF_ERROR_IF_RET_VAL(LE_OK != exportGpio(tafGpioRef), LE_BUSY,
-            "Failed to export GPIO %s for use", tafGpioRef->gpioName);
-
     le_msg_SessionRef_t sessionRef = taf_gpio_GetClientSessionRef();
     if (tafGpioRef->isLocked && tafGpioRef->lockedSession != sessionRef) {
         LE_WARN("Attemp to use gpio pin %d, which is locked", tafGpioRef->pinNum);
@@ -450,8 +493,9 @@ le_result_t taf_Gpio::disableEdgeSense
 
     tafGpioRef->isLocked = lock;
     tafGpioRef->lockedSession = sessionRef;
+    le_hashmap_Put(tafGpioRef->clientHashMap, sessionRef, sessionRef);
 
-    return setEdgeSense(tafGpioRef, TAF_GPIO_EDGE_NONE, lock);
+    return setEdgeSense(tafGpioRef, TAF_GPIO_EDGE_NONE, lock, NULL);
 }
 
 taf_gpio_State_t taf_Gpio::readValue
@@ -460,13 +504,8 @@ taf_gpio_State_t taf_Gpio::readValue
     bool lock
 )
 {
-    char path[64];
-    char result[17];
-    le_result_t leRes;
     taf_gpio_State_t type;
-
-    TAF_ERROR_IF_RET_VAL(LE_OK != exportGpio(tafGpioRef), TAF_GPIO_BUSY,
-            "Unable to export GPIO %s for use", tafGpioRef->gpioName);
+    int result;
 
     TAF_ERROR_IF_RET_VAL(!tafGpioRef, TAF_GPIO_BUSY,
             "gpioRef is NULL or object not initialized");
@@ -477,19 +516,56 @@ taf_gpio_State_t taf_Gpio::readValue
         return TAF_GPIO_BUSY;
     }
 
-    snprintf(path, sizeof(path), "%s/%s/%s", GPIO_PATH,
-             tafGpioRef->gpioName, "value");
-    leRes = getGpioAttribute(path, sizeof(result), result);
-    if (leRes != LE_OK)
+    if (isOutput(tafGpioRef))
     {
+        LE_ERROR("Attemp to read the pin which is not input");
         return TAF_GPIO_BUSY;
+    }
+
+    int fd,ret;
+    struct gpiohandle_request rq;
+    struct gpiohandle_data data;
+    if (tafGpioRef->fdMonitor == -1) {
+        fd = le_fd_Open(DEV_NAME, O_RDONLY);
+        if (fd < 0)
+        {
+            LE_ERROR("Unabled to open %s: %s", DEV_NAME, strerror(errno));
+            return TAF_GPIO_BUSY;
+        }
+        rq.lineoffsets[0] = tafGpioRef->pinNum;
+        rq.flags = GPIOHANDLE_REQUEST_INPUT;
+        rq.lines = 1;
+        snprintf(rq.consumer_label, sizeof(rq.consumer_label), COMPONENT_NAME);
+        ret = ioctl(fd, GPIO_GET_LINEHANDLE_IOCTL, &rq);
+        le_fd_Close(fd);
+        if (ret == -1)
+        {
+            LE_ERROR("Unable to get line handle from ioctl : %s", strerror(errno));
+            return TAF_GPIO_BUSY;
+        }
+        tafGpioRef->fdMonitor = rq.fd;
+    }
+    // Get the value
+    ret = ioctl(tafGpioRef->fdMonitor, GPIOHANDLE_GET_LINE_VALUES_IOCTL, &data);
+    LE_INFO("ioctl fd is %d",tafGpioRef->fdMonitor);
+    if (ret == -1)
+    {
+        LE_ERROR("Unable to get line value using ioctl : %s", strerror(errno));
+        return TAF_GPIO_BUSY;
+    }
+    else
+    {
+        LE_INFO("Value of GPIO pin %d (INPUT mode) on chip %s: %d\n", tafGpioRef->pinNum, DEV_NAME,
+                data.values[0]);
+        result = data.values[0];
     }
 
     tafGpioRef->isLocked = lock;
     tafGpioRef->lockedSession = sessionRef;
 
-    type = (taf_gpio_State_t)atoi(result);
-    LE_INFO("result:%s Value:%s", result, (type==1) ? "high": "low");
+    type = (taf_gpio_State_t)result;
+    LE_INFO("result:%d Value:%s", result, (type==1) ? "high": "low");
+    le_hashmap_Put(tafGpioRef->clientHashMap, sessionRef, sessionRef);
 
     return type;
 }
@@ -500,23 +576,32 @@ le_result_t taf_Gpio::activate
     bool lock
 )
 {
-    TAF_ERROR_IF_RET_VAL(LE_OK != exportGpio(tafGpioRef), LE_BUSY,
-            "Unable to export GPIO %s for use", tafGpioRef->gpioName);
-
     le_msg_SessionRef_t sessionRef = taf_gpio_GetClientSessionRef();
     if(tafGpioRef->isLocked && tafGpioRef->lockedSession != sessionRef) {
         LE_WARN("Attemp to use gpio pin %d, which is locked", tafGpioRef->pinNum);
         return LE_BUSY;
     }
 
-    TAF_ERROR_IF_RET_VAL(LE_OK != setDirection(tafGpioRef, GPIO_PIN_MODE_OUTPUT),
-            LE_IO_ERROR, "Failed to set Direction on GPIO %s", tafGpioRef->gpioName);
+    // Stop monitoring the trigger if running
+    if(tafGpioRef->fdMonitorRef != NULL)
+    {
+        LE_INFO("Stopping fd monitor");
+        le_fdMonitor_Delete(tafGpioRef->fdMonitorRef);
+        tafGpioRef->fdMonitorRef = NULL;
+    }
+    if (tafGpioRef->fdMonitor != -1)
+    {
+        le_fd_Close(tafGpioRef->fdMonitor);
+        tafGpioRef->fdMonitor = -1;
+    }
 
     TAF_ERROR_IF_RET_VAL(LE_OK != writeGpioOutputValue(tafGpioRef, TAF_GPIO_HIGH),
             LE_IO_ERROR, "Failed to set GPIO %s to high", tafGpioRef->gpioName);
 
     tafGpioRef->isLocked = lock;
     tafGpioRef->lockedSession = sessionRef;
+
+    le_hashmap_Put(tafGpioRef->clientHashMap, sessionRef, sessionRef);
 
     return LE_OK;
 }
@@ -527,8 +612,6 @@ le_result_t taf_Gpio::deactivate
     bool lock
 )
 {
-    TAF_ERROR_IF_RET_VAL(LE_OK != exportGpio(tafGpioRef), LE_BUSY,
-            "Unable to export GPIO %s for use", tafGpioRef->gpioName);
 
     le_msg_SessionRef_t sessionRef = taf_gpio_GetClientSessionRef();
     if(tafGpioRef->isLocked && tafGpioRef->lockedSession != sessionRef) {
@@ -536,11 +619,23 @@ le_result_t taf_Gpio::deactivate
         return LE_BUSY;
     }
 
-    TAF_ERROR_IF_RET_VAL(LE_OK != setDirection(tafGpioRef, GPIO_PIN_MODE_OUTPUT),
-            LE_IO_ERROR, "Failed to set Direction on GPIO %s", tafGpioRef->gpioName);
+    // Stop monitoring the trigger if running
+    if(tafGpioRef->fdMonitorRef != NULL)
+    {
+        LE_INFO("Stopping fd monitor");
+        le_fdMonitor_Delete(tafGpioRef->fdMonitorRef);
+        tafGpioRef->fdMonitorRef = NULL;
+    }
+    if (tafGpioRef->fdMonitor != -1)
+    {
+        le_fd_Close(tafGpioRef->fdMonitor);
+        tafGpioRef->fdMonitor = -1;
+    }
 
     TAF_ERROR_IF_RET_VAL(LE_OK != writeGpioOutputValue(tafGpioRef, TAF_GPIO_LOW),
             LE_IO_ERROR, "Failed to set GPIO %s to low", tafGpioRef->gpioName);
+
+    le_hashmap_Put(tafGpioRef->clientHashMap, sessionRef, sessionRef);
 
     tafGpioRef->isLocked = lock;
     tafGpioRef->lockedSession = sessionRef;
@@ -553,17 +648,55 @@ bool taf_Gpio::isActive
     taf_GpioRef_t tafGpioRef
 )
 {
-
-    TAF_ERROR_IF_RET_VAL(LE_OK != exportGpio(tafGpioRef), false,
-            "Unable to export GPIO %s for use", tafGpioRef->gpioName);
-
     if (isInput(tafGpioRef))
     {
         LE_WARN("Attempt to check if an input gpio pin is active");
         return false;
     }
 
-    return (readValue(tafGpioRef, false) == TAF_GPIO_HIGH);
+    if (tafGpioRef-> fdMonitor == -1)
+    {
+        int fd, ret;
+        struct gpiohandle_request rq;
+        fd = le_fd_Open(DEV_NAME, O_RDONLY);
+        if (fd < 0)
+        {
+            LE_ERROR("Unabled to open %s: %s", DEV_NAME, strerror(errno));
+            return false;
+        }
+
+        rq.lineoffsets[0] = tafGpioRef->pinNum;
+        rq.flags = GPIOHANDLE_REQUEST_OUTPUT;
+        rq.lines = 1;
+        snprintf(rq.consumer_label, sizeof(rq.consumer_label), COMPONENT_NAME);
+        ret = ioctl(fd, GPIO_GET_LINEHANDLE_IOCTL, &rq);
+        le_fd_Close(fd);
+        if (ret == -1)
+        {
+            LE_ERROR("Unable to line handle from ioctl : %s", strerror(errno));
+            return false;
+        }
+        tafGpioRef->fdMonitor = rq.fd;
+    }
+    // Get the gpio line values (0/1)
+    int value, ret;
+    struct gpiohandle_data data;
+    ret = ioctl(tafGpioRef->fdMonitor, GPIOHANDLE_GET_LINE_VALUES_IOCTL, &data);
+
+    if (ret == -1)
+    {
+        LE_ERROR("Unable to get line value using ioctl : %s", strerror(errno));
+        return false;
+    }
+    else
+    {
+        value = data.values[0];
+        LE_INFO("Value of GPIO at offset %d on chip %s: value is %d", tafGpioRef->pinNum, DEV_NAME,
+                value);
+        le_msg_SessionRef_t sessionRef = taf_gpio_GetClientSessionRef();
+        le_hashmap_Put(tafGpioRef->clientHashMap, sessionRef, sessionRef);
+        return value == 1;
+    }
 }
 
 bool taf_Gpio::isInput
@@ -571,25 +704,32 @@ bool taf_Gpio::isInput
     taf_GpioRef_t tafGpioRef
 )
 {
-    char gpioPath[64];
-    char result[9];
-    le_result_t leResult;
-
     TAF_ERROR_IF_RET_VAL(!tafGpioRef, false,
             "tafGpioRef is NULL or object not initialized");
 
-    TAF_ERROR_IF_RET_VAL(LE_OK != exportGpio(tafGpioRef), false,
-            "Unable to export GPIO %s for use", tafGpioRef->gpioName);
-
-    snprintf(gpioPath, sizeof(gpioPath), "%s/%s/%s", GPIO_PATH,
-             tafGpioRef->gpioName, "direction");
-    leResult = getGpioAttribute(gpioPath, sizeof(result), result);
-    if (leResult != LE_OK)
+    int fd, ret;
+    struct gpioline_info line_info;
+    fd = le_fd_Open(DEV_NAME, O_RDONLY);
+    if (fd < 0)
     {
+        LE_ERROR("Unabled to open %s: %s", DEV_NAME, strerror(errno));
         return false;
     }
-
-    return (strncmp(result, "in", 2) == 0);
+    line_info.line_offset = tafGpioRef->pinNum;
+    // Get the gpio line info (IN/OUT)
+    ret = ioctl(fd, GPIO_GET_LINEINFO_IOCTL, &line_info);
+    le_fd_Close(fd);
+    if (ret == -1)
+    {
+        LE_ERROR("Unable to get line info from offset %d:%s", tafGpioRef->pinNum, strerror(errno));
+        return false;
+    }
+    else
+    {
+        LE_INFO("the gpiopin %d isInput %d",tafGpioRef->pinNum,
+                (line_info.flags & GPIOLINE_FLAG_IS_OUT) ? 0 : 1);
+        return (line_info.flags & GPIOLINE_FLAG_IS_OUT) ? false : true;
+    }
 }
 
 bool taf_Gpio::isOutput
@@ -597,25 +737,31 @@ bool taf_Gpio::isOutput
     taf_GpioRef_t tafGpioRef
 )
 {
-    char gpioPath[64];
-    char result[9];
-    le_result_t leRes;
-
     TAF_ERROR_IF_RET_VAL(!tafGpioRef, false,
             "gpioRef is NULL or object not initialized");
 
-    TAF_ERROR_IF_RET_VAL(LE_OK != exportGpio(tafGpioRef), false,
-            "Unable to export GPIO %s for use", tafGpioRef->gpioName);
-
-    snprintf(gpioPath, sizeof(gpioPath), "%s/%s/%s", GPIO_PATH,
-             tafGpioRef->gpioName, "direction");
-    leRes = getGpioAttribute(gpioPath, sizeof(result), result);
-    if (leRes != LE_OK)
+    int fd, ret;
+    struct gpioline_info line_info;
+    fd = le_fd_Open(DEV_NAME, O_RDONLY);
+    if (fd < 0)
     {
+        LE_ERROR("Unabled to open %s: %s", DEV_NAME, strerror(errno));
         return false;
     }
-
-    return (strncmp(result, "out", 3) == 0);
+    line_info.line_offset = tafGpioRef->pinNum;
+    // Get the gpio line info (IN/OUT)
+    ret = ioctl(fd, GPIO_GET_LINEINFO_IOCTL, &line_info);
+    le_fd_Close(fd);
+    if (ret == -1)
+    {
+        LE_ERROR("Unable to get line info from offset %d:%s", tafGpioRef->pinNum, strerror(errno));
+        return false;
+    }
+    else
+    {
+        LE_INFO("the gpiopin value isOut %d",(line_info.flags & GPIOLINE_FLAG_IS_OUT) ? 1 : 0);
+        return (line_info.flags & GPIOLINE_FLAG_IS_OUT);
+    }
 }
 
 taf_gpio_ActiveType_t taf_Gpio::getPolarity
@@ -623,35 +769,34 @@ taf_gpio_ActiveType_t taf_Gpio::getPolarity
     taf_GpioRef_t tafGpioRef
 )
 {
-    char gpioPath[64];
-    char result[17];
-    le_result_t leRes;
-    taf_gpio_ActiveType_t type;
-
 
     TAF_ERROR_IF_RET_VAL(!tafGpioRef, GPIO_ACTIVE_TYPE_UNKNOWN,
             "tafGpioRef is NULL or object not initialized");
 
-    TAF_ERROR_IF_RET_VAL(LE_OK != exportGpio(tafGpioRef), GPIO_ACTIVE_TYPE_UNKNOWN,
-            "Unable to export GPIO %s for use", tafGpioRef->gpioName);
-
-    snprintf(gpioPath, sizeof(gpioPath), "%s/%s/%s", GPIO_PATH,
-             tafGpioRef->gpioName, "active_low");
-    leRes = getGpioAttribute(gpioPath, sizeof(result), result);
-    if (leRes != LE_OK)
+    int fd, ret;
+    struct gpioline_info line_info;
+    fd = le_fd_Open(DEV_NAME, O_RDONLY);
+    if (fd < 0)
     {
+        LE_ERROR("Unabled to open %s: %s", DEV_NAME, strerror(errno));
         return GPIO_ACTIVE_TYPE_UNKNOWN;
     }
-
-    type = (taf_gpio_ActiveType_t)atoi(result);
-    LE_DEBUG("result: %s", result);
-
-    if (type == 0)
+    line_info.line_offset = tafGpioRef->pinNum;
+    snprintf(line_info.consumer, sizeof(line_info.consumer), COMPONENT_NAME);
+    ret = ioctl(fd, GPIO_GET_LINEINFO_IOCTL, &line_info);
+    le_fd_Close(fd);
+    if (ret == -1)
     {
-        return GPIO_ACTIVE_TYPE_HIGH;
+        LE_ERROR("Unable to get line info from offset %d:%s", tafGpioRef->pinNum, strerror(errno));
+        return GPIO_ACTIVE_TYPE_UNKNOWN;
     }
-
-    return GPIO_ACTIVE_TYPE_LOW;
+    else
+    {
+        LE_DEBUG("the gpiopin active_low is %d", (line_info.flags & GPIOLINE_FLAG_ACTIVE_LOW)
+                ? GPIO_ACTIVE_TYPE_LOW : GPIO_ACTIVE_TYPE_HIGH);
+        return (line_info.flags & GPIOLINE_FLAG_ACTIVE_LOW)
+                ? GPIO_ACTIVE_TYPE_LOW : GPIO_ACTIVE_TYPE_HIGH;
+    }
 }
 
 taf_gpio_Edge_t taf_Gpio::getEdgeSense
@@ -659,62 +804,27 @@ taf_gpio_Edge_t taf_Gpio::getEdgeSense
     taf_GpioRef_t tafGpioRef
 )
 {
-    char gpioPath[64];
-    char result[9];
-    le_result_t leRes;
-
     TAF_ERROR_IF_RET_VAL(!tafGpioRef, TAF_GPIO_EDGE_UNKNOWN,
             "tafGpioRef is NULL or object not initialized");
 
-    TAF_ERROR_IF_RET_VAL(LE_OK != exportGpio(tafGpioRef), TAF_GPIO_EDGE_UNKNOWN,
-            "Unable to export GPIO %s for use", tafGpioRef->gpioName);
-
+    // Edge type is not valid for OUT pin
     if (isOutput(tafGpioRef))
     {
         LE_WARN("Attempt to read edge sense on an output");
         return TAF_GPIO_EDGE_NONE;
     }
 
-    snprintf(gpioPath, sizeof(gpioPath), "%s/%s/%s", GPIO_PATH,
-             tafGpioRef->gpioName, "edge");
-    leRes = getGpioAttribute(gpioPath, sizeof(result), result);
-    if (leRes != LE_OK)
-    {
-        return TAF_GPIO_EDGE_UNKNOWN;
-    }
-
-    LE_DEBUG("Read edge - result: %s", result);
-
-    taf_gpio_Edge_t edge = TAF_GPIO_EDGE_NONE;
-
-    if (strncmp(result, "rising", 6) == 0)
-    {
-        LE_DEBUG("Detected edge as rising");
-        edge = TAF_GPIO_EDGE_RISING;
-    }
-    else if (strncmp(result, "falling", 7) == 0)
-    {
-        LE_DEBUG("Detected edge as rising");
-        edge = TAF_GPIO_EDGE_FALLING;
-    }
-    else if (strncmp(result, "both", 4) == 0)
-    {
-        LE_DEBUG("Detected edge as both");
-        edge = TAF_GPIO_EDGE_BOTH;
-    }
-
-    return edge;
+    return tafGpioRef->edge;
 }
 
 le_result_t taf_Gpio::setEdgeSense
 (
     taf_GpioRef_t tafGpioRef,
     taf_gpio_Edge_t edge,
-    bool lock
+    bool lock,
+    le_fdMonitor_HandlerFunc_t fdMonFunc
 )
 {
-    TAF_ERROR_IF_RET_VAL(LE_OK != exportGpio(tafGpioRef), LE_BUSY,
-            "Unable to export GPIO %s for use", tafGpioRef->gpioName);
 
     le_msg_SessionRef_t sessionRef = taf_gpio_GetClientSessionRef();
     if (tafGpioRef->isLocked && tafGpioRef->lockedSession != sessionRef) {
@@ -744,7 +854,7 @@ le_result_t taf_Gpio::setEdgeSense
     tafGpioRef->isLocked = lock;
     tafGpioRef->lockedSession = sessionRef;
 
-    return setEdgeType(tafGpioRef, edge);
+    return setEdgeType(tafGpioRef, edge, fdMonFunc);
 }
 
 void taf_Gpio::callHandler(void* reportPtr) {
@@ -770,7 +880,8 @@ void taf_Gpio::callClientHandlerFunc(taf_gpioEvent_t *eventPtr)
         if (handlerCtxPtr->handlerPtr && (handlerCtxPtr->pinNum == eventPtr->pinNum))
         {
             LE_INFO("Notify handlerPtr for pinNum %d", eventPtr->pinNum);
-            handlerCtxPtr->handlerPtr(eventPtr->pinNum, eventPtr->state, handlerCtxPtr->usrContext);
+            handlerCtxPtr->handlerPtr(eventPtr->pinNum, eventPtr->state,
+                    handlerCtxPtr->usrContext);
         }
     }
 }
@@ -781,10 +892,9 @@ void taf_Gpio::inputMonitorHandlerFunc
     short events
 )
 {
-    //We're reading a single character
-    char buf[1];
     taf_GpioRef_t tafGpioRef;
-    for(int i=0; i < MAX_PIN_NUMBER; i++) {
+    taf_Gpio gpio = getInstance();
+    for(int i=0; i < gpio.numOfGpios; i++) {
         if(tafGpioRefPin[i]->fdMonitor == fd) {
             tafGpioRef = tafGpioRefPin[i];
         }
@@ -797,15 +907,38 @@ void taf_Gpio::inputMonitorHandlerFunc
         return;
     }
 
-    LE_DEBUG("Seek to start of file %d", fd);
-    lseek(fd, 0, SEEK_SET);
+    struct gpioevent_data event;
+    int ret = le_fd_Read(fd, &event, sizeof(event));
+    if (ret == -1) {
+        if (errno == -EAGAIN)
+        {
+            LE_ERROR("nothing available\n");
+        }
+        else
+        {
+            ret = -errno;
+            LE_ERROR("Failed to read event (%d)\n", ret);
+        }
+    }
 
-    TAF_ERROR_IF_RET_NIL(read(fd, buf, 1) != 1,
-            "Unable to read value for GPIO %s", tafGpioRef->gpioName);
+    if (ret != sizeof(event))
+    {
+        LE_ERROR("Reading event failed\n");
+        ret = -EIO;
+    }
+    switch (event.id) {
+    case GPIOEVENT_EVENT_RISING_EDGE:
+        LE_INFO("rising edge");
+        break;
+    case GPIOEVENT_EVENT_FALLING_EDGE:
+        LE_INFO( "falling edge");
+        break;
+    default:
+        LE_ERROR("unknown event");
+    }
+    taf_gpioEvent_t fallingEvt = {fd, event.id == GPIOEVENT_EVENT_RISING_EDGE, tafGpioRef->pinNum};
+    le_event_Report(gpio.tafGpioEvent, &fallingEvt, sizeof(taf_gpioEvent_t));
 
-    LE_DEBUG("Read value %c from value file for callback", buf[0]);
-    taf_gpioEvent_t event = {fd, buf[0] == '1', tafGpioRef->pinNum};
-    le_event_Report(tafGpioEvent, &event, sizeof(taf_gpioEvent_t));
     return;
 }
 
@@ -816,11 +949,89 @@ void taf_Gpio::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *ctxPt
 {
     taf_Gpio gpio = getInstance();
     LE_INFO("OnClientDisconnection");
+
     for(int i=0; i < gpio.numOfGpios; i++) {
         // reset the gpio ref data on client disconnection
-        if(gpio.tafGpioRefPin[i]->lockedSession == sessionRef) {
-            gpio.tafGpioRefPin[i]->isLocked = false;
-            gpio.tafGpioRefPin[i]->lockedSession = NULL;
+        taf_GpioRef_t gpioRef = gpio.tafGpioRefPin[i];
+        if(gpioRef->lockedSession == sessionRef) {
+            gpioRef->isLocked = false;
+            gpioRef->lockedSession = NULL;
         }
+        le_hashmap_Remove(gpioRef->clientHashMap, sessionRef);
+        if (le_hashmap_isEmpty(gpioRef->clientHashMap) && gpioRef->fdMonitor != -1)
+        {
+            le_fd_Close(gpioRef->fdMonitor);
+            LE_INFO("hash map size is 0 close fd %d", gpioRef->fdMonitor);
+            gpioRef->fdMonitor = -1;
+        }
+    }
+}
+
+void taf_Gpio::JsonEventHandler(le_json_Event_t event)
+{
+    const char* memberName;
+    taf_Gpio gpio = getInstance();
+    switch (event)
+    {
+        case LE_JSON_ARRAY_END:
+            if(isWakeupPin)
+                isWakeupPin = false;
+            break;
+
+        case LE_JSON_OBJECT_MEMBER:
+            memberName = le_json_GetString();
+            if(strcmp(memberName, "wakeupPins") == 0) {
+                isWakeupPin = true;
+            }
+            break;
+
+        case LE_JSON_NUMBER:
+            if(isWakeupPin) {
+                int gpioPin = (int)le_json_GetNumber();
+                if(gpioPin < 0 || gpioPin > gpio.numOfGpios) {
+                    LE_ERROR("Read invalid gpio pin %d from conf file", gpioPin);
+                    break;
+                }
+                char cmd[120];
+                snprintf(cmd, sizeof(cmd), "/sbin/insmod %s gpioChipName=\"f100000.pinctrl\""
+                        " gpioOffset=%d", KO_MODULE, gpioPin);
+                popen_call(cmd);
+                snprintf(cmd, sizeof(cmd), "/sbin/rmmod %s", KO_MODULE);
+                popen_call(cmd);
+                LE_INFO("Loaded gpio kernel module to set IRQ for pin %d", gpioPin);
+            }
+            break;
+        case LE_JSON_TRUE:
+        case LE_JSON_FALSE:
+        case LE_JSON_NULL:
+        case LE_JSON_OBJECT_START:
+        case LE_JSON_OBJECT_END:
+        case LE_JSON_STRING:
+        case LE_JSON_ARRAY_START:
+            break;
+        case LE_JSON_DOC_END:
+            le_json_Cleanup(JsonParsingSessionRef);
+            le_fd_Close(jsonFd);
+            jsonFd = -1;
+        break;
+    }
+}
+
+void taf_Gpio::JsonErrorHandler(le_json_Error_t error, const char* msg)
+{
+    switch (error)
+    {
+        case LE_JSON_SYNTAX_ERROR:
+            LE_ERROR("JSON error message: %s", msg);
+
+        case LE_JSON_READ_ERROR:
+            LE_ERROR("JSON error message: %s", msg);
+            le_json_Cleanup(JsonParsingSessionRef);
+            le_fd_Close(jsonFd);
+            jsonFd = -1;
+            break;
+
+        default:
+            break;
     }
 }

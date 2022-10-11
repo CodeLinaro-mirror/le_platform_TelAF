@@ -35,14 +35,15 @@
 #ifndef TAFGPIO_HPP
 #define TAFGPIO_HPP
 
+#include <errno.h>
+#include <linux/gpio.h>
 #include <string>
 #include <vector>
 #include "legato.h"
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
 
-#define GPIO_PATH           "/sys/class/gpio"
-#define NUM_OF_GPIOS_PATH   "/sys/class/gpio/gpiochip0/ngpio"
+#define DEV_NAME "/dev/gpiochip0"
 
 #define MAX_PIN_NUMBER 120
 #define MIN_PIN_NUMBER 0
@@ -60,6 +61,8 @@ struct taf_gpio{
     bool isLocked;
     le_fdMonitor_Ref_t fdMonitorRef;
     le_msg_SessionRef_t lockedSession;
+    le_hashmap_Ref_t clientHashMap;
+    taf_gpio_Edge_t edge;
 };
 
 typedef struct taf_gpio* taf_GpioRef_t;
@@ -98,15 +101,15 @@ namespace tafsvc{
 
     class taf_Gpio : public ITafSvc {
         private:
-            bool checkGpioPathExist(const char *gpioPath);
-            le_result_t exportGpio(const taf_GpioRef_t gpioRef);
-            le_result_t setGpioAttribute(const char *gpioPath, const char *attr);
             le_result_t writeGpioOutputValue(taf_GpioRef_t gpioRef,
                     taf_gpio_State_t value);
             le_result_t setDirection(taf_GpioRef_t gpioRef, taf_gpio_PinMode_t mode);
             le_result_t setEdgeType(taf_GpioRef_t gpioRef,
-                    taf_gpio_Edge_t edge);
+                    taf_gpio_Edge_t edge, le_fdMonitor_HandlerFunc_t fdMonFunc);
             static void callHandler(void* reportPtr);
+            static void JsonEventHandler(le_json_Event_t event);
+            static void JsonErrorHandler(le_json_Error_t error, const char* msg);
+            static int popen_call(const char *cmd);
             le_result_t setPolarity(taf_GpioRef_t gpioRef, taf_gpio_ActiveType_t level);
         public:
             taf_Gpio() {};
@@ -114,8 +117,6 @@ namespace tafsvc{
             static taf_Gpio &getInstance();
             static void OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *contextPtr);
             void Init();
-            le_result_t getGpioAttribute(const char *gpioPath,
-                    int attr_size, char *attribute);
             void inputMonitorHandlerFunc(int fd, short events);
             void callClientHandlerFunc(taf_gpioEvent_t *eventPtr);
             le_result_t setGpioAsInput(taf_GpioRef_t gpioRef, taf_gpio_ActiveType_t polarity, bool lock);
@@ -132,7 +133,8 @@ namespace tafsvc{
             bool isOutput(taf_GpioRef_t gpioRef);
             taf_gpio_ActiveType_t getPolarity(taf_GpioRef_t gpioRef);
             taf_gpio_Edge_t getEdgeSense(taf_GpioRef_t gpioRef);
-            le_result_t setEdgeSense(taf_GpioRef_t gpioRef, taf_gpio_Edge_t edge, bool lock);
+            le_result_t setEdgeSense(taf_GpioRef_t gpioRef, taf_gpio_Edge_t edge, bool lock,
+                    le_fdMonitor_HandlerFunc_t fdMonFunc);
 
             taf_GpioRef_t tafGpioRefPin[MAX_PIN_NUMBER];
             le_mem_PoolRef_t HandlerPool = NULL;

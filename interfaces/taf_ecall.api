@@ -166,16 +166,16 @@
  *
  * @section taf_ecall_PsapNumber eCall number
  *
- * According to operating mode, standard eCall number is defined by modem or read from USIM FDN/SDN
- * (Fixed Dialling Numbers/Service Dialling Numbers).
+ * Depending on the operating mode, the standard eCall number is defined by the modem or read from 
+ * the USIM fixed dialing numbers/service dialing numbers (FDN/SDN).
  *
- * Third party eCall number can be set/get with:
+ * A third-party eCall number can be set/got with:
  *  - taf_ecall_SetPsapNumber()
  *  - taf_ecall_GetPsapNumber()
- * These configurations will take effect with test eCall.
+ * These configurations take effect at the next test eCall.
  *
- * To request modem to read the number from FDN/SDN, call taf_ecall_UseUSimNumbers() before start
- * an ECall.
+ * To request that the modem reads the number from FDN/SDN, call taf_ecall_UseUSimNumbers() before starting
+ * an eCall.
  *
  * @section taf_ecall_concurrency Concurrency of eCall
  *
@@ -371,7 +371,7 @@ ENUM State
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Reason for the recently terminated call (either normally ended or failed)
+ * Recently terminated call end reasons (normally ended or failed).
  */
 //-------------------------------------------------------------------------------------------------
 ENUM TerminationReason
@@ -824,8 +824,8 @@ FUNCTION le_result_t SendMsd
  *
  * @return
  *      - LE_OK -- Succeeded.
- *      - LE_BUSY -- an eCall session is already in progress.
- *      - LE_BAD_PARAMETER -- bad eCall reference.
+ *      - LE_BUSY -- eCall session is already in progress.
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
  *      - LE_FAULT -- Failed.
  *
  */
@@ -841,8 +841,8 @@ FUNCTION le_result_t StartAutomatic
  *
  * @return
  *      - LE_OK -- Succeeded.
- *      - LE_BUSY -- an eCall session is already in progress.
- *      - LE_BAD_PARAMETER -- bad eCall reference.
+ *      - LE_BUSY -- eCall session is already in progress.
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
  *      - LE_FAULT -- Failed.
  *
  */
@@ -859,8 +859,8 @@ FUNCTION le_result_t StartManual
  *
  * @return
  *      - LE_OK -- Succeeded.
- *      - LE_BUSY -- an eCall session is already in progress.
- *      - LE_BAD_PARAMETER -- bad eCall reference.
+ *      - LE_BUSY -- eCall session is already in progress.
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
  *      - LE_FAULT -- Failed.
  */
 //-------------------------------------------------------------------------------------------------
@@ -917,12 +917,12 @@ FUNCTION int32 GetPlatformSpecificTerminationCode
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Get termionate reason of recently terminated ecall
+ * Gets the end reason for a recently terminated eCall.
  *
  * @return The termination reason.
  *
- * @note If the caller is passing a bad or null pointer into this function, it is a fatal error,
- *         the function may not return.
+ * @note Passing a bad or null pointer to this function results in a fatal error and the function
+ *       may not return.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION TerminationReason GetTerminationReason
@@ -932,20 +932,20 @@ FUNCTION TerminationReason GetTerminationReason
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Set the Public Safely Answering Point (PSAP) telephone number for ECall.
+ * Sets the public safely answering point (PSAP) phone number for eCall.
  *
- * @note The PSAP number is not applicable in eCall which is dialed manually or automatically. It
- *       is applicable to test type ECall which is dialed intentionally for testng, validation
- *       or certification.
+ * @note The PSAP number is not applicable in manually or automatically dialed eCalls. It
+ *       is only applicable to test eCalls that are dialed intentionally for testing, validating,
+ *       or certifying.
  *
  * @warning This function doesn't modify the U/SIM content.
  *
  * @return
- *  - LE_OK           On success
- *  - LE_FAULT        For other failures
+ *  - LE_OK -- Succeeded.
+ *  - LE_FAULT -- Failed.
  *
- * @note If PSAP number is empty or too long (max TAF_SIM_PHONE_NUM_MAX_LEN digits), it is a
- *       fatal error, the function will not return.
+ * @note If the PSAP number is empty or too long (max TAF_SIM_PHONE_NUM_MAX_LEN digits), it is a
+ *       fatal error and the function will not return.
  */
 //--------------------------------------------------------------------------------------------------
  FUNCTION le_result_t SetPsapNumber
@@ -955,38 +955,37 @@ FUNCTION TerminationReason GetTerminationReason
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get the Public Safely Answering Point telephone number set with taf_ecall_SetPsapNumber()
- * function.
- *
- * @note The PSAP number is not applicable to eCall which is dialed manually or automatically. It
- *       is applicable to test type eCall which is dialed intentionally for testng, validation
- *       or certification.
+ * Gets the PSAP number set with taf_ecall_SetPsapNumber().
+ * 
+ * @note The PSAP number is not applicable in manually or automatically dialed eCalls. It
+ *       is only applicable to test eCalls that are dialed intentionally for testing, validating,
+ *       or certifying.
  *
  * @warning This function doesn't read the U/SIM content.
  *
  * @return
- *  - LE_OK               On success
- *  - LE_FAULT            On failures or if taf_ecall_SetPsapNumber() has never been called before
- *  - LE_OVERFLOW         Retrieved PSAP number is too long for the out parameter
- *  - LE_BAD_PARAMETER    If Psap number is null
+ *  - LE_OK -- Succeeded.
+ *  - LE_FAULT -- Failed or taf_ecall_SetPsapNumber() has never been called before.
+ *  - LE_OVERFLOW -- The retrieved PSAP number is too long for the out parameter.
+ *  - LE_BAD_PARAMETER -- The PSAP number is null.
  *
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetPsapNumber
 (
-    string psap[taf_sim.PHONE_NUM_MAX_LEN] OUT ///< Public Safely Answering Point telephone number
+    string psap[taf_sim.PHONE_NUM_MAX_LEN] OUT ///< PSAP number.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * We can call this function to request modem to read FDN/SDN numbers from U/SIM to dial test type eCall
- * when modem is in TAF_ECALL_FORCED_PERSISTENT_ONLY_MODE or TAF_ECALL_ONLY_MODE.
+ * Reads the FDN/SDN numbers from U/SIM to dial a test eCall when the modem is in 
+ * TAF_ECALL_FORCED_PERSISTENT_ONLY_MODE or TAF_ECALL_ONLY_MODE.
  *
- * @note If FDN number is updated with new dial number, make sure the SIM card is refreshed.
+ * @note If the FDN number is updated with a new number, ensure that the SIM card is refreshed.
  *
  * @return
- *  - LE_OK         On success
- *  - LE_FAULT      On failures
+ *  - LE_OK -- Succeeded.
+ *  - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t UseUSimNumbers

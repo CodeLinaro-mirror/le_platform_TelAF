@@ -122,8 +122,9 @@
             LE_ERROR("Open file %s failure: errno.%d (%s)", FilePath, errno, LE_ERRNO_TXT(errno));
             taf_audio_Disconnect(OutputConnectorRef, OutRef);
             taf_audio_Disconnect(OutputConnectorRef, FileRef);
-            taf_audio_DeleteConnector(InputConnectorRef);
+            taf_audio_DeleteConnector(OutputConnectorRef);
             taf_audio_Close(OutRef);
+            taf_audio_Close(FileRef);
 
             return LE_FAULT;
         }
@@ -150,7 +151,7 @@
 
    @endverbatim
  *
- * @subsection c_Close Close and Delete connectors
+ * @subsection c_Close_auio_playback Close and Delete connectors
  *
  * Delete and close the connectors when finished.
  *
@@ -158,8 +159,9 @@
 
    taf_audio_Disconnect(OutputConnectorRef, OutRef);
    taf_audio_Disconnect(OutputConnectorRef, FileRef);
-   taf_audio_DeleteConnector(InputConnectorRef);
+   taf_audio_DeleteConnector(OutputConnectorRef);
    taf_audio_Close(OutRef);
+   taf_audio_Close(FileRef);
 
    @endverbatim
  *
@@ -202,8 +204,8 @@
    @endverbatim
 
  *
- * The OpenModemVoiceRx API with the slot ID should be called in sequence as the following sample for a voice call.
- *
+ * For a voice call, the OpenModemVoiceRx API with the slot ID should be called in sequence as shown in the
+ * following example.
  *
  * @verbatim
 
@@ -215,7 +217,7 @@
 
    @endverbatim
 
- * @subsection c_connectors Connector and open file from location when call is on hold
+ * @subsection c_connectors_oncallhold Connector and open file from location when call is on hold
  * When a voice call is on hold there will be local file playback of audio.
  *
  * @verbatim
@@ -226,7 +228,7 @@
     taf_audio_Connect(OutputConnectorRef, OutRef);
    @endverbatim
 
- * @note This need to be called when a voice call is on hold.
+ * @note This needs to be called when a voice call is on hold.
  *
  * @verbatim
     if ((FileFd = open(FilePath, O_RDONLY)) == -1)
@@ -246,11 +248,11 @@
  * Delete and close the connectors when finished.
  *
  * @verbatim
-    taf_audio_Disconnect(InputConnectorRef, InRef);
-
-    taf_audio_DeleteConnector(InputConnectorRef);
-
-    taf_audio_Close(InRef);
+    taf_audio_Disconnect(OutputConnectorRef, OutRef);
+    taf_audio_Disconnect(OutputConnectorRef, FileRef);
+    taf_audio_DeleteConnector(OutputConnectorRef);
+    taf_audio_Close(OutRef);
+    taf_audio_Close(FileRef);
 
    @endverbatim
  * <HR>

@@ -184,7 +184,7 @@
  * @subsubsection taf_gnss_ForceColdRestart Restart the GNSS device in COLD mode.
  *
  * The taf_gnss_ForceColdRestart() function performs a "COLD" restart of the GNSS device.
- * The current GNSS session is stopped and then started and GNSS data is cleared.
+ * The current GNSS session is stopped and then started with GNSS data cleared.
  * @verbatim
    if(taf_gnss_ForceColdRestart() == LE_OK)
    {
@@ -1161,10 +1161,8 @@ FUNCTION le_result_t SetConstellation
  * Gets the GNSS constellation bitmask.
  *
  * @return
- *  - LE_OK    Succeeded
- *  - LE_FAULT Failed
- *  - LE_OK    On success
- *  - LE_FAULT On failure
+ *  - LE_OK    Succeeded.
+ *  - LE_FAULT Failed.
  *
  * @note If the caller passes a null pointer to this function, it is a fatal error and the
  *       function will not return.

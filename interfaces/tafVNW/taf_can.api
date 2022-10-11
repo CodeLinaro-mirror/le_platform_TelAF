@@ -40,10 +40,10 @@
  *
  * <HR>
  *
- * A Controller Area Network (CAN) is a robust vehicle bus standard designed to allow
+ * A controller area network (CAN) is a robust vehicle bus standard designed to allow
  * microcontrollers and devices to communicate with each other. It is a high-integrity
- * serial bus system for networking intelligent devices, emerged as the standard in-vehicle
- * network.
+ * serial bus system for networking intelligent devices and has emerged as the standard 
+ * in-vehicle network.
  *
  * @section taf_can_binding IPC interfaces binding
  *
@@ -61,12 +61,12 @@
  *
  * @subsection c_taf_can_createCanInf Create CAN interface and CAN frame
  *
- * taf_can_CreateCanInf() creates a CAN interface by opening a CAN socket and binding it to the CAN
- * interface using CAN_RAW protocol and CAN interface name as parameter. CAN_BCM protocol
- * is not supported.
+ * - taf_can_CreateCanInf() -- Creates a CAN interface by opening a CAN socket and binding it to 
+ *   the CAN interface using the CAN_RAW protocol and CAN interface name as a parameter. CAN_BCM 
+ *   protocol is not supported.
  *
- * taf_can_CreateCanFrame() creates a CAN frame using CAN interface reference and frame ID as
- * parameters to send.
+ * - taf_can_CreateCanFrame() -- Creates a CAN frame using the CAN interface reference and frame ID
+ *   as parameters to send.
  *
  * @verbatim
    taf_can_InfProtocol_t canInfType = TAF_CAN_RAW_SOCK;
@@ -85,10 +85,10 @@
  *
  * @subsection c_taf_can_SetFilter Set filter
  *
- * Sets filter to receive CAN frame for the given frameId.
- * The application can sets filter with the taf_can_SetFilter().
+ * Sets filter to receive CAN frame for the given frame ID.
+ * Applications can set filters with taf_can_SetFilter().
  *
- * In the sample code snippet, the filter is set to receive CAN frame for frameId "0x123"
+ * In the example code snippet, the filter is set to receive CAN frames for frame ID "0x123"
  * in the requested CanInfRef.
  *
  * @verbatim
@@ -100,15 +100,15 @@
    }
    @endverbatim
  *
- * @subsection c_taf_can_loopback_EnableDisable Enable or Disable loopback
+ * @subsection c_taf_can_loopback_EnableDisable Enable or disable loopback
  *
  * If local loopback is enabled, the messages sent from the given interface (can0/can1/..)
- * are looped back to the same CAN interface. So, all the applications which bind with the given
+ * are looped back to the same CAN interface, so all applications bound with the given
  * CAN interface can receive the message.
  *
- * The application can enable or disable the loopback with the taf_can_EnableLoopback()
+ * Applications can enable or disable loopback with the taf_can_EnableLoopback()
  * or taf_can_DisableLoopback() functions.
- * To meet multi-user needs the local loopback is enabled by default.
+ * To meet multi-user needs, local loopback is enabled by default.
  *
  * @verbatim
    taf_can_CanInterfaceRef_t canInfRef = taf_can_CreateCanInf("can0", TAF_CAN_RAW_SOCK);
@@ -123,10 +123,11 @@
    }
    @endverbatim
  *
- * @subsection c_taf_can_rcvOwnMsg_EnableDisable Enable or Disable reception of own sent message
+ * @subsection c_taf_can_rcvOwnMsg_EnableDisable Enable or disable reception of own sent message
  *
- * To receive messages sent from the same CanInterface reference.
- * Reception of own sent CAN frame is unwanted, therefor it is disabled by default.
+ * When receiving messages sent from the same CanInterface reference,
+ * Reception of the application's own sent CAN frame is usually unwanted, therefore it
+ * is disabled by default.
  *
  * @verbatim
    taf_can_CanInterfaceRef_t canInfRef = taf_can_CreateCanInf("can0", TAF_CAN_RAW_SOCK);
@@ -141,17 +142,18 @@
    }
    @endverbatim
  *
- * @subsection c_taf_can_CANFD_Frame CAN FD Frame
+ * @subsection c_taf_can_CANFD_Frame CAN FD frame
+ *
  * The new CAN FD capable CAN controllers support two different bitrates for the arbitration
  * phase and the payload phase of the CAN FD frame and up to 64 bytes of payload.
  *
- * - taf_can_IsFdSupported() -- To checks whether the device supports FD frames or not.
+ * - taf_can_IsFdSupported() -- Checks whether the device supports FD frames or not.
  *
- * - taf_can_EnableFdFrame() -- If device supports CAN FD frames then it needs to enable
- * it because it is off by default. Once CAN-FD frame is enabled, the application can send
- * both CAN frames and CAN FD frames.
+ * - taf_can_EnableFdFrame() -- If the device supports CAN FD frames then it needs to enable
+ *                              it because it is off by default. Once CAN-FD frame is enabled,
+ *                              the application can send both CAN frames and CAN FD frames.
  *
- * - taf_can_GetFdStatus() -- To checks whether the CAN FD frame is enabled or not.
+ * - taf_can_GetFdStatus() -- Checks whether the CAN FD frame is enabled or not.
  *
  * @verbatim
    taf_can_CanInterfaceRef_t canInfRef = taf_can_CreateCanInf("can0", TAF_CAN_RAW_SOCK);
@@ -173,8 +175,8 @@
  *
  * @subsection c_taf_can_receiveFrame Receive CAN frame
  *
- * The handler can be managed using taf_can_AddCanEventHandler()
- * and taf_can_RemoveCanEventHandler().
+ * The handler can be managed with the taf_can_AddCanEventHandler()
+ * and taf_can_RemoveCanEventHandler() functions.
  *
  * To receive CAN frame when <received_can_id> & frIdMask == <frameId> & frIdMask, register a
  * handler function using taf_can_AddCanEventHandler().
@@ -198,14 +200,14 @@
    @endverbatim
  *
  * To remove the handler function, call taf_can_RemoveCanEventHandler().
+ *
  * @verbatim
    taf_can_RemoveCanEventHandler(handlerRef);
    @endverbatim
  *
  * @subsection c_taf_can_create_and_send_Frame Create and send CAN frame
  *
- * taf_can_SetPayload() -- The application can sets data upto 64 bytes in hexadecimal
- * form.
+ * taf_can_SetPayload() -- Sets data up to 64 bytes in hexadecimal form.
  *
  * @verbatim
    taf_can_CanInterfaceRef_t canInfRef = taf_can_CreateCanInf("can0", TAF_CAN_RAW_SOCK);
@@ -218,13 +220,13 @@
    }
    @endverbatim
  *
- * taf_can_SetFrameType() -- Sets CAN frame type to send:
- * - CAN_FRAME -- Sets legacy CAN frame type to send. It supports data upto 8 bytes.
- * - CAN_FD_FRAME -- Sets CAN-FD frame type to send. It supports data upto 64 bytes.
+ * taf_can_SetFrameType() -- Sets CAN frame type to send.
+ * - CAN_FRAME -- Sets legacy CAN frame type to send; supports data up to 8 bytes.
+ * - CAN_FD_FRAME -- Sets CAN-FD frame type to send; supports data up to 64 bytes.
  * - AUTO_FRAME -- Sets auto frame type to send with legacy CAN or CAN-FD frame type based on
- * device capability.
+ *                 device capability.
  *
- * The application can sets CAN frame type with the taf_can_SetFrameType().
+ * The application sets CAN frame type with the taf_can_SetFrameType().
  *
  * @verbatim
    taf_can_FrameType_t frameType = TAF_CAN_CAN_FRAME;
@@ -234,9 +236,9 @@
    }
    @endverbatim
  *
- * taf_can_SendFrame() -- The application can send frame of any CAN frame type.
- * Before sending CAN frame, Sets frame type using taf_can_SetFrameType() and payload using
- * taf_can_SetPayload().
+ * taf_can_SendFrame() -- Sends frame of any CAN frame type. Before sending CAN frame, sets
+ *                        the frame type using taf_can_SetFrameType() and payload using
+ *                        taf_can_SetPayload().
  *
  * @verbatim
    if(taf_can_SendFrame(frameRef) == LE_OK)
@@ -247,8 +249,8 @@
  *
  * @subsection c_taf_can_DeleteCanInf Delete CAN interface
  *
- * The application can close the opened socket and deallocate all the allocated memory for created
- * CAN interface with the taf_can_DeleteCanInf().
+ * The application can close the opened socket and deallocate the allocated memory for a created
+ * CAN interface with the taf_can_DeleteCanInf() function.
  *
  * @verbatim
    taf_can_CanInterfaceRef_t canInfRef = taf_can_CreateCanInf("can0", TAF_CAN_RAW_SOCK);
@@ -260,8 +262,8 @@
  *
  * @subsection c_taf_can_DeleteCanFrame Delete CAN frame
  *
- * The application can deallocate all the allocated memory for the created CAN frame using
- * taf_can_DeleteCanFrame().
+ * The application can deallocate the allocated memory for a created CAN frame using
+ * the taf_can_DeleteCanFrame() function.
  *
  * @verbatim
    if(taf_can_DeleteCanFrame(frameRef) == LE_OK)
@@ -304,27 +306,27 @@ DEFINE INTERFACE_NAME_MAX_LEN = 16;
 ENUM InfProtocol
 {
     RAW_SOCK,   ///< Raw CAN socket.
-    BCM_SOCK    ///< Bcm CAN socket.
+    BCM_SOCK    ///< BCM CAN socket.
 };
 
 //-------------------------------------------------------------------------------------------------
 
 /**
- * CAN Frame type.
+ * CAN frame type.
  */
 //-------------------------------------------------------------------------------------------------
 
 ENUM FrameType
 {
-    CAN_FRAME,           ///< Send CAN non-FD type frame (default) .
-    CAN_FD_FRAME,        ///< CAN FD fype frame.
+    CAN_FRAME,           ///< Send CAN non-FD type frame; default.
+    CAN_FD_FRAME,        ///< CAN FD type frame.
     AUTO_FRAME           ///< CAN or CAN-FD frame, based on device capability.
 };
 
 //-------------------------------------------------------------------------------------------------
 
 /**
- * Reference to create CAN interface.
+ * Reference to create a CAN interface.
  */
 //-------------------------------------------------------------------------------------------------
 
@@ -333,7 +335,7 @@ REFERENCE CanInterface;
 //-------------------------------------------------------------------------------------------------
 
 /**
- * Reference to create CAN frame.
+ * Reference to create a CAN frame.
  */
 //-------------------------------------------------------------------------------------------------
 
@@ -342,10 +344,10 @@ REFERENCE CanFrame;
 //-------------------------------------------------------------------------------------------------
 
 /**
- * Creates a CAN Interface.
+ * Creates a CAN interface.
  *
  * @return
- * - Reference to create CAN interface.
+ * - Reference to the created CAN interface.
  * - Null when attempt failed.
  *
  * @note The process exits if an invalid or existing tag is passed.
@@ -354,18 +356,18 @@ REFERENCE CanFrame;
 
 FUNCTION CanInterface CreateCanInf
 (
-    string infName[INTERFACE_NAME_MAX_LEN] IN,    ///< CAN interface name (e.g can0, can1,..).
+    string infName[INTERFACE_NAME_MAX_LEN] IN,    ///< CAN interface name, e.g., can0, can1, etc.
     InfProtocol canInfType IN                     ///< CAN interface type.
 );
 
 //-------------------------------------------------------------------------------------------------
 
 /**
- * Set filter to receive CAN frame for the given frameId.
+ * Sets a filter to receive CAN frame for the given frame ID.
  *
  * @return
  * - LE_OK -- Filter successfully set.
- * - LE_OUT_OF_RANGE -- FrameId greater than 29 bits.
+ * - LE_OUT_OF_RANGE -- Frame ID greater than 29 bits.
  * - LE_FAULT -- Failed.
  *
  * @note The process exits if an invalid reference is passed.
@@ -375,13 +377,13 @@ FUNCTION CanInterface CreateCanInf
 FUNCTION le_result_t SetFilter
 (
     CanInterface canInfRef IN,    ///< Reference of the created CAN interface.
-    uint32 frameId IN             ///< Frame Id.
+    uint32 frameId IN             ///< Frame ID.
 );
 
 //-------------------------------------------------------------------------------------------------
 
 /**
- * Enables sending messages to loopback from the given CAN interface (can0/can1/..).
+ * Enables loopback message sending from the given CAN interface (can0/can1/..).
  *
  * @return
  * - LE_OK -- Local loopback successfully enabled.
@@ -399,7 +401,7 @@ FUNCTION le_result_t EnableLoopback
 //-------------------------------------------------------------------------------------------------
 
 /**
- * Disables sending messages to loopback from the given CAN interface (can0/can1/..).
+ * Disables loopback message sending from the given CAN interface (can0/can1/..).
  *
  * @return
  * - LE_OK -- Local loopback successfully disabled.
@@ -420,7 +422,7 @@ FUNCTION le_result_t DisableLoopback
  * Enables receiving messages sent from the same CanInterface reference.
  *
  * @return
- * - LE_OK -- Reception of the own sent message successfully enabled.
+ * - LE_OK -- Reception of the application's own sent messages successfully enabled.
  * - LE_FAULT -- Failed.
  *
  * @note The process exits if an invalid reference is passed.
@@ -438,7 +440,7 @@ FUNCTION le_result_t EnableRcvOwnMsg
  * Disables receiving messages sent from the same CanInterface reference.
  *
  * @return
- * - LE_OK -- Reception of the own sent message successfully disabled.
+ * - LE_OK -- Reception of the application's own sent messages successfully disabled.
  * - LE_FAULT -- Failed.
  *
  * @note The process exits if an invalid reference is passed.
@@ -456,8 +458,8 @@ FUNCTION le_result_t DisableRcvOwnMsg
  * Checks whether the device supports FD frame or not.
  *
  * @return
- * - True -- Device support FD frame.
- * - False -- Device does not support FD frame.
+ * - True --  FD frame supported.
+ * - False -- FD frame not supported.
  *
  * @note The process exits if an invalid reference is passed.
  */
@@ -471,7 +473,7 @@ FUNCTION bool IsFdSupported
 //-------------------------------------------------------------------------------------------------
 
 /**
- * Enables CAN FD frame, if device supports FD frame.
+ * Enables CAN FD frame, if the device supports FD frame.
  *
  * @return
  * - LE_OK -- CAN FD frame successfully enabled.
@@ -515,8 +517,9 @@ FUNCTION bool GetFdStatus
 HANDLER Callback
 (
     CanInterface canInfRef IN,        ///< Reference of the created CAN interface.
-    bool isCanFdFrame IN,             ///< True if received frame type is canfd_frame, else false.
-    uint32 frameId IN,                ///< Received frame Id.
+    bool isCanFdFrame IN,             ///< True if received frame type is canfd_frame, 
+                                      ///  otherwise false.
+    uint32 frameId IN,                ///< Received frame ID.
     uint8 data[DATA_MAX_LENGTH] IN    ///< Received data.
 );
 
@@ -530,8 +533,8 @@ HANDLER Callback
 EVENT CanEvent
 (
     CanInterface canInfRef IN,    ///< Reference of the created CAN interface.
-    uint32 frameId IN,            ///< Frame Id.
-    uint32 frIdMask IN,           ///< Frame Id mask for message filtering.
+    uint32 frameId IN,            ///< Frame ID.
+    uint32 frIdMask IN,           ///< Frame ID mask for message filtering.
     Callback handler
 );
 
@@ -541,7 +544,7 @@ EVENT CanEvent
  * Creates a CAN frame.
  *
  * @return
- * - Reference to create CAN frame.
+ * - Reference to the created CAN frame.
  * - Null when attempt failed.
  *
  * @note The process exits if an invalid reference or existing tag is passed.
@@ -551,7 +554,7 @@ EVENT CanEvent
 FUNCTION CanFrame CreateCanFrame
 (
     CanInterface canInfRef IN,    ///< Reference of the created CAN interface.
-    uint32 frameId IN             ///< frame Id.
+    uint32 frameId IN             ///< frame ID.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -576,7 +579,7 @@ FUNCTION le_result_t SetPayload
 //-------------------------------------------------------------------------------------------------
 
 /**
- * Sets frame type to send.
+ * Sets the frame type to send.
  *
  * @return
  * - LE_OK -- Frame type successfully set.
@@ -589,16 +592,16 @@ FUNCTION le_result_t SetPayload
 FUNCTION le_result_t SetFrameType
 (
     CanFrame frameRef IN,     ///< Reference of the created CAN frame.
-    FrameType frameType IN    ///< CAN frame type
+    FrameType frameType IN    ///< CAN frame type.
 );
 
 //-------------------------------------------------------------------------------------------------
 
 /**
- * Sends CAN frame.
+ * Sends a CAN frame.
  *
  * @return
- * - LE_OK -- CAN Frame successfully sent.
+ * - LE_OK -- CAN frame successfully sent.
  * - LE_FAULT -- Failed.
  *
  * @note The process exits if an invalid reference is passed.
@@ -607,7 +610,7 @@ FUNCTION le_result_t SetFrameType
 
 FUNCTION le_result_t SendFrame
 (
-    CanFrame frameRef IN    ///< Reference of the created CAN frame to be send.
+    CanFrame frameRef IN    ///< Reference of the created CAN frame to send.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -625,7 +628,7 @@ FUNCTION le_result_t SendFrame
 
 FUNCTION le_result_t DeleteCanInf
 (
-    CanInterface canInfRef IN    ///< Reference of the created CAN interface to be delete.
+    CanInterface canInfRef IN    ///< Reference of the created CAN interface to delete.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -643,5 +646,5 @@ FUNCTION le_result_t DeleteCanInf
 
 FUNCTION le_result_t DeleteCanFrame
 (
-    CanFrame frameRef IN    ///< Reference of the created CAN frame to be delete.
+    CanFrame frameRef IN    ///< Reference of the created CAN frame to delete.
 );

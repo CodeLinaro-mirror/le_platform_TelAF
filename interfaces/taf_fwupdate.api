@@ -64,7 +64,7 @@
  *
  * - taf_fwupdate_GetFirmwareVersion() -- Gets the firmware version.
  *
- * - taf_fwupdate_Install() supports to install firmware.
+ * - taf_fwupdate_Install() -- Supports firmware installation.
  *
  * <HR>
  *
@@ -92,7 +92,7 @@ FUNCTION RebootToActive
  * Gets the firmware version.
  *
  * @return
- *  - LE_BAD_PAREMETER -- Bad parameters.
+ *  - LE_BAD_PAREMETER -- Bad parameter(s).
  *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------

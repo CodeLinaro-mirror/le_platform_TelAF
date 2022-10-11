@@ -217,7 +217,7 @@
  *
  * - @ref taf_sim_SetPower() -- Powers up or down the current SIM card.
  *
- * taf_sim_Reset() is used to reset the specified card using the sim-slot.
+ * - @ref taf_sim_Reset() -- Resets the specified card using the SIM-slot.
  *
  * @warning The device may need a reboot to detect a SIM insertion or removal. So it is recommended to restart
  *          the device or NAD.
@@ -235,8 +235,9 @@
  * be sent to SIM card with @ref taf_sim_SendApduOnChannel(). When the logical channel is no
  * longer needed, it can be closed using @ref taf_sim_CloseLogicalChannel().
  *
- * Use @ref taf_sim_IsEmergencyCallSubscriptionSelected() to know if EMERGENCY type profile is activ
- ated for the specified sim slot.
+ * Use @ref taf_sim_IsEmergencyCallSubscriptionSelected() to know if the EMERGENCY profile is activated for
+ * the specified sim slot.
+ *
  * @warning If no profile is active, it returns LE_NOT_FOUND.
  *
  * Before the SIM sends a message, an application registers a callback handler using taf_sim_AddNewStateHandler().
@@ -256,24 +257,24 @@
  *
  * @section taf_sim_profile_switch SIM profile switch
  *
- * As soon as there are several subscriptions/profiles in the eUICC (multi-profile), and one of
- * them is dedicated to emergency calls (ex: eCall, ERA-Glonass), local swap is needed to swap as
- * quickly as possible to the emergency profile in case of need.
+ * If there are several subscriptions/profiles in the eUICC (multi-profile), and one of
+ * them is dedicated to emergency calls (e.g., eCall, ERA-Glonass), local swap is needed to swap as
+ * quickly as possible to the emergency profile.
  *
- * “Local swap” means that the user's application must be able to directly request the eUICC to
- * swap to Emergency Call Subscription (ECS).
+ * "Local swap" means that the user's application must be able to directly request the eUICC to
+ * swap to emergency call subscription (ECS).
  *
  * Local swap puts the eUICC in a temporary state, meaning the commercial subscription is replaced
- * by emergency subscription for a limited time, event triggering the swap back to commercial
+ * by an emergency subscription for a limited time, event triggering the swap back to commercial
  * subscription being controlled by the user's application.
  *
  * The taf_sim_LocalSwapToEmergencyCallSubscription() function requests the multi-profile eUICC to
- * swap to ECS and to reboot. The User's application must wait for eUICC reboot to be finished and
- * network connection available.
+ * swap to ECS and reboot. The user's application must wait for eUICC reboot to finish and
+ * a network connection to be available.
  *
  * The taf_sim_LocalSwapToCommercialSubscription() function requests the multi-profile eUICC to swap
- * back to commercial subscription and to reboot. The user's application must wait for eUICC reboot
- * to be finished and network connection available.
+ * back to a commercial subscription and reboot. The user's application must wait for eUICC reboot
+ * to finish and a network connection to be available.
  *
  * <HR>
  *
@@ -398,7 +399,7 @@ ENUM AppType {
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Card Manufacturer.
+ * Card manufacturer.
  *
  */
 //--------------------------------------------------------------------------------------------------
@@ -409,7 +410,7 @@ ENUM Manufacturer
     G_AND_D,            ///< G&D.
     MORPHO,             ///< Morpho.
     VALID,              ///< Valid.
-    MANUFACTURER_MAX
+    MANUFACTURER_MAX    ///< Indicates the last item.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -423,7 +424,7 @@ ENUM Command
     READ_BINARY,            ///< Read a transparent elementary file.
     UPDATE_RECORD,          ///< Update a file record.
     UPDATE_BINARY,          ///< Update a transparent elementary file.
-    COMMAND_MAX             ///< Max value
+    COMMAND_MAX             ///< Indicates the last item.
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -871,11 +872,11 @@ FUNCTION le_result_t SendApdu
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Send a command to the SIM.
+ * Sends a command to the SIM.
  *
  * @return
- *      - LE_OK             Function succeeded.
- *      - LE_FAULT          The function failed.
+ *      - LE_OK             Succeeded.
+ *      - LE_FAULT          Failed.
  *      - LE_BAD_PARAMETER  A parameter is invalid.
  *      - LE_NOT_FOUND      - The function failed to select the SIM card for this operation
  *                          - The requested SIM file is not found
@@ -887,30 +888,29 @@ FUNCTION le_result_t SendCommand
 (
     Id             simId IN,                                ///< The SIM identifier.
     Command        command IN,                              ///< The SIM command.
-    string         fileIdentifier[FILE_ID_LEN] IN,          ///< File identifier
-    uint8          p1 IN,                                   ///< Parameter P1 passed to the SIM
-    uint8          p2 IN,                                   ///< Parameter P2 passed to the SIM
-    uint8          p3 IN,                                   ///< Parameter P3 passed to the SIM
-    uint8          data[DATA_MAX_BYTES] IN,                 ///< data command.
-    string         path[PATH_MAX_LEN] IN,                   ///< path of the elementary file
-    uint8          sw1 OUT,                                 ///< Status Word 1 received from the SIM
-    uint8          sw2 OUT,                                 ///< Status Word 2 received from the SIM
+    string         fileIdentifier[FILE_ID_LEN] IN,          ///< The file identifier.
+    uint8          p1 IN,                                   ///< Parameter P1 passed to the SIM.
+    uint8          p2 IN,                                   ///< Parameter P2 passed to the SIM.
+    uint8          p3 IN,                                   ///< Parameter P3 passed to the SIM.
+    uint8          data[DATA_MAX_BYTES] IN,                 ///< The command data.
+    string         path[PATH_MAX_LEN] IN,                   ///< The path to the elementary file.
+    uint8          sw1 OUT,                                 ///< Status word 1 received from the SIM.
+    uint8          sw2 OUT,                                 ///< Status word 2 received from the SIM.
     uint8          response[RESPONSE_MAX_BYTES] OUT         ///< SIM response.
 );
 
 /**
- * Switches the given sim to the Emergency Call subscription.
- * The eUICC reboots after switching the profile, and hence the clien't app must wait for it.
+ * Switches the given SIM to the emergency call subscription.
+ * The eUICC reboots after switching the profile and the client app must wait for it.
  *
  * @return
- *      - LE_OK -- success
- *      - LE_BAD_PARAMETER -- invalid SIM identifier
- *      - LE_FAULT -- unexpected error
+ *      - LE_OK -- Succeeded.
+ *      - LE_BAD_PARAMETER -- Invalid SIM identifier.
+ *      - LE_FAULT -- Unexpected error.
  *
- * @note The eUICC should be in a ready state.
+ * @note The eUICC should be in the Ready state.
  *
- * @note Please ensure the profile of Emergency type is available on the eUICC, or it would throw
- * an error.
+ * @note Ensure the emergency profile is available on the eUICC or an error will be thrown.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t LocalSwapToEmergencyCallSubscription
@@ -921,18 +921,17 @@ FUNCTION le_result_t LocalSwapToEmergencyCallSubscription
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Switches the given sim to the Commercial subscription.
- * The eUICC reboots after switching the profile, and hence the clien't app must wait for it.
+ * Switches the given SIM to the commercial subscription.
+ * The eUICC reboots after switching the profile and the client app must wait for it.
  *
  * @return
- *      - LE_OK -- success
- *      - LE_BAD_PARAMETER -- invalid SIM identifier
- *      - LE_FAULT -- unexpected error
+ *      - LE_OK -- Succeeded.
+ *      - LE_BAD_PARAMETER -- Invalid SIM identifier.
+ *      - LE_FAULT -- Unexpected error.
  *
- * @note The eUICC should be in a ready state.
+ * @note The eUICC should be in the Ready state.
  *
- * @note Please ensure the profile of Commercial type is available on the eUICC, or it would throw
- * an error.
+ * @note Ensure the commercial profile is available on the eUICC or an error will be thrown.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t LocalSwapToCommercialSubscription
@@ -943,13 +942,14 @@ FUNCTION le_result_t LocalSwapToCommercialSubscription
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Power up or down the current SIM.
+ * Powers up or down the current SIM.
  *
- * @return LE_OK                  Function succeeded.
- * @return LE_FAULT               Function failed.
- * @return LE_BAD_PARAMETER       Incorrect parameters.
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_FAULT -- Failed.
+ *     - LE_BAD_PARAMETER -- Incorrect parameter(s).
  *
- * @note For SIM power cycle operation, it must wait until SIM state is LE_OFF
+ * @note For SIM power cycle operation, it must wait until the SIM state is LE_OFF
  *       before powering on the SIM, otherwise power up SIM will fail.
  */
 //--------------------------------------------------------------------------------------------------
@@ -964,8 +964,8 @@ FUNCTION le_result_t SetPower
  * Reset the SIM.
  *
  * @return
- *      - LE_FAULT         Function failed.
- *      - LE_OK            Function succeeded.
+ *      - LE_FAULT -- Failed.
+ *      - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Reset
@@ -975,21 +975,21 @@ FUNCTION le_result_t Reset
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Checks if EMERGENCY type profile is activated for the sim slot.
+ * Checks if the emergency profile is activated for the SIM slot.
  *
  * @return
- *      - LE_OK -- success
- *      - LE_BAD_PARAMETER -- invalid SIM identifier or null ECS pointer is passed
- *      - LE_NOT_FOUND -- cannot determine the current selected subscription
- *      - LE_FAULT -- unexpected errors
+ *      - LE_OK -- Succeeded.
+ *      - LE_BAD_PARAMETER -- Invalid SIM identifier or null ECS pointer.
+ *      - LE_NOT_FOUND -- Cannot determine the current selected subscription.
+ *      - LE_FAULT -- Unexpected error.
  *
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t IsEmergencyCallSubscriptionSelected
 (
     Id    simId IN,  ///< The SIM identifier.
-    bool  isEcs OUT  ///< True if Emergency Call Subscription (ECS) is selected.
-                     ///< False if Commercial Subscription is selected.
+    bool  isEcs OUT  ///< - True -- Emergency call subscription (ECS) is selected.
+                     ///  - False -- Commercial subscription is selected.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1006,7 +1006,7 @@ HANDLER IccidChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This event provides information on ICCID
+ * ICCID information.
  *
  */
 //--------------------------------------------------------------------------------------------------

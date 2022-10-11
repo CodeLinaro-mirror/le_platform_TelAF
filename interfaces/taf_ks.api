@@ -113,7 +113,7 @@
  *
  * @note taf_ks_GetKey() returns LE_NOT_FOUND if the key is created but not provisioned.
  *
- * Call taf_ks_ExportKey() to export x.509 DER format public key.
+ * Call taf_ks_ExportKey() to export the x.509 DER format public key.
  *
  * Call taf_ks_DeleteKey() to delete a key from the backend storage.
  *
@@ -685,16 +685,16 @@ FUNCTION le_result_t ProvisionHmacKeyValue
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Exports a key into specified key data format.
+ * Exports a key into the specified key data format.
  *
- * For asymmetric key exports the x.509 DER format (SubjectPublicKeyInfo) public key. And currently
- * exports symmetric key is not supported.
+ * For asymmetric key exports the x.509 DER format (SubjectPublicKeyInfo) public key. Currently
+ * symmetric key exports are not supported.
  *
  * @return
  *     - LE_OK -- Succeeded.
- *     - LE_BAD_PARAMETER -- Bad parameters.
+ *     - LE_BAD_PARAMETER -- Bad parameter(s).
  *     - LE_NOT_FOUND -- Key does not exist.
- *     - LE_NOT_PERMITTED -- Key is not provisioned, or the key is not created by the client.
+ *     - LE_NOT_PERMITTED -- Key is not provisioned or the key is not created by the client.
  *     - LE_FAULT -- Error.
  */
 //--------------------------------------------------------------------------------------------------

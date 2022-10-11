@@ -41,17 +41,16 @@
  *
  * <HR>
  *
- * Network service is a data network configuration service. It provides unified TelAF networking
- * APIs for configuration.
+ * The Network service APIs unified TelAF networking APIs for configuration.
  *
  * Network service provides APIs for applications to manage route, gateway, DNS, NAT, GSB, VLAN,
- * Socksv5, L2tp, filter and firewall.
+ * Socksv5, L2tp, filter, and firewall.
  *
  * @section c_taf_net_binding IPC interfaces binding
  *
- * All the functions of this API are provided by the @b tafNetSvc application service.
+ * All functions of this API are provided by the @b tafNetSvc application service.
  *
- * Here's a sample of how to bind to Network service:
+ * The following example shows how to bind to the network service.
  * @verbatim
    bindings:
    {
@@ -61,11 +60,11 @@
  *
  * @section c_taf_net_route_management Route management
  *
- * Route can be changed by using taf_net_ChangeRoute with interface name, destination address,
- * prefix length, metric, isAdd passed as parameters.
+ * Routes can be changed using taf_net_ChangeRoute with the interface name, destination address,
+ * prefix length, metric, and isAdd passed as parameters.
  *
- * Here's a sample of how to change a route. In this example, it will add a route with interface
- * "eth0", destination address "192.168.10.0", subnet mask "255.255.255.0", metric 0.
+ * The following example shows how to change a route. This example adds a route with interface
+ * "eth0", destination address "192.168.10.0", subnet mask "255.255.255.0", and metric 0.
  * @verbatim
    result=taf_net_ChangeRoute("eth0","192.168.10.0",24,0,TAF_NET_ADD);
    @endverbatim
@@ -83,13 +82,13 @@
  * @section c_taf_net_gateway_management Gateway management
  *
  * Gateway management provides APIs to set, backup, restore system default gateway, and query
- * interface gateway, including IPV4 address and IPV6 address.
+ * interface gateway, including IPv4 and IPv6 addresses.
  *
- * Default gateway can be set by using taf_net_SetDefaultGW with interface name passed as parameter.
+ * The default gateway can be set using taf_net_SetDefaultGW with the interface name passed as a parameter.
  * The gateway addresses of the interface will be retrieved and set into the system.
  *
- * Here's a sample of how to set default gateway. In this example, it will set system default gateways
- * with gateway addresses from interface "rmnet_data1", including IPV4 and IPV6 gateways:
+ * The following example shows how to set the default gateway. This example sets the system default gateways
+ * with gateway addresses from interface "rmnet_data1", including IPv4 and IPv6 gateways.
  * @verbatim
    result=taf_net_SetDefaultGW("rmnet_data1");
    @endverbatim
@@ -106,21 +105,21 @@
  *
  * The following APIs are supported for gateway management
  *
- * - taf_net_SetDefaultGW()    -- Sets system default gateway.
- * - taf_net_GetInterfaceGW()    -- Gets interface gateway.
- * - taf_net_BackupDefaultGW()   -- Backups system gateway.
- * - taf_net_RestoreDefaultGW()  -- Restores system gateway.
- * - taf_net_AddGatewayChangeHandler()  -- Adds a handler for gateway change.
- * - taf_net_RemoveGatewayChangeHandler()  -- Removes a handler for gateway change.
+ * - taf_net_SetDefaultGW() -- Sets the system's default gateway.
+ * - taf_net_GetInterfaceGW() -- Gets the interface gateway.
+ * - taf_net_BackupDefaultGW() -- Backs up the system gateway.
+ * - taf_net_RestoreDefaultGW() -- Restores the system gateway.
+ * - taf_net_AddGatewayChangeHandler() -- Adds a handler for gateway changes.
+ * - taf_net_RemoveGatewayChangeHandler() -- Removes a handler for gateway changes.
  *
  * @section c_taf_net_DNS_management DNS management
  *
- * DNS can be set by using taf_net_SetDNS with interface name, passed as parameter.
+ * DNS can be set using taf_net_SetDNS with the interface name passed as the parameter.
  * The DNS addresses of the interface will be retrieved and set into the system including
- * primary IPV4 and IPV6 addresses and secondary IPV4 and IPV6 addresses.
+ * the primary IPv4 and IPv6 addresses and secondary IPv4 and IPv6 addresses.
  *
- * Here's a sample of how to set DNS. In this example, it will set system DNS addresses with DNS
- * addresses from interface "rmnet_data1", including IPV4 and IPV6 DNS addresses:
+ * The following example shows how to set DNS. This example sets the system DNS addresses with DNS
+ * addresses from interface "rmnet_data1", including IPv4 and IPv6 DNS addresses.
  * @verbatim
    result=taf_net_SetDNS("rmnet_data1");
    @endverbatim
@@ -135,55 +134,55 @@
  * To remove the handler, an application can use
  * taf_net_RemoveDNSChangeHandler(DNSChangeHandlerRef).
  *
- * taf_net_GetInterfaceDNS() can be used to query the interface DNS addresses, including primary
- * IPV4 and IPV6 addresses and secondary IPV4 and IPV6 addresses.
+ * taf_net_GetInterfaceDNS() can be used to query the interface DNS addresses, including the
+ * primary IPv4 and IPv6 addresses and secondary IPv4 and IPv6 addresses.
  *
- * @section c_taf_net_DestNat_management Static destination NAT management.
+ * @section c_taf_net_DestNat_management Static destination NAT management
  *
- * Static destination NAT can be added, removed, retrieved for default PDN and on-demand PDN.
+ * Static destination NAT can be added, removed, and retrieved for the default PDN and on-demand PDN.
  *
- * Static destination NAT can be added by using taf_net_AddDestNatEntryOnDefaultPdn with
- * private IP address, private port, global port, IP protocol type, passed as parameter.
+ * Static destination NAT can be added using taf_net_AddDestNatEntryOnDefaultPdn with the
+ * private IP address, private port, global port, and IP protocol type passed as parameters.
  * The destination NAT will be added into iptables if the default PDN is brought up.
  *
- * Here's a sample of how to add a static destination NAT entry on default PDN. In this example,
- * it will add a static destination NAT entry on default PDN with private ip address
- * "192.168.225.30", private port 5000, global port 5000 and TCP protocol type:
+ * The following example shows how to add a static destination NAT entry on the default PDN. This example
+ * adds a static destination NAT entry on the default PDN with private IP address
+ * "192.168.225.30", private port 5000, global port 5000 and TCP protocol type.
  * @verbatim
    result=taf_net_AddDestNatEntryOnDefaultPdn("192.168.225.30", 5000, 5000, TAF_NET_TCP);
    @endverbatim
  *
  * The following APIs are supported for NAT management
  *
- * - taf_net_AddDestNatEntryOnDefaultPdn()      -- Adds destination NAT for default PDN.
- * - taf_net_RemoveDestNatEntryOnDefaultPdn()   -- Removes destination NAT for default PDN.
- * - taf_net_AddDestNatEntryOnDemandPdn()       -- Adds destination NAT for on-demand PDN.
- * - taf_net_RemoveDestNatEntryOnDemandPdn()    -- Removes destination NAT for on-demand PDN.
- * - taf_net_GetDestNatEntryListOnDefaultPdn()  -- Gets the reference of destination NAT entry list.
- * - taf_net_GetDestNatEntryListOnDemandPdn()   -- Gets the reference of destination NAT entry list.
- * - taf_net_GetFirstDestNatEntry()  -- Gets the reference of the first destination NAT entry.
- * - taf_net_GetNextDestNatEntry()   -- Gets the reference of the next destination NAT entry.
- * - taf_net_GetDestNatEntryDetails()  -- Gets the details of destination NAT entry.
- * - taf_net_DeleteDestNatEntryList()  -- Deletes the reference of destination NAT entry list.
- * - taf_net_AddDestNatChangeHandler()  -- Adds a handler for NAT change.
- * - taf_net_RemoveDestNatChangeHandler()  -- Removes a handler for NAT change.
+ * - taf_net_AddDestNatEntryOnDefaultPdn() -- Adds destination NAT for default PDN.
+ * - taf_net_RemoveDestNatEntryOnDefaultPdn() -- Removes destination NAT for default PDN.
+ * - taf_net_AddDestNatEntryOnDemandPdn() -- Adds destination NAT for on-demand PDN.
+ * - taf_net_RemoveDestNatEntryOnDemandPdn() -- Removes destination NAT for on-demand PDN.
+ * - taf_net_GetDestNatEntryListOnDefaultPdn() -- Gets the reference of destination NAT entry list for the default PDN.
+ * - taf_net_GetDestNatEntryListOnDemandPdn() -- Gets the reference of destination NAT entry list for an on-demand PDN.
+ * - taf_net_GetFirstDestNatEntry() -- Gets the reference of the first destination NAT entry.
+ * - taf_net_GetNextDestNatEntry() -- Gets the reference of the next destination NAT entry.
+ * - taf_net_GetDestNatEntryDetails() -- Gets the details of destination NAT entry.
+ * - taf_net_DeleteDestNatEntryList() -- Deletes the reference of destination NAT entry list.
+ * - taf_net_AddDestNatChangeHandler() -- Adds a handler for NAT changes.
+ * - taf_net_RemoveDestNatChangeHandler() -- Removes a handler for NAT changes.
 
- * @note When adding a static destination NAT entry, and then changing the default profile ID, the
- * static destination NAT entry will be changed accordingly.
+ * @note When adding a static destination NAT entry, and changing the default profile ID the
+ *       static destination NAT entry will be changed accordingly.
  *
- * @note After binding VLAN with the profile id, the corresponding destination NAT for
- * on-demand PDN can be added into iptables.
+ * @note After binding VLAN with the profile ID, the corresponding destination NAT for
+ *       on-demand PDN can be added into iptables.
  *
  * @section c_taf_net_Vlan_management VLAN management
  *
- * VLAN management provides APIs for VLAN creation, VLAN binding and VLAN information query.
+ * VLAN management provides APIs for VLAN creation, VLAN binding, and VLAN information querying.
  *
- * VLAN can be created using taf_net_CreateVlan with VLAN Id and isAccelerated passed as parameters.
+ * VLAN can be created using taf_net_CreateVlan with VLAN ID and isAccelerated passed as parameters.
  * After VLAN is created, the application can use taf_net_AddVlanInterface to add VLAN
- * interface, and then use taf_net_BindVlanWithProfile to bind VLAN with profile.
+ * interface and then use taf_net_BindVlanWithProfile to bind VLAN with profile.
  *
- * Here's a sample of how to create a VLAN. In this example, it will create a VLAN with VLAN ID 5,
- * and the VLAN will not be accelerated. The return value is VLAN reference:
+ * The following example shows how to create a VLAN. This example creates a VLAN with VLAN ID 5,
+ * and the VLAN will not be accelerated. The return value is the VLAN reference.
  * @verbatim
    vlanReference = taf_net_CreateVlan(5, false);
    if (!vlanReference)
@@ -199,71 +198,68 @@
  * - taf_net_RemoveVlan()       -- Removes a VLAN.
  * - taf_net_GetVlanById()      -- Gets a VLAN reference.
 
- * VLAN interface can be added using taf_net_AddVlanInterface with VLAN reference and interface
- * type, passed as parameter.
+ * A VLAN interface can be added using taf_net_AddVlanInterface with VLAN reference and interface
+ * type passed as parameters.
  *
- * Here's a sample of how to add a VLAN interface, In this example, it will add a VLAN interface
- * into VLAN with interface type TAF_NET_ETH:
+ * The following example shows how to add a VLAN interface. This example adds a VLAN interface
+ * into VLAN with interface type TAF_NET_ETH.
  * @verbatim
    result = taf_net_AddVlanInterface(vlanReference, TAF_NET_ETH);
    @endverbatim
  *
  * The following APIs are supported for VLAN interface
  *
- * - taf_net_AddVlanInterface()       -- Adds a VLAN interface.
- * - taf_net_RemoveVlanInterface()    -- Removes a VLAN interface.
- * - taf_net_GetVlanInterfaceList()   -- Gets the reference of the VLAN interface list.
- * - taf_net_GetFirstVlanInterface()  -- Gets the reference of the first VLAN interface.
- * - taf_net_GetNextVlanInterface()   -- Gets the reference of the next VLAN interface.
- * - taf_net_DeleteVlanInterfaceList()   -- Deletes the reference of the VLAN interface list.
- * - taf_net_GetVlanInterfaceType()   -- Gets the VLAN interface type.
+ * - taf_net_AddVlanInterface()        -- Adds a VLAN interface.
+ * - taf_net_RemoveVlanInterface()     -- Removes a VLAN interface.
+ * - taf_net_GetVlanInterfaceList()    -- Gets the reference of the VLAN interface list.
+ * - taf_net_GetFirstVlanInterface()   -- Gets the reference of the first VLAN interface.
+ * - taf_net_GetNextVlanInterface()    -- Gets the reference of the next VLAN interface.
+ * - taf_net_DeleteVlanInterfaceList() -- Deletes the reference of the VLAN interface list.
+ * - taf_net_GetVlanInterfaceType()    -- Gets the VLAN interface type.
  *
- * @note When adding a VLAN interface for a VLAN with isAccelerated as true, if the interface is
- * the first added for the interface type in the system, the system will be rebooted automatically
- * after 5 seconds.
+ * @note When adding or deleting a VLAN interface for a VLAN with isAccelerated as true, if the interface is
+ *       the first added or last deleted for the interface type in the system, the system will automatically 
+ *       reboot after 5 seconds.
  *
- * @note When deleting a VLAN interface for a VLAN with isAccelerated as true, if the interface is
- * the last deleted for the interface type in the system, the system will be rebooted automatically
- * after 5 seconds.
  *
- * The following APIs are supported for VLAN information retrieving.
+ * The following APIs are supported for VLAN information retrieval.
  *
  * - taf_net_GetVlanEntryList()       -- Gets the reference of the VLAN entry list.
  * - taf_net_GetFirstVlanEntry()      -- Gets the reference of the first VLAN entry.
  * - taf_net_GetNextVlanEntry()       -- Gets the reference of the next VLAN entry.
  * - taf_net_DeleteVlanEntryList()    -- Deletes the reference of the VLAN entry list.
- * - taf_net_GetVlanId()              -- Gets the VLAN id.
+ * - taf_net_GetVlanId()              -- Gets the VLAN ID.
  * - taf_net_IsVlanAccelerated()      -- Checks if the VLAN is accelerated.
- * - taf_net_GetVlanBoundProfileId()  -- Gets the profile id bound with this VLAN.
+ * - taf_net_GetVlanBoundProfileId()  -- Gets the profile ID bound with this VLAN.
  *
- * VLAN can be bound with profile by using taf_net_BindVlanWithProfile with VLAN reference and
- * profile id passed as parameter.
+ * VLAN can be bound with a profile using taf_net_BindVlanWithProfile with the VLAN reference and
+ * profile ID passed as parameters.
  *
- * Here's a sample of how to bind VLAN with profile. In this example, it will bind VLAN with
- * profile id 5:
+ * The following example shows how to bind VLAN with a profile. This example binds VLAN with
+ * profile ID 5.
  * @verbatim
    result = taf_net_BindVlanWithProfile(vlanReference, 5);
    @endverbatim
  *
- * The API taf_net_UnbindVlanFromProfile can be used to unbind VLAN from profile.
+ * The API taf_net_UnbindVlanFromProfile can be used to unbind VLAN from a profile.
  *
- * @note If binding VLAN with default profile id, the system will auto reboot after 5 seconds.
+ * @note If binding VLAN with the default profile ID, the system will automatically reboot after 5 seconds.
  *
- * @note If unbinding VLAN from default profile id, the system will auto reboot after 5 seconds.
+ * @note If unbinding VLAN from default profile id, the system will automatically reboot after 5 seconds.
  *
  * @section c_taf_net_L2TP_management L2TP management
  *
- * L2TP management provides APIs for enabling and disabling L2TP, creating and removing tunnel,
- * adding and removing session, setting UDP port, starting and stopping tunnel, querying L2TP
- * information etc.
+ * L2TP management provides APIs for enabling and disabling L2TP, creating and removing tunnels,
+ * adding and removing sessions, setting UDP ports, starting and stopping tunnels, and querying L2TP
+ * information.
  *
- * Tunnel can be created by using taf_net_CreateTunnel. After creating tunnel, the application can
- * use taf_net_SetTunnelUdpPort to set UDP port for UDP encapsulation protocol, taf_net_AddSession
- * to add session into tunnel, and then use taf_net_StartTunnel to start this tunnel.
+ * Tunnels can be created using taf_net_CreateTunnel. After creating a tunnel, the application can
+ * use taf_net_SetTunnelUdpPort to set the UDP port for UDP encapsulation protocol, taf_net_AddSession
+ * to add a session to the tunnel, and then taf_net_StartTunnel to start the tunnel.
  *
- * Here's a sample of how to create a tunnel. In this example, it will create a tunnel with IP
- * encapsulation protocol, local tunnel id 1, peer tunnel id 1, peer IP address fd53:7cb8:383:5::2
- * and interface name eth0.5. The return value is the tunnel reference:
+ * The following example shows how to create a tunnel. This example creates a tunnel with IP
+ * encapsulation protocol, local tunnel ID 1, peer tunnel ID 1, peer IP address fd53:7cb8:383:5::2,
+ * and interface name eth0.5. The return value is the tunnel reference.
  * @verbatim
    tunnelReference = taf_net_CreateTunnel(TAF_NET_L2TP_IP, 1, 1, "fd53:7cb8:383:5::2", "eth0.5");
    if (!tunnelReference)
@@ -273,8 +269,8 @@
    }
    @endverbatim
  *
- * An application can synchrounously start a tunnel using taf_net_StartTunnel with tunnel
- * reference passed as parameter.
+ * An application can synchrounously start a tunnel using taf_net_StartTunnel with the tunnel
+ * reference passed as a parameter.
  *
  * @verbatim
    result = taf_net_StartTunnel(tunnelReference);
@@ -285,7 +281,7 @@
    }
    @endverbatim
  *
- * An application can asynchrounously start a tunnel using taf_net_StartTunnelAsync with tunnel
+ * An application can asynchrounously start a tunnel using taf_net_StartTunnelAsync with the tunnel
  * reference and handler function passed as parameters.
  *
  * @verbatim
@@ -311,30 +307,30 @@
  * - taf_net_CreateTunnel()       -- Creates a tunnel.
  * - taf_net_RemoveTunnel()       -- Removes a tunnel.
  * - taf_net_SetTunnelUdpPort()   -- Sets UDP port for a tunnel.
- * - taf_net_AddSession()         -- Adds session into a tunnel.
- * - taf_net_RemoveSession()      -- Removes session from a tunnel.
+ * - taf_net_AddSession()         -- Adds a session to a tunnel.
+ * - taf_net_RemoveSession()      -- Removes a session from a tunnel.
  * - taf_net_StartTunnel()        -- Synchronously starts a tunnel.
  * - taf_net_StartTunnelAsync()   -- Asynchronously starts a tunnel.
  * - taf_net_StopTunnel()         -- Synchronously stops a tunnel.
  * - taf_net_StopTunnelAsync()    -- Asynchronously stops a tunnel.
  * - taf_net_GetTunnelRefById()   -- Gets a tunnel reference.
  *
- * The following APIs are supported for tunnel information retrieving.
+ * The following APIs are supported for tunnel information retrieval.
  *
  * - taf_net_GetTunnelEntryList()       -- Gets the reference of the tunnel entry list.
  * - taf_net_GetFirstTunnelEntry()      -- Gets the reference of the first tunnel entry.
  * - taf_net_GetNextTunnelEntry()       -- Gets the reference of the next tunnel entry.
  * - taf_net_DeleteTunnelEntryList()    -- Deletes the reference of the tunnel entry list.
- * - taf_net_GetTunnelEncapProto()      -- Gets encapsulation protocol of a tunnel.
- * - taf_net_GetTunnelLocalId()         -- Gets local id of a tunnel.
- * - taf_net_GetTunnelPeerId()          -- Gets peer id of a tunnel.
- * - taf_net_GetTunnelLocalUdpPort()    -- Gets local UDP port of a tunnel.
- * - taf_net_GetTunnelPeerUdpPort()     -- Gets peer UDP port of a tunnel.
- * - taf_net_GetTunnelPeerIpv6Addr()    -- Gets peer IP v6 address of a tunnel.
- * - taf_net_GetTunnelPeerIpv4Addr()    -- Gets peer IP v4 address of a tunnel.
- * - taf_net_GetTunnelInterfaceName()   -- Gets interface name of a tunnel.
- * - taf_net_GetTunnelIpType()          -- Gets IP type of a tunnel.
- * - taf_net_GetSessionConfig()         -- Gets session config of a tunnel.
+ * - taf_net_GetTunnelEncapProto()      -- Gets the encapsulation protocol of a tunnel.
+ * - taf_net_GetTunnelLocalId()         -- Gets the local ID of a tunnel.
+ * - taf_net_GetTunnelPeerId()          -- Gets the peer ID of a tunnel.
+ * - taf_net_GetTunnelLocalUdpPort()    -- Gets the local UDP port of a tunnel.
+ * - taf_net_GetTunnelPeerUdpPort()     -- Gets the peer UDP port of a tunnel.
+ * - taf_net_GetTunnelPeerIpv6Addr()    -- Gets the peer IPv6 address of a tunnel.
+ * - taf_net_GetTunnelPeerIpv4Addr()    -- Gets the peer IPv4 address of a tunnel.
+ * - taf_net_GetTunnelInterfaceName()   -- Gets the interface name of a tunnel.
+ * - taf_net_GetTunnelIpType()          -- Gets the IP type of a tunnel.
+ * - taf_net_GetSessionConfig()         -- Gets the session configuration of a tunnel.
  *
  * <HR>
  *
@@ -450,8 +446,8 @@ ENUM NetAction
 //--------------------------------------------------------------------------------------------------
 ENUM NetIpType
 {
-    IPV4,                       ///< IPV4.
-    IPV6                        ///< IPV6.
+    IPV4,                       ///< IPv4.
+    IPV6                        ///< IPv6.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -461,9 +457,9 @@ ENUM NetIpType
 //--------------------------------------------------------------------------------------------------
 ENUM TechType
 {
-    TECH_CELLULAR,              ///< CELLULAR.
-    TECH_WIFI,                  ///< WIFI.
-    TECH_ETHERNET               ///< ETHERNET.
+    TECH_CELLULAR,              ///< Cellular.
+    TECH_WIFI,                  ///< Wi-Fi.
+    TECH_ETHERNET               ///< Ethernet.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -473,8 +469,8 @@ ENUM TechType
 //--------------------------------------------------------------------------------------------------
 ENUM State
 {
-    STATE_DOWN,                 ///< DOWN.
-    STATE_UP                    ///< UP.
+    STATE_DOWN,                 ///< Down.
+    STATE_UP                    ///< Up.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -485,8 +481,8 @@ ENUM State
 ENUM L2tpEncapProtocol
 {
     L2TP_NONE,
-    L2TP_IP,                      // IP Protocol used for encapsulation.
-    L2TP_UDP                      // UDP Protocol used for encapsulation.
+    L2TP_IP,                      // IP protocol used for encapsulation.
+    L2TP_UDP                      // UDP protocol used for encapsulation.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -504,17 +500,17 @@ ENUM IpFamilyType
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The VLAN interface type
+ * The VLAN interface type.
  */
 //--------------------------------------------------------------------------------------------------
 ENUM VlanIfType
 {
-    IFACE_UNKNOWN,              ///< UNKNOWN interface.
-    WLAN,                       ///< Wireless Local Area Network (WLAN).
+    IFACE_UNKNOWN,              ///< Unknown interface.
+    WLAN,                       ///< Wireless local area network (WLAN).
     ETH,                        ///< Ethernet (ETH).
-    ECM,                        ///< Ethernet Control Model (ECM).
-    RNDIS,                      ///< Remote Network Driver Interface Specification (RNDIS).
-    MHI                         ///< Modem Host Interface (MHI).
+    ECM,                        ///< Ethernet control model (ECM).
+    RNDIS,                      ///< Remote network driver interface specification (RNDIS).
+    MHI                         ///< Modem host interface (MHI).
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -535,10 +531,10 @@ ENUM BindingAction
 //--------------------------------------------------------------------------------------------------
 ENUM DeviceMode
 {
-    DEVICE_UNKNOWN = -1,        ///< UNKNOWN.
-    DEVICE_NONE,                ///< NONE.
-    DEVICE_L2L,                 ///< Device Lan to Lan mode.
-    DEVICE_E2E                  ///< Device End to End mode.
+    DEVICE_UNKNOWN = -1,        ///< Unknown.
+    DEVICE_NONE,                ///< None.
+    DEVICE_L2L,                 ///< Device LAN-to-LAN mode.
+    DEVICE_E2E                  ///< Device end-to-end mode.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -622,83 +618,83 @@ STRUCT DNSChangeInd
 //--------------------------------------------------------------------------------------------------
 STRUCT L2tpSessionConfig
 {
-    uint32 locId;                       ///< Local session id.
-    uint32 peerId;                      ///< Peer session id.
+    uint32 locId;                       ///< Local session ID.
+    uint32 peerId;                      ///< Peer session ID.
 };
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Reference to a destination NAT entry list.
+ * Destination NAT entry list reference.
  */
 //--------------------------------------------------------------------------------------------------
 REFERENCE DestNatEntryList;
 
 //--------------------------------------------------------------------------------------------------
 /*
- * Reference to a destination NAT entry.
+ * Destination NAT entry reference.
  */
 //--------------------------------------------------------------------------------------------------
 REFERENCE DestNatEntry;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The reference of a VLAN.
+ * VLAN reference.
  */
 //--------------------------------------------------------------------------------------------------
 REFERENCE Vlan;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The reference of a VLAN entry list.
+ * VLAN entry list reference.
  */
 //--------------------------------------------------------------------------------------------------
 REFERENCE VlanEntryList;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The reference of a VLAN entry.
+ * VLAN entry reference.
  */
 //--------------------------------------------------------------------------------------------------
 REFERENCE VlanEntry;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The reference of a VLAN interface list.
+ * VLAN interface list reference.
  */
 //--------------------------------------------------------------------------------------------------
 REFERENCE VlanIfList;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The reference of a VLAN interface.
+ * VLAN interface reference.
  */
 //--------------------------------------------------------------------------------------------------
 REFERENCE VlanIf;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The reference of a Tunnel entry list.
+ * Tunnel entry list reference.
  */
 //--------------------------------------------------------------------------------------------------
 REFERENCE TunnelEntryList;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The reference of a Tunnel entry.
+ * Tunnel entry reference.
  */
 //--------------------------------------------------------------------------------------------------
 REFERENCE TunnelEntry;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The reference of a Tunnel.
+ * Tunnel reference.
  */
 //--------------------------------------------------------------------------------------------------
 REFERENCE Tunnel;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Handler for route change.
+ * Handler for route changes.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER RouteChangeHandler
@@ -708,17 +704,17 @@ HANDLER RouteChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Event to report route change.
+ * Event to report route changes.
  */
 //--------------------------------------------------------------------------------------------------
 EVENT RouteChange
 (
-    RouteChangeHandler handler                ///< Handler for route change.
+    RouteChangeHandler handler                ///< Handler for route changes.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Handler for gateway change.
+ * Handler for gateway changes.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER GatewayChangeHandler
@@ -728,17 +724,17 @@ HANDLER GatewayChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Event to report gateway change.
+ * Event to report gateway changes.
  */
 //--------------------------------------------------------------------------------------------------
 EVENT GatewayChange
 (
-    GatewayChangeHandler handler              ///< Handler for gateway change.
+    GatewayChangeHandler handler              ///< Handler for gateway changes.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Handler for DNS change.
+ * Handler for DNS changes.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER DNSChangeHandler
@@ -748,17 +744,17 @@ HANDLER DNSChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Event to report DNS change.
+ * Event to report DNS changes.
  */
 //--------------------------------------------------------------------------------------------------
 EVENT DNSChange
 (
-    DNSChangeHandler handler                  ///< Handler for DNS change.
+    DNSChangeHandler handler                  ///< Handler for DNS changes.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Handler for destination NAT change.
+ * Handler for destination NAT changes.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER DestNatChangeHandler
@@ -791,21 +787,21 @@ HANDLER AsyncL2tpHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Event to report destination NAT change.
+ * Event to report destination NAT changes.
  */
 //--------------------------------------------------------------------------------------------------
 EVENT DestNatChange
 (
-    DestNatChangeHandler handler              ///< Handler for destination NAT change.
+    DestNatChangeHandler handler              ///< Handler for destination NAT changes.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the interface infomation list.
+ * Gets the interface information list.
  *
  * @return
- *   - LE_OK -- Success.
- *   - LE_FAULT -- Failure.
+ *   - LE_OK -- Succeeded.
+ *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetInterfaceList
@@ -818,9 +814,9 @@ FUNCTION le_result_t GetInterfaceList
  * Adds or removes a route.
  *
  * @return
- *   - LE_OK -- Success.
+ *   - LE_OK -- Succeeded.
  *   - LE_BAD_PARAMETER -- Bad parameter.
- *   - LE_FAULT -- Failure.
+ *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ChangeRoute
@@ -837,7 +833,7 @@ FUNCTION le_result_t ChangeRoute
  * Backs up the current default gateway of the system into DB, including both IPv4 and IPv6.
  *
  * @return
- *   - LE_OK -- Success.
+ *   - LE_OK -- Succeeded.
  *   - LE_NOT_FOUND -- No default gateway.
  */
 //--------------------------------------------------------------------------------------------------
@@ -852,9 +848,9 @@ FUNCTION le_result_t BackupDefaultGW
  * Only gateways backed up and set by the same client session can be restored.
  *
  * @return
- *   - LE_OK -- Success.
+ *   - LE_OK -- Succeeded.
  *   - LE_NOT_FOUND -- No backup.
- *   - LE_FAULT -- Failure.
+ *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t RestoreDefaultGW
@@ -866,15 +862,15 @@ FUNCTION le_result_t RestoreDefaultGW
  * Sets the default gateway address received from the interface into the system.
  *
  * @return
- *   - LE_OK -- Success.
+ *   - LE_OK -- Succeded.
  *   - LE_NOT_FOUND -- No gateway address from the interface.
  *   - LE_BAD_PARAMETER -- Bad parameter.
- *   - LE_FAULT -- Failure.
+ *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetDefaultGW
 (
-    string  ifName[INTERFACE_NAME_MAX_LEN]    IN ///< The interface to retrieve the default gateway addresses from.
+    string  ifName[INTERFACE_NAME_MAX_LEN]    IN ///< The interface from which to get the default gateway addresses.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -882,10 +878,10 @@ FUNCTION le_result_t SetDefaultGW
  * Gets the gateway addresses from the specified interface.
  *
  * @return
- *   - LE_OK -- Success.
+ *   - LE_OK -- Succeeded.
  *   - LE_NOT_FOUND -- No gateway address from the interface.
  *   - LE_BAD_PARAMETER -- Bad parameter.
- *   - LE_FAULT -- Failure.
+ *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetInterfaceGW
@@ -900,10 +896,10 @@ FUNCTION le_result_t GetInterfaceGW
  * Sets the DNS addresses received from the interface into the system.
  *
  * @return
- *   - LE_OK -- Success.
+ *   - LE_OK -- Succeeded.
  *   - LE_NOT_FOUND -- No DNS addresses from the interface.
  *   - LE_BAD_PARAMETER -- Bad parameter.
- *   - LE_FAULT -- Failure.
+ *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetDNS
@@ -916,15 +912,15 @@ FUNCTION le_result_t SetDNS
  * Gets the DNS addresses from the interface, including IPv4 and IPv6 addresses.
  *
  * @return
- *   - LE_OK -- Success.
+ *   - LE_OK -- Succeeded.
  *   - LE_NOT_FOUND -- Not found DNS addresses from the interface.
  *   - LE_BAD_PARAMETER -- Bad parameter.
- *   - LE_FAULT -- Failure.
+ *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetInterfaceDNS
 (
-    string  ifName[INTERFACE_NAME_MAX_LEN]    IN, ///< The interaface name to get the DNS addresses.
+    string  ifName[INTERFACE_NAME_MAX_LEN]    IN, ///< The interface name from which to get the DNS addresses.
     DnsServerAddresses  dnsServerAddresses    OUT ///< DNS addresses structure.
 );
 
@@ -933,9 +929,9 @@ FUNCTION le_result_t GetInterfaceDNS
  * Adds a destination NAT entry on the default PDN.
  *
  * @return
- *   - LE_OK -- Success.
+ *   - LE_OK -- Succeeded.
  *   - LE_BAD_PARAMETER -- Bad parameter.
- *   - LE_FAULT -- Failure.
+ *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t AddDestNatEntryOnDefaultPdn
@@ -969,9 +965,9 @@ FUNCTION le_result_t RemoveDestNatEntryOnDefaultPdn
  * Adds a destination NAT entry to the specified PDN.
  *
  * @return
- *   - LE_OK -- Success.
+ *   - LE_OK -- Succeeded.
  *   - LE_BAD_PARAMETER -- Bad parameter.
- *   - LE_FAULT -- Failure.
+ *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t AddDestNatEntryOnDemandPdn
@@ -988,9 +984,9 @@ FUNCTION le_result_t AddDestNatEntryOnDemandPdn
  * Deletes a destination NAT entry from the specified PDN.
  *
  * @return
- *   - LE_OK -- Success.
+ *   - LE_OK -- Succeeded.
  *   - LE_BAD_PARAMETER -- Bad parameter.
- *   - LE_FAULT -- Failure.
+ *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t RemoveDestNatEntryOnDemandPdn
@@ -1034,7 +1030,7 @@ FUNCTION DestNatEntryList GetDestNatEntryListOnDemandPdn
  * Gets the reference to the first destination NAT entry with a list reference.
  *
  * @return
- *   - NULL -- If there was some other error.
+ *   - NULL -- Error.
  *   - Others -- The reference to the first destination NAT entry.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1048,7 +1044,7 @@ FUNCTION DestNatEntry GetFirstDestNatEntry
  * Gets the reference to the next destination NAT entry with a list reference.
  *
  * @return
- *   - NULL -- If there was some other error.
+ *   - NULL -- Error.
  *   - Others -- The reference of the next destination NAT entry.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1062,9 +1058,9 @@ FUNCTION DestNatEntry GetNextDestNatEntry
  * Gets the information of a destination NAT entry with an entry reference.
  *
  * @return
- *   - LE_OK -- Success.
+ *   - LE_OK -- Succeeded.
  *   - LE_BAD_PARAMETER -- Bad parameter.
- *   - LE_FAULT -- Failure.
+ *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetDestNatEntryDetails
@@ -1081,9 +1077,9 @@ FUNCTION le_result_t GetDestNatEntryDetails
  * Deletes the reference to the destination NAT entry list.
  *
  * @return
- *   - LE_OK -- Success.
+ *   - LE_OK -- Succeeded.
  *   - LE_BAD_PARAMETER -- Bad parameter.
- *   - LE_FAULT -- Failure.
+ *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DeleteDestNatEntryList
@@ -1094,10 +1090,10 @@ FUNCTION le_result_t DeleteDestNatEntryList
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Creates a VLAN
+ * Creates a VLAN.
  *
- * Note: If wants to use VLAN bridge and VLAN binding feature, need to set device mode with value 0
- * firstly.
+ * @note To use VLAN bridge and VLAN binding features, set device mode with value 0 first.
+ *
  *
  * @return
  *   - NULL -- Failure.
@@ -1106,19 +1102,21 @@ FUNCTION le_result_t DeleteDestNatEntryList
 //--------------------------------------------------------------------------------------------------
 FUNCTION Vlan CreateVlan
 (
-    uint16 vlanId                             IN, ///< VLAN identifier (i.e 1-4094).
+    uint16 vlanId                             IN, ///< VLAN identifier, i.e., 1-4094.
     bool isAccelerated                        IN  ///< Is acceleration allowed.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Removes a VLAN. It's not allowed to remove a VLAN if the VLAN interface list is not empty.
+ * Removes a VLAN. 
+ *
+ * @note The system is not allowed to remove a VLAN if the VLAN interface list is not empty.
  *
  * @return
- *   - LE_OK -- Success.
- *   - LE_NOT_FOUND -- VLAN is not found.
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- VLAN was not found.
  *   - LE_BAD_PARAMETER -- Bad parameter.
- *   - LE_FAULT -- Failure.
+ *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t RemoveVlan
@@ -1128,7 +1126,7 @@ FUNCTION le_result_t RemoveVlan
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets VLAN by VLAN id
+ * Gets VLAN by the VLAN ID.
  *
  * @return
  *   - NULL -- Not found.
@@ -1137,46 +1135,47 @@ FUNCTION le_result_t RemoveVlan
 //--------------------------------------------------------------------------------------------------
 FUNCTION Vlan GetVlanById
 (
-    uint16 vlanId                             IN ///< VLAN id.
+    uint16 vlanId                             IN ///< VLAN ID.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Adds a VLAN interface into the VLAN interface list.
  *
- * Note: Adds the first interface into the VLAN interface list with the same interface type will
- * trigger a system reboot if the VLAN acceleration has been allowed
+ * @note Adding the first interface into the VLAN interface list with the same interface type
+ *       triggers a system reboot if VLAN acceleration is enabled.
  *
  * @return
- *   - LE_OK -- Success.
- *   - LE_NOT_FOUND -- VLAN is not found.
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- VLAN was not found.
  *   - LE_BAD_PARAMETER -- Bad parameter.
  *   - LE_DUPLICATE -- ifType already added into the VLAN.
- *   - LE_FAULT -- Failure.
+ *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t AddVlanInterface
 (
-    Vlan vlanRef                              IN, ///< VLAN Reference.
+    Vlan vlanRef                              IN, ///< VLAN reference.
     VlanIfType ifType                         IN  ///< Interface type.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Removes a VLAN interface from the VLAN interface list.
- * Note: Remove the last interface from the VLAN interface list with the same interface type will
- * trigger a system reboot if the VLAN acceleration has been allowed.
+ *
+ * @note Removing the last interface from the VLAN interface list with the same interface type
+ *       triggers a system reboot if VLAN acceleration is enabled.
  *
  * @return
- *   - LE_OK -- Success.
- *   - LE_NOT_FOUND -- VLAN is not found.
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- VLAN was not found.
  *   - LE_BAD_PARAMETER -- Bad parameter.
- *   - LE_FAULT -- Failure.
+ *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t RemoveVlanInterface
 (
-    Vlan vlanRef                              IN, ///< VLAN Reference.
+    Vlan vlanRef                              IN, ///< VLAN reference.
     VlanIfType ifType                         IN  ///< Interface type.
 );
 
@@ -1185,13 +1184,13 @@ FUNCTION le_result_t RemoveVlanInterface
  * Gets the VLAN interface list.
  *
  * @return
- *   - NULL -- If the VLAN is not found or the VLAN interface list is empty.
- *   - Others -- The reference of VLAN interface list.
+ *   - NULL -- If the VLAN was not found or the VLAN interface list is empty.
+ *   - Others -- The VLAN interface list reference.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION VlanIfList GetVlanInterfaceList
 (
-    Vlan vlanRef                              IN ///< VLAN Reference.
+    Vlan vlanRef                              IN ///< VLAN reference.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1199,8 +1198,8 @@ FUNCTION VlanIfList GetVlanInterfaceList
  * Gets the first VLAN interface reference with a list.
  *
  * @return
- *   - NULL -- If the interface list doesn't exist.
- *   - Others -- The reference of the first VLAN interface.
+ *   - NULL -- The interface list doesn't exist.
+ *   - Others -- The first VLAN interface reference.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION VlanIf GetFirstVlanInterface
@@ -1213,8 +1212,8 @@ FUNCTION VlanIf GetFirstVlanInterface
  * Gets the next VLAN interface reference with a list.
  *
  * @return
- *   - NULL -- If the VLAN interface list or the next interface doesn't exist.
- *   - Others -- The reference of the next VLAN interface.
+ *   - NULL -- The VLAN interface list or the next interface doesn't exist.
+ *   - Others -- The next VLAN interface reference.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION VlanIf GetNextVlanInterface
@@ -1227,8 +1226,8 @@ FUNCTION VlanIf GetNextVlanInterface
  * Deletes the VLAN interface list.
  *
  * @return
- *   - LE_OK -- Success.
- *   - LE_NOT_FOUND -- VLAN interface list is not found.
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- VLAN interface list was not found.
  *   - LE_BAD_PARAMETER -- Bad parameter.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1243,7 +1242,7 @@ FUNCTION le_result_t DeleteVlanInterfaceList
  *
  * @return
  *   - taf_net_VlanIfType_t -- VLAN interface type.
- *   - TAF_NET_IFACE_UNKNOWN -- VLAN interface is not found.
+ *   - TAF_NET_IFACE_UNKNOWN -- VLAN interface was not found.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION VlanIfType GetVlanInterfaceType
@@ -1256,8 +1255,8 @@ FUNCTION VlanIfType GetVlanInterfaceType
  * Gets the VLAN entry list.
  *
  * @return
- *   - NULL -- If the VLAN entry list is empty.
- *   - Others -- The reference of VLAN entry list.
+ *   - NULL -- The VLAN entry list is empty.
+ *   - Others -- The VLAN entry list reference.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION VlanEntryList GetVlanEntryList
@@ -1271,7 +1270,7 @@ FUNCTION VlanEntryList GetVlanEntryList
  *
  * @return
  *   - NULL -- The VLAN entry list doesn't exist.
- *   - Others -- The reference of the first VLAN entry.
+ *   - Others -- The first VLAN entry reference.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION VlanEntry GetFirstVlanEntry
@@ -1298,7 +1297,7 @@ FUNCTION VlanEntry GetNextVlanEntry
  * Deletes the VLAN entry list.
  *
  * @return
- *   - LE_OK -- Success.
+ *   - LE_OK -- Succeeded.
  *   - LE_NOT_FOUND -- Failed to delete the reference.
  *   - LE_BAD_PARAMETER -- Bad parameter.
  */
@@ -1310,11 +1309,11 @@ FUNCTION le_result_t DeleteVlanEntryList
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the VLAN Id by the VLAN entry reference.
+ * Gets the VLAN ID by the VLAN entry reference.
  *
  * @return
- *   - 1-4094 -- Success.
- *   - others -- Failure.
+ *   - 1-4094 -- Succeeded.
+ *   - others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION int16 GetVlanId
@@ -1324,11 +1323,11 @@ FUNCTION int16 GetVlanId
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Is VLAN accelerated or not by a VLAN entry reference.
+ * Determines if the VLAN is accelerated or not by the VLAN entry reference.
  *
  * @return
- *   - LE_OK -- Success.
- *   - LE_NOT_FOUND -- VLAN is not found.
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- VLAN was not found.
  *   - LE_BAD_PARAMETER -- Bad parameter.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1340,10 +1339,10 @@ FUNCTION le_result_t IsVlanAccelerated
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the profile id bound with a VLAN by the VLAN entry reference.
+ * Gets the profile ID bound with a VLAN by the VLAN entry reference.
  *
  * @return
- *   - Others -- Success.
+ *   - Others -- Succeeded.
  *   - -1 -- No binding.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1355,78 +1354,82 @@ FUNCTION int32 GetVlanBoundProfileId
 //--------------------------------------------------------------------------------------------------
 /**
  * Binds a VLAN with a specified profile ID.
- * Note: if bind VLAN with default profile id, the system will auto reboot after 5 seconds
+ * 
+ * @note Binding VLAN with the default profile ID results in the system automatically rebooting
+ *       after 5 seconds.
  *
  * @return
- *   - LE_OK -- Success.
- *   - LE_NOT_FOUND -- VLAN is not found.
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- VLAN wass not found.
  *   - LE_BAD_PARAMETER -- Bad parameter.
- *   - LE_FAULT -- Failure.
+ *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t BindVlanWithProfile
 (
-    Vlan vlanRef                              IN, ///< VLAN Reference.
-    uint32 profileId                          IN  ///< Profile id for VLAN association.
+    Vlan vlanRef                              IN, ///< VLAN reference.
+    uint32 profileId                          IN  ///< Profile ID for VLAN association.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Unbinds a VLAN from previous profile ID.
- * Note: if unbind VLAN from default profile id, the system will auto reboot after 5 seconds
+ *
+ * @note Unbinding VLAN from the default profile ID results in system automatically rebooting
+ *       after 5 seconds.
  *
  * @return
- *   - LE_OK -- Success.
- *   - LE_NOT_FOUND -- VLAN is not found.
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- VLAN wass not found.
  *   - LE_BAD_PARAMETER -- Bad parameter.
- *   - LE_FAULT -- Failure.
+ *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t UnbindVlanFromProfile
 (
-    Vlan vlanRef                              IN ///< VLAN Reference.
+    Vlan vlanRef                              IN ///< VLAN reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Synchronously enables L2TP for unmanaged Tunnel State.
+ * Enables (synchronously) L2TP for unmanaged tunnel state.
  *
- * Note: If wants to use L2TP feature, need to set device mode with value 1 firstly.
+ * @note To use the L2TP feature set device mode with value 1 first.
  *
  * @return
- *   - LE_OK -- Success.
+ *   - LE_OK -- Succeeded.
  *   - LE_NOT_FOUND -- Not found.
- *   - LE_FAULT -- Failure.
+ *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t EnableL2tp
 (
     bool enableMss                       IN,///< Enable TCP MSS to be clamped on L2TP interfaces.
     bool enableMtu                       IN,///< Enable MTU size to be set on underlying interfaces.
-    uint32 mtuSize                       IN ///< Optional MTU size in bytes, default is 1422.
+    uint32 mtuSize                       IN ///< Optional MTU size in bytes; default is 1422.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Asynchronously enables L2TP for unmanaged Tunnel State
+ * Enables (asynchronously) L2TP for unmanaged tunnel state.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION EnableL2tpAsync
 (
     bool enableMss                       IN,///< Enable TCP MSS to be clamped on L2TP interfaces.
     bool enableMtu                       IN,///< Enable MTU size to be set on underlying interfaces.
-    uint32 mtuSize                       IN, ///< optional MTU size in bytes, default is 1422.
+    uint32 mtuSize                       IN, ///< optional MTU size in bytes; default is 1422.
     AsyncL2tpHandler handler             IN  ///< The handler.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Synchronously disables L2TP for unmanaged Tunnel State.
+ * Disables (synchronously) L2TP for unmanaged tunnel state.
  *
  * @return
- *   - LE_OK -- Success.
+ *   - LE_OK -- Succeeded.
  *   - LE_NOT_FOUND -- Not found.
- *   - LE_FAULT -- Failure.
+ *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DisableL2tp
@@ -1434,7 +1437,7 @@ FUNCTION le_result_t DisableL2tp
 );
 
 /**
- * Asynchronously disables L2TP for unmanaged Tunnel State.
+ * Disables (asynchronously) L2TP for unmanaged tunnel state.
  *
  * @return None.
  */
@@ -1446,7 +1449,7 @@ FUNCTION DisableL2tpAsync
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Is L2TP enabled.
+ * Determines if L2TP is enabled.
  *
  * @return
  *   - false -- L2TP is disabled.
@@ -1459,11 +1462,11 @@ FUNCTION bool IsL2tpEnabled
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Is Mss(Maximum Segment Size) enabled.
+ * Determines if maximum segment size (MSS) is enabled.
  *
  * @return
- *   - false -- Mss is disabled for L2TP.
- *   - true -- Mss is enabled for L2TP.
+ *   - false -- MSS is disabled for L2TP.
+ *   - true -- MSS is enabled for L2TP.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION bool IsL2tpMssEnabled
@@ -1472,11 +1475,11 @@ FUNCTION bool IsL2tpMssEnabled
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Is Mtu(Maximum Transmission Unit) enabled.
+ * Determines if maximum transmission unit (MTU) is enabled.
  *
  * @return
- *   - false -- Mtu is disabled for L2TP.
- *   - true -- Mtu is enabled for L2TP.
+ *   - false -- MTU is disabled for L2TP.
+ *   - true -- MTU is enabled for L2TP.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION bool IsL2tpMtuEnabled
@@ -1488,8 +1491,8 @@ FUNCTION bool IsL2tpMtuEnabled
  * Gets L2TP MTU size.
  *
  * @return
- *   - 0 -- Failure.
- *   - Others -- Success.
+ *   - 0 -- Failed.
+ *   - Others -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION uint32 GetL2tpMtuSize
@@ -1498,19 +1501,19 @@ FUNCTION uint32 GetL2tpMtuSize
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Creates a L2TP tunnel.
+ * Creates an L2TP tunnel.
  *
  * @return
- *   - NULL -- Failure.
- *   - Others -- The reference of a tunnel.
+ *   - NULL -- Failed.
+ *   - Others -- The tunnel reference.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION Tunnel CreateTunnel
 (
     L2tpEncapProtocol encaProto               IN, ///< Encapsulation protocol, UDP or IP.
-    uint32 locId                              IN, ///< Local tunnel id.
-    uint32 peerId                             IN, ///< Peer tunnel id.
-    string peerIpAddr[IPV6_ADDR_MAX_LEN]      IN, ///< Peer IP addr.
+    uint32 locId                              IN, ///< Local tunnel ID.
+    uint32 peerId                             IN, ///< Peer tunnel ID.
+    string peerIpAddr[IPV6_ADDR_MAX_LEN]      IN, ///< Peer IP address.
     string ifName[INTERFACE_NAME_MAX_LEN]     IN  ///< Interface name.
 );
 
@@ -1519,10 +1522,10 @@ FUNCTION Tunnel CreateTunnel
  * Removes an L2TP tunnel.
  *
  * @return
- *   - LE_OK -- Success.
+ *   - LE_OK -- Succeeded.
  *   - LE_NOT_FOUND -- Not found.
  *   - LE_BAD_PARAMETER -- Bad parameter.
- *   - LE_FAULT -- Failure.
+ *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t RemoveTunnel
@@ -1535,35 +1538,35 @@ FUNCTION le_result_t RemoveTunnel
  * Sets UDP ports for a tunnel.
  *
  * @return
- *   - LE_OK -- Success.
+ *   - LE_OK -- Succeeded.
  *   - LE_NOT_FOUND -- Not found.
  *   - LE_BAD_PARAMETER -- Bad parameter.
- *   - LE_FAULT -- Failure.
+ *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetTunnelUdpPort
 (
     Tunnel tunnelRef                          IN, ///< Tunnel reference.
-    uint32 localUdpPort                       IN, ///< Local UDP port - if UDP encapsulation is used.
-    uint32 peerUdpPort                        IN  ///< Peer UDP port - if IP encapsulation is used.
+    uint32 localUdpPort                       IN, ///< Local UDP port, if UDP encapsulation is used.
+    uint32 peerUdpPort                        IN  ///< Peer UDP port, if IP encapsulation is used.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Adds a session into a tunnel
+ * Adds a session into a tunnel.
  *
  * @return
- *   - LE_OK -- Success.
+ *   - LE_OK -- Succeeded.
  *   - LE_NOT_FOUND -- Not found.
  *   - LE_BAD_PARAMETER -- Bad parameter.
- *   - LE_FAULT -- Failure.
+ *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t AddSession
 (
     Tunnel tunnelRef                          IN, ///< Tunnel reference.
-    uint32 locId                              IN, ///< Local session id.
-    uint32 peerId                             IN  ///< Peer session id.
+    uint32 locId                              IN, ///< Local session ID.
+    uint32 peerId                             IN  ///< Peer session ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1571,27 +1574,27 @@ FUNCTION le_result_t AddSession
  * Removes a session from a tunnel.
  *
  * @return
- *   - LE_OK -- Success.
+ *   - LE_OK -- Succeeded.
  *   - LE_NOT_FOUND -- Not found.
  *   - LE_BAD_PARAMETER -- Bad parameter.
- *   - LE_FAULT -- Failure.
+ *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t RemoveSession
 (
     Tunnel tunnelRef                          IN, ///< Tunnel reference.
-    uint32 locId                              IN, ///< Local session id.
-    uint32 peerId                             IN  ///< Peer session id.
+    uint32 locId                              IN, ///< Local session ID.
+    uint32 peerId                             IN  ///< Peer session ID.
 );
 
 /**
- * Synchronously starts a tunnel
+ * Starts (synchronously) a tunnel.
  *
  * @return
- *   - LE_OK -- Success.
+ *   - LE_OK -- Succeeded.
  *   - LE_NOT_FOUND -- Not found.
  *   - LE_BAD_PARAMETER -- Bad parameter.
- *   - LE_FAULT -- Failure.
+ *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t StartTunnel
@@ -1601,7 +1604,7 @@ FUNCTION le_result_t StartTunnel
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Asynchronously starts a tunnel
+ * Starts (asynchronously) a tunnel.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION StartTunnelAsync
@@ -1612,13 +1615,13 @@ FUNCTION StartTunnelAsync
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Synchronously stops a tunnel.
+ * Stops (synchronously) a tunnel.
  *
  * @return
- *   - LE_OK -- Success.
+ *   - LE_OK -- Succeeded.
  *   - LE_NOT_FOUND -- Not found.
  *   - LE_BAD_PARAMETER -- Bad parameter.
- *   - LE_FAULT -- Failure.
+ *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t StopTunnel
@@ -1627,7 +1630,7 @@ FUNCTION le_result_t StopTunnel
 );
 
 /**
- * Asynchronously stops a tunnel.
+ * Stops (asynchronously) a tunnel.
  *
  * @return None.
  */
@@ -1640,25 +1643,25 @@ FUNCTION StopTunnelAsync
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets tunnel reference by local tunnel id.
+ * Gets tunnel reference by the local tunnel ID.
  *
  * @return
- *   - NULL -- Failure.
- *   - Others -- The reference of a created tunnel.
+ *   - NULL -- Failed.
+ *   - Others -- The created tunnel reference.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION Tunnel GetTunnelRefById
 (
-    uint32 locId                              IN ///< Local tunnel id.
+    uint32 locId                              IN ///< Local tunnel ID.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets tunnel entry list.
+ * Gets the tunnel entry list.
  *
  * @return
- *   - NULL -- Failure.
- *   - Others -- The reference of the tunnel entry list.
+ *   - NULL -- Failed.
+ *   - Others -- The tunnel entry list reference.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION TunnelEntryList GetTunnelEntryList
@@ -1670,8 +1673,8 @@ FUNCTION TunnelEntryList GetTunnelEntryList
  * Gets the reference of the first tunnel entry.
  *
  * @return
- *   - NULL -- Failure.
- *   - Others -- The reference of the first tunnel entry.
+ *   - NULL -- Failed.
+ *   - Others -- The first tunnel entry reference.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION TunnelEntry GetFirstTunnelEntry
@@ -1684,8 +1687,8 @@ FUNCTION TunnelEntry GetFirstTunnelEntry
  * Gets the reference of the next tunnel entry.
  *
  * @return
- *   - NULL -- Failure.
- *   - Others -- The reference of the next tunnel entry.
+ *   - NULL -- Failed.
+ *   - Others -- The next tunnel entry reference.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION TunnelEntry GetNextTunnelEntry
@@ -1695,13 +1698,13 @@ FUNCTION TunnelEntry GetNextTunnelEntry
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Deletes tunnel entry list.
+ * Deletes a tunnel entry list.
  *
  * @return
- *   - LE_OK -- Success.
+ *   - LE_OK -- Succeeded.
  *   - LE_NOT_FOUND -- Not found.
  *   - LE_BAD_PARAMETER -- Bad parameter.
- *   - LE_FAULT -- Failure.
+ *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DeleteTunnelEntryList
@@ -1711,12 +1714,12 @@ FUNCTION le_result_t DeleteTunnelEntryList
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets encapsulation protocol of a tunnel.
+ * Gets the encapsulation protocol of a tunnel.
  *
  * @return
- *   - TAF_NET_L2TP_NONE -- Failure.
- *   - TAF_NET_L2TP_IP -- IP Protocol used for encapsulation.
- *   - TAF_NET_L2TP_UDP -- UDP Protocol used for encapsulation.
+ *   - TAF_NET_L2TP_NONE -- Failed.
+ *   - TAF_NET_L2TP_IP -- IP protocol used for encapsulation.
+ *   - TAF_NET_L2TP_UDP -- UDP protocol used for encapsulation.
  */
 FUNCTION L2tpEncapProtocol GetTunnelEncapProto
 (
@@ -1725,11 +1728,11 @@ FUNCTION L2tpEncapProtocol GetTunnelEncapProto
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets local id of a tunnel.
+ * Gets the local ID of a tunnel.
  *
  * @return
- *   - 0 -- Failure.
- *   - Others -- Success.
+ *   - 0 -- Failed.
+ *   - Others -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION uint32 GetTunnelLocalId
@@ -1739,11 +1742,11 @@ FUNCTION uint32 GetTunnelLocalId
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets peer id of a tunnel.
+ * Gets the peer ID of a tunnel.
  *
  * @return
- *   - 0 -- Failure.
- *   - Others -- Success.
+ *   - 0 -- Failed.
+ *   - Others -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION uint32 GetTunnelPeerId
@@ -1753,11 +1756,11 @@ FUNCTION uint32 GetTunnelPeerId
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets local UDP port of a tunnel.
+ * Gets the local UDP port of a tunnel.
  *
  * @return
- *   - 0 -- Failure.
- *   - Others -- Success.
+ *   - 0 -- Failed.
+ *   - Others -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION uint32 GetTunnelLocalUdpPort
@@ -1767,11 +1770,11 @@ FUNCTION uint32 GetTunnelLocalUdpPort
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets peer UDP port of a tunnel.
+ * Gets the peer UDP port of a tunnel.
  *
  * @return
- *   - 0 -- Failure.
- *   - Others -- Success.
+ *   - 0 -- Failed.
+ *   - Others -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION uint32 GetTunnelPeerUdpPort
@@ -1781,44 +1784,44 @@ FUNCTION uint32 GetTunnelPeerUdpPort
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets peer IP v6 address of a tunnel.
+ * Gets the peer IPv6 address of a tunnel.
  *
  * @return
- *   - LE_OK -- Success.
+ *   - LE_OK -- Succeeded.
  *   - LE_NOT_FOUND -- Not found.
  *   - LE_BAD_PARAMETER -- Bad parameter.
- *   - LE_FAULT -- Failure.
+ *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetTunnelPeerIpv6Addr
 (
     TunnelEntry tunnelEntryRef                IN, ///< Tunnel entry reference.
-    string peerIpv6Addr[IPV6_ADDR_MAX_LEN]    OUT ///< Peer IP v6 address.
+    string peerIpv6Addr[IPV6_ADDR_MAX_LEN]    OUT ///< Peer IPv6 address.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets peer IP v4 address of a tunnel.
+ * Gets the peer IPv4 address of a tunnel.
  *
  * @return
- *   - LE_OK -- Success.
+ *   - LE_OK -- Succeeded.
  *   - LE_NOT_FOUND -- Not found.
  *   - LE_BAD_PARAMETER -- Bad parameter.
- *   - LE_FAULT -- Failure.
+ *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetTunnelPeerIpv4Addr
 (
     TunnelEntry tunnelEntryRef                IN, ///< Tunnel entry reference.
-    string peerIpv4Addr[IPV6_ADDR_MAX_LEN]    OUT ///< Peer IP v4 address.
+    string peerIpv4Addr[IPV6_ADDR_MAX_LEN]    OUT ///< Peer IPv4 address.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets interface name of a tunnel.
+ * Gets the interface name of a tunnel.
  *
  * @return
- *   - LE_OK -- Success.
+ *   - LE_OK -- Succeeded.
  *   - LE_NOT_FOUND -- Not found.
  *   - LE_BAD_PARAMETER -- Bad parameter.
  */
@@ -1831,11 +1834,11 @@ FUNCTION le_result_t GetTunnelInterfaceName
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets IP type of a tunnel.
+ * Gets the IP type of a tunnel.
  *
- *   - TAF_NET_L2TP_UNKNOWN -- Failure.
- *   - TAF_NET_L2TP_IPV4 -- IPV4.
- *   - TAF_NET_L2TP_IPV6 -- IPV6.
+ *   - TAF_NET_L2TP_UNKNOWN -- Failed.
+ *   - TAF_NET_L2TP_IPV4 -- IPv4.
+ *   - TAF_NET_L2TP_IPV6 -- IPv6.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION IpFamilyType GetTunnelIpType
@@ -1845,17 +1848,17 @@ FUNCTION IpFamilyType GetTunnelIpType
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets session config of a tunnel.
+ * Gets the session configuration of a tunnel.
  *
  * @return
- *   - LE_OK -- Success.
+ *   - LE_OK -- Succeeded.
  *   - LE_NOT_FOUND -- Not found.
  *   - LE_BAD_PARAMETER -- Bad parameter.
- *   - LE_FAULT -- Failure.
+ *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetSessionConfig
 (
     TunnelEntry tunnelEntryRef                IN, ///< Tunnel entry reference.
-    L2tpSessionConfig sessionConfig[L2TP_MAX_SESSION_NUMBER_PER_TUNNEL]  OUT ///< Session config.
+    L2tpSessionConfig sessionConfig[L2TP_MAX_SESSION_NUMBER_PER_TUNNEL]  OUT ///< Session configuration.
 );

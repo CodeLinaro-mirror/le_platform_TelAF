@@ -162,7 +162,7 @@ DEFINE MAX_PKG_NAME_LEN = 48;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The reference of download session.
+ * The download session reference.
  */
 //--------------------------------------------------------------------------------------------------
 REFERENCE Session;
@@ -174,26 +174,29 @@ REFERENCE Session;
 //--------------------------------------------------------------------------------------------------
 ENUM State
 {
-    IDLE,              ///< Idle state, user can download OTA packages.
+    IDLE,              ///< Idle state; user can download OTA packages.
     DOWNLOADING,       ///< Downloading state, user can query download progress.
     DOWNLOAD_PAUSED,   ///< Download paused state, not supported.
-    DOWNLOAD_SUCCESS,  ///< Dowmload success state, download OTA package successfully.
-    DOWNLOAD_FAIL,     ///< Download fail state, user can to retry the download.
+    DOWNLOAD_SUCCESS,  ///< Download success state, OTA package downloaded successfully.
+    DOWNLOAD_FAIL,     ///< Download fail state, user can retry the download.
     INSTALLING,        ///< Installing state, user can query installation progress.
-    INSTALL_SUCCESS,   ///< Install success state, user can reboot to active if firmware installed or start probation if app installed.
+    INSTALL_SUCCESS,   ///< Install success state, user can reboot to active if firmware installed 
+                       ///  or start probation if app installed.
     INSTALL_FAIL,      ///< Install fail state, update service drives to idle state later.
-    PROBATION,         ///< Probation state, during probation, update service checks if newly installed firmware or app is stable and dirves to idle state later.
-    PROBATION_SUCCESS, ///< Probation success state, application or firmware is working properly without errors.
+    PROBATION,         ///< Probation state, during probation, update service checks if newly installed 
+                       ///  firmware or app is stable and drives to idle state later.
+    PROBATION_SUCCESS, ///< Probation success state, application or firmware is working properly 
+                       ///  without errors.
     PROBATION_FAIL,    ///< Probation fail state, update service drives to idle state later.
     ROLLBACK,          ///< Rollback state, rollback to the original system.
-    ROLLBACK_SUCCESS,  ///< Rollback success state, rollback to the original system successfully.
-    ROLLBACK_FAIL,     ///< Rollback fail state, fail to rollback to the original system.
+    ROLLBACK_SUCCESS,  ///< Rollback success state, rollback to the original system succeeded.
+    ROLLBACK_FAIL,     ///< Rollback fail state, rollback to the original system failed.
     REPORTING          ///< Reporting state, update service is reporting state to server.
 };
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Error code enum.
+ * Error codes.
  */
 //--------------------------------------------------------------------------------------------------
 ENUM Error
@@ -204,12 +207,12 @@ ENUM Error
     SECURITY_FAILURE,  ///< Security check failure.
     PACKAGE_NOT_FOUND, ///< Package not found.
     APP_NOT_FOUND,     ///< App not found.
-    APP_NOT_RUNNING    ///< App is not in runnig state.
+    APP_NOT_RUNNING    ///< App is not in running state.
 };
 
 //--------------------------------------------------------------------------------------------------
 /**
- * OTA workflow enum.
+ * OTA workflows.
  */
 //--------------------------------------------------------------------------------------------------
 ENUM OTA
@@ -221,7 +224,7 @@ ENUM OTA
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Download progress state enum.
+ * Download progress state.
  */
 //--------------------------------------------------------------------------------------------------
 ENUM ProgressState
@@ -234,7 +237,7 @@ ENUM ProgressState
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Report state enum.
+ * Report state.
  */
 //--------------------------------------------------------------------------------------------------
 ENUM ReportState
@@ -243,16 +246,16 @@ ENUM ReportState
     REPORT_CANCEL,            ///< User has cancelled the update.
     REPORT_DOWNLOADING,       ///< Downloading package.
     REPORT_DOWNLOADED,        ///< Package downloaded to the device.
-    REPORT_REBOOT,            ///< Device start to reboot.
-    REPORT_SUCCESS,           ///< Update successfully.
-    REPORT_FAILURE,           ///< Fail to update.
-    REPORT_DOWNLOAD_FAIL,     ///< Fail to download package.
-    REPORT_MD5_CHECK_SUCCESS, ///< Package passes MD5 check.
-    REPORT_MD5_CHECK_FAIL,    ///< Package fail to pass MD5 check.
-    REPORT_PKI_CHECK_SUCCESS, ///< Package passes PKI vertification.
-    REPORT_PKI_CHECK_FAIL,    ///< Package fails to pass PKI vertification.
-    REPORT_ROLLBACK_SUCCESS,  ///< Device rollbacks successfully.
-    REPORT_ROLLBACK_FAIL      ///< Device fails to rollback.
+    REPORT_REBOOT,            ///< Device rebooting.
+    REPORT_SUCCESS,           ///< Update succeeded.
+    REPORT_FAILURE,           ///< Update failed.
+    REPORT_DOWNLOAD_FAIL,     ///< Failed to download package.
+    REPORT_MD5_CHECK_SUCCESS, ///< Package passed MD5 check.
+    REPORT_MD5_CHECK_FAIL,    ///< Package failed MD5 check.
+    REPORT_PKI_CHECK_SUCCESS, ///< Package passed PKI vertification.
+    REPORT_PKI_CHECK_FAIL,    ///< Package failed to pass PKI vertification.
+    REPORT_ROLLBACK_SUCCESS,  ///< Device rollback succeeded.
+    REPORT_ROLLBACK_FAIL      ///< Device rollback failed.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -264,8 +267,9 @@ STRUCT StateInd
 {
     State state;                   ///< Update state.
     Error error;                   ///< Error in update progress.
-    uint32 percent;                ///< Percentage of progress, applicatible for downloading or installing state.
-    OTA ota;                       ///< OTA workflow type.
+    uint32 percent;                ///< Percentage of progress, applicable for downloading or 
+                                   ///  installing states.
+    OTA ota;                       ///< OTA workflow.
     string name[MAX_PKG_NAME_LEN]; ///< OTA package name.
 };
 
@@ -312,6 +316,6 @@ FUNCTION Download
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Install
 (
-    OTA ota IN,                      ///< OTA workflow type.
+    OTA ota IN,                      ///< OTA workflow.
     string name[MAX_PKG_NAME_LEN] IN ///< OTA package name.
 );

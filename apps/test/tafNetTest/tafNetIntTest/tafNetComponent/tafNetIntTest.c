@@ -95,6 +95,15 @@ static void PrintUsage ()
 <peersessionId>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- removetunnel <locId>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- gettunnelinfo\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- setsocksauthtype <authtype>\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- getsocksauthtype\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- setsockslanifname <ifname>\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- getsockslanifname\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- addsocksassociation <username> \
+<profileid>\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- deletesocksassociation <username>\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- enablesocks\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- disablesocks\n"
             "\n");
 }
 
@@ -890,7 +899,7 @@ static int TafEnableL2tp()
     }
     else
     {
-        LE_INFO("----enable l2tp faied");
+        LE_INFO("----enable l2tp error");
     }
 
     return EXIT_SUCCESS;
@@ -1226,6 +1235,192 @@ static int TafGetTunnelInfo()
     return EXIT_SUCCESS;
 }
 
+static int TafSetSocksAuthType()
+{
+    le_result_t ret;
+
+    if (le_arg_NumArgs() !=2)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    uint32_t authtype = strtol(le_arg_GetArg(1), NULL, 0);
+
+    ret = taf_net_SetSocksAuthMethod((taf_net_AuthMethod_t) authtype);
+
+    if(ret != LE_OK)
+    {
+        puts("----Failed to set socks auth type ");
+        exit(EXIT_FAILURE);
+    }
+
+    LE_INFO("--Set Socks auth type successfully--");
+
+    return EXIT_SUCCESS;
+}
+
+static int TafGetSocksAuthType()
+{
+    if (le_arg_NumArgs() !=1)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    taf_net_AuthMethod_t authtype = taf_net_GetSocksAuthMethod();
+
+    LE_INFO("--Get Socks auth type successfully value=%d", authtype);
+
+    return EXIT_SUCCESS;
+}
+
+static int TafSetSocksLanIfName()
+{
+    le_result_t ret;
+
+    if (le_arg_NumArgs() !=2)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    const char* ifName = le_arg_GetArg(1);
+
+    ret = taf_net_SetSocksLanInterface(ifName);
+
+    if(ret != LE_OK)
+    {
+        puts("----Failed to set socks LAN interface ");
+        exit(EXIT_FAILURE);
+    }
+
+    LE_INFO("--Set Socks LAN interface successfully--");
+
+    return EXIT_SUCCESS;
+}
+
+static int TafGetSocksLanIfName()
+{
+    le_result_t ret;
+    char lanIfName[255];
+    if (le_arg_NumArgs() !=1)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+
+    ret = taf_net_GetSocksLanInterface(lanIfName,255);
+
+    if(ret != LE_OK)
+    {
+        puts("----Failed to Get socks LAN interface ");
+        exit(EXIT_FAILURE);
+    }
+
+    LE_INFO("--Get Socks LAN interface successfully--%s", lanIfName);
+
+    return EXIT_SUCCESS;
+}
+
+static int TafAddSocksAssociation()
+{
+    le_result_t ret;
+
+    if (le_arg_NumArgs() !=3)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    const char* userName = le_arg_GetArg(1);
+    uint32_t profileId = strtol(le_arg_GetArg(2), NULL, 0);
+
+    ret = taf_net_AddSocksAssociation(userName, profileId);
+
+    if(ret != LE_OK)
+    {
+        puts("----Failed to add socks association ");
+        exit(EXIT_FAILURE);
+    }
+
+    LE_INFO("--Add socks association successfully--");
+
+    return EXIT_SUCCESS;
+}
+
+static int TafDelSocksAssociation()
+{
+    le_result_t ret;
+
+    if (le_arg_NumArgs() !=2)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    const char* userName = le_arg_GetArg(1);
+
+    ret = taf_net_RemoveSocksAssociation(userName);
+
+    if(ret != LE_OK)
+    {
+        puts("----Failed to delete socks association ");
+        exit(EXIT_FAILURE);
+    }
+
+    LE_INFO("--Delete socks association successfully--");
+
+    return EXIT_SUCCESS;
+}
+
+static int TafEnableSocks()
+{
+    le_result_t ret;
+
+    if (le_arg_NumArgs() !=1)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    ret = taf_net_EnableSocks();
+
+    if(ret != LE_OK)
+    {
+        puts("----Failed to enable socks");
+        exit(EXIT_FAILURE);
+    }
+
+    LE_INFO("--Enable socks successfully--");
+
+    return EXIT_SUCCESS;
+}
+
+static int TafDisableSocks()
+{
+    le_result_t ret;
+
+    if (le_arg_NumArgs() !=1)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    ret = taf_net_DisableSocks();
+
+    if(ret != LE_OK)
+    {
+        puts("----Failed to disable socks");
+        exit(EXIT_FAILURE);
+    }
+
+    LE_INFO("--Disable socks successfully--");
+
+    return EXIT_SUCCESS;
+}
+
 COMPONENT_INIT
 {
     int status = EXIT_SUCCESS;
@@ -1348,6 +1543,46 @@ COMPONENT_INIT
         else if(strcmp(testType, "gettunnelinfo") == 0)
         {
             status=TafGetTunnelInfo();
+            LE_INFO("status =%d",status);
+        }
+        else if(strcmp(testType, "setsocksauthtype") == 0)
+        {
+            status=TafSetSocksAuthType();
+            LE_INFO("status =%d",status);
+        }
+        else if(strcmp(testType, "getsocksauthtype") == 0)
+        {
+            status=TafGetSocksAuthType();
+            LE_INFO("status =%d",status);
+        }
+        else if(strcmp(testType, "setsockslanifname") == 0)
+        {
+            status=TafSetSocksLanIfName();
+            LE_INFO("status =%d",status);
+        }
+        else if(strcmp(testType, "getsockslanifname") == 0)
+        {
+            status=TafGetSocksLanIfName();
+            LE_INFO("status =%d",status);
+        }
+        else if(strcmp(testType, "addsocksassociation") == 0)
+        {
+            status=TafAddSocksAssociation();
+            LE_INFO("status =%d",status);
+        }
+        else if(strcmp(testType, "deletesocksassociation") == 0)
+        {
+            status=TafDelSocksAssociation();
+            LE_INFO("status =%d",status);
+        }
+        else if(strcmp(testType, "enablesocks") == 0)
+        {
+            status=TafEnableSocks();
+            LE_INFO("status =%d",status);
+        }
+        else if(strcmp(testType, "disablesocks") == 0)
+        {
+            status=TafDisableSocks();
             LE_INFO("status =%d",status);
         }
         exit(status);

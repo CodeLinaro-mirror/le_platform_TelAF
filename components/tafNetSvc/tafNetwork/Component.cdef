@@ -47,5 +47,6 @@ sources:
     tafNatImpl.cpp
     tafVlanImpl.cpp
     tafL2tpImpl.cpp
+    tafSocksImpl.cpp
 }
 

@@ -45,6 +45,7 @@
 #include "tafNatImpl.hpp"
 #include "tafVlanImpl.hpp"
 #include "tafL2tpImpl.hpp"
+#include "tafSocksImpl.hpp"
 #include "taf_pa_net.hpp"
 
 using namespace telux::tafsvc;
@@ -85,6 +86,16 @@ void taf_l2tp_init()
     auto &l2tp = taf_L2tp::GetInstance();
     l2tp.Init();
     LE_INFO("taf l2tp component init done...\n");
+
+    return;
+}
+
+void taf_socks_init()
+{
+    LE_INFO("taf socks component init start...\n");
+    auto &socks = taf_Socks::GetInstance();
+    socks.Init();
+    LE_INFO("taf socks component init done...\n");
 
     return;
 }
@@ -1266,7 +1277,7 @@ le_result_t taf_net_EnableL2tp
 {
     auto &tafL2tp = taf_L2tp::GetInstance();
 
-    return tafL2tp.EnableL2tp(enableMss, enableMtu, mtuSize);
+    return tafL2tp.EnableL2tpCmdSync(enableMss, enableMtu, mtuSize);
 }
 
 /**
@@ -1289,21 +1300,10 @@ void taf_net_EnableL2tpAsync
     void* contextPtr
 )
 {
-     taf_L2tpAsyncCmdReq_t cmdReq;
+     auto &tafL2tp = taf_L2tp::GetInstance();
 
-     TAF_ERROR_IF_RET_NIL(handlerPtr == NULL, "Handler function is NULL");
-
-     cmdReq.cmdType = ASYNC_ENABLE_L2TP;
-     cmdReq.enableMss = enableMss;
-     cmdReq.enableMtu = enableMtu;
-     cmdReq.mtuSize = mtuSize;
-     cmdReq.contextPtr = contextPtr;
-     cmdReq.handlerFuncPtr = handlerPtr;
-
-     // Sending enable L2TP command
-     le_event_Report(taf_L2tp::l2tpAsyncCmdEvId, &cmdReq, sizeof(cmdReq));
-
-    return;
+     return tafL2tp.EnableL2tpCmdAsync(enableMss, enableMtu, mtuSize, handlerPtr,
+                                    contextPtr, taf_net_GetClientSessionRef());
 }
 
 /**
@@ -1322,7 +1322,7 @@ le_result_t taf_net_DisableL2tp
 {
     auto &tafL2tp = taf_L2tp::GetInstance();
 
-    return tafL2tp.DisableL2tp(taf_net_GetClientSessionRef());
+    return tafL2tp.DisableL2tpCmdSync(taf_net_GetClientSessionRef());
 }
 
 /**
@@ -1339,19 +1339,9 @@ void taf_net_DisableL2tpAsync
     void* contextPtr
 )
 {
-     taf_L2tpAsyncCmdReq_t cmdReq;
-
-     TAF_ERROR_IF_RET_NIL(handlerPtr == NULL, "Handler function is NULL");
-
-     cmdReq.cmdType = ASYNC_DISABLE_L2TP;
-     cmdReq.contextPtr = contextPtr;
-     cmdReq.handlerFuncPtr = handlerPtr;
-     cmdReq.sessionRef = taf_net_GetClientSessionRef();
-
-     // Sending disable L2TP command
-     le_event_Report(taf_L2tp::l2tpAsyncCmdEvId, &cmdReq, sizeof(cmdReq));
-
-    return;
+     auto &tafL2tp = taf_L2tp::GetInstance();
+     
+     return tafL2tp.DisableL2tpCmdAsync(handlerPtr, contextPtr, taf_net_GetClientSessionRef());
 }
 
 /**
@@ -1555,7 +1545,7 @@ le_result_t taf_net_StartTunnel
 {
     auto &tafL2tp = taf_L2tp::GetInstance();
 
-    return tafL2tp.StartTunnel(tunnelRef);
+    return tafL2tp.StartTunnelCmdSync(tunnelRef);
 }
 
 /**
@@ -1574,20 +1564,11 @@ void taf_net_StartTunnelAsync
     void* contextPtr
 )
 {
-     taf_TunnelAsyncCmdReq_t cmdReq;
+     auto &tafL2tp = taf_L2tp::GetInstance();
+     
+     return tafL2tp.StartTunnelCmdAsync(tunnelRef, handlerPtr, contextPtr,
+                                     taf_net_GetClientSessionRef());
 
-     TAF_ERROR_IF_RET_NIL(handlerPtr == NULL, "Handler function is NULL");
-     TAF_ERROR_IF_RET_NIL(tunnelRef == NULL, "tunnelRef is NULL");
-
-     cmdReq.cmdType = ASYNC_START_TUNNEL;
-     cmdReq.tunnelRef = tunnelRef;
-     cmdReq.contextPtr = contextPtr;
-     cmdReq.handlerFuncPtr = handlerPtr;
-
-     // Sending start tunnel command
-     le_event_Report(taf_L2tp::tunnelAsyncCmdEvId, &cmdReq, sizeof(cmdReq));
-
-    return;
 }
 
 /**
@@ -1607,7 +1588,7 @@ le_result_t taf_net_StopTunnel
 {
     auto &tafL2tp = taf_L2tp::GetInstance();
 
-    return tafL2tp.StopTunnel(tunnelRef);
+    return tafL2tp.StopTunnelCmdSync(tunnelRef);
 }
 
 /**
@@ -1626,20 +1607,10 @@ void taf_net_StopTunnelAsync
     void* contextPtr
 )
 {
-     taf_TunnelAsyncCmdReq_t cmdReq;
-
-     TAF_ERROR_IF_RET_NIL(handlerPtr == NULL, "Handler function is NULL");
-     TAF_ERROR_IF_RET_NIL(tunnelRef == NULL, "tunnelRef is NULL");
-
-     cmdReq.cmdType = ASYNC_STOP_TUNNEL;
-     cmdReq.tunnelRef = tunnelRef;
-     cmdReq.contextPtr = contextPtr;
-     cmdReq.handlerFuncPtr = handlerPtr;
-
-     // Sending stop tunnel command
-     le_event_Report(taf_L2tp::tunnelAsyncCmdEvId, &cmdReq, sizeof(cmdReq));
-
-    return;
+     auto &tafL2tp = taf_L2tp::GetInstance();
+     
+     return tafL2tp.StopTunnelCmdAsync(tunnelRef, handlerPtr, contextPtr,
+                                       taf_net_GetClientSessionRef());
 }
 
 /**
@@ -1961,6 +1932,191 @@ taf_net_DeviceMode_t taf_net_GetDeviceMode
     return taf_pa_net_GetDeviceMode();
 }
 
+/*=========================================SOCKS=========================================*/
+
+/**
+ * Synchronously enables the Socks proxy service.
+ *
+ * @param None.
+ *
+ * @returns LE_OK                    Success.
+ *          LE_FAULT                 Failed to enable socks
+ *
+ */
+le_result_t taf_net_EnableSocks
+(
+)
+{
+    auto &tafSocks = taf_Socks::GetInstance();
+
+    return tafSocks.EnableSocksCmdSync();
+}
+
+/**
+ *  Asynchronously enables the Socks proxy service.
+ *
+ * @param [in] handlerPtr               Asynchronous handler function.
+ * @param [in] contextPtr               Context pointer.
+ *
+ * @returns None
+ */
+void taf_net_EnableSocksAsync
+(
+    taf_net_AsyncSocksHandlerFunc_t handlerPtr,
+    void* contextPtr
+)
+{
+    auto &tafSocks = taf_Socks::GetInstance();
+
+    return tafSocks.EnableSocksCmdAsync(handlerPtr,contextPtr,taf_net_GetClientSessionRef());
+}
+
+/**
+ * Synchronously disables the Socks proxy service.
+ *
+ * @param None.
+ *
+ * @returns LE_OK                    Success.
+ *          LE_FAULT                 Failed to disable socks
+ *
+ */
+le_result_t taf_net_DisableSocks
+(
+)
+{
+    auto &tafSocks = taf_Socks::GetInstance();
+
+    return tafSocks.DisableSocksCmdSync();
+}
+
+/**
+ *  Asynchronously disables the Socks proxy service.
+ *
+ * @param [in] handlerPtr               Asynchronous handler function.
+ * @param [in] contextPtr               Context pointer.
+ *
+ * @returns None
+ */
+void taf_net_DisableSocksAsync
+(
+    taf_net_AsyncSocksHandlerFunc_t handlerPtr,
+    void* contextPtr
+)
+{
+     auto &tafSocks = taf_Socks::GetInstance();
+
+     return tafSocks.DisableSocksCmdAsync(handlerPtr,contextPtr,taf_net_GetClientSessionRef());
+}
+
+/**
+ * Sets SOCKS authentication method.
+ *
+ * @param [in] authMethod               Authentication method.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_FAULT                    Failed to set socks authentication method
+ *
+ */
+le_result_t taf_net_SetSocksAuthMethod
+(
+    taf_net_AuthMethod_t authMethod
+)
+{
+    if(authMethod != TAF_NET_SOCKS_NONE && authMethod != TAF_NET_SOCKS_USER_PASSWD)
+        return LE_FAULT;
+
+    return taf_pa_net_SetSocksAuthMethod(authMethod);
+}
+
+/**
+ * Gets SOCKS authentication method.
+ *
+ * @param None
+ *
+ * @returns SOCKS_UNKNOWN               Error.
+ *          SOCKS_NONE                  No authentication.
+ *          SOCKS_USER_PASSWD           User and password.
+ *
+ */
+taf_net_AuthMethod_t taf_net_GetSocksAuthMethod
+(
+)
+{
+    return taf_pa_net_GetSocksAuthMethod();
+}
+
+/**
+ * Sets SOCKS LAN interface.
+ *
+ * @param [in] ifName                   Interface name.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_FAULT                    Failed to set socks lan interface.
+ *
+ */
+le_result_t taf_net_SetSocksLanInterface
+(
+    const char* ifName
+)
+{
+    return taf_pa_net_SetSocksLanInterface(ifName);
+}
+
+/**
+ * Gets SOCKS LAN interface.
+ *
+ * @param [out] ifName                  Interface name.
+ *        [in] ifNameSize               Interface name size.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_FAULT                    Failed to get socks lan interface.
+ *
+ */
+le_result_t taf_net_GetSocksLanInterface
+(
+    char* ifName,
+    size_t ifNameSize
+)
+{
+    return taf_pa_net_GetSocksLanInterface(ifName, ifNameSize);
+}
+
+/**
+ * Adds SOCKS association between user name and profile id.
+ *
+ * @param [in] userName                 User name.
+ *        [in] profileId                Profile id.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_FAULT                    Failed to add association between user and profile.
+ *
+ */
+le_result_t taf_net_AddSocksAssociation
+(
+    const char* userName,
+    uint32_t profileId
+)
+{
+    return taf_pa_net_AddSocksAssociation(userName, profileId);
+}
+
+/**
+ * Deletes SOCKS association between user name and profile id.
+ *
+ * @param [in] userName                 User name.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_FAULT                    Failed to delete association between user and profile.
+ *
+ */
+le_result_t taf_net_RemoveSocksAssociation
+(
+    const char* userName
+)
+{
+    return taf_pa_net_RemoveSocksAssociation(userName);
+}
+
 COMPONENT_INIT
 {
 
@@ -1971,6 +2127,8 @@ COMPONENT_INIT
     taf_vlan_init();
 
     taf_l2tp_init();
+
+    taf_socks_init();
 
 }
 

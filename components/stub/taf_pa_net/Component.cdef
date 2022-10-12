@@ -8,7 +8,7 @@ requires:
 
 sources:
 {
-    taf_pa_net_devmode.cpp
+    taf_pa_net_qcmap.cpp
 }
 
 cxxflags:

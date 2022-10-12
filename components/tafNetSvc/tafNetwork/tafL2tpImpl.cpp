@@ -46,6 +46,7 @@
 #define REQUEST_L2TP_CONF_TIMEOUT 30
 #define ENABLE_L2TP_TIMEOUT 30
 #define START_TUNNEL_TIMEOUT 30
+#define ENABLE_L2TP_MAX_NUMBER_AT_THE_SAME_TIME 1
 
 using namespace telux::tafsvc;
 
@@ -73,14 +74,20 @@ LE_REF_DEFINE_STATIC_MAP(tunnelEntryListRefMap, TAF_NET_L2TP_MAX_TUNNEL_NUMBER);
 
 LE_REF_DEFINE_STATIC_MAP(tunnelEntrySafeRefMap, TAF_NET_L2TP_MAX_TUNNEL_NUMBER);
 
+LE_MEM_DEFINE_STATIC_POOL(L2tpHandlerMappingPool, TAF_NET_L2TP_MAX_TUNNEL_NUMBER,
+                          sizeof(L2tpHandlerMapping_t));
+
+LE_MEM_DEFINE_STATIC_POOL(TunnelHandlerMappingPool, TAF_NET_L2TP_MAX_TUNNEL_NUMBER,
+                          sizeof(TunnelHandlerMapping_t));
+
 std::vector<telux::data::net::L2tpTunnelConfig> tafL2tpCallback::configList;
 taf_L2tpConfig_t tafL2tpCallback::l2tpConfig;
 
 le_sem_Ref_t tafL2tpCallback::semaphore = nullptr;
 
-le_event_Id_t taf_L2tp::tunnelAsyncCmdEvId = nullptr;
+le_event_Id_t taf_L2tp::l2tpEventId = nullptr;
 
-le_event_Id_t taf_L2tp::l2tpAsyncCmdEvId = nullptr;
+le_event_Id_t taf_L2tp::l2tpCmdId = nullptr;
 
 /*======================================================================
 
@@ -130,6 +137,13 @@ void taf_L2tp::Init(void)
 
     tunnelEntrySafeRefMap = le_ref_InitStaticMap(tunnelEntrySafeRefMap,
                                                  TAF_NET_L2TP_MAX_TUNNEL_NUMBER);
+
+    L2tpHandlerMappingPool = le_mem_InitStaticPool(L2tpHandlerMappingPool,
+                                                   TAF_NET_L2TP_MAX_TUNNEL_NUMBER,
+                                                   sizeof(L2tpHandlerMapping_t));
+    TunnelHandlerMappingPool = le_mem_InitStaticPool(TunnelHandlerMappingPool,
+                                                     TAF_NET_L2TP_MAX_TUNNEL_NUMBER,
+                                               sizeof(TunnelHandlerMapping_t));
 
     // 4. Get the DataFactory and l2tpManager instances
     if (l2tpManager == nullptr)
@@ -190,27 +204,29 @@ void taf_L2tp::Init(void)
         LE_CRIT("unable to init l2tpManager component!");
     }
 
-    // Create and start tunnel command thread.
-    le_sem_Ref_t tunnelAsyncCmdThreadSem = le_sem_Create("tunnelAsyncCmdThreadSem", 0);
-    tunnelAsyncCmdEvId = le_event_CreateId("tunnelAsyncCmd", sizeof(taf_TunnelAsyncCmdReq_t));
-    le_thread_Ref_t tunnelAsyncCmdThreadRef = le_thread_Create("tunnelAsyncCmdThread", TunnelAsyncCmdThread, (void*)tunnelAsyncCmdThreadSem);
-    le_thread_Start(tunnelAsyncCmdThreadRef);
+    // Create and start l2tp event thread.
+    le_sem_Ref_t l2tpEvtThreadSem = le_sem_Create("l2tpEvtThreadSem", 0);
+    l2tpEventId = le_event_CreateId("l2tpEvent", sizeof(taf_L2tpEventReq_t));
+    le_thread_Ref_t l2tpEvtThreadRef = le_thread_Create("l2tpEvtThread", L2tpEventThread,
+                                                         (void*)l2tpEvtThreadSem);
+    le_thread_Start(l2tpEvtThreadRef);
+
+    le_sem_Wait(l2tpEvtThreadSem);
+
+    // Delete semaphore.
+    le_sem_Delete(l2tpEvtThreadSem);
 
     // Create and start l2tp command thread.
-    le_sem_Ref_t l2tpAsyncCmdThreadSem = le_sem_Create("l2tpAsyncCmdThreadSem", 0);
-    l2tpAsyncCmdEvId = le_event_CreateId("l2tpAsyncCmd", sizeof(taf_L2tpAsyncCmdReq_t));
-    le_thread_Ref_t l2tpAsyncCmdThreadRef = le_thread_Create("l2tpAsyncCmdThread", L2tpAsyncCmdThread, (void*)l2tpAsyncCmdThreadSem);
-    le_thread_Start(l2tpAsyncCmdThreadRef);
+    le_sem_Ref_t l2tpCmdThreadSem = le_sem_Create("l2tpCmdThreadSem", 0);
+    l2tpCmdId = le_event_CreateId("l2tpCmd", sizeof(taf_L2tpCmdReq_t));
+    le_thread_Ref_t l2tpCmdThreadRef = le_thread_Create("l2tpCmdThread", L2tpCmdThread,
+                                                         (void*)l2tpCmdThreadSem);
+    le_thread_Start(l2tpCmdThreadRef);
 
-    le_sem_Wait(tunnelAsyncCmdThreadSem);
-
-    // Delete semaphore.
-    le_sem_Delete(tunnelAsyncCmdThreadSem);
-
-    le_sem_Wait(l2tpAsyncCmdThreadSem);
+    le_sem_Wait(l2tpCmdThreadSem);
 
     // Delete semaphore.
-    le_sem_Delete(l2tpAsyncCmdThreadSem);
+    le_sem_Delete(l2tpCmdThreadSem);
 
     // Add a handler for client session close
     le_msg_AddServiceCloseHandler( taf_net_GetServiceRef(), ClientCloseSessionHandler, NULL );
@@ -238,64 +254,168 @@ taf_L2tp &taf_L2tp::GetInstance()
 }
 
 /*======================================================================
- FUNCTION        taf_L2tp::TunnelProcAsyncCmdHandler
- DESCRIPTION     Asynchrous tunnel command handler.
 
- DEPENDENCIES    The initialization of tunnel command thread.
+ FUNCTION        taf_L2tp::SetTunnelStatus
+
+ DESCRIPTION     Set tunnel status.
+
+ DEPENDENCIES    The initialization of tunnel.
+
+ PARAMETERS      taf_net_TunnelRef_t tunnelRef:        Tunnel reference.
+                 bool isStarted:                       Is started or not.
+
+ RETURN VALUE    true:             Tunnel is started
+                 false:            Tunnel is not started
+
+======================================================================*/
+void taf_L2tp::SetTunnelStatus(taf_net_TunnelRef_t tunnelRef, bool isStarted)
+{
+    TAF_ERROR_IF_RET_NIL(tunnelRef == NULL, "tunnelRef is null");
+    taf_Tunnel_t *tunnelPtr = NULL;
+    tunnelPtr = (taf_Tunnel_t*)le_ref_Lookup(tunnelRefMap, tunnelRef);
+
+    TAF_ERROR_IF_RET_NIL(tunnelPtr == NULL, "tunnel is not present");
+
+    tunnelPtr->isStarted = isStarted;
+}
+
+/*======================================================================
+ FUNCTION        taf_L2tp::L2tpProcEvtHandler
+ DESCRIPTION     Asynchrous callback event handler.
+
+ DEPENDENCIES    The initialization of l2tp event thread.
 
  PARAMETERS      [IN] void* cmdReqPtr: Command request pointer.
 
  RETURN VALUE    None
 
 ======================================================================*/
-void taf_L2tp::TunnelProcAsyncCmdHandler(void* cmdReqPtr)
+void taf_L2tp::L2tpProcEvtHandler(void* cmdReqPtr)
 {
     le_result_t result = LE_OK;
-    taf_TunnelAsyncCmdReq_t* cmdReq = (taf_TunnelAsyncCmdReq_t*)cmdReqPtr;
-    auto &tafL2tp = taf_L2tp::GetInstance();
-
+    taf_L2tpEventReq_t* cmdReq = (taf_L2tpEventReq_t*)cmdReqPtr;
+    L2tpHandlerMapping_t *l2tpHandlerMappingPtr = NULL;
+    TunnelHandlerMapping_t *tunnelHandlerMappingPtr = NULL;
     TAF_ERROR_IF_RET_NIL(cmdReqPtr == NULL, "Input parameter is NULL");
 
-    switch(cmdReq->cmdType)
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    LE_DEBUG(" Received event = %d",cmdReq->event);
+
+    switch(cmdReq->event)
     {
-        case ASYNC_START_TUNNEL:
-            LE_DEBUG("-ASYNC_START_TUNNEL-");
-            result = tafL2tp.StartTunnel(cmdReq->tunnelRef);
-            if (result != LE_OK)
+        case EVT_ENABLE_L2TP_ASYNC_CALLBACK:
+            if (cmdReq->errorCode != telux::common::ErrorCode::SUCCESS)
             {
-                LE_ERROR("Start tunnel error %d", result);
+                LE_ERROR( "EVT_ENABLE_L2TP_ASYNC_CALLBACK failed with errorCode: %d ",
+                           static_cast<int>(cmdReq->errorCode));
+                result = LE_FAULT;
             }
+            else
+            {
+                LE_DEBUG("EVT_ENABLE_L2TP_ASYNC_CALLBACK processed successfully \n");
+                result = LE_OK;
+            }
+
+            //Find the handler function and then call it
+            l2tpHandlerMappingPtr = tafL2tp.FindL2tpAsyncHandler(ASYNC_ENABLE_L2TP);
+
+            if(l2tpHandlerMappingPtr != NULL && l2tpHandlerMappingPtr->asyncHandler != NULL)
+            {
+                //Call handler function, and then remove it from mapping list
+                l2tpHandlerMappingPtr->asyncHandler(result,l2tpHandlerMappingPtr->contextPtr);
+                tafL2tp.DeleteL2tpHandlerInfo(l2tpHandlerMappingPtr->asyncHandler);
+            }
+
         break;
-        case ASYNC_STOP_TUNNEL:
-            LE_DEBUG("-ASYNC_STOP_TUNNEL-");
-            result = tafL2tp.StopTunnel(cmdReq->tunnelRef);
-            if (result != LE_OK)
+        case EVT_DISABLE_L2TP_ASYNC_CALLBACK:
+            if (cmdReq->errorCode != telux::common::ErrorCode::SUCCESS)
             {
-                LE_ERROR("Stop tunnel error %d", result);
+                LE_ERROR( "EVT_DISABLE_L2TP_ASYNC_CALLBACK failed with errorCode: %d ",
+                           static_cast<int>(cmdReq->errorCode));
+                result = LE_FAULT;
             }
+            else
+            {
+                LE_DEBUG("EVT_DISABLE_L2TP_ASYNC_CALLBACK processed successfully \n");
+                result = LE_OK;
+            }
+
+            //Find the handler function and then call it
+            l2tpHandlerMappingPtr = tafL2tp.FindL2tpAsyncHandler(ASYNC_DISABLE_L2TP);
+
+            if(l2tpHandlerMappingPtr != NULL && l2tpHandlerMappingPtr->asyncHandler != NULL)
+            {
+                //Call handler function, and then remove it from mapping list
+                l2tpHandlerMappingPtr->asyncHandler(result,l2tpHandlerMappingPtr->contextPtr);
+                tafL2tp.DeleteL2tpHandlerInfo(l2tpHandlerMappingPtr->asyncHandler);
+            }
+        case EVT_START_TUNNEL_ASYNC_CALLBACK:
+            if (cmdReq->errorCode != telux::common::ErrorCode::SUCCESS)
+            {
+                LE_ERROR( "EVT_START_TUNNEL_ASYNC_CALLBACK failed with errorCode: %d ",
+                           static_cast<int>(cmdReq->errorCode));
+                result = LE_FAULT;
+            }
+            else
+            {
+                LE_DEBUG("EVT_START_TUNNEL_ASYNC_CALLBACK processed successfully \n");
+                result = LE_OK;
+            }
+
+            //Find the handler function and then call it
+            tunnelHandlerMappingPtr = tafL2tp.FindTunnelAsyncHandler(ASYNC_START_TUNNEL);
+
+            if(tunnelHandlerMappingPtr != NULL && tunnelHandlerMappingPtr->asyncHandler != NULL)
+            {
+                //Set tunnel status.
+                tafL2tp.SetTunnelStatus( tunnelHandlerMappingPtr->tunnelRef, true);
+                //Call handler function, and then remove it from mapping list
+                tunnelHandlerMappingPtr->asyncHandler(tunnelHandlerMappingPtr->tunnelRef, result,
+                                                      tunnelHandlerMappingPtr->contextPtr);
+                tafL2tp.DeleteTunnelHandlerInfo(tunnelHandlerMappingPtr->asyncHandler);
+            }
+
+        break;
+
+        case EVT_STOP_TUNNEL_ASYNC_CALLBACK:
+            if (cmdReq->errorCode != telux::common::ErrorCode::SUCCESS)
+            {
+                LE_ERROR( "EVT_STOP_TUNNEL_ASYNC_CALLBACK failed with errorCode: %d ",
+                           static_cast<int>(cmdReq->errorCode));
+                result = LE_FAULT;
+            }
+            else
+            {
+                LE_DEBUG("EVT_STOP_TUNNEL_ASYNC_CALLBACK processed successfully \n");
+                result = LE_OK;
+            }
+
+            //Find the handler function and then call it
+            tunnelHandlerMappingPtr = tafL2tp.FindTunnelAsyncHandler(ASYNC_STOP_TUNNEL);
+
+            if(tunnelHandlerMappingPtr != NULL && tunnelHandlerMappingPtr->asyncHandler != NULL)
+            {
+                //Set tunnel status.
+                tafL2tp.SetTunnelStatus( tunnelHandlerMappingPtr->tunnelRef, false);
+                //Call handler function, and then remove it from mapping list
+                tunnelHandlerMappingPtr->asyncHandler(tunnelHandlerMappingPtr->tunnelRef, result,
+                                                      tunnelHandlerMappingPtr->contextPtr);
+                tafL2tp.DeleteTunnelHandlerInfo(tunnelHandlerMappingPtr->asyncHandler);
+            }
+
         break;
         default:
                 LE_ERROR("Command error");
         break;
     }
-
-    if (cmdReq->handlerFuncPtr)
-    {
-        LE_DEBUG("Calling tunnel async handler %p with status %d", cmdReq->handlerFuncPtr, result);
-        cmdReq->handlerFuncPtr(cmdReq->tunnelRef, result, cmdReq->contextPtr);
-    }
-    else
-    {
-        LE_WARN("No handler function, result %d!!", result);
-    }
-
 }
 
 /*======================================================================
 
- FUNCTION        taf_L2tp::TunnelAsyncCmdThread
+ FUNCTION        taf_L2tp::L2tpEventThread
 
- DESCRIPTION     Tunnel command thread for handling asynchronous request.
+ DESCRIPTION     L2tp event thread for handling asynchronous request.
 
  DEPENDENCIES    The initialization of L2tp.
 
@@ -305,10 +425,9 @@ void taf_L2tp::TunnelProcAsyncCmdHandler(void* cmdReqPtr)
                      NULL: Success.
 
 ======================================================================*/
-void* taf_L2tp::TunnelAsyncCmdThread(void* contextPtr)
+void* taf_L2tp::L2tpEventThread(void* contextPtr)
 {
-    le_event_AddHandler("TunnelProcAsyncCmdHandler", tunnelAsyncCmdEvId,
-                                                         TunnelProcAsyncCmdHandler);
+    le_event_AddHandler("L2tpEventThread", l2tpEventId, L2tpProcEvtHandler);
     le_sem_Post((le_sem_Ref_t)contextPtr);
 
     le_event_RunLoop();
@@ -326,52 +445,121 @@ void* taf_L2tp::TunnelAsyncCmdThread(void* contextPtr)
  RETURN VALUE    None
 
 ======================================================================*/
-void taf_L2tp::L2tpProcAsyncCmdHandler(void* cmdReqPtr)
+void taf_L2tp::L2tpProcCmdHandler(void* cmdReqPtr)
 {
     le_result_t result = LE_OK;
-    taf_L2tpAsyncCmdReq_t* cmdReq = (taf_L2tpAsyncCmdReq_t*)cmdReqPtr;
+    taf_L2tpCmdReq_t* cmdReq = (taf_L2tpCmdReq_t*)cmdReqPtr;
     auto &tafL2tp = taf_L2tp::GetInstance();
 
     TAF_ERROR_IF_RET_NIL(cmdReqPtr == NULL, "Input parameter is NULL");
 
+    LE_DEBUG(" Received cmd = %d",cmdReq->cmdType);
+
     switch(cmdReq->cmdType)
     {
         case ASYNC_ENABLE_L2TP:
-            LE_DEBUG("-ASYNC_ENABLE_L2TP-");
-            result = tafL2tp.EnableL2tp(cmdReq->enableMss, cmdReq->enableMtu, cmdReq->mtuSize);
+            //Only one client can enable L2TP at the same time.
+            if( tafL2tp.GetL2tpHandlerNumberInMappingList(ASYNC_ENABLE_L2TP) >=
+                ENABLE_L2TP_MAX_NUMBER_AT_THE_SAME_TIME )
+            {
+                LE_DEBUG("Only one client can enable L2TP at the same time");
+                return;
+            }
+
+            //Add handler function into mapping list, will be used later
+            if(cmdReq->l2tpHandlerFuncPtr != NULL)
+                tafL2tp.AddL2tpHandlerSessionMapping(cmdReq->l2tpHandlerFuncPtr, cmdReq->contextPtr,
+                                                     cmdReq->sessionRef, ASYNC_ENABLE_L2TP);
+
+            //Call telsdk API
+            result = tafL2tp.EnableL2tp(cmdReq->enableParam.enableMss,
+                                        cmdReq->enableParam.enableMtu, cmdReq->enableParam.mtuSize,
+                                        ASYNC_ENABLE_L2TP);
+
             if (result != LE_OK)
             {
-                LE_ERROR("Enable L2TP error %d", result);
+                LE_ERROR("Enable L2TP asynchronously error %d", result);
+                if(cmdReq->l2tpHandlerFuncPtr != NULL)
+                    tafL2tp.DeleteL2tpHandlerInfo(cmdReq->l2tpHandlerFuncPtr);
             }
+
         break;
         case ASYNC_DISABLE_L2TP:
-            LE_DEBUG("-ASYNC_DISABLE_L2TP-");
-            result = tafL2tp.DisableL2tp(cmdReq->sessionRef);
+            //check if another client session enabled the tunnel
+            if(tafL2tp.IsTunnelStartedByOtherClient(cmdReq->sessionRef))
+            {
+                return;
+            }
+            //Only one client can disable L2TP at the same time.
+            if( tafL2tp.GetL2tpHandlerNumberInMappingList(ASYNC_DISABLE_L2TP) >=
+                ENABLE_L2TP_MAX_NUMBER_AT_THE_SAME_TIME )
+            {
+                LE_DEBUG("Only one client can disable L2TP at the same time");
+                return;
+            }
+
+            //Add handler function into mapping list, will be used later
+            if(cmdReq->l2tpHandlerFuncPtr != NULL)
+                tafL2tp.AddL2tpHandlerSessionMapping(cmdReq->l2tpHandlerFuncPtr, cmdReq->contextPtr,
+                                                  cmdReq->sessionRef, ASYNC_DISABLE_L2TP);
+
+            //Call telsdk API
+            result = tafL2tp.EnableL2tp(0, 0, 0, ASYNC_DISABLE_L2TP);
+
             if (result != LE_OK)
             {
-                LE_ERROR("Disable L2TP error %d", result);
+                LE_ERROR("Disable L2TP asynchronously error %d", result);
+                if(cmdReq->l2tpHandlerFuncPtr != NULL)
+                    tafL2tp.DeleteL2tpHandlerInfo(cmdReq->l2tpHandlerFuncPtr);
             }
+
         break;
+        case ASYNC_START_TUNNEL:
+            //Add handler function into mapping list, will be used later
+            if(cmdReq->tunnelHandlerFuncPtr != NULL)
+                tafL2tp.AddTunnelHandlerSessionMapping(cmdReq->tunnelHandlerFuncPtr,
+                                                       cmdReq->tunnelRef, cmdReq->contextPtr,
+                                                       cmdReq->sessionRef, ASYNC_START_TUNNEL);
+
+            //Call telsdk API
+            result = tafL2tp.AddTunnelAsync(cmdReq->tunnelRef);
+
+            if (result != LE_OK)
+            {
+                LE_ERROR("Start tunnel asynchronously error %d", result);
+                if(cmdReq->tunnelHandlerFuncPtr != NULL)
+                    tafL2tp.DeleteTunnelHandlerInfo(cmdReq->tunnelHandlerFuncPtr);
+            }
+
+        break;
+        case ASYNC_STOP_TUNNEL:
+            //Add handler function into mapping list, will be used later
+            if(cmdReq->tunnelHandlerFuncPtr != NULL)
+                tafL2tp.AddTunnelHandlerSessionMapping(cmdReq->tunnelHandlerFuncPtr,
+                                                       cmdReq->tunnelRef, cmdReq->contextPtr,
+                                                       cmdReq->sessionRef, ASYNC_STOP_TUNNEL);
+
+            //Call telsdk API
+            result = tafL2tp.RemoveTunnelAsync(cmdReq->tunnelRef);
+
+            if (result != LE_OK)
+            {
+                LE_ERROR("Stop tunnel asynchronously error %d", result);
+                if(cmdReq->tunnelHandlerFuncPtr != NULL)
+                    tafL2tp.DeleteTunnelHandlerInfo(cmdReq->tunnelHandlerFuncPtr);
+            }
+
+        break;
+
         default:
                 LE_ERROR("Command error");
         break;
     }
-
-    if (cmdReq->handlerFuncPtr)
-    {
-        LE_DEBUG("Calling l2tp async handler %p with status %d", cmdReq->handlerFuncPtr, result);
-        cmdReq->handlerFuncPtr(result, cmdReq->contextPtr);
-    }
-    else
-    {
-        LE_WARN("No handler function, result %d!!", result);
-    }
-
 }
 
 /*======================================================================
 
- FUNCTION        taf_L2tp::L2tpAsyncCmdThread
+ FUNCTION        taf_L2tp::L2tpCmdThread
 
  DESCRIPTION     L2tp command thread for handling asynchronous request.
 
@@ -383,10 +571,9 @@ void taf_L2tp::L2tpProcAsyncCmdHandler(void* cmdReqPtr)
                      NULL: Success.
 
 ======================================================================*/
-void* taf_L2tp::L2tpAsyncCmdThread(void* contextPtr)
+void* taf_L2tp::L2tpCmdThread(void* contextPtr)
 {
-    le_event_AddHandler("L2tpProcAsyncCmdHandler", l2tpAsyncCmdEvId,
-                                                         L2tpProcAsyncCmdHandler);
+    le_event_AddHandler("L2tpProcCmdHandler", l2tpCmdId, L2tpProcCmdHandler);
     le_sem_Post((le_sem_Ref_t)contextPtr);
 
     le_event_RunLoop();
@@ -395,7 +582,7 @@ void* taf_L2tp::L2tpAsyncCmdThread(void* contextPtr)
 
 /*======================================================================
 
- FUNCTION        tafL2tpCallback::setConfigResponse
+ FUNCTION        tafL2tpCallback::enableL2tpResponse
 
  DESCRIPTION     Call back function for setting config.
 
@@ -406,7 +593,7 @@ void* taf_L2tp::L2tpAsyncCmdThread(void* contextPtr)
  RETURN VALUE    None.
 
 ======================================================================*/
-void tafL2tpCallback::setConfigResponse(telux::common::ErrorCode error)
+void tafL2tpCallback::enableL2tpResponse(telux::common::ErrorCode error)
 {
     le_result_t result = LE_OK;
     auto &tafL2tp = taf_L2tp::GetInstance();
@@ -421,14 +608,14 @@ void tafL2tpCallback::setConfigResponse(telux::common::ErrorCode error)
         LE_DEBUG("Request processed successfully \n");
     }
 
-    tafL2tp.L2tpConfigSyncPromise.set_value(result);
+    tafL2tp.L2tpEnableSyncPromise.set_value(result);
 }
 
 /*======================================================================
 
- FUNCTION        tafL2tpCallback::startTunnelResponse
+ FUNCTION        tafL2tpCallback::disableL2tpResponse
 
- DESCRIPTION     Call back function for starting tunnel.
+ DESCRIPTION     Call back function for setting config.
 
  DEPENDENCIES    The initialization of L2tp.
 
@@ -437,7 +624,89 @@ void tafL2tpCallback::setConfigResponse(telux::common::ErrorCode error)
  RETURN VALUE    None.
 
 ======================================================================*/
-void tafL2tpCallback::startTunnelResponse(telux::common::ErrorCode error)
+void tafL2tpCallback::disableL2tpResponse(telux::common::ErrorCode error)
+{
+    le_result_t result = LE_OK;
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    if (error != telux::common::ErrorCode::SUCCESS)
+    {
+        LE_ERROR( "Request failed with errorCode: %d " , static_cast<int>(error));
+        result = LE_FAULT;
+    }
+    else
+    {
+        LE_DEBUG("Request processed successfully \n");
+    }
+
+    tafL2tp.L2tpDisableSyncPromise.set_value(result);
+}
+
+/*======================================================================
+
+ FUNCTION        tafL2tpCallback::enableL2tpAsyncResponse
+
+ DESCRIPTION     Call back function for setting config.
+
+ DEPENDENCIES    The initialization of L2tp.
+
+ PARAMETERS      [IN] telux::common::ErrorCode error: The error code.
+
+ RETURN VALUE    None.
+
+======================================================================*/
+void tafL2tpCallback::enableL2tpAsyncResponse(telux::common::ErrorCode error)
+{
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    taf_L2tpEventReq_t l2tpEvent;
+
+    l2tpEvent.event         = EVT_ENABLE_L2TP_ASYNC_CALLBACK;
+    l2tpEvent.errorCode     = error;
+
+    le_event_Report(tafL2tp.l2tpEventId, &l2tpEvent,sizeof(taf_L2tpEventReq_t));
+}
+
+/*======================================================================
+
+ FUNCTION        tafL2tpCallback::disableL2tpAsyncResponse
+
+ DESCRIPTION     Call back function for setting config.
+
+ DEPENDENCIES    The initialization of L2tp.
+
+ PARAMETERS      [IN] telux::common::ErrorCode error: The error code.
+
+ RETURN VALUE    None.
+
+======================================================================*/
+void tafL2tpCallback::disableL2tpAsyncResponse(telux::common::ErrorCode error)
+{
+
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    taf_L2tpEventReq_t l2tpEvent;
+
+    l2tpEvent.event         = EVT_DISABLE_L2TP_ASYNC_CALLBACK;
+    l2tpEvent.errorCode     = error;
+
+    le_event_Report(tafL2tp.l2tpEventId, &l2tpEvent,sizeof(taf_L2tpEventReq_t));
+}
+
+/*======================================================================
+
+ FUNCTION        tafL2tpCallback::startTunnelSyncResponse
+
+ DESCRIPTION     Call back function for synchronous starting tunnel.
+
+ DEPENDENCIES    The initialization of L2tp.
+
+ PARAMETERS      [IN] telux::common::ErrorCode error: The error code.
+
+ RETURN VALUE    None.
+
+======================================================================*/
+void tafL2tpCallback::startTunnelSyncResponse(telux::common::ErrorCode error)
 {
     le_result_t result = LE_OK;
     auto &tafL2tp = taf_L2tp::GetInstance();
@@ -457,9 +726,9 @@ void tafL2tpCallback::startTunnelResponse(telux::common::ErrorCode error)
 
 /*======================================================================
 
- FUNCTION        tafL2tpCallback::stopTunnelResponse
+ FUNCTION        tafL2tpCallback::stopTunnelSyncResponse
 
- DESCRIPTION     Call back function for stopping tunnel.
+ DESCRIPTION     Call back function for synchronous stopping tunnel.
 
  DEPENDENCIES    The initialization of L2tp.
 
@@ -468,7 +737,7 @@ void tafL2tpCallback::startTunnelResponse(telux::common::ErrorCode error)
  RETURN VALUE    None.
 
 ======================================================================*/
-void tafL2tpCallback::stopTunnelResponse(telux::common::ErrorCode error)
+void tafL2tpCallback::stopTunnelSyncResponse(telux::common::ErrorCode error)
 {
     le_result_t result = LE_OK;
     auto &tafL2tp = taf_L2tp::GetInstance();
@@ -484,6 +753,58 @@ void tafL2tpCallback::stopTunnelResponse(telux::common::ErrorCode error)
     }
 
     tafL2tp.L2tpStopTunnelSyncPromise.set_value(result);
+}
+
+/*======================================================================
+
+ FUNCTION        tafL2tpCallback::startTunnelAsyncResponse
+
+ DESCRIPTION     Call back function for asynchronous starting tunnel.
+
+ DEPENDENCIES    The initialization of L2tp.
+
+ PARAMETERS      [IN] telux::common::ErrorCode error: The error code.
+
+ RETURN VALUE    None.
+
+======================================================================*/
+void tafL2tpCallback::startTunnelAsyncResponse(telux::common::ErrorCode error)
+{
+
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    taf_L2tpEventReq_t l2tpEvent;
+
+    l2tpEvent.event         = EVT_START_TUNNEL_ASYNC_CALLBACK;
+    l2tpEvent.errorCode     = error;
+
+    le_event_Report(tafL2tp.l2tpEventId, &l2tpEvent,sizeof(taf_L2tpEventReq_t));
+}
+
+/*======================================================================
+
+ FUNCTION        tafL2tpCallback::stopTunnelAsyncResponse
+
+ DESCRIPTION     Call back function for asynchronous stopping tunnel.
+
+ DEPENDENCIES    The initialization of L2tp.
+
+ PARAMETERS      [IN] telux::common::ErrorCode error: The error code.
+
+ RETURN VALUE    None.
+
+======================================================================*/
+void tafL2tpCallback::stopTunnelAsyncResponse(telux::common::ErrorCode error)
+{
+
+    auto &tafL2tp = taf_L2tp::GetInstance();
+
+    taf_L2tpEventReq_t l2tpEvent;
+
+    l2tpEvent.event         = EVT_STOP_TUNNEL_ASYNC_CALLBACK;
+    l2tpEvent.errorCode     = error;
+
+    le_event_Report(tafL2tp.l2tpEventId, &l2tpEvent,sizeof(taf_L2tpEventReq_t));
 }
 
 #ifdef TARGET_SA515M
@@ -770,10 +1091,10 @@ bool taf_L2tp::IsSessionIdValid
     taf_Tunnel_t *tunnelPtr = NULL;
     uint16_t sessionNum=0;
 
-    TAF_ERROR_IF_RET_VAL(tunnelRef == NULL, 0, "tunnelRef is null");
+    TAF_ERROR_IF_RET_VAL(tunnelRef == NULL, false, "tunnelRef is null");
     tunnelPtr = (taf_Tunnel_t*)le_ref_Lookup(tunnelRefMap, tunnelRef);
 
-    TAF_ERROR_IF_RET_VAL(tunnelPtr == NULL, 0, "tunnel is not present");
+    TAF_ERROR_IF_RET_VAL(tunnelPtr == NULL, false, "tunnel is not present");
 
     linkPtr = le_dls_Peek(&(tunnelPtr->l2tpSessionList));
     while (linkPtr)
@@ -802,7 +1123,7 @@ bool taf_L2tp::IsSessionIdValid
 
 /*======================================================================
 
- FUNCTION        taf_L2tp::EnableL2tp
+ FUNCTION        taf_L2tp::EnableL2tpCmdSync
 
  DESCRIPTION     Enable l2tp.
 
@@ -818,7 +1139,7 @@ bool taf_L2tp::IsSessionIdValid
                      LE_FAULT                    Failed to enable L2TP.
 
 ======================================================================*/
-le_result_t taf_L2tp::EnableL2tp(bool enableMss, bool enableMtu, uint32_t mtuSize)
+le_result_t taf_L2tp::EnableL2tpCmdSync(bool enableMss, bool enableMtu, uint32_t mtuSize)
 {
     le_result_t result;
 
@@ -826,25 +1147,22 @@ le_result_t taf_L2tp::EnableL2tp(bool enableMss, bool enableMtu, uint32_t mtuSiz
 
     TAF_ERROR_IF_RET_VAL(l2tpManager == NULL, LE_NOT_FOUND, "l2tpManager is null");
 
-    L2tpConfigSyncPromise = std::promise<le_result_t>();
-
-    std::shared_ptr<tafL2tpCallback> enableL2tpCb = std::make_shared<tafL2tpCallback>();
-
-    auto  enableRespCb = std::bind(&tafL2tpCallback::setConfigResponse, enableL2tpCb,
-                                   std::placeholders::_1);
+    L2tpEnableSyncPromise = std::promise<le_result_t>();
 
     if(mtuSize == 0)
         mtuSize=DEFAULT_MTU_SIZE;
 
 #ifdef TARGET_SA515M
-    Status status = l2tpManager->setConfig(true, enableMss, enableMtu, enableRespCb, mtuSize);
+    Status status = l2tpManager->setConfig(true, enableMss, enableMtu,
+                                                   tafL2tpCallback::enableL2tpResponse, mtuSize);
 #else
-    Status status = l2tpManager->setConfig(true, enableMss, enableMtu, enableRespCb);
+    Status status = l2tpManager->setConfig(true, enableMss, enableMtu,
+                                                   tafL2tpCallback::enableL2tpResponse);
 #endif
 
     if (status == Status::SUCCESS)
     {
-        std::future<le_result_t> futureResult = L2tpConfigSyncPromise.get_future();
+        std::future<le_result_t> futureResult = L2tpEnableSyncPromise.get_future();
         std::future_status waitStatus = futureResult.wait_for(span);
 
         if (std::future_status::timeout == waitStatus)
@@ -864,11 +1182,12 @@ le_result_t taf_L2tp::EnableL2tp(bool enableMss, bool enableMtu, uint32_t mtuSiz
         LE_ERROR( "ERROR - Failed to enable l2tp, Status:%d ", static_cast<int>(status));
         return LE_FAULT;
     }
+
 }
 
 /*======================================================================
 
- FUNCTION        taf_L2tp::DisableL2tp
+ FUNCTION        taf_L2tp::DisableL2tpCmdSync
 
  DESCRIPTION     Disable l2tp.
 
@@ -883,10 +1202,7 @@ le_result_t taf_L2tp::EnableL2tp(bool enableMss, bool enableMtu, uint32_t mtuSiz
                      LE_FAULT                    Failed to disable L2TP.
 
 ======================================================================*/
-le_result_t taf_L2tp::DisableL2tp
-(
-    le_msg_SessionRef_t sessionRef
-)
+le_result_t taf_L2tp::DisableL2tpCmdSync(le_msg_SessionRef_t sessionRef)
 {
     le_result_t result;
 
@@ -903,22 +1219,19 @@ le_result_t taf_L2tp::DisableL2tp
         return LE_FAULT;
     }
 
-    L2tpConfigSyncPromise = std::promise<le_result_t>();
-
-    std::shared_ptr<tafL2tpCallback> enableL2tpCb = std::make_shared<tafL2tpCallback>();
-
-    auto  enableRespCb = std::bind(&tafL2tpCallback::setConfigResponse,
-                                             enableL2tpCb, std::placeholders::_1);
+    L2tpDisableSyncPromise = std::promise<le_result_t>();
 
 #ifdef TARGET_SA515M
-    Status status = l2tpManager->setConfig(false, false, false, enableRespCb, 0);
+    Status status = l2tpManager->setConfig(false, false, false,
+                                                   tafL2tpCallback::disableL2tpResponse, 0);
 #else
-    Status status = l2tpManager->setConfig(false, false, false, enableRespCb);
+    Status status = l2tpManager->setConfig(false, false, false,
+                                                   tafL2tpCallback::disableL2tpResponse);
 #endif
 
     if (status == Status::SUCCESS)
     {
-        std::future<le_result_t> futureResult = L2tpConfigSyncPromise.get_future();
+        std::future<le_result_t> futureResult = L2tpDisableSyncPromise.get_future();
         std::future_status waitStatus = futureResult.wait_for(span);
 
         if (std::future_status::timeout == waitStatus)
@@ -936,6 +1249,166 @@ le_result_t taf_L2tp::DisableL2tp
     else
     {
         LE_ERROR( "ERROR - Failed to disable l2tp, Status:%d ", static_cast<int>(status));
+        return LE_FAULT;
+    }
+
+}
+
+/*======================================================================
+
+ FUNCTION        taf_L2tp::EnableL2tpCmdAsync
+
+ DESCRIPTION     Asynchronously enable l2tp.
+
+ DEPENDENCIES    The initialization of l2tp.
+
+ PARAMETERS      [IN] bool enableMss : Enable or disable MSS.
+                 [IN] bool enableMtu : Enable or disable MTU.
+                 [IN] uint32_t mtuSize : Mtu size, if value is 0, then use default size 1422.
+                 [IN] taf_net_AsyncL2tpHandlerFunc_t handlerPtr : L2TP handler function.
+                 [IN] void* contextPtr : Context pointer.
+                 [IN] le_msg_SessionRef_t sessionRef : Session reference.
+
+ RETURN VALUE    None
+
+======================================================================*/
+void taf_L2tp::EnableL2tpCmdAsync
+(
+    bool enableMss,
+    bool enableMtu,
+    uint32_t mtuSize,
+    taf_net_AsyncL2tpHandlerFunc_t handlerPtr,
+    void* contextPtr,
+    le_msg_SessionRef_t sessionRef
+)
+{
+    taf_L2tpCmdReq_t cmdReq;
+
+    TAF_ERROR_IF_RET_NIL(handlerPtr == NULL, "Handler function is NULL");
+    TAF_ERROR_IF_RET_NIL(sessionRef == NULL, "SessionRef is NULL");
+
+    cmdReq.cmdType = ASYNC_ENABLE_L2TP;
+    cmdReq.enableParam.enableMss = enableMss;
+    cmdReq.enableParam.enableMtu = enableMtu;
+
+    if(mtuSize == 0)
+        cmdReq.enableParam.mtuSize = DEFAULT_MTU_SIZE;
+    else
+        cmdReq.enableParam.mtuSize = mtuSize;
+
+    cmdReq.contextPtr = contextPtr;
+    cmdReq.sessionRef = sessionRef;
+    cmdReq.l2tpHandlerFuncPtr = handlerPtr;
+
+    // Send ASYNC_ENABLE_L2TP command
+    le_event_Report(taf_L2tp::l2tpCmdId, &cmdReq, sizeof(cmdReq));
+}
+
+/*======================================================================
+
+ FUNCTION        taf_L2tp::DisableL2tpCmdAsync
+
+ DESCRIPTION     Asynchronously disable l2tp.
+
+ DEPENDENCIES    The initialization of l2tp.
+
+ PARAMETERS      [IN] taf_net_AsyncL2tpHandlerFunc_t handlerPtr : L2TP handler function.
+                 [IN] void* contextPtr : Context pointer.
+                 [IN] le_msg_SessionRef_t sessionRef : Session reference.
+
+ RETURN VALUE    None
+
+======================================================================*/
+void taf_L2tp::DisableL2tpCmdAsync
+(
+    taf_net_AsyncL2tpHandlerFunc_t handlerPtr,
+    void* contextPtr,
+    le_msg_SessionRef_t sessionRef
+)
+{
+    taf_L2tpCmdReq_t cmdReq;
+
+    TAF_ERROR_IF_RET_NIL(handlerPtr == NULL, "Handler function is NULL");
+    TAF_ERROR_IF_RET_NIL(sessionRef == NULL, "SessionRef is NULL");
+
+    cmdReq.cmdType = ASYNC_DISABLE_L2TP;
+    cmdReq.enableParam.enableMss = 0;
+    cmdReq.enableParam.enableMtu = 0;
+    cmdReq.enableParam.mtuSize = 0;
+    cmdReq.contextPtr = contextPtr;
+    cmdReq.sessionRef = sessionRef;
+    cmdReq.l2tpHandlerFuncPtr = handlerPtr;
+
+    // Send ASYNC_DISABLE_L2TP command
+    le_event_Report(taf_L2tp::l2tpCmdId, &cmdReq, sizeof(cmdReq));
+}
+
+/*======================================================================
+
+ FUNCTION        taf_L2tp::EnableL2tp
+
+ DESCRIPTION     Enable l2tp.
+
+ DEPENDENCIES    The initialization of l2tp.
+
+ PARAMETERS      [IN] bool enableMss : Enable or disable MSS.
+                 [IN] bool enableMtu : Enable or disable MTU.
+                 [IN] uint32_t mtuSize : Mtu size, if value is 0, then use default size 1422.
+                 [IN] taf_L2tpCmdType_t type : The command type.
+
+ RETURN VALUE    le_result_t
+                     LE_OK:                      Succeeded to enable l2tp
+                     LE_NOT_FOUND                L2TP is not found.
+                     LE_FAULT                    Failed to enable L2TP.
+
+======================================================================*/
+le_result_t taf_L2tp::EnableL2tp
+(
+    bool enableMss,
+    bool enableMtu,
+    uint32_t mtuSize,
+    taf_L2tpCmdType_t type
+)
+{
+    Status status = Status::SUCCESS;
+
+    TAF_ERROR_IF_RET_VAL(l2tpManager == NULL, LE_NOT_FOUND, "l2tpManager is null");
+
+    switch(type)
+    {
+        case ASYNC_ENABLE_L2TP:
+
+#ifdef TARGET_SA515M
+            status = l2tpManager->setConfig(true, enableMss, enableMtu,
+                                                 tafL2tpCallback::enableL2tpAsyncResponse, mtuSize);
+#else
+            status = l2tpManager->setConfig(true, enableMss, enableMtu,
+                                                   tafL2tpCallback::enableL2tpAsyncResponse);
+#endif
+
+        break;
+        case ASYNC_DISABLE_L2TP:
+
+#ifdef TARGET_SA515M
+            status = l2tpManager->setConfig(false, enableMss, enableMtu,
+                                                tafL2tpCallback::disableL2tpAsyncResponse, mtuSize);
+#else
+            status = l2tpManager->setConfig(false, enableMss, enableMtu,
+                                                   tafL2tpCallback::disableL2tpAsyncResponse);
+#endif
+
+        break;
+        default:
+            return LE_FAULT;
+    }
+
+    if (status == Status::SUCCESS)
+    {
+        return LE_OK;
+    }
+    else
+    {
+        LE_ERROR( "ERROR - Failed to enable/disable L2TP, Status:%d ", static_cast<int>(status));
         return LE_FAULT;
     }
 }
@@ -1137,6 +1610,7 @@ taf_net_TunnelRef_t taf_L2tp::CreateTunnel
     struct sockaddr_in6 addr6;
     struct sockaddr_in addr;
     taf_Tunnel_t *tunnelPtr=NULL;
+    uint16_t tunnelNum = 0;
 
     TAF_ERROR_IF_RET_VAL(peerIpAddrPtr == NULL, NULL, "peerIpAddrPtr is invalid");
     TAF_ERROR_IF_RET_VAL(ifNamePtr == NULL, NULL, "ifNamePtr is invalid");
@@ -1180,7 +1654,14 @@ taf_net_TunnelRef_t taf_L2tp::CreateTunnel
                 return (taf_net_TunnelRef_t)le_ref_GetSafeRef(iterRef);
             }
         }
+
+        if(tunnelPtr != NULL)
+            tunnelNum++;
     }
+
+    //Check if the tunnel exceeds the max value
+    TAF_ERROR_IF_RET_VAL(tunnelNum >=TAF_NET_L2TP_MAX_TUNNEL_NUMBER, NULL,
+                         "Tunnel number exceeds the max value");
 
     //Not found, create a new tunnel reference
     tunnelPtr = (taf_Tunnel_t*)le_mem_ForceAlloc(tunnelPool);
@@ -1398,7 +1879,7 @@ le_result_t taf_L2tp::RemoveSession
 
 /*======================================================================
 
- FUNCTION        taf_L2tp::StartTunnel
+ FUNCTION        taf_L2tp::StartTunnelCmdSync
 
  DESCRIPTION     Start a tunnel.
 
@@ -1413,10 +1894,7 @@ le_result_t taf_L2tp::RemoveSession
                      LE_FAULT                    Failed to start a tunnel.
 
 ======================================================================*/
-le_result_t taf_L2tp::StartTunnel
-(
-    taf_net_TunnelRef_t tunnelRef
-)
+le_result_t taf_L2tp::StartTunnelCmdSync(taf_net_TunnelRef_t tunnelRef)
 {
     le_result_t result;
     le_dls_Link_t* linkPtr = NULL;
@@ -1483,15 +1961,7 @@ le_result_t taf_L2tp::StartTunnel
 
     L2tpStartTunnelSyncPromise = std::promise<le_result_t>();
 
-    std::shared_ptr<tafL2tpCallback> l2tpStartTunnelCb = std::make_shared<tafL2tpCallback>();
-
-    auto  startTunnelRespCb = std::bind(&tafL2tpCallback::startTunnelResponse,
-                                             l2tpStartTunnelCb, std::placeholders::_1);
-
-    std::chrono::time_point<std::chrono::system_clock> startTime,endTime;
-    std::chrono::duration<double> elapsedTime;
-    startTime = std::chrono::system_clock::now();
-    Status status = l2tpManager->addTunnel(l2tpTunnelConfig, startTunnelRespCb);
+    Status status = l2tpManager->addTunnel(l2tpTunnelConfig, tafL2tpCallback::startTunnelSyncResponse);
 
     if (status == Status::SUCCESS)
     {
@@ -1519,11 +1989,12 @@ le_result_t taf_L2tp::StartTunnel
     }
 
     return LE_OK;
+
 }
 
 /*======================================================================
 
- FUNCTION        taf_L2tp::StopTunnel
+ FUNCTION        taf_L2tp::StopTunnelCmdSync
 
  DESCRIPTION     Stop a tunnel.
 
@@ -1538,10 +2009,7 @@ le_result_t taf_L2tp::StartTunnel
                      LE_FAULT                    Failed to stop a tunnel.
 
 ======================================================================*/
-le_result_t taf_L2tp::StopTunnel
-(
-    taf_net_TunnelRef_t tunnelRef
-)
+le_result_t taf_L2tp::StopTunnelCmdSync(taf_net_TunnelRef_t tunnelRef)
 {
     le_result_t result;
     taf_Tunnel_t *tunnelPtr = NULL;
@@ -1556,12 +2024,8 @@ le_result_t taf_L2tp::StopTunnel
 
     L2tpStopTunnelSyncPromise = std::promise<le_result_t>();
 
-    std::shared_ptr<tafL2tpCallback> l2tpStopTunnelCb = std::make_shared<tafL2tpCallback>();
-
-    auto  stopTunnelRespCb = std::bind(&tafL2tpCallback::stopTunnelResponse,
-                                             l2tpStopTunnelCb, std::placeholders::_1);
-
-    Status status = l2tpManager->removeTunnel(tunnelPtr->locTunnelId, stopTunnelRespCb);
+    Status status = l2tpManager->removeTunnel(tunnelPtr->locTunnelId,
+                                           tafL2tpCallback::stopTunnelSyncResponse);
 
     if (status == Status::SUCCESS)
     {
@@ -1589,6 +2053,241 @@ le_result_t taf_L2tp::StopTunnel
     }
 
     return LE_OK;
+
+}
+
+/*======================================================================
+
+ FUNCTION        taf_L2tp::StartTunnelCmdAsync
+
+ DESCRIPTION     Asynchronously start a tunnel.
+
+ DEPENDENCIES    The creation of tunnel.
+
+ PARAMETERS      [IN] taf_net_TunnelRef_t tunnelRef : Tunnel reference.
+                 [IN] taf_net_AsyncTunnelHandlerFunc_t handlerPtr : Tunnel handler function.
+                 [IN] void* contextPtr : Context pointer.
+                 [IN] le_msg_SessionRef_t sessionRef : Session reference.
+
+ RETURN VALUE    le_result_t
+                     LE_OK:                      Success
+                     LE_NOT_FOUND                Tunnel is not found.
+                     LE_BAD_PARAMETER            Invalid parameter.
+                     LE_FAULT                    Failed to start a tunnel.
+
+======================================================================*/
+void taf_L2tp::StartTunnelCmdAsync
+(
+    taf_net_TunnelRef_t tunnelRef,
+    taf_net_AsyncTunnelHandlerFunc_t handlerPtr,
+    void* contextPtr,
+    le_msg_SessionRef_t sessionRef
+)
+{
+    taf_L2tpCmdReq_t cmdReq;
+    TAF_ERROR_IF_RET_NIL(tunnelRef == NULL, "TunnelRef is NULL");
+    TAF_ERROR_IF_RET_NIL(handlerPtr == NULL, "Handler function is NULL");
+    TAF_ERROR_IF_RET_NIL(sessionRef == NULL, "SessionRef is NULL");
+
+    cmdReq.cmdType = ASYNC_START_TUNNEL;
+    cmdReq.tunnelRef = tunnelRef;
+    cmdReq.contextPtr = contextPtr;
+    cmdReq.sessionRef = sessionRef;
+    cmdReq.tunnelHandlerFuncPtr = handlerPtr;
+
+    // Send ASYNC_START_TUNNEL command
+    le_event_Report(taf_L2tp::l2tpCmdId, &cmdReq, sizeof(cmdReq));
+
+}
+
+/*======================================================================
+
+ FUNCTION        taf_L2tp::StopTunnelCmdAsync
+
+ DESCRIPTION     Asynchronously stop a tunnel.
+
+ DEPENDENCIES    The creation of tunnel.
+
+ PARAMETERS      [IN] taf_net_TunnelRef_t tunnelRef : Tunnel reference.
+                 [IN] taf_net_AsyncTunnelHandlerFunc_t handlerPtr : Tunnel handler function.
+                 [IN] void* contextPtr : Context pointer.
+                 [IN] le_msg_SessionRef_t sessionRef : Session reference.
+
+ RETURN VALUE    le_result_t
+                     LE_OK:                      Success
+                     LE_NOT_FOUND                Tunnel is not found.
+                     LE_BAD_PARAMETER            Invalid parameter.
+                     LE_FAULT                    Failed to stop a tunnel.
+
+======================================================================*/
+void taf_L2tp::StopTunnelCmdAsync
+(
+    taf_net_TunnelRef_t tunnelRef,
+    taf_net_AsyncTunnelHandlerFunc_t handlerPtr,
+    void* contextPtr,
+    le_msg_SessionRef_t sessionRef
+)
+{
+    taf_L2tpCmdReq_t cmdReq;
+
+    TAF_ERROR_IF_RET_NIL(tunnelRef == NULL, "TunnelRef is NULL");
+    TAF_ERROR_IF_RET_NIL(handlerPtr == NULL, "Handler function is NULL");
+    TAF_ERROR_IF_RET_NIL(sessionRef == NULL, "SessionRef is NULL");
+
+    cmdReq.cmdType = ASYNC_STOP_TUNNEL;
+    cmdReq.tunnelRef = tunnelRef;
+    cmdReq.contextPtr = contextPtr;
+    cmdReq.tunnelHandlerFuncPtr = handlerPtr;
+
+    // Send ASYNC_STOP_TUNNEL command
+    le_event_Report(taf_L2tp::l2tpCmdId, &cmdReq, sizeof(cmdReq));
+
+}
+
+/*======================================================================
+
+ FUNCTION        taf_L2tp::AddTunnelAsync
+
+ DESCRIPTION     Start a tunnel by call telsdk API.
+
+ DEPENDENCIES    The creation of tunnel.
+
+ PARAMETERS      [IN] taf_net_TunnelRef_t tunnelRef : Tunnel reference.
+
+ RETURN VALUE    le_result_t
+                     LE_OK:                      Success
+                     LE_NOT_FOUND                Tunnel is not found.
+                     LE_BAD_PARAMETER            Invalid parameter.
+                     LE_FAULT                    Failed to start a tunnel.
+
+======================================================================*/
+le_result_t taf_L2tp::AddTunnelAsync(taf_net_TunnelRef_t tunnelRef)
+{
+    le_result_t result;
+    le_dls_Link_t* linkPtr = NULL;
+    telux::data::net::L2tpTunnelConfig l2tpTunnelConfig;
+    struct sockaddr_in6 addr6;
+    struct sockaddr_in addr;
+    int sessionNum=0;
+
+    taf_Tunnel_t *tunnelPtr = NULL;
+    Status status = Status::SUCCESS;
+
+    TAF_ERROR_IF_RET_VAL(tunnelRef == NULL, LE_BAD_PARAMETER, "tunnelRef is null");
+    TAF_ERROR_IF_RET_VAL(l2tpManager == NULL, LE_NOT_FOUND, "l2tpManager is null");
+
+    tunnelPtr = (taf_Tunnel_t*)le_ref_Lookup(tunnelRefMap, tunnelRef);
+
+    TAF_ERROR_IF_RET_VAL(tunnelPtr == NULL, LE_NOT_FOUND, "tunnel is not present");
+
+    linkPtr = le_dls_Peek(&(tunnelPtr->l2tpSessionList));
+
+    if((tunnelPtr->encaProto == TAF_NET_L2TP_UDP) &&
+       ((tunnelPtr->localUdpPort == 0) || (tunnelPtr->localUdpPort == 0)))
+    {
+        LE_ERROR( "Local or peer udp port is not set");
+        return LE_FAULT;
+    }
+
+    while (linkPtr)
+    {
+        telux::data::net::L2tpSessionConfig l2tpSessionConfig;
+        taf_L2tpSession_t* sessionPtr = CONTAINER_OF(linkPtr, taf_L2tpSession_t, link);
+        linkPtr = le_dls_PeekNext(&(tunnelPtr->l2tpSessionList), linkPtr);
+
+        l2tpSessionConfig.locId = sessionPtr->locSessionId;
+        l2tpSessionConfig.peerId = sessionPtr->peerSessionId;
+        l2tpTunnelConfig.sessionConfig.emplace_back(l2tpSessionConfig);
+        sessionNum++;
+    }
+
+    if(sessionNum == 0)
+    {
+        LE_ERROR( "There is no session config in tunnel");
+        return LE_FAULT;
+    }
+
+    l2tpTunnelConfig.prot = (telux::data::net::L2tpProtocol) tunnelPtr->encaProto;
+    l2tpTunnelConfig.locId = tunnelPtr->locTunnelId;
+    l2tpTunnelConfig.peerId = tunnelPtr->peerTunnelId;
+
+    l2tpTunnelConfig.localUdpPort = tunnelPtr->localUdpPort;
+    l2tpTunnelConfig.peerUdpPort = tunnelPtr->peerUdpPort;
+
+    if (inet_pton(AF_INET, tunnelPtr->peerIpAddr, &(addr.sin_addr)))
+    {
+        l2tpTunnelConfig.peerIpv4Addr = tunnelPtr->peerIpAddr;
+        l2tpTunnelConfig.ipType = telux::data::IpFamilyType::IPV4;
+    }
+    else if (inet_pton(AF_INET6, tunnelPtr->peerIpAddr, &(addr6.sin6_addr)))
+    {
+        l2tpTunnelConfig.peerIpv6Addr = tunnelPtr->peerIpAddr;
+        l2tpTunnelConfig.ipType = telux::data::IpFamilyType::IPV6;
+    }
+
+    l2tpTunnelConfig.locIface =  tunnelPtr->interfaceName;
+
+    status = l2tpManager->addTunnel(l2tpTunnelConfig,
+                                    tafL2tpCallback::startTunnelAsyncResponse);
+
+    if (status == Status::SUCCESS)
+    {
+        result = LE_OK;
+    }
+    else
+    {
+        LE_ERROR( "ERROR - Failed to start tunnel, Status:%d ", static_cast<int>(status));
+        result = LE_FAULT;
+    }
+
+    return result;
+}
+
+/*======================================================================
+
+ FUNCTION        taf_L2tp::RemoveTunnelAsync
+
+ DESCRIPTION     Stop a tunnel by call telsdk API.
+
+ DEPENDENCIES    The creation of tunnel.
+
+ PARAMETERS      [IN] taf_net_TunnelRef_t tunnelRef : Tunnel reference.
+
+ RETURN VALUE    le_result_t
+                     LE_OK:                      Success
+                     LE_NOT_FOUND                Tunnel is not found.
+                     LE_BAD_PARAMETER            Invalid parameter.
+                     LE_FAULT                    Failed to stop a tunnel.
+
+======================================================================*/
+le_result_t taf_L2tp::RemoveTunnelAsync(taf_net_TunnelRef_t tunnelRef)
+{
+    le_result_t result;
+    taf_Tunnel_t *tunnelPtr = NULL;
+
+    Status status = Status::SUCCESS;
+
+    TAF_ERROR_IF_RET_VAL(tunnelRef == NULL, LE_BAD_PARAMETER, "tunnelRef is null");
+    TAF_ERROR_IF_RET_VAL(l2tpManager == NULL, LE_NOT_FOUND, "l2tpManager is null");
+
+    tunnelPtr = (taf_Tunnel_t*)le_ref_Lookup(tunnelRefMap, tunnelRef);
+
+    TAF_ERROR_IF_RET_VAL(tunnelPtr == NULL, LE_NOT_FOUND, "tunnel is not present");
+
+    status = l2tpManager->removeTunnel(tunnelPtr->locTunnelId,
+                                           tafL2tpCallback::stopTunnelAsyncResponse);
+
+    if (status == Status::SUCCESS)
+    {
+        result = LE_OK;
+    }
+    else
+    {
+        LE_ERROR( "ERROR - Failed to stop tunnel, Status:%d ", static_cast<int>(status));
+        result = LE_FAULT;
+    }
+
+    return result;
 }
 
 /*======================================================================
@@ -2232,12 +2931,278 @@ void tafL2tpCallback::requestConfigResponse
     le_sem_Post(semaphore);
 }
 
+/*======================================================================
+
+ FUNCTION        taf_L2tp::AddHandlerSessionMapping
+
+ DESCRIPTION     Add handler and session into mapping list.
+
+ DEPENDENCIES    The initialization of l2tp.
+
+ PARAMETERS      [IN] asyncHandler: The handler function.
+                 [IN] contextPtr: The context pointer.
+                 [IN] sessionRef: The client session reference.
+                 [IN] type: The command type.
+
+ RETURN VALUE    None
+
+======================================================================*/
+void taf_L2tp::AddL2tpHandlerSessionMapping
+(
+    taf_net_AsyncL2tpHandlerFunc_t asyncHandler,
+    void *contextPtr,
+    le_msg_SessionRef_t sessionRef,
+    taf_L2tpCmdType_t type
+)
+{
+    L2tpHandlerMapping_t *handlerSessionMapping;
+
+    TAF_ERROR_IF_RET_NIL(asyncHandler == nullptr, "Null ptr");
+    TAF_ERROR_IF_RET_NIL(sessionRef == nullptr, "Null ptr");
+
+    handlerSessionMapping = (L2tpHandlerMapping_t *)le_mem_ForceAlloc(L2tpHandlerMappingPool);
+
+    TAF_ERROR_IF_RET_NIL(handlerSessionMapping == nullptr ,
+                         "Failed to alloc memory for handlerSessionMapping");
+
+    memset(handlerSessionMapping, 0, sizeof(L2tpHandlerMapping_t));
+
+    handlerSessionMapping->asyncHandler = asyncHandler;
+    handlerSessionMapping->contextPtr = contextPtr;
+    handlerSessionMapping->sessionRef = sessionRef;
+    handlerSessionMapping->type = type;
+    handlerSessionMapping->handlerLink = LE_DLS_LINK_INIT;
+
+    le_dls_Queue(&L2tpHandlerMappingList, &handlerSessionMapping->handlerLink);
+}
+
+/*======================================================================
+
+ FUNCTION        taf_L2tp::FindL2tpAsyncHandler
+
+ DESCRIPTION     Find handler function by type.
+
+ DEPENDENCIES    The initialization of L2tpHandlerMappingList.
+
+ PARAMETERS      [IN] type: The command type.
+
+ RETURN VALUE    L2tpHandlerMapping_t*   The pointer.
+
+======================================================================*/
+L2tpHandlerMapping_t* taf_L2tp::FindL2tpAsyncHandler
+(
+    taf_L2tpCmdType_t type
+)
+{
+    L2tpHandlerMapping_t *handlerSessionInfo;
+    le_dls_Link_t *handlerLinkPtr = le_dls_Peek(&L2tpHandlerMappingList);
+    while (handlerLinkPtr)
+    {
+        handlerSessionInfo = CONTAINER_OF(handlerLinkPtr, L2tpHandlerMapping_t, handlerLink);
+        if (handlerSessionInfo->asyncHandler != NULL && handlerSessionInfo->type == type)
+        {
+            LE_DEBUG("Found async handler %p ", handlerSessionInfo->asyncHandler);
+            return handlerSessionInfo;
+        }
+        handlerLinkPtr = le_dls_PeekNext(&L2tpHandlerMappingList, handlerLinkPtr);
+    }
+
+    return NULL;
+}
+
+/*======================================================================
+
+ FUNCTION        taf_L2tp::GetL2tpHandlerNumberInMappingList
+
+ DESCRIPTION     Get the number of handler function in mapping list.
+
+ DEPENDENCIES    The initialization of L2tpHandlerMappingList.
+
+ PARAMETERS      [IN] type: The command type.
+
+ RETURN VALUE    int         The number of handler function in mapping list.
+
+======================================================================*/
+int taf_L2tp::GetL2tpHandlerNumberInMappingList
+(
+    taf_L2tpCmdType_t type
+)
+{
+    int counter=0;
+    L2tpHandlerMapping_t *handlerSessionInfo;
+    le_dls_Link_t *handlerLinkPtr = le_dls_Peek(&L2tpHandlerMappingList);
+    while (handlerLinkPtr)
+    {
+        handlerSessionInfo = CONTAINER_OF(handlerLinkPtr, L2tpHandlerMapping_t, handlerLink);
+        if (handlerSessionInfo->asyncHandler != NULL && handlerSessionInfo->type == type)
+        {
+            counter++;
+        }
+        handlerLinkPtr = le_dls_PeekNext(&L2tpHandlerMappingList, handlerLinkPtr);
+    }
+
+    return counter;
+}
+
+/*======================================================================
+
+ FUNCTION        taf_L2tp::DeleteL2tpHandlerInfo
+
+ DESCRIPTION     Delete the handler in mapping list.
+
+ DEPENDENCIES    The initialization of L2tpHandlerMappingList.
+
+ PARAMETERS      [IN] asyncHandler: The handler function.
+
+ RETURN VALUE    None
+
+======================================================================*/
+void taf_L2tp::DeleteL2tpHandlerInfo(taf_net_AsyncL2tpHandlerFunc_t asyncHandler)
+{
+
+    TAF_ERROR_IF_RET_NIL(asyncHandler == nullptr, "Null ptr");
+
+    L2tpHandlerMapping_t *handlerSessionInfo;
+    le_dls_Link_t *handlerLinkPtr = le_dls_Peek(&L2tpHandlerMappingList);
+    while (handlerLinkPtr)
+    {
+        handlerSessionInfo = CONTAINER_OF(handlerLinkPtr, L2tpHandlerMapping_t, handlerLink);
+        handlerLinkPtr = le_dls_PeekNext(&L2tpHandlerMappingList, handlerLinkPtr);
+        if (handlerSessionInfo->asyncHandler == asyncHandler)
+        {
+            le_dls_Remove(&L2tpHandlerMappingList, &handlerSessionInfo->handlerLink);
+
+            le_mem_Release(handlerSessionInfo);
+            break;
+        }
+    }
+}
+
+/*======================================================================
+
+ FUNCTION        taf_L2tp::AddTunnelHandlerSessionMapping
+
+ DESCRIPTION     Add handler and session into mapping list.
+
+ DEPENDENCIES    The initialization of l2tp.
+
+ PARAMETERS      [IN] asyncHandler: The handler function.
+                 [IN] tunnelRef: The tunnel reference.
+                 [IN] contextPtr: The context pointer.
+                 [IN] sessionRef: The client session reference.
+                 [IN] type: The command type.
+
+ RETURN VALUE    None
+
+======================================================================*/
+void taf_L2tp::AddTunnelHandlerSessionMapping
+(
+    taf_net_AsyncTunnelHandlerFunc_t asyncHandler,
+    taf_net_TunnelRef_t tunnelRef,
+    void *contextPtr,
+    le_msg_SessionRef_t sessionRef,
+    taf_L2tpCmdType_t type
+)
+{
+    TunnelHandlerMapping_t *handlerSessionMapping;
+
+    TAF_ERROR_IF_RET_NIL(asyncHandler == nullptr, "Null ptr");
+    TAF_ERROR_IF_RET_NIL(tunnelRef == nullptr, "Null ptr");
+    TAF_ERROR_IF_RET_NIL(sessionRef == nullptr, "Null ptr");
+
+    handlerSessionMapping = (TunnelHandlerMapping_t *)le_mem_ForceAlloc(TunnelHandlerMappingPool);
+
+    TAF_ERROR_IF_RET_NIL(handlerSessionMapping == nullptr ,
+                         "Failed to alloc memory for handlerSessionMapping");
+
+    memset(handlerSessionMapping, 0, sizeof(TunnelHandlerMapping_t));
+
+    handlerSessionMapping->asyncHandler = asyncHandler;
+    handlerSessionMapping->tunnelRef = tunnelRef;
+    handlerSessionMapping->contextPtr = contextPtr;
+    handlerSessionMapping->sessionRef = sessionRef;
+    handlerSessionMapping->type = type;
+    handlerSessionMapping->handlerLink = LE_DLS_LINK_INIT;
+
+    le_dls_Queue(&TunnelHandlerMappingList, &handlerSessionMapping->handlerLink);
+}
+
+/*======================================================================
+
+ FUNCTION        taf_L2tp::FindTunnelAsyncHandler
+
+ DESCRIPTION     Find handler function by type.
+
+ DEPENDENCIES    The initialization of TunnelHandlerMappingList.
+
+ PARAMETERS      [IN] type: The command type.
+
+ RETURN VALUE    L2tpHandlerMapping_t*   The pointer.
+
+======================================================================*/
+TunnelHandlerMapping_t* taf_L2tp::FindTunnelAsyncHandler(taf_L2tpCmdType_t type)
+{
+    TunnelHandlerMapping_t *handlerSessionInfo;
+    le_dls_Link_t *handlerLinkPtr = le_dls_Peek(&TunnelHandlerMappingList);
+
+    while (handlerLinkPtr)
+    {
+        handlerSessionInfo = CONTAINER_OF(handlerLinkPtr, TunnelHandlerMapping_t, handlerLink);
+
+        if (handlerSessionInfo->asyncHandler != NULL && handlerSessionInfo->type == type)
+        {
+            LE_DEBUG("Found async handler %p ", handlerSessionInfo->asyncHandler);
+            return handlerSessionInfo;
+        }
+        handlerLinkPtr = le_dls_PeekNext(&TunnelHandlerMappingList, handlerLinkPtr);
+    }
+
+    return NULL;
+}
+
+/*======================================================================
+
+ FUNCTION        taf_L2tp::DeleteTunnelHandlerInfo
+
+ DESCRIPTION     Delete the handler in mapping list.
+
+ DEPENDENCIES    The initialization of TunnelHandlerMappingList.
+
+ PARAMETERS      [IN] asyncHandler: The handler function.
+
+ RETURN VALUE    None
+
+======================================================================*/
+void taf_L2tp::DeleteTunnelHandlerInfo(taf_net_AsyncTunnelHandlerFunc_t asyncHandler)
+{
+    TunnelHandlerMapping_t *handlerSessionInfo;
+
+    TAF_ERROR_IF_RET_NIL(asyncHandler == nullptr, "Null ptr");
+
+    le_dls_Link_t *handlerLinkPtr = le_dls_Peek(&TunnelHandlerMappingList);
+    while (handlerLinkPtr)
+    {
+        handlerSessionInfo = CONTAINER_OF(handlerLinkPtr, TunnelHandlerMapping_t, handlerLink);
+        handlerLinkPtr = le_dls_PeekNext(&TunnelHandlerMappingList, handlerLinkPtr);
+        if (handlerSessionInfo->asyncHandler == asyncHandler)
+        {
+            le_dls_Remove(&TunnelHandlerMappingList, &handlerSessionInfo->handlerLink);
+
+            le_mem_Release(handlerSessionInfo);
+            break;
+        }
+    }
+}
+
 void taf_L2tp::ClientCloseSessionHandler(le_msg_SessionRef_t sessionRef, void  *contextPtr)
 {
     void* tunnelRef;
     le_dls_Link_t* linkPtr = NULL;
     taf_Tunnel_t* tunnelPtr = NULL;
     auto &tafTunnel = taf_L2tp::GetInstance();
+    auto &tafL2tp = taf_L2tp::GetInstance();
+    L2tpHandlerMapping_t *l2tpHandlerSessionInfo;
+    TunnelHandlerMapping_t *tunnelHandlerSessionInfo;
 
     TAF_ERROR_IF_RET_NIL(sessionRef == NULL, "sessionRef is invalid");
 
@@ -2265,6 +3230,38 @@ void taf_L2tp::ClientCloseSessionHandler(le_msg_SessionRef_t sessionRef, void  *
             le_ref_DeleteRef(tafTunnel.tunnelRefMap, tunnelRef);
 
             le_mem_Release(tunnelPtr);
+        }
+    }
+
+    le_dls_Link_t *l2tpHandlerLinkPtr = le_dls_Peek(&tafL2tp.L2tpHandlerMappingList);
+
+    while (l2tpHandlerLinkPtr)
+    {
+        l2tpHandlerSessionInfo = CONTAINER_OF(l2tpHandlerLinkPtr, L2tpHandlerMapping_t,
+                                              handlerLink);
+        l2tpHandlerLinkPtr = le_dls_PeekNext(&tafL2tp.L2tpHandlerMappingList, l2tpHandlerLinkPtr);
+        if (l2tpHandlerSessionInfo->sessionRef == sessionRef)
+        {
+            le_dls_Remove(&tafL2tp.L2tpHandlerMappingList, &l2tpHandlerSessionInfo->handlerLink);
+
+            le_mem_Release(l2tpHandlerSessionInfo);
+        }
+    }
+
+    le_dls_Link_t *tunnelHandlerLinkPtr = le_dls_Peek(&tafL2tp.TunnelHandlerMappingList);
+
+    while (tunnelHandlerLinkPtr)
+    {
+        tunnelHandlerSessionInfo = CONTAINER_OF(tunnelHandlerLinkPtr, TunnelHandlerMapping_t,
+                                                handlerLink);
+        tunnelHandlerLinkPtr = le_dls_PeekNext(&tafL2tp.TunnelHandlerMappingList,
+                                               tunnelHandlerLinkPtr);
+        if (tunnelHandlerSessionInfo->sessionRef == sessionRef)
+        {
+            le_dls_Remove(&tafL2tp.TunnelHandlerMappingList,
+                          &tunnelHandlerSessionInfo->handlerLink);
+
+            le_mem_Release(tunnelHandlerSessionInfo);
         }
     }
 

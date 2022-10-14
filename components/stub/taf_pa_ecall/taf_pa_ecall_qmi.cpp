@@ -54,6 +54,61 @@ LE_SHARED le_result_t taf_pa_ecall_GetPbNumber
     return LE_OK;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set eCall deregistration time in NAD (network access device). After end of an emergency call
+ * the in-vehicle system stays registered in the network for a specific amount of time, defined
+ * by NAD (network access device) eCall deregistration time.
+ *
+ * @return
+ *  - LE_OK         On success
+ *  - LE_FAULT      On failures
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_ecall_SetNadDeregistrationTime
+(
+    uint32_t duration //Duration in minutes
+)
+{
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get eCall deregistration time of the NAD (network access device) .
+ *
+ * @return
+ *  - LE_OK          On success
+ *  - LE_FAULT       On failures
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_ecall_GetNadDeregistrationTime
+(
+    uint32_t *duration //Duration in minutes
+)
+{
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Disconnect network access device (NAD) from the eCall network. After end of an emergency call
+ * the in-vehicle system continues registered on the network for a period of time to facilate get
+ * callback from Public Safely Answering Point (PSAP). But when NAD requires to deregister from
+ * the network this API can be used.
+ *
+ * @return
+ *  - LE_OK         On success
+ *  - LE_FAULT      On failures
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_ecall_TerminateRegistration
+(
+)
+{
+    return LE_OK;
+}
+
 taf_pa_ecall &taf_pa_ecall::GetInstance()
 {
    static taf_pa_ecall instance;

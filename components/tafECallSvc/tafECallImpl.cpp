@@ -412,6 +412,35 @@ char* getUsimNumber()
     return NULL;
 }
 
+bool taf_ecall::isIdle()
+{
+    std::vector<std::shared_ptr<telux::tel::ICall>> callList = CallManager->getInProgressCalls();
+
+    for(auto itr = std::begin(callList); itr != std::end(callList); ++itr) {
+        telux::tel::CallState callState = (*itr)->getCallState();
+        if (callState != telux::tel::CallState::CALL_ENDED &&
+                callState != telux::tel::CallState::CALL_IDLE) {
+            LE_INFO("isIdle: call state is %d", (int) callState);
+            return false;
+        }
+    }
+
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(ECallPtrRefMap);
+    while (le_ref_NextNode(iterRef) == LE_OK)
+    {
+        taf_ECall_t* eCallPtr = (taf_ECall_t*) le_ref_GetValue(iterRef);
+        LE_ASSERT(eCallPtr != NULL);
+
+        //Check ECall session
+        if (eCallPtr->eCallSession != ECALL_INIT && (eCallPtr->eCallSession != ECALL_ENDED)) {
+            LE_INFO("isIdle: call session is %d", (int) eCallPtr->eCallSession);
+            return false;
+        }
+    }
+
+    return true;
+}
+
 le_result_t taf_ecall::SetPsapNumber(const char* psapNumber)
 {
     TAF_ERROR_IF_RET_VAL(strlen(psapNumber) > TAF_SIM_PHONE_NUM_MAX_LEN, LE_FAULT,
@@ -1031,6 +1060,57 @@ le_result_t taf_ecall::UseUSimNumbers()
 {
     isUseUSimNumbers = true;
     return LE_OK;
+}
+
+le_result_t taf_ecall::SetNadDeregistrationTime(uint16_t deregTime)
+{
+    if (!isIdle()) {
+        LE_INFO("ECall session is in progress, try it later when session is not active");
+        return LE_BUSY;
+    }
+
+    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn( CFG_MODEMSERVICE_ECALL_PATH );
+
+    le_cfg_SetInt(iteratorRef, CFG_NAD_DEREG_TIME, deregTime); //Store in minutes
+    le_cfg_CommitTxn(iteratorRef);
+
+    LE_INFO("Set NAD deregistration time (in minutes): %d", deregTime);
+
+    le_result_t res = taf_pa_ecall_SetNadDeregistrationTime((uint32_t) deregTime); //In minutes
+
+    return res;
+}
+
+le_result_t taf_ecall::GetNadDeregistrationTime(uint16_t* deregTime)
+{
+    le_result_t res = taf_pa_ecall_GetNadDeregistrationTime((uint32_t*) deregTime); //In minutes
+    if (LE_OK != res) {
+        le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateReadTxn( CFG_MODEMSERVICE_ECALL_PATH );
+
+        if (le_cfg_NodeExists(iteratorRef, CFG_NAD_DEREG_TIME))
+        {
+            *deregTime = le_cfg_GetInt(iteratorRef, CFG_NAD_DEREG_TIME, 0); //In minutes
+
+            LE_INFO("From config deregistrationTime (in minutes): =  %d", *deregTime);
+            le_cfg_CancelTxn(iteratorRef);
+        }
+        else
+        {
+            //Out of box: never set t10 timer. return default value (12 hrs) in minutes
+            *deregTime = 12*60;
+            res = LE_OK;
+        }
+    }
+
+    LE_INFO("Get NAD deregistration time (in minutes): %d", *deregTime);
+    return res;
+}
+
+le_result_t taf_ecall::TerminateRegistration()
+{
+    le_result_t res = taf_pa_ecall_TerminateRegistration();
+
+    return res;
 }
 
 taf_ecall_StateChangeHandlerRef_t taf_ecall::AddStateChangeHandler

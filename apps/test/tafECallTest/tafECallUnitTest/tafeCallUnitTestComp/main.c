@@ -46,6 +46,13 @@ static uint8_t msdRawData[43] = {2, 41, 68, 6, 128, 227, 10, 81, 67, 158, 41, 85
             164, 56, 119, 207, 131, 54, 210, 63, 65, 104, 16, 24, 8, 32, 19, 198, 68, 0, 0, 48, 20};
 static uint8_t msdLength = 43;
 
+static void Test_ecall_TerminateRegistration()
+{
+    le_result_t result = taf_ecall_TerminateRegistration();
+    LE_ASSERT(result == LE_OK);
+    LE_INFO("TerminateECallRegistration SUCCESS!!!\n");
+}
+
 static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         taf_ecall_State_t state, void* cntxtPtr)
 {
@@ -130,6 +137,7 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
                 taf_ecall_TerminationReason_t lcf = taf_ecall_GetTerminationReason(eCallReference);
                 LE_INFO("ECall ENDed, terminate reason  = %d", lcf );
             }
+            Test_ecall_TerminateRegistration();
             le_sem_Post(TestSemaphoreRef);
             break;
         }
@@ -303,6 +311,21 @@ static void Test_MSD_Information()
     LE_DEBUG("Set msd information test completed");
 }
 
+static void Test_ecall_GetNadDeregTime()
+{
+    uint16_t deregTimeOrg = 0;
+    le_result_t res = taf_ecall_GetNadDeregistrationTime(&deregTimeOrg);
+    LE_ASSERT(res == LE_OK);
+    LE_INFO("GetNadDeregTime SUCCESS!!! DeregTime (in minutes): %d\n", deregTimeOrg);
+}
+
+static void Test_ecall_SetNadDeregTime()
+{
+    le_result_t res = taf_ecall_SetNadDeregistrationTime(9*60); // 9 hrs
+    LE_ASSERT(res == LE_OK);
+    LE_INFO("SetNadDeregistrationTime as 9 hrs SUCCESS!!!\n");
+}
+
 static void Test_ECall_StartManual() {
     taf_ecall_CallRef_t eCallRef = NULL;
 
@@ -379,6 +402,9 @@ COMPONENT_INIT
     Test_MSD_Information();
 
     Test_ECall_SetGetPsapNumber();
+
+    Test_ecall_GetNadDeregTime();
+    Test_ecall_SetNadDeregTime();
 
     TestSemaphoreRef = le_sem_Create("ECallSem", 0);
 

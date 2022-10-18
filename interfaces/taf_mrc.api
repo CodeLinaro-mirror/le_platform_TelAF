@@ -40,8 +40,8 @@
  *
  * <HR>
  *
- * The memory robustness criteria (MRC) service APIs are designed for operations on an MRC daemon (M
- * RCD).
+ * The memory robustness criteria (MRC) service APIs are designed for operations on an MRC daemon
+ * (MRCD).
  * The MRC service is mainly applied in over-the-air firmware updates and mirrored systems. The MRCD
  * runs in the the background to support EFS2 backup and restore, system mirroring, flash scrubbing,
  * suspending for eCall, and FOTA flash access arbitration. MRCD processes them by priority, and the

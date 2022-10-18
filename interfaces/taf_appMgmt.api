@@ -173,8 +173,8 @@ STRUCT AppInfo
     string version[APP_VERSION_BYTES]; ///< App version.
     string hash[APP_HASH_BYTES];       ///< App hash code.
     AppStartMode startMode;            ///< App start mode.
-    bool isSandboxed;                  ///< True if sandboxed app, false if not sandboxed app.
-    bool isActivated;                  ///< True if activated app, false if not activated app.
+    bool isSandboxed;                  ///< True if app is sandboxed app, false if not.
+    bool isActivated;                  ///< True if app is active, false if not.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -196,9 +196,9 @@ FUNCTION AppState GetState
  * Gets the application's version.
  *
  * @return
- *  - LE_BAD_PARAMETER : Bad parameters.
- *  - LE_NOT_FOUND : App not found.
- *  - LE_OK : On success.
+ *  - LE_BAD_PARAMETER -- Bad parameter(s).
+ *  - LE_NOT_FOUND -- App not found.
+ *  - LE_OK -- Success.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetVersion

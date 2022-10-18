@@ -251,7 +251,7 @@ DEFINE PROFILE_LIST_MAX_ENTRY = 32;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The maximum number of mappings for handler session.
+ * The maximum number of mappings for a handler session.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE MAX_ASYNC_HANDLER_MAPPING = 20;
@@ -397,7 +397,7 @@ FUNCTION le_result_t StartSession
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  The handler of the result response for asynchronous starting or stopping session.
+ *  The handler for asynchronous session start or stop result response.
  *
  */
 //--------------------------------------------------------------------------------------------------
@@ -411,7 +411,7 @@ HANDLER AsyncSessionHandler
 /**
  * Starts (asynchronously) a cellular data session for the given profile reference.
  *
- * @returns None
+ * @return None.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION StartSessionAsync
@@ -419,7 +419,6 @@ FUNCTION StartSessionAsync
     Profile profileRef                      IN, ///< The profile reference.
     AsyncSessionHandler handler             IN  ///< The handler.
 );
-
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -443,7 +442,7 @@ FUNCTION le_result_t StopSession
 /**
  * Stops (asynchronously) a cellular data session for the given profile reference.
  *
- * @returns None.
+ * @return None.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION StopSessionAsync
@@ -477,7 +476,7 @@ HANDLER SessionStateHandler
 (
     Profile      profileRef                 IN, ///< The profile reference.
     ConState     state                      IN, ///< The connection state.
-    StateInfo    info                       IN  ///< The information of the connection.
+    StateInfo    info                       IN  ///< The connection information.
 );
 
 //--------------------------------------------------------------------------------------------------

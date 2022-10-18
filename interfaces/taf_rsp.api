@@ -360,7 +360,7 @@ FUNCTION le_result_t SetProfile
 (
     taf_sim.Id       slotId IN,     ///< SIM slot ID.
     uint32           profileId IN,  ///< Profile ID.
-    bool             enable    IN   ///< Enable or not, true for enabling, false for disabling.
+    bool             enable    IN   ///< Enabled or not; true if enabling, false if disabling.
 );
 
 //-------------------------------------------------------------------------------------------------

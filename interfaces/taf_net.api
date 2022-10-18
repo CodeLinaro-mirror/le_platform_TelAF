@@ -391,6 +391,50 @@
  * @note If changing SOCKS authentication method or association, the application needs to disable and
  * enable SOCKS to use the new method or user name.
  *
+ * @section c_taf_net_GSB_management GSB management
+ *
+ * Generic software bridge(GSB) management provides APIs for enabling and disabling GSB, adding and
+ * removing GSB and querying GSB information. GSB enables hardware IP acceleration(IPA) for the
+ * traffic on physical interfaces corresponding to the NON-QTI WLAN and Ethernet chips.
+ *
+ * The following example shows how to add GSB. This example adds an interface with name "wlan0" and
+ * type TAF_NET_GSB_WLAN_AP and bandwidth 800Mbps.
+ *
+ * @verbatim
+   result = taf_net_AddGsb("wlan0", TAF_NET_GSB_WLAN_AP, 900);
+   if (result != LE_OK)
+   {
+      LE_INFO("Failed to add GSB");
+      return LE_FAULT;
+   }
+   @endverbatim
+ *
+ * An application can enable GSB using taf_net_EnableGsb after adding GSB. The following example
+ * shows how to enable GSB.
+ *
+ * @verbatim
+   result = taf_net_EnableGsb();
+   if (result != LE_OK)
+   {
+      LE_INFO("Failed to enable GSB");
+      return LE_FAULT;
+   }
+   @endverbatim
+ *
+ * The following APIs are supported for GSB management.
+ *
+ * - taf_net_AddGsb()               -- Adds GSB.
+ * - taf_net_RemoveGsb()            -- Removes GSB.
+ * - taf_net_EnableGsb()            -- Enables GSB.
+ * - taf_net_DisableGsb()           -- Disables GSB.
+ * - taf_net_GetGsbList()           -- Gets the reference of the GSB list.
+ * - taf_net_GetFirstGsb()          -- Gets the reference of the first GSB.
+ * - taf_net_GetNextGsb()           -- Gets the reference of the next GSB.
+ * - taf_net_DeleteGsbList()        -- Deletes the reference of the GSB list.
+ * - taf_net_GetGsbInterfaceName()  -- Gets the interface name of the GSB.
+ * - taf_net_GetGsbInterfaceType()  -- Gets the interface type of the GSB.
+ * - taf_net_GetGsbBandWidth()      -- Gets the bandwidth of the GSB.
+ *
  * <HR>
  *
  */
@@ -488,6 +532,20 @@ DEFINE SOCKSV5_MAX_USERNAME_LEN = 255;
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE SOCKSV5_MAX_MAPPING_POOL = 2;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The maximum list for GSB memory pool
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE  MAX_GSB_LIST_NUM = (2);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The maximum number for GSB memory pool
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE  MAX_GSB_NUM = (10);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -619,6 +677,19 @@ ENUM AuthMethod
     SOCKS_UNKNOWN = -1,        ///< UNKNOWN.
     SOCKS_NONE,                ///< No authentication.
     SOCKS_USER_PASSWD          ///< User and password.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The GSB interface type
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM GsbIfType
+{
+    GSB_UNKNOWN,                      // Unknown.
+    GSB_WLAN_AP,                      // WLAN AP.
+    GSB_WLAN_STA,                     // WLAN STATION.
+    GSB_ETH                           // ETHERNET.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -775,6 +846,20 @@ REFERENCE TunnelEntry;
  */
 //--------------------------------------------------------------------------------------------------
 REFERENCE Tunnel;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The reference of a GSB list.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE GsbList;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The reference of a GSB.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE Gsb;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2095,3 +2180,164 @@ FUNCTION le_result_t RemoveSocksAssociation
     string userName[SOCKSV5_MAX_USERNAME_LEN]    IN ///< User name.
 );
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Adds GSB configuration for an interface.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t AddGsb
+(
+    string ifName[INTERFACE_NAME_MAX_LEN]     IN, ///< Interface name.
+    GsbIfType ifType                          IN, ///< Interface type.
+    uint32 bandwidth                          IN  ///< Bandwidth(in Mbps).
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Removes GSB configuration for an interface.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t RemoveGsb
+(
+    string ifName[INTERFACE_NAME_MAX_LEN]     IN ///< Interface name.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Enables GSB in the system.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t EnableGsb
+(
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Disables GSB in the system.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DisableGsb
+(
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets GSB list.
+ *
+ * @return
+ *   - NULL -- Failed.
+ *   - Others -- The GSB list reference.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION GsbList GetGsbList
+(
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the reference of the first GSB.
+ *
+ * @return
+ *   - NULL -- Failed.
+ *   - Others -- The first GSB reference.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Gsb GetFirstGsb
+(
+    GsbList  gsbListRef                    IN ///< Reference of a GSB list.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the reference of the next GSB.
+ *
+ * @return
+ *   - NULL -- Failed.
+ *   - Others -- The next GSB reference.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Gsb GetNextGsb
+(
+    GsbList  gsbListRef                    IN ///< Reference of a GSB list.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deletes the GSB list.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- Not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DeleteGsbList
+(
+    GsbList  gsbListRef                    IN ///< Reference of a GSB list.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the interface name of a GSB.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- Not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetGsbInterfaceName
+(
+    Gsb gsbRef                                IN,  ///< GSB reference.
+    string IfName[INTERFACE_NAME_MAX_LEN]     OUT  ///< Interface name.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the interface type of a GSB.
+ *
+ * @return
+ *   - GSB_UNKNOWN -- Unknown type.
+ *   - GSB_WLAN_AP -- WLAN AP.
+ *   - GSB_WLAN_STA -- WLAN STATION.
+ *   - GSB_ETH -- ETHERNET.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION GsbIfType GetGsbInterfaceType
+(
+    Gsb gsbRef                                IN  ///< GSB reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the band width of a GSB.
+ *
+ * @return
+ *   - -1 -- Failed.
+ *   - Others -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION int32 GetGsbBandWidth
+(
+    Gsb gsbRef                                IN  ///< GSB reference.
+);

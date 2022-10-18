@@ -104,6 +104,12 @@ static void PrintUsage ()
             "app runProc tafNetIntTest --exe=tafNetIntTest -- deletesocksassociation <username>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- enablesocks\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- disablesocks\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- addgsb <interfacename> \
+<interfacetype> <bandwidth>\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- removegsb <interfacename> \n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- getgsbinfo \n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- enablegsb \n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- disablegsb \n"
             "\n");
 }
 
@@ -1421,6 +1427,153 @@ static int TafDisableSocks()
     return EXIT_SUCCESS;
 }
 
+static int TafAddGsb()
+{
+    le_result_t ret;
+
+    if (le_arg_NumArgs() !=4)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+    const char *ifName=le_arg_GetArg(1);
+    taf_net_GsbIfType_t intfType = (taf_net_GsbIfType_t)strtol(le_arg_GetArg(2), NULL, 0);
+    uint32_t bandwidth = strtol(le_arg_GetArg(3), NULL, 0);
+
+    ret = taf_net_AddGsb(ifName, intfType, bandwidth);
+    if(ret == LE_OK)
+    {
+        LE_INFO("----add gsb  ok");
+    }
+    else
+    {
+        LE_INFO("----add gsb error");
+    }
+
+    return EXIT_SUCCESS;
+}
+
+static int TafRemoveGsb()
+{
+    le_result_t ret;
+
+    if (le_arg_NumArgs() !=2)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+    const char *ifName=le_arg_GetArg(1);
+
+    ret = taf_net_RemoveGsb(ifName);
+    if(ret == LE_OK)
+    {
+        LE_INFO("----remove gsb  ok");
+    }
+    else
+    {
+        LE_INFO("----remove gsb error");
+    }
+
+    return EXIT_SUCCESS;
+}
+
+static int TafEnableGsb()
+{
+    le_result_t ret;
+
+    if (le_arg_NumArgs() !=1)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    ret = taf_net_EnableGsb();
+    if(ret == LE_OK)
+    {
+        LE_INFO("----enable gsb  ok");
+    }
+    else
+    {
+        LE_INFO("----enable gsb error");
+    }
+
+    return EXIT_SUCCESS;
+}
+
+static int TafDisableGsb()
+{
+    le_result_t ret;
+
+    if (le_arg_NumArgs() !=1)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    ret = taf_net_DisableGsb();
+    if(ret == LE_OK)
+    {
+        LE_INFO("----disable gsb  ok");
+    }
+    else
+    {
+        LE_INFO("----disable gsb error");
+    }
+
+    return EXIT_SUCCESS;
+}
+
+static int TafGetGsbInfo()
+{
+    le_result_t ret;
+    char intfName[TAF_NET_INTERFACE_NAME_MAX_LEN];
+    taf_net_GsbIfType_t intfType;
+    uint32_t bandwidth;
+
+    if (le_arg_NumArgs() !=1)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    taf_net_GsbListRef_t listRef=taf_net_GetGsbList();
+
+    if(listRef !=NULL)
+    {
+        taf_net_GsbRef_t gsbRef = taf_net_GetFirstGsb(listRef);
+        while(gsbRef != NULL)
+        {
+            ret = taf_net_GetGsbInterfaceName(gsbRef,intfName,TAF_NET_INTERFACE_NAME_MAX_LEN);
+            if(ret == LE_OK)
+            {
+                LE_INFO("----intfName=%s",intfName);
+            }
+
+            intfType = taf_net_GetGsbInterfaceType(gsbRef);
+
+            LE_INFO("----intfType=%d", (int)intfType);
+
+            bandwidth = taf_net_GetGsbBandWidth(gsbRef);
+
+            LE_INFO("----bandwidth=%d(Mbps)", bandwidth);
+
+            gsbRef=taf_net_GetNextGsb(listRef);
+        }
+
+        ret = taf_net_DeleteGsbList(listRef);
+        if(ret == LE_OK)
+        {
+            LE_INFO("----OK");
+        }
+        else
+        {
+            LE_INFO("----delete gsb reference list ERROR");
+        }
+    }
+
+    return EXIT_SUCCESS;
+}
+
 COMPONENT_INIT
 {
     int status = EXIT_SUCCESS;
@@ -1584,6 +1737,26 @@ COMPONENT_INIT
         {
             status=TafDisableSocks();
             LE_INFO("status =%d",status);
+        }
+        else if(strcmp(testType, "addgsb") == 0)
+        {
+            status=TafAddGsb();
+        }
+        else if(strcmp(testType, "removegsb") == 0)
+        {
+            status=TafRemoveGsb();
+        }
+        else if(strcmp(testType, "enablegsb") == 0)
+        {
+            status=TafEnableGsb(true);
+        }
+        else if(strcmp(testType, "disablegsb") == 0)
+        {
+            status=TafDisableGsb(false);
+        }
+        else if(strcmp(testType, "getgsbinfo") == 0)
+        {
+            status=TafGetGsbInfo();
         }
         exit(status);
     }

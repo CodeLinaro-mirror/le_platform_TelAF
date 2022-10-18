@@ -57,6 +57,7 @@
 #define TEST_VLAN_ENTRY_NUM  3
 #define DEFAULT_MTU_SIZE 1422
 #define ON_DEMAND_PDN_PROFILE_ID        2
+#define TEST_GSB_ENTRY_NUM  2
 
 le_sem_Ref_t semaphore;
 int stopping_num = 0;
@@ -468,6 +469,45 @@ static void SocksUnitTestFunc(void){
     taf_net_EnableSocksAsync(StartSocksAsyncHandlerFunc,NULL);
     le_event_RunLoop();
 }
+void GsbUnitTestFunc(void){
+    le_result_t  ret;
+    taf_net_GsbRef_t gsbRef;
+    taf_net_GsbListRef_t gsbList;
+    char intfName[TAF_NET_INTERFACE_NAME_MAX_LEN];
+    taf_net_GsbIfType_t intfType;
+    uint32_t retBandWidth;
+    const char* ifName[TEST_GSB_ENTRY_NUM] = {"wlan0", "wlan1"};
+    const taf_net_GsbIfType_t ifType[TEST_GSB_ENTRY_NUM] = {TAF_NET_GSB_WLAN_AP, TAF_NET_GSB_WLAN_STA};
+    const uint32_t bandwidth[TEST_GSB_ENTRY_NUM] = {900, 800};
+    LE_ASSERT(taf_net_AddGsb("wlan0", TAF_NET_GSB_WLAN_AP, 950) == LE_BAD_PARAMETER);
+    for (size_t i = 0; i < TEST_GSB_ENTRY_NUM; i++)
+        LE_ASSERT(taf_net_AddGsb(ifName[i], ifType[i], bandwidth[i]) == LE_OK);
+    gsbList=taf_net_GetGsbList();
+    LE_ASSERT(gsbList != NULL);
+    gsbRef = taf_net_GetFirstGsb(gsbList);
+    ret = taf_net_GetGsbInterfaceName(gsbRef,intfName,TAF_NET_INTERFACE_NAME_MAX_LEN);
+    LE_ASSERT(ret == LE_OK);
+    LE_ASSERT(strncmp(intfName, ifName[0], TAF_NET_INTERFACE_NAME_MAX_LEN) == 0);
+    intfType = taf_net_GetGsbInterfaceType(gsbRef);
+    LE_ASSERT(intfType == ifType[0]);
+    retBandWidth = taf_net_GetGsbBandWidth(gsbRef);
+    LE_ASSERT(retBandWidth == bandwidth[0]);
+    gsbRef = taf_net_GetNextGsb(gsbList);
+    ret = taf_net_GetGsbInterfaceName(gsbRef,intfName,TAF_NET_INTERFACE_NAME_MAX_LEN);
+    LE_ASSERT(ret == LE_OK);
+    LE_ASSERT(strncmp(intfName, ifName[1], TAF_NET_INTERFACE_NAME_MAX_LEN) == 0);
+    intfType = taf_net_GetGsbInterfaceType(gsbRef);
+    LE_ASSERT(intfType == ifType[1]);
+    retBandWidth = taf_net_GetGsbBandWidth(gsbRef);
+    LE_ASSERT(retBandWidth == bandwidth[1]);
+    ret = taf_net_EnableGsb();
+    LE_ASSERT(ret == LE_OK);
+    ret = taf_net_DisableGsb();
+    LE_ASSERT(ret == LE_OK);
+    for (size_t i = 0; i < TEST_GSB_ENTRY_NUM; i++)
+        LE_ASSERT(taf_net_RemoveGsb(ifName[i]) == LE_OK);
+    LE_ASSERT(taf_net_DeleteGsbList(gsbList) == LE_OK);
+}
 static void DestNatUnitTestFunc(void){
     char ipaddr[NET_IPV6_ADDR_MAX_BYTES];
     uint16_t priPort,glbPort;
@@ -477,7 +517,6 @@ static void DestNatUnitTestFunc(void){
     const uint16_t globalPort[TEST_DESTINATION_NAT_ENTRY_NUM] = {5000, 5001, 5002};
     const uint16_t privatePort[TEST_DESTINATION_NAT_ENTRY_NUM] = {6000, 6001, 6002};
     const uint16_t ipProtoNum[TEST_DESTINATION_NAT_ENTRY_NUM] = {6, 17, 6};//TCP,UDP,TCP
-
     LE_ASSERT(taf_net_AddDestNatEntryOnDefaultPdn("200.200.200", privatePort[0], globalPort[0], 6) == LE_BAD_PARAMETER);
     for (size_t i = 0; i < TEST_DESTINATION_NAT_ENTRY_NUM; i++)
         LE_ASSERT(taf_net_AddDestNatEntryOnDefaultPdn(NAT_ENTRY_PRIVATE_IP_ADDR, privatePort[i], globalPort[i], ipProtoNum[i]) == LE_OK);
@@ -568,7 +607,10 @@ static void* UnitTestNetThread(void* contextPtr){
         le_thread_Sleep(1);
         LE_INFO("======== 4 Vlan unit test start========");
         VlanUnitTestFunc();
-        LE_INFO("======== 5 Remove handlers========");
+        le_thread_Sleep(1);
+        LE_INFO("======== 5 Gsb unit test start========");
+        GsbUnitTestFunc();
+        LE_INFO("======== 6 Remove handlers========");
         le_thread_Sleep(3);
         taf_net_RemoveRouteChangeHandler(routeChangeHandlerRef);
         taf_net_RemoveGatewayChangeHandler(gatewayChangeHandlerRef);

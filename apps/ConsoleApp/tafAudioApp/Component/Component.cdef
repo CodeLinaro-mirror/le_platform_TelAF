@@ -1,0 +1,12 @@
+sources:
+{
+    tafAudioConsoleApp.cpp
+}
+
+requires:
+{
+    api:
+    {
+        taf_audio.api
+    }
+}

@@ -71,6 +71,7 @@
 #include <vector>
 #include <telux/tel/PhoneFactory.hpp>
 #include <telux/tel/SmsManager.hpp>
+#include <telux/tel/CellBroadcastManager.hpp>
 #include "telux/common/CommonDefines.hpp"
 #include "tafSvcIF.hpp"
 #include "taf_pa_sms.hpp"
@@ -92,6 +93,7 @@ using namespace telux::common;
 #define TIMEOUT_GET_SMSC_SEMAPHORE 2
 #define TIMEOUT_SET_SMSC_SEMAPHORE 2
 #define TIMEOUT_SENDING_PDU        10000
+#define TIMEOUT_ACTIVATE_CB 2
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -230,6 +232,11 @@ namespace tafsvc {
       void commandResponse(telux::common::ErrorCode error) override;
    };
 
+   class tafSetSmsCBResponseCallback {
+   public:
+      static void setSmsCBResponse(telux::common::ErrorCode error);
+   };
+
    typedef struct
    {
       char                 tel[TAF_TYPES_REMOTE_PARTY_NUM_MAX_BYTES];
@@ -269,6 +276,7 @@ namespace tafsvc {
       uint32_t GetMsgFromStorage(taf_sms_List_t *msgListPtr, taf_sms_Storage_t storage, uint32_t numOfMsg, uint32_t *arrayPtr);
       uint32_t ListRxMsg(taf_sms_List_t *msgListPtr,taf_sms_ReadStatus_t rxStatus,taf_sms_Storage_t storage);
       uint32_t ListAllRxMsg(taf_sms_List_t *msgListPtr);
+      le_result_t ActivateCellBroadcast(int8_t phoneId, bool activate);
 
       le_result_t sendMessage(void);
 
@@ -305,10 +313,13 @@ namespace tafsvc {
       std::shared_ptr<tafSmsDeliveryCallback> smsDeliveryCb;
       std::shared_ptr<tafSmsListener> mySmsListener;
       std::shared_ptr<tafSmscAddressCallback> getSmscCb;
+      std::shared_ptr<telux::tel::ICellBroadcastManager> CbMgr;
 
       std::vector<std::shared_ptr<telux::tel::ISmsManager>> smsManagers;
+      std::vector<std::shared_ptr<telux::tel::ICellBroadcastManager>> CbManagers;
 
       char smscAddr[TAF_SMS_SMSC_ADDR_BYTES];
+      std::promise<le_result_t> CmdSynchronousPromise;
    };
 
 

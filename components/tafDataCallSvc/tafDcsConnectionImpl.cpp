@@ -744,18 +744,26 @@ le_result_t taf_DataConnection::StartSession(int32_t profileId, taf_dcs_Pdp_t pd
     {
         ret = IsProfileUsing(profileId, &isUsing);
         TAF_ERROR_IF_RET_VAL(ret != LE_OK, LE_NOT_FOUND, "profile(%d) is invalid, ret: %d", profileId, ret);
-        TAF_ERROR_IF_RET_VAL(isUsing == true, LE_BUSY, "profile(%d) is in using(%d)", profileId, isUsing);
+
+        // If profile is in use, still need to add sessionRef into call ctx session list;
         callCtxPtr = GetCallCtx(profileId);
         TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND, "cannot get call context");
         ret = AddSessionToCallCtx(callCtxPtr, sessionRef);
-        TAF_ERROR_IF_RET_VAL(!(ret == LE_OK || ret == LE_DUPLICATE), LE_NOT_FOUND, "addSessionToCallCtx return(%d) error", ret);
+
+        // If the same sessionRef is in the list or the profile is in use, return LE_DUPLICATE,
+        // else continue to make a data call
+        if ( ret == LE_DUPLICATE || isUsing == true )
+        {
+            LE_INFO("profile(%d) is in use(%d)", profileId, isUsing);
+            return LE_DUPLICATE;
+        }
     }
     else
     {
         callCtxPtr = CreateDataCallCtx(profileId);
         TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND, "cannot create call context");
         ret = AddSessionToCallCtx(callCtxPtr, sessionRef);
-        TAF_ERROR_IF_RET_VAL(!(ret == LE_OK || ret == LE_DUPLICATE), LE_NOT_FOUND, "addSessionToCallCtx return(%d) error", ret);
+        TAF_ERROR_IF_RET_VAL(ret != LE_OK, LE_FAULT, "addSessionToCallCtx return(%d) error", ret);
     }
 
     telux::data::IpFamilyType ipType = telux::data::IpFamilyType::IPV4V6;
@@ -782,7 +790,11 @@ le_result_t taf_DataConnection::StartSessionCmdSync(int32_t profileId, taf_dcs_P
     CmdSynchronousPromise = std::promise<le_result_t>();
 
     le_result_t result = StartSession(profileId, pdpType, sessionRef);
-    if (result != LE_OK)
+
+    // Add this code to avoid printing error information.
+    if(result == LE_DUPLICATE)
+        return LE_DUPLICATE;
+    else if (result != LE_OK)
     {
         LE_ERROR("start session is failed");
         return result;
@@ -803,7 +815,14 @@ le_result_t taf_DataConnection::StartSessionAllSync(int32_t profileId, taf_dcs_P
     taf_dcs_CallCtx_t* callCtxPtr;
 
     le_result_t result = StartSessionCmdSync(profileId, pdpType, sessionRef);
-    if (result != LE_OK)
+
+    // Add this code to avoid printing error information.
+    if (result == LE_DUPLICATE)
+    {
+        LE_INFO("profile(%d) is in use", profileId);
+        return LE_DUPLICATE;
+    }
+    else if (result != LE_OK)
     {
         LE_ERROR("start synchronous session cmd is failed, result: %d", result);
         //if start session failed ,remove sessionRef from callCtxPtr
@@ -888,9 +907,10 @@ le_result_t taf_DataConnection::StopSessionCmdSync(int32_t profileId, taf_dcs_Pd
 
     le_result_t result = StopSession(profileId, pdpType, sessionRef);
 
-    //When result is equal to LE_DUPLICATE, return OK and don't block
+    // Add this code to avoid printing error information. And here still return LE_DUPLICATE, else
+    // the caller will be stuck
     if (result == LE_DUPLICATE)
-        return LE_OK;
+        return LE_DUPLICATE;
     else if (result != LE_OK)
     {
         LE_ERROR("stopping session command is failed, result: %d", result);
@@ -911,7 +931,13 @@ le_result_t taf_DataConnection::StopSessionAllSync(int32_t profileId, taf_dcs_Pd
     std::chrono::seconds span(SESSION_TIMEOUT);
 
     le_result_t result = StopSessionCmdSync(profileId, pdpType, sessionRef);
-    if (result != LE_OK)
+    // If the result is LE_DUPLICATE, return LE_OK to notify the application
+    if (result == LE_DUPLICATE)
+    {
+        LE_INFO("profile(%d) is in use", profileId);
+        return LE_OK;
+    }
+    else if (result != LE_OK)
     {
         LE_ERROR("stopping session command is failed, result: %d", result);
         return result;

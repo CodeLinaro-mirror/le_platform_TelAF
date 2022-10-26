@@ -1,4 +1,15 @@
+maxThreads: 300
+groups:
+{
+        system
+        diag
+        radio
+        inet
+        locclient
+}
+
 sandboxed: false
+
 executables:
 {
     tafPMSvc = ( $TELAF_ROOT/components/tafPMSvc )

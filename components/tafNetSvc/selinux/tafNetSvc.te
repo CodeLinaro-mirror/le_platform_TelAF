@@ -23,6 +23,7 @@ files_type(telaf_tafNetSvc_data_t);
 
 allow telaf_tafNetSvc_t self:netlink_route_socket rw_netlink_socket_perms;
 allow telaf_tafNetSvc_t shell_exec_t:file { exec_file_perms };
+allow telaf_tafNetSvc_t self:udp_socket { create ioctl};
 # need to access /proc by adding route index
 allow telaf_tafNetSvc_t proc_t:file { read_file_perms };
 allow telaf_tafNetSvc_t ifconfig_exec_t:file { exec_file_perms };

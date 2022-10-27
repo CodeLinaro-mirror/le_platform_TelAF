@@ -41,129 +41,273 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <net/if.h>
 #include <string.h>
 #include "tafRoutingDns.hpp"
 
-static le_mutex_Ref_t systemCallMutex = NULL;
+static le_mutex_Ref_t ipv4IoctlMutex = NULL;
+static le_mutex_Ref_t ipv6IoctlMutex = NULL;
 
 void net_InitRoutingDnsMutex()
 {
-     LE_INFO("init systemCallMutex...");
-     systemCallMutex = le_mutex_CreateNonRecursive("systemCallMutex");
+     LE_INFO("init Mutex...");
+     ipv4IoctlMutex = le_mutex_CreateNonRecursive("ipv4IoctlMutex");
+     ipv6IoctlMutex = le_mutex_CreateNonRecursive("ipv6IoctlMutex");
 }
-static le_result_t CallLinuxPopen(const char *cmdPtr, unsigned int cmdlen)
-{
-    int result = LE_OK;
-    FILE *streamPtr = NULL;
-    unsigned int vallen = (unsigned int)strlen( cmdPtr );
 
-    if( vallen != cmdlen ) {
-        LE_ERROR( "system call length mismatch: %d != %d", cmdlen, vallen );
+static le_result_t ChangeIpv6RouteWithIoctl
+(
+    const char *destAddrPtr,
+    const char *subMaskPtr,
+    const char *gateWay,
+    const char *intfPtr,
+    uint32_t metric,
+    bool isAdd
+)
+{
+    int sockfd;
+    struct in6_rtmsg rt;
+    unsigned int ifindex =-1;
+
+    sockfd = socket(AF_INET6, SOCK_DGRAM, 0);
+
+    if(sockfd < 0)
+    {
+        LE_ERROR("socket error");
         return LE_FAULT;
     }
 
-    LE_DEBUG("system call: %s", cmdPtr);
-    le_mutex_Lock(systemCallMutex);
-    streamPtr = popen( cmdPtr, "w" );
-    if( streamPtr == NULL )
+    memset(&rt, 0, sizeof(struct in6_rtmsg));
+
+    //get the if index
+    ifindex = if_nametoindex(intfPtr);
+    if(ifindex == 0)
     {
-        LE_ERROR("system command failed");
-        le_mutex_Unlock(systemCallMutex);
-        return LE_FAULT;
+        LE_ERROR("-err--ifindex=%d",ifindex);
+        return LE_BAD_PARAMETER;
+    }
+    //set ifindex
+    rt.rtmsg_ifindex = ifindex;
+
+    //Set gateway
+    if(inet_pton(AF_INET6, gateWay, &rt.rtmsg_gateway)<0)
+    {
+        LE_ERROR("gateWay inet_pton error" );
+        close(sockfd);
+        return LE_BAD_PARAMETER;
+    }
+
+    //Set destination address
+    if(inet_pton(AF_INET6, destAddrPtr, &rt.rtmsg_dst)<0)
+    {
+        LE_ERROR("destination inet_pton error" );
+        close(sockfd);
+        return LE_BAD_PARAMETER;
+    }
+
+    //check subMaskPtr
+    rt.rtmsg_dst_len = strtol(subMaskPtr, NULL, 0);
+
+    //If add gateway, need to set rtmsg_flags with RTF_UP|RTF_GATEWAY
+    if(strncmp("::", gateWay, 2) !=0)
+        rt.rtmsg_flags = RTF_UP|RTF_GATEWAY;
+    else
+        rt.rtmsg_flags = ((rt.rtmsg_dst_len == 128) ? (RTF_UP|RTF_HOST) : RTF_UP);
+
+    //set metric
+    rt.rtmsg_metric = metric;
+
+    le_mutex_Lock(ipv6IoctlMutex);
+    if(isAdd)
+    {
+        if (ioctl(sockfd, SIOCADDRT, &rt)<0)
+        {
+            LE_ERROR( "Failed to add route/gateway, error:%s",strerror ( errno ));
+            close(sockfd);
+            le_mutex_Unlock(ipv6IoctlMutex);
+            return LE_FAULT;
+        }
     }
     else
     {
-        result = pclose( streamPtr );
-        if (WIFEXITED(result))
+        if (ioctl(sockfd, SIOCDELRT, &rt)<0)
         {
-            result = WEXITSTATUS(result);
+            LE_ERROR( "Failed to delete route/gateway, error:%s",strerror ( errno ));
+            close(sockfd);
+            le_mutex_Unlock(ipv6IoctlMutex);
+            return LE_FAULT;
         }
     }
 
-    if (result != 0)
+    close(sockfd);
+    le_mutex_Unlock(ipv6IoctlMutex);
+    return LE_OK;
+
+}
+
+static le_result_t ChangeIpv4RouteWithIoctl
+(
+    const char *destAddrPtr,
+    const char *subMaskPtr,
+    const char *gateWay,
+    const char *intfPtr,
+    uint32_t metric,
+    bool isAdd
+)
+{
+    int sockfd;
+    struct sockaddr_in _sin;
+    struct sockaddr_in *addr = &_sin;
+    struct rtentry  rt;
+
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+
+    if(sockfd < 0)
     {
-        LE_ERROR("system command failed, rc=%d errno: %d", result, errno);
-        le_mutex_Unlock(systemCallMutex);
+        LE_ERROR("socket error");
         return LE_FAULT;
+    }
+
+    memset(&rt, 0, sizeof(struct rtentry));
+    memset(addr, 0, sizeof(struct sockaddr_in));
+
+    addr->sin_family = AF_INET;
+    addr->sin_port = 0;
+
+    if(inet_aton(gateWay, &addr->sin_addr)<0)
+    {
+        LE_ERROR("Ipv4 gateWay inet_aton error" );
+        close(sockfd);
+        return LE_BAD_PARAMETER;
+    }
+
+    memcpy ( &rt.rt_gateway, addr, sizeof(struct sockaddr_in));
+
+    ((struct sockaddr_in *)&rt.rt_dst)->sin_family=AF_INET;
+
+    if(inet_aton(destAddrPtr, &((struct sockaddr_in *)&rt.rt_dst)->sin_addr)<0)
+    {
+        LE_ERROR( "destAddrPtr inet_aton error" );
+        close(sockfd);
+        return LE_BAD_PARAMETER;
+    }
+
+    ((struct sockaddr_in *)&rt.rt_genmask)->sin_family=AF_INET;
+
+    if(inet_aton(subMaskPtr, &((struct sockaddr_in *)&rt.rt_genmask)->sin_addr)<0)
+    {
+        LE_ERROR( "subMaskPtr inet_aton error" );
+        close(sockfd);
+        return LE_BAD_PARAMETER;
+    }
+
+    if(intfPtr !=NULL)
+    {
+        rt.rt_dev = (char*)intfPtr;
+    }
+
+    //If adding gateway, need to set rt_flags with RTF_UP|RTF_GATEWAY
+    if(strncmp("0.0.0.0", gateWay, 7) !=0)
+        rt.rt_flags = RTF_UP|RTF_GATEWAY;
+    else
+        rt.rt_flags = RTF_UP;
+
+    //When setting a non-zero meric value, ioctl will substract it with 1 internally. Plus 1 firtly
+    if(metric == 0)
+        rt.rt_metric = metric;
+    else
+        rt.rt_metric = metric+1;
+
+    le_mutex_Lock(ipv4IoctlMutex);
+    if(isAdd)
+    {
+        if (ioctl(sockfd, SIOCADDRT, &rt)<0)
+        {
+            LE_ERROR( "Failed to add route/gateway, error:%s",strerror ( errno ));
+            close(sockfd);
+            le_mutex_Unlock(ipv4IoctlMutex);
+            return LE_FAULT;
+        }
     }
     else
     {
-        le_mutex_Unlock(systemCallMutex);
-        return LE_OK;
+        if (ioctl(sockfd, SIOCDELRT, &rt)<0)
+        {
+            LE_ERROR( "Failed to delete route/gateway, error:%s",strerror ( errno ));
+            close(sockfd);
+            le_mutex_Unlock(ipv4IoctlMutex);
+            return LE_FAULT;
+        }
     }
+
+    close(sockfd);
+    le_mutex_Unlock(ipv4IoctlMutex);
+    return LE_OK;
+
 }
 
-static le_result_t ChangeIpv6Route(const char *destAddrPtr, const char *subMaskPtr, const char *intfPtr, uint32_t metric, taf_net_NetAction_t isAdd)
+static le_result_t ChangeIpv6Route
+(
+    const char *destAddrPtr,
+    const char *subMaskPtr,
+    const char *intfPtr,
+    uint32_t metric,
+    taf_net_NetAction_t isAdd
+)
 {
-    const char *actionPtr, systemCallCmd[NET_SYSTEM_CALL_CMD_MAX_LENGTH] = {0};
-    unsigned int retLen = 0;
-    le_result_t ret;
-    std::string destSubnetStr="";
-
     TAF_ERROR_IF_RET_VAL(destAddrPtr == NULL, LE_FAULT, "destAddrPtr is NULL!");
+    TAF_ERROR_IF_RET_VAL(subMaskPtr == NULL, LE_FAULT, "subMaskPtr is NULL!");
     TAF_ERROR_IF_RET_VAL(intfPtr == NULL, LE_FAULT, "intfPtr is NULL!");
 
-    actionPtr = isAdd ? "add":"delete";
-
-    destSubnetStr=destSubnetStr.append(destAddrPtr);
-
-    //network route
-    if (subMaskPtr && (strlen(subMaskPtr) > 0))
-    {
-        destSubnetStr=destSubnetStr.append("/");
-        destSubnetStr=destSubnetStr.append(subMaskPtr);
-    }
-
-    retLen=(unsigned int)snprintf((char *)systemCallCmd, sizeof(systemCallCmd),
-                         IP_COMMAND " -6 route %s %s dev %s metric %d", actionPtr, destSubnetStr.c_str(), intfPtr,metric) ;
-
-    if (retLen >= sizeof(systemCallCmd))
-    {
-        LE_ERROR("command length too long, '%s' can't be called", systemCallCmd);
-        return LE_FAULT;
-    }
-
-    ret=CallLinuxPopen(systemCallCmd,retLen);
-    return ret;
-
+    return ChangeIpv6RouteWithIoctl(destAddrPtr, subMaskPtr, "::", intfPtr, metric, (bool)isAdd);
 }
 
-static le_result_t ChangeIpv4Route(const char *destAddrPtr,const char *subMaskPtr, const char *intfPtr, uint32_t metric, taf_net_NetAction_t isAdd)
+static le_result_t ChangeIpv4Route
+(
+    const char *destAddrPtr,
+    const char *subMaskPtr,
+    const char *intfPtr,
+    uint32_t metric,
+    taf_net_NetAction_t isAdd
+)
 {
-    const char *actionPtr, systemCallCmd[NET_SYSTEM_CALL_CMD_MAX_LENGTH] = {0};
-    unsigned int retLen=0;
-    le_result_t ret;
-    std::string destSubnetStr="";
+    char subnetMask[NET_IPV4_ADDR_MAX_BYTES];
+    int length = 0, sub_mask = 0xFFFFFFFF;
+    struct sockaddr_in addr;
 
     TAF_ERROR_IF_RET_VAL(destAddrPtr == NULL, LE_FAULT, "destAddrPtr is NULL!");
+    TAF_ERROR_IF_RET_VAL(subMaskPtr == NULL, LE_FAULT, "subMaskPtr is NULL!");
     TAF_ERROR_IF_RET_VAL(intfPtr == NULL, LE_FAULT, "intfPtr is NULL!");
 
-    actionPtr = isAdd ? "add":"delete";
-
-    destSubnetStr=destSubnetStr.append(destAddrPtr);
-
-    //network route
-    if (subMaskPtr && (strlen(subMaskPtr) > 0))
+    if (inet_pton(AF_INET, subMaskPtr, &(addr.sin_addr)))
     {
-        destSubnetStr=destSubnetStr.append("/");
-        destSubnetStr=destSubnetStr.append(subMaskPtr);
+        return ChangeIpv4RouteWithIoctl(destAddrPtr, subMaskPtr, "0.0.0.0",
+                                        intfPtr, metric, (bool)isAdd);
     }
-
-    retLen=(unsigned int)snprintf((char *)systemCallCmd, sizeof(systemCallCmd),
-                         IP_COMMAND " -4 route %s %s dev %s metric %d", actionPtr, destSubnetStr.c_str(), intfPtr,metric);
-
-    if (retLen >= sizeof(systemCallCmd))
+    else
     {
-        LE_ERROR("command length too long, '%s' can't be called", systemCallCmd);
-        return LE_FAULT;
+        length =  strtol(subMaskPtr, NULL, 0);
+
+        if(length <= 0 || length > 32)
+            return LE_BAD_PARAMETER;
+
+        sub_mask = sub_mask << (32 - length);
+        snprintf(subnetMask, TAF_NET_IPV4_ADDR_MAX_LEN, "%u.%u.%u.%u", sub_mask >> 24 & 0xFF,
+                 sub_mask >> 16 & 0xFF, sub_mask >> 8 & 0xFF, sub_mask & 0xFF);
+
+        return ChangeIpv4RouteWithIoctl(destAddrPtr, subnetMask, "0.0.0.0",
+                                        intfPtr, metric, (bool)isAdd);
     }
-
-    ret=CallLinuxPopen(systemCallCmd,retLen);
-
-    return ret;
 }
 
-le_result_t net_ChangeLinuxRoute(const char *intfPtr, const char *destAddrPtr, const char *subMaskPtr, uint16_t metric, taf_net_NetAction_t isAdd)
+le_result_t net_ChangeLinuxRoute
+(
+    const char *intfPtr,
+    const char *destAddrPtr,
+    const char *subMaskPtr,
+    uint16_t metric,
+    taf_net_NetAction_t isAdd
+)
 {
     struct sockaddr_in6 addr6;
     struct sockaddr_in addr;
@@ -189,7 +333,13 @@ le_result_t net_ChangeLinuxRoute(const char *intfPtr, const char *destAddrPtr, c
     }
 }
 
-static le_result_t GetIpv6DefaultGatewayFromFile(char *defaultGWPtr, size_t defaultGWSize, char *defaultIntfPtr, size_t defaultIntfPtrSize)
+static le_result_t GetIpv6DefaultGatewayFromFile
+(
+    char *defaultGWPtr,
+    size_t defaultGWSize,
+    char *defaultIntfPtr,
+    size_t defaultIntfPtrSize
+)
 {
     le_result_t result = LE_NOT_FOUND;
     char lineStr[NET_ONE_LINE_IN_GW_FILE_MAX_LENGTH];
@@ -207,12 +357,14 @@ static le_result_t GetIpv6DefaultGatewayFromFile(char *defaultGWPtr, size_t defa
 
     resolvFPtr = le_flock_TryOpenStream(IPV6_ROUTE_INFO_FILE, LE_FLOCK_READ, &result);
 
-    TAF_ERROR_IF_RET_VAL(resolvFPtr == NULL, LE_FAULT, "Open route information file '%s' failed,can't get default gateway", IPV6_ROUTE_INFO_FILE);
+    TAF_ERROR_IF_RET_VAL(resolvFPtr == NULL, LE_FAULT,
+                         "Open route information file '%s' failed,can't get default gateway",
+                         IPV6_ROUTE_INFO_FILE);
 
     result = LE_NOT_FOUND;
     while (fgets(lineStr, sizeof(lineStr), resolvFPtr))
     {
-        //IPV6 route table format: dst| dst pfx | src| src pfx| nexthop|metric|refNum|UseNum|Flag|iFace
+    //IPV6 route table format: dst| dst pfx | src| src pfx| nexthop|metric|refNum|UseNum|Flag|iFace
         //destination address
         destAddrPtr = strtok_r(lineStr,interval, &savedPtr);
         if(destAddrPtr == NULL)
@@ -262,9 +414,12 @@ static le_result_t GetIpv6DefaultGatewayFromFile(char *defaultGWPtr, size_t defa
             continue;
         }
 
-        if ((strlen(iFacePtr) > 0)  && (strlen(ipv6NextHopPtr) == NET_IPV6_HEX_LENGTH) &&(strncmp(destAddrPtr, ipv6ZeroStr, strlen(ipv6ZeroStr)) == 0 ) &&
-            (strncmp(ipv6DestPrePtr, ipv6ZeroPrefix, strlen(ipv6ZeroPrefix)) == 0 ) && (strncmp(ipv6NextHopPtr, ipv6ZeroStr ,strlen(ipv6ZeroStr)) != 0) &&
-            (strncmp(ipv6SrcAddrPtr , ipv6ZeroStr, strlen(ipv6ZeroStr)) == 0 ) && (strncmp(ipv6SrcPrePtr , ipv6ZeroPrefix, strlen(ipv6ZeroPrefix)) == 0 ) )
+        if ((strlen(iFacePtr) > 0)  && (strlen(ipv6NextHopPtr) == NET_IPV6_HEX_LENGTH) &&
+            (strncmp(destAddrPtr, ipv6ZeroStr, strlen(ipv6ZeroStr)) == 0 ) &&
+            (strncmp(ipv6DestPrePtr, ipv6ZeroPrefix, strlen(ipv6ZeroPrefix)) == 0 ) &&
+            (strncmp(ipv6NextHopPtr, ipv6ZeroStr ,strlen(ipv6ZeroStr)) != 0) &&
+            (strncmp(ipv6SrcAddrPtr , ipv6ZeroStr, strlen(ipv6ZeroStr)) == 0 ) &&
+            (strncmp(ipv6SrcPrePtr , ipv6ZeroPrefix, strlen(ipv6ZeroPrefix)) == 0 ) )
         {
             origin_str.clear();
             parsed_str.clear();
@@ -290,6 +445,15 @@ static le_result_t GetIpv6DefaultGatewayFromFile(char *defaultGWPtr, size_t defa
             {
                 LE_WARN("defaultIntfPtr buffer too small,can't save the iFace");
             }
+
+            //There is a '\n' character at the end of defaultIntfPtr, need to remove it,
+            //otherwise we can't get the ifindex from the interface name
+            if (defaultIntfPtr)
+            {
+                int length = strlen(defaultIntfPtr);
+                if(length > 0 && defaultIntfPtr[length-1]==0xa)
+                    defaultIntfPtr[length-1]='\0';
+            }
             break;
         }
     }
@@ -299,7 +463,13 @@ static le_result_t GetIpv6DefaultGatewayFromFile(char *defaultGWPtr, size_t defa
     return result;
 }
 
-static le_result_t GetIpv4DefaultGatewayFromFile(char *defaultGWPtr, size_t defaultGWSize, char *defaultIntfPtr, size_t defaultIntfPtrSize)
+static le_result_t GetIpv4DefaultGatewayFromFile
+(
+    char *defaultGWPtr,
+    size_t defaultGWSize,
+    char *defaultIntfPtr,
+    size_t defaultIntfPtrSize
+)
 {
     le_result_t result = LE_NOT_FOUND;
     char lineStr[NET_ONE_LINE_IN_GW_FILE_MAX_LENGTH];
@@ -313,7 +483,9 @@ static le_result_t GetIpv4DefaultGatewayFromFile(char *defaultGWPtr, size_t defa
 
     resolvFPtr = le_flock_TryOpenStream(IPV4_ROUTE_INFO_FILE, LE_FLOCK_READ, &result);
 
-    TAF_ERROR_IF_RET_VAL(resolvFPtr == NULL, LE_FAULT, "Open route information file '%s' failed,can't get default gateway", IPV4_ROUTE_INFO_FILE);
+    TAF_ERROR_IF_RET_VAL(resolvFPtr == NULL, LE_FAULT,
+                         "Open route information file '%s' failed,can't get default gateway",
+                         IPV4_ROUTE_INFO_FILE);
 
     //find the default gatway
     while (fgets(lineStr, sizeof(lineStr), resolvFPtr))
@@ -364,9 +536,15 @@ static le_result_t GetIpv4DefaultGatewayFromFile(char *defaultGWPtr, size_t defa
     return result;
 }
 
-void net_GetLinuxDefaultGateway(taf_net_DfltGwBackup_t *defaultGwBackupPtr, le_result_t *ipv4RetPtr, le_result_t *ipv6RetPtr)
+void net_GetLinuxDefaultGateway
+(
+    taf_net_DfltGwBackup_t *defaultGwBackupPtr,
+    le_result_t *ipv4RetPtr,
+    le_result_t *ipv6RetPtr
+)
 {
-    TAF_ERROR_IF_RET_NIL( (defaultGwBackupPtr == NULL) || (ipv4RetPtr== NULL) || (ipv6RetPtr== NULL), "Input parameter is null");
+    TAF_ERROR_IF_RET_NIL( (defaultGwBackupPtr == NULL) || (ipv4RetPtr== NULL) ||
+                          (ipv6RetPtr== NULL), "Input parameter is null");
 
     *ipv4RetPtr = GetIpv4DefaultGatewayFromFile(
         defaultGwBackupPtr->ipV4Gateway, sizeof(defaultGwBackupPtr->ipV4Gateway),
@@ -380,25 +558,11 @@ void net_GetLinuxDefaultGateway(taf_net_DfltGwBackup_t *defaultGwBackupPtr, le_r
 
 static le_result_t SetLinuxIPv6DefaultGateway(const char *intfPtr, const char *gatewayPtr)
 {
-    char  systemCallDelCmd[NET_SYSTEM_CALL_CMD_MAX_LENGTH] = {0};
-    char  systemCallAddCmd[NET_SYSTEM_CALL_CMD_MAX_LENGTH] = {0};
     le_result_t ret,delRet;
-    uint16_t addRetLen=0,delRetLen=0;
     taf_net_DfltGwBackup_t defaultGwBackup;
-
-    //After do some operation(add delete) for ipv6 default gateway on SA415M, the modem will crash
-    //here don't set ipv6 default gateway, just use the default gateway added by telSDK
-    #ifdef TARGET_SA415M
-        return LE_OK;
-    #endif
 
     TAF_ERROR_IF_RET_VAL(intfPtr == NULL, LE_FAULT, "intfPtr is NULL!");
     TAF_ERROR_IF_RET_VAL(gatewayPtr == NULL, LE_FAULT, "gatewayPtr is NULL!");
-
-    addRetLen=(unsigned int)snprintf(systemCallAddCmd, sizeof(systemCallAddCmd),
-                                     IP_COMMAND " -6 route add default via %s dev %s", gatewayPtr, intfPtr);
-
-    TAF_ERROR_IF_RET_VAL((addRetLen >= sizeof(systemCallAddCmd)), LE_FAULT, "command length too long, execute command '%s' failed.", systemCallAddCmd);
 
     memset(&defaultGwBackup, 0x0, sizeof(taf_net_DfltGwBackup_t));
 
@@ -408,19 +572,19 @@ static le_result_t SetLinuxIPv6DefaultGateway(const char *intfPtr, const char *g
             defaultGwBackup.ipV6InterfaceName, sizeof(defaultGwBackup.ipV6InterfaceName));
 
     //default gateway exists,delete it
-    if(ret == LE_OK && strlen(defaultGwBackup.ipV6Gateway) > 0 && strlen(defaultGwBackup.ipV6InterfaceName) >0 )
+    if(ret == LE_OK && strlen(defaultGwBackup.ipV6Gateway) > 0 &&
+       strlen(defaultGwBackup.ipV6InterfaceName) >0 )
     {
-        if( (strncmp(intfPtr, defaultGwBackup.ipV6InterfaceName, NET_INTERFACE_NAME_MAX_BYTES) == 0 ) &&
-            (strncmp(gatewayPtr, defaultGwBackup.ipV6Gateway, NET_IPV6_ADDR_MAX_BYTES) == 0 ))
-            {
-                return LE_DUPLICATE;
-            }
+        if((strncmp(intfPtr, defaultGwBackup.ipV6InterfaceName, NET_INTERFACE_NAME_MAX_BYTES) == 0)
+           && (strncmp(gatewayPtr, defaultGwBackup.ipV6Gateway, NET_IPV6_ADDR_MAX_BYTES) == 0 ))
+        {
+            return LE_DUPLICATE;
+        }
 
         // Delete the current default gateway with specified address from the system
-        delRetLen=snprintf(systemCallDelCmd, sizeof(systemCallDelCmd),
-                           IP_COMMAND " -6 route del default via %s",defaultGwBackup.ipV6Gateway);
-        delRet=CallLinuxPopen(systemCallDelCmd,delRetLen);
-        LE_DEBUG("delete old default gateway :%s", systemCallDelCmd);
+        delRet = ChangeIpv6RouteWithIoctl("::", "0", defaultGwBackup.ipV6Gateway,
+                                          defaultGwBackup.ipV6InterfaceName, 0, false);
+
         if(delRet != LE_OK)
         {
             LE_ERROR("Failed to delete old default gateway");
@@ -430,7 +594,7 @@ static le_result_t SetLinuxIPv6DefaultGateway(const char *intfPtr, const char *g
     //add new default gateway
     if(ret == LE_NOT_FOUND || ret == LE_OK)
     {
-        ret=CallLinuxPopen(systemCallAddCmd,addRetLen);
+        ret=ChangeIpv6RouteWithIoctl("::", "0", gatewayPtr, intfPtr, 0, true);
         return ret;
     }
     else
@@ -443,38 +607,33 @@ static le_result_t SetLinuxIPv6DefaultGateway(const char *intfPtr, const char *g
 
 static le_result_t SetLinuxIPv4DefaultGateway(const char *intfPtr, const char *gatewayPtr)
 {
-    char  systemCallDelCmd[NET_SYSTEM_CALL_CMD_MAX_LENGTH] = {0};
-    char  systemCallAddCmd[NET_SYSTEM_CALL_CMD_MAX_LENGTH] = {0};
     le_result_t ret,delRet;
-    uint16_t addRetLen=0,delRetLen=0;
     taf_net_DfltGwBackup_t defaultGwBackup;
 
     TAF_ERROR_IF_RET_VAL(intfPtr == NULL, LE_FAULT, "intfPtr is NULL!");
     TAF_ERROR_IF_RET_VAL(gatewayPtr == NULL, LE_FAULT, "gatewayPtr is NULL!");
 
-    addRetLen=(unsigned int)snprintf(systemCallAddCmd, sizeof(systemCallAddCmd),
-                                     IP_COMMAND " -4 route add default via %s dev %s", gatewayPtr, intfPtr);
-
-    TAF_ERROR_IF_RET_VAL((addRetLen >= sizeof(systemCallAddCmd)), LE_FAULT, "command length too long, execute command '%s' failed.", systemCallAddCmd);
-
     memset(&defaultGwBackup, 0x0, sizeof(taf_net_DfltGwBackup_t));
 
     //get current default gateway ipv6 address from system
     ret=GetIpv4DefaultGatewayFromFile(defaultGwBackup.ipV4Gateway,
-            sizeof(defaultGwBackup.ipV4Gateway), defaultGwBackup.ipV4InterfaceName, sizeof(defaultGwBackup.ipV4InterfaceName));
+                                      sizeof(defaultGwBackup.ipV4Gateway),
+                                      defaultGwBackup.ipV4InterfaceName,
+                                      sizeof(defaultGwBackup.ipV4InterfaceName));
 
     //default gateway exists,delete it
-    if(ret == LE_OK && strlen(defaultGwBackup.ipV4Gateway) >0 && strlen(defaultGwBackup.ipV4InterfaceName) > 0 )
+    if(ret == LE_OK && strlen(defaultGwBackup.ipV4Gateway) >0 &&
+       strlen(defaultGwBackup.ipV4InterfaceName) > 0 )
     {
-        if( (strncmp(intfPtr, defaultGwBackup.ipV4InterfaceName, NET_INTERFACE_NAME_MAX_BYTES) == 0 ) &&
-            (strncmp(gatewayPtr, defaultGwBackup.ipV4Gateway, NET_IPV6_ADDR_MAX_BYTES) == 0 ))
-            {
-                return LE_DUPLICATE;
-            }
+        if((strncmp(intfPtr, defaultGwBackup.ipV4InterfaceName, NET_INTERFACE_NAME_MAX_BYTES) == 0)
+           && (strncmp(gatewayPtr, defaultGwBackup.ipV4Gateway, NET_IPV6_ADDR_MAX_BYTES) == 0 ))
+        {
+            return LE_DUPLICATE;
+        }
 
         // Delete the current default IPv4 gateway addr from the system
-        delRetLen=snprintf(systemCallDelCmd, sizeof(systemCallDelCmd), IP_COMMAND " -4 route del default");
-        delRet=CallLinuxPopen(systemCallDelCmd,delRetLen);
+        delRet = ChangeIpv4RouteWithIoctl("0.0.0.0", "0.0.0.0", defaultGwBackup.ipV4Gateway,
+                                          defaultGwBackup.ipV4InterfaceName, 0, false);
 
         if(delRet != LE_OK)
         {
@@ -485,7 +644,7 @@ static le_result_t SetLinuxIPv4DefaultGateway(const char *intfPtr, const char *g
     //add new default gateway
     if(ret == LE_NOT_FOUND || ret == LE_OK)
     {
-        ret=CallLinuxPopen(systemCallAddCmd,addRetLen);
+        ret=ChangeIpv4RouteWithIoctl("0.0.0.0", "0.0.0.0", gatewayPtr, intfPtr, 0, true);
         return ret;
     }
     else
@@ -504,7 +663,8 @@ le_result_t net_SetLinuxDefaultGateway(const char *intfPtr, const char *gatewayP
 
     TAF_ERROR_IF_RET_VAL(intfPtr == NULL, LE_FAULT, "intfPtr is NULL!");
     TAF_ERROR_IF_RET_VAL(gatewayPtr == NULL, LE_FAULT, "gatewayPtr is NULL!");
-    TAF_ERROR_IF_RET_VAL((strlen(gatewayPtr) == 0) || (strlen(intfPtr) == 0), LE_FAULT, "Empty gateway or interface");
+    TAF_ERROR_IF_RET_VAL((strlen(gatewayPtr) == 0) || (strlen(intfPtr) == 0), LE_FAULT,
+                         "Empty gateway or interface");
 
     if (isIpv4 && inet_pton(AF_INET, gatewayPtr, &(addr.sin_addr)) !=1 )
     {
@@ -555,18 +715,19 @@ le_result_t net_SetLinuxDnsNameServers(const char *dns1Ptr, const char *dns2Ptr,
     TAF_ERROR_IF_RET_VAL(dns2Ptr == NULL, LE_BAD_PARAMETER, "dns2Ptr  is NULL!");
 
     //check if no ip address
-    TAF_ERROR_IF_RET_VAL((strlen(dns1Ptr) == 0) && (strlen(dns2Ptr) == 0), LE_BAD_PARAMETER, "no ip address to be set");
+    TAF_ERROR_IF_RET_VAL((strlen(dns1Ptr) == 0) && (strlen(dns2Ptr) == 0), LE_BAD_PARAMETER,
+                         "no ip address to be set");
 
     //check if first ip is a valid ip
-    if( strlen(dns1Ptr) > 0 && ((!isIpv4 && inet_pton(AF_INET6, dns1Ptr, &(addr6.sin6_addr)) != 1 ) ||
-        (isIpv4 && inet_pton(AF_INET, dns1Ptr, &(addr.sin_addr)) != 1)))
+    if(strlen(dns1Ptr) > 0 && ((!isIpv4 && inet_pton(AF_INET6, dns1Ptr, &(addr6.sin6_addr)) != 1) ||
+       (isIpv4 && inet_pton(AF_INET, dns1Ptr, &(addr.sin_addr)) != 1)))
     {
         LE_ERROR("first dns is not a valid ip address ");
         return LE_BAD_PARAMETER;
     }
     //check if second ip is a valid ip
-    if( strlen(dns2Ptr) > 0 && ((!isIpv4 && inet_pton(AF_INET6, dns2Ptr, &(addr6.sin6_addr)) != 1 ) ||
-        (isIpv4 && inet_pton(AF_INET, dns2Ptr, &(addr.sin_addr)) != 1)))
+    if(strlen(dns2Ptr) > 0 && ((!isIpv4 && inet_pton(AF_INET6, dns2Ptr, &(addr6.sin6_addr)) != 1) ||
+       (isIpv4 && inet_pton(AF_INET, dns2Ptr, &(addr.sin_addr)) != 1)))
     {
         LE_ERROR("second ip is not a valid ip address");
         return LE_BAD_PARAMETER;
@@ -685,6 +846,8 @@ le_result_t net_SetLinuxDnsNameServers(const char *dns1Ptr, const char *dns2Ptr,
     //rewrite the dns file
     file_handle=fileno(resolvFPtr);
     ftruncate(file_handle, 0);
+    //sets the file position of the stream to the head.
+    fseek(resolvFPtr, 0, SEEK_SET);
 
     if(fputs(filtered_str.c_str(), resolvFPtr) < 0)
     {

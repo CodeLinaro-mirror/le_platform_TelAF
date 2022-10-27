@@ -56,4 +56,65 @@ LE_SHARED taf_net_DeviceMode_t taf_pa_net_GetDeviceMode
 (
 );
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set SOCKS authentication method
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_net_SetSocksAuthMethod
+(
+    taf_net_AuthMethod_t authMethod
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get SOCKS authentication method
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED taf_net_AuthMethod_t taf_pa_net_GetSocksAuthMethod
+(
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets SOCKS LAN interface
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_net_SetSocksLanInterface
+(
+    const char* ifName
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets SOCKS LAN interface
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_net_GetSocksLanInterface
+(
+    char* ifName,
+    size_t ifNameSize
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Adds username/profile association
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_net_AddSocksAssociation
+(
+    const char* userName,
+    uint32_t profileId
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deletes username/profile association
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_net_RemoveSocksAssociation
+(
+    const char* userName
+);
+
 #endif /* TAF_PA_NET_HPP_ */

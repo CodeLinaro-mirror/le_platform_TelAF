@@ -274,7 +274,7 @@
  *
  * @verbatim
    result = taf_net_StartTunnel(tunnelReference);
-   if (result !LE_OK)
+   if (result != LE_OK)
    {
       LE_INFO("Failed to start a tunnel");
       return LE_FAULT;
@@ -331,6 +331,65 @@
  * - taf_net_GetTunnelInterfaceName()   -- Gets the interface name of a tunnel.
  * - taf_net_GetTunnelIpType()          -- Gets the IP type of a tunnel.
  * - taf_net_GetSessionConfig()         -- Gets the session configuration of a tunnel.
+ *
+ * @section c_taf_net_SOCKS_management SOCKS management
+ *
+ * SOCKS management provides APIs for enabling and disabling SOCKS, setting and getting SOCKS
+ * authentication method type, setting and getting LAN interface, adding and removing SOCKS
+ * association between user name and profile id.
+ *
+ * SOCKS can be enabled using taf_net_EnableSocks. After setting authentication method type and
+ * LAN interface, and adding the association, the application can enable SOCKS.
+ *
+ * The following example shows how to enable SOCKS. This example starts a SOCKS application which
+ * listens port 1080.
+ *
+ * @verbatim
+   result = taf_net_EnableSocks();
+   if (result != LE_OK)
+   {
+      LE_INFO("Failed to enable SOCKS");
+      return LE_FAULT;
+   }
+   @endverbatim
+ *
+ * An application can asynchrounously enable SOCKS using taf_net_EnableSocksAsync with handler
+ * function passed as parameters.
+ *
+ * @verbatim
+   taf_net_EnableSocksAsync(StartSocksAsyncHandlerFunc,NULL);
+   @endverbatim
+ *
+ * Before asynchrounously enabling SOCKS, an application defines a handler function. Once SOCKS is
+ * enabled, the handler function will be called.
+ *
+ * @verbatim
+    static void StartSocksAsyncHandlerFunc
+    (
+        le_result_t result, void* contextPtr
+    )
+    {
+        LE_INFO("**** Handler for start socks Asynchronously (Begin)****");
+        LE_INFO("result: %d", result);
+        LE_INFO("**** Handler for start socks Asynchronously (End)****");
+    }
+   @endverbatim
+ *
+ * The following APIs are supported for SOCKS management.
+ *
+ * - taf_net_SetSocksAuthMethod()       -- Sets SOCKS authentication method.
+ * - taf_net_GetSocksAuthMethod()       -- Gets SOCKS authentication method.
+ * - taf_net_SetSocksLanInterface()     -- Sets SOCKS LAN interface.
+ * - taf_net_GetSocksLanInterface()     -- Gets SOCKS LAN interface.
+ * - taf_net_AddSocksAssociation()      -- Adds SOCKS association.
+ * - taf_net_RemoveSocksAssociation()   -- Deletes SOCKS association.
+ * - taf_net_EnableSocks()              -- Synchronously enables SOCKS.
+ * - taf_net_DisableSocks()             -- Synchronously disables SOCKS.
+ * - taf_net_EnableSocksAsync()         -- Asynchronously enables SOCKS.
+ * - taf_net_DisableSocksAsync()        -- Asynchronously disables SOCKS.
+ *
+ * @note If changing SOCKS authentication method or association, the application needs to disable and
+ * enable SOCKS to use the new method or user name.
  *
  * <HR>
  *
@@ -416,6 +475,19 @@ DEFINE L2TP_MAX_TUNNEL_NUMBER = 2;
 //--------------------------------------------------------------------------------------------------
 DEFINE L2TP_MAX_SESSION_NUMBER_PER_TUNNEL = 3;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * The maximum SOCKS user name length.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE SOCKSV5_MAX_USERNAME_LEN = 255;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The maximum SOCKS mapping pool.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE SOCKSV5_MAX_MAPPING_POOL = 2;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -535,6 +607,18 @@ ENUM DeviceMode
     DEVICE_NONE,                ///< None.
     DEVICE_L2L,                 ///< Device LAN-to-LAN mode.
     DEVICE_E2E                  ///< Device end-to-end mode.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The Socks Authentication type.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM AuthMethod
+{
+    SOCKS_UNKNOWN = -1,        ///< UNKNOWN.
+    SOCKS_NONE,                ///< No authentication.
+    SOCKS_USER_PASSWD          ///< User and password.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -787,7 +871,18 @@ HANDLER AsyncL2tpHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Event to report destination NAT changes.
+ *  Handler for asynchronous enabling or disabling SOCKS result response.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER AsyncSocksHandler
+(
+    le_result_t  result                       IN   ///< The result of enabling or disabling SOCKS.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Event to report destination NAT change.
  */
 //--------------------------------------------------------------------------------------------------
 EVENT DestNatChange
@@ -1862,3 +1957,141 @@ FUNCTION le_result_t GetSessionConfig
     TunnelEntry tunnelEntryRef                IN, ///< Tunnel entry reference.
     L2tpSessionConfig sessionConfig[L2TP_MAX_SESSION_NUMBER_PER_TUNNEL]  OUT ///< Session configuration.
 );
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Enables (synchronously) the Socks proxy service.
+ *
+ * @note To use the SOCKS feature, set device mode with value 2 first.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t EnableSocks
+(
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Enables (asynchronously) the Socks proxy service.
+ *
+ * @return None.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION EnableSocksAsync
+(
+    AsyncSocksHandler handler                 IN  ///< The handler.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Disables (synchronously) the Socks proxy service.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DisableSocks
+(
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Disables (asynchronously) the Socks proxy service.
+ *
+ * @return None.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION DisableSocksAsync
+(
+    AsyncSocksHandler handler                 IN  ///< The handler.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets SOCKS authentication method.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetSocksAuthMethod
+(
+    AuthMethod authMethod                     IN ///< Authentication method.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets SOCKS authentication method.
+ *
+ * @return
+ *   - TAF_NET_SOCKS_UNKNOWN -- Unknown.
+ *   - TAF_NET_SOCKS_NONE -- No authentication.
+ *   - TAF_NET_SOCKS_USER_PASSWD -- User and password.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION AuthMethod GetSocksAuthMethod
+(
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets SOCKS LAN interface.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetSocksLanInterface
+(
+    string ifName[INTERFACE_NAME_MAX_LEN]     IN ///< Interface name.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets SOCKS LAN interface.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetSocksLanInterface
+(
+    string ifName[INTERFACE_NAME_MAX_LEN]     OUT ///< Interface name.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Adds username/profile association.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t AddSocksAssociation
+(
+    string userName[SOCKSV5_MAX_USERNAME_LEN] IN,///< User name.
+    uint32  profileId                         IN ///< Profile Id.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deletes username/profile association.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t RemoveSocksAssociation
+(
+    string userName[SOCKSV5_MAX_USERNAME_LEN]    IN ///< User name.
+);
+

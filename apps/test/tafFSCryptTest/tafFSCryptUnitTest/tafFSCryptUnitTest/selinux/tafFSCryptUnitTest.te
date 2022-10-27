@@ -1,0 +1,27 @@
+# Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+policy_module(tafFSCryptUnitTest, 1.0)
+
+gen_require(`
+  type telaf_tafKeyStoreSvc_t;
+')
+
+type telaf_tafFSCryptUnitTest_data_t;
+files_type(telaf_tafFSCryptUnitTest_data_t);
+
+type telaf_tafFSCryptUnitTest_exec_t;
+files_type(telaf_tafFSCryptUnitTest_exec_t);
+
+type telaf_tafFSCryptUnitTest_t;
+
+init_telaf_app_domain(telaf_tafFSCryptUnitTest_t,telaf_tafFSCryptUnitTest_exec_t)
+
+# FS-Crypt service necessary rules
+
+telaf_admin_manage_all_files_perms(telaf_tafFSCryptUnitTest_exec_t)
+
+telaf_tafKeyStoreSvc_FscInit(telaf_tafFSCryptUnitTest_t, telaf_fw_t, telaf_tafFSCryptUnitTest_data_t)
+
+allow telaf_tafFSCryptUnitTest_t telaf_tafFSCryptUnitTest_data_t:dir { search_dir_perms rw_dir_perms rw_file_perms };
+allow telaf_tafFSCryptUnitTest_t telaf_tafFSCryptUnitTest_data_t:file { manage_file_perms delete_file_perms };

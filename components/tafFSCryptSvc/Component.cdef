@@ -1,0 +1,37 @@
+sources:
+{
+    tafFSCrypt.c
+}
+
+cflags:
+{
+    -I${LEGATO_ROOT}/framework/liblegato
+    -I$TELAF_ROOT/components/stub/taf_pa_fscrypt
+}
+
+requires:
+{
+    component:
+    {
+        $TELAF_ROOT/components/stub/taf_pa_fscrypt
+    }
+
+    api:
+    {
+        taf_pm.api
+    }
+}
+
+provides:
+{
+    api:
+    {
+        taf_fsc.api
+    }
+}
+
+ldflags:
+{
+   -lssl
+   -lcrypto
+}

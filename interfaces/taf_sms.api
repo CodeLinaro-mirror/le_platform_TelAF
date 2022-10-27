@@ -1011,3 +1011,32 @@ FUNCTION le_result_t SendPduMsg
     uint8   dataPtr[PDU_BYTES] IN,  ///< Message in PDU format.
     uint32  timeout                 ///< Timeout value message send.
 );
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Activates cell broadcast.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ActivateCellBroadcast
+(
+    int8   phoneId
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deactivates cell broadcast.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ * - LE_TIMEOUT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DeactivateCellBroadcast
+(
+    int8   phoneId
+);

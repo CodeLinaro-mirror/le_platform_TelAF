@@ -945,6 +945,26 @@ void taf_Sms::Init(void)
       else {
          LE_ERROR("Unable to initialize SMS Manager");
       }
+
+      auto CbMgr = phoneFactory.getCellBroadcastManager(static_cast<SlotId>(index));
+      if (CbMgr) {
+         //  Check if cellbroadcast subsystem is ready
+         bool subSystemStatus = CbMgr->isSubsystemReady();
+         //  If cellbroadcast subsystem is not ready, wait for it to be ready
+         if (!subSystemStatus) {
+            LE_INFO("Cellbroadcast subsystem is not ready, Please wait");
+            std::future<bool> f = CbMgr->onSubsystemReady();
+            // If we want to wait unconditionally for cellbroadcast subsystem to be ready
+            subSystemStatus = f.get();
+
+            //  Exit the application, if SDK is unable to initialize cell broadcast subsystem
+            //  for any of the slot
+            if (!subSystemStatus) {
+               LE_ERROR("Unable to initialize Cellbroadcast SMS Manager");
+            }
+         }
+         CbManagers.emplace_back(CbMgr);
+      }
    }
 
    smsSentCb = std::make_shared<tafSmsCallback>();
@@ -1039,5 +1059,56 @@ void tafSetSmscAddressResponseCallback::setSmscResponse(telux::common::ErrorCode
    }
 
    le_sem_Post(sms.SmscSetSem);
+}
+
+// Implementation of set SMS cellbroadcast activate status callback
+void tafSetSmsCBResponseCallback::setSmsCBResponse(telux::common::ErrorCode error) {
+   auto &sms = taf_Sms::GetInstance();
+   if(error == telux::common::ErrorCode::SUCCESS) {
+      LE_INFO("Set Activation status request sent successfully\n");
+      sms.CmdSynchronousPromise.set_value(LE_OK);
+   }
+   else {
+      LE_INFO("Set Activation status request failed with errorCode: %d\n", static_cast<int>(error));
+      sms.CmdSynchronousPromise.set_value(LE_FAULT);
+   }
+}
+
+le_result_t taf_Sms::ActivateCellBroadcast(int8_t phoneId, bool activate)
+{
+   // initialize the synchronous promise
+   CmdSynchronousPromise = std::promise<le_result_t>();
+   std::chrono::seconds span(TIMEOUT_ACTIVATE_CB);
+   auto &sms = taf_Sms::GetInstance();
+   auto CbMgr = sms.CbManagers[phoneId - 1];
+
+   if (CbMgr)
+   {
+      telux::common::Status reqStatus = CbMgr->setActivationStatus(activate, tafSetSmsCBResponseCallback::setSmsCBResponse);
+
+      if (reqStatus != telux::common::Status::SUCCESS)
+      {
+         LE_INFO("Set Activation status request failed");
+         return LE_FAULT;
+      }
+
+      // blocking here to get call event response
+      std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
+      std::future_status waitStatus = futResult.wait_for(span);
+      if (std::future_status::timeout == waitStatus)
+      {
+        LE_ERROR("waiting promise timeout for %d seconds", TIMEOUT_ACTIVATE_CB);
+        return LE_TIMEOUT;
+      }
+      else
+      {
+        return futResult.get();
+      }
+   }
+   else
+   {
+     LE_INFO("Set Activation status NULL ptr");
+     return LE_FAULT;
+   }
 }
 

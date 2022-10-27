@@ -2070,6 +2070,56 @@ void taf_sms_RemoveFullStorageEventHandler
 
 /*======================================================================
 
+FUNCTION       taf_sms_ActivateCellBroadcast
+
+DESCRIPTION    Activation of configured broadcast messages.
+
+DEPENDENCIES   Cellbroadcast subsystem is ready
+
+PARAMETERS     [IN] int8_t       phoneId: phone ID
+
+RETURN VALUE   le_result_t
+
+SIDE EFFECTS
+
+======================================================================*/
+
+le_result_t taf_sms_ActivateCellBroadcast
+(
+   int8_t phoneId
+)
+{
+   auto &mySms = taf_Sms::GetInstance();
+   return mySms.ActivateCellBroadcast(phoneId, true);
+}
+
+/*======================================================================
+
+FUNCTION       taf_sms_DeactivateCellBroadcast
+
+DESCRIPTION    Deactivation of configured broadcast messages.
+
+DEPENDENCIES   Cellbroadcast subsystem is ready
+
+PARAMETERS     [IN] int8_t       phoneId: phone ID
+
+RETURN VALUE   le_result_t
+
+SIDE EFFECTS
+
+======================================================================*/
+
+le_result_t taf_sms_DeactivateCellBroadcast
+(
+   int8_t phoneId
+)
+{
+   auto &mySms = taf_Sms::GetInstance();
+   return mySms.ActivateCellBroadcast(phoneId, false);
+}
+
+/*======================================================================
+
 FUNCTION       COMPONENT_INIT
 
 DESCRIPTION    The initialization of SMS component

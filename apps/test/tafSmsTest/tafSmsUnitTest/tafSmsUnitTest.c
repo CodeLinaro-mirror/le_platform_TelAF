@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2021 The Linux Foundation. All rights reserved.
  *
@@ -877,6 +878,56 @@ static void Test_taf_sms_SendPdu
 
 /*======================================================================
 
+ FUNCTION        Test_taf_sms_ActivateCellBroadcast
+
+ DESCRIPTION     Test activation of configured broadcast messages.
+
+ DEPENDENCIES    None
+
+ PARAMETERS      void
+
+ RETURN VALUE    void
+
+ SIDE EFFECTS
+
+======================================================================*/
+
+static void Test_taf_sms_ActivateCellBroadcast
+(
+    void
+)
+{
+    LE_ASSERT(taf_sms_ActivateCellBroadcast(PHONE_ID_PATTERN_1) == LE_OK);
+    return;
+}
+
+/*======================================================================
+
+ FUNCTION        Test_taf_sms_DeactivateCellBroadcast
+
+ DESCRIPTION     Test deactivation of configured broadcast messages.
+
+ DEPENDENCIES    None
+
+ PARAMETERS      void
+
+ RETURN VALUE    void
+
+ SIDE EFFECTS
+
+======================================================================*/
+
+static void Test_taf_sms_DeactivateCellBroadcast
+(
+    void
+)
+{
+    LE_ASSERT(taf_sms_DeactivateCellBroadcast(PHONE_ID_PATTERN_1) == LE_OK);
+    return;
+}
+
+/*======================================================================
+
  FUNCTION        Test_main
 
  DESCRIPTION     Test main function, call each test sub-function
@@ -896,6 +947,14 @@ void Test_main
     void
 )
 {
+    LE_INFO("===== Test_taf_sms_ActivateCellBroadcast =====");
+    Test_taf_sms_ActivateCellBroadcast();
+    LE_INFO("##### Test_taf_sms_ActivateCellBroadcast OK #####");
+
+    LE_INFO("===== Test_taf_sms_DeactivateCellBroadcast =====");
+    Test_taf_sms_DeactivateCellBroadcast();
+    LE_INFO("##### Test_taf_sms_DeactivateCellBroadcast OK #####");
+
     LE_INFO("===== Test_taf_sms_SetGetPreferredStorage =====");
     Test_taf_sms_SetGetPreferredStorage();
     LE_INFO("##### Test_taf_sms_SetGetPreferredStorage OK #####");

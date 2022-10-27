@@ -46,6 +46,7 @@
 #include "tafVlanImpl.hpp"
 #include "tafL2tpImpl.hpp"
 #include "tafSocksImpl.hpp"
+#include "tafGsbImpl.hpp"
 #include "taf_pa_net.hpp"
 
 using namespace telux::tafsvc;
@@ -96,6 +97,16 @@ void taf_socks_init()
     auto &socks = taf_Socks::GetInstance();
     socks.Init();
     LE_INFO("taf socks component init done...\n");
+
+    return;
+}
+
+void taf_gsb_init()
+{
+    LE_INFO("taf gsb component init start...\n");
+    auto &gsb = taf_Gsb::GetInstance();
+    gsb.Init();
+    LE_INFO("taf gsb component init done...\n");
 
     return;
 }
@@ -2117,6 +2128,209 @@ le_result_t taf_net_RemoveSocksAssociation
     return taf_pa_net_RemoveSocksAssociation(userName);
 }
 
+/*=========================================GSB=========================================*/
+
+/**
+ * Add generic software bridge configuration for an interface.
+ *
+ * @param [in] ifName                The interface name .
+ *        [in] ifType                The interface type.
+ *        [in] bandwidth             The band width.
+ *
+ * @returns LE_OK                    Succeeded to add a gsb configuration for an interface.
+ *          LE_BAD_PARAMETER         Invalid parameter.
+ *          LE_FAULT                 Failed to add a gsb configuration for an interface.
+ *
+ */
+le_result_t taf_net_AddGsb
+(
+    const char* ifName,
+    taf_net_GsbIfType_t ifType,
+    uint32_t bandwidth
+)
+{
+    auto &tafGsb = taf_Gsb::GetInstance();
+
+    return tafGsb.AddGsb(ifName, ifType, bandwidth);
+}
+
+/**
+ * Remove generic software bridge configuration for an interface.
+ *
+ * @param [in] ifName                The interface name .
+ *
+ * @returns LE_OK                    Succeeded to remove a gsb configuration for an interface.
+ *          LE_BAD_PARAMETER         Invalid parameter.
+ *          LE_FAULT                 Failed to remove a gsb configuration for an interface.
+ *
+ */
+le_result_t taf_net_RemoveGsb
+(
+    const char* ifName
+)
+{
+    auto &tafGsb = taf_Gsb::GetInstance();
+
+    return tafGsb.RemoveGsb(ifName);
+}
+
+/**
+ * Enable the generic software bridge in the system.
+ *
+ * @param   None.
+ *
+ * @returns LE_OK                    Success.
+ *          LE_FAULT                 Failed to enable gsb.
+ *
+ */
+le_result_t taf_net_EnableGsb()
+{
+    auto &tafGsb = taf_Gsb::GetInstance();
+
+    return tafGsb.EnableGsb(true);
+}
+
+/**
+ * Disable the generic software bridge in the system.
+ *
+ * @param   None.
+ *
+ * @returns LE_OK                    Success.
+ *          LE_FAULT                 Failed to disable gsb.
+ *
+ */
+le_result_t taf_net_DisableGsb()
+{
+    auto &tafGsb = taf_Gsb::GetInstance();
+
+    return tafGsb.EnableGsb(false);
+}
+
+/**
+ * Get the reference of the generic software bridge list.
+ *
+ * @returns NULL                     Failure.
+ *          Others                   The reference of the generic software bridge list.
+ */
+taf_net_GsbListRef_t taf_net_GetGsbList()
+{
+    auto &tafGsb = taf_Gsb::GetInstance();
+
+    return tafGsb.GetGsbList();
+}
+
+/**
+ * Get the reference of the first generic software bridge with a list reference.
+ *
+ * @param [in] gsbListRef      The generic software bridge list reference.
+ *
+ * @returns NULL                     Failure.
+ *          Others                   The reference of the first generic software bridge.
+ */
+taf_net_GsbRef_t taf_net_GetFirstGsb
+(
+    taf_net_GsbListRef_t gsbListRef
+)
+{
+    auto &tafGsb = taf_Gsb::GetInstance();
+
+    return tafGsb.GetFirstGsb(gsbListRef);
+}
+
+/**
+ * Get the reference of the next generic software bridge with a list reference.
+ *
+ * @param [in] gsbListRef      The generic software bridge list reference.
+ *
+ * @returns NULL                     Failure.
+ *          Others                   The reference of the next generic software bridge.
+ */
+taf_net_GsbRef_t taf_net_GetNextGsb
+(
+    taf_net_GsbListRef_t gsbListRef
+)
+{
+    auto &tafGsb = taf_Gsb::GetInstance();
+
+    return tafGsb.GetNextGsb(gsbListRef);
+}
+
+/**
+ * Delete the generic software bridge list reference.
+ *
+ * @param [in] gsbListRef      The generic software bridge list reference.
+ *
+ * @returns LE_OK                    Success.
+ *          LE_BAD_PARAMETER         Invalid parameter.
+ *          LE_FAULT                 Failed to delete the reference.
+ */
+le_result_t taf_net_DeleteGsbList
+(
+    taf_net_GsbListRef_t gsbListRef
+)
+{
+    auto &tafGsb = taf_Gsb::GetInstance();
+
+    return tafGsb.DeleteGsbList(gsbListRef);
+}
+
+/**
+ * Get the interface name of a generic software bridge with a bridge reference.
+ *
+ * @param [in]    gsbRef       The generic software bridge reference.
+ *        [out]   ifNamePtr    The interface name.
+ *        [out]    ifNamePtrSize     The interface name length.
+ *
+ * @returns LE_OK                    Success.
+ *          LE_BAD_PARAMETER         Invalid parameter.
+ *          LE_FAULT                 Failed to delete the reference.
+ */
+le_result_t taf_net_GetGsbInterfaceName
+(
+    taf_net_GsbRef_t gsbRef,
+    char* ifNamePtr,
+    size_t ifNamePtrSize
+)
+{
+    auto &tafGsb = taf_Gsb::GetInstance();
+
+    return tafGsb.GetGsbInterfaceName(gsbRef, ifNamePtr, ifNamePtrSize);
+}
+
+/**
+ * Get the interface type of a generic software bridge with a bridge reference.
+ *
+ * @param [in]    gsbRef       The generic software bridge reference.
+ *
+ * @returns taf_net_GsbIfType_t      The interface type.
+ */
+taf_net_GsbIfType_t taf_net_GetGsbInterfaceType
+(
+    taf_net_GsbRef_t gsbRef
+)
+{
+    auto &tafGsb = taf_Gsb::GetInstance();
+
+    return tafGsb.GetGsbInterfaceType(gsbRef);
+}
+
+/**
+ * Get the band width of a generic software bridge with a gsb reference.
+ *
+ * @param [in]    gsbRef       The generic software bridge reference.
+ *
+ * @returns int32_t      The bandwidth(in Mbps).
+ */
+int32_t taf_net_GetGsbBandWidth
+(
+    taf_net_GsbRef_t gsbRef
+)
+{
+    auto &tafGsb = taf_Gsb::GetInstance();
+
+    return tafGsb.GetGsbBandWidth(gsbRef);
+}
+
 COMPONENT_INIT
 {
 
@@ -2129,6 +2343,8 @@ COMPONENT_INIT
     taf_l2tp_init();
 
     taf_socks_init();
+
+    taf_gsb_init();
 
 }
 

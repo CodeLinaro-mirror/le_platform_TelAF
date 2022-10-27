@@ -1,0 +1,28 @@
+sandboxed: false
+
+executables:
+{
+    tafCanIntTest = ( $TELAF_ROOT/apps/test/tafCanTest/tafCanIntTest/tafCanIntTestComp )
+}
+
+processes:
+{
+    run:
+    {
+        (tafCanIntTest)
+    }
+
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+
+    faultAction: stopApp
+}
+
+start: manual
+
+bindings:
+{
+    tafCanIntTest.tafCanIntTestComp.taf_can -> tafCanSvc.taf_can
+}

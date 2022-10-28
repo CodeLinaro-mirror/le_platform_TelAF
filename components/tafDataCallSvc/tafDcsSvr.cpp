@@ -1084,7 +1084,14 @@ le_result_t taf_mdc_StartSessionAsync(taf_dcs_ProfileRef_t profileRef)
     taf_dcs_Pdp_t pdpType = dataProfile.GetPdp(profileRef);
     // Start a data call with a fixed value 0 for sessionRef, and when the client loses the
     // connection with data call service,the data call will not be stopped
-    return dataConnection.StartSessionCmdSync(profileId, pdpType, 0);
+    result = dataConnection.StartSessionCmdSync(profileId, pdpType, 0);
+    if (result == LE_DUPLICATE)
+    {
+        LE_INFO("Duplicate data call on the same profile");
+        return LE_OK;
+    }
+    else
+        return result;
 }
 
 /**
@@ -1140,7 +1147,14 @@ le_result_t taf_mdc_StopSessionAsync(taf_dcs_ProfileRef_t profileRef)
     taf_dcs_Pdp_t pdpType = dataProfile.GetPdp(profileRef);
     // When the application calls taf_mdc_StartSessionAsync() to start a data call, this function
     // can stop that data call
-    return dataConnection.StopSessionCmdSync(profileId, pdpType, 0);
+    result = dataConnection.StopSessionCmdSync(profileId, pdpType, 0);
+    if (result == LE_DUPLICATE)
+    {
+        LE_INFO("profile is in use");
+        return LE_OK;
+    }
+    else
+        return result;
 }
 
 COMPONENT_INIT

@@ -219,7 +219,7 @@ DEFINE  IPV4_ADDR_MAX_LEN = 16;
  * The IPv6 address ("ffff:ffff:ffff:ffff:ffff:ffff:255:255:255:255") maximum length.
  */
 //--------------------------------------------------------------------------------------------------
-DEFINE  IPV6_ADDR_MAX_LEN = 45;
+DEFINE  IPV6_ADDR_MAX_LEN = 46;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -385,7 +385,7 @@ STRUCT StateInfo
  * - LE_OK                           Succeessfully started the data call.
  * - LE_NOT_FOUND                    Parameter is invalid or couldn't create the data call.
  * - LE_OUT_OF_RANGE                 PDP type is unknown.
- * - LE_BUSY                         Profile is in use.
+ * - LE_DUPLICATE                    If the data session is already connected for the given profile.
  * - LE_TIMEOUT                      Timed out when attempting to make the data call.
  * - LE_FAULT                        Failed to make the data call.
  */

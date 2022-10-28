@@ -30,9 +30,10 @@
 #include "legato.h"
 #include "interfaces.h"
 
-#define TEST_PROFILE   2
+#define TEST_PROFILE   1
 static le_sem_Ref_t TestSemRef;
 static taf_dcs_ProfileRef_t TestProfileRef = NULL;
+static taf_dcs_SessionStateHandlerRef_t TestSessionStateRef = NULL;
 char ApnStr_bak[TAF_DCS_APN_NAME_MAX_LEN];
 
 static char *callEventToString(taf_dcs_ConState_t callEvent)
@@ -58,6 +59,8 @@ void data_event_handler(taf_dcs_ProfileRef_t profileRef, taf_dcs_ConState_t call
 {
     char interfaceName[64];
     taf_dcs_Pdp_t expectIpType = *(taf_dcs_Pdp_t *)contextPtr;
+    uint32_t profileId=0;
+    le_result_t result = LE_OK;
 
     LE_INFO("get data handler event. profile ref: %p, callEvent: %s, ip: %d, expect ip: %d\n",
         profileRef, callEventToString(callEvent), infoPtr->ipType, expectIpType);
@@ -66,15 +69,32 @@ void data_event_handler(taf_dcs_ProfileRef_t profileRef, taf_dcs_ConState_t call
     {
         taf_dcs_GetInterfaceName(profileRef, interfaceName, 64);
         LE_INFO("data call connected, interface : %s", interfaceName);
-        le_sem_Post(TestSemRef);
+        result = taf_dcs_GetProfileIdByInterfaceName(interfaceName, &profileId);
+        LE_ASSERT(result == LE_OK);
     }
     else if ((callEvent == TAF_DCS_DISCONNECTED) && (infoPtr->ipType == expectIpType))
     {
         taf_dcs_GetInterfaceName(profileRef, interfaceName, 64);
-        LE_INFO("data call disconnected");
-        le_sem_Post(TestSemRef);
+        LE_INFO("data call disconnected, interface : %s", interfaceName);
+        result = taf_dcs_GetProfileIdByInterfaceName(interfaceName, &profileId);
+        LE_ASSERT(result == LE_OK);
     }
 
+}
+
+static void* ut_taf_data_session_handler(void* ctxPtr)
+{
+    taf_dcs_ConnectService();
+
+    TestSessionStateRef = taf_dcs_AddSessionStateHandler(TestProfileRef, (taf_dcs_SessionStateHandlerFunc_t)data_event_handler, ctxPtr);
+
+    LE_ASSERT(TestSessionStateRef != NULL);
+
+    le_sem_Post(TestSemRef);
+
+    le_event_RunLoop();
+
+    return NULL;
 }
 
 void ut_profile_list_test()
@@ -107,17 +127,46 @@ void ut_default_profile_set_get_test()
 
     TestProfileRef = taf_dcs_GetProfile(profileId);
     LE_ASSERT(TestProfileRef != NULL);
+
+    profileId = taf_dcs_GetProfileIndex(TestProfileRef);
+    LE_ASSERT(profileId == TEST_PROFILE);
 }
 
-void ut_set_auth_test()
+void ut_set_get_auth_test()
 {
     le_result_t result;
+    int cmpVal = 0;
+    char usrName[TAF_DCS_USER_NAME_MAX_LEN];
+    char password[TAF_DCS_PASSWORD_NAME_MAX_LEN];
+    taf_dcs_Auth_t authType;
 
     result = taf_dcs_SetAuthentication(TestProfileRef, TAF_DCS_AUTH_PAP, "pap_user", "123");
     LE_ASSERT(result == LE_OK);
 
+    result = taf_dcs_GetAuthentication(TestProfileRef, &authType, usrName,TAF_DCS_USER_NAME_MAX_LEN,
+                                       password, TAF_DCS_PASSWORD_NAME_MAX_LEN);
+    LE_ASSERT(result == LE_OK);
+    LE_ASSERT(authType == TAF_DCS_AUTH_PAP);
+
+    cmpVal = strncmp(usrName, "pap_user", TAF_DCS_USER_NAME_MAX_LEN);
+    LE_ASSERT(cmpVal == 0);
+
+    cmpVal = strncmp(password, "123", TAF_DCS_PASSWORD_NAME_MAX_LEN);
+    LE_ASSERT(cmpVal == 0);
+
     result = taf_dcs_SetAuthentication(TestProfileRef, TAF_DCS_AUTH_CHAP, "chap_user", "123");
     LE_ASSERT(result == LE_OK);
+
+    result = taf_dcs_GetAuthentication(TestProfileRef, &authType, usrName,TAF_DCS_USER_NAME_MAX_LEN,
+                                       password, TAF_DCS_PASSWORD_NAME_MAX_LEN);
+    LE_ASSERT(result == LE_OK);
+    LE_ASSERT(authType == TAF_DCS_AUTH_CHAP);
+
+    cmpVal = strncmp(usrName, "chap_user", TAF_DCS_USER_NAME_MAX_LEN);
+    LE_ASSERT(cmpVal == 0);
+
+    cmpVal = strncmp(password, "123", TAF_DCS_PASSWORD_NAME_MAX_LEN);
+    LE_ASSERT(cmpVal == 0);
 
     result = taf_dcs_SetAuthentication(TestProfileRef, TAF_DCS_AUTH_NONE, "", "");
     LE_ASSERT(result == LE_OK);
@@ -126,9 +175,19 @@ void ut_set_auth_test()
 void ut_start_session_sync_test()
 {
     le_result_t result;
+    taf_dcs_ConState_t state;
+    taf_dcs_DataBearerTechnology_t upTech, downTech;
 
     result = taf_dcs_StartSession(TestProfileRef);
     LE_ASSERT(result == LE_OK);
+
+    result = taf_dcs_GetSessionState(TestProfileRef, &state);
+    LE_ASSERT(result == LE_OK);
+    LE_INFO("session state:%d",(int)state);
+
+    result = taf_dcs_GetDataBearerTechnology(TestProfileRef, &downTech, &upTech);
+    LE_ASSERT(result == LE_OK);
+    LE_INFO("Bearer Tech down:%d, up:%d",(int)downTech,upTech);
 }
 
 void ut_stop_session_sync_test()
@@ -139,40 +198,20 @@ void ut_stop_session_sync_test()
     LE_ASSERT(result == LE_OK);
 }
 
-void ut_start_session_async_handler_func(taf_dcs_ProfileRef_t profileRef, le_result_t result, void* contextPtr)
-{
-    int32_t profileId = taf_dcs_GetProfileIndex(profileRef);
-
-    LE_INFO("**** Handler for Start Session Asynchronously (Begin)****");
-    LE_INFO("profileId= %d, result: %d", profileId, result);
-    LE_INFO("**** Handler for Start Session Asynchronously (End)****");
-
-    le_sem_Post(TestSemRef);
-}
-
 void ut_start_session_async_test()
 {
     LE_INFO("asynchronous start session %p",TestProfileRef);
 
-    taf_dcs_StartSessionAsync(TestProfileRef, ut_start_session_async_handler_func, NULL);
+    taf_dcs_StartSessionAsync(TestProfileRef, NULL, NULL);
 
     LE_INFO("asynchronous start session done");
-}
-
-void ut_stop_session_async_handler_func(taf_dcs_ProfileRef_t profileRef, le_result_t result, void* contextPtr)
-{
-    int32_t profileId = taf_dcs_GetProfileIndex(profileRef);
-
-    LE_INFO("**** Handler for Stop Session Asynchronously (Begin)****");
-    LE_INFO("profileId= %d, result: %d", profileId, result);
-    LE_INFO("**** Handler for Stop Session Asynchronously (End)****");
 }
 
 void ut_stop_session_async_test()
 {
     LE_INFO("asynchronous stop session %p",TestProfileRef);
 
-    taf_dcs_StopSessionAsync(TestProfileRef, ut_stop_session_async_handler_func, NULL);
+    taf_dcs_StopSessionAsync(TestProfileRef, NULL, NULL);
 
     LE_INFO("asynchronous stop session done");
 }
@@ -383,13 +422,21 @@ void ut_ipv6_datacall_test()
 
 static void* UnitTestThread(void* contextPtr)
 {
+    taf_dcs_Pdp_t ipType = TAF_DCS_PDP_IPV4V6;
+
     TestSemRef = le_sem_Create("taf_datacall_ut_sem", 0);
 
     ut_profile_list_test();
 
     ut_default_profile_set_get_test();
 
-    ut_set_auth_test();
+    ut_set_get_auth_test();
+
+    le_thread_Ref_t threadRef = le_thread_Create("taf_datacall_state_thread", ut_taf_data_session_handler, &ipType);
+
+    le_thread_Start(threadRef);
+
+    le_sem_Wait(TestSemRef);
 
     ut_ipv4v6_datacall_test();
 
@@ -402,10 +449,15 @@ static void* UnitTestThread(void* contextPtr)
     /* redo session connection test after testing invalid apn */
     ut_ipv4v6_datacall_test();
 
-     ut_ipv4v6_async_datacall_test();
+    ut_ipv4v6_async_datacall_test();
 
-    LE_INFO("all tests are passed");
+    sleep(3);
 
+    taf_dcs_RemoveSessionStateHandler(TestSessionStateRef);
+
+    LE_ASSERT(le_thread_Cancel(threadRef) == LE_OK);
+
+    LE_INFO("====all tests are passed");
     return NULL;
 }
 

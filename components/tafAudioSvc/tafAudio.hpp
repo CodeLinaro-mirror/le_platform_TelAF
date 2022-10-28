@@ -25,10 +25,6 @@
  *  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- *  Changes from Qualcomm Innovation Center are provided under the following license:
- *  Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
- *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include "legato.h"
@@ -57,9 +53,7 @@ using namespace telux::audio;
 #define DEFAULT_SAMPLERATE         48000
 
 #define CHECK_OUTPUT_IF(interface)     (   (interface == TAF_AUDIO_IF_CODEC_SPEAKER) || \
-        (interface == TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_TX) || \
-        (interface == TAF_AUDIO_IF_PCM_SPEAKER) || \
-        (interface == TAF_AUDIO_IF_I2S_SPEAKER) \
+        (interface == TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_TX) \
         )
 
 typedef struct StreamEventHandlerRef* StreamEventHandlerRef_t;
@@ -104,10 +98,6 @@ typedef enum
 {
     TAF_AUDIO_IF_CODEC_MIC,
     TAF_AUDIO_IF_CODEC_SPEAKER,
-    TAF_AUDIO_IF_PCM_MIC,
-    TAF_AUDIO_IF_PCM_SPEAKER,
-    TAF_AUDIO_IF_I2S_MIC,
-    TAF_AUDIO_IF_I2S_SPEAKER,
     TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX,
     TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_TX,
     TAF_AUDIO_IF_DSP_FRONTEND_FILE_PLAY,
@@ -199,8 +189,7 @@ namespace tafsvc {
     {
         taf_audio_If_t interface;
         bool            HwDevice;
-        uint32_t       timeSlot;
-        taf_audio_I2SChannel_t channelMode;
+
     }
     CreateStream_t;
 
@@ -210,8 +199,6 @@ namespace tafsvc {
         bool echoCancellerEnabled;
         uint32_t         gain;
         int32_t          fd;
-        uint32_t         timeSlot;
-        taf_audio_I2SChannel_t channelMode;
         taf_audio_If_t interface;
         taf_audio_FileFormat_t format;
         taf_audio_SamplePcmConfig_t  samplePcmConfig;
@@ -342,10 +329,6 @@ namespace tafsvc {
             taf_audio_StreamRef_t OpenMic();
             taf_audio_StreamRef_t OpenModemVoiceRx(uint32_t slotId);
             taf_audio_StreamRef_t OpenModemVoiceTx(uint32_t slotId);
-            taf_audio_StreamRef_t OpenI2sRx(taf_audio_I2SChannel_t mode);
-            taf_audio_StreamRef_t OpenI2sTx(taf_audio_I2SChannel_t mode);
-            taf_audio_StreamRef_t OpenPcmRx(uint32_t timeslot);
-            taf_audio_StreamRef_t OpenPcmTx(uint32_t timeslot);
             le_result_t PlayDtmf(taf_audio_StreamRef_t streamRef,
                     const char* dtmfPtr, uint32_t duration, uint32_t pause );
             void StopDtmf(taf_audio_StreamRef_t streamRef);
@@ -361,7 +344,6 @@ namespace tafsvc {
             le_result_t DisableEchoCanceller(taf_audio_StreamRef_t streamRef);
             le_result_t IsNoiseSuppressorEnabled(taf_audio_StreamRef_t streamRef, bool* status);
             le_result_t IsEchoCancellerEnabled(taf_audio_StreamRef_t streamRef, bool* status);
-            le_result_t SetSamplePcmSamplingRate(taf_audio_StreamRef_t streamRef, uint32_t samplingRate);
             taf_audio_MediaHandlerRef_t AddMediaHandler(taf_audio_StreamRef_t streamRef, taf_audio_MediaHandlerFunc_t handlerPtr,
                         void* contextPtr);
             taf_audio_DtmfDetectorHandlerRef_t AddDtmfDetectorHandler(taf_audio_StreamRef_t streamRef, taf_audio_DtmfDetectorHandlerFunc_t handlerPtr,

@@ -68,6 +68,7 @@ using namespace std;
 
 #define DEFAULT_ECALL_NUM "112"
 #define CFG_PSAP_NUMBER "PsapNum"
+#define CFG_NAD_DEREG_TIME "NadDeregTime"
 
 namespace telux {
     namespace tafsvc {
@@ -166,6 +167,10 @@ namespace telux {
                 le_result_t SetPsapNumber( const char* psapNumber );
                 le_result_t GetPsapNumber( char* psapNumber, size_t psapNumLength );
                 le_result_t UseUSimNumbers();
+                bool isIdle();
+                le_result_t SetNadDeregistrationTime(uint16_t deregTime);
+                le_result_t GetNadDeregistrationTime(uint16_t* deregTime);
+                le_result_t TerminateRegistration();
                 taf_ecall_State_t GetState ( taf_ecall_CallRef_t ecallRef);
                 taf_ecall_TerminationReason_t GetTerminationReason ( taf_ecall_CallRef_t ecallRef);
                 taf_ecall_StateChangeHandlerRef_t AddStateChangeHandler (taf_ecall_StateChangeHandlerFunc_t handlerPtr,

@@ -177,6 +177,23 @@
  * To request that the modem reads the number from FDN/SDN, call taf_ecall_UseUSimNumbers() before starting
  * an eCall.
  *
+ * @section taf_ecall_timer_configuration NAD eCall deregistration time
+ *
+ * The NAD (Network Access Device, i.e. the Modem) deregistration allows the device to remain
+ * registered to the network for an amount of time after the eCall is ended from remotely or
+ * user hangup locally using taf_ecall_End().
+ * The deregistration duration can be set using taf_ecall_SetNadDeregistrationTime() API and
+ * retrieved using taf_ecall_GetNadDeregistrationTime() API.
+ *
+ * The taf_ecall_SetNadDeregistrationTime() API is used to set the time value of a
+ * <em>deregistration timer</em>: after an eCall ends, so that NAD remains registered on the
+ * network for a duration of time and then automatically deregisters from the network upon
+ * expiry of the timer.
+ *
+ * Moreover, when NAD (i.e. Modem) is in <b>eCall only</b> mode and an eCall has been cleared-down
+ * by the PSAP or by taf_ecall_End(), then an user can terminate eCall registration anytime after
+ * T9 but before T10 expired by calling API taf_ecall_TerminateRegistration().
+ *
  * @section taf_ecall_concurrency Concurrency of eCall
  *
  * If another application wants to use the eCall service when a session is already active, the
@@ -989,5 +1006,53 @@ FUNCTION le_result_t GetPsapNumber
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t UseUSimNumbers
+(
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set eCall deregistration time in NAD (network access device). After end of an emergency call
+ * the in-vehicle system stays registered in the network for a specific amount of time, defined
+ * by NAD (network access device) eCall deregistration time.
+ *
+ * @return
+ *  - LE_OK -- On success.
+ *  - LE_BUSY -- An eCall session is in progress.
+ *  - LE_FAULT -- On failures.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetNadDeregistrationTime
+(
+    uint16 deregTime IN ///< The eCall deregistration time (in minutes).
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get eCall deregistration time of the NAD (network access device) .
+ *
+ * @return
+ *  - LE_OK -- On success.
+ *  - LE_FAULT -- On failures.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetNadDeregistrationTime
+(
+    uint16    deregTime  OUT  ///< The eCall deregistration time in minutes.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Disconnect network access device (NAD) from the eCall network. After end of an emergency call
+ * the in-vehicle system continues registered on the network for a period of time to facilate get
+ * callback from Public Safely Answering Point (PSAP). But when NAD requires to deregister from
+ * the network this API can be used.
+ *
+ * @return
+ *  - LE_OK -- On success.
+ *  - LE_FAULT -- On failures.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t TerminateRegistration
 (
 );

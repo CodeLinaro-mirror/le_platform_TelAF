@@ -1203,3 +1203,74 @@ le_result_t taf_ecall_UseUSimNumbers
     return ecall.UseUSimNumbers();
 }
 
+/*======================================================================
+
+ FUNCTION      taf_ecall_SetNadDeregistrationTime
+
+ Set eCall deregistration time in NAD (network access device). After end of an emergency call
+ the in-vehicle system stays registered in the network for a specific amount of time, defined
+ by NAD (network access device) eCall deregistration time.
+
+ @return
+  - LE_OK         On success
+  - LE_BUSY       An eCall session is in progress
+  - LE_FAULT      On failures
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_ecall_SetNadDeregistrationTime
+(
+    uint16_t deregTime //NAD (network access device) deregistration time in minutes
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.SetNadDeregistrationTime(deregTime);
+}
+
+/*======================================================================
+
+ FUNCTION      taf_ecall_GetNadDeregistrationTime
+
+ Get eCall deregistration time of the NAD (network access device) .
+
+ @return
+  - LE_OK          On success
+  - LE_FAULT       On failures
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_ecall_GetNadDeregistrationTime
+(
+    uint16_t* deregTime //NAD (network access device) deregistration time in minutes
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.GetNadDeregistrationTime(deregTime);
+}
+
+/*======================================================================
+
+ FUNCTION      taf_ecall_TerminateRegistration
+
+ Disconnect network access device (NAD) from the eCall network. After end of an emergency call
+ the in-vehicle system continues registered on the network for a period of time to facilate get
+ callback from Public Safely Answering Point (PSAP). But when NAD requires to deregister from
+ the network this API can be used.
+
+ @return
+  - LE_OK         On success
+  - LE_FAULT      On failures
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_ecall_TerminateRegistration
+(
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.TerminateRegistration();
+}
+

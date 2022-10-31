@@ -115,6 +115,20 @@ static void CloseAudio() {
     }
 }
 
+static void taf_ecall_TerminateRegistration_test()
+{
+    // Test Case
+    le_result_t result = taf_ecall_TerminateRegistration();
+    if (result == LE_OK)
+    {
+        printf("TerminateRegistration SUCCESS\n");
+        LE_INFO("TerminateRegistration SUCCESS!!!\n");
+    } else {
+        printf("TerminateRegistration FAILED. Error: %d\n", (int) result);
+        LE_ERROR("TerminateRegistration FAILED. Error: %d\n", (int) result);
+    }
+}
+
 static void SignalHandler (int sigNum)
 {
     LE_INFO("Exit eCallDemo app");
@@ -221,6 +235,7 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
                 LE_INFO("ECall ENDed, terminate reason  = %d", lcf );
                 printf("Call Termination reason: %d", lcf);
             }
+            taf_ecall_TerminateRegistration_test();
             CloseAudio();
             break;
         }
@@ -450,6 +465,36 @@ static void updateMsdInformation()
     }
 }
 
+static void taf_ecall_GetNadDeregTime_test()
+{
+    // Test Case
+    uint16_t deregTimeOrg = 0;
+    le_result_t result = taf_ecall_GetNadDeregistrationTime(&deregTimeOrg);
+    if (result == LE_OK)
+    {
+        printf("GetNadDeregTime SUCCESS\n");
+        printf("Existing deregTime (in minutes): %d\n", deregTimeOrg);
+        LE_INFO("GetNadDeregTime SUCCESS!!! DeregTime (in minutes): %d\n", deregTimeOrg);
+    } else {
+        printf("GetNadDeregTime FAILED. Error: %d\n", (int) result);
+        LE_ERROR("GetNadDeregTime FAILED. Error: %d\n", (int) result);
+    }
+}
+
+static void taf_ecall_SetNadDeregTime_test()
+{
+    // Test Case
+    le_result_t result = taf_ecall_SetNadDeregistrationTime(7*60); // 7 hrs
+    if (result == LE_OK)
+    {
+        printf("SetNadDeregistrationTime as 7 hrs SUCCESS\n");
+        LE_INFO("SetNadDeregistrationTime as 7 hrs SUCCESS!!!\n");
+    } else {
+        printf("SetNadDeregistrationTime FAILED. Error: %d\n", (int) result);
+        LE_ERROR("SetNadDeregistrationTime FAILED. Error: %d\n", (int) result);
+    }
+}
+
 static void updateLocationInformation(taf_ecall_CallRef_t eCallRef)
 {
     int32_t latitude;
@@ -515,6 +560,9 @@ static int startECall()
     updateMsdInformation();
 
     taf_ecall_SetMsdPassengersCount(ECallRef, 2);
+
+    taf_ecall_GetNadDeregTime_test();
+    taf_ecall_SetNadDeregTime_test();
 
     if (strcmp(eCallType, "AUTO") == 0)
     {

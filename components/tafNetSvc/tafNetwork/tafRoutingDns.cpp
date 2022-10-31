@@ -558,7 +558,7 @@ void net_GetLinuxDefaultGateway
 
 static le_result_t SetLinuxIPv6DefaultGateway(const char *intfPtr, const char *gatewayPtr)
 {
-    le_result_t ret,delRet;
+    le_result_t ret, delRet = LE_FAULT;
     taf_net_DfltGwBackup_t defaultGwBackup;
 
     TAF_ERROR_IF_RET_VAL(intfPtr == NULL, LE_FAULT, "intfPtr is NULL!");
@@ -595,6 +595,10 @@ static le_result_t SetLinuxIPv6DefaultGateway(const char *intfPtr, const char *g
     if(ret == LE_NOT_FOUND || ret == LE_OK)
     {
         ret=ChangeIpv6RouteWithIoctl("::", "0", gatewayPtr, intfPtr, 0, true);
+        //Rollback if setting default gateway failed.
+        if(delRet == LE_OK && ret != LE_OK)
+            ChangeIpv6RouteWithIoctl("::", "0", defaultGwBackup.ipV6Gateway,
+                                      defaultGwBackup.ipV6InterfaceName, 0, true);
         return ret;
     }
     else
@@ -607,7 +611,7 @@ static le_result_t SetLinuxIPv6DefaultGateway(const char *intfPtr, const char *g
 
 static le_result_t SetLinuxIPv4DefaultGateway(const char *intfPtr, const char *gatewayPtr)
 {
-    le_result_t ret,delRet;
+    le_result_t ret, delRet = LE_FAULT;
     taf_net_DfltGwBackup_t defaultGwBackup;
 
     TAF_ERROR_IF_RET_VAL(intfPtr == NULL, LE_FAULT, "intfPtr is NULL!");
@@ -645,6 +649,10 @@ static le_result_t SetLinuxIPv4DefaultGateway(const char *intfPtr, const char *g
     if(ret == LE_NOT_FOUND || ret == LE_OK)
     {
         ret=ChangeIpv4RouteWithIoctl("0.0.0.0", "0.0.0.0", gatewayPtr, intfPtr, 0, true);
+        //Rollback if setting default gateway failed.
+        if(delRet == LE_OK && ret != LE_OK)
+            ChangeIpv4RouteWithIoctl("0.0.0.0", "0.0.0.0", defaultGwBackup.ipV4Gateway,
+                                     defaultGwBackup.ipV4InterfaceName, 0, true);
         return ret;
     }
     else

@@ -1,0 +1,12 @@
+sources:
+{
+    tafVoiceCallConsoleApp.cpp
+}
+
+requires:
+{
+    api:
+    {
+        taf_voicecall.api
+    }
+}

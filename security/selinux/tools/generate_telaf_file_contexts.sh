@@ -32,14 +32,14 @@
 #!/bin/bash
 BASEDIR=$(dirname $(realpath $0))
 
-SEPOLICY_SYS_DIR=$(dirname ${BASEDIR})/sepolicy
-SEPOLICY_COMPONENT_DIR=$(dirname ${BASEDIR})/../../components
-SEPOLICY_APPS_DIR=$(dirname ${BASEDIR})/../../apps
+SEPOLICY_SYS_DIR=$(dirname ${BASEDIR})/sepolicy/sys
+SEPOLICY_SERVICE_DIR=$(dirname ${BASEDIR})/sepolicy/services
+SEPOLICY_TEST_DIR=$(dirname ${BASEDIR})/sepolicy/test
 
-FILE_CONTEXTS_DIR=${SEPOLICY_SYS_DIR}/files
+FILE_CONTEXTS_DIR=$(dirname ${BASEDIR})/sepolicy/files
 FILE_CONTEXTS_FILE=${FILE_CONTEXTS_DIR}/file_contexts
 
-FC_FILES=$(find ${SEPOLICY_SYS_DIR} ${SEPOLICY_COMPONENT_DIR} ${SEPOLICY_APPS_DIR} -type f -name "*.fc")
+FC_FILES=$(find ${SEPOLICY_SYS_DIR} ${SEPOLICY_SERVICE_DIR} ${SEPOLICY_TEST_DIR} -type f -name "*.fc")
 
 if [ ! -z "$FC_FILES" ]
 then

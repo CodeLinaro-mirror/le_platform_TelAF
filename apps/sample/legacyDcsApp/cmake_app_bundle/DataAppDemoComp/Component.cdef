@@ -1,0 +1,14 @@
+externalBuild:
+{
+    "mkdir -p ${LEGATO_BUILD}/cmake_app_bundle"
+    "${CURDIR}/make.sh"
+    "cp ${BUILDDIR}/DataAppDemoComp/build/DataAppDemo ${LEGATO_BUILD}/cmake_app_bundle/DataAppDemoExec"
+}
+
+bundles:
+{
+    file:
+    {
+        [x] ${LEGATO_BUILD}/cmake_app_bundle/DataAppDemoExec /bin/
+    }
+}

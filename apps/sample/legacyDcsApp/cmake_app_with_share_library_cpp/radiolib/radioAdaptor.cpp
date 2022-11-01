@@ -32,43 +32,54 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef DATAADAPTOR_H
-#define DATAADAPTOR_H
+#include "radioAdaptor.h"
 
-
-#include <stdio.h>
-
-#include "legato.h"
-extern "C" {
-#include "taf_dcs_interface.h"
+/**
+ * Initialize a legato thread and connect with taf_radio service.
+ */
+void RadioAdaptor::Connect()
+{
+    // Set the TelAF thread context for connection
+    le_thread_InitLegatoThreadData("telaf_thread");
+    taf_radio_ConnectService();
 }
 
-using namespace std;
-
-class DataAdaptor
+/**
+ * Enter the event loop of TelAF.
+ */
+void RadioAdaptor::RegisterEventLoop(void)
 {
-    public:
-        DataAdaptor(){};
-        ~DataAdaptor(){};
-        static void LegatoContextInitialization(void);
-        static void Connect(pthread_once_t *legatoThreadOnceKey);
-        void RegisterEventLoop(void);
+    // Enter the event loop to make sure telaf events can be handled properly
+    le_event_RunLoop();
+}
 
-        le_result_t StartDataCallOnDefaultProfile(taf_dcs_Pdp_t ipType);
-        void DumpDataProfile(void);
+/**
+ * Check whether the radio power status is on.
+ */
+bool RadioAdaptor::IsRadioPowerOn(void){
+    bool ret = false;
+    le_result_t res;
+    le_onoff_t state;
 
-        static void DataCallEventHandler
-        (
-        taf_dcs_ProfileRef_t profileRef,
-        taf_dcs_ConState_t callEvent,
-        const taf_dcs_StateInfo_t *infoPtr,
-        void* contextPtr
-        );
-        static const char* CallEventToString
-        (
-            taf_dcs_ConState_t callEvent
-        );
+    res = taf_radio_GetRadioPower(&state, RADIO_DEFAULT_PHONE_ID);
 
-};
+    if (res != LE_OK)
+    {
+        return ret;
+    }
 
-#endif
+    switch (state)
+    {
+        case LE_OFF:
+            LE_INFO("Power OFF");
+            break;
+        case LE_ON:
+            LE_INFO("Power ON");
+            ret = true;
+            break;
+        default:
+            ret = false;
+    }
+
+    return ret;
+}

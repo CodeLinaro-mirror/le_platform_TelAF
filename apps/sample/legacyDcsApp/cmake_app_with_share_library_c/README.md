@@ -1,6 +1,6 @@
-# A sample application of TelAF Data Call Service in C++
+# A sample application of TelAF Data Call Service in C
 The application calls taf_dcs APIs and taf_radio APIs via a dynamic library called DataAdaptor and RadioAdaptor.
-It dumps the available data profiles and makes a data call with the default profile when the radio power status is on.
+It dumps the available data profiles and makes a data call with the default profile.
 ## Get Started
 Before building the application, the toolchain needs to be installed properly and TelAF framework needs to be built successfully.
 
@@ -18,19 +18,18 @@ export TARGET=sa515m
 
 ### Step 3 Build the application
 ```bash
-cd ~/legacyDCSApp_cppAdaptor
+cd ~/cmake_app_with_share_library_c
 mkdir build
 cd build
 cmake ..
 make
 ```
 
-The output libdataAdaptor.so locates in build/datalib/, libreadioAdaptor.so locates in build/radiolib,
-the executable DataAppDemo locates in build/.
+The output libdataAdaptor.so locates in build/datalib/, the executable DataAppDemo locates in build/.
 
 ### Step 4 Run the application on the target
-Push libdataAdaptor.so and libreadioAdaptor.so to /data/lib on device, DataAppDemo to /data/ on device via ADB.
-On device, run the following commands to set external library path and bind the APIs to taf_dcs and taf_radio service.
+Push libdataAdaptor.so to /data/lib on device, DataAppDemo to /data/ on device via ADB.
+On device, run the following commands to set external library path and bind the APIs to taf_dcs service.
 
 Lastly run the executable file.
 ```bash

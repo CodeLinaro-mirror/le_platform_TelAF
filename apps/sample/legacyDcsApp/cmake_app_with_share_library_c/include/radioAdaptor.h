@@ -32,30 +32,15 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef RADIOADAPTOR_H
-#define RADIOADAPTOR_H
-
-
 #include <stdio.h>
 
 #include "legato.h"
-extern "C" {
 #include "taf_radio_interface.h"
-}
+
 
 #define RADIO_DEFAULT_PHONE_ID 0
 
-using namespace std;
+void radioAdaptor_Connect();
+void radioAdaptor_RegisterEventLoop(void);
 
-class RadioAdaptor
-{
-    public:
-        RadioAdaptor(){};
-        ~RadioAdaptor(){};
-        static void LegatoContextInitialization(void);
-        static void Connect(pthread_once_t *legatoThreadOnceKey);
-
-        void RegisterEventLoop(void);
-        bool IsRadioPowerOn(void);
-};
-#endif
+bool radioAdaptor_IsRadioPowerOn(void);

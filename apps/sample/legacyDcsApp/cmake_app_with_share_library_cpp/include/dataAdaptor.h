@@ -32,59 +32,42 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "radioAdaptor.h"
+#ifndef DATAADAPTOR_H
+#define DATAADAPTOR_H
 
 
-/**
- * Initialize a legato thread and connect with taf_radio service.
- */
-void radioAdaptor_Connect(pthread_once_t *legatoThreadOnceKey)
+#include <stdio.h>
+
+#include "legato.h"
+extern "C" {
+#include "taf_dcs_interface.h"
+}
+
+using namespace std;
+
+class DataAdaptor
 {
-    pthread_once(legatoThreadOnceKey, legatoContextInitialization);
-    taf_radio_ConnectService();
-}
+    public:
+        DataAdaptor(){};
+        ~DataAdaptor(){};
+        static void Connect();
+        void RegisterEventLoop(void);
 
-/**
- * Enter the event loop of TelAF.
- */
-void radioAdaptor_RegisterEventLoop(void)
-{
-    // Enter the event loop to make sure telaf events can be handled properly
-    le_event_RunLoop();
-}
+        le_result_t StartDataCallOnDefaultProfile(taf_dcs_Pdp_t ipType);
+        void DumpDataProfile(void);
 
-/**
- * Check whether the radio power status is on.
- */
-bool radioAdaptor_IsRadioPowerOn(void){
-    bool ret = false;
-    le_result_t res;
-    le_onoff_t state;
+        static void DataCallEventHandler
+        (
+        taf_dcs_ProfileRef_t profileRef,
+        taf_dcs_ConState_t callEvent,
+        const taf_dcs_StateInfo_t *infoPtr,
+        void* contextPtr
+        );
+        static const char* CallEventToString
+        (
+            taf_dcs_ConState_t callEvent
+        );
 
-    res = taf_radio_GetRadioPower(&state, RADIO_DEFAULT_PHONE_ID);
+};
 
-    if (res != LE_OK)
-    {
-        return ret;
-    }
-
-    switch (state)
-    {
-        case LE_OFF:
-            LE_INFO("Power OFF");
-            break;
-        case LE_ON:
-            LE_INFO("Power ON");
-            ret = true;
-            break;
-        default:
-            ret = false;
-    }
-
-    return ret;
-}
-
-static void legatoContextInitialization(){
-    // Set the TelAF thread context for connection with radio service
-    le_thread_InitLegatoThreadData("telaf_radio_thread");
-}
+#endif

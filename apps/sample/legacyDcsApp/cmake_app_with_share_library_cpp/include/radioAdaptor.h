@@ -32,27 +32,29 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#ifndef RADIOADAPTOR_H
+#define RADIOADAPTOR_H
+
+
 #include <stdio.h>
 
 #include "legato.h"
-#include "taf_dcs_interface.h"
+extern "C" {
+#include "taf_radio_interface.h"
+}
 
-void dataAdaptor_Connect(pthread_once_t *legatoThreadOnceKey);
-void dataAdaptor_RegisterEventLoop(void);
+#define RADIO_DEFAULT_PHONE_ID 0
 
-le_result_t dataAdaptor_StartDataCallOnDefaultProfile(taf_dcs_Pdp_t ipType);
-void dataAdaptor_DumpDataProfile( void );
+using namespace std;
 
-static char *CallEventToString
-(
-    taf_dcs_ConState_t callEvent
-);
+class RadioAdaptor
+{
+    public:
+        RadioAdaptor(){};
+        ~RadioAdaptor(){};
+        static void Connect();
 
-static void DataCallEventHandler
-(
-    taf_dcs_ProfileRef_t profileRef,
-    taf_dcs_ConState_t callEvent,
-    const taf_dcs_StateInfo_t *infoPtr,
-    void* contextPtr
-);
-static void legatoContextInitialization();
+        void RegisterEventLoop(void);
+        bool IsRadioPowerOn(void);
+};
+#endif

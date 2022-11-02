@@ -25,6 +25,10 @@
  *  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ *  Changes from Qualcomm Innovation Center are provided under the following license:
+ *  Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include "legato.h"
@@ -47,6 +51,8 @@ LE_MEM_DEFINE_STATIC_POOL(tafAudioHashmap,HASHMAP_SIZE,sizeof(struct hashMapList
 LE_MEM_DEFINE_STATIC_POOL(tafSessionRef,MAX_STREAM,sizeof(taf_SessionRef_t));
 LE_MEM_DEFINE_STATIC_POOL(tafEventIdPool,MAX_STREAM,sizeof(struct tafEventIdList));
 LE_MEM_DEFINE_STATIC_POOL(tafEventHandlerRef,MAX_CONNECTOR,sizeof(EventHandlerRefNode_t));
+
+#define DEVICE_TYPE_HEADSET_SPEAKER 3
 
 static taf_audio_StreamRef_t DtmfAudioRef = NULL;
 // Resets the global callback promise variable
@@ -624,10 +630,44 @@ le_result_t taf_Audio::CreateandStart
 #ifdef TARGET_SA515M
             config.slotId = (SlotId)mSlotId;
 #endif
-            config.sampleRate = 16000;
+            if (outputPtr->samplePcmConfig.sampleRate != 0)
+            {
+                config.sampleRate = outputPtr->samplePcmConfig.sampleRate;
+            }
+            else
+            {
+                config.sampleRate = 16000;
+                LE_INFO("setting default sampling rate as 16000");
+            }
             config.format = AudioFormat::PCM_16BIT_SIGNED;
-            config.channelTypeMask = ChannelType::LEFT;
-            config.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_SPEAKER);
+            config.channelTypeMask = ChannelType::LEFT | ChannelType::RIGHT;
+
+            // Set the config device type based on output device
+            if (outputPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER) {
+                config.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_SPEAKER);
+                LE_DEBUG("set config with device type speaker");
+            }
+            else if (outputPtr->interface == TAF_AUDIO_IF_PCM_SPEAKER) {
+                config.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_HEADSET_SPEAKER);
+                LE_DEBUG("set config with device type headset speaker");
+            }
+            else if (outputPtr->interface == TAF_AUDIO_IF_I2S_SPEAKER) {
+                config.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_SPEAKER);
+                LE_DEBUG("set config with device type speaker");
+                taf_audio_I2SChannel_t channel = outputPtr->channelMode;
+                switch(channel)
+                {
+                    case TAF_AUDIO_I2S_LEFT:
+                        config.channelTypeMask = ChannelType::LEFT;
+                        break;
+                    case TAF_AUDIO_I2S_RIGHT:
+                        config.channelTypeMask = ChannelType::RIGHT;
+                        break;
+                    default:
+                        config.channelTypeMask = ChannelType::LEFT | ChannelType::RIGHT;
+                        break;
+                }
+            }
 #ifdef TARGET_SA515M
             if (streamPtr->echoCancellerEnabled) {
                 config.ecnrMode = EcnrMode::ENABLE;
@@ -897,6 +937,14 @@ taf_audio_StreamRef_t taf_Audio::CreateStream
                  StreamPtr->eventId = CreateEventId();
             case TAF_AUDIO_IF_CODEC_MIC:
             case TAF_AUDIO_IF_CODEC_SPEAKER:
+                break;
+            case TAF_AUDIO_IF_PCM_MIC:
+            case TAF_AUDIO_IF_PCM_SPEAKER:
+                StreamPtr->timeSlot = streamPtr->timeSlot;
+                break;
+            case TAF_AUDIO_IF_I2S_MIC:
+            case TAF_AUDIO_IF_I2S_SPEAKER:
+                StreamPtr->channelMode = streamPtr->channelMode;
                 break;
             default:
                 break;
@@ -1358,6 +1406,101 @@ taf_audio_StreamRef_t taf_Audio::OpenModemVoiceTx
 }
 
 /**
+ * Setup for I2S Rx
+ */
+taf_audio_StreamRef_t taf_Audio::OpenI2sRx
+(
+    taf_audio_I2SChannel_t mode
+)
+{
+    TAF_ERROR_IF_RET_VAL((mode == TAF_AUDIO_I2S_MONO || mode == TAF_AUDIO_I2S_REVERSE),
+            NULL, "Channel mode is not supported");
+
+    CreateStream_t createAudio;
+
+    mSpeaker = true;
+    createAudio.HwDevice = true;
+    createAudio.interface = TAF_AUDIO_IF_I2S_SPEAKER;
+    createAudio.channelMode = mode;
+
+    return CreateStream(&createAudio);
+}
+
+/**
+ * Setup for I2S Tx
+ */
+taf_audio_StreamRef_t taf_Audio::OpenI2sTx
+(
+    taf_audio_I2SChannel_t mode
+)
+{
+    TAF_ERROR_IF_RET_VAL((mode == TAF_AUDIO_I2S_MONO || mode == TAF_AUDIO_I2S_REVERSE),
+            NULL, "Channel mode is not supported");
+
+    CreateStream_t createAudio;
+
+    createAudio.HwDevice = true;
+    createAudio.interface = TAF_AUDIO_IF_I2S_MIC;
+    createAudio.channelMode = mode;
+
+    return CreateStream(&createAudio);
+}
+
+/**
+ * Setup for PCM Rx
+ */
+taf_audio_StreamRef_t taf_Audio::OpenPcmRx
+(
+    uint32_t timeslot
+)
+{
+    CreateStream_t createAudio;
+
+    mSpeaker = true;
+    createAudio.HwDevice = true;
+    createAudio.interface = TAF_AUDIO_IF_PCM_SPEAKER;
+    createAudio.timeSlot = timeslot;
+
+    return CreateStream(&createAudio);
+}
+
+/**
+ * Setup for PCM Tx
+ */
+taf_audio_StreamRef_t taf_Audio::OpenPcmTx
+(
+    uint32_t timeslot
+)
+{
+    CreateStream_t createAudio;
+
+    createAudio.HwDevice = true;
+    createAudio.interface = TAF_AUDIO_IF_PCM_MIC;
+    createAudio.timeSlot = timeslot;
+
+    return CreateStream(&createAudio);
+}
+
+/**
+ * Set sampling rate for the stream
+ */
+le_result_t taf_Audio::SetSamplePcmSamplingRate
+(
+    taf_audio_StreamRef_t streamRef,
+    uint32_t              samplingRate
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    taf_audio_Stream_t*  streamPtr = (taf_audio_Stream_t*)le_ref_Lookup(audio.AudioRefMap, streamRef);
+
+    TAF_ERROR_IF_RET_VAL( streamPtr == NULL, LE_FAULT, "streamPtr is nullptr!");
+
+    streamPtr->samplePcmConfig.sampleRate = samplingRate;
+
+    return LE_OK;
+}
+
+/**
  * Mute or UnMute the stream based StreamMute
  */
 le_result_t taf_Audio::Mute
@@ -1672,7 +1815,33 @@ static le_result_t PlayWave
         config.sampleRate = wHdr.sampleRate;
         config.channelTypeMask = wHdr.channelsCount;
         config.format = AudioFormat::PCM_16BIT_SIGNED;
-        config.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_SPEAKER);
+
+        // Set the config device type based on output device
+        le_hashmap_It_Ref_t connItr =
+                (le_hashmap_It_Ref_t)le_hashmap_GetIterator(streamPtr->connList);
+        taf_audio_Connector_t const * currentconnPtr;
+        taf_audio_Stream_t const * outStreamPtr;
+        le_hashmap_It_Ref_t strmItr;
+        while (le_hashmap_NextNode(connItr)==LE_OK)
+        {
+            currentconnPtr = (taf_audio_Connector_t const *)le_hashmap_GetValue(connItr);
+            strmItr = (le_hashmap_It_Ref_t)le_hashmap_GetIterator(currentconnPtr->audioOutList);
+            while (le_hashmap_NextNode(strmItr)==LE_OK) {
+                outStreamPtr = (taf_audio_Stream_t const *)le_hashmap_GetValue(strmItr);
+                if (outStreamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER){
+                    config.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_SPEAKER);
+                    LE_DEBUG("set config with device type speaker");
+                }
+                else if (outStreamPtr->interface == TAF_AUDIO_IF_PCM_SPEAKER) {
+                    config.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_HEADSET_SPEAKER);
+                    LE_DEBUG("set config with device type headset speaker");
+                }
+                else if (outStreamPtr->interface == TAF_AUDIO_IF_I2S_SPEAKER) {
+                    config.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_SPEAKER);
+                    LE_DEBUG("set config with device type speaker");
+                }
+            }
+        }
         audio.mFileFormat = config.format;
         res = audio.StartAudio(config);
         TAF_ERROR_IF_RET_VAL( (res != LE_OK), LE_FAULT," Config failed");
@@ -1745,7 +1914,34 @@ static le_result_t PlayAmr
             }
 
             config.channelTypeMask = 1;
-            config.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_SPEAKER);
+
+            // Set the config device type based on output device
+            le_hashmap_It_Ref_t connItr =
+                    (le_hashmap_It_Ref_t)le_hashmap_GetIterator(streamPtr->connList);
+            taf_audio_Connector_t const * currentconnPtr;
+            taf_audio_Stream_t const * outStreamPtr;
+            le_hashmap_It_Ref_t strmItr;
+            while (le_hashmap_NextNode(connItr)==LE_OK)
+            {
+                currentconnPtr = (taf_audio_Connector_t const *)le_hashmap_GetValue(connItr);
+                strmItr = (le_hashmap_It_Ref_t)
+                        le_hashmap_GetIterator(currentconnPtr->audioOutList);
+                while (le_hashmap_NextNode(strmItr)==LE_OK) {
+                    outStreamPtr = (taf_audio_Stream_t const *)le_hashmap_GetValue(strmItr);
+                    if (outStreamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER){
+                        config.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_SPEAKER);
+                        LE_DEBUG("set config with device type speaker");
+                    }
+                    else if (outStreamPtr->interface == TAF_AUDIO_IF_PCM_SPEAKER) {
+                        config.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_HEADSET_SPEAKER);
+                        LE_DEBUG("set config with device type headset speaker");
+                    }
+                    else if (outStreamPtr->interface == TAF_AUDIO_IF_I2S_SPEAKER) {
+                        config.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_SPEAKER);
+                        LE_DEBUG("set config with device type speaker");
+                    }
+                }
+            }
             audio.mFileFormat = config.format;
             res = audio.StartAudio(config);
             TAF_ERROR_IF_RET_VAL( (res != LE_OK), LE_FAULT," Config failed");
@@ -1797,7 +1993,35 @@ le_result_t taf_Audio::PlayFile
                 config.format = AudioFormat::PCM_16BIT_SIGNED;
                 config.sampleRate = DEFAULT_SAMPLERATE;
                 config.channelTypeMask = ChannelType::LEFT;
-                config.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_SPEAKER);
+
+                // Set the config device type based on output device
+                le_hashmap_It_Ref_t connItr =
+                        (le_hashmap_It_Ref_t)le_hashmap_GetIterator(streamPtr->connList);
+                taf_audio_Connector_t const * currentconnPtr;
+                taf_audio_Stream_t const * outStreamPtr;
+                le_hashmap_It_Ref_t strmItr;
+                while (le_hashmap_NextNode(connItr)==LE_OK)
+                {
+                    currentconnPtr = (taf_audio_Connector_t const *)le_hashmap_GetValue(connItr);
+                    strmItr = (le_hashmap_It_Ref_t)
+                            le_hashmap_GetIterator(currentconnPtr->audioOutList);
+                    while (le_hashmap_NextNode(strmItr)==LE_OK) {
+                        outStreamPtr = (taf_audio_Stream_t const *)le_hashmap_GetValue(strmItr);
+                        if (outStreamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER){
+                            config.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_SPEAKER);
+                            LE_DEBUG("set config with device type speaker");
+                        }
+                        else if (outStreamPtr->interface == TAF_AUDIO_IF_PCM_SPEAKER) {
+                            config.deviceTypes
+                                    .emplace_back((DeviceType)DEVICE_TYPE_HEADSET_SPEAKER);
+                            LE_DEBUG("set config with device type headset speaker");
+                        }
+                        else if (outStreamPtr->interface == TAF_AUDIO_IF_I2S_SPEAKER) {
+                            config.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_SPEAKER);
+                            LE_DEBUG("set config with device type speaker");
+                        }
+                    }
+                }
                 res = StartAudio(config);
                 TAF_ERROR_IF_RET_VAL( (res != LE_OK), LE_FAULT," Config failed");
                 mIsPlayStreamCreated = true;

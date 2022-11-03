@@ -71,7 +71,13 @@ string getCurrentTime() {
    strftime(buffer, BUFSIZE, "%Y-%m-%d %H:%M:%S", localtime(&tt));
    std::string currTime;
    int ms = (int) tod.tv_usec / 1000;
-   currTime = currTime + buffer + "." + std::to_string(ms);
+   if (ms < 10) {
+       currTime = currTime + buffer + "." + "00" + std::to_string(ms);
+   } else if (ms < 100) {
+       currTime = currTime + buffer + "." + "0" + std::to_string(ms);
+   } else {
+       currTime = currTime + buffer + "." + std::to_string(ms);
+   }
    return currTime;
 }
 
@@ -420,6 +426,12 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
             PRINT_NOTIFICATION << getCurrentTime() <<" TAF_ECALL_STATE_ENDED "<<endl;
             std::cout << endl;
             taf_ecall_getState_test(eCallReference, TAF_ECALL_STATE_ENDED);
+
+            //Reset Nad Deregistration Time
+            le_result_t result = taf_ecall_SetNadDeregistrationTime(6*60); // 6 hrs
+            LE_TEST_OK(result == LE_OK, "taf_ecall_SetNadDeregTime_test - LE_OK");
+            report(LE_OK,result,"taf_ecall_SetNadDeregTime_test");
+
             taf_ecall_getTerminationReason_test(eCallReference);
             exitApp = true;
             break;
@@ -1149,6 +1161,86 @@ static void* taf_ecall_SetPsapNumber_test()
     return NULL;
 }
 
+static void* taf_ecall_GetNadDeregTime_test()
+{
+    // Test Case
+    uint16_t deregTimeOrg = 0;
+    le_result_t result = taf_ecall_GetNadDeregistrationTime(&deregTimeOrg);
+    LE_TEST_OK(result == LE_OK, "taf_ecall_GetNadDeregTime_test - LE_OK");
+    report(LE_OK,result,"taf_ecall_GetNadDeregTime_test");
+    std::cout<<"*** Existing deregTime (in minutes): "<< deregTimeOrg <<endl;
+    LE_TEST_INFO("taf_ecall_GetNadDeregTime_test done");
+
+    return NULL;
+}
+
+static void* taf_ecall_SetNadDeregTime_test()
+{
+    uint16_t deregTimeOrg = 0;
+    le_result_t result = taf_ecall_GetNadDeregistrationTime(&deregTimeOrg);
+    result = taf_ecall_SetNadDeregistrationTime(5*60); // 5 hrs
+    LE_TEST_OK(result == LE_OK, "taf_ecall_SetNadDeregTime_test - LE_OK");
+    report(LE_OK,result,"taf_ecall_SetNadDeregTime_test");
+
+    // Test Case
+    uint16_t deregTime = 0;
+    result = taf_ecall_GetNadDeregistrationTime(&deregTime);
+    LE_TEST_OK(result == LE_OK, "taf_ecall_GetNadDeregTime_test - LE_OK");
+    report(LE_OK,result,"taf_ecall_GetNadDeregTime_test");
+    std::cout<<"*** deregTime (in minutes): "<< deregTime <<endl;
+
+    // Test Case
+    LE_TEST_OK(deregTime == 5*60, "Checking if Nad Deregistration Time set properly");
+    if(deregTime == 5*60)
+    {
+        std::cout<<TC_No<<". Checking if Nad Deregistration Time set properly " + GREEN + "- Pass" + DONE<<endl;
+    }
+    else
+    {
+        std::cout<<TC_No<<". Checking if Nad Deregistration Time set properly " + RED + "- Fail" + DONE<<endl;
+    }
+
+    result = taf_ecall_SetNadDeregistrationTime(8*60); // 8 hrs
+    LE_TEST_OK(result == LE_OK, "taf_ecall_SetNadDeregTime_test - LE_OK");
+    report(LE_OK,result,"taf_ecall_SetNadDeregTime_test");
+
+    // Test Case
+    result = taf_ecall_GetNadDeregistrationTime(&deregTime);
+    LE_TEST_OK(result == LE_OK, "taf_ecall_GetNadDeregTime_test - LE_OK");
+    report(LE_OK,result,"taf_ecall_GetNadDeregTime_test");
+    std::cout<<"*** deregTime (in minutes): "<< deregTime <<endl;
+
+    // Test Case
+    LE_TEST_OK(deregTime == 8*60, "Checking if Nad Deregistration Time set properly");
+    if(deregTime == 8*60)
+    {
+        std::cout<<TC_No<<". Checking if Nad Deregistration Time set properly " + GREEN + "- Pass" + DONE<<endl;
+    }
+    else
+    {
+        std::cout<<TC_No<<". Checking if Nad Deregistration Time set properly " + RED + "- Fail" + DONE<<endl;
+    }
+
+
+    //Put back the original Nad Deregistration Time
+    result = taf_ecall_SetNadDeregistrationTime(deregTimeOrg);
+
+    TC_No += 1;
+
+    return NULL;
+}
+
+static void* taf_ecall_TerminateRegistration_test()
+{
+    // Test Case
+    le_result_t result = taf_ecall_TerminateRegistration();
+    LE_TEST_OK(result == LE_OK, "taf_ecall_TerminateRegistration - LE_OK");
+    report(LE_OK,result,"taf_ecall_TerminateRegistration");
+    LE_TEST_INFO("taf_ecall_TerminateRegistration done");
+
+    return NULL;
+}
+
 static le_result_t taf_ecall_startECall_test
 (
     const char* eCallType,
@@ -1362,6 +1454,14 @@ COMPONENT_INIT
     taf_ecall_GetPsapNumber_test();
     taf_ecall_SetPsapNumber_test();
 
+    LE_TEST_INFO("Test Nad Deregistration Time of ECall");
+    std::cout <<endl;
+    std::cout <<"************************************************" << endl;
+    std::cout <<"Test Nad Deregistration Time of ECall" << endl;
+    std::cout <<"************************************************" << endl;
+    taf_ecall_GetNadDeregTime_test();
+    taf_ecall_SetNadDeregTime_test();
+
     LE_TEST_INFO("Test start eCall (AUTO/MANUAL)");
     std::cout <<endl;
     std::cout <<"************************************************" << endl;
@@ -1374,6 +1474,19 @@ COMPONENT_INIT
     }
 
     le_thread_Cancel(threadRef);
+
+    LE_TEST_INFO("Test Terminate Registration of ECall");
+    std::cout <<endl;
+    std::cout <<"************************************************" << endl;
+    std::cout <<"Test Terminate Registration of ECall" << endl;
+    std::cout <<"************************************************" << endl;
+    taf_ecall_TerminateRegistration_test();
+
+    LE_TEST_INFO("Test remove handler of ECall");
+    std::cout <<endl;
+    std::cout <<"************************************************" << endl;
+    std::cout <<"Test remove handler of ECall" << endl;
+    std::cout <<"************************************************" << endl;
     taf_ecall_RemoveStateChangeHandler_test();
     printResultMsg();
 

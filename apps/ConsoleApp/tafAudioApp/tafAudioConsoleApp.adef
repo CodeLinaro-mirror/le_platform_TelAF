@@ -1,0 +1,26 @@
+executables:
+{
+    tafAudioConsoleApp = ( Component )
+}
+
+processes:
+{
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+
+    run:
+    {
+        ( tafAudioConsoleApp )
+    }
+}
+
+start: manual
+sandboxed: false
+
+bindings:
+{
+    tafAudioConsoleApp.Component.taf_audio -> tafAudioSvc.taf_audio
+}
+

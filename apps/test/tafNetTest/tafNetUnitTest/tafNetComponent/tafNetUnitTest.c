@@ -195,9 +195,10 @@ static void NetworkBackupSetRestoreDefaultGatewayTest(){
     result=taf_net_BackupDefaultGW();
     LE_ASSERT(result == LE_OK);
     result=taf_net_SetDefaultGW(RMNET1);
-    LE_ASSERT(result == LE_OK);
-    result=taf_net_RestoreDefaultGW();
-    LE_ASSERT(result == LE_OK);
+    if(result == LE_OK){
+        taf_net_RestoreDefaultGW();
+        LE_ASSERT(result == LE_OK);
+    }
     return;
 }
 static void VlanUnitTestFunc(void){
@@ -605,17 +606,17 @@ static void* UnitTestNetThread(void* contextPtr){
         LE_INFO("======== 3 Destination NAT unit test start========");
         DestNatUnitTestFunc();
         le_thread_Sleep(1);
-        LE_INFO("======== 4 Vlan unit test start========");
-        VlanUnitTestFunc();
-        le_thread_Sleep(1);
-        LE_INFO("======== 5 Gsb unit test start========");
+        LE_INFO("======== 4 Gsb unit test start========");
         GsbUnitTestFunc();
-        LE_INFO("======== 6 Remove handlers========");
+        LE_INFO("======== 5 Remove handlers========");
         le_thread_Sleep(3);
         taf_net_RemoveRouteChangeHandler(routeChangeHandlerRef);
         taf_net_RemoveGatewayChangeHandler(gatewayChangeHandlerRef);
         taf_net_RemoveDNSChangeHandler(DNSChangeHandlerRef);
         taf_net_RemoveDestNatChangeHandler(DestNatChangeHandlerRef);
+    }else if(strcmp(testType, "vlan") == 0){
+        LE_INFO("======== VLAN unit test start========");
+        VlanUnitTestFunc();
     }else if(strcmp(testType, "l2tp") == 0){
         LE_INFO("======== L2tp unit test start========");
         L2tpUnitTestFunc();
@@ -632,7 +633,7 @@ COMPONENT_INIT
     const char* testType = "";
     LE_INFO("number = %d",le_arg_NumArgs());
     if(le_arg_NumArgs() != 1){
-        puts("usage:app runProc tafNetUnitTest --exe=tafNetUnitTest -- default/l2tp/socks");
+        puts("usage:app runProc tafNetUnitTest --exe=tafNetUnitTest -- default/vlan/l2tp/socks");
         return;
     }
     testType = le_arg_GetArg(0);

@@ -23,6 +23,7 @@ apps:
     $TELAF_ROOT/apps/tafServices/tafNetSvc
     $TELAF_ROOT/apps/tafServices/tafKeyStoreSvc
     $TELAF_ROOT/apps/tafServices/tafVNW/tafCanSvc
+    $TELAF_ROOT/apps/tafServices/tafSomeipGWSvc
 
     // Command-line tools.
     $LEGATO_ROOT/apps/tools/tools
@@ -56,6 +57,7 @@ apps:
     // $TELAF_ROOT/apps/test/tafLocationTest/tafLocationUnitTest/tafLocationUnitTest.adef
     // $TELAF_ROOT/apps/test/tafCanTest/tafCanUnitTest
     // $TELAF_ROOT/apps/test/tafFSCryptTest/tafFSCryptUnitTest/tafFSCryptUnitTest
+    // $TELAF_ROOT/apps/test/tafSomeipGWTest/tafSomeipSvrUnitTest/tafSomeipSvrUnitTest
 }
 
 commands:

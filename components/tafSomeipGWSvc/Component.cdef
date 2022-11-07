@@ -1,0 +1,47 @@
+sources:
+{
+    tafSomeipGWSvc.cpp
+    tafSomeipSvrImpl.cpp
+}
+
+cxxflags:
+{
+    -I$TELAF_ROOT/include
+}
+
+requires:
+{
+}
+
+provides:
+{
+    api:
+    {
+        someipGW/taf_someipSvr.api
+    }
+}
+
+ldflags:
+{
+    -lvsomeip3
+    -lboost_thread
+    -lboost_regex
+    -lboost_filesystem
+    -lboost_chrono
+    -lboost_atomic
+    -lboost_system
+    -lboost_log_setup
+    -lboost_log
+}
+
+bundles:
+{
+    file:
+    {
+        // Include a default vsomeip JSON config file that contains
+        // the minimal configurations that vsomeip requires. Shall
+        // be modified accordingly based on target device's unicast
+        // and multicast addresses.
+        [rw] tafSomeipGWSvc.json   /
+    }
+}

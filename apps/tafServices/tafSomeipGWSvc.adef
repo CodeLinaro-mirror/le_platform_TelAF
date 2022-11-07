@@ -1,0 +1,31 @@
+sandboxed: false
+
+executables:
+{
+    tafSomeipGWSvc = ( $TELAF_ROOT/components/tafSomeipGWSvc )
+}
+
+processes:
+{
+    envVars:
+    {
+        VSOMEIP_CONFIGURATION = tafSomeipGWSvc.json
+    }
+
+    run:
+    {
+        ( tafSomeipGWSvc )
+    }
+
+    faultAction: restart
+}
+
+bindings:
+{
+}
+
+extern:
+{
+    tafSomeipGWSvc.tafSomeipGWSvc.taf_someipSvr
+}
+

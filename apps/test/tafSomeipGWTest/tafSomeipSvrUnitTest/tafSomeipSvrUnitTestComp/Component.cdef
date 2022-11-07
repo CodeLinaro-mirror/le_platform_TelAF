@@ -1,0 +1,17 @@
+sources:
+{
+    tafSomeipSvrUnitTest.c
+}
+
+requires:
+{
+    api:
+    {
+        $TELAF_ROOT/interfaces/someipGW/taf_someipSvr.api
+    }
+}
+
+cflags:
+{
+    -I${LEGATO_ROOT}/framework/liblegato
+}

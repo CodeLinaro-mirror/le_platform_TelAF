@@ -1,0 +1,66 @@
+/*
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The maximum size of the payload data in bytes.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_PAYLOAD_SIZE = 8192;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Define the default major version and minor version used by offering a service.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE DEFAULT_MAJOR = 0x00;
+DEFINE DEFAULT_MINOR = 0x00000000;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Define the any major version and minor version used by finding a service.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE ANY_MAJOR = 0xFF;
+DEFINE ANY_MINOR = 0xFFFFFFFF;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Define the message type(per as SOME/IP Protocol Specification).
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MT_REQUEST = 0x00;
+DEFINE MT_REQUEST_NO_RETURN = 0x01;
+DEFINE MT_NOTIFICATION = 0x02;
+DEFINE MT_RESPONSE = 0x80;
+DEFINE MT_ERROR = 0x81;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Define the return code(per as SOME/IP Protocol Specification).
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE E_OK = 0x00;
+DEFINE E_NOT_OK = 0x01;
+DEFINE E_UNKNOWN_SERVICE = 0x02;
+DEFINE E_UNKNOWN_METHOD = 0x03;
+DEFINE E_NOT_READY = 0x04;
+DEFINE E_NOT_REACHABLE = 0x05;
+DEFINE E_TIMEOUT = 0x06;
+DEFINE E_WRONG_PROTOCOL_VERSION = 0x07;
+DEFINE E_WRONG_INTERFACE_VERSION = 0x08;
+DEFINE E_MALFORMED_MESSAGE = 0x09;
+DEFINE E_WRONG_MESSAGE_TYPE = 0x0A;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Event type enum
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM EventType
+{
+    ET_EVENT,        ///< The event represents an event notification.
+    ET_FIELD         ///< The event represents a field notification.
+};

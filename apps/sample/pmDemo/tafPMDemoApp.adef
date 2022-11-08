@@ -1,0 +1,26 @@
+sandboxed: false
+executables:
+{
+    tafPMDemo = ( tafPMDemoComp )
+}
+
+
+processes:
+{
+    run:
+    {
+        (tafPMDemo)
+    }
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+}
+
+start: manual
+
+bindings:
+{
+    tafPMDemo.tafPMDemoComp.taf_pm -> tafPMSvc.taf_pm
+    tafPMDemo.tafPMDemoComp.taf_gpio -> tafGpioSvc.taf_gpio
+}

@@ -1,0 +1,13 @@
+sources:
+{
+    pmDemo.c
+}
+
+requires:
+{
+    api:
+    {
+        taf_pm.api
+        taf_gpio.api
+    }
+}

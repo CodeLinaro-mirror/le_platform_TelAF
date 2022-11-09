@@ -5,6 +5,7 @@ policy_module(tafUpdateSvc, 1.0)
 
 gen_require(`
     class blk_file { open read write };
+    type bin_t;
     type cache_t;
     type cache_recovery_t;
     type cgroup_t;
@@ -23,7 +24,6 @@ gen_require(`
     type mtd_block_t;
     type mtd_device_t;
     type ota_master_da_data_t;
-#    type ota_manager_exec_t;
     type power_unit_t;
     type proc_t;
     type shell_exec_t;
@@ -61,7 +61,7 @@ allow telaf_update_t telaf_tafUpdateSvc_t:fd { use };
 allow telaf_update_t ota_master_da_data_t:file { read };
 
 # recovery client policy
-#allow telaf_tafUpdateSvc_t ota_manager_exec_t:file { exec_file_perms };
+allow telaf_tafUpdateSvc_t bin_t:file { exec_file_perms };
 allow telaf_tafUpdateSvc_t tmp_t:dir { write add_name };
 allow telaf_tafUpdateSvc_t tmp_t:file { exec_file_perms manage_file_perms };
 allow telaf_tafUpdateSvc_t kmsg_device_t:chr_file { open write };

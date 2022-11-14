@@ -46,7 +46,6 @@ function build-distclean-af(){
 
 function build-sa515m-af(){
     TARGET=sa515m
-    KEYS=/opt/qct/${TARGET}/AVBTOOL/keys
 
     # build TelAF OSS source code
     make ${TARGET}
@@ -70,11 +69,11 @@ function build-sa515m-af(){
     ${TELAF_ROOT}/mkimg.sh ${TARGET} "$TELAF_ROOT/build/$TARGET/"
 
     # sign TelAF image
-    export AVBTOOL="${OECORE_NATIVE_SYSROOT}/usr/share/avb_py_tool/avbtool"
-    if [ ! -d $KEYS ]; then
-        ${AVBTOOL} add_hashtree_footer --image ./build/sa515m/telaf_ro.squashfs --partition_name telaf --do_not_generate_fec --rollback_index 0
+    export AVBTOOL="${OECORE_NATIVE_SYSROOT}/usr/share/avb_py_tool"
+    if [ ! -d $AVBTOOL/keys ]; then
+        ${AVBTOOL}/avbtool add_hashtree_footer --image ./build/sa515m/telaf_ro.squashfs --partition_name telaf --do_not_generate_fec --rollback_index 0
     else
-        ${AVBTOOL} add_hashtree_footer --image ./build/sa515m/telaf_ro.squashfs --partition_name telaf --algorithm SHA256_RSA2048 --key $KEYS/attest.key --public_key_metadata $KEYS/attest.der --do_not_generate_fec --rollback_index 0
+        ${AVBTOOL}/avbtool add_hashtree_footer --image ./build/sa515m/telaf_ro.squashfs --partition_name telaf --algorithm SHA256_RSA2048 --key $AVBTOOL/keys/qpsa_attest.key --public_key_metadata $AVBTOOL/keys/qpsa_attest.der --do_not_generate_fec --rollback_index 0
    fi
 }
 

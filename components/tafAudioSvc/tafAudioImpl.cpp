@@ -331,9 +331,15 @@ le_result_t taf_Audio::StopAudio
         status = mAudioVoiceStream2->stopAudio(StopAudioCallback);
     }
 
-    if (mAudioPlayStream) {
+    if (mAudioPlayStream && mIsPlaying) {
         mIsPlaying = false;
-        status = mAudioPlayStream->stopAudio(StopType::FORCE_STOP,StopAudioCallback);
+        auto &audio = taf_Audio::GetInstance();
+        if (audio.mFileFormat == AudioFormat::PCM_16BIT_SIGNED)
+        {
+            LE_DEBUG("Stop WAV file successful");
+            return LE_OK;
+        }
+        status = mAudioPlayStream->stopAudio(StopType::FORCE_STOP, StopAudioCallback);
     }
 
     if (mAudioCaptureStream) {
@@ -1985,6 +1991,7 @@ le_result_t taf_Audio::PlayFile
         if (res != LE_OK) {
             LE_INFO( "Use Default Config ");
             if (!mIsPlayStreamCreated) {
+                auto &audio = taf_Audio::GetInstance();
                 StreamConfig config = {};
                 config.type = StreamType::PLAY;
 #ifdef TARGET_SA515M
@@ -1993,6 +2000,7 @@ le_result_t taf_Audio::PlayFile
                 config.format = AudioFormat::PCM_16BIT_SIGNED;
                 config.sampleRate = DEFAULT_SAMPLERATE;
                 config.channelTypeMask = ChannelType::LEFT;
+                audio.mFileFormat = config.format;
 
                 // Set the config device type based on output device
                 le_hashmap_It_Ref_t connItr =

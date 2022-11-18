@@ -1950,8 +1950,6 @@ le_result_t taf_sms_SetPreferredStorage
    taf_sms_Storage_t prefStorage
 )
 {
-   auto &mySms = taf_Sms::GetInstance();
-
    if(prefStorage == TAF_SMS_STORAGE_NV)
    {
       LE_INFO("NV storage is not supported");
@@ -1959,22 +1957,6 @@ le_result_t taf_sms_SetPreferredStorage
    }
 
    le_result_t res = taf_pa_sms_SetPrefStorage(prefStorage);
-
-   if(res == LE_OK)
-   {
-      if(prefStorage == TAF_SMS_STORAGE_HLOS || prefStorage == TAF_SMS_STORAGE_SIM)
-      {
-         taf_pa_sms_SetRxMsgInd(true);
-
-         mySms.qmiRxMsgHandler = taf_pa_sms_AddNewMsgHandler((taf_pa_sms_RxMsgHandlerFunc_t)&taf_pa_sms_getNewRxMsgInd, NULL);
-      }
-      else
-      {
-         taf_pa_sms_SetRxMsgInd(false);
-
-         taf_pa_sms_RemoveRxMsgHandler(mySms.qmiRxMsgHandler);
-      }
-   }
 
    return res;
 }
@@ -2142,6 +2124,9 @@ COMPONENT_INIT
 
    // install the handler
    taf_Handler myHandler;
+
+   taf_pa_sms_SetRxMsgInd(true);
+   mySms.qmiRxMsgHandler = taf_pa_sms_AddNewMsgHandler((taf_pa_sms_RxMsgHandlerFunc_t)&taf_pa_sms_getNewRxMsgInd, NULL);
 
    mySms.StorageEvent = le_event_CreateId("StorageEventId", sizeof(taf_sms_StorageFullType_t));
    taf_pa_sms_AddStorageHandler((taf_pa_sms_StorageHandlerFunc_t)&taf_pa_sms_storageFullInd, NULL);

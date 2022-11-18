@@ -935,11 +935,8 @@ void taf_Sms::Init(void)
       }
 
       telux::common::ServiceStatus smsMgrStatus = prom.get_future().get();
-      if (smsMgrStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE) {
-         auto status = smsMgr->registerListener(mySmsListener);
-         if(status != telux::common::Status::SUCCESS) {
-            LE_ERROR("Unable to register Listener");
-         }
+      if (smsMgrStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+      {
          smsManagers.emplace_back(smsMgr);
       }
       else {

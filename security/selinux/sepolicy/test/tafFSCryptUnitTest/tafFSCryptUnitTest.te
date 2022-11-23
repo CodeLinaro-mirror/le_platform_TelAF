@@ -25,3 +25,4 @@ telaf_tafKeyStoreSvc_FscInit(telaf_tafFSCryptUnitTest_t, telaf_fw_t, telaf_tafFS
 
 allow telaf_tafFSCryptUnitTest_t telaf_tafFSCryptUnitTest_data_t:dir { search_dir_perms rw_dir_perms rw_file_perms };
 allow telaf_tafFSCryptUnitTest_t telaf_tafFSCryptUnitTest_data_t:file { manage_file_perms delete_file_perms };
+allow telaf_tafFSCryptUnitTest_t self:capability { dac_read_search };

@@ -44,27 +44,30 @@ void *TelafTask
 )
 {
     LE_INFO("Enter TelafTask");
-    pthread_once_t legatoThreadOnceKey = PTHREAD_ONCE_INIT;
-    radioAdaptor_Connect(&legatoThreadOnceKey);
-    dataAdaptor_Connect(&legatoThreadOnceKey);
+    RadioAdaptor ra;
+    DataAdaptor da;
+
+    RadioAdaptor::Connect();
+    DataAdaptor::Connect();
 
     le_result_t result;
     taf_dcs_Pdp_t ipType = TAF_DCS_PDP_IPV4V6;
 
-    dataAdaptor_DumpDataProfile();
+    da.DumpDataProfile();
 
-    if(radioAdaptor_IsRadioPowerOn()){
-        result = dataAdaptor_StartDataCallOnDefaultProfile(ipType);
+    if(ra.IsRadioPowerOn()){
+        result = da.StartDataCallOnDefaultProfile(ipType);
     }
     else{
         LE_INFO("Radio power status abnormal");
     }
 
-    dataAdaptor_RegisterEventLoop();
+    da.RegisterEventLoop();
+    return nullptr;
 }
 
 /**
- * Main thread for the application.
+ * Main thread for the application
  */
 int main(int argc, char** argv)
 {

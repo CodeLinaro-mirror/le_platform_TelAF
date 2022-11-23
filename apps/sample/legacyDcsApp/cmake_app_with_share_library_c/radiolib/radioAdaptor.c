@@ -32,62 +32,55 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <dataAdaptor.h>
-#include <radioAdaptor.h>
+#include "radioAdaptor.h"
+
 
 /**
- * Main task for telAF thread, including connection with telAF dcs service, entering the event loop etc.
+ * Initialize a legato thread and connect with taf_radio service.
  */
-void *TelafTask
-(
-    void *arg
-)
+void radioAdaptor_Connect()
 {
-    LE_INFO("Enter TelafTask");
-    pthread_once_t legatoThreadOnceKey = PTHREAD_ONCE_INIT;
-    RadioAdaptor ra;
-    DataAdaptor da;
-
-    RadioAdaptor::Connect(&legatoThreadOnceKey);
-    DataAdaptor::Connect(&legatoThreadOnceKey);
-
-    le_result_t result;
-    taf_dcs_Pdp_t ipType = TAF_DCS_PDP_IPV4V6;
-
-    da.DumpDataProfile();
-
-    if(ra.IsRadioPowerOn()){
-        result = da.StartDataCallOnDefaultProfile(ipType);
-    }
-    else{
-        LE_INFO("Radio power status abnormal");
-    }
-
-    da.RegisterEventLoop();
-    return nullptr;
+    // Set the TelAF thread context for connection with radio service
+    le_thread_InitLegatoThreadData("telaf_thread");
+    taf_radio_ConnectService();
 }
 
 /**
- * Main thread for the application
+ * Enter the event loop of TelAF.
  */
-int main(int argc, char** argv)
+void radioAdaptor_RegisterEventLoop(void)
 {
-    int ret;
+    // Enter the event loop to make sure telaf events can be handled properly
+    le_event_RunLoop();
+}
 
-    pthread_t tid;
+/**
+ * Check whether the radio power status is on.
+ */
+bool radioAdaptor_IsRadioPowerOn(void){
+    bool ret = false;
+    le_result_t res;
+    le_onoff_t state;
 
-    ret = pthread_create(&tid, NULL, TelafTask, NULL);  // Run TelafTask in a separate thread.
-    if (ret < 0)
+    res = taf_radio_GetRadioPower(&state, RADIO_DEFAULT_PHONE_ID);
+
+    if (res != LE_OK)
     {
-        fprintf(stdout, "pthread_create is failed, ret: %d", ret);
-        return -1;
+        return ret;
     }
 
-    // Please overwrite the following code per your application.
-     while (1)
+    switch (state)
     {
-        sleep(1);
+        case LE_OFF:
+            LE_INFO("Power OFF");
+            break;
+        case LE_ON:
+            LE_INFO("Power ON");
+            ret = true;
+            break;
+        default:
+            ret = false;
     }
 
-    return 0;
+    return ret;
 }

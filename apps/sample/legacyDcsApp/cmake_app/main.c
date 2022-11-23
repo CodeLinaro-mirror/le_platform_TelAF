@@ -32,12 +32,16 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "dataAdaptor.h"
+#include <stdio.h>
+
+#include "legato.h"
+#include "taf_dcs_interface.h"
+#include "pthread.h"
 
 /**
- * Dump the available profiles.
+ * Dump the available profiles
  */
-void dataAdaptor_DumpDataProfile
+static void DumpDataProfile
 (
     void
 )
@@ -48,7 +52,7 @@ void dataAdaptor_DumpDataProfile
 
     result = taf_dcs_GetProfileList(profilesInfoPtr, &listSize);
     LE_ASSERT(result == LE_OK);
-    LE_INFO("got profile list, num: %d, result: %d", listSize, result);
+    LE_INFO("got profile list, num: %d, result: %d", listSize, (int)result);
     LE_INFO("%-6s""%-6s""%-12s", "Index", "type", "Name");
     for (int i = 0; i < listSize; i++)
     {
@@ -59,46 +63,32 @@ void dataAdaptor_DumpDataProfile
 }
 
 /**
- * Start a data call with the default profile on given ip type.
+ * Convert data call event to readable string
  */
-le_result_t dataAdaptor_StartDataCallOnDefaultProfile(taf_dcs_Pdp_t ipType)
+static char *CallEventToString
+(
+    taf_dcs_ConState_t callEvent
+)
 {
-    uint32_t profileId;
-    le_result_t result;
-    taf_dcs_SessionStateHandlerRef_t sessionStateRef = NULL;
-    taf_dcs_ProfileRef_t profileRef = NULL;
-
-    profileId = taf_dcs_GetDefaultProfileIndex();
-    profileRef = taf_dcs_GetProfile(profileId);
-
-    // Register the data call event hander to process the event notified.
-    sessionStateRef = taf_dcs_AddSessionStateHandler(profileRef,
-                      (taf_dcs_SessionStateHandlerFunc_t)DataCallEventHandler, &ipType);
-
-    result = taf_dcs_StartSession(profileRef);
-
-    return result;
+    switch (callEvent)
+    {
+        case TAF_DCS_DISCONNECTED:
+            return "disconnected";
+        case TAF_DCS_CONNECTING:
+            return "connecting";
+        case TAF_DCS_CONNECTED:
+            return "connected";
+        case TAF_DCS_DISCONNECTING:
+            return "disconnecting";
+        default:
+            LE_ERROR("unknown status: %d", callEvent);
+            return "unknow status";
+    }
+    return "unknow status";
 }
 
 /**
- * Initialize a legato thread and connect with taf_dcs service.
- */
-void dataAdaptor_Connect(pthread_once_t *legatoThreadOnceKey)
-{
-    pthread_once(legatoThreadOnceKey, legatoContextInitialization);
-    taf_dcs_ConnectService();
-}
-
-/**
- * Enter the event loop of TelAF.
- */
-void dataAdaptor_RegisterEventLoop(void)
-{
-    // Enter the event loop to make sure telaf events can be handled properly
-    le_event_RunLoop();
-}
-/**
- * Call back handler for received data call event.
+ * Call back handler for received data call event
  */
 static void DataCallEventHandler
 (
@@ -128,31 +118,64 @@ static void DataCallEventHandler
 }
 
 /**
- * Convert data call event to readable string.
+ * Main task for telAF thread, including connection with telAF dcs service, entering the event loop etc.
  */
-static char *CallEventToString
+static void *TelafTask
 (
-    taf_dcs_ConState_t callEvent
+    void *arg
 )
 {
-    switch (callEvent)
-    {
-        case TAF_DCS_DISCONNECTED:
-            return "disconnected";
-        case TAF_DCS_CONNECTING:
-            return "connecting";
-        case TAF_DCS_CONNECTED:
-            return "connected";
-        case TAF_DCS_DISCONNECTING:
-            return "disconnecting";
-        default:
-            LE_ERROR("unknown status: %d", callEvent);
-            return "unknow status";
-    }
-    return "unknow status";
+    // Set the TelAF thread context for connection with data service
+    le_thread_InitLegatoThreadData("telaf_task_thread");
+    taf_dcs_ConnectService();
+
+    uint32_t profileId;
+    le_result_t result;
+    taf_dcs_Pdp_t ipType = TAF_DCS_PDP_IPV4V6;
+    taf_dcs_SessionStateHandlerRef_t sessionStateRef = NULL;
+    taf_dcs_ProfileRef_t profileRef = NULL;
+
+    DumpDataProfile();
+
+    profileId = taf_dcs_GetDefaultProfileIndex();
+    profileRef = taf_dcs_GetProfile(profileId);
+
+    // Register the data call event hander to process the event notified.
+    sessionStateRef = taf_dcs_AddSessionStateHandler(profileRef,
+                      (taf_dcs_SessionStateHandlerFunc_t)DataCallEventHandler, &ipType);
+
+    result = taf_dcs_StartSession(profileRef);
+
+    // Enter the event loop to make sure telaf events can be handled properly
+    le_event_RunLoop();
 }
 
-static void legatoContextInitialization(){
-    // Set the TelAF thread context for connection with radio service
-    le_thread_InitLegatoThreadData("telaf_data_thread");
+/**
+ * Main thread for the app
+ */
+int main(int argc, char** argv)
+{
+    int ret;
+
+    LE_INFO("Enter main\n");
+
+    pthread_attr_t attr;
+    pthread_t tid;
+
+    pthread_attr_init (&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    ret = pthread_create(&tid, &attr, TelafTask, &attr);  // Run TelafTask in a separate thread.
+    if (ret < 0)
+    {
+        LE_ERROR("pthread_create is failed, ret: %d", ret);
+        return -1;
+    }
+
+    // Please overwrite the following code per your application.
+     while (1)
+    {
+        sleep(1);
+    }
+
+    return 0;
 }

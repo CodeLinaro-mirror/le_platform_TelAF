@@ -32,17 +32,57 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <stdio.h>
+#include <dataAdaptor.h>
+#include <radioAdaptor.h>
 
-#include "legato.h"
-#include "taf_radio_interface.h"
+/**
+ * Main task for telAF thread, including connection with telAF dcs service, entering the event loop etc.
+ */
+void *TelafTask
+(
+    void *arg
+)
+{
+    LE_INFO("Enter TelafTask");
+    radioAdaptor_Connect();
+    dataAdaptor_Connect();
 
+    le_result_t result;
+    taf_dcs_Pdp_t ipType = TAF_DCS_PDP_IPV4V6;
 
-#define RADIO_DEFAULT_PHONE_ID 0
+    dataAdaptor_DumpDataProfile();
 
-void radioAdaptor_Connect(pthread_once_t *legatoThreadOnceKey);
-void radioAdaptor_RegisterEventLoop(void);
+    if(radioAdaptor_IsRadioPowerOn()){
+        result = dataAdaptor_StartDataCallOnDefaultProfile(ipType);
+    }
+    else{
+        LE_INFO("Radio power status abnormal");
+    }
 
-bool radioAdaptor_IsRadioPowerOn(void);
+    dataAdaptor_RegisterEventLoop();
+}
 
-static void legatoContextInitialization();
+/**
+ * Main thread for the application.
+ */
+int main(int argc, char** argv)
+{
+    int ret;
+
+    pthread_t tid;
+
+    ret = pthread_create(&tid, NULL, TelafTask, NULL);  // Run TelafTask in a separate thread.
+    if (ret < 0)
+    {
+        fprintf(stdout, "pthread_create is failed, ret: %d", ret);
+        return -1;
+    }
+
+    // Please overwrite the following code per your application.
+     while (1)
+    {
+        sleep(1);
+    }
+
+    return 0;
+}

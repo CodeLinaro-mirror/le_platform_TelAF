@@ -386,6 +386,7 @@ STRUCT StateInfo
  * - LE_NOT_FOUND                    Parameter is invalid or couldn't create the data call.
  * - LE_OUT_OF_RANGE                 PDP type is unknown.
  * - LE_DUPLICATE                    If the data session is already connected for the given profile.
+ * - LE_IN_PROGRESS                  The profile is in use and data call is in progress.
  * - LE_TIMEOUT                      Timed out when attempting to make the data call.
  * - LE_FAULT                        Failed to make the data call.
  */
@@ -430,6 +431,7 @@ FUNCTION StartSessionAsync
  * - LE_OUT_OF_RANGE                 PdpType type is unknown.
  * - LE_BAD_PARAMETER                Call context is NULL.
  * - LE_TIMEOUT                      Timeout to stop a data call.
+ * - LE_IN_PROGRESS                  The profile is in use and data call is in progress.
  * - LE_FAULT                        Failed to stop a data call.
  */
 //--------------------------------------------------------------------------------------------------

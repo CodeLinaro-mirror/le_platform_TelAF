@@ -68,16 +68,13 @@ void data_event_handler(taf_dcs_ProfileRef_t profileRef, taf_dcs_ConState_t call
     if ((callEvent == TAF_DCS_CONNECTED) && (infoPtr->ipType == expectIpType))
     {
         taf_dcs_GetInterfaceName(profileRef, interfaceName, 64);
-        LE_INFO("data call connected, interface : %s", interfaceName);
         result = taf_dcs_GetProfileIdByInterfaceName(interfaceName, &profileId);
-        LE_ASSERT(result == LE_OK);
+        LE_TEST_OK(result == LE_OK, "data_event_handler - connected");
     }
     else if ((callEvent == TAF_DCS_DISCONNECTED) && (infoPtr->ipType == expectIpType))
     {
-        taf_dcs_GetInterfaceName(profileRef, interfaceName, 64);
-        LE_INFO("data call disconnected, interface : %s", interfaceName);
-        result = taf_dcs_GetProfileIdByInterfaceName(interfaceName, &profileId);
-        LE_ASSERT(result == LE_OK);
+        int32_t profileId = taf_dcs_GetProfileIndex(profileRef);
+        LE_INFO("data call disconnected, profileId=%d", profileId);
     }
 
 }
@@ -88,7 +85,7 @@ static void* ut_taf_data_session_handler(void* ctxPtr)
 
     TestSessionStateRef = taf_dcs_AddSessionStateHandler(TestProfileRef, (taf_dcs_SessionStateHandlerFunc_t)data_event_handler, ctxPtr);
 
-    LE_ASSERT(TestSessionStateRef != NULL);
+    LE_TEST_OK(TestSessionStateRef != NULL, "ut_taf_data_session_handler - void");
 
     le_sem_Post(TestSemRef);
 
@@ -104,7 +101,7 @@ void ut_profile_list_test()
     le_result_t result;
 
     result = taf_dcs_GetProfileList(profilesInfoPtr, &listSize);
-    LE_ASSERT(result == LE_OK);
+    LE_TEST_OK(result == LE_OK, "ut_profile_list_test - OK");
     LE_INFO("got profile list, num: %d, result: %d", listSize, result);
     LE_INFO("%-6s""%-6s""%-12s", "Index", "type", "Name");
     for (int i = 0; i < listSize; i++)
@@ -120,16 +117,16 @@ void ut_default_profile_set_get_test()
     uint32_t profileId;
 
     result = taf_dcs_SetDefaultProfileIndex(TEST_PROFILE);
-    LE_ASSERT(result == LE_OK);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_SetDefaultProfileIndex - OK");
 
     profileId = taf_dcs_GetDefaultProfileIndex();
-    LE_ASSERT(profileId == TEST_PROFILE);
+    LE_TEST_OK(profileId == TEST_PROFILE, "taf_dcs_GetDefaultProfileIndex - OK");
 
     TestProfileRef = taf_dcs_GetProfile(profileId);
-    LE_ASSERT(TestProfileRef != NULL);
+    LE_TEST_OK(TestProfileRef != NULL, "taf_dcs_GetProfile - OK");
 
     profileId = taf_dcs_GetProfileIndex(TestProfileRef);
-    LE_ASSERT(profileId == TEST_PROFILE);
+    LE_TEST_OK(profileId == TEST_PROFILE, "taf_dcs_GetProfileIndex - OK");
 }
 
 void ut_set_get_auth_test()
@@ -141,35 +138,47 @@ void ut_set_get_auth_test()
     taf_dcs_Auth_t authType;
 
     result = taf_dcs_SetAuthentication(TestProfileRef, TAF_DCS_AUTH_PAP, "pap_user", "123");
-    LE_ASSERT(result == LE_OK);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_SetAuthentication - OK");
 
     result = taf_dcs_GetAuthentication(TestProfileRef, &authType, usrName,TAF_DCS_USER_NAME_MAX_LEN,
                                        password, TAF_DCS_PASSWORD_NAME_MAX_LEN);
-    LE_ASSERT(result == LE_OK);
-    LE_ASSERT(authType == TAF_DCS_AUTH_PAP);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_GetAuthentication - OK");
 
     cmpVal = strncmp(usrName, "pap_user", TAF_DCS_USER_NAME_MAX_LEN);
-    LE_ASSERT(cmpVal == 0);
+    LE_TEST_OK(cmpVal == 0, "Check auth user name - OK");
 
     cmpVal = strncmp(password, "123", TAF_DCS_PASSWORD_NAME_MAX_LEN);
-    LE_ASSERT(cmpVal == 0);
+    LE_TEST_OK(cmpVal == 0, "Check auth password - OK");
 
     result = taf_dcs_SetAuthentication(TestProfileRef, TAF_DCS_AUTH_CHAP, "chap_user", "123");
-    LE_ASSERT(result == LE_OK);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_SetAuthentication - OK");
 
     result = taf_dcs_GetAuthentication(TestProfileRef, &authType, usrName,TAF_DCS_USER_NAME_MAX_LEN,
                                        password, TAF_DCS_PASSWORD_NAME_MAX_LEN);
-    LE_ASSERT(result == LE_OK);
-    LE_ASSERT(authType == TAF_DCS_AUTH_CHAP);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_GetAuthentication - OK");
+    LE_TEST_OK(authType == TAF_DCS_AUTH_CHAP, "Check auth type - OK");
 
     cmpVal = strncmp(usrName, "chap_user", TAF_DCS_USER_NAME_MAX_LEN);
-    LE_ASSERT(cmpVal == 0);
+    LE_TEST_OK(cmpVal == 0, "Check auth user name - OK");
 
     cmpVal = strncmp(password, "123", TAF_DCS_PASSWORD_NAME_MAX_LEN);
-    LE_ASSERT(cmpVal == 0);
+    LE_TEST_OK(cmpVal == 0, "Check auth password - OK");
 
     result = taf_dcs_SetAuthentication(TestProfileRef, TAF_DCS_AUTH_NONE, "", "");
-    LE_ASSERT(result == LE_OK);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_SetAuthentication - OK");
+}
+
+void ut_restore_apn_test()
+{
+    le_result_t result;
+    char apnStr[TAF_DCS_APN_NAME_MAX_LEN];
+
+    result = taf_dcs_SetAPN(TestProfileRef, ApnStr_bak);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_SetAPN - OK");
+    result = taf_dcs_GetAPN(TestProfileRef, apnStr, TAF_DCS_APN_NAME_MAX_LEN);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_GetAPN - OK");
+    int cmpVal = strncmp(apnStr, ApnStr_bak, TAF_DCS_APN_NAME_MAX_LEN);
+    LE_TEST_OK(cmpVal == 0, "Check apn - OK");
 }
 
 void ut_start_session_sync_test()
@@ -179,15 +188,14 @@ void ut_start_session_sync_test()
     taf_dcs_DataBearerTechnology_t upTech, downTech;
 
     result = taf_dcs_StartSession(TestProfileRef);
-    LE_ASSERT(result == LE_OK);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_StartSession - OK");
 
     result = taf_dcs_GetSessionState(TestProfileRef, &state);
-    LE_ASSERT(result == LE_OK);
-    LE_INFO("session state:%d",(int)state);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_GetSessionState - OK");
 
     result = taf_dcs_GetDataBearerTechnology(TestProfileRef, &downTech, &upTech);
-    LE_ASSERT(result == LE_OK);
-    LE_INFO("Bearer Tech down:%d, up:%d",(int)downTech,upTech);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_GetDataBearerTechnology - OK");
+
 }
 
 void ut_stop_session_sync_test()
@@ -195,25 +203,47 @@ void ut_stop_session_sync_test()
     le_result_t result;
 
     result = taf_dcs_StopSession(TestProfileRef);
-    LE_ASSERT(result == LE_OK);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_StopSession - OK");
 }
 
-void ut_start_session_async_test()
+void ut_stop_session_async_handler_func(taf_dcs_ProfileRef_t profileRef, le_result_t result, void* contextPtr)
 {
-    LE_INFO("asynchronous start session %p",TestProfileRef);
+    int32_t profileId = taf_dcs_GetProfileIndex(profileRef);
 
-    taf_dcs_StartSessionAsync(TestProfileRef, NULL, NULL);
-
-    LE_INFO("asynchronous start session done");
+    LE_INFO("**** Handler for Stop Session Asynchronously (Begin)****");
+    LE_INFO("profileId= %d, result: %d", profileId, result);
+    LE_INFO("**** Handler for Stop Session Asynchronously (End)****");
+    ut_restore_apn_test();
+    LE_TEST_EXIT;
 }
 
 void ut_stop_session_async_test()
 {
     LE_INFO("asynchronous stop session %p",TestProfileRef);
 
-    taf_dcs_StopSessionAsync(TestProfileRef, NULL, NULL);
+    taf_dcs_StopSessionAsync(TestProfileRef, ut_stop_session_async_handler_func, NULL);
 
     LE_INFO("asynchronous stop session done");
+}
+
+void ut_start_session_async_handler_func(taf_dcs_ProfileRef_t profileRef, le_result_t result, void* contextPtr)
+{
+    int32_t profileId = taf_dcs_GetProfileIndex(profileRef);
+
+    LE_INFO("**** Handler for Start Session Asynchronously (Begin)****");
+    LE_INFO("profileId= %d, result: %d", profileId, result);
+    LE_INFO("**** Handler for Start Session Asynchronously (End)****");
+
+    ut_stop_session_async_test();
+}
+
+void ut_start_session_async_test()
+{
+    LE_INFO("asynchronous start session %p",TestProfileRef);
+
+    taf_dcs_StartSessionAsync(TestProfileRef, ut_start_session_async_handler_func, NULL);
+
+    LE_INFO("asynchronous start session done");
 }
 
 void ut_set_pdp_test(taf_dcs_Pdp_t pdp)
@@ -222,28 +252,28 @@ void ut_set_pdp_test(taf_dcs_Pdp_t pdp)
     taf_dcs_Pdp_t pdpGet;
 
     result = taf_dcs_SetPDP(TestProfileRef, TAF_DCS_PDP_UNKNOWN);
-    LE_ASSERT(result == LE_OK);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_SetPDP UNKNOWN- OK");
 
     pdpGet = taf_dcs_GetPDP(TestProfileRef);
-    LE_ASSERT(pdpGet == TAF_DCS_PDP_UNKNOWN);
+    LE_TEST_OK(pdpGet == TAF_DCS_PDP_UNKNOWN, "taf_dcs_GetPDP UNKNOWN- OK");
 
     result = taf_dcs_SetPDP(TestProfileRef, TAF_DCS_PDP_IPV4);
-    LE_ASSERT(result == LE_OK);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_SetPDP IPV4- OK");
 
     pdpGet = taf_dcs_GetPDP(TestProfileRef);
-    LE_ASSERT(pdpGet == TAF_DCS_PDP_IPV4);
+    LE_TEST_OK(pdpGet == TAF_DCS_PDP_IPV4, "taf_dcs_GetPDP IPV4- OK");
 
     result = taf_dcs_SetPDP(TestProfileRef, TAF_DCS_PDP_IPV6);
-    LE_ASSERT(result == LE_OK);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_SetPDP IPV6- OK");
 
     pdpGet = taf_dcs_GetPDP(TestProfileRef);
-    LE_ASSERT(pdpGet == TAF_DCS_PDP_IPV6);
+    LE_TEST_OK(pdpGet == TAF_DCS_PDP_IPV6, "taf_dcs_GetPDP IPV6- OK");
 
     result = taf_dcs_SetPDP(TestProfileRef, pdp);
-    LE_ASSERT(result == LE_OK);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_SetPDP type- OK");
 
     pdpGet = taf_dcs_GetPDP(TestProfileRef);
-    LE_ASSERT(pdpGet == pdp);
+    LE_TEST_OK(pdpGet == pdp, "taf_dcs_GetPDP type- OK");
 }
 
 void ut_set_apn_test()
@@ -254,28 +284,15 @@ void ut_set_apn_test()
     le_result_t result;
 
     result = taf_dcs_GetAPN(TestProfileRef, ApnStr_bak, TAF_DCS_APN_NAME_MAX_LEN);
-    LE_ASSERT(result == LE_OK);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_GetAPN - OK");
 
     result = taf_dcs_SetAPN(TestProfileRef, testApnStr);
-    LE_ASSERT(result == LE_OK);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_SetAPN - OK");
 
     result = taf_dcs_GetAPN(TestProfileRef, apnStr, TAF_DCS_APN_NAME_MAX_LEN);
-    LE_ASSERT(result == LE_OK);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_GetAPN - OK");
     int cmpVal = strncmp(apnStr, testApnStr, TAF_DCS_APN_NAME_MAX_LEN);
-    LE_ASSERT(cmpVal == 0);
-}
-
-void ut_restore_apn_test()
-{
-    le_result_t result;
-    char apnStr[TAF_DCS_APN_NAME_MAX_LEN];
-
-    result = taf_dcs_SetAPN(TestProfileRef, ApnStr_bak);
-    LE_ASSERT(result == LE_OK);
-    result = taf_dcs_GetAPN(TestProfileRef, apnStr, TAF_DCS_APN_NAME_MAX_LEN);
-    LE_ASSERT(result == LE_OK);
-    int cmpVal = strncmp(apnStr, ApnStr_bak, TAF_DCS_APN_NAME_MAX_LEN);
-    LE_ASSERT(cmpVal == 0);
+    LE_TEST_OK(cmpVal == 0, "Check apn value - OK");
 }
 
 void ut_ipv4_check()
@@ -284,24 +301,22 @@ void ut_ipv4_check()
     char ipAddr0[TAF_DCS_IPV4_ADDR_MAX_LEN];
     char ipAddr1[TAF_DCS_IPV4_ADDR_MAX_LEN];
 
-    LE_ASSERT(taf_dcs_IsIPv4(TestProfileRef) == true);
+    LE_TEST_OK(taf_dcs_IsIPv4(TestProfileRef) == true, "taf_dcs_IsIPv4 - OK");
 
     result = taf_dcs_GetIPv4Address(TestProfileRef, ipAddr0, TAF_DCS_IPV4_ADDR_MAX_LEN);
-    LE_ASSERT(result == LE_OK);
-    LE_INFO("IPv4 Addr: %s", ipAddr0);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv4Address - OK");
 
     result = taf_dcs_GetIPv4GatewayAddress(TestProfileRef, ipAddr0, TAF_DCS_IPV4_ADDR_MAX_LEN);
-    LE_ASSERT(result == LE_OK);
-    LE_INFO("IPv4 Gateway: %s", ipAddr0);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv4GatewayAddress - OK");
 
     result = taf_dcs_GetIPv4DNSAddresses(TestProfileRef, ipAddr0, TAF_DCS_IPV4_ADDR_MAX_LEN, ipAddr1, TAF_DCS_IPV4_ADDR_MAX_LEN);
-    LE_ASSERT(result == LE_OK);
-    LE_INFO("IPv4 Dns0: %s, Dns1: %s", ipAddr0, ipAddr1);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv4DNSAddresses - OK");
+
 }
 
 void ut_non_ipv4_check()
 {
-    LE_ASSERT(taf_dcs_IsIPv4(TestProfileRef) == false);
+    LE_TEST_OK(taf_dcs_IsIPv4(TestProfileRef) == false, "ut_non_ipv4_check - OK");
 }
 
 void ut_ipv6_check()
@@ -310,24 +325,22 @@ void ut_ipv6_check()
     char ipAddr0[TAF_DCS_IPV6_ADDR_MAX_LEN];
     char ipAddr1[TAF_DCS_IPV6_ADDR_MAX_LEN];
 
-    LE_ASSERT(taf_dcs_IsIPv6(TestProfileRef) == true);
+    LE_TEST_OK(taf_dcs_IsIPv6(TestProfileRef) == true, "taf_dcs_IsIPv6 - OK");
 
     result = taf_dcs_GetIPv6Address(TestProfileRef, ipAddr0, TAF_DCS_IPV6_ADDR_MAX_LEN);
-    LE_ASSERT(result == LE_OK);
-    LE_INFO("IPv6 Addr: %s", ipAddr0);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv6Address - OK");
 
     result = taf_dcs_GetIPv6GatewayAddress(TestProfileRef, ipAddr0, TAF_DCS_IPV6_ADDR_MAX_LEN);
-    LE_ASSERT(result == LE_OK);
-    LE_INFO("IPv6 Gateway: %s", ipAddr0);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv6GatewayAddress - OK");
 
     result = taf_dcs_GetIPv6DNSAddresses(TestProfileRef, ipAddr0, TAF_DCS_IPV6_ADDR_MAX_LEN, ipAddr1, TAF_DCS_IPV6_ADDR_MAX_LEN);
-    LE_ASSERT(result == LE_OK);
-    LE_INFO("IPv6 Dns0: %s, Dns1: %s", ipAddr0, ipAddr1);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_GetIPv6DNSAddresses - OK");
+
 }
 
 void ut_non_ipv6_check()
 {
-    LE_ASSERT(taf_dcs_IsIPv6(TestProfileRef) == false);
+    LE_TEST_OK(taf_dcs_IsIPv6(TestProfileRef) == false, "ut_non_ipv6_check - OK");
 }
 
 void ut_do_session_sync_test_invalid_apn()
@@ -337,23 +350,21 @@ void ut_do_session_sync_test_invalid_apn()
     char *testApnStr = "ims";
 
     result = taf_dcs_GetAPN(TestProfileRef, apnStr_bak, TAF_DCS_APN_NAME_MAX_LEN);
-    LE_ASSERT(result == LE_OK);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_GetAPN - OK");
 
     result = taf_dcs_SetAPN(TestProfileRef, testApnStr);
-    LE_ASSERT(result == LE_OK);
-    LE_INFO("set APN to %s, backup APN: %s", testApnStr, apnStr_bak);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_SetAPN with ims apn - OK");
 
     result = taf_dcs_SetPDP(TestProfileRef, TAF_DCS_PDP_IPV4V6);
-    LE_ASSERT(result == LE_OK);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_SetPDP with IPV4V6- OK");
 
     result = taf_dcs_StartSession(TestProfileRef);
-    LE_ASSERT(result == LE_OK);
-
+    LE_TEST_OK(result == LE_TERMINATED, "taf_dcs_StartSession with ims - terminated");
     result = taf_dcs_StopSession(TestProfileRef);
-    LE_ASSERT(result == LE_OK);
+    LE_TEST_OK(result == LE_NOT_FOUND, "taf_dcs_StopSession with ims - not found");
 
     result = taf_dcs_SetAPN(TestProfileRef, apnStr_bak);
-    LE_ASSERT(result == LE_OK);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_SetAPN with backup apn - OK");
 }
 
 void ut_ipv4v6_async_datacall_test()
@@ -364,9 +375,6 @@ void ut_ipv4v6_async_datacall_test()
 
     ut_start_session_async_test();
 
-    ut_stop_session_async_test();
-
-    ut_restore_apn_test();
 }
 
 void ut_ipv4v6_datacall_test()
@@ -432,7 +440,7 @@ static void* UnitTestThread(void* contextPtr)
 
     ut_set_get_auth_test();
 
-    le_thread_Ref_t threadRef = le_thread_Create("taf_datacall_state_thread", ut_taf_data_session_handler, &ipType);
+    le_thread_Ref_t threadRef = le_thread_Create("datacallTestTh", ut_taf_data_session_handler, &ipType);
 
     le_thread_Start(threadRef);
 
@@ -455,7 +463,7 @@ static void* UnitTestThread(void* contextPtr)
 
     taf_dcs_RemoveSessionStateHandler(TestSessionStateRef);
 
-    LE_ASSERT(le_thread_Cancel(threadRef) == LE_OK);
+    LE_TEST_OK(le_thread_Cancel(threadRef) == LE_OK, "le_thread_Cancel - OK");
 
     LE_INFO("====all tests are passed");
     return NULL;
@@ -465,4 +473,3 @@ COMPONENT_INIT
 {
     UnitTestThread(NULL);
 }
-

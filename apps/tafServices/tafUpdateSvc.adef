@@ -1,6 +1,8 @@
 maxThreads: 300
 groups:
 {
+        ubi
+        disk
         system
         diag
         radio

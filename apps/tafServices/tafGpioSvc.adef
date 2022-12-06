@@ -30,7 +30,7 @@ bundles:
 {
     file:
     {
-        [r]     $TELAF_ROOT/components/tafGpioSvc/gpioWakeupPin.conf     /
+        [rw]     $TELAF_ROOT/components/tafGpioSvc/gpioWakeupPin.conf     /
     }
 }
 

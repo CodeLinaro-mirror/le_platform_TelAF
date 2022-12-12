@@ -246,11 +246,6 @@ namespace tafsvc {
     class tafLocationListener : public telux::loc::ILocationListener,
     public telux::loc::ILocationSystemInfoListener {
         public:
-            void onBasicLocationUpdate(
-                    const std::shared_ptr<telux::loc::ILocationInfoBase> &locationInfo) override;
-
-            void onDetailedLocationUpdate(
-                    const std::shared_ptr<telux::loc::ILocationInfoEx> &locationInfo) override;
 
             void onGnssSVInfo(const std::shared_ptr<telux::loc::IGnssSVInfo> &gnssSVInfo) override;
 
@@ -377,6 +372,10 @@ namespace tafsvc {
             std::chrono::time_point<std::chrono::system_clock> mStartTime;
             std::chrono::time_point<std::chrono::system_clock> mEndTime;
             std::condition_variable mCondVar;
+            std::condition_variable mTtffVar;
+            std::condition_variable mMinEleVar;
+            std::condition_variable mRobuLocVar;
+            std::condition_variable mSecBandVar;
             std::mutex mMutex;
             std::mutex mGnssMutex;
             le_mutex_Ref_t mGnssMutexRef = NULL;
@@ -385,7 +384,6 @@ namespace tafsvc {
             uint8_t mLeapSeconds = 0;
             std::vector<float> mVerticalSpeed;
             std::vector<float> mVerticalSpeedAccuracy;
-            uint8_t mMinElev = 0;
             int mAcqRate;
             std::string mNmeaBitMask;
             uint8_t mEnable;
@@ -393,21 +391,28 @@ namespace tafsvc {
             uint8_t mMajorVersion;
             uint8_t mMinorVersion;
             int mRequestSB;
+            int mRequestMinEle;
             bool mStarted = false;
             bool mTtffEnabled = false;
-            bool mMinElelvEnabled = false;
             bool mConstellationEnabled = false;
             bool mLocEnabled = false;
             bool mSvEnabled = false;
             bool mGnssSigEnabled = false;
             bool mGnssNmeaEnabled = false;
             bool mTtffEnable;
+            bool mRequestSecBand = false;
+            bool mRequestRobLoc = false;
+            bool mGetMinEle = false;
             uint8_t mTotalSVTracked;
             taf_gnss_ConstellationBitMask_t mConstellationMask;
             le_dls_List_t    SvInfoList;
             std::string mCommandName;
             taf_gnss_SvInfo_t  mSatInfo[TAF_GNSS_SV_INFO_MAX_LEN];
             taf_gnss_SvMeas_t  mSatMeas;
+            taf_gnss_NmeaBitMask_t mNmeaMask = 0;
+            taf_gnss_AltType_t mAltType;
+            uint8_t mMinSvEle;
+            std::promise<le_result_t> CmdSynchronousPromise;
 
         private:
             std::shared_ptr<ILocationManager> mLocationManager = nullptr;

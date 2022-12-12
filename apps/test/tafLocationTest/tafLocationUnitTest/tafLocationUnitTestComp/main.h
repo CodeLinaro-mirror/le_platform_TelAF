@@ -34,5 +34,5 @@
 #include "legato.h"
 #include "interfaces.h"
 
-#define DEFAULT_ACQUISITION_RATE 1000
+#define DEFAULT_ACQUISITION_RATE 100 //100msec
 

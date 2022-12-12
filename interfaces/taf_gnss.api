@@ -736,6 +736,18 @@ ENUM FixState
 
 //--------------------------------------------------------------------------------------------------
 /**
+ *  GNSS altitude types
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM AltType
+{
+    ALT_TYPE_UNKNOWN,          ///< Unknown altitude type.
+    ALT_TYPE_CALCULATED,       ///< Altitude is calculated.
+    ALT_TYPE_ASSUMED           ///< Altitude is assumed, there may not be enough satellites to determine the precise altitude.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Handler for position information.
  *
  */
@@ -866,6 +878,22 @@ FUNCTION le_result_t GetLocation
  * Gets the position sample direction. Direction of movement is the direction that the vehicle or
  * person is actually moving.
  *
+ * @return
+ *  - LE_FAULT         Failed to get the location's data
+ *  - LE_OUT_OF_RANGE  At least one of the retrieved parameters is invalid.
+ *  - LE_OK            Succeeded.
+ *
+ * @note Direction and direction accuracy are given in degrees with 1 decimal place: 1755 = 175.5
+ * degrees.
+ * Direction ranges from 0 to 359.9 degrees, where 0 is True North.
+ *
+ * @note In case the function returns LE_OUT_OF_RANGE, some of the retrieved parameters may be
+ *       valid. Compare them with INT32_MAX
+ *
+ * @note directionPtr, directionAccuracyPtr can be set to NULL if not needed.
+ *
+ * @note If the caller is passing an invalid Position sample reference into this function,
+ *       it is a fatal error, the function will not return.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetDirection
@@ -1626,9 +1654,7 @@ FUNCTION le_result_t ForceColdRestart
  * Performs a factory restart of the GNSS device.
  *
  * @return
- *  - LE_FAULT         Failed.
- *  - LE_NOT_PERMITTED The GNSS device state is not enabled or not started.
- *  - LE_OK            Succeeded.
+ *  - LE_UNSUPPORTED   Not supported on this platform.
  *
  */
 //--------------------------------------------------------------------------------------------------

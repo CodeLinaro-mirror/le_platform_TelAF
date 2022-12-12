@@ -101,7 +101,7 @@ static void PositionHandlerFunction
         "Time dilution of precision (TDOP)"
     };
 
-    //118.GetPositionState
+    //138.GetPositionState
     LE_TEST_INFO("taf_gnss_GetPositionState() API is triggerred to get position state");
     result = taf_gnss_GetPositionState(positionSampleRef, &state);
     LE_TEST_OK(result == LE_OK,"taf_gnss_GetPositionState-LE_OK");
@@ -123,7 +123,7 @@ static void PositionHandlerFunction
         LE_TEST_INFO("Failed to get position state");
     }
 
-    //119.Get Location
+    //139.Get Location
     LE_TEST_INFO("taf_gnss_GetLocation() API is triggerred to get 2d-Location information");
     result = taf_gnss_GetLocation(positionSampleRef, &latitude, &longitude, &hAccuracy);
     LE_TEST_OK(((LE_OK == result) || (LE_OUT_OF_RANGE == result)),"taf_gnss_GetLocation -LE_OK");
@@ -145,7 +145,7 @@ static void PositionHandlerFunction
         LE_TEST_INFO("Failed! to get Location information\n");
     }
 
-    //120.Get Direction
+    //140.Get Direction
     LE_TEST_INFO("taf_gnss_GetDirection() API is triggerred to get Direction information");
     result = taf_gnss_GetDirection(positionSampleRef, &direction,&directionAccuracy);
     LE_TEST_OK(((LE_OK == result) || (LE_OUT_OF_RANGE == result)),"taf_gnss_GetDirection-LE_OK");
@@ -163,7 +163,7 @@ static void PositionHandlerFunction
         LE_TEST_INFO("Failed ! to get Direction information");
     }
 
-    //121.Get Altitude
+    //141.Get Altitude
     LE_TEST_INFO("taf_gnss_GetAltitude() API is triggerred to get Altitude information");
     result = taf_gnss_GetAltitude(positionSampleRef, &altitude, &vAccuracy);
     LE_TEST_OK(((LE_OK == result) || (LE_OUT_OF_RANGE == result)), "taf_gnss_GetAltitude - LE_OK");
@@ -181,7 +181,7 @@ static void PositionHandlerFunction
         LE_TEST_INFO("Failed! to get Altitude\n");
     }
 
-    //122.Get Horizontal Speed
+    //142.Get Horizontal Speed
     LE_TEST_INFO("taf_gnss_GetHorizontalSpeed() API is triggerred to get Horizontal Speed");
     result = taf_gnss_GetHorizontalSpeed( positionSampleRef, &hSpeed, &hSpeedAccuracy);
     LE_TEST_OK(((LE_OK == result) || (LE_OUT_OF_RANGE == result)),
@@ -200,7 +200,7 @@ static void PositionHandlerFunction
         LE_TEST_INFO("Failed! to get Horizontal Speed\n");
     }
 
-    //123.Get Vertical Speed
+    //143.Get Vertical Speed
     LE_TEST_INFO("taf_gnss_GetVerticalSpeed() API is triggerred to get Vertical Speed");
     result = taf_gnss_GetVerticalSpeed( positionSampleRef, &vSpeed, &vSpeedAccuracy);
     LE_TEST_OK(((LE_OK == result) || (LE_OUT_OF_RANGE == result)),
@@ -219,7 +219,7 @@ static void PositionHandlerFunction
         LE_TEST_INFO("Failed! to get Vertifical Speed\n");
     }
 
-    //124. Get GPS Leap Seconds
+    //144. Get GPS Leap Seconds
     LE_TEST_INFO("taf_gnss_GetGpsLeapSeconds() API is triggerred to get Gps Leap Seconds");
     result = taf_gnss_GetGpsLeapSeconds(positionSampleRef, &leapSeconds);
     LE_TEST_OK(((LE_OK == result) || (LE_OUT_OF_RANGE == result)),
@@ -233,7 +233,7 @@ static void PositionHandlerFunction
         LE_TEST_INFO("Failed! to get GPS Leap Seconds\n");
     }
 
-    //125. Get Date
+    //145. Get Date
     LE_TEST_INFO("taf_gnss_GetDate() API is triggerred to get Date Information");
     result = taf_gnss_GetDate(positionSampleRef, &year, &month, &day);
     LE_TEST_OK(((LE_OK == result) || (LE_OUT_OF_RANGE == result)), "taf_gnss_GetDate -LE_OK");
@@ -251,7 +251,7 @@ static void PositionHandlerFunction
         LE_TEST_INFO("Failed! to get Date information\n");
     }
 
-    //126. Get Time
+    //146. Get Time
     LE_TEST_INFO("taf_gnss_GetTime() API is triggerred to get Time Information");
     result = taf_gnss_GetTime(positionSampleRef, &hours, &minutes, &seconds, &milliseconds);
     LE_TEST_OK(((LE_OK == result) || (LE_OUT_OF_RANGE == result)), "taf_gnss_GetTime -LE_OK");
@@ -268,7 +268,7 @@ static void PositionHandlerFunction
         LE_TEST_INFO("Failed! to get Time information");
     }
 
-    //127. Satellite Information
+    //147. Satellite Information
     LE_TEST_INFO("taf_gnss_GetSatellitesInfo() API is triggerred to get Satellite Information");
     result =  taf_gnss_GetSatellitesInfo(positionSampleRef,
                                         satelliteIdPtr,
@@ -307,7 +307,7 @@ static void PositionHandlerFunction
         LE_TEST_INFO("Failed! to get Satellite Information\n");
     }
 
-    //128.Get Time Accuracy
+    //148.Get Time Accuracy
     LE_TEST_INFO("taf_gnss_GetTimeAccuracy() API is triggerred to get Time Accuracy");
     result = taf_gnss_GetTimeAccuracy(positionSampleRef, &TimeAccuracy);
     LE_TEST_OK(((LE_OK == result) || (LE_OUT_OF_RANGE == result)),
@@ -325,7 +325,7 @@ static void PositionHandlerFunction
         LE_TEST_INFO("Failed! to get time accuracy\n");
     }
 
-    //129.Get Epoch Time
+    //149.Get Epoch Time
     LE_TEST_INFO("taf_gnss_GetEpochTime() API is triggerred to get Epoch Time");
     positionSampleRef = taf_gnss_GetLastSampleRef();
     LE_TEST_INFO("taf_gnss_GetLastSampleRef() API is triggerred to get last sample reference");
@@ -344,12 +344,12 @@ static void PositionHandlerFunction
         LE_TEST_INFO("Failed! to get epoch time\n");
     }
 
-    //130.Set DOP Resolution -LE_BAD_PARAMETER
+    //150.Set DOP Resolution -LE_BAD_PARAMETER
     LE_TEST_INFO("SetDopResolution() API is triggerred to set DOP resolution");
     result = taf_gnss_SetDopResolution(TAF_GNSS_RES_UNKNOWN);
     LE_TEST_OK(result==LE_BAD_PARAMETER,"taf_gnss_SetDopResolution-LE_BAD_PARAMETER");
 
-    //131. Set DOP & Get Dilution of Precision (150-189)
+    //151. Set DOP & Get Dilution of Precision (150-189)
     LE_TEST_INFO("GetDopResolution() API is triggerred to get DOP resolution");
     do
     {
@@ -396,7 +396,7 @@ static void PositionHandlerFunction
     }
     while (dopType != TAF_GNSS_DOP_LAST);
 
-    //132.Get GPS time
+    //152.Get GPS time
     result = taf_gnss_GetGpsTime(positionSampleRef, &gpsWeek, &gpsTimeOfWeek);
     LE_TEST_OK(((LE_OK == result) || (LE_OUT_OF_RANGE == result)), "taf_gnss_GetGpsTime-LE_OK");
     if (result == LE_OK)
@@ -412,7 +412,7 @@ static void PositionHandlerFunction
         LE_TEST_INFO("Failed! to get GPS time\n");
     }
 
-    //133.Get Satellite Status
+    //153.Get Satellite Status
     LE_TEST_INFO("taf_gnss_GetSatellitesStatus is triggered to get satellite status\n");
     result =  taf_gnss_GetSatellitesStatus(positionSampleRef,
                                           &satsInViewCount,
@@ -433,20 +433,20 @@ static void PositionHandlerFunction
         LE_TEST_INFO("Failed! to get satellite status \n");
     }
 
-    //134. Get the Magnetic deviation
+    //154. Get the Magnetic deviation
     LE_TEST_INFO("taf_gnss_GetMagneticDeviation() is triggered to get the magnetic deviation\n");
     result = taf_gnss_GetMagneticDeviation( positionSampleRef, &magneticDeviation);
     LE_TEST_OK((result == LE_OK), "taf_gnss_GetMagneticDeviation-LE_OK");
     if (LE_OK == result)
     {
-        LE_TEST_INFO("magnetic deviation %d", magneticDeviation/10);
+        LE_TEST_INFO("magnetic deviation: %.1f degrees", (float)(magneticDeviation/10.0));
     }
     else
     {
         LE_TEST_INFO("magnetic deviation unknown [%d]",magneticDeviation);
     }
 
-    //135. Get elliptical uncertainity
+    //155. Get elliptical uncertainity
     LE_TEST_INFO("taf_gnss_GetEllipticalUncertainty() is triggered to get"
         "elliptical uncertiainity information \n");
     result = taf_gnss_GetEllipticalUncertainty(positionSampleRef,&horUncEllipseSemiMajor,
@@ -470,14 +470,10 @@ static void PositionHandlerFunction
         LE_TEST_INFO("Failed! to get elliptical uncertainity information\n");
     }
 
-    //Stop
-    //LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting GNSS fixes");
-    //LE_TEST_OK(taf_gnss_Stop() == LE_OK, "taf_gnss_Stop-LE_OK");
 
     LE_TEST_INFO("taf_gnss_ReleaseSampleRef is triggered");
     taf_gnss_ReleaseSampleRef(positionSampleRef);
     le_sem_Post(PositionHandlerSem);
-    //exit(result);
 
 }
 
@@ -502,7 +498,7 @@ static void SamplePositionHandler
     int32_t val,vAccuracy;
     uint32_t uval, uAccuracy;
 
-    //155.taf_pos_sample_GetFixState()
+    //175.taf_pos_sample_GetFixState()
     LE_TEST_INFO("taf_pos_sample_GetFixState() API is triggered to position fix state");
     result = taf_pos_sample_GetFixState(positionSampleRef, &fixState);
     LE_TEST_OK((result == LE_OK),"taf_pos_sample_GetFixState-LE_OK");
@@ -511,6 +507,7 @@ static void SamplePositionHandler
         LE_TEST_INFO("Sample Position fix state:%s",(TAF_GNSS_STATE_FIX_NO_POS == fixState)?"No Fix"
                                      :(TAF_GNSS_STATE_FIX_2D == fixState)?"2D Fix"
                                      :(TAF_GNSS_STATE_FIX_3D == fixState)?"3D Fix"
+                                     :(TAF_GNSS_STATE_FIX_ESTIMATED == fixState)?"Estimated Fix"
                                      : "Unknown");
     }
     else
@@ -518,21 +515,21 @@ static void SamplePositionHandler
         LE_TEST_INFO("Failed to get sample position fix state\n");
     }
 
-    //156.taf_pos_sample_Get2DLocation()
+    //176.taf_pos_sample_Get2DLocation()
     LE_TEST_INFO("taf_pos_sample_Get2DLocation() API is triggered to get 2D location information ");
     result = taf_pos_sample_Get2DLocation(positionSampleRef, &lati, &longi, &accuracy);
     LE_TEST_OK(((result == LE_OK) || (result == LE_OUT_OF_RANGE)),
         "taf_pos_sample_Get2DLocation-LE_OK");
     if((result == LE_OK) || (result == LE_OUT_OF_RANGE))
     {
-        LE_INFO("taf_pos_sample_Get2DLocation: lat.%d, long.%d, accuracy.%d", longi, lati,accuracy);
+        LE_INFO("taf_pos_sample_Get2DLocation: lat:%.6f, long:%.6f, accuracy:%d",(float)longi/1e6,(float)lati/1e6,accuracy);
     }
     else
     {
         LE_TEST_INFO("Failed to get position sample 2D location\n");
     }
 
-    //157.taf_pos_sample_GetDate()
+    //177.taf_pos_sample_GetDate()
     LE_TEST_INFO("taf_pos_sample_GetDate() API is triggered to get pos sample Date information\n");
     result = taf_pos_sample_GetDate(positionSampleRef, &year, &month, &day);
     LE_TEST_OK(((result == LE_OK) || (result == LE_OUT_OF_RANGE)),"taf_pos_sample_GetDate-LE_OK");
@@ -545,7 +542,7 @@ static void SamplePositionHandler
         LE_TEST_INFO("Failed to get position sample Date information\n");
     }
 
-    //158.taf_pos_sample_GetTime()
+    //178.taf_pos_sample_GetTime()
     LE_TEST_INFO("taf_pos_sample_GetTime() API is triggered to get pos sample time information\n");
     result = taf_pos_sample_GetTime(positionSampleRef, &hours, &minutes, &seconds, &milliseconds);
     LE_TEST_OK(((result == LE_OK) || (result == LE_OUT_OF_RANGE)),"taf_pos_sample_GetTime-LE_OK");
@@ -559,21 +556,21 @@ static void SamplePositionHandler
         LE_TEST_INFO("Failed to get position sample time information\n");
     }
 
-    //159.taf_pos_sample_GetAltitude()
+    //179.taf_pos_sample_GetAltitude()
     LE_TEST_INFO("taf_pos_sample_GetAltitude() API is triggered to get pos sample a information\n");
     result = taf_pos_sample_GetAltitude(positionSampleRef, &alti, &altaccuracy);
     LE_TEST_OK(((result == LE_OK) || (result == LE_OUT_OF_RANGE)),
         "taf_pos_sample_GetAltitude-LE_OK");
     if((result == LE_OK) || (result == LE_OUT_OF_RANGE))
     {
-        LE_TEST_INFO("GetAltitude: alt.%d, accuracy.%d", alti, altaccuracy);
+        LE_TEST_INFO("GetAltitude: alt: %d, accuracy: %d",alti,altaccuracy);
     }
     else
     {
         LE_TEST_INFO("Failed to get position sample altitude information\n");
     }
 
-    //160.taf_pos_sample_GetHorizontalSpeed()
+    //180.taf_pos_sample_GetHorizontalSpeed()
     LE_TEST_INFO("taf_pos_sample_GetHorizontalSpeed() API is triggered to get pos"
         "sample Get horizontal speed\n");
     result = taf_pos_sample_GetHorizontalSpeed(positionSampleRef, &hval, &hAccuracy);
@@ -581,14 +578,14 @@ static void SamplePositionHandler
         "taf_pos_sample_GetHorizontalSpeed-LE_OK");
     if((result == LE_OK) || (result == LE_OUT_OF_RANGE))
     {
-        LE_TEST_INFO("taf_pos_sample_GetHorizontalSpeed: hSpeed.%u, accuracy.%u", hval, hAccuracy);
+        LE_TEST_INFO("taf_pos_sample_GetHorizontalSpeed: hSpeed: %u, accuracy:%u", hval,hAccuracy);
     }
     else
     {
         LE_TEST_INFO("Failed to get position sample horizontal speed information");
     }
 
-    //161.taf_pos_sample_GetVerticalSpeed()
+    //181.taf_pos_sample_GetVerticalSpeed()
     LE_TEST_INFO("taf_pos_sample_GetVerticalSpeed() API is triggered to get pos"
         "sample Get vertical speed\n");
     result = taf_pos_sample_GetVerticalSpeed(positionSampleRef, &val, &vAccuracy);
@@ -596,21 +593,21 @@ static void SamplePositionHandler
         "taf_pos_sample_GetVerticalSpeed-LE_OK");
     if((result == LE_OK) || (result == LE_OUT_OF_RANGE))
     {
-        LE_TEST_INFO("GetVerticalSpeed: vSpeed.%d, accuracy.%d", val, accuracy);
+        LE_TEST_INFO("GetVerticalSpeed: vSpeed: %d, vSpeedAccuracy: %d",val,vAccuracy);
     }
     else
     {
         LE_TEST_INFO("Failed to get position sample horizontal speed information");
     }
 
-    //162.taf_pos_sample_GetDirection()
+    //182.taf_pos_sample_GetDirection()
     LE_TEST_INFO("taf_pos_sample_GetDirection() API is triggered to get direction information\n");
     result = taf_pos_sample_GetDirection(positionSampleRef, &uval, &uAccuracy);
     LE_TEST_OK(((result == LE_OK) || (result == LE_OUT_OF_RANGE)),
         "taf_pos_sample_GetDirection-LE_OK");
     if((result == LE_OK) || (result == LE_OUT_OF_RANGE))
     {
-        LE_TEST_INFO("taf_pos_sample_GetDirection: direction.%u, accuracy.%u", uval, uAccuracy);
+        LE_TEST_INFO("taf_pos_sample_GetDirection: direction.%u, accuracy.%u",uval, uAccuracy);
     }
     else
     {
@@ -632,7 +629,7 @@ static void* PositionThread
     taf_gnss_ConnectService();
     PositionHandlerRef = taf_gnss_AddPositionHandler(PositionHandlerFunction, NULL);
 
-    //117.Position Handler
+    //137.Position Handler
     LE_TEST_OK((PositionHandlerRef != NULL),
             "Confirm position handler was added successfully");
 
@@ -650,7 +647,7 @@ static void* SamplePositionThread
     LE_TEST_INFO("======== Sample Position Handler thread  ========");
     taf_pos_ConnectService();
 
-    //154.Sample Position Handler
+    //174.Sample Position Handler
     SamplePositionHandlerRef = taf_pos_AddMovementHandler(0, 0, SamplePositionHandler, NULL);
     LE_TEST_OK((SamplePositionHandlerRef != NULL),
         "Confirm sample position handler was added successfully");
@@ -670,7 +667,7 @@ static void TestTafSamplePositionHandler
     taf_posCtrl_ActivationRef_t activationRef;
     LE_INFO("TestTafSamplePositionHandler");
 
-    //153.taf_posCtrl_Request
+    //173.taf_posCtrl_Request
     LE_TEST_INFO("taf_posCtrl_Request() API is called to get positioning services");
     activationRef = taf_posCtrl_Request();
     LE_TEST_OK((activationRef!=NULL),"taf_posCtrl_Request-LE_OK");
@@ -680,14 +677,14 @@ static void TestTafSamplePositionHandler
     LE_INFO("TestTafSamplePositionHandler positionThreadRef :%p",positionThreadRef);
     le_thread_Start(positionThreadRef);
     LE_INFO("TestTafSamplePositionHandler PositionHandlerRef :%p",PositionHandlerRef);
-    LE_TEST_INFO("Wait for 1 second to trigger SamplePositionHandlerfunction");
-    le_thread_Sleep(1);
+    LE_TEST_INFO("Wait for 3 seconds to trigger SamplePositionHandlerfunction");
+    le_thread_Sleep(3);
     taf_pos_RemoveMovementHandler(SamplePositionHandlerRef);
 
     LE_INFO("TestTafGnssPositionHandler->cancel the thread");
     le_thread_Cancel(positionThreadRef);
 
-    //163.Stop
+    //183.Stop
     LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting GNSS fixes");
     LE_TEST_OK(taf_gnss_Stop() == LE_OK, "taf_gnss_Stop-LE_OK");
     LE_INFO("Release the positioning service");
@@ -704,7 +701,7 @@ static void TestTafGnssPositionHandler
     le_thread_Ref_t positionThreadRef;
     LE_INFO("TestTafGnssPositionHandler");
 
-    //116. taf_gnss_Start() This will trigger startDetailedEngineReports() TelSDK API
+    //136. taf_gnss_Start() This will trigger startDetailedEngineReports() TelSDK API
     LE_TEST_OK(((taf_gnss_Start()) == LE_OK), "taf_gnss_Start-LE_OK");
     LE_TEST_INFO("Wait for 5 seconds");
     le_thread_Sleep(5);
@@ -714,14 +711,14 @@ static void TestTafGnssPositionHandler
     LE_INFO("TestTafGnssPositionHandler positionThreadRef :%p",positionThreadRef);
     le_thread_Start(positionThreadRef);
     LE_INFO("TestTafGnssPositionHandler PositionHandlerRef :%p",PositionHandlerRef);
-    LE_TEST_INFO("Wait for 1 second to trigger PositionHandlerfunction");
-    le_thread_Sleep(1);
+    LE_TEST_INFO("Wait for 3 seconds to trigger PositionHandlerfunction");
+    le_thread_Sleep(3);
     taf_gnss_RemovePositionHandler(PositionHandlerRef);
 
     LE_INFO("TestTafGnssPositionHandler->cancel the thread");
     le_thread_Cancel(positionThreadRef);
 
-    //136.Stop
+    //156.Stop
     LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting GNSS fixes");
     LE_TEST_OK(taf_gnss_Stop() == LE_OK, "taf_gnss_Stop-LE_OK");
 }
@@ -818,16 +815,38 @@ static void TestTafGnssStart
     }
 
    //15.Stop
-    LE_TEST_INFO("taf_gnss_Start() API is called again to check whether it returns"
-        "Not permitted state or not");
+    LE_TEST_INFO("taf_gnss_Start() API is called");
     result = taf_gnss_Stop();
     LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
 
-   //16.GetTtff -Not Permitted
+    //16.GetTtff
+    LE_TEST_INFO("taf_gnss_GetTtff() API is called to get time to first fix");
+    result = taf_gnss_GetTtff(&ttff);
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Tfff-LE_OK");
+    if(result == LE_OK)
+    {
+        LE_TEST_INFO("TTFF start = %d msec", ttff);
+    }
+    else
+    {
+        LE_TEST_INFO("TTFF start not available");
+    }
+
+    //17.Disable GNSS
+    LE_TEST_INFO("taf_gnss_Disable() API is called to disable GNSS engine");
+    result = taf_gnss_Disable();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Disable-LE_OK");
+
+   //18.GetTtff -Not Permitted
     LE_TEST_INFO("taf_gnss_GetTtff() API is called to check whether it returns"
         "Not Permitted state or not");
     result = taf_gnss_GetTtff(&ttff);
     LE_TEST_OK(result == LE_NOT_PERMITTED, "taf_gnss_Tfff-LE_NOT_PERMITTED");
+
+    //19.Enable GNSS
+    LE_TEST_INFO("taf_gnss_Enable() API is called to disable GNSS engine");
+    result = taf_gnss_Enable();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Enable-LE_OK");
 
 }
 
@@ -839,7 +858,7 @@ static void TestTafGnssConstellations
     le_result_t result = LE_FAULT;
     taf_gnss_ConstellationBitMask_t constellationMask;
 
-   //17.GetSupportedConstellations
+   //20.GetSupportedConstellations
     LE_TEST_INFO("taf_gnss_GetSupportedConstellations() API is called to get the list of"
         "supported constellations");
     result = taf_gnss_GetSupportedConstellations(&constellationMask);
@@ -872,7 +891,19 @@ static void TestTafGnssConstellations
         LE_TEST_INFO("Failed! to get supported constellations");
     }
 
-   //18.Start
+   //21.SetConstellation-GPS
+    constellationMask = TAF_GNSS_CONSTELLATION_GPS;
+    LE_TEST_INFO("taf_gnss_SetConstellation() API is called to set GPS constellation type");
+    result = taf_gnss_SetConstellation(constellationMask);
+    LE_TEST_OK(result == LE_FAULT,"taf_gnss_SetConstellation-Not Implemented");
+
+   //22.SetConstellation-GLONASS
+    constellationMask = TAF_GNSS_CONSTELLATION_GLONASS;
+    LE_TEST_INFO("taf_gnss_SetConstellation() API is called to set GLONASS constellation type");
+    result = taf_gnss_SetConstellation(constellationMask);
+    LE_TEST_OK(result == LE_OK,"taf_gnss_SetConstellation-LE_OK");
+
+   //23.Start
     LE_TEST_INFO("taf_gnss_Start() API is called to trigger detailed Engine reporting");
     result = taf_gnss_Start();
     LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
@@ -880,49 +911,37 @@ static void TestTafGnssConstellations
     LE_TEST_INFO("wait for 3 seconds");
     le_thread_Sleep(3);
 
-   //19.GetSupportedConstellations -LE_NOT_PERMITTED
+   //24.GetSupportedConstellations -LE_NOT_PERMITTED
     LE_TEST_INFO("taf_gnss_GetSupportedConstellations() API is called to check whether it returns"
         "Not permitted or not");
     result = taf_gnss_GetSupportedConstellations(&constellationMask);
     LE_TEST_OK(result == LE_NOT_PERMITTED, "taf_gnss_GetSupportedConstellations-LE_NOT_PERMITTED");
 
-   //20.SetConstellation-GPS
-    constellationMask = TAF_GNSS_CONSTELLATION_GPS;
-    LE_TEST_INFO("taf_gnss_SetConstellation() API is called to set GPS constellation type");
-    result = taf_gnss_SetConstellation(constellationMask);
-    LE_TEST_OK(result == LE_FAULT,"taf_gnss_SetConstellation-Not Implemented");
-
-   //21.SetConstellation-GLONASS
-    constellationMask = TAF_GNSS_CONSTELLATION_GLONASS;
-    LE_TEST_INFO("taf_gnss_SetConstellation() API is called to set GLONASS constellation type");
-    result = taf_gnss_SetConstellation(constellationMask);
-    LE_TEST_OK(result == LE_OK,"taf_gnss_SetConstellation-LE_OK");
-
-   //22.SetConstellation-BEIDOU
+   //25.SetConstellation-BEIDOU
     constellationMask = TAF_GNSS_CONSTELLATION_BEIDOU;
     LE_TEST_INFO("taf_gnss_SetConstellation() API is called to set BEIDOU constellation type");
     result = taf_gnss_SetConstellation(constellationMask);
     LE_TEST_OK(result == LE_OK,"taf_gnss_SetConstellation-LE_OK");
 
-   //23.SetConstellation-GALILEO
+   //26.SetConstellation-GALILEO
     constellationMask = TAF_GNSS_CONSTELLATION_GALILEO;
     LE_TEST_INFO("taf_gnss_SetConstellation() API is called to set GALILEO constellation type");
     result = taf_gnss_SetConstellation(constellationMask);
     LE_TEST_OK(result == LE_OK,"taf_gnss_SetConstellation-LE_OK");
 
-   //24.SetConstellation-SBAS
+   //27.SetConstellation-SBAS
     constellationMask = TAF_GNSS_CONSTELLATION_SBAS;
     LE_TEST_INFO("taf_gnss_SetConstellation() API is called to set SBAS constellation type");
     result = taf_gnss_SetConstellation(constellationMask);
     LE_TEST_OK(result == LE_OK,"taf_gnss_SetConstellation-LE_OK");
 
-    //25.SetConstellation-QZSS
+    //28.SetConstellation-QZSS
     constellationMask = TAF_GNSS_CONSTELLATION_QZSS;
     LE_TEST_INFO("taf_gnss_SetConstellation() API is called to set QZSS constellation type");
     result = taf_gnss_SetConstellation(constellationMask);
     LE_TEST_OK(result == LE_OK,"taf_gnss_SetConstellation-LE_OK");
 
-    //26.GetConstellation
+    //29.GetConstellation
     LE_TEST_INFO("taf_gnss_GetConstellation() API is called to get constellation types enabled");
     result = taf_gnss_GetConstellation(&constellationMask);
     LE_TEST_INFO("taf_gnss_GetConstellation() : %d",constellationMask);
@@ -983,18 +1002,18 @@ static void TestTafGnssConstellations
         LE_TEST_INFO("Failed! to GetConstellation");
     }
 
-   //27.Stop
+   //30.Stop
     LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
     result = taf_gnss_Stop();
     LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
 
-   //28.SetConstellation-GPS -LE_NOT_PERMITTED
-    constellationMask = TAF_GNSS_CONSTELLATION_GPS;
+   //31.SetConstellation-GPS -LE_OK
+    constellationMask = TAF_GNSS_CONSTELLATION_GALILEO;
     LE_TEST_INFO("taf_gnss_SetConstellation() API is called to set GPS constellation type");
     result = taf_gnss_SetConstellation(constellationMask);
-    LE_TEST_OK(result == LE_NOT_PERMITTED,"taf_gnss_SetConstellation-LE_NOT_PERMITTED");
+    LE_TEST_OK(result == LE_OK,"taf_gnss_SetConstellation-LE_OK");
 
-   //29.GetConstellation- LE_NOT_PERMITTED
+   //32.GetConstellation- LE_NOT_PERMITTED
     LE_TEST_INFO("taf_gnss_GetConstellation() API is called to get"
         "GPS constellation types enabled");
     result = taf_gnss_GetConstellation(&constellationMask);
@@ -1010,7 +1029,7 @@ static void TestTafGnssNmeaSentences
     le_result_t result = LE_FAULT;
     taf_gnss_NmeaBitMask_t nmeaMaskPtr;
 
-    //30.GetSupportedNmeaSentences
+    //33.GetSupportedNmeaSentences
     LE_TEST_INFO("GetSupportedNmeaSentences() API is called to get the list of"
         "supported NMEA sentences");
     result = taf_gnss_GetSupportedNmeaSentences(&nmeaMaskPtr);
@@ -1071,21 +1090,7 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed! to get supported NMEA sentences\n");
     }
 
-   //31.Start
-    LE_TEST_INFO("taf_gnss_Start() API is called to trigger detailed Engine reporting");
-    result = taf_gnss_Start();
-    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
-
-    LE_TEST_INFO("wait for 3 seconds");
-    le_thread_Sleep(3);
-
-    //32.GetSupportedNmeaSentences- LE_NOT_PERMITTED
-    LE_TEST_INFO("GetSupportedNmeaSentences() API is called to get the list of"
-        "supported NMEA sentences");
-    result = taf_gnss_GetSupportedNmeaSentences(&nmeaMaskPtr);
-    LE_TEST_OK(result == LE_NOT_PERMITTED, "taf_gnss_GetSupportedNmeaSentences-LE_NOT_PERMITTED");
-
-    //33. SetNmeaSentences - GPGGA
+   //34. SetNmeaSentences - GPGGA
     LE_TEST_INFO("SetNmeaSentences() API is called to set GPGGA NMEA sentence type");
     nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GPGGA;
     result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
@@ -1093,7 +1098,27 @@ static void TestTafGnssNmeaSentences
     le_thread_Sleep(2);
     LE_TEST_INFO("wait for 2 seconds");
 
-    //34.GetNmeaSentences
+   //35.Start
+    LE_TEST_INFO("taf_gnss_Start() API is called to trigger detailed Engine reporting");
+    result = taf_gnss_Start();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
+    LE_TEST_INFO("wait for 3 seconds");
+    le_thread_Sleep(3);
+
+    //36.GetSupportedNmeaSentences- LE_NOT_PERMITTED
+    LE_TEST_INFO("GetSupportedNmeaSentences() API is called to get the list of"
+        "supported NMEA sentences");
+    result = taf_gnss_GetSupportedNmeaSentences(&nmeaMaskPtr);
+    LE_TEST_OK(result == LE_NOT_PERMITTED, "taf_gnss_GetSupportedNmeaSentences-LE_NOT_PERMITTED");
+
+    //37. SetNmeaSentence - LE_NOT_PERMITTED
+    LE_TEST_INFO("SetNmeaSentences() API is called to check whether it returns"
+        "Not permitted or not");
+    nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GPGGA;
+    result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
+    LE_TEST_OK(result==LE_NOT_PERMITTED, "taf_gnss_SetNmeaSentences-LE_NOT_PERMITTED");
+
+    //38.GetNmeaSentences- LE_OK
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
     result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_gnss_GetNmeaSentences-LE_OK");
@@ -1109,7 +1134,36 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
-    //35. SetNmeaSentence - GPRMC
+    //39.Stop
+    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
+    result = taf_gnss_Stop();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
+
+    //40. SetNmeaSentences - GPGGA
+    LE_TEST_INFO("SetNmeaSentences() API is called to set GPGGA NMEA sentence type");
+    nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GPGGA;
+    result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
+    LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
+    le_thread_Sleep(2);
+    LE_TEST_INFO("wait for 2 seconds");
+
+    //41.GetNmeaSentences
+    LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
+    result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
+    LE_TEST_OK(result==LE_OK, "taf_gnss_GetNmeaSentences-LE_OK");
+    if(result == LE_OK)
+    {
+        if(nmeaMaskPtr & TAF_GNSS_NMEA_MASK_GPGGA)
+        {
+            LE_TEST_INFO("GPGGA enabled\n");
+        }
+    }
+    else
+    {
+        LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
+    }
+
+    //42. SetNmeaSentence - GPRMC
     LE_TEST_INFO("SetNmeaSentences() API is called to set GPRMC NMEA sentence type");
     nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GPRMC;
     result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
@@ -1117,7 +1171,7 @@ static void TestTafGnssNmeaSentences
     le_thread_Sleep(2);
     LE_TEST_INFO("wait for 2 seconds");
 
-    //36.GetNmeaSentences
+    //43.GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
     result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_gnss_GetNmeaSentences-LE_OK");
@@ -1134,7 +1188,7 @@ static void TestTafGnssNmeaSentences
     }
 
 
-    //37. SetNmeaSentence - GNGSA
+    //44. SetNmeaSentence - GNGSA
     LE_TEST_INFO("SetNmeaSentences() API is called to set GNGSA NMEA sentence type");
     nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GNGSA;
     result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
@@ -1142,7 +1196,7 @@ static void TestTafGnssNmeaSentences
     le_thread_Sleep(2);
     LE_TEST_INFO("wait for 2 seconds");
 
-    //38.GetNmeaSentences
+    //45.GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
     result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_gnss_GetNmeaSentences-LE_OK");
@@ -1158,7 +1212,7 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
-    //39.SetNmeaSentence - GPVTG
+    //46.SetNmeaSentence - GPVTG
     LE_TEST_INFO("SetNmeaSentences() API is called to set GPVTG NMEA sentence type");
     nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GPVTG;
     result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
@@ -1166,7 +1220,7 @@ static void TestTafGnssNmeaSentences
     le_thread_Sleep(2);
     LE_TEST_INFO("wait for 2 seconds");
 
-    //40.GetNmeaSentences
+    //47.GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
     result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_gnss_GetNmeaSentences-LE_OK");
@@ -1182,7 +1236,7 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
-    //41. SetNmeaSentence - GPGNS
+    //48. SetNmeaSentence - GPGNS
     LE_TEST_INFO("SetNmeaSentences() API is called to set GPGNS NMEA sentence type");
     nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GPGNS;
     result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
@@ -1190,7 +1244,7 @@ static void TestTafGnssNmeaSentences
     le_thread_Sleep(2);
     LE_TEST_INFO("wait for 2 seconds");
 
-    //42.GetNmeaSentences
+    //49.GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
     result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_gnss_GetNmeaSentences-LE_OK");
@@ -1206,7 +1260,7 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
-    //43. SetNmeaSentence - GPDTM
+    //50. SetNmeaSentence - GPDTM
     LE_TEST_INFO("SetNmeaSentences() API is called to set GPDTM NMEA sentence type");
     nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GPDTM;
     result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
@@ -1214,7 +1268,7 @@ static void TestTafGnssNmeaSentences
     le_thread_Sleep(2);
     LE_TEST_INFO("wait for 2 seconds");
 
-    //44.GetNmeaSentences
+    //51.GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
     result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_gnss_GetNmeaSentences-LE_OK");
@@ -1230,7 +1284,7 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
-    //45. SetNmeaSentence - GPGSV
+    //52. SetNmeaSentence - GPGSV
     LE_TEST_INFO("SetNmeaSentences() API is called to set GPGSV NMEA sentence type");
     nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GPGSV;
     result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
@@ -1238,7 +1292,7 @@ static void TestTafGnssNmeaSentences
     le_thread_Sleep(2);
     LE_TEST_INFO("wait for 2 seconds");
 
-    //46.GetNmeaSentences
+    //53.GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
     result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_gnss_GetNmeaSentences-LE_OK");
@@ -1254,7 +1308,7 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
-    //47. SetNmeaSentence - GLGSV
+    //54. SetNmeaSentence - GLGSV
     LE_TEST_INFO("SetNmeaSentences() API is called to set GLGSV NMEA sentence type");
     nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GLGSV;
     result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
@@ -1262,7 +1316,7 @@ static void TestTafGnssNmeaSentences
     le_thread_Sleep(2);
     LE_TEST_INFO("wait for 2 seconds");
 
-    //48.GetNmeaSentences
+    //55.GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
     result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_gnss_GetNmeaSentences-LE_OK");
@@ -1278,7 +1332,7 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
-    //49. SetNmeaSentence - GAGSV
+    //56. SetNmeaSentence - GAGSV
     LE_TEST_INFO("SetNmeaSentences() API is called to set GAGSV NMEA sentence type");
     nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GAGSV;
     result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
@@ -1286,7 +1340,7 @@ static void TestTafGnssNmeaSentences
     le_thread_Sleep(2);
     LE_TEST_INFO("wait for 2 seconds");
 
-    //50.GetNmeaSentences
+    //57.GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
     result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_gnss_GetNmeaSentences-LE_OK");
@@ -1302,7 +1356,7 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
-    //51. SetNmeaSentence - GQGSV
+    //58. SetNmeaSentence - GQGSV
     LE_TEST_INFO("SetNmeaSentences() API is called to set GQGSV NMEA sentence type");
     nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GQGSV;
     result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
@@ -1310,7 +1364,7 @@ static void TestTafGnssNmeaSentences
     le_thread_Sleep(2);
     LE_TEST_INFO("wait for 2 seconds");
 
-    //52.GetNmeaSentences
+    //59.GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
     result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_gnss_GetNmeaSentences-LE_OK");
@@ -1326,7 +1380,7 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
-    //53. SetNmeaSentence - GBGSV
+    //60. SetNmeaSentence - GBGSV
     LE_TEST_INFO("SetNmeaSentences() API is called to set GBGSV NMEA sentence type");
     nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GBGSV;
     result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
@@ -1334,7 +1388,7 @@ static void TestTafGnssNmeaSentences
     le_thread_Sleep(2);
     LE_TEST_INFO("wait for 2 seconds");
 
-    //54.GetNmeaSentences
+    //61.GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
     result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_gnss_GetNmeaSentences-LE_OK");
@@ -1350,7 +1404,7 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
-    //55. SetNmeaSentence - GIGSV
+    //62. SetNmeaSentence - GIGSV
     LE_TEST_INFO("SetNmeaSentences() API is called to set GIGSV NMEA sentence type");
     nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GIGSV;
     result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
@@ -1358,7 +1412,7 @@ static void TestTafGnssNmeaSentences
     le_thread_Sleep(2);
     LE_TEST_INFO("wait for 2 seconds");
 
-    //56.GetNmeaSentences
+    //63.GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
     result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_gnss_GetNmeaSentences-LE_OK");
@@ -1374,15 +1428,39 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
-    //57. SetNmeaSentence - 0xFFFFFFFF
+    //64. SetNmeaSentence - Combination of GIGSV,GBGSV&
+    LE_TEST_INFO("SetNmeaSentences() API is called to set GIGSV NMEA sentence type");
+    nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GIGSV|TAF_GNSS_NMEA_MASK_GBGSV|TAF_GNSS_NMEA_MASK_GAGSV;
+    result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
+    LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
+    le_thread_Sleep(2);
+    LE_TEST_INFO("wait for 2 seconds");
+
+    //65.GetNmeaSentences
+    LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
+    result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
+    LE_TEST_OK(result==LE_OK, "taf_gnss_GetNmeaSentences-LE_OK");
+    if(result == LE_OK)
+    {
+        if(nmeaMaskPtr & TAF_GNSS_NMEA_MASK_GIGSV)
+        {
+            LE_TEST_INFO("GIGSV enabled\n");
+        }
+    }
+    else
+    {
+        LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
+    }
+
+    //66. SetNmeaSentence - 0xFFFFFFFF
     LE_TEST_INFO("SetNmeaSentences() API is called to set 0xFFFFFFFF NMEA sentence type");
     nmeaMaskPtr = 0xFFFFFFFF;
     result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
-    le_thread_Sleep(10);
-    LE_TEST_INFO("wait for 10 seconds");
+    le_thread_Sleep(2);
+    LE_TEST_INFO("wait for 2 seconds");
 
-    //58.GetNmeaSentences
+    //67.GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
     result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_gnss_GetNmeaSentences-LE_OK");
@@ -1397,23 +1475,22 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
-    //59.Stop
-    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
-    result = taf_gnss_Stop();
-    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
+   //68.Disable GNSS
+    LE_TEST_INFO("taf_gnss_Disable() API is called to disable GNSS engine");
+    result = taf_gnss_Disable();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Disable-LE_OK");
 
-    //60. SetNmeaSentence - LE_NOT_PERMITTED
-    LE_TEST_INFO("SetNmeaSentences() API is called to check whether it returns"
-        "Not permitted or not");
-    nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GPGGA;
-    result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
-    LE_TEST_OK(result==LE_NOT_PERMITTED, "taf_gnss_SetNmeaSentences-LE_NOT_PERMITTED");
-
-    //61.GetNmeaSentences- LE_NOT_PERMITTED
+    //69.GetNmeaSentences- LE_NOT_PERMITTED
     LE_TEST_INFO("GetNmeaSentences() API is called to check whether it returns"
         "Not permitted or not");
     result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
     LE_TEST_OK(result==LE_NOT_PERMITTED, "taf_gnss_GetNmeaSentences-LE_NOT_PERMITTED");
+
+    //70.Enable GNSS
+    LE_TEST_INFO("taf_gnss_Enable() API is called to disable GNSS engine");
+    result = taf_gnss_Enable();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Enable-LE_OK");
+
 }
 
 static void TestTafGnssAcquisitionRate
@@ -1424,18 +1501,13 @@ static void TestTafGnssAcquisitionRate
     le_result_t result = LE_FAULT;
     uint32_t acqRate;
 
-    //62.Start
-    LE_TEST_INFO("taf_gnss_Start() API is called to trigger detailed Engine reporting");
-    result = taf_gnss_Start();
-    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
-
-    //63.SetAcquisitionRate
+    //71.SetAcquisitionRate
     LE_TEST_INFO("taf_gnss_SetAcquisitionRate() API is called to set Acq Rate 1");
     acqRate = 1;
     result = taf_gnss_SetAcquisitionRate(acqRate);
     LE_TEST_OK(result == LE_OK,"taf_gnss_SetAcquisitionRate-LE_OK");
 
-    //64.GetAcquisitionRate
+    //72.GetAcquisitionRate
     LE_TEST_INFO("taf_gnss_GetAcquisitionRate() API is called to get Acq Rate");
     result = taf_gnss_GetAcquisitionRate(&acqRate);
     LE_TEST_OK(result == LE_OK,"taf_gnss_GetAcquisitionRate-LE_OK");
@@ -1448,13 +1520,13 @@ static void TestTafGnssAcquisitionRate
         LE_TEST_INFO("Failed to get Acquisition Rate\n");
     }
 
-    //65.SetAcquisitionRate
+    //73.SetAcquisitionRate
     LE_TEST_INFO("taf_gnss_SetAcquisitionRate() API is called to set Acq Rate 1001");
-    acqRate = 1001;
+    acqRate = 101;
     result = taf_gnss_SetAcquisitionRate(acqRate);
     LE_TEST_OK(result == LE_OK,"taf_gnss_SetAcquisitionRate-LE_OK");
 
-    //66.GetAcquisitionRate
+    //74.GetAcquisitionRate
     LE_TEST_INFO("taf_gnss_GetAcquisitionRate() API is called to get Acq Rate");
     result = taf_gnss_GetAcquisitionRate(&acqRate);
     LE_TEST_OK(result == LE_OK,"taf_gnss_GetAcquisitionRate-LE_OK");
@@ -1467,13 +1539,13 @@ static void TestTafGnssAcquisitionRate
         LE_TEST_INFO("Failed to get Acquisition Rate\n");
     }
 
-    //67.SetAcquisitionRate
+    //75.SetAcquisitionRate
     LE_TEST_INFO("taf_gnss_SetAcquisitionRate() API is called to set Acq Rate 0");
     acqRate = 0;
     result = taf_gnss_SetAcquisitionRate(acqRate);
     LE_TEST_OK(result == LE_OUT_OF_RANGE,"taf_gnss_SetAcquisitionRate-LE_OUT_OF_RANGE");
 
-    //68.GetAcquisitionRate
+    //76.GetAcquisitionRate
     LE_TEST_INFO("taf_gnss_GetAcquisitionRate() API is called to get Acq Rate");
     result = taf_gnss_GetAcquisitionRate(&acqRate);
     LE_TEST_OK(result == LE_OK,"taf_gnss_GetAcquisitionRate-LE_OK");
@@ -1486,23 +1558,52 @@ static void TestTafGnssAcquisitionRate
         LE_TEST_INFO("Failed to get Acquisition Rate\n");
     }
 
-    //69.Stop
-    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
-    result = taf_gnss_Stop();
-    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
+    //77.Start
+    LE_TEST_INFO("taf_gnss_Start() API is called to trigger detailed Engine reporting");
+    result = taf_gnss_Start();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
 
-    //70.SetAcquisitionRate-LE_NOT_PERMITTED
+    //78.SetAcquisitionRate-LE_NOT_PERMITTED
     LE_TEST_INFO("taf_gnss_SetAcquisitionRate() API is called to check whether it returns"
         "Not Permitted or not");
     acqRate = 1;
     result = taf_gnss_SetAcquisitionRate(acqRate);
     LE_TEST_OK(result == LE_NOT_PERMITTED,"taf_gnss_SetAcquisitionRate-LE_NOT_PERMITTED");
 
-    //71.GetAcquisitionRate-LE_NOT_PERMITTED
+    //79.GetAcquisitionRate-LE_OK
+    LE_TEST_INFO("taf_gnss_GetAcquisitionRate() API is called to get Acq Rate");
+    result = taf_gnss_GetAcquisitionRate(&acqRate);
+    LE_TEST_OK(result == LE_OK,"taf_gnss_GetAcquisitionRate-LE_OK");
+    if(result == LE_OK)
+    {
+        LE_TEST_INFO("Acquisition Rate is %d\n",acqRate);
+    }
+    else
+    {
+        LE_TEST_INFO("Failed to get Acquisition Rate\n");
+    }
+
+    //80.Stop
+    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
+    result = taf_gnss_Stop();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
+
+    //81.Disable GNSS
+    LE_TEST_INFO("taf_gnss_Disable() API is called to disable GNSS engine");
+    result = taf_gnss_Disable();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Disable-LE_OK");
+
+    //82.GetAcquisitionRate-LE_NOT_PERMITTED
     LE_TEST_INFO("taf_gnss_GetAcquisitionRate() API is called to check whether it returns"
         "Not Permitted or not");
     result = taf_gnss_GetAcquisitionRate(&acqRate);
     LE_TEST_OK(result == LE_NOT_PERMITTED,"taf_gnss_GetAcquisitionRate-LE_NOT_PERMITTED");
+
+    //83.Enable GNSS
+    LE_TEST_INFO("taf_gnss_Enable() API is called to disable GNSS engine");
+    result = taf_gnss_Enable();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Enable-LE_OK");
+
 }
 
 static void TestTafGnssSecBandConstellations
@@ -1513,42 +1614,42 @@ static void TestTafGnssSecBandConstellations
     le_result_t result = LE_FAULT;
     int32_t constellationSb=0;
 
-    //72.Start
-    LE_TEST_INFO("taf_gnss_Stop() API is called to start reporting");
+    //84.Start
+    LE_TEST_INFO("taf_gnss_Start() API is called to start reporting");
     result = taf_gnss_Start();
     LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
 
-    //73.DefaultSecondaryBandConstellations-LE_NOT_PERMITTED
+    //85.DefaultSecondaryBandConstellations-LE_NOT_PERMITTED
     LE_TEST_INFO("taf_gnss_DefaultSecondaryBandConstellations() API is triggered to check whether"
         "it returns Not Permitted or not");
     result = taf_gnss_DefaultSecondaryBandConstellations();
     LE_TEST_OK(result == LE_NOT_PERMITTED,"DefaultSecondaryBandConstellations-LE_NOT_PERMITTED");
 
-    //74.ConfigureSecondaryBandConstellations-LE_NOT_PERMITTED
+    //86.ConfigureSecondaryBandConstellations-LE_NOT_PERMITTED
     LE_TEST_INFO("taf_gnss_ConfigureSecondaryBandConstellations() API is triggered to check whether"
         "it returns Not Permitted or not");
     constellationSb |= (1<<(TAF_GNSS_SB_CONSTELLATION_GPS-1));
     result = taf_gnss_ConfigureSecondaryBandConstellations(constellationSb);
     LE_TEST_OK(result == LE_NOT_PERMITTED,"ConfigureSecondaryBandConstellations-LE_NOT_PERMITTED");
 
-    //75.RequestSecondaryBandConstellations-LE_NOT_PERMITTED
+    //87.RequestSecondaryBandConstellations-LE_NOT_PERMITTED
     LE_TEST_INFO("taf_gnss_RequestSecondaryBandConstellations() API is triggered to check whether"
         "it returns Not Permitted or not");
     result = taf_gnss_RequestSecondaryBandConstellations(&constellationSb);
     LE_TEST_OK(result == LE_NOT_PERMITTED,"RequestSecondaryBandConstellations-LE_NOT_PERMITTED");
 
-    //76.Stop
+    //88.Stop
     LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
     result = taf_gnss_Stop();
     LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
 
-    //77.DefaultSecondaryBandConstellations
+    //89.DefaultSecondaryBandConstellations
     LE_TEST_INFO("taf_gnss_DefaultSecondaryBandConstellations() API is triggered to set default"
         "Secondary Band Constellations");
     result = taf_gnss_DefaultSecondaryBandConstellations();
     LE_TEST_OK(result == LE_OK,"DefaultSecondaryBandConstellations-LE_OK");
 
-    //78.RequestSecondaryBandConstellations
+    //90.RequestSecondaryBandConstellations
     LE_TEST_INFO("taf_gnss_RequestSecondaryBandConstellations() API is triggered to get secondary"
         "band constellations set");
     constellationSb = 0;
@@ -1595,7 +1696,7 @@ static void TestTafGnssSecBandConstellations
         LE_TEST_INFO("failed ! to get secondary band constellations");
     }
 
-    //79.ConfigureSecondaryBandConstellations
+    //91.ConfigureSecondaryBandConstellations
     LE_TEST_INFO("taf_gnss_ConfigureSecondaryBandConstellations() API is triggered to"
         "configure/disable sec band constellations");
     constellationSb = 0;
@@ -1610,7 +1711,7 @@ static void TestTafGnssSecBandConstellations
     result = taf_gnss_ConfigureSecondaryBandConstellations(constellationSb);
     LE_TEST_OK(result == LE_OK,"ConfigureSecondaryBandConstellations-LE_OK");
 
-   //80.RequestSecondaryBandConstellations
+   //92.RequestSecondaryBandConstellations
     LE_TEST_INFO("taf_gnss_RequestSecondaryBandConstellations() API is triggered to"
         "get secondary band constellations set");
     result = taf_gnss_RequestSecondaryBandConstellations(&constellationSb);
@@ -1669,7 +1770,7 @@ static void TestTafGnssEngines
     DrFramePool = le_mem_CreatePool("DrframePool", sizeof(taf_gnss_DrParams_t));
     drParamsPtr = (taf_gnss_DrParams_t*) le_mem_ForceAlloc(DrFramePool);
 
-    //81.SetDRConfig -Success
+    //93.SetDRConfig -Success
     LE_TEST_INFO("taf_gnss_SetDRConfig() API is triggered to configure Dead Reckoning Engine"
         "parameters");
     drParamsPtr->rollOffset = 1.2;
@@ -1683,19 +1784,19 @@ static void TestTafGnssEngines
     result = taf_gnss_SetDRConfig(drParamsPtr);
     LE_TEST_OK(result == LE_OK, "taf_gnss_SetDRConfig-LE_OK");
 
-    //82.SetDRConfig -Failure
+    //94.SetDRConfig -Failure
     drParamsPtr->offsetUnc = 180.1;
     result = taf_gnss_SetDRConfig(drParamsPtr);
     LE_TEST_OK(result == LE_FAULT, "taf_gnss_SetDRConfig-LE_FAULT");
 
-    //83.Start
+    //95.Start
+    LE_TEST_INFO("wait for 3 seconds");
+    le_thread_Sleep(3);
     LE_TEST_INFO("taf_gnss_Start() API is called to trigger detailed Engine reporting");
     result = taf_gnss_Start();
     LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
-    LE_TEST_INFO("wait for 3 seconds");
-    le_thread_Sleep(3);
 
-    //84.SetDRConfig -LE_NOT_PERMITTED
+    //96.SetDRConfig -LE_NOT_PERMITTED
     LE_TEST_INFO("taf_gnss_SetDRConfig() API is triggered to check whether it returns"
         "Not permitted or not");
     result = taf_gnss_SetDRConfig(drParamsPtr);
@@ -1704,39 +1805,39 @@ static void TestTafGnssEngines
     //Free the DR reference
     le_mem_Release(drParamsPtr);
 
-    //85.taf_gnss_ConfigureEngineState- SPE/SUSPEND
+    //97.taf_gnss_ConfigureEngineState- SPE/SUSPEND
     engineType = 1;
     engineState = 1;
     LE_TEST_INFO("taf_gnss_ConfigureEngineState API is triggered to configure SUSPEND state"
         "for SPE engine type");
     result = taf_gnss_ConfigureEngineState(engineType,engineState);
-    LE_TEST_OK(result==LE_OK,"taf_gnss_ConfigureEngineState-LE_OK");
+    LE_TEST_OK(result==LE_FAULT,"taf_gnss_ConfigureEngineState-LE_FAULT");
 
-    //86.taf_gnss_ConfigureEngineState- SPE/RESUME
+    //98.taf_gnss_ConfigureEngineState- SPE/RESUME
     engineType = 1;
     engineState = 2;
     LE_TEST_INFO("taf_gnss_ConfigureEngineState API is triggered to configure RESUME state"
         "for SPE engine type");
     result = taf_gnss_ConfigureEngineState(engineType,engineState);
-    LE_TEST_OK(result==LE_OK,"taf_gnss_ConfigureEngineState-LE_OK");
+    LE_TEST_OK(result==LE_FAULT,"taf_gnss_ConfigureEngineState-LE_FAULT");
 
-    //87.taf_gnss_ConfigureEngineState- PPE/SUSPEND
+    //99.taf_gnss_ConfigureEngineState- PPE/SUSPEND
     engineType = 2;
     engineState = 1;
     LE_TEST_INFO("taf_gnss_ConfigureEngineState API is triggered to configure SUSPEND state"
         "for PPE engine type");
     result = taf_gnss_ConfigureEngineState(engineType,engineState);
-    LE_TEST_OK(result==LE_OK,"taf_gnss_ConfigureEngineState-LE_OK");
+    LE_TEST_OK(result==LE_FAULT,"taf_gnss_ConfigureEngineState-LE_FAULT");
 
-    //88.taf_gnss_ConfigureEngineState- PPE/RESUME
+    //100.taf_gnss_ConfigureEngineState- PPE/RESUME
     engineType = 2;
     engineState = 2;
     LE_TEST_INFO("taf_gnss_ConfigureEngineState API is triggered to configure RESUME state"
         "for PPE engine type");
     result = taf_gnss_ConfigureEngineState(engineType,engineState);
-    LE_TEST_OK(result==LE_OK,"taf_gnss_ConfigureEngineState-LE_OK");
+    LE_TEST_OK(result==LE_FAULT,"taf_gnss_ConfigureEngineState-LE_FAULT");
 
-    //89.taf_gnss_ConfigureEngineState- DRE/SUSPEND
+    //101.taf_gnss_ConfigureEngineState- DRE/SUSPEND
     engineType = 3;
     engineState = 1;
     LE_TEST_INFO("taf_gnss_ConfigureEngineState API is triggered to configure SUSPEND state for"
@@ -1744,7 +1845,7 @@ static void TestTafGnssEngines
     result = taf_gnss_ConfigureEngineState(engineType,engineState);
     LE_TEST_OK(result==LE_OK,"taf_gnss_ConfigureEngineState-LE_OK");
 
-    //90.taf_gnss_ConfigureEngineState- DRE/RESUME
+    //102.taf_gnss_ConfigureEngineState- DRE/RESUME
     engineType = 3;
     engineState = 2;
     LE_TEST_INFO("taf_gnss_ConfigureEngineState API is triggered to configure RESUME state for"
@@ -1752,48 +1853,76 @@ static void TestTafGnssEngines
     result = taf_gnss_ConfigureEngineState(engineType,engineState);
     LE_TEST_OK(result==LE_OK,"taf_gnss_ConfigureEngineState-LE_OK");
 
-    //91.taf_gnss_ConfigureEngineState- VPE/SUSPEND
+    //103.taf_gnss_ConfigureEngineState- VPE/SUSPEND
     engineType = 4;
     engineState = 1;
     LE_TEST_INFO("taf_gnss_ConfigureEngineState API is triggered to configure SUSPEND state for"
         "VPE engine type");
     result = taf_gnss_ConfigureEngineState(engineType,engineState);
-    LE_TEST_OK(result==LE_OK,"taf_gnss_ConfigureEngineState-LE_OK");
+    LE_TEST_OK(result==LE_FAULT,"taf_gnss_ConfigureEngineState-LE_FAULT");
 
-    //92.taf_gnss_ConfigureEngineState- VPE/RESUME
+    //104.taf_gnss_ConfigureEngineState- VPE/RESUME
     engineType = 4;
     engineState = 2;
     LE_TEST_INFO("taf_gnss_ConfigureEngineState API is triggered to configure RESUME state for"
         "VPE engine type");
     result = taf_gnss_ConfigureEngineState(engineType,engineState);
-    LE_TEST_OK(result==LE_OK,"taf_gnss_ConfigureEngineState-LE_OK");
+    LE_TEST_OK(result==LE_FAULT,"taf_gnss_ConfigureEngineState-LE_FAULT");
 
-    //93.taf_gnss_ConfigureEngineState- Failure -Invalid Engine type
+    //105.taf_gnss_ConfigureEngineState- Failure -Invalid Engine type
     engineType = 5;
     engineState = 1;
     LE_TEST_INFO("taf_gnss_ConfigureEngineState API is triggered to check for failure scenario");
     result = taf_gnss_ConfigureEngineState(engineType,engineState);
     LE_TEST_OK(result==LE_FAULT,"taf_gnss_ConfigureEngineState-LE_FAULT");
 
-    //94.taf_gnss_ConfigureEngineState- Failure-Invalid Engine State
+    //106.taf_gnss_ConfigureEngineState- Failure-Invalid Engine State
     engineType = 4;
     engineState = 3;
     LE_TEST_INFO("taf_gnss_ConfigureEngineState API is triggered to check for failure scenario");
     result = taf_gnss_ConfigureEngineState(engineType,engineState);
     LE_TEST_OK(result==LE_FAULT,"taf_gnss_ConfigureEngineState-LE_FAULT");
 
-    //95.Stop
+    //107.Stop
+    LE_TEST_INFO("wait for 3 seconds");
+    le_thread_Sleep(3);
     LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
     result = taf_gnss_Stop();
     LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
 
-    //96.taf_gnss_ConfigureEngineState -LE_NOT_PERMITTED
-    engineType = 1;
+    //108.taf_gnss_ConfigureEngineState- DRE/SUSPEND
+    engineType = 3;
     engineState = 1;
-    LE_TEST_INFO("taf_gnss_ConfigureEngineState API is triggered to check whether it"
-        "returns Not permitted or not");
+    LE_TEST_INFO("taf_gnss_ConfigureEngineState API is triggered to configure SUSPEND state for"
+        "DRE engine type");
+    result = taf_gnss_ConfigureEngineState(engineType,engineState);
+    LE_TEST_OK(result==LE_OK,"taf_gnss_ConfigureEngineState-LE_OK");
+
+    //109.taf_gnss_ConfigureEngineState- DRE/RESUME
+    engineType = 3;
+    engineState = 2;
+    LE_TEST_INFO("taf_gnss_ConfigureEngineState API is triggered to configure RESUME state for"
+        "DRE engine type");
+    result = taf_gnss_ConfigureEngineState(engineType,engineState);
+    LE_TEST_OK(result==LE_OK,"taf_gnss_ConfigureEngineState-LE_OK");
+
+    //110.Disable GNSS
+    LE_TEST_INFO("taf_gnss_Disable() API is called to disable GNSS engine");
+    result = taf_gnss_Disable();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Disable-LE_OK");
+
+    //111.taf_gnss_ConfigureEngineState- LE_NOT_PERMITTED
+    engineType = 3;
+    engineState = 1;
+    LE_TEST_INFO("taf_gnss_ConfigureEngineState API is triggered to check whether it returns"
+        "LE_NOT_PERMITTED or not");
     result = taf_gnss_ConfigureEngineState(engineType,engineState);
     LE_TEST_OK(result==LE_NOT_PERMITTED,"taf_gnss_ConfigureEngineState-LE_NOT_PERMITTED");
+
+    //112.Enable GNSS
+    LE_TEST_INFO("taf_gnss_Enable() API is called to disable GNSS engine");
+    result = taf_gnss_Enable();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Enable-LE_OK");
 
 }
 
@@ -1808,22 +1937,18 @@ static void TestTafGnssRobustLocation
     uint8_t majorVersion;
     uint8_t minorVersion;
 
-   //97.Start
-    LE_TEST_INFO("taf_gnss_Start() API is called to trigger detailed Engine reporting");
-    result = taf_gnss_Start();
-    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
-    LE_TEST_INFO("wait for 3 seconds");
-    le_thread_Sleep(3);
 
-    //98.Configure Robust Locaiton - Enable/1 Enabled911/1
+    //113.Configure Robust Locaiton - Enable/1 Enabled911/1
     LE_TEST_INFO("taf_gnss_ConfigureRobustLocation() API is called to configure"
         "Enable->1 Enabled911->1");
     enable = 1;
     enabled911 = 1;
     result = taf_gnss_ConfigureRobustLocation(enable,enabled911);
     LE_TEST_OK(result==LE_OK,"taf_gnss_ConfigureRobustLocation-LE_OK");
+    le_thread_Sleep(3);
+    LE_INFO("TestTafGnssRobustLocation Wait for 3 seconds");
 
-    //99.Robust Location information
+    //114.Robust Location information
     LE_TEST_INFO("taf_gnss_RobustLocationInformation() API is called to get robust"
         "location information");
     result = taf_gnss_RobustLocationInformation(&enable,&enabled911, &majorVersion,&minorVersion);
@@ -1840,15 +1965,17 @@ static void TestTafGnssRobustLocation
         LE_TEST_INFO("Failed! to get Robust Location Information");
     }
 
-    //100.Configure Robust Locaiton - Enable/1 Enabled911/0
+    //115.Configure Robust Location - Enable/1 Enabled911/0
     LE_TEST_INFO("taf_gnss_ConfigureRobustLocation() API is called to configure"
         "Enable->1 Enabled911->0");
     enable = 1;
     enabled911 = 0;
     result = taf_gnss_ConfigureRobustLocation(enable,enabled911);
     LE_TEST_OK(result==LE_OK,"taf_gnss_ConfigureRobustLocation-LE_OK");
+    le_thread_Sleep(3);
+    LE_INFO("TestTafGnssRobustLocation Wait for 3 seconds");
 
-    //101.Robust Location information
+    //116.Robust Location information
     LE_TEST_INFO("taf_gnss_RobustLocationInformation() API is called to get robust"
         "location information");
     result = taf_gnss_RobustLocationInformation(&enable,&enabled911, &majorVersion,&minorVersion);
@@ -1865,15 +1992,17 @@ static void TestTafGnssRobustLocation
         LE_TEST_INFO("Failed! to get Robust Location Information");
     }
 
-    //102.Configure Robust Locaiton - Enable/0 Enabled911/1
+    //117.Configure Robust Locaiton - Enable/0 Enabled911/1
     LE_TEST_INFO("taf_gnss_ConfigureRobustLocation() API is called to configure"
         "Enable->0 Enabled911->1");
     enable = 0;
     enabled911 = 1;
     result = taf_gnss_ConfigureRobustLocation(enable,enabled911);
     LE_TEST_OK(result==LE_OK,"taf_gnss_ConfigureRobustLocation-LE_OK");
+    le_thread_Sleep(3);
+    LE_INFO("TestTafGnssRobustLocation Wait for 3 seconds");
 
-    //103.Robust Location information
+    //118.Robust Location information
     LE_TEST_INFO("taf_gnss_RobustLocationInformation() API is called to get robust"
         "location information");
     result = taf_gnss_RobustLocationInformation(&enable,&enabled911, &majorVersion,&minorVersion);
@@ -1890,7 +2019,14 @@ static void TestTafGnssRobustLocation
         LE_TEST_INFO("Failed! to get Robust Location Information");
     }
 
-    //104.Configure Robust Locaiton - Enable/0 Enabled911/1
+   //119.Start
+    LE_TEST_INFO("taf_gnss_Start() API is called to trigger detailed Engine reporting");
+    result = taf_gnss_Start();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
+    LE_TEST_INFO("wait for 3 seconds");
+    le_thread_Sleep(3);
+
+    //120.Configure Robust Locaiton - Enable/0 Enabled911/1
     LE_TEST_INFO("taf_gnss_ConfigureRobustLocation() API is called to configure"
         "Enable->0 Enabled911->0");
     enable = 0;
@@ -1898,7 +2034,7 @@ static void TestTafGnssRobustLocation
     result = taf_gnss_ConfigureRobustLocation(enable,enabled911);
     LE_TEST_OK(result==LE_OK,"taf_gnss_ConfigureRobustLocation-LE_OK");
 
-    //105.Robust Location information
+    //121.Robust Location information
     LE_TEST_INFO("taf_gnss_RobustLocationInformation() API is called to get"
         "robust location information");
     result = taf_gnss_RobustLocationInformation(&enable,&enabled911, &majorVersion,&minorVersion);
@@ -1915,12 +2051,42 @@ static void TestTafGnssRobustLocation
         LE_TEST_INFO("Failed! to get Robust Location Information");
     }
 
-   //106.Stop
+    //122.Configure Robust Locaiton - Enable/1 Enabled911/1
+    LE_TEST_INFO("taf_gnss_ConfigureRobustLocation() API is called to configure"
+        "Enable->1 Enabled911->1");
+    enable = 1;
+    enabled911 = 1;
+    result = taf_gnss_ConfigureRobustLocation(enable,enabled911);
+    LE_TEST_OK(result==LE_OK,"taf_gnss_ConfigureRobustLocation-LE_OK");
+
+    //123.Robust Location information
+    LE_TEST_INFO("taf_gnss_RobustLocationInformation() API is called to get robust"
+        "location information");
+    result = taf_gnss_RobustLocationInformation(&enable,&enabled911, &majorVersion,&minorVersion);
+    LE_TEST_OK(result==LE_OK,"taf_gnss_RobustLocationInformation-LE_OK");
+    if(result == LE_OK)
+    {
+        LE_TEST_INFO("Robust Location Information Enable: %d", enable);
+        LE_TEST_INFO("Robust Location Information enabled911: %d", enabled911);
+        LE_TEST_INFO("Robust Location Information majorVersion number: %d", majorVersion);
+        LE_TEST_INFO("Robust Location Information minorVersion number: %d", minorVersion);
+    }
+    else
+    {
+        LE_TEST_INFO("Failed! to get Robust Location Information");
+    }
+
+   //124.Stop
     LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
     result = taf_gnss_Stop();
     LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
 
-    //107.Configure Robust Locaiton - LE_NOT_PERMITTED
+   //125.Disable GNSS
+    LE_TEST_INFO("taf_gnss_Disable() API is called to disable GNSS engine");
+    result = taf_gnss_Disable();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Disable-LE_OK");
+
+    //126.Configure Robust Locaiton - LE_NOT_PERMITTED
     LE_TEST_INFO("taf_gnss_ConfigureRobustLocation() API is called to check whether it returns"
         "Not permitted or not");
     enable = 1;
@@ -1928,11 +2094,16 @@ static void TestTafGnssRobustLocation
     result = taf_gnss_ConfigureRobustLocation(enable,enabled911);
     LE_TEST_OK(result==LE_NOT_PERMITTED,"taf_gnss_ConfigureRobustLocation-LE_NOT_PERMITTED");
 
-    //108.Robust Location information-LE_NOT_PERMITTED
+    //127.Robust Location information-LE_NOT_PERMITTED
     LE_TEST_INFO("taf_gnss_RobustLocationInformation() API is called to check whether it returns"
         "Not permitted or not");
     result = taf_gnss_RobustLocationInformation(&enable,&enabled911, &majorVersion,&minorVersion);
     LE_TEST_OK(result==LE_NOT_PERMITTED,"taf_gnss_RobustLocationInformation-LE_NOT_PERMITTED");
+
+    //128.Enable GNSS
+    LE_TEST_INFO("taf_gnss_Enable() API is called to disable GNSS engine");
+    result = taf_gnss_Enable();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Enable-LE_OK");
 
 }
 
@@ -1944,27 +2115,22 @@ static void TestTafGnssMinElevation
     le_result_t result = LE_FAULT;
     uint8_t  minElevation;
 
-    //109.Start
-    LE_TEST_INFO("taf_gnss_Start() API is called to trigger detailed Engine reporting");
-    result = taf_gnss_Start();
-    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
-    LE_TEST_INFO("wait for 3 seconds");
-    le_thread_Sleep(3);
-
-    //110.taf_gnss_SetMinElevation -LE_OUT_OF_RANGE
+    //129.taf_gnss_SetMinElevation -LE_OUT_OF_RANGE
     LE_TEST_INFO("taf_gnss_SetMinElevation() API is triggered to check whether it returns"
         " Out of range or not");
     minElevation = TAF_GNSS_MIN_ELEVATION_MAX_DEGREE+1;
     result = taf_gnss_SetMinElevation(minElevation);
     LE_TEST_OK(result == LE_OUT_OF_RANGE, "taf_gnss_SetMinElevation-LE_OUT_OF_RANGE");
 
-    //111.taf_gnss_SetMinElevation
+    //130.taf_gnss_SetMinElevation
     LE_TEST_INFO("taf_gnss_SetMinElevation() API is triggered to set min SV elevation");
-    minElevation = 1;
+    minElevation = 50;
     result = taf_gnss_SetMinElevation(minElevation);
     LE_TEST_OK(result == LE_OK, "taf_gnss_SetMinElevation-LE_OK");
+    le_thread_Sleep(3);
+    LE_TEST_INFO("TestTafGnssMinElevation wait for 3 seconds");
 
-    //112.taf_gnss_GetMinElevation
+    //131.taf_gnss_GetMinElevation
     LE_TEST_INFO("taf_gnss_GetMinElevation() API is triggered to get min SV elevation");
     result = taf_gnss_GetMinElevation(&minElevation);
     LE_TEST_OK(result == LE_OK, "taf_gnss_GetMinElevation-LE_OK");
@@ -1977,25 +2143,32 @@ static void TestTafGnssMinElevation
         LE_TEST_INFO("Failed to GetMinElevation ");
     }
 
-    //113.Stop
-    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
-    result = taf_gnss_Stop();
-    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
+    //132.Start
+    LE_TEST_INFO("taf_gnss_Start() API is called to trigger detailed Engine reporting");
+    result = taf_gnss_Start();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
+    LE_TEST_INFO("wait for 3 seconds");
+    le_thread_Sleep(3);
 
-    //114.taf_gnss_SetMinElevation-LE_NOT_PERMITTED
+    //133.taf_gnss_SetMinElevation-LE_NOT_PERMITTED
     LE_TEST_INFO("taf_gnss_SetMinElevation() API is triggered to check whether it returns"
         " Not permitted or not");
     minElevation = 1;
     result = taf_gnss_SetMinElevation(minElevation);
     LE_TEST_OK(result == LE_NOT_PERMITTED, "taf_gnss_SetMinElevation-LE_NOT_PERMITTED");
 
-    //115.taf_gnss_GetMinElevation-LE_NOT_PERMITTED
+    //134.taf_gnss_GetMinElevation-LE_NOT_PERMITTED
     LE_TEST_INFO("taf_gnss_GetMinElevation() API is triggered to check whether it returns"
         " Not permitted or not");
     result = taf_gnss_GetMinElevation(&minElevation);
     LE_TEST_OK(result == LE_NOT_PERMITTED, "taf_gnss_GetMinElevation-LE_NOT_PERMITTED");
 
-
+    //135.Stop
+    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
+    result = taf_gnss_Stop();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
+    LE_TEST_INFO("wait for 5 seconds");
+    le_thread_Sleep(5);
 }
 
 static void TestTafPosHandler
@@ -2026,7 +2199,7 @@ static void TestTafPosHandler
     uint32_t acquisitionRate = 0;
     taf_posCtrl_ActivationRef_t activationRef;
 
-    //137.taf_posCtrl_Request
+    //157.taf_posCtrl_Request
     LE_TEST_INFO("taf_posCtrl_Request() API is called to get positioning services");
     activationRef = taf_posCtrl_Request();
     LE_TEST_OK((activationRef!=NULL),"taf_posCtrl_Request-LE_OK");
@@ -2036,7 +2209,7 @@ static void TestTafPosHandler
     LE_TEST_INFO("Wait for 5 seconds");
     le_thread_Sleep(5);
 
-    //138.taf_pos_Get2DLocation
+    //158.taf_pos_Get2DLocation
     LE_TEST_INFO("taf_pos_Get2DLocation() API is called to get 2D location information");
     result = taf_pos_Get2DLocation(&latitude, &longitude, &hAccuracy);
     LE_TEST_OK((LE_OK == result) || (LE_OUT_OF_RANGE == result),"taf_pos_Get2DLocation -LE_OK");
@@ -2058,7 +2231,7 @@ static void TestTafPosHandler
         LE_TEST_INFO("Failed! to get 2D Location information\n");
     }
 
-    //139. Get Date
+    //159. Get Date
     LE_TEST_INFO("taf_pos_GetDate is triggered to get date information");
     result = taf_pos_GetDate(&year, &month, &day);
     LE_TEST_OK(((result == LE_OK) || (result == LE_OUT_OF_RANGE)),"taf_pos_GetDate-LE_OK");
@@ -2071,7 +2244,7 @@ static void TestTafPosHandler
         LE_TEST_INFO("Failed to get Pos Date\n");
     }
 
-    //140.Get Time
+    //160.Get Time
     LE_TEST_INFO("taf_pos_GetDate is triggered to get time information");
     result = taf_pos_GetTime(&hours, &minutes, &seconds, &milliseconds);
     LE_TEST_OK(((result == LE_OK) || (result == LE_OUT_OF_RANGE)),"taf_pos_GetTime-LE_OK");
@@ -2085,7 +2258,7 @@ static void TestTafPosHandler
         LE_TEST_INFO("Failed to get Pos Time\n");
     }
 
-    //141.taf_pos_GetFixState
+    //161.taf_pos_GetFixState
     LE_TEST_INFO("taf_pos_GetFixState is triggered to get time Fix state");
     result = taf_pos_GetFixState(&fixState);
     LE_TEST_OK(result == LE_OK,"taf_pos_GetFixState-LE_OK");
@@ -2094,6 +2267,7 @@ static void TestTafPosHandler
         LE_TEST_INFO("Position fix state: %s", (TAF_GNSS_STATE_FIX_NO_POS == fixState)?"No Fix"
                                      :(TAF_GNSS_STATE_FIX_2D == fixState)?"2D Fix"
                                      :(TAF_GNSS_STATE_FIX_3D == fixState)?"3D Fix"
+                                     :(TAF_GNSS_STATE_FIX_ESTIMATED == fixState)?"Estimated Fix"
                                      : "Unknown");
     }
     else
@@ -2101,13 +2275,13 @@ static void TestTafPosHandler
         LE_TEST_INFO("Failed to get pos Fix state\n");
     }
 
-    //142.taf_pos_GetMotion
+    //162.taf_pos_GetMotion
     LE_TEST_INFO("taf_pos_GetMotion() API is triggered to get heading information\n");
     result = taf_pos_GetMotion(&hSpeed, &hSpeedAccuracy, &vSpeed, &vSpeedAccuracy);
     LE_TEST_OK(((result == LE_OK) || (result == LE_OUT_OF_RANGE)),"taf_pos_GetMotion-LE_OK");
     if((result == LE_OK) || (result == LE_OUT_OF_RANGE))
     {
-        LE_INFO("taf_pos_GetMotion hSpeed.%u, hSpeedAccuracy.%u, vSpeed.%d, vSpeedAccuracy.%d",
+        LE_INFO("taf_pos_GetMotion hSpeed:%u, hSpeedAccuracy:%u, vSpeed:%d, vSpeedAccuracy:%d",
             hSpeed, hSpeedAccuracy, vSpeed, vSpeedAccuracy);
     }
     else
@@ -2115,7 +2289,7 @@ static void TestTafPosHandler
         LE_TEST_INFO("Failed | to get Motion information\n");
     }
 
-    //143.taf_pos_GetDirection
+    //163.taf_pos_GetDirection
     LE_TEST_INFO("taf_pos_GetDirection() API is triggered to get direction information\n");
     result = taf_pos_GetDirection(&direction, &directionAccuracy);
     LE_TEST_OK(((result == LE_OK) || (result == LE_OUT_OF_RANGE)),"taf_pos_GetDirection-LE_OK");
@@ -2129,7 +2303,7 @@ static void TestTafPosHandler
         LE_TEST_INFO("Failed | to get Direction information\n");
     }
 
-    //144.taf_pos_SetAcquisitionRate
+    //164.taf_pos_SetAcquisitionRate
     LE_TEST_INFO("taf_pos_SetAcquisitionRate() is triggered to check whether it returns"
         "LE_UNSUPPORTED or not\n");
     acquisitionRate = 3000;
@@ -2137,53 +2311,53 @@ static void TestTafPosHandler
     LE_TEST_INFO("taf_pos_SetAcquisitionRate()-> result: %d\n",result);
     LE_TEST_OK((result == LE_OK),"taf_pos_SetAcquisitionRate-LE_OK");
 
-    //145.taf_pos_GetAcquisitionRate
+    //165.taf_pos_GetAcquisitionRate
     LE_TEST_INFO("taf_pos_SetAcquisitionRate() is triggered to get Aquisition rate\n");
     acquisitionRate = taf_pos_GetAcquisitionRate();
     LE_TEST_INFO("taf_pos_SetAcquisitionRate()-> Aquisition rate: %d\n",acquisitionRate);
     LE_TEST_OK(((3000 == acquisitionRate) || (DEFAULT_ACQUISITION_RATE == acquisitionRate)),
         "taf_pos_GetAcquisitionRate-LE_OK");
 
-    //146.taf_pos_Get3DLocation
+    //166.taf_pos_Get3DLocation
     LE_TEST_INFO("taf_pos_Get3DLocation() is triggered to get 3D location information\n");
     result = taf_pos_Get3DLocation(&latitude, &longitude, &hAccuracy, &altitude, &vAccuracy);
     LE_TEST_OK(((LE_OK == result) || (LE_OUT_OF_RANGE == result)),"taf_pos_Get3DLocation-LE_OK");
     if((result == LE_OK) || (result == LE_OUT_OF_RANGE))
     {
-        LE_TEST_INFO("taf_pos_Get3DLocation latitude.%d, longitude.%d, hAccuracy.%d, altitude.%d"
-            ", vAccuracy.%d",latitude, longitude, hAccuracy, altitude, vAccuracy);
+        LE_TEST_INFO("taf_pos_Get3DLocation latitude:%.6f, longitude:%.6f, hAccuracy:%d, altitude:%.3f"
+            ", vAccuracy:%d",latitude/1e6, longitude/1e6, hAccuracy, altitude/1e3, vAccuracy);
     }
     else
     {
         LE_TEST_INFO("Failed to get Pos 3D location information\n");
     }
 
-    //147.taf_pos_SetDistanceResolution()-LE_BAD_PARAMETER
+    //167.taf_pos_SetDistanceResolution()-LE_BAD_PARAMETER
     LE_TEST_INFO("taf_pos_SetDistanceResolution() is triggered to set distance resolution\n");
     result = taf_pos_SetDistanceResolution(TAF_POS_RES_UNKNOWN);
     LE_TEST_OK((result == LE_BAD_PARAMETER),"taf_pos_SetDistanceResolution-LE_BAD_PARAMETER");
 
-    //148.taf_pos_SetDistanceResolution
+    //168.taf_pos_SetDistanceResolution
     LE_TEST_INFO("taf_pos_SetDistanceResolution() is triggered to set TAF_POS_RES_METER\n");
     result = taf_pos_SetDistanceResolution(TAF_POS_RES_METER);
     LE_TEST_OK((result == LE_OK),"taf_pos_SetDistanceResolution-LE_OK");
 
-    //149.taf_pos_SetDistanceResolution
+    //169.taf_pos_SetDistanceResolution
     LE_TEST_INFO("taf_pos_SetDistanceResolution() is triggered to set TAF_POS_RES_DECIMETER\n");
     result = taf_pos_SetDistanceResolution(TAF_POS_RES_DECIMETER);
     LE_TEST_OK((result == LE_OK),"taf_pos_SetDistanceResolution-LE_OK");
 
-    //150.taf_pos_SetDistanceResolution
+    //170.taf_pos_SetDistanceResolution
     LE_TEST_INFO("taf_pos_SetDistanceResolution() is triggered to set TAF_POS_RES_CENTIMETER\n");
     result = taf_pos_SetDistanceResolution(TAF_POS_RES_CENTIMETER);
     LE_TEST_OK((result == LE_OK),"taf_pos_SetDistanceResolution-LE_OK");
 
-    //151.taf_pos_SetDistanceResolution
+    //171.taf_pos_SetDistanceResolution
     LE_TEST_INFO("taf_pos_SetDistanceResolution() is triggered to set TAF_POS_RES_MILLIMETER\n");
     result = taf_pos_SetDistanceResolution(TAF_POS_RES_MILLIMETER);
     LE_TEST_OK((result == LE_OK),"taf_pos_SetDistanceResolution-LE_OK");
 
-    //152.Stop
+    //172.Stop
     LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting GNSS fixes");
     result = taf_gnss_Stop();
     LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
@@ -2200,109 +2374,109 @@ static void TestTafGnssStartMode
 {
     le_result_t result = LE_FAULT;
 
-    //164.Disable
+    //184.Disable
     LE_TEST_INFO("taf_gnss_Disable() is triggered to disable Engine state\n");
     result = taf_gnss_Disable();
     LE_TEST_OK(result == LE_OK, "taf_gnss_Disable-LE_OK");
 
-    //165.StartMode -Hot Start/LE_NOT_PERMITTED
+    //185.StartMode -Hot Start/LE_NOT_PERMITTED
     LE_TEST_INFO("taf_gnss_StartMode() is triggered to start the engine in  hot mode\n");
     result = taf_gnss_StartMode(TAF_GNSS_HOT_START);
     LE_TEST_OK((result == LE_NOT_PERMITTED),
                "taf_gnss_StartMode-LE_NOT_PERMITTED");
 
-    //166.StartMode -Warm Start/LE_NOT_PERMITTED
+    //186.StartMode -Warm Start/LE_NOT_PERMITTED
     LE_TEST_INFO("taf_gnss_StartMode() is triggered to start the engine in  Warm mode\n");
     result = taf_gnss_StartMode(TAF_GNSS_WARM_START);
     LE_TEST_OK((result == LE_NOT_PERMITTED),
                "taf_gnss_StartMode-LE_NOT_PERMITTED");
 
-    //167.StartMode -Warm Start/LE_NOT_PERMITTED
+    //187.StartMode -Warm Start/LE_NOT_PERMITTED
     LE_TEST_INFO("taf_gnss_StartMode() is triggered to start the engine in cold mode\n");
     result = taf_gnss_StartMode(TAF_GNSS_COLD_START);
     LE_TEST_OK((result == LE_NOT_PERMITTED),
                "taf_gnss_StartMode-LE_NOT_PERMITTED");
 
-    //168.StartMode -Factory Start/LE_NOT_PERMITTED
+    //188.StartMode -Factory Start/LE_NOT_PERMITTED
     LE_TEST_INFO("taf_gnss_StartMode() is triggered to start the engine in factory mode\n");
     result = taf_gnss_StartMode(TAF_GNSS_FACTORY_START);
     LE_TEST_OK((result == LE_NOT_PERMITTED),
                "taf_gnss_StartMode-LE_NOT_PERMITTED");
 
-    //169.StartMode -UNKNOWN/LE_BAD_PARAMETER
+    //189.StartMode -UNKNOWN/LE_BAD_PARAMETER
     LE_TEST_INFO("taf_gnss_StartMode() is triggered to start the engine in factory mode\n");
     result = taf_gnss_StartMode(TAF_GNSS_UNKNOWN_START);
     LE_TEST_OK((result == LE_BAD_PARAMETER),"taf_gnss_StartMode-LE_BAD_PARAMETER");
 
-    //170.Enable
+    //190.Enable
     LE_TEST_INFO("taf_gnss_Disable() is triggered to Enable Engine state\n");
     result = taf_gnss_Enable();
     LE_TEST_OK(result == LE_OK, "taf_gnss_Enable-LE_OK");
 
-    //171.StartMode -Hot/LE_OK
+    //191.StartMode -Hot/LE_OK
     LE_TEST_INFO("taf_gnss_StartMode() is triggered to start the engine in hot mode\n");
     result = taf_gnss_StartMode(TAF_GNSS_HOT_START);
     LE_TEST_OK((result == LE_OK),"taf_gnss_StartMode-LE_OK");
     LE_TEST_INFO("Wait for 10 seconds");
     le_thread_Sleep(10);
 
-    //172.StartMode -Hot/LE_DUPLICATE
+    //192.StartMode -Hot/LE_DUPLICATE
     LE_TEST_INFO("taf_gnss_StartMode() is triggered to start the engine in hot mode\n");
     result = taf_gnss_StartMode(TAF_GNSS_HOT_START);
     LE_TEST_OK((result == LE_DUPLICATE),"taf_gnss_StartMode-LE_DUPLICATE");
 
-    //173.StartMode -Warm/LE_DUPLICATE
+    //193.StartMode -Warm/LE_DUPLICATE
     LE_TEST_INFO("taf_gnss_StartMode() is triggered to start the engine in Warm mode\n");
     result = taf_gnss_StartMode(TAF_GNSS_WARM_START);
     LE_TEST_OK((result == LE_DUPLICATE),"taf_gnss_StartMode-LE_DUPLICATE");
 
-    //174.Stop
+    //194.Stop
     LE_TEST_INFO("taf_gnss_Stop() is triggered to Enable Engine state\n");
     result = taf_gnss_Stop();
     LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
 
-    //175.StartMode -Warm/LE_OK
+    //195.StartMode -Warm/LE_OK
     LE_TEST_INFO("taf_gnss_StartMode() is triggered to start the engine in Warm mode\n");
     result = taf_gnss_StartMode(TAF_GNSS_WARM_START);
     LE_TEST_OK((result == LE_OK),"taf_gnss_StartMode-LE_OK");
     LE_TEST_INFO("Wait for 30 seconds");
     le_thread_Sleep(30);
 
-    //176.StartMode -Cold/LE_DUPLICATE
+    //196.StartMode -Cold/LE_DUPLICATE
     LE_TEST_INFO("taf_gnss_StartMode() is triggered to start the engine in Cold mode\n");
     result = taf_gnss_StartMode(TAF_GNSS_COLD_START);
     LE_TEST_OK((result == LE_DUPLICATE),"taf_gnss_StartMode-LE_DUPLICATE");
 
-    //177.Stop
+    //197.Stop
     LE_TEST_INFO("taf_gnss_Stop() is triggered to Enable Engine state\n");
     result = taf_gnss_Stop();
     LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
 
-    //178.StartMode -Cold/LE_OK
+    //198.StartMode -Cold/LE_OK
     LE_TEST_INFO("taf_gnss_StartMode() is triggered to start the engine in Cold mode\n");
     result = taf_gnss_StartMode(TAF_GNSS_COLD_START);
     LE_TEST_OK((result == LE_OK),"taf_gnss_StartMode-LE_OK");
     LE_TEST_INFO("Wait for 30 seconds");
     le_thread_Sleep(30);
 
-    //179.StartMode -Factory/LE_DUPLICATEm
+    //199.StartMode -Factory/LE_DUPLICATEm
     LE_TEST_INFO("taf_gnss_StartMode() is triggered to start the engine in Factory mode\n");
     result = taf_gnss_StartMode(TAF_GNSS_FACTORY_START);
     LE_TEST_OK((result == LE_DUPLICATE),"taf_gnss_StartMode-LE_DUPLICATE");
 
-    //180.Stop
+    //200.Stop
     LE_TEST_INFO("taf_gnss_Stop() is triggered to Enable Engine state\n");
     result = taf_gnss_Stop();
     LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
 
-    //181.StartMode -Factory/LE_OK
+    //201.StartMode -Factory/LE_OK
     LE_TEST_INFO("taf_gnss_StartMode() is triggered to start the engine in Factory mode\n");
     result = taf_gnss_StartMode(TAF_GNSS_FACTORY_START);
     LE_TEST_OK((result == LE_OK),"taf_gnss_StartMode-LE_OK");
     LE_TEST_INFO("Wait for 60 seconds");
     le_thread_Sleep(60);
 
-    //182.Stop
+    //202.Stop
     LE_TEST_INFO("taf_gnss_Stop() is triggered to Enable Engine state\n");
     result = taf_gnss_Stop();
     LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
@@ -2315,15 +2489,19 @@ static void TestTafGnssRestart
 )
 {
     le_result_t result = LE_FAULT;
+    uint64_t gpsTime;
+    int32_t currentLeapSeconds;
+    uint64_t changeEventTime;
+    int32_t nextLeapSeconds;
 
-   //183.Start
+   //203.Start
     LE_TEST_INFO("taf_gnss_Start() API is called to trigger detailed Engine reporting");
     result = taf_gnss_Start();
     LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
     LE_TEST_INFO("wait for 3 seconds");
     le_thread_Sleep(3);
 
-   //184.Force Warm Restart
+   //204.Force Warm Restart
     LE_TEST_INFO("taf_gnss_ForceWarmRestart() API is called to perform"
         " Warm restart of GNSS engine");
     result = taf_gnss_ForceWarmRestart();
@@ -2331,7 +2509,7 @@ static void TestTafGnssRestart
     LE_TEST_INFO("Wait for 30 seconds to get fixes");
     le_thread_Sleep(30);
 
-   //185.Force Cold Restart
+   //205.Force Cold Restart
     LE_TEST_INFO("taf_gnss_ForceColdRestart() API is called to perform"
         " Cold restart of GNSS engine");
     result = taf_gnss_ForceColdRestart();
@@ -2339,7 +2517,7 @@ static void TestTafGnssRestart
     LE_TEST_INFO("Wait for 60 seconds to get fixes");
     le_thread_Sleep(60);
 
-   //186.Force Hot Restart
+   //206.Force Hot Restart
     LE_TEST_INFO("taf_gnss_ForceHotRestart() API is called to perform"
         " Warm restart of GNSS engine");
     result = taf_gnss_ForceHotRestart();
@@ -2347,28 +2525,40 @@ static void TestTafGnssRestart
     LE_TEST_INFO("Wait for 10 seconds to get fixes");
     le_thread_Sleep(10);
 
-   //187.Stop
+   //207.Stop
     LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
     result = taf_gnss_Stop();
     LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
 
-   //188.Force Warm Restart-Not Permitted
+   //208.Force Warm Restart-Not Permitted
     LE_TEST_INFO("taf_gnss_ForceWarmRestart() API is called to check whether it returns"
         " Not permitted state or not");
     result = taf_gnss_ForceWarmRestart();
     LE_TEST_OK(result == LE_NOT_PERMITTED, "taf_gnss_ForceWarmRestart-LE_NOT_PERMITTED");
 
-   //189.Force Cold Restart-Not Permitted
+   //209.Force Cold Restart-Not Permitted
     LE_TEST_INFO("taf_gnss_ForceColdRestart() API is called to check whether it returns"
         " Not permitted state or not");
     result = taf_gnss_ForceColdRestart();
     LE_TEST_OK(result == LE_NOT_PERMITTED, "taf_gnss_ForceColdRestart-LE_NOT_PERMITTED");
 
-   //190.Force Hot Restart- Not permitted
+   //210.Force Hot Restart- Not permitted
     LE_TEST_INFO("taf_gnss_ForceHotRestart() API is called to check whether it returns"
         " Not permitted state or not");
     result = taf_gnss_ForceHotRestart();
     LE_TEST_OK(result == LE_NOT_PERMITTED, "taf_gnss_ForceHotRestart-LE_NOT_PERMITTED");
+
+   //211.Force Factory Restart- Not Supported
+    LE_TEST_INFO("taf_gnss_ForceFactoryRestart() API is called to check whether it returns"
+        " Not supported state or not");
+    result = taf_gnss_ForceFactoryRestart();
+    LE_TEST_OK(result == LE_UNSUPPORTED, "taf_gnss_ForceFactoryRestart-LE_UNSUPPORTED");
+
+    //212. Get Leap Seconds-NOT SUPPORTED
+    LE_TEST_INFO("taf_gnss_GetLeapSeconds() API is triggerred to get Gps Leap Seconds");
+    result =taf_gnss_GetLeapSeconds(&gpsTime,&currentLeapSeconds,&changeEventTime,&nextLeapSeconds);
+    LE_TEST_OK(result == LE_UNSUPPORTED, "taf_gnss_GetLeapSeconds-LE_UNSUPPORTED");
+
 
 }
 

@@ -36,7 +36,7 @@
 #include "interfaces.h"
 
 #define EVENTS_POOL_SIZE   2
-#define TEST_PSAP_NUMBER "0909070026"
+#define TEST_PSAP_NUMBER "911"
 
 static le_sem_Ref_t TestSemaphoreRef;
 static le_thread_Ref_t ThreadRef;
@@ -49,16 +49,40 @@ static uint8_t msdLength = 43;
 static void Test_ecall_TerminateRegistration()
 {
     le_result_t result = taf_ecall_TerminateRegistration();
-    LE_ASSERT(result == LE_OK);
-    LE_INFO("TerminateECallRegistration SUCCESS!!!\n");
+    LE_TEST_OK(result == LE_OK, "Test_ecall_TerminateRegistration done");
+    LE_INFO("TerminateECallRegistration completed!!!\n");
+}
+
+static void* Test_ECall_ExportMsd
+(
+    taf_ecall_CallRef_t    ecallRef
+)
+{
+    // Test Case
+    le_result_t result = taf_ecall_ExportMsd(ecallRef, msdRawData, (size_t*)&msdLength);
+    LE_TEST_OK(result == LE_OK, "Test_ECall_ExportMsd - LE_OK");
+    LE_TEST_INFO("Test_ECall_ExportMsd done");
+    return NULL;
+}
+
+static void* Test_ECall_SendMsd
+(
+    taf_ecall_CallRef_t    ecallRef
+)
+{
+    // Test Case
+    le_result_t result = taf_ecall_SendMsd(ecallRef);
+    LE_TEST_OK(result == LE_OK, "taf_ecall_SendMsd_test");
+    LE_TEST_INFO("taf_ecall_SendMsd_test done");
+    return NULL;
 }
 
 static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         taf_ecall_State_t state, void* cntxtPtr)
 {
 
-    LE_DEBUG("Ecall state change event state = %d", state );
-    LE_DEBUG("Ecall state change event reference = %p", eCallReference );
+    LE_INFO("Ecall state change event state = %d", state );
+    LE_INFO("Ecall state change event reference = %p", eCallReference );
     ECallState = state;
 
     switch (state)
@@ -76,6 +100,8 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         case TAF_ECALL_STATE_ACTIVE:
         {
             LE_INFO("TAF_ECALL_STATE_ACTIVE");
+            Test_ECall_ExportMsd(eCallReference);
+            Test_ECall_SendMsd(eCallReference);
             break;
         }
         case TAF_ECALL_STATE_IDLE:
@@ -135,7 +161,7 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
             if (eCallReference != NULL)
             {
                 taf_ecall_TerminationReason_t lcf = taf_ecall_GetTerminationReason(eCallReference);
-                LE_INFO("ECall ENDed, terminate reason  = %d", lcf );
+                LE_INFO("TAF_ECALL_STATE_ENDED LCF = %d", (int) lcf);
             }
             Test_ecall_TerminateRegistration();
             le_sem_Post(TestSemaphoreRef);
@@ -239,16 +265,16 @@ static void Test_ECall_OperatingMode()
 {
     taf_ecall_ForceOnlyMode((taf_sim_Id_t)TAF_SIM_EXTERNAL_SLOT_1);
     taf_ecall_OpMode_t opMode = TAF_ECALL_MODE_NORMAL;
-    LE_ASSERT( taf_ecall_GetConfiguredOperationMode((taf_sim_Id_t)TAF_SIM_EXTERNAL_SLOT_1, &opMode) == LE_OK);
-    LE_ASSERT(opMode == TAF_ECALL_MODE_ECALL);
-    LE_DEBUG("Operating mode = %d", opMode);
+    LE_TEST_OK( taf_ecall_GetConfiguredOperationMode((taf_sim_Id_t)TAF_SIM_EXTERNAL_SLOT_1, &opMode) == LE_OK, "Test_ECall_OperatingMode done");
+    LE_TEST_OK(opMode == TAF_ECALL_MODE_ECALL, "taf_ecall_GetConfiguredOperationMode done");
+    LE_INFO("Operating mode = %d", opMode);
     taf_ecall_ForcePersistentOnlyMode((taf_sim_Id_t)TAF_SIM_EXTERNAL_SLOT_1);
     taf_ecall_GetConfiguredOperationMode((taf_sim_Id_t)TAF_SIM_EXTERNAL_SLOT_1, &opMode);
-    LE_ASSERT(opMode == TAF_ECALL_MODE_ECALL);
+    LE_TEST_OK(opMode == TAF_ECALL_MODE_ECALL, "taf_ecall_ForcePersistentOnlyMode done");
     LE_INFO("Operating mode = %d", opMode);
     taf_ecall_ExitOnlyMode((taf_sim_Id_t)TAF_SIM_EXTERNAL_SLOT_1);
     taf_ecall_GetConfiguredOperationMode((taf_sim_Id_t)TAF_SIM_EXTERNAL_SLOT_1, &opMode);
-    LE_ASSERT(opMode == TAF_ECALL_MODE_NORMAL);
+    LE_TEST_OK(opMode == TAF_ECALL_MODE_NORMAL, "taf_ecall_ExitOnlyMode done");
     LE_INFO("Operating mode = %d", opMode);
 }
 
@@ -261,69 +287,99 @@ static void Test_MSD_Information()
     taf_ecall_MsdTransmissionMode_t mode = TAF_ECALL_MSD_TX_MODE_PULL;
 
     uint32_t msdVersion = 0;
-    LE_ASSERT(taf_ecall_SetMsdVersion(4) == LE_OK);
-    LE_ASSERT(taf_ecall_GetMsdVersion(&msdVersion) == LE_OK);
-    LE_ASSERT(msdVersion == 4);
-    LE_DEBUG("Set and Get MSD version successfull");
+    LE_TEST_OK(taf_ecall_SetMsdVersion(4) == LE_OK, "Test_MSD_Information done");
+    LE_TEST_OK(taf_ecall_GetMsdVersion(&msdVersion) == LE_OK, "taf_ecall_GetMsdVersion done");
+    LE_TEST_OK(msdVersion == 4, "taf_ecall_GetMsdVersion done");
+    LE_INFO("Set and Get MSD version completed");
 
-    LE_ASSERT(taf_ecall_SetMsdTxMode(TAF_ECALL_MSD_TX_MODE_PUSH) == LE_OK);
-    LE_ASSERT(taf_ecall_GetMsdTxMode(&mode) == LE_OK);
-    LE_ASSERT(mode == TAF_ECALL_TX_MODE_PUSH);
-    LE_DEBUG("Set and Get MSD transmission mode successfull");
+    LE_TEST_OK(taf_ecall_SetMsdTxMode(TAF_ECALL_MSD_TX_MODE_PUSH) == LE_OK, "taf_ecall_SetMsdTxMode done");
+    LE_TEST_OK(taf_ecall_GetMsdTxMode(&mode) == LE_OK, "taf_ecall_GetMsdTxMode done");
+    LE_TEST_OK(mode == TAF_ECALL_TX_MODE_PUSH, "Test_MSD_Information done");
+    LE_INFO("Set and Get MSD transmission mode completed");
 
-    LE_ASSERT(taf_ecall_SetVIN("ECALLEXAMPLE02013") == LE_OK);
+    LE_TEST_OK(taf_ecall_SetVIN("ECALLEXAMPLE02013") == LE_OK, "taf_ecall_SetVIN done");
 
-    LE_ASSERT(taf_ecall_GetVIN(vin, TAF_ECALL_MAX_VIN_BYTES) == LE_OK);
-    LE_ASSERT(strcmp(vin, "ECALLEXAMPLE02013") == 0);
-    LE_DEBUG("Set and Get Vehicle identification number successfull");
+    LE_TEST_OK(taf_ecall_GetVIN(vin, TAF_ECALL_MAX_VIN_BYTES) == LE_OK, "taf_ecall_GetVIN done");
+    LE_TEST_OK(strcmp(vin, "ECALLEXAMPLE02013") == 0, "Test_MSD_Information done");
+    LE_INFO("Set and Get Vehicle identification number completed");
 
-    LE_ASSERT(taf_ecall_SetVehicleType(vehType) == LE_OK);
+    LE_TEST_OK(taf_ecall_SetVehicleType(vehType) == LE_OK, "taf_ecall_SetVehicleType done");
 
     vehType = TAF_ECALL_BUSES_AND_COACHES_CLASS_M2;
-    LE_ASSERT( taf_ecall_GetVehicleType(&vehType) == LE_OK);
-    LE_ASSERT(( TAF_ECALL_PASSENGER_VEHICLE_CLASS_M1 == vehType ));
-    LE_DEBUG("Set and Get Vehicle type successfull");
+    LE_TEST_OK( taf_ecall_GetVehicleType(&vehType) == LE_OK, "taf_ecall_GetVehicleType done");
+    LE_TEST_OK(( TAF_ECALL_PASSENGER_VEHICLE_CLASS_M1 == vehType ), "taf_ecall_SetVehicleType done");
+    LE_INFO("Set and Get Vehicle type completed");
 
     taf_ecall_PropulsionStorageType_t propulsionStorage = TAF_ECALL_PROP_TYPE_GASOLINE_TANK;
-    LE_ASSERT(taf_ecall_SetPropulsionType(propulsionStorage) == LE_OK);
-    LE_ASSERT((LE_OK == taf_ecall_GetPropulsionType(&propulsionStorage)));
-    LE_ASSERT( TAF_ECALL_PROP_TYPE_GASOLINE_TANK == propulsionStorage );
-    LE_DEBUG("Set and Get propulsion type successfull");
+    LE_TEST_OK(taf_ecall_SetPropulsionType(propulsionStorage) == LE_OK, "taf_ecall_SetPropulsionType done");
+    LE_TEST_OK((LE_OK == taf_ecall_GetPropulsionType(&propulsionStorage)), "taf_ecall_GetPropulsionType done");
+    LE_TEST_OK( TAF_ECALL_PROP_TYPE_GASOLINE_TANK == propulsionStorage, "taf_ecall_SetPropulsionType done");
+    LE_INFO("Set and Get propulsion type completed");
 
-    LE_ASSERT((eCallRef= taf_ecall_Create()) != NULL);
+    LE_TEST_OK((eCallRef= taf_ecall_Create()) != NULL, "taf_ecall_Create done");
 
     res = taf_ecall_SetMsdPosition(eCallRef, true, +118422000, -421902360, 0);
-    LE_ASSERT(res == LE_OK);
-    LE_DEBUG("Set msd position successfull");
+    LE_TEST_OK(res == LE_OK, "taf_ecall_SetMsdPosition done");
+    LE_INFO("Set msd position completed");
 
     res = taf_ecall_SetMsdPositionN1(eCallRef, 511, 511);
-    LE_ASSERT(res == LE_OK);
-    LE_DEBUG("Set delta  msd position successfull");
+    LE_TEST_OK(res == LE_OK, "taf_ecall_SetMsdPositionN1 done");
+    LE_INFO("Set delta  msd position completed");
 
     res = taf_ecall_SetMsdPositionN2(eCallRef, -512, -512);
-    LE_ASSERT(res == LE_OK);
-    LE_DEBUG("Set delta  msd position successfull");
+    LE_TEST_OK(res == LE_OK, "taf_ecall_SetMsdPositionN2 done");
+    LE_INFO("Set delta  msd position completed");
 
     res = taf_ecall_SetMsdPassengersCount(eCallRef, 2);
-    LE_ASSERT(res == LE_OK);
-    LE_DEBUG("Set number of passengers successfull");
+    LE_TEST_OK(res == LE_OK, "taf_ecall_SetMsdPassengersCount done");
+    LE_INFO("Set number of passengers completed");
 
-    LE_DEBUG("Set msd information test completed");
+    LE_INFO("Set msd information test completed");
 }
 
 static void Test_ecall_GetNadDeregTime()
 {
     uint16_t deregTimeOrg = 0;
     le_result_t res = taf_ecall_GetNadDeregistrationTime(&deregTimeOrg);
-    LE_ASSERT(res == LE_OK);
-    LE_INFO("GetNadDeregTime SUCCESS!!! DeregTime (in minutes): %d\n", deregTimeOrg);
+    LE_TEST_OK(res == LE_OK, "Test_ecall_GetNadDeregTime done");
+    LE_INFO("GetNadDeregTime done!!! DeregTime (in minutes): %d\n", deregTimeOrg);
 }
 
 static void Test_ecall_SetNadDeregTime()
 {
     le_result_t res = taf_ecall_SetNadDeregistrationTime(9*60); // 9 hrs
-    LE_ASSERT(res == LE_OK);
-    LE_INFO("SetNadDeregistrationTime as 9 hrs SUCCESS!!!\n");
+    LE_TEST_OK(res == LE_OK, "Test_ecall_SetNadDeregTime done");
+    LE_INFO("SetNadDeregistrationTime as 9 hrs completed!!!\n");
+}
+
+static void Test_ECall_StartAutomatic() {
+    taf_ecall_CallRef_t eCallRef = NULL;
+
+    eCallRef = taf_ecall_Create();
+
+    le_result_t res = taf_ecall_StartAutomatic(eCallRef);
+    taf_ecall_State_t retrievedState = taf_ecall_GetState(eCallRef);
+    LE_INFO("Test_ECall_StartAutomatic callState = %d", (int) retrievedState);
+
+    Test_ECall_ExportMsd(eCallRef);
+    Test_ECall_SendMsd(eCallRef);
+
+    if(res == LE_OK) {
+        le_sem_Wait(TestSemaphoreRef);
+    }
+
+    res = taf_ecall_End(eCallRef);
+
+    if(res == LE_OK) {
+        le_sem_Wait(TestSemaphoreRef);
+    }
+
+    taf_ecall_TerminationReason_t lcf = taf_ecall_GetTerminationReason(eCallRef);
+    LE_INFO("Test_ECall_StartAutomatic LCF = %d", (int) lcf);
+
+    taf_ecall_Delete(eCallRef);
+
+    eCallRef = NULL;
 }
 
 static void Test_ECall_StartManual() {
@@ -331,13 +387,25 @@ static void Test_ECall_StartManual() {
 
     eCallRef = taf_ecall_Create();
 
-    taf_ecall_StartManual(eCallRef);
+    le_result_t res = taf_ecall_StartManual(eCallRef);
+    taf_ecall_State_t retrievedState = taf_ecall_GetState(eCallRef);
+    LE_INFO("Test_ECall_StartManual callState = %d", (int) retrievedState);
 
-    le_sem_Wait(TestSemaphoreRef);
+    Test_ECall_ExportMsd(eCallRef);
+    Test_ECall_SendMsd(eCallRef);
 
-    taf_ecall_End(eCallRef);
+    if(res == LE_OK) {
+        le_sem_Wait(TestSemaphoreRef);
+    }
 
-    le_sem_Wait(TestSemaphoreRef);
+    res = taf_ecall_End(eCallRef);
+
+    if(res == LE_OK) {
+        le_sem_Wait(TestSemaphoreRef);
+    }
+
+    taf_ecall_TerminationReason_t lcf = taf_ecall_GetTerminationReason(eCallRef);
+    LE_INFO("Test_ECall_StartManual LCF = %d", (int) lcf);
 
     taf_ecall_Delete(eCallRef);
 
@@ -351,9 +419,15 @@ static void Test_ECall_StartTest() {
 
     taf_ecall_ImportMsd(eCallRef, msdRawData, msdLength);
 
-    taf_ecall_StartTest(eCallRef);
+    le_result_t res = taf_ecall_StartTest(eCallRef);
+    taf_ecall_State_t retrievedState = taf_ecall_GetState(eCallRef);
+    LE_INFO("Test_ECall_StartTest callState = %d", (int) retrievedState);
 
-    le_sem_Wait(TestSemaphoreRef);
+    Test_ECall_ExportMsd(eCallRef);
+
+    if(res == LE_OK) {
+        le_sem_Wait(TestSemaphoreRef);
+    }
 
     taf_ecall_Delete(eCallRef);
 
@@ -363,15 +437,15 @@ static void Test_ECall_StartTest() {
 static void Test_ECall_SetGetPsapNumber() {
 
     le_result_t res = taf_ecall_SetPsapNumber(TEST_PSAP_NUMBER);
-    LE_ASSERT(res == LE_OK);
+    LE_TEST_OK(res == LE_OK, "Test_ECall_SetGetPsapNumber done");
 
     char num[15];
     res = taf_ecall_GetPsapNumber(num, 15);
-    LE_ASSERT(res == LE_OK);
-    LE_ASSERT(strncmp(num, TEST_PSAP_NUMBER, sizeof(TEST_PSAP_NUMBER)) == 0);
+    LE_TEST_OK(res == LE_OK, "Test_ECall_GetGetPsapNumber done");
+    LE_TEST_OK(strncmp(num, TEST_PSAP_NUMBER, sizeof(TEST_PSAP_NUMBER)) == 0, "Test_ECall_GetGetPsapNumber done");
 
     res = taf_ecall_UseUSimNumbers();
-    LE_ASSERT(res == LE_OK);
+    LE_TEST_OK(res == LE_OK, "taf_ecall_UseUSimNumbers done");
 }
 
 static void* Test_taf_ecall_AddHandler(void* context) {
@@ -379,14 +453,16 @@ static void* Test_taf_ecall_AddHandler(void* context) {
     taf_ecall_ConnectService();
 
     HandlerRef = taf_ecall_AddStateChangeHandler(tafECallStateHandler, NULL);
-    LE_ASSERT(HandlerRef != NULL);
-    LE_INFO("State change handler added successfully HandlerRef = %p", HandlerRef);
+    LE_TEST_OK(HandlerRef != NULL, "Test_taf_ecall_AddHandler done");
+    LE_INFO("Add State change handler complete. The HandlerRef = %p", HandlerRef);
 
     le_event_RunLoop();
     return NULL;
 }
 
 static void Test_taf_ecall_RemoveHandler(void* param1, void* param2) {
+
+    taf_ecall_TryConnectService();
 
     taf_ecall_RemoveStateChangeHandler(HandlerRef);
 
@@ -408,23 +484,30 @@ COMPONENT_INIT
 
     TestSemaphoreRef = le_sem_Create("ECallSem", 0);
 
-    ThreadRef = le_thread_Create("taf_ecall_test_thread", Test_taf_ecall_AddHandler, NULL);
+    ThreadRef = le_thread_Create("EctThread", Test_taf_ecall_AddHandler, NULL);
     le_thread_Start(ThreadRef);
+
+    Test_ECall_StartTest();
 
     Test_ECall_StartManual();
 
-    Test_ECall_StartTest();
+    Test_ECall_StartAutomatic();
 
     le_event_QueueFunctionToThread(ThreadRef, Test_taf_ecall_RemoveHandler, NULL, NULL);
 
     le_sem_Wait(TestSemaphoreRef);
 
+    Test_ecall_TerminateRegistration();
+
     le_result_t result = le_thread_Cancel(ThreadRef);
-    LE_ASSERT(result == LE_OK);
+    LE_TEST_OK(result == LE_OK, "Test_taf_ecall_RemoveHandler done");
 
     le_sem_Delete(TestSemaphoreRef);
 
-    LE_INFO(" ECall API Unit test SUCCESS");
+    // Disconnect the telaf service.
+    taf_ecall_DisconnectService();
+
+    LE_INFO("ECall API Unit test execution success");
 
     exit(EXIT_SUCCESS);
 }

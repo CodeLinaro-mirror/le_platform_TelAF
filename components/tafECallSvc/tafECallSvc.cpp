@@ -162,6 +162,11 @@ le_result_t taf_ecall_ForceOnlyMode
 )
 {
     auto &ecall = taf_ecall::GetInstance();
+
+    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn( CFG_MODEMSERVICE_ECALL_PATH );
+    le_cfg_SetInt(iteratorRef, CFG_NODE_OPMODE, (int) TAF_ECALL_MODE_NORMAL);
+    le_cfg_CommitTxn(iteratorRef);
+
     return ecall.SetECallOperatingMode(slotId, TAF_ECALL_MODE_ECALL);
 }
 
@@ -169,7 +174,8 @@ le_result_t taf_ecall_ForceOnlyMode
 
  FUNCTION        taf_ecall_ForcePersistentOnlyMode
 
- DESCRIPTION     Switch to mode in which only eCall is allowed.
+ DESCRIPTION     Switch to mode in which only eCall is allowed and it
+                 persists over power cycles.
 
  DEPENDENCIES    Initialization of ECall Service
 
@@ -189,6 +195,11 @@ le_result_t taf_ecall_ForcePersistentOnlyMode
 )
 {
     auto &ecall = taf_ecall::GetInstance();
+
+    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn( CFG_MODEMSERVICE_ECALL_PATH );
+    le_cfg_SetInt(iteratorRef, CFG_NODE_OPMODE, (int) TAF_ECALL_MODE_ECALL);
+    le_cfg_CommitTxn(iteratorRef);
+
     return ecall.SetECallOperatingMode(slotId, TAF_ECALL_MODE_ECALL);
 }
 
@@ -216,6 +227,11 @@ le_result_t taf_ecall_ExitOnlyMode
 )
 {
     auto &ecall = taf_ecall::GetInstance();
+
+    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn( CFG_MODEMSERVICE_ECALL_PATH );
+    le_cfg_SetInt(iteratorRef, CFG_NODE_OPMODE, (int) TAF_ECALL_MODE_NORMAL);
+    le_cfg_CommitTxn(iteratorRef);
+
     return ecall.SetECallOperatingMode(slotId, TAF_ECALL_MODE_NORMAL);
 }
 

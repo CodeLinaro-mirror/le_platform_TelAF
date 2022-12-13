@@ -367,6 +367,15 @@ void taf_ecall::Init(void)
 
    InitializeECallPtr();
 
+    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateReadTxn( CFG_MODEMSERVICE_ECALL_PATH );
+    int opMode = le_cfg_GetInt(iteratorRef, CFG_NODE_OPMODE, 0);
+    le_cfg_CancelTxn(iteratorRef);
+    if (opMode == TAF_ECALL_FORCED_PERSISTENT_ONLY_MODE) {
+        taf_sim_Id_t slotId = taf_sim_GetSelectedCard();
+        le_result_t res = SetECallOperatingMode(slotId, TAF_ECALL_MODE_ECALL);
+        LE_INFO("Apply eCall persist only mode, result = %d\n", res);
+    }
+
     ECallListener =  std::make_shared<tafECallListener>();
     Status ret = CallManager->registerListener(ECallListener);
     if(ret!= Status::SUCCESS)

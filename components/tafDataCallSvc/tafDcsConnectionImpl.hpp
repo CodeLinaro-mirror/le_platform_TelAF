@@ -195,6 +195,7 @@ namespace tafsvc {
 
             taf_DataConnServingSystemListener(SlotId slot);
             void onServiceStateChanged(telux::data::ServiceStatus status) override;
+            void onRoamingStatusChanged(telux::data::RoamingStatus status) override;
 
         private:
             SlotId slotId;
@@ -208,6 +209,17 @@ namespace tafsvc {
             void requestServiceStatus(telux::data::ServiceStatus serviceStatus,
                                       telux::common::ErrorCode error);
     };
+
+    class taf_DataConnRequestRoamingStatusCallback
+    {
+        public:
+            le_sem_Ref_t semaphore;
+            telux::data::RoamingStatus status;
+            telux::common::ErrorCode errorCode;
+            void requestRoamingStatus(telux::data::RoamingStatus roamingStatus,
+                                      telux::common::ErrorCode error);
+    };
+
 #endif
     // Data connection component implementation
     class taf_DataConnection: public ITafSvc
@@ -296,6 +308,7 @@ namespace tafsvc {
             le_result_t GetDataBearerTechnology(int32_t profileId,
                                             taf_dcs_DataBearerTechnology_t* downDataBearerTechPtr,
                                             taf_dcs_DataBearerTechnology_t* upDataBearerTechPtr);
+            le_result_t GetRoamingStatus(bool* isRoamingPtr, taf_dcs_RoamingType_t* typePtr);
             bool updateStatus(taf_dcs_CallCtx_t *callCtxPtr, dataCallEvent_t *eventPtr);
             le_result_t SendStatusChangedNotification(taf_dcs_CallCtx_t *callCtxPtr,
                                                       dataCallEvent_t *eventPtr);
@@ -306,6 +319,8 @@ namespace tafsvc {
             bool IsIpv6(int32_t profileId);
             void RegisterSessionStateHandler(taf_dcs_SessionStateFunc_t func);
             le_event_Id_t GetSessionStateEvent(int32_t profileId);
+            le_event_Id_t RoamingStatusEvtId;
+            le_mem_PoolRef_t RoamingStatusPool;
             std::promise<le_result_t> CmdSynchronousPromise;
             std::promise<le_result_t> EventSynchronousPromise;
             static void* ConnectionEventThread(void* contextPtr);
@@ -323,6 +338,7 @@ namespace tafsvc {
             std::map<SlotId, std::shared_ptr<taf_DataConnServingSystemListener>>
                                                                    connectionServingSystemlisteners;
             std::shared_ptr<taf_DataConnRequestServiceStatusCallback> reqSvcStateCb;
+            std::shared_ptr<taf_DataConnRequestRoamingStatusCallback> reqRoamingStatusCb;
         #endif
             std::shared_ptr<telux::data::IDataConnectionManager> ConnectionMgr;
             std::shared_ptr<telux::data::IDataConnectionListener> DataConnectionListener;

@@ -429,6 +429,13 @@ void set_apn_test(const char *testApnStr)
     std::cout<<"*** APN: "<<apnStr<<endl;
 
     // Test Case
+    taf_dcs_ApnType_t apnType;
+    result=taf_dcs_GetApnTypes(TestProfileRef, &apnType);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_GetApnTypes - LE_OK");
+    report(LE_OK,result,"taf_dcs_GetApnTypes");
+    std::cout<<"*** ApnTypes: "<<apnType<<endl;
+
+    // Test Case
     int return_value;
     return_value = strncmp(apnStr, testApnStr, TAF_DCS_APN_NAME_MAX_LEN);
     LE_TEST_OK( return_value == 0, "Checking if APN set properly");
@@ -470,6 +477,18 @@ void restore_apn_test()
         std::cout<<TC_No<<". Resetting APN to default - Fail"<<endl;
     }
     TC_No += 1;
+}
+
+void get_roaming_status_test()
+{
+    bool isRoaming = false;
+    taf_dcs_RoamingType_t type;
+    uint8_t phoneId = 1;
+
+    le_result_t result = taf_dcs_GetRoamingStatus(phoneId, &isRoaming, &type);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_GetRoamingStatus - OK");
+    report(LE_OK,result,"taf_dcs_GetRoamingStatus");
+    std::cout<<"*** isRoaming: "<<isRoaming<<"*** type: "<<type<<endl;
 }
 
 static void* ipv4_check(void* ipType)
@@ -789,6 +808,7 @@ COMPONENT_INIT
     LE_TEST_OK(result == LE_OUT_OF_RANGE, "stop_session_sync_test - LE_OUT_OF_RANGE");
     report(LE_OUT_OF_RANGE,result,"stop_session_sync_test");
     restore_apn_test();
+    get_roaming_status_test();
 
     /* Taf Async Data Call with PDP - TAF_DCS_PDP_IPV4V6 */
     LE_TEST_INFO("Taf Async Data Call with PDP - TAF_DCS_PDP_IPV4V6");

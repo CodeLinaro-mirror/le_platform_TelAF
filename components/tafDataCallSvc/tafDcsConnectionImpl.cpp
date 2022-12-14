@@ -85,6 +85,9 @@ LE_MEM_DEFINE_STATIC_POOL(tafSessionRef, TAF_DCS_MAX_SESSION_REF, sizeof(taf_Ses
 LE_MEM_DEFINE_STATIC_POOL(HandlerSessionMappingPool,
                                     TAF_DCS_MAX_ASYNC_HANDLER_MAPPING,
                                     sizeof(HandlerSessionMapping_t));
+LE_MEM_DEFINE_STATIC_POOL(RoamingStatusPool, TAF_DCS_MAX_SESSION_REF,
+                          sizeof(taf_dcs_RoamingStatusInd_t));
+
 
 #ifdef TARGET_SA515M
 taf_DataConnServingSystemListener::taf_DataConnServingSystemListener(SlotId slot) : slotId(slot) {}
@@ -99,6 +102,20 @@ void taf_DataConnServingSystemListener::onServiceStateChanged(telux::data::Servi
     if (dsStatus == telux::data::DataServiceState::IN_SERVICE) {
         conVar.notify_all();
     }
+}
+
+void taf_DataConnServingSystemListener::onRoamingStatusChanged(telux::data::RoamingStatus status)
+{
+    taf_dcs_RoamingStatusInd_t *reportPtr = NULL;
+    auto &dataConnection = taf_DataConnection::GetInstance();
+    reportPtr = (taf_dcs_RoamingStatusInd_t*)le_mem_ForceAlloc(dataConnection.RoamingStatusPool);
+
+    reportPtr->phoneId = (int)(this->slotId);
+    reportPtr->isRoaming = status.isRoaming;
+    reportPtr->type = (taf_dcs_RoamingType_t)status.type;
+
+    le_event_ReportWithRefCounting(dataConnection.RoamingStatusEvtId, (void*)reportPtr);
+
 }
 
 void taf_DataConnRequestServiceStatusCallback::requestServiceStatus
@@ -116,6 +133,20 @@ void taf_DataConnRequestServiceStatusCallback::requestServiceStatus
     status = serviceStatus;
     le_sem_Post(semaphore);
 }
+
+void taf_DataConnRequestRoamingStatusCallback::requestRoamingStatus
+(
+    telux::data::RoamingStatus roamingStatus,
+    telux::common::ErrorCode error
+)
+{
+    LE_DEBUG("<SDK Callback> taf_DataConnRequestRoamingStatusCallback --> requestRoamingStatus");
+
+    errorCode=error;
+    status = roamingStatus;
+    le_sem_Post(semaphore);
+}
+
 #endif
 void taf_DataConnectionListener::onDataCallInfoChanged
 (
@@ -1501,6 +1532,37 @@ le_result_t taf_DataConnection::GetDataBearerTechnology
     return LE_OK;
 }
 
+le_result_t taf_DataConnection::GetRoamingStatus(bool* isRoamingPtr, taf_dcs_RoamingType_t* typePtr)
+{
+    TAF_ERROR_IF_RET_VAL(isRoamingPtr == NULL || typePtr == NULL, LE_BAD_PARAMETER, "ptr is null");
+
+#ifdef TARGET_SA515M
+        auto reqRoamingStatusCbFunc = std::bind(
+                                    &taf_DataConnRequestRoamingStatusCallback::requestRoamingStatus,
+                                    reqRoamingStatusCb,
+                                    std::placeholders::_1,
+                                    std::placeholders::_2);
+
+        telux::common::Status status =
+            dataServingSystemManagers[(SlotId)SLOT_ID_1]->requestRoamingStatus(
+                                                                            reqRoamingStatusCbFunc);
+        TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
+                             "Call sdk function failed.");
+
+        le_clk_Time_t timeToWait = {2, 0};
+        le_result_t res = le_sem_WaitWithTimeOut(reqRoamingStatusCb->semaphore, timeToWait);
+        TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Wait semaphore timeout.");
+
+        TAF_ERROR_IF_RET_VAL(reqRoamingStatusCb->errorCode != telux::common::ErrorCode::SUCCESS,
+                             LE_FAULT, "Telsdk returns error.");
+
+        *isRoamingPtr = reqRoamingStatusCb->status.isRoaming;
+        *typePtr = (taf_dcs_RoamingType_t)reqRoamingStatusCb->status.type;
+#endif
+
+    return LE_OK;
+}
+
 le_event_Id_t taf_DataConnection::GetSessionStateEvent(int32_t profileId)
 {
     taf_dcs_CallCtx_t* callCtxPtr;
@@ -2556,7 +2618,14 @@ void taf_DataConnection::Init(void)
 
     reqSvcStateCb = std::make_shared<taf_DataConnRequestServiceStatusCallback>();
     reqSvcStateCb->semaphore = le_sem_Create("taf_ConnectionReqSvcStateCbSem", 0);
+
+    reqRoamingStatusCb = std::make_shared<taf_DataConnRequestRoamingStatusCallback>();
+    reqRoamingStatusCb->semaphore = le_sem_Create("taf_ConnReqRoamingStatusCbSem", 0);
+
 #endif
+
+    RoamingStatusEvtId = le_event_CreateIdWithRefCounting("RoamingStatus");
+
     DataCallCtxPool = le_mem_InitStaticPool(tafDataCall, TAF_DCS_MAX_CALL_OBJ,
                                             sizeof(taf_dcs_CallCtx_t));
     // le_mem_SetDestructor(DataCallCtxPool, taf_Handler::ReleaseCallCtrlHandler);
@@ -2565,6 +2634,9 @@ void taf_DataConnection::Init(void)
     HandlerSessionMappingPool = le_mem_InitStaticPool(HandlerSessionMappingPool,
                                                       TAF_DCS_MAX_ASYNC_HANDLER_MAPPING,
                                                       sizeof(HandlerSessionMapping_t));
+    RoamingStatusPool = le_mem_InitStaticPool(RoamingStatusPool,
+                                                      TAF_DCS_MAX_SESSION_REF,
+                                                      sizeof(taf_dcs_RoamingStatusInd_t));
 
     DataCallRefMap = le_ref_CreateMap("Call Context Reference", TAF_DCS_MAX_CALL_OBJ);
 

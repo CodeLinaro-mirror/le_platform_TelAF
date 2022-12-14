@@ -1,0 +1,23 @@
+# Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+policy_module(tafAppTemplet, 1.0)
+
+# Required: the context of executable
+type telaf_tafAppTemplet_exec_t;
+files_type(telaf_tafAppTemplet_exec_t);
+
+# Required: the domain of this TelAF APP
+type telaf_tafAppTemplet_t;
+
+# All TelAF APP should call init_telaf_app_domain() to do type transition
+init_telaf_app_domain(telaf_tafAppTemplet_t,telaf_tafAppTemplet_exec_t)
+
+# Optional: the data context of of this APP
+type telaf_tafAppTemplet_data_t;
+files_type(telaf_tafAppTemplet_data_t);
+
+# Allow update daemon to install/uninstall this service
+telaf_admin_manage_all_files_perms(telaf_tafAppTemplet_data_t)
+telaf_admin_manage_all_files_perms(telaf_tafAppTemplet_exec_t)
+

@@ -1,0 +1,15 @@
+# Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+## <summary> devices interface </summary>
+
+#######################################
+# <summary>
+#        Interface for other module to call
+# </summary>
+# <param name="parameter">
+#        <summary>
+#        The usage of this parameter 
+#        </summary>
+# </param>
+

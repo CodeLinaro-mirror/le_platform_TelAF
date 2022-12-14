@@ -13,6 +13,9 @@ export LEGATO_BUILD := $(CURDIR)/../legato/legato-af/build
 export GEN_FILE_CONTEXTS := $(CURDIR)/security/selinux/tools/generate_telaf_file_contexts.sh
 export SELINUX_FILE_CONTEXTS := ${CURDIR}/security/selinux/sepolicy/files/file_contexts
 
+SE_FILES = $(shell find $(CURDIR)/security/selinux/sepolicy/ -name *.pp -type f)
+SE_MODS = $(shell find $(CURDIR)/security/selinux/sepolicy/ -name tmp -type d)
+
 $(TARGETS):
 ifneq ($(TELAF_BUILD), $(wildcard $(TELAF_BUILD)))
 	@ln -sf $(LEGATO_RELATIVE_PATH)/build ./build
@@ -25,4 +28,5 @@ $(UTILITIES):
 ifeq ($(TELAF_BUILD), $(wildcard $(TELAF_BUILD)))
 	@rm -rf $(TELAF_BUILD)
 endif
+	@rm -fr $(SE_FILES) $(SE_MODS)
 

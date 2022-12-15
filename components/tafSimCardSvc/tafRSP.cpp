@@ -99,9 +99,9 @@ le_result_t taf_rsp_UpdateNickName
 
 le_result_t taf_rsp_GetProfileList
 (
-    taf_sim_Id_t                 slotId,
-    taf_rsp_SimProfileInfo_t*    profileListPtr,
-    size_t*                      profileCount
+    taf_sim_Id_t                     slotId,
+    taf_rsp_ProfileListNodeRef_t*    profileListPtr,
+    size_t*                          profileCount
 )
 {
     auto &rsp = taf_rsp::GetInstance();
@@ -220,4 +220,111 @@ void taf_rsp_RemoveProfileConfirmationCodeHandler(taf_rsp_ProfileConfirmationCod
 {
     auto &rsp = taf_rsp::GetInstance();
     rsp.RemoveProfileConfirmationCodeHandler(handlerRef);
+}
+
+taf_rsp_ProfileListNodeRef_t taf_rsp_GetProfile
+(
+    uint32_t index
+)
+{
+    auto &rsp = taf_rsp::GetInstance();
+    return rsp.GetProfileListNodeRef(index);
+}
+
+uint32_t taf_rsp_GetProfileIndex
+(
+    taf_rsp_ProfileListNodeRef_t profileRef
+)
+{
+    auto &rsp = taf_rsp::GetInstance();
+    return rsp.GetProfileIndex(profileRef);
+}
+
+taf_rsp_ProfileType_t taf_rsp_GetProfileType
+(
+    taf_rsp_ProfileListNodeRef_t profileRef
+)
+{
+    auto &rsp = taf_rsp::GetInstance();
+    return rsp.GetProfileType(profileRef);
+}
+
+le_result_t taf_rsp_GetIccid
+(
+    taf_rsp_ProfileListNodeRef_t profileRef,
+    char * iccidPtr,
+    size_t iccidLen
+)
+{
+    auto &rsp = taf_rsp::GetInstance();
+    return rsp.GetIccid(profileRef, iccidPtr, iccidLen);
+}
+
+bool taf_rsp_GetProfileActiveStatus
+(
+    taf_rsp_ProfileListNodeRef_t profileRef
+)
+{
+    auto &rsp = taf_rsp::GetInstance();
+    return rsp.GetProfileActiveStatus(profileRef);
+}
+
+le_result_t taf_rsp_GetNickName
+(
+    taf_rsp_ProfileListNodeRef_t profileRef,
+    char * nickNamePtr,
+    size_t nickNameLen
+)
+{
+    auto &rsp = taf_rsp::GetInstance();
+    return rsp.GetNickName(profileRef, nickNamePtr, nickNameLen);
+}
+
+le_result_t taf_rsp_GetName
+(
+    taf_rsp_ProfileListNodeRef_t profileRef,
+    char * namePtr,
+    size_t nameLen
+)
+{
+    auto &rsp = taf_rsp::GetInstance();
+    return rsp.GetName(profileRef, namePtr, nameLen);
+}
+
+le_result_t taf_rsp_GetSpn
+(
+    taf_rsp_ProfileListNodeRef_t profileRef,
+    char* spnPtr,
+    size_t spnLen
+)
+{
+    auto &rsp = taf_rsp::GetInstance();
+    return rsp.GetSpn(profileRef, spnPtr, spnLen);
+}
+
+taf_rsp_IconType_t taf_rsp_GetIconType
+(
+    taf_rsp_ProfileListNodeRef_t profileRef
+)
+{
+    auto &rsp = taf_rsp::GetInstance();
+    return rsp.GetIconType(profileRef);
+}
+
+taf_rsp_ProfileClass_t taf_rsp_GetProfileClass
+(
+    taf_rsp_ProfileListNodeRef_t profileRef
+)
+{
+    auto &rsp = taf_rsp::GetInstance();
+    return rsp.GetProfileClass(profileRef);
+}
+
+uint32_t taf_rsp_GetMask
+(
+    taf_rsp_ProfileListNodeRef_t profileRef
+)
+{
+    auto &rsp = taf_rsp::GetInstance();
+    return rsp.GetMask(profileRef);
 }

@@ -123,6 +123,7 @@
 
 
 USETYPES taf_sim.api;
+REFERENCE ProfileListNode;
 
 DEFINE  EID_LEN    = (32);
 DEFINE  EID_BYTES  = (EID_LEN+1);
@@ -131,6 +132,8 @@ DEFINE  NAME_LEN    = (64);
 DEFINE  NAME_BYTES  = (NAME_LEN+1);
 DEFINE  SPN_LEN    = (32);
 DEFINE  SMDP_LEN   = (1024);
+DEFINE  ICCID_LEN    = (20);
+DEFINE  ICCID_BYTES  = (ICCID_LEN+1);
 DEFINE  NICKNAME_LEN    = (64);
 DEFINE  NICKNAME_BYTES  = (NICKNAME_LEN+1);
 DEFINE  ACTIVATION_CODE_LEN    = (256);
@@ -213,23 +216,6 @@ ENUM UserConsentReasonType
     USER_POSTPONED               ///< End user postponed.
 };
 
-/**
- * Structure of SIM profile info.
- */
-STRUCT SimProfileInfo
-{
-    uint32         profileId;
-    ProfileType    profileType;
-    string         iccid[taf_sim.ICCID_LEN];
-    bool           isActive;
-    string         nickName[NICKNAME_LEN];
-    string         name[NAME_LEN];
-    string         spn[SPN_LEN];
-    IconType       iconType;
-    ProfileClass   profileClass;
-    uint8          mask;
-};
-
 //-------------------------------------------------------------------------------------------------
 /**
  * Handler for profile download.
@@ -300,7 +286,7 @@ EVENT  ProfileConfirmationCode
  * Request eUICC identifier (EID) for the slot.
  *
  * @return
- * - LE_OK -- Succeeded. 
+ * - LE_OK -- Succeeded.
  * - LE_FAULT -- Failed.
  *
  */
@@ -393,7 +379,7 @@ FUNCTION le_result_t UpdateNickName
 FUNCTION le_result_t GetProfileList
 (
     taf_sim.Id        slotId IN,                      ///< SIM slot ID.
-    SimProfileInfo    profileList[MAX_PROFILE] OUT    ///< Profile list as output.
+    ProfileListNode   profileList[MAX_PROFILE] OUT    ///< Profile list as output.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -415,7 +401,7 @@ FUNCTION le_result_t SetServerAddress
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Gets the SM-DP+ address and the Subscription Manager Discovery Server (SMDS) address configured 
+ * Gets the SM-DP+ address and the Subscription Manager Discovery Server (SMDS) address configured
  * on the eUICC.
  *
  * @return
@@ -437,7 +423,7 @@ FUNCTION le_result_t GetServerAddress
  * This API should be called in response to a ProfileUserConsent event.
  *
  * @return
- * - LE_OK -- Succeeded. 
+ * - LE_OK -- Succeeded.
  * - LE_FAULT -- Failed.
  *
  */
@@ -464,4 +450,169 @@ FUNCTION le_result_t ProvideConfirmationCode
 (
     taf_sim.Id              slotId IN,          ///< SIM slot ID.
     string                  code[CODE_LEN] IN   ///< Confirmation code.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Returns opaque type (ProfileListNode) reference for Profile, specified using index.
+ *
+ * @return
+ * - ProfileListNode type reference -- Succeeded.
+ * - NULL -- Failed.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION ProfileListNode GetProfile
+(
+    uint32 index ///< index of the profile.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Returns profileIndex for Profile, specified using ProfileListNode type reference.
+ *
+ * @return
+ * - uint32_t type profile index
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION uint32 GetProfileIndex
+(
+    ProfileListNode profileRef
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Returns profile type for Profile, specified using ProfileListNode type reference.
+ *
+ * @return
+ * - ProfileType type
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION ProfileType GetProfileType
+(
+    ProfileListNode profileRef
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets ICCID for Profile, specified using ProfileListNode type reference.
+ *
+ * @return
+ * - LE_OK - Successful in getting ICCID
+ * - LE_FAULT - Failure in getting the ICCID
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetIccid
+(
+    ProfileListNode profileRef IN,
+    string          iccid[taf_sim.ICCID_LEN] OUT
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Returns whether specified profile is active or not.
+ *
+ * @return
+ * - True - Profile is active
+ * - FaLSE - Profile is inactive or not found
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION bool GetProfileActiveStatus
+(
+    ProfileListNode profileRef
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets Nick Name for the specified profile.
+ *
+ * @return
+ * - LE_OK - Successful
+ * - LE_FAULT - Error occurred in getting the nick name.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetNickName
+(
+    ProfileListNode profileRef IN,
+    string          nickName[NICKNAME_LEN] OUT
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets Name for the specified profile.
+ *
+ * @return
+ * - LE_OK - Successful
+ * - LE_FAULT - Error occurred in getting the nick name.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetName
+(
+    ProfileListNode profileRef IN,
+    string          name[NAME_LEN] OUT
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets SPN for the specified profile.
+ *
+ * @return
+ * - LE_OK - Successful
+ * - LE_FAULT - Error occurred in getting the nick name.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetSpn
+(
+    ProfileListNode profileRef IN,
+    string          spn[SPN_LEN] OUT
+);
+
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets Icon Tyoe for the specified profile.
+ *
+ * @return
+ * - IconType
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION IconType GetIconType
+(
+    ProfileListNode profileRef IN
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets ProfileClass for the specified profile.
+ *
+ * @return
+ * - ProfileClass
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION ProfileClass GetProfileClass
+(
+    ProfileListNode profileRef IN
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets Mask for the specified profile.
+ *
+ * @return
+ * - uint32 - Mask for the profile specified.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION uint32 GetMask
+(
+    ProfileListNode profileRef IN
 );

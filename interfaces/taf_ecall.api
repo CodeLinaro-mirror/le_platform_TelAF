@@ -570,11 +570,10 @@ FUNCTION le_result_t GetConfiguredOperationMode
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Sets the MSD version.
+ *  Sets the MSD version. The API is not supported on this platform.
  *
  * @return
- *      - LE_OK -- Succeeded.
- *      - LE_FAULT -- Failed.
+ *      - LE_UNSUPPORTED -- Not supported.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -585,11 +584,11 @@ FUNCTION le_result_t SetMsdVersion
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Gets the MSD version.
+ *  Gets the MSD version. We currently support only MSD version 2.
  *
  * @return
+ *      - LE_BAD_PARAMETER -- Invalid parameters.
  *      - LE_OK -- Succeeded.
- *      - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------

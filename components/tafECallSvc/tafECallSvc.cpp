@@ -268,16 +268,14 @@ le_result_t taf_ecall_GetConfiguredOperationMode
 
  FUNCTION        taf_ecall_SetMsdVersion
 
- DESCRIPTION     Set MSD version.
+ DESCRIPTION     Set MSD version. It is not supported on this platform.
 
  DEPENDENCIES    Initialization of ECall Service
 
  PARAMETERS      [IN] msdVersion: msd version value
 
  RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER:     Invalid parameters.
-                     LE_FAULT:             Fail.
-                     LE_OK:                Success.
+                     LE_UNSUPPORTED:       Not supported.
 
  SIDE EFFECTS
 
@@ -287,30 +285,22 @@ le_result_t taf_ecall_SetMsdVersion
     uint32_t msdVersion
 )
 {
-    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn( CFG_MODEMSERVICE_ECALL_PATH );
-
-    le_cfg_SetInt(iteratorRef, CFG_NODE_MSDVERSION, msdVersion);
-    le_cfg_CommitTxn(iteratorRef);
-
-    LE_DEBUG("Set MsdVersion to %d", msdVersion);
-
-
-    return LE_OK;
+    return LE_UNSUPPORTED;
 }
 
 /*======================================================================
 
  FUNCTION        taf_ecall_GetMsdVersion
 
- DESCRIPTION     Get Msd version
+ DESCRIPTION     Get Msd version. Platform supports msdVersion 2.
 
  DEPENDENCIES    Initialization of ECall Service
 
- PARAMETERS      [OUT] msdVersion: ptr to save msd version
+ PARAMETERS      [OUT] msdVersion: ptr to save msd version. Currently we
+                 support only msdVersion 2. So msdVersion will return value 2.
 
  RETURN VALUE    le_result_t
                      LE_BAD_PARAMETER:     Invalid parameters.
-                     LE_FAULT:             Fail.
                      LE_OK:                Success.
 
  SIDE EFFECTS
@@ -323,19 +313,8 @@ le_result_t taf_ecall_GetMsdVersion
 {
     TAF_ERROR_IF_RET_VAL(msdVersion == NULL, LE_BAD_PARAMETER, "msdVersion pointer is NULL");
 
-    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateReadTxn( CFG_MODEMSERVICE_ECALL_PATH );
-
-    if (le_cfg_NodeExists(iteratorRef, CFG_NODE_MSDVERSION))
-    {
-        *msdVersion = le_cfg_GetInt(iteratorRef, CFG_NODE_MSDVERSION, 0);
-        LE_DEBUG("MSD version read as %d", *msdVersion);
-        le_cfg_CancelTxn(iteratorRef);
-        return LE_OK;
-    }
-
-    le_cfg_CancelTxn(iteratorRef);
-    return LE_FAULT;
-
+    *msdVersion = 2; //Currently we support only msdVersion 2.
+    return LE_OK;
 }
 
 /*======================================================================

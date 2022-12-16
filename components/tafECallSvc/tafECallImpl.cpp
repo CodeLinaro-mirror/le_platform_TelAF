@@ -742,7 +742,6 @@ le_result_t taf_ecall::SetMsdPositionN1 (taf_ecall_CallRef_t ecallRef,int32_t la
         return LE_FAULT;
     }
 
-    eCallPtr->msd.optionals.optionalDataPresent = true;
     eCallPtr->msd.optionals.recentVehicleLocationN1Present = true;
     eCallPtr->msd.recentVehicleLocationN1.latitudeDelta = latitudeDeltaN1;
     eCallPtr->msd.recentVehicleLocationN1.longitudeDelta = longitudeDeltaN1;
@@ -770,7 +769,6 @@ le_result_t taf_ecall::SetMsdPositionN2 (taf_ecall_CallRef_t ecallRef,int32_t la
         return LE_FAULT;
     }
 
-    eCallPtr->msd.optionals.optionalDataPresent = true;
     eCallPtr->msd.optionals.recentVehicleLocationN2Present = true;
     eCallPtr->msd.recentVehicleLocationN2.latitudeDelta = latitudeDeltaN2;
     eCallPtr->msd.recentVehicleLocationN2.longitudeDelta = longitudeDeltaN2;

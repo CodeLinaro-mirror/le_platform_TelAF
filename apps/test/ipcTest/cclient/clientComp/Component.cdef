@@ -1,0 +1,12 @@
+requires:
+{
+    api:
+    {
+        ipcTest.api    [manual-start]
+    }
+}
+
+sources:
+{
+    client.c
+}

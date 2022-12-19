@@ -612,72 +612,28 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
     LE_INFO("PsapNumber: %s, ECall Variant: %d, useUSimNumber: %d\n", psapNumber,
             (int) eCallVariant, isUseUSimNumbers);
 
-    //Check msd transmission mode to send msd or not
-    if (ECallObject.msdTxMode == TAF_ECALL_MSD_TX_MODE_PUSH )
+    //Check msd imported or not to send msd in pdu format or not
+    if (ECallObject.isMsdUpdated)
     {
-        // Check msd imported or not to send msd in pdu format or not
-        if (ECallObject.isMsdUpdated)
-        {
-            const std::vector< uint8_t > eCallMsdData(begin(eCallPtr->msdPdu),end(eCallPtr->msdPdu));
-            if (eCallVariant == ECallVariant::ECALL_TEST) {
-                ret = CallManager->makeECall((int)slotId, psapNumber, eCallMsdData,
-                            (int)emergencyCategory, tafCallCommandCallback::makeECallResponse);
-            } else {
-                ret = CallManager->makeECall((int)slotId, eCallMsdData, (int)emergencyCategory,
-                        (int)eCallVariant, tafCallCommandCallback::makeECallResponse);
-            }
-        }
-        else
-        {
-            ECallMsdData eCallMsdData = (ECallMsdData) eCallPtr->msd;
-
-            LE_DEBUG("MSD Information eCallMsdData.control.vehicleType = %d",
-                    eCallMsdData.control.vehicleType);
-            LE_DEBUG("MSD Information msd.vehicleIdentificationNumber.isowmi %s ",
-                    eCallMsdData.vehicleIdentificationNumber.isowmi.c_str());
-            LE_DEBUG("MSD Information msd.vehicleIdentificationNumber.isovds = %s ",
-                    eCallMsdData.vehicleIdentificationNumber.isovds.c_str());
-            LE_DEBUG("MSD Information msd.vehicleIdentificationNumber.isovisModelyear = %s",
-                    eCallMsdData.vehicleIdentificationNumber.isovisModelyear.c_str());
-            LE_DEBUG("MSD Information msd.vehicleIdentificationNumber.isovisSeqPlant  =%s",
-                    eCallMsdData.vehicleIdentificationNumber.isovisSeqPlant.c_str());
-            LE_DEBUG("MSD Information msd.vehiclePropulsionStorage.gasolineTankPresent = %d",
-                    eCallMsdData.vehiclePropulsionStorage.gasolineTankPresent);
-            LE_DEBUG("MSD Information msd.vehiclePropulsionStorage.dieselTankPresent = %d",
-                    eCallMsdData.vehiclePropulsionStorage.dieselTankPresent);
-            LE_DEBUG("MSD Information msd.timestamp = %d", eCallMsdData.timestamp);
-            LE_DEBUG("MSD Information msd.vehicleLocation.positionLatitude = %d",
-                    eCallMsdData.vehicleLocation.positionLatitude);
-            LE_DEBUG("MSD Information msd.vehicleLocation.positionLongitude = %d",
-                    eCallMsdData.vehicleLocation.positionLongitude);
-            LE_DEBUG("MSD Information msd.vehicleDirection = %d", eCallMsdData.vehicleDirection);
-            LE_DEBUG("MSD Information msd.recentVehicleLocationN1.latitudeDelta = %d ",
-                    eCallMsdData.recentVehicleLocationN1.latitudeDelta);
-            LE_DEBUG("MSD Information msd.recentVehicleLocationN1.longitudeDelta = %d",
-                    eCallMsdData.recentVehicleLocationN1.longitudeDelta);
-            LE_DEBUG("MSD Information msd.recentVehicleLocationN2.latitudeDelta = %d",
-                    eCallMsdData.recentVehicleLocationN2.latitudeDelta);
-            LE_DEBUG("MSD Information msd.recentVehicleLocationN2.longitudeDelta = %d",
-                    eCallMsdData.recentVehicleLocationN2.longitudeDelta);
-            LE_DEBUG("MSD Information msd.numberOfPassengers = %d", eCallMsdData.numberOfPassengers);
-
-            if (eCallVariant == ECallVariant::ECALL_TEST) {
-                ret = CallManager->makeECall((int)slotId, psapNumber, eCallMsdData,
-                            (int)emergencyCategory, CallCommandCb);
-            } else {
-                ret = CallManager->makeECall((int)slotId, eCallMsdData, (int)emergencyCategory,
-                        (int)eCallVariant, CallCommandCb);
-            }
+        const std::vector< uint8_t > eCallMsdData(begin(eCallPtr->msdPdu),end(eCallPtr->msdPdu));
+        if (eCallVariant == ECallVariant::ECALL_TEST) {
+            ret = CallManager->makeECall((int)slotId, psapNumber, eCallMsdData,
+                    (int)emergencyCategory, tafCallCommandCallback::makeECallResponse);
+        } else {
+            ret = CallManager->makeECall((int)slotId, eCallMsdData, (int)emergencyCategory,
+                    (int)eCallVariant, tafCallCommandCallback::makeECallResponse);
         }
     }
     else
     {
+        ECallMsdData eCallMsdData = (ECallMsdData) eCallPtr->msd;
+
         if (eCallVariant == ECallVariant::ECALL_TEST) {
-            ret = CallManager->makeECall((int)slotId, psapNumber, (int)emergencyCategory,
-                        tafCallCommandCallback::makeECallResponse);
+            ret = CallManager->makeECall((int)slotId, psapNumber, eCallMsdData,
+                    (int)emergencyCategory, CallCommandCb);
         } else {
-            ret = CallManager->makeECall((int)slotId, (int)emergencyCategory,
-                    (int)eCallVariant, tafCallCommandCallback::makeECallResponse);
+            ret = CallManager->makeECall((int)slotId, eCallMsdData, (int)emergencyCategory,
+                    (int)eCallVariant, CallCommandCb);
         }
     }
 

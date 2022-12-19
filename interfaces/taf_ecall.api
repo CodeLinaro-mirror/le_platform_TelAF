@@ -217,8 +217,8 @@
  * using the taf_ecall_ImportMsd() API.
  *
  * The MSD transmission mode can be set and retrieved using the following APIs.
- *  - taf_ecall_SetMsdTxMode()
- *  - taf_ecall_GetMsdTxMode()
+ *  - taf_ecall_SetMsdTxMode(): Not supported on this platform.
+ *  - taf_ecall_GetMsdTxMode(): Not supported on this platform.
  *
  * The transmission modes can be:
  * - @ref TAF_ECALL_TX_MODE_PUSH -- MSD has been pushed by the IVS
@@ -688,11 +688,12 @@ FUNCTION le_result_t GetPropulsionType
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Sets the MSD transmission mode.
+ *  Sets the MSD transmission mode. The API is not supported on this platform.
  *
  * @return
  *      - LE_OK -- Succeeded.
  *      - LE_FAULT -- Failed.
+ *      - LE_UNSUPPORTED -- Not supported.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -703,11 +704,12 @@ FUNCTION le_result_t SetMsdTxMode
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Reads the MSD transmission mode.
+ *  Reads the MSD transmission mode. The API is not supported on this platform.
  *
  * @return
  *      - LE_OK -- Succeeded.
  *      - LE_FAULT -- Failed.
+ *      - LE_UNSUPPORTED -- Not supported.
  *
  */
 //-------------------------------------------------------------------------------------------------

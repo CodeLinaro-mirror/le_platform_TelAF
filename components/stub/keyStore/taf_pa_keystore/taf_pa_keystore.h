@@ -32,9 +32,148 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef TAF_PA_KEYSTORAGE_INCLUDE_GUARD
+#define TAF_PA_KEYSTORAGE_INCLUDE_GUARD
+
 #include "legato.h"
 #include "interfaces.h"
-#include "taf_pa_keystore.h"
+#include "keyMgt.h"
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Tag ID.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    TAF_PA_KS_TAG_MAX_USES_PER_BOOT = 0,          ///< Number of times the key can be used per boot.
+    TAF_PA_KS_TAG_MIN_SECONDS_BETWEEN_OPS  = 1,   ///< Minimum elapsed time between cryptographic
+                                                  ///  operations with the key.
+    TAF_PA_KS_TAG_APPLICATION_DATA = 2,           ///< Data identifying the authorized application.
+    TAF_PA_KS_TAG_ACTIVE_DATETIME = 3,            ///< Start of validity.
+    TAF_PA_KS_TAG_ORIGINATION_EXPIRE_DATETIME = 4,///< Date when new "messages" should no longer be
+                                                  ///  created.
+    TAF_PA_KS_TAG_USAGE_EXPIRE_DATETIME = 5,      ///< Date when existing "messages" should no
+                                                  ///  longer be trusted.
+    TAF_PA_KS_TAG_MAX_IDS = 6,
+}
+taf_pa_ks_TagId_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Parameter ID
+ */
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    TAF_PA_KS_PARAM_NONCE = 0,                     ///< Nonce or Initialization Vector.
+    TAF_PA_KS_PARAM_APPLICATION_DATA = 1,          ///< Data identifying the authorized application.
+    TAF_PA_KS_PARAM_MAX_IDS = 2,
+}
+taf_pa_ks_ParamId_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * AES nonce size
+ */
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    TAF_PA_KS_AES_GCM_NONCE_SIZE = 12,             ///< AES GCM nonce, length is 12 byte.
+    TAF_PA_KS_AES_CBC_NONCE_SIZE = 16,             ///< AES CBC nonce, length is 16 byte.
+    TAF_PA_KS_AES_CTR_NONCE_SIZE = 16,             ///< AES CTR nonce, lenght is 16 byte.
+}
+taf_pa_ks_NonceSize_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Encryption key purpose
+ */
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    TAF_PA_KS_ENCRYPT_DECRYPT = 0,
+    TAF_PA_KS_ENCRYPT_ONLY = 1,
+    TAF_PA_KS_DECRYPT_ONLY = 2,
+    TAF_PA_KS_ENC_MAX,
+}
+taf_pa_ks_EncPurpose_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Signing key purpose
+ */
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    TAF_PA_KS_SIGN_VERIFY = 0,
+    TAF_PA_KS_SIGN_ONLY = 1,
+    TAF_PA_KS_VERIFY_ONLY = 2,
+    TAF_PA_KS_SIG_MAX,
+}
+taf_pa_ks_SigPurpose_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * AES Nonce struct
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_pa_ks_NonceSize_t size;                    ///< AES nonce size.
+    uint8_t data[TAF_KS_MAX_AES_NONCE_SIZE];       ///< AES nonce buffer.
+}
+taf_pa_ks_Nonce_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * common data buffer struct
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    size_t   size;                                 ///< data size.
+    uint8_t  data[TAF_KS_MAX_PACKET_SIZE];         ///< data buffer.
+}
+taf_pa_ks_Data_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Keystore Tag struct
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    le_dls_Link_t   link;                          ///< Link to the tagList of the key
+    taf_pa_ks_TagId_t id;                          ///< KS tag ID
+    union
+    {
+        uint32_t maxUsesPerBoot;                   ///< TAF_PA_KS_TAG_MAX_USES_PER_BOOT
+        uint32_t minSecondsBetweenOps;             ///< TAF_PA_KS_TAG_MIN_SECONDS_BETWEEN_OPS
+        uint64_t activeDateTime;                   ///< TAF_PA_KS_TAG_ACTIVE_DATETIME
+        uint64_t originationExpireDateTime;        ///< TAF_PA_KS_TAG_ORIGINATION_EXPIRE_DATETIME
+        uint64_t usageExpireDateTime;              ///< TAF_PA_KS_TAG_USAGE_EXPIRE_DATETIME
+        taf_pa_ks_Data_t* appDataPtr;              ///< TAF_PA_KS_TAG_APPLICATION_DATA
+    };
+}
+taf_pa_ks_Tag_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Keystore Parameter struct
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    le_dls_Link_t     link;                       ///< Link to the paramList of the crypto session
+    taf_pa_ks_ParamId_t id;                       ///< KS parameter ID
+    union
+    {
+        taf_pa_ks_Nonce_t* nonceDataPtr;          ///< TAF_PA_KS_PARAM_NONCE
+        taf_pa_ks_Data_t* appDataPtr;             ///< TAF_PA_KS_PARAM_APPLICATION_DATA
+    };
+}
+taf_pa_ks_Param_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -45,13 +184,10 @@
  *      LE_FAULT if there was some other error.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_pa_ks_Init
+LE_SHARED le_result_t taf_pa_ks_Init
 (
     void
-)
-{
-    return LE_OK;
-}
+);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -60,7 +196,7 @@ le_result_t taf_pa_ks_Init
  * The impData must be a PKCS#8 der bytes if provided.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_pa_ks_GenerateRsaEncKey
+LE_SHARED le_result_t taf_pa_ks_GenerateRsaEncKey
 (
     le_msg_SessionRef_t clientSessionRef, ///< [IN] Client session reference
     const char* keyName,                  ///< [IN] Key Name
@@ -70,11 +206,8 @@ le_result_t taf_pa_ks_GenerateRsaEncKey
     le_dls_List_t* tagListPtr,            ///< [IN] List of taf_pa_ks_Tag_t
     const uint8_t* impDataPtr,            ///< [IN] Imported key data
     size_t impDataSize,                   ///< [IN] less than TAF_KS_MAX_PACKET_SIZE
-    taf_pa_ks_KeyFileRef_t* keyFileRefPtr ///< [OUT] Key file reference
-)
-{
-    return LE_OK;
-}
+    KeyMgt_KeyFileRef_t* keyFileRefPtr    ///< [OUT] Key file reference
+);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -83,7 +216,7 @@ le_result_t taf_pa_ks_GenerateRsaEncKey
  * The impData must be a PKCS#8 der bytes if provided.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_pa_ks_GenerateRsaSigKey
+LE_SHARED le_result_t taf_pa_ks_GenerateRsaSigKey
 (
     le_msg_SessionRef_t clientSessionRef, ///< [IN] Client session reference
     const char* keyName,                  ///< [IN] Key Name
@@ -93,11 +226,8 @@ le_result_t taf_pa_ks_GenerateRsaSigKey
     le_dls_List_t* tagListPtr,            ///< [IN] List of taf_pa_ks_Tag_t
     const uint8_t* impDataPtr,            ///< [IN] Imported key data
     size_t impDataSize,                   ///< [IN] less than TAF_KS_MAX_PACKET_SIZE
-    taf_pa_ks_KeyFileRef_t* keyFileRefPtr ///< [OUT] Key file reference
-)
-{
-    return LE_OK;
-}
+    KeyMgt_KeyFileRef_t* keyFileRefPtr    ///< [OUT] Key file reference
+);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -106,7 +236,7 @@ le_result_t taf_pa_ks_GenerateRsaSigKey
  * The impData must be PKCS#8 der bytes if provided.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_pa_ks_GenerateEcdsaKey
+LE_SHARED le_result_t taf_pa_ks_GenerateEcdsaKey
 (
     le_msg_SessionRef_t clientSessionRef, ///< [IN] Client session reference
     const char* keyName,                  ///< [IN] Key Name
@@ -116,11 +246,8 @@ le_result_t taf_pa_ks_GenerateEcdsaKey
     le_dls_List_t* tagListPtr,            ///< [IN] List of taf_pa_ks_Tag_t
     const uint8_t* impDataPtr,            ///< [IN] Imported key data
     size_t impDataSize,                   ///< [IN] less than TAF_KS_MAX_PACKET_SIZE
-    taf_pa_ks_KeyFileRef_t* keyFileRefPtr ///< [OUT] Key file reference
-)
-{
-    return LE_OK;
-}
+    KeyMgt_KeyFileRef_t* keyFileRefPtr    ///< [OUT] Key file reference
+);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -129,7 +256,7 @@ le_result_t taf_pa_ks_GenerateEcdsaKey
  * The impData must be raw key bytes if provided.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_pa_ks_GenerateAesKey
+LE_SHARED le_result_t taf_pa_ks_GenerateAesKey
 (
     le_msg_SessionRef_t clientSessionRef, ///< [IN] Client session reference
     const char* keyName,                  ///< [IN] Key Name
@@ -139,11 +266,8 @@ le_result_t taf_pa_ks_GenerateAesKey
     le_dls_List_t* tagListPtr,            ///< [IN] List of taf_pa_ks_Tag_t
     const uint8_t* impDataPtr,            ///< [IN] Imported key data
     size_t impDataSize,                   ///< [IN] less than TAF_KS_MAX_PACKET_SIZE
-    taf_pa_ks_KeyFileRef_t* keyFileRefPtr ///< [OUT] Key file reference
-)
-{
-    return LE_OK;
-}
+    KeyMgt_KeyFileRef_t* keyFileRefPtr    ///< [OUT] Key file reference
+);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -152,7 +276,7 @@ le_result_t taf_pa_ks_GenerateAesKey
  * Currently only digest DIGEST_SHA2_256 is supported. The impData must be raw key bytes if provided
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_pa_ks_GenerateHmacKey
+LE_SHARED le_result_t taf_pa_ks_GenerateHmacKey
 (
     le_msg_SessionRef_t clientSessionRef, ///< [IN] Client session reference
     const char* keyName,                  ///< [IN] Key Name
@@ -162,11 +286,8 @@ le_result_t taf_pa_ks_GenerateHmacKey
     le_dls_List_t* tagListPtr,            ///< [IN] List of taf_pa_ks_Tag_t
     const uint8_t* impDataPtr,            ///< [IN] Imported key data
     size_t impDataSize,                   ///< [IN] less than TAF_KS_MAX_PACKET_SIZE
-    taf_pa_ks_KeyFileRef_t* keyFileRefPtr ///< [OUT] Key file reference
-)
-{
-    return LE_OK;
-}
+    KeyMgt_KeyFileRef_t* keyFileRefPtr    ///< [OUT] Key file reference
+);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -176,76 +297,61 @@ le_result_t taf_pa_ks_GenerateHmacKey
 LE_SHARED le_result_t taf_pa_ks_ExportKey
 (
     le_msg_SessionRef_t clientSessionRef, ///< [IN] Client session reference
-    taf_pa_ks_KeyFileRef_t keyFileRef,    ///< [IN] Key file reference
+    KeyMgt_KeyFileRef_t keyFileRef,       ///< [IN] Key file reference
     const uint8_t* appDataPtr,            ///< [IN] Application data
     size_t appDataSize,                   ///< [IN]
     uint8_t* expDataPtr,                  ///< [OUT] exported key data
     size_t* expDataSizePtr                ///< [INOUT]
-)
-{
-    return LE_OK;
-}
+);
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Delete a key file by key name.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_pa_ks_DeleteKey
+LE_SHARED le_result_t taf_pa_ks_DeleteKey
 (
     le_msg_SessionRef_t clientSessionRef, ///< [IN] Client session reference
-    taf_pa_ks_KeyFileRef_t keyFileRef     ///< [IN] Key file reference
-)
-{
-    return LE_OK;
-}
+    KeyMgt_KeyFileRef_t keyFileRef        ///< [IN] Key file reference
+);
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Get a key file reference by key name.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_pa_ks_GetKey
+LE_SHARED le_result_t taf_pa_ks_GetKey
 (
     le_msg_SessionRef_t clientSessionRef, ///< [IN] Client session reference
     const char* keyName,                  ///< [IN] Key Name
-    taf_pa_ks_KeyFileRef_t* keyFileRefPtr ///< [OUT] Key file reference.
-)
-{
-    return LE_OK;
-}
+    KeyMgt_KeyFileRef_t* keyFileRefPtr    ///< [OUT] Key file reference.
+);
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Get key usage
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_pa_ks_GetKeyUsage
+LE_SHARED le_result_t taf_pa_ks_GetKeyUsage
 (
     le_msg_SessionRef_t clientSessionRef, ///< [IN] Client session reference
-    taf_pa_ks_KeyFileRef_t keyFileRef,    ///< [IN] Key file reference
+    KeyMgt_KeyFileRef_t keyFileRef,       ///< [IN] Key file reference
     taf_ks_KeyUsage_t*    keyUsagePtr     ///< [OUT] Key usage
-)
-{
-    return LE_OK;
-}
+);
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Start the session for the given crypto operation.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_pa_ks_CryptoSessionStart
+LE_SHARED le_result_t taf_pa_ks_CryptoSessionStart
 (
     le_msg_SessionRef_t clientSessionRef, ///< [IN] Client session reference
-    taf_pa_ks_KeyFileRef_t     keyFileRef,///< [IN] Key file reference
+    KeyMgt_KeyFileRef_t     keyFileRef,   ///< [IN] Key file reference
     taf_ks_CryptoPurpose_t  cryptoPurpose,///< [IN] Crypto purpose
     le_dls_List_t*           paramListPtr,///< [IN] List of taf_pa_ks_Param_t
     uint64_t*                 opHandlePtr ///< [OUT]Cyrpto operation handle
-)
-{
-    return LE_OK;
-}
+);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -261,10 +367,7 @@ LE_SHARED le_result_t taf_pa_ks_CryptoSessionProcessAead
     const uint8_t*     inputDataPtr,      ///< [IN] Data buffer to hold the AEAD data
     size_t            inputDataSize       ///< [IN]
 
-)
-{
-    return LE_OK;
-}
+);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -273,9 +376,9 @@ LE_SHARED le_result_t taf_pa_ks_CryptoSessionProcessAead
  * CryptoEndSession API is called.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_pa_ks_CryptoSessionProcess
+LE_SHARED le_result_t taf_pa_ks_CryptoSessionProcess
 (
-    uint64_t           opHandle,          ///< [IN] Cyrpto operation handle
+    uint64_t               opHandle,      ///< [IN] Cyrpto operation handle
     const uint8_t*     inputDataPtr,      ///< [IN] InputData can be one of below 4 cases:
                                           ///<      1: plain text for encryption session.
                                           ///<      2: cipher text for decryption session.
@@ -287,21 +390,18 @@ le_result_t taf_pa_ks_CryptoSessionProcess
                                           ///<       2: decrypted data for decryption session.
                                           ///<       3: ignore for signing and verification session.
     size_t*        outputDataSizePtr      ///< [INOUT]
-)
-{
-    return LE_OK;
-}
+);
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Finalizes and stop a crypto operation session started with CryptoStartSession API.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_pa_ks_CryptoSessionEnd
+LE_SHARED le_result_t taf_pa_ks_CryptoSessionEnd
 (
     uint64_t               opHandle,      ///< [IN] Cyrpto operation handle
     const uint8_t*     inputDataPtr,      ///< [IN] Signature to verify for verification session
-                                          ///<      and ignored for other sessions
+                                          ///<      and ignored for other sessions.
     size_t            inputDataSize,      ///< [IN]
     uint8_t*          outputDataPtr,      ///< [OUT] OutputData can be one of below 4 cases:
                                           ///<       1: encrypted data for encryption session.
@@ -309,30 +409,16 @@ le_result_t taf_pa_ks_CryptoSessionEnd
                                           ///<       3: signature for signing session.
                                           ///<       4: ignore for verfication session.
     size_t*        outputDataSizePtr      ///< [INOUT]
-)
-{
-    return LE_OK;
-}
+);
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Abort crypto operation session started with CryptoStartSession API.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_pa_ks_CryptoSessionAbort
+LE_SHARED le_result_t taf_pa_ks_CryptoSessionAbort
 (
     uint64_t                opHandle      ///< [IN] Cyrpto operation handle
-)
-{
-    return LE_OK;
-}
+);
 
-//--------------------------------------------------------------------------------------------------
-/**
- * The PA initialization function.
- */
-//--------------------------------------------------------------------------------------------------
-COMPONENT_INIT
-{
-    LE_INFO("Telaf keyStore stub PA initialized.");
-}
+#endif // TAF_PA_KEYSTORAGE_INCLUDE_GUARD

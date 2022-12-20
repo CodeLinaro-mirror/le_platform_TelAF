@@ -5,7 +5,8 @@ sources:
 
 cflags:
 {
-   -I$TELAF_ROOT/components/stub/taf_pa_keystore
+   -I$TELAF_ROOT/components/stub/keyStore/taf_pa_keystore
+   -I$TELAF_ROOT/components/stub/keyStore/Common
 }
 
 requires:
@@ -17,7 +18,7 @@ requires:
 
     component:
     {
-        $TELAF_ROOT/components/stub/taf_pa_keystore
+        $TELAF_ROOT/components/stub/keyStore/taf_pa_keystore
     }
 }
 

@@ -11,3 +11,9 @@ requires:
         taf_ks.api [types-only]
     }
 }
+
+cflags:
+{
+    -I$TELAF_ROOT/components/stub/keyStore/Common
+}
+

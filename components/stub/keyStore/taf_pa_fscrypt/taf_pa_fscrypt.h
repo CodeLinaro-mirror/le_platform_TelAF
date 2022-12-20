@@ -37,6 +37,7 @@
 
 #include "legato.h"
 #include "interfaces.h"
+#include "keyMgt.h"
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -75,7 +76,7 @@ LE_SHARED le_result_t taf_pa_fsc_GetKey
 (
     le_msg_SessionRef_t clientSessionRef,   ///< [IN] Client session reference
     const char* dirName,                    ///< [IN] dir Name
-    taf_pa_fsc_KeyFileRef_t* keyFileRefPtr, ///< [OUT] Key file reference.
+    KeyMgt_KeyFileRef_t* keyFileRefPtr,     ///< [OUT] Key file reference.
     uint8_t* key,                           ///< [OUT] Raw key
     size_t keyLen                           ///< [OUT] Length of raw key
 );
@@ -89,7 +90,7 @@ LE_SHARED le_result_t taf_pa_fsc_GenerateAesKey
 (
     le_msg_SessionRef_t clientSessionRef,   ///< [IN] Client session reference
     const char* dirName,                    ///< [IN] dir Name
-    taf_pa_fsc_KeyFileRef_t* keyFileRefPtr, ///< [OUT] Key file reference
+    KeyMgt_KeyFileRef_t* keyFileRefPtr,     ///< [OUT] Key file reference
     uint8_t* key,                           ///< [OUT] Raw key
     size_t keyLen                           ///< [OUT] Length of raw key
 );
@@ -102,7 +103,7 @@ LE_SHARED le_result_t taf_pa_fsc_GenerateAesKey
 LE_SHARED le_result_t taf_pa_fsc_DeleteKey
 (
     le_msg_SessionRef_t clientSessionRef, ///< [IN] Client session reference
-    taf_pa_fsc_KeyFileRef_t keyFileRef     ///< [IN] Key file reference
+    KeyMgt_KeyFileRef_t keyFileRef        ///< [IN] Key file reference
 );
 
 #endif // TAF_PA_FSCRYPT_H

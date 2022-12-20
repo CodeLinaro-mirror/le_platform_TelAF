@@ -75,7 +75,7 @@ taf_fsc_StorageList_t;
 typedef struct
 {
     taf_fsc_StorageRef_t        storageRef;                             ///< Reference to the FS-Crypt storage
-    taf_pa_fsc_KeyFileRef_t     keyFileRef;                             ///< Key file reference to the key file
+    KeyMgt_KeyFileRef_t         keyFileRef;                             ///< Key file reference to the key file
     le_msg_SessionRef_t         clientSessionRef;                       ///< Client session reference
     char                        dirpath[TAF_FSC_MAX_STORAGE_NAME_SIZE]; ///< Directory path
     char                        descriptor[FS_KEY_DESCRIPTOR_HEX_SIZE]; ///< Descriptor is used for IO control
@@ -184,12 +184,12 @@ static le_result_t IoControl_add_key
 
     arg->key_spec.type = FSCRYPT_KEY_SPEC_TYPE_DESCRIPTOR;
 
-    LE_DEBUG("arg->raw_size2 = %u\n", arg->raw_size);
+    LE_DEBUG("arg->raw_size2 = %u", arg->raw_size);
 
     int fd = le_fd_Open(dirpath, O_RDONLY | O_CLOEXEC);
     if (fd < 0)
     {
-        LE_ERROR("error: opening %s: %s\n", dirpath, LE_ERRNO_TXT(errno));
+        LE_ERROR("error: opening %s: %s", dirpath, LE_ERRNO_TXT(errno));
 
         memset(arg->raw, 0, arg->raw_size);
         free(arg);
@@ -199,7 +199,7 @@ static le_result_t IoControl_add_key
 
     if (le_fd_Ioctl(fd, FS_IOC_ADD_ENCRYPTION_KEY, arg) != 0)
     {
-        LE_ERROR("error: adding key to %s: %s\n", dirpath, LE_ERRNO_TXT(errno));
+        LE_ERROR("error: adding key to %s: %s", dirpath, LE_ERRNO_TXT(errno));
         le_fd_Close(fd);
 
         memset(arg->raw, 0, arg->raw_size);
@@ -230,21 +230,23 @@ static le_result_t IoControl_add_key
  * Returns error messages according to errno values.
  */
 //--------------------------------------------------------------------------------------------------
-const char *txt_errno_set_policy(int errno_val)
+const char *txt_errno_policy(int errno_val)
 {
     switch (errno_val)
     {
-      case EEXIST:
-        return "This storage is already encrypted";
-      case EINVAL:
-        return "Invalid encryption argument";
-      default:
-        return strerror(errno_val);
+        case EEXIST:
+            return "This storage is already encrypted";
+        case EINVAL:
+            return "Invalid encryption argument";
+        case ENODATA:
+            return "Directory is not encrypted";
+        default:
+            return strerror(errno_val);
     }
 }
 
 #ifndef TAF_FCS_ERRNO_TXT
-#define TAF_FCS_ERRNO_TXT(v) txt_errno_set_policy(v)
+#define TAF_FCS_ERRNO_TXT(v) txt_errno_policy(v)
 #endif
 
 //--------------------------------------------------------------------------------------------------
@@ -272,8 +274,8 @@ static le_result_t IoControl_set_policy(const char* descriptor, const char *dirp
     int fd = le_fd_Open(dirpath, O_RDONLY | O_DIRECTORY);
     if (fd < 0)
     {
-      LE_ERROR("set_policy - error: opening %s: %s\n", dirpath, LE_ERRNO_TXT(errno));
-      return LE_FAULT;
+        LE_ERROR("set_policy - error: opening %s: %s", dirpath, LE_ERRNO_TXT(errno));
+        return LE_FAULT;
     }
 
     int ret = le_fd_Ioctl(fd, FS_IOC_SET_ENCRYPTION_POLICY, &policy);
@@ -287,6 +289,49 @@ static le_result_t IoControl_set_policy(const char* descriptor, const char *dirp
         {
             return LE_DUPLICATE;
         }
+
+        return LE_FAULT;
+    }
+
+    le_fd_Close(fd);
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the policy information from a specified file or directory with encryption enabled
+ */
+//--------------------------------------------------------------------------------------------------
+static le_result_t IoControl_get_policy(const char *dirpath, struct fscrypt_policy *policy)
+{
+    LE_INFO("dirpath = %s", dirpath);
+
+    // Policies can only be set on directories
+    int fd = le_fd_Open(dirpath, O_RDONLY);
+    if (fd < 0)
+    {
+        LE_ERROR("get_policy - error: opening %s: %s", dirpath, LE_ERRNO_TXT(errno));
+        return LE_FAULT;
+    }
+
+    int ret = le_fd_Ioctl(fd, FS_IOC_GET_ENCRYPTION_POLICY, policy);
+
+    if (ret != 0)
+    {
+        // Check whether the dir is already encrypted
+        if(errno == ENODATA)
+        {
+            le_fd_Close(fd);
+            LE_INFO("get_policy: get policy for %s: %s", dirpath, TAF_FCS_ERRNO_TXT(errno));
+            return LE_UNAVAILABLE;
+        }
+        else
+        {
+            LE_ERROR("get_policy - error: get policy for %s: %s",
+                     dirpath, TAF_FCS_ERRNO_TXT(errno));
+        }
+        le_fd_Close(fd);
 
         return LE_FAULT;
     }
@@ -315,7 +360,7 @@ static le_result_t IoControl_remove_key(const char* descriptor, const char *dirp
 
     if (fd < 0)
     {
-        LE_ERROR("IoControl_remove_key - error: opening %s: %s\n", dirpath, strerror(errno));
+        LE_ERROR("IoControl_remove_key - error: opening %s: %s", dirpath, strerror(errno));
         return LE_FAULT;
     }
 
@@ -325,17 +370,17 @@ static le_result_t IoControl_remove_key(const char* descriptor, const char *dirp
 
     if (ret != 0)
     {
-        LE_ERROR("IoControl_remove_key - error: removing key: %s\n", strerror(errno));
+        LE_ERROR("IoControl_remove_key - error: removing key: %s", strerror(errno));
         return LE_FAULT;
     }
 
     if (arg.removal_status_flags & FS_KEY_REMOVAL_STATUS_FLAG_OTHER_USERS)
     {
-        LE_WARN("warning: other users still have this key added\n");
+        LE_WARN("warning: other users still have this key added");
     }
     else if (arg.removal_status_flags & FS_KEY_REMOVAL_STATUS_FLAG_FILES_BUSY)
     {
-        LE_WARN("warning: some files using this key are still in-use\n");
+        LE_WARN("warning: some files using this key are still in-use");
     }
 
     return LE_OK;
@@ -394,7 +439,7 @@ le_result_t taf_fsc_UnlockStorage
 {
     LE_ASSERT(StorageRef != NULL);
 
-    taf_pa_fsc_KeyFileRef_t keyFileRef;
+    KeyMgt_KeyFileRef_t keyFileRef;
 
     uint8_t key[FSC_MAX_KEY_SIZE] = {0};
 
@@ -482,7 +527,7 @@ le_result_t taf_fsc_DeleteStorage
 //--------------------------------------------------------------------------------------------------
 static le_result_t FindAppStorageRef
 (
-    taf_pa_fsc_KeyFileRef_t keyFileRef,
+    KeyMgt_KeyFileRef_t     keyFileRef,
     const char              dirPath[TAF_FSC_MAX_STORAGE_NAME_SIZE],
     char                    descriptor[FS_KEY_DESCRIPTOR_HEX_SIZE],
     taf_fsc_StorageRef_t*   storageRef
@@ -532,7 +577,7 @@ taf_fsc_StorageRef_t taf_fsc_GetStorageRef
     le_result_t *result                                  ///< error status.
 )
 {
-    taf_pa_fsc_KeyFileRef_t keyFileRef;
+    KeyMgt_KeyFileRef_t keyFileRef;
 
     uint8_t key[FSC_MAX_KEY_SIZE] = {0};
     bool storageAlreadyExist = false;
@@ -551,7 +596,15 @@ taf_fsc_StorageRef_t taf_fsc_GetStorageRef
         {
             if(IsDirectoryEmpty(dirPath) == false)
             {
-                LE_INFO("Directory: %s is not empty", dirPath);
+                LE_ERROR("Directory: %s is not empty", dirPath);
+                *result = LE_NOT_PERMITTED;
+                goto exception;
+            }
+
+            struct fscrypt_policy policy;
+            if(IoControl_get_policy(dirPath, &policy) == LE_OK)
+            {
+                LE_ERROR("Directory: %s is already encrypted", dirPath);
                 *result = LE_NOT_PERMITTED;
                 goto exception;
             }

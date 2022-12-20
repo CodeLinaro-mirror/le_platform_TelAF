@@ -80,10 +80,10 @@ taf_ks_NewKey_t;
 //--------------------------------------------------------------------------------------------------
 typedef struct
 {
-    taf_ks_NewKey_t*       newKeyPtr;      ///< new key reference if the key is new created.
-    taf_pa_ks_KeyFileRef_t keyFilePtr;     ///< Key file reference to the key file
-    le_dls_List_t      cryptoSessionList;  ///< Crypto session list
-    taf_ks_KeyRef_t        keyRef;         ///< Reference to the key
+    taf_ks_NewKey_t*    newKeyPtr;         ///< new key reference if the key is new created.
+    KeyMgt_KeyFileRef_t keyFilePtr;        ///< Key file reference to the key file
+    le_dls_List_t       cryptoSessionList; ///< Crypto session list
+    taf_ks_KeyRef_t     keyRef;            ///< Reference to the key
 }
 taf_ks_Key_t;
 
@@ -157,7 +157,7 @@ static le_mem_PoolRef_t DataPool;
 //--------------------------------------------------------------------------------------------------
 static taf_ks_Key_t* SearchProvisionedKey
 (
-    taf_pa_ks_KeyFileRef_t keyFileRef ///< [IN] Key reference
+    KeyMgt_KeyFileRef_t keyFileRef ///< [IN] Key reference
 )
 {
     le_ref_IterRef_t iterRef = le_ref_GetIterator(KeyRefMap);
@@ -695,7 +695,7 @@ le_result_t taf_ks_CreateKey
 )
 {
     le_result_t result;
-    taf_pa_ks_KeyFileRef_t keyFileRef;
+    KeyMgt_KeyFileRef_t keyFileRef;
     le_msg_SessionRef_t clientSessionRef;
     taf_ks_Key_t* keyPtr;
     char appName[LE_LIMIT_APP_NAME_LEN + 1] = { 0 };
@@ -794,7 +794,7 @@ le_result_t taf_ks_GetKey
 )
 {
     le_result_t result;
-    taf_pa_ks_KeyFileRef_t keyFileRef;
+    KeyMgt_KeyFileRef_t keyFileRef;
     le_msg_SessionRef_t clientSessionRef;
     taf_ks_Key_t* keyPtr;
     char appName[LE_LIMIT_APP_NAME_LEN + 1] = { 0 };
@@ -1227,7 +1227,7 @@ le_result_t taf_ks_ProvisionRsaEncKeyValue
 )
 {
     le_result_t result;
-    taf_pa_ks_KeyFileRef_t keyFileRef;
+    KeyMgt_KeyFileRef_t keyFileRef;
     taf_pa_ks_EncPurpose_t keyUsage;
     taf_ks_Key_t* keyPtr;
 
@@ -1313,7 +1313,7 @@ le_result_t taf_ks_ProvisionRsaSigKeyValue
 )
 {
     le_result_t result;
-    taf_pa_ks_KeyFileRef_t keyFileRef;
+    KeyMgt_KeyFileRef_t keyFileRef;
     taf_pa_ks_SigPurpose_t keyUsage;
     taf_ks_Key_t* keyPtr;
 
@@ -1399,7 +1399,7 @@ le_result_t taf_ks_ProvisionEcdsaKeyValue
 )
 {
     le_result_t result;
-    taf_pa_ks_KeyFileRef_t keyFileRef;
+    KeyMgt_KeyFileRef_t keyFileRef;
     taf_pa_ks_SigPurpose_t keyUsage;
     taf_ks_Key_t* keyPtr;
 
@@ -1485,7 +1485,7 @@ le_result_t taf_ks_ProvisionAesKeyValue
 )
 {
     le_result_t result;
-    taf_pa_ks_KeyFileRef_t keyFileRef;
+    KeyMgt_KeyFileRef_t keyFileRef;
     taf_pa_ks_EncPurpose_t keyUsage;
     taf_ks_Key_t* keyPtr;
 
@@ -1571,7 +1571,7 @@ le_result_t taf_ks_ProvisionHmacKeyValue
 )
 {
     le_result_t result;
-    taf_pa_ks_KeyFileRef_t keyFileRef;
+    KeyMgt_KeyFileRef_t keyFileRef;
     taf_pa_ks_SigPurpose_t keyUsage;
     taf_ks_Key_t* keyPtr;
 

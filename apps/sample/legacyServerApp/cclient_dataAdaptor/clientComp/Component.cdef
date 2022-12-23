@@ -1,0 +1,18 @@
+
+requires:
+{
+    api:
+    {
+        taf_dataAdaptor = $TELAF_ROOT/apps/sample/legacyServerApp/cppserver_dataAdaptor/dataAdaptorComp/taf_dataAdaptor.api
+    }
+}
+
+sources:
+{
+    client.c
+}
+
+cxxflags:
+{
+    -I$TELAF_ROOT/apps/sample/legacyServerApp/cppserver_dataAdaptor/dataAdaptorComp
+}

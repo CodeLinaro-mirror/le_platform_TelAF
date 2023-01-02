@@ -180,7 +180,10 @@ static void test_taf_gpio_ChangeCallback() {
     LE_TEST_INFO("Test taf_gpio_AddChangeEventHandler with NULL Reference");
     ref = taf_gpio_AddChangeEventHandler(inPinNum, TAF_GPIO_EDGE_BOTH, false,
             NULL, NULL);
-    LE_TEST_OK(ref == NULL, "Test taf_gpio_AddChangeEventHandler with NULL reference successfull");
+    LE_TEST_OK(ref != NULL, "Test taf_gpio_AddChangeEventHandler with NULL reference successfull");
+
+    // Remove handlerRef created with NULL callback ref
+    taf_gpio_RemoveChangeEventHandler(ref);
 
     LE_TEST_INFO("Test taf_gpio_AddChangeEventHandler with valid Reference");
     ref = taf_gpio_AddChangeEventHandler(inPinNum, TAF_GPIO_EDGE_BOTH, false,
@@ -423,6 +426,7 @@ COMPONENT_INIT
         }
         Test_gpio();
     }
-    if(NumberOfArgs == 3 && strcmp(le_arg_GetArg(2),"true"))
-        exit(EXIT_SUCCESS);
+    if(NumberOfArgs == 3 && strcmp(le_arg_GetArg(2),"true") == 0) {
+        LE_TEST_EXIT;
+    }
 }

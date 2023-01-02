@@ -61,13 +61,6 @@ char* tafStateToString(taf_pm_State_t tafState)
     return state;
 }
 
-//Function called on state change
-void StateChangeHandler(taf_pm_State_t state, void* contextPtr)
-{
-    LE_INFO("State change triggered for %s\n", tafStateToString(state));
-    printf("\nState change triggered for %s\n", tafStateToString(state));
-}
-
 void Test_tafPM_createWakeupSource()
 {
     LE_TEST_INFO("Testing creating of wake source with out ref");
@@ -102,11 +95,11 @@ void Test_tafPM_Relax()
 {
     LE_TEST_INFO("Testing taf_pm_Relax on wake source without reference");
     res = taf_pm_Relax(ws);
-    LE_TEST_OK(res == LE_OK, "wake source without ref has acquired succesfully");
+    LE_TEST_OK(res == LE_OK, "wake source without ref has released succesfully");
 
     LE_TEST_INFO("Testing taf_pm_Relax on already released wake source without reference");
     res = taf_pm_Relax(ws);
-    LE_TEST_OK(res == LE_OK, "StayAwake on already released wake source success with warning");
+    LE_TEST_OK(res == LE_OK, "Relax on already released wake source success with warning");
 
     LE_TEST_INFO("Testing taf_pm_Relax on wake source with reference");
     res = taf_pm_Relax(wsRef);
@@ -145,8 +138,13 @@ static void* test_stateChangeHandler(void* ctxPtr)
 
     LE_TEST_INFO("Testing taf_pm_AddStateChangeHandler on invalid handler reference");
     handlerRef = taf_pm_AddStateChangeHandler(NULL, NULL);
-    LE_TEST_OK(handlerRef == NULL,"Register state change handler is failed with INVALID reference");
+    LE_TEST_OK(handlerRef != NULL, "Register state change handler with INVALID reference");
 
+    LE_TEST_INFO("Testing taf_pm_RemoveStateChangeHandler handler reference");
+    taf_pm_RemoveStateChangeHandler(handlerRef);
+    LE_TEST_OK(true, "taf_pm_RemoveStateChangeHandler successfull");
+
+    LE_TEST_INFO("Testing taf_pm_AddStateChangeHandler on valid handler reference");
     handlerRef = taf_pm_AddStateChangeHandler(TestStateChangeHandler, NULL);
     LE_TEST_OK(handlerRef != NULL,"Register state change handler is successfull");
     le_sem_Post(semRef);
@@ -206,9 +204,9 @@ void Test_tafPM_RelaxOverlap()
     res = taf_pm_Relax(wsRef);
     LE_TEST_OK(res == LE_OK, "wake source with ref is released successfully");
 
-    LE_TEST_INFO("Testing overlap taf_pm_Relax on wake source with reference,"
-            "this will kill the client");
+    LE_TEST_INFO("Testing overlap taf_pm_Relax on wake source with reference");
     res = taf_pm_Relax(wsRef);
+    LE_TEST_OK(res == LE_OK, "wake source Relax on already released reference is successfully");
 }
 
 COMPONENT_INIT
@@ -241,7 +239,7 @@ COMPONENT_INIT
         LE_INFO("State is %s\n", powerState);
         printf("\n State : %s\n", powerState);
         LE_TEST_OK(state == TAF_PM_STATE_SUSPEND,
-            "Get state is suspend as no wake source is acquired");
+            "Get state is suspend if no wake source is acquired");
 
         Test_tafPM_deregisterStateChangeListener();
     }
@@ -261,5 +259,5 @@ COMPONENT_INIT
     {
         Test_tafPM_RelaxOverlap();
     }
-    exit(EXIT_SUCCESS);
+    LE_TEST_EXIT;
 }

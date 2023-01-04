@@ -1,0 +1,22 @@
+externalBuild:
+{
+    "mkdir -p ${LEGATO_BUILD}/legacyServerApp"
+    "${CURDIR}/make.sh"
+    "cp ${BUILDDIR}/dataAdaptorComp/build/DataAppDemo ${LEGATO_BUILD}/legacyServerApp/DataAdaptorExec"
+}
+
+bundles:
+{
+    file:
+    {
+        [x] ${LEGATO_BUILD}/legacyServerApp/DataAdaptorExec /bin/
+    }
+}
+
+provides:
+{
+    api:
+    {
+        ${CURDIR}/taf_dataAdaptor.api
+    }
+}

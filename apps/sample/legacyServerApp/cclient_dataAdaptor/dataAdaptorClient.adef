@@ -1,0 +1,20 @@
+sandboxed: true
+
+executables:
+{
+    dataAdaptorClient = ( clientComp )
+
+}
+
+processes:
+{
+    run:
+    {
+        ( dataAdaptorClient )
+    }
+}
+
+bindings:
+{
+    dataAdaptorClient.clientComp.taf_dataAdaptor -> <root>.taf_dataAdaptor
+}

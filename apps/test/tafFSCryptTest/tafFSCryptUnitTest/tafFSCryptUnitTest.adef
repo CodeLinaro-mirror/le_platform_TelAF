@@ -1,6 +1,7 @@
 start: manual
 sandboxed: false
 
+
 executables:
 {
     tafFSCryptUnitTest = ( tafFSCryptUnitTest )
@@ -13,6 +14,12 @@ processes:
         ( tafFSCryptUnitTest )
     }
 }
+
+// Add SELinux module
+//components:
+//{
+//    $TELAF_ROOT/security/selinux/sepolicy/test/tafFSCryptUnitTest/component
+//}
 
 bindings:
 {

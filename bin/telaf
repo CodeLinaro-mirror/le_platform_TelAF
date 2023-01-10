@@ -1,0 +1,258 @@
+#Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+#SPDX-License-Identifier: BSD-3-Clause-Clear
+
+#!/bin/sh
+
+# Starts/stops/restarts and installs the TelAF framework.
+# status provides the TelAF running state
+# version provides the current TelAF version
+
+TELAF_INSTALLED_VERSION=/legato/systems/current/version
+
+TELAF_ACTION=$1
+
+# system/bin and /sbin should be in the path.
+# Search for the installed TelAF system bin first.
+export PATH=/legato/systems/current/bin:/mnt/legato/system/bin:/sbin:$PATH
+
+# Check if ps is supporting arguments.If it is supporting, then we need to run "ps aux" to be able
+# to see the supervisor process if it is running.Otherwise, we can just run "ps".
+TP='ps aux'
+if ! $TP > /dev/null 2>&1
+then
+    TP=ps
+fi
+
+TelafPrintUsage()
+{
+    echo -e "NAME"
+    echo -e " TelAF -> TelAF tool to be used to control the TelAF Application Framework.\n"
+    echo -e "OVERVIEW"
+    echo -e "  telaf [start|stop|restart|status|version|help]\n"
+    echo -e "HELP MENU"
+    echo -e "\ttelaf start\n\t\t:Starts the TelAF Application Framework."
+    echo -e "\ttelaf stop\n\t\t:Stops the TelAF Application Framework."
+    echo -e "\ttelaf restart\n\t\t:Restarts the TelAF Application Framework."
+    echo -e "\ttelaf status\n\t\t:Displays the current running state."
+    echo -e "\ttelaf version\n\t\t:Displays the currently installed TelAF version."
+    echo -e "\ttelaf help\n\t\t:Displays TelAF usage help."
+    echo -e "\ttelaf storage\n\t\t:Shows type and the disk/flash usage of telaf."
+    echo -e "\ttelaf memory\n\t\t:Shows the memory usage of the telaf."
+    echo -e "\ttelaf security\n\t\t:Shows the selinux status."
+}
+
+# Checks if a process with a given name is running or not.
+# Takes a single argument, which is the name of the process.
+IsProcessRunning()
+{
+    $TP | grep $1 | grep -v grep > /dev/null
+}
+
+
+TelafStatus()
+{
+    telafSystems=`ls /legato/systems 2> /dev/null`
+    if ! [ "$telafSystems" ]
+    then
+        printf "TelAF systems not installed"
+    else
+        printf "TelAF Systems installed"
+    fi
+
+    printf "\nTelAF framework is "
+    if IsProcessRunning supervisor
+    then
+        echo "running."
+        exit 0
+    else
+        echo "not running."
+        exit 1
+    fi
+}
+
+
+StartTelaf()
+{
+    # If TelAF is already running.
+    if IsProcessRunning supervisor
+    then
+        echo "The TelAF Supervisor is already running."
+        exit 0
+    fi
+
+    echo "Starting TelAF..."
+
+    /mnt/legato/start
+
+    echo "TelAF is started."
+}
+
+
+StopTelaf()
+{
+    wasTelafRunning="no"
+
+    if IsProcessRunning supervisor
+    then
+        wasTelafRunning="yes"
+
+        # StopTelafTimeout will be scaled according to the number of running TelAF services.
+        # Estimation of 5 seconds for the TelAF framework itself, and 3 seconds per TelAF service to shutdown.
+        StopTelafTimeout=$(( 5 + $(app status | grep running | wc -l) * 3 ))
+
+        echo -n "Stopping TelAF"
+
+        # Direct the Supervisor to shutdown TelAF.
+        app "stopLegato" 2> /dev/null &
+        appToolPid=$!
+
+        # wait for TelAF supervisor to shutdown
+        telafcountDown=$StopTelafTimeout
+        while [ $telafcountDown -ne 0 ]
+        do
+            if IsProcessRunning supervisor
+            then
+                echo -n "."
+                sleep 1
+            else
+                break
+            fi
+            telafcountDown=`expr $telafcountDown - 1`
+        done
+        echo
+
+        # If TelAF is already running shuts down
+        if IsProcessRunning supervisor
+        then
+
+            # Wait for all killed processes to die before proceeding.
+            echo -n "Hard-killing TelAF"
+            telafcountDown=StopTelafTimeout
+            while [ $telafcountDown -ne 0 ]
+            do
+                if IsProcessRunning startSystem
+                then
+                    echo -n "."
+                    sleep 1
+                else
+                    break
+                fi
+                telafcountDown=`expr $telafcountDown - 1`
+            done
+            echo
+
+            # If startSystem is still running, reboot the system.
+            if IsProcessRunning startSystem
+            then
+                echo "TelAF may still be alive after an attempt of hard-kill. Rebooting the system."
+                reboot
+            fi
+        fi
+    fi
+
+    # Make sure the serviceDirectory isn't still running.
+    if IsProcessRunning serviceDirectory
+    then
+        wasTelafRunning="yes"
+
+        echo "Service Directory is still running. Killing it now ..."
+
+        killall serviceDirectory > /dev/null 2>&1
+
+    fi
+
+
+    if [ $wasTelafRunning = "yes" ]
+    then
+        echo "TelAF is stopped."
+    else
+        echo "TelAF wasn't running."
+    fi
+}
+
+
+RestartTelaf()
+{
+    if IsProcessRunning supervisor
+    then
+        echo "Restarting TelAF... "
+
+        # Direct the Supervisor to restart TelAF.
+        app "restartLegato" 2> /dev/null
+
+    else
+        StopTelaf
+        StartTelaf
+    fi
+}
+
+TelafStorage()
+{
+
+   echo "telaf storage ->to be implemented."
+
+}
+
+TelafMemory()
+{
+
+   echo "telaf memory ->to be implemented."
+
+}
+
+TelafSecurity()
+{
+
+   echo "telaf security ->to be implemented."
+
+}
+
+case "$TELAF_ACTION" in
+start)
+    StartTelaf
+    ;;
+
+stop)
+    StopTelaf
+    ;;
+
+restart)
+    RestartTelaf
+    ;;
+
+status)
+    TelafStatus
+    ;;
+
+storage)
+    TelafStorage
+    ;;
+
+memory)
+    TelafMemory
+    ;;
+
+security)
+    TelafSecurity
+    ;;
+
+help | --help | -h)
+    TelafPrintUsage
+    ;;
+
+version)
+    if [ -f $TELAF_INSTALLED_VERSION ]
+    then
+        cat $TELAF_INSTALLED_VERSION
+    else
+        echo "UNKNOWN VERSION"
+        exit 1
+    fi
+    ;;
+
+*)
+    TelafPrintUsage
+    exit 1
+    ;;
+
+esac

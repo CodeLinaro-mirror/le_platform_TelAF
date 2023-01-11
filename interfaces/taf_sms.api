@@ -63,7 +63,7 @@
 
 //--------------------------------------------------------------------------------------------------
 /**
- * @page c_tafsms SMS Service 
+ * @page c_tafsms SMS Service
  *
  * @ref taf_sms_interface.h "API Reference"
  *
@@ -87,7 +87,7 @@
  *
  * @section c_taf_sms_Create Creating a message object
  *
- * Before setting up and sending messages via these APIs, you need to create a message object by 
+ * Before setting up and sending messages via these APIs, you need to create a message object by
  * calling taf_sms_Create()
  *
  * - taf_sms_Create() -- Creates a message object.
@@ -100,9 +100,9 @@
  *
  * @section c_taf_sms_Set_1 Message object parameters configuration
  *
- * - taf_sms_SetDestination() -- Sets the destination phone number. 
+ * - taf_sms_SetDestination() -- Sets the destination phone number.
  *
- * - taf_sms_SetCallback() -- Sets the callback function to get the message send result. 
+ * - taf_sms_SetCallback() -- Sets the callback function to get the message send result.
  *
  * - taf_sms_SetPhoneId() -- With dual SIMs in device, sets the source phone ID.
  *
@@ -170,7 +170,7 @@
  * To receive incoming messages, register a handler function with taf_sms_AddRxMsgHandler() and follow the
  * handler type definition: void (*taf_sms_RxMsgHandlerFunc_t)(taf_sms_MsgRef_t msg)
  *
- * A message object is created automatically when an incoming message is received, the registered handler 
+ * A message object is created automatically when an incoming message is received, the registered handler
  * is triggered and further processes on the received message.
  *
  * To remove the handler function, call taf_sms_RemoveRxMsgHandler(). Callers have to delete the message object
@@ -212,10 +212,17 @@
  * - taf_sms_lockFromStorage() -- Marks a message as locked and the marked message cannot be deleted.
  * - taf_sms_unlockFromStorage() -- Marks a message as unlocked and the marked message can be deleted.
  *
- * @section le_sms_SmsCenter SMS center configuration
+ * @section c_taf_sms_SmsCenter SMS center configuration
  *
  * - taf_sms_GetSmsCenterAddress() -- Gets SMS center address.
  * - taf_sms_SetSmsCenterAddress() -- Sets SMS center address.
+ *
+ * @section c_taf_sms_CellBroadcast Cell broadcast configuration
+ *
+ * - taf_sms_ActivateCellBroadcast() -- Activates cell broadcast.
+ * - taf_sms_DeactivateCellBroadcast() -- Deactivates cell broadcast.
+ * - taf_sms_AddCellBroadcastIds() -- Add cell broadcast message range of identifier.
+ * - taf_sms_GetSmsCenterAddress() -- Remove cell broadcast range of message identifiers.
  *
  * <HR>
  *
@@ -931,31 +938,35 @@ FUNCTION le_result_t UnlockFromStorage
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the SMS center address.
+ * Gets the SMS center address for specified phone ID.
  *
  * @return
- * - LE_OVERFLOW -- Expected length is not enough.
+ * - LE_OVERFLOW -- Input buffer len is not enough.
+ * - LE_FAULT -- Internal error.
+ * - LE_TIMEOUT -- Timeout occurred.
  * - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetSmsCenterAddress
 (
-    int8    phoneId,                                        ///< Phone ID.
+    uint8   phoneId,                                        ///< Phone ID.
     string  addr[taf_types.REMOTE_PARTY_NUM_MAX_BYTES] OUT  ///< Buffer to store SMS center address.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets the SMS center address.
+ * Sets the SMS center address for specified phone ID.
  *
  * @return
- * - LE_FAULT -- Wait for the callback timeout or get error.
+ * - LE_OVERFLOW -- Input buffer len is not enough.
+ * - LE_FAULT -- Internal error.
+ * - LE_TIMEOUT -- Timeout occurred.
  * - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetSmsCenterAddress
 (
-    int8    phoneId,                                      ///< Phone ID.
+    uint8   phoneId,                                      ///< Phone ID.
     string  addr[taf_types.REMOTE_PARTY_NUM_MAX_BYTES] IN ///< SMS center address.
 );
 
@@ -1007,29 +1018,66 @@ FUNCTION le_result_t SendPduMsg
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Activates cell broadcast.
+ * Activates cell broadcast for specified phone ID.
  *
  * @return
+ * - LE_TIMEOUT -- Timeout occurred.
  * - LE_FAULT -- Failed.
  * - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ActivateCellBroadcast
 (
-    int8   phoneId
+    uint8   phoneId     ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Deactivates cell broadcast.
+ * Deactivates cell broadcast for specified phone ID.
  *
  * @return
  * - LE_FAULT -- Failed.
+ * - LE_TIMEOUT -- Timeout occurred.
  * - LE_OK -- Succeeded.
- * - LE_TIMEOUT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DeactivateCellBroadcast
 (
-    int8   phoneId
+    uint8   phoneId     ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add cell broadcast message range of identifier for specified phone ID.
+ *
+ * @return
+ * - LE_BAD_PARAMETER -- Invalid input.
+ * - LE_TIMEOUT -- Timeout occurred.
+ * - LE_FAULT -- Internal error.
+ * - LE_OK -- Succceeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t AddCellBroadcastIds
+(
+    uint8  phoneId IN,  ///< Phone ID.
+    uint16 fromId IN,   ///< Starting point of the filter.
+    uint16 toId IN      ///< Ending point of the filter.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove cell broadcast range of message identifiers for specified phone ID.
+ *
+ * @return
+ * - LE_BAD_PARAMETER -- Invalid input.
+ * - LE_TIMEOUT -- Timeout occurred.
+ * - LE_FAULT -- Internal error.
+ * - LE_OK -- Succceeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t RemoveCellBroadcastIds
+(
+    uint8  phoneId IN,  ///< Phone ID.
+    uint16 fromId IN,   ///< Starting point of the range.
+    uint16 toId IN      ///< Ending point of the range.
 );

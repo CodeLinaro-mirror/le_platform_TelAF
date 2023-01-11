@@ -1570,13 +1570,15 @@ DESCRIPTION    Get SMS center address
 
 DEPENDENCIES   Initialization of SMS service
 
-PARAMETERS     [IN]  int8_t   phoneId: phone ID
+PARAMETERS     [IN]  uint8_t  phoneId: phone ID
                [OUT] char*    addr: to store SMS center address
                [IN]  size_t   len: expected max address length
 
 RETURN VALUE   le_result_t
-                  LE_OVERFLOW: expected len is not enough
-                  LE_OK: Success
+                  LE_OVERFLOW: Input buffer len is not enough
+                  LE_FAULT: Internal error
+                  LE_TIMEOUT: Timeout occurred
+                  LE_OK: Succeeded
 
 SIDE EFFECTS
 
@@ -1584,33 +1586,53 @@ SIDE EFFECTS
 
 le_result_t taf_sms_GetSmsCenterAddress
 (
-   int8_t   phoneId,
+   uint8_t  phoneId,
    char*    addr,
    size_t   len
 )
 {
-   auto &mySms = taf_Sms::GetInstance();
-   auto smsManager = mySms.smsManagers[phoneId - 1];
+   // initialize the synchronous promise
+   auto &sms = taf_Sms::GetInstance();
+   sms.SmsCenterSyncPromise = std::promise<le_result_t>();
+   std::chrono::seconds span(TIMEOUT_GET_SMSC);
+   auto smsManager = sms.smsManagers[phoneId - 1];
 
-   auto ret = smsManager->requestSmscAddress(mySms.getSmscCb);
+   if (smsManager)
+   {
+      telux::common::Status reqStatus = smsManager->requestSmscAddress(sms.getSmscCb);
 
-   TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS
-                        , LE_FAULT, "Set SmscAddress request failed");
+      if (reqStatus != telux::common::Status::SUCCESS)
+      {
+         LE_INFO("Set Activation status request failed");
+         return LE_FAULT;
+      }
 
-   le_clk_Time_t timeToWait = {TIMEOUT_GET_SMSC_SEMAPHORE, 0};
-   le_result_t res = le_sem_WaitWithTimeOut(mySms.SmscGetSem, timeToWait);
+      // blocking here to get call event response
+      std::future<le_result_t> futResult = sms.SmsCenterSyncPromise.get_future();
+      std::future_status waitStatus = futResult.wait_for(span);
+      if (std::future_status::timeout == waitStatus)
+      {
+        LE_ERROR("waiting promise timeout for %d seconds", TIMEOUT_GET_SMSC);
+        return LE_TIMEOUT;
+      }
+      else
+      {
+         TAF_KILL_CLIENT_IF_RET_VAL(strlen(addr) > (len - 1), LE_OVERFLOW, "address length overflow");
 
-   TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "SmscGetSem semaphore timeout");
+         TAF_KILL_CLIENT_IF_RET_VAL(len > TAF_SMS_SMSC_ADDR_BYTES - 1, LE_OVERFLOW, "len is greater than TAF_SMS_SMSC_ADDR_LEN");
 
-   TAF_KILL_CLIENT_IF_RET_VAL(strlen(addr) > (len - 1), LE_OVERFLOW, "address length overflow");
+         le_utf8_Copy(addr, sms.smscAddr, len, NULL);
 
-   TAF_KILL_CLIENT_IF_RET_VAL(len > TAF_SMS_SMSC_ADDR_BYTES - 1, LE_OVERFLOW, "len is greater than TAF_SMS_SMSC_ADDR_LEN");
+         LE_DEBUG("returned smsc address: %s", addr);
 
-   le_utf8_Copy(addr, mySms.smscAddr, len, NULL);
-
-   LE_DEBUG("returned smsc address: %s", addr);
-
-   return LE_OK;
+         return futResult.get();
+      }
+   }
+   else
+   {
+      LE_ERROR("Cell broadcast service error");
+      return LE_FAULT;
+   }
 }
 
 /*======================================================================
@@ -1621,12 +1643,14 @@ DESCRIPTION    Set SMS center address
 
 DEPENDENCIES   Initialization of SMS service
 
-PARAMETERS     [IN] int8_t       phoneId: phone ID
+PARAMETERS     [IN] uint8_t      phoneId: phone ID
                [IN] const char*  addr: to store SMS center address
 
 RETURN VALUE   le_result_t
-                  LE_FAULT: wait callback timeout or get error
-                  LE_OK: Success
+                  LE_OVERFLOW: Input buffer len is not enough
+                  LE_FAULT: Internal error
+                  LE_TIMEOUT: Timeout occurred
+                  LE_OK: Succeeded
 
 SIDE EFFECTS
 
@@ -1634,34 +1658,42 @@ SIDE EFFECTS
 
 le_result_t taf_sms_SetSmsCenterAddress
 (
-   int8_t      phoneId,
+   uint8_t     phoneId,
    const char* addr
 )
 {
-   auto &mySms = taf_Sms::GetInstance();
-   auto smsManager = mySms.smsManagers[phoneId - 1];
+   // initialize the synchronous promise
+   auto &sms = taf_Sms::GetInstance();
+   sms.SmsCenterSyncPromise = std::promise<le_result_t>();
+   std::chrono::seconds span(TIMEOUT_SET_SMSC);
+   auto smsManager = sms.smsManagers[phoneId - 1];
 
-   TAF_KILL_CLIENT_IF_RET_VAL(addr == NULL, LE_FAULT, "Invalid address provided");
+   if (smsManager)
+   {
+      telux::common::Status reqStatus = smsManager->setSmscAddress(addr, tafSetSmscAddressResponseCallback::setSmscResponse);
 
-   TAF_KILL_CLIENT_IF_RET_VAL(strlen(addr) > TAF_SMS_SMSC_ADDR_BYTES,
-                              LE_FAULT,
-                              "Invalid address provided");
+      if (reqStatus != telux::common::Status::SUCCESS)
+      {
+         LE_INFO("Set Activation status request failed");
+         return LE_FAULT;
+      }
 
-   LE_DEBUG("set smsc address as %s", addr);
-
-   auto ret = smsManager->setSmscAddress(addr, tafSetSmscAddressResponseCallback::setSmscResponse);
-
-   le_clk_Time_t timeToWait = {TIMEOUT_SET_SMSC_SEMAPHORE, 0};
-   le_result_t res = le_sem_WaitWithTimeOut(mySms.SmscSetSem, timeToWait);
-
-   TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "SmscSetSem semaphore timeout");
-
-   if(ret == telux::common::Status::SUCCESS) {
-      LE_INFO("Set SmscAddress request success\n");
-      return LE_OK;
+      // blocking here to get call event response
+      std::future<le_result_t> futResult = sms.SmsCenterSyncPromise.get_future();
+      std::future_status waitStatus = futResult.wait_for(span);
+      if (std::future_status::timeout == waitStatus)
+      {
+        LE_ERROR("waiting promise timeout for %d seconds", TIMEOUT_ACTIVATE_CB);
+        return LE_TIMEOUT;
+      }
+      else
+      {
+         return futResult.get();
+      }
    }
-   else {
-      LE_INFO("Set SmscAddress request failed\n");
+   else
+   {
+      LE_ERROR("Cell broadcast service error");
       return LE_FAULT;
    }
 }
@@ -2061,13 +2093,16 @@ void taf_sms_RemoveFullStorageEventHandler
 
 FUNCTION       taf_sms_ActivateCellBroadcast
 
-DESCRIPTION    Activation of configured broadcast messages.
+DESCRIPTION    Activation of configured broadcast messages for specified phone ID.
 
 DEPENDENCIES   Cellbroadcast subsystem is ready
 
-PARAMETERS     [IN] int8_t       phoneId: phone ID
+PARAMETERS     [IN] uint8_t       phoneId: phone ID
 
 RETURN VALUE   le_result_t
+                  LE_FAULT: Internal error
+                  LE_TIMEOUT: Timeout occurred
+                  LE_OK: Succceeded
 
 SIDE EFFECTS
 
@@ -2075,7 +2110,7 @@ SIDE EFFECTS
 
 le_result_t taf_sms_ActivateCellBroadcast
 (
-   int8_t phoneId
+   uint8_t phoneId
 )
 {
    auto &mySms = taf_Sms::GetInstance();
@@ -2086,13 +2121,16 @@ le_result_t taf_sms_ActivateCellBroadcast
 
 FUNCTION       taf_sms_DeactivateCellBroadcast
 
-DESCRIPTION    Deactivation of configured broadcast messages.
+DESCRIPTION    Deactivation of configured broadcast messages for specified phone ID.
 
 DEPENDENCIES   Cellbroadcast subsystem is ready
 
-PARAMETERS     [IN] int8_t       phoneId: phone ID
+PARAMETERS     [IN] uint8_t       phoneId: phone ID
 
 RETURN VALUE   le_result_t
+                  LE_FAULT: Internal error
+                  LE_TIMEOUT: Timeout occurred
+                  LE_OK: Succceeded
 
 SIDE EFFECTS
 
@@ -2100,11 +2138,77 @@ SIDE EFFECTS
 
 le_result_t taf_sms_DeactivateCellBroadcast
 (
-   int8_t phoneId
+   uint8_t phoneId
 )
 {
    auto &mySms = taf_Sms::GetInstance();
    return mySms.ActivateCellBroadcast(phoneId, false);
+}
+
+/*======================================================================
+
+FUNCTION       taf_sms_AddCellBroadcastIds
+
+DESCRIPTION    Add cell broadcast message filter of identifier for specified phone ID.
+
+DEPENDENCIES   Cellbroadcast subsystem is ready
+
+PARAMETERS     [IN] uint8_t       phoneId: phone ID.
+               [IN] uint16_t      fromId: Starting point of the filter.
+               [IN] uint16_t      toId: Ending point of the filter.
+
+RETURN VALUE   le_result_t
+                  LE_BAD_PARAMETER: Invalid input
+                  LE_TIMEOUT: Timeout occurred
+                  LE_FAULT: Internal error
+                  LE_OK: Succceeded
+
+SIDE EFFECTS
+
+======================================================================*/
+
+le_result_t taf_sms_AddCellBroadcastIds
+(
+   uint8_t  phoneId,
+   uint16_t fromId,
+   uint16_t toId
+)
+{
+   auto &mySms = taf_Sms::GetInstance();
+   return mySms.AddCellBroadcastIds(phoneId, fromId, toId);
+}
+
+/*======================================================================
+
+FUNCTION       taf_sms_RemoveCellBroadcastIds
+
+DESCRIPTION    Add cell broadcast message filter of identifier for specified phone ID.
+
+DEPENDENCIES   Cellbroadcast subsystem is ready
+
+PARAMETERS     [IN] uint8_t       phoneId: phone ID.
+               [IN] uint16_t      fromId: Starting point of the filter.
+               [IN] uint16_t      toId: Ending point of the filter.
+
+RETURN VALUE   le_result_t
+                  LE_BAD_PARAMETER: Invalid input
+                  LE_TIMEOUT: Timeout occurred
+                  LE_FAULT: Internal error
+                  LE_OK: Succceeded
+
+SIDE EFFECTS
+
+======================================================================*/
+
+le_result_t taf_sms_RemoveCellBroadcastIds
+(
+   uint8_t  phoneId,
+   uint16_t fromId,
+   uint16_t toId
+)
+{
+   auto &mySms = taf_Sms::GetInstance();
+   return mySms.RemoveCellBroadcastIds(phoneId, fromId, toId);
 }
 
 /*======================================================================

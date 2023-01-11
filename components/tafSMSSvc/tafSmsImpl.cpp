@@ -1079,44 +1079,336 @@ void tafSmsDeliveryCallback::commandResponse(telux::common::ErrorCode error) {
 
 // Implementation of SMSC Address callback
 void tafSmscAddressCallback::smscAddressResponse(const std::string &address,
-                                                telux::common::ErrorCode error) {
+                                                 telux::common::ErrorCode error)
+{
    auto &sms = taf_Sms::GetInstance();
 
-   if(error == telux::common::ErrorCode::SUCCESS) {
+   if(error == telux::common::ErrorCode::SUCCESS)
+   {
       LE_INFO("requestSmscAddress smscAddressResponse:%s\n", address.c_str());
       le_utf8_Copy(sms.smscAddr, address.c_str(), TAF_SMS_SMSC_ADDR_BYTES - 1, NULL);
+      sms.SmsCenterSyncPromise.set_value(LE_OK);
    }
-   else {
+   else
+   {
       LE_INFO("requestSmscAddress failed, errorCode: %d\n", static_cast<int>(error));
+      sms.SmsCenterSyncPromise.set_value(LE_FAULT);
    }
-
-   le_sem_Post(sms.SmscGetSem);
 }
 
 // Implementation of set SMSC Address callback
-void tafSetSmscAddressResponseCallback::setSmscResponse(telux::common::ErrorCode error) {
+void tafSetSmscAddressResponseCallback::setSmscResponse(telux::common::ErrorCode error)
+{
    auto &sms = taf_Sms::GetInstance();
 
-   if(error == telux::common::ErrorCode::SUCCESS) {
+   if(error == telux::common::ErrorCode::SUCCESS)
+   {
       LE_INFO("setSmscAddress sent successfully\n");
+      sms.SmsCenterSyncPromise.set_value(LE_OK);
    }
-   else {
+   else
+   {
       LE_INFO("setSmscAddress failed with errorCode: %d\n", static_cast<int>(error));
+      sms.SmsCenterSyncPromise.set_value(LE_FAULT);
    }
-
-   le_sem_Post(sms.SmscSetSem);
 }
 
 // Implementation of set SMS cellbroadcast activate status callback
-void tafSetSmsCBResponseCallback::setSmsCBResponse(telux::common::ErrorCode error) {
+void tafSetSmsCBResponseCallback::setSmsCBResponse(telux::common::ErrorCode error)
+{
    auto &sms = taf_Sms::GetInstance();
-   if(error == telux::common::ErrorCode::SUCCESS) {
+   if(error == telux::common::ErrorCode::SUCCESS)
+   {
       LE_INFO("Set Activation status request sent successfully\n");
-      sms.CmdSynchronousPromise.set_value(LE_OK);
+      sms.CBActivateSyncPromise.set_value(LE_OK);
    }
-   else {
+   else
+   {
       LE_INFO("Set Activation status request failed with errorCode: %d\n", static_cast<int>(error));
-      sms.CmdSynchronousPromise.set_value(LE_FAULT);
+      sms.CBActivateSyncPromise.set_value(LE_FAULT);
+   }
+}
+
+void tafSetSmsCBResponseCallback::requestFilterResponse(
+    std::vector<telux::tel::CellBroadcastFilter> filters,
+    telux::common::ErrorCode errorCode)
+{
+   auto &sms = taf_Sms::GetInstance();
+
+   if (errorCode == telux::common::ErrorCode::SUCCESS)
+   {
+      LE_INFO("Request for get msg filters successfully");
+      for (uint index = 0; index < filters.size(); index++)
+      {
+         LE_INFO("Filter[%d]:", index);
+         LE_INFO("Start msg id: %d", filters[index].startMessageId);
+         LE_INFO("End msg id: %d", filters[index].endMessageId);
+      }
+      sms.CBFilterList = filters;
+      sms.CBRequestIdsSyncPromise.set_value(LE_OK);
+   }
+   else
+   {
+      LE_INFO("Request for msg filters failed with errorCode: %d", static_cast<int>(errorCode));
+      sms.CBRequestIdsSyncPromise.set_value(LE_FAULT);
+   }
+}
+
+void tafSetSmsCBResponseCallback::updateFilterResponse(telux::common::ErrorCode error)
+{
+   auto &sms = taf_Sms::GetInstance();
+
+   if(error == telux::common::ErrorCode::SUCCESS)
+   {
+      LE_INFO("Set Activation status request sent successfully");
+      sms.CBAddIdsSyncPromise.set_value(LE_OK);
+   }
+   else
+   {
+      LE_INFO("Set Activation status request failed with errorCode: %d", static_cast<int>(error));
+      sms.CBAddIdsSyncPromise.set_value(LE_FAULT);
+   }
+}
+
+le_result_t taf_Sms::ActivateCellBroadcast(uint8_t phoneId, bool activate)
+{
+   // initialize the synchronous promise
+   CBActivateSyncPromise = std::promise<le_result_t>();
+   std::chrono::seconds span(TIMEOUT_ACTIVATE_CB);
+   auto &sms = taf_Sms::GetInstance();
+   auto CbMgr = sms.CbManagers[phoneId - 1];
+
+   if (CbMgr)
+   {
+      telux::common::Status reqStatus = CbMgr->setActivationStatus(activate, tafSetSmsCBResponseCallback::setSmsCBResponse);
+
+      if (reqStatus != telux::common::Status::SUCCESS)
+      {
+         LE_INFO("Set Activation status request failed");
+         return LE_FAULT;
+      }
+
+      // blocking here to get call event response
+      std::future<le_result_t> futResult = CBActivateSyncPromise.get_future();
+      std::future_status waitStatus = futResult.wait_for(span);
+      if (std::future_status::timeout == waitStatus)
+      {
+        LE_ERROR("waiting promise timeout for %d seconds", TIMEOUT_ACTIVATE_CB);
+        return LE_TIMEOUT;
+      }
+      else
+      {
+        return futResult.get();
+      }
+   }
+   else
+   {
+      LE_ERROR("Cell broadcast service error");
+      return LE_FAULT;
+   }
+}
+
+le_result_t taf_Sms::RequestBroadcastIds(uint8_t phoneId)
+{
+   if (phoneId < MIN_PHONE_ID || phoneId > MAX_PHONE_ID)
+   {
+      return LE_BAD_PARAMETER;
+   }
+
+   CBRequestIdsSyncPromise = std::promise<le_result_t>();
+   std::chrono::seconds span(TIMEOUT_RQUEST_CB_FILTER);
+   auto &sms = taf_Sms::GetInstance();
+   auto CbMgr = sms.CbManagers[phoneId - 1];
+
+   if (CbMgr)
+   {
+      telux::common::Status reqStatus = CbMgr->requestMessageFilters(tafSetSmsCBResponseCallback::requestFilterResponse);
+
+      if (reqStatus != telux::common::Status::SUCCESS)
+      {
+         LE_INFO("Set Activation status request failed");
+         return LE_FAULT;
+      }
+
+      // blocking here to get call event response
+      std::future<le_result_t> futResult = CBRequestIdsSyncPromise.get_future();
+      std::future_status waitStatus = futResult.wait_for(span);
+      if (std::future_status::timeout == waitStatus)
+      {
+        LE_ERROR("Waiting promise timeout for %d seconds", TIMEOUT_RQUEST_CB_FILTER);
+        return LE_TIMEOUT;
+      }
+      else
+      {
+        return futResult.get();
+      }
+   }
+   else
+   {
+      LE_ERROR("Cell broadcast service error");
+      return LE_FAULT;
+   }
+
+
+}
+
+le_result_t taf_Sms::AddCellBroadcastIds(uint8_t phoneId, uint16_t fromId, uint16_t toId)
+{
+   if (phoneId < MIN_PHONE_ID || phoneId > MAX_PHONE_ID)
+   {
+      return LE_BAD_PARAMETER;
+   }
+
+   if (fromId > toId)
+   {
+      return LE_BAD_PARAMETER;
+   }
+
+   // Retrieve current filter list
+   TAF_ERROR_IF_RET_VAL(RequestBroadcastIds(phoneId) != LE_OK,
+                        LE_FAULT, "Request message filter failed");
+
+   // Add new filter to current filter list
+   telux::tel::CellBroadcastFilter filter = {};
+   filter.startMessageId = fromId;
+   filter.endMessageId = toId;
+   CBFilterList.emplace_back(filter);
+
+   // initialize the synchronous promise
+   CBAddIdsSyncPromise = std::promise<le_result_t>();
+   std::chrono::seconds span(TIMEOUT_ACTIVATE_CB);
+   auto &sms = taf_Sms::GetInstance();
+   auto CbMgr = sms.CbManagers[phoneId - 1];
+
+   if (CbMgr)
+   {
+      telux::common::Status reqStatus = CbMgr->updateMessageFilters(CBFilterList, tafSetSmsCBResponseCallback::updateFilterResponse);
+
+      if (reqStatus != telux::common::Status::SUCCESS)
+      {
+         LE_INFO("Update message filters failed");
+         return LE_FAULT;
+      }
+
+      // blocking here to get call event response
+      std::future<le_result_t> futResult = CBAddIdsSyncPromise.get_future();
+      std::future_status waitStatus = futResult.wait_for(span);
+      if (std::future_status::timeout == waitStatus)
+      {
+        LE_ERROR("Waiting promise timeout for %d seconds", TIMEOUT_UPDATE_CB_FILTER);
+        return LE_TIMEOUT;
+      }
+      else
+      {
+        return futResult.get();
+      }
+   }
+   else
+   {
+      LE_ERROR("Cell broadcast service error");
+      return LE_FAULT;
+   }
+}
+
+le_result_t taf_Sms::RemoveCellBroadcastIds(uint8_t phoneId, uint16_t fromId, uint16_t toId)
+{
+   if (phoneId < MIN_PHONE_ID || phoneId > MAX_PHONE_ID)
+   {
+      return LE_BAD_PARAMETER;
+   }
+
+   if (fromId > toId)
+   {
+      return LE_BAD_PARAMETER;
+   }
+
+   // Retrieve current filter list
+   TAF_ERROR_IF_RET_VAL(RequestBroadcastIds(phoneId) != LE_OK,
+                        LE_FAULT, "Request broadcast filter failed");
+
+   bool overlapped = false;
+
+   // Detect whether the input filter is overlapped with current filter list
+   for (uint index = 0; index < CBFilterList.size(); index++)
+   {
+      // If the filter is totally covered by the input filter, remove the current filter
+      if(fromId <= CBFilterList[index].startMessageId && toId >= CBFilterList[index].endMessageId)
+      {
+         CBFilterList.erase(CBFilterList.begin() + index);
+
+         overlapped = true;
+         continue;
+      }
+
+      // If the input filter is totally covered by the current filter, seperate filter and remove the input range
+      if(CBFilterList[index].startMessageId <= fromId && CBFilterList[index].endMessageId >= toId)
+      {
+         // Shrink the front part to eliminate input range
+         CBFilterList[index].endMessageId = fromId - 1;
+
+         // Add a new filter to cover back part and eliminate the input range
+         telux::tel::CellBroadcastFilter filter = {};
+         filter.startMessageId = toId + 1;
+         filter.endMessageId = CBFilterList[index].endMessageId;
+         CBFilterList.emplace_back(filter);
+
+         overlapped = true;
+         continue;
+      }
+
+      // If fromId is within the filter, reset the filter coverage
+      if(fromId >= CBFilterList[index].startMessageId && fromId <= CBFilterList[index].endMessageId)
+      {
+         CBFilterList[index].endMessageId = fromId - 1;
+         overlapped = true;
+      }
+
+      // If toId is within the filter, reset the filter coverage
+      if(toId >= CBFilterList[index].startMessageId && toId <= CBFilterList[index].endMessageId)
+      {
+         CBFilterList[index].startMessageId = toId + 1;
+         overlapped = true;
+      }
+   }
+
+   if(overlapped == false)
+   {
+      return LE_OK;
+   }
+
+   // initialize the synchronous promise
+   CBAddIdsSyncPromise = std::promise<le_result_t>();
+   std::chrono::seconds span(TIMEOUT_ACTIVATE_CB);
+   auto &sms = taf_Sms::GetInstance();
+   auto CbMgr = sms.CbManagers[phoneId - 1];
+
+   if (CbMgr)
+   {
+      telux::common::Status reqStatus = CbMgr->updateMessageFilters(CBFilterList, tafSetSmsCBResponseCallback::updateFilterResponse);
+
+      if (reqStatus != telux::common::Status::SUCCESS)
+      {
+         LE_INFO("Update message filters failed");
+         return LE_FAULT;
+      }
+
+      // blocking here to get call event response
+      std::future<le_result_t> futResult = CBAddIdsSyncPromise.get_future();
+      std::future_status waitStatus = futResult.wait_for(span);
+      if (std::future_status::timeout == waitStatus)
+      {
+        LE_ERROR("Waiting promise timeout for %d seconds", TIMEOUT_UPDATE_CB_FILTER);
+        return LE_TIMEOUT;
+      }
+      else
+      {
+        return futResult.get();
+      }
+   }
+   else
+   {
+      LE_ERROR("Cell broadcast service error");
+      return LE_FAULT;
    }
 }
 
@@ -1167,44 +1459,6 @@ void tafSetSmsStorageCallback::setPreferredStorageResponse(telux::
         LE_INFO("Request for set preferred storage failed with errorCode: %d", static_cast<int>(errorCode));
         sms.PreferredStorageSyncPromise.set_value(LE_FAULT);
     }
-}
-
-le_result_t taf_Sms::ActivateCellBroadcast(int8_t phoneId, bool activate)
-{
-   // initialize the synchronous promise
-   CmdSynchronousPromise = std::promise<le_result_t>();
-   std::chrono::seconds span(TIMEOUT_ACTIVATE_CB);
-   auto &sms = taf_Sms::GetInstance();
-   auto CbMgr = sms.CbManagers[phoneId - 1];
-
-   if (CbMgr)
-   {
-      telux::common::Status reqStatus = CbMgr->setActivationStatus(activate, tafSetSmsCBResponseCallback::setSmsCBResponse);
-
-      if (reqStatus != telux::common::Status::SUCCESS)
-      {
-         LE_INFO("Set Activation status request failed");
-         return LE_FAULT;
-      }
-
-      // blocking here to get call event response
-      std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
-      std::future_status waitStatus = futResult.wait_for(span);
-      if (std::future_status::timeout == waitStatus)
-      {
-        LE_ERROR("waiting promise timeout for %d seconds", TIMEOUT_ACTIVATE_CB);
-        return LE_TIMEOUT;
-      }
-      else
-      {
-        return futResult.get();
-      }
-   }
-   else
-   {
-     LE_INFO("Set Activation status NULL ptr");
-     return LE_FAULT;
-   }
 }
 
 le_result_t taf_Sms::GetPreferredStorage(taf_sms_Storage_t* storage)

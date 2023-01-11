@@ -83,6 +83,10 @@ using namespace telux::common;
 #define MIN_SIM_SLOT_COUNT 1
 #define MAX_SIM_SLOT_COUNT 2
 
+#define MIN_PHONE_ID     1
+#define MAX_PHONE_ID     2
+#define DEFAULT_PHONE_ID 1
+
 #define MAX_OF_SMS_MSG_IN_STORAGE   256
 #define MAX_OF_SMS_MSG    (MAX_OF_SMS_MSG_IN_STORAGE*4)
 #define MAX_OF_LIST    128
@@ -90,11 +94,13 @@ using namespace telux::common;
 #define MAX_SMS_SESSION 5
 
 #define TIMEOUT_SEND_SEMAPHORE     2
-#define TIMEOUT_GET_SMSC_SEMAPHORE 2
-#define TIMEOUT_SET_SMSC_SEMAPHORE 2
+#define TIMEOUT_GET_SMSC           2
+#define TIMEOUT_SET_SMSC           2
 #define TIMEOUT_SENDING_PDU        10000
 #define TIMEOUT_ACTIVATE_CB        2
 #define TIMEOUT_PREF_STORAGE       2
+#define TIMEOUT_RQUEST_CB_FILTER   2
+#define TIMEOUT_UPDATE_CB_FILTER   2
 
 #define CFG_MODEMSERVICE_SMS_PATH "tafSMSSvc:/sms"
 #define CFG_NODE_PREFERRED_STORAGE "prefStorage"
@@ -241,6 +247,9 @@ namespace tafsvc {
    class tafSetSmsCBResponseCallback {
    public:
       static void setSmsCBResponse(telux::common::ErrorCode error);
+      static void requestFilterResponse(std::vector<telux::tel::CellBroadcastFilter> filters,
+                                        telux::common::ErrorCode errorCode);
+      static void updateFilterResponse(telux::common::ErrorCode error);
    };
 
    class tafSetSmsStorageCallback {
@@ -288,11 +297,14 @@ namespace tafsvc {
       uint32_t GetMsgFromStorage(taf_sms_List_t *msgListPtr, taf_sms_Storage_t storage, uint32_t numOfMsg, uint32_t *arrayPtr);
       uint32_t ListRxMsg(taf_sms_List_t *msgListPtr,taf_sms_ReadStatus_t rxStatus,taf_sms_Storage_t storage);
       uint32_t ListAllRxMsg(taf_sms_List_t *msgListPtr);
-      le_result_t ActivateCellBroadcast(int8_t phoneId, bool activate);
       le_result_t GetPreferredStorage(taf_sms_Storage_t* storage);
       le_result_t SetPreferredStorage(taf_sms_Storage_t storage);
       le_result_t SetConfig_PreferredStorage(const taf_sms_Storage_t storage);
       taf_sms_Storage_t GetConfig_PreferredStorage();
+      le_result_t ActivateCellBroadcast(uint8_t phoneId, bool activate);
+      le_result_t RequestBroadcastIds(uint8_t phoneId);
+      le_result_t AddCellBroadcastIds(uint8_t phoneId, uint16_t fromId, uint16_t toId);
+      le_result_t RemoveCellBroadcastIds(uint8_t phoneId, uint16_t fromId, uint16_t toId);
 
       le_result_t sendMessage(void);
 
@@ -333,10 +345,20 @@ namespace tafsvc {
       std::vector<std::shared_ptr<telux::tel::ISmsManager>> smsManagers;
       std::vector<std::shared_ptr<telux::tel::ICellBroadcastManager>> CbManagers;
 
+      //for SMS center address
       char smscAddr[TAF_SMS_SMSC_ADDR_BYTES];
       std::promise<le_result_t> CmdSynchronousPromise;
 
+      // for cell broadcast
+      std::vector<telux::tel::CellBroadcastFilter> CBFilterList;
+      std::promise<le_result_t> CBActivateSyncPromise;
+      std::promise<le_result_t> CBRequestIdsSyncPromise;
+      std::promise<le_result_t> CBAddIdsSyncPromise;
+      std::promise<le_result_t> CBRemoveIdsSyncPromise;
+      
       std::promise<le_result_t> PreferredStorageSyncPromise;
+
+      std::promise<le_result_t> SmsCenterSyncPromise;
    };
 
 

@@ -141,24 +141,6 @@ LE_SHARED le_result_t taf_pa_sms_SetRxMsgInd
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Write a new message given in its raw format
- *
- * @return LE_FAULT         The function failed, please refer to QMI error code
- * @return LE_OK            The function succeeded
- */
-//--------------------------------------------------------------------------------------------------
-LE_SHARED le_result_t taf_pa_sms_WriteRawMsg
-(
-    taf_sms_Storage_t    storage,
-    uint32_t             length,
-    const uint8_t*       dataPtr
-)
-{
-    return LE_OK;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
  * Modify message RX status to read/unread
  *
  * @return LE_FAULT         The function failed, please refer to QMI error code

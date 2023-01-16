@@ -27,5 +27,6 @@ bindings:
 extern:
 {
     tafSomeipGWSvc.tafSomeipGWSvc.taf_someipSvr
+    tafSomeipGWSvc.tafSomeipGWSvc.taf_someipClnt
 }
 

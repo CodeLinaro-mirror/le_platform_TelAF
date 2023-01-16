@@ -6,21 +6,24 @@
 #include "legato.h"
 #include "interfaces.h"
 
-#define TEST_SERVICE_ID1      0x2345
-#define TEST_SERVICE_ID2      0x1234
+#define TEST_SERVICE_ID1      0x1234
+#define TEST_SERVICE_ID2      0x2345
 #define TEST_INSTANCE_ID      0x5678
-#define TEST_EVENT_ID         0x8778
-#define TEST_EVENT_ID1        0x6666
-#define TEST_GET_METHOD_ID    0x0001
-#define TEST_SET_METHOD_ID    0x0002
+
+#define TEST_METHOD_ID        0x2000
+#define TEST_METHOD_ID1       0x3000
+
+#define TEST_EVENT_ID         0x8777
+#define TEST_EVENT_ID1        0x8888
+#define TEST_EVENT_ID2        0x9999
+
 #define TEST_EVENTGROUP_ID    0x4465
-#define TEST_EVENTGROUP_ID1   0x7777
+#define TEST_EVENTGROUP_ID1   0x7795
 
+#define EXIT_RX_MSG_CNT       50
 
-#define EXIT_RX_MSG_CNT       100
-
-const static uint8_t MajVersion = 0x10;
-const static uint32_t MinVersion = 0x30304040;
+const static uint8_t MajVersion = 0x12;
+const static uint32_t MinVersion = 0x34567890;
 const static uint16_t UdpPort1 = 12345;
 const static uint16_t TcpPort1 = 12344;
 const static uint16_t UdpPort2 = 54321;
@@ -28,20 +31,21 @@ const static uint16_t TcpPort2 = 44321;
 
 static uint32_t RxMsgCnt = 0;
 static taf_someipSvr_RxMsgHandlerRef_t RxMsgHandlerRef = NULL;
+taf_someipSvr_SubscriptionHandlerRef_t SubsHandlerRef = NULL;
 static taf_someipSvr_ServiceRef_t ServiceRef = NULL;
 
-static size_t PayloadSize;
 static uint8_t PayloadData[TAF_SOMEIPDEF_MAX_PAYLOAD_SIZE];
-static char PayloadString[2*TAF_SOMEIPDEF_MAX_PAYLOAD_SIZE + 1];
 
 typedef struct
 {
    le_thread_Ref_t threadRef;
    le_sem_Ref_t semRef;
-   taf_someipSvr_RxMsgHandlerRef_t msgHandleRef;
+   taf_someipSvr_RxMsgHandlerRef_t rxMsgHandleRef;
+   taf_someipSvr_SubscriptionHandlerRef_t subsHandleRef;
    le_thread_Destructor_t destructorFunc;
    le_timer_Ref_t timerRef;
-   taf_someipSvr_ServiceRef_t serverRef;
+   taf_someipSvr_ServiceRef_t serviceRef;
+   bool EventsOffered;
 }
 NotifyThreadCxt_t;
 
@@ -49,33 +53,32 @@ NotifyThreadCxt_t NotifyCtx = { 0 };
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Tests for Event APIs.
+ * Thread Destructor.
  */
 //--------------------------------------------------------------------------------------------------
 static void ThreadDestructor
 (
     void* paramPtr
- )
+)
 {
     NotifyThreadCxt_t* notifyCtxPtr = paramPtr;
+    LE_ASSERT(notifyCtxPtr != NULL);
+
+    // Remove the MsgHandler.
+    taf_someipSvr_RemoveRxMsgHandler(notifyCtxPtr->rxMsgHandleRef);
+
+    // Remove the SubsHandlers
+    taf_someipSvr_RemoveSubscriptionHandler(notifyCtxPtr->subsHandleRef);
+
+    // Stop the service, this will also stop all events first.
+    LE_TEST_ASSERT(LE_OK == taf_someipSvr_StopOfferService(notifyCtxPtr->serviceRef),
+                   "ThreadDestructor taf_someipSvr_StopOfferService() API.");
+
+    // Delete the sem.
+    le_sem_Delete(notifyCtxPtr->semRef);
 
     // Stop and delete the timer.
     le_timer_Delete(notifyCtxPtr->timerRef);
-
-    // Stop the event.
-    LE_TEST_ASSERT(LE_OK == taf_someipSvr_StopOfferEvent(notifyCtxPtr->serverRef, TEST_EVENT_ID),
-                   "ThreadDestructor taf_someipSvr_StopOfferEvent() API.");
-
-    // Stop the event.
-    LE_TEST_ASSERT(LE_OK == taf_someipSvr_StopOfferEvent(notifyCtxPtr->serverRef, TEST_EVENT_ID1),
-                   "ThreadDestructor taf_someipSvr_StopOfferEvent() API.");
-
-    // Stop the service.
-    LE_TEST_ASSERT(LE_OK == taf_someipSvr_StopOfferService(notifyCtxPtr->serverRef),
-                   "ThreadDestructor taf_someipSvr_StopOfferService() API.");
-
-    // Remove the MsgHandler.
-    taf_someipSvr_RemoveRxMsgHandler(notifyCtxPtr->msgHandleRef);
 
     // Disconnect the telaf service.
     taf_someipSvr_DisconnectService();
@@ -91,9 +94,45 @@ static void TimerHandler
     le_timer_Ref_t timerRef
 )
 {
+    static uint8_t testCnt = 0;
     static uint8_t itsData[10] = {0};
     static uint32_t itsSize = 0;
-    taf_someipSvr_ServiceRef_t serviceRef = le_timer_GetContextPtr(timerRef);
+
+    NotifyThreadCxt_t* notifyCtxPtr = le_timer_GetContextPtr(timerRef);
+    taf_someipSvr_ServiceRef_t serviceRef = notifyCtxPtr->serviceRef;
+
+    testCnt++;
+
+    if (notifyCtxPtr->EventsOffered)
+    {
+        // Events online lasts 2 mins.
+        if (testCnt >= 24)
+        {
+            testCnt = 0;
+            LE_TEST_ASSERT(LE_OK == taf_someipSvr_StopOfferEvent(serviceRef, TEST_EVENT_ID),
+                           "EventApiThread taf_someipSvr_StopOfferEvent() API.");
+
+            LE_TEST_ASSERT(LE_OK == taf_someipSvr_StopOfferEvent(serviceRef, TEST_EVENT_ID1),
+                           "EventApiThread taf_someipSvr_StopOfferEvent() API.");
+
+            notifyCtxPtr->EventsOffered = false;
+        }
+    }
+    else
+    {
+        // Events offline lasts 1 min.
+        if (testCnt >= 12)
+        {
+            testCnt = 0;
+            LE_TEST_ASSERT(LE_OK == taf_someipSvr_OfferEvent(serviceRef, TEST_EVENT_ID),
+                           "EventApiThread taf_someipSvr_OfferEvent() API.");
+
+            LE_TEST_ASSERT(LE_OK == taf_someipSvr_OfferEvent(serviceRef, TEST_EVENT_ID1),
+                           "EventApiThread taf_someipSvr_OfferEvent() API.");
+
+            notifyCtxPtr->EventsOffered = true;
+        }
+    }
 
     itsSize++;
 
@@ -102,8 +141,11 @@ static void TimerHandler
         itsData[i] = i;
     }
 
-    LE_TEST_INFO("Setting event (Length=0x%x).", itsSize);
-    LE_ASSERT(LE_OK == taf_someipSvr_Notify(serviceRef, TEST_EVENT_ID, itsData, itsSize));
+    if (notifyCtxPtr->EventsOffered)
+    {
+        LE_TEST_INFO("Setting event (Length=0x%x).", itsSize);
+        LE_ASSERT(LE_OK == taf_someipSvr_Notify(serviceRef, TEST_EVENT_ID, itsData, itsSize));
+    }
 
     if (itsSize == sizeof(itsData))
     {
@@ -115,20 +157,58 @@ static void TimerHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * SOMEIP subscription Handler
+ */
+//--------------------------------------------------------------------------------------------------
+void SubscriptionHandler
+(
+    taf_someipSvr_ServiceRef_t serviceRef,
+    uint16_t eventGroupId,
+    bool isSubscribed,
+    void* contextPtr
+)
+{
+    uint16_t serviceId;
+    uint16_t instanceId;
+
+    if (serviceRef == NotifyCtx.serviceRef)
+    {
+        serviceId = TEST_SERVICE_ID2;
+        instanceId = TEST_INSTANCE_ID;
+    }
+    else if (serviceRef == ServiceRef)
+    {
+        serviceId = TEST_SERVICE_ID1;
+        instanceId = TEST_INSTANCE_ID;
+    }
+    else
+    {
+        LE_ERROR("Unknown serivceRef(%p).", serviceRef);
+        return;
+    }
+
+    LE_INFO("A client for group(Id=0x%x) of Service(0x%x/0x%x) is %s.",
+            eventGroupId, serviceId, instanceId, isSubscribed ? "Subscribed" : "Unsubscribed");
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * SOMEIP request message Handler
  */
 //--------------------------------------------------------------------------------------------------
-void RxMessageHandler
+__attribute__((unused)) void RxMessageHandler
 (
     taf_someipSvr_RxMsgRef_t msgRef,
     void* contextPtr
 )
 {
-    RxMsgCnt++;
-    LE_TEST_INFO("RxMsgCnt=%u", RxMsgCnt);
-
     uint16_t serviceId;
     uint16_t instanceId;
+    uint16_t methodId;
+    uint16_t clientId;
+    uint8_t msgType;
+    size_t payloadSize;
+
     // Get the serviceId and instanceId.
     LE_TEST_ASSERT(LE_OK == taf_someipSvr_GetSerivceId(msgRef, &serviceId, &instanceId),
                    "RxMessageHandler taf_someipSvr_GetSerivceId() API.");
@@ -136,44 +216,63 @@ void RxMessageHandler
     taf_someipSvr_ServiceRef_t serviceRef = taf_someipSvr_GetService(serviceId, instanceId);
     LE_TEST_ASSERT(serviceRef != NULL, "RxMessageHandler taf_someipSvr_GetService() API.");
 
-    uint16_t methodId;
-    uint16_t clientId;
-    uint8_t msgType;
     // Get the methodId, clientId and msgType.
     LE_TEST_ASSERT(LE_OK == taf_someipSvr_GetMethodId(msgRef, &methodId),
-              "RxMessageHandler taf_someipSvr_GetMethodId() API.");
+                   "RxMessageHandler taf_someipSvr_GetMethodId() API.");
     LE_TEST_ASSERT(LE_OK == taf_someipSvr_GetClientId(msgRef, &clientId),
-              "RxMessageHandler taf_someipSvr_GetClientId() API.");
+                   "RxMessageHandler taf_someipSvr_GetClientId() API.");
     LE_TEST_ASSERT(LE_OK == taf_someipSvr_GetMsgType(msgRef, &msgType),
-              "RxMessageHandler taf_someipSvr_GetMsgType() API.");
+                   "RxMessageHandler taf_someipSvr_GetMsgType() API.");
 
     // Get the payload size and data.
-    LE_TEST_ASSERT(LE_OK == taf_someipSvr_GetPayloadSize(msgRef, &PayloadSize),
+    LE_TEST_ASSERT(LE_OK == taf_someipSvr_GetPayloadSize(msgRef, &payloadSize),
+                   "RxMessageHandler taf_someipSvr_GetPayloadSize() API.");
 
-             "RxMessageHandler taf_someipSvr_GetPayloadSize() API.");
+    LE_TEST_INFO(
+        "REQUEST (servId/instId/methId/cliId/msgType/len=0x%x/0x%x/0x%x/0x%x/0x%x/0x%x) recieved.",
+        serviceId, instanceId, methodId, clientId, msgType, payloadSize);
 
-    LE_TEST_INFO("message (servId/instId/methId/cliId/msgType/len=0x%x/0x%x/0x%x/0x%x/0x%x/0x%x)",
-            serviceId, instanceId, methodId, clientId, msgType, PayloadSize);
-    LE_TEST_ASSERT(LE_OK == taf_someipSvr_GetPayloadData(msgRef, PayloadData, &PayloadSize),
-              "RxMessageHandler taf_someipSvr_GetPayloadData() API.");
-
-    if (PayloadSize != 0)
+    if (payloadSize != 0)
     {
-        le_hex_BinaryToString(PayloadData, PayloadSize, PayloadString, sizeof(PayloadString));
-        LE_TEST_INFO("MESSAGE PAYLOAD [%s]", PayloadString);
+        LE_TEST_ASSERT(LE_OK == taf_someipSvr_GetPayloadData(msgRef, PayloadData, &payloadSize),
+                       "RxMessageHandler taf_someipSvr_GetPayloadData() API.");
+
+        char payloadString[2*payloadSize + 1];
+        le_hex_BinaryToString(PayloadData, payloadSize, payloadString, 2*payloadSize + 1);
+        LE_TEST_INFO("REQUEST PAYLOAD [%s]", payloadString);
     }
 
-    // Send back the response with the same payload data.
-    LE_TEST_ASSERT(LE_OK == taf_someipSvr_SendResponse(msgRef, false, 0, PayloadData, PayloadSize),
-                   "RxMessageHandler taf_someipSvr_SendResponse() API.");
-
-    // Release the message.
-    LE_TEST_ASSERT(LE_OK == taf_someipSvr_ReleaseRxMsg(msgRef),
-              "RxMessageHandler taf_someipSvr_ReleaseRxMsg().");
-
-    if ((RxMsgCnt >= EXIT_RX_MSG_CNT) && (serviceRef != NotifyCtx.serverRef))
+    if (msgType == TAF_SOMEIPDEF_MT_REQUEST)
     {
+        // Send back the response with the same payload data,
+        // the message will be automatically freed.
+        LE_TEST_ASSERT(LE_OK == taf_someipSvr_SendResponse(msgRef, false, 0,
+                                                           PayloadData, payloadSize),
+                       "RxMessageHandler taf_someipSvr_SendResponse() API.");
+    }
+    else
+    {
+        // Release the message for a non-return request.
+        LE_TEST_ASSERT(LE_OK == taf_someipSvr_ReleaseRxMsg(msgRef),
+                       "RxMessageHandler taf_someipSvr_ReleaseRxMsg().");
+    }
+
+    if (serviceRef == ServiceRef)
+    {
+        RxMsgCnt++;
+        LE_TEST_INFO("RxMsgCnt=%u", RxMsgCnt);
+    }
+
+    if (RxMsgCnt >= EXIT_RX_MSG_CNT)
+    {
+        // Remove handlers.
         taf_someipSvr_RemoveRxMsgHandler(RxMsgHandlerRef);
+        taf_someipSvr_RemoveSubscriptionHandler(SubsHandlerRef);
+
+        // Send a termination event to client before exiting.
+        uint8_t termCmd[2] = { 0xff, 0xff };
+        LE_TEST_ASSERT(LE_OK == taf_someipSvr_Notify(ServiceRef, TEST_EVENT_ID2, termCmd, 2),
+                       "RxMessageHandler sending termination event.");
 
         LE_TEST_ASSERT(LE_OK == taf_someipSvr_StopOfferService(ServiceRef),
                        "RxMessageHandler taf_someipSvr_StopOfferService() API.");
@@ -186,7 +285,10 @@ void RxMessageHandler
             LE_TEST_INFO("EventApiTest thread is stopped.");
         }
 
+        LE_TEST_INFO("========================================");
         LE_TEST_INFO("=== telaf someip server API test END ===");
+        LE_TEST_INFO("========================================");
+
         LE_TEST_EXIT;
     }
     return;
@@ -216,8 +318,7 @@ static void* EventApiThread
     LE_TEST_ASSERT(serviceRef != NULL, "EventApiThread taf_someipSvr_GetService() API.");
 
     // Set the service version, we use the default versions for message test.
-    LE_TEST_ASSERT(LE_OK == taf_someipSvr_SetServiceVersion(serviceRef,
-                   TAF_SOMEIPDEF_DEFAULT_MAJOR, TAF_SOMEIPDEF_DEFAULT_MINOR),
+    LE_TEST_ASSERT(LE_OK == taf_someipSvr_SetServiceVersion(serviceRef, 0x33, 0x66667777),
                    "EventApiThread taf_someipSvr_SetServiceVersion() API.");
 
     // Set the UDP/TCP port.
@@ -229,8 +330,12 @@ static void* EventApiThread
                    "EventApiThread taf_someipSvr_OfferService() API.");
 
     // Register Message Handler.
-    notifyCtxPtr->msgHandleRef = taf_someipSvr_AddRxMsgHandler(serviceRef, RxMessageHandler, NULL);
-    LE_TEST_ASSERT(NULL != notifyCtxPtr->msgHandleRef,
+    notifyCtxPtr->rxMsgHandleRef = taf_someipSvr_AddRxMsgHandler(serviceRef, RxMessageHandler, NULL);
+    LE_TEST_ASSERT(NULL != notifyCtxPtr->rxMsgHandleRef,
+                   "EventApiThread taf_someipSvr_AddRxMsgHandler() API.");
+
+    // Register again will fail since a service can register only one RxHandler.
+    LE_TEST_ASSERT(NULL == taf_someipSvr_AddRxMsgHandler(serviceRef, RxMessageHandler, NULL),
                    "EventApiThread taf_someipSvr_AddRxMsgHandler() API.");
 
     // Enable the field type event.
@@ -272,28 +377,41 @@ static void* EventApiThread
     LE_TEST_ASSERT(LE_OK == taf_someipSvr_OfferEvent(serviceRef, TEST_EVENT_ID),
         "EventApiThread taf_someipSvr_OfferEvent() API.");
 
-    // Enable an event type event and offer event.
+    // Enable an new cyclical event in the same group and offer the event.
     LE_TEST_ASSERT(LE_OK ==
         taf_someipSvr_EnableEvent(serviceRef, TEST_EVENT_ID1, TEST_EVENTGROUP_ID),
         "EventApiThread taf_someipSvr_EnableEvent() API.");
 
-    // Set the event cycle time, which means the event will keep being sent with
-    // the setting time interval after taf_someipSvr_Notify() API is called.
+    // Set the event cycle time with 30s interval, which means the event will keep sending
+    // with the setting time interval after taf_someipSvr_Notify() API is called once.
     LE_TEST_ASSERT(LE_OK ==
-        taf_someipSvr_SetEventCycleTime(serviceRef, TEST_EVENT_ID1, 20000),
+        taf_someipSvr_SetEventCycleTime(serviceRef, TEST_EVENT_ID1, 30000),
         "EventApiThread taf_someipSvr_SetEventCycleTime() API.");
 
     LE_TEST_ASSERT(LE_OK == taf_someipSvr_OfferEvent(serviceRef, TEST_EVENT_ID1),
         "EventApiThread taf_someipSvr_OfferEvent() API.");
 
-    // Triger the cyclical event with 10s interval.
-    uint8_t cycleData[6] = { 06, 0x5, 0x4, 0x3, 0x2, 0x1 };
+    // Fill the cyclical event payload, and keep sending the event.
+    uint8_t cycleData[7] = { 0x77, 0x66, 0x55, 0x44, 0x33, 0x22 , 0x11};
     LE_TEST_ASSERT(LE_OK == taf_someipSvr_Notify(serviceRef, TEST_EVENT_ID1,
                                                   cycleData, sizeof(cycleData)),
         "EventApiThread taf_someipSvr_Notify() API.");
 
+    // Register subscription handler.
+    notifyCtxPtr->subsHandleRef =
+        taf_someipSvr_AddSubscriptionHandler(serviceRef, TEST_EVENTGROUP_ID,
+                                             SubscriptionHandler, NULL);
+    LE_TEST_ASSERT(NULL != notifyCtxPtr->subsHandleRef,
+                   "EventApiThread taf_someipSvr_AddSubscriptionHandler() API.");
+
+    // Register again will fail.
+    LE_TEST_ASSERT(NULL == taf_someipSvr_AddSubscriptionHandler(serviceRef, TEST_EVENTGROUP_ID,
+                                                                SubscriptionHandler, NULL),
+                   "EventApiThread taf_someipSvr_AddSubscriptionHandler() API.");
+
     // Save the server reference and eventId.
-    notifyCtxPtr->serverRef = serviceRef;
+    notifyCtxPtr->serviceRef = serviceRef;
+    notifyCtxPtr->EventsOffered = true;
 
     // Start a timer to send field notifications.
     notifyCtxPtr->timerRef = le_timer_Create("Event test timer");
@@ -301,7 +419,7 @@ static void* EventApiThread
     le_timer_SetHandler(notifyCtxPtr->timerRef, TimerHandler);
     le_timer_SetRepeat(notifyCtxPtr->timerRef, 0);
     le_timer_SetWakeup(notifyCtxPtr->timerRef, false);
-    le_timer_SetContextPtr(notifyCtxPtr->timerRef, (void*)serviceRef);
+    le_timer_SetContextPtr(notifyCtxPtr->timerRef, (void*)notifyCtxPtr);
     le_timer_Start(notifyCtxPtr->timerRef);
 
     // Unblock the main thread.
@@ -373,7 +491,7 @@ static void ServiceApiTest
  * Tests for Rx message APIs.
  */
 //--------------------------------------------------------------------------------------------------
-static void MessageApiTest
+__attribute__((unused)) static void MessageApiTest
 (
     void
 )
@@ -383,8 +501,7 @@ static void MessageApiTest
     LE_TEST_ASSERT(ServiceRef != NULL, "MessageApiTest taf_someipSvr_GetService() API.");
 
     // Set the service version, we use the default versions for message test.
-    LE_TEST_ASSERT(LE_OK == taf_someipSvr_SetServiceVersion(ServiceRef,
-                   TAF_SOMEIPDEF_DEFAULT_MAJOR, TAF_SOMEIPDEF_DEFAULT_MINOR),
+    LE_TEST_ASSERT(LE_OK == taf_someipSvr_SetServiceVersion(ServiceRef, MajVersion, MinVersion),
                    "MessageApiTest taf_someipSvr_SetServiceVersion() API.");
 
     // Set the UDP/TCP port.
@@ -398,13 +515,28 @@ static void MessageApiTest
     // Register Message Handler.
     RxMsgHandlerRef = taf_someipSvr_AddRxMsgHandler(ServiceRef, RxMessageHandler, NULL);
     LE_TEST_ASSERT(NULL != RxMsgHandlerRef, "MessageApiTest taf_someipSvr_AddRxMsgHandler() API.");
+
+    SubsHandlerRef = taf_someipSvr_AddSubscriptionHandler(ServiceRef, TEST_EVENTGROUP_ID1,
+                                                          SubscriptionHandler, NULL);
+    LE_TEST_ASSERT(NULL != SubsHandlerRef,
+        "MessageApiTest taf_someipSvr_AddSubscriptionHandler() API.");
+
+    // Enable termination event.
+    LE_TEST_ASSERT(LE_OK ==
+        taf_someipSvr_EnableEvent(ServiceRef, TEST_EVENT_ID2, TEST_EVENTGROUP_ID1),
+        "MessageApiTest taf_someipSvr_EnableEvent() API.");
+
+    LE_TEST_ASSERT(LE_OK == taf_someipSvr_OfferEvent(ServiceRef, TEST_EVENT_ID2),
+        "MessageApiTest taf_someipSvr_OfferEvent() API.");
 }
 
 COMPONENT_INIT
 {
     LE_TEST_PLAN(LE_TEST_NO_PLAN);
 
+    LE_TEST_INFO("==========================================");
     LE_TEST_INFO("=== telaf someip server API test BEGIN ===");
+    LE_TEST_INFO("==========================================");
 
     ServiceApiTest(TEST_SERVICE_ID1, TEST_INSTANCE_ID, MajVersion, MinVersion, UdpPort1, TcpPort1);
     ServiceApiTest(TEST_SERVICE_ID1, TEST_INSTANCE_ID, MajVersion, MinVersion, UdpPort2, TcpPort2);

@@ -1,0 +1,17 @@
+sources:
+{
+    tafSomeipClntUnitTest.c
+}
+
+requires:
+{
+    api:
+    {
+        $TELAF_ROOT/interfaces/someipGW/taf_someipClnt.api
+    }
+}
+
+cflags:
+{
+    -I${LEGATO_ROOT}/framework/liblegato
+}

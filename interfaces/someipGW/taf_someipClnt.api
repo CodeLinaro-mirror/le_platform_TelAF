@@ -1,0 +1,360 @@
+/*
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
+USETYPES taf_someipDef.api;
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reference to a SOME/IP client-service-instance.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE Service;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reference to a SOME/IP request message.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE TxMsg;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Service state.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM State
+{
+    UNAVAILABLE,                          ///< Service is unavailable.
+    AVAILABLE,                            ///< Service is available.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the SOME/IP client ID.
+ *
+ * @return
+ *     - Client ID.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION uint16 GetClientId
+(
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Requests a client-service-instance and return the reference to the client-service-instance.
+ *
+ * @return
+ *     - Reference to the client-service-instance.
+ *     - NULL if invalid parameters.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Service RequestService
+(
+    uint16   serviceId                IN, ///< Service ID.
+    uint16   instanceId               IN  ///< Instance ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Releases a client-service-instance.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid parameters.
+ *     - LE_NOT_PERMITTED -- The service is not requested by the client.
+ *     - LE_BUSY -- The service still has active handlers or pending requests.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ReleaseService
+(
+    Service serviceRef                IN  ///< Service Reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the service state.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid parameters.
+ *     - LE_NOT_PERMITTED -- The service is not requested by the client.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetState
+(
+    Service serviceRef                IN, ///< Service Reference.
+    State state                       OUT ///< Service State.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the service version.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid parameters.
+ *     - LE_NOT_PERMITTED -- The service is not requested by the client.
+ *     - LE_UNAVAILABLE -- Service is unavailable.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetVersion
+(
+    Service serviceRef                IN, ///< Service Reference.
+    uint8 majVer                      OUT,///< Major Version.
+    uint32 minVer                     OUT ///< Minor Version.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for service state change.
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER StateChangeHandler
+(
+    Service  serviceRef               IN, ///< Service Reference.
+    State state                       IN  ///< Service State.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This event provides information on service state change.
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT StateChange
+(
+    Service               serviceRef  IN, ///< Service Reference.
+    StateChangeHandler    handler
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Creates a request message and set the destination.
+ *
+ * @return
+ *     - Reference to the request message.
+ *     - NULL if invalid parameters.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION TxMsg CreateMsg
+(
+    Service serviceRef                IN, ///< Service Reference.
+    uint16  methodId                  IN  ///< Method ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the request to a non-return-request(MT_REQUEST_NO_RETURN). By default it's MT_REQUEST.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid input parameters.
+ *     - LE_NOT_PERMITTED -- The message is not created by the client.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetNonRet
+(
+    TxMsg msgRef                      IN  ///< Tx message reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Uses TCP to send the request. By default is using UDP.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid input parameters.
+ *     - LE_NOT_PERMITTED -- The message is not created by the client.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetReliable
+(
+    TxMsg msgRef                      IN  ///< Tx message reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets timeout milliseconds waiting for the response. By default the timeout is 30000ms. 0 means
+ * NEVER timeout.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid input parameters.
+ *     - LE_NOT_PERMITTED -- The message is not created by the client.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetTimeout
+(
+    TxMsg msgRef                      IN, ///< Tx message reference.
+    uint32 timeOut                    IN  ///< Timeout in milliseconds.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets payload data of the request. By default the payload is empty.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid input parameters.
+ *     - LE_NOT_PERMITTED -- The message is not created by the client.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetPayload
+(
+    TxMsg msgRef                      IN, ///< Tx message reference.
+    uint8 data[taf_someipDef.MAX_PAYLOAD_SIZE] IN  ///< Payload Data.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Delete a request message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid input parameters.
+ *     - LE_NOT_PERMITTED -- The message is not created by the client.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DeleteMsg
+(
+    TxMsg msgRef                      IN  ///< Tx message reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The asynchronous response handler for RequestResponse(). If "result" is not LE_OK other input
+ * parameters can be ignored.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid input parameters for RequestResponse().
+ *     - LE_NOT_PERMITTED -- The message is not created by the client.
+ *     - LE_UNAVAILABLE -- Service is not available.
+ *     - LE_TIMEOUT -- Response timeouts.
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER RespMsgHandler
+(
+    le_result_t result                IN, ///< Result of RequestResponse().
+    bool     isErrRsp                 IN, ///< True MT_ERROR(0x81), otherwise MT_RESPONSE(0x80).
+    uint8    returnCode               IN, ///< Return code of the response.
+    uint8    data[taf_someipDef.MAX_PAYLOAD_SIZE] IN ///< Payload Data of the response.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Send an asynchronous request message. The response handler will be called once the response is
+ * received or any errors occur.
+ *
+ * NOTE: The request message will be automatically deleted after calling this API.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION RequestResponse
+(
+    TxMsg msgRef                      IN, ///< Tx message reference.
+    RespMsgHandler handler            IN  ///< Response message handler.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Enable an event group by adding an event into the group.
+ *
+ * NOTE: This API can be called for multiple times if there are more than one events adding into the
+ * group. Currently one event can be only added into one group, and one event group can be enabled
+ * only by one client.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid input parameters.
+ *     - LE_NOT_PERMITTED -- The service is not requested by the client, or the event group is
+ *                           subscribed or enabled by another client, or the event is already added
+ *                           into another group.
+ *     - LE_DUPLICATE -- The event is already in this group.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t EnableEventGroup
+(
+    Service   serviceRef               IN, ///< Service Reference.
+    uint16    eventGroupId             IN, ///< Event Group ID.
+    uint16    eventId                  IN, ///< Event ID.
+    taf_someipDef.EventType eventType  IN  ///< Event Type.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Disable an event group and remove all events from the group.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid input parameters.
+ *     - LE_NOT_PERMITTED -- The service is not requested by the client, or the event group is
+ *                           subscribed or already enabled by another client.
+ *     - LE_DUPLICATE -- The event group is not enabled.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DisableEventGroup
+(
+    Service   serviceRef               IN, ///< Service Reference.
+    uint16    eventGroupId             IN  ///< Event Group ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Subscribe an event group of a service.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid input parameters.
+ *     - LE_NOT_PERMITTED -- The service is not requested by the client, or the event group is not
+ *                           enabled or already enabled by another client.
+ *     - LE_DUPLICATE -- The event group is already subscribed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SubscribeEventGroup
+(
+    Service   serviceRef              IN, ///< Service Reference.
+    uint16    eventGroupId            IN  ///< Event Group ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Unsubscribe an event group of a service.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid input parameters.
+ *     - LE_NOT_PERMITTED -- The service is not requested by the client, or the event group is not
+ *                           enabled or already enabled by another client.
+ *     - LE_DUPLICATE -- The event group is not subscribed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t UnsubscribeEventGroup
+(
+    Service   serviceRef              IN, ///< Service Reference.
+    uint16    eventGroupId            IN  ///< Event Group ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for event message.
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER EventMsgHandler
+(
+    Service      serviceRef           IN, ///< Service Reference.
+    uint16       eventId              IN, ///< Event ID.
+    uint8   data[taf_someipDef.MAX_PAYLOAD_SIZE] IN ///< Event Data.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This event provides information on event message.
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT EventMsg
+(
+    Service         serviceRef        IN, ///< Service Reference.
+    uint16          eventGroupId      IN, ///< Event group ID.
+    EventMsgHandler handler           IN  ///< Event Handler.
+);

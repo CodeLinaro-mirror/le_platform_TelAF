@@ -62,7 +62,7 @@ void taf_SomeipSvr::VSOMEIPHandler
     // Check the payload size.
     if(rxMsgPtr->payloadSize > sizeof(rxMsgPtr->payloadData))
     {
-        LE_ERROR("Rx message size is too long , dropped it.");
+        LE_ERROR("VSOMEIP Rx message size is too long , dropped it.");
         le_mem_Release(rxMsgPtr);
         return;
     }
@@ -76,11 +76,57 @@ void taf_SomeipSvr::VSOMEIPHandler
     rxMsgPtr->ref = (taf_someipSvr_RxMsgRef_t)le_ref_CreateRef(RxMsgRefMap, rxMsgPtr);
 
     // Report to our rx Handler.
-    LE_DEBUG("rxMsgRef(%p) for service(0x%x/0x%x) is created.", rxMsgPtr->ref,
+    LE_DEBUG("VSOMEIP rxMsgRef(%p) for service(0x%x/0x%x) is created.", rxMsgPtr->ref,
             rxMsgPtr->serviceId, rxMsgPtr->instanceId);
-    le_event_Report(VsomeipEvent, &rxMsgPtr->ref, sizeof(taf_someipSvr_RxMsgRef_t));
+
+    // Create a generic response message object.
+    VsMsg_t vsMsg;
+
+    vsMsg.type = VS_RX_MSG_REF;
+    vsMsg.ref = (void*)rxMsgPtr->ref;
+
+    // Report to the common VSOMEIP msg handler in service layer.
+    le_event_Report(VsomeipEvent, &vsMsg, sizeof(VsMsg_t));
 
     return;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Wrapper interface to VSOME/IP register subscription handler.
+ */
+//--------------------------------------------------------------------------------------------------
+bool taf_SomeipSvr::VSOMEIPSubsHandler
+(
+    taf_someipSvr_SubscriptionHandlerRef_t subsHandlerRef,
+    vsomeip::client_t clientId,
+    uid_t uId,
+    gid_t gId,
+    bool isSubscribed
+)
+{
+    SomeipSvr_SubscriptionHandler_t* handlerPtr =
+        (SomeipSvr_SubscriptionHandler_t*)le_ref_Lookup(SubsHandlerRefMap, subsHandlerRef);
+
+    if (handlerPtr != NULL)
+    {
+        // Create a generic response message object.
+        VsMsg_t vsMsg;
+
+        vsMsg.type = VS_SUBS_HANDLE;
+        vsMsg.handle.ref = (void*)subsHandlerRef;
+        vsMsg.handle.clientId = clientId;
+        vsMsg.handle.uId = uId;
+        vsMsg.handle.gId = gId;
+        vsMsg.handle.isSubscribed = isSubscribed;
+
+        // Report to the common VSOMEIP msg handler in service layer.
+        le_event_Report(VsomeipEvent, &vsMsg, sizeof(VsMsg_t));
+
+        return true;
+    }
+
+    return false;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -127,7 +173,7 @@ void taf_SomeipSvr::VSOMEIPOfferService
 
     // Service is marked as offered.
     servicePtr->isOffered = true;
-    LE_INFO("Offered Service(0x%x/0x%x) of version(0x%x/0x%x).",
+    LE_INFO("VSOMEIP offered Service(0x%x/0x%x) of version(0x%x/0x%x).",
             servicePtr->serviceId, servicePtr->instanceId,
             servicePtr->majorVersion, servicePtr->minorVersion);
 }
@@ -169,7 +215,7 @@ void taf_SomeipSvr::VSOMEIPStopOfferService
 
     // Service is marked as stopped.
     servicePtr->isOffered = false;
-    LE_INFO("Stopped Service(0x%x/0x%x) of version(0x%x/0x%x).",
+    LE_INFO("VSOMEIP stopped Service(0x%x/0x%x) of version(0x%x/0x%x).",
             servicePtr->serviceId, servicePtr->instanceId,
             servicePtr->majorVersion, servicePtr->minorVersion);
 }
@@ -226,7 +272,7 @@ void taf_SomeipSvr::VSOMEIPOfferEvent
 
     // Mark the event is offered.
     eventPtr->isOffered = true;
-    LE_INFO("Offered Event(id=0x%x) of Service(0x%x/0x%x).",
+    LE_INFO("VSOMEIP offered Event(id=0x%x) of Service(0x%x/0x%x).",
              eventPtr->eventId, servicePtr->serviceId, servicePtr->instanceId);
 }
 
@@ -255,7 +301,7 @@ void taf_SomeipSvr::VSOMEIPStopOfferEvent
     VsomeipApp->stop_offer_event(servicePtr->serviceId, servicePtr->instanceId,
                                  eventPtr->eventId);
     eventPtr->isOffered = false;
-    LE_INFO("Stopped Event(id=0x%x) of Service(0x%x/0x%x).",
+    LE_INFO("VSOMEIP stopped Event(id=0x%x) of Service(0x%x/0x%x).",
              eventPtr->eventId, servicePtr->serviceId, servicePtr->instanceId);
 }
 
@@ -345,7 +391,7 @@ void taf_SomeipSvr::VSOMEIPSendResponse
     // Send the response.
     VsomeipApp->send(response);
 
-    LE_DEBUG("Sent Response(id=0x%x) of Service(0x%x/0x%x).",
+    LE_DEBUG("VSOMEIP sent Response(id=0x%x) of Service(0x%x/0x%x).",
              reqPtr->methodId, servicePtr->serviceId, servicePtr->instanceId);
 }
 
@@ -381,13 +427,105 @@ void taf_SomeipSvr::VSOMEIPNotify
     VsomeipApp->notify(servicePtr->serviceId, servicePtr->instanceId,
                        eventPtr->eventId, payload);
 
-    LE_DEBUG("Notified event(id=0x%x) of Service(0x%x/0x%x).",
+    LE_DEBUG("VSOMEIP notified event(id=0x%x) of Service(0x%x/0x%x).",
             eventPtr->eventId, servicePtr->serviceId, servicePtr->instanceId);
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Generic service message handler, which will call dedicated service handler accordingly.
+ * Process the Rx message.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_SomeipSvr::ProcessRxMsgRef
+(
+    void* msgRef
+)
+{
+    // Get the message object.
+    taf_someipSvr_RxMsgRef_t rxMsgRef = (taf_someipSvr_RxMsgRef_t)msgRef;
+    SomeipSvr_RxMsg_t* rxMsgPtr =
+        (SomeipSvr_RxMsg_t*)le_ref_Lookup(RxMsgRefMap, rxMsgRef);
+
+    if(rxMsgPtr != NULL)
+    {
+        // Get the service object.
+        SomeipSvr_Service_t* servicePtr =
+            SearchServiceInList(rxMsgPtr->serviceId, rxMsgPtr->instanceId);
+
+        // Simply free the message if no service and/or handler is found to handle it.
+        if ((servicePtr == NULL) || (servicePtr->handlerRef == NULL))
+        {
+            LE_WARN("No service/handler found for rxMsgRef(%p), free it.", rxMsgRef);
+            le_ref_DeleteRef(RxMsgRefMap, rxMsgRef);
+            le_mem_Release(rxMsgPtr);
+            return;
+        }
+
+        // Get the service handler and do sanity check.
+        SomeipSvr_Handler_t* handlerPtr =
+            (SomeipSvr_Handler_t*)le_ref_Lookup(RxHandlerRefMap, servicePtr->handlerRef);
+        LE_ASSERT(handlerPtr != NULL);
+        LE_ASSERT(handlerPtr->func != NULL);
+
+        // Add the message to service handler's message list.
+        rxMsgPtr->link = LE_DLS_LINK_INIT;
+        le_dls_Queue(&servicePtr->rxMsgList, &rxMsgPtr->link);
+
+        // Call the service handler.
+        handlerPtr->func(rxMsgRef, handlerPtr->context);
+    }
+    else
+    {
+        LE_WARN("No rxMsgPtr found for rxMsgRef(%p), dropped it.", rxMsgRef);
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Process the subscription handler message.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_SomeipSvr::ProcessSubsHandle
+(
+    VsSubsHandle_t handle
+)
+{
+    taf_someipSvr_SubscriptionHandlerRef_t handlerRef =
+        (taf_someipSvr_SubscriptionHandlerRef_t)handle.ref;
+
+    SomeipSvr_SubscriptionHandler_t* handlerPtr =
+        (SomeipSvr_SubscriptionHandler_t*)le_ref_Lookup(SubsHandlerRefMap, handlerRef);
+
+    if (handlerPtr != NULL)
+    {
+        SomeipSvr_Service_t* servicePtr =
+            (SomeipSvr_Service_t*)le_ref_Lookup(ServiceRefMap, handlerPtr->serviceRef);
+
+        if (servicePtr == NULL)
+        {
+            LE_FATAL("ServiceRef(%p) is not found.", handlerPtr->serviceRef);
+            return;
+        }
+
+        LE_INFO("GroupId(0x%x) of service(0x%x/0x%x) is '%s' from client(0x%x).",
+                handlerPtr->groupId, handlerPtr->serviceId, handlerPtr->instanceId,
+                handle.isSubscribed ? "Subscribed" : "Unsubscribed", handle.clientId);
+
+        if (handlerPtr->func != NULL)
+        {
+            handlerPtr->func(handlerPtr->serviceRef, handlerPtr->groupId,
+                             handle.isSubscribed, handlerPtr->context);
+        }
+    }
+    else
+    {
+        LE_WARN("No subsHandlerPtr found for handlerRef(%p), dropped it.", handlerRef);
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Generic VSOMEIP event handler.
  */
 //--------------------------------------------------------------------------------------------------
 void taf_SomeipSvr::RxEventHandler
@@ -395,45 +533,30 @@ void taf_SomeipSvr::RxEventHandler
     void* reportPtr
 )
 {
-    // Sanity check
-    LE_ASSERT(reportPtr != NULL);
-
-    // Get someip server instance.
-    taf_SomeipSvr& mySomeipSvr = taf_SomeipSvr::GetInstance();
-
-    // Get the message object and do sanity check.
-    taf_someipSvr_RxMsgRef_t rxMsgRef = *((taf_someipSvr_RxMsgRef_t*)reportPtr);
-    SomeipSvr_RxMsg_t* rxMsgPtr =
-        (SomeipSvr_RxMsg_t*)le_ref_Lookup(mySomeipSvr.RxMsgRefMap, rxMsgRef);
-    LE_ASSERT(rxMsgPtr != NULL);
-
-    // Get the service object.
-    SomeipSvr_Service_t* servicePtr =
-        mySomeipSvr.SearchServiceInList(rxMsgPtr->serviceId, rxMsgPtr->instanceId);
-
-    // Simply free the message if no service and/or handler is found to handle it.
-    if ((servicePtr == NULL) || (servicePtr->handlerRef == NULL))
+    if (reportPtr != NULL)
     {
-        LE_WARN("No service/handler found for rxMsgRef(%p), free it.", rxMsgRef);
-        le_ref_DeleteRef(mySomeipSvr.RxMsgRefMap, rxMsgRef);
-        le_mem_Release(rxMsgPtr);
-        return;
+        // Get someip server instance.
+        taf_SomeipSvr& mySomeipSvr = taf_SomeipSvr::GetInstance();
+
+        // Get the msg type.
+        VsMsg_t* vsMsgPtr = (VsMsg_t*)reportPtr;
+        VsMsgType_t msgType = vsMsgPtr->type;
+
+        switch(msgType)
+        {
+            case VS_RX_MSG_REF:
+                mySomeipSvr.ProcessRxMsgRef(vsMsgPtr->ref);
+                break;
+
+            case VS_SUBS_HANDLE:
+                mySomeipSvr.ProcessSubsHandle(vsMsgPtr->handle);
+                break;
+
+            default:
+                LE_FATAL("Unknown VsMsg(type=%d).", msgType);
+                break;
+        }
     }
-
-    // Get the service handler and do sanity check.
-    SomeipSvr_Handler_t* handlerPtr =
-        (SomeipSvr_Handler_t*)le_ref_Lookup(mySomeipSvr.RxHandlerRefMap, servicePtr->handlerRef);
-    LE_ASSERT(handlerPtr != NULL);
-    LE_ASSERT(handlerPtr->func != NULL);
-
-    // Add the message to service handler's message list.
-    rxMsgPtr->link = LE_DLS_LINK_INIT;
-    le_dls_Queue(&servicePtr->rxMsgList, &rxMsgPtr->link);
-
-    // Call the service handler.
-    handlerPtr->func(rxMsgRef, handlerPtr->context);
-
-    return;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -618,6 +741,35 @@ SomeipSvr_EventGroup_t* taf_SomeipSvr::SearchEventGroupInList
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Search a subscription handler for a given eventGroupId of the service.
+ */
+//--------------------------------------------------------------------------------------------------
+SomeipSvr_SubscriptionHandler_t* taf_SomeipSvr::SearchSubscriptionHandlerInList
+(
+    taf_someipSvr_ServiceRef_t serviceRef,
+    uint16_t groupId
+)
+{
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(SubsHandlerRefMap);
+
+    while (le_ref_NextNode(iterRef) == LE_OK)
+    {
+        SomeipSvr_SubscriptionHandler_t* subsHandlerPtr =
+            (SomeipSvr_SubscriptionHandler_t*)le_ref_GetValue(iterRef);
+
+        if ((subsHandlerPtr != NULL) &&
+            (subsHandlerPtr->serviceRef == serviceRef) &&
+            (subsHandlerPtr->groupId == groupId))
+        {
+            return subsHandlerPtr;
+        }
+    }
+
+    return NULL;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Clear an event list
  */
 //--------------------------------------------------------------------------------------------------
@@ -707,6 +859,15 @@ taf_someipSvr_ServiceRef_t taf_SomeipSvr::GetServiceRef
     uint16_t instanceId
 )
 {
+    // Check the valid serviceId and instanceId according to [PRS_SOMEIPSD_00515] and
+    // [PRS_SOMEIPSD_00516] of <SOME/IP Service Discovery Protocol Specification AUTOSAR FO R21-11>.
+    if (((serviceId == 0xFFFF) || (serviceId == 0xFFFE) || (serviceId == 0x0000)) ||
+        ((instanceId == 0xFFFF) || (instanceId == 0x0000)))
+    {
+        LE_ERROR("Invalid serviceId or instarnceId.");
+        return NULL;
+    }
+
     // Search the service.
     SomeipSvr_Service_t* servicePtr = SearchServiceInList(serviceId, instanceId);
 
@@ -965,6 +1126,15 @@ le_result_t taf_SomeipSvr::EnableEvent
     uint16_t eventgroupId
 )
 {
+    // Check the vaild eventId and eventGroupId according to [PRS_SOMEIPSD_00517] and
+    // [PRS_SOMEIPSD_00531] of <SOME/IP Service Discovery Protocol Specification AUTOSAR FO R21-11>.
+    if (((!(eventId & TAF_SOMEIPDEF_EVENT_MASK)) || (eventId == TAF_SOMEIPDEF_EVENT_MASK) ||
+        (eventId == 0xFFFF)) || ((eventgroupId == 0x0000) || (eventgroupId == 0xFFFF)))
+    {
+        LE_ERROR("Invalid eventId or eventgroupId.");
+        return LE_BAD_PARAMETER;
+    }
+
     // Find the service in the list.
     SomeipSvr_Service_t* servicePtr =
         (SomeipSvr_Service_t*)le_ref_Lookup(ServiceRefMap, serviceRef);
@@ -1058,6 +1228,13 @@ le_result_t taf_SomeipSvr::SetEventType
     taf_someipDef_EventType_t eventType
 )
 {
+    if ((!(eventId & TAF_SOMEIPDEF_EVENT_MASK)) || (eventId == TAF_SOMEIPDEF_EVENT_MASK) ||
+        (eventId == 0xFFFF))
+    {
+        LE_ERROR("Invalid eventId.");
+        return LE_BAD_PARAMETER;
+    }
+
     // Find the service in the list.
     SomeipSvr_Service_t* servicePtr =
         (SomeipSvr_Service_t*)le_ref_Lookup(ServiceRefMap, serviceRef);
@@ -1132,6 +1309,13 @@ le_result_t taf_SomeipSvr::SetEventCycleTime
     uint32_t cycleTime
 )
 {
+    if ((!(eventId & TAF_SOMEIPDEF_EVENT_MASK)) || (eventId == TAF_SOMEIPDEF_EVENT_MASK) ||
+        (eventId == 0xFFFF))
+    {
+        LE_ERROR("Invalid eventId.");
+        return LE_BAD_PARAMETER;
+    }
+
     // Find the service in the list.
     SomeipSvr_Service_t* servicePtr =
         (SomeipSvr_Service_t*)le_ref_Lookup(ServiceRefMap, serviceRef);
@@ -1212,6 +1396,13 @@ le_result_t taf_SomeipSvr::DisableEvent
     uint16_t eventId
 )
 {
+    if ((!(eventId & TAF_SOMEIPDEF_EVENT_MASK)) || (eventId == TAF_SOMEIPDEF_EVENT_MASK) ||
+        (eventId == 0xFFFF))
+    {
+        LE_ERROR("Invalid eventId.");
+        return LE_BAD_PARAMETER;
+    }
+
     // Find the service in the list.
     SomeipSvr_Service_t* servicePtr =
         (SomeipSvr_Service_t*)le_ref_Lookup(ServiceRefMap, serviceRef);
@@ -1276,6 +1467,13 @@ le_result_t taf_SomeipSvr::OfferEvent
     uint16_t eventId
 )
 {
+    if ((!(eventId & TAF_SOMEIPDEF_EVENT_MASK)) || (eventId == TAF_SOMEIPDEF_EVENT_MASK) ||
+        (eventId == 0xFFFF))
+    {
+        LE_ERROR("Invalid eventId.");
+        return LE_BAD_PARAMETER;
+    }
+
     // Find the service in the list.
     SomeipSvr_Service_t* servicePtr =
         (SomeipSvr_Service_t*)le_ref_Lookup(ServiceRefMap, serviceRef);
@@ -1343,6 +1541,13 @@ le_result_t taf_SomeipSvr::StopOfferEvent
     uint16_t eventId
 )
 {
+    if ((!(eventId & TAF_SOMEIPDEF_EVENT_MASK)) || (eventId == TAF_SOMEIPDEF_EVENT_MASK) ||
+        (eventId == 0xFFFF))
+    {
+        LE_ERROR("Invalid eventId.");
+        return LE_BAD_PARAMETER;
+    }
+
     // Find the service in the list.
     SomeipSvr_Service_t* servicePtr =
         (SomeipSvr_Service_t*)le_ref_Lookup(ServiceRefMap, serviceRef);
@@ -1410,6 +1615,13 @@ le_result_t taf_SomeipSvr::Notify
     size_t dataSize
 )
 {
+    if ((!(eventId & TAF_SOMEIPDEF_EVENT_MASK)) || (eventId == TAF_SOMEIPDEF_EVENT_MASK) ||
+        (eventId == 0xFFFF))
+    {
+        LE_ERROR("Invalid eventId.");
+        return LE_BAD_PARAMETER;
+    }
+
     // Find the service in the list.
     SomeipSvr_Service_t* servicePtr =
         (SomeipSvr_Service_t*)le_ref_Lookup(ServiceRefMap, serviceRef);
@@ -1558,9 +1770,9 @@ void taf_SomeipSvr::RemoveRxMsgHandler
 
             // Detach the handler to the service.
             servicePtr->handlerRef = NULL;
-            LE_INFO("Removed rxHandlerRef(%p) for Service(0x%x/0x%x).",
-                    handlerRef, servicePtr->serviceId, servicePtr->instanceId);
         }
+
+        LE_INFO("Removed rxHandlerRef(%p).", handlerRef);
 
         // Free the handler.
         le_ref_DeleteRef(RxHandlerRefMap, handlerRef);
@@ -1569,6 +1781,132 @@ void taf_SomeipSvr::RemoveRxMsgHandler
     else
     {
         LE_ERROR("Invalid rxHandlerRef(%p).", handlerRef);
+    }
+
+    return;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add a Subscription handler for a given eventGroup of service.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_someipSvr_SubscriptionHandlerRef_t taf_SomeipSvr::AddSubscriptionHandler
+(
+    taf_someipSvr_ServiceRef_t serviceRef,
+    uint16_t eventGroupId,
+    taf_someipSvr_SubscriptionHandlerFunc_t handlerPtr,
+    void * contextPtr
+)
+{
+    // Find the service in the list.
+    SomeipSvr_Service_t* servicePtr =
+        (SomeipSvr_Service_t*)le_ref_Lookup(ServiceRefMap, serviceRef);
+    if ((servicePtr == NULL) || (handlerPtr == NULL) ||
+        (eventGroupId == 0x0000) || (eventGroupId == 0xFFFF))
+    {
+        LE_ERROR("Bad parameters");
+        return NULL;
+    }
+
+    // Do sanity check.
+    LE_ASSERT(servicePtr->ref == serviceRef);
+
+    // Only the service owner app can get the service reference for subsequent operations.
+    if (servicePtr->sessionRef != taf_someipSvr_GetClientSessionRef())
+    {
+        LE_ERROR("The Service(0x%x/0x%x) is not created by this client.",
+                 servicePtr->serviceId, servicePtr->instanceId);
+        return NULL;
+    }
+
+    // Check if a subscription handler for the given eventGroupId of the service
+    // is already registered.
+    SomeipSvr_SubscriptionHandler_t* subsHandlerPtr =
+        SearchSubscriptionHandlerInList(serviceRef, eventGroupId);
+    if (subsHandlerPtr != NULL)
+    {
+        LE_ERROR("SubsHandler for groupId(0x%x) of Service(0x%x/0x%x) is already registered.",
+                 eventGroupId, servicePtr->serviceId, servicePtr->instanceId);
+        return NULL;
+    }
+
+    // Create and set the Subscription Handler.
+    subsHandlerPtr = (SomeipSvr_SubscriptionHandler_t*)le_mem_ForceAlloc(SubsHandlerPool);
+    memset(subsHandlerPtr, 0, sizeof(SomeipSvr_SubscriptionHandler_t));
+
+    // Init the fields.
+    subsHandlerPtr->serviceRef = serviceRef;
+    subsHandlerPtr->serviceId = servicePtr->serviceId;
+    subsHandlerPtr->instanceId = servicePtr->instanceId;
+    subsHandlerPtr->groupId = eventGroupId;
+    subsHandlerPtr->func = handlerPtr;
+    subsHandlerPtr->context = contextPtr;
+    subsHandlerPtr->ref =
+        (taf_someipSvr_SubscriptionHandlerRef_t)le_ref_CreateRef(SubsHandlerRefMap,
+                                                                 subsHandlerPtr);
+
+    // Register to VSOMEIP subs handler.
+    VsomeipApp->register_subscription_handler(servicePtr->serviceId,
+                                              servicePtr->instanceId,
+                                              eventGroupId,
+                                              std::bind(&taf_SomeipSvr::VSOMEIPSubsHandler,
+                                              this, subsHandlerPtr->ref, std::placeholders::_1,
+                                              std::placeholders::_2,
+                                              std::placeholders::_3,
+                                              std::placeholders::_4));
+
+    LE_INFO("Created SubsHandlerRef(%p) for groupId(0x%x) of Service(0x%x/0x%x).",
+            subsHandlerPtr->ref, eventGroupId, servicePtr->serviceId, servicePtr->instanceId);
+
+    return subsHandlerPtr->ref;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove the Subscription handler for a given eventGroup of service.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_SomeipSvr::RemoveSubscriptionHandler
+(
+    taf_someipSvr_SubscriptionHandlerRef_t handlerRef
+)
+{
+    SomeipSvr_SubscriptionHandler_t* subsHandlerPtr =
+        (SomeipSvr_SubscriptionHandler_t*)le_ref_Lookup(SubsHandlerRefMap, handlerRef);
+
+    if (subsHandlerPtr != NULL)
+    {
+        // Do sanity check.
+        LE_ASSERT(subsHandlerPtr->ref == handlerRef);
+
+        SomeipSvr_Service_t* servicePtr =
+            (SomeipSvr_Service_t*)le_ref_Lookup(ServiceRefMap, subsHandlerPtr->serviceRef);
+
+        // Only the service owner app can get the service reference for subsequent operations.
+        if (servicePtr != NULL)
+        {
+            if (servicePtr->sessionRef != taf_someipSvr_GetClientSessionRef())
+            {
+                LE_ERROR("The Service(0x%x/0x%x) is not created by this client.",
+                         servicePtr->serviceId, servicePtr->instanceId);
+                return;
+            }
+        }
+
+        LE_INFO("Removed subsHandlerRef(%p).", handlerRef);
+
+        // Deregister VSOMEIP subs handler.
+        VsomeipApp->unregister_subscription_handler(subsHandlerPtr->serviceId,
+                                                    subsHandlerPtr->instanceId,
+                                                    subsHandlerPtr->groupId);
+        // Free the handler.
+        le_ref_DeleteRef(SubsHandlerRefMap, handlerRef);
+        le_mem_Release(subsHandlerPtr);
+    }
+    else
+    {
+        LE_ERROR("Invalid subsHandlerRef(%p).", handlerRef);
     }
 
     return;
@@ -1801,6 +2139,15 @@ le_result_t taf_SomeipSvr::SendResponse
     // Call VSOMEIP send response function.
     VSOMEIPSendResponse(msgPtr, isErrRsp, returnCode, dataPtr, dataSize);
 
+    // Remove the message from message list.
+    le_dls_Remove(&servicePtr->rxMsgList, &msgPtr->link);
+
+    // Free the message.
+    le_ref_DeleteRef(RxMsgRefMap, msgRef);
+    le_mem_Release(msgPtr);
+
+    LE_DEBUG("Freed msgRef(%p).", msgRef);
+
     return LE_OK;
 }
 
@@ -1867,6 +2214,7 @@ void taf_SomeipSvr::Init
     ServiceRefMap = le_ref_CreateMap("Server ServiceRefMap", DEFAULT_SERVICE_REF_CNT);
     RxMsgRefMap = le_ref_CreateMap("Server RxMsgRefMap", DEFAULT_RXMSG_REF_CNT);
     RxHandlerRefMap = le_ref_CreateMap("Server RxHandlerRefMap", DEFAULT_RXHANDLER_REF_CNT);
+    SubsHandlerRefMap = le_ref_CreateMap("Server SubsHandlerRefMap", DEFAULT_SUBSHANDLER_REF_CNT);
 
     // Create memory pools.
     ServicePool = le_mem_CreatePool("Server ServicePool", sizeof(SomeipSvr_Service_t));
@@ -1874,13 +2222,15 @@ void taf_SomeipSvr::Init
     EventGroupPool = le_mem_CreatePool("Server EventGroupPool", sizeof(SomeipSvr_EventGroup_t));
     RxMsgPool = le_mem_CreatePool("Server RxMsgPool", sizeof(SomeipSvr_RxMsg_t));
     RxHandlerPool = le_mem_CreatePool("Server HandlerPool", sizeof(SomeipSvr_Handler_t));
+    SubsHandlerPool = le_mem_CreatePool("Server SubsHandlerPool",
+                                        sizeof(SomeipSvr_SubscriptionHandler_t));
 
     // Set memory pool destructors.
     le_mem_SetDestructor(EventPool, taf_SomeipSvr::EventObjDestructor);
     le_mem_SetDestructor(ServicePool, taf_SomeipSvr::ServiceObjDestructor);
 
     // Create the event and add event handler.
-    VsomeipEvent = le_event_CreateId("Server Vsomip Event", sizeof(taf_someipSvr_RxMsgRef_t));
+    VsomeipEvent = le_event_CreateId("Server Vsomip Event", sizeof(VsMsg_t));
     VsomeipEventHandlerRef = le_event_AddHandler("Server Vsomeip Event Handler",
                                                  VsomeipEvent, taf_SomeipSvr::RxEventHandler);
     // Create client session close hander.

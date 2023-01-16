@@ -58,6 +58,7 @@ apps:
     // $TELAF_ROOT/apps/test/tafCanTest/tafCanUnitTest
     // $TELAF_ROOT/apps/test/tafFSCryptTest/tafFSCryptUnitTest/tafFSCryptUnitTest
     // $TELAF_ROOT/apps/test/tafSomeipGWTest/tafSomeipSvrUnitTest/tafSomeipSvrUnitTest
+    // $TELAF_ROOT/apps/test/tafSomeipGWTest/tafSomeipClntUnitTest/tafSomeipClntUnitTest
 }
 
 commands:

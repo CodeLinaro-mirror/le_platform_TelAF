@@ -497,6 +497,31 @@ EVENT RxMsg
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Handler for event group subscription status.
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER SubscriptionHandler
+(
+    Service  serviceRef               IN, ///< Service Reference.
+    uint16 eventGroupId               IN, ///< Event Group ID.
+    bool isSubscribed                 IN  ///< True the event group is subscribed, otherwise
+                                          ///  Unsubscribed.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This event provides information on event group subscription status.
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT Subscription
+(
+    Service serviceRef                IN, ///< Service Reference.
+    uint16 eventGroupId               IN, ///< Event Group ID.
+    SubscriptionHandler  handler
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Gets the service ID and Instance ID of the Rx Message.
  *
  * @return
@@ -589,7 +614,8 @@ FUNCTION le_result_t GetPayloadData
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sends a response message for a Rx message.
+ * Sends a response message for a Rx message. The Rx message is automatically freed after sending
+ * the response successfully.
  *
  * NOTE: Only the message type MT_REQUEST(0x00) is allowed to send a response.
  *

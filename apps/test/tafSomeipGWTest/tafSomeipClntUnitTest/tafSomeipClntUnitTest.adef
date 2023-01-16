@@ -1,0 +1,20 @@
+start: manual
+sandboxed: false
+
+executables:
+{
+    tafSomeipClntUnitTest = ( tafSomeipClntUnitTestComp )
+}
+
+processes:
+{
+    run:
+    {
+        ( tafSomeipClntUnitTest )
+    }
+}
+
+bindings:
+{
+    tafSomeipClntUnitTest.tafSomeipClntUnitTestComp.taf_someipClnt -> tafSomeipGWSvc.taf_someipClnt
+}

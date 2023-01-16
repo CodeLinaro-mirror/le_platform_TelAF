@@ -2,6 +2,7 @@ sources:
 {
     tafSomeipGWSvc.cpp
     tafSomeipSvrImpl.cpp
+    tafSomeipClntImpl.cpp
 }
 
 cxxflags:
@@ -18,6 +19,7 @@ provides:
     api:
     {
         someipGW/taf_someipSvr.api
+        someipGW/taf_someipClnt.api
     }
 }
 

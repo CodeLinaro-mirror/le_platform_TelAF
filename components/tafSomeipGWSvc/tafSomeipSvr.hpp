@@ -22,6 +22,38 @@
 #define DEFAULT_SERVICE_REF_CNT 16
 #define DEFAULT_RXMSG_REF_CNT 16
 #define DEFAULT_RXHANDLER_REF_CNT 16
+#define DEFAULT_SUBSHANDLER_REF_CNT 32
+#define DEFAULT_MAX_PENDING_MSG_CNT 512
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * TelAF VSOMEIP Generic event messages.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    VS_RX_MSG_REF,
+    VS_SUBS_HANDLE,
+}VsMsgType_t;
+
+typedef struct
+{
+    void* ref;
+    vsomeip::client_t clientId;
+    uid_t uId;
+    gid_t gId;
+    bool isSubscribed;
+}VsSubsHandle_t;
+
+typedef struct
+{
+    VsMsgType_t type;
+    union
+    {
+        void* ref;
+        VsSubsHandle_t handle;
+    };
+}VsMsg_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -30,11 +62,27 @@
 //--------------------------------------------------------------------------------------------------
 typedef struct
 {
-    taf_someipSvr_ServiceRef_t serviceRef;         ///< Service reference.
-    taf_someipSvr_RxMsgHandlerFunc_t func;         ///< Handler function.
-    void* context;                                 ///< Handler context.
-    taf_someipSvr_RxMsgHandlerRef_t ref;           ///< own reference.
+    taf_someipSvr_ServiceRef_t serviceRef;          ///< Service reference.
+    taf_someipSvr_RxMsgHandlerFunc_t func;          ///< Handler function.
+    void* context;                                  ///< Handler context.
+    taf_someipSvr_RxMsgHandlerRef_t ref;            ///< own reference.
 }SomeipSvr_Handler_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * SOME/IP group subscribe handler structure.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_someipSvr_ServiceRef_t serviceRef;          ///< Service reference.
+    uint16_t serviceId;                             ///< Service Identifier.
+    uint16_t instanceId;                            ///< Instance Identifier.
+    uint16_t groupId;                               ///< EventGroup Identifier.
+    taf_someipSvr_SubscriptionHandlerFunc_t func;   ///< Handler function.
+    void* context;                                  ///< Handler context.
+    taf_someipSvr_SubscriptionHandlerRef_t ref;     ///< own reference.
+}SomeipSvr_SubscriptionHandler_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -135,6 +183,12 @@ namespace telux
                 // Public methods.
                 void VSOMEIPInit(const std::shared_ptr<vsomeip::application>& app);
                 void VSOMEIPHandler(const std::shared_ptr<vsomeip::message>& msg);
+                bool VSOMEIPSubsHandler(taf_someipSvr_SubscriptionHandlerRef_t subsHandlerRef,
+                                              vsomeip::client_t clientId, uid_t uId, gid_t gId,
+                                              bool isSubscribed);
+
+                void ProcessRxMsgRef(void* msgRef);
+                void ProcessSubsHandle(VsSubsHandle_t handle);
 
                 taf_someipSvr_ServiceRef_t GetServiceRef(uint16_t serviceId,
                                                              uint16_t instanceId);
@@ -171,6 +225,13 @@ namespace telux
                     taf_someipSvr_RxMsgHandlerFunc_t handlerPtr,
                     void* contextPtr);
                 void RemoveRxMsgHandler(taf_someipSvr_RxMsgHandlerRef_t handlerRef);
+                taf_someipSvr_SubscriptionHandlerRef_t AddSubscriptionHandler(
+                    taf_someipSvr_ServiceRef_t serviceRef,
+                    uint16_t eventGroupId,
+                    taf_someipSvr_SubscriptionHandlerFunc_t handlerPtr,
+                    void* contextPtr);
+                void RemoveSubscriptionHandler(taf_someipSvr_SubscriptionHandlerRef_t handlerRef);
+
                 le_result_t GetSerivceId(taf_someipSvr_RxMsgRef_t msgRef,
                                              uint16_t* serviceIdPtr,
                                              uint16_t* instanceIdPtr);
@@ -202,6 +263,9 @@ namespace telux
                                                            uint16_t eventId);
                 SomeipSvr_EventGroup_t* SearchEventGroupInList(le_dls_List_t* eventGroupListPtr,
                                                                       uint16_t eventGroupId);
+                SomeipSvr_SubscriptionHandler_t* SearchSubscriptionHandlerInList(
+                    taf_someipSvr_ServiceRef_t serviceRef,uint16_t groupId);
+
                 // Internal clear functions.
                 void ClearEventList(le_dls_List_t* eventListPtr);
                 void ClearEventGroupList(le_dls_List_t* eventGroupListPtr);
@@ -232,6 +296,10 @@ namespace telux
                 // Rx message handler object.
                 le_ref_MapRef_t RxHandlerRefMap;
                 le_mem_PoolRef_t RxHandlerPool;
+
+                // Subscription handler object.
+                le_ref_MapRef_t SubsHandlerRefMap;
+                le_mem_PoolRef_t SubsHandlerPool;
 
                 // VSOMEIP interface.
                 le_event_Id_t VsomeipEvent;

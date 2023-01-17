@@ -1,7 +1,7 @@
 sandboxed: false
 executables:
 {
-    tafSimIntgTest = ( tafSimTestComp )
+    tafSimIntTest = ( tafSimTestComp )
 }
 
 
@@ -17,6 +17,6 @@ start: manual
 
 bindings:
 {
-    tafSimIntgTest.tafSimTestComp.taf_sim -> tafSimCardSvc.taf_sim
+    tafSimIntTest.tafSimTestComp.taf_sim -> tafSimCardSvc.taf_sim
 }
 

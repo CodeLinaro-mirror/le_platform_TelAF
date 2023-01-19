@@ -27,6 +27,7 @@ gen_require(`
     type power_unit_t;
     type proc_t;
     type shell_exec_t;
+    type system_dbusd_t;
     type systemd_logind_var_run_t;
     type telaf_admin_t;
     type telaf_update_t;
@@ -73,7 +74,8 @@ allow telaf_tafUpdateSvc_t mtd_block_t:blk_file {rw_file_perms};
 allow telaf_tafUpdateSvc_t self:capability2 { syslog };
 allow telaf_tafUpdateSvc_t kernel_t:system { syslog_read };
 allow telaf_tafUpdateSvc_t leprop_sock_t:sock_file { write };
-allow telaf_tafUpdateSvc_t cache_t:dir { search_dir_perms write };
+allow telaf_tafUpdateSvc_t cache_t:dir { manage_dir_perms };
+allow telaf_tafUpdateSvc_t cache_t:file { manage_file_perms };
 allow telaf_tafUpdateSvc_t leprop_t:unix_stream_socket { connectto };
 allow telaf_tafUpdateSvc_t fs_t:filesystem { getattr unmount };
 # allow access to /dev/mtd devices
@@ -88,6 +90,7 @@ allow telaf_tafUpdateSvc_t init_t:unix_stream_socket { connectto };
 allow telaf_tafUpdateSvc_t telaf_admin_t:fifo_file { ioctl };
 allow telaf_tafUpdateSvc_t self:capability { fowner fsetid dac_read_search net_admin sys_resource};
 allow telaf_tafUpdateSvc_t init_var_run_t:sock_file { open write };
+allow telaf_tafUpdateSvc_t system_dbusd_t:unix_stream_socket { connectto };
 allow telaf_tafUpdateSvc_t systemd_logind_var_run_t:sock_file { open write };
 allow telaf_tafUpdateSvc_t initctl_t:fifo_file { open write };
 allow telaf_tafUpdateSvc_t cgroup_t:dir { manage_dir_perms };

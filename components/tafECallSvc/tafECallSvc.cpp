@@ -146,7 +146,7 @@ void taf_ecall_Delete(taf_ecall_CallRef_t callRef)
 
  DEPENDENCIES    Initialization of ECall Service
 
- PARAMETERS      [IN] slotId: slot ID
+ PARAMETERS      [IN] phoneId: Phone ID
 
  RETURN VALUE    le_result_t
                      LE_BAD_PARAMETER:     Invalid parameters.
@@ -158,7 +158,7 @@ void taf_ecall_Delete(taf_ecall_CallRef_t callRef)
 ======================================================================*/
 le_result_t taf_ecall_ForceOnlyMode
 (
- taf_sim_Id_t slotId
+ uint8_t phoneId
 )
 {
     auto &ecall = taf_ecall::GetInstance();
@@ -167,7 +167,7 @@ le_result_t taf_ecall_ForceOnlyMode
     le_cfg_SetInt(iteratorRef, CFG_NODE_OPMODE, (int) TAF_ECALL_MODE_NORMAL);
     le_cfg_CommitTxn(iteratorRef);
 
-    return ecall.SetECallOperatingMode(slotId, TAF_ECALL_MODE_ECALL);
+    return ecall.SetECallOperatingMode(phoneId, TAF_ECALL_MODE_ECALL);
 }
 
 /*======================================================================
@@ -179,7 +179,7 @@ le_result_t taf_ecall_ForceOnlyMode
 
  DEPENDENCIES    Initialization of ECall Service
 
- PARAMETERS      [IN] slotId: slot ID
+ PARAMETERS      [IN] phoneId: Phone ID
 
  RETURN VALUE    le_result_t
                      LE_BAD_PARAMETER:     Invalid parameters.
@@ -191,7 +191,7 @@ le_result_t taf_ecall_ForceOnlyMode
 ======================================================================*/
 le_result_t taf_ecall_ForcePersistentOnlyMode
 (
- taf_sim_Id_t slotId
+ uint8_t phoneId
 )
 {
     auto &ecall = taf_ecall::GetInstance();
@@ -200,7 +200,7 @@ le_result_t taf_ecall_ForcePersistentOnlyMode
     le_cfg_SetInt(iteratorRef, CFG_NODE_OPMODE, (int) TAF_ECALL_MODE_ECALL);
     le_cfg_CommitTxn(iteratorRef);
 
-    return ecall.SetECallOperatingMode(slotId, TAF_ECALL_MODE_ECALL);
+    return ecall.SetECallOperatingMode(phoneId, TAF_ECALL_MODE_ECALL);
 }
 
 /*======================================================================
@@ -211,7 +211,7 @@ le_result_t taf_ecall_ForcePersistentOnlyMode
 
  DEPENDENCIE     Initialization of ECall Service
 
- PARAMETERS      [IN] slotId: slot ID
+ PARAMETERS      [IN] phoneId: Phone ID
 
  RETURN VALUE    le_result_t
                      LE_BAD_PARAMETER:     Invalid parameters.
@@ -223,7 +223,7 @@ le_result_t taf_ecall_ForcePersistentOnlyMode
 ======================================================================*/
 le_result_t taf_ecall_ExitOnlyMode
 (
- taf_sim_Id_t slotId
+ uint8_t phoneId
 )
 {
     auto &ecall = taf_ecall::GetInstance();
@@ -232,7 +232,7 @@ le_result_t taf_ecall_ExitOnlyMode
     le_cfg_SetInt(iteratorRef, CFG_NODE_OPMODE, (int) TAF_ECALL_MODE_NORMAL);
     le_cfg_CommitTxn(iteratorRef);
 
-    return ecall.SetECallOperatingMode(slotId, TAF_ECALL_MODE_NORMAL);
+    return ecall.SetECallOperatingMode(phoneId, TAF_ECALL_MODE_NORMAL);
 }
 
 /*======================================================================
@@ -243,7 +243,7 @@ le_result_t taf_ecall_ExitOnlyMode
 
  DEPENDENCIES    Initialization of ECall Service
 
- PARAMETERS      [IN] slotId: slot ID
+ PARAMETERS      [IN] phoneId: Phone ID
                  [OUT] opModePtr: pointer of type Opmode
 
  RETURN VALUE    le_result_t
@@ -256,12 +256,12 @@ le_result_t taf_ecall_ExitOnlyMode
 ======================================================================*/
 le_result_t taf_ecall_GetConfiguredOperationMode
 (
- taf_sim_Id_t slotId,
+ uint8_t            phoneId,
  taf_ecall_OpMode_t* opModePtr
 )
 {
     auto &ecall = taf_ecall::GetInstance();
-    return ecall.GetECallOperatingMode(slotId, opModePtr);
+    return ecall.GetECallOperatingMode(phoneId, opModePtr);
 }
 
 /*======================================================================

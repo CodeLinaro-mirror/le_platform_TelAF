@@ -154,8 +154,8 @@ namespace telux {
 
                 taf_ecall_CallRef_t CreateECallReference();
                 void Delete(taf_ecall_CallRef_t ecallRef);
-                le_result_t SetECallOperatingMode(taf_sim_Id_t slotId, taf_ecall_OpMode_t ecallMode);
-                le_result_t GetECallOperatingMode(taf_sim_Id_t slotId, taf_ecall_OpMode_t *opMode);
+                le_result_t SetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t ecallMode);
+                le_result_t GetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t *opMode);
                 le_result_t StartECall(ECallCategory emergencyCategory, ECallVariant eCallvariant, taf_ecall_CallRef_t ecallRef);
                 le_result_t StopECall(taf_ecall_CallRef_t ecallRef);
                 le_result_t SetMsdPosition (taf_ecall_CallRef_t ecallRef, bool isTrusted, int32_t latitude,

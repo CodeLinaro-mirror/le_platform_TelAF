@@ -509,7 +509,7 @@ FUNCTION Delete
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Switches to eCall only mode according to the given slot ID.
+ *  Switches to eCall only mode according to the given phone ID.
  *
  * @return
  *      - LE_OK -- Succeeded.
@@ -519,12 +519,12 @@ FUNCTION Delete
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ForceOnlyMode
 (
-    taf_sim.Id         slotId  IN                  ///< SIM slot ID.
+     uint8              phoneId  IN     ///< Phone ID.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Switches to persistent eCall Only mode according to the given slot ID.
+ *  Switches to persistent eCall Only mode according to the given phone ID.
  *
  * @return
  *      - LE_OK -- Succeeded.
@@ -534,12 +534,12 @@ FUNCTION le_result_t ForceOnlyMode
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ForcePersistentOnlyMode
 (
-    taf_sim.Id         slotId  IN                  ///< SIM slot ID.
+     uint8              phoneId  IN     ///< Phone ID.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Exits eCall Only mode and switches to Normal mode according to the given slot ID.
+ *  Exits eCall Only mode and switches to Normal mode according to the given phone ID.
  *
  * @return
  *      - LE_OK -- Succeeded.
@@ -549,12 +549,12 @@ FUNCTION le_result_t ForcePersistentOnlyMode
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ExitOnlyMode
 (
-    taf_sim.Id         slotId  IN                 ///< SIM slot ID.
+     uint8              phoneId  IN     ///< Phone ID.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Gets the ecall operating mode according to the given slot ID.
+ * Gets the ecall operating mode according to the given phone ID.
  *
  * @return
  *      - LE_OK -- Succeeded.
@@ -564,7 +564,7 @@ FUNCTION le_result_t ExitOnlyMode
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetConfiguredOperationMode
 (
-    taf_sim.Id         slotId  IN,     ///< SIM slot ID.
+    uint8             phoneId  IN,     ///< Phone ID.
     OpMode             opMode  OUT     ///< Operating mode.
 );
 

@@ -353,22 +353,22 @@ static int setOpMode()
         return EXIT_FAILURE;
     }
     const char* opMode =  le_arg_GetArg(2);
-    taf_sim_Id_t simId = (taf_sim_Id_t)TAF_SIM_EXTERNAL_SLOT_1;
-    const char* slotId = le_arg_GetArg(3);
+    uint8_t phoneId = 1;
+    const char* inputPhoneId = le_arg_GetArg(3);
     le_result_t result = LE_FAULT;
 
-    if (strcmp(slotId, "SLOT2") == 0)
+    if (strcmp(inputPhoneId, "SLOT2") == 0)
     {
-        simId = TAF_SIM_EXTERNAL_SLOT_2;
+        phoneId = 2;
     }
 
     if (strcmp(opMode, "NORMAL") == 0)
     {
-        result = taf_ecall_ExitOnlyMode(simId);
+        result = taf_ecall_ExitOnlyMode(phoneId);
     }
     else if (strcmp(opMode, "ECALL_ONLY") == 0)
     {
-        result = taf_ecall_ForcePersistentOnlyMode(simId);
+        result = taf_ecall_ForcePersistentOnlyMode(phoneId);
     }
     else
     {
@@ -394,19 +394,19 @@ static int getOpMode()
         return EXIT_FAILURE;
     }
 
-    const char* slotId = le_arg_GetArg(2);
+    const char* inputPhoneId = le_arg_GetArg(2);
 
-    taf_sim_Id_t simId = (taf_sim_Id_t)TAF_SIM_EXTERNAL_SLOT_1;
+    uint8_t phoneId = 1;
 
     le_result_t result = LE_FAULT;
 
-    if (strcmp(slotId,"SLOT2") == 0)
+    if (strcmp(inputPhoneId,"SLOT2") == 0)
     {
-        simId = TAF_SIM_EXTERNAL_SLOT_2;
+        phoneId = 2;
     }
 
     taf_ecall_OpMode_t opMode = TAF_ECALL_MODE_NORMAL;
-    result = taf_ecall_GetConfiguredOperationMode(simId, &opMode);
+    result = taf_ecall_GetConfiguredOperationMode(phoneId, &opMode);
 
     if ( result == LE_OK)
     {

@@ -263,17 +263,17 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
 
 static void Test_ECall_OperatingMode()
 {
-    taf_ecall_ForceOnlyMode((taf_sim_Id_t)TAF_SIM_EXTERNAL_SLOT_1);
+    taf_ecall_ForceOnlyMode(1);
     taf_ecall_OpMode_t opMode = TAF_ECALL_MODE_NORMAL;
-    LE_TEST_OK( taf_ecall_GetConfiguredOperationMode((taf_sim_Id_t)TAF_SIM_EXTERNAL_SLOT_1, &opMode) == LE_OK, "Test_ECall_OperatingMode done");
+    LE_TEST_OK( taf_ecall_GetConfiguredOperationMode(1, &opMode) == LE_OK, "Test_ECall_OperatingMode done");
     LE_TEST_OK(opMode == TAF_ECALL_MODE_ECALL, "taf_ecall_GetConfiguredOperationMode done");
     LE_INFO("Operating mode = %d", opMode);
-    taf_ecall_ForcePersistentOnlyMode((taf_sim_Id_t)TAF_SIM_EXTERNAL_SLOT_1);
-    taf_ecall_GetConfiguredOperationMode((taf_sim_Id_t)TAF_SIM_EXTERNAL_SLOT_1, &opMode);
+    taf_ecall_ForcePersistentOnlyMode(1);
+    taf_ecall_GetConfiguredOperationMode(1, &opMode);
     LE_TEST_OK(opMode == TAF_ECALL_MODE_ECALL, "taf_ecall_ForcePersistentOnlyMode done");
     LE_INFO("Operating mode = %d", opMode);
-    taf_ecall_ExitOnlyMode((taf_sim_Id_t)TAF_SIM_EXTERNAL_SLOT_1);
-    taf_ecall_GetConfiguredOperationMode((taf_sim_Id_t)TAF_SIM_EXTERNAL_SLOT_1, &opMode);
+    taf_ecall_ExitOnlyMode(1);
+    taf_ecall_GetConfiguredOperationMode(1, &opMode);
     LE_TEST_OK(opMode == TAF_ECALL_MODE_NORMAL, "taf_ecall_ExitOnlyMode done");
     LE_INFO("Operating mode = %d", opMode);
 }

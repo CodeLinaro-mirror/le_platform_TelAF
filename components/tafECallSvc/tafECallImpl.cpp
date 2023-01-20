@@ -371,9 +371,9 @@ void taf_ecall::Init(void)
     int opMode = le_cfg_GetInt(iteratorRef, CFG_NODE_OPMODE, 0);
     le_cfg_CancelTxn(iteratorRef);
     if (opMode == TAF_ECALL_FORCED_PERSISTENT_ONLY_MODE) {
-        taf_sim_Id_t slotId = taf_sim_GetSelectedCard();
-        le_result_t res = SetECallOperatingMode(slotId, TAF_ECALL_MODE_ECALL);
-        LE_INFO("Apply eCall persist only mode, result = %d\n", res);
+        uint8_t phoneId = PhoneManager->getPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
+        le_result_t res = SetECallOperatingMode(phoneId, TAF_ECALL_MODE_ECALL);
+        LE_INFO("Apply eCall persist only mode in phoneId: %d, result = %d\n", phoneId, res);
     }
 
     ECallListener =  std::make_shared<tafECallListener>();
@@ -504,16 +504,17 @@ void taf_ecall::Delete(taf_ecall_CallRef_t ecallRef)
 }
 
 
-le_result_t taf_ecall::SetECallOperatingMode(taf_sim_Id_t slotId, taf_ecall_OpMode_t eCallMode) {
-    if (Phones.size() >= slotId) {
-        auto phone = Phones[slotId - 1];
+le_result_t taf_ecall::SetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t eCallMode) {
+    if (Phones.size() >= phoneId) {
+        auto phone = Phones[phoneId - 1];
         if(phone) {
             if(eCallMode == TAF_ECALL_MODE_NORMAL  || eCallMode == TAF_ECALL_MODE_ECALL) {
                 auto ret = phone->setECallOperatingMode(
                         static_cast<telux::tel::ECallMode>(eCallMode),
                         tafECallOperatingModeCallback::setECallOperatingModeResponse);
                 if(ret == telux::common::Status::SUCCESS) {
-                    LE_DEBUG("Set eCall operating mode request sent successfully \n");
+                    LE_INFO("Set eCall operating mode %d request sent successfully in phoneId: %d\n",
+                            (int) eCallMode, phoneId);
                     setOpModeProm = std::promise<telux::common::ErrorCode>();
                     telux::common::ErrorCode error = setOpModeProm.get_future().get();
                     if (error == telux::common::ErrorCode::SUCCESS)
@@ -521,35 +522,37 @@ le_result_t taf_ecall::SetECallOperatingMode(taf_sim_Id_t slotId, taf_ecall_OpMo
                         return LE_OK;
                     }
                 } else {
-                    LE_ERROR("Set eCall operating mode request failed \n");
+                    LE_ERROR("Set eCall operating mode %d failed in phoneId: %d\n", (int) eCallMode, phoneId);
                 }
             } else {
-                LE_ERROR("Invalid input \n");
+                LE_ERROR("Invalid input op mode: %d phoneId: %d\n", (int) eCallMode, phoneId);
             }
         }
+    } else {
+        LE_ERROR("No phone found corresponding to phoneId: %d\n", phoneId);
     }
-    LE_ERROR("No phone found corresponding to slot Id");
     return LE_FAULT;
 }
 
-le_result_t taf_ecall::GetECallOperatingMode(taf_sim_Id_t slotId, taf_ecall_OpMode_t *opMode) {
-    if (Phones.size() >= slotId) {
-        auto phone = Phones[slotId - 1];
+le_result_t taf_ecall::GetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t *opMode) {
+    if (Phones.size() >= phoneId) {
+        auto phone = Phones[phoneId - 1];
         if(phone) {
             getOpModeProm = std::promise<telux::tel::ECallMode>();
             auto ret = phone->requestECallOperatingMode(
                     tafECallOperatingModeCallback::getECallOperatingModeResponse);
             if(ret == telux::common::Status::SUCCESS) {
-                LE_DEBUG("Get eCall Operating mode request sent successfully\n");
+                LE_INFO("Get eCall op mode request sent successfully in phoneId: %d\n", phoneId);
                 telux::tel::ECallMode mode = getOpModeProm.get_future().get();
                 *opMode = (taf_ecall_OpMode_t)mode;
                 return LE_OK;
             } else {
-                LE_ERROR("Get eCall Operating mode request failed \n");
+                LE_ERROR("Get eCall Operating mode request failed in phoneId: %d\n", phoneId);
             }
         }
+    } else {
+        LE_ERROR("No phone found corresponding to phoneId:  %d\n", phoneId);
     }
-    LE_ERROR("No phone found corresponding to slotId");
     return LE_FAULT;
 }
 
@@ -580,7 +583,7 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
 
 
     //Get Selected card
-    taf_sim_Id_t slotId = taf_sim_GetSelectedCard();
+    uint8_t phoneId = PhoneManager->getPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
 
     //Check ECall session
     if (eCallPtr->eCallSession != ECALL_INIT && (eCallPtr->eCallSession != ECALL_ENDED)) {
@@ -609,18 +612,18 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
 
     Status ret;
 
-    LE_INFO("PsapNumber: %s, ECall Variant: %d, useUSimNumber: %d\n", psapNumber,
-            (int) eCallVariant, isUseUSimNumbers);
+    LE_INFO("PsapNumber: %s, ECall Variant: %d, useUSimNumber: %d, phoneId: %d\n", psapNumber,
+            (int) eCallVariant, isUseUSimNumbers, phoneId);
 
     //Check msd imported or not to send msd in pdu format or not
     if (ECallObject.isMsdUpdated)
     {
         const std::vector< uint8_t > eCallMsdData(begin(eCallPtr->msdPdu),end(eCallPtr->msdPdu));
         if (eCallVariant == ECallVariant::ECALL_TEST) {
-            ret = CallManager->makeECall((int)slotId, psapNumber, eCallMsdData,
+            ret = CallManager->makeECall(phoneId, psapNumber, eCallMsdData,
                     (int)emergencyCategory, tafCallCommandCallback::makeECallResponse);
         } else {
-            ret = CallManager->makeECall((int)slotId, eCallMsdData, (int)emergencyCategory,
+            ret = CallManager->makeECall(phoneId, eCallMsdData, (int)emergencyCategory,
                     (int)eCallVariant, tafCallCommandCallback::makeECallResponse);
         }
     }
@@ -629,10 +632,10 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
         ECallMsdData eCallMsdData = (ECallMsdData) eCallPtr->msd;
 
         if (eCallVariant == ECallVariant::ECALL_TEST) {
-            ret = CallManager->makeECall((int)slotId, psapNumber, eCallMsdData,
+            ret = CallManager->makeECall(phoneId, psapNumber, eCallMsdData,
                     (int)emergencyCategory, CallCommandCb);
         } else {
-            ret = CallManager->makeECall((int)slotId, eCallMsdData, (int)emergencyCategory,
+            ret = CallManager->makeECall(phoneId, eCallMsdData, (int)emergencyCategory,
                     (int)eCallVariant, CallCommandCb);
         }
     }
@@ -926,9 +929,11 @@ le_result_t taf_ecall::SendMsd( taf_ecall_CallRef_t ecallRef)
 
     telux::common::Status status;
     std::promise<telux::common::ErrorCode> p;
-    int phoneId = 1;
+    int phoneId = PhoneManager->getPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
 
     eCallPtr->msd.messageIdentifier++;
+
+    LE_INFO("Send msd in phoneId: %d, isMsdUpdated: %d\n", phoneId, (int)eCallPtr->isMsdUpdated);
 
     if (eCallPtr->isMsdUpdated)
     {

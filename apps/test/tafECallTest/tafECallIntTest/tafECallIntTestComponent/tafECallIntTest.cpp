@@ -46,6 +46,7 @@ extern "C" {
 #define BUFSIZE 48
 const std::string GREEN = "\033[0;32m";
 const std::string RED = "\033[0;31m";
+const std::string YELLOW = "\033[0;33m";
 const std::string DONE = "\033[0m";  // No color
 
 using namespace std;
@@ -55,7 +56,7 @@ static le_thread_Ref_t threadRef = NULL;
 static taf_ecall_State_t ECallState;
 static taf_ecall_StateChangeHandlerRef_t HandlerRef;
 static taf_ecall_CallRef_t ECallRef = NULL;
-static taf_sim_Id_t SimId;
+static uint8_t PhoneId;
 static int TC_No = 1;
 static bool exitApp = true;
 static uint8_t msdRawData[43] = {2, 41, 68, 6, 128, 227, 10, 81, 67, 158, 41, 85, 212, 56, 0,
@@ -203,7 +204,12 @@ void printUsages()
 
 void report(le_result_t expected_result, le_result_t actual_result, string API_Name)
 {
-    if (expected_result == actual_result)
+    if (LE_UNSUPPORTED == actual_result)
+    {
+        std::cout<<TC_No<<". "<<API_Name<<" - "<<"Result: "<<return_val(actual_result)
+                <<YELLOW + " - Not Supported" + DONE<<endl;
+    }
+    else if (expected_result == actual_result)
     {
         std::cout<<TC_No<<". "<<API_Name<<" - "<<return_val(expected_result)<<GREEN + " - Pass" + DONE<<endl;
     }
@@ -553,14 +559,14 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
     }
 }
 
-static taf_sim_Id_t get_slot_id(const char* slotId) {
-    if (strcmp(slotId, "SLOT2") == 0)
+static uint8_t get_phone_id(const char* phoneId) {
+    if (strcmp(phoneId, "SLOT2") == 0)
     {
-        return (taf_sim_Id_t) TAF_SIM_EXTERNAL_SLOT_2;
+        return 2;
     }
     else
     {
-        return (taf_sim_Id_t) TAF_SIM_EXTERNAL_SLOT_1;
+        return 1;
     }
 }
 
@@ -569,20 +575,20 @@ void taf_ecall_setOpMode_test()
     // Test Case
     le_result_t result;
     taf_ecall_OpMode_t opMode = TAF_ECALL_NONE;
-    result = taf_ecall_GetConfiguredOperationMode(SimId, &opMode);
+    result = taf_ecall_GetConfiguredOperationMode(PhoneId, &opMode);
     LE_TEST_OK(result == LE_OK, "taf_ecall_getOpMode_test - LE_OK");
     report(LE_OK,result,"taf_ecall_getOpMode_test");
     LE_TEST_INFO("taf_ecall_getOpMode_test done");
     std::cout<<"*** opMode (0-NORMAL, 1-ECALL ONLY, 2-NONE): "<<opMode<<endl;
 
     // Test Case
-    result=taf_ecall_ForcePersistentOnlyMode(SimId);
+    result=taf_ecall_ForcePersistentOnlyMode(PhoneId);
     LE_TEST_OK(result == LE_OK, "taf_ecall_ForcePersistentOnlyMode - LE_OK");
     report(LE_OK,result,"taf_ecall_ForcePersistentOnlyMode");
 
     // Test Case
     opMode = TAF_ECALL_MODE_NORMAL;
-    result = taf_ecall_GetConfiguredOperationMode(SimId, &opMode);
+    result = taf_ecall_GetConfiguredOperationMode(PhoneId, &opMode);
     LE_TEST_OK(result == LE_OK, "taf_ecall_getOpMode_test - LE_OK");
     report(LE_OK,result,"taf_ecall_getOpMode_test");
     std::cout<<"*** opMode (0-NORMAL, 1-ECALL ONLY, 2-NONE): "<<opMode<<endl;
@@ -600,20 +606,20 @@ void taf_ecall_setOpMode_test()
     TC_No += 1;
 
     //Test set opMode normal
-    result = taf_ecall_GetConfiguredOperationMode(SimId, &opMode);
+    result = taf_ecall_GetConfiguredOperationMode(PhoneId, &opMode);
     LE_TEST_OK(result == LE_OK, "taf_ecall_getOpMode_test - LE_OK");
     report(LE_OK,result,"taf_ecall_getOpMode_test");
     LE_TEST_INFO("taf_ecall_getOpMode_test done");
     std::cout<<"*** opMode (0-NORMAL, 1-ECALL ONLY, 2-NONE): "<<opMode<<endl;
 
     // Test Case
-    result=taf_ecall_ExitOnlyMode(SimId);
+    result=taf_ecall_ExitOnlyMode(PhoneId);
     LE_TEST_OK(result == LE_OK, "taf_ecall_ExitOnlyMode - LE_OK");
     report(LE_OK,result,"taf_ecall_ExitOnlyMode");
 
     // Test Case
     opMode = TAF_ECALL_MODE_ECALL;
-    result = taf_ecall_GetConfiguredOperationMode(SimId, &opMode);
+    result = taf_ecall_GetConfiguredOperationMode(PhoneId, &opMode);
     LE_TEST_OK(result == LE_OK, "taf_ecall_getOpMode_test - LE_OK");
     report(LE_OK,result,"taf_ecall_getOpMode_test");
     std::cout<<"*** opMode (0-NORMAL, 1-ECALL ONLY, 2-NONE): "<<opMode<<endl;
@@ -636,7 +642,7 @@ static void* taf_ecall_getOpMode_test()
     le_result_t result;
 
     taf_ecall_OpMode_t opMode = TAF_ECALL_MODE_NORMAL;
-    result = taf_ecall_GetConfiguredOperationMode(SimId, &opMode);
+    result = taf_ecall_GetConfiguredOperationMode(PhoneId, &opMode);
     LE_TEST_OK(result == LE_OK, "taf_ecall_getOpMode_test - LE_OK");
     report(LE_OK,result,"taf_ecall_getOpMode_test");
     LE_TEST_INFO("taf_ecall_getOpMode_test done");
@@ -1317,14 +1323,14 @@ COMPONENT_INIT
     signal(SIGINT, SignalHandler);
     signal(SIGTERM, SignalHandler);
 
-    const char* slotId = "SLOT1";
+    const char* inputPhoneId = "SLOT1";
     const char* eCallType =  "AUTO";
     int NumberOfArgs = le_arg_NumArgs();
     LE_INFO("Total NumberOfArgs: %d", NumberOfArgs);
     if (NumberOfArgs >= 1)
     {
-        slotId = le_arg_GetArg(0);
-        if (NULL == slotId)
+        inputPhoneId = le_arg_GetArg(0);
+        if (NULL == inputPhoneId)
         {
             LE_ERROR("slotId input is NULL, input correct slot id. Check usages for details.");
             std::cout <<"slotId input is NULL, input correct slot id. Check usages for details." << endl;
@@ -1333,7 +1339,7 @@ COMPONENT_INIT
 
             exit(EXIT_SUCCESS);
         } else {
-            LE_INFO("Input slotId: %s", slotId);
+            LE_INFO("Input slotId: %s", inputPhoneId);
         }
     }
     else // if no arguements passed in the command line argument
@@ -1346,8 +1352,8 @@ COMPONENT_INIT
         exit(EXIT_SUCCESS);
     }
 
-    SimId = get_slot_id(slotId);
-    LE_INFO("SimId of this test run is: SIM%d", (int) SimId);
+    PhoneId = get_phone_id(inputPhoneId);
+    LE_INFO("PhoneId of this test run is: SIM%d", (int) PhoneId);
 
     if (NumberOfArgs > 1)
     {

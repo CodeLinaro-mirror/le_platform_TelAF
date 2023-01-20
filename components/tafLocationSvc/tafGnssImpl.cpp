@@ -840,7 +840,7 @@ void LocationCommandCallback::onRobustLocationInfo(const telux::loc::RobustLocat
     if(error == telux::common::ErrorCode::SUCCESS)
     {
         LE_DEBUG("onRobustLocationInfo %s sent successfully", gnss.mCommandName.c_str());
-        gnss.CmdSynchronousPromise.set_value(LE_OK);
+        gnss.CmdRobustLocationInfo.set_value(LE_OK);
         std::unique_lock<std::mutex> lock(gnss.mMutex);
         if(rLConfig.validMask & telux::loc::VALID_ENABLED)
         {
@@ -865,7 +865,7 @@ void LocationCommandCallback::onRobustLocationInfo(const telux::loc::RobustLocat
     else
     {
         LE_DEBUG(" onRobustLocationInfo failed errorCode: %d ", int(error));
-        gnss.CmdSynchronousPromise.set_value(LE_FAULT);
+        gnss.CmdRobustLocationInfo.set_value(LE_FAULT);
     }
 }
 
@@ -876,7 +876,7 @@ void LocationCommandCallback::onMinSVElevationInfo(uint8_t minSVElevation,
     if(error == telux::common::ErrorCode::SUCCESS)
     {
         LE_DEBUG("onMinSVElevationInfo %s sent successfully", gnss.mCommandName.c_str());
-        gnss.CmdSynchronousPromise.set_value(LE_OK);
+        gnss.CmdMinSVElevation.set_value(LE_OK);
         std::unique_lock<std::mutex> lock(gnss.mMutex);
         gnss.mRequestMinEle = minSVElevation;
         LE_INFO("onMinSVElevationInfo gnss.mRequestMinEle: %d",gnss.mRequestMinEle);
@@ -886,7 +886,7 @@ void LocationCommandCallback::onMinSVElevationInfo(uint8_t minSVElevation,
     else
     {
         LE_DEBUG(" onMinSVElevationInfo failed errorCode: %d ", int(error));
-        gnss.CmdSynchronousPromise.set_value(LE_FAULT);
+        gnss.CmdMinSVElevation.set_value(LE_FAULT);
     }
 }
 #ifdef TARGET_SA515M
@@ -897,7 +897,7 @@ void LocationCommandCallback::onSecondaryBandInfo(telux::loc::ConstellationSet s
     if(error == telux::common::ErrorCode::SUCCESS)
     {
         LE_DEBUG("onSecondaryBandInfo %s sent successfully", gnss.mCommandName.c_str());
-        gnss.CmdSynchronousPromise.set_value(LE_OK);
+        gnss.CmdSecondBandInfo.set_value(LE_OK);
         std::unique_lock<std::mutex> lock(gnss.mMutex);
         for (auto item : set)
         {
@@ -952,7 +952,7 @@ void LocationCommandCallback::onSecondaryBandInfo(telux::loc::ConstellationSet s
     else
     {
         LE_DEBUG(" onSecondaryBandInfo failed errorCode: %d ", int(error));
-        gnss.CmdSynchronousPromise.set_value(LE_FAULT);
+        gnss.CmdSecondBandInfo.set_value(LE_FAULT);
     }
 }
 #endif
@@ -3034,13 +3034,13 @@ le_result_t taf_Gnss::GetMinElevation
         break;
         case TAF_GNSS_STATE_READY:
         {
-            CmdSynchronousPromise = std::promise<le_result_t>();
+            CmdMinSVElevation = std::promise<le_result_t>();
             mLocCmdResponseCb = std::make_shared<LocationCommandCallback>
                    ("Request-Minimum SV Elevation");
             mLocationConfigurator->requestMinSVElevation(std::bind(
                    &LocationCommandCallback::onMinSVElevationInfo,
                       mLocCmdResponseCb,std::placeholders::_1,std::placeholders::_2));
-            std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
+            std::future<le_result_t> futResult = CmdMinSVElevation.get_future();
             if(futResult.get() == LE_OK)
             {
                 LE_INFO("requestMinSVElevation is Success");
@@ -3669,13 +3669,13 @@ le_result_t taf_Gnss::RobustLocationInformation
         case TAF_GNSS_STATE_READY:
         case TAF_GNSS_STATE_ACTIVE:
             {
-                CmdSynchronousPromise = std::promise<le_result_t>();
+                CmdRobustLocationInfo = std::promise<le_result_t>();
                 mLocCmdResponseCb = std::make_shared<LocationCommandCallback>
                         ( "Request-Robust Location");
                 auto robustLocationCb = std::bind(&LocationCommandCallback::onRobustLocationInfo,
                     mLocCmdResponseCb, std::placeholders::_1, std::placeholders::_2);
                 mLocationConfigurator->requestRobustLocation(robustLocationCb);
-                std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
+                std::future<le_result_t> futResult = CmdRobustLocationInfo.get_future();
                 if(futResult.get() == LE_OK)
                 {
                     LE_INFO("RobustLocationInformation is Success");
@@ -3789,13 +3789,13 @@ le_result_t taf_Gnss::RequestSecondaryBandConstellations
         case TAF_GNSS_STATE_READY:
         {
             // Set GNSS Request Secondary Band constellation
-            CmdSynchronousPromise = std::promise<le_result_t>();
+            CmdSecondBandInfo = std::promise<le_result_t>();
             mLocCmdResponseCb = std::make_shared<LocationCommandCallback>
                    ("Request secondary band constellations");
             auto secondaryBandCb = std::bind(&LocationCommandCallback::onSecondaryBandInfo,
             mLocCmdResponseCb, std::placeholders::_1, std::placeholders::_2);
             mLocationConfigurator->requestSecondaryBandConfig(secondaryBandCb);
-            std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
+            std::future<le_result_t> futResult = CmdSecondBandInfo.get_future();
             if(futResult.get() == LE_OK)
             {
                 LE_INFO("Request secondary band constellations is success");

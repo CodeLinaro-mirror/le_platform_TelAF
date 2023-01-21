@@ -696,8 +696,6 @@ namespace tafsvc {
         std::vector<std::shared_ptr<telux::tel::IServingSystemManager>> servingSystemManagers;
         std::shared_ptr<telux::tel::ISubscriptionManager> subscriptionManager;
         std::shared_ptr<telux::tel::IPhoneManager> phoneManager;
-
-    private:
         std::shared_ptr<telux::tel::IPhoneListener> phoneListener;
         std::shared_ptr<telux::tel::INetworkSelectionListener> networkListener;
         std::shared_ptr<telux::tel::IServingSystemListener> servingSystemListener;

@@ -1227,6 +1227,177 @@ void* taf_Radio::RadioCmdThread(void* contextPtr)
     return nullptr;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Mutex used to protect shared data structures in this module.
+ */
+//--------------------------------------------------------------------------------------------------
+static pthread_mutex_t Mutex = PTHREAD_MUTEX_INITIALIZER;   // POSIX "Fast" mutex.
+static bool listener_registered = false;
+
+/// Locks the mutex.
+#define LOCK    LE_ASSERT(pthread_mutex_lock(&Mutex) == 0);
+
+/// Unlocks the mutex.
+#define UNLOCK  LE_ASSERT(pthread_mutex_unlock(&Mutex) == 0);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Register listeners.
+ */
+//--------------------------------------------------------------------------------------------------
+void RegisterListeners()
+{
+    LOCK
+
+    if (listener_registered)
+    {
+        LE_INFO("Listeners already registered.");
+        UNLOCK
+        return;
+    }
+
+    LE_INFO("Registering listeners.");
+    auto &tafRadio = taf_Radio::GetInstance();
+    if (tafRadio.phoneManager && tafRadio.phoneListener &&
+        tafRadio.phoneManager->registerListener(tafRadio.phoneListener) == telux::common::Status::SUCCESS)
+    {
+        LE_INFO("Phone listener registered.");
+    }
+    else
+    {
+        LE_ERROR("Fail to register phone listener.");
+    }
+
+    for (size_t index = 0; index < tafRadio.networkManagers.size(); index++)
+    {
+        if (tafRadio.networkManagers[index] && tafRadio.networkListener &&
+            tafRadio.networkManagers[index]->registerListener(tafRadio.networkListener) == telux::common::Status::SUCCESS)
+        {
+            LE_INFO("Network listener %d registered.", index);
+        }
+        else
+        {
+            LE_ERROR("Fail to register network listener %d.", index);
+        }
+    }
+
+    for (size_t index = 0; index < tafRadio.servingSystemManagers.size(); index++)
+    {
+        if (tafRadio.servingSystemManagers[index] && tafRadio.servingSystemListener &&
+            tafRadio.servingSystemManagers[index]->registerListener(tafRadio.servingSystemListener) == telux::common::Status::SUCCESS)
+        {
+            LE_INFO("Serving system listener %d registered.", index);
+        }
+        else
+        {
+            LE_ERROR("Fail to register serving system listener %d.", index);
+        }
+    }
+
+    if (tafRadio.subscriptionManager && tafRadio.subscriptionListener &&
+        tafRadio.subscriptionManager->registerListener(tafRadio.subscriptionListener) == telux::common::Status::SUCCESS)
+    {
+        LE_INFO("Subscription listener registered.");
+    }
+    else
+    {
+        LE_ERROR("Fail to register subscription listener.");
+    }
+
+    listener_registered = true;
+
+    UNLOCK
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deregister listeners.
+ */
+//--------------------------------------------------------------------------------------------------
+void DeregisterListeners()
+{
+    LOCK
+    if (!listener_registered)
+    {
+        LE_INFO("Listeners already deregistered.");
+        UNLOCK
+        return;
+    }
+
+    LE_INFO("Deregistering listeners.");
+    auto &tafRadio = taf_Radio::GetInstance();
+    if (tafRadio.phoneManager && tafRadio.phoneListener &&
+        tafRadio.phoneManager->removeListener(tafRadio.phoneListener) == telux::common::Status::SUCCESS)
+    {
+        LE_INFO("Phone listener deregistered.");
+    }
+    else
+    {
+        LE_ERROR("Fail to deregister phone listener.");
+    }
+
+    for (size_t index = 0; index < tafRadio.networkManagers.size(); index++)
+    {
+        if (tafRadio.networkManagers[index] && tafRadio.networkListener &&
+            tafRadio.networkManagers[index]->deregisterListener(tafRadio.networkListener) == telux::common::Status::SUCCESS)
+        {
+            LE_INFO("Network listener %d deregistered.", index);
+        }
+        else
+        {
+            LE_ERROR("Fail to deregister network delistener %d.", index);
+        }
+    }
+
+    for (size_t index = 0; index < tafRadio.servingSystemManagers.size(); index++)
+    {
+        if (tafRadio.servingSystemManagers[index] && tafRadio.servingSystemListener &&
+            tafRadio.servingSystemManagers[index]->deregisterListener(tafRadio.servingSystemListener) == telux::common::Status::SUCCESS)
+        {
+            LE_INFO("Serving system listener %d deregistered.", index);
+        }
+        else
+        {
+            LE_ERROR("Fail to deregister serving system delistener %d.", index);
+        }
+    }
+
+    if (tafRadio.subscriptionManager && tafRadio.subscriptionListener &&
+        tafRadio.subscriptionManager->removeListener(tafRadio.subscriptionListener) == telux::common::Status::SUCCESS)
+    {
+        LE_INFO("Subscription listener deregistered.");
+    }
+    else
+    {
+        LE_ERROR("Fail to deregister subscription listener.");
+    }
+
+    listener_registered = false;
+
+    UNLOCK
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for power state changes
+ */
+//--------------------------------------------------------------------------------------------------
+void PowerStateChangeHandler(taf_pm_State_t state, void* contextPtr)
+{
+    if (state == TAF_PM_STATE_RESUME)
+    {
+        LE_INFO("Power state change to RESUME");
+        RegisterListeners();
+    }
+    else if (state == TAF_PM_STATE_SUSPEND)
+    {
+        LE_INFO("Power state change to SUSPEND");
+        DeregisterListeners();
+    }
+}
+
 /*======================================================================
 
  FUNCTION        taf_Radio::Init
@@ -1341,12 +1512,7 @@ void taf_Radio::Init(void)
         // 8. Instantiate RadioPhoneListener
         phoneListener = std::make_shared<taf_RadioPhoneListener>();
 
-        // 9. Register for phone info updates
-        if (phoneManager->registerListener(phoneListener) != telux::common::Status::SUCCESS) {
-            LE_ERROR("Failed to register phone listener");
-        }
-
-        // 10. Instantiate RadioCallback
+        // 9. Instantiate RadioCallback
         voiceSrvStateCb = std::make_shared<taf_RadioVoiceServiceStateCallback>();
         voiceRadioTechCb = std::make_shared<taf_RadioVoiceRadioTechnologyCallback>();
         signalStrengthCb = std::make_shared<taf_RadioSignalStrengthCallback>();
@@ -1358,7 +1524,7 @@ void taf_Radio::Init(void)
         for (size_t index = 0; index < networkManagers.size(); index++) {
             startTime = std::chrono::system_clock::now();
 
-            // 12. Check if network subsystem is ready
+            // 10. Check if network subsystem is ready
             bool networkSystemStatus = networkManagers[index]->isSubsystemReady();
             if (!networkSystemStatus) {
                 LE_INFO("Network subsystem wait to be ready...");
@@ -1374,18 +1540,15 @@ void taf_Radio::Init(void)
             } else {
                 LE_ERROR("Fail to init %d network subsystem", index);
             }
-
-            // 13. Instantiate RadioNetworkSelectionListener
-            networkListener = std::make_shared<taf_RadioNetworkSelectionListener>();
-            if (networkManagers[index]->registerListener(networkListener) != telux::common::Status::SUCCESS) {
-                LE_ERROR("Failed to register network listener");
-            }
         }
+
+        // 11. Instantiate RadioNetworkListener
+        networkListener = std::make_shared<taf_RadioNetworkSelectionListener>();
 
         for (size_t index = 0; index < servingSystemManagers.size(); index++) {
             startTime = std::chrono::system_clock::now();
 
-            // 14. Check if serving subsystem is ready
+            // 12. Check if serving subsystem is ready
             bool servingSystemStatus = servingSystemManagers[index]->isSubsystemReady();
             if (!servingSystemStatus) {
                 LE_INFO("Serving subsystem wait to be ready...");
@@ -1401,21 +1564,18 @@ void taf_Radio::Init(void)
             } else {
                 LE_ERROR("Fail to init %d serving subsystem", index);
             }
-
-            // 15. Instantiate RadioServingSystemListener
-            servingSystemListener = std::make_shared<taf_RadioServingSystemListener>();
-            if (servingSystemManagers[index]->registerListener(servingSystemListener) != telux::common::Status::SUCCESS) {
-                LE_ERROR("Failed to register serving system listener");
-            }
         }
+
+        // 13. Instantiate RadioServingSystemListener
+        servingSystemListener = std::make_shared<taf_RadioServingSystemListener>();
     } else {
         LE_ERROR("Fail to init telephony subsystem");
     }
 
-    // 16. Get the SubscriptionManager instances
+    // 14. Get the SubscriptionManager instances
     subscriptionManager = phoneFactory.getSubscriptionManager();
 
-    // 17. Check if subscription subsystem is ready
+    // 15. Check if subscription subsystem is ready
     startTime = std::chrono::system_clock::now();
     subSystemStatus = subscriptionManager->isSubsystemReady();
 
@@ -1434,11 +1594,10 @@ void taf_Radio::Init(void)
         LE_ERROR("Fail to init subscription subsystem");
     }
 
-    // 18. Register listener with Subscription Manager for the notification
+    // 16. Instantiate RadioSubscriptionListener
     subscriptionListener = std::make_shared<taf_RadioSubscriptionListener>();
-    subscriptionManager->registerListener(subscriptionListener);
 
-    // 19. Create and start command thread.
+    // 17. Create and start command thread.
     le_sem_Ref_t radioCmdThreadSem = le_sem_Create("radioCmdThreadSem", 0);
     radioCmdEvId = le_event_CreateId("radioCmd", sizeof(taf_RadioCmdReq_t));
     le_thread_Ref_t radioCmdThreadRef = le_thread_Create("radioCmdThread", RadioCmdThread, (void*)radioCmdThreadSem);
@@ -1446,6 +1605,13 @@ void taf_Radio::Init(void)
     le_thread_Start(radioCmdThreadRef);
     le_sem_Wait(radioCmdThreadSem);
 
-    // 20. Delete semaphore.
+    // 18. Delete semaphore.
     le_sem_Delete(radioCmdThreadSem);
+
+    // 19. Add power state change handler
+    taf_pm_AddStateChangeHandler(PowerStateChangeHandler, NULL);
+    if (taf_pm_GetPowerState() != TAF_PM_STATE_SUSPEND)
+    {
+        RegisterListeners();
+    }
 }

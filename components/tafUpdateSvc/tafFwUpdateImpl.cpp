@@ -301,7 +301,9 @@ void taf_FwUpdate::FwUpdateHandler(void* reqPtr)
                 le_timer_Start(tafFwUpdate.prbtTimerRef);
             } else if (updateReq->event == TAF_FWUPDATE_EV_REBOOT_TO_ACTIVE) {
                 LE_INFO("Install success, rebooting to active slot.");
-                tafFwUpdate.SendPipeCmd("/sbin/reboot", "w");
+                if (reboot(RB_AUTOBOOT) == -1) {
+                    LE_FATAL("Fail to reboot. Errno = %s.", LE_ERRNO_TXT(errno));
+                }
             } else {
                 LE_ERROR("Invalid operation (%d) for install success state.", updateReq->event);
             }

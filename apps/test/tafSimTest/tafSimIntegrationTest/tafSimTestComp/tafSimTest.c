@@ -297,3 +297,179 @@ void tafSimTest_swapToEmergencyAndBack
     LE_ASSERT_OK(taf_sim_LocalSwapToCommercialSubscription(simId, manufacturer));
     LE_INFO("SwapToRegular success");
 }
+
+void tafSimTest_fplmnList_test(taf_sim_Id_t simId){
+    le_result_t res;
+    char            mcc[4];
+    char            mnc[4];
+
+    memset(mcc, 0, 4);
+    memset(mnc, 0, 4);
+
+    taf_sim_FPLMNListRef_t FPLMNList = taf_sim_ReadFPLMNList(simId);
+    LE_TEST_OK(FPLMNList!=NULL, "tafSimTest_fplmnList_test");
+    if (FPLMNList!=NULL) {
+        LE_INFO("FPLMNList Read function working");
+        res = taf_sim_GetFirstFPLMNOperator(FPLMNList, mcc, sizeof(mcc), mnc, sizeof(mnc));
+        if (res == LE_OK) {
+            printf("FPLMN list #1: mcc %s, mnc %s\n", mcc, mnc);
+        }
+        memset(mcc, 0, 4);
+        memset(mnc, 0, 4);
+        res = taf_sim_GetNextFPLMNOperator(FPLMNList, mcc, sizeof(mcc), mnc, sizeof(mnc));
+        if (res == LE_OK) {
+            printf("FPLMN list #2: mcc %s, mnc %s\n", mcc, mnc);
+        }
+        memset(mcc, 0, 4);
+        memset(mnc, 0, 4);
+        res = taf_sim_GetNextFPLMNOperator(FPLMNList, mcc, sizeof(mcc), mnc, sizeof(mnc));
+        if (res == LE_OK) {
+            printf("FPLMN list #3: mcc %s, mnc %s\n", mcc, mnc);
+        }
+        memset(mcc, 0, 4);
+        memset(mnc, 0, 4);
+        res = taf_sim_GetNextFPLMNOperator(FPLMNList, mcc, sizeof(mcc), mnc, sizeof(mnc));
+        if (res == LE_OK) {
+            printf("FPLMN list #4: mcc %s, mnc %s\n", mcc, mnc);
+        }
+    }
+    printf("tafSimTest_fplmnList completed. Result: %s\n", (FPLMNList!=NULL) ? "PASS":"FAILED");
+}
+
+void tafSimTest_createFplmnList_test(taf_sim_Id_t simId) {
+    FplmnListRef = taf_sim_CreateFPLMNList();
+    LE_TEST_OK(FplmnListRef!=NULL, "tafSimTest_createFplmnList_test");
+    LE_INFO("taf_sim_CreateFPLMNList end. FplmnListRef: %p\n", FplmnListRef);
+    printf("createFplmnList_test completed. Result: %s\n", (FplmnListRef!=NULL) ? "PASS":"FAILED");
+}
+
+void tafSimTest_addFplmnOperator_test(taf_sim_Id_t simId, const char*  mcc,
+    const char*  mnc) {
+    if (FplmnListRef==NULL) {
+        LE_INFO("tafSimTest_addFplmnOperator_test FplmnListRef is null, so create it\n");
+        FplmnListRef = taf_sim_CreateFPLMNList();
+    }
+    le_result_t res = taf_sim_AddFPLMNOperator(FplmnListRef, mcc, mnc);
+    LE_TEST_OK(res == LE_OK, "tafSimTest_addFplmnOperator_test");
+    LE_INFO("tafSimTest_addFplmnOperator_test end\n");
+    printf("tafSimTest_addFplmnOperator completed. Result: %s\n", res == LE_OK ? "PASS":"FAILED");
+}
+
+void tafSimTest_writeFplmnList_test(taf_sim_Id_t simId, const char*  mcc,
+    const char*  mnc) {
+    if (FplmnListRef==NULL) {
+        LE_INFO("tafSimTest_writeFplmnList_test FplmnListRef is null, so create it\n");
+        FplmnListRef = taf_sim_CreateFPLMNList();
+    }
+    le_result_t res = taf_sim_AddFPLMNOperator(FplmnListRef, mcc, mnc);
+    res = taf_sim_WriteFPLMNList(simId, FplmnListRef);
+    LE_TEST_OK(res == LE_OK, "tafSimTest_writeFplmnList_test");
+    LE_INFO("tafSimTest_writeFplmnList_test end\n");
+    printf("tafSimTest_writeFplmnList completed. Result: %s\n", res == LE_OK ? "PASS":"FAILED");
+}
+
+void tafSimTest_writeFplmnLists_test(taf_sim_Id_t simId) {
+    int n;
+    le_result_t res = LE_FAULT;
+    char mcc[8], mccS[4];
+    char mnc[8], mncS[4];
+    char num[6];
+    int mccInt, mncInt;
+    char *p;
+
+    if (FplmnListRef==NULL) {
+        LE_INFO("tafSimTest_writeFplmnList_test FplmnListRef is null, so create it\n");
+        FplmnListRef = taf_sim_CreateFPLMNList();
+    }
+
+    fflush(stdout);
+    printf("How many FPLMNs (mcc mnc) want to write: ");
+    p = fgets(num,sizeof(num),stdin);
+    n = atoi(num);
+
+    for (int i = 0; i < n; i++) {
+        printf("Enter mcc of PLMN %d: ", i+1);
+        p = fgets(mcc,sizeof(mcc),stdin);
+        mccInt = atoi(mcc);
+        if (p == NULL || mccInt < 1 || mccInt > 999) {
+            LE_INFO("Wrong input! mcc %s for PLMN%d (mccInt: %d). Try again!", mcc, i+1, mccInt);
+            printf("Wrong input! mcc %s for PLMN%d. Try rerun test again!\n", mcc, i+1);
+            return;
+        }
+
+        printf("Enter mnc of PLMN %d: ", i+1);
+        p = fgets(mnc,sizeof(mnc),stdin);
+        mncInt = atoi(mnc);
+        if (p == NULL || mncInt < 1 || mncInt > 999) {
+            LE_INFO("Wrong input! mnc %s for PLMN%d (mncInt: %d). Try again!", mnc, i+1, mncInt);
+            printf("Wrong input! mnc %s for PLMN%d. Try rerun test again!\n", mnc, i+1);
+            return;
+        }
+
+        if (NULL == mcc || NULL == mnc)
+        {
+            printf("WRONG input! Incorrect mcc mnc of PLMN#%d\n", i+1);
+            printf("Re run the test again.\n");
+            return;
+        } else {
+            snprintf(mccS, 4, "%d", mccInt );
+            snprintf(mncS, 4, "%d", mncInt );
+            LE_INFO("Input MCC MNC of PLMN#%d: %s %s\n", i+1, mccS, mncS);
+            res = taf_sim_AddFPLMNOperator(FplmnListRef, mccS, mncS);
+        }
+    }
+    if (res == LE_OK) {
+        res = taf_sim_WriteFPLMNList(simId, FplmnListRef);
+        LE_TEST_OK(res == LE_OK, "tafSimTest_writeFplmnList_test");
+        LE_INFO("tafSimTest_writeFplmnList_test end\n");
+        printf("tafSimTest_writeFplmnList completed. Result: %s\n", res == LE_OK ? "PASS":"FAILED");
+    }
+}
+
+void tafSimTest_getFirstFplmnOperator_test(taf_sim_Id_t simId) {
+    char            mcc[4];
+    char            mnc[4];
+    memset(mcc, 0, 4);
+    memset(mnc, 0, 4);
+
+    if (FplmnListRef==NULL) {
+        LE_INFO("tafSimTest_getFirstFplmnOperator_test FplmnListRef is null, so ReadFPLMNList\n");
+        FplmnListRef = taf_sim_ReadFPLMNList(simId);
+    }
+    le_result_t res = taf_sim_GetFirstFPLMNOperator(FplmnListRef, mcc, sizeof(mcc), mnc, sizeof(mnc));
+    LE_TEST_OK(res == LE_OK, "tafSimTest_getFirstFplmnOperator_test");
+    if (res == LE_OK) {
+        printf("First FPLMN Operator: mcc %s, mnc %s\n", mcc, mnc);
+    }
+    LE_INFO("tafSimTest_getFirstFplmnOperator_test end\n");
+    printf("getFirstFplmnOperator_test completed. Result: %s\n", res == LE_OK ? "PASS":"FAILED");
+}
+
+void tafSimTest_getNextFplmnOperator_test(taf_sim_Id_t simId) {
+    char            mcc[4];
+    char            mnc[4];
+    memset(mcc, 0, 4);
+    memset(mnc, 0, 4);
+
+    if (FplmnListRef==NULL) {
+        LE_INFO("tafSimTest_getNextFplmnOperator_test FplmnListRef is null, so ReadFPLMNList\n");
+        FplmnListRef = taf_sim_ReadFPLMNList(simId);
+    }
+    le_result_t res = taf_sim_GetNextFPLMNOperator(FplmnListRef, mcc, sizeof(mcc), mnc, sizeof(mnc));
+    LE_TEST_OK(res == LE_OK, "tafSimTest_getNextFplmnOperator_test");
+    if (res == LE_OK) {
+        printf("Next FPLMN Operator: mcc %s, mnc %s\n", mcc, mnc);
+    }
+    LE_INFO("tafSimTest_getNextFplmnOperator_test end\n");
+    printf("getNextFplmnOperator_test completed. Result: %s\n", res == LE_OK ? "PASS":"FAILED");
+}
+
+void tafSimTest_deleteFplmnList_test(taf_sim_Id_t simId) {
+    if (FplmnListRef==NULL) {
+        FplmnListRef = taf_sim_CreateFPLMNList();
+    }
+    taf_sim_DeleteFPLMNList(FplmnListRef);
+    LE_TEST_OK(true, "tafSimTest_deleteFplmnList_test");
+    LE_INFO("tafSimTest_deleteFplmnList_test end\n");
+    printf("tafSimTest_deleteFplmnList_test completed. Result: PASS\n");
+}

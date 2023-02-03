@@ -88,7 +88,7 @@ allow telaf_tafUpdateSvc_t init_t:file { exec_file_perms };
 allow telaf_tafUpdateSvc_t init_t:lnk_file { read };
 allow telaf_tafUpdateSvc_t init_t:unix_stream_socket { connectto };
 allow telaf_tafUpdateSvc_t telaf_admin_t:fifo_file { ioctl };
-allow telaf_tafUpdateSvc_t self:capability { fowner fsetid dac_read_search net_admin sys_resource};
+allow telaf_tafUpdateSvc_t self:capability { fowner fsetid dac_read_search net_admin sys_resource sys_boot};
 allow telaf_tafUpdateSvc_t init_var_run_t:sock_file { open write };
 allow telaf_tafUpdateSvc_t system_dbusd_t:unix_stream_socket { connectto };
 allow telaf_tafUpdateSvc_t systemd_logind_var_run_t:sock_file { open write };

@@ -227,7 +227,7 @@ le_result_t taf_voicecall_Delete
 /*======================================================================
  FUNCTION        taf_voicecall_Answer
  DESCRIPTION     Client use this API to answer a call
- DEPENDENCIES    This API is used on incoming call case
+ DEPENDENCIES    This API is used on incoming call or callwaiting call case
  PARAMETERS      [IN]  reference     : the call reference return by
                                        state handler
  RETURN VALUE    le_result_t         : LE_OK     - success 
@@ -323,6 +323,31 @@ le_result_t taf_voicecall_Resume
     auto &myCall = taf_VoiceCall::GetInstance();
 
     req.cmdID = CMD_RESUME_CALL;
+    req.callRef = reference;
+    req.sessionRef = taf_voicecall_GetClientSessionRef();
+    le_event_Report(myCall.ReqEvent, &req, sizeof(callReq_t));
+
+    return LE_OK;
+}
+
+/*======================================================================
+ FUNCTION        taf_voicecall_Swap
+ DESCRIPTION     Client use this API to make one call active and the another call on hold
+ DEPENDENCIES    This should be two calls and one is on holding state and the another is on active state
+ PARAMETERS      [IN]   reference     : the call reference
+ RETURN VALUE    le_result_t         : LE_OK     - success
+                                       otherwise - failure
+ SIDE EFFECTS    N/A
+======================================================================*/
+le_result_t taf_voicecall_Swap
+(
+    taf_voicecall_CallRef_t reference
+)
+{
+    callReq_t req;
+    auto &myCall = taf_VoiceCall::GetInstance();
+
+    req.cmdID = CMD_SWAP_CALL;
     req.callRef = reference;
     req.sessionRef = taf_voicecall_GetClientSessionRef();
     le_event_Report(myCall.ReqEvent, &req, sizeof(callReq_t));

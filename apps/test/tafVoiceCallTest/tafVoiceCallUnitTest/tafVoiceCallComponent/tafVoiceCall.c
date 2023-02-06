@@ -48,6 +48,7 @@ static UnitTestContext_t AppCtx;
 
 static taf_voicecall_Event_t LocalExpectEvent;
 static taf_voicecall_CallRef_t LocalExpectCallRef;
+static taf_voicecall_CallRef_t LocalExpectCallWaitingRef;
 
 static void MyCallEventHandler(taf_voicecall_CallRef_t callRef, \
                                const char* id, \
@@ -55,13 +56,21 @@ static void MyCallEventHandler(taf_voicecall_CallRef_t callRef, \
                                void* ctxPtr)
 {
     LE_INFO("Client get event: callEvent %d, callRef: %p!\n", (uint32_t)callEvent, callRef);
+    LE_INFO("Client get event: id: %s!\n", id);
 
-    if (callEvent != TAF_VOICECALL_EVENT_DIALING)
+    if ((callEvent != TAF_VOICECALL_EVENT_DIALING)&&(callEvent != TAF_VOICECALL_EVENT_WAITING))
     {
         LocalExpectEvent = callEvent;
         LocalExpectCallRef = callRef;
         //LE_INFO("LocalExpectEvent %d, LocalExpectCallRef: %p!\n", (uint32_t)LocalExpectEvent, LocalExpectCallRef);
         le_sem_Post(AppCtx.semaphore);
+    }
+
+    if (callEvent == TAF_VOICECALL_EVENT_WAITING)
+    {
+      LocalExpectEvent = callEvent;
+      LocalExpectCallWaitingRef = callRef;
+      le_sem_Post(AppCtx.semaphore);
     }
 
     if (callEvent == TAF_VOICECALL_EVENT_ALERTING)
@@ -240,6 +249,17 @@ static void ut_tafVoiceCall_end(void* ctxPtr, void* param)
     return;
 }
 
+static void ut_tafVoiceCall_swap(void* ctxPtr, void* param)
+{
+    UnitTestContext_t* appCtxPtr = (UnitTestContext_t*) ctxPtr;
+    le_result_t leRet;
+
+    leRet = taf_voicecall_Swap(appCtxPtr->requestRef);
+    LE_ASSERT(leRet == LE_OK);
+
+    return;
+}
+
 le_result_t ut_tafVoiceCall_ValidCall_Hold()
 {
     le_event_QueueFunctionToThread(AppCtx.threadRef, ut_tafVoiceCall_hold, &AppCtx, NULL);
@@ -305,7 +325,7 @@ le_result_t ut_tafVoiceCall_IncomingCall()
 
 le_result_t ut_tafVoiceCall_ValidCall_Start()
 {
-    le_utf8_Copy(AppCtx.destId, "10010", MAX_DESTINATION_LEN, NULL);
+    le_utf8_Copy(AppCtx.destId, "10000", MAX_DESTINATION_LEN, NULL);
     AppCtx.phoneId = 1;
     le_event_QueueFunctionToThread(AppCtx.threadRef, ut_tafVoiceCall_makecall, &AppCtx, NULL);
 
@@ -371,6 +391,57 @@ le_result_t ut_tafVoiceCall_InvalidCall()
     return LE_OK;
 }
 
+le_result_t ut_tafVoiceCall_CallWaiting()
+{
+    taf_voicecall_CallRef_t LocalCallRef;
+    LE_INFO("===== waiting for the second incoming call =====");
+    LE_ASSERT_OK(wait_call(10));
+    LE_ASSERT(TAF_VOICECALL_EVENT_WAITING == LocalExpectEvent);
+
+    AppCtx.requestRef = LocalExpectCallWaitingRef;
+    le_event_QueueFunctionToThread(AppCtx.threadRef, ut_tafVoiceCall_answer, &AppCtx, NULL);
+    LE_ASSERT_OK(wait_call(2));
+    LE_ASSERT(TAF_VOICECALL_EVENT_ONHOLD == LocalExpectEvent)
+    LE_ASSERT_OK(wait_call(2));
+    LE_ASSERT((TAF_VOICECALL_EVENT_ACTIVE == LocalExpectEvent) && (LocalExpectCallWaitingRef == AppCtx.requestRef));
+    LE_INFO("===== Answer the second call done =====");
+
+    le_thread_Sleep(3);
+
+    le_event_QueueFunctionToThread(AppCtx.threadRef, ut_tafVoiceCall_swap, &AppCtx, NULL);
+    LE_ASSERT_OK(wait_call(2));
+    LE_ASSERT(TAF_VOICECALL_EVENT_ACTIVE == LocalExpectEvent);
+    LE_ASSERT_OK(wait_call(2));
+    LE_ASSERT((TAF_VOICECALL_EVENT_ONHOLD == LocalExpectEvent)  && (LocalExpectCallWaitingRef == AppCtx.requestRef));
+    LE_INFO("===== swap call done =====");
+
+    le_thread_Sleep(3);
+
+    le_event_QueueFunctionToThread(AppCtx.threadRef, ut_tafVoiceCall_swap, &AppCtx, NULL);
+    LE_ASSERT_OK(wait_call(2));
+    LE_ASSERT(TAF_VOICECALL_EVENT_ONHOLD == LocalExpectEvent);
+    LocalCallRef = LocalExpectCallRef;
+    LE_ASSERT_OK(wait_call(2));
+    LE_ASSERT((TAF_VOICECALL_EVENT_ACTIVE == LocalExpectEvent)  && (LocalExpectCallWaitingRef == AppCtx.requestRef));
+    LE_INFO("===== swap call done =====");
+
+    le_thread_Sleep(3);
+
+    LE_INFO("===== end one call =====");
+    le_event_QueueFunctionToThread(AppCtx.threadRef, ut_tafVoiceCall_end, &AppCtx, NULL);
+    LE_ASSERT_OK(wait_call(2));
+    LE_ASSERT((TAF_VOICECALL_EVENT_ENDED == LocalExpectEvent) && (LocalExpectCallWaitingRef == AppCtx.requestRef));
+
+    le_thread_Sleep(3);
+
+    LE_INFO("===== end the another call =====");
+    AppCtx.requestRef = LocalCallRef;
+    le_event_QueueFunctionToThread(AppCtx.threadRef, ut_tafVoiceCall_end, &AppCtx, NULL);
+    LE_ASSERT_OK(wait_call(2));
+    LE_ASSERT((TAF_VOICECALL_EVENT_ENDED == LocalExpectEvent)  && (LocalExpectCallRef == AppCtx.requestRef));
+
+    return LE_OK;
+}
 
 static void* UnitTestThread
 (
@@ -419,6 +490,10 @@ static void* UnitTestThread
     ut_tafVoiceCall_ValidCall_End();
     ut_tafVoiceCall_ValidCall_get_endcause();
     ut_tafVoiceCall_Call_Delete();
+
+    LE_INFO("===== call waiting test =====");
+    ut_tafVoiceCall_ValidCall_Start();
+    ut_tafVoiceCall_CallWaiting();
 
     LE_INFO("===== taf voice call test done=====");
 

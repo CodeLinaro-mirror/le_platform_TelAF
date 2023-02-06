@@ -58,6 +58,8 @@ using namespace telux::common;
 // The max phone ID is 2
 #define MAX_PHONE_ID 2
 
+#define TIMEOUT_CALLCOMMAND_CB 2
+
 typedef struct
 {
     taf_voicecall_CallRef_t  callRef;
@@ -96,6 +98,7 @@ typedef enum
     CMD_DELETE_CALL,    // delete a call
     CMD_HOLD_CALL,      // hold a call
     CMD_RESUME_CALL,    // resume a call
+    CMD_SWAP_CALL,      // make a call hold and another call active
 } tafCallCmd_t;
 
 namespace telux {
@@ -120,6 +123,14 @@ namespace tafsvc {
             tafDialCallback() {}
             ~tafDialCallback() {}
             void makeCallResponse(telux::common::ErrorCode error, std::shared_ptr<telux::tel::ICall> call) override;
+    };
+
+    // define the other Callback Class for telsdk
+    class tafCallCommandCallback : public telux::common::ICommandResponseCallback {
+        public:
+            tafCallCommandCallback() {}
+            ~tafCallCommandCallback() {}
+            void commandResponse(telux::common::ErrorCode error);
     };
 
     typedef struct tagVoiceCtrl
@@ -172,6 +183,8 @@ namespace tafsvc {
         taf_VoiceCall() {};
         ~taf_VoiceCall() {};
 
+        le_result_t ChecktafCallCommandCallbackResult(void);
+
         // call interfaces
         le_result_t MakeCall(taf_VoiceCtrl_t *callCtxPtr, const char* dialNumber,int phoneId);
         le_result_t AnswerCall(taf_voicecall_CallRef_t callRef, le_msg_SessionRef_t sessionRef);
@@ -179,6 +192,7 @@ namespace tafsvc {
         le_result_t StopCall(taf_voicecall_CallRef_t callRef, le_msg_SessionRef_t sessionRef);
         le_result_t HoldCall(taf_voicecall_CallRef_t callRef, le_msg_SessionRef_t sessionRef);
         le_result_t ResumeCall(taf_voicecall_CallRef_t callRef, le_msg_SessionRef_t sessionRef);
+        le_result_t SwapCall(taf_voicecall_CallRef_t callRef, le_msg_SessionRef_t sessionRef);
 
         // callCtx interfaces
         taf_VoiceCtrl_t* CreateCallCtx(int8_t phoneId, const char* destinationPtr);
@@ -238,6 +252,14 @@ namespace tafsvc {
         std::shared_ptr<tafCallListener> CallLsn;
         std::shared_ptr<telux::tel::ICallManager> CallMgr;
         std::shared_ptr<tafDialCallback>    CallCb;
+        std::shared_ptr<tafCallCommandCallback>    AnswerCb;
+        std::shared_ptr<tafCallCommandCallback>    HangupCb;
+        std::shared_ptr<tafCallCommandCallback>    RejectCb;
+        std::shared_ptr<tafCallCommandCallback>    HoldCb;
+        std::shared_ptr<tafCallCommandCallback>    ResumeCb;
+        std::shared_ptr<tafCallCommandCallback>    SwapCb;
+
+        std::promise<le_result_t> CBCallCommandSynePromise;
     };
 
     // define handler class for telaf's call back

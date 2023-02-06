@@ -164,13 +164,14 @@ ENUM Event
     EVENT_OFFLINE = 4 ,             ///< Not supported.
     EVENT_WAITING = 5,              ///< Waiting call; map to legacy busy.
     EVENT_RESOURCE_BUSY = 6,        ///< Not supported.
-    EVENT_CALL_END_FAILED = 7,      ///< Not supported.
-    EVENT_CALL_ANSWER_FAILED = 8,   ///< Not supported.
+    EVENT_CALL_END_FAILED = 7,      ///< Call end failed.
+    EVENT_CALL_ANSWER_FAILED = 8,   ///< Call answer failed.
     EVENT_INCOMING = 9,             ///< Incoming call; not answered yet.
     EVENT_ONHOLD = 10,              ///< On hold call.
     EVENT_DIALING = 11,             ///< MO call; dialing.
-    EVENT_CALL_HOLD_FAILED = 12,    ///< Not supported.
-    EVENT_CALL_RESUME_FAILED = 13,  ///< Not supported.
+    EVENT_CALL_HOLD_FAILED = 12,    ///< Call hold failed.
+    EVENT_CALL_RESUME_FAILED = 13,  ///< Call resume failed.
+    EVENT_CALL_SWAP_FAILED = 14,    ///< Call swap failed.
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -262,7 +263,13 @@ FUNCTION le_result_t Delete
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Answers an incoming call. The call reference can be retrieved from the call state handler.
+ * Answers an incoming or a waiting call. The call reference can be retrieved from the call state
+ * handler.If a Waiting call is being answered and the existing call is Active, then existing call
+ * will move to Hold state.If the existing call is on Hold already, then it will remain on Hold.
+ * The waiting call state transition from Waiting to Active. If a Waiting call is being answered
+ * and the existing call is Active, then existing call will move to Hold state.If the existing call
+ * is on Hold already, then it will remain on Hold. The waiting call state transition from Waiting
+ * to Active.
  *
  * @return
  * - LE_OK -- Succeeded. 
@@ -314,6 +321,21 @@ FUNCTION le_result_t Hold
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Resume
+(
+    Call reference IN                                              ///< The call reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Swaps calls to make one active and put the another on hold.
+ * This should be two calls and one is on holding state and the another is on active state.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t Swap
 (
     Call reference IN                                              ///< The call reference.
 );

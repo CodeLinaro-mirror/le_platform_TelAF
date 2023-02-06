@@ -77,6 +77,24 @@ void tafDialCallback::makeCallResponse(telux::common::ErrorCode error, std::shar
 }
 
 //-----------------------------------------------------------------------------
+//Class tafCallCommandCallback Implementation
+//
+
+void tafCallCommandCallback::commandResponse(telux::common::ErrorCode error)
+{
+  auto &call = taf_VoiceCall::GetInstance();
+
+   if(error == telux::common::ErrorCode::SUCCESS) {
+      LE_INFO("Call Command Callback success");
+      call.CBCallCommandSynePromise.set_value(LE_OK);
+   }
+   else {
+      LE_INFO("Call Command Callback failed, errorCode: %d\n", static_cast<int>(error));
+      call.CBCallCommandSynePromise.set_value(LE_FAULT);
+   }
+}
+
+//-----------------------------------------------------------------------------
 //Class tafCallListener Implementation
 //
 
@@ -409,6 +427,14 @@ void taf_Handler::ProcessReq(void *callReq)
         }
         break;
 
+        case CMD_SWAP_CALL:
+        {
+            taf_voicecall_CallRef_t callRef    = pReq->callRef;
+            le_msg_SessionRef_t     sessionRef = pReq->sessionRef;
+            myCall.SwapCall(callRef, sessionRef);
+        }
+        break;
+
     }
 
     return;
@@ -428,6 +454,24 @@ void taf_Handler::ProcessStateChanged(void *reportPtr)
 //-----------------------------------------------------------------------------
 // Class tafVoiceCall implementation
 //
+le_result_t taf_VoiceCall::ChecktafCallCommandCallbackResult(void)
+{
+  CBCallCommandSynePromise = std::promise<le_result_t>();
+  std::chrono::seconds span(TIMEOUT_CALLCOMMAND_CB);
+
+  std::future<le_result_t> futResult = CBCallCommandSynePromise.get_future();
+  std::future_status waitStatus = futResult.wait_for(span);
+  if (std::future_status::timeout == waitStatus)
+  {
+    LE_ERROR("waiting promise timeout for %d seconds", TIMEOUT_CALLCOMMAND_CB);
+    return LE_TIMEOUT;
+  }
+  else
+  {
+    return futResult.get();
+  }
+}
+
 void taf_VoiceCall::ShowAll()
 {
     uint32_t i = 0, j = 0, k = 0;
@@ -654,19 +698,17 @@ void taf_VoiceCall::CallHandler(callEvent_t *eventVoicePtr)
     {
         callCtxPtr = GetCallCtx(eventVoicePtr->callRef);
     }
-    TAF_ERROR_IF_RET_NIL((callCtxPtr == NULL) && (eventVoicePtr->event != TAF_VOICECALL_EVENT_INCOMING),
+    TAF_ERROR_IF_RET_NIL((callCtxPtr == NULL) && (eventVoicePtr->event != TAF_VOICECALL_EVENT_INCOMING) && (eventVoicePtr->event != TAF_VOICECALL_EVENT_WAITING),
         "cannot found callCtx for event: %s", EventToString(eventVoicePtr->event));
 
     // for incoming call, may need to create callCtx if cannot found
-    if (eventVoicePtr->event == TAF_VOICECALL_EVENT_INCOMING)
+    if ((eventVoicePtr->event == TAF_VOICECALL_EVENT_INCOMING) || (eventVoicePtr->event == TAF_VOICECALL_EVENT_WAITING))
     {
-        if ((callCtxPtr == NULL) || (callCtxPtr->isInProgress == true))
-        {
-            LE_INFO("No callCtx found, need to new one");
-            callCtxPtr = CreateCallCtx(eventVoicePtr->phoneId, eventVoicePtr->dest);
-            TAF_ERROR_IF_RET_NIL(callCtxPtr == NULL, "cannot create callCtx");
-        }
-        callCtxPtr->iCall = eventVoicePtr->iCall;
+ 
+      LE_INFO("No callCtx found, need to new one");
+      callCtxPtr = CreateCallCtx(eventVoicePtr->phoneId, eventVoicePtr->dest);
+      TAF_ERROR_IF_RET_NIL(callCtxPtr == NULL, "cannot create callCtx");
+      callCtxPtr->iCall = eventVoicePtr->iCall;
     }
 
     // update the latest event
@@ -1018,7 +1060,7 @@ le_result_t taf_VoiceCall::AnswerCall(taf_voicecall_CallRef_t callRef, le_msg_Se
     taf_SessionRef_t *sessionRefNodePtr = GetSessionRefNodeFromCallCtx(callCtxPtr, sessionRef);
     TAF_ERROR_IF_RET_VAL(sessionRefNodePtr == NULL, LE_NOT_FOUND, "This sessionRef(%p) is not bound to this callCtx(%p)", sessionRef, callCtxPtr);
 
-    callCtxPtr->tafCallStatus = iCall->answer(nullptr);
+    callCtxPtr->tafCallStatus = iCall->answer(AnswerCb);
     if (callCtxPtr->tafCallStatus != telux::common::Status::SUCCESS)
     {
         LE_ERROR("answer call(%p) failed, error code: %d, icall state: %d, iCall: %p",
@@ -1026,6 +1068,14 @@ le_result_t taf_VoiceCall::AnswerCall(taf_voicecall_CallRef_t callRef, le_msg_Se
         callEvent_t msgCallEvent = {false, 0, "", nullptr, callCtxPtr->callRef, TAF_VOICECALL_EVENT_CALL_ANSWER_FAILED, TAF_VOICECALL_END_UNDEFINED};
         le_event_Report(CallEvent, &msgCallEvent, sizeof(callEvent_t));
         return LE_FAULT;
+    }
+
+    le_result_t result = ChecktafCallCommandCallbackResult();
+    if (result != LE_OK)
+    {
+      callEvent_t msgCallEvent = {false, 0, "", nullptr, callCtxPtr->callRef, TAF_VOICECALL_EVENT_CALL_ANSWER_FAILED, TAF_VOICECALL_END_UNDEFINED};
+      le_event_Report(CallEvent, &msgCallEvent, sizeof(callEvent_t));
+      return LE_FAULT;
     }
 
     le_dls_Link_t* linkPtr = le_dls_Peek(&SessionCtxList);
@@ -1058,16 +1108,21 @@ le_result_t taf_VoiceCall::StopCall(taf_voicecall_CallRef_t callRef, le_msg_Sess
     {
         if(iCall->getCallState() == telux::tel::CallState::CALL_INCOMING)
         {
-            callCtxPtr->tafCallStatus = iCall->reject(std::shared_ptr<telux::common::ICommandResponseCallback> (nullptr));
+            callCtxPtr->tafCallStatus = iCall->reject(RejectCb);
         }
         else
         {
-            callCtxPtr->tafCallStatus = iCall->hangup(nullptr);
+            callCtxPtr->tafCallStatus = iCall->hangup(HangupCb);
+
         }
 
         if (callCtxPtr->tafCallStatus == telux::common::Status::SUCCESS)
         {
-            return LE_OK;
+            le_result_t result = ChecktafCallCommandCallbackResult();
+            if (result == LE_OK)
+            {
+              return LE_OK;
+            }
         }
     }
 
@@ -1094,7 +1149,7 @@ le_result_t taf_VoiceCall::HoldCall(taf_voicecall_CallRef_t callRef, le_msg_Sess
     std::shared_ptr<ICall> iCall = callCtxPtr->iCall;
     TAF_ERROR_IF_RET_VAL(iCall == nullptr, LE_NOT_FOUND, "iCall is null on callCtrl(%p), event: %s", callCtxPtr, EventToString(callCtxPtr->event));
 
-    callCtxPtr->tafCallStatus = iCall->hold(nullptr);
+    callCtxPtr->tafCallStatus = iCall->hold(HoldCb);
     if (callCtxPtr->tafCallStatus != telux::common::Status::SUCCESS)
     {
         LE_ERROR("hold call(%p) failed, error code: %d, icall state: %d, iCall: %p",
@@ -1102,6 +1157,14 @@ le_result_t taf_VoiceCall::HoldCall(taf_voicecall_CallRef_t callRef, le_msg_Sess
         callEvent_t msgCallEvent = {false, 0, "", nullptr, callCtxPtr->callRef, TAF_VOICECALL_EVENT_CALL_HOLD_FAILED, TAF_VOICECALL_END_UNDEFINED};
         le_event_Report(CallEvent, &msgCallEvent, sizeof(callEvent_t));
         return LE_FAULT;
+    }
+
+    le_result_t result = ChecktafCallCommandCallbackResult();
+    if (result != LE_OK)
+    {
+      callEvent_t msgCallEvent = {false, 0, "", nullptr, callCtxPtr->callRef, TAF_VOICECALL_EVENT_CALL_HOLD_FAILED, TAF_VOICECALL_END_UNDEFINED};
+      le_event_Report(CallEvent, &msgCallEvent, sizeof(callEvent_t));
+      return LE_FAULT;
     }
 
     return LE_OK;
@@ -1115,7 +1178,7 @@ le_result_t taf_VoiceCall::ResumeCall(taf_voicecall_CallRef_t callRef, le_msg_Se
     std::shared_ptr<ICall> iCall = callCtxPtr->iCall;
     TAF_ERROR_IF_RET_VAL(iCall == nullptr, LE_NOT_FOUND, "iCall is null on callCtrl(%p), event: %s", callCtxPtr, EventToString(callCtxPtr->event));
 
-    callCtxPtr->tafCallStatus = iCall->resume(nullptr);
+    callCtxPtr->tafCallStatus = iCall->resume(ResumeCb);
     if (callCtxPtr->tafCallStatus != telux::common::Status::SUCCESS)
     {
         LE_ERROR("resume call(%p) failed, error code: %d, icall state: %d, iCall: %p",
@@ -1123,6 +1186,14 @@ le_result_t taf_VoiceCall::ResumeCall(taf_voicecall_CallRef_t callRef, le_msg_Se
         callEvent_t msgCallEvent = {false, 0, "", nullptr, callCtxPtr->callRef, TAF_VOICECALL_EVENT_CALL_RESUME_FAILED, TAF_VOICECALL_END_UNDEFINED};
         le_event_Report(CallEvent, &msgCallEvent, sizeof(callEvent_t));
         return LE_FAULT;
+    }
+
+    le_result_t result = ChecktafCallCommandCallbackResult();
+    if (result != LE_OK)
+    {
+      callEvent_t msgCallEvent = {false, 0, "", nullptr, callCtxPtr->callRef, TAF_VOICECALL_EVENT_CALL_RESUME_FAILED, TAF_VOICECALL_END_UNDEFINED};
+      le_event_Report(CallEvent, &msgCallEvent, sizeof(callEvent_t));
+      return LE_FAULT;
     }
 
     return LE_OK;
@@ -1154,6 +1225,67 @@ le_result_t taf_VoiceCall::DeleteCall(taf_voicecall_CallRef_t callRef, le_msg_Se
 
     return LE_OK;
 }
+
+le_result_t taf_VoiceCall::SwapCall(taf_voicecall_CallRef_t callRef, le_msg_SessionRef_t sessionRef)
+{
+    taf_VoiceCtrl_t* callCtxPtr = (taf_VoiceCtrl_t* )le_ref_Lookup(CallCtrlRefMap, (void*)callRef);
+    TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND, "Cannot found callCtx from ref(%p)", (void *)callRef);
+
+    std::vector<std::shared_ptr<telux::tel::ICall>> inProgressCalls = CallMgr->getInProgressCalls();
+    if(inProgressCalls.size() < 2) {
+        LE_ERROR("call list does not have 2 calls" );
+        return LE_FAULT;
+    }
+
+    std::shared_ptr<telux::tel::ICall> iCall1, iCall2;
+    uint8_t iCall1PhoneId, iCall2PhoneId;
+    for(auto callIterator = std::begin(inProgressCalls); callIterator != std::end(inProgressCalls);
+        ++callIterator)
+    {
+        if((*callIterator)->getCallState() == telux::tel::CallState::CALL_ACTIVE) {
+           iCall1 = *callIterator;
+           iCall1PhoneId = (*callIterator)->getPhoneId();
+           continue;
+        }
+        if((*callIterator)->getCallState() == telux::tel::CallState::CALL_ON_HOLD) {
+           iCall2 = *callIterator;
+           iCall2PhoneId = (*callIterator)->getPhoneId();
+        }
+        if(iCall1 != nullptr && iCall2 != nullptr) {
+           break;
+        }
+    }
+
+    if (iCall1 != nullptr && iCall2 != nullptr && iCall1PhoneId == iCall2PhoneId)
+    {
+        callCtxPtr->tafCallStatus = CallMgr->swap(iCall1, iCall2, SwapCb);
+    }
+    else
+    {
+        LE_ERROR("call list does not have 2 calls");
+        return LE_FAULT;
+    }
+
+    if (callCtxPtr->tafCallStatus != telux::common::Status::SUCCESS)
+    {
+        LE_ERROR("swap call(%p) failed, error code: %d",
+            (void *)callRef, (uint32_t)callCtxPtr->tafCallStatus);
+        callEvent_t msgCallEvent = {false, 0, "", nullptr, callCtxPtr->callRef, TAF_VOICECALL_EVENT_CALL_SWAP_FAILED, TAF_VOICECALL_END_UNDEFINED};
+        le_event_Report(CallEvent, &msgCallEvent, sizeof(callEvent_t));
+        return LE_FAULT;
+    }
+
+    le_result_t result = ChecktafCallCommandCallbackResult();
+    if (result != LE_OK)
+    {
+      callEvent_t msgCallEvent = {false, 0, "", nullptr, callCtxPtr->callRef, TAF_VOICECALL_EVENT_CALL_SWAP_FAILED, TAF_VOICECALL_END_UNDEFINED};
+      le_event_Report(CallEvent, &msgCallEvent, sizeof(callEvent_t));
+      return LE_FAULT;
+    }
+
+    return LE_OK;
+}
+
 
 void taf_VoiceCall::Init(void)
 {
@@ -1212,6 +1344,12 @@ void taf_VoiceCall::Init(void)
     }
 
     CallCb = std::make_shared<tafDialCallback>();
+    AnswerCb = std::make_shared<tafCallCommandCallback>();
+    HangupCb = std::make_shared<tafCallCommandCallback>();
+    RejectCb = std::make_shared<tafCallCommandCallback>();
+    HoldCb = std::make_shared<tafCallCommandCallback>();
+    ResumeCb = std::make_shared<tafCallCommandCallback>();
+    SwapCb = std::make_shared<tafCallCommandCallback>();
 
     LE_INFO("System ready, start voice call service!\n");
 

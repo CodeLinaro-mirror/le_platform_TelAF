@@ -572,6 +572,128 @@ le_result_t taf_audio_SetSamplePcmSamplingRate
 )
 {
     auto &audio = taf_Audio::GetInstance();
-    return audio.SetSamplePcmSamplingRate(streamRef , samplingRate);
+    return audio.SetSamplePcmSamplingRate(streamRef, samplingRate);
 
+}
+
+/**
+ * FUNCTION     : GetSamplePcmSamplingRate
+ * DESCRIPTION  : Get sampling rate of the stream
+ * DEPENDECY    :
+ * PARAMETERS   : Stream refernce
+ * RETURN VALUES: LE_OK on success, LE_FAULT on error
+ */
+le_result_t taf_audio_GetSamplePcmSamplingRate
+(
+    taf_audio_StreamRef_t    streamRef,  ///< [IN] The Stream Ref.
+    uint32_t                 *samplingRate  ///< [OUT] The sampling rate.
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.GetSamplePcmSamplingRate(streamRef, samplingRate);
+
+}
+
+/**
+ * FUNCTION     : SetSamplePcmChannelNumber
+ * DESCRIPTION  : Set channel number for the recorder stream
+ * DEPENDECY    :
+ * PARAMETERS   : Stream refernce and channel number
+ * RETURN VALUES: LE_OK on success, LE_FAULT on error
+ */
+le_result_t taf_audio_SetSamplePcmChannelNumber
+(
+    taf_audio_StreamRef_t    streamRef,  ///< [IN] The Stream Ref.
+    uint32_t                 channelNum  ///< [IN] The Channel number.
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.SetSamplePcmChannelNumber(streamRef, channelNum);
+
+}
+
+/**
+ * FUNCTION     : GetSamplePcmChannelNumber
+ * DESCRIPTION  : Get channel number of the recorder stream
+ * DEPENDECY    :
+ * PARAMETERS   : Stream refernce
+ * RETURN VALUES: LE_OK on success, LE_FAULT on error
+ */
+le_result_t taf_audio_GetSamplePcmChannelNumber
+(
+    taf_audio_StreamRef_t    streamRef,  ///< [IN] The Stream Ref.
+    uint32_t                 *channelNum  ///< [OUT] The Channel number.
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.GetSamplePcmChannelNumber(streamRef, channelNum);
+
+}
+
+/**
+ * FUNCTION     : SetEncodingFormat
+ * DESCRIPTION  : Set encoding format for the recorder stream
+ * DEPENDECY    :
+ * PARAMETERS   : Stream refernce and encoding format
+ * RETURN VALUES: LE_OK on success, LE_FAULT on error
+ */
+le_result_t taf_audio_SetEncodingFormat
+(
+    taf_audio_StreamRef_t    streamRef,  ///< [IN] The Stream Ref.
+    taf_audio_Format_t       format  ///< [IN] The Encoding format.
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.SetEncodingFormat(streamRef, format);
+
+}
+
+/**
+ * FUNCTION     : GetEncodingFormat
+ * DESCRIPTION  : Get encoding format of the recorder stream
+ * DEPENDECY    :
+ * PARAMETERS   : Stream refernce
+ * RETURN VALUES: LE_OK on success, LE_FAULT on error
+ */
+le_result_t taf_audio_GetEncodingFormat
+(
+    taf_audio_StreamRef_t    streamRef,  ///< [IN] The Stream Ref.
+    taf_audio_Format_t       *format  ///< [OUT] The sampling rate.
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.GetEncodingFormat(streamRef, format);
+
+}
+
+/**
+ * FUNCTION     : OpenRecorder
+ * DESCRIPTION  : Gets the reference of Recording stream
+ * DEPENDECY    :
+ * PARAMETERS   :
+ * RETURN VALUES: Reference of a Stream, NULL on error
+ */
+taf_audio_StreamRef_t taf_audio_OpenRecorder
+(
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.OpenRecorder();
+}
+
+/**
+ * FUNCTION     : RecordFile
+ * DESCRIPTION  : Records a file on a record stream
+ * DEPENDECY    :
+ * PARAMETERS   : Stream Reference for Audio and File descriptor
+ * RETURN VALUES: LE_OK on success, LE_FAULT for all errors
+ */
+le_result_t taf_audio_RecordFile
+(
+ taf_audio_StreamRef_t    streamRef,
+ int fd
+)
+{
+    auto &audio = taf_Audio::GetInstance();
+    return audio.RecordFile(streamRef, fd);
 }

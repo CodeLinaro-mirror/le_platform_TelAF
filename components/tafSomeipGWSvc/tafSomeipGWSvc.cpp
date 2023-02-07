@@ -582,7 +582,7 @@ void taf_someipSvr_RemoveSubscriptionHandler
  *     - LE_FAULT if any error occurs.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_someipSvr_GetSerivceId
+le_result_t taf_someipSvr_GetServiceId
 (
     taf_someipSvr_RxMsgRef_t msgRef,
         ///< [IN] Rx Message Reference
@@ -593,7 +593,7 @@ le_result_t taf_someipSvr_GetSerivceId
 )
 {
     taf_SomeipSvr& mySomeipSvr = taf_SomeipSvr::GetInstance();
-    return mySomeipSvr.GetSerivceId(msgRef, serviceIdPtr, instanceIdPtr);
+    return mySomeipSvr.GetServiceId(msgRef, serviceIdPtr, instanceIdPtr);
 }
 
 //--------------------------------------------------------------------------------------------------

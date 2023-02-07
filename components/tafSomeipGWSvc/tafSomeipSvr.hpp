@@ -232,7 +232,7 @@ namespace telux
                     void* contextPtr);
                 void RemoveSubscriptionHandler(taf_someipSvr_SubscriptionHandlerRef_t handlerRef);
 
-                le_result_t GetSerivceId(taf_someipSvr_RxMsgRef_t msgRef,
+                le_result_t GetServiceId(taf_someipSvr_RxMsgRef_t msgRef,
                                              uint16_t* serviceIdPtr,
                                              uint16_t* instanceIdPtr);
                 le_result_t GetMethodId(taf_someipSvr_RxMsgRef_t msgRef,

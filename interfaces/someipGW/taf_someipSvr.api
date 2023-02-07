@@ -529,7 +529,7 @@ EVENT Subscription
  *     - LE_BAD_PARAMETER -- Invalid msgRef.
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t GetSerivceId
+FUNCTION le_result_t GetServiceId
 (
     RxMsg    msgRef                   IN, ///< Rx Message Reference.
     uint16   serviceId                OUT,///< Service ID.

@@ -1917,7 +1917,7 @@ void taf_SomeipSvr::RemoveSubscriptionHandler
  * Get the serviceId and instanceId from a Rx message.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_SomeipSvr::GetSerivceId
+le_result_t taf_SomeipSvr::GetServiceId
 (
     taf_someipSvr_RxMsgRef_t msgRef,
     uint16_t* serviceIdPtr,

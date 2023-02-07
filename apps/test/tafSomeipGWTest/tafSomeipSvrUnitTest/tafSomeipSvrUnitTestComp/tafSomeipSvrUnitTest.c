@@ -183,7 +183,7 @@ void SubscriptionHandler
     }
     else
     {
-        LE_ERROR("Unknown serivceRef(%p).", serviceRef);
+        LE_ERROR("Unknown serviceRef(%p).", serviceRef);
         return;
     }
 
@@ -210,8 +210,8 @@ __attribute__((unused)) void RxMessageHandler
     size_t payloadSize;
 
     // Get the serviceId and instanceId.
-    LE_TEST_ASSERT(LE_OK == taf_someipSvr_GetSerivceId(msgRef, &serviceId, &instanceId),
-                   "RxMessageHandler taf_someipSvr_GetSerivceId() API.");
+    LE_TEST_ASSERT(LE_OK == taf_someipSvr_GetServiceId(msgRef, &serviceId, &instanceId),
+                   "RxMessageHandler taf_someipSvr_GetServiceId() API.");
 
     taf_someipSvr_ServiceRef_t serviceRef = taf_someipSvr_GetService(serviceId, instanceId);
     LE_TEST_ASSERT(serviceRef != NULL, "RxMessageHandler taf_someipSvr_GetService() API.");

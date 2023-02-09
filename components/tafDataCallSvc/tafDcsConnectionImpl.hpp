@@ -293,7 +293,6 @@ namespace tafsvc {
             taf_dcs_Pdp_t GetEvtInfoFromConnStatus(taf_dcs_CallCtx_t *callCtxPtr, telux::data::DataCallStatus callStatus);
             static le_event_Id_t connectionAsyncCmdEvId;
             static void CloseEventHandler(le_msg_SessionRef_t sessionRef, void* contextPtr);
-        private:
         #ifdef TARGET_SA515M
             bool subSystemStatusUpdated;
             std::mutex mtx;
@@ -305,6 +304,7 @@ namespace tafsvc {
         #endif
             std::shared_ptr<telux::data::IDataConnectionManager> ConnectionMgr;
             std::shared_ptr<telux::data::IDataConnectionListener> DataConnectionListener;
+        private:
             le_dls_List_t    DataCallCtxList = LE_DLS_LIST_INIT;
             le_dls_List_t HandlerSessionMappingList = LE_DLS_LIST_INIT;
             le_mem_PoolRef_t HandlerSessionMappingPool = NULL;

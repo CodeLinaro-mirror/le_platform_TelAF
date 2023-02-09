@@ -604,25 +604,7 @@ le_result_t taf_DataConnection::SendGettingDefaultProfileIdCmd()
 le_result_t taf_DataConnection::MakeCall(int32_t profileId, telux::data::IpFamilyType ipType)
 {
     telux::common::Status status;
-#ifdef TARGET_SA515M
-    auto reqSvcStateCbFunc = std::bind(&taf_DataConnRequestServiceStatusCallback::requestServiceStatus, reqSvcStateCb, std::placeholders::_1, std::placeholders::_2);
 
-    status = dataServingSystemManagers[(SlotId)SLOT_ID_1]->requestServiceStatus(reqSvcStateCbFunc);
-    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT, "Call sdk function failed.");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(reqSvcStateCb->semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Wait semaphore timeout.");
-    LE_INFO("Current data service status: %d.", (int)reqSvcStateCb->status.serviceState);
-    if (reqSvcStateCb->status.serviceState != telux::data::DataServiceState::IN_SERVICE) {
-        std::unique_lock<std::mutex> uLock(connectionServingSystemlisteners[(SlotId)SLOT_ID_1]->cv_mutex);
-        connectionServingSystemlisteners[(SlotId)SLOT_ID_1]->conVar.wait_for(uLock, std::chrono::seconds(10));
-        if (connectionServingSystemlisteners[(SlotId)SLOT_ID_1]->dsStatus != telux::data::DataServiceState::IN_SERVICE) {
-            LE_ERROR("Wait for data in service time out.");
-            return LE_FAULT;
-        }
-    }
-#endif
     status = ConnectionMgr->startDataCall(profileId, ipType, StartDataCallCallback);
     TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT, "start call failed, ret: %d", (int32_t)status);
 
@@ -632,25 +614,7 @@ le_result_t taf_DataConnection::MakeCall(int32_t profileId, telux::data::IpFamil
 le_result_t taf_DataConnection::StopCall(int32_t profileId, telux::data::IpFamilyType ipType)
 {
     telux::common::Status status;
-#ifdef TARGET_SA515M
-    auto reqSvcStateCbFunc = std::bind(&taf_DataConnRequestServiceStatusCallback::requestServiceStatus, reqSvcStateCb, std::placeholders::_1, std::placeholders::_2);
 
-    status = dataServingSystemManagers[(SlotId)SLOT_ID_1]->requestServiceStatus(reqSvcStateCbFunc);
-    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT, "Call sdk function failed.");
-
-    le_clk_Time_t timeToWait = {1, 0};
-    le_result_t res = le_sem_WaitWithTimeOut(reqSvcStateCb->semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Wait semaphore timeout.");
-    LE_INFO("Current data service status: %d.", (int)reqSvcStateCb->status.serviceState);
-    if (reqSvcStateCb->status.serviceState != telux::data::DataServiceState::IN_SERVICE) {
-        std::unique_lock<std::mutex> uLock(connectionServingSystemlisteners[(SlotId)SLOT_ID_1]->cv_mutex);
-        connectionServingSystemlisteners[(SlotId)SLOT_ID_1]->conVar.wait_for(uLock, std::chrono::seconds(10));
-        if (connectionServingSystemlisteners[(SlotId)SLOT_ID_1]->dsStatus != telux::data::DataServiceState::IN_SERVICE) {
-            LE_ERROR("Wait for data in service time out.");
-            return LE_FAULT;
-        }
-    }
-#endif
     status = ConnectionMgr->stopDataCall(profileId, ipType, StopDataCallCallback);
     TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT, "stop call failed, ret: %d", (int32_t)status);
 
@@ -1867,7 +1831,127 @@ void taf_DataConnection::onInitCompleted(telux::common::ServiceStatus status)
     subSystemStatusUpdated = true;
     conVar.notify_all();
 }
+
+//--------------------------------------------------------------------------------------------------
+
+/**
+ * Mutex used to protect shared data structures in this module.
+ */
+//--------------------------------------------------------------------------------------------------
+
+static pthread_mutex_t Mutex = PTHREAD_MUTEX_INITIALIZER;   // POSIX "Fast" mutex.
+
+/// Locks the mutex.
+#define LOCK    LE_ASSERT(pthread_mutex_lock(&Mutex) == 0);
+
+/// Unlocks the mutex.
+#define UNLOCK  LE_ASSERT(pthread_mutex_unlock(&Mutex) == 0);
+
+#define MAX_SLOT_NUM   1
+
+static bool registered[MAX_SLOT_NUM] = {false};
+
+//--------------------------------------------------------------------------------------------------
+
+/**
+ * Register listeners.
+ */
+//--------------------------------------------------------------------------------------------------
+void RegisterListeners()
+{
+
+    LE_INFO("Registering listeners.");
+    auto &dataConnection = taf_DataConnection::GetInstance();
+
+    for(auto slotIdx = 1; slotIdx <= MAX_SLOT_NUM; slotIdx++)
+    {
+        LOCK
+        if(registered[slotIdx])
+        {
+            LE_INFO("Listeners already registered.");
+            UNLOCK
+            continue;
+        }
+
+        if ( dataConnection.dataServingSystemManagers.find((SlotId)slotIdx) !=
+                                                     dataConnection.dataServingSystemManagers.end())
+        {
+            if( dataConnection.dataServingSystemManagers[(SlotId)slotIdx]->registerListener(
+                     dataConnection.dataServingSystemListeners[(SlotId)slotIdx]) ==
+                                                                     telux::common::Status::SUCCESS)
+            {
+                LE_INFO("Serving system listener %d registered.", slotIdx);
+                registered[slotIdx] = true;
+            }
+            else
+            {
+                LE_ERROR("Fail to register serving system listener %d.", slotIdx);
+            }
+        }
+
+        UNLOCK
+    }
+
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deregister listeners.
+ */
+//--------------------------------------------------------------------------------------------------
+
+void DeregisterListeners()
+{
+    LE_INFO("Deregistering listeners.");
+    auto &dataConnection = taf_DataConnection::GetInstance();
+
+    for(auto slotIdx = 1; slotIdx <= MAX_SLOT_NUM; slotIdx++)
+    {
+        LOCK
+        if(!registered[slotIdx])
+        {
+            LE_INFO("Listeners already deregistered.");
+            UNLOCK
+            continue;
+        }
+
+        if ( dataConnection.dataServingSystemManagers.find((SlotId)slotIdx) !=
+                                                     dataConnection.dataServingSystemManagers.end())
+        {
+            if( dataConnection.dataServingSystemManagers[(SlotId)slotIdx]->deregisterListener(
+                     dataConnection.dataServingSystemListeners[(SlotId)slotIdx]) ==
+                                                                     telux::common::Status::SUCCESS)
+            {
+                LE_INFO("Serving system listener %d deregistered.", slotIdx);
+                registered[slotIdx] = false;
+            }
+            else
+            {
+                LE_ERROR("Fail to deregister serving system listener %d.", slotIdx);
+            }
+        }
+
+        UNLOCK
+    }
+}
+
+void PowerStateChangeHandler(taf_pm_State_t state, void* contextPtr)
+{
+    if (state == TAF_PM_STATE_RESUME)
+    {
+        LE_INFO("Power state change to RESUME");
+        RegisterListeners();
+    }
+    else if (state == TAF_PM_STATE_SUSPEND)
+    {
+        LE_INFO("Power state change to SUSPEND");
+        DeregisterListeners();
+    }
+
+}
+
 #endif
+
 void taf_DataConnection::Init(void)
 {
     auto &dataFactory = DataFactory::getInstance();
@@ -1926,7 +2010,6 @@ void taf_DataConnection::Init(void)
         //If it is new manager and initialization passed
         if (subSysReady && (dataServingSystemManagers.find((SlotId)SLOT_ID_1) == dataServingSystemManagers.end())) {
             dataServingSystemManagers.emplace((SlotId)SLOT_ID_1, servingSystemMgr);
-            dataServingSystemManagers[(SlotId)SLOT_ID_1]->registerListener(dataServingSystemListeners[(SlotId)SLOT_ID_1]);
         }
     }
 
@@ -1957,6 +2040,13 @@ void taf_DataConnection::Init(void)
     le_sem_Delete(connectionCmdThreadSem);
 
     le_msg_AddServiceCloseHandler(taf_dcs_GetServiceRef(), CloseEventHandler, NULL);
+
+    // Add power state change handler
+    taf_pm_AddStateChangeHandler(PowerStateChangeHandler, NULL);
+    if (taf_pm_GetPowerState() != TAF_PM_STATE_SUSPEND)
+    {
+        RegisterListeners();
+    }
 
     return;
 }

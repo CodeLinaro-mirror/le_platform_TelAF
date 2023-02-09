@@ -1,0 +1,24 @@
+sandboxed: false
+executables:
+{
+    tafSimUnitTest = ( tafSimUnitTestComp )
+}
+
+processes:
+{
+     run:
+    {
+        ( tafSimUnitTest )
+    }
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+}
+
+start: manual
+
+bindings:
+{
+    tafSimUnitTest.tafSimUnitTestComp.taf_sim -> tafSimCardSvc.taf_sim
+}

@@ -398,7 +398,7 @@ le_result_t taf_sim_LocalSwapToEmergencyCallSubscription
     return sim.LocalSwapToEmergencyCallSubscription(simId);
 }
 
-le_result_t taf_sim_LocalSwapToCommercialCallSubscription
+le_result_t taf_sim_LocalSwapToCommercialSubscription
 (
     taf_sim_Id_t simId,
     taf_sim_Manufacturer_t manufacturer

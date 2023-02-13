@@ -1,0 +1,17 @@
+executables:
+{
+    cclient = ( clientComp )
+}
+
+processes:
+{
+    run:
+    {
+        ( cclient )
+    }
+}
+
+bindings:
+{
+    cclient.clientComp.ipcTest -> cserver.ipcTest
+}

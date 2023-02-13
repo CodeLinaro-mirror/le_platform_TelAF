@@ -1,0 +1,18 @@
+executables:
+{
+    cserver = ( serverComp )
+}
+
+processes:
+{
+    run:
+    {
+        ( cserver )
+    }
+    faultAction: restart
+}
+
+extern:
+{
+    cserver.serverComp.ipcTest
+}

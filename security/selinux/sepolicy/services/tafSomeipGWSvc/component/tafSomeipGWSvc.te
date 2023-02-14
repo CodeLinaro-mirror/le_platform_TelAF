@@ -5,6 +5,8 @@ policy_module(tafSomeipGWSvc, 1.0)
 
 gen_require(`
   type sysfs_t;
+  type systemd_tmpfiles_t;
+  type tmp_t;
 ')
 
 # Framework definition for telaf
@@ -22,3 +24,6 @@ unconfined_domain(telaf_tafSomeipGWSvc_t)
 # Allow update daemon to install/uninstall this service
 telaf_admin_manage_all_files_perms(telaf_tafSomeipGWSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafSomeipGWSvc_exec_t)
+
+# Allow systemd to get attribute of /tmp/vsomeip-0
+allow systemd_tmpfiles_t tmp_t:sock_file { getattr };

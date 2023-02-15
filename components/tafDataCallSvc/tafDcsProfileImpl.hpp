@@ -37,6 +37,8 @@
 #include "telux/data/DataConnectionManager.hpp"
 #include "telux/data/DataProfile.hpp"
 #include "telux/data/DataProfileManager.hpp"
+#include <telux/tel/PhoneFactory.hpp>
+#include <telux/common/DeviceConfig.hpp>
 #include "telux/common/CommonDefines.hpp"
 #include "tafSvcIF.hpp"
 
@@ -45,15 +47,8 @@ using namespace telux::common;
 
 typedef struct
 {
-    le_msg_SessionRef_t                     sessionRef;
-    taf_dcs_ProfileListHandlerFunc_t        handlerPtr;
-    void                                    *contextPtr;
-    le_dls_Link_t                           link;
-} taf_dcs_ProfileListHandler_t;
-
-typedef struct
-{
     bool                                     isValid;
+    uint8_t                                  slotId;
     taf_dcs_ProfileRef_t                     reference;
     taf_dcs_ProfileInfo_t                    info;
     taf_dcs_Pdp_t                            pdp;
@@ -74,6 +69,7 @@ typedef struct
 {
     le_result_t                              ret;
     uint32_t                                 num;
+    uint8_t                                  slotId;
     taf_dcs_ProfileCtxs_t                    *profilesListPtr;
 } Profile_List_Event_t;
 
@@ -82,11 +78,12 @@ namespace tafsvc {
     class taf_ProfileListCallback : public telux::data::IDataProfileListCallback
     {
         public:
-            taf_ProfileListCallback(std::string cmdCbName):cmdCbName_(cmdCbName) {};
+            taf_ProfileListCallback(SlotId slotId):slotId(slotId) {};
             ~taf_ProfileListCallback() {};
-            void onProfileListResponse(const std::vector<std::shared_ptr<telux::data::DataProfile>> &profiles, telux::common::ErrorCode error) override;
+            void onProfileListResponse(const std::vector<std::shared_ptr<telux::data::DataProfile>>
+                                       &profiles, telux::common::ErrorCode error) override;
          private:
-            std::string cmdCbName_;
+            SlotId slotId;
     };
 
     class taf_ProfileModifyCallback : public telux::common::ICommandResponseCallback {
@@ -98,35 +95,45 @@ namespace tafsvc {
     {
         public:
             void Init(void);
+#ifdef TARGET_SA515M
+                void onInitCompleted(telux::common::ServiceStatus status);
+#endif
+            le_result_t getPhoneIdFromSlotId(uint8_t slotId, uint8_t *phoneIdPtr);
+            le_result_t getSlotIdFromPhoneId(uint8_t phoneId, uint8_t *slotIdPtr);
+            le_result_t ListProfile(uint8_t slotId, taf_dcs_ProfileInfo_t *profileList,
+                                    size_t *listSize);
+            taf_dcs_ProfileRef_t GetProfileRef(uint8_t slotId, int32_t index);
+            le_result_t GetSlotIdAndProfileId(taf_dcs_ProfileRef_t profileRef, uint8_t *slotId,
+                                              int32_t *profileId);
 
-            le_result_t ListProfileAsync(taf_dcs_ProfileListHandlerFunc_t handlerPtr, void *contextPtr);
-            le_result_t ListProfile(taf_dcs_ProfileInfo_t *profileList, size_t *listSize);
-            le_result_t SetDefaultProfile(int32_t index);
-            taf_dcs_ProfileRef_t GetProfileRef(int32_t index);
-            le_result_t GetProfileId(taf_dcs_ProfileRef_t profileRef, int32_t *profileIdPtr);
-            le_result_t MapProfileCtxToParams(taf_dcs_ProfileCtx_t *ctxPtr, telux::data::ProfileParams &params);
+            le_result_t MapProfileCtxToParams(taf_dcs_ProfileCtx_t *ctxPtr,
+                                              telux::data::ProfileParams &params);
             le_result_t SetApn(taf_dcs_ProfileRef_t profileRef, const char *apnPtr);
             le_result_t GetApn(taf_dcs_ProfileRef_t profileRef, char *apnPtr, size_t apnSize);
             le_result_t GetApnTypes(taf_dcs_ProfileRef_t profileRef, taf_dcs_ApnType_t *apnTypePtr);
             le_result_t SetPdp(taf_dcs_ProfileRef_t profileRef, taf_dcs_Pdp_t pdp);
-            le_result_t SetAuth(taf_dcs_ProfileRef_t profileRef, taf_dcs_Auth_t type, const char *userName, const char *password);
+            le_result_t SetAuth(taf_dcs_ProfileRef_t profileRef, taf_dcs_Auth_t type,
+                                const char *userName, const char *password);
             taf_dcs_Pdp_t GetPdp(taf_dcs_ProfileRef_t profileRef);
-            le_result_t GetAuthentication(taf_dcs_ProfileRef_t profileRef, taf_dcs_Auth_t *typePtr, char *userNamePtr, size_t userNameSize, char *passwordPtr, size_t passwordSize);
-            bool IsListHandlerBound(le_msg_SessionRef_t sessionRef);
-            le_result_t AddListHandler(le_msg_SessionRef_t sessionRef, taf_dcs_ProfileListHandlerFunc_t handlerPtr, void *contextPtr);
+            le_result_t GetAuthentication(taf_dcs_ProfileRef_t profileRef, taf_dcs_Auth_t *typePtr,
+                                          char *userNamePtr, size_t userNameSize, char *passwordPtr,
+                                          size_t passwordSize);
             void CleanupAllProfiles(Profile_List_Event_t *listEvent);
             void CreateIndividualProfile(taf_dcs_ProfileCtx_t *info);
-            taf_dcs_ProfileCtx_t *GetProfileCtx(uint32_t index);
-            void UpdateIndividualProfile(taf_dcs_ProfileCtx_t *distPtr, taf_dcs_ProfileCtx_t *srcPtr);
+            taf_dcs_ProfileCtx_t *GetProfileCtx(uint8_t slotId, uint32_t index);
+            void UpdateIndividualProfile(taf_dcs_ProfileCtx_t *distPtr,
+                                         taf_dcs_ProfileCtx_t *srcPtr);
             le_result_t UpdateAllProfilesFromListEvent(Profile_List_Event_t *listEvent);
             void NotifyProfileListHandler(void *listEvent);
-            le_result_t SendProfileListReq();
-            le_result_t SendProfileModificationReq(int32_t profileId, telux::data::ProfileParams &params);
+            le_result_t SendProfileListReq(uint8_t slotId);
+            le_result_t SendProfileModificationReq(uint8_t slotId, int32_t profileId,
+                                                   telux::data::ProfileParams &params);
 
-            std::shared_ptr<IDataProfileManager>        ProfileMgr;
-            std::shared_ptr<taf_ProfileListCallback>    ListProfileCb;
+            std::map<SlotId, std::shared_ptr<telux::data::IDataProfileManager>>
+                                                                          dataProfileManagers;
+            std::map<SlotId, std::shared_ptr<taf_ProfileListCallback>> ListProfileCb;
             std::shared_ptr<taf_ProfileModifyCallback>  ModifyProfileCb;
-            void show();
+            void show(uint8_t slotId);
 
             taf_DataProfile() {};
             ~taf_DataProfile() {};
@@ -151,7 +158,6 @@ namespace tafsvc {
             taf_dcs_Tech_t MapTechPreference(telux::data::TechPreference techPref);
             telux::data::TechPreference MapTechPreference(taf_dcs_Tech_t techPref);
             std::promise<le_result_t> CmdSynchronousPromise;
-            uint32_t GetProfileNum();
         private:
             le_mem_PoolRef_t ListEventPool = NULL;
             le_mem_PoolRef_t ProfilePool = NULL;
@@ -161,7 +167,16 @@ namespace tafsvc {
             le_dls_List_t    ProfileCtxList;
             taf_dcs_ProfileCtxs_t ProfilesListPtr = { 0 };
             le_thread_Ref_t ProfileEventThreadRef = NULL;
-            uint32_t ProfileNum = 0;
+            std::map<SlotId, uint32_t> ProfileNum;
+
+#ifdef TARGET_SA515M
+            bool subSystemStatusUpdated;
+            std::mutex mtx;
+            std::condition_variable conVar;
+#endif
+
+            std::shared_ptr<telux::tel::IPhoneManager> PhoneMgr;
+
     };
 
 }

@@ -270,31 +270,9 @@ void profile_list_test()
 
 void default_profile_set_get_test(uint32_t TEST_PROFILE)
 {
-    // Test Case
-    le_result_t result;
-    result=taf_dcs_SetDefaultProfileIndex(TEST_PROFILE);
-    LE_TEST_OK(result == LE_OK,"taf_dcs_SetDefaultProfileIndex - LE_OK");
-    report(LE_OK,result,"taf_dcs_SetDefaultProfileIndex");
 
     // Test Case
-    uint32_t profileId;
-    profileId = taf_dcs_GetDefaultProfileIndex();
-    LE_TEST_OK(profileId == TEST_PROFILE,
-               "Checking if the Default profile index is the one we set");
-    if(profileId == TEST_PROFILE)
-    {
-        std::cout<<TC_No<<". taf_dcs_GetDefaultProfileIndex - returns default profile index - Pass"
-                 <<endl;
-    }
-    else
-    {
-        std::cout<<TC_No<<". taf_dcs_GetDefaultProfileIndex - returns data profile index - Fail"
-                 <<endl;
-    }
-    TC_No += 1;
-
-    // Test Case
-    LE_TEST_OK((TestProfileRef=taf_dcs_GetProfile(profileId))!= NULL, "taf_dcs_GetProfile - !NULL");
+    LE_TEST_OK((TestProfileRef=taf_dcs_GetProfile(TEST_PROFILE))!= NULL, "taf_dcs_GetProfile - !NULL");
     if(TestProfileRef != NULL)
     {
         std::cout<<TC_No<<". taf_dcs_GetProfile - !NULL - Pass"<<endl;
@@ -717,7 +695,7 @@ COMPONENT_INIT
 
     LE_TEST_PLAN(10);
 
-    uint32_t profile_index =1;
+    uint32_t profile_index =5;// Use profile 5 to test, because profile 1 used by xtra-daemon
 
     TestSemRef = le_sem_Create("tafDataAppSem", 0);
 

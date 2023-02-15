@@ -413,6 +413,9 @@ namespace tafsvc {
             taf_gnss_AltType_t mAltType;
             uint8_t mMinSvEle;
             std::promise<le_result_t> CmdSynchronousPromise;
+            std::promise<le_result_t> CmdSecondBandInfo;
+            std::promise<le_result_t> CmdRobustLocationInfo;
+            std::promise<le_result_t> CmdMinSVElevation;
 
         private:
             std::shared_ptr<ILocationManager> mLocationManager = nullptr;

@@ -466,6 +466,7 @@ void copy_DestinationNumber(char const *ptr)
 COMPONENT_INIT
 {
     char input_str[5];
+    char *unused __attribute__((unused));
     string number,storage_type;
     int index;
 
@@ -484,7 +485,7 @@ COMPONENT_INIT
     std::cout << "  ? - help" << endl;
     std::cout << "  0 - exit" << endl << endl;
     std::cout << "TelAF > ";
-    fgets(input_str,sizeof(input_str),stdin);
+    unused = fgets(input_str,sizeof(input_str),stdin);
 
     while(input_str[0]!='0')
     {
@@ -498,7 +499,7 @@ COMPONENT_INIT
             index = 1;
             Test_taf_sms_Send(&index);
             std::cout << endl;
-            fgets(input_str,sizeof(input_str),stdin);
+            unused = fgets(input_str,sizeof(input_str),stdin);
         }
         else if(input_str[0]=='2')
         {
@@ -510,7 +511,7 @@ COMPONENT_INIT
             index = 2;
             Test_taf_sms_Send(&index);
             std::cout << endl;
-            fgets(input_str,sizeof(input_str),stdin);
+            unused = fgets(input_str,sizeof(input_str),stdin);
         }
         else if(input_str[0]=='3')
         {
@@ -522,7 +523,7 @@ COMPONENT_INIT
             index = 3;
             Test_taf_sms_Send(&index);
             std::cout << endl;
-            fgets(input_str,sizeof(input_str),stdin);
+            unused = fgets(input_str,sizeof(input_str),stdin);
         }
         else if(input_str[0]=='4')
         {
@@ -530,7 +531,7 @@ COMPONENT_INIT
             Test_taf_sms_SetPhoneId();
             std::cout << endl;
             std::cout << "TelAF > ";
-            fgets(input_str,sizeof(input_str),stdin);
+            unused = fgets(input_str,sizeof(input_str),stdin);
         }
         else if(input_str[0]=='5')
         {
@@ -559,7 +560,7 @@ COMPONENT_INIT
             }
             std::cout << endl;
             std::cout << "TelAF > ";
-            fgets(input_str,sizeof(input_str),stdin);
+            unused = fgets(input_str,sizeof(input_str),stdin);
         }
         else if(input_str[0]=='6')
         {
@@ -583,7 +584,7 @@ COMPONENT_INIT
             {
                 std::cout <<"Invalid Input"<<endl<<endl;
             }
-            fgets(input_str,sizeof(input_str),stdin);
+            unused = fgets(input_str,sizeof(input_str),stdin);
         }
         else if(input_str[0]=='7')
         {
@@ -591,7 +592,7 @@ COMPONENT_INIT
             Test_taf_sms_get_Smsc();
             std::cout << endl;
             std::cout << "TelAF > ";
-            fgets(input_str,sizeof(input_str),stdin);
+            unused = fgets(input_str,sizeof(input_str),stdin);
         }
         else if(input_str[0]=='8')
         {
@@ -611,7 +612,7 @@ COMPONENT_INIT
             SMSCNumber[index+2]='\0';
             Test_taf_sms_set_Smsc();
             std::cout << endl;
-            fgets(input_str,sizeof(input_str),stdin);
+            unused = fgets(input_str,sizeof(input_str),stdin);
         }
         else if(input_str[0]== '0')
         {
@@ -625,7 +626,7 @@ COMPONENT_INIT
         else if(input_str[0]=='\n')
         {
             std::cout << "TelAF > ";
-            fgets(input_str,sizeof(input_str),stdin);
+            unused = fgets(input_str,sizeof(input_str),stdin);
         }
         else if(input_str[0]=='?')
         {
@@ -641,13 +642,13 @@ COMPONENT_INIT
             std::cout << "  ? - help" << endl;
             std::cout << "  0 - exit" << endl << endl;
             std::cout << "TelAF > ";
-            fgets(input_str,sizeof(input_str),stdin);
+            unused = fgets(input_str,sizeof(input_str),stdin);
         }
         else{
             std::cout << endl;
             std::cout << "  Invalid Input" << endl << endl;
             std::cout << "TelAF > ";
-            fgets(input_str,sizeof(input_str),stdin);
+            unused = fgets(input_str,sizeof(input_str),stdin);
         }
     }
     exit(0);

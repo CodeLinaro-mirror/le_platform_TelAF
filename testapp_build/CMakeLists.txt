@@ -27,3 +27,35 @@ foreach( unittestfile  ${UNITTEST_ADEF_FILES} )
     message(STATUS "adef file: ${unittestfile}")
     mkapp( ${unittestfile} -i ${Interfaces})
 endforeach()
+
+# Build console test apps
+set(APP_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build/TestApps/Console_testapp)
+set(TESTAPP_PATH  $ENV{TELAF_ROOT}/apps/ConsoleApp)
+file(GLOB_RECURSE CONSOLEAPP_ADEF_FILES ${TESTAPP_PATH}/*.adef)
+foreach( consoleappfile  ${CONSOLEAPP_ADEF_FILES} )
+    message(STATUS "adef file: ${consoleappfile}")
+    mkapp( ${consoleappfile} -i ${Interfaces})
+endforeach()
+
+# Build sample test apps
+set(APP_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build/TestApps/Console_testapp)
+set(TESTAPP_PATH  $ENV{TELAF_ROOT}/apps/sample)
+file(GLOB_RECURSE CONSOLEAPP_ADEF_FILES ${TESTAPP_PATH}/*.adef)
+foreach( consoleappfile  ${CONSOLEAPP_ADEF_FILES} )
+    if((${consoleappfile} MATCHES "tafRSPApp.adef$") OR
+       (${consoleappfile} MATCHES "tafRSimApp.adef$") OR
+       (${consoleappfile} MATCHES "tafSAPProviderApp.adef$") OR
+       (${consoleappfile} MATCHES "tafECallApp.adef$"))
+           message(STATUS "adef file: ${consoleappfile}")
+           mkapp( ${consoleappfile} -i ${Interfaces})
+    endif()
+endforeach()
+
+# Build legato sample apps
+set(APP_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build/TestApps/Console_testapp)
+set(TESTAPP_PATH  $ENV{LEGATO_ROOT}/apps/sample)
+file(GLOB_RECURSE CONSOLEAPP_ADEF_FILES ${TESTAPP_PATH}/voiceCallApp.adef)
+foreach( consoleappfile  ${CONSOLEAPP_ADEF_FILES} )
+    message(STATUS "adef file: ${consoleappfile}")
+    mkapp( ${consoleappfile} -i ${Interfaces})
+endforeach()

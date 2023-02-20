@@ -3544,9 +3544,19 @@ le_result_t taf_Gnss::ConfigureEngineState
                 telux::common::Status status = mLocationConfigurator->configureEngineState(
                         engineType,engineState,std::bind(&LocationCommandCallback::commandResponse,
                         mLocCmdResponseCb, std::placeholders::_1));
-                if (status == telux::common::Status::FAILED) {
+                if (status != telux::common::Status::SUCCESS)
+                {
+                    return LE_FAULT;
+                }
+                CmdSynchronousPromise = std::promise<le_result_t>();
+                std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
+                if(futResult.get() == LE_OK)
+                {
+                    LE_INFO("ConfigureEngineState succeed.");
+                }
+                else
+                {
                     LE_INFO("ConfigureEngineState failed");
-                    GnssState = TAF_GNSS_STATE_READY;
                     result = LE_FAULT;
                 }
             }

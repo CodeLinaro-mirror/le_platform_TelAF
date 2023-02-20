@@ -1843,7 +1843,7 @@ static void TestTafGnssEngines
     LE_TEST_INFO("taf_gnss_ConfigureEngineState API is triggered to configure SUSPEND state for"
         "DRE engine type");
     result = taf_gnss_ConfigureEngineState(engineType,engineState);
-    LE_TEST_OK(result==LE_OK,"taf_gnss_ConfigureEngineState-LE_OK");
+    LE_TEST_OK(result==LE_FAULT,"taf_gnss_ConfigureEngineState-Not Supported");
 
     //102.taf_gnss_ConfigureEngineState- DRE/RESUME
     engineType = 3;
@@ -1851,7 +1851,7 @@ static void TestTafGnssEngines
     LE_TEST_INFO("taf_gnss_ConfigureEngineState API is triggered to configure RESUME state for"
         "DRE engine type");
     result = taf_gnss_ConfigureEngineState(engineType,engineState);
-    LE_TEST_OK(result==LE_OK,"taf_gnss_ConfigureEngineState-LE_OK");
+    LE_TEST_OK(result==LE_FAULT,"taf_gnss_ConfigureEngineState-Not Supported");
 
     //103.taf_gnss_ConfigureEngineState- VPE/SUSPEND
     engineType = 4;
@@ -1876,9 +1876,16 @@ static void TestTafGnssEngines
     result = taf_gnss_ConfigureEngineState(engineType,engineState);
     LE_TEST_OK(result==LE_FAULT,"taf_gnss_ConfigureEngineState-LE_FAULT");
 
-    //106.taf_gnss_ConfigureEngineState- Failure-Invalid Engine State
+    //106.taf_gnss_ConfigureEngineState- Failure-Invalid Engine type
     engineType = 4;
     engineState = 3;
+    LE_TEST_INFO("taf_gnss_ConfigureEngineState API is triggered to check for failure scenario");
+    result = taf_gnss_ConfigureEngineState(engineType,engineState);
+    LE_TEST_OK(result==LE_FAULT,"taf_gnss_ConfigureEngineState-LE_FAULT");
+
+    //taf_gnss_ConfigureEngineState- Failure-Invalid Engine State
+    engineType = 3;
+    engineState = 0;
     LE_TEST_INFO("taf_gnss_ConfigureEngineState API is triggered to check for failure scenario");
     result = taf_gnss_ConfigureEngineState(engineType,engineState);
     LE_TEST_OK(result==LE_FAULT,"taf_gnss_ConfigureEngineState-LE_FAULT");
@@ -1896,7 +1903,7 @@ static void TestTafGnssEngines
     LE_TEST_INFO("taf_gnss_ConfigureEngineState API is triggered to configure SUSPEND state for"
         "DRE engine type");
     result = taf_gnss_ConfigureEngineState(engineType,engineState);
-    LE_TEST_OK(result==LE_OK,"taf_gnss_ConfigureEngineState-LE_OK");
+    LE_TEST_OK(result==LE_FAULT,"taf_gnss_ConfigureEngineState-Not Supported");
 
     //109.taf_gnss_ConfigureEngineState- DRE/RESUME
     engineType = 3;
@@ -1904,7 +1911,7 @@ static void TestTafGnssEngines
     LE_TEST_INFO("taf_gnss_ConfigureEngineState API is triggered to configure RESUME state for"
         "DRE engine type");
     result = taf_gnss_ConfigureEngineState(engineType,engineState);
-    LE_TEST_OK(result==LE_OK,"taf_gnss_ConfigureEngineState-LE_OK");
+    LE_TEST_OK(result==LE_FAULT,"taf_gnss_ConfigureEngineState-Not Supported");
 
     //110.Disable GNSS
     LE_TEST_INFO("taf_gnss_Disable() API is called to disable GNSS engine");

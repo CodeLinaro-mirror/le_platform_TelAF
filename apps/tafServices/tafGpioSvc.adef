@@ -1,4 +1,12 @@
 maxThreads: 300
+
+capability:
+{
+        CAP_WAKE_ALARM
+        CAP_SYS_MODULE
+        CAP_BLOCK_SUSPEND
+}
+
 groups:
 {
         system

@@ -1,5 +1,11 @@
 sandboxed: false
 
+capability:
+{
+        CAP_WAKE_ALARM
+        CAP_BLOCK_SUSPEND
+}
+
 executables:
 {
     tafCanSvc = ( $TELAF_ROOT/components/tafVNW/tafCanSvc )

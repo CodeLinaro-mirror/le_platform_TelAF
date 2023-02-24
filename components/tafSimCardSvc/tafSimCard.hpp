@@ -262,6 +262,7 @@ namespace telux {
                 le_result_t GetNextFPLMNOperator(taf_sim_FPLMNListRef_t FPLMNListRef, char* mccPtr, size_t mccLen, char* mncPtr, size_t mncLen);
                 void DeleteFPLMNList(taf_sim_FPLMNListRef_t FPLMNListRef);
                 le_result_t WriteFPLMNList(taf_sim_Id_t simId, taf_sim_FPLMNListRef_t FPLMNListRef);
+                le_result_t getSlotCount(int *count);
         };
     }
 }

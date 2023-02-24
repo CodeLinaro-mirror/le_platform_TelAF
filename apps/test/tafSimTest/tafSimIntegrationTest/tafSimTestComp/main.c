@@ -36,6 +36,7 @@ static void DisplayAppUsage(void) {
     printf("Test SIM state: app runProc tafSimTest --exe=tafSimTest -- state <slot1/slot2/unknown>\n");
     printf("Test SIM state change: app runProc tafSimTest --exe=tafSimTest -- events\n");
     printf("SIM information test: app runProc tafSimTest --exe=tafSimTest -- info <slot1/slot2/unknown>\n");
+    printf("SIM informations test: app runProc tafSimTest --exe=tafSimTest -- infoAll <slot1/slot2/unknown>\n");
     printf("SIM selection test: app runProc tafSimTest --exe=tafSimTest -- select <slot1/slot2/unknown>\n");
     printf("SIM authentication test: app runProc tafSimTest --exe=tafSimTest -- enterPin <slot1/slot2/unknown> <pin1/pin2> pin\n");
     printf("SIM change pin  test: app runProc tafSimTest --exe=tafSimTest -- changePin <slot1/slot2/unknown> <pin1/pin2> old_pin new_pin\n");
@@ -152,9 +153,11 @@ static void TestAuthenticationResponse
 
 COMPONENT_INIT
 {
-    taf_sim_Id_t simId = 0;
+    taf_sim_Id_t simId = taf_sim_GetSelectedCard();
     bool exitApplication = true;
     const char* testType = "";
+
+    taf_sim_Id_t simIdOrig = simId;
 
     LE_INFO("Start tafSimIntTest app.");
     int NumberOfArgs = le_arg_NumArgs();
@@ -185,7 +188,14 @@ COMPONENT_INIT
     }
 
     if (strcmp(testType, "state") == 0) {
-        tafSimTest_state(simId);
+        if (NumberOfArgs > 1)
+        {
+            tafSimTest_state(simId);
+        }
+        else
+        {
+            tafSimTest_allState();
+        }
     } else if (strcmp(testType, "events") == 0) {
         IccidChangeHandlerRef = taf_sim_AddIccidChangeHandler(TestIccidChangeHandler, NULL);
         LE_ASSERT(IccidChangeHandlerRef!=NULL);
@@ -196,7 +206,18 @@ COMPONENT_INIT
     // Test: sim identification info
     else if (strcmp(testType, "info") == 0)
     {
-        tafSimTest_info(simId);
+        if (NumberOfArgs > 1)
+        {
+            tafSimTest_info(simId);
+        }
+        else
+        {
+            tafSimTest_allInfo();
+        }
+    }
+    else if (strcmp(testType, "infoAll") == 0)
+    {
+        tafSimTest_allInfo();
     }
     else if (strcmp(testType, "select") == 0)
     {
@@ -404,6 +425,10 @@ COMPONENT_INIT
 
     if (exitApplication)
     {
+        if (simIdOrig != simId && strcmp(testType, "select") != 0) {
+            LE_INFO("Default card before test: %d", (int) simIdOrig);
+            taf_sim_SelectCard(simIdOrig);
+        }
         LE_INFO("Exit tafSimIntTest App");
         exit(EXIT_SUCCESS);
     }

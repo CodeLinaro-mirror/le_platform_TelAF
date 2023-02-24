@@ -34,7 +34,9 @@ taf_sim_FPLMNListRef_t FplmnListRef;
 
 char* SimStateToString ( taf_sim_States_t state);
 void tafSimTest_state( taf_sim_Id_t slot );
+void tafSimTest_allState();
 void tafSimTest_info( taf_sim_Id_t slot );
+void tafSimTest_allInfo();
 void tafSimTest_selection( taf_sim_Id_t slot);
 void tafSimTest_enterPin( taf_sim_Id_t simId, taf_sim_LockType_t lockType,
         const char*  pinPtr);

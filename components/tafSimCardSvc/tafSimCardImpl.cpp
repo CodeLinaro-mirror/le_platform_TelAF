@@ -1808,3 +1808,27 @@ le_result_t taf_sim::WriteFPLMNList
 
     return LE_OK;
 }
+
+le_result_t taf_sim::getSlotCount(int *count) {
+    bool isReady = multiSimMgr->isSubsystemReady();
+    LE_INFO("getSlotCount: is multi SIM subSystem ready: %d", isReady);
+    if (count == NULL) {
+        LE_ERROR("GetSlotCount failed! as count is NULL");
+        return LE_FAULT;
+    }
+    *count = 1; //Single SIM by default
+    if (isReady) {
+        int slotCount;
+        if (telux::common::Status::SUCCESS == multiSimMgr->getSlotCount(slotCount)) {
+            *count = slotCount;
+            LE_INFO("getSlotCount: success, Slot Count: %d", slotCount);
+            return LE_OK;
+        } else {
+            LE_ERROR("GetSlotCount failed!!!");
+            return LE_FAULT;
+        }
+    }
+
+    LE_ERROR("GetSlotCount failed because multi sim sub system is not ready");
+    return LE_FAULT;
+}

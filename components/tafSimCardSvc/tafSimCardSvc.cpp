@@ -263,8 +263,8 @@ void taf_sim_RemoveAuthenticationResponseHandler(
 le_result_t  taf_sim_GetEID( taf_sim_Id_t slotId, char* eidPtr, size_t eidLen) {
     TAF_ERROR_IF_RET_VAL(eidPtr == NULL, LE_BAD_PARAMETER, "eidPtr is NULL");
     TAF_ERROR_IF_RET_VAL(eidLen < TAF_SIM_EID_BYTES, LE_OVERFLOW, "Incorrect buffer size");
-    auto &sim = taf_sim::GetInstance();
-    return sim.GetEID(slotId, eidPtr, eidLen);
+    auto &rsp = taf_rsp::GetInstance();
+    return rsp.GetEID(slotId, eidPtr, eidLen);
 }
 
 le_result_t taf_sim_SetAutomaticSelection( bool enable) {
@@ -495,4 +495,14 @@ le_result_t taf_sim_WriteFPLMNList
 {
     auto &sim=taf_sim::GetInstance();
     return sim.WriteFPLMNList(simId, FPLMNListRef);
+}
+
+le_result_t taf_sim_GetSlotCount(int *count) {
+    auto &sim = taf_sim::GetInstance();
+    // Retrieve slot count
+    if (sim.getSlotCount(count) != LE_OK) {
+        LE_ERROR("Unable to retrieve slot count");
+        return LE_FAULT;
+    }
+    return LE_OK;
 }

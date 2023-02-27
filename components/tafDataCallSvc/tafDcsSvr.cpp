@@ -297,7 +297,7 @@ le_result_t taf_dcs_GetAuthentication
  * Start to make a synchronous call corresponding to specified profile reference.
  *
  * If this profile is not brought up so far, the call context will be created corresponding to specified profile index.
- * This is an asynchronous function call, the state events will be reported by session state handler.
+ * This is a synchronous function call.
  *
  * @param [in] profileRef               The profile reference to be started.
  *
@@ -314,14 +314,14 @@ le_result_t taf_dcs_StartSession(taf_dcs_ProfileRef_t profileRef)
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
 
     taf_dcs_Pdp_t pdpType = dataProfile.GetPdp(profileRef);
-    return dataConnection.StartSessionAllSync(profileId, pdpType, taf_dcs_GetClientSessionRef());
+    return dataConnection.StartSessionCmdSync(profileId, pdpType, taf_dcs_GetClientSessionRef());
 }
 
 /**
  * Start to make a asynchronous call corresponding to specified profile reference.
  *
  * If this profile is not brought up so far, the call context will be created corresponding to specified profile index.
- * This is an asynchronous function call, the state events will be reported by session state handler.
+ * This is an asynchronous function call, the handlerPtr will be called after getting the result.
  *
  * @param [in] profileRef               The profile reference to be started.
  *
@@ -334,35 +334,17 @@ void taf_dcs_StartSessionAsync
     void* contextPtr
 )
 {
-#if 0
     auto &dataConnection = taf_DataConnection::GetInstance();
-    auto &dataProfile = taf_DataProfile::GetInstance();
-    taf_ConnectionCmdReq_t cmdReq;
 
-    TAF_ERROR_IF_RET_NIL(handlerPtr == NULL, "Handler function is NULL");
-
-    int32_t profileId;
-    le_result_t result = dataProfile.GetProfileId(profileRef, &profileId);
-    TAF_ERROR_IF_RET_NIL(result != LE_OK, "profile reference(%p) is invalid", profileRef);
-
-    cmdReq.cmdType = ASYNC_START_SESSION;
-    cmdReq.profileRef = profileRef;
-    cmdReq.sessionRef = taf_dcs_GetClientSessionRef();
-    cmdReq.contextPtr = contextPtr;
-    cmdReq.handlerFuncPtr = handlerPtr;
-
-   dataConnection.AddHandlerSessionMapping(cmdReq.sessionRef, handlerPtr);
-
-    // Sending start data session command
-    le_event_Report(taf_DataConnection::connectionAsyncCmdEvId, &cmdReq, sizeof(cmdReq));
-#endif
+    return dataConnection.StartSessionCmdAsync(profileRef, handlerPtr, contextPtr,
+                                               taf_dcs_GetClientSessionRef());
 }
 
 /**
  * Synchronouly stop a call corresponding to specified profile reference.
  *
  * If this profile is not brought up so far, the call context will be created corresponding to specified profile index.
- * This is an asynchronous function call, the state events will be reported by session state handler.
+ * This is a synchronous function call, the state events will be reported by session state handler.
  *
  * @param [in] profileRef               The profile reference to be stopped.
  *
@@ -379,14 +361,14 @@ le_result_t taf_dcs_StopSession(taf_dcs_ProfileRef_t profileRef)
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
 
     taf_dcs_Pdp_t pdpType = dataProfile.GetPdp(profileRef);
-    return dataConnection.StopSessionAllSync(profileId, pdpType, taf_dcs_GetClientSessionRef());
+    return dataConnection.StopSessionCmdSync(profileId, pdpType, taf_dcs_GetClientSessionRef());
 }
 
 /**
  * Asynchronouly stop a call corresponding to specified profile reference.
  *
  * If this profile is not brought up so far, the call context will be created corresponding to specified profile index.
- * This is an asynchronous function call, the state events will be reported by session state handler.
+ * This is an asynchronous function call, the handlerPtr will be called after getting the result.
  *
  * @param [in] profileRef               The profile reference to be stopped.
  *
@@ -399,28 +381,10 @@ void taf_dcs_StopSessionAsync
     void* contextPtr
 )
 {
-#if 0
     auto &dataConnection = taf_DataConnection::GetInstance();
-    auto &dataProfile = taf_DataProfile::GetInstance();
-    taf_ConnectionCmdReq_t cmdReq;
 
-    TAF_ERROR_IF_RET_NIL(handlerPtr == NULL, "Handler function is NULL");
-
-    int32_t profileId;
-    le_result_t result = dataProfile.GetProfileId(profileRef, &profileId);
-    TAF_ERROR_IF_RET_NIL(result != LE_OK, "profile reference(%p) is invalid", profileRef);
-
-    cmdReq.cmdType = ASYNC_STOP_SESSION;
-    cmdReq.profileRef = profileRef;
-    cmdReq.sessionRef = taf_dcs_GetClientSessionRef();
-    cmdReq.contextPtr = contextPtr;
-    cmdReq.handlerFuncPtr = handlerPtr;
-
-    dataConnection.AddHandlerSessionMapping(cmdReq.sessionRef, handlerPtr);
-
-    // Sending stop data session command
-    le_event_Report(taf_DataConnection::connectionAsyncCmdEvId, &cmdReq, sizeof(cmdReq));
-#endif
+    return dataConnection.StopSessionCmdAsync(profileRef, handlerPtr, contextPtr,
+                                              taf_dcs_GetClientSessionRef());
 }
 
 /**
@@ -1055,7 +1019,7 @@ le_result_t taf_mdc_StartSession(taf_dcs_ProfileRef_t profileRef)
     taf_dcs_Pdp_t pdpType = dataProfile.GetPdp(profileRef);
     // Start a data call with a fixed value 0 for sessionRef, and when the client loses the
     // connection with data call service,the data call will not be stopped
-    return dataConnection.StartSessionAllSync(profileId, pdpType, 0);
+    return dataConnection.StartSessionCmdSync(profileId, pdpType, 0);
 
 }
 
@@ -1084,14 +1048,8 @@ le_result_t taf_mdc_StartSessionAsync(taf_dcs_ProfileRef_t profileRef)
     taf_dcs_Pdp_t pdpType = dataProfile.GetPdp(profileRef);
     // Start a data call with a fixed value 0 for sessionRef, and when the client loses the
     // connection with data call service,the data call will not be stopped
-    result = dataConnection.StartSessionCmdSync(profileId, pdpType, 0);
-    if (result == LE_DUPLICATE)
-    {
-        LE_INFO("Duplicate data call on the same profile");
-        return LE_OK;
-    }
-    else
-        return result;
+    return dataConnection.StartSessionCmdSync(profileId, pdpType, 0);
+
 }
 
 /**
@@ -1119,7 +1077,7 @@ le_result_t taf_mdc_StopSession(taf_dcs_ProfileRef_t profileRef)
     taf_dcs_Pdp_t pdpType = dataProfile.GetPdp(profileRef);
     // When the application calls taf_mdc_StartSession() to start a data call, this function
     // can stop that data call
-    return dataConnection.StopSessionAllSync(profileId, pdpType, 0);
+    return dataConnection.StopSessionCmdSync(profileId, pdpType, 0);
 }
 
 /**
@@ -1147,14 +1105,8 @@ le_result_t taf_mdc_StopSessionAsync(taf_dcs_ProfileRef_t profileRef)
     taf_dcs_Pdp_t pdpType = dataProfile.GetPdp(profileRef);
     // When the application calls taf_mdc_StartSessionAsync() to start a data call, this function
     // can stop that data call
-    result = dataConnection.StopSessionCmdSync(profileId, pdpType, 0);
-    if (result == LE_DUPLICATE)
-    {
-        LE_INFO("profile is in use");
-        return LE_OK;
-    }
-    else
-        return result;
+    return dataConnection.StopSessionCmdSync(profileId, pdpType, 0);
+
 }
 
 COMPONENT_INIT

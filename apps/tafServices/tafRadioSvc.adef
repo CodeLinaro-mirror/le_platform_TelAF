@@ -30,6 +30,7 @@ processes:
 
 bindings:
 {
+    tafRadioSvc.tafRadioSvc.taf_pm -> tafPMSvc.taf_pm
 }
 
 extern:

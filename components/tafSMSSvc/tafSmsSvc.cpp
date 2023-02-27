@@ -1888,7 +1888,7 @@ static void taf_pa_sms_storageFullInd
  * Get messaga content from new message indication
  */
 //--------------------------------------------------------------------------------------------------
-
+#ifdef SUPPORT_CHANGE_ROUTE
 static void taf_pa_sms_getNewRxMsgInd
 (
    taf_pa_sms_RxMsgInd_t* pduMsgRef,
@@ -1928,7 +1928,7 @@ static void taf_pa_sms_getNewRxMsgInd
       }
    }
 }
-
+#endif
 /*======================================================================
 
 FUNCTION       taf_sms_SetPreferredStorage
@@ -1940,6 +1940,10 @@ DEPENDENCIES   Initialization of SMS service
 PARAMETERS     [IN] taf_sms_Storage_t: preferred storage place
 
 RETURN VALUE   le_result_t
+                  LE_FAULT: Internal error
+                  LE_TIMEOUT: Timeout occurred
+                  LE_UNSUPPORTED: Input storage is not suppported
+                  LE_OK: Succeeded
 
 SIDE EFFECTS
 
@@ -1950,13 +1954,9 @@ le_result_t taf_sms_SetPreferredStorage
    taf_sms_Storage_t prefStorage
 )
 {
-   if(prefStorage == TAF_SMS_STORAGE_NV)
-   {
-      LE_INFO("NV storage is not supported");
-      return LE_UNSUPPORTED;
-   }
+   auto &mySms = taf_Sms::GetInstance();
 
-   le_result_t res = taf_pa_sms_SetPrefStorage(prefStorage);
+   le_result_t res = mySms.SetPreferredStorage(prefStorage);
 
    return res;
 }
@@ -1972,6 +1972,9 @@ DEPENDENCIES   Initialization of SMS service
 PARAMETERS     [OUT] taf_sms_Storage_t: present preferred storage place
 
 RETURN VALUE   le_result_t
+                  LE_FAULT: Internal error
+                  LE_TIMEOUT: Timeout occurred
+                  LE_OK: Succeeded
 
 SIDE EFFECTS
 
@@ -1982,7 +1985,11 @@ le_result_t taf_sms_GetPreferredStorage
    taf_sms_Storage_t* prefStorage
 )
 {
-   le_result_t res = taf_pa_sms_GetPrefStorage(prefStorage);
+   auto &mySms = taf_Sms::GetInstance();
+
+   le_result_t res = mySms.GetPreferredStorage(prefStorage);
+
+   *prefStorage = mySms.sysPrefStorage;
 
    return res;
 }
@@ -2125,14 +2132,8 @@ COMPONENT_INIT
    // install the handler
    taf_Handler myHandler;
 
-   taf_pa_sms_SetRxMsgInd(true);
-   mySms.qmiRxMsgHandler = taf_pa_sms_AddNewMsgHandler((taf_pa_sms_RxMsgHandlerFunc_t)&taf_pa_sms_getNewRxMsgInd, NULL);
-
    mySms.StorageEvent = le_event_CreateId("StorageEventId", sizeof(taf_sms_StorageFullType_t));
    taf_pa_sms_AddStorageHandler((taf_pa_sms_StorageHandlerFunc_t)&taf_pa_sms_storageFullInd, NULL);
-
-   // defualt set HLOS as preferred storage
-   taf_sms_SetPreferredStorage(TAF_SMS_STORAGE_HLOS);
 
    LE_INFO("tafSms service Ready...\n");
 }

@@ -302,6 +302,7 @@ DEFINE  PDU_BYTES   = (36+PDU_PAYLOAD);
 //--------------------------------------------------------------------------------------------------
 ENUM Storage
 {
+    STORAGE_NONE,    ///< NONE storage (notify only).
     STORAGE_NV,      ///< NV storage (not supported).
     STORAGE_SIM,     ///< SIM storage.
     STORAGE_HLOS,    ///< HLOS storage.
@@ -316,26 +317,15 @@ ENUM Storage
  * sent to client with storage full indications.
  *
  * When preferred storage is set as HLOS:
- * - FULL_HLOS_ALERT -- HLOS storage reached the alert threshold (currently 80%) of usage.
- * - FULL_HLOS -- HLOS storage reached 100% usage, there is no free slot.
- * - FULL_HLOS_STORE_TO_SIM -- Delivered message is stored to SIM.
- * - FULL_BOTH_HLOS_AND_SIM -- Both HLOS and SIM storage has run out.
+ * - FULL_STORAGE_HLOS_ALERT -- HLOS storage reached the alert threshold (currently 80%) of usage.
+ * - FULL_STORAGE_HLOS -- HLOS storage reached 100% usage, there is no free slot.
  *
  * When preferred storage is set as NV (not supported):
- * - FULL_NV -- Currently not supported.
+ * - FULL_STORAGE_NV -- Currently not supported.
  *
  * When preferred storage is set as SIM:
- * - FULL_SIM -- SIM storage is full.
- *
- * To notify a client app with differet storage status, the following notifications will
- * be sent to client with storage full indications.
- * - FULL_STORAGE_HLOS_ALERT -- HLOS storage reached above 80% usage.
- * - FULL_STORAGE_HLOS -- HLOS storage is full, system runs out of all slots.
- * - FULL_STORAGE_HLOS_STORE_TO_SIM -- Delivered message is stored to SIM.
- * - FULL_STORAGE_BOTH_HLOS_AND_SIM -- Both HLOS and SIM storage has run out.
- * - FULL_STORAGE_NV -- Currently not supported.
- * - FULL_STORAGE_SIM -- SIM storage is full (when the preferred storage is set as SIM).
-*/
+ * - FULL_STORAGE_SIM -- SIM storage is full.
+ */
 //--------------------------------------------------------------------------------------------------
 ENUM StorageFullType
 {
@@ -975,6 +965,8 @@ FUNCTION le_result_t SetSmsCenterAddress
  *
  * @return
  * - LE_FAULT -- Failed.
+ * - LE_TIMEOUT -- Timeout occurred.
+ * - LE_UNSUPPORTED -- Input storage is not suppported.
  * - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
@@ -989,6 +981,7 @@ FUNCTION le_result_t SetPreferredStorage
  *
  * @return
  * - LE_FAULT -- Failed.
+ * - LE_TIMEOUT -- Timeout occurred.
  * - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------

@@ -103,23 +103,50 @@ void taf_Handler::Init()
 
 void taf_Handler::ProcessNewMessage(void* incomingMsgPtr)
 {
-   LE_INFO("ProcessNewMessage\n");
-   auto &sms = taf_Sms::GetInstance();
+   LE_INFO("ProcessNewMessage");
 
    newSms_t *newMsgPtr = (newSms_t*) incomingMsgPtr;
-   taf_sms_Msg_t *tafNewMsg = (taf_sms_Msg_t*)le_mem_ForceAlloc(sms.MsgPool);
 
-   le_utf8_Copy(tafNewMsg->tel, newMsgPtr->tel, TAF_TYPES_REMOTE_PARTY_NUM_MAX_BYTES, NULL);
-   le_utf8_Copy(tafNewMsg->text, newMsgPtr->text, TAF_SMS_TEXT_BYTES, NULL);
+   auto &sms = taf_Sms::GetInstance();
 
-   size_t length = strnlen(tafNewMsg->text, TAF_SMS_TEXT_BYTES);
-
-   if(length > (TAF_SMS_TEXT_BYTES-1))
+   if(sms.sysPrefStorage == TAF_SMS_STORAGE_HLOS)
    {
-      length = TAF_SMS_TEXT_BYTES - 1;
+      taf_pa_sms_Pdu_t pduMsg = {0};
+
+      pduMsg.storage = TAF_SMS_STORAGE_NONE;
+
+      le_hex_StringToBinary(newMsgPtr->pdu, strlen(newMsgPtr->pdu), pduMsg.data, sizeof(pduMsg.data));
+
+      pduMsg.length = strlen(newMsgPtr->pdu) / 2;
+      LE_INFO("pduMsg.length = %d", pduMsg.length);
+
+      TAF_ERROR_IF_RET_NIL(pduMsg.length > sizeof(pduMsg.data), "Invalid msg length(%d)", pduMsg.length);
+
+      taf_pa_sms_StoreNewMsgToHLOS(&pduMsg);
    }
 
-   tafNewMsg->userdataLen = length;
+   taf_sms_Msg_t *tafNewMsg = (taf_sms_Msg_t*)le_mem_ForceAlloc(sms.MsgPool);
+   memset(tafNewMsg, 0, sizeof(taf_sms_Msg_t));
+
+   sms_PduMsg_t decodedPduMsg = {0};
+   uint8_t pdu[TAF_SMS_PDU_BYTES] = {0};
+
+   le_hex_StringToBinary(newMsgPtr->pdu, strlen(newMsgPtr->pdu), pdu, sizeof(pdu));
+
+   if(smsPdu_Decode(SMS_PROTOCOL_GSM, pdu, &decodedPduMsg) != LE_OK)
+   {
+      LE_INFO("smsPdu_Decode fail");
+      le_mem_Release(tafNewMsg);
+      return;
+   }
+
+   if(sms.constructSmsDeliver(tafNewMsg, &decodedPduMsg) != LE_OK)
+   {
+      LE_INFO("constructSmsDeliver fail");
+      le_mem_Release(tafNewMsg);
+      return;
+   }
+
    tafNewMsg->readStatus = TAF_SMS_RXSTS_UNREAD;
    tafNewMsg->lockStatus = TAF_SMS_LKSTS_UNLOCKED;
    tafNewMsg->type = TAF_SMS_TYPE_RX;
@@ -545,7 +572,6 @@ taf_sms_Msg_t* taf_Sms::CreateRxMsgNode
 le_result_t taf_Sms::constructSmsDeliver
 (
    taf_sms_Msg_t*       msgPtr,
-   taf_pa_sms_Pdu_t*    pduMsgPtr,
    sms_PduMsg_t*        decodedMsgPtr
 )
 {
@@ -615,7 +641,7 @@ taf_sms_Msg_t* taf_Sms::CreateAndConstructMsg
    switch (decodedMsgPtr->type)
    {
       case SMS_TYPE_DELIVER:
-         if (constructSmsDeliver(newMsgPtr, pduMsgPtr, decodedMsgPtr) != LE_OK)
+         if (constructSmsDeliver(newMsgPtr, decodedMsgPtr) != LE_OK)
          {
             LE_INFO("constructSmsDeliver failed");
             le_mem_Release(newMsgPtr);
@@ -925,10 +951,10 @@ void taf_Sms::Init(void)
    mySmsListener = std::make_shared<tafSmsListener>();
 
    for(auto index = 1; index <= noOfSlots; index++) {
-     std::promise<telux::common::ServiceStatus> prom;
-     smsMgr = phoneFactory.getSmsManager(index, [&](telux::common::ServiceStatus status) {
-        prom.set_value(status);
-     });
+      std::promise<telux::common::ServiceStatus> prom;
+      auto smsMgr = phoneFactory.getSmsManager(index, [&](telux::common::ServiceStatus status) {
+         prom.set_value(status);
+      });
 
       if (!smsMgr) {
          LE_ERROR("Failed to get SMS Manager instance ");
@@ -937,9 +963,17 @@ void taf_Sms::Init(void)
       telux::common::ServiceStatus smsMgrStatus = prom.get_future().get();
       if (smsMgrStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
       {
-         smsManagers.emplace_back(smsMgr);
+         auto status = smsMgr->registerListener(mySmsListener);
+         {
+            if(status != telux::common::Status::SUCCESS)
+            {
+               LE_ERROR("Unable to register Listener");
+            }
+            smsManagers.emplace_back(smsMgr);
+         }
       }
-      else {
+      else
+      {
          LE_ERROR("Unable to initialize SMS Manager");
       }
 
@@ -964,6 +998,17 @@ void taf_Sms::Init(void)
       }
    }
 
+   // Initialize preferred storage from persistent config
+   taf_sms_Storage_t prefStorage = GetConfig_PreferredStorage();
+   if(prefStorage != TAF_SMS_STORAGE_UNKNOWN)
+   {
+      SetPreferredStorage(prefStorage);
+   }
+   else
+   {
+      SetPreferredStorage(TAF_SMS_STORAGE_HLOS);
+   }
+
    smsSentCb = std::make_shared<tafSmsCallback>();
    getSmscCb = std::make_shared<tafSmscAddressCallback>();
 
@@ -983,12 +1028,16 @@ void tafSmsListener::onIncomingSms(int phoneId, std::shared_ptr<SmsMessage> smsM
 
    auto &sms = taf_Sms::GetInstance();
 
-   LE_INFO("Received SMS from phone ID %d from: %s\n", phoneId, smsMsg->getSender().c_str());
-   LE_INFO("message: %s\n", smsMsg->toString().c_str());
+   LE_INFO("Received SMS from phone ID %d from: %s", phoneId, smsMsg->getSender().c_str());
+   LE_INFO("message: %s", smsMsg->getText().c_str());
+
+   LE_INFO("sysPrefStorage: %d", sms.sysPrefStorage);
 
    newSms_t newMsg = {0};
-   le_utf8_Copy(newMsg.tel, smsMsg->getSender().c_str(), TAF_TYPES_REMOTE_PARTY_NUM_MAX_BYTES, NULL);
-   le_utf8_Copy(newMsg.text, smsMsg->getText().c_str(), TAF_SMS_TEXT_BYTES, NULL);
+
+   le_utf8_Copy(newMsg.pdu, smsMsg->getPdu().c_str(), (TAF_SMS_PDU_BYTES * 2) + 1, NULL);
+
+   LE_INFO("PDU: %s", smsMsg->getPdu().c_str());
 
    le_event_Report(sms.NewMsgEvent, &newMsg, sizeof(newSms_t));
 }
@@ -1071,6 +1120,55 @@ void tafSetSmsCBResponseCallback::setSmsCBResponse(telux::common::ErrorCode erro
    }
 }
 
+// Implementation of get preferred storage callback
+void tafSetSmsStorageCallback::getPreferredStorageResponse(telux::tel::StorageType type,
+   telux::common::ErrorCode errorCode)
+{
+    auto &sms = taf_Sms::GetInstance();
+
+    if(errorCode == telux::common::ErrorCode::SUCCESS)
+    {
+        LE_INFO("Request for get preferred storage sent successfully");
+
+        switch(type)
+        {
+            case telux::tel::StorageType::NONE:
+                sms.sysPrefStorage = TAF_SMS_STORAGE_NONE;
+                break;
+            case telux::tel::StorageType::SIM:
+                sms.sysPrefStorage = TAF_SMS_STORAGE_SIM;
+                break;
+            default:
+                sms.sysPrefStorage = TAF_SMS_STORAGE_UNKNOWN;
+                break;
+        }
+        sms.PreferredStorageSyncPromise.set_value(LE_OK);
+    }
+    else
+    {
+        LE_INFO("Request for get preferred storage failed with errorCode: %d", static_cast<int>(errorCode));
+        sms.PreferredStorageSyncPromise.set_value(LE_FAULT);
+    }
+}
+
+// Implementation of set preferred storage callback
+void tafSetSmsStorageCallback::setPreferredStorageResponse(telux::
+   common::ErrorCode errorCode)
+{
+    auto &sms = taf_Sms::GetInstance();
+
+    if(errorCode == telux::common::ErrorCode::SUCCESS)
+    {
+        LE_INFO("Request for set preferred storage sent successfully");
+        sms.PreferredStorageSyncPromise.set_value(LE_OK);
+    }
+    else
+    {
+        LE_INFO("Request for set preferred storage failed with errorCode: %d", static_cast<int>(errorCode));
+        sms.PreferredStorageSyncPromise.set_value(LE_FAULT);
+    }
+}
+
 le_result_t taf_Sms::ActivateCellBroadcast(int8_t phoneId, bool activate)
 {
    // initialize the synchronous promise
@@ -1109,3 +1207,153 @@ le_result_t taf_Sms::ActivateCellBroadcast(int8_t phoneId, bool activate)
    }
 }
 
+le_result_t taf_Sms::GetPreferredStorage(taf_sms_Storage_t* storage)
+{
+   if(sysPrefStorage == TAF_SMS_STORAGE_HLOS)
+   {
+      *storage = TAF_SMS_STORAGE_HLOS;
+      return LE_OK;
+   }
+
+   // initialize the synchronous promise
+   PreferredStorageSyncPromise = std::promise<le_result_t>();
+   std::chrono::seconds span(TIMEOUT_PREF_STORAGE);
+   auto smsManager = smsManagers[DEFAULT_SLOT_ID - 1];
+
+   if (smsManager)
+   {
+      telux::common::Status reqStatus = smsManager->requestPreferredStorage(
+         tafSetSmsStorageCallback::getPreferredStorageResponse);
+
+      if (reqStatus != telux::common::Status::SUCCESS)
+      {
+         LE_INFO("Get preferred storage failed");
+         return LE_FAULT;
+      }
+
+      // blocking here to get preferred storage
+      std::future<le_result_t> futResult = PreferredStorageSyncPromise.get_future();
+      std::future_status waitStatus = futResult.wait_for(span);
+      if (std::future_status::timeout == waitStatus)
+      {
+        LE_ERROR("waiting promise timeout for %d seconds", TIMEOUT_PREF_STORAGE);
+        return LE_TIMEOUT;
+      }
+      else
+      {
+         le_result_t res = futResult.get();
+         if(res == LE_OK)
+         {
+            *storage = sysPrefStorage;
+            LE_INFO("Get preferred storage = %d", sysPrefStorage);
+         }
+         return res;
+      }
+   }
+   else
+   {
+      return LE_FAULT;
+   }
+}
+
+le_result_t taf_Sms::SetPreferredStorage(taf_sms_Storage_t storage)
+{
+   // initialize the synchronous promise
+   PreferredStorageSyncPromise = std::promise<le_result_t>();
+   std::chrono::seconds span(TIMEOUT_PREF_STORAGE);
+   auto smsManager = smsManagers[DEFAULT_SLOT_ID - 1];
+
+   telux::tel::StorageType type;
+
+   switch(storage)
+   {
+      case TAF_SMS_STORAGE_NONE:
+      case TAF_SMS_STORAGE_HLOS:
+            type = telux::tel::StorageType::NONE;
+            break;
+      case TAF_SMS_STORAGE_SIM:
+            type = telux::tel::StorageType::SIM;
+            break;
+      default:
+            return LE_UNSUPPORTED;
+   }
+
+   if (smsManager)
+   {
+      telux::common::Status reqStatus = smsManager->setPreferredStorage(static_cast<telux::tel::StorageType>(type),
+         tafSetSmsStorageCallback::setPreferredStorageResponse);
+
+      if (reqStatus != telux::common::Status::SUCCESS)
+      {
+         LE_INFO("Set preferred storage failed");
+         return LE_FAULT;
+      }
+
+      // blocking here to set preferred storage
+      std::future<le_result_t> futResult = PreferredStorageSyncPromise.get_future();
+      std::future_status waitStatus = futResult.wait_for(span);
+      if (std::future_status::timeout == waitStatus)
+      {
+        LE_ERROR("waiting promise timeout for %d seconds", TIMEOUT_PREF_STORAGE);
+        return LE_TIMEOUT;
+      }
+      else
+      {
+         le_result_t res = futResult.get();
+         if(res == LE_OK)
+         {
+            sysPrefStorage = storage;
+            LE_INFO("Set preferred storage as %d", sysPrefStorage);
+
+            SetConfig_PreferredStorage(storage);
+            taf_pa_sms_SetPrefStorage(storage);
+         }
+         return res;
+      }
+   }
+   else
+   {
+      return LE_FAULT;
+   }
+}
+
+le_result_t taf_Sms::SetConfig_PreferredStorage(const taf_sms_Storage_t storage)
+{
+    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn( CFG_MODEMSERVICE_SMS_PATH );
+
+    char config_node_storage[LENGTH_CFG_NODE] = {};
+    snprintf(config_node_storage, sizeof(config_node_storage), "%s", CFG_NODE_PREFERRED_STORAGE);
+
+    le_cfg_SetInt(iteratorRef, config_node_storage, storage);
+    le_cfg_CommitTxn(iteratorRef);
+
+    LE_INFO("Set config node %s as %d", config_node_storage, storage);
+
+    return LE_OK;
+}
+
+taf_sms_Storage_t taf_Sms::GetConfig_PreferredStorage()
+{
+    taf_sms_Storage_t storage = TAF_SMS_STORAGE_UNKNOWN;
+    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateReadTxn( CFG_MODEMSERVICE_SMS_PATH );
+
+    char config_node_storage[LENGTH_CFG_NODE] = {};
+    snprintf(config_node_storage, sizeof(config_node_storage), "%s", CFG_NODE_PREFERRED_STORAGE);
+
+    if (le_cfg_NodeExists(iteratorRef, config_node_storage))
+    {
+        int32_t configStorage = le_cfg_GetInt(iteratorRef,
+                                       config_node_storage, TAF_SMS_STORAGE_UNKNOWN);
+
+        storage = (taf_sms_Storage_t)configStorage;
+
+        LE_INFO("Get config node %s = %d", config_node_storage, storage);
+        le_cfg_CancelTxn(iteratorRef);
+        return storage;
+    }
+
+    LE_WARN("config node %s doesn't exist", config_node_storage);
+
+    le_cfg_CancelTxn(iteratorRef);
+    return TAF_SMS_STORAGE_UNKNOWN;
+}

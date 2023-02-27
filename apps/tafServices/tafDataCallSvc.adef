@@ -30,6 +30,7 @@ processes:
 
 bindings:
 {
+    tafDataCallSvc.tafDataCallSvc.taf_pm -> tafPMSvc.taf_pm
 }
 
 extern:

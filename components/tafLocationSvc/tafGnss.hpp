@@ -395,10 +395,8 @@ namespace tafsvc {
             bool mStarted = false;
             bool mTtffEnabled = false;
             bool mConstellationEnabled = false;
-            bool mLocEnabled = false;
             bool mSvEnabled = false;
             bool mGnssSigEnabled = false;
-            bool mGnssNmeaEnabled = false;
             bool mTtffEnable;
             bool mRequestSecBand = false;
             bool mRequestRobLoc = false;

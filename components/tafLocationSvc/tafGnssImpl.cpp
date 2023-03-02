@@ -427,7 +427,6 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
     if(gnss.NumOfPositionHandlers )
     {
         LE_DEBUG("**** Detailed Engine Location Report ****");
-        gnss.mLocEnabled = true;
         for (auto locationInfo : locationEngineInfo) {
             telux::loc::LocationTechnology techMask = locationInfo->getTechMask();
             if((techMask & telux::loc::LOC_GNSS))
@@ -477,7 +476,7 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
 
             LE_INFO( "onDetailedEngineLocationUpdate conformity: %lf",
                     locationInfo->getConformityIndex());
-            if ( gnss.mSvEnabled && gnss.mGnssSigEnabled && gnss.mGnssNmeaEnabled )
+            if ( gnss.mSvEnabled && gnss.mGnssSigEnabled )
             {
                 taf_gnss_PositionSample_t* LocationData =
                         (taf_gnss_PositionSample_t*)le_mem_ForceAlloc(gnss.PositionSamplePoolRef);
@@ -652,10 +651,8 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 LocationData->next = LE_DLS_LINK_INIT;
 
                 le_event_ReportWithRefCounting(gnss.positionEventId, LocationData);
-                gnss.mLocEnabled = false;
                 gnss.mSvEnabled = false;
                 gnss.mGnssSigEnabled = false;
-                gnss.mGnssNmeaEnabled = false;
             }
         }
     }
@@ -793,7 +790,6 @@ void tafLocationListener::onGnssNmeaInfo(uint64_t timestamp, const std::string &
         LE_DEBUG( "**** Gnss Nmea Information ****" );
         //gnss.mSatMeas.satId = nmea;
         gnss.mSatMeas.satLatency = timestamp;
-        gnss.mGnssNmeaEnabled = true;
     }
     le_mutex_Unlock(gnss.mGnssMutexRef);
 }

@@ -291,6 +291,7 @@ void taf_Gsb::onInitComplete(telux::common::ServiceStatus status)
 ======================================================================*/
 le_result_t taf_Gsb::AddGsb(const char* ifName, taf_net_GsbIfType_t ifType, uint32_t bandwidth)
 {
+    #if 0
     le_result_t result;
     telux::data::net::BridgeInfo bridgeConfig;
     std::chrono::seconds span(CONFIG_GSB_TIMEOUT);
@@ -334,7 +335,8 @@ le_result_t taf_Gsb::AddGsb(const char* ifName, taf_net_GsbIfType_t ifType, uint
         LE_ERROR( "ERROR - Failed to add GSB, Status:%d ", static_cast<int>(status));
         return LE_FAULT;
     }
-
+    #endif
+    return LE_UNSUPPORTED;
 }
 
 /*======================================================================
@@ -355,6 +357,7 @@ le_result_t taf_Gsb::AddGsb(const char* ifName, taf_net_GsbIfType_t ifType, uint
 ======================================================================*/
 le_result_t taf_Gsb::RemoveGsb(const char* ifName)
 {
+    #if 0
     le_result_t result;
     std::chrono::seconds span(CONFIG_GSB_TIMEOUT);
 
@@ -392,7 +395,8 @@ le_result_t taf_Gsb::RemoveGsb(const char* ifName)
         LE_ERROR( "ERROR - Failed to remove GSB, Status:%d ", static_cast<int>(status));
         return LE_FAULT;
     }
-
+    #endif
+    return LE_UNSUPPORTED;
 }
 
 /*======================================================================
@@ -412,6 +416,7 @@ le_result_t taf_Gsb::RemoveGsb(const char* ifName)
 ======================================================================*/
 le_result_t taf_Gsb::EnableGsb(bool enable)
 {
+    #if 0
     le_result_t result;
     std::chrono::seconds span(CONFIG_GSB_TIMEOUT);
 
@@ -447,7 +452,8 @@ le_result_t taf_Gsb::EnableGsb(bool enable)
         LE_ERROR( "ERROR - Failed to enable(%d) GSB, Status:%d ", enable, static_cast<int>(status));
         return LE_FAULT;
     }
-
+    #endif
+    return LE_UNSUPPORTED;
 }
 
 /*======================================================================
@@ -467,6 +473,7 @@ le_result_t taf_Gsb::EnableGsb(bool enable)
 ======================================================================*/
 taf_net_GsbListRef_t taf_Gsb::GetGsbList()
 {
+    #if 0
     TAF_ERROR_IF_RET_VAL(gsbManager == NULL, NULL, "gsbManager is null");
 
     std::chrono::time_point<std::chrono::system_clock> startTime = std::chrono::system_clock::now();
@@ -516,7 +523,8 @@ taf_net_GsbListRef_t taf_Gsb::GetGsbList()
         LE_ERROR("Request gsb list failed, status: %d",int(status));
         return NULL;
     }
-
+    #endif
+    return NULL;
 }
 
 /*======================================================================
@@ -536,6 +544,7 @@ taf_net_GsbListRef_t taf_Gsb::GetGsbList()
 ======================================================================*/
 taf_net_GsbRef_t taf_Gsb::GetFirstGsb( taf_net_GsbListRef_t gsbListRef )
 {
+    #if 0
     taf_GsbList_t* listPtr = (taf_GsbList_t*)le_ref_Lookup(gsbListRefMap, gsbListRef);
 
     TAF_ERROR_IF_RET_VAL(listPtr == NULL, NULL,
@@ -554,6 +563,8 @@ taf_net_GsbRef_t taf_Gsb::GetFirstGsb( taf_net_GsbListRef_t gsbListRef )
     le_sls_Queue(&(listPtr->safeRefList), &(safeRefPtr->link));
 
     return (taf_net_GsbRef_t)safeRefPtr->safeRef;
+    #endif
+    return NULL;
 }
 
 /*======================================================================
@@ -573,6 +584,7 @@ taf_net_GsbRef_t taf_Gsb::GetFirstGsb( taf_net_GsbListRef_t gsbListRef )
 ======================================================================*/
 taf_net_GsbRef_t taf_Gsb::GetNextGsb( taf_net_GsbListRef_t gsbListRef )
 {
+    #if 0
     taf_GsbList_t* listPtr = (taf_GsbList_t*)le_ref_Lookup(gsbListRefMap, gsbListRef);
 
     TAF_ERROR_IF_RET_VAL(listPtr == NULL, NULL,
@@ -596,6 +608,8 @@ taf_net_GsbRef_t taf_Gsb::GetNextGsb( taf_net_GsbListRef_t gsbListRef )
     le_sls_Queue(&(listPtr->safeRefList), &(safeRefPtr->link));
 
     return (taf_net_GsbRef_t)safeRefPtr->safeRef;
+    #endif
+    return NULL;
 }
 
 /*======================================================================
@@ -616,6 +630,7 @@ taf_net_GsbRef_t taf_Gsb::GetNextGsb( taf_net_GsbListRef_t gsbListRef )
 ======================================================================*/
 le_result_t taf_Gsb::DeleteGsbList( taf_net_GsbListRef_t gsbListRef )
 {
+    #if 0
     taf_Gsb_t* gsbPtr;
     taf_GsbSafeRef_t* safeRefPtr;
     le_sls_Link_t *linkPtr;
@@ -644,6 +659,8 @@ le_result_t taf_Gsb::DeleteGsbList( taf_net_GsbListRef_t gsbListRef )
     le_mem_Release(listPtr);
 
     return LE_OK;
+    #endif
+    return LE_UNSUPPORTED;
 }
 
 
@@ -673,6 +690,7 @@ le_result_t taf_Gsb::GetGsbInterfaceName
     size_t ifNamePtrSize
 )
 {
+    #if 0
     TAF_ERROR_IF_RET_VAL(gsbRef == NULL, LE_NOT_FOUND, "gsbRef is null");
     TAF_ERROR_IF_RET_VAL(ifNamePtr == NULL, LE_BAD_PARAMETER, "ifNamePtr is null");
 
@@ -682,7 +700,8 @@ le_result_t taf_Gsb::GetGsbInterfaceName
     le_utf8_Copy(ifNamePtr, gsbPtr->info.ifName, ifNamePtrSize, NULL);
 
     return LE_OK;
-
+    #endif
+    return LE_UNSUPPORTED;
 }
 
 /*======================================================================
@@ -704,6 +723,7 @@ taf_net_GsbIfType_t taf_Gsb::GetGsbInterfaceType
     taf_net_GsbRef_t gsbRef
 )
 {
+    #if 0
     TAF_ERROR_IF_RET_VAL(gsbRef == NULL, TAF_NET_GSB_UNKNOWN, "Null reference(gsbRef)");
 
     taf_Gsb_t* gsbPtr = (taf_Gsb_t*)le_ref_Lookup(gsbSafeRefMap,
@@ -711,7 +731,8 @@ taf_net_GsbIfType_t taf_Gsb::GetGsbInterfaceType
     TAF_ERROR_IF_RET_VAL(gsbPtr  == NULL, TAF_NET_GSB_UNKNOWN, "Invalid para(null reference ptr)");
 
     return gsbPtr ->info.ifType;
-
+    #endif
+    return TAF_NET_GSB_UNKNOWN;
 }
 
 /*======================================================================
@@ -734,7 +755,7 @@ int32_t taf_Gsb::GetGsbBandWidth
     taf_net_GsbRef_t gsbRef
 )
 {
-    //uint8_t protocol;
+    #if 0
     TAF_ERROR_IF_RET_VAL(gsbRef == NULL, -1, "Null reference(gsbRef)");
 
     taf_Gsb_t* gsbPtr = (taf_Gsb_t*)le_ref_Lookup(gsbSafeRefMap,
@@ -742,6 +763,7 @@ int32_t taf_Gsb::GetGsbBandWidth
     TAF_ERROR_IF_RET_VAL(gsbPtr == NULL, -1, "Invalid para(null reference ptr)");
 
     return gsbPtr->info.bandwidth;
-
+    #endif
+    return -1;
 }
 

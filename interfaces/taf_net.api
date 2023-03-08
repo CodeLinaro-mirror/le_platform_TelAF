@@ -397,6 +397,7 @@
  * removing GSB and querying GSB information. GSB enables hardware IP acceleration(IPA) for the
  * traffic on physical interfaces corresponding to the NON-QTI WLAN and Ethernet chips.
  *
+ * @note GSB APIs are not supported on SA515M.
  * The following example shows how to add GSB. This example adds an interface with name "wlan0" and
  * type TAF_NET_GSB_WLAN_AP and bandwidth 800Mbps.
  *

@@ -36,6 +36,7 @@
 #include "interfaces.h"
 #include <string>
 #include <memory>
+#include <map>
 #include <vector>
 #include <iostream>
 #include <telux/data/DataFactory.hpp>
@@ -44,6 +45,7 @@
 
 #define MIN_VLAN_ID                         1  /*vlan 0 is reserved as per RFC*/
 #define MAX_VLAN_ID                         4094/*vlan 4095 is max and it is reserved*/
+#define MAX_VLAN_PRIORITY                   7  /*The maxium value of vlan priority*/
 
 using namespace telux::data;
 using namespace telux::common;
@@ -55,26 +57,17 @@ typedef struct
 {
     int16_t vlanId;
     bool isAccelerated;
+    uint8_t priority;
     taf_net_VlanRef_t vlanRef;
     le_msg_SessionRef_t sessionRef;
 } taf_Vlan_t;
-
-
-/*
- * @brief The struct of vlan entry.
- */
-typedef struct
-{
-    taf_net_VlanIfType_t interface;
-    int16_t vlanId;
-    bool isAccelerated;
-} taf_VlanConfig_t;
 
 /*
  * @brief The struct of vlan info.
  */
 typedef struct
 {
+    uint8_t slotId;
     int32_t profileId;
     int16_t vlanId;
     bool isAccelerated;
@@ -125,6 +118,7 @@ typedef struct
 typedef struct
 {
     taf_net_VlanIfType_t interface;
+    uint8_t priority;
     le_sls_Link_t link;
 } taf_VlanIf_t;
 
@@ -164,15 +158,17 @@ namespace tafsvc {
     class tafVlanMappingCallback
     {
         public:
-            static void onVlanMappingListResponse(
+            void onVlanMappingListResponse(
                       const std::list<std::pair<int, int>> &mapping,
                       telux::common::ErrorCode error);
             void onResponseCallback(telux::common::ErrorCode error);
 
-            tafVlanMappingCallback(){};
+            tafVlanMappingCallback(SlotId slot);
             ~tafVlanMappingCallback(){};
-            static std::list<std::pair<int, int>> vlanMappingInfo;
+            static std::map<SlotId, std::list<std::pair<int, int>>> slotVlanMappingInfo;
             static le_sem_Ref_t semaphore;
+        private:
+            SlotId slotId;
     };
 
     /*
@@ -188,20 +184,21 @@ namespace tafsvc {
             static taf_Vlan &GetInstance();
 
             static void ClientCloseSessionHandler(le_msg_SessionRef_t sessionRef, void *contextPtr);
-            le_result_t BindVlanWithProfile(taf_net_VlanRef_t vlanRef, uint32_t profileId);
+            le_result_t BindVlanWithProfile(taf_net_VlanRef_t vlanRef, uint8_t slotId, uint32_t profileId);
             le_result_t UnbindVlanFromProfile(taf_net_VlanRef_t vlanRef);
             void onInitComplete(telux::common::ServiceStatus status);
-            uint16_t GetBoundVlanIdFromProfile(uint32_t profileId);
-            int32_t GetBoundProfileIdFromVlan(uint16_t vlanId);
-            le_result_t GetBindingInfo();
+            uint16_t GetBoundVlanIdFromSlotAndProfile(uint8_t slotId, uint32_t profileId);
+            le_result_t GetBoundSlotIdProfileIdFromVlan(uint16_t vlanId, uint8_t* slotId, uint32_t* profileId);
+            le_result_t GetBindingInfo(uint8_t slotId);
 
             taf_net_VlanRef_t CreateVlan(uint16_t vlanId, bool isAccelerated, le_msg_SessionRef_t sessionRef);
             le_result_t RemoveVlan(taf_net_VlanRef_t vlanRef);
             le_result_t AddVlanInterface(taf_net_VlanRef_t vlanRef, taf_net_VlanIfType_t ifType);
+            le_result_t SetVlanPriority(taf_net_VlanRef_t vlanRef, uint8_t priority);
             le_result_t RemoveVlanInterface(taf_net_VlanRef_t vlanRef,
                                         taf_net_VlanIfType_t ifType);
             taf_net_VlanRef_t GetVlanRefById(uint16_t vlanId, le_msg_SessionRef_t sessionRef);
-            bool IsVlanPresentInDb(uint16_t vlanId, bool *isAccelerated);
+            bool IsVlanPresentInDb(uint16_t vlanId, bool *isAccelerated, uint8_t *priority);
             bool IsVlanInterfacePresentInDb(uint16_t vlanId, taf_net_VlanIfType_t ifType);
             taf_net_VlanEntryListRef_t GetVlanEntryList();
             taf_net_VlanEntryRef_t GetFirstVlanEntry(taf_net_VlanEntryListRef_t vlanEntryListRef);
@@ -211,12 +208,13 @@ namespace tafsvc {
             le_result_t IsVlanAccelerated(taf_net_VlanEntryRef_t vlanEntryRef,
                                           bool* isAcceleratedPtr);
             int32_t GetVlanProfileId(taf_net_VlanEntryRef_t vlanEntryRef);
+            le_result_t GetVlanPhoneId(taf_net_VlanEntryRef_t vlanEntryRef, uint8_t* phoneIdPtr);
             taf_net_VlanIfListRef_t GetVlanInterfaceList(taf_net_VlanRef_t vlanRef);
             taf_net_VlanIfRef_t GetFirstVlanInterface(taf_net_VlanIfListRef_t vlanIfListRef);
             taf_net_VlanIfRef_t GetNextVlanInterface(taf_net_VlanIfListRef_t vlanIfListRef);
             le_result_t DeleteVlanInterfaceList(taf_net_VlanIfListRef_t vlanIfListRef);
             taf_net_VlanIfType_t GetVlanInterfaceType(taf_net_VlanIfRef_t vlanIfRef);
-
+            le_result_t GetVlanPriority(taf_net_VlanIfRef_t vlanIfRef, uint8_t* priority);
             le_result_t CleanListRef(taf_net_VlanEntryListRef_t vlanEntryListRef);
             le_result_t CleanVlanInterfaceListRef(taf_net_VlanIfListRef_t vlanIfListRef);
 

@@ -78,11 +78,13 @@ static void PrintUsage ()
             "app runProc tafNetIntTest --exe=tafNetIntTest -- getdestnatlistondemandpdn \
 <profileid>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- createvlan <vlanId> <type> \
-<isAccelerated>\n"
+<isAccelerated> [optional priority]\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- removevlan <vlanId> <type>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- getvlaninterfaceinfo <vlanid>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- bindwithprofile \
 <vlanid> <profileid>\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- bindwithprofileex \
+<vlanid> <phoneid> <profileid>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- unbindwithprofile <vlanid>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- getvlanentryinfo\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- enablel2tp <enablemss> <enablemtu> \
@@ -210,6 +212,7 @@ static void* DestNatThread(void* contextPtr)
 
     return NULL;
 }
+
 static void* HandlerThread(void* contextPtr)
 {
     LE_INFO("======== Test Thread of Net Service Start ========");
@@ -222,25 +225,26 @@ static void* HandlerThread(void* contextPtr)
     LE_INFO("======== 1. Network Add Handlers ========");
 
     LE_INFO("======== 1.1 Route change Handler ========");
-    le_thread_Ref_t threadRef = le_thread_Create("NetRouteThread", NetRouteThread, NULL);
+    le_thread_Ref_t threadRef = le_thread_Create("NetRouteTh", NetRouteThread, NULL);
     le_thread_Start(threadRef);
     le_clk_Time_t timeToWait = {5, 0};
     LE_ASSERT(le_sem_WaitWithTimeOut(semaphore, timeToWait) == LE_OK);
 
     LE_INFO("======== 1.2 Gateway change Handler ========");
-    threadRef = le_thread_Create("NetGatewayThread", NetGatewayThread, NULL);
+    threadRef = le_thread_Create("NetGatewayTh", NetGatewayThread, NULL);
     le_thread_Start(threadRef);
     LE_ASSERT(le_sem_WaitWithTimeOut(semaphore, timeToWait) == LE_OK);
 
     LE_INFO("======== 1.3 DNS change Handler ========");
-    threadRef = le_thread_Create("DNSChangeThread", NetDNSThread, NULL);
+    threadRef = le_thread_Create("DNSChangeTh", NetDNSThread, NULL);
     le_thread_Start(threadRef);
     LE_ASSERT(le_sem_WaitWithTimeOut(semaphore, timeToWait) == LE_OK);
 
-    LE_INFO("======== 1.4 DNS change Handler ========");
-    threadRef = le_thread_Create("DestNatChangeThread", DestNatThread, NULL);
+    LE_INFO("======== 1.4 Nat change Handler ========");
+    threadRef = le_thread_Create("DestNatChgTh", DestNatThread, NULL);
     le_thread_Start(threadRef);
     LE_ASSERT(le_sem_WaitWithTimeOut(semaphore, timeToWait) == LE_OK);
+
     return NULL;
 }
 
@@ -671,6 +675,8 @@ static int TafVlanInterfaceInfo()
 {
     le_result_t ret;
     int ifType=0;
+    uint8_t priority=0;
+
     if (le_arg_NumArgs() !=2)
     {
         PrintUsage();
@@ -691,6 +697,13 @@ static int TafVlanInterfaceInfo()
             ifType=taf_net_GetVlanInterfaceType(entryRef);
 
             LE_INFO("ifType=%d",ifType);
+
+            ret = taf_net_GetVlanPriority(entryRef, &priority);
+            if(ret == LE_OK)
+                LE_INFO("priority=%d",priority);
+            else
+                LE_INFO("Getting priority error");
+
             entryRef=taf_net_GetNextVlanInterface(listRef);
         }
 
@@ -712,7 +725,7 @@ static int TafVlanInterfaceInfo()
 static int TafCreateVlan()
 {
     le_result_t ret;
-    if (le_arg_NumArgs() !=4)
+    if (le_arg_NumArgs() !=4 && le_arg_NumArgs() !=5)
     {
         PrintUsage();
         exit(EXIT_FAILURE);
@@ -722,6 +735,19 @@ static int TafCreateVlan()
     taf_net_VlanIfType_t ifType = (taf_net_VlanIfType_t)strtol(le_arg_GetArg(2), NULL, 0);
     bool isAccelerated = strtol(le_arg_GetArg(3), NULL, 0);
     taf_net_VlanRef_t vlanRef=taf_net_CreateVlan(vlanId,isAccelerated);
+
+    if(le_arg_NumArgs() ==5)
+    {
+        uint8_t priority = strtol(le_arg_GetArg(4), NULL, 0);
+        ret = taf_net_SetVlanPriority(vlanRef, priority);
+
+        if(ret != LE_OK)
+        {
+            LE_INFO("---Setting VLAN priority error");
+            return EXIT_FAILURE;
+        }
+    }
+
     if(vlanRef != NULL)
     {
         ret=taf_net_AddVlanInterface(vlanRef,ifType);
@@ -762,6 +788,7 @@ static int TafRemoveVlan()
 static int TafVlanInfo()
 {
     int vlanId=0;
+    uint8_t phoneId=0;
     int profileId=0;
     le_result_t ret;
     bool isAccelerated=false;
@@ -790,12 +817,24 @@ static int TafVlanInfo()
                 LE_INFO("----isAccelerated=%d",isAccelerated);
             }
 
+
             profileId=taf_net_GetVlanBoundProfileId(entryRef);
 
             if(profileId == -1)
                 LE_INFO("----no binding----");
             else
-                LE_INFO("----profile id=%d----",profileId);
+            {
+                ret=taf_net_GetVlanBoundPhoneId(entryRef, &phoneId);
+                if(ret != LE_OK)
+                {
+                    LE_ERROR("error binding info");
+                }
+                else
+                {
+                    LE_INFO("----phone id=%d----", phoneId);
+                    LE_INFO("----profile id=%d----",profileId);
+                }
+            }
 
             entryRef=taf_net_GetNextVlanEntry(listRef);
         }
@@ -830,6 +869,35 @@ static int TafVlanBindWithProfile()
     taf_net_VlanRef_t vlanRef=taf_net_GetVlanById(vlanid);
 
     ret = taf_net_BindVlanWithProfile(vlanRef,profileid);
+    if(ret == LE_OK)
+    {
+        LE_INFO("----bind with profile  ok");
+    }
+    else
+    {
+        LE_INFO("----bind with profile error");
+    }
+
+    return EXIT_SUCCESS;
+}
+
+static int TafVlanBindWithProfileEx()
+{
+    le_result_t ret;
+
+    if (le_arg_NumArgs() !=4)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    uint32_t vlanid = strtol(le_arg_GetArg(1), NULL, 0);
+    uint8_t phoneid = strtol(le_arg_GetArg(2), NULL, 0);
+    uint32_t profileid = strtol(le_arg_GetArg(3), NULL, 0);
+
+    taf_net_VlanRef_t vlanRef=taf_net_GetVlanById(vlanid);
+
+    ret = taf_net_BindVlanWithProfileEx(vlanRef, phoneid, profileid);
     if(ret == LE_OK)
     {
         LE_INFO("----bind with profile  ok");
@@ -1654,6 +1722,10 @@ COMPONENT_INIT
         {
             status=TafVlanBindWithProfile();
         }
+        else if(strcmp(testType, "bindwithprofileex") == 0)
+        {
+            status=TafVlanBindWithProfileEx();
+        }
         else if(strcmp(testType, "unbindwithprofile") == 0)
         {
             status=TafVlanUnBindWithProfile();
@@ -1751,7 +1823,3 @@ COMPONENT_INIT
         exit(status);
     }
 }
-
-
-
-

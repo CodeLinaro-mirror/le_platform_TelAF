@@ -47,7 +47,7 @@
  *
  * The functions of this API are provided by the @b tafLocationSvc application service.
  *
- * The following example illustrates how how to bind to the Positioning Control service.
+ * The following example illustrates how to bind to the Positioning Control service.
  * @verbatim
    bindings:
    {
@@ -57,7 +57,7 @@
  *
  * @section taf_posCtrl_ctrl Positioning control
  *
- * To request that the Positioning Control service be activated, call taf_posCtrl_Request()
+ * To request that the Positioning Control service be activated, call taf_posCtrl_Request().
  * To release the Positioning Control service when finished with it, call taf_posCtrl_Release().
  *
  * If the Positioning Control service is already active when taf_posCtrl_Request() is called, 

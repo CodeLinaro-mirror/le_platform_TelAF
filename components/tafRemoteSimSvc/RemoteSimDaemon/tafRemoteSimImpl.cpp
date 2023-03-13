@@ -173,11 +173,6 @@ le_result_t taf_rsim::SendApduRequest(const unsigned int id, const std::vector<u
     RsimMsg.msg[1]  = 0x01;
     RsimMsg.msg[2]  = 0x00;
     RsimMsg.msg[3]  = 0x00;
-    if (id == 1) {
-        RsimMsg.msg[4]  = PARAMID_COMMAND_APDU;
-    } else {
-        RsimMsg.msg[4]  = PARAMID_COMMAND_APDU_7816;
-    }
     RsimMsg.msg[4] = id;
     RsimMsg.msg[5]  = 0x00;
     RsimMsg.msg[6]  = ((apdu.size() & 0xFF00U) >> MSB_SHIFT);

@@ -242,9 +242,11 @@ void tafOpenLogicalChannelCallback::onChannelResponse(int channel, IccResult res
    sim.errorCode = error;
    sim.openChannel = (uint8_t)channel;
    if(sim.cardEventExpected == CardEvent::OPEN_LOGICAL_CHANNEL) {
-       if(error == telux::common::ErrorCode::SUCCESS) {
+       LE_INFO("OpenLogicalChannel callback response sw1: %d, sw2: %d", (uint8_t)result.sw1, (uint8_t)result.sw2);
+       if(error == telux::common::ErrorCode::SUCCESS && (uint8_t)result.sw1 == 0x90 && (uint8_t)result.sw2 == 0x00) {
            LE_INFO("OpenLogicalChannel successful channel = %d", channel);
        } else {
+           sim.errorCode = telux::common::ErrorCode::SIM_BUSY;
            LE_INFO("OpenLogicalChannel failed");
        }
        LE_INFO("Card Event OPEN_LOGICAL_CHANNEL found with code : %d", int(error));

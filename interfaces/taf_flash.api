@@ -474,7 +474,7 @@ FUNCTION le_result_t UbiInitWrite
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Writes UBI volume.
+ * Writes data to UBI volume.
  *
  * @note User should keep the context of writing UBI volume.
  *

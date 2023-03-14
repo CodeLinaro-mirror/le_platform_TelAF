@@ -45,10 +45,10 @@ export TELAF_ROOT=$(dirname $(dirname "$ABS_PATH_TO_CURRENT_DIR"))
 export TELAF_INTERFACES=$TELAF_ROOT/interfaces
 export LEGATO_ROOT=$TELAF_ROOT/../legato/legato-af
 
-cd $LEGATO_ROOT
 
 # Setup framework configuration in a sub-shell and start interperting stdin interactively.
 bash -i  <<EOF
+cd $LEGATO_ROOT
 source $LEGATO_ROOT/framework/tools/scripts/configlegatoenv
 cd $TELAF_ROOT
 exec <> /dev/tty

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -39,13 +39,13 @@
  * @ref taf_fsc_interface.h "API Reference"
  *
  * <HR>
- * Some of the directories in UBFS or the whole UBIFS volume which are used to store important
- * data need to be encrypted, FS-Crypt solution is used to encrypt the directories/volumes.
+ * Some of the directories in UBFS, or the whole UBIFS volume, which are used to store important
+ * data need to be encrypted, the FS-Crypt service encrypts the directories/volumes.
  *
- * FS-Crypt provides interfaces that creates encryption directories working with FS-Crypt, client
- * applications can lock/unlock specified directory. This component generates 156-bit AES keys, sets
- * policy to specified directories with generated key and lock/unlock data via add/remove keys to/from
- * kernel keyring.
+ * FS-Crypt provides interfaces that create encryption directories. Working with FS-Crypt, client
+ * applications can lock/unlock specified directories. This component generates 156-bit AES keys, sets
+ * policy to specified directories with the generated key, and locks/unlocks data by adding/removing
+ * keys to/from the kernel keyring.
  *
  * @section taf_fsc_binding IPC interfaces binding
  *
@@ -59,23 +59,23 @@
    }
    @endverbatim
  *
- * @section c_taf_fsc_storage_management Storage Management
+ * @section c_taf_fsc_storage_management Storage management
  *
- * A FS-Crypt storage can be initialized by calling taf_fsc_GetStorageRef() with the specified
- * directory path as the input parameter, if the specified directory doesn't exist in current system,
+ * FS-Crypt storage can be initialized by calling taf_fsc_GetStorageRef() with the specified
+ * directory path as the input parameter. If the specified directory doesn't exist in the current system,
  * a new one with the given name will be created. A storage reference is returned to the client for
- * operating FS-Crypt storage.
+ * FS-Crypt storage operations.
  *
- * Applications only call the following interfaces to finish storage manipulation, no need to care
- * about key management, encryption and decryption operation, these actions will be maintained at
- * the backend of service.
+ * Applications only call the following interfaces to finish storage manipulation and there is no need 
+ * to care about key management or encryption and decryption operation as these actions will be maintained at
+ * the service backend.
  * The following storage APIs are supported.
- * - taf_fsc_GetStorageRef() -- Get the reference of FS-Crypt storage object.
- * - taf_fsc_LockStorage() -- Remove FS-Crypt key from kernel keyring to lock the directory.
- * - taf_fsc_UnlockStorage() -- Add FS-Crypt key to kernel keyring to unlock the directory.
- * - taf_fsc_DeleteStorage() -- Clean up the whole FS-Crypt directory and ecryption key.
+ * - taf_fsc_GetStorageRef() -- Gets the FS-Crypt storage object reference.
+ * - taf_fsc_LockStorage() -- Removes an FS-Crypt key from the kernel keyring to lock the directory.
+ * - taf_fsc_UnlockStorage() -- Adds an FS-Crypt key to the kernel keyring to unlock the directory.
+ * - taf_fsc_DeleteStorage() -- Cleans the FS-Crypt directory and ecryption key.
  *
- * The following example illustrates how to initialize FS-Crypt storage, and lock the directory.
+ * The following example illustrates how to initialize FS-Crypt storage and lock the directory.
  * @code
    le_result_t result;
    taf_fsc_StorageRef_t storageRef = taf_fsc_GetStorageRef("/app/test", &result);
@@ -98,19 +98,19 @@
 
    @endcode
  *
- * @note Storage will be in unlocked status after calling taf_fsc_GetStorageRef.
+ * @note Storage will be unlocked after calling taf_fsc_GetStorageRef.
  *
- * After calling taf_fsc_GetStorageRef, the generated key for the specified directory is already
- * added to kernel keyring, which means the storage is in unlocked status, client app can access
- * the directory without calling taf_fsc_UnlockStorage().
+ * After calling taf_fsc_GetStorageRef, the generated key for the specified directory is added
+ * to the kernel keyring, meaning that the storage is in the Unlocked state and the client app
+ * can access the directory without calling taf_fsc_UnlockStorage().
  *
- * @note Key removing mechanim will be triggered during shutdown process.
+ * @note The key removing mechanism will be triggered during shutdown.
  *
- * To avoid raw key being copy from non-volatile storage, service will remove all the keys from
- * kernel keyring when system is shutting down.
+ * To avoid raw keys being copied from non-volatile storage, the service removes all keys from
+ * the kernel keyring when the system is shutting down.
  *
- * FS-Crypt encryption feature only supports "UBIFS on-flash format version 5", trying to encrypt
- * for unexpected UBIFS format version will get error notification.
+ * The FS-Crypt encryption feature only supports "UBIFS on-flash format version 5", trying to encrypt
+ * for unexpected UBIFS format versions results in an error.
  *
  * <HR>
  *
@@ -126,70 +126,70 @@ DEFINE MAX_STORAGE_NAME_SIZE = 256;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Reference for FS-Crypt storage object.
+ * FS-Crypt storage object reference.
  */
 //--------------------------------------------------------------------------------------------------
 REFERENCE Storage;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the reference of FS-Crypt storage object, including initialization for FS-Crypt directory.
+ * Gets the FS-Crypt storage object reference, including initialization for the FS-Crypt directory.
  *
  * @return
- *     - Storage -- The reference of FS-Crypt storage object.
- *     - NULL -- Fail in process.
+ *     - Storage -- The FS-Crypt storage object reference.
+ *     - NULL -- Failure in process.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION Storage GetStorageRef
 (
     string      dirPath[MAX_STORAGE_NAME_SIZE] IN,  ///< Storage name.
-    le_result_t result                        OUT   ///< error status.
+    le_result_t result                        OUT   ///< Error status.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Removes FS-Crypt key from kernel keyring to lock the directory.
+ * Removes an FS-Crypt key from the kernel keyring to lock the directory.
  *
  * @return
  *     - LE_OK -- Succeeded.
- *     - LE_BAD_PARAMETER -- Bad parameters.
+ *     - LE_BAD_PARAMETER -- Bad parameter(s).
  *     - LE_NOT_FOUND -- The key does not exist or is not provisioned.
  *     - LE_FAULT -- Error in process.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t LockStorage
 (
-    Storage StorageRef ///< Storage reference
+    Storage StorageRef ///< Storage reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Adds FS-Crypt key to kernel keyring to unlock the directory.
+ * Adds an FS-Crypt key to the kernel keyring to unlock the directory.
  *
  * @return
  *     - LE_OK -- Succeeded.
- *     - LE_BAD_PARAMETER -- Bad parameters.
+ *     - LE_BAD_PARAMETER -- Bad parameter(s).
  *     - LE_NOT_FOUND -- Key does not exist.
  *     - LE_FAULT -- Error in process.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t UnlockStorage
 (
-    Storage StorageRef ///< Storage reference
+    Storage StorageRef ///< Storage reference.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Cleans up the whole FS-Crypt directory and ecryption key.
+ * Cleans the entire FS-Crypt directory and encryption key.
  *
  * @return
  *     - LE_OK -- Succeeded.
- *     - LE_BAD_PARAMETER -- Bad parameters.
+ *     - LE_BAD_PARAMETER -- Bad parameter(s).
  *     - LE_NOT_FOUND -- Key does not exist.
  *     - LE_FAULT -- Error in process.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DeleteStorage
 (
-    Storage StorageRef ///< Storage reference
+    Storage StorageRef ///< Storage reference.
 );

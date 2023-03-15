@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -334,15 +334,15 @@
  *
  * @section c_taf_net_SOCKS_management SOCKS management
  *
- * SOCKS management provides APIs for enabling and disabling SOCKS, setting and getting SOCKS
- * authentication method type, setting and getting LAN interface, adding and removing SOCKS
- * association between user name and profile id.
+ * Socket Secure (SOCKS) management provides APIs for enabling and disabling SOCKS, setting and getting SOCKS
+ * authentication method type, setting and getting LAN interface, and adding and removing SOCKS
+ * associations between usernames and profile IDs.
  *
- * SOCKS can be enabled using taf_net_EnableSocks. After setting authentication method type and
- * LAN interface, and adding the association, the application can enable SOCKS.
+ * SOCKS can be enabled using taf_net_EnableSocks. After setting the authentication method type 
+ * and LAN interface, and adding the association the application can enable SOCKS.
  *
  * The following example shows how to enable SOCKS. This example starts a SOCKS application which
- * listens port 1080.
+ * listens on port 1080.
  *
  * @verbatim
    result = taf_net_EnableSocks();
@@ -353,8 +353,8 @@
    }
    @endverbatim
  *
- * An application can asynchrounously enable SOCKS using taf_net_EnableSocksAsync with handler
- * function passed as parameters.
+ * An application can asynchrounously enable SOCKS using taf_net_EnableSocksAsync with a handler
+ * function passed as a parameter.
  *
  * @verbatim
    taf_net_EnableSocksAsync(StartSocksAsyncHandlerFunc,NULL);
@@ -388,18 +388,18 @@
  * - taf_net_EnableSocksAsync()         -- Asynchronously enables SOCKS.
  * - taf_net_DisableSocksAsync()        -- Asynchronously disables SOCKS.
  *
- * @note If changing SOCKS authentication method or association, the application needs to disable and
- * enable SOCKS to use the new method or user name.
+ * @note If changing the SOCKS authentication method or association, the application needs to disable and
+ *       enable SOCKS to use the new method or username.
  *
  * @section c_taf_net_GSB_management GSB management
  *
- * Generic software bridge(GSB) management provides APIs for enabling and disabling GSB, adding and
- * removing GSB and querying GSB information. GSB enables hardware IP acceleration(IPA) for the
- * traffic on physical interfaces corresponding to the NON-QTI WLAN and Ethernet chips.
+ * Generic software bridge (GSB) management provides APIs for enabling and disabling GSB, adding and
+ * removing GSB, and querying GSB information. GSB enables hardware IP acceleration (IPA) for 
+ * traffic on physical interfaces corresponding to the NON-QTI WLAN and ethernet chips.
  *
  * @note GSB APIs are not supported on SA515M.
- * The following example shows how to add GSB. This example adds an interface with name "wlan0" and
- * type TAF_NET_GSB_WLAN_AP and bandwidth 800Mbps.
+ * The following example shows how to add GSB. This example adds an interface named "wlan0", 
+ * of TAF_NET_GSB_WLAN_AP type, and with 800 Mbps bandwidth.
  *
  * @verbatim
    result = taf_net_AddGsb("wlan0", TAF_NET_GSB_WLAN_AP, 900);
@@ -522,7 +522,7 @@ DEFINE L2TP_MAX_SESSION_NUMBER_PER_TUNNEL = 3;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The maximum SOCKS user name length.
+ * The maximum SOCKS username length.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE SOCKSV5_MAX_USERNAME_LEN = 255;
@@ -536,14 +536,14 @@ DEFINE SOCKSV5_MAX_MAPPING_POOL = 2;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The maximum list for GSB memory pool
+ * The maximum list for GSB memory pool.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE  MAX_GSB_LIST_NUM = (2);
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The maximum number for GSB memory pool
+ * The maximum number for GSB memory pool.
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE  MAX_GSB_NUM = (10);
@@ -670,27 +670,27 @@ ENUM DeviceMode
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The Socks Authentication type.
+ * The SOCKS authentication type.
  */
 //--------------------------------------------------------------------------------------------------
 ENUM AuthMethod
 {
-    SOCKS_UNKNOWN = -1,        ///< UNKNOWN.
+    SOCKS_UNKNOWN = -1,        ///< Unknown.
     SOCKS_NONE,                ///< No authentication.
-    SOCKS_USER_PASSWD          ///< User and password.
+    SOCKS_USER_PASSWD          ///< Username and password.
 };
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The GSB interface type
+ * The GSB interface type.
  */
 //--------------------------------------------------------------------------------------------------
 ENUM GsbIfType
 {
     GSB_UNKNOWN,                      // Unknown.
     GSB_WLAN_AP,                      // WLAN AP.
-    GSB_WLAN_STA,                     // WLAN STATION.
-    GSB_ETH                           // ETHERNET.
+    GSB_WLAN_STA,                     // WLAN station.
+    GSB_ETH                           // Ethernet.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -1556,7 +1556,7 @@ FUNCTION le_result_t BindVlanWithProfile
 /**
  * Unbinds a VLAN from previous profile ID.
  *
- * @note Unbinding VLAN from the default profile ID results in system automatically rebooting
+ * @note Unbinding VLAN from the default profile ID results in the system automatically rebooting
  *       after 5 seconds.
  *
  * @return
@@ -2046,7 +2046,7 @@ FUNCTION le_result_t GetSessionConfig
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Enables (synchronously) the Socks proxy service.
+ * Enables (synchronously) the SOCKS proxy service.
  *
  * @note To use the SOCKS feature, set device mode with value 2 first.
  *
@@ -2061,7 +2061,7 @@ FUNCTION le_result_t EnableSocks
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Enables (asynchronously) the Socks proxy service.
+ * Enables (asynchronously) the SOCKS proxy service.
  *
  * @return None.
  */
@@ -2073,7 +2073,7 @@ FUNCTION EnableSocksAsync
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Disables (synchronously) the Socks proxy service.
+ * Disables (synchronously) the SOCKS proxy service.
  *
  * @return
  *   - LE_OK -- Succeeded.
@@ -2086,7 +2086,7 @@ FUNCTION le_result_t DisableSocks
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Disables (asynchronously) the Socks proxy service.
+ * Disables (asynchronously) the SOCKS proxy service.
  *
  * @return None.
  */
@@ -2098,7 +2098,7 @@ FUNCTION DisableSocksAsync
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets SOCKS authentication method.
+ * Sets the SOCKS authentication method.
  *
  * @return
  *   - LE_OK -- Succeeded.
@@ -2112,12 +2112,12 @@ FUNCTION le_result_t SetSocksAuthMethod
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets SOCKS authentication method.
+ * Gets the SOCKS authentication method.
  *
  * @return
  *   - TAF_NET_SOCKS_UNKNOWN -- Unknown.
  *   - TAF_NET_SOCKS_NONE -- No authentication.
- *   - TAF_NET_SOCKS_USER_PASSWD -- User and password.
+ *   - TAF_NET_SOCKS_USER_PASSWD -- Username and password.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION AuthMethod GetSocksAuthMethod
@@ -2154,7 +2154,7 @@ FUNCTION le_result_t GetSocksLanInterface
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Adds username/profile association.
+ * Adds a username/profile association.
  *
  * @return
  *   - LE_OK -- Succeeded.
@@ -2163,13 +2163,13 @@ FUNCTION le_result_t GetSocksLanInterface
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t AddSocksAssociation
 (
-    string userName[SOCKSV5_MAX_USERNAME_LEN] IN,///< User name.
-    uint32  profileId                         IN ///< Profile Id.
+    string userName[SOCKSV5_MAX_USERNAME_LEN] IN,///< Username.
+    uint32  profileId                         IN ///< Profile ID.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Deletes username/profile association.
+ * Deletes a username/profile association.
  *
  * @return
  *   - LE_OK -- Succeeded.
@@ -2178,7 +2178,7 @@ FUNCTION le_result_t AddSocksAssociation
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t RemoveSocksAssociation
 (
-    string userName[SOCKSV5_MAX_USERNAME_LEN]    IN ///< User name.
+    string userName[SOCKSV5_MAX_USERNAME_LEN]    IN ///< Username.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -2195,7 +2195,7 @@ FUNCTION le_result_t AddGsb
 (
     string ifName[INTERFACE_NAME_MAX_LEN]     IN, ///< Interface name.
     GsbIfType ifType                          IN, ///< Interface type.
-    uint32 bandwidth                          IN  ///< Bandwidth(in Mbps).
+    uint32 bandwidth                          IN  ///< Bandwidth (in Mbps).
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -2320,8 +2320,8 @@ FUNCTION le_result_t GetGsbInterfaceName
  * @return
  *   - GSB_UNKNOWN -- Unknown type.
  *   - GSB_WLAN_AP -- WLAN AP.
- *   - GSB_WLAN_STA -- WLAN STATION.
- *   - GSB_ETH -- ETHERNET.
+ *   - GSB_WLAN_STA -- WLAN station.
+ *   - GSB_ETH -- Ethernet.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION GsbIfType GetGsbInterfaceType
@@ -2331,7 +2331,7 @@ FUNCTION GsbIfType GetGsbInterfaceType
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the band width of a GSB.
+ * Gets the bandwidth of a GSB.
  *
  * @return
  *   - -1 -- Failed.

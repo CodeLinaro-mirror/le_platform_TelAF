@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -223,6 +223,35 @@
  * - taf_sms_DeactivateCellBroadcast() -- Deactivates cell broadcast.
  * - taf_sms_AddCellBroadcastIds() -- Add cell broadcast message range of identifier.
  * - taf_sms_GetSmsCenterAddress() -- Remove cell broadcast range of message identifiers.
+ *
+ * @section taf_sms_usage_flow Typical application call flow
+ *
+ * @image html SMS_usage_flow.jpg
+ *
+ * The referenced application A and B can be two applications that are located in different NAD devices.
+ * They communicate via the tafSMSSvc service on the corresponding NAD device.
+ *
+ * #0 -- Set the message receiving handler to be able to receive any messages sent to the application.
+ *
+ * #1 -- Create the message reference from the sender (application A).
+ *
+ * #2 -- Set the message content.
+ *
+ * #3 -- Set the receiver's phone number.
+ *
+ * #4 -- Set the message callback to get the sending result.
+ *
+ * #5 -- Send the message.
+ *
+ * #6 -- Get the new message notification with the message reference.
+ *
+ * #7 -- Get the sender's phone number.
+ *
+ * #8 -- Get the message content.
+ *
+ * #9 -- Mark the message as Read status.
+ *
+ * #10 -- (Optional) Delete the message from storage.
  *
  * <HR>
  *

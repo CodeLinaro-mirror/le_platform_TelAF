@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -28,7 +28,7 @@ DEFINE ANY_MINOR = 0xFFFFFFFF;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Define the message type(per as SOME/IP Protocol Specification).
+ * Define the message type (as per the SOME/IP Protocol Specification).
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE MT_REQUEST = 0x00;
@@ -39,7 +39,7 @@ DEFINE MT_ERROR = 0x81;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Define the return code(per as SOME/IP Protocol Specification).
+ * Define the return code (as per the SOME/IP Protocol Specification).
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE E_OK = 0x00;
@@ -56,7 +56,7 @@ DEFINE E_WRONG_MESSAGE_TYPE = 0x0A;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Define special MACROs (per as SOME/IP Protocol Specification).
+ * Define the special MACROs (as per the SOME/IP Protocol Specification).
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE EVENT_MASK = 0x8000;

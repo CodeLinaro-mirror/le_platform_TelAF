@@ -27,7 +27,7 @@
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  *  Changes from Qualcomm Innovation Center are provided under the following license:
- *  Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -691,16 +691,16 @@ ENUM I2SChannel
     I2S_RIGHT,    ///< Right channel.
     I2S_MONO,     ///< Mono mode.
     I2S_STEREO,   ///< Stereo mode.
-    I2S_REVERSE   ///< Reverse mode (left & right reversed).
+    I2S_REVERSE   ///< Reverse mode (left and right reversed).
 };
 
 /**
- * Opens an audio stream reference for I2s Rx interface use.
+ * Opens an audio stream reference for I2S Rx interface use.
  *
  * @note Set the sampling rate using taf_audio_SetSamplePcmSamplingRate after creating the stream
- * reference before calling connect, else defalut sampling rate will be 16000.
+ *       reference and before connecting, otherwise the defalut sampling rate will be 16000.
  *
- * @return Reference to audio stream, NULL on error.
+ * @return Reference to the audio stream, NULL on error.
  */
 FUNCTION Stream OpenI2sRx
 (
@@ -708,12 +708,12 @@ FUNCTION Stream OpenI2sRx
 );
 
 /**
- * Opens an audio stream reference for I2s Tx interface use.
+ * Opens an audio stream reference for I2S Tx interface use.
  *
  * @note Set the sampling rate using taf_audio_SetSamplePcmSamplingRate after creating the stream
- * reference before calling connect, else defalut sampling rate will be 16000.
+ *       reference and before connecting, otherwise the defalut sampling rate will be 16000.
  *
- * @return Reference to audio stream, NULL on error.
+ * @return Reference to the audio stream, NULL on error.
  */
 FUNCTION Stream OpenI2sTx
 (
@@ -721,12 +721,12 @@ FUNCTION Stream OpenI2sTx
 );
 
 /**
- * Opens an audio stream reference for Pcm Rx interface use.
+ * Opens an audio stream reference for PCM Rx interface use.
  *
  * @note Set the sampling rate using taf_audio_SetSamplePcmSamplingRate after creating the stream
- * reference before calling connect, else defalut sampling rate will be 16000.
+ *       reference and before connecting, otherwise the defalut sampling rate will be 16000.
  *
- * @return Reference to audio stream, NULL on error.
+ * @return Reference to the audio stream, NULL on error.
  */
 FUNCTION Stream OpenPcmRx
 (
@@ -734,12 +734,12 @@ FUNCTION Stream OpenPcmRx
 );
 
 /**
- * Opens an audio stream reference for Pcm Tx interface use.
+ * Opens an audio stream reference for PCM Tx interface use.
  *
  * @note Set the sampling rate using taf_audio_SetSamplePcmSamplingRate after creating the stream
- * reference before calling connect, else defalut sampling rate will be 16000.
+ *       reference and before connecting, otherwise the defalut sampling rate will be 16000.
  *
- * @return Reference to audio stream, NULL on error.
+ * @return Reference to the audio stream, NULL on error.
  */
 FUNCTION Stream OpenPcmTx
 (
@@ -747,7 +747,7 @@ FUNCTION Stream OpenPcmTx
 );
 
 /**
- * Set the sampling rate of a stream ref.
+ * Sets the sampling rate of a stream reference.
  *
  * @return
  * - LE_OK            Succeeded.
@@ -756,7 +756,7 @@ FUNCTION Stream OpenPcmTx
 FUNCTION le_result_t SetSamplePcmSamplingRate
 (
     Stream      streamRef   IN,     ///< Audio stream reference.
-    uint32      rate        IN      ///< Sampling Rate.
+    uint32      rate        IN      ///< Sampling rate.
 );
 
 /**

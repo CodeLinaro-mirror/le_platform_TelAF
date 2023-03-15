@@ -30,7 +30,7 @@
 /*
  *  Changes from Qualcomm Innovation Center are provided under the following license:
  *
- *  Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted (subject to the limitations in the
@@ -454,7 +454,7 @@ FUNCTION le_result_t ProvideConfirmationCode
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Returns opaque type (ProfileListNode) reference for Profile, specified using index.
+ * Returns the opaque type (ProfileListNode) reference for a profile, specified using the profile index.
  *
  * @return
  * - ProfileListNode type reference -- Succeeded.
@@ -464,15 +464,15 @@ FUNCTION le_result_t ProvideConfirmationCode
 //-------------------------------------------------------------------------------------------------
 FUNCTION ProfileListNode GetProfile
 (
-    uint32 index ///< index of the profile.
+    uint32 index ///< Profile index.
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Returns profileIndex for Profile, specified using ProfileListNode type reference.
+ * Returns profileIndex for a profile, specified using the ProfileListNode type reference.
  *
  * @return
- * - uint32_t type profile index
+ * - uint32_t type profile index.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -483,10 +483,10 @@ FUNCTION uint32 GetProfileIndex
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Returns profile type for Profile, specified using ProfileListNode type reference.
+ * Returns the profile type for a profile, specified using the ProfileListNode type reference.
  *
  * @return
- * - ProfileType type
+ * - ProfileType type.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -497,11 +497,11 @@ FUNCTION ProfileType GetProfileType
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Gets ICCID for Profile, specified using ProfileListNode type reference.
+ * Gets the ICCID for a profile, specified using the ProfileListNode type reference.
  *
  * @return
- * - LE_OK - Successful in getting ICCID
- * - LE_FAULT - Failure in getting the ICCID
+ * - LE_OK -- Successful in getting ICCID.
+ * - LE_FAULT -- Failure in getting the ICCID.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -513,11 +513,11 @@ FUNCTION le_result_t GetIccid
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Returns whether specified profile is active or not.
+ * Returns whether or not the specified profile is active.
  *
  * @return
- * - True - Profile is active
- * - FaLSE - Profile is inactive or not found
+ * - True -- Profile is active.
+ * - FaLSE -- Profile is inactive or not found.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -528,11 +528,11 @@ FUNCTION bool GetProfileActiveStatus
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Gets Nick Name for the specified profile.
+ * Gets the nickname for the specified profile.
  *
  * @return
- * - LE_OK - Successful
- * - LE_FAULT - Error occurred in getting the nick name.
+ * - LE_OK -- Successful.
+ * - LE_FAULT -- Error occurred while getting the nickname.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -544,11 +544,11 @@ FUNCTION le_result_t GetNickName
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Gets Name for the specified profile.
+ * Gets the name for the specified profile.
  *
  * @return
- * - LE_OK - Successful
- * - LE_FAULT - Error occurred in getting the nick name.
+ * - LE_OK -- Successful.
+ * - LE_FAULT -- Error occurred while getting the name.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -560,11 +560,11 @@ FUNCTION le_result_t GetName
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Gets SPN for the specified profile.
+ * Gets the SPN for the specified profile.
  *
  * @return
  * - LE_OK - Successful
- * - LE_FAULT - Error occurred in getting the nick name.
+ * - LE_FAULT - Error occurred while getting the SPN.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -577,7 +577,7 @@ FUNCTION le_result_t GetSpn
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Gets Icon Tyoe for the specified profile.
+ * Gets the Icon type for the specified profile.
  *
  * @return
  * - IconType
@@ -591,7 +591,7 @@ FUNCTION IconType GetIconType
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Gets ProfileClass for the specified profile.
+ * Gets the ProfileClass for the specified profile.
  *
  * @return
  * - ProfileClass
@@ -605,10 +605,10 @@ FUNCTION ProfileClass GetProfileClass
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Gets Mask for the specified profile.
+ * Gets the Mask for the specified profile.
  *
  * @return
- * - uint32 - Mask for the profile specified.
+ * - uint32 -- Mask for the profile specified.
  *
  */
 //-------------------------------------------------------------------------------------------------

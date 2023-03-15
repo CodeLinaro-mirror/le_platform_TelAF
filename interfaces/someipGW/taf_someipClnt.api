@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -14,8 +14,8 @@
  * The SOME/IP Gateway Client Service supports SOME/IP protocol(http://some-ip.com/) through vsomeip
  * (https://github.com/COVESA/vsomeip) library APIs. It provides a set of simple and high level
  * TelAF APIs for applications to communicate with remote SOME/IP servers, so that the applications
- * can discover and connect to a service, send requests and get responses, subscribe events and
- * receive events as well as handle errors.
+ * can discover and connect to a service, send requests and get responses, subscribe to and
+ * receive events, as well as handle errors.
  *
  * @section taf_someipClnt_binding IPC interfaces binding
  *
@@ -138,9 +138,9 @@
    }
    @endcode
  *
- * Applications can also call taf_someipClnt_GetState() to get current service state. And call
- * taf_someipClnt_ReleaseService() to disconnect to the service if the application doesn't use the
- * service any more.
+ * Applications can call taf_someipClnt_GetState() to get the current service state.
+ * Applications can also call taf_someipClnt_ReleaseService() to disconnect to the service if the
+ * application does not use the service any longer.
  *
  * @code
    taf_someipClnt_State_t state; // Service state
@@ -149,7 +149,7 @@
    LE_ASSERT(LE_OK != taf_someipClnt_GetState(serviceRef, &state));
    LE_INFO("Service is '%s'.", state == TAF_SOMEIPCLNT_AVAILABLE ? "AVAILABLE" : "UNAVAILABLE");
 
-   // Get the service version if it's available.
+   // Get the service version if it is available.
    if (state == TAF_SOMEIPCLNT_AVAILABLE)
    {
        uint8_t majVer;
@@ -170,7 +170,7 @@
  * Application can send a request message with a given method and payload data to a service after
  * the service is available and get the response message in a callback handler later.
  *
- * The following example illustrates how to create a request message, send the message and get the
+ * The following example illustrates how to create a request message, send the message, and get the
  * response.
  * @code
    // Response handler function.
@@ -188,7 +188,7 @@
        LE_INFO("RESPONSE STATUS: [result='%s', msgType='%s', returnCode='%d']",
                LE_RESULT_TXT(result), isErrRsp ? "MT_ERROR" : "MT_RESPONSE", returnCode);
 
-       // Dump the response payload data with hex string format if it's not empty.
+       // Dump the response payload data with hex string format if it is not empty.
        if ((result == LE_OK) && (dataPtr != NULL) && (dataSize != 0))
        {
            char PayloadString[2*dataSize + 1];
@@ -217,13 +217,13 @@
  *
  * @section c_taf_someipClnt_event_message_API Event Message APIs
  *
- * Application can call taf_someipClnt_EnableEventGroup() and taf_someipClnt_SubscribeEventGroup()
- * to setup the events with the event group it's interested in for a service. And then call
+ * The application can call taf_someipClnt_EnableEventGroup() and taf_someipClnt_SubscribeEventGroup()
+ * to set up the events with the event group it is interested in for a service. It can then call
  * taf_someipClnt_AddEventMsgHandler() to register an event message handler for that event group.
- * Later once a SOME/IP event message of that event group is received, the message handler will be
+ * Later, once a SOME/IP event message of that event group is received, the message handler will be
  * called with the service reference and event ID passed as input parameters.
  *
- * The following example illustrates how to setup two events in an event group, and register an
+ * The following example illustrates how to set up two events in an event group, and register an
  * event message handler for that event group.
  * @code
    // Event message handler function.
@@ -261,7 +261,7 @@
    LE_ASSERT(LE_OK == taf_someipClnt_EnableEventGroup(serviceRef, GROUP_ID, EVENT_ID2,
                                                       TAF_SOMEIPDEF_ET_EVENT));
 
-   // Subscribe group 0x1000.
+   // Subscribe to group 0x1000.
    LE_ASSERT(LE_OK == taf_someipClnt_SubscribeEventGroup(serviceRef, GROUP_ID));
 
    // Register an event handler for group 0x1000.
@@ -270,7 +270,7 @@
    LE_ASSERT(eventHandlerRef != NULL);
    @endcode
  *
- * @note An event or an event group of a client-service-instance can be only setup by one client
+ * @note An event or an event group of a client-service-instance can be only set up by one client
  * application.
  *
  * <HR>
@@ -318,7 +318,7 @@ FUNCTION uint16 GetClientId
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Requests a client-service-instance and return the reference to the client-service-instance.
+ * Requests a client-service-instance and returns the reference to the client-service-instance.
  *
  * @return
  *     - Reference to the client-service-instance.
@@ -383,7 +383,7 @@ FUNCTION le_result_t GetVersion
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Handler for service state change.
+ * Handler for the service state change.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER StateChangeHandler
@@ -394,7 +394,7 @@ HANDLER StateChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This event provides information on service state change.
+ * This event provides information on the service state change.
  */
 //--------------------------------------------------------------------------------------------------
 EVENT StateChange
@@ -405,7 +405,7 @@ EVENT StateChange
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Creates a request message and set the destination.
+ * Creates a request message and sets the destination.
  *
  * @return
  *     - Reference to the request message.
@@ -420,7 +420,7 @@ FUNCTION TxMsg CreateMsg
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets the request to a non-return-request(MT_REQUEST_NO_RETURN). By default it's MT_REQUEST.
+ * Sets the request to a non-return-request(MT_REQUEST_NO_RETURN). By default, it is MT_REQUEST.
  *
  * @return
  *     - LE_OK -- Succeeded.
@@ -435,7 +435,7 @@ FUNCTION le_result_t SetNonRet
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Uses TCP to send the request. By default is using UDP.
+ * Uses TCP to send the request. By default, it uses UDP.
  *
  * @return
  *     - LE_OK -- Succeeded.
@@ -450,8 +450,8 @@ FUNCTION le_result_t SetReliable
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets timeout in milliseconds waiting for the response. By default the timeout is 30000ms. 0 means
- * NEVER timeout.
+ * Sets the timeout in milliseconds for waiting for the response. By default, the timeout is 30000 ms.
+ * 0 means NEVER time out.
  *
  * @return
  *     - LE_OK -- Succeeded.
@@ -467,7 +467,7 @@ FUNCTION le_result_t SetTimeout
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets payload data of the request. By default the payload is empty.
+ * Sets the payload data of the request. By default, the payload is empty.
  *
  * @return
  *     - LE_OK -- Succeeded.
@@ -477,7 +477,7 @@ FUNCTION le_result_t SetTimeout
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetPayload
 (
-    TxMsg msgRef                      IN, ///< Tx message reference.
+    TxMsg msgRef                               IN, ///< Tx message reference.
     uint8 data[taf_someipDef.MAX_PAYLOAD_SIZE] IN  ///< Payload data.
 );
 
@@ -498,7 +498,7 @@ FUNCTION le_result_t DeleteMsg
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The asynchronous response handler for RequestResponse(). If "result" is not LE_OK other input
+ * The asynchronous response handler for RequestResponse(). If "result" is not LE_OK, other input
  * parameters can be ignored.
  *
  * @return
@@ -506,15 +506,16 @@ FUNCTION le_result_t DeleteMsg
  *     - LE_BAD_PARAMETER -- Invalid input parameters for RequestResponse().
  *     - LE_NOT_PERMITTED -- The message is not created by the client.
  *     - LE_UNAVAILABLE -- Service is not available.
- *     - LE_TIMEOUT -- Response timeouts.
+ *     - LE_TIMEOUT -- Response time outs.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER RespMsgHandler
 (
-    le_result_t result                IN, ///< Result of RequestResponse().
-    bool     isErrRsp                 IN, ///< True MT_ERROR(0x81), otherwise MT_RESPONSE(0x80).
-    uint8    returnCode               IN, ///< Return code of the response.
-    uint8    data[taf_someipDef.MAX_PAYLOAD_SIZE] IN ///< Payload Data of the response.
+    le_result_t result                            IN, ///< Result of RequestResponse().
+    bool     isErrRsp                             IN, ///< True MT_ERROR(0x81), otherwise 
+                                                      ///  MT_RESPONSE(0x80).
+    uint8    returnCode                           IN, ///< Return code of the response.
+    uint8    data[taf_someipDef.MAX_PAYLOAD_SIZE] IN  ///< Payload data of the response.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -535,8 +536,8 @@ FUNCTION RequestResponse
 /**
  * Enables an event group by adding an event into the group.
  *
- * NOTE: This API can be called for multiple times if there are more than one events adding into the
- * group. Currently one event can be only added into one group, and one event group can be enabled
+ * NOTE: This API can be called multiple times if there is more than one event to be added into the
+ * group. Currently, one event can only be added into one group, and one event group can be enabled
  * only by one client.
  *
  * @return
@@ -558,7 +559,7 @@ FUNCTION le_result_t EnableEventGroup
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Disables an event group and remove all events from the group.
+ * Disables an event group and removes all events from the group.
  *
  * @return
  *     - LE_OK -- Succeeded.
@@ -612,24 +613,24 @@ FUNCTION le_result_t UnsubscribeEventGroup
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Handler for event message.
+ * Handler for an event message.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER EventMsgHandler
 (
-    Service      serviceRef           IN, ///< Service Reference.
-    uint16       eventId              IN, ///< Event ID.
-    uint8   data[taf_someipDef.MAX_PAYLOAD_SIZE] IN ///< Event Data.
+    Service      serviceRef                      IN, ///< Service Reference.
+    uint16       eventId                         IN, ///< Event ID.
+    uint8   data[taf_someipDef.MAX_PAYLOAD_SIZE] IN  ///< Event Data.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This event provides information on event message.
+ * This event provides information on an event message.
  */
 //--------------------------------------------------------------------------------------------------
 EVENT EventMsg
 (
     Service         serviceRef        IN, ///< Service Reference.
-    uint16          eventGroupId      IN, ///< Event group ID.
+    uint16          eventGroupId      IN, ///< Event Group ID.
     EventMsgHandler handler           IN  ///< Event Handler.
 );

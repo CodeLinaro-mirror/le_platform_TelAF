@@ -29,7 +29,7 @@
 
 /*
  *  Changes from Qualcomm Innovation Center are provided under the following license:
- *  Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -147,8 +147,8 @@
    }
    @endverbatim
  *
- * The @c taf_pos_GetMotion() function gets motion's data(horizontal speed & its accuracy,
- * verticial speed & its accuracy).
+ * The @c taf_pos_GetMotion() function gets motion's data (horizontal speed and accuracy; 
+ * verticial speed and accuracy).
  * @verbatim
    uint32_t hSpeed, hAccuracy;
    int32_t vSpeed, vAccuracy;

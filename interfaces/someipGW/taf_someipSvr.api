@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -179,11 +179,11 @@
            LE_INFO("MESSAGE PAYLOAD [%s]", payloadString);
        }
 
-       // Send back the response with the same payload data, the Rx message will be automatically
-       // released if sending response succeeds.
+       // Send back the response with the same payload data. The Rx message will be automatically
+       // released if sending the response succeeds.
        if (LE_OK != taf_someipSvr_SendResponse(msgRef, false, 0, payloadData, payloadSize));
        {
-           // Only release the Rx message if sending response fails.
+           // Only release the Rx message if sending the response fails.
            LE_ASSERT(LE_OK == taf_someipSvr_ReleaseRxMsg(msgRef));
        }
    }
@@ -499,20 +499,20 @@ EVENT RxMsg
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Handler for event group subscription status.
+ * Handler for the event group subscription status.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER SubscriptionHandler
 (
     Service  serviceRef               IN, ///< Service Reference.
     uint16 eventGroupId               IN, ///< Event Group ID.
-    bool isSubscribed                 IN  ///< True the event group is subscribed, otherwise
-                                          ///< Unsubscribed.
+    bool isSubscribed                 IN  ///< True if the event group is subscribed, otherwise
+                                          ///  unsubscribed.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This event provides information on event group subscription status.
+ * This event provides information on the event group subscription status.
  */
 //--------------------------------------------------------------------------------------------------
 EVENT Subscription
@@ -632,8 +632,8 @@ FUNCTION le_result_t GetPayloadData
 FUNCTION le_result_t SendResponse
 (
     RxMsg   msgRef                               IN, ///< Rx Message reference.
-    bool    isErrRsp                             IN, ///< True with message type MT_ERROR(0x81)
-                                                     ///< otherwise MT_RESPONSE(0x80).
+    bool    isErrRsp                             IN, ///< True with message type MT_ERROR(0x81),
+                                                     ///  otherwise MT_RESPONSE(0x80).
     uint8   returnCode                           IN, ///< Return Code.
     uint8   data[taf_someipDef.MAX_PAYLOAD_SIZE] IN  ///< Payload Data.
 );

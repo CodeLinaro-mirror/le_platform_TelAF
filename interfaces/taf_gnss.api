@@ -28,7 +28,7 @@
 
  * Changes from Qualcomm Innovation Center are provided under the following license:
 
- * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -579,8 +579,8 @@
      // Process after succesfully getting the dilute of precision for dilute of precision type.
    }
    @endverbatim
- * - taf_gnss_GetMagneticDeviation()-- Triggered inside PositionHandlerFunction() function to
- * get positionSampleRef.
+ * - taf_gnss_GetMagneticDeviation() -- Triggered inside the PositionHandlerFunction() function to
+ *                                      get positionSampleRef.
  * @verbatim
    int32_t magneticDeviation;
    if(taf_gnss_GetMagneticDeviation(positionSampleRef,&magneticDeviation) == LE_OK)
@@ -588,8 +588,8 @@
      // Process after succesfully getting the magnetic deviation.
    }
    @endverbatim
- * - taf_gnss_GetEllipticalUncertainty()-- Triggered inside PositionHandlerFunction()
- * function to get positionSampleRef.
+ * - taf_gnss_GetEllipticalUncertainty() -- Triggered inside the PositionHandlerFunction()
+ *                                          function to get positionSampleRef.
  * @verbatim
    uint32_t SemiMajor;
    uint32_t SemiMinor;
@@ -736,14 +736,15 @@ ENUM FixState
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  GNSS altitude types
+ *  GNSS altitude types.
  */
 //--------------------------------------------------------------------------------------------------
 ENUM AltType
 {
     ALT_TYPE_UNKNOWN,          ///< Unknown altitude type.
     ALT_TYPE_CALCULATED,       ///< Altitude is calculated.
-    ALT_TYPE_ASSUMED           ///< Altitude is assumed, there may not be enough satellites to determine the precise altitude.
+    ALT_TYPE_ASSUMED           ///< Altitude is assumed as there may not be enough satellites to 
+                               ///  determine the precise altitude.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -887,13 +888,13 @@ FUNCTION le_result_t GetLocation
  * degrees.
  * Direction ranges from 0 to 359.9 degrees, where 0 is True North.
  *
- * @note In case the function returns LE_OUT_OF_RANGE, some of the retrieved parameters may be
- *       valid. Compare them with INT32_MAX
+ * @note If the function returns LE_OUT_OF_RANGE, some of the retrieved parameters may be
+ *       valid. Compare them with INT32_MAX.
  *
- * @note directionPtr, directionAccuracyPtr can be set to NULL if not needed.
+ * @note directionPtr and directionAccuracyPtr can be set to NULL if not needed.
  *
- * @note If the caller is passing an invalid Position sample reference into this function,
- *       it is a fatal error, the function will not return.
+ * @note If the caller is passing an invalid position sample reference into this function,
+ *       it is a fatal error and the function will not return.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetDirection
@@ -1947,7 +1948,7 @@ FUNCTION le_result_t ConfigureSecondaryBandConstellations
  * @return
  *  - LE_OK             Succeeded.
  *  - LE_FAULT          Failed.
- *  - LE_NOT_PERMITTED  The GNSS device is not in "active" state.
+ *  - LE_NOT_PERMITTED  The GNSS device is not in the Active state.
  *
  * @note If the caller passes a null pointer to this function, it is a fatal error
  *       and the function will not return.
@@ -1967,7 +1968,7 @@ FUNCTION le_result_t GetMagneticDeviation
  * @return
  *  - LE_OK             Succeeded.
  *  - LE_FAULT          Failed.
- *  - LE_NOT_PERMITTED  The GNSS device is not in "active" state.
+ *  - LE_NOT_PERMITTED  The GNSS device is not in the Active state.
  *
  * @note If the caller passes a null pointer to this function, it is a fatal error
  *       and the function will not return.
@@ -1976,7 +1977,7 @@ FUNCTION le_result_t GetMagneticDeviation
 FUNCTION le_result_t GetEllipticalUncertainty
 (
     Sample positionSampleRef          IN, ///< Position sample reference.
-    uint32 horUncEllipseSemiMajorPtr OUT, ///< Horizontal semi major elliptical uncertainty.
-    uint32 horUncEllipseSemiMinorPtr OUT, ///< Horizontal semi minor elliptical uncertainty.
+    uint32 horUncEllipseSemiMajorPtr OUT, ///< Horizontal semi-major elliptical uncertainty.
+    uint32 horUncEllipseSemiMinorPtr OUT, ///< Horizontal semi-minor elliptical uncertainty.
     uint8  horConfidencePtr          OUT  ///< Horizontal confidence level.
 );

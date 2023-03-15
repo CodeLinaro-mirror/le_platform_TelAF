@@ -8,6 +8,6 @@ bundles:
 {
     file:
     {
-        [r] ${CURDIR}/tafSomeipGWSvc /
+        [r] ${CURDIR}/tafSomeipGWSvc.pp /
     }
 }

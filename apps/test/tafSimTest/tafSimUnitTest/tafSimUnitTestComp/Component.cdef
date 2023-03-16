@@ -1,0 +1,14 @@
+sources:
+{
+    tafSimUnitTest.cpp
+}
+
+requires:
+{
+    api:
+    {
+        taf_sim.api
+    }
+}
+
+

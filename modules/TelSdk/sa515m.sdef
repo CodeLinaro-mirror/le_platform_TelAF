@@ -34,6 +34,7 @@ apps:
     // $TELAF_ROOT/apps/test/tafRadioTest/tafRadioUnitTest/tafRadioUnitTest
     // $LEGATO_ROOT/apps/sample/voiceCallApp/voiceCallApp
     // $TELAF_ROOT/apps/test/tafSimTest/tafSimIntegrationTest/tafSimIntTest
+    // $TELAF_ROOT/apps/test/tafSimTest/tafSimUnitTest/tafSimUnitTest
     // $TELAF_ROOT/apps/test/tafSmsTest/tafSMSUnitTest
     // $TELAF_ROOT/apps/test/tafSmsTest/tafSmsIntTest
     // $TELAF_ROOT/apps/test/tafRSimTest/tafRSimUnitTest/tafRSimUnitTest

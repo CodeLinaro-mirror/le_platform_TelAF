@@ -30,9 +30,9 @@
  *
  * @section c_taf_someipSvr_configurations System Configuration
  *
- * Before using any API of the service, user needs to setup the system configuration properly.
+ * Before using any API of the service, the user needs to configure the system properly
  * Since the SOME/IP Gateway Server Service is built upon vsomeip library, the configuration follows
- * the same JSON format as vsomeip. User can take the default vsomeip JSON file which locates in
+ * the same JSON format as vsomeip. The user can take the default vsomeip JSON file which locates in
  * /legato/systems/current/appsWriteable/tafSomeipGWSvc/tafSomeipGWSvc.json as a template to make
  * their own specific configuration. The default JSON file is as below:
  *
@@ -75,13 +75,13 @@
  * Mandatorily, The @b unicast shall be set with the correct IP address in the system for SOME/IP
  * commuications. The @b id in @b applications shall be set with a unique client ID within the
  * vehicle's SOME/IP network. Optionally, the SOME/IP-SD parameters in @b service-discovery can be
- * also changed if needed.
+ * changed if needed.
  *
- * Restart the tafSomeipGWSvc service or reboot the deivce to make the new configuration take effect
+ * Restart the tafSomeipGWSvc service or reboot the device to make the new configuration take effect
  * after any modification.
  *
  * Finally run below command to add a route entry for the SOME/IP-SD multicast address(Suppose the
- * interface name of the unicast address is "bridge0"):
+ * interface name of the unicast address is "bridge0" and the multicast address is "224.0.0.1"):
  * @verbatim
    route add 224.0.0.1 dev bridge0
    @endverbatim
@@ -179,11 +179,13 @@
            LE_INFO("MESSAGE PAYLOAD [%s]", payloadString);
        }
 
-       // Send back the response with the same payload data.
-       LE_ASSERT(LE_OK == taf_someipSvr_SendResponse(msgRef, false, 0, payloadData, payloadSize));
-
-       // Release the message.
-       LE_ASSERT(LE_OK == taf_someipSvr_ReleaseRxMsg(msgRef));
+       // Send back the response with the same payload data, the Rx message will be automatically
+       // released if sending response succeeds.
+       if (LE_OK != taf_someipSvr_SendResponse(msgRef, false, 0, payloadData, payloadSize));
+       {
+           // Only release the Rx message if sending response fails.
+           LE_ASSERT(LE_OK == taf_someipSvr_ReleaseRxMsg(msgRef));
+       }
    }
 
    // Register the message handler.
@@ -292,11 +294,11 @@ FUNCTION le_result_t SetServicePort
 (
    Service serviceRef                IN, ///< Service Reference.
    uint16  udpPort                   IN, ///< Set up an UDP server with the given UDP port for the
-                                         ///  service. 0 means no UDP server is set up.
+                                         ///< service. 0 means no UDP server is set up.
    uint16  tcpPort                   IN, ///< Set up an TCP server with the given TCP port for the
-                                         ///  service. 0 means no TCP server is set up.
+                                         ///< service. 0 means no TCP server is set up.
    bool enableMagicCookies           IN  ///< If TCP magic cookie is enabled when TCP server is set
-                                         ///  up.
+                                         ///< up.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -505,7 +507,7 @@ HANDLER SubscriptionHandler
     Service  serviceRef               IN, ///< Service Reference.
     uint16 eventGroupId               IN, ///< Event Group ID.
     bool isSubscribed                 IN  ///< True the event group is subscribed, otherwise
-                                          ///  Unsubscribed.
+                                          ///< Unsubscribed.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -631,7 +633,7 @@ FUNCTION le_result_t SendResponse
 (
     RxMsg   msgRef                               IN, ///< Rx Message reference.
     bool    isErrRsp                             IN, ///< True with message type MT_ERROR(0x81)
-                                                     ///  otherwise MT_RESPONSE(0x80).
+                                                     ///< otherwise MT_RESPONSE(0x80).
     uint8   returnCode                           IN, ///< Return Code.
     uint8   data[taf_someipDef.MAX_PAYLOAD_SIZE] IN  ///< Payload Data.
 );

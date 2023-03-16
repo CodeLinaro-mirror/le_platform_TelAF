@@ -3,6 +3,281 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * @page c_tafSomeipClnt SOME/IP Gateway Client Service
+ *
+ * @ref taf_someipClnt_interface.h "API Reference"
+ *
+ * <HR>
+ *
+ * The SOME/IP Gateway Client Service supports SOME/IP protocol(http://some-ip.com/) through vsomeip
+ * (https://github.com/COVESA/vsomeip) library APIs. It provides a set of simple and high level
+ * TelAF APIs for applications to communicate with remote SOME/IP servers, so that the applications
+ * can discover and connect to a service, send requests and get responses, subscribe events and
+ * receive events as well as handle errors.
+ *
+ * @section taf_someipClnt_binding IPC interfaces binding
+ *
+ * The functions of this API are provided by the @b tafSomeipGWSvc application service.
+ *
+ * The following example illustrates how to bind to the SOME/IP Gateway Client Service.
+ * @verbatim
+   bindings:
+   {
+       clientExe.clientComponent.taf_someipClnt -> tafSomeipGWSvc.taf_someipClnt
+   }
+   @endverbatim
+ *
+ * @section c_taf_someipClnt_configurations System Configuration
+ *
+ * Before using any API of the service, the user needs to configure the system properly.
+ * Since the SOME/IP Gateway Client Service is built upon vsomeip library, the configuration follows
+ * the same JSON format as vsomeip. The user can take the default vsomeip JSON file which locates in
+ * /legato/systems/current/appsWriteable/tafSomeipGWSvc/tafSomeipGWSvc.json as a template to make
+ * their own specific configuration. The default JSON file is as below:
+ *
+ * @verbatim
+   {
+    "unicast" : "192.168.225.1",
+    "logging" :
+    {
+        "level" : "warning",
+        "console" : "true",
+        "file" : { "enable" : "false", "path" : "/tmp/vsomeip.log" },
+        "version" : { "enable" : "false", "interval" : "10" },
+        "dlt" : "false"
+    },
+    "applications" :
+    [
+        {
+            "name" : "tafSomeipGWSvc",
+            "id" : "0x0101"
+        }
+    ],
+    "routing" : "tafSomeipGWSvc",
+    "service-discovery" :
+    {
+        "enable" : "true",
+        "multicast" : "224.0.0.1",
+        "port" : "30490",
+        "protocol" : "udp",
+        "initial_delay_min" : "10",
+        "initial_delay_max" : "100",
+        "repetitions_base_delay" : "200",
+        "repetitions_max" : "3",
+        "ttl" : "3",
+        "cyclic_offer_delay" : "2000",
+        "request_response_delay" : "1500"
+    }
+   }
+   @endverbatim
+ *
+ * Mandatorily, The @b unicast shall be set with the correct IP address in the system for SOME/IP
+ * commuications. The @b id in @b applications shall be set with a unique client ID within the
+ * vehicle's SOME/IP network. Optionally, the SOME/IP-SD parameters in @b service-discovery can be
+ * changed if needed.
+ *
+ * Restart the tafSomeipGWSvc service or reboot the device to make the new configuration take effect
+ * after any modification.
+ *
+ * Finally run below command to add a route entry for the SOME/IP-SD multicast address(Suppose the
+ * interface name of the unicast address is "bridge0" and the multicast address is "224.0.0.1"):
+ * @verbatim
+   route add 224.0.0.1 dev bridge0
+   @endverbatim
+ *
+ * @section c_taf_someipClnt_client_API Client Service APIs
+ *
+ * Before setting up a client-service-instance, application shall first get the service reference by
+ * calling taf_someipClnt_RequestService() and use the reference returned for subsequent operations.
+ *
+ * The following example illustrates how to set up a SOME/IP client-service-instance and connect to
+ * a service within vehicle network.
+ *
+ * @code
+   const uint16_t serviceId = 0x1234;      // Service ID
+   const uint16_t instanceId = 0x5678;     // Service instance
+   taf_someipClnt_ServiceRef_t serviceRef; // Service reference
+
+   // Get the service reference.
+   serviceRef = taf_someipClnt_RequestService(serviceId, instanceId);
+   LE_ASSERT(serviceRef != NULL);
+   @endcode
+ *
+ * Application can call taf_someipClnt_AddStateChangeHandler() to register a state change handler
+ * for that service. Once the service state change happens, the handler will be called and the new
+ * state is passed as an input parameter to the application.
+ *
+ * The following example illustrates how to register a state change handler, and get the service
+ * version once the service state becomes available.
+ *
+ * @code
+   // State change handler function.
+   void StateChangeHandler
+   (
+       taf_someipClnt_ServiceRef_t serviceRef,
+       taf_someipClnt_State_t state,
+       void* contextPtr
+   )
+   {
+       // Logging the new service state.
+       LE_INFO("Service is '%s'.", state == TAF_SOMEIPCLNT_AVAILABLE ? "AVAILABLE" : "UNAVAILABLE");
+
+       // Get the service version if it's available.
+       if (state == TAF_SOMEIPCLNT_AVAILABLE)
+       {
+           uint8_t majVer;
+           uint32_t minVer;
+
+           if (LE_OK == taf_someipClnt_GetVersion(serviceRef, &majVer, &minVer))
+           {
+               LE_INFO("Service version: '0x%x/0x%x'.", majVer, minVer);
+           }
+       }
+   }
+   @endcode
+ *
+ * Applications can also call taf_someipClnt_GetState() to get current service state. And call
+ * taf_someipClnt_ReleaseService() to disconnect to the service if the application doesn't use the
+ * service any more.
+ *
+ * @code
+   taf_someipClnt_State_t state; // Service state
+
+   // Get the service state.
+   LE_ASSERT(LE_OK != taf_someipClnt_GetState(serviceRef, &state));
+   LE_INFO("Service is '%s'.", state == TAF_SOMEIPCLNT_AVAILABLE ? "AVAILABLE" : "UNAVAILABLE");
+
+   // Get the service version if it's available.
+   if (state == TAF_SOMEIPCLNT_AVAILABLE)
+   {
+       uint8_t majVer;
+       uint32_t minVer;
+
+       if (LE_OK == taf_someipClnt_GetVersion(serviceRef, &majVer, &minVer))
+       {
+           LE_INFO("Service version: '0x%x/0x%x'.", majVer, minVer);
+       }
+   }
+
+   // Release the service.
+   LE_ASSERT(LE_OK != taf_someipClnt_ReleaseService(serviceRef);
+   @endcode
+ *
+ * @section c_taf_someipSvr_request_response_API Request Response Message APIs
+ *
+ * Application can send a request message with a given method and payload data to a service after
+ * the service is available and get the response message in a callback handler later.
+ *
+ * The following example illustrates how to create a request message, send the message and get the
+ * response.
+ * @code
+   // Response handler function.
+   void ResponseHandler
+   (
+       le_result_t result,
+       bool isErrRsp,
+       uint8_t returnCode,
+       const uint8_t* dataPtr,
+       size_t dataSize,
+       void* contextPtr
+   )
+   {
+       // Check the response status.
+       LE_INFO("RESPONSE STATUS: [result='%s', msgType='%s', returnCode='%d']",
+               LE_RESULT_TXT(result), isErrRsp ? "MT_ERROR" : "MT_RESPONSE", returnCode);
+
+       // Dump the response payload data with hex string format if it's not empty.
+       if ((result == LE_OK) && (dataPtr != NULL) && (dataSize != 0))
+       {
+           char PayloadString[2*dataSize + 1];
+           le_hex_BinaryToString(dataPtr, dataSize, PayloadString, 2*dataSize + 1);
+           LE_INFO("RESPONSE PAYLOAD: ['%s']", PayloadString);
+       }
+   }
+
+   // Create a request message of the service with method 0x2000.
+   taf_someipClnt_TxMsgRef_t txMsgRef = taf_someipClnt_CreateMsg(serviceRef, 0x2000);
+   LE_ASSERT(txMsgRef != NULL);
+
+   // Use TCP to send the message.
+   LE_ASSERT(LE_OK == taf_someipClnt_SetReliable(txMsgRef));
+
+   // Set the response timeout to 5 seconds.
+   LE_ASSERT(LE_OK == taf_someipClnt_SetTimeout(txMsgRef, 5000);
+
+   // Fill the payload data of the message.
+   uint8_t payload[5] = { 0x01, 0x02, 0x03, 0x04, 0x05 };
+   LE_ASSERT(LE_OK == taf_someipClnt_SetPayload(txMsgRef, payload, sizeof(payload)));
+
+   // Send the request message with a response handler.
+   taf_someipClnt_RequestResponse(txMsgRef, ResponseHandler, NULL);
+   @endcode
+ *
+ * @section c_taf_someipClnt_event_message_API Event Message APIs
+ *
+ * Application can call taf_someipClnt_EnableEventGroup() and taf_someipClnt_SubscribeEventGroup()
+ * to setup the events with the event group it's interested in for a service. And then call
+ * taf_someipClnt_AddEventMsgHandler() to register an event message handler for that event group.
+ * Later once a SOME/IP event message of that event group is received, the message handler will be
+ * called with the service reference and event ID passed as input parameters.
+ *
+ * The following example illustrates how to setup two events in an event group, and register an
+ * event message handler for that event group.
+ * @code
+   // Event message handler function.
+   void EventMsgHandler
+   (
+       taf_someipClnt_ServiceRef_t serviceRef,
+       uint16_t eventId,
+       const uint8_t* dataPtr,
+       size_t dataSize,
+       void* contextPtr
+   )
+   {
+       // Logging the event ID.
+       LE_INFO("EVENT [ ID='0x%x'] received.", eventId);
+
+       // Dump the event payload data with hex string format if it's not empty.
+       if ((dataPtr != NULL) && (dataSize != 0))
+       {
+           char PayloadString[2*dataSize + 1];
+           le_hex_BinaryToString(dataPtr, dataSize, PayloadString, 2*dataSize + 1);
+           LE_INFO("EVENT PAYLOAD ['%s']", PayloadString);
+       }
+   }
+
+   // Define one event group which contains two events.
+   #define GROUP_ID  0x1000
+   #define EVENT_ID1 0x8001
+   #define EVENT_ID2 0x8002
+
+   // Add event 0x8001 to group 0x1000.
+   LE_ASSERT(LE_OK == taf_someipClnt_EnableEventGroup(serviceRef, GROUP_ID, EVENT_ID1,
+                                                      TAF_SOMEIPDEF_ET_EVENT));
+
+   // Add event 0x8002 to group 0x1000.
+   LE_ASSERT(LE_OK == taf_someipClnt_EnableEventGroup(serviceRef, GROUP_ID, EVENT_ID2,
+                                                      TAF_SOMEIPDEF_ET_EVENT));
+
+   // Subscribe group 0x1000.
+   LE_ASSERT(LE_OK == taf_someipClnt_SubscribeEventGroup(serviceRef, GROUP_ID));
+
+   // Register an event handler for group 0x1000.
+   taf_someipClnt_EventMsgHandlerRef_t eventHandleRef =
+       taf_someipClnt_AddEventMsgHandler(serviceRef, GROUP_ID, EventMsgHandler, NULL);
+   LE_ASSERT(eventHandlerRef != NULL);
+   @endcode
+ *
+ * @note An event or an event group of a client-service-instance can be only setup by one client
+ * application.
+ *
+ * <HR>
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+
 USETYPES taf_someipDef.api;
 //--------------------------------------------------------------------------------------------------
 /**
@@ -175,7 +450,7 @@ FUNCTION le_result_t SetReliable
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets timeout milliseconds waiting for the response. By default the timeout is 30000ms. 0 means
+ * Sets timeout in milliseconds waiting for the response. By default the timeout is 30000ms. 0 means
  * NEVER timeout.
  *
  * @return
@@ -203,12 +478,12 @@ FUNCTION le_result_t SetTimeout
 FUNCTION le_result_t SetPayload
 (
     TxMsg msgRef                      IN, ///< Tx message reference.
-    uint8 data[taf_someipDef.MAX_PAYLOAD_SIZE] IN  ///< Payload Data.
+    uint8 data[taf_someipDef.MAX_PAYLOAD_SIZE] IN  ///< Payload data.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Delete a request message.
+ * Deletes a request message.
  *
  * @return
  *     - LE_OK -- Succeeded.
@@ -244,7 +519,7 @@ HANDLER RespMsgHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Send an asynchronous request message. The response handler will be called once the response is
+ * Sends an asynchronous request message. The response handler will be called once the response is
  * received or any errors occur.
  *
  * NOTE: The request message will be automatically deleted after calling this API.
@@ -258,7 +533,7 @@ FUNCTION RequestResponse
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Enable an event group by adding an event into the group.
+ * Enables an event group by adding an event into the group.
  *
  * NOTE: This API can be called for multiple times if there are more than one events adding into the
  * group. Currently one event can be only added into one group, and one event group can be enabled
@@ -283,7 +558,7 @@ FUNCTION le_result_t EnableEventGroup
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Disable an event group and remove all events from the group.
+ * Disables an event group and remove all events from the group.
  *
  * @return
  *     - LE_OK -- Succeeded.
@@ -301,7 +576,7 @@ FUNCTION le_result_t DisableEventGroup
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Subscribe an event group of a service.
+ * Subscribes an event group of a service.
  *
  * @return
  *     - LE_OK -- Succeeded.
@@ -319,7 +594,7 @@ FUNCTION le_result_t SubscribeEventGroup
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Unsubscribe an event group of a service.
+ * Unsubscribes an event group of a service.
  *
  * @return
  *     - LE_OK -- Succeeded.

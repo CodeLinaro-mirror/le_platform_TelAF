@@ -47,13 +47,13 @@
  *
  * @section taf_can_binding IPC interfaces binding
  *
- * The functions of this API are provided by the @b tafVNWSvc application service.
+ * The functions of this API are provided by the @b tafCanSvc application service.
  *
  * The following example illustrates how to bind to the CAN service.
  * @verbatim
    bindings:
    {
-        clientExe.clientComponent.taf_can -> tafVNWSvc.taf_can
+        clientExe.clientComponent.taf_can -> tafCanSvc.taf_can
    }
    @endverbatim
  *

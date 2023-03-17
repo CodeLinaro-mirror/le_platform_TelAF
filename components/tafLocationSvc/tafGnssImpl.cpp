@@ -419,9 +419,7 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
     if (gnss.mTtffEnabled)
     {
         gnss.mEndTime = std::chrono::system_clock::now();
-        std::unique_lock<std::mutex> lock(gnss.mMutex);
         gnss.mTtffEnabled = false;
-        gnss.mTtffVar.notify_one();
     }
     le_mutex_Lock(gnss.mGnssMutexRef);
     if(gnss.NumOfPositionHandlers )
@@ -1291,7 +1289,6 @@ le_result_t taf_Gnss::Start
                 mLocationManager->startDetailedEngineReports((uint32_t)optInterval,engineType,
                         std::bind(&LocationCommandCallback::commandResponse,
                             mLocCmdResponseCb, std::placeholders::_1));
-                mStartTime = std::chrono::system_clock::now();
                 std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
                 if(futResult.get() == LE_OK)
                 {
@@ -1299,6 +1296,8 @@ le_result_t taf_Gnss::Start
                     GnssState = TAF_GNSS_STATE_ACTIVE;
                     result = LE_OK;
                     LE_INFO("Start() is success");
+                    mStartTime = std::chrono::system_clock::now();
+                    mTtffEnabled = true;
                 }
                 else
                 {
@@ -1592,7 +1591,6 @@ le_result_t taf_Gnss::GetTtff
 )
 {
 
-    mTtffEnabled = true;
     TAF_KILL_CLIENT_IF_RET_VAL((ttffPtr == NULL), LE_FAULT, "ttffPtr is NULL");
 
     le_result_t result = LE_FAULT;
@@ -1610,36 +1608,11 @@ le_result_t taf_Gnss::GetTtff
         case TAF_GNSS_STATE_ACTIVE:
         {
 // Start Detailed Engine Reports, if not already started
-            if (!mStarted) {
-                int optInterval = 100;
-                mAcqRate = optInterval;
-                CmdSynchronousPromise = std::promise<le_result_t>();
-                LocReqEngine engineType = DEFAULT_UNKNOWN;
-                engineType |= 1UL << 0; //DRE+SPE+PPE engines supported
-                mLocCmdResponseCb = std::make_shared<LocationCommandCallback>
-                        ("startDetailedEngineReports");
-                mLocationManager->startDetailedEngineReports((uint32_t)optInterval,engineType,
-                        std::bind(&LocationCommandCallback::commandResponse,
-                            mLocCmdResponseCb, std::placeholders::_1));
-                std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
-                if(futResult.get() == LE_OK)
-                {
-                    mStarted = true;
-                    LE_INFO("ttff()->Start() is success");
-                }
-                else
-                {
-                    LE_INFO("ttff()->Start() is failed");
-                    return result;
-                }
-            }
-            if(!mTtffPtr) //for the first time calculate ttff value
+
+            if(!mTtffPtr && !mTtffEnabled) //calculate ttff on device boot up & cold/warm/hot restart procedure
             {
-                mStartTime = std::chrono::system_clock::now();
-                std::unique_lock<std::mutex> lock(mMutex);
-                mTtffVar.wait(lock);
                 std::chrono::duration<double> elapsedTime = mEndTime - mStartTime;
-                *ttffPtr = elapsedTime.count() * 1e+6;
+                *ttffPtr = elapsedTime.count() * 1e+3;
                 mTtffPtr = *ttffPtr ;
                 mTtffEnable = true;
             }
@@ -2510,7 +2483,7 @@ le_result_t taf_Gnss::SetAcquisitionRate
             if(rate < 100)
             {
                 rate = 100;
-                LE_DEBUG("SetAcquisitionRate -> mAcqRate is zero, so set default to 100ms");
+                LE_DEBUG("SetAcquisitionRate -> mAcqRate is less than 100ms, so set default to 100ms");
             }
             mAcqRate = rate;
             result = LE_OK;
@@ -2554,20 +2527,42 @@ le_result_t taf_Gnss::ForceColdRestart
         break;
         case TAF_GNSS_STATE_ACTIVE:
             {
+               //Delete All Aiding Data
                 mLocCmdResponseCb = std::make_shared<LocationCommandCallback>( "Delete All Aiding Data Cold Start");
                 telux::common::Status status = mLocationConfigurator->deleteAllAidingData(
                         std::bind(&LocationCommandCallback::commandResponse, mLocCmdResponseCb, std::placeholders::_1));
                 LE_INFO("ForceColdRestart mStarted: %d",mStarted);
                 if (status == telux::common::Status::NOTIMPLEMENTED) {
                     LE_ERROR("ForceColdRestart failed or Not Implemented");
-                    GnssState = TAF_GNSS_STATE_READY;
-                    mStarted = false;
                     result = LE_FAULT;
                 }
                 if(result == LE_OK)
                 {
-
-                    //start Detailed report
+                    // stop Detailed Reports
+                    if (mStarted)
+                    {
+                        CmdSynchronousPromise = std::promise<le_result_t>();
+                        mLocCmdResponseCb =std::make_shared<LocationCommandCallback>("stopReports");
+                        mLocationManager->stopReports(std::bind(
+                                  &LocationCommandCallback::commandResponse,
+                                          mLocCmdResponseCb, std::placeholders::_1));
+                        std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
+                        if(futResult.get() == LE_OK)
+                        {
+                            mStarted = false;
+                            GnssState = TAF_GNSS_STATE_READY;
+                            LE_INFO("ForceColdRestart->Stop() is success");
+                        }
+                        else
+                        {
+                            LE_INFO("ForceColdRestart->Stop() is failed");
+                            result = LE_FAULT;
+                        }
+                    }
+                }
+                if(result == LE_OK)
+                {
+                    //start Detailed Engine report
                     if (!mStarted) {
                         int optInterval = mAcqRate;
                         CmdSynchronousPromise = std::promise<le_result_t>();
@@ -2592,6 +2587,9 @@ le_result_t taf_Gnss::ForceColdRestart
                             mStarted = true;
                             GnssState = TAF_GNSS_STATE_ACTIVE;
                             LE_INFO("ForceColdRestart->Start() is success");
+                            mTtffPtr = 0; //reset TTFF value
+                            mStartTime = std::chrono::system_clock::now();
+                            mTtffEnabled = true;
                         }
                         else
                         {
@@ -2642,14 +2640,35 @@ le_result_t taf_Gnss::ForceWarmRestart
                         std::bind(&LocationCommandCallback::commandResponse, mLocCmdResponseCb, std::placeholders::_1));
                 if (status == telux::common::Status::NOTIMPLEMENTED) {
                     LE_ERROR("ForceWarmRestart failed or Not Implemented");
-                    GnssState = TAF_GNSS_STATE_READY;
-                    mStarted = false;
                     result = LE_FAULT;
                 }
                 if(result == LE_OK)
                 {
-
-                    //start Detailed report
+                    // stop Detailed Reports
+                    if (mStarted)
+                    {
+                        CmdSynchronousPromise = std::promise<le_result_t>();
+                        mLocCmdResponseCb =std::make_shared<LocationCommandCallback>("stopReports");
+                        mLocationManager->stopReports(std::bind(
+                                  &LocationCommandCallback::commandResponse,
+                                          mLocCmdResponseCb, std::placeholders::_1));
+                        std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
+                        if(futResult.get() == LE_OK)
+                        {
+                            mStarted = false;
+                            GnssState = TAF_GNSS_STATE_READY;
+                            LE_INFO("ForceWarmRestart->Stop() is success");
+                        }
+                        else
+                        {
+                            LE_INFO("ForceWarmRestart->Stop() is failed");
+                            result = LE_FAULT;
+                        }
+                    }
+                }
+                if(result == LE_OK)
+                {
+                    //start Detailed Engine report
                     if (!mStarted) {
                         int optInterval = mAcqRate;
                         CmdSynchronousPromise = std::promise<le_result_t>();
@@ -2674,6 +2693,9 @@ le_result_t taf_Gnss::ForceWarmRestart
                             mStarted = true;
                             GnssState = TAF_GNSS_STATE_ACTIVE;
                             LE_INFO("ForceWarmRestart->Start() is success");
+                            mTtffPtr = 0; //reset TTFF value
+                            mStartTime = std::chrono::system_clock::now();
+                            mTtffEnabled = true;
                         }
                         else
                         {
@@ -2760,6 +2782,9 @@ le_result_t taf_Gnss::ForceHotRestart
                         mStarted = true;
                         result = LE_OK;
                         GnssState = TAF_GNSS_STATE_ACTIVE;
+                        mTtffPtr = 0; //reset TTFF value
+                        mStartTime = std::chrono::system_clock::now();
+                        mTtffEnabled = true;
                         LE_INFO("ForceHotRestart->Start() is success");
                     }
                     else
@@ -2977,6 +3002,9 @@ le_result_t taf_Gnss::StartMode
                         mStarted = true;
                         GnssState = TAF_GNSS_STATE_ACTIVE;
                         LE_INFO("StartMode->Start() is success");
+                        mTtffEnabled = true;
+                        mTtffPtr = 0; //reset ttff value
+                        mStartTime = std::chrono::system_clock::now();
                     }
                     else
                     {

@@ -2,7 +2,7 @@ sandboxed: false
 
 executables:
 {
-    tafRadioUnitTest = ( tafRadioComponent )
+    tafRadioUnitTest = ( tafRadioUnitTest )
 }
 
 start: manual
@@ -25,5 +25,5 @@ processes:
 
 bindings:
 {
-    tafRadioUnitTest.tafRadioComponent.taf_radio -> tafRadioSvc.taf_radio
+    tafRadioUnitTest.tafRadioUnitTest.taf_radio -> tafRadioSvc.taf_radio
 }

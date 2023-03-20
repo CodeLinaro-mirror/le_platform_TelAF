@@ -1,0 +1,23 @@
+sandboxed: false
+
+executables:
+{
+    tafRadioIntTest = ( tafRadioIntTest )
+}
+
+start: manual
+
+processes:
+{
+    run:
+    {
+        (tafRadioIntTest)
+    }
+
+    faultAction: stopApp
+}
+
+bindings:
+{
+    tafRadioIntTest.tafRadioIntTest.taf_radio -> tafRadioSvc.taf_radio
+}

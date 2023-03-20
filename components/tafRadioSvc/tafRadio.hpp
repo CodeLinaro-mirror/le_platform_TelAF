@@ -50,19 +50,18 @@
 
 #include "tafSvcIF.hpp"
 
+#define TAF_RADIO_PHONE_NUM 2
+
 #define TAF_RADIO_PREFERRED_OPERATORS_LISTS_MAX_NUM 2
 #define TAF_RADIO_PREFERRED_OPERATORS_MAX_NUM 100
 
-#define TAF_RADIO_SCAN_INTERVAL 100
+#define TAF_RADIO_SCAN_INTERVAL 210
 #define TAF_RADIO_SCAN_OPERATORS_LISTS_MAX_NUM 10
 #define TAF_RADIO_SCAN_OPERATORS_MAX_NUM 20
 
 #define TAF_RADIO_METRICS_MAX_NUM 2
-#define TAF_RADIO_CELL_METRICS_MAX_NUM 2
 
 #define TAF_RADIO_THREAD_STACK_SIZE 0x20000
-
-#define TAF_RADIO_LTE_SNR_RATIO 0.1
 
 /*
  * @brief The emum of radio command type.
@@ -70,21 +69,8 @@
 typedef enum
 {
     TAF_RADIO_CMD_TYPE_ASYNC_REG_MANUAL,
-    TAF_RADIO_CMD_TYPE_ASYNC_NETWORK_SCAN,
+    TAF_RADIO_CMD_TYPE_ASYNC_NETWORK_SCAN
 } taf_RadioCmdType_t;
-
-/*
- * @brief The emum of radio cell information type.
- */
-typedef enum
-{
-    TAF_RADIO_CELL_INFO_TYPE_GSM = 0,
-    TAF_RADIO_CELL_INFO_TYPE_CDMA,
-    TAF_RADIO_CELL_INFO_TYPE_LTE,
-    TAF_RADIO_CELL_INFO_TYPE_WCDMA,
-    TAF_RADIO_CELL_INFO_TYPE_TDSCDMA,
-    TAF_RADIO_CELL_INFO_TYPE_MAX,
-} taf_RadioCellInfoType_t;
 
 /*
  * @brief The struct of safe reference for prefered operators in network.
@@ -140,7 +126,6 @@ typedef struct
  */
 typedef struct
 {
-    uint32_t num;
     le_sls_List_t scanOpList;
     le_sls_List_t safeRefList;
     le_sls_Link_t* currPtr;
@@ -160,272 +145,182 @@ typedef struct
 } taf_RadioCmdReq_t;
 
 /*
- * @brief The struct of GSM cell identity information.
+ * @brief The struct of GSM cell information.
  */
 typedef struct
 {
     int bsic;
-} taf_RadioGsmCellIdInfo_t;
+    int cid;
+    int lac;
+    int ta;
+} taf_RadioGsmCellInfo_t;
 
 /*
- * @brief The struct of CDMA cell identity information.
+ * @brief The struct of CDMA cell information.
  */
 typedef struct
 {
-    int nid;
-    int sid;
     int bsid;
-    int longitude;
-    int latitude;
-} taf_RadioCdmaCellIdInfo_t;
+    int ecio;
+} taf_RadioCdmaCellInfo_t;
 
 /*
- * @brief The struct of LTE cell identity information.
+ * @brief The struct of LTE cell information.
  */
 typedef struct
 {
-    int pid;
+    int cid;
+    int pcid;
     int tac;
-} taf_RadioLteCellIdInfo_t;
+    int earfcn;
+    int ta;
+} taf_RadioLteCellInfo_t;
 
 /*
- * @brief The struct of WCDMA cell identity information.
+ * @brief The struct of UMTS cell information.
  */
 typedef struct
 {
-    int psc;
-} taf_RadioWcdmaCellIdInfo_t;
-
-/*
- * @brief The struct of TDSCDMA cell identity information.
- */
-typedef struct
-{
-    int cpid;
-} taf_RadioTdscdmaCellIdInfo_t;
-
-/*
- * @brief The struct of cell identity information.
- */
-typedef struct
-{
-    int mcc;
-    int mnc;
     int lac;
     int cid;
-    int arfcn;
-    union {
-        taf_RadioGsmCellIdInfo_t gsm;
-        taf_RadioCdmaCellIdInfo_t cmda;
-        taf_RadioLteCellIdInfo_t lte;
-        taf_RadioWcdmaCellIdInfo_t wcdma;
-        taf_RadioTdscdmaCellIdInfo_t tdscdma;
+    int psc;
+    int ecio;
+} taf_RadioUmtsCellInfo_t;
+
+/*
+ * @brief The struct of TDSCDMA cell information.
+ */
+typedef struct
+{
+    int lac;
+    int cid;
+} taf_RadioTdscdmaCellInfo_t;
+
+/*
+ * @brief The struct of NR5G cell information.
+ */
+typedef struct
+{
+    int cid;
+    int pcid;
+    int tac;
+} taf_RadioNr5gCellInfo_t;
+
+/*
+ * @brief The struct of cell information.
+ */
+typedef struct
+{
+    taf_radio_Rat_t rat;
+    int ss;
+    union
+    {
+        taf_RadioGsmCellInfo_t gsm;
+        taf_RadioCdmaCellInfo_t cdma;
+        taf_RadioLteCellInfo_t lte;
+        taf_RadioUmtsCellInfo_t umts;
+        taf_RadioTdscdmaCellInfo_t tdscdma;
+        taf_RadioNr5gCellInfo_t nr5g;
     };
-} taf_RadioCellIdInfo_t;
+} taf_RadioCellInfo_t;
 
-/*
- * @brief The struct of CDMA signal strength information.
- */
 typedef struct
 {
-    int cdmaEcio;
-    int evdoEcio;
-} taf_RadioCdmaSignalStrengthInfo_t;
+    int ss;   ///< Signal Strength in dBm
+    int ber;  ///< Bit Error Rate, range [0, 7]
+    int sslv; ///< Signal Strength Level
+} taf_RadioGsmSignalMetrics_t;
 
-/*
- * @brief The struct of LTE signal strength information.
- */
 typedef struct
 {
-    int rsrq;
-    int cqi;
-} taf_RadioLteSignalStrengthInfo_t;
+    int ss;   ///< Signal Strength in dBm
+    int ber;  ///< Bit error rate
+    int sslv; ///< Signal Strength Level
+} taf_RadioUmtsSignalMetrics_t;
 
-/*
- * @brief The struct of TD-SCDMA signal strength information.
- */
 typedef struct
 {
-    int rscp;
-} taf_RadioTdscdmaSignalStrengthInfo_t;
+    int rscp; ///< Received Signal Code Power in dBm.
+} taf_RadioTdscdmaSignalMetrics_t;
 
-/*
- * @brief The struct of signal strength information.
- */
 typedef struct
 {
-    int strength;
-    int ber;
-    int snr;
-    int dbm;
-    int ta;
-    telux::tel::SignalStrengthLevel level;
-    union {
-        taf_RadioCdmaSignalStrengthInfo_t cdma;
-        taf_RadioLteSignalStrengthInfo_t lte;
-        taf_RadioTdscdmaSignalStrengthInfo_t tdscdma;
-    };
-} taf_RadioSignalStrengthInfo_t;
+    int ss;   ///< Signal Strength in dBm
+    int ecio; ///< CDMA Ec/IO in dB
+    int io;   ///< EVDO EC/IO in dB
+    int snr;  ///< Signal Noise Ratio, range [0, 8]
+    int sslv; ///< Signal Strength Level
+} taf_RadioCdmaSignalMetrics_t;
 
+typedef struct
+{
+    int ss;   ///< Signal Strength in dBm
+    int rsrq; ///< Reference Signal Receive Quality in dB
+    int rsrp; ///< Reference Signal Receive Power in dBm
+    int snr;  ///< Signal Noise Ratio in 0.1 dB
+    int sslv; ///< Signal Strength Level
+} taf_RadioLteSignalMetrics_t;
+
+typedef struct
+{
+    int rsrq; ///< Reference Signal Receive Quality in dB
+    int rsrp; ///< Reference Signal Receive Power in dBm
+    int snr;  ///< Signal Noise Ratio in 0.1 dB
+    int sslv; ///< Signal Strength Level
+} taf_RadioNr5gSignalMetrics_t;
 /*
  * @brief The struct of signal metrics.
  */
 typedef struct
 {
-    bool isRegistered;
-    taf_RadioCellIdInfo_t cellId;
-    taf_RadioSignalStrengthInfo_t signalStrength;
+    uint8_t phoneId;
+    taf_radio_RatBitMask_t ratMask;
+    taf_RadioGsmSignalMetrics_t gsm;
+    taf_RadioUmtsSignalMetrics_t umts;
+    taf_RadioTdscdmaSignalMetrics_t tdscdma;
+    taf_RadioCdmaSignalMetrics_t cdma;
+    taf_RadioLteSignalMetrics_t lte;
+    taf_RadioNr5gSignalMetrics_t nr5g;
 } taf_RadioSignalMetrics_t;
 
 /*
- * @brief The struct of cell metrics.
+ * @brief The struct of cell list information.
  */
 typedef struct
 {
-    taf_radio_CellRatMask_t cellRatMask;
-    taf_RadioSignalMetrics_t signalMetrics[TAF_RADIO_CELL_INFO_TYPE_MAX];
-} taf_RadioCellMetrics_t;
+    std::vector<taf_RadioCellInfo_t> servingCell;
+} taf_RadioCellListInfo_t;
 
 namespace telux {
 namespace tafsvc {
-    /*
-     * @brief The class of functions used in Radio Services interfaces.
-     */
-    class taf_RadioFunctions {
-    public:
-        /*
-         * This function is called when checking MCC and MNC from Client.
-         *
-         * @param [in] mccPtr    The mobile country code string.
-         * @param [in] mncPtr    The mobile network code string.
-         * @returns    Check result, LE_BAD_PARAMETER or LE_OK.
-         */
-        static le_result_t taf_radio_CheckMccMnc(const char* mccPtr, const char* mncPtr);
-    };
-
-    /*
-     * @brief The phone listener is registered for the radio state updates.
-     */
-    class taf_RadioPhoneListener : public telux::tel::IPhoneListener {
-    public:
-        static telux::tel::VoiceServiceState vocSrvState;
-        ~taf_RadioPhoneListener() {};
-        /*
-         * This function is called when radio state changes.
-         *
-         * @param [in] phoneId       The phone id.
-         * @param [in] radioState    The radio state of phone.
-         */
-        void onRadioStateChanged(int phoneId, telux::tel::RadioState radioState) override;
-
-        /*
-         * This function is called when RAT changes.
-         *
-         * @param [in] phoneId            The phone id.
-         * @param [in] radioTechnology    The radio technology.
-         */
-        void onVoiceRadioTechnologyChanged(int phoneId, telux::tel::RadioTechnology radioTechnology) override;
-
-        /*
-         * This function is called when radio state changes.
-         *
-         * @param [in] phoneId    The phone id.
-         * @param [in] srvInfo    A network service information pointer.
-         */
-        void onVoiceServiceStateChanged(int phoneId, const std::shared_ptr<telux::tel::VoiceServiceInfo> &srvInfo) override;
-
-        /*
-         * This function is called when signal strength changes.
-         *
-         * @param [in] phoneId           The phone id.
-         * @param [in] signalStrength    A signal strength information pointer.
-         */
-        void onSignalStrengthChanged(int phoneId, std::shared_ptr<telux::tel::SignalStrength> signalStrength) override;
-    };
-
     /*
      * @brief The network listener is registered for the network selection mode updates.
      */
     class taf_RadioNetworkSelectionListener : public telux::tel::INetworkSelectionListener {
     public:
-        /*
-         * This function is called when network selection mode changes.
-         *
-         * @param [in] mode    The network selection mode of phone.
-         */
-        void onSelectionModeChanged(telux::tel::NetworkSelectionMode mode) override;
-    };
-
-    /*
-     * @brief The serving system listener is registered for the service domain.
-     */
-    class taf_RadioServingSystemListener : public telux::tel::IServingSystemListener {
-    public:
-        /*
-         * This function is called when service domain changes.
-         *
-         * @param [in] preference    The service domain preference.
-         */
-        void onServiceDomainPreferenceChanged(telux::tel::ServiceDomainPreference preference) override;
-    };
-
-    /*
-     * @brief The sbscription listener is registered for the sbscriptions updates.
-     */
-    class taf_RadioSubscriptionListener : public telux::tel::ISubscriptionListener {
-    public:
-        /*
-         * This function is called when subscription infomation changes.
-         *
-         * @param [in] subscription    A subscription pointer with infomation of phone.
-         */
-        void onSubscriptionInfoChanged(std::shared_ptr<telux::tel::ISubscription> subscription) override;
-        /*
-         * This function is called when subscription infomation changes.
-         *
-         * @param [in] count    The number of subscription.
-         */
-        void onNumberOfSubscriptionsChanged(int count) override;
+        le_sem_Ref_t semaphore;
+        std::vector<telux::tel::OperatorInfo> opInfos;
+        void onNetworkScanResults(telux::tel::NetworkScanStatus scanStatus,
+            std::vector<telux::tel::OperatorInfo> operatorInfos) override;
     };
 
     class taf_RadioSetOperatingModeCallback {
     public:
         le_sem_Ref_t semaphore;
+        le_result_t result;
         void setOperatingModeResponse(telux::common::ErrorCode error);
     };
 
-    /*
-     * @brief A radio tech callback class must be provided when request for the rat in use.
-     */
-    class taf_RadioVoiceRadioTechnologyCallback {
-    public:
-        le_sem_Ref_t semaphore;
-        telux::tel::RadioTechnology radioTech;
-        /*
-         * This function is called after getting the rat in use.
-         *
-         * @param [in] radioTechnology    The radio technology in use.
-         * @param [in] error              The error code of getting the rat in use.
-         */
-        void voiceRadioTechnologyResponse(telux::tel::RadioTechnology radioTechnology, telux::common::ErrorCode error);
-    };
+    class taf_RadioGetOperatingModeCallback : public telux::tel::IOperatingModeCallback
+    {
+        public:
+            le_sem_Ref_t semaphore;
+            le_result_t result;
+            telux::tel::OperatingMode opMode;
 
-    /*
-     * @brief A voice service state callback class must be provided when request for the service state.
-     */
-    class taf_RadioVoiceServiceStateCallback : public telux::tel::IVoiceServiceStateCallback {
-    public:
-        static le_sem_Ref_t semaphore;
-        static telux::tel::VoiceServiceState vocSrvState;
-        /*
-         * This function is called after getting the service state.
-         *
-         * @param [in] serviceInfo    The service information.
-         * @param [in] error          The error code of getting the service state.
-         */
-        void voiceServiceStateResponse(const std::shared_ptr<telux::tel::VoiceServiceInfo> &serviceInfo,
-            telux::common::ErrorCode error) override;
-};
+            void operatingModeResponse(telux::tel::OperatingMode operatingMode,
+                telux::common::ErrorCode error) override;
+    };
 
     /*
      * @brief A signal strength callback class must be provided when request for the signal strength.
@@ -433,7 +328,8 @@ namespace tafsvc {
     class taf_RadioSignalStrengthCallback : public telux::tel::ISignalStrengthCallback {
     public:
         le_sem_Ref_t semaphore;
-        telux::tel::SignalStrengthLevel signalStrengthLevel;
+        le_result_t result;
+        taf_RadioSignalMetrics_t ssMetrics;
         /*
          * This function is called after getting the signal strength.
          *
@@ -450,10 +346,11 @@ namespace tafsvc {
      */
     class taf_RadioNetworkResponseCallback {
     public:
-        static le_sem_Ref_t semNetSelModeRespCb;
-        static le_sem_Ref_t semPrefNetRespCb;
-        static int32_t errCode;
-        static telux::common::ErrorCode errorCode;
+        static le_sem_Ref_t selModeSem;
+        static le_sem_Ref_t prefNetSem;
+        static le_result_t selModeRes;
+        static le_result_t prefNetRes;
+
         /*
          * This function is called after configuration of network selection mode.
          *
@@ -474,15 +371,13 @@ namespace tafsvc {
     class taf_RadioPerformNetworkScanCallback {
     public:
         static le_sem_Ref_t semaphore;
-        static std::vector<telux::tel::OperatorInfo> opInfos;
+        static le_result_t result;
         /*
          * This function is called after performing the network scan.
          *
-         * @param [in] operatorInfos    The network scan information.
          * @param [in] error            The error code of performing the network scan.
          */
-        static void performNetworkScanResponse(std::vector<telux::tel::OperatorInfo> operatorInfos,
-            telux::common::ErrorCode error);
+        static void performNetworkScanResponse(telux::common::ErrorCode error);
     };
 
     /*
@@ -492,6 +387,8 @@ namespace tafsvc {
     public:
         static std::vector<telux::tel::PreferredNetworkInfo> preferredNetworksInfo;
         static le_sem_Ref_t semaphore;
+        static le_result_t result;
+
         /*
          * This function is called after  getting the network preference.
          *
@@ -506,44 +403,12 @@ namespace tafsvc {
     };
 
     /*
-     * @brief A radio network selection callback class must be provided when getting the network selection mode.
-     */
-    class taf_RadioSelectionModeResponseCallback {
-    public:
-        static bool isRegModeMannual;
-        static le_sem_Ref_t semaphore;
-        /*
-         * This function is called after configuration of network selection mode.
-         *
-         * @param [in] networkSelectionMode    Automatic or mannual mode.
-         * @param [in] error                   The error code of network selection mode configuration.
-         */
-        static void selectionModeResponse(telux::tel::NetworkSelectionMode networkSelectionMode,
-            telux::common::ErrorCode error);
-    };
-
-    /*
-     * @brief A service domain callback class must be provided when getting the service domain preference.
-     */
-    class taf_RadioServiceDomainResponseCallback {
-    public:
-        static telux::tel::ServiceDomainPreference svcDomainPref;
-        static le_sem_Ref_t semaphore;
-        /*
-         * This function is called after getting of the service domain preference.
-         *
-         * @param [in] preference    Circuit Switched only(CS), Packet Switched only(PS) or Circuit and Packet Switched.
-         * @param [in] error         The error code of the service domain preference configuration.
-         */
-        static void serviceDomainResponse(telux::tel::ServiceDomainPreference preference,
-            telux::common::ErrorCode error);
-    };
-
-    /*
      * @brief A serving system callback class must be provided when configuring rat preference.
      */
     class taf_RadioServingSystemResponseCallback {
     public:
+        static le_sem_Ref_t semaphore;
+        static le_result_t result;
         /*
          * This function is called after configuration of the rat preference.
          *
@@ -558,7 +423,9 @@ namespace tafsvc {
     class taf_RadioRatPreferenceResponseCallback {
     public:
         static le_sem_Ref_t semaphore;
+        static le_result_t result;
         static telux::tel::RatPreference ratPref;
+
         /*
          * This function is called after getting of the service domain preference.
          *
@@ -574,7 +441,8 @@ namespace tafsvc {
     class taf_RadioCellInfoCallback {
     public:
         static le_sem_Ref_t semaphore;
-        static taf_RadioCellMetrics_t cellMetrics;
+        static le_result_t result;
+        static taf_RadioCellListInfo_t cellListInfo;
         /*
          * This function is called after requesting cell information.
          *
@@ -617,45 +485,6 @@ namespace tafsvc {
         static void RadioProcCmdHandler(void* cmdReqPtr);
 
         /*
-         * The first layer handler function for network registration rejection.
-         *
-         * @param [in] reportPtr                 Pointer to report details.
-         * @param [in] secondLayerHandlerFunc    The second layer handler function for network registration rejection.
-         */
-        static void FirstLayerNetRegRejectHandler(void* reportPtr, void* secondLayerHandlerFunc);
-
-        /*
-         * The first layer handler function for RAT change.
-         *
-         * @param [in] reportPtr                 Pointer to report details.
-         * @param [in] secondLayerHandlerFunc    The second layer handler function for RAT change.
-         */
-        static void FirstLayerRatChangeHandler(void* reportPtr, void* secondLayerHandlerFunc);
-
-        /*
-         * The first layer handler function for network registration state.
-         *
-         * @param [in] reportPtr                 Pointer to report details.
-         * @param [in] secondLayerHandlerFunc    The second layer handler function for network registration state.
-         */
-        static void FirstLayerNetRegStateEventHandler(void* reportPtr, void* secondLayerHandlerFunc);
-
-        /*
-         * The first layer handler function for service domain state.
-         *
-         * @param [in] reportPtr                 Pointer to report details.
-         * @param [in] secondLayerHandlerFunc    The second layer handler function for service domain state.
-         */
-        static void FirstLayerPacketSwChangeHandler(void* reportPtr, void* secondLayerHandlerFunc);
-        /*
-         * The first layer handler function for signal strength change.
-         *
-         * @param [in] reportPtr                 Pointer to report details.
-         * @param [in] secondLayerHandlerFunc    The second layer handler function for signal strength change.
-         */
-        static void FirstLayerSsChangeHandler(void* reportPtr, void* secondLayerHandlerFunc);
-
-        /*
          * The initialization function of the Radio Service.
          */
         void Init(void);
@@ -666,40 +495,26 @@ namespace tafsvc {
         le_mem_PoolRef_t scanOpsListPool;
         le_mem_PoolRef_t scanOpPool;
         le_mem_PoolRef_t scanOpSafeRefPool;
-        le_mem_PoolRef_t cellMetricsPool;
-        le_mem_PoolRef_t netRegRejectPool;
-        le_mem_PoolRef_t ratChangePool;
-        le_mem_PoolRef_t netRegStatePool;
-        le_mem_PoolRef_t packetSwChangePool;
-        le_mem_PoolRef_t ssChangePool;
+        le_mem_PoolRef_t ngbrCellsPool;
+        le_mem_PoolRef_t ngbrCellInfoPool;
+        le_mem_PoolRef_t ngbrCellInfoSafeRefPool;
+        le_mem_PoolRef_t metricsPool;
         le_ref_MapRef_t prefOpListRefMap;
         le_ref_MapRef_t prefOpSafeRefMap;
         le_ref_MapRef_t scanOpListRefMap;
         le_ref_MapRef_t scanOpSafeRefMap;
+        le_ref_MapRef_t ngbrCellsRefMap;
+        le_ref_MapRef_t ngbrCellInfoSafeRefMap;
         le_ref_MapRef_t metricsRefMap;
         static le_event_Id_t radioCmdEvId;
-        le_event_Id_t netRegRejectEvId;
-        le_event_Id_t ratChangeEvId;
-        le_event_Id_t netRegStateEvId;
-        le_event_Id_t packetSwChangeEvId;
-        le_event_Id_t gsmSsChangeEvId;
-        le_event_Id_t cdmaSsChangeEvId;
-        le_event_Id_t lteSsChangeEvId;
-        le_event_Id_t wcdmaSsChangeEvId;
-        le_event_Id_t tdscdmaSsChangeEvId;
-        std::shared_ptr<taf_RadioVoiceServiceStateCallback> voiceSrvStateCb;
-        std::shared_ptr<taf_RadioVoiceRadioTechnologyCallback> voiceRadioTechCb;
         std::shared_ptr<taf_RadioSignalStrengthCallback> signalStrengthCb;
         std::shared_ptr<taf_RadioSetOperatingModeCallback> setOperatingModeCb;
+        std::shared_ptr<taf_RadioGetOperatingModeCallback> getOperatingModeCb;
+        std::vector<std::shared_ptr<taf_RadioNetworkSelectionListener>> networkListeners;
         std::vector<std::shared_ptr<telux::tel::IPhone>> phones;
         std::vector<std::shared_ptr<telux::tel::INetworkSelectionManager>> networkManagers;
         std::vector<std::shared_ptr<telux::tel::IServingSystemManager>> servingSystemManagers;
-        std::shared_ptr<telux::tel::ISubscriptionManager> subscriptionManager;
         std::shared_ptr<telux::tel::IPhoneManager> phoneManager;
-        std::shared_ptr<telux::tel::IPhoneListener> phoneListener;
-        std::shared_ptr<telux::tel::INetworkSelectionListener> networkListener;
-        std::shared_ptr<telux::tel::IServingSystemListener> servingSystemListener;
-        std::shared_ptr<taf_RadioSubscriptionListener> subscriptionListener;
     };
 }
 }

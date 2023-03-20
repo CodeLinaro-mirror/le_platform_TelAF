@@ -477,26 +477,28 @@ REFERENCE ScanInformation;
 //--------------------------------------------------------------------------------------------------
 ENUM Rat
 {
-    RAT_UNKNOWN,  ///< Unknown RAT.
-    RAT_GPRS,     ///< General packet radio service.
-    RAT_EDGE,     ///< Enhanced data rate for GSM evolution.
-    RAT_UMTS,     ///< Universal mobile telecommunications system.
-    RAT_IS95A,    ///< A standard in CDMA.
-    RAT_IS95B,    ///< A standard in CDMA.
-    RAT_1xRTT,    ///< A 2.5G technology in CDMA.
-    RAT_EVDO_0,   ///< Evolution data only Rev.0 in CDMA.
-    RAT_EVDO_A,   ///< Evolution data only Rev.A in CDMA.
-    RAT_HSDPA,    ///< High speed downlink packet access in WCDMA.
-    RAT_HSUPA,    ///< High speed uplink packet access in WCDMA.
-    RAT_HSPA,     ///< High speed packet access in WCDMA.
-    RAT_EVDO_B,   ///< Evolution data only Rev.B in CDMA.
-    RAT_EHRPD,    ///< Evolved high rate package data.
-    RAT_LTE,      ///< Long term evolution.
-    RAT_HSPAP,    ///< A 3.5G technology in WCDMA.
-    RAT_GSM,      ///< A 3.5G technology in WCDMA.
-    RAT_TD_SCDMA, ///< Time division-synchronous code division multiple access.
-    RAT_IWLAN,    ///< Industrial wireless local area networks.
-    RAT_LTE_CA,   ///< Long term evolution carrier aggregation.
+    RAT_UNKNOWN, ///< Unknown RAT.
+    RAT_IWLAN,   ///< IWLAN - Industrial Wireless Local Area Networks.
+    RAT_GSM,     ///< GSM - Global System for Mobile communications.
+    RAT_GPRS,    ///< GSM GPRS - General Packet Radio Service.
+    RAT_EDGE,    ///< GSM EDGE - Enhanced Data rate for GSM Evolution.
+    RAT_CDMA,    ///< CDMA - Code Division Multiple Access.
+    RAT_IS95A,   ///< CDMA IS95A - IS-95A standard.
+    RAT_IS95B,   ///< CDMA IS95B - IS-95B standard.
+    RAT_1xRTT,   ///< CDMA 1xRTT - Radio Transmission Technology.
+    RAT_EVDO_0,  ///< CDMA EVDO0 - EVolution Data Only Revision 0.
+    RAT_EVDO_A,  ///< CDMA EVDOA - EVolution Data Only Revision A.
+    RAT_EVDO_B,  ///< CDMA EVDOB - EVolution Data Only Revision B.
+    RAT_EHRPD,   ///< CDMA EHRPD - Evolved High Rate Package Data.
+    RAT_UMTS,    ///< UMTS - Universal Mobile Telecommunications System.
+    RAT_HSPA,    ///< UMTS HSPA - High Speed Packet Access.
+    RAT_HSDPA,   ///< UMTS HSDPA - High Speed Downlink Packet Access.
+    RAT_HSUPA,   ///< UMTS HSUPA - High Speed Uplink Packet Access.
+    RAT_HSPAP,   ///< UMTS HSPAP - HSPA+.
+    RAT_TDSCDMA, ///< TDSCDMA - Time Division-Synchronous Code Division Multiple Access.
+    RAT_LTE,     ///< LTE - Long Term Evolution.
+    RAT_LTE_CA,  ///< LTE CA - LTE Carrier Aggregation.
+    RAT_NR5G     ///< NR5G - New Radio 5G.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -560,9 +562,10 @@ ENUM NetRejCause
     NET_REJ_CAUSE_INCORRECT_MESSAGE = 95,            ///< Semantically incorrect message.
     NET_REJ_CAUSE_INVALID_INFO,                      ///< Invalid mandatory information.
     NET_REJ_CAUSE_MSG_TYPE_NOT_IMPLEMENTED,          ///< Message type non-existent or not implemented.
-    NET_REJ_CAUSE_MSG_NOT_COMPATIBLE,                ///< Message not compatible with protocol state.
+    NET_REJ_CAUSE_MSG_TYPE_NOT_COMPATIBLE,           ///< Message type not compatible with protocol state.
     NET_REJ_CAUSE_INFO_NOT_IMPLEMENTED,              ///< Information element non-existent or not implemented.
     NET_REJ_CAUSE_CONDITIONAL_IE_ERROR,              ///< Conditional IE error.
+    NET_REJ_CAUSE_MSG_NOT_COMPATIBLE,                ///< Message not compatible with protocol state.
     NET_REJ_CAUSE_PROTOCOL_ERROR_UNSPECIFIED = 111   ///< Protocol error; unspecified.
 };
 
@@ -573,25 +576,12 @@ ENUM NetRejCause
 //--------------------------------------------------------------------------------------------------
 ENUM NetRegState
 {
-    NET_REG_STATE_NOT_REG_AND_NOT_SEARCHING,                         ///< Not registered and not searching.
-    NET_REG_STATE_REG_HOME,                                          ///< Home registered.
-    NET_REG_STATE_NOT_REG_AND_SEARCHING,                             ///< Not registered and searching.
-    NET_REG_STATE_REG_DENIED,                                        ///< Registered denied.
-    NET_REG_STATE_UNKNOWN,                                           ///< Unknown state.
-    NET_REG_STATE_REG_ROAMING,                                       ///< Roaming registered.
-    NET_REG_STATE_RSV_6,                                             ///< Reserved 6 register state.
-    NET_REG_STATE_RSV_7,                                             ///< Reserved 7 register state.
-    NET_REG_STATE_RSV_8,                                             ///< Reserved 8 register state.
-    NET_REG_STATE_RSV_9,                                             ///< Reserved 9 register state.
-    NET_REG_STATE_NOT_REG_AND_EMERGENCY_AVAILABLE_AND_NOT_SEARCHING, ///< Not registered and not searching, 
-                                                                     ///  but emergency available.
-    NET_REG_STATE_RSV_11,                                            ///< Reserved 11 register state.
-    NET_REG_STATE_NOT_REG_AND_EMERGENCY_AVAILABLE_AND_SEARCHING,     ///< Not registered and searching, 
-                                                                     ///  but emergency available.
-    NET_REG_STATE_REG_DENIED_AND_EMERGENCY_AVAILABLE,                ///< Registered denied, but emergency 
-                                                                     ///  available.
-    NET_REG_STATE_UNKNOWN_AND_EMERGENCY_AVAILABLE                    ///< Unknown state, but emergency 
-                                                                     ///  available.
+    NET_REG_STATE_NONE,      ///< Not registered and not searching.
+    NET_REG_STATE_HOME,      ///< Home registered.
+    NET_REG_STATE_SEARCHING, ///< Not registered and searching.
+    NET_REG_STATE_DENIED,    ///< Registered denied.
+    NET_REG_STATE_ROAMING,   ///< Roaming registered.
+    NET_REG_STATE_UNKNOWN    ///< Unknown state.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -614,55 +604,13 @@ ENUM ServiceDomainState
 //--------------------------------------------------------------------------------------------------
 BITMASK RatBitMask
 {
-    RAT_BIT_MASK_RSV_0,  ///< Reserved 0 bitmask.
-    RAT_BIT_MASK_RSV_1,  ///< Reserved 1 bitmask.
-    RAT_BIT_MASK_RSV_2,  ///< Reserved 2 bitmask.
-    RAT_BIT_MASK_RSV_3,  ///< Reserved 3 bitmask.
-    RAT_BIT_MASK_RSV_4,  ///< Reserved 4 bitmask.
-    RAT_BIT_MASK_RSV_5,  ///< Reserved 5 bitmask.
-    RAT_BIT_MASK_RSV_6,  ///< Reserved 6 bitmask.
-    RAT_BIT_MASK_GSM,    ///< GSM bitmask.
-    RAT_BIT_MASK_RSV_8,  ///< Reserved 8 bitmask.
-    RAT_BIT_MASK_RSV_9,  ///< Reserved 9 bitmask.
-    RAT_BIT_MASK_RSV_10, ///< Reserved 10 bitmask.
-    RAT_BIT_MASK_NR5G,   ///< NR5G bitmask.
-    RAT_BIT_MASK_RSV_12, ///< Reserved 12 bitmask.
-    RAT_BIT_MASK_RSV_13, ///< Reserved 13 bitmask.
-    RAT_BIT_MASK_LTE,    ///< LTE bitmask.
-    RAT_BIT_MASK_UMTS,   ///< UMTS bitmask.
-    RAT_BIT_MASK_ALL     ///< All (GSM + NR5G + LTE + UMTS) bitmask.
-};
-
-//--------------------------------------------------------------------------------------------------
-/**
- * RAT preference bitmask.
- */
-//--------------------------------------------------------------------------------------------------
-BITMASK RatPrefMask
-{
-    RAT_PREF_MASK_CDMA_1X,   ///< CDMA_1X bitmask.
-    RAT_PREF_MASK_CDMA_EVDO, ///< CDMA_EVDO bitmask.
-    RAT_PREF_MASK_GSM,       ///< GSM bitmask.
-    RAT_PREF_MASK_WCDMA,     ///< WCDMA bitmask.
-    RAT_PREF_MASK_LTE,       ///< LTE bitmask.
-    RAT_PREF_MASK_TDSCDMA,   ///< TD-SCDMA bitmask.
-    RAT_PREF_MASK_NR5G,      ///< NR5G bitmask.
-    RAT_PREF_MASK_ALL        ///< All (CDMA + GSM + WCDMA + LTE + TD-SCDMA + NR5G) bitmask.
-};
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Cell RAT bitmask.
- */
-//--------------------------------------------------------------------------------------------------
-BITMASK CellRatMask
-{
-    CELL_RAT_MASK_GSM,     ///< GSM bitmask.
-    CELL_RAT_MASK_CDMA,    ///< CDMA bitmask.
-    CELL_RAT_MASK_LTE,     ///< LTE bitmask.
-    CELL_RAT_MASK_WCDMA,   ///< WCDMA bitmask.
-    CELL_RAT_MASK_TDSCDMA, ///< TDSCDMA bitmask.
-    CELL_RAT_MASK_UNKNOWN  ///< UNKNOWN bitmask.
+    RAT_BIT_MASK_GSM,     ///< GSM bitmask.
+    RAT_BIT_MASK_UMTS,    ///< UMTS bitmask.
+    RAT_BIT_MASK_CDMA,    ///< CDMA bitmask.
+    RAT_BIT_MASK_TDSCDMA, ///< TDSCDMA bitmask.
+    RAT_BIT_MASK_LTE,     ///< LTE bitmask.
+    RAT_BIT_MASK_NR5G,    ///< NR5G bitmask.
+    RAT_BIT_MASK_ALL      ///< All RAT bitmask.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -672,8 +620,12 @@ BITMASK CellRatMask
 //--------------------------------------------------------------------------------------------------
 STRUCT NetRegRejInd
 {
-    NetRejCause cause; ///< Network rejection cause.
-    uint8 phoneId;     ///< Phone ID.
+    Rat rat;                   ///< Radio Access Technology.
+    string mcc[MCC_BYTES];     ///< Mobile Country Code.
+    string mnc[MNC_BYTES];     ///< Mobile Network Code.
+    NetRejCause cause;         ///< Network rejection cause.
+    ServiceDomainState domain; ///< Service domain.
+    uint8 phoneId;             ///< Phone ID.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -745,7 +697,7 @@ HANDLER NetRegStateHandler
 //--------------------------------------------------------------------------------------------------
 HANDLER PacketSwitchedChangeHandler
 (
-    ServiceDomainState state IN ///< Service domain state.
+    NetRegStateInd stateInd IN ///< Packet switched state indication.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -755,7 +707,9 @@ HANDLER PacketSwitchedChangeHandler
 //--------------------------------------------------------------------------------------------------
 HANDLER SignalStrengthChangeHandler
 (
-    int32 ss IN ///< The signal strength.
+    int32 ss IN,     ///< Signal strength in dBm.
+    int32 rsrp IN,   ///< Reference signal receive quality in dB.
+    uint8 phoneId IN ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -815,7 +769,7 @@ EVENT PacketSwitchedChange
 //--------------------------------------------------------------------------------------------------
 EVENT SignalStrengthChange
 (
-    CellRatMask ratMask IN,             ///< Cell RAT mask.
+    Rat rat IN,                         ///< Radio Access Technology.
     SignalStrengthChangeHandler handler ///< Handler for signal strength change.
 );
 
@@ -1074,8 +1028,8 @@ FUNCTION le_result_t GetRadioAccessTechInUse
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetRatPreferences
 (
-    RatPrefMask ratMask IN, ///< Bitmask for RAT prefences.
-    uint8 phoneId IN        ///< Phone ID.
+    RatBitMask ratMask IN, ///< Bitmask for RAT prefences.
+    uint8 phoneId IN       ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1091,8 +1045,8 @@ FUNCTION le_result_t SetRatPreferences
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetRatPreferences
 (
-    RatPrefMask ratMaskPtr OUT, ///< Bitmask for RAT prefences.
-    uint8 phoneId IN            ///< Phone ID.
+    RatBitMask ratMaskPtr OUT, ///< Bitmask for RAT prefences.
+    uint8 phoneId IN           ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1114,7 +1068,7 @@ FUNCTION le_result_t GetNetRegState
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Gets the packet switched state.
+ *  Gets the packet switch state.
  *
  * @return
  *  - LE_BAD_PARAMETER -- Bad parameters.
@@ -1125,8 +1079,8 @@ FUNCTION le_result_t GetNetRegState
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetPacketSwitchedState
 (
-    ServiceDomainState state OUT, ///< CS and PS state.
-    uint8 phoneId IN              ///< Phone ID.
+    NetRegState state OUT, ///< Packet switch state.
+    uint8 phoneId IN       ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1183,7 +1137,7 @@ FUNCTION le_result_t DeleteSignalMetrics
  *  - taf_radio_RatBitMask_t -- RAT bitmask of signal metrics.
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION CellRatMask GetRatOfSignalMetrics
+FUNCTION RatBitMask GetRatOfSignalMetrics
 (
     Metrics MetricsRef IN ///< The signal metrics reference.
 );

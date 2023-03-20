@@ -1,0 +1,12 @@
+sources:
+{
+    tafRadioUnitTest.c
+}
+
+requires:
+{
+    api:
+    {
+        taf_radio.api
+    }
+}

@@ -58,6 +58,7 @@ typedef struct
     taf_dcs_ProfileInfo_t                    info;
     taf_dcs_Pdp_t                            pdp;
     char                                     apn[TAF_DCS_NAME_MAX_LEN];
+    taf_dcs_ApnType_t                        apnType;
     taf_dcs_Auth_t                           auth;
     char                                     authUsername[TAF_DCS_USER_NAME_MAX_LEN];
     char                                     authPassword[TAF_DCS_PASSWORD_NAME_MAX_LEN];
@@ -106,6 +107,7 @@ namespace tafsvc {
             le_result_t MapProfileCtxToParams(taf_dcs_ProfileCtx_t *ctxPtr, telux::data::ProfileParams &params);
             le_result_t SetApn(taf_dcs_ProfileRef_t profileRef, const char *apnPtr);
             le_result_t GetApn(taf_dcs_ProfileRef_t profileRef, char *apnPtr, size_t apnSize);
+            le_result_t GetApnTypes(taf_dcs_ProfileRef_t profileRef, taf_dcs_ApnType_t *apnTypePtr);
             le_result_t SetPdp(taf_dcs_ProfileRef_t profileRef, taf_dcs_Pdp_t pdp);
             le_result_t SetAuth(taf_dcs_ProfileRef_t profileRef, taf_dcs_Auth_t type, const char *userName, const char *password);
             taf_dcs_Pdp_t GetPdp(taf_dcs_ProfileRef_t profileRef);

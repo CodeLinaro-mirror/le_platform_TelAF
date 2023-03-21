@@ -112,7 +112,7 @@
    }
    @endverbatim
  *
- * Before starting an asynchronous data call, an application registers a state handler using
+ * Before starting a data call, an application registers a state handler using
  * taf_dcs_AddSessionStateHandler(). Once the data call state changes the handler will be called
  * indicating the new state.
  *
@@ -122,13 +122,32 @@
    @endverbatim
  *
  * An application can stop a synchronous data call by using taf_dcs_StopSession() and stop an
- * asynchronous data call by using taf_dcs_StopSessionAsync(). To stop an asynchronous data
- * call, an application needs to invoke taf_dcs_RemoveSessionStateHandler() to remove the session
- * handler.
+ * asynchronous data call by using taf_dcs_StopSessionAsync().
  *
  * @note When an application starts a data call using taf_dcs_StartSession() or
  * taf_dcs_StartSessionAsync() and the application loses the connection with the data call service,
  * the data call will be automatically stopped by the data call service.
+ *
+ * @section c_taf_dcs_roaming_status Roaming status
+ *
+ * Data call service provides API to get roaming status, register the handler to track roaming
+ * status change. Once the roaming status changes, the application registered handler is called
+ * with the new roaming status.
+ *
+ * @verbatim
+   roamingStatusHandlerRef = taf_dcs_AddRoamingStatusHandler(
+                           (taf_dcs_RoamingStatusHandlerFunc_t)RoamingStatusHandlerFunc, NULL);
+   @endverbatim
+ *
+ * To remove the handler, an application can use
+ * taf_dcs_RemoveRoamingStatusHandler(roamingStatusHandlerRef);
+ *
+ * The following APIs are added for roaming status and APN type
+ *
+ * - taf_dcs_AddRoamingStatusHandler() -- Adds a handler for roaming status.
+ * - taf_dcs_RemoveRoamingStatusHandler() -- Removes a handler for roaming status.
+ * - taf_dcs_GetRoamingStatus() -- Gets current roaming status.
+ * - taf_dcs_GetApnTypes() -- Gets APN types.
  *
  * <HR>
  *
@@ -342,6 +361,18 @@ ENUM Pdp
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * The roaming Type.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM RoamingType
+{
+    ROAMING_UNKNOWN,                        ///< Unknown.
+    ROAMING_DOMESTIC,                       ///< Device is in domestic roaming network
+    ROAMING_INTERNATIONAL                   ///< Device is in international roaming network
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
  * The data profile authentication type.
  */
 //--------------------------------------------------------------------------------------------------
@@ -350,6 +381,27 @@ BITMASK Auth
     AUTH_NONE,                              ///< None.
     AUTH_PAP,                               ///< PAP.
     AUTH_CHAP                               ///< CHAP.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The APN type
+ */
+//--------------------------------------------------------------------------------------------------
+BITMASK ApnType
+{
+    APN_TYPE_DEFAULT,                       ///< APN type for default/internet traffic
+    APN_TYPE_IMS,                           ///< APN type for the IP multimedia subsystem
+    APN_TYPE_MMS,                           ///< APN type for the multimedia messaging service
+    APN_TYPE_DUN,                           ///< APN type for the dial up network
+    APN_TYPE_SUPL,                          ///< APN type for secure user plane location
+    APN_TYPE_HIPRI,                         ///< APN type for high priority mobile data
+    APN_TYPE_FOTA,                          ///< APN type for over the air administration
+    APN_TYPE_CBS,                           ///< APN type for carrier branded services
+    APN_TYPE_IA,                            ///< APN type for initial attach
+    APN_TYPE_EMERGENCY,                     ///< APN type for emergency
+    APN_TYPE_UT,                            ///< APN type for UT
+    APN_TYPE_MCX                            ///< APN type for mission critical service
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -375,6 +427,18 @@ ENUM Tech
 STRUCT StateInfo
 {
     Pdp      ipType;
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The roaming status indication.
+ */
+//--------------------------------------------------------------------------------------------------
+STRUCT RoamingStatusInd
+{
+    uint8 phoneId;                         ///< The phone id.
+    bool isRoaming;                        ///< True: Roaming on, False: Roaming off.
+    RoamingType type;                      ///< The roaming type. Valid only if roaming is on.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -490,6 +554,44 @@ EVENT SessionState
 (
     Profile             profileRef, ///< The profile reference.
     SessionStateHandler handler     ///< The event handler reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for roaming status.
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER RoamingStatusHandler
+(
+    RoamingStatusInd roamingStatusInd IN    ///< Roaming status indication.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Event to report roaming status.
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT RoamingStatus
+(
+    RoamingStatusHandler handler            ///< Handler for roaming status.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the roaming status.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response timed out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetRoamingStatus
+(
+    uint8  phoneId              IN,  ///< The phone id.
+    bool isRoaming              OUT, ///< True if Roaming on, false if not.
+    RoamingType type            OUT  ///< The roaming type. Valid only if roaming is on.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -762,6 +864,20 @@ FUNCTION le_result_t GetAPN
     string  apnName[APN_NAME_MAX_LEN]       OUT ///< The APN name.
 );
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the data profile APN type.
+ *
+ * @return
+ * - LE_OK                           Successfully retrieved the APN type.
+ * - LE_NOT_FOUND                    Failed to get the APN type.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetApnTypes
+(
+    Profile profileRef                      IN, ///< The profile reference.
+    ApnType  apnType                        OUT ///< The APN type.
+);
 //--------------------------------------------------------------------------------------------------
 /**
  * Sets the data profile PDP type.

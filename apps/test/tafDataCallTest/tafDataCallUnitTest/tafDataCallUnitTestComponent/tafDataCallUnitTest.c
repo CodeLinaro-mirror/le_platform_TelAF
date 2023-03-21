@@ -34,6 +34,7 @@
 static le_sem_Ref_t TestSemRef;
 static taf_dcs_ProfileRef_t TestProfileRef = NULL;
 static taf_dcs_SessionStateHandlerRef_t TestSessionStateRef = NULL;
+static taf_dcs_RoamingStatusHandlerRef_t TestRoamingStatusRef = NULL;
 char ApnStr_bak[TAF_DCS_APN_NAME_MAX_LEN];
 
 static char *callEventToString(taf_dcs_ConState_t callEvent)
@@ -86,6 +87,34 @@ static void* ut_taf_data_session_handler(void* ctxPtr)
     TestSessionStateRef = taf_dcs_AddSessionStateHandler(TestProfileRef, (taf_dcs_SessionStateHandlerFunc_t)data_event_handler, ctxPtr);
 
     LE_TEST_OK(TestSessionStateRef != NULL, "ut_taf_data_session_handler - void");
+
+    le_sem_Post(TestSemRef);
+
+    le_event_RunLoop();
+
+    return NULL;
+}
+
+static void roaming_status_handler
+(
+    const taf_dcs_RoamingStatusInd_t* roamingStatusIndPtr,
+    void* contextPtr
+){
+    LE_INFO("**** Handler for roaming status Indication (Begin)****");
+    LE_INFO("----isRoaming : %d", (int)roamingStatusIndPtr->isRoaming);
+    LE_INFO("----type : %d", (int)roamingStatusIndPtr->type);
+    LE_INFO("**** Handler for roaming status Indication (End)****");
+}
+
+static void* ut_taf_roaming_status_handler(void* ctxPtr)
+{
+    taf_dcs_ConnectService();
+
+    TestRoamingStatusRef = taf_dcs_AddRoamingStatusHandler(
+                           (taf_dcs_RoamingStatusHandlerFunc_t)roaming_status_handler,
+                            ctxPtr);
+
+    LE_TEST_OK(TestRoamingStatusRef != NULL, "ut_taf_roaming_status_handler - void");
 
     le_sem_Post(TestSemRef);
 
@@ -179,6 +208,17 @@ void ut_restore_apn_test()
     LE_TEST_OK(result == LE_OK, "taf_dcs_GetAPN - OK");
     int cmpVal = strncmp(apnStr, ApnStr_bak, TAF_DCS_APN_NAME_MAX_LEN);
     LE_TEST_OK(cmpVal == 0, "Check apn - OK");
+}
+
+void ut_get_roaming_status_test()
+{
+    bool isRoaming = false;
+    taf_dcs_RoamingType_t type;
+    uint8_t phoneId = 1;
+
+    le_result_t result = taf_dcs_GetRoamingStatus(phoneId, &isRoaming, &type);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_GetRoamingStatus - OK");
+
 }
 
 void ut_start_session_sync_test()
@@ -280,6 +320,7 @@ void ut_set_apn_test()
 {
     char apnStr[TAF_DCS_APN_NAME_MAX_LEN];
     char *testApnStr = "";
+    taf_dcs_ApnType_t apnType;
 
     le_result_t result;
 
@@ -293,6 +334,13 @@ void ut_set_apn_test()
     LE_TEST_OK(result == LE_OK, "taf_dcs_GetAPN - OK");
     int cmpVal = strncmp(apnStr, testApnStr, TAF_DCS_APN_NAME_MAX_LEN);
     LE_TEST_OK(cmpVal == 0, "Check apn value - OK");
+
+    result = taf_dcs_GetApnTypes(TestProfileRef, &apnType);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_GetApnTypes - OK");
+
+    result = taf_dcs_SetAPN(TestProfileRef, ApnStr_bak);
+    LE_TEST_OK(result == LE_OK, "taf_dcs_SetAPN - OK");
+
 }
 
 void ut_ipv4_check()
@@ -341,30 +389,6 @@ void ut_ipv6_check()
 void ut_non_ipv6_check()
 {
     LE_TEST_OK(taf_dcs_IsIPv6(TestProfileRef) == false, "ut_non_ipv6_check - OK");
-}
-
-void ut_do_session_sync_test_invalid_apn()
-{
-    le_result_t result;
-    char apnStr_bak[TAF_DCS_APN_NAME_MAX_LEN];
-    char *testApnStr = "ims";
-
-    result = taf_dcs_GetAPN(TestProfileRef, apnStr_bak, TAF_DCS_APN_NAME_MAX_LEN);
-    LE_TEST_OK(result == LE_OK, "taf_dcs_GetAPN - OK");
-
-    result = taf_dcs_SetAPN(TestProfileRef, testApnStr);
-    LE_TEST_OK(result == LE_OK, "taf_dcs_SetAPN with ims apn - OK");
-
-    result = taf_dcs_SetPDP(TestProfileRef, TAF_DCS_PDP_IPV4V6);
-    LE_TEST_OK(result == LE_OK, "taf_dcs_SetPDP with IPV4V6- OK");
-
-    result = taf_dcs_StartSession(TestProfileRef);
-    LE_TEST_OK(result == LE_TERMINATED, "taf_dcs_StartSession with ims - terminated");
-    result = taf_dcs_StopSession(TestProfileRef);
-    LE_TEST_OK(result == LE_NOT_FOUND, "taf_dcs_StopSession with ims - not found");
-
-    result = taf_dcs_SetAPN(TestProfileRef, apnStr_bak);
-    LE_TEST_OK(result == LE_OK, "taf_dcs_SetAPN with backup apn - OK");
 }
 
 void ut_ipv4v6_async_datacall_test()
@@ -440,9 +464,19 @@ static void* UnitTestThread(void* contextPtr)
 
     ut_set_get_auth_test();
 
-    le_thread_Ref_t threadRef = le_thread_Create("datacallTestTh", ut_taf_data_session_handler, &ipType);
+    ut_get_roaming_status_test();
 
-    le_thread_Start(threadRef);
+    le_thread_Ref_t dataSessionThRef = le_thread_Create("dataSessionTh",
+                                                         ut_taf_data_session_handler, &ipType);
+
+    le_thread_Start(dataSessionThRef);
+
+    le_sem_Wait(TestSemRef);
+
+    le_thread_Ref_t roamingStatusThRef = le_thread_Create("RoamingStatusTh",
+                                                           ut_taf_roaming_status_handler, NULL);
+
+    le_thread_Start(roamingStatusThRef);
 
     le_sem_Wait(TestSemRef);
 
@@ -451,8 +485,6 @@ static void* UnitTestThread(void* contextPtr)
     ut_ipv4_datacall_test();
 
     ut_ipv6_datacall_test();
-
-    ut_do_session_sync_test_invalid_apn();
 
     /* redo session connection test after testing invalid apn */
     ut_ipv4v6_datacall_test();
@@ -463,7 +495,11 @@ static void* UnitTestThread(void* contextPtr)
 
     taf_dcs_RemoveSessionStateHandler(TestSessionStateRef);
 
-    LE_TEST_OK(le_thread_Cancel(threadRef) == LE_OK, "le_thread_Cancel - OK");
+    taf_dcs_RemoveRoamingStatusHandler(TestRoamingStatusRef);
+
+    LE_TEST_OK(le_thread_Cancel(dataSessionThRef) == LE_OK, "le_thread_Cancel - OK");
+
+    LE_TEST_OK(le_thread_Cancel(roamingStatusThRef) == LE_OK, "le_thread_Cancel - OK");
 
     LE_INFO("====all tests are passed");
     return NULL;

@@ -55,13 +55,6 @@ void taf_ProfileListCallback::onProfileListResponse(
     const std::vector<std::shared_ptr<telux::data::DataProfile>> &profiles,
     telux::common::ErrorCode error)
 {
-
-    if (error != telux::common::ErrorCode::SUCCESS)
-    {
-        LE_ERROR("error(%d) profile list resp", (uint32_t)error);
-        return;
-    }
-
     auto &myProfile = taf_DataProfile::GetInstance();
     int num = 0;
     taf_dcs_ProfileCtxs_t *contexts = (taf_dcs_ProfileCtxs_t *)le_mem_ForceAlloc(myProfile.getListEventPool());
@@ -79,6 +72,35 @@ void taf_ProfileListCallback::onProfileListResponse(
             contexts->item[num].info.tech  = myProfile.MapTechPreference(profile->getTechPreference());
             le_utf8_Copy(contexts->item[num].info.name, profile->getName().c_str(), TAF_DCS_NAME_MAX_LEN, NULL);
             le_utf8_Copy(contexts->item[num].apn, profile->getApn().c_str(), TAF_DCS_NAME_MAX_LEN, NULL);
+
+            contexts->item[num].apnType =0;
+            telux::data::ApnTypes ApnTypes = profile->getApnTypes();
+            uint16_t apnValue = (uint16_t)(ApnTypes.to_ulong());
+            if( (apnValue & TAF_DCS_APN_TYPE_DEFAULT) == TAF_DCS_APN_TYPE_DEFAULT )
+                contexts->item[num].apnType |=TAF_DCS_APN_TYPE_DEFAULT;
+            if( (apnValue & TAF_DCS_APN_TYPE_IMS) == TAF_DCS_APN_TYPE_IMS )
+                contexts->item[num].apnType |=TAF_DCS_APN_TYPE_IMS;
+            if( (apnValue & TAF_DCS_APN_TYPE_MMS) == TAF_DCS_APN_TYPE_MMS )
+                contexts->item[num].apnType |=TAF_DCS_APN_TYPE_MMS;
+            if( (apnValue & TAF_DCS_APN_TYPE_DUN) == TAF_DCS_APN_TYPE_DUN )
+                contexts->item[num].apnType |=TAF_DCS_APN_TYPE_DUN;
+            if( (apnValue & TAF_DCS_APN_TYPE_SUPL) == TAF_DCS_APN_TYPE_SUPL )
+                contexts->item[num].apnType |=TAF_DCS_APN_TYPE_SUPL;
+            if( (apnValue & TAF_DCS_APN_TYPE_HIPRI) == TAF_DCS_APN_TYPE_HIPRI )
+                contexts->item[num].apnType |=TAF_DCS_APN_TYPE_HIPRI;
+            if( (apnValue & TAF_DCS_APN_TYPE_FOTA) == TAF_DCS_APN_TYPE_FOTA )
+                contexts->item[num].apnType |=TAF_DCS_APN_TYPE_FOTA;
+            if( (apnValue & TAF_DCS_APN_TYPE_CBS) == TAF_DCS_APN_TYPE_CBS )
+                contexts->item[num].apnType |=TAF_DCS_APN_TYPE_CBS;
+            if( (apnValue & TAF_DCS_APN_TYPE_IA) == TAF_DCS_APN_TYPE_IA )
+                contexts->item[num].apnType |=TAF_DCS_APN_TYPE_IA;
+            if( (apnValue & TAF_DCS_APN_TYPE_EMERGENCY) == TAF_DCS_APN_TYPE_EMERGENCY )
+                contexts->item[num].apnType |=TAF_DCS_APN_TYPE_EMERGENCY;
+            if( (apnValue & TAF_DCS_APN_TYPE_UT) == TAF_DCS_APN_TYPE_UT )
+                contexts->item[num].apnType |=TAF_DCS_APN_TYPE_UT;
+            if( (apnValue & TAF_DCS_APN_TYPE_MCX) == TAF_DCS_APN_TYPE_MCX )
+                contexts->item[num].apnType |=TAF_DCS_APN_TYPE_MCX;
+
             contexts->item[num].pdp        = myProfile.MapIpFamily(profile->getIpFamilyType());
             contexts->item[num].auth       = myProfile.MapAuthProtocol(profile->getAuthProtocolType());
             le_utf8_Copy(contexts->item[num].authUsername, profile->getUserName().c_str(), TAF_DCS_NAME_MAX_LEN, NULL);
@@ -386,6 +408,24 @@ le_result_t taf_DataProfile::GetApn(taf_dcs_ProfileRef_t profileRef, char *apnPt
     TAF_ERROR_IF_RET_VAL(profileCtxPtr == NULL, LE_NOT_FOUND, "cannot get profile context from reference(%p)", profileRef);
     LE_INFO("apn: %s...profile id: %d", apnPtr, profileCtxPtr->info.index);
     le_utf8_Copy(apnPtr, profileCtxPtr->apn, apnSize, NULL);
+
+    return LE_OK;
+}
+
+le_result_t taf_DataProfile::GetApnTypes
+(
+    taf_dcs_ProfileRef_t profileRef,
+     taf_dcs_ApnType_t *apnTypePtr
+)
+{
+    TAF_ERROR_IF_RET_VAL((profileRef == NULL) || (apnTypePtr == NULL), LE_NOT_FOUND,
+                         "some pointers may be null");
+    taf_dcs_ProfileCtx_t* profileCtxPtr = (taf_dcs_ProfileCtx_t* )le_ref_Lookup(ProfileRefMap,
+                                                                                (void*)profileRef);
+    TAF_ERROR_IF_RET_VAL(profileCtxPtr == NULL, LE_NOT_FOUND,
+                         "can't get profile context from reference(%p)", profileRef);
+    *apnTypePtr = profileCtxPtr->apnType;
+    LE_INFO("apntype: %d...profile id: %d", (int)*apnTypePtr, profileCtxPtr->info.index);
 
     return LE_OK;
 }

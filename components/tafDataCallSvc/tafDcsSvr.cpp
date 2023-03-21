@@ -200,7 +200,20 @@ le_result_t taf_dcs_SetPDP
     taf_dcs_Pdp_t        pdp
 )
 {
+    int32_t profileId;
+    taf_dcs_ConState_t state = TAF_DCS_CONNECTED;
+    auto &dataConnection = taf_DataConnection::GetInstance();
     auto &dataProfile = taf_DataProfile::GetInstance();
+
+
+    le_result_t result = dataProfile.GetProfileId(profileRef, &profileId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
+
+    // Check if the data session is currently not disconnected for the given profile.
+    if(dataConnection.GetConnectionState(profileId, &state) == LE_OK &&
+       state != TAF_DCS_DISCONNECTED)
+        return LE_FAULT;
+
     return dataProfile.SetPdp(profileRef, pdp);
 }
 
@@ -250,6 +263,24 @@ le_result_t taf_dcs_GetAPN
     return dataProfile.GetApn(profileRef, apnPtr, apnSize);
 }
 
+/**
+ * Get data profile APN type corresponding to specified profile reference.
+ *
+ * @param [in] profileRef               The profile which want to be updated.
+ * @param [out] apnType                 The APN type.
+ *
+ * @returns LE_OK                       Success.
+ *          OTHER                       Failed to get APN type.
+ */
+le_result_t taf_dcs_GetApnTypes
+(
+    taf_dcs_ProfileRef_t  profileRef,
+    taf_dcs_ApnType_t     *apnTypePtr
+)
+{
+    auto &dataProfile = taf_DataProfile::GetInstance();
+    return dataProfile.GetApnTypes(profileRef, apnTypePtr);
+}
 /**
  * Get data profile PDP corresponding to specified profile reference.
  *
@@ -464,6 +495,99 @@ void taf_dcs_RemoveSessionStateHandler
 {
     le_event_RemoveHandler((le_event_HandlerRef_t) handlerRef);
     return;
+}
+
+/**
+ * First roaming status handler used by taf_dcs_AddRoamingStatusHandler().
+ *
+ * @param [in] reportPtr               event pointer.
+ * @param [in] subHandlerFunc          The secondary handler pointer, i.e. handlerPtr() from taf_dcs_AddRoamingStatusHandler().
+ */
+static void FirstRoamingStatusHandler(void* reportPtr, void* subHandlerFunc)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == nullptr, "Null ptr(reportPtr)");
+
+    TAF_ERROR_IF_RET_NIL(subHandlerFunc == nullptr, "Null ptr(subHandlerFunc)");
+
+    taf_dcs_RoamingStatusHandlerFunc_t handlerFunc =
+                                                 (taf_dcs_RoamingStatusHandlerFunc_t)subHandlerFunc;
+    handlerFunc((taf_dcs_RoamingStatusInd_t*)reportPtr, le_event_GetContextPtr());
+
+    le_mem_Release(reportPtr);
+
+}
+
+/**
+ * Add a roaming status handler to monitor the roaming status.
+ *
+ * @param [in] handlerPtr               The handler function.
+ * @param [in] contextPtr               The handler context.
+ *
+ * @returns reference                   Success to add roaming status handler.
+ *          NULL                        Failed to add roaming status handler.
+ */
+taf_dcs_RoamingStatusHandlerRef_t taf_dcs_AddRoamingStatusHandler
+(
+    taf_dcs_RoamingStatusHandlerFunc_t handlerPtr,
+    void* contextPtr
+)
+{
+    auto &dataConnection = taf_DataConnection::GetInstance();
+
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler(
+                                                    "RoamingStatus",
+                                                    dataConnection.RoamingStatusEvtId,
+                                                    FirstRoamingStatusHandler,
+                                                    (void *)handlerPtr);
+
+    le_event_SetContextPtr(handlerRef, contextPtr);
+
+    return (taf_dcs_RoamingStatusHandlerRef_t)(handlerRef);
+}
+
+/**
+ * Remove roaming status handler.
+ *
+ * @param [in] handlerRef The state handler reference returned by taf_dcs_AddRoamingStatusHandler().
+ *
+ * @returns NA
+ *
+ * @note    NA
+ */
+void taf_dcs_RemoveRoamingStatusHandler
+(
+    taf_dcs_RoamingStatusHandlerRef_t handlerRef
+)
+{
+    le_event_RemoveHandler((le_event_HandlerRef_t) handlerRef);
+    return;
+}
+
+/**
+ * Get the roaming status.
+ *
+ * @param [in] phoneId                  The phone id.
+ * @param [out] isRoamingPtr            Is roaming on or off.
+ * @param [out] typePtr                 The roaming type.
+ *
+ * @returns LE_OK                       Success to get the roaming status.
+ *          OTHER                       Failed to get the roaming status.
+ *
+ */
+
+le_result_t taf_dcs_GetRoamingStatus
+(
+    uint8_t phoneId,
+    bool* isRoamingPtr,
+    taf_dcs_RoamingType_t* typePtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(isRoamingPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(isRoamingPtr)");
+    TAF_ERROR_IF_RET_VAL(typePtr == nullptr, LE_BAD_PARAMETER, "Null ptr(typePtr)");
+
+    auto &dataConnection = taf_DataConnection::GetInstance();
+
+    return dataConnection.GetRoamingStatus(isRoamingPtr, typePtr);
 }
 
 /**

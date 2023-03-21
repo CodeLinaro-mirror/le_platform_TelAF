@@ -62,6 +62,42 @@ char* SimStateToString(taf_sim_States_t state) {
     return cardState;
 }
 
+char* tafSimTest_SimStateToString(taf_sim_States_t state)
+{
+
+    char* stateString = "";
+
+    switch (state)
+    {
+        case TAF_SIM_INSERTED:
+            stateString = "SIM card is inserted but locked.";
+            break;
+        case TAF_SIM_ABSENT:
+            stateString = "SIM card is absent.";
+            break;
+        case TAF_SIM_READY:
+            stateString = "SIM card is inserted and unlocked.";
+            break;
+        case TAF_SIM_BLOCKED:
+            stateString = "SIM card is blocked.";
+            break;
+        case TAF_SIM_BUSY:
+            stateString = "SIM card is busy.";
+            break;
+        case TAF_SIM_ERROR:
+            stateString = "SIM card error.";
+            break;
+        case TAF_SIM_POWER_DOWN:
+            stateString = "SIM card is powered down.";
+            break;
+        default:
+            stateString = "Unknown SIM state.";
+            break;
+    }
+
+    return stateString;
+}
+
 //Function to test sim state
 void tafSimTest_state
 (
@@ -72,17 +108,60 @@ void tafSimTest_state
     taf_sim_NewStateHandlerRef_t testNewStateHandlerRef;
 
     testNewStateHandlerRef = taf_sim_AddNewStateHandler(TestNewSimStateHandler, NULL);
-    LE_ASSERT(NULL != testNewStateHandlerRef);
+    LE_TEST_OK(NULL != testNewStateHandlerRef, "taf_sim_AddNewStateHandler");
 
     state = taf_sim_GetState(simId);
 
     LE_INFO("test: state %d", state);
 
-    LE_ASSERT((state >= TAF_SIM_INSERTED) && (state <= TAF_SIM_ERROR));
+    LE_TEST_OK((state >= TAF_SIM_INSERTED) && (state <= TAF_SIM_ERROR), "taf_sim_GetState");
+    printf("Type: %s\n", simId == TAF_SIM_EXTERNAL_SLOT_1 ? "TAF_SIM_EXTERNAL_SLOT_1": "TAF_SIM_EXTERNAL_SLOT_2");
 
-    printf("\n Sim Card.%d state = %s\n" , simId ,SimStateToString(state));
-    printf("\n Is SIM card Ready = %s\n", taf_sim_IsReady(simId) ? "true" : "false");
-    printf("\n Is SIM card Present = %s \n", taf_sim_IsPresent(simId) ? "true" : "false");
+    printf("State: %s\n", SimStateToString(state));
+    printf("Is SIM card Ready: %s\n", taf_sim_IsReady(simId) ? "true" : "false");
+    printf("Is SIM card Present: %s\n", taf_sim_IsPresent(simId) ? "true" : "false");
+}
+
+//Function to test sim state
+void tafSimTest_allState
+(
+)
+{
+    le_result_t     res;
+    taf_sim_States_t             state;
+    taf_sim_NewStateHandlerRef_t testNewStateHandlerRef;
+
+    int simCount = 0;
+
+    res = taf_sim_GetSlotCount(&simCount);
+    taf_sim_Id_t simId = taf_sim_GetSelectedCard();
+    taf_sim_Id_t simidOrg = simId;
+
+    testNewStateHandlerRef = taf_sim_AddNewStateHandler(TestNewSimStateHandler, NULL);
+    LE_TEST_OK(NULL != testNewStateHandlerRef, "taf_sim_AddNewStateHandler");
+    LE_INFO("taf_sim_GetSlotCount, res: %d", (int) res);
+
+    printf("Total SIM Slot: %d\n", simCount);
+    printf("===============================================\n");
+    for (int i = 0; i < simCount; i++) {
+        if (i == 1) {
+            simId = (simidOrg == TAF_SIM_EXTERNAL_SLOT_1) ? TAF_SIM_EXTERNAL_SLOT_2 : TAF_SIM_EXTERNAL_SLOT_1;
+        }
+
+        state = taf_sim_GetState(simId);
+
+        LE_INFO("test: state %d", state);
+
+        LE_TEST_OK((state >= TAF_SIM_INSERTED) && (state <= TAF_SIM_ERROR), "taf_sim_GetState");
+        printf("Type: %s\n", simId == TAF_SIM_EXTERNAL_SLOT_1 ? "TAF_SIM_EXTERNAL_SLOT_1": "TAF_SIM_EXTERNAL_SLOT_2");
+
+        printf("State: %s\n", SimStateToString(state));
+        printf("Default SIM: %s\n", simidOrg == simId ? "Yes": "No");
+        printf("Is SIM card Ready: %s\n", taf_sim_IsReady(simId) ? "true" : "false");
+        printf("Is SIM card Present: %s\n", taf_sim_IsPresent(simId) ? "true" : "false");
+        printf("===============================================\n");
+    }
+    taf_sim_SelectCard(simidOrg);
 }
 
 //Function to test sim identification info like ICCID, IMSI, Phone number, operator name
@@ -95,13 +174,17 @@ void tafSimTest_info
     le_result_t     res;
     char            iccid[TAF_SIM_ICCID_BYTES];
     char            imsi[TAF_SIM_IMSI_BYTES];
+    char            eid[TAF_SIM_EID_BYTES];
     char            phoneNumber[TAF_SIM_PHONE_NUM_MAX_BYTES];
     char            operatorName[50];
     char            mcc[4];
     char            mnc[4];
 
+    taf_sim_Id_t defaultSimId = taf_sim_GetSelectedCard();
+
     memset(iccid, 0, TAF_SIM_ICCID_BYTES);
     memset(imsi, 0, TAF_SIM_IMSI_BYTES);
+    memset(eid, 0, TAF_SIM_EID_BYTES);
     memset(phoneNumber, 0, TAF_SIM_PHONE_NUM_MAX_BYTES);
     memset(operatorName, 0, 50);
     memset(mcc, 0, 4);
@@ -109,28 +192,124 @@ void tafSimTest_info
 
     LE_INFO("SimId %d", simId);
 
+    printf("Type: %s\n", simId == TAF_SIM_EXTERNAL_SLOT_1 ? "TAF_SIM_EXTERNAL_SLOT_1": "TAF_SIM_EXTERNAL_SLOT_2");
+    printf("Default SIM: %s\n", defaultSimId == simId ? "Yes": "No");
+
+    bool isSimPreent = taf_sim_IsPresent(simId);
+    printf("SIM Availability: %s\n", isSimPreent ? "Yes": "No");
+
+    printf("SIM State: %s\n", tafSimTest_SimStateToString(taf_sim_GetState(simId)));
+
+    bool isSimReady = taf_sim_IsReady(simId);
+    printf("SIM Ready: %s\n", isSimReady ? "True": "False");
+
     // Get SIM ICCID
     res = taf_sim_GetICCID(simId, iccid, sizeof(iccid));
-    LE_ASSERT(res == LE_OK);
-    printf("\nSIM Card ICCID: '%s'\n", iccid);
+    LE_TEST_OK(res == LE_OK, "taf_sim_GetICCID");
+    printf("ICCID: '%s'\n", iccid);
 
     res = taf_sim_GetIMSI(simId, imsi, sizeof(imsi));
-    LE_ASSERT(res == LE_OK);
-    printf("\nSIM Card IMSI: '%s'\n", imsi);
+    LE_TEST_OK(res == LE_OK, "taf_sim_GetIMSI");
+    printf("IMSI: '%s'\n", imsi);
 
     res = taf_sim_GetSubscriberPhoneNumber(simId, phoneNumber, sizeof(phoneNumber));
-    LE_ASSERT(res == LE_OK);
-    printf("\nSIM Card PhoneNumber: '%s'\n", phoneNumber);
+    LE_TEST_OK(res == LE_OK, "taf_sim_GetSubscriberPhoneNumber");
+    printf("PhoneNumber: '%s'\n", phoneNumber);
 
     res = taf_sim_GetHomeNetworkOperator(simId, operatorName, sizeof(operatorName));
-    LE_ASSERT(res == LE_OK);
-    printf("\nSIM Card Network Operator name: '%s'\n", operatorName);
+    LE_TEST_OK(res == LE_OK, "taf_sim_GetHomeNetworkOperator");
+    printf("Network Operator name: '%s'\n", operatorName);
+
+    res = taf_sim_GetEID(simId, eid, sizeof(eid));
+    LE_TEST_OK(res == LE_OK, "taf_sim_GetEID");
+    printf("EID: '%s'\n", eid);
 
     res = taf_sim_GetHomeNetworkMccMnc(simId, mcc, sizeof(mcc), mnc, sizeof(mnc));
-    LE_ASSERT(res == LE_OK);
-    printf("\nSIM Card MCC: '%s'\n", mcc);
-    printf("\nSIM Card MNC: '%s'\n", mnc);
+    LE_TEST_OK(res == LE_OK, "taf_sim_GetHomeNetworkMccMnc");
+    printf("SIM Card MCC: '%s'\n", mcc);
+    printf("SIM Card MNC: '%s'\n", mnc);
+    printf("===============================================\n");
 }
+
+void tafSimTest_allInfo
+(
+)
+{
+    le_result_t     res;
+    char            iccid[TAF_SIM_ICCID_BYTES];
+    char            imsi[TAF_SIM_IMSI_BYTES];
+    char            eid[TAF_SIM_EID_BYTES];
+    char            phoneNumber[TAF_SIM_PHONE_NUM_MAX_BYTES];
+    char            operatorName[50];
+    char            mcc[4];
+    char            mnc[4];
+
+    int simCount = 0;
+
+    res = taf_sim_GetSlotCount(&simCount);
+    taf_sim_Id_t simId = taf_sim_GetSelectedCard();
+    taf_sim_Id_t simidOrg = simId;
+
+    printf("Total SIM Slot: %d\n", simCount);
+    printf("===============================================\n");
+    for (int i = 0; i < simCount; i++) {
+        if (i == 1) {
+            simId = (simidOrg == TAF_SIM_EXTERNAL_SLOT_1) ? TAF_SIM_EXTERNAL_SLOT_2 : TAF_SIM_EXTERNAL_SLOT_1;
+        }
+
+        memset(iccid, 0, TAF_SIM_ICCID_BYTES);
+        memset(imsi, 0, TAF_SIM_IMSI_BYTES);
+        memset(eid, 0, TAF_SIM_EID_BYTES);
+        memset(phoneNumber, 0, TAF_SIM_PHONE_NUM_MAX_BYTES);
+        memset(operatorName, 0, 50);
+        memset(mcc, 0, 4);
+        memset(mnc, 0, 4);
+
+        LE_INFO("SimId %d", simId);
+
+        printf("Type: %s\n", simId == TAF_SIM_EXTERNAL_SLOT_1 ? "TAF_SIM_EXTERNAL_SLOT_1": "TAF_SIM_EXTERNAL_SLOT_2");
+        if (simCount > 1) {
+            printf("Default SIM: %s\n", i == 0 ? "Yes": "No");
+        }
+
+        bool isSimPreent = taf_sim_IsPresent(simId);
+        printf("SIM Availability: %s\n", isSimPreent ? "Yes": "No");
+
+        printf("SIM State: %s\n", tafSimTest_SimStateToString(taf_sim_GetState(simId)));
+
+        bool isSimReady = taf_sim_IsReady(simId);
+        printf("SIM Ready: %s\n", isSimReady ? "True": "False");
+
+        // Get SIM ICCID
+        res = taf_sim_GetICCID(simId, iccid, sizeof(iccid));
+        LE_TEST_OK(res == LE_OK, "taf_sim_GetICCID");
+        printf("ICCID: '%s'\n", iccid);
+
+        res = taf_sim_GetIMSI(simId, imsi, sizeof(imsi));
+        LE_TEST_OK(res == LE_OK, "taf_sim_GetIMSI");
+        printf("IMSI: '%s'\n", imsi);
+
+        res = taf_sim_GetSubscriberPhoneNumber(simId, phoneNumber, sizeof(phoneNumber));
+        LE_TEST_OK(res == LE_OK, "taf_sim_GetSubscriberPhoneNumber");
+        printf("PhoneNumber: '%s'\n", phoneNumber);
+
+        res = taf_sim_GetHomeNetworkOperator(simId, operatorName, sizeof(operatorName));
+        LE_TEST_OK(res == LE_OK, "taf_sim_GetHomeNetworkOperator");
+        printf("Network Operator name: '%s'\n", operatorName);
+
+        res = taf_sim_GetEID(simId, eid, sizeof(eid));
+        LE_TEST_OK(res == LE_OK, "taf_sim_GetEID");
+        printf("EID: '%s'\n", eid);
+
+        res = taf_sim_GetHomeNetworkMccMnc(simId, mcc, sizeof(mcc), mnc, sizeof(mnc));
+        LE_TEST_OK(res == LE_OK, "taf_sim_GetHomeNetworkMccMnc");
+        printf("SIM Card MCC: '%s'\n", mcc);
+        printf("SIM Card MNC: '%s'\n", mnc);
+        printf("===============================================\n");
+    }
+    taf_sim_SelectCard(simidOrg);
+}
+
 void tafSimTest_selection
 (
     taf_sim_Id_t slot
@@ -140,7 +319,7 @@ void tafSimTest_selection
     printf("\n Current SIM slot id = %d\n" ,slotId);
 
     le_result_t res = taf_sim_SelectCard(slot);
-    LE_ASSERT(res == LE_OK);
+    LE_TEST_OK(res == LE_OK, "tafSimTest_selection");
     slotId = taf_sim_GetSelectedCard();
     printf("\n After selecting %d Current SIM slot id = %d\n" ,slot, slotId);
 }
@@ -154,7 +333,7 @@ void tafSimTest_enterPin
 {
     le_result_t res;
     res = taf_sim_EnterPIN(simId, lockType, pinPtr);
-    LE_ASSERT(res == LE_OK);
+    LE_TEST_OK(res == LE_OK, "tafSimTest_enterPin");
     LE_INFO("EnterPIN done");
 }
 
@@ -169,11 +348,11 @@ void tafSimTest_setLock
     le_result_t res;
     if (lock) {
         res = taf_sim_Lock(simId, lockType, pinPtr);
-        LE_ASSERT(res == LE_OK);
+        LE_TEST_OK(res == LE_OK, "taf_sim_Lock");
         LE_INFO("Set lock request sent successfully");
     } else {
         res = taf_sim_Unlock(simId, lockType, pinPtr);
-        LE_ASSERT(res == LE_OK);
+        LE_TEST_OK(res == LE_OK, "taf_sim_Unlock");
         LE_INFO("Unlock request sent successfully");
     }
 }
@@ -188,7 +367,7 @@ void tafSimTest_Change_pin
 {
     le_result_t res;
     res = taf_sim_ChangePIN(simId, lockType, oldpinPtr, newpinPtr);
-    LE_ASSERT(res == LE_OK);
+    LE_TEST_OK(res == LE_OK, "tafSimTest_Change_pin");
 }
 
 void tafSimTest_unblock_puk
@@ -201,7 +380,7 @@ void tafSimTest_unblock_puk
 {
     le_result_t res;
     res = taf_sim_Unblock(simId, lockType, pukPtr, newpinPtr);
-    LE_ASSERT(res == LE_OK);
+    LE_TEST_OK(res == LE_OK, "tafSimTest_unblock_puk");
 }
 
 void tafSimTest_sim_access
@@ -217,7 +396,7 @@ void tafSimTest_sim_access
 
     // Open a logical channel
     LE_ASSERT_OK(taf_sim_OpenLogicalChannel(simId, TAF_SIM_APPTYPE_USIM, &channel));
-    LE_ASSERT(channel);
+    LE_TEST_OK(channel, "tafSimTest_sim_access");
 
     LE_ASSERT_OK(taf_sim_SendApduOnChannel(simId,
                                           channel,

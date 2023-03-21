@@ -1136,3 +1136,17 @@ FUNCTION le_result_t WriteFPLMNList
     Id        simId IN,                     ///< The SIM identifier.
     FPLMNList fplmnListRef IN               ///< FPLMN list reference.
 );
+
+//------------------------------------------------------------------------------------------------
+/**
+ * Retrieves total number of SIM slots in the device.
+ *
+ * @return LE_FAULT            Failed to retrieve the slot count.
+ * @return LE_OK               The slot count retrieved successfully.
+ *
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetSlotCount
+(
+    int32     count OUT        ///< Slot count.
+);

@@ -209,8 +209,8 @@
  *
  * HLOS storage provides more functions to maintain messsage configurations.
  *
- * - taf_sms_lockFromStorage() -- Marks a message as locked and the marked message cannot be deleted.
- * - taf_sms_unlockFromStorage() -- Marks a message as unlocked and the marked message can be deleted.
+ * - taf_sms_LockFromStorage() -- Marks a message as locked and the marked message cannot be deleted.
+ * - taf_sms_UnlockFromStorage() -- Marks a message as unlocked and the marked message can be deleted.
  *
  * @section c_taf_sms_SmsCenter SMS center configuration
  *

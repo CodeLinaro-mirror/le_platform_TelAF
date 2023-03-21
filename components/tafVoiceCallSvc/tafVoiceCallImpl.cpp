@@ -707,7 +707,7 @@ le_result_t taf_VoiceCall::RemoveStateHandlerCtx(le_msg_SessionRef_t sessionRef,
 {
     taf_SessionCtx_t* sessionPtr = GetSessionCtx(sessionRef);
     TAF_ERROR_IF_RET_VAL(sessionPtr == NULL, LE_NOT_FOUND, "sessionRef(%p) is invalid", sessionRef);
-    
+
     le_dls_Link_t* linkPtr = NULL;
     linkPtr = le_dls_Peek(&(sessionPtr->handlerList));
     while (linkPtr)
@@ -810,6 +810,17 @@ le_result_t taf_VoiceCall::ReleaseSession(le_msg_SessionRef_t sessionRef, void* 
         {
             LE_ERROR("this session is not bound to callCtxPtr(%p), skip", callCtxPtr);
             continue;
+        }
+
+        if ((callCtxPtr->event == TAF_VOICECALL_EVENT_ACTIVE) ||
+            (callCtxPtr->event == TAF_VOICECALL_EVENT_ONHOLD) ||
+            (callCtxPtr->event == TAF_VOICECALL_EVENT_DIALING) ||
+            (callCtxPtr->event == TAF_VOICECALL_EVENT_ALERTING) ||
+            (callCtxPtr->event == TAF_VOICECALL_EVENT_WAITING))
+        {
+            LE_INFO("The call[%s] will be hung up as session %p is released",
+            EventToString(callCtxPtr->event), sessionRef);
+            StopCall(callCtxPtr->callRef, sessionRef);
         }
 
         LE_DEBUG("sessionRef(%p) is bound to callCtx, unlink it", sessionRef);

@@ -438,6 +438,7 @@ COMPONENT_INIT
 {
     int index;
     char input_str[5];
+    char *unused __attribute__((unused));
 
     register_call_handler();
 
@@ -453,7 +454,7 @@ COMPONENT_INIT
     std::cout << "  ? - help" << endl;
     std::cout << "  0 - exit" << endl << endl;
     std::cout << "TelAF > ";
-    fgets(input_str,sizeof(input_str),stdin);
+    unused = fgets(input_str,sizeof(input_str),stdin);
 
     while(input_str[0]!='0')
     {
@@ -473,37 +474,37 @@ COMPONENT_INIT
             DestinationNumber[index]='\0';
             voicecall_start();
             std::cout << endl;
-            fgets(input_str,sizeof(input_str),stdin);
+            unused = fgets(input_str,sizeof(input_str),stdin);
         }
         else if(input_str[0]=='4')
         {
             std::cout << endl;
             voicecall_end();
-            fgets(input_str,sizeof(input_str),stdin);
+            unused = fgets(input_str,sizeof(input_str),stdin);
         }
         else if(input_str[0]=='2')
         {
             std::cout << endl;
             IncomingCall();
-            fgets(input_str,sizeof(input_str),stdin);
+            unused = fgets(input_str,sizeof(input_str),stdin);
         }
         else if(input_str[0]=='3')
         {
             std::cout << endl;
             reject_voicecall();
-            fgets(input_str,sizeof(input_str),stdin);
+            unused = fgets(input_str,sizeof(input_str),stdin);
         }
         else if(input_str[0]=='5')
         {
             std::cout << endl;
             on_Hold();
-            fgets(input_str,sizeof(input_str),stdin);
+            unused = fgets(input_str,sizeof(input_str),stdin);
         }
         else if(input_str[0]=='6')
         {
             std::cout << endl;
             Resume();
-            fgets(input_str,sizeof(input_str),stdin);
+            unused = fgets(input_str,sizeof(input_str),stdin);
         }
         else if(input_str[0]=='7')
         {
@@ -513,7 +514,7 @@ COMPONENT_INIT
             std::cout << "*********************************" << endl;
             std::cout << endl;
             std::cout << "TelAF > ";
-            fgets(input_str,sizeof(input_str),stdin);
+            unused = fgets(input_str,sizeof(input_str),stdin);
         }
         else if(input_str[0]=='8')
         {
@@ -523,7 +524,7 @@ COMPONENT_INIT
             std::cout << "********************************" << endl;
             std::cout << endl;
             std::cout << "TelAF > ";
-            fgets(input_str,sizeof(input_str),stdin);
+            unused = fgets(input_str,sizeof(input_str),stdin);
         }
         else if(input_str[0]== '0')
         {
@@ -533,7 +534,7 @@ COMPONENT_INIT
         else if(input_str[0]=='\n')
         {
             std::cout << "TelAF > ";
-            fgets(input_str,sizeof(input_str),stdin);
+            unused = fgets(input_str,sizeof(input_str),stdin);
         }
         else if(input_str[0]=='?')
         {
@@ -549,13 +550,13 @@ COMPONENT_INIT
             std::cout << "  ? - help" << endl;
             std::cout << "  0 - exit" << endl << endl;
             std::cout << "TelAF > ";
-            fgets(input_str,sizeof(input_str),stdin);
+            unused = fgets(input_str,sizeof(input_str),stdin);
         }
         else{
             std::cout << endl;
             std::cout << "  Invalid Input" << endl << endl;
             std::cout << "TelAF > ";
-            fgets(input_str,sizeof(input_str),stdin);
+            unused = fgets(input_str,sizeof(input_str),stdin);
         }
     }
     exit(0);

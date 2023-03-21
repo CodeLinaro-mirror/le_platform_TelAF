@@ -95,21 +95,6 @@ static void PrintUsage ()
 <peersessionId>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- removetunnel <locId>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- gettunnelinfo\n"
-            "app runProc tafNetIntTest --exe=tafNetIntTest -- setsocksauthtype <authtype>\n"
-            "app runProc tafNetIntTest --exe=tafNetIntTest -- getsocksauthtype\n"
-            "app runProc tafNetIntTest --exe=tafNetIntTest -- setsockslanifname <ifname>\n"
-            "app runProc tafNetIntTest --exe=tafNetIntTest -- getsockslanifname\n"
-            "app runProc tafNetIntTest --exe=tafNetIntTest -- addsocksassociation <username> \
-<profileid>\n"
-            "app runProc tafNetIntTest --exe=tafNetIntTest -- deletesocksassociation <username>\n"
-            "app runProc tafNetIntTest --exe=tafNetIntTest -- enablesocks\n"
-            "app runProc tafNetIntTest --exe=tafNetIntTest -- disablesocks\n"
-            "app runProc tafNetIntTest --exe=tafNetIntTest -- addgsb <interfacename> \
-<interfacetype> <bandwidth>\n"
-            "app runProc tafNetIntTest --exe=tafNetIntTest -- removegsb <interfacename> \n"
-            "app runProc tafNetIntTest --exe=tafNetIntTest -- getgsbinfo \n"
-            "app runProc tafNetIntTest --exe=tafNetIntTest -- enablegsb \n"
-            "app runProc tafNetIntTest --exe=tafNetIntTest -- disablegsb \n"
             "\n");
 }
 
@@ -1241,6 +1226,7 @@ static int TafGetTunnelInfo()
     return EXIT_SUCCESS;
 }
 
+#if 0
 static int TafSetSocksAuthType()
 {
     le_result_t ret;
@@ -1574,6 +1560,8 @@ static int TafGetGsbInfo()
     return EXIT_SUCCESS;
 }
 
+#endif
+
 COMPONENT_INIT
 {
     int status = EXIT_SUCCESS;
@@ -1698,6 +1686,7 @@ COMPONENT_INIT
             status=TafGetTunnelInfo();
             LE_INFO("status =%d",status);
         }
+#if 0
         else if(strcmp(testType, "setsocksauthtype") == 0)
         {
             status=TafSetSocksAuthType();
@@ -1758,6 +1747,7 @@ COMPONENT_INIT
         {
             status=TafGetGsbInfo();
         }
+#endif
         exit(status);
     }
 }

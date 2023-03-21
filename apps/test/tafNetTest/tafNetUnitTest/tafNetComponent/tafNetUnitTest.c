@@ -470,6 +470,7 @@ static void SocksUnitTestFunc(void){
     taf_net_EnableSocksAsync(StartSocksAsyncHandlerFunc,NULL);
     le_event_RunLoop();
 }
+// GSB is unsurpported
 void GsbUnitTestFunc(void){
     le_result_t  ret;
     taf_net_GsbRef_t gsbRef;
@@ -480,34 +481,32 @@ void GsbUnitTestFunc(void){
     const char* ifName[TEST_GSB_ENTRY_NUM] = {"wlan0", "wlan1"};
     const taf_net_GsbIfType_t ifType[TEST_GSB_ENTRY_NUM] = {TAF_NET_GSB_WLAN_AP, TAF_NET_GSB_WLAN_STA};
     const uint32_t bandwidth[TEST_GSB_ENTRY_NUM] = {900, 800};
-    LE_ASSERT(taf_net_AddGsb("wlan0", TAF_NET_GSB_WLAN_AP, 950) == LE_BAD_PARAMETER);
+
     for (size_t i = 0; i < TEST_GSB_ENTRY_NUM; i++)
-        LE_ASSERT(taf_net_AddGsb(ifName[i], ifType[i], bandwidth[i]) == LE_OK);
+        LE_ASSERT(taf_net_AddGsb(ifName[i], ifType[i], bandwidth[i]) == LE_UNSUPPORTED);
     gsbList=taf_net_GetGsbList();
-    LE_ASSERT(gsbList != NULL);
+    LE_ASSERT(gsbList == NULL);
     gsbRef = taf_net_GetFirstGsb(gsbList);
     ret = taf_net_GetGsbInterfaceName(gsbRef,intfName,TAF_NET_INTERFACE_NAME_MAX_LEN);
-    LE_ASSERT(ret == LE_OK);
-    LE_ASSERT(strncmp(intfName, ifName[0], TAF_NET_INTERFACE_NAME_MAX_LEN) == 0);
+    LE_ASSERT(ret == LE_UNSUPPORTED);
     intfType = taf_net_GetGsbInterfaceType(gsbRef);
-    LE_ASSERT(intfType == ifType[0]);
+    LE_ASSERT(intfType == TAF_NET_GSB_UNKNOWN);
     retBandWidth = taf_net_GetGsbBandWidth(gsbRef);
-    LE_ASSERT(retBandWidth == bandwidth[0]);
+    LE_ASSERT(retBandWidth == -1);
     gsbRef = taf_net_GetNextGsb(gsbList);
     ret = taf_net_GetGsbInterfaceName(gsbRef,intfName,TAF_NET_INTERFACE_NAME_MAX_LEN);
-    LE_ASSERT(ret == LE_OK);
-    LE_ASSERT(strncmp(intfName, ifName[1], TAF_NET_INTERFACE_NAME_MAX_LEN) == 0);
+    LE_ASSERT(ret == LE_UNSUPPORTED);
     intfType = taf_net_GetGsbInterfaceType(gsbRef);
-    LE_ASSERT(intfType == ifType[1]);
+    LE_ASSERT(intfType == TAF_NET_GSB_UNKNOWN);
     retBandWidth = taf_net_GetGsbBandWidth(gsbRef);
-    LE_ASSERT(retBandWidth == bandwidth[1]);
+    LE_ASSERT(retBandWidth == -1);
     ret = taf_net_EnableGsb();
-    LE_ASSERT(ret == LE_OK);
+    LE_ASSERT(ret == LE_UNSUPPORTED);
     ret = taf_net_DisableGsb();
-    LE_ASSERT(ret == LE_OK);
+    LE_ASSERT(ret == LE_UNSUPPORTED);
     for (size_t i = 0; i < TEST_GSB_ENTRY_NUM; i++)
-        LE_ASSERT(taf_net_RemoveGsb(ifName[i]) == LE_OK);
-    LE_ASSERT(taf_net_DeleteGsbList(gsbList) == LE_OK);
+        LE_ASSERT(taf_net_RemoveGsb(ifName[i]) == LE_UNSUPPORTED);
+    LE_ASSERT(taf_net_DeleteGsbList(gsbList) == LE_UNSUPPORTED);
 }
 static void DestNatUnitTestFunc(void){
     char ipaddr[NET_IPV6_ADDR_MAX_BYTES];

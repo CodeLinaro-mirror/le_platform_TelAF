@@ -1,5 +1,18 @@
 sandboxed: false
 
+maxThreads: 300
+
+capability:
+{
+    CAP_WAKE_ALARM
+    CAP_NET_RAW
+    CAP_IPC_LOCK
+    CAP_SYS_NICE
+    CAP_SYS_RESOURCE
+    CAP_NET_ADMIN
+    CAP_BLOCK_SUSPEND
+}
+
 executables:
 {
     tafSomeipGWSvc = ( $TELAF_ROOT/components/tafSomeipGWSvc )

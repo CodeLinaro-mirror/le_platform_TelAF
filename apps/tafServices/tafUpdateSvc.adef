@@ -1,4 +1,13 @@
 maxThreads: 300
+
+capability:
+{
+        CAP_WAKE_ALARM
+        CAP_SYS_RESOURCE
+        CAP_DAC_OVERRIDE
+        CAP_BLOCK_SUSPEND
+}
+
 groups:
 {
         ubi

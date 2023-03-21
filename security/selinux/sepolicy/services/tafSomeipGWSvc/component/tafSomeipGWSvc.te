@@ -7,6 +7,9 @@ gen_require(`
   type sysfs_t;
   type systemd_tmpfiles_t;
   type tmp_t;
+  type proc_net_t;
+  type unreserved_port_t;
+  type node_t;
 ')
 
 # Framework definition for telaf
@@ -18,8 +21,8 @@ type telaf_tafSomeipGWSvc_t;
 type telaf_tafSomeipGWSvc_data_t;
 files_type(telaf_tafSomeipGWSvc_data_t);
 
+# Run the service in its own confined domain
 init_telaf_app_domain(telaf_tafSomeipGWSvc_t,telaf_tafSomeipGWSvc_exec_t)
-unconfined_domain(telaf_tafSomeipGWSvc_t)
 
 # Allow update daemon to install/uninstall this service
 telaf_admin_manage_all_files_perms(telaf_tafSomeipGWSvc_data_t)
@@ -27,3 +30,24 @@ telaf_admin_manage_all_files_perms(telaf_tafSomeipGWSvc_exec_t)
 
 # Allow systemd to get attribute of /tmp/vsomeip-0
 allow systemd_tmpfiles_t tmp_t:sock_file { getattr };
+
+# Allow tafSomeipGWSvc to manipulate dir in tmpfs
+allow telaf_tafSomeipGWSvc_t tmp_t:dir manage_dir_perms;
+
+# Allow tafSomeipGWSvc to manipulate file in tmpfs
+allow telaf_tafSomeipGWSvc_t tmp_t:file manage_file_perms;
+
+# Allow tafSomeipGWSvc to manipulate sock file in tmpfs
+allow telaf_tafSomeipGWSvc_t tmp_t:sock_file manage_sock_file_perms;
+
+# Allow tafSomeipGWSvc to manipulate udp/tcp socket
+allow telaf_tafSomeipGWSvc_t self:udp_socket create_socket_perms;
+allow telaf_tafSomeipGWSvc_t self:tcp_socket create_stream_socket_perms;
+
+# Allow tafSomeipGWSvc to manipulate netlink_route_socket
+allow telaf_tafSomeipGWSvc_t self:netlink_route_socket rw_netlink_socket_perms;
+
+# Misc rules for network socket
+allow telaf_tafSomeipGWSvc_t proc_net_t:file read_file_perms;
+allow telaf_tafSomeipGWSvc_t { unreserved_port_t node_t }:udp_socket { name_bind node_bind };
+allow telaf_tafSomeipGWSvc_t { unreserved_port_t node_t }:tcp_socket { name_bind node_bind name_connect };

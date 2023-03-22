@@ -111,7 +111,6 @@ typedef enum
     TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX,
     TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_TX,
     TAF_AUDIO_IF_DSP_FRONTEND_FILE_PLAY,
-    TAF_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE,
     TAF_AUDIO_NUM_INTERFACES
 }
 taf_audio_If_t;
@@ -216,7 +215,6 @@ namespace tafsvc {
         taf_audio_If_t interface;
         taf_audio_FileFormat_t format;
         taf_audio_SamplePcmConfig_t  samplePcmConfig;
-        taf_audio_Format_t   encodingFormat;
         taf_audio_AmrMode_t amrMode;
         le_hashmap_Ref_t connList;
         taf_audio_StreamRef_t streamRef;
@@ -280,13 +278,14 @@ namespace tafsvc {
             bool mVoiceEnabled1 = false;
             bool mVoiceEnabled2 = false;
             bool mModemRx = false;
+            bool mModemTx = false;
             bool mSpeaker = false;
+            bool mMic = false;
+            bool mPlayer = false;
             bool mIsPlaying = false;
             bool mIsPlayStreamCreated = false;
             bool mEmptyPipeline = false;
             bool mCallStarted = false;
-            bool mIsRecording = false;
-            bool mIsCaptureStreamCreated = false;
             uint32_t mSlotId;
             uint32_t mSize;
             uint32_t mBufferRecordedTillNow;
@@ -297,8 +296,8 @@ namespace tafsvc {
             le_sem_Ref_t mSemRef;
 
             le_result_t StartAudio( StreamConfig config );
-            le_result_t StopAudio(taf_audio_Stream_t* streamPtr);
-            le_result_t DeleteAudio(taf_audio_Stream_t* streamPtr);
+            le_result_t StopAudio();
+            le_result_t DeleteAudio();
             le_result_t PlayDtmfTone(DtmfTone tone, uint32_t duration, uint16_t gain);
 
             le_mem_PoolRef_t SessionRefPool = NULL;
@@ -352,7 +351,6 @@ namespace tafsvc {
             void StopDtmf(taf_audio_StreamRef_t streamRef);
             le_result_t Mute(taf_audio_StreamRef_t streamRef, StreamMute mute );
             taf_audio_StreamRef_t OpenPlayer();
-            taf_audio_StreamRef_t OpenRecorder();
             le_result_t PlayFile(taf_audio_StreamRef_t streamRef, int fd);
             le_result_t Stop(taf_audio_StreamRef_t streamRef);
             le_result_t SetVolume(taf_audio_StreamRef_t streamRef, int32_t gainPtr);
@@ -364,12 +362,6 @@ namespace tafsvc {
             le_result_t IsNoiseSuppressorEnabled(taf_audio_StreamRef_t streamRef, bool* status);
             le_result_t IsEchoCancellerEnabled(taf_audio_StreamRef_t streamRef, bool* status);
             le_result_t SetSamplePcmSamplingRate(taf_audio_StreamRef_t streamRef, uint32_t samplingRate);
-            le_result_t GetSamplePcmSamplingRate(taf_audio_StreamRef_t streamRef, uint32_t *samplingRate);
-            le_result_t SetSamplePcmChannelNumber(taf_audio_StreamRef_t streamRef, uint32_t channelNum);
-            le_result_t GetSamplePcmChannelNumber(taf_audio_StreamRef_t streamRef, uint32_t *channelNum);
-            le_result_t SetEncodingFormat(taf_audio_StreamRef_t streamRef, taf_audio_Format_t format);
-            le_result_t GetEncodingFormat(taf_audio_StreamRef_t streamRef, taf_audio_Format_t *format);
-            le_result_t RecordFile(taf_audio_StreamRef_t streamRef , int32_t fd);
             taf_audio_MediaHandlerRef_t AddMediaHandler(taf_audio_StreamRef_t streamRef, taf_audio_MediaHandlerFunc_t handlerPtr,
                         void* contextPtr);
             taf_audio_DtmfDetectorHandlerRef_t AddDtmfDetectorHandler(taf_audio_StreamRef_t streamRef, taf_audio_DtmfDetectorHandlerFunc_t handlerPtr,
@@ -388,16 +380,11 @@ namespace tafsvc {
             static void StreamMuteUnmuteCallback(ErrorCode error);
             static void WriteCallback(std::shared_ptr<telux::audio::IStreamBuffer> buffer, uint32_t bytes,
                     telux::common::ErrorCode error);
-            static void ReadCallback(std::shared_ptr<telux::audio::IStreamBuffer> buffer,
-                    telux::common::ErrorCode error);
             static void setStreamVolumeCallback(ErrorCode error);
             static void getStreamVolumeCallback(StreamVolume volume, ErrorCode error);
             static void FirstLayerEventHandler( void* reportPtr, void* secondLayerHandlerFunc );
             static StreamEventHandlerRef_t AddStreamEventHandler( taf_audio_Stream_t* sPtr, le_event_HandlerFunc_t handlerPtr,
                                  taf_audio_StreamEventBitMask_t streamEventBitMask, void* contextPtr );
-            static void ClientSessionCloseEventHandler( le_msg_SessionRef_t sessionRef,
-                    void* contextPtr);
-            static void* Record( void* ctxPtr);
     };
 }
 }

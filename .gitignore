@@ -1,0 +1,3 @@
+# Build Products
+/build
+/security/selinux/sepolicy/files/

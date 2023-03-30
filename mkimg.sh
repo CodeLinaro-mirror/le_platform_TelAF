@@ -35,14 +35,24 @@
 export SELINUX_FILE_CONTEXTS=${TELAF_ROOT}/security/selinux/sepolicy/files/file_contexts
 TARGET=$1
 OUTPUT=$2
+NOSHIP_BUILD_DIR=$3
+PROP_BUILD_DIR=$4
 OUTPUT_STAGE=${TELAF_ROOT}/build/${TARGET}/mkimg/
+
+if [ "$NOSHIP_BUILD_DIR" == "" ]; then
+    NOSHIP_BUILD_DIR=${TELAF_NOSHIP}
+fi
+
+if [ "$PROP_BUILD_DIR" == "" ]; then
+    PROP_BUILD_DIR=${TELAF_PROP}
+fi
 
 cd ${LEGATO_ROOT} && source ${LEGATO_ROOT}/bin/configlegatoenv
 
 TARGET_STAGE_DIR=${LEGATO_ROOT}/build/${TARGET}/_staging_system.${TARGET}.update_ro/
 
-echo "*** searching path: ${TELAF_PROP} ***"
-for full_name_prop in `find ${TELAF_PROP} -type f -name "*.so"`
+echo "*** searching path: ${PROP_BUILD_DIR} ***"
+for full_name_prop in `find ${PROP_BUILD_DIR} -maxdepth 1 -type f -name "*.so"`
 do
     base_name=`basename ${full_name_prop}`
     echo "*** try to use ${base_name} replace telaf-prop stub library ***"
@@ -52,8 +62,8 @@ do
     fi
 done
 
-echo "*** searching path: ${TELAF_NOSHIP} ***"
-for full_name_noship in `find ${TELAF_NOSHIP} -type f -name "*.so"`
+echo "*** searching path: ${NOSHIP_BUILD_DIR} ***"
+for full_name_noship in `find ${NOSHIP_BUILD_DIR} -maxdepth 1 -type f -name "*.so"`
 do
     base_name=`basename ${full_name_noship}`
     echo "*** try to use ${base_name} replace telaf-noship stub library ***"

@@ -16,12 +16,12 @@ fi
 
 export TELAF_PROP=${CURDIR}/../telaf-prop
 if [ ! -f "${TELAF_PROP}/build.sh" ]; then
-    export TELAF_PROP=${CURDIR}/../prebuilt_HY11/${1}/telaf-prop-build/telaf-prop/lib
+    export TELAF_PROP=${CURDIR}/../prebuilt_HY33/${1}-nad/telaf-prop-build/telaf-prop/lib
 fi
 
 export TELAF_NOSHIP=${CURDIR}/../telaf-noship
 if [ ! -f "${TELAF_NOSHIP}/build.sh" ]; then
-    export TELAF_NOSHIP=${CURDIR}/../prebuilt_HY11/${1}/telaf-noship-build/telaf-noship/lib
+    export TELAF_NOSHIP=${CURDIR}/../prebuilt_HY33/${1}-nad/telaf-noship-build/telaf-noship/lib
 fi
 
 if [ "$1" == "sa415m" ]; then
@@ -72,7 +72,16 @@ function build-sa515m-af(){
     fi
 
     ## repack TelAF image
-    ${TELAF_ROOT}/mkimg.sh ${TARGET} "$TELAF_ROOT/build/$TARGET/"
+    TELAF_REPACK_DIR=$TELAF_ROOT/build/$TARGET/
+    TELAF_NOSHIP_BUILD_DIR=${TELAF_ROOT}/build/${TARGET}/telaf-noship
+    TELAF_PROP_BUILD_DIR=${TELAF_ROOT}/build/${TARGET}/telaf-prop
+    if [ ! -d $TELAF_NOSHIP_BUILD_DIR ]; then
+        TELAF_NOSHIP_BUILD_DIR=$TELAF_NOSHIP
+    fi
+    if [ ! -d $TELAF_PROP_BUILD_DIR ]; then
+        TELAF_PROP_BUILD_DIR=$TELAF_PROP
+    fi
+    ${TELAF_ROOT}/mkimg.sh ${TARGET} "$TELAF_REPACK_DIR" "$TELAF_NOSHIP_BUILD_DIR" "$TELAF_PROP_BUILD_DIR"
 
     # sign TelAF image
     export AVBTOOL="${OECORE_NATIVE_SYSROOT}/usr/share/avb_py_tool"

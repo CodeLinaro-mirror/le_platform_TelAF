@@ -6,6 +6,10 @@ capability:
         CAP_SYS_RESOURCE
         CAP_DAC_OVERRIDE
         CAP_BLOCK_SUSPEND
+
+#if ${LE_CONFIG_TEST_COVERAGE} = y
+        CAP_DAC_READ_SEARCH
+#endif
 }
 
 groups:

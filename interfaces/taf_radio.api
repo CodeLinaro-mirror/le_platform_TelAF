@@ -101,10 +101,10 @@
  *
    le_onoff_t power = LE_OFF;
 
-   if (taf_radio_SetRadioPower(LE_ON, slotId) != LE_OK)
+   if (taf_radio_SetRadioPower(LE_ON, phoneId) != LE_OK)
        LE_ERROR("Fail to set radio power.");
 
-   if (taf_radio_GetRadioPower(&power, slotId) != LE_OK)
+   if (taf_radio_GetRadioPower(&power, phoneId) != LE_OK)
        LE_ERROR("Fail to get radio power status.");
 
    if (power != LE_ON)
@@ -133,14 +133,14 @@
  *
  * @code
  *
-   if (taf_radio_SetManualRegisterMode(mccStr1, mncStr1, slotId) == LE_OK)
+   if (taf_radio_SetManualRegisterMode(mccStr1, mncStr1, phoneId) == LE_OK)
        LE_ERROR("Fail to set manual register mode.");
 
    LE_INFO("Platform registration error code: %d.", taf_radio_GetPlatformSpecificRegistrationErrorCode());
 
    bool isManualMode = false;
    if (taf_radio_GetRegisterMode(&isManualMode, mccStr2, TAF_RADIO_MCC_BYTES, mncStr2,
-       TAF_RADIO_MNC_BYTES, slotId) != LE_OK)
+       TAF_RADIO_MNC_BYTES, phoneId) != LE_OK)
        LE_ERROR("Fail to get register mode.");
 
    if (!isManualMode)
@@ -176,11 +176,11 @@
  *
    // Add preference.
    for (int i = 0; i < PREFERRED_OPERATOR_NUM; i++) {
-       taf_radio_AddPreferredOperator(prefMccStr[i], prefMncStr[i], prefRatMask, slotId);
+       taf_radio_AddPreferredOperator(prefMccStr[i], prefMncStr[i], prefRatMask, phoneId);
    }
 
    // Create list.
-   listRef = taf_radio_GetPreferredOperatorsList(slotId);
+   listRef = taf_radio_GetPreferredOperatorsList(phoneId);
 
    // Traverse list
    opRef = taf_radio_GetFirstPreferredOperator(listRef);
@@ -198,7 +198,7 @@
 
    // Remove preference.
    for (int i = 0; i < PREFERRED_OPERATOR_NUM; i++) {
-       taf_radio_RemovePreferredOperator(prefMccStr[i], prefMncStr[i], slotId);
+       taf_radio_RemovePreferredOperator(prefMccStr[i], prefMncStr[i], phoneId);
    }
  *
    @endcode
@@ -231,30 +231,30 @@
  *
    @endcode
  *
- * @section c_taf_radio_cs_ps Circuit-Switched and Packet-Switched State
+ * @section c_taf_radio_ps Packet-Switched State
  *
- * Users can get the circuit-switched (CS) and packet-switched (PS) state.
+ * Users can get the packet-switched (PS) state.
  *
- * - taf_radio_GetPacketSwitchedState() -- Gets the CS and PS state.
+ * - taf_radio_GetPacketSwitchedState() -- Gets the PS state.
  *
  * - taf_radio_AddPacketSwitchedChangeHandler() / taf_radio_RemovePacketSwitchedChangeHandler() -- Adds/removes
- *   CS/PS change handler.
+ *   PS change handler.
  *
- * The following example illustrates the CS/PS change indication.
+ * The following example illustrates the PS change indication.
  *
  * @code
  *
-   // CS/PS change indication handler.
-   static void CsPsChangeHandler(const taf_radio_ServiceDomainState_t state, void* contextPtr)
+   // PS change indication handler.
+   static void PsChangeHandler(const taf_radio_NetRegState_t state, void* contextPtr)
    {
-       LE_INFO("CS/PS state: %d", state);
+       LE_INFO("PS state: %d", state);
    }
 
-   // Add handler for CS/PS change.
+   // Add handler for PS change.
    handlerRef = taf_radio_AddPacketSwitchedChangeHandler(
-      (taf_radio_PacketSwitchedChangeHandlerFunc_t)CsPsChangeHandler, NULL);
+      (taf_radio_PacketSwitchedChangeHandlerFunc_t)PsChangeHandler, NULL);
 
-   // CS/PS change in some cases.
+   // PS change in some cases.
  *
    @endcode
  *
@@ -267,7 +267,7 @@
  *  - taf_radio_MeasureSignalMetrics() / taf_radio_DeleteSignalMetrics() -- Creates/deletes the signal
  *    metrics reference.
  *
- *  - taf_radio_GetRatOfSignalMetrics() -- Gets cell RATs.
+ *  - taf_radio_GetRatOfSignalMetrics() -- Gets RATs of signal metrics.
  *
  *  - taf_radio_GetGsmSignalMetrics() / taf_radio_GetUmtsSignalMetrics() / taf_radio_GetLteSignalMetrics() /
  *    taf_radio_GetCdmaSignalMetrics() -- Gets GSM/UMTS/LTE/CDMA signal metrics.
@@ -279,14 +279,14 @@
  *
  * @code
  *
-   metricRef = taf_radio_MeasureSignalMetrics(slotId);
+   metricRef = taf_radio_MeasureSignalMetrics(phoneId);
    ratMask = taf_radio_GetRatOfSignalMetrics(metricRef);
-   if (ratMask & TAF_RADIO_CELL_RAT_MASK_LTE) {
+   if (ratMask & TAF_RADIO_RAT_BIT_MASK_LTE) {
        if (taf_radio_GetLteSignalMetrics(metricsRef, &ss, &rsrq, &rsrp, &snr) == LE_OK) {
            LE_INFO("LTE signal strength in dBm: %d\n", ss);
            LE_INFO("LTE reference signal receive quality in dB : %d\n", rsrq);
            LE_INFO("LTE reference signal receive power in dBm : %d\n", rsrp);
-           LE_INFO("LTE signal-to-noise ratio in dB : %d\n", snr);
+           LE_INFO("LTE signal-to-noise ratio in 0.1 dB : %d\n", snr);
        } else {
            LE_ERROR("Fail to get LTE signal metrics.");
        }
@@ -357,7 +357,7 @@
  * @code
  *
    // Create list and perform network scan.
-   listRef = taf_radio_PerformCellularNetworkScan(slotId);
+   listRef = taf_radio_PerformCellularNetworkScan(phoneId);
 
    // Traverse list
    opRef = taf_radio_GetFirstCellularNetworkScan(listRef);
@@ -673,7 +673,7 @@ BITMASK CellRatMask
 STRUCT NetRegRejInd
 {
     NetRejCause cause; ///< Network rejection cause.
-    uint8 phoneId;     ///< Slot ID.
+    uint8 phoneId;     ///< Phone ID.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -683,8 +683,8 @@ STRUCT NetRegRejInd
 //--------------------------------------------------------------------------------------------------
 STRUCT RatChangeInd
 {
-    Rat rat;       ///< RAT.
-    uint8 phoneId; ///< Slot ID.
+    Rat rat;       ///< Radio Access Technology.
+    uint8 phoneId; ///< Phone ID.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -695,7 +695,7 @@ STRUCT RatChangeInd
 STRUCT NetRegStateInd
 {
     NetRegState state; ///< Network registration state.
-    uint8 phoneId;     ///< Slot ID.
+    uint8 phoneId;     ///< Phone ID.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -740,7 +740,7 @@ HANDLER NetRegStateHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Handler for CS and PS changes.
+ * Handler for packet switched state changes.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER PacketSwitchedChangeHandler
@@ -758,9 +758,11 @@ HANDLER SignalStrengthChangeHandler
     int32 ss IN ///< The signal strength.
 );
 
+//--------------------------------------------------------------------------------------------------
 /**
  * Handler for network scan.
  */
+//--------------------------------------------------------------------------------------------------
 HANDLER CellularNetworkScanHandler
 (
     ScanInformationList listRef IN ///< The network scan information list reference.
@@ -798,12 +800,12 @@ EVENT NetRegStateEvent
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Event to report CS and PS changes.
+ * Event to report packet switched state changes.
  */
 //--------------------------------------------------------------------------------------------------
 EVENT PacketSwitchedChange
 (
-    PacketSwitchedChangeHandler handler ///< Handler for CS and PS changes.
+    PacketSwitchedChangeHandler handler ///< Handler for packet switched state changes.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -830,7 +832,7 @@ EVENT SignalStrengthChange
 FUNCTION le_result_t SetRadioPower
 (
     le_onoff_t power IN, ///< Power state.
-    uint8 phoneId IN     ///< Slot ID.
+    uint8 phoneId IN     ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -846,7 +848,7 @@ FUNCTION le_result_t SetRadioPower
 FUNCTION le_result_t GetRadioPower
 (
     le_onoff_t power OUT, ///< Power state.
-    uint8 phoneId IN      ///< Slot ID.
+    uint8 phoneId IN      ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -862,7 +864,7 @@ FUNCTION le_result_t GetRadioPower
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetAutomaticRegisterMode
 (
-    uint8 phoneId IN ///< Slot ID.
+    uint8 phoneId IN ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -880,7 +882,7 @@ FUNCTION le_result_t SetManualRegisterMode
 (
     string mcc[MCC_LEN] IN,     ///< MCC. 
     string mnc[MNC_MAX_LEN] IN, ///< MNC.
-    uint8 phoneId IN            ///< Slot ID.
+    uint8 phoneId IN            ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -893,7 +895,7 @@ FUNCTION SetManualRegisterModeAsync
     string mcc[MCC_LEN] IN,         ///< MCC.
     string mnc[MNC_MAX_LEN] IN,     ///< MNC.
     ManualSelectionHandler handler, ///< Handler for manual selection.
-    uint8 phoneId IN                ///< Slot ID.
+    uint8 phoneId IN                ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -912,7 +914,7 @@ FUNCTION le_result_t GetRegisterMode
     bool isManualPtr OUT,           ///< True if manual, false if automatic.
     string mccPtr[MCC_LEN] OUT,     ///< MCC.
     string mncPtr[MNC_MAX_LEN] OUT, ///< MNC.
-    uint8 phoneId IN                ///< Slot ID.
+    uint8 phoneId IN                ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -943,8 +945,8 @@ FUNCTION le_result_t AddPreferredOperator
 (
     string mcc[MCC_LEN] IN,     ///< MCC.
     string mnc[MNC_MAX_LEN] IN, ///< MNC.
-    RatBitMask ratMask IN,      ///< RAT bitmask.
-    uint8 phoneId IN            ///< Slot ID.
+    RatBitMask ratMask IN,      ///< RAT bitmask, applicable for GSM/UMTS/LTE/NR5G.
+    uint8 phoneId IN            ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -963,7 +965,7 @@ FUNCTION le_result_t RemovePreferredOperator
 (
     string mcc[MCC_LEN] IN,     ///< MCC.
     string mnc[MNC_MAX_LEN] IN, ///< MNC.
-    uint8 phoneId IN            ///< Slot ID.
+    uint8 phoneId IN            ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -994,7 +996,7 @@ FUNCTION le_result_t DeletePreferredOperatorsList
 //--------------------------------------------------------------------------------------------------
 FUNCTION PreferredOperatorList GetPreferredOperatorsList
 (
-    uint8 phoneId IN ///< Slot ID.
+    uint8 phoneId IN ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1057,7 +1059,7 @@ FUNCTION le_result_t GetPreferredOperatorDetails
 FUNCTION le_result_t GetRadioAccessTechInUse
 (
     Rat rat OUT,     ///< RAT in use.
-    uint8 phoneId IN ///< Slot ID.
+    uint8 phoneId IN ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1073,7 +1075,7 @@ FUNCTION le_result_t GetRadioAccessTechInUse
 FUNCTION le_result_t SetRatPreferences
 (
     RatPrefMask ratMask IN, ///< Bitmask for RAT prefences.
-    uint8 phoneId IN        ///< Slot ID.
+    uint8 phoneId IN        ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1090,7 +1092,7 @@ FUNCTION le_result_t SetRatPreferences
 FUNCTION le_result_t GetRatPreferences
 (
     RatPrefMask ratMaskPtr OUT, ///< Bitmask for RAT prefences.
-    uint8 phoneId IN            ///< Slot ID.
+    uint8 phoneId IN            ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1107,12 +1109,12 @@ FUNCTION le_result_t GetRatPreferences
 FUNCTION le_result_t GetNetRegState
 (
     NetRegState state OUT, ///< Network registration state.
-    uint8 phoneId IN       ///< Slot ID.
+    uint8 phoneId IN       ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Gets the CS and PS state.
+ *  Gets the packet switched state.
  *
  * @return
  *  - LE_BAD_PARAMETER -- Bad parameters.
@@ -1124,7 +1126,7 @@ FUNCTION le_result_t GetNetRegState
 FUNCTION le_result_t GetPacketSwitchedState
 (
     ServiceDomainState state OUT, ///< CS and PS state.
-    uint8 phoneId IN              ///< Slot ID.
+    uint8 phoneId IN              ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1136,14 +1138,12 @@ FUNCTION le_result_t GetPacketSwitchedState
  *  - LE_TIMEOUT -- Response timed out.
  *  - LE_FAULT -- Failed.
  *  - LE_OK -- Succeeded.
- *
- * @note This function gets the highest signal strength level of RATs.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetSignalQual
 (
-    uint32 quality OUT, ///< Signal qulity level, range is 0 to 5.
-    uint8 phoneId IN    ///< Slot ID.
+    uint32 quality OUT, ///< Signal qulity level, ranges from 1 to 5, 0 is unknown.
+    uint8 phoneId IN    ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1153,14 +1153,11 @@ FUNCTION le_result_t GetSignalQual
  * @return
  *  - Non-null pointer -- The signal metrics reference.
  *  - Null pointer -- Internal error.
- *
- * @note At most 1 signal metrics reference per slot. taf_radio_DeleteSignalMetrics() releases
- *       signal metrics reference before measuring.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION Metrics MeasureSignalMetrics
 (
-    uint8 phoneId IN ///< Slot ID.
+    uint8 phoneId IN ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1180,11 +1177,10 @@ FUNCTION le_result_t DeleteSignalMetrics
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Gets cell RAT bitmask of signal metrics.
+ *  Gets RAT bitmask of signal metrics.
  *
  * @return
- *  - TAF_RADIO_CELL_RAT_MASK_UNKNOWN -- Internal error.
- *  - Others -- Cell RAT bitmask of signal metrics.
+ *  - taf_radio_RatBitMask_t -- RAT bitmask of signal metrics.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION CellRatMask GetRatOfSignalMetrics
@@ -1206,8 +1202,8 @@ FUNCTION CellRatMask GetRatOfSignalMetrics
 FUNCTION le_result_t GetGsmSignalMetrics
 (
     Metrics MetricsRef IN, ///< The signal metrics reference.
-    int32 rssi OUT,        ///< Signal strength.
-    uint32 ber OUT         ///< Bit error rate.
+    int32 rssi OUT,        ///< Received signal strength indicator in dBm.
+    uint32 ber OUT         ///< Bit error rate, valid from 0 to 7.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1224,9 +1220,9 @@ FUNCTION le_result_t GetGsmSignalMetrics
 FUNCTION le_result_t GetUmtsSignalMetrics
 (
     Metrics MetricsRef IN, ///< The signal metrics reference.
-    int32 ss OUT,          ///< Signal strength, only applicable for WCDMA.
-    uint32 ber OUT,        ///< Bit error rate, only applicable for WCDMA.
-    int32 rscp OUT         ///< Reference signal code power in dBm, only applicable for TD-SCDMA.
+    int32 ss OUT,          ///< Signal strength in dBm.
+    uint32 ber OUT,        ///< WCDMA bit error rate, valid from 0 to 7, 0x7FFFFFFF is unavailable.
+    int32 rscp OUT         ///< Receive signal channel power in dBm.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1243,10 +1239,10 @@ FUNCTION le_result_t GetUmtsSignalMetrics
 FUNCTION le_result_t GetLteSignalMetrics
 (
     Metrics MetricsRef IN, ///< The signal metrics reference.
-    int32 ss OUT,          ///< Signal strength.
+    int32 ss OUT,          ///< Signal strength in dBm.
     int32 rsrq OUT,        ///< Reference signal receive quality in dB.
     int32 rsrp OUT,        ///< Reference signal receive power in dBm.
-    int32 snr OUT          ///< Signal-to-noise ratio in dB.
+    int32 snr OUT          ///< Signal-to-noise ratio in units of 0.1 dB.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1265,8 +1261,8 @@ FUNCTION le_result_t GetCdmaSignalMetrics
     Metrics MetricsRef IN, ///< The signal metrics reference.
     int32 ss OUT,          ///< Signal strength in dBm.
     int32 ecio OUT,        ///< CDMA Ec/Io in dB.
-    int32 snr OUT,         ///< Signal-to-noise ratio in dB.
-    int32 io OUT           ///< EV-DO Ec/Io in dB.
+    int32 snr OUT,         ///< EVDO signal-to-noise ratio in dB.
+    int32 io OUT           ///< EVDO Ec/Io in dB.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1280,7 +1276,7 @@ FUNCTION le_result_t GetCdmaSignalMetrics
 //--------------------------------------------------------------------------------------------------
 FUNCTION uint32 GetServingCellId
 (
-    uint8 phoneId IN ///< Slot ID.
+    uint8 phoneId IN ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1294,7 +1290,7 @@ FUNCTION uint32 GetServingCellId
 //--------------------------------------------------------------------------------------------------
 FUNCTION uint32 GetServingCellLocAreaCode
 (
-    uint8 phoneId IN ///< Slot ID.
+    uint8 phoneId IN ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1308,7 +1304,7 @@ FUNCTION uint32 GetServingCellLocAreaCode
 //--------------------------------------------------------------------------------------------------
 FUNCTION uint16 GetServingCellLteTracAreaCode
 (
-    uint8 phoneId IN ///< Slot ID.
+    uint8 phoneId IN ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1322,7 +1318,7 @@ FUNCTION uint16 GetServingCellLteTracAreaCode
 //--------------------------------------------------------------------------------------------------
 FUNCTION uint32 GetServingCellEarfcn
 (
-    uint8 phoneId IN ///< Slot ID.
+    uint8 phoneId IN ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1336,7 +1332,7 @@ FUNCTION uint32 GetServingCellEarfcn
 //--------------------------------------------------------------------------------------------------
 FUNCTION uint32 GetServingCellTimingAdvance
 (
-    uint8 phoneId IN ///< Slot ID.
+    uint8 phoneId IN ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1350,7 +1346,7 @@ FUNCTION uint32 GetServingCellTimingAdvance
 //--------------------------------------------------------------------------------------------------
 FUNCTION uint16 GetPhysicalServingLteCellId
 (
-    uint8 phoneId IN ///< Slot ID.
+    uint8 phoneId IN ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1367,7 +1363,7 @@ FUNCTION uint16 GetPhysicalServingLteCellId
 FUNCTION le_result_t GetServingCellGsmBsic
 (
     uint8 bsic OUT,  ///< GSM base station identity code.
-    uint8 phoneId IN ///< Slot ID.
+    uint8 phoneId IN ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1383,7 +1379,7 @@ FUNCTION le_result_t GetServingCellGsmBsic
 //--------------------------------------------------------------------------------------------------
 FUNCTION uint16 GetServingCellScramblingCode
 (
-    uint8 phoneId IN ///< Slot ID.
+    uint8 phoneId IN ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1399,7 +1395,7 @@ FUNCTION uint16 GetServingCellScramblingCode
 FUNCTION le_result_t GetCurrentNetworkName
 (
     string nameStr[NETWORK_NAME_MAX_LEN] OUT, ///< Current network name.
-    uint8 phoneId IN                          ///< Slot ID.
+    uint8 phoneId IN                          ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1416,7 +1412,7 @@ FUNCTION le_result_t GetCurrentNetworkMccMnc
 (
     string mccStr[MCC_LEN] OUT,     ///< MCC.
     string mncStr[MNC_MAX_LEN] OUT, ///< MNC.
-    uint8 phoneId IN                ///< Slot ID.
+    uint8 phoneId IN                ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1430,7 +1426,7 @@ FUNCTION le_result_t GetCurrentNetworkMccMnc
 //--------------------------------------------------------------------------------------------------
 FUNCTION ScanInformationList PerformCellularNetworkScan
 (
-    uint8 phoneId IN ///< Slot ID.
+    uint8 phoneId IN ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1441,7 +1437,7 @@ FUNCTION ScanInformationList PerformCellularNetworkScan
 FUNCTION PerformCellularNetworkScanAsync
 (
     CellularNetworkScanHandler handler, ///< Handler for network scan.
-    uint8 phoneId IN                    ///< Slot ID.
+    uint8 phoneId IN                    ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------

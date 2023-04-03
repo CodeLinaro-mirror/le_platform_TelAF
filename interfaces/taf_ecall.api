@@ -270,6 +270,37 @@
  * Applications must use taf_ecall_Delete() to release @ref taf_ecall_CallRef_t emergency call
  * reference object when it is no longer used.
  *
+ * @section taf_ecall_usage_flow Typical application call flow
+ *
+ * @image html eCall_usage_flow.jpg
+ *
+ * eCall apps can use the TelAF eCall service to start an eCall with a PSAP, enable conversation over a voice channel,
+ * and end the eCall.
+ *
+ * #1 -- Create an eCall session and get the eCall reference which will be used to make an eCall with PSAP.
+ *
+ * #2 -- Register the state change handler to get notifications from the TelAF eCall service when the eCall state gets changed.
+ *
+ * #3 -- Construct MSD message, including position information from the GNSS service, vehicle information, passenger count, etc.
+ *
+ * #4 -- Start an eCall via the eCall Service. The eCall service will initiate a corresponding eCall to PSAP. After this, the
+ *       state change handler will be notified that the eCall state is DIALING and then ALERTING which means that the eCall
+ *       successfully reached the PSAP.
+ *
+ *       After the eCall is answered by the PSAP, the eCall state changes to ACTIVE and in MSD Pull mode, when the eCall Service
+ *       gets an indication from the PSAP to receive MSD, the state transfers to TAF_STATE_PSAP_START_RECEIVED.
+ *
+ * #5 -- Start sending encoded MSD via the eCall Service to the PSAP. The eCall state becomes TAF_STATE_MSD_TRANSMISSION_STARTED and the
+ *       TAF_STATE_LL_ACK_RECEIVED.
+ *
+ *       After PSAP successfully receives the MSD, the eCall state changes to TAF_STATE_MSD_TRANSMISSION_SUCCESS and the state change
+ *       hander will be notified.
+ *
+ *       Call active: The eCall app might need to stay active to reserve a voice call channel to enable the passenger to talk with the PSAP.
+ *
+ * #6 -- When the conversation is finished, the eCall app can end the call using the eCall Service API. This will send the BYE signal to the PSAP.
+ *       After the eCall is successfully ended, the eCall state will change to ENDED and the state change handler will be notified of the same.
+ *
  * <HR>
  *
  */

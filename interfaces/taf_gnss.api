@@ -621,6 +621,32 @@
  * Insertion of each UTC leap second is usually decided about six months in advance by the
  * International Earth Rotation and Reference Systems Service (IERS).
  *
+ * @section taf_gnss_usage_flow Typical application call flow
+ *
+ * @image html location_usage_flow.jpg
+ *
+ * The Location application locates in NAD device and access the tafLocationSvc on the corresponding NAD device.
+ *
+ * #0 -- Start GNSS session with the service.
+ *
+ * #1 -- Add the position handler to be able to receive any GNSS fixes received from the location service.
+ *
+ * #2 -- Get location information including longitude, latitude and horizontal accuracy.
+ *
+ * #3 -- Get the altitude information and its accuracy.
+ *
+ * #4 -- Get the vehicle direction information and its accuracy.
+ *
+ * #5 -- Get the horizontal speed information and its accuracy.
+ *
+ * #6 -- Get the vertical speed information and its accuracy.
+ *
+ * #7 -- Get the position state, ex. 2D, 3D and Estimated Fix.
+ *
+ * #8 -- When there's no need to receive any GNSS fixes from the application, the registered handler reference can be removed.
+ *
+ * #9 -- Stop the GNSS session with the service. This will stop receiving fixes at the location service.
+ *
  * <HR>
  *
  */

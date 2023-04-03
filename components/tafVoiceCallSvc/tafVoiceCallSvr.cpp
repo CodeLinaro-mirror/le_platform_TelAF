@@ -196,6 +196,9 @@ le_result_t taf_voicecall_End
     callReq_t req;
     auto &myCall = taf_VoiceCall::GetInstance();
 
+    taf_VoiceCtrl_t* callCtxPtr = (taf_VoiceCtrl_t* )le_ref_Lookup(myCall.CallCtrlRefMap, (void*)reference);
+    TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND, "Cannot get callCtx from ref(%p)", reference);
+
     req.cmdID = CMD_END_CALL;
     req.callRef = reference;
     req.sessionRef = taf_voicecall_GetClientSessionRef();
@@ -221,6 +224,9 @@ le_result_t taf_voicecall_Delete
 {
     auto &myCall = taf_VoiceCall::GetInstance();
 
+    taf_VoiceCtrl_t* callCtxPtr = (taf_VoiceCtrl_t* )le_ref_Lookup(myCall.CallCtrlRefMap, (void*)reference);
+    TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND, "Cannot get callCtx from ref(%p)", reference);
+
     return myCall.DeleteCall(reference, taf_voicecall_GetClientSessionRef());
 }
 
@@ -241,6 +247,9 @@ le_result_t taf_voicecall_Answer
 {
     callReq_t req;
     auto &myCall = taf_VoiceCall::GetInstance();
+
+    taf_VoiceCtrl_t* callCtxPtr = (taf_VoiceCtrl_t* )le_ref_Lookup(myCall.CallCtrlRefMap, (void*)reference);
+    TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND, "Cannot get callCtx from ref(%p)", reference);
 
     req.cmdID = CMD_ANSWER_CALL;
     req.callRef = reference;
@@ -297,6 +306,9 @@ le_result_t taf_voicecall_Hold
     callReq_t req;
     auto &myCall = taf_VoiceCall::GetInstance();
 
+    taf_VoiceCtrl_t* callCtxPtr = (taf_VoiceCtrl_t* )le_ref_Lookup(myCall.CallCtrlRefMap, (void*)reference);
+    TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND, "Cannot get callCtx from ref(%p)", reference);
+
     req.cmdID = CMD_HOLD_CALL;
     req.callRef = reference;
     req.sessionRef = taf_voicecall_GetClientSessionRef();
@@ -322,6 +334,9 @@ le_result_t taf_voicecall_Resume
     callReq_t req;
     auto &myCall = taf_VoiceCall::GetInstance();
 
+    taf_VoiceCtrl_t* callCtxPtr = (taf_VoiceCtrl_t* )le_ref_Lookup(myCall.CallCtrlRefMap, (void*)reference);
+    TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND, "Cannot get callCtx from ref(%p)", reference);
+
     req.cmdID = CMD_RESUME_CALL;
     req.callRef = reference;
     req.sessionRef = taf_voicecall_GetClientSessionRef();
@@ -346,6 +361,9 @@ le_result_t taf_voicecall_Swap
 {
     callReq_t req;
     auto &myCall = taf_VoiceCall::GetInstance();
+
+    taf_VoiceCtrl_t* callCtxPtr = (taf_VoiceCtrl_t* )le_ref_Lookup(myCall.CallCtrlRefMap, (void*)reference);
+    TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND, "Cannot get callCtx from ref(%p)", reference);
 
     req.cmdID = CMD_SWAP_CALL;
     req.callRef = reference;

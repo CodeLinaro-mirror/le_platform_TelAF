@@ -113,8 +113,7 @@ static void PositionHandlerFunction
     }
     if(result == LE_OK)
     {
-        LE_TEST_INFO("Position state: %s", (TAF_GNSS_STATE_FIX_NO_POS == state)?"No Fix"
-                                     :(TAF_GNSS_STATE_FIX_2D == state)?"2D Fix"
+        LE_TEST_INFO("Position state: %s", (TAF_GNSS_STATE_FIX_2D == state)?"2D Fix"
                                      :(TAF_GNSS_STATE_FIX_3D == state)?"3D Fix"
                                      : "Unknown");
     }
@@ -468,6 +467,27 @@ static void PositionHandlerFunction
     else
     {
         LE_TEST_INFO("Failed! to get elliptical uncertainity information\n");
+    }
+
+    //GetPositionState
+    LE_TEST_INFO("taf_gnss_GetPositionState() API is triggerred to get position state");
+    result = taf_gnss_GetPositionState(positionSampleRef, &state);
+    LE_TEST_OK(result == LE_OK,"taf_gnss_GetPositionState-LE_OK");
+    if(state == TAF_GNSS_STATE_FIX_NO_POS)
+    {
+        LE_TEST_INFO("No fix Position hence release the sample reference & return");
+        taf_gnss_ReleaseSampleRef(positionSampleRef);
+        return;
+    }
+    if(result == LE_OK)
+    {
+        LE_TEST_INFO("Position state: %s", (TAF_GNSS_STATE_FIX_2D == state)?"2D Fix"
+                                     :(TAF_GNSS_STATE_FIX_3D == state)?"3D Fix"
+                                     : "Unknown");
+    }
+    else
+    {
+        LE_TEST_INFO("Failed to get position state");
     }
 
 
@@ -891,6 +911,12 @@ static void TestTafGnssConstellations
         LE_TEST_INFO("Failed! to get supported constellations");
     }
 
+    //SetConstellation-UNDEFINED
+    constellationMask = 0;
+    LE_TEST_INFO("taf_gnss_SetConstellation() API to set 0- constellation type");
+    result = taf_gnss_SetConstellation(constellationMask);
+    LE_TEST_OK(result == LE_FAULT,"taf_gnss_SetConstellation-LE_FAULT");
+
    //21.SetConstellation-GPS
     constellationMask = TAF_GNSS_CONSTELLATION_GPS;
     LE_TEST_INFO("taf_gnss_SetConstellation() API is called to set GPS constellation type");
@@ -1018,6 +1044,23 @@ static void TestTafGnssConstellations
         "GPS constellation types enabled");
     result = taf_gnss_GetConstellation(&constellationMask);
     LE_TEST_OK(result == LE_NOT_PERMITTED,"taf_gnss_GetConstellation-LE_NOT_PERMITTED");
+
+    //Disable GNSS
+    LE_TEST_INFO("taf_gnss_Disable() API is called to disable GNSS engine");
+    result = taf_gnss_Disable();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Disable-LE_OK");
+
+    //SetConstellation-QZSS
+    constellationMask = TAF_GNSS_CONSTELLATION_QZSS;
+    LE_TEST_INFO("taf_gnss_SetConstellation() API is called to set QZSS constellation type");
+    result = taf_gnss_SetConstellation(constellationMask);
+    LE_TEST_OK(result == LE_NOT_PERMITTED,"taf_gnss_SetConstellation-LE_NOT_PERMITTED");
+
+    //Enable GNSS
+    LE_TEST_INFO("taf_gnss_Enable() API is called to Enable GNSS engine");
+    result = taf_gnss_Enable();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Enable-LE_OK");
+
 
 }
 
@@ -1474,6 +1517,23 @@ static void TestTafGnssNmeaSentences
     {
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
+
+    //SetNmeaSentence ->0
+    LE_TEST_INFO("SetNmeaSentences() API is called to set 0- NMEA sentence type");
+    nmeaMaskPtr = 0;
+    result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
+    LE_TEST_OK(result==LE_BAD_PARAMETER, "taf_gnss_SetNmeaSentences-LE_BAD_PARAMETER");
+
+    //SetNmeaSentence ->0x1000
+    LE_TEST_INFO("SetNmeaSentences() API is called to set 0x1000- NMEA sentence type");
+    nmeaMaskPtr = 0x1000;
+    result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
+    LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
+
+    //GetNmeaSentences- LE_FAULT
+    LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
+    result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
+    LE_TEST_OK(result==LE_FAULT, "taf_gnss_GetNmeaSentences-LE_FAULT");
 
    //68.Disable GNSS
     LE_TEST_INFO("taf_gnss_Disable() API is called to disable GNSS engine");
@@ -2083,6 +2143,23 @@ static void TestTafGnssRobustLocation
         LE_TEST_INFO("Failed! to get Robust Location Information");
     }
 
+    //Configure Robust Location - Enable/2 Enabled911/1
+    LE_TEST_INFO("taf_gnss_ConfigureRobustLocation() API is called to configure"
+        "Enable->2 Enabled911->1");
+    enable = 2;
+    enabled911 = 1;
+    result = taf_gnss_ConfigureRobustLocation(enable,enabled911);
+    LE_TEST_OK(result==LE_FAULT,"taf_gnss_ConfigureRobustLocation-LE_FAULT");
+
+    //Configure Robust Location - Enable/1 Enabled911/2
+    LE_TEST_INFO("taf_gnss_ConfigureRobustLocation() API is called to configure"
+        "Enable->1 Enabled911->2");
+    enable = 1;
+    enabled911 = 2;
+    result = taf_gnss_ConfigureRobustLocation(enable,enabled911);
+    LE_TEST_OK(result==LE_FAULT,"taf_gnss_ConfigureRobustLocation-LE_FAULT");
+
+
    //124.Stop
     LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
     result = taf_gnss_Stop();
@@ -2093,7 +2170,7 @@ static void TestTafGnssRobustLocation
     result = taf_gnss_Disable();
     LE_TEST_OK(result == LE_OK, "taf_gnss_Disable-LE_OK");
 
-    //126.Configure Robust Locaiton - LE_NOT_PERMITTED
+    //126.Configure Robust Location - LE_NOT_PERMITTED
     LE_TEST_INFO("taf_gnss_ConfigureRobustLocation() API is called to check whether it returns"
         "Not permitted or not");
     enable = 1;
@@ -2380,6 +2457,7 @@ static void TestTafGnssStartMode
 )
 {
     le_result_t result = LE_FAULT;
+    uint32_t ttff = 0;
 
     //184.Disable
     LE_TEST_INFO("taf_gnss_Disable() is triggered to disable Engine state\n");
@@ -2426,6 +2504,18 @@ static void TestTafGnssStartMode
     LE_TEST_OK((result == LE_OK),"taf_gnss_StartMode-LE_OK");
     LE_TEST_INFO("Wait for 10 seconds");
     le_thread_Sleep(10);
+
+    //GetTtff - to receive the latest ttff value after setting startMode
+    LE_TEST_INFO("taf_gnss_GetTtff() API is called to get time to first fix");
+    result = taf_gnss_GetTtff(&ttff);
+    if(result == LE_OK)
+    {
+        LE_TEST_INFO("TTFF start = %d msec", ttff);
+    }
+    else
+    {
+        LE_TEST_INFO("TTFF start not available");
+    }
 
     //192.StartMode -Hot/LE_DUPLICATE
     LE_TEST_INFO("taf_gnss_StartMode() is triggered to start the engine in hot mode\n");
@@ -2500,6 +2590,7 @@ static void TestTafGnssRestart
     int32_t currentLeapSeconds;
     uint64_t changeEventTime;
     int32_t nextLeapSeconds;
+    uint32_t ttff = 0;
 
    //203.Start
     LE_TEST_INFO("taf_gnss_Start() API is called to trigger detailed Engine reporting");
@@ -2516,6 +2607,18 @@ static void TestTafGnssRestart
     LE_TEST_INFO("Wait for 30 seconds to get fixes");
     le_thread_Sleep(30);
 
+    //GetTtff - to receive the latest ttff value after performing warm restart
+    LE_TEST_INFO("taf_gnss_GetTtff() to get ttff value after warm restart");
+    result = taf_gnss_GetTtff(&ttff);
+    if(result == LE_OK)
+    {
+        LE_TEST_INFO("TTFF start = %d msec", ttff);
+    }
+    else
+    {
+        LE_TEST_INFO("TTFF start not available");
+    }
+
    //205.Force Cold Restart
     LE_TEST_INFO("taf_gnss_ForceColdRestart() API is called to perform"
         " Cold restart of GNSS engine");
@@ -2524,6 +2627,18 @@ static void TestTafGnssRestart
     LE_TEST_INFO("Wait for 60 seconds to get fixes");
     le_thread_Sleep(60);
 
+    //GetTtff - to receive the latest ttff value after performing cold restart
+    LE_TEST_INFO("taf_gnss_GetTtff() to get ttff value after cold restart");
+    result = taf_gnss_GetTtff(&ttff);
+    if(result == LE_OK)
+    {
+        LE_TEST_INFO("TTFF start = %d msec", ttff);
+    }
+    else
+    {
+        LE_TEST_INFO("TTFF start not available");
+    }
+
    //206.Force Hot Restart
     LE_TEST_INFO("taf_gnss_ForceHotRestart() API is called to perform"
         " Warm restart of GNSS engine");
@@ -2531,6 +2646,18 @@ static void TestTafGnssRestart
     LE_TEST_OK(result == LE_OK, "taf_gnss_ForceHotRestart-LE_OK");
     LE_TEST_INFO("Wait for 10 seconds to get fixes");
     le_thread_Sleep(10);
+
+    //GetTtff - to receive the latest ttff value after performing hot restart
+    LE_TEST_INFO("taf_gnss_GetTtff() to get ttff value after hot restart");
+    result = taf_gnss_GetTtff(&ttff);
+    if(result == LE_OK)
+    {
+        LE_TEST_INFO("TTFF start = %d msec", ttff);
+    }
+    else
+    {
+        LE_TEST_INFO("TTFF start not available");
+    }
 
    //207.Stop
     LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");

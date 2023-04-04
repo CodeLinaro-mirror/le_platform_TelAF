@@ -32,6 +32,8 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include <sys/time.h>
+
 #include "legato.h"
 #include "interfaces.h"
 
@@ -39,14 +41,112 @@
 
 static taf_ecall_State_t ECallState;
 static taf_ecall_StateChangeHandlerRef_t HandlerRef;
+static le_thread_Ref_t ECallCmdThreadRef;
 static taf_ecall_CallRef_t ECallRef = NULL;
 
 static taf_audio_StreamRef_t ModemRxAudioReference;
 static taf_audio_StreamRef_t SpeakerAudioRef;
 static taf_audio_ConnectorRef_t  AudioOutConnectorRef;
 
-
 static taf_gpio_ChangeEventHandlerRef_t GpioHandlerRef;
+static taf_pos_MovementHandlerRef_t  SamplePositionHandlerRef = NULL;
+static int32_t latitude = INT32_MAX, longitude = INT32_MAX, hAccuracy = INT32_MAX;
+static uint32_t direction = UINT32_MAX, dirAccuracy = UINT32_MAX;
+static bool exitApp = true;
+
+static void SamplePositionHandler
+(
+    taf_pos_SampleRef_t positionSampleRef,
+    void* contextPtr
+)
+{
+    le_result_t result;
+
+    result = taf_pos_sample_Get2DLocation(positionSampleRef, &latitude, &longitude, &hAccuracy);
+    if(result == LE_OK)
+    {
+        printf("Latitude(positive->north) : %.6f\n",(float)latitude/1e6);
+        printf("Longitude(positive->east) : %.6f\n",(float)longitude/1e6);
+        printf("hAccuracy                 : %.2fm\n",(float)hAccuracy);
+    }
+    else if(result == LE_OUT_OF_RANGE)
+    {
+        printf("Location invalid [%d, %d, %d]\n", latitude, longitude, hAccuracy);
+    }
+    else
+    {
+        printf("Failed! to get 2D Location information\n");
+    }
+
+    //Get direction
+    result = taf_pos_sample_GetDirection(positionSampleRef, &direction, &dirAccuracy);
+    if(result == LE_OK)
+    {
+        printf("GetDirection: direction: %u, accuracy: %u\n", direction, dirAccuracy);
+    }
+    else
+    {
+        LE_TEST_INFO("Failed to get position sample direction information");
+    }
+
+}
+
+static void* SamplePositionThread
+(
+    void* context
+)
+{
+    //connect the position service to the current running thread
+    taf_pos_ConnectService();
+
+    //Sample Position Handler
+    SamplePositionHandlerRef = taf_pos_AddMovementHandler(0, 0, SamplePositionHandler, NULL);
+    if(SamplePositionHandlerRef != NULL) {
+        LE_INFO("Confirm sample position handler was added successfully");
+    }
+    le_event_RunLoop();
+
+    return NULL;
+}
+
+static void fetchLocationInfo
+(
+    void
+)
+{
+    taf_posCtrl_ActivationRef_t activationRef;
+    le_thread_Ref_t positionThreadRef;
+
+    activationRef = taf_posCtrl_Request();
+
+    //create a thread
+    positionThreadRef = le_thread_Create("PosThreadTest", SamplePositionThread,NULL);
+    LE_INFO("fetchLocationInfo positionThreadRef :%p", positionThreadRef);
+    le_thread_Start(positionThreadRef);
+
+    //Wait for 1 second to trigger SamplePositionHandler callback function
+    LE_TEST_INFO("Wait for 1 second");
+    le_thread_Sleep(1);
+
+    //Remove the handler assigned
+    taf_pos_RemoveMovementHandler(SamplePositionHandlerRef);
+
+    //cancel the running thread
+    le_thread_Cancel(positionThreadRef);
+
+    //Stop receiving GNSS reports
+    taf_gnss_Stop();
+
+    //release the position control reference
+    taf_posCtrl_Release(activationRef);
+}
+
+char* getCurrentTime() {
+   time_t tm;
+   time(&tm);
+   return ctime(&tm);
+}
+
 static void OpenAudio() {
     le_result_t result;
 
@@ -121,12 +221,34 @@ static void taf_ecall_TerminateRegistration_test()
     le_result_t result = taf_ecall_TerminateRegistration();
     if (result == LE_OK)
     {
-        printf("TerminateRegistration SUCCESS\n");
         LE_INFO("TerminateRegistration SUCCESS!!!\n");
     } else {
-        printf("TerminateRegistration FAILED. Error: %d\n", (int) result);
         LE_ERROR("TerminateRegistration FAILED. Error: %d\n", (int) result);
     }
+}
+
+static void* CommandInput(void* contextPtr)
+{
+    char input_str[5];
+
+    taf_ecall_ConnectService();
+
+    do {
+        printf("The call is in progress... Press 'h' to hangup.\n");
+        char *p = fgets(input_str,sizeof(input_str),stdin);
+
+        if (p != NULL && input_str[0]=='h') {
+            printf("User input: %c, so hanging up the call...\n", input_str[0]);
+            le_result_t result = taf_ecall_End(ECallRef);
+            LE_INFO("CommandInput: hanging up the call, result %d\n", (int) result);
+        } else {
+            printf("Invalid input just ignore it!\n");
+        }
+    } while(input_str[0]!='h');
+
+    le_thread_Cancel(ECallCmdThreadRef);
+
+    return NULL;
 }
 
 static void SignalHandler (int sigNum)
@@ -152,11 +274,13 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         taf_ecall_State_t state, void* cntxtPtr)
 {
 
-    LE_DEBUG("Ecall state change event state = %d", state );
-    LE_DEBUG("Ecall state change event reference = %p", eCallReference );
-    LE_DEBUG("Ecall state change event reference = %p", eCallReference );
-    printf("Ecall state change event state = %d :", state );
+    LE_INFO("Ecall state change event, state = %d", state );
+    LE_INFO("Ecall state change event, reference = %p", eCallReference );
+    printf("=================\033[1;35mNOTIFICATION\033[0m=================\n");
+    printf("Time: %s",  getCurrentTime());
+    printf("Ecall state change event, state = %d\n", state );
     ECallState = state;
+    exitApp = false;
 
     switch (state)
     {
@@ -179,6 +303,7 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         case TAF_ECALL_STATE_IDLE:
         {
             printf("TAF_ECALL_STATE_IDLE");
+            exitApp = true;
             break;
         }
         case TAF_ECALL_STATE_WAITING_PSAP_START_IND:
@@ -228,7 +353,7 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         }
         case TAF_ECALL_STATE_ENDED:
         {
-            printf("TAF_ECALL_STATE_ENDED");
+            printf("TAF_ECALL_STATE_ENDED\n");
             if (eCallReference != NULL)
             {
                 taf_ecall_TerminationReason_t lcf = taf_ecall_GetTerminationReason(eCallReference);
@@ -237,6 +362,7 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
             }
             taf_ecall_TerminateRegistration_test();
             CloseAudio();
+            exitApp = true;
             break;
         }
         case TAF_ECALL_STATE_RESET:
@@ -252,6 +378,7 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         case TAF_ECALL_STATE_FAILED:
         {
             printf("TAF_ECALL_STATE_FAILED");
+            exitApp = true;
             break;
         }
         case TAF_ECALL_STATE_END_OF_REDIAL_PERIOD:
@@ -330,8 +457,19 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
             break;
         }
     }
-    printf("\n");
-
+    printf("\n==============================================\n");
+    if (exitApp) {
+        le_thread_Cancel(ECallCmdThreadRef);
+        exit(EXIT_SUCCESS);
+    } else {
+        if (ECallState == TAF_ECALL_STATE_DIALING) {
+            le_thread_Cancel(ECallCmdThreadRef);
+            ECallCmdThreadRef = le_thread_Create("ECalltTh", CommandInput, NULL);
+            le_thread_Start(ECallCmdThreadRef);
+        } else {
+            printf("The call is in progress... Press 'h' to hangup.\n");
+        }
+    }
 }
 
 static void PrintUsage ()
@@ -438,7 +576,7 @@ static void updateMsdInformation()
     taf_ecall_MsdVehicleType_t vehType = TAF_ECALL_PASSENGER_VEHICLE_CLASS_M1;
     taf_ecall_PropulsionStorageType_t propulsionStorage = TAF_ECALL_PROP_TYPE_GASOLINE_TANK;
 
-    uint32_t msdVersion = 1;
+    uint32_t msdVersion = 2;
     if (taf_ecall_SetMsdVersion(msdVersion) != LE_OK)
     {
         LE_ERROR("Unable to set MSD version");
@@ -472,11 +610,8 @@ static void taf_ecall_GetNadDeregTime_test()
     le_result_t result = taf_ecall_GetNadDeregistrationTime(&deregTimeOrg);
     if (result == LE_OK)
     {
-        printf("GetNadDeregTime SUCCESS\n");
-        printf("Existing deregTime (in minutes): %d\n", deregTimeOrg);
         LE_INFO("GetNadDeregTime SUCCESS!!! DeregTime (in minutes): %d\n", deregTimeOrg);
     } else {
-        printf("GetNadDeregTime FAILED. Error: %d\n", (int) result);
         LE_ERROR("GetNadDeregTime FAILED. Error: %d\n", (int) result);
     }
 }
@@ -487,58 +622,51 @@ static void taf_ecall_SetNadDeregTime_test()
     le_result_t result = taf_ecall_SetNadDeregistrationTime(7*60); // 7 hrs
     if (result == LE_OK)
     {
-        printf("SetNadDeregistrationTime as 7 hrs SUCCESS\n");
         LE_INFO("SetNadDeregistrationTime as 7 hrs SUCCESS!!!\n");
     } else {
-        printf("SetNadDeregistrationTime FAILED. Error: %d\n", (int) result);
         LE_ERROR("SetNadDeregistrationTime FAILED. Error: %d\n", (int) result);
     }
 }
 
 static void updateLocationInformation(taf_ecall_CallRef_t eCallRef)
 {
-    int32_t latitude;
-    int32_t longitude;
-    int32_t hAccuracy;
     bool isPosTrusted = false;
-    uint32_t direction  = 0;
-    uint32_t dirAccuracy = 0;
 
-    if (taf_pos_Get2DLocation(&latitude, &longitude, &hAccuracy) == LE_OK)
+    printf("Fetching location information ...\n" );
+
+    fetchLocationInfo();
+
+    printf("Location fetched, dialing eCall now ...\n" );
+
+    if ((hAccuracy < 100) && (dirAccuracy < 360))
     {
-        if (taf_pos_GetDirection(&direction, &dirAccuracy) == LE_OK)
-        {
-            if ((hAccuracy < 100) && (dirAccuracy < 360))
-            {
-                isPosTrusted = true;
-            }
-        }
+        isPosTrusted = true;
     }
-    LE_DEBUG("updateLocationInformation latitude = %d ",latitude);
-    LE_DEBUG("updateLocationInformation longitude = %d ",longitude);
-    LE_DEBUG("updateLocationInformation hAccuracy = %d ",hAccuracy);
-    LE_DEBUG("updateLocationInformation dirAccuracy = %d ",dirAccuracy);
-    LE_DEBUG("updateLocationInformation isPosTrusted = %d ",isPosTrusted);
+    LE_INFO("updateLocationInformation latitude = %d ",latitude);
+    LE_INFO("updateLocationInformation longitude = %d ",longitude);
+    LE_INFO("updateLocationInformation hAccuracy = %d ",hAccuracy);
+    LE_INFO("updateLocationInformation dirAccuracy = %d ",dirAccuracy);
+    LE_INFO("updateLocationInformation isPosTrusted = %d ",isPosTrusted);
 
     latitude = (int32_t)(latitude * MILLIARCSECONDS_IN_A_DEGREE);
     longitude = (int32_t)(longitude * MILLIARCSECONDS_IN_A_DEGREE);
 
+    //Not able to get proper location, use mock location to dial eCall
+    if (latitude < -324000000 || latitude > 324000000)
+    {
+        latitude = 12985849;
+        longitude = 77596432;
+        hAccuracy = 12;
+    }
+
     le_result_t result = taf_ecall_SetMsdPosition(eCallRef, isPosTrusted,
                                                          latitude,
-                                                         longitude, direction );
+                                                         longitude, direction/2 );
     if (result != LE_OK)
     {
         LE_ERROR("Unable to set location information");
     }
 
-}
-
-
-static void startGNSS()
-{
-
-    taf_posCtrl_Request();
-    taf_gnss_GetState();
 }
 
 static int startECall()
@@ -549,7 +677,6 @@ static int startECall()
         PrintUsage();
         return EXIT_FAILURE;
     }
-    startGNSS();
 
     const char* eCallType =  le_arg_GetArg(2);
 
@@ -592,7 +719,6 @@ static void StartAutoECall()
         LE_ERROR("ECall in progress");
         return;
     }
-    startGNSS();
     ECallRef = taf_ecall_Create();
 
     updateLocationInformation(ECallRef);
@@ -631,8 +757,9 @@ static int addGPIOHandler()
 COMPONENT_INIT
 {
     int status = EXIT_SUCCESS;
-    bool exitApp = true;
+    exitApp = true;
 
+    LE_INFO("ECallTestApp COMPONENT_INIT...");
     signal(SIGINT, SignalHandler);
     signal(SIGTERM, SignalHandler);
 

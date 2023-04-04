@@ -762,9 +762,12 @@ FUNCTION le_result_t SetMsdPosition
 (
     Call  ecallRef   IN,   ///< SIM slot ID.
     bool  isTrusted  IN,   ///< Is trusted or not.
-    int32 latitude   IN,   ///< Latitude value.
-    int32 longitude  IN,   ///< Longitude value.
-    int32 direction  IN    ///< Direction.
+    int32 latitude   IN,   ///< Latitude value in ms.
+    int32 longitude  IN,   ///< Longitude value in ms.
+    int32 direction  IN    ///< The direction of the vehicle from magnetic north (0
+                           ///  to 358, clockwise) in 2-degrees unit. Valid range is
+                           ///  0 to 179. If the direction of travel is invalid or
+                           ///  unknown, the value 0xFF shall be used.
 );
 
 //-------------------------------------------------------------------------------------------------

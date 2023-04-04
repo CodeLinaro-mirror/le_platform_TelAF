@@ -22,5 +22,8 @@ start: manual
 bindings:
 {
     tafECallIntTest.tafECallIntTestComponent.taf_ecall -> tafECallSvc.taf_ecall
+    tafECallIntTest.tafECallIntTestComponent.taf_gnss -> tafLocationSvc.taf_gnss
+    tafECallIntTest.tafECallIntTestComponent.taf_pos -> tafLocationSvc.taf_pos
+    tafECallIntTest.tafECallIntTestComponent.taf_posCtrl -> tafLocationSvc.taf_posCtrl
 }
 

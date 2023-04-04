@@ -708,15 +708,20 @@ le_result_t taf_ecall::SetMsdPosition (taf_ecall_CallRef_t ecallRef, bool isTrus
         return LE_DUPLICATE;
     }
 
-    if (latitude < -2147483648 || latitude > 2147483648)
+    if (latitude < -324000000 || latitude > 324000000)
     {
         LE_ERROR("Invalid latitude value");
-        return LE_FAULT;
+        latitude=0x7FFFFFFF;
     }
-    LE_DEBUG("SetMsdPosition isTrusted = %d ", isTrusted);
-    LE_DEBUG("SetMsdPosition latitude = %d ", latitude);
-    LE_DEBUG("SetMsdPosition longitude = %d ", longitude);
-    LE_DEBUG("SetMsdPosition direction = %d ", direction);
+    if (longitude < -648000000 || longitude > 648000000)
+    {
+        LE_ERROR("Invalid longitude value");
+        longitude=0x7FFFFFFF;
+    }
+    LE_INFO("SetMsdPosition isTrusted = %d ", isTrusted);
+    LE_INFO("SetMsdPosition latitude = %d ", latitude);
+    LE_INFO("SetMsdPosition longitude = %d ", longitude);
+    LE_INFO("SetMsdPosition direction = %d ", direction);
 
     eCallPtr->msd.control.positionCanBeTrusted = isTrusted;
     eCallPtr->msd.vehicleLocation.positionLatitude = latitude;

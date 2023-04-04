@@ -44,6 +44,8 @@ extern "C" {
 
 #define PRINT_NOTIFICATION std::cout << "\033[1;35mNOTIFICATION: \033[0m"
 #define BUFSIZE 48
+#define MILLIARCSECONDS_IN_A_DEGREE 3.6
+
 const std::string GREEN = "\033[0;32m";
 const std::string RED = "\033[0;31m";
 const std::string YELLOW = "\033[0;33m";
@@ -63,6 +65,10 @@ static uint8_t msdRawData[43] = {2, 41, 68, 6, 128, 227, 10, 81, 67, 158, 41, 85
         128, 4, 52, 10, 140, 65, 89, 164, 56, 119, 207, 131, 54, 210, 63, 65, 104, 16, 24, 8,
         32, 19, 198, 68, 0, 0, 48, 20};
 static uint8_t msdLength = 43;
+
+static taf_pos_MovementHandlerRef_t  SamplePositionHandlerRef = NULL;
+static int32_t latitude = INT32_MAX, longitude = INT32_MAX, hAccuracy = INT32_MAX;
+static uint32_t direction = UINT32_MAX, dirAccuracy = UINT32_MAX;
 
 string getCurrentTime() {
    timeval tod;
@@ -219,6 +225,95 @@ void report(le_result_t expected_result, le_result_t actual_result, string API_N
                 <<RED + " - Fail" + DONE + " (Actual: "<<return_val(actual_result) <<")"<<endl;
     }
     TC_No += 1;
+}
+
+static void SamplePositionHandler
+(
+    taf_pos_SampleRef_t positionSampleRef,
+    void* contextPtr
+)
+{
+    le_result_t result;
+
+    //Get Location
+    result = taf_pos_sample_Get2DLocation(positionSampleRef, &latitude, &longitude, &hAccuracy);
+    if(result == LE_OK)
+    {
+        printf("Latitude(positive->north) : %.6f\n",(float)latitude/1e6);
+        printf("Longitude(positive->east) : %.6f\n",(float)longitude/1e6);
+        printf("hAccuracy                 : %.2fm\n",(float)hAccuracy);
+    }
+    else if(result == LE_OUT_OF_RANGE)
+    {
+        printf("Location invalid [%d, %d, %d]\n", latitude, longitude, hAccuracy);
+    }
+    else
+    {
+        printf("Failed! to get 2D Location information\n");
+    }
+
+    //Get Direction
+    result = taf_pos_sample_GetDirection(positionSampleRef, &direction, &dirAccuracy);
+    if(result == LE_OK)
+    {
+        printf("GetDirection: direction: %u, accuracy: %u\n", direction, dirAccuracy);
+    }
+    else
+    {
+        LE_TEST_INFO("Failed to get position sample direction information");
+    }
+
+}
+
+static void* SamplePositionThread
+(
+    void* context
+)
+{
+    //connect the position service to the current running thread
+    taf_pos_ConnectService();
+
+    //Sample Position Handler
+    SamplePositionHandlerRef = taf_pos_AddMovementHandler(0, 0, SamplePositionHandler, NULL);
+    if(SamplePositionHandlerRef != NULL) {
+        LE_INFO("Confirm sample position handler was added successfully");
+    }
+    le_event_RunLoop();
+
+    return NULL;
+}
+
+static void fetchLocationInfo
+(
+    void
+)
+{
+    taf_posCtrl_ActivationRef_t activationRef;
+    le_thread_Ref_t positionThreadRef;
+
+    //taf_posCtrl_Request
+    activationRef = taf_posCtrl_Request();
+
+    //create a thread
+    positionThreadRef = le_thread_Create("PosThreadTest", SamplePositionThread,NULL);
+    LE_INFO("fetchLocationInfo positionThreadRef :%p", positionThreadRef);
+    le_thread_Start(positionThreadRef);
+
+    //Wait for 1 second to trigger SamplePositionHandler callback function
+    LE_TEST_INFO("Wait for 1 second");
+    le_thread_Sleep(1);
+
+    //Remove the handler assigned
+    taf_pos_RemoveMovementHandler(SamplePositionHandlerRef);
+
+    //cancel the running thread
+    le_thread_Cancel(positionThreadRef);
+
+    //Stop receiving GNSS reports
+    taf_gnss_Stop();
+
+    //release the position control reference
+    taf_posCtrl_Release(activationRef);
 }
 
 static void* taf_ecall_endCall_test
@@ -1001,20 +1096,39 @@ void taf_ecall_setMsdTxMode_test()
 static void* taf_ecall_setMsdPosition_tests()
 {
     le_result_t result;
-    taf_ecall_CallRef_t eCallRef = taf_ecall_Create();
+
+    bool isPosTrusted = false;
+
+    printf("Fetching location information ...\n" );
+    fetchLocationInfo();
+    printf("Location fetched, updating MSD position now ...\n" );
+
+    if ((hAccuracy < 100) && (dirAccuracy < 360))
+    {
+        isPosTrusted = true;
+    }
+    LE_INFO("updateLocationInformation latitude = %d ",latitude);
+    LE_INFO("updateLocationInformation longitude = %d ",longitude);
+    LE_INFO("updateLocationInformation hAccuracy = %d ",hAccuracy);
+    LE_INFO("updateLocationInformation dirAccuracy = %d ",dirAccuracy);
+    LE_INFO("updateLocationInformation isPosTrusted = %d ",isPosTrusted);
+
+    latitude = (int32_t)(latitude * MILLIARCSECONDS_IN_A_DEGREE);
+    longitude = (int32_t)(longitude * MILLIARCSECONDS_IN_A_DEGREE);
 
     // Test Case
-    result = taf_ecall_SetMsdPosition(eCallRef, true, +118422000, -421902360, 0);
+    result = taf_ecall_SetMsdPosition(ECallRef, isPosTrusted, latitude, longitude, direction/2);
+
     LE_TEST_OK(result == LE_OK, "taf_ecall_SetMsdPosition - LE_OK");
     report(LE_OK,result,"taf_ecall_SetMsdPosition");
     LE_TEST_INFO("taf_ecall_SetMsdPosition done");
 
-    result = taf_ecall_SetMsdPositionN1(eCallRef, 511, 511);
+    result = taf_ecall_SetMsdPositionN1(ECallRef, 511, 511);
     LE_TEST_OK(result == LE_OK, "taf_ecall_SetMsdPositionN1 - LE_OK");
     report(LE_OK,result,"taf_ecall_SetMsdPositionN1");
     LE_TEST_INFO("taf_ecall_SetMsdPositionN1 done");
 
-    result = taf_ecall_SetMsdPositionN2(eCallRef, -512, -512);
+    result = taf_ecall_SetMsdPositionN2(ECallRef, -512, -512);
     LE_TEST_OK(result == LE_OK, "taf_ecall_SetMsdPositionN2 - LE_OK");
     report(LE_OK,result,"taf_ecall_SetMsdPositionN2");
     LE_TEST_INFO("taf_ecall_SetMsdPositionN2 done");
@@ -1025,16 +1139,15 @@ static void* taf_ecall_setMsdPosition_tests()
 static void* taf_ecall_setMsdPassengersCount_tests()
 {
     le_result_t result;
-    taf_ecall_CallRef_t eCallRef = taf_ecall_Create();
 
     // Test Case
-    result = taf_ecall_SetMsdPassengersCount(eCallRef, 3);
+    result = taf_ecall_SetMsdPassengersCount(ECallRef, 3);
     LE_TEST_OK(result == LE_OK, "taf_ecall_setMsdPassengersCount_tests - LE_OK");
     report(LE_OK,result,"taf_ecall_setMsdPassengersCount_tests");
     LE_TEST_INFO("taf_ecall_setMsdPassengersCount_tests done");
 
     // Test Case
-    result = taf_ecall_SetMsdPassengersCount(eCallRef, 2);
+    result = taf_ecall_SetMsdPassengersCount(ECallRef, 2);
     LE_TEST_OK(result == LE_OK, "taf_ecall_setMsdPassengersCount_tests - LE_OK");
     report(LE_OK,result,"taf_ecall_setMsdPassengersCount_tests");
     LE_TEST_INFO("taf_ecall_setMsdPassengersCount_tests done");
@@ -1047,7 +1160,7 @@ static void updateMsdInformation()
     taf_ecall_MsdVehicleType_t vehType = TAF_ECALL_PASSENGER_VEHICLE_CLASS_M1;
     taf_ecall_PropulsionStorageType_t propulsionStorage = TAF_ECALL_PROP_TYPE_GASOLINE_TANK;
 
-    uint32_t msdVersion = 1;
+    uint32_t msdVersion = 2;
     if (taf_ecall_SetMsdVersion(msdVersion) != LE_OK)
     {
         LE_ERROR("Unable to set MSD version");
@@ -1258,8 +1371,6 @@ static le_result_t taf_ecall_startECall_test
             eCallType, useUsimNumber, psapNumber);
     le_result_t result;
 
-    ECallRef = taf_ecall_Create();
-
     updateMsdInformation();
 
     taf_ecall_SetMsdPassengersCount(ECallRef, 2);
@@ -1382,6 +1493,8 @@ COMPONENT_INIT
 
     printPreCondition();
     printUsages();
+
+    ECallRef = taf_ecall_Create();
 
     LE_TEST_INFO("Test MSD transmition mode of ECall");
     std::cout <<endl;

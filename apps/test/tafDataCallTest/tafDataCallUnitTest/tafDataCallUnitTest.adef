@@ -2,7 +2,7 @@ sandboxed: false
 
 executables:
 {
-    tafDataCallUnitTest = ( $TELAF_ROOT/apps/test/tafDataCallTest/tafDataCallUnitTest/tafDataCallUnitTestComponent )
+    tafDataCallUnitTest = ( tafDataCallUnitTestComponent )
 }
 
 start: manual

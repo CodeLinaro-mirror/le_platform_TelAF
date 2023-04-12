@@ -72,9 +72,12 @@ void PrintHelpMenu
         "    app runProc tafRadioIntTest tafRadioIntTest -- "
         "operator <phone> <add|remove|list> [<mcc>] [<mnc>] [<rat_bitmask>]\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- "
-        "signal <phone> <monitor|metrics> [<time>]\n"
+        "signal <phone> <monitor|metrics> [<time>] [<rssi_delta>] [<rsrp_delta>]\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- serving <phone>\n"
+        "    app runProc tafRadioIntTest tafRadioIntTest -- neighbor <phone>\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- scan <phone> <mode> [<rat_bitmask>]\n"
+        "    app runProc tafRadioIntTest tafRadioIntTest -- "
+        "band <phone> <rat|status> [<band_bitmask>]\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- handler\n"
         "\n"
         "DESCRIPTION:\n"
@@ -123,18 +126,42 @@ void PrintHelpMenu
         "           ALL     : 0x40.\n"
         "\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- "
-        "signal <phone> <monitor|metrics> [<time>]\n"
-        "       phone : '1' or '2'.\n"
+        "signal <phone> <monitor|metrics|delta> [<time|rat>] [<signal_delta>]\n"
+        "       phone        : '1' or '2'.\n"
         "       'monitor' signal strength changes, or show signal 'metircs'.\n"
         "       time         : time in seconds, required with 'monitor' option.\n"
+        "       rat          : radio access technoloy, required with 'delta' option.\n"
+        "       signal_delta : signal deltas.\n"
+        "           rssi delta in 0.1 dBm, required with 'delta' for RATs except NR5G.\n"
+        "           rsrp_delta : rsrp delta in 0.1 dBm, required with 'delta' for LTE or NR5G.\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- serving <phone>\n"
         "       Show serving system status.\n"
         "       phone : '1' or '2'.\n"
         "\n"
-        "    app runProc tafRadioIntTest tafRadioIntTest -- scan <phone> <mode>\n"
+        "    app runProc tafRadioIntTest tafRadioIntTest -- neighbor <phone>\n"
+        "       Show neighboring cells information.\n"
+        "       phone : '1' or '2'.\n"
+        "\n"
+        "    app runProc tafRadioIntTest tafRadioIntTest -- scan <phone> <mode> [<rat_bitmask>]\n"
         "       Perform network scan.\n"
         "       phone         : '1' or '2'.\n"
-        "       mode  : 'plmn-sync', 'plmn-async'.\n"
+        "       mode  : 'plmn-sync', 'plmn-async', 'pci-sync' or 'pci-async'.\n"
+        "       rat_bitmask   : rat bit mask, required with 'pci-sync' 'pci-async' mode.\n"
+        "           GSM     : 0x1.\n"
+        "           UMTS    : 0x2.\n"
+        "           CDMA    : 0x4.\n"
+        "           TDSCDMA : 0x8.\n"
+        "           LTE     : 0x10.\n"
+        "\n"
+        "    app runProc tafRadioIntTest tafRadioIntTest -- "
+        "band <phone> <rat|status> [<band_bitmask>]\n"
+        "       Set band preferences.\n"
+        "       phone        : '1' or '2'.\n"
+        "       Set '2G+3G' or 'LTE' band preferences, or show band capabilities and preferences "
+        "with'status'.\n"
+        "       band_bitmask : band bitmask, required with '2G+3G' or 'LTE' option\n"
+        "           2G+3G : refer to BandBitMask in api.\n"
+        "           LTE   : 4 LTE band bit masks in 64 bit.\n"
         "\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- handler <time>\n"
         "       Handler for network changes, can test with 'cm radio' configurations.\n"
@@ -378,6 +405,7 @@ void PrintScanInfoList
     char name[TAF_RADIO_NETWORK_NAME_MAX_LEN] = {0};
     char mccStr[TAF_RADIO_MCC_BYTES] = {0};
     char mncStr[TAF_RADIO_MNC_BYTES] = {0};
+    taf_radio_Rat_t rat;
     le_result_t result;
 
     bool inUse = false;
@@ -389,6 +417,9 @@ void PrintScanInfoList
     {
         result = taf_radio_GetCellularNetworkName(infoRef, name, TAF_RADIO_NETWORK_NAME_MAX_LEN);
         LE_TEST_OK(result == LE_OK, "taf_radio_GetCellularNetworkName - OK");
+
+        rat = taf_radio_GetCellularNetworkRat(infoRef);
+        LE_TEST_OK(true, "taf_radio_GetCellularNetworkRat - OK");
 
         result = taf_radio_GetCellularNetworkMccMnc(infoRef, mccStr, TAF_RADIO_MCC_BYTES, mncStr,
             TAF_RADIO_MNC_BYTES);
@@ -425,6 +456,7 @@ void PrintScanInfoList
 
         LE_INFO("Network %d", i);
         LE_INFO("Name : %s.", name);
+        PrintRAT(rat);
         LE_INFO("MCC : %s.", mccStr);
         LE_INFO("MNC : %s.", mncStr);
 
@@ -433,6 +465,365 @@ void PrintScanInfoList
         infoRef = taf_radio_GetNextCellularNetworkScan(listRef);
         LE_TEST_OK(infoRef != NULL, "taf_radio_GetNextCellularNetworkScan - OK");
     }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This function traverses Physical Cell ID scan information linked list, and prints Cell ID, Global
+ * Cell ID and Mobile Country Code and Mobile Network Code of each Public Land Mobile Network.
+ */
+//--------------------------------------------------------------------------------------------------
+void PrintPciScanInfoList
+(
+    taf_radio_PciScanInformationListRef_t listRef ///< [IN] PCI scan information list reference.
+)
+{
+
+    if (listRef == NULL)
+    {
+        return;
+    }
+
+    taf_radio_PciScanInformationRef_t infoRef = taf_radio_GetFirstPciScanInfo(listRef);
+    LE_TEST_OK(infoRef != NULL, "taf_radio_GetFirstPciScanInfo - OK");
+
+    uint32_t i = 1;
+    uint32_t j;
+    uint16_t cell_id = 0;
+    uint32_t global_cell_id = 0;
+    char mccStr[TAF_RADIO_MCC_BYTES] = {0};
+    char mncStr[TAF_RADIO_MNC_BYTES] = {0};
+    le_result_t result;
+    taf_radio_PlmnInformationRef_t plmnRef;
+
+    while (infoRef)
+    {
+        cell_id = taf_radio_GetPciScanCellId(infoRef);
+        LE_TEST_OK(true, "taf_radio_GetPciScanCellId - OK");
+
+        global_cell_id = taf_radio_GetPciScanGlobalCellId(infoRef);
+        LE_TEST_OK(true, "taf_radio_GetPciScanGlobalCellId - OK");
+
+        LE_INFO("PCI network %d", i);
+        LE_INFO("Cell ID : %d", cell_id);
+        LE_INFO("Globol Cell ID : %d", global_cell_id);
+
+        j = 1;
+        plmnRef = taf_radio_GetFirstPlmnInfo(infoRef);
+        LE_TEST_OK(plmnRef != NULL, "taf_radio_GetFirstPlmnInfo - OK");
+        while (plmnRef)
+        {
+            result = taf_radio_GetPciScanMccMnc(plmnRef, mccStr, TAF_RADIO_MCC_BYTES, mncStr,
+                TAF_RADIO_MNC_BYTES);
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetPciScanMccMnc - OK");
+
+            LE_INFO("PLMN %d", j);
+            LE_INFO("MCC : %s.", mccStr);
+            LE_INFO("MNC : %s.", mncStr);
+
+            j++;
+            plmnRef = taf_radio_GetNextPlmnInfo(infoRef);
+            LE_TEST_OK(plmnRef != NULL, "taf_radio_GetNextPlmnInfo - OK");
+        }
+
+        i++;
+        infoRef = taf_radio_GetNextPciScanInfo(listRef);
+        LE_TEST_OK(infoRef != NULL, "taf_radio_GetNextPciScanInfo - OK");
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This function traverses neighboring cell information linked list, and prints Radio Access
+ * Technology, Cell ID, Location Area Code, Signal Strength, Base Station Identity Code, Ec/Io and
+ * Physical Cell ID.
+ */
+//--------------------------------------------------------------------------------------------------
+void PrintNgbrCellsInfo
+(
+    uint8_t phoneId ///< [IN] Phone ID.
+)
+{
+    taf_radio_NeighborCellsRef_t ngbrCellsRef = taf_radio_GetNeighborCellsInfo(phoneId);
+    LE_TEST_OK(ngbrCellsRef != NULL, "taf_radio_GetNeighborCellsInfo - OK");
+
+    if (ngbrCellsRef)
+    {
+        taf_radio_CellInfoRef_t cellInfoRef = taf_radio_GetFirstNeighborCellInfo(ngbrCellsRef);
+        LE_TEST_OK(cellInfoRef != NULL, "taf_radio_GetFirstNeighborCellInfo - OK");
+
+        uint32_t i = 0;
+        uint64_t cid;
+        uint32_t lac;
+        int32_t rxlevel;
+        uint8_t bsic;
+        uint16_t pcid;
+        uint32_t nrpcid;
+        taf_radio_Rat_t rat;
+        le_result_t result;
+
+        LE_INFO("Phone %d neighboring cells :", phoneId);
+
+        while (cellInfoRef)
+        {
+            rat = taf_radio_GetNeighborCellRat(cellInfoRef);
+            LE_TEST_OK(true, "taf_radio_GetNeighborCellRat - OK");
+
+            LE_INFO("Neighbor cell %d :", i);
+            PrintRAT(rat);
+
+            switch (rat)
+            {
+                case TAF_RADIO_RAT_GSM:
+                    cid = taf_radio_GetNeighborCellId(cellInfoRef);
+                    LE_TEST_OK(true, "taf_radio_GetNeighborCellId - OK");
+                    lac = taf_radio_GetNeighborCellLocAreaCode(cellInfoRef);
+                    LE_TEST_OK(true, "taf_radio_GetNeighborCellId - OK");
+                    rxlevel = taf_radio_GetNeighborCellRxLevel(cellInfoRef);
+                    LE_TEST_OK(true, "taf_radio_GetNeighborCellRxLevel - OK");
+                    result = taf_radio_GetNeighborCellGsmBsic(cellInfoRef, &bsic);
+                    LE_TEST_OK(result == LE_OK, "taf_radio_GetNeighborCellGsmBsic - OK");
+                    LE_INFO("Cell ID                    : %llu", cid);
+                    LE_INFO("Local Area Code            : %d", lac);
+                    LE_INFO("Signal Strength            : %d", rxlevel);
+                    LE_INFO("Base Station Identity Code : %d", bsic);
+                    break;
+                case TAF_RADIO_RAT_UMTS:
+                    cid = taf_radio_GetNeighborCellId(cellInfoRef);
+                    LE_TEST_OK(true, "taf_radio_GetNeighborCellId - OK");
+                    rxlevel = taf_radio_GetNeighborCellRxLevel(cellInfoRef);
+                    LE_TEST_OK(true, "taf_radio_GetNeighborCellRxLevel - OK");
+                    LE_INFO("Cell ID         : %llu", cid);
+                    LE_INFO("Signal Strength : %d", rxlevel);
+                    break;
+                case TAF_RADIO_RAT_CDMA:
+                    rxlevel = taf_radio_GetNeighborCellRxLevel(cellInfoRef);
+                    LE_TEST_OK(true, "taf_radio_GetNeighborCellRxLevel - OK");
+                    LE_INFO("Signal Strength : %d", rxlevel);
+                    break;
+                case TAF_RADIO_RAT_TDSCDMA:
+                    cid = taf_radio_GetNeighborCellId(cellInfoRef);
+                    LE_TEST_OK(true, "taf_radio_GetNeighborCellId - OK");
+                    rxlevel = taf_radio_GetNeighborCellRxLevel(cellInfoRef);
+                    LE_TEST_OK(true, "taf_radio_GetNeighborCellRxLevel - OK");
+                    LE_INFO("Cell ID         : %llu", cid);
+                    LE_INFO("Signal Strength : %d", rxlevel);
+                    break;
+                case TAF_RADIO_RAT_NR5G:
+                    cid = taf_radio_GetNeighborCellId(cellInfoRef);
+                    LE_TEST_OK(true, "taf_radio_GetNeighborCellId - OK");
+                    nrpcid = taf_radio_GetPhysicalNeighborNrCellId(cellInfoRef);
+                    LE_TEST_OK(true, "taf_radio_GetPhysicalNeighborNrCellId - OK");
+                    rxlevel = taf_radio_GetNeighborCellRxLevel(cellInfoRef);
+                    LE_TEST_OK(true, "taf_radio_GetNeighborCellRxLevel - OK");
+                    LE_INFO("Cell ID          : %llu", cid);
+                    LE_INFO("Physical Cell ID : %d", nrpcid);
+                    LE_INFO("Signal Strength  : %d", rxlevel);
+                    break;
+                case TAF_RADIO_RAT_LTE:
+                    cid = taf_radio_GetNeighborCellId(cellInfoRef);
+                    LE_TEST_OK(true, "taf_radio_GetNeighborCellId - OK");
+                    pcid = taf_radio_GetPhysicalNeighborLteCellId(cellInfoRef);
+                    LE_TEST_OK(true, "taf_radio_GetPhysicalNeighborLteCellId - OK");
+                    rxlevel = taf_radio_GetNeighborCellRxLevel(cellInfoRef);
+                    LE_TEST_OK(true, "taf_radio_GetNeighborCellRxLevel - OK");
+                    LE_INFO("Cell ID          : %llu", cid);
+                    LE_INFO("Physical Cell ID : %d", pcid);
+                    LE_INFO("Signal Strength  : %d", rxlevel);
+                    break;
+                default:
+                    break;
+            }
+
+            i++;
+
+            cellInfoRef = taf_radio_GetNextNeighborCellInfo(ngbrCellsRef);
+            LE_TEST_OK(cellInfoRef != NULL, "taf_radio_GetNextNeighborCellInfo - OK");
+        }
+
+        result = taf_radio_DeleteNeighborCellsInfo(ngbrCellsRef);
+        LE_TEST_OK(result == LE_OK, "taf_radio_DeleteNeighborCellsInfo - OK");
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Print band preferences and capabilities.
+ */
+//--------------------------------------------------------------------------------------------------
+void PrintBandStatus
+(
+    uint8_t phoneId ///< [IN] Phone ID.
+)
+{
+    le_result_t result;
+    taf_radio_BandBitMask_t bandMask = 0x0;
+    uint64_t lteBandMask = 0;
+    uint64_t lteBand[TAF_RADIO_LTE_BAND_GROUP_NUM] = {0};
+    uint8_t i;
+    uint8_t j;
+    size_t lteBandSize = 0;
+
+    result = taf_radio_GetBandPreferences(&bandMask, phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetBandPreferences - OK");
+    LE_INFO("Phone %d 2G/3G band preferences 0x%llx.", phoneId, bandMask);
+
+    result = taf_radio_GetBandCapabilities(&bandMask, phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetBandCapabilities - OK");
+    LE_INFO("Phone %d 2G/3G band capabilities 0x%llx.", phoneId, bandMask);
+
+    result = taf_radio_GetLteBandPreferences(lteBand, &lteBandSize, phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetLteBandPreferences - OK");
+    for (i = 0; i < lteBandSize; i++)
+    {
+        lteBandMask = lteBand[i];
+
+        for (j = 0; j < 64; j++)
+        {
+            if (lteBandMask & 0x1)
+            {
+                LE_INFO("Phone %d LTE band preferences (band %d)", phoneId, i * 64 + j + 1);
+            }
+            lteBandMask = lteBandMask >> 1;
+        }
+    }
+
+    result = taf_radio_GetLteBandCapabilities(lteBand, &lteBandSize, phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetLteBandCapabilities - OK");
+    for (i = 0; i < lteBandSize; i++)
+    {
+        lteBandMask = lteBand[i];
+
+        for (j = 0; j < 64; j++)
+        {
+            if (lteBandMask & 0x1)
+            {
+                LE_INFO("Phone %d LTE band capabilities (band %d)", phoneId, i * 64 + j + 1);
+            }
+            lteBandMask = lteBandMask >> 1;
+        }
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Configurations on GSM signal indication.
+ */
+//--------------------------------------------------------------------------------------------------
+void GsmSignalConfiguration
+(
+    long phoneId,  ///< [IN] Phone ID.
+    long rssiDelta ///< [IN] RSSI delta.
+)
+{
+    le_result_t result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_GSM_RSSI,
+        -1110, -480, phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndThresholds - OK");
+
+    result = taf_radio_SetSignalStrengthIndDelta(TAF_RADIO_SIG_TYPE_GSM_RSSI, rssiDelta, phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndDelta - OK");
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Configurations on UMTS signal indication.
+ */
+//--------------------------------------------------------------------------------------------------
+void UmtsSignalConfiguration
+(
+    long phoneId,  ///< [IN] Phone ID.
+    long rssiDelta ///< [IN] RSSI delta.
+)
+{
+    le_result_t result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_UMTS_RSSI,
+        -1210, 0, phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndThresholds - OK");
+
+    result = taf_radio_SetSignalStrengthIndDelta(TAF_RADIO_SIG_TYPE_UMTS_RSSI, rssiDelta, phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndDelta - OK");
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Configurations on CDMA signal indication.
+ */
+//--------------------------------------------------------------------------------------------------
+void CdmaSignalConfiguration
+(
+    long phoneId,  ///< [IN] Phone ID.
+    long rssiDelta ///< [IN] RSSI delta.
+)
+{
+    le_result_t result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_CDMA_RSSI,
+        -1050, -210, phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndThresholds - OK");
+
+    result = taf_radio_SetSignalStrengthIndDelta(TAF_RADIO_SIG_TYPE_CDMA_RSSI, rssiDelta, phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndDelta - OK");
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Configurations on TD-SCDMA signal indication.
+ */
+//--------------------------------------------------------------------------------------------------
+void TdscdmaSignalConfiguration
+(
+    long phoneId,  ///< [IN] Phone ID.
+    long rssiDelta ///< [IN] RSSI delta.
+)
+{
+    le_result_t result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_TDSCDMA_RSSI,
+        -1200, -250, phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndThresholds - OK");
+
+    result = taf_radio_SetSignalStrengthIndDelta(TAF_RADIO_SIG_TYPE_TDSCDMA_RSSI, rssiDelta,
+        phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndDelta - OK");
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Configurations on LTE signal indication.
+ */
+//--------------------------------------------------------------------------------------------------
+void LteSignalConfiguration
+(
+    long phoneId,   ///< [IN] Phone ID.
+    long rssiDelta, ///< [IN] RSSI delta.
+    long rsrpDelta  ///< [IN] RSRP delta.
+)
+{
+    le_result_t result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_LTE_RSSI,
+        -1200, 0, phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndThresholds - OK");
+    result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_LTE_RSRP,
+        -1400, -440, phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndThresholds - OK");
+
+    result = taf_radio_SetSignalStrengthIndDelta(TAF_RADIO_SIG_TYPE_LTE_RSSI, rssiDelta, phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndDelta - OK");
+    result = taf_radio_SetSignalStrengthIndDelta(TAF_RADIO_SIG_TYPE_LTE_RSRP, rsrpDelta, phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndDelta - OK");
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Configurations on NR5G signal indication.
+ */
+//--------------------------------------------------------------------------------------------------
+void Nr5gSignalConfiguration
+(
+    long phoneId,  ///< [IN] Phone ID.
+    long rsrpDelta ///< [IN] RSRP delta.
+)
+{
+    le_result_t result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_NR5G_RSRP,
+        -1400, -440, phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndThresholds - OK");
+
+    result = taf_radio_SetSignalStrengthIndDelta(TAF_RADIO_SIG_TYPE_NR5G_RSRP, rsrpDelta, phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndDelta - OK");
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -629,6 +1020,11 @@ void PrintServingStatus
     uint32_t ta;
     uint16_t pscid;
 
+    uint64_t nrCid;
+    int32_t arFcn;
+    int32_t nrTac;
+    uint32_t pcid;
+
     switch (rat)
     {
         case TAF_RADIO_RAT_GSM:
@@ -666,6 +1062,23 @@ void PrintServingStatus
             pscid = taf_radio_GetPhysicalServingLteCellId(phoneId);
             LE_TEST_OK(true, "taf_radio_GetPhysicalServingLteCellId - OK");
             LE_INFO("Phone %d LTE Physical Serving Cell ID %d", phoneId, pscid);
+            break;
+        case TAF_RADIO_RAT_NR5G:
+            nrCid = taf_radio_GetServingNrCellId(phoneId);
+            LE_TEST_OK(true, "taf_radio_GetServingNrCellId - uint64_t");
+            LE_INFO("Phone %d NR Cell ID %llu", phoneId, nrCid);
+
+            arFcn = taf_radio_GetServingCellNrArfcn(phoneId);
+            LE_TEST_OK(true, "taf_radio_GetServingCellNrArfcn - int32_t");
+            LE_INFO("Phone %d NR Absolute Radio Frequency Channel Number %d", phoneId, arFcn);
+
+            nrTac = taf_radio_GetServingCellNrTracAreaCode(phoneId);
+            LE_TEST_OK(true, "taf_radio_GetServingCellNrTracAreaCode - int32_t");
+            LE_INFO("Phone %d NR Tracking Area Code %d", phoneId, nrTac);
+
+            pcid = taf_radio_GetPhysicalServingNrCellId(phoneId);
+            LE_TEST_OK(true, "taf_radio_GetPhysicalServingNrCellId - OK");
+            LE_INFO("Phone %d NR5G Physical Serving Cell ID %d", phoneId, pcid);
             break;
         default:
             LE_INFO("Unavailble RAT %d for serving system.", rat);
@@ -977,6 +1390,69 @@ void CreateNetworkScanTestThread
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Handler for Pysical Cell Identity network scan.
+ */
+//--------------------------------------------------------------------------------------------------
+static void PciNetworkScanHandler
+(
+    taf_radio_PciScanInformationListRef_t listRef, ///< [IN] PCI scan information list reference.
+    uint8_t phoneId,                               ///< [IN] Phone ID.
+    void* contextPtr                               ///< [IN] Handler context.
+)
+{
+    PrintPciScanInfoList(listRef);
+
+    le_result_t result = taf_radio_DeletePciNetworkScan(listRef);
+    LE_TEST_OK(result == LE_OK, "taf_radio_DeletePciNetworkScan - OK");
+
+    le_sem_Post((le_sem_Ref_t)contextPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Pysical Cell Identity network scan test thread.
+ */
+//--------------------------------------------------------------------------------------------------
+void* PciNetworkScanTestThread
+(
+    void* contextPtr ///< [IN] Thread context.
+)
+{
+    // Connect to service.
+    taf_radio_ConnectService();
+
+    taf_radio_int_test_AsyncTest_t* testContextPtr = (taf_radio_int_test_AsyncTest_t*)contextPtr;
+    taf_radio_PerformPciNetworkScanAsync(testContextPtr->ratMask, PciNetworkScanHandler,
+        (void*)testContextPtr->handlerSem, testContextPtr->phoneId);
+
+    LE_TEST_OK(true, "taf_radio_PerformPciNetworkScanAsync - OK");
+
+    le_sem_Post(testContextPtr->semaphore);
+    le_event_RunLoop();
+
+    return NULL;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Create Pysical Cell Identity network scan thread.
+ */
+//--------------------------------------------------------------------------------------------------
+void CreatePciNetworkScanTestThread
+(
+    taf_radio_int_test_AsyncTest_t* contextPtr ///< [IN] Thread context.
+)
+{
+    contextPtr->semaphore = le_sem_Create("semaphore", 0);
+    le_thread_Ref_t threadRef = le_thread_Create("PciNetworkScanTestThread",
+        PciNetworkScanTestThread, (void*)contextPtr);
+    le_thread_Start(threadRef);
+    le_sem_Wait(contextPtr->semaphore);
+    le_sem_Delete(contextPtr->semaphore);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Component initialization.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1183,6 +1659,53 @@ COMPONENT_INIT
             le_thread_Sleep(time);
             RemoveSignalTestHandler();
         }
+        else if (strncmp(op, "delta", strlen("delta")) == 0)
+        {
+            CheckArgs(4);
+            const char* rat = le_arg_GetArg(3);
+
+            if (strncmp(rat, "gsm", strlen("gsm")) == 0)
+            {
+                CheckArgs(5);
+                long rssiDelta = strtol(le_arg_GetArg(4), NULL, 10);
+                GsmSignalConfiguration(phoneId, rssiDelta);
+            }
+            else if (strncmp(rat, "umts", strlen("umts")) == 0)
+            {
+                CheckArgs(5);
+                long rssiDelta = strtol(le_arg_GetArg(4), NULL, 10);
+                UmtsSignalConfiguration(phoneId, rssiDelta);
+            }
+            else if (strncmp(rat, "cdma", strlen("cdma")) == 0)
+            {
+                CheckArgs(5);
+                long rssiDelta = strtol(le_arg_GetArg(4), NULL, 10);
+                CdmaSignalConfiguration(phoneId, rssiDelta);
+            }
+            else if (strncmp(rat, "tdscdma", strlen("tdscdma")) == 0)
+            {
+                CheckArgs(5);
+                long rssiDelta = strtol(le_arg_GetArg(4), NULL, 10);
+                TdscdmaSignalConfiguration(phoneId, rssiDelta);
+            }
+            else if (strncmp(rat, "lte", strlen("lte")) == 0)
+            {
+                CheckArgs(6);
+                long rssiDelta = strtol(le_arg_GetArg(4), NULL, 10);
+                long rsrpDelta = strtol(le_arg_GetArg(5), NULL, 10);
+                LteSignalConfiguration(phoneId, rssiDelta, rsrpDelta);
+            }
+            else if (strncmp(rat, "nr5g", strlen("nrg5")) == 0)
+            {
+                CheckArgs(5);
+                long rsrpDelta = strtol(le_arg_GetArg(4), NULL, 10);
+                Nr5gSignalConfiguration(phoneId, rsrpDelta);
+            }
+            else
+            {
+                PrintHelpMenu();
+            }
+        }
         else if (strncmp(op, "metrics", strlen("metrics")) == 0)
         {
             uint32_t quality = 0;
@@ -1232,6 +1755,18 @@ COMPONENT_INIT
                 LE_INFO("LTE signal to noise ratio %f dB.", (float)snr / 10);
             }
 
+            if (ratMask & TAF_RADIO_RAT_BIT_MASK_NR5G)
+            {
+                int32_t rsrq;
+                int32_t rsrp;
+                int32_t snr;
+                result = taf_radio_GetNr5gSignalMetrics(metrics, &rsrq, &rsrp, &snr);
+                LE_TEST_OK(result == LE_OK, "taf_radio_GetNr5gSignalMetrics - OK");
+                LE_INFO("NR5G reference signal receive quality %d dB.", rsrq);
+                LE_INFO("NR5G reference signal receive power %d dBm.", rsrp);
+                LE_INFO("NR5G signal to noise ratio %f dB.", (float)snr / 10);
+            }
+
             result = taf_radio_DeleteSignalMetrics(metrics);
             LE_TEST_OK(result == LE_OK, "taf_radio_DeleteSignalMetrics - OK");
         }
@@ -1239,6 +1774,15 @@ COMPONENT_INIT
         {
             PrintHelpMenu();
         }
+    }
+    else if (strncmp(cmd, "neighbor", strlen("neighbor")) == 0)
+    {
+        CheckArgs(2);
+        LE_TEST_INFO("======== Neighboring Cells Information Test ========");
+
+        long phoneId = strtol(le_arg_GetArg(1), NULL, 10);
+
+        PrintNgbrCellsInfo(phoneId);
     }
     else if (strncmp(cmd, "serving", strlen("serving")) == 0)
     {
@@ -1278,6 +1822,73 @@ COMPONENT_INIT
             // Wait for handler's response.
             le_sem_Wait(context.handlerSem);
             le_sem_Delete(context.handlerSem);
+        }
+        else if (strncmp(mode, "pci-sync", strlen("pci-sync")) == 0)
+        {
+            CheckArgs(4);
+            taf_radio_RatBitMask_t rat = (taf_radio_RatBitMask_t)strtoul(le_arg_GetArg(3), NULL, 16);
+
+            taf_radio_PciScanInformationListRef_t listRef =
+                taf_radio_PerformPciNetworkScan(rat, phoneId);
+            LE_TEST_OK(listRef != NULL, "taf_radio_PerformPciNetworkScan - OK");
+
+            PrintPciScanInfoList(listRef);
+
+            result = taf_radio_DeletePciNetworkScan(listRef);
+            LE_TEST_OK(result == LE_OK, "taf_radio_DeletePciNetworkScan - OK");
+        }
+        else if (strncmp(mode, "pci-async", strlen("pci-async")) == 0)
+        {
+            CheckArgs(4);
+            taf_radio_RatBitMask_t rat = (taf_radio_RatBitMask_t)strtoul(le_arg_GetArg(3), NULL, 16);
+
+            taf_radio_int_test_AsyncTest_t context;
+            context.ratMask = rat;
+            context.phoneId = phoneId;
+            context.handlerSem = le_sem_Create("handlerSem", 0);
+            CreatePciNetworkScanTestThread(&context);
+
+            // Wait for handler's response.
+            le_sem_Wait(context.handlerSem);
+            le_sem_Delete(context.handlerSem);
+        }
+        else
+        {
+            PrintHelpMenu();
+        }
+    }
+    else if (strncmp(cmd, "band", strlen("band")) == 0)
+    {
+        CheckArgs(3);
+        LE_TEST_INFO("======== Band Test ========");
+
+        long phoneId = strtol(le_arg_GetArg(1), NULL, 10);
+        const char* op = le_arg_GetArg(2);
+
+        if (strncmp(op, "2G+3G", strlen("2G+3G")) == 0)
+        {
+            CheckArgs(4);
+            taf_radio_BandBitMask_t band =
+                (taf_radio_BandBitMask_t)strtoull(le_arg_GetArg(3), NULL, 16);
+
+            result = taf_radio_SetBandPreferences(band, phoneId);
+            LE_TEST_OK(result == LE_OK, "taf_radio_SetBandPreferences - OK");
+        }
+        else if (strncmp(op, "LTE", strlen("LTE")) == 0)
+        {
+            CheckArgs(7);
+            uint64_t band[TAF_RADIO_LTE_BAND_GROUP_NUM];
+            uint8_t i;
+            for (i = 0; i < TAF_RADIO_LTE_BAND_GROUP_NUM; i++)
+            {
+                band[i] = strtoull(le_arg_GetArg(3 + i), NULL, 16);
+            }
+            result = taf_radio_SetLteBandPreferences(band, TAF_RADIO_LTE_BAND_GROUP_NUM, phoneId);
+            LE_TEST_OK(result == LE_OK, "taf_radio_SetLteBandPreferences - OK");
+        }
+        else if (strncmp(op, "status", strlen("status")) == 0)
+        {
+            PrintBandStatus(phoneId);
         }
         else
         {

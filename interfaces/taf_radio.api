@@ -437,6 +437,13 @@ DEFINE NETWORK_NAME_MAX_LEN = 100;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * LTE band group number.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE LTE_BAND_GROUP_NUM = 4;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * The preferred operator list reference.
  */
 //--------------------------------------------------------------------------------------------------
@@ -469,6 +476,41 @@ REFERENCE ScanInformationList;
  */
 //--------------------------------------------------------------------------------------------------
 REFERENCE ScanInformation;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  The cell information reference.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE CellInfo;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  The neighbor cell reference.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE NeighborCells;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The PCI network scan information list reference.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE PciScanInformationList;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The PCI network scan information reference.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE PciScanInformation;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The PLMN information reference.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE PlmnInformation;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -599,6 +641,22 @@ ENUM ServiceDomainState
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Signal type enum.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM SigType
+{
+    SIG_TYPE_GSM_RSSI,     ///< GSM Received Signal Strength Indicator.
+    SIG_TYPE_CDMA_RSSI,    ///< CDMA Received Signal Strength Indicator.
+    SIG_TYPE_UMTS_RSSI,    ///< UMTS Received Signal Strength Indicator.
+    SIG_TYPE_TDSCDMA_RSSI, ///< TDSCDMA Received Signal Strength Indicator.
+    SIG_TYPE_LTE_RSSI,     ///< LTE Received Signal Strength Indicator.
+    SIG_TYPE_LTE_RSRP,     ///< LTE Reference Signal Receiving Power.
+    SIG_TYPE_NR5G_RSRP,    ///< NR5G Reference Signal Receiving Power.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
  * RAT bitmask.
  */
 //--------------------------------------------------------------------------------------------------
@@ -611,6 +669,78 @@ BITMASK RatBitMask
     RAT_BIT_MASK_LTE,     ///< LTE bitmask.
     RAT_BIT_MASK_NR5G,    ///< NR5G bitmask.
     RAT_BIT_MASK_ALL      ///< All RAT bitmask.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * 2G/3G band bit mask (64 bits)
+ */
+//--------------------------------------------------------------------------------------------------
+BITMASK BandBitMask
+{
+    BAND_BIT_MASK_CLASS_0_A_SYSTEM,            ///< Band Class 0, A-System.
+    BAND_BIT_MASK_CLASS_0_B_AB_GSM850,         ///< Band Class 0, B-System, Band Class 0 AB , GSM
+                                               ///< 850 band.
+    BAND_BIT_MASK_CLASS_1_ALL_BLOCKS,          ///< Band Class 1, all blocks.
+    BAND_BIT_MASK_CLASS_2_PLACEHOLDER,         ///< Band Class 2 placeholder.
+    BAND_BIT_MASK_CLASS_3_A_SYSTEM,            ///< Band Class 3, A-System.
+    BAND_BIT_MASK_CLASS_4_ALL_BLOCKS,          ///< Band Class 4, all blocks.
+    BAND_BIT_MASK_CLASS_5_ALL_BLOCKS,          ///< Band Class 5, all blocks.
+    BAND_BIT_MASK_CLASS_GSM_DCS_1800_BAND,     ///< GSM DCS 1800 band.
+    BAND_BIT_MASK_CLASS_E_GSM_900_BAND,        ///< GSM Extended GSM(E-GSM) 900 band.
+    BAND_BIT_MASK_CLASS_P_GSM_900_BAND,        ///< GSM Primary GSM (P-GSM) 900 band.
+    BAND_BIT_MASK_CLASS_6,                     ///< Band Class 6.
+    BAND_BIT_MASK_CLASS_7,                     ///< Band Class 7.
+    BAND_BIT_MASK_CLASS_8,                     ///< Band Class 8.
+    BAND_BIT_MASK_CLASS_9,                     ///< Band Class 9.
+    BAND_BIT_MASK_CLASS_10,                    ///< Band Class 10.
+    BAND_BIT_MASK_CLASS_11,                    ///< Band Class 11.
+    BAND_BIT_MASK_GSM_BAND_450,                ///< GSM 450 band.
+    BAND_BIT_MASK_GSM_BAND_480,                ///< GSM 480 band.
+    BAND_BIT_MASK_GSM_BAND_750,                ///< GSM 750 band.
+    BAND_BIT_MASK_GSM_BAND_850,                ///< GSM 850 band.
+    BAND_BIT_MASK_GSM_BAND_RAILWAYS_900_BAND,  ///< GSM Railways GSM 900 band.
+    BAND_BIT_MASK_GSM_PCS_1900_BAND,           ///< GSM PCS 1900 band.
+    BAND_BIT_MASK_WCDMA_EU_J_CH_IMT_2100_BAND, ///< WCDMA Europe, Japan, and China IMT 2100 band.
+    BAND_BIT_MASK_WCDMA_US_PCS_1900_BAND,      ///< WCDMA U.S. PCS 1900 band.
+    BAND_BIT_MASK_EU_CH_DCS_1800_BAND,         ///< WCDMA Europe and China DCS 1800 band.
+    BAND_BIT_MASK_WCDMA_US_1700_BAND,          ///< WCDMA U.S. 1700 band.
+    BAND_BIT_MASK_WCDMA_US_850_BAND,           ///< WCDMA U.S. 850 band.
+    BAND_BIT_MASK_WCDMA_JAPAN_800_BAND,        ///< WCDMA Japan 800 band.
+    BAND_BIT_MASK_CLASS_12,                    ///< Band Class 12.
+    BAND_BIT_MASK_CLASS_14,                    ///< Band Class 14.
+    BAND_BIT_MASK_RESERVED_0,                  ///< Reserved.
+    BAND_BIT_MASK_CLASS_15,                    ///< Band Class 15.
+    BAND_BIT_MASK_RESERVED_1,                  ///< Reserved.
+    BAND_BIT_MASK_RESERVED_2,                  ///< Reserved.
+    BAND_BIT_MASK_RESERVED_3,                  ///< Reserved.
+    BAND_BIT_MASK_RESERVED_4,                  ///< Reserved.
+    BAND_BIT_MASK_RESERVED_5,                  ///< Reserved.
+    BAND_BIT_MASK_RESERVED_6,                  ///< Reserved.
+    BAND_BIT_MASK_RESERVED_7,                  ///< Reserved.
+    BAND_BIT_MASK_RESERVED_8,                  ///< Reserved.
+    BAND_BIT_MASK_RESERVED_9,                  ///< Reserved.
+    BAND_BIT_MASK_RESERVED_10,                 ///< Reserved.
+    BAND_BIT_MASK_RESERVED_11,                 ///< Reserved.
+    BAND_BIT_MASK_RESERVED_12,                 ///< Reserved.
+    BAND_BIT_MASK_RESERVED_13,                 ///< Reserved.
+    BAND_BIT_MASK_RESERVED_14,                 ///< Reserved.
+    BAND_BIT_MASK_RESERVED_15,                 ///< Reserved.
+    BAND_BIT_MASK_RESERVED_16,                 ///< Reserved.
+    BAND_BIT_MASK_WCDMA_EU_2600_BAND,          ///< WCDMA Europe 2600 band.
+    BAND_BIT_MASK_WCDMA_EU_J_900_BAND,         ///< WCDMA Europe and Japan 900 band.
+    BAND_BIT_MASK_WCDMA_EU_J_1700_BAND,        ///< WCDMA Europe and Japan 1700 band.
+    BAND_BIT_MASK_RESERVED_18,                 ///< Reserved.
+    BAND_BIT_MASK_RESERVED_19,                 ///< Reserved.
+    BAND_BIT_MASK_RESERVED_20,                 ///< Reserved.
+    BAND_BIT_MASK_RESERVED_21,                 ///< Reserved.
+    BAND_BIT_MASK_RESERVED_22,                 ///< Reserved.
+    BAND_BIT_MASK_CLASS_16,                    ///< Band Class 16.
+    BAND_BIT_MASK_CLASS_17,                    ///< Band Class 17.
+    BAND_BIT_MASK_CLASS_18,                    ///< Band Class 18.
+    BAND_BIT_MASK_CLASS_19,                    ///< Band Class 19.
+    BAND_BIT_MASK_WCDMA_JAPAN_850_BAND,        ///< WCDMA Japan 850 band.
+    BAND_BIT_MASK_WCDMA_JAPAN_1500_BAND,       ///< WCDMA Japan 1500 band.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -720,6 +850,17 @@ HANDLER SignalStrengthChangeHandler
 HANDLER CellularNetworkScanHandler
 (
     ScanInformationList listRef IN ///< The network scan information list reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for PCI network scan.
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER PciNetworkScanHandler
+(
+    PciScanInformationList listRef, ///< PCI network scan information list reference.
+    uint8 phoneId                   ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -881,6 +1022,102 @@ FUNCTION le_result_t GetRegisterMode
 //--------------------------------------------------------------------------------------------------
 FUNCTION int32 GetPlatformSpecificRegistrationErrorCode
 (
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets 2G/3G band capabilities.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetBandCapabilities
+(
+    BandBitMask bandMaskPtr OUT, ///< 2G/3G band capabilities.
+    uint8 phoneId IN             ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets LTE band capabilities.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetLteBandCapabilities
+(
+    uint64 bandMaskPtr[LTE_BAND_GROUP_NUM] OUT, ///< LTE band capabilities.
+    uint8 phoneId IN                            ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets 2G/3G band preferences.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetBandPreferences
+(
+    BandBitMask bandMask IN, ///< 2G/3G band preferences.
+    uint8 phoneId IN         ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets 2G/3G band preferences.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetBandPreferences
+(
+    BandBitMask bandMaskPtr OUT, ///< 2G/3G band preferences.
+    uint8 phoneId IN             ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets LTE band preferences.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetLteBandPreferences
+(
+    uint64 bandMask[LTE_BAND_GROUP_NUM] IN, ///< LTE band preferences.
+    uint8 phoneId IN                        ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets LTE band preferences.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetLteBandPreferences
+(
+    uint64 bandMask[LTE_BAND_GROUP_NUM] OUT, ///< LTE band preferences.
+    uint8 phoneId IN                         ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1085,6 +1322,43 @@ FUNCTION le_result_t GetPacketSwitchedState
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Sets signal strength indication thresholds.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameters
+ *  - LE_FAULT -- Failed.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetSignalStrengthIndThresholds
+(
+    SigType sigType IN,           ///< Signal type.
+    int32 lowerRangeThreshold IN, ///< Lower range threshold in 0.1 dBm.
+    int32 upperRangeThreshold IN, ///< Upper range threshold in 0.1 dBm.
+    uint8 phoneId IN              ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets signal strength indication delta.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameters
+ *  - LE_FAULT -- Failed.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetSignalStrengthIndDelta
+(
+    SigType sigType IN, ///< Signal type.
+    uint16 delta IN,    ///< Delta in uints of 0.1 dBm
+    uint8 phoneId IN    ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  *  Gets the signal quality.
  *
  * @return
@@ -1221,6 +1495,24 @@ FUNCTION le_result_t GetCdmaSignalMetrics
 
 //--------------------------------------------------------------------------------------------------
 /**
+ *  Gets NR5G signal metrics.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetNr5gSignalMetrics
+(
+    Metrics MetricsRef IN, ///< The signal metrics reference.
+    int32 rsrq OUT,        ///< Reference Signal Receive Quality in dB.
+    int32 rsrp OUT,        ///< Reference Signal Receive Power in dBm.
+    int32 snr OUT          ///< Signal-to-Noise Ratio in units of 0.1 dB.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  *  Gets cell ID.
  *
  * @return
@@ -1229,6 +1521,20 @@ FUNCTION le_result_t GetCdmaSignalMetrics
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION uint32 GetServingCellId
+(
+    uint8 phoneId IN ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets NR cell ID.
+ *
+ * @return
+ *  - UINT64_MAX -- Internal error.
+ *  - Others -- Cell ID.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION uint64 GetServingNrCellId
 (
     uint8 phoneId IN ///< Phone ID.
 );
@@ -1263,6 +1569,20 @@ FUNCTION uint16 GetServingCellLteTracAreaCode
 
 //--------------------------------------------------------------------------------------------------
 /**
+ *  Gets the NR tracking area code.
+ *
+ * @return
+ *  - INT32_MAX -- Internal error.
+ *  - Others -- NR tracking area code.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION int32 GetServingCellNrTracAreaCode
+(
+    uint8 phoneId IN ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  *  Gets E-UTRA absolute radio frequency channel number.
  *
  * @return
@@ -1271,6 +1591,20 @@ FUNCTION uint16 GetServingCellLteTracAreaCode
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION uint32 GetServingCellEarfcn
+(
+    uint8 phoneId IN ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets NR absolute radio frequency channel number.
+ *
+ * @return
+ *  - INT32_MAX -- Internal error.
+ *  - Others -- Absolute radio frequency channel number.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION int32 GetServingCellNrArfcn
 (
     uint8 phoneId IN ///< Phone ID.
 );
@@ -1299,6 +1633,20 @@ FUNCTION uint32 GetServingCellTimingAdvance
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION uint16 GetPhysicalServingLteCellId
+(
+    uint8 phoneId IN ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets physical NR5G cell ID.
+ *
+ * @return
+ *  - UINT32_MAX -- Internal error.
+ *  - Others -- Physical NR5G cell ID.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION uint32 GetPhysicalServingNrCellId
 (
     uint8 phoneId IN ///< Phone ID.
 );
@@ -1473,6 +1821,21 @@ FUNCTION le_result_t GetCellularNetworkName
 
 //--------------------------------------------------------------------------------------------------
 /**
+ *  Gets Radio Access Technology of a network scan operator.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Rat GetCellularNetworkRat
+(
+    ScanInformation scanInformationRef IN ///< The scan information list reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  *  Checks if a scan operator's network is in use.
  *
  * @return
@@ -1525,4 +1888,290 @@ FUNCTION bool IsCellularNetworkHome
 FUNCTION bool IsCellularNetworkForbidden
 (
     ScanInformation scanInformationRef IN ///< The network scan operator reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Performs celluar network scan with Physical Cell ID.
+ *
+ * @return
+ *  - Non-null pointer -- The PCI network scan information list reference.
+ *  - Null pointer -- Internal error.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION PciScanInformationList PerformPciNetworkScan
+(
+    RatBitMask ratMask IN, ///< Radio Access Technology bitmask.
+    uint8 phoneId IN       ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Asynchronously performs celluar network scan with physical cell ID.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION PerformPciNetworkScanAsync
+(
+    RatBitMask ratMask IN,         ///< Radio Access Technology bitmask.
+    PciNetworkScanHandler handler, ///< Handler for PCI network scan.
+    uint8 phoneId IN               ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the first reference in the PCI network scan information list.
+ *
+ * @return
+ *  - Non-null pointer -- The reference of the first PCI network scan information in the list.
+ *  - Null pointer -- Internal error.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION PciScanInformation GetFirstPciScanInfo
+(
+    PciScanInformationList  scanInformationListRef IN ///< PCI network scan information list
+                                                      ///< reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the next reference in the PCI network scan information list.
+ *
+ * @return
+ *  - Non-null pointer -- The reference of the next PCI network scan information in the list.
+ *  - Null pointer -- Internal error.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION PciScanInformation GetNextPciScanInfo
+(
+    PciScanInformationList  scanInformationListRef IN ///< PCI network scan information list
+                                                      ///< reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Deletes the PCI network scan information list reference.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Reference not found.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DeletePciNetworkScan
+(
+    PciScanInformationList  scanInformationListRef IN ///< PCI network scan information list
+                                                      ///< reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the first reference of PLMN info of PCI network scan information.
+ *
+ * @return
+ *  - Non-null pointer -- The reference of the first PLMN information.
+ *  - Null pointer -- Internal error.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION PlmnInformation GetFirstPlmnInfo
+(
+    PciScanInformation pciScanInformationRef IN ///< PCI network scan information reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the next reference of PLMN info of PCI network scan information.
+ *
+ * @return
+ *  - Non-null pointer -- The reference of the next PLMN information.
+ *  - Null pointer -- Internal error.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION PlmnInformation GetNextPlmnInfo
+(
+    PciScanInformation pciScanInformationRef IN ///< PCI network scan information reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the cell ID of PCI network scan information.
+ *
+ * @return Cell ID.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION uint16 GetPciScanCellId
+(
+    PciScanInformation pciScanInformationRef IN ///< PCI network scan information reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the global cell ID of PCI network scan information.
+ *
+ * @return Global Cell ID.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION uint32 GetPciScanGlobalCellId
+(
+    PciScanInformation pciScanInformationRef IN ///< PCI network scan information reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets PLMN network MCC and MNC of PCI network scan information.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetPciScanMccMnc
+(
+    PlmnInformation plmnRef IN,   ///< PLMN information reference.
+    string mccPtr[MCC_BYTES] OUT, ///< MCC.
+    string mncPtr[MNC_BYTES] OUT  ///< MNC.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets neighbor cells information.
+ *
+ * @return
+ *  - Non-null pointer -- The signal metrics reference.
+ *  - Null pointer -- Internal error.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION NeighborCells GetNeighborCellsInfo
+(
+    uint8 phoneId IN ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deletes neighbor cells information.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Neighbor cells reference not found.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DeleteNeighborCellsInfo
+(
+    NeighborCells ngbrCellsRef IN ///< Neighbor cells reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the first neighbor cell information.
+ *
+ * @return
+ *  - Non-null pointer -- The first neighbor cell information reference.
+ *  - Null pointer -- Internal error.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION CellInfo GetFirstNeighborCellInfo
+(
+    NeighborCells ngbrCellsRef IN ///< Neighbor cells reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the next neighbor cell information.
+ *
+ * @return
+ *  - Non-null pointer -- The next neighbor cell information reference.
+ *  - Null pointer -- Internal error.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION CellInfo GetNextNeighborCellInfo
+(
+    NeighborCells ngbrCellsRef IN  ///< Neighbor cells reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets neighbor Cell ID.
+ *
+ * @return Cell ID
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION uint64 GetNeighborCellId
+(
+    CellInfo ngbrCellInfoRef IN ///< Cell information reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets Location Area Code of neighbor cell.
+ *
+ * @return Location Area Code.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION uint32 GetNeighborCellLocAreaCode
+(
+    CellInfo ngbrCellInfoRef IN ///< Neighboring cell information reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets signal strength of neighbor cell.
+ *
+ * @return signal strength in dBm.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION int32 GetNeighborCellRxLevel
+(
+    CellInfo ngbrCellInfoRef IN ///< Neighbor cell information reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets Radio Access Technology of neighbor cell.
+ *
+ * @return Radio Access Technology.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Rat GetNeighborCellRat
+(
+    CellInfo ngbrCellInfoRef IN ///< Neighbor cell information reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets Physical Cell ID of neighbor LTE cell.
+ *
+ * @return Physical Cell ID, valid from 0 to 503.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION uint16 GetPhysicalNeighborLteCellId
+(
+    CellInfo ngbrCellInfoRef IN ///< Neighbor cell information reference
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets Physical Cell ID of neighbor NR5G cell.
+ *
+ * @return Physical Cell ID.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION uint32 GetPhysicalNeighborNrCellId
+(
+    CellInfo ngbrCellInfoRef IN ///< Neighbor cell information reference
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets Base Station Identity Code of neighbor GSM cell.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_NOT_FOUND -- Neighbor cells reference not found.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetNeighborCellGsmBsic
+(
+    CellInfo ngbrCellInfoRef IN, ///< Neighbor cell information reference
+    uint8 bsic OUT               ///< Base Station Identity Code
 );

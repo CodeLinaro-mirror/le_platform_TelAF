@@ -63,13 +63,17 @@
 
 #define TAF_RADIO_THREAD_STACK_SIZE 0x20000
 
+#define TAF_RADIO_NEIGHBOR_CELLS_MAX_NUM 10
+#define TAF_RADIO_NEIGHBOR_CELL_INFO_MAX_NUM 6
+
 /*
  * @brief The emum of radio command type.
  */
 typedef enum
 {
     TAF_RADIO_CMD_TYPE_ASYNC_REG_MANUAL,
-    TAF_RADIO_CMD_TYPE_ASYNC_NETWORK_SCAN
+    TAF_RADIO_CMD_TYPE_ASYNC_NETWORK_SCAN,
+    TAF_RADIO_CMD_TYPE_ASYNC_PCI_NETWORK_SCAN
 } taf_RadioCmdType_t;
 
 /*
@@ -118,6 +122,7 @@ typedef struct
     char mcc[TAF_RADIO_MCC_BYTES];
     char mnc[TAF_RADIO_MNC_BYTES];
     telux::tel::OperatorStatus status;
+    telux::tel::RadioTechnology rat;
     le_sls_Link_t link;
 } taf_RadioScanOp_t;
 
@@ -139,6 +144,7 @@ typedef struct
     taf_RadioCmdType_t cmdType;
     void* handlerFuncPtr;
     void* contextPtr;
+    taf_radio_RatBitMask_t ratMask;
     uint8_t phoneId;
     const char* mccPtr;
     const char* mncPtr;
@@ -201,9 +207,10 @@ typedef struct
  */
 typedef struct
 {
-    int cid;
-    int pcid;
-    int tac;
+    uint64_t cid;
+    uint32_t pcid;
+    int32_t tac;
+    int32_t arfcn;
 } taf_RadioNr5gCellInfo_t;
 
 /*
@@ -289,7 +296,42 @@ typedef struct
 typedef struct
 {
     std::vector<taf_RadioCellInfo_t> servingCell;
+    std::vector<taf_RadioCellInfo_t> neighborCell;
 } taf_RadioCellListInfo_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Neighboring cell information safe reference structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    void* safeRef;
+    le_sls_Link_t link;
+} taf_RadioNgbrCellInfoSafeRef_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Neighboring cell information structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_RadioCellInfo_t cell;
+    le_sls_Link_t link;
+} taf_RadioNgbrCellInfo_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Neighboring cells structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    le_sls_List_t cellInfoList;
+    le_sls_List_t safeRefList;
+    le_sls_Link_t* currPtr;
+} taf_RadioNgbrCells_t;
 
 namespace telux {
 namespace tafsvc {

@@ -306,6 +306,247 @@ le_result_t taf_pa_radio_DisableIndication
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Set signal strength indication thresholds
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_pa_radio_SetSignalStrengthIndThresholds
+(
+    taf_radio_SigType_t sigType,
+    int32_t lowerRangeThreshold,
+    int32_t upperRangeThreshold,
+    uint8_t phoneId
+)
+{
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set signal strength indication delta
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_pa_radio_SetSignalStrengthIndDelta
+(
+    taf_radio_SigType_t sigType,
+    uint16_t delta,
+    uint8_t phoneId
+)
+{
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get 2G/3G band capabilities
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_pa_radio_GetBandCapabilities
+(
+    taf_radio_BandBitMask_t* bandMaskPtr,
+    uint8_t phoneId
+)
+{
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get LTE band capabilities
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_pa_radio_GetLteBandCapabilities
+(
+    uint64_t* bandMaskPtr,
+    size_t* bandMaskSizePtr,
+    uint8_t phoneId
+)
+{
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set 2G/3G band preferences
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_pa_radio_SetBandPreferences
+(
+    taf_radio_BandBitMask_t bandMask,
+    uint8_t phoneId
+)
+{
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get 2G/3G band preferences
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_pa_radio_GetBandPreferences
+(
+    taf_radio_BandBitMask_t* bandMaskPtr,
+    uint8_t phoneId
+)
+{
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set LTE band preferences
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_pa_radio_SetLteBandPreferences
+(
+    const uint64_t* bandMask,
+    size_t bandMaskSize,
+    uint8_t phoneId
+)
+{
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get LTE band preferences
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_pa_radio_GetLteBandPreferences
+(
+    uint64_t* bandMaskPtr,
+    size_t* bandMaskSizePtr,
+    uint8_t phoneId
+)
+{
+    return LE_OK;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Perform network scan with Pysical Cell ID
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_PciScanInformationListRef_t taf_pa_radio_PerformPciNetworkScan
+(
+    taf_radio_RatBitMask_t ratMask,
+    uint8_t phoneId
+)
+{
+    return NULL;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the first PCI network scan information reference
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_PciScanInformationRef_t taf_pa_radio_GetFirstPciScanInfo
+(
+    taf_radio_PciScanInformationListRef_t pciScanInformationListRef
+)
+{
+    return NULL;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the next PCI network scan information reference
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_PciScanInformationRef_t taf_pa_radio_GetNextPciScanInfo
+(
+    taf_radio_PciScanInformationListRef_t pciScanInformationListRef
+)
+{
+    return NULL;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the first PLMN network information reference
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_PlmnInformationRef_t taf_pa_radio_GetFirstPlmnInfo
+(
+    taf_radio_PciScanInformationRef_t pciScanInformationRef
+)
+{
+    return NULL;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the next PLMN network information reference
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_PlmnInformationRef_t taf_pa_radio_GetNextPlmnInfo
+(
+    taf_radio_PciScanInformationRef_t pciScanInformationRef
+)
+{
+    return NULL;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get PCI network scan Cell ID
+ */
+//--------------------------------------------------------------------------------------------------
+uint16_t taf_pa_radio_GetPciScanCellId
+(
+    taf_radio_PciScanInformationRef_t pciScanInformationRef
+)
+{
+    return UINT16_MAX;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get PCI network scan Global Cell ID
+ */
+//--------------------------------------------------------------------------------------------------
+uint32_t taf_pa_radio_GetPciScanGlobalCellId
+(
+    taf_radio_PciScanInformationRef_t pciScanInformationRef
+)
+{
+    return UINT32_MAX;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get MCC and MNC of PLMN information from PCI network scan
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_pa_radio_GetPciScanMccMnc
+(
+    taf_radio_PlmnInformationRef_t plmnRef,
+    char* mccPtr,
+    size_t mccPtrSize,
+    char* mncPtr,
+    size_t mncPtrSize
+)
+{
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Delete PCI network scan
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_pa_radio_DeletePciNetworkScan
+(
+    taf_radio_PciScanInformationListRef_t pciScanInformationListRef
+)
+{
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Init this component
  */
 //--------------------------------------------------------------------------------------------------

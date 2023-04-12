@@ -247,4 +247,193 @@ LE_SHARED le_result_t taf_pa_radio_DisableIndication
     void
 );
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get 2G/3G band capabilities
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_radio_GetBandCapabilities
+(
+    taf_radio_BandBitMask_t* bandMaskPtr,
+    uint8_t phoneId
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get LTE band capabilities
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_radio_GetLteBandCapabilities
+(
+    uint64_t* bandMaskPtr,
+    size_t* bandMaskSizePtr,
+    uint8_t phoneId
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set 2G/3G band preferences
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_radio_SetBandPreferences
+(
+    taf_radio_BandBitMask_t bandMask,
+    uint8_t phoneId
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get 2G/3G band preferences
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_radio_GetBandPreferences
+(
+    taf_radio_BandBitMask_t* bandMaskPtr,
+    uint8_t phoneId
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set LTE band preferences
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_radio_SetLteBandPreferences
+(
+    const uint64_t* bandMask,
+    size_t bandMaskSize,
+    uint8_t phoneId
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get LTE band preferences
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_radio_GetLteBandPreferences
+(
+    uint64_t* bandMaskPtr,
+    size_t* bandMaskSizePtr,
+    uint8_t phoneId
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set signal strength indication thresholds
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_radio_SetSignalStrengthIndThresholds
+(
+    taf_radio_SigType_t sigType,
+    int32_t lowerRangeThreshold,
+    int32_t upperRangeThreshold,
+    uint8_t phoneId
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set signal strength indication delta
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_radio_SetSignalStrengthIndDelta
+(
+    taf_radio_SigType_t sigType,
+    uint16_t delta,
+    uint8_t phoneId
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Perform network scan with Pysical Cell ID
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED taf_radio_PciScanInformationListRef_t taf_pa_radio_PerformPciNetworkScan
+(
+    taf_radio_RatBitMask_t ratMask,
+    uint8_t phoneId
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the first PCI network scan information reference
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED taf_radio_PciScanInformationRef_t taf_pa_radio_GetFirstPciScanInfo
+(
+    taf_radio_PciScanInformationListRef_t pciScanInformationListRef
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the next PCI network scan information reference
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED taf_radio_PciScanInformationRef_t taf_pa_radio_GetNextPciScanInfo
+(
+    taf_radio_PciScanInformationListRef_t pciScanInformationListRef
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the first PLMN network information reference
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED taf_radio_PlmnInformationRef_t taf_pa_radio_GetFirstPlmnInfo
+(
+    taf_radio_PciScanInformationRef_t pciScanInformationRef
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the next PLMN network information reference
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED taf_radio_PlmnInformationRef_t taf_pa_radio_GetNextPlmnInfo
+(
+    taf_radio_PciScanInformationRef_t pciScanInformationRef
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get PCI network scan Cell ID
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED uint16_t taf_pa_radio_GetPciScanCellId
+(
+    taf_radio_PciScanInformationRef_t pciScanInformationRef
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get PCI network scan Global Cell ID
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED uint32_t taf_pa_radio_GetPciScanGlobalCellId
+(
+    taf_radio_PciScanInformationRef_t pciScanInformationRef
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get MCC and MNC of PLMN information from PCI network scan
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_radio_GetPciScanMccMnc
+(
+    taf_radio_PlmnInformationRef_t plmnRef,
+    char* mccPtr,
+    size_t mccPtrSize,
+    char* mncPtr,
+    size_t mncPtrSize
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Delete PCI network scan
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_radio_DeletePciNetworkScan
+(
+    taf_radio_PciScanInformationListRef_t scanInformationListRef
+);
+
 #endif /* TAF_PA_RADIO_HPP */

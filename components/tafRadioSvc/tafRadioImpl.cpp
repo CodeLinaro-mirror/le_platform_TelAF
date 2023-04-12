@@ -489,6 +489,7 @@ void taf_RadioCellInfoCallback::cellInfoListResponse
     LE_DEBUG("<SDK Callback> taf_RadioCellInfoCallback --> cellInfoListResponse");
 
     cellListInfo.servingCell.clear();
+    cellListInfo.neighborCell.clear();
 
     if (error == telux::common::ErrorCode::SUCCESS)
     {
@@ -561,6 +562,7 @@ void taf_RadioCellInfoCallback::cellInfoListResponse
                     cellIdInfo.nr5g.cid = nr5gCellInfo->getCellIdentity().getIdentity();
                     cellIdInfo.nr5g.pcid = nr5gCellInfo->getCellIdentity().getPhysicalCellId();
                     cellIdInfo.nr5g.tac = nr5gCellInfo->getCellIdentity().getTrackingAreaCode();
+                    cellIdInfo.nr5g.arfcn = nr5gCellInfo->getCellIdentity().getArfcn();
                     cellIdInfo.ss = nr5gCellInfo->getSignalStrengthInfo().getDbm();
                     isRegistered = nr5gCellInfo->isRegistered();
                     break;
@@ -575,6 +577,10 @@ void taf_RadioCellInfoCallback::cellInfoListResponse
             if (isRegistered)
             {
                 cellListInfo.servingCell.push_back(cellIdInfo);
+            }
+            else
+            {
+                cellListInfo.neighborCell.push_back(cellIdInfo);
             }
         }
 
@@ -603,6 +609,29 @@ LE_MEM_DEFINE_STATIC_POOL(scanOpSafeRefPool, TAF_RADIO_SCAN_OPERATORS_MAX_NUM, s
 
 LE_MEM_DEFINE_STATIC_POOL(metricsPool, TAF_RADIO_METRICS_MAX_NUM, sizeof(taf_RadioSignalMetrics_t));
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Static pool for neighboring cells
+ */
+//--------------------------------------------------------------------------------------------------
+LE_MEM_DEFINE_STATIC_POOL(ngbrCellsPool, TAF_RADIO_NEIGHBOR_CELLS_MAX_NUM, sizeof(taf_RadioNgbrCells_t));
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Static pool for neighboring cell information
+ */
+//--------------------------------------------------------------------------------------------------
+LE_MEM_DEFINE_STATIC_POOL(ngbrCellInfoPool, TAF_RADIO_NEIGHBOR_CELL_INFO_MAX_NUM,
+    sizeof(taf_RadioNgbrCellInfo_t));
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Static pool for neighboring cell information safe reference
+ */
+//--------------------------------------------------------------------------------------------------
+LE_MEM_DEFINE_STATIC_POOL(ngbrCellInfoSafeRefPool, TAF_RADIO_NEIGHBOR_CELL_INFO_MAX_NUM,
+    sizeof(taf_RadioNgbrCellInfoSafeRef_t));
+
 LE_REF_DEFINE_STATIC_MAP(prefOpListRefMap, TAF_RADIO_PREFERRED_OPERATORS_LISTS_MAX_NUM);
 
 LE_REF_DEFINE_STATIC_MAP(prefOpSafeRefMap, TAF_RADIO_PREFERRED_OPERATORS_MAX_NUM);
@@ -612,6 +641,20 @@ LE_REF_DEFINE_STATIC_MAP(scanOpListRefMap, TAF_RADIO_SCAN_OPERATORS_LISTS_MAX_NU
 LE_REF_DEFINE_STATIC_MAP(scanOpSafeRefMap, TAF_RADIO_SCAN_OPERATORS_MAX_NUM);
 
 LE_REF_DEFINE_STATIC_MAP(metricsRefMap, TAF_RADIO_METRICS_MAX_NUM);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Static map for neighboring cells
+ */
+//--------------------------------------------------------------------------------------------------
+LE_REF_DEFINE_STATIC_MAP(ngbrCellsRefMap, TAF_RADIO_NEIGHBOR_CELLS_MAX_NUM);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Static map for neighboring cell information safe reference
+ */
+//--------------------------------------------------------------------------------------------------
+LE_REF_DEFINE_STATIC_MAP(ngbrCellInfoSafeRefMap, TAF_RADIO_NEIGHBOR_CELL_INFO_MAX_NUM);
 
 le_event_Id_t taf_Radio::radioCmdEvId = nullptr;
 
@@ -780,6 +823,7 @@ void taf_Radio::RadioProcCmdHandler(void* cmdReqPtr)
                 opPtr->status.roaming = info.getStatus().roaming;
                 opPtr->status.forbidden = info.getStatus().forbidden;
                 opPtr->status.preferred = info.getStatus().preferred;
+                opPtr->rat = info.getRat();
                 opPtr->link = LE_SLS_LINK_INIT;
                 le_sls_Queue(&(opsList->scanOpList), &(opPtr->link));
             }
@@ -796,6 +840,23 @@ void taf_Radio::RadioProcCmdHandler(void* cmdReqPtr)
             else
             {
                 LE_WARN("No handler function");
+            }
+            break;
+        }
+        case TAF_RADIO_CMD_TYPE_ASYNC_PCI_NETWORK_SCAN:
+        {
+            taf_radio_PciScanInformationListRef_t listRef =
+                taf_pa_radio_PerformPciNetworkScan(cmdReq->ratMask, cmdReq->phoneId);
+            taf_radio_PciNetworkScanHandlerFunc_t handlerFunc =
+                (taf_radio_PciNetworkScanHandlerFunc_t)cmdReq->handlerFuncPtr;
+            if (handlerFunc)
+            {
+                LE_DEBUG("Handler function:%p", handlerFunc);
+                handlerFunc(listRef, phoneId, cmdReq->contextPtr);
+            }
+            else
+            {
+                LE_WARN("No handler function.");
             }
             break;
         }
@@ -897,6 +958,12 @@ void taf_Radio::Init(void)
         sizeof(taf_RadioScanOpSafeRef_t));
     metricsPool = le_mem_InitStaticPool(metricsPool, TAF_RADIO_METRICS_MAX_NUM,
         sizeof(taf_RadioSignalMetrics_t));
+    ngbrCellsPool = le_mem_InitStaticPool(ngbrCellsPool, TAF_RADIO_NEIGHBOR_CELLS_MAX_NUM,
+        sizeof(taf_RadioNgbrCells_t));
+    ngbrCellInfoPool = le_mem_InitStaticPool(ngbrCellInfoPool, TAF_RADIO_NEIGHBOR_CELL_INFO_MAX_NUM,
+        sizeof(taf_RadioNgbrCellInfo_t));
+    ngbrCellInfoSafeRefPool = le_mem_InitStaticPool(ngbrCellInfoSafeRefPool,
+        TAF_RADIO_NEIGHBOR_CELL_INFO_MAX_NUM, sizeof(taf_RadioNgbrCellInfoSafeRef_t));
 
     // 3. Initiate the reference map.
     prefOpListRefMap = le_ref_InitStaticMap(prefOpListRefMap, TAF_RADIO_PREFERRED_OPERATORS_LISTS_MAX_NUM);
@@ -904,6 +971,9 @@ void taf_Radio::Init(void)
     scanOpListRefMap = le_ref_InitStaticMap(scanOpListRefMap, TAF_RADIO_SCAN_OPERATORS_LISTS_MAX_NUM);
     scanOpSafeRefMap = le_ref_InitStaticMap(scanOpSafeRefMap, TAF_RADIO_SCAN_OPERATORS_MAX_NUM);
     metricsRefMap = le_ref_InitStaticMap(metricsRefMap, TAF_RADIO_METRICS_MAX_NUM);
+    ngbrCellsRefMap = le_ref_InitStaticMap(ngbrCellsRefMap, TAF_RADIO_NEIGHBOR_CELLS_MAX_NUM);
+    ngbrCellInfoSafeRefMap = le_ref_InitStaticMap(ngbrCellInfoSafeRefMap,
+        TAF_RADIO_NEIGHBOR_CELL_INFO_MAX_NUM);
 
     startTime = std::chrono::system_clock::now();
 

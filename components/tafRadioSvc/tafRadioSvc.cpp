@@ -1321,7 +1321,7 @@ le_result_t taf_radio_GetSignalQual(uint32_t* qualityPtr, uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, LE_FAULT,
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
-    taf_radio_Rat_t rat;
+    taf_radio_Rat_t rat = TAF_RADIO_RAT_UNKNOWN;
     le_result_t res = taf_pa_radio_GetRadioAccessTechInUse(&rat, phoneId);
     TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Fail to get RAT in use.");
 
@@ -2326,6 +2326,7 @@ taf_radio_ScanInformationListRef_t taf_radio_PerformCellularNetworkScan(uint8_t 
         opPtr->status.roaming = info.getStatus().roaming;
         opPtr->status.forbidden = info.getStatus().forbidden;
         opPtr->status.preferred = info.getStatus().preferred;
+        opPtr->rat = info.getRat();
         opPtr->link = LE_SLS_LINK_INIT;
         le_sls_Queue(&(opsList->scanOpList), &(opPtr->link));
     }
@@ -2738,4 +2739,1047 @@ le_result_t taf_radio_DeleteCellularNetworkScan(taf_radio_ScanInformationListRef
     le_mem_Release(listPtr);
 
     return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set signal strength indication thresholds.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER Invalid parameters.
+ *  - LE_OK            On success.
+ *  - LE_FAULT         On failure.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_SetSignalStrengthIndThresholds
+(
+    taf_radio_SigType_t sigType, ///< [IN] Signal type.
+    int32_t lowerRangeThreshold, ///< [IN] Lower range threshold in 0.1 dBm.
+    int32_t upperRangeThreshold, ///< [IN] Upper range threshold in 0.1 dBm.
+    uint8_t phoneId              ///< [IN] Phone ID.
+)
+{
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
+        "Invalid para(phoneId:%d)", phoneId);
+
+    return taf_pa_radio_SetSignalStrengthIndThresholds(sigType, lowerRangeThreshold,
+        upperRangeThreshold, phoneId);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set signal strength indication delta.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER Invalid parameters.
+ *  - LE_OK            On success.
+ *  - LE_FAULT         On failure.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_SetSignalStrengthIndDelta
+(
+    taf_radio_SigType_t sigType, ///< [IN] Signal type.
+    uint16_t delta,              ///< [IN] Signal delta.
+    uint8_t phoneId              ///< [IN] Phone ID.
+)
+{
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
+        "Invalid para(phoneId:%d)", phoneId);
+
+    return taf_pa_radio_SetSignalStrengthIndDelta(sigType, delta, phoneId);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get NR Cell ID.
+ *
+ * @return
+ *  - INT64_MAX Internal error.
+ *  - Others     NR Cell ID.
+ */
+//--------------------------------------------------------------------------------------------------
+uint64_t taf_radio_GetServingNrCellId
+(
+    uint8_t phoneId ///< [IN] Phone ID.
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), UINT64_MAX,
+        "Invalid para(phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, UINT64_MAX,
+        "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
+        taf_RadioCellInfoCallback::cellInfoListResponse);
+    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, UINT64_MAX,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT64_MAX, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT64_MAX,
+        "No serving cell.");
+
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat !=
+        TAF_RADIO_RAT_NR5G, LE_FAULT, "Serving cell is not NR5G.");
+
+    return taf_RadioCellInfoCallback::cellListInfo.servingCell[0].nr5g.cid;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get NR Tracking Area Code.
+ *
+ * @return
+ *  - INT32_MAX Internal error.
+ *  - Others    NR Tracking Area Code.
+ */
+//--------------------------------------------------------------------------------------------------
+int32_t taf_radio_GetServingCellNrTracAreaCode
+(
+    uint8_t phoneId ///< [IN] Phone ID.
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), INT32_MAX,
+        "Invalid para(phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, INT32_MAX,
+        "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
+        taf_RadioCellInfoCallback::cellInfoListResponse);
+    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, INT32_MAX,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, INT32_MAX, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), INT32_MAX,
+        "No serving cell.");
+
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat !=
+        TAF_RADIO_RAT_NR5G, INT32_MAX, "Serving cell is not NR5G.");
+
+    return taf_RadioCellInfoCallback::cellListInfo.servingCell[0].nr5g.tac;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get NR Absolute RF Channel Number.
+ *
+ * @return
+ *  - INT32_MAX Internal error.
+ *  - -1 Unknown.
+ *  - Others    NR Absolute RF Channel Number.
+ */
+//--------------------------------------------------------------------------------------------------
+int32_t taf_radio_GetServingCellNrArfcn
+(
+    uint8_t phoneId ///< [IN] Phone ID.
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), INT32_MAX,
+        "Invalid para(phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, INT32_MAX,
+        "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
+        taf_RadioCellInfoCallback::cellInfoListResponse);
+    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, INT32_MAX,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, INT32_MAX, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), INT32_MAX,
+        "No serving cell.");
+
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat !=
+        TAF_RADIO_RAT_NR5G, INT32_MAX, "Serving cell is not NR5G.");
+
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0].nr5g.arfcn == -1,
+        INT32_MAX, "Arfcn is unknown.");
+
+    return taf_RadioCellInfoCallback::cellListInfo.servingCell[0].nr5g.arfcn;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get NR5G Physical Cell ID.
+ *
+ * @return
+ *  - UINT32_MAX Internal error.
+ *  - Others Physical Cell ID..
+ */
+//--------------------------------------------------------------------------------------------------
+uint32_t taf_radio_GetPhysicalServingNrCellId
+(
+    uint8_t phoneId ///< [IN] Phone ID.
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), UINT32_MAX,
+        "Invalid para(phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, UINT32_MAX,
+        "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
+        taf_RadioCellInfoCallback::cellInfoListResponse);
+    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, UINT32_MAX,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT32_MAX, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT32_MAX,
+        "No serving cell.");
+
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat !=
+        TAF_RADIO_RAT_NR5G, UINT32_MAX, "Serving cell is not NR5G.");
+
+    return taf_RadioCellInfoCallback::cellListInfo.servingCell[0].nr5g.pcid;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get NR5G signal metrics
+ *
+ * @return
+ *  - LE_BAD_PARAMETER Invalid parameters.
+ *  - LE_OK            On success.
+ *  - LE_NOT_FOUND     Reference not found.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetNr5gSignalMetrics
+(
+    taf_radio_MetricsRef_t metricsRef, ///< [IN] Signal metrics reference.
+    int32_t* rsrqPtr,                  ///< [OUT] Reference Signal Received Quality.
+    int32_t* rsrpPtr,                  ///< [OUT] Reference Signal Received Power.
+    int32_t* snrPtr                    ///< [OUT] Signal to Noise Ratio.
+)
+{
+    TAF_ERROR_IF_RET_VAL(metricsRef == NULL, LE_BAD_PARAMETER, "Null reference(metricsRef)");
+
+    TAF_ERROR_IF_RET_VAL(rsrqPtr == NULL, LE_BAD_PARAMETER, "Null ptr(rsrqPtr)");
+
+    TAF_ERROR_IF_RET_VAL(rsrpPtr == NULL, LE_BAD_PARAMETER, "Null ptr(rsrpPtr)");
+
+    TAF_ERROR_IF_RET_VAL(snrPtr == NULL, LE_BAD_PARAMETER, "Null ptr(snrPtr)");
+
+    auto &tafRadio = taf_Radio::GetInstance();
+    taf_RadioSignalMetrics_t* metricsPtr =
+        (taf_RadioSignalMetrics_t*)le_ref_Lookup(tafRadio.metricsRefMap, metricsRef);
+    TAF_ERROR_IF_RET_VAL(metricsPtr == NULL, LE_NOT_FOUND, "Invalid para(null reference ptr)");
+
+    *rsrqPtr = metricsPtr->nr5g.rsrq;
+    *rsrpPtr = metricsPtr->nr5g.rsrp;
+    *snrPtr = metricsPtr->nr5g.snr;
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get Neighbor Cells Information
+ *
+ * @return
+ *  - NULL   Invalid parameters or internal errors.
+ *  - Others Neighbor cells reference.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_NeighborCellsRef_t taf_radio_GetNeighborCellsInfo
+(
+    uint8_t phoneId ///< [IN] Phone ID.
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), NULL,
+        "Invalid para(phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == NULL, NULL,
+        "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
+        taf_RadioCellInfoCallback::cellInfoListResponse);
+    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, NULL,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, NULL, "Wait semaphore timeout");
+
+    taf_RadioNgbrCells_t* ngbrCellsPtr =
+        (taf_RadioNgbrCells_t*)le_mem_ForceAlloc(tafRadio.ngbrCellsPool);
+    ngbrCellsPtr->cellInfoList = LE_SLS_LIST_INIT;
+    ngbrCellsPtr->safeRefList = LE_SLS_LIST_INIT;
+    ngbrCellsPtr->currPtr = NULL;
+
+    taf_RadioNgbrCellInfo_t* ngbrCellInfoPtr;
+    for (auto cell : taf_RadioCellInfoCallback::cellListInfo.neighborCell)
+    {
+        ngbrCellInfoPtr = (taf_RadioNgbrCellInfo_t*)le_mem_ForceAlloc(tafRadio.ngbrCellInfoPool);
+        ngbrCellInfoPtr->cell = cell;
+        ngbrCellInfoPtr->link = LE_SLS_LINK_INIT;
+        le_sls_Queue(&(ngbrCellsPtr->cellInfoList), &(ngbrCellInfoPtr->link));
+    }
+
+    return (taf_radio_NeighborCellsRef_t)le_ref_CreateRef(tafRadio.ngbrCellsRefMap,
+        (void*)ngbrCellsPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Delete neighbor cells information
+ *
+ * @return
+ *  - LE_NOT_FOUND     Reference not found.
+ *  - LE_OK            On success.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_DeleteNeighborCellsInfo
+(
+    taf_radio_NeighborCellsRef_t ngbrCellsRef ///< [IN] Neighbor cells reference.
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    taf_RadioNgbrCells_t* ngbrCellsPtr =
+        (taf_RadioNgbrCells_t*)le_ref_Lookup(tafRadio.ngbrCellsRefMap, ngbrCellsRef);
+    TAF_ERROR_IF_RET_VAL(ngbrCellsPtr == NULL, LE_NOT_FOUND, "Invalid para(null ptr)");
+
+    taf_RadioNgbrCellInfo_t* ngbrCellInfoPtr;
+    le_sls_Link_t *linkPtr;
+    while ((linkPtr = le_sls_Pop(&(ngbrCellsPtr->cellInfoList))) != NULL)
+    {
+        ngbrCellInfoPtr = CONTAINER_OF(linkPtr, taf_RadioNgbrCellInfo_t, link);
+        le_mem_Release(ngbrCellInfoPtr);
+    }
+
+    taf_RadioNgbrCellInfoSafeRef_t* safeRefPtr;
+    while ((linkPtr = le_sls_Pop(&(ngbrCellsPtr->safeRefList))) != NULL)
+    {
+        safeRefPtr = CONTAINER_OF(linkPtr, taf_RadioNgbrCellInfoSafeRef_t, link);
+        le_ref_DeleteRef(tafRadio.ngbrCellInfoSafeRefMap, safeRefPtr->safeRef);
+        le_mem_Release(safeRefPtr);
+    }
+
+    le_ref_DeleteRef(tafRadio.ngbrCellsRefMap, ngbrCellsRef);
+
+    le_mem_Release(ngbrCellsPtr);
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the first neighbor cell information
+ *
+ * @return
+ *  - NULL   Invalid parameters or internal errors.
+ *  - Others Neighbor cell information reference.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_CellInfoRef_t taf_radio_GetFirstNeighborCellInfo
+(
+    taf_radio_NeighborCellsRef_t ngbrCellsRef ///< [IN] Neighbor cells reference.
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    taf_RadioNgbrCells_t* ngbrCellsPtr =
+        (taf_RadioNgbrCells_t*)le_ref_Lookup(tafRadio.ngbrCellsRefMap, ngbrCellsRef);
+    TAF_ERROR_IF_RET_VAL(ngbrCellsPtr == NULL, NULL, "Invalid para(null ptr)");
+
+    le_sls_Link_t* linkPtr = le_sls_Peek(&(ngbrCellsPtr->cellInfoList));
+    TAF_ERROR_IF_RET_VAL(linkPtr == NULL, NULL, "Empty list");
+
+    taf_RadioNgbrCellInfo_t* ngbrCellInfoPtr = CONTAINER_OF(linkPtr, taf_RadioNgbrCellInfo_t, link);
+    ngbrCellsPtr->currPtr = linkPtr;
+
+    taf_RadioNgbrCellInfoSafeRef_t* safeRefPtr =
+       (taf_RadioNgbrCellInfoSafeRef_t*)le_mem_ForceAlloc(tafRadio.ngbrCellInfoSafeRefPool);
+    safeRefPtr->safeRef = le_ref_CreateRef(tafRadio.ngbrCellInfoSafeRefMap, (void*)ngbrCellInfoPtr);
+    safeRefPtr->link = LE_SLS_LINK_INIT;
+    le_sls_Queue(&(ngbrCellsPtr->safeRefList), &(safeRefPtr->link));
+
+    return (taf_radio_CellInfoRef_t)safeRefPtr->safeRef;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the next neighbor cell information
+ *
+ * @return
+ *  - NULL   Invalid parameters or internal errors.
+ *  - Others Neighbor cell information reference.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_CellInfoRef_t taf_radio_GetNextNeighborCellInfo
+(
+    taf_radio_NeighborCellsRef_t ngbrCellsRef ///< [IN] Neighbor cells reference.
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    taf_RadioNgbrCells_t* ngbrCellsPtr =
+        (taf_RadioNgbrCells_t*)le_ref_Lookup(tafRadio.ngbrCellsRefMap, ngbrCellsRef);
+    TAF_ERROR_IF_RET_VAL(ngbrCellsPtr == NULL, NULL, "Invalid para(null ptr)");
+
+    le_sls_Link_t* linkPtr = le_sls_PeekNext(&(ngbrCellsPtr->cellInfoList), ngbrCellsPtr->currPtr);
+    if (linkPtr == NULL)
+    {
+        LE_WARN("Reach to the end of list.");
+        return NULL;
+    }
+
+    taf_RadioNgbrCellInfo_t* ngbrCellInfoPtr = CONTAINER_OF(linkPtr, taf_RadioNgbrCellInfo_t, link);
+    ngbrCellsPtr->currPtr = linkPtr;
+
+    taf_RadioNgbrCellInfoSafeRef_t* safeRefPtr =
+       (taf_RadioNgbrCellInfoSafeRef_t*)le_mem_ForceAlloc(tafRadio.ngbrCellInfoSafeRefPool);
+    safeRefPtr->safeRef = le_ref_CreateRef(tafRadio.ngbrCellInfoSafeRefMap, (void*)ngbrCellInfoPtr);
+    safeRefPtr->link = LE_SLS_LINK_INIT;
+    le_sls_Queue(&(ngbrCellsPtr->safeRefList) ,&(safeRefPtr->link));
+
+    return (taf_radio_CellInfoRef_t)safeRefPtr->safeRef;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get neighbor Cell ID.
+ *
+ * @return
+ *  - UINT64_MAX Invalid Radio Access Technology or neighbor cell information reference.
+ *  - Others     Neighbor Cell ID.
+ */
+//--------------------------------------------------------------------------------------------------
+uint64_t taf_radio_GetNeighborCellId
+(
+    taf_radio_CellInfoRef_t ngbrCellInfoRef ///< [IN] Neighbor cell information reference.
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    taf_RadioNgbrCellInfo_t* ngbrCellInfoPtr =
+        (taf_RadioNgbrCellInfo_t*)le_ref_Lookup(tafRadio.ngbrCellInfoSafeRefMap, ngbrCellInfoRef);
+    TAF_ERROR_IF_RET_VAL(ngbrCellInfoPtr == NULL, UINT64_MAX, "Invalid para(null ptr)");
+
+    switch (ngbrCellInfoPtr->cell.rat)
+    {
+        case TAF_RADIO_RAT_GSM:
+            return (uint64_t)ngbrCellInfoPtr->cell.gsm.cid;
+        case TAF_RADIO_RAT_UMTS:
+            return (uint64_t)ngbrCellInfoPtr->cell.umts.cid;
+        case TAF_RADIO_RAT_TDSCDMA:
+            return (uint64_t)ngbrCellInfoPtr->cell.tdscdma.cid;
+        case TAF_RADIO_RAT_LTE:
+            return (uint64_t)ngbrCellInfoPtr->cell.lte.cid;
+        case TAF_RADIO_RAT_NR5G:
+            return (uint64_t)ngbrCellInfoPtr->cell.nr5g.cid;
+        default:
+            LE_ERROR("Invalid RAT(%d)", ngbrCellInfoPtr->cell.rat);
+    }
+
+    return UINT64_MAX;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get neighbor cell Location Area Code.
+ *
+ * @return
+ *  - UINT32_MAX Invalid Radio Access Technology or neighbor cell information reference.
+ *  - Others     Neighbor cell Location Area Code.
+ */
+//--------------------------------------------------------------------------------------------------
+uint32_t taf_radio_GetNeighborCellLocAreaCode
+(
+    taf_radio_CellInfoRef_t ngbrCellInfoRef ///< [IN] Neighbor cell information reference.
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    taf_RadioNgbrCellInfo_t* ngbrCellInfoPtr =
+        (taf_RadioNgbrCellInfo_t*)le_ref_Lookup(tafRadio.ngbrCellInfoSafeRefMap, ngbrCellInfoRef);
+    TAF_ERROR_IF_RET_VAL(ngbrCellInfoPtr == NULL, UINT32_MAX, "Invalid para(null ptr)");
+
+    switch (ngbrCellInfoPtr->cell.rat)
+    {
+        case TAF_RADIO_RAT_GSM:
+            return (uint32_t)ngbrCellInfoPtr->cell.gsm.lac;
+        case TAF_RADIO_RAT_UMTS:
+            return (uint32_t)ngbrCellInfoPtr->cell.umts.lac;
+        case TAF_RADIO_RAT_TDSCDMA:
+            return (uint32_t)ngbrCellInfoPtr->cell.tdscdma.lac;
+        default:
+            LE_ERROR("Invalid RAT(%d)", ngbrCellInfoPtr->cell.rat);
+    }
+
+    return UINT32_MAX;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get neighbor cell signal strengh.
+ *
+ * @return
+ *  - INT32_MAX Invalid Radio Access Technology or neighbor cell information reference.
+ *  - Others    Neighbor cell signal strengh.
+ */
+//--------------------------------------------------------------------------------------------------
+int32_t taf_radio_GetNeighborCellRxLevel
+(
+    taf_radio_CellInfoRef_t ngbrCellInfoRef ///< [IN] Neighbor cell information reference.
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    taf_RadioNgbrCellInfo_t* ngbrCellInfoPtr =
+        (taf_RadioNgbrCellInfo_t*)le_ref_Lookup(tafRadio.ngbrCellInfoSafeRefMap, ngbrCellInfoRef);
+    TAF_ERROR_IF_RET_VAL(ngbrCellInfoPtr == NULL, INT32_MAX, "Invalid para(null ptr)");
+
+    return (int32_t)ngbrCellInfoPtr->cell.ss;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get neighbor cell Radio Access Technology
+ *
+ * @return
+ *  - TAF_RADIO_RAT_UNKNOWN Invalid neighbor cell information reference.
+ *  - Others                Radio Access Technology.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_Rat_t taf_radio_GetNeighborCellRat
+(
+    taf_radio_CellInfoRef_t ngbrCellInfoRef ///< [IN] Neighbor cell information reference.
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    taf_RadioNgbrCellInfo_t* ngbrCellInfoPtr =
+        (taf_RadioNgbrCellInfo_t*)le_ref_Lookup(tafRadio.ngbrCellInfoSafeRefMap, ngbrCellInfoRef);
+    TAF_ERROR_IF_RET_VAL(ngbrCellInfoPtr == NULL, TAF_RADIO_RAT_UNKNOWN, "Invalid para(null ptr)");
+
+    return ngbrCellInfoPtr->cell.rat;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get neighbor cell GSM Base Station Identity Code.
+ *
+ * @return
+ *  - LE_FAULT     Invalid Radio Access Technology.
+ *  - LE_OK        On success.
+ *  - LE_NOT_FOUND Reference not found.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetNeighborCellGsmBsic
+(
+    taf_radio_CellInfoRef_t ngbrCellInfoRef, ///< [IN] Neighbor cell information reference.
+    uint8_t* bsicPtr                         ///< [OUT] Base Station Identity Code.
+)
+{
+    TAF_ERROR_IF_RET_VAL(bsicPtr == NULL, LE_FAULT, "Invalid para(null ptr)");
+
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    taf_RadioNgbrCellInfo_t* ngbrCellInfoPtr =
+        (taf_RadioNgbrCellInfo_t*)le_ref_Lookup(tafRadio.ngbrCellInfoSafeRefMap, ngbrCellInfoRef);
+    TAF_ERROR_IF_RET_VAL(ngbrCellInfoPtr == NULL, LE_NOT_FOUND, "Invalid para(null ptr)");
+
+    TAF_ERROR_IF_RET_VAL(ngbrCellInfoPtr->cell.rat != TAF_RADIO_RAT_GSM, LE_FAULT, "Not GSM cell.");
+
+    *bsicPtr = (uint8_t)ngbrCellInfoPtr->cell.gsm.bsic;
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get neighbor cell LTE Physical Cell ID.
+ *
+ * @return
+ *  - UINT16_MAX Invalid Radio Access Technology or neighbor cell information reference.
+ *  - Others Physical Cell ID.
+ */
+//--------------------------------------------------------------------------------------------------
+uint16_t taf_radio_GetPhysicalNeighborLteCellId
+(
+    taf_radio_CellInfoRef_t ngbrCellInfoRef ///< [IN] Neighbor cell information reference.
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    taf_RadioNgbrCellInfo_t* ngbrCellInfoPtr =
+        (taf_RadioNgbrCellInfo_t*)le_ref_Lookup(tafRadio.ngbrCellInfoSafeRefMap, ngbrCellInfoRef);
+    TAF_ERROR_IF_RET_VAL(ngbrCellInfoPtr == NULL, UINT16_MAX, "Invalid para(null ptr)");
+
+    TAF_ERROR_IF_RET_VAL(ngbrCellInfoPtr->cell.rat != TAF_RADIO_RAT_LTE, UINT16_MAX,
+        "Not LTE cell.");
+
+    return (uint16_t)ngbrCellInfoPtr->cell.lte.pcid;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get neighbor cell NR5G Physical Cell ID.
+ *
+ * @return
+ *  - UINT32_MAX Invalid Radio Access Technology or neighbor cell information reference.
+ *  - Others Physical Cell ID.
+ */
+//--------------------------------------------------------------------------------------------------
+uint32_t taf_radio_GetPhysicalNeighborNrCellId
+(
+    taf_radio_CellInfoRef_t ngbrCellInfoRef ///< [IN] Neighbor cell information reference.
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    taf_RadioNgbrCellInfo_t* ngbrCellInfoPtr =
+        (taf_RadioNgbrCellInfo_t*)le_ref_Lookup(tafRadio.ngbrCellInfoSafeRefMap, ngbrCellInfoRef);
+    TAF_ERROR_IF_RET_VAL(ngbrCellInfoPtr == NULL, UINT32_MAX, "Invalid para(null ptr)");
+
+    TAF_ERROR_IF_RET_VAL(ngbrCellInfoPtr->cell.rat != TAF_RADIO_RAT_NR5G, UINT32_MAX,
+        "Not NR5G cell.");
+
+    return ngbrCellInfoPtr->cell.nr5g.pcid;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get 2G/3G band capabilities.
+ *
+ * @return
+ *  - LE_FAULT         On failure.
+ *  - LE_OK            On success.
+ *  - LE_BAD_PARAMETER Invalid parameters.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetBandCapabilities
+(
+    taf_radio_BandBitMask_t* bandMaskPtr, ///< [OUT] 2G/3G band capabilities.
+    uint8_t phoneId                       ///< [IN] Phone ID.
+)
+{
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
+        "Invalid para(phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(bandMaskPtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandMaskPtr)");
+
+    return taf_pa_radio_GetBandCapabilities(bandMaskPtr, phoneId);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get LTE band capabilities.
+ *
+ * @return
+ *  - LE_FAULT         On failure.
+ *  - LE_OK            On success.
+ *  - LE_BAD_PARAMETER Invalid parameters.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetLteBandCapabilities
+(
+    uint64_t* bandMaskPtr,   ///< [OUT] LTE band capabilities.
+    size_t* bandMaskSizePtr, ///< [OUT] The size of LTE band capabilities.
+    uint8_t phoneId          ///< [IN] Phone ID.
+)
+{
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
+        "Invalid para(phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(bandMaskPtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandMaskPtr)");
+
+    TAF_ERROR_IF_RET_VAL(bandMaskSizePtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandMaskSizePtr)");
+
+    return taf_pa_radio_GetLteBandCapabilities(bandMaskPtr, bandMaskSizePtr, phoneId);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set 2G/3G band preferences.
+ *
+ * @return
+ *  - LE_FAULT         On failure.
+ *  - LE_OK            On success.
+ *  - LE_BAD_PARAMETER Invalid parameters.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_SetBandPreferences
+(
+    taf_radio_BandBitMask_t bandMask, ///< [IN] 2G/3G band preferences.
+    uint8_t phoneId                   ///< [IN] Phone ID.
+)
+{
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
+        "Invalid para(phoneId:%d)", phoneId);
+
+    return taf_pa_radio_SetBandPreferences(bandMask, phoneId);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get 2G/3G band preferences.
+ *
+ * @return
+ *  - LE_FAULT         On failure.
+ *  - LE_OK            On success.
+ *  - LE_BAD_PARAMETER Invalid parameters.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetBandPreferences
+(
+    taf_radio_BandBitMask_t* bandMaskPtr, ///< [OUT] 2G/3G band preferences.
+    uint8_t phoneId                       ///< [IN] Phone ID.
+)
+{
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
+        "Invalid para(phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(bandMaskPtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandMaskPtr)");
+
+    return taf_pa_radio_GetBandPreferences(bandMaskPtr, phoneId);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set LTE band preferences.
+ *
+ * @return
+ *  - LE_FAULT         On failure.
+ *  - LE_OK            On success.
+ *  - LE_BAD_PARAMETER Invalid parameters.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_SetLteBandPreferences
+(
+    const uint64_t* bandMask, ///< [IN] LTE band preferences.
+    size_t bandMaskSize,      ///< [IN] The size of LTE band preferences.
+    uint8_t phoneId           ///< [IN] Phone ID.
+)
+{
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
+        "Invalid para(phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(bandMask == NULL, LE_BAD_PARAMETER, "Null ptr(bandMask)");
+
+    TAF_ERROR_IF_RET_VAL(bandMaskSize < TAF_RADIO_LTE_BAND_GROUP_NUM, LE_BAD_PARAMETER,
+        "Invalid para(bandMaskSize:%d)", bandMaskSize);
+
+    return taf_pa_radio_SetLteBandPreferences(bandMask, bandMaskSize, phoneId);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get LTE band preferences.
+ *
+ * @return
+ *  - LE_FAULT         On failure.
+ *  - LE_OK            On success.
+ *  - LE_BAD_PARAMETER Invalid parameters.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetLteBandPreferences
+(
+    uint64_t* bandMaskPtr,   ///< [OUT] LTE band preferences.
+    size_t* bandMaskSizePtr, ///< [OUT] The size of LTE band preferences.
+    uint8_t phoneId          ///< [IN] Phone ID.
+)
+{
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
+        "Invalid para(phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(bandMaskPtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandMaskPtr)");
+
+    TAF_ERROR_IF_RET_VAL(bandMaskSizePtr == NULL, LE_BAD_PARAMETER, "Null ptr(bandMaskSizePtr)");
+
+    return taf_pa_radio_GetLteBandPreferences(bandMaskPtr, bandMaskSizePtr, phoneId);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Cet cellular network radio access technology.
+ *
+ * @return
+ *  - TAF_RADIO_RAT_UNKNOWN Invalid parameters or internal errors.
+ *  - Others                Radio Access Technology.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_Rat_t taf_radio_GetCellularNetworkRat
+(
+    taf_radio_ScanInformationRef_t scanInformationRef ///< [IN] Network scan information reference.
+)
+{
+    TAF_ERROR_IF_RET_VAL(scanInformationRef == nullptr, TAF_RADIO_RAT_UNKNOWN,
+        "Null reference(scanInformationRef)");
+
+    auto &tafRadio = taf_Radio::GetInstance();
+    taf_RadioScanOp_t* opPtr = (taf_RadioScanOp_t*)le_ref_Lookup(tafRadio.scanOpSafeRefMap,
+        scanInformationRef);
+    TAF_ERROR_IF_RET_VAL(opPtr == nullptr, TAF_RADIO_RAT_UNKNOWN, "Invalid para(null ptr)");
+
+    switch (opPtr->rat)
+    {
+        case telux::tel::RadioTechnology::RADIO_TECH_GSM:
+            return TAF_RADIO_RAT_GSM;
+        case telux::tel::RadioTechnology::RADIO_TECH_UMTS:
+            return TAF_RADIO_RAT_UMTS;
+        case telux::tel::RadioTechnology::RADIO_TECH_1xRTT:
+        case telux::tel::RadioTechnology::RADIO_TECH_EVDO_0:
+        case telux::tel::RadioTechnology::RADIO_TECH_EVDO_A:
+            return TAF_RADIO_RAT_CDMA;
+        case telux::tel::RadioTechnology::RADIO_TECH_TD_SCDMA:
+            return TAF_RADIO_RAT_TDSCDMA;
+        case telux::tel::RadioTechnology::RADIO_TECH_LTE:
+        case telux::tel::RadioTechnology::RADIO_TECH_LTE_CA:
+            return TAF_RADIO_RAT_LTE;
+        case telux::tel::RadioTechnology::RADIO_TECH_NR5G:
+            return TAF_RADIO_RAT_NR5G;
+        default:
+            LE_WARN("Unknown RAT(%d).", (int)opPtr->rat);
+    }
+
+    return TAF_RADIO_RAT_UNKNOWN;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Perform network scan with Pysical Cell ID.
+ *
+ * @return
+ *  - NULL   Invalid parameters or internal errors.
+ *  - Others Handler reference of performing network scan with Pysical Cell ID.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_PciScanInformationListRef_t taf_radio_PerformPciNetworkScan
+(
+    taf_radio_RatBitMask_t ratMask, ///< [IN] Radio Access Technology bitmask, not support NR5G.
+    uint8_t phoneId                 ///< [IN] Phone ID.
+)
+{
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, NULL,
+        "Invalid para(phoneId:%d)", phoneId);
+
+    return taf_pa_radio_PerformPciNetworkScan(ratMask, phoneId);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Perform PCI network scan asynchronously.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_radio_PerformPciNetworkScanAsync
+(
+    taf_radio_RatBitMask_t ratMask,                   ///< [IN] Radio Access Technology bitmask.
+    taf_radio_PciNetworkScanHandlerFunc_t handlerPtr, ///< [IN] Handler function for PCI network scan.
+    void* contextPtr,                                 ///< [IN] Handler context.
+    uint8_t phoneId                                   ///< [IN] Phone ID.
+)
+{
+    TAF_ERROR_IF_RET_NIL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM,
+        "Invalid para(phoneId:%d)", phoneId);
+
+    taf_RadioCmdReq_t cmdReq;
+    memset(&cmdReq, 0, sizeof(taf_RadioCmdReq_t));
+    cmdReq.cmdType = TAF_RADIO_CMD_TYPE_ASYNC_PCI_NETWORK_SCAN;
+    cmdReq.handlerFuncPtr = (void*)handlerPtr;
+    cmdReq.contextPtr = contextPtr;
+    cmdReq.phoneId = phoneId;
+    cmdReq.ratMask = ratMask;
+
+    le_event_Report(taf_Radio::radioCmdEvId, &cmdReq, sizeof(taf_RadioCmdReq_t));
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the first PCI network scan information reference.
+ *
+ * @return
+ *  - NULL   Invalid parameters or internal errors.
+ *  - Others PCI network scan information reference.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_PciScanInformationRef_t taf_radio_GetFirstPciScanInfo
+(
+    taf_radio_PciScanInformationListRef_t pciScanInformationListRef
+        ///< [IN] PCI network scan information list reference.
+)
+{
+    TAF_ERROR_IF_RET_VAL(pciScanInformationListRef == NULL, NULL,
+        "Null reference(pciScanInformationListRef)");
+
+    return taf_pa_radio_GetFirstPciScanInfo(pciScanInformationListRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the next PCI network scan information reference.
+ *
+ * @return
+ *  - NULL   Invalid parameters or internal errors.
+ *  - Others PCI network scan information reference.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_PciScanInformationRef_t taf_radio_GetNextPciScanInfo
+(
+    taf_radio_PciScanInformationListRef_t pciScanInformationListRef
+        ///< [IN] PCI network scan information list reference.
+)
+{
+    TAF_ERROR_IF_RET_VAL(pciScanInformationListRef == NULL, NULL,
+        "Null reference(pciScanInformationListRef)");
+
+    return taf_pa_radio_GetNextPciScanInfo(pciScanInformationListRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the first PLMN network information reference.
+ *
+ * @return
+ *  - NULL   Invalid parameters or internal errors.
+ *  - Others PLMN network scan information reference.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_PlmnInformationRef_t taf_radio_GetFirstPlmnInfo
+(
+    taf_radio_PciScanInformationRef_t pciScanInformationRef
+        ///< [IN] PCI network scan information reference.
+)
+{
+    TAF_ERROR_IF_RET_VAL(pciScanInformationRef == NULL, NULL,
+        "Null reference(pciScanInformationRef)");
+
+    return taf_pa_radio_GetFirstPlmnInfo(pciScanInformationRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the next PLMN network information reference.
+ *
+ * @return
+ *  - NULL   Invalid parameters or internal errors.
+ *  - Others PLMN network scan information reference.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_PlmnInformationRef_t taf_radio_GetNextPlmnInfo
+(
+    taf_radio_PciScanInformationRef_t pciScanInformationRef
+        ///< [IN] PCI network scan information reference.
+)
+{
+    TAF_ERROR_IF_RET_VAL(pciScanInformationRef == NULL, NULL,
+        "Null reference(pciScanInformationRef)");
+
+    return taf_pa_radio_GetNextPlmnInfo(pciScanInformationRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get PCI network scan Cell ID.
+ *
+ * @return
+ *  - UINT16_MAX Invalid parameters or internal errors.
+ *  - Others     Cell ID.
+ */
+//--------------------------------------------------------------------------------------------------
+uint16_t taf_radio_GetPciScanCellId
+(
+    taf_radio_PciScanInformationRef_t pciScanInformationRef
+        ///< [IN] PCI network scan information reference.
+)
+{
+    TAF_ERROR_IF_RET_VAL(pciScanInformationRef == NULL, UINT16_MAX,
+        "Null reference(pciScanInformationRef)");
+
+    return taf_pa_radio_GetPciScanCellId(pciScanInformationRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get PCI network scan Global Cell ID.
+ *
+ * @return
+ *  - UINT32_MAX Invalid parameters or internal errors.
+ *  - Others     Global Cell ID.
+ */
+//--------------------------------------------------------------------------------------------------
+uint32_t taf_radio_GetPciScanGlobalCellId
+(
+    taf_radio_PciScanInformationRef_t pciScanInformationRef
+        ///< [IN] PCI network scan information reference.
+)
+{
+    TAF_ERROR_IF_RET_VAL(pciScanInformationRef == NULL, UINT32_MAX,
+        "Null reference(pciScanInformationRef)");
+
+    return taf_pa_radio_GetPciScanGlobalCellId(pciScanInformationRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get MCC and MNC of PLMN information from PCI network scan.
+ *
+ * @return
+ *  - LE_FAULT         On failure.
+ *  - LE_OK            On success.
+ *  - LE_BAD_PARAMETER Invalid parameters.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetPciScanMccMnc
+(
+    taf_radio_PlmnInformationRef_t plmnRef, ///< [IN] PLMN network scan information reference.
+    char* mccPtr,                           ///< [OUT] Mobile Country Code.
+    size_t mccPtrSize,                      ///< [IN] The size of Mobile Country Code string.
+    char* mncPtr,                           ///< [OUT] Mobile Network Code.
+    size_t mncPtrSize                       ///< [IN] The size of Mobile Network Code string.
+)
+{
+    TAF_ERROR_IF_RET_VAL(plmnRef == NULL, LE_BAD_PARAMETER, "Null reference(plmnRef)");
+
+    TAF_ERROR_IF_RET_VAL(mccPtr == NULL, LE_BAD_PARAMETER, "Null ptr(mccPtr)");
+
+    TAF_ERROR_IF_RET_VAL(mncPtr == NULL, LE_BAD_PARAMETER, "Null ptr(mncPtr)");
+
+    TAF_ERROR_IF_RET_VAL(mccPtrSize < TAF_RADIO_MCC_BYTES, LE_BAD_PARAMETER,
+        "Invalid para(mccPtrSize: %d < %d)", mccPtrSize, TAF_RADIO_MCC_BYTES);
+
+    TAF_ERROR_IF_RET_VAL(mncPtrSize < TAF_RADIO_MNC_BYTES, LE_BAD_PARAMETER,
+        "Invalid para(mncPtrSize: %d < %d)", mncPtrSize, TAF_RADIO_MNC_BYTES);
+
+    return taf_pa_radio_GetPciScanMccMnc(plmnRef, mccPtr, mccPtrSize, mncPtr, mncPtrSize);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Delete PCI network scan.
+ *
+ * @return
+ *  - LE_FAULT         On failure.
+ *  - LE_OK            On success.
+ *  - LE_BAD_PARAMETER Invalid parameters.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_DeletePciNetworkScan
+(
+    taf_radio_PciScanInformationListRef_t pciScanInformationListRef
+        ///< [IN] PCI network scan information list reference.
+)
+{
+    TAF_ERROR_IF_RET_VAL(pciScanInformationListRef == NULL, LE_BAD_PARAMETER,
+        "Null reference(pciScanInformationListRef)");
+
+    return taf_pa_radio_DeletePciNetworkScan(pciScanInformationListRef);
 }

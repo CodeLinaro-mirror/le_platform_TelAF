@@ -1192,6 +1192,7 @@ le_result_t taf_Gnss::SetConstellation
     SvBlackList svBlackList;
     telux::loc::SvBlackListInfo blackListInfo;
     bool deviceReset = false;
+    blackListInfo.constellation = telux::loc::GnssConstellationType::UNKNOWN;
 
     switch (constellationMask)
     {
@@ -3691,6 +3692,11 @@ le_result_t taf_Gnss::RobustLocationInformation
     le_result_t result = LE_OK;
     mRequestRobLoc = false;
     LE_INFO("RobustLocationInformation");
+    if((enable == NULL) || (enabled911 == NULL)
+        || (majorVersion == NULL) || (minorVersion == NULL))
+    {
+        return LE_FAULT;
+    }
     switch (GnssState)
     {
         case TAF_GNSS_STATE_DISABLED:

@@ -180,7 +180,7 @@
  * @section taf_ecall_timer_configuration NAD eCall deregistration time
  *
  * Network Access Device (NAD), i.e. the modem, deregistration allows the device to remain
- * registered to the network for an amount of time after the eCall is ended either remotely or
+ * registered to the network for an amount of time after the eCall is ended, either remotely or
  * the user hangs up locally using taf_ecall_End().
  * The deregistration duration can be set using the taf_ecall_SetNadDeregistrationTime() API and
  * retrieved using the taf_ecall_GetNadDeregistrationTime() API.

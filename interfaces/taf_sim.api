@@ -1139,10 +1139,10 @@ FUNCTION le_result_t WriteFPLMNList
 
 //------------------------------------------------------------------------------------------------
 /**
- * Retrieves total number of SIM slots in the device.
+ * Retrieves the total number of SIM slots in the device.
  *
  * @return LE_FAULT            Failed to retrieve the slot count.
- * @return LE_OK               The slot count retrieved successfully.
+ * @return LE_OK               The slot count was retrieved successfully.
  *
  */
 //------------------------------------------------------------------------------------------------

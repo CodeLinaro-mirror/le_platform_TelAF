@@ -919,7 +919,7 @@ FUNCTION le_result_t GetLocation
  *
  * @note directionPtr and directionAccuracyPtr can be set to NULL if not needed.
  *
- * @note If the caller is passing an invalid position sample reference into this function,
+ * @note If the caller passes an invalid position sample reference to this function,
  *       it is a fatal error and the function will not return.
  */
 //--------------------------------------------------------------------------------------------------

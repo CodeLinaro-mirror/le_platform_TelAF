@@ -264,11 +264,11 @@ FUNCTION le_result_t Delete
 //--------------------------------------------------------------------------------------------------
 /**
  * Answers an incoming or a waiting call. The call reference can be retrieved from the call state
- * handler.If a Waiting call is being answered and the existing call is Active, then existing call
- * will move to Hold state.If the existing call is on Hold already, then it will remain on Hold.
- * The waiting call state transition from Waiting to Active. If a Waiting call is being answered
- * and the existing call is Active, then existing call will move to Hold state.If the existing call
- * is on Hold already, then it will remain on Hold. The waiting call state transition from Waiting
+ * handler.If a Waiting call is being answered and the existing call is Active, then the existing call
+ * will move to Hold state. If the existing call is on Hold already, then it will remain on Hold.
+ * The waiting call state transitions from Waiting to Active. If a Waiting call is being answered
+ * and the existing call is Active, then the existing call will move to Hold state. If the existing call
+ * is on Hold already, then it will remain on Hold. The waiting call state transitions from Waiting
  * to Active.
  *
  * @return
@@ -328,7 +328,7 @@ FUNCTION le_result_t Resume
 //--------------------------------------------------------------------------------------------------
 /**
  * Swaps calls to make one active and put the another on hold.
- * This should be two calls and one is on holding state and the another is on active state.
+ * This should be two calls, where one is in the holding state and the another is in the active state.
  *
  * @return
  * - LE_OK -- Succeeded.

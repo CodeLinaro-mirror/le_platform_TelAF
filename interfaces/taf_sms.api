@@ -967,7 +967,7 @@ FUNCTION le_result_t UnlockFromStorage
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the SMS center address for specified phone ID.
+ * Gets the SMS center address for the specified phone ID.
  *
  * @return
  * - LE_OVERFLOW -- Input buffer len is not enough.
@@ -984,7 +984,7 @@ FUNCTION le_result_t GetSmsCenterAddress
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets the SMS center address for specified phone ID.
+ * Sets the SMS center address for the specified phone ID.
  *
  * @return
  * - LE_OVERFLOW -- Input buffer len is not enough.
@@ -1047,7 +1047,7 @@ FUNCTION le_result_t SendPduMsg
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Activates cell broadcast for specified phone ID.
+ * Activates cell broadcast for the specified phone ID.
  *
  * @return
  * - LE_TIMEOUT -- Timeout occurred.
@@ -1062,7 +1062,7 @@ FUNCTION le_result_t ActivateCellBroadcast
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Deactivates cell broadcast for specified phone ID.
+ * Deactivates cell broadcast for the specified phone ID.
  *
  * @return
  * - LE_FAULT -- Failed.
@@ -1077,7 +1077,7 @@ FUNCTION le_result_t DeactivateCellBroadcast
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Add cell broadcast message range of identifier for specified phone ID.
+ * Adds cell broadcast message range of identifier for the specified phone ID.
  *
  * @return
  * - LE_BAD_PARAMETER -- Invalid input.
@@ -1095,7 +1095,7 @@ FUNCTION le_result_t AddCellBroadcastIds
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Remove cell broadcast range of message identifiers for specified phone ID.
+ * Removes cell broadcast range of message identifiers for the specified phone ID.
  *
  * @return
  * - LE_BAD_PARAMETER -- Invalid input.

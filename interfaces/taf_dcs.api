@@ -130,9 +130,9 @@
  *
  * @section c_taf_dcs_roaming_status Roaming status
  *
- * Data call service provides API to get roaming status, register the handler to track roaming
- * status change. Once the roaming status changes, the application registered handler is called
- * with the new roaming status.
+ * Data call service provides the APIs to get the roaming status and register the handler to track
+ * the roaming status change. Once the roaming status changes, the application registered handler
+ * is called with the new roaming status.
  *
  * @verbatim
    roamingStatusHandlerRef = taf_dcs_AddRoamingStatusHandler(
@@ -140,9 +140,9 @@
    @endverbatim
  *
  * To remove the handler, an application can use
- * taf_dcs_RemoveRoamingStatusHandler(roamingStatusHandlerRef);
+ * taf_dcs_RemoveRoamingStatusHandler(roamingStatusHandlerRef);.
  *
- * The following APIs are added for roaming status and APN type
+ * The following APIs are added for roaming status and APN types:
  *
  * - taf_dcs_AddRoamingStatusHandler() -- Adds a handler for roaming status.
  * - taf_dcs_RemoveRoamingStatusHandler() -- Removes a handler for roaming status.
@@ -361,14 +361,14 @@ ENUM Pdp
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The roaming Type.
+ * The roaming type.
  */
 //--------------------------------------------------------------------------------------------------
 ENUM RoamingType
 {
     ROAMING_UNKNOWN,                        ///< Unknown.
-    ROAMING_DOMESTIC,                       ///< Device is in domestic roaming network
-    ROAMING_INTERNATIONAL                   ///< Device is in international roaming network
+    ROAMING_DOMESTIC,                       ///< Device is in a domestic roaming network.
+    ROAMING_INTERNATIONAL                   ///< Device is in an international roaming network.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -390,18 +390,18 @@ BITMASK Auth
 //--------------------------------------------------------------------------------------------------
 BITMASK ApnType
 {
-    APN_TYPE_DEFAULT,                       ///< APN type for default/internet traffic
-    APN_TYPE_IMS,                           ///< APN type for the IP multimedia subsystem
-    APN_TYPE_MMS,                           ///< APN type for the multimedia messaging service
-    APN_TYPE_DUN,                           ///< APN type for the dial up network
-    APN_TYPE_SUPL,                          ///< APN type for secure user plane location
-    APN_TYPE_HIPRI,                         ///< APN type for high priority mobile data
-    APN_TYPE_FOTA,                          ///< APN type for over the air administration
-    APN_TYPE_CBS,                           ///< APN type for carrier branded services
-    APN_TYPE_IA,                            ///< APN type for initial attach
-    APN_TYPE_EMERGENCY,                     ///< APN type for emergency
-    APN_TYPE_UT,                            ///< APN type for UT
-    APN_TYPE_MCX                            ///< APN type for mission critical service
+    APN_TYPE_DEFAULT,                       ///< APN type for default/internet traffic.
+    APN_TYPE_IMS,                           ///< APN type for the IP multimedia subsystem.
+    APN_TYPE_MMS,                           ///< APN type for the multimedia messaging service.
+    APN_TYPE_DUN,                           ///< APN type for the dial up network.
+    APN_TYPE_SUPL,                          ///< APN type for secure user plane location.
+    APN_TYPE_HIPRI,                         ///< APN type for high priority mobile data.
+    APN_TYPE_FOTA,                          ///< APN type for over the air administration.
+    APN_TYPE_CBS,                           ///< APN type for carrier branded services.
+    APN_TYPE_IA,                            ///< APN type for initial attach.
+    APN_TYPE_EMERGENCY,                     ///< APN type for emergency.
+    APN_TYPE_UT,                            ///< APN type for UT.
+    APN_TYPE_MCX                            ///< APN type for mission critical service.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -436,8 +436,9 @@ STRUCT StateInfo
 //--------------------------------------------------------------------------------------------------
 STRUCT RoamingStatusInd
 {
-    uint8 phoneId;                         ///< The phone id.
-    bool isRoaming;                        ///< True: Roaming on, False: Roaming off.
+    uint8 phoneId;                         ///< The phone ID.
+    bool isRoaming;                        ///< True means that roaming is on; False means that
+                                           ///  roaming is off.
     RoamingType type;                      ///< The roaming type. Valid only if roaming is on.
 };
 
@@ -450,7 +451,7 @@ STRUCT RoamingStatusInd
  * - LE_NOT_FOUND                    Parameter is invalid or couldn't create the data call.
  * - LE_OUT_OF_RANGE                 PDP type is unknown.
  * - LE_DUPLICATE                    If the data session is already connected for the given profile.
- * - LE_IN_PROGRESS                  The profile is in use and data call is in progress.
+ * - LE_IN_PROGRESS                  The profile is in use and a data call is in progress.
  * - LE_TIMEOUT                      Timed out when attempting to make the data call.
  * - LE_FAULT                        Failed to make the data call.
  */
@@ -495,7 +496,7 @@ FUNCTION StartSessionAsync
  * - LE_OUT_OF_RANGE                 PdpType type is unknown.
  * - LE_BAD_PARAMETER                Call context is NULL.
  * - LE_TIMEOUT                      Timeout to stop a data call.
- * - LE_IN_PROGRESS                  The profile is in use and data call is in progress.
+ * - LE_IN_PROGRESS                  The profile is in use and a data call is in progress.
  * - LE_FAULT                        Failed to stop a data call.
  */
 //--------------------------------------------------------------------------------------------------
@@ -589,8 +590,9 @@ EVENT RoamingStatus
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetRoamingStatus
 (
-    uint8  phoneId              IN,  ///< The phone id.
-    bool isRoaming              OUT, ///< True if Roaming on, false if not.
+    uint8  phoneId              IN,  ///< The phone ID.
+    bool isRoaming              OUT, ///< True means that roaming is on; False means that
+                                     ///  roaming is off.
     RoamingType type            OUT  ///< The roaming type. Valid only if roaming is on.
 );
 

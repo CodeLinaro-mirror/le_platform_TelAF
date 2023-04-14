@@ -1440,6 +1440,8 @@ le_result_t taf_sms_Send
       else{
          msgPtr->sendStatus = TAF_SMS_TXSTS_SENDING_FAILED;
       }
+
+      le_event_Report(mySms.MsgSendCallbackEvent, &msgRef, sizeof(taf_sms_MsgRef_t));
 #endif
 
    }
@@ -1464,6 +1466,8 @@ PARAMETERS     [IN] taf_sms_MsgRef_t msgRef: specific message
 
 RETURN VALUE   le_result_t
                   LE_NOT_FOUND: Invalid message
+                  LE_BAD_PARAMETER: Invalid storage
+                  LE_FAULT: Fail
                   LE_OK: Success
 
 SIDE EFFECTS
@@ -1481,11 +1485,12 @@ le_result_t taf_sms_DeleteFromStorage
 
    TAF_KILL_CLIENT_IF_RET_VAL(msgPtr == NULL, LE_NOT_FOUND, "Invalid msgPtr provided");
 
-   TAF_KILL_CLIENT_IF_RET_VAL(msgPtr->storage == TAF_SMS_STORAGE_UNKNOWN, LE_NO_MEMORY, "Invalid storage");
+   TAF_KILL_CLIENT_IF_RET_VAL(msgPtr->storage == TAF_SMS_STORAGE_UNKNOWN, LE_BAD_PARAMETER,
+                              "Invalid storage");
 
    le_result_t   res = LE_OK;
 
-   if (msgPtr->userCount == 1)
+   if (msgPtr->storage != TAF_SMS_STORAGE_NONE && msgPtr->userCount == 1)
    {
       res = taf_pa_sms_DelMsgFromStorage(msgPtr->storage, msgPtr->storageIdx);
    }
@@ -1505,7 +1510,8 @@ DEPENDENCIES   Get RX message
 PARAMETERS     [IN] taf_sms_Storage_t storage: specific storage
 
 RETURN VALUE   le_result_t
-
+                  LE_BAD_PARAMETER: Invalid storage
+                  LE_FAULT: Fail
                   LE_OK: Success
 
 SIDE EFFECTS
@@ -1517,7 +1523,8 @@ le_result_t taf_sms_DeleteAllFromStorage
    taf_sms_Storage_t storage
 )
 {
-   TAF_KILL_CLIENT_IF_RET_VAL(storage == TAF_SMS_STORAGE_UNKNOWN, LE_NO_MEMORY, "Invalid storage");
+   TAF_KILL_CLIENT_IF_RET_VAL(storage == TAF_SMS_STORAGE_UNKNOWN, LE_BAD_PARAMETER,
+                              "Invalid storage");
 
    auto &mySms = taf_Sms::GetInstance();
 
@@ -1539,6 +1546,7 @@ le_result_t taf_sms_DeleteAllFromStorage
          }
 
          taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(mySms.MsgRefMap, msgRef);
+         TAF_ERROR_IF_RET_VAL(msgPtr == nullptr, LE_FAULT, "msgPtr is nullptr!");
 
          if(msgPtr->storage == storage)
          {

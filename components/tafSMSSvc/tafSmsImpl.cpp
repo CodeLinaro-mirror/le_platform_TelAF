@@ -109,11 +109,14 @@ void taf_Handler::ProcessNewMessage(void* incomingMsgPtr)
 
    auto &sms = taf_Sms::GetInstance();
 
+   taf_sms_Msg_t *tafNewMsg = (taf_sms_Msg_t*)le_mem_ForceAlloc(sms.MsgPool);
+   memset(tafNewMsg, 0, sizeof(taf_sms_Msg_t));
+
    if(sms.sysPrefStorage == TAF_SMS_STORAGE_HLOS)
    {
       taf_pa_sms_Pdu_t pduMsg = {0};
 
-      pduMsg.storage = TAF_SMS_STORAGE_NONE;
+      pduMsg.storage = TAF_SMS_STORAGE_HLOS;
 
       le_hex_StringToBinary(newMsgPtr->pdu, strlen(newMsgPtr->pdu), pduMsg.data, sizeof(pduMsg.data));
 
@@ -123,10 +126,16 @@ void taf_Handler::ProcessNewMessage(void* incomingMsgPtr)
       TAF_ERROR_IF_RET_NIL(pduMsg.length > sizeof(pduMsg.data), "Invalid msg length(%d)", pduMsg.length);
 
       taf_pa_sms_StoreNewMsgToHLOS(&pduMsg);
+
+      tafNewMsg->storage = TAF_SMS_STORAGE_HLOS;
+      tafNewMsg->storageIdx = pduMsg.index;
    }
 
-   taf_sms_Msg_t *tafNewMsg = (taf_sms_Msg_t*)le_mem_ForceAlloc(sms.MsgPool);
-   memset(tafNewMsg, 0, sizeof(taf_sms_Msg_t));
+   if(sms.sysPrefStorage == TAF_SMS_STORAGE_SIM)
+   {
+      tafNewMsg->storage = TAF_SMS_STORAGE_SIM;
+      tafNewMsg->storageIdx = newMsgPtr->storageIdx;
+   }
 
    sms_PduMsg_t decodedPduMsg = {0};
    uint8_t pdu[TAF_SMS_PDU_BYTES] = {0};
@@ -158,6 +167,7 @@ void taf_Handler::ProcessSendMessage(void* context)
 {
    auto &sms = taf_Sms::GetInstance();
    taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(sms.MsgRefMap, sms.sendingMsgRef);
+   TAF_ERROR_IF_RET_NIL(msgPtr == nullptr, "msgPtr is nullptr!");
 
    auto smsManager = sms.smsManagers[msgPtr->phoneId - 1];
    smsManager->sendSms(std::string(msgPtr->text), std::string(msgPtr->tel), sms.smsSentCb, sms.smsDeliveryCb);
@@ -879,6 +889,7 @@ void taf_Sms::ReleaseSession
 le_result_t taf_Sms::sendMessage()
 {
    taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(MsgRefMap, sendingMsgRef);
+   TAF_ERROR_IF_RET_VAL(msgPtr == nullptr, LE_FAULT, "msgPtr is nullptr!");
 
    smsSentCb->msgRef = sendingMsgRef;
    auto smsManager = smsManagers[msgPtr->phoneId - 1];
@@ -1038,6 +1049,20 @@ void tafSmsListener::onIncomingSms(int phoneId, std::shared_ptr<SmsMessage> smsM
    le_utf8_Copy(newMsg.pdu, smsMsg->getPdu().c_str(), (TAF_SMS_PDU_BYTES * 2) + 1, NULL);
 
    LE_INFO("PDU: %s", smsMsg->getPdu().c_str());
+
+   if(sms.sysPrefStorage == TAF_SMS_STORAGE_SIM)
+   {
+      telux::tel::SmsMetaInfo metaInfo;
+      auto status = smsMsg->getMetaInfo(metaInfo);
+      if (status == telux::common::Status::SUCCESS)
+      {
+         newMsg.storageIdx = metaInfo.msgIndex;
+      }
+      else
+      {
+         LE_ERROR("get msg SIM index failed");
+      }
+   }
 
    le_event_Report(sms.NewMsgEvent, &newMsg, sizeof(newSms_t));
 }

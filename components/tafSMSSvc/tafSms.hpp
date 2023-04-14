@@ -261,8 +261,9 @@ namespace tafsvc {
 
    typedef struct
    {
-      char timestamp[TAF_SMS_TIMESTAMP_BYTES];
-      char pdu[(TAF_SMS_PDU_BYTES * 2) + 1];
+      char     timestamp[TAF_SMS_TIMESTAMP_BYTES];
+      char     pdu[(TAF_SMS_PDU_BYTES * 2) + 1];
+      uint32_t storageIdx;
    } newSms_t;
 
    typedef struct

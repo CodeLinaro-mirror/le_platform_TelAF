@@ -68,7 +68,7 @@ static char SMSCNumber[TAF_SMS_SMSC_ADDR_BYTES - 1];
 #define TEXT_PATTERN_EMPTY  ""
 #define TEXT_PATTERN_TEST   "Message from tafSMSSvc console app."
 #define BINARY_PATTERN      {0, 255}
-#define UCS2_PATTERN        {0x6E2C, 0x8A66}
+#define UCS2_PATTERN        {0x2C6E, 0x668A}
 
 #define PHONE_ID_PATTERN_1  1               // Phone ID to test
 
@@ -210,7 +210,7 @@ static void* SmsTxThread
         LE_TEST_OK(taf_sms_SetCallback(tmpMsg_ucs2, Callback_MsgSendStatus, NULL) == LE_OK,
                    "taf_sms_SetCallback - LE_OK");
 
-        LE_TEST_OK(taf_sms_SetUCS2(tmpMsg_ucs2, ucs2_pattern, sizeof(ucs2_pattern)) == LE_OK,
+        LE_TEST_OK(taf_sms_SetUCS2(tmpMsg_ucs2, ucs2_pattern, sizeof(ucs2_pattern)/sizeof(ucs2_pattern[0])) == LE_OK,
                    "taf_sms_SetUCS2 - LE_OK");
 
         LE_TEST_OK(taf_sms_Send(tmpMsg_ucs2) == LE_OK, "taf_sms_Send - LE_OK");

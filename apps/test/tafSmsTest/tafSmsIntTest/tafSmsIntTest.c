@@ -453,7 +453,7 @@ void Test_main
 
     le_thread_Start(le_thread_Create("SmsIntTestTx", Test_taf_sms_Send, NULL));
 
-    while(RxPassed == false || RxPassed == false)
+    while(RxPassed == false || TxPassed == false)
     {
         le_thread_Sleep(1);
     }

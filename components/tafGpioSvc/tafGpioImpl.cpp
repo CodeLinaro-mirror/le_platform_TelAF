@@ -455,7 +455,7 @@ void taf_Gpio::removeChangeCallback
     TAF_ERROR_IF_RET_NIL(NULL == handlerRef, "Invalid handler reference provided");
 
     le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&GpioHandlerList);
-    taf_GpioRef_t gpioRef;
+    taf_GpioRef_t gpioRef = NULL;
     while (linkHandlerPtr)
     {
         taf_InterruptHandlerCtx_t * handlerCtxPtr =
@@ -471,7 +471,7 @@ void taf_Gpio::removeChangeCallback
         }
     }
 
-    if (gpioRef->handlerCount == 0 && gpioRef->fdMonitorRef != NULL) {
+    if (gpioRef && gpioRef->handlerCount == 0 && gpioRef->fdMonitorRef != NULL) {
             LE_INFO("Stopping fd monitor");
             le_fdMonitor_Delete(gpioRef->fdMonitorRef);
             gpioRef->fdMonitorRef = NULL;
@@ -892,7 +892,7 @@ void taf_Gpio::inputMonitorHandlerFunc
     short events
 )
 {
-    taf_GpioRef_t tafGpioRef;
+    taf_GpioRef_t tafGpioRef = NULL;
     taf_Gpio gpio = getInstance();
     for(int i=0; i < gpio.numOfGpios; i++) {
         if(tafGpioRefPin[i]->fdMonitor == fd) {
@@ -901,7 +901,7 @@ void taf_Gpio::inputMonitorHandlerFunc
     }
 
     // Make sure the pin is in use and has listeners, this isn't a spurious interrupt
-    if (tafGpioRef->handlerCount == 0)
+    if (!tafGpioRef || tafGpioRef->handlerCount == 0)
     {
         LE_WARN("Spurious interrupt handled - ignoring");
         return;

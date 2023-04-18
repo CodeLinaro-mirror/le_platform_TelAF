@@ -1,5 +1,7 @@
 sandboxed: false
 
+username: telaf
+
 capability:
 {
         CAP_WAKE_ALARM

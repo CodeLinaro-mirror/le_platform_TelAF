@@ -420,7 +420,7 @@ bool taf_Can::IsFdSupported
     TAF_ERROR_IF_RET_VAL(canInfCtxPtr == NULL, false, "Invalid CAN interface provided");
 
     int sock = -1;
-    int mtu;
+    int mtu = -1;
     struct ifreq ifr;
     struct sockaddr_can addr;
     memset(&addr, 0, sizeof(addr));
@@ -688,7 +688,7 @@ void taf_Can::HandleCanCallback(void* reportPtr)
     taf_canEvent_t* eventPtr = (taf_canEvent_t*)reportPtr;
     TAF_ERROR_IF_RET_NIL(eventPtr == NULL, "eventPtr is Null");
 
-    bool isCanFdFrame;
+    bool isCanFdFrame = false;
     if (eventPtr->receiveFrame == CANFD_MTU)
     {
         isCanFdFrame = true;

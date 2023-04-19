@@ -2331,6 +2331,8 @@ taf_net_TunnelEntryListRef_t taf_L2tp::GetTunnelEntryList
             return NULL;
         }
 
+        TAF_ERROR_IF_RET_VAL(tunnelEntryListRefMap == NULL, NULL, "tunnelEntryListRefMap is null");
+
         iterRef = (le_ref_IterRef_t)le_ref_GetIterator(tunnelEntryListRefMap);
 
         if(iterRef != NULL && le_ref_GetValue(iterRef) != NULL
@@ -2855,6 +2857,9 @@ le_result_t taf_L2tp::GetSessionConfig
 )
 {
     int sessionNum=0;
+
+    TAF_ERROR_IF_RET_VAL(sessionConfigPtr == NULL, LE_BAD_PARAMETER,
+                         "Null pointer(sessionConfigPtr)");
     TAF_ERROR_IF_RET_VAL(tunnelEntryRef == NULL, LE_BAD_PARAMETER,
                          "Null reference(tunnelEntryRef)");
 

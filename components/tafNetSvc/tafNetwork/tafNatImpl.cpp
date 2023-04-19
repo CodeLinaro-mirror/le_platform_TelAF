@@ -520,6 +520,7 @@ taf_net_DestNatEntryListRef_t taf_Nat::GetDestNatEntryList(uint32_t profileId)
         while (!isAdded && (le_ref_NextNode(iterRef) == LE_OK))
         {
             existedDestNatEntryList = (taf_DestNatEntryList_t*) le_ref_GetValue(iterRef);
+            TAF_ERROR_IF_RET_VAL(existedDestNatEntryList == NULL, nullptr, "entry list is null");
 
             if (existedDestNatEntryList->profileId == profileId)
             {

@@ -464,8 +464,8 @@ void taf_Update::NotifyDownloadFail()
 void taf_Update::DownloadTimerHandler(le_timer_Ref_t timerRef)
 {
     taf_update_StateInd_t stateInd;
-    taf_update_ProgressState_t pState;
-    int percent, ret;
+    taf_update_ProgressState_t pState = TAF_UPDATE_PROGRESS_ERROR;
+    int percent = 0, ret;
     auto &tafUpdate = taf_Update::GetInstance();
 
     ret = taf_pa_update_GetProgress(&pState, &percent);

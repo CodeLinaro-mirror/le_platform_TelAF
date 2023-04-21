@@ -393,6 +393,7 @@ static int UpdateNickName() {
 COMPONENT_INIT
 {
     int status = EXIT_SUCCESS;
+    SimId = taf_sim_GetSelectedCard();
 
     if (le_arg_NumArgs() == 0 )
     {

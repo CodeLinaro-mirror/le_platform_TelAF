@@ -8,6 +8,7 @@ requires:
     api:
     {
         taf_rsp.api
+        taf_sim.api
     }
 }
 

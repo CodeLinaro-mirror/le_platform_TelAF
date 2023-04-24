@@ -30,7 +30,7 @@ endforeach()
 
 # Build console test apps
 set(APP_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build/TestApps/Console_testapp)
-set(TESTAPP_PATH  $ENV{TELAF_ROOT}/apps/ConsoleApp)
+set(TESTAPP_PATH  $ENV{TELAF_ROOT}/apps/test/ConsoleApp)
 file(GLOB_RECURSE CONSOLEAPP_ADEF_FILES ${TESTAPP_PATH}/*.adef)
 foreach( consoleappfile  ${CONSOLEAPP_ADEF_FILES} )
     message(STATUS "adef file: ${consoleappfile}")

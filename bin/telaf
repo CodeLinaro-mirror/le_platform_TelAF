@@ -8,6 +8,9 @@
 # version provides the current TelAF version
 
 TELAF_INSTALLED_VERSION=/legato/systems/current/version
+TELAF_STORAGE="df app"
+TELAF_DISK_TYPE="mount -l"
+TELAF_SECURITY="semodule -l"
 
 TELAF_ACTION=$1
 
@@ -38,7 +41,7 @@ TelafPrintUsage()
     echo -e "\ttelaf help\n\t\t:Displays TelAF usage help."
     echo -e "\ttelaf storage\n\t\t:Shows type and the disk/flash usage of telaf."
     echo -e "\ttelaf memory\n\t\t:Shows the memory usage of the telaf."
-    echo -e "\ttelaf security\n\t\t:Shows the selinux status."
+    echo -e "\ttelaf security\n\t\t:Shows the list of telaf selinux modules."
 }
 
 # Checks if a process with a given name is running or not.
@@ -189,7 +192,11 @@ RestartTelaf()
 TelafStorage()
 {
 
-   echo "telaf storage ->to be implemented."
+   echo -e "telaf type :"
+   $TELAF_DISK_TYPE | grep telaf | grep squashfs
+   echo -e "\n"
+   echo -e "disk/flash usage of telaf:"
+   $TELAF_STORAGE
 
 }
 
@@ -203,7 +210,8 @@ TelafMemory()
 TelafSecurity()
 {
 
-   echo "telaf security ->to be implemented."
+   echo "telaf SELinux modules list :"
+   $TELAF_SECURITY | grep taf | grep -v staff
 
 }
 

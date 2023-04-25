@@ -18,5 +18,6 @@ start: manual
 bindings:
 {
     rsp.rspComp.taf_rsp -> tafSimCardSvc.taf_rsp
+    rsp.rspComp.taf_sim -> tafSimCardSvc.taf_sim
 }
 

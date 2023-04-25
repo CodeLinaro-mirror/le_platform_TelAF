@@ -259,6 +259,42 @@
     taf_audio_Close(FileRef);
 
    @endverbatim
+ *
+ * @section c_taf_audio_record Audio capture
+ *
+ * To capture audio in PCM format with 16 bits per sample resolution, the following APIs
+ * should be called in sequence.
+ *
+ * @verbatim
+
+    InRef = taf_audio_OpenMic();
+    LE_ERROR_IF((NULL == InRef), "taf_audio_OpenMic returns NULL!");
+
+    InputConnectorRef  = taf_audio_CreateConnector();
+    LE_ERROR_IF((NULL == InputConnectorRef), "InputConnectorRef  is NULL!");
+
+    FileRef = taf_audio_OpenRecorder();
+    LE_ERROR_IF((NULL == FileRef), "OpenRecorder returns NULL!");
+
+    res = taf_audio_Connect(InputConnectorRef, InRef);
+    LE_ERROR_IF(res != LE_OK, "Failed to connect Mic on Input connector!");
+
+    res = taf_audio_Connect(InputConnectorRef , FileRef);
+    LE_ERROR_IF(res != LE_OK, "Failed to connect FileRecorder on input connector!");
+
+    // Default channel number is 1, and records on LEFT channel.
+    //Set to 2 for both LEFT & RIGHT channels
+    res = taf_audio_SetSamplePcmChannelNumber(FileAudioRef, 2);
+    LE_ERROR_IF(res != LE_OK, "Failed to set the channel number!");
+
+    int AudioFileFd=open(AudioFilePath, O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR);
+
+    if(AudioFileFd != -1) {
+        res = taf_audio_RecordFile(FileRef, AudioFileFd);
+        LE_ERROR_IF(res != LE_OK, "Failed to record the file!");
+    }
+
+   @endverbatim
  * <HR>
  *
  */
@@ -432,6 +468,30 @@ FUNCTION Stream OpenPlayer
 * - LE_OK            Success.
 */
 FUNCTION le_result_t PlayFile
+(
+    Stream streamRef IN, ///< Audio stream reference.
+    file fd  IN          ///< File descriptor.
+);
+
+/**
+ * Opens the audio stream for recording.
+ *
+ * @return Reference to an audio stream, NULL on error.
+ */
+FUNCTION Stream OpenRecorder
+(
+);
+
+/**
+* Records a file on the recorder stream.
+*
+* @return
+* - LE_FAULT         Failure.
+* - LE_BAD_PARAMETER Invalid stream reference.
+* - LE_BUSY          Already active.
+* - LE_OK            Success.
+*/
+FUNCTION le_result_t RecordFile
 (
     Stream streamRef IN, ///< Audio stream reference.
     file fd  IN          ///< File descriptor.
@@ -697,4 +757,73 @@ FUNCTION le_result_t SetSamplePcmSamplingRate
 (
     Stream      streamRef   IN,     ///< Audio stream reference.
     uint32      rate        IN      ///< Sampling rate.
+);
+
+/**
+ * Gets the sampling rate of the stream reference.
+ *
+ * @return
+ * - LE_FAULT         Failed.
+ * - LE_OK            Function succeeded.
+ */
+FUNCTION le_result_t GetSamplePcmSamplingRate
+(
+    Stream      streamRef   IN,     ///< Audio stream reference.
+    uint32      rate        OUT     ///< Sampling rate.
+);
+
+/**
+ * Sets the channel number for the stream reference.
+ *
+ * @return
+ * - LE_FAULT         Failed.
+ * - LE_OK            Succeeded.
+ */
+FUNCTION le_result_t SetSamplePcmChannelNumber
+(
+    Stream      streamRef IN,       ///< Audio stream reference.
+    uint32      nbChannel IN        ///< Channel number.
+);
+
+/**
+ * Gets the channel number of the recorder stream reference.
+ *
+ * @return
+ * - LE_FAULT         Failed.
+ * - LE_OK            Succeeded.
+ */
+FUNCTION le_result_t GetSamplePcmChannelNumber
+(
+    Stream      streamRef   IN,     ///< Audio stream reference.
+    uint32      nbChannel   OUT     ///< Channel number.
+);
+
+/**
+ * Sets the encoding format of a recorder stream reference.
+ *
+ * @return
+ * - LE_FAULT         Failed.
+ * - LE_OK            Succeeded.
+ */
+FUNCTION le_result_t SetEncodingFormat
+(
+    Stream          streamRef   IN,     ///< Audio stream reference.
+    Format          format      IN      ///< Encoding format.
+);
+
+/**
+ * Gets the encoding format of a recorder stream reference.
+ *
+ * @return
+ * - LE_FAULT         Failed.
+ * - LE_OK            Succeeded.
+ *
+ * @note A client calling this function with either an invalid
+ * streamRef or null out pointer parameter will be killed and the
+ * function will not return.
+ */
+FUNCTION le_result_t GetEncodingFormat
+(
+    Stream          streamRef   IN,     ///< Audio stream reference.
+    Format          format      OUT     ///< Encoding format.
 );

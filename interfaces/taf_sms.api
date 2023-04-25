@@ -181,15 +181,21 @@
  * - taf_sms_GetUserdataLen() Gets the data length of the content.
  * - taf_sms_GetText() -- Gets the text content of the message.
  * - taf_sms_GetUCS2() -- Gets the UCS2 text of the message.
- * - taf_sms_GetPDU() -- Gets the PDU format of the message.
+ * - taf_sms_GetPDU() -- Gets the PDU data of the message.
  * - taf_sms_GetSendStatus() -- Gets the sending status from the Tx message.
  * - taf_sms_GetReadStatus() -- Gets the read status from the Rx message.
  *
  * @section c_taf_sms_Storage Storage configuration
  *
- * SMS service provides two types of storage to store messages, SIM card and HLOS.
- * It is receommended to use HLOS to maintain storage since it offers a full-function storage mechanism, including different types of
- * storage indication, message encryption, and storage recycling mechanism.
+ * SMS service provides three types of storage to store messages: HLOS, SIM, and NONE. HLOS is set as the default and it encrypts received
+ * messages and stores them in the file system. SIM is for storing messages in SIM. NONE storage specifies that a message notification is
+ * provided, but not stored in the system.
+ *
+ * - TAF_SMS_STORAGE_NONE -- Notifies of the new message without saving it.
+ * - TAF_SMS_STORAGE_SIM -- Saves the message in SIM card storage.
+ * - TAF_SMS_STORAGE_HLOS -- Encrypts the message and saves it in the file system.
+ *
+ * Preferred storage configuration is persistent in service config tree and can be accessed by the following APIs.
  *
  * - taf_sms_SetPreferredStorage() -- Sets preferred storage.
  * - taf_sms_GetPreferredStorage() -- Gets preferred storage.
@@ -226,32 +232,47 @@
  *
  * @section taf_sms_usage_flow Typical application call flow
  *
- * @image html SMS_usage_flow.jpg
+ * - Message Sending
  *
- * The referenced application A and B can be two applications that are located in different NAD devices.
- * They communicate via the tafSMSSvc service on the corresponding NAD device.
+ * @image html SMS_usage_flow_sending.jpg
  *
- * #0 -- Set the message receiving handler to be able to receive any messages sent to the application.
+ * #0 -- Create the message, the following manipulation will use the returned message reference from service.
  *
- * #1 -- Create the message reference from the sender (application A).
+ * #1 -- Set the message content.
  *
- * #2 -- Set the message content.
+ * #2 -- Set the receiver's phone number.
  *
- * #3 -- Set the receiver's phone number.
+ * #3 -- Set the message callback to get the sending result.
  *
- * #4 -- Set the message callback to get the sending result.
+ * #4 -- Send the message.
  *
- * #5 -- Send the message.
+ * #5 -- Delete the message object if it is not used anymore.
  *
- * #6 -- Get the new message notification with the message reference.
+ * - Message Receiving
  *
- * #7 -- Get the sender's phone number.
+ * @image html SMS_usage_flow_receiving.jpg
  *
- * #8 -- Get the message content.
+ * #0 -- Set preferred storage to one of the storage types.
  *
- * #9 -- Mark the message as Read status.
+ * #1 -- Set the message receiving handler to be able to receive any messages sent to the application.
  *
- * #10 -- (Optional) Delete the message from storage.
+ * #2 -- Get the new message notification with the message reference.
+ *
+ * #3 -- Get the PDU data with the specified message reference.
+ *
+ * - Message Retrieving from storage
+ *
+ * @image html SMS_usage_flow_retrieving.jpg
+ *
+ * #0 -- Create the Rx message list for listing the messages stored in SIM and HLOS.
+ *
+ * #1 -- Get message reference of the first message from Rx message list.
+ *
+ * #2 -- Get the message reference of the next message from the Rx message list.
+ *
+ * #3 -- Delete the message with the specified message reference.
+ *
+ * #4 -- Delete the Rx message list after all manipulations are complete.
  *
  * <HR>
  *
@@ -800,7 +821,7 @@ FUNCTION le_result_t GetUCS2
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the message's PDU format.
+ * Gets the message's PDU data.
  *
  * @return
  * - LE_NOT_FOUND -- Invalid message.
@@ -812,7 +833,7 @@ FUNCTION le_result_t GetUCS2
 FUNCTION le_result_t GetPDU
 (
     Msg   msgRef,            ///< Message reference.
-    uint8 pdu[PDU_BYTES] OUT ///< Buffer to store PDU format.
+    uint8 pdu[PDU_BYTES] OUT ///< Buffer to store PDU data.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -890,6 +911,8 @@ FUNCTION le_result_t Send
  *
  * @return
  * - LE_NOT_FOUND -- Invalid message.
+ * - LE_BAD_PARAMETER -- Invalid storage.
+ * - LE_FAULT: Failed.
  * - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
@@ -905,6 +928,8 @@ FUNCTION le_result_t DeleteFromStorage
  * @note In the case of HLOS storage, this API only deletes unlocked messages.
  *
  * @return
+ * - LE_BAD_PARAMETER -- Invalid storage.
+ * - LE_FAULT: Failed.
  * - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------

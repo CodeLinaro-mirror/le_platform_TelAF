@@ -80,7 +80,7 @@
 #define TEXT_PATTERN_NUM    "0123456789 0123456789 0123456789 0123456789 0123456789"
 #define TEXT_PATTERN_SYMBOL "~!@#$^&*()_+{}:<>?"
 #define BINARY_PATTERN      {0, 255}
-#define UCS2_PATTERN        {0x6E2C, 0x8A66}
+#define UCS2_PATTERN        {0x2C6E, 0x668A}
 
 #define DEST_PATTERN_EMPTY  ""
 #define DEST_PATTERN_VALID  "0979334397"    // Use the same sim and device to send/receive message
@@ -594,7 +594,7 @@ static void* SmsTxThread
 
     LE_TEST_ASSERT(taf_sms_SetCallback(tmpMsg_ucs2, Callback_MsgSendStatus, NULL) == LE_OK, "Test taf_sms_SetCallback");
 
-    LE_TEST_ASSERT(taf_sms_SetUCS2(tmpMsg_ucs2, ucs2_pattern, sizeof(ucs2_pattern)) == LE_OK, "Test taf_sms_SetUCS2");
+    LE_TEST_ASSERT(taf_sms_SetUCS2(tmpMsg_ucs2, ucs2_pattern, sizeof(ucs2_pattern)/sizeof(ucs2_pattern[0])) == LE_OK, "Test taf_sms_SetUCS2");
 
     LE_TEST_ASSERT(taf_sms_Send(tmpMsg_ucs2) == LE_OK, "Test taf_sms_Send");
 
@@ -998,9 +998,6 @@ void Test_main
     LE_INFO("##### Test_taf_sms_DeleteAllMsgFromStorage OK #####");
 
     LE_INFO("##### taf SMS unit test PASS #####");
-
-    // switch back to TAF_SMS_STORAGE_NONE
-    taf_sms_SetPreferredStorage(TAF_SMS_STORAGE_NONE);
 
     exit(EXIT_SUCCESS);
 }

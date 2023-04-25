@@ -2,6 +2,12 @@
 
 # set global variables
 export CURDIR=$(cd `dirname $1` ; pwd)
+
+if [ -d "$TELAF_ROOT" ] && [ "$TELAF_ROOT" != "$CURDIR" ]; then
+    echo "Error: The TELAF_ROOT was detected as already being present in this shell environment and inconsistent with the environment to be set. Please use a clean shell when sourcing this environment script."
+    return
+fi
+
 export TELAF_ROOT=${CURDIR}
 export LEGATO_ROOT=${CURDIR}/../legato/legato-af
 if [ -f ${TELAF_ROOT}/VERSION ]; then
@@ -74,7 +80,10 @@ function build-sa515m-af(){
         ${AVBTOOL}/avbtool add_hashtree_footer --image ./build/sa515m/telaf_ro.squashfs --partition_name telaf --do_not_generate_fec --rollback_index 0
     else
         ${AVBTOOL}/avbtool add_hashtree_footer --image ./build/sa515m/telaf_ro.squashfs --partition_name telaf --algorithm SHA256_RSA2048 --key $AVBTOOL/keys/qpsa_attest.key --public_key_metadata $AVBTOOL/keys/qpsa_attest.der --do_not_generate_fec --rollback_index 0
-   fi
+    fi
+
+    # create the tarball for telaf app dependencies used for sdk patch
+    ${TELAF_ROOT}/bin/createsdk ${TARGET} ${TELAF_ROOT}/../
 }
 
 

@@ -2,7 +2,7 @@ sandboxed: false
 
 executables:
 {
-    tafNetUnitTest = ( $TELAF_ROOT/apps/test/tafNetTest/tafNetUnitTest/tafNetComponent )
+    tafNetUnitTest = ( tafNetComponent )
 }
 
 start: manual

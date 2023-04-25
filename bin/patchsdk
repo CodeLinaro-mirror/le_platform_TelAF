@@ -1,0 +1,122 @@
+#!/bin/bash
+# Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+Help()
+{
+   # Display Help
+   echo "Patch tool for adding and removing TelAF application building dependencies to the toolchain."
+   echo
+   echo "Syntax: $0 [-h|V|p|r]"
+   echo "options:"
+   echo "h     Print this Help."
+   echo "V     Print TelAF version installed in given toolchain path and exit."
+   echo "      Syntax: -V toolchain-path"
+   echo "p     Patch TelAF application building dependencies to the SDK toolchain"
+   echo "      with given telaf tools tarball and toolchain path and exit."
+   echo "      Syntax: -p telaf-tools-tarball toolchain-path "
+   echo "r     Remove the patched TelAF application building dependencies from the SDK toolchain and exit."
+   echo "      Syntax: -r toolchain-path"
+   echo
+}
+
+SUDO=$(which sudo)
+
+QueryVersion()
+{
+    if [ -d "$TOOLCHAIN_PATH" ] && [ -d "$TOOLCHAIN_PATH/sysroots/telaf" ]; then
+    echo "Found installed TelAF in the toolchain with version: "
+    echo $($SUDO cat $TOOLCHAIN_PATH/sysroots/telaf/telaf/VERSION)
+    else
+    echo "No TelAF found in the toolchain path."
+    fi
+}
+
+PatchSDK()
+{
+    if ! [ -a "$TELAF_TOOLS_TAR" ] || ! [ -d "$TOOLCHAIN_PATH" ]; then
+    echo "Please give the tarball of TelAF tools and installed toolchain path, ex. $0 -p telaf-tools.tar.bz2 /opt/qct/sa515m" >&2; exit 1; fi
+
+    answer=""
+    if [ -d "$TOOLCHAIN_PATH/sysroots/telaf" ]; then
+    echo "Found installed TelAF in the toolchain with version: $($SUDO cat $TOOLCHAIN_PATH/sysroots/telaf/telaf/VERSION)"
+    printf "If you continue, existing files will be overwritten! Proceed[y/N]? "
+
+      if [ "$answer" = "" ]; then
+         read answer
+         [ "$answer" = "" ] && answer="y"
+      else
+         echo $answer
+      fi
+
+      if [ "$answer" != "Y" -a "$answer" != "y" ]; then
+         echo "Installation aborted!"
+         exit 1
+      fi
+   fi
+
+
+    ${SUDO} rm -rf $TOOLCHAIN_PATH/sysroots/telaf
+    ${SUDO} rm -f $TOOLCHAIN_PATH/environment-setup-telaf-app
+
+    INITIAL_TOOLCHAIN=$(ls $TOOLCHAIN_PATH/environment-setup-*)
+    script=$TOOLCHAIN_PATH/environment-setup-telaf-app
+
+    ${SUDO} rm -f $script
+    ${SUDO} cp $INITIAL_TOOLCHAIN $script
+    ${SUDO} chmod 666 $script
+
+    ${SUDO} cat >> $script <<EOF
+
+if [ -e "\$OECORE_TARGET_SYSROOT/../telaf" ]; then
+    cd \$OECORE_TARGET_SYSROOT/../telaf/telaf
+    ./bin/legs
+fi
+EOF
+    ${SUDO} chmod 644 $script
+
+    ${SUDO} tar xjf $TELAF_TOOLS_TAR -C $TOOLCHAIN_PATH/sysroots/
+    echo "TelAF application building dependencies have been successfully set up in the SDK toolchain and is ready to be used."
+    echo "Each time you wish to setup the application building environment in a new shell session, you need to source the environment setup script e.g."
+    echo " \$ . $TOOLCHAIN_PATH/environment-setup-telaf-app"
+}
+
+RemovePatch()
+{
+if ! [ -d "$TOOLCHAIN_PATH" ]; then
+echo "Please give the installed toolchain path, ex. $0 -r /opt/qct/sa515m" >&2; exit 1; fi
+
+${SUDO} rm -rf $TOOLCHAIN_PATH/sysroots/telaf
+${SUDO} rm -f $TOOLCHAIN_PATH/environment-setup-telaf-app
+echo "Done with removing the TelAF dependencies from the toolchain."
+}
+
+while getopts ":hVpr" option; do
+   case $option in
+      h) # Display Help
+         Help
+         exit;;
+      V) # Display installed TelAF version
+         TOOLCHAIN_PATH=$2
+         QueryVersion
+         exit;;
+      p) # Patch the toolchain
+         TOOLCHAIN_PATH=$3
+         TELAF_TOOLS_TAR=$2
+         PatchSDK
+         exit;;
+      r) # Remove the patched TelAF dependencies from the toolchain
+         TOOLCHAIN_PATH=$2
+         RemovePatch
+         exit;;
+      ?) # Invalid option
+         echo "$0 -h for help"
+         exit;;
+   esac
+done
+
+Help
+
+
+
+

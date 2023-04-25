@@ -1,0 +1,126 @@
+#!/bin/bash
+# Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+if ! [ $1 ] || ! [ $2 ]; then
+echo "Please give the parent dir of TelAF root and target, ex. $0 sa515m $(pwd)" >&2; exit 1; fi
+
+help_short_desc="creates a toolkit enabling TelAF application development"
+
+MACHINE=$1
+S=$(realpath $2)
+
+# Default SDK prefix
+TELAF_ROOT_SOURCE=$S/telaf
+RELEASE_DIR=$TELAF_ROOT_SOURCE/build/tools/releases
+TELAF_VERSION=$(cat $TELAF_ROOT_SOURCE/VERSION)
+SDK_PREFIX=${SDK_PREFIX:-""}
+STAGING_DIR="$TELAF_ROOT_SOURCE/build/tools/staging"
+D=$STAGING_DIR
+ARCH=$(uname -m)
+TOOLS_ARCH=${TOOLS_ARCH:-$ARCH}
+
+if [ -n "$SDK_PREFIX" ]; then
+    STAGING_DIR="$STAGING_DIR/$SDK_PREFIX"
+fi
+
+set -xe
+
+echo "Cleaning ..."
+rm -rf ${STAGING_DIR}
+
+
+
+TELAF_DIR="${D}/telaf"
+TELAF_ROOT="${TELAF_DIR}/telaf"
+TELAF_INTERFACES="${TELAF_ROOT}/interfaces"
+LEGATO_ROOT="${TELAF_DIR}/legato/legato-af"
+
+
+echo "Staging ..."
+install -d "${D}"
+install -d "${D}/telaf"
+install -d "${D}/telaf/telaf"
+install -d "${D}/telaf/telaf/components"
+install -d "${D}/telaf/telaf/components/stub"
+install -d "${D}/telaf/telaf/components/stub/taf_lib_flash"
+install -d "${D}/telaf/telaf/bin"
+install -d "${TELAF_INTERFACES}"
+install -d "${TELAF_INTERFACES}/tafVNW"
+install -d "${TELAF_INTERFACES}/someipGW"
+
+
+install ${S}/telaf/VERSION ${TELAF_ROOT}/
+install ${S}/telaf/interfaces/*.api ${TELAF_INTERFACES}/
+install ${S}/telaf/interfaces/tafVNW/*.api ${TELAF_INTERFACES}/tafVNW/
+install ${S}/telaf/interfaces/someipGW/*.api ${TELAF_INTERFACES}/someipGW/
+install ${S}/telaf/components/stub/taf_lib_flash/* ${TELAF_ROOT}/components/stub/taf_lib_flash/
+install ${S}/telaf/bin/legs -D ${D}/telaf/telaf/bin/
+
+install -d "${LEGATO_ROOT}"
+install -d "${LEGATO_ROOT}/bin"
+install -d "${LEGATO_ROOT}/cmake"
+install -d "${LEGATO_ROOT}/interfaces"
+install -d "${LEGATO_ROOT}/interfaces/supervisor"
+install -d "${LEGATO_ROOT}/interfaces/watchdog"
+install -d "${LEGATO_ROOT}/interfaces/logDaemon"
+install -d "${LEGATO_ROOT}/framework/include"
+install -d "${LEGATO_ROOT}/framework/include/linux"
+install -d "${LEGATO_ROOT}/framework/liblegato"
+install -d "${LEGATO_ROOT}/framework/liblegato/linux"
+install -d "${LEGATO_ROOT}/framework/tools/scripts"
+install -d "${LEGATO_ROOT}/framework/tools/autocomplete"
+install -d "${LEGATO_ROOT}/framework/tools/ifgen"
+install -d "${LEGATO_ROOT}/framework/tools/ifgen/langC"
+install -d "${LEGATO_ROOT}/framework/tools/ifgen/antlr3"
+install -d "${LEGATO_ROOT}/framework/tools/ifgen/langC/templates"
+install -d "${LEGATO_ROOT}/build/tools/bin"
+install -d "${LEGATO_ROOT}/build/tools/lib"
+install -d "${LEGATO_ROOT}/build/${MACHINE}"
+install -d "${LEGATO_ROOT}/build/${MACHINE}/framework"
+install -d "${LEGATO_ROOT}/build/${MACHINE}/framework/include"
+install -d "${LEGATO_ROOT}/build/${MACHINE}/framework/lib"
+
+install ${S}/legato/legato-af/version ${LEGATO_ROOT}/version
+install ${S}/legato/legato-af/cmake/* ${LEGATO_ROOT}/cmake/
+install ${S}/legato/legato-af/framework/include/*.h ${LEGATO_ROOT}/framework/include/
+install ${S}/legato/legato-af/framework/include/linux/*.h ${LEGATO_ROOT}/framework/include/linux/
+install ${S}/legato/legato-af/framework/liblegato/*.h ${LEGATO_ROOT}/framework/liblegato/
+install ${S}/legato/legato-af/framework/liblegato/linux/*.h ${LEGATO_ROOT}/framework/liblegato/linux/
+install ${S}/legato/legato-af/interfaces/*.api ${LEGATO_ROOT}/interfaces/
+install ${S}/legato/legato-af/interfaces/supervisor/*.api ${LEGATO_ROOT}/interfaces/supervisor/
+install ${S}/legato/legato-af/interfaces/watchdog/*.api ${LEGATO_ROOT}/interfaces/watchdog/
+install ${S}/legato/legato-af/interfaces/logDaemon/*.api ${LEGATO_ROOT}/interfaces/logDaemon/
+install ${S}/legato/legato-af/framework/tools/scripts/* ${LEGATO_ROOT}/framework/tools/scripts/
+install ${S}/legato/legato-af/framework/tools/autocomplete/* ${LEGATO_ROOT}/framework/tools/autocomplete/
+install ${S}/legato/legato-af/framework/tools/ifgen/*.py ${LEGATO_ROOT}/framework/tools/ifgen/
+install ${S}/legato/legato-af/framework/tools/ifgen/ifgen ${LEGATO_ROOT}/framework/tools/ifgen/ifgen
+install ${S}/legato/legato-af/framework/tools/ifgen/langC/*.py ${LEGATO_ROOT}/framework/tools/ifgen/langC/
+install ${S}/legato/legato-af/framework/tools/ifgen/antlr3/* ${LEGATO_ROOT}/framework/tools/ifgen/antlr3/
+install ${S}/legato/legato-af/framework/tools/ifgen/langC/templates/* ${LEGATO_ROOT}/framework/tools/ifgen/langC/templates/
+ln -srf ${LEGATO_ROOT}/framework/tools/scripts/legs ${LEGATO_ROOT}/bin/legs
+ln -srf ${LEGATO_ROOT}/framework/tools/scripts/findtoolchain ${LEGATO_ROOT}/bin/findtoolchain
+ln -srf ${LEGATO_ROOT}/framework/tools/scripts/configlegatoenv ${LEGATO_ROOT}/bin/configlegatoenv
+ln -srf ${LEGATO_ROOT}/framework/tools/scripts/legato-install ${LEGATO_ROOT}/bin/legato-install
+ln -srf ${LEGATO_ROOT}/framework/tools/ifgen/ifgen ${LEGATO_ROOT}/bin/ifgen
+
+install ${S}/legato/legato-af/build/tools/bin/mk ${LEGATO_ROOT}/build/tools/bin/
+install ${S}/legato/legato-af/build/tools/lib/*.so ${LEGATO_ROOT}/build/tools/lib/
+install ${S}/legato/legato-af/build/${MACHINE}/config.sh ${LEGATO_ROOT}/build/${MACHINE}/
+install ${S}/legato/legato-af/build/${MACHINE}/framework/include/*.h ${LEGATO_ROOT}/build/${MACHINE}/framework/include/
+install ${S}/legato/legato-af/build/${MACHINE}/framework/lib/*.so ${LEGATO_ROOT}/build/${MACHINE}/framework/lib/
+
+ln -srf ${LEGATO_ROOT}/build/tools/bin/mk ${LEGATO_ROOT}/bin/mk
+ln -srf ${LEGATO_ROOT}/bin/mk ${LEGATO_ROOT}/bin/mkapp
+ln -srf ${LEGATO_ROOT}/bin/mk ${LEGATO_ROOT}/bin/mkcomp
+ln -srf ${LEGATO_ROOT}/bin/mk ${LEGATO_ROOT}/bin/mkexe
+ln -srf ${LEGATO_ROOT}/bin/mk ${LEGATO_ROOT}/bin/mkedit
+ln -srf ${LEGATO_ROOT}/bin/mk ${LEGATO_ROOT}/bin/mksys
+
+echo "Releasing ..."
+mkdir -p $RELEASE_DIR
+install ${S}/telaf/bin/patchsdk $RELEASE_DIR/
+cd $STAGING_DIR
+tar jcf $RELEASE_DIR/telaf-tools-${TOOLS_ARCH}-${TELAF_VERSION}.tar.bz2 *
+cd $RELEASE_DIR
+tar jcf $TELAF_ROOT_SOURCE/build/$MACHINE/telaf-sdk-${TELAF_VERSION}.tar.bz2 *

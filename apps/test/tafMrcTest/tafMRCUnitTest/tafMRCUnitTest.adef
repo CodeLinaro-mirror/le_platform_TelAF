@@ -4,7 +4,7 @@ maxMemoryBytes: 60000K
 
 executables:
 {
-    tafMRCUnitTest = ( $TELAF_ROOT/apps/test/tafMrcTest/tafMRCUnitTest/tafMRCComponent )
+    tafMRCUnitTest = ( tafMRCComponent )
 }
 
 start: manual

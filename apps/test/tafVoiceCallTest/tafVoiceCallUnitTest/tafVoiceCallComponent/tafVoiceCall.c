@@ -323,9 +323,73 @@ le_result_t ut_tafVoiceCall_IncomingCall()
     return LE_OK;
 }
 
+le_result_t isCallNumberValid
+(
+    const char* callNumber
+)
+{
+    if (NULL == callNumber)
+    {
+        LE_ERROR("Phone number NULL");
+        return LE_FAULT;
+    }
+    int i = 0;
+    int numLength = strlen(callNumber);
+    if (numLength+1 > MAX_DESTINATION_LEN)
+    {
+        LE_INFO("The number is too long!");
+        return LE_FAULT;
+    }
+    for (i = 0; i <= numLength-1; i++)
+    {
+        char dig = *callNumber;
+        if(!isdigit(dig))
+        {
+            LE_INFO("The input contains non-digit symbol %c", dig);
+            return LE_FAULT;
+        }
+        callNumber++;
+    }
+    return LE_OK;
+}
+
 le_result_t ut_tafVoiceCall_ValidCall_Start()
 {
-    le_utf8_Copy(AppCtx.destId, "10000", MAX_DESTINATION_LEN, NULL);
+    int fd = -1;
+    ssize_t readCnt = 0;
+
+    if (access("/tmp/CallNumber", 0) == 0)
+    {
+        fd = le_fd_Open("/tmp/CallNumber",  O_RDONLY);
+        if (fd < 0)
+        {
+            LE_INFO("open call number file failed!");
+            le_utf8_Copy(AppCtx.destId, "10010", MAX_DESTINATION_LEN, NULL);
+        }
+        else
+        {
+            readCnt = le_fd_Read(fd, AppCtx.destId, sizeof(AppCtx.destId));
+            if (readCnt != strlen(AppCtx.destId))
+            {
+                LE_INFO("read call number file failed! %d, %d", readCnt, strlen(AppCtx.destId));
+                le_utf8_Copy(AppCtx.destId, "10010", MAX_DESTINATION_LEN, NULL);
+            }
+            else
+            {
+                if(isCallNumberValid(AppCtx.destId) != LE_OK)
+                {
+                    LE_INFO("Phone number is not valid and use the default call number!");
+                    le_utf8_Copy(AppCtx.destId, "10010", MAX_DESTINATION_LEN, NULL);
+                }
+            }
+        }
+        le_fd_Close(fd);
+    }
+    else
+    {
+        le_utf8_Copy(AppCtx.destId, "10010", MAX_DESTINATION_LEN, NULL);
+    }
+
     AppCtx.phoneId = 1;
     le_event_QueueFunctionToThread(AppCtx.threadRef, ut_tafVoiceCall_makecall, &AppCtx, NULL);
 
@@ -443,6 +507,58 @@ le_result_t ut_tafVoiceCall_CallWaiting()
     return LE_OK;
 }
 
+static void ut_tafVoiceCall_ReturnFailedvalue(void* ctxPtr, void* param)
+{
+    UnitTestContext_t* appCtxPtr = (UnitTestContext_t*) ctxPtr;
+    le_result_t leRet;
+
+    leRet = taf_voicecall_Hold(appCtxPtr->requestRef);
+    if (leRet == LE_NOT_FOUND)
+    {
+      LE_INFO("taf_voicecall_Hold return Cannot found callCtx");
+    }
+
+    leRet = taf_voicecall_Resume(appCtxPtr->requestRef);
+    if (leRet == LE_NOT_FOUND)
+    {
+      LE_INFO("taf_voicecall_Resume return Cannot found callCtx");
+    }
+
+    leRet = taf_voicecall_Swap(appCtxPtr->requestRef);
+    if (leRet == LE_NOT_FOUND)
+    {
+      LE_INFO("taf_voicecall_Swap return Cannot found callCtx");
+    }
+
+    leRet = taf_voicecall_Answer(appCtxPtr->requestRef);
+    if (leRet == LE_NOT_FOUND)
+    {
+      LE_INFO("taf_voicecall_Answer return Cannot found callCtx");
+    }
+
+    leRet = taf_voicecall_End(appCtxPtr->requestRef);
+    if (leRet == LE_NOT_FOUND)
+    {
+      LE_INFO("taf_voicecall_End return Cannot found callCtx");
+    }
+
+    leRet = taf_voicecall_Delete(appCtxPtr->requestRef);
+    if (leRet == LE_NOT_FOUND)
+    {
+      LE_INFO("taf_voicecall_Delete return Cannot found callCtx");
+    }
+
+    return;
+}
+
+le_result_t ut_tafVoiceCall_InvalidCall_ReturnFailedvalue()
+{
+    le_event_QueueFunctionToThread(AppCtx.threadRef, ut_tafVoiceCall_ReturnFailedvalue, &AppCtx, NULL);
+    LE_INFO("===== InvalidCall_ReturnFailedvalue =====");
+    wait_call(5);
+    return LE_OK;
+}
+
 static void* UnitTestThread
 (
     void* contextPtr
@@ -453,10 +569,12 @@ static void* UnitTestThread
 
     AppCtx.semaphore = le_sem_Create("tafvoiceCallSem", 0);
 
+    LE_INFO("===== call number can be configured at /tmp/callnumber =====");
     // handler test
     LE_INFO("===== state handler test =====");
     AppCtx.threadRef = le_thread_Create("taf_voiceCall_handler", ut_tafVoiceCall_StateHandler, &AppCtx);
     le_thread_Start(AppCtx.threadRef);
+
     wait_call(5);
 
     LE_INFO("===== invalid call test =====");
@@ -468,9 +586,11 @@ static void* UnitTestThread
 
     LE_INFO("===== start valid call test =====");
     ut_tafVoiceCall_ValidCall_Start();
+    le_thread_Sleep(3);
 
     LE_INFO("===== hold call test =====");
     ut_tafVoiceCall_ValidCall_Hold();
+    le_thread_Sleep(3);
 
     LE_INFO("===== resume call test =====");
     ut_tafVoiceCall_ValidCall_Resume();
@@ -494,6 +614,10 @@ static void* UnitTestThread
     LE_INFO("===== call waiting test =====");
     ut_tafVoiceCall_ValidCall_Start();
     ut_tafVoiceCall_CallWaiting();
+    ut_tafVoiceCall_Call_Delete();
+
+    LE_INFO("===== call return failed value test =====");
+    ut_tafVoiceCall_InvalidCall_ReturnFailedvalue();
 
     LE_INFO("===== taf voice call test done=====");
 
@@ -503,7 +627,6 @@ static void* UnitTestThread
 
 COMPONENT_INIT
 {
-
     le_thread_Start(le_thread_Create("Taf_voicecall_ut", UnitTestThread, NULL));
 }
 

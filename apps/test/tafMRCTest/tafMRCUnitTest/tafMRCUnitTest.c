@@ -35,40 +35,31 @@
 #include "legato.h"
 #include "interfaces.h"
 
-void PrintHelp()
-{
-    LE_INFO("Please run \"app runProc tafMrcTestApp tafMrc -- number\"");
-    LE_INFO("number:");
-    LE_INFO("1: send ota start message to mrc daemon.");
-    LE_INFO("2: perform fota upgrade, please rember to push update.zip under /data.");
-    LE_INFO("3: send ota end success message to mrc daemon.");
-    LE_INFO("4: send ota ab sync message to mrc daemon.");
-    LE_INFO("5: send ota resume message to mrc daemon.");
-}
-
+//--------------------------------------------------------------------------------------------------
+/**
+ * Component initialization.
+ */
+//--------------------------------------------------------------------------------------------------
 COMPONENT_INIT
 {
-    long number = strtol(le_arg_GetArg(0), NULL, 10);
-    switch (number) {
-        case 1:
-            LE_ASSERT(taf_mrc_SendOtaStartMsg() == LE_OK);
-            break;
-        case 2:
-            LE_ASSERT(system("recovery --update_package=/data/update.zip") == 0);
-            break;
-        case 3:
-            LE_ASSERT(taf_mrc_SendOtaEndMsg(TAF_MRC_OTA_OP_STATUS_SUCCESS) == LE_OK);
-            break;
-        case 4:
-            LE_ASSERT(taf_mrc_SendOtaAbsyncMsg() == LE_OK);
-            break;
-        case 5:
-            LE_ASSERT(taf_mrc_SendOtaResumeMsg() == LE_OK);
-            break;
-        default:
-            PrintHelp();
-            exit(EXIT_SUCCESS);
-    }
+    LE_TEST_PLAN(5);
+
+    LE_TEST_INFO("======== MRC OTA Test ========");
+
+    le_result_t result = taf_mrc_SendOtaStartMsg();
+    LE_TEST_OK(result == LE_OK, "taf_mrc_SendOtaStartMsg - LE_OK");
+
+    int ret = system("recovery --update_package=/data/update.zip");
+    LE_TEST_OK(ret == 0, "FOTA - 0");
+
+    result = taf_mrc_SendOtaEndMsg(TAF_MRC_OTA_OP_STATUS_SUCCESS);
+    LE_TEST_OK(result == LE_OK, "taf_mrc_SendOtaEndMsg - LE_OK");
+
+    result = taf_mrc_SendOtaAbsyncMsg();
+    LE_TEST_OK(result == LE_OK, "taf_mrc_SendOtaAbsyncMsg - LE_OK");
+
+    result = taf_mrc_SendOtaResumeMsg();
+    LE_TEST_OK(result == LE_OK, "taf_mrc_SendOtaResumeMsg - LE_OK");
 
     exit(EXIT_SUCCESS);
 }

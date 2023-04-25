@@ -1,0 +1,12 @@
+sources:
+{
+    tafMRCIntTest.c
+}
+
+requires:
+{
+    api:
+    {
+        taf_mrc.api
+    }
+}

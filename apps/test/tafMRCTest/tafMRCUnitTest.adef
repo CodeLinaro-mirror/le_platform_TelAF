@@ -1,0 +1,25 @@
+sandboxed: false
+
+maxMemoryBytes: 60000K
+
+executables:
+{
+    tafMRCUnitTest = ( tafMRCUnitTest )
+}
+
+start: manual
+
+processes:
+{
+    run:
+    {
+        (tafMRCUnitTest)
+    }
+    maxFileBytes: 1048576K
+    faultAction: stopApp
+}
+
+bindings:
+{
+    tafMRCUnitTest.tafMRCUnitTest.taf_mrc -> tafMRCSvc.taf_mrc
+}

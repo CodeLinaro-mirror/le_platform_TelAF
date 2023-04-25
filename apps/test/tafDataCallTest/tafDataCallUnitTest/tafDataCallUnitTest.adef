@@ -26,4 +26,5 @@ processes:
 bindings:
 {
     tafDataCallUnitTest.tafDataCallUnitTestComponent.taf_dcs -> tafDataCallSvc.taf_dcs
+    tafDataCallUnitTest.tafDataCallUnitTestComponent.taf_mdc -> tafDataCallSvc.taf_mdc
 }

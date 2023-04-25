@@ -149,6 +149,24 @@
  * - taf_dcs_GetRoamingStatus() -- Gets current roaming status.
  * - taf_dcs_GetApnTypes() -- Gets APN types.
  *
+ * @section c_taf_dcs_support_phone_id Phone ID support.
+ *
+ * Data call service provides API to support phone ID for DSSA/DSDA mode. The application can use
+ * phone ID for these APIs.
+ *
+ * @verbatim
+   profileReference = GetProfileEx(phoneId, profileId);
+   @endverbatim
+ *
+ * The following APIs are added for supporting phone ID.
+ *
+ * - taf_dcs_GetProfileListEx() -- Gets the data profile list with the specified phone ID.
+ * - taf_dcs_GetDefaultPhoneIdAndProfileId() -- Gets the default phone ID and profile index.
+ * - taf_dcs_SetDefaultProfileIndexEx() -- Sets the default profile corresponding to the specified phone ID and profile index.
+ * - taf_dcs_GetProfileEx() -- Gets the profile reference for the given phone ID and profile index.
+ * - taf_dcs_GetPhoneId() -- Gets the phone ID for the given profile reference.
+ * - taf_dcs_GetPhoneIdByInterfaceName() -- Gets the phone ID by the interface name.
+ *
  * <HR>
  *
  */
@@ -447,13 +465,13 @@ STRUCT RoamingStatusInd
  * Starts a synchronous data cellular session for the given profile reference.
  *
  * @return
- * - LE_OK                           Succeessfully started the data call.
- * - LE_NOT_FOUND                    Parameter is invalid or couldn't create the data call.
- * - LE_OUT_OF_RANGE                 PDP type is unknown.
- * - LE_DUPLICATE                    If the data session is already connected for the given profile.
- * - LE_IN_PROGRESS                  The profile is in use and a data call is in progress.
- * - LE_TIMEOUT                      Timed out when attempting to make the data call.
- * - LE_FAULT                        Failed to make the data call.
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Parameter is invalid or couldn't create the data call.
+ *  - LE_OUT_OF_RANGE -- PDP type is unknown.
+ *  - LE_DUPLICATE -- If the data session is already connected for the given profile.
+ *  - LE_IN_PROGRESS -- The profile is in use and a data call is in progress.
+ *  - LE_TIMEOUT -- Timed out when attempting to make the data call.
+ *  - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t StartSession
@@ -491,13 +509,13 @@ FUNCTION StartSessionAsync
  * Stops (synchronously) a cellular data session for the given profile reference.
  *
  * @return
- * - LE_OK                           Successfully stopped the data call.
- * - LE_NOT_FOUND                    Can't find a data call.
- * - LE_OUT_OF_RANGE                 PdpType type is unknown.
- * - LE_BAD_PARAMETER                Call context is NULL.
- * - LE_TIMEOUT                      Timeout to stop a data call.
- * - LE_IN_PROGRESS                  The profile is in use and a data call is in progress.
- * - LE_FAULT                        Failed to stop a data call.
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Can't find a data call.
+ *  - LE_OUT_OF_RANGE -- PdpType type is unknown.
+ *  - LE_BAD_PARAMETER -- Call context is NULL.
+ *  - LE_TIMEOUT -- Timeout to stop a data call.
+ *  - LE_IN_PROGRESS -- The profile is in use and a data call is in progress.
+ *  - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t StopSession
@@ -523,9 +541,10 @@ FUNCTION StopSessionAsync
  * Gets a connected data call interface name.
  *
  * @return
- * - LE_OK                           Successfully retrieved the interface name.
- * - LE_NOT_POSSIBLE                 Invalid status.
- * - LE_NOT_FOUND                    Failed to get the interface name.
+ *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameter.
+ *  - LE_NOT_POSSIBLE -- Invalid status.
+ *  - LE_NOT_FOUND -- Cannot find the interface name.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetInterfaceName
@@ -582,10 +601,10 @@ EVENT RoamingStatus
  *  Gets the roaming status.
  *
  * @return
+ *  - LE_OK -- Succeeded.
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_TIMEOUT -- Response timed out.
  *  - LE_FAULT -- Failed.
- *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetRoamingStatus
@@ -601,8 +620,8 @@ FUNCTION le_result_t GetRoamingStatus
  * Gets the connected data session IPv4 address.
  *
  * @return
- * - LE_OK                           Successfully retrieved the IPv4 address.
- * - LE_NOT_FOUND                    Failed to get the IPv4 address.
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetIPv4Address
@@ -616,8 +635,8 @@ FUNCTION le_result_t GetIPv4Address
  * Gets the connected data session IPv4 gateway address.
  *
  * @return
- * - LE_OK                           Successfully retrieved the IPv4 gateway address.
- * - LE_NOT_FOUND                    Failed to get the IPv4 gateway address.
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetIPv4GatewayAddress
@@ -631,8 +650,8 @@ FUNCTION le_result_t GetIPv4GatewayAddress
  * Gets the connected data session primary and secondary DNS IPv4 addresses.
  *
  * @return
- * - LE_OK                           Successfully retrieved the IPv4 DNS address.
- * - LE_NOT_FOUND                    Failed to get the IPv4 DNS address.
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetIPv4DNSAddresses
@@ -647,8 +666,8 @@ FUNCTION le_result_t GetIPv4DNSAddresses
  * Gets the connected data session IPv6 address.
  *
  * @return
- * - LE_OK                           Successfully retrieved the IPv6 address.
- * - LE_NOT_FOUND                    Failed to get the IPv6 address.
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetIPv6Address
@@ -662,8 +681,8 @@ FUNCTION le_result_t GetIPv6Address
  * Gets the connected data session IPv6 gateway address.
  *
  * @return
- * - LE_OK                           Successfully retrieved the IPv6 gateway address.
- * - LE_NOT_FOUND                    Failed to get IPv6 gateway address.
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetIPv6GatewayAddress
@@ -677,8 +696,8 @@ FUNCTION le_result_t GetIPv6GatewayAddress
  * Gets the connected data session primary and secondary DNS IPv6 addresses.
  *
  * @return
- * - LE_OK                           Successfully retrieved the IPv6 DNS address.
- * - LE_NOT_FOUND                    Failed to get IPv6 DNS address.
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetIPv6DNSAddresses
@@ -693,8 +712,8 @@ FUNCTION le_result_t GetIPv6DNSAddresses
  * Gets the data session's current state.
  *
  * @return
- * - LE_OK                           Successfully retrieved the session state.
- * - LE_NOT_FOUND                    Failed to get the session state.
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetSessionState
@@ -708,8 +727,8 @@ FUNCTION le_result_t GetSessionState
  * Checks if the data session is IPv4.
  *
  * @return
- * - True         IPv4.
- * - False        Not IPv4 or the profile reference is invalid.
+ *  - True -- IPv4.
+ *  - False -- Not IPv4 or the profile reference is invalid.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION bool IsIPv4
@@ -722,8 +741,8 @@ FUNCTION bool IsIPv4
  * Checks if the data session is IPv6.
  *
  * @return
- * - True         IPv6.
- * - False        Not IPv6 or the profile reference is invalid.
+ *  - True -- IPv6.
+ *  - False -- Not IPv6 or the profile reference is invalid.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION bool IsIPv6
@@ -736,8 +755,8 @@ FUNCTION bool IsIPv6
  * Gets the connected data session data bearer technology.
  *
  * @return
- * - LE_OK                           Successfully retrieved the data bearer technology.
- * - LE_NOT_FOUND                    Failed to get the data bearer technology.
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetDataBearerTechnology
@@ -774,9 +793,13 @@ HANDLER ProfileListHandler
 /**
  * Gets the data profile list.
  *
+ * @note For Dual Sim-Single Active (DSSA) mode and Dual Sim-Dual Active (DSDA) mode, this API gets
+ * the data profile list with phone ID 1.
+ *
  * @return
- * - LE_OK                           Successfully retrieved the profile list.
- * - LE_FAULT                        Failed to get the profile list.
+ *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameter.
+ *  - LE_FAULT -- Failed.
  */
 FUNCTION le_result_t GetProfileList
 (
@@ -785,9 +808,25 @@ FUNCTION le_result_t GetProfileList
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Gets the data profile list with the specified phone ID.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameter.
+ *  - LE_FAULT -- Failed.
+ */
+FUNCTION le_result_t GetProfileListEx
+(
+    uint8 phoneId                                    IN,    ///< The phone ID.
+    ProfileInfo profileList[PROFILE_LIST_MAX_ENTRY]  OUT    ///< The profile list information.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Gets the default profile index.
  *
- * @return uint32                          The profile index.
+ * @return
+ *  - uint32 -- The profile index.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION uint32 GetDefaultProfileIndex
@@ -796,11 +835,30 @@ FUNCTION uint32 GetDefaultProfileIndex
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets the default profile index corresponding to the specified profile index.
+ * Gets the default phone ID and profile index.
  *
  * @return
- * - LE_OK                           Successfully set the default data profile index.
- * - LE_FAULT                        Failed to set the default data profile index.
+ *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameter.
+ *  - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetDefaultPhoneIdAndProfileId
+(
+    uint8  phoneId                          OUT, ///< The phone ID.
+    uint32 profileId                        OUT  ///< The profile index.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the default profile index corresponding to the specified profile index.
+ *
+ * @note For Dual Sim-Single Active (DSSA) mode and Dual Sim-Dual Active (DSDA) mode, this API sets
+ * the data profile with default phone ID 1.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetDefaultProfileIndex
@@ -810,11 +868,29 @@ FUNCTION le_result_t SetDefaultProfileIndex
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the profile reference for the given profile index.
+ * Sets the default profile corresponding to the specified phone ID and profile index.
  *
  * @return
- * - NULL                            Error. 
- * - Others                          The profile reference.
+ *  - LE_OK -- Succeeded.
+ *  - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetDefaultProfileIndexEx
+(
+    uint8 phoneId                           IN,///< The phone ID.
+    uint32 profileId                        IN ///< The profile index.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the profile reference for the given profile index.
+ *
+ * @note For Dual Sim-Single Active (DSSA) mode and Dual Sim-Dual Active (DSDA) mode, this API gets
+ * the profile reference with phone ID 1.
+ *
+ * @return
+ *  - NULL -- Error.
+ *  - Others -- The profile reference.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION Profile GetProfile
@@ -824,9 +900,26 @@ FUNCTION Profile GetProfile
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Gets the profile reference for the given phone ID and profile index.
+ *
+ * @return
+ *  - NULL -- Error.
+ *  - Others -- The profile reference.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Profile GetProfileEx
+(
+    uint8 phoneId                           IN, ///< The phone ID.
+    uint32 profileId                        IN ///< The profile index.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Gets the profile index for the given profile reference.
  *
- * @return uint32                          The profile index.
+ * @return
+ *  - uint32 -- The profile index.
+      0 -- Failed
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION uint32 GetProfileIndex
@@ -836,12 +929,29 @@ FUNCTION uint32 GetProfileIndex
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Gets the phone ID for the given profile reference.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameter.
+ *  - LE_NOT_FOUND -- Profile reference was not found.
+ *  - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetPhoneId
+(
+    Profile profileRef                      IN,  ///< The profile reference.
+    uint8 phoneId                           OUT  ///< The phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Sets the data profile APN name.
  *
  * @return
- * - LE_OK                           Successfully set the APN.
- * - LE_NOT_FOUND                    Profile reference was not found.
- * - LE_FAULT                        Failed to set the APN.
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Profile reference was not found.
+ *  - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetAPN
@@ -855,9 +965,9 @@ FUNCTION le_result_t SetAPN
  * Gets the data profile APN name.
  *
  * @return
- * - LE_OK                           Successfully retrieved the APN.
- * - LE_NOT_FOUND                    Failed to get the APN.
- * - LE_OVERFLOW                     Apn size is smaller than APN_NAME_MAX_BYTES.
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Failed.
+ *  - LE_OVERFLOW -- Apn size is smaller than APN_NAME_MAX_BYTES.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetAPN
@@ -868,11 +978,11 @@ FUNCTION le_result_t GetAPN
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the data profile APN type.
+ * Gets the data profile APN types.
  *
  * @return
- * - LE_OK                           Successfully retrieved the APN type.
- * - LE_NOT_FOUND                    Failed to get the APN type.
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetApnTypes
@@ -885,9 +995,9 @@ FUNCTION le_result_t GetApnTypes
  * Sets the data profile PDP type.
  *
  * @return
- * - LE_OK                           Successfully set the PDP type.
- * - LE_NOT_FOUND                    Profile reference was not found.
- * - LE_FAULT                        Failed to set the PDP type.
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Profile reference was not found.
+ *  - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetPDP
@@ -900,8 +1010,11 @@ FUNCTION le_result_t SetPDP
 /**
  * Gets the data profile PDP type.
  *
- * @return taf_dcs_Pdp_t                   PDP type.
- *
+ * @return
+ *  - AF_DCS_PDP_UNKNOWN -- Unknown.
+ *  - AF_DCS_PDP_IPV4 -- IPV4.
+ *  - AF_DCS_PDP_IPV6 -- IPV6.
+ *  - AF_DCS_PDP_IPV4V6 -- IPV4 and IPV6.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION Pdp GetPDP
@@ -914,9 +1027,9 @@ FUNCTION Pdp GetPDP
  * Set the data profile authentication type and username/password.
  *
  * @return
- * - LE_OK                           Successfully set the authentication type, username, and password.
- * - LE_NOT_FOUND                    Parameter error or couldn't retrieve the profile information.
- * - LE_FAULT                        Failed to set authentication type, username, and password.
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- Could not retrieve the profile information.
+ *  - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetAuthentication
@@ -932,9 +1045,9 @@ FUNCTION le_result_t SetAuthentication
  * Gets the data profile authentication type and username/password.
  *
  * @return
- * - LE_OK                           Succesfully retrieved the authentication information.
- * - LE_NOT_FOUND                    Failed to get the authentication information.
- * - LE_OUT_OF_RANGE                 The size of username or password is invalid.
+ *  - LE_OK -- Succeeded.
+ *  - LE_OUT_OF_RANGE -- The size of username or password is invalid.
+ *  - LE_NOT_FOUND -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetAuthentication
@@ -947,15 +1060,33 @@ FUNCTION le_result_t GetAuthentication
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the data profile ID by the interface name.
+ * Gets the data profile index by the interface name.
  *
  * @return
- * - LE_OK                           Successfully retrieved the profile ID.
- * - LE_NOT_FOUND                    Failed to retrieve the profile ID.
+ *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameter.
+ *  - LE_NOT_FOUND -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetProfileIdByInterfaceName
 (
     string        ifName[NAME_MAX_LEN]      IN, ///< The interface name.
-    uint32        profileId                 OUT ///< The profile ID.
+    uint32        profileId                 OUT ///< The profile index.
 );
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the phone ID by the interface name.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameter.
+ *  - LE_NOT_FOUND -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetPhoneIdByInterfaceName
+(
+    string        ifName[NAME_MAX_LEN]      IN,  ///< The interface name.
+    uint8         phoneId                   OUT  ///< The phone ID.
+);
+

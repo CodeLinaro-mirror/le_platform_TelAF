@@ -106,32 +106,24 @@ void taf_DataConnServingSystemListener::onServiceStateChanged(telux::data::Servi
 
 void taf_DataConnServingSystemListener::onRoamingStatusChanged(telux::data::RoamingStatus status)
 {
+    le_result_t result = LE_OK;
     taf_dcs_RoamingStatusInd_t *reportPtr = NULL;
     auto &dataConnection = taf_DataConnection::GetInstance();
+    auto &dataProfile = taf_DataProfile::GetInstance();
     reportPtr = (taf_dcs_RoamingStatusInd_t*)le_mem_ForceAlloc(dataConnection.RoamingStatusPool);
 
-    reportPtr->phoneId = (int)(this->slotId);
+    result = dataProfile.getPhoneIdFromSlotId(slotId, &(reportPtr->phoneId) );
+    if(result != LE_OK)
+    {
+        LE_ERROR("Failed to get phone id from slot id");
+        reportPtr->phoneId = SLOT_ID_1;
+    }
+
     reportPtr->isRoaming = status.isRoaming;
     reportPtr->type = (taf_dcs_RoamingType_t)status.type;
 
     le_event_ReportWithRefCounting(dataConnection.RoamingStatusEvtId, (void*)reportPtr);
 
-}
-
-void taf_DataConnRequestServiceStatusCallback::requestServiceStatus
-(
-    telux::data::ServiceStatus serviceStatus,
-    telux::common::ErrorCode error
-)
-{
-    LE_DEBUG("<SDK Callback> taf_DataConnRequestServiceStatusCallback --> requestServiceStatus");
-
-    if (error != telux::common::ErrorCode::SUCCESS) {
-        LE_ERROR("Error(%d)", (int)error);
-    }
-
-    status = serviceStatus;
-    le_sem_Post(semaphore);
 }
 
 void taf_DataConnRequestRoamingStatusCallback::requestRoamingStatus
@@ -159,15 +151,17 @@ void taf_DataConnectionListener::onDataCallInfoChanged
 
     dataCallEvent_t callEvent;
     int32_t profileId = iCall->getProfileId();
+    uint8_t slotId = (uint8_t)iCall->getSlotId();
     telux::data::DataCallStatus callStatus = iCall->getDataCallStatus();
 
-    taf_dcs_CallCtx_t* callCtxPtr = dataConnection.GetCallCtx(profileId);
+    taf_dcs_CallCtx_t* callCtxPtr = dataConnection.GetCallCtx(slotId, profileId);
     TAF_ERROR_IF_RET_NIL(callCtxPtr == NULL,
-                         "cannot found call context, skip this profile[%d] & event[%s]",
-                          profileId, dataConnection.CallStatusToString(callStatus));
+                         "Cannot find call context from slotId(%d) profileId(%d), event(%s)",
+                          slotId, profileId, dataConnection.CallStatusToString(callStatus));
 
     callEvent.event         = EVT_STATUS_CHANGED;
     callEvent.profileId     = profileId;
+    callEvent.slotId        = slotId;
     callEvent.callStatus    = callStatus;
     callEvent.ipType        = iCall->getIpFamilyType();
     callEvent.ipv4Status    = iCall->getIpv4Info().status;
@@ -401,9 +395,11 @@ void taf_DataConnection::LogDataCallInfo
 )
 {
     int32_t profileId = dataCall->getProfileId();
+    uint8_t slotId = (uint8_t)dataCall->getSlotId();
 
     LE_DEBUG("data callback details from: %s", fromPtr);
     LE_DEBUG("profile id:           %d", profileId);
+    LE_DEBUG("slot id:           %d", slotId);
     LE_DEBUG("interface name:       %s", dataCall->getInterfaceName().c_str());
     LE_DEBUG("call status:          %s", CallStatusToString(dataCall->getDataCallStatus()));
     LE_DEBUG("ip type:              %s", IpFamilyTypeToString(dataCall->getIpFamilyType()));
@@ -431,14 +427,17 @@ void taf_DataConnection::StartDataCallCallback
 {
     dataCallEvent_t callEvent;
     auto &dataConnection = taf_DataConnection::GetInstance();
+    //Check if iCall is a null pointer to avoid crashing
+    TAF_ERROR_IF_RET_NIL(iCall == NULL, "iCall is NULL, drop this event");
     int32_t profileId = iCall->getProfileId();
+    uint8_t slotId = (uint8_t)iCall->getSlotId();
 
     dataConnection.LogDataCallInfo(iCall, __func__);
 
     if (errorCode != telux::common::ErrorCode::SUCCESS)
     {
-        LE_ERROR("start data session is failed with profile: %d, error code: %d",
-                  profileId, (uint32_t)errorCode);
+        LE_ERROR("Starting data session is failed with slotId(%d) profileId(%d), error code: %d",
+                  slotId, profileId, (uint32_t)errorCode);
     }
 
     callEvent.event         = EVT_START_CALLBACK;
@@ -457,13 +456,14 @@ void taf_DataConnection::StartDataCallCallback
 #endif
 
     callEvent.profileId     = iCall->getProfileId();
+    callEvent.slotId        = slotId;
     callEvent.ipType        = iCall->getIpFamilyType();
     callEvent.ipv4Status    = iCall->getIpv4Info().status;
     callEvent.ipv6Status    = iCall->getIpv6Info().status;
-    LE_DEBUG("start callback:event=%d,errcode=%d, callstatus=%s,profileId=%d,ipType=%d",
-            (int)callEvent.event,(int)callEvent.errorCode,
-            dataConnection.CallStatusToString(callEvent.callStatus),
-            (int)callEvent.profileId,(int)callEvent.ipType);
+    LE_DEBUG("Start callback:event=%d,errcode=%d, callstatus=%s, slotId=%d, profileId=%d, ipType=%d",
+             (int)callEvent.event, (int)callEvent.errorCode,
+             dataConnection.CallStatusToString(callEvent.callStatus), callEvent.slotId,
+             (int)callEvent.profileId,(int)callEvent.ipType);
     le_event_Report(dataConnection.CallEvent, &callEvent,sizeof(dataCallEvent_t));
 
     return;
@@ -480,26 +480,28 @@ void taf_DataConnection::StopDataCallCallback
     //Check if iCall is a null pointer to avoid crashing
     TAF_ERROR_IF_RET_NIL(iCall == NULL, "iCall is NULL, drop this event");
     int32_t profileId = iCall->getProfileId();
+    uint8_t slotId = (uint8_t)iCall->getSlotId();
 
     dataConnection.LogDataCallInfo(iCall, __func__);
 
     if (errorCode != telux::common::ErrorCode::SUCCESS)
     {
-        LE_ERROR("stopping data call is failed with profile: %d, error code: %d",
-                  profileId, (uint32_t)errorCode);
+        LE_ERROR("Stopping data call is failed with slotId(%d) profileId(%d), error code: %d",
+                  slotId, profileId, (uint32_t)errorCode);
     }
 
-    LE_INFO("receiving StopDataCallCallback!");
+    LE_INFO("Receiving StopDataCallCallback!");
     callEvent.event         = EVT_STOP_CALLBACK;
     callEvent.errorCode     = errorCode;
     callEvent.callStatus    = iCall->getDataCallStatus();
     callEvent.profileId     = iCall->getProfileId();
+    callEvent.slotId        = slotId;
     callEvent.ipType        = iCall->getIpFamilyType();
     callEvent.ipv4Status    = iCall->getIpv4Info().status;
     callEvent.ipv6Status    = iCall->getIpv6Info().status;
-    LE_DEBUG("stop callback:event=%d,errcode=%d, callstatus=%s,profileId=%d,ipType=%d",
-            (int)callEvent.event,(int)callEvent.errorCode,
-            dataConnection.CallStatusToString(callEvent.callStatus),
+    LE_DEBUG("stop callback:event=%d, errcode=%d, callstatus=%s, slotId=%d, profileId=%d, ipType=%d",
+             (int)callEvent.event,(int)callEvent.errorCode,
+            dataConnection.CallStatusToString(callEvent.callStatus), callEvent.slotId,
             (int)callEvent.profileId,(int)callEvent.ipType);
 
     le_event_Report(dataConnection.CallEvent, &callEvent,sizeof(dataCallEvent_t));
@@ -513,7 +515,7 @@ void taf_DataConnection::SetDefaultProfileCallCallback(telux::common::ErrorCode 
 
     if (errorCode != telux::common::ErrorCode::SUCCESS)
     {
-        LE_ERROR("setting default id is not finished, error code: %d", (uint32_t)errorCode);
+        LE_ERROR("Setting default id is not finished, error code: %d", (uint32_t)errorCode);
     }
 
     callEvent.event         = EVT_SET_DEFAULT_PROFILE;
@@ -534,18 +536,19 @@ void taf_DataConnection::GetDefaultProfileCallCallback
 
     if (errorCode != telux::common::ErrorCode::SUCCESS)
     {
-        LE_ERROR("getting default id is failed, error code: %d", (uint32_t)errorCode);
+        LE_ERROR("Getting default id is failed, error code: %d", (uint32_t)errorCode);
     }
 
     callEvent.event         = EVT_GET_DEFAULT_PROFILE;
     callEvent.errorCode     = errorCode;
     callEvent.profileId     = profileId;
+    callEvent.slotId     = (uint8_t)slotId;
     le_event_Report(dataConnection.CallEvent, &callEvent,sizeof(dataCallEvent_t));
 
     return;
 }
 
-taf_dcs_CallCtx_t* taf_DataConnection::CreateDataCallCtx(int32_t profileId)
+taf_dcs_CallCtx_t* taf_DataConnection::CreateDataCallCtx(uint8_t slotId, int32_t profileId)
 {
     taf_dcs_CallCtx_t* callCtxPtr = NULL;
     char name[16] = {0};
@@ -562,6 +565,7 @@ taf_dcs_CallCtx_t* taf_DataConnection::CreateDataCallCtx(int32_t profileId)
     callCtxPtr->ipv6Status = telux::data::DataCallStatus::INVALID;
     callCtxPtr->ipType = telux::data::IpFamilyType::UNKNOWN;
     callCtxPtr->profileId = profileId;
+    callCtxPtr->slotId = slotId;
     callCtxPtr->sessionRefList = LE_DLS_LIST_INIT;
     callCtxPtr->link = LE_DLS_LINK_INIT;
     memset(callCtxPtr->intfName, 0, sizeof(callCtxPtr->intfName));
@@ -571,13 +575,13 @@ taf_dcs_CallCtx_t* taf_DataConnection::CreateDataCallCtx(int32_t profileId)
     callCtxPtr->callRef = (taf_dcs_CallRef_t)le_ref_CreateRef(DataCallRefMap, (void *)callCtxPtr);
     TAF_ERROR_IF_RET_VAL(callCtxPtr->callRef == NULL, NULL, "cannot alloc call reference");
 
-    snprintf(name, sizeof(name)-1, "callCtx-%d", profileId);
+    snprintf(name, sizeof(name)-1, "callCtx-%d-%d", slotId, profileId);
     callCtxPtr->sessionStateEvent = le_event_CreateId(name, sizeof(DataCallState_t));
 
     return callCtxPtr;
 }
 
-taf_dcs_CallCtx_t* taf_DataConnection::GetCallCtx(int32_t profileId)
+taf_dcs_CallCtx_t* taf_DataConnection::GetCallCtx(uint8_t slotId, int32_t profileId)
 {
     le_dls_Link_t* linkPtr = NULL;
 
@@ -587,7 +591,7 @@ taf_dcs_CallCtx_t* taf_DataConnection::GetCallCtx(int32_t profileId)
     {
         taf_dcs_CallCtx_t* callCtxPtr = CONTAINER_OF(linkPtr, taf_dcs_CallCtx_t, link);
         linkPtr = le_dls_PeekNext(&DataCallCtxList, linkPtr);
-        if (callCtxPtr->profileId == profileId)
+        if (callCtxPtr->slotId == slotId && callCtxPtr->profileId == profileId)
         {
             le_mutex_Unlock(callCtxMutex);
             return callCtxPtr;
@@ -607,22 +611,38 @@ taf_dcs_CallCtx_t* taf_DataConnection::GetCallCtx(taf_dcs_CallRef_t reference)
     return callCtxPtr;
 }
 
-int32_t taf_DataConnection::GetProfileId(taf_dcs_CallRef_t reference)
+le_result_t taf_DataConnection::GetSlotIdAndProfileId
+(
+    taf_dcs_CallRef_t reference,
+    uint8_t *slotId,
+    int32_t *profileId
+)
 {
+    TAF_ERROR_IF_RET_VAL(reference == NULL || slotId == NULL || profileId == NULL, LE_BAD_PARAMETER,
+                         "Null pointer");
     taf_dcs_CallCtx_t* callCtxPtr = GetCallCtx(reference);
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND,
-                         "cannot get callCtx from ref(%p)", reference);
-    return callCtxPtr->profileId;
+                         "Cannot get callCtx from ref(%p)", reference);
+
+    *slotId = callCtxPtr->slotId;
+    *profileId = callCtxPtr->profileId;
+    return LE_OK;
 }
 
-le_result_t taf_DataConnection::GetConnectionState(int32_t profileId, taf_dcs_ConState_t* statePtr)
+le_result_t taf_DataConnection::GetConnectionState
+(
+    uint8_t slotId,
+    int32_t profileId,
+    taf_dcs_ConState_t* statePtr
+)
 {
     TAF_ERROR_IF_RET_VAL(statePtr == NULL, LE_NOT_FOUND, "statePtr is NULL");
 
-    taf_dcs_CallCtx_t* callCtxPtr = GetCallCtx(profileId);
+    taf_dcs_CallCtx_t* callCtxPtr = GetCallCtx(slotId, profileId);
     if (callCtxPtr == NULL)
     {
-        LE_WARN("cannot found context from profile(%d), set to DISCONNECTED", profileId);
+        LE_WARN("Cannot find call context slotId(%d) profileId(%d), set to DISCONNECTED",
+                 slotId, profileId);
         *statePtr = TAF_DCS_DISCONNECTED;
         return LE_OK;
     }
@@ -631,14 +651,23 @@ le_result_t taf_DataConnection::GetConnectionState(int32_t profileId, taf_dcs_Co
     return LE_OK;
 }
 
-le_result_t taf_DataConnection::SendSettingDefaultProfileIdCmd(int32_t profileId)
+le_result_t taf_DataConnection::SendSettingDefaultProfileIdCmd(uint8_t slotId, int32_t profileId)
 {
-    telux::common::Status status = ConnectionMgr->setDefaultProfile(
+
+    if(dataConnectionManagers.find((SlotId)slotId) == dataConnectionManagers.end())
+    {
+        LE_ERROR("Connection manager is not init for slot %d", slotId);
+        return LE_FAULT;
+    }
+
+    telux::common::Status status =
+                          dataConnectionManagers[static_cast<SlotId>(slotId)]->setDefaultProfile(
                                                             telux::data::OperationType::DATA_LOCAL,
                                                             profileId,
                                                             SetDefaultProfileCallCallback);
+
     TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
-                         "start call failed, ret: %d", (int32_t)status);
+                         "Setting profile is failed, ret: %d", (int32_t)status);
 
     return LE_OK;
 }
@@ -646,46 +675,71 @@ le_result_t taf_DataConnection::SendSettingDefaultProfileIdCmd(int32_t profileId
 le_result_t taf_DataConnection::SendGettingDefaultProfileIdCmd()
 {
 #ifdef TARGET_SA515M
-    telux::common::Status status = ConnectionMgr->getDefaultProfile(
+
+    if(dataConnectionManagers.find((SlotId)SLOT_ID_1) == dataConnectionManagers.end())
+    {
+        LE_ERROR("Connection manager is not init for slot %d", SLOT_ID_1);
+        return LE_FAULT;
+    }
+
+    telux::common::Status status =
+                          dataConnectionManagers[static_cast<SlotId>(SLOT_ID_1)]->getDefaultProfile(
                                                             telux::data::OperationType::DATA_LOCAL,
                                                             GetDefaultProfileCallCallback);
+
     TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
-                         "start call failed, ret: %d", (int32_t)status);
+                         "Getting default profile id failed, ret: %d", (int32_t)status);
 #endif
     return LE_OK;
 }
 
 le_result_t taf_DataConnection::MakeCall
 (
+    uint8_t slotId,
     int32_t profileId,
     telux::data::IpFamilyType ipType
 )
 {
     telux::common::Status status;
 
-    status = ConnectionMgr->startDataCall(profileId, ipType, StartDataCallCallback);
+    if(dataConnectionManagers.find((SlotId)slotId) == dataConnectionManagers.end())
+    {
+        LE_ERROR("Connection manager is not init for slot %d", slotId);
+        return LE_FAULT;
+    }
+
+    status = dataConnectionManagers[static_cast<SlotId>(slotId)]->startDataCall(profileId, ipType,
+                                                                            StartDataCallCallback);
     TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
-                         "start call failed, ret: %d", (int32_t)status);
+                         "Starting call failed, ret: %d", (int32_t)status);
 
     return LE_OK;
 }
 
 le_result_t taf_DataConnection::StopCall
 (
+    uint8_t slotId,
     int32_t profileId,
     telux::data::IpFamilyType ipType
 )
 {
     telux::common::Status status;
 
-    status = ConnectionMgr->stopDataCall(profileId, ipType, StopDataCallCallback);
+    if(dataConnectionManagers.find((SlotId)slotId) == dataConnectionManagers.end())
+    {
+        LE_ERROR("Connection manager is not init for slot %d", slotId);
+        return LE_FAULT;
+    }
+
+    status = dataConnectionManagers[static_cast<SlotId>(slotId)]->stopDataCall(profileId, ipType,
+                                                                           StopDataCallCallback);
     TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
-                         "stop call failed, ret: %d", (int32_t)status);
+                         "Stopping call failed, ret: %d", (int32_t)status);
 
     return LE_OK;
 }
 
-bool taf_DataConnection::IsCallCtxCreated(int32_t profileId)
+bool taf_DataConnection::IsCallCtxCreated(uint8_t slotId, int32_t profileId)
 {
     le_dls_Link_t* linkPtr = NULL;
 
@@ -695,7 +749,7 @@ bool taf_DataConnection::IsCallCtxCreated(int32_t profileId)
     {
         taf_dcs_CallCtx_t* callCtxPtr = CONTAINER_OF(linkPtr, taf_dcs_CallCtx_t, link);
         linkPtr = le_dls_PeekNext(&DataCallCtxList, linkPtr);
-        if (callCtxPtr->profileId == profileId)
+        if (callCtxPtr->slotId == slotId && callCtxPtr->profileId == profileId)
         {
             le_mutex_Unlock(callCtxMutex);
             return true;
@@ -726,8 +780,8 @@ le_result_t taf_DataConnection::AddSessionToCallCtx
 
         if (sessionRefPtr->sessionRef == sessionRef)
         {
-            LE_DEBUG("session(%p) has been added to callctx(profile %d)",
-                     sessionRef, callCtxPtr->profileId);
+            LE_DEBUG("Session(%p) has been added to callctx slotId(%d) profileId(%d)",
+                     sessionRef, callCtxPtr->slotId, callCtxPtr->profileId);
             pthread_mutex_unlock(&callCtxPtr->sessionListMutex);
             return LE_DUPLICATE;
         }
@@ -770,13 +824,18 @@ le_result_t taf_DataConnection::RemoveSessionFromCallCtx
         }
     }
 
-    LE_ERROR("cannot found session context with ref(%p) from profile(%d)",
-             sessionRef, callCtxPtr->profileId);
+    LE_ERROR("Cannot found session context with ref(%p) from slotId(%d) profileId(%d)",
+             sessionRef, callCtxPtr->slotId, callCtxPtr->profileId);
     pthread_mutex_unlock(&callCtxPtr->sessionListMutex);
     return LE_NOT_FOUND;
 }
 
-le_result_t taf_DataConnection::StartSessionCallSync(int32_t profileId, taf_dcs_Pdp_t pdpType)
+le_result_t taf_DataConnection::StartSessionCallSync
+(
+    uint8_t slotId,
+    int32_t profileId,
+    taf_dcs_Pdp_t pdpType
+)
 {
     // initialize the synchronous promise
     CmdSynchronousPromise = std::promise<le_result_t>();
@@ -791,11 +850,11 @@ le_result_t taf_DataConnection::StartSessionCallSync(int32_t profileId, taf_dcs_
         ipType = telux::data::IpFamilyType::IPV6;
     }
 
-    le_result_t result = MakeCall(profileId, ipType);
+    le_result_t result = MakeCall(slotId, profileId, ipType);
 
     if (result != LE_OK)
     {
-        LE_ERROR("start session is failed");
+        LE_ERROR("Starting session is failed");
         return result;
     }
 
@@ -808,6 +867,7 @@ le_result_t taf_DataConnection::StartSessionCallSync(int32_t profileId, taf_dcs_
 
 le_result_t taf_DataConnection::PreProcessDataCall
 (
+    uint8_t slotId,
     int32_t profileId,
     taf_dcs_CallCtx_t* callCtxPtr,
     taf_CallFuncType_t funcType,
@@ -816,7 +876,7 @@ le_result_t taf_DataConnection::PreProcessDataCall
 {
     le_result_t result = LE_OK;
 
-    TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND, "cannot get call context");
+    TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND, "Cannot get call context");
 
     switch(funcType)
     {
@@ -826,7 +886,8 @@ le_result_t taf_DataConnection::PreProcessDataCall
             // An async call action(starting or stopping) is in progress
             if(callCtxPtr->isCallActionInProgress == true)
             {
-                LE_INFO("profile(%d) is in use and async data call is in progress", profileId);
+                LE_INFO("SlotId(%d) profileId(%d) is in use and async data call is in progress",
+                         slotId, profileId);
                 pthread_mutex_unlock(&callCtxPtr->callActionMutex);
                 return LE_IN_PROGRESS;
             }
@@ -839,7 +900,8 @@ le_result_t taf_DataConnection::PreProcessDataCall
             // Already connected, return LE_DUPLICATE
             if(callCtxPtr->latestConState == TAF_DCS_CONNECTED)
             {
-                LE_INFO("profile(%d) for data call is already connected", profileId);
+                LE_INFO("SlotId(%d) profileId(%d) for data call is already connected",
+                         slotId, profileId);
                 return LE_DUPLICATE;
             }
 
@@ -850,7 +912,8 @@ le_result_t taf_DataConnection::PreProcessDataCall
             // An async call action(starting or stopping) is in progress
             if(callCtxPtr->isCallActionInProgress == true)
             {
-                LE_INFO("profile(%d) is in use and async data call is in progress", profileId);
+                LE_INFO("SlotId(%d) profileId(%d) is in use and async data call is in progress",
+                         slotId, profileId);
                 pthread_mutex_unlock(&callCtxPtr->callActionMutex);
                 return LE_IN_PROGRESS;
             }
@@ -859,7 +922,7 @@ le_result_t taf_DataConnection::PreProcessDataCall
             result = RemoveSessionFromCallCtx(callCtxPtr, sessionRef);
             if(result != LE_OK)
             {
-                LE_INFO("cannot remove session ref(%p) from this call ctx", sessionRef);
+                LE_INFO("Cannot remove session ref(%p) from this call ctx", sessionRef);
                 return result;
             }
 
@@ -874,6 +937,7 @@ le_result_t taf_DataConnection::PreProcessDataCall
 
 le_result_t taf_DataConnection::StartSessionCmdSync
 (
+    uint8_t slotId,
     int32_t profileId,
     taf_dcs_Pdp_t pdpType,
     le_msg_SessionRef_t sessionRef
@@ -886,15 +950,16 @@ le_result_t taf_DataConnection::StartSessionCmdSync
     std::chrono::seconds span(SESSION_TIMEOUT);
 
     TAF_ERROR_IF_RET_VAL(pdpType == TAF_DCS_PDP_UNKNOWN, LE_OUT_OF_RANGE, "pdpType is unknown");
-    LE_INFO("sync start sessionRef=%p, profileId=%d", sessionRef, profileId);
-    isCreated = IsCallCtxCreated(profileId);
+    LE_INFO("Sync start sessionRef=%p, slotId(%d) profileId(%d)", sessionRef, slotId, profileId);
+    isCreated = IsCallCtxCreated(slotId, profileId);
 
     if (isCreated == true)
     {
-        callCtxPtr = GetCallCtx(profileId);
+        callCtxPtr = GetCallCtx(slotId, profileId);
         TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND, "cannot get call context");
 
-        result = PreProcessDataCall(profileId, callCtxPtr, CALL_FUNCTION_SYNC_START, sessionRef);
+        result = PreProcessDataCall(slotId, profileId, callCtxPtr, CALL_FUNCTION_SYNC_START,
+                                    sessionRef);
         if(result != LE_OK)
             return result;
 
@@ -902,7 +967,7 @@ le_result_t taf_DataConnection::StartSessionCmdSync
     }
     else
     {
-        callCtxPtr = CreateDataCallCtx(profileId);
+        callCtxPtr = CreateDataCallCtx(slotId, profileId);
         callCtxPtr->funcType = CALL_FUNCTION_SYNC_START;
         TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND, "cannot create call context");
         result = AddSessionToCallCtx(callCtxPtr, sessionRef);
@@ -914,12 +979,12 @@ le_result_t taf_DataConnection::StartSessionCmdSync
     callCtxPtr->isCallActionInProgress = true;
     pthread_mutex_unlock(&callCtxPtr->callActionMutex);
 
-    result = StartSessionCallSync(profileId, pdpType);
+    result = StartSessionCallSync(slotId, profileId, pdpType);
 
     if (result != LE_OK)
     {
-        LE_ERROR("starting synchronous session cmd failed, result: %d, profileId: %d",
-                  result, profileId);
+        LE_ERROR("Starting synchronous session cmd failed, result: %d, slotId(%d) profileId(%d)",
+                  result, slotId, profileId);
         //if start session failed ,remove sessionRef from callCtxPtr
         pthread_mutex_lock(&callCtxPtr->callActionMutex);
         callCtxPtr->isCallActionInProgress = false;
@@ -935,8 +1000,7 @@ le_result_t taf_DataConnection::StartSessionCmdSync
     if (std::future_status::timeout == waitStatus)
     {
         LE_ERROR("waiting promise timeout for %d seconds", SESSION_TIMEOUT);
-        callCtxPtr = GetCallCtx(profileId);
-        LE_INFO("Err profile[%d] for Type[%s] IPv4[%s] IPv6[%s]", profileId,
+        LE_INFO("Err slotId(%d) profileId(%d) for Type[%s] IPv4[%s] IPv6[%s]", slotId, profileId,
                  IpFamilyTypeToString(callCtxPtr->ipType),
                  CallStatusToString(callCtxPtr->ipv4Status),
                  CallStatusToString(callCtxPtr->ipv6Status));
@@ -956,7 +1020,7 @@ le_result_t taf_DataConnection::StartSessionCmdSync
     //Remove session since there is no need to call stopCall
     if(result == LE_OK)
     {
-        callCtxPtr = GetCallCtx(profileId);
+        callCtxPtr = GetCallCtx(slotId, profileId);
         if(callCtxPtr->callStatus == telux::data::DataCallStatus::NET_NO_NET)
         {
             LE_ERROR("callStatus is disconnected");
@@ -964,7 +1028,7 @@ le_result_t taf_DataConnection::StartSessionCmdSync
             return LE_TERMINATED;
         }
     }
-    LE_INFO("sync starting session is done, result: %s", LE_RESULT_TXT(result));
+    LE_INFO("Sync starting session is done, result: %s", LE_RESULT_TXT(result));
 
     return result;
 }
@@ -979,6 +1043,7 @@ void taf_DataConnection::StartSessionCmdAsync
 {
     bool isCreated = false;
     int32_t profileId;
+    uint8_t slotId;
     taf_dcs_CallCtx_t* callCtxPtr;
     le_result_t result = LE_OK;
     taf_dcs_Pdp_t pdpType;
@@ -987,7 +1052,7 @@ void taf_DataConnection::StartSessionCmdAsync
 
     TAF_ERROR_IF_RET_NIL(handlerPtr == NULL, "Handler function is NULL");
 
-    result = dataProfile.GetProfileId(profileRef, &profileId);
+    result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
     // Check if profileRef is valid
     if (result != LE_OK)
     {
@@ -996,7 +1061,8 @@ void taf_DataConnection::StartSessionCmdAsync
         return;
     }
 
-    LE_INFO("async starting sessionRef=%p, profileId=%d", sessionRef, profileId);
+    LE_INFO("Async starting sessionRef=%p, slotId(%d) profileId(%d)",
+             sessionRef, slotId, profileId);
 
     pdpType = dataProfile.GetPdp(profileRef);
 
@@ -1018,20 +1084,21 @@ void taf_DataConnection::StartSessionCmdAsync
             return;
     }
 
-    isCreated = IsCallCtxCreated(profileId);
+    isCreated = IsCallCtxCreated(slotId, profileId);
 
     if (isCreated == true)
     {
-        callCtxPtr = GetCallCtx(profileId);
+        callCtxPtr = GetCallCtx(slotId, profileId);
         // Check if callCtxPtr is valid
         if (callCtxPtr == NULL)
         {
-            LE_ERROR("cannot get call context for profile(%d)", profileId);
+            LE_ERROR("cannot get call context for slotId(%d) profile(%d)", slotId, profileId);
             handlerPtr(profileRef, LE_NOT_FOUND, contextPtr);
             return;
         }
 
-        result = PreProcessDataCall(profileId, callCtxPtr, CALL_FUNCTION_ASYNC_START, sessionRef);
+        result = PreProcessDataCall(slotId, profileId, callCtxPtr, CALL_FUNCTION_ASYNC_START,
+                                     sessionRef);
         if(result != LE_OK)
         {
             handlerPtr(profileRef, result, contextPtr);
@@ -1042,7 +1109,7 @@ void taf_DataConnection::StartSessionCmdAsync
     }
     else
     {
-        callCtxPtr = CreateDataCallCtx(profileId);
+        callCtxPtr = CreateDataCallCtx(slotId, profileId);
         callCtxPtr->funcType = CALL_FUNCTION_ASYNC_START;
         // Check if call context can be created
         if (callCtxPtr == NULL)
@@ -1067,15 +1134,15 @@ void taf_DataConnection::StartSessionCmdAsync
     callCtxPtr->isCallActionInProgress = true;
     pthread_mutex_unlock(&callCtxPtr->callActionMutex);
 
-    AddHandlerSessionMapping(profileId, contextPtr, sessionRef, handlerPtr);
+    AddHandlerSessionMapping(slotId, profileId, contextPtr, sessionRef, handlerPtr);
 
-    result = MakeCall(profileId, ipType);
+    result = MakeCall(slotId, profileId, ipType);
 
     if (result != LE_OK)
     {
         LE_ERROR("starting session failed");
         RemoveSessionFromCallCtx(callCtxPtr,sessionRef);
-        DeleteHandlerInfo(profileId, handlerPtr);
+        DeleteHandlerInfo(slotId, profileId, handlerPtr);
         pthread_mutex_lock(&callCtxPtr->callActionMutex);
         callCtxPtr->isCallActionInProgress = false;
         pthread_mutex_unlock(&callCtxPtr->callActionMutex);
@@ -1086,7 +1153,12 @@ void taf_DataConnection::StartSessionCmdAsync
 
 }
 
-le_result_t taf_DataConnection::StopSessionCallSync(int32_t profileId, taf_dcs_Pdp_t pdpType)
+le_result_t taf_DataConnection::StopSessionCallSync
+(
+    uint8_t slotId,
+    int32_t profileId,
+    taf_dcs_Pdp_t pdpType
+)
 {
     // initialize the synchronous promise
     CmdSynchronousPromise = std::promise<le_result_t>();
@@ -1101,7 +1173,7 @@ le_result_t taf_DataConnection::StopSessionCallSync(int32_t profileId, taf_dcs_P
         ipType = telux::data::IpFamilyType::IPV6;
     }
 
-    le_result_t result = StopCall(profileId, ipType);
+    le_result_t result = StopCall(slotId, profileId, ipType);
 
     if (result != LE_OK)
     {
@@ -1118,6 +1190,7 @@ le_result_t taf_DataConnection::StopSessionCallSync(int32_t profileId, taf_dcs_P
 
 le_result_t taf_DataConnection::StopSessionCmdSync
 (
+    uint8_t slotId,
     int32_t profileId,
     taf_dcs_Pdp_t pdpType,
     le_msg_SessionRef_t sessionRef
@@ -1128,13 +1201,14 @@ le_result_t taf_DataConnection::StopSessionCmdSync
     std::chrono::seconds span(SESSION_TIMEOUT);
     taf_dcs_CallCtx_t* callCtxPtr;
     le_result_t result = LE_OK;
-    LE_INFO("sync stopping sessionRef=%p, profileId=%d", sessionRef, profileId);
+    LE_INFO("Sync stopping sessionRef=%p, slotId(%d) profileId(%d)", sessionRef, slotId, profileId);
     TAF_ERROR_IF_RET_VAL(pdpType == TAF_DCS_PDP_UNKNOWN, LE_OUT_OF_RANGE, "pdpType is unknown");
 
-    callCtxPtr = GetCallCtx(profileId);
+    callCtxPtr = GetCallCtx(slotId, profileId);
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND, "cannot get call context");
 
-    result = PreProcessDataCall(profileId, callCtxPtr, CALL_FUNCTION_SYNC_STOP, sessionRef);
+    result = PreProcessDataCall(slotId, profileId, callCtxPtr, CALL_FUNCTION_SYNC_STOP,
+                                 sessionRef);
     if(result != LE_OK)
         return result;
 
@@ -1146,14 +1220,14 @@ le_result_t taf_DataConnection::StopSessionCmdSync
 
     if (numLinks > 0)
     {
-        LE_INFO("profile(%d) is used by (%d) clients, nothing to do in this operation",
-                 profileId, numLinks);
+        LE_INFO("slotId(%d) profile(%d) is used by (%d) clients, nothing to do in this operation",
+                 slotId, profileId, numLinks);
         return LE_OK;
     }
 
     if(callCtxPtr->latestConState == TAF_DCS_DISCONNECTED)
     {
-        LE_INFO("profile(%d) for data call is already disconnected", profileId);
+        LE_INFO("slotId(%d) profile(%d) for data call is already disconnected",slotId, profileId);
         return LE_OK;
     }
 
@@ -1163,7 +1237,7 @@ le_result_t taf_DataConnection::StopSessionCmdSync
 
     callCtxPtr->funcType = CALL_FUNCTION_SYNC_STOP;
 
-    result = StopSessionCallSync(profileId, pdpType);
+    result = StopSessionCallSync(slotId, profileId, pdpType);
     if (result != LE_OK)
     {
         LE_ERROR("stopping session command failed, ret: %d", result);
@@ -1194,7 +1268,7 @@ le_result_t taf_DataConnection::StopSessionCmdSync
     callCtxPtr->isCallActionInProgress = false;
     pthread_mutex_unlock(&callCtxPtr->callActionMutex);
 
-    LE_INFO("sync stopping session is done, result: %s", LE_RESULT_TXT(result));
+    LE_INFO("Sync stopping session is done, result: %s", LE_RESULT_TXT(result));
 
     return result;
 }
@@ -1208,6 +1282,7 @@ void taf_DataConnection::StopSessionCmdAsync
 )
 {
     int32_t profileId;
+    uint8_t slotId;
     taf_dcs_CallCtx_t* callCtxPtr;
     le_result_t result = LE_OK;
     taf_dcs_Pdp_t pdpType;
@@ -1221,7 +1296,7 @@ void taf_DataConnection::StopSessionCmdAsync
 
     TAF_ERROR_IF_RET_NIL(handlerPtr == NULL, "Handler function is NULL");
 
-    result = dataProfile.GetProfileId(profileRef, &profileId);
+    result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
     // Check if profileRef is valid
     if (result != LE_OK)
     {
@@ -1230,7 +1305,8 @@ void taf_DataConnection::StopSessionCmdAsync
         return;
     }
 
-    LE_INFO("async stopping sessionRef=%p, profileId=%d", sessionRef, profileId);
+    LE_INFO("Async stopping sessionRef=%p, slotId(%d) profileId(%d)",
+             sessionRef, slotId, profileId);
 
     pdpType = dataProfile.GetPdp(profileRef);
 
@@ -1252,15 +1328,16 @@ void taf_DataConnection::StopSessionCmdAsync
             return;
     }
 
-    callCtxPtr = GetCallCtx(profileId);
+    callCtxPtr = GetCallCtx(slotId, profileId);
     if (callCtxPtr == NULL)
     {
-        LE_ERROR("cannot get call context for %d", profileId);
+        LE_ERROR("cannot get call context for slotId(%d) profileId(%d)", slotId, profileId);
         handlerPtr(profileRef, LE_NOT_FOUND, contextPtr);
         return;
     }
 
-    result = PreProcessDataCall(profileId, callCtxPtr, CALL_FUNCTION_ASYNC_STOP, sessionRef);
+    result = PreProcessDataCall(slotId, profileId, callCtxPtr, CALL_FUNCTION_ASYNC_STOP,
+                                 sessionRef);
     if(result != LE_OK)
     {
         handlerPtr(profileRef, result, contextPtr);
@@ -1276,15 +1353,15 @@ void taf_DataConnection::StopSessionCmdAsync
     // Check if more than one session uses this data connection
     if (numLinks > 0)
     {
-        LE_INFO("profile(%d) is used by (%d) clients, nothing to do in this operation",
-                 profileId, numLinks);
+        LE_INFO("slotId(%d) profile(%d) is used by (%d) clients, nothing to do in this operation",
+                 slotId, profileId, numLinks);
         handlerPtr(profileRef, LE_OK, contextPtr);
         return;
     }
 
     if(callCtxPtr->latestConState == TAF_DCS_DISCONNECTED)
     {
-        LE_INFO("profile(%d) for data call is already disconnected", profileId);
+        LE_INFO("slotId(%d) profile(%d) for data call is already disconnected", slotId, profileId);
         handlerPtr(profileRef, LE_OK, contextPtr);
         return;
     }
@@ -1295,15 +1372,15 @@ void taf_DataConnection::StopSessionCmdAsync
 
     callCtxPtr->funcType = CALL_FUNCTION_ASYNC_STOP;
 
-    AddHandlerSessionMapping(profileId, contextPtr, sessionRef, handlerPtr);
+    AddHandlerSessionMapping(slotId, profileId, contextPtr, sessionRef, handlerPtr);
 
-    result = StopCall(profileId, ipType);
+    result = StopCall(slotId, profileId, ipType);
 
     if (result != LE_OK)
     {
         LE_ERROR("stopping session failed");
         AddSessionToCallCtx(callCtxPtr, sessionRef);
-        DeleteHandlerInfo(profileId, handlerPtr);
+        DeleteHandlerInfo(slotId, profileId, handlerPtr);
         pthread_mutex_lock(&callCtxPtr->callActionMutex);
         callCtxPtr->isCallActionInProgress = false;
         pthread_mutex_unlock(&callCtxPtr->callActionMutex);
@@ -1314,31 +1391,35 @@ void taf_DataConnection::StopSessionCmdAsync
 
 }
 
-le_result_t taf_DataConnection::SetDefaultProfileIdSync(uint32_t profileId)
+le_result_t taf_DataConnection::SetDefaultProfileIdSync(uint8_t slotId, uint32_t profileId)
 {
     // initialize the synchronous promise
     CmdSynchronousPromise = std::promise<le_result_t>();
 
-    le_result_t result = SendSettingDefaultProfileIdCmd(profileId);
-    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "setting default profile is failed, profile: %d",
-                         profileId);
+    le_result_t result = SendSettingDefaultProfileIdCmd(slotId, profileId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result,
+                         "Setting default profile is failed, slotId(%d) profileId(%d)",
+                         slotId, profileId);
 
     // blocking here to get response
     std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
     result = futResult.get();
 
-    LE_INFO("setting default profile(%d) is finished, result: %d", profileId, result);
+    LE_INFO("Setting default profile(%d) for slotId(%d) is finished, result: %d",
+             profileId, slotId, result);
 
     return result;
 }
 
-le_result_t taf_DataConnection::GetDefaultProfileIdSync(uint32_t &profileId)
+le_result_t taf_DataConnection::GetDefaultProfileIdSync(uint8_t *slotId, uint32_t *profileId)
 {
+    TAF_ERROR_IF_RET_VAL(slotId == NULL || profileId == NULL, LE_BAD_PARAMETER, "Null pointer");
+
     // initialize the synchronous promise
     CmdSynchronousPromise = std::promise<le_result_t>();
 
     le_result_t result = SendGettingDefaultProfileIdCmd();
-    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "setting default profile is failed");
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Setting default profile is failed");
 
 // In SA415M with old telsdk version, there is no getDefaultProfile function which will not set
 // CmdSynchronousPromise value
@@ -1352,22 +1433,30 @@ le_result_t taf_DataConnection::GetDefaultProfileIdSync(uint32_t &profileId)
 
     if (result == LE_OK)
     {
-        profileId = DefaultProfileId;
+        *profileId = DefaultProfileId;
+        *slotId = DefaultSlotId;
     }
     else
     {
-        LE_ERROR("getting default profile is failed, use default profile: %d",
-                  TAF_DCS_DEFAULT_PROFILE);
-        profileId = TAF_DCS_DEFAULT_PROFILE;
+        LE_ERROR("Getting default profile is failed, use default slotId(%d) profileId(%d)",
+                  SLOT_ID_1, TAF_DCS_DEFAULT_PROFILE);
+        *profileId = TAF_DCS_DEFAULT_PROFILE;
+        *slotId = SLOT_ID_1;
     }
 
     return result;
 }
 
-le_result_t taf_DataConnection::GetProfileIdByInterfaceName(const char* namePtr,uint32_t* profileId)
+le_result_t taf_DataConnection::GetSlotIdAndProfileIdByIfName
+(
+    const char* namePtr,
+    uint8_t *slotId,
+    uint32_t* profileId
+)
 {
-    TAF_ERROR_IF_RET_VAL(namePtr == NULL, LE_NOT_FOUND, "namePtr is null");
-    TAF_ERROR_IF_RET_VAL(profileId == NULL, LE_NOT_FOUND, "profileId is null");
+    TAF_ERROR_IF_RET_VAL(namePtr == NULL, LE_BAD_PARAMETER, "namePtr is null");
+    TAF_ERROR_IF_RET_VAL(slotId == NULL, LE_BAD_PARAMETER, "slotId is null");
+    TAF_ERROR_IF_RET_VAL(profileId == NULL, LE_BAD_PARAMETER, "profileId is null");
 
     le_dls_Link_t* linkPtr = NULL;
 
@@ -1382,6 +1471,7 @@ le_result_t taf_DataConnection::GetProfileIdByInterfaceName(const char* namePtr,
         if (strncmp(callCtxPtr->intfName,namePtr,TAF_DCS_NAME_MAX_LEN)== 0)
         {
             *profileId = callCtxPtr->profileId;
+            *slotId = callCtxPtr->slotId;
             le_mutex_Unlock(callCtxMutex);
             return LE_OK;
         }
@@ -1391,13 +1481,20 @@ le_result_t taf_DataConnection::GetProfileIdByInterfaceName(const char* namePtr,
     return LE_NOT_FOUND;
 }
 
-le_result_t taf_DataConnection::GetInterfaceName(int32_t profileId, char* namePtr, size_t nameSize)
+le_result_t taf_DataConnection::GetInterfaceName
+(
+    uint8_t slotId,
+    int32_t profileId,
+    char* namePtr,
+    size_t nameSize
+)
 {
     TAF_ERROR_IF_RET_VAL(namePtr == NULL, LE_NOT_FOUND, "namePtr is null");
     taf_dcs_CallCtx_t* callCtxPtr;
-    callCtxPtr = GetCallCtx(profileId);
+    callCtxPtr = GetCallCtx(slotId, profileId);
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND,
-                         "cannot find call context from profile Id: %d", profileId);
+                         "Cannot find call context from slotId(%d) profileId(%d)",
+                         slotId, profileId);
 
     if ((callCtxPtr->callStatus == telux::data::DataCallStatus::NET_CONNECTED) &&
         ((callCtxPtr->ipv4Status == telux::data::DataCallStatus::NET_CONNECTED) ||
@@ -1407,32 +1504,46 @@ le_result_t taf_DataConnection::GetInterfaceName(int32_t profileId, char* namePt
         return LE_OK;
     }
 
-    LE_ERROR("invalid connection status, callstatus: %s, ipv4: %s, ipv6: %s",
+    LE_DEBUG("Invalid connection status, callstatus: %s, ipv4: %s, ipv6: %s",
              CallStatusToString(callCtxPtr->callStatus), CallStatusToString(callCtxPtr->ipv4Status),
              CallStatusToString(callCtxPtr->ipv6Status));
     return LE_NOT_POSSIBLE;
 }
 
-le_result_t taf_DataConnection::GetIpv4Address(int32_t profileId, char* addrPtr, size_t addrSize)
+le_result_t taf_DataConnection::GetIpv4Address
+(
+    uint8_t slotId,
+    int32_t profileId,
+    char* addrPtr,
+    size_t addrSize
+)
 {
     TAF_ERROR_IF_RET_VAL(addrPtr == NULL, LE_NOT_FOUND, "addrPtr is null");
     taf_dcs_CallCtx_t* callCtxPtr;
-    callCtxPtr = GetCallCtx(profileId);
+    callCtxPtr = GetCallCtx(slotId, profileId);
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND,
-                         "cannot find call context from profile Id: %d", profileId);
+                         "Cannot find call context from slotId(%d) profileId(%d)",
+                         slotId, profileId);
 
     le_utf8_Copy(addrPtr, callCtxPtr->ipv4Addr, addrSize, NULL);
 
     return LE_OK;
 }
 
-le_result_t taf_DataConnection::GetIpv4Gateway(int32_t profileId, char* addrPtr, size_t addrSize)
+le_result_t taf_DataConnection::GetIpv4Gateway
+(
+    uint8_t slotId,
+    int32_t profileId,
+    char* addrPtr,
+    size_t addrSize
+)
 {
     TAF_ERROR_IF_RET_VAL(addrPtr == NULL, LE_NOT_FOUND, "addrPtr is null");
     taf_dcs_CallCtx_t* callCtxPtr;
-    callCtxPtr = GetCallCtx(profileId);
+    callCtxPtr = GetCallCtx(slotId, profileId);
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND,
-                         "cannot find call context from profile Id: %d", profileId);
+                         "Cannot find call context slotId(%d) profileId(%d)",
+                         slotId, profileId);
 
     le_utf8_Copy(addrPtr, callCtxPtr->ipv4Gw, addrSize, NULL);
 
@@ -1441,6 +1552,7 @@ le_result_t taf_DataConnection::GetIpv4Gateway(int32_t profileId, char* addrPtr,
 
 le_result_t taf_DataConnection::GetIpv4Dns
 (
+    uint8_t slotId,
     int32_t profileId,
     char* dns1Ptr,
     size_t dns1Size,
@@ -1450,9 +1562,9 @@ le_result_t taf_DataConnection::GetIpv4Dns
 {
     TAF_ERROR_IF_RET_VAL(dns1Ptr == NULL || dns2Ptr == NULL, LE_NOT_FOUND, "addrPtr is null");
     taf_dcs_CallCtx_t* callCtxPtr;
-    callCtxPtr = GetCallCtx(profileId);
+    callCtxPtr = GetCallCtx(slotId, profileId);
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND,
-                         "cannot find call context from profile Id: %d", profileId);
+                         "Cannot find call context slotId(%d) profileId(%d)", slotId, profileId);
 
     le_utf8_Copy(dns1Ptr, callCtxPtr->ipv4Dns1, dns1Size, NULL);
     le_utf8_Copy(dns2Ptr, callCtxPtr->ipv4Dns2, dns2Size, NULL);
@@ -1460,26 +1572,39 @@ le_result_t taf_DataConnection::GetIpv4Dns
     return LE_OK;
 }
 
-le_result_t taf_DataConnection::GetIpv6Address(int32_t profileId, char* addrPtr, size_t addrSize)
+le_result_t taf_DataConnection::GetIpv6Address
+(
+    uint8_t slotId,
+    int32_t profileId,
+    char* addrPtr,
+    size_t addrSize
+)
 {
     TAF_ERROR_IF_RET_VAL(addrPtr == NULL, LE_NOT_FOUND, "addrPtr is null");
     taf_dcs_CallCtx_t* callCtxPtr;
-    callCtxPtr = GetCallCtx(profileId);
+    callCtxPtr = GetCallCtx(slotId, profileId);
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND,
-                         "cannot find call context from profile Id: %d", profileId);
+                         "Cannot find call context slotId(%d) profileId(%d)", slotId, profileId);
 
     le_utf8_Copy(addrPtr, callCtxPtr->ipv6Addr, addrSize, NULL);
 
     return LE_OK;
 }
 
-le_result_t taf_DataConnection::GetIpv6Gateway(int32_t profileId, char* addrPtr, size_t addrSize)
+le_result_t taf_DataConnection::GetIpv6Gateway
+(
+    uint8_t slotId,
+    int32_t profileId,
+    char* addrPtr,
+    size_t addrSize
+)
 {
     TAF_ERROR_IF_RET_VAL(addrPtr == NULL, LE_NOT_FOUND, "addrPtr is null");
     taf_dcs_CallCtx_t* callCtxPtr;
-    callCtxPtr = GetCallCtx(profileId);
+    callCtxPtr = GetCallCtx(slotId, profileId);
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND,
-                         "cannot find call context from profile Id: %d", profileId);
+                         "Cannot find call context slotId(%d) profileId(%d)",
+                         slotId, profileId);
 
     le_utf8_Copy(addrPtr, callCtxPtr->ipv6Gw, addrSize, NULL);
 
@@ -1488,6 +1613,7 @@ le_result_t taf_DataConnection::GetIpv6Gateway(int32_t profileId, char* addrPtr,
 
 le_result_t taf_DataConnection::GetIpv6Dns
 (
+    uint8_t slotId,
     int32_t profileId,
     char* dns1Ptr,
     size_t dns1Size,
@@ -1497,9 +1623,10 @@ le_result_t taf_DataConnection::GetIpv6Dns
 {
     TAF_ERROR_IF_RET_VAL(dns1Ptr == NULL || dns2Ptr == NULL, LE_NOT_FOUND, "addrPtr is null");
     taf_dcs_CallCtx_t* callCtxPtr;
-    callCtxPtr = GetCallCtx(profileId);
+    callCtxPtr = GetCallCtx(slotId, profileId);
     TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND,
-                         "cannot find call context from profile Id: %d", profileId);
+                         "Cannot find call context from slotId(%d) profileId(%d)",
+                         slotId, profileId);
 
     le_utf8_Copy(dns1Ptr, callCtxPtr->ipv6Dns1, dns1Size, NULL);
     le_utf8_Copy(dns2Ptr, callCtxPtr->ipv6Dns2, dns2Size, NULL);
@@ -1509,6 +1636,7 @@ le_result_t taf_DataConnection::GetIpv6Dns
 
 le_result_t taf_DataConnection::GetDataBearerTechnology
 (
+    uint8_t slotId,
     int32_t profileId,
     taf_dcs_DataBearerTechnology_t* downDataBearerTechPtr,
     taf_dcs_DataBearerTechnology_t* upDataBearerTechPtr
@@ -1518,10 +1646,10 @@ le_result_t taf_DataConnection::GetDataBearerTechnology
                          LE_NOT_FOUND, "ptr is null");
     taf_dcs_CallCtx_t* callCtxPtr;
 
-    callCtxPtr = GetCallCtx(profileId);
+    callCtxPtr = GetCallCtx(slotId, profileId);
     if (callCtxPtr == NULL)
     {
-        LE_ERROR("cannot found call context, use unknown data bearer");
+        LE_ERROR("Cannot find call context, use unknown data bearer");
         *downDataBearerTechPtr = TAF_DCS_DATA_BEARER_TECHNOLOGY_UNKNOWN;
         *upDataBearerTechPtr   = TAF_DCS_DATA_BEARER_TECHNOLOGY_UNKNOWN;
         return LE_OK;
@@ -1532,7 +1660,12 @@ le_result_t taf_DataConnection::GetDataBearerTechnology
     return LE_OK;
 }
 
-le_result_t taf_DataConnection::GetRoamingStatus(bool* isRoamingPtr, taf_dcs_RoamingType_t* typePtr)
+le_result_t taf_DataConnection::GetRoamingStatus
+(
+    uint8_t slotId,
+    bool* isRoamingPtr,
+    taf_dcs_RoamingType_t* typePtr
+)
 {
     TAF_ERROR_IF_RET_VAL(isRoamingPtr == NULL || typePtr == NULL, LE_BAD_PARAMETER, "ptr is null");
 
@@ -1544,14 +1677,14 @@ le_result_t taf_DataConnection::GetRoamingStatus(bool* isRoamingPtr, taf_dcs_Roa
                                     std::placeholders::_2);
 
         telux::common::Status status =
-            dataServingSystemManagers[(SlotId)SLOT_ID_1]->requestRoamingStatus(
+            dataServingSystemManagers[(SlotId)slotId]->requestRoamingStatus(
                                                                             reqRoamingStatusCbFunc);
         TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT,
                              "Call sdk function failed.");
 
         le_clk_Time_t timeToWait = {2, 0};
         le_result_t res = le_sem_WaitWithTimeOut(reqRoamingStatusCb->semaphore, timeToWait);
-        TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Wait semaphore timeout.");
+        TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_TIMEOUT, "Wait semaphore timeout.");
 
         TAF_ERROR_IF_RET_VAL(reqRoamingStatusCb->errorCode != telux::common::ErrorCode::SUCCESS,
                              LE_FAULT, "Telsdk returns error.");
@@ -1563,17 +1696,18 @@ le_result_t taf_DataConnection::GetRoamingStatus(bool* isRoamingPtr, taf_dcs_Roa
     return LE_OK;
 }
 
-le_event_Id_t taf_DataConnection::GetSessionStateEvent(int32_t profileId)
+le_event_Id_t taf_DataConnection::GetSessionStateEvent(uint8_t slotId, int32_t profileId)
 {
     taf_dcs_CallCtx_t* callCtxPtr;
 
-    callCtxPtr = GetCallCtx(profileId);
+    callCtxPtr = GetCallCtx(slotId, profileId);
     if (callCtxPtr == NULL)
     {
-        callCtxPtr = CreateDataCallCtx(profileId);
+        callCtxPtr = CreateDataCallCtx(slotId, profileId);
     }
-    TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, NULL, "cannot find call context from profile Id: %d",
-                         profileId);
+    TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, NULL,
+                         "Cannot find call context slotId(%d) profileId(%d)",
+                         slotId, profileId);
 
     return callCtxPtr->sessionStateEvent;
 }
@@ -1797,6 +1931,7 @@ void taf_DataConnection::InternalEventHandler(void* reportPtr)
     bool isSendNotification;
     dataCallEvent_t *eventPtr = (dataCallEvent_t *)reportPtr;
     int32_t profileId = eventPtr->profileId;
+    uint8_t slotId = eventPtr->slotId;
     taf_dcs_CallCtx_t *callCtxPtr;
     taf_dcs_StateInfo_t stateInfo = {TAF_DCS_PDP_UNKNOWN};
     auto &dataConnection = taf_DataConnection::GetInstance();
@@ -1812,9 +1947,10 @@ void taf_DataConnection::InternalEventHandler(void* reportPtr)
     {
         // this event came from telsdk start_call callback handler
         case EVT_START_CALLBACK:
-            callCtxPtr = GetCallCtx(profileId);
-            TAF_ERROR_IF_RET_NIL(callCtxPtr == NULL, "cannot get call context from profile(%d)",
-                                 profileId);
+            callCtxPtr = GetCallCtx(slotId, profileId);
+            TAF_ERROR_IF_RET_NIL(callCtxPtr == NULL,
+                                 "Cannot get call context from slotId(%d) profileId(%d)",
+                                 slotId, profileId);
 
             if (eventPtr->errorCode != telux::common::ErrorCode::SUCCESS)
             {
@@ -1822,20 +1958,21 @@ void taf_DataConnection::InternalEventHandler(void* reportPtr)
                 if (callCtxPtr->funcType == CALL_FUNCTION_ASYNC_START)
                 {
                     //Find the handler function and then call it
-                    connHandlerMappingPtr = dataConnection.FindAsyncHandler(profileId);
+                    connHandlerMappingPtr = dataConnection.FindAsyncHandler(slotId, profileId);
 
                     if (connHandlerMappingPtr != NULL &&
                         connHandlerMappingPtr->asyncHandler != NULL)
                     {
                         //Call handler function, and then remove it from mapping list
-                        profileRef = dataProfile.GetProfileRef(callCtxPtr->profileId);
+                        profileRef = dataProfile.GetProfileRef(callCtxPtr->slotId,
+                                                               callCtxPtr->profileId);
                         clientRet = le_msg_GetClientUserCreds(connHandlerMappingPtr->sessionRef,
                                                               &uid, &pid);
                         if (profileRef != NULL && clientRet == LE_OK)
                             connHandlerMappingPtr->asyncHandler(profileRef, LE_FAULT,
                                                                 connHandlerMappingPtr->contextPtr);
 
-                        dataConnection.DeleteHandlerInfo(callCtxPtr->profileId,
+                        dataConnection.DeleteHandlerInfo(callCtxPtr->slotId, callCtxPtr->profileId,
                                                          connHandlerMappingPtr->asyncHandler);
                     }
                     // If starting session failed, remove the session from call ctx.
@@ -1846,6 +1983,14 @@ void taf_DataConnection::InternalEventHandler(void* reportPtr)
                     pthread_cond_signal(&callCtxPtr->callActionCond);
 
                 }
+                else if (callCtxPtr->funcType == CALL_FUNCTION_SYNC_START)
+                {
+                    pthread_mutex_lock(&callCtxPtr->callActionMutex);
+                    callCtxPtr->isCallActionInProgress = false;
+                    pthread_mutex_unlock(&callCtxPtr->callActionMutex);
+                    CmdSynchronousPromise.set_value(result);
+                }
+
             }
             else
             {
@@ -1855,28 +2000,30 @@ void taf_DataConnection::InternalEventHandler(void* reportPtr)
                 TAF_ERROR_IF_RET_NIL(isSendNotification != true,
                                      "won't send notification to listener");
                 SendNotificationStateEvent(TAF_DCS_CONNECTING, &stateInfo, callCtxPtr);
+
+                // If the call back is from synchronous data call, need to set the result
+                if (callCtxPtr->funcType == CALL_FUNCTION_SYNC_START)
+                {
+                    LE_INFO(" SYNC SET PROMISE");
+                    CmdSynchronousPromise.set_value(result);
+                }
             }
 
-            // If the call back is from synchronous data call, need to set the result
-            if (callCtxPtr->funcType == CALL_FUNCTION_SYNC_START)
-            {
-                LE_INFO(" SYNC SET PROMISE");
-                CmdSynchronousPromise.set_value(result);
-            }
         break;
 
         // this event came from telsdk stop_call callback handler
         case EVT_STOP_CALLBACK:
-            callCtxPtr = GetCallCtx(profileId);
-            TAF_ERROR_IF_RET_NIL(callCtxPtr == NULL, "cannot get call context from profile(%d)",
-                                 profileId);
+            callCtxPtr = GetCallCtx(slotId, profileId);
+            TAF_ERROR_IF_RET_NIL(callCtxPtr == NULL,
+                                 "Cannot get call context from slotId(%d) profileId(%d)",
+                                 slotId, profileId);
             if (eventPtr->errorCode != telux::common::ErrorCode::SUCCESS)
             {
                 result = LE_FAULT;
                 if (callCtxPtr->funcType == CALL_FUNCTION_ASYNC_STOP)
                 {
                     //Find the handler function and then call it
-                    connHandlerMappingPtr = dataConnection.FindAsyncHandler(profileId);
+                    connHandlerMappingPtr = dataConnection.FindAsyncHandler(slotId, profileId);
 
                     // If stopping session failed, add the session into call ctx.
                     AddSessionToCallCtx(callCtxPtr, connHandlerMappingPtr->sessionRef);
@@ -1889,19 +2036,26 @@ void taf_DataConnection::InternalEventHandler(void* reportPtr)
                         connHandlerMappingPtr->asyncHandler != NULL)
                     {
                         //Call handler function, and then remove it from mapping list
-                        profileRef = dataProfile.GetProfileRef(callCtxPtr->profileId);
+                        profileRef = dataProfile.GetProfileRef(callCtxPtr->slotId,
+                                                               callCtxPtr->profileId);
                         clientRet = le_msg_GetClientUserCreds(connHandlerMappingPtr->sessionRef,
                                                               &uid, &pid);
                         if (profileRef != NULL && clientRet == LE_OK)
                             connHandlerMappingPtr->asyncHandler(profileRef, LE_FAULT,
                                                                 connHandlerMappingPtr->contextPtr);
 
-                        dataConnection.DeleteHandlerInfo(callCtxPtr->profileId,
+                        dataConnection.DeleteHandlerInfo(callCtxPtr->slotId, callCtxPtr->profileId,
                                                          connHandlerMappingPtr->asyncHandler);
                     }
 
                 }
-
+                else if (callCtxPtr->funcType == CALL_FUNCTION_SYNC_STOP)
+                {
+                    pthread_mutex_lock(&callCtxPtr->callActionMutex);
+                    callCtxPtr->isCallActionInProgress = false;
+                    pthread_mutex_unlock(&callCtxPtr->callActionMutex);
+                    CmdSynchronousPromise.set_value(result);
+                }
             }
             else
             {
@@ -1911,22 +2065,24 @@ void taf_DataConnection::InternalEventHandler(void* reportPtr)
                 TAF_ERROR_IF_RET_NIL(isSendNotification != true,
                                      "won't send notification to listener");
                 SendNotificationStateEvent(TAF_DCS_DISCONNECTING, &stateInfo, callCtxPtr);
+
+                // If the call back is from synchronous data call, need to set the result
+                if (callCtxPtr->funcType == CALL_FUNCTION_SYNC_STOP)
+                    CmdSynchronousPromise.set_value(result);
             }
 
-            // If the call back is from synchronous data call, need to set the result
-            if (callCtxPtr->funcType == CALL_FUNCTION_SYNC_STOP)
-                CmdSynchronousPromise.set_value(result);
         break;
 
         // the event from telsdk status changed handler
         case EVT_STATUS_CHANGED:
-            callCtxPtr = GetCallCtx(profileId);
-            TAF_ERROR_IF_RET_NIL(callCtxPtr == NULL, "cannot get call context from profile(%d)",
-                                 profileId);
+            callCtxPtr = GetCallCtx(slotId, profileId);
+            TAF_ERROR_IF_RET_NIL(callCtxPtr == NULL,
+                                 "Cannot get call context from slotId(%d) profileId(%d)",
+                                 slotId, profileId);
             isSendNotification = updateStatus(callCtxPtr, eventPtr);
-            TAF_ERROR_IF_RET_NIL(isSendNotification != true, "won't send notification to listener");
+            TAF_ERROR_IF_RET_NIL(isSendNotification != true, "Won't send notification to listener");
             result = SendStatusChangedNotification(callCtxPtr, eventPtr);
-            TAF_ERROR_IF_RET_NIL(result != LE_OK, "cannot sent notification, ret: %d", result);
+            TAF_ERROR_IF_RET_NIL(result != LE_OK, "Cannot sent notification, ret: %d", result);
         break;
 
         // the event from telsdk setting default profile callback
@@ -1934,7 +2090,7 @@ void taf_DataConnection::InternalEventHandler(void* reportPtr)
             if ((eventPtr->errorCode == telux::common::ErrorCode::SUCCESS) ||
                 (eventPtr->errorCode == telux::common::ErrorCode::NO_EFFECT))
             {
-                LE_INFO("setting profile finished, errorCode: %d", (int32_t)eventPtr->errorCode);
+                LE_INFO("Setting profile finished, errorCode: %d", (int32_t)eventPtr->errorCode);
             }
             else
             {
@@ -1956,6 +2112,7 @@ void taf_DataConnection::InternalEventHandler(void* reportPtr)
             else
             {
                 DefaultProfileId = profileId;
+                DefaultSlotId = slotId;
             }
             CmdSynchronousPromise.set_value(result);
         break;
@@ -1989,8 +2146,8 @@ void taf_DataConnection::SendNotificationStateEvent
     uid_t uid;
     callCtxPtr->latestConState = conState;
     TAF_ERROR_IF_RET_NIL(SessionStateFunc == NULL, "SessionStateFunc is NULL, drop this event");
-    LE_INFO("sending connection status: %d, isCallActionInProgress=%d,profileid=%d",
-             conState,callCtxPtr->isCallActionInProgress,callCtxPtr->profileId);
+    LE_INFO("Sending connection status: %d, isCallActionInProgress=%d, slotId(%d) profileId(%d)",
+             conState,callCtxPtr->isCallActionInProgress,callCtxPtr->slotId, callCtxPtr->profileId);
     SessionStateFunc(callCtxPtr->latestConState, infoPtr, callCtxPtr);
 
     // wakeup sync API
@@ -2011,13 +2168,20 @@ void taf_DataConnection::SendNotificationStateEvent
 
             if (callCtxPtr->funcType == CALL_FUNCTION_SYNC_START ||
                 callCtxPtr->funcType == CALL_FUNCTION_SYNC_STOP)
+            {
+                //set isCallActionInProgress here to avoid setting EventSynchronousPromise twice in some cases
+                pthread_mutex_lock(&callCtxPtr->callActionMutex);
+                callCtxPtr->isCallActionInProgress = false;
+                pthread_mutex_unlock(&callCtxPtr->callActionMutex);
                 EventSynchronousPromise.set_value(LE_OK);
+            }
             else if (callCtxPtr->funcType == CALL_FUNCTION_ASYNC_START ||
                      callCtxPtr->funcType == CALL_FUNCTION_ASYNC_STOP)
             {
                 HandlerSessionMapping_t *connHandlerMappingPtr = NULL;
                 //Find the handler function and then call it
-                connHandlerMappingPtr = dataConnection.FindAsyncHandler(callCtxPtr->profileId);
+                connHandlerMappingPtr = dataConnection.FindAsyncHandler(callCtxPtr->slotId,
+                                                                        callCtxPtr->profileId);
 
                 // Set isCallActionInProgress to be false before calling handler to process
                 // CloseEventHandler from main thread
@@ -2028,7 +2192,8 @@ void taf_DataConnection::SendNotificationStateEvent
 
                 if (connHandlerMappingPtr != NULL && connHandlerMappingPtr->asyncHandler != NULL)
                 {
-                    profileRef = dataProfile.GetProfileRef(callCtxPtr->profileId);
+                    profileRef = dataProfile.GetProfileRef(callCtxPtr->slotId,
+                                                           callCtxPtr->profileId);
                     //Call handler function, and then remove it from mapping list
                     if( profileRef != NULL)
                     {
@@ -2070,7 +2235,7 @@ void taf_DataConnection::SendNotificationStateEvent
                         }
                     }
 
-                    dataConnection.DeleteHandlerInfo(callCtxPtr->profileId,
+                    dataConnection.DeleteHandlerInfo(callCtxPtr->slotId, callCtxPtr->profileId,
                                                      connHandlerMappingPtr->asyncHandler);
                 }
 
@@ -2090,13 +2255,19 @@ void taf_DataConnection::SendNotificationStateEvent
 
                 if (callCtxPtr->funcType == CALL_FUNCTION_SYNC_START ||
                     callCtxPtr->funcType == CALL_FUNCTION_SYNC_STOP)
+                {
+                    pthread_mutex_lock(&callCtxPtr->callActionMutex);
+                    callCtxPtr->isCallActionInProgress = false;
+                    pthread_mutex_unlock(&callCtxPtr->callActionMutex);
                     EventSynchronousPromise.set_value(LE_OK);
+                }
                 else if (callCtxPtr->funcType == CALL_FUNCTION_ASYNC_START ||
                         callCtxPtr->funcType == CALL_FUNCTION_ASYNC_STOP)
                 {
                     HandlerSessionMapping_t *connHandlerMappingPtr = NULL;
                     //Find the handler function and then call it
-                    connHandlerMappingPtr = dataConnection.FindAsyncHandler(callCtxPtr->profileId);
+                    connHandlerMappingPtr = dataConnection.FindAsyncHandler(callCtxPtr->slotId,
+                                                                            callCtxPtr->profileId);
                     pthread_mutex_lock(&callCtxPtr->callActionMutex);
                     LE_INFO("current  action %d , set it to false",
                              callCtxPtr->isCallActionInProgress);
@@ -2107,7 +2278,8 @@ void taf_DataConnection::SendNotificationStateEvent
                     if ( connHandlerMappingPtr != NULL &&
                         connHandlerMappingPtr->asyncHandler != NULL )
                     {
-                        profileRef = dataProfile.GetProfileRef(callCtxPtr->profileId);
+                        profileRef = dataProfile.GetProfileRef(callCtxPtr->slotId,
+                                                               callCtxPtr->profileId);
                         //Call handler function, and then remove it from mapping list
                         if( profileRef != NULL)
                         {
@@ -2145,7 +2317,7 @@ void taf_DataConnection::SendNotificationStateEvent
                             }
                         }
 
-                        dataConnection.DeleteHandlerInfo(callCtxPtr->profileId,
+                        dataConnection.DeleteHandlerInfo(callCtxPtr->slotId, callCtxPtr->profileId,
                                                          connHandlerMappingPtr->asyncHandler);
                     }
 
@@ -2204,19 +2376,21 @@ const char * taf_DataConnection::CallEventToString(taf_dcs_ConState_t callEvent)
     return "unknow status";
 }
 
-bool taf_DataConnection::IsIpv4(int32_t profileId)
+bool taf_DataConnection::IsIpv4(uint8_t slotId, int32_t profileId)
 {
-    taf_dcs_CallCtx_t* callCtxPtr = GetCallCtx(profileId);
-    TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, false, "cannot get call context form profile(%d)",
-                         profileId);
+    taf_dcs_CallCtx_t* callCtxPtr = GetCallCtx(slotId, profileId);
+    TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, false,
+                         "Cannot get call context form slotId(%d) profileId(%d)",
+                         slotId, profileId);
     return (callCtxPtr->ipv4Status == telux::data::DataCallStatus::NET_CONNECTED);
 }
 
-bool taf_DataConnection::IsIpv6(int32_t profileId)
+bool taf_DataConnection::IsIpv6(uint8_t slotId, int32_t profileId)
 {
-    taf_dcs_CallCtx_t* callCtxPtr = GetCallCtx(profileId);
-    TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, false, "cannot get call context form profile(%d)",
-                         profileId);
+    taf_dcs_CallCtx_t* callCtxPtr = GetCallCtx(slotId, profileId);
+    TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, false,
+                         "Cannot get call context form slotId(%d) profileId(%d)",
+                         slotId, profileId);
     return (callCtxPtr->ipv6Status == telux::data::DataCallStatus::NET_CONNECTED);
 }
 
@@ -2246,6 +2420,7 @@ void* taf_DataConnection::ConnectionEventThread(void* contextPtr)
 
 void taf_DataConnection::AddHandlerSessionMapping
 (
+    uint8_t slotId,
     int32_t profileId,
     void *contextPtr,
     le_msg_SessionRef_t sessionRef,
@@ -2262,6 +2437,7 @@ void taf_DataConnection::AddHandlerSessionMapping
                          "Failed to alloc memory for handlerSessionMapping");
 
     memset(handlerSessionMapping, 0, sizeof(HandlerSessionMapping_t));
+    handlerSessionMapping->slotId = slotId;
     handlerSessionMapping->profileId = profileId;
     handlerSessionMapping->contextPtr = contextPtr;
     handlerSessionMapping->asyncHandler = asyncHandler;
@@ -2270,11 +2446,13 @@ void taf_DataConnection::AddHandlerSessionMapping
     le_mutex_Lock(handlerlistMutex);
     le_dls_Queue(&HandlerSessionMappingList, &handlerSessionMapping->handlerLink);
     le_mutex_Unlock(handlerlistMutex);
-    LE_INFO("Add handler for profileid=%d, session=%p successfully", profileId, sessionRef);
+    LE_INFO("Add handler for slotId(%d) profileId(%d), session reference %p successfully",
+            slotId, profileId, sessionRef);
 }
 
 HandlerSessionMapping_t* taf_DataConnection::FindAsyncHandler
 (
+    uint8_t slotId,
     int32_t profileId
 )
 {
@@ -2285,10 +2463,10 @@ HandlerSessionMapping_t* taf_DataConnection::FindAsyncHandler
     while (handlerLinkPtr)
     {
         handlerSessionInfo = CONTAINER_OF(handlerLinkPtr, HandlerSessionMapping_t, handlerLink);
-        if (handlerSessionInfo->profileId == profileId)
+        if (handlerSessionInfo->profileId == profileId && handlerSessionInfo->slotId == slotId)
         {
-            LE_DEBUG("Found async handler for session reference %p, profileId:%d",
-                     handlerSessionInfo->sessionRef, profileId);
+            LE_INFO("Found async handler for session reference %p, slotId(%d), profileId(%d)",
+                     handlerSessionInfo->sessionRef, slotId, profileId);
             le_mutex_Unlock(handlerlistMutex);
             return handlerSessionInfo;
         }
@@ -2301,6 +2479,7 @@ HandlerSessionMapping_t* taf_DataConnection::FindAsyncHandler
 
 void taf_DataConnection::DeleteHandlerInfo
 (
+    uint8_t slotId,
     int32_t profileId,
     taf_dcs_AsyncSessionHandlerFunc_t asyncHandler
 )
@@ -2314,10 +2493,11 @@ void taf_DataConnection::DeleteHandlerInfo
         handlerSessionInfo = CONTAINER_OF(handlerLinkPtr, HandlerSessionMapping_t, handlerLink);
         handlerLinkPtr = le_dls_PeekNext(&HandlerSessionMappingList, handlerLinkPtr);
         if (handlerSessionInfo->asyncHandler == asyncHandler &&
-            handlerSessionInfo->profileId == profileId)
+            handlerSessionInfo->profileId == profileId &&
+            handlerSessionInfo->slotId == slotId)
         {
-            LE_INFO("Delete handler for profileid=%d, session=%p successfully",
-                     profileId, handlerSessionInfo->sessionRef );
+            LE_INFO("Delete handler for slotId(%d), profileId(%d), session ref %p successfully",
+                     slotId, profileId, handlerSessionInfo->sessionRef );
             le_dls_Remove(&HandlerSessionMappingList, &handlerSessionInfo->handlerLink);
 
             le_mem_Release(handlerSessionInfo);
@@ -2400,7 +2580,8 @@ void taf_DataConnection::CloseEventHandler
                     // In this case, when the client starts a data call and loses connection at
                     // once, the callCtxPtr->ipType is not updated at this time, so get the pdp
                     // type from the setting value.
-                    profileRef = dataProfile.GetProfileRef(callCtxPtr->profileId);
+                    profileRef = dataProfile.GetProfileRef(callCtxPtr->slotId,
+                                                           callCtxPtr->profileId);
 
                     pdpType = dataProfile.GetPdp(profileRef);
 
@@ -2408,8 +2589,10 @@ void taf_DataConnection::CloseEventHandler
                     break;
                 }
 
-                LE_INFO("stop data call profileId=%d, pdpType=%d", callCtxPtr->profileId, pdpType);
-                dataConnection.StopSessionCmdSync(callCtxPtr->profileId, pdpType, sessionRef);
+                LE_INFO("Stop data call slotId(%d) profileId(%d), pdpType=%d",
+                        callCtxPtr->slotId, callCtxPtr->profileId, pdpType);
+                dataConnection.StopSessionCmdSync(callCtxPtr->slotId, callCtxPtr->profileId,
+                                                  pdpType, sessionRef);
                 break;
             }
         }
@@ -2445,7 +2628,7 @@ static pthread_mutex_t Mutex = PTHREAD_MUTEX_INITIALIZER;   // POSIX "Fast" mute
 /// Unlocks the mutex.
 #define UNLOCK  LE_ASSERT(pthread_mutex_unlock(&Mutex) == 0);
 
-#define MAX_SLOT_NUM   1
+#define MAX_SLOT_NUM   2
 
 static bool registered[MAX_SLOT_NUM] = {false};
 
@@ -2464,7 +2647,7 @@ void RegisterListeners()
     for(auto slotIdx = 1; slotIdx <= MAX_SLOT_NUM; slotIdx++)
     {
         LOCK
-        if(registered[slotIdx])
+        if(registered[slotIdx-1])
         {
             LE_INFO("Listeners already registered.");
             UNLOCK
@@ -2479,7 +2662,7 @@ void RegisterListeners()
                                                                      telux::common::Status::SUCCESS)
             {
                 LE_INFO("Serving system listener %d registered.", slotIdx);
-                registered[slotIdx] = true;
+                registered[slotIdx-1] = true;
             }
             else
             {
@@ -2506,7 +2689,7 @@ void DeregisterListeners()
     for(auto slotIdx = 1; slotIdx <= MAX_SLOT_NUM; slotIdx++)
     {
         LOCK
-        if(!registered[slotIdx])
+        if(!registered[slotIdx-1])
         {
             LE_INFO("Listeners already deregistered.");
             UNLOCK
@@ -2521,7 +2704,7 @@ void DeregisterListeners()
                                                                      telux::common::Status::SUCCESS)
             {
                 LE_INFO("Serving system listener %d deregistered.", slotIdx);
-                registered[slotIdx] = false;
+                registered[slotIdx-1] = false;
             }
             else
             {
@@ -2552,8 +2735,128 @@ void PowerStateChangeHandler(taf_pm_State_t state, void* contextPtr)
 
 void taf_DataConnection::Init(void)
 {
-    auto &dataFactory = DataFactory::getInstance();
-    ConnectionMgr = dataFactory.getDataConnectionManager((SlotId)SLOT_ID_1);
+    auto &dataFactory = telux::data::DataFactory::getInstance();
+
+#ifdef TARGET_SA515M
+
+    int noOfSlots = MIN_SLOT_COUNT;
+    if(telux::common::DeviceConfig::isMultiSimSupported())
+    {
+       noOfSlots = MAX_SLOT_COUNT;
+       LE_INFO("MultiSim supported");
+    }
+
+    for(auto slotIdx = 1; slotIdx <= noOfSlots; slotIdx++)
+    {
+        telux::common::ServiceStatus subSystemStatus = telux::common::ServiceStatus::SERVICE_FAILED;
+        subSystemStatusUpdated = false;
+        auto initConnCb = std::bind(&taf_DataConnection::onInitCompleted, this,
+                                    std::placeholders::_1);
+        auto conneMgr = dataFactory.getDataConnectionManager((SlotId)slotIdx, initConnCb);
+        bool subSysReady = false;
+
+        if (conneMgr)
+        {
+            std::unique_lock<std::mutex> uLock(mtx);
+            conVar.wait(uLock, [this]{return this->subSystemStatusUpdated;});
+            subSystemStatus = conneMgr->getServiceStatus();
+
+            if (subSystemStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+            {
+                LE_INFO("Connection manager on slot %d is ready.", (int)slotIdx);
+                subSysReady = true;
+            }
+            else
+            {
+                LE_ERROR("Connection manager on slot %d is not ready.", (int)slotIdx);
+                subSysReady = false;
+            }
+            //If it is new manager and initialization passed
+            if ( subSysReady &&
+               (dataConnectionManagers.find((SlotId)slotIdx) == dataConnectionManagers.end()))
+            {
+               dataConnectionManagers.emplace((SlotId)slotIdx, conneMgr);
+            }
+        }
+        else
+        {
+            LE_ERROR("Failed to get connection Manager instance ");
+        }
+
+        if(subSysReady)
+        {
+            LE_INFO("Data connection component is ready for slot %d...",(int)slotIdx);
+        }
+        else
+        {
+            LE_CRIT("Unable to init data connection component for slot %d !",(int)slotIdx);
+        }
+
+        /* register data connection status listener */
+        DataConnectionListener = std::make_shared<taf_DataConnectionListener>();
+        telux::common::Status status =  conneMgr->registerListener(DataConnectionListener);
+        TAF_ERROR_IF_RET_NIL(status != telux::common::Status::SUCCESS,
+                             "register listener failed, status: %d", (int32_t)status);
+
+        /* register data serving system manager */
+        connectionServingSystemlisteners[(SlotId)slotIdx] =
+                              std::make_shared<taf_DataConnServingSystemListener>((SlotId)slotIdx);
+        dataServingSystemListeners[(SlotId)slotIdx] =
+                                                 connectionServingSystemlisteners[(SlotId)slotIdx];
+
+        subSystemStatusUpdated = false;
+            auto initSvrCb = std::bind(&taf_DataConnection::onInitCompleted, this,
+                                       std::placeholders::_1);
+            auto servingSystemMgr = dataFactory.getServingSystemManager((SlotId)slotIdx, initSvrCb);
+
+        if (servingSystemMgr)
+        {
+            std::unique_lock<std::mutex> uLock(mtx);
+            conVar.wait(uLock, [this]{return this->subSystemStatusUpdated;});
+            subSystemStatus = servingSystemMgr->getServiceStatus();
+
+            if (subSystemStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+            {
+                LE_INFO("Serving system manager on slot %d is ready.", (int)slotIdx);
+                subSysReady = true;
+            }
+            else
+            {
+                LE_ERROR("Serving system manager on slot %d is not ready.", (int)slotIdx);
+                //If manager exist, deregister and remove it
+                if (dataServingSystemManagers.find((SlotId)slotIdx) !=
+                    dataServingSystemManagers.end())
+                {
+                    dataServingSystemManagers[(SlotId)slotIdx]->deregisterListener(
+                                                    dataServingSystemListeners[(SlotId)slotIdx]);
+                    dataServingSystemManagers.erase((SlotId)slotIdx);
+                }
+                subSysReady = false;
+            }
+
+            //If it is new manager and initialization passed
+            if ( subSysReady &&
+               (dataServingSystemManagers.find((SlotId)slotIdx) == dataServingSystemManagers.end()))
+            {
+                dataServingSystemManagers.emplace((SlotId)slotIdx, servingSystemMgr);
+            }
+        }
+        else
+        {
+            LE_ERROR("Failed to get serving system Manager instance ");
+        }
+
+    }
+
+    reqSvcStateCb = std::make_shared<taf_DataConnRequestServiceStatusCallback>();
+    reqSvcStateCb->semaphore = le_sem_Create("taf_ConnectionReqSvcStateCbSem", 0);
+
+    reqRoamingStatusCb = std::make_shared<taf_DataConnRequestRoamingStatusCallback>();
+    reqRoamingStatusCb->semaphore = le_sem_Create("taf_ConnReqRoamingStatusCbSem", 0);
+
+#else
+
+    auto ConnectionMgr = dataFactory.getDataConnectionManager();
 
     bool isReady = ConnectionMgr->isSubsystemReady();
     if(isReady == false)
@@ -2563,9 +2866,10 @@ void taf_DataConnection::Init(void)
         isReady = readyFunc.get();
     }
 
-    if(isReady)
+    if ( isReady &&
+        (dataConnectionManagers.find((SlotId)SLOT_ID_1) == dataConnectionManagers.end()))
     {
-        LE_INFO("data connection component is ready...");
+        dataConnectionManagers.emplace((SlotId)SLOT_ID_1, ConnectionMgr);
     }
     else
     {
@@ -2577,50 +2881,6 @@ void taf_DataConnection::Init(void)
     telux::common::Status status =  ConnectionMgr->registerListener(DataConnectionListener);
     TAF_ERROR_IF_RET_NIL(status != telux::common::Status::SUCCESS,
                          "register listener failed, status: %d", (int32_t)status);
-#ifdef TARGET_SA515M
-    /* register data serving system manager */
-    connectionServingSystemlisteners[(SlotId)SLOT_ID_1] =
-                             std::make_shared<taf_DataConnServingSystemListener>((SlotId)SLOT_ID_1);
-    dataServingSystemListeners[(SlotId)SLOT_ID_1] =
-                                                connectionServingSystemlisteners[(SlotId)SLOT_ID_1];
-
-    telux::common::ServiceStatus subSystemStatus = telux::common::ServiceStatus::SERVICE_FAILED;
-    subSystemStatusUpdated = false;
-    auto initCb = std::bind(&taf_DataConnection::onInitCompleted, this, std::placeholders::_1);
-    auto servingSystemMgr = dataFactory.getServingSystemManager((SlotId)SLOT_ID_1, initCb);
-    bool subSysReady = false;
-
-    if (servingSystemMgr) {
-        std::unique_lock<std::mutex> uLock(mtx);
-        conVar.wait(uLock, [this]{return this->subSystemStatusUpdated;});
-        subSystemStatus = servingSystemMgr->getServiceStatus();
-
-        if (subSystemStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE) {
-            LE_INFO("Serving system manager on slot %d is ready.", (int)SLOT_ID_1);
-            subSysReady = true;
-        } else {
-            LE_ERROR("Serving system manager on slot %d is not ready.", (int)SLOT_ID_1);
-            //If manager exist, deregister and remove it
-            if (dataServingSystemManagers.find((SlotId)SLOT_ID_1) !=
-                dataServingSystemManagers.end()) {
-                dataServingSystemManagers[(SlotId)SLOT_ID_1]->deregisterListener(
-                                                     dataServingSystemListeners[(SlotId)SLOT_ID_1]);
-                dataServingSystemManagers.erase((SlotId)SLOT_ID_1);
-            }
-            subSysReady = false;
-        }
-
-        //If it is new manager and initialization passed
-        if (subSysReady && (dataServingSystemManagers.find((SlotId)SLOT_ID_1) == dataServingSystemManagers.end())) {
-            dataServingSystemManagers.emplace((SlotId)SLOT_ID_1, servingSystemMgr);
-        }
-    }
-
-    reqSvcStateCb = std::make_shared<taf_DataConnRequestServiceStatusCallback>();
-    reqSvcStateCb->semaphore = le_sem_Create("taf_ConnectionReqSvcStateCbSem", 0);
-
-    reqRoamingStatusCb = std::make_shared<taf_DataConnRequestRoamingStatusCallback>();
-    reqRoamingStatusCb->semaphore = le_sem_Create("taf_ConnReqRoamingStatusCbSem", 0);
 
 #endif
 
@@ -2651,12 +2911,14 @@ void taf_DataConnection::Init(void)
     callCtxMutex = le_mutex_CreateNonRecursive("callCtxMutex");
     handlerlistMutex = le_mutex_CreateNonRecursive("handlerlistMutex");
 
+#ifdef TARGET_SA515M
     // Add power state change handler
     taf_pm_AddStateChangeHandler(PowerStateChangeHandler, NULL);
     if (taf_pm_GetPowerState() != TAF_PM_STATE_SUSPEND)
     {
         RegisterListeners();
     }
+#endif
 
     return;
 }

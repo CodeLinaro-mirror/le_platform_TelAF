@@ -96,31 +96,56 @@ void taf_dcs_profile_init()
 /**
  * Get the data profile list.
  *
- * This function call is synchronous, the profile list will be returned by handlerPtr.
- *
- * @param [in] handlerPtr               The handler when proflie list comes back.
- * @param [in] contextPtr               The handler function context.
+ * @param [in] profileList               The proflie list.
+ * @param [inout] listSize               The size of the profile list.
  *
  * @returns LE_OK                       Success.
  *          OTHER                       Failed to get profile list.
  */
 le_result_t taf_dcs_GetProfileList(taf_dcs_ProfileInfo_t *profileList, size_t *listSize)
 {
+    le_result_t result = LE_OK;
+    uint8_t slotId;
+
+    TAF_ERROR_IF_RET_VAL(profileList == nullptr, LE_BAD_PARAMETER, "Null ptr(profileList)");
+    TAF_ERROR_IF_RET_VAL(listSize == nullptr, LE_BAD_PARAMETER, "Null ptr(listSize)");
+
     auto &dataProfile = taf_DataProfile::GetInstance();
 
-    return dataProfile.ListProfile(profileList, listSize);
+    result = dataProfile.getSlotIdFromPhoneId(DEFAULT_PHONE_ID_1, &slotId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Failed to get slot id from phone id");
+
+    return dataProfile.ListProfile(slotId, profileList, listSize);
 }
 
 /**
- * Get the total data profile number.
+ * Get the data profile list with the specified phone id.
  *
- * @returns profile number
+ * @param [in] phoneId                   The phone id.
+ * @param [in] profileList               The proflie list.
+ * @param [inout] listSize               The size of the profile list.
+ *
+ * @returns LE_OK                       Success.
+ *          OTHER                       Failed to get profile list.
  */
-uint32_t taf_dcs_GetNum()
+le_result_t taf_dcs_GetProfileListEx
+(
+    uint8_t phoneId,
+    taf_dcs_ProfileInfo_t *profileList,
+    size_t *listSize
+)
 {
+    le_result_t result = LE_OK;
+    uint8_t slotId;
+    TAF_ERROR_IF_RET_VAL(profileList == nullptr, LE_BAD_PARAMETER, "Null ptr(profileList)");
+    TAF_ERROR_IF_RET_VAL(listSize == nullptr, LE_BAD_PARAMETER, "Null ptr(listSize)");
+
     auto &dataProfile = taf_DataProfile::GetInstance();
 
-    return dataProfile.GetProfileNum();
+    result = dataProfile.getSlotIdFromPhoneId(phoneId, &slotId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Failed to get slot id from phone id");
+
+    return dataProfile.ListProfile(slotId, profileList, listSize);
 }
 
 /**
@@ -133,15 +158,43 @@ uint32_t taf_dcs_GetNum()
  */
 taf_dcs_ProfileRef_t taf_dcs_GetProfile(uint32_t index)
 {
+    le_result_t result = LE_OK;
+    uint8_t slotId;
+
     auto &dataProfile = taf_DataProfile::GetInstance();
 
-    return dataProfile.GetProfileRef(index);
+    result = dataProfile.getSlotIdFromPhoneId(DEFAULT_PHONE_ID_1, &slotId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, NULL, "Failed to get slot id from phone id");
+
+    return dataProfile.GetProfileRef(slotId, index);
+}
+
+/**
+ * Get the profile reference corresponding to specified profile index and phone id.
+ *
+ *
+ * @param [in] phone id                 The phone id.
+ * @param [in] profileId                The profile index.
+ *
+ * @returns reference                   The profile reference, should not be NULL.
+ */
+taf_dcs_ProfileRef_t taf_dcs_GetProfileEx(uint8_t phoneId, uint32_t profileId)
+{
+    le_result_t result = LE_OK;
+    uint8_t slotId;
+
+    auto &dataProfile = taf_DataProfile::GetInstance();
+
+    result = dataProfile.getSlotIdFromPhoneId(phoneId, &slotId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, NULL,  "Failed to get slot id from phone id");
+
+    return dataProfile.GetProfileRef(slotId, profileId);
 }
 
 /**
  * Get data profile index corresponding to specified profile reference.
  *
- * @param [in] profileRef               The profile want to be used.
+ * @param [in] profileRef               The profile reference.
  *
  * @returns profile index.
  */
@@ -151,8 +204,9 @@ uint32_t taf_dcs_GetProfileIndex
 )
 {
     int32_t profileId;
+    uint8_t slotId;
     auto &dataProfile = taf_DataProfile::GetInstance();
-    le_result_t result = dataProfile.GetProfileId(profileRef, &profileId);
+    le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
 
     if (result == LE_OK)
     {
@@ -160,10 +214,49 @@ uint32_t taf_dcs_GetProfileIndex
     }
     else
     {
-        LE_ERROR("getting profile id from reference(%p) is failed, will use default id", profileRef);
-        return TAF_DCS_DEFAULT_PROFILE;
+        LE_ERROR("Getting profile id from reference(%p) is failed, will use default id", profileRef);
+        return 0;
     }
 
+}
+
+/**
+ * Get phone id corresponding to specified profile reference.
+ *
+ * @param [in] profileRef               The profile reference.
+ * @param [out] phoneIdPtr              The phone id.
+ *
+ * @returns LE_OK                       Success.
+ *          OTHER                       Failed to get the phone id.
+ */
+le_result_t taf_dcs_GetPhoneId
+(
+    taf_dcs_ProfileRef_t profileRef,
+    uint8_t* phoneIdPtr
+)
+{
+    le_result_t result = LE_OK;
+    uint8_t slotId;
+    int32_t retProfileId;
+
+    TAF_ERROR_IF_RET_VAL(profileRef == nullptr, LE_BAD_PARAMETER, "Null ptr(profileRef)");
+    TAF_ERROR_IF_RET_VAL(phoneIdPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(phoneIdPtr)");
+
+    auto &dataProfile = taf_DataProfile::GetInstance();
+
+    result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &retProfileId);
+
+    if (result == LE_OK)
+    {
+        result = dataProfile.getPhoneIdFromSlotId(slotId, phoneIdPtr);
+        TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Failed to get phone id from slot id");
+    }
+    else
+    {
+        LE_ERROR("Getting phone id from reference(%p) is failed", profileRef);
+    }
+
+    return result;
 }
 
 /**
@@ -201,16 +294,17 @@ le_result_t taf_dcs_SetPDP
 )
 {
     int32_t profileId;
+    uint8_t slotId;
     taf_dcs_ConState_t state = TAF_DCS_CONNECTED;
     auto &dataConnection = taf_DataConnection::GetInstance();
     auto &dataProfile = taf_DataProfile::GetInstance();
 
 
-    le_result_t result = dataProfile.GetProfileId(profileRef, &profileId);
+    le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
 
     // Check if the data session is currently not disconnected for the given profile.
-    if(dataConnection.GetConnectionState(profileId, &state) == LE_OK &&
+    if(dataConnection.GetConnectionState(slotId, profileId, &state) == LE_OK &&
        state != TAF_DCS_DISCONNECTED)
         return LE_FAULT;
 
@@ -341,11 +435,12 @@ le_result_t taf_dcs_StartSession(taf_dcs_ProfileRef_t profileRef)
     auto &dataProfile = taf_DataProfile::GetInstance();
 
     int32_t profileId;
-    le_result_t result = dataProfile.GetProfileId(profileRef, &profileId);
+    uint8_t slotId;
+    le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
 
     taf_dcs_Pdp_t pdpType = dataProfile.GetPdp(profileRef);
-    return dataConnection.StartSessionCmdSync(profileId, pdpType, taf_dcs_GetClientSessionRef());
+    return dataConnection.StartSessionCmdSync(slotId, profileId, pdpType, taf_dcs_GetClientSessionRef());
 }
 
 /**
@@ -388,11 +483,14 @@ le_result_t taf_dcs_StopSession(taf_dcs_ProfileRef_t profileRef)
     auto &dataProfile = taf_DataProfile::GetInstance();
 
     int32_t profileId;
-    le_result_t result = dataProfile.GetProfileId(profileRef, &profileId);
+    uint8_t slotId;
+    le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
+
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
 
     taf_dcs_Pdp_t pdpType = dataProfile.GetPdp(profileRef);
-    return dataConnection.StopSessionCmdSync(profileId, pdpType, taf_dcs_GetClientSessionRef());
+    return dataConnection.StopSessionCmdSync(slotId, profileId, pdpType,
+                                             taf_dcs_GetClientSessionRef());
 }
 
 /**
@@ -426,6 +524,8 @@ void taf_dcs_StopSessionAsync
  */
 static void FirstSessionStateHandler(void* reportPtr, void* subHandlerFunc)
 {
+    int32_t profileId;
+    uint8_t slotId;
     DataCallState_t* stateEvent = (DataCallState_t *)reportPtr;
     taf_dcs_SessionStateHandlerFunc_t handlerFunc = (taf_dcs_SessionStateHandlerFunc_t)subHandlerFunc;
     auto &dataConnection = taf_DataConnection::GetInstance();
@@ -434,9 +534,14 @@ static void FirstSessionStateHandler(void* reportPtr, void* subHandlerFunc)
     LE_INFO("send callback to callRef: %p, callEvent: %s\n", stateEvent->callRef,
         dataConnection.CallEventToString(stateEvent->callEvent));
 
-    int32_t profileId = dataConnection.GetProfileId(stateEvent->callRef);
-    taf_dcs_ProfileRef_t profileRef = dataProfile.GetProfileRef(profileId);
-    TAF_ERROR_IF_RET_NIL(profileRef == NULL, "cannot get profile reference from profile(%d)", profileId);
+    le_result_t result = dataConnection.GetSlotIdAndProfileId(stateEvent->callRef, &slotId,
+                                                              &profileId);
+
+    TAF_ERROR_IF_RET_NIL(result != LE_OK, "Getting profile id and slot id failed");
+
+    taf_dcs_ProfileRef_t profileRef = dataProfile.GetProfileRef(slotId, profileId);
+    TAF_ERROR_IF_RET_NIL(profileRef == NULL, "cannot get profile ref from slot(%d) profile(%d)",
+                         slotId, profileId);
 
     handlerFunc(profileRef, stateEvent->callEvent, &stateEvent->info, le_event_GetContextPtr());
 }
@@ -464,10 +569,11 @@ taf_dcs_SessionStateHandlerRef_t taf_dcs_AddSessionStateHandler
     auto &dataProfile = taf_DataProfile::GetInstance();
 
     int32_t profileId;
-    le_result_t result = dataProfile.GetProfileId(profileRef, &profileId);
+    uint8_t slotId;
+    le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
     TAF_ERROR_IF_RET_VAL(result != LE_OK, NULL, "profile reference(%p) is invalid", profileRef);
 
-    le_event_Id_t sessionStateEvent = dataConnection.GetSessionStateEvent(profileId);
+    le_event_Id_t sessionStateEvent = dataConnection.GetSessionStateEvent(slotId, profileId);
     le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler(
                                                     "DataCallState",
                                                     sessionStateEvent,
@@ -582,12 +688,19 @@ le_result_t taf_dcs_GetRoamingStatus
     taf_dcs_RoamingType_t* typePtr
 )
 {
+    le_result_t result = LE_OK;
+    uint8_t slotId;
+
     TAF_ERROR_IF_RET_VAL(isRoamingPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(isRoamingPtr)");
     TAF_ERROR_IF_RET_VAL(typePtr == nullptr, LE_BAD_PARAMETER, "Null ptr(typePtr)");
 
     auto &dataConnection = taf_DataConnection::GetInstance();
+    auto &dataProfile = taf_DataProfile::GetInstance();
 
-    return dataConnection.GetRoamingStatus(isRoamingPtr, typePtr);
+    result = dataProfile.getSlotIdFromPhoneId(phoneId, &slotId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Failed to get slot id from phone id");
+
+    return dataConnection.GetRoamingStatus(slotId, isRoamingPtr, typePtr);
 }
 
 /**
@@ -610,10 +723,12 @@ le_result_t taf_dcs_GetInterfaceName(taf_dcs_ProfileRef_t profileRef, char* name
     auto &dataProfile = taf_DataProfile::GetInstance();
 
     int32_t profileId;
-    le_result_t result = dataProfile.GetProfileId(profileRef, &profileId);
+    uint8_t slotId;
+    le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
+
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
 
-    return dataConnection.GetInterfaceName(profileId, namePtr, nameSize);
+    return dataConnection.GetInterfaceName(slotId, profileId, namePtr, nameSize);
 }
 
 /**
@@ -636,10 +751,12 @@ le_result_t taf_dcs_GetIPv4Address(taf_dcs_ProfileRef_t profileRef, char *addrPt
     auto &dataProfile = taf_DataProfile::GetInstance();
 
     int32_t profileId;
-    le_result_t result = dataProfile.GetProfileId(profileRef, &profileId);
+    uint8_t slotId;
+    le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
+
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
 
-    return dataConnection.GetIpv4Address(profileId, addrPtr, addrSize);
+    return dataConnection.GetIpv4Address(slotId, profileId, addrPtr, addrSize);
 }
 
 /**
@@ -667,10 +784,12 @@ le_result_t taf_dcs_GetIPv4GatewayAddress
     auto &dataProfile = taf_DataProfile::GetInstance();
 
     int32_t profileId;
-    le_result_t result = dataProfile.GetProfileId(profileRef, &profileId);
+    uint8_t slotId;
+    le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
+
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
 
-    return dataConnection.GetIpv4Gateway(profileId, addrPtr, addrSize);
+    return dataConnection.GetIpv4Gateway(slotId, profileId, addrPtr, addrSize);
 }
 
 /**
@@ -702,10 +821,13 @@ le_result_t taf_dcs_GetIPv4DNSAddresses
     auto &dataProfile = taf_DataProfile::GetInstance();
 
     int32_t profileId;
-    le_result_t result = dataProfile.GetProfileId(profileRef, &profileId);
+    uint8_t slotId;
+    le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
+
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
 
-    return dataConnection.GetIpv4Dns(profileId, dns1AddrPtr, dns1AddrSize, dns2AddrPtr, dns2AddrSize);
+    return dataConnection.GetIpv4Dns(slotId, profileId, dns1AddrPtr, dns1AddrSize, dns2AddrPtr,
+                                     dns2AddrSize);
 }
 
 /**
@@ -728,10 +850,12 @@ le_result_t taf_dcs_GetIPv6Address(taf_dcs_ProfileRef_t profileRef, char *addrPt
     auto &dataProfile = taf_DataProfile::GetInstance();
 
     int32_t profileId;
-    le_result_t result = dataProfile.GetProfileId(profileRef, &profileId);
+    uint8_t slotId;
+    le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
+
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
 
-    return dataConnection.GetIpv6Address(profileId, addrPtr, addrSize);
+    return dataConnection.GetIpv6Address(slotId, profileId, addrPtr, addrSize);
 }
 
 /**
@@ -759,10 +883,12 @@ le_result_t taf_dcs_GetIPv6GatewayAddress
     auto &dataProfile = taf_DataProfile::GetInstance();
 
     int32_t profileId;
-    le_result_t result = dataProfile.GetProfileId(profileRef, &profileId);
+    uint8_t slotId;
+    le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
+
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
 
-    return dataConnection.GetIpv6Gateway(profileId, addrPtr, addrSize);
+    return dataConnection.GetIpv6Gateway(slotId, profileId, addrPtr, addrSize);
 }
 
 /**
@@ -794,10 +920,13 @@ le_result_t taf_dcs_GetIPv6DNSAddresses
     auto &dataProfile = taf_DataProfile::GetInstance();
 
     int32_t profileId;
-    le_result_t result = dataProfile.GetProfileId(profileRef, &profileId);
+    uint8_t slotId;
+    le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
+
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
 
-    return dataConnection.GetIpv6Dns(profileId, dns1AddrPtr, dns1AddrSize, dns2AddrPtr, dns2AddrSize);
+    return dataConnection.GetIpv6Dns(slotId, profileId, dns1AddrPtr, dns1AddrSize, dns2AddrPtr,
+                                     dns2AddrSize);
 }
 
 /**
@@ -823,10 +952,12 @@ le_result_t taf_dcs_GetSessionState
     auto &dataProfile = taf_DataProfile::GetInstance();
 
     int32_t profileId;
-    le_result_t result = dataProfile.GetProfileId(profileRef, &profileId);
+    uint8_t slotId;
+    le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
+
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
 
-    return dataConnection.GetConnectionState(profileId, statePtr);
+    return dataConnection.GetConnectionState(slotId, profileId, statePtr);
 }
 
 /**
@@ -843,16 +974,24 @@ le_result_t taf_dcs_GetSessionState
  *
  * @note    NA
  */
-le_result_t taf_dcs_GetDataBearerTechnology(taf_dcs_ProfileRef_t profileRef, taf_dcs_DataBearerTechnology_t* downDataBearerTechPtr, taf_dcs_DataBearerTechnology_t* upDataBearerTechPtr)
+le_result_t taf_dcs_GetDataBearerTechnology
+(
+    taf_dcs_ProfileRef_t profileRef,
+    taf_dcs_DataBearerTechnology_t* downDataBearerTechPtr,
+    taf_dcs_DataBearerTechnology_t* upDataBearerTechPtr
+)
 {
     auto &dataConnection = taf_DataConnection::GetInstance();
     auto &dataProfile = taf_DataProfile::GetInstance();
 
     int32_t profileId;
-    le_result_t result = dataProfile.GetProfileId(profileRef, &profileId);
+    uint8_t slotId;
+    le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
+
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
 
-    return dataConnection.GetDataBearerTechnology(profileId, downDataBearerTechPtr, upDataBearerTechPtr);
+    return dataConnection.GetDataBearerTechnology(slotId, profileId, downDataBearerTechPtr,
+                                                  upDataBearerTechPtr);
 }
 
 /**
@@ -871,10 +1010,12 @@ bool taf_dcs_IsIPv4(taf_dcs_ProfileRef_t profileRef)
     auto &dataProfile = taf_DataProfile::GetInstance();
 
     int32_t profileId;
-    le_result_t result = dataProfile.GetProfileId(profileRef, &profileId);
+    uint8_t slotId;
+    le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
+
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
 
-    return dataConnection.IsIpv4(profileId);
+    return dataConnection.IsIpv4(slotId, profileId);
 }
 
 /**
@@ -893,16 +1034,23 @@ bool taf_dcs_IsIPv6(taf_dcs_ProfileRef_t profileRef)
     auto &dataProfile = taf_DataProfile::GetInstance();
 
     int32_t profileId;
-    le_result_t result = dataProfile.GetProfileId(profileRef, &profileId);
+    uint8_t slotId;
+    le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
+
     TAF_ERROR_IF_RET_VAL(result != LE_OK, false, "profile reference(%p) is invalid", profileRef);
 
-    return dataConnection.IsIpv6(profileId);
+    return dataConnection.IsIpv6(slotId, profileId);
 }
 
 /**
  * Use this method to send call state event to registered clients.
  */
-void SendSessionStateEvent(taf_dcs_ConState_t event, taf_dcs_StateInfo_t *infoPtr, taf_dcs_CallCtx_t *callCtxPtr)
+void SendSessionStateEvent
+(
+    taf_dcs_ConState_t event,
+    taf_dcs_StateInfo_t *infoPtr,
+    taf_dcs_CallCtx_t *callCtxPtr
+)
 {
     DataCallState_t stateEvent;
 
@@ -914,7 +1062,7 @@ void SendSessionStateEvent(taf_dcs_ConState_t event, taf_dcs_StateInfo_t *infoPt
 }
 
 /**
- * Set the deafult data profile index which data call is using.
+ * Set the deafult data profile index.
  *
  * @param [in] index                    The default profile index.
  *
@@ -923,50 +1071,178 @@ void SendSessionStateEvent(taf_dcs_ConState_t event, taf_dcs_StateInfo_t *infoPt
  */
 le_result_t taf_dcs_SetDefaultProfileIndex(uint32_t profileId)
 {
-    auto &dataConnection = taf_DataConnection::GetInstance();
+
     uint32_t profileIdGet;
+    uint8_t slotIdGet, slotId;
+    le_result_t result = LE_OK;
 
-    le_result_t result = dataConnection.GetDefaultProfileIdSync(profileIdGet);
-    if (result != LE_OK)
-    {
-        LE_ERROR("getting default profile is failed, result: %d", result);
-        return result;
-    }
+    auto &dataProfile = taf_DataProfile::GetInstance();
+    auto &dataConnection = taf_DataConnection::GetInstance();
 
-    if (profileIdGet == profileId)
+    result = dataConnection.GetDefaultProfileIdSync(&slotIdGet, &profileIdGet);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Getting default profile failed");
+
+    result = dataProfile.getSlotIdFromPhoneId(DEFAULT_PHONE_ID_1, &slotId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Failed to get slot id from phone id");
+
+    if (slotIdGet == slotId && profileIdGet == profileId)
     {
         LE_INFO("profile id(%d) does not change", profileIdGet);
         return LE_OK;
     }
 
-    return dataConnection.SetDefaultProfileIdSync(profileId);
+    return dataConnection.SetDefaultProfileIdSync(slotId, profileId);
 }
 
 /**
- * Get the deafult data profile index which data call is using.
+ * Set the deafult data profile index and phone id.
+ *
+ * @param [in] phoneId                      The default phone id.
+ * @param [in] profileId                    The default profile index.
+ *
+ * @returns LE_OK                       Success.
+ *          OTHER                       Failed to set default profile.
+ */
+le_result_t taf_dcs_SetDefaultProfileIndexEx(uint8_t phoneId, uint32_t profileId)
+{
+    le_result_t result = LE_OK;
+    uint32_t profileIdGet;
+    uint8_t slotIdGet, slotId;
+
+    auto &dataConnection = taf_DataConnection::GetInstance();
+    auto &dataProfile = taf_DataProfile::GetInstance();
+
+    result = dataProfile.getSlotIdFromPhoneId(phoneId, &slotId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Failed to get slot id from phone id");
+
+    result = dataConnection.GetDefaultProfileIdSync(&slotIdGet, &profileIdGet);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Getting default profile failed");
+
+    if (slotIdGet == slotId && profileIdGet == profileId)
+    {
+        LE_INFO("profile id(%d) does not change", profileIdGet);
+        return LE_OK;
+    }
+
+    return dataConnection.SetDefaultProfileIdSync(slotId, profileId);
+}
+
+/**
+ * Get the deafult data profile index.
  *
  * @returns default profile index
  */
 uint32_t taf_dcs_GetDefaultProfileIndex()
 {
-    auto &dataConnection = taf_DataConnection::GetInstance();
     uint32_t profileId = TAF_DCS_DEFAULT_PROFILE;
+    uint8_t slotId;
+    le_result_t result = LE_OK;
 
-    dataConnection.GetDefaultProfileIdSync(profileId);
+    auto &dataConnection = taf_DataConnection::GetInstance();
+    auto &dataProfile = taf_DataProfile::GetInstance();
+
+    result = dataProfile.getSlotIdFromPhoneId(DEFAULT_PHONE_ID_1, &slotId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, TAF_DCS_DEFAULT_PROFILE,
+                         "Failed to get slot id from phone id");
+
+    dataConnection.GetDefaultProfileIdSync(&slotId, &profileId);
 
     return profileId;
 }
 
 /**
- * Get the deafult data profile index which data call is using.
+ * Get the deafult data profile index and phone id.
  *
- * @returns default profile index
+ * @param [out] phoneIdPtr                  The phone id.
+ * @param [out] profileIdPtr                The profile index.
+ *
+ * @returns LE_OK                       Success.
+ *          OTHER                       Failed to get the phone id and profile index.
+
  */
-le_result_t taf_dcs_GetProfileIdByInterfaceName(const char* intfName,uint32_t* profileId)
+le_result_t taf_dcs_GetDefaultPhoneIdAndProfileId(uint8_t* phoneIdPtr, uint32_t* profileIdPtr)
+{
+    le_result_t result = LE_OK;
+    uint8_t slotId;
+
+    TAF_ERROR_IF_RET_VAL(phoneIdPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(phoneIdPtr)");
+    TAF_ERROR_IF_RET_VAL(profileIdPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(profileIdPtr)");
+
+    auto &dataConnection = taf_DataConnection::GetInstance();
+    auto &dataProfile = taf_DataProfile::GetInstance();
+
+    result = dataConnection.GetDefaultProfileIdSync(&slotId, profileIdPtr);
+
+    if (result == LE_OK)
+    {
+        result = dataProfile.getPhoneIdFromSlotId(slotId, phoneIdPtr);
+        TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Failed to get phone id from slot id");
+    }
+    else
+    {
+        LE_ERROR("Getting default profile id and phone id failed");
+    }
+
+    return result;
+}
+
+/**
+ * Get the data profile index by interface name.
+ *
+ * @param [in] intfName                     The interface name.
+ * @param [out] profileId                   The profile index.
+ *
+ * @returns LE_OK                       Success.
+ *          OTHER                       Failed to get the profile index.
+ */
+le_result_t taf_dcs_GetProfileIdByInterfaceName(const char* intfName,uint32_t* profileIdPtr)
 {
     auto &dataConnection = taf_DataConnection::GetInstance();
+    uint8_t slotId;
 
-    le_result_t result = dataConnection.GetProfileIdByInterfaceName(intfName,profileId);
+    le_result_t result = dataConnection.GetSlotIdAndProfileIdByIfName(intfName, &slotId,
+                                                                      profileIdPtr);
+
+    return result;
+}
+
+/**
+ * Get the data profile index and phone id by interface name.
+ *
+ * @param [in] intfName                     The interface name.
+ * @param [out] phoneIdPtr                  The phone id.
+ *
+ * @returns LE_OK                       Success.
+ *          OTHER                       Failed to get the phone id index.
+
+ */
+le_result_t taf_dcs_GetPhoneIdByInterfaceName
+(
+    const char* intfName,
+    uint8_t *phoneIdPtr
+)
+{
+    le_result_t result = LE_OK;
+    uint8_t slotId;
+    uint32_t profileId;
+
+    TAF_ERROR_IF_RET_VAL(intfName == nullptr, LE_BAD_PARAMETER, "Null ptr(intfName)");
+    TAF_ERROR_IF_RET_VAL(phoneIdPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(phoneIdPtr)");
+
+    auto &dataConnection = taf_DataConnection::GetInstance();
+    auto &dataProfile = taf_DataProfile::GetInstance();
+
+    result = dataConnection.GetSlotIdAndProfileIdByIfName(intfName, &slotId, &profileId);
+
+    if (result == LE_OK)
+    {
+        result = dataProfile.getPhoneIdFromSlotId(slotId, phoneIdPtr);
+        TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Failed to get phone id from slot id");
+    }
+    else
+    {
+        LE_ERROR("Getting phone id by interface name(%s) is failed", intfName);
+    }
 
     return result;
 }
@@ -985,140 +1261,6 @@ void taf_dcs_connection_init()
 }
 
 /**
- * Change route corresponding to specified profile reference and network address.
- *
- * The data call which relates to this profile need to be brought up before this API.
- *
- * @param [in] profileRef               The profile reference to be checked
- * @param [in] destAddr                 The network address
- * @param [in] prefixLength             The prefix length
- * @param [in] isAdd                    Add or delete operation
- *
- * @returns LE_OK                       Success.
- *          OTHER                       Failed.
- *
- * @note    NA
- */
-le_result_t taf_dcs_ChangeRoute(taf_dcs_ProfileRef_t profileRef, const char *destAddr, const char *prefixLength, bool isAdd)
-{
-    return LE_OK;
-}
-
-/**
- * Set the default gateway.
- *
- * The data call which relates to this profile need to be brought up before this API.
- *
- * @param [in] profileRef               The profile reference to be checked
- *
- * @returns LE_OK                       Success.
- *          OTHER                       Failed.
- *
- * @note    NA
- */
-le_result_t  taf_dcs_SetDefaultGW(taf_dcs_ProfileRef_t profileRef)
-{
-    return LE_OK;
-}
-
-/**
- * Get the default gateway.
- *
- * The data call which relates to this profile need to be brought up before this API.
- *
- * @param [in] profileRef               The profile reference to be checked
- * @param [out] addr                    The default gateway address
- *
- * @returns LE_OK                       Success.
- *          OTHER                       Failed.
- *
- * @note    NA
- */
-le_result_t taf_dcs_GetDefaultGW(taf_dcs_ProfileRef_t profileRef, taf_dcs_DefaultGatewayAddresses_t* addr)
-{
-    return LE_OK;
-}
-
-/**
- * Backup the default gateway.
- *
- * @param [in] profileRef               The profile reference to be checked
- *
- * @returns LE_OK                       Success.
- *          OTHER                       Failed.
- *
- * @note    NA
- */
-void taf_dcs_BackupDefaultGW(void)
-{
-    return;
-}
-
-/**
- * Restore a backup gateway.
- *
- * The data call which relates to this profile need to be brought up before this API.
- *
- * @returns LE_OK                       Success.
- *          OTHER                       Failed.
- *
- * @note    NA
- */
-le_result_t taf_dcs_RestoreDefaultGW(void)
-{
-    return LE_OK;
-}
-
-/**
- * Set the default DNS address.
- *
- * The data call which relates to this profile need to be brought up before this API.
- *
- * @param [in] profileRef               The profile reference to be checked
- *
- * @returns LE_OK                       Success.
- *          OTHER                       Failed.
- *
- * @note    NA
- */
-le_result_t taf_dcs_SetDNS(taf_dcs_ProfileRef_t profileRef)
-{
-    return LE_OK;
-}
-
-/**
- * Get the DNS address.
- *
- * The data call which relates to this profile need to be brought up before this API.
- *
- * @param [in] profileRef               The profile reference to be checked
- * @param [out] addr                    The DNS address
- *
- * @returns LE_OK                       Success.
- *          OTHER                       Failed.
- *
- * @note    NA
- */
-le_result_t taf_dcs_GetDNS(taf_dcs_ProfileRef_t profileRef, taf_dcs_DnsServerAddresses_t* addr)
-{
-    return LE_OK;
-}
-
-/**
- * Restore a DNS address.
- *
- * @returns LE_OK                       Success.
- *          OTHER                       Failed.
- *
- * @note    NA
- */
-void taf_dcs_RestoreDNS(void)
-{
-    return;
-}
-
-
-/**
  * Start to make a synchronous permanent call corresponding to specified profile reference.
  *
  * If this profile is not brought up so far, the call context will be created corresponding to
@@ -1133,17 +1275,19 @@ void taf_dcs_RestoreDNS(void)
 le_result_t taf_mdc_StartSession(taf_dcs_ProfileRef_t profileRef)
 {
     LE_DEBUG("-----------taf_mdc_StartSession------------");
+    int32_t profileId;
+    uint8_t slotId;
+
     auto &dataConnection = taf_DataConnection::GetInstance();
     auto &dataProfile = taf_DataProfile::GetInstance();
 
-    int32_t profileId;
-    le_result_t result = dataProfile.GetProfileId(profileRef, &profileId);
+    le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
 
     taf_dcs_Pdp_t pdpType = dataProfile.GetPdp(profileRef);
     // Start a data call with a fixed value 0 for sessionRef, and when the client loses the
     // connection with data call service,the data call will not be stopped
-    return dataConnection.StartSessionCmdSync(profileId, pdpType, 0);
+    return dataConnection.StartSessionCmdSync(slotId, profileId, pdpType, 0);
 
 }
 
@@ -1162,17 +1306,19 @@ le_result_t taf_mdc_StartSession(taf_dcs_ProfileRef_t profileRef)
 le_result_t taf_mdc_StartSessionAsync(taf_dcs_ProfileRef_t profileRef)
 {
     LE_DEBUG("-----------taf_mdc_StartSessionAsync------------");
+    int32_t profileId;
+    uint8_t slotId;
     auto &dataConnection = taf_DataConnection::GetInstance();
     auto &dataProfile = taf_DataProfile::GetInstance();
 
-    int32_t profileId;
-    le_result_t result = dataProfile.GetProfileId(profileRef, &profileId);
+    le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
+
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
 
     taf_dcs_Pdp_t pdpType = dataProfile.GetPdp(profileRef);
     // Start a data call with a fixed value 0 for sessionRef, and when the client loses the
     // connection with data call service,the data call will not be stopped
-    return dataConnection.StartSessionCmdSync(profileId, pdpType, 0);
+    return dataConnection.StartSessionCmdSync(slotId, profileId, pdpType, 0);
 
 }
 
@@ -1191,17 +1337,20 @@ le_result_t taf_mdc_StartSessionAsync(taf_dcs_ProfileRef_t profileRef)
 le_result_t taf_mdc_StopSession(taf_dcs_ProfileRef_t profileRef)
 {
     LE_DEBUG("-----------taf_mdc_StopSession------------");
+    int32_t profileId;
+    uint8_t slotId;
+
     auto &dataConnection = taf_DataConnection::GetInstance();
     auto &dataProfile = taf_DataProfile::GetInstance();
 
-    int32_t profileId;
-    le_result_t result = dataProfile.GetProfileId(profileRef, &profileId);
+    le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
+
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
 
     taf_dcs_Pdp_t pdpType = dataProfile.GetPdp(profileRef);
     // When the application calls taf_mdc_StartSession() to start a data call, this function
     // can stop that data call
-    return dataConnection.StopSessionCmdSync(profileId, pdpType, 0);
+    return dataConnection.StopSessionCmdSync(slotId, profileId, pdpType, 0);
 }
 
 /**
@@ -1219,17 +1368,20 @@ le_result_t taf_mdc_StopSession(taf_dcs_ProfileRef_t profileRef)
 le_result_t taf_mdc_StopSessionAsync(taf_dcs_ProfileRef_t profileRef)
 {
     LE_DEBUG("-----------taf_mdc_StopSessionAsync------------");
+    int32_t profileId;
+    uint8_t slotId;
+
     auto &dataConnection = taf_DataConnection::GetInstance();
     auto &dataProfile = taf_DataProfile::GetInstance();
 
-    int32_t profileId;
-    le_result_t result = dataProfile.GetProfileId(profileRef, &profileId);
+    le_result_t result = dataProfile.GetSlotIdAndProfileId(profileRef, &slotId, &profileId);
+
     TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "profile reference(%p) is invalid", profileRef);
 
     taf_dcs_Pdp_t pdpType = dataProfile.GetPdp(profileRef);
     // When the application calls taf_mdc_StartSessionAsync() to start a data call, this function
     // can stop that data call
-    return dataConnection.StopSessionCmdSync(profileId, pdpType, 0);
+    return dataConnection.StopSessionCmdSync(slotId, profileId, pdpType, 0);
 
 }
 

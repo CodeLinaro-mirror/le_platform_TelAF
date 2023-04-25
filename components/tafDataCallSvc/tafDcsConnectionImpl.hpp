@@ -84,7 +84,11 @@
 using namespace telux::data;
 using namespace telux::common;
 
+#define MIN_SLOT_COUNT 1
+#define MAX_SLOT_COUNT 2
+#define DEFAULT_PHONE_ID_1 1
 #define SLOT_ID_1 1
+#define SLOT_ID_2 2
 
 #define SESSION_TIMEOUT 60
 
@@ -128,6 +132,7 @@ namespace tafsvc {
         taf_dcs_CallRef_t                       callRef;
         char                                    intfName[TAF_DCS_NAME_MAX_LEN];
         int32_t                                 profileId;      // Profile id
+        uint8_t                                 slotId;         // Slot id
         le_dls_List_t                           sessionRefList; // The list of clients
         le_dls_Link_t                           link;           // Link to data call list
         bool                                    isCallActionInProgress;// Is a data call in progress
@@ -156,6 +161,7 @@ namespace tafsvc {
     {
         EventType_t                             event;
         int32_t                                 profileId;
+        uint8_t                                 slotId;
         telux::common::ErrorCode                errorCode;
         std::string                             ifName;
         telux::data::IpFamilyType               ipType;
@@ -169,6 +175,7 @@ namespace tafsvc {
 
     typedef struct
     {
+        uint8_t slotId;                   ///< slot id
         int32_t profileId;                ///< profile id
         void *contextPtr;
         le_msg_SessionRef_t sessionRef;   ///< handler's owner session's reference
@@ -232,14 +239,15 @@ namespace tafsvc {
         #endif
             void Init(void);
             static taf_DataConnection &GetInstance();
-            le_result_t PreProcessDataCall( int32_t profileId, taf_dcs_CallCtx_t* callCtxPtr,
-                                                     taf_CallFuncType_t funcType,
-                                                     le_msg_SessionRef_t sessionRef);
-            void AddHandlerSessionMapping(int32_t profileId, void *contextPtr,
-                                                    le_msg_SessionRef_t sessionRef,
-                                                    taf_dcs_AsyncSessionHandlerFunc_t asyncHandler);
-            HandlerSessionMapping_t* FindAsyncHandler( int32_t profileId);
-            void DeleteHandlerInfo(int32_t profileId,
+            le_result_t PreProcessDataCall( uint8_t slotId, int32_t profileId,
+                                            taf_dcs_CallCtx_t* callCtxPtr,
+                                            taf_CallFuncType_t funcType,
+                                            le_msg_SessionRef_t sessionRef);
+            void AddHandlerSessionMapping( uint8_t slotId, int32_t profileId, void *contextPtr,
+                                           le_msg_SessionRef_t sessionRef,
+                                           taf_dcs_AsyncSessionHandlerFunc_t asyncHandler);
+            HandlerSessionMapping_t* FindAsyncHandler( uint8_t slotId, int32_t profileId);
+            void DeleteHandlerInfo(uint8_t slotId, int32_t profileId,
                                    taf_dcs_AsyncSessionHandlerFunc_t asyncHandler);
             static void StartDataCallCallback(const std::shared_ptr<telux::data::IDataCall> &iCall,
                                               telux::common::ErrorCode errorCode);
@@ -252,73 +260,86 @@ namespace tafsvc {
                                             taf_dcs_StateInfo_t *infoPtr,
                                             taf_dcs_CallCtx_t *callCtxPtr);
 
-            le_result_t StartSessionCallSync(int32_t profileId, taf_dcs_Pdp_t pdpType);
-            le_result_t StartSessionCmdSync(int32_t profileId, taf_dcs_Pdp_t pdpType,
+            le_result_t StartSessionCallSync(uint8_t slotId, int32_t profileId,
+                                             taf_dcs_Pdp_t pdpType);
+            le_result_t StartSessionCmdSync(uint8_t slotId, int32_t profileId,
+                                            taf_dcs_Pdp_t pdpType,
                                             le_msg_SessionRef_t sessionRef);
             void StartSessionCmdAsync(taf_dcs_ProfileRef_t profileRef,
                                       taf_dcs_AsyncSessionHandlerFunc_t handlerPtr,
                                       void* contextPtr,
                                       le_msg_SessionRef_t sessionRef);
-            le_result_t StopSessionCallSync(int32_t profileId, taf_dcs_Pdp_t pdpType);
-            le_result_t StopSessionCmdSync(int32_t profileId, taf_dcs_Pdp_t pdpType,
+            le_result_t StopSessionCallSync(uint8_t slotId, int32_t profileId,
+                                            taf_dcs_Pdp_t pdpType);
+            le_result_t StopSessionCmdSync(uint8_t slotId, int32_t profileId,
+                                           taf_dcs_Pdp_t pdpType,
                                            le_msg_SessionRef_t sessionRef);
             void StopSessionCmdAsync(taf_dcs_ProfileRef_t profileRef,
                                      taf_dcs_AsyncSessionHandlerFunc_t handlerPtr,
                                      void* contextPtr,
                                      le_msg_SessionRef_t sessionRef);
-            le_result_t SetDefaultProfileIdSync(uint32_t profileId);
-            le_result_t GetDefaultProfileIdSync(uint32_t &profileId);
+            le_result_t SetDefaultProfileIdSync(uint8_t slotId, uint32_t profileId);
+            le_result_t GetDefaultProfileIdSync(uint8_t *slotId, uint32_t *profileId);
 
             static void EventHandler(void* reportPtr);
             void InternalEventHandler(void* reportPtr);
-            taf_dcs_CallCtx_t* CreateDataCallCtx(int32_t profileId);
+            taf_dcs_CallCtx_t* CreateDataCallCtx(uint8_t slotId, int32_t profileId);
             const char * CallEventToString(taf_dcs_ConState_t callEvent);
             const char* CallStatusToString(telux::data::DataCallStatus status);
             const char* CallEndReasonToString(EndReasonType type);
             const char* IpFamilyTypeToString(telux::data::IpFamilyType ipType);
             const char* TechPreferenceToString(telux::data::TechPreference techPref);
             const char* DataBearerToString(telux::data::DataBearerTechnology techPref);
-            taf_dcs_CallCtx_t* GetCallCtx(int32_t profileId);
+            taf_dcs_CallCtx_t* GetCallCtx(uint8_t slotId, int32_t profileId);
             taf_dcs_CallCtx_t* GetCallCtx(taf_dcs_CallRef_t reference);
-            int32_t GetProfileId(taf_dcs_CallRef_t reference);
-            le_result_t GetProfileIdByInterfaceName(const char* namePtr,uint32_t* profileId);
-            le_result_t MakeCall(int32_t profileId,
+            le_result_t GetSlotIdAndProfileId(taf_dcs_CallRef_t reference, uint8_t *slotId,
+                                              int32_t *profileId);
+            le_result_t GetSlotIdAndProfileIdByIfName(const char* namePtr, uint8_t *slotId,
+                                              uint32_t* profileId);
+            le_result_t MakeCall(uint8_t slotId, int32_t profileId,
                                  telux::data::IpFamilyType ipType);
-            le_result_t StopCall(int32_t profileId,
+            le_result_t StopCall(uint8_t slotId, int32_t profileId,
                                  telux::data::IpFamilyType ipType);
-            le_result_t SendSettingDefaultProfileIdCmd(int32_t profileId);
+            le_result_t SendSettingDefaultProfileIdCmd(uint8_t slotId, int32_t profileId);
             le_result_t SendGettingDefaultProfileIdCmd();
-            bool IsCallCtxCreated(int32_t profileId);
+            bool IsCallCtxCreated(uint8_t slotId, int32_t profileId);
             le_result_t AddSessionToCallCtx(taf_dcs_CallCtx_t* callCtxPtr,
                                             le_msg_SessionRef_t sessionRef);
             le_result_t RemoveSessionFromCallCtx(taf_dcs_CallCtx_t* callCtxPtr,
                                                  le_msg_SessionRef_t sessionRef);
             void LogDataCallInfo(const std::shared_ptr<telux::data::IDataCall> &iCall,
                                  const char *fromPtr);
-            le_result_t GetInterfaceName(int32_t profileId, char* namePtr, size_t nameSize);
-            le_result_t GetIpv4Address(int32_t profileId, char* addrPtr, size_t addrSize);
-            le_result_t GetIpv4Gateway(int32_t profileId, char* addrPtr, size_t addrSize);
-            le_result_t GetIpv4Dns(int32_t profileId, char* dns1Ptr, size_t dns1Size, char* dns2Ptr,
-                                   size_t dns2Size);
-            le_result_t GetIpv6Address(int32_t profileId, char* addrPtr, size_t addrSize);
-            le_result_t GetIpv6Gateway(int32_t profileId, char* addrPtr, size_t addrSize);
-            le_result_t GetIpv6Dns(int32_t profileId, char* dns1Ptr, size_t dns1Size, char* dns2Ptr,
-                                   size_t dns2Size);
-            le_result_t GetConnectionState(int32_t profileId, taf_dcs_ConState_t* statePtr);
-            le_result_t GetDataBearerTechnology(int32_t profileId,
+            le_result_t GetInterfaceName(uint8_t slotId, int32_t profileId, char* namePtr,
+                                         size_t nameSize);
+            le_result_t GetIpv4Address(uint8_t slotId, int32_t profileId, char* addrPtr,
+                                       size_t addrSize);
+            le_result_t GetIpv4Gateway(uint8_t slotId, int32_t profileId, char* addrPtr,
+                                       size_t addrSize);
+            le_result_t GetIpv4Dns(uint8_t slotId, int32_t profileId, char* dns1Ptr,
+                                   size_t dns1Size, char* dns2Ptr, size_t dns2Size);
+            le_result_t GetIpv6Address(uint8_t slotId, int32_t profileId, char* addrPtr,
+                                       size_t addrSize);
+            le_result_t GetIpv6Gateway(uint8_t slotId, int32_t profileId, char* addrPtr,
+                                       size_t addrSize);
+            le_result_t GetIpv6Dns(uint8_t slotId, int32_t profileId, char* dns1Ptr,
+                                   size_t dns1Size, char* dns2Ptr, size_t dns2Size);
+            le_result_t GetConnectionState(uint8_t slotId, int32_t profileId,
+                                           taf_dcs_ConState_t* statePtr);
+            le_result_t GetDataBearerTechnology(uint8_t slotId, int32_t profileId,
                                             taf_dcs_DataBearerTechnology_t* downDataBearerTechPtr,
                                             taf_dcs_DataBearerTechnology_t* upDataBearerTechPtr);
-            le_result_t GetRoamingStatus(bool* isRoamingPtr, taf_dcs_RoamingType_t* typePtr);
+            le_result_t GetRoamingStatus(uint8_t slotId, bool* isRoamingPtr,
+                                         taf_dcs_RoamingType_t* typePtr);
             bool updateStatus(taf_dcs_CallCtx_t *callCtxPtr, dataCallEvent_t *eventPtr);
             le_result_t SendStatusChangedNotification(taf_dcs_CallCtx_t *callCtxPtr,
                                                       dataCallEvent_t *eventPtr);
             taf_dcs_DataBearerTechnology_t updateDataBearerTech(
                                                   telux::data::DataBearerTechnology dataBearerTech);
             le_event_Id_t CallEvent;
-            bool IsIpv4(int32_t profileId);
-            bool IsIpv6(int32_t profileId);
+            bool IsIpv4(uint8_t slotId, int32_t profileId);
+            bool IsIpv6(uint8_t slotId, int32_t profileId);
             void RegisterSessionStateHandler(taf_dcs_SessionStateFunc_t func);
-            le_event_Id_t GetSessionStateEvent(int32_t profileId);
+            le_event_Id_t GetSessionStateEvent(uint8_t slotId, int32_t profileId);
             le_event_Id_t RoamingStatusEvtId;
             le_mem_PoolRef_t RoamingStatusPool;
             std::promise<le_result_t> CmdSynchronousPromise;
@@ -340,7 +361,8 @@ namespace tafsvc {
             std::shared_ptr<taf_DataConnRequestServiceStatusCallback> reqSvcStateCb;
             std::shared_ptr<taf_DataConnRequestRoamingStatusCallback> reqRoamingStatusCb;
         #endif
-            std::shared_ptr<telux::data::IDataConnectionManager> ConnectionMgr;
+            std::map<SlotId, std::shared_ptr<telux::data::IDataConnectionManager>>
+                                                                          dataConnectionManagers;
             std::shared_ptr<telux::data::IDataConnectionListener> DataConnectionListener;
         private:
             le_dls_List_t    DataCallCtxList = LE_DLS_LIST_INIT;
@@ -354,6 +376,7 @@ namespace tafsvc {
             taf_dcs_SessionStateFunc_t SessionStateFunc = NULL;
             le_thread_Ref_t ConnectionEventThreadRef = NULL;
             int32_t DefaultProfileId = TAF_DCS_DEFAULT_PROFILE;
+            int32_t DefaultSlotId = SLOT_ID_1;
     };
 
 }

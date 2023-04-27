@@ -459,7 +459,23 @@ void taf_DataConnection::StartDataCallCallback
     callEvent.slotId        = slotId;
     callEvent.ipType        = iCall->getIpFamilyType();
     callEvent.ipv4Status    = iCall->getIpv4Info().status;
+    if (callEvent.ipv4Status == telux::data::DataCallStatus::NET_CONNECTED)
+    {
+        callEvent.ipv4AddrInfo  = iCall->getIpv4Info().addr;
+    }
     callEvent.ipv6Status    = iCall->getIpv6Info().status;
+    if (callEvent.ipv6Status == telux::data::DataCallStatus::NET_CONNECTED)
+    {
+        callEvent.ipv6AddrInfo  = iCall->getIpv6Info().addr;
+    }
+    if (callEvent.callStatus == telux::data::DataCallStatus::NET_CONNECTED)
+    {
+        callEvent.ifName  = iCall->getInterfaceName();
+    }
+    callEvent.dataBearerTech    = iCall->getCurrentBearerTech();
+    LE_DEBUG("ipv4 status=%s, ipv6 status=%s",
+              dataConnection.CallStatusToString(callEvent.ipv4Status),
+              dataConnection.CallStatusToString(callEvent.ipv6Status));
     LE_DEBUG("Start callback:event=%d,errcode=%d, callstatus=%s, slotId=%d, profileId=%d, ipType=%d",
              (int)callEvent.event, (int)callEvent.errorCode,
              dataConnection.CallStatusToString(callEvent.callStatus), callEvent.slotId,
@@ -498,7 +514,23 @@ void taf_DataConnection::StopDataCallCallback
     callEvent.slotId        = slotId;
     callEvent.ipType        = iCall->getIpFamilyType();
     callEvent.ipv4Status    = iCall->getIpv4Info().status;
+    if (callEvent.ipv4Status == telux::data::DataCallStatus::NET_CONNECTED)
+    {
+        callEvent.ipv4AddrInfo  = iCall->getIpv4Info().addr;
+    }
     callEvent.ipv6Status    = iCall->getIpv6Info().status;
+    if (callEvent.ipv6Status == telux::data::DataCallStatus::NET_CONNECTED)
+    {
+        callEvent.ipv6AddrInfo  = iCall->getIpv6Info().addr;
+    }
+    if (callEvent.callStatus == telux::data::DataCallStatus::NET_CONNECTED)
+    {
+        callEvent.ifName  = iCall->getInterfaceName();
+        callEvent.dataBearerTech    = iCall->getCurrentBearerTech();
+    }
+    LE_DEBUG("ipv4 status=%s, ipv6 status=%s",
+              dataConnection.CallStatusToString(callEvent.ipv4Status),
+              dataConnection.CallStatusToString(callEvent.ipv6Status));
     LE_DEBUG("stop callback:event=%d, errcode=%d, callstatus=%s, slotId=%d, profileId=%d, ipType=%d",
              (int)callEvent.event,(int)callEvent.errorCode,
             dataConnection.CallStatusToString(callEvent.callStatus), callEvent.slotId,
@@ -1851,6 +1883,7 @@ bool taf_DataConnection::updateStatus(taf_dcs_CallCtx_t *callCtxPtr, dataCallEve
         break;
 
         case telux::data::DataCallStatus::NET_CONNECTED:
+            callCtxPtr->ipType     = eventPtr->ipType;
             le_utf8_Copy(callCtxPtr->intfName, eventPtr->ifName.c_str(),
                          sizeof(callCtxPtr->intfName), NULL);
             if (eventPtr->ipv4Status == telux::data::DataCallStatus::NET_CONNECTED)
@@ -1997,11 +2030,13 @@ void taf_DataConnection::InternalEventHandler(void* reportPtr)
             else
             {
                 isSendNotification = updateStatus(callCtxPtr, eventPtr);
-                stateInfo.ipType = GetEvtInfoFromConnStatus(callCtxPtr,
-                                                    telux::data::DataCallStatus::NET_CONNECTING);
                 TAF_ERROR_IF_RET_NIL(isSendNotification != true,
                                      "won't send notification to listener");
-                SendNotificationStateEvent(TAF_DCS_CONNECTING, &stateInfo, callCtxPtr);
+                LE_DEBUG("STARTCALLBACK:callStatus = %s, ipType=%d, ipv4status=%s, ipv6status=%s",
+                dataConnection.CallStatusToString(callCtxPtr->callStatus),(int)stateInfo.ipType,
+                dataConnection.CallStatusToString(callCtxPtr->ipv4Status),
+                dataConnection.CallStatusToString(callCtxPtr->ipv6Status));
+                SendStatusChangedNotification(callCtxPtr,eventPtr);
 
                 // If the call back is from synchronous data call, need to set the result
                 if (callCtxPtr->funcType == CALL_FUNCTION_SYNC_START)
@@ -2064,11 +2099,13 @@ void taf_DataConnection::InternalEventHandler(void* reportPtr)
             else
             {
                 isSendNotification = updateStatus(callCtxPtr, eventPtr);
-                stateInfo.ipType = GetEvtInfoFromConnStatus(callCtxPtr,
-                                                    telux::data::DataCallStatus::NET_CONNECTING);
                 TAF_ERROR_IF_RET_NIL(isSendNotification != true,
                                      "won't send notification to listener");
-                SendNotificationStateEvent(TAF_DCS_DISCONNECTING, &stateInfo, callCtxPtr);
+                LE_DEBUG("STOPCALLBACK:callStatus = %s, ipType=%d, ipv4status=%s, ipv6status=%s",
+                          dataConnection.CallStatusToString(callCtxPtr->callStatus),(int)stateInfo.ipType,
+                          dataConnection.CallStatusToString(callCtxPtr->ipv4Status),
+                          dataConnection.CallStatusToString(callCtxPtr->ipv6Status));
+                SendStatusChangedNotification(callCtxPtr,eventPtr);
 
                 // If the call back is from synchronous data call, need to set the result
                 if (callCtxPtr->funcType == CALL_FUNCTION_SYNC_STOP)

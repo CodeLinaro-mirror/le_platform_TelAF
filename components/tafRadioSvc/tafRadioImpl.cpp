@@ -496,7 +496,12 @@ void taf_RadioCellInfoCallback::cellInfoListResponse
         for (auto cellInfo : cellInfoList)
         {
             taf_RadioCellInfo_t cellIdInfo;
-            bool isRegistered;
+            if (cellInfo == NULL)
+            {
+                LE_ERROR("Cell information pointer is NULL.");
+                break;
+            }
+
             switch (cellInfo->getType())
             {
                 case telux::tel::CellType::GSM:
@@ -508,7 +513,16 @@ void taf_RadioCellInfoCallback::cellInfoListResponse
                     cellIdInfo.gsm.lac = gsmCellInfo->getCellIdentity().getLac();
                     cellIdInfo.gsm.ta = gsmCellInfo->getSignalStrengthInfo().getTimingAdvance();
                     cellIdInfo.ss = gsmCellInfo->getSignalStrengthInfo().getDbm();
-                    isRegistered = gsmCellInfo->isRegistered();
+                    if (gsmCellInfo->isRegistered())
+                    {
+                        cellListInfo.servingCell.push_back(
+                            std::make_shared<taf_RadioCellInfo_t>(cellIdInfo));
+                    }
+                    else
+                    {
+                        cellListInfo.neighborCell.push_back(
+                            std::make_shared<taf_RadioCellInfo_t>(cellIdInfo));
+                    }
                     break;
                 }
                 case telux::tel::CellType::CDMA:
@@ -518,7 +532,16 @@ void taf_RadioCellInfoCallback::cellInfoListResponse
                     cellIdInfo.cdma.bsid = cdmaCellInfo->getCellIdentity().getBaseStationId();
                     cellIdInfo.cdma.ecio = cdmaCellInfo->getSignalStrengthInfo().getCdmaEcio();
                     cellIdInfo.ss = cdmaCellInfo->getSignalStrengthInfo().getDbm();
-                    isRegistered = cdmaCellInfo->isRegistered();
+                    if (cdmaCellInfo->isRegistered())
+                    {
+                        cellListInfo.servingCell.push_back(
+                            std::make_shared<taf_RadioCellInfo_t>(cellIdInfo));
+                    }
+                    else
+                    {
+                        cellListInfo.neighborCell.push_back(
+                            std::make_shared<taf_RadioCellInfo_t>(cellIdInfo));
+                    }
                     break;
                 }
                 case telux::tel::CellType::WCDMA:
@@ -529,7 +552,16 @@ void taf_RadioCellInfoCallback::cellInfoListResponse
                     cellIdInfo.umts.cid = umtsCellInfo->getCellIdentity().getIdentity();
                     cellIdInfo.umts.psc = umtsCellInfo->getCellIdentity().getPrimaryScramblingCode();
                     cellIdInfo.ss = umtsCellInfo->getSignalStrengthInfo().getDbm();
-                    isRegistered = umtsCellInfo->isRegistered();
+                    if (umtsCellInfo->isRegistered())
+                    {
+                        cellListInfo.servingCell.push_back(
+                            std::make_shared<taf_RadioCellInfo_t>(cellIdInfo));
+                    }
+                    else
+                    {
+                        cellListInfo.neighborCell.push_back(
+                            std::make_shared<taf_RadioCellInfo_t>(cellIdInfo));
+                    }
                     break;
                 }
                 case telux::tel::CellType::TDSCDMA:
@@ -539,7 +571,16 @@ void taf_RadioCellInfoCallback::cellInfoListResponse
                     cellIdInfo.tdscdma.cid = tdscdmaCellInfo->getCellIdentity().getIdentity();
                     cellIdInfo.tdscdma.lac = tdscdmaCellInfo->getCellIdentity().getLac();
                     cellIdInfo.ss = tdscdmaCellInfo->getSignalStrengthInfo().getRscp();
-                    isRegistered = tdscdmaCellInfo->isRegistered();
+                    if (tdscdmaCellInfo->isRegistered())
+                    {
+                        cellListInfo.servingCell.push_back(
+                            std::make_shared<taf_RadioCellInfo_t>(cellIdInfo));
+                    }
+                    else
+                    {
+                        cellListInfo.neighborCell.push_back(
+                            std::make_shared<taf_RadioCellInfo_t>(cellIdInfo));
+                    }
                     break;
                 }
                 case telux::tel::CellType::LTE:
@@ -552,7 +593,16 @@ void taf_RadioCellInfoCallback::cellInfoListResponse
                     cellIdInfo.lte.earfcn = lteCellInfo->getCellIdentity().getEarfcn();
                     cellIdInfo.lte.ta = lteCellInfo->getSignalStrengthInfo().getTimingAdvance();
                     cellIdInfo.ss = lteCellInfo->getSignalStrengthInfo().getDbm();
-                    isRegistered = lteCellInfo->isRegistered();
+                    if (lteCellInfo->isRegistered())
+                    {
+                        cellListInfo.servingCell.push_back(
+                            std::make_shared<taf_RadioCellInfo_t>(cellIdInfo));
+                    }
+                    else
+                    {
+                        cellListInfo.neighborCell.push_back(
+                            std::make_shared<taf_RadioCellInfo_t>(cellIdInfo));
+                    }
                     break;
                 }
                 case telux::tel::CellType::NR5G:
@@ -564,23 +614,23 @@ void taf_RadioCellInfoCallback::cellInfoListResponse
                     cellIdInfo.nr5g.tac = nr5gCellInfo->getCellIdentity().getTrackingAreaCode();
                     cellIdInfo.nr5g.arfcn = nr5gCellInfo->getCellIdentity().getArfcn();
                     cellIdInfo.ss = nr5gCellInfo->getSignalStrengthInfo().getDbm();
-                    isRegistered = nr5gCellInfo->isRegistered();
+                    if (nr5gCellInfo->isRegistered())
+                    {
+                        cellListInfo.servingCell.push_back(
+                            std::make_shared<taf_RadioCellInfo_t>(cellIdInfo));
+                    }
+                    else
+                    {
+                        cellListInfo.neighborCell.push_back(
+                            std::make_shared<taf_RadioCellInfo_t>(cellIdInfo));
+                    }
                     break;
                 }
                 default:
                 {
                     LE_ERROR("Unknown RAT(%d)", (int)cellInfo->getType());
-                    return;
+                    break;
                 }
-            }
-
-            if (isRegistered)
-            {
-                cellListInfo.servingCell.push_back(cellIdInfo);
-            }
-            else
-            {
-                cellListInfo.neighborCell.push_back(cellIdInfo);
             }
         }
 

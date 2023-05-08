@@ -599,14 +599,21 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                     time_t realtime;
                     realtime = (time_t)((locationInfo->getTimeStamp() / 1000));
                     tm *ltm = localtime(&realtime);
-                    LocationData->year = 1900+ltm->tm_year;
-                    LocationData->month = 1+ltm->tm_mon;
-                    LocationData->day = ltm->tm_mday;
-                    //To match UTC time
-                    LocationData->hours = ltm->tm_hour;
-                    LocationData->minutes = ltm->tm_min;
-                    LocationData->seconds = ltm->tm_sec;
-                    LocationData->milliseconds = (locationInfo->getTimeStamp())%1000;
+                    if(ltm != NULL)
+                    {
+                        LocationData->year = 1900+ltm->tm_year;
+                        LocationData->month = 1+ltm->tm_mon;
+                        LocationData->day = ltm->tm_mday;
+                        //To match UTC time
+                        LocationData->hours = ltm->tm_hour;
+                        LocationData->minutes = ltm->tm_min;
+                        LocationData->seconds = ltm->tm_sec;
+                        LocationData->milliseconds = (locationInfo->getTimeStamp())%1000;
+                    }
+                    else
+                    {
+                        LE_ERROR("onDetailedEngineLocationUpdate local time ltm is NULL");
+                    }
                 } else {
                     LE_DEBUG("Time stamp Not Valid");
                     LocationData->year = 0;

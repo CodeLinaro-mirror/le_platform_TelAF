@@ -14,9 +14,11 @@ files_type(telaf_tafSimCardSvc_data_t);
 
 init_telaf_app_domain(telaf_tafSimCardSvc_t,telaf_tafSimCardSvc_exec_t)
 
+# Read Remote SIM provisioning operations like request profile list, server address and EID
+ifdef(`sa525m',`
+    telux_allow_tel_sim_profile_read(telaf_tafSimCardSvc_t)
+')
+
 # Allow update daemon to install/uninstall this service
 telaf_admin_manage_all_files_perms(telaf_tafSimCardSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafSimCardSvc_exec_t)
-
-
-

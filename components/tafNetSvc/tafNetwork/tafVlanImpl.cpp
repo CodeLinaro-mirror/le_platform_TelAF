@@ -149,7 +149,7 @@ void taf_Vlan::Init(void)
     {
         auto &dataFactory = telux::data::DataFactory::getInstance();
 //SA415 using old telsdk,without initCb parameter
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
         auto initCb = std::bind(&taf_Vlan::onInitComplete, this, std::placeholders::_1);
         vlanManager = dataFactory.getVlanManager(telux::data::OperationType::DATA_LOCAL,
                             initCb);
@@ -164,7 +164,7 @@ void taf_Vlan::Init(void)
         return ;
     }
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     // 6. Check if subsystem status
     std::unique_lock<std::mutex> lck(mMutex);
 
@@ -399,7 +399,7 @@ void tafVlanMappingCallback::onVlanMappingListResponse
     le_sem_Post(semaphore);
 }
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 /*======================================================================
 
  FUNCTION        taf_Vlan::onInitComplete
@@ -1734,7 +1734,7 @@ le_result_t taf_Vlan::CleanVlanInterfaceListRef
 ======================================================================*/
 le_result_t taf_Vlan::BindVlanWithProfile(taf_net_VlanRef_t vlanRef, uint8_t slotId, uint32_t profileId)
 {
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     SlotId slot = (SlotId)slotId;
 #endif
 
@@ -1764,7 +1764,7 @@ le_result_t taf_Vlan::BindVlanWithProfile(taf_net_VlanRef_t vlanRef, uint8_t slo
 
     auto  bindVlanWithProfileRespCb = std::bind(&tafVlanMappingCallback::onResponseCallback,
                                                 bindVlanWithProfileCb, std::placeholders::_1);
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     Status status = vlanManager->bindWithProfile(profileId, vlanId, bindVlanWithProfileRespCb,slot);
 #else
     Status status = vlanManager->bindWithProfile(profileId, vlanId, bindVlanWithProfileRespCb);
@@ -1816,7 +1816,6 @@ le_result_t taf_Vlan::BindVlanWithProfile(taf_net_VlanRef_t vlanRef, uint8_t slo
 ======================================================================*/
 le_result_t taf_Vlan::UnbindVlanFromProfile(taf_net_VlanRef_t vlanRef)
 {
-
     le_result_t result;
     uint16_t vlanId=0;
     uint32_t profileId=0;
@@ -1842,7 +1841,7 @@ le_result_t taf_Vlan::UnbindVlanFromProfile(taf_net_VlanRef_t vlanRef)
 
     auto  bindVlanWithProfileRespCb = std::bind(&tafVlanMappingCallback::onResponseCallback,
                                                 bindVlanWithProfileCb, std::placeholders::_1);
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     Status status = vlanManager->unbindFromProfile(profileId, vlanId,
                                                    bindVlanWithProfileRespCb, (SlotId)slotId);
 #else
@@ -1985,12 +1984,12 @@ le_result_t taf_Vlan::GetBoundSlotIdProfileIdFromVlan(uint16_t vlanId, uint8_t* 
 ======================================================================*/
 le_result_t taf_Vlan::GetBindingInfo(uint8_t slotId)
 {
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     SlotId slot = SlotId(slotId);
 #endif
     TAF_ERROR_IF_RET_VAL(vlanManager == NULL, LE_FAULT, "vlanManager is null");
     std::chrono::time_point<std::chrono::system_clock> startTime = std::chrono::system_clock::now();
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 
 
     std::shared_ptr<tafVlanMappingCallback> vlanMappingCb =

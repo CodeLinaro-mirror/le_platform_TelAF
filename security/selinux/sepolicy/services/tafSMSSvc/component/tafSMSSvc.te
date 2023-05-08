@@ -16,6 +16,11 @@ telaf_tafKeyStoreSvc_getKeyId(telaf_tafSMSSvc_t)
 
 init_telaf_app_domain(telaf_tafSMSSvc_t,telaf_tafSMSSvc_exec_t)
 
+# Perform SMS related operations like set SMSC address
+ifdef(`sa525m',`
+    telux_allow_tel_sms_config(telaf_tafSMSSvc_t)
+')
+
 # Allow update daemon to install/uninstall this service
 telaf_admin_manage_all_files_perms(telaf_tafSMSSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafSMSSvc_exec_t)

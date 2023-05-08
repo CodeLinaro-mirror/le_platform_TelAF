@@ -234,7 +234,7 @@ namespace tafsvc {
             void onRobustLocationInfo(const telux::loc::RobustLocationConfiguration rLConfig,
                     telux::common::ErrorCode error);
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
             void onSecondaryBandInfo(const telux::loc::ConstellationSet set,
                     telux::common::ErrorCode error);
 #endif
@@ -346,18 +346,18 @@ namespace tafsvc {
             le_result_t GetNmeaSentences(taf_gnss_NmeaBitMask_t* nmeaMaskPtr);
             le_result_t GetSupportedNmeaSentences(taf_gnss_NmeaBitMask_t* nmeaMaskPtr);
             le_result_t SetDRConfig(const taf_gnss_DrParams_t* drParamsPtr);
-            #ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
             le_result_t ConfigureEngineState(taf_gnss_EngineType_t engtype,
                     taf_gnss_EngineState_t engState);
-            #endif
+#endif
             le_result_t ConfigureRobustLocation(uint8_t enable,uint8_t enabled911);
             le_result_t RobustLocationInformation(uint8_t* enable, uint8_t* enabled911,
                     uint8_t* majorVersion,uint8_t* minorVersion);
-            #ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
             le_result_t DefaultSecondaryBandConstellations();
             le_result_t RequestSecondaryBandConstellations(int32_t* constellationSb);
             le_result_t ConfigureSecondaryBandConstellations(uint32_t constellationSb);
-            #endif
+#endif
             le_result_t GetMagneticDeviation(taf_gnss_SampleRef_t positionSampleRef,
                     int32_t* magneticDeviationPtr);
             le_result_t GetEllipticalUncertainty(taf_gnss_SampleRef_t positionSampleRef,

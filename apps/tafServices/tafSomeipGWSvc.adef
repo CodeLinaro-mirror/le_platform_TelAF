@@ -1,5 +1,7 @@
 sandboxed: false
 
+start: auto
+
 maxThreads: 300
 
 username: telaf

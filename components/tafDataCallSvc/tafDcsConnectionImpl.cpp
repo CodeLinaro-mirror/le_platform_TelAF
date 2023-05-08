@@ -89,7 +89,7 @@ LE_MEM_DEFINE_STATIC_POOL(RoamingStatusPool, TAF_DCS_MAX_SESSION_REF,
                           sizeof(taf_dcs_RoamingStatusInd_t));
 
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 taf_DataConnServingSystemListener::taf_DataConnServingSystemListener(SlotId slot) : slotId(slot) {}
 
 void taf_DataConnServingSystemListener::onServiceStateChanged(telux::data::ServiceStatus status)
@@ -706,7 +706,7 @@ le_result_t taf_DataConnection::SendSettingDefaultProfileIdCmd(uint8_t slotId, i
 
 le_result_t taf_DataConnection::SendGettingDefaultProfileIdCmd()
 {
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 
     if(dataConnectionManagers.find((SlotId)SLOT_ID_1) == dataConnectionManagers.end())
     {
@@ -1248,11 +1248,11 @@ le_result_t taf_DataConnection::StopSessionCmdSync
     size_t numLinks = le_dls_NumLinks(&callCtxPtr->sessionRefList);
     pthread_mutex_unlock(&callCtxPtr->sessionListMutex);
 
-    LE_INFO("numlink=%d", numLinks);
+    LE_INFO("numlink=%" PRIuS, numLinks);
 
     if (numLinks > 0)
     {
-        LE_INFO("slotId(%d) profile(%d) is used by (%d) clients, nothing to do in this operation",
+        LE_INFO("slotId(%d) profile(%d) is used by (%" PRIuS ") clients, nothing to do in this operation",
                  slotId, profileId, numLinks);
         return LE_OK;
     }
@@ -1380,12 +1380,12 @@ void taf_DataConnection::StopSessionCmdAsync
     size_t numLinks = le_dls_NumLinks(&callCtxPtr->sessionRefList);
     pthread_mutex_unlock(&callCtxPtr->sessionListMutex);
 
-    LE_INFO("numlink=%d",numLinks);
+    LE_INFO("numlink=%" PRIuS, numLinks);
 
     // Check if more than one session uses this data connection
     if (numLinks > 0)
     {
-        LE_INFO("slotId(%d) profile(%d) is used by (%d) clients, nothing to do in this operation",
+        LE_INFO("slotId(%d) profile(%d) is used by (%" PRIuS ") clients, nothing to do in this operation",
                  slotId, profileId, numLinks);
         handlerPtr(profileRef, LE_OK, contextPtr);
         return;
@@ -1455,7 +1455,7 @@ le_result_t taf_DataConnection::GetDefaultProfileIdSync(uint8_t *slotId, uint32_
 
 // In SA415M with old telsdk version, there is no getDefaultProfile function which will not set
 // CmdSynchronousPromise value
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     // blocking here to get response
     std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
     result = futResult.get();
@@ -1701,7 +1701,7 @@ le_result_t taf_DataConnection::GetRoamingStatus
 {
     TAF_ERROR_IF_RET_VAL(isRoamingPtr == NULL || typePtr == NULL, LE_BAD_PARAMETER, "ptr is null");
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
         auto reqRoamingStatusCbFunc = std::bind(
                                     &taf_DataConnRequestRoamingStatusCallback::requestRoamingStatus,
                                     reqRoamingStatusCb,
@@ -2646,7 +2646,7 @@ void taf_DataConnection::CloseEventHandler
     return;
 }
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 void taf_DataConnection::onInitCompleted(telux::common::ServiceStatus status)
 {
     std::lock_guard<std::mutex> lock(mtx);
@@ -2778,7 +2778,7 @@ void taf_DataConnection::Init(void)
 {
     auto &dataFactory = telux::data::DataFactory::getInstance();
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 
     int noOfSlots = MIN_SLOT_COUNT;
     if(telux::common::DeviceConfig::isMultiSimSupported())
@@ -2952,7 +2952,7 @@ void taf_DataConnection::Init(void)
     callCtxMutex = le_mutex_CreateNonRecursive("callCtxMutex");
     handlerlistMutex = le_mutex_CreateNonRecursive("handlerlistMutex");
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     // Add power state change handler
     taf_pm_AddStateChangeHandler(PowerStateChangeHandler, NULL);
     if (taf_pm_GetPowerState() != TAF_PM_STATE_SUSPEND)

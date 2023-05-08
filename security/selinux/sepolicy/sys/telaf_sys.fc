@@ -37,7 +37,6 @@
 /legato/systems/current/bin/supervisor               --        gen_context(system_u:object_r:telaf_admin_exec_t,s0)
 /legato/start                                        --        gen_context(system_u:object_r:telaf_admin_exec_t,s0)
 /legato/systems/current/bin/startSystem              --        gen_context(system_u:object_r:telaf_admin_exec_t,s0)
-
 /legato/systems/current/bin/logCtrlDaemon            --        gen_context(system_u:object_r:telaf_logd_exec_t,s0)
 /legato/systems/current/bin/configTree               --        gen_context(system_u:object_r:telaf_cfgtree_exec_t,s0)
 /legato/systems/current/bin/serviceDirectory         --        gen_context(system_u:object_r:telaf_sdir_exec_t,s0)

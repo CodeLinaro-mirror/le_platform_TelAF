@@ -204,7 +204,7 @@ void taf_PM::Init(void)
     auto &powerFactory = PowerFactory::getInstance();
     // Get TCU-activity manager object
     std::promise<telux::common::ServiceStatus> prom = std::promise<telux::common::ServiceStatus>();
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     tcuActivityMgr = powerFactory.getTcuActivityManager(ClientType::MASTER, ProcType::LOCAL_PROC,
                         [&](telux::common::ServiceStatus status) {
                              prom.set_value(status);
@@ -219,7 +219,7 @@ void taf_PM::Init(void)
         return;
     }
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     // wait unconditionally till the service is avilable
     bool isReady = (prom.get_future().get() == telux::common::ServiceStatus::SERVICE_AVAILABLE);
     if(isReady){

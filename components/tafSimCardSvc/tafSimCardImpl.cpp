@@ -27,6 +27,11 @@
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*  Changes from Qualcomm Innovation Center are provided under the following license:
+ *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #include "legato.h"
 #include "interfaces.h"
 #include "telux/tel/PhoneFactory.hpp"
@@ -83,7 +88,7 @@ void tafSubscriptionListener:: onSubscriptionInfoChanged
 }
 
 void tafMultiSimListener:: onSlotStatusChanged(std::map<SlotId, telux::tel::SlotStatus> slotStatus) {
-    LE_INFO("onSlotStatusChanged: %d", slotStatus.size());
+    LE_INFO("onSlotStatusChanged: %" PRIuS, slotStatus.size());
     auto &sim = taf_sim::GetInstance();
     int activeSlotCount = 0;
     telux::common::Status status;
@@ -408,7 +413,7 @@ taf_sim &taf_sim::GetInstance()
 }
 
 taf_sim_States_t taf_sim::getState(taf_sim_Id_t simId) {
-    LE_INFO("Input sim Id: %d, cards size: %d", (int)simId, cards.size());
+    LE_INFO("Input sim Id: %d, cards size: %" PRIuS, (int)simId, cards.size());
 
     if (simId >= TAF_SIM_ID_MAX || simId <= 0) {
         LE_INFO("Invalid sim Id");
@@ -1274,7 +1279,7 @@ le_result_t taf_sim::SetPower(taf_sim_Id_t simId, le_onoff_t powerState)
         return LE_BAD_PARAMETER;
     }
     telux::common::Status status;
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     auto ICard = cardManager->getCard(simId, &status);
     SlotId slotId_for_card = SlotId(ICard->getSlotId());
     std::promise<telux::common::ErrorCode> p;

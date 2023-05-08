@@ -27,6 +27,11 @@
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*  Changes from Qualcomm Innovation Center are provided under the following license:
+ *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 /*
  * @file       tafRadioSvc.cpp
  * @brief      This file provides the radio service as interfaces described
@@ -348,10 +353,10 @@ le_result_t taf_radio_GetRegisterMode
         "Null ptr(mncPtr)");
 
     TAF_ERROR_IF_RET_VAL(mccPtrSize < TAF_RADIO_MCC_BYTES, LE_BAD_PARAMETER,
-        "Invalid para(mccPtrSize: %d < %d)", mccPtrSize, TAF_RADIO_MCC_BYTES);
+        "Invalid para(mccPtrSize: %" PRIuS " < %d)", mccPtrSize, TAF_RADIO_MCC_BYTES);
 
     TAF_ERROR_IF_RET_VAL(mncPtrSize < TAF_RADIO_MNC_BYTES, LE_BAD_PARAMETER,
-        "Invalid para(mncPtrSize: %d < %d)", mncPtrSize, TAF_RADIO_MNC_BYTES);
+        "Invalid para(mncPtrSize: %" PRIuS " < %d)", mncPtrSize, TAF_RADIO_MNC_BYTES);
 
     TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
         "Invalid para(phoneId:%d)", phoneId);
@@ -797,13 +802,13 @@ le_result_t taf_radio_GetPreferredOperatorDetails
         "Null ptr(mccPtr)");
 
     TAF_ERROR_IF_RET_VAL(mccPtrSize < TAF_RADIO_MCC_BYTES, LE_BAD_PARAMETER,
-        "Invalid para(mccPtrSize: %d < %d)", mccPtrSize, TAF_RADIO_MCC_BYTES);
+        "Invalid para(mccPtrSize: %" PRIuS " < %d)", mccPtrSize, TAF_RADIO_MCC_BYTES);
 
     TAF_ERROR_IF_RET_VAL(mncPtr == nullptr, LE_BAD_PARAMETER,
         "Null ptr(mncPtr)");
 
     TAF_ERROR_IF_RET_VAL(mncPtrSize < TAF_RADIO_MNC_BYTES, LE_BAD_PARAMETER,
-        "Invalid para(mncPtrSize: %d < %d)", mncPtrSize, TAF_RADIO_MNC_BYTES);
+        "Invalid para(mncPtrSize: %" PRIuS " < %d)", mncPtrSize, TAF_RADIO_MNC_BYTES);
 
     TAF_ERROR_IF_RET_VAL(ratMaskPtr == nullptr, LE_BAD_PARAMETER,
         "Null ptr(ratMaskPtr)");
@@ -2221,13 +2226,13 @@ le_result_t taf_radio_GetCurrentNetworkMccMnc
         "Null ptr(mccStr)");
 
     TAF_ERROR_IF_RET_VAL(mccStrNumElements < TAF_RADIO_MCC_BYTES, LE_BAD_PARAMETER,
-        "Invalid para(mccStrNumElements: %d < %d)", mccStrNumElements, TAF_RADIO_MCC_BYTES);
+        "Invalid para(mccStrNumElements: %" PRIuS " < %d)", mccStrNumElements, TAF_RADIO_MCC_BYTES);
 
     TAF_ERROR_IF_RET_VAL(mncStr == nullptr, LE_BAD_PARAMETER,
         "Null ptr(mncStr)");
 
     TAF_ERROR_IF_RET_VAL(mncStrNumElements < TAF_RADIO_MNC_BYTES, LE_BAD_PARAMETER,
-        "Invalid para(mncStrNumElements: %d < %d)", mncStrNumElements, TAF_RADIO_MNC_BYTES);
+        "Invalid para(mncStrNumElements: %" PRIuS " < %d)", mncStrNumElements, TAF_RADIO_MNC_BYTES);
 
     TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
         "Invalid para(phoneId:%d)", phoneId);
@@ -2495,13 +2500,13 @@ le_result_t taf_radio_GetCellularNetworkMccMnc
         "Null ptr(mccPtr)");
 
     TAF_ERROR_IF_RET_VAL(mccPtrSize < TAF_RADIO_MCC_BYTES, LE_BAD_PARAMETER,
-        "Invalid para(mccPtrSize: %d < %d)", mccPtrSize, TAF_RADIO_MCC_BYTES);
+        "Invalid para(mccPtrSize: %" PRIuS " < %d)", mccPtrSize, TAF_RADIO_MCC_BYTES);
 
     TAF_ERROR_IF_RET_VAL(mncPtr == nullptr, LE_BAD_PARAMETER,
         "Null ptr(mncPtr)");
 
     TAF_ERROR_IF_RET_VAL(mncPtrSize < TAF_RADIO_MNC_BYTES, LE_BAD_PARAMETER,
-        "Invalid para(mncPtrSize: %d < %d)", mncPtrSize, TAF_RADIO_MNC_BYTES);
+        "Invalid para(mncPtrSize: %" PRIuS " < %d)", mncPtrSize, TAF_RADIO_MNC_BYTES);
 
     auto &tafRadio = taf_Radio::GetInstance();
     taf_RadioScanOp_t* opPtr = (taf_RadioScanOp_t*)le_ref_Lookup(tafRadio.scanOpSafeRefMap, scanInformationRef);
@@ -3500,7 +3505,7 @@ le_result_t taf_radio_SetLteBandPreferences
     TAF_ERROR_IF_RET_VAL(bandMask == NULL, LE_BAD_PARAMETER, "Null ptr(bandMask)");
 
     TAF_ERROR_IF_RET_VAL(bandMaskSize < TAF_RADIO_LTE_BAND_GROUP_NUM, LE_BAD_PARAMETER,
-        "Invalid para(bandMaskSize:%d)", bandMaskSize);
+        "Invalid para(bandMaskSize:%" PRIuS ")", bandMaskSize);
 
     return taf_pa_radio_SetLteBandPreferences(bandMask, bandMaskSize, phoneId);
 }
@@ -3778,10 +3783,10 @@ le_result_t taf_radio_GetPciScanMccMnc
     TAF_ERROR_IF_RET_VAL(mncPtr == NULL, LE_BAD_PARAMETER, "Null ptr(mncPtr)");
 
     TAF_ERROR_IF_RET_VAL(mccPtrSize < TAF_RADIO_MCC_BYTES, LE_BAD_PARAMETER,
-        "Invalid para(mccPtrSize: %d < %d)", mccPtrSize, TAF_RADIO_MCC_BYTES);
+        "Invalid para(mccPtrSize: %" PRIuS " < %d)", mccPtrSize, TAF_RADIO_MCC_BYTES);
 
     TAF_ERROR_IF_RET_VAL(mncPtrSize < TAF_RADIO_MNC_BYTES, LE_BAD_PARAMETER,
-        "Invalid para(mncPtrSize: %d < %d)", mncPtrSize, TAF_RADIO_MNC_BYTES);
+        "Invalid para(mncPtrSize: %" PRIuS " < %d)", mncPtrSize, TAF_RADIO_MNC_BYTES);
 
     return taf_pa_radio_GetPciScanMccMnc(plmnRef, mccPtr, mccPtrSize, mncPtr, mncPtrSize);
 }

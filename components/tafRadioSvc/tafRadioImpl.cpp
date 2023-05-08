@@ -27,6 +27,11 @@
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*  Changes from Qualcomm Innovation Center are provided under the following license:
+ *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 /*
  * @file       tafRadioImpl.cpp
  * @brief      This file describes the implementation method that radio
@@ -758,7 +763,7 @@ void taf_Radio::RadioProcCmdHandler(void* cmdReqPtr)
         case TAF_RADIO_CMD_TYPE_ASYNC_REG_MANUAL:
         {
             TAF_ERROR_IF_RET_NIL(phoneId > tafRadio.networkManagers.size(),
-                "Invalid para(phoneId:%d > %d)", phoneId, tafRadio.networkManagers.size());
+                "Invalid para(phoneId:%d > %" PRIuS ")", phoneId, tafRadio.networkManagers.size());
 
             auto networkManager = tafRadio.networkManagers[phoneId - 1];
             TAF_ERROR_IF_RET_NIL(networkManager == nullptr, "Invalid para(null ptr, phoneId:%d)", phoneId);
@@ -801,7 +806,7 @@ void taf_Radio::RadioProcCmdHandler(void* cmdReqPtr)
         case TAF_RADIO_CMD_TYPE_ASYNC_NETWORK_SCAN:
         {
             TAF_ERROR_IF_RET_NIL(phoneId > tafRadio.networkManagers.size(),
-                "Invalid para(phoneId:%d > %d)", phoneId, tafRadio.networkManagers.size());
+                "Invalid para(phoneId:%d > %" PRIuS ")", phoneId, tafRadio.networkManagers.size());
 
             auto networkManager = tafRadio.networkManagers[phoneId - 1];
             TAF_ERROR_IF_RET_NIL(networkManager == NULL,
@@ -1091,9 +1096,9 @@ void taf_Radio::Init(void)
             if (networkSystemStatus) {
                 endTime = std::chrono::system_clock::now();
                 elapsedTime = endTime - startTime;
-                LE_INFO("Elapsed time for %d network subsystem: %lfs", index, elapsedTime.count());
+                LE_INFO("Elapsed time for %" PRIuS " network subsystem: %lfs", index, elapsedTime.count());
             } else {
-                LE_ERROR("Fail to init %d network subsystem", index);
+                LE_ERROR("Fail to init %" PRIuS " network subsystem", index);
             }
         }
 
@@ -1112,9 +1117,9 @@ void taf_Radio::Init(void)
             if (servingSystemStatus) {
                 endTime = std::chrono::system_clock::now();
                 elapsedTime = endTime - startTime;
-                LE_INFO("Elapsed time for %d serving subsystem: %lfs", index, elapsedTime.count());
+                LE_INFO("Elapsed time for %" PRIuS " serving subsystem: %lfs", index, elapsedTime.count());
             } else {
-                LE_ERROR("Fail to init %d serving subsystem", index);
+                LE_ERROR("Fail to init %" PRIuS " serving subsystem", index);
             }
         }
     } else {

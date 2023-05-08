@@ -1282,3 +1282,12 @@ le_result_t taf_ecall_TerminateRegistration
     return ecall.TerminateRegistration();
 }
 
+int32_t taf_ecall_GetPlatformSpecificTerminationCode
+(
+    taf_ecall_CallRef_t ecallRef
+)
+{
+    LE_WARN("Not supported.");
+    return 0;
+}
+

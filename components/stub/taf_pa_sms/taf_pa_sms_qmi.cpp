@@ -96,7 +96,7 @@ LE_SHARED le_result_t taf_pa_sms_SendPduMsg
 //--------------------------------------------------------------------------------------------------
 LE_SHARED le_result_t taf_pa_sms_ListMsgFromStorage
 (
-    taf_sms_Storage_t    	storage,
+    taf_sms_Storage_t       storage,
     taf_sms_ReadStatus_t    rxStatus,
     uint32_t                *numOfIdx,
     uint32_t                *idxArray
@@ -328,7 +328,9 @@ LE_SHARED void taf_pa_sms_RemoveStorageHandler
 LE_SHARED void taf_pa_sms_StoreNewMsgToHLOS
 (
     void* newMsg
-);
+)
+{
+}
 
 //--------------------------------------------------------------------------------------------------
 /**

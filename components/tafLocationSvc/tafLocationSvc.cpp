@@ -1225,7 +1225,7 @@ le_result_t taf_gnss_GetSupportedNmeaSentences
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
 */
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 le_result_t taf_gnss_ConfigureEngineState
 (
     taf_gnss_EngineType_t engtype,
@@ -1279,7 +1279,7 @@ le_result_t taf_gnss_RobustLocationInformation
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
 */
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 le_result_t taf_gnss_DefaultSecondaryBandConstellations
 (
 )
@@ -1295,7 +1295,7 @@ le_result_t taf_gnss_DefaultSecondaryBandConstellations
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
 */
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 le_result_t taf_gnss_RequestSecondaryBandConstellations
 (
    int32_t* constellationSb
@@ -1312,7 +1312,7 @@ le_result_t taf_gnss_RequestSecondaryBandConstellations
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
 */
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 le_result_t taf_gnss_ConfigureSecondaryBandConstellations
 (
     uint32_t constellationSb

@@ -1,0 +1,46 @@
+sources:
+{
+    tafDoIPVehDiscoveryAndParser.cpp
+    tafDoIPVehicleMgr.cpp
+    tafDoIPCommunicationMgr.cpp
+    tafDoIPConnection.cpp
+    tafDoIPConnectionMgr.cpp
+    tafDoIPStack.cpp
+}
+
+cxxflags:
+{
+    -I$TELAF_ROOT/include
+    -I${LEGATO_ROOT}/components/socketLibrary
+}
+
+cflags:
+{
+    -I${LEGATO_ROOT}/components/socketLibrary
+}
+
+requires:
+{
+    component:
+    {
+        $LEGATO_ROOT/components/socketLibrary
+    }
+}
+
+provides:
+{
+}
+
+ldflags:
+{
+}
+
+bundles:
+{
+    file:
+    {
+        // Include a default DOIP JSON config file that contains
+        // the minimal configurations that DOIP stack requires.
+        [rw] tafDoIP.json   /
+    }
+}

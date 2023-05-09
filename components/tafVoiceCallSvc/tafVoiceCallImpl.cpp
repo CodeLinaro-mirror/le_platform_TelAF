@@ -1238,7 +1238,7 @@ le_result_t taf_VoiceCall::SwapCall(taf_voicecall_CallRef_t callRef, le_msg_Sess
     }
 
     std::shared_ptr<telux::tel::ICall> iCall1, iCall2;
-    uint8_t iCall1PhoneId, iCall2PhoneId;
+    uint8_t iCall1PhoneId = DEFAULT_PHONE_ID, iCall2PhoneId = DEFAULT_PHONE_ID;
     for(auto callIterator = std::begin(inProgressCalls); callIterator != std::end(inProgressCalls);
         ++callIterator)
     {

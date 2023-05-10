@@ -92,7 +92,8 @@ StopTelaf()
         wasTelafRunning="yes"
 
         # StopTelafTimeout will be scaled according to the number of running TelAF services.
-        # Estimation of 5 seconds for the TelAF framework itself, and 3 seconds per TelAF service to shutdown.
+        # Estimation of 5 seconds for the TelAF framework itself, and 3 seconds per TelAF service to
+        # shutdown.
         StopTelafTimeout=$(( 5 + $(app status | grep running | wc -l) * 3 ))
 
         echo -n "Stopping TelAF"
@@ -122,7 +123,7 @@ StopTelaf()
 
             # Wait for all killed processes to die before proceeding.
             echo -n "Hard-killing TelAF"
-            telafcountDown=StopTelafTimeout
+            telafcountDown=$StopTelafTimeout
             while [ $telafcountDown -ne 0 ]
             do
                 if IsProcessRunning startSystem

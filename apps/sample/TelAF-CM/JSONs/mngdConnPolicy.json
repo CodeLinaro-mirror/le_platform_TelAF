@@ -1,0 +1,16 @@
+{
+    "ManagedConnectivityServicePolicy": {
+        "Version": 1,
+        "Name": "Default",
+        "ConfigurationFileName": "mngdConnConfig.json"
+    },
+
+    "DataSession": {
+        "Fallback": "No",
+        "DataConnection": [
+        {
+            "Priority": "1",
+            "Use_Data_ID": "1"
+        }]
+    }
+}

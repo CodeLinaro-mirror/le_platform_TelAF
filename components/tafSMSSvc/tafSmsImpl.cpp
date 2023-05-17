@@ -1,5 +1,32 @@
 /*
- * Copyright (c) 2021 The Linux Foundation. All rights reserved.
+ *  Copyright (c) 2021 The Linux Foundation. All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions are
+ *  met:
+ *    * Redistributions of source code must retain the above copyright
+ *      notice, this list of conditions and the following disclaimer.
+ *    * Redistributions in binary form must reproduce the above
+ *      copyright notice, this list of conditions and the following
+ *      disclaimer in the documentation and/or other materials provided
+ *      with the distribution.
+ *    * Neither the name of The Linux Foundation nor the names of its
+ *      contributors may be used to endorse or promote products derived
+ *      from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ *  WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ *  ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ *  BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ *  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ *  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ *  BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ *  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -26,39 +53,6 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * ​​​​​Changes from Qualcomm Innovation Center are provided under the following license:
- *
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "legato.h"
@@ -111,6 +105,8 @@ void taf_Handler::ProcessNewMessage(void* incomingMsgPtr)
 
    taf_sms_Msg_t *tafNewMsg = (taf_sms_Msg_t*)le_mem_ForceAlloc(sms.MsgPool);
    memset(tafNewMsg, 0, sizeof(taf_sms_Msg_t));
+
+   tafNewMsg->phoneId = newMsgPtr->phoneId;
 
    if(sms.sysPrefStorage == TAF_SMS_STORAGE_HLOS)
    {
@@ -170,6 +166,9 @@ void taf_Handler::ProcessSendMessage(void* context)
    TAF_ERROR_IF_RET_NIL(msgPtr == nullptr, "msgPtr is nullptr!");
 
    auto smsManager = sms.smsManagers[msgPtr->phoneId - 1];
+
+   TAF_ERROR_IF_RET_NIL(smsManager == nullptr, "phoneId %d is not available!", msgPtr->phoneId);
+
    smsManager->sendSms(std::string(msgPtr->text), std::string(msgPtr->tel), sms.smsSentCb, sms.smsDeliveryCb);
 }
 
@@ -568,6 +567,7 @@ taf_sms_Msg_t* taf_Sms::CreateRxMsgNode
    msgPtr->lockStatus = pduMsg->lkStatus;
    msgPtr->storage = pduMsg->storage;
    msgPtr->storageIdx = pduMsg->index;
+   msgPtr->phoneId = pduMsg->phoneId;
 
    msgPtr->type = TAF_SMS_TYPE_RX;
    msgPtr->applyDel = false;
@@ -678,7 +678,8 @@ uint32_t taf_Sms::GetMsgFromStorage
    taf_sms_List_t      *msgListPtr,
    taf_sms_Storage_t   storage,
    uint32_t            numOfMsg,
-   uint32_t            *arrayPtr
+   uint32_t            *arrayPtr,
+   uint8_t             phoneId
 )
 {
    TAF_ERROR_IF_RET_VAL(msgListPtr == nullptr, LE_FAULT, "msgListPtr is nullptr!");
@@ -691,7 +692,7 @@ uint32_t taf_Sms::GetMsgFromStorage
    {
       taf_pa_sms_Pdu_t pduMsg = {0};
 
-      le_result_t res = taf_pa_sms_ReadPDUMsgFromStorage(storage, arrayPtr[i], &pduMsg);
+      le_result_t res = taf_pa_sms_ReadPDUMsgFromStorage(storage, arrayPtr[i], &pduMsg, phoneId);
 
       if (res != LE_OK)
       {
@@ -746,7 +747,8 @@ uint32_t taf_Sms::ListRxMsg
 (
    taf_sms_List_t          *msgListPtr,
    taf_sms_ReadStatus_t    rxStatus,
-   taf_sms_Storage_t       storage
+   taf_sms_Storage_t       storage,
+   uint8_t                 phoneId
 )
 {
    le_result_t  result = LE_OK;
@@ -758,7 +760,7 @@ uint32_t taf_Sms::ListRxMsg
 
    TAF_ERROR_IF_RET_VAL(msgListPtr == nullptr, 0, "msgListPtr is nullptr!");
 
-   result = taf_pa_sms_ListMsgFromStorage(storage, rxStatus, &numOfIdx, idxArray);
+   result = taf_pa_sms_ListMsgFromStorage(storage, rxStatus, &numOfIdx, idxArray, phoneId);
 
    TAF_ERROR_IF_RET_VAL(result != LE_OK, 0, "taf_pa_sms_ListMsgFromStorage result: %d", result);
 
@@ -771,7 +773,7 @@ uint32_t taf_Sms::ListRxMsg
    else
    {
       int32_t res;
-      res = GetMsgFromStorage(msgListPtr, storage, numOfIdx, idxArray);
+      res = GetMsgFromStorage(msgListPtr, storage, numOfIdx, idxArray, phoneId);
 
       if(res == LE_FAULT)
       {
@@ -795,34 +797,37 @@ uint32_t taf_Sms::ListAllRxMsg
 
    TAF_ERROR_IF_RET_VAL(msgListPtr == nullptr, 0, "msgListPtr is nullptr!");
 
-   res = ListRxMsg(msgListPtr, TAF_SMS_RXSTS_READ, TAF_SMS_STORAGE_SIM);
-   if (res < 0)
+   for(uint8_t phoneId = 1; phoneId <= NumOfSlot; phoneId++)
    {
-         LE_ERROR("Read SIM storage unsuccessfully, return %d",res);
-         return LE_FAULT;
-   }
-   msgCount += res;
+      res = ListRxMsg(msgListPtr, TAF_SMS_RXSTS_READ, TAF_SMS_STORAGE_SIM, phoneId);
+      if (res < 0)
+      {
+            LE_ERROR("Read SIM storage unsuccessfully, return %d",res);
+            return LE_FAULT;
+      }
+      msgCount += res;
 
-   res = ListRxMsg(msgListPtr, TAF_SMS_RXSTS_UNREAD, TAF_SMS_STORAGE_SIM);
-   if (res < 0)
-   {
-         LE_ERROR("Read SIM storage unsuccessfully, return %d",res);
-         return LE_FAULT;
+      res = ListRxMsg(msgListPtr, TAF_SMS_RXSTS_UNREAD, TAF_SMS_STORAGE_SIM, phoneId);
+      if (res < 0)
+      {
+            LE_ERROR("Read SIM storage unsuccessfully, return %d",res);
+            return LE_FAULT;
+      }
+      msgCount += res;
    }
-   msgCount += res;
 
-   res = ListRxMsg(msgListPtr, TAF_SMS_RXSTS_READ, TAF_SMS_STORAGE_HLOS);
+   res = ListRxMsg(msgListPtr, TAF_SMS_RXSTS_READ, TAF_SMS_STORAGE_HLOS, 0);
    if (res < 0)
    {
-      LE_ERROR("Read NV storage unsuccessfully, return %d",res);
+      LE_ERROR("Read HLOS storage unsuccessfully, return %d",res);
       return LE_FAULT;
    }
    msgCount += res;
 
-   res = ListRxMsg(msgListPtr, TAF_SMS_RXSTS_UNREAD, TAF_SMS_STORAGE_HLOS);
+   res = ListRxMsg(msgListPtr, TAF_SMS_RXSTS_UNREAD, TAF_SMS_STORAGE_HLOS, 0);
    if (res < 0)
    {
-      LE_ERROR("Read NV storage unsuccessfully, return %d",res);
+      LE_ERROR("Read HLOS storage unsuccessfully, return %d",res);
       return LE_FAULT;
    }
    msgCount += res;
@@ -871,15 +876,18 @@ void taf_Sms::ReleaseSession
 
       smsListPtr = (taf_sms_List_t*)le_ref_GetValue(iterListRef);
 
-      if (smsListPtr->sessionRef == sessionRef)
+      if(smsListPtr != NULL)
       {
-         taf_sms_MsgListRef_t msgListRef = NULL;
+         if (smsListPtr->sessionRef == sessionRef)
+         {
+            taf_sms_MsgListRef_t msgListRef = NULL;
 
-         msgListRef = (taf_sms_MsgListRef_t) le_ref_GetSafeRef(iterListRef);
+            msgListRef = (taf_sms_MsgListRef_t) le_ref_GetSafeRef(iterListRef);
 
-         LE_INFO("Release msgListRef %p", msgListRef);
+            LE_INFO("Release msgListRef %p", msgListRef);
 
-         taf_sms_DeleteList(msgListRef);
+            taf_sms_DeleteList(msgListRef);
+         }
       }
 
       result = le_ref_NextNode(iterListRef);
@@ -893,7 +901,15 @@ le_result_t taf_Sms::sendMessage()
 
    smsSentCb->msgRef = sendingMsgRef;
    auto smsManager = smsManagers[msgPtr->phoneId - 1];
-   smsManager->sendSms(std::string(msgPtr->text), std::string(msgPtr->tel), smsSentCb);
+
+   if(smsManager != nullptr)
+   {
+      smsManager->sendSms(std::string(msgPtr->text), std::string(msgPtr->tel), smsSentCb);
+   }
+   else
+   {
+      return LE_UNSUPPORTED;
+   }
 
    return LE_OK;
 }
@@ -952,16 +968,16 @@ void taf_Sms::Init(void)
    // Init the handler class static member
    taf_Handler::TafSmsPtr = this;
 
-   int noOfSlots = MIN_SIM_SLOT_COUNT;
+   NumOfSlot = MIN_SIM_SLOT_COUNT;
    if(telux::common::DeviceConfig::isMultiSimSupported()) {
-      noOfSlots = MAX_SIM_SLOT_COUNT;
+      NumOfSlot = MAX_SIM_SLOT_COUNT;
       LE_INFO("MultiSim supported");
    }
 
    auto &phoneFactory = telux::tel::PhoneFactory::getInstance();
    mySmsListener = std::make_shared<tafSmsListener>();
 
-   for(auto index = 1; index <= noOfSlots; index++) {
+   for(auto index = 1; index <= NumOfSlot; index++) {
       std::promise<telux::common::ServiceStatus> prom;
       auto smsMgr = phoneFactory.getSmsManager(index, [&](telux::common::ServiceStatus status) {
          prom.set_value(status);
@@ -1045,6 +1061,8 @@ void tafSmsListener::onIncomingSms(int phoneId, std::shared_ptr<SmsMessage> smsM
    LE_INFO("sysPrefStorage: %d", sms.sysPrefStorage);
 
    newSms_t newMsg = {0};
+
+   newMsg.phoneId = (uint8_t)phoneId;
 
    le_utf8_Copy(newMsg.pdu, smsMsg->getPdu().c_str(), (TAF_SMS_PDU_BYTES * 2) + 1, NULL);
 
@@ -1499,7 +1517,7 @@ le_result_t taf_Sms::GetPreferredStorage(taf_sms_Storage_t* storage)
    std::chrono::seconds span(TIMEOUT_PREF_STORAGE);
    auto smsManager = smsManagers[DEFAULT_SLOT_ID - 1];
 
-   if (smsManager)
+   if(smsManager != nullptr)
    {
       telux::common::Status reqStatus = smsManager->requestPreferredStorage(
          tafSetSmsStorageCallback::getPreferredStorageResponse);
@@ -1537,10 +1555,7 @@ le_result_t taf_Sms::GetPreferredStorage(taf_sms_Storage_t* storage)
 
 le_result_t taf_Sms::SetPreferredStorage(taf_sms_Storage_t storage)
 {
-   // initialize the synchronous promise
-   PreferredStorageSyncPromise = std::promise<le_result_t>();
    std::chrono::seconds span(TIMEOUT_PREF_STORAGE);
-   auto smsManager = smsManagers[DEFAULT_SLOT_ID - 1];
 
    telux::tel::StorageType type;
 
@@ -1557,43 +1572,57 @@ le_result_t taf_Sms::SetPreferredStorage(taf_sms_Storage_t storage)
             return LE_UNSUPPORTED;
    }
 
-   if (smsManager)
+   le_result_t res = LE_FAULT;
+
+   for(uint8_t phoneId = 1; phoneId <= NumOfSlot; phoneId++)
    {
-      telux::common::Status reqStatus = smsManager->setPreferredStorage(static_cast<telux::tel::StorageType>(type),
-         tafSetSmsStorageCallback::setPreferredStorageResponse);
-
-      if (reqStatus != telux::common::Status::SUCCESS)
+      auto smsManager = smsManagers[phoneId - 1];
+      if(smsManager != nullptr)
       {
-         LE_INFO("Set preferred storage failed");
-         return LE_FAULT;
-      }
+         // initialize the synchronous promise
+         PreferredStorageSyncPromise = std::promise<le_result_t>();
 
-      // blocking here to set preferred storage
-      std::future<le_result_t> futResult = PreferredStorageSyncPromise.get_future();
-      std::future_status waitStatus = futResult.wait_for(span);
-      if (std::future_status::timeout == waitStatus)
-      {
-        LE_ERROR("waiting promise timeout for %d seconds", TIMEOUT_PREF_STORAGE);
-        return LE_TIMEOUT;
+         telux::common::Status reqStatus = smsManager->setPreferredStorage(static_cast<telux::tel::StorageType>(type),
+            tafSetSmsStorageCallback::setPreferredStorageResponse);
+
+         if (reqStatus != telux::common::Status::SUCCESS)
+         {
+            LE_INFO("Set preferred storage failed");
+            return LE_FAULT;
+         }
+
+         // blocking here to set preferred storage
+         std::future<le_result_t> futResult = PreferredStorageSyncPromise.get_future();
+         std::future_status waitStatus = futResult.wait_for(span);
+         if (std::future_status::timeout == waitStatus)
+         {
+            LE_ERROR("waiting promise timeout for %d seconds", TIMEOUT_PREF_STORAGE);
+            return LE_TIMEOUT;
+         }
+         else
+         {
+            res = futResult.get();
+            if(res == LE_OK)
+            {
+               sysPrefStorage = storage;
+               LE_INFO("Set preferred storage as %d", sysPrefStorage);
+
+               SetConfig_PreferredStorage(storage);
+               taf_pa_sms_SetPrefStorage(storage);
+            }
+            else
+            {
+               return res;
+            }
+         }
       }
       else
       {
-         le_result_t res = futResult.get();
-         if(res == LE_OK)
-         {
-            sysPrefStorage = storage;
-            LE_INFO("Set preferred storage as %d", sysPrefStorage);
-
-            SetConfig_PreferredStorage(storage);
-            taf_pa_sms_SetPrefStorage(storage);
-         }
-         return res;
+         LE_INFO("Cannot find smsManager for phoneId: %d", phoneId);
       }
    }
-   else
-   {
-      return LE_FAULT;
-   }
+
+   return res;
 }
 
 le_result_t taf_Sms::SetConfig_PreferredStorage(const taf_sms_Storage_t storage)

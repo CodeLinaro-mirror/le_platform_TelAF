@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -46,23 +46,8 @@
 //--------------------------------------------------------------------------------------------------
 LE_SHARED le_result_t taf_pa_sms_SetPrefStorage
 (
-    taf_sms_Storage_t prefStorage  ///< [IN] The preferred SMS storage area
-)
-{
-    return LE_OK;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Get the preferred SMS storage place
- *
- * @return LE_FAULT         The function failed, please refer to QMI error code
- * @return LE_OK            The function succeeded
- */
-//--------------------------------------------------------------------------------------------------
-LE_SHARED le_result_t taf_pa_sms_GetPrefStorage
-(
-    taf_sms_Storage_t* prefStoragePtr
+    taf_sms_Storage_t prefStorage,  ///< [IN] The preferred SMS storage area
+    uint8_t           phoneId
 )
 {
     return LE_OK;
@@ -78,9 +63,10 @@ LE_SHARED le_result_t taf_pa_sms_GetPrefStorage
 //--------------------------------------------------------------------------------------------------
 LE_SHARED le_result_t taf_pa_sms_SendPduMsg
 (
-    uint32_t                 length,
-    const uint8_t*           dataPtr,
-    uint32_t                 timeout
+    uint32_t        length,
+    const uint8_t*  dataPtr,
+    uint32_t        timeout,
+    uint8_t         phoneId
 )
 {
     return LE_OK;
@@ -99,7 +85,8 @@ LE_SHARED le_result_t taf_pa_sms_ListMsgFromStorage
     taf_sms_Storage_t       storage,
     taf_sms_ReadStatus_t    rxStatus,
     uint32_t                *numOfIdx,
-    uint32_t                *idxArray
+    uint32_t                *idxArray,
+    uint8_t                 phoneId
 )
 {
     return LE_OK;
@@ -117,7 +104,8 @@ LE_SHARED le_result_t taf_pa_sms_ReadPDUMsgFromStorage
 (
     taf_sms_Storage_t   storage,
     uint32_t            index,
-    taf_pa_sms_Pdu_t*   msgPtr
+    taf_pa_sms_Pdu_t*   msgPtr,
+    uint8_t             phoneId
 )
 {
     return LE_OK;
@@ -133,7 +121,8 @@ LE_SHARED le_result_t taf_pa_sms_ReadPDUMsgFromStorage
 //--------------------------------------------------------------------------------------------------
 LE_SHARED le_result_t taf_pa_sms_SetRxMsgInd
 (
-    bool enableRxInd
+    bool    enableRxInd,
+    uint8_t phoneId
 )
 {
     return LE_OK;
@@ -141,7 +130,7 @@ LE_SHARED le_result_t taf_pa_sms_SetRxMsgInd
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Modify message RX status to read/unread
+ * Set message RX status to read/unread
  *
  * @return LE_FAULT         The function failed, please refer to QMI error code
  * @return LE_OK            The function succeeded
@@ -150,8 +139,9 @@ LE_SHARED le_result_t taf_pa_sms_SetRxMsgInd
 LE_SHARED le_result_t taf_pa_sms_SetReadStatus
 (
     taf_sms_Storage_t    storage,
-    uint32_t                index,
-    taf_sms_ReadStatus_t    rxStatus
+    uint32_t             index,
+    taf_sms_ReadStatus_t rxStatus,
+    uint8_t              phoneId
 )
 {
     return LE_OK;
@@ -185,8 +175,9 @@ LE_SHARED le_result_t taf_pa_sms_SetLockStatus
 //--------------------------------------------------------------------------------------------------
 LE_SHARED taf_sms_ReadStatus_t taf_pa_sms_GetReadStatus
 (
-    taf_sms_Storage_t       storage,
-    uint32_t                index
+    taf_sms_Storage_t storage,
+    uint32_t          index,
+    uint8_t           phoneId
 )
 {
     return TAF_SMS_RXSTS_UNREAD;
@@ -219,8 +210,9 @@ LE_SHARED taf_sms_LockStatus_t taf_pa_sms_GetLockStatus
 //--------------------------------------------------------------------------------------------------
 LE_SHARED le_result_t taf_pa_sms_DelMsgFromStorage
 (
-    taf_sms_Storage_t       storage,
-    uint32_t                index
+    taf_sms_Storage_t   storage,
+    uint32_t            index,
+    uint8_t             phoneId
 )
 {
     return LE_OK;
@@ -236,7 +228,8 @@ LE_SHARED le_result_t taf_pa_sms_DelMsgFromStorage
 //--------------------------------------------------------------------------------------------------
 LE_SHARED le_result_t taf_pa_sms_DelAllMsgFromStorage
 (
-    taf_sms_Storage_t       storage
+    taf_sms_Storage_t   storage,
+    uint8_t             phoneId
 )
 {
     return LE_OK;
@@ -252,40 +245,11 @@ LE_SHARED le_result_t taf_pa_sms_DelAllMsgFromStorage
 //--------------------------------------------------------------------------------------------------
 LE_SHARED le_result_t taf_pa_sms_RegisterMemFullInd
 (
-    bool enable
+    bool    enable,
+    uint8_t phoneId
 )
 {
     return LE_OK;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Add handler for new RX message
- *
- * @return taf_pa_sms_RxMsgHandlerRef_t handler function reference
- */
-//--------------------------------------------------------------------------------------------------
-LE_SHARED taf_pa_sms_RxMsgHandlerRef_t taf_pa_sms_AddNewMsgHandler
-(
-    taf_pa_sms_RxMsgHandlerFunc_t  rxMsghandler,
-    void*                          contextPtr
-)
-{
-    return (taf_pa_sms_RxMsgHandlerRef_t)NULL;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Remove handler for new RX message
- *
- * @return void
- */
-//--------------------------------------------------------------------------------------------------
-LE_SHARED void taf_pa_sms_RemoveRxMsgHandler
-(
-    taf_pa_sms_RxMsgHandlerRef_t    handlerRef
-)
-{
 }
 
 //--------------------------------------------------------------------------------------------------

@@ -29,7 +29,7 @@
  *
  * ​​​​​Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -144,7 +144,7 @@ static uint8_t TxCount = 0;
  */
 //--------------------------------------------------------------------------------------------------
 
-le_result_t WaitForSem_Timeout
+__attribute__((unused)) le_result_t WaitForSem_Timeout
 (
     le_sem_Ref_t semRef,
     uint32_t seconds
@@ -171,7 +171,7 @@ le_result_t WaitForSem_Timeout
 
 ======================================================================*/
 
-static void Test_taf_sms_CreateDeleteRxMsgList
+__attribute__((unused)) static void Test_taf_sms_CreateDeleteRxMsgList
 (
     void
 )
@@ -199,7 +199,7 @@ static void Test_taf_sms_CreateDeleteRxMsgList
 
 ======================================================================*/
 
-static void Test_taf_sms_SetGetReadStatus
+__attribute__((unused)) static void Test_taf_sms_SetGetReadStatus
 (
     void
 )
@@ -252,7 +252,7 @@ static void Test_taf_sms_SetGetReadStatus
 
 ======================================================================*/
 
-static void Test_taf_sms_SetGetLockStatus
+__attribute__((unused)) static void Test_taf_sms_SetGetLockStatus
 (
     void
 )
@@ -293,6 +293,49 @@ static void Test_taf_sms_SetGetLockStatus
 
 /*======================================================================
 
+ FUNCTION        Test_taf_sms_EncryptFromStorage
+
+ DESCRIPTION     Test encrypting msg from HLOS
+
+ DEPENDENCIES    None
+
+ PARAMETERS      void
+
+ RETURN VALUE    void
+
+ SIDE EFFECTS
+
+======================================================================*/
+
+__attribute__((unused)) static void Test_taf_sms_EncryptFromStorage
+(
+    void
+)
+{
+    RxMsgListRef = taf_sms_CreateRxMsgList();
+
+    taf_sms_MsgRef_t msgRef = NULL;
+    taf_sms_MsgRef_t lastMsgRef = NULL;
+
+    msgRef = taf_sms_GetFirst(RxMsgListRef);
+
+    do {
+        if (msgRef == NULL)
+        {
+            break;
+        }
+        lastMsgRef = msgRef;
+        msgRef = taf_sms_GetNext(RxMsgListRef);
+    }
+    while ( msgRef != NULL);
+
+    LE_TEST_ASSERT(taf_sms_EncryptFromStorage(lastMsgRef) == LE_OK, "Test EncryptFromStorage");
+
+    taf_sms_DeleteList(RxMsgListRef);
+}
+
+/*======================================================================
+
  FUNCTION        Test_taf_sms_DeleteMsgFromStorage
 
  DESCRIPTION     Test deleting the last msg of list from storage
@@ -307,7 +350,7 @@ static void Test_taf_sms_SetGetLockStatus
 
 ======================================================================*/
 
-static void Test_taf_sms_DeleteMsgFromStorage
+__attribute__((unused)) static void Test_taf_sms_DeleteMsgFromStorage
 (
     void
 )
@@ -351,7 +394,7 @@ static void Test_taf_sms_DeleteMsgFromStorage
 
 ======================================================================*/
 
-static void Test_taf_sms_DeleteAllMsgFromStorage
+__attribute__((unused)) static void Test_taf_sms_DeleteAllMsgFromStorage
 (
     void
 )
@@ -379,7 +422,7 @@ static void Test_taf_sms_DeleteAllMsgFromStorage
 
 ======================================================================*/
 
-static void Test_taf_sms_SetGetPreferredStorage
+__attribute__((unused)) static void Test_taf_sms_SetGetPreferredStorage
 (
     void
 )
@@ -415,7 +458,7 @@ static void Test_taf_sms_SetGetPreferredStorage
 
 ======================================================================*/
 
-static void FullStorageHandler
+__attribute__((unused)) static void FullStorageHandler
 (
     taf_sms_StorageFullType_t type,
     void* contextPtr
@@ -424,7 +467,7 @@ static void FullStorageHandler
     LE_INFO("Storage is %d", type);
 }
 
-static void Test_taf_sms_AddRemoveFullStorageHandler
+__attribute__((unused)) static void Test_taf_sms_AddRemoveFullStorageHandler
 (
     void
 )
@@ -454,13 +497,14 @@ static void Test_taf_sms_AddRemoveFullStorageHandler
 
 ======================================================================*/
 
-static void Test_taf_sms_SetGetParam
+__attribute__((unused)) static void Test_taf_sms_SetGetParam
 (
     void
 )
 {
     taf_sms_MsgRef_t    tmpMsg;
     char                text[TAF_SMS_TEXT_BYTES] = {0};
+    uint8_t             phoneId;
 
     tmpMsg = taf_sms_Create();
 
@@ -479,6 +523,10 @@ static void Test_taf_sms_SetGetParam
     LE_TEST_ASSERT(taf_sms_SetDestination(tmpMsg, DEST_TEST) == LE_OK, "Test taf_sms_SetDestination");
 
     LE_TEST_ASSERT(taf_sms_SetPhoneId(tmpMsg, PHONE_ID_PATTERN_1) == LE_OK, "Test taf_sms_SetPhoneId");
+
+    LE_TEST_ASSERT(taf_sms_GetPhoneId(tmpMsg, &phoneId) == LE_OK, "Test taf_sms_GetPhoneId");
+
+    LE_TEST_ASSERT(phoneId == PHONE_ID_PATTERN_1, "Test taf_sms_GetPhoneId");
 
     LE_TEST_ASSERT(taf_sms_GetType(tmpMsg) == TAF_SMS_TYPE_TX, "Test taf_sms_GetType");
 
@@ -501,7 +549,7 @@ static void Test_taf_sms_SetGetParam
 
 ======================================================================*/
 
-static void Callback_MsgSendStatus
+__attribute__((unused)) static void Callback_MsgSendStatus
 (
     taf_sms_MsgRef_t msgRef,
     taf_sms_SendStatus_t status,
@@ -517,7 +565,7 @@ static void Callback_MsgSendStatus
     taf_sms_Delete(msgRef);
 }
 
-static void* SmsTxThread
+__attribute__((unused)) static void* SmsTxThread
 (
     void* contextPtr
 )
@@ -629,7 +677,7 @@ static void* SmsTxThread
 
 ======================================================================*/
 
-static void Test_taf_sms_Send
+__attribute__((unused)) static void Test_taf_sms_Send
 (
     void
 )
@@ -656,7 +704,7 @@ static void Test_taf_sms_Send
 
 ======================================================================*/
 
-static void RxHandler
+__attribute__((unused)) static void RxHandler
 (
     taf_sms_MsgRef_t msgRef,
     void* context
@@ -745,7 +793,7 @@ static void RxHandler
     }
 }
 
-static void* SmsRxHandlerThread
+__attribute__((unused)) static void* SmsRxHandlerThread
 (
     void* contextPtr
 )
@@ -775,7 +823,7 @@ static void* SmsRxHandlerThread
 
 ======================================================================*/
 
-static void Test_taf_sms_AddRemoveRxHandler
+__attribute__((unused)) static void Test_taf_sms_AddRemoveRxHandler
 (
     void
 )
@@ -803,7 +851,7 @@ static void Test_taf_sms_AddRemoveRxHandler
 
 ======================================================================*/
 
-static void Test_taf_sms_Receive
+__attribute__((unused)) static void Test_taf_sms_Receive
 (
     void
 )
@@ -830,7 +878,7 @@ static void Test_taf_sms_Receive
 
 ======================================================================*/
 
-static void Test_taf_sms_Smsc
+__attribute__((unused)) static void Test_taf_sms_Smsc
 (
     void
 )
@@ -863,7 +911,7 @@ static void Test_taf_sms_Smsc
 
 ======================================================================*/
 
-static void Test_taf_sms_SendPdu
+__attribute__((unused)) static void Test_taf_sms_SendPdu
 (
     void
 )
@@ -893,7 +941,7 @@ static void Test_taf_sms_SendPdu
 
 ======================================================================*/
 
-static void Test_taf_sms_CellBroadcast
+__attribute__((unused)) static void Test_taf_sms_CellBroadcast
 (
     void
 )
@@ -988,6 +1036,10 @@ void Test_main
     LE_INFO("===== Test_taf_sms_SetGetLockStatus =====");
     Test_taf_sms_SetGetLockStatus();
     LE_INFO("##### Test_taf_sms_SetGetLockStatus OK #####");
+
+    LE_INFO("===== Test_taf_sms_EncryptFromStorage =====");
+    Test_taf_sms_EncryptFromStorage();
+    LE_INFO("##### Test_taf_sms_EncryptFromStorage OK #####");
 
     LE_INFO("===== Test_taf_sms_DeleteMsgFromStorage =====");
     Test_taf_sms_DeleteMsgFromStorage();

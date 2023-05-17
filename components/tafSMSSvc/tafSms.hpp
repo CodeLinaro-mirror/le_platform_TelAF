@@ -1,5 +1,32 @@
 /*
- * Copyright (c) 2021 The Linux Foundation. All rights reserved.
+ *  Copyright (c) 2021 The Linux Foundation. All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions are
+ *  met:
+ *    * Redistributions of source code must retain the above copyright
+ *      notice, this list of conditions and the following disclaimer.
+ *    * Redistributions in binary form must reproduce the above
+ *      copyright notice, this list of conditions and the following
+ *      disclaimer in the documentation and/or other materials provided
+ *      with the distribution.
+ *    * Neither the name of The Linux Foundation nor the names of its
+ *      contributors may be used to endorse or promote products derived
+ *      from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ *  WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ *  ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ *  BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ *  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ *  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ *  BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ *  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -26,39 +53,6 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * ​​​​​Changes from Qualcomm Innovation Center are provided under the following license:
- *
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef TAFSMS_HPP
@@ -93,10 +87,10 @@ using namespace telux::common;
 
 #define MAX_SMS_SESSION 5
 
-#define TIMEOUT_SEND_SEMAPHORE     2
 #define TIMEOUT_GET_SMSC           2
 #define TIMEOUT_SET_SMSC           2
 #define TIMEOUT_SENDING_PDU        10000
+#define TIMEOUT_SEND_SEMAPHORE     (TIMEOUT_SENDING_PDU / 1000)
 #define TIMEOUT_ACTIVATE_CB        2
 #define TIMEOUT_PREF_STORAGE       2
 #define TIMEOUT_RQUEST_CB_FILTER   2
@@ -139,6 +133,7 @@ typedef struct taf_sms_Msg
    taf_sms_Storage_t    storage;
    uint8_t              storageIdx;
    bool                 applyDel;
+   bool                 isEncrypted;
 
    bool                 inList;
    uint8_t              userCount;
@@ -263,6 +258,7 @@ namespace tafsvc {
    {
       char     timestamp[TAF_SMS_TIMESTAMP_BYTES];
       char     pdu[(TAF_SMS_PDU_BYTES * 2) + 1];
+      uint8_t  phoneId;
       uint32_t storageIdx;
    } newSms_t;
 
@@ -295,8 +291,10 @@ namespace tafsvc {
       taf_sms_Msg_t* CreateRxMsgNode(taf_pa_sms_Pdu_t *pduMsg);
       taf_sms_Msg_t* CreateAndConstructMsg(taf_pa_sms_Pdu_t* pduMsgPtr, sms_PduMsg_t* decodedMsgPtr);
       le_result_t constructSmsDeliver(taf_sms_Msg_t* msgObjPtr, sms_PduMsg_t* decodedMsgPtr);
-      uint32_t GetMsgFromStorage(taf_sms_List_t *msgListPtr, taf_sms_Storage_t storage, uint32_t numOfMsg, uint32_t *arrayPtr);
-      uint32_t ListRxMsg(taf_sms_List_t *msgListPtr,taf_sms_ReadStatus_t rxStatus,taf_sms_Storage_t storage);
+      uint32_t GetMsgFromStorage(taf_sms_List_t *msgListPtr, taf_sms_Storage_t storage, uint32_t numOfMsg,
+                                 uint32_t *arrayPtr, uint8_t phoneId);
+      uint32_t ListRxMsg(taf_sms_List_t *msgListPtr,taf_sms_ReadStatus_t rxStatus,
+                           taf_sms_Storage_t storage, uint8_t phoneId);
       uint32_t ListAllRxMsg(taf_sms_List_t *msgListPtr);
       le_result_t GetPreferredStorage(taf_sms_Storage_t* storage);
       le_result_t SetPreferredStorage(taf_sms_Storage_t storage);
@@ -333,9 +331,9 @@ namespace tafsvc {
 
       taf_sms_MsgRef_t sendingMsgRef = nullptr;
 
-      taf_pa_sms_RxMsgHandlerRef_t qmiRxMsgHandler = nullptr;
-
       taf_sms_Storage_t sysPrefStorage = TAF_SMS_STORAGE_NONE;
+
+      uint8_t NumOfSlot = MIN_SIM_SLOT_COUNT;
 
       // objects used by telSdk interfaces
       std::shared_ptr<tafSmsCallback> smsSentCb;

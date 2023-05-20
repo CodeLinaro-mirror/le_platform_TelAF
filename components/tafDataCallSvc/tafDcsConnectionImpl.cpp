@@ -968,8 +968,8 @@ le_result_t taf_DataConnection::StartSessionCmdSync
     else
     {
         callCtxPtr = CreateDataCallCtx(slotId, profileId);
-        callCtxPtr->funcType = CALL_FUNCTION_SYNC_START;
         TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND, "cannot create call context");
+        callCtxPtr->funcType = CALL_FUNCTION_SYNC_START;
         result = AddSessionToCallCtx(callCtxPtr, sessionRef);
         TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "addSessionToCallCtx return(%d) error",
                              result);
@@ -1020,7 +1020,6 @@ le_result_t taf_DataConnection::StartSessionCmdSync
     //Remove session since there is no need to call stopCall
     if(result == LE_OK)
     {
-        callCtxPtr = GetCallCtx(slotId, profileId);
         if(callCtxPtr->callStatus == telux::data::DataCallStatus::NET_NO_NET)
         {
             LE_ERROR("callStatus is disconnected");
@@ -1110,7 +1109,6 @@ void taf_DataConnection::StartSessionCmdAsync
     else
     {
         callCtxPtr = CreateDataCallCtx(slotId, profileId);
-        callCtxPtr->funcType = CALL_FUNCTION_ASYNC_START;
         // Check if call context can be created
         if (callCtxPtr == NULL)
         {
@@ -1118,6 +1116,8 @@ void taf_DataConnection::StartSessionCmdAsync
             handlerPtr(profileRef, LE_FAULT, contextPtr);
             return;
         }
+
+        callCtxPtr->funcType = CALL_FUNCTION_ASYNC_START;
 
         result = AddSessionToCallCtx(callCtxPtr, sessionRef);
         // Check if session can be added into call context
@@ -1976,7 +1976,9 @@ void taf_DataConnection::InternalEventHandler(void* reportPtr)
                                                          connHandlerMappingPtr->asyncHandler);
                     }
                     // If starting session failed, remove the session from call ctx.
-                    RemoveSessionFromCallCtx(callCtxPtr, connHandlerMappingPtr->sessionRef);
+                    if(connHandlerMappingPtr != NULL)
+                        RemoveSessionFromCallCtx(callCtxPtr, connHandlerMappingPtr->sessionRef);
+
                     pthread_mutex_lock(&callCtxPtr->callActionMutex);
                     callCtxPtr->isCallActionInProgress = false;
                     pthread_mutex_unlock(&callCtxPtr->callActionMutex);
@@ -2026,7 +2028,9 @@ void taf_DataConnection::InternalEventHandler(void* reportPtr)
                     connHandlerMappingPtr = dataConnection.FindAsyncHandler(slotId, profileId);
 
                     // If stopping session failed, add the session into call ctx.
-                    AddSessionToCallCtx(callCtxPtr, connHandlerMappingPtr->sessionRef);
+                    if(connHandlerMappingPtr != NULL)
+                        AddSessionToCallCtx(callCtxPtr, connHandlerMappingPtr->sessionRef);
+
                     pthread_mutex_lock(&callCtxPtr->callActionMutex);
                     callCtxPtr->isCallActionInProgress = false;
                     pthread_mutex_unlock(&callCtxPtr->callActionMutex);

@@ -311,7 +311,7 @@ le_result_t taf_Net::SetDNS(le_msg_SessionRef_t sessionRef,const char *ipv4Addr1
     struct sockaddr_in addr;
     taf_net_DNSChangeInd_t *reportPtr = NULL;
 
-    TAF_ERROR_IF_RET_VAL( (ipv4Addr1Ptr == NULL) && (ipv4Addr2Ptr == NULL) && (ipv6Addr1Ptr == NULL) && (ipv6Addr2Ptr == NULL), LE_BAD_PARAMETER, "invalid ip address");
+    TAF_ERROR_IF_RET_VAL( (ipv4Addr1Ptr == NULL) || (ipv4Addr2Ptr == NULL) || (ipv6Addr1Ptr == NULL) || (ipv6Addr2Ptr == NULL), LE_BAD_PARAMETER, "invalid ip address");
 
     if ((inet_pton(AF_INET, ipv4Addr1Ptr, &(addr.sin_addr)) != 1) && (inet_pton(AF_INET, ipv4Addr2Ptr, &(addr.sin_addr)) != 1) &&
        (inet_pton(AF_INET6, ipv6Addr1Ptr, &(addr6.sin6_addr)) != 1) && (inet_pton(AF_INET6, ipv6Addr2Ptr, &(addr6.sin6_addr)) != 1))

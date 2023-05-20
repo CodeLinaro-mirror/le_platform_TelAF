@@ -925,6 +925,8 @@ taf_net_VlanEntryListRef_t taf_Vlan::GetVlanEntryList()
             return NULL;
         }
 
+        TAF_ERROR_IF_RET_VAL(vlanEntryListRefMap == NULL, NULL, "vlanEntryListRefMap is null");
+
         iterRef = (le_ref_IterRef_t)le_ref_GetIterator(vlanEntryListRefMap);
 
         if(iterRef != NULL && le_ref_GetValue(iterRef) != NULL
@@ -1308,11 +1310,16 @@ taf_net_VlanIfListRef_t taf_Vlan::GetVlanInterfaceList
         TAF_ERROR_IF_RET_VAL(vlanPtr == NULL, NULL, "Invalid para(null reference ptr)");
         vlanId = vlanPtr->vlanId;
 
+        TAF_ERROR_IF_RET_VAL(vlanIfListRefMap == NULL , NULL, "vlanIfListRefMap is null");
+
         iterRef = (le_ref_IterRef_t)le_ref_GetIterator(vlanIfListRefMap);
 
-        while (!isAdded && (le_ref_NextNode(iterRef) == LE_OK))
+        TAF_ERROR_IF_RET_VAL(iterRef == NULL , NULL, "iterRef is null");
+
+        while (!isAdded && (iterRef != NULL) && (le_ref_NextNode(iterRef) == LE_OK))
         {
             existedVlanIfList = (taf_VlanIfList_t*) le_ref_GetValue(iterRef);
+            TAF_ERROR_IF_RET_VAL(existedVlanIfList == NULL, NULL, "Vlan if list is NULL)");
 
             if (existedVlanIfList->vlanId == vlanId)
             {

@@ -140,6 +140,13 @@ function build-sa525m-af(){
     #else
     #    ${AVBTOOL}/avbtool add_hashtree_footer --image ./build/sa515m/telaf_ro.squashfs --partition_name telaf --algorithm SHA256_RSA2048 --key $AVBTOOL/keys/qpsa_attest.key --public_key_metadata $AVBTOOL/keys/qpsa_attest.der --do_not_generate_fec --rollback_index 0
    #fi
+
+    if [ $? -eq 0 ]
+    then
+        # create the tarball for telaf app dependencies used for sdk patch
+        ${TELAF_ROOT}/bin/createsdk ${TARGET} ${TELAF_ROOT}/../
+    fi
+
 }
 
 

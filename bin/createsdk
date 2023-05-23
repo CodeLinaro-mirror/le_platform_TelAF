@@ -24,8 +24,13 @@ if [ -n "$SDK_PREFIX" ]; then
     STAGING_DIR="$STAGING_DIR/$SDK_PREFIX"
 fi
 
-set -xe
+if [ $3 ] && [ $3 == "-v" ]; then
+    set -xe;
+else
+    set -e;
+fi
 
+echo "Start creating telaf SDK toolchain patch ..."
 echo "Cleaning ..."
 rm -rf ${STAGING_DIR}
 
@@ -124,3 +129,4 @@ cd $STAGING_DIR
 tar jcf $RELEASE_DIR/telaf-tools-${TOOLS_ARCH}-${TELAF_VERSION}.tar.bz2 *
 cd $RELEASE_DIR
 tar jcf $TELAF_ROOT_SOURCE/build/$MACHINE/telaf-sdk-${TELAF_VERSION}.tar.bz2 *
+echo "TelAF SDK toolchain patch tarball generated at $TELAF_ROOT_SOURCE/build/$MACHINE/telaf-sdk-${TELAF_VERSION}.tar.bz2"

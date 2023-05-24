@@ -1132,7 +1132,16 @@ le_result_t taf_radio_GetRatPreferences(taf_radio_RatBitMask_t* ratMaskPtr, uint
         ratMask |= TAF_RADIO_RAT_BIT_MASK_NR5G;
     }
 
-    *ratMaskPtr = ratMask;
+    if (ratMask == (TAF_RADIO_RAT_BIT_MASK_GSM | TAF_RADIO_RAT_BIT_MASK_CDMA |
+        TAF_RADIO_RAT_BIT_MASK_UMTS | TAF_RADIO_RAT_BIT_MASK_TDSCDMA |
+        TAF_RADIO_RAT_BIT_MASK_LTE | TAF_RADIO_RAT_BIT_MASK_NR5G))
+    {
+        *ratMaskPtr = TAF_RADIO_RAT_BIT_MASK_ALL;
+    }
+    else
+    {
+        *ratMaskPtr = ratMask;
+    }
 
     return LE_OK;
 }
@@ -3811,4 +3820,94 @@ le_result_t taf_radio_DeletePciNetworkScan
         "Null reference(pciScanInformationListRef)");
 
     return taf_pa_radio_DeletePciNetworkScan(pciScanInformationListRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get IMS registration status.
+ *
+ * @return
+ *  - LE_FAULT         On failure.
+ *  - LE_OK            On success.
+ *  - LE_BAD_PARAMETER Invalid parameters.
+ *  - LE_TIMEOUT       Time out.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetImsRegStatus
+(
+    taf_radio_ImsRegStatus_t* statusPtr, ///< [OUT] IMS registration status.
+    uint8_t phoneId                      ///< [IN] Phone ID.
+)
+{
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
+        "Invalid para(phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(statusPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(statusPtr)");
+
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    SlotId slotId = (SlotId)tafRadio.phoneManager->getSlotIdFromPhoneId(phoneId);
+    TAF_ERROR_IF_RET_VAL(tafRadio.imsServingSystemMgrs[slotId] == nullptr, LE_FAULT,
+        "Invalid IMS serving system manager(slotId:%d)", slotId);
+
+    auto ret = tafRadio.imsServingSystemMgrs[slotId]->requestRegistrationInfo(
+        taf_RadioImsServSysCallback::imsRegStateResponse);
+    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioImsServSysCallback::semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_TIMEOUT, "Wait semaphore timeout");
+
+    if (taf_RadioImsServSysCallback::status == telux::tel::RegistrationStatus::REGISTERED ||
+        taf_RadioImsServSysCallback::status == telux::tel::RegistrationStatus::LIMITED_REGISTERED)
+    {
+        *statusPtr = TAF_RADIO_IMS_REG_STATUS_REGISTERED;
+    }
+    else
+    {
+        *statusPtr = TAF_RADIO_IMS_REG_STATUS_NOT_REGISTERED;
+    }
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler for IMS registration status.
+ *
+ * @return
+ *  - taf_radio_ImsRegStatusChangeHandlerRef_t Handler reference.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_ImsRegStatusChangeHandlerRef_t taf_radio_AddImsRegStatusChangeHandler
+(
+    taf_radio_ImsRegStatusChangeHandlerFunc_t handlerPtr,
+        ///< [IN] Handler function for IMS registration status.
+    void* contextPtr
+        ///< [IN] Handler context.
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("ImsRegStatusChangeHandler",
+        tafRadio.imsRegStatusChangeId, taf_Radio::taf_radio_LayerImsRegStateHandler,
+        (void*)handlerPtr);
+
+    le_event_SetContextPtr(handlerRef, contextPtr);
+
+    return (taf_radio_ImsRegStatusChangeHandlerRef_t)(handlerRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler for IMS registration status.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_radio_RemoveImsRegStatusChangeHandler
+(
+    taf_radio_ImsRegStatusChangeHandlerRef_t handlerRef ///< [IN] Handler reference.
+)
+{
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 }

@@ -1100,6 +1100,56 @@ void TestTafRadioNetworkScan
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Handler for network registration state.
+ */
+//--------------------------------------------------------------------------------------------------
+void ImsRegStateHandler
+(
+    taf_radio_ImsRegStatus_t status, ///< [IN] IMS registation state.
+    uint8_t phoneId,                 ///< [IN] Phone ID.
+    void* contextPtr                 ///< [IN] Handler context.
+)
+{
+    switch (status)
+    {
+        case TAF_RADIO_IMS_REG_STATUS_REGISTERED:
+            LE_INFO("Phone %d IMS : Registered.", phoneId);
+            break;
+        case TAF_RADIO_IMS_REG_STATUS_NOT_REGISTERED:
+            LE_INFO("Phone %d IMS : Not registered.", phoneId);
+            break;
+        default:
+            LE_INFO("Phone %d IMS : Unknown.", phoneId);
+            break;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Test IMS registation status.
+ */
+//--------------------------------------------------------------------------------------------------
+void TestTafRadioImsRegistration
+(
+    void
+)
+{
+    taf_radio_ImsRegStatusChangeHandlerRef_t imsRegStatusChangeHandlerRef =
+        taf_radio_AddImsRegStatusChangeHandler(
+        (taf_radio_ImsRegStatusChangeHandlerFunc_t)ImsRegStateHandler, NULL);
+    LE_TEST_OK(imsRegStatusChangeHandlerRef != NULL,
+        "taf_radio_AddImsRegStatusChangeHandler - !NULL");
+
+    taf_radio_ImsRegStatus_t regStatus = TAF_RADIO_IMS_REG_STATUS_NOT_REGISTERED;
+    le_result_t result = taf_radio_GetImsRegStatus(&regStatus, DEFAULT_PHONE_ID);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetImsRegStatus - LE_OK");
+
+    taf_radio_RemoveImsRegStatusChangeHandler(imsRegStatusChangeHandlerRef);
+    LE_TEST_OK(true, "taf_radio_RemoveImsRegStatusChangeHandler - void");
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Component initialization.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1124,6 +1174,8 @@ COMPONENT_INIT
     TestTafRadioSignal();
     LE_TEST_INFO("======== Radio Network Scan Test ========");
     TestTafRadioNetworkScan();
+    LE_TEST_INFO("======== Radio IMS Registration Test ========");
+    TestTafRadioImsRegistration();
 
     LE_TEST_EXIT;
 }

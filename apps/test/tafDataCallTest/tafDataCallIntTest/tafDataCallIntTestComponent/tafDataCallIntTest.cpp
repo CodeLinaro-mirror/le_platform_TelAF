@@ -250,7 +250,7 @@ void data_event_handler
 void profile_list_test()
 {
     taf_dcs_ProfileInfo_t profilesInfoPtr[TAF_DCS_PROFILE_LIST_MAX_ENTRY];
-    size_t listSize;
+    size_t listSize = 0;
     le_result_t result;
 
     // Test Case
@@ -258,7 +258,7 @@ void profile_list_test()
     LE_TEST_OK(result == LE_OK,"taf_dcs_GetProfileList - LE_OK");
     report(LE_OK,result,"taf_dcs_GetProfileList");
 
-    LE_TEST_INFO("got profile list, num: %d, result: %d", listSize, result);
+    LE_TEST_INFO("got profile list, num: %" PRIuS ", result: %d", listSize, result);
     LE_TEST_INFO("%-6s""%-6s""%-12s", "Index", "type", "Name");
     for (size_t i = 0; i < listSize; i++)
     {

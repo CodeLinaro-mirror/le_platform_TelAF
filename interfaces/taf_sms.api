@@ -191,9 +191,21 @@
  * messages and stores them in the file system. SIM is for storing messages in SIM. NONE storage specifies that a message notification is
  * provided, but not stored in the system.
  *
- * - TAF_SMS_STORAGE_NONE -- Notifies of the new message without saving it.
- * - TAF_SMS_STORAGE_SIM -- Saves the message in SIM card storage.
- * - TAF_SMS_STORAGE_HLOS -- Encrypts the message and saves it in the file system.
+ * - @ref TAF_SMS_STORAGE_HLOS
+ *     - Default storage strategy.
+ *     - Each message will be stored as an encrypted file in  /data/le_fs/taf_sms/.
+ *     - In total, 255 message slots are available for storing messages.
+ *     - When HLOS storage reaches 90% capacity, service will identify messages that are marked as
+ * 'read' and 'unlocked' status as 'recyclable' messages. The service will then delete 10 recyclable
+ * messages to free up more slots for new messages.
+ * - @ref TAF_SMS_STORAGE_SIM
+ *     - The maximum number of messages that can be stored is based on the SIM card.
+ *     - When the storage is 100% full, clients can still get incoming message notifications and get
+ * the contents of new messages, but new messages won't be persistent after power cycle.
+ * - @ref TAF_SMS_STORAGE_NONE
+ *     - Notify only.
+ *     - Clients get incoming message notifications and can get the content of new messages, but the
+ * messages won't be persistent after power cycle.
  *
  * Preferred storage configuration is persistent in service config tree and can be accessed by the following APIs.
  *

@@ -40,7 +40,7 @@ then
 else
     ABS_PATH_TO_CURRENT_DIR="$(pwd)/$0"
 fi
-CURDIR=$(dirname $(dirname "$ABS_PATH_TO_CURRENT_DIR"))
+CURDIR=$(realpath $(dirname $(dirname "$ABS_PATH_TO_CURRENT_DIR")))
 
 if [ -d "$TELAF_ROOT" ] && [ "$TELAF_ROOT" != "$CURDIR" ]; then
     echo "Error: The TELAF_ROOT was detected as already being present in this shell environment and inconsistent with the environment to be set. Please use a clean shell when sourcing this environment script."
@@ -48,7 +48,7 @@ if [ -d "$TELAF_ROOT" ] && [ "$TELAF_ROOT" != "$CURDIR" ]; then
 fi
 
 # Configure TelAF root and interface path
-export TELAF_ROOT=$(dirname $(dirname "$ABS_PATH_TO_CURRENT_DIR"))
+export TELAF_ROOT=$(realpath $(dirname $(dirname "$ABS_PATH_TO_CURRENT_DIR")))
 export TELAF_INTERFACES=$TELAF_ROOT/interfaces
 export LEGATO_ROOT=$TELAF_ROOT/../legato/legato-af
 

@@ -309,7 +309,7 @@ void taf_sim::Init(void)
     subSystemStatus = cardManager->isSubsystemReady();
     multiSimMgr = phoneFactory.getMultiSimManager();
 
-    bool isMultiSimMgrReady;
+    bool isMultiSimMgrReady = false;
     telux::common::Status status;
     slotStatusCbPromise = std::promise<telux::common::ErrorCode>();
     telux::common::ErrorCode errorStatus;
@@ -421,7 +421,7 @@ taf_sim_States_t taf_sim::getState(taf_sim_Id_t simId) {
         }
     }
     auto card = cards[simId];
-    telux::tel::CardState cardState;
+    telux::tel::CardState cardState = telux::tel::CardState::CARDSTATE_UNKNOWN;
     if(card != nullptr) {
         card->getState(cardState);
         LE_INFO( "CardState : %s\n ",  cardStateToString(cardState)) ;
@@ -610,7 +610,7 @@ void taf_sim::FirstLayerIccidChangeHandler(void* reportPtr,
 
 taf_sim_info_t* taf_sim::GetSimContext(taf_sim_Id_t simId) {
     simId = (TAF_SIM_UNSPECIFIED == simId) ? (taf_sim_Id_t)slot : simId;
-    return &simList[simId - 1];
+    return simId > 0 ? &simList[simId - 1] : &simList[0];
 }
 
 bool taf_sim::isValidSimId(taf_sim_Id_t simId) {
@@ -703,12 +703,13 @@ le_result_t taf_sim::getICCID(taf_sim_Id_t simId, char *iccid, int length ) {
         return le_utf8_Copy(iccid, simPtr->ICCID, length, NULL);
     }
     auto subscription = getSubscription(simId);
-    if(subscription != nullptr) {
-        iccId = subscription->getIccId();
-    } else {
-        LE_INFO("subscription is empty");
+    if (!subscription) {
+        LE_ERROR("subscription is null");
         return LE_NOT_FOUND;
     }
+
+    iccId = subscription->getIccId();
+
     le_utf8_Copy(simPtr->ICCID, iccId.c_str(), length, NULL);
     return le_utf8_Copy(iccid, iccId.c_str(), length, NULL);
 }
@@ -726,12 +727,13 @@ le_result_t taf_sim::getSubscriberPhoneNumber(taf_sim_Id_t simId, char *phoneNum
     }
 
     auto subscription = getSubscription(simId);
-    if(subscription != nullptr) {
-        phoneNumberString = subscription->getPhoneNumber();
-    } else {
-        LE_INFO("subscription is empty");
+    if (!subscription) {
+        LE_ERROR("subscription is null");
         return LE_NOT_FOUND;
     }
+
+    phoneNumberString = subscription->getPhoneNumber();
+
     le_utf8_Copy(simPtr->phoneNumber, phoneNumberString.c_str(), length, NULL);
     return le_utf8_Copy(phoneNumber, phoneNumberString.c_str(), length, NULL);
 }
@@ -747,11 +749,13 @@ le_result_t taf_sim::getIMSI(taf_sim_Id_t simId, char *imsi, int length) {
         return le_utf8_Copy(imsi, simPtr->IMSI, length, NULL);
     }
     auto subscription = getSubscription(simId);
-    if(subscription != nullptr) {
-        imsiString = subscription->getImsi();
-    } else {
+    if (!subscription) {
+        LE_ERROR("subscription is null");
         return LE_NOT_FOUND;
     }
+
+    imsiString = subscription->getImsi();
+
     le_utf8_Copy(simPtr->IMSI, imsiString.c_str(), length, NULL);
     return le_utf8_Copy(imsi, imsiString.c_str(), length, NULL);
 }
@@ -762,12 +766,13 @@ le_result_t taf_sim::getHomeNetworkOperator(taf_sim_Id_t simId, char *name, int 
         return LE_BAD_PARAMETER;
     }
     auto subscription = getSubscription(simId);
-    if(subscription != nullptr) {
-        nameString = subscription->getCarrierName();
-    } else {
-        LE_INFO("subscription is empty");
+    if (!subscription) {
+        LE_ERROR("subscription is null");
         return LE_NOT_FOUND;
     }
+
+    nameString = subscription->getCarrierName();
+
     return le_utf8_Copy(name, nameString.c_str(), length, NULL);
 }
 
@@ -779,13 +784,14 @@ le_result_t taf_sim::getHomeNetworkMccMnc(taf_sim_Id_t simId, char *mccPtr,
         return LE_BAD_PARAMETER;
     }
     auto subscription = getSubscription(simId);
-    if(subscription != nullptr) {
-        mcc = subscription->getMcc();
-        mnc = subscription->getMnc();
-    } else {
-        LE_INFO("subscription is empty");
+    if (!subscription) {
+        LE_ERROR("subscription is null");
         return LE_NOT_FOUND;
     }
+
+    mcc = subscription->getMcc();
+    mnc = subscription->getMnc();
+
     le_utf8_Copy(mccPtr, to_string(mcc).c_str(), mccPtrSize, NULL);
     le_utf8_Copy(mncPtr, to_string(mnc).c_str(), mncPtrSize, NULL);
     return LE_OK;
@@ -1744,16 +1750,16 @@ le_result_t taf_sim::WriteFPLMNList
     LE_DEBUG("WriteFPLMNList: After selectFPLMNApdu channel id: %d and channel_id: %d", channel, channel_id);
     LE_INFO("selectFPLMNApdu sw1: %d, sw2: %d", (uint8_t)apduResponse.sw1, (uint8_t)apduResponse.sw2);
 
-    uint8_t writeFPLMNListApdu[]  = {0x00, 0xD6, 0x00, 0x00, 0x00};
-    int len=4;
     taf_sim_FPLMNList_t* ListReference = (taf_sim_FPLMNList_t*)le_ref_Lookup(FPLMNListRefMap, FPLMNListRef);
     if(ListReference == NULL) {
         return LE_FAULT;
     }
+
+    std::vector<uint8_t> writeFPLMNListApdu = {0x00, 0xD6, 0x00, 0x00, 0x00};
+
     auto nodeLink=le_dls_Peek(&(ListReference->link));
 
     while (nodeLink != NULL) {
-        len++;
         FPLMNNode_t* node=CONTAINER_OF(nodeLink, FPLMNNode_t, link);
         LE_INFO("WriteFPLMNList: node->mcc:%s, node->mnc:%s", node->mcc, node->mnc);
 
@@ -1784,20 +1790,17 @@ le_result_t taf_sim::WriteFPLMNList
         LE_DEBUG("WriteFPLMNList: mcc0:%d, mcc1:%d, mcc2:%d and mnc0:%d, mnc1:%d, mnc2:%d", (int) mcc0, (int) mcc1,
                 (int) mcc2, (int) mnc0, (int) mnc1, (int) mnc2);
 
-        writeFPLMNListApdu[len] = mcc1*16+mcc0;
-        len++;
-        writeFPLMNListApdu[len] = mnc2*16+mcc2;
-        len++;
-        writeFPLMNListApdu[len] = mnc1*16+mnc0;
+        writeFPLMNListApdu.emplace_back(mcc1*16+mcc0);
+        writeFPLMNListApdu.emplace_back(mnc2*16+mcc2);
+        writeFPLMNListApdu.emplace_back(mnc1*16+mnc0);
 
-        LE_INFO("WriteFPLMNList: writeFPLMNListApdu[%d,%d]: 0x%02X 0x%02X 0x%02X", len-2, len, (int) writeFPLMNListApdu[len-2],
-                (int) writeFPLMNListApdu[len-1], (int) writeFPLMNListApdu[len]);
         nodeLink = le_dls_PeekNext(&(ListReference->link), nodeLink);
     }
-    LE_INFO("WriteFPLMNList: Total no of data(p3): %d", len-4);
-    writeFPLMNListApdu[4] = len-4;
+    uint8_t sizeOfwriteFPLMNListApdu = writeFPLMNListApdu.size();
+    LE_INFO("WriteFPLMNList: Total no of data(p3): %d", sizeOfwriteFPLMNListApdu);
+    writeFPLMNListApdu.at(4) = sizeOfwriteFPLMNListApdu - 5;
 
-    res = SendApduOnChannel((taf_sim_Id_t)slot, channel_id, writeFPLMNListApdu, len+1, responseAPDU, &responseLength);
+    res = SendApduOnChannel((taf_sim_Id_t)slot, channel_id, writeFPLMNListApdu.data(), sizeOfwriteFPLMNListApdu, responseAPDU, &responseLength);
     if(res != LE_OK || (uint8_t)apduResponse.sw1 != 0x90 || (uint8_t)apduResponse.sw2 != 0x00) {
         return LE_FAULT;
     }

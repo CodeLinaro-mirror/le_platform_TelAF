@@ -40,8 +40,12 @@
 #include <iostream>
 #include "tafSvcIF.hpp"
 #include "tafRoutingDns.hpp"
+#include <telux/tel/PhoneFactory.hpp>
 
 #define TAF_NET_MAX_CLIENT_APPS         20
+#define DEFAULT_PHONE_ID_1 1
+#define MIN_SLOT_COUNT 1
+#define MAX_SLOT_COUNT 2
 
 namespace telux {
 namespace tafsvc {
@@ -71,6 +75,8 @@ class taf_Net: public ITafSvc
         static void FirstLayerRouteChangeHandler(void* reportPtr, void* secondLayerHandlerFunc);
         static void FirstLayerGatewayChangeHandler(void* reportPtr, void* secondLayerHandlerFunc);
         static void FirstLayerDNSChangeHandler(void* reportPtr, void* secondLayerHandlerFunc);
+        le_result_t getPhoneIdFromSlotId(uint8_t slotId, uint8_t *phoneIdPtr);
+        le_result_t getSlotIdFromPhoneId(uint8_t phoneId, uint8_t *slotIdPtr);
 
         taf_Net() {};
         ~taf_Net() {};
@@ -88,6 +94,7 @@ class taf_Net: public ITafSvc
 
         le_mem_PoolRef_t DefaultGwConfDbPool = NULL;
         le_dls_List_t DefaultGwConfDbList = LE_DLS_LIST_INIT;
+        std::shared_ptr<telux::tel::IPhoneManager> PhoneMgr;
 
     };
 

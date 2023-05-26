@@ -51,6 +51,21 @@ using namespace telux::tafsvc;
 void taf_Net::Init(void)
 {
     LE_INFO("data net component init...");
+    auto &phoneFactory = telux::tel::PhoneFactory::getInstance();
+    PhoneMgr = phoneFactory.getPhoneManager();
+    //  Check if telephony subsystem is ready
+    bool PhSubSystemStatus = PhoneMgr->isSubsystemReady();
+
+    if (!PhSubSystemStatus) {
+        LE_INFO("Wait telephony subsystem  to be ready...");
+        std::future<bool> f = PhoneMgr->onSubsystemReady();
+        //  Wait until the subsystem is ready.
+        PhSubSystemStatus = f.get();
+    }
+
+    LE_INFO("-------waiting result is OK");
+    if(!PhSubSystemStatus)
+        LE_ERROR("Failed to init telephony subsystem");
 
     RouteChangeEvId = le_event_CreateIdWithRefCounting("RouteChange");
 
@@ -486,6 +501,70 @@ taf_net_DfltGwConfDb_t* taf_Net::GetDefaultGwConfDbBySessionRef(le_msg_SessionRe
     }
 
     return NULL;
+}
+
+le_result_t taf_Net::getPhoneIdFromSlotId(uint8_t slotId, uint8_t *phoneIdPtr)
+{
+    int retPhoneId;
+    le_result_t result = LE_OK;
+
+    TAF_ERROR_IF_RET_VAL(phoneIdPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(phoneIdPtr)");
+
+    if(PhoneMgr)
+    {
+        retPhoneId = PhoneMgr->getPhoneIdFromSlotId(slotId);
+        if(retPhoneId < 0)
+        {
+            LE_ERROR("Invalid phone id");
+            result = LE_FAULT;
+        }
+        else
+        {
+            *phoneIdPtr = (uint8_t)retPhoneId;
+            result = LE_OK;
+        }
+    }
+    else
+    {
+        LE_ERROR("Phone manager is NULL");
+        result = LE_FAULT;
+    }
+
+    LE_DEBUG("result =%d, slotId = %d, phoneId = %d", result, slotId, *phoneIdPtr);
+
+    return result;
+}
+
+le_result_t taf_Net::getSlotIdFromPhoneId(uint8_t phoneId, uint8_t *slotIdPtr)
+{
+    int retSlotId;
+    le_result_t result = LE_OK;
+
+    TAF_ERROR_IF_RET_VAL(slotIdPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(slotIdPtr)");
+
+    if(PhoneMgr)
+    {
+        retSlotId = PhoneMgr->getSlotIdFromPhoneId(phoneId);
+        if(retSlotId < 0)
+        {
+            LE_ERROR("Invalid slot id");
+            result = LE_FAULT;
+        }
+        else
+        {
+            *slotIdPtr = (uint8_t)retSlotId;
+            result = LE_OK;
+        }
+    }
+    else
+    {
+        LE_ERROR("Phone manager is NULL");
+        result = LE_FAULT;
+    }
+
+    LE_DEBUG("result =%d, slotId = %d, phoneId = %d",result, *slotIdPtr, phoneId);
+
+    return result;
 }
 
 void taf_Net::ClientCloseSessionHandler(le_msg_SessionRef_t sessionRef, void  *contextPtr)

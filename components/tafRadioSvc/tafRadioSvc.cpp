@@ -1792,18 +1792,18 @@ uint32_t taf_radio_GetServingCellId(uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT32_MAX,
         "No serving cell.");
 
-    switch (taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat)
+    switch (taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat)
     {
         case TAF_RADIO_RAT_GSM:
-            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0].gsm.cid;
+            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->gsm.cid;
         case TAF_RADIO_RAT_UMTS:
-            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0].umts.cid;
+            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->umts.cid;
         case TAF_RADIO_RAT_TDSCDMA:
-            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0].tdscdma.cid;
+            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->tdscdma.cid;
         case TAF_RADIO_RAT_LTE:
-            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0].lte.cid;
+            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->lte.cid;
         default:
-            LE_ERROR("Invalid RAT(%d)", taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat);
+            LE_ERROR("Invalid RAT(%d)", taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat);
     }
 
     return UINT32_MAX;
@@ -1849,16 +1849,16 @@ uint32_t taf_radio_GetServingCellLocAreaCode(uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT32_MAX,
         "No serving cell.");
 
-    switch (taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat)
+    switch (taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat)
     {
         case TAF_RADIO_RAT_GSM:
-            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0].gsm.lac;
+            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->gsm.lac;
         case TAF_RADIO_RAT_UMTS:
-            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0].umts.lac;
+            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->umts.lac;
         case TAF_RADIO_RAT_TDSCDMA:
-            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0].tdscdma.lac;
+            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->tdscdma.lac;
         default:
-            LE_ERROR("Invalid RAT(%d)", taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat);
+            LE_ERROR("Invalid RAT(%d)", taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat);
     }
 
     return UINT32_MAX;
@@ -1904,10 +1904,10 @@ uint16_t taf_radio_GetServingCellLteTracAreaCode(uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT16_MAX,
         "No serving cell.");
 
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat !=
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
         TAF_RADIO_RAT_LTE, UINT16_MAX, "Serving cell is not LTE.");
 
-    return (uint16_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0].lte.tac;
+    return (uint16_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->lte.tac;
 }
 
 /*======================================================================
@@ -1950,10 +1950,10 @@ uint32_t taf_radio_GetServingCellEarfcn(uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT32_MAX,
         "No serving cell.");
 
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat !=
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
         TAF_RADIO_RAT_LTE, UINT32_MAX, "Serving cell is not LTE.");
 
-    return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0].lte.earfcn;
+    return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->lte.earfcn;
 }
 
 /*======================================================================
@@ -1996,14 +1996,14 @@ uint32_t taf_radio_GetServingCellTimingAdvance(uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT32_MAX,
         "No serving cell.");
 
-    switch (taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat)
+    switch (taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat)
     {
         case TAF_RADIO_RAT_GSM:
-            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0].gsm.ta;
+            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->gsm.ta;
         case TAF_RADIO_RAT_LTE:
-            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0].lte.ta;
+            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->lte.ta;
         default:
-            LE_ERROR("Invalid RAT(%d)", taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat);
+            LE_ERROR("Invalid RAT(%d)", taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat);
     }
 
     return UINT32_MAX;
@@ -2049,10 +2049,10 @@ uint16_t taf_radio_GetPhysicalServingLteCellId(uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT16_MAX,
         "No serving cell.");
 
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat !=
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
         TAF_RADIO_RAT_LTE, UINT16_MAX, "Serving cell is not LTE.");
 
-    return (uint16_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0].lte.pcid;
+    return (uint16_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->lte.pcid;
 }
 
 /*======================================================================
@@ -2100,10 +2100,10 @@ le_result_t taf_radio_GetServingCellGsmBsic(uint8_t* bsicPtr, uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), LE_FAULT,
         "No serving cell.");
 
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat !=
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
         TAF_RADIO_RAT_GSM, LE_FAULT, "Serving cell is not GSM.");
 
-    *bsicPtr = (uint8_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0].gsm.bsic;
+    *bsicPtr = (uint8_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->gsm.bsic;
 
     return LE_OK;
 }
@@ -2148,10 +2148,10 @@ uint16_t taf_radio_GetServingCellScramblingCode(uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT16_MAX,
         "No serving cell.");
 
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat !=
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
         TAF_RADIO_RAT_UMTS, UINT16_MAX, "Serving cell is not UMTS.");
 
-    return (uint16_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0].umts.psc;
+    return (uint16_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->umts.psc;
 }
 
 /*======================================================================
@@ -2822,10 +2822,10 @@ uint64_t taf_radio_GetServingNrCellId
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT64_MAX,
         "No serving cell.");
 
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat !=
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
         TAF_RADIO_RAT_NR5G, LE_FAULT, "Serving cell is not NR5G.");
 
-    return taf_RadioCellInfoCallback::cellListInfo.servingCell[0].nr5g.cid;
+    return taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->nr5g.cid;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2861,10 +2861,10 @@ int32_t taf_radio_GetServingCellNrTracAreaCode
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), INT32_MAX,
         "No serving cell.");
 
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat !=
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
         TAF_RADIO_RAT_NR5G, INT32_MAX, "Serving cell is not NR5G.");
 
-    return taf_RadioCellInfoCallback::cellListInfo.servingCell[0].nr5g.tac;
+    return taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->nr5g.tac;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2901,13 +2901,13 @@ int32_t taf_radio_GetServingCellNrArfcn
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), INT32_MAX,
         "No serving cell.");
 
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat !=
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
         TAF_RADIO_RAT_NR5G, INT32_MAX, "Serving cell is not NR5G.");
 
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0].nr5g.arfcn == -1,
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->nr5g.arfcn == -1,
         INT32_MAX, "Arfcn is unknown.");
 
-    return taf_RadioCellInfoCallback::cellListInfo.servingCell[0].nr5g.arfcn;
+    return taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->nr5g.arfcn;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2943,10 +2943,10 @@ uint32_t taf_radio_GetPhysicalServingNrCellId
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT32_MAX,
         "No serving cell.");
 
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat !=
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
         TAF_RADIO_RAT_NR5G, UINT32_MAX, "Serving cell is not NR5G.");
 
-    return taf_RadioCellInfoCallback::cellListInfo.servingCell[0].nr5g.pcid;
+    return taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->nr5g.pcid;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -3027,7 +3027,31 @@ taf_radio_NeighborCellsRef_t taf_radio_GetNeighborCellsInfo
     for (auto cell : taf_RadioCellInfoCallback::cellListInfo.neighborCell)
     {
         ngbrCellInfoPtr = (taf_RadioNgbrCellInfo_t*)le_mem_ForceAlloc(tafRadio.ngbrCellInfoPool);
-        ngbrCellInfoPtr->cell = cell;
+        ngbrCellInfoPtr->cell.rat = cell->rat;
+        ngbrCellInfoPtr->cell.ss = cell->ss;
+        switch (cell->rat)
+        {
+            case TAF_RADIO_RAT_GSM:
+                ngbrCellInfoPtr->cell.gsm = cell->gsm;
+                break;
+            case TAF_RADIO_RAT_CDMA:
+                ngbrCellInfoPtr->cell.cdma = cell->cdma;
+                break;
+            case TAF_RADIO_RAT_UMTS:
+                ngbrCellInfoPtr->cell.umts = cell->umts;
+                break;
+            case TAF_RADIO_RAT_TDSCDMA:
+                ngbrCellInfoPtr->cell.tdscdma = cell->tdscdma;
+                break;
+            case TAF_RADIO_RAT_LTE:
+                ngbrCellInfoPtr->cell.lte = cell->lte;
+                break;
+            case TAF_RADIO_RAT_NR5G:
+                ngbrCellInfoPtr->cell.nr5g = cell->nr5g;
+                break;
+            default:
+                break;
+        }
         ngbrCellInfoPtr->link = LE_SLS_LINK_INIT;
         le_sls_Queue(&(ngbrCellsPtr->cellInfoList), &(ngbrCellInfoPtr->link));
     }

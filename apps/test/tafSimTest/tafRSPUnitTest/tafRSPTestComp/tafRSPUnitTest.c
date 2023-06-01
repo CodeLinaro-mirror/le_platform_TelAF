@@ -218,7 +218,7 @@ static void Test_taf_rsp_GetProfileList() {
 
     res = taf_rsp_GetProfileList(SLOT_ID, profileListPtr, &count);
 
-    LE_INFO("Get profile list: result %d, no of profile: %d", (int) res, count);
+    LE_INFO("Get profile list: result %d, no of profile: %" PRIuS, (int) res, count);
 
     for (i = 0; i < count; i++) {
         if (profileListPtr[i] != NULL) {

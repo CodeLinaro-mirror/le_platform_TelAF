@@ -1,5 +1,32 @@
 /*
- * Copyright (c) 2021 The Linux Foundation. All rights reserved.
+ *  Copyright (c) 2021 The Linux Foundation. All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions are
+ *  met:
+ *    * Redistributions of source code must retain the above copyright
+ *      notice, this list of conditions and the following disclaimer.
+ *    * Redistributions in binary form must reproduce the above
+ *      copyright notice, this list of conditions and the following
+ *      disclaimer in the documentation and/or other materials provided
+ *      with the distribution.
+ *    * Neither the name of The Linux Foundation nor the names of its
+ *      contributors may be used to endorse or promote products derived
+ *      from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ *  WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ *  ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ *  BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ *  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ *  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ *  BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ *  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -26,39 +53,6 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * ​​​​​Changes from Qualcomm Innovation Center are provided under the following license:
- *
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 /*
@@ -309,6 +303,7 @@ taf_sms_MsgRef_t taf_sms_Create
    msgPtr->callBackPtr = NULL;
    msgPtr->ctxPtr = NULL;
 
+   msgPtr->storage = TAF_SMS_STORAGE_NONE;
    msgPtr->applyDel = false;
    msgPtr->pduReady = false;
 
@@ -550,9 +545,9 @@ SIDE EFFECTS
 
 le_result_t taf_sms_SetPDU
 (
-   taf_sms_MsgRef_t  msgRef,
-   const uint16_t*   pduPtr,
-   size_t            len
+   taf_sms_MsgRef_t msgRef,
+   const uint8_t*   pduPtr,
+   size_t           len
 )
 {
    auto &mySms = taf_Sms::GetInstance();
@@ -581,7 +576,6 @@ le_result_t taf_sms_SetPDU
    {
       LE_DEBUG("msgPtr->pdu.data[%d] = 0x%.2X", i, msgPtr->pdu.data[i]);
    }
-
    return LE_OK;
 }
 
@@ -810,6 +804,51 @@ void taf_sms_Delete
       le_dls_Remove(&mySms.SessionList, &(sessionNode->link));
       le_mem_Release(sessionNode);
    }
+}
+
+/*======================================================================
+
+FUNCTION       taf_sms_GetPhoneId
+
+DESCRIPTION    Gets the message's phone ID
+               (only for the messages stored in the SIM or created by the client).
+
+DEPENDENCIES   Get RX message or create TX message
+
+PARAMETERS     [IN] taf_sms_MsgRef_t msgRef: specific message
+
+RETURN VALUE   le_result_t
+                  LE_NOT_FOUND: Invalid message
+                  LE_NOT_PERMITTED: Invalid message type
+                  LE_BAD_PARAMETER: Invalid phone ID pointer
+                  LE_OK: Success
+
+SIDE EFFECTS
+
+======================================================================*/
+
+le_result_t taf_sms_GetPhoneId
+(
+    taf_sms_MsgRef_t msgRef,
+    uint8_t* phoneId
+)
+{
+    auto &mySms = taf_Sms::GetInstance();
+
+    taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(mySms.MsgRefMap, msgRef);
+
+    TAF_KILL_CLIENT_IF_RET_VAL(msgPtr == NULL, LE_NOT_FOUND, "Invalid msgPtr provided");
+
+    TAF_KILL_CLIENT_IF_RET_VAL(phoneId == NULL, LE_BAD_PARAMETER, "Invalid phoneId pointer");
+
+    TAF_KILL_CLIENT_IF_RET_VAL(
+                     (msgPtr->storage == TAF_SMS_STORAGE_HLOS),
+                     LE_NOT_PERMITTED,
+                     "Not permitted to get phone ID");
+
+   *phoneId = msgPtr->phoneId;
+
+   return LE_OK;
 }
 
 /*======================================================================
@@ -1114,7 +1153,7 @@ le_result_t taf_sms_GetPDU
 
 /*======================================================================
 
-FUNCTION       le_sms_GetPDULen
+FUNCTION       taf_sms_GetPDULen
 
 DESCRIPTION    Get PDU length of message
 
@@ -1134,7 +1173,7 @@ SIDE EFFECTS
 
 ======================================================================*/
 
-size_t le_sms_GetPDULen
+size_t taf_sms_GetPDULen
 (
    taf_sms_MsgRef_t  msgRef
 )
@@ -1395,6 +1434,8 @@ PARAMETERS     [IN] taf_sms_MsgRef_t msgRef: specific message
 
 RETURN VALUE   le_result_t
                   LE_NOT_FOUND: Invalid message
+                  LE_BAD_PARAMETER: Invalid phone ID
+                  LE_FORMAT_ERROR: Fail to encode message
                   LE_OK: Success
 
 SIDE EFFECTS
@@ -1417,12 +1458,11 @@ le_result_t taf_sms_Send
 
    if (result == LE_OK)
    {
-#ifdef TAF_SMS_SEND_FROM_TELSDK
       if (msgPtr->phoneId < 1 || msgPtr->phoneId > 2)
       {
-         msgPtr->phoneId = DEFAULT_SLOT_ID;
+         return LE_BAD_PARAMETER;
       }
-
+#ifdef TAF_SMS_SEND_FROM_TELSDK
       le_clk_Time_t timeToWait = {TIMEOUT_SEND_SEMAPHORE, 0};
       result = le_sem_WaitWithTimeOut(mySms.SmsSendSem, timeToWait);
 #endif
@@ -1432,7 +1472,10 @@ le_result_t taf_sms_Send
       mySms.sendingMsgRef = msgRef;
       mySms.sendMessage();
 #else
-      result = taf_pa_sms_SendPduMsg(msgPtr->pdu.length, msgPtr->pdu.data, TIMEOUT_SENDING_PDU);
+      result = taf_pa_sms_SendPduMsg(msgPtr->pdu.length,
+                                       msgPtr->pdu.data,
+                                       TIMEOUT_SENDING_PDU,
+                                       msgPtr->phoneId);
 
       if(result == LE_OK){
          msgPtr->sendStatus = TAF_SMS_TXSTS_SENT;
@@ -1492,7 +1535,7 @@ le_result_t taf_sms_DeleteFromStorage
 
    if (msgPtr->storage != TAF_SMS_STORAGE_NONE && msgPtr->userCount == 1)
    {
-      res = taf_pa_sms_DelMsgFromStorage(msgPtr->storage, msgPtr->storageIdx);
+      res = taf_pa_sms_DelMsgFromStorage(msgPtr->storage, msgPtr->storageIdx, msgPtr->phoneId);
    }
    msgPtr->applyDel = true;
 
@@ -1554,8 +1597,11 @@ le_result_t taf_sms_DeleteAllFromStorage
 
             if (msgPtr->userCount == 1)
             {
-               res = taf_pa_sms_DelMsgFromStorage(msgPtr->storage, msgPtr->storageIdx);
-               LE_DEBUG("Delete result:%d, storage: %d, index:%d", res, msgPtr->storage, msgPtr->storageIdx);
+               res = taf_pa_sms_DelMsgFromStorage(msgPtr->storage,
+                                                   msgPtr->storageIdx,
+                                                   msgPtr->phoneId);
+               LE_DEBUG("Delete result:%d, storage: %d, index:%d",
+                        res, msgPtr->storage, msgPtr->storageIdx);
             }
 
             msgPtr->applyDel = true;
@@ -1586,6 +1632,7 @@ RETURN VALUE   le_result_t
                   LE_OVERFLOW: Input buffer len is not enough
                   LE_FAULT: Internal error
                   LE_TIMEOUT: Timeout occurred
+                  LE_BAD_PARAMETER: Invalid address pointer
                   LE_OK: Succeeded
 
 SIDE EFFECTS
@@ -1599,6 +1646,8 @@ le_result_t taf_sms_GetSmsCenterAddress
    size_t   len
 )
 {
+   TAF_KILL_CLIENT_IF_RET_VAL(addr == NULL, LE_BAD_PARAMETER, "Invalid address pointer");
+
    // initialize the synchronous promise
    auto &sms = taf_Sms::GetInstance();
    sms.SmsCenterSyncPromise = std::promise<le_result_t>();
@@ -1735,7 +1784,8 @@ void taf_sms_MarkRead
 
    msgPtr->readStatus = TAF_SMS_RXSTS_READ;
 
-   taf_pa_sms_SetReadStatus(msgPtr->storage, msgPtr->storageIdx, TAF_SMS_RXSTS_READ);
+   taf_pa_sms_SetReadStatus(msgPtr->storage, msgPtr->storageIdx, TAF_SMS_RXSTS_READ,
+                              msgPtr->phoneId);
 }
 
 /*======================================================================
@@ -1767,7 +1817,8 @@ void taf_sms_MarkUnread
 
    msgPtr->readStatus = TAF_SMS_RXSTS_UNREAD;
 
-   taf_pa_sms_SetReadStatus(msgPtr->storage, msgPtr->storageIdx, TAF_SMS_RXSTS_UNREAD);
+   taf_pa_sms_SetReadStatus(msgPtr->storage, msgPtr->storageIdx, TAF_SMS_RXSTS_UNREAD,
+                              msgPtr->phoneId);
 }
 
 /*======================================================================
@@ -1854,6 +1905,50 @@ le_result_t taf_sms_UnlockFromStorage
 
 /*======================================================================
 
+FUNCTION       taf_sms_EncryptFromStorage
+
+DESCRIPTION    Encrypt a message which is stored in HLOS
+
+DEPENDENCIES   Get RX message
+
+PARAMETERS     [IN] taf_sms_MsgRef_t msgRef: specific message
+
+RETURN VALUE   le_result_t
+                  LE_NOT_FOUND: Invalid message
+                  LE_FAULT: Function failed
+                  LE_OK: Function successful
+                  LE_NOT_PERMITTED: Message is not stored in HLOS
+
+SIDE EFFECTS   None
+
+======================================================================*/
+
+le_result_t taf_sms_EncryptFromStorage
+(
+    taf_sms_MsgRef_t msgRef
+)
+{
+   auto &mySms = taf_Sms::GetInstance();
+
+   taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(mySms.MsgRefMap, msgRef);
+
+   TAF_ERROR_IF_RET_VAL(msgPtr == NULL, LE_NOT_FOUND, "Invalid msgPtr provided");
+
+   TAF_ERROR_IF_RET_VAL(msgPtr->storage != TAF_SMS_STORAGE_HLOS, LE_NOT_PERMITTED,
+                        "Storage type %d is not supported", msgPtr->storage);
+
+   le_result_t res = taf_pa_sms_EncryptFromStorage(msgPtr->storage, msgPtr->storageIdx);
+
+   if(res == LE_OK)
+   {
+      msgPtr->isEncrypted = true;
+   }
+
+   return res;
+}
+
+/*======================================================================
+
 FUNCTION       taf_sms_SendPduMsg
 
 DESCRIPTION    Send PDU message
@@ -1877,7 +1972,39 @@ le_result_t taf_sms_SendPduMsg
    uint32_t         timeout
 )
 {
-   le_result_t res = taf_pa_sms_SendPduMsg(dataSize, dataPtr, timeout);
+   le_result_t res = taf_pa_sms_SendPduMsg(dataSize, dataPtr, timeout, DEFAULT_PHONE_ID);
+
+   return res;
+}
+
+/*======================================================================
+
+FUNCTION       taf_sms_SendPduMsgEx
+
+DESCRIPTION    Send PDU message
+
+DEPENDENCIES   Initialization of SMS service
+
+PARAMETERS     uint8_t              phoneId: phone ID from which message is going to send
+               uint32_t             length: message length
+               [IN] const uint8_t   dataPtr: data pointer
+               uint32_t             timeout: timeout value in milli-second
+
+RETURN VALUE   le_result_t
+
+SIDE EFFECTS
+
+======================================================================*/
+
+le_result_t taf_sms_SendPduMsgEx
+(
+   uint8_t          phoneId,
+   const uint8_t*   dataPtr,
+   size_t           dataSize,
+   uint32_t         timeout
+)
+{
+   le_result_t res = taf_pa_sms_SendPduMsg(dataSize, dataPtr, timeout, phoneId);
 
    return res;
 }
@@ -2014,6 +2141,7 @@ PARAMETERS     [OUT] taf_sms_Storage_t: present preferred storage place
 RETURN VALUE   le_result_t
                   LE_FAULT: Internal error
                   LE_TIMEOUT: Timeout occurred
+                  LE_BAD_PARAMETER: Invalid prefStorage pointer
                   LE_OK: Succeeded
 
 SIDE EFFECTS
@@ -2025,6 +2153,9 @@ le_result_t taf_sms_GetPreferredStorage
    taf_sms_Storage_t* prefStorage
 )
 {
+   TAF_KILL_CLIENT_IF_RET_VAL(prefStorage == NULL, LE_BAD_PARAMETER,
+                              "Invalid prefStorage pointer");
+
    auto &mySms = taf_Sms::GetInstance();
 
    le_result_t res = mySms.GetPreferredStorage(prefStorage);

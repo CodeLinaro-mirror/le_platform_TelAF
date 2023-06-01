@@ -2123,8 +2123,7 @@ le_result_t taf_SomeipSvr::SendResponse
     // Check if the service is offered.
     if ((servicePtr == NULL) || (!servicePtr->isOffered))
     {
-        LE_ERROR("Service(0x%x/0x%x) is not offered.",
-                 servicePtr->serviceId, servicePtr->instanceId);
+        LE_ERROR("Service(0x%x/0x%x) is not offered.", msgPtr->serviceId, msgPtr->instanceId);
         return LE_NOT_PERMITTED;
     }
 

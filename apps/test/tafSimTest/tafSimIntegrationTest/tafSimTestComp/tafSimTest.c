@@ -493,23 +493,13 @@ void tafSimTest_fplmnList_test(taf_sim_Id_t simId){
         if (res == LE_OK) {
             printf("FPLMN list #1: mcc %s, mnc %s\n", mcc, mnc);
         }
-        memset(mcc, 0, 4);
-        memset(mnc, 0, 4);
-        res = taf_sim_GetNextFPLMNOperator(FPLMNList, mcc, sizeof(mcc), mnc, sizeof(mnc));
-        if (res == LE_OK) {
-            printf("FPLMN list #2: mcc %s, mnc %s\n", mcc, mnc);
-        }
-        memset(mcc, 0, 4);
-        memset(mnc, 0, 4);
-        res = taf_sim_GetNextFPLMNOperator(FPLMNList, mcc, sizeof(mcc), mnc, sizeof(mnc));
-        if (res == LE_OK) {
-            printf("FPLMN list #3: mcc %s, mnc %s\n", mcc, mnc);
-        }
-        memset(mcc, 0, 4);
-        memset(mnc, 0, 4);
-        res = taf_sim_GetNextFPLMNOperator(FPLMNList, mcc, sizeof(mcc), mnc, sizeof(mnc));
-        if (res == LE_OK) {
-            printf("FPLMN list #4: mcc %s, mnc %s\n", mcc, mnc);
+        for (int i = 0; i < 7; i++) {
+            memset(mcc, 0, 4);
+            memset(mnc, 0, 4);
+            res = taf_sim_GetNextFPLMNOperator(FPLMNList, mcc, sizeof(mcc), mnc, sizeof(mnc));
+            if (res == LE_OK) {
+                printf("FPLMN list #%d: mcc %s, mnc %s\n", i+2, mcc, mnc);
+            }
         }
     }
     printf("tafSimTest_fplmnList completed. Result: %s\n", (FPLMNList!=NULL) ? "PASS":"FAILED");

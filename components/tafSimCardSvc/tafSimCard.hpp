@@ -153,6 +153,8 @@ namespace telux {
                 le_mem_PoolRef_t FPLMNNodePool = NULL;
                 le_mem_PoolRef_t FPLMNListPool = NULL;
                 le_ref_MapRef_t FPLMNListRefMap;
+                le_result_t AddFPLMNOperatorInternal(taf_sim_FPLMNListRef_t FPLMNListRef, char* mccPtr, char* mncPtr);
+                taf_sim_FPLMNListRef_t CreateInternalFPLMNList();
 
             public:
                 void Init(void);

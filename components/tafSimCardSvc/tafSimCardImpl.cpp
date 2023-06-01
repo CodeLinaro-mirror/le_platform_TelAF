@@ -40,6 +40,7 @@ using namespace std;
 
 static taf_sim_info_t simList[TAF_SIM_ID_MAX];
 static int fplmnListIndex = 0;
+static taf_sim_FPLMNListRef_t fplmnListRefs = nullptr;
 
 void tafCardListener:: onCardInfoChanged(int slotId)
 {
@@ -1516,13 +1517,13 @@ le_result_t taf_sim::LocalSwapToCommercialCallSubscription
     return r;
 }
 
-taf_sim_FPLMNListRef_t taf_sim::CreateFPLMNList
+taf_sim_FPLMNListRef_t taf_sim::CreateInternalFPLMNList
 (
 )
 {
     taf_sim_FPLMNList_t* res = (taf_sim_FPLMNList_t* )le_mem_ForceAlloc(FPLMNListPool);
     if(res == NULL) {
-        LE_INFO("CreateFPLMNList failed!");
+        LE_INFO("CreateInternalFPLMNList failed!");
         return NULL;
     }
     res->link = LE_DLS_LIST_INIT;
@@ -1530,7 +1531,32 @@ taf_sim_FPLMNListRef_t taf_sim::CreateFPLMNList
     return (taf_sim_FPLMNListRef_t)(res->ref);
 }
 
+taf_sim_FPLMNListRef_t taf_sim::CreateFPLMNList
+(
+)
+{
+    if (fplmnListRefs != nullptr) {
+        taf_sim_FPLMNList_t* ListReference = (taf_sim_FPLMNList_t*)le_ref_Lookup(FPLMNListRefMap, fplmnListRefs);
+        LE_INFO("CreateFPLMNList: Already created fplmnListRefs, so use the existing one.");
+        return (taf_sim_FPLMNListRef_t)(ListReference->ref);
+    }
+
+    return CreateInternalFPLMNList();
+}
+
 le_result_t taf_sim::AddFPLMNOperator
+(
+    taf_sim_FPLMNListRef_t FPLMNListRef,
+    char* mccPtr,
+    char* mncPtr
+)
+{
+    fplmnListRefs = FPLMNListRef;
+
+    return AddFPLMNOperatorInternal(FPLMNListRef, mccPtr, mncPtr);
+}
+
+le_result_t taf_sim::AddFPLMNOperatorInternal
 (
     taf_sim_FPLMNListRef_t FPLMNListRef,
     char* mccPtr,
@@ -1625,7 +1651,7 @@ taf_sim_FPLMNListRef_t taf_sim::ReadFPLMNList(
 {
     //First select the file using APDU commands
     //Then read from it in binary form and use payload to get the response as a hex string
-    uint8_t selectFPLMNApdu[] = {0x00, 0xA4, 0x00, 0x00, 0x02, 0x6F, 0x7B};
+    uint8_t selectFPLMNApdu[] = {0x00, 0xA4, 0x08, 0x04, 0x04, 0x7F, 0xFF, 0x6F, 0x7B};
     uint8_t responseAPDU[100];
     size_t responseLength = 100;
     uint8_t channel = 0;
@@ -1643,6 +1669,8 @@ taf_sim_FPLMNListRef_t taf_sim::ReadFPLMNList(
     res = SendApduOnChannel((taf_sim_Id_t)slot, channel, selectFPLMNApdu, sizeof(selectFPLMNApdu), responseAPDU, &responseLength);
 
     if(res != LE_OK || (uint8_t)apduResponse.sw1 != 0x61) {
+        res = CloseLogicalChannel((taf_sim_Id_t)slot, channel);
+        LE_INFO("ReadFplmnList: CloseLogicalChannel channel_id: %d res: %d", channel, res);
         return NULL;
     }
     LE_DEBUG("ReadFplmnList: After selectFPLMNApdu channel id: %d", channel);
@@ -1652,6 +1680,8 @@ taf_sim_FPLMNListRef_t taf_sim::ReadFPLMNList(
     res = SendApduOnChannel((taf_sim_Id_t)slot, channel, readBinaryFPLMNApdu, sizeof(readBinaryFPLMNApdu), responseAPDU, &responseLength);
 
     if(res != LE_OK || (uint8_t)apduResponse.sw1 != 0x90 || (uint8_t)apduResponse.sw2 != 0x00) {
+        res = CloseLogicalChannel((taf_sim_Id_t)slot, channel);
+        LE_INFO("ReadFplmnList: CloseLogicalChannel channel_id: %d res: %d", channel, res);
         return NULL;
     }
     LE_INFO("ReadFplmnList: After readFPLMNApdu channel id: %d", channel);
@@ -1660,7 +1690,7 @@ taf_sim_FPLMNListRef_t taf_sim::ReadFPLMNList(
         return NULL;
     }
 
-    taf_sim_FPLMNListRef_t listRef = CreateFPLMNList();
+    taf_sim_FPLMNListRef_t listRef = CreateInternalFPLMNList();
     LE_INFO("ReadFPLMNList: apduResponse = %s", apduResponse.toString().c_str());
     int size = apduResponse.payload.length();
     LE_INFO("ReadFPLMNList: size of payload: %d, payload: %s", size, apduResponse.payload.c_str());
@@ -1692,7 +1722,7 @@ taf_sim_FPLMNListRef_t taf_sim::ReadFPLMNList(
         mcc[3] = '\0';
         mnc[3] = '\0';
         if (strncmp(mcc, "FFF", 3) != 0) {
-            res = AddFPLMNOperator(listRef, mcc, mnc);
+            res = AddFPLMNOperatorInternal(listRef, mcc, mnc);
             if(res!=LE_OK) {
                 DeleteFPLMNList(listRef);
                 return NULL;
@@ -1730,7 +1760,7 @@ le_result_t taf_sim::WriteFPLMNList
 )
 {
     //Select the EF
-    uint8_t selectFPLMNApdu[] = {0x00, 0xA4, 0x00, 0x00, 0x02, 0x6F, 0x7B};
+    uint8_t selectFPLMNApdu[] = {0x00, 0xA4, 0x08, 0x04, 0x04, 0x7F, 0xFF, 0x6F, 0x7B};
     uint8_t responseAPDU[100];
     size_t responseLength = 100;
     uint8_t channel = 0;
@@ -1745,6 +1775,8 @@ le_result_t taf_sim::WriteFPLMNList
     const uint8_t channel_id = channel;
     res = SendApduOnChannel((taf_sim_Id_t)slot, channel, selectFPLMNApdu, sizeof(selectFPLMNApdu), responseAPDU, &responseLength);
     if(res != LE_OK || (uint8_t)apduResponse.sw1 != 0x61) {
+        res = CloseLogicalChannel((taf_sim_Id_t)slot, channel_id);
+        LE_INFO("WriteFPLMNList: CloseLogicalChannel channel_id: %d res: %d", channel_id, res);
         return LE_FAULT;
     }
     LE_DEBUG("WriteFPLMNList: After selectFPLMNApdu channel id: %d and channel_id: %d", channel, channel_id);
@@ -1752,6 +1784,8 @@ le_result_t taf_sim::WriteFPLMNList
 
     taf_sim_FPLMNList_t* ListReference = (taf_sim_FPLMNList_t*)le_ref_Lookup(FPLMNListRefMap, FPLMNListRef);
     if(ListReference == NULL) {
+        res = CloseLogicalChannel((taf_sim_Id_t)slot, channel_id);
+        LE_INFO("WriteFPLMNList: CloseLogicalChannel channel_id: %d res: %d", channel_id, res);
         return LE_FAULT;
     }
 
@@ -1802,6 +1836,8 @@ le_result_t taf_sim::WriteFPLMNList
 
     res = SendApduOnChannel((taf_sim_Id_t)slot, channel_id, writeFPLMNListApdu.data(), sizeOfwriteFPLMNListApdu, responseAPDU, &responseLength);
     if(res != LE_OK || (uint8_t)apduResponse.sw1 != 0x90 || (uint8_t)apduResponse.sw2 != 0x00) {
+        res = CloseLogicalChannel((taf_sim_Id_t)slot, channel_id);
+        LE_INFO("WriteFPLMNList: CloseLogicalChannel channel_id: %d res: %d", channel_id, res);
         return LE_FAULT;
     }
 

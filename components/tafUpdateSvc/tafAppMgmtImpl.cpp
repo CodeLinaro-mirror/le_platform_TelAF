@@ -74,7 +74,7 @@ void taf_AppMgmt::CreateAppNode(const char* name)
 
     do {
         // Get app name
-        char appName[TAF_APPMGMT_APP_NAME_BYTES];
+        char appName[TAF_APPMGMT_APP_NAME_BYTES] = { 0 };
         le_cfg_GetNodeName(rdIter, "", appName, TAF_APPMGMT_APP_NAME_BYTES);
 
         if (strncmp(appName, name, strlen(name)) == 0) {

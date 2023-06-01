@@ -266,7 +266,7 @@ le_result_t taf_appMgmt_GetVersion(const char* appName, char* versionPtr, size_t
     le_result_t result = LE_NOT_FOUND;
     do {
         // Get app name
-        char name[TAF_APPMGMT_APP_NAME_BYTES];
+        char name[TAF_APPMGMT_APP_NAME_BYTES] = { 0 };
         le_cfg_GetNodeName(rdIter, "", name, TAF_APPMGMT_APP_NAME_BYTES);
 
         if (strcmp(appName, name) == 0) {

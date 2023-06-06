@@ -1537,6 +1537,9 @@ taf_sim_FPLMNListRef_t taf_sim::CreateFPLMNList
 {
     if (fplmnListRefs != nullptr) {
         taf_sim_FPLMNList_t* ListReference = (taf_sim_FPLMNList_t*)le_ref_Lookup(FPLMNListRefMap, fplmnListRefs);
+        if (!ListReference) {
+            return NULL;
+        }
         LE_INFO("CreateFPLMNList: Already created fplmnListRefs, so use the existing one.");
         return (taf_sim_FPLMNListRef_t)(ListReference->ref);
     }

@@ -1,0 +1,34 @@
+//--------------------------------------------------------------------------------------------------
+// TelAF Simulation system definition that includes essential services.
+//--------------------------------------------------------------------------------------------------
+
+#include "$LEGATO_ROOT/legatoTargetConfig.sinc"
+
+apps:
+{
+    $LEGATO_ROOT/apps/sample/helloIpc/printClient
+    $LEGATO_ROOT/apps/sample/helloIpc/printServer
+}
+
+commands:
+{
+}
+
+bindings:
+{
+}
+
+interfaceSearch:
+{
+    $TELAF_ROOT/interfaces
+    $TELAF_ROOT/interfaces/tafVNW
+    apps/sample/helloIpc
+}
+
+cflags:
+{
+}
+
+cxxflags:
+{
+}

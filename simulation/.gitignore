@@ -1,0 +1,9 @@
+deps/install/*
+!deps/install/.keep
+deps/source/*
+!deps/source/.keep
+workstation/telaf_simulation.tar.gz
+workstation/local_dev_home
+workstation/.check_done
+workstation/.which_one
+workstation/*.update

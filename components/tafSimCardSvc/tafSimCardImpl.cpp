@@ -144,7 +144,7 @@ void tafMultiSimCallback::requestsSlotsStatusResponse(std::map<SlotId,
             if((slotStatus.slotState == telux::tel::SlotState::ACTIVE)
                     && (activeSlotCount == 1)){
                 LE_INFO("Find card for single active in slot: %d", slotId);
-                auto card = sim.cardManager->getCard(DEFAULT_SLOT_ID, &status);
+                auto card = sim.cardManager->getCard(slotId, &status);
                 sim.cards.emplace(slotId, card);
             } else if((slotStatus.slotState == telux::tel::SlotState::ACTIVE)
                     && (activeSlotCount == 2)){

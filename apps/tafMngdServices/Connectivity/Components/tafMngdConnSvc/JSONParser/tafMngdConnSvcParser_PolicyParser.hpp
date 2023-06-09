@@ -101,7 +101,7 @@ private:
     std::map< std::string, PolicyValidationFunction_t >  PolicyValidationFuncMap;
     void UpdateValidPolicyFuncMap(void);
 
-    // MCSP = ManagedConnectivitySerivcePolicy
+    // MCSP = ManagedConnectivityServicePolicy
     static bool Validate_MCSP_Version (taf_mngd_Conn_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index);

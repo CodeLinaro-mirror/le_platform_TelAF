@@ -80,7 +80,7 @@
  *
  * The following shows the template of the file mngdConnConfig.json:
  {
- "ManagedConnectivitySerivceConfiguration":{
+ "ManagedConnectivityServiceConfiguration":{
     "Version": 1,
     "Name": "Default"
     },

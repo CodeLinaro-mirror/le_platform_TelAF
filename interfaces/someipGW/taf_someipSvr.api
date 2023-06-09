@@ -145,7 +145,7 @@
        // Get the service ID and instance ID.
        uint16_t serviceId;
        uint16_t instanceId;
-       LE_ASSERT(LE_OK == taf_someipSvr_GetSerivceId(msgRef, &serviceId, &instanceId));
+       LE_ASSERT(LE_OK == taf_someipSvr_GetServiceId(msgRef, &serviceId, &instanceId));
 
        // Get the method ID client ID and message type.
        uint16_t methodId;
@@ -248,7 +248,7 @@ REFERENCE RxMsg;
  * Gets the reference to a server-service-instance.
  *
  * @return
- *     - Reference to the serivce instance.
+ *     - Reference to the service instance.
  *     - NULL if not allowed to represent the service.
  */
 //--------------------------------------------------------------------------------------------------

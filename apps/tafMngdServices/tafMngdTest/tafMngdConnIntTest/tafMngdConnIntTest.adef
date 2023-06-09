@@ -1,0 +1,30 @@
+sandboxed: false
+
+executables:
+{
+    tafMngdConnIntTest = (
+      $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdConnIntTest/tafMngdConnIntTestComponent )
+}
+
+start: manual
+
+processes:
+{
+    run:
+    {
+        (tafMngdConnIntTest)
+    }
+
+    faultAction: stopApp
+
+    #if ${LE_CONFIG_SERVICES_WATCHDOG} = y
+        maxWatchdogTimeout: 100000
+    #else
+        watchdogTimeout: never
+    #endif
+}
+
+bindings:
+{
+    tafMngdConnIntTest.tafMngdConnIntTestComponent.taf_mngd_Conn -> tafMngdConnSvc.taf_mngd_Conn
+}

@@ -3,6 +3,10 @@
 
 policy_module(tafVoiceCallSvc, 1.0)
 
+gen_require(`
+  type tmp_t;
+')
+
 # Framework definition for telaf
 type telaf_tafVoiceCallSvc_exec_t;
 files_type(telaf_tafVoiceCallSvc_exec_t);
@@ -13,6 +17,10 @@ type telaf_tafVoiceCallSvc_data_t;
 files_type(telaf_tafVoiceCallSvc_data_t);
 
 init_telaf_app_domain(telaf_tafVoiceCallSvc_t,telaf_tafVoiceCallSvc_exec_t)
+
+# read VoiceCallInfo file
+allow telaf_tafVoiceCallSvc_t tmp_t:file { manage_file_perms};
+allow telaf_tafVoiceCallSvc_t tmp_t:dir { manage_dir_perms };
 
 # Allow update daemon to install/uninstall this service
 telaf_admin_manage_all_files_perms(telaf_tafVoiceCallSvc_data_t)

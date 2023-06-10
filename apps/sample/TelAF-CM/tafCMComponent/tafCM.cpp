@@ -213,9 +213,18 @@ COMPONENT_INIT
             LE_INFO("Data ID: %d, AutoStart: No", id.first);
             LE_INFO("Start Data for ID %d", id.first);
             leResult = taf_mngd_Conn_DataStart(tmpRef);
-            if (leResult != LE_OK)
+            if ( LE_OK == leResult)
             {
-                LE_WARN("Unable to start data for ID %d", id.first);
+                LE_INFO ("Data Session Started");
+            }
+            else if (LE_DUPLICATE == leResult)
+            {
+                LE_INFO("Data session already active for data ID: %d", id.first);
+                getConnectionInfo(tmpRef);
+            }
+            else
+            {
+                LE_WARN ("Unable to start data for data ID %d, error: %d", id.first, leResult);
             }
         }
         else

@@ -109,6 +109,7 @@ namespace tafsvc {
         uint8_t                                 phoneId;        // Phone ID
         uint32_t                                profileNumber;  // Profile number
         bool                                    autoStart;      // Auto start or not
+        bool                                    needReConn; //Need to reconnect for manualStart
         char                                    intfName[TAF_DCS_NAME_MAX_LEN]; // Interface name
         le_dls_Link_t                           link;           // Link to data list
         taf_mngd_Conn_State_t                   state; // The Managed Connectivity state

@@ -215,7 +215,7 @@ COMPONENT_INIT
  * Get the reference to a server service instance.
  *
  * @return
- *     - Reference to the serivce instance.
+ *     - Reference to the service instance.
  *     - NULL if not allowed to represent the service.
  */
 //--------------------------------------------------------------------------------------------------

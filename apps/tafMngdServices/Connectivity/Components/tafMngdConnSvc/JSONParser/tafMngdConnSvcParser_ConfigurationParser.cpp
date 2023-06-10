@@ -689,9 +689,9 @@ bool tafMngdConnSvc_ConfigurationParser::ParseAndUpdateConfigurationJSON(
     std::string log, JSON_Property, JSON_Value;
     for (auto & element: tree) {
 
-        // ManagedConnectivitySerivceConfiguration object has the 2 properties
+        // ManagedConnectivityServiceConfiguration object has the 2 properties
         // Version , Name
-        if ("ManagedConnectivitySerivceConfiguration" == element.first ) {
+        if ("ManagedConnectivityServiceConfiguration" == element.first ) {
             log.clear();
             log = "Top Element: " + element.first;
             LE_DEBUG ("%s", log.c_str() );
@@ -928,9 +928,9 @@ bool tafMngdConnSvc_ConfigurationParser::ParseAndUpdateConfigurationJSON(
  */
 void tafMngdConnSvc_ConfigurationParser::UpdateValidConfigurationFuncMap(void)
 {
-    ConfigurationValidationFuncMap["ManagedConnectivitySerivceConfiguration:Version"]
+    ConfigurationValidationFuncMap["ManagedConnectivityServiceConfiguration:Version"]
                                                             = &Validate_MCSC_Version;
-    ConfigurationValidationFuncMap["ManagedConnectivitySerivceConfiguration:Name"]
+    ConfigurationValidationFuncMap["ManagedConnectivityServiceConfiguration:Name"]
                                                             = &Validate_MCSC_Name;
 
     // Sim

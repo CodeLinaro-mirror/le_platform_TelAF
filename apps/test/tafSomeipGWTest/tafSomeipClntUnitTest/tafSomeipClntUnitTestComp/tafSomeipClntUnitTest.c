@@ -95,7 +95,7 @@ __attribute__((unused)) static void StateChangeHandler
     }
     else
     {
-        LE_ERROR("Unknown serivceRef(%p).", serviceRef);
+        LE_ERROR("Unknown serviceRef(%p).", serviceRef);
         return;
     }
 
@@ -148,7 +148,7 @@ __attribute__((unused)) static void EventMsgHandler
     }
     else
     {
-        LE_ERROR("Unknown serivceRef(%p).", serviceRef);
+        LE_ERROR("Unknown serviceRef(%p).", serviceRef);
         return;
     }
 

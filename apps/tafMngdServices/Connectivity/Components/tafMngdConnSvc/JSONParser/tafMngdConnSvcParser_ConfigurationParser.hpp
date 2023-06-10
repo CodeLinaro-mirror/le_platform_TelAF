@@ -126,7 +126,7 @@ private:
     std::map<std::string, ConfigurationValidationFunction_t> ConfigurationValidationFuncMap;
     void UpdateValidConfigurationFuncMap(void);
 
-    // MCSC = ManagedConnectivitySerivceConfiguration
+    // MCSC = ManagedConnectivityServiceConfiguration
     static bool Validate_MCSC_Version(taf_mngd_Conn_Configuration_t &Configuration,
                                       std::string Value,
                                       int Index);

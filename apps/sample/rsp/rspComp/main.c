@@ -261,7 +261,7 @@ static int GetProfileList() {
 
     res = taf_rsp_GetProfileList(SimId, profileListPtr, &count);
 
-    LE_INFO("Get profile list: result %d, no of profiles: %d", (int) res, count);
+    LE_INFO("Get profile list: result %d, no of profiles: %" PRIuS, (int) res, count);
 
     for (i = 0; i < count; i++) {
         if (profileListPtr[i] != NULL) {

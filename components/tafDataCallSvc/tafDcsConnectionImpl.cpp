@@ -89,7 +89,7 @@ LE_MEM_DEFINE_STATIC_POOL(RoamingStatusPool, TAF_DCS_MAX_SESSION_REF,
                           sizeof(taf_dcs_RoamingStatusInd_t));
 
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 taf_DataConnServingSystemListener::taf_DataConnServingSystemListener(SlotId slot) : slotId(slot) {}
 
 void taf_DataConnServingSystemListener::onServiceStateChanged(telux::data::ServiceStatus status)
@@ -459,7 +459,23 @@ void taf_DataConnection::StartDataCallCallback
     callEvent.slotId        = slotId;
     callEvent.ipType        = iCall->getIpFamilyType();
     callEvent.ipv4Status    = iCall->getIpv4Info().status;
+    if (callEvent.ipv4Status == telux::data::DataCallStatus::NET_CONNECTED)
+    {
+        callEvent.ipv4AddrInfo  = iCall->getIpv4Info().addr;
+    }
     callEvent.ipv6Status    = iCall->getIpv6Info().status;
+    if (callEvent.ipv6Status == telux::data::DataCallStatus::NET_CONNECTED)
+    {
+        callEvent.ipv6AddrInfo  = iCall->getIpv6Info().addr;
+    }
+    if (callEvent.callStatus == telux::data::DataCallStatus::NET_CONNECTED)
+    {
+        callEvent.ifName  = iCall->getInterfaceName();
+    }
+    callEvent.dataBearerTech    = iCall->getCurrentBearerTech();
+    LE_DEBUG("ipv4 status=%s, ipv6 status=%s",
+              dataConnection.CallStatusToString(callEvent.ipv4Status),
+              dataConnection.CallStatusToString(callEvent.ipv6Status));
     LE_DEBUG("Start callback:event=%d,errcode=%d, callstatus=%s, slotId=%d, profileId=%d, ipType=%d",
              (int)callEvent.event, (int)callEvent.errorCode,
              dataConnection.CallStatusToString(callEvent.callStatus), callEvent.slotId,
@@ -498,7 +514,23 @@ void taf_DataConnection::StopDataCallCallback
     callEvent.slotId        = slotId;
     callEvent.ipType        = iCall->getIpFamilyType();
     callEvent.ipv4Status    = iCall->getIpv4Info().status;
+    if (callEvent.ipv4Status == telux::data::DataCallStatus::NET_CONNECTED)
+    {
+        callEvent.ipv4AddrInfo  = iCall->getIpv4Info().addr;
+    }
     callEvent.ipv6Status    = iCall->getIpv6Info().status;
+    if (callEvent.ipv6Status == telux::data::DataCallStatus::NET_CONNECTED)
+    {
+        callEvent.ipv6AddrInfo  = iCall->getIpv6Info().addr;
+    }
+    if (callEvent.callStatus == telux::data::DataCallStatus::NET_CONNECTED)
+    {
+        callEvent.ifName  = iCall->getInterfaceName();
+        callEvent.dataBearerTech    = iCall->getCurrentBearerTech();
+    }
+    LE_DEBUG("ipv4 status=%s, ipv6 status=%s",
+              dataConnection.CallStatusToString(callEvent.ipv4Status),
+              dataConnection.CallStatusToString(callEvent.ipv6Status));
     LE_DEBUG("stop callback:event=%d, errcode=%d, callstatus=%s, slotId=%d, profileId=%d, ipType=%d",
              (int)callEvent.event,(int)callEvent.errorCode,
             dataConnection.CallStatusToString(callEvent.callStatus), callEvent.slotId,
@@ -674,7 +706,7 @@ le_result_t taf_DataConnection::SendSettingDefaultProfileIdCmd(uint8_t slotId, i
 
 le_result_t taf_DataConnection::SendGettingDefaultProfileIdCmd()
 {
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 
     if(dataConnectionManagers.find((SlotId)SLOT_ID_1) == dataConnectionManagers.end())
     {
@@ -968,8 +1000,8 @@ le_result_t taf_DataConnection::StartSessionCmdSync
     else
     {
         callCtxPtr = CreateDataCallCtx(slotId, profileId);
-        callCtxPtr->funcType = CALL_FUNCTION_SYNC_START;
         TAF_ERROR_IF_RET_VAL(callCtxPtr == NULL, LE_NOT_FOUND, "cannot create call context");
+        callCtxPtr->funcType = CALL_FUNCTION_SYNC_START;
         result = AddSessionToCallCtx(callCtxPtr, sessionRef);
         TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "addSessionToCallCtx return(%d) error",
                              result);
@@ -1020,7 +1052,6 @@ le_result_t taf_DataConnection::StartSessionCmdSync
     //Remove session since there is no need to call stopCall
     if(result == LE_OK)
     {
-        callCtxPtr = GetCallCtx(slotId, profileId);
         if(callCtxPtr->callStatus == telux::data::DataCallStatus::NET_NO_NET)
         {
             LE_ERROR("callStatus is disconnected");
@@ -1110,7 +1141,6 @@ void taf_DataConnection::StartSessionCmdAsync
     else
     {
         callCtxPtr = CreateDataCallCtx(slotId, profileId);
-        callCtxPtr->funcType = CALL_FUNCTION_ASYNC_START;
         // Check if call context can be created
         if (callCtxPtr == NULL)
         {
@@ -1118,6 +1148,8 @@ void taf_DataConnection::StartSessionCmdAsync
             handlerPtr(profileRef, LE_FAULT, contextPtr);
             return;
         }
+
+        callCtxPtr->funcType = CALL_FUNCTION_ASYNC_START;
 
         result = AddSessionToCallCtx(callCtxPtr, sessionRef);
         // Check if session can be added into call context
@@ -1216,11 +1248,11 @@ le_result_t taf_DataConnection::StopSessionCmdSync
     size_t numLinks = le_dls_NumLinks(&callCtxPtr->sessionRefList);
     pthread_mutex_unlock(&callCtxPtr->sessionListMutex);
 
-    LE_INFO("numlink=%d", numLinks);
+    LE_INFO("numlink=%" PRIuS, numLinks);
 
     if (numLinks > 0)
     {
-        LE_INFO("slotId(%d) profile(%d) is used by (%d) clients, nothing to do in this operation",
+        LE_INFO("slotId(%d) profile(%d) is used by (%" PRIuS ") clients, nothing to do in this operation",
                  slotId, profileId, numLinks);
         return LE_OK;
     }
@@ -1348,12 +1380,12 @@ void taf_DataConnection::StopSessionCmdAsync
     size_t numLinks = le_dls_NumLinks(&callCtxPtr->sessionRefList);
     pthread_mutex_unlock(&callCtxPtr->sessionListMutex);
 
-    LE_INFO("numlink=%d",numLinks);
+    LE_INFO("numlink=%" PRIuS, numLinks);
 
     // Check if more than one session uses this data connection
     if (numLinks > 0)
     {
-        LE_INFO("slotId(%d) profile(%d) is used by (%d) clients, nothing to do in this operation",
+        LE_INFO("slotId(%d) profile(%d) is used by (%" PRIuS ") clients, nothing to do in this operation",
                  slotId, profileId, numLinks);
         handlerPtr(profileRef, LE_OK, contextPtr);
         return;
@@ -1423,7 +1455,7 @@ le_result_t taf_DataConnection::GetDefaultProfileIdSync(uint8_t *slotId, uint32_
 
 // In SA415M with old telsdk version, there is no getDefaultProfile function which will not set
 // CmdSynchronousPromise value
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     // blocking here to get response
     std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
     result = futResult.get();
@@ -1669,7 +1701,7 @@ le_result_t taf_DataConnection::GetRoamingStatus
 {
     TAF_ERROR_IF_RET_VAL(isRoamingPtr == NULL || typePtr == NULL, LE_BAD_PARAMETER, "ptr is null");
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
         auto reqRoamingStatusCbFunc = std::bind(
                                     &taf_DataConnRequestRoamingStatusCallback::requestRoamingStatus,
                                     reqRoamingStatusCb,
@@ -1851,6 +1883,7 @@ bool taf_DataConnection::updateStatus(taf_dcs_CallCtx_t *callCtxPtr, dataCallEve
         break;
 
         case telux::data::DataCallStatus::NET_CONNECTED:
+            callCtxPtr->ipType     = eventPtr->ipType;
             le_utf8_Copy(callCtxPtr->intfName, eventPtr->ifName.c_str(),
                          sizeof(callCtxPtr->intfName), NULL);
             if (eventPtr->ipv4Status == telux::data::DataCallStatus::NET_CONNECTED)
@@ -1976,7 +2009,9 @@ void taf_DataConnection::InternalEventHandler(void* reportPtr)
                                                          connHandlerMappingPtr->asyncHandler);
                     }
                     // If starting session failed, remove the session from call ctx.
-                    RemoveSessionFromCallCtx(callCtxPtr, connHandlerMappingPtr->sessionRef);
+                    if(connHandlerMappingPtr != NULL)
+                        RemoveSessionFromCallCtx(callCtxPtr, connHandlerMappingPtr->sessionRef);
+
                     pthread_mutex_lock(&callCtxPtr->callActionMutex);
                     callCtxPtr->isCallActionInProgress = false;
                     pthread_mutex_unlock(&callCtxPtr->callActionMutex);
@@ -1995,11 +2030,13 @@ void taf_DataConnection::InternalEventHandler(void* reportPtr)
             else
             {
                 isSendNotification = updateStatus(callCtxPtr, eventPtr);
-                stateInfo.ipType = GetEvtInfoFromConnStatus(callCtxPtr,
-                                                    telux::data::DataCallStatus::NET_CONNECTING);
                 TAF_ERROR_IF_RET_NIL(isSendNotification != true,
                                      "won't send notification to listener");
-                SendNotificationStateEvent(TAF_DCS_CONNECTING, &stateInfo, callCtxPtr);
+                LE_DEBUG("STARTCALLBACK:callStatus = %s, ipType=%d, ipv4status=%s, ipv6status=%s",
+                dataConnection.CallStatusToString(callCtxPtr->callStatus),(int)stateInfo.ipType,
+                dataConnection.CallStatusToString(callCtxPtr->ipv4Status),
+                dataConnection.CallStatusToString(callCtxPtr->ipv6Status));
+                SendStatusChangedNotification(callCtxPtr,eventPtr);
 
                 // If the call back is from synchronous data call, need to set the result
                 if (callCtxPtr->funcType == CALL_FUNCTION_SYNC_START)
@@ -2026,7 +2063,9 @@ void taf_DataConnection::InternalEventHandler(void* reportPtr)
                     connHandlerMappingPtr = dataConnection.FindAsyncHandler(slotId, profileId);
 
                     // If stopping session failed, add the session into call ctx.
-                    AddSessionToCallCtx(callCtxPtr, connHandlerMappingPtr->sessionRef);
+                    if(connHandlerMappingPtr != NULL)
+                        AddSessionToCallCtx(callCtxPtr, connHandlerMappingPtr->sessionRef);
+
                     pthread_mutex_lock(&callCtxPtr->callActionMutex);
                     callCtxPtr->isCallActionInProgress = false;
                     pthread_mutex_unlock(&callCtxPtr->callActionMutex);
@@ -2060,11 +2099,13 @@ void taf_DataConnection::InternalEventHandler(void* reportPtr)
             else
             {
                 isSendNotification = updateStatus(callCtxPtr, eventPtr);
-                stateInfo.ipType = GetEvtInfoFromConnStatus(callCtxPtr,
-                                                    telux::data::DataCallStatus::NET_CONNECTING);
                 TAF_ERROR_IF_RET_NIL(isSendNotification != true,
                                      "won't send notification to listener");
-                SendNotificationStateEvent(TAF_DCS_DISCONNECTING, &stateInfo, callCtxPtr);
+                LE_DEBUG("STOPCALLBACK:callStatus = %s, ipType=%d, ipv4status=%s, ipv6status=%s",
+                          dataConnection.CallStatusToString(callCtxPtr->callStatus),(int)stateInfo.ipType,
+                          dataConnection.CallStatusToString(callCtxPtr->ipv4Status),
+                          dataConnection.CallStatusToString(callCtxPtr->ipv6Status));
+                SendStatusChangedNotification(callCtxPtr,eventPtr);
 
                 // If the call back is from synchronous data call, need to set the result
                 if (callCtxPtr->funcType == CALL_FUNCTION_SYNC_STOP)
@@ -2605,7 +2646,7 @@ void taf_DataConnection::CloseEventHandler
     return;
 }
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 void taf_DataConnection::onInitCompleted(telux::common::ServiceStatus status)
 {
     std::lock_guard<std::mutex> lock(mtx);
@@ -2737,7 +2778,7 @@ void taf_DataConnection::Init(void)
 {
     auto &dataFactory = telux::data::DataFactory::getInstance();
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 
     int noOfSlots = MIN_SLOT_COUNT;
     if(telux::common::DeviceConfig::isMultiSimSupported())
@@ -2911,7 +2952,7 @@ void taf_DataConnection::Init(void)
     callCtxMutex = le_mutex_CreateNonRecursive("callCtxMutex");
     handlerlistMutex = le_mutex_CreateNonRecursive("handlerlistMutex");
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     // Add power state change handler
     taf_pm_AddStateChangeHandler(PowerStateChangeHandler, NULL);
     if (taf_pm_GetPowerState() != TAF_PM_STATE_SUSPEND)

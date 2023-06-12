@@ -1,0 +1,30 @@
+sandboxed: false
+
+executables:
+{
+    tafDoIPStackUnitTest = ( tafDoIPStackUnitTestComp )
+}
+
+start: manual
+
+processes:
+{
+    run:
+    {
+        (tafDoIPStackUnitTest)
+    }
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+        DOIP_CONFIGURATION = tafDoIP.json
+    }
+    faultAction: stopApp
+
+    maxFileBytes: 1048576K
+}
+
+// Add SELinux module
+components:
+{
+    $TELAF_ROOT/security/selinux/sepolicy/test/tafDoIPStackUnitTest/component
+}

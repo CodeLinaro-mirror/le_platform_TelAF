@@ -574,6 +574,11 @@ le_result_t taf_ecall_GetPropulsionType
     taf_ecall_PropulsionStorageType_t* propulsionStorageType
 )
 {
+    if (propulsionStorageType == NULL) {
+        LE_ERROR("propulsionStorageType is null.");
+        return LE_FAULT;
+    }
+
     le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateReadTxn( CFG_ECALL_PROPULSIONTYPE_PATH);
     le_result_t res = LE_FAULT;
     taf_ecall_PropulsionStorageType_t propulsionType = 0;
@@ -1275,5 +1280,14 @@ le_result_t taf_ecall_TerminateRegistration
 {
     auto &ecall = taf_ecall::GetInstance();
     return ecall.TerminateRegistration();
+}
+
+int32_t taf_ecall_GetPlatformSpecificTerminationCode
+(
+    taf_ecall_CallRef_t ecallRef
+)
+{
+    LE_WARN("Not supported.");
+    return 0;
 }
 

@@ -1,0 +1,264 @@
+/*
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * @page c_taf_mngd_Conn Managed Connectivity Service
+ *
+ * @ref taf_mngd_Conn_interface.h "API Reference"
+ *
+ * <HR>
+ *
+ * The Managed Connectivity service APIs help to manage Connectivity on the NAD/TCU.
+ *
+ * @section taf_mngd_Conn_binding IPC interfaces binding
+ *
+ *
+ * The following example illustrates how to bind to the Managed Connectivity service.
+ * @verbatim
+   bindings:
+   {
+       clientExe.clientComponent.taf_mngd_Conn -> tafMngdConnSvc.taf_mngd_Conn
+   }
+   @endverbatim
+ *
+ * @section taf_mngd_Conn_Connectivity Managed Connectivity
+ *
+ * Before starting the service, the user needs to put the policy file with the name of
+ * mngdConnPolicy.json into the /data/ManagedServices/Policy directory and the configuration file
+ * with the name of mngdConnConfig.json into the /data/ManagedServices/Configuration directory.
+ *
+ * The following shows the template of the file mngdConnPolicy.json:
+ {
+    "ManagedConnectivityServicePolicy":{
+       "Version": 1,
+       "Name": "Default",
+       "ConfigurationFileName": null ///< Specify the config file name if it is not set by API.
+    },
+
+   "DataSession":{
+        "Fallback": "No",
+        "DataConnection":[
+            {
+                "Priority": "1",
+                "Use_Data_ID": "1"  ///< Data ID which is used for the data connection.
+            }
+        ]
+    }
+ }
+ *
+ * The following shows the template of the file mngdConnConfig.json:
+ {
+ "ManagedConnectivityServiceConfiguration":{
+    "Version": 1,
+    "Name": "Default"
+    },
+
+    "Sim":[
+        {
+            "ID": 1,                ///< Sim ID corresponding to the Use_Sim_ID in "Network".
+            "Name": "AT&T",
+            "SlotNumber": 1         ///< Slot ID.
+        }
+    ],
+
+    "Network":[
+        {
+            "ID": 1,                ///< Network ID corresponding to the Use_Network_ID in "Data".
+            "Use_Sim_ID": 1,        ///< SIM ID which is used for this network.
+            "PhoneID": 1,           ///< Phone ID.
+            "Registration": "Auto"  ///< Is automatically registered or not.
+        }
+    ],
+
+    "Data":[
+        {
+            "ID": 1,                ///< Data ID corresponding to the Use_Data_ID in policy file.
+            "Use_Network_ID": 1,    ///< Network ID which is used for this data connection.
+            "Profile":{
+                "Name": "Profile1", ///< Profile Name.
+                "Number": 1,        ///< Profile number.
+                "APN": null         ///< Profile APN.
+            },
+            "AutoStart":"Yes",      ///< Data session is automatically started or not.
+            "PingTest":{
+                "URL": null,
+                "IPv4": null,
+                "IPv6": null
+            }
+        }
+    ]
+ }
+
+ *
+ * @note The Managed Connectivity Service will fail if the policy file or the configuration file is
+ * not correct.
+ *
+ * <HR>
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Include Managed Services common definitions.
+ */
+//--------------------------------------------------------------------------------------------------
+USETYPES taf_mngd_Common.api;
+USETYPES taf_sim.api;
+USETYPES taf_radio.api;
+USETYPES taf_dcs.api;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reference to data.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE Data;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The data state.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM DataState
+{
+    DATA_DISCONNECTED,                                       ///< Data disconnected.
+    DATA_CONNECTED                                           ///< Data connected.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for data state.
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER DataStateHandler
+(
+    Data dataRef                                         IN, ///< The data reference.
+    DataState state                                      IN  ///< The data state.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Events to report data state.
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT DataState
+(
+    Data dataRef,                                            ///< The data reference.
+    DataStateHandler handler                                 ///< The event handler reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+* Gets the data reference for the given data ID.
+*
+* @return
+*  - NULL -- Error.
+*  - Others -- The data reference.
+*/
+//--------------------------------------------------------------------------------------------------
+FUNCTION Data GetData
+(
+    uint8 dataId                                         IN ///< The data ID to use.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Starts a data session for the given data reference. This API should be used when the value of
+ * "AutoStart" is "No" in the configuration file.
+ *
+ * @note This API is global control, not per-client control.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_DUPLICATE -- The data connection is already started.
+ *   - LE_IN_PROGRESS -- The data connection establishment is retried.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DataStart
+(
+    Data dataRef                                          IN ///< The data reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Stops a data cellular session for the given data reference.
+ *
+ * @note This API is global control, not per-client control.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DataStop
+(
+    Data dataRef                                          IN ///< The data reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the data connection state information for the given data reference.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DataGetConnectionState
+(
+    Data dataRef                                          IN,  ///< The data reference.
+    uint8 dataId                                          OUT, ///< The data ID.
+    DataState state                                       OUT ///< The data state.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the data connection IP addresses for the given data reference.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DataGetConnectionIPAddresses
+(
+    Data dataRef                                          IN,  ///< The data reference.
+    string IPv4Addr[taf_dcs.IPV4_ADDR_MAX_LEN]            OUT, ///< IPv4 Address.
+    string IPv6Addr[taf_dcs.IPV6_ADDR_MAX_LEN]            OUT  ///< IPv6 Address.
+);

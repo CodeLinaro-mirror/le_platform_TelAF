@@ -321,7 +321,7 @@ le_result_t taf_Audio::StartAudio
 )
 {
     // SA415M does not support slotId. Comment this function as a workaround.
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     LE_DEBUG("Create and Start audio\n");
     resetCallbackPromise();
     auto status = Status::FAILED;
@@ -800,7 +800,7 @@ le_result_t taf_Audio::CreateandStart
         if (mModemRx && mSpeaker && !mCallStarted)
         {
             config.type = StreamType::VOICE_CALL;
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
             config.slotId = (SlotId)mSlotId;
 #endif
             if (outputPtr->samplePcmConfig.sampleRate != 0)
@@ -841,7 +841,7 @@ le_result_t taf_Audio::CreateandStart
                         break;
                 }
             }
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
             if (streamPtr->echoCancellerEnabled) {
                 config.ecnrMode = EcnrMode::ENABLE;
             } else {
@@ -1894,6 +1894,12 @@ le_result_t taf_Audio::PlayDtmf
     return LE_OK;
 }
 
+void taf_Audio::StopDtmf(taf_audio_StreamRef_t streamRef)
+{
+    LE_WARN("Not supported.");
+    return;
+}
+
 /**
  * Get the player interface
  */
@@ -2312,7 +2318,7 @@ le_result_t taf_Audio::PlayFile
                 auto &audio = taf_Audio::GetInstance();
                 StreamConfig config = {};
                 config.type = StreamType::PLAY;
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
                 config.slotId = DEFAULT_SLOT_ID;
 #endif
                 config.format = AudioFormat::PCM_16BIT_SIGNED;
@@ -2726,7 +2732,7 @@ le_result_t taf_Audio::RecordFile
         auto &audio = taf_Audio::GetInstance();
         StreamConfig config = {};
         config.type = StreamType::CAPTURE;
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
         config.slotId = DEFAULT_SLOT_ID;
 #endif
         config.format = AudioFormat::PCM_16BIT_SIGNED;

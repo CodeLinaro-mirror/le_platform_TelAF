@@ -72,7 +72,7 @@ void taf_Socks::Init(void)
     {
         auto &dataFactory = telux::data::DataFactory::getInstance();
 //SA415 using old telsdk,without initCb parameter
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
         auto initCb = std::bind(&taf_Socks::onInitComplete, this, std::placeholders::_1);
 
         socksManager = dataFactory.getSocksManager(telux::data::OperationType::DATA_LOCAL, initCb);
@@ -87,7 +87,7 @@ void taf_Socks::Init(void)
         return ;
     }
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     // 2. Check subsystem status
     std::unique_lock<std::mutex> lck(mMutex);
 
@@ -492,7 +492,7 @@ void tafSocksCallback::disableSocksAsyncResponse(telux::common::ErrorCode error)
     le_event_Report(tafSocks.socksEvId, &socksEvent,sizeof(taf_SocksEventType_t));
 }
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 /*======================================================================
 
  FUNCTION        taf_Socks::onInitComplete

@@ -150,7 +150,7 @@ void taf_L2tp::Init(void)
     {
         auto &dataFactory = telux::data::DataFactory::getInstance();
 //SA415 using old telsdk,without initCb parameter
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
         auto initCb = std::bind(&taf_L2tp::onInitComplete, this, std::placeholders::_1);
         l2tpManager = dataFactory.getL2tpManager(initCb);
 #else
@@ -164,7 +164,7 @@ void taf_L2tp::Init(void)
         return ;
     }
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     // 5. Check subsystem status
     std::unique_lock<std::mutex> lck(mMutex);
 
@@ -807,7 +807,7 @@ void tafL2tpCallback::stopTunnelAsyncResponse(telux::common::ErrorCode error)
     le_event_Report(tafL2tp.l2tpEventId, &l2tpEvent,sizeof(taf_L2tpEventReq_t));
 }
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 /*======================================================================
 
  FUNCTION        taf_L2tp::onInitComplete
@@ -1152,7 +1152,7 @@ le_result_t taf_L2tp::EnableL2tpCmdSync(bool enableMss, bool enableMtu, uint32_t
     if(mtuSize == 0)
         mtuSize=DEFAULT_MTU_SIZE;
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     Status status = l2tpManager->setConfig(true, enableMss, enableMtu,
                                                    tafL2tpCallback::enableL2tpResponse, mtuSize);
 #else
@@ -1221,7 +1221,7 @@ le_result_t taf_L2tp::DisableL2tpCmdSync(le_msg_SessionRef_t sessionRef)
 
     L2tpDisableSyncPromise = std::promise<le_result_t>();
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     Status status = l2tpManager->setConfig(false, false, false,
                                                    tafL2tpCallback::disableL2tpResponse, 0);
 #else
@@ -1378,7 +1378,7 @@ le_result_t taf_L2tp::EnableL2tp
     {
         case ASYNC_ENABLE_L2TP:
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
             status = l2tpManager->setConfig(true, enableMss, enableMtu,
                                                  tafL2tpCallback::enableL2tpAsyncResponse, mtuSize);
 #else
@@ -1389,7 +1389,7 @@ le_result_t taf_L2tp::EnableL2tp
         break;
         case ASYNC_DISABLE_L2TP:
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
             status = l2tpManager->setConfig(false, enableMss, enableMtu,
                                                 tafL2tpCallback::disableL2tpAsyncResponse, mtuSize);
 #else
@@ -2331,6 +2331,8 @@ taf_net_TunnelEntryListRef_t taf_L2tp::GetTunnelEntryList
             return NULL;
         }
 
+        TAF_ERROR_IF_RET_VAL(tunnelEntryListRefMap == NULL, NULL, "tunnelEntryListRefMap is null");
+
         iterRef = (le_ref_IterRef_t)le_ref_GetIterator(tunnelEntryListRefMap);
 
         if(iterRef != NULL && le_ref_GetValue(iterRef) != NULL
@@ -2855,6 +2857,9 @@ le_result_t taf_L2tp::GetSessionConfig
 )
 {
     int sessionNum=0;
+
+    TAF_ERROR_IF_RET_VAL(sessionConfigPtr == NULL, LE_BAD_PARAMETER,
+                         "Null pointer(sessionConfigPtr)");
     TAF_ERROR_IF_RET_VAL(tunnelEntryRef == NULL, LE_BAD_PARAMETER,
                          "Null reference(tunnelEntryRef)");
 
@@ -2920,7 +2925,7 @@ void tafL2tpCallback::requestConfigResponse
     l2tpConfig.enableL2tp = true;
     l2tpConfig.enableMtu=l2tpSysConfig.enableMtu;
     l2tpConfig.enableTcpMss=l2tpSysConfig.enableTcpMss;
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     l2tpConfig.mtuSize=l2tpSysConfig.mtuSize;
 #else
     l2tpConfig.mtuSize=DEFAULT_MTU_SIZE;

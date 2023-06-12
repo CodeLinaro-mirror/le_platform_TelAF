@@ -56,7 +56,7 @@ static void SendSAPMessageRequest(const uint8_t* msgPtr, size_t msgLen) {
         if ((bytes = write(clientConnectionFd, msgPtr, msgLen)) < 0) {
             LE_ERROR("Write to client failed! %m\n");
         } else if (bytes != msgLen) {
-            LE_ERROR("Write to client only sent %d bytes out of %d!\n", bytes, msgLen);
+            LE_ERROR("Write to client only sent %d bytes out of %" PRIdS, bytes, msgLen);
         }
     }
 

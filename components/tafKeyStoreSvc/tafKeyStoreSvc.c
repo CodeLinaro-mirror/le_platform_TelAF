@@ -695,7 +695,7 @@ le_result_t taf_ks_CreateKey
 )
 {
     le_result_t result;
-    KeyMgt_KeyFileRef_t keyFileRef;
+    KeyMgt_KeyFileRef_t keyFileRef = NULL;
     le_msg_SessionRef_t clientSessionRef;
     taf_ks_Key_t* keyPtr;
     char appName[LE_LIMIT_APP_NAME_LEN + 1] = { 0 };
@@ -794,7 +794,7 @@ le_result_t taf_ks_GetKey
 )
 {
     le_result_t result;
-    KeyMgt_KeyFileRef_t keyFileRef;
+    KeyMgt_KeyFileRef_t keyFileRef = NULL;
     le_msg_SessionRef_t clientSessionRef;
     taf_ks_Key_t* keyPtr;
     char appName[LE_LIMIT_APP_NAME_LEN + 1] = { 0 };
@@ -1227,7 +1227,7 @@ le_result_t taf_ks_ProvisionRsaEncKeyValue
 )
 {
     le_result_t result;
-    KeyMgt_KeyFileRef_t keyFileRef;
+    KeyMgt_KeyFileRef_t keyFileRef = NULL;
     taf_pa_ks_EncPurpose_t keyUsage;
     taf_ks_Key_t* keyPtr;
 
@@ -1313,7 +1313,7 @@ le_result_t taf_ks_ProvisionRsaSigKeyValue
 )
 {
     le_result_t result;
-    KeyMgt_KeyFileRef_t keyFileRef;
+    KeyMgt_KeyFileRef_t keyFileRef = NULL;
     taf_pa_ks_SigPurpose_t keyUsage;
     taf_ks_Key_t* keyPtr;
 
@@ -1399,7 +1399,7 @@ le_result_t taf_ks_ProvisionEcdsaKeyValue
 )
 {
     le_result_t result;
-    KeyMgt_KeyFileRef_t keyFileRef;
+    KeyMgt_KeyFileRef_t keyFileRef = NULL;
     taf_pa_ks_SigPurpose_t keyUsage;
     taf_ks_Key_t* keyPtr;
 
@@ -1485,7 +1485,7 @@ le_result_t taf_ks_ProvisionAesKeyValue
 )
 {
     le_result_t result;
-    KeyMgt_KeyFileRef_t keyFileRef;
+    KeyMgt_KeyFileRef_t keyFileRef = NULL;
     taf_pa_ks_EncPurpose_t keyUsage;
     taf_ks_Key_t* keyPtr;
 
@@ -1571,7 +1571,7 @@ le_result_t taf_ks_ProvisionHmacKeyValue
 )
 {
     le_result_t result;
-    KeyMgt_KeyFileRef_t keyFileRef;
+    KeyMgt_KeyFileRef_t keyFileRef = NULL;
     taf_pa_ks_SigPurpose_t keyUsage;
     taf_ks_Key_t* keyPtr;
 
@@ -1884,7 +1884,7 @@ le_result_t taf_ks_CryptoSessionStart
     le_result_t result = LE_OK;
     taf_ks_CryptoSession_t* sessionPtr = NULL;
     taf_ks_Key_t* keyPtr = NULL;
-    uint64_t handle;
+    uint64_t handle = 0;
 
     if (cryptoPurpose >= TAF_KS_CRYPTO_MAX)
     {

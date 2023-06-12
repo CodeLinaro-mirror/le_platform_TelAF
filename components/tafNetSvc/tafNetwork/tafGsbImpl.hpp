@@ -145,7 +145,7 @@ namespace tafsvc {
         private:
             std::shared_ptr<telux::data::net::IBridgeManager> gsbManager = nullptr;
 
-#ifdef TARGET_SA515M //only sa515 using
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
             bool IsSubSystemStatusUpdated=false;
             std::mutex mMutex;
             std::condition_variable conVar;

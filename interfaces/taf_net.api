@@ -436,6 +436,42 @@
  * - taf_net_GetGsbInterfaceType()  -- Gets the interface type of the GSB.
  * - taf_net_GetGsbBandWidth()      -- Gets the bandwidth of the GSB.
  *
+ * @section c_taf_net_support_phone_id phone ID support.
+ *
+ * Network service provides APIs with phone ID as one of the input parameters in the DSSA/DSDA mode.
+ * The application can call these APIs on the wanted phone ID
+ *
+ * @verbatim
+   profileReference = BindVlanWithProfileEx(vlanReference, 2, 5);
+   @endverbatim
+ *
+ * The following APIs are added for supporting phone ID selection.
+ *
+ * - taf_net_BindVlanWithProfileEx() -- Binds a VLAN with the specified phone ID and profile index.
+ * - taf_net_GetVlanBoundPhoneId() -- Gets the phone ID bound with this VLAN.
+ *
+ * @section c_taf_net_support_vlan_priority VLAN priority.
+ *
+ * Network service provides APIs to support VLAN priority.
+ *
+ * The following example shows how to create a VLAN and set the VLAN priority. This example creates
+ * a VLAN with VLAN ID 5 and priority 6.
+ *
+ * @verbatim
+   vlanReference = taf_net_CreateVlan(5, false);
+   if (!vlanReference)
+   {
+      LE_INFO("isAccelerated conflicts with old value");
+      return LE_FAULT;
+   }
+   result = taf_net_SetVlanPriority(vlanReference, 6);
+   @endverbatim
+ *
+ * The following APIs are added for supporting VLAN priority.
+ *
+ * - taf_net_SetVlanPriority() -- Sets VLAN priority.
+ * - taf_net_GetVlanPriority() -- Gets VLAN priority.
+ *
  * <HR>
  *
  */
@@ -1289,6 +1325,23 @@ FUNCTION Vlan CreateVlan
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Sets the priority to a VLAN.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- VLAN was not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetVlanPriority
+(
+    Vlan vlanRef                              IN, ///< VLAN reference.
+    uint8 priority                            IN  ///< Priority.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Removes a VLAN. 
  *
  * @note The system is not allowed to remove a VLAN if the VLAN interface list is not empty.
@@ -1433,6 +1486,22 @@ FUNCTION VlanIfType GetVlanInterfaceType
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Gets the VLAN priority of a VLAN interface.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- VLAN was not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetVlanPriority
+(
+    VlanIf vlanIfRef                          IN, ///< VLAN interface reference.
+    uint8 priority                            OUT ///< Priority.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Gets the VLAN entry list.
  *
  * @return
@@ -1534,6 +1603,22 @@ FUNCTION int32 GetVlanBoundProfileId
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Gets the phone ID bound with a VLAN by the VLAN entry reference.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- VLAN was not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetVlanBoundPhoneId
+(
+    VlanEntry vlanEntryRef                    IN,  ///< VLAN entry reference.
+    uint8 phoneId                             OUT  ///< Phone ID for VLAN association.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Binds a VLAN with a specified profile ID.
  * 
  * @note Binding VLAN with the default profile ID results in the system automatically rebooting
@@ -1549,6 +1634,27 @@ FUNCTION int32 GetVlanBoundProfileId
 FUNCTION le_result_t BindVlanWithProfile
 (
     Vlan vlanRef                              IN, ///< VLAN reference.
+    uint32 profileId                          IN  ///< Profile ID for VLAN association.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Binds a VLAN with a specified phone ID and profile index.
+ *
+ * @note Binding a VLAN with the default profile ID results in the system automatically rebooting
+ *       after 5 seconds.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- VLAN wass not found.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t BindVlanWithProfileEx
+(
+    Vlan vlanRef                              IN, ///< VLAN reference.
+    uint8 phoneId                             IN, ///< Phone for VLAN association.
     uint32 profileId                          IN  ///< Profile ID for VLAN association.
 );
 

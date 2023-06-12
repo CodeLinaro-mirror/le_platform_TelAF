@@ -551,7 +551,7 @@ SIDE EFFECTS
 le_result_t taf_sms_SetPDU
 (
    taf_sms_MsgRef_t  msgRef,
-   const uint16_t*   pduPtr,
+   const uint8_t*   pduPtr,
    size_t            len
 )
 {
@@ -581,7 +581,6 @@ le_result_t taf_sms_SetPDU
    {
       LE_DEBUG("msgPtr->pdu.data[%d] = 0x%.2X", i, msgPtr->pdu.data[i]);
    }
-
    return LE_OK;
 }
 
@@ -1134,7 +1133,7 @@ SIDE EFFECTS
 
 ======================================================================*/
 
-size_t le_sms_GetPDULen
+size_t taf_sms_GetPDULen
 (
    taf_sms_MsgRef_t  msgRef
 )

@@ -114,8 +114,8 @@ void tafECallListener::onIncomingCall(std::shared_ptr<telux::tel::ICall> call) {
 
 void tafECallListener::onCallInfoChange(std::shared_ptr<telux::tel::ICall> call) {
 
-    taf_ecall_State_t state;
-    tafECallSession_t sessionState;
+    taf_ecall_State_t state = TAF_ECALL_STATE_UNKNOWN;
+    tafECallSession_t sessionState = ECALL_INIT;
 
     auto &eCall = taf_ecall::GetInstance();
     CallState callState = call->getCallState();
@@ -168,7 +168,7 @@ void tafECallListener::onCallInfoChange(std::shared_ptr<telux::tel::ICall> call)
     }
 }
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 void tafECallListener::onEmergencyNetworkScanFail(int phoneId) {
 
 }
@@ -249,7 +249,7 @@ void tafECallListener::onECallHlapTimerEvent(int phoneId, ECallHlapTimerEvents t
     if(timerEvents.t9 == HlapTimerEvent::EXPIRED) {
         state = TAF_ECALL_STATE_T9_EXPIRED;
     }
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     if(timerEvents.t10 == HlapTimerEvent::EXPIRED) {
         state = TAF_ECALL_STATE_T10_EXPIRED;
     }
@@ -535,6 +535,8 @@ le_result_t taf_ecall::SetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t
 }
 
 le_result_t taf_ecall::GetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t *opMode) {
+    TAF_ERROR_IF_RET_VAL(opMode == NULL, LE_BAD_PARAMETER, "OpMode is NULL");
+
     if (Phones.size() >= phoneId) {
         auto phone = Phones[phoneId - 1];
         if(phone) {
@@ -1056,6 +1058,11 @@ le_result_t taf_ecall::SetNadDeregistrationTime(uint16_t deregTime)
 
 le_result_t taf_ecall::GetNadDeregistrationTime(uint16_t* deregTime)
 {
+    if (deregTime == NULL) {
+        LE_ERROR("deregTime is null.");
+        return LE_FAULT;
+    }
+
     le_result_t res = taf_pa_ecall_GetNadDeregistrationTime((uint32_t*) deregTime); //In minutes
     if (LE_OK != res) {
         le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateReadTxn( CFG_MODEMSERVICE_ECALL_PATH );

@@ -27,6 +27,11 @@
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*  Changes from Qualcomm Innovation Center are provided under the following license:
+ *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #include "legato.h"
 #include "interfaces.h"
 #include <iostream>
@@ -145,12 +150,11 @@ le_result_t taf_rsp_ProvideUserConsent
 le_result_t taf_rsp_ProvideConfirmationCode
 (
     taf_sim_Id_t            slotId,
-    const char*             code,
-    size_t                  codeLength
+    const char*             code
 )
 {
     auto &rsp = taf_rsp::GetInstance();
-    return rsp.ProvideConfirmationCode(slotId, code, codeLength);
+    return rsp.ProvideConfirmationCode(slotId, code, strlen(code));
 }
 
 taf_rsp_ProfileDownloadHandlerRef_t taf_rsp_AddProfileDownloadHandler

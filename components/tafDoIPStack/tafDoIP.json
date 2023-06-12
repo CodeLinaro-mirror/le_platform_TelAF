@@ -1,0 +1,30 @@
+{
+    "vehicleInfo":
+    {
+        "VIN": "00000000000000000",
+        "EID": "a2:8c:ed:3e:38:14",
+        "GID": "a2:8c:ed:3e:38:14",
+        "source_address": "0x0201"
+    },
+    "parameters":
+    {
+        "MCTS": 10,
+        "MDS": 10485760,
+        "timer":
+        {
+            "A_DoIP_Announce_Num": 3,
+            "A_DoIP_Announce_Interval": 500,
+            "T_TCP_General_Inactivity": 300000,
+            "T_TCP_Initial_Inactivity": 2000,
+            "T_TCP_Alive_Check": 500
+        }
+    },
+    "network":
+    {
+        "ifname": "bridge0",
+        "type": "IPv4",
+        "UDP_DISCOVERY": 13400,
+        "TCP_DATA": 13400,
+        "TLS": false
+    }
+}

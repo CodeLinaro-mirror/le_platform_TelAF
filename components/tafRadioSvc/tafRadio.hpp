@@ -295,8 +295,8 @@ typedef struct
  */
 typedef struct
 {
-    std::vector<taf_RadioCellInfo_t> servingCell;
-    std::vector<taf_RadioCellInfo_t> neighborCell;
+    std::vector<std::shared_ptr<taf_RadioCellInfo_t>> servingCell;
+    std::vector<std::shared_ptr<taf_RadioCellInfo_t>> neighborCell;
 } taf_RadioCellListInfo_t;
 
 //--------------------------------------------------------------------------------------------------

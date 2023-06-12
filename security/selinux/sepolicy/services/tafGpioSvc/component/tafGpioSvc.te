@@ -40,6 +40,15 @@ modutils_read_module_deps(telaf_tafGpioSvc_t)
 # read gpioWakeupPin.conf
 allow telaf_tafGpioSvc_t telaf_app_rw_t:lnk_file { read_file_perms };
 
+# sa525m gpio devices
+ifdef(`sa525m',`
+gen_require(`
+      type gpiochip_device_t;
+    ')
+    allow telaf_tafGpioSvc_t gpiochip_device_t:chr_file read_file_perms;
+')
+
+
 # Allow update daemon to install/uninstall this service
 telaf_admin_manage_all_files_perms(telaf_tafGpioSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafGpioSvc_exec_t)

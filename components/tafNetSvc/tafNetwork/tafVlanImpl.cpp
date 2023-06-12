@@ -39,9 +39,10 @@
 #include <vector>
 #include <algorithm>
 #include "tafVlanImpl.hpp"
+#include "tafNetworkImpl.hpp"
 #include "tafSvcIF.hpp"
 
-#define OPERATION_TIMEOUT 10
+#define OPERATION_TIMEOUT 30
 
 using namespace telux::tafsvc;
 
@@ -76,7 +77,7 @@ LE_REF_DEFINE_STATIC_MAP(vlanIfListRefMap, TAF_NET_MAX_VLAN_ENTRY);
 
 LE_REF_DEFINE_STATIC_MAP(vlanIfSafeRefMap, TAF_NET_MAX_VLAN_ENTRY);
 
-std::list<std::pair<int, int>> tafVlanMappingCallback::vlanMappingInfo;
+std::map<SlotId, std::list<std::pair<int, int>>> tafVlanMappingCallback::slotVlanMappingInfo;
 std::vector<telux::data::VlanConfig> tafVlanCallback::vlanEntryInfo;
 
 le_sem_Ref_t tafVlanMappingCallback::semaphore = nullptr;
@@ -148,7 +149,7 @@ void taf_Vlan::Init(void)
     {
         auto &dataFactory = telux::data::DataFactory::getInstance();
 //SA415 using old telsdk,without initCb parameter
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
         auto initCb = std::bind(&taf_Vlan::onInitComplete, this, std::placeholders::_1);
         vlanManager = dataFactory.getVlanManager(telux::data::OperationType::DATA_LOCAL,
                             initCb);
@@ -163,7 +164,7 @@ void taf_Vlan::Init(void)
         return ;
     }
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     // 6. Check if subsystem status
     std::unique_lock<std::mutex> lck(mMutex);
 
@@ -328,6 +329,8 @@ void tafVlanCallback::onVlanListResponse(const std::vector<telux::data::VlanConf
     le_sem_Post(semaphore);
 }
 
+tafVlanMappingCallback::tafVlanMappingCallback(SlotId slot) : slotId(slot) {}
+
 /*======================================================================
 
  FUNCTION        tafVlanMappingCallback::onResponseCallback
@@ -391,12 +394,12 @@ void tafVlanMappingCallback::onVlanMappingListResponse
         LE_ERROR("Error(%d)", (int)error);
     }
 
-    vlanMappingInfo = mapping;
+    slotVlanMappingInfo[slotId]=mapping;
 
     le_sem_Post(semaphore);
 }
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 /*======================================================================
 
  FUNCTION        taf_Vlan::onInitComplete
@@ -450,6 +453,7 @@ taf_net_VlanRef_t taf_Vlan::CreateVlan
     taf_Vlan_t *vlanPtr=NULL;
     bool isVlanPresentInDb=false;
     bool IsAcceleratedInDb=false;
+    uint8_t priority=0;
 
     TAF_ERROR_IF_RET_VAL(vlanId < MIN_VLAN_ID || vlanId > MAX_VLAN_ID, NULL, "vlan id is invalid");
     TAF_ERROR_IF_RET_VAL(sessionRef == NULL, NULL, "sessionRef is invalid");
@@ -477,7 +481,7 @@ taf_net_VlanRef_t taf_Vlan::CreateVlan
 
     LE_DEBUG("not found in map");
     //Check if vlan is present in current db
-    isVlanPresentInDb = IsVlanPresentInDb(vlanId,&IsAcceleratedInDb);
+    isVlanPresentInDb = IsVlanPresentInDb(vlanId,&IsAcceleratedInDb,&priority);
 
     //vlan is present in db and isAccelerated mismatch, return NULL
     if( isVlanPresentInDb && IsAcceleratedInDb != isAccelerated)
@@ -492,6 +496,7 @@ taf_net_VlanRef_t taf_Vlan::CreateVlan
         vlanPtr = (taf_Vlan_t*)le_mem_ForceAlloc(vlanPool);
         vlanPtr->vlanId=vlanId;
         vlanPtr->isAccelerated=isAccelerated;
+        vlanPtr->priority=priority;
         vlanPtr->sessionRef=sessionRef;
         return (taf_net_VlanRef_t)le_ref_CreateRef(vlanRefMap, (void*)vlanPtr);
     }
@@ -525,6 +530,7 @@ le_result_t taf_Vlan::RemoveVlan
     taf_Vlan_t *vlanPtr = NULL;
     bool isVlanPresentInDb=false;
     bool IsAcceleratedInDb=false;
+    uint8_t priority=0;
 
     TAF_ERROR_IF_RET_VAL(vlanRef == NULL, LE_BAD_PARAMETER, "vlanRef is null");
 
@@ -533,7 +539,7 @@ le_result_t taf_Vlan::RemoveVlan
     TAF_ERROR_IF_RET_VAL(vlanPtr == NULL, LE_NOT_FOUND, "vlan is not present");
 
     //check if vlan interface is present in this vlan
-    isVlanPresentInDb = IsVlanPresentInDb(vlanPtr->vlanId,&IsAcceleratedInDb);
+    isVlanPresentInDb = IsVlanPresentInDb(vlanPtr->vlanId,&IsAcceleratedInDb,&priority);
 
     TAF_ERROR_IF_RET_VAL(isVlanPresentInDb == true, LE_FAULT, "interface is present in this vlan");
 
@@ -570,6 +576,7 @@ taf_net_VlanRef_t taf_Vlan::GetVlanRefById
     taf_Vlan_t* vlanPtr = NULL;
     bool isVlanPresentInDb=false;
     bool IsAcceleratedInDb=false;
+    uint8_t priority=0;
 
     TAF_ERROR_IF_RET_VAL(sessionRef == NULL, NULL, "sessionRef is invalid");
     le_ref_IterRef_t iterRef = le_ref_GetIterator(vlanRefMap);
@@ -594,7 +601,7 @@ taf_net_VlanRef_t taf_Vlan::GetVlanRefById
     }
     LE_DEBUG("not found in map");
     //Get vlan infor from telsdk
-    isVlanPresentInDb = IsVlanPresentInDb(vlanId,&IsAcceleratedInDb);
+    isVlanPresentInDb = IsVlanPresentInDb(vlanId,&IsAcceleratedInDb,&priority);
     //Vlan is not present in Db
     if( !isVlanPresentInDb )
         return NULL;
@@ -605,6 +612,7 @@ taf_net_VlanRef_t taf_Vlan::GetVlanRefById
         vlanPtr = (taf_Vlan_t*)le_mem_ForceAlloc(vlanPool);
         vlanPtr->vlanId=vlanId;
         vlanPtr->isAccelerated=IsAcceleratedInDb;
+        vlanPtr->priority=priority;
         vlanPtr->sessionRef=sessionRef;
         return (taf_net_VlanRef_t)le_ref_CreateRef(vlanRefMap, (void*)vlanPtr);
     }
@@ -652,6 +660,7 @@ le_result_t taf_Vlan::AddVlanInterface
     vconfig.iface = telux::data::InterfaceType(ifType);
     vconfig.vlanId = vlanPtr->vlanId;
     vconfig.isAccelerated = vlanPtr->isAccelerated;
+    vconfig.priority = vlanPtr->priority;
 
     interfacePresent=IsVlanInterfacePresentInDb(vconfig.vlanId, ifType);
     if(interfacePresent)
@@ -689,6 +698,45 @@ le_result_t taf_Vlan::AddVlanInterface
         return LE_FAULT;
     }
 
+}
+
+/*======================================================================
+
+ FUNCTION        taf_Vlan::SetVlanPriority
+
+ DESCRIPTION     Set VLAN priority.
+
+ DEPENDENCIES    The creation of vlan.
+
+ PARAMETERS      None.
+
+ RETURN VALUE    le_result_t
+                     LE_BAD_PARAMETER: Invalid parameters.
+                     LE_NOT_FOUND:     Vlan is not present.
+                     LE_OK:            Success.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_Vlan::SetVlanPriority
+(
+    taf_net_VlanRef_t vlanRef,
+    uint8_t priority
+)
+{
+    taf_Vlan_t *vlanPtr=NULL;
+
+    TAF_ERROR_IF_RET_VAL(priority > MAX_VLAN_PRIORITY, LE_OUT_OF_RANGE, "priority is out of range");
+
+    TAF_ERROR_IF_RET_VAL(vlanRef == NULL, LE_BAD_PARAMETER, "vlanRef is null");
+
+    vlanPtr = (taf_Vlan_t*)le_ref_Lookup(vlanRefMap, vlanRef);
+
+    TAF_ERROR_IF_RET_VAL(vlanPtr == NULL, LE_NOT_FOUND, "can't get vlan info");
+
+    vlanPtr->priority= priority;
+
+    return LE_OK;
 }
 
 /*======================================================================
@@ -783,7 +831,7 @@ le_result_t taf_Vlan::RemoveVlanInterface
  SIDE EFFECTS
 
 ======================================================================*/
-bool taf_Vlan::IsVlanPresentInDb(uint16_t vlanId, bool *isAccelerated)
+bool taf_Vlan::IsVlanPresentInDb(uint16_t vlanId, bool *isAccelerated, uint8_t *priority)
 {
     TAF_ERROR_IF_RET_VAL(vlanManager == NULL, false, "vlanManager is null");
     TAF_ERROR_IF_RET_VAL(isAccelerated == NULL, false, "isAccelerated is null");
@@ -813,6 +861,7 @@ bool taf_Vlan::IsVlanPresentInDb(uint16_t vlanId, bool *isAccelerated)
             if(vlanId == info.vlanId)
             {
                 *isAccelerated=info.isAccelerated;
+                *priority=info.priority;
                 return true;
             }
         }
@@ -903,6 +952,8 @@ taf_net_VlanEntryListRef_t taf_Vlan::GetVlanEntryList()
 {
     le_ref_IterRef_t iterRef;
     uint16_t previous_vlanId=0;
+    uint8_t slotId;
+    uint32_t profileId;
 
     TAF_ERROR_IF_RET_VAL(vlanManager == NULL, NULL, "vlanManager is null");
 
@@ -925,6 +976,8 @@ taf_net_VlanEntryListRef_t taf_Vlan::GetVlanEntryList()
             return NULL;
         }
 
+        TAF_ERROR_IF_RET_VAL(vlanEntryListRefMap == NULL, NULL, "vlanEntryListRefMap is null");
+
         iterRef = (le_ref_IterRef_t)le_ref_GetIterator(vlanEntryListRefMap);
 
         if(iterRef != NULL && le_ref_GetValue(iterRef) != NULL
@@ -942,12 +995,6 @@ taf_net_VlanEntryListRef_t taf_Vlan::GetVlanEntryList()
         std::sort(tafVlanCallback::vlanEntryInfo.begin(),tafVlanCallback::vlanEntryInfo.end(),
                  sort_vlanId);
 
-        if(GetBindingInfo() != LE_OK)
-        {
-            LE_ERROR("Can't get vlan mapping info");
-            return NULL;
-        }
-
         for (auto info : tafVlanCallback::vlanEntryInfo)
         {
             //queue one item for same vlan id
@@ -957,10 +1004,22 @@ taf_net_VlanEntryListRef_t taf_Vlan::GetVlanEntryList()
                 vlanEntryPtr->info.vlanId=info.vlanId;
                 if(info.vlanId != 0)
                 {
-                    vlanEntryPtr->info.profileId = GetBoundProfileIdFromVlan(info.vlanId);
+                    if(GetBoundSlotIdProfileIdFromVlan(info.vlanId, &slotId, &profileId) == LE_OK)
+                    {
+                        vlanEntryPtr->info.slotId = slotId;
+                        vlanEntryPtr->info.profileId = profileId;
+                    }
+                    else
+                    {
+                        vlanEntryPtr->info.slotId = 0;
+                        vlanEntryPtr->info.profileId = -1;
+                    }
                 }
                 else
+                {
+                    vlanEntryPtr->info.slotId = 0;
                     vlanEntryPtr->info.profileId = -1;
+                }
 
                 vlanEntryPtr->info.isAccelerated=info.isAccelerated;
                 vlanEntryPtr->link = LE_SLS_LINK_INIT;
@@ -1145,7 +1204,9 @@ int16_t taf_Vlan::GetVlanId
                           The vlan entry reference.
 
  RETURN VALUE    le_result_t
-                     vlan id
+                     LE_OK:            Succeeded.
+                     LE_NOT_FOUND:     Vlan is not found
+                     LE_BAD_PARAMETER: Invalid parameter.
 
  SIDE EFFECTS
 
@@ -1184,7 +1245,7 @@ le_result_t taf_Vlan::IsVlanAccelerated
                           The vlan entry reference.
 
  RETURN VALUE    int16_t
-                     vlan id
+                     profile id
 
  SIDE EFFECTS
 
@@ -1202,6 +1263,49 @@ int32_t taf_Vlan::GetVlanProfileId
     TAF_ERROR_IF_RET_VAL(vlanEntryPtr == NULL, -1, "Invalid para(null reference ptr)");
 
     return vlanEntryPtr->info.profileId;
+
+}
+
+/*======================================================================
+
+ FUNCTION        taf_Vlan::GetVlanPhoneId
+
+ DESCRIPTION     Get phone Id binding with the VLAN.
+
+ DEPENDENCIES    Initialization of a vlan entry list and get a safe reference of a vlan entry.
+
+ PARAMETERS      [IN] taf_net_VlanEntryRef_t vlanEntryRef :
+                          The vlan entry reference.
+
+ RETURN VALUE    le_result_t
+                     LE_OK:            Succeeded to get phone Id.
+                     LE_NOT_FOUND:     Vlan is not found
+                     LE_BAD_PARAMETER: Invalid parameter.
+                     LE_FAULT:         Failed to get phone Id.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_Vlan::GetVlanPhoneId
+(
+    taf_net_VlanEntryRef_t vlanEntryRef,
+    uint8_t* phoneIdPtr
+)
+{
+    le_result_t result;
+    auto &network = taf_Net::GetInstance();
+
+    TAF_ERROR_IF_RET_VAL(vlanEntryRef == NULL, LE_BAD_PARAMETER, "Null reference(vlanEntryRef)");
+    TAF_ERROR_IF_RET_VAL(phoneIdPtr == NULL, LE_BAD_PARAMETER, "Null reference(phoneIdPtr)");
+
+    taf_VlanEntry_t* vlanEntryPtr = (taf_VlanEntry_t*)le_ref_Lookup(vlanEntrySafeRefMap,
+                                                                    vlanEntryRef);
+    TAF_ERROR_IF_RET_VAL(vlanEntryPtr == NULL, LE_NOT_FOUND, "Invalid para(null reference ptr)");
+
+    result = network.getPhoneIdFromSlotId(vlanEntryPtr->info.slotId, phoneIdPtr);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "failed to get phone id from slot id");
+
+    return LE_OK;
 
 }
 
@@ -1308,11 +1412,16 @@ taf_net_VlanIfListRef_t taf_Vlan::GetVlanInterfaceList
         TAF_ERROR_IF_RET_VAL(vlanPtr == NULL, NULL, "Invalid para(null reference ptr)");
         vlanId = vlanPtr->vlanId;
 
+        TAF_ERROR_IF_RET_VAL(vlanIfListRefMap == NULL , NULL, "vlanIfListRefMap is null");
+
         iterRef = (le_ref_IterRef_t)le_ref_GetIterator(vlanIfListRefMap);
 
-        while (!isAdded && (le_ref_NextNode(iterRef) == LE_OK))
+        TAF_ERROR_IF_RET_VAL(iterRef == NULL , NULL, "iterRef is null");
+
+        while (!isAdded && (iterRef != NULL) && (le_ref_NextNode(iterRef) == LE_OK))
         {
             existedVlanIfList = (taf_VlanIfList_t*) le_ref_GetValue(iterRef);
+            TAF_ERROR_IF_RET_VAL(existedVlanIfList == NULL, NULL, "Vlan if list is NULL)");
 
             if (existedVlanIfList->vlanId == vlanId)
             {
@@ -1343,6 +1452,7 @@ taf_net_VlanIfListRef_t taf_Vlan::GetVlanInterfaceList
             {
                 vlanIfPtr = (taf_VlanIf_t*)le_mem_ForceAlloc(vlanIfPool);
                 vlanIfPtr->interface=(taf_net_VlanIfType_t)info.iface;
+                vlanIfPtr->priority=info.priority;
                 vlanIfPtr->link = LE_SLS_LINK_INIT;
                 le_sls_Queue(&(vlanIfsList->vlanIfList), &(vlanIfPtr->link));
             }
@@ -1517,6 +1627,39 @@ taf_net_VlanIfType_t taf_Vlan::GetVlanInterfaceType
 
 /*======================================================================
 
+ FUNCTION        taf_Vlan::GetVlanPriority
+
+ DESCRIPTION     Get the vlan priority from a reference.
+
+ DEPENDENCIES    Initialization of a vlan interface list and get a safe reference of a vlan
+                 interface.
+
+ PARAMETERS      [IN] taf_net_VlanIfRef_t vlanIfRef : The vlan interface reference.
+
+ RETURN VALUE    le_result_t
+                     LE_OK:            Succeeded.
+                     LE_NOT_FOUND:     Vlan is not found
+                     LE_BAD_PARAMETER: Invalid parameter.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_Vlan::GetVlanPriority(taf_net_VlanIfRef_t vlanIfRef, uint8_t* priority)
+{
+    TAF_ERROR_IF_RET_VAL(vlanIfRef == NULL, LE_BAD_PARAMETER, "Null reference(vlanIfRef)");
+    TAF_ERROR_IF_RET_VAL(priority == NULL, LE_BAD_PARAMETER, "Null reference(priority)");
+
+    taf_VlanIf_t* vlanIfPtr = (taf_VlanIf_t*)le_ref_Lookup(vlanIfSafeRefMap, vlanIfRef);
+
+    TAF_ERROR_IF_RET_VAL(vlanIfPtr == NULL, LE_NOT_FOUND, "Invalid para(null vlanIfPtr)");
+
+    *priority = vlanIfPtr->priority;
+
+    return LE_OK;
+}
+
+/*======================================================================
+
  FUNCTION        taf_Vlan::CleanVlanInterfaceListRef
 
  DESCRIPTION     Clean the vlan interface list stored in the map.
@@ -1576,6 +1719,7 @@ le_result_t taf_Vlan::CleanVlanInterfaceListRef
  DEPENDENCIES    The initialization of Vlan.
 
  PARAMETERS      [IN] taf_net_VlanRef_t vlanRef: The reference of vlan.
+                 [IN] uint8_t slotid: The slot id
                  [IN] uint32_t profileId: The profile id
 
  RETURN VALUE    le_result_t
@@ -1588,10 +1732,10 @@ le_result_t taf_Vlan::CleanVlanInterfaceListRef
  SIDE EFFECTS
 
 ======================================================================*/
-le_result_t taf_Vlan::BindVlanWithProfile(taf_net_VlanRef_t vlanRef, uint32_t profileId)
+le_result_t taf_Vlan::BindVlanWithProfile(taf_net_VlanRef_t vlanRef, uint8_t slotId, uint32_t profileId)
 {
-#ifdef TARGET_SA515M
-    SlotId slot = SlotId::DEFAULT_SLOT_ID;
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
+    SlotId slot = (SlotId)slotId;
 #endif
 
     le_result_t result;
@@ -1602,14 +1746,9 @@ le_result_t taf_Vlan::BindVlanWithProfile(taf_net_VlanRef_t vlanRef, uint32_t pr
 
     VlanSyncPromise = std::promise<le_result_t>();
 
-    if(GetBindingInfo() != LE_OK)
-    {
-        LE_ERROR("get binding info error");
-        return LE_FAULT;
-    }
    // fix telsdk bug:when the profile is already bound with VLAN,bindWithProfile api from telsdk
    // always return OK
-    vlanId=GetBoundVlanIdFromProfile(profileId);
+    vlanId=GetBoundVlanIdFromSlotAndProfile(slotId, profileId);
     if(vlanId !=0)
     {
         LE_ERROR("Profile is already bound with vlan");
@@ -1621,11 +1760,11 @@ le_result_t taf_Vlan::BindVlanWithProfile(taf_net_VlanRef_t vlanRef, uint32_t pr
     vlanId = vlanPtr->vlanId;
 
     std::shared_ptr<tafVlanMappingCallback> bindVlanWithProfileCb =
-                                                   std::make_shared<tafVlanMappingCallback>();
+                                                   std::make_shared<tafVlanMappingCallback>(slot);
 
     auto  bindVlanWithProfileRespCb = std::bind(&tafVlanMappingCallback::onResponseCallback,
                                                 bindVlanWithProfileCb, std::placeholders::_1);
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     Status status = vlanManager->bindWithProfile(profileId, vlanId, bindVlanWithProfileRespCb,slot);
 #else
     Status status = vlanManager->bindWithProfile(profileId, vlanId, bindVlanWithProfileRespCb);
@@ -1677,13 +1816,10 @@ le_result_t taf_Vlan::BindVlanWithProfile(taf_net_VlanRef_t vlanRef, uint32_t pr
 ======================================================================*/
 le_result_t taf_Vlan::UnbindVlanFromProfile(taf_net_VlanRef_t vlanRef)
 {
-#ifdef TARGET_SA515M
-    SlotId slot = SlotId::DEFAULT_SLOT_ID;
-#endif
-
     le_result_t result;
     uint16_t vlanId=0;
-    uint16_t profileId=0;
+    uint32_t profileId=0;
+    uint8_t slotId=0;
     std::chrono::seconds span(OPERATION_TIMEOUT);
 
     TAF_ERROR_IF_RET_VAL(vlanRef == NULL , LE_BAD_PARAMETER, "vlanRef is null");
@@ -1696,18 +1832,18 @@ le_result_t taf_Vlan::UnbindVlanFromProfile(taf_net_VlanRef_t vlanRef)
 
     TAF_ERROR_IF_RET_VAL(vlanId == 0, LE_FAULT, "Invalid vlan id");
 
-    profileId=GetBoundProfileIdFromVlan(vlanId);
+    result=GetBoundSlotIdProfileIdFromVlan(vlanId, &slotId, &profileId);
 
-    TAF_ERROR_IF_RET_VAL(profileId < 0, LE_FAULT, "Invalid profile id");
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "Getting slotId and profileId failed");
 
     std::shared_ptr<tafVlanMappingCallback> bindVlanWithProfileCb =
-                                                   std::make_shared<tafVlanMappingCallback>();
+                                                   std::make_shared<tafVlanMappingCallback>((SlotId)slotId);
 
     auto  bindVlanWithProfileRespCb = std::bind(&tafVlanMappingCallback::onResponseCallback,
                                                 bindVlanWithProfileCb, std::placeholders::_1);
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     Status status = vlanManager->unbindFromProfile(profileId, vlanId,
-                                                   bindVlanWithProfileRespCb,slot);
+                                                   bindVlanWithProfileRespCb, (SlotId)slotId);
 #else
     Status status = vlanManager->unbindFromProfile(profileId, vlanId, bindVlanWithProfileRespCb);
 #endif
@@ -1739,7 +1875,7 @@ le_result_t taf_Vlan::UnbindVlanFromProfile(taf_net_VlanRef_t vlanRef)
 
 /*======================================================================
 
- FUNCTION        taf_Vlan::GetBoundVlanIdFromProfile
+ FUNCTION        taf_Vlan::GetBoundVlanIdFromSlotAndProfile
 
  DESCRIPTION     Get the bound vlan id from profile.
 
@@ -1754,16 +1890,21 @@ le_result_t taf_Vlan::UnbindVlanFromProfile(taf_net_VlanRef_t vlanRef)
  SIDE EFFECTS
 
 ======================================================================*/
-uint16_t taf_Vlan::GetBoundVlanIdFromProfile(uint32_t profileId)
+uint16_t taf_Vlan::GetBoundVlanIdFromSlotAndProfile(uint8_t slotId, uint32_t profileId)
 {
 
-    if(tafVlanMappingCallback::vlanMappingInfo.size() == 0)
+    if(GetBindingInfo(slotId) != LE_OK)
+        return 0;
+
+    if (tafVlanMappingCallback::slotVlanMappingInfo.find((SlotId)slotId) ==
+        tafVlanMappingCallback::slotVlanMappingInfo.end() ||
+        tafVlanMappingCallback::slotVlanMappingInfo[(SlotId)slotId].size() == 0)
     {
         LE_DEBUG("no binding info for this profile");
         return 0;
     }
 
-    for (auto info : tafVlanMappingCallback::vlanMappingInfo)
+    for (auto info : tafVlanMappingCallback::slotVlanMappingInfo[(SlotId)slotId])
     {
             if((uint32_t)info.first == profileId)
             {
@@ -1777,7 +1918,7 @@ uint16_t taf_Vlan::GetBoundVlanIdFromProfile(uint32_t profileId)
 
 /*======================================================================
 
- FUNCTION        taf_Vlan::GetBoundProfileIdFromVlan
+ FUNCTION        taf_Vlan::GetBoundSlotIdProfileIdFromVlan
 
  DESCRIPTION     Get the bound profile if from vlan.
 
@@ -1792,29 +1933,36 @@ uint16_t taf_Vlan::GetBoundVlanIdFromProfile(uint32_t profileId)
  SIDE EFFECTS
 
 ======================================================================*/
-int32_t taf_Vlan::GetBoundProfileIdFromVlan(uint16_t vlanId)
+le_result_t taf_Vlan::GetBoundSlotIdProfileIdFromVlan(uint16_t vlanId, uint8_t* slotId, uint32_t* profileId)
 {
-    if(GetBindingInfo() != LE_OK)
-    {
-        LE_ERROR("get binding info error");
-        return -1;
-    }
-    if(tafVlanMappingCallback::vlanMappingInfo.size() == 0)
-    {
-        LE_DEBUG("no binding info for this profile");
-        return -1;
-    }
 
-    for (auto info : tafVlanMappingCallback::vlanMappingInfo)
+    TAF_ERROR_IF_RET_VAL(slotId == NULL , LE_BAD_PARAMETER, "slotId ptr is null");
+    TAF_ERROR_IF_RET_VAL(profileId == NULL , LE_BAD_PARAMETER, "profileId ptr is null");
+
+    for(int slotIdIdx =1; slotIdIdx <= 2; slotIdIdx++)
     {
-            if((uint16_t)info.second == vlanId)
+
+        if(GetBindingInfo(slotIdIdx) != LE_OK)
+            continue;
+
+        if (tafVlanMappingCallback::slotVlanMappingInfo.find((SlotId)slotIdIdx) ==
+            tafVlanMappingCallback::slotVlanMappingInfo.end() ||
+            tafVlanMappingCallback::slotVlanMappingInfo[(SlotId)slotIdIdx].size() == 0)
+            continue;
+
+        for (auto info : tafVlanMappingCallback::slotVlanMappingInfo[(SlotId)slotIdIdx])
+        {
+            if((uint32_t)info.second == vlanId)
             {
                 LE_DEBUG("the vlan %d is bound with profile %d",vlanId,(int32_t)info.first);
-                return (int32_t)info.first;
+                *slotId = slotIdIdx;
+                *profileId = info.first;
+                return LE_OK;
             }
+        }
     }
 
-    return -1;
+    return LE_FAULT;
 }
 
 /*======================================================================
@@ -1834,19 +1982,31 @@ int32_t taf_Vlan::GetBoundProfileIdFromVlan(uint16_t vlanId)
  SIDE EFFECTS
 
 ======================================================================*/
-le_result_t taf_Vlan::GetBindingInfo()
+le_result_t taf_Vlan::GetBindingInfo(uint8_t slotId)
 {
-#ifdef TARGET_SA515M
-    SlotId slot = SlotId::DEFAULT_SLOT_ID;
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
+    SlotId slot = SlotId(slotId);
 #endif
     TAF_ERROR_IF_RET_VAL(vlanManager == NULL, LE_FAULT, "vlanManager is null");
     std::chrono::time_point<std::chrono::system_clock> startTime = std::chrono::system_clock::now();
-#ifdef TARGET_SA515M
-    telux::common::Status status = vlanManager->queryVlanMappingList(
-                                            tafVlanMappingCallback::onVlanMappingListResponse,slot);
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
+
+
+    std::shared_ptr<tafVlanMappingCallback> vlanMappingCb =
+                                                     std::make_shared<tafVlanMappingCallback>(slot);
+
+    auto  vlanMappingRespCb = std::bind(&tafVlanMappingCallback::onVlanMappingListResponse,
+                                       vlanMappingCb, std::placeholders::_1, std::placeholders::_2);
+
+    telux::common::Status status = vlanManager->queryVlanMappingList(vlanMappingRespCb, slot);
 #else
-    telux::common::Status status = vlanManager->queryVlanMappingList(
-                                            tafVlanMappingCallback::onVlanMappingListResponse);
+
+    std::shared_ptr<tafVlanMappingCallback> vlanMappingCb =
+                                                     std::make_shared<tafVlanMappingCallback>(1);
+
+    auto  vlanMappingRespCb = std::bind(&tafVlanMappingCallback::onVlanMappingListResponse,
+                                       vlanMappingCb, std::placeholders::_1, std::placeholders::_2);
+    telux::common::Status status = vlanManager->queryVlanMappingList(vlanMappingRespCb);
 #endif
     if (status == telux::common::Status::SUCCESS)
     {

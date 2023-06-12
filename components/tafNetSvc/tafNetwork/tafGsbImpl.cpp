@@ -106,7 +106,7 @@ void taf_Gsb::Init(void)
     {
         auto &dataFactory = telux::data::DataFactory::getInstance();
 //SA415 using old telsdk,without initCb parameter
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
         auto initCb = std::bind(&taf_Gsb::onInitComplete, this, std::placeholders::_1);
         gsbManager = dataFactory.getBridgeManager( initCb );
 #else
@@ -120,7 +120,7 @@ void taf_Gsb::Init(void)
         return ;
     }
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     // 6. Check subsystem status
     std::unique_lock<std::mutex> lck(mMutex);
 
@@ -247,7 +247,7 @@ void tafGsbCallback::onBridgeListResponse
     le_sem_Post(semaphore);
 }
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 /*======================================================================
 
  FUNCTION        taf_Gsb::onInitComplete

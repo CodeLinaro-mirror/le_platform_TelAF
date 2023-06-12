@@ -27,6 +27,11 @@
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*  Changes from Qualcomm Innovation Center are provided under the following license:
+ *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 /*
  * @file       tafRadioImpl.cpp
  * @brief      This file describes the implementation method that radio
@@ -496,7 +501,12 @@ void taf_RadioCellInfoCallback::cellInfoListResponse
         for (auto cellInfo : cellInfoList)
         {
             taf_RadioCellInfo_t cellIdInfo;
-            bool isRegistered;
+            if (cellInfo == NULL)
+            {
+                LE_ERROR("Cell information pointer is NULL.");
+                break;
+            }
+
             switch (cellInfo->getType())
             {
                 case telux::tel::CellType::GSM:
@@ -508,7 +518,16 @@ void taf_RadioCellInfoCallback::cellInfoListResponse
                     cellIdInfo.gsm.lac = gsmCellInfo->getCellIdentity().getLac();
                     cellIdInfo.gsm.ta = gsmCellInfo->getSignalStrengthInfo().getTimingAdvance();
                     cellIdInfo.ss = gsmCellInfo->getSignalStrengthInfo().getDbm();
-                    isRegistered = gsmCellInfo->isRegistered();
+                    if (gsmCellInfo->isRegistered())
+                    {
+                        cellListInfo.servingCell.push_back(
+                            std::make_shared<taf_RadioCellInfo_t>(cellIdInfo));
+                    }
+                    else
+                    {
+                        cellListInfo.neighborCell.push_back(
+                            std::make_shared<taf_RadioCellInfo_t>(cellIdInfo));
+                    }
                     break;
                 }
                 case telux::tel::CellType::CDMA:
@@ -518,7 +537,16 @@ void taf_RadioCellInfoCallback::cellInfoListResponse
                     cellIdInfo.cdma.bsid = cdmaCellInfo->getCellIdentity().getBaseStationId();
                     cellIdInfo.cdma.ecio = cdmaCellInfo->getSignalStrengthInfo().getCdmaEcio();
                     cellIdInfo.ss = cdmaCellInfo->getSignalStrengthInfo().getDbm();
-                    isRegistered = cdmaCellInfo->isRegistered();
+                    if (cdmaCellInfo->isRegistered())
+                    {
+                        cellListInfo.servingCell.push_back(
+                            std::make_shared<taf_RadioCellInfo_t>(cellIdInfo));
+                    }
+                    else
+                    {
+                        cellListInfo.neighborCell.push_back(
+                            std::make_shared<taf_RadioCellInfo_t>(cellIdInfo));
+                    }
                     break;
                 }
                 case telux::tel::CellType::WCDMA:
@@ -529,7 +557,16 @@ void taf_RadioCellInfoCallback::cellInfoListResponse
                     cellIdInfo.umts.cid = umtsCellInfo->getCellIdentity().getIdentity();
                     cellIdInfo.umts.psc = umtsCellInfo->getCellIdentity().getPrimaryScramblingCode();
                     cellIdInfo.ss = umtsCellInfo->getSignalStrengthInfo().getDbm();
-                    isRegistered = umtsCellInfo->isRegistered();
+                    if (umtsCellInfo->isRegistered())
+                    {
+                        cellListInfo.servingCell.push_back(
+                            std::make_shared<taf_RadioCellInfo_t>(cellIdInfo));
+                    }
+                    else
+                    {
+                        cellListInfo.neighborCell.push_back(
+                            std::make_shared<taf_RadioCellInfo_t>(cellIdInfo));
+                    }
                     break;
                 }
                 case telux::tel::CellType::TDSCDMA:
@@ -539,7 +576,16 @@ void taf_RadioCellInfoCallback::cellInfoListResponse
                     cellIdInfo.tdscdma.cid = tdscdmaCellInfo->getCellIdentity().getIdentity();
                     cellIdInfo.tdscdma.lac = tdscdmaCellInfo->getCellIdentity().getLac();
                     cellIdInfo.ss = tdscdmaCellInfo->getSignalStrengthInfo().getRscp();
-                    isRegistered = tdscdmaCellInfo->isRegistered();
+                    if (tdscdmaCellInfo->isRegistered())
+                    {
+                        cellListInfo.servingCell.push_back(
+                            std::make_shared<taf_RadioCellInfo_t>(cellIdInfo));
+                    }
+                    else
+                    {
+                        cellListInfo.neighborCell.push_back(
+                            std::make_shared<taf_RadioCellInfo_t>(cellIdInfo));
+                    }
                     break;
                 }
                 case telux::tel::CellType::LTE:
@@ -552,7 +598,16 @@ void taf_RadioCellInfoCallback::cellInfoListResponse
                     cellIdInfo.lte.earfcn = lteCellInfo->getCellIdentity().getEarfcn();
                     cellIdInfo.lte.ta = lteCellInfo->getSignalStrengthInfo().getTimingAdvance();
                     cellIdInfo.ss = lteCellInfo->getSignalStrengthInfo().getDbm();
-                    isRegistered = lteCellInfo->isRegistered();
+                    if (lteCellInfo->isRegistered())
+                    {
+                        cellListInfo.servingCell.push_back(
+                            std::make_shared<taf_RadioCellInfo_t>(cellIdInfo));
+                    }
+                    else
+                    {
+                        cellListInfo.neighborCell.push_back(
+                            std::make_shared<taf_RadioCellInfo_t>(cellIdInfo));
+                    }
                     break;
                 }
                 case telux::tel::CellType::NR5G:
@@ -564,23 +619,23 @@ void taf_RadioCellInfoCallback::cellInfoListResponse
                     cellIdInfo.nr5g.tac = nr5gCellInfo->getCellIdentity().getTrackingAreaCode();
                     cellIdInfo.nr5g.arfcn = nr5gCellInfo->getCellIdentity().getArfcn();
                     cellIdInfo.ss = nr5gCellInfo->getSignalStrengthInfo().getDbm();
-                    isRegistered = nr5gCellInfo->isRegistered();
+                    if (nr5gCellInfo->isRegistered())
+                    {
+                        cellListInfo.servingCell.push_back(
+                            std::make_shared<taf_RadioCellInfo_t>(cellIdInfo));
+                    }
+                    else
+                    {
+                        cellListInfo.neighborCell.push_back(
+                            std::make_shared<taf_RadioCellInfo_t>(cellIdInfo));
+                    }
                     break;
                 }
                 default:
                 {
                     LE_ERROR("Unknown RAT(%d)", (int)cellInfo->getType());
-                    return;
+                    break;
                 }
-            }
-
-            if (isRegistered)
-            {
-                cellListInfo.servingCell.push_back(cellIdInfo);
-            }
-            else
-            {
-                cellListInfo.neighborCell.push_back(cellIdInfo);
             }
         }
 
@@ -708,7 +763,7 @@ void taf_Radio::RadioProcCmdHandler(void* cmdReqPtr)
         case TAF_RADIO_CMD_TYPE_ASYNC_REG_MANUAL:
         {
             TAF_ERROR_IF_RET_NIL(phoneId > tafRadio.networkManagers.size(),
-                "Invalid para(phoneId:%d > %d)", phoneId, tafRadio.networkManagers.size());
+                "Invalid para(phoneId:%d > %" PRIuS ")", phoneId, tafRadio.networkManagers.size());
 
             auto networkManager = tafRadio.networkManagers[phoneId - 1];
             TAF_ERROR_IF_RET_NIL(networkManager == nullptr, "Invalid para(null ptr, phoneId:%d)", phoneId);
@@ -751,7 +806,7 @@ void taf_Radio::RadioProcCmdHandler(void* cmdReqPtr)
         case TAF_RADIO_CMD_TYPE_ASYNC_NETWORK_SCAN:
         {
             TAF_ERROR_IF_RET_NIL(phoneId > tafRadio.networkManagers.size(),
-                "Invalid para(phoneId:%d > %d)", phoneId, tafRadio.networkManagers.size());
+                "Invalid para(phoneId:%d > %" PRIuS ")", phoneId, tafRadio.networkManagers.size());
 
             auto networkManager = tafRadio.networkManagers[phoneId - 1];
             TAF_ERROR_IF_RET_NIL(networkManager == NULL,
@@ -1041,9 +1096,9 @@ void taf_Radio::Init(void)
             if (networkSystemStatus) {
                 endTime = std::chrono::system_clock::now();
                 elapsedTime = endTime - startTime;
-                LE_INFO("Elapsed time for %d network subsystem: %lfs", index, elapsedTime.count());
+                LE_INFO("Elapsed time for %" PRIuS " network subsystem: %lfs", index, elapsedTime.count());
             } else {
-                LE_ERROR("Fail to init %d network subsystem", index);
+                LE_ERROR("Fail to init %" PRIuS " network subsystem", index);
             }
         }
 
@@ -1062,9 +1117,9 @@ void taf_Radio::Init(void)
             if (servingSystemStatus) {
                 endTime = std::chrono::system_clock::now();
                 elapsedTime = endTime - startTime;
-                LE_INFO("Elapsed time for %d serving subsystem: %lfs", index, elapsedTime.count());
+                LE_INFO("Elapsed time for %" PRIuS " serving subsystem: %lfs", index, elapsedTime.count());
             } else {
-                LE_ERROR("Fail to init %d serving subsystem", index);
+                LE_ERROR("Fail to init %" PRIuS " serving subsystem", index);
             }
         }
     } else {

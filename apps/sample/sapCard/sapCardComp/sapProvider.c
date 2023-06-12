@@ -55,7 +55,7 @@ static void SendResponse(const uint8_t* msgPtr, size_t msgSize) {
         LE_ERROR("Write to daemon failed! %s\n", strerror(errno));
         return;
     } else if (bytes != msgSize) {
-        LE_ERROR("Write to daemon only sent %d bytes out of %d!\n", bytes, msgSize);
+        LE_ERROR("Write to daemon only sent %d bytes out of %" PRIuS, bytes, msgSize);
         return;
     }
     LE_INFO("Send response done");

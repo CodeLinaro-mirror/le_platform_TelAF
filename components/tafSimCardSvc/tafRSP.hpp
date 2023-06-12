@@ -27,6 +27,11 @@
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*  Changes from Qualcomm Innovation Center are provided under the following license:
+ *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #include "legato.h"
 #include "interfaces.h"
 #include <telux/tel/PhoneFactory.hpp>
@@ -96,7 +101,7 @@ namespace telux {
     namespace tafsvc {
         class tafRspListener : public telux::tel::ISimProfileListener {
             public:
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 
             void onDownloadStatus(SlotId slotId, telux::tel::DownloadStatus status,
                     telux::tel::DownloadErrorCause cause) override;

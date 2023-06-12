@@ -2,7 +2,7 @@
 # Makefile used to build the Telematics application framework.
 # --------------------------------------------------------------------------------------------------
 
-TARGETS := sa415m sa515m
+TARGETS := sa415m sa515m sa525m
 UTILITIES := clean distclean
 
 export LEGATO_RELATIVE_PATH := ../legato/legato-af

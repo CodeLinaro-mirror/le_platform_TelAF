@@ -1,0 +1,1024 @@
+/*
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#include <exception>
+#include <stdexcept>
+#include "boost/property_tree/ptree.hpp"
+#include "boost/property_tree/json_parser.hpp"
+#include <boost/exception/diagnostic_information.hpp>
+#include <boost/exception_ptr.hpp>
+#include "tafMngdConnSvcParser_ConfigurationParser.hpp"
+
+
+using std::string;
+using std::to_string;
+using namespace telux::tafsvc;
+
+namespace pt = boost::property_tree;
+using telux::tafsvc::tafMngdConnSvc_ConfigurationParser;
+
+/**
+ * Version should be a number
+*/
+bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Version(
+                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            std::string Value,
+                                            int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
+    if (TAF_MNGD_JSON_DATA_TYPE_NUMBER != DataType)
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+
+    // Valid value. Update Configuration.
+    Configuration.Version = std::stoi(Value);
+    return true;
+}
+
+/**
+ * Name of the configuration should be a string
+ */
+bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Name(
+                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            std::string Value,
+                                            int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
+    if (TAF_MNGD_JSON_DATA_TYPE_STRING != DataType)
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+    // Max string length should be TAF_MNGD_CONN_MAX_NAME_LEN
+    if (Value.size() > TAF_MNGD_CONN_MAX_NAME_LEN)
+    {
+        LE_WARN("Configuration Name is too long");
+        return false;
+    }
+    // Valid value. Update Configuration.
+    le_utf8_Copy(Configuration.Name, Value.c_str(), TAF_MNGD_CONN_MAX_NAME_LEN,NULL);
+    return true;
+}
+
+/**
+ * SIM ID should be a number.
+ */
+bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Sim_ID(
+                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            std::string Value,
+                                            int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
+    if (TAF_MNGD_JSON_DATA_TYPE_NUMBER != DataType)
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+    // Index should be valid as Sim is an array
+    if (Index < 0)
+    {
+        LE_WARN("Invalid Array Index");
+        return false;
+    }
+    // Update the Sim Count.
+    // Index will be 0. So count will be Index + 1
+    Configuration.SimCount = Index + 1;
+
+    // Valid value. Update Configuration.
+    Configuration.Sim[Index].ID = std::stoi(Value);
+    return true;
+}
+
+/**
+ * Sim Name can be a string or NULL.
+ */
+bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Sim_Name(
+                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            std::string Value,
+                                            int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
+    if (TAF_MNGD_JSON_DATA_TYPE_STRING != DataType && TAF_MNGD_JSON_DATA_TYPE_NULL != DataType )
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+    // Index should be valid as Sim is an array
+    if (Index < 0)
+    {
+        LE_WARN("Invalid Array Index");
+        return false;
+    }
+
+    // Max Sim name should be TAF_MNGD_CONN_MAX_NAME_LEN
+    if (Value.size() > TAF_MNGD_CONN_MAX_NAME_LEN)
+    {
+        LE_WARN("Sim Name is too long");
+        return false;
+    }
+
+    // Update the Sim Count.
+    // Index will be 0. So count will be Index + 1
+    Configuration.SimCount = Index + 1;
+
+    // Valid value. Update Configuration.
+    // Set to NULL or string
+    if (TAF_MNGD_JSON_DATA_TYPE_NULL == DataType)
+    {
+        memset(Configuration.Sim[Index].Name, 0, TAF_MNGD_CONN_MAX_NAME_LEN);
+        return true;
+    }
+    // Valid String.
+    // Since we have already validated string length above, we can ignore return value here
+    le_utf8_Copy(Configuration.Sim[Index].Name, Value.c_str(), TAF_MNGD_CONN_MAX_NAME_LEN,NULL);
+
+    return true;
+}
+
+/**
+ * Sim slot number should be a number.
+ */
+bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Sim_SlotNumber(
+                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            std::string Value,
+                                            int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
+    if (TAF_MNGD_JSON_DATA_TYPE_NUMBER != DataType)
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+    // Index should be valid as Sim is an array
+    if (Index < 0)
+    {
+        LE_WARN("Invalid Array Index");
+        return false;
+    }
+
+    // Update the Sim Count.
+    // Index will be 0. So count will be Index + 1
+    Configuration.SimCount = Index + 1;
+
+    // Valid value. Update Configuration.
+    Configuration.Sim[Index].SlotNumber = std::stoi(Value);
+    return true;
+}
+
+/**
+ * Network ID should be a number.
+ */
+bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_ID(
+                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            std::string Value,
+                                            int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
+    if (TAF_MNGD_JSON_DATA_TYPE_NUMBER != DataType)
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+    // Index should be valid as Network is an array
+    if (Index < 0)
+    {
+        LE_WARN("Invalid Array Index");
+        return false;
+    }
+
+    // Update the Network Count.
+    // Index will be 0. So count will be Index + 1
+    Configuration.NetworkCount = Index + 1;
+
+    // Valid value. Update Configuration.
+    Configuration.Network[Index].ID = std::stoi(Value);
+    return true;
+}
+
+/**
+ * Network Use_Sim_ID should be a number.
+ */
+bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_Use_SIM_ID(
+                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            std::string Value,
+                                            int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
+    if (TAF_MNGD_JSON_DATA_TYPE_NUMBER != DataType)
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+    // Index should be valid as Network is an array
+    if (Index < 0)
+    {
+        LE_WARN("Invalid Array Index");
+        return false;
+    }
+
+    // Update the Network Count.
+    // Index will be 0. So count will be Index + 1
+    Configuration.NetworkCount = Index + 1;
+
+    // Valid value. Update Configuration.
+    Configuration.Network[Index].Use_Sim_ID = std::stoi(Value);
+    return true;
+}
+
+/**
+ *  Network Phone ID should be a number.
+ */
+bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_PhoneID(
+                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            std::string Value,
+                                            int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
+    if (TAF_MNGD_JSON_DATA_TYPE_NUMBER != DataType)
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+    // Index should be valid as Network is an array
+    if (Index < 0)
+    {
+        LE_WARN("Invalid Array Index");
+        return false;
+    }
+
+    // Update the Network Count.
+    // Index will be 0. So count will be Index + 1
+    Configuration.NetworkCount = Index + 1;
+
+    // Valid value. Update Configuration.
+    Configuration.Network[Index].PhoneID = std::stoi(Value);
+    return true;
+}
+
+/**
+ * Network Registration should be Auto or Manual.
+ */
+bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_Registration(
+                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            std::string Value,
+                                            int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
+    if (TAF_MNGD_JSON_DATA_TYPE_NW_REGISTRATION != DataType)
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+    // Index should be valid as Network is an array
+    if (Index < 0)
+    {
+        LE_WARN("Invalid Array Index");
+        return false;
+    }
+
+    // Update the Network Count.
+    // Index will be 0. So count will be Index + 1
+    Configuration.NetworkCount = Index + 1;
+
+    // Valid value. Update Configuration.
+    // Since we have already validated type above, we can ignore return value here
+    Configuration.Network[Index].Registration = tafMngd_Convert_to_NW_Registration_Type_enum(Value);
+    return true;
+}
+
+/**
+ * Data ID should be a number.
+ */
+bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_ID(
+                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            std::string Value,
+                                            int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
+    if (TAF_MNGD_JSON_DATA_TYPE_NUMBER != DataType)
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+    // Index should be valid as Data is an array
+    if (Index < 0)
+    {
+        LE_WARN("Invalid Array Index");
+        return false;
+    }
+
+    // Update the Data Count.
+    // Index will be 0. So count will be Index + 1
+    Configuration.DataCount = Index + 1;
+
+    // Valid value. Update Configuration.
+    Configuration.Data[Index].ID = std::stoi(Value);
+
+    return true;
+}
+
+/**
+ * Data Use_Network_ID should be a number.
+ */
+bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Use_Network_ID(
+                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            std::string Value,
+                                            int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
+    if (TAF_MNGD_JSON_DATA_TYPE_NUMBER != DataType)
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+    // Index should be valid as Data is an array
+    if (Index < 0)
+    {
+        LE_WARN("Invalid Array Index");
+        return false;
+    }
+
+    // Update the Data Count.
+    // Index will be 0. So count will be Index + 1
+    Configuration.DataCount = Index + 1;
+
+    // Valid value. Update Configuration.
+    Configuration.Data[Index].Use_Network_ID= std::stoi(Value);
+    return true;
+}
+
+/**
+ * Data Profile Name can be a string or NULL.
+ */
+bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Profile_Name(
+                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            std::string Value,
+                                            int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
+    if (TAF_MNGD_JSON_DATA_TYPE_STRING != DataType && TAF_MNGD_JSON_DATA_TYPE_NULL != DataType)
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+    // Index should be valid as Data is an array
+    if (Index < 0)
+    {
+        LE_WARN("Invalid Array Index");
+        return false;
+    }
+
+    // Update the Data Count.
+    // Index will be 0. So count will be Index + 1
+    Configuration.DataCount = Index + 1;
+
+    // Valid value. Update Configuration.
+    // Set to NULL or string
+    if (TAF_MNGD_JSON_DATA_TYPE_NULL == DataType)
+    {
+        memset(Configuration.Data[Index].Profile.ProfileName,0,TAF_MNGD_CONN_MAX_PROFILE_NAME_LEN);
+        return true;
+    }
+    // Valid String.
+    // Since we have already validated string length above, we can ignore return value here
+    le_utf8_Copy(Configuration.Data[Index].Profile.ProfileName,
+                            Value.c_str(),
+                            TAF_MNGD_CONN_MAX_PROFILE_NAME_LEN,NULL);
+    return true;
+}
+
+/**
+ * Data Profile Number should be a number.
+ */
+bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Profile_Number(
+                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            std::string Value,
+                                            int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
+    if (TAF_MNGD_JSON_DATA_TYPE_NUMBER != DataType)
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+    // Index should be valid as Data is an array
+    if (Index < 0)
+    {
+        LE_WARN("Invalid Array Index");
+        return false;
+    }
+
+    // Update the Data Count.
+    // Index will be 0. So count will be Index + 1
+    Configuration.DataCount = Index + 1;
+
+    // Valid value. Update Configuration.
+    Configuration.Data[Index].Profile.ProfileNumber = std::stoi(Value);
+    return true;
+}
+
+/**
+ * Data Profile APN can be a string or NULL.
+ */
+bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Profile_APN(
+                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            std::string Value,
+                                            int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
+    if (TAF_MNGD_JSON_DATA_TYPE_STRING != DataType && TAF_MNGD_JSON_DATA_TYPE_NULL != DataType)
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+    // Index should be valid as Data is an array
+    if (Index < 0)
+    {
+        LE_WARN("Invalid Array Index");
+        return false;
+    }
+
+    // Update the Data Count.
+    // Index will be 0. So count will be Index + 1
+    Configuration.DataCount = Index + 1;
+
+    // Valid value. Update Configuration.
+    // Set to NULL or string
+    if (TAF_MNGD_JSON_DATA_TYPE_NULL == DataType)
+    {
+        memset(Configuration.Data[Index].Profile.APN, 0, TAF_MNGD_CONN_MAX_APN_LEN);
+        return true;
+    }
+    // Valid String.
+    // Since we have already validated string length above, we can ignore return value here
+    le_utf8_Copy(Configuration.Data[Index].Profile.APN, Value.c_str(),
+                                            TAF_MNGD_CONN_MAX_APN_LEN,NULL);
+    return true;
+}
+
+/**
+ * Validate Data:AutoStart
+ */
+bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_AutoStart(
+                                                    taf_mngd_Conn_Configuration_t &Configuration,
+                                                    std::string Value,
+                                                    int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
+    if (TAF_MNGD_JSON_DATA_TYPE_YES_NO != DataType)
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+    // Valid value. Update Policy.
+    Configuration.Data[Index].AutoStart = tafMngd_Convert_to_Yes_No_enum(Value);
+    return true;
+}
+
+/**
+ * Data Ping Test URL can be a string or NULL.
+ */
+bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PingTest_URL(
+                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            std::string Value,
+                                            int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
+    if (TAF_MNGD_JSON_DATA_TYPE_STRING != DataType && TAF_MNGD_JSON_DATA_TYPE_NULL != DataType)
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+    // Index should be valid as Data is an array
+    if (Index < 0)
+    {
+        LE_WARN("Invalid Array Index");
+        return false;
+    }
+
+    // Update the Data Count.
+    // Index will be 0. So count will be Index + 1
+    Configuration.DataCount = Index + 1;
+
+    // Valid value. Update Configuration.
+    // Set to NULL or string
+    if (TAF_MNGD_JSON_DATA_TYPE_NULL == DataType)
+    {
+        memset(Configuration.Data[Index].PingTest.URL, 0, TAF_MNGD_CONN_MAX_PING_URL_LEN);
+        return true;
+    }
+    // Valid String.
+    // Since we have already validated string length above, we can ignore return value here
+    le_utf8_Copy(Configuration.Data[Index].PingTest.URL, Value.c_str(),
+                                        TAF_MNGD_CONN_MAX_PING_URL_LEN,NULL);
+    return true;
+}
+
+/**
+ * Data Ping Test IPv4 can be a string or NULL.
+ */
+bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PingTest_IPv4(
+                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            std::string Value,
+                                            int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
+    if (TAF_MNGD_JSON_DATA_TYPE_STRING != DataType && TAF_MNGD_JSON_DATA_TYPE_NULL != DataType)
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+    // Index should be valid as Data is an array
+    if (Index < 0)
+    {
+        LE_WARN("Invalid Array Index");
+        return false;
+    }
+
+    // Update the Data Count.
+    // Index will be 0. So count will be Index + 1
+    Configuration.DataCount = Index + 1;
+
+    // Valid value. Update Configuration.
+    // Set to NULL or string
+    if (TAF_MNGD_JSON_DATA_TYPE_NULL == DataType)
+    {
+        memset(Configuration.Data[Index].PingTest.IPv4, 0, TAF_MNGD_CONN_MAX_IPV4_LEN);
+        return true;
+    }
+    // Valid String.
+    // Since we have already validated string length above, we can ignore return value here
+    le_utf8_Copy(Configuration.Data[Index].PingTest.IPv4, Value.c_str(),
+                                                TAF_MNGD_CONN_MAX_IPV4_LEN,NULL);
+
+    return true;
+}
+
+/**
+ * Data Ping Test IPv6 can be a string or NULL.
+ */
+bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PingTest_IPv6(
+                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            std::string Value,
+                                            int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
+    if (TAF_MNGD_JSON_DATA_TYPE_STRING != DataType && TAF_MNGD_JSON_DATA_TYPE_NULL != DataType)
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+    // Index should be valid as Data is an array
+    if (Index < 0)
+    {
+        LE_WARN("Invalid Array Index");
+        return false;
+    }
+
+    // Update the Data Count.
+    // Index will be 0. So count will be Index + 1
+    Configuration.DataCount = Index + 1;
+
+    // Valid value. Update Configuration.
+    // Set to NULL or string
+    if (TAF_MNGD_JSON_DATA_TYPE_NULL == DataType)
+    {
+        memset(Configuration.Data[Index].PingTest.IPv6, 0, TAF_MNGD_CONN_MAX_IPV6_LEN);
+        return true;
+    }
+    // Valid String.
+    // Since we have already validated string length above, we can ignore return value here
+    le_utf8_Copy(Configuration.Data[Index].PingTest.IPv6, Value.c_str(),
+                                                TAF_MNGD_CONN_MAX_IPV6_LEN,NULL);
+    return true;
+}
+
+bool tafMngdConnSvc_ConfigurationParser::ValidateValue(taf_mngd_Conn_Configuration_t &Configuration,
+                                                 std::string property,
+                                                 std::string Value,
+                                                 int Index)
+{
+    LE_DEBUG("Property: %s, Value: %s", property.c_str(), Value.c_str());
+    auto iterator = ConfigurationValidationFuncMap.find(property);
+    if (iterator != ConfigurationValidationFuncMap.end())
+    {
+        return (*iterator->second)(Configuration, Value, Index);
+    }
+
+    // The property is not found, so it's unsupported. Return false.
+    LE_WARN("%s is not supported", property.c_str());
+    return false;
+}
+
+bool tafMngdConnSvc_ConfigurationParser::ParseAndUpdateConfigurationJSON(
+                                                taf_mngd_Conn_Configuration_t &Configuration,
+                                                std::string filename)
+{
+    LE_DEBUG ("Parse Configuration Function");
+    // Try opening an input file stream
+    std::ifstream jsonFile(filename);
+    if (!jsonFile.is_open())
+    {
+        LE_WARN("Unable to open %s", filename.c_str());
+        return false;
+    }
+
+    // Try parsing the JSON
+    pt::ptree tree;
+    try
+    {
+        read_json(jsonFile, tree);
+    }
+    catch (const std::exception &e)
+    {
+        LE_WARN("read_json exception: %s. Check validity of JSON.", e.what());
+        return false;
+    }
+
+    std::string log, JSON_Property, JSON_Value;
+    for (auto & element: tree) {
+
+        // ManagedConnectivityServiceConfiguration object has the 2 properties
+        // Version , Name
+        if ("ManagedConnectivityServiceConfiguration" == element.first ) {
+            log.clear();
+            log = "Top Element: " + element.first;
+            LE_DEBUG ("%s", log.c_str() );
+
+            for (auto & property: element.second) {
+                if (property.first != ""){
+                    log.clear();
+                    log = "Key: " + property.first + ", Value: " +
+                                            property.second.get_value < std::string > ();
+                    LE_DEBUG ("%s", log.c_str() );
+                    JSON_Property.clear();
+                    JSON_Property.append (element.first + ":" + property.first);
+                    JSON_Value.clear();
+                    JSON_Value = property.second.get_value<std::string>();
+                    // Validate the value and update Configuration structure.
+                    // Pass an invalid index as these are not arrays
+                    if (!ValidateValue(Configuration, JSON_Property, JSON_Value,
+                                                        TAF_MNGD_CONN_INVALID_INDEX))
+                    {
+                        LE_WARN("Invalid JSON_Property Value");
+                        LE_INFO("JSON_Property: %s, Value: %s", JSON_Property.c_str(),
+                                                                            JSON_Value.c_str());
+                        return false;
+                    }
+                }
+            }
+            LE_DEBUG ("%s", log.c_str() ); log.clear();
+        }
+
+        // Sim Object
+        // Array object with the following properties
+        // ID, Name, SlotNumber
+        if ( "Sim" == element.first ) {
+            log.clear();
+            log = "Top Element: " + element.first;
+            LE_DEBUG ("%s", log.c_str() );
+
+            // Get the SIM child object
+            auto &child = tree.get_child (element.first);
+            int ElementCount = 0;
+            // Iterate through the Array elements
+            for (auto &array_element: child)
+            {
+                log.clear();
+                log.append ( string("Sim[") + to_string (ElementCount) + "]" );
+                LE_DEBUG ("%s", log.c_str() );
+                // Iterate through elements in each array element
+                for (auto &iter: array_element.second)
+                {
+                    log.clear();
+                    log = "\tKey: " + iter.first + ", Value: " + iter.second.data();
+                    LE_DEBUG ("%s", log.c_str() );
+
+                    JSON_Property.clear();
+                    JSON_Property.append (element.first + ":" + iter.first);
+                    JSON_Value.clear();
+                    JSON_Value = iter.second.data();
+                    // Validate the value and update Configuration structure.
+                    // Sim is an array, so pass element count.
+                    if (!ValidateValue(Configuration, JSON_Property, JSON_Value, ElementCount))
+                    {
+                        LE_WARN("Invalid JSON_Property Value");
+                        LE_INFO("JSON_Property: %s, Value: %s", JSON_Property.c_str(),
+                                                                            JSON_Value.c_str());
+                        return false;
+                    }
+                }
+                // Increment the element count
+                ElementCount++;
+            }
+        }
+
+        // Network object
+        if ( "Network" == element.first ) {
+            log.clear();
+            log = "Top Element: " + element.first;
+            LE_DEBUG ("%s", log.c_str() );
+
+            int ElementCount = 0;
+            // Get the Network child object
+            auto &child = tree.get_child (element.first);
+            // Iterate through the Array elements
+            for (auto &array_element: child)
+            {
+                log.clear();
+                log.append ( string("Network[") + to_string (ElementCount) + "]" );
+                LE_DEBUG ("%s", log.c_str() );
+                // Iterate through elements in each array element
+                for (auto &iter: array_element.second)
+                {
+                    log.clear();
+                    log = "\tKey: " + iter.first + ", Value: " + iter.second.data();
+                    LE_DEBUG ("%s", log.c_str() );
+
+                    JSON_Property.clear();
+                    JSON_Property.append (element.first + ":" + iter.first);
+                    JSON_Value.clear();
+                    JSON_Value = iter.second.data();
+                    // Validate the value and update Configuration structure.
+                    // Network is an array, so pass element count.
+                    if (!ValidateValue(Configuration, JSON_Property, JSON_Value, ElementCount))
+                    {
+                        LE_WARN("Invalid JSON_Property Value");
+                        LE_INFO("JSON_Property: %s, Value: %s", JSON_Property.c_str(),
+                                                                            JSON_Value.c_str());
+                        return false;
+                    }
+                }
+                // Increment the element count
+                ElementCount++;
+            }
+        }
+
+        // Data Object
+        if ( "Data" == element.first ) {
+            log.clear();
+            log = "Top Element: " + element.first;
+            LE_DEBUG ("%s", log.c_str() );
+
+            int ElementCount = 0;
+
+            // Get the Data child object
+            auto &child = tree.get_child (element.first);
+            // Iterate through the Array elements
+            for (auto &array_element: child)
+            {
+                log.clear();
+                log.append ( string("\tData[") + to_string (ElementCount) + "]" );
+                LE_DEBUG ("%s", log.c_str() );
+                // Iterate through elements in each array element
+                for (auto &iter: array_element.second)
+                {
+                    if ( "ID" == iter.first ||
+                         "Use_Network_ID" == iter.first ||
+                         "AutoStart" == iter.first )
+                    {
+                        log.clear();
+                        log = "\t\tKey: " + iter.first + ", Value: " + iter.second.data();
+                        LE_DEBUG("%s", log.c_str());
+
+                        JSON_Property.clear();
+                        JSON_Property.append (element.first + ":" + iter.first);
+                        JSON_Value.clear();
+                        JSON_Value = iter.second.data();
+                        // Validate the value and update Configuration structure.
+                        // Data is an array, so pass element count.
+                        if (!ValidateValue(Configuration, JSON_Property, JSON_Value, ElementCount))
+                        {
+                            LE_WARN("Invalid JSON_Property Value");
+                            LE_INFO("JSON_Property: %s, Value: %s", JSON_Property.c_str(),
+                                                                                JSON_Value.c_str());
+                            return false;
+                        }
+                    }
+                    // Iterate through Profile object
+                    else if ("Profile" == iter.first)
+                    {
+                        log.clear();
+                        log.append("\t\t").append("Profile Node");
+                        LE_DEBUG("%s", log.c_str());
+                        // Iterate through Profile object
+                        for (auto &iter2 : iter.second)
+                        {
+                            log.clear();
+                            log.append("\t\t\t").append("Key: " + iter2.first +
+                                                        ", Value: " + iter2.second.data());
+                            LE_DEBUG("%s", log.c_str());
+
+                            JSON_Property.clear();
+                            JSON_Property.append (element.first + ":" + iter.first +
+                                                                          ":" + iter2.first);
+                            JSON_Value.clear();
+                            JSON_Value = iter2.second.data();
+                            // Validate the value and update Configuration structure.
+                            // Data is an array, so pass element count.
+                            if (! ValidateValue(Configuration, JSON_Property,
+                                                            JSON_Value, ElementCount))
+                            {
+                                LE_WARN("Invalid JSON_Property Value");
+                                LE_INFO("JSON_Property: %s, Value: %s",JSON_Property.c_str(),
+                                                                                JSON_Value.c_str());
+                                return false;
+                            }
+                        }
+                    }
+                    // Iterate through PingTest object
+                    else if ("PingTest" == iter.first)
+                    {
+                        log.clear();
+                        log.append("\t\t").append("PingTest Node");
+                        LE_DEBUG ("%s", log.c_str() );
+
+                        // Iterate through PingTest object
+                        for (auto &iter2: iter.second) {
+                            log.clear();
+                            log.append("\t\t\t").append("Key: " + iter2.first +
+                                                        ", Value: " + iter2.second.data());
+                            LE_DEBUG ("%s", log.c_str() );
+
+                            JSON_Property.clear();
+                            JSON_Property.append (element.first + ":" + iter.first +
+                                                                          ":" + iter2.first);
+                            JSON_Value.clear();
+                            JSON_Value = iter2.second.data();
+                            // Validate the value and update Configuration structure.
+                            // Data is an array, so pass element count.
+                            if (! ValidateValue(Configuration, JSON_Property,
+                                                            JSON_Value, ElementCount))
+                            {
+                                LE_WARN("Invalid JSON_Property Value");
+                                LE_INFO("JSON_Property: %s, Value: %s",JSON_Property.c_str(),
+                                                                                JSON_Value.c_str());
+                                return false;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        log.clear();
+                        log.append("*****").append("Unknown Object: " + iter.first);
+                        LE_WARN("%s", log.c_str());
+                    }
+                }
+                // Increment the element count
+                ElementCount++;
+            }
+        }
+    }
+    return true;
+}
+
+/**
+ * Match the JSON element with the validation function.
+ */
+void tafMngdConnSvc_ConfigurationParser::UpdateValidConfigurationFuncMap(void)
+{
+    ConfigurationValidationFuncMap["ManagedConnectivityServiceConfiguration:Version"]
+                                                            = &Validate_MCSC_Version;
+    ConfigurationValidationFuncMap["ManagedConnectivityServiceConfiguration:Name"]
+                                                            = &Validate_MCSC_Name;
+
+    // Sim
+    ConfigurationValidationFuncMap["Sim:ID"]         = &Validate_MCSC_Sim_ID;
+    ConfigurationValidationFuncMap["Sim:Name"]       = &Validate_MCSC_Sim_Name;
+    ConfigurationValidationFuncMap["Sim:SlotNumber"] = &Validate_MCSC_Sim_SlotNumber;
+
+    // Network
+    ConfigurationValidationFuncMap["Network:ID"]           = &Validate_MCSC_Network_ID;
+    ConfigurationValidationFuncMap["Network:Use_Sim_ID"]   = &Validate_MCSC_Network_Use_SIM_ID;
+    ConfigurationValidationFuncMap["Network:PhoneID"]      = &Validate_MCSC_Network_PhoneID;
+    ConfigurationValidationFuncMap["Network:Registration"] = &Validate_MCSC_Network_Registration;
+
+    // Data
+    ConfigurationValidationFuncMap["Data:ID"]             = &Validate_MCSC_Data_ID;
+    ConfigurationValidationFuncMap["Data:Use_Network_ID"] = &Validate_MCSC_Data_Use_Network_ID;
+    // Data:Profile
+    ConfigurationValidationFuncMap["Data:Profile:Name"]   = &Validate_MCSC_Data_Profile_Name;
+    ConfigurationValidationFuncMap["Data:Profile:Number"] = &Validate_MCSC_Data_Profile_Number;
+    ConfigurationValidationFuncMap["Data:Profile:APN"]    = &Validate_MCSC_Data_Profile_APN;
+    // Data: AutoStart
+    ConfigurationValidationFuncMap["Data:AutoStart"] = &Validate_MCSC_Data_AutoStart;
+    // Data:PingTest
+    ConfigurationValidationFuncMap["Data:PingTest:URL"]   = &Validate_MCSC_Data_PingTest_URL;
+    ConfigurationValidationFuncMap["Data:PingTest:IPv4"]  = &Validate_MCSC_Data_PingTest_IPv4;
+    ConfigurationValidationFuncMap["Data:PingTest:IPv6"]  = &Validate_MCSC_Data_PingTest_IPv6;
+}
+
+void tafMngdConnSvc_ConfigurationParser::ResetConfigurationStructure (
+                                            taf_mngd_Conn_Configuration_t &Configuration)
+{
+    Configuration.Version = 0;
+    Configuration.Name[0] = '\0';
+
+    Configuration.SimCount = 0;
+    for (unsigned int Index = 0; Index < TAF_MNGD_CONN_MAX_SIM_OBJECT_COUNT; Index++)
+    {
+        Configuration.Sim[Index].ID = 0;
+        Configuration.Sim[Index].SlotNumber = 0;
+        Configuration.Sim[Index].Name[0] = '\0';
+    }
+
+    Configuration.NetworkCount = 0;
+    for (unsigned int Index = 0; Index < TAF_MNGD_CONN_MAX_NETWORK_OBJECT_COUNT; Index++)
+    {
+        Configuration.Network[Index].ID = 0;
+        Configuration.Network[Index].Use_Sim_ID = 0;
+        Configuration.Network[Index].PhoneID = 0;
+        Configuration.Network[Index].Registration = TAF_MNGD_CONN_MAX_NW_REGISTRATION_TYPE_AUTO;
+    }
+
+    Configuration.DataCount = 0;
+    for (unsigned int Index = 0; Index < TAF_MNGD_CONN_MAX_DATA_OBJECT_COUNT; Index++)
+    {
+        Configuration.Data[Index].ID                     = 0;
+        Configuration.Data[Index].Use_Network_ID         = 0;
+        Configuration.Data[Index].Profile.ProfileNumber  = 0;
+        Configuration.Data[Index].Profile.ProfileName[0] = '\0';
+        Configuration.Data[Index].Profile.APN[0]         = '\0';
+        Configuration.Data[Index].PingTest.URL[0]        = '\0';
+        Configuration.Data[Index].PingTest.IPv4[0]       = '\0';
+        Configuration.Data[Index].PingTest.IPv6[0]       = '\0';
+    }
+}
+
+bool tafMngdConnSvc_ConfigurationParser::GetConfiguration(
+                                                taf_mngd_Conn_Configuration_t &Configuration,
+                                                std::string ConfigurationFileName)
+{
+    ResetConfigurationStructure(Configuration);
+    if (!ParseAndUpdateConfigurationJSON (Configuration, ConfigurationFileName))
+    {
+        LE_WARN("Configuration JSON is not valid");
+        // Reset the Configuration Structure
+        ResetConfigurationStructure(Configuration);
+        return false;
+    }
+    return true;
+}
+
+/**
+ * Provide the single instance of the Configuration object
+ */
+tafMngdConnSvc_ConfigurationParser& tafMngdConnSvc_ConfigurationParser::getInstance()
+{
+    static tafMngdConnSvc_ConfigurationParser instance;
+
+    // Update the properties and validation functions map
+    instance.UpdateValidConfigurationFuncMap();
+    return instance;
+}

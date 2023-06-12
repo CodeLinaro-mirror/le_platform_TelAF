@@ -76,7 +76,7 @@
 #include "telux/tel/PhoneFactory.hpp"
 #include "telux/common/CommonDefines.hpp"
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 #include <telux/tel/ServingSystemManager.hpp>
 #endif
 #include "tafSvcIF.hpp"
@@ -192,7 +192,7 @@ namespace tafsvc {
         public:
           void onDataCallInfoChanged(const std::shared_ptr<telux::data::IDataCall> &iCall) override;
     };
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     class taf_DataConnServingSystemListener : public telux::data::IServingSystemListener
     {
         public:
@@ -234,7 +234,7 @@ namespace tafsvc {
         public:
             taf_DataConnection() {};
             ~taf_DataConnection() {};
-        #ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
             void onInitCompleted(telux::common::ServiceStatus status);
         #endif
             void Init(void);
@@ -348,7 +348,7 @@ namespace tafsvc {
             taf_dcs_Pdp_t GetEvtInfoFromConnStatus(taf_dcs_CallCtx_t *callCtxPtr,
                                                    telux::data::DataCallStatus callStatus);
             static void CloseEventHandler(le_msg_SessionRef_t sessionRef, void* contextPtr);
-        #ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
             bool subSystemStatusUpdated;
             std::mutex mtx;
             std::condition_variable conVar;

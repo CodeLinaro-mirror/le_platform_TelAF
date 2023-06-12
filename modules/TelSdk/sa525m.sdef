@@ -1,0 +1,100 @@
+//--------------------------------------------------------------------------------------------------
+// TelSDK sa525m system definition that includes essential services.
+//--------------------------------------------------------------------------------------------------
+
+#include "$LEGATO_ROOT/legatoTargetConfig.sinc"
+
+apps:
+{
+    // Platform services.
+    $TELAF_ROOT/apps/tafServices/tafVoiceCallSvc
+    $TELAF_ROOT/apps/tafServices/tafSimCardSvc
+    $TELAF_ROOT/apps/tafServices/tafRadioSvc
+    $TELAF_ROOT/apps/tafServices/tafAudioSvc
+    $TELAF_ROOT/apps/tafServices/tafLocationSvc
+    $TELAF_ROOT/apps/tafServices/tafSMSSvc
+    $TELAF_ROOT/apps/tafServices/tafDataCallSvc
+    $TELAF_ROOT/apps/tafServices/tafRemoteSimSvc
+    $TELAF_ROOT/apps/tafServices/tafPMSvc
+    $TELAF_ROOT/apps/tafServices/tafUpdateSvc
+    $TELAF_ROOT/apps/tafServices/tafECallSvc
+    // $TELAF_ROOT/apps/tafServices/tafMRCSvc
+    $TELAF_ROOT/apps/tafServices/tafGpioSvc
+    $TELAF_ROOT/apps/tafServices/tafNetSvc
+    $TELAF_ROOT/apps/tafServices/tafKeyStoreSvc
+    $TELAF_ROOT/apps/tafServices/tafVNW/tafCanSvc
+    $TELAF_ROOT/apps/tafServices/tafSomeipGWSvc
+
+    // Command-line tools.
+    $LEGATO_ROOT/apps/tools/tools
+
+    // test apps
+    // $TELAF_ROOT/apps/test/tafDataCallTest/tafDataCallUnitTest/tafDataCallUnitTest
+    // $TELAF_ROOT/apps/test/tafVoiceCallTest/tafVoiceCallUnitTest/tafVoiceCallUnitTest
+    // $TELAF_ROOT/apps/test/tafRadioTest/tafRadioUnitTest
+    // $TELAF_ROOT/apps/test/tafRadioTest/tafRadioIntTest
+    // $LEGATO_ROOT/apps/sample/voiceCallApp/voiceCallApp
+    // $TELAF_ROOT/apps/test/tafSimTest/tafSimIntegrationTest/tafSimIntTest
+    // $TELAF_ROOT/apps/test/tafSimTest/tafSimUnitTest/tafSimUnitTest
+    // $TELAF_ROOT/apps/test/tafSmsTest/tafSMSUnitTest
+    // $TELAF_ROOT/apps/test/tafSmsTest/tafSmsIntTest
+    // $TELAF_ROOT/apps/test/tafRSimTest/tafRSimUnitTest/tafRSimUnitTest
+    // $TELAF_ROOT/apps/test/tafRSimTest/tafSAPServerUnitTest/tafSAPServerUnitTest
+    // $TELAF_ROOT/apps/test/tafSimTest/tafRSPUnitTest/tafRSPUnitTest
+    // $TELAF_ROOT/apps/sample/remoteSim/tafRSimApp
+    // $TELAF_ROOT/apps/sample/sapCard/tafSAPProviderApp
+    // $TELAF_ROOT/apps/test/tafUpdateTest/tafUpdateUnitTest
+    // $TELAF_ROOT/apps/test/tafUpdateTest/tafUpdateIntTest
+    // $TELAF_ROOT/apps/test/tafUpdateTest/tafFlashUnitTest
+    // $TELAF_ROOT/apps/test/tafUpdateTest/tafFlashIntTest
+    // $TELAF_ROOT/apps/sample/rsp/tafRSPApp
+    // $TELAF_ROOT/apps/test/tafMRCTest/tafMRCUnitTest
+    // $TELAF_ROOT/apps/test/tafMRCTest/tafMRCIntTest
+    // $TELAF_ROOT/apps/test/tafECallTest/tafECallUnitTest/tafECallUnitTest
+    // $TELAF_ROOT/apps/test/tafNetTest/tafNetUnitTest/tafNetUnitTest
+    // $TELAF_ROOT/apps/test/tafNetTest/tafNetIntTest/tafNetIntTest
+    // $TELAF_ROOT/apps/test/tafKeyStoreTest/tafKeyStoreUnitTest/tafKeyStoreUnitTest
+    // $TELAF_ROOT/apps/test/tafPMTest/tafPMUnitTest/tafPMUnitTest
+    // $TELAF_ROOT/apps/test/tafPMTest/tafPMUnitTest/tafPMIntgTest
+    // $TELAF_ROOT/apps/test/tafGpioTest/tafGpioUnitTest.adef
+    // $TELAF_ROOT/apps/sample/eCallDemo/tafECallApp
+    // $TELAF_ROOT/apps/test/tafLocationTest/tafLocationUnitTest/tafLocationUnitTest
+    // $TELAF_ROOT/apps/test/tafCanTest/tafCanUnitTest
+    // $TELAF_ROOT/apps/test/tafFSCryptTest/tafFSCryptUnitTest/tafFSCryptUnitTest
+    // $TELAF_ROOT/apps/test/tafSomeipGWTest/tafSomeipSvrUnitTest/tafSomeipSvrUnitTest
+    // $TELAF_ROOT/apps/test/tafSomeipGWTest/tafSomeipClntUnitTest/tafSomeipClntUnitTest
+}
+
+commands:
+{
+    cm = tools:/scripts/cm
+    gnss = tools:/bin/gnss
+    fwupdate = tools:/bin/fwupdate
+}
+
+bindings:
+{
+    <c2c>.taf_update -> tafUpdateSvc.taf_update
+    <c2c>.taf_appMgmt -> tafUpdateSvc.taf_appMgmt
+    <c2c>.taf_fwupdate -> tafUpdateSvc.taf_fwupdate
+    <c2c>.taf_dcs -> tafDataCallSvc.taf_dcs
+}
+
+interfaceSearch:
+{
+    $TELAF_ROOT/interfaces
+    $TELAF_ROOT/interfaces/tafVNW
+    interfaces/positioning
+    $LEGATO_ROOT/apps/sample/voiceCallApp
+    // $TELAF_ROOT/apps/test/tafPMTest/tafPMIntgTest
+}
+
+cflags:
+{
+    -DTARGET_SA525M
+}
+
+cxxflags:
+{
+    -DTARGET_SA525M
+}

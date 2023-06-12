@@ -1,0 +1,48 @@
+// Application is sandboxed
+sandboxed: true
+
+// Application is started manually
+start: manual
+
+executables:
+{
+    tafCM = (tafCMComponent)
+}
+
+processes:
+{
+    run:
+    {
+        (tafCM)
+    }
+    envVars:
+    {
+        LE_LOG_LEVEL = INFO
+    }
+}
+
+// TelAF Service bindings
+bindings:
+{
+    tafCM.tafCMComponent.taf_mngd_Conn -> tafMngdConnSvc.taf_mngd_Conn
+}
+
+// Bundle default Configuration and Policy JSONs
+bundles:
+{
+    dir:
+    {
+        [rx] JSONs/ JSONs/
+    }
+}
+
+// Directory in which the Policy and Configuration JSONs will be installed
+requires:
+{
+    dir:
+    {
+        /data/ManagedServices/Configuration /data/ManagedServices/Configuration
+        /data/ManagedServices/Policy /data/ManagedServices/Policy
+        /usr/lib /usr/lib
+    }
+}

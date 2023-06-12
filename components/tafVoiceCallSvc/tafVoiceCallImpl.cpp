@@ -27,6 +27,11 @@
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*  Changes from Qualcomm Innovation Center are provided under the following license:
+ *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #include "legato.h"
 #include "interfaces.h"
 #include "telux/tel/PhoneFactory.hpp"
@@ -38,6 +43,10 @@ using namespace telux::common;
 using namespace telux::tafsvc;
 using namespace std;
 
+#define VoiceCallInfoConfFile "/tmp/.VoiceCallInfo"
+static int callInfofd = -1;
+static bool isCallClosedNormal = true;
+static bool isCallOngoing = false;
 
 LE_MEM_DEFINE_STATIC_POOL(tafCall,MAX_TAFCALL_OBJ,sizeof(taf_VoiceCtrl_t));
 LE_MEM_DEFINE_STATIC_POOL(tafCallRef,MAX_TAFCALL_OBJ,sizeof(taf_CallRefNode_t));
@@ -118,6 +127,19 @@ void tafCallListener::onIncomingCall(std::shared_ptr<telux::tel::ICall> iCall)
     msgCallEvent.event = stateToEvent(state);
     msgCallEvent.inComingCall = true;
     le_event_Report(myCall.CallEvent, &msgCallEvent, sizeof(callEvent_t));
+    if (isCallOngoing == false)
+    {
+        callInfofd = open(VoiceCallInfoConfFile, O_CREAT|O_RDONLY|O_TRUNC);
+        if(callInfofd < 0)
+        {
+            LE_ERROR("open voice call info file failed!");
+        }
+        else
+        {
+            close(callInfofd);
+            isCallOngoing = true;
+        }
+     }
 }
 
 // To handle the event during the call
@@ -143,27 +165,84 @@ void tafCallListener::onCallInfoChange(std::shared_ptr<telux::tel::ICall> iCall)
     if (state == telux::tel::CallState::CALL_DIALING)
     {
         LE_INFO("skip dialing event");
+        if (isCallOngoing == false)
+        {
+            callInfofd = open(VoiceCallInfoConfFile, O_CREAT|O_RDONLY|O_TRUNC);
+            if(callInfofd < 0)
+            {
+                LE_ERROR("open voice call info file failed!");
+            }
+            else
+            {
+                close(callInfofd);
+                isCallOngoing = true;
+            }
+        }
         return;
     }
 
-    // To fix the corner case, iCall is released later when testing with telsdk app,
-    // callRef is used for the event report.
-    taf_VoiceCtrl_t* callCtxPtr = myCall.GetCallCtx(iCall);
-    TAF_ERROR_IF_RET_NIL(callCtxPtr == NULL, "cannot get call context for event[%s]",
-        callStateToString(state));
-    msgCallEvent.callRef = callCtxPtr->callRef;
-    le_utf8_Copy(msgCallEvent.dest, iCall->getRemotePartyNumber().c_str(), MAX_DESTINATION_LEN, NULL);
-    msgCallEvent.phoneId = iCall->getPhoneId();
-    msgCallEvent.event = stateToEvent(state);
-    msgCallEvent.inComingCall = isIncomingCall;
-
-    if (msgCallEvent.event == TAF_VOICECALL_EVENT_ENDED)
+    if (isCallClosedNormal == false)
     {
-        msgCallEvent.termination = endCauseToTermination(iCall->getCallEndCause());
-        LE_DEBUG("EndCause: %d, termination: %d", (uint32_t)iCall->getCallEndCause(), (uint32_t)msgCallEvent.termination);
+        LE_INFO("voice call has been closed normal now");
+        if (state == telux::tel::CallState::CALL_ENDED)
+        {
+            isCallClosedNormal = true;
+            callInfofd = unlink(VoiceCallInfoConfFile);
+            if (callInfofd < 0)
+            {
+                LE_ERROR("delete voice call info file failed!");
+            }
+        }
     }
+    else
+    {
+        // To fix the corner case, iCall is released later when testing with telsdk app,
+        // callRef is used for the event report.
+        taf_VoiceCtrl_t* callCtxPtr = myCall.GetCallCtx(iCall);
+        TAF_ERROR_IF_RET_NIL(callCtxPtr == NULL, "cannot get call context for event[%s]",
+            callStateToString(state));
+        msgCallEvent.callRef = callCtxPtr->callRef;
+        le_utf8_Copy(msgCallEvent.dest, iCall->getRemotePartyNumber().c_str(), MAX_DESTINATION_LEN, NULL);
+        msgCallEvent.phoneId = iCall->getPhoneId();
+        msgCallEvent.event = stateToEvent(state);
+        msgCallEvent.inComingCall = isIncomingCall;
 
-    le_event_Report(myCall.CallEvent, &msgCallEvent,sizeof(callEvent_t));
+        if (msgCallEvent.event == TAF_VOICECALL_EVENT_ENDED)
+        {
+            msgCallEvent.termination = endCauseToTermination(iCall->getCallEndCause());
+            LE_DEBUG("EndCause: %d, termination: %d", (uint32_t)iCall->getCallEndCause(), (uint32_t)msgCallEvent.termination);
+
+            std::shared_ptr<ICall> spCall = nullptr;
+            bool isAllVoiceCallClosed =true;
+            std::vector<std::shared_ptr<ICall>> inProgressCalls
+                = myCall.CallMgr->getInProgressCalls();
+            for(auto callIterator = std::begin(inProgressCalls);
+                callIterator != std::end(inProgressCalls); ++callIterator)
+            {
+                spCall = *callIterator;
+                if(spCall)
+                {
+                    if (spCall->getCallState() != telux::tel::CallState::CALL_ENDED)
+                    {
+                        isAllVoiceCallClosed = false;
+                        break;
+                    }
+                }
+            }
+
+            if (isAllVoiceCallClosed == true)
+            {
+                isCallOngoing = false;
+                callInfofd = unlink(VoiceCallInfoConfFile);
+                if (callInfofd < 0)
+                {
+                    LE_ERROR("delete voice call info file failed!");
+                }
+            }
+        }
+
+        le_event_Report(myCall.CallEvent, &msgCallEvent,sizeof(callEvent_t));
+    }
 }
 
 const char* tafCallListener::callStateToString(telux::tel::CallState state)
@@ -482,14 +561,14 @@ void taf_VoiceCall::ShowAll()
     }
 
     LE_DEBUG("========================== voice call show all start ==========================");
-    LE_DEBUG("SessionCtx list num: %d", le_dls_NumLinks(&SessionCtxList));
+    LE_DEBUG("SessionCtx list num: %" PRIuS, le_dls_NumLinks(&SessionCtxList));
     le_dls_Link_t* linkPtr = le_dls_Peek(&SessionCtxList);
     while (linkPtr)
     {
         taf_SessionCtx_t* sessionCtxTmpPtr = CONTAINER_OF(linkPtr, taf_SessionCtx_t, link);
         linkPtr = le_dls_PeekNext(&SessionCtxList, linkPtr);
 
-        LE_DEBUG("   [%d]sessionCtx:%p Ref: %p Handler Num: %d, CallRef Num: %d",
+        LE_DEBUG("   [%d]sessionCtx:%p Ref: %p Handler Num: %" PRIuS ", CallRef Num: %" PRIuS,
             i++, sessionCtxTmpPtr, sessionCtxTmpPtr->sessionRef,
             le_dls_NumLinks(&sessionCtxTmpPtr->handlerList), le_dls_NumLinks(&sessionCtxTmpPtr->callRefList));
 
@@ -508,19 +587,19 @@ void taf_VoiceCall::ShowAll()
             taf_CallRefNode_t * callRefPtr = CONTAINER_OF(linkCallRef, taf_CallRefNode_t, link);
             linkCallRef = le_dls_PeekPrev(&sessionCtxTmpPtr->callRefList, linkCallRef);
 
-            LE_DEBUG("       [%d]callRef: 0x%x", k++, (uint32_t)callRefPtr->callRef);
+            LE_DEBUG("       [%d]callRef: %p", k++, callRefPtr->callRef);
         }
     }
 
     i = 0, j = 0, k = 0;
-    LE_DEBUG("CallCtx Num: %d", le_dls_NumLinks(&CallCtrlList));
+    LE_DEBUG("CallCtx Num: %" PRIuS, le_dls_NumLinks(&CallCtrlList));
     linkPtr = le_dls_Peek(&CallCtrlList);
     while ( linkPtr )
     {
         taf_VoiceCtrl_t* callCtxPtr = CONTAINER_OF( linkPtr, taf_VoiceCtrl_t, link);
         linkPtr = le_dls_PeekNext(&CallCtrlList, linkPtr);
-        LE_DEBUG("   [%d]ID: %d, destId: %s, callRef: 0x%x, event: %s, termination: %s",
-            i++, callCtxPtr->phoneId, callCtxPtr->destId, (uint32_t)callCtxPtr->callRef,
+        LE_DEBUG("   [%d]ID: %d, destId: %s, callRef: %p, event: %s, termination: %s",
+            i++, callCtxPtr->phoneId, callCtxPtr->destId, callCtxPtr->callRef,
             EventToString(callCtxPtr->event), TerminationToString(callCtxPtr->termination));
 
         le_dls_Link_t* linkSessionRefPtr = le_dls_Peek(&(callCtxPtr->sessionRefList));
@@ -651,7 +730,7 @@ le_result_t taf_VoiceCall::SendCallEventToClient(taf_VoiceCtrl_t *callCtxPtr, bo
             }
             else
             {
-                LE_WARN("sessionRefNode already exist or session handler(%d) is nout bound", numLinks);
+                LE_WARN("sessionRefNode already exist or session handler(%" PRIuS ") is nout bound", numLinks);
             }
         }
     }
@@ -1238,7 +1317,7 @@ le_result_t taf_VoiceCall::SwapCall(taf_voicecall_CallRef_t callRef, le_msg_Sess
     }
 
     std::shared_ptr<telux::tel::ICall> iCall1, iCall2;
-    uint8_t iCall1PhoneId, iCall2PhoneId;
+    uint8_t iCall1PhoneId = DEFAULT_PHONE_ID, iCall2PhoneId = DEFAULT_PHONE_ID;
     for(auto callIterator = std::begin(inProgressCalls); callIterator != std::end(inProgressCalls);
         ++callIterator)
     {
@@ -1350,6 +1429,38 @@ void taf_VoiceCall::Init(void)
     HoldCb = std::make_shared<tafCallCommandCallback>();
     ResumeCb = std::make_shared<tafCallCommandCallback>();
     SwapCb = std::make_shared<tafCallCommandCallback>();
+
+    struct stat st;
+    if (stat(VoiceCallInfoConfFile, &st) == 0)
+    {
+        isCallClosedNormal = false;
+        LE_INFO("voice call was not closed normal ");
+        std::shared_ptr<ICall> spCall = nullptr;
+        Status status = Status::FAILED;
+        std::vector<std::shared_ptr<ICall>> inProgressCalls
+            = CallMgr->getInProgressCalls();
+        for(auto callIterator = std::begin(inProgressCalls);
+            callIterator != std::end(inProgressCalls); ++callIterator)
+        {
+            spCall = *callIterator;
+            if(spCall)
+            {
+                LE_INFO("There's voice call active");
+                if (spCall->getCallState() != telux::tel::CallState::CALL_ENDED)
+                {
+                    if (spCall->getCallState() == CallState::CALL_INCOMING)
+                        status = spCall->reject(std::shared_ptr<telux::common::ICommandResponseCallback> (nullptr));
+                    else
+                        status = spCall->hangup(nullptr);
+
+                    if (status != Status::SUCCESS)
+                    {
+                        LE_ERROR("voice call hangup failed!");
+                    }
+                }
+            }
+        }
+    }
 
     LE_INFO("System ready, start voice call service!\n");
 

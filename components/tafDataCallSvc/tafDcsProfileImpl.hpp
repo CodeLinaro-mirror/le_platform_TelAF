@@ -27,6 +27,11 @@
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*  Changes from Qualcomm Innovation Center are provided under the following license:
+ *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #include "legato.h"
 #include "interfaces.h"
 #include <string>
@@ -95,7 +100,7 @@ namespace tafsvc {
     {
         public:
             void Init(void);
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
                 void onInitCompleted(telux::common::ServiceStatus status);
 #endif
             le_result_t getPhoneIdFromSlotId(uint8_t slotId, uint8_t *phoneIdPtr);
@@ -169,7 +174,7 @@ namespace tafsvc {
             le_thread_Ref_t ProfileEventThreadRef = NULL;
             std::map<SlotId, uint32_t> ProfileNum;
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
             bool subSystemStatusUpdated;
             std::mutex mtx;
             std::condition_variable conVar;

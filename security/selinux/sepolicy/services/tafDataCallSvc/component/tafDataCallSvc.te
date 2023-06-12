@@ -14,6 +14,15 @@ files_type(telaf_tafDataCallSvc_data_t);
 
 init_telaf_app_domain(telaf_tafDataCallSvc_t,telaf_tafDataCallSvc_exec_t)
 
+ifdef(`sa525m',`
+    # Use qti network manager unix datagram sockets
+    qnetmgr_use_unix_stream_sockets(telaf_tafDataCallSvc_t)
+
+    # Providing necessary permissions to contain a telux data
+    telsdk_read_qcmap_etc_data_files(telaf_tafDataCallSvc_t)
+    telux_allow_data(telaf_tafDataCallSvc_t)
+')
+
 # Allow update daemon to install/uninstall this service
 telaf_admin_manage_all_files_perms(telaf_tafDataCallSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafDataCallSvc_exec_t)

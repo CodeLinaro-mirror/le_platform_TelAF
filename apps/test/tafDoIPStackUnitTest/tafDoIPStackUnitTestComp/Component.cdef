@@ -1,0 +1,19 @@
+sources:
+{
+    tafDoIPStackUnitTest.c
+    tafDoIPInterfaceTest.c
+    tafDoIPNodeTest.c
+}
+
+requires:
+{
+    component:
+    {
+        $TELAF_ROOT/components/tafDoIPStack
+    }
+}
+
+cflags:
+{
+    -I$TELAF_ROOT/components/tafDoIPStack
+}

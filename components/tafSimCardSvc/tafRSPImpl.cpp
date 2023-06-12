@@ -27,6 +27,11 @@
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*  Changes from Qualcomm Innovation Center are provided under the following license:
+ *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #include "legato.h"
 #include "interfaces.h"
 #include <iostream>
@@ -41,7 +46,7 @@ using namespace telux::tafsvc;
 
 LE_MEM_DEFINE_STATIC_POOL(tafProfileListPool, TAF_RSP_MAX_PROFILE,
                            sizeof(taf_rsp_ProfileListNode_t));
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 void tafRspListener::onDownloadStatus(SlotId slotId, telux::tel::DownloadStatus status,
     telux::tel::DownloadErrorCause cause) {
 
@@ -427,7 +432,7 @@ le_result_t taf_rsp::RequestProfileList( taf_sim_Id_t slotId, taf_rsp_ProfileLis
 
 le_result_t taf_rsp::GetServerAddress( taf_sim_Id_t slotId, char* smdpAddress, size_t smdpLength,char* smdsAddress,
         size_t smdsLength) {
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     SlotId slot = (SlotId) slotId;
     ProfileSyncPromise = std::promise<le_result_t>();
 
@@ -438,7 +443,7 @@ le_result_t taf_rsp::GetServerAddress( taf_sim_Id_t slotId, char* smdpAddress, s
     std::shared_ptr<tafRspCallback> getServerAddressCb = std::make_shared<tafRspCallback>();
     auto  responseCb = std::bind(&tafRspCallback::onServerAddressResponse, getServerAddressCb,
                              std::placeholders::_1, std::placeholders::_2,  std::placeholders::_3);
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     Status status = simProfileManager->requestServerAddress(slot,responseCb);
 
     if (status == Status::SUCCESS) {
@@ -458,7 +463,7 @@ le_result_t taf_rsp::GetServerAddress( taf_sim_Id_t slotId, char* smdpAddress, s
 }
 
 le_result_t taf_rsp::SetServerAddress( taf_sim_Id_t slotId, const char* smdpAddress) {
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     SlotId slot = (SlotId) slotId;
     ProfileSyncPromise = std::promise<le_result_t>();
 
@@ -622,7 +627,7 @@ le_result_t taf_rsp::ProvideUserConsent(taf_sim_Id_t slotId, bool userConsent, t
     std::shared_ptr<tafRspCallback> provideUserConsentCb = std::make_shared<tafRspCallback>();
     auto  responseCb = std::bind(&tafRspCallback::onResponseCallback, provideUserConsentCb, std::placeholders::_1);
     Status status = Status::FAILED;
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     status = simProfileManager->provideUserConsent(slot, userConsent,
             static_cast<telux::tel::UserConsentReasonType>(reason), responseCb);
 #endif
@@ -645,7 +650,7 @@ le_result_t taf_rsp::ProvideUserConsent(taf_sim_Id_t slotId, bool userConsent, t
 
 le_result_t taf_rsp::ProvideConfirmationCode( taf_sim_Id_t slotId, const char* code, size_t codeLength) {
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
          SlotId slot = (SlotId) slotId;
     if( taf_sim_SelectCard(slotId)!= LE_OK) {
         slot = SlotId::DEFAULT_SLOT_ID;
@@ -656,7 +661,7 @@ le_result_t taf_rsp::ProvideConfirmationCode( taf_sim_Id_t slotId, const char* c
     std::shared_ptr<tafRspCallback> provideConfirmationCodeCb = std::make_shared<tafRspCallback>();
     auto  responseCb = std::bind(&tafRspCallback::onResponseCallback, provideConfirmationCodeCb, std::placeholders::_1);
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     Status status = simProfileManager->provideConfirmationCode(slot, code, responseCb);
 
     if (status == Status::SUCCESS) {

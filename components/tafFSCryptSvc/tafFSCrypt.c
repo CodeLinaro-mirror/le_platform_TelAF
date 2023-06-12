@@ -94,10 +94,16 @@ static bool IsDirectoryEmpty(const char *dirname)
     struct dirent *d;
     DIR *dir = opendir(dirname);
 
+    if(dir == NULL)
+    {
+        LE_ERROR("dir == NULL");
+        return false;
+    }
+
     while ((d = readdir(dir)) != NULL)
     {
-      if(++n > 2)
-        break;
+        if(++n > 2)
+            break;
     }
     closedir(dir);
 
@@ -402,9 +408,19 @@ le_result_t taf_fsc_LockStorage
     taf_fsc_StorageRef_t StorageRef
 )
 {
-    LE_ASSERT(StorageRef != NULL);
+    if(StorageRef == NULL)
+    {
+        LE_ERROR("StorageRef is NULL");
+        return LE_BAD_PARAMETER;
+    }
 
     taf_fsc_Storage_t* storagePtr = (taf_fsc_Storage_t*)le_ref_Lookup(StorageRefMap, StorageRef);
+
+    if(storagePtr == NULL)
+    {
+        LE_ERROR("storagePtr == NULL");
+        return LE_FAULT;
+    }
 
     le_result_t res = LE_OK;
 
@@ -437,13 +453,23 @@ le_result_t taf_fsc_UnlockStorage
     taf_fsc_StorageRef_t StorageRef
 )
 {
-    LE_ASSERT(StorageRef != NULL);
+    if(StorageRef == NULL)
+    {
+        LE_ERROR("StorageRef is NULL");
+        return LE_BAD_PARAMETER;
+    }
 
-    KeyMgt_KeyFileRef_t keyFileRef;
+    KeyMgt_KeyFileRef_t keyFileRef = NULL;
 
     uint8_t key[FSC_MAX_KEY_SIZE] = {0};
 
     taf_fsc_Storage_t* storagePtr = (taf_fsc_Storage_t*)le_ref_Lookup(StorageRefMap, StorageRef);
+
+    if(storagePtr == NULL)
+    {
+        LE_ERROR("storagePtr == NULL");
+        return LE_FAULT;
+    }
 
     // Process PA layer validation and get raw key
     le_result_t res = taf_pa_fsc_GetKey(taf_fsc_GetClientSessionRef(),
@@ -452,7 +478,11 @@ le_result_t taf_fsc_UnlockStorage
                                         key,
                                         FSC_MAX_KEY_SIZE);
 
-    LE_ASSERT(keyFileRef == storagePtr->keyFileRef);
+    if(keyFileRef != storagePtr->keyFileRef)
+    {
+        LE_ERROR("keyFileRef != storagePtr->keyFileRef");
+        return LE_FAULT;
+    }
 
     res = IoControl_add_key(key, storagePtr->descriptor, storagePtr->dirpath);
 
@@ -482,9 +512,19 @@ le_result_t taf_fsc_DeleteStorage
     taf_fsc_StorageRef_t StorageRef
 )
 {
-    LE_ASSERT(StorageRef != NULL);
+    if(StorageRef == NULL)
+    {
+        LE_ERROR("StorageRef is NULL");
+        return LE_BAD_PARAMETER;
+    }
 
     taf_fsc_Storage_t* storagePtr = (taf_fsc_Storage_t*)le_ref_Lookup(StorageRefMap, StorageRef);
+
+    if(storagePtr == NULL)
+    {
+        LE_ERROR("storagePtr == NULL");
+        return LE_FAULT;
+    }
 
     le_result_t res = LE_OK;
 
@@ -541,7 +581,11 @@ static le_result_t FindAppStorageRef
     while (le_ref_NextNode(iterRef) == LE_OK)
     {
         taf_fsc_Storage_t* storagePtr = le_ref_GetValue(iterRef);
-        LE_ASSERT(storagePtr != NULL);
+        if(storagePtr == NULL)
+        {
+            LE_ERROR("storagePtr == NULL");
+            return LE_FAULT;
+        }
 
         // Find the node that context matches to the current client and storage but session has been closed
         if ((storagePtr->keyFileRef == keyFileRef) &&
@@ -577,7 +621,13 @@ taf_fsc_StorageRef_t taf_fsc_GetStorageRef
     le_result_t *result                                  ///< error status.
 )
 {
-    KeyMgt_KeyFileRef_t keyFileRef;
+    if(result == NULL)
+    {
+        LE_ERROR("result is NULL");
+        return NULL;
+    }
+
+    KeyMgt_KeyFileRef_t keyFileRef = NULL;
 
     uint8_t key[FSC_MAX_KEY_SIZE] = {0};
     bool storageAlreadyExist = false;
@@ -622,7 +672,14 @@ taf_fsc_StorageRef_t taf_fsc_GetStorageRef
     else
     {
         *result = LE_NOT_FOUND;
-        LE_ASSERT(LE_OK == le_dir_MakePath(dirPath, S_IRWXU));
+
+        LE_ERROR("Try to make path: %s", dirPath);
+        if(LE_OK != le_dir_MakePath(dirPath, S_IRWXU))
+        {
+            LE_ERROR("le_dir_MakePath(%s) failed", dirPath);
+            *result = LE_FAULT;
+            return NULL;
+        }
     }
 
     LE_DEBUG("result = %s(%d)", LE_RESULT_TXT(*result), *result);
@@ -688,9 +745,11 @@ taf_fsc_StorageRef_t taf_fsc_GetStorageRef
         storagePtr = (taf_fsc_Storage_t*)le_ref_Lookup(StorageRefMap, storageRef);
     }
 
-    storagePtr->keyIsAddedToKernel = true;
-
-    return storageRef;
+    if(storagePtr != NULL)
+    {
+        storagePtr->keyIsAddedToKernel = true;
+        return storageRef;
+    }
 
 exception:
 
@@ -722,7 +781,11 @@ static void RemoveKeysFromKernel
     while (le_ref_NextNode(iterRef) == LE_OK)
     {
         taf_fsc_Storage_t* storagePtr = le_ref_GetValue(iterRef);
-        LE_ASSERT(storagePtr != NULL);
+        if(storagePtr == NULL)
+        {
+            LE_ERROR("storagePtr == NULL");
+            return;
+        }
 
         if ((storagePtr->keyFileRef != NULL) && (storagePtr->keyIsAddedToKernel == true))
         {
@@ -777,7 +840,11 @@ static void RemoveSessionFromStorage
     while (le_ref_NextNode(iterRef) == LE_OK)
     {
         taf_fsc_Storage_t* storagePtr = le_ref_GetValue(iterRef);
-        LE_ASSERT(storagePtr != NULL);
+        if(storagePtr == NULL)
+        {
+            LE_ERROR("storagePtr == NULL");
+            return;
+        }
 
         if ((storagePtr->keyFileRef != NULL) &&
             (storagePtr->clientSessionRef == sessionRef))

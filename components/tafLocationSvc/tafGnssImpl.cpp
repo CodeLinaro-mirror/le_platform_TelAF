@@ -93,7 +93,7 @@ telux::common::Status taf_Gnss::DgnssManagerInit() {
     if(mDgnssManager == nullptr) {
         std::promise<ServiceStatus> prom = std::promise<ServiceStatus>();
         std::chrono::time_point<std::chrono::system_clock> startTime, endTime;
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
         auto &locationFactory = LocationFactory::getInstance();
         mDgnssManager = locationFactory.getDgnssManager(DgnssDataFormat::DATA_FORMAT_RTCM_3,
             [&](ServiceStatus status) {
@@ -153,7 +153,7 @@ telux::common::Status taf_Gnss::LocationManagerInit() {
     if(mLocationManager == nullptr) {
         std::promise<ServiceStatus> prom = std::promise<ServiceStatus>();
         std::chrono::time_point<std::chrono::system_clock> startTime, endTime;
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
         auto &locationFactory = LocationFactory::getInstance();
         mLocationManager = locationFactory.getLocationManager([&](ServiceStatus status) {
                 if (status == ServiceStatus::SERVICE_AVAILABLE) {
@@ -209,7 +209,7 @@ telux::common::Status taf_Gnss::LocationConfiguratorInit() {
     if(mLocationConfigurator == nullptr) {
         std::promise<ServiceStatus> prom = std::promise<ServiceStatus>();
         std::chrono::time_point<std::chrono::system_clock> startTime, endTime;
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
         auto &locationFactory = LocationFactory::getInstance();
         mLocationConfigurator = locationFactory.getLocationConfigurator([&](ServiceStatus status) {
                 if (status == ServiceStatus::SERVICE_AVAILABLE) {
@@ -599,14 +599,21 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                     time_t realtime;
                     realtime = (time_t)((locationInfo->getTimeStamp() / 1000));
                     tm *ltm = localtime(&realtime);
-                    LocationData->year = 1900+ltm->tm_year;
-                    LocationData->month = 1+ltm->tm_mon;
-                    LocationData->day = ltm->tm_mday;
-                    //To match UTC time
-                    LocationData->hours = ltm->tm_hour;
-                    LocationData->minutes = ltm->tm_min;
-                    LocationData->seconds = ltm->tm_sec;
-                    LocationData->milliseconds = (locationInfo->getTimeStamp())%1000;
+                    if(ltm != NULL)
+                    {
+                        LocationData->year = 1900+ltm->tm_year;
+                        LocationData->month = 1+ltm->tm_mon;
+                        LocationData->day = ltm->tm_mday;
+                        //To match UTC time
+                        LocationData->hours = ltm->tm_hour;
+                        LocationData->minutes = ltm->tm_min;
+                        LocationData->seconds = ltm->tm_sec;
+                        LocationData->milliseconds = (locationInfo->getTimeStamp())%1000;
+                    }
+                    else
+                    {
+                        LE_ERROR("onDetailedEngineLocationUpdate local time ltm is NULL");
+                    }
                 } else {
                     LE_DEBUG("Time stamp Not Valid");
                     LocationData->year = 0;
@@ -883,7 +890,7 @@ void LocationCommandCallback::onMinSVElevationInfo(uint8_t minSVElevation,
         gnss.CmdMinSVElevation.set_value(LE_FAULT);
     }
 }
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 void LocationCommandCallback::onSecondaryBandInfo(telux::loc::ConstellationSet set,
     telux::common::ErrorCode error) {
     auto &gnss = taf_Gnss::GetInstance();
@@ -3514,7 +3521,7 @@ void gyroScaleUtility(telux::loc::DREngineConfiguration& drConfig,
     drConfig.validMask |= telux::loc::DRConfigValidityType::GYRO_SCALE_FACTOR_UNC_VALID;
     drConfig.gyroFactorUnc = (float) drParamsPtr->gyroFactorUnc;
 }
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 le_result_t taf_Gnss::ConfigureEngineState
 (
     taf_gnss_EngineType_t engtype,///< [IN] value for Engine type.
@@ -3752,7 +3759,7 @@ le_result_t taf_Gnss::RobustLocationInformation
 
     return result;
 }
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 le_result_t taf_Gnss::DefaultSecondaryBandConstellations
 (
 )

@@ -106,7 +106,7 @@ void taf_Nat::Init(void)
     {
         auto &dataFactory = telux::data::DataFactory::getInstance();
 //SA415 using old telsdk,without initCb parameter
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
         auto initCb = std::bind(&taf_Nat::onInitComplete, this, std::placeholders::_1);
         staticNatManager = dataFactory.getNatManager(telux::data::OperationType::DATA_LOCAL, initCb);
 #else
@@ -120,7 +120,7 @@ void taf_Nat::Init(void)
         return ;
     }
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     // 6. Check if subsystem status
     std::unique_lock<std::mutex> lck(mMutex);
 
@@ -211,7 +211,7 @@ void taf_Nat::FirstLayerDestNatChangeHandler(void *reportPtr, void *secondLayerH
 
     le_mem_Release(reportPtr);
 }
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 /*======================================================================
 
  FUNCTION        taf_Nat::onInitComplete
@@ -260,7 +260,7 @@ le_result_t taf_Nat::AddDestNatEntry(uint32_t profileId, const char *priIpAddrPt
 {
     struct sockaddr_in6 addr6;
     struct sockaddr_in addr;
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     SlotId slot = SlotId::DEFAULT_SLOT_ID;
 #endif
     struct telux::data::net::NatConfig snatConfig;
@@ -286,7 +286,7 @@ le_result_t taf_Nat::AddDestNatEntry(uint32_t profileId, const char *priIpAddrPt
     std::shared_ptr<tafNatCallback> addStaticNatEntryCb = std::make_shared<tafNatCallback>();
 
     auto  addStaticEntryRespCb = std::bind(&tafNatCallback::onResponseCallback, addStaticNatEntryCb, std::placeholders::_1);
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     Status status = staticNatManager->addStaticNatEntry(profileId, snatConfig, addStaticEntryRespCb,slot);
 #else
     Status status = staticNatManager->addStaticNatEntry(profileId, snatConfig, addStaticEntryRespCb);
@@ -338,7 +338,7 @@ le_result_t taf_Nat::RemoveDestNatEntry(uint32_t profileId, const char *priIpAdd
 {
     struct sockaddr_in6 addr6;
     struct sockaddr_in addr;
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     SlotId slot = SlotId::DEFAULT_SLOT_ID;
 #endif
     struct telux::data::net::NatConfig snatConfig;
@@ -372,7 +372,7 @@ le_result_t taf_Nat::RemoveDestNatEntry(uint32_t profileId, const char *priIpAdd
     std::shared_ptr<tafNatCallback> addStaticNatEntryCb = std::make_shared<tafNatCallback>();
 
     auto  addStaticEntryRespCb = std::bind(&tafNatCallback::onResponseCallback, addStaticNatEntryCb, std::placeholders::_1);
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     Status status = staticNatManager->removeStaticNatEntry(profileId, snatConfig, addStaticEntryRespCb,slot);
 #else
     Status status = staticNatManager->removeStaticNatEntry(profileId, snatConfig, addStaticEntryRespCb);
@@ -421,13 +421,13 @@ le_result_t taf_Nat::RemoveDestNatEntry(uint32_t profileId, const char *priIpAdd
 ======================================================================*/
 bool taf_Nat::IsDestNatEntryPresent(uint32_t profileId, const char* priIpAddrPtr, uint16_t priPort, uint16_t globalPort, taf_net_IpProto_t ipProto)
 {
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     SlotId slot = SlotId::DEFAULT_SLOT_ID;
 #endif
     TAF_ERROR_IF_RET_VAL(staticNatManager == NULL, false, "staticNatManager is null");
 
     std::chrono::time_point<std::chrono::system_clock> startTime = std::chrono::system_clock::now();
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     telux::common::Status status = staticNatManager->requestStaticNatEntries( profileId, tafNatCallback::onNatListResponse,slot);
 #else
     telux::common::Status status = staticNatManager->requestStaticNatEntries( profileId, tafNatCallback::onNatListResponse);
@@ -484,7 +484,7 @@ bool taf_Nat::IsDestNatEntryPresent(uint32_t profileId, const char* priIpAddrPtr
 ======================================================================*/
 taf_net_DestNatEntryListRef_t taf_Nat::GetDestNatEntryList(uint32_t profileId)
 {
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     SlotId slot = SlotId::DEFAULT_SLOT_ID;
 #endif
     le_ref_IterRef_t iterRef;
@@ -496,7 +496,7 @@ taf_net_DestNatEntryListRef_t taf_Nat::GetDestNatEntryList(uint32_t profileId)
     std::shared_ptr<tafNatCallback> staticNatEntryListCb = std::make_shared<tafNatCallback>();
 
     std::chrono::time_point<std::chrono::system_clock> startTime = std::chrono::system_clock::now();
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     telux::common::Status status = staticNatManager->requestStaticNatEntries( profileId, tafNatCallback::onNatListResponse,slot);
 #else
     telux::common::Status status = staticNatManager->requestStaticNatEntries( profileId, tafNatCallback::onNatListResponse);
@@ -520,6 +520,7 @@ taf_net_DestNatEntryListRef_t taf_Nat::GetDestNatEntryList(uint32_t profileId)
         while (!isAdded && (le_ref_NextNode(iterRef) == LE_OK))
         {
             existedDestNatEntryList = (taf_DestNatEntryList_t*) le_ref_GetValue(iterRef);
+            TAF_ERROR_IF_RET_VAL(existedDestNatEntryList == NULL, nullptr, "entry list is null");
 
             if (existedDestNatEntryList->profileId == profileId)
             {
@@ -693,7 +694,7 @@ le_result_t taf_Nat::GetDestNatEntryDetails
         "Null ptr(privateIpAddrPtr)");
 
     TAF_ERROR_IF_RET_VAL(privateIpAddrPtrSize < TAF_NET_IP_ADDR_MAX_LEN, LE_BAD_PARAMETER,
-        "Invalid para(privateIpAddrPtrSize: %d < %d)", privateIpAddrPtrSize, TAF_NET_IP_ADDR_MAX_LEN);
+        "Invalid para(privateIpAddrPtrSize: %" PRIuS " < %d)", privateIpAddrPtrSize, TAF_NET_IP_ADDR_MAX_LEN);
 
     TAF_ERROR_IF_RET_VAL(privatePort == nullptr, LE_BAD_PARAMETER,
         "Null ptr(privatePort)");

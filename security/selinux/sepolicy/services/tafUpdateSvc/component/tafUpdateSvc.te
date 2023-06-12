@@ -21,9 +21,7 @@ gen_require(`
     type leprop_sock_t;
     type kernel_t;
     type kmsg_device_t;
-    type mtd_block_t;
     type mtd_device_t;
-    type ota_master_da_data_t;
     type power_unit_t;
     type proc_t;
     type shell_exec_t;
@@ -45,12 +43,22 @@ type telaf_tafUpdateSvc_t;
 type telaf_tafUpdateSvc_data_t;
 files_type(telaf_tafUpdateSvc_data_t);
 
+# sa525m doesn't support these types
+ifndef(`sa525m',`
+    gen_require(`
+        type ota_master_da_data_t;
+        type mtd_block_t;
+    ')
+    allow telaf_update_t ota_master_da_data_t:file { read };
+    allow telaf_tafUpdateSvc_t ota_master_da_data_t:dir { rw_dir_perms };
+    allow telaf_tafUpdateSvc_t ota_master_da_data_t:file { manage_file_perms };
+    allow telaf_tafUpdateSvc_t mtd_block_t:blk_file {rw_file_perms};
+')
+
 # download agent policy
 allow telaf_tafUpdateSvc_t shell_exec_t:file { exec_file_perms };
 allow telaf_tafUpdateSvc_t self:udp_socket { create };
 allow telaf_tafUpdateSvc_t self:tcp_socket { create_socket_perms };
-allow telaf_tafUpdateSvc_t ota_master_da_data_t:dir { rw_dir_perms };
-allow telaf_tafUpdateSvc_t ota_master_da_data_t:file { manage_file_perms };
 allow telaf_tafUpdateSvc_t etc_t:file { read_file_perms };
 allow telaf_tafUpdateSvc_t user_home_dir_t:dir { search };
 allow telaf_tafUpdateSvc_t unreserved_port_t:tcp_socket { name_connect };
@@ -59,7 +67,6 @@ allow telaf_tafUpdateSvc_t home_root_t:dir { search };
 
 # update daemon policy
 allow telaf_update_t telaf_tafUpdateSvc_t:fd { use };
-allow telaf_update_t ota_master_da_data_t:file { read };
 
 # recovery client policy
 allow telaf_tafUpdateSvc_t bin_t:file { exec_file_perms };
@@ -70,7 +77,6 @@ allow telaf_tafUpdateSvc_t device_t:dir { write };
 allow telaf_tafUpdateSvc_t cache_recovery_t:dir { manage_dir_perms };
 allow telaf_tafUpdateSvc_t cache_recovery_t:file { manage_file_perms };
 allow telaf_tafUpdateSvc_t mtd_device_t:chr_file { rw_file_perms };
-allow telaf_tafUpdateSvc_t mtd_block_t:blk_file {rw_file_perms};
 allow telaf_tafUpdateSvc_t self:capability2 { syslog };
 allow telaf_tafUpdateSvc_t kernel_t:system { syslog_read };
 allow telaf_tafUpdateSvc_t leprop_sock_t:sock_file { write };

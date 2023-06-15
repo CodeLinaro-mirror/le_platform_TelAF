@@ -219,6 +219,15 @@ type telaf_cfgtree_t;
 type telaf_cfgtree_exec_t;
 files_type(telaf_cfgtree_exec_t);
 init_telaf_core_domain(telaf_cfgtree_t, telaf_cfgtree_exec_t)
+# Support cfgtree to get TelAF app name
+domain_read_all_domains_state(telaf_cfgtree_t);
+allow telaf_cfgtree_t telaf_cfgtree_t:fifo_file { read getattr write };
+allow telaf_cfgtree_t shell_exec_t:file { exec_file_perms };
+allow telaf_cfgtree_t proc_t:file read_file_perms;
+allow telaf_cfgtree_t proc_t:dir list_dir_perms;
+allow telaf_cfgtree_t mnt_t:dir list_dir_perms;
+allow telaf_cfgtree_t self:capability { sys_ptrace };
+allow telaf_cfgtree_t kernel_t:dir list_dir_perms;
 
 # Define the log daemon type
 type telaf_update_t;

@@ -239,13 +239,13 @@ static void* ut_taf_roaming_status_handler(void* ctxPtr)
 void ut_profile_list_test()
 {
     taf_dcs_ProfileInfo_t profilesInfoPtr[TAF_DCS_PROFILE_LIST_MAX_ENTRY];
-    size_t listSize;
+    size_t listSize = 0;
     le_result_t result;
 
     LE_TEST_BEGIN_SKIP(!SSIM_TEST, 1);
     result = taf_dcs_GetProfileList(profilesInfoPtr, &listSize);
     LE_TEST_OK(result == LE_OK, "taf_dcs_GetProfileList - OK");
-    LE_INFO("got profile list, num: %d, result: %d", listSize, result);
+    LE_INFO("got profile list, num: %" PRIuS ", result: %d", listSize, result);
     LE_INFO("%-6s""%-6s""%-12s", "Index", "type", "Name");
     for (int i = 0; i < listSize; i++)
     {
@@ -259,7 +259,8 @@ void ut_profile_list_test()
     result = taf_dcs_GetProfileListEx(PHONE_ID_1,profilesInfoPtr, &listSize);
 
     LE_TEST_OK(result == LE_OK, "taf_dcs_GetProfileListEx for phone id(%d) - OK", PHONE_ID_1);
-    LE_INFO("-----got profile list for phone id %d, num: %d, result: %d", PHONE_ID_1, listSize, result);
+    LE_INFO("-----got profile list for phone id %d, num: %" PRIuS ", result: %d",
+             PHONE_ID_1, listSize, result);
     LE_INFO("%-6s""%-6s""%-12s", "Index", "type", "Name");
     for (int i = 0; i < listSize; i++)
     {
@@ -273,7 +274,8 @@ void ut_profile_list_test()
 
     result = taf_dcs_GetProfileListEx(PHONE_ID_2,profilesInfoPtr, &listSize);
     LE_TEST_OK(result == LE_OK, "taf_dcs_GetProfileListEx for phone id(%d) - OK", PHONE_ID_2);
-    LE_INFO("-----got profile list for phone id %d, num: %d, result: %d", PHONE_ID_2, listSize, result);
+    LE_INFO("-----got profile list for phone id %d, num: %" PRIuS ", result: %d",
+             PHONE_ID_2, listSize, result);
     LE_INFO("%-6s""%-6s""%-12s", "Index", "type", "Name");
     for (int i = 0; i < listSize; i++)
     {

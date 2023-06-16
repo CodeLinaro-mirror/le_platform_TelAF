@@ -583,7 +583,7 @@ void PrintNgbrCellsInfo
                     LE_TEST_OK(true, "taf_radio_GetNeighborCellRxLevel - OK");
                     result = taf_radio_GetNeighborCellGsmBsic(cellInfoRef, &bsic);
                     LE_TEST_OK(result == LE_OK, "taf_radio_GetNeighborCellGsmBsic - OK");
-                    LE_INFO("Cell ID                    : %llu", cid);
+                    LE_INFO("Cell ID                    : %" PRIuS, (size_t)cid);
                     LE_INFO("Local Area Code            : %d", lac);
                     LE_INFO("Signal Strength            : %d", rxlevel);
                     LE_INFO("Base Station Identity Code : %d", bsic);
@@ -593,7 +593,7 @@ void PrintNgbrCellsInfo
                     LE_TEST_OK(true, "taf_radio_GetNeighborCellId - OK");
                     rxlevel = taf_radio_GetNeighborCellRxLevel(cellInfoRef);
                     LE_TEST_OK(true, "taf_radio_GetNeighborCellRxLevel - OK");
-                    LE_INFO("Cell ID         : %llu", cid);
+                    LE_INFO("Cell ID         : %" PRIuS, (size_t)cid);
                     LE_INFO("Signal Strength : %d", rxlevel);
                     break;
                 case TAF_RADIO_RAT_CDMA:
@@ -606,7 +606,7 @@ void PrintNgbrCellsInfo
                     LE_TEST_OK(true, "taf_radio_GetNeighborCellId - OK");
                     rxlevel = taf_radio_GetNeighborCellRxLevel(cellInfoRef);
                     LE_TEST_OK(true, "taf_radio_GetNeighborCellRxLevel - OK");
-                    LE_INFO("Cell ID         : %llu", cid);
+                    LE_INFO("Cell ID         : %" PRIuS, (size_t)cid);
                     LE_INFO("Signal Strength : %d", rxlevel);
                     break;
                 case TAF_RADIO_RAT_NR5G:
@@ -616,7 +616,7 @@ void PrintNgbrCellsInfo
                     LE_TEST_OK(true, "taf_radio_GetPhysicalNeighborNrCellId - OK");
                     rxlevel = taf_radio_GetNeighborCellRxLevel(cellInfoRef);
                     LE_TEST_OK(true, "taf_radio_GetNeighborCellRxLevel - OK");
-                    LE_INFO("Cell ID          : %llu", cid);
+                    LE_INFO("Cell ID          : %" PRIuS, (size_t)cid);
                     LE_INFO("Physical Cell ID : %d", nrpcid);
                     LE_INFO("Signal Strength  : %d", rxlevel);
                     break;
@@ -627,7 +627,7 @@ void PrintNgbrCellsInfo
                     LE_TEST_OK(true, "taf_radio_GetPhysicalNeighborLteCellId - OK");
                     rxlevel = taf_radio_GetNeighborCellRxLevel(cellInfoRef);
                     LE_TEST_OK(true, "taf_radio_GetNeighborCellRxLevel - OK");
-                    LE_INFO("Cell ID          : %llu", cid);
+                    LE_INFO("Cell ID          : %" PRIuS, (size_t)cid);
                     LE_INFO("Physical Cell ID : %d", pcid);
                     LE_INFO("Signal Strength  : %d", rxlevel);
                     break;
@@ -666,11 +666,11 @@ void PrintBandStatus
 
     result = taf_radio_GetBandPreferences(&bandMask, phoneId);
     LE_TEST_OK(result == LE_OK, "taf_radio_GetBandPreferences - OK");
-    LE_INFO("Phone %d 2G/3G band preferences 0x%llx.", phoneId, bandMask);
+    LE_INFO("Phone %d 2G/3G band preferences 0x%" PRIxS, phoneId, (size_t)bandMask);
 
     result = taf_radio_GetBandCapabilities(&bandMask, phoneId);
     LE_TEST_OK(result == LE_OK, "taf_radio_GetBandCapabilities - OK");
-    LE_INFO("Phone %d 2G/3G band capabilities 0x%llx.", phoneId, bandMask);
+    LE_INFO("Phone %d 2G/3G band capabilities 0x%" PRIxS, phoneId, (size_t)bandMask);
 
     result = taf_radio_GetLteBandPreferences(lteBand, &lteBandSize, phoneId);
     LE_TEST_OK(result == LE_OK, "taf_radio_GetLteBandPreferences - OK");
@@ -1066,7 +1066,7 @@ void PrintServingStatus
         case TAF_RADIO_RAT_NR5G:
             nrCid = taf_radio_GetServingNrCellId(phoneId);
             LE_TEST_OK(true, "taf_radio_GetServingNrCellId - uint64_t");
-            LE_INFO("Phone %d NR Cell ID %llu", phoneId, nrCid);
+            LE_INFO("Phone %d NR Cell ID %" PRIuS, phoneId, (size_t)nrCid);
 
             arFcn = taf_radio_GetServingCellNrArfcn(phoneId);
             LE_TEST_OK(true, "taf_radio_GetServingCellNrArfcn - int32_t");

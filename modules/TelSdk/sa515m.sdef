@@ -56,7 +56,7 @@ apps:
     // $TELAF_ROOT/apps/test/tafNetTest/tafNetIntTest/tafNetIntTest
     // $TELAF_ROOT/apps/test/tafKeyStoreTest/tafKeyStoreUnitTest/tafKeyStoreUnitTest
     // $TELAF_ROOT/apps/test/tafPMTest/tafPMUnitTest/tafPMUnitTest
-    // $TELAF_ROOT/apps/test/tafPMTest/tafPMUnitTest/tafPMIntgTest
+    // $TELAF_ROOT/apps/test/tafPMTest/tafPMIntgTest/tafPMIntgTest
     // $TELAF_ROOT/apps/test/tafGpioTest/tafGpioUnitTest.adef
     // $TELAF_ROOT/apps/sample/eCallDemo/tafECallApp
     // $TELAF_ROOT/apps/test/tafLocationTest/tafLocationUnitTest/tafLocationUnitTest

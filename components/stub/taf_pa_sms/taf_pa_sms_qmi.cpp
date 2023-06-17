@@ -46,8 +46,7 @@
 //--------------------------------------------------------------------------------------------------
 LE_SHARED le_result_t taf_pa_sms_SetPrefStorage
 (
-    taf_sms_Storage_t prefStorage,  ///< [IN] The preferred SMS storage area
-    uint8_t           phoneId
+    taf_sms_Storage_t prefStorage  ///< [IN] The preferred SMS storage area
 )
 {
     return LE_OK;
@@ -294,6 +293,20 @@ LE_SHARED void taf_pa_sms_StoreNewMsgToHLOS
     void* newMsg
 )
 {
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Encrypt the message in HLOS storage
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_sms_EncryptFromStorage
+(
+    taf_sms_Storage_t storage,
+    uint32_t          index
+)
+{
+    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------

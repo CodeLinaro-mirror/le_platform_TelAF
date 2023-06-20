@@ -14,6 +14,11 @@ files_type(telaf_tafLocationSvc_data_t);
 
 init_telaf_app_domain(telaf_tafLocationSvc_t,telaf_tafLocationSvc_exec_t)
 
+ifdef(`sa525m',`
+telux_allow_loc_data(telaf_tafLocationSvc_t)
+location_access_loc_bootkpi(telaf_tafLocationSvc_t)
+')
+
 # Allow update daemon to install/uninstall this service
 telaf_admin_manage_all_files_perms(telaf_tafLocationSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafLocationSvc_exec_t)

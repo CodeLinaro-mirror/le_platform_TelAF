@@ -14,6 +14,13 @@ files_type(telaf_tafAudioSvc_data_t);
 
 init_telaf_app_domain(telaf_tafAudioSvc_t,telaf_tafAudioSvc_exec_t)
 
+# Get access for audio voice stream
+ifdef(`sa525m',`
+    telux_allow_audio_voice(telaf_tafAudioSvc_t)
+    telux_allow_audio_play(telaf_tafAudioSvc_t)
+    telux_allow_audio_capture(telaf_tafAudioSvc_t)
+')
+
 # Allow update daemon to install/uninstall this service
 telaf_admin_manage_all_files_perms(telaf_tafAudioSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafAudioSvc_exec_t)

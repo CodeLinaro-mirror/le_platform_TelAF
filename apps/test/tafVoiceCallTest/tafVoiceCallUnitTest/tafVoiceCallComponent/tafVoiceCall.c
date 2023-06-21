@@ -371,7 +371,7 @@ le_result_t ut_tafVoiceCall_ValidCall_Start()
             readCnt = le_fd_Read(fd, AppCtx.destId, sizeof(AppCtx.destId));
             if (readCnt != strlen(AppCtx.destId))
             {
-                LE_INFO("read call number file failed! %d, %d", readCnt, strlen(AppCtx.destId));
+                LE_INFO("read call number file failed! %" PRIuS" %" PRIuS, readCnt, strlen(AppCtx.destId));
                 le_utf8_Copy(AppCtx.destId, "10010", MAX_DESTINATION_LEN, NULL);
             }
             else

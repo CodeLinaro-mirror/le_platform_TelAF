@@ -157,19 +157,29 @@ namespace tafsvc {
         le_event_Id_t                           sessionStateEvent;
     } taf_dcs_CallCtx_t;
 
+    typedef struct IpAddrInfo
+    {
+        char                                    ifAddress[TAF_DCS_IPV6_ADDR_MAX_LEN];
+        uint32_t                                ifMask;
+        char                                    gwAddress[TAF_DCS_IPV6_ADDR_MAX_LEN];
+        uint32_t                                gwMask = 0;
+        char                                    primaryDnsAddress[TAF_DCS_IPV6_ADDR_MAX_LEN];
+        char                                    secondaryDnsAddress[TAF_DCS_IPV6_ADDR_MAX_LEN];
+    }taf_dcs_IpAddrInfo_t;
+
     typedef struct
     {
         EventType_t                             event;
         int32_t                                 profileId;
         uint8_t                                 slotId;
         telux::common::ErrorCode                errorCode;
-        std::string                             ifName;
+        char                                    ifName[TAF_DCS_NAME_MAX_LEN];
         telux::data::IpFamilyType               ipType;
         telux::data::DataCallStatus             callStatus;
         telux::data::DataCallStatus             ipv4Status;
         telux::data::DataCallStatus             ipv6Status;
-        telux::data::IpAddrInfo                 ipv4AddrInfo;
-        telux::data::IpAddrInfo                 ipv6AddrInfo;
+        taf_dcs_IpAddrInfo_t                    ipv4AddrInfo;
+        taf_dcs_IpAddrInfo_t                    ipv6AddrInfo;
         telux::data::DataBearerTechnology       dataBearerTech;
     } dataCallEvent_t;
 

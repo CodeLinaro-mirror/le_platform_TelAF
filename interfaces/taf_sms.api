@@ -1,5 +1,32 @@
 /*
- * Copyright (c) 2021 The Linux Foundation. All rights reserved.
+ *  Copyright (c) 2021 The Linux Foundation. All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions are
+ *  met:
+ *    * Redistributions of source code must retain the above copyright
+ *      notice, this list of conditions and the following disclaimer.
+ *    * Redistributions in binary form must reproduce the above
+ *      copyright notice, this list of conditions and the following
+ *      disclaimer in the documentation and/or other materials provided
+ *      with the distribution.
+ *    * Neither the name of The Linux Foundation nor the names of its
+ *      contributors may be used to endorse or promote products derived
+ *      from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ *  WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ *  ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ *  BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ *  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ *  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ *  BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ *  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -26,39 +53,6 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
- *
- * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 //--------------------------------------------------------------------------------------------------
@@ -404,7 +398,8 @@ ENUM StorageFullType
     FULL_HLOS_STORE_TO_SIM, ///< HLOS storage is full and message is stored in SIM.
     FULL_BOTH_HLOS_AND_SIM, ///< Both HLOS storage and SIM storage are full.
     FULL_NV,                ///< NV storage is full.
-    FULL_SIM                ///< SIM storage is full.
+    FULL_SIM,               ///< SIM storage is full.
+    FULL_SIM2               ///< SIM2 storage is full.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -764,6 +759,23 @@ FUNCTION Delete
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Gets the message's phone ID (only for the messages stored in the SIM or created by the client).
+ *
+ * @return
+ * - LE_NOT_FOUND -- Invalid message.
+ * - LE_NOT_PERMITTED -- Invalid message type.
+ * - LE_BAD_PARAMETER -- Invalid phone ID pointer.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetPhoneId
+(
+    Msg    msgRef,     ///< Message reference.
+    uint8  phoneId OUT ///< Pointer to the stored phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Gets the message sender's phone number.
  *
  * @return
@@ -909,6 +921,8 @@ FUNCTION size GetUserdataLen
  *
  * @return
  * - LE_NOT_FOUND -- Invalid message.
+ * - LE_BAD_PARAMETER -- Invalid phone ID.
+ * - LE_FORMAT_ERROR -- Failed to encode message.
  * - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
@@ -924,7 +938,7 @@ FUNCTION le_result_t Send
  * @return
  * - LE_NOT_FOUND -- Invalid message.
  * - LE_BAD_PARAMETER -- Invalid storage.
- * - LE_FAULT: Failed.
+ * - LE_FAULT -- Failed.
  * - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1004,12 +1018,29 @@ FUNCTION le_result_t UnlockFromStorage
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Encrypts a message which is stored in HLOS.
+ *
+ * @return
+ * - LE_NOT_FOUND -- Invalid message.
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ * - LE_NOT_PERMITTED -- Message is not stored in HLOS.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t EncryptFromStorage
+(
+    Msg msgRef  ///< Message reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Gets the SMS center address for the specified phone ID.
  *
  * @return
  * - LE_OVERFLOW -- Input buffer len is not enough.
  * - LE_FAULT -- Internal error.
  * - LE_TIMEOUT -- Timeout occurred.
+ * - LE_BAD_PARAMETER -- Invalid input.
  * - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1044,6 +1075,7 @@ FUNCTION le_result_t SetSmsCenterAddress
  * - LE_FAULT -- Failed.
  * - LE_TIMEOUT -- Timeout occurred.
  * - LE_UNSUPPORTED -- Input storage is not suppported.
+ * - LE_BAD_PARAMETER -- Invalid input.
  * - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1079,7 +1111,23 @@ FUNCTION le_result_t GetPreferredStorage
 FUNCTION le_result_t SendPduMsg
 (
     uint8   dataPtr[PDU_BYTES] IN,  ///< Message in PDU format.
-    uint32  timeout                 ///< Timeout value message send.
+    uint32  timeout                ///< Timeout value message sent.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sends a PDU message with phone ID.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SendPduMsgEx
+(
+    uint8   phoneId,                ///< Phone ID.
+    uint8   dataPtr[PDU_BYTES] IN,  ///< Message in PDU format.
+    uint32  timeout                 ///< Timeout value message sent.
 );
 
 //--------------------------------------------------------------------------------------------------

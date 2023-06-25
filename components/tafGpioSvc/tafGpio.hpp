@@ -45,7 +45,7 @@
 
 #define DEV_NAME "/dev/gpiochip0"
 
-#define MAX_PIN_NUMBER 120
+#define MAX_PIN_NUMBER 150
 #define MIN_PIN_NUMBER 0
 
 // Max handlers support simultaneously

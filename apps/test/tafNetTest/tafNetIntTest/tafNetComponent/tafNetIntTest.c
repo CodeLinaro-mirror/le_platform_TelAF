@@ -262,7 +262,7 @@ static int TafNetGetInterfaceList()
     }
 
     result = taf_net_GetInterfaceList(intfInfoListPtr,&listSize);
-    LE_INFO("----interface number=%d,result=%d\n",listSize,result);
+    LE_INFO("----interface number=%" PRIuS ",result=%d\n",listSize,result);
     for(int i=0;i<listSize;i++)
     {
         LE_INFO("----interface name =%s,technology =%d,state =%d",intfInfoListPtr[i].interfaceName,
@@ -1283,7 +1283,7 @@ static int TafGetTunnelInfo()
                     LE_INFO("----session %d peer id is %d",i, sessionConfig[i].peerId);
                 }
             }
-            LE_INFO("----session num = %d",sessionNum);
+            LE_INFO("----session num = %" PRIuS,sessionNum);
             entryRef=taf_net_GetNextTunnelEntry(listRef);
         }
 

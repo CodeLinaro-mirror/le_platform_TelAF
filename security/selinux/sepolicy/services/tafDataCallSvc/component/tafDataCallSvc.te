@@ -21,6 +21,9 @@ ifdef(`sa525m',`
     # Providing necessary permissions to contain a telux data
     telsdk_read_qcmap_etc_data_files(telaf_tafDataCallSvc_t)
     telux_allow_data(telaf_tafDataCallSvc_t)
+
+    # Get access for data call operations APIs
+    telux_allow_data_call_ops(telaf_tafDataCallSvc_t)
 ')
 
 # Allow update daemon to install/uninstall this service

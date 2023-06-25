@@ -10,6 +10,7 @@ gen_require(`
   type proc_net_t;
   type etc_t;
   type systemd_resolved_var_run_t;
+  type net_conf_t;
 ')
 
 # Framework definition for telaf
@@ -36,6 +37,9 @@ allow telaf_tafNetSvc_t systemd_resolved_var_run_t:file rw_file_perms;
 
 # Alloc to use ip command to set route
 allow telaf_tafNetSvc_t self:capability { net_admin };
+
+# Access /run/resolv.conf
+allow telaf_tafNetSvc_t net_conf_t:file { rw_file_perms };
 
 init_telaf_app_domain(telaf_tafNetSvc_t,telaf_tafNetSvc_exec_t)
 

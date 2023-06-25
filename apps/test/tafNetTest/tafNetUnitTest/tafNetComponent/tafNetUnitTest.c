@@ -165,11 +165,11 @@ static void* DestNatThread(void* contextPtr){
 }
 static void NetworkGetInterfaceListTest(){
     taf_net_InterfaceInfo_t intfInfoListPtr[50];
-    size_t listSize ;
+    size_t listSize = 0;
     LE_INFO("----get interface list test start");
     LE_ASSERT(taf_net_GetInterfaceList(NULL,&listSize) == LE_BAD_PARAMETER);
     LE_ASSERT(taf_net_GetInterfaceList(intfInfoListPtr,&listSize) == LE_OK);
-    LE_INFO("---got interface list, num: %d", listSize);
+    LE_INFO("---got interface list, num: %" PRIuS, listSize);
     for(int i=0;i<listSize;i++)
         LE_INFO("ifName =%s, tech=%d,state=%d",intfInfoListPtr[i].interfaceName,intfInfoListPtr[i].tech,intfInfoListPtr[i].state);
 }
@@ -741,7 +741,7 @@ static void* UnitTestNetThread(void* contextPtr){
 COMPONENT_INIT
 {
     const char* testType = "";
-    LE_INFO("number = %d",le_arg_NumArgs());
+    LE_INFO("number = %d",(int)le_arg_NumArgs());
     if(le_arg_NumArgs() != 1){
         puts("usage:app runProc tafNetUnitTest --exe=tafNetUnitTest -- default/vlan/l2tp/socks");
         return;

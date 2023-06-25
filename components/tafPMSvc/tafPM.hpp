@@ -43,6 +43,11 @@
 #include <telux/power/TcuActivityManager.hpp>
 #include "tafSvcIF.hpp"
 
+using namespace telux::power;
+using namespace telux::common;
+using namespace telux::tafsvc;
+using namespace std;
+
 /**
  * Telaf's prefix for wakeup source names
  */
@@ -120,6 +125,14 @@ namespace tafsvc {
         public :
             void onTcuActivityStateUpdate(telux::power::TcuActivityState state) override;
             void onSlaveAckStatusUpdate(telux::common::Status status) override;
+            #if defined(TARGET_SA525M)
+            void onTcuActivityStateUpdate(TcuActivityState state, string machineName) override;
+            void onMachineUpdate(const string machineName,
+                    const MachineEvent machineEvent) override;
+            void onSlaveAckStatusUpdate(const Status status,
+                    const string machineName, const vector<ClientInfo> unresponsiveClients,
+                    const vector<ClientInfo> nackResponseClients) override;
+            #endif
     };
 
     // define the callback class for TCU state change of remote proc
@@ -165,6 +178,9 @@ namespace tafsvc {
         taf_pm_StateChangeHandlerRef_t AddStateChangeHandler
                 (taf_pm_StateChangeHandlerFunc_t handlerPtr, void* contextPtr);
         void RemoveStateChangeHandler(taf_pm_StateChangeHandlerRef_t handlerRef);
+        #if defined(TARGET_SA525M)
+        taf_pm_State_t curTcuState;
+        #endif
     };
 
     class taf_Handler : public ITafSvc {

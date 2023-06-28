@@ -105,6 +105,7 @@ void ReadMtdBlock(const char* partition)
 {
     taf_flash_PartitionRef_t partitionRef;
     uint32_t blocksNumber = 0, badBlocksNumber = 0, blockSize = 0, pageSize = 0;
+    size_t bSize = 0;
     uint8_t block[TAF_FLASH_MTD_BLOCK_MAX_READ_SIZE] = { 0 };
     char file[FLASH_FILE_NAME_BYTES] = { 0 };
     le_fs_FileRef_t fileRef;
@@ -128,7 +129,7 @@ void ReadMtdBlock(const char* partition)
         LE_TEST_OK(true, "taf_flash_MtdIsBlockGood - %d", isGoodBlock);
         if (isGoodBlock)
         {
-            result = taf_flash_MtdReadBlock(partitionRef, i, block, &blockSize);
+            result = taf_flash_MtdReadBlock(partitionRef, i, block, &bSize);
             LE_TEST_OK((result == LE_OK), "taf_flash_MtdReadBlock - LE_OK");
 
             snprintf(file, sizeof(file), "/%s_%d.bdat", partition, i);
@@ -139,12 +140,12 @@ void ReadMtdBlock(const char* partition)
                 LE_ERROR("Fail to open file %s.", file);
             }
 
-            result = le_fs_Write(fileRef, block, blockSize);
+            result = le_fs_Write(fileRef, block, bSize);
             if (result != LE_OK)
             {
                 LE_ERROR("Fail to write file %s.", file);
             }
-            LE_INFO("Read block %d and write to %s with size %d.", i, file, blockSize);
+            LE_INFO("Read block %d and write to %s with size %" PRIuS, i, file, bSize);
         }
         else
         {
@@ -168,6 +169,7 @@ void WriteMtdBlock(const char* partition)
     taf_flash_PartitionRef_t partitionRef;
     uint32_t blocksNumber = 0, badBlocksNumber = 0, blockSize = 0, pageSize = 0;
     uint8_t block[TAF_FLASH_MTD_BLOCK_MAX_WRITE_SIZE] = { 0 };
+    size_t bSize = 0;
     char file[FLASH_FILE_NAME_BYTES] = { 0 };
     le_fs_FileRef_t fileRef;
     uint32_t i;
@@ -198,16 +200,16 @@ void WriteMtdBlock(const char* partition)
                 LE_ERROR("Fail to open file %s.", file);
             }
 
-            result = le_fs_Read(fileRef, block, &blockSize);
+            result = le_fs_Read(fileRef, block, &bSize);
             if (result != LE_OK)
             {
                 LE_ERROR("Fail to read file %s.", file);
             }
 
-            result = taf_flash_MtdWriteBlock(partitionRef, i, block, blockSize);
+            result = taf_flash_MtdWriteBlock(partitionRef, i, block, bSize);
             LE_TEST_OK((result == LE_OK), "taf_flash_MtdWriteBlock - LE_OK");
 
-            LE_INFO("Read %s and write to block %d with size %d.", file, i, blockSize);
+            LE_INFO("Read %s and write to block %d with size %" PRIuS, file, i, bSize);
         }
         else
         {
@@ -308,7 +310,7 @@ void ReadUbiLeb(const char* volume)
     taf_flash_VolumeRef_t volumeRef;
     uint32_t lebNumber = 0, freeLebNumber = 0, volumeSize = 0;
     uint8_t block[TAF_FLASH_UBI_MAX_READ_SIZE] = { 0 };
-    uint32_t blockSize = TAF_FLASH_UBI_MAX_READ_SIZE;
+    size_t blockSize = TAF_FLASH_UBI_MAX_READ_SIZE;
     char file[FLASH_FILE_NAME_BYTES] = { 0 };
     le_fs_FileRef_t fileRef;
     uint32_t i;
@@ -343,7 +345,7 @@ void ReadUbiLeb(const char* volume)
             LE_ERROR("Fail to write file %s.", file);
         }
 
-        LE_INFO("Read leb %d and write to %s with size %d.", i, file, blockSize);
+        LE_INFO("Read leb %d and write to %s with size %" PRIuS, i, file, blockSize);
     }
 
     // Close UBI Test
@@ -362,7 +364,7 @@ void WriteUbiLeb(const char* volume)
     taf_flash_VolumeRef_t volumeRef;
     uint32_t lebNumber = 0, freeLebNumber = 0, volumeSize = 0;
     uint8_t block[TAF_FLASH_UBI_MAX_WRITE_SIZE] = { 0 };
-    uint32_t blockSize = TAF_FLASH_UBI_MAX_WRITE_SIZE;
+    size_t blockSize = TAF_FLASH_UBI_MAX_WRITE_SIZE;
     char file[FLASH_FILE_NAME_BYTES] = { 0 };
     le_fs_FileRef_t fileRef;
     uint32_t i;
@@ -400,7 +402,7 @@ void WriteUbiLeb(const char* volume)
         result = taf_flash_UbiWrite(volumeRef, block, blockSize);
         LE_TEST_OK((result == LE_OK), "taf_flash_UbiWrite - LE_OK");
 
-        LE_INFO("Read %s and write to block %d with size %d.", file, i, blockSize);
+        LE_INFO("Read %s and write to block %d with size %" PRIuS, file, i, blockSize);
     }
 
     // Close UBI Test

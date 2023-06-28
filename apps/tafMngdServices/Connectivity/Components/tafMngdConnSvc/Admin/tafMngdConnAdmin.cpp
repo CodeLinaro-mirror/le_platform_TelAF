@@ -1255,7 +1255,7 @@ taf_mngd_Conn_Ctx_t* tafMngdConnAdmin::CreateConnCtx
     connCtxPtr->profileNumber = profileNumber;
     connCtxPtr->autoStart = autoStart;
     connCtxPtr->needReConn = false;
-    connCtxPtr->state = TAF_MNGD_CONN_INIT;
+    connCtxPtr->state = TAF_MNGD_CONN_ADMIN_INIT;
     connCtxPtr->dataState = TAF_MNGD_CONN_DATA_DISCONNECTED;
     connCtxPtr->ipType = TAF_DCS_PDP_UNKNOWN;
     memset(connCtxPtr->intfName, 0, sizeof(connCtxPtr->intfName));
@@ -1655,12 +1655,14 @@ const char * tafMngdConnAdmin::EventToString(EventType_t event)
     return "unknow status";
 }
 
-const char * tafMngdConnAdmin::StateToString(taf_mngd_Conn_State_t state)
+const char * tafMngdConnAdmin::StateToString(taf_mngd_Conn_Admin_State_t state)
 {
     switch (state)
     {
-        case TAF_MNGD_CONN_INIT:
-            return "TAF_MNGD_CONN_INIT";
+        case TAF_MNGD_CONN_ADMIN_INIT:
+            return "TAF_MNGD_CONN_ADMIN_INIT";
+        case TAF_MNGD_CONN_ADMIN_ERROR:
+            return "TAF_MNGD_CONN_ADMIN_ERROR";
         case TAF_MNGD_CONN_DATA_NOT_CONNECTED_SIM_READY:
             return "TAF_MNGD_CONN_DATA_NOT_CONNECTED_SIM_READY";
         case TAF_MNGD_CONN_DATA_NOT_CONNECTED_SIM_NOT_READY:

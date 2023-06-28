@@ -1,0 +1,20 @@
+requires:
+{
+    api:
+    {
+        le_cfg.api
+        le_cfgAdmin.api
+    }
+}
+bundles:
+{
+    dir:
+    {
+      //  /legato/systems/current/config
+    }
+}
+
+sources:
+{
+    tafAdefUnitTest.c
+}

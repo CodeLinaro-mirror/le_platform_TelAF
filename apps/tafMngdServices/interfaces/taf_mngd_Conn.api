@@ -55,75 +55,70 @@
  *
  * @section taf_mngd_Conn_Connectivity Managed Connectivity
  *
- * Before starting the service, the user needs to put the policy file with the name of
- * mngdConnPolicy.json into the /data/ManagedServices/Policy directory and the configuration file
- * with the name of mngdConnConfig.json into the /data/ManagedServices/Configuration directory.
+ * Before starting the service, the user should place a JSON file named
+ * mngdConnectivity.json into /data/ManagedServices directory. This JSON file contains a
+ * Configuration object and a Policy object. The Policy object manages the execution of the service
+ * using the parameters provided via the Configuration object.
  *
- * The following shows the template of the file mngdConnPolicy.json:
+ * Template of mngdConnectivity.json:
+ * @verbatim
  {
-    "ManagedConnectivityServicePolicy":{
-       "Version": 1,
-       "Name": "Default",
-       "ConfigurationFileName": null ///< Specify the config file name if it is not set by API.
-    },
-
-   "DataSession":{
-        "Fallback": "No",
-        "DataConnection":[
-            {
-                "Priority": "1",
-                "Use_Data_ID": "1"  ///< Data ID which is used for the data connection.
+    "Product": "TelAF",
+    "Name": "Managed Connectivity Configuration - V1",
+    "ManagedConnectivityService": {
+        "Version": "23.07.00",
+        "Configuration": {                 ///< Configuration Object.
+            "Name": "Default",
+            "Sim":[
+                {
+                    "ID": 1,               ///< Sim ID corresponding to the Use_Sim_ID in "Network".
+                    "Name": "AT&T",
+                    "SlotNumber": 1        ///< Slot ID.
+                }
+            ],
+            "Network":[
+                {
+                    "ID": 1,          ///< Network ID corresponding to the Use_Network_ID in "Data".
+                    "Use_Sim_ID": 1,        ///< SIM ID which is used for this network.
+                    "PhoneID": 1,           ///< Phone ID.
+                    "Registration": "Auto"  ///< Is automatically registered or not.
+                }
+            ],
+            "Data":[
+                {
+                    "ID": 1,           ///< Data ID corresponding to the Use_Data_ID in policy file.
+                    "Use_Network_ID": 1,    ///< Network ID which is used for this data connection.
+                    "Profile":{
+                        "Name": "Profile1", ///< Profile Name.
+                        "Number": 1,        ///< Profile number.
+                        "APN": null         ///< Profile APN.
+                    },
+                    "AutoStart":"Yes",      ///< Data session is automatically started or not.
+                    "PingTest":{
+                        "URL": null,
+                        "IPv4": null,
+                        "IPv6": null
+                    }
+                }
+            ]
+        },
+        "Policy": {                         ///< Policy Object.
+            "Name": "Default",
+            "DataSession":{
+                "Fallback": "No",
+                "DataConnection":[
+                    {
+                        "Priority": "1",
+                        "Use_Data_ID": "1"  ///< Data ID which is used for the data connection.
+                    }
+                ]
             }
-        ]
+        }
     }
- }
+}
+ @endverbatim
  *
- * The following shows the template of the file mngdConnConfig.json:
- {
- "ManagedConnectivityServiceConfiguration":{
-    "Version": 1,
-    "Name": "Default"
-    },
-
-    "Sim":[
-        {
-            "ID": 1,                ///< Sim ID corresponding to the Use_Sim_ID in "Network".
-            "Name": "AT&T",
-            "SlotNumber": 1         ///< Slot ID.
-        }
-    ],
-
-    "Network":[
-        {
-            "ID": 1,                ///< Network ID corresponding to the Use_Network_ID in "Data".
-            "Use_Sim_ID": 1,        ///< SIM ID which is used for this network.
-            "PhoneID": 1,           ///< Phone ID.
-            "Registration": "Auto"  ///< Is automatically registered or not.
-        }
-    ],
-
-    "Data":[
-        {
-            "ID": 1,                ///< Data ID corresponding to the Use_Data_ID in policy file.
-            "Use_Network_ID": 1,    ///< Network ID which is used for this data connection.
-            "Profile":{
-                "Name": "Profile1", ///< Profile Name.
-                "Number": 1,        ///< Profile number.
-                "APN": null         ///< Profile APN.
-            },
-            "AutoStart":"Yes",      ///< Data session is automatically started or not.
-            "PingTest":{
-                "URL": null,
-                "IPv4": null,
-                "IPv6": null
-            }
-        }
-    ]
- }
-
- *
- * @note The Managed Connectivity Service will fail if the policy file or the configuration file is
- * not correct.
+ * @note The Managed Connectivity Service will stop if the JSON is invalid or inaccessible.
  *
  * <HR>
  *

@@ -79,6 +79,32 @@ typedef struct
 }
 taf_ws_t;
 
+#if defined(TARGET_SA525M)
+
+#define TAF_PM_VM_LIST_POOL_SIZE   5
+#define TAF_PM_VM_INFO_POOL_SIZE   5
+
+/*
+ * @brief The struct of virtual machine info.
+ */
+typedef struct
+{
+    char          name[TAF_PM_MACHINE_NAME_LEN];
+    le_sls_Link_t link;
+} taf_PMVmInfo_t;
+
+/*
+ * @brief The struct of virtual machine list.
+ */
+typedef struct
+{
+    le_sls_List_t VmInfoList;
+    le_msg_SessionRef_t sessionRef;
+    le_sls_Link_t* currPtr;
+    taf_pm_VMListRef_t ref;
+} taf_PMVmList_t;
+#endif
+
 #define TAF_PM_WAKEUP_SOURCE_COOKIE 0xa1f6337b
 
 /**
@@ -151,9 +177,6 @@ namespace tafsvc {
     // define our class to handler the call with telsdk
     class taf_PM : public ITafSvc {
     private:
-        std::shared_ptr<telux::power::ITcuActivityListener> tcuStateListener;
-        std::shared_ptr<telux::power::ITcuActivityListener> remoteTcuStateListener;
-        std::shared_ptr<telux::common::IServiceStatusListener> tcuServiceStatusListener;
         taf_pm_State_t tcuStateToTafPowerState(telux::power::TcuActivityState state);
         taf_pm_Status_t teluxStatustoTafStatus(telux::common::Status status);
         telux::power::TcuActivityState tafStateToTcuState(taf_pm_State_t tafState);
@@ -162,10 +185,14 @@ namespace tafsvc {
         ~taf_PM() {};
         std::shared_ptr<telux::power::ITcuActivityManager> tcuActivityMgr;
         std::shared_ptr<telux::power::ITcuActivityManager> RemoteTcuActivityMgr = nullptr;
+        std::shared_ptr<telux::power::ITcuActivityListener> tcuStateListener;
+        std::shared_ptr<telux::power::ITcuActivityListener> remoteTcuStateListener;
+        std::shared_ptr<telux::common::IServiceStatusListener> tcuServiceStatusListener;
         le_event_Id_t StateChangeEvent;
         le_event_Id_t AckEvent;
         static taf_PM &GetInstance();
         static void StateChanged(void* reportPtr, void* SecondLayeredHandlerFunc);
+        static void TafSigTermEventHandler(int tafSigNum);
         static void sendAck(void* reportPtr);
         void Init(void);
         static taf_Client_t *to_taf_Client_t(void *c);
@@ -174,12 +201,22 @@ namespace tafsvc {
         le_result_t StayAwake( taf_pm_WakeupSourceRef_t w);
         le_result_t Relax( taf_pm_WakeupSourceRef_t w);
         taf_pm_State_t GetPowerState();
+        le_result_t SetPowerState(taf_pm_State_t state, const char *machineName);
         const char* tcuStateToString(telux::power::TcuActivityState state);
         taf_pm_StateChangeHandlerRef_t AddStateChangeHandler
                 (taf_pm_StateChangeHandlerFunc_t handlerPtr, void* contextPtr);
         void RemoveStateChangeHandler(taf_pm_StateChangeHandlerRef_t handlerRef);
         #if defined(TARGET_SA525M)
         taf_pm_State_t curTcuState;
+        le_mem_PoolRef_t vmListPool;
+        le_mem_PoolRef_t vmInfoPool;
+        le_ref_MapRef_t vmListRefMap;
+        taf_pm_VMListRef_t GetMachineList();
+        le_result_t GetFirstMachineName(taf_pm_VMListRef_t vmListRef,
+                char* vmNamePtr, size_t vmNamePtrSize);
+        le_result_t GetNextMachineName(taf_pm_VMListRef_t vmListRef,
+                char* vmNamePtr, size_t vmNamePtrSize);
+        le_result_t DeleteMachineList(taf_pm_VMListRef_t vmListRef);
         #endif
     };
 

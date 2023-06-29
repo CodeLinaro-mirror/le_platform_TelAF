@@ -224,6 +224,106 @@ le_result_t ctrlCmd_test7()
     return LE_OK;
 }
 
+le_result_t ctrlCmd_getAllMachines()
+{
+    taf_pm_VMListRef_t vmListRef = taf_pm_GetMachineList( );
+    char name[32] = {0};
+    if(!vmListRef) {
+        LE_ERROR("List is null");
+        return LE_FAULT;
+    }
+    le_result_t res = taf_pm_GetFirstMachineName(vmListRef, name, 32);
+    while(res == LE_OK)
+    {
+        LE_INFO("vm name : %s",name);
+        res = taf_pm_GetNextMachineName(vmListRef, name, 32);
+    }
+    res = taf_pm_DeleteMachineList(vmListRef);
+    if(res == LE_OK)
+        LE_INFO("Machine list deleted successfully");
+    return LE_OK;
+}
+le_result_t ctrlCmd_suspendVM(const char* vmName)
+{
+    char name[32] = {0};
+    taf_pm_VMListRef_t vmListRef = taf_pm_GetMachineList( );
+    le_result_t res = taf_pm_GetFirstMachineName(vmListRef, name, 32);
+    while(res == LE_OK){
+        if(strcmp(vmName, name) == 0){
+            res = taf_pm_SetVMPowerState(TAF_PM_STATE_SUSPEND, vmName);
+            if(res != LE_OK)
+                LE_ERROR("Failed to suspend VM");
+            return res;
+        }
+        res = taf_pm_GetNextMachineName(vmListRef, name, 32);
+    }
+    LE_ERROR("Enter proper VM name");
+    return LE_FAULT;
+}
+
+le_result_t ctrlCmd_suspend()
+{
+    LE_INFO("Send suspend request");
+    le_result_t res = taf_pm_SetAllVMPowerState(TAF_PM_STATE_SUSPEND);
+    if(res != LE_OK)
+        LE_ERROR("Failed to suspend");
+    return res;
+}
+
+le_result_t ctrlCmd_resumeVM(const char* vmName)
+{
+    char name[32] = {0};
+    taf_pm_VMListRef_t vmListRef = taf_pm_GetMachineList( );
+    le_result_t res = taf_pm_GetFirstMachineName(vmListRef, name, 32);
+    while(res == LE_OK){
+        if(strcmp(vmName, name) == 0){
+            res = taf_pm_SetVMPowerState(TAF_PM_STATE_RESUME, vmName);;
+            if(res != LE_OK)
+                LE_ERROR("Failed to resume VM");
+            return res;
+        }
+        res = taf_pm_GetNextMachineName(vmListRef, name, 32);
+    }
+    LE_ERROR("Enter proper VM name");
+    return LE_FAULT;
+}
+
+le_result_t ctrlCmd_resume()
+{
+    LE_INFO("Send resume request");
+    le_result_t res = taf_pm_SetAllVMPowerState(TAF_PM_STATE_RESUME);
+    if(res != LE_OK)
+        LE_ERROR("Failed to resume");
+    return res;
+}
+
+le_result_t ctrlCmd_shutdownVM(const char* vmName)
+{
+    char name[32] = {0};
+    taf_pm_VMListRef_t vmListRef = taf_pm_GetMachineList( );
+    le_result_t res = taf_pm_GetFirstMachineName(vmListRef, name, 32);
+    while(res == LE_OK){
+        if(strcmp(vmName, name) == 0){
+            res = taf_pm_SetVMPowerState(TAF_PM_STATE_SHUTDOWN, vmName);
+            if(res != LE_OK)
+                LE_ERROR("Failed to shutdown VM");
+            return res;
+        }
+        res = taf_pm_GetNextMachineName(vmListRef, name, 32);
+    }
+    LE_ERROR("Enter proper VM name");
+    return LE_FAULT;
+}
+
+le_result_t ctrlCmd_shutdown()
+{
+    LE_INFO("Send shutdown request");
+    le_result_t res = taf_pm_SetAllVMPowerState(TAF_PM_STATE_SHUTDOWN);
+    if(res != LE_OK)
+        LE_ERROR("Failed to shutdown");
+    return res;
+}
+
 COMPONENT_INIT
 {
     LE_INFO("tafPMUnitTest started");

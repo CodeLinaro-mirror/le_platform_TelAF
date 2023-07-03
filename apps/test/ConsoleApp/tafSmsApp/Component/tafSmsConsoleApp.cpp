@@ -281,7 +281,7 @@ static void RxHandler
             LE_TEST_OK(taf_sms_GetBinary(msgRef, rxContent.binary, &len) == LE_OK,
                        "taf_sms_GetBinary - LE_OK");
 
-            LE_INFO("taf_sms_GetBinary, len:%d", len);
+            LE_INFO("taf_sms_GetBinary, len: %" PRIuS , len);
             for(size_t i = 0; i < len; i++)
             {
                 LE_INFO("0x%.2X", rxContent.binary[i]);
@@ -295,7 +295,7 @@ static void RxHandler
             LE_TEST_OK(taf_sms_GetUCS2(msgRef, rxContent.ucs2, &len) == LE_OK,
                        "taf_sms_GetUCS2 - LE_OK");
 
-            LE_INFO("taf_sms_GetUCS2, len:%d", len);
+            LE_INFO("taf_sms_GetUCS2, len:%" PRIuS, len);
             for(size_t i = 0; i < len; i++)
             {
                 LE_INFO("0x%.4X", rxContent.ucs2[i]);

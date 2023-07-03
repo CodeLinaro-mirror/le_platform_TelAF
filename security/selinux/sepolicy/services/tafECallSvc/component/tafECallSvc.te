@@ -18,3 +18,11 @@ init_telaf_app_domain(telaf_tafECallSvc_t,telaf_tafECallSvc_exec_t)
 telaf_admin_manage_all_files_perms(telaf_tafECallSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafECallSvc_exec_t)
 
+# Getting Telephone call info, call and config control
+ifdef(`sa525m',`
+    telux_allow_tel_call_info_read(telaf_tafECallSvc_t)
+    telux_allow_tel_call_mgmt(telaf_tafECallSvc_t)
+    telux_allow_tel_ecall_mgmt(telaf_tafECallSvc_t)
+    telux_allow_tel_ecall_config(telaf_tafECallSvc_t)
+    telux_allow_tel_emergency_ops(telaf_tafECallSvc_t)
+')

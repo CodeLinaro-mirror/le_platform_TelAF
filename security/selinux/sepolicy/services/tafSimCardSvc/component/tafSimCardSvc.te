@@ -20,6 +20,15 @@ ifdef(`sa525m',`
     telux_allow_tel_subscription_read(telaf_tafSimCardSvc_t)
     telux_allow_tel_private_info_read(telaf_tafSimCardSvc_t)
     telux_allow_tel_sub_private_info_read(telaf_tafSimCardSvc_t)
+    telux_allow_tel_card_power(telaf_tafSimCardSvc_t)
+    telux_allow_tel_card_ops(telaf_tafSimCardSvc_t)
+    telux_allow_tel_card_privileged_ops(telaf_tafSimCardSvc_t)
+    telux_allow_tel_sim_profile_ops(telaf_tafSimCardSvc_t)
+    telux_allow_tel_sim_profile_user_consent(telaf_tafSimCardSvc_t)
+    telux_allow_tel_sim_profile_config(telaf_tafSimCardSvc_t)
+    telux_allow_tel_sim_profile_read(telaf_tafSimCardSvc_t)
+    telux_allow_tel_sim_profile_http_proxy(telaf_tafSimCardSvc_t)
+    telux_allow_tel_multisim_mgmt(telaf_tafSimCardSvc_t)
 ')
 
 # Allow update daemon to install/uninstall this service

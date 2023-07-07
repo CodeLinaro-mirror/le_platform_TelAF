@@ -7,6 +7,7 @@ gen_require(`
   type node_t;
   type unreserved_port_t;
   type telaf_update_t;
+  type load_policy_t;
 ')
 
 
@@ -17,7 +18,6 @@ type telaf_tafDoIPStackUnitTest_data_t;
 files_type(telaf_tafDoIPStackUnitTest_data_t);
 
 type telaf_tafDoIPStackUnitTest_t;
-type load_policy_t;
 
 init_telaf_app_domain(telaf_tafDoIPStackUnitTest_t,telaf_tafDoIPStackUnitTest_exec_t)
 

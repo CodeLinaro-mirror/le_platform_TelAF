@@ -293,7 +293,7 @@ namespace tafsvc {
             uint32_t mBufferRecordedTillNow;
             FILE *mFile;
             int mFd = -1;
-            AudioFormat mFileFormat;
+            AudioFormat mFileFormat = AudioFormat::UNKNOWN;
             StreamVolume mVol;
             le_sem_Ref_t mSemRef;
             StreamConfig voiceStreamConfig = {};

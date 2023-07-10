@@ -492,6 +492,7 @@ le_result_t taf_Audio::StopAudio
             }
         }
     }
+    voiceStreamConfig = {};
     if (status == Status::SUCCESS) {
         LE_DEBUG("Stop successful");
     }
@@ -837,6 +838,10 @@ le_result_t taf_Audio::CreateandStart
                 isOutput = true;
             }
             if(isOutput)
+            LE_DEBUG("Output device exists!");
+
+#if defined(TARGET_SA525M)
+            if(isOutput && outputPtr->samplePcmConfig.sampleRate)
             {
                 if (voiceStreamConfig.sampleRate != 0)
                 {
@@ -849,9 +854,11 @@ le_result_t taf_Audio::CreateandStart
                 else
                 {
                     voiceStreamConfig.sampleRate = outputPtr->samplePcmConfig.sampleRate;
+                    LE_DEBUG("isOutput voiceStream sampling rate is set to:%d",
+                            voiceStreamConfig.sampleRate
+                            );
                 }
             }
-#if defined(TARGET_SA525M)
             bool isInput = false;
             // Set the config device type based on input device
             if (inputPtr->interface == TAF_AUDIO_IF_CODEC_MIC) {
@@ -882,7 +889,7 @@ le_result_t taf_Audio::CreateandStart
                 }
                 isInput = true;
             }
-            if(isInput)
+            if(isInput && inputPtr->samplePcmConfig.sampleRate)
             {
                 if (voiceStreamConfig.sampleRate != 0 )
                 {
@@ -895,6 +902,8 @@ le_result_t taf_Audio::CreateandStart
                 else
                 {
                     voiceStreamConfig.sampleRate = inputPtr->samplePcmConfig.sampleRate;
+                    LE_DEBUG("IsinputPtr voiceStream sampling rate is set to:%d",
+                            voiceStreamConfig.sampleRate);
                 }
             }
 #endif
@@ -907,11 +916,6 @@ le_result_t taf_Audio::CreateandStart
         {
             voiceStreamConfig.type = StreamType::VOICE_CALL;
             voiceStreamConfig.slotId = (SlotId)mSlotId;
-            if (voiceStreamConfig.sampleRate == 0)
-            {
-                voiceStreamConfig.sampleRate = 16000;
-                LE_INFO("setting default sampling rate as 16000");
-            }
             voiceStreamConfig.format = AudioFormat::PCM_16BIT_SIGNED;
             voiceStreamConfig.channelTypeMask = ChannelType::LEFT | ChannelType::RIGHT;
 
@@ -925,6 +929,11 @@ le_result_t taf_Audio::CreateandStart
 #if defined(TARGET_SA525M)
             if(voiceStreamConfig.deviceTypes.size() >= 2)
             {
+                if (voiceStreamConfig.sampleRate == 0)
+                {
+                    voiceStreamConfig.sampleRate = 16000;
+                    LE_INFO("setting default sampling rate as 16000");
+                }
                 res = StartAudio(voiceStreamConfig);
             }
             else {
@@ -932,6 +941,11 @@ le_result_t taf_Audio::CreateandStart
                 return res;
             }
 #else
+            if (voiceStreamConfig.sampleRate == 0)
+            {
+                voiceStreamConfig.sampleRate = 16000;
+                LE_INFO("setting default sampling rate as 16000");
+            }
             res = StartAudio(voiceStreamConfig);
 #endif
         } else {
@@ -2768,6 +2782,7 @@ void* taf_Audio::Record( void* ctxPtr) {
             le_clk_Time_t timeToWait = {0, waitTime * 1000};
             le_sem_WaitWithTimeOut(audio.mSemRef, timeToWait);
         }
+        audio.mFileFormat = AudioFormat::UNKNOWN;
         fflush(audio.mFile);
         fclose(audio.mFile);
         LE_INFO("File Recorded SuccessFully");

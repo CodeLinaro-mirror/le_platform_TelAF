@@ -390,6 +390,7 @@ le_result_t taf_Audio::StartAudio
     if(mAudioVoiceStream && (config.slotId == SLOT_ID_1) && !mVoiceEnabled1) {
         status = mAudioVoiceStream->startAudio(StartAudioCallback);
         Status st = mAudioVoiceStream->registerListener(mVoiceListener);
+        voiceStreamConfig = {};
         if(st == Status::SUCCESS) {
             LE_DEBUG("Request to register Voice Listener Sent" );
         }
@@ -397,6 +398,7 @@ le_result_t taf_Audio::StartAudio
 
     if(mAudioVoiceStream2 && (config.slotId == SLOT_ID_2) && !mVoiceEnabled2) {
         status = mAudioVoiceStream2->startAudio(StartAudioCallback);
+        voiceStreamConfig = {};
     }
 
     if (mAudioVoiceStream || mAudioVoiceStream2) {
@@ -778,6 +780,7 @@ le_result_t taf_Audio::CreateandStart
     taf_audio_Stream_t* outputPtr;
     taf_audio_Stream_t* currentPtr;
     le_result_t res = LE_FAULT;
+    bool isOutput = false;
 
     le_hashmap_It_Ref_t streamIterator = le_hashmap_GetIterator(streamListPtr);
 
@@ -785,7 +788,7 @@ le_result_t taf_Audio::CreateandStart
     {
         currentPtr = (taf_audio_Stream_t*)le_hashmap_GetValue(streamIterator);
 
-        TAF_ERROR_IF_RET_VAL( currentPtr == NULL, LE_BAD_PARAMETER,"currentPtr is nullptr!");
+        TAF_ERROR_IF_RET_VAL( currentPtr == nullptr, LE_BAD_PARAMETER, "currentPtr is nullptr!");
 
         LE_DEBUG("CurrentStream %p",currentPtr);
 
@@ -804,69 +807,133 @@ le_result_t taf_Audio::CreateandStart
                 inputPtr->interface,
                 outputPtr->interface);
 
-        StreamConfig config = {};
-        if (mModemRx && mSpeaker && !mCallStarted)
-        {
-            config.type = StreamType::VOICE_CALL;
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-            config.slotId = (SlotId)mSlotId;
-#endif
-            if (outputPtr->samplePcmConfig.sampleRate != 0)
-            {
-                config.sampleRate = outputPtr->samplePcmConfig.sampleRate;
-            }
-            else
-            {
-                config.sampleRate = 16000;
-                LE_INFO("setting default sampling rate as 16000");
-            }
-            config.format = AudioFormat::PCM_16BIT_SIGNED;
-            config.channelTypeMask = ChannelType::LEFT | ChannelType::RIGHT;
-
             // Set the config device type based on output device
             if (outputPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER) {
-                config.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_SPEAKER);
-#if LE_CONFIG_TARGET_SA525M
-                config.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_MIC);
-#endif
+                voiceStreamConfig.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_SPEAKER);
                 LE_DEBUG("set config with device type speaker");
+                isOutput = true;
             }
             else if (outputPtr->interface == TAF_AUDIO_IF_PCM_SPEAKER) {
-                config.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_HEADSET_SPEAKER);
-#if LE_CONFIG_TARGET_SA525M
-                config.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_HEADSET_MIC);
-#endif
+                voiceStreamConfig.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_HEADSET_SPEAKER);
                 LE_DEBUG("set config with device type headset speaker");
+                isOutput = true;
             }
             else if (outputPtr->interface == TAF_AUDIO_IF_I2S_SPEAKER) {
-                config.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_SPEAKER);
-#if LE_CONFIG_TARGET_SA525M
-                config.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_MIC);
-#endif
+                voiceStreamConfig.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_SPEAKER);
                 LE_DEBUG("set config with device type speaker");
                 taf_audio_I2SChannel_t channel = outputPtr->channelMode;
                 switch(channel)
                 {
                     case TAF_AUDIO_I2S_LEFT:
-                        config.channelTypeMask = ChannelType::LEFT;
+                        voiceStreamConfig.channelTypeMask = ChannelType::LEFT;
                         break;
                     case TAF_AUDIO_I2S_RIGHT:
-                        config.channelTypeMask = ChannelType::RIGHT;
+                        voiceStreamConfig.channelTypeMask = ChannelType::RIGHT;
                         break;
                     default:
-                        config.channelTypeMask = ChannelType::LEFT | ChannelType::RIGHT;
+                        voiceStreamConfig.channelTypeMask = ChannelType::LEFT | ChannelType::RIGHT;
                         break;
                 }
+                isOutput = true;
             }
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-            if (streamPtr->echoCancellerEnabled) {
-                config.ecnrMode = EcnrMode::ENABLE;
-            } else {
-                config.ecnrMode = EcnrMode::DISABLE;
+            if(isOutput)
+            {
+                if (voiceStreamConfig.sampleRate != 0)
+                {
+                    TAF_ERROR_IF_RET_VAL(
+                        voiceStreamConfig.sampleRate != outputPtr->samplePcmConfig.sampleRate,
+                        LE_FAULT,
+                        "Make sure both the input and output sampling rate is the same"
+                    );
+                }
+                else
+                {
+                    voiceStreamConfig.sampleRate = outputPtr->samplePcmConfig.sampleRate;
+                }
+            }
+#if defined(TARGET_SA525M)
+            bool isInput = false;
+            // Set the config device type based on input device
+            if (inputPtr->interface == TAF_AUDIO_IF_CODEC_MIC) {
+                voiceStreamConfig.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_MIC);
+                LE_DEBUG("set config with device type mic");
+                isInput = true;
+            }
+            else if (inputPtr->interface == TAF_AUDIO_IF_PCM_MIC) {
+                voiceStreamConfig.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_HEADSET_MIC);
+                LE_DEBUG("set config with device type headset mic");
+                isInput = true;
+            }
+            else if (inputPtr->interface == TAF_AUDIO_IF_I2S_MIC) {
+                voiceStreamConfig.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_MIC);
+                LE_DEBUG("set config with device type mic");
+                taf_audio_I2SChannel_t channel = inputPtr->channelMode;
+                switch(channel)
+                {
+                    case TAF_AUDIO_I2S_LEFT:
+                        voiceStreamConfig.channelTypeMask = ChannelType::LEFT;
+                        break;
+                    case TAF_AUDIO_I2S_RIGHT:
+                        voiceStreamConfig.channelTypeMask = ChannelType::RIGHT;
+                        break;
+                    default:
+                        voiceStreamConfig.channelTypeMask = ChannelType::LEFT | ChannelType::RIGHT;
+                        break;
+                }
+                isInput = true;
+            }
+            if(isInput)
+            {
+                if (voiceStreamConfig.sampleRate != 0 )
+                {
+                    TAF_ERROR_IF_RET_VAL(
+                        voiceStreamConfig.sampleRate != inputPtr->samplePcmConfig.sampleRate,
+                        LE_FAULT,
+                        "Make sure both the input and output sampling rate is same"
+                    );
+                }
+                else
+                {
+                    voiceStreamConfig.sampleRate = inputPtr->samplePcmConfig.sampleRate;
+                }
             }
 #endif
+
+#if defined(TARGET_SA525M)
+        if (mModemRx && mModemTx && mSpeaker && mMic && !mCallStarted)
+#else
+        if (mModemRx && mSpeaker && !mCallStarted)
+#endif
+        {
+            voiceStreamConfig.type = StreamType::VOICE_CALL;
+            voiceStreamConfig.slotId = (SlotId)mSlotId;
+            if (voiceStreamConfig.sampleRate == 0)
+            {
+                voiceStreamConfig.sampleRate = 16000;
+                LE_INFO("setting default sampling rate as 16000");
+            }
+            voiceStreamConfig.format = AudioFormat::PCM_16BIT_SIGNED;
+            voiceStreamConfig.channelTypeMask = ChannelType::LEFT | ChannelType::RIGHT;
+
+            if (streamPtr->echoCancellerEnabled) {
+                voiceStreamConfig.ecnrMode = EcnrMode::ENABLE;
+            } else {
+                voiceStreamConfig.ecnrMode = EcnrMode::DISABLE;
+            }
+
             DtmfAudioRef = (taf_audio_StreamRef_t)streamPtr;
-            res = StartAudio(config);
+#if defined(TARGET_SA525M)
+            if(voiceStreamConfig.deviceTypes.size() >= 2)
+            {
+                res = StartAudio(voiceStreamConfig);
+            }
+            else {
+                res = LE_OK;
+                return res;
+            }
+#else
+            res = StartAudio(voiceStreamConfig);
+#endif
         } else {
             res = LE_OK;
         }
@@ -1444,8 +1511,17 @@ void taf_Audio::DeleteStream
     {
         mSpeaker = false;
     }
+    else if(streamPtr->interface == TAF_AUDIO_IF_CODEC_MIC
+            || streamPtr->interface == TAF_AUDIO_IF_PCM_MIC
+            || streamPtr->interface == TAF_AUDIO_IF_I2S_MIC)
+    {
+        mMic = false;
+    }
     if(streamPtr->interface == TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX) {
         mModemRx = false;
+    }
+    else if(streamPtr->interface == TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_TX) {
+        mModemTx = false;
     }
     lPtr = le_dls_Peek(&(streamPtr->sessionRefList));
     while (lPtr != NULL)
@@ -1593,7 +1669,7 @@ taf_audio_StreamRef_t taf_Audio::OpenMic
 )
 {
     CreateStream_t createAudio;
-
+    mMic = true;
     createAudio.HwDevice = true;
     createAudio.interface = TAF_AUDIO_IF_CODEC_MIC;
 
@@ -1606,8 +1682,12 @@ taf_audio_StreamRef_t taf_Audio::OpenModemVoiceTx
 )
 {
     mSlotId = slotId;
-    LE_DEBUG("Feature yet to Implement");
-    return NULL;
+    CreateStream_t createAudio;
+    mModemTx = true;
+    createAudio.HwDevice = true;
+    createAudio.interface = TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_TX;
+
+    return CreateStream(&createAudio);
 }
 
 /**
@@ -1622,7 +1702,7 @@ taf_audio_StreamRef_t taf_Audio::OpenI2sRx
             NULL, "Channel mode is not supported");
 
     CreateStream_t createAudio;
-
+    mMic = true;
     createAudio.HwDevice = true;
     createAudio.interface = TAF_AUDIO_IF_I2S_MIC;
     createAudio.channelMode = mode;
@@ -1660,7 +1740,7 @@ taf_audio_StreamRef_t taf_Audio::OpenPcmRx
 )
 {
     CreateStream_t createAudio;
-
+    mMic = true;
     createAudio.HwDevice = true;
     createAudio.interface = TAF_AUDIO_IF_PCM_MIC;
     createAudio.timeSlot = timeslot;

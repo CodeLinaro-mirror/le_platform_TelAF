@@ -1389,6 +1389,8 @@ __attribute__((unused)) static void HmacSigTest(void)
  * RSA key export test
  */
 //--------------------------------------------------------------------------------------------------
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+#else
 __attribute__((unused)) static void RsaKeyExportTest(void)
 {
     le_result_t result;
@@ -1455,6 +1457,7 @@ __attribute__((unused)) static void RsaKeyExportTest(void)
     LE_TEST_ASSERT(err != 1, "Verify wrong signature with OpenSSL API.");
     RSA_free(rsaPubPtr);
 }
+#endif
 
 COMPONENT_INIT
 {
@@ -1473,8 +1476,11 @@ COMPONENT_INIT
     AesGcmTest();              // AES GCM test
     EncDataFileTest();         // Encrypt file test
     DecDataFileTest();         // Decrypt file test
-    RsaKeyExportTest();        // Export RSA key test
 
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+#else
+    RsaKeyExportTest();        // Export RSA key test
+#endif
     LE_TEST_INFO("=== telaf Keystore test END ===");
 
     LE_TEST_EXIT;

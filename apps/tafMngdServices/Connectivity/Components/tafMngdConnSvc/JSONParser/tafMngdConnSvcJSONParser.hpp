@@ -50,6 +50,7 @@
 #include "legato.h"
 #include "tafMngdConnSvcParser_PolicyParser.hpp"
 #include "tafMngdConnSvcParser_ConfigurationParser.hpp"
+#include "tafMngdSvcJSONParser_Helper.hpp"
 namespace telux {
 namespace tafsvc {
     /*
@@ -60,15 +61,23 @@ namespace tafsvc {
         * JSON filenames.
         *
         * @param [in] taf_mngd_Conn_Policy_t        Refernce to Policy
-        * @param [in] PolicyFileName                Policy JSON file name
         * @param [in] taf_mngd_Conn_Configuration_t Refernce to Configuration
         * @param [in] ConfigurationFileName         Configuration JSON file name
         *
         * @return true on success, false on failure
         */
     bool tafMngdConnSvc_GetPolicyAndConfiguration(taf_mngd_Conn_Policy_t &PolicyRef,
-                                    std::string PolicyFileName,
                                     taf_mngd_Conn_Configuration_t &ConfigurationRef,
                                     std::string ConfigurationFileName);
+
+    // Validate received values via callback
+    void UpdateValidConnectivityFuncMap(void);
+
+    // Used to validate if the proprety values conform to expected types
+
+    typedef bool (*ConnectivityValidationFunction_t)(taf_mngd_Conn_Policy_t& Policy,
+                                                taf_mngd_Conn_Configuration_t &Configuration,
+                                                std::string Value,
+                                                int Index);
 }
 }

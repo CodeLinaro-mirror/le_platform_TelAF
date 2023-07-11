@@ -40,8 +40,7 @@
 
 using namespace telux::tafsvc;
 
-#define POLICY_FILE_NAME "mngdConnPolicy.json"
-#define CONFIG_FILE_NAME "mngdConnConfig.json"
+#define CONFIG_FILE_NAME "mngdConnectivity.json"
 
 LE_MEM_DEFINE_STATIC_POOL(tafMngdConn, TAF_DCS_MAX_CALL_OBJ, sizeof(taf_mngd_Conn_Ctx_t));
 
@@ -76,37 +75,19 @@ void Sim_init()
 //--------------------------------------------------------------------------------------------------
 bool tafMngdConnAdmin::ReadJSONFileNamesFromConfigTree
 (
-    char *PolicyFileNamePtr,
     char *ConfigurationFileNamePtr
 )
 {
     le_result_t result = LE_OK;
     char ConfigFileNameUpdate[TAF_MNGD_CONN_MAX_YES_NO_LEN] = {0};
 
-    if ( PolicyFileNamePtr == NULL || ConfigurationFileNamePtr == NULL )
+    if (ConfigurationFileNamePtr == NULL )
     {
         LE_WARN ("Invalid Parameters passed");
         return false;
     }
 
     // The Config Tree Node names are defined in tafMngdConn_ConfigTreeHelper.hpp
-
-    // Read Policy File Name
-    result = tafMngd_ConfigTree_Read(TAF_MNGD_ct_node_PolicyFileName,
-                                                            PolicyFileNamePtr,
-                                                            TAF_MNGD_CONN_MAX_FILE_NAME_LEN);
-    if ( result != LE_OK )
-    {
-        LE_WARN ("Error in reading Policy File Name");
-        return false;
-    }
-    else if (strlen(PolicyFileNamePtr) == 0 )
-    {
-        LE_WARN("Policy Filename not present in Config Tree");
-        return false;
-    }
-
-    LE_INFO("Policy File Name: %s", PolicyFileNamePtr);
 
     // Read Configuration File Name
     result = tafMngd_ConfigTree_Read(TAF_MNGD_ct_node_ConfigurationFileName,
@@ -174,8 +155,7 @@ void tafMngdConnAdmin::Init(void)
     le_sem_Delete(semRef);
 
     // Check if ConfigTree has the Policy and Configuration File names
-    if (tafMngdConnSvc_GetPolicyAndConfiguration( Policy, POLICY_FILE_NAME,
-                                                  Configuration, CONFIG_FILE_NAME))
+    if (tafMngdConnSvc_GetPolicyAndConfiguration( Policy, Configuration, CONFIG_FILE_NAME))
     {
         // Policy and Configuration parsed and validated. Move to "Data-Not_Connected" state
         LE_DEBUG("JSONs parsed. Initialization Complete and set IsJsonValid with true");
@@ -226,14 +206,13 @@ void* tafMngdConnAdmin::callback_thread(void* contextPtr)
 //--------------------------------------------------------------------------------------------------
 le_result_t tafMngdConnAdmin::SetPolicyConfigurationJSONs
 (
-    const char* ConfigFileNamePtr,
-    const char* PolicyFileNamePtr
+    const char* ConfigFileNamePtr
 )
 {
     le_result_t result = LE_OK;
     CmdSynchronousPromise = std::promise<le_result_t>();
 
-    if(ConfigFileNamePtr == NULL || PolicyFileNamePtr == NULL)
+    if(ConfigFileNamePtr == NULL)
     {
         LE_ERROR ("Invalid Parameters passed");
         return LE_FAULT;
@@ -246,13 +225,11 @@ le_result_t tafMngdConnAdmin::SetPolicyConfigurationJSONs
         return LE_FAULT;
     }
 
-    // Check if ConfigTree has the Policy and Configuration File names
-    char PresentPolicyFileName[TAF_MNGD_CONN_MAX_FILE_NAME_LEN] = {0};
+    // Check if ConfigTree has the Configuration File name
     char PresentConfFileName[TAF_MNGD_CONN_MAX_FILE_NAME_LEN]={0};
-    if (IsJsonValid && ReadJSONFileNamesFromConfigTree(PresentPolicyFileName, PresentConfFileName))
+    if (IsJsonValid && ReadJSONFileNamesFromConfigTree(PresentConfFileName))
     {
-        if ((strncmp(PresentConfFileName, ConfigFileNamePtr, sizeof(PresentConfFileName)) == 0) &&
-            (strncmp(PresentPolicyFileName, PolicyFileNamePtr, sizeof(PresentPolicyFileName)) == 0))
+        if ((strncmp(PresentConfFileName, ConfigFileNamePtr, sizeof(PresentConfFileName)) == 0))
         {
             LE_ERROR ("Policy and Configuration file names are same");
             return LE_DUPLICATE;
@@ -264,7 +241,6 @@ le_result_t tafMngdConnAdmin::SetPolicyConfigurationJSONs
         }
     }
 
-    le_utf8_Copy(PolicyFileName, PolicyFileNamePtr, MAX_MNGD_CONN_FILE_PATH_LEN,NULL);
     le_utf8_Copy(ConfigFileName, ConfigFileNamePtr, MAX_MNGD_CONN_FILE_PATH_LEN,NULL);
 
     stateMachineEvent_t stateMachineEvt;
@@ -494,26 +470,22 @@ void tafMngdConnAdmin::EventInit()
 //--------------------------------------------------------------------------------------------------
 le_result_t tafMngdConnAdmin::EventSetPolicyConfigJSONs
 (
-    const char* ConfigFileNamePtr,
-    const char* PolicyFileNamePtr
+    const char* ConfigFileNamePtr
 )
 {
-    if ( NULL == ConfigFileNamePtr || NULL == PolicyFileNamePtr)
+    if ( NULL == ConfigFileNamePtr)
     {
         LE_ERROR ("Invalid Parameters passed");
         return LE_FAULT;
     }
 
-    if((strlen(ConfigFileNamePtr) >= MAX_MNGD_CONN_FILE_PATH_LEN) ||
-       (strlen(PolicyFileNamePtr) >= MAX_MNGD_CONN_FILE_PATH_LEN))
+    if((strlen(ConfigFileNamePtr) >= MAX_MNGD_CONN_FILE_PATH_LEN))
     {
         LE_ERROR ("Invalid file name");
         return LE_FAULT;
     }
 
-    if (tafMngdConnSvc_GetPolicyAndConfiguration(
-            Policy, PolicyFileNamePtr,
-            Configuration, ConfigFileNamePtr))
+    if (tafMngdConnSvc_GetPolicyAndConfiguration(Policy, Configuration, ConfigFileNamePtr))
     {
         LE_DEBUG("JSONs parsed and validated");
         LE_DEBUG("Version          : %d", Policy.Version);
@@ -1119,8 +1091,7 @@ void tafMngdConnAdmin::StateMachineHandler(void* reqPtr)
             break;
         case EVT_SET_POLICY_CONF:
 
-            result = mngdConnAdmin.EventSetPolicyConfigJSONs(mngdConnAdmin.ConfigFileName,
-                                                             mngdConnAdmin.PolicyFileName);
+            result = mngdConnAdmin.EventSetPolicyConfigJSONs(mngdConnAdmin.ConfigFileName);
 
             mngdConnAdmin.CmdSynchronousPromise.set_value(result);
             break;

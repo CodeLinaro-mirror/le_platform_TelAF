@@ -131,8 +131,7 @@ namespace tafsvc {
 
             void Init(void);
             static tafMngdConnAdmin &GetInstance();
-            le_result_t SetPolicyConfigurationJSONs(const char* ConfigFileNamePtr,
-                                                    const char* PolicyFileNamePtr);
+            le_result_t SetPolicyConfigurationJSONs(const char* ConfigFileNamePtr);
             taf_mngd_Conn_DataRef_t GetRefByDataId(uint8_t dataId);
             le_result_t Startdata(taf_mngd_Conn_DataRef_t dataRef);
             le_result_t Stopdata(taf_mngd_Conn_DataRef_t dataRef);
@@ -158,8 +157,7 @@ namespace tafsvc {
             le_thread_Ref_t tafMngd_event_thread=NULL;
             le_thread_Ref_t StateMachineEventThreadRef = NULL;
             void EventInit();
-            le_result_t EventSetPolicyConfigJSONs(const char* ConfigFileNamePtr,
-                                                  const char* PolicyFileNamePtr);
+            le_result_t EventSetPolicyConfigJSONs(const char* ConfigFileNamePtr);
             le_result_t EventStartData(uint8_t dataId);
             le_result_t EventStopData(uint8_t dataId);
             le_result_t EventGetConnectionInfo(uint8_t dataId);
@@ -186,13 +184,10 @@ namespace tafsvc {
             taf_mngd_Conn_Policy_t Policy;
             taf_mngd_Conn_Configuration_t Configuration;
 
-            // Policy and Config file name
-            char PolicyFileName[MAX_MNGD_CONN_FILE_PATH_LEN];
+            //Config file name
             char ConfigFileName[MAX_MNGD_CONN_FILE_PATH_LEN];
 
-            bool ReadJSONFileNamesFromConfigTree (
-                                    char *PolicyFileNamePtr,
-                                    char *ConfigurationFileNamePtr);
+            bool ReadJSONFileNamesFromConfigTree (char *ConfigurationFileNamePtr);
 
             const char * EventToString(EventType_t event);
             const char * StateToString(taf_mngd_Conn_Admin_State_t state);

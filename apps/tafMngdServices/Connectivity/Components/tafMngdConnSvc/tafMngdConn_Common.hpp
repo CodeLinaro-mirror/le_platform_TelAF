@@ -194,19 +194,12 @@ namespace tafsvc {
 
     // Constant Strings
 
-    /**
-     * \brief Default Location for Policy JSONs
-     *
-     */
-    const std::string TAF_MNGD_DefaultLocation_Policy("/data/ManagedServices/Policy");
 
     /**
      * \brief Default Location for Configuration JSONs
      *
      */
-    const std::string TAF_MNGD_DefaultLocation_Configuration(
-                                                       "/data/ManagedServices/Configuration"
-                                                            );
+    const std::string TAF_MNGD_DefaultLocation_Configuration("/data/ManagedServices");
 
 }
 }

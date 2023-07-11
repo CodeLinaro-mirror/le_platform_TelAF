@@ -254,83 +254,28 @@ bool tafMngdConnSvc_PolicyParser::ParseAndUpdatePolicyJSON(taf_mngd_Conn_Policy_
     std::string log, JSON_Property, JSON_Value;
     for (auto & element: tree) {
 
-        // ManagedConnectivityServicePolicy
-        if ("ManagedConnectivityServicePolicy" == element.first ) {
+       if ("ManagedConnectivityService" == element.first ) {
             log.clear();
-            log.append ( "Section: " + element.first );
+            log = "Top Element: " + element.first;
             LE_DEBUG ("%s", log.c_str() );
 
-            // Get the elements within "ManagedConnectivityServicePolicy"
             for (auto & property: element.second) {
-                if (property.first != ""){
-                    log.clear();
-                    log.append ("Key: " + property.first + ", Value: " +
-                                                    property.second.get_value < std::string > () );
-                    LE_DEBUG("%s", log.c_str());
-                    // Validate the read value
-                    JSON_Property.clear();
-                    JSON_Property.append(element.first + ":" + property.first);
-                    JSON_Value.clear();
-                    JSON_Value.append(property.second.get_value<std::string>());
-                    // Validate values. Index is set to invald.
-                    if (!ValidateValue(Policy, JSON_Property, JSON_Value,
-                                                            TAF_MNGD_CONN_INVALID_INDEX))
-                    {
-                        LE_WARN("Invalid JSON_Property Value");
-                        LE_INFO("JSON_Property: %s, Value: %s", JSON_Property.c_str(),
-                                                                            JSON_Value.c_str());
-                        return false;
-                    }
-                }
-            }
-        }
 
-        // Get the elements within "DataSession"
-        if ( "DataSession" == element.first ) {
-            log.clear();
-            log.append("Section: " + element.first);
-            LE_DEBUG ("%s", log.c_str() );
-            for (auto & property: element.second) {
-                if (property.first != "" && "DataConnection" != property.first ){
-                    log.clear();
-                    log.append ("Key: " + property.first + ", Value: " +
-                                                    property.second.get_value < std::string > () );
-                    LE_DEBUG ("%s", log.c_str() );
-                    JSON_Property.clear();
-                    JSON_Property.append(element.first + ":" + property.first);
-                    JSON_Value.clear();
-                    JSON_Value.append(property.second.get_value<std::string>());
-                    // Validate values. Index is set to invald.
-                    if (!ValidateValue(Policy, JSON_Property, JSON_Value,
-                                                        TAF_MNGD_CONN_INVALID_INDEX))
-                    {
-                        LE_WARN("Invalid JSON_Property Value");
-                        LE_INFO("JSON_Property: %s, Value: %s", JSON_Property.c_str(),
-                                                                                JSON_Value.c_str());
-                        return false;
-                    }
-                }
-
-                if ("DataConnection" == property.first) {
-                    int ElementCount = 0;
-                    // Use an iterator to get into the DataConnection array
-                    for (auto &it: property.second) {
-                        log.clear();
-                        log.append ("DataConnection[" + to_string (ElementCount) + "]");
-                        LE_DEBUG ("%s", log.c_str() );
-                        // Use an iterator to go through  the DataConnection array
-                        for (auto &it2: it.second) {
+                if ("Policy" == property.first){
+                    for (auto & parent: property.second) {
+                        if ("Name" == parent.first){
                             log.clear();
-                            log.append ( std::string ("\t") + "Key: " + it2.first +
-                                                    ", Value: " + it2.second.data() );
+                            log = "Key: " + parent.first + ", Value: " +
+                                                    parent.second.get_value < std::string > ();
                             LE_DEBUG ("%s", log.c_str() );
                             JSON_Property.clear();
-                            JSON_Property.append(element.first + ":" + property.first + ":" +
-                                                                                        it2.first);
+                            JSON_Property.append (property.first + ":" + parent.first);
                             JSON_Value.clear();
-                            JSON_Value.append(it2.second.data());
-                            // Validate values. Index is set to correct value as this is an array.
-                            if (!ValidateValue(Policy, JSON_Property, JSON_Value, ElementCount))
+                            JSON_Value = parent.second.get_value<std::string>();
+                            // Validate the value and update Configuration structure.
+                            // Pass an invalid index as these are not arrays
+                            if (!ValidateValue(Policy, JSON_Property, JSON_Value,
+                                                                TAF_MNGD_CONN_INVALID_INDEX))
                             {
                                 LE_WARN("Invalid JSON_Property Value");
                                 LE_INFO("JSON_Property: %s, Value: %s", JSON_Property.c_str(),
@@ -338,8 +283,73 @@ bool tafMngdConnSvc_PolicyParser::ParseAndUpdatePolicyJSON(taf_mngd_Conn_Policy_
                                 return false;
                             }
                         }
-                        // Increment the element count
-                        ElementCount++;
+
+                        // Get the elements within "DataSession"
+                        if ( "DataSession" == parent.first ) {
+                            log.clear();
+                            log.append("Section: " + parent.first);
+                            LE_DEBUG ("%s", log.c_str() );
+                            for (auto & child: parent.second) {
+                                if (child.first != "" && "DataConnection" != child.first ){
+                                    log.clear();
+                                    log.append ("Key: " + child.first + ", Value: " +
+                                                        child.second.get_value < std::string > () );
+                                    LE_DEBUG ("%s", log.c_str() );
+                                    JSON_Property.clear();
+                                    JSON_Property.append(parent.first + ":" + child.first);
+                                    JSON_Value.clear();
+                                    JSON_Value.append(child.second.get_value<std::string>());
+                                    // Validate values. Index is set to invald.
+                                    if (!ValidateValue(Policy, JSON_Property, JSON_Value,
+                                                                        TAF_MNGD_CONN_INVALID_INDEX))
+                                    {
+                                        LE_WARN("Invalid JSON_Property Value");
+                                        LE_INFO("JSON_Property: %s, Value: %s",
+                                        JSON_Property.c_str(),
+                                        JSON_Value.c_str());
+                                        return false;
+                                    }
+                                }
+
+                                if ("DataConnection" == child.first) {
+                                    int ElementCount = 0;
+                                    // Use an iterator to get into the DataConnection array
+                                    for (auto &it: child.second) {
+                                        log.clear();
+                                        log.append ("DataConnection["
+                                        + to_string (ElementCount) + "]");
+                                        LE_DEBUG ("%s", log.c_str() );
+                                        // Use an iterator to go through  the DataConnection array
+                                        for (auto &it2: it.second) {
+                                            log.clear();
+                                            log.append ( std::string ("\t") + "Key: "
+                                                        + it2.first +
+                                                        ", Value: " + it2.second.data() );
+                                            LE_DEBUG ("%s", log.c_str() );
+                                            JSON_Property.clear();
+                                            JSON_Property.append(parent.first + ":"
+                                            + child.first + ":" +
+                                            it2.first);
+                                            JSON_Value.clear();
+                                            JSON_Value.append(it2.second.data());
+                                            // Validate values. Index is set to correct value
+                                            // as this is an array.
+                                            if (!ValidateValue(Policy, JSON_Property, JSON_Value,
+                                            ElementCount))
+                                            {
+                                                LE_WARN("Invalid JSON_Property Value");
+                                                LE_INFO("JSON_Property: %s, Value: %s",
+                                                JSON_Property.c_str(),
+                                                JSON_Value.c_str());
+                                                return false;
+                                            }
+                                        }
+                                        // Increment the element count
+                                        ElementCount++;
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -350,17 +360,16 @@ bool tafMngdConnSvc_PolicyParser::ParseAndUpdatePolicyJSON(taf_mngd_Conn_Policy_
 
 void tafMngdConnSvc_PolicyParser::ResetPolicyStructure(taf_mngd_Conn_Policy_t &Policy)
 {
-    Policy.Version = 0;
     Policy.Name[0] = '\0';
     memset(Policy.ConfigurationFileName, 0, TAF_MNGD_CONN_MAX_FILE_NAME_LEN);
     Policy.DataSession.dataConnectionCount = 0;
 }
 
 bool tafMngdConnSvc_PolicyParser::GetPolicy ( taf_mngd_Conn_Policy_t &Policy,
-                                                      std::string PolicyFileName )
+                                                      std::string ConfigurationFileName )
 {
     ResetPolicyStructure(Policy);
-    if (!ParseAndUpdatePolicyJSON(Policy, PolicyFileName))
+    if (!ParseAndUpdatePolicyJSON(Policy, ConfigurationFileName))
     {
         LE_WARN("Policy JSON is not valid");
         // Reset the Policy Structure
@@ -375,10 +384,7 @@ bool tafMngdConnSvc_PolicyParser::GetPolicy ( taf_mngd_Conn_Policy_t &Policy,
  */
 void tafMngdConnSvc_PolicyParser::UpdateValidPolicyFuncMap(void)
 {
-    PolicyValidationFuncMap["ManagedConnectivityServicePolicy:Version"] = &Validate_MCSP_Version;
-    PolicyValidationFuncMap["ManagedConnectivityServicePolicy:Name"] = &Validate_MCSP_Name;
-    PolicyValidationFuncMap["ManagedConnectivityServicePolicy:ConfigurationFileName"] =
-                                                             &Validate_MCSP_ConfigFileName;
+    PolicyValidationFuncMap["Policy:Name"] = &Validate_MCSP_Name;
     PolicyValidationFuncMap["DataSession:Fallback"] = &Validate_DS_Fallback;
     PolicyValidationFuncMap["DataSession:DataConnection:Priority"] = &Validate_DS_DC_Priority;
     PolicyValidationFuncMap["DataSession:DataConnection:Use_Data_ID"] = &Validate_DS_DC_Use_Data_ID;

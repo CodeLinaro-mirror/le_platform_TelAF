@@ -145,5 +145,5 @@ public:
      * \brief Return a pointer to the Policy structure
      *
      */
-    bool GetPolicy(taf_mngd_Conn_Policy_t& Policy, std::string PolicyFileName);
+    bool GetPolicy(taf_mngd_Conn_Policy_t& Policy, std::string ConfigurationFileName);
 };

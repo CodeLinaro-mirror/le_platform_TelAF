@@ -1326,7 +1326,7 @@ void Connection::InitialTimerHandler
         LE_ERROR("Unknow socket reference.");
         return;
     }
-    connectionPtr = *(std::shared_ptr<Connection>*)le_timer_GetContextPtr(timerRef);
+
     le_timer_Stop(timerRef);
 
     connectionPtr->ConnectionStateMachine(TAF_DOIP_CONNECT_STATE_FINALIZE, 0);

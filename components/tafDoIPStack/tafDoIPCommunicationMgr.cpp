@@ -1519,6 +1519,9 @@ taf_doip_Result_t CommunicationMgr::SessionInit
     // Initialize TCP connection manager.
     connectionMgrPtr->Init();
 
+    // Initialzie the reception and sending thread.
+    mainThrRef = le_thread_GetCurrent();
+
     state = TAF_DOIP_STATE_INIT;
 
     return TAF_DOIP_RESULT_OK;
@@ -1572,8 +1575,6 @@ void CommunicationMgr::Init
 )
 {
     LE_INFO("DoIP communication manager init...\n");
-
-    mainThrRef = le_thread_GetCurrent();
 
     udsThrRef = le_thread_Create("UdsThread", UdsHandleThread, NULL);
     le_thread_SetStackSize(udsThrRef, TAF_DOIP_THREAD_STACK_SIZE);

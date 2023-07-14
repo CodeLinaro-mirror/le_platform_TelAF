@@ -21,3 +21,8 @@ init_telaf_app_domain(telaf_tafCanSvc_t,telaf_tafCanSvc_exec_t)
 # Allow update daemon to install/uninstall this service
 telaf_admin_manage_all_files_perms(telaf_tafCanSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafCanSvc_exec_t)
+
+# allow can_socket operation for sa525m
+ifdef(`sa525m',`
+    allow telaf_tafCanSvc_t self: can_socket { create ioctl bind write read setopt };
+')

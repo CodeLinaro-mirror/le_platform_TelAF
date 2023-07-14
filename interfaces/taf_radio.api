@@ -657,6 +657,17 @@ ENUM SigType
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * IMS registration status.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM ImsRegStatus
+{
+    IMS_REG_STATUS_NOT_REGISTERED, ///< IMS not registered.
+    IMS_REG_STATUS_REGISTERED      ///< IMS registered.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
  * RAT bitmask.
  */
 //--------------------------------------------------------------------------------------------------
@@ -844,6 +855,17 @@ HANDLER SignalStrengthChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Handler for IMS registration status change.
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER ImsRegStatusChangeHandler
+(
+    ImsRegStatus status IN, ///< IMS registration status.
+    uint8 phoneId IN        ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Handler for network scan.
  */
 //--------------------------------------------------------------------------------------------------
@@ -912,6 +934,16 @@ EVENT SignalStrengthChange
 (
     Rat rat IN,                         ///< Radio Access Technology.
     SignalStrengthChangeHandler handler ///< Handler for signal strength change.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Event to report IMS registration status.
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT ImsRegStatusChange
+(
+    ImsRegStatusChangeHandler handler ///< Handler for IMS registration status change.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -2174,4 +2206,21 @@ FUNCTION le_result_t GetNeighborCellGsmBsic
 (
     CellInfo ngbrCellInfoRef IN, ///< Neighbor cell information reference
     uint8 bsic OUT               ///< Base Station Identity Code
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the IMS registration status.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *  - LE_TIMEOUT -- Time out.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetImsRegStatus
+(
+    ImsRegStatus status OUT, ///< IMS registration status.
+    uint8 phoneId IN         ///< Phone ID.
 );

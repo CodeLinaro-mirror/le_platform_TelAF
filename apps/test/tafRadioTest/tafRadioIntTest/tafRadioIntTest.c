@@ -47,6 +47,7 @@ taf_radio_SignalStrengthChangeHandlerRef_t cdmaSsChangeHandlerRef;
 taf_radio_SignalStrengthChangeHandlerRef_t tdscdmaSsChangeHandlerRef;
 taf_radio_SignalStrengthChangeHandlerRef_t lteSsChangeHandlerRef;
 taf_radio_SignalStrengthChangeHandlerRef_t nr5gSsChangeHandlerRef;
+taf_radio_ImsRegStatusChangeHandlerRef_t imsRegStatusChangeHandlerRef;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -78,6 +79,7 @@ void PrintHelpMenu
         "    app runProc tafRadioIntTest tafRadioIntTest -- scan <phone> <mode> [<rat_bitmask>]\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- "
         "band <phone> <rat|status> [<band_bitmask>]\n"
+        "    app runProc tafRadioIntTest tafRadioIntTest -- ims <phone> status\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- handler\n"
         "\n"
         "DESCRIPTION:\n"
@@ -162,6 +164,10 @@ void PrintHelpMenu
         "       band_bitmask : band bitmask, required with '2G+3G' or 'LTE' option\n"
         "           2G+3G : refer to BandBitMask in api.\n"
         "           LTE   : 4 LTE band bit masks in 64 bit.\n"
+        "\n"
+        "    app runProc tafRadioIntTest tafRadioIntTest -- ims <phone> status\n"
+        "       Show IMS status.\n"
+        "       phone : '1' or '2'.\n"
         "\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- handler <time>\n"
         "       Handler for network changes, can test with 'cm radio' configurations.\n"
@@ -707,6 +713,31 @@ void PrintBandStatus
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Print IMS registration state.
+ */
+//--------------------------------------------------------------------------------------------------
+void PrintImsRegState
+(
+    uint8_t phoneId,               ///< [IN] Phone ID..
+    taf_radio_ImsRegStatus_t state ///< [IN] IMS registration state.
+)
+{
+    switch (state)
+    {
+        case TAF_RADIO_IMS_REG_STATUS_REGISTERED:
+            LE_INFO("Phone %d IMS : Registered.", phoneId);
+            break;
+        case TAF_RADIO_IMS_REG_STATUS_NOT_REGISTERED:
+            LE_INFO("Phone %d IMS : Not registered.", phoneId);
+            break;
+        default:
+            LE_INFO("Phone %d IMS : Unknown.", phoneId);
+            break;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Configurations on GSM signal indication.
  */
 //--------------------------------------------------------------------------------------------------
@@ -989,6 +1020,21 @@ void Nr5gSsChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Handler for network registration state.
+ */
+//--------------------------------------------------------------------------------------------------
+void ImsRegStateHandler
+(
+    taf_radio_ImsRegStatus_t status, ///< [IN] IMS registation state.
+    uint8_t phoneId,                 ///< [IN] Phone ID.
+    void* contextPtr                 ///< [IN] Handler context.
+)
+{
+    PrintImsRegState(phoneId, status);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * This function prints Radio Access Technology in use. For GSM network, it prints Cell ID, Location
  * Area Code and Base Station Identity Code. For UMTS networkm, it prints Primary Scrambling Code.
  * For LTE newtork, it prints Tracking Area Code, E-UTRA Absolute Radio Frequency Channel Number,
@@ -1126,6 +1172,10 @@ void* HandlerTestThread
         (taf_radio_RatChangeHandlerFunc_t)RatChangeHandler, NULL);
     LE_TEST_OK(ratChangeHandlerRef != NULL, "taf_radio_AddRatChangeHandler - OK");
 
+    imsRegStatusChangeHandlerRef = taf_radio_AddImsRegStatusChangeHandler(
+        (taf_radio_ImsRegStatusChangeHandlerFunc_t)ImsRegStateHandler, NULL);
+    LE_TEST_OK(imsRegStatusChangeHandlerRef != NULL, "taf_radio_AddImsRegStatusChangeHandler - OK");
+
     le_sem_Post((le_sem_Ref_t)contextPtr);
     le_event_RunLoop();
 
@@ -1153,7 +1203,7 @@ void CreateHandlerTestThread
 //--------------------------------------------------------------------------------------------------
 /**
  * Remove handlers for network registation state, packet swicthed state, network registation
- * rejection, and Radio Access Technology change.
+ * rejection, Radio Access Technology change, and IMS registration status.
  */
 //--------------------------------------------------------------------------------------------------
 void RemoveTestHandler
@@ -1173,6 +1223,9 @@ void RemoveTestHandler
 
     taf_radio_RemoveRatChangeHandler(ratChangeHandlerRef);
     LE_TEST_OK(true, "taf_radio_RemoveRatChangeHandler - OK");
+
+    taf_radio_RemoveImsRegStatusChangeHandler(imsRegStatusChangeHandlerRef);
+    LE_TEST_OK(true, "taf_radio_RemoveImsRegStatusChangeHandler - OK");
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1906,6 +1959,27 @@ COMPONENT_INIT
         // Wait for handler's response.
         le_thread_Sleep(time);
         RemoveTestHandler();
+    }
+    else if (strncmp(cmd, "ims", strlen("ims")) == 0)
+    {
+        CheckArgs(3);
+        LE_TEST_INFO("======== IMS Test ========");
+
+        long phoneId = strtol(le_arg_GetArg(1), NULL, 10);
+        const char* op = le_arg_GetArg(2);
+
+        if (strncmp(op, "status", strlen("status")) == 0)
+        {
+            taf_radio_ImsRegStatus_t regStatus = TAF_RADIO_IMS_REG_STATUS_NOT_REGISTERED;
+            result = taf_radio_GetImsRegStatus(&regStatus, phoneId);
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetImsRegStatus - OK");
+
+            PrintImsRegState(phoneId, regStatus);
+        }
+        else
+        {
+            PrintHelpMenu();
+        }
     }
     else
     {

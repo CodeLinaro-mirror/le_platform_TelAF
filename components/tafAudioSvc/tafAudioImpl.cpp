@@ -818,14 +818,23 @@ le_result_t taf_Audio::CreateandStart
             // Set the config device type based on output device
             if (outputPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER) {
                 config.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_SPEAKER);
+#if LE_CONFIG_TARGET_SA525M
+                config.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_MIC);
+#endif
                 LE_DEBUG("set config with device type speaker");
             }
             else if (outputPtr->interface == TAF_AUDIO_IF_PCM_SPEAKER) {
                 config.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_HEADSET_SPEAKER);
+#if LE_CONFIG_TARGET_SA525M
+                config.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_HEADSET_MIC);
+#endif
                 LE_DEBUG("set config with device type headset speaker");
             }
             else if (outputPtr->interface == TAF_AUDIO_IF_I2S_SPEAKER) {
                 config.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_SPEAKER);
+#if LE_CONFIG_TARGET_SA525M
+                config.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_MIC);
+#endif
                 LE_DEBUG("set config with device type speaker");
                 taf_audio_I2SChannel_t channel = outputPtr->channelMode;
                 switch(channel)

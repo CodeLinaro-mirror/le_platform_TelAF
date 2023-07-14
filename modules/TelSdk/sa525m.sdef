@@ -18,7 +18,7 @@ apps:
     $TELAF_ROOT/apps/tafServices/tafPMSvc
     $TELAF_ROOT/apps/tafServices/tafUpdateSvc
     $TELAF_ROOT/apps/tafServices/tafECallSvc
-    // $TELAF_ROOT/apps/tafServices/tafMRCSvc
+    $TELAF_ROOT/apps/tafServices/tafMRCSvc
     $TELAF_ROOT/apps/tafServices/tafGpioSvc
     $TELAF_ROOT/apps/tafServices/tafNetSvc
     $TELAF_ROOT/apps/tafServices/tafKeyStoreSvc

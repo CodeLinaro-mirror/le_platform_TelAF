@@ -24,6 +24,9 @@ ifdef(`sa525m',`
 
     # Get access for data call operations APIs
     telux_allow_data_call_ops(telaf_tafDataCallSvc_t)
+    telux_allow_data_setting(telaf_tafDataCallSvc_t)
+    telux_allow_data_call_props(telaf_tafDataCallSvc_t)
+    telux_allow_data_profile_ops(telaf_tafDataCallSvc_t)
 ')
 
 # Allow update daemon to install/uninstall this service

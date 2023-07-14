@@ -21,6 +21,7 @@ ifdef(`sa525m',`
     telux_allow_tel_sms_config(telaf_tafSMSSvc_t)
     telux_allow_tel_sms_listen(telaf_tafSMSSvc_t)
     telux_allow_tel_sms_storage(telaf_tafSMSSvc_t)
+    telux_allow_tel_cell_broadcast_config(telaf_tafSMSSvc_t)
 ')
 
 # Allow update daemon to install/uninstall this service

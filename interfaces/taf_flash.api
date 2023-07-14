@@ -69,7 +69,7 @@
  *
  * - taf_flash_MtdInformation() -- Gets MTD partition information.
  *
- * - taf_flash_MtdIsBlockGood -- Checks if an MTD block is good.
+ * - taf_flash_MtdIsBlockGood() -- Checks if an MTD block is good.
  *
  * - taf_flash_MtdEraseBlock() -- Erases an MTD block.
  *
@@ -102,7 +102,7 @@
  *
  * - taf_flash_UbiClose() -- Closes UBI volume.
  *
- * - taf_flash_UbiInfo() -- Gets UBI volume information
+ * - taf_flash_UbiInformation() -- Gets UBI volume information
  *
  * - taf_flash_UbiRead() -- Reads data from UBI volume.
  *

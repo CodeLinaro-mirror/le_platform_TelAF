@@ -1355,7 +1355,7 @@ void taf_Radio::Init(void)
                     imsServingSystemMgrs.emplace((SlotId)index, imsServingSystemMgr);
                     endTime = std::chrono::system_clock::now();
                     elapsedTime = endTime - startTime;
-                    LE_INFO("Elapsed time for %d IMS serving subsystem: %lfs",
+                    LE_INFO("Elapsed time for %" PRIuS" IMS serving subsystem: %lfs",
                         index, elapsedTime.count());
                 }
                 else

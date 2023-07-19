@@ -45,7 +45,7 @@
  * media stream) result in high interrupt rates; keeping the system awake results in better
  * performance and power efficiency.
  *
- * Telaf Power Manager keeps the system awake when at least one of the registered components
+ * TelAF Power Manager keeps the system awake when at least one of the registered components
  * requests a wakeup source to be held. When all wakeup sources are released, the system may enter a
  * suspend state depending on the status of other (unrelated) wakeup sources.
  *
@@ -63,8 +63,8 @@
  *
  * @section taf_pm_request Requesting and releasing a wakeup source
  *
- * Telaf Power Manager service provides basic APIs for requesting and releasing a wakeup source.
- * Telaf Power Manager's clients call taf_pm_NewWakeupSource() to create a wakeup source. This
+ * TelAF Power Manager service provides basic APIs for requesting and releasing a wakeup source.
+ * TelAF Power Manager's clients call taf_pm_NewWakeupSource() to create a wakeup source. This
  * function returns a @ref taf_pm_WakeupSourceRef_t type that can later be used to acquire and
  * release a wakeup source through taf_pm_StayAwake() and taf_pm_Relax(), respectively. Wakeup
  * sources are not reference-counted, which means multiple calls to taf_pm_StayAwake() can be canceled
@@ -87,13 +87,34 @@
     }
    @endverbatim
  *
- * Telaf Power Manager service will automatically release and delete all wakeup sources held on behalf
+ * TelAF Power Manager service will automatically release and delete all wakeup sources held on behalf
  * of an exiting or disconnecting client.
  *
  * Use the StateChange to register a notification callback function to be called before device state
  * triggers.
  * @verbatim
    stateChangehandlerRef = taf_pm_AddStateChangeHandler(TestStateChangeHandler, NULL);
+   @endverbatim
+ *
+ * @section taf_pm_getMachineList Get the available Virtual Machines
+ *
+ * TelAF Power Manager Service provides APIs to know the available machines on the device.
+ * TelAF Power Manager's client calls taf_pm_GetMachineList() to get the machine available reference.
+ * This function returns a @ref taf_pm_VMListRef_t that can be later used to get the name of each
+ * machine, and also to delete the list reference using taf_pm_DeleteMachineList().
+ * @verbatim
+    taf_pm_VMListRef_t vmListRef = taf_pm_GetMachineList( );
+    char name[32] = {0};
+    if(!vmListRef) {
+        LE_ERROR("List is null");
+    }
+    le_result_t res = taf_pm_GetFirstMachineName(vmListRef, name, 32);
+    while(res == LE_OK)
+    {
+        LE_INFO("vm name : %s",name);
+        res = taf_pm_GetNextMachineName(vmListRef, name, 32);
+    }
+    res = taf_pm_DeleteMachineList(vmListRef);
    @endverbatim
  *
  * <HR>
@@ -111,6 +132,10 @@ DEFINE TAG_LEN = 31;
  */
 DEFINE TAG_LEN_BYTES = TAG_LEN + 1;
 
+/**
+ * Maximum string length for the Virtual Machine name.
+ */
+DEFINE MACHINE_NAME_LEN = 32;
 
 /**
  * Option TAF_PM_REF_COUNT to manage a reference counted wakeup source.
@@ -159,6 +184,11 @@ EVENT StateChange
  */
 REFERENCE WakeupSource;
 
+/**
+ * Reference to the list of Virtual Machines.
+ */
+REFERENCE VMList;
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Creates a new wakeup source.
@@ -197,7 +227,7 @@ FUNCTION le_result_t StayAwake
  * Releases a previously acquired wakeup source.
  *
  * @return
- *     - LE_OK          Wakeup source successfully acquired.
+ *     - LE_OK          Wakeup source successfully released.
  *     - LE_FAULT       Failed. 
  *
  * @note The process exits if an invalid reference is passed.
@@ -220,3 +250,102 @@ FUNCTION State GetPowerState
 (
 );
 
+//--------------------------------------------------------------------------------------------------
+/**
+* Sets the power state to all the Virtual Machines.
+*
+* @return
+*     - LE_OK          Successfully changed the state of device.
+*     - LE_FAULT       Failed.
+*
+* @note : This is supported only on SA525M.
+*/
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetAllVMPowerState
+(
+    State   state IN                         ///< State to be set.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+* Sets the power state to the respective Virtual Machine.
+*
+* @return
+*     - LE_OK          Successfully changed the state of Virtual Machine.
+*     - LE_FAULT       Failed.
+*
+* @note : This is supported only on SA525M.
+*/
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetVMPowerState
+(
+    State   state IN,                         ///< State to be set.
+    string  machineName[MACHINE_NAME_LEN]  IN ///< Virtual Machine name of the state to be changed.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the list of available Virtual Machines.
+ *
+ * @return
+ *     - non-null pointer -- The Virtual Machines List reference.
+ *     - null pointer -- Internal error.
+ *
+ * @note : This is supported only on SA525M.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION VMList GetMachineList
+(
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the first Virtual Machine name.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Bad parameters.
+ *     - LE_NOT_FOUND -- Empty list.
+ *
+ * @note : This is supported only on SA525M.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetFirstMachineName
+(
+    VMList vmListRef IN,                  ///< Virtual Machine list reference.
+    string name[MACHINE_NAME_LEN] OUT     ///< The name of the Virtual Machine.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the next Virtual Machine name based on the current position in the list.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Bad parameters.
+ *     - LE_NOT_FOUND -- The end of the list.
+ *
+ * @note : This is supported only on SA525M.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetNextMachineName
+(
+    VMList vmListRef IN,                  ///< Virtual Machine list reference.
+    string name[MACHINE_NAME_LEN] OUT     ///< The name of the Virtual Machine.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Deletes the Vitual Machine list.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_OK -- Succeeded.
+ *
+ * @note : This is supported only on SA525M.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DeleteMachineList
+(
+    VMList vmLsitRef IN                  ///< Virtual Machine list reference.
+);

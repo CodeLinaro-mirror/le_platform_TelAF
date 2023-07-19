@@ -48,19 +48,20 @@
 namespace telux {
 namespace tafsvc {
 
+    // States as recognized by the Admin component
     typedef enum
     {
-        TAF_MNGD_CONN_INIT,                                         ///< Init.
-        TAF_MNGD_CONN_DATA_NOT_CONNECTED_SIM_READY,                 ///< Sim ready.
-        TAF_MNGD_CONN_DATA_NOT_CONNECTED_SIM_NOT_READY,             ///< Sim not ready.
-        TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_REGISTERED,             ///< Network registered.
-        TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_NOT_REGISTERED,         ///< Network unregistered.
-        TAF_MNGD_CONN_DATA_NOT_CONNECTED_AWAITING_USER_COMMAND,     ///< Awaiting user command.
-        TAF_MNGD_CONN_DATA_NOT_CONNECTED_RETRYING,                  ///< Retry to connect.
-        TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE,                        ///< Active.
-        TAF_MNGD_CONN_DATA_CONNECTED_IDLE,                          ///< Idle.
-        TAF_MNGD_CONN_ERROR                                         ///< Error.
-    }taf_mngd_Conn_State_t;
+        TAF_MNGD_CONN_ADMIN_INIT,                               ///< Init.
+        TAF_MNGD_CONN_DATA_NOT_CONNECTED_SIM_READY,             ///< Sim ready.
+        TAF_MNGD_CONN_DATA_NOT_CONNECTED_SIM_NOT_READY,         ///< Sim not ready.
+        TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_REGISTERED,         ///< Network registered.
+        TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_NOT_REGISTERED,     ///< Network unregistered.
+        TAF_MNGD_CONN_DATA_NOT_CONNECTED_AWAITING_USER_COMMAND, ///< Awaiting user command.
+        TAF_MNGD_CONN_DATA_NOT_CONNECTED_RETRYING,              ///< Retry to connect.
+        TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE,                    ///< Active.
+        TAF_MNGD_CONN_DATA_CONNECTED_IDLE,                      ///< Idle.
+        TAF_MNGD_CONN_ADMIN_ERROR                               ///< Error.
+    } taf_mngd_Conn_Admin_State_t;
 
     typedef enum
     {
@@ -112,7 +113,7 @@ namespace tafsvc {
         bool                                    needReConn; //Need to reconnect for manualStart
         char                                    intfName[TAF_DCS_NAME_MAX_LEN]; // Interface name
         le_dls_Link_t                           link;           // Link to data list
-        taf_mngd_Conn_State_t                   state; // The Managed Connectivity state
+        taf_mngd_Conn_Admin_State_t             state; // The Managed Connectivity state
         taf_mngd_Conn_DataState_t               dataState; // The data state for notification
         le_timer_Ref_t                          reconnTimerRef; // The timer reference
         le_event_Id_t                           dataStateEvent; //Data state event
@@ -194,7 +195,7 @@ namespace tafsvc {
                                     char *ConfigurationFileNamePtr);
 
             const char * EventToString(EventType_t event);
-            const char * StateToString(taf_mngd_Conn_State_t state);
+            const char * StateToString(taf_mngd_Conn_Admin_State_t state);
             bool IsJsonValid = false;
     };
 }

@@ -18,12 +18,13 @@ apps:
     $TELAF_ROOT/apps/tafServices/tafPMSvc
     $TELAF_ROOT/apps/tafServices/tafUpdateSvc
     $TELAF_ROOT/apps/tafServices/tafECallSvc
-    // $TELAF_ROOT/apps/tafServices/tafMRCSvc
+    $TELAF_ROOT/apps/tafServices/tafMRCSvc
     $TELAF_ROOT/apps/tafServices/tafGpioSvc
     $TELAF_ROOT/apps/tafServices/tafNetSvc
     $TELAF_ROOT/apps/tafServices/tafKeyStoreSvc
     $TELAF_ROOT/apps/tafServices/tafVNW/tafCanSvc
     $TELAF_ROOT/apps/tafServices/tafSomeipGWSvc
+    $TELAF_ROOT/apps/tafMngdServices/Connectivity/tafMngdConnSvc
 
     // Command-line tools.
     $LEGATO_ROOT/apps/tools/tools
@@ -84,6 +85,7 @@ interfaceSearch:
 {
     $TELAF_ROOT/interfaces
     $TELAF_ROOT/interfaces/tafVNW
+    $TELAF_ROOT/apps/tafMngdServices/interfaces
     interfaces/positioning
     $LEGATO_ROOT/apps/sample/voiceCallApp
     // $TELAF_ROOT/apps/test/tafPMTest/tafPMIntgTest

@@ -143,3 +143,114 @@ void taf_pm_RemoveStateChangeHandler(taf_pm_StateChangeHandlerRef_t handlerRef)
    power.RemoveStateChangeHandler(handlerRef);
 }
 
+/**
+* FUNCTION     : SetAllVMPowerState
+* DESCRIPTION  : Sets the power state to all Virtual Machines
+* DEPENDECY    :
+* PARAMETERS   : state to be set
+* RETURN VALUES: result of state change in SA525M, LE_UNSUPPORTED for others
+*/
+le_result_t taf_pm_SetAllVMPowerState(taf_pm_State_t state)
+{
+   LE_DEBUG("taf_pm_SetPowerState");
+#if LE_CONFIG_TARGET_SA525M
+   auto &power = taf_PM::GetInstance();
+   return power.SetPowerState(state, "ALL_MACHINES");
+#endif
+   return LE_UNSUPPORTED;
+}
+
+/**
+* FUNCTION     : SetVMPowerState
+* DESCRIPTION  : Sets the power state to the Virtual Machine
+* DEPENDECY    :
+* PARAMETERS   : state to be set, Virtual machine name for which state to be changed
+* RETURN VALUES: result of state change in SA525M, LE_UNSUPPORTED for others
+*/
+le_result_t taf_pm_SetVMPowerState(taf_pm_State_t state, const char *machineName)
+{
+   LE_DEBUG("taf_pm_SetVMPowerState");
+#if LE_CONFIG_TARGET_SA525M
+   auto &power = taf_PM::GetInstance();
+   return power.SetPowerState(state, machineName);
+#endif
+   return LE_UNSUPPORTED;
+}
+
+/**
+* FUNCTION     : GetMachineList
+* DESCRIPTION  : Gets the Virtual Machine List
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: Reference to the Virtual Machine List
+*/
+taf_pm_VMListRef_t taf_pm_GetMachineList( )
+{
+   LE_DEBUG("taf_pm_GetVirtualMachineList");
+#if LE_CONFIG_TARGET_SA525M
+   auto &power = taf_PM::GetInstance();
+   return power.GetMachineList();
+#endif
+   return NULL;
+}
+
+/**
+* FUNCTION     : GetFirstMachineName
+* DESCRIPTION  : Gets the first Virtual Machine Name in the List
+* DEPENDECY    :
+* PARAMETERS   : [IN] Virtual Machine List reference
+                 [OUT] char* : The Virtual Machine Name.
+                 [IN] size_t : Virtual Machine Name length.
+* RETURN VALUES: LE_OK on success, LE_BAD_PARAMETER on bad param,
+                 LE_NOT_FOUND if no machine, LE_UNSUPPORTED if not supported.
+*/
+le_result_t taf_pm_GetFirstMachineName( taf_pm_VMListRef_t vmListRef,
+char* vmNamePtr, size_t vmNamePtrSize )
+{
+   LE_DEBUG("taf_pm_GetFirstMachineName");
+#if LE_CONFIG_TARGET_SA525M
+   auto &power = taf_PM::GetInstance();
+   return power.GetFirstMachineName(vmListRef, vmNamePtr, vmNamePtrSize);
+#endif
+   return LE_UNSUPPORTED;
+}
+
+/**
+* FUNCTION     : GetNextMachineName
+* DESCRIPTION  : Gets the next Virtual Machine Name from the List based on current Virtual Machine
+* DEPENDECY    :
+* PARAMETERS   : Virtual Machine List reference
+                 [OUT] char* : The Virtual Machine Name.
+                 [IN] size_t : Virtual Machine Name length.
+* RETURN VALUES: LE_OK on success, LE_BAD_PARAMETER on bad param,
+                 LE_NOT_FOUND on end of list, LE_UNSUPPORTED if not supported.
+*/
+le_result_t taf_pm_GetNextMachineName( taf_pm_VMListRef_t vmListRef,
+char* vmNamePtr, size_t vmNamePtrSize )
+{
+   LE_DEBUG("taf_pm_GetNextMachineName");
+#if LE_CONFIG_TARGET_SA525M
+   auto &power = taf_PM::GetInstance();
+   return power.GetNextMachineName(vmListRef, vmNamePtr, vmNamePtrSize);
+#endif
+   return LE_UNSUPPORTED;
+}
+
+/**
+* FUNCTION     : DeleteMachineList
+* DESCRIPTION  : Delete the Virtual Machine List
+* DEPENDECY    :
+* PARAMETERS   : [IN] taf_pm_VMInfoRef_t : The Virtual Machine Info reference.
+                 [OUT] char* : The Virtual Machine Name.
+                 [IN] size_t : Virtual Machine Name length.
+* RETURN VALUES: LE_OK on success, LE_FAULT on failure, LE_UNSUPPORTED if not supported.
+*/
+le_result_t taf_pm_DeleteMachineList( taf_pm_VMListRef_t vmListRef )
+{
+   LE_DEBUG("taf_pm_DeleteMachineList");
+#if LE_CONFIG_TARGET_SA525M
+   auto &power = taf_PM::GetInstance();
+   return power.DeleteMachineList(vmListRef);
+#endif
+   return LE_UNSUPPORTED;
+}

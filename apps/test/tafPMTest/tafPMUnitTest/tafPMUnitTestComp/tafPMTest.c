@@ -232,7 +232,7 @@ COMPONENT_INIT
             "Get state is resume as at least one wake source is acquired successful");
 
         Test_tafPM_Relax();
-
+#if defined(TARGET_SA515M)
         LE_TEST_INFO("Testing taf_pm_GetState when wake source is released");
         state = Test_tafPM_GetState();
         powerState = tafStateToString(state);
@@ -240,7 +240,7 @@ COMPONENT_INIT
         printf("\n State : %s\n", powerState);
         LE_TEST_OK(state == TAF_PM_STATE_SUSPEND,
             "Get state is suspend if no wake source is acquired");
-
+#endif
         Test_tafPM_deregisterStateChangeListener();
     }
     else if (strcmp(procName, "proc2") == 0)

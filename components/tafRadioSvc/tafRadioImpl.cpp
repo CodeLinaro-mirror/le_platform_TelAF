@@ -81,6 +81,61 @@ void taf_RadioNetworkSelectionListener::onNetworkScanResults
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Initiate listener for IMS serving system.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_RadioImsServSysListener::taf_RadioImsServSysListener
+(
+    SlotId slotId ///< [IN] Slot ID.
+) : slot(slotId)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+    if (tafRadio.phoneManager != nullptr)
+    {
+        phone = (uint8_t)(tafRadio.phoneManager->getPhoneIdFromSlotId((int)slotId));
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Listener for IMS registration status.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_RadioImsServSysListener::onImsRegStatusChange
+(
+    telux::tel::ImsRegistrationInfo status ///< [IN] IMS registration status
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    switch (status.imsRegStatus)
+    {
+        case telux::tel::RegistrationStatus::NOT_REGISTERED:
+        {
+            taf_RadioImsRegStatus_t* statusPtr =
+               (taf_RadioImsRegStatus_t*)le_mem_ForceAlloc(tafRadio.imsRegStatusChangePool);
+            statusPtr->status = TAF_RADIO_IMS_REG_STATUS_NOT_REGISTERED;
+            statusPtr->phoneId = phone;
+            le_event_ReportWithRefCounting(tafRadio.imsRegStatusChangeId, (void*)statusPtr);
+            break;
+        }
+        case telux::tel::RegistrationStatus::REGISTERED:
+        case telux::tel::RegistrationStatus::LIMITED_REGISTERED:
+        {
+            taf_RadioImsRegStatus_t* statusPtr =
+               (taf_RadioImsRegStatus_t*)le_mem_ForceAlloc(tafRadio.imsRegStatusChangePool);
+            statusPtr->status = TAF_RADIO_IMS_REG_STATUS_REGISTERED;
+            statusPtr->phoneId = phone;
+            le_event_ReportWithRefCounting(tafRadio.imsRegStatusChangeId, (void*)statusPtr);
+            break;
+        }
+        default:
+            break;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Response for setting operating mode.
  */
 //--------------------------------------------------------------------------------------------------
@@ -650,6 +705,54 @@ void taf_RadioCellInfoCallback::cellInfoListResponse
     le_sem_Post(semaphore);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Semaphore for getting IMS registration information.
+ */
+//--------------------------------------------------------------------------------------------------
+le_sem_Ref_t taf_RadioImsServSysCallback::semaphore = NULL;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Result of getting IMS registration information.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_RadioImsServSysCallback::result = LE_OK;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * IMS registration information.
+ */
+//--------------------------------------------------------------------------------------------------
+telux::tel::RegistrationStatus taf_RadioImsServSysCallback::status;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Response for getting IMS registration information.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_RadioImsServSysCallback::imsRegStateResponse
+(
+    telux::tel::ImsRegistrationInfo info, ///< [IN] IMS registration information.
+    telux::common::ErrorCode error        ///< [IN] Error code.
+)
+{
+    LE_DEBUG("<SDK Callback> taf_RadioImsServSysCallback --> imsRegStateResponse");
+
+    if (error != telux::common::ErrorCode::SUCCESS)
+    {
+        LE_ERROR("Error(%d)", (int)error);
+        result = LE_FAULT;
+    }
+    else
+    {
+        status = info.imsRegStatus;
+        result = LE_OK;
+    }
+
+    le_sem_Post(semaphore);
+}
+
 LE_MEM_DEFINE_STATIC_POOL(prefOpsListPool, TAF_RADIO_PREFERRED_OPERATORS_LISTS_MAX_NUM, sizeof(taf_RadioPrefOpList_t));
 
 LE_MEM_DEFINE_STATIC_POOL(prefOpPool, TAF_RADIO_PREFERRED_OPERATORS_MAX_NUM, sizeof(taf_RadioPrefOp_t));
@@ -712,6 +815,30 @@ LE_REF_DEFINE_STATIC_MAP(ngbrCellsRefMap, TAF_RADIO_NEIGHBOR_CELLS_MAX_NUM);
 LE_REF_DEFINE_STATIC_MAP(ngbrCellInfoSafeRefMap, TAF_RADIO_NEIGHBOR_CELL_INFO_MAX_NUM);
 
 le_event_Id_t taf_Radio::radioCmdEvId = nullptr;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Layered handler for IMS registration state.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_Radio::taf_radio_LayerImsRegStateHandler
+(
+    void* reportPtr,       ///< [IN] Report pointer.
+    void* layerHandlerFunc ///< [IN] Layered function.
+)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
+
+    taf_radio_ImsRegStatusChangeHandlerFunc_t handlerFunc =
+        (taf_radio_ImsRegStatusChangeHandlerFunc_t)layerHandlerFunc;
+    if (handlerFunc)
+    {
+        taf_RadioImsRegStatus_t* statusPtr = (taf_RadioImsRegStatus_t*)reportPtr;
+        handlerFunc(statusPtr->status, statusPtr->phoneId, le_event_GetContextPtr());
+    }
+
+    le_mem_Release(reportPtr);
+}
 
 /*======================================================================
 
@@ -945,6 +1072,56 @@ void* taf_Radio::RadioCmdThread(void* contextPtr)
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Register Listener.
+ */
+//--------------------------------------------------------------------------------------------------
+void RegisterListener
+(
+    void
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+    for (size_t i = 1; i <= tafRadio.slotCount; i++)
+    {
+        auto listener = std::make_shared<taf_RadioImsServSysListener>((SlotId)i);
+        telux::common::Status status =
+            tafRadio.imsServingSystemMgrs[(SlotId)i]->registerListener(listener);
+        if (status != telux::common::Status::SUCCESS)
+        {
+            LE_ERROR("Failed to register IMS serving system listener.");
+        }
+        else
+        {
+            tafRadio.imsServSysListeners.emplace((SlotId)i, listener);
+        }
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deregister Listener.
+ */
+//--------------------------------------------------------------------------------------------------
+void DeregisterListener
+(
+    void
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+    for (size_t i = 1; i <= tafRadio.slotCount; i++)
+    {
+        if (tafRadio.imsServingSystemMgrs[(SlotId)i] != nullptr &&
+            tafRadio.imsServSysListeners[(SlotId)i] != nullptr)
+        {
+            tafRadio.imsServingSystemMgrs[(SlotId)i]->deregisterListener(
+                tafRadio.imsServSysListeners[(SlotId)i]);
+        }
+    }
+    tafRadio.imsServSysListeners.clear();
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Handler for power state changes.
  */
 //--------------------------------------------------------------------------------------------------
@@ -958,12 +1135,14 @@ void PowerStateChangeHandler
     if (state == TAF_PM_STATE_RESUME)
     {
         LE_INFO("Power state change to RESUME");
+        RegisterListener();
         result = taf_pa_radio_EnableIndication();
         TAF_ERROR_IF_RET_NIL(result != LE_OK, "Enable indication falied.");
     }
     else if (state == TAF_PM_STATE_SUSPEND)
     {
         LE_INFO("Power state change to SUSPEND");
+        DeregisterListener();
         result = taf_pa_radio_DisableIndication();
         TAF_ERROR_IF_RET_NIL(result != LE_OK, "Disable indication falied.");
     }
@@ -996,7 +1175,10 @@ void taf_Radio::Init(void)
     taf_RadioServingSystemResponseCallback::semaphore = le_sem_Create("taf_RadioSrvSysSem", 0);
     taf_RadioRatPreferenceResponseCallback::semaphore = le_sem_Create("taf_RadioRatPrefRespCbSem", 0);
     taf_RadioCellInfoCallback::semaphore = le_sem_Create("taf_RadioCellInfoCbSem", 0);
-    taf_RadioPerformNetworkScanCallback::semaphore = le_sem_Create("taf_RadioPerfNetScanSem", 0);
+    taf_RadioPerformNetworkScanCallback::semaphore = le_sem_Create("taf_RadioPerfNetScanCbSem", 0);
+    taf_RadioImsServSysCallback::semaphore = le_sem_Create("taf_RadioImsServSysCbSem", 0);
+
+    imsRegStatusChangeId = le_event_CreateIdWithRefCounting("ImsRegStatus");
 
     // 2. Initiate the memory pool
     prefOpsListPool = le_mem_InitStaticPool(prefOpsListPool,
@@ -1019,6 +1201,7 @@ void taf_Radio::Init(void)
         sizeof(taf_RadioNgbrCellInfo_t));
     ngbrCellInfoSafeRefPool = le_mem_InitStaticPool(ngbrCellInfoSafeRefPool,
         TAF_RADIO_NEIGHBOR_CELL_INFO_MAX_NUM, sizeof(taf_RadioNgbrCellInfoSafeRef_t));
+    imsRegStatusChangePool = le_mem_CreatePool("imsRegStatusChangePool", sizeof(taf_RadioImsRegStatus_t));
 
     // 3. Initiate the reference map.
     prefOpListRefMap = le_ref_InitStaticMap(prefOpListRefMap, TAF_RADIO_PREFERRED_OPERATORS_LISTS_MAX_NUM);
@@ -1126,7 +1309,64 @@ void taf_Radio::Init(void)
         LE_ERROR("Fail to init telephony subsystem");
     }
 
-    // 10. Create and start command thread.
+    // 10. Initiate IMS serving system
+    if (telux::common::DeviceConfig::isMultiSimSupported())
+    {
+        slotCount = TAF_RADIO_MULTI_SLOT_NUM;
+    }
+    for (size_t index = 1; index <= slotCount; index++)
+    {
+        startTime = std::chrono::system_clock::now();
+
+        if (imsServingSystemMgrs.find((SlotId)index) != imsServingSystemMgrs.end())
+        {
+            LE_INFO("IMS Serving System manager is already initialized.");
+        }
+        else
+        {
+            std::promise<telux::common::ServiceStatus> prom;
+            auto imsServingSystemMgr = phoneFactory.getImsServingSystemManager(
+                (SlotId)index,[&](telux::common::ServiceStatus status)
+                {
+                    if (status == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+                    {
+                        prom.set_value(telux::common::ServiceStatus::SERVICE_AVAILABLE);
+                    }
+                    else
+                    {
+                        prom.set_value(telux::common::ServiceStatus::SERVICE_FAILED);
+                    }
+                });
+            if (!imsServingSystemMgr)
+            {
+                LE_ERROR("Failed to get IMS Serving System instance.");
+            }
+            else
+            {
+                telux::common::ServiceStatus imsServSysMgrStatus =
+                    imsServingSystemMgr->getServiceStatus();
+                if (imsServSysMgrStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
+                {
+                    LE_INFO("IMS serving subsystem wait to be ready...");
+                    imsServSysMgrStatus = prom.get_future().get();
+                }
+                if (imsServSysMgrStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+                {
+                    imsServingSystemMgrs.emplace((SlotId)index, imsServingSystemMgr);
+                    endTime = std::chrono::system_clock::now();
+                    elapsedTime = endTime - startTime;
+                    LE_INFO("Elapsed time for %" PRIuS" IMS serving subsystem: %lfs",
+                        index, elapsedTime.count());
+                }
+                else
+                {
+                    LE_ERROR("Fail to init IMS serving subsystem");
+                }
+            }
+        }
+    }
+
+    // 11. Create and start command thread.
     le_sem_Ref_t radioCmdThreadSem = le_sem_Create("radioCmdThreadSem", 0);
     radioCmdEvId = le_event_CreateId("radioCmd", sizeof(taf_RadioCmdReq_t));
     le_thread_Ref_t radioCmdThreadRef = le_thread_Create("radioCmdThread", RadioCmdThread, (void*)radioCmdThreadSem);
@@ -1134,13 +1374,14 @@ void taf_Radio::Init(void)
     le_thread_Start(radioCmdThreadRef);
     le_sem_Wait(radioCmdThreadSem);
 
-    // 11. Delete semaphore.
+    // 12. Delete semaphore.
     le_sem_Delete(radioCmdThreadSem);
 
-    // 12. Add power state change handle.
+    // 13. Add power state change handle.
     taf_pm_AddStateChangeHandler(PowerStateChangeHandler, NULL);
     if (taf_pm_GetPowerState() != TAF_PM_STATE_SUSPEND)
     {
+        RegisterListener();
         taf_pa_radio_EnableIndication();
     }
 }

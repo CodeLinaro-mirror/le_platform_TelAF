@@ -1025,7 +1025,6 @@ void taf_Sms::Init(void)
       }
    }
 
-#if defined(TARGET_SA515M)
    // Initialize preferred storage from persistent config
    taf_sms_Storage_t prefStorage = GetConfig_PreferredStorage();
    if(prefStorage != TAF_SMS_STORAGE_UNKNOWN)
@@ -1036,7 +1035,6 @@ void taf_Sms::Init(void)
    {
       SetPreferredStorage(TAF_SMS_STORAGE_HLOS);
    }
-#endif
 
    smsSentCb = std::make_shared<tafSmsCallback>();
    getSmscCb = std::make_shared<tafSmscAddressCallback>();

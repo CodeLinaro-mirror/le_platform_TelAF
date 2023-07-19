@@ -38,9 +38,11 @@
 #include "tafFSCrypt.h"
 
 #include "limit.h"
+
 #include <openssl/sha.h>
 #include <openssl/md5.h>
 #include <openssl/err.h>
+#include <openssl/evp.h>
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -144,9 +146,15 @@ static void key_descriptor_to_hex
 static void compute_descriptor(const uint8_t key[FSC_MAX_KEY_SIZE],
                                char descriptor[FS_KEY_DESCRIPTOR_HEX_SIZE])
 {
-    SHA512_CTX sha512Ctx;
     uint8_t digest1[SHA512_DIGEST_LENGTH];
     uint8_t digest2[SHA512_DIGEST_LENGTH];
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+    size_t mdlen = SHA512_DIGEST_LENGTH;
+    EVP_Q_digest(NULL, "SHA512", NULL, key, FSC_MAX_KEY_SIZE, digest1, &mdlen);
+    EVP_Q_digest(NULL, "SHA512", NULL, digest1, SHA512_DIGEST_LENGTH, digest2,  &mdlen);
+#else
+
+    SHA512_CTX sha512Ctx;
 
     SHA512_Init(&sha512Ctx);
     SHA512_Update(&sha512Ctx, key, FSC_MAX_KEY_SIZE);
@@ -156,6 +164,7 @@ static void compute_descriptor(const uint8_t key[FSC_MAX_KEY_SIZE],
     SHA512_Update(&sha512Ctx, digest1, SHA512_DIGEST_LENGTH);
     SHA512_Final(digest2, &sha512Ctx);
 
+#endif
     key_descriptor_to_hex(digest2, descriptor);
 
     memset(digest1, 0, SHA512_DIGEST_LENGTH);

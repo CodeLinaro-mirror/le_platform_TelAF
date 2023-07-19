@@ -42,6 +42,10 @@ static taf_powerManager_t pm_recrd;
 static bool isResumed = false;
 LE_REF_DEFINE_STATIC_MAP(tafPMReferences, TAF_PM_REFERENCE_DEFAULT_POOL_SIZE);
 
+#if LE_CONFIG_TARGET_SA525M
+LE_REF_DEFINE_STATIC_MAP(tafPMVmListRef, TAF_PM_VM_LIST_POOL_SIZE);
+#endif
+
 /**
  * Type-cast from taf_pm_WakeupSourceRef_t passed from app to taf_ws_t
  */
@@ -103,6 +107,7 @@ void taf_Handler::OnClientConnection(le_msg_SessionRef_t sessionRef, void *ctxPt
 
     // update client record, exits on error
     pClient = (taf_Client_t*)le_mem_ForceAlloc(pm_recrd.clientpool);
+    memset(pClient, 0, sizeof(taf_Client_t));
     pClient->cookie = TAF_PM_CLIENT_COOKIE;
     pClient->sessionRef = sessionRef;
     if (LE_OK != le_msg_GetClientProcessId(sessionRef, &pClient->procId))
@@ -159,7 +164,7 @@ void taf_Handler::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *ct
     while (LE_OK == le_hashmap_NextNode(iter))
     {
         ws = (taf_ws_t*)le_hashmap_GetValue(iter);
-        if (ws->clientPid != pClient->procId)
+        if (ws && ws->clientPid != pClient->procId)
         {
             // skip if does not belong to this client
             continue;
@@ -181,6 +186,18 @@ void taf_Handler::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *ct
         le_mem_Release(ws);
     }
     le_mem_Release(pClient);
+#if LE_CONFIG_TARGET_SA525M
+    taf_PM tafPowerMgr = taf_PM::GetInstance();
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(tafPowerMgr.vmListRefMap);
+    while (le_ref_NextNode(iterRef) == LE_OK)
+    {
+        taf_PMVmList_t* vmListPtr = (taf_PMVmList_t*)le_ref_GetValue(iterRef);
+        if(vmListPtr->sessionRef == sessionRef)
+        {
+            taf_pm_DeleteMachineList(vmListPtr->ref);
+        }
+    }
+#endif
     return;
 }
 
@@ -205,7 +222,7 @@ void taf_PM::Init(void)
                              prom.set_value(status);
                         });
 #endif
-#if defined(TARGET_SA525M)
+#if LE_CONFIG_TARGET_SA525M
     ClientInstanceConfig config;
     config.clientType = ClientType::MASTER;
     config.clientName = "tafPMSvc";
@@ -224,7 +241,7 @@ void taf_PM::Init(void)
         return;
     }
 
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
+#if defined(TARGET_SA515M) || LE_CONFIG_TARGET_SA525M
     // wait unconditionally till the service is avilable
     bool isReady = (prom.get_future().get() == telux::common::ServiceStatus::SERVICE_AVAILABLE);
     if(isReady){
@@ -295,8 +312,14 @@ void taf_PM::Init(void)
     le_msg_AddServiceOpenHandler(taf_pm_GetServiceRef(), taf_Handler::OnClientConnection, NULL);
     le_msg_AddServiceCloseHandler(taf_pm_GetServiceRef(), taf_Handler::OnClientDisconnection, NULL);
 
-#if defined(TARGET_SA525M)
+    le_sig_Block(SIGTERM);
+    le_sig_SetEventHandler(SIGTERM, taf_PM::TafSigTermEventHandler);
+
+#if LE_CONFIG_TARGET_SA525M
     curTcuState = TAF_PM_STATE_RESUME;
+    vmListPool = le_mem_CreatePool("tafPMVirtualMachineList", sizeof(taf_PMVmList_t));
+    vmInfoPool = le_mem_CreatePool("tafPMVirtualMachineInfo", sizeof(taf_PMVmInfo_t));
+    vmListRefMap = le_ref_InitStaticMap(tafPMVmListRef, TAF_PM_VM_LIST_POOL_SIZE);
 #endif
     LE_INFO("tafPM service init done...\n");
 }
@@ -337,6 +360,7 @@ taf_pm_WakeupSourceRef_t taf_PM::NewWakeupSource( uint32_t options, const char *
 
     // Allocate and populate wakeup source record and exit on error
     pWakeSrc = (taf_ws_t*)le_mem_ForceAlloc(pm_recrd.lockpool);
+    memset(pWakeSrc, 0, sizeof(taf_ws_t));
     pWakeSrc->cookie = TAF_PM_WAKEUP_SOURCE_COOKIE;
     pWakeSrc->acquired = 0;
     pWakeSrc->clientPid = pClient->procId;
@@ -399,23 +423,15 @@ le_result_t taf_PM::StayAwake(taf_pm_WakeupSourceRef_t wsRef)
         }
     }
     if(tcuActivityMgr->getActivityState() != TcuActivityState::RESUME) {
-        telux::common::Status status = telux::common::Status::FAILED;
 #if defined(TARGET_SA515M) || defined(TARGET_SA415M)
-        status = tcuActivityMgr->setActivityState(
+        telux::common::Status status = tcuActivityMgr->setActivityState(
                 TcuActivityState::RESUME, &taf_Handler::commandCallback);
-#endif
-#if defined(TARGET_SA525M)
-         status = tcuActivityMgr->setActivityState(
-                TcuActivityState::RESUME, ALL_MACHINES, &taf_Handler::commandCallback);
-#endif
         if( status == telux::common::Status::SUCCESS) {
             LE_INFO("cmd send successfully");
-            #if defined(TARGET_SA525M)
-            curTcuState = TAF_PM_STATE_RESUME;
-            #endif
         } else {
             LE_ERROR("sending cmd failed");
         }
+#endif
     }
     return LE_OK;
 }
@@ -475,19 +491,12 @@ le_result_t taf_PM::Relax( taf_pm_WakeupSourceRef_t wsRef)
 #if defined(TARGET_SA515M) || defined(TARGET_SA415M)
         telux::common::Status status = tcuActivityMgr->setActivityState(
                 TcuActivityState::SUSPEND, &taf_Handler::commandCallback);
-#endif
-#if defined(TARGET_SA525M)
-        telux::common::Status status = tcuActivityMgr->setActivityState(
-                TcuActivityState::SUSPEND, ALL_MACHINES, &taf_Handler::commandCallback);
-#endif
         if( status == telux::common::Status::SUCCESS) {
             LE_INFO("cmd send successfully");
-            #if defined(TARGET_SA525M)
-            curTcuState = TAF_PM_STATE_SUSPEND;
-            #endif
         } else {
             LE_ERROR("sending cmd failed");
         }
+#endif
     }
     return LE_OK;
 }
@@ -502,6 +511,134 @@ taf_pm_State_t taf_PM::GetPowerState()
     LE_INFO( "TCU state : %s\n ", tcuStateToString(state));
     return (tcuStateToTafPowerState(state));
 }
+
+#if LE_CONFIG_TARGET_SA525M
+/**
+ * Sets the power state to VM
+ */
+le_result_t taf_PM::SetPowerState(taf_pm_State_t state, const char* machineName)
+{
+    TcuActivityState tcuState = tafStateToTcuState(state);
+    LE_INFO( "SetPowerState state : %s to machine : %s", tcuStateToString(tcuState), machineName);
+    if( state == TAF_PM_STATE_SUSPEND && pm_recrd.wsAcquired > 0)
+    {
+        LE_ERROR("Trying to set suspend state when wake source is acquired");
+        return LE_FAULT;
+    }
+    telux::common::Status status = telux::common::Status::FAILED;
+    status = tcuActivityMgr->setActivityState(
+            tcuState, machineName, &taf_Handler::commandCallback);
+    if( status == telux::common::Status::SUCCESS) {
+        LE_INFO("cmd send successfully");
+        curTcuState = state;
+        return LE_OK;
+    } else {
+        LE_ERROR("sending cmd failed");
+    }
+    return LE_FAULT;
+}
+
+taf_pm_VMListRef_t taf_PM::GetMachineList()
+{
+    taf_PMVmList_t* vmListPtr = (taf_PMVmList_t*)le_mem_ForceAlloc(vmListPool);
+    memset(vmListPtr, 0, sizeof(taf_PMVmList_t));
+    vmListPtr->VmInfoList = LE_SLS_LIST_INIT;
+    vmListPtr->sessionRef = taf_pm_GetClientSessionRef();
+    vmListPtr->currPtr = NULL;
+
+    std::vector<std::string> machineNames;
+    telux::common::Status status = tcuActivityMgr->getAllMachineNames(machineNames);
+    if(status == telux::common::Status::SUCCESS) {
+        taf_PMVmInfo_t* vmInfoPtr;
+        for (size_t i = 0; i < machineNames.size(); i++){
+            vmInfoPtr = (taf_PMVmInfo_t*)le_mem_ForceAlloc(vmInfoPool);
+            memset(vmInfoPtr, 0, sizeof(taf_PMVmInfo_t));
+            le_utf8_Copy(vmInfoPtr->name, machineNames[i].c_str(), TAF_PM_MACHINE_NAME_LEN, NULL);
+            LE_DEBUG("Virtual Machine name is %s", vmInfoPtr->name);
+            vmInfoPtr->link = LE_SLS_LINK_INIT;
+            le_sls_Queue(&(vmListPtr->VmInfoList), &(vmInfoPtr->link));
+        }
+        vmListPtr->ref = (taf_pm_VMListRef_t)le_ref_CreateRef(vmListRefMap, (void*)vmListPtr);
+        return vmListPtr->ref;
+    }
+    return NULL;
+}
+
+le_result_t taf_PM::DeleteMachineList(taf_pm_VMListRef_t vmListRef)
+{
+    TAF_ERROR_IF_RET_VAL(vmListRef == nullptr, LE_BAD_PARAMETER, "Null reference(vmListRef)");
+
+    taf_PMVmList_t* listPtr = (taf_PMVmList_t*)le_ref_Lookup(vmListRefMap, vmListRef);
+
+    TAF_ERROR_IF_RET_VAL(listPtr == nullptr, LE_NOT_FOUND, "Invalid para(null reference ptr)");
+
+    LE_DEBUG("DeleteMachineList : %p", vmListRef);
+    taf_PMVmInfo_t* vmInfoPtr;
+    le_sls_Link_t *linkPtr;
+    while ((linkPtr = le_sls_Pop(&(listPtr->VmInfoList))) != NULL) {
+        vmInfoPtr = CONTAINER_OF(linkPtr, taf_PMVmInfo_t, link);
+        le_mem_Release(vmInfoPtr);
+    }
+
+    le_ref_DeleteRef(vmListRefMap, vmListRef);
+
+    le_mem_Release(listPtr);
+
+    return LE_OK;
+}
+
+le_result_t taf_PM::GetFirstMachineName( taf_pm_VMListRef_t vmListRef,
+        char* vmNamePtr, size_t vmNamePtrSize )
+{
+    taf_PMVmList_t* listPtr = (taf_PMVmList_t*)le_ref_Lookup(vmListRefMap,
+        vmListRef);
+
+    TAF_ERROR_IF_RET_VAL(listPtr == nullptr, LE_BAD_PARAMETER,
+        "Failed to look up the reference:%p", vmListRef);
+
+    TAF_ERROR_IF_RET_VAL(vmNamePtr == nullptr, LE_BAD_PARAMETER,
+        "Null ptr(vmNamePtr)");
+
+    TAF_ERROR_IF_RET_VAL(vmNamePtrSize < TAF_PM_MACHINE_NAME_LEN, LE_BAD_PARAMETER,
+        "Invalid para(vmNamePtrSize: %" PRIuS " < %d)", vmNamePtrSize, TAF_PM_MACHINE_NAME_LEN);
+
+    le_sls_Link_t* linkPtr = le_sls_Peek(&(listPtr->VmInfoList));
+    TAF_ERROR_IF_RET_VAL(linkPtr == nullptr, LE_NOT_FOUND, "Empty list");
+
+    taf_PMVmInfo_t* vmInfoPtr = CONTAINER_OF(linkPtr, taf_PMVmInfo_t , link);
+    listPtr->currPtr = linkPtr;
+
+    le_utf8_Copy(vmNamePtr, vmInfoPtr->name, TAF_PM_MACHINE_NAME_LEN, NULL);
+
+    return LE_OK;
+}
+
+le_result_t taf_PM::GetNextMachineName( taf_pm_VMListRef_t vmListRef,
+        char* vmNamePtr, size_t vmNamePtrSize )
+{
+    taf_PMVmList_t* listPtr = (taf_PMVmList_t*)le_ref_Lookup(vmListRefMap,
+        vmListRef);
+
+    TAF_ERROR_IF_RET_VAL(listPtr == nullptr, LE_BAD_PARAMETER,
+        "Failed to look up the reference:%p", vmListRef);
+
+    TAF_ERROR_IF_RET_VAL(vmNamePtr == nullptr, LE_BAD_PARAMETER,
+        "Null ptr(vmNamePtr)");
+
+    TAF_ERROR_IF_RET_VAL(vmNamePtrSize < TAF_PM_MACHINE_NAME_LEN, LE_BAD_PARAMETER,
+        "Invalid para(vmNamePtrSize: %" PRIuS " < %d)", vmNamePtrSize, TAF_PM_MACHINE_NAME_LEN);
+
+    le_sls_Link_t* linkPtr = le_sls_PeekNext(&(listPtr->VmInfoList),  listPtr->currPtr);
+    TAF_ERROR_IF_RET_VAL(linkPtr == nullptr, LE_NOT_FOUND, "Reached to the end of list");
+
+    taf_PMVmInfo_t* vmInfoPtr = CONTAINER_OF(linkPtr, taf_PMVmInfo_t , link);
+    listPtr->currPtr = linkPtr;
+
+    le_utf8_Copy(vmNamePtr, vmInfoPtr->name, TAF_PM_MACHINE_NAME_LEN, NULL);
+
+    return LE_OK;
+}
+#endif
 
 /**
  * To convert taf_pm_State_t to TcuActivityState
@@ -655,7 +792,41 @@ void tafTcuStateListener :: onSlaveAckStatusUpdate(Status status)
     LE_INFO("onSlaveAckStatusUpdate status %d\n", (int)status);
 }
 
-#if defined(TARGET_SA525M)
+void taf_PM::TafSigTermEventHandler(int tafSigNum)
+{
+    LE_DEBUG("TafSigTermEventHandler :%d", tafSigNum);
+    taf_PM tafPwrMgr = taf_PM::GetInstance();
+    telux::common::Status status = telux::common::Status::FAILED;
+#if LE_CONFIG_TARGET_SA525M
+    // Resume in SA525M before service termination as master app is terminating
+    if(tafPwrMgr.tcuActivityMgr->getActivityState() != TcuActivityState::RESUME) {
+        status = tafPwrMgr.tcuActivityMgr->setActivityState(
+                TcuActivityState::RESUME, ALL_MACHINES, &taf_Handler::commandCallback);
+        if( status == telux::common::Status::SUCCESS) {
+            LE_DEBUG("Resume cmd sent successfully on service termination");
+            tafPwrMgr.curTcuState = TAF_PM_STATE_RESUME;
+        } else {
+            LE_ERROR("sending cmd failed");
+        }
+    }
+#endif
+    status = tafPwrMgr.tcuActivityMgr->deregisterListener(tafPwrMgr.tcuStateListener);
+    if(status != telux::common::Status::SUCCESS) {
+        LE_ERROR("Failed to deregister for TCU-activity state updates on service termination");
+    } else {
+        LE_DEBUG("Deregistered listener for TCU-activity state updates on service termination");
+    }
+
+    status = tafPwrMgr.tcuActivityMgr->deregisterServiceStateListener(tafPwrMgr
+            .tcuServiceStatusListener);
+    if(status != telux::common::Status::SUCCESS) {
+        LE_ERROR("Failed to deregister for service state change on service termination");
+    } else {
+        LE_DEBUG("Deregistered Listener for service state change on service termination");
+    }
+}
+
+#if LE_CONFIG_TARGET_SA525M
 void tafTcuStateListener::onTcuActivityStateUpdate(TcuActivityState state, string machineName)
 {
     taf_PM tafPwrMgr = taf_PM::GetInstance();

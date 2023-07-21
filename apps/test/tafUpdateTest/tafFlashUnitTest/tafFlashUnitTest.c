@@ -43,7 +43,7 @@
 #define FLASH_FILE_NAME_BYTES 256
 
 #define MTD_TEST_PARTITION "abl_b"
-#define UBI_TEST_VOLUME "system_b"
+#define UBI_TEST_VOLUME "telaf_b"
 
 /*======================================================================
  FUNCTION        TestTafFlashInit
@@ -183,6 +183,7 @@ void TestTafFlashMtdRead(void)
     LE_TEST_END_SKIP();
 
     // Read MTD Page Test
+    pSize = (size_t)pageSize;
     result = taf_flash_MtdReadPage(NULL, 0, page, &pSize);
     LE_TEST_OK((result == LE_BAD_PARAMETER), "taf_flash_MtdReadPage - LE_BAD_PARAMETER");
 
@@ -296,6 +297,8 @@ void TestTafFlashMtdWrite(void)
     {
         LE_ERROR("Fail to open file.");
     }
+
+    pSize = (size_t)pageSize;
     result = le_fs_Read(fileRef, page, &pSize);
     if (result != LE_OK)
     {

@@ -262,7 +262,7 @@ le_result_t taf_flash_UbiRead
 le_result_t taf_flash_UbiInitWrite
 (
     taf_flash_VolumeRef_t volumeRef, ///< [IN] The reference of UBI volume.
-    long long writeSize              ///< [IN] The number of bytes set to write a UBI volume.
+    int64_t writeSize                ///< [IN] The number of bytes set to write a UBI volume.
 )
 {
     return LE_OK;

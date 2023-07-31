@@ -740,7 +740,10 @@ void taf_Audio::DeleteHashMap
     {
         currentStreamPtr = (taf_audio_Stream_t const *)le_hashmap_GetValue(Iterator);
 
-        le_hashmap_Remove(currentStreamPtr->connList,connPtr);
+        if (currentStreamPtr != nullptr)
+        {
+            le_hashmap_Remove(currentStreamPtr->connList,connPtr);
+        }
     }
 
     Iterator = (le_hashmap_It_Ref_t)le_hashmap_GetIterator(connPtr->audioOutList);
@@ -748,7 +751,10 @@ void taf_Audio::DeleteHashMap
     {
         currentStreamPtr = (taf_audio_Stream_t const *)le_hashmap_GetValue(Iterator);
 
-        le_hashmap_Remove(currentStreamPtr->connList,connPtr);
+        if (currentStreamPtr != nullptr)
+        {
+            le_hashmap_Remove(currentStreamPtr->connList,connPtr);
+        }
     }
 
     le_hashmap_RemoveAll(connPtr->audioInList);
@@ -778,6 +784,8 @@ le_result_t taf_Audio::CreateandStart
     while (le_hashmap_NextNode(streamIterator) == LE_OK)
     {
         currentPtr = (taf_audio_Stream_t*)le_hashmap_GetValue(streamIterator);
+
+        TAF_ERROR_IF_RET_VAL( currentPtr == NULL, LE_BAD_PARAMETER,"currentPtr is nullptr!");
 
         LE_DEBUG("CurrentStream %p",currentPtr);
 
@@ -991,19 +999,21 @@ le_result_t taf_Audio::StopandDelete
     {
         currentPtr=(taf_audio_Stream_t*)le_hashmap_GetValue(streamIterator);
 
-        if (streamPtr->device)
+        if(currentPtr != nullptr)
         {
-            inputPtr  = streamPtr;
-            outputPtr = currentPtr;
-        }
-        else
-        {
-            inputPtr  = currentPtr;
-            outputPtr = streamPtr;
-        }
-
-        LE_DEBUG("inputInterface.%d with outputInterface.%d",
+            if (streamPtr->device)
+            {
+                inputPtr  = streamPtr;
+                outputPtr = currentPtr;
+            }
+            else
+            {
+                inputPtr  = currentPtr;
+                outputPtr = streamPtr;
+            }
+            LE_DEBUG("inputInterface.%d with outputInterface.%d",
                 inputPtr->interface, outputPtr->interface);
+        }
     }
     res = StopAudio(streamPtr);
     res = DeleteAudio(streamPtr);
@@ -1026,7 +1036,11 @@ void taf_Audio::CloseConnector
     while (le_hashmap_NextNode(Iterator)==LE_OK)
     {
         currentStreamPtr=(taf_audio_Stream_t*)le_hashmap_GetValue(Iterator);
-        StopandDelete(currentStreamPtr,connPtr->audioOutList);
+
+        if(currentStreamPtr != nullptr)
+        {
+            StopandDelete(currentStreamPtr,connPtr->audioOutList);
+        }
     }
 }
 
@@ -1048,7 +1062,10 @@ void taf_Audio::DisconnectConnectors
     {
         currentconnPtr = (taf_audio_Connector_t const *)le_hashmap_GetValue(Iterator);
 
-        Disconnect(currentconnPtr->connRef, streamPtr->streamRef);
+        if(currentconnPtr != nullptr)
+        {
+            Disconnect(currentconnPtr->connRef, streamPtr->streamRef);
+        }
     }
 }
 
@@ -2156,9 +2173,15 @@ static le_result_t PlayWave
         while (le_hashmap_NextNode(connItr)==LE_OK)
         {
             currentconnPtr = (taf_audio_Connector_t const *)le_hashmap_GetValue(connItr);
+            TAF_ERROR_IF_RET_VAL( currentconnPtr == NULL,
+                    LE_BAD_PARAMETER,"currentconnPtr is nullptr!");
+
             strmItr = (le_hashmap_It_Ref_t)le_hashmap_GetIterator(currentconnPtr->audioOutList);
             while (le_hashmap_NextNode(strmItr)==LE_OK) {
                 outStreamPtr = (taf_audio_Stream_t const *)le_hashmap_GetValue(strmItr);
+                TAF_ERROR_IF_RET_VAL( outStreamPtr == NULL,
+                        LE_BAD_PARAMETER,"outStreamPtr is nullptr!");
+
                 if (outStreamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER){
                     config.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_SPEAKER);
                     LE_DEBUG("set config with device type speaker");
@@ -2255,10 +2278,16 @@ static le_result_t PlayAmr
             while (le_hashmap_NextNode(connItr)==LE_OK)
             {
                 currentconnPtr = (taf_audio_Connector_t const *)le_hashmap_GetValue(connItr);
+                TAF_ERROR_IF_RET_VAL( currentconnPtr == NULL,
+                        LE_BAD_PARAMETER,"currentconnPtr is nullptr!");
+
                 strmItr = (le_hashmap_It_Ref_t)
                         le_hashmap_GetIterator(currentconnPtr->audioOutList);
                 while (le_hashmap_NextNode(strmItr)==LE_OK) {
                     outStreamPtr = (taf_audio_Stream_t const *)le_hashmap_GetValue(strmItr);
+                    TAF_ERROR_IF_RET_VAL( outStreamPtr == NULL,
+                            LE_BAD_PARAMETER,"outStreamPtr is nullptr!");
+
                     if (outStreamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER){
                         config.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_SPEAKER);
                         LE_DEBUG("set config with device type speaker");
@@ -2343,10 +2372,16 @@ le_result_t taf_Audio::PlayFile
                 while (le_hashmap_NextNode(connItr)==LE_OK)
                 {
                     currentconnPtr = (taf_audio_Connector_t const *)le_hashmap_GetValue(connItr);
+                    TAF_ERROR_IF_RET_VAL( currentconnPtr == NULL,
+                            LE_BAD_PARAMETER,"currentconnPtr is nullptr!");
+
                     strmItr = (le_hashmap_It_Ref_t)
                             le_hashmap_GetIterator(currentconnPtr->audioOutList);
                     while (le_hashmap_NextNode(strmItr)==LE_OK) {
                         outStreamPtr = (taf_audio_Stream_t const *)le_hashmap_GetValue(strmItr);
+                        TAF_ERROR_IF_RET_VAL( outStreamPtr == NULL,
+                                LE_BAD_PARAMETER,"outStreamPtr is nullptr!");
+
                         if (outStreamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER){
                             config.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_SPEAKER);
                             LE_DEBUG("set config with device type speaker");
@@ -2758,10 +2793,16 @@ le_result_t taf_Audio::RecordFile
         while (le_hashmap_NextNode(connItr)==LE_OK)
         {
             currentconnPtr = (taf_audio_Connector_t const *)le_hashmap_GetValue(connItr);
+            TAF_ERROR_IF_RET_VAL( currentconnPtr == NULL,
+                    LE_BAD_PARAMETER,"currentconnPtr is nullptr!");
+
             strmItr = (le_hashmap_It_Ref_t)
                     le_hashmap_GetIterator(currentconnPtr->audioInList);
             while (le_hashmap_NextNode(strmItr)==LE_OK) {
                 outStreamPtr = (taf_audio_Stream_t const *)le_hashmap_GetValue(strmItr);
+                TAF_ERROR_IF_RET_VAL( outStreamPtr == NULL,
+                        LE_BAD_PARAMETER,"outStreamPtr is nullptr!");
+
                 if (outStreamPtr->interface == TAF_AUDIO_IF_CODEC_MIC){
                     config.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_MIC);
                     LE_DEBUG("set config with device type mic");

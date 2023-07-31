@@ -164,7 +164,8 @@ void taf_Handler::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *ct
     while (LE_OK == le_hashmap_NextNode(iter))
     {
         ws = (taf_ws_t*)le_hashmap_GetValue(iter);
-        if (ws && ws->clientPid != pClient->procId)
+
+        if (!ws || ws->clientPid != pClient->procId)
         {
             // skip if does not belong to this client
             continue;

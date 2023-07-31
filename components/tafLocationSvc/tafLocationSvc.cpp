@@ -1298,7 +1298,7 @@ le_result_t taf_gnss_DefaultSecondaryBandConstellations
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 le_result_t taf_gnss_RequestSecondaryBandConstellations
 (
-   int32_t* constellationSb
+   uint32_t* constellationSb
 )
 {
     auto &gnss = taf_Gnss::GetInstance();
@@ -1357,4 +1357,36 @@ le_result_t taf_gnss_GetEllipticalUncertainty
     auto &gnss = taf_Gnss::GetInstance();
     return gnss.GetEllipticalUncertainty(positionSampleRef,horUncEllipseSemiMajorPtr,
             horUncEllipseSemiMinorPtr,horConfidencePtr);
+}
+
+/**
+* FUNCTION     : SetLeverArmConfig
+* DESCRIPTION  : Set the Lever Arm configuration Parameters
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_BAD_PARAMETER LE_NOT_PERMITTED on failed with reason
+*/
+le_result_t taf_gnss_SetLeverArmConfig
+(
+    const taf_gnss_LeverArmParams_t* LeverArmParamsPtr
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.SetLeverArmConfig(LeverArmParamsPtr);
+}
+
+/**
+* FUNCTION     : SetEngineType
+* DESCRIPTION  : This function sets the GNSS device with engine type
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_BAD_PARAMETER LE_NOT_PERMITTED on failed with reason
+*/
+le_result_t taf_gnss_SetEngineType
+(
+    taf_gnss_EngineReportsType_t EngineType
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.SetEngineType(EngineType);
 }

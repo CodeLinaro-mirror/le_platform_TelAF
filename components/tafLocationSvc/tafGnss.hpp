@@ -355,7 +355,7 @@ namespace tafsvc {
                     uint8_t* majorVersion,uint8_t* minorVersion);
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
             le_result_t DefaultSecondaryBandConstellations();
-            le_result_t RequestSecondaryBandConstellations(int32_t* constellationSb);
+            le_result_t RequestSecondaryBandConstellations(uint32_t* constellationSb);
             le_result_t ConfigureSecondaryBandConstellations(uint32_t constellationSb);
 #endif
             le_result_t GetMagneticDeviation(taf_gnss_SampleRef_t positionSampleRef,
@@ -363,6 +363,8 @@ namespace tafsvc {
             le_result_t GetEllipticalUncertainty(taf_gnss_SampleRef_t positionSampleRef,
                     uint32_t* horUncEllipseSemiMajorPtr,uint32_t* horUncEllipseSemiMinorPtr,
                     uint8_t*  horConfidencePtr);
+            le_result_t SetLeverArmConfig(const taf_gnss_LeverArmParams_t* LeverArmParamsPtr);
+            le_result_t SetEngineType(taf_gnss_EngineReportsType_t EngineType);
             le_mem_PoolRef_t   PositionHandlerPoolRef;
             le_mem_PoolRef_t   PositionSampleRequestPoolRef;
             le_event_Id_t positionEventId;
@@ -385,6 +387,7 @@ namespace tafsvc {
             std::vector<float> mVerticalSpeed;
             std::vector<float> mVerticalSpeedAccuracy;
             int mAcqRate;
+            LocReqEngine mEngineType = 0;//By default set to FUSED mode
             std::string mNmeaBitMask;
             uint8_t mEnable;
             uint8_t mEnabled911;

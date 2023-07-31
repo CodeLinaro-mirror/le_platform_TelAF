@@ -14,6 +14,7 @@ files_type(telaf_tafMRCSvc_data_t);
 
 ifdef(`sa525m',`
     telux_allow_platform_ota_mgmt(telaf_tafMRCSvc_t)
+    telux_allow_platform_listen_fs_events(telaf_tafMRCSvc_t)
 ')
 #allow telaf_voiceCallApp_t telaf_tafMRCSvc_data_t:file { read open getattr };
 

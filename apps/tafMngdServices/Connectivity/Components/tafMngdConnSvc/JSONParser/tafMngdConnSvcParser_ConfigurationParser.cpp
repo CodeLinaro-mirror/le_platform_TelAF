@@ -689,235 +689,244 @@ bool tafMngdConnSvc_ConfigurationParser::ParseAndUpdateConfigurationJSON(
     std::string log, JSON_Property, JSON_Value;
     for (auto & element: tree) {
 
-        // ManagedConnectivityServiceConfiguration object has the 2 properties
-        // Version , Name
-        if ("ManagedConnectivityServiceConfiguration" == element.first ) {
+
+        if ("ManagedConnectivityService" == element.first ) {
             log.clear();
             log = "Top Element: " + element.first;
             LE_DEBUG ("%s", log.c_str() );
 
             for (auto & property: element.second) {
-                if (property.first != ""){
-                    log.clear();
-                    log = "Key: " + property.first + ", Value: " +
-                                            property.second.get_value < std::string > ();
-                    LE_DEBUG ("%s", log.c_str() );
-                    JSON_Property.clear();
-                    JSON_Property.append (element.first + ":" + property.first);
-                    JSON_Value.clear();
-                    JSON_Value = property.second.get_value<std::string>();
-                    // Validate the value and update Configuration structure.
-                    // Pass an invalid index as these are not arrays
-                    if (!ValidateValue(Configuration, JSON_Property, JSON_Value,
-                                                        TAF_MNGD_CONN_INVALID_INDEX))
-                    {
-                        LE_WARN("Invalid JSON_Property Value");
-                        LE_INFO("JSON_Property: %s, Value: %s", JSON_Property.c_str(),
-                                                                            JSON_Value.c_str());
-                        return false;
+
+                if ("Configuration" == property.first){
+                    for (auto & parent: property.second) {
+                        if ("Name" == parent.first){
+                            log.clear();
+                            log = "Key: " + parent.first + ", Value: " +
+                                                    parent.second.get_value < std::string > ();
+                            LE_DEBUG ("%s", log.c_str() );
+                            JSON_Property.clear();
+                            JSON_Property.append (property.first + ":" + parent.first);
+                            JSON_Value.clear();
+                            JSON_Value = parent.second.get_value<std::string>();
+                            // Validate the value and update Configuration structure.
+                            // Pass an invalid index as these are not arrays
+                            if (!ValidateValue(Configuration, JSON_Property, JSON_Value,
+                                                                TAF_MNGD_CONN_INVALID_INDEX))
+                            {
+                                LE_WARN("Invalid JSON_Property Value");
+                                LE_INFO("JSON_Property: %s, Value: %s", JSON_Property.c_str(),
+                                                                                JSON_Value.c_str());
+                                return false;
+                            }
+                        }
+
+                        // Sim Object
+                        // Array object with the following properties
+                        // ID, Name, SlotNumber
+                        if ( "Sim" == parent.first ) {
+                            log.clear();
+                            log = "Top Element: " + parent.first;
+                            LE_DEBUG ("%s", log.c_str() );
+
+
+                            int ElementCount = 0;
+                            // Iterate through the Array elements
+                            for (auto &array_element: parent.second)
+                            {
+                                log.clear();
+                                log.append ( string("Sim[") + to_string (ElementCount) + "]" );
+                                LE_DEBUG ("%s", log.c_str() );
+                                // Iterate through elements in each array element
+                                for (auto &iter: array_element.second)
+                                {
+                                    log.clear();
+                                    log = "\tKey: " + iter.first + ", Value: " + iter.second.data();
+                                    LE_DEBUG ("%s", log.c_str() );
+
+                                    JSON_Property.clear();
+                                    JSON_Property.append (parent.first + ":" + iter.first);
+                                    JSON_Value.clear();
+                                    JSON_Value = iter.second.data();
+                                    // Validate the value and update Configuration structure.
+                                    // Sim is an array, so pass element count.
+                                    if (!ValidateValue(Configuration, JSON_Property, JSON_Value,
+                                    ElementCount))
+                                    {
+                                        LE_WARN("Invalid JSON_Property Value");
+                                        LE_INFO("JSON_Property: %s, Value: %s",
+                                        JSON_Property.c_str(),
+                                        JSON_Value.c_str());
+                                        return false;
+                                    }
+                                }
+                                // Increment the element count
+                                ElementCount++;
+                            }
+                        }
+
+                        // Network object
+                        if ( "Network" == parent.first ) {
+                            log.clear();
+                            log = "Top Element: " + parent.first;
+                            LE_DEBUG ("%s", log.c_str() );
+
+                            int ElementCount = 0;
+                            // Iterate through the Array elements
+                            for (auto &array_element: parent.second)
+                            {
+                                log.clear();
+                                log.append ( string("Network[") + to_string (ElementCount) + "]" );
+                                LE_DEBUG ("%s", log.c_str() );
+                                // Iterate through elements in each array element
+                                for (auto &iter: array_element.second)
+                                {
+                                    log.clear();
+                                    log = "\tKey: " + iter.first + ", Value: " + iter.second.data();
+                                    LE_DEBUG ("%s", log.c_str() );
+
+                                    JSON_Property.clear();
+                                    JSON_Property.append (parent.first + ":" + iter.first);
+                                    JSON_Value.clear();
+                                    JSON_Value = iter.second.data();
+                                    // Validate the value and update Configuration structure.
+                                    // Network is an array, so pass element count.
+                                    if (!ValidateValue(Configuration, JSON_Property, JSON_Value,
+                                    ElementCount))
+                                    {
+                                        LE_WARN("Invalid JSON_Property Value");
+                                        LE_INFO("JSON_Property: %s, Value: %s",
+                                        JSON_Property.c_str(),
+                                        JSON_Value.c_str());
+                                        return false;
+                                    }
+                                }
+                                // Increment the element count
+                                ElementCount++;
+                            }
+                        }
+
+                        // Data Object
+                        if ( "Data" == parent.first ) {
+                            log.clear();
+                            log = "Top Element: " + parent.first;
+                            LE_DEBUG ("%s", log.c_str() );
+
+                            int ElementCount = 0;
+                            // Iterate through the Array elements
+                            for (auto &array_element: parent.second)
+                            {
+                                log.clear();
+                                log.append ( string("\tData[") + to_string (ElementCount) + "]" );
+                                LE_DEBUG ("%s", log.c_str() );
+                                // Iterate through elements in each array element
+                                for (auto &iter: array_element.second)
+                                {
+                                    if ( "ID" == iter.first ||
+                                        "Use_Network_ID" == iter.first ||
+                                        "AutoStart" == iter.first )
+                                    {
+                                        log.clear();
+                                        log = "\t\tKey: " + iter.first +
+                                        ", Value: " + iter.second.data();
+                                        LE_DEBUG("%s", log.c_str());
+
+                                        JSON_Property.clear();
+                                        JSON_Property.append (parent.first + ":" + iter.first);
+                                        JSON_Value.clear();
+                                        JSON_Value = iter.second.data();
+                                        // Validate the value and update Configuration structure.
+                                        // Data is an array, so pass element count.
+                                        if (!ValidateValue(Configuration, JSON_Property, JSON_Value,
+                                        ElementCount))
+                                        {
+                                            LE_WARN("Invalid JSON_Property Value");
+                                            LE_INFO("JSON_Property: %s, Value: %s",
+                                                JSON_Property.c_str(),
+                                                JSON_Value.c_str());
+                                            return false;
+                                        }
+                                    }
+                                    // Iterate through Profile object
+                                    else if ("Profile" == iter.first)
+                                    {
+                                        log.clear();
+                                        log.append("\t\t").append("Profile Node");
+                                        LE_DEBUG("%s", log.c_str());
+                                        // Iterate through Profile object
+                                        for (auto &iter2 : iter.second)
+                                        {
+                                            log.clear();
+                                            log.append("\t\t\t").append("Key: " + iter2.first +
+                                                                        ", Value: "
+                                                                        + iter2.second.data());
+                                            LE_DEBUG("%s", log.c_str());
+
+                                            JSON_Property.clear();
+                                            JSON_Property.append (parent.first + ":" + iter.first +
+                                                                                ":" + iter2.first);
+                                            JSON_Value.clear();
+                                            JSON_Value = iter2.second.data();
+                                            // Validate the value and update Configuration structure.
+                                            // Data is an array, so pass element count.
+                                            if (! ValidateValue(Configuration, JSON_Property,
+                                                                JSON_Value, ElementCount))
+                                            {
+                                                LE_WARN("Invalid JSON_Property Value");
+                                                LE_INFO("JSON_Property: %s, Value: %s",
+                                                JSON_Property.c_str(),
+                                                JSON_Value.c_str());
+                                                return false;
+                                            }
+                                        }
+                                    }
+                                    // Iterate through PingTest object
+                                    else if ("PingTest" == iter.first)
+                                    {
+                                        log.clear();
+                                        log.append("\t\t").append("PingTest Node");
+                                        LE_DEBUG ("%s", log.c_str() );
+
+                                        // Iterate through PingTest object
+                                        for (auto &iter2: iter.second) {
+                                            log.clear();
+                                            log.append("\t\t\t").append("Key: " + iter2.first +
+                                                                        ", Value: "
+                                                                        + iter2.second.data());
+                                            LE_DEBUG ("%s", log.c_str() );
+
+                                            JSON_Property.clear();
+                                            JSON_Property.append (parent.first + ":" + iter.first +
+                                                                                ":" + iter2.first);
+                                            JSON_Value.clear();
+                                            JSON_Value = iter2.second.data();
+                                            // Validate the value and update Configuration structure.
+                                            // Data is an array, so pass element count.
+                                            if (! ValidateValue(Configuration, JSON_Property,
+                                                                JSON_Value, ElementCount))
+                                            {
+                                                LE_WARN("Invalid JSON_Property Value");
+                                                LE_INFO("JSON_Property: %s, Value: %s",
+                                                JSON_Property.c_str(),
+                                                JSON_Value.c_str());
+                                                return false;
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        log.clear();
+                                        log.append("*****").append("Unknown Object: " + iter.first);
+                                        LE_WARN("%s", log.c_str());
+                                    }
+                                }
+                                // Increment the element count
+                                ElementCount++;
+                            }
+                        }
                     }
                 }
             }
             LE_DEBUG ("%s", log.c_str() ); log.clear();
-        }
-
-        // Sim Object
-        // Array object with the following properties
-        // ID, Name, SlotNumber
-        if ( "Sim" == element.first ) {
-            log.clear();
-            log = "Top Element: " + element.first;
-            LE_DEBUG ("%s", log.c_str() );
-
-            // Get the SIM child object
-            auto &child = tree.get_child (element.first);
-            int ElementCount = 0;
-            // Iterate through the Array elements
-            for (auto &array_element: child)
-            {
-                log.clear();
-                log.append ( string("Sim[") + to_string (ElementCount) + "]" );
-                LE_DEBUG ("%s", log.c_str() );
-                // Iterate through elements in each array element
-                for (auto &iter: array_element.second)
-                {
-                    log.clear();
-                    log = "\tKey: " + iter.first + ", Value: " + iter.second.data();
-                    LE_DEBUG ("%s", log.c_str() );
-
-                    JSON_Property.clear();
-                    JSON_Property.append (element.first + ":" + iter.first);
-                    JSON_Value.clear();
-                    JSON_Value = iter.second.data();
-                    // Validate the value and update Configuration structure.
-                    // Sim is an array, so pass element count.
-                    if (!ValidateValue(Configuration, JSON_Property, JSON_Value, ElementCount))
-                    {
-                        LE_WARN("Invalid JSON_Property Value");
-                        LE_INFO("JSON_Property: %s, Value: %s", JSON_Property.c_str(),
-                                                                            JSON_Value.c_str());
-                        return false;
-                    }
-                }
-                // Increment the element count
-                ElementCount++;
-            }
-        }
-
-        // Network object
-        if ( "Network" == element.first ) {
-            log.clear();
-            log = "Top Element: " + element.first;
-            LE_DEBUG ("%s", log.c_str() );
-
-            int ElementCount = 0;
-            // Get the Network child object
-            auto &child = tree.get_child (element.first);
-            // Iterate through the Array elements
-            for (auto &array_element: child)
-            {
-                log.clear();
-                log.append ( string("Network[") + to_string (ElementCount) + "]" );
-                LE_DEBUG ("%s", log.c_str() );
-                // Iterate through elements in each array element
-                for (auto &iter: array_element.second)
-                {
-                    log.clear();
-                    log = "\tKey: " + iter.first + ", Value: " + iter.second.data();
-                    LE_DEBUG ("%s", log.c_str() );
-
-                    JSON_Property.clear();
-                    JSON_Property.append (element.first + ":" + iter.first);
-                    JSON_Value.clear();
-                    JSON_Value = iter.second.data();
-                    // Validate the value and update Configuration structure.
-                    // Network is an array, so pass element count.
-                    if (!ValidateValue(Configuration, JSON_Property, JSON_Value, ElementCount))
-                    {
-                        LE_WARN("Invalid JSON_Property Value");
-                        LE_INFO("JSON_Property: %s, Value: %s", JSON_Property.c_str(),
-                                                                            JSON_Value.c_str());
-                        return false;
-                    }
-                }
-                // Increment the element count
-                ElementCount++;
-            }
-        }
-
-        // Data Object
-        if ( "Data" == element.first ) {
-            log.clear();
-            log = "Top Element: " + element.first;
-            LE_DEBUG ("%s", log.c_str() );
-
-            int ElementCount = 0;
-
-            // Get the Data child object
-            auto &child = tree.get_child (element.first);
-            // Iterate through the Array elements
-            for (auto &array_element: child)
-            {
-                log.clear();
-                log.append ( string("\tData[") + to_string (ElementCount) + "]" );
-                LE_DEBUG ("%s", log.c_str() );
-                // Iterate through elements in each array element
-                for (auto &iter: array_element.second)
-                {
-                    if ( "ID" == iter.first ||
-                         "Use_Network_ID" == iter.first ||
-                         "AutoStart" == iter.first )
-                    {
-                        log.clear();
-                        log = "\t\tKey: " + iter.first + ", Value: " + iter.second.data();
-                        LE_DEBUG("%s", log.c_str());
-
-                        JSON_Property.clear();
-                        JSON_Property.append (element.first + ":" + iter.first);
-                        JSON_Value.clear();
-                        JSON_Value = iter.second.data();
-                        // Validate the value and update Configuration structure.
-                        // Data is an array, so pass element count.
-                        if (!ValidateValue(Configuration, JSON_Property, JSON_Value, ElementCount))
-                        {
-                            LE_WARN("Invalid JSON_Property Value");
-                            LE_INFO("JSON_Property: %s, Value: %s", JSON_Property.c_str(),
-                                                                                JSON_Value.c_str());
-                            return false;
-                        }
-                    }
-                    // Iterate through Profile object
-                    else if ("Profile" == iter.first)
-                    {
-                        log.clear();
-                        log.append("\t\t").append("Profile Node");
-                        LE_DEBUG("%s", log.c_str());
-                        // Iterate through Profile object
-                        for (auto &iter2 : iter.second)
-                        {
-                            log.clear();
-                            log.append("\t\t\t").append("Key: " + iter2.first +
-                                                        ", Value: " + iter2.second.data());
-                            LE_DEBUG("%s", log.c_str());
-
-                            JSON_Property.clear();
-                            JSON_Property.append (element.first + ":" + iter.first +
-                                                                          ":" + iter2.first);
-                            JSON_Value.clear();
-                            JSON_Value = iter2.second.data();
-                            // Validate the value and update Configuration structure.
-                            // Data is an array, so pass element count.
-                            if (! ValidateValue(Configuration, JSON_Property,
-                                                            JSON_Value, ElementCount))
-                            {
-                                LE_WARN("Invalid JSON_Property Value");
-                                LE_INFO("JSON_Property: %s, Value: %s",JSON_Property.c_str(),
-                                                                                JSON_Value.c_str());
-                                return false;
-                            }
-                        }
-                    }
-                    // Iterate through PingTest object
-                    else if ("PingTest" == iter.first)
-                    {
-                        log.clear();
-                        log.append("\t\t").append("PingTest Node");
-                        LE_DEBUG ("%s", log.c_str() );
-
-                        // Iterate through PingTest object
-                        for (auto &iter2: iter.second) {
-                            log.clear();
-                            log.append("\t\t\t").append("Key: " + iter2.first +
-                                                        ", Value: " + iter2.second.data());
-                            LE_DEBUG ("%s", log.c_str() );
-
-                            JSON_Property.clear();
-                            JSON_Property.append (element.first + ":" + iter.first +
-                                                                          ":" + iter2.first);
-                            JSON_Value.clear();
-                            JSON_Value = iter2.second.data();
-                            // Validate the value and update Configuration structure.
-                            // Data is an array, so pass element count.
-                            if (! ValidateValue(Configuration, JSON_Property,
-                                                            JSON_Value, ElementCount))
-                            {
-                                LE_WARN("Invalid JSON_Property Value");
-                                LE_INFO("JSON_Property: %s, Value: %s",JSON_Property.c_str(),
-                                                                                JSON_Value.c_str());
-                                return false;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        log.clear();
-                        log.append("*****").append("Unknown Object: " + iter.first);
-                        LE_WARN("%s", log.c_str());
-                    }
-                }
-                // Increment the element count
-                ElementCount++;
-            }
         }
     }
     return true;
@@ -928,9 +937,7 @@ bool tafMngdConnSvc_ConfigurationParser::ParseAndUpdateConfigurationJSON(
  */
 void tafMngdConnSvc_ConfigurationParser::UpdateValidConfigurationFuncMap(void)
 {
-    ConfigurationValidationFuncMap["ManagedConnectivityServiceConfiguration:Version"]
-                                                            = &Validate_MCSC_Version;
-    ConfigurationValidationFuncMap["ManagedConnectivityServiceConfiguration:Name"]
+    ConfigurationValidationFuncMap["Configuration:Name"]
                                                             = &Validate_MCSC_Name;
 
     // Sim
@@ -962,7 +969,6 @@ void tafMngdConnSvc_ConfigurationParser::UpdateValidConfigurationFuncMap(void)
 void tafMngdConnSvc_ConfigurationParser::ResetConfigurationStructure (
                                             taf_mngd_Conn_Configuration_t &Configuration)
 {
-    Configuration.Version = 0;
     Configuration.Name[0] = '\0';
 
     Configuration.SimCount = 0;

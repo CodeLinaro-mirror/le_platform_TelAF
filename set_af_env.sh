@@ -134,12 +134,16 @@ function build-sa525m-af(){
     ${TELAF_ROOT}/mkimg.sh ${TARGET} "$TELAF_REPACK_DIR" "$TELAF_NOSHIP_BUILD_DIR" "$TELAF_PROP_BUILD_DIR"
 
     # sign TelAF image
-    #export AVBTOOL="${OECORE_NATIVE_SYSROOT}/usr/share/avb_py_tool"
-    #if [ ! -d $AVBTOOL/keys ]; then
-    #    ${AVBTOOL}/avbtool add_hashtree_footer --image ./build/sa515m/telaf_ro.squashfs --partition_name telaf --do_not_generate_fec --rollback_index 0
-    #else
-    #    ${AVBTOOL}/avbtool add_hashtree_footer --image ./build/sa515m/telaf_ro.squashfs --partition_name telaf --algorithm SHA256_RSA2048 --key $AVBTOOL/keys/qpsa_attest.key --public_key_metadata $AVBTOOL/keys/qpsa_attest.der --do_not_generate_fec --rollback_index 0
-   #fi
+    export AVBTOOL="${OECORE_NATIVE_SYSROOT}/usr/share/avb_py_tool"
+    if [ -e ${AVBTOOL}/avbtool ]; then
+        if [ ! -d $AVBTOOL/keys ]; then
+            ${AVBTOOL}/avbtool add_hashtree_footer --image ./build/${TARGET}/telaf_ro.squashfs --partition_name telaf --do_not_generate_fec --rollback_index 0
+        else
+            ${AVBTOOL}/avbtool add_hashtree_footer --image ./build/${TARGET}/telaf_ro.squashfs --partition_name telaf --algorithm SHA256_RSA2048 --key $AVBTOOL/keys/qpsa_attest.key --public_key_metadata $AVBTOOL/keys/qpsa_attest.der --do_not_generate_fec --rollback_index 0
+        fi
+    else
+        echo "Warning: avbtool not found"
+    fi
 
     if [ $? -eq 0 ]
     then

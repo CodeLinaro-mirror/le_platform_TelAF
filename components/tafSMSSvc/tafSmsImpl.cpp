@@ -1822,7 +1822,7 @@ void tafSmsCallback::sendSmsResponse(std::vector<int> msgRefs,
    auto &sms = taf_Sms::GetInstance();
    if(error == telux::common::ErrorCode::SUCCESS)
    {
-      LE_INFO("MsgRefs Size: %d\n", msgRefs.size());
+      LE_INFO("MsgRefs Size: %" PRIuS, msgRefs.size());
       for (int ref: msgRefs)
       {
          LE_INFO("MsgRef : %d\n", ref);

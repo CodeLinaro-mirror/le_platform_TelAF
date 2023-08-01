@@ -369,13 +369,13 @@ le_result_t taf_sms_hlos_decryptMsg(uint8_t* cypherData,
 
     TAF_ERROR_IF_RET_VAL(LE_OK != res, LE_FAULT, "Process session failed");
 
-    LE_DEBUG("totalDecryptedSize %d", totalDecryptedSize);
+    LE_DEBUG("totalDecryptedSize %" PRIuS, totalDecryptedSize);
 
     decSize = *decryptedDataSize;
-    LE_DEBUG("decSize %d", decSize);
+    LE_DEBUG("decSize %" PRIuS, decSize);
 
     *decryptedDataSize = totalDecryptedSize - decSize;
-    LE_DEBUG("decryptedDataSize %d", *decryptedDataSize);
+    LE_DEBUG("decryptedDataSize %" PRIuS, *decryptedDataSize);
 
     res = taf_ks_CryptoSessionEnd(sessionRef, NULL, 0, decryptedData + decSize,
         decryptedDataSize);
@@ -433,7 +433,8 @@ le_result_t taf_sms_hlos_ReadPDUMsgFromStorage(uint32_t index,
     }
     else
     {
-        LE_DEBUG("smsFileStr: %s, bufSize: %d", (char*)smsFileStr, bufSize);
+        LE_DEBUG("smsFileStr: %s", (char*)smsFileStr);
+        LE_DEBUG("bufSize: %" PRIuS, bufSize);
     }
 
     le_fs_Close(fileRef);
@@ -571,7 +572,7 @@ le_result_t SetHeaderStatus(uint32_t index, uint8_t statusMask, bool enable)
         le_fs_Close(fileRef);
         return LE_FAULT;
     }
-    LE_DEBUG("headerSize: %d", fHeaderSize);
+    LE_DEBUG("headerSize: %" PRIuS, fHeaderSize);
 
     le_hex_StringToBinary(fHeader, fHeaderSize - 1, header, headerSize);
 
@@ -644,7 +645,7 @@ bool IsHeaderStatusEnable(uint32_t index, uint8_t statusMask)
         return false;
     }
 
-    LE_DEBUG("fHeaderSize: %d", fHeaderSize);
+    LE_DEBUG("fHeaderSize: %" PRIuS, fHeaderSize);
 
     le_hex_StringToBinary(fHeader, fHeaderSize - 1, header, headerSize);
 
@@ -788,8 +789,8 @@ le_result_t taf_sms_hlos_EncryptFromStorage(uint32_t index)
     // Encrypt message content from HLOS
     encryptRes = taf_sms_hlos_encryptMsg(pduMsg.data, pduMsg.length,
         encryptedData, &encryptedDataSize);
-    LE_DEBUG("taf_sms_hlos_encryptMsg res: %d, size: %d", encryptRes,
-        encryptedDataSize);
+    LE_DEBUG("taf_sms_hlos_encryptMsg res: %d", encryptRes);
+    LE_DEBUG("taf_sms_hlos_encryptMsg size: %" PRIuS, encryptedDataSize);
 
     TAF_ERROR_IF_RET_VAL(encryptRes != LE_OK, LE_FAULT,
         "Message encryption failed");

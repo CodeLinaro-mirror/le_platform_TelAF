@@ -1335,48 +1335,39 @@ static le_result_t EncodeMsgToPdu
    return result;
 }
 
-le_result_t taf_Sms::SendMessage(taf_sms_Msg_t* msgPtr)
+le_result_t taf_Sms::SendPDUMessage
+(
+   uint8_t     *pduData,
+   uint32_t    pduLength,
+   uint32_t    timeout,
+   uint8_t     phoneId
+)
 {
-   TAF_ERROR_IF_RET_VAL(msgPtr == nullptr, LE_FAULT, "msgPtr is nullptr!");
-   SendMessageSyncPromise = std::promise<telux::common::ErrorCode>();
-
-   le_result_t result = EncodeMsgToPdu(msgPtr);
-   if (result != LE_OK)
-   {
-      LE_ERROR("Cannot encode Message Object %p", msgPtr);
-      return LE_FORMAT_ERROR;
-   }
-
-   if (msgPtr->phoneId < 1 || msgPtr->phoneId > 2)
-   {
-      return LE_BAD_PARAMETER;
-   }
-
-   auto smsManager = smsManagers[msgPtr->phoneId - 1];
+   auto smsManager = smsManagers[phoneId - 1];
    if(smsManager == nullptr)
    {
       LE_INFO("smsManager is NULL\n");
       return LE_FAULT;
    }
 
-   if(msgPtr->pdu.length == 0)
+   if(pduLength == 0)
    {
-      LE_INFO("msgPtr->pdu.length is 0\n");
+      LE_INFO("pduLength is 0");
       return LE_BAD_PARAMETER;
    }
 
-   if(msgPtr->pdu.length > TAF_SMS_PDU_BYTES)
+   if(pduLength > TAF_SMS_PDU_BYTES)
    {
-      LE_INFO("msgPtr->pdu.length [%u] is greater than TAF_SMS_PDU_BYTES\n",
-        msgPtr->pdu.length);
+      LE_INFO("pduLength [%u] is greater than TAF_SMS_PDU_BYTES\n",
+        pduLength);
       return LE_OUT_OF_RANGE;
    }
 
    string pduStr = "";
-   for(unsigned int idx = 0; idx < msgPtr->pdu.length; ++idx)
+   for(unsigned int idx = 0; idx < pduLength; ++idx)
    {
       std::stringstream ss;
-      ss << std::hex << (int)msgPtr->pdu.data[idx];
+      ss << std::hex << (int)pduData[idx];
       std::string num(ss.str());
       if(num.size() < 2)
       {
@@ -1391,7 +1382,7 @@ le_result_t taf_Sms::SendMessage(taf_sms_Msg_t* msgPtr)
    std::vector<telux::tel::PduBuffer> rawPdus;
    rawPdus.emplace_back(buffer);
 
-   std::chrono::seconds span(kSendMessageWaitTime);
+   std::chrono::seconds span(timeout);
    auto status = smsManager->sendRawSms(rawPdus,
         tafSmsCallback::sendSmsResponse);
    if(status != telux::common::Status::SUCCESS)
@@ -1400,23 +1391,45 @@ le_result_t taf_Sms::SendMessage(taf_sms_Msg_t* msgPtr)
       return LE_FAULT;
    }
 
+   SendMessageSyncPromise = std::promise<telux::common::ErrorCode>();
    std::future<telux::common::ErrorCode> futResult =
       SendMessageSyncPromise.get_future();
    std::future_status waitStatus = futResult.wait_for(span);
    if (std::future_status::timeout == waitStatus)
    {
-      LE_ERROR("waiting promise timeout for %d seconds", kSendMessageWaitTime);
+      LE_ERROR("waiting promise timeout for %d seconds", timeout);
       return LE_TIMEOUT;
    }
    telux::common::ErrorCode res = futResult.get();
    if(res != telux::common::ErrorCode::SUCCESS)
    {
-      LE_INFO("SMS was NOT sent successfully, Error: %s", getErrorCodeAsString(res).c_str());
+      LE_INFO("SMS was NOT sent successfully, Error: %s",
+         getErrorCodeAsString(res).c_str());
       return LE_FAULT;
    }
 
    LE_INFO("SMS was sent successfully");
    return LE_OK;
+}
+
+le_result_t taf_Sms::SendMessage(taf_sms_Msg_t* msgPtr)
+{
+   TAF_ERROR_IF_RET_VAL(msgPtr == nullptr, LE_FAULT, "msgPtr is nullptr!");
+
+   le_result_t result = EncodeMsgToPdu(msgPtr);
+   if (result != LE_OK)
+   {
+      LE_ERROR("Cannot encode Message Object %p", msgPtr);
+      return LE_FORMAT_ERROR;
+   }
+
+   if (msgPtr->phoneId < 1 || msgPtr->phoneId > 2)
+   {
+      return LE_BAD_PARAMETER;
+   }
+
+   return SendPDUMessage(msgPtr->pdu.data, msgPtr->pdu.length,
+      kSendMessageWaitTime, msgPtr->phoneId);
 }
 
 le_result_t taf_Sms::SetTag(taf_sms_Msg_t* msgPtr, telux::tel::SmsTagType tagType)

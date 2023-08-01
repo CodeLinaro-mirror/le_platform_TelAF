@@ -1797,6 +1797,68 @@ le_result_t taf_sms_EncryptFromStorage
    return res;
 }
 
+/*======================================================================
+
+FUNCTION       taf_sms_SendPduMsg
+
+DESCRIPTION    Send PDU message
+
+DEPENDENCIES   Initialization of SMS service
+
+PARAMETERS     uint32_t             length: message length
+               [IN] const uint8_t   dataPtr: data pointer
+               uint32_t             timeout: timeout value in milli-second
+
+RETURN VALUE   le_result_t
+
+SIDE EFFECTS
+
+======================================================================*/
+
+le_result_t taf_sms_SendPduMsg
+(
+   const uint8_t*   dataPtr,
+   size_t           dataSize,
+   uint32_t         timeout
+)
+{
+   auto &sms = taf_Sms::GetInstance();
+   return sms.SendPDUMessage(const_cast<uint8_t*>(dataPtr), dataSize,
+      timeout, DEFAULT_PHONE_ID);
+}
+
+/*======================================================================
+
+FUNCTION       taf_sms_SendPduMsgEx
+
+DESCRIPTION    Send PDU message
+
+DEPENDENCIES   Initialization of SMS service
+
+PARAMETERS     uint8_t              phoneId: phone ID from which message is going to send
+               uint32_t             length: message length
+               [IN] const uint8_t   dataPtr: data pointer
+               uint32_t             timeout: timeout value in milli-second
+
+RETURN VALUE   le_result_t
+
+SIDE EFFECTS
+
+======================================================================*/
+
+le_result_t taf_sms_SendPduMsgEx
+(
+   uint8_t          phoneId,
+   const uint8_t*   dataPtr,
+   size_t           dataSize,
+   uint32_t         timeout
+)
+{
+   auto &sms = taf_Sms::GetInstance();
+   return sms.SendPDUMessage(const_cast<uint8_t*>(dataPtr), dataSize,
+      timeout, phoneId);
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * The first-layer storage handler, for internal usage

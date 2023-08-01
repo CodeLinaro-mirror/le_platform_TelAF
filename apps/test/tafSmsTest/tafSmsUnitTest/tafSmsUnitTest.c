@@ -1001,10 +1001,6 @@ void Test_main
     Test_taf_sms_Smsc();
     LE_INFO("##### Test_taf_sms_Smsc OK #####");
 
-    LE_INFO("===== Test_taf_sms_SendPdu =====");
-    Test_taf_sms_SendPdu();
-    LE_INFO("##### Test_taf_sms_SendPdu OK #####");
-
     LE_INFO("===== Test_taf_sms_Receive =====");
     Test_taf_sms_Receive();
 
@@ -1024,6 +1020,10 @@ void Test_main
     le_thread_Cancel(TxThreadRef);
 
     LE_INFO("##### Test_taf_sms_Send OK #####");
+
+    LE_INFO("===== Test_taf_sms_SendPdu =====");
+    Test_taf_sms_SendPdu();
+    LE_INFO("##### Test_taf_sms_SendPdu OK #####");
 
     LE_INFO("===== Test_taf_sms_CreateDeleteRxMsgList =====");
     Test_taf_sms_CreateDeleteRxMsgList();

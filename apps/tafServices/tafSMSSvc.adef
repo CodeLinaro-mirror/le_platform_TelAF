@@ -44,7 +44,7 @@ processes:
 
 bindings:
 {
-    tafSMSSvc.taf_pa_sms.taf_ks -> tafKeyStoreSvc.taf_ks
+    tafSMSSvc.tafSMSSvc.taf_ks -> tafKeyStoreSvc.taf_ks
 }
 
 extern:

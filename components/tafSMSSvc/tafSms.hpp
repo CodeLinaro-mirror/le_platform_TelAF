@@ -26,32 +26,9 @@
  *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are
- * met:
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *     * Neither the name of The Linux Foundation nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
- * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
- * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
- * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *  Changes from Qualcomm Innovation Center are provided under the following license:
+ *  Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  *
  */
 
@@ -68,7 +45,7 @@
 #include <telux/tel/CellBroadcastManager.hpp>
 #include "telux/common/CommonDefines.hpp"
 #include "tafSvcIF.hpp"
-#include "taf_pa_sms.hpp"
+#include "tafSmsHlos.hpp"
 #include "tafSmsPdu.hpp"
 
 using namespace telux::tel;
@@ -89,8 +66,6 @@ using namespace telux::common;
 
 #define TIMEOUT_GET_SMSC           2
 #define TIMEOUT_SET_SMSC           2
-#define TIMEOUT_SENDING_PDU        10000
-#define TIMEOUT_SEND_SEMAPHORE     (TIMEOUT_SENDING_PDU / 1000)
 #define TIMEOUT_ACTIVATE_CB        2
 #define TIMEOUT_PREF_STORAGE       2
 #define TIMEOUT_RQUEST_CB_FILTER   2
@@ -101,6 +76,13 @@ using namespace telux::common;
 
 #define LENGTH_CFG_NODE 50
 
+constexpr uint8_t kSetTagWaitTime = 5;
+constexpr uint8_t kListRxMsgWaitTime = 5;
+constexpr uint8_t kSendMessageWaitTime = 30;
+constexpr uint8_t kDeleteMessageWaitTime = 5;
+constexpr uint8_t kReadFromStorageWaitTime = 5;
+constexpr uint8_t kPreferredStorageWaitTime = 5;
+
 //--------------------------------------------------------------------------------------------------
 /**
  * SMS message structure
@@ -110,7 +92,7 @@ using namespace telux::common;
 typedef struct taf_sms_Msg
 {
    char                 tel[TAF_TYPES_REMOTE_PARTY_NUM_MAX_BYTES];
-   taf_pa_sms_Pdu_t     pdu;
+   taf_sms_Pdu_t        pdu;
    bool                 pduReady;
 
    union
@@ -215,12 +197,15 @@ namespace tafsvc {
 
    class tafSmsListener : public telux::tel::ISmsListener {
    public:
+      void onMemoryFull(int phoneId, telux::tel::StorageType type) override;
       void onIncomingSms(int phoneId, std::shared_ptr<telux::tel::SmsMessage> message) override;
    };
 
    class tafSmsCallback : public ICommandResponseCallback {
    public:
       void commandResponse(ErrorCode error) override;
+      static void sendSmsResponse(std::vector<int> msgRefs,
+         telux::common::ErrorCode errorCode);
       taf_sms_MsgRef_t msgRef;
    };
 
@@ -252,6 +237,12 @@ namespace tafsvc {
       static void getPreferredStorageResponse(telux::tel::StorageType type,
          telux::common::ErrorCode errorCode);
       static void setPreferredStorageResponse(telux::common::ErrorCode errorCode);
+      static void setTagResponse(telux::common::ErrorCode errorCode);
+      static void deleteResponse(telux::common::ErrorCode errorCode);
+      static void readMsgResponse(telux::tel::SmsMessage smsMsg,
+         telux::common::ErrorCode errorCode);
+      static void reqMessageListResponse(std::vector<telux::tel::SmsMetaInfo> infos,
+         telux::common::ErrorCode errorCode);
    };
 
    typedef struct
@@ -278,23 +269,27 @@ namespace tafsvc {
       SessionNode_t* CreateSessionCtx(void);
       SessionNode_t* GetSessionNode(le_msg_SessionRef_t sessionRef);
       SessionNode_t* GetSessionNodeFromMsgRef(taf_sms_MsgRef_t msgRef);
-      taf_sms_MsgRef_t SetMsgRefForSessionCtx(taf_sms_Msg_t* msgPtr, SessionNode_t* sessionCtxPtr);
-      taf_sms_RxMsgHandlerRef_t CreateRxHandlerCtx(SessionNode_t* sessionCtxPtr, taf_sms_RxMsgHandlerFunc_t handlerFuncPtr, void* contextPtr);
+      taf_sms_MsgRef_t SetMsgRefForSessionCtx(taf_sms_Msg_t* msgPtr,
+         SessionNode_t* sessionCtxPtr);
+      taf_sms_RxMsgHandlerRef_t CreateRxHandlerCtx(SessionNode_t* sessionCtxPtr,
+         taf_sms_RxMsgHandlerFunc_t handlerFuncPtr, void* contextPtr);
       taf_sms_MsgListRef_t CreateNewMsgList(void);
+      taf_sms_MsgRef_t GetFirstMessage(taf_sms_MsgListRef_t msgListRef);
       void RemoveMsgRefFromSessionCtx(SessionNode_t* sessionCtxPtr, taf_sms_MsgRef_t msgRef);
       void RemoveRxHandlerCtx(taf_sms_RxMsgHandlerRef_t handlerRef);
       void NewSmsHandler(taf_sms_Msg_t *newMsg);
       void MessageHandlers(taf_sms_Msg_t* msgPtr);
       void ReleaseSession(le_msg_SessionRef_t sessionRef, void* ctxPtr);
 
-      taf_sms_Msg_t* CreateRxMsgNode(taf_pa_sms_Pdu_t *pduMsg, char* phoneNum, taf_sms_Format_t format, char* data, int16_t dataLen);
-      taf_sms_Msg_t* CreateRxMsgNode(taf_pa_sms_Pdu_t *pduMsg);
-      taf_sms_Msg_t* CreateAndConstructMsg(taf_pa_sms_Pdu_t* pduMsgPtr, sms_PduMsg_t* decodedMsgPtr);
+      taf_sms_Msg_t* CreateRxMsgNode(taf_sms_Pdu_t *pduMsg, char* phoneNum,
+         taf_sms_Format_t format, char* data, int16_t dataLen);
+      taf_sms_Msg_t* CreateRxMsgNode(taf_sms_Pdu_t *pduMsg);
+      taf_sms_Msg_t* CreateAndConstructMsg(taf_sms_Pdu_t* pduMsgPtr, sms_PduMsg_t* decodedMsgPtr);
       le_result_t constructSmsDeliver(taf_sms_Msg_t* msgObjPtr, sms_PduMsg_t* decodedMsgPtr);
-      uint32_t GetMsgFromStorage(taf_sms_List_t *msgListPtr, taf_sms_Storage_t storage, uint32_t numOfMsg,
-                                 uint32_t *arrayPtr, uint8_t phoneId);
+      uint32_t GetMsgFromStorage(taf_sms_List_t *msgListPtr, taf_sms_Storage_t storage,
+         uint32_t numOfMsg, uint32_t *arrayPtr, uint8_t phoneId);
       uint32_t ListRxMsg(taf_sms_List_t *msgListPtr,taf_sms_ReadStatus_t rxStatus,
-                           taf_sms_Storage_t storage, uint8_t phoneId);
+         taf_sms_Storage_t storage, uint8_t phoneId);
       uint32_t ListAllRxMsg(taf_sms_List_t *msgListPtr);
       le_result_t GetPreferredStorage(taf_sms_Storage_t* storage);
       le_result_t SetPreferredStorage(taf_sms_Storage_t storage);
@@ -305,7 +300,14 @@ namespace tafsvc {
       le_result_t AddCellBroadcastIds(uint8_t phoneId, uint16_t fromId, uint16_t toId);
       le_result_t RemoveCellBroadcastIds(uint8_t phoneId, uint16_t fromId, uint16_t toId);
 
-      le_result_t sendMessage(void);
+      le_result_t SendPDUMessage(uint8_t *pduData, uint32_t pduLength, uint32_t timeout,
+         uint8_t phoneId);
+      le_result_t SendMessage(taf_sms_Msg_t* msgPtr);
+      le_result_t ReadFromStorage(taf_sms_Pdu_t* pduMsg,
+         uint32_t idx, taf_sms_Storage_t storage);
+      le_result_t SetTag(taf_sms_Msg_t* msgPtr, telux::tel::SmsTagType tagType);
+      le_result_t DeleteMessage(uint32_t messageIndex);
+      le_result_t DeleteAllMessages(taf_sms_Storage_t storage);
 
       le_ref_MapRef_t MsgRefMap = NULL;
       le_ref_MapRef_t ListRefMap = NULL;
@@ -354,10 +356,20 @@ namespace tafsvc {
       std::promise<le_result_t> CBRequestIdsSyncPromise;
       std::promise<le_result_t> CBAddIdsSyncPromise;
       std::promise<le_result_t> CBRemoveIdsSyncPromise;
-      
+
+      std::promise<telux::common::ErrorCode> SendMessageSyncPromise;
+
       std::promise<le_result_t> PreferredStorageSyncPromise;
 
       std::promise<le_result_t> SmsCenterSyncPromise;
+
+      std::promise<le_result_t> SetTagSyncPromise;
+
+      std::promise<le_result_t> DeleteMessageSyncPromise;
+
+      std::promise<telux::tel::SmsMessage> ReadMessageSyncPromise;
+
+      std::promise<std::vector<telux::tel::SmsMetaInfo>> MessageListSyncPromise;
    };
 
 

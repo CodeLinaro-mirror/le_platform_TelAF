@@ -22,6 +22,15 @@ init_telaf_app_domain(telaf_tafVoiceCallSvc_t,telaf_tafVoiceCallSvc_exec_t)
 allow telaf_tafVoiceCallSvc_t tmp_t:file { manage_file_perms};
 allow telaf_tafVoiceCallSvc_t tmp_t:dir { manage_dir_perms };
 
+# Getting Telephone calls information
+ifdef(`sa525m',`
+    telux_allow_tel_call_info_read(telaf_tafVoiceCallSvc_t)
+    telux_allow_tel_call_mgmt(telaf_tafVoiceCallSvc_t)
+    telux_allow_tel_subscription_read(telaf_tafVoiceCallSvc_t)
+    telux_allow_tel_call_private_info(telaf_tafVoiceCallSvc_t)
+    telux_allow_tel_ecall_mgmt(telaf_tafVoiceCallSvc_t)
+')
+
 # Allow update daemon to install/uninstall this service
 telaf_admin_manage_all_files_perms(telaf_tafVoiceCallSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafVoiceCallSvc_exec_t)

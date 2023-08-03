@@ -38,7 +38,7 @@
 #include "legato.h"
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
-#include "taf_pa_sms.hpp"
+#include "tafSmsHlos.hpp"
 
 #define BITMASK_7BITS                       0x7F
 #define BITMASK_8BITS                       0xFF
@@ -105,8 +105,8 @@ le_result_t smsPdu_Decode
 
 le_result_t smsPdu_Encode
 (
-    smsPdu_EncodeMsg_t*   data,
-    taf_pa_sms_Pdu_t*     smsPdu
+    smsPdu_EncodeMsg_t*    data,
+    taf_sms_Pdu_t*         smsPdu
 );
 
 #endif   //_TAF_SMS_PDU_H_

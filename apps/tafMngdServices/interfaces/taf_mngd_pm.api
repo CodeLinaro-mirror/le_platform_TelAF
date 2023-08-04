@@ -1,0 +1,208 @@
+/*
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * @page c_taf_mngd_pm Managed Power Management Service
+ *
+ * @ref taf_mngd_pm_interface.h "API Reference"
+ *
+ * <HR>
+ *
+ * The Managed Power Management service APIs help to manage power on the NAD/TCU.
+ *
+ * @section taf_mngd_pm_binding IPC interfaces binding
+ *
+ *
+ * The following example illustrates how to bind to the Managed Power Management service.
+ * @verbatim
+   bindings:
+   {
+       clientExe.clientComponent.taf_mngd_pm -> tafMngdPMSvc.taf_mngd_pm
+   }
+   @endverbatim
+ *
+ * @section taf_mngd_pm Configuration
+ *
+ * Before starting the service, the user should place a JSON file named
+ * tafMngdPMConfig.json into /data/ManagedServices directory. This JSON file contains the
+ * configurations for trigger sources, e.g., CAN, SMS, and GPIO.
+ *
+ * The default configuration file is available at
+ * /legato/systems/current/appsWriteable/tafMngdPMSvc/tafMngdPMConfig.json
+ *
+ * @section taf_mngd_pm_SetNadPowerState Set the power state of NAD
+ *
+ * TelAF Power Management Service provides APIs to set the power state of a given NAD device.
+ * TelAF Power Management Service's client calls taf_mngd_pm_SetNadPowerState() to set the power
+ * state of the machine.
+ * @verbatim
+
+    le_result_t res = taf_mngd_pm_SetNadPowerState(TAF_MNGD_PM_NAD1, TAF_MNGD_PM_SUSPEND);
+    if (res == LE_OK) {
+        LE_INFO("Successfully triggered suspend");
+    }
+
+   @endverbatim
+ *
+ * @section taf_mngd_pm_SetVMPowerState Set the power state for a particular Virtual Machine
+ * in NAD.
+ *
+ * TelAF Power Management Service provides APIs to set the power state of a particular Virtual
+ * Machine.
+ * TelAF Power Management Service's client calls taf_mngd_pm_SetVMPowerState() to set the power
+ * state of the particular Virtual Machine. To get the available Virtual Machines, client calls
+ * taf_pm_GetMachineList().
+ *
+ * @verbatim
+
+    le_result_t res = taf_mngd_pm_SetVMPowerState(TAF_MNGD_PM_NAD1, "VMName",
+            TAF_MNGD_PM_SUSPEND);
+
+   @endverbatim
+ *
+ * @section taf_mngd_pm_GetVMPowerState Get the power state for a particular Virtual Machine
+ * in NAD.
+ *
+ * TelAF Power Management Service provides APIs to get the power state of a particular Virtual
+ * Machine.
+ * TelAF Power Management Service's client calls taf_mngd_pm_GetVMPowerState() to get the power
+ * state of a particular Virtual Machine.
+ * This function returns le_result_t and updates the state of the Virtual Machine.
+ * @verbatim
+
+    static char* StateToString(taf_mngd_pm_State_t *state)
+    {
+        switch (*state)
+        {
+            case TAF_MNGD_PM_STATE_RESUME:
+                return "RESUME";
+            case TAF_MNGD_PM_STATE_SUSPEND:
+                return "SUSPEND";
+            case TAF_MNGD_PM_STATE_SHUTDOWN:
+                return "SHUTDOWN";
+            default:
+                LE_ERROR("unknown state");
+                return "UNKNOWN";
+        }
+    }
+
+    void Test_GetVMPowerState() {
+        taf_mngd_pm_State_t state;
+        le_result_t res = taf_mngd_pm_GetVMPowerState(TAF_MNGD_PM_NAD1, arg, &state);
+        LE_INFO("state is %s", StateToString(state));
+    }
+
+   @endverbatim
+ *<HR>
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+
+/**
+ * Maximum string length for the Virtual Machine name.
+ */
+DEFINE MACHINE_NAME_LEN = 32;
+
+/*
+ * ENUM for NADs.
+ */
+ENUM Nad{
+    NAD1
+};
+
+/**
+ * System power states.
+ */
+ENUM State
+{
+    STATE_UNKNOWN,       ///< Power state is unknown.
+    STATE_RESUME,        ///< Power state is resume.
+    STATE_SUSPEND,       ///< Power state is suspend.
+    STATE_SHUTDOWN       ///< Power state is shutdown.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+* Sets the power state of the given NAD.
+*
+* @return
+*     - LE_OK             Successfully changed the state of device.
+*     - LE_BAD_PARAMETER  Invalid state.
+*     - LE_BUSY           The state transition request is in progress.
+*     - LE_FAULT          Failed.
+*/
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetNadPowerState
+(
+    Nad nad IN,                 ///< NAD power state to be changed.
+    State state IN              ///< State to be set.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+* Sets the power state to the respective Virtual Machine in the given NAD.
+*
+* @return
+*     - LE_OK             Successfully changed the state of the Virtual Machine.
+*     - LE_BAD_PARAMETER  The given Virtual Machine is not available in the mentioned NAD
+*                         or the given state is invalid.
+*     - LE_BUSY           The state transition request is in progress.
+*     - LE_FAULT          Failed.
+*/
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetVMPowerState
+(
+    Nad nad IN,                                ///< NAD where the mentioned Virtual Machine is
+                                               ///  available.
+    string  vmName[MACHINE_NAME_LEN] IN,       ///< Virtual Machine name.
+    State   state IN                           ///< State to be set.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+* Gets the power state of the respective Virtual Machine in the given NAD.
+*
+* @return
+*     - LE_OK            Success.
+*     - LE_BAD_PARAMETER Invalid parameters.
+*     - LE_FAULT         Failed.
+*/
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetVMPowerState(
+    Nad nad IN,                                 ///< NAD where the mentioned Virtual Machine is
+                                                ///  available.
+    string  vmName[MACHINE_NAME_LEN] IN,        ///< Virtual Machine name.
+    State state OUT                             ///< State of the Virtual Machine.
+);

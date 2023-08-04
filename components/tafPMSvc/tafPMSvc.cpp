@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -152,7 +152,7 @@ void taf_pm_RemoveStateChangeHandler(taf_pm_StateChangeHandlerRef_t handlerRef)
 */
 le_result_t taf_pm_SetAllVMPowerState(taf_pm_State_t state)
 {
-   LE_DEBUG("taf_pm_SetPowerState");
+   LE_DEBUG("taf_pm_SetAllVMPowerState");
 #if LE_CONFIG_TARGET_SA525M
    auto &power = taf_PM::GetInstance();
    return power.SetPowerState(state, "ALL_MACHINES");

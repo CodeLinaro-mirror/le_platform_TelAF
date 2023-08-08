@@ -322,9 +322,15 @@ static void Test_MSD_Information()
     LE_TEST_OK(res == LE_OK, "taf_ecall_SetMsdPosition done");
     LE_INFO("Set msd position completed");
 
+    res = taf_ecall_SetMsdPositionN1(eCallRef, -520, 520);
+    LE_TEST_OK(res == LE_OK, "taf_ecall_SetMsdPositionN1 done");
+
     res = taf_ecall_SetMsdPositionN1(eCallRef, 511, 511);
     LE_TEST_OK(res == LE_OK, "taf_ecall_SetMsdPositionN1 done");
     LE_INFO("Set delta  msd position completed");
+
+    res = taf_ecall_SetMsdPositionN2(eCallRef, -520, 520);
+    LE_TEST_OK(res == LE_OK, "taf_ecall_SetMsdPositionN2 done");
 
     res = taf_ecall_SetMsdPositionN2(eCallRef, -512, -512);
     LE_TEST_OK(res == LE_OK, "taf_ecall_SetMsdPositionN2 done");

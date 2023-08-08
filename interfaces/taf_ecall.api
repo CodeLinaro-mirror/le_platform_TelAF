@@ -772,38 +772,54 @@ FUNCTION le_result_t SetMsdPosition
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Sets the change in latitude and longitude compared
- * to the last MSD transmission.
+ * Sets the position delta N-1 for MSD transmission.
  *
  * @return
- *      - LE_OK -- Succeeded.
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
  *      - LE_FAULT -- Failed.
+ *      - LE_OK -- Successed.
+ *      - LE_DUPLICATE -- MSD has already been imported.
  *
+ * @note The process exits, if an invalid eCall reference is given.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetMsdPositionN1
 (
     Call  ecallRef   IN,        ///< SIM slot ID.
     int32 latitudeDeltaN1 IN,   ///< First latitude delta.
+                                ///< 1 Unit = 100 miliarcseconds, which is approximately 3m
+                                ///< maximum value: 511 = 0 0'51.100'' (+- 1580m)
+                                ///< minimum value: -512 = -0 0'51.200'' (+- -1583m)
     int32 longitudeDeltaN1 IN   ///< First longitude delta.
+                                ///< 1 Unit = 100 miliarcseconds, which is approximately 3m
+                                ///< maximum value: 511 = 0 0'51.100'' (+- 1580m)
+                                ///< minimum value: -512 = -0 0'51.200'' (+- -1583m)
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Sets the change in latitude and longitude compared
- * to the last MSD transmission.
+ * Sets the position delta N-2 for MSD transmission.
  *
  * @return
- *      - LE_OK -- Succeeded.
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
  *      - LE_FAULT -- Failed.
+ *      - LE_OK -- Successed.
+ *      - LE_DUPLICATE -- MSD has already been imported.
  *
+ * @note The process exits, if an invalid eCall reference is given.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetMsdPositionN2
 (
     Call  ecallRef   IN,        ///< SIM slot ID.
     int32 latitudeDeltaN2 IN,   ///< Second latitude delta.
+                                ///< 1 Unit = 100 miliarcseconds, which is approximately 3m
+                                ///< maximum value: 511 = 0 0'51.100'' (+- 1580m)
+                                ///< minimum value: -512 = -0 0'51.200'' (+- -1583m)
     int32 longitudeDeltaN2 IN   ///< Second longitude delta.
+                                ///< 1 Unit = 100 miliarcseconds, which is approximately 3m
+                                ///< maximum value: 511 = 0 0'51.100'' (+- 1580m)
+                                ///< minimum value: -512 = -0 0'51.200'' (+- -1583m)
 );
 
 //-------------------------------------------------------------------------------------------------

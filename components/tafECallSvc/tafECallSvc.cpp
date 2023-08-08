@@ -693,19 +693,27 @@ le_result_t taf_ecall_SetMsdPosition
 
  FUNCTION        taf_ecall_SetMsdPositionN1
 
- DESCRIPTION    Set the change in latitude and longitude compared
-                to the last MSD transmission.
+ DESCRIPTION    Sets the position delta N-1 for MSD transmission.
 
  DEPENDENCIES   Initialization of ECall service
 
  PARAMETERS     [IN]ecallRef : reference for ecall
                 [IN]latitudeDeltaN1: change in latitude value
+                                     < 1 Unit = 100 miliarcseconds, which is approximately 3m
+                                     < maximum value: 511 = 0 0'51.100'' (±1580m)
+                                     < minimum value: -512 = -0 0'51.200'' (± -1583m)
                 [IN]longitudeDeltaN1: change longitude value
+                                     < 1 Unit = 100 miliarcseconds, which is approximately 3m
+                                     < maximum value: 511 = 0 0'51.100'' (±1580m)
+                                     < minimum value: -512 = -0 0'51.200'' (± -1583m)
 
- RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER:     Invalid parameters.
-                     LE_FAULT:             Fail.
-                     LE_OK:                Success.
+ RETURN VALUE   le_result_t
+                    LE_BAD_PARAMETER:     Bad eCall reference.
+                    LE_FAULT:             Fail.
+                    LE_OK:                Success.
+                    LE_DUPLICATE:         MSD has already been imported.
+
+ NOTE           The process exits, if an invalid eCall reference is given.
 
  SIDE EFFECTS
 
@@ -718,27 +726,33 @@ le_result_t taf_ecall_SetMsdPositionN1
 )
 {
     auto &ecall = taf_ecall::GetInstance();
-    ecall.SetMsdPositionN1(ecallRef, latitudeDeltaN1, longitudeDeltaN1);
-    return LE_OK;
+    return ecall.SetMsdPositionN1(ecallRef, latitudeDeltaN1, longitudeDeltaN1);
 }
 
 /*======================================================================
 
  FUNCTION        taf_ecall_SetMsdPositionN2
 
- DESCRIPTION    Set the change in latitude and longitude compared
-                to the last MSD transmission.
+ DESCRIPTION    Sets the position delta N-2 for MSD transmission.
 
  DEPENDENCIES   Initialization of ECall service
 
  PARAMETERS     [IN]ecallRef : reference for ecall
                 [IN]latitudeDeltaN2: change in latitude value
+                                     < 1 Unit = 100 miliarcseconds, which is approximately 3m
+                                     < maximum value: 511 = 0 0'51.100'' (±1580m)
+                                     < minimum value: -512 = -0 0'51.200'' (± -1583m)
                 [IN]longitudeDeltaN2: change longitude value
+                                     < 1 Unit = 100 miliarcseconds, which is approximately 3m
+                                     < maximum value: 511 = 0 0'51.100'' (±1580m)
+                                     < minimum value: -512 = -0 0'51.200'' (± -1583m)
 
- RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER:     Invalid parameters.
-                     LE_FAULT:             Fail.
-                     LE_OK:                Success.
+ RETURN VALUE   le_result_t
+                    LE_BAD_PARAMETER:     Bad eCall reference.
+                    LE_FAULT:             Fail.
+                    LE_OK:                Success.
+                    LE_DUPLICATE:         MSD has already been imported.
+ NOTE           The process exits, if an invalid eCall reference is given.
 
  SIDE EFFECTS
 
@@ -751,8 +765,7 @@ le_result_t taf_ecall_SetMsdPositionN2
 )
 {
     auto &ecall = taf_ecall::GetInstance();
-    ecall.SetMsdPositionN2(ecallRef, latitudeDeltaN2, longitudeDeltaN2);
-    return LE_OK;
+    return ecall.SetMsdPositionN2(ecallRef, latitudeDeltaN2, longitudeDeltaN2);
 }
 
 /*======================================================================

@@ -405,28 +405,55 @@ COMPONENT_INIT
 {
     LE_INFO("====== Start GPIO test ======");
     int NumberOfArgs = le_arg_NumArgs();
+    const char *arg = NULL;
     if(NumberOfArgs >= 1)
     {
-        outPinNum = atoi(le_arg_GetArg(0));
+        arg = le_arg_GetArg(0);
+        if(arg == NULL)
+        {
+            LE_ERROR("GPIO test: NULL argument received, Line %d", __LINE__);
+            exit(EXIT_FAILURE);
+        }
+        outPinNum = atoi(arg);
     }
     if(NumberOfArgs >= 2)
     {
-        inPinNum = atoi(le_arg_GetArg(1));
+        arg = le_arg_GetArg(1);
+        if(arg == NULL)
+        {
+            LE_ERROR("GPIO test: NULL argument received, Line %d", __LINE__);
+            exit(EXIT_FAILURE);
+        }
+        inPinNum = atoi(arg);
         if (outPinNum == inPinNum)
+        {
             DisplayUsage();
+        }
     }
 
     if(NumberOfArgs >= 1)
     {
-        const char* arg = "";
         arg = le_arg_GetArg(0);
-        if(strcmp(arg,"help") == 0)
+        if(arg == NULL)
+        {
+            LE_ERROR("GPIO test: NULL argument received, Line %d", __LINE__);
+            exit(EXIT_FAILURE);
+        }
+        if(strcmp(arg, "help") == 0)
         {
             DisplayUsage();
         }
         Test_gpio();
     }
-    if(NumberOfArgs == 3 && strcmp(le_arg_GetArg(2),"true") == 0) {
+
+    arg = le_arg_GetArg(2);
+    if(arg == NULL)
+    {
+        LE_ERROR("GPIO test: NULL argument received, Line %d", __LINE__);
+        exit(EXIT_FAILURE);
+    }
+    if((NumberOfArgs == 3) && strcmp(arg, "true") == 0)
+    {
         LE_TEST_EXIT;
     }
 }

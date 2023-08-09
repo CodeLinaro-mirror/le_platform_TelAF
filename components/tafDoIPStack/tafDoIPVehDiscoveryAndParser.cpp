@@ -60,6 +60,7 @@ void ProtocolParser::PackGenericHeader
     if (headerPtr == NULL)
     {
         LE_ERROR("headerPtr is null!");
+        return;
     }
 
     auto &vehicleMgr = VehicleManager::GetInstance();
@@ -97,6 +98,7 @@ void ProtocolParser::VehicleAnnounceOrIdRes
     if (linkPtr == NULL)
     {
         LE_ERROR("linkPtr is null!");
+        return;
     }
 
     auto &parser = ProtocolParser::GetInstance();
@@ -642,10 +644,13 @@ void ProtocolParser::UnpackHeaderStruct
     if (dataPtr == NULL)
     {
         LE_ERROR("dataPtr is null!");
+        return;
     }
-    else if (headerPtr == NULL)
+
+    if (headerPtr == NULL)
     {
         LE_ERROR("headerPtr is null!");
+        return;
     }
 
     uint8_t protocolVer, invProtocolVer;

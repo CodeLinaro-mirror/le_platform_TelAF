@@ -978,9 +978,11 @@ le_result_t taf_ecall_End
                  [IN] msdLength: length of msd in pdu format
 
  RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER:     Invalid parameters.
-                     LE_FAULT:             Fail.
                      LE_OK:                Success.
+                     LE_BAD_PARAMETER:     Invalid parameters.
+                     LE_OVERFLOW:          The size of the MSD buffer is wrong.
+
+ NOTE            The process exits if an invalid eCall reference is passed.
 
  SIDE EFFECTS
 
@@ -1013,9 +1015,13 @@ le_result_t taf_ecall_ImportMsd
  PARAMETERS      [IN] ecallRef: ecall reference
 
  RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER:     Invalid parameters.
-                     LE_FAULT:             Fail.
                      LE_OK:                Success.
+                     LE_BAD_PARAMETER:     Invalid parameters.
+                     LE_OVERFLOW:          The size of the MSD buffer is wrong.
+                     LE_NOT_FOUND:         The MSD is not imported or updated.
+                     LE_FAULT:             Fail.
+
+ NOTE            The process exits if an invalid eCall reference is passed.
 
  SIDE EFFECTS
 

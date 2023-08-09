@@ -828,8 +828,10 @@ FUNCTION le_result_t SetMsdPassengersCount
  *
  * @return
  *      - LE_OK -- Succeeded.
- *      - LE_FAULT -- Failed.
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
+ *      - LE_OVERFLOW -- The size of the MSD buffer is wrong.
  *
+ * @note The process exits if an invalid eCall reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ImportMsd
@@ -844,8 +846,12 @@ FUNCTION le_result_t ImportMsd
  *
  * @return
  *      - LE_OK -- Succeeded.
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
+ *      - LE_OVERFLOW -- The size of the MSD buffer is wrong.
+ *      - LE_NOT_FOUND -- The MSD is not imported or updated.
  *      - LE_FAULT -- Failed.
  *
+ * @note The process exits if an invalid eCall reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ExportMsd

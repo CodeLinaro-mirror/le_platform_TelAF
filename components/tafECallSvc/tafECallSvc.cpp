@@ -691,7 +691,7 @@ le_result_t taf_ecall_SetMsdPosition
 
 /*======================================================================
 
- FUNCTION        taf_ecall_SetMsdPositionN1
+ FUNCTION       taf_ecall_SetMsdPositionN1
 
  DESCRIPTION    Sets the position delta N-1 for MSD transmission.
 
@@ -709,11 +709,11 @@ le_result_t taf_ecall_SetMsdPosition
 
  RETURN VALUE   le_result_t
                     LE_BAD_PARAMETER:     Bad eCall reference.
-                    LE_FAULT:             Fail.
-                    LE_OK:                Success.
-                    LE_DUPLICATE:         MSD has already been imported.
+                    LE_FAULT:             Failed.
+                    LE_OK:                Succeeded.
+                    LE_DUPLICATE:         The MSD has already been imported.
 
- NOTE           The process exits, if an invalid eCall reference is given.
+ NOTE           The process exits when an invalid eCall reference is given.
 
  SIDE EFFECTS
 
@@ -731,7 +731,7 @@ le_result_t taf_ecall_SetMsdPositionN1
 
 /*======================================================================
 
- FUNCTION        taf_ecall_SetMsdPositionN2
+ FUNCTION       taf_ecall_SetMsdPositionN2
 
  DESCRIPTION    Sets the position delta N-2 for MSD transmission.
 
@@ -749,10 +749,10 @@ le_result_t taf_ecall_SetMsdPositionN1
 
  RETURN VALUE   le_result_t
                     LE_BAD_PARAMETER:     Bad eCall reference.
-                    LE_FAULT:             Fail.
-                    LE_OK:                Success.
-                    LE_DUPLICATE:         MSD has already been imported.
- NOTE           The process exits, if an invalid eCall reference is given.
+                    LE_FAULT:             Failed.
+                    LE_OK:                Succeeded.
+                    LE_DUPLICATE:         The MSD has already been imported.
+ NOTE           The process exits when an invalid eCall reference is given.
 
  SIDE EFFECTS
 
@@ -780,9 +780,11 @@ le_result_t taf_ecall_SetMsdPositionN2
                  [IN] passengerCount: number of passenger
 
  RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER:     Invalid parameters.
-                     LE_FAULT:             Fail.
-                     LE_OK:                Success.
+                    LE_BAD_PARAMETER:     Bad eCall reference.
+                    LE_OK:                Succeeded.
+                    LE_DUPLICATE:         The MSD has already been imported.
+
+ NOTE           The process exits when an invalid eCall reference is given.
 
  SIDE EFFECTS
 
@@ -794,9 +796,7 @@ le_result_t taf_ecall_SetMsdPassengersCount
 )
 {
     auto &ecall = taf_ecall::GetInstance();
-    ecall.SetMsdPassengersCount(ecallRef, passengerCount);
-
-    return LE_OK;
+    return ecall.SetMsdPassengersCount(ecallRef, passengerCount);
 }
 
 /*======================================================================

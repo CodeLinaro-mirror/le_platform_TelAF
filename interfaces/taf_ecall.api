@@ -777,10 +777,10 @@ FUNCTION le_result_t SetMsdPosition
  * @return
  *      - LE_BAD_PARAMETER -- Bad eCall reference.
  *      - LE_FAULT -- Failed.
- *      - LE_OK -- Successed.
- *      - LE_DUPLICATE -- MSD has already been imported.
+ *      - LE_OK -- Succeeded.
+ *      - LE_DUPLICATE -- The MSD has already been imported.
  *
- * @note The process exits, if an invalid eCall reference is given.
+ * @note The process exits when an invalid eCall reference is given.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetMsdPositionN1
@@ -803,10 +803,10 @@ FUNCTION le_result_t SetMsdPositionN1
  * @return
  *      - LE_BAD_PARAMETER -- Bad eCall reference.
  *      - LE_FAULT -- Failed.
- *      - LE_OK -- Successed.
- *      - LE_DUPLICATE -- MSD has already been imported.
+ *      - LE_OK -- Succeeded.
+ *      - LE_DUPLICATE -- The MSD has already been imported.
  *
- * @note The process exits, if an invalid eCall reference is given.
+ * @note The process exits when an invalid eCall reference is given.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetMsdPositionN2
@@ -827,9 +827,11 @@ FUNCTION le_result_t SetMsdPositionN2
  *  Sets the number of passengers according to the given eCall reference.
  *
  * @return
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
  *      - LE_OK -- Succeeded.
- *      - LE_FAULT -- Failed.
+ *      - LE_DUPLICATE -- The MSD has already been imported.
  *
+ * @note The process exits when an invalid eCall reference is given.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetMsdPassengersCount

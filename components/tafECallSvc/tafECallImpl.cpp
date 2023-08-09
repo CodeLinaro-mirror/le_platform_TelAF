@@ -631,6 +631,7 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
     }
     else
     {
+        eCallPtr->msd.messageIdentifier = 1;
         ECallMsdData eCallMsdData = (ECallMsdData) eCallPtr->msd;
 
         if (eCallVariant == ECallVariant::ECALL_TEST) {

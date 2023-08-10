@@ -244,7 +244,7 @@ static char* ProfileClassToString(taf_rsp_ProfileClass_t profileClass) {
 
 static int GetProfileList() {
     taf_rsp_ProfileListNodeRef_t    profileListPtr[TAF_RSP_MAX_PROFILE];
-    size_t count;
+    size_t count = 0;
     uint8_t i = 0;
     le_result_t     res;
     char            iccid[TAF_RSP_ICCID_BYTES];
@@ -262,6 +262,11 @@ static int GetProfileList() {
     res = taf_rsp_GetProfileList(SimId, profileListPtr, &count);
 
     LE_INFO("Get profile list: result %d, no of profiles: %" PRIuS, (int) res, count);
+
+    if (res != LE_OK) {
+        printf("No profile found!\n");
+        return EXIT_FAILURE;
+    }
 
     for (i = 0; i < count; i++) {
         if (profileListPtr[i] != NULL) {

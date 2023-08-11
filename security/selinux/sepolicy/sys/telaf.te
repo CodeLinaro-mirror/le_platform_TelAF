@@ -144,7 +144,6 @@ gen_require(`
   type persist_t;
   type home_root_t;
   type user_home_dir_t;
-  type power_unit_t;
 ')
 
 ## telaf framework policies and definitions
@@ -613,8 +612,11 @@ if (telaf_external_dependencies) {
     allow telaf_admin_t self:process { getcap setcap };
 
     #============ allow to access power service ===========
-    allow telaf_admin_t proc_t:file { ioctl };
-    allow telaf_admin_t power_unit_t:service { start status stop };
+    ifdef(`sa525m',`
+        type power_unit_t;
+        allow telaf_admin_t proc_t:file { ioctl };
+        allow telaf_admin_t power_unit_t:service { start status stop };
+    ')
 
     #============ To support telaf restart ===================
     allow telaf_sdir_t telaf_apptmp_rw_t:dir { remove_name };

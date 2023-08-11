@@ -613,7 +613,9 @@ if (telaf_external_dependencies) {
 
     #============ allow to access power service ===========
     ifdef(`sa525m',`
-        type power_unit_t;
+        gen_require(`
+            type power_unit_t;
+        ')
         allow telaf_admin_t proc_t:file { ioctl };
         allow telaf_admin_t power_unit_t:service { start status stop };
     ')

@@ -627,8 +627,11 @@ COMPONENT_INIT
         printf("\n./tafSimUnitTest <slot1/slot2> <PIN> <NewPIN> <PUK> <FPLMN MCC> <FPLMN MNC>\n");
         exit(EXIT_SUCCESS);
     }
-    int mccInt = atoi(mcc);
-    int mncInt = atoi(mnc);
+    if(mcc && mnc)
+    {
+       int mccInt = atoi(mcc);
+       int mncInt = atoi(mnc);
+    }
     if (mccInt < 1 || mccInt > 999 || mncInt < 1 || mncInt > 999) {
         LE_INFO("No or wrong mcc mnc input! mcc: %s mnc: %s, so continue with default mcc-mnc (634-98).", mcc, mnc);
         mcc = "634";
@@ -650,34 +653,36 @@ COMPONENT_INIT
 
     taf_sim_SetServerDisconnectHandler(SessionDisconnectHandler, NULL);
 
-    tafSimUnitTest_info(simId);
+    if(simId && pinPtr && lockType && newPinPtr && pukPtr)
+    {
+        tafSimUnitTest_info(simId);
 
-    tafSimUnitTest_selection(simId);
+        tafSimUnitTest_selection(simId);
 
-    tafSimUnitTest_enterPin(simId,lockType,pinPtr);
+        tafSimUnitTest_enterPin(simId,lockType,pinPtr);
 
-    tafSimUnitTest_Change_pin(simId, lockType, pinPtr, newPinPtr);
+        tafSimUnitTest_Change_pin(simId, lockType, pinPtr, newPinPtr);
 
-    tafSimUnitTest_unblock_puk(simId, lockType, pukPtr, newPinPtr);
+        tafSimUnitTest_unblock_puk(simId, lockType, pukPtr, newPinPtr);
 
-    tafSimUnitTest_setLock(simId,lockType,newPinPtr, true);
+        tafSimUnitTest_setLock(simId,lockType,newPinPtr, true);
 
-    tafSimUnitTest_setLock(simId,lockType,newPinPtr, false);
+        tafSimUnitTest_setLock(simId,lockType,newPinPtr, false);
 
-    tafSimUnitTest_sendApdu(simId);
+        tafSimUnitTest_sendApdu(simId);
 
-    tafSimUnitTest_sim_access(simId);
+        tafSimUnitTest_sim_access(simId);
 
-    tafSimUnitTest_swapToEmergencyAndBack(simId, manufacturer);
+        tafSimUnitTest_swapToEmergencyAndBack(simId, manufacturer);
 
-    tafSimUnitTest_SetPowerCheck(simId, powerStatus);
+        tafSimUnitTest_SetPowerCheck(simId, powerStatus);
 
-    LE_TEST_OK(LE_OK == taf_sim_Reset(simId), "taf_sim_Reset");
+        LE_TEST_OK(LE_OK == taf_sim_Reset(simId), "taf_sim_Reset");
 
-    tafSimUnitTest_sim_isEmergency(simId);
+        tafSimUnitTest_sim_isEmergency(simId);
 
-    tafSimUnitTest_fplmnList_test(simId, mcc, mnc);
-
+        tafSimUnitTest_fplmnList_test(simId, mcc, mnc);
+    }
     taf_sim_RemoveAuthenticationResponseHandler(AuthResponseHandlerRef);
 
     taf_sim_RemoveIccidChangeHandler(IccidChangeHandlerRef);

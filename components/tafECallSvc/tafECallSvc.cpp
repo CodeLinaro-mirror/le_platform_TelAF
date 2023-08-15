@@ -45,6 +45,21 @@ COMPONENT_INIT
     auto &ecall = taf_ecall::GetInstance();
     ecall.Init();
     LE_INFO(" tafECall service Ready...\n");
+
+    // Add boot KPI marker
+    const char *kpi_file = "/sys/kernel/boot_kpi/kpi_values";
+    const char *kpi_marker = "L - TelAF eCall service is ready";
+    FILE *file = fopen(kpi_file, "w");
+    if (file == NULL)
+    {
+        LE_ERROR("%s does not exist", kpi_file);
+        return;
+    }
+    if (fwrite(kpi_marker, sizeof(char), strlen(kpi_marker), file) != strlen(kpi_marker))
+    {
+        LE_ERROR("failed to write %s to %s", kpi_marker, kpi_file);
+    }
+    fclose(file);
 }
 
 /*======================================================================

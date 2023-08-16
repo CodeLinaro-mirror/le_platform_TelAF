@@ -574,6 +574,15 @@ le_result_t SetHeaderStatus(uint32_t index, uint8_t statusMask, bool enable)
     }
     LE_DEBUG("headerSize: %" PRIuS, fHeaderSize);
 
+    if (fHeaderSize <= HLOS_SMS_HEADER_LEN * 2)
+    {
+        fHeader[fHeaderSize] = '\0';
+    }
+    else
+    {
+        fHeader[HLOS_SMS_HEADER_LEN * 2] = '\0';
+    }
+
     le_hex_StringToBinary(fHeader, fHeaderSize - 1, header, headerSize);
 
     for (uint i = 0; i < headerSize; i++)
@@ -643,6 +652,15 @@ bool IsHeaderStatusEnable(uint32_t index, uint8_t statusMask)
         LE_DEBUG("Fail to read sms file");
         le_fs_Close(fileRef);
         return false;
+    }
+
+    if (fHeaderSize <= HLOS_SMS_HEADER_LEN * 2)
+    {
+        fHeader[fHeaderSize] = '\0';
+    }
+    else
+    {
+        fHeader[HLOS_SMS_HEADER_LEN * 2] = '\0';
     }
 
     LE_DEBUG("fHeaderSize: %" PRIuS, fHeaderSize);

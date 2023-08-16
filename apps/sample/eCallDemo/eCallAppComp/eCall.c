@@ -215,16 +215,17 @@ static void CloseAudio() {
     }
 }
 
-static void taf_ecall_TerminateRegistration_test()
+static int terminateRegistration()
 {
     // Test Case
     le_result_t result = taf_ecall_TerminateRegistration();
     if (result == LE_OK)
     {
-        LE_INFO("TerminateRegistration SUCCESS!!!\n");
+        printf("TerminateRegistration SUCCESS!!!\n");
     } else {
-        LE_ERROR("TerminateRegistration FAILED. Error: %d\n", (int) result);
+        printf("TerminateRegistration FAILED. Error: %d\n", (int) result);
     }
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
 static void* CommandInput(void* contextPtr)
@@ -234,20 +235,36 @@ static void* CommandInput(void* contextPtr)
     taf_ecall_ConnectService();
 
     do {
-        printf("The call is in progress... Press 'h' to hangup.\n");
+        printf("\n-------------------------------------------------\n");
+        printf("\t\teCall Menu\t\t\n");
+        printf("-------------------------------------------------\n");
+        printf("\th - Hangup the eCall\n");
+        printf("\tt - Terminate registration\n");
+        printf("\tq - Exit test\n");
+        printf("-------------------------------------------------\n");
+        printf("eCall> ");
+
         char *p = fgets(input_str,sizeof(input_str),stdin);
 
         if (p != NULL && input_str[0]=='h') {
             printf("User input: %c, so hanging up the call...\n", input_str[0]);
             le_result_t result = taf_ecall_End(ECallRef);
+            printf("Hangup %s\n", result == LE_OK ? "success." : "failed!!");
             LE_INFO("CommandInput: hanging up the call, result %d\n", (int) result);
+        } else if (p != NULL && input_str[0]=='t') {
+            printf("User input: %c, so terminate registration...\n", input_str[0]);
+            int res = terminateRegistration();
+            LE_INFO("CommandInput: terminate registration, res: %d\n", res);
+        } else if (p != NULL && input_str[0]=='q') {
+            exitApp = true;
+            le_thread_Cancel(ECallCmdThreadRef);
+            ECallCmdThreadRef = NULL;
         } else {
-            printf("Invalid input just ignore it!\n");
+            printf("Invalid input, just ignore it!\n");
         }
-    } while(input_str[0]!='h');
+    } while(input_str[0]!='q');
 
-    le_thread_Cancel(ECallCmdThreadRef);
-
+    exit(EXIT_SUCCESS);
     return NULL;
 }
 
@@ -276,7 +293,7 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
 
     LE_INFO("Ecall state change event, state = %d", state );
     LE_INFO("Ecall state change event, reference = %p", eCallReference );
-    printf("=================\033[1;35mNOTIFICATION\033[0m=================\n");
+    printf("\n=================\033[1;35mNOTIFICATION\033[0m=================\n");
     printf("Time: %s",  getCurrentTime());
     printf("Ecall state change event, state = %d\n", state );
     ECallState = state;
@@ -360,9 +377,7 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
                 LE_INFO("ECall ENDed, terminate reason  = %d", lcf );
                 printf("Call Termination reason: %d", lcf);
             }
-            taf_ecall_TerminateRegistration_test();
             CloseAudio();
-            exitApp = true;
             break;
         }
         case TAF_ECALL_STATE_RESET:
@@ -378,7 +393,7 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         case TAF_ECALL_STATE_FAILED:
         {
             printf("TAF_ECALL_STATE_FAILED");
-            exitApp = true;
+            exitApp = false;
             break;
         }
         case TAF_ECALL_STATE_END_OF_REDIAL_PERIOD:
@@ -460,15 +475,12 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
     printf("\n==============================================\n");
     if (exitApp) {
         le_thread_Cancel(ECallCmdThreadRef);
+        ECallCmdThreadRef = NULL;
         exit(EXIT_SUCCESS);
     } else {
-        if (ECallState == TAF_ECALL_STATE_DIALING) {
-            le_thread_Cancel(ECallCmdThreadRef);
-            ECallCmdThreadRef = le_thread_Create("ECalltTh", CommandInput, NULL);
-            le_thread_Start(ECallCmdThreadRef);
-        } else {
-            printf("The call is in progress... Press 'h' to hangup.\n");
-        }
+        le_thread_Cancel(ECallCmdThreadRef);
+        ECallCmdThreadRef = le_thread_Create("ECalltTh", CommandInput, NULL);
+        le_thread_Start(ECallCmdThreadRef);
     }
 }
 
@@ -477,9 +489,89 @@ static void PrintUsage ()
     puts("\n"
             "tafECallApp -- setOpMode <NORMAL/ECALL_ONLY> <SLOT1/SLOT2>\n"
             "tafECallApp -- getOpMode <SLOT1/SLOT2>\n"
+            "tafECallApp -- setPsapNumber <NUMBER>\n"
+            "tafECallApp -- getPsapNumber\n"
+            "tafECallApp -- useUSimNumbers\n"
+            "tafECallApp -- setNadDeregTime <time in minutes>\n"
+            "tafECallApp -- getNadDeregTime\n"
             "tafECallApp -- start <AUTO/MANUAL/TEST>\n"
+            "tafECallApp -- end\n"
+            "tafECallApp -- terminateReg\n"
             "tafECallApp -- gpio <PIN>"
             "\n");
+}
+
+static int setPsapNumber()
+{
+    if (le_arg_NumArgs() < 3)
+    {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
+
+    const char* psapNum =  le_arg_GetArg(2);
+
+    le_result_t result = taf_ecall_SetPsapNumber(psapNum);
+    LE_TEST_OK(result == LE_OK, "setPsapNumber - LE_OK");
+    printf("Update PSAP number as %s is %s\n", psapNum, result == LE_OK ? "Success." : "Failed!!");
+
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+static int getPsapNumber()
+{
+    char psapNumber[TAF_SIM_PHONE_NUM_MAX_LEN];
+    le_result_t result = taf_ecall_GetPsapNumber(psapNumber, TAF_SIM_PHONE_NUM_MAX_LEN);
+    LE_TEST_OK(result == LE_OK || strcmp("None", psapNumber) == 0, "getPsapNumber - LE_OK");
+    printf("Result: %s\n", result == LE_OK ? "Success." : "Failed!!");
+    if (result == LE_OK) {
+        printf("The PSAP Number is %s\n", psapNumber);
+    }
+    LE_TEST_INFO("getPsapNumber done");
+
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+static int useUSimNumbers()
+{
+    le_result_t result = taf_ecall_UseUSimNumbers();
+    LE_TEST_OK(result == LE_OK, "useUSimNumbers - LE_OK");
+    printf("Result: %s\n", result == LE_OK ? "Success." : "Failed!!");
+    LE_TEST_INFO("useUSimNumbers done");
+
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+static int getNadDeregTime()
+{
+    // Test Case
+    uint16_t deregTimeOrg = 0;
+    le_result_t result = taf_ecall_GetNadDeregistrationTime(&deregTimeOrg);
+    LE_TEST_OK(result == LE_OK, "getNadDeregTime - LE_OK");
+    printf("Result: %s\n", result == LE_OK ? "Success." : "Failed!!");
+    if (result == LE_OK) {
+        printf("NAD de-registration time: %d min.\n", deregTimeOrg);
+    }
+
+    LE_TEST_INFO("getNadDeregTime done");
+
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+static int setNadDeregTime()
+{
+    if (le_arg_NumArgs() < 3)
+    {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
+
+    uint16_t deregTime = atoi(le_arg_GetArg(2));
+    le_result_t result = taf_ecall_SetNadDeregistrationTime(deregTime);
+    LE_TEST_OK(result == LE_OK, "setNadDeregTime - LE_OK");
+    printf("Set de-reg time as %d is %s\n", deregTime, result == LE_OK ? "Success." : "Failed!");
+
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
 static int setOpMode()
@@ -603,31 +695,6 @@ static void updateMsdInformation()
     }
 }
 
-static void taf_ecall_GetNadDeregTime_test()
-{
-    // Test Case
-    uint16_t deregTimeOrg = 0;
-    le_result_t result = taf_ecall_GetNadDeregistrationTime(&deregTimeOrg);
-    if (result == LE_OK)
-    {
-        LE_INFO("GetNadDeregTime SUCCESS!!! DeregTime (in minutes): %d\n", deregTimeOrg);
-    } else {
-        LE_ERROR("GetNadDeregTime FAILED. Error: %d\n", (int) result);
-    }
-}
-
-static void taf_ecall_SetNadDeregTime_test()
-{
-    // Test Case
-    le_result_t result = taf_ecall_SetNadDeregistrationTime(7*60); // 7 hrs
-    if (result == LE_OK)
-    {
-        LE_INFO("SetNadDeregistrationTime as 7 hrs SUCCESS!!!\n");
-    } else {
-        LE_ERROR("SetNadDeregistrationTime FAILED. Error: %d\n", (int) result);
-    }
-}
-
 static void updateLocationInformation(taf_ecall_CallRef_t eCallRef)
 {
     bool isPosTrusted = false;
@@ -687,9 +754,6 @@ static int startECall()
     updateMsdInformation();
 
     taf_ecall_SetMsdPassengersCount(ECallRef, 2);
-
-    taf_ecall_GetNadDeregTime_test();
-    taf_ecall_SetNadDeregTime_test();
 
     if (strcmp(eCallType, "AUTO") == 0)
     {
@@ -771,30 +835,66 @@ COMPONENT_INIT
     }
 
     const char* command = le_arg_GetArg(1);
+    HandlerRef = taf_ecall_AddStateChangeHandler(tafECallStateHandler, NULL);
     if (command == NULL || strcmp(command, "help") == 0)
     {
         PrintUsage();
         exit(EXIT_SUCCESS);
     }
-    if (strcmp(command, "setOpMode") == 0)
+    else if (strcmp(command, "setOpMode") == 0)
     {
         status = setOpMode();
     }
-    if (strcmp(command, "getOpMode") == 0)
+    else if (strcmp(command, "getOpMode") == 0)
     {
         status = getOpMode();
     }
-    HandlerRef = taf_ecall_AddStateChangeHandler(tafECallStateHandler, NULL);
-    if (strcmp(command, "start") == 0)
+    else if (strcmp(command, "setPsapNumber") == 0)
+    {
+        status = setPsapNumber();
+    }
+    else if (strcmp(command, "getPsapNumber") == 0)
+    {
+        status = getPsapNumber();
+    }
+    else if (strcmp(command, "useUSimNumbers") == 0)
+    {
+        status = useUSimNumbers();
+    }
+    else if (strcmp(command, "setNadDeregTime") == 0)
+    {
+        status = setNadDeregTime();
+    }
+    else if (strcmp(command, "getNadDeregTime") == 0)
+    {
+        status = getNadDeregTime();
+    }
+    else if (strcmp(command, "start") == 0)
     {
         status = startECall();
         exitApp = false;
     }
-
-    if (strcmp(command, "gpio") == 0)
+    else if (strcmp(command, "end") == 0)
+    {
+        le_result_t result = LE_FAULT;
+        ECallRef = taf_ecall_Create();
+        if (ECallRef) {
+            result = taf_ecall_End(ECallRef);
+        }
+        printf("Hangup %s\n", result == LE_OK ? "success." : "failed!!" );
+        status = result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+        exitApp = true;
+    }
+    else if (strcmp(command, "terminateReg") == 0)
+    {
+        status = terminateRegistration();
+    }
+    else if (strcmp(command, "gpio") == 0)
     {
         status = addGPIOHandler();
         exitApp = false;
+    } else {
+        PrintUsage();
     }
 
     if (exitApp) {

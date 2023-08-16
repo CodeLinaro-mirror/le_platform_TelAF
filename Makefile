@@ -16,17 +16,20 @@ export SELINUX_FILE_CONTEXTS := ${CURDIR}/security/selinux/sepolicy/files/file_c
 SE_FILES = $(shell find $(CURDIR)/security/selinux/sepolicy/ -name *.pp -type f)
 SE_MODS = $(shell find $(CURDIR)/security/selinux/sepolicy/ -name tmp -type d)
 
+# sub-mk for telaf simulation target
+include simulation/simulation.mk
+
 $(TARGETS):
 ifneq ($(TELAF_BUILD), $(wildcard $(TELAF_BUILD)))
 	@ln -sf $(LEGATO_RELATIVE_PATH)/build ./build
 endif
 	$(shell $(GEN_FILE_CONTEXTS))
-	$(MAKE) -C $(LEGATO_ROOT) $@ TELAF_ROOT_SET=$(TELAF_ROOT)
+	$(MAKE) --no-print-directory -C $(LEGATO_ROOT) $@ TELAF_ROOT_SET=$(TELAF_ROOT)
 
 $(UTILITIES):
-	$(MAKE) -C $(LEGATO_ROOT) $@ TELAF_ROOT_SET=$(TELAF_ROOT)
+	@$(MAKE) --no-print-directory -C $(LEGATO_ROOT) $@ TELAF_ROOT_SET=$(TELAF_ROOT)
 ifeq ($(TELAF_BUILD), $(wildcard $(TELAF_BUILD)))
 	@rm -rf $(TELAF_BUILD)
 endif
 	@rm -fr $(SE_FILES) $(SE_MODS)
-
+	@rm -f simulation/workstation/.check_done

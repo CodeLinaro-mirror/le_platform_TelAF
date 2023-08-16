@@ -193,7 +193,7 @@ void taf_Handler::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *ct
     while (le_ref_NextNode(iterRef) == LE_OK)
     {
         taf_PMVmList_t* vmListPtr = (taf_PMVmList_t*)le_ref_GetValue(iterRef);
-        if(vmListPtr->sessionRef == sessionRef)
+        if(vmListPtr && vmListPtr->sessionRef == sessionRef)
         {
             taf_pm_DeleteMachineList(vmListPtr->ref);
         }

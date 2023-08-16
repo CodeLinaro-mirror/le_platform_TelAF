@@ -28,6 +28,7 @@ apps:
 
     // Command-line tools.
     $LEGATO_ROOT/apps/tools/tools
+    $TELAF_ROOT/apps/tools/tafTools
 
     // test apps
     // $TELAF_ROOT/apps/test/tafDataCallTest/tafDataCallUnitTest/tafDataCallUnitTest
@@ -71,6 +72,7 @@ commands:
     cm = tools:/scripts/cm
     gnss = tools:/bin/gnss
     fwupdate = tools:/bin/fwupdate
+    pm = tafTools:/bin/pm
 }
 
 bindings:

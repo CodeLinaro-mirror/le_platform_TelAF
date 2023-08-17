@@ -150,6 +150,11 @@ static void compute_descriptor(const uint8_t key[FSC_MAX_KEY_SIZE],
     EVP_MD_CTX *ctx = EVP_MD_CTX_new();
     const EVP_MD* method = EVP_sha512();
 
+    if(ctx == NULL)
+    {
+        LE_ERROR("ctx is NULL");
+        return;
+    }
     // double hash the key
 
     // first hash
@@ -160,7 +165,11 @@ static void compute_descriptor(const uint8_t key[FSC_MAX_KEY_SIZE],
 
     // second hash
     ctx = EVP_MD_CTX_new();
-
+    if(ctx == NULL)
+    {
+        LE_ERROR("ctx is NULL");
+        return;
+    }
     EVP_DigestInit_ex(ctx, method, NULL);
     EVP_DigestUpdate(ctx, digest1, EVP_MAX_MD_SIZE);
     EVP_DigestFinal_ex(ctx, digest2, NULL);

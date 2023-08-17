@@ -631,11 +631,11 @@ COMPONENT_INIT
     {
        int mccInt = atoi(mcc);
        int mncInt = atoi(mnc);
-    }
-    if (mccInt < 1 || mccInt > 999 || mncInt < 1 || mncInt > 999) {
-        LE_INFO("No or wrong mcc mnc input! mcc: %s mnc: %s, so continue with default mcc-mnc (634-98).", mcc, mnc);
-        mcc = "634";
-        mnc = "98";
+       if (mccInt < 1 || mccInt > 999 || mncInt < 1 || mncInt > 999) {
+            LE_INFO("No or wrong mcc mnc input! mcc: %s mnc: %s, so continue with default mcc-mnc (634-98).", mcc, mnc);
+            mcc = "634";
+            mnc = "98";
+        }
     }
 
     LE_INFO("Start tafSimIntgTest app.");

@@ -650,6 +650,7 @@ FUNCTION le_result_t SetVehicleType
  * @return
  *      - LE_OK -- Succeeded.
  *      - LE_FAULT -- Failed.
+ *      - LE_BAD_PARAMETER -- Invalid parameters.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -665,6 +666,7 @@ FUNCTION le_result_t GetVehicleType
  * @return
  *      - LE_OK -- Succeeded.
  *      - LE_FAULT -- Failed.
+ *      - LE_BAD_PARAMETER -- Invalid parameters.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -679,6 +681,7 @@ FUNCTION le_result_t SetVIN
  * @return
  *      - LE_OK -- Succeeded.
  *      - LE_FAULT -- Failed.
+ *      - LE_BAD_PARAMETER -- Invalid parameters.
  *
  */
 FUNCTION le_result_t GetVIN
@@ -692,7 +695,6 @@ FUNCTION le_result_t GetVIN
  *
  * @return
  *      - LE_OK -- Succeeded.
- *      - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------

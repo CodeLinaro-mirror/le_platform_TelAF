@@ -297,8 +297,11 @@ static void Test_MSD_Information()
     LE_TEST_OK(mode == TAF_ECALL_TX_MODE_PUSH, "Test_MSD_Information done");
     LE_INFO("Set and Get MSD transmission mode completed");
 
+    LE_TEST_OK(taf_ecall_SetVIN("ECALLEXAMPLE") == LE_OK, "taf_ecall_SetVIN done");;
+    LE_TEST_OK(taf_ecall_SetVIN("EOALLEXAMPLE02013") == LE_OK, "taf_ecall_SetVIN done");
+    LE_TEST_OK(taf_ecall_SetVIN("ECALLIXAMPLE02013") == LE_OK, "taf_ecall_SetVIN done");
+    LE_TEST_OK(taf_ecall_SetVIN("ECALLEXAMPLQ02013") == LE_OK, "taf_ecall_SetVIN done");
     LE_TEST_OK(taf_ecall_SetVIN("ECALLEXAMPLE02013") == LE_OK, "taf_ecall_SetVIN done");
-
     LE_TEST_OK(taf_ecall_GetVIN(vin, TAF_ECALL_MAX_VIN_BYTES) == LE_OK, "taf_ecall_GetVIN done");
     LE_TEST_OK(strcmp(vin, "ECALLEXAMPLE02013") == 0, "Test_MSD_Information done");
     LE_INFO("Set and Get Vehicle identification number completed");
@@ -308,12 +311,18 @@ static void Test_MSD_Information()
     vehType = TAF_ECALL_BUSES_AND_COACHES_CLASS_M2;
     LE_TEST_OK( taf_ecall_GetVehicleType(&vehType) == LE_OK, "taf_ecall_GetVehicleType done");
     LE_TEST_OK(( TAF_ECALL_PASSENGER_VEHICLE_CLASS_M1 == vehType ), "taf_ecall_SetVehicleType done");
+    vehType = 20;
+    LE_TEST_OK(taf_ecall_SetVehicleType(vehType) == LE_OK, "taf_ecall_SetVehicleType done");
     LE_INFO("Set and Get Vehicle type completed");
 
     taf_ecall_PropulsionStorageType_t propulsionStorage = TAF_ECALL_PROP_TYPE_GASOLINE_TANK;
     LE_TEST_OK(taf_ecall_SetPropulsionType(propulsionStorage) == LE_OK, "taf_ecall_SetPropulsionType done");
     LE_TEST_OK((LE_OK == taf_ecall_GetPropulsionType(&propulsionStorage)), "taf_ecall_GetPropulsionType done");
     LE_TEST_OK( TAF_ECALL_PROP_TYPE_GASOLINE_TANK == propulsionStorage, "taf_ecall_SetPropulsionType done");
+    propulsionStorage = 1000;
+    LE_TEST_OK(taf_ecall_SetPropulsionType(propulsionStorage) == LE_OK, "taf_ecall_SetPropulsionType done");
+    LE_TEST_OK((LE_OK == taf_ecall_GetPropulsionType(&propulsionStorage)), "taf_ecall_GetPropulsionType done");
+    LE_INFO("Set and Get Vehicle type completed %d", propulsionStorage);
     LE_INFO("Set and Get propulsion type completed");
 
     LE_TEST_OK((eCallRef= taf_ecall_Create()) != NULL, "taf_ecall_Create done");

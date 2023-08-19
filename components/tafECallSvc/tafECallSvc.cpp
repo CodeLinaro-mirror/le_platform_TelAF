@@ -343,7 +343,6 @@ le_result_t taf_ecall_GetMsdVersion
  PARAMETERS      [IN] vehicleType: vehicle type
 
  RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER:     Invalid parameters.
                      LE_FAULT:             Fail.
                      LE_OK:                Success.
 
@@ -352,6 +351,12 @@ le_result_t taf_ecall_GetMsdVersion
 ======================================================================*/
 le_result_t taf_ecall_SetVehicleType (taf_ecall_MsdVehicleType_t vehicleType)
 {
+    if ((vehicleType < TAF_ECALL_PASSENGER_VEHICLE_CLASS_M1) ||
+        (vehicleType > TAF_ECALL_MOTOR_CYCLES_CLASS_L7E))
+    {
+        LE_ERROR("VehicleType is wrong %d", vehicleType);
+        return LE_FAULT;
+    }
     le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn( CFG_MODEMSERVICE_ECALL_PATH );
 
     le_cfg_SetInt(iteratorRef, CFG_NODE_MSDVEHTYPE, vehicleType);
@@ -401,6 +406,42 @@ le_result_t taf_ecall_GetVehicleType
     return LE_FAULT;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * The Vehicle Identification Number is defined by iso 3833 as a 17 character
+ * alphanumeric code, which includes the letters (F"A".."H"|"J".."N"|"P"|"R".."Z")
+ * and the digit ("0".."9")
+ */
+//--------------------------------------------------------------------------------------------------
+static int CheckVIN
+(
+    char *vin
+)
+{
+    int ret = 0;
+    char c;
+
+    while ( (*vin) && (!ret) )
+    {
+        c= (char)(*vin);
+        if (( (c >= 'A') && (c <= 'H') ) ||
+            ( (c >= 'J') && (c <= 'N') ) ||
+            ( c == 'P' ) ||
+            ( (c >= 'R') && (c <= 'Z') ) ||
+            ( (c >= '0') && (c <= '9') ) )
+        {
+            vin++;
+        }
+        else
+        {
+            ret = -1;
+            LE_ERROR("%c is not allowed", *vin);
+        }
+    }
+
+    return ret;
+}
+
 /*======================================================================
 
  FUNCTION        taf_ecall_SetVIN
@@ -427,6 +468,11 @@ le_result_t taf_ecall_SetVIN
     TAF_ERROR_IF_RET_VAL(strlen(vin) != TAF_ECALL_MAX_VIN_LENGTH, LE_FAULT,
             "VIN length is wrong");
 
+    if (CheckVIN((char *)vin))
+    {
+        return LE_BAD_PARAMETER;
+    }
+    LE_INFO(" vehicle idendification number =  %s", vin);
     le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn( CFG_MODEMSERVICE_ECALL_PATH );
 
     le_cfg_SetString(iteratorRef, CFG_NODE_MSDVIN, vin);
@@ -497,8 +543,6 @@ le_result_t taf_ecall_GetVIN
  PARAMETERS      [IN] propulsionType: propulsion storage type
 
  RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER:     Invalid parameters.
-                     LE_FAULT:             Fail.
                      LE_OK:                Success.
 
  SIDE EFFECTS
@@ -510,60 +554,73 @@ le_result_t taf_ecall_SetPropulsionType
 )
 {
 
-    le_cfg_QuickDeleteNode( CFG_ECALL_PROPULSIONTYPE_PATH );
-
     le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn(CFG_ECALL_PROPULSIONTYPE_PATH);
-    le_result_t res = LE_FAULT;
 
     if (TAF_ECALL_PROP_TYPE_GASOLINE_TANK & propulsionType)
     {
         le_cfg_SetBool(iteratorRef, CFG_NODE_PROPULSION_GASOLINE, true);
-        res = LE_OK;
+    }
+    else
+    {
+        le_cfg_SetBool(iteratorRef, CFG_NODE_PROPULSION_GASOLINE, false);
     }
 
     if (TAF_ECALL_PROP_TYPE_DIESEL_TANK & propulsionType)
     {
         le_cfg_SetBool(iteratorRef, CFG_NODE_PROPULSION_DIESEL, true);
-        res = LE_OK;
+    }
+    else
+    {
+        le_cfg_SetBool(iteratorRef, CFG_NODE_PROPULSION_DIESEL, false);
     }
 
     if (TAF_ECALL_PROP_TYPE_COMPRESSED_NATURALGAS & propulsionType)
     {
         le_cfg_SetBool(iteratorRef, CFG_NODE_PROPULSION_NATURALGAS, true);
-        res = LE_OK;
+    }
+    else
+    {
+        le_cfg_SetBool(iteratorRef, CFG_NODE_PROPULSION_NATURALGAS, false);
     }
 
     if (TAF_ECALL_PROP_TYPE_PROPANE_GAS & propulsionType)
     {
         le_cfg_SetBool(iteratorRef, CFG_NODE_PROPULSION_PROPANE, true);
-        res = LE_OK;
+    }
+    else
+    {
+        le_cfg_SetBool(iteratorRef, CFG_NODE_PROPULSION_PROPANE, false);
     }
 
     if (TAF_ECALL_PROP_TYPE_ELECTRIC & propulsionType)
     {
         le_cfg_SetBool(iteratorRef, CFG_NODE_PROPULSION_ELECTRIC, true);
-        res = LE_OK;
+    }
+    else
+    {
+        le_cfg_SetBool(iteratorRef, CFG_NODE_PROPULSION_ELECTRIC, false);
     }
 
     if (TAF_ECALL_PROP_TYPE_HYDROGEN & propulsionType)
     {
         le_cfg_SetBool(iteratorRef, CFG_NODE_PROPULSION_HYDROGEN, true);
-        res = LE_OK;
+    }
+    else
+    {
+        le_cfg_SetBool(iteratorRef, CFG_NODE_PROPULSION_HYDROGEN, false);
     }
 
     if (TAF_ECALL_PROP_TYPE_OTHER & propulsionType)
     {
         le_cfg_SetBool(iteratorRef, CFG_NODE_PROPULSION_OTHER, true);
-        res = LE_OK;
+    }
+    else
+    {
+        le_cfg_SetBool(iteratorRef, CFG_NODE_PROPULSION_OTHER, false);
     }
 
-    if (res == LE_OK)
-    {
-        le_cfg_CommitTxn(iteratorRef);
-        return LE_OK;
-    }
-    le_cfg_CancelTxn( iteratorRef );
-    return LE_FAULT;
+    le_cfg_CommitTxn(iteratorRef);
+    return LE_OK;
 }
 
 /*======================================================================
@@ -577,7 +634,6 @@ le_result_t taf_ecall_SetPropulsionType
  PARAMETERS      [OUT]propulsionStorageType vehicle propulsion storage type
 
  RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER:     Invalid parameters.
                      LE_FAULT:             Fail.
                      LE_OK:                Success.
 

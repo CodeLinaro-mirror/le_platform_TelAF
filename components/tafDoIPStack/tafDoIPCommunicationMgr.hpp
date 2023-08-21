@@ -51,6 +51,7 @@ extern "C" {
 #include "tafDoIPStack.h"
 #include "tafDoIPCommon.hpp"
 #include "tafDoIPConnectionMgr.hpp"
+#include "tafDoIPVehDiscoveryAndParser.hpp"
 
 namespace taf{
 namespace doip{
@@ -235,8 +236,11 @@ namespace doip{
             void EntityStatusReqHandler(const char* ipPtr, uint16_t port);
             void PowerModeReqHandler(const char* ipPtr, uint16_t port);
 
-            static void IndicateUdsMessage(void* dataPtr, void* length);
-            static void RequestUdsMessage(void* dataPtr, void* length);
+            static void IndicateUdsMessage(void* param1Ptr, void* param2Ptr);
+            static void RequestUdsMessage(void* param1Ptr, void* param2Ptr);
+
+            void RespondHeaderNegativeACK(const char* ipPtr, uint16_t port,
+                    taf_doipHeaderNACKCode_t nackCode);
 
             // Create Doip Connection Manager
             std::shared_ptr<ConnectionManager> connectionMgrPtr;

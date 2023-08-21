@@ -336,7 +336,6 @@ void taf_Gnss::CopyPositionData
     LastDataPtr->satsInViewCount = CurrentDataPtr->satsInViewCount;
     LastDataPtr->satsTrackingCount = CurrentDataPtr->satsTrackingCount;
     LastDataPtr->satsUsedCount = CurrentDataPtr->satsUsedCount;
-    LastDataPtr->robustConformity = CurrentDataPtr->robustConformity;
     uint8_t i;
     for(i=0; i<TAF_GNSS_SV_INFO_MAX_LEN; i++)
     {
@@ -354,6 +353,36 @@ void taf_Gnss::CopyPositionData
         LastDataPtr->satMeas[i].satId = CurrentDataPtr->satMeas[i].satId;
         LastDataPtr->satMeas[i].satLatency = CurrentDataPtr->satMeas[i].satLatency;
     }
+
+    LastDataPtr->robustConformity = CurrentDataPtr->robustConformity;
+    LastDataPtr->conformityValid = CurrentDataPtr->conformityValid;
+    LastDataPtr->confidencePercent = CurrentDataPtr->confidencePercent;
+    LastDataPtr->confidencePercentValid = CurrentDataPtr->confidencePercentValid;
+    LastDataPtr->calibrationStatus = CurrentDataPtr->calibrationStatus;
+    LastDataPtr->calibrationStatusValid = CurrentDataPtr->calibrationStatusValid;
+
+    LastDataPtr->GnssKinematicsDataValid = CurrentDataPtr->GnssKinematicsDataValid;
+    LastDataPtr->GnssKinematicsData.bodyFrameDataMask =
+                                    CurrentDataPtr->GnssKinematicsData.bodyFrameDataMask;
+    LastDataPtr->GnssKinematicsData.longAccel = CurrentDataPtr->GnssKinematicsData.longAccel;
+    LastDataPtr->GnssKinematicsData.latAccel = CurrentDataPtr->GnssKinematicsData.latAccel;
+    LastDataPtr->GnssKinematicsData.vertAccel = CurrentDataPtr->GnssKinematicsData.vertAccel;
+    LastDataPtr->GnssKinematicsData.yawRate = CurrentDataPtr->GnssKinematicsData.yawRate;
+    LastDataPtr->GnssKinematicsData.pitch = CurrentDataPtr->GnssKinematicsData.pitch;
+    LastDataPtr->GnssKinematicsData.longAccelUnc = CurrentDataPtr->GnssKinematicsData.longAccelUnc;
+    LastDataPtr->GnssKinematicsData.latAccelUnc = CurrentDataPtr->GnssKinematicsData.latAccelUnc;
+    LastDataPtr->GnssKinematicsData.vertAccelUnc = CurrentDataPtr->GnssKinematicsData.vertAccelUnc;
+    LastDataPtr->GnssKinematicsData.yawRateUnc = CurrentDataPtr->GnssKinematicsData.yawRateUnc;
+    LastDataPtr->GnssKinematicsData.pitchUnc = CurrentDataPtr->GnssKinematicsData.pitchUnc;
+    LastDataPtr->GnssKinematicsData.pitchRate = CurrentDataPtr->GnssKinematicsData.pitchRate;
+    LastDataPtr->GnssKinematicsData.pitchRateUnc = CurrentDataPtr->GnssKinematicsData.pitchRateUnc;
+    LastDataPtr->GnssKinematicsData.roll = CurrentDataPtr->GnssKinematicsData.roll;
+    LastDataPtr->GnssKinematicsData.rollUnc = CurrentDataPtr->GnssKinematicsData.rollUnc;
+    LastDataPtr->GnssKinematicsData.rollRate = CurrentDataPtr->GnssKinematicsData.rollRate;
+    LastDataPtr->GnssKinematicsData.rollRateUnc = CurrentDataPtr->GnssKinematicsData.rollRateUnc;
+    LastDataPtr->GnssKinematicsData.yaw = CurrentDataPtr->GnssKinematicsData.yaw;
+    LastDataPtr->GnssKinematicsData.yawUnc = CurrentDataPtr->GnssKinematicsData.yawUnc;
+
     LastDataPtr->next = LE_DLS_LINK_INIT;
 
     return;
@@ -511,7 +540,10 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 LocationData->satsUsedCountValid = true;
                 LocationData->satInfoValid = true;
                 LocationData->satMeasValid = false;
-
+                LocationData->conformityValid = true;
+                LocationData->confidencePercentValid = true;
+                LocationData->calibrationStatusValid = true;
+                LocationData->GnssKinematicsDataValid = true;
                 if(locationInfo->getAltitudeType() == telux::loc::AltitudeType::CALCULATED)
                 {
                     gnss.mAltType = TAF_GNSS_ALT_TYPE_CALCULATED;
@@ -616,15 +648,17 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                     }
                 } else {
                     LE_DEBUG("Time stamp Not Valid");
-                    LocationData->year = 0;
-                    LocationData->month = 0;
-                    LocationData->day = 0;
+                   //UNKNOWN_TIMESTAMP which is zero(as UTC timeStamp has elapsed since
+                   //January 1, 1970, it cannot be 0)
+                    LocationData->year = 1970;
+                    LocationData->month = 1;
+                    LocationData->day = 1;
                     LocationData->hours = 0;
                     LocationData->minutes = 0;
                     LocationData->seconds = 0;
                     LocationData->milliseconds = 0;
                 }
-                LocationData->horConfidence = 0;
+                LocationData->horConfidence = 39;
                 if(locationInfo->getLeapSeconds(gnss.mLeapSeconds) ==
                         telux::common::Status::SUCCESS)
                 {
@@ -653,6 +687,168 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                     LocationData->satMeas[i].satLatency = 0;
                 }
                 LocationData->robustConformity = locationInfo->getConformityIndex();
+                LocationData->confidencePercent = locationInfo->getCalibrationConfidencePercent();
+                telux::loc::DrCalibrationStatus calibrationStatus =
+                                                locationInfo->getCalibrationStatus();
+                LE_INFO("onDetailedEngineLocationUpdate calibrationStatus %d", calibrationStatus);
+                if((calibrationStatus & telux::loc::DR_ROLL_CALIBRATION_NEEDED))
+                {
+                    LE_INFO("onDetailedEngineLocationUpdate Roll calibration is needed");
+                    LocationData->calibrationStatus |= ((1<<TAF_GNSS_DR_ROLL_CALIBRATION_NEEDED));
+                }
+                if((calibrationStatus & telux::loc::DR_PITCH_CALIBRATION_NEEDED))
+                {
+                    LE_INFO("onDetailedEngineLocationUpdate Pitch calibration is needed");
+                    LocationData->calibrationStatus |= ((1<<TAF_GNSS_DR_PITCH_CALIBRATION_NEEDED));
+                }
+                if((calibrationStatus & telux::loc::DR_YAW_CALIBRATION_NEEDED))
+                {
+                    LE_INFO("onDetailedEngineLocationUpdate Yaw calibration is needed");
+                    LocationData->calibrationStatus |= ((1<<TAF_GNSS_DR_YAW_CALIBRATION_NEEDED));
+                }
+                if((calibrationStatus & telux::loc::DR_ODO_CALIBRATION_NEEDED))
+                {
+                    LE_INFO("onDetailedEngineLocationUpdate Odo calibration is needed");
+                    LocationData->calibrationStatus |= ((1<<TAF_GNSS_DR_ODO_CALIBRATION_NEEDED));
+                }
+                if((calibrationStatus & telux::loc::DR_GYRO_CALIBRATION_NEEDED))
+                {
+                    LE_INFO("onDetailedEngineLocationUpdate Gyro calibration is needed");
+                    LocationData->calibrationStatus |= ((1<<TAF_GNSS_DR_GYRO_CALIBRATION_NEEDED));
+                }
+                LE_INFO("onDetailedEngineLocationUpdate Location position dynamic");
+                telux::loc::GnssKinematicsData GnssKinData = locationInfo->getBodyFrameData();
+                telux::loc::KinematicDataValidity GnssKinDataValidity =
+                                                  GnssKinData.bodyFrameDataMask;
+                LE_INFO("onDetailedEngineLocationUpdate GnssKinDataValidity:%0x",
+                                                  GnssKinDataValidity);
+                if((GnssKinDataValidity & telux::loc::HAS_LONG_ACCEL))
+                {
+                    LE_INFO("Navigation data has Forward Acceleration");
+                    LocationData->GnssKinematicsData.bodyFrameDataMask |=
+                                                     (1<<TAF_GNSS_HAS_LONG_ACCEL);
+                }
+                if((GnssKinDataValidity & telux::loc::HAS_LAT_ACCEL))
+                {
+                    LE_INFO("Navigation data has Sideward Acceleration");
+                    LocationData->GnssKinematicsData.bodyFrameDataMask |=
+                                                     (1<<TAF_GNSS_HAS_LAT_ACCEL);
+                }
+                if((GnssKinDataValidity & telux::loc::HAS_VERT_ACCEL))
+                {
+                    LE_INFO("Navigation data has Vertical Acceleration");
+                    LocationData->GnssKinematicsData.bodyFrameDataMask |=
+                                                     (1<<TAF_GNSS_HAS_VERT_ACCEL);
+                }
+                if((GnssKinDataValidity & telux::loc::HAS_YAW_RATE))
+                {
+                    LE_INFO("Navigation data has Heading Rate");
+                    LocationData->GnssKinematicsData.bodyFrameDataMask |=
+                                                     (1<<TAF_GNSS_HAS_YAW_RATE);
+                }
+                if((GnssKinDataValidity & telux::loc::HAS_PITCH))
+                {
+                    LE_INFO("Navigation data has Pitch");
+                    LocationData->GnssKinematicsData.bodyFrameDataMask |= (1<<TAF_GNSS_HAS_PITCH);
+                }
+                if((GnssKinDataValidity & telux::loc::HAS_LONG_ACCEL_UNC))
+                {
+                    LE_INFO("Navigation data has Forward Acceleration Unc");
+                    LocationData->GnssKinematicsData.bodyFrameDataMask |=
+                                                     (1<<TAF_GNSS_HAS_LONG_ACCEL_UNC);
+                }
+                if((GnssKinDataValidity & telux::loc::HAS_LAT_ACCEL_UNC))
+                {
+                    LE_INFO("Navigation data has Sideward Acceleration Unc");
+                    LocationData->GnssKinematicsData.bodyFrameDataMask |=
+                                                     (1<<TAF_GNSS_HAS_LAT_ACCEL_UNC);
+                }
+                if((GnssKinDataValidity & telux::loc::HAS_VERT_ACCEL_UNC))
+                {
+                    LE_INFO("Navigation data has Vertical Acceleration Unc");
+                    LocationData->GnssKinematicsData.bodyFrameDataMask |=
+                                                    (1<<TAF_GNSS_HAS_VERT_ACCEL_UNC);
+                }
+                if((GnssKinDataValidity & telux::loc::HAS_YAW_RATE_UNC))
+                {
+                    LE_INFO("Navigation data has Heading Rate Unc");
+                    LocationData->GnssKinematicsData.bodyFrameDataMask |=
+                                                    (1<<TAF_GNSS_HAS_YAW_RATE_UNC);
+                }
+                if((GnssKinDataValidity & telux::loc::HAS_PITCH_UNC))
+                {
+                    LE_INFO("Navigation data has Body Pitch Unc");
+                    LocationData->GnssKinematicsData.bodyFrameDataMask |=
+                                                    (1<<TAF_GNSS_HAS_PITCH_UNC);
+                }
+                if((GnssKinDataValidity & telux::loc::HAS_PITCH_RATE_BIT))
+                {
+                    LE_INFO("Navigation data has Pitch rate");
+                    LocationData->GnssKinematicsData.bodyFrameDataMask |=
+                                                     (1<<TAF_GNSS_HAS_PITCH_RATE_BIT);
+                }
+                if((GnssKinDataValidity & telux::loc::HAS_PITCH_RATE_UNC_BIT))
+                {
+                    LE_INFO("Navigation data has Pitch rate Unc");
+                    LocationData->GnssKinematicsData.bodyFrameDataMask |=
+                                                     (1<<TAF_GNSS_HAS_PITCH_RATE_UNC_BIT);
+                }
+                if((GnssKinDataValidity & telux::loc::HAS_ROLL_BIT))
+                {
+                    LE_INFO("Navigation data has roll");
+                    LocationData->GnssKinematicsData.bodyFrameDataMask |= (1<<TAF_GNSS_HAS_ROLL_BIT);
+                }
+                if((GnssKinDataValidity & telux::loc::HAS_ROLL_UNC_BIT))
+                {
+                    LE_INFO("Navigation data has roll Unc ");
+                    LocationData->GnssKinematicsData.bodyFrameDataMask |=
+                                                     (1<<TAF_GNSS_HAS_ROLL_UNC_BIT);
+                }
+                if((GnssKinDataValidity & telux::loc::HAS_ROLL_RATE_BIT))
+                {
+                    LE_INFO("Navigation data has roll rate ");
+                    LocationData->GnssKinematicsData.bodyFrameDataMask |=
+                                                     (1<<TAF_GNSS_HAS_ROLL_RATE_BIT);
+                }
+                if((GnssKinDataValidity & telux::loc::HAS_ROLL_RATE_UNC_BIT))
+                {
+                    LE_INFO("Navigation data has roll rate Unc ");
+                    LocationData->GnssKinematicsData.bodyFrameDataMask |=
+                                                     (1<<TAF_GNSS_HAS_ROLL_RATE_UNC_BIT);
+                }
+                if((GnssKinDataValidity & telux::loc::HAS_YAW_BIT))
+                {
+                    LE_INFO("Navigation data has Yaw bit ");
+                    LocationData->GnssKinematicsData.bodyFrameDataMask |= (1<<TAF_GNSS_HAS_YAW_BIT);
+                }
+                if((GnssKinDataValidity & telux::loc::HAS_YAW_UNC_BIT))
+                {
+                    LE_INFO("Navigation data has Yaw bit Unc ");
+                    LocationData->GnssKinematicsData.bodyFrameDataMask |=
+                                                     (1<<TAF_GNSS_HAS_YAW_UNC_BIT);
+                }
+                else
+                {
+                    LE_INFO("Navigation data is not found");
+                }
+                LocationData->GnssKinematicsData.longAccel = GnssKinData.longAccel;
+                LocationData->GnssKinematicsData.latAccel = GnssKinData.latAccel;
+                LocationData->GnssKinematicsData.vertAccel = GnssKinData.vertAccel;
+                LocationData->GnssKinematicsData.yawRate = GnssKinData.yawRate;
+                LocationData->GnssKinematicsData.pitch = GnssKinData.pitch;
+                LocationData->GnssKinematicsData.longAccelUnc = GnssKinData.longAccelUnc;
+                LocationData->GnssKinematicsData.latAccelUnc = GnssKinData.latAccelUnc;
+                LocationData->GnssKinematicsData.vertAccelUnc = GnssKinData.vertAccelUnc;
+                LocationData->GnssKinematicsData.yawRateUnc = GnssKinData.yawRateUnc;
+                LocationData->GnssKinematicsData.pitchUnc = GnssKinData.pitchUnc;
+                LocationData->GnssKinematicsData.pitchRate = GnssKinData.pitchRate;
+                LocationData->GnssKinematicsData.pitchRateUnc = GnssKinData.pitchRateUnc;
+                LocationData->GnssKinematicsData.roll = GnssKinData.roll;
+                LocationData->GnssKinematicsData.rollUnc = GnssKinData.rollUnc;
+                LocationData->GnssKinematicsData.rollRate = GnssKinData.rollRate;
+                LocationData->GnssKinematicsData.rollRateUnc = GnssKinData.rollRateUnc;
+                LocationData->GnssKinematicsData.yaw = GnssKinData.yaw;
+                LocationData->GnssKinematicsData.yawUnc = GnssKinData.yawUnc;
                 LocationData->next = LE_DLS_LINK_INIT;
 
                 le_event_ReportWithRefCounting(gnss.positionEventId, LocationData);
@@ -4155,6 +4351,163 @@ le_result_t taf_Gnss::SetEngineType(taf_gnss_EngineReportsType_t EngineType)
     return result;
 }
 
+le_result_t taf_Gnss::GetConformityIndex
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    double* indexPtr
+)
+{
+    le_result_t result = LE_OK;
+    taf_gnss_PositionSampleRequest_t* posSampleReqPtr
+                                            = (taf_gnss_PositionSampleRequest_t *)le_ref_Lookup(PositionSampleMap,positionSampleRef);
+
+    result = CheckValidatePosition(posSampleReqPtr);
+    if (result != LE_OK)
+    {
+        return result;
+    }
+
+    if (indexPtr)
+    {
+        if (posSampleReqPtr->positionSampleNodePtr->conformityValid)
+        {
+            *indexPtr = posSampleReqPtr->positionSampleNodePtr->robustConformity;
+        }
+        else
+        {
+            LE_INFO("GetConformityIndex is not valid");
+            result = LE_OUT_OF_RANGE;
+        }
+    }
+    else
+    {
+        result = LE_FAULT;
+    }
+    return result;
+}
+
+le_result_t taf_Gnss::GetCalibrationData
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    uint32_t* calibPtr,
+    uint8_t* percentPtr
+)
+{
+    le_result_t result = LE_OK;
+    taf_gnss_PositionSampleRequest_t* posSampleReqPtr
+                                            = (taf_gnss_PositionSampleRequest_t *)le_ref_Lookup(PositionSampleMap,positionSampleRef);
+
+    result = CheckValidatePosition(posSampleReqPtr);
+    if (result != LE_OK)
+    {
+        return result;
+    }
+    if (calibPtr)
+    {
+        if (posSampleReqPtr->positionSampleNodePtr->calibrationStatusValid)
+        {
+            *calibPtr = posSampleReqPtr->positionSampleNodePtr->calibrationStatus;
+        }
+        else
+        {
+            LE_INFO("GetCalibrationData is not valid");
+            result = LE_OUT_OF_RANGE;
+        }
+    }
+    else
+    {
+        result = LE_FAULT;
+    }
+    if (percentPtr)
+    {
+        if (posSampleReqPtr->positionSampleNodePtr->confidencePercentValid)
+        {
+            *percentPtr = posSampleReqPtr->positionSampleNodePtr->confidencePercent;
+        }
+        else
+        {
+            LE_INFO("GetCalibrationData is not valid");
+            result = LE_OUT_OF_RANGE;
+        }
+    }
+    else
+    {
+        result = LE_FAULT;
+    }
+    return result;
+}
+
+le_result_t taf_Gnss::GetBodyFrameData
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    taf_gnss_KinematicsData_t* bodyDataPtr
+)
+{
+    le_result_t result = LE_OK;
+    taf_gnss_PositionSampleRequest_t* posSampleReqPtr
+                                            = (taf_gnss_PositionSampleRequest_t *)le_ref_Lookup(PositionSampleMap,positionSampleRef);
+
+    result = CheckValidatePosition(posSampleReqPtr);
+    if (result != LE_OK)
+    {
+        return result;
+    }
+
+    if (bodyDataPtr)
+    {
+        if (posSampleReqPtr->positionSampleNodePtr->GnssKinematicsDataValid)
+        {
+            bodyDataPtr->bodyFrameDataMask =
+                       posSampleReqPtr->positionSampleNodePtr->GnssKinematicsData.bodyFrameDataMask;
+            bodyDataPtr->longAccel =
+                        posSampleReqPtr->positionSampleNodePtr->GnssKinematicsData.longAccel;
+            bodyDataPtr->latAccel =
+                        posSampleReqPtr->positionSampleNodePtr->GnssKinematicsData.latAccel;
+            bodyDataPtr->vertAccel =
+                        posSampleReqPtr->positionSampleNodePtr->GnssKinematicsData.vertAccel;
+            bodyDataPtr->yawRate =
+                        posSampleReqPtr->positionSampleNodePtr->GnssKinematicsData.yawRate;
+            bodyDataPtr->pitch =
+                         posSampleReqPtr->positionSampleNodePtr->GnssKinematicsData.pitch;
+            bodyDataPtr->longAccelUnc =
+                        posSampleReqPtr->positionSampleNodePtr->GnssKinematicsData.longAccelUnc;
+            bodyDataPtr->latAccelUnc =
+                        posSampleReqPtr->positionSampleNodePtr->GnssKinematicsData.latAccelUnc;
+            bodyDataPtr->vertAccelUnc =
+                        posSampleReqPtr->positionSampleNodePtr->GnssKinematicsData.vertAccelUnc;
+            bodyDataPtr->yawRateUnc =
+                        posSampleReqPtr->positionSampleNodePtr->GnssKinematicsData.yawRateUnc;
+            bodyDataPtr->pitchUnc =
+                        posSampleReqPtr->positionSampleNodePtr->GnssKinematicsData.pitchUnc;
+            bodyDataPtr->pitchRate =
+                        posSampleReqPtr->positionSampleNodePtr->GnssKinematicsData.pitchRate;
+            bodyDataPtr->pitchRateUnc =
+                        posSampleReqPtr->positionSampleNodePtr->GnssKinematicsData.pitchRateUnc;
+            bodyDataPtr->roll =
+                        posSampleReqPtr->positionSampleNodePtr->GnssKinematicsData.roll;
+            bodyDataPtr->rollUnc =
+                        posSampleReqPtr->positionSampleNodePtr->GnssKinematicsData.rollUnc;
+            bodyDataPtr->rollRate =
+                        posSampleReqPtr->positionSampleNodePtr->GnssKinematicsData.rollRate;
+            bodyDataPtr->rollRateUnc =
+                        posSampleReqPtr->positionSampleNodePtr->GnssKinematicsData.rollRateUnc;
+            bodyDataPtr->yaw =
+                        posSampleReqPtr->positionSampleNodePtr->GnssKinematicsData.yaw;
+            bodyDataPtr->yawUnc =
+                        posSampleReqPtr->positionSampleNodePtr->GnssKinematicsData.yawUnc;
+        }
+        else
+        {
+            LE_INFO("GetBodyFrameData is not valid");
+            result = LE_OUT_OF_RANGE;
+        }
+    }
+    else
+    {
+        result = LE_FAULT;
+    }
+    return result;
+}
 void taf_Gnss::RemovePositionHandler
 (
     taf_gnss_PositionHandlerRef_t handlerRef

@@ -598,6 +598,79 @@
      // Process after succesfully getting the elliptical uncertainty values.
    }
    @endverbatim
+ * - taf_gnss_SetDRConfig() -- Triggered to configure the dead reckoning parameters.
+ * @verbatim
+   taf_gnss_DrParams_t *drParamsPtr;
+   static le_mem_PoolRef_t DrFramePool = NULL;
+   DrFramePool = le_mem_CreatePool("DrframePool", sizeof(taf_gnss_DrParams_t));
+   drParamsPtr = (taf_gnss_DrParams_t*) le_mem_ForceAlloc(DrFramePool);
+   drParamsPtr->rollOffset = 1.2;
+   drParamsPtr->yawOffset = 2.3;
+   drParamsPtr->pitchOffset = 3.4;
+   drParamsPtr->offsetUnc = 180.0;
+   drParamsPtr->speedFactor = 1.0;
+   drParamsPtr->speedFactorUnc = 0.0;
+   drParamsPtr->gyroFactor = 1.0;
+   drParamsPtr->gyroFactorUnc = 0.0;
+   if(taf_gnss_SetDRConfig(drParamsPtr) == LE_OK)
+   {
+     // Process after succesfully configuring the dead reckoning parameters.
+   }
+   le_mem_Release(drParamsPtr);
+ * - taf_gnss_SetLeverArmConfig() -- Triggered to configure the lever arm parameters.
+ * @verbatim
+   taf_gnss_LeverArmParams_t *leverArmParamsPtr;
+   static le_mem_PoolRef_t LevArmFramePool = NULL;
+   LevArmFramePool = le_mem_CreatePool("LevArmFramePool", sizeof(taf_gnss_LeverArmParams_t));
+   leverArmParamsPtr = (taf_gnss_LeverArmParams_t*) le_mem_ForceAlloc(LevArmFramePool);
+   leverArmParamsPtr->forwardOffsetMeters = 5.5;
+   leverArmParamsPtr->sidewaysOffsetMeters = 1.2;
+   leverArmParamsPtr->upOffsetMeters = 1.0;
+   leverArmParamsPtr->levArmType = TAF_GNSS_LEVER_ARM_TYPE_GNSS_TO_VRP;
+   if(taf_gnss_SetLeverArmConfig(leverArmParamsPtr) == LE_OK)
+   {
+     // Process after succesfully configuring the lever arm parameters.
+   }
+   le_mem_Release(leverArmParamsPtr);
+ * - taf_gnss_SetEngineType() -- Triggered to set an engine type.
+ * @verbatim
+   taf_gnss_EngineReportsType_t EngineType;
+   EngineType = TAF_GNSS_ENGINE_REPORT_TYPE_FUSED;
+   if(taf_gnss_SetEngineType(EngineType) == LE_OK)
+   {
+     // Process after succesfully setting an engine type.
+   }
+ * - taf_gnss_GetConformityIndex() -- Triggered inside the PositionHandlerFunction()
+ *                                          function to get positionSampleRef.
+ * @verbatim
+   double indexPtr;
+   if(taf_gnss_GetConformityIndex(positionSampleRef,&indexPtr) == LE_OK)
+   {
+     // Process after succesfully getting the conformity index.
+   }
+   @endverbatim
+ * - taf_gnss_GetCalibrationData() -- Triggered inside the PositionHandlerFunction()
+ *                                                 function to get positionSampleRef.
+ * @verbatim
+   uint32 calibPtr;
+   uint8_t percentPtr;
+   if(taf_gnss_GetCalibrationData(positionSampleRef,&calibPtr,&percentPtr) == LE_OK)
+   {
+     // Process after succesfully getting the calibration status and confidence percent.
+   }
+   @endverbatim
+ * - taf_gnss_GetBodyFrameData() -- Triggered inside the PositionHandlerFunction()
+ *                                  function to get positionSampleRef.
+ * @verbatim
+   taf_gnss_KinematicsData_t *bodyFrameData;
+   le_mem_PoolRef_t bodyFramePool = NULL;
+   bodyFramePool = le_mem_CreatePool("bodyFramePool", sizeof(taf_gnss_KinematicsData_t));
+   bodyFrameData = (taf_gnss_KinematicsData_t*) le_mem_ForceAlloc(bodyFramePool);
+   if(taf_gnss_GetBodyFrameData(positionSampleRef,bodyFrameData) == LE_OK)
+   {
+     // Process after succesfully getting the body frame parameters.
+   }
+   @endverbatim
  * taf_gnss_GetDilutionOfPrecision() -- Gets the Dilution of Precision (DOP) paramters with a
  * resolution of 3 decimal places by default. This resolution can be modified by calling the
  * @c taf_gnss_SetDopResolution() function first.
@@ -1374,53 +1447,128 @@ ENUM EngineReportsType
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Status of the calibration.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM CalibrationType {
+    DR_ROLL_CALIBRATION_NEEDED,    ///< Roll calibration needed.
+    DR_PITCH_CALIBRATION_NEEDED,   ///< Pitch calibration needed.
+    DR_YAW_CALIBRATION_NEEDED,     ///< Yaw calibration needed.
+    DR_ODO_CALIBRATION_NEEDED,     ///< Odo calibration needed.
+    DR_GYRO_CALIBRATION_NEEDED     ///< Gyro calibration needed.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Type of kinematics data validity.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM KinematicsDataValidityType {
+    HAS_LONG_ACCEL,         ///< Forward acceleration in body frame.
+    HAS_LAT_ACCEL,          ///< Sideward acceleration in body frame.
+    HAS_VERT_ACCEL,         ///< Vertical acceleration in body frame.
+    HAS_YAW_RATE,           ///< Heading rate.
+    HAS_PITCH,              ///< Body pitch.
+    HAS_LONG_ACCEL_UNC,     ///< Uncertainty of forward acceleration in body frame.
+    HAS_LAT_ACCEL_UNC,      ///< Uncertainty of side-ward acceleration in body frame.
+    HAS_VERT_ACCEL_UNC,     ///< Uncertainty of vertical acceleration in body frame.
+    HAS_YAW_RATE_UNC,       ///< Uncertainty of heading rate.
+    HAS_PITCH_UNC,          ///< Uncertainty of body pitch.
+    HAS_PITCH_RATE_BIT,     ///< Body pitch rate.
+    HAS_PITCH_RATE_UNC_BIT, ///< Uncertainty of pitch rate.
+    HAS_ROLL_BIT,           ///< Roll of body frame.
+    HAS_ROLL_UNC_BIT,       ///< Uncertainty of roll.
+    HAS_ROLL_RATE_BIT,      ///< Roll rate of body frame.
+    HAS_ROLL_RATE_UNC_BIT,  ///< Uncertainty of roll rate.
+    HAS_YAW_BIT,            ///< Yaw of body frame.
+    HAS_YAW_UNC_BIT         ///< Uncertainty of yaw.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Dead reckoning configuration parameters.
  */
 //--------------------------------------------------------------------------------------------------
 STRUCT DrParams
 {
-   double rollOffset;    ///< The misalignment of the sensor board along the horizontal plane of the
-                         ///  vehicle chassis measured looking from the vehicle to forward direction.
-                         ///  In unit of degrees. Range is -180.0 to 180.0.
-   double yawOffset;     ///< The misalignment along the horizontal plane of the vehicle chassis
-                         ///  measured looking from the vehicle to the right side. Positive pitch
-                         ///  indicates vehicle is inclined such that forward wheels are at higher
-                         ///  elevation than rear wheels.In unit of degrees.Range is -180.0 to 180.0.
-   double pitchOffset;   ///< The angle between the vehicle forward direction and the sensor
-                         ///  axis as seen from the top of the vehicle, and measured in
-                         ///  counterclockwise direction.In unit of degrees.Range is -180.0 to 180.0.
-   double offsetUnc;     ///< Single uncertainty number that may be the largest of the
-                         ///  uncertainties for roll offset, pitch offset and yaw offset.
-                         ///  In unit of degrees. Range is -180.0 to 180.0.
-   double speedFactor;   ///< Vehicle speed scale factor configuration input for the
-                         ///  dead reckoning positioning engine. The multiplicative scale factor is
-                         ///  applied to the received vehicle speed value (in meters/second) to
-                         ///  obtain the true vehicle speed. Range is 0.9 to 1.1.
-                         ///  @note The scale factor is specific to a given vehicle make and model.
-   double speedFactorUnc;///< Vehicle speed scale factor uncertainty (68% confidence) configuration
-                         ///  input for the dead reckoning positioning engine. Range is 0.0 to 0.1.
-                         ///  @note The scale factor uncertainty is specific to a given
-                         ///  vehicle make and model.
-   double gyroFactor;    ///< Gyroscope scale factor configuration input for the dead reckoning
-                         ///  positioning engine.The multiplicative scale factor is applied
-                         ///  to received gyroscope value to obtain the true value.Range is
-                         ///  0.9 to 1.1. @note The scale factor is specific to the Gyroscope
-                         ///  sensor and typically derived from either the sensor's data-sheet
-                         ///  or from actual calibration.
-   double gyroFactorUnc; ///< Gyroscope scale factor uncertainty (68% confidence) configuration
-                         ///  input for the dead reckoning positioning engine. Range is 0.0 to 0.1.
-                         ///  @note The scale factor uncertainty is specific to the Gyroscope sensor
-                         ///  and typically derived from either the sensor's data-sheet
-                         ///  or from actual calibration.
+    double rollOffset;    ///< The misalignment of the sensor board along the horizontal plane of
+                          ///  the vehicle chassis measured looking from the vehicle to forward
+                          ///  direction. In unit of degrees. Range is -180.0 to 180.0.
+    double yawOffset;     ///< The misalignment along the horizontal plane of the vehicle chassis
+                          ///  measured looking from the vehicle to the right side. Positive pitch
+                          ///  indicates vehicle is inclined such that the forward wheels are at
+                          ///  higher elevation than the rear wheels. In unit of degrees.
+                          ///  Range is -180.0 to 180.0.
+    double pitchOffset;   ///< The angle between the vehicle forward direction and the sensor
+                          ///  axis as seen from the top of the vehicle, and measured in
+                          ///  counterclockwise direction. In unit of degrees.
+                          ///  Range is -180.0 to 180.0.
+    double offsetUnc;     ///< Single uncertainty number that may be the largest of the
+                          ///  uncertainties for roll offset, pitch offset, and yaw offset.
+                          ///  In unit of degrees. Range is -180.0 to 180.0.
+    double speedFactor;   ///< Vehicle speed scale factor configuration input for the
+                          ///  dead reckoning positioning engine. The multiplicative scale factor is
+                          ///  applied to the received vehicle speed value (in meters/second) to
+                          ///  obtain the true vehicle speed. Range is 0.9 to 1.1.
+                          ///  @note The scale factor is specific to a given vehicle make and model.
+    double speedFactorUnc;///< Vehicle speed scale factor uncertainty (68% confidence) configuration
+                          ///  input for the dead reckoning positioning engine. Range is 0.0 to 0.1.
+                          ///  @note The scale factor uncertainty is specific to a given
+                          ///  vehicle make and model.
+    double gyroFactor;    ///< Gyroscope scale factor configuration input for the dead reckoning
+                          ///  positioning engine.The multiplicative scale factor is applied
+                          ///  to received gyroscope value to obtain the true value. Range is
+                          ///  0.9 to 1.1. @note The scale factor is specific to the Gyroscope
+                          ///  sensor and typically derived from either the sensor's data sheet
+                          ///  or from actual calibration.
+    double gyroFactorUnc; ///< Gyroscope scale factor uncertainty (68% confidence) configuration
+                          ///  input for the dead reckoning positioning engine. Range is 0.0 to 0.1.
+                          ///  @note The scale factor uncertainty is specific to the Gyroscope
+                          ///  sensor and typically derived from either the sensor's data sheet
+                          ///  or from actual calibration.
 };
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Lever arm configuration parameters.
+ */
+//--------------------------------------------------------------------------------------------------
 STRUCT LeverArmParams
 {
-   double forwardOffsetMeters;  ///< Offset along the vehicle forward axis, in unit of meters.
-   double sidewaysOffsetMeters; ///< Offset along the vehicle starboard axis, in unit of meters.
-                                /// Left side offset is negative, and right side offset is positive.
-   double upOffsetMeters;       /// Offset along the vehicle up axis, in unit of meters.
-   uint8 levArmType;            /// Type of lever arm parameter.
+    double forwardOffsetMeters;  ///< Offset along the vehicle forward axis, in unit of meters.
+    double sidewaysOffsetMeters; ///< Offset along the vehicle starboard axis, in unit of meters.
+                                 /// Left side offset is negative, and right side offset is positive.
+    double upOffsetMeters;       /// Offset along the vehicle up axis, in unit of meters.
+    uint8 levArmType;            /// Type of lever arm parameter.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Kinematics related information related to device body frame parameters.
+ */
+//--------------------------------------------------------------------------------------------------
+STRUCT KinematicsData
+{
+    uint64 bodyFrameDataMask; ///< The valid bits of the body frame data.
+    double longAccel;         ///< Forward acceleration in body frame (met/sec^2).
+    double latAccel;          ///< Sideward acceleration in body frame (met/sec^2).
+    double vertAccel;         ///< Vertical acceleration in body frame (met/sec^2).
+    double yawRate;           ///< Heading rate (rad/sec).
+    double pitch;             ///< Body pitch (radians).
+    double longAccelUnc;      ///< Uncertainty of forward acceleration in body frame (met/sec^2).
+    double latAccelUnc;       ///< Uncertainty of side-ward acceleration in body frame (met/sec^2).
+    double vertAccelUnc;      ///< Uncertainty of vertical acceleration in body frame (met/sec^2).
+    double yawRateUnc;        ///< Uncertainty of heading rate (rad/second).
+    double pitchUnc;          ///< Uncertainty of body pitch (radians).
+    double pitchRate;         ///< Body pitch rate, in unit of rad/sec.
+    double pitchRateUnc;      ///< Uncertainty of pitch rate, in unit of rad/sec.
+    double roll;              ///< Roll of the body frame, clockwise is positive, in unit of radian.
+    double rollUnc;           ///< Uncertainty of roll, in unit of radian.
+    double rollRate;          ///< Roll rate of the body frame, clockwise is positive,
+                              ///  in unit of rad/sec.
+    double rollRateUnc;       ///< Uncertainty of roll rate, in unit of rad/sec.
+    double yaw;               ///< Yaw of the body frame, clockwise is positive, in unit of radian.
+    double yawUnc;            ///< Uncertainty of yaw, in unit of radian.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -2088,4 +2236,64 @@ FUNCTION le_result_t SetLeverArmConfig
 FUNCTION le_result_t SetEngineType
 (
     EngineReportsType EngineType IN ///< Engine type.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the conformity index.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
+ *
+ * @note When robust location is enabled, comformity index will be returned.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetConformityIndex
+(
+    Sample positionSampleRef IN, ///< Position sample reference.
+    double index OUT             ///< Conformity index.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the sensor calibration status and confidence percent.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetCalibrationData
+(
+    Sample positionSampleRef IN, ///< Position sample reference.
+    uint32 calibPtr OUT,         ///< Calibration status.
+    uint8 percentPtr OUT         ///< Confidence percent.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the body frame data.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetBodyFrameData
+(
+    Sample positionSampleRef IN,  ///< Position sample reference.
+    KinematicsData bodyDataPtr  OUT   ///< Body data reference.
 );

@@ -93,6 +93,9 @@ static void PositionHandlerFunction
     uint32_t horUncEllipseSemiMajor;
     uint32_t horUncEllipseSemiMinor;
     uint8_t  horConfidence;
+    double indexPtr;
+    uint8_t percentPtr;
+    uint32_t calibPtr;
     static const char *tabDop[] =
     {
         "Position dilution of precision (PDOP)",
@@ -101,6 +104,10 @@ static void PositionHandlerFunction
         "Geometric dilution of precision (GDOP)",
         "Time dilution of precision (TDOP)"
     };
+    taf_gnss_KinematicsData_t *bodyFrameData;
+    le_mem_PoolRef_t bodyFramePool = NULL;
+    bodyFramePool = le_mem_CreatePool("bodyFramePool", sizeof(taf_gnss_KinematicsData_t));
+    bodyFrameData = (taf_gnss_KinematicsData_t*) le_mem_ForceAlloc(bodyFramePool);
 
     //138.GetPositionState
     LE_TEST_INFO("taf_gnss_GetPositionState() API is triggerred to get position state");
@@ -491,6 +498,185 @@ static void PositionHandlerFunction
         LE_TEST_INFO("Failed to get position state");
     }
 
+    //GetConformityIndex
+    LE_TEST_INFO("taf_gnss_GetConformityIndex() API to get conformity index");
+    result = taf_gnss_GetConformityIndex(positionSampleRef, &indexPtr);
+    LE_TEST_OK(result == LE_OK,"taf_gnss_GetConformityIndex-LE_OK");
+    if (result == LE_OK)
+    {
+        LE_TEST_INFO("ComformingIndex: %.2f\n" "(0.0->Least conforming 1.0->Most conforming)\n"
+                  ,(float)indexPtr);
+    }
+    else if (result == LE_OUT_OF_RANGE)
+    {
+        LE_TEST_INFO("GetComformingIndex is invalid\n");
+    }
+    else
+    {
+        LE_TEST_INFO("Failed! See log for details!\n");
+    }
+
+    //GetCalibrationData
+    LE_TEST_INFO("taf_gnss_GetCalibrationData() API is to get confidence percent");
+    result = taf_gnss_GetCalibrationData(positionSampleRef,&calibPtr,&percentPtr);
+    LE_TEST_OK(result == LE_OK,"taf_gnss_GetCalibrationData-LE_OK");
+    if (result == LE_OK)
+    {
+        if(calibPtr & (1<<TAF_GNSS_DR_ROLL_CALIBRATION_NEEDED))
+        {
+            LE_TEST_INFO("Roll calibration is needed");
+        }
+        if(calibPtr & (1<<TAF_GNSS_DR_PITCH_CALIBRATION_NEEDED))
+        {
+            LE_TEST_INFO("Pitch calibration is needed");
+        }
+        if(calibPtr & (1<<TAF_GNSS_DR_YAW_CALIBRATION_NEEDED))
+        {
+            LE_TEST_INFO("Yaw calibration is needed");
+        }
+        if(calibPtr & (1<<TAF_GNSS_DR_ODO_CALIBRATION_NEEDED))
+        {
+            LE_TEST_INFO("Odo calibration is needed");
+        }
+        if(calibPtr & (1<<TAF_GNSS_DR_ODO_CALIBRATION_NEEDED))
+        {
+            LE_TEST_INFO("Odo calibration is needed");
+        }
+        if(calibPtr == 0)
+        {
+            LE_TEST_INFO("calibration status not found");
+        }
+        LE_TEST_INFO("Sensro calibration confidence percent: %u%%\n"
+                  ,percentPtr);
+    }
+    else if (result == LE_OUT_OF_RANGE)
+    {
+        LE_TEST_INFO("Confidence data is invalid\n");
+    }
+    else
+    {
+        LE_TEST_INFO("Failed! See log for details!\n");
+    }
+
+    //GetBodyFrameData
+    LE_TEST_INFO("taf_gnss_GetBodyFrameData() is called to get body frame data");
+    result = taf_gnss_GetBodyFrameData( positionSampleRef,
+                                              bodyFrameData);
+    LE_TEST_OK(result == LE_OK, "taf_gnss_GetBodyFrameData-LE_OK");
+    if (result == LE_OK)
+    {
+       if((bodyFrameData->bodyFrameDataMask) & (1<<TAF_GNSS_HAS_LONG_ACCEL))
+       {
+           LE_TEST_INFO("Kinematics data has Forward Accelaration");
+       }
+       if((bodyFrameData->bodyFrameDataMask) & (1<<TAF_GNSS_HAS_LAT_ACCEL))
+       {
+           LE_TEST_INFO("Kinematics data has has Sideward Acceleration");
+       }
+       if((bodyFrameData->bodyFrameDataMask) & (1<<TAF_GNSS_HAS_VERT_ACCEL))
+       {
+           LE_TEST_INFO("Kinematics data has Vertical Acceleration");
+       }
+       if((bodyFrameData->bodyFrameDataMask) & (1<<TAF_GNSS_HAS_YAW_RATE))
+       {
+           LE_TEST_INFO("Kinematics has data has Heading Rate");
+       }
+       if((bodyFrameData->bodyFrameDataMask) & (1<<TAF_GNSS_HAS_PITCH))
+       {
+           LE_TEST_INFO("Kinematics has body pitch");
+       }
+       if((bodyFrameData->bodyFrameDataMask) & (1<<TAF_GNSS_HAS_LONG_ACCEL_UNC))
+       {
+           LE_TEST_INFO("Kinematics data has has Forward Acceleration Uncertainty");
+       }
+       if((bodyFrameData->bodyFrameDataMask) & (1<<TAF_GNSS_HAS_LAT_ACCEL_UNC))
+       {
+           LE_TEST_INFO("Kinematics data has has Sideward Acceleration Uncertainty");
+       }
+       if((bodyFrameData->bodyFrameDataMask) & (1<<TAF_GNSS_HAS_VERT_ACCEL_UNC))
+       {
+           LE_TEST_INFO("Kinematics data has Vertical Acceleration Uncertainty");
+       }
+       if((bodyFrameData->bodyFrameDataMask) & (1<<TAF_GNSS_HAS_YAW_RATE_UNC))
+       {
+           LE_TEST_INFO("Kinematics data Heading rate uncertainity");
+       }
+       if((bodyFrameData->bodyFrameDataMask) & (1<<TAF_GNSS_HAS_PITCH_UNC))
+       {
+           LE_TEST_INFO("Kinematics has body pitch Uncertainity");
+       }
+       if((bodyFrameData->bodyFrameDataMask) & (1<<TAF_GNSS_HAS_PITCH_RATE_BIT))
+       {
+           LE_TEST_INFO("Kinematics data has pitch rate");
+       }
+       if((bodyFrameData->bodyFrameDataMask) & (1<<TAF_GNSS_HAS_PITCH_RATE_UNC_BIT))
+       {
+           LE_TEST_INFO("Kinematics has pitch rate Uncertainity");
+       }
+       if((bodyFrameData->bodyFrameDataMask) & (1<<TAF_GNSS_HAS_ROLL_BIT))
+       {
+           LE_TEST_INFO("Kinematics data has roll");
+       }
+       if((bodyFrameData->bodyFrameDataMask) & (1<<TAF_GNSS_HAS_ROLL_UNC_BIT))
+       {
+           LE_TEST_INFO("Kinematics data has roll Uncertainity");
+       }
+       if((bodyFrameData->bodyFrameDataMask) & (1<<TAF_GNSS_HAS_ROLL_RATE_BIT))
+       {
+           LE_TEST_INFO("Kinematics data has roll rate");
+       }
+       if((bodyFrameData->bodyFrameDataMask) & (1<<TAF_GNSS_HAS_ROLL_RATE_UNC_BIT))
+       {
+           LE_TEST_INFO("Kinematics data has roll rate Uncertainity");
+       }
+       if((bodyFrameData->bodyFrameDataMask) & (1<<TAF_GNSS_HAS_YAW_BIT))
+       {
+           LE_TEST_INFO("Kinematics data has yaw");
+       }
+       if((bodyFrameData->bodyFrameDataMask) & (1<<TAF_GNSS_HAS_YAW_UNC_BIT))
+       {
+           LE_TEST_INFO("Kinematics data has yaw uncertainity");
+       }
+       LE_TEST_INFO("\nForward Acceleration in body frame(m/s2):%lf",
+                                     (float)bodyFrameData->longAccel);
+       LE_TEST_INFO("Sideward Acceleration in body frame (m/s2):%lf",
+                                     (float) bodyFrameData->latAccel);
+       LE_TEST_INFO("Vertical Acceleration in body frame (m/s2):%lf",
+                                     (float) bodyFrameData->vertAccel);
+       LE_TEST_INFO("Heading Rate (Radians/second):%lf",(float) bodyFrameData->yawRate);
+       LE_TEST_INFO("Body pitch (Radians)::%lf",(float) bodyFrameData->pitch);
+       LE_TEST_INFO("Uncertainty of Forward Acceleration in body frame:%lf",
+                                     (float) bodyFrameData->longAccelUnc);
+       LE_TEST_INFO("Uncertainty of Side-ward Acceleration in body frame:%lf",
+                                     (float) bodyFrameData->latAccelUnc);
+       LE_TEST_INFO("Uncertainty of Vertical Acceleration in body frame:%lf",
+                                     (float)bodyFrameData->vertAccelUnc);
+       LE_TEST_INFO("Uncertainty of Heading Rate:%lf",(float) bodyFrameData->yawRateUnc);
+       LE_TEST_INFO("Uncertainty of Body pitch:%lf",(float) bodyFrameData->pitchUnc);
+       LE_TEST_INFO("Body pitch rate:%lf",(float) bodyFrameData->pitchRate);
+       LE_TEST_INFO("Uncertainty of pitch rate:%lf",(float) bodyFrameData->pitchRateUnc);
+       LE_TEST_INFO("Roll of body frame, clockwise is positive:%lf",(float)bodyFrameData->roll);
+       LE_TEST_INFO("Uncertainty of roll, 68 per confidence level:%lf",
+                                          (float)bodyFrameData->rollUnc);
+       LE_TEST_INFO("Roll rate of body frame, clockwise is positive:%lf",
+                                          (float)bodyFrameData->rollRate);
+       LE_TEST_INFO("Uncertainty of roll rate, 68 per confidence level:%lf",
+                                          (float)bodyFrameData->rollRateUnc);
+       LE_TEST_INFO("Yaw of body frame, clockwise is positive:%lf",(float)bodyFrameData->yaw);
+       LE_TEST_INFO("Uncertainty of yaw, 68 per confidence level:%lf",(float)bodyFrameData->yawUnc);
+
+    }
+    else if(result == LE_OUT_OF_RANGE)
+    {
+        LE_TEST_INFO("Kinematics data is not found");
+    }
+    else
+    {
+        LE_TEST_INFO("Failed! See log for details\n");
+    }
+
+    //release bodyFrameData referene
+    le_mem_Release(bodyFrameData);
 
     LE_TEST_INFO("taf_gnss_ReleaseSampleRef is triggered");
     taf_gnss_ReleaseSampleRef(positionSampleRef);
@@ -1090,13 +1276,21 @@ static void TestTafGnssConstellations
     LE_TEST_OK(result == LE_OK,"taf_gnss_SetConstellation-LE_OK");
 
     //SetConstellation-NAVIC
+    #ifdef TARGET_SA525M
     constellationMask = TAF_GNSS_CONSTELLATION_NAVIC;
     LE_TEST_INFO("taf_gnss_SetConstellation() API is called to set NAVIC constellation type");
     result = taf_gnss_SetConstellation(constellationMask);
     LE_TEST_OK(result == LE_OK,"taf_gnss_SetConstellation-LE_OK");
+    #endif
 
     //SetConstellation-ALL constellations
+    #ifdef TARGET_SA525M
     constellationMask = 0x7E;
+    LE_INFO("taf_gnss_SetConstellation triggered for Sa525m");
+    #else
+    constellationMask = 0x3E;
+    LE_INFO("taf_gnss_SetConstellation triggered for Sa515m");
+    #endif
     LE_TEST_INFO("taf_gnss_SetConstellation() API is called to set All constellation types");
     result = taf_gnss_SetConstellation(constellationMask);
     LE_TEST_OK(result == LE_OK,"taf_gnss_SetConstellation-LE_OK");

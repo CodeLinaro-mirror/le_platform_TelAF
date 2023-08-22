@@ -28,6 +28,7 @@ ifdef(`sa525m',`
     telux_allow_tel_call_mgmt(telaf_tafVoiceCallSvc_t)
     telux_allow_tel_subscription_read(telaf_tafVoiceCallSvc_t)
     telux_allow_tel_call_private_info(telaf_tafVoiceCallSvc_t)
+    telux_allow_tel_ecall_mgmt(telaf_tafVoiceCallSvc_t)
 ')
 
 # Allow update daemon to install/uninstall this service

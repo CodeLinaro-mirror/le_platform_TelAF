@@ -735,7 +735,7 @@ __attribute__((unused)) static void RxHandler
 
             LE_TEST_ASSERT(taf_sms_GetBinary(msgRef, rxContent.binary, &len) == LE_OK, "Test taf_sms_GetBinary");
 
-            LE_INFO("taf_sms_GetBinary, len:%" PRId64, len);
+            LE_INFO("taf_sms_GetBinary, len:%" PRIuS, len);
             for(int i = 0; i < len; i++)
             {
                 LE_INFO("0x%.2X", rxContent.binary[i]);
@@ -748,7 +748,7 @@ __attribute__((unused)) static void RxHandler
 
             LE_TEST_ASSERT(taf_sms_GetUCS2(msgRef, rxContent.ucs2, &len) == LE_OK, "Test taf_sms_GetUCS2");
 
-            LE_INFO("taf_sms_GetUCS2, len:%" PRId64, len);
+            LE_INFO("taf_sms_GetUCS2, len:%" PRIuS, len);
             for(int i = 0; i < len; i++)
             {
                 LE_INFO("0x%.4X", rxContent.ucs2[i]);
@@ -1001,10 +1001,6 @@ void Test_main
     Test_taf_sms_Smsc();
     LE_INFO("##### Test_taf_sms_Smsc OK #####");
 
-    LE_INFO("===== Test_taf_sms_SendPdu =====");
-    Test_taf_sms_SendPdu();
-    LE_INFO("##### Test_taf_sms_SendPdu OK #####");
-
     LE_INFO("===== Test_taf_sms_Receive =====");
     Test_taf_sms_Receive();
 
@@ -1024,6 +1020,10 @@ void Test_main
     le_thread_Cancel(TxThreadRef);
 
     LE_INFO("##### Test_taf_sms_Send OK #####");
+
+    LE_INFO("===== Test_taf_sms_SendPdu =====");
+    Test_taf_sms_SendPdu();
+    LE_INFO("##### Test_taf_sms_SendPdu OK #####");
 
     LE_INFO("===== Test_taf_sms_CreateDeleteRxMsgList =====");
     Test_taf_sms_CreateDeleteRxMsgList();

@@ -52,3 +52,4 @@
 /data/le_fs/resets/expected                          --          gen_context(system_u:object_r:telaf_sys_t,s0)
 /etc/initscripts/overlay_selinuxrw-workdir.sh        --          gen_context(system_u:object_r:telaf_overlay_exec_t,s0)
 /legato/SMACK_DISABLED                               --          gen_context(system_u:object_r:telaf_sys_t,s0)
+/data/ManagedServices(/.*)?                                      gen_context(system_u:object_r:telaf_sys_t,s0)

@@ -907,8 +907,8 @@ size_t pduEncodeAddr
 
 le_result_t sms_EncodeGsm
 (
-    smsPdu_EncodeMsg_t*   sms,
-    taf_pa_sms_Pdu_t*     smsPdu
+    smsPdu_EncodeMsg_t*    sms,
+    taf_sms_Pdu_t*         smsPdu
 )
 {
     TAF_ERROR_IF_RET_VAL(sms->msgDataLen > TAF_SMS_TEXT_LEN, LE_FAULT, "msg length > %d", TAF_SMS_TEXT_LEN);
@@ -1056,8 +1056,8 @@ le_result_t sms_EncodeGsm
 
 le_result_t smsPdu_Encode
 (
-    smsPdu_EncodeMsg_t*   sms,
-    taf_pa_sms_Pdu_t*     smsPdu
+    smsPdu_EncodeMsg_t*    sms,
+    taf_sms_Pdu_t*         smsPdu
 )
 {
     le_result_t result;

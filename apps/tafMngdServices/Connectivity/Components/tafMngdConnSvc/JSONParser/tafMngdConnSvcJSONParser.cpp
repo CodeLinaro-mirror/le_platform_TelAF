@@ -35,41 +35,73 @@
 //-----------------------------------------------------------
 #include <vector>
 #include <boost/filesystem.hpp>
+#include "boost/property_tree/ptree.hpp"
+#include "boost/property_tree/json_parser.hpp"
+#include <boost/exception/diagnostic_information.hpp>
+#include <boost/exception_ptr.hpp>
 #include "tafMngdConnSvcJSONParser.hpp"
 #include "tafMngdConn_ConfigTreeHelper.hpp"
 
 using namespace telux::tafsvc;
 using std::string;
+using std::to_string;
+
+namespace pt = boost::property_tree;
+
+
+// Map of properties and validation function pointers
+std::map< std::string, ConnectivityValidationFunction_t >  ConnectivityValidationFuncMap;
+
+/**
+ * Validate ManagedConnectivityService:Version
+ */
+static bool Validate_MCS_Version(taf_mngd_Conn_Policy_t &Policy,
+                                                taf_mngd_Conn_Configuration_t &Configuration,
+                                                std::string Value,
+                                                int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
+    if (TAF_MNGD_JSON_DATA_TYPE_STRING != DataType && TAF_MNGD_JSON_DATA_TYPE_NULL != DataType)
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+    // Valid value. Update Policy and Configuration.
+    Policy.Version = std::stoi(Value);
+    Configuration.Version = std::stoi(Value);
+    return true;
+}
+
+static bool ValidateValue(taf_mngd_Conn_Policy_t& Policy,
+                                taf_mngd_Conn_Configuration_t &Configuration,
+                                std::string property,
+                                std::string Value,
+                                int Index)
+{
+    LE_DEBUG("Property: %s, Value: %s", property.c_str(), Value.c_str());
+    auto iterator = ConnectivityValidationFuncMap.find(property);
+    if (iterator != ConnectivityValidationFuncMap.end())
+    {
+        return (*iterator->second)(Policy, Configuration, Value, Index);
+    }
+
+    // The property is not found, so it's unsupported. Return false.
+    LE_WARN("%s is not supported", property.c_str());
+    return false;
+}
 
 /**
  * Retrun true if the filenames match
  * Return false if the filenames do not match
  */
-static bool updateMangedConnectivityConfigTree(string PolicyFileName,
-                                               string ConfigurationFileName,
+static bool updateMangedConnectivityConfigTree(string ConfigurationFileName,
                                                bool   bDoConfigFileNamesMatch)
 {
     le_result_t leRet = LE_OK;
 
-    boost::filesystem::path fullFilePath(PolicyFileName);
+    boost::filesystem::path fullFilePath(ConfigurationFileName);
     boost::filesystem::path dir = fullFilePath.parent_path();
-    if (dir == TAF_MNGD_DefaultLocation_Policy)
-    {
-        LE_INFO("Files are in default location. Write only the FileName");
-        leRet = tafMngd_ConfigTree_Update(TAF_MNGD_ct_node_PolicyFileName,
-                                                        fullFilePath.filename().string());
-    }
-    else
-    {
-        // Write the full file path
-        leRet = tafMngd_ConfigTree_Update(TAF_MNGD_ct_node_PolicyFileName, PolicyFileName);
-    }
-
-    fullFilePath.clear();
-    dir.clear();
-
-    fullFilePath = ConfigurationFileName;
-    dir = fullFilePath.parent_path();
     if (dir == TAF_MNGD_DefaultLocation_Configuration)
     {
         LE_INFO("Files are in default location. Write only the FileName");
@@ -98,116 +130,135 @@ static bool updateMangedConnectivityConfigTree(string PolicyFileName,
     return false;
 }
 
-/**
- * Retrun true if the filenames match
- * Return false if the filenames do not match
- */
-static bool DoConfigurationFileNamesMatch(string API_ConfigurationFileName,
-                                            string Policy_ConfigurationFileName)
-{
-    if (API_ConfigurationFileName == Policy_ConfigurationFileName)
-    {
-        return true;
-    }
-    else
-    {
-        return false;
-    }
-}
+
 
 bool telux::tafsvc::tafMngdConnSvc_GetPolicyAndConfiguration(
     taf_mngd_Conn_Policy_t &PolicyStructRef,
-    std::string PolicyFileName,
     taf_mngd_Conn_Configuration_t &ConfigurationStructRef,
     std::string ConfigurationFileName)
 {
     std::string newConfFileName;
     bool bDoConfigFileNamesMatch = true;
     tafMngdConnSvc_PolicyParser &PolicyParserRef = tafMngdConnSvc_PolicyParser::getInstance();
+    tafMngdConnSvc_ConfigurationParser &ConfigurationParserRef =
+                                                tafMngdConnSvc_ConfigurationParser::getInstance();
 
-    // Check if only Policy file name is path or if path is also provided.If path is not provided,
-    // add the default path
-    if ('/' != PolicyFileName[0])
+    newConfFileName = ConfigurationFileName;
+    // Check if only Configuration file name is path or if path is also provided.
+    // If path is not provided, add the default path
+    if ('/' != newConfFileName[0])
     {
-        LE_INFO("Path is not included in Policy File Name");
-        PolicyFileName.insert (0, (TAF_MNGD_DefaultLocation_Policy + "/"));
+        newConfFileName.insert (0, (TAF_MNGD_DefaultLocation_Configuration + "/"));
     }
+    // Update the properties and validation functions map
+    UpdateValidConnectivityFuncMap();
 
-    if ( PolicyParserRef.GetPolicy(PolicyStructRef, PolicyFileName) )
-    {
-        LE_INFO("Policy Parsing Successful");
-    }
-    else
-    {
-        LE_ERROR("Policy Parsing Failed");
+    // Try opening an input file stream
+    std::ifstream jsonFile(newConfFileName);
+    if (!jsonFile.is_open()) {
+        LE_WARN ("Unable to open %s", newConfFileName.c_str());
         return false;
     }
 
-    if( ConfigurationFileName.empty() )
-    {
-        LE_INFO(" ConfigurationFileName empty");
-        if(strlen(PolicyStructRef.ConfigurationFileName) == 0)
-        {
-            LE_ERROR("Configuration File name is not specified");
-            return false;
-        }
-        else
-        {
-            newConfFileName.clear();
-            newConfFileName = newConfFileName.append(PolicyStructRef.ConfigurationFileName);
-        }
+    // Try parsing the JSON
+    pt::ptree tree;
+    try {
+        read_json(jsonFile, tree);
     }
-    else
-    {
-        //Check if the configuration name matchs
-        if (DoConfigurationFileNamesMatch(ConfigurationFileName,
-                                            PolicyStructRef.ConfigurationFileName))
-        {
-            LE_INFO("Configuration File Names match");
-        }
-        else
-        {
-            LE_INFO("Configuration File Names do not match");
-            bDoConfigFileNamesMatch = false;
-            // Update the Policy Structure with the Configuration FileName from the API
-            memset(PolicyStructRef.ConfigurationFileName, 0, TAF_MNGD_CONN_MAX_FILE_NAME_LEN);
-            size_t copied_len = 0;
-            le_utf8_Copy (PolicyStructRef.ConfigurationFileName,
-                                                        ConfigurationFileName.c_str(),
-                                                        TAF_MNGD_CONN_MAX_FILE_NAME_LEN,
-                                                        &copied_len);
-            if (copied_len > TAF_MNGD_CONN_MAX_FILE_NAME_LEN)
+    catch (const std::exception &e) {
+        LE_WARN ("read_json exception: %s. Check validity of JSON.", e.what());
+        return false;
+    }
+
+    std::string log, JSON_Property, JSON_Value;
+    //Check for Product, Name, and Version before parsing
+    for (auto & element: tree) {
+        //Product
+        if ("Product" == element.first ) {
+            log.clear();
+            log.append ( "Section: " + element.first );
+            LE_DEBUG ("%s", log.c_str() );
+
+            // Get the elements within "Product"
+            if (element.second.get_value < std::string > () != "TelAF")
             {
-                // Buffer overrun
-                LE_ERROR("PolicyStructRef conf name buf overrun. Copied: %d. Buf Size: %d",
-                            (int)copied_len, TAF_MNGD_CONN_MAX_FILE_NAME_LEN);
-                // Clean up and return false
-                PolicyParserRef.ResetPolicyStructure(PolicyStructRef);
+                LE_WARN("Invalid JSON_Property Value");
                 return false;
             }
         }
 
-        newConfFileName = ConfigurationFileName;
-    }
+          //Name
+        if ("Name" == element.first ) {
+            log.clear();
+            log.append ( "Section: " + element.first );
+            LE_DEBUG ("%s", log.c_str() );
 
-    // Check if only Configuration file name is path or if path is also provided.If path is not
-    // provided, add the default path
-    if ('/' != newConfFileName[0])
-    {
-        LE_INFO("Path is not included in Configuration File Name");
-        newConfFileName.insert (0, (TAF_MNGD_DefaultLocation_Configuration + "/"));
-    }
+            // Get the elements within "Product"
+            if (element.second.get_value < std::string > ()
+             != "Managed Connectivity Configuration - V1")
+            {
+                LE_WARN("Invalid JSON_Property Value");
+                return false;
+            }
+        }
 
-    tafMngdConnSvc_ConfigurationParser &ConfigurationParserRef =
-                                        tafMngdConnSvc_ConfigurationParser::getInstance();
-    if ( ConfigurationParserRef.GetConfiguration(ConfigurationStructRef, newConfFileName) )
-    {
-        LE_INFO("Configuration Parsing Successful");
-    }
-    else
-    {
-        LE_ERROR("Configuration Parsing Failed");
-        return false;
+        // ManagedConnectivityServicePolicy
+        if ("ManagedConnectivityService" == element.first ) {
+            log.clear();
+            log.append ( "Section: " + element.first );
+            LE_DEBUG ("%s", log.c_str() );
+
+            // Get the elements within "ManagedConnectivityServicePolicy"
+            for (auto & property: element.second) {
+                if ("Version" == property.first){
+                    log.clear();
+                    log.append ("Key: " + property.first + ", Value: " +
+                                                    property.second.get_value < std::string > () );
+                    LE_DEBUG("%s", log.c_str());
+                    // Validate the read value
+                    JSON_Property.clear();
+                    JSON_Property.append(element.first + ":" + property.first);
+                    JSON_Value.clear();
+                    JSON_Value.append(property.second.get_value<std::string>());
+                    // Validate values. Index is set to invald.
+                    if (!ValidateValue(PolicyStructRef,
+                                    ConfigurationStructRef,
+                                    JSON_Property, JSON_Value,
+                                    TAF_MNGD_CONN_INVALID_INDEX))
+                    {
+                        LE_WARN("Invalid JSON_Property Value");
+                        LE_INFO("JSON_Property: %s, Value: %s", JSON_Property.c_str(),
+                                                                            JSON_Value.c_str());
+                        return false;
+                    }
+                }
+
+                if("Policy" == property.first){
+                    if ( PolicyParserRef.GetPolicy(PolicyStructRef, newConfFileName) )
+                    {
+                        LE_INFO("Policy Parsing Successful");
+                    }
+                    else
+                    {
+                        LE_ERROR("Policy Parsing Failed");
+                        return false;
+                    }
+                }
+
+                if("Configuration" == property.first){
+                    if ( ConfigurationParserRef.GetConfiguration(ConfigurationStructRef,
+                    newConfFileName) )
+                    {
+                        LE_INFO("Configuration Parsing Successful");
+                    }
+                    else
+                    {
+                        LE_ERROR("Configuration Parsing Failed");
+                        return false;
+                    }
+                }
+            }
+        }
     }
 
     // Check if Policy DataSession->DataConnection->Use_Data_ID has a matching Data->ID in
@@ -311,8 +362,7 @@ bool telux::tafsvc::tafMngdConnSvc_GetPolicyAndConfiguration(
     }
 
     // Validations complete. Write to Config Tree
-    if (!updateMangedConnectivityConfigTree(PolicyFileName,
-                                            PolicyStructRef.ConfigurationFileName,
+    if (!updateMangedConnectivityConfigTree(PolicyStructRef.ConfigurationFileName,
                                             bDoConfigFileNamesMatch))
     {
         LE_ERROR("Unable to update ConfigTree");
@@ -322,6 +372,14 @@ bool telux::tafsvc::tafMngdConnSvc_GetPolicyAndConfiguration(
         return false;
     }
 
-    LE_INFO("Parsing of JSON files and Updation of Policy and Configuration structures successful");
+    LE_INFO("Parsing of JSON file and Updation of Policy and Configuration structures successful");
     return true;
+}
+
+/**
+ * Match the JSON element with the validation function.
+ */
+void telux::tafsvc::UpdateValidConnectivityFuncMap(void)
+{
+    ConnectivityValidationFuncMap["ManagedConnectivityService:Version"] = &Validate_MCS_Version;
 }

@@ -11,12 +11,12 @@ requires:
     api:
     {
         le_cfg.api
+        taf_ks.api
     }
 
     component:
     {
         $LEGATO_ROOT/components/watchdogChain
-        $TELAF_ROOT/components/stub/taf_pa_sms
     }
 
     lib:
@@ -28,7 +28,6 @@ requires:
 
 cxxflags:
 {
-    -I$TELAF_ROOT/components/stub/taf_pa_sms
     -I$LEGATO_ROOT/components/watchdogChain
     -I$LEGATO_ROOT/components/cfgEntries
     -I$TELAF_ROOT/include
@@ -45,5 +44,6 @@ sources:
     tafSmsImpl.cpp
     tafSmsSvc.cpp
     tafSmsPdu.cpp
+    tafSmsHlos.cpp
 }
 

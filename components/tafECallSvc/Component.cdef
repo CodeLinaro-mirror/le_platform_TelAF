@@ -21,7 +21,6 @@ requires:
     component:
     {
         $LEGATO_ROOT/components/watchdogChain
-        $TELAF_ROOT/components/stub/taf_pa_ecall
     }
 
     lib:
@@ -33,7 +32,6 @@ requires:
 
 cxxflags:
 {
-    -I$TELAF_ROOT/components/stub/taf_pa_ecall
     -I$LEGATO_ROOT/components/watchdogChain
     -I$LEGATO_ROOT/components/cfgEntries
     -I$TELAF_ROOT/include

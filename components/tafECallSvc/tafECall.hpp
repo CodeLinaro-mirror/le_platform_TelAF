@@ -36,7 +36,6 @@
 #include <telux/tel/PhoneFactory.hpp>
 #include "telux/common/CommonDefines.hpp"
 #include "tafSvcIF.hpp"
-#include "taf_pa_ecall.hpp"
 
 using namespace telux::tel;
 using namespace telux::common;
@@ -66,10 +65,6 @@ using namespace std;
 #define ISOVIS_MODEL_YEAR_LENGTH 1
 #define ISOVIS_SEQ_PLANT_START (ISOVIS_MODEL_YEAR_START + ISOVIS_MODEL_YEAR_LENGTH)
 #define ISOVIS_SEQ_PLANT_LENGTH 7
-
-#define DEFAULT_ECALL_NUM "112"
-#define CFG_PSAP_NUMBER "PsapNum"
-#define CFG_NAD_DEREG_TIME "NadDeregTime"
 
 namespace telux {
     namespace tafsvc {
@@ -209,7 +204,6 @@ namespace telux {
 
                 taf_ECall_t ECallObject;
                 le_ref_MapRef_t ECallPtrRefMap = NULL;
-                bool isUseUSimNumbers = false;
                 void InitializeECallPtr();
 
         };

@@ -950,6 +950,7 @@ le_result_t taf_ecall_GetMsdTxMode
                      LE_BAD_PARAMETER:     Invalid parameters.
                      LE_FAULT:             Fail.
                      LE_OK:                Success.
+                     LE_BUSY:              eCall session is already in progress.
 
  SIDE EFFECTS
 
@@ -978,6 +979,7 @@ le_result_t taf_ecall_StartTest
                      LE_BAD_PARAMETER:     Invalid parameters.
                      LE_FAULT:             Fail.
                      LE_OK:                Success.
+                     LE_BUSY:              eCall session is already in progress.
 
  SIDE EFFECTS
 
@@ -1006,6 +1008,7 @@ le_result_t taf_ecall_StartManual
                      LE_BAD_PARAMETER:     Invalid parameters.
                      LE_FAULT:             Fail.
                      LE_OK:                Success.
+                     LE_BUSY:              eCall session is already in progress.
 
  SIDE EFFECTS
 
@@ -1257,7 +1260,6 @@ le_result_t taf_ecall_SetPsapNumber
  RETURN VALUE             le_result_t
     - LE_OK               On success
     - LE_FAULT            On failures or if le_ecall_SetPsapNumber() has never been called before
-    - LE_OVERFLOW         Retrieved PSAP number is too long for the out parameter
     - LE_BAD_PARAMETER    If Psap number is null
 
  @note If the passed PSAP pointer is NULL, a fatal error is raised and the function will not

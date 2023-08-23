@@ -399,28 +399,6 @@ taf_ecall &taf_ecall::GetInstance()
     return instance;
 }
 
-char* getUsimNumber()
-{
-    le_result_t res = taf_pa_ecall_GetPbNumber(fdn, sizeof(fdn), sdn, sizeof(sdn));
-
-    if (res != LE_OK)
-    {
-        return NULL;
-    }
-
-    LE_INFO("getUsimNumber: FDN number: %s and SDN number: %s", fdn, sdn);
-
-    if(strlen(fdn) > 0)
-    {
-        return fdn;
-    }
-    else if(strlen(sdn) > 0)
-    {
-        return fdn;
-    }
-    return NULL;
-}
-
 bool taf_ecall::isIdle()
 {
     std::vector<std::shared_ptr<telux::tel::ICall>> callList = CallManager->getInProgressCalls();
@@ -455,37 +433,32 @@ le_result_t taf_ecall::SetPsapNumber(const char* psapNumber)
     TAF_ERROR_IF_RET_VAL(strlen(psapNumber) > TAF_SIM_PHONE_NUM_MAX_LEN, LE_FAULT,
             "PsapNumber length is wrong");
 
-    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn( CFG_MODEMSERVICE_ECALL_PATH );
-
-    le_cfg_SetString(iteratorRef, CFG_PSAP_NUMBER, psapNumber);
-    le_cfg_CommitTxn(iteratorRef);
-
     LE_INFO("Set PSAP number as %s", psapNumber);
 
-    return LE_OK;
+    EcallConfig eCallConfig;
+    eCallConfig.configValidityMask.set(ECALL_CONFIG_OVERRIDDEN_NUM);
+    eCallConfig.configValidityMask.set(ECALL_CONFIG_NUM_TYPE);
+    eCallConfig.numType = ECallNumType::OVERRIDDEN;
+    eCallConfig.overriddenNum = psapNumber;
+    Status status = CallManager->setECallConfig(eCallConfig);
+
+    return Status::SUCCESS == status ? LE_OK : LE_FAULT;
 }
 
 le_result_t taf_ecall::GetPsapNumber(char* psapNumber, size_t psapNumLength)
 {
     TAF_ERROR_IF_RET_VAL(psapNumber == NULL, LE_BAD_PARAMETER, "PsapNumber is NULL");
 
-    le_result_t res = LE_FAULT;
-
-    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateReadTxn( CFG_MODEMSERVICE_ECALL_PATH );
-
-    if (le_cfg_NodeExists(iteratorRef, CFG_PSAP_NUMBER))
-    {
-        res = le_cfg_GetString(iteratorRef, CFG_PSAP_NUMBER, psapNumber, TAF_SIM_PHONE_NUM_MAX_LEN, "None");
-
-        TAF_ERROR_IF_RET_VAL(strncmp(psapNumber, "None", sizeof("None")) == 0, LE_FAULT, "PsapNumber is not found");
-        TAF_ERROR_IF_RET_VAL(psapNumLength < sizeof(psapNumber), LE_OVERFLOW, "PsapNumber length is wrong");
-
-        LE_INFO("PSAP number is =  %s", psapNumber);
-        le_cfg_CancelTxn(iteratorRef);
-        return res;
+    EcallConfig eCallConfig = {};
+    Status status = CallManager->getECallConfig(eCallConfig);
+    if (status == Status::SUCCESS && eCallConfig.configValidityMask.test(ECALL_CONFIG_OVERRIDDEN_NUM)) {
+        LE_INFO("PSAP number retrieved as: %s", eCallConfig.overriddenNum.c_str());
+        le_utf8_Copy(psapNumber, eCallConfig.overriddenNum.c_str(), psapNumLength, NULL);
+    } else {
+        LE_ERROR("Unable to get PSAP number. Error: %d", (int) status);
     }
-    le_cfg_CancelTxn(iteratorRef);
-    return res;
+
+    return Status::SUCCESS == status ? LE_OK : LE_FAULT;
 }
 
 taf_ecall_CallRef_t taf_ecall::CreateECallReference()
@@ -566,24 +539,6 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
 
     TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
 
-    char psapNumber[TAF_SIM_PHONE_NUM_MAX_LEN] = {0};
-
-    if(isUseUSimNumbers && getUsimNumber() != NULL)
-    {
-        le_utf8_Copy(psapNumber, getUsimNumber(), sizeof(psapNumber), NULL);
-    }
-    else if(GetPsapNumber(psapNumber, TAF_SIM_PHONE_NUM_MAX_LEN) == LE_OK)
-    {
-        LE_INFO("Psap number: %s\n", psapNumber);
-    }
-    else
-    {
-        LE_INFO("Not able to retrieve psap number, use defaul number: %s\n", DEFAULT_ECALL_NUM);
-        le_utf8_Copy(psapNumber, DEFAULT_ECALL_NUM, sizeof(psapNumber), NULL);
-    }
-
-
-
     //Get Selected card
     uint8_t phoneId = PhoneManager->getPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
 
@@ -614,15 +569,22 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
 
     Status ret;
 
-    LE_INFO("PsapNumber: %s, ECall Variant: %d, useUSimNumber: %d, phoneId: %d\n", psapNumber,
-            (int) eCallVariant, isUseUSimNumbers, phoneId);
+    EcallConfig eCallConfig = {};
+    ret = CallManager->getECallConfig(eCallConfig);
+    if (ret == Status::SUCCESS) {
+        LE_INFO("get eCall configuration successfully.");
+    }
+
+    LE_INFO("ECall Variant: %d, phoneId: %d, isMsdUpdated: %d\n",
+            (int) eCallVariant, phoneId, (int) ECallObject.isMsdUpdated);
 
     //Check msd imported or not to send msd in pdu format or not
     if (ECallObject.isMsdUpdated)
     {
         const std::vector< uint8_t > eCallMsdData(begin(eCallPtr->msdPdu),end(eCallPtr->msdPdu));
-        if (eCallVariant == ECallVariant::ECALL_TEST) {
-            ret = CallManager->makeECall(phoneId, psapNumber, eCallMsdData,
+        if (eCallVariant == ECallVariant::ECALL_TEST
+                && eCallConfig.numType == ECallNumType::OVERRIDDEN) {
+            ret = CallManager->makeECall(phoneId, eCallConfig.overriddenNum, eCallMsdData,
                     (int)emergencyCategory, tafCallCommandCallback::makeECallResponse);
         } else {
             ret = CallManager->makeECall(phoneId, eCallMsdData, (int)emergencyCategory,
@@ -634,8 +596,9 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
         eCallPtr->msd.messageIdentifier = 1;
         ECallMsdData eCallMsdData = (ECallMsdData) eCallPtr->msd;
 
-        if (eCallVariant == ECallVariant::ECALL_TEST) {
-            ret = CallManager->makeECall(phoneId, psapNumber, eCallMsdData,
+        if (eCallVariant == ECallVariant::ECALL_TEST
+                && eCallConfig.numType == ECallNumType::OVERRIDDEN) {
+            ret = CallManager->makeECall(phoneId, eCallConfig.overriddenNum, eCallMsdData,
                     (int)emergencyCategory, CallCommandCb);
         } else {
             ret = CallManager->makeECall(phoneId, eCallMsdData, (int)emergencyCategory,
@@ -646,7 +609,6 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
     if(ret == Status::SUCCESS)
     {
         LE_DEBUG("Start ECall request sent successfully");
-        isUseUSimNumbers = false;
         ECallObject.eCallSession = ECALL_REQUEST;
         telux::common::ErrorCode error = makeEcallProm.get_future().get();
         if (error == ErrorCode::SUCCESS) {
@@ -1034,8 +996,12 @@ taf_ecall_TerminationReason_t taf_ecall::GetTerminationReason ( taf_ecall_CallRe
 
 le_result_t taf_ecall::UseUSimNumbers()
 {
-    isUseUSimNumbers = true;
-    return LE_OK;
+    EcallConfig eCallConfig;
+    eCallConfig.configValidityMask.set(ECALL_CONFIG_NUM_TYPE);
+    eCallConfig.numType = ECallNumType::DEFAULT;
+    Status status = CallManager->setECallConfig(eCallConfig);
+    LE_INFO("UseUSimNumbers: status %d", (int) status);
+    return Status::SUCCESS == status ? LE_OK : LE_FAULT;
 }
 
 le_result_t taf_ecall::SetNadDeregistrationTime(uint16_t deregTime)
@@ -1045,16 +1011,29 @@ le_result_t taf_ecall::SetNadDeregistrationTime(uint16_t deregTime)
         return LE_BUSY;
     }
 
-    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn( CFG_MODEMSERVICE_ECALL_PATH );
+    if (deregTime < 60 || deregTime > 720) {
+        LE_ERROR("Error: Deregistration time %d min is not allowed [Range 60:720].", deregTime);
+        return LE_FAULT;
+    }
 
-    le_cfg_SetInt(iteratorRef, CFG_NAD_DEREG_TIME, deregTime); //Store in minutes
-    le_cfg_CommitTxn(iteratorRef);
+    uint32_t t10 = (uint32_t) deregTime;
+    LE_INFO("Set NAD deregistration time (in minutes): %d", t10);
 
-    LE_INFO("Set NAD deregistration time (in minutes): %d", deregTime);
+    std::promise<telux::common::ErrorCode> p;
+    int phoneId = PhoneManager->getPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
 
-    le_result_t res = taf_pa_ecall_SetNadDeregistrationTime((uint32_t) deregTime); //In minutes
+    telux::common::ResponseCallback cb = [&p](telux::common::ErrorCode error) { p.set_value(error); };
+    Status status = CallManager->updateEcallHlapTimer(phoneId, HlapTimerType::T10_TIMER, t10, cb);
+    if (status == Status::SUCCESS) {
+        LE_INFO("SetNadDeregistrationTime: status %d", (int) status);
+        telux::common::ErrorCode error = p.get_future().get();
+        LE_INFO("SetNadDeregistrationTime: error code %d", (int) error);
+        if (error == ErrorCode::SUCCESS) {
+            return LE_OK;
+        }
+    }
 
-    return res;
+    return LE_FAULT;
 }
 
 le_result_t taf_ecall::GetNadDeregistrationTime(uint16_t* deregTime)
@@ -1064,34 +1043,49 @@ le_result_t taf_ecall::GetNadDeregistrationTime(uint16_t* deregTime)
         return LE_FAULT;
     }
 
-    le_result_t res = taf_pa_ecall_GetNadDeregistrationTime((uint32_t*) deregTime); //In minutes
-    if (LE_OK != res) {
-        le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateReadTxn( CFG_MODEMSERVICE_ECALL_PATH );
+    std::promise<telux::common::ErrorCode> p;
+    std::promise<uint32_t> q;
+    int phoneId = PhoneManager->getPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
+    telux::tel::ECallHlapTimerCallback cb =
+            [&p, &q](telux::common::ErrorCode error, uint32_t timeDuration) {
+                p.set_value(error);
+                q.set_value(timeDuration);
+            };
+    Status status = CallManager->requestEcallHlapTimer(phoneId, HlapTimerType::T10_TIMER, cb);
 
-        if (le_cfg_NodeExists(iteratorRef, CFG_NAD_DEREG_TIME))
-        {
-            *deregTime = le_cfg_GetInt(iteratorRef, CFG_NAD_DEREG_TIME, 0); //In minutes
-
-            LE_INFO("From config deregistrationTime (in minutes): =  %d", *deregTime);
-            le_cfg_CancelTxn(iteratorRef);
-        }
-        else
-        {
-            //Out of box: never set t10 timer. return default value (12 hrs) in minutes
-            *deregTime = 12*60;
-            res = LE_OK;
+    if (status == Status::SUCCESS) {
+        LE_INFO("GetNadDeregistrationTime: status %d", (int) status);
+        telux::common::ErrorCode error = p.get_future().get();
+        LE_INFO("GetNadDeregistrationTime: error code %d", (int) error);
+        if (error == ErrorCode::SUCCESS) {
+            uint32_t t10 = q.get_future().get();
+            LE_INFO("Get NAD deregistration time (T10 in minutes) fetched as: %d", t10);
+            *deregTime =  (uint16_t) t10;
+            LE_INFO("Get NAD deregistration time (in minutes): %d", *deregTime);
+            return LE_OK;
         }
     }
 
-    LE_INFO("Get NAD deregistration time (in minutes): %d", *deregTime);
-    return res;
+    return LE_FAULT;
 }
 
 le_result_t taf_ecall::TerminateRegistration()
 {
-    le_result_t res = taf_pa_ecall_TerminateRegistration();
+    std::promise<telux::common::ErrorCode> p;
+    int phoneId = PhoneManager->getPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
 
-    return res;
+    telux::common::ResponseCallback cb = [&p](telux::common::ErrorCode error) { p.set_value(error); };
+    Status status = CallManager->requestNetworkDeregistration(phoneId, cb);
+    LE_INFO("TerminateRegistration: status %d", (int) status);
+    if (status == Status::SUCCESS) {
+        telux::common::ErrorCode error = p.get_future().get();
+        LE_INFO("TerminateRegistration: error code %d", (int) error);
+        if (error == ErrorCode::SUCCESS) {
+            return LE_OK;
+        }
+    }
+
+    return LE_FAULT;
 }
 
 taf_ecall_StateChangeHandlerRef_t taf_ecall::AddStateChangeHandler

@@ -56,7 +56,7 @@ static le_timer_Ref_t StartCallTimer;
  * Destination Number(NOT SUPPORT DSDA).
  */
 //--------------------------------------------------------------------------------------------------
-static char  DestinationNum[LE_MDMDEFS_PHONE_NUM_MAX_BYTES+1];
+static char  DestinationNum[TAF_TYPES_REMOTE_PARTY_NUM_MAX_BYTES+1];
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -275,7 +275,7 @@ COMPONENT_INIT
                 LE_ERROR("phoneNumber is NULL");
                 exit(EXIT_FAILURE);
             }
-            le_utf8_Copy(DestinationNum, phoneNumber, LE_MDMDEFS_PHONE_NUM_MAX_BYTES, NULL);
+            le_utf8_Copy(DestinationNum, phoneNumber, TAF_TYPES_REMOTE_PARTY_NUM_MAX_BYTES, NULL);
             LE_INFO("Phone number %s", DestinationNum);
         }
 

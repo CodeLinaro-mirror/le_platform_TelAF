@@ -1,7 +1,8 @@
 # Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
-FROM ubuntu:20.04
+ARG UBUNTU_DISTRO_ORIGIN
+FROM $UBUNTU_DISTRO_ORIGIN
 
 RUN apt-get -qq update
 RUN apt-get -y install sudo

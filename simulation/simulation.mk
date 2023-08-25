@@ -5,6 +5,8 @@
 TARGETS += simulation
 
 Q?=@
+
+# If you want make a compilation in your docker container, get along with below.
 export within ?=
 
 ifeq ($(lastword $(MAKECMDGOALS)),simulation)
@@ -30,7 +32,7 @@ MKSYS_FLAGS_SIMULATION_EX += $(MKEXE_FLAGS_SIMULATION_EX)
 
 export MKEXE_FLAGS_SIMULATION_EX MKAPP_FLAGS_SIMULATION_EX MKSYS_FLAGS_SIMULATION_EX
 
-.PHONY: sml simulation boost vsomeip
+.PHONY: simulation boost vsomeip
 
 ifeq ($(within),)
 simula simulac simula-c: check-sys pre-simulation-build simulation post-simulation-build
@@ -247,6 +249,14 @@ vsomeip_status: $(SIMULATION_DEPS_SOURCE)/.vsomeip.status
 which_one_default := $(CURDIR)/simulation/which_one_default
 which_one := $(CURDIR)/simulation/workstation/.which_one
 get_which_one := `if [ -e $(which_one) ]; then cat $(which_one) ; else cat $(which_one_default) ; fi`
+which_one_point_version :=  $(shell echo $(get_which_one) | sed 's/\([0-9][0-9]\)/\1./')
+
+# If you want to specify a private hub address to get ubuntu base images, override 'from' in commands
+export from ?=
+
+ifneq ("$(origin from)","command line")
+export from := ubuntu:$(which_one_point_version)
+endif
 
 define up_simulation_container
 	@echo "Up Simulation with [$(1:up_%.sh=%)]"
@@ -254,9 +264,10 @@ define up_simulation_container
 	@echo "Down Simulation with [$(1:up_%.sh=%)], see you ~"
 endef
 
-define build_sml_docker_image
+define build_simulation_docker_image
 	@echo "[$@] build docker image..."
-	@docker compose -f "$(CURDIR)/simulation/docker/for_ubuntu_$(get_which_one)/docker-compose.yml" \
+	@export UBUNTU_DISTRO_ORIGIN=$(from) \
+	    && docker compose -f "$(CURDIR)/simulation/docker/for_ubuntu_$(get_which_one)/docker-compose.yml" \
 	    build telaf_simulation_$(1)_$(get_which_one)
 	@echo "[$@] image build done."
 endef
@@ -277,42 +288,45 @@ simula-help:
 	@echo "    > make simula-list"
 	@echo "    > make simula within='make simula'"
 	@echo
-	@echo " >> simula-action-args"
-	@echo "  - within='command'"
+	@echo "  >> simula-action-args"
+	@echo "    - within='command'"
+	@echo "    - from='hub-address'"
 	@echo
-	@echo " >> simula-action supported list as follows"
-	@echo "  - List & Switch simulation container distro system versions (default Ubuntu18.04)"
-	@echo "    + simula-list                    -- List all system distro versions simulation supported."
-	@echo "    + simula-distro-1804             -- Switch the system distro version to Ubuntu18.04"
-	@echo "    + simula-distro-2004             -- Switch the system distro version to Ubuntu20.04"
+	@echo "  >> simula-action supported list as follows"
+	@echo "    - List & Switch simulation container distro system versions (default Ubuntu18.04)"
+	@echo "      + simula-list                    -- List all system distro versions simulation supported."
+	@echo "      + simula-distro-1804             -- Switch the system distro version to Ubuntu18.04"
+	@echo "      + simula-distro-2004             -- Switch the system distro version to Ubuntu20.04"
 	@echo
-	@echo "  - Compile your simulation project on your HOST or CONTAINER"
-	@echo "    + simula | simulac               -- Incrementally compile simulation open source code on HOST"
-	@echo "    + simula-clean                   -- Just deep clean your simulation project"
-	@echo "    + simula within='<command>'      -- Incrementally compile simulation open source code in CONTAINER"
+	@echo "    - Compile your simulation project on your HOST or CONTAINER"
+	@echo "      + simula | simulac               -- Incrementally compile simulation open source code on HOST"
+	@echo "      + simula-clean                   -- Just deep clean your simulation project"
+	@echo "      + simula within='<command>'      -- Incrementally compile simulation open source code in CONTAINER"
 	@echo
-	@echo "  - Build your simulation docker containers cli, depends which system version you selected (see 'smlon')"
-	@echo "    + simula-build-runtime           -- Build a runtime docker image for running TelAF Simulation"
-	@echo "    + simula-build-develop           -- Build a develop docker image for developing Simulation in it"
-	@echo "    + simula-build-all               -- Build all docker images along with [runtime, develop, oncecmd]"
+	@echo "    - Build your simulation docker containers cli, depends which system version you selected (see 'simula-list')"
+	@echo "      + simula-build-runtime           -- Build a runtime docker image for running TelAF Simulation"
+	@echo "      + simula-build-develop           -- Build a develop docker image for developing Simulation in it"
+	@echo "      + simula-build-all               -- Build all docker images along with [runtime, develop, oncecmd]"
+	@echo "      + simula-build-runtime from='hub-address'"
+	@echo "                                       -- Specify a hub address you want to get the ubuntu base image and build it"
 	@echo
-	@echo "  - Boot up your simulation docker container that was built, depends which system version you selected (see 'smlon')"
-	@echo "    + simula-up | simula-up-runtime  -- Boot up the runtime container to simulate"
-	@echo "    + simula-up-develop              -- Boot up the develop container for developers"
+	@echo "    - Boot up your simulation docker container that was built, depends which system version you selected (see 'simula-list')"
+	@echo "      + simula-up | simula-up-runtime  -- Boot up the runtime container to simulate"
+	@echo "      + simula-up-develop              -- Boot up the develop container for developers"
 	@echo
-	@echo "  - Docker operation helper commands"
-	@echo "    + simula-listimg                 -- List all docker images on your host"
-	@echo "    + simula-listv                   -- List all volumes named along with 'telaf'"
-	@echo "    + simula-rmv                     -- Delete all volumes named along with 'telaf'"
+	@echo "    - Docker operation helper commands"
+	@echo "      + simula-listimg                 -- List all docker images on your host"
+	@echo "      + simula-listv                   -- List all volumes named along with 'telaf'"
+	@echo "      + simula-rmv                     -- Delete all volumes named along with 'telaf'"
 
 
 simula-buildall simula-build-all-docker-images: simula-build-runtime simula-build-develop
 
 simula-build simula-build-runtime:
-	$(call build_sml_docker_image,runtime)
+	$(call build_simulation_docker_image,runtime)
 
 simula-build-develop:
-	$(call build_sml_docker_image,develop)
+	$(call build_simulation_docker_image,develop)
 
 simula-up simula-up-runtime:
 	$(call up_simulation_container,up_runtime.sh)

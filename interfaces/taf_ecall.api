@@ -772,38 +772,54 @@ FUNCTION le_result_t SetMsdPosition
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Sets the change in latitude and longitude compared
- * to the last MSD transmission.
+ * Sets the position delta N-1 for MSD transmission.
  *
  * @return
- *      - LE_OK -- Succeeded.
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
  *      - LE_FAULT -- Failed.
+ *      - LE_OK -- Succeeded.
+ *      - LE_DUPLICATE -- The MSD has already been imported.
  *
+ * @note The process exits when an invalid eCall reference is given.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetMsdPositionN1
 (
     Call  ecallRef   IN,        ///< SIM slot ID.
     int32 latitudeDeltaN1 IN,   ///< First latitude delta.
+                                ///< 1 Unit = 100 miliarcseconds, which is approximately 3m
+                                ///< maximum value: 511 = 0 0'51.100'' (+- 1580m)
+                                ///< minimum value: -512 = -0 0'51.200'' (+- -1583m)
     int32 longitudeDeltaN1 IN   ///< First longitude delta.
+                                ///< 1 Unit = 100 miliarcseconds, which is approximately 3m
+                                ///< maximum value: 511 = 0 0'51.100'' (+- 1580m)
+                                ///< minimum value: -512 = -0 0'51.200'' (+- -1583m)
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Sets the change in latitude and longitude compared
- * to the last MSD transmission.
+ * Sets the position delta N-2 for MSD transmission.
  *
  * @return
- *      - LE_OK -- Succeeded.
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
  *      - LE_FAULT -- Failed.
+ *      - LE_OK -- Succeeded.
+ *      - LE_DUPLICATE -- The MSD has already been imported.
  *
+ * @note The process exits when an invalid eCall reference is given.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetMsdPositionN2
 (
     Call  ecallRef   IN,        ///< SIM slot ID.
     int32 latitudeDeltaN2 IN,   ///< Second latitude delta.
+                                ///< 1 Unit = 100 miliarcseconds, which is approximately 3m
+                                ///< maximum value: 511 = 0 0'51.100'' (+- 1580m)
+                                ///< minimum value: -512 = -0 0'51.200'' (+- -1583m)
     int32 longitudeDeltaN2 IN   ///< Second longitude delta.
+                                ///< 1 Unit = 100 miliarcseconds, which is approximately 3m
+                                ///< maximum value: 511 = 0 0'51.100'' (+- 1580m)
+                                ///< minimum value: -512 = -0 0'51.200'' (+- -1583m)
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -811,9 +827,11 @@ FUNCTION le_result_t SetMsdPositionN2
  *  Sets the number of passengers according to the given eCall reference.
  *
  * @return
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
  *      - LE_OK -- Succeeded.
- *      - LE_FAULT -- Failed.
+ *      - LE_DUPLICATE -- The MSD has already been imported.
  *
+ * @note The process exits when an invalid eCall reference is given.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetMsdPassengersCount
@@ -828,8 +846,10 @@ FUNCTION le_result_t SetMsdPassengersCount
  *
  * @return
  *      - LE_OK -- Succeeded.
- *      - LE_FAULT -- Failed.
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
+ *      - LE_OVERFLOW -- The size of the MSD buffer is wrong.
  *
+ * @note The process exits if an invalid eCall reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ImportMsd
@@ -844,8 +864,12 @@ FUNCTION le_result_t ImportMsd
  *
  * @return
  *      - LE_OK -- Succeeded.
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
+ *      - LE_OVERFLOW -- The size of the MSD buffer is wrong.
+ *      - LE_NOT_FOUND -- The MSD is not imported or updated.
  *      - LE_FAULT -- Failed.
  *
+ * @note The process exits if an invalid eCall reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ExportMsd

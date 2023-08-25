@@ -45,6 +45,21 @@ COMPONENT_INIT
     auto &ecall = taf_ecall::GetInstance();
     ecall.Init();
     LE_INFO(" tafECall service Ready...\n");
+
+    // Add boot KPI marker
+    const char *kpi_file = "/sys/kernel/boot_kpi/kpi_values";
+    const char *kpi_marker = "L - TelAF eCall service is ready";
+    FILE *file = fopen(kpi_file, "w");
+    if (file == NULL)
+    {
+        LE_ERROR("%s does not exist", kpi_file);
+        return;
+    }
+    if (fwrite(kpi_marker, sizeof(char), strlen(kpi_marker), file) != strlen(kpi_marker))
+    {
+        LE_ERROR("failed to write %s to %s", kpi_marker, kpi_file);
+    }
+    fclose(file);
 }
 
 /*======================================================================
@@ -691,21 +706,29 @@ le_result_t taf_ecall_SetMsdPosition
 
 /*======================================================================
 
- FUNCTION        taf_ecall_SetMsdPositionN1
+ FUNCTION       taf_ecall_SetMsdPositionN1
 
- DESCRIPTION    Set the change in latitude and longitude compared
-                to the last MSD transmission.
+ DESCRIPTION    Sets the position delta N-1 for MSD transmission.
 
  DEPENDENCIES   Initialization of ECall service
 
  PARAMETERS     [IN]ecallRef : reference for ecall
                 [IN]latitudeDeltaN1: change in latitude value
+                                     < 1 Unit = 100 miliarcseconds, which is approximately 3m
+                                     < maximum value: 511 = 0 0'51.100'' (±1580m)
+                                     < minimum value: -512 = -0 0'51.200'' (± -1583m)
                 [IN]longitudeDeltaN1: change longitude value
+                                     < 1 Unit = 100 miliarcseconds, which is approximately 3m
+                                     < maximum value: 511 = 0 0'51.100'' (±1580m)
+                                     < minimum value: -512 = -0 0'51.200'' (± -1583m)
 
- RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER:     Invalid parameters.
-                     LE_FAULT:             Fail.
-                     LE_OK:                Success.
+ RETURN VALUE   le_result_t
+                    LE_BAD_PARAMETER:     Bad eCall reference.
+                    LE_FAULT:             Failed.
+                    LE_OK:                Succeeded.
+                    LE_DUPLICATE:         The MSD has already been imported.
+
+ NOTE           The process exits when an invalid eCall reference is given.
 
  SIDE EFFECTS
 
@@ -718,27 +741,33 @@ le_result_t taf_ecall_SetMsdPositionN1
 )
 {
     auto &ecall = taf_ecall::GetInstance();
-    ecall.SetMsdPositionN1(ecallRef, latitudeDeltaN1, longitudeDeltaN1);
-    return LE_OK;
+    return ecall.SetMsdPositionN1(ecallRef, latitudeDeltaN1, longitudeDeltaN1);
 }
 
 /*======================================================================
 
- FUNCTION        taf_ecall_SetMsdPositionN2
+ FUNCTION       taf_ecall_SetMsdPositionN2
 
- DESCRIPTION    Set the change in latitude and longitude compared
-                to the last MSD transmission.
+ DESCRIPTION    Sets the position delta N-2 for MSD transmission.
 
  DEPENDENCIES   Initialization of ECall service
 
  PARAMETERS     [IN]ecallRef : reference for ecall
                 [IN]latitudeDeltaN2: change in latitude value
+                                     < 1 Unit = 100 miliarcseconds, which is approximately 3m
+                                     < maximum value: 511 = 0 0'51.100'' (±1580m)
+                                     < minimum value: -512 = -0 0'51.200'' (± -1583m)
                 [IN]longitudeDeltaN2: change longitude value
+                                     < 1 Unit = 100 miliarcseconds, which is approximately 3m
+                                     < maximum value: 511 = 0 0'51.100'' (±1580m)
+                                     < minimum value: -512 = -0 0'51.200'' (± -1583m)
 
- RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER:     Invalid parameters.
-                     LE_FAULT:             Fail.
-                     LE_OK:                Success.
+ RETURN VALUE   le_result_t
+                    LE_BAD_PARAMETER:     Bad eCall reference.
+                    LE_FAULT:             Failed.
+                    LE_OK:                Succeeded.
+                    LE_DUPLICATE:         The MSD has already been imported.
+ NOTE           The process exits when an invalid eCall reference is given.
 
  SIDE EFFECTS
 
@@ -751,8 +780,7 @@ le_result_t taf_ecall_SetMsdPositionN2
 )
 {
     auto &ecall = taf_ecall::GetInstance();
-    ecall.SetMsdPositionN2(ecallRef, latitudeDeltaN2, longitudeDeltaN2);
-    return LE_OK;
+    return ecall.SetMsdPositionN2(ecallRef, latitudeDeltaN2, longitudeDeltaN2);
 }
 
 /*======================================================================
@@ -767,9 +795,11 @@ le_result_t taf_ecall_SetMsdPositionN2
                  [IN] passengerCount: number of passenger
 
  RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER:     Invalid parameters.
-                     LE_FAULT:             Fail.
-                     LE_OK:                Success.
+                    LE_BAD_PARAMETER:     Bad eCall reference.
+                    LE_OK:                Succeeded.
+                    LE_DUPLICATE:         The MSD has already been imported.
+
+ NOTE           The process exits when an invalid eCall reference is given.
 
  SIDE EFFECTS
 
@@ -781,9 +811,7 @@ le_result_t taf_ecall_SetMsdPassengersCount
 )
 {
     auto &ecall = taf_ecall::GetInstance();
-    ecall.SetMsdPassengersCount(ecallRef, passengerCount);
-
-    return LE_OK;
+    return ecall.SetMsdPassengersCount(ecallRef, passengerCount);
 }
 
 /*======================================================================
@@ -978,9 +1006,11 @@ le_result_t taf_ecall_End
                  [IN] msdLength: length of msd in pdu format
 
  RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER:     Invalid parameters.
-                     LE_FAULT:             Fail.
                      LE_OK:                Success.
+                     LE_BAD_PARAMETER:     Invalid parameters.
+                     LE_OVERFLOW:          The size of the MSD buffer is wrong.
+
+ NOTE            The process exits if an invalid eCall reference is passed.
 
  SIDE EFFECTS
 
@@ -1013,9 +1043,13 @@ le_result_t taf_ecall_ImportMsd
  PARAMETERS      [IN] ecallRef: ecall reference
 
  RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER:     Invalid parameters.
-                     LE_FAULT:             Fail.
                      LE_OK:                Success.
+                     LE_BAD_PARAMETER:     Invalid parameters.
+                     LE_OVERFLOW:          The size of the MSD buffer is wrong.
+                     LE_NOT_FOUND:         The MSD is not imported or updated.
+                     LE_FAULT:             Fail.
+
+ NOTE            The process exits if an invalid eCall reference is passed.
 
  SIDE EFFECTS
 

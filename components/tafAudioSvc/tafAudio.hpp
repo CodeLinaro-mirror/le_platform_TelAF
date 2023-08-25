@@ -281,6 +281,8 @@ namespace tafsvc {
             bool mVoiceEnabled2 = false;
             bool mModemRx = false;
             bool mSpeaker = false;
+            bool mModemTx = false;
+            bool mMic = false;
             bool mIsPlaying = false;
             bool mIsPlayStreamCreated = false;
             bool mEmptyPipeline = false;
@@ -294,6 +296,7 @@ namespace tafsvc {
             AudioFormat mFileFormat;
             StreamVolume mVol;
             le_sem_Ref_t mSemRef;
+            StreamConfig voiceStreamConfig = {};
 
             le_result_t StartAudio( StreamConfig config );
             le_result_t StopAudio(taf_audio_Stream_t* streamPtr);

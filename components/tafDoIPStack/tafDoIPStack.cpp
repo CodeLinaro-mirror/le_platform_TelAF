@@ -503,13 +503,19 @@ void taf_doip_RemovePowerModeQueryHandler
     taf_doip_PowerModeQueryHandlerRef_t handerRef    ///< [IN] The handler reference.
 )
 {
-    taf_doipPmQueryHandler_t*   handler;
+    taf_doipPmQueryHandler_t*   handlerPtr = NULL;
 
     auto& cmMgr = CommunicationMgr::GetInstance();
 
-    handler = (taf_doipPmQueryHandler_t*)le_ref_Lookup(cmMgr.doipHandlerRefMap, handerRef);
-    le_ref_DeleteRef(cmMgr.doipHandlerRefMap, handler->safeRef);
-    handler->safeRef = NULL;
+    handlerPtr = (taf_doipPmQueryHandler_t*)le_ref_Lookup(cmMgr.doipHandlerRefMap, handerRef);
+    if (handlerPtr == NULL)
+    {
+        LE_ERROR("Invalid reference!!");
+        return;
+    }
+
+    le_ref_DeleteRef(cmMgr.doipHandlerRefMap, handlerPtr->safeRef);
+    handlerPtr->safeRef = NULL;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -580,17 +586,22 @@ void taf_doip_RemoveDiagIndicationHandler
     taf_doip_DiagIndicationHandlerRef_t handerRef   ///< [IN] The handler reference.
 )
 {
-    taf_doipIndicationHandler_t*   handler;
+    taf_doipIndicationHandler_t*   handlerPtr = NULL;
 
     auto& cmMgr = CommunicationMgr::GetInstance();
 
 
-    handler = (taf_doipIndicationHandler_t*)le_ref_Lookup(cmMgr.doipHandlerRefMap, handerRef);
+    handlerPtr = (taf_doipIndicationHandler_t*)le_ref_Lookup(cmMgr.doipHandlerRefMap, handerRef);
+    if (handlerPtr == NULL)
+    {
+        LE_ERROR("Invalid reference!!");
+        return;
+    }
 
-    le_mutex_Lock(handler->mutexRef);
-    le_ref_DeleteRef(cmMgr.doipHandlerRefMap, handler->safeRef);
-    handler->safeRef = NULL;
-    le_mutex_Unlock(handler->mutexRef);
+    le_mutex_Lock(handlerPtr->mutexRef);
+    le_ref_DeleteRef(cmMgr.doipHandlerRefMap, handlerPtr->safeRef);
+    handlerPtr->safeRef = NULL;
+    le_mutex_Unlock(handlerPtr->mutexRef);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -660,17 +671,22 @@ void taf_doip_RemoveDiagConfirmHandler
     taf_doip_DiagConfirmHandlerRef_t handerRef  ///< [IN] The handler reference.
 )
 {
-    taf_doipDiagConfirmHandler_t*   handler;
+    taf_doipDiagConfirmHandler_t*   handlerPtr = NULL;
 
     auto& cmMgr = CommunicationMgr::GetInstance();
 
 
-    handler = (taf_doipDiagConfirmHandler_t*)le_ref_Lookup(cmMgr.doipHandlerRefMap, handerRef);
+    handlerPtr = (taf_doipDiagConfirmHandler_t*)le_ref_Lookup(cmMgr.doipHandlerRefMap, handerRef);
+    if (handlerPtr == NULL)
+    {
+        LE_ERROR("Invalid reference!!");
+        return;
+    }
 
-    le_mutex_Lock(handler->mutexRef);
-    le_ref_DeleteRef(cmMgr.doipHandlerRefMap, handler->safeRef);
-    handler->safeRef = NULL;
-    le_mutex_Unlock(handler->mutexRef);
+    le_mutex_Lock(handlerPtr->mutexRef);
+    le_ref_DeleteRef(cmMgr.doipHandlerRefMap, handlerPtr->safeRef);
+    handlerPtr->safeRef = NULL;
+    le_mutex_Unlock(handlerPtr->mutexRef);
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -732,13 +748,19 @@ void taf_doip_RemoveUserConfirmHandler
     taf_doip_UserConfirmHandlerRef_t    handerRef ///< [IN] Hander function.
 )
 {
-    taf_doipUserConfirmHandler_t*   handler;
+    taf_doipUserConfirmHandler_t*   handlerPtr = NULL;
 
     auto& cmMgr = CommunicationMgr::GetInstance();
 
-    handler = (taf_doipUserConfirmHandler_t*)le_ref_Lookup(cmMgr.doipHandlerRefMap, handerRef);
-    le_ref_DeleteRef(cmMgr.doipHandlerRefMap, handler->safeRef);
-    handler->safeRef = NULL;
+    handlerPtr = (taf_doipUserConfirmHandler_t*)le_ref_Lookup(cmMgr.doipHandlerRefMap, handerRef);
+    if (handlerPtr == NULL)
+    {
+        LE_ERROR("Invalid reference!!");
+        return;
+    }
+
+    le_ref_DeleteRef(cmMgr.doipHandlerRefMap, handlerPtr->safeRef);
+    handlerPtr->safeRef = NULL;
 }
 
 //-------------------------------------------------------------------------------------------------

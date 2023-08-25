@@ -672,28 +672,25 @@ void tafLocationListener::onGnssSVInfo(const std::shared_ptr<telux::loc::IGnssSV
     for(auto svInfo : gnssSVInfo->getSVInfoList()) {
         switch(svInfo->getConstellation()) {
             case telux::loc::GnssConstellationType::GPS:
-                gnss.mConstellationMask |= TAF_GNSS_CONSTELLATION_GPS;
-                LE_DEBUG("onGnssSVInfo TAF_GNSS_CONSTELLATION_GPS");
+                LE_DEBUG("onGnssSVInfo CONSTELLATION_GPS");
                 break;
             case telux::loc::GnssConstellationType::GLONASS:
-                gnss.mConstellationMask |= TAF_GNSS_CONSTELLATION_GLONASS;
-                LE_DEBUG("onGnssSVInfo TAF_GNSS_CONSTELLATION_GLONASS");
+                LE_DEBUG("onGnssSVInfo CONSTELLATION_GLONASS");
                 break;
             case telux::loc::GnssConstellationType::BDS:
-                gnss.mConstellationMask |= TAF_GNSS_CONSTELLATION_BEIDOU;
-                LE_DEBUG("onGnssSVInfo TAF_GNSS_CONSTELLATION_BEIDOU");
+                LE_DEBUG("onGnssSVInfo CONSTELLATION_BEIDOU");
                 break;
             case telux::loc::GnssConstellationType::GALILEO:
-                gnss.mConstellationMask |= TAF_GNSS_CONSTELLATION_GALILEO;
-                LE_DEBUG("onGnssSVInfo TAF_GNSS_CONSTELLATION_GALILEO");
+                LE_DEBUG("onGnssSVInfo CONSTELLATION_GALILEO");
                 break;
             case telux::loc::GnssConstellationType::SBAS:
-                gnss.mConstellationMask |= TAF_GNSS_CONSTELLATION_SBAS;
-                LE_DEBUG("onGnssSVInfo TAF_GNSS_CONSTELLATION_SBAS");
+                LE_DEBUG("onGnssSVInfo CONSTELLATION_SBAS");
                 break;
             case telux::loc::GnssConstellationType::QZSS:
-                gnss.mConstellationMask |= TAF_GNSS_CONSTELLATION_QZSS;
-                LE_DEBUG("onGnssSVInfo TAF_GNSS_CONSTELLATION_QZSS");
+                LE_DEBUG("onGnssSVInfo CONSTELLATION_QZSS");
+                break;
+            case telux::loc::GnssConstellationType::NAVIC:
+                LE_DEBUG("onGnssSVInfo CONSTELLATION_NAVIC");
                 break;
             default:
                 LE_ERROR("Constellation type: UNKNOWN");
@@ -1201,31 +1198,40 @@ le_result_t taf_Gnss::SetConstellation
     bool deviceReset = false;
     blackListInfo.constellation = telux::loc::GnssConstellationType::UNKNOWN;
 
-    switch (constellationMask)
+    LE_INFO("SetConstellation constellationMask is %0x\n",constellationMask);
+    if( constellationMask & 1) //GPS->1
     {
-        case TAF_GNSS_CONSTELLATION_GPS:
-        break;
-        case TAF_GNSS_CONSTELLATION_GLONASS:
+        LE_INFO("constellation type GPS is not supported");
+    }
+    if( constellationMask & (1<<1)) //GLONASS->2
+    {
         blackListInfo.constellation = telux::loc::GnssConstellationType::GLONASS;
-        break;
-        case TAF_GNSS_CONSTELLATION_BEIDOU:
+        LE_INFO("constellation type is GLONASS");
+    }
+    if( constellationMask & (1<<2))//BEIDOU->4
+    {
         blackListInfo.constellation = telux::loc::GnssConstellationType::BDS;
-        break;
-        case TAF_GNSS_CONSTELLATION_GALILEO:
+        LE_INFO("constellation type is BEIDOU");
+    }
+    if( constellationMask & (1<<3)) //GALILEO->8
+    {
         blackListInfo.constellation = telux::loc::GnssConstellationType::GALILEO;
-        break;
-        case TAF_GNSS_CONSTELLATION_SBAS:
+        LE_INFO("constellation type is GALILEO");
+    }
+    if( constellationMask & (1<<4))//SBAS->16
+    {
         blackListInfo.constellation = telux::loc::GnssConstellationType::SBAS;
-        break;
-        case TAF_GNSS_CONSTELLATION_QZSS:
+        LE_INFO("constellation type is SBAS");
+    }
+    if( constellationMask & (1<<5)) //QZSS->32
+    {
         blackListInfo.constellation = telux::loc::GnssConstellationType::QZSS;
-        break;
-        default:
-        {
-            LE_ERROR("Unknown GNSS CONSTELLATION %d", constellationMask);
-            result = LE_FAULT;
-        }
-        break;
+        LE_INFO("constellation type is QZSS");
+    }
+    if( constellationMask & (1<<6)) //QZSS->64
+    {
+        blackListInfo.constellation = telux::loc::GnssConstellationType::NAVIC;
+        LE_INFO("constellation type is NAVIC");
     }
 
     blackListInfo.svId = 0;
@@ -1249,10 +1255,12 @@ le_result_t taf_Gnss::SetConstellation
                     std::bind(&LocationCommandCallback::commandResponse, mLocCmdResponseCb,
                         std::placeholders::_1), deviceReset);
             if (status == telux::common::Status::NOTIMPLEMENTED) {
-                LE_INFO("Not implemented");
+                LE_INFO("Constellation not implemented");
                 result = LE_FAULT;
             } else if (telux::common::Status::SUCCESS == status) {
                 result = LE_OK;
+                mConstellationMask = constellationMask;
+                LE_INFO("SetConstellation is success");
             }
         }
         break;
@@ -1291,7 +1299,8 @@ le_result_t taf_Gnss::Start
                 }
                 LocReqEngine engineType = DEFAULT_UNKNOWN;
                 CmdSynchronousPromise = std::promise<le_result_t>();
-                engineType |= 1UL << 0; //DRE+SPE+PPE engines supported
+                LE_INFO("Start->mEngineType : %d",mEngineType);
+                engineType |= (1UL << mEngineType);//FUSED mode is supported by default
                 mLocCmdResponseCb = std::make_shared<LocationCommandCallback>
                         ("startDetailedEngineReports");
                 mLocationManager->startDetailedEngineReports((uint32_t)optInterval,engineType,
@@ -1679,21 +1688,65 @@ le_result_t taf_Gnss::GetConstellation
     {
         case TAF_GNSS_STATE_UNINITIALIZED:
         case TAF_GNSS_STATE_DISABLED:
-        case TAF_GNSS_STATE_READY:
             {
                 LE_ERROR("Bad state for that request [%d]", GnssState);
                 result = LE_NOT_PERMITTED;
             }
             break;
+        case TAF_GNSS_STATE_READY:
         case TAF_GNSS_STATE_ACTIVE:
             {
                 // Get GNSS constellation
-                std::unique_lock<std::mutex> lock(mMutex);
-                mCondVar.wait(lock);
-                *constellationMaskPtr = mConstellationMask;
-                LE_INFO("GetConstellation *constellationMaskPtr: %d", *constellationMaskPtr);
-                mConstellationMask = 0;//reset the mask
-                result = LE_OK;
+                if(mConstellationMask & TAF_GNSS_CONSTELLATION_GPS)
+                {
+                    *constellationMaskPtr |= TAF_GNSS_CONSTELLATION_GPS;
+                    result = LE_OK;
+                    LE_DEBUG("constellation type is TAF_GNSS_CONSTELLATION_GPS");
+                }
+                if(mConstellationMask & TAF_GNSS_CONSTELLATION_GLONASS)
+                {
+                    *constellationMaskPtr |= TAF_GNSS_CONSTELLATION_GLONASS;
+                    result = LE_OK;
+                    LE_DEBUG("constellation type is TAF_GNSS_CONSTELLATION_GLONASS");
+                }
+                if(mConstellationMask & TAF_GNSS_CONSTELLATION_BEIDOU)
+                {
+                    *constellationMaskPtr |= TAF_GNSS_CONSTELLATION_BEIDOU;
+                    result = LE_OK;
+                    LE_DEBUG("constellation type is TAF_GNSS_CONSTELLATION_BEIDOU");
+                }
+                if(mConstellationMask & TAF_GNSS_CONSTELLATION_GALILEO)
+                {
+                    *constellationMaskPtr |= TAF_GNSS_CONSTELLATION_GALILEO;
+                    result = LE_OK;
+                    LE_DEBUG("constellation type is TAF_GNSS_CONSTELLATION_GALILEO");
+                }
+                if(mConstellationMask & TAF_GNSS_CONSTELLATION_SBAS)
+                {
+                    *constellationMaskPtr |= TAF_GNSS_CONSTELLATION_SBAS;
+                    result = LE_OK;
+                    LE_DEBUG("constellation type is TAF_GNSS_CONSTELLATION_SBAS");
+                }
+                if(mConstellationMask & TAF_GNSS_CONSTELLATION_QZSS)
+                {
+                    *constellationMaskPtr |= TAF_GNSS_CONSTELLATION_QZSS;
+                    result = LE_OK;
+                    LE_DEBUG("constellation type is TAF_GNSS_CONSTELLATION_QZSS");
+                }
+                if(mConstellationMask & TAF_GNSS_CONSTELLATION_NAVIC)
+                {
+                    *constellationMaskPtr |= TAF_GNSS_CONSTELLATION_NAVIC;
+                    result = LE_OK;
+                    LE_DEBUG("constellation type is TAF_GNSS_CONSTELLATION_NAVIC");
+                }
+                if (LE_OK != result)
+                {
+                    *constellationMaskPtr = 0;;
+                    LE_ERROR("constellation type is invalid");
+                    result = LE_FAULT;
+                    LE_ERROR("Unable to get the constellation, error = %d (%s)",
+                          result, LE_RESULT_TXT(result));
+                }
             }
             break;
         default:
@@ -2582,7 +2635,7 @@ le_result_t taf_Gnss::ForceColdRestart
                         }
 
                         LocReqEngine engineType = DEFAULT_UNKNOWN;
-                        engineType |= 1UL << 0; //DRE+SPE+PPE engines supported
+                        engineType |= (1UL << mEngineType);
                         mLocCmdResponseCb = std::make_shared<LocationCommandCallback>
                                 ("startDetailedEngineReports");
                         mLocationManager->startDetailedEngineReports((uint32_t)optInterval,
@@ -2688,7 +2741,7 @@ le_result_t taf_Gnss::ForceWarmRestart
                         }
 
                         LocReqEngine engineType = DEFAULT_UNKNOWN;
-                        engineType |= 1UL << 0; //DRE+SPE+PPE engines supported
+                        engineType |= (1UL << mEngineType);
                         mLocCmdResponseCb = std::make_shared<LocationCommandCallback>
                                 ("startDetailedEngineReports");
                         mLocationManager->startDetailedEngineReports((uint32_t)optInterval,
@@ -2777,7 +2830,7 @@ le_result_t taf_Gnss::ForceHotRestart
                         mAcqRate = optInterval;
                     }
                     LocReqEngine engineType = DEFAULT_UNKNOWN;
-                    engineType |= 1UL << 0; //DRE+SPE+PPE engines supported
+                    engineType |= (1UL << mEngineType);
                     mLocCmdResponseCb = std::make_shared<LocationCommandCallback>
                             ("startDetailedEngineReports");
                     mLocationManager->startDetailedEngineReports((uint32_t)optInterval,engineType,
@@ -2997,7 +3050,7 @@ le_result_t taf_Gnss::StartMode
                         mAcqRate = optInterval;
                     }
                     LocReqEngine engineType = DEFAULT_UNKNOWN;
-                    engineType |= 1UL << 0; //DRE+SPE+PPE engines supported
+                    engineType |= (1UL << mEngineType);
                     mLocCmdResponseCb = std::make_shared<LocationCommandCallback>
                             ("startDetailedEngineReports");
                     mLocationManager->startDetailedEngineReports((uint32_t)optInterval,engineType,
@@ -3558,7 +3611,7 @@ le_result_t taf_Gnss::ConfigureEngineState
             break;
         default:
         {
-            LE_ERROR("Unknown Engine state %d", engtype);
+            LE_ERROR("Unknown Engine state %d", engState);
             result = LE_FAULT;
             return result;
         }
@@ -3810,7 +3863,7 @@ le_result_t taf_Gnss::DefaultSecondaryBandConstellations
 
 le_result_t taf_Gnss::RequestSecondaryBandConstellations
 (
-   int32_t * constellationSb
+   uint32_t * constellationSb
 )
 {
     LE_INFO("RequestSecondaryBandConstellation");
@@ -3895,32 +3948,32 @@ le_result_t taf_Gnss::ConfigureSecondaryBandConstellations
         constellationSet.insert(telux::loc::GnssConstellationType::GALILEO);
         LE_INFO("ConfigureSecondary Band constellation GALILEO");
     }
-    if( constellationSb & (1<<(TAF_GNSS_SB_CONSTELLATION_SBAS-1)))//SBAS->3
+    if( constellationSb & (1<<(TAF_GNSS_SB_CONSTELLATION_SBAS-1)))//SBAS->4
     {
         constellationSet.insert(telux::loc::GnssConstellationType::SBAS);
         LE_INFO("ConfigureSecondary Band constellation SBAS");
     }
-    if( constellationSb & (1<<(TAF_GNSS_SB_CONSTELLATION_COMPASS-1))) //COMPASS->4
+    if( constellationSb & (1<<(TAF_GNSS_SB_CONSTELLATION_COMPASS-1))) //COMPASS->8
     {
         constellationSet.insert(telux::loc::GnssConstellationType::COMPASS);
         LE_INFO("ConfigureSecondary Band constellation COMPASS");
     }
-    if( constellationSb & (1<<(TAF_GNSS_SB_CONSTELLATION_GLONASS-1)))//GLONASS->5
+    if( constellationSb & (1<<(TAF_GNSS_SB_CONSTELLATION_GLONASS-1)))//GLONASS->16
     {
         constellationSet.insert(telux::loc::GnssConstellationType::GLONASS);
         LE_INFO("ConfigureSecondary Band constellation GLONASS");
     }
-    if( constellationSb & (1<<(TAF_GNSS_SB_CONSTELLATION_BDS-1))) //BDS->6
+    if( constellationSb & (1<<(TAF_GNSS_SB_CONSTELLATION_BDS-1))) //BDS->32
     {
         constellationSet.insert(telux::loc::GnssConstellationType::BDS);
         LE_INFO("ConfigureSecondary Band constellation BDS");
     }
-    if( constellationSb & (1<<(TAF_GNSS_SB_CONSTELLATION_QZSS-1))) //QZSS->7
+    if( constellationSb & (1<<(TAF_GNSS_SB_CONSTELLATION_QZSS-1))) //QZSS->64
     {
         constellationSet.insert(telux::loc::GnssConstellationType::QZSS);
         LE_INFO("ConfigureSecondary Band constellation QZSS");
     }
-    if( constellationSb & (1<<(TAF_GNSS_SB_CONSTELLATION_NAVIC-1))) //NAVIC->8
+    if( constellationSb & (1<<(TAF_GNSS_SB_CONSTELLATION_NAVIC-1))) //NAVIC->128
     {
         constellationSet.insert(telux::loc::GnssConstellationType::NAVIC);
         LE_INFO("ConfigureSecondary Band constellation NAVIC");
@@ -3964,6 +4017,129 @@ le_result_t taf_Gnss::ConfigureSecondaryBandConstellations
     return result;
 }
 #endif
+
+
+le_result_t taf_Gnss::SetLeverArmConfig(const taf_gnss_LeverArmParams_t* LeverArmParamsPtr)
+{
+    le_result_t result = LE_NOT_PERMITTED;
+    LeverArmConfigInfo configInfo;
+    telux::loc::LeverArmType leverArmType;
+    telux::loc::LeverArmParams leverArmParams;
+    TAF_KILL_CLIENT_IF_RET_VAL( NULL == LeverArmParamsPtr, LE_FAULT, "LeverArmParamsPtr is NULL");
+
+    switch (GnssState)
+    {
+        case TAF_GNSS_STATE_READY:
+        {
+            if((LeverArmParamsPtr->levArmType < TAF_GNSS_LEVER_ARM_TYPE_GNSS_TO_VRP)
+                || (LeverArmParamsPtr->levArmType >TAF_GNSS_LEVER_ARM_TYPE_VPE_IMU_TO_GNSS))
+            {
+                LE_INFO("invalid Lever Arm type, returning");
+                return LE_BAD_PARAMETER;
+            }
+            //Filling the Lever Arm types
+            if(LeverArmParamsPtr->levArmType == TAF_GNSS_LEVER_ARM_TYPE_GNSS_TO_VRP)
+            {
+                leverArmType = telux::loc::LEVER_ARM_TYPE_GNSS_TO_VRP;
+            }
+            else if(LeverArmParamsPtr->levArmType == TAF_GNSS_LEVER_ARM_TYPE_DR_IMU_TO_GNSS)
+            {
+                leverArmType = telux::loc::LEVER_ARM_TYPE_DR_IMU_TO_GNSS;
+            }
+            else if(LeverArmParamsPtr->levArmType == TAF_GNSS_LEVER_ARM_TYPE_VPE_IMU_TO_GNSS)
+            {
+                leverArmType = telux::loc::LEVER_ARM_TYPE_VPE_IMU_TO_GNSS;
+            }
+
+            //Filling the Lever Arm Paramters
+            leverArmParams.forwardOffset = (float)LeverArmParamsPtr->forwardOffsetMeters;
+            leverArmParams.sidewaysOffset =(float)LeverArmParamsPtr->sidewaysOffsetMeters;
+            leverArmParams.upOffset = (float)LeverArmParamsPtr->upOffsetMeters;
+            configInfo.insert({leverArmType, leverArmParams});
+
+            //Set the Lever Arm Configuration
+            CmdSynchronousPromise = std::promise<le_result_t>();
+            mLocCmdResponseCb = std::make_shared<LocationCommandCallback>
+                    ("Configure lever arm");
+            mLocationConfigurator->configureLeverArm(configInfo,
+                std::bind(&LocationCommandCallback::commandResponse, mLocCmdResponseCb,
+                    std::placeholders::_1));
+            std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
+            if(futResult.get() == LE_OK)
+            {
+                LE_INFO("Set Lever Arm parameters is OK");
+                result = LE_OK;
+            }
+            else
+            {
+                LE_INFO("Set Lever Arm parameters is FAILED");
+                result = LE_FAULT;
+            }
+            if (LE_OK != result)
+            {
+                LE_ERROR("Unable to set the Lever Arm Configuration error = %d (%s)",
+                          result, LE_RESULT_TXT(result));
+            }
+        }
+        break;
+        case TAF_GNSS_STATE_UNINITIALIZED:
+        case TAF_GNSS_STATE_ACTIVE:
+        case TAF_GNSS_STATE_DISABLED:
+        {
+            LE_ERROR("Bad state for that request [%d]", GnssState);
+            result = LE_NOT_PERMITTED;
+        }
+        break;
+        default:
+        {
+            LE_ERROR("Unknown GNSS state %d", GnssState);
+            result = LE_FAULT;
+        }
+        break;
+    }
+    return result;
+}
+
+le_result_t taf_Gnss::SetEngineType(taf_gnss_EngineReportsType_t EngineType)
+{
+    le_result_t result = LE_FAULT;
+    LE_INFO("SetEngineType EngineType %d",EngineType);
+    if((EngineType <TAF_GNSS_ENGINE_REPORT_TYPE_FUSED)
+          || (EngineType>TAF_GNSS_ENGINE_REPORT_TYPE_VPE))
+    {
+        LE_INFO("SetEngineType: Unknown Engine type");
+        return LE_BAD_PARAMETER;
+    }
+
+    switch (GnssState)
+    {
+        case TAF_GNSS_STATE_READY:
+        {
+            // Set Engine Type
+            mEngineType = EngineType;
+            result = LE_OK;
+            LE_INFO("SetEngineType->EngineType:%d",mEngineType);
+        }
+        break;
+        case TAF_GNSS_STATE_ACTIVE:
+        case TAF_GNSS_STATE_UNINITIALIZED:
+        case TAF_GNSS_STATE_DISABLED:
+        {
+            LE_ERROR("Bad state for that request [%d]", GnssState);
+            result = LE_NOT_PERMITTED;
+        }
+        break;
+        break;
+        default:
+        {
+            result = LE_FAULT;
+            LE_ERROR("Unknown GNSS state %d", GnssState);
+        }
+        break;
+    }
+    return result;
+}
+
 void taf_Gnss::RemovePositionHandler
 (
     taf_gnss_PositionHandlerRef_t handlerRef

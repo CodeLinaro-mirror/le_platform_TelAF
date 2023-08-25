@@ -1,0 +1,17 @@
+# Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+version: '3'
+services:
+
+  telaf_simulation_develop_1804:
+    build:
+      context: .
+      dockerfile: Dockerfile.1804.develop
+    image: telaf_simulation_develop_1804:1.0.0
+
+  telaf_simulation_runtime_1804:
+    build:
+      context: .
+      dockerfile: Dockerfile.1804.runtime
+    image: telaf_simulation_runtime_1804:1.0.0

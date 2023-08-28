@@ -259,7 +259,6 @@ allow telaf_app_t user_home_dir_t:dir search_dir_perms;
 allow telaf_app_t etc_t:file { read open lock getattr };
 #domtrans_pattern(unconfined_t, telaf_bin_t, telaf_app_t)
 
-
 # Allow to load sepolicy module
 selinux_load_policy(telaf_update_t)
 userdom_security_admin_template(telaf_update_t, system_r)
@@ -275,6 +274,7 @@ type telaf_overlay_t;
 type telaf_overlay_exec_t;
 init_script_domain(telaf_overlay_t, telaf_overlay_exec_t)
 unconfined_domain(telaf_overlay_t)
+mls_file_read_to_clearance(telaf_overlay_t)
 
 # Define admin domain
 
@@ -501,10 +501,20 @@ if (telaf_external_dependencies) {
 
     #============= load_policy_t ==============
     allow load_policy_t telaf_apptmp_rw_t:file { rw_file_perms };
-    allow load_policy_t { telaf_admin_t telaf_sdir_t }:unix_stream_socket { connectto read write };
+    allow load_policy_t { telaf_admin_t telaf_sdir_t telaf_update_t }:unix_stream_socket { connectto read write };
     allow load_policy_t { telaf_admin_t telaf_sdir_t }:unix_dgram_socket { read write };
     allow load_policy_t { telaf_admin_t telaf_sdir_t }:fd { use };
     allow load_policy_t { telaf_app_rw_t telaf_app_bundle_t }:file { rw_file_perms };
+    ifdef(`sa525m',`
+        gen_require(`
+            type semanage_t;
+        ')
+        allow semanage_t { telaf_fw_t telaf_app_bundle_t }:dir { search_dir_perms };
+        allow semanage_t { telaf_fw_t telaf_app_bundle_t }:file { read_file_perms map };
+        allow load_policy_t tty_device_t:chr_file { read write };
+        allow load_policy_t selinux_config_t:file { map };
+        allow setfiles_t selinux_config_t:file { map };
+    ')
 
     #============= syslogd_t ==============
     allow syslogd_t self:sem { create unix_read unix_write read write destroy };

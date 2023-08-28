@@ -108,8 +108,7 @@
  * - taf_ecall_ForceOnlyMode() -- This API makes the eCall operating mode eCall only. Only emergency 
  *   numbers should be used to start eCall sessions in this mode. The modem may not try to register
  *   with the cellular network. The modem is forced to behave as only eCalls are allowed regardless
- *   of the the U/SIM operation mode. The change is not persistent if the device is rebooted, so this
- *   function may need to be called before starting an eCall.
+ *   of the the U/SIM operation mode. The change persists if the device is rebooted.
  *
  * - taf_ecall_ForcePersistentOnlyMode() -- Same as taf_ecall_ForceOnlyMode(), but this change persists
  *   through device reboot, i.e., power cycles.
@@ -207,8 +206,8 @@
  *
  * The dynamic values of MSD can be written with the following APIs.
  * - taf_ecall_SetMsdPosition() -- Sets the position of the vehicle.
- * - taf_ecall_SetMsdPositionN1() -- Sets the first delta position of the vehicle.
- * - taf_ecall_SetMsdPositionN2() -- Sets the second delta position of the vehicle.
+ * - taf_ecall_SetMsdPositionN1() -- Sets the position delta N-1 for MSD transmission.
+ * - taf_ecall_SetMsdPositionN2() -- Sets the position delta N-2 for MSD transmission.
  * - taf_ecall_SetMsdPassengersCount() -- Sets the number of passengers.
  *
  * The MSD is automatically encoded with the previous MSD values set earlier.
@@ -225,7 +224,7 @@
  * - @ref TAF_ECALL_TX_MODE_PULL -- MSD has been sent when asked by the PSAP
  *
  * An application can import an existing MSD using the taf_ecall_ImportMsd() API.
- * The existing MSD must follow the requirements presented in the "EN 15722:2013" publication (this
+ * The existing MSD must follow the requirements presented in the "EN15722:2015" publication (this
  * publication is prepared by Technical Committee CEN/TC 278 “Intelligent Transport Systems").
  *
  * @warning The imported MSD does not consider the values provided by the
@@ -287,8 +286,12 @@
  *       state change handler will be notified that the eCall state is DIALING and then ALERTING which means that the eCall
  *       successfully reached the PSAP.
  *
- *       After the eCall is answered by the PSAP, the eCall state changes to ACTIVE and in MSD Pull mode, when the eCall Service
- *       gets an indication from the PSAP to receive MSD, the state transfers to TAF_STATE_PSAP_START_RECEIVED.
+ *       After the eCall is answered by the PSAP, the eCall state changes to ACTIVE and in MSD Pull mode, the eCall Service
+ *       gets a state indication from the PSAP to receive MSD.
+ *       But the state indication is not supported in the platform now. It will be supported in future.
+ *       Without the state indication, as of now, the client application should update MSD to the NAD (i.e., modem) by calling
+ *       the taf_ecall_SendMsd() API. Later, when the NAD gets an indication from the PSAP in pull mode, NAD will use the updated
+ *       MSD and send it to the PSAP.
  *
  * #5 -- Start sending encoded MSD via the eCall Service to the PSAP. The eCall state becomes TAF_STATE_MSD_TRANSMISSION_STARTED and the
  *       TAF_STATE_LL_ACK_RECEIVED.
@@ -328,8 +331,8 @@ DEFINE  MAX_MSD_LENGTH = (140);
  */
 ENUM OpMode
 {
-    MODE_NORMAL,           ///< eCall and normal voice calls are allowed
-    MODE_ECALL,            ///< Only eCalls are allowed.
+    MODE_NORMAL,           ///< eCall normal mode.
+    MODE_ECALL,            ///< eCall only mode according to U/SIM operation mode.
     NONE                   ///< Invalid mode.
 };
 
@@ -400,7 +403,7 @@ ENUM State
     STATE_ENDED,                              ///< Call stopped.
     STATE_RESET,                              ///< Not supported.
     STATE_COMPLETED,                          ///< Not supported.
-    STATE_FAILED,                             ///< eCall start failed.
+    STATE_FAILED,                             ///< Not supported.
     STATE_END_OF_REDIAL_PERIOD,               ///< Not supported.
     STATE_T2_EXPIRED,                         ///< T2 timer expired.
     STATE_TIMEOUT_T3,                         ///< Not  supported.
@@ -954,6 +957,7 @@ FUNCTION le_result_t StartTest
  * @return
  *      - LE_OK -- Succeeded.
  *      - LE_FAULT -- Failed.
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -967,9 +971,9 @@ FUNCTION le_result_t End
  *  Gets the currrent eCall state according to the given eCall reference.
  *
  * @return
- *      - LE_OK -- Succeeded.
- *      - LE_FAULT -- Failed.
+ *      - The current state of the given eCall.
  *
+ * @note The process exits if an invalid eCall reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION State GetState
@@ -979,13 +983,13 @@ FUNCTION State GetState
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Gets the platform-specific reason for a recently terminated call according to the given 
+ * Gets the platform-specific reason for a recently terminated call according to the given
  * eCall reference.
  *
  * @return
- *      - LE_OK -- Succeeded.
- *      - LE_FAULT -- Failed.
+ *      - The platform-specific termination code.
  *
+ * @note The API is not supported in this platform.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION int32 GetPlatformSpecificTerminationCode

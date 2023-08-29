@@ -983,6 +983,12 @@ static void TestTafGnssStartType
     result = taf_gnss_Enable();
     LE_TEST_OK(result == LE_OK, "taf_gnss_Enable-LE_OK");
 
+    //SetEngineType - FUSED
+    LE_TEST_INFO("taf_gnss_SetEngineType() API is called to report FUSED Engine Reporting");
+    EngineType = TAF_GNSS_ENGINE_REPORT_TYPE_FUSED;
+    result = taf_gnss_SetEngineType(EngineType);
+    LE_TEST_OK(result == LE_OK, "taf_gnss_SetEngineType-LE_OK");
+
 }
 
 

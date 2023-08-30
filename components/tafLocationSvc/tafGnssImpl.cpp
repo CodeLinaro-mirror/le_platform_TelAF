@@ -1298,6 +1298,9 @@ le_result_t taf_Gnss::Start
                     mAcqRate = optInterval;
                 }
                 LocReqEngine engineType = DEFAULT_UNKNOWN;
+                GnssReportTypeMask reportMask = DEFAULT_UNKNOWN;
+                reportMask = 0x7f;//all reports are enabled
+                LE_INFO("Start->reportMask : %u",reportMask);
                 CmdSynchronousPromise = std::promise<le_result_t>();
                 LE_INFO("Start->mEngineType : %d",mEngineType);
                 engineType |= (1UL << mEngineType);//FUSED mode is supported by default
@@ -1305,7 +1308,7 @@ le_result_t taf_Gnss::Start
                         ("startDetailedEngineReports");
                 mLocationManager->startDetailedEngineReports((uint32_t)optInterval,engineType,
                         std::bind(&LocationCommandCallback::commandResponse,
-                            mLocCmdResponseCb, std::placeholders::_1));
+                            mLocCmdResponseCb, std::placeholders::_1),reportMask);
                 std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
                 if(futResult.get() == LE_OK)
                 {
@@ -2635,12 +2638,15 @@ le_result_t taf_Gnss::ForceColdRestart
                         }
 
                         LocReqEngine engineType = DEFAULT_UNKNOWN;
+                        GnssReportTypeMask reportMask = DEFAULT_UNKNOWN;
+                        reportMask = 0x7f;//all reports are enabled
+                        LE_INFO("ForceColdRestart->reportMask : %u",reportMask);
                         engineType |= (1UL << mEngineType);
                         mLocCmdResponseCb = std::make_shared<LocationCommandCallback>
                                 ("startDetailedEngineReports");
                         mLocationManager->startDetailedEngineReports((uint32_t)optInterval,
                                 engineType,std::bind(&LocationCommandCallback::commandResponse,
-                                    mLocCmdResponseCb, std::placeholders::_1));
+                                    mLocCmdResponseCb, std::placeholders::_1),reportMask);
                         LE_DEBUG("ForceColdRestart ->startDetailedEngineReports()");
                         std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
                         if(futResult.get() == LE_OK)
@@ -2741,12 +2747,15 @@ le_result_t taf_Gnss::ForceWarmRestart
                         }
 
                         LocReqEngine engineType = DEFAULT_UNKNOWN;
+                        GnssReportTypeMask reportMask = DEFAULT_UNKNOWN;
+                        reportMask = 0x7f;//all reports are enabled
+                        LE_INFO("ForceWarmRestart->reportMask : %u",reportMask);
                         engineType |= (1UL << mEngineType);
                         mLocCmdResponseCb = std::make_shared<LocationCommandCallback>
                                 ("startDetailedEngineReports");
                         mLocationManager->startDetailedEngineReports((uint32_t)optInterval,
                                 engineType,std::bind(&LocationCommandCallback::commandResponse,
-                                    mLocCmdResponseCb, std::placeholders::_1));
+                                    mLocCmdResponseCb, std::placeholders::_1),reportMask);
                         LE_DEBUG("ForceWarmRestart ->startDetailedEngineReports()");
                         std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
                         if(futResult.get() == LE_OK)
@@ -2830,12 +2839,15 @@ le_result_t taf_Gnss::ForceHotRestart
                         mAcqRate = optInterval;
                     }
                     LocReqEngine engineType = DEFAULT_UNKNOWN;
+                    GnssReportTypeMask reportMask = DEFAULT_UNKNOWN;
+                    reportMask = 0x7f;//all reports are enabled
+                    LE_INFO("ForceHotRestart->reportMask : %u",reportMask);
                     engineType |= (1UL << mEngineType);
                     mLocCmdResponseCb = std::make_shared<LocationCommandCallback>
                             ("startDetailedEngineReports");
                     mLocationManager->startDetailedEngineReports((uint32_t)optInterval,engineType,
                             std::bind(&LocationCommandCallback::commandResponse,
-                                mLocCmdResponseCb, std::placeholders::_1));
+                                mLocCmdResponseCb, std::placeholders::_1),reportMask);
                     LE_DEBUG("ForceHotRestart()->startDetailedEngineReports");
                     std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
                     if(futResult.get() == LE_OK)
@@ -3050,12 +3062,15 @@ le_result_t taf_Gnss::StartMode
                         mAcqRate = optInterval;
                     }
                     LocReqEngine engineType = DEFAULT_UNKNOWN;
+                    GnssReportTypeMask reportMask = DEFAULT_UNKNOWN;
+                    reportMask = 0x7f;//all reports are enabled
+                    LE_INFO("StartMode->reportMask : %u",reportMask);
                     engineType |= (1UL << mEngineType);
                     mLocCmdResponseCb = std::make_shared<LocationCommandCallback>
                             ("startDetailedEngineReports");
                     mLocationManager->startDetailedEngineReports((uint32_t)optInterval,engineType,
                             std::bind(&LocationCommandCallback::commandResponse,
-                                mLocCmdResponseCb, std::placeholders::_1));
+                                mLocCmdResponseCb, std::placeholders::_1),reportMask);
                     mStartTime = std::chrono::system_clock::now();
                     std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
                     if(futResult.get() == LE_OK)

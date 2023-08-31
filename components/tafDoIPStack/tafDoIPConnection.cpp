@@ -597,12 +597,7 @@ errOut:
     }
 
     // [DoIP-038],[DoIP-087]
-    auto& parser = ProtocolParser::GetInstance();
-    taf_doipLink_t link;
-
-    link.commType = TAF_DOIP_SOCKET_TYPE_TCP;
-    link.sockRef = cliSockRef;
-    parser.HeaderNegativeACK(&link, nackCode);
+    RespondHeaderNegativeACK(nackCode);
 
     return TAF_DOIP_RESULT_HDR_ERROR;
 }
@@ -644,8 +639,6 @@ void Connection::ProcessDoipMessage
         parser.AliveCheckRes(&link, testerSA);
         break;
     case TAF_DOIP_PAYLOAD_TYPE_ALIVE_CHECK_RESPONSE:
-
-
         LE_DEBUG("Alive check response is receiving.\n");
         AliveCheckResHandler(buffer->data + payloadPos,
                              payloadLen);
@@ -711,6 +704,7 @@ void Connection::RoutingActiveReqHandler
         TAF_DOIP_PAYLOAD_RA_ALL_LEN != payloadLen)
     {
         LE_ERROR("Invalid payload length.\n");
+        RespondHeaderNegativeACK(TAF_DOIP_HEADER_NACK_INVALID_PAYLOAD_LENGTH);
         return;
     }
 
@@ -1007,10 +1001,7 @@ void Connection::AliveCheckResHandler
     if (payloadLen != TAF_DOIP_LOGICAL_ADDRESS_LENGTH)
     {
         LE_ERROR("Invalid payload length(0x%x)!", payloadLen);
-        // Send DoIP header nack
-        link.commType = TAF_DOIP_SOCKET_TYPE_TCP;
-        link.sockRef = cliSockRef;
-        parser.HeaderNegativeACK(&link, TAF_DOIP_HEADER_NACK_INVALID_PAYLOAD_LENGTH);
+        RespondHeaderNegativeACK(TAF_DOIP_HEADER_NACK_INVALID_PAYLOAD_LENGTH);
         return;
     }
 
@@ -1163,7 +1154,7 @@ void Connection::DiagnosticMsgSvrSecondHandler
     if (udsTotalLen <= (TAF_DOIP_LOGICAL_ADDRESS_LENGTH * 2))
     {
         // Diagnostic payload length is at least 5 bytes.
-        parser.HeaderNegativeACK(&link, TAF_DOIP_HEADER_NACK_INVALID_PAYLOAD_LENGTH);
+        RespondHeaderNegativeACK(TAF_DOIP_HEADER_NACK_INVALID_PAYLOAD_LENGTH);
         goto errOut2;
     }
 
@@ -1414,4 +1405,24 @@ void Connection::AliveCheckTimerHandler
 
     // Close the connection and remove it.
     connectionPtr->ConnectionStateMachine(TAF_DOIP_CONNECT_STATE_FINALIZE, 0);
+}
+
+void Connection::RespondHeaderNegativeACK
+(
+    taf_doipHeaderNACKCode_t nackCode
+)
+{
+    auto& parser = ProtocolParser::GetInstance();
+    taf_doipLink_t link;
+
+    link.commType = TAF_DOIP_SOCKET_TYPE_TCP;
+    link.sockRef = cliSockRef;
+    parser.HeaderNegativeACK(&link, nackCode);
+
+    // [DoIP-087] Close socket if 'Incorrect pattern format' and Invalid payload length.
+    if (nackCode == TAF_DOIP_HEADER_NACK_INCORRECT_PATTERN_FORMAT
+        || nackCode == TAF_DOIP_HEADER_NACK_INVALID_PAYLOAD_LENGTH)
+    {
+        ConnectionStateMachine(TAF_DOIP_CONNECT_STATE_FINALIZE, 0);
+    }
 }

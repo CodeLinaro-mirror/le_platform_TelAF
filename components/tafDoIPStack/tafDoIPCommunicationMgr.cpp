@@ -883,14 +883,7 @@ errOut:
     }
 
     // [DoIP-038],[DoIP-087]
-    auto& parser = ProtocolParser::GetInstance();
-    taf_doipLink_t link;
-
-    link.commType = TAF_DOIP_SOCKET_TYPE_UDP_UNI;
-    link.sockRef = udpDiscoverSockRef;
-    le_utf8_Copy(link.ip, ipPtr, strlen(ipPtr) + 1, NULL);
-    link.port = port;
-    parser.HeaderNegativeACK(&link, nackCode);
+    RespondHeaderNegativeACK(ipPtr, port, nackCode);
 
     return TAF_DOIP_RESULT_HDR_ERROR;
 }
@@ -1015,9 +1008,11 @@ void CommunicationMgr::VehicleIdentifyReqWithEidHandler
     auto& vehicleMgr = VehicleManager::GetInstance();
     auto& parser = ProtocolParser::GetInstance();
 
-    if (payloadLen < TAF_DOIP_EID_SIZE)
+    if (payloadLen != TAF_DOIP_EID_SIZE)
     {
         LE_ERROR("EID is not enough in vehicle identification request.\n");
+        // [DoIP-45]
+        RespondHeaderNegativeACK(ipPtr, port, TAF_DOIP_HEADER_NACK_INVALID_PAYLOAD_LENGTH);
         return;
     }
 
@@ -1077,9 +1072,11 @@ void CommunicationMgr::VehicleIdentifyReqWithVinHandler
     auto& vehicleMgr = VehicleManager::GetInstance();
     auto& parser = ProtocolParser::GetInstance();
 
-    if (payloadLen < TAF_DOIP_VIN_SIZE)
+    if (payloadLen != TAF_DOIP_VIN_SIZE)
     {
         LE_ERROR("VIN is not enough in vehicle identification request.\n");
+        // [DoIP-45]
+        RespondHeaderNegativeACK(ipPtr, port, TAF_DOIP_HEADER_NACK_INVALID_PAYLOAD_LENGTH);
         return;
     }
 
@@ -1379,6 +1376,31 @@ void* CommunicationMgr::UdsHandleThread
     le_event_RunLoop();
 
     return NULL;
+}
+
+/*=================================================================================================
+ FUNCTION        CommunicationMgr::RespondHeaderNegativeACK
+ DESCRIPTION     DoIP header negative ack response
+ PARAMETERS      [IN] ipPtr: Destination IP Pointer
+                 [IN] port: Destination port
+                 [IN] nackCode: negative ack code
+ RETURN VALUE    void
+=================================================================================================*/
+void CommunicationMgr::RespondHeaderNegativeACK
+(
+    const char* ipPtr,
+    uint16_t    port,
+    taf_doipHeaderNACKCode_t nackCode
+)
+{
+    auto& parser = ProtocolParser::GetInstance();
+    taf_doipLink_t link;
+
+    link.commType = TAF_DOIP_SOCKET_TYPE_UDP_UNI;
+    link.sockRef = udpDiscoverSockRef;
+    le_utf8_Copy(link.ip, ipPtr, strlen(ipPtr) + 1, NULL);
+    link.port = port;
+    parser.HeaderNegativeACK(&link, nackCode);
 }
 
 /*=================================================================================================

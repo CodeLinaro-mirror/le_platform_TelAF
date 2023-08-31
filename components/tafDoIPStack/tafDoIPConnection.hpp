@@ -51,6 +51,7 @@ extern "C" {
 
 #include "tafDoIPStack.h"
 #include "tafDoIPCommon.hpp"
+#include "tafDoIPVehDiscoveryAndParser.hpp"
 
 namespace taf{
 namespace doip{
@@ -162,6 +163,7 @@ namespace doip{
             void DiagnosticMsgSecondHandler();
             void DiagnosticMsgCliSecondHandler();
             void DiagnosticMsgSvrSecondHandler();
+            void RespondHeaderNegativeACK(taf_doipHeaderNACKCode_t nackCode);
 
             uint16_t                testerSA;   // Tester source logical address.
             uint16_t                entitySA;   // Entity source logical address.

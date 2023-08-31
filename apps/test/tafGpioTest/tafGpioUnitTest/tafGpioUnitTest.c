@@ -446,14 +446,16 @@ COMPONENT_INIT
         Test_gpio();
     }
 
-    arg = le_arg_GetArg(2);
-    if(arg == NULL)
-    {
-        LE_ERROR("GPIO test: NULL argument received, Line %d", __LINE__);
-        exit(EXIT_FAILURE);
-    }
-    if((NumberOfArgs == 3) && strcmp(arg, "true") == 0)
-    {
-        LE_TEST_EXIT;
+    if(NumberOfArgs == 3) {
+        arg = le_arg_GetArg(2);
+        if(arg == NULL)
+        {
+            LE_ERROR("GPIO test: NULL argument received, Line %d", __LINE__);
+            exit(EXIT_FAILURE);
+        }
+        if(strcmp(arg, "true") == 0)
+        {
+            LE_TEST_EXIT;
+        }
     }
 }

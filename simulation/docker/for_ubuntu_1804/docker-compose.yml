@@ -8,10 +8,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.1804.develop
+      args:
+        - UBUNTU_DISTRO_ORIGIN=$UBUNTU_DISTRO_ORIGIN
     image: telaf_simulation_develop_1804:1.0.0
 
   telaf_simulation_runtime_1804:
     build:
       context: .
       dockerfile: Dockerfile.1804.runtime
+      args:
+        - UBUNTU_DISTRO_ORIGIN=$UBUNTU_DISTRO_ORIGIN
     image: telaf_simulation_runtime_1804:1.0.0

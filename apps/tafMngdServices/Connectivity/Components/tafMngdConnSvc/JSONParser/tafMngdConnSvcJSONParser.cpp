@@ -171,10 +171,21 @@ bool telux::tafsvc::tafMngdConnSvc_GetPolicyAndConfiguration(
     }
 
     std::string log, JSON_Property, JSON_Value;
-    //Check for Product, Name, and Version before parsing
+    // Check for Product, Name, and Version before parsing
+
+    //  Keep track of mandatory objets. If they are absent return an error.
+    bool bProductAvailable       = false;
+    bool bNameAvailable          = false;
+    bool bMngdConnSvcAvailable   = false;
+    bool bVersionAvailable       = false;
+    bool bPolicyAvailable        = false;
+    bool bConfigurationAvailable = false;
+
     for (auto & element: tree) {
         //Product
         if ("Product" == element.first ) {
+            // Mark presence of Product
+            bProductAvailable = true;
             log.clear();
             log.append ( "Section: " + element.first );
             LE_DEBUG ("%s", log.c_str() );
@@ -189,6 +200,8 @@ bool telux::tafsvc::tafMngdConnSvc_GetPolicyAndConfiguration(
 
           //Name
         if ("Name" == element.first ) {
+            // Mark presence of Name
+            bNameAvailable = true;
             log.clear();
             log.append ( "Section: " + element.first );
             LE_DEBUG ("%s", log.c_str() );
@@ -204,6 +217,8 @@ bool telux::tafsvc::tafMngdConnSvc_GetPolicyAndConfiguration(
 
         // ManagedConnectivityServicePolicy
         if ("ManagedConnectivityService" == element.first ) {
+            // Mark presence of ManagedConnectivityService
+            bMngdConnSvcAvailable = true;
             log.clear();
             log.append ( "Section: " + element.first );
             LE_DEBUG ("%s", log.c_str() );
@@ -211,6 +226,8 @@ bool telux::tafsvc::tafMngdConnSvc_GetPolicyAndConfiguration(
             // Get the elements within "ManagedConnectivityServicePolicy"
             for (auto & property: element.second) {
                 if ("Version" == property.first){
+                    // Mark Version is present
+                    bVersionAvailable = true;
                     log.clear();
                     log.append ("Key: " + property.first + ", Value: " +
                                                     property.second.get_value < std::string > () );
@@ -234,7 +251,9 @@ bool telux::tafsvc::tafMngdConnSvc_GetPolicyAndConfiguration(
                 }
 
                 if("Policy" == property.first){
-                    if ( PolicyParserRef.GetPolicy(PolicyStructRef, newConfFileName) )
+                    // Mark Policy is present
+                    bPolicyAvailable = true;
+                    if (PolicyParserRef.GetPolicy(PolicyStructRef, newConfFileName))
                     {
                         LE_INFO("Policy Parsing Successful");
                     }
@@ -246,8 +265,10 @@ bool telux::tafsvc::tafMngdConnSvc_GetPolicyAndConfiguration(
                 }
 
                 if("Configuration" == property.first){
+                    // Mark Configuration is present
+                    bConfigurationAvailable = true;
                     if ( ConfigurationParserRef.GetConfiguration(ConfigurationStructRef,
-                    newConfFileName) )
+                                                                        newConfFileName) )
                     {
                         LE_INFO("Configuration Parsing Successful");
                     }
@@ -259,6 +280,39 @@ bool telux::tafsvc::tafMngdConnSvc_GetPolicyAndConfiguration(
                 }
             }
         }
+    }
+
+    // Validate presence of mandatory objects
+    // The checking is done separately to return specific error logs.
+    if (!bProductAvailable)
+    {
+        LE_ERROR("Product object is missing");
+        return false;
+    }
+    if (!bNameAvailable)
+    {
+        LE_ERROR("Name object is missing");
+        return false;
+    }
+    if (!bMngdConnSvcAvailable)
+    {
+        LE_ERROR("ManagedConnectivityService object is missing");
+        return false;
+    }
+    if (!bVersionAvailable)
+    {
+        LE_ERROR("Version object is missing");
+        return false;
+    }
+    if (!bPolicyAvailable)
+    {
+        LE_ERROR("Policy object is missing");
+        return false;
+    }
+    if (!bConfigurationAvailable)
+    {
+        LE_ERROR("Configuration object is missing");
+        return false;
     }
 
     // Check if Policy DataSession->DataConnection->Use_Data_ID has a matching Data->ID in

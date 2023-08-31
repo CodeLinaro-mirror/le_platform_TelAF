@@ -139,26 +139,37 @@ static bool Get_DataID_AutoStart_Mapping(const std::string &FileName,
 
     for (auto &element : tree)
     {
-        if ("Data" == element.first)
-        {
-            auto &child = tree.get_child(element.first);
-            for (auto &array_element : child)
-            {
-                int id = 0;
-                std::string autostart;
-                for (auto &iter : array_element.second)
-                {
-                    if ("ID" == iter.first)
-                    {
-                        id = std::stoi(iter.second.data());
-                    }
-                    if ("AutoStart" == iter.first)
-                    {
-                        autostart = iter.second.data();
+        if ("ManagedConnectivityService" == element.first ) {
+
+            for (auto & property: element.second) {
+
+                if ("Configuration" == property.first){
+                    for (auto & parent: property.second) {
+                        if ("Data" == parent.first)
+                        {
+                            // Iterate through the Array elements
+                            for (auto &array_element: parent.second)
+                            {
+                                int id = 0;
+                                std::string autostart;
+                                for (auto &iter : array_element.second)
+                                {
+                                    if ("ID" == iter.first)
+                                    {
+                                        id = std::stoi(iter.second.data());
+                                    }
+                                    if ("AutoStart" == iter.first)
+                                    {
+                                        autostart = iter.second.data();
+                                    }
+                                }
+                                // Update the map
+                                DataID_AutoStart.emplace(id, autostart);
+
+                            }
+                        }
                     }
                 }
-                // Update the map
-                DataID_AutoStart.emplace(id, autostart);
             }
         }
     }
@@ -171,9 +182,8 @@ static bool Get_DataID_AutoStart_Mapping(const std::string &FileName,
 COMPONENT_INIT
 {
     LE_INFO("TelAF-CM Init");
-    // Policy and Configuration File Names
-    const string policyFileName = "/data/ManagedServices/Policy/mngdConnPolicy.json";
-    const string configurationFileName = "/data/ManagedServices/Configuration/mngdConnConfig.json";
+    // Policy and Configuration File Name
+    const string configurationFileName =  "/data/ManagedServices/mngdConnectivity.json";
 
     // Parse Configuration JSON and get the Data IDs and matching AutoStart values
     std::map<int, std::string> dataID_AutoStart;

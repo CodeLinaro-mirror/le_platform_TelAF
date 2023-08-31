@@ -32,7 +32,7 @@ bundles:
 {
     dir:
     {
-        [rx] JSONs/ JSONs/
+        [rx] JSON/ JSON/
     }
 }
 
@@ -41,8 +41,7 @@ requires:
 {
     dir:
     {
-        /data/ManagedServices/Configuration /data/ManagedServices/Configuration
-        /data/ManagedServices/Policy /data/ManagedServices/Policy
+        /data/ManagedServices /data/ManagedServices
         /usr/lib /usr/lib
     }
 }

@@ -29,7 +29,15 @@ if [ "$1" == "sa415m" ]; then
 elif [ "$1" == "sa515m" ]; then
     source /opt/qct/sa515m/environment-setup-armv7at2hf-neon-oe-linux-gnueabi
 elif [ "$1" == "sa525m" ]; then
-    source /opt/qct/sa525m/environment-setup-aarch64-oe-linux
+    if [ -e /opt/qct/sa525m/environment-setup-armv7at2hf-neon-oemllib32-linux-gnueabi ]; then
+        # For 32bit tool chain build
+        export GCC_PREFIX="arm-oemllib32-linux-gnueabi"
+        source /opt/qct/sa525m/environment-setup-armv7at2hf-neon-oemllib32-linux-gnueabi
+    elif [ -e /opt/qct/sa525m/environment-setup-aarch64-oe-linux ]; then
+        # For 64bit tool chain build
+        export GCC_PREFIX="aarch64-oe-linux"
+        source /opt/qct/sa525m/environment-setup-aarch64-oe-linux
+    fi
 else
     echo " Missing target parameter!"
     echo " e.g. $0 sa415m"
@@ -105,12 +113,20 @@ function build-sa525m-af(){
 
     # build TelAF OSS source code
     make ${TARGET}
+    if [ $? -ne 0 ]; then
+        echo "Error: when making target ${TARGET}"
+        return
+    fi
 
     # build telaf-prop source code if exists
     if [ -f "${TELAF_PROP}/build.sh" ]; then
         TELAF_SYS_QMI_ROOT=${CURDIR}/../qmi/services/
         TELAF_SYS_QMI_FRAMEWORK_ROOT=${CURDIR}/../qmi-framework/inc/
         ${TELAF_PROP}/build.sh ${TARGET} "$TELAF_SYS_QMI_ROOT" "$TELAF_SYS_QMI_FRAMEWORK_ROOT"
+        if [ $? -ne 0 ]; then
+            echo "Error: when running ${TELAF_PROP}/build.sh"
+            return
+        fi
     fi
 
     ## build telaf-noship source code if exists
@@ -119,6 +135,10 @@ function build-sa525m-af(){
         TELAF_SYS_QMI_FRAMEWORK_ROOT=${CURDIR}/../qmi-framework/inc/
         TELAF_SYS_DSUTIL_ROOT=${CURDIR}/../data/dsutils/inc/
         ${TELAF_NOSHIP}/build.sh ${TARGET} "$TELAF_SYS_QMI_ROOT" "$TELAF_SYS_QMI_FRAMEWORK_ROOT" "$TELAF_SYS_DSUTIL_ROOT"
+        if [ $? -ne 0 ]; then
+            echo "Error: when running ${TELAF_NOSHIP}/build.sh"
+            return
+        fi
     fi
 
     # repack TelAF image
@@ -131,7 +151,12 @@ function build-sa525m-af(){
     if [ ! -d $TELAF_PROP_BUILD_DIR ]; then
         TELAF_PROP_BUILD_DIR=$TELAF_PROP
     fi
+
     ${TELAF_ROOT}/mkimg.sh ${TARGET} "$TELAF_REPACK_DIR" "$TELAF_NOSHIP_BUILD_DIR" "$TELAF_PROP_BUILD_DIR"
+    if [ $? -ne 0 ]; then
+        echo "Error: ${TELAF_ROOT}/mkimg.sh ${TARGET} "$TELAF_REPACK_DIR" "$TELAF_NOSHIP_BUILD_DIR" "$TELAF_PROP_BUILD_DIR""
+        return
+    fi
 
     # sign TelAF image
     export AVBTOOL="${OECORE_NATIVE_SYSROOT}/usr/share/avb_py_tool"
@@ -141,8 +166,28 @@ function build-sa525m-af(){
         else
             ${AVBTOOL}/avbtool add_hashtree_footer --image ./build/${TARGET}/telaf_ro.squashfs --partition_name telaf --algorithm SHA256_RSA2048 --key $AVBTOOL/keys/qpsa_attest.key --public_key_metadata $AVBTOOL/keys/qpsa_attest.der --do_not_generate_fec --rollback_index 0
         fi
+        if [ $? -ne 0 ]; then
+            echo "Error: during image signing."
+            return
+        fi
     else
         echo "Warning: avbtool not found"
+    fi
+
+    # Link image
+    cd ./build/${TARGET}/
+    if [ "${GCC_PREFIX}" = "arm-oemllib32-linux-gnueabi" ]; then
+
+        mv     telaf_ro.squashfs            telaf_ro.32bit.squashfs
+        mv     telaf_ro.squashfs.ubi        telaf_ro.32bit.squashfs.ubi
+        ln -sf telaf_ro.32bit.squashfs      telaf_ro.squashfs
+        ln -sf telaf_ro.32bit.squashfs.ubi  telaf_ro.squashfs.ubi
+
+    elif [ "${GCC_PREFIX}" = "aarch64-oe-linux" ]; then
+        mv     telaf_ro.squashfs            telaf_ro.64bit.squashfs
+        mv     telaf_ro.squashfs.ubi        telaf_ro.64bit.squashfs.ubi
+        ln -sf telaf_ro.64bit.squashfs      telaf_ro.squashfs
+        ln -sf telaf_ro.64bit.squashfs.ubi  telaf_ro.squashfs.ubi
     fi
 
     if [ $? -eq 0 ]

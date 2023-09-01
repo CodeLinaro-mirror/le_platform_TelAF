@@ -79,5 +79,10 @@ done
 mklegatoimg -t "${TARGET}" \
             -d "${TARGET_STAGE_DIR}/" \
             -o "${OUTPUT_STAGE}"
+if [ $? -ne 0 ]; then
+    echo "mklegatoimg: Generating image failed"
+    exit 1
+fi
+
 cp ${OUTPUT_STAGE}/telaf.squashfs ${OUTPUT}/telaf_ro.squashfs
 cp ${OUTPUT_STAGE}/telaf.squashfs.ubi ${OUTPUT}/telaf_ro.squashfs.ubi

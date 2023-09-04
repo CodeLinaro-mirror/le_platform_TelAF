@@ -1442,6 +1442,12 @@ __attribute__((unused)) static void RsaKeyExportTest(void)
     LE_TEST_ASSERT(evpPubKey != NULL, "Test import the RSA public key to OpenSSL key object.");
 
     EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+    if(ctx == NULL)
+    {
+        LE_ERROR("ctx is NULL");
+        return;
+    }
+
     const EVP_MD* method = EVP_md5();
 
     EVP_DigestInit_ex(ctx, method, NULL);
@@ -1450,6 +1456,12 @@ __attribute__((unused)) static void RsaKeyExportTest(void)
     EVP_MD_CTX_free(ctx);
 
     ctx = EVP_MD_CTX_new();
+    if(ctx == NULL)
+    {
+        LE_ERROR("ctx is NULL");
+        return;
+    }
+
     method = EVP_md5();
 
     EVP_DigestVerifyInit(ctx, NULL, method, NULL, evpPubKey);
@@ -1465,6 +1477,12 @@ __attribute__((unused)) static void RsaKeyExportTest(void)
     memset(signature, 0, signatureSize);
 
     ctx = EVP_MD_CTX_new();
+    if(ctx == NULL)
+    {
+        LE_ERROR("ctx is NULL");
+        return;
+    }
+
     method = EVP_md5();
 
     EVP_DigestVerifyInit(ctx, NULL, method, NULL, evpPubKey);

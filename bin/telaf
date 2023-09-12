@@ -77,7 +77,7 @@ StartTelaf()
 
     echo "Starting TelAF..."
 
-    /mnt/legato/start
+    systemctl start telaf
 
     echo "TelAF is started."
 }

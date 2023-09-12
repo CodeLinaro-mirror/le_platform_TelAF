@@ -275,6 +275,10 @@ type telaf_overlay_exec_t;
 init_script_domain(telaf_overlay_t, telaf_overlay_exec_t)
 unconfined_domain(telaf_overlay_t)
 mls_file_read_to_clearance(telaf_overlay_t)
+mls_file_write_to_clearance(telaf_overlay_t)
+# create can also require the upgrade/downgrade checks if the creating process
+# has used setfscreate
+mls_file_upgrade(telaf_overlay_t)
 
 # Define admin domain
 
@@ -513,9 +517,9 @@ if (telaf_external_dependencies) {
         allow semanage_t { telaf_fw_t telaf_app_bundle_t }:file { read_file_perms map };
         allow load_policy_t tty_device_t:chr_file { read write };
         allow load_policy_t selinux_config_t:file { map };
+        allow telaf_overlay_t policy_config_t:dir { manage_dir_perms };
         allow setfiles_t selinux_config_t:file { map };
     ')
-
     #============= syslogd_t ==============
     allow syslogd_t self:sem { create unix_read unix_write read write destroy };
     allow syslogd_t self:shm { create unix_read unix_write read write destroy };

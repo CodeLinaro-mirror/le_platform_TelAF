@@ -2,15 +2,14 @@
 TelAF Connection Manager is a TelAF Application that manages data connection(s) on the NAD.
 
 TelAF-CM uses TelAF's Managed Connectivity Service APIs to start and manage data connection(s)
-using Configuration and Policy JSON files. Please refer to the Managed Connectivity Service's
+using Configuration and Policy JSON file. Please refer to the Managed Connectivity Service's
 documentation for more information.
 
-TelAF-CM packages sample configuration and policy JSON files. These files should be copied to the
+TelAF-CM packages sample configuration and policy JSON file. This file should be copied to the
 following locations on the NAD:
 | File         | Location |
 |--------------|:-----:|
-| mngdConnConfig.json | /data/ManagedServices/Configuration |
-| mngdConnPolicy.json | /data/ManagedServices/Policy |
+| mngdConnectivity.json | /data/ManagedServices/ |
 
 # Running TelAF-CM
 TelAF-CM will run only after the Managed Connectivity Service has successfully parsed the provided

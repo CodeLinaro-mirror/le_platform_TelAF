@@ -109,6 +109,14 @@ static void CommandHandler
 )
 {
     le_result_t res = LE_OK;
+    const char* arg;
+    arg = le_arg_GetArg(1);
+    if(le_arg_NumArgs() == 2 && arg == NULL)
+    {
+        arg = le_arg_GetArg(1);
+        LE_ERROR("tafPMIntgTest: NULL argument received, Line %d", __LINE__);
+        exit(EXIT_FAILURE);
+    }
     if (strcmp(argPtr, "test1") == 0 && le_arg_NumArgs() == 1)
     {
         ctrlCmd_registerStateChangeListener();
@@ -135,8 +143,8 @@ static void CommandHandler
         ctrlCmd_getAllMachines();
     } else if (strcmp(argPtr, "resume") == 0 && le_arg_NumArgs() >= 1)
     {
-        if(le_arg_NumArgs() == 2) {
-            res = ctrlCmd_resumeVM(le_arg_GetArg(1));
+        if(le_arg_NumArgs() == 2 && arg != NULL) {
+            res = ctrlCmd_resumeVM(arg);
         } else if(le_arg_NumArgs() == 1){
             res = ctrlCmd_resume();
         }
@@ -144,8 +152,8 @@ static void CommandHandler
             LE_ERROR("Failed to resume the device");
     } else if (strcmp(argPtr, "suspend") == 0 && le_arg_NumArgs() >= 1)
     {
-        if(le_arg_NumArgs() == 2) {
-            res = ctrlCmd_suspendVM(le_arg_GetArg(1));
+        if(le_arg_NumArgs() == 2 && arg != NULL) {
+            res = ctrlCmd_suspendVM(arg);
         } else if(le_arg_NumArgs() == 1) {
             res = ctrlCmd_suspend();
         }
@@ -153,8 +161,8 @@ static void CommandHandler
             LE_ERROR("Failed to suspend the device");
     } else if (strcmp(argPtr, "shutdown") == 0 && le_arg_NumArgs() >= 1)
     {
-        if(le_arg_NumArgs() == 2) {
-            res = ctrlCmd_shutdownVM(le_arg_GetArg(1));
+        if(le_arg_NumArgs() == 2 && arg != NULL) {
+            res = ctrlCmd_shutdownVM(arg);
         } else if(le_arg_NumArgs() == 1) {
             res = ctrlCmd_shutdown();
         }
@@ -166,6 +174,7 @@ static void CommandHandler
         fprintf(stderr, "Try '%s --help'.\n", ProgramName);
         exit(EXIT_FAILURE);
     }
+    exit(EXIT_SUCCESS);
 }
 
 COMPONENT_INIT

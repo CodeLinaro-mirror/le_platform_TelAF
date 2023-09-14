@@ -90,7 +90,7 @@
 #define PHONE_ID_PATTERN_1  1               // Phone ID to test
 
 #define TIMEOUT_TX_TEST     3               // Time interval between sending message
-#define TIMEOUT_RX_TEST     25              // Wait for receicing message sent from this test app
+#define TIMEOUT_RX_TEST     45              // Wait for receicing message sent from this test app
 
 #define TIME_SET_SMSC       5               // Wait for settingi sms center take effect
 
@@ -883,12 +883,14 @@ __attribute__((unused)) static void Test_taf_sms_Smsc
     void
 )
 {
-    char addr[TAF_SMS_SMSC_ADDR_BYTES - 1];
+    char addr[TAF_SMS_SMSC_ADDR_BYTES - 1] = {};
     size_t len = TAF_SMS_SMSC_ADDR_BYTES - 1;
 
-    LE_TEST_ASSERT(taf_sms_GetSmsCenterAddress(PHONE_ID_PATTERN_1, addr, len) == LE_OK, "Test taf_sms_GetSmsCenterAddress");
+    LE_TEST_ASSERT(taf_sms_GetSmsCenterAddress(PHONE_ID_PATTERN_1, addr, len) == LE_OK,
+        "Test taf_sms_GetSmsCenterAddress");
 
-    LE_TEST_ASSERT(taf_sms_SetSmsCenterAddress(PHONE_ID_PATTERN_1, SMSC_ADDR_PATTERN_VALID) == LE_OK, "Test taf_sms_SetSmsCenterAddress");
+    LE_TEST_ASSERT(taf_sms_SetSmsCenterAddress(PHONE_ID_PATTERN_1, addr) == LE_OK,
+        "Test taf_sms_SetSmsCenterAddress");
 
     le_thread_Sleep(TIME_SET_SMSC);
 

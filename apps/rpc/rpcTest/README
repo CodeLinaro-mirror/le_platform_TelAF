@@ -1,0 +1,32 @@
+# NOTE: The TelAF RPC test can performed between two SA515Ms or two SA525Ms, but not support between SA515M and SA525M.
+
+# Goto telaf folder and run below commands to build different RPC test images:
+# Note set systemID=0x102 for RPC server system, and set systemID=0x101 for RPC client system.
+# The systemID is configured in /legato/systems/current/appsWriteable/tafSomeipGWSvc/tafSomeipGWSvc.json,
+# and once the systemID is modified, run "telaf restart" to take effect.
+
+# To build RPC server test image for SA515M:
+
+source set_af_env.sh sa515m
+export SDEF_TO_USE=${TELAF_ROOT}/apps/rpc/rpcTest/sa515m_rpcServer.sdef
+build-distclean-af; build-sa515m-af
+
+# To build RPC client test image for SA515M:
+
+source set_af_env.sh sa515m
+export SDEF_TO_USE=${TELAF_ROOT}/apps/rpc/rpcTest/sa515m_rpcClient.sdef
+build-distclean-af; build-sa515m-af
+
+
+
+# To build RPC server test image for SA525M:
+
+source set_af_env.sh sa525m
+export SDEF_TO_USE=${TELAF_ROOT}/apps/rpc/rpcTest/sa525m_rpcServer.sdef
+build-distclean-af; build-sa525m-af
+
+# To build RPC client test image for SA525M:
+
+source set_af_env.sh sa525m
+export SDEF_TO_USE=${TELAF_ROOT}/apps/rpc/rpcTest/sa525m_rpcClient.sdef
+build-distclean-af; build-sa525m-af

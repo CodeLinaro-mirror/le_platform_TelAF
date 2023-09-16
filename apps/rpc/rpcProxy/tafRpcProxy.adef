@@ -1,0 +1,20 @@
+sandboxed: false
+
+executables:
+{
+    tafRpcProxyExe = (component)
+}
+
+processes:
+{
+    run:
+    {
+        (tafRpcProxyExe)
+    }
+}
+
+bindings:
+{
+    tafRpcProxyExe.component.taf_someipClnt -> tafSomeipGWSvc.taf_someipClnt
+    tafRpcProxyExe.component.taf_someipSvr -> tafSomeipGWSvc.taf_someipSvr
+}

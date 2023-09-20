@@ -221,6 +221,7 @@ FUNCTION le_result_t DataStart
  * @return
  *   - LE_OK -- Succeeded.
  *   - LE_FAULT -- Failed.
+ *   - LE_NOT_PERMITTED -- If data is auto started by the service, application cannot stop data.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DataStop

@@ -674,6 +674,15 @@ le_result_t tafMngdConnAdmin::EventStopData(uint8_t dataId)
         return LE_FAULT;
     }
 
+    // Check if the data is started automatically by the service.
+    // If true, return LE_NOT_PERMITTED
+    // If false, allow DataStop to proceed.
+    if (true == connCtxPtr->autoStart)
+    {
+        LE_WARN("Stopping auto started(Autostart: Yes) data session is not allowed");
+        return LE_NOT_PERMITTED;
+    }
+
     //Do action according to the current state.
     switch(connCtxPtr->state)
     {
@@ -1657,4 +1666,3 @@ const char * tafMngdConnAdmin::StateToString(taf_mngd_Conn_Admin_State_t state)
 
     return "unknow status";
 }
-

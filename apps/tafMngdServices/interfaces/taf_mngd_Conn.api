@@ -120,6 +120,75 @@
  *
  * @note The Managed Connectivity Service will stop if the JSON is invalid or inaccessible.
  *
+ * @section taf_mngd_Conn_usage_flow Typical application call flow
+ *
+ * - Automatic Data Connection Establishment
+ *
+ * @image html conn_usage_flow_auto_data_connection.jpg
+ *
+ * Background setup:
+ *
+ * Set the Data→AutoStart key as Yes in the mngdConnectivity.json file.
+ * Steps:
+ *
+ * #a.1 -- Get the data reference for a given data ID.
+ *
+ * #a.2 -- Register the data state change handler to be able to receive the data state notification.
+ *
+ * #a.3 -- Query the data connection state with the data reference.
+ *
+ * #a.4 -- Receive the data connected notification from TelAF managed connectivity service.
+ *
+ * #a.5 -- Query the IP address of the active data connection.
+ *
+ * #s.1 -- Parse mngdConnectivity.json and validate Configuration and Policy parameters. If the
+ * .json file is inaccessible or if the validation fails, tafMngdConnSvc will stop.
+ *
+ * #s.2 -- Check SIM presence and registration.
+ *
+ * #s.3 -- Register notification handlers.
+ *
+ * #s.4 -- Start the data call.
+ *
+ * #s.5 -- Receive the data call notification and process it.
+ *
+ * @note The application steps from #a.1 to #a.5 happen in parallel with TelAF managed connectivity
+ * operation steps from #s.1 to #s.5. There is no strict sequence dependency from application operations
+ * to the service operations.
+ *
+ * - Customer Application Triggered Data Connection Establishment
+ *
+ * @image html conn_usage_flow_user_triggered_data_connection.jpg
+ *
+ * Background setup:
+ *
+ * Set Data→AutoStart key as No in the mngdConnectivity.json file.
+ *
+ * Steps:
+ *
+ * #s.1 -- Parse mngdConnectivity.json and validate Configuration and Policy parameters. If the
+ * .json file is inaccessible or if the validation fails, tafMngdConnSvc will stop.
+ *
+ * #s.2 -- Register notification handlers.
+ *
+ * #a.3 -- Get the data reference for a given data ID.
+ *
+ * #a.4 -- Register the data state change handler to be able to receive the data state notification.
+ *
+ * #a.5 -- Query the data connection state with the data reference.
+ *
+ * #a.6 -- Trigger the data connection establishment startup.
+ *
+ * #s.7 -- Check SIM presence and registration.
+ *
+ * #s.8 -- Start the data call.
+ *
+ * #s.9 -- Receive the data call state notification and process it.
+ *
+ * #a.10 -- Receive the data connected state notification.
+ *
+ * #a.11 -- Query the IP address of the active data connection.
+ *
  * <HR>
  *
  */

@@ -48,12 +48,20 @@ using std::to_string;
 
 namespace pt = boost::property_tree;
 
-
 // Map of properties and validation function pointers
-std::map< std::string, ConnectivityValidationFunction_t >  ConnectivityValidationFuncMap;
+static std::map<std::string, ConnectivityValidationFunction_t> ConnectivityValidationFuncMap;
+
+/**
+ * List of supported JSON versions. Whenever there is an update to the JSON, ensure the version
+ * is updated and checked.
+ *
+ *
+ **/
+static const char *JSON_Version_23_07_00 = "23.07.00";
 
 /**
  * Validate ManagedConnectivityService:Version
+ * Check for supported versions and set the Version to correct taf_mngd_Conn_JSON_Version_t value.
  */
 static bool Validate_MCS_Version(taf_mngd_Conn_Policy_t &Policy,
                                                 taf_mngd_Conn_Configuration_t &Configuration,
@@ -62,15 +70,26 @@ static bool Validate_MCS_Version(taf_mngd_Conn_Policy_t &Policy,
 {
     LE_DEBUG("%s", Value.c_str());
     taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
-    if (TAF_MNGD_JSON_DATA_TYPE_STRING != DataType && TAF_MNGD_JSON_DATA_TYPE_NULL != DataType)
+
+    // Value should be a string
+    if (TAF_MNGD_JSON_DATA_TYPE_STRING != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
     }
-    // Valid value. Update Policy and Configuration.
-    Policy.Version = std::stoi(Value);
-    Configuration.Version = std::stoi(Value);
-    return true;
+
+    // Ensure JSON version is an approved verion
+    // Set the Policy and Configuration Version accordingly
+    if (Value == JSON_Version_23_07_00)
+    {
+        Policy.Version        = TAF_MNGD_CONN_JSON_VERSION_23_07_00;
+        Configuration.Version = TAF_MNGD_CONN_JSON_VERSION_23_07_00;
+        LE_INFO("Valid JSON Version: %s", Value.c_str());
+        return true;
+    }
+
+    LE_WARN("Invalid JSON Version: %s", Value.c_str());
+    return false;
 }
 
 static bool ValidateValue(taf_mngd_Conn_Policy_t& Policy,
@@ -91,54 +110,12 @@ static bool ValidateValue(taf_mngd_Conn_Policy_t& Policy,
     return false;
 }
 
-/**
- * Retrun true if the filenames match
- * Return false if the filenames do not match
- */
-static bool updateMangedConnectivityConfigTree(string ConfigurationFileName,
-                                               bool   bDoConfigFileNamesMatch)
-{
-    le_result_t leRet = LE_OK;
-
-    boost::filesystem::path fullFilePath(ConfigurationFileName);
-    boost::filesystem::path dir = fullFilePath.parent_path();
-    if (dir == TAF_MNGD_DefaultLocation_Configuration)
-    {
-        LE_INFO("Files are in default location. Write only the FileName");
-        leRet = tafMngd_ConfigTree_Update(TAF_MNGD_ct_node_ConfigurationFileName,
-                                                            fullFilePath.filename().string());
-    }
-    else
-    {
-        // Write the full file path
-        leRet = tafMngd_ConfigTree_Update(TAF_MNGD_ct_node_ConfigurationFileName,
-                                                                ConfigurationFileName);
-    }
-
-    if (bDoConfigFileNamesMatch)
-    {
-        leRet = tafMngd_ConfigTree_Update(TAF_MNGD_ct_node_ConfigurationFileNameOverride, "Yes");
-    }
-    else
-    {
-        leRet = tafMngd_ConfigTree_Update(TAF_MNGD_ct_node_ConfigurationFileNameOverride, "No");
-    }
-
-    if (LE_OK == leRet)
-        return true;
-
-    return false;
-}
-
-
-
 bool telux::tafsvc::tafMngdConnSvc_GetPolicyAndConfiguration(
     taf_mngd_Conn_Policy_t &PolicyStructRef,
     taf_mngd_Conn_Configuration_t &ConfigurationStructRef,
     std::string ConfigurationFileName)
 {
     std::string newConfFileName;
-    bool bDoConfigFileNamesMatch = true;
     tafMngdConnSvc_PolicyParser &PolicyParserRef = tafMngdConnSvc_PolicyParser::getInstance();
     tafMngdConnSvc_ConfigurationParser &ConfigurationParserRef =
                                                 tafMngdConnSvc_ConfigurationParser::getInstance();
@@ -190,10 +167,10 @@ bool telux::tafsvc::tafMngdConnSvc_GetPolicyAndConfiguration(
             log.append ( "Section: " + element.first );
             LE_DEBUG ("%s", log.c_str() );
 
-            // Get the elements within "Product"
-            if (element.second.get_value < std::string > () != "TelAF")
+            // Get the value of "Product". This should be "TelAF"
+            if (element.second.get_value<std::string>() != TAF_MNGD_Default_Product_Value)
             {
-                LE_WARN("Invalid JSON_Property Value");
+                LE_WARN("Invalid JSON Product Value.");
                 return false;
             }
         }
@@ -206,13 +183,9 @@ bool telux::tafsvc::tafMngdConnSvc_GetPolicyAndConfiguration(
             log.append ( "Section: " + element.first );
             LE_DEBUG ("%s", log.c_str() );
 
-            // Get the elements within "Product"
-            if (element.second.get_value < std::string > ()
-             != "Managed Connectivity Configuration - V1")
-            {
-                LE_WARN("Invalid JSON_Property Value");
-                return false;
-            }
+            // Get the value "Name" and print it for information.
+            // Name key is not used by the service
+            LE_INFO("JSON Name Value: %s", element.second.get_value<std::string>().c_str());
         }
 
         // ManagedConnectivityServicePolicy
@@ -413,17 +386,6 @@ bool telux::tafsvc::tafMngdConnSvc_GetPolicyAndConfiguration(
             ConfigurationParserRef.ResetConfigurationStructure(ConfigurationStructRef);
             return false;
         }
-    }
-
-    // Validations complete. Write to Config Tree
-    if (!updateMangedConnectivityConfigTree(PolicyStructRef.ConfigurationFileName,
-                                            bDoConfigFileNamesMatch))
-    {
-        LE_ERROR("Unable to update ConfigTree");
-        // Clean up and return false
-        PolicyParserRef.ResetPolicyStructure(PolicyStructRef);
-        ConfigurationParserRef.ResetConfigurationStructure(ConfigurationStructRef);
-        return false;
     }
 
     LE_INFO("Parsing of JSON file and Updation of Policy and Configuration structures successful");

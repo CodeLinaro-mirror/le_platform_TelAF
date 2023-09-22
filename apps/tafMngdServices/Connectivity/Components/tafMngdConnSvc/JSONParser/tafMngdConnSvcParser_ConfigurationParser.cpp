@@ -49,27 +49,6 @@ namespace pt = boost::property_tree;
 using telux::tafsvc::tafMngdConnSvc_ConfigurationParser;
 
 /**
- * Version should be a number
-*/
-bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Version(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
-                                            std::string Value,
-                                            int Index)
-{
-    LE_DEBUG("%s", Value.c_str());
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
-    if (TAF_MNGD_JSON_DATA_TYPE_NUMBER != DataType)
-    {
-        LE_WARN("Incorrect data type");
-        return false;
-    }
-
-    // Valid value. Update Configuration.
-    Configuration.Version = std::stoi(Value);
-    return true;
-}
-
-/**
  * Name of the configuration should be a string
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Name(

@@ -53,12 +53,12 @@
 #include "tafMngdSvcJSONParser_Helper.hpp"
 namespace telux {
 namespace tafsvc {
+
     /*
-        * This function will take policy and configuraiton JSON filenames along with references to
+        * This function will take Managed Connectivity JSON filename along with references to
         * taf_mngd_Conn_Policy_t and taf_mngd_Conn_Configuration_t. The function will
-        * parse and validate the JSONs. If the JSONs are valid, then the references will be
-        * updated. The ConfigTree will also be updated with the Policy and Configuration
-        * JSON filenames.
+        * parse and validate the JSON. If the JSON is valid, then the references will be
+        * updated.
         *
         * @param [in] taf_mngd_Conn_Policy_t        Refernce to Policy
         * @param [in] taf_mngd_Conn_Configuration_t Refernce to Configuration

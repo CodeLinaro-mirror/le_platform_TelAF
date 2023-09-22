@@ -490,7 +490,6 @@ le_result_t tafMngdConnAdmin::EventSetPolicyConfigJSONs
         LE_DEBUG("JSONs parsed and validated");
         LE_DEBUG("Version          : %d", Policy.Version);
         LE_DEBUG("Name             : %s", Policy.Name);
-        LE_DEBUG("Config File Name : %s", Policy.ConfigurationFileName);
         LE_DEBUG("\tFallback  : %d", Policy.DataSession.Fallback);
         LE_DEBUG("\t\tData Connection Count : %d", Policy.DataSession.dataConnectionCount);
 

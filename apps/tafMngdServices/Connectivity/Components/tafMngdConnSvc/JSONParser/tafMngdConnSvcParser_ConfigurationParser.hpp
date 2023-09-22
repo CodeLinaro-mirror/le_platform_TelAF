@@ -95,7 +95,7 @@ namespace tafsvc {
 
     typedef struct
     {
-        uint8_t Version;
+        taf_mngd_Conn_JSON_Version_t Version;
         char Name[TAF_MNGD_CONN_MAX_NAME_LEN];
         uint8_t SimCount;
         taf_mngd_Conn_Configuration_Sim_t Sim[TAF_MNGD_CONN_MAX_SIM_OBJECT_COUNT];
@@ -127,9 +127,6 @@ private:
     void UpdateValidConfigurationFuncMap(void);
 
     // MCSC = ManagedConnectivityServiceConfiguration
-    static bool Validate_MCSC_Version(taf_mngd_Conn_Configuration_t &Configuration,
-                                      std::string Value,
-                                      int Index);
     static bool Validate_MCSC_Name(taf_mngd_Conn_Configuration_t &Configuration,
                                       std::string Value,
                                       int Index);

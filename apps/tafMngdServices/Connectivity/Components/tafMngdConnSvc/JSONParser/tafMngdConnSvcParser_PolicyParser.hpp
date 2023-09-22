@@ -65,16 +65,15 @@ namespace tafsvc {
     typedef struct
     {
         taf_mngd_Yes_No_t Fallback;  //Yes=1, No=0
-        uint8_t dataConnectionCount;
+        uint8_t dataConnectionCount; // Not part of the JSON. It is filled by the parser.
         taf_mngd_Conn_Policy_DataConnection_t \
                             DataConnection[TAF_MNGD_CONN_MAX_DATA_CONNECION_OBJECT_COUNT];
     } taf_mngd_Conn_Policy_DataSession_t;
 
     typedef struct
     {
-        uint8_t Version;
+        taf_mngd_Conn_JSON_Version_t Version; // Not part of the JSON. It is filled by the parser.
         char Name[TAF_MNGD_CONN_MAX_NAME_LEN];
-        char ConfigurationFileName[TAF_MNGD_CONN_MAX_FILE_NAME_LEN];
         taf_mngd_Conn_Policy_DataSession_t DataSession;
     } taf_mngd_Conn_Policy_t;
 
@@ -102,15 +101,10 @@ private:
     void UpdateValidPolicyFuncMap(void);
 
     // MCSP = ManagedConnectivityServicePolicy
-    static bool Validate_MCSP_Version (taf_mngd_Conn_Policy_t &Policy,
-                                                        std::string Value,
-                                                        int Index);
     static bool Validate_MCSP_Name (taf_mngd_Conn_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index);
-    static bool Validate_MCSP_ConfigFileName (taf_mngd_Conn_Policy_t &Policy,
-                                                        std::string Value,
-                                                        int Index);
+
     // DS = DataSession
     static bool Validate_DS_Fallback (taf_mngd_Conn_Policy_t &Policy,
                                                         std::string Value,

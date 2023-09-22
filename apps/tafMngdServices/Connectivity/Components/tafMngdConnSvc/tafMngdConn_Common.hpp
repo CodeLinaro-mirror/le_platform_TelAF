@@ -192,8 +192,24 @@ namespace tafsvc {
         TAF_MNGD_CONN_MAX_NW_REGISTRATION_TYPE_MANUAL = 1  /**<  Manual Value. 1 */
     } taf_mngd_NW_Registration_Type_t;
 
-    // Constant Strings
+    /**
+     * \brief Enumeration for valid JSON versions
+     *
+     * This enum will be mapped to a version string when mngdConnectivity.json is parsed.
+     * The valid versions strings are listed in tafMngdConnSvcJSONParser.hpp
+     *
+     * The enum uses numbers from the version string for easier readbility. Examples:
+     * TAF_23_07_00 = 230700
+     * TAF_23_10_00 = 231000
+     * TAF_24_01_00 = 240100
+     *
+     */
+    typedef enum
+    {
+        TAF_MNGD_CONN_JSON_VERSION_23_07_00 = 230700 //"TAF_23.07.00"
+    } taf_mngd_Conn_JSON_Version_t;
 
+    // Constant Strings
 
     /**
      * \brief Default Location for Configuration JSONs
@@ -201,5 +217,10 @@ namespace tafsvc {
      */
     const std::string TAF_MNGD_DefaultLocation_Configuration("/data/ManagedServices");
 
+    /**
+     * \brief Value for Product in mngdConnectivity.json should be TelAF
+     *
+     */
+    const std::string TAF_MNGD_Default_Product_Value("TelAF");
 }
 }

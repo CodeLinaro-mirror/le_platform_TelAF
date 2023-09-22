@@ -126,39 +126,6 @@ bool tafMngdConnSvc_PolicyParser::Validate_DS_Fallback(taf_mngd_Conn_Policy_t &P
 }
 
 /**
- * Validate ManagedConnectivityServicePolicy:ConfigName
- */
-bool tafMngdConnSvc_PolicyParser::Validate_MCSP_ConfigFileName(taf_mngd_Conn_Policy_t &Policy,
-                                                        std::string Value,
-                                                        int Index)
-{
-    LE_DEBUG("%s", Value.c_str());
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
-    if ( TAF_MNGD_JSON_DATA_TYPE_STRING != DataType && TAF_MNGD_JSON_DATA_TYPE_NULL != DataType )
-    {
-        LE_WARN("Incorrect data type");
-        return false;
-    }
-    // Max string length should be TAF_MNGD_CONN_MAX_NAME_LEN
-    if (Value.size() > TAF_MNGD_CONN_MAX_FILE_NAME_LEN)
-    {
-        LE_WARN("Configuration File Name is too long");
-        return false;
-    }
-    // Valid value. Update Policy.
-    // Set to NULL or string
-    if (TAF_MNGD_JSON_DATA_TYPE_NULL == DataType)
-    {
-        memset(Policy.ConfigurationFileName, 0, TAF_MNGD_CONN_MAX_FILE_NAME_LEN);
-        return true;
-    }
-    // Valid String.
-    // Since we have already validated string length above, we can ignore return value here
-    le_utf8_Copy(Policy.ConfigurationFileName, Value.c_str(), TAF_MNGD_CONN_MAX_FILE_NAME_LEN,NULL);
-    return true;
-}
-
-/**
  * Validate ManagedConnectivityServicePolicy:Name
  */
 bool tafMngdConnSvc_PolicyParser::Validate_MCSP_Name(taf_mngd_Conn_Policy_t &Policy,
@@ -180,25 +147,6 @@ bool tafMngdConnSvc_PolicyParser::Validate_MCSP_Name(taf_mngd_Conn_Policy_t &Pol
     }
     // Valid value. Update Policy.
     le_utf8_Copy(Policy.Name, Value.c_str(), TAF_MNGD_CONN_MAX_NAME_LEN,NULL);
-    return true;
-}
-
-/**
- * Validate ManagedConnectivityServicePolicy:Version
- */
-bool tafMngdConnSvc_PolicyParser::Validate_MCSP_Version(taf_mngd_Conn_Policy_t &Policy,
-                                                  std::string Value,
-                                                  int Index)
-{
-    LE_DEBUG("%s", Value.c_str());
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
-    if (TAF_MNGD_JSON_DATA_TYPE_NUMBER != DataType)
-    {
-        LE_WARN("Incorrect data type");
-        return false;
-    }
-    // Valid value. Update Policy.
-    Policy.Version = std::stoi(Value);
     return true;
 }
 
@@ -361,7 +309,6 @@ bool tafMngdConnSvc_PolicyParser::ParseAndUpdatePolicyJSON(taf_mngd_Conn_Policy_
 void tafMngdConnSvc_PolicyParser::ResetPolicyStructure(taf_mngd_Conn_Policy_t &Policy)
 {
     Policy.Name[0] = '\0';
-    memset(Policy.ConfigurationFileName, 0, TAF_MNGD_CONN_MAX_FILE_NAME_LEN);
     Policy.DataSession.dataConnectionCount = 0;
 }
 

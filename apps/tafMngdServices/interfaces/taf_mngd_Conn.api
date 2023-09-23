@@ -64,7 +64,7 @@
  * @verbatim
  {
     "Product": "TelAF",
-    "Name": "Managed Connectivity Configuration - V1",
+    "Name": "Managed Connectivity Service",
     "ManagedConnectivityService": {
         "Version": "23.07.00",
         "Configuration": {                 ///< Configuration Object.
@@ -117,6 +117,9 @@
     }
 }
  @endverbatim
+ * @par List of valid values for "Version" key:
+ *        23.07.00
+ *
  *
  * @par Multiple Data Sessions:
  *      For multiple data sessions, add Data object(s) and matching DataConnection object(s).

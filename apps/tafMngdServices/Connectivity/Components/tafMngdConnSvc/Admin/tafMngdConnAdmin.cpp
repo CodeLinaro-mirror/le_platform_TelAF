@@ -869,7 +869,7 @@ le_result_t tafMngdConnAdmin::EventNetworkRegState(uint8_t phoneId)
                         }
                         else if( result == LE_UNSUPPORTED)
                         {
-                            //Not a default profile.
+                            //Not default phone ID.
                             continue;
                         }
                         else
@@ -1505,10 +1505,10 @@ le_result_t tafMngdConnAdmin::CreateConnectionsBasedPolicy()
                     }
                     else if(result == LE_UNSUPPORTED)
                     {
-                        //Not a default profile.
+                        //Not default phone ID.
                         connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED_AWAITING_USER_COMMAND;
                         ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_DISCONNECTED);
-                        LE_ERROR("Not a default profile");
+                        LE_ERROR("Not default phone ID");
                         continue;
                     }
                     else

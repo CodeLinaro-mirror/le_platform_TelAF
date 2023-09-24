@@ -175,9 +175,13 @@ le_result_t tafMngdConnData::Startdata(uint8_t phoneId, uint32_t profileId)
 
     if(result == LE_OK)
     {
-        if(defaultPhoneId != phoneId || defaultProfileId != profileId)
+        if(defaultProfileId != profileId)
         {
-            LE_ERROR("Alpha 1: Not default profile");
+            LE_INFO("Profile %d is not a default profile", profileId);
+        }
+        if (defaultPhoneId != phoneId)
+        {
+            LE_WARN("Phone ID %d is not default phone ID", phoneId);
             return LE_UNSUPPORTED;
         }
     }

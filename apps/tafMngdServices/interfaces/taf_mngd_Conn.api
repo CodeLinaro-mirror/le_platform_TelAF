@@ -118,6 +118,10 @@
 }
  @endverbatim
  *
+ * @par Multiple Data Sessions:
+ *      For multiple data sessions, add Data object(s) and matching DataConnection object(s).
+ *
+ *
  * @note The Managed Connectivity Service will stop if the JSON is invalid or inaccessible.
  *
  * <HR>

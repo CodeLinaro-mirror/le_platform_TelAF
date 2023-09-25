@@ -1,164 +1,120 @@
-#setup toolchain - this can be optimized later with findtoolchain script
 
-# set global variables
-export CURDIR=$(cd `dirname $1` ; pwd)
-
+# Set global variables
+export CURDIR=$(cd "$(dirname "$1")" || exit ; pwd)
 if [ -d "$TELAF_ROOT" ] && [ "$TELAF_ROOT" != "$CURDIR" ]; then
     echo "Error: The TELAF_ROOT was detected as already being present in this shell environment and inconsistent with the environment to be set. Please use a clean shell when sourcing this environment script."
     return
 fi
-
 export TELAF_ROOT=${CURDIR}
 export LEGATO_ROOT=${CURDIR}/../legato/legato-af
-if [ -f ${TELAF_ROOT}/VERSION ]; then
-    export LEGATO_VERSION=`cat ${TELAF_ROOT}/VERSION 2>/dev/null`
-fi
+export LEGATO_VERSION=$(cat "${TELAF_ROOT}/VERSION" 2>/dev/null)
 
 export TELAF_PROP=${CURDIR}/../telaf-prop
-if [ ! -f "${TELAF_PROP}/build.sh" ]; then
-    export TELAF_PROP=${CURDIR}/../prebuilt_HY33/${1}-nad/telaf-prop-build/telaf-prop/lib
-fi
-
 export TELAF_NOSHIP=${CURDIR}/../telaf-noship
-if [ ! -f "${TELAF_NOSHIP}/build.sh" ]; then
-    export TELAF_NOSHIP=${CURDIR}/../prebuilt_HY33/${1}-nad/telaf-noship-build/telaf-noship/lib
-fi
 
-if [ "$1" == "sa415m" ]; then
-    source /opt/qct/sa415m/environment-setup-armv7at2hf-neon-oe-linux-gnueabi
-elif [ "$1" == "sa515m" ]; then
-    source /opt/qct/sa515m/environment-setup-armv7at2hf-neon-oe-linux-gnueabi
-elif [ "$1" == "sa525m" ]; then
-    if [ -e /opt/qct/sa525m/environment-setup-armv7at2hf-neon-oemllib32-linux-gnueabi ]; then
-        # For 32bit tool chain build
-        export GCC_PREFIX="arm-oemllib32-linux-gnueabi"
-        source /opt/qct/sa525m/environment-setup-armv7at2hf-neon-oemllib32-linux-gnueabi
-    elif [ -e /opt/qct/sa525m/environment-setup-aarch64-oe-linux ]; then
-        # For 64bit tool chain build
-        export GCC_PREFIX="aarch64-oe-linux"
-        source /opt/qct/sa525m/environment-setup-aarch64-oe-linux
+# Setup toolchain
+setup_toolchain() {
+    local TARGET=$1
+
+    if [ "$TARGET" == "sa415m" ]; then
+        source /opt/qct/sa415m/environment-setup-armv7at2hf-neon-oe-linux-gnueabi
+    elif [ "$TARGET" == "sa515m" ]; then
+        source /opt/qct/sa515m/environment-setup-armv7at2hf-neon-oe-linux-gnueabi
+    elif [ "$TARGET" == "sa525m" ]; then
+        if [ -e /opt/qct/sa525m/environment-setup-armv7at2hf-neon-oemllib32-linux-gnueabi ]; then
+            # For 32bit tool chain build
+            export GCC_PREFIX="arm-oemllib32-linux-gnueabi"
+            source /opt/qct/sa525m/environment-setup-armv7at2hf-neon-oemllib32-linux-gnueabi
+        elif [ -e /opt/qct/sa525m/environment-setup-aarch64-oe-linux ]; then
+            # For 64bit tool chain build
+            export GCC_PREFIX="aarch64-oe-linux"
+            source /opt/qct/sa525m/environment-setup-aarch64-oe-linux
+        fi
+    else
+        echo " Missing target parameter!"
+        echo " e.g. $0 sa415m"
+        return
     fi
-else
-    echo " Missing target parameter!"
-    echo " e.g. $0 sa415m"
-    return
-fi
+}
 
 umask 002
 
-#build the target
+# Function to build telaf-prop and telaf-noship
+build_extras() {
+    # The declare -A EXTRA_ENUM command is used to define an associative array that maps EXTRA_TYPE values to their corresponding constants
+    # Later EXTRA_ENUM[${EXTRA_TYPE}] is used to retrieve the value associated with a specific EXTRA_TYPE. 
+    declare -A EXTRA_ENUM=(
+        [prop]="TELAF_PROP"         # Map 'prop' to 'TELAF_PROP'
+        [noship]="TELAF_NOSHIP"     # Map 'noship' to 'TELAF_NOSHIP'
+    )
 
-function build-sa415m-af(){
-    make sa415m
-}
+    local EXTRA_TYPE=$1
+    local TARGET=$2
+    local DIST_DIR="${CURDIR}/build/${TARGET}/telaf-${EXTRA_TYPE}-prebuild"
 
-function build-clean-af(){
-    make clean
-}
+    local TMP_VAR="${EXTRA_ENUM[${EXTRA_TYPE}]}"
+    local EXTRA_SRC_PATH="${!TMP_VAR}"
 
-function build-distclean-af(){
-    make distclean
-}
-
-function build-sa515m-af(){
-    TARGET=sa515m
-
-    # build TelAF OSS source code
-    make ${TARGET}
-
-    # build telaf-prop source code if exists
-    if [ -f "${TELAF_PROP}/build.sh" ]; then
-        TELAF_SYS_QMI_ROOT=${CURDIR}/../qmi/services/
-        TELAF_SYS_QMI_FRAMEWORK_ROOT=${CURDIR}/../qmi-framework/inc/
-        ${TELAF_PROP}/build.sh ${TARGET} "$TELAF_SYS_QMI_ROOT" "$TELAF_SYS_QMI_FRAMEWORK_ROOT"
-    fi
-
-    ## build telaf-noship source code if exists
-    if [ -f "${TELAF_NOSHIP}/build.sh" ]; then
-        TELAF_SYS_QMI_ROOT=${CURDIR}/../qmi/services/
-        TELAF_SYS_QMI_FRAMEWORK_ROOT=${CURDIR}/../qmi-framework/inc/
-        TELAF_SYS_DSUTIL_ROOT=${CURDIR}/../data/dsutils/inc/
-        ${TELAF_NOSHIP}/build.sh ${TARGET} "$TELAF_SYS_QMI_ROOT" "$TELAF_SYS_QMI_FRAMEWORK_ROOT" "$TELAF_SYS_DSUTIL_ROOT"
-    fi
-
-    ## repack TelAF image
-    TELAF_REPACK_DIR=$TELAF_ROOT/build/$TARGET/
-    TELAF_NOSHIP_BUILD_DIR=${TELAF_ROOT}/build/${TARGET}/telaf-noship
-    TELAF_PROP_BUILD_DIR=${TELAF_ROOT}/build/${TARGET}/telaf-prop
-    if [ ! -d $TELAF_NOSHIP_BUILD_DIR ]; then
-        TELAF_NOSHIP_BUILD_DIR=$TELAF_NOSHIP
-    fi
-    if [ ! -d $TELAF_PROP_BUILD_DIR ]; then
-        TELAF_PROP_BUILD_DIR=$TELAF_PROP
-    fi
-    ${TELAF_ROOT}/mkimg.sh ${TARGET} "$TELAF_REPACK_DIR" "$TELAF_NOSHIP_BUILD_DIR" "$TELAF_PROP_BUILD_DIR"
-
-    # sign TelAF image
-    export AVBTOOL="${OECORE_NATIVE_SYSROOT}/usr/share/avb_py_tool"
-    if [ ! -d $AVBTOOL/keys ]; then
-        ${AVBTOOL}/avbtool add_hashtree_footer --image ./build/sa515m/telaf_ro.squashfs --partition_name telaf --do_not_generate_fec --rollback_index 0
+    if [ -f "${EXTRA_SRC_PATH}/build.sh" ]; then
+        local CODE_SYS_QMI_ROOT="${CURDIR}/../qmi/services/"
+        local CODE_SYS_QMI_FRAMEWORK_ROOT="${CURDIR}/../qmi-framework/inc/"
+        local CODE_SYS_DSUTIL_ROOT="${CURDIR}/../data/dsutils/inc/"
+        ${EXTRA_SRC_PATH}/build.sh "${TARGET}" "${CODE_SYS_QMI_ROOT}" "${CODE_SYS_QMI_FRAMEWORK_ROOT}" "${CODE_SYS_DSUTIL_ROOT}"
+        if [ $? -ne 0 ]; then
+            echo "Error: when running ${EXTRA_SRC_PATH}/build.sh"
+            return
+        fi
     else
-        ${AVBTOOL}/avbtool add_hashtree_footer --image ./build/sa515m/telaf_ro.squashfs --partition_name telaf --algorithm SHA256_RSA2048 --key $AVBTOOL/keys/qpsa_attest.key --public_key_metadata $AVBTOOL/keys/qpsa_attest.der --do_not_generate_fec --rollback_index 0
-    fi
-
-    if [ $? -eq 0 ]
-    then
-        # create the tarball for telaf app dependencies used for sdk patch
-        ${TELAF_ROOT}/bin/createsdk ${TARGET} ${TELAF_ROOT}/../
+        # The prebuild for sa525m is located under the apps_proc directory, and it's in the tar.gz file format
+        local PREBUILT_FILE=$(find "${CURDIR}/../../prebuilt_HY11" -type f -name "telaf-${EXTRA_TYPE}-build_*.tar.gz")
+        # The prebuild for sa515m is in the same level directory as telaf, and it is provided in an already uncompressed format
+        local PREBUILT_DIR="${CURDIR}/../prebuilt_HY33/${2}-nad/telaf-${EXTRA_TYPE}-build/telaf-${EXTRA_TYPE}"
+        if [ -n "$PREBUILT_FILE" ]; then
+            rm -fr "${DIST_DIR}" && mkdir -p "${DIST_DIR}"
+            tar -xzvf "$PREBUILT_FILE" -C "${DIST_DIR}"
+            export TELAF_${EXTRA_TYPE^^}="${DIST_DIR}/telaf-${EXTRA_TYPE}/lib"
+        elif [ -d "${PREBUILT_DIR}/lib" ]; then
+            rm -fr "${DIST_DIR}" && mkdir -p "${DIST_DIR}"
+            cp -r "${PREBUILT_DIR}" "${DIST_DIR}/"
+            export TELAF_${EXTRA_TYPE^^}="${DIST_DIR}/telaf-${EXTRA_TYPE}/lib"
+        else
+            echo "Error: Unable to find the required prebuilt files for telaf-${EXTRA_TYPE}."
+        fi
     fi
 }
 
-function build-sa525m-af(){
-    TARGET=sa525m
+function build_target() {
+    TARGET=$1
 
-    # build TelAF OSS source code
-    make ${TARGET}
+    # Build TelAF OSS source code
+    make "${TARGET}"
     if [ $? -ne 0 ]; then
         echo "Error: when making target ${TARGET}"
         return
     fi
 
-    # build telaf-prop source code if exists
-    if [ -f "${TELAF_PROP}/build.sh" ]; then
-        TELAF_SYS_QMI_ROOT=${CURDIR}/../qmi/services/
-        TELAF_SYS_QMI_FRAMEWORK_ROOT=${CURDIR}/../qmi-framework/inc/
-        ${TELAF_PROP}/build.sh ${TARGET} "$TELAF_SYS_QMI_ROOT" "$TELAF_SYS_QMI_FRAMEWORK_ROOT"
-        if [ $? -ne 0 ]; then
-            echo "Error: when running ${TELAF_PROP}/build.sh"
-            return
-        fi
-    fi
+    # Build telaf-prop source code if exists
+    build_extras "prop" "${TARGET}"
 
-    ## build telaf-noship source code if exists
-    if [ -f "${TELAF_NOSHIP}/build.sh" ]; then
-        TELAF_SYS_QMI_ROOT=${CURDIR}/../qmi/services/
-        TELAF_SYS_QMI_FRAMEWORK_ROOT=${CURDIR}/../qmi-framework/inc/
-        TELAF_SYS_DSUTIL_ROOT=${CURDIR}/../data/dsutils/inc/
-        ${TELAF_NOSHIP}/build.sh ${TARGET} "$TELAF_SYS_QMI_ROOT" "$TELAF_SYS_QMI_FRAMEWORK_ROOT" "$TELAF_SYS_DSUTIL_ROOT"
-        if [ $? -ne 0 ]; then
-            echo "Error: when running ${TELAF_NOSHIP}/build.sh"
-            return
-        fi
-    fi
+    # Build telaf-noship source code if exists
+    build_extras "noship" "${TARGET}"
 
-    # repack TelAF image
-    TELAF_REPACK_DIR=$TELAF_ROOT/build/$TARGET/
-    TELAF_NOSHIP_BUILD_DIR=${TELAF_ROOT}/build/${TARGET}/telaf-noship
-    TELAF_PROP_BUILD_DIR=${TELAF_ROOT}/build/${TARGET}/telaf-prop
-    if [ ! -d $TELAF_NOSHIP_BUILD_DIR ]; then
-        TELAF_NOSHIP_BUILD_DIR=$TELAF_NOSHIP
-    fi
-    if [ ! -d $TELAF_PROP_BUILD_DIR ]; then
-        TELAF_PROP_BUILD_DIR=$TELAF_PROP
-    fi
+    # Repack TelAF image
+    local TELAF_REPACK_DIR="${TELAF_ROOT}/build/${TARGET}/"
+    local TELAF_NOSHIP_BUILD_DIR="${TELAF_ROOT}/build/${TARGET}/telaf-noship"
+    local TELAF_PROP_BUILD_DIR="${TELAF_ROOT}/build/${TARGET}/telaf-prop"
+    [[ ! -d $TELAF_NOSHIP_BUILD_DIR ]] && TELAF_NOSHIP_BUILD_DIR=$TELAF_NOSHIP
+    [[ ! -d $TELAF_PROP_BUILD_DIR ]] && TELAF_PROP_BUILD_DIR=$TELAF_PROP
 
-    ${TELAF_ROOT}/mkimg.sh ${TARGET} "$TELAF_REPACK_DIR" "$TELAF_NOSHIP_BUILD_DIR" "$TELAF_PROP_BUILD_DIR"
+    echo "### telaf-noship dir: ${TELAF_NOSHIP_BUILD_DIR} ###"
+    echo "### telaf-prop dir: ${TELAF_PROP_BUILD_DIR} ###"
+    ${TELAF_ROOT}/mkimg.sh "${TARGET}" "$TELAF_REPACK_DIR" "$TELAF_NOSHIP_BUILD_DIR" "$TELAF_PROP_BUILD_DIR"
     if [ $? -ne 0 ]; then
         echo "Error: ${TELAF_ROOT}/mkimg.sh ${TARGET} "$TELAF_REPACK_DIR" "$TELAF_NOSHIP_BUILD_DIR" "$TELAF_PROP_BUILD_DIR""
         return
     fi
 
-    # sign TelAF image
+    # Sign TelAF image
     export AVBTOOL="${OECORE_NATIVE_SYSROOT}/usr/share/avb_py_tool"
     if [ -e ${AVBTOOL}/avbtool ]; then
         if [ ! -d $AVBTOOL/keys ]; then
@@ -174,28 +130,61 @@ function build-sa525m-af(){
         echo "Warning: avbtool not found"
     fi
 
-    # Link image
-    cd ./build/${TARGET}/
     if [ "${GCC_PREFIX}" = "arm-oemllib32-linux-gnueabi" ]; then
-
-        mv     telaf_ro.squashfs            telaf_ro.32bit.squashfs
-        mv     telaf_ro.squashfs.ubi        telaf_ro.32bit.squashfs.ubi
-        ln -sf telaf_ro.32bit.squashfs      telaf_ro.squashfs
-        ln -sf telaf_ro.32bit.squashfs.ubi  telaf_ro.squashfs.ubi
-
+        mv     $TELAF_ROOT/build/${TARGET}/telaf_ro.squashfs            $TELAF_ROOT/build/${TARGET}/telaf_ro.32bit.squashfs
+        mv     $TELAF_ROOT/build/${TARGET}/telaf_ro.squashfs.ubi        $TELAF_ROOT/build/${TARGET}/telaf_ro.32bit.squashfs.ubi
+        ln -sf $TELAF_ROOT/build/${TARGET}/telaf_ro.32bit.squashfs      $TELAF_ROOT/build/${TARGET}/telaf_ro.squashfs
+        ln -sf $TELAF_ROOT/build/${TARGET}/telaf_ro.32bit.squashfs.ubi  $TELAF_ROOT/build/${TARGET}/telaf_ro.squashfs.ubi
     elif [ "${GCC_PREFIX}" = "aarch64-oe-linux" ]; then
-        mv     telaf_ro.squashfs            telaf_ro.64bit.squashfs
-        mv     telaf_ro.squashfs.ubi        telaf_ro.64bit.squashfs.ubi
-        ln -sf telaf_ro.64bit.squashfs      telaf_ro.squashfs
-        ln -sf telaf_ro.64bit.squashfs.ubi  telaf_ro.squashfs.ubi
+        mv     $TELAF_ROOT/build/${TARGET}/telaf_ro.squashfs            $TELAF_ROOT/build/${TARGET}/telaf_ro.64bit.squashfs
+        mv     $TELAF_ROOT/build/${TARGET}/telaf_ro.squashfs.ubi        $TELAF_ROOT/build/${TARGET}/telaf_ro.64bit.squashfs.ubi
+        ln -sf $TELAF_ROOT/build/${TARGET}/telaf_ro.64bit.squashfs      $TELAF_ROOT/build/${TARGET}/telaf_ro.squashfs
+        ln -sf $TELAF_ROOT/build/${TARGET}/telaf_ro.64bit.squashfs.ubi  $TELAF_ROOT/build/${TARGET}/telaf_ro.squashfs.ubi
     fi
 
-    if [ $? -eq 0 ]
-    then
+    if [ $? -eq 0 ]; then
         # create the tarball for telaf app dependencies used for sdk patch
-        ${TELAF_ROOT}/bin/createsdk ${TARGET} ${TELAF_ROOT}/../
+        ${TELAF_ROOT}/bin/createsdk "${TARGET}" "${TELAF_ROOT}/../"
     fi
-
 }
+
+# Build functions for different targets
+function build-sa415m-af() {
+    local TARGET="sa415m"
+    if [ "$TARGET" != "$TARGET_GLOBAL" ]; then
+        echo "Error: Target parameter mismatch. Expected: $TARGET_GLOBAL, Actual: $TARGET"
+        return 1
+    fi
+    build_target "${TARGET}"
+}
+
+function build-sa515m-af() {
+    local TARGET="sa515m"
+    if [ "$TARGET" != "$TARGET_GLOBAL" ]; then
+        echo "Error: Target parameter mismatch. Expected: $TARGET_GLOBAL, Actual: $TARGET"
+        return 1
+    fi
+    build_target "${TARGET}"
+}
+
+function build-sa525m-af() {
+    local TARGET="sa525m"
+    if [ "$TARGET" != "$TARGET_GLOBAL" ]; then
+        echo "Error: Target parameter mismatch. Expected: $TARGET_GLOBAL, Actual: $TARGET"
+        return 1
+    fi
+    build_target "${TARGET}"
+}
+
+function build-clean-af(){
+    make clean
+}
+
+function build-distclean-af(){
+    make distclean
+}
+
+export TARGET_GLOBAL="$1"
+setup_toolchain "$TARGET_GLOBAL"
 
 

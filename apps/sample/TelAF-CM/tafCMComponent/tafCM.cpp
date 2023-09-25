@@ -239,7 +239,8 @@ COMPONENT_INIT
         }
         else
         {
-            // AutoStart: Yes, start the data session
+            // AutoStart: Yes
+            // The service will manage the data session. Just get the connection information.
             LE_INFO("Data ID: %d, AutoStart: Yes", id.first);
             LE_INFO("Get Connection information for ID %d", id.first);
             getConnectionInfo(tmpRef);

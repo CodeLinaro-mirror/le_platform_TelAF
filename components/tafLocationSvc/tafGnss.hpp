@@ -182,6 +182,13 @@ namespace tafsvc {
         taf_gnss_SvInfo_t  satInfo[TAF_GNSS_SV_INFO_MAX_LEN];
         taf_gnss_SvMeas_t  satMeas[TAF_GNSS_SV_INFO_MAX_LEN];
         float    robustConformity;
+        bool     conformityValid;
+        uint8_t  confidencePercent;
+        bool     confidencePercentValid;
+        uint8_t  calibrationStatus;
+        uint8_t  calibrationStatusValid;
+        taf_gnss_KinematicsData_t GnssKinematicsData;
+        bool     GnssKinematicsDataValid;
         le_dls_Link_t   next;
     }
     taf_gnss_PositionSample_t;
@@ -365,6 +372,11 @@ namespace tafsvc {
                     uint8_t*  horConfidencePtr);
             le_result_t SetLeverArmConfig(const taf_gnss_LeverArmParams_t* LeverArmParamsPtr);
             le_result_t SetEngineType(taf_gnss_EngineReportsType_t EngineType);
+            le_result_t GetConformityIndex(taf_gnss_SampleRef_t positionSampleRef,double* indexPtr);
+            le_result_t GetCalibrationData(taf_gnss_SampleRef_t positionSampleRef,
+                    uint32_t* calibPtr,uint8_t* percentPtr);
+            le_result_t GetBodyFrameData(taf_gnss_SampleRef_t positionSampleRef,
+                    taf_gnss_KinematicsData_t* bodyDataPtr);
             le_mem_PoolRef_t   PositionHandlerPoolRef;
             le_mem_PoolRef_t   PositionSampleRequestPoolRef;
             le_event_Id_t positionEventId;

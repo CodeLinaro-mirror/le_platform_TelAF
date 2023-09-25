@@ -1390,3 +1390,55 @@ le_result_t taf_gnss_SetEngineType
     auto &gnss = taf_Gnss::GetInstance();
     return gnss.SetEngineType(EngineType);
 }
+
+/**
+* FUNCTION     : GetConformityIndex
+* DESCRIPTION  : This function gets the conformity index
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
+*/
+le_result_t taf_gnss_GetConformityIndex
+(
+ taf_gnss_SampleRef_t positionSampleRef,
+double* indexPtr
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetConformityIndex(positionSampleRef,indexPtr);
+}
+
+/**
+* FUNCTION     : GetCalibrationData
+* DESCRIPTION  : This function gets the sensor calibration status and confidence percent.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
+*/
+le_result_t taf_gnss_GetCalibrationData
+(
+ taf_gnss_SampleRef_t positionSampleRef,
+uint32_t* calibPtr,
+uint8_t* percentPtr
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetCalibrationData(positionSampleRef,calibPtr,percentPtr);
+}
+
+/**
+* FUNCTION     : GetBodyFrameData
+* DESCRIPTION  : This function gets the body frame data
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
+*/
+le_result_t taf_gnss_GetBodyFrameData
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+taf_gnss_KinematicsData_t* bodyDataPtr
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetBodyFrameData(positionSampleRef,bodyDataPtr);
+}

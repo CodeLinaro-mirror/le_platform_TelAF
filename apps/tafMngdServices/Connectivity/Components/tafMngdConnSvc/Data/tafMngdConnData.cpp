@@ -194,9 +194,7 @@ le_result_t tafMngdConnData::Startdata(uint8_t phoneId, uint32_t profileId)
     profileRef = taf_dcs_GetProfileEx (phoneId, profileId);
     result = taf_dcs_StartSession(profileRef);
 
-    if(result == LE_OK || result == LE_DUPLICATE)
-        return LE_OK;
-
+    LE_INFO("Startdata: result =%d " ,result);
     return result;
 }
 

@@ -626,14 +626,14 @@ le_result_t tafMngdConnAdmin::EventStartData(uint8_t dataId)
         case TAF_MNGD_CONN_DATA_NOT_CONNECTED_AWAITING_USER_COMMAND:
 
             result = data.Startdata(connCtxPtr->phoneId, connCtxPtr->profileNumber);
-            if(result == LE_OK)
+            if(result == LE_OK || result == LE_DUPLICATE)
             {
                 //connection is created.
                 connCtxPtr->state = TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE;
                 ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_CONNECTED);
                 //If manually started the data successfully. Set reconnection flag to true.
                 connCtxPtr->needReConn = true;
-                return LE_OK;
+                return result;
             }
             else
             {

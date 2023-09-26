@@ -266,6 +266,13 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_PhoneID(
         return false;
     }
 
+    //If phoneID is less than zero or greater than two we return false
+    if (std::stoi(Value) < 0 || std::stoi(Value) > 2)
+    {
+        LE_ERROR("Invalid PhoneID");
+        return false;
+    }
+
     // Update the Network Count.
     // Index will be 0. So count will be Index + 1
     Configuration.NetworkCount = Index + 1;

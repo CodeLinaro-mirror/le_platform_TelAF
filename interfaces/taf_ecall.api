@@ -70,7 +70,7 @@
 
 //-------------------------------------------------------------------------------------------------
 /**
- * @page c_tafecall Emergency Call Service
+ * @page c_tafecall eCall Service
  *
  * @ref taf_ecall_interface.h "API Reference"
  *

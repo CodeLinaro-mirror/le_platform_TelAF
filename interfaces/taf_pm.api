@@ -258,7 +258,7 @@ FUNCTION State GetPowerState
 *     - LE_OK          Successfully changed the state of device.
 *     - LE_FAULT       Failed.
 *
-* @note : This is supported only on SA525M.
+* @note This is supported only on SA525M.
 */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetAllVMPowerState
@@ -274,7 +274,7 @@ FUNCTION le_result_t SetAllVMPowerState
 *     - LE_OK          Successfully changed the state of Virtual Machine.
 *     - LE_FAULT       Failed.
 *
-* @note : This is supported only on SA525M.
+* @note This is supported only on SA525M.
 */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetVMPowerState
@@ -291,7 +291,7 @@ FUNCTION le_result_t SetVMPowerState
  *     - non-null pointer -- The Virtual Machines List reference.
  *     - null pointer -- Internal error.
  *
- * @note : This is supported only on SA525M.
+ * @note This is supported only on SA525M.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION VMList GetMachineList
@@ -307,7 +307,7 @@ FUNCTION VMList GetMachineList
  *     - LE_BAD_PARAMETER -- Bad parameters.
  *     - LE_NOT_FOUND -- Empty list.
  *
- * @note : This is supported only on SA525M.
+ * @note This is supported only on SA525M.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetFirstMachineName
@@ -325,7 +325,7 @@ FUNCTION le_result_t GetFirstMachineName
  *     - LE_BAD_PARAMETER -- Bad parameters.
  *     - LE_NOT_FOUND -- The end of the list.
  *
- * @note : This is supported only on SA525M.
+ * @note This is supported only on SA525M.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetNextMachineName
@@ -342,7 +342,7 @@ FUNCTION le_result_t GetNextMachineName
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_OK -- Succeeded.
  *
- * @note : This is supported only on SA525M.
+ * @note This is supported only on SA525M.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DeleteMachineList

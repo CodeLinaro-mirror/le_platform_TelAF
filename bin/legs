@@ -47,6 +47,12 @@ if [ -d "$TELAF_ROOT" ] && [ "$TELAF_ROOT" != "$CURDIR" ]; then
     exit;
 fi
 
+#Ensure presence of TELAF_GLOBAL_TARGET_TOOLCHAIN_PATH environment variable
+if [ ! -e "${TELAF_GLOBAL_TARGET_TOOLCHAIN_PATH}" ]; then
+    echo "source set_af_env.sh from a clean shell and then run bin/legs"
+    exit;
+fi
+
 # Configure TelAF root and interface path
 export TELAF_ROOT=$(realpath $(dirname $(dirname "$ABS_PATH_TO_CURRENT_DIR")))
 export TELAF_INTERFACES=$TELAF_ROOT/interfaces
@@ -60,4 +66,3 @@ source $LEGATO_ROOT/framework/tools/scripts/configlegatoenv
 cd $TELAF_ROOT
 exec <> /dev/tty
 EOF
-

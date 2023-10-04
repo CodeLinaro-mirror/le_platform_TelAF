@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -96,6 +96,25 @@ static void PositionHandlerFunction
     double indexPtr;
     uint8_t percentPtr;
     uint32_t calibPtr;
+    double vrpLatitude;
+    double vrpLongitude;
+    double vrpAltitude;
+    double eastVel;
+    double northVel;
+    double upVel;
+    uint32_t sbasMask = 0;
+    uint32_t validityMask = 0;
+    uint64_t validityExMask = 0;
+    uint16_t engMask = 0;
+    uint16_t locationEngType = 0;
+    uint16_t horiReliablity = 0;
+    uint16_t vertReliablity = 0;
+    double azimuth;
+    double eastDev;
+    double northDev;
+    uint64_t realTime;
+    uint64_t realTimeUnc;
+    uint32_t techMask;
     static const char *tabDop[] =
     {
         "Position dilution of precision (PDOP)",
@@ -108,6 +127,11 @@ static void PositionHandlerFunction
     le_mem_PoolRef_t bodyFramePool = NULL;
     bodyFramePool = le_mem_CreatePool("bodyFramePool", sizeof(taf_gnss_KinematicsData_t));
     bodyFrameData = (taf_gnss_KinematicsData_t*) le_mem_ForceAlloc(bodyFramePool);
+
+    taf_gnss_SvUsedInPosition_t *svData;
+    le_mem_PoolRef_t svFramePool = NULL;
+    svFramePool = le_mem_CreatePool("svFramePool", sizeof(taf_gnss_SvUsedInPosition_t));
+    svData = (taf_gnss_SvUsedInPosition_t*) le_mem_ForceAlloc(svFramePool);
 
     //138.GetPositionState
     LE_TEST_INFO("taf_gnss_GetPositionState() API is triggerred to get position state");
@@ -509,7 +533,7 @@ static void PositionHandlerFunction
     }
     else if (result == LE_OUT_OF_RANGE)
     {
-        LE_TEST_INFO("GetComformingIndex is invalid\n");
+        LE_TEST_INFO("GetConformityIndex is invalid\n");
     }
     else
     {
@@ -538,9 +562,9 @@ static void PositionHandlerFunction
         {
             LE_TEST_INFO("Odo calibration is needed");
         }
-        if(calibPtr & (1<<TAF_GNSS_DR_ODO_CALIBRATION_NEEDED))
+        if(calibPtr & (1<<TAF_GNSS_DR_GYRO_CALIBRATION_NEEDED))
         {
-            LE_TEST_INFO("Odo calibration is needed");
+            LE_TEST_INFO("Gyro calibration is needed");
         }
         if(calibPtr == 0)
         {
@@ -677,6 +701,581 @@ static void PositionHandlerFunction
 
     //release bodyFrameData referene
     le_mem_Release(bodyFrameData);
+
+    //Get VRP based latitude, longitude & altitude information
+    LE_TEST_INFO("taf_gnss_GetVRPBasedLLA() is called to get VRP based information");
+    result = taf_gnss_GetVRPBasedLLA(positionSampleRef,
+                                              &vrpLatitude,&vrpLongitude,&vrpAltitude);
+    LE_TEST_OK(result == LE_OK, "taf_gnss_GetVRPBasedLLA-LE_OK");
+    if (result == LE_OK)
+    {
+        LE_TEST_INFO("VRP based Latitude(positive->north) : %lf degrees\n"
+               "VRP based Longitude(positive->east) : %lf degrees\n"
+               "VRP based altitude                 : %lfm\n",
+                vrpLatitude,
+                vrpLongitude,
+                (float)vrpAltitude);
+    }
+    else if(result == LE_OUT_OF_RANGE)
+    {
+        LE_TEST_INFO("VRP bsed Location is invalid [%lf, %lf, %lf]\n",
+               vrpLatitude,
+               vrpLongitude,
+               vrpAltitude);
+    }
+    else
+    {
+        LE_TEST_INFO("Failed! See log for details\n");
+    }
+
+    //Get VRP based east, north & up velocity information
+    LE_TEST_INFO("taf_gnss_GetVRPBasedVelocity() is called to get VRP based information");
+    result = taf_gnss_GetVRPBasedVelocity(positionSampleRef,
+                                              &eastVel,&northVel,&upVel);
+    LE_TEST_OK(result == LE_OK, "taf_gnss_GetVRPBasedVelocity-LE_OK");
+    if (result == LE_OK)
+    {
+        LE_TEST_INFO("VRP based east velocity  : %lf\n"
+               "VRP based north velocity : %lf\n"
+               "VRP based up velocity    : %lf\n",
+                (float)eastVel,
+                (float)northVel,
+                (float)upVel);
+    }
+    else if(result == LE_OUT_OF_RANGE)
+    {
+        LE_TEST_INFO("GetVRPBasedVelocity invalid [%lf, %lf, %lf]\n",
+               eastVel,
+               northVel,
+               upVel);
+    }
+    else
+    {
+        LE_TEST_INFO("Failed! See log for details\n");
+    }
+
+    //Get set of satellite vehicles that are used to calculate position
+    LE_TEST_INFO("taf_gnss_GetSvUsedInPosition() is called to get SVs");
+    result = taf_gnss_GetSvUsedInPosition(positionSampleRef,svData);
+    LE_TEST_OK(result == LE_OK, "taf_gnss_GetSvUsedInPosition-LE_OK");
+    if (result == LE_OK)
+    {
+        LE_TEST_INFO("SVs from GPS constellation  : %lu\n",svData->gps);
+        LE_TEST_INFO("SVs from GLONASS constellation  : %lu\n",svData->glo);
+        LE_TEST_INFO("SVs from GALILEO constellation   : %lu\n",svData->gal);
+        LE_TEST_INFO("SVs from BEIDOU constellation  : %lu\n",svData->bds);
+        LE_TEST_INFO("SVs from QZSS constellation  : %lu\n",svData->qzss);
+        LE_TEST_INFO("SVs from NAVIC constellation  : %lu\n",svData->navic);
+    }
+    else if(result == LE_OUT_OF_RANGE)
+    {
+        LE_TEST_INFO("GetSvData is invalid\n");
+    }
+    else
+    {
+        LE_TEST_INFO("Failed! See log for details\n");
+    }
+    //release Svdata reference
+    le_mem_Release(svData);
+
+    //Get navigation solution mask used to indicate SBAS corrections.
+    LE_TEST_INFO("taf_gnss_GetSbasCorrection() is called");
+    result = taf_gnss_GetSbasCorrection(positionSampleRef,&sbasMask);
+    LE_TEST_OK(result == LE_OK, "taf_gnss_GetSbasCorrection-LE_OK");
+    if (result == LE_OK)
+    {
+        if(sbasMask & TAF_GNSS_SBAS_CORRECTION_IONO)
+        {
+            LE_TEST_INFO("SBAS ionospheric correction is used\n");
+        }
+        if(sbasMask & TAF_GNSS_SBAS_CORRECTION_FAST)
+        {
+            LE_TEST_INFO("SBAS fast correction is used\n");
+        }
+        if(sbasMask & TAF_GNSS_SBAS_CORRECTION_LONG)
+        {
+            LE_TEST_INFO("SBAS long correction is used\n");
+        }
+        if(sbasMask & TAF_GNSS_SBAS_INTEGRITY)
+        {
+            LE_TEST_INFO("SBAS integrity information is used\n");
+        }
+        if(sbasMask & TAF_GNSS_SBAS_CORRECTION_DGNSS)
+        {
+            LE_TEST_INFO("SBAS DGNSS correction information is used\n");
+        }
+        if(sbasMask & TAF_GNSS_SBAS_CORRECTION_RTK)
+        {
+            LE_TEST_INFO("SBAS RTK correction information is used\n");
+        }
+        if(sbasMask & TAF_GNSS_SBAS_CORRECTION_PPP)
+        {
+            LE_TEST_INFO("SBAS PPP correction information is used\n");
+        }
+        if(sbasMask & TAF_GNSS_SBAS_CORRECTION_RTK_FIXED)
+        {
+            LE_TEST_INFO("SBAS RTK fixed correction information is used\n");
+        }
+        if(sbasMask & TAF_GNSS_SBAS_CORRECTED_SV_USED)
+        {
+            LE_TEST_INFO("SBAS correction SV is used\n");
+        }
+        if(sbasMask == 0)
+        {
+            LE_TEST_INFO("no SBAS corrections data\n");
+        }
+    }
+    else if(result == LE_OUT_OF_RANGE)
+    {
+        LE_TEST_INFO("GetSbasType is invalid\n");
+    }
+    else
+    {
+        LE_TEST_INFO("Failed! See log for details\n");
+    }
+
+    //Get position technology mask used to indicate which technology is used.
+    LE_TEST_INFO("taf_gnss_GetPositionTechnology() is called");
+    result = taf_gnss_GetPositionTechnology(positionSampleRef,&techMask);
+    LE_TEST_OK(result == LE_OK, "taf_gnss_GetPositionTechnology-LE_OK");
+    if (result == LE_OK)
+    {
+        if(techMask &TAF_GNSS_LOC_GNSS)
+        {
+            LE_TEST_INFO("location calculated using GNSS\n");
+        }
+        if(techMask &TAF_GNSS_LOC_CELL)
+        {
+            LE_TEST_INFO("location calculated using CELL\n");
+        }
+        if(techMask &TAF_GNSS_LOC_WIFI)
+        {
+            LE_TEST_INFO("location calculated using WIFI\n");
+        }
+        if(techMask &TAF_GNSS_LOC_SENSORS)
+        {
+            LE_TEST_INFO("location calculated using SENSORS\n");
+        }
+        if(techMask &TAF_GNSS_LOC_REFERENCE_LOCATION)
+        {
+            LE_TEST_INFO("location calculated using reference location\n");
+        }
+        if(techMask &TAF_GNSS_LOC_INJECTED_COARSE_POSITION)
+        {
+            LE_TEST_INFO("location calculated using Coarse position injected\n");
+        }
+        if(techMask &TAF_GNSS_LOC_AFLT)
+        {
+            LE_TEST_INFO("location calculated using AFLT\n");
+        }
+        if(techMask &TAF_GNSS_LOC_HYBRID)
+        {
+            LE_TEST_INFO("location calculated using GNSS and network-provided measurements\n");
+        }
+        if(techMask &TAF_GNSS_LOC_PPE)
+        {
+            LE_TEST_INFO("location calculated using Precise position engine\n");
+        }
+        if(techMask &TAF_GNSS_LOC_VEH)
+        {
+            LE_TEST_INFO("location calculated using Vehicular data\n");
+        }
+        if(techMask &TAF_GNSS_LOC_VIS)
+        {
+            LE_TEST_INFO("location calculated using Visual data\n");
+        }
+        if(techMask &TAF_GNSS_LOC_PROPAGATED)
+        {
+            LE_TEST_INFO("location calculated using propagation logic\n");
+        }
+    }
+    else if(result == LE_OUT_OF_RANGE)
+    {
+        LE_TEST_INFO("GetTechnologyInformation is invalid\n");
+    }
+    else
+    {
+        LE_TEST_INFO("Failed! See log for details\n");
+    }
+
+    //Get the validity of the Location basic Info.
+    LE_TEST_INFO("taf_gnss_GetLocationInfoValidity() is called");
+    result = taf_gnss_GetLocationInfoValidity(positionSampleRef,&validityMask,&validityExMask);
+    LE_TEST_OK(result == LE_OK, "taf_gnss_GetLocationInfoValidity-LE_OK");
+    if (result == LE_OK)
+    {
+        LE_TEST_INFO("** Location Info Validity Information ***\n");
+        if(validityMask & TAF_GNSS_HAS_LAT_LONG_BIT)
+        {
+            LE_TEST_INFO("valid latitude longitude\n");
+        }
+        if(validityMask & TAF_GNSS_HAS_ALTITUDE_BIT)
+        {
+            LE_TEST_INFO("valid altitude\n");
+        }
+        if(validityMask & TAF_GNSS_HAS_SPEED_BIT)
+        {
+            LE_TEST_INFO("valid speed\n");
+        }
+        if(validityMask & TAF_GNSS_HAS_HEADING_BIT)
+        {
+            LE_TEST_INFO("valid heading\n");
+        }
+        if(validityMask & TAF_GNSS_HAS_HORIZONTAL_ACCURACY_BIT)
+        {
+            LE_TEST_INFO("valid horizontal accuracy\n");
+        }
+        if(validityMask & TAF_GNSS_HAS_VERTICAL_ACCURACY_BIT)
+        {
+            LE_TEST_INFO("valid vertical accuracy\n");
+        }
+        if(validityMask & TAF_GNSS_HAS_SPEED_ACCURACY_BIT)
+        {
+            LE_TEST_INFO("valid speed accuracy \n");
+        }
+        if(validityMask & TAF_GNSS_HAS_HEADING_ACCURACY_BIT)
+        {
+            LE_TEST_INFO("valid heading accuracy\n");
+        }
+        if(validityMask & TAF_GNSS_HAS_TIMESTAMP_BIT)
+        {
+            LE_TEST_INFO("valid timestamp\n");
+        }
+        if(validityMask & TAF_GNSS_HAS_ELAPSED_REAL_TIME_BIT)
+        {
+            LE_TEST_INFO("valid elapsed real time\n");
+        }
+        if(validityMask & TAF_GNSS_HAS_ELAPSED_REAL_TIME_UNC_BIT)
+        {
+            LE_TEST_INFO("valid elapsed real time Uncertainity\n");
+        }
+        if(validityMask == 0)
+        {
+            LE_TEST_INFO("no Valid Mask\n");
+        }
+
+        LE_TEST_INFO("\n** Location ex Info Validity Information ***\n");
+
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_ALTITUDE_MEAN_SEA_LEVEL))
+        {
+            LE_TEST_INFO("valid altitude mean sea level\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_DOP))
+        {
+            LE_TEST_INFO("valid pdop, hdop, vdop\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_MAGNETIC_DEVIATION))
+        {
+            LE_TEST_INFO("valid magnetic deviation\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_HOR_RELIABILITY))
+        {
+            LE_TEST_INFO("valid horizontal reliability\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_VER_RELIABILITY))
+        {
+            LE_TEST_INFO("valid vertical reliability\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_HOR_ACCURACY_ELIP_SEMI_MAJOR))
+        {
+            LE_TEST_INFO("valid elipsode semi major\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_HOR_ACCURACY_ELIP_SEMI_MINOR))
+        {
+            LE_TEST_INFO("valid elipsode semi minor\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_HOR_ACCURACY_ELIP_AZIMUTH))
+        {
+            LE_TEST_INFO("valid accuracy elipsode azimuth\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_GNSS_SV_USED_DATA))
+        {
+            LE_TEST_INFO("valid gnss sv used in pos data\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_NAV_SOLUTION_MASK))
+        {
+            LE_TEST_INFO("valid navSolutionMask\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_POS_TECH_MASK))
+        {
+            LE_TEST_INFO("valid LocPosTechMask\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_SV_SOURCE_INFO))
+        {
+            LE_TEST_INFO("valid LocSvInfoSource\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_POS_DYNAMICS_DATA))
+        {
+            LE_TEST_INFO("valid position dynamics data\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_EXT_DOP))
+        {
+            LE_TEST_INFO("valid gdop, tdop\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_NORTH_STD_DEV))
+        {
+            LE_TEST_INFO("valid North standard deviation\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_EAST_STD_DEV))
+        {
+            LE_TEST_INFO("valid East standard deviation\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_NORTH_VEL))
+        {
+            LE_TEST_INFO("valid North Velocity\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_EAST_VEL))
+        {
+            LE_TEST_INFO("valid East Velocity""\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_UP_VEL))
+        {
+            LE_TEST_INFO("valid Up Velocity\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_NORTH_VEL_UNC))
+        {
+            LE_TEST_INFO("valid North Velocity Uncertainty\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_EAST_VEL_UNC))
+        {
+            LE_TEST_INFO("valid East Velocity Uncertainty\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_UP_VEL_UNC))
+        {
+            LE_TEST_INFO("valid Up Velocity Uncertainty\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_LEAP_SECONDS))
+        {
+            LE_TEST_INFO("valid leap_seconds\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_TIME_UNC))
+        {
+            LE_TEST_INFO("valid timeUncMs\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_NUM_SV_USED_IN_POSITION))
+        {
+            LE_TEST_INFO("valid number of sv used\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_CALIBRATION_CONFIDENCE_PERCENT))
+        {
+            LE_TEST_INFO("valid sensor calibrationConfidencePercent\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_CALIBRATION_STATUS))
+        {
+            LE_TEST_INFO("valid sensor calibrationConfidence\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_OUTPUT_ENG_TYPE))
+        {
+            LE_TEST_INFO("valid output engine type\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_OUTPUT_ENG_MASK))
+        {
+            LE_TEST_INFO("valid output engine mask\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_CONFORMITY_INDEX_FIX))
+        {
+            LE_TEST_INFO("valid conformity index\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_LLA_VRP_BASED))
+        {
+            LE_TEST_INFO("valid lla vrp based\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_ENU_VELOCITY_VRP_BASED))
+        {
+            LE_TEST_INFO("valid enu velocity vrp based\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_ALTITUDE_TYPE))
+        {
+            LE_TEST_INFO("valid altitude type\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_REPORT_STATUS))
+        {
+            LE_TEST_INFO("valid report status\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_INTEGRITY_RISK_USED))
+        {
+            LE_TEST_INFO("valid integrity risk\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_PROTECT_LEVEL_ALONG_TRACK))
+        {
+            LE_TEST_INFO("valid protect along track\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_PROTECT_LEVEL_CROSS_TRACK))
+        {
+            LE_TEST_INFO("valid protect cross track\n");
+        }
+        if(validityExMask & (1ULL << TAF_GNSS_HAS_PROTECT_LEVEL_VERTICAL))
+        {
+            LE_TEST_INFO("valid protect vertical\n");
+        }
+        if(validityExMask == 0)
+        {
+            LE_TEST_INFO("no ValidEx Mask\n");
+        }
+    }
+    else if(result == LE_OUT_OF_RANGE)
+    {
+        LE_TEST_INFO("GetValidityInfo is invalid\n");
+    }
+    else
+    {
+        LE_TEST_INFO("Failed! See log for details\n");
+    }
+
+    //Gets the the combination of position engines and location engine type
+    //used in calculating the position report.
+    LE_TEST_INFO("taf_gnss_GetLocationOutputEngParams() is called");
+    result = taf_gnss_GetLocationOutputEngParams(positionSampleRef,&engMask,&locationEngType);
+    LE_TEST_OK(result == LE_OK, "taf_gnss_GetLocationOutputEngParams-LE_OK");
+    if (result == LE_OK)
+    {
+        if(engMask & TAF_GNSS_STANDARD_POSITIONING_ENGINE)
+        {
+            LE_TEST_INFO("SPE used in the reports\n");
+        }
+        if(engMask & TAF_GNSS_DEAD_RECKONING_ENGINE)
+        {
+            LE_TEST_INFO("DRE used in the reports\n");
+        }
+        if(engMask & TAF_GNSS_PRECISE_POSITIONING_ENGINE)
+        {
+            LE_TEST_INFO("PPE used in the reports\n");
+        }
+        if(engMask & TAF_GNSS_VP_POSITIONING_ENGINE)
+        {
+            LE_TEST_INFO("VPE used in the reports\n");
+        }
+        if(engMask == 0)
+        {
+            LE_TEST_INFO("no output engine Mask Mask\n");
+        }
+        if(locationEngType == TAF_GNSS_LOC_OUTPUT_ENGINE_FUSED)
+        {
+            LE_TEST_INFO("This is FUSED engine reports\n");
+        }
+        if(locationEngType == TAF_GNSS_LOC_OUTPUT_ENGINE_SPE)
+        {
+            LE_TEST_INFO("This is SPE engine reports\n");
+        }
+        if(locationEngType == TAF_GNSS_LOC_OUTPUT_ENGINE_PPE)
+        {
+            LE_TEST_INFO("This is PPE engine reports\n");
+        }
+        if(locationEngType == TAF_GNSS_LOC_OUTPUT_ENGINE_VPE)
+        {
+            LE_TEST_INFO("This is VPE engine reports\n");
+        }
+    }
+    else if(result == LE_OUT_OF_RANGE)
+    {
+        LE_TEST_INFO("GetEngineOutputParams is invalid\n");
+    }
+    else
+    {
+        LE_TEST_INFO("Failed! See log for details\n");
+    }
+
+    //Gets the reliability of the horizontal & vertical positions.
+    LE_TEST_INFO("taf_gnss_GetReliabilityInformation() is called");
+    result = taf_gnss_GetReliabilityInformation(positionSampleRef,&horiReliablity,&vertReliablity);
+    LE_TEST_OK(result == LE_OK, "taf_gnss_GetReliabilityInformation-LE_OK");
+    if (result == LE_OK)
+    {
+        if(horiReliablity & TAF_GNSS_RELIABILITY_NOT_SET)
+        {
+            LE_TEST_INFO("Horizontal reliability: NOT_SET\n");
+        }
+        else if(horiReliablity & TAF_GNSS_RELIABILITY_VERY_LOW)
+        {
+            LE_TEST_INFO("Horizontal reliability: VERY_LOW\n");
+        }
+        else if(horiReliablity & TAF_GNSS_RELIABILITY_LOW)
+        {
+            LE_TEST_INFO("Horizontal reliability: LOW\n");
+        }
+        else if(horiReliablity & TAF_GNSS_RELIABILITY_MEDIUM)
+        {
+            LE_TEST_INFO("Horizontal reliability: MEDIUM\n");
+        }
+        else if(horiReliablity & TAF_GNSS_RELIABILITY_HIGH)
+        {
+            LE_TEST_INFO("Horizontal reliability: HIGH\n");
+        }
+        else
+        {
+            LE_TEST_INFO("Horizontal reliability: UNKNOWN\n");
+        }
+        if(vertReliablity & TAF_GNSS_RELIABILITY_NOT_SET)
+        {
+            LE_TEST_INFO("Vertical reliability: NOT_SET\n");
+        }
+        else if(vertReliablity & TAF_GNSS_RELIABILITY_VERY_LOW)
+        {
+            LE_TEST_INFO("Vertical reliability: VERY_LOW\n");
+        }
+        else if(vertReliablity & TAF_GNSS_RELIABILITY_LOW)
+        {
+            LE_TEST_INFO("Vertical reliability: LOW\n");
+        }
+        else if(vertReliablity & TAF_GNSS_RELIABILITY_MEDIUM)
+        {
+            LE_TEST_INFO("Vertical reliability: MEDIUM\n");
+        }
+        else if(vertReliablity & TAF_GNSS_RELIABILITY_HIGH)
+        {
+            LE_TEST_INFO("Vertical reliability: HIGH\n");
+        }
+        else
+        {
+            LE_TEST_INFO("Vertical reliability: UNKNOWN\n");
+        }
+    }
+    else if(result == LE_OUT_OF_RANGE)
+    {
+        LE_TEST_INFO("GetReliabilityInfo is invalid\n");
+    }
+    else
+    {
+        LE_TEST_INFO("Failed! See log for details\n");
+    }
+
+    //Gets the elliptical horizontal uncertainty azimuth of orientation,east
+    //and north standard deviations..
+    LE_TEST_INFO("taf_gnss_GetStdDeviationAzimuthInfo() is called");
+    result = taf_gnss_GetStdDeviationAzimuthInfo(positionSampleRef,&azimuth,&eastDev,&northDev);
+    LE_TEST_OK(result == LE_OK, "taf_gnss_GetStdDeviationAzimuthInfo-LE_OK");
+    if (result == LE_OK)
+    {
+        LE_TEST_INFO("Azimuth: %lf degrees\n",(float)azimuth);
+        LE_TEST_INFO("East standard deviation: %lfm\n",(float)eastDev);
+        LE_TEST_INFO("North standard deviation: %lfm\n",(float)northDev);
+    }
+    else if(result == LE_OUT_OF_RANGE)
+    {
+        LE_TEST_INFO("taf_gnss_GetStdDeviationAzimuthInfo is invalid\n");
+    }
+    else
+    {
+        LE_TEST_INFO("Failed! See log for details\n");
+    }
+
+    //Gets the elapsed real time and its uncertainity values.
+    LE_TEST_INFO("taf_gnss_GetRealTimeInformation() is called");
+    result = taf_gnss_GetRealTimeInformation(positionSampleRef,&realTime,&realTimeUnc);
+    LE_TEST_OK(result == LE_OK, "taf_gnss_GetRealTimeInformation-LE_OK");
+    if (result == LE_OK)
+    {
+        LE_TEST_INFO("Elapsed real time: %lu ns\n",realTime);
+        LE_TEST_INFO("Elapsed real time uncertainity: %lu ns\n",realTimeUnc);
+    }
+    else if(result == LE_OUT_OF_RANGE)
+    {
+        LE_TEST_INFO("GetRealTimeInfo is invalid\n");
+    }
+    else
+    {
+        LE_TEST_INFO("Failed! See log for details\n");
+    }
 
     LE_TEST_INFO("taf_gnss_ReleaseSampleRef is triggered");
     taf_gnss_ReleaseSampleRef(positionSampleRef);
@@ -1535,6 +2134,12 @@ static void TestTafGnssNmeaSentences
     nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GPGGA;
     result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
+
+    //Start
+    LE_TEST_INFO("taf_gnss_Start() API is called to stop reporting");
+    result = taf_gnss_Start();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
+
     le_thread_Sleep(2);
     LE_TEST_INFO("wait for 2 seconds");
 
@@ -1554,11 +2159,22 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
+    //Stop
+    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
+    result = taf_gnss_Stop();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
+
     //42. SetNmeaSentence - GPRMC
     LE_TEST_INFO("SetNmeaSentences() API is called to set GPRMC NMEA sentence type");
     nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GPRMC;
     result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
+
+    //Start
+    LE_TEST_INFO("taf_gnss_Start() API is called to stop reporting");
+    result = taf_gnss_Start();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
+
     le_thread_Sleep(2);
     LE_TEST_INFO("wait for 2 seconds");
 
@@ -1578,12 +2194,22 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
+    //Stop
+    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
+    result = taf_gnss_Stop();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
 
     //44. SetNmeaSentence - GNGSA
     LE_TEST_INFO("SetNmeaSentences() API is called to set GNGSA NMEA sentence type");
     nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GNGSA;
     result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
+
+    //Start
+    LE_TEST_INFO("taf_gnss_Start() API is called to stop reporting");
+    result = taf_gnss_Start();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
+
     le_thread_Sleep(2);
     LE_TEST_INFO("wait for 2 seconds");
 
@@ -1603,11 +2229,22 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
+    //Stop
+    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
+    result = taf_gnss_Stop();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
+
     //46.SetNmeaSentence - GPVTG
     LE_TEST_INFO("SetNmeaSentences() API is called to set GPVTG NMEA sentence type");
     nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GPVTG;
     result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
+
+    //Start
+    LE_TEST_INFO("taf_gnss_Start() API is called to stop reporting");
+    result = taf_gnss_Start();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
+
     le_thread_Sleep(2);
     LE_TEST_INFO("wait for 2 seconds");
 
@@ -1627,11 +2264,22 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
+    //Stop
+    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
+    result = taf_gnss_Stop();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
+
     //48. SetNmeaSentence - GPGNS
     LE_TEST_INFO("SetNmeaSentences() API is called to set GPGNS NMEA sentence type");
     nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GPGNS;
     result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
+
+    //Start
+    LE_TEST_INFO("taf_gnss_Start() API is called to stop reporting");
+    result = taf_gnss_Start();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
+
     le_thread_Sleep(2);
     LE_TEST_INFO("wait for 2 seconds");
 
@@ -1651,11 +2299,22 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
+    //Stop
+    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
+    result = taf_gnss_Stop();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
+
     //50. SetNmeaSentence - GPDTM
     LE_TEST_INFO("SetNmeaSentences() API is called to set GPDTM NMEA sentence type");
     nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GPDTM;
     result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
+
+    //Start
+    LE_TEST_INFO("taf_gnss_Start() API is called to stop reporting");
+    result = taf_gnss_Start();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
+
     le_thread_Sleep(2);
     LE_TEST_INFO("wait for 2 seconds");
 
@@ -1675,11 +2334,22 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
+    //Stop
+    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
+    result = taf_gnss_Stop();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
+
     //52. SetNmeaSentence - GPGSV
     LE_TEST_INFO("SetNmeaSentences() API is called to set GPGSV NMEA sentence type");
     nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GPGSV;
     result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
+
+    //Start
+    LE_TEST_INFO("taf_gnss_Start() API is called to stop reporting");
+    result = taf_gnss_Start();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
+
     le_thread_Sleep(2);
     LE_TEST_INFO("wait for 2 seconds");
 
@@ -1699,11 +2369,22 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
+    //Stop
+    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
+    result = taf_gnss_Stop();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
+
     //54. SetNmeaSentence - GLGSV
     LE_TEST_INFO("SetNmeaSentences() API is called to set GLGSV NMEA sentence type");
     nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GLGSV;
     result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
+
+    //Start
+    LE_TEST_INFO("taf_gnss_Start() API is called to stop reporting");
+    result = taf_gnss_Start();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
+
     le_thread_Sleep(2);
     LE_TEST_INFO("wait for 2 seconds");
 
@@ -1718,16 +2399,31 @@ static void TestTafGnssNmeaSentences
             LE_TEST_INFO("GLGSV enabled\n");
         }
     }
+    else if(result == LE_TIMEOUT)
+    {
+        LE_TEST_INFO("GLGSV NmeaSentence type is not being received\n");
+    }
     else
     {
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
+
+    //Stop
+    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
+    result = taf_gnss_Stop();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
 
     //56. SetNmeaSentence - GAGSV
     LE_TEST_INFO("SetNmeaSentences() API is called to set GAGSV NMEA sentence type");
     nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GAGSV;
     result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
+
+    //Start
+    LE_TEST_INFO("taf_gnss_Start() API is called to stop reporting");
+    result = taf_gnss_Start();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
+
     le_thread_Sleep(2);
     LE_TEST_INFO("wait for 2 seconds");
 
@@ -1742,16 +2438,31 @@ static void TestTafGnssNmeaSentences
             LE_TEST_INFO("GAGSV enabled\n");
         }
     }
+    else if(result == LE_TIMEOUT)
+    {
+        LE_TEST_INFO("GAGSV NmeaSentence type is not being received\n");
+    }
     else
     {
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
+
+    //Stop
+    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
+    result = taf_gnss_Stop();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
 
     //58. SetNmeaSentence - GQGSV
     LE_TEST_INFO("SetNmeaSentences() API is called to set GQGSV NMEA sentence type");
     nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GQGSV;
     result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
+
+    //Start
+    LE_TEST_INFO("taf_gnss_Start() API is called to stop reporting");
+    result = taf_gnss_Start();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
+
     le_thread_Sleep(2);
     LE_TEST_INFO("wait for 2 seconds");
 
@@ -1766,16 +2477,31 @@ static void TestTafGnssNmeaSentences
             LE_TEST_INFO("GQGSV enabled\n");
         }
     }
+    else if(result == LE_TIMEOUT)
+    {
+        LE_TEST_INFO("GQGSV NmeaSentence type is not being received\n");
+    }
     else
     {
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
+
+    //Stop
+    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
+    result = taf_gnss_Stop();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
 
     //60. SetNmeaSentence - GBGSV
     LE_TEST_INFO("SetNmeaSentences() API is called to set GBGSV NMEA sentence type");
     nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GBGSV;
     result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
+
+    //Start
+    LE_TEST_INFO("taf_gnss_Start() API is called to stop reporting");
+    result = taf_gnss_Start();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
+
     le_thread_Sleep(2);
     LE_TEST_INFO("wait for 2 seconds");
 
@@ -1795,18 +2521,29 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
+    //Stop
+    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
+    result = taf_gnss_Stop();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
+
     //62. SetNmeaSentence - GIGSV
     LE_TEST_INFO("SetNmeaSentences() API is called to set GIGSV NMEA sentence type");
     nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GIGSV;
     result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
+
+    //Start
+    LE_TEST_INFO("taf_gnss_Start() API is called to stop reporting");
+    result = taf_gnss_Start();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
+
     le_thread_Sleep(2);
     LE_TEST_INFO("wait for 2 seconds");
 
     //63.GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
     result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
-    LE_TEST_OK(result==LE_OK, "taf_gnss_GetNmeaSentences-LE_OK");
+    LE_TEST_OK(result==LE_TIMEOUT, "taf_gnss_GetNmeaSentences-LE_TIMEOUT");
     if(result == LE_OK)
     {
         if(nmeaMaskPtr & TAF_GNSS_NMEA_MASK_GIGSV)
@@ -1819,11 +2556,22 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
+    //Stop
+    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
+    result = taf_gnss_Stop();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
+
     //64. SetNmeaSentence - Combination of GIGSV,GBGSV&
     LE_TEST_INFO("SetNmeaSentences() API is called to set GIGSV NMEA sentence type");
     nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GIGSV|TAF_GNSS_NMEA_MASK_GBGSV|TAF_GNSS_NMEA_MASK_GAGSV;
     result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
+
+    //Start
+    LE_TEST_INFO("taf_gnss_Start() API is called to stop reporting");
+    result = taf_gnss_Start();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
+
     le_thread_Sleep(2);
     LE_TEST_INFO("wait for 2 seconds");
 
@@ -1837,17 +2585,36 @@ static void TestTafGnssNmeaSentences
         {
             LE_TEST_INFO("GIGSV enabled\n");
         }
+        if(nmeaMaskPtr & TAF_GNSS_NMEA_MASK_GBGSV)
+        {
+            LE_TEST_INFO("GBGSV enabled\n");
+        }
+        if(nmeaMaskPtr & TAF_GNSS_NMEA_MASK_GAGSV)
+        {
+            LE_TEST_INFO("GAGSV enabled\n");
+        }
     }
     else
     {
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
+    //Stop
+    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
+    result = taf_gnss_Stop();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
+
     //66. SetNmeaSentence - 0xFFFFFFFF
     LE_TEST_INFO("SetNmeaSentences() API is called to set 0xFFFFFFFF NMEA sentence type");
     nmeaMaskPtr = 0xFFFFFFFF;
     result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
+
+    //Start
+    LE_TEST_INFO("taf_gnss_Start() API is called to stop reporting");
+    result = taf_gnss_Start();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
+
     le_thread_Sleep(2);
     LE_TEST_INFO("wait for 2 seconds");
 
@@ -1866,6 +2633,11 @@ static void TestTafGnssNmeaSentences
         LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
     }
 
+    //Stop
+    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
+    result = taf_gnss_Stop();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
+
     //SetNmeaSentence ->0
     LE_TEST_INFO("SetNmeaSentences() API is called to set 0- NMEA sentence type");
     nmeaMaskPtr = 0;
@@ -1878,10 +2650,23 @@ static void TestTafGnssNmeaSentences
     result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
     LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
 
-    //GetNmeaSentences- LE_FAULT
+    //Start
+    LE_TEST_INFO("taf_gnss_Start() API is called to stop reporting");
+    result = taf_gnss_Start();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
+
+    le_thread_Sleep(2);
+    LE_TEST_INFO("wait for 2 seconds");
+
+    //GetNmeaSentences- LE_TIMEOUT
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
     result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
-    LE_TEST_OK(result==LE_FAULT, "taf_gnss_GetNmeaSentences-LE_FAULT");
+    LE_TEST_OK(result==LE_TIMEOUT, "taf_gnss_GetNmeaSentences-LE_TIMEOUT");
+
+    //Stop
+    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
+    result = taf_gnss_Stop();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
 
    //68.Disable GNSS
     LE_TEST_INFO("taf_gnss_Disable() API is called to disable GNSS engine");

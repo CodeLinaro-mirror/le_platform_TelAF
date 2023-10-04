@@ -649,7 +649,7 @@
      // Process after succesfully setting an engine type.
    }
  * - taf_gnss_GetConformityIndex() -- Triggered inside the PositionHandlerFunction()
- *                                          function to get positionSampleRef.
+ *                                    function to get positionSampleRef.
  * @verbatim
    double indexPtr;
    if(taf_gnss_GetConformityIndex(positionSampleRef,&indexPtr) == LE_OK)
@@ -677,6 +677,111 @@
    if(taf_gnss_GetBodyFrameData(positionSampleRef,bodyFrameData) == LE_OK)
    {
      // Process after succesfully getting the body frame parameters.
+   }
+   @endverbatim
+ * - taf_gnss_GetVRPBasedLLA() -- Triggered inside the PositionHandlerFunction()
+ *                                function to get positionSampleRef.
+ * @verbatim
+   double vrpLatitude;
+   double vrpLongitude;
+   double vrpAltitude;
+   if(taf_gnss_GetVRPBasedLLA(positionSampleRef, &vrpLatitude,&vrpLongitude,&vrpAltitude) == LE_OK)
+   {
+     // Process after succesfully getting VRP based latitude, longitude, and altitude information.
+   }
+   @endverbatim
+ * - taf_gnss_GetVRPBasedVelocity() -- Triggered inside the PositionHandlerFunction()
+ *                                     function to get positionSampleRef.
+ * @verbatim
+   double eastVel;
+   double northVel;
+   double upVel;
+   if(taf_gnss_GetVRPBasedVelocity(positionSampleRef, &eastVel,&northVel,&upVel) == LE_OK)
+   {
+     // Process after succesfully getting VRP based east, north, and up velocity information.
+   }
+   @endverbatim
+ * - taf_gnss_GetSvUsedInPosition() -- Triggered inside the PositionHandlerFunction()
+ *                                     function to get positionSampleRef.
+ * @verbatim
+   taf_gnss_SvUsedInPosition_t *svData;
+   le_mem_PoolRef_t svFramePool = NULL;
+   svFramePool = le_mem_CreatePool("svFramePool", sizeof(taf_gnss_SvUsedInPosition_t));
+   svData = (taf_gnss_SvUsedInPosition_t*) le_mem_ForceAlloc(svFramePool);
+   if(taf_gnss_GetSvUsedInPosition(positionSampleRef, svData) == LE_OK)
+   {
+     // Process after succesfully getting set of SVs that are used to calculate position.
+   }
+   @endverbatim
+ * - taf_gnss_GetSbasCorrection() -- Triggered inside the PositionHandlerFunction()
+ *                                   function to get positionSampleRef.
+ * @verbatim
+   uint32_t sbasMask;
+   if(taf_gnss_GetSbasCorrection(positionSampleRef, &sbasMask) == LE_OK)
+   {
+     // Process after succesfully getting the mask used to indicate SBAS corrections.
+   }
+   @endverbatim
+ * - taf_gnss_GetPositionTechnology() -- Triggered inside the PositionHandlerFunction()
+ *                                       function to get positionSampleRef.
+ * @verbatim
+   uint32_t techMask;
+   if(taf_gnss_GetPositionTechnology(positionSampleRef,&techMask) == LE_OK)
+   {
+     // Process after succesfully getting position tech mask to indicate which technology is used
+     // and technlogy used in computing the fix.
+   }
+   @endverbatim
+ * - taf_gnss_GetLocationInfoValidity() -- Triggered inside the PositionHandlerFunction()
+ *                                         function to get positionSampleRef.
+ * @verbatim
+   uint32_t validityMask;
+   uint64_t validityExMask;
+   if(taf_gnss_GetLocationInfoValidity(positionSampleRef, &validityMask,&validityExMask) == LE_OK)
+   {
+     // Process after succesfully getting the validity of the Location basic information
+     // and validity of Location Ex basic information.
+   }
+   @endverbatim
+ * - taf_gnss_GetLocationOutputEngParams() -- Triggered inside the PositionHandlerFunction()
+ *                                           function to get positionSampleRef.
+ * @verbatim
+   uint16_t engMask;
+   uint16_t locationEngType;
+   if(taf_gnss_GetLocationOutputEngParams(positionSampleRef, &engMask,&locationEngType) == LE_OK)
+   {
+     // Process after succesfully getting the location engine mask and engine type parameters.
+   }
+   @endverbatim
+ * - taf_gnss_GetReliabilityInformation() -- Triggered inside the PositionHandlerFunction()
+ *                                           function to get positionSampleRef.
+ * @verbatim
+   uint16_t horiReliablity;
+   uint16_t vertReliablity;
+   if(taf_gnss_GetReliabilityInformation(positionSampleRef, &horiReliablity,&vertReliablity) == LE_OK)
+   {
+     // Process after succesfully getting the horizontal and vertical reliablity information.
+   }
+   @endverbatim
+ * - taf_gnss_GetStdDeviationAzimuthInfo() -- Triggered inside the PositionHandlerFunction()
+ *                                            function to get positionSampleRef.
+ * @verbatim
+   double azimuth;
+   double eastDev;
+   double northDev;
+   if(taf_gnss_GetStdDeviationAzimuthInfo(positionSampleRef, &azimuth,&eastDev,&northDev) == LE_OK)
+   {
+     // Process after succesfully getting the azimuth, east, and north deviation information.
+   }
+   @endverbatim
+ * - taf_gnss_GetRealTimeInformation() -- Triggered inside the PositionHandlerFunction()
+ *                                        function to get positionSampleRef.
+ * @verbatim
+   uint64_t realTime;
+   uint64_t realTimeUnc;
+   if(taf_gnss_GetRealTimeInformation(positionSampleRef, &realTime,&realTimeUnc) == LE_OK)
+   {
+     // Process after succesfully getting elapsed real time and its uncertainity.
    }
    @endverbatim
  * taf_gnss_GetDilutionOfPrecision() -- Gets the Dilution of Precision (DOP) paramters with a
@@ -1494,6 +1599,166 @@ ENUM KinematicsDataValidityType {
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Type of SBAS correction.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM SbasBitMask {
+    SBAS_CORRECTION_IONO,     ///< Specify whether SBAS ionospheric correction
+                              ///  is used.
+    SBAS_CORRECTION_FAST,     ///< Specify whether SBAS fast correction is used.
+    SBAS_CORRECTION_LONG,     ///< Specify whether SBAS long correction is used.
+    SBAS_INTEGRITY,           ///< Specify whether SBAS integrity information
+                              ///  is used.
+    SBAS_CORRECTION_DGNSS,    ///< Specify whether SBAS DGNSS correction is used.
+    SBAS_CORRECTION_RTK,      ///< Specify whether SBAS RTK correction is used.
+    SBAS_CORRECTION_PPP,      ///< Specify whether SBAS PPP correction is used.
+    SBAS_CORRECTION_RTK_FIXED,///< Specify whether SBAS RTK fixed correction
+                              ///  is used.
+    SBAS_CORRECTED_SV_USED,   ///< Specify only SBAS corrected SV is used
+    SBAS_COUNT                ///< Bitset.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Validity of location information.
+ */
+//--------------------------------------------------------------------------------------------------
+BITMASK LocationInfoValidity
+{
+    HAS_LAT_LONG_BIT,             ///< Location has valid latitude and longitude.
+    HAS_ALTITUDE_BIT,             ///< Location has valid altitude.
+    HAS_SPEED_BIT,                ///< Location has valid speed.
+    HAS_HEADING_BIT,              ///< Location has valid heading.
+    HAS_HORIZONTAL_ACCURACY_BIT,  ///< Location has valid horizontal accuracy.
+    HAS_VERTICAL_ACCURACY_BIT,    ///< Location has valid vertical accuracy.
+    HAS_SPEED_ACCURACY_BIT,       ///< Location has valid speed accuracy.
+    HAS_HEADING_ACCURACY_BIT,     ///< Location has valid heading accuracy.
+    HAS_TIMESTAMP_BIT,            ///< Location has valid timestamp.
+    HAS_ELAPSED_REAL_TIME_BIT,    ///< Location has valid elapsed real time.
+    HAS_ELAPSED_REAL_TIME_UNC_BIT ///< Location has valid elapsed real time uncertainty.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Validity of extended location information.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM LocationInfoExValidity
+{
+    HAS_ALTITUDE_MEAN_SEA_LEVEL,       ///< Valid altitude mean sea level.
+    HAS_DOP,                           ///< Valid PDOP, HDOP, and VDOP.
+    HAS_MAGNETIC_DEVIATION,            ///< Valid magnetic deviation.
+    HAS_HOR_RELIABILITY,               ///< Valid horizontal reliability.
+    HAS_VER_RELIABILITY,               ///< Valid vertical reliability.
+    HAS_HOR_ACCURACY_ELIP_SEMI_MAJOR,  ///< Valid elipsode semi major.
+    HAS_HOR_ACCURACY_ELIP_SEMI_MINOR,  ///< Valid elipsode semi minor.
+    HAS_HOR_ACCURACY_ELIP_AZIMUTH,     ///< Valid accuracy elipsode azimuth.
+    HAS_GNSS_SV_USED_DATA,             ///< Valid GNSS SV information in pos data including
+                                       ///  measurement information.
+    HAS_NAV_SOLUTION_MASK,             ///< Valid navSolutionMask.
+    HAS_POS_TECH_MASK,                 ///< Valid LocPosTechMask.
+    HAS_SV_SOURCE_INFO,                ///< Valid LocSvInfoSource.
+    HAS_POS_DYNAMICS_DATA,             ///< Valid position dynamics data.
+    HAS_EXT_DOP,                       ///< Valid GDOP and TDOP.
+    HAS_NORTH_STD_DEV,                 ///< Valid North standard deviation.
+    HAS_EAST_STD_DEV,                  ///< Valid East standard deviation.
+    HAS_NORTH_VEL,                     ///< Valid North Velocity.
+    HAS_EAST_VEL,                      ///< Valid East Velocity.
+    HAS_UP_VEL,                        ///< Valid Up Velocity.
+    HAS_NORTH_VEL_UNC,                 ///< Valid North Velocity Uncertainty.
+    HAS_EAST_VEL_UNC,                  ///< Valid East Velocity Uncertainty.
+    HAS_UP_VEL_UNC,                    ///< Valid Up Velocity Uncertainty.
+    HAS_LEAP_SECONDS,                  ///< Valid leap_seconds.
+    HAS_TIME_UNC,                      ///< Valid timeUncMs.
+    HAS_NUM_SV_USED_IN_POSITION,       ///< Valid number of SV used.
+    HAS_CALIBRATION_CONFIDENCE_PERCENT,///< Valid sensor calibrationConfidencePercent.
+    HAS_CALIBRATION_STATUS,            ///< Valid sensor calibrationConfidence.
+    HAS_OUTPUT_ENG_TYPE,               ///< Valid output engine type.
+    HAS_OUTPUT_ENG_MASK,               ///< Valid output engine mask.
+    HAS_CONFORMITY_INDEX_FIX,          ///< Valid conformity index.
+    HAS_LLA_VRP_BASED,                 ///< Valid LLA VRP based.
+    HAS_ENU_VELOCITY_VRP_BASED,        ///< Valid enu vrp based.
+    HAS_ALTITUDE_TYPE,                 ///< Valid altitude type.
+    HAS_REPORT_STATUS,                 ///< Valid report status.
+    HAS_INTEGRITY_RISK_USED,           ///< Valid integrity risk.
+    HAS_PROTECT_LEVEL_ALONG_TRACK,     ///< Valid protect level along track.
+    HAS_PROTECT_LEVEL_CROSS_TRACK,     ///< Valid protect level cross track.
+    HAS_PROTECT_LEVEL_VERTICAL,        ///< Valid protect level vertical.
+    HAS_SOLUTION_STATUS                ///< Valid DR Solution status.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Type of positioning engine.
+ */
+//--------------------------------------------------------------------------------------------------
+BITMASK EngineMask
+{
+    STANDARD_POSITIONING_ENGINE,      ///< For standard GNSS position engines.
+    DEAD_RECKONING_ENGINE,            ///< For dead reckoning position engines.
+    PRECISE_POSITIONING_ENGINE,       ///< For precise position engines.
+    VP_POSITIONING_ENGINE             ///< For VP position engine.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Type of location engine.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM LocationAggregationType
+{
+    LOC_OUTPUT_ENGINE_FUSED,        ///< This is the propagated/aggregated report
+                                    /// from the fixes of all engines running on the
+                                    /// system (e.g., DR/SPE/PPE).
+    LOC_OUTPUT_ENGINE_SPE,          ///< This fix is the unmodified fix from modem GNSS engine.
+    LOC_OUTPUT_ENGINE_PPE,          ///< This is the unmodified fix from PPP engine.
+    LOC_OUTPUT_ENGINE_VPE           ///< This is the unmodified fix from VPE engine.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reliability of the horizontal and vertical positions.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM LocationReliability
+{
+    RELIABILITY_UNKNOWN  = -1,    ///< Unknown location reliability.
+    RELIABILITY_NOT_SET  = 0,     ///< Location reliability is not set. The reliability
+                                  /// of this position report could not be determined.
+                                  /// It could be unreliable/reliable.
+    RELIABILITY_VERY_LOW = 1,     ///< Location reliability is very low.
+    RELIABILITY_LOW = 2,          ///< Location reliability is low, little, or no
+                                  ///  cross-checking is possible.
+    RELIABILITY_MEDIUM = 3,       ///< Location reliability is medium, limited cross-check passed.
+    RELIABILITY_HIGH = 4          ///< Location reliability is high, strong cross-check passed.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Type of location technology.
+ */
+//--------------------------------------------------------------------------------------------------
+BITMASK LocationTechnologyType
+{
+    LOC_GNSS,                     ///< Location was calculated using GNSS-based technology.
+    LOC_CELL,                     ///< Location was calculated using Cell-based technology.
+    LOC_WIFI,                     ///< Location was calculated using WiFi-based technology.
+    LOC_SENSORS,                  ///< Location was calculated using Sensors-based technology.
+    LOC_REFERENCE_LOCATION,       ///< Location was calculated using Reference location.
+    LOC_INJECTED_COARSE_POSITION, ///< Location was calculated using Coarse position injected
+                                  ///  into the location engine.
+    LOC_AFLT,                     ///< Location was calculated using AFLT.
+    LOC_HYBRID,                   ///< Location was calculated using GNSS and
+                                  ///  network-provided measurements.
+    LOC_PPE,                      ///< Location was calculated using Precise position engine.
+    LOC_VEH,                      ///< Location was calculated using Vehicular data.
+    LOC_VIS,                      ///< Location was calculated using Visual data.
+    LOC_PROPAGATED                ///< Location was calculated using Propagation logic,
+                                  ///  which uses cached measurements.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Dead reckoning configuration parameters.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1577,6 +1842,27 @@ STRUCT KinematicsData
     double rollRateUnc;       ///< Uncertainty of roll rate, in unit of rad/sec.
     double yaw;               ///< Yaw of the body frame, clockwise is positive, in unit of radian.
     double yawUnc;            ///< Uncertainty of yaw, in unit of radian.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set of SVs that are used to calculate position.
+ */
+//--------------------------------------------------------------------------------------------------
+STRUCT SvUsedInPosition
+{
+    uint64 gps;    ///< Specify the set of SVs from GPS constellation that are used to compute the position.
+                   ///  Bit 0 to Bit 31 corresponds to GPS SV ID 1 to 32.
+    uint64 glo;    ///< Specify the set of SVs from GLONASS constellation that are used to compute the position.
+                   ///  Bit 0 to Bit 31 corresponds to GLO SV ID 65 to 96.
+    uint64 gal;    ///< Specify the set of SVs from GALILEO constellation that are used to compute the position.
+                   ///  Bit 0 to Bit 35 corresponds to GAL SV ID 301 to 336.
+    uint64 bds;    ///< Specify the set of SVs from BEIDOU constellation that are used to compute the position.
+                   ///  Bit 0 to Bit 62 corresponds to BDS SV ID 201 to 263.
+    uint64 qzss;   ///< Specify the set of SVs from QZSS constellation that are used to compute the position.
+                   ///  Bit 0 to Bit 4 corresponds to QZSS SV ID 193 to 197.
+    uint64 navic;  ///< Specify the set of SVs from NAVIC constellation that are used to compute the position.
+                   ///  Bit 0 to Bit 13 corresponds to NAVIC SV ID 401 to 414.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -2005,7 +2291,6 @@ FUNCTION le_result_t SetNmeaSentences
  * @return
  *  - LE_OK             Succeeded.
  *  - LE_FAULT          Failed.
- *  - LE_BUSY           Service is busy.
  *  - LE_TIMEOUT        Timeout occurred.
  *  - LE_NOT_PERMITTED  GNSS device is not ready. 
  *
@@ -2304,4 +2589,215 @@ FUNCTION le_result_t GetBodyFrameData
 (
     Sample positionSampleRef IN,  ///< Position sample reference.
     KinematicsData bodyDataPtr  OUT   ///< Body data reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets vehicle reference point based latitude, longitude, and altitude information.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetVRPBasedLLA
+(
+    Sample positionSampleRef IN,     ///< Position sample reference.
+    double vrpLatitudePtr  OUT,      ///< VRP based latitude.
+    double vrpLongitudePtr OUT,      ///< VRP based longtitude.
+    double vrpAltitudePtr  OUT       ///< VRP based altitude.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets vehicle reference point based east, north, and up velocity information.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetVRPBasedVelocity
+(
+    Sample positionSampleRef IN,     ///< Position sample reference.
+    double eastVelPtr  OUT,          ///< East velocity.
+    double northVelPtr OUT,          ///< North velocity.
+    double upVelPtr  OUT             ///< Up velocity.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the set of satellite vehicles that are used to calculate position.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetSvUsedInPosition
+(
+    Sample positionSampleRef IN,    ///< Position sample reference.
+    SvUsedInPosition svDataPtr OUT  ///< SV data reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets navigation solution mask used to indicate SBAS corrections.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetSbasCorrection
+(
+    Sample positionSampleRef IN,    ///< Position sample reference.
+    uint32 sbasMaskPtr OUT          ///< SBAS bit mask.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets position technology mask to indicate which technology is used.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetPositionTechnology
+(
+    Sample positionSampleRef IN,    ///< Position sample reference.
+    uint32 techMaskPtr OUT          ///< Technology mask.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the validity of the location basic information.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetLocationInfoValidity
+(
+    Sample positionSampleRef IN,    ///< Position sample reference.
+    uint32 validityMaskPtr OUT,     ///< Validity bit mask.
+    uint64 validityExMaskPtr OUT    ///< Validity ex bit mask.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the the combination of position engines and location engine type
+ * used in calculating the position report.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetLocationOutputEngParams
+(
+    Sample positionSampleRef IN,    ///< Position sample reference.
+    uint16 engMaskPtr OUT,          ///< Engine type bit mask.
+    uint16 engTypePtr OUT           ///< Location engine type.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the reliability of the horizontal and vertical positions.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetReliabilityInformation
+(
+    Sample positionSampleRef IN,    ///< Position sample reference.
+    uint16 horiReliblityPtr OUT,    ///< Horizontal reliablity.
+    uint16 vertReliblityPtr OUT     ///< Vertical reliablity.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the elliptical horizontal uncertainty azimuth of orientation,
+ * east and north standard deviations.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetStdDeviationAzimuthInfo
+(
+    Sample positionSampleRef IN,    ///< Position sample reference.
+    double azimuthPtr OUT,          ///< Retrieves elliptical horizontal uncertainty azimuth of orientation.
+                                    /// Units: Decimal degrees
+                                    /// Range: 0 to 180
+                                    /// Confidence for uncertainty is not specified.
+    double eastDevPtr OUT,          ///< East standard deviation.
+                                    /// Retrieves east standard deviation.
+                                    /// Units: Meters
+                                    /// Uncertainty is defined with 68% confidence level.
+    double northDevPtr OUT          ///< North standard deviation.
+                                    /// Retrieves north standard deviation.
+                                    /// Units: Meters
+                                    /// Uncertainty is defined with 68% confidence level.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the elapsed real time and its uncertainity values in nano-second.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetRealTimeInformation
+(
+    Sample positionSampleRef IN, ///< Position sample reference.
+    uint64 realTimePtr OUT,      ///< Elapsed real time in nano-second.
+    uint64 realTimeUncPtr OUT    ///< Elapsed real time uncertainty in nano-second.
 );

@@ -67,7 +67,7 @@ void tafMngdConnData::SessionStateChangeHandler
     auto &mngdConnAdmin = tafMngdConnAdmin::GetInstance();
     uint32_t profileId;
     uint8_t phoneId;
-    stateMachineEvent_t stateMachineEvt;
+    stateMachineEvent_t stateMachineEvt = {TAF_MNGD_CONN_EVT_INIT,0};
     taf_mngd_Conn_Ctx_t* connCtxPtr = NULL;
     le_result_t result;
 
@@ -94,11 +94,11 @@ void tafMngdConnData::SessionStateChangeHandler
     switch (state)
     {
         case TAF_DCS_DISCONNECTED:
-            stateMachineEvt.event = EVT_DATA_CONNECTION_DISCONNECTED;
+            stateMachineEvt.event = TAF_MNGD_CONN_EVT_DATA_CONNECTION_DISCONNECTED;
             stateMachineEvt.dataId = connCtxPtr->dataId;
             break;
         case TAF_DCS_CONNECTED:
-            stateMachineEvt.event=EVT_DATA_CONNECTION_CONNECTED;
+            stateMachineEvt.event=TAF_MNGD_CONN_EVT_DATA_CONNECTION_CONNECTED;
             stateMachineEvt.dataId = connCtxPtr->dataId;
             break;
         default:

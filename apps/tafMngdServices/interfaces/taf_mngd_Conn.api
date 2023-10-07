@@ -225,8 +225,9 @@ REFERENCE Data;
 //--------------------------------------------------------------------------------------------------
 ENUM DataState
 {
-    DATA_DISCONNECTED,                                       ///< Data disconnected.
-    DATA_CONNECTED                                           ///< Data connected.
+    DATA_DISCONNECTED,                       ///< Data disconnected. Recovery steps will be enabled.
+    DATA_CONNECTED,                          ///< Data connected.
+    DATA_CONNECTION_FAILED                   ///< Data connection failed.
 };
 
 //--------------------------------------------------------------------------------------------------

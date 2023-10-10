@@ -7,3 +7,4 @@ workstation/local_dev_home
 workstation/.check_done
 workstation/.which_one
 workstation/*.update
+*.log

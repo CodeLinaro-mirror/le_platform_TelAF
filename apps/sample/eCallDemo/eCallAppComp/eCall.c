@@ -579,6 +579,10 @@ static void PrintUsage ()
             "tafECallApp -- getNadDeregTime\n"
             "tafECallApp -- setMsdVersion <2/3>\n"
             "tafECallApp -- getMsdVersion\n"
+            "tafECallApp -- setNadClearDownFallbackTime <time in minutes>\n"
+            "tafECallApp -- getNadClearDownFallbackTime\n"
+            "tafECallApp -- setNadMinNetworkRegistrationTime <time in minutes>\n"
+            "tafECallApp -- getNadMinNetworkRegistrationTime\n"
             "tafECallApp -- start <AUTO/MANUAL/TEST>\n"
             "tafECallApp -- end\n"
             "tafECallApp -- terminateReg\n"
@@ -775,6 +779,70 @@ static int setNadDeregTime()
     le_result_t result = taf_ecall_SetNadDeregistrationTime(deregTime);
     LE_TEST_OK(result == LE_OK, "setNadDeregTime - LE_OK");
     printf("Set de-reg time as %d is %s\n", deregTime, result == LE_OK ? "Success." : "Failed!");
+
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+static int getNadClearDownFallbackTime()
+{
+    // Test Case
+    uint16_t ccftTime = 0;
+    le_result_t result = taf_ecall_GetNadClearDownFallbackTime(&ccftTime);
+    LE_TEST_OK(result == LE_OK, "getNadClearDownFallbackTime - LE_OK");
+    printf("Result: %s\n", result == LE_OK ? "Success." : "Failed!!");
+    if (result == LE_OK) {
+        printf("NAD clear down fallback time: %d min.\n", ccftTime);
+    }
+
+    LE_TEST_INFO("getNadClearDownFallbackTime done");
+
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+static int setNadClearDownFallbackTime()
+{
+    if (le_arg_NumArgs() < 3)
+    {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
+
+    uint16_t ccftTime = atoi(le_arg_GetArg(2));
+    le_result_t result = taf_ecall_SetNadClearDownFallbackTime(ccftTime);
+    LE_TEST_OK(result == LE_OK, "setNadClearDownFallbackTime - LE_OK");
+    printf("Set clear down fallback time as %d is %s\n", ccftTime, result == LE_OK ? "Success." : "Failed!");
+
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+static int getNadMinNetworkRegistrationTime()
+{
+    // Test Case
+    uint16_t minNwRegTime = 0;
+    le_result_t result = taf_ecall_GetNadMinNetworkRegistrationTime(&minNwRegTime);
+    LE_TEST_OK(result == LE_OK, "getNadMinNetworkRegistrationTime - LE_OK");
+    printf("Result: %s\n", result == LE_OK ? "Success." : "Failed!!");
+    if (result == LE_OK) {
+        printf("NAD min network registration time: %d min.\n", minNwRegTime);
+    }
+
+    LE_TEST_INFO("getNadMinNetworkRegistrationTime done");
+
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+static int setNadMinNetworkRegistrationTime()
+{
+    if (le_arg_NumArgs() < 3)
+    {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
+
+    uint16_t minNwRegTime = atoi(le_arg_GetArg(2));
+    le_result_t result = taf_ecall_SetNadMinNetworkRegistrationTime(minNwRegTime);
+    LE_TEST_OK(result == LE_OK, "setNadMinNetworkRegistrationTime - LE_OK");
+    printf("Set min network registration time as %d is %s\n", minNwRegTime, result == LE_OK ? "Success." : "Failed!");
 
     return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
 }
@@ -1135,6 +1203,22 @@ COMPONENT_INIT
     else if (strcmp(command, "getMsdVersion") == 0)
     {
         status = getMsdVersion();
+    }
+    else if (strcmp(command, "setNadClearDownFallbackTime") == 0)
+    {
+        status = setNadClearDownFallbackTime();
+    }
+    else if (strcmp(command, "getNadClearDownFallbackTime") == 0)
+    {
+        status = getNadClearDownFallbackTime();
+    }
+    else if (strcmp(command, "setNadMinNetworkRegistrationTime") == 0)
+    {
+        status = setNadMinNetworkRegistrationTime();
+    }
+    else if (strcmp(command, "getNadMinNetworkRegistrationTime") == 0)
+    {
+        status = getNadMinNetworkRegistrationTime();
     }
     else if (strcmp(command, "start") == 0)
     {

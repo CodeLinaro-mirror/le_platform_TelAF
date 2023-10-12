@@ -387,6 +387,36 @@ static void Test_ecall_SetNadDeregTime()
     LE_INFO("SetNadDeregistrationTime as 9 hrs completed!!!\n");
 }
 
+static void Test_ecall_GetNadClearDownFallbackTime()
+{
+    uint16_t ccftTimeOrg = 0;
+    le_result_t res = taf_ecall_GetNadClearDownFallbackTime(&ccftTimeOrg);
+    LE_TEST_OK(res == LE_OK, "Test_ecall_GetNadClearDownFallbackTime done");
+    LE_INFO("GetNadClearDownFallbackTime done!!! ccftTime (in minutes): %d\n", ccftTimeOrg);
+}
+
+static void Test_ecall_SetNadClearDownFallbackTime()
+{
+    le_result_t res = taf_ecall_SetNadClearDownFallbackTime(10); // 10 min
+    LE_TEST_OK(res == LE_OK, "Test_ecall_SetNadClearDownFallbackTime done");
+    LE_INFO("SetNadClearDownFallbackTime as 10 min completed!!!\n");
+}
+
+static void Test_ecall_GetNadMinNetworkRegistrationTime()
+{
+    uint16_t minNwRegTime = 0;
+    le_result_t res = taf_ecall_GetNadMinNetworkRegistrationTime(&minNwRegTime);
+    LE_TEST_OK(res == LE_OK, "Test_ecall_GetNadMinNetworkRegistrationTime done");
+    LE_INFO("GetNadMinNetworkRegistrationTime done!!! minNwRegTime (in minutes): %d\n", minNwRegTime);
+}
+
+static void Test_ecall_SetNadMinNetworkRegistrationTime()
+{
+    le_result_t res = taf_ecall_SetNadMinNetworkRegistrationTime(60); // 60 min
+    LE_TEST_OK(res == LE_OK, "Test_ecall_SetNadMinNetworkRegistrationTime done");
+    LE_INFO("SetNadMinNetworkRegistrationTime as 60 min completed!!!\n");
+}
+
 static void Test_ECall_StartAutomatic() {
     taf_ecall_CallRef_t eCallRef = NULL;
 
@@ -516,6 +546,10 @@ COMPONENT_INIT
 
     Test_ecall_GetNadDeregTime();
     Test_ecall_SetNadDeregTime();
+    Test_ecall_SetNadClearDownFallbackTime();
+    Test_ecall_GetNadClearDownFallbackTime();
+    Test_ecall_SetNadMinNetworkRegistrationTime();
+    Test_ecall_GetNadMinNetworkRegistrationTime();
 
     TestSemaphoreRef = le_sem_Create("ECallSem", 0);
 

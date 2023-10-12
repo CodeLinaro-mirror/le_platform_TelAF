@@ -1416,3 +1416,98 @@ int32_t taf_ecall_GetPlatformSpecificTerminationCode
     return 0;
 }
 
+/*======================================================================
+
+ FUNCTION      taf_ecall_SetNadClearDownFallbackTime
+
+ Sets the eCall clear down fallback time of the NAD. If the NAD doesn't receive a clear
+ down indication from network or a clear down message (AL-ACK) from the PSAP during
+ an ecall, then will trigger an automatic call end when clear down fallback time out.
+
+ @return
+  - LE_OK         On success
+  - LE_BUSY       An eCall session is in progress
+  - LE_FAULT      On failures
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_ecall_SetNadClearDownFallbackTime
+(
+    uint16_t ccftTime //NAD (network access device) clear down fallback time in minutes
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.SetNadClearDownFallbackTime(ccftTime);
+}
+
+/*======================================================================
+
+ FUNCTION      taf_ecall_GetNadClearDownFallbackTime
+
+ Gets the eCall clear down fallback time of the NAD (network access device) .
+
+ @return
+  - LE_OK          On success
+  - LE_FAULT       On failures
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_ecall_GetNadClearDownFallbackTime
+(
+    uint16_t* ccftTime //NAD (network access device) clear down fallback time in minutes
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.GetNadClearDownFallbackTime(ccftTime);
+}
+
+/*======================================================================
+
+ FUNCTION      taf_ecall_SetNadMinNetworkRegistrationTime
+
+ Sets the eCall minimum network registration time of the NAD. After an eCall ends, the
+ NAD shall remain registered on the serving network. During this time, the NAD can
+ automatically receive calls from the PSAP.
+
+ @return
+  - LE_OK         On success
+  - LE_BUSY       An eCall session is in progress
+  - LE_FAULT      On failures
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_ecall_SetNadMinNetworkRegistrationTime
+(
+    uint16_t minNwRegTime //NAD (network access device) minimum network registration time in minutes
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.SetNadMinNetworkRegistrationTime(minNwRegTime);
+}
+
+/*======================================================================
+
+ FUNCTION      taf_ecall_GetNadMinNetworkRegistrationTime
+
+ Gets the eCall minimum network registration time of the NAD.
+
+ @return
+  - LE_OK          On success
+  - LE_FAULT       On failures
+
+ SIDE EFFECTS
+
+======================================================================*/
+
+le_result_t taf_ecall_GetNadMinNetworkRegistrationTime
+(
+    uint16_t* minNwRegTime //NAD (network access device) minimum network registration time in minutes
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.GetNadMinNetworkRegistrationTime(minNwRegTime);
+}
+

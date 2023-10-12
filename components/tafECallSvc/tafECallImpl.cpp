@@ -1095,6 +1095,92 @@ le_result_t taf_ecall::TerminateRegistration()
     return LE_FAULT;
 }
 
+le_result_t taf_ecall::SetNadClearDownFallbackTime(uint16_t ccftTime)
+{
+    if (!isIdle()) {
+        LE_INFO("ECall session is in progress, try it later when session is not active");
+        return LE_BUSY;
+    }
+
+    if (ccftTime < 1 || ccftTime > 720) {
+        LE_ERROR("Error: clear down fallback time %d min is not allowed [Range 1:720].", ccftTime);
+        return LE_FAULT;
+    }
+
+    uint32_t t2 = (uint32_t) ccftTime*60*1000;
+    LE_INFO("Set NAD clear down fallback time (in minutes): %d", ccftTime);
+
+    EcallConfig eCallConfig;
+    eCallConfig.configValidityMask.set(ECALL_CONFIG_T2_TIMER);
+    eCallConfig.t2Timer = t2;
+    Status status = CallManager->setECallConfig(eCallConfig);
+
+    return Status::SUCCESS == status ? LE_OK : LE_FAULT;
+
+}
+
+le_result_t taf_ecall::GetNadClearDownFallbackTime(uint16_t* ccftTime)
+{
+    if (ccftTime == NULL) {
+        LE_ERROR("ccftTime is null.");
+        return LE_FAULT;
+    }
+
+    EcallConfig eCallConfig = {};
+    Status status = CallManager->getECallConfig(eCallConfig);
+    if (status == Status::SUCCESS && eCallConfig.configValidityMask.test(ECALL_CONFIG_T2_TIMER)) {
+        LE_INFO("NAD clear down fallback time (in minutes): %d", eCallConfig.t2Timer);
+        *ccftTime = (uint16_t) (eCallConfig.t2Timer/60000);
+    } else {
+        LE_ERROR("Unable to get clear down fallback time. Error: %d", (int) status);
+    }
+
+    return Status::SUCCESS == status ? LE_OK : LE_FAULT;
+}
+
+le_result_t taf_ecall::SetNadMinNetworkRegistrationTime(uint16_t minNwRegTime)
+{
+    if (!isIdle()) {
+        LE_INFO("ECall session is in progress, try it later when session is not active");
+        return LE_BUSY;
+    }
+
+    if (minNwRegTime < 60 || minNwRegTime > 720) {
+        LE_ERROR("Error: min network registration time %d min is not allowed [Range 60:720].", minNwRegTime);
+        return LE_FAULT;
+    }
+
+    uint32_t t9 = (uint32_t) minNwRegTime*60*1000;;
+    LE_INFO("Set NAD min network registration time (in minutes): %d", minNwRegTime);
+
+    EcallConfig eCallConfig;
+    eCallConfig.configValidityMask.set(ECALL_CONFIG_T9_TIMER);
+    eCallConfig.t9Timer = t9;
+    Status status = CallManager->setECallConfig(eCallConfig);
+
+    return Status::SUCCESS == status ? LE_OK : LE_FAULT;
+
+}
+
+le_result_t taf_ecall::GetNadMinNetworkRegistrationTime(uint16_t* minNwRegTime)
+{
+    if (minNwRegTime == NULL) {
+        LE_ERROR("minNwRegTime is null.");
+        return LE_FAULT;
+    }
+
+    EcallConfig eCallConfig = {};
+    Status status = CallManager->getECallConfig(eCallConfig);
+    if (status == Status::SUCCESS && eCallConfig.configValidityMask.test(ECALL_CONFIG_T9_TIMER)) {
+        LE_INFO("NAD min network registration time (in minutes): %d", eCallConfig.t9Timer);
+        *minNwRegTime = (uint16_t) (eCallConfig.t9Timer/60000);
+    } else {
+        LE_ERROR("Unable to get min network registration time. Error: %d", (int) status);
+    }
+
+    return Status::SUCCESS == status ? LE_OK : LE_FAULT;
+}
+
 taf_ecall_StateChangeHandlerRef_t taf_ecall::AddStateChangeHandler
         (taf_ecall_StateChangeHandlerFunc_t handlerPtr,
         void* contextPtr){

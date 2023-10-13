@@ -592,6 +592,12 @@ static int setPsapNumber()
     }
 
     const char* psapNum =  le_arg_GetArg(2);
+    if (psapNum == NULL)
+    {
+        printf("Input psap number is not vaild!\n");
+        printf("Failed!! try again...\n");
+        return EXIT_FAILURE;
+    }
 
     le_result_t result = taf_ecall_SetPsapNumber(psapNum);
     LE_TEST_OK(result == LE_OK, "setPsapNumber - LE_OK");
@@ -667,7 +673,16 @@ static int importMsd()
     }
 
     uint8_t msdPdu[TAF_ECALL_MAX_MSD_LENGTH];
-    int inputMsdLength = atoi(le_arg_GetArg(3));
+    const char* inputMsdLengthPtr = le_arg_GetArg(3);
+
+    if (inputMsdLengthPtr == NULL)
+    {
+        printf("Input MSD length is not vaild!\n");
+        printf("Failed!! try again...\n");
+        return EXIT_FAILURE;
+    }
+
+    int inputMsdLength = atoi(inputMsdLengthPtr);
 
     if (inputMsdLength > TAF_ECALL_MAX_MSD_LENGTH - 2) {
         printf("Input MSD length %d is not vaild!\n", inputMsdLength);
@@ -691,7 +706,17 @@ static int importMsd()
     LE_INFO("ImportMsd NumArgs = %d, msdPduLength: %d ", count, (int)msdPduLength);
 
     for (int i = 0; i < msdPduLength+2; i++) {
-        int byte = atoi(le_arg_GetArg(i+2));
+        const char* bytePtr = le_arg_GetArg(i+2);
+
+        if (bytePtr == NULL)
+        {
+            printf("Input at position %d is NULL!\n", i+2);
+            printf("Failed!! try again...\n");
+            return EXIT_FAILURE;
+        }
+
+        int byte = atoi(bytePtr);
+
         if (byte < 0 || byte > 255) {
             printf("Wrong input as %d (Range 0 to 255).\n", byte);
             printf("Failed!! try again...\n");

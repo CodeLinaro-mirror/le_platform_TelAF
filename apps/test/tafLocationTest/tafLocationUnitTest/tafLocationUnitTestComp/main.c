@@ -1237,6 +1237,18 @@ static void TestTafGnssConstellations
     result = taf_gnss_SetConstellation(constellationMask);
     LE_TEST_OK(result == LE_OK,"taf_gnss_SetConstellation-LE_OK");
 
+    //22.1 SetConstellation-SBAS and BEIDOU
+    constellationMask = TAF_GNSS_CONSTELLATION_SBAS | TAF_GNSS_CONSTELLATION_BEIDOU;
+    LE_TEST_INFO("SetConstellation() API is called to set SBAS and BEIDOU constellation type");
+    result = taf_gnss_SetConstellation(constellationMask);
+    LE_TEST_OK(result == LE_OK,"taf_gnss_SetConstellation-LE_OK");
+
+    //22.2 SetConstellation-GLONASS and QZSS
+    constellationMask = TAF_GNSS_CONSTELLATION_GLONASS | TAF_GNSS_CONSTELLATION_QZSS;
+    LE_TEST_INFO("SetConstellation() API is called to set GLONASS and QZSS constellation type");
+    result = taf_gnss_SetConstellation(constellationMask);
+    LE_TEST_OK(result == LE_OK,"taf_gnss_SetConstellation-LE_OK");
+
    //23.Start
     LE_TEST_INFO("taf_gnss_Start() API is called to trigger detailed Engine reporting");
     result = taf_gnss_Start();

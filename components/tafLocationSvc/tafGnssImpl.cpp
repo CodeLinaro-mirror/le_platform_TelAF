@@ -28,7 +28,7 @@
 
  * Changes from Qualcomm Innovation Center are provided under the following license:
 
- * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -1392,46 +1392,55 @@ le_result_t taf_Gnss::SetConstellation
     SvBlackList svBlackList;
     telux::loc::SvBlackListInfo blackListInfo;
     bool deviceReset = false;
+    blackListInfo.svId = 0; // Here 0 means blacklist all SVIds of a given constellation type
     blackListInfo.constellation = telux::loc::GnssConstellationType::UNKNOWN;
 
-    LE_INFO("SetConstellation constellationMask is %0x\n",constellationMask);
-    if( constellationMask & 1) //GPS->1
+    LE_INFO("SetConstellation constellationMask is 0x%02X",constellationMask);
+    if( constellationMask & TAF_GNSS_CONSTELLATION_GPS)
     {
         LE_INFO("constellation type GPS is not supported");
     }
-    if( constellationMask & (1<<1)) //GLONASS->2
+    if( constellationMask & TAF_GNSS_CONSTELLATION_GLONASS)
     {
         blackListInfo.constellation = telux::loc::GnssConstellationType::GLONASS;
+        svBlackList.push_back(blackListInfo);
         LE_INFO("constellation type is GLONASS");
     }
-    if( constellationMask & (1<<2))//BEIDOU->4
+    if( constellationMask & TAF_GNSS_CONSTELLATION_BEIDOU)
     {
         blackListInfo.constellation = telux::loc::GnssConstellationType::BDS;
+        svBlackList.push_back(blackListInfo);
         LE_INFO("constellation type is BEIDOU");
     }
-    if( constellationMask & (1<<3)) //GALILEO->8
+    if( constellationMask & TAF_GNSS_CONSTELLATION_GALILEO)
     {
         blackListInfo.constellation = telux::loc::GnssConstellationType::GALILEO;
+        svBlackList.push_back(blackListInfo);
         LE_INFO("constellation type is GALILEO");
     }
-    if( constellationMask & (1<<4))//SBAS->16
+    if( constellationMask & TAF_GNSS_CONSTELLATION_SBAS)
     {
         blackListInfo.constellation = telux::loc::GnssConstellationType::SBAS;
+        svBlackList.push_back(blackListInfo);
         LE_INFO("constellation type is SBAS");
     }
-    if( constellationMask & (1<<5)) //QZSS->32
+    if( constellationMask & TAF_GNSS_CONSTELLATION_QZSS)
     {
         blackListInfo.constellation = telux::loc::GnssConstellationType::QZSS;
+        svBlackList.push_back(blackListInfo);
         LE_INFO("constellation type is QZSS");
     }
-    if( constellationMask & (1<<6)) //QZSS->64
+    if( constellationMask & TAF_GNSS_CONSTELLATION_NAVIC)
     {
         blackListInfo.constellation = telux::loc::GnssConstellationType::NAVIC;
+        svBlackList.push_back(blackListInfo);
         LE_INFO("constellation type is NAVIC");
     }
-
-    blackListInfo.svId = 0;
-    svBlackList.push_back(blackListInfo);
+    if (blackListInfo.constellation == telux::loc::GnssConstellationType::UNKNOWN)
+    {
+        svBlackList.push_back(blackListInfo);
+        LE_INFO("constellation type is UNKNOWN");
+    }
 
     switch (GnssState)
     {

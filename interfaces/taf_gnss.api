@@ -237,7 +237,9 @@
  *
  * @subsection taf_gnss_SetGetConstellation GNSS constellation selection
  *
- * The taf_gnss_SetConstellation() function selects the GNSS constellation(s) used in solution.
+ * The taf_gnss_SetConstellation() function blacklists some constellations or subset of SVs from
+ * the constellation from being used by the GNSS standard position engine (SPE).
+ * Supported constellations for this API are GLONASS, QZSS, BEIDOU, GALILEO, and SBAS.
  * If all GNSS constellations are disabled, the GNSS engine is disabled.
  * @verbatim
    taf_gnss_ConstellationBitMask_t constellationMask;
@@ -245,6 +247,12 @@
    if(taf_gnss_SetConstellation(constellationMask)== LE_OK)
    {
      // Process after succesfully setting the costellation type.
+   }
+
+   constellationMask = TAF_GNSS_CONSTELLATION_SBAS | TAF_GNSS_CONSTELLATION_BEIDOU;
+   if(taf_gnss_SetConstellation(constellationMask)== LE_OK)
+   {
+     // Process after succesfully setting the costellation types.
    }
    @endverbatim
  *

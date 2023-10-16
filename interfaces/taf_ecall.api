@@ -126,6 +126,13 @@
  *                                  the application through the taf_ecall_ForceOnlyMode() API.
  *   - @ref TAF_ECALL_FORCED_PERSISTENT_ONLY_MODE -- eCall only that persists over power cycles.
  *
+ *@section taf_ecall_MsdVersion eCall MSD version
+ *
+ * MSD version can be set/got with:
+ *  - taf_ecall_SetMsdVersion()
+ *  - taf_ecall_GetMsdVersion()
+ * These configurations take effect at the next test eCall and currently only MSD version 2 and 3 are supported.
+ *
  * @section taf_ecall_session Session of eCall
  *
  * taf_ecall_Create() helps to create a new eCall object and returns a reference to the eCall session.
@@ -224,7 +231,7 @@
  * - @ref TAF_ECALL_TX_MODE_PULL -- MSD has been sent when asked by the PSAP
  *
  * An application can import an existing MSD using the taf_ecall_ImportMsd() API.
- * The existing MSD must follow the requirements presented in the "EN15722:2015" publication (this
+ * The existing MSD must follow the requirements presented in the "EN15722:2020" publication (this
  * publication is prepared by Technical Committee CEN/TC 278 “Intelligent Transport Systems").
  *
  * @warning The imported MSD does not consider the values provided by the
@@ -364,6 +371,16 @@ ENUM MsdVehicleType
     MOTOR_CYCLES_CLASS_L5E,                ///< Motorcycles (Class L5e)
     MOTOR_CYCLES_CLASS_L6E,                ///< Motorcycles (Class L6e)
     MOTOR_CYCLES_CLASS_L7E,                ///< Motorcycles (Class L7e)
+    TRAILERS_CLASS_O,                      ///< Trailers (Class O)
+    AGRI_VEHICLES_CLASS_R,                 ///< Agricultural vehicles (Class R)
+    AGRI_VEHICLES_CLASS_S,                 ///< Agricultural vehicles (Class S)
+    AGRI_VEHICLES_CLASS_T,                 ///< Agricultural vehicles (Class T)
+    OFF_ROAD_VEHICLES_G,                   ///< Off-road vehicles (Class G)
+    SPECIAL_PURPOSE_MOTOR_CARAVAN_CLASS_SA,///< Special purpose motor caravan (Class SA)
+    SPECIAL_PURPOSE_ARMOURED_VEHICLE_CLASS_SB,///< Special purpose armoured vehicle (Class SB)
+    SPECIAL_PURPOSE_AMBULANCE_CLASS_SC,    ///< Special purpose ambulance (Class SC)
+    SPECIAL_PURPOSE_HEARSE_CLASS_SD,       ///< Special purpose hearse (Class SD)
+    OTHER_VEHICLE_CLASS,                   ///< Other vehicle class
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -604,11 +621,13 @@ FUNCTION le_result_t GetConfiguredOperationMode
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Sets the MSD version. The API is not supported on this platform.
+ *  Sets the MSD version.
  *
  * @return
- *      - LE_UNSUPPORTED -- Not supported.
+ *      - LE_OK -- Succeeded.
+ *      - LE_FAULT -- Failed.
  *
+ * @note Currently, only MSD version 2 and 3 are supported.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetMsdVersion
@@ -618,12 +637,14 @@ FUNCTION le_result_t SetMsdVersion
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Gets the MSD version. Currently, only MSD version 2 is supported.
+ *  Gets the MSD version.
  *
  * @return
- *      - LE_BAD_PARAMETER -- Invalid parameters.
  *      - LE_OK -- Succeeded.
+ *      - LE_FAULT -- Failed.
+ *      - LE_BAD_PARAMETER -- Invalid parameters.
  *
+ * @note Currently, only MSD version 2 and 3 are supported.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetMsdVersion

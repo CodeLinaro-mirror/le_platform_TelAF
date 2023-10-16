@@ -294,9 +294,15 @@ static void Test_MSD_Information()
 
     uint32_t msdVersion = 0;
     res = taf_ecall_SetMsdVersion(4);
-    LE_TEST_OK(res == LE_OK || res == LE_UNSUPPORTED, "Test_MSD_Information done");
+    LE_TEST_OK(res == LE_FAULT, "Test_MSD_Information done");
+    res = taf_ecall_SetMsdVersion(2);
+    LE_TEST_OK(res == LE_OK, "Test_MSD_Information done");
     LE_TEST_OK(taf_ecall_GetMsdVersion(&msdVersion) == LE_OK, "taf_ecall_GetMsdVersion done");
-    LE_TEST_OK(msdVersion == 4 || res == LE_UNSUPPORTED, "taf_ecall_GetMsdVersion done");
+    LE_TEST_OK(msdVersion == 2, "taf_ecall_GetMsdVersion done");
+    res = taf_ecall_SetMsdVersion(3);
+    LE_TEST_OK(res == LE_OK, "Test_MSD_Information done");
+    LE_TEST_OK(taf_ecall_GetMsdVersion(&msdVersion) == LE_OK, "taf_ecall_GetMsdVersion done");
+    LE_TEST_OK(msdVersion == 3, "taf_ecall_GetMsdVersion done");
     LE_INFO("Set and Get MSD version completed");
 
     res = taf_ecall_SetMsdTxMode(TAF_ECALL_MSD_TX_MODE_PUSH);

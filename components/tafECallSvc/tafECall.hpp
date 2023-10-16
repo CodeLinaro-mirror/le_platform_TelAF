@@ -65,6 +65,8 @@ using namespace std;
 #define ISOVIS_MODEL_YEAR_LENGTH 1
 #define ISOVIS_SEQ_PLANT_START (ISOVIS_MODEL_YEAR_START + ISOVIS_MODEL_YEAR_LENGTH)
 #define ISOVIS_SEQ_PLANT_LENGTH 7
+#define MSD_VERSION_TWO 2
+#define MSD_VERSION_THREE 3
 
 namespace telux {
     namespace tafsvc {

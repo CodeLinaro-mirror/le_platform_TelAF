@@ -274,6 +274,8 @@ void taf_ecall::InitializeECallPtr()
     ECallObject.msd.optionals.recentVehicleLocationN2Present = false;
     ECallObject.msd.optionals.numberOfPassengersPresent = false;
 
+    ECallObject.msd.msdVersion = MSD_VERSION_TWO;
+
     ECallObject.msd.messageIdentifier = 0;
 
     ECallObject.msd.control.automaticActivation = false;
@@ -776,6 +778,11 @@ void taf_ecall::ConfigChangeHandler(void* contextPtr) {
 void taf_ecall::UpdateMsd ()
 {
     le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateReadTxn( CFG_MODEMSERVICE_ECALL_PATH);
+
+    if (le_cfg_NodeExists(iteratorRef, CFG_NODE_MSDVERSION))
+    {
+        ECallObject.msd.msdVersion = le_cfg_GetInt(iteratorRef, CFG_NODE_MSDVERSION, 0);
+    }
 
     if (le_cfg_NodeExists(iteratorRef, CFG_NODE_MSDVIN))
     {

@@ -283,14 +283,15 @@ le_result_t taf_ecall_GetConfiguredOperationMode
 
  FUNCTION        taf_ecall_SetMsdVersion
 
- DESCRIPTION     Set MSD version. It is not supported on this platform.
+ DESCRIPTION     Set MSD version. Only supports MSD version two and three.
 
  DEPENDENCIES    Initialization of ECall Service
 
  PARAMETERS      [IN] msdVersion: msd version value
 
  RETURN VALUE    le_result_t
-                     LE_UNSUPPORTED:       Not supported.
+                     LE_FAULT:             Fail.
+                     LE_OK:                Success.
 
  SIDE EFFECTS
 
@@ -300,22 +301,44 @@ le_result_t taf_ecall_SetMsdVersion
     uint32_t msdVersion
 )
 {
-    return LE_UNSUPPORTED;
+    if ((msdVersion != MSD_VERSION_TWO) && (msdVersion != MSD_VERSION_THREE))
+    {
+        LE_ERROR("MsdVersion is set wrong value %d", msdVersion);
+        return LE_FAULT;
+    }
+
+    uint32_t msdVersionRead = 0;
+    if ((taf_ecall_GetMsdVersion(&msdVersionRead) == LE_OK) && (msdVersionRead == msdVersion))
+    {
+        LE_DEBUG("MsdVersion is set to the same value as the current one %d", msdVersion);
+        return LE_OK;
+    }
+
+    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn( CFG_MODEMSERVICE_ECALL_PATH );
+
+    le_cfg_SetInt(iteratorRef, CFG_NODE_MSDVERSION, msdVersion);
+    le_cfg_CommitTxn(iteratorRef);
+
+    LE_DEBUG("Set MsdVersion to %d", msdVersion);
+
+
+    return LE_OK;
 }
 
 /*======================================================================
 
  FUNCTION        taf_ecall_GetMsdVersion
 
- DESCRIPTION     Get Msd version. Platform supports msdVersion 2.
+ DESCRIPTION     Get Msd version.
 
  DEPENDENCIES    Initialization of ECall Service
 
- PARAMETERS      [OUT] msdVersion: ptr to save msd version. Currently we
-                 support only msdVersion 2. So msdVersion will return value 2.
+ PARAMETERS      [OUT] msdVersion: ptr to save msd version. Only
+                 supports MSD version two and three.
 
  RETURN VALUE    le_result_t
                      LE_BAD_PARAMETER:     Invalid parameters.
+                     LE_FAULT:             Fail.
                      LE_OK:                Success.
 
  SIDE EFFECTS
@@ -328,8 +351,18 @@ le_result_t taf_ecall_GetMsdVersion
 {
     TAF_ERROR_IF_RET_VAL(msdVersion == NULL, LE_BAD_PARAMETER, "msdVersion pointer is NULL");
 
-    *msdVersion = 2; //Currently we support only msdVersion 2.
-    return LE_OK;
+    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateReadTxn( CFG_MODEMSERVICE_ECALL_PATH );
+
+    if (le_cfg_NodeExists(iteratorRef, CFG_NODE_MSDVERSION))
+    {
+        *msdVersion = le_cfg_GetInt(iteratorRef, CFG_NODE_MSDVERSION, 0);
+        LE_DEBUG("MSD version is %d", *msdVersion);
+        le_cfg_CancelTxn(iteratorRef);
+        return LE_OK;
+    }
+
+    le_cfg_CancelTxn(iteratorRef);
+    return LE_FAULT;
 }
 
 /*======================================================================
@@ -352,7 +385,7 @@ le_result_t taf_ecall_GetMsdVersion
 le_result_t taf_ecall_SetVehicleType (taf_ecall_MsdVehicleType_t vehicleType)
 {
     if ((vehicleType < TAF_ECALL_PASSENGER_VEHICLE_CLASS_M1) ||
-        (vehicleType > TAF_ECALL_MOTOR_CYCLES_CLASS_L7E))
+        (vehicleType > TAF_ECALL_OTHER_VEHICLE_CLASS))
     {
         LE_ERROR("VehicleType is wrong %d", vehicleType);
         return LE_FAULT;

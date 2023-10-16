@@ -54,6 +54,7 @@ static int32_t latitude = INT32_MAX, longitude = INT32_MAX, hAccuracy = INT32_MA
 static uint32_t direction = UINT32_MAX, dirAccuracy = UINT32_MAX;
 static bool exitApp = true;
 bool isMsgPrinted = false;
+uint32_t msdVersion = 2;
 
 static uint8_t msdRawData[39] = {2, 37, 28, 6, 128, 227, 10, 81, 67, 158, 41, 85, 212, 56, 0,
         128, 8, 55, 248, 12, 159, 215, 07, 240, 154, 148, 189, 211, 14, 85, 224, 128, 0, 0, 1,
@@ -576,6 +577,8 @@ static void PrintUsage ()
             "tafECallApp -- useUSimNumbers\n"
             "tafECallApp -- setNadDeregTime <time in minutes>\n"
             "tafECallApp -- getNadDeregTime\n"
+            "tafECallApp -- setMsdVersion <2/3>\n"
+            "tafECallApp -- getMsdVersion\n"
             "tafECallApp -- start <AUTO/MANUAL/TEST>\n"
             "tafECallApp -- end\n"
             "tafECallApp -- terminateReg\n"
@@ -865,15 +868,49 @@ static int getOpMode()
     return EXIT_FAILURE;
 }
 
+static int getMsdVersion()
+{
+    le_result_t result = taf_ecall_GetMsdVersion(&msdVersion);
+    LE_TEST_OK(result == LE_OK, "getMsdVersion - LE_OK");
+    printf("Result: %s\n", result == LE_OK ? "Success." : "Failed!!");
+    if (result == LE_OK) {
+        printf("Get msd version: %d\n", msdVersion);
+    }
+
+    LE_TEST_INFO("getMsdVersion done");
+
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+static int setMsdVersion()
+{
+    if (le_arg_NumArgs() < 3)
+    {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
+
+    uint32_t msdVersion = atoi(le_arg_GetArg(2));
+    le_result_t result = taf_ecall_SetMsdVersion(msdVersion);
+    LE_TEST_OK(result == LE_OK, "setMsdVersion - LE_OK");
+    printf("Set msd version as %d %s\n", msdVersion, result == LE_OK ? "Success." : "Failed!");
+
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
 static void updateMsdInformation()
 {
     taf_ecall_MsdVehicleType_t vehType = TAF_ECALL_PASSENGER_VEHICLE_CLASS_M1;
     taf_ecall_PropulsionStorageType_t propulsionStorage = TAF_ECALL_PROP_TYPE_GASOLINE_TANK;
 
-    uint32_t msdVersion = 2;
-    if (taf_ecall_SetMsdVersion(msdVersion) != LE_OK)
+    uint32_t msdVersion = 0;
+    if (taf_ecall_GetMsdVersion(&msdVersion) != LE_OK)
     {
-        LE_ERROR("Unable to set MSD version");
+        msdVersion = 2;
+        if (taf_ecall_SetMsdVersion(msdVersion) != LE_OK)
+        {
+            LE_ERROR("Unable to set MSD version");
+        }
     }
 
     if (taf_ecall_SetMsdTxMode(TAF_ECALL_MSD_TX_MODE_PUSH) != LE_OK)
@@ -935,7 +972,18 @@ static void updateLocationInformation(taf_ecall_CallRef_t eCallRef)
     {
         LE_ERROR("Unable to set location information");
     }
+ 
+    result = taf_ecall_SetMsdPositionN1(eCallRef, -512, -512);
+    if (result != LE_OK)
+    {
+       LE_ERROR("Unable to set the position delta N-1 for MSD transmission.");
+    }
 
+    result = taf_ecall_SetMsdPositionN2(eCallRef, 511, 511);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Unable to set the position delta N-2 for MSD transmission.");
+    }
 }
 
 static int startECall()
@@ -1079,6 +1127,14 @@ COMPONENT_INIT
     else if (strcmp(command, "getNadDeregTime") == 0)
     {
         status = getNadDeregTime();
+    }
+    else if (strcmp(command, "setMsdVersion") == 0)
+    {
+        status = setMsdVersion();
+    }
+    else if (strcmp(command, "getMsdVersion") == 0)
+    {
+        status = getMsdVersion();
     }
     else if (strcmp(command, "start") == 0)
     {

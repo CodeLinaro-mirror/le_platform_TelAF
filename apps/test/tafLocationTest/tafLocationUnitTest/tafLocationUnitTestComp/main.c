@@ -1277,6 +1277,159 @@ static void PositionHandlerFunction
         LE_TEST_INFO("Failed! See log for details\n");
     }
 
+    //Gets gnss meaurement usage info.
+    taf_gnss_GnssMeasurementInfo_t measInfo[TAF_GNSS_MEASUREMENT_INFO_MAX];
+    size_t gnssMeasLen = TAF_GNSS_MEASUREMENT_INFO_MAX;
+    result = taf_gnss_GetMeasurementUsageInfo(positionSampleRef, measInfo, &gnssMeasLen);
+    LE_TEST_OK(result == LE_OK, "taf_gnss_GetMeasurementUsageInfo-LE_OK");
+
+    for(uint16_t i = 0; ((i < gnssMeasLen) && (result == LE_OK)); i++) {
+      uint32_t signalTypeMask = measInfo[i].gnssSignalType;
+
+      LE_TEST_INFO("Gnss Signal Type:\n");
+      if (signalTypeMask & TAF_GNSS_GPS_L1CA) {
+          LE_TEST_INFO("GPS L1CA signal is present\n");
+      }
+      if (signalTypeMask & TAF_GNSS_GPS_L1C) {
+          LE_TEST_INFO("GPS L1C signal is present\n");
+      }
+      if (signalTypeMask & TAF_GNSS_GPS_L2) {
+          LE_TEST_INFO("GPS L2 signal is present\n");
+      }
+      if (signalTypeMask & TAF_GNSS_GPS_L5) {
+          LE_TEST_INFO("GPS L5 signal is present\n");
+      }
+      if (signalTypeMask & TAF_GNSS_GLONASS_G1) {
+          LE_TEST_INFO("Glonass G1 signal is present\n");
+      }
+      if (signalTypeMask & TAF_GNSS_GLONASS_G2) {
+          LE_TEST_INFO("Glonass G2 signal is present\n");
+      }
+      if (signalTypeMask & TAF_GNSS_GALILEO_E1) {
+          LE_TEST_INFO("Galileo E1 signal is present\n");
+      }
+      if (signalTypeMask & TAF_GNSS_GALILEO_E5A) {
+          LE_TEST_INFO("Galileo E5A signal is present\n");
+      }
+      if (signalTypeMask & TAF_GNSS_GALILIEO_E5B) {
+          LE_TEST_INFO("Galileo E5B signal is present\n");
+      }
+      if (signalTypeMask & TAF_GNSS_BEIDOU_B1) {
+          LE_TEST_INFO("Beidou B1 signal is present\n");
+      }
+      if (signalTypeMask & TAF_GNSS_BEIDOU_B2) {
+          LE_TEST_INFO("Beidou B2 signal is present\n");
+      }
+      if (signalTypeMask & TAF_GNSS_QZSS_L1CA) {
+          LE_TEST_INFO("QZSS L1CA signal is present\n");
+      }
+      if (signalTypeMask & TAF_GNSS_QZSS_L1S) {
+          LE_TEST_INFO("QZSS L1S signal is present\n");
+      }
+      if (signalTypeMask & TAF_GNSS_QZSS_L2) {
+          LE_TEST_INFO("QZSS L2 signal is present\n");
+      }
+      if (signalTypeMask & TAF_GNSS_QZSS_L5) {
+          LE_TEST_INFO("QZSS L5 signal is present\n");
+      }
+      if (signalTypeMask & TAF_GNSS_SBAS_L1) {
+          LE_TEST_INFO("SBAS L1 signal is present\n");
+      }
+      if (signalTypeMask & TAF_GNSS_BEIDOU_B1I) {
+          LE_TEST_INFO("Beidou B1I signal is present\n");
+      }
+      if (signalTypeMask & TAF_GNSS_BEIDOU_B1C) {
+          LE_TEST_INFO("Beidou B1C signal is present\n");
+      }
+      if (signalTypeMask & TAF_GNSS_BEIDOU_B2I) {
+          LE_TEST_INFO("Beidou B2I signal is present\n");
+      }
+      if (signalTypeMask & TAF_GNSS_BEIDOU_B2AI) {
+          LE_TEST_INFO("Beidou B2AI signal is present\n");
+      }
+      if (signalTypeMask & TAF_GNSS_NAVIC_L5) {
+          LE_TEST_INFO("Navic L5 signal is present\n");
+      }
+      if (signalTypeMask & TAF_GNSS_BEIDOU_B2AQ) {
+          LE_TEST_INFO("Beidou B2AQ signal is present\n");
+      }
+      if (signalTypeMask == TAF_GNSS_UNKNOWN_SIGNAL_MASK) {
+          LE_TEST_INFO("No signal present\n");
+      }
+
+      taf_gnss_GnssSystem_t system = measInfo[i].gnssConstellation;
+      if(system == TAF_GNSS_LOC_SV_SYSTEM_GPS) {
+         LE_TEST_INFO("GPS satellite\n");
+      }
+      else if(system == TAF_GNSS_LOC_SV_SYSTEM_GALILEO) {
+         LE_TEST_INFO("GALILEO satellite\n");
+      }
+      else if(system == TAF_GNSS_LOC_SV_SYSTEM_SBAS) {
+         LE_TEST_INFO("SBAS satellite\n");
+      }
+      else if(system == TAF_GNSS_LOC_SV_SYSTEM_GLONASS) {
+         LE_TEST_INFO("GLONASS satellite\n");
+      }
+      else if(system == TAF_GNSS_LOC_SV_SYSTEM_BDS) {
+         LE_TEST_INFO("BDS satellite\n");
+      }
+      else if(system == TAF_GNSS_LOC_SV_SYSTEM_QZSS) {
+         LE_TEST_INFO("QZSS satellite\n");
+      }
+      else if(system == TAF_GNSS_LOC_SV_SYSTEM_NAVIC) {
+         LE_TEST_INFO("NAVIC satellite\n");
+      }
+      else {
+         LE_TEST_INFO("UNKNOWN satellite\n");
+      }
+
+      LE_TEST_INFO("Gnss sv id : %d\n", measInfo[i].gnssSvId);
+    }
+
+    //Gets status of report in terms of how optimally the report was calculated by engine.
+    int32_t reportStatus = -1;
+    result = taf_gnss_GetReportStatus(positionSampleRef, &reportStatus);
+    LE_TEST_OK(result == LE_OK, "taf_gnss_GetReportStatus-LE_OK");
+
+    if (result == LE_OK)
+    {
+        taf_gnss_ReportStatus_t status = (taf_gnss_ReportStatus_t) reportStatus;
+        LE_TEST_INFO("Report Status is: ");
+        if (status == TAF_GNSS_REPORT_STATUS_UNKNOWN) {
+            LE_TEST_INFO("UNKNOWN\n");
+        }
+        if (status == TAF_GNSS_REPORT_STATUS_SUCCESS) {
+            LE_TEST_INFO("SUCCESS\n");
+        }
+        if (status == TAF_GNSS_REPORT_STATUS_INTERMEDIATE) {
+            LE_TEST_INFO("INTERMEDIATE\n");
+        }
+        if (status == TAF_GNSS_REPORT_STATUS_FAILURE) {
+            LE_TEST_INFO("FAILURE\n");
+        }
+    }
+
+    //Gets the altitude with respect to mean sea level in meters.
+    double altMSeaLevel;
+    result = taf_gnss_GetAltitudeMeanSeaLevel(positionSampleRef, &altMSeaLevel);
+    LE_TEST_OK(result == LE_OK, "taf_gnss_GetAltitudeMeanSeaLevel-LE_OK");
+
+    if (result == LE_OK)
+    {
+        LE_TEST_INFO("Altitude with respect to mean sea level: %lfm\n",(float)altMSeaLevel);
+    }
+
+    //Gets GNSS Satellite Vehicles used in position data.
+    uint16_t svIds[TAF_GNSS_MEASUREMENT_INFO_MAX];
+    size_t svIdsLen = TAF_GNSS_MEASUREMENT_INFO_MAX;
+    result = taf_gnss_GetSVIds(positionSampleRef, svIds, &svIdsLen);
+    LE_TEST_OK(result == LE_OK, "taf_gnss_GetSVIds-LE_OK");
+
+    if (svIdsLen > 0) LE_TEST_INFO("Ids of used SVs:");
+    for(uint16_t i = 0; i < svIdsLen; i++) {
+        LE_TEST_INFO(" %d", svIds[i]);
+    }
+
     LE_TEST_INFO("taf_gnss_ReleaseSampleRef is triggered");
     taf_gnss_ReleaseSampleRef(positionSampleRef);
     le_sem_Post(PositionHandlerSem);

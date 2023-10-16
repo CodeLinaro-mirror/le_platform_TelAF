@@ -665,6 +665,14 @@ le_result_t tafMngdConnAdmin::EventStartDataRetry(uint8_t dataId)
         return LE_FAULT;
     }
 
+    if(!connCtxPtr->dataRetry)
+    {
+        LE_ERROR("Data retry disabled.");
+        connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED_FAILED;
+        ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_CONNECTION_FAILED);
+        return LE_NOT_POSSIBLE;
+    }
+
     // Check if timer is running, ideally it should not be running.
     if (le_timer_IsRunning(connCtxPtr->dataStartRetryTimerRef))
     {
@@ -1391,7 +1399,7 @@ taf_mngd_Conn_Ctx_t* tafMngdConnAdmin::CreateConnCtx
     connCtxPtr->dataState = TAF_MNGD_CONN_DATA_DISCONNECTED;
     connCtxPtr->ipType = TAF_DCS_PDP_UNKNOWN;
     connCtxPtr->dataConnTestFailedRetryCount = 0;
-    connCtxPtr->maxdataRetryCount = 1;
+    connCtxPtr->maxdataRetryCount = Policy.DataSession.DataStartRetry.RetryCount;
     if(conn_test_url!=NULL)
     {
         le_utf8_Copy(connCtxPtr->conn_test_url, conn_test_url,
@@ -1404,6 +1412,7 @@ taf_mngd_Conn_Ctx_t* tafMngdConnAdmin::CreateConnCtx
     }
 
 
+    connCtxPtr->dataRetry = Policy.DataSession.DataStartRetry.Enable;
     memset(connCtxPtr->intfName, 0, sizeof(connCtxPtr->intfName));
 
     //Create timer
@@ -1578,6 +1587,11 @@ le_result_t tafMngdConnAdmin::InitializeStates()
     auto &sim = tafMngdConnSim::GetInstance();
     taf_dcs_ProfileRef_t profileRef = NULL;
 
+    //Update the dataConnectionCount
+    if(Policy.DataSession.DataStartRetry.Enable)
+    {
+        Policy.DataSession.dataConnectionCount = Policy.DataSession.MultiDataSession.NumConnections;
+    }
     //Iterate through Policy DataSession elements to create the data sessions
     for (sessionIdx = 0; sessionIdx < Policy.DataSession.dataConnectionCount; sessionIdx++)
     {

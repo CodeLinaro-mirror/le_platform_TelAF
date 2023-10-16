@@ -206,7 +206,8 @@ namespace tafsvc {
      */
     typedef enum
     {
-        TAF_MNGD_CONN_JSON_VERSION_23_07_00 = 230700 //"TAF_23.07.00"
+        TAF_MNGD_CONN_JSON_VERSION_23_07_00 = 230700, //"TAF_23.07.00"
+        TAF_MNGD_CONN_JSON_VERSION_23_11_00 = 231100 //"TAF_23.11.00"
     } taf_mngd_Conn_JSON_Version_t;
 
     // Constant Strings
@@ -222,5 +223,22 @@ namespace tafsvc {
      *
      */
     const std::string TAF_MNGD_Default_Product_Value("TelAF");
+
+    /**
+     * \brief Maximum level of supported RecoveryLevel
+     *
+     * Maximum RecoveryLevel is 4 for Alpha2 Release
+     *
+     */
+    const int TAF_MNGD_CONN_MAX_RECOVERY_LEVEL = 4;
+
+        /**
+     * \brief Maximum level of supported RetryCount
+     *
+     * Maximum RetryCount is 255 for Alpha2 Release
+     *
+     */
+    const int TAF_MNGD_CONN_MAX_RETRY_COUNT = 255;
+
 }
 }

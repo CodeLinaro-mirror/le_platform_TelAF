@@ -84,24 +84,39 @@
                     "Registration": "Auto"  ///< Is automatically registered or not.
                 }
             ],
-            "Data":[
+            "Data":[                   ///< Support for multiple data sessions
                 {
                     "ID": 1,           ///< Data ID corresponding to the Use_Data_ID in policy file.
+                    "Name": "Profile1", ///< Profile Name.
                     "Use_Network_ID": 1,    ///< Network ID which is used for this data connection.
                     "Profile":{
-                        "Name": "Profile1", ///< Profile Name.
                         "Number": 1,        ///< Profile number.
-                        "APN": null         ///< Profile APN. If APN is valid, profile will be
-                                            ///  updated with the provided APN. The service will not
-                                            ///  validate the correctness of the APN. If update
-                                            ///  fails,the service will log an error and stop.
+                        "APN": "apn1"       ///< Profile APN. If APN is valid, profile will be
+                                            ///< updated with the provided APN. The service will not
+                                            ///< validate the correctness of the APN. If update
+                                            ///< fails,the service will log an error and stop.
                     },
                     "AutoStart":"Yes",      ///< Data session is automatically started or not.
                     "ConnectionTest":{      ///< URL or IP to perform ConnectionTest in order of
-                                            ///  preference
+                                            ///< preference
                         "URL": null,        ///< Valid URL to work with
                         "IPv4": null,       ///< Valid quad-dotted IP address
                         "IPv6": null        ///< Not supported
+                    }
+                }
+                {
+                    "ID": 2,
+                    "Name": "Profile2",
+                    "Use_Network_ID": 1,
+                    "Profile":{
+                        "Number": 2,
+                        "APN": "apn2"
+                    },
+                    "AutoStart":"Yes",
+                     "ConnectionTest":{
+                        "URL": null,
+                        "IPv4": null,
+                        "IPv6": null
                     }
                 }
             ]
@@ -110,12 +125,32 @@
             "Name": "Default",
             "DataSession":{
                 "Fallback": "No",
-                "DataConnection":[
+                "DataConnection":[          ///< Connections will be started based on the respective
+                                            ///<  priority of the data ID.
                     {
-                        "Priority": "1",
+                        "Priority": "1",    ///< User defined priority. 1 is the highest priority.
+                                            ///< Duplication is not allowed.
                         "Use_Data_ID": "1"  ///< Data ID which is used for the data connection.
+                    },
+                    {
+                        "Priority": "2",
+                        "Use_Data_ID": "2"
                     }
-                ]
+                ],
+                "DataStartRetry": {
+                     "Enable": "Yes",  ///< Yes is when there is any issue which makes the ongoing
+                                       ///< data connection unavailable, the service will start
+                                       ///< retrying on establishment of the data connection.
+                                       ///< No means there is not data connection establishment
+                                       ///< retry when the ongoing one is not available.
+                     "RetryCount": 1   ///< The total count of data connection establishment retry.
+                                       ///< Retry after 30s and after that in steps of 2,4,8,16 mins.
+                },
+                "MultiDataSession": {
+                    "Enable": "Yes",        ///< Yes for enabling multiple data session support,
+                                            ///< no for disabling multiple data session support.
+                    "NumConnections": 2     ///< The maximum number of concurrent data sessions.
+                }
             }
         }
     }

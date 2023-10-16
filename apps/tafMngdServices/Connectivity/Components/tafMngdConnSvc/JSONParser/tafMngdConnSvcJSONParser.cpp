@@ -58,6 +58,7 @@ static std::map<std::string, ConnectivityValidationFunction_t> ConnectivityValid
  *
  **/
 static const char *JSON_Version_23_07_00 = "23.07.00";
+static const char *JSON_Version_23_11_00 = "23.11.00";
 
 /**
  * Validate ManagedConnectivityService:Version
@@ -84,6 +85,13 @@ static bool Validate_MCS_Version(taf_mngd_Conn_Policy_t &Policy,
     {
         Policy.Version        = TAF_MNGD_CONN_JSON_VERSION_23_07_00;
         Configuration.Version = TAF_MNGD_CONN_JSON_VERSION_23_07_00;
+        LE_INFO("Valid JSON Version: %s", Value.c_str());
+        return true;
+    }
+    else if (Value == JSON_Version_23_11_00)
+    {
+        Policy.Version        = TAF_MNGD_CONN_JSON_VERSION_23_11_00;
+        Configuration.Version = TAF_MNGD_CONN_JSON_VERSION_23_11_00;
         LE_INFO("Valid JSON Version: %s", Value.c_str());
         return true;
     }

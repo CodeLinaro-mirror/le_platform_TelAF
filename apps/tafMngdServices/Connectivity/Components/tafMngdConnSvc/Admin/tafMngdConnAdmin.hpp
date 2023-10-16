@@ -137,6 +137,7 @@ namespace tafsvc {
         uint8_t                       dataStartRetryCount;    // Data Start retry count
         uint8_t                       maxdataRetryCount;      // User provided max retry count
         uint8_t                       dataConnTestFailedRetryCount; // ConnTest failed retry count
+        bool                          dataRetry;              // DataRetry enabled/disabled
         uint32_t                      profileNumber;          // Profile number
         bool                          autoStart;              // Auto start or not
         bool                          needReConn;             //Need to reconnect for manualStart

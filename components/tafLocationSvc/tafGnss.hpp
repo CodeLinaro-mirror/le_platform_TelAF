@@ -142,6 +142,11 @@ namespace tafsvc {
         bool      satsUsedCountValid;
         bool      satInfoValid;
         bool      satMeasValid;
+        taf_gnss_GnssMeasurementInfo_t measInfo[TAF_GNSS_MEASUREMENT_INFO_MAX];
+        uint8_t   measInfoCount;
+        uint16_t SVIds[TAF_GNSS_MEASUREMENT_INFO_MAX];
+        uint8_t   SVIdsCount;
+        taf_gnss_ReportStatus_t reportStatus;
         int32_t   latitude;
         int32_t   longitude;
         int32_t   hAccuracy;
@@ -229,6 +234,7 @@ namespace tafsvc {
         bool realTimeUncValid;
         uint32_t techMask;
         uint32_t techMaskValid;
+        double   altMeanSeaLevel;
         le_dls_Link_t   next;
     }
     taf_gnss_PositionSample_t;
@@ -437,6 +443,10 @@ namespace tafsvc {
                     double* azimuthPtr,double* eastDevPtr, double* northDevPtr);
             le_result_t GetRealTimeInformation(taf_gnss_SampleRef_t positionSampleRef,
                     uint64_t* realTimePtr,uint64_t* realTimeUncPtr);
+            le_result_t GetMeasurementUsageInfo(taf_gnss_SampleRef_t positionSampleRef, taf_gnss_GnssMeasurementInfo_t* measInfoPtr, size_t* measInfoLen);
+            le_result_t GetReportStatus(taf_gnss_SampleRef_t positionSampleRef, int32_t* reportStatusPtr);
+            le_result_t GetAltitudeMeanSeaLevel(taf_gnss_SampleRef_t positionSampleRef, double* altMeanSeaLevelPtr);
+            le_result_t GetSVIds(taf_gnss_SampleRef_t positionSampleRef, uint16_t* sVIdsPtr, size_t* sVIdsLen);
             le_mem_PoolRef_t   PositionHandlerPoolRef;
             le_mem_PoolRef_t   PositionSampleRequestPoolRef;
             le_event_Id_t positionEventId;

@@ -1624,3 +1624,92 @@ le_result_t taf_gnss_GetRealTimeInformation
     auto &gnss = taf_Gnss::GetInstance();
     return gnss.GetRealTimeInformation(positionSampleRef,realTimePtr,realTimeUncPtr);
 }
+
+/**
+* FUNCTION     : GetMeasurementUsageInfo
+* DESCRIPTION  : This function retrieves gnss measurement usage info.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT, LE_OVERFLOW, LE_BAD_PARAMETER, LE_NO_MEMORY
+*                LE_OUT_OF_RANGE on failed with reason.
+*/
+le_result_t taf_gnss_GetMeasurementUsageInfo
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    taf_gnss_GnssMeasurementInfo_t* LE_NONNULL measInfoPtr,
+    size_t* measInfoLen
+)
+{
+    TAF_ERROR_IF_RET_VAL(positionSampleRef == NULL, LE_BAD_PARAMETER, "Invalid gnss sample reference");
+    TAF_ERROR_IF_RET_VAL(measInfoPtr == NULL, LE_NO_MEMORY, "measInfoPtr is NULL");
+    TAF_ERROR_IF_RET_VAL(*measInfoLen == 0, LE_OUT_OF_RANGE, "measInfoLen is ZERO");
+    TAF_ERROR_IF_RET_VAL(*measInfoLen > TAF_GNSS_MEASUREMENT_INFO_MAX, LE_OVERFLOW, "Too many elements.");
+
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetMeasurementUsageInfo(positionSampleRef, measInfoPtr, measInfoLen);
+}
+
+/**
+* FUNCTION     : GetReportStatus
+* DESCRIPTION  : This function retrieves the status of report in terms of how optimally
+               : the report was calculated by the engine.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT, LE_BAD_PARAMETER, LE_NO_MEMORY on failed with reason
+*/
+le_result_t taf_gnss_GetReportStatus
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    int32_t* reportStatusPtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(positionSampleRef == NULL, LE_BAD_PARAMETER, "Invalid gnss sample reference");
+    TAF_ERROR_IF_RET_VAL(reportStatusPtr == NULL, LE_NO_MEMORY, "reportStatusPtr is NULL");
+
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetReportStatus(positionSampleRef, reportStatusPtr);
+}
+
+/**
+* FUNCTION     : GetAltitudeMeanSeaLevel
+* DESCRIPTION  : This function retrieves the altitude with respect to mean sea level in Meters.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT, LE_BAD_PARAMETER, LE_NO_MEMORY on failed with reason
+*/
+le_result_t taf_gnss_GetAltitudeMeanSeaLevel
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    double* altMeanSeaLevelPtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(positionSampleRef == NULL, LE_BAD_PARAMETER, "Invalid gnss sample reference");
+    TAF_ERROR_IF_RET_VAL(altMeanSeaLevelPtr == NULL, LE_NO_MEMORY, "altMeanSeaLevelPtr is NULL");
+
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetAltitudeMeanSeaLevel(positionSampleRef, altMeanSeaLevelPtr);
+}
+
+/**
+* FUNCTION     : GetSVIds
+* DESCRIPTION  : This function retrieves GNSS Satellite Vehicles used in position data.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT, LE_OVERFLOW, LE_BAD_PARAMETER, LE_NO_MEMORY
+*                LE_OUT_OF_RANGE on failed with reason.
+*/
+le_result_t taf_gnss_GetSVIds
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    uint16_t* LE_NONNULL sVIdsPtr,
+    size_t* sVIdsLen
+)
+{
+    TAF_ERROR_IF_RET_VAL(positionSampleRef == NULL, LE_BAD_PARAMETER, "Invalid gnss sample reference");
+    TAF_ERROR_IF_RET_VAL(sVIdsPtr == NULL, LE_NO_MEMORY, "measInfoPtr is NULL");
+    TAF_ERROR_IF_RET_VAL(*sVIdsLen == 0, LE_OUT_OF_RANGE, "measInfoLen is ZERO");
+    TAF_ERROR_IF_RET_VAL(*sVIdsLen > TAF_GNSS_MEASUREMENT_INFO_MAX, LE_OVERFLOW, "Too many elements.");
+
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetSVIds(positionSampleRef, sVIdsPtr, sVIdsLen);
+}

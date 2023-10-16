@@ -429,6 +429,19 @@ void taf_Gnss::CopyPositionData
     LastDataPtr->realTimeUncValid = CurrentDataPtr->realTimeUncValid;
     LastDataPtr->techMask = CurrentDataPtr->techMask;
     LastDataPtr->techMaskValid = CurrentDataPtr->techMaskValid;
+    for(i=0; i<TAF_GNSS_MEASUREMENT_INFO_MAX; i++)
+    {
+        LastDataPtr->measInfo[i].gnssSignalType = CurrentDataPtr->measInfo[i].gnssSignalType;
+        LastDataPtr->measInfo[i].gnssConstellation = CurrentDataPtr->measInfo[i].gnssConstellation;
+        LastDataPtr->measInfo[i].gnssSvId = CurrentDataPtr->measInfo[i].gnssSvId;
+    }
+    LastDataPtr->measInfoCount = CurrentDataPtr->measInfoCount;
+    LastDataPtr->reportStatus = CurrentDataPtr->reportStatus;
+    LastDataPtr->altMeanSeaLevel = CurrentDataPtr->altMeanSeaLevel;
+    for (i = 0; i < TAF_GNSS_MEASUREMENT_INFO_MAX; i++) {
+        LastDataPtr->SVIds[i] = CurrentDataPtr->SVIds[i];
+    }
+    LastDataPtr->SVIdsCount = CurrentDataPtr->SVIdsCount;
     LastDataPtr->next = LE_DLS_LINK_INIT;
 
     return;
@@ -579,6 +592,37 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                     gnss.mAltType = TAF_GNSS_ALT_TYPE_UNKNOWN;
                     LE_INFO("onDetailedEngineLocationUpdate: AltitudeType->UNKNOWN");
                 }
+                for (auto i = 0; i < TAF_GNSS_MEASUREMENT_INFO_MAX; i++) {
+                    memset((void*) &LocationData->measInfo[i], 0, sizeof(taf_gnss_GnssMeasurementInfo_t));
+                }
+                LocationData->measInfoCount = 0;
+                std::vector<telux::loc::GnssMeasurementInfo> measInfo = locationInfo->getmeasUsageInfo();
+                for (auto measInfoElement : measInfo) {
+                    if (LocationData->measInfoCount < TAF_GNSS_MEASUREMENT_INFO_MAX) {
+                        LocationData->measInfo[LocationData->measInfoCount].gnssSignalType = measInfoElement.gnssSignalType;
+                        LocationData->measInfo[LocationData->measInfoCount].gnssConstellation = (taf_gnss_GnssSystem_t) measInfoElement.gnssConstellation;
+                        LocationData->measInfo[LocationData->measInfoCount].gnssSvId = measInfoElement.gnssSvId;
+                        LocationData->measInfoCount++;
+                    }
+                }
+
+                std::vector<uint16_t> SVIds;
+                locationInfo->getSVIds(SVIds);
+                if(SVIds.size() > 0) {
+                    for (auto i = 0; i < TAF_GNSS_MEASUREMENT_INFO_MAX; i++) {
+                        LocationData->SVIds[i] = 0;
+                    }
+                    LocationData->SVIdsCount = 0;
+                    for (auto i = 0; i < (int) SVIds.size(); i++) {
+                        if (LocationData->SVIdsCount < TAF_GNSS_MEASUREMENT_INFO_MAX) {
+                            LocationData->SVIds[LocationData->SVIdsCount] = SVIds.at(i);
+                            LocationData->SVIdsCount++;
+                        }
+                    }
+                }
+
+                LocationData->reportStatus = (taf_gnss_ReportStatus_t) locationInfo->getReportStatus();
+                LocationData->altMeanSeaLevel = locationInfo->getAltitudeMeanSeaLevel();
                 LocationData->latitude = locationInfo->getLatitude() * 1e+6;
                 LocationData->longitude = locationInfo->getLongitude() * 1e+6;
                 LocationData->hAccuracy = locationInfo->getHorizontalUncertainty()* 1e+2;
@@ -1264,7 +1308,7 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                     LE_INFO("horizontal reliablity is UNKNOWN");
                 }
                 telux::loc::LocationReliability vertLocReliability =
-                                                   locationInfo->getHorizontalReliability();
+                                                   locationInfo->getVerticalReliability();
                 if(vertLocReliability == telux::loc::LocationReliability::NOT_SET)
                 {
                     LocationData->vertReliablity = TAF_GNSS_RELIABILITY_NOT_SET;
@@ -5581,6 +5625,102 @@ le_result_t taf_Gnss::GetRealTimeInformation
         result = LE_FAULT;
     }
     return result;
+}
+
+le_result_t taf_Gnss::GetMeasurementUsageInfo
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    taf_gnss_GnssMeasurementInfo_t* measInfoPtr,
+    size_t* measInfoLen
+)
+{
+    le_result_t result = LE_OK;
+    taf_gnss_PositionSampleRequest_t* posSampleReqPtr
+            = (taf_gnss_PositionSampleRequest_t *)le_ref_Lookup(PositionSampleMap,positionSampleRef);
+
+    result = CheckValidatePosition(posSampleReqPtr);
+    if (result != LE_OK)
+    {
+        return result;
+    }
+
+    for (auto i = 0; i < (int) *measInfoLen; i++) {
+        measInfoPtr[i].gnssSignalType = posSampleReqPtr->positionSampleNodePtr->measInfo[i].gnssSignalType;
+        measInfoPtr[i].gnssConstellation = posSampleReqPtr->positionSampleNodePtr->measInfo[i].gnssConstellation;
+        measInfoPtr[i].gnssSvId = posSampleReqPtr->positionSampleNodePtr->measInfo[i].gnssSvId;
+    }
+
+    *measInfoLen = posSampleReqPtr->positionSampleNodePtr->measInfoCount;
+
+    return LE_OK;
+}
+
+le_result_t taf_Gnss::GetReportStatus
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+	int32_t* reportStatusPtr
+)
+{
+    le_result_t result = LE_OK;
+    taf_gnss_PositionSampleRequest_t* posSampleReqPtr
+            = (taf_gnss_PositionSampleRequest_t *)le_ref_Lookup(PositionSampleMap,positionSampleRef);
+
+    result = CheckValidatePosition(posSampleReqPtr);
+    if (result != LE_OK)
+    {
+        return result;
+    }
+
+    *reportStatusPtr = posSampleReqPtr->positionSampleNodePtr->reportStatus;
+
+    return LE_OK;
+}
+
+le_result_t taf_Gnss::GetAltitudeMeanSeaLevel
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+	double* altMeanSeaLevelPtr
+)
+{
+    le_result_t result = LE_OK;
+    taf_gnss_PositionSampleRequest_t* posSampleReqPtr
+            = (taf_gnss_PositionSampleRequest_t *)le_ref_Lookup(PositionSampleMap,positionSampleRef);
+
+    result = CheckValidatePosition(posSampleReqPtr);
+    if (result != LE_OK)
+    {
+        return result;
+    }
+
+    *altMeanSeaLevelPtr = posSampleReqPtr->positionSampleNodePtr->altMeanSeaLevel;
+
+    return LE_OK;
+}
+
+le_result_t taf_Gnss::GetSVIds
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    uint16_t* sVIdsPtr,
+    size_t* sVIdsLen
+)
+{
+    le_result_t result = LE_OK;
+    taf_gnss_PositionSampleRequest_t* posSampleReqPtr
+            = (taf_gnss_PositionSampleRequest_t *)le_ref_Lookup(PositionSampleMap,positionSampleRef);
+
+    result = CheckValidatePosition(posSampleReqPtr);
+    if (result != LE_OK)
+    {
+        return result;
+    }
+
+    for (auto i = 0; i < (int) *sVIdsLen; i++) {
+        sVIdsPtr[i] = posSampleReqPtr->positionSampleNodePtr->SVIds[i];
+    }
+
+    *sVIdsLen = posSampleReqPtr->positionSampleNodePtr->SVIdsCount;
+
+    return LE_OK;
 }
 
 void taf_Gnss::RemovePositionHandler

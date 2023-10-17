@@ -54,7 +54,7 @@ taf_ws_t *taf_PM::ToTafWakeupSource(taf_pm_WakeupSourceRef_t w)
 {
     taf_ws_t *ws = (taf_ws_t *)le_ref_Lookup(pm_recrd.refs, w);
 
-    TAF_KILL_CLIENT_IF_RET_VAL(ws == NULL, NULL, "Invalid wakeup source provided");
+    TAF_ERROR_IF_RET_VAL(ws == NULL, NULL, "Invalid wakeup source provided");
 
     if (TAF_PM_WAKEUP_SOURCE_COOKIE != ws->cookie || ws->wsRef != w)
     {
@@ -158,7 +158,7 @@ void taf_Handler::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *ct
 
     TAF_ERROR_IF_RET_NIL(pClient == NULL, "Failed to remove sessionRef %p from table.", sessionRef);
 
-    LE_INFO("Client proccessId %d disconnected.", pClient->procId);
+    LE_INFO("Client session %p disconnected.", sessionRef);
 
     // Find and remove all wakeup sources held for this client
     iter = le_hashmap_GetIterator(pm_recrd.locks);
@@ -166,7 +166,7 @@ void taf_Handler::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *ct
     {
         ws = (taf_ws_t*)le_hashmap_GetValue(iter);
 
-        if (!ws || ws->clientPid != pClient->procId)
+        if (!ws || ws->sessionRef != sessionRef)
         {
             // skip if does not belong to this client
             continue;
@@ -352,7 +352,7 @@ taf_pm_WakeupSourceRef_t taf_PM::NewWakeupSource( uint32_t options, const char *
     taf_Client_t *pClient;
     char wsName[TAF_WS_NAME_LEN];
 
-    TAF_KILL_CLIENT_IF_RET_VAL(('\0' == *tag) || (strlen(tag) > TAF_PM_TAG_LEN), NULL,
+    TAF_ERROR_IF_RET_VAL(('\0' == *tag) || (strlen(tag) > TAF_PM_TAG_LEN), NULL,
             "Error: wrong tag value.");
 
     // validate client record
@@ -362,9 +362,9 @@ taf_pm_WakeupSourceRef_t taf_PM::NewWakeupSource( uint32_t options, const char *
     TAF_ERROR_IF_RET_VAL(pClient == NULL, NULL, "Client not found.");
 
     // Check if identical wakeup source already exists for this client
-    snprintf(wsName, sizeof(wsName), TAF_WS_NAME_FORMAT, tag, pClient->name);
+    snprintf(wsName, sizeof(wsName), TAF_WS_NAME_FORMAT, tag, pClient->sessionRef);
     pWakeSrc = (taf_ws_t*)le_hashmap_Get(pm_recrd.locks, wsName);
-    TAF_KILL_CLIENT_IF_RET_VAL(pWakeSrc, NULL, "Error: Tag '%s' already exists.", tag);
+    TAF_ERROR_IF_RET_VAL(pWakeSrc, NULL, "Error: Tag '%s' already exists.", tag);
 
     // Allocate and populate wakeup source record and exit on error
     pWakeSrc = (taf_ws_t*)le_mem_ForceAlloc(pm_recrd.lockpool);
@@ -372,6 +372,7 @@ taf_pm_WakeupSourceRef_t taf_PM::NewWakeupSource( uint32_t options, const char *
     pWakeSrc->cookie = TAF_PM_WAKEUP_SOURCE_COOKIE;
     pWakeSrc->acquired = 0;
     pWakeSrc->clientPid = pClient->procId;
+    pWakeSrc->sessionRef = taf_pm_GetClientSessionRef();
     le_utf8_Copy(pWakeSrc->name, wsName, sizeof(pWakeSrc->name), NULL);
     pWakeSrc->isRef = (options & TAF_PM_REF_COUNT ? true : false);
     pWakeSrc->wsRef = le_ref_CreateRef(pm_recrd.refs, pWakeSrc);
@@ -382,7 +383,8 @@ taf_pm_WakeupSourceRef_t taf_PM::NewWakeupSource( uint32_t options, const char *
         LE_FATAL("Failed to add wakeup source '%s' to powermanager record.", pWakeSrc->name);
     }
 
-    LE_INFO("New wakeup source '%s' for pid %d is created.", pWakeSrc->name, pWakeSrc->clientPid);
+    LE_INFO("New wakeup source '%s' for pid %d and sessionRef %p is created.", pWakeSrc->name,
+            pWakeSrc->clientPid, taf_pm_GetClientSessionRef());
     return (taf_pm_WakeupSourceRef_t)pWakeSrc->wsRef;
 }
 
@@ -396,14 +398,12 @@ le_result_t taf_PM::StayAwake(taf_pm_WakeupSourceRef_t wsRef)
 
     ws = taf_PM::ToTafWakeupSource(wsRef);
 
-    if (NULL == ws)
-    {
-        return LE_OK;
-    }
+    TAF_ERROR_IF_RET_VAL(!ws, LE_BAD_PARAMETER, "Invalid Wakeup source reference.\n");
 
     wsEntry = (taf_ws_t*)le_hashmap_Get(pm_recrd.locks, ws->name);
-    TAF_KILL_CLIENT_IF_RET_VAL(!wsEntry, LE_OK, "Wakeup source '%s' not created.\n", ws->name);
+    TAF_ERROR_IF_RET_VAL(!wsEntry, LE_BAD_PARAMETER, "Wakeup source '%s' not created.\n", ws->name);
 
+    uint32_t prevCount = wsEntry->acquired;
     if (wsEntry->acquired++)
     {
         if (!wsEntry->isRef)
@@ -412,7 +412,9 @@ le_result_t taf_PM::StayAwake(taf_pm_WakeupSourceRef_t wsRef)
         }
         if (0 == wsEntry->acquired)
         {
-            LE_KILL_CLIENT("Wakeup source '%s' reference counter overlaps.", wsEntry->name);
+            LE_ERROR("Wakeup source '%s' reference counter overlaps.", wsEntry->name);
+            wsEntry->acquired = prevCount;
+            return LE_FAULT;
         }
         return LE_OK;
     }
@@ -453,25 +455,21 @@ le_result_t taf_PM::Relax( taf_pm_WakeupSourceRef_t wsRef)
     taf_ws_t *ws, *wsEntry;
 
     ws = taf_PM::ToTafWakeupSource(wsRef);
-    if (NULL == ws)
-    {
-        return LE_OK;
-    }
+    TAF_ERROR_IF_RET_VAL(!ws, LE_BAD_PARAMETER, "Invalid Wakeup source reference.\n");
 
     wsEntry = (taf_ws_t*)le_hashmap_Get(pm_recrd.locks, ws->name);
 
-    TAF_KILL_CLIENT_IF_RET_VAL(!wsEntry, LE_OK, "Wakeup source '%s' not created.\n", wsEntry->name);
+    TAF_ERROR_IF_RET_VAL(!wsEntry, LE_BAD_PARAMETER, "Wakeup source '%s' not created.\n", wsEntry->name);
 
     TAF_ERROR_IF_RET_VAL(!wsEntry->acquired, LE_OK, "Wakeup source '%s' already released",
             wsEntry->name);
 
-    wsEntry->acquired--;
     if (wsEntry->isRef)
     {
-        if (UINT_MAX == wsEntry->acquired)
-        {
-            LE_KILL_CLIENT("Wakeup source '%s' reference counter overlaps.", wsEntry->name);
-        }
+        TAF_ERROR_IF_RET_VAL(UINT_MAX == (wsEntry->acquired - 1), LE_FAULT,
+                "Wakeup source '%s' reference counter overlaps", wsEntry->name);
+
+        wsEntry->acquired--;
         if (wsEntry->acquired > 0)
         {
            return LE_OK;

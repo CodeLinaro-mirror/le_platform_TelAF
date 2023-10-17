@@ -53,7 +53,7 @@ using namespace std;
  */
 #define TAF_TAG_PREFIX   "taf"
 
-#define TAF_WS_NAME_FORMAT TAF_TAG_PREFIX"_%s_%s"
+#define TAF_WS_NAME_FORMAT TAF_TAG_PREFIX"_%s_%p"
 #define TAF_WS_PROCNAME_LEN 30
 #define TAF_WS_NAME_LEN (sizeof(TAF_TAG_PREFIX) + TAF_PM_TAG_LEN + TAF_WS_PROCNAME_LEN + 3)
 
@@ -73,6 +73,7 @@ typedef struct
     uint32_t      cookie;
     char          name[TAF_WS_NAME_LEN];
     pid_t         clientPid;
+    le_msg_SessionRef_t sessionRef;
     uint32_t      acquired;
     bool          isRef;
     void          *wsRef;

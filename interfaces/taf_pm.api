@@ -196,8 +196,6 @@ REFERENCE VMList;
  * @return
  *      - Reference to wakeup source (to be used later for acquiring/releasing).
  *      - Null when attempt failed.
- *
- * @note The process exits if an invalid or existing tag is passed or on syscall failures.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION WakeupSource NewWakeupSource
@@ -211,10 +209,9 @@ FUNCTION WakeupSource NewWakeupSource
  * Acquires a passed wakeup source reference.
  *
  * @return
- *     - LE_OK          Wakeup source successfully acquired.
- *     - LE_FAULT       Failed.
- *
- * @note The process exits if an invalid reference is passed.
+ *     - LE_OK             Wakeup source successfully acquired.
+ *     - LE_BAD_PARAMETER  Invalid wakeup source reference.
+ *     - LE_FAULT          Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t StayAwake
@@ -227,10 +224,9 @@ FUNCTION le_result_t StayAwake
  * Releases a previously acquired wakeup source.
  *
  * @return
- *     - LE_OK          Wakeup source successfully released.
- *     - LE_FAULT       Failed. 
- *
- * @note The process exits if an invalid reference is passed.
+ *     - LE_OK             Wakeup source successfully released.
+ *     - LE_BAD_PARAMETER  Invalid wakeup source reference.
+ *     - LE_FAULT          Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Relax

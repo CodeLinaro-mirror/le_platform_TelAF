@@ -18,14 +18,45 @@ export SIMULATION_DEPS_INSTALL := $(SIMULATION_HOME)/deps/install
 export SIMULATION_DEPS_SOURCE := $(SIMULATION_HOME)/deps/source
 export SIMULATION_SCRIPTS := $(SIMULATION_HOME)/scripts
 export SIMULATION_WORKDIR := $(SIMULATION_HOME)/workstation
-SIMULATION_DEPS:= $(SIMULATION_HOME)/deps/install/boost $(SIMULATION_HOME)/deps/install/vsomeip
-SIMULATION_TARBALL:= $(SIMULATION_HOME)/workstation/telaf_simulation.tar
+SIMULATION_DEPS += # Empty is default, but it is post-extended
+SIMULATION_TARBALL := $(SIMULATION_HOME)/workstation/telaf_simulation.tar
 
-MKTOOLS_FLAGS_SIMULATION_EX += -X -std=c++11 -X -lstdc++ \
-                  --cxxflags=-I$(TELAF_ROOT)/simulation/deps/install/boost/include \
-                  --cxxflags=-I$(TELAF_ROOT)/simulation/deps/install/vsomeip/include \
-                  --ldflags=-L$(TELAF_ROOT)/simulation/deps/install/boost/lib \
-                  --ldflags=-L$(TELAF_ROOT)/simulation/deps/install/vsomeip/lib
+# Another way:
+# 1. mkdir $(SIMULATION_WORKDIR)/sdk_rootfs
+# 2. sudo mount --bind /path/to/sdk_rootfs  $(SIMULATION_WORKDIR)/sdk_rootfs
+export sdk_rootfs ?= $(SIMULATION_WORKDIR)/sdk_rootfs
+CHECK_SDK_ROOTFS := $(shell if [ -d "$(sdk_rootfs)" ]; then echo "y"; else echo "n"; fi)
+
+export IMPORT_SDK_SIMULATION ?= n
+
+ifneq ($(IMPORT_SDK_SIMULATION),n)
+
+ifeq ($(CHECK_SDK_ROOTFS),n)
+$(error sdk rootfs path is invalid [$(sdk_rootfs)], please check it)
+else
+$(warning sdk rootfs path [$(sdk_rootfs)])
+endif
+
+MKTOOLS_FLAGS_SIMULATION_EX += --cxxflags=-I$(sdk_rootfs)/include --ldflags=-L$(sdk_rootfs)/lib
+
+export TELAF_SIMULATION_ENABLE_SMS ?= n
+export TELAF_SIMULATION_ENABLE_DCS ?= n
+
+endif
+
+export TELAF_SIMULATION_ENABLE_SOMEIP_GW ?= n
+
+SIMULATION_SOMEIP_GW_DEPS_y := $(SIMULATION_HOME)/deps/install/boost $(SIMULATION_HOME)/deps/install/vsomeip
+SIMULATION_DEPS += $(SIMULATION_SOMEIP_GW_DEPS_$(TELAF_SIMULATION_ENABLE_SOMEIP_GW))
+
+MKTOOLS_FLAGS_SIMULATION_EX += -X -std=c++11 -X -lstdc++
+
+ifneq ($(TELAF_SIMULATION_ENABLE_SOMEIP_GW),n)
+MKTOOLS_FLAGS_SIMULATION_EX += --cxxflags=-I$(TELAF_ROOT)/simulation/deps/install/boost/include \
+                             --cxxflags=-I$(TELAF_ROOT)/simulation/deps/install/vsomeip/include \
+                             --ldflags=-L$(TELAF_ROOT)/simulation/deps/install/boost/lib \
+                             --ldflags=-L$(TELAF_ROOT)/simulation/deps/install/vsomeip/lib
+endif
 
 export MKTOOLS_FLAGS_SIMULATION_EX
 
@@ -37,7 +68,7 @@ else
 simula simulac simula-c: simula-up-develop-for-c
 endif
 
-os_version=$(shell grep -oP 'VERSION_ID=\K"(.+)"' /etc/os-release | tr -d '"')
+OS_VERSION=$(shell grep -oP 'VERSION_ID=\K"(.+)"' /etc/os-release | tr -d '"')
 
 check-sys:
 	@echo "TelAF Simulation pre-checking your system ..."
@@ -46,20 +77,36 @@ check-sys:
 	else \
 		if /bin/bash $(SIMULATION_SCRIPTS)/check_sys.sh ; then \
 			echo "Current system is [OK]"; \
-			echo -n "from $(os_version)" > $(SIMULATION_WORKDIR)/.check_done; \
+			echo -n "from $(OS_VERSION)" > $(SIMULATION_WORKDIR)/.check_done; \
 		else \
 			if [ -e $(SIMULATION_WORKDIR)/.check_done ]; then rm $(SIMULATION_WORKDIR)/.check_done; fi ; \
 			echo "Current system is [NOK], please check above log for details."; exit 1 ; \
 		fi \
 	fi
 
-pre-simulation-build: $(SIMULATION_HOME)/workstation/up_simulation.sh
+pre-simulation-build: $(SIMULATION_HOME)/workstation/up_simulation.sh $(SIMULATION_DEPS:%=%/lib)
 
+$(SIMULATION_SOMEIP_GW_DEPS_y:%=%/lib): simula-vsomeip
+
+post-simulation-build: CURRENT_SYSTEM_OUTPUT=$(TELAF_BUILD)/simulation/_staging_system.simulation.update_ro/systems/current
 post-simulation-build:
 	@echo "[Simulation]: Creating Tarball ..."
+ifneq ($(CHECK_SDK_ROOTFS),n)
+	@mkdir -p $(CURRENT_SYSTEM_OUTPUT)/sdk_rootfs
+	@cp -a $(sdk_rootfs)/* $(CURRENT_SYSTEM_OUTPUT)/sdk_rootfs
+endif
 	@tar cf $(SIMULATION_TARBALL) -C $(TELAF_BUILD)/simulation/_staging_system.simulation.update_ro .
 	@tar rf $(SIMULATION_TARBALL) -C $(SIMULATION_HOME)/workstation/ up_simulation.sh
 	@tar rf $(SIMULATION_TARBALL) -C $(SIMULATION_HOME)/workstation/ .check_done
+ifneq ($(TELAF_SIMULATION_ENABLE_SOMEIP_GW),n)
+	@tar rf $(SIMULATION_TARBALL) --exclude=install/boost/include \
+	                              --exclude=install/boost/lib/cmake \
+	                              --exclude=install/vsomeip/include \
+	                              --exclude=install/vsomeip/etc \
+	                              --exclude=install/vsomeip/lib/cmake \
+	                              --exclude=install/vsomeip/lib/pkgconfig \
+	                              -C $(SIMULATION_HOME)/deps/ install
+endif
 	@gzip -f $(SIMULATION_TARBALL)
 	@echo "[Simulation]: Tarball $(SIMULATION_TARBALL).gz done."
 

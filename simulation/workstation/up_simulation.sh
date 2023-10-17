@@ -82,6 +82,11 @@ if [ -v ON_TELAF_SIMULATION_DOCKER ]; then # [Docker-Container-Env]
         # extract the tarball to /mnt/legato without the 'install/' directory
         tar zxf $SML_RO_TARBALL --no-same-owner --overwrite -C $MOUNTPOINT_TELAF --exclude up_simulation.sh --exclude install
 
+        if tar tzvf $SML_RO_TARBALL | grep 'install/.keep' > /dev/null 2>&1 ; then
+            # extract the 'install/' directory to /usr/lib only, cut down 3-level parent-dirs
+            tar zxf $SML_RO_TARBALL --no-same-owner --overwrite --strip-components=3 -C /usr/lib/ install
+        fi
+
         chmod 755 $MOUNTPOINT_TELAF/systems/current/bin/*
 
         from_version=`cat $MOUNTPOINT_TELAF/.check_done`

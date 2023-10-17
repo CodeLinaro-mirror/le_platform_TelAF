@@ -8,6 +8,13 @@ apps:
 {
     $LEGATO_ROOT/apps/sample/helloIpc/printClient
     $LEGATO_ROOT/apps/sample/helloIpc/printServer
+
+#if ${TELAF_SIMULATION_ENABLE_SOMEIP_GW} = y
+    $TELAF_ROOT/apps/tafServices/tafSomeipGWSvc
+    $TELAF_ROOT/apps/test/tafSomeipGWTest/tafSomeipClntUnitTest/tafSomeipClntUnitTest
+    $TELAF_ROOT/apps/test/tafSomeipGWTest/tafSomeipSvrUnitTest/tafSomeipSvrUnitTest
+#endif
+
 }
 
 commands:
@@ -22,7 +29,7 @@ interfaceSearch:
 {
     $TELAF_ROOT/interfaces
     $TELAF_ROOT/interfaces/tafVNW
-    apps/sample/helloIpc
+    $LEGATO_ROOT/apps/sample/helloIpc
 }
 
 cflags:

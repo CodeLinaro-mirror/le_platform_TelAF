@@ -12,10 +12,10 @@ export LEGATO_VERSION=$(cat "${TELAF_ROOT}/VERSION" 2>/dev/null)
 export TELAF_PROP=${CURDIR}/../telaf-prop
 export TELAF_NOSHIP=${CURDIR}/../telaf-noship
 
-# Setup toolchain
-setup_toolchain() {
+# Setup toolchain from default location
+setup_toolchain_default_location() {
     local TARGET=$1
-
+    echo "Setup Toolchain for $TARGET from /opt/qct/$TARGET"
     if [ "$TARGET" == "sa415m" ]; then
         source /opt/qct/sa415m/environment-setup-armv7at2hf-neon-oe-linux-gnueabi
     elif [ "$TARGET" == "sa515m" ]; then
@@ -35,6 +35,52 @@ setup_toolchain() {
         echo " e.g. $0 sa415m"
         return
     fi
+
+    # TELAF_GLOBAL_TARGET_TOOLCHAIN_PATH environment variable will be used in findtoochain script.
+    export TELAF_GLOBAL_TARGET_TOOLCHAIN_PATH="/opt/qct/$TARGET"
+}
+
+# Setup toolchain from custom location
+setup_toolchain_custom_location() {
+    local TARGET=$1
+    # Tool chain base path
+    local TC_BASE_PATH=$2
+    echo "Setup Toolchain for $TARGET from $TC_BASE_PATH"
+
+    if [ "$TARGET" == "sa415m" ]; then
+        if [ -e $TC_BASE_PATH/environment-setup-armv7at2hf-neon-oe-linux-gnueabi ]; then
+            source $TC_BASE_PATH/environment-setup-armv7at2hf-neon-oe-linux-gnueabi
+        else
+            echo "Invalid toolchain path"
+            return
+        fi
+    elif [ "$TARGET" == "sa515m" ]; then
+        if [ -e $TC_BASE_PATH/environment-setup-armv7at2hf-neon-oe-linux-gnueabi ]; then
+            source $TC_BASE_PATH/environment-setup-armv7at2hf-neon-oe-linux-gnueabi
+        else
+            echo "Invalid toolchain path"
+            return
+        fi
+    elif [ "$TARGET" == "sa525m" ]; then
+        if [ -e $TC_BASE_PATH/environment-setup-armv7at2hf-neon-oemllib32-linux-gnueabi ]; then
+            # For 32bit tool chain build
+            export GCC_PREFIX="arm-oemllib32-linux-gnueabi"
+            source $TC_BASE_PATH/environment-setup-armv7at2hf-neon-oemllib32-linux-gnueabi
+        elif [ -e $TC_BASE_PATH/environment-setup-aarch64-oe-linux ]; then
+            # For 64bit tool chain build
+            export GCC_PREFIX="aarch64-oe-linux"
+            source $TC_BASE_PATH/environment-setup-aarch64-oe-linux
+        else
+            echo "Invalid toolchain path"
+            return
+        fi
+    else
+        echo "Invalid target"
+        return
+    fi
+
+    # TELAF_GLOBAL_TARGET_TOOLCHAIN_PATH environment variable will be used in findtoochain script.
+    export TELAF_GLOBAL_TARGET_TOOLCHAIN_PATH="$TC_BASE_PATH"
 }
 
 umask 002
@@ -42,7 +88,7 @@ umask 002
 # Function to build telaf-prop and telaf-noship
 build_extras() {
     # The declare -A EXTRA_ENUM command is used to define an associative array that maps EXTRA_TYPE values to their corresponding constants
-    # Later EXTRA_ENUM[${EXTRA_TYPE}] is used to retrieve the value associated with a specific EXTRA_TYPE. 
+    # Later EXTRA_ENUM[${EXTRA_TYPE}] is used to retrieve the value associated with a specific EXTRA_TYPE.
     declare -A EXTRA_ENUM=(
         [prop]="TELAF_PROP"         # Map 'prop' to 'TELAF_PROP'
         [noship]="TELAF_NOSHIP"     # Map 'noship' to 'TELAF_NOSHIP'
@@ -185,6 +231,13 @@ function build-distclean-af(){
 }
 
 export TARGET_GLOBAL="$1"
-setup_toolchain "$TARGET_GLOBAL"
-
-
+if [ $# -eq 1 ]; then
+    # only target is provided. Setup toolchain from default location
+    setup_toolchain_default_location "$TARGET_GLOBAL"
+elif [ $# -eq 2 ]; then
+    # target and toolchain locations are provided. Setup toolchain from provided location
+    setup_toolchain_custom_location "$TARGET_GLOBAL" $2
+else
+    echo "Correct Usage: $0 <target> <toolchain location(optional)>"
+    echo "Valid targets: sa415m, sa515m, sa525m"
+fi

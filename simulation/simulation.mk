@@ -21,16 +21,13 @@ export SIMULATION_WORKDIR := $(SIMULATION_HOME)/workstation
 SIMULATION_DEPS:= $(SIMULATION_HOME)/deps/install/boost $(SIMULATION_HOME)/deps/install/vsomeip
 SIMULATION_TARBALL:= $(SIMULATION_HOME)/workstation/telaf_simulation.tar
 
-MKEXE_FLAGS_SIMULATION_EX += -X -std=c++11 -X -lstdc++ \
+MKTOOLS_FLAGS_SIMULATION_EX += -X -std=c++11 -X -lstdc++ \
                   --cxxflags=-I$(TELAF_ROOT)/simulation/deps/install/boost/include \
                   --cxxflags=-I$(TELAF_ROOT)/simulation/deps/install/vsomeip/include \
                   --ldflags=-L$(TELAF_ROOT)/simulation/deps/install/boost/lib \
                   --ldflags=-L$(TELAF_ROOT)/simulation/deps/install/vsomeip/lib
 
-MKAPP_FLAGS_SIMULATION_EX += $(MKEXE_FLAGS_SIMULATION_EX)
-MKSYS_FLAGS_SIMULATION_EX += $(MKEXE_FLAGS_SIMULATION_EX)
-
-export MKEXE_FLAGS_SIMULATION_EX MKAPP_FLAGS_SIMULATION_EX MKSYS_FLAGS_SIMULATION_EX
+export MKTOOLS_FLAGS_SIMULATION_EX
 
 .PHONY: simulation boost vsomeip
 

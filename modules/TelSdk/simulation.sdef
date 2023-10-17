@@ -9,6 +9,8 @@ apps:
     $LEGATO_ROOT/apps/sample/helloIpc/printClient
     $LEGATO_ROOT/apps/sample/helloIpc/printServer
 
+    $TELAF_ROOT/simulation/pa/taf_pa_simula_pm/tafPMSvc
+
 #if ${TELAF_SIMULATION_ENABLE_SOMEIP_GW} = y
     $TELAF_ROOT/apps/tafServices/tafSomeipGWSvc
     $TELAF_ROOT/apps/test/tafSomeipGWTest/tafSomeipClntUnitTest/tafSomeipClntUnitTest

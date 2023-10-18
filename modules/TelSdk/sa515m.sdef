@@ -80,6 +80,8 @@ bindings:
     <c2c>.taf_appMgmt -> tafUpdateSvc.taf_appMgmt
     <c2c>.taf_fwupdate -> tafUpdateSvc.taf_fwupdate
     <c2c>.taf_dcs -> tafDataCallSvc.taf_dcs
+    <telaf>.DeviceManager -> <root>.DeviceManager
+    <root>.DeviceManagerTool -> <root>.DeviceManagerTool
 }
 
 interfaceSearch:

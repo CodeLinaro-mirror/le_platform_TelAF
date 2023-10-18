@@ -10,18 +10,23 @@ requires:
     component:
     {
         $LEGATO_ROOT/components/watchdogChain
+        $TELAF_ROOT/components/tafHalComp
     }
 }
+
 cxxflags:
 {
     -I$LEGATO_ROOT/components/watchdogChain
     -I$TELAF_ROOT/include
     -ltelux_common
+    -I$TELAF_ROOT/components/tafHalComp
 }
+
 cflags:
 {
     -I$LEGATO_ROOT/components/watchdogChain
 }
+
 sources:
 {
     tafGpioImpl.cpp

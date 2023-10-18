@@ -106,6 +106,17 @@ bool taf_gpio_IsOutput (uint8_t pinNum)
     return gpio.isOutput(gpio.tafGpioRefPin[pinNum]);
 }
 
+le_result_t taf_gpio_GetName (uint8_t pinNum, char* name /* output */, size_t nameSize)
+{
+    LE_DEBUG("taf_gpio_GetName, pinNum :%d",pinNum);
+    auto &gpio = taf_Gpio::getInstance();
+    TAF_ERROR_IF_RET_VAL(pinNum < 0 || pinNum >= gpio.numOfGpios, LE_OUT_OF_RANGE,
+            "Gpio pin %d is not available", pinNum);
+    TAF_ERROR_IF_RET_VAL(nameSize > TAF_GPIO_PIN_NAME_MAX_BYTE, LE_OVERFLOW,
+            "The nameSize %d is overflowed", pinNum);
+    return gpio.getName(gpio.tafGpioRefPin[pinNum], name, nameSize);
+}
+
 taf_gpio_Edge_t taf_gpio_GetEdgeSense (uint8_t pinNum)
 {
     LE_DEBUG("taf_gpio_GetEdgeSense, pinNum :%d",pinNum);
@@ -136,9 +147,9 @@ taf_gpio_ChangeEventHandlerRef_t taf_gpio_AddChangeEventHandler
     LE_DEBUG("taf_gpio_AddChangeEventHandler, pinNum :%d",pinNum);
     auto &gpio = taf_Gpio::getInstance();
     TAF_ERROR_IF_RET_VAL(pinNum < 0 || pinNum >= gpio.numOfGpios,
-            NULL, "Gpio pin %d is not available", pinNum);
+            nullptr, "Gpio pin %d is not available", pinNum);
 
-    TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, NULL,
+    TAF_ERROR_IF_RET_VAL(handlerPtr == nullptr, nullptr,
             "handlerPtr is NULL");
 
     return (taf_gpio_ChangeEventHandlerRef_t)gpio.setChangeCallback(
@@ -172,7 +183,21 @@ le_result_t taf_gpio_DisableEdgeSense (uint8_t pinNum, bool lock)
     return gpio.disableEdgeSense(gpio.tafGpioRefPin[pinNum], lock);
 }
 
-COMPONENT_INIT{
+static void TafSigTermEventHandler(int tafSigNum)
+{
+    auto &gpio = taf_Gpio::getInstance();
+    LE_INFO("TafSigTermEventHandler :%d", tafSigNum);
+    taf_devMgr_UnloadDrv(gpio.gpioInf);
+    LE_INFO("unload successful");
+
+    gpio.isDrvPresent = false;
+    gpio.gpioInf = nullptr;
+}
+
+COMPONENT_INIT
+{
+    LE_INFO("####### COMPONENT_INIT gpio svc ######....");
+
     auto &gpio = taf_Gpio::getInstance();
     gpio.Init();
     int fd, ret;
@@ -197,18 +222,57 @@ COMPONENT_INIT{
     LE_INFO("Number of gpio lines available: %d\n", info.lines);
     gpio.numOfGpios = info.lines;
     le_fd_Close(fd);
+
+    // Setup signal's event handler.
+    le_sig_SetEventHandler(SIGTERM, TafSigTermEventHandler);
+
+    // load driver
+    gpio.gpioInf = (gpio_Inf_t *)taf_devMgr_LoadDrv(TAF_GPIO_MODULE_NAME, nullptr);
+
+    if(gpio.gpioInf == nullptr)
+    {
+        LE_ERROR("Can not load the driver %s", TAF_GPIO_MODULE_NAME);
+        gpio.isDrvPresent = false;
+    }
+    else // successfully loaded
+    {
+        LE_INFO("Driver loaded successfully....");
+        //TAF_HAL_INFO_TAB.gpioInf = *gpioInf;
+        gpio.isDrvPresent = true;
+
+        // init first
+        (*(gpio.gpioInf->InitHAL))();
+
+        // Get the GPIO number
+        size_t gpioCount = (*(gpio.gpioInf->getTotalGpioPinsHAL))();
+        LE_INFO("Total GPIOs available in the system: %" PRIuS, gpioCount);
+
+        if(gpioCount == 0)
+        {
+            LE_ERROR("No gpio available");
+            taf_devMgr_UnloadDrv(gpio.gpioInf);
+            gpio.isDrvPresent = false;
+        }
+        else
+        {
+            LE_INFO("available gpios: %" PRIuS, gpioCount);
+        }
+    }
+
     le_mem_PoolRef_t gpioRefPool = le_mem_CreatePool("gpioRefPool", sizeof(taf_gpio));
-    for(int i = 0; i < gpio.numOfGpios; i++) {
+    for(int i = 0; i < gpio.numOfGpios; i++)
+    {
         gpio.tafGpioRefPin[i] = (taf_gpio*)le_mem_ForceAlloc(gpioRefPool);
         gpio.tafGpioRefPin[i]->pinNum = i;
         gpio.tafGpioRefPin[i]->fdMonitor = -1;
         snprintf(gpio.tafGpioRefPin[i]->gpioName, sizeof(gpio.tafGpioRefPin[i]->gpioName), "gpio%d", i);
         gpio.tafGpioRefPin[i]->isLocked = false;
         gpio.tafGpioRefPin[i]->handlerCount = 0;
-        gpio.tafGpioRefPin[i]->fdMonitorRef = NULL;
-        gpio.tafGpioRefPin[i]->lockedSession = NULL;
+        gpio.tafGpioRefPin[i]->fdMonitorRef = nullptr;
+        gpio.tafGpioRefPin[i]->lockedSession = nullptr;
         gpio.tafGpioRefPin[i]->edge = TAF_GPIO_EDGE_NONE;
         gpio.tafGpioRefPin[i]->clientHashMap =  le_hashmap_Create(gpio.tafGpioRefPin[i]->gpioName,
                 31, le_hashmap_HashVoidPointer, le_hashmap_EqualsVoidPointer);
+        gpio.tafGpioRefPin[i]->aliasName[0] = '\0';
     }
 }

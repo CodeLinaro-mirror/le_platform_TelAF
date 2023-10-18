@@ -1,0 +1,28 @@
+sources:
+{
+    devManager.cpp
+}
+
+provides:
+{
+    api:
+    {
+      //taf_devMgr.api
+    }
+}
+
+requires:
+{
+    lib:
+    {
+    #if ${LE_CONFIG_ENABLE_SELINUX} =y
+        lib/libsemanage.so.1
+    #endif
+    }
+}
+
+cxxflags:
+{
+    -DFRAMEWORK_WDOG_NAME=DevManagerWdog
+    -I$TELAF_ROOT/include
+}

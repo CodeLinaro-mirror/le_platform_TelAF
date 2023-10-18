@@ -1,0 +1,12 @@
+sources:
+{
+    tafHalLib.cpp
+}
+
+cxxflags:
+{
+    -DFRAMEWORK_WDOG_NAME=DevManagerWdog
+    -I $TELAF_ROOT/include
+    -I $TELAF_ROOT/framework/daemons/linux/deviceManager/
+    -I $LEGATO_ROOT/framework/liblegato/
+}

@@ -116,6 +116,12 @@
  */
 //-------------------------------------------------------------------------------------------------
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * GPIO pin name length.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE  PIN_NAME_MAX_BYTE = (32);
 
 /**
  * Pin polarities.
@@ -272,8 +278,8 @@ FUNCTION le_result_t DisableEdgeSense(
 /**
  * Checks if the pin is configured as an output.
  *
- * @return 
- * Ttrue if output; false if input.
+ * @return
+ * True if output; false if input.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION bool IsOutput(
@@ -294,9 +300,22 @@ FUNCTION bool IsInput(
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Returns the I/O name.
+ *
+ * @return
+ * Name in string format
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetName(
+    uint8   pinNum                  IN,     ///< GPIO pin number.
+    string  name[PIN_NAME_MAX_BYTE] OUT     ///< I/O name as output
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Gets the current value of edge sensing.
  *
- * @return 
+ * @return
  * The current configured edge value.
  *
  * @note Invalid to read the edge sense of an output pin.

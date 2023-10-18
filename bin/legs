@@ -58,6 +58,35 @@ export TELAF_ROOT=$(realpath $(dirname $(dirname "$ABS_PATH_TO_CURRENT_DIR")))
 export TELAF_INTERFACES=$TELAF_ROOT/interfaces
 export LEGATO_ROOT=$TELAF_ROOT/../legato/legato-af
 
+# If there is exactly one argument, legs will execute the argument in the TelAF shell.
+if [ $# -eq 1 ]; then
+    # User has provided command(s) to be executed in the TelAF build shell.
+
+    # Setup the TelAF framework shell
+    cd $LEGATO_ROOT
+    source $LEGATO_ROOT/framework/tools/scripts/configlegatoenv
+    cd $TELAF_ROOT
+    set -e
+    # Store user argument in a variable.
+    cmds=$1
+    # Split the argument passed by the user into separate commands using && as the delimiter
+    while [ "$cmds" != "$cmd" ] ;do
+        # extract each command
+        cmd=${cmds%%&&*}
+        # delete the extracted command and the delimiter from the argument string
+        cmds="${cmds#$cmd&&}"
+        # Execute the command
+        echo $cmd
+        $cmd
+        # Check the return and exit command failed.
+        retVal=$?
+        if [ $retVal -ne 0 ]; then
+            exit $retVal
+        fi
+    done
+    # Exit this shell
+    exit
+fi
 
 # Setup framework configuration in a sub-shell and start interperting stdin interactively.
 bash -i  <<EOF

@@ -264,7 +264,7 @@ static void TestMngdPMUnitTest()
         LE_TEST_OK(requestState.state == TAF_MNGD_PM_STATE_RESUME,
                 "Successfully get the state of %s VM", requestState.vmName);
 
-        LE_INFO("le_arg_NumArgs is %ld argIndex is %d", le_arg_NumArgs(), argIndex);
+        LE_INFO("le_arg_NumArgs is %" PRIuS " argIndex is %d", le_arg_NumArgs(), argIndex);
         if(le_arg_NumArgs() > ++argIndex)
             arg = le_arg_GetArg(argIndex);
         else

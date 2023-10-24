@@ -13,6 +13,14 @@ ifeq ($(lastword $(MAKECMDGOALS)),simulation)
 $(error Please pass 'simula' for TelAF Simulation Target [simulation])
 endif
 
+# For embedded target, the cross-compilation tool will change the 'sysroot'
+# to search header & libraries that have beed relocated.
+# when we get the path by '--print-sysroot', that value will be returned.
+# But for simulation target, the default prefix (empty) is used,
+# because the host default environment for the gcc compiler is that.
+# So for consistency, we add the required path without any affect for mktools.
+export SYSROOT=/
+
 export SIMULATION_HOME := $(CURDIR)/simulation
 export SIMULATION_DEPS_INSTALL := $(SIMULATION_HOME)/deps/install
 export SIMULATION_DEPS_SOURCE := $(SIMULATION_HOME)/deps/source
@@ -44,7 +52,7 @@ export TELAF_SIMULATION_ENABLE_DCS ?= n
 
 endif
 
-export TELAF_SIMULATION_ENABLE_SOMEIP_GW ?= n
+export TELAF_SIMULATION_ENABLE_SOMEIP_GW ?= y
 
 SIMULATION_SOMEIP_GW_DEPS_y := $(SIMULATION_HOME)/deps/install/boost $(SIMULATION_HOME)/deps/install/vsomeip
 SIMULATION_DEPS += $(SIMULATION_SOMEIP_GW_DEPS_$(TELAF_SIMULATION_ENABLE_SOMEIP_GW))

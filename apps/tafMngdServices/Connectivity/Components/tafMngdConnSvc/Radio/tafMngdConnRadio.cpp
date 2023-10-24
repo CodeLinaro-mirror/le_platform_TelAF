@@ -161,18 +161,23 @@ void tafMngdConnRadio::PackSwStateHandler
     LE_INFO("phone: %d packet switch state: %d", packSwStateIndPtr->phoneId,
         packSwStateIndPtr->state);
     auto &mngdConnAdmin = tafMngdConnAdmin::GetInstance();
-    stateMachineEvent_t stateMachineEvt;
+
+    stateMachineEvent_t stateMachineEvt = {TAF_MNGD_CONN_EVT_INIT, 0};
 
     if(packSwStateIndPtr->state == TAF_RADIO_NET_REG_STATE_HOME ||
        packSwStateIndPtr->state == TAF_RADIO_NET_REG_STATE_ROAMING)
-        stateMachineEvt.event=EVT_NETWORK_REG_STATE;
+    {
+        stateMachineEvt.event=TAF_MNGD_CONN_EVT_NETWORK_REG_STATE;
+    }
     else
-        stateMachineEvt.event=EVT_NETWORK_UNREG_STATE;
+    {
+        stateMachineEvt.event=TAF_MNGD_CONN_EVT_NETWORK_UNREG_STATE;
+    }
 
     stateMachineEvt.phoneId = packSwStateIndPtr->phoneId;
 
     le_event_Report(mngdConnAdmin.StateMachineEventId, &stateMachineEvt,
-                    sizeof(stateMachineEvent_t));
+                                                    sizeof(stateMachineEvent_t));
 }
 
 //--------------------------------------------------------------------------------------------------

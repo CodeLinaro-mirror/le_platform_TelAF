@@ -44,6 +44,11 @@ if [ -v ON_TELAF_SIMULATION_DOCKER ]; then # [Docker-Container-Env]
     # Remap 'reboot' to a special script, don't restart the container
     unlink /sbin/reboot
     echo "/usr/bin/killall serviceDirectory" > /tmp/simulation_reboot
+
+    # When the framework starts, if the supervisor encounters a FATAL error,
+    # we need to make sure that the docker container does not exit
+    echo "/usr/bin/killall startSystem"     >> /tmp/simulation_reboot
+
     chmod a+x /tmp/simulation_reboot
     ln -s /tmp/simulation_reboot /sbin/reboot
 

@@ -70,6 +70,7 @@ apps:
     // $TELAF_ROOT/apps/test/tafAudioTest/tafAudioUnitTest/tafAudioUnitTest
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMUnitTest/tafMngdPMUnitTest
     // $TELAF_ROOT/apps/sample/diagApp/tafDiagApp
+    // $TELAF_ROOT/apps/test/tafAdefTest/tafAdefUnitTest
 }
 
 commands:

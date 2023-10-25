@@ -1,0 +1,49 @@
+sandboxed: false
+
+start: auto
+
+maxThreads: 300
+
+username: telaf
+
+capability:
+{
+        CAP_WAKE_ALARM
+        CAP_NET_ADMIN
+        CAP_BLOCK_SUSPEND
+
+#if ${LE_CONFIG_TEST_COVERAGE} = y
+        CAP_DAC_READ_SEARCH
+        CAP_DAC_OVERRIDE
+#endif
+}
+
+executables:
+{
+    tafDiagSvc = ( $TELAF_ROOT/components/tafDiagSvc )
+}
+
+groups:
+{
+}
+
+processes:
+{
+    run:
+    {
+        (tafDiagSvc)
+    }
+
+    faultAction: restart
+}
+
+bindings:
+{
+}
+
+extern:
+{
+    tafDiagSvc.tafDiagSvc.taf_diagReset
+    tafDiagSvc.tafDiagSvc.taf_diagRoutineCtrl
+    tafDiagSvc.tafDiagSvc.taf_diagUpdate
+}

@@ -1,0 +1,32 @@
+# Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+policy_module(tafDiagApp, 1.0)
+
+
+type telaf_tafDiagApp_exec_t;
+files_type(telaf_tafDiagApp_exec_t);
+
+type telaf_tafDiagApp_data_t;
+files_type(telaf_tafDiagApp_data_t);
+
+type telaf_tafDiagApp_t;
+
+init_telaf_app_domain(telaf_tafDiagApp_t,telaf_tafDiagApp_exec_t)
+
+ifndef(`sa525m',`
+    gen_require(`
+        type ota_master_da_data_t;
+    ')
+    allow telaf_tafDiagApp_t ota_master_da_data_t:dir { manage_dir_perms };
+    allow telaf_tafDiagApp_t ota_master_da_data_t:file { manage_file_perms relabel_file_perms };
+')
+ifdef(`sa525m',`
+    gen_require(`
+        type data_t;
+    ')
+    allow telaf_tafDiagApp_t data_t:dir { manage_dir_perms };
+    allow telaf_tafDiagApp_t data_t:file { manage_file_perms relabel_file_perms};
+')
+
+

@@ -80,13 +80,10 @@ le_result_t taf_fwupdate_GetFirmwareVersion(char* versionPtr, size_t versionNumE
 ======================================================================*/
 le_result_t taf_fwupdate_Install()
 {
-    auto &tafUpdate = taf_Update::GetInstance();
-    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
-    tafFwUpdate.isLocalUpgrade = true;
-    tafUpdate.WriteFs(TAF_FWUPDATE_FOTA_IS_LOCAL, (uint8_t*)&tafFwUpdate.isLocalUpgrade, sizeof(bool));
-
     taf_FwUpdateReq_t fwupdateReq;
-    fwupdateReq.event = TAF_FWUPDATE_EV_START_INSTALL;
+    fwupdateReq.event = TAF_FWUPDATE_EV_INSTALL;
+    le_utf8_Copy(fwupdateReq.name, TAF_UPDATE_FOTA_PAKCAGE_FILE_PATH,
+        TAF_UPDATE_MAX_PKG_NAME_LEN, NULL);
     le_event_Report(taf_FwUpdate::fwUpdateEvId, &fwupdateReq, sizeof(taf_FwUpdateReq_t));
     return LE_OK;
 }

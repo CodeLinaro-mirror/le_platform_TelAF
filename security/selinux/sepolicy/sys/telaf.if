@@ -67,10 +67,12 @@ interface(`init_telaf_app_domain',`
                 attribute telaf_app_domain;
                 attribute telaf_core_domain;
                 attribute telaf_admin_domain;
+                attribute telaf_app_exec_attr;
         ')
 
         init_daemon_domain($1, $2)
         typeattribute $1 telaf_app_domain;
+        typeattribute $2 telaf_app_exec_attr;
 
         domain_auto_transition_pattern(telaf_admin_t, $2, $1)
 

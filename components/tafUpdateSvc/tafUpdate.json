@@ -1,0 +1,18 @@
+{
+    "firmware":
+    {
+        "probation":
+        {
+            "time": 30,
+            "auto_sync": true
+        }
+    },
+
+    "app":
+    {
+        "probation":
+        {
+            "time": 10
+        }
+    }
+}

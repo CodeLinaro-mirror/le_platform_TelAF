@@ -41,18 +41,21 @@
 #include "tafSvcIF.hpp"
 
 #define TAF_APPMGMT_SYSTEM_APPS "system:/apps"
-#define TAF_APPMGMT_UPDATE_APPS "tafUpdateSvc:/apps"
-#define TAF_APPMGMT_UPDATE_APP_NODE "tafUpdateSvc:/apps/%s"
-#define TAF_APPMGMT_SOTA_STATE "/sotaState"
-#define TAF_APPMGMT_SOTA_REPORT_STATE "/sotaReportState"
-#define TAF_APPMGMT_SOTA_APP_START_MODE "/sotaAppStartMode"
-#define TAF_APPMGMT_SOTA_APP "/sotaApp"
+#define TAF_APPMGMT_SYSTEM_APPS_NODE "system:/apps/%s"
+#define TAF_APPMGMT_TELAF_APPS "/legato/apps"
+#define TAF_APPMGMT_TELAF_APPS_NODE "/legato/apps/%s"
+#define TAF_APPMGMT_APP_BACKUP_DIR "/data/images"
+#define TAF_APPMGMT_APP_BACKUP_NODE "/data/images/%s"
+#define TAF_APPMGMT_APP_BACKUP_PATH "/data/images/app_%s.backup"
 
 #define TAF_APPMGMT_APP_LISTS_MAX_NUM 1
 #define TAF_APPMGMT_APP_MAX_NUM 128
 
-#define TAF_APP_PROBATION_TIME_INTERVAL 10000
-#define TAF_APP_REPORT_TIME_INTERVAL 60000
+#define TAF_APPMGMT_TELAF_BACKUP_PATH_MAX 256
+#define TAF_APPMGMT_JSON_PARSE_TIMEOUT 10
+
+#define TAF_APPMGMT_MAX_XATTR_LIST_SIZE 4096
+#define TAF_APPMGMT_MAX_XATTR_VALUE_SIZE 4096
 
 typedef struct
 {
@@ -79,18 +82,16 @@ typedef struct
 } taf_AppMgmtAppList_t;
 
 // App update event
-typedef enum {
-    TAF_APPMGMT_EV_START_INSTALL,
-    TAF_APPMGMT_EV_START_PROBATION,
-    TAF_APPMGMT_EV_START_UNINSTALL,
-    TAF_APPMGMT_EV_START_ROLLBACK,
-    TAF_APPMGMT_EV_START_REPORT,
-    TAF_APPMGMT_EV_REPORT_FAIL,
-    TAF_APPMGMT_EV_REPORT_SUCCESS
+typedef enum
+{
+    TAF_APPMGMT_EV_INSTALL,
+    TAF_APPMGMT_EV_PROBATION,
+    TAF_APPMGMT_EV_ROLLBACK
 } taf_AppMgmtUpdateEvent_t;
 
 // App update request
-typedef struct {
+typedef struct
+{
     taf_AppMgmtUpdateEvent_t event;
     char name[TAF_APPMGMT_APP_NAME_BYTES];
 } taf_AppMgmtUpdateReq_t;
@@ -105,15 +106,38 @@ namespace tafsvc {
         static taf_AppMgmt &GetInstance();
         void Init(void);
 
-        void CreateAppNode(const char* name);
-        void DeleteAppNode(const char* name);
-        void NotifyProgress(taf_update_State_t state, uint32_t percent, taf_update_Error_t error);
-        void ReportState(taf_update_ReportState_t rState);
+        bool IsAppExist(const char* appName);
+        bool IsStartManual(const char* appName);
+        bool IsActivated(const char* appName);
+        bool IsSysApp(const char* appName);
+        bool IsValidVersion(const char* appName);
+        bool IsValidToInstall(const char* appName, const char* appPath);
+        le_result_t GetAppVersion(const char* appName, char* versionPtr,
+            size_t versionNumElements);
+        void UpdateAppNode(const char* appName, bool activated);
+
+        static void VersionEventHandler(le_json_Event_t event);
+        static void JsonEventHandler(le_json_Event_t event);
+        static void JsonErrorHandler(le_json_Error_t error, const char* msg);
+        static void JsonParseHandler(void* contextPtr);
+        static void* JsonParseThread(void* contextPtr);
+
+        le_result_t SendPipeCmd(const char* cmd);
+        le_result_t CopyAttr(const char* srcPath, const char* dstPath);
+        le_result_t CopySymlink(const char* srcLink, const char* dstPath);
+        le_result_t CopyFile(const char* srcFile, const char* dstFile);
+        le_result_t CopyDir(const char* srcDir, const char* dstDir);
+        le_result_t RecursiveCopy(const char* srcDir, const char* dstDir);
+        le_result_t RecursiveRemove(const char* srcDir);
+        le_result_t BackupApp(const char* appName);
+
+        void UpdateProgress(taf_update_State_t state, uint32_t percent, taf_update_Error_t error);
         static void ProbationTimerHandler(le_timer_Ref_t timerRef);
-        static void ReportTimerHandler(le_timer_Ref_t timerRef);
         static void InstallHandler(le_update_State_t state, uint percent,void* contextPtr);
+
         static void AppUpdateHandler(void* reqPtr);
         static void* AppUpdateThread(void* contextPtr);
+        static le_event_Id_t appUpdateEvId;
 
         le_mem_PoolRef_t appListPool;
         le_mem_PoolRef_t appInfoPool;
@@ -122,13 +146,15 @@ namespace tafsvc {
         le_ref_MapRef_t appListRefMap;
         le_ref_MapRef_t appInfoSafeRefMap;
 
-        static le_event_Id_t appUpdateEvId;
         le_timer_Ref_t prbtTimerRef;
-        le_timer_Ref_t rptTimerRef;
-        taf_update_State_t sotaState = TAF_UPDATE_IDLE;
-        taf_update_ReportState_t rState;
-        bool isManualStart = false;
-        char sotaApp[TAF_APPMGMT_APP_NAME_BYTES] = {0};
+        uint32_t prbtTime = 0;
+
+        taf_update_State_t state = TAF_UPDATE_IDLE;
+        int jsonFd = -1;
+        le_sem_Ref_t jsonSem;
+        static le_event_Id_t jsonParseEvId;
+        char appName[TAF_APPMGMT_APP_NAME_BYTES] = {0};
+        char appVersion[TAF_APPMGMT_APP_VERSION_BYTES] = {0};
     };
 }
 }

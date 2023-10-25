@@ -162,6 +162,7 @@ type telaf_app_bundle_t;
 files_type(telaf_app_bundle_t)
 
 # Telaf apps exec type definition
+attribute telaf_app_exec_attr;
 type telaf_app_exec_t;
 files_type(telaf_app_exec_t)
 

@@ -82,6 +82,8 @@ commands:
 
 bindings:
 {
+    <telaf>.DeviceManager -> <root>.DeviceManager
+    <root>.DeviceManagerTool -> <root>.DeviceManagerTool
 }
 
 interfaceSearch:

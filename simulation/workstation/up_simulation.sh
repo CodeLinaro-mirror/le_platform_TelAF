@@ -75,6 +75,7 @@ if [ -v ON_TELAF_SIMULATION_DOCKER ]; then # [Docker-Container-Env]
     mkdir -p /tmp/legato
 
     mkdir -p /data/le_fs
+    mkdir -p /data/persist
     chmod 0777 /data/le_fs
 
     MOUNTPOINT_TELAF="/mnt/legato"

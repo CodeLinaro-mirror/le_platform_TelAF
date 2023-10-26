@@ -486,6 +486,9 @@ static void Test_ECall_StartAutomatic() {
     taf_ecall_State_t retrievedState = taf_ecall_GetState(eCallRef);
     LE_INFO("Test_ECall_StartAutomatic callState = %d", (int) retrievedState);
 
+    taf_ecall_Type_t type = taf_ecall_GetType(eCallRef);
+    LE_INFO("Test_ECall_StartAutomatic callType = %d", (int) type);
+
     Test_ECall_ExportMsd(eCallRef);
 
     if(res == LE_OK) {
@@ -514,6 +517,9 @@ static void Test_ECall_StartManual() {
     le_result_t res = taf_ecall_StartManual(eCallRef);
     taf_ecall_State_t retrievedState = taf_ecall_GetState(eCallRef);
     LE_INFO("Test_ECall_StartManual callState = %d", (int) retrievedState);
+
+    taf_ecall_Type_t type = taf_ecall_GetType(eCallRef);
+    LE_INFO("Test_ECall_StartManual callType = %d", (int) type);
 
     Test_ECall_ExportMsd(eCallRef);
     Test_ECall_SendMsd(eCallRef);
@@ -547,6 +553,9 @@ static void Test_ECall_StartTest() {
     taf_ecall_State_t retrievedState = taf_ecall_GetState(eCallRef);
     LE_INFO("Test_ECall_StartTest callState = %d", (int) retrievedState);
 
+    taf_ecall_Type_t type = taf_ecall_GetType(eCallRef);
+    LE_INFO("Test_ECall_StartTest callType = %d", (int) type);
+
     Test_ECall_ExportMsd(eCallRef);
 
     if(res == LE_OK) {
@@ -557,7 +566,52 @@ static void Test_ECall_StartTest() {
 
     eCallRef = NULL;
 }
+#if defined(LE_CONFIG_ENABLE_PRIVATE_ECALL)
+static void Test_ECall_StartPrivate() {
+    taf_ecall_CallRef_t eCallRef = NULL;
 
+    eCallRef= taf_ecall_Create();
+
+    taf_ecall_ImportMsd(eCallRef, msdRawData, msdLength);
+
+    const char* contentType = "application/EmergencyCallData.eCall.MSD";
+    const char* acceptInfo = "";
+
+    le_result_t res = taf_ecall_StartPrivate(eCallRef, TEST_PSAP_NUMBER, contentType, acceptInfo);
+    taf_ecall_State_t retrievedState = taf_ecall_GetState(eCallRef);
+    LE_INFO("Test_ECall_StartPrivate callState = %d", (int) retrievedState);
+
+    taf_ecall_Type_t type = taf_ecall_GetType(eCallRef);
+    LE_INFO("Test_ECall_StartPrivate callType = %d", (int) type);
+
+    le_result_t setResult = LE_FAULT;
+    setResult = taf_ecall_SetMsdPosition(eCallRef, true, +118422000, -421902360, 0);
+    LE_TEST_OK(setResult != LE_OK, "taf_ecall_SetMsdPosition done");
+    LE_INFO("Set msd position completed");
+
+    setResult = taf_ecall_SetMsdPositionN1(eCallRef, 511, 511);
+    LE_TEST_OK(setResult != LE_OK, "taf_ecall_SetMsdPositionN1 done");
+    LE_INFO("Set delta  msd position completed");
+
+    setResult = taf_ecall_SetMsdPositionN2(eCallRef, -512, -512);
+    LE_TEST_OK(setResult != LE_OK, "taf_ecall_SetMsdPositionN2 done");
+    LE_INFO("Set delta  msd position completed");
+
+    setResult = taf_ecall_SetMsdPassengersCount(eCallRef, 2);
+    LE_TEST_OK(setResult != LE_OK, "taf_ecall_SetMsdPassengersCount done");
+    LE_INFO("Set number of passengers completed");
+
+    Test_ECall_ExportMsd(eCallRef);
+
+    if(res == LE_OK) {
+        le_sem_Wait(TestSemaphoreRef);
+    }
+
+    taf_ecall_Delete(eCallRef);
+
+    eCallRef = NULL;
+}
+#endif
 static void Test_ECall_SetGetPsapNumber() {
 
     le_result_t res = taf_ecall_SetPsapNumber(TEST_PSAP_NUMBER);
@@ -614,6 +668,10 @@ COMPONENT_INIT
 
     ThreadRef = le_thread_Create("EctThread", Test_taf_ecall_AddHandler, NULL);
     le_thread_Start(ThreadRef);
+
+#if defined(LE_CONFIG_ENABLE_PRIVATE_ECALL)
+    Test_ECall_StartPrivate();
+#endif
 
     Test_ECall_StartTest();
 

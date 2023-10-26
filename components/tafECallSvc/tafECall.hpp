@@ -70,6 +70,7 @@ using namespace std;
 #define MSD_VERSION_THREE 3
 #define SET_PSAP_NUM_TYPE_DEFFAULT 0
 #define SET_PSAP_NUM_TYPE_OVERRIDDEN 1
+#define MAX_EU_MSD_LENGTH 140
 
 namespace telux {
     namespace tafsvc {
@@ -112,6 +113,8 @@ namespace telux {
             taf_EuroNCAPData_t                  euroNCAPData;
             uint8_t                             oadData[TAF_ECALL_MAX_DATA_LENGTH];
             size_t                              oadDataSize;
+            bool                                isPrieCallOngoing;
+            taf_ecall_Type_t                    type;
         }
         taf_ECall_t;
 
@@ -132,6 +135,12 @@ namespace telux {
             public:
                 void makeCallResponse(telux::common::ErrorCode errorCode,
                                                     std::shared_ptr<telux::tel::ICall> call)override;
+                static void makeECallResponse(telux::common::ErrorCode errorCode,
+                                                    std::shared_ptr<telux::tel::ICall> call);
+        };
+
+        class tafPrieCallCommandCallback : public telux::tel::IMakeCallCallback {
+            public:
                 static void makeECallResponse(telux::common::ErrorCode errorCode,
                                                     std::shared_ptr<telux::tel::ICall> call);
         };
@@ -172,6 +181,7 @@ namespace telux {
                 le_result_t SetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t ecallMode);
                 le_result_t GetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t *opMode);
                 le_result_t StartECall(ECallCategory emergencyCategory, ECallVariant eCallvariant, taf_ecall_CallRef_t ecallRef);
+                le_result_t StartPrivate(taf_ecall_CallRef_t ecallRef, const char * psapNumber, const char * contentType, const char * acceptInfo);
                 le_result_t StopECall(taf_ecall_CallRef_t ecallRef);
                 le_result_t SetMsdPosition (taf_ecall_CallRef_t ecallRef, bool isTrusted, int32_t latitude,
                     int32_t longitude, int32_t direction);
@@ -202,6 +212,7 @@ namespace telux {
                 le_result_t GetNadMinNetworkRegistrationTime(uint16_t* minNwRegTime);
                 taf_ecall_State_t GetState ( taf_ecall_CallRef_t ecallRef);
                 taf_ecall_TerminationReason_t GetTerminationReason ( taf_ecall_CallRef_t ecallRef);
+                taf_ecall_Type_t GetType ( taf_ecall_CallRef_t ecallRef);
                 taf_ecall_StateChangeHandlerRef_t AddStateChangeHandler (taf_ecall_StateChangeHandlerFunc_t handlerPtr,
                                                                                         void* contextPtr);
                 void RemoveStateChangeHandler (taf_ecall_StateChangeHandlerRef_t handlerRef);
@@ -224,6 +235,7 @@ namespace telux {
                 std::promise<telux::common::ErrorCode> setOpModeProm;
                 std::promise<telux::common::ErrorCode> updateMsdProm;
                 std::promise<telux::common::ErrorCode> makeEcallProm;
+                std::promise<telux::common::ErrorCode> makePrieCallProm;
                 CallEndCause CallEndError = telux::tel::CallEndCause::NORMAL;
 
             private:

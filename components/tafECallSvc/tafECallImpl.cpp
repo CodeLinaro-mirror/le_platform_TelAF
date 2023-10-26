@@ -95,6 +95,20 @@ void tafCallCommandCallback::makeECallResponse(telux::common::ErrorCode errorCod
     eCall.SetCallIndex(callIndex);
 }
 
+void tafPrieCallCommandCallback::makeECallResponse(telux::common::ErrorCode errorCode,
+                                                      std::shared_ptr<telux::tel::ICall> call) {
+    int32_t callIndex = -1;
+    auto &eCall = taf_ecall::GetInstance();
+    if(errorCode == telux::common::ErrorCode::SUCCESS) {
+        LE_INFO("Call is successful ");
+        callIndex = call->getCallIndex();
+    } else {
+        LE_ERROR("Call failed with error code: %d ", (static_cast<int>(errorCode)));
+    }
+    eCall.makePrieCallProm.set_value(errorCode);
+    eCall.SetCallIndex(callIndex);
+}
+
 void tafUpdateMsdCommandCallback::commandResponse(telux::common::ErrorCode errorCode) {
     auto &eCall = taf_ecall::GetInstance();
     eCall.updateMsdProm.set_value(errorCode);
@@ -341,6 +355,9 @@ void taf_ecall::InitializeECallPtr()
     ECallObject.state = TAF_ECALL_STATE_UNKNOWN;
 
     ECallObject.isMsdUpdated = false;
+
+    ECallObject.isPrieCallOngoing = false;
+    ECallObject.type = TAF_ECALL_TYPE_UNKNOWN;
 }
 
 void taf_ecall::Init(void)
@@ -667,7 +684,12 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
     //Check msd imported or not to send msd in pdu format or not
     if (ECallObject.isMsdUpdated)
     {
-        const std::vector< uint8_t > eCallMsdData(begin(eCallPtr->msdPdu),end(eCallPtr->msdPdu));
+        TAF_ERROR_IF_RET_VAL(eCallPtr->pduMsdSize > MAX_EU_MSD_LENGTH, LE_BAD_PARAMETER, "MSD pdu length exceeds 140 bytes");
+        std::vector< uint8_t > eCallMsdData;
+        for (int i = 0; i < (int)(eCallPtr->pduMsdSize); i++)
+        {
+            eCallMsdData.push_back(eCallPtr->msdPdu[i]);
+        }
         if (eCallVariant == ECallVariant::ECALL_TEST
                 && eCallConfig.numType == ECallNumType::OVERRIDDEN) {
             ret = CallManager->makeECall(phoneId, eCallConfig.overriddenNum, eCallMsdData,
@@ -698,10 +720,94 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
         ECallObject.eCallSession = ECALL_REQUEST;
         telux::common::ErrorCode error = makeEcallProm.get_future().get();
         if (error == ErrorCode::SUCCESS) {
+            if (eCallVariant == ECallVariant::ECALL_TEST)
+            {
+                ECallObject.type = TAF_ECALL_TYPE_TEST;
+            }
+            else if ( emergencyCategory == ECallCategory::VOICE_EMER_CAT_AUTO_ECALL)
+            {
+                ECallObject.type = TAF_ECALL_TYPE_AUTO;
+            }
+            else if ( emergencyCategory == ECallCategory::VOICE_EMER_CAT_MANUAL)
+            {
+                ECallObject.type = TAF_ECALL_TYPE_MANUAL;
+            }
             return LE_OK;
         }
     }
     return LE_FAULT;
+}
+
+le_result_t taf_ecall::StartPrivate(taf_ecall_CallRef_t ecallRef,
+                 const char * psapNumber, const char * contentType, const char * acceptInfo) {
+#if defined(LE_CONFIG_ENABLE_PRIVATE_ECALL)
+    //From reference read ecall ptr object
+    taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(ECallPtrRefMap, ecallRef);
+
+    TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
+
+    //Get Selected card
+    uint8_t phoneId = PhoneManager->getPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
+
+    //Check ECall session
+    if (eCallPtr->eCallSession != ECALL_INIT && (eCallPtr->eCallSession != ECALL_ENDED)) {
+        LE_ERROR("Already ecall in progress");
+        return LE_BUSY;
+    }
+
+    CustomSipHeader header;
+    if (contentType != NULL){
+        header.contentType = contentType;
+        LE_INFO("Set content type as %s", contentType);
+    } else {
+        header.contentType = telux::tel::CONTENT_HEADER;
+    }
+
+    if (acceptInfo != NULL) {
+        header.acceptInfo = acceptInfo;
+        LE_INFO("Set accept info as %s", acceptInfo);
+    } else {
+        header.acceptInfo = "";
+    }
+
+    Status ret;
+    EcallConfig eCallConfig = {};
+    ret = CallManager->getECallConfig(eCallConfig);
+    if (ret == Status::SUCCESS) {
+        LE_INFO("get eCall configuration successfully.");
+    }
+
+    //Check msd imported or not to send msd in pdu format or not
+    if (ECallObject.isMsdUpdated)
+    {
+        LE_INFO("MSD updated.");
+        makePrieCallProm = std::promise<telux::common::ErrorCode>();
+        std::vector< uint8_t > eCallMsdData;
+        for (int i = 0; i < (int)(eCallPtr->pduMsdSize); i++)
+        {
+            eCallMsdData.push_back(eCallPtr->msdPdu[i]);
+        }
+        ret = CallManager->makeECall(phoneId, psapNumber, eCallMsdData, header, tafPrieCallCommandCallback::makeECallResponse);
+        if(ret == Status::SUCCESS)
+        {
+            LE_DEBUG("Start private eCall request sent successfully");
+            ECallObject.eCallSession = ECALL_REQUEST;
+            telux::common::ErrorCode error = makePrieCallProm.get_future().get();
+            if (error == ErrorCode::SUCCESS) {
+                ECallObject.isPrieCallOngoing = true;
+                ECallObject.type = TAF_ECALL_TYPE_PRIVATE;
+                return LE_OK;
+            }
+        }
+        ECallObject.isMsdUpdated = false;
+        return LE_FAULT;
+    } else {
+        LE_INFO("No MSD updated.");
+        return LE_FAULT;
+    }
+#else
+    return LE_UNSUPPORTED;
+#endif
 }
 
 le_result_t taf_ecall::StopECall(taf_ecall_CallRef_t ecallRef) {
@@ -843,7 +949,7 @@ le_result_t taf_ecall::SetMsdPassengersCount (taf_ecall_CallRef_t  ecallRef, uin
 
     if (eCallPtr->isMsdUpdated)
     {
-        LE_ERROR("MSD position is set by importing MSD");
+        LE_ERROR("MSD passengers count is set by importing MSD");
         return LE_DUPLICATE;
     }
 
@@ -1251,7 +1357,11 @@ le_result_t taf_ecall::SendMsd( taf_ecall_CallRef_t ecallRef)
 
     if (eCallPtr->isMsdUpdated)
     {
-        const std::vector< uint8_t > eCallMsdData(begin(eCallPtr->msdPdu),end(eCallPtr->msdPdu));
+        std::vector< uint8_t > eCallMsdData;
+        for (int i = 0; i < (int)(eCallPtr->pduMsdSize); i++)
+        {
+            eCallMsdData.push_back(eCallPtr->msdPdu[i]);
+        }
         telux::common::ResponseCallback cb = [&p](telux::common::ErrorCode error) { p.set_value(error); };
         status = CallManager->updateECallMsd(phoneId, eCallMsdData, cb);
         if (status == Status::SUCCESS) {
@@ -1299,7 +1409,11 @@ void taf_ecall::SetSessionState(tafECallSession_t session)
 void taf_ecall::SetECallState(taf_ecall_State_t state)
 {
     ECallObject.state = state;
-
+    if ((state == TAF_ECALL_STATE_ENDED) && (ECallObject.isPrieCallOngoing == true))
+    {
+        ECallObject.isMsdUpdated = false;
+        ECallObject.isPrieCallOngoing = false;
+    }
 }
 
 void taf_ecall::ClearPduMsd()
@@ -1336,6 +1450,15 @@ taf_ecall_TerminationReason_t taf_ecall::GetTerminationReason ( taf_ecall_CallRe
     }
     LE_INFO("GetTerminationReason call end error = %d", (int) eCall.CallEndError);
     return (taf_ecall_TerminationReason_t) eCall.CallEndError;
+}
+
+taf_ecall_Type_t taf_ecall::GetType ( taf_ecall_CallRef_t ecallRef)
+{
+    taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(ECallPtrRefMap, ecallRef);
+
+    TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, TAF_ECALL_TYPE_UNKNOWN, "Invalid eCall reference");
+
+    return eCallPtr->type;
 }
 
 le_result_t taf_ecall::UseUSimNumbers()

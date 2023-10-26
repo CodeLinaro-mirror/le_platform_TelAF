@@ -319,6 +319,7 @@ static void* CommandInput(void* contextPtr)
             printf("-------------------------------------------------\n");
             printf("\th - Hangup the eCall\n");
             printf("\tt - Terminate registration\n");
+            printf("\ts - Import and send MSD\n");
             printf("\tq - Quit test\n");
             printf("-------------------------------------------------\n");
         }
@@ -335,7 +336,49 @@ static void* CommandInput(void* contextPtr)
             printf("User input: %c, so terminate registration...\n", input_str[0]);
             int res = terminateRegistration();
             LE_INFO("CommandInput: terminate registration, res: %d\n", res);
-        } else if (p != NULL && input_str[0]=='q') {
+        } else if (p != NULL && input_str[0]=='s') {
+            printf("User input: %c, so import MSD eg:02251C0680E30A51439E2955D43800800837F80C9FD707F09A94BDD30E55E080000001FFFFE040\n", input_str[0]);
+            char msd[2*TAF_ECALL_MAX_MSD_LENGTH+1];
+            char *msdData = fgets(msd,sizeof(msd),stdin);
+            if (msdData != NULL)
+            {
+                uint8_t msdPdu[TAF_ECALL_MAX_MSD_LENGTH];
+                int byte = 0;
+                int res = 0;
+                for (int k =0; k < TAF_ECALL_MAX_MSD_LENGTH; k++)
+                {
+                    msdPdu[k] = 0;
+                }
+
+                for (int i = 0, j = 0; i < strlen(msd)/2; i++)
+                {
+                    for (; j < (2*i+2); j++)
+                    {
+                        if (msd[j] >= '0' && msd[j] <= '9'){
+                            byte = msd[j] - '0';
+                        } else if (msd[j] >= 'a' && msd[j] <= 'f'){
+                            byte = msd[j] - 'a' + 10;
+                        } else if (msd[j] >= 'A' && msd[j] <= 'F'){
+                            byte = msd[j] - 'A' + 10;
+                        }
+                        else {
+                            printf("User input wrong\n");
+                            res = -1;
+                            break;
+                        }
+                        msdPdu[i] = msdPdu[i] * 16 + byte;
+                     }
+                }
+
+                if (res == 0)
+                {
+                    res = taf_ecall_ImportMsd(ECallRef, msdPdu, strlen(msd)/2);
+                    LE_INFO("CommandInput: import MSD, res: %d\n", res);
+                    res = taf_ecall_SendMsd(ECallRef);
+                    LE_INFO("CommandInput: send MSD, res: %d\n", res);
+                }
+            }
+        }else if(p != NULL && input_str[0]=='q') {
             exitApp = true;
             le_thread_Cancel(ECallCmdThreadRef);
             ECallCmdThreadRef = NULL;
@@ -451,8 +494,6 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         case TAF_ECALL_STATE_MSD_UPDATE_REQ:
         {
             printf("TAF_ECALL_STATE_MSD_UPDATE_REQ");
-            taf_ecall_ImportMsd(eCallReference, msdRawData, msdLength);
-            taf_ecall_SendMsd(eCallReference);
             break;
         }
         case TAF_ECALL_STATE_ENDED:
@@ -591,6 +632,7 @@ static void PrintUsage ()
             "tafECallApp -- setNadMinNetworkRegistrationTime <time in minutes>\n"
             "tafECallApp -- getNadMinNetworkRegistrationTime\n"
             "tafECallApp -- start <AUTO/MANUAL/TEST>\n"
+            "tafECallApp -- start <PRIVATE> <NUMBER> [contentType] [acceptInfo]\n"
             "tafECallApp -- end\n"
             "tafECallApp -- terminateReg\n"
             "tafECallApp -- gpio <PIN>"
@@ -679,47 +721,20 @@ static int importMsd()
         printf("Result of importMsd is %s\n", result == LE_OK ? "Success." : "Failed!!");
         return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
     }
-
-    if (count < 6) {
-        printf("Too few MSD input! Input minimum 4 bytes of MSD array.\n");
-        printf("Failed!! try again...\n");
-        return EXIT_FAILURE;
-    }
-
     uint8_t msdPdu[TAF_ECALL_MAX_MSD_LENGTH];
-    const char* inputMsdLengthPtr = le_arg_GetArg(3);
-
-    if (inputMsdLengthPtr == NULL)
+    for (int k = 0; k < TAF_ECALL_MAX_MSD_LENGTH; k++)
     {
-        printf("Input MSD length is not vaild!\n");
-        printf("Failed!! try again...\n");
-        return EXIT_FAILURE;
+        msdPdu[k] = 0;
     }
 
-    int inputMsdLength = atoi(inputMsdLengthPtr);
-
-    if (inputMsdLength > TAF_ECALL_MAX_MSD_LENGTH - 2) {
-        printf("Input MSD length %d is not vaild!\n", inputMsdLength);
-        printf("Failed!! try again...\n");
-        return EXIT_FAILURE;
-    }
-
-    size_t msdPduLength = (count - 2) < TAF_ECALL_MAX_MSD_LENGTH ? (count - 2) : TAF_ECALL_MAX_MSD_LENGTH;
-    msdPduLength = inputMsdLength < msdPduLength ?  inputMsdLength : msdPduLength;
-
-    if ((count - 4) > inputMsdLength) {
-        printf("OVERFLOW: Input beyond %d bytes of MSD shall be ignore.\n", (int)msdPduLength+2);
-    } else if (inputMsdLength > count-4) {
-        printf("Too few MSD input! Input %d bytes of MSD elements.\n", inputMsdLength+2);
+    if ((count-2) > TAF_ECALL_MAX_MSD_LENGTH)
+    {
+        printf("OVERFLOW: Input beyond 255 bytes of MSD shall be ignore.\n");
         printf("Failed!! try again...\n");;
         return EXIT_FAILURE;
     }
 
-    memset(msdPdu, 0, TAF_ECALL_MAX_MSD_LENGTH);
-
-    LE_INFO("ImportMsd NumArgs = %d, msdPduLength: %d ", count, (int)msdPduLength);
-
-    for (int i = 0; i < msdPduLength+2; i++) {
+    for (int i = 0; i < (count-2); i++) {
         const char* bytePtr = le_arg_GetArg(i+2);
 
         if (bytePtr == NULL)
@@ -741,7 +756,7 @@ static int importMsd()
     }
 
     ECallRef = taf_ecall_Create();
-    result = taf_ecall_ImportMsd(ECallRef, msdPdu, msdPduLength+2);
+    result = taf_ecall_ImportMsd(ECallRef, msdPdu, count-2);
     LE_TEST_OK(result == LE_OK, "importMsd - LE_OK");
     printf("Result of importMsd is %s\n", result == LE_OK ? "Success." : "Failed!!");
 
@@ -1084,7 +1099,6 @@ static int startECall()
     {
         taf_ecall_SetMsdEuroNCAPLocationOfImpact(ECallRef, TAF_ECALL_LOI_FRONT);
         taf_ecall_SetMsdEuroNCAPIIDeltaV(ECallRef, 125, -45, 10);
-
         taf_ecall_StartAutomatic(ECallRef);
     }
     else if (strcmp(eCallType, "MANUAL") == 0)
@@ -1096,11 +1110,56 @@ static int startECall()
     {
         taf_ecall_StartTest(ECallRef);
     }
+    else if (strcmp(eCallType, "PRIVATE") == 0)
+    {
+        const char* psapNumber = "";
+        const char* contentType = "application/EmergencyCallData.eCall.MSD";
+        const char* acceptInfo = "";
+        if (le_arg_NumArgs() >= 4)
+        {
+            psapNumber = le_arg_GetArg(3);
+            if (psapNumber == NULL)
+            {
+                printf("Input psap number is not vaild!\n");
+                printf("Failed!! try again...\n");
+                return EXIT_FAILURE;
+            }
+
+            if (le_arg_NumArgs() >= 5)
+            {
+                contentType = le_arg_GetArg(4);
+                if (contentType == NULL)
+                {
+                    printf("Input content type is not vaild!\n");
+                    printf("Failed!! try again...\n");
+                    return EXIT_FAILURE;
+                }
+            }
+            if (le_arg_NumArgs() == 6)
+            {
+                acceptInfo = le_arg_GetArg(5);
+                if (acceptInfo == NULL)
+                {
+                    printf("Input accept info is not vaild!\n");
+                    printf("Failed!! try again...\n");
+                    return EXIT_FAILURE;
+                }
+            }
+        } else {
+            PrintUsage();
+            return EXIT_FAILURE;
+        }
+        taf_ecall_StartPrivate(ECallRef, psapNumber, contentType, acceptInfo);
+    }
     else
     {
         PrintUsage();
         return EXIT_FAILURE;
     }
+
+    taf_ecall_Type_t type = taf_ecall_GetType(ECallRef);
+    printf("eCall type = %d!\n", (int)type);
+
     return EXIT_SUCCESS;
 }
 

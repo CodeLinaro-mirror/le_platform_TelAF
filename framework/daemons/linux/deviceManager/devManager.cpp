@@ -16,7 +16,9 @@
 #include <signal.h>
 #include <dirent.h>
 #include "file.h"
+#ifdef LE_CONFIG_ENABLE_SELINUX
 #include <selinux/selinux.h>
+#endif
 
 #define DRIVER_TMP_STORAGE "/data/tmp/drivers/"
 #define DEV_MANAGER_STORAGE "/data/persist/devManager/"
@@ -978,12 +980,13 @@ void ToolMsgReceiveHandler
                 }
 
                 LE_INFO("link successfull and %d is stat",stat(newName,&sb));
-
+#ifdef LE_CONFIG_ENABLE_SELINUX
                 // Set selinux context to the installed driver
                 if(setfilecon(newName, DEV_MANAGER_STORAGE_CONTEXT) != 0)
                 {
                     LE_ERROR("Failed to change SELinux context");
                 }
+#endif
 
                 // Open driver and get information
                 if (OpenDrvToGetInfo(newName, &drvPtr, &drvName, &majorVer, &minorVer, respPtr) != LE_OK)
@@ -1290,11 +1293,13 @@ static void ScanStoredDriversAndCopy()
             // remove the copied file, only keep the hard link
             unlink(destStr);
 
+#ifdef LE_CONFIG_ENABLE_SELINUX
             // Set selinux context to created folder
             if(setfilecon(linkStr, DEV_MANAGER_STORAGE_CONTEXT) != 0)
             {
                 LE_ERROR("Failed to change SELinux context");
             }
+#endif
         }
     }
 }
@@ -1396,11 +1401,13 @@ COMPONENT_INIT
             exit(-1);
         }
 
+#ifdef LE_CONFIG_ENABLE_SELINUX
         // Set selinux context to created folder
         if(setfilecon(DEV_MANAGER_STORAGE, DEV_MANAGER_STORAGE_CONTEXT) != 0)
         {
             LE_ERROR("Failed to change SELinux context");
         }
+#endif
 
         // go ahead creating the sub dir
         if(mkdir(DEV_MANAGER_DRIVER_STORAGE, 0644) != 0)

@@ -384,13 +384,13 @@ static void ConfigTreeExistAndEmptyTest()
                  ConfigTreeTestRootDir) <= LE_CFG_STR_LEN_BYTES);
 
     // Create a write transaction and commit it.
-    le_cfg_IteratorRef_t iterRef = le_cfg_CreateWriteTxn(pathBuffer);
-    le_cfg_CommitTxn(iterRef);
+    le_cfg_IteratorRef_t iterWriteRef = le_cfg_CreateWriteTxn(pathBuffer);
+    le_cfg_CommitTxn(iterWriteRef);
 
     // Create a read transaction and display the tree structure.
-    le_cfg_IteratorRef_t iterRef = le_cfg_CreateReadTxn("");
-    ConfigTreeDumpTree(iterRef, 0);
-    le_cfg_CancelTxn(iterRef);
+    le_cfg_IteratorRef_t iterReadRef = le_cfg_CreateReadTxn("");
+    ConfigTreeDumpTree(iterReadRef, 0);
+    le_cfg_CancelTxn(iterReadRef);
 }
 
 le_cfg_ChangeHandlerRef_t HandlerRef = NULL;

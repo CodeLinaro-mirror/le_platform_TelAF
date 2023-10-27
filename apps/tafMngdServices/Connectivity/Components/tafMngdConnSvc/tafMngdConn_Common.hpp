@@ -59,10 +59,10 @@ namespace tafsvc {
     /**
      * \brief Maximum string length for APN.
      *
-     * Max APN length is 128 characters, including null terminator.
+     * Max APN length is 64 characters, including null terminator.
      *
      */
-    const unsigned int TAF_MNGD_CONN_MAX_APN_LEN = 128;
+    const unsigned int TAF_MNGD_CONN_MAX_APN_LEN = 64;
 
     /**
      * \brief Maximum supported Data objects

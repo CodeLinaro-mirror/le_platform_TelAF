@@ -1508,6 +1508,7 @@ le_result_t tafMngdConnAdmin::InitializeStates()
     taf_mngd_Conn_Ctx_t* connCtxPtr = NULL;
     auto &radio = tafMngdConnRadio::GetInstance();
     auto &sim = tafMngdConnSim::GetInstance();
+    taf_dcs_ProfileRef_t profileRef = NULL;
 
     //Iterate through Policy DataSession elements to create the data sessions
     for (sessionIdx = 0; sessionIdx < Policy.DataSession.dataConnectionCount; sessionIdx++)
@@ -1557,6 +1558,42 @@ le_result_t tafMngdConnAdmin::InitializeStates()
             {
                 LE_ERROR("Can't find the nework related info for dataId(%d)", dataId);
                 continue;
+            }
+            profileRef = taf_dcs_GetProfileEx (phoneId, profileNumber);
+            //If APN is not NULL
+            if(strlen(Configuration.Data[dataIdx].Profile.APN)!=0){
+                LE_INFO("apn=%s",Configuration.Data[dataIdx].Profile.APN);
+                const char *setapnPtr = Configuration.Data[dataIdx].Profile.APN;
+                //Set APN if different
+                if(setapnPtr != nullptr)
+                {
+                    char getapnPtr[TAF_MNGD_CONN_MAX_APN_LEN];
+
+                    result = taf_dcs_GetAPN(profileRef, getapnPtr,TAF_MNGD_CONN_MAX_APN_LEN);
+                    if(result != LE_OK)
+                    {
+                        LE_ERROR("APN get failed for profile %d ", profileNumber);
+                        return LE_FAULT;
+                    }
+                    if(strncmp(setapnPtr,getapnPtr)==0)
+                    {
+                        LE_INFO("APN : %s already present for %d profile",
+                                 setapnPtr, profileNumber);
+                    }
+                    else{
+                        result = taf_dcs_SetAPN(profileRef, setapnPtr);
+                        if(result == LE_OK)
+                        {
+                            LE_INFO("APN : %s set for %d profile", setapnPtr, profileNumber);
+                        }
+                        else
+                        {
+                            LE_ERROR("APN : %s  set failed for profile %d ",
+                                      setapnPtr, profileNumber);
+                            return LE_FAULT;
+                        }
+                    }
+                }
             }
 
             LE_INFO("dataId = %d, phoneId = %d, profileNumber=%d, autostart=%d",

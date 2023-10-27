@@ -91,7 +91,10 @@
                     "Profile":{
                         "Name": "Profile1", ///< Profile Name.
                         "Number": 1,        ///< Profile number.
-                        "APN": null         ///< Profile APN.
+                        "APN": null         ///< Profile APN. If APN is valid, profile will be
+                                            ///  updated with the provided APN. The service will not
+                                            ///  validate the correctness of the APN. If update
+                                            ///  fails,the service will log an error and stop.
                     },
                     "AutoStart":"Yes",      ///< Data session is automatically started or not.
                     "PingTest":{

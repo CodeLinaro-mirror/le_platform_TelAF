@@ -32,6 +32,167 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * @page c_tafDiagUpdate Diag Update Service
+ *
+ * @ref taf_diagUpdate_service.h "API Reference"
+ *
+ * <HR>
+ *
+ * The diag update service APIs are used by applications to handle transfer requests from UDS
+ * clients. The diag update service includes the TransferData(0x36), RequestTransferExit(0x37), and
+ * RequestFileTransfer(0x38) services.
+ *
+ * @section c_taf_diagUpdate_binding IPC interfaces binding
+ *
+ * All functions of this API are provided by the @b tafDiagSvc platform service.
+ *
+ * The following example illustrates how to bind to the diag update service.
+ *
+ * @verbatim
+   bindings:
+   {
+        clientExe.clientComponent.taf_diagUpdate -> tafDiagSvc.taf_diagUpdate
+   }
+   @endverbatim
+ *
+ * @section c_taf_diag_update_file_transfer Request file transfer
+ *
+ * After getting a reference, an application registers a file transfer handler using
+ * taf_diagUpdate_AddRxFileXferMsgHandler(). Once a file transfer request message is received, the
+ * handler will be called indicating the new message.
+ *
+ * @code
+   diagFileXferMsgRef = taf_diagUpdate_AddRxFileXferMsgHandler( diagUpdateSvcRef,
+            fileXferMsgHandler, NULL );
+   @endcode
+ *
+ * An application can get a file path and name, and length by using
+ * taf_diagUpdate_GetFilePathAndName().
+ *
+ * @code
+   result = taf_diagUpdate_GetFilePathAndName( rxMsgRef,
+            (uint8_t *)filePathAndName, &fileLen );
+   if (result != LE_OK)
+   {
+        LE_ERROR("Fail to get file path and name, and length.");
+        return result;
+   }
+   @endcode
+ *
+ * An application can send a file transfer response by using taf_diagUpdate_SendFileXferResp().
+ *
+ * @code
+   result = taf_diagUpdate_SendFileXferResp(rxMsgRef, TAF_DIAGUPDATE_FILE_XFER_NO_ERROR);
+   if (result != LE_OK)
+   {
+        LE_ERROR("Fail to send response.");
+        return result;
+   }
+   @endcode
+ *
+ * The following APIs are provided for request file transfer.
+ *
+ * - taf_diagUpdate_AddRxFileXferMsgHandler() -- Adds a handler function for the specified event.
+ * - taf_diagUpdate_RemoveRxFileXferMsgHandler() -- Removes a handler function for the specified event.
+ * - taf_diagUpdate_GetFilePathAndName() -- Gets the file path and name.
+ * - taf_diagUpdate_GetDataFormatID() -- Gets the data format ID.
+ * - taf_diagUpdate_GetUnCompFileSize() -- Gets the size of the uncompressed file.
+ * - taf_diagUpdate_GetCompFileSize() -- Gets the size of the compressed file.
+ * - taf_diagUpdate_SendFileXferResp() -- Sends a response message for the file transfer message.
+
+ * @section c_taf_diag_update_transfer_data Transfer data
+ *
+ * An application registers a transfer data handler using taf_diagUpdate_AddRxXferDataMsgHandler().
+ * Once a transfer data request message is received, the handler will be called indicating the new
+ * message.
+ *
+ * @code
+   diagXferDataMsgRef = taf_diagUpdate_AddRxXferDataMsgHandler( diagUpdateSvcRef,
+            xferDataMsgHandler, NULL );
+   @endcode
+ *
+ * An application can get the data length and payload by using
+ * taf_diagUpdate_GetXferDataParamRecLen() and taf_diagUpdate_GetXferDataParamRec() referring to the
+ * following sample code snippets.
+ *
+ * @code
+   result = taf_diagUpdate_GetXferDataParamRecLen( rxMsgRef, (uint16_t *)&xferDataLen);
+   if (result != LE_OK)
+   {
+        LE_ERROR("Fail to get data length.");
+        return result;
+   }
+   @endcode
+ *
+ * @code
+   result = taf_diagUpdate_GetXferDataParamRec( rxMsgRef, xferData, &xferDataLen);
+   if (result != LE_OK)
+   {
+        LE_ERROR("Fail to get data payload.");
+        return result;
+   }
+   @endcode
+ *
+ * An application can send a transfer data response by using taf_diagUpdate_SendXferDataResp().
+ *
+ * @code
+   result = taf_diagUpdate_SendXferDataResp( rxMsgRef, TAF_DIAGUPDATE_XFER_DATA_NO_ERROR , NULL, 0);
+   if (result != LE_OK)
+   {
+      LE_ERROR("Fail to send response.");
+      return result;
+   }
+   @endcode
+ *
+ * The following APIs are provided for transfer data.
+ *
+ * - taf_diagUpdate_AddRxXferDataMsgHandler() -- Adds a handler function for the specified event.
+ * - taf_diagUpdate_RemoveRxXferDataMsgHandler() -- Removes a handler function for the specified event.
+ * - taf_diagUpdate_GetblockSeqCount() -- Gets the block sequence counter.
+ * - taf_diagUpdate_GetXferDataParamRecLen() -- Gets the data length.
+ * - taf_diagUpdate_GetXferDataParamRec() -- Gets the data payload.
+ * - taf_diagUpdate_SendXferDataResp() -- Sends a response message for the transfer data message.
+ *
+ * @section c_taf_diag_update_transfer_exit Request transfer exit
+ *
+ * An application registers a transfer exit handler using taf_diagUpdate_AddRxXferExitMsgHandler().
+ * Once a transfer exit request message is received, the handler will be called indicating the new
+ * message.
+ *
+ * @code
+   diagXferExitMsgRef = taf_diagUpdate_AddRxXferExitMsgHandler( diagUpdateSvcRef,
+            xferExitMsgHandler, NULL );
+   @endcode
+ *
+ * An application can send a transfer exit response by using taf_diagUpdate_SendXferDataResp().
+ *
+ * @code
+   result = taf_diagUpdate_SendXferExitResp( rxMsgRef, TAF_DIAGUPDATE_XFER_EXIT_NO_ERROR, NULL, 0 );
+   if (result != LE_OK)
+   {
+        LE_ERROR("Fail to send response.");
+        return result;
+   }
+   @endcode
+ *
+ * The following APIs are provided for request transfer exit.
+ *
+ * - taf_diagUpdate_AddRxXferExitMsgHandler() -- Adds a handler function for the specified event.
+ * - taf_diagUpdate_RemoveRxXferExitMsgHandler() -- Removes a handler function for the specified event.
+ * - taf_diagUpdate_GetXferExitParamRec() -- Gets the transfer request parameter record.
+ * - taf_diagUpdate_SendXferExitResp() -- Sends a response message for the transfer exit message.
+ *
+ * The following APIs are provided for service reference.
+ *
+ * - taf_diagUpdate_GetService() -- Gets the reference to a diag update service.
+ * - taf_diagUpdate_RemoveSvc() -- Removes the daig update service.
+ *
+ * <HR>
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+
 USETYPES taf_types.api;
 
 //--------------------------------------------------------------------------------------------------
@@ -175,7 +336,8 @@ EVENT RxFileXferMsg
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
- *     - LE_FAULT -- Failed.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_OVERFLOW -- Payload size is too small.
  *
  * @note The process exits if an invalid reference is passed.
  */
@@ -193,7 +355,7 @@ FUNCTION le_result_t GetFilePathAndName
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
- *     - LE_FAULT -- Failed.
+ *     - LE_NOT_FOUND -- Reference not found.
  *
  * @note The process exits if an invalid reference is passed.
  */
@@ -211,7 +373,7 @@ FUNCTION le_result_t GetDataFormatID
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
- *     - LE_FAULT -- Failed.
+ *     - LE_NOT_FOUND -- Reference not found.
  *
  * @note The process exits if an invalid reference is passed.
  */
@@ -229,7 +391,7 @@ FUNCTION le_result_t GetUnCompFileSize
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
- *     - LE_FAULT -- Failed.
+ *     - LE_NOT_FOUND -- Reference not found.
  *
  * @note The process exits if an invalid reference is passed.
  */
@@ -250,6 +412,7 @@ FUNCTION le_result_t GetCompFileSize
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_FAULT -- Failed.
  *
  * @note The process exits if an invalid reference is passed.
@@ -289,7 +452,7 @@ EVENT RxXferDataMsg
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
- *     - LE_FAULT -- Failed.
+ *     - LE_NOT_FOUND -- Reference not found.
  *
  * @note The process exits if an invalid reference is passed.
  */
@@ -307,7 +470,7 @@ FUNCTION le_result_t GetblockSeqCount
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
- *     - LE_FAULT -- Failed.
+ *     - LE_NOT_FOUND -- Reference not found.
  *
  * @note The process exits if an invalid reference is passed.
  */
@@ -325,7 +488,8 @@ FUNCTION le_result_t GetXferDataParamRecLen
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
- *     - LE_FAULT -- Failed.
+ *     - LE_OVERFLOW -- Payload size is too small.
+ *     - LE_NOT_FOUND -- Reference not found.
  *
  * @note The process exits if an invalid reference is passed.
  */
@@ -346,6 +510,7 @@ FUNCTION le_result_t GetXferDataParamRec
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_FAULT -- Failed.
  *
  * @note The process exits if an invalid reference is passed.
@@ -386,7 +551,7 @@ EVENT RxXferExitMsg
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
- *     - LE_FAULT -- Failed.
+ *     - LE_NOT_FOUND -- Reference not found.
  *
  * @note The process exits if an invalid reference is passed.
  */
@@ -404,7 +569,8 @@ FUNCTION le_result_t GetXferExitParamRecLen
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
- *     - LE_FAULT -- Failed.
+ *     - LE_OVERFLOW -- Payload size is too small.
+ *     - LE_NOT_FOUND -- Reference not found.
  *
  * @note The process exits if an invalid reference is passed.
  */
@@ -425,6 +591,7 @@ FUNCTION le_result_t GetXferExitParamRec
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_FAULT -- Failed.
  *
  * @note The process exits if an invalid reference is passed.
@@ -444,7 +611,6 @@ FUNCTION le_result_t SendXferExitResp
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid svcRef.
- *     - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t RemoveSvc

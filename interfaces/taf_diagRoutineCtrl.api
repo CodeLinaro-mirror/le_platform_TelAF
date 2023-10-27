@@ -32,6 +32,78 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * @page c_tafDiagRoutineCtrl Diag Routine Control Service
+ *
+ * @ref taf_diagRoutineCtrl_service.h "API Reference"
+ *
+ * <HR>
+ *
+ * The Diag Routine Control service APIs are used by applications to handle routine control(0x31)
+ * requests from UDS clients.
+ *
+ * @section c_taf_diagRoutineCtrl_binding IPC interfaces binding
+ *
+ * All functions of this API are provided by the @b tafDiagSvc platform service.
+ *
+ * The following example illustrates how to bind to the diag routine control service.
+ *
+ * @verbatim
+   bindings:
+   {
+        clientExe.clientComponent.taf_diagRoutineCtrl -> tafDiagSvc.taf_diagRoutineCtrl
+   }
+   @endverbatim
+ *
+ * @section c_taf_diag_routine_ctrl_handle Routine control
+ *
+ * A diag routine control service reference can be retrieved using taf_diagRoutineCtrl_GetService()
+ * with the identifier passed as a parameter.
+ *
+ * @code
+   diagRoutineCtrlSvcRef = taf_diagRoutineCtrl_GetService(identifier);
+   if (diagRoutineCtrlSvcRef == NULL)
+   {
+        LE_ERROR("Fail to get routine control reference.");
+        return;
+   }
+   @endcode
+ *
+ * After getting a reference, an application registers a message handler using
+ * taf_diagRoutineCtrl_AddRxMsgHandler(). Once a routine control request message is received, the
+ * handler will be called indicating the new message.
+ *
+ * @code
+   diagRoutineCtrlMsgRef = taf_diagRoutineCtrl_AddRxMsgHandler(diagRoutineCtrlSvcRef,
+            (taf_diagRoutineCtrl_RxMsgHandlerFunc_t)routineCtrl_MsgHandler, NULL);
+   @endcode
+ *
+ * An application can send a response by using taf_diagRoutineCtrl_SendResp().
+ *
+ * @code
+   result = taf_diagRoutineCtrl_SendResp(rxMsgRef, TAF_DIAGROUTINECTRL_NO_ERROR, NULL, 0);
+   if (result != LE_OK)
+   {
+        LE_ERROR("Fail to send response.");
+        return result;
+   }
+   @endcode
+ *
+ * The following APIs are provided for diag routine control service.
+ *
+ * - taf_diagRoutineCtrl_GetService() -- Gets the reference to a RoutineControl service.
+ * - taf_diagRoutineCtrl_AddRxMsgHandler() -- Adds a handler function for the specified event.
+ * - taf_diagRoutineCtrl_RemoveRxMsgHandler() -- Removes a handler function for the specified event.
+ * - taf_diagRoutineCtrl_GetRoutineCtrlRec() -- Gets the RoutineControl option record of the Rx
+ *                                              RoutineControl message.
+ * - taf_diagRoutineCtrl_RemoveSvc() -- Removes the RoutineControl server service.
+ * - taf_diagRoutineCtrl_SendResp() -- Sends a response to a RoutineControl request message.
+ *
+ * <HR>
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+
 USETYPES taf_types.api;
 
 //-------------------------------------------------------------------------------------------------
@@ -126,7 +198,7 @@ EVENT RxMsg
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
- *     - LE_FAULT -- Failed.
+ *     - LE_NOT_FOUND -- Reference not found.
  *
  * @note The process exits if an invalid reference is passed.
  */
@@ -146,6 +218,7 @@ FUNCTION le_result_t GetRoutineCtrlRec
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_FAULT -- Failed.
  *
  * @note The process exits if an invalid reference is passed.
@@ -165,7 +238,6 @@ FUNCTION le_result_t SendResp
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid svcRef.
- *     - LE_FAULT -- Failed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t RemoveSvc

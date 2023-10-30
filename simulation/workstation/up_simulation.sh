@@ -158,7 +158,9 @@ else # [Non-Docker-Container-Env]
     CONTAINER_NAME=${CONTAINER_NAME:="telaf_simulation_runtime"}
     IMG_NAME=${IMG_NAME:="telaf_simulation_runtime"}
     IMG_VERSION=${IMG_VERSION:="1.0.0"}
-    BUILTIN_CONTAINER_OPTIONS=${BUILTIN_CONTAINER_OPTIONS:="--rm -i -t --privileged=true --net=bridge"}
+    IPV6_NETWORK_NAME=${IPV6_NETWORK_NAME:="${CONTAINER_NAME}_ipv6net"}
+    IPV6_DEFAULT_SUBNET=${IPV6_DEFAULT_SUBNET:="2001:0DB8::/112"}
+    BUILTIN_CONTAINER_OPTIONS=${BUILTIN_CONTAINER_OPTIONS:="--rm -i -t --privileged=true --net=$IPV6_NETWORK_NAME"}
     CONTAINER_OPTIONS=${CONTAINER_OPTIONS:="-p 9022:22"}
 
     SML_APP_VOLUME=${CONTAINER_NAME}_sml_app
@@ -171,6 +173,15 @@ else # [Non-Docker-Container-Env]
     try_to_create_volume $SML_DATA_VOLUME
     try_to_create_volume $SML_PERSIST_VOLUME
     try_to_create_volume $SML_MNT_LEGATO_VOLUME
+
+    networks=$(docker network ls --format "{{.Name}}")
+
+    if echo "$networks" | grep -w "$IPV6_NETWORK_NAME" &>/dev/null; then
+        echo "[Network Reuse] --> $IPV6_NETWORK_NAME"
+    else
+        echo "[Network Create] --> $IPV6_NETWORK_NAME"
+        docker network create --driver bridge --ipv6 --subnet "$IPV6_DEFAULT_SUBNET" "$IPV6_NETWORK_NAME" > /dev/null
+    fi
 
     CMD="docker run --name $CONTAINER_NAME \
         $BUILTIN_CONTAINER_OPTIONS \

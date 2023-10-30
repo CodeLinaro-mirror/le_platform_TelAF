@@ -17,6 +17,12 @@ apps:
     $TELAF_ROOT/apps/test/tafSomeipGWTest/tafSomeipSvrUnitTest/tafSomeipSvrUnitTest
 #endif
 
+#if ${TELAF_SIMULATION_ENABLE_SMS} = y
+    $TELAF_ROOT/apps/tafServices/tafKeyStoreSvc
+    $TELAF_ROOT/apps/tafServices/tafSMSSvc
+    $TELAF_ROOT/apps/test/tafSmsTest/tafSMSUnitTest
+#endif
+
 }
 
 commands:

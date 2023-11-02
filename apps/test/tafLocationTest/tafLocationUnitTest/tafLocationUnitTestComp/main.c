@@ -39,6 +39,81 @@ static le_mem_PoolRef_t LevArmFramePool = NULL;
 static le_sem_Ref_t PositionHandlerSem;
 static taf_gnss_PositionHandlerRef_t PositionHandlerRef = NULL;
 static taf_pos_MovementHandlerRef_t  SamplePositionHandlerRef = NULL;
+
+
+void PrintGnssSignalType(uint32_t signalTypeMask) {
+   LE_TEST_INFO("Signals: ");
+   if (signalTypeMask & TAF_GNSS_GPS_L1CA) {
+     LE_TEST_INFO("GPS L1CA, ");
+   }
+   if (signalTypeMask & TAF_GNSS_GPS_L1C) {
+     LE_TEST_INFO("GPS L1C, ");
+   }
+   if (signalTypeMask & TAF_GNSS_GPS_L2) {
+     LE_TEST_INFO("GPS L2, ");
+   }
+   if (signalTypeMask & TAF_GNSS_GPS_L5) {
+     LE_TEST_INFO("GPS L5, ");
+   }
+   if (signalTypeMask & TAF_GNSS_GLONASS_G1) {
+     LE_TEST_INFO("Glonass G1, ");
+   }
+   if (signalTypeMask & TAF_GNSS_GLONASS_G2) {
+     LE_TEST_INFO("Glonass G2, ");
+   }
+   if (signalTypeMask & TAF_GNSS_GALILEO_E1) {
+     LE_TEST_INFO("Galileo E1, ");
+   }
+   if (signalTypeMask & TAF_GNSS_GALILEO_E5A) {
+     LE_TEST_INFO("Galileo E5A, ");
+   }
+   if (signalTypeMask & TAF_GNSS_GALILIEO_E5B) {
+     LE_TEST_INFO("Galileo E5B, ");
+   }
+   if (signalTypeMask & TAF_GNSS_BEIDOU_B1) {
+     LE_TEST_INFO("Beidou B1, ");
+   }
+   if (signalTypeMask & TAF_GNSS_BEIDOU_B2) {
+     LE_TEST_INFO("Beidou B2, ");
+   }
+   if (signalTypeMask & TAF_GNSS_QZSS_L1CA) {
+     LE_TEST_INFO("QZSS L1CA, ");
+   }
+   if (signalTypeMask & TAF_GNSS_QZSS_L1S) {
+     LE_TEST_INFO("QZSS L1S, ");
+   }
+   if (signalTypeMask & TAF_GNSS_QZSS_L2) {
+     LE_TEST_INFO("QZSS L2, ");
+   }
+   if (signalTypeMask & TAF_GNSS_QZSS_L5) {
+     LE_TEST_INFO("QZSS L5, ");
+   }
+   if (signalTypeMask & TAF_GNSS_SBAS_L1) {
+     LE_TEST_INFO("SBAS L1, ");
+   }
+   if (signalTypeMask & TAF_GNSS_BEIDOU_B1I) {
+     LE_TEST_INFO("Beidou B1I, ");
+   }
+   if (signalTypeMask & TAF_GNSS_BEIDOU_B1C) {
+     LE_TEST_INFO("Beidou B1C, ");
+   }
+   if (signalTypeMask & TAF_GNSS_BEIDOU_B2I) {
+     LE_TEST_INFO("Beidou B2I, ");
+   }
+   if (signalTypeMask & TAF_GNSS_BEIDOU_B2AI) {
+     LE_TEST_INFO("Beidou B2AI, ");
+   }
+   if (signalTypeMask & TAF_GNSS_NAVIC_L5) {
+     LE_TEST_INFO("Navic L5, ");
+   }
+   if (signalTypeMask & TAF_GNSS_BEIDOU_B2AQ) {
+     LE_TEST_INFO("Beidou B2AQ, ");
+   }
+   if (signalTypeMask == TAF_GNSS_UNKNOWN_SIGNAL_MASK) {
+     LE_TEST_INFO("No signal, ");
+   }
+}
+
 static void PositionHandlerFunction
 (
     taf_gnss_SampleRef_t positionSampleRef,
@@ -336,6 +411,47 @@ static void PositionHandlerFunction
     else
     {
         LE_TEST_INFO("Failed! to get Satellite Information\n");
+    }
+
+    int index = 0;
+    for (int constellation = 1; constellation < TAF_GNSS_SV_CONSTELLATION_MAX; constellation++) {
+
+      taf_gnss_SvInfo_t svInfo[TAF_GNSS_SV_INFO_MAX_SATS_IN_CONSTELLATIONS];
+      size_t svInfoLen = TAF_GNSS_SV_INFO_MAX_SATS_IN_CONSTELLATIONS;
+
+      result = taf_gnss_GetSatellitesInfoEx(positionSampleRef, constellation, svInfo, &svInfoLen);
+
+      if((result == LE_OK)||(result == LE_OUT_OF_RANGE)||(result == LE_OVERFLOW))
+      {
+        LE_INFO("gnss unit test: result %d, constellation: %d, numOfSvInfo: %d", (int)result, (int) constellation, (int) svInfoLen);
+
+        LE_TEST_OK(result == LE_OK || result == LE_OUT_OF_RANGE || result == LE_OVERFLOW, "taf_gnss_GetSatellitesInfoEx-Success");
+
+        for(i=0; i<(int) svInfoLen; i++)
+        {
+            if((svInfo[i].satId != 0)&&(svInfo[i].satId != UINT8_MAX))
+            {
+                LE_TEST_INFO("[%02d] SVid %03d - C%01d - U%d - T%d - SNR%02d - Azim%03d - Elev%02d\n"
+                        , index++
+                        , svInfo[i].satId
+                        , svInfo[i].satConst
+                        , svInfo[i].satUsed
+                        , svInfo[i].satTracked
+                        , svInfo[i].satSnr
+                        , svInfo[i].satAzim
+                        , svInfo[i].satElev);
+
+                PrintGnssSignalType(svInfo[i].signalType);
+                LE_TEST_INFO("\n");
+                LE_TEST_INFO("Glonass FCN: %d\n", svInfo[i].glonassFcn);
+                LE_TEST_INFO("Baseband Carrier To Noise Ratio: %lfdB-Hz\n", svInfo[i].baseBandCnr);
+            }
+        }
+      }
+      else
+      {
+        LE_TEST_INFO("taf_gnss_GetSatellitesInfoEx is failed for constellation: %d\n", (int)constellation);
+      }
     }
 
     //148.Get Time Accuracy
@@ -1288,105 +1404,7 @@ static void PositionHandlerFunction
     } else {
         for(uint16_t i = 0; (i < gnssMeasLen); i++) {
             uint32_t signalTypeMask = measInfo[i].gnssSignalType;
-
-            LE_TEST_INFO("Gnss Signal Type:\n");
-            if (signalTypeMask & TAF_GNSS_GPS_L1CA) {
-                LE_TEST_INFO("GPS L1CA signal is present\n");
-            }
-            if (signalTypeMask & TAF_GNSS_GPS_L1C) {
-                LE_TEST_INFO("GPS L1C signal is present\n");
-            }
-            if (signalTypeMask & TAF_GNSS_GPS_L2) {
-                LE_TEST_INFO("GPS L2 signal is present\n");
-            }
-            if (signalTypeMask & TAF_GNSS_GPS_L5) {
-                LE_TEST_INFO("GPS L5 signal is present\n");
-            }
-            if (signalTypeMask & TAF_GNSS_GLONASS_G1) {
-                LE_TEST_INFO("Glonass G1 signal is present\n");
-            }
-            if (signalTypeMask & TAF_GNSS_GLONASS_G2) {
-                LE_TEST_INFO("Glonass G2 signal is present\n");
-            }
-            if (signalTypeMask & TAF_GNSS_GALILEO_E1) {
-                LE_TEST_INFO("Galileo E1 signal is present\n");
-            }
-            if (signalTypeMask & TAF_GNSS_GALILEO_E5A) {
-                LE_TEST_INFO("Galileo E5A signal is present\n");
-            }
-            if (signalTypeMask & TAF_GNSS_GALILIEO_E5B) {
-                LE_TEST_INFO("Galileo E5B signal is present\n");
-            }
-            if (signalTypeMask & TAF_GNSS_BEIDOU_B1) {
-                LE_TEST_INFO("Beidou B1 signal is present\n");
-            }
-            if (signalTypeMask & TAF_GNSS_BEIDOU_B2) {
-                LE_TEST_INFO("Beidou B2 signal is present\n");
-            }
-            if (signalTypeMask & TAF_GNSS_QZSS_L1CA) {
-                LE_TEST_INFO("QZSS L1CA signal is present\n");
-            }
-            if (signalTypeMask & TAF_GNSS_QZSS_L1S) {
-                LE_TEST_INFO("QZSS L1S signal is present\n");
-            }
-            if (signalTypeMask & TAF_GNSS_QZSS_L2) {
-                LE_TEST_INFO("QZSS L2 signal is present\n");
-            }
-            if (signalTypeMask & TAF_GNSS_QZSS_L5) {
-                LE_TEST_INFO("QZSS L5 signal is present\n");
-            }
-            if (signalTypeMask & TAF_GNSS_SBAS_L1) {
-                LE_TEST_INFO("SBAS L1 signal is present\n");
-            }
-            if (signalTypeMask & TAF_GNSS_BEIDOU_B1I) {
-                LE_TEST_INFO("Beidou B1I signal is present\n");
-            }
-            if (signalTypeMask & TAF_GNSS_BEIDOU_B1C) {
-                LE_TEST_INFO("Beidou B1C signal is present\n");
-            }
-            if (signalTypeMask & TAF_GNSS_BEIDOU_B2I) {
-                LE_TEST_INFO("Beidou B2I signal is present\n");
-            }
-            if (signalTypeMask & TAF_GNSS_BEIDOU_B2AI) {
-                LE_TEST_INFO("Beidou B2AI signal is present\n");
-            }
-            if (signalTypeMask & TAF_GNSS_NAVIC_L5) {
-                LE_TEST_INFO("Navic L5 signal is present\n");
-            }
-            if (signalTypeMask & TAF_GNSS_BEIDOU_B2AQ) {
-                LE_TEST_INFO("Beidou B2AQ signal is present\n");
-            }
-            if (signalTypeMask == TAF_GNSS_UNKNOWN_SIGNAL_MASK) {
-                LE_TEST_INFO("No signal present\n");
-            }
-
-            taf_gnss_GnssSystem_t system = measInfo[i].gnssConstellation;
-            if(system == TAF_GNSS_LOC_SV_SYSTEM_GPS) {
-                LE_TEST_INFO("GPS satellite\n");
-            }
-            else if(system == TAF_GNSS_LOC_SV_SYSTEM_GALILEO) {
-                LE_TEST_INFO("GALILEO satellite\n");
-            }
-            else if(system == TAF_GNSS_LOC_SV_SYSTEM_SBAS) {
-                LE_TEST_INFO("SBAS satellite\n");
-            }
-            else if(system == TAF_GNSS_LOC_SV_SYSTEM_GLONASS) {
-                LE_TEST_INFO("GLONASS satellite\n");
-            }
-            else if(system == TAF_GNSS_LOC_SV_SYSTEM_BDS) {
-                LE_TEST_INFO("BDS satellite\n");
-            }
-            else if(system == TAF_GNSS_LOC_SV_SYSTEM_QZSS) {
-                LE_TEST_INFO("QZSS satellite\n");
-            }
-            else if(system == TAF_GNSS_LOC_SV_SYSTEM_NAVIC) {
-                LE_TEST_INFO("NAVIC satellite\n");
-            }
-            else {
-                LE_TEST_INFO("UNKNOWN satellite\n");
-            }
-
-            LE_TEST_INFO("Gnss sv id : %d\n", measInfo[i].gnssSvId);
+            PrintGnssSignalType(signalTypeMask);
         }
     }
 

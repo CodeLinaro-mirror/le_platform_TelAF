@@ -23,14 +23,11 @@ apps:
     $TELAF_ROOT/apps/test/tafSmsTest/tafSMSUnitTest
 #endif
 
-}
+#if ${TELAF_SIMULATION_ENABLE_DCS} = y
+    $TELAF_ROOT/apps/tafServices/tafDataCallSvc
+    $TELAF_ROOT/apps/test/tafDataCallTest/tafDataCallUnitTest/tafDataCallUnitTest
+#endif
 
-commands:
-{
-}
-
-bindings:
-{
 }
 
 interfaceSearch:
@@ -42,8 +39,10 @@ interfaceSearch:
 
 cflags:
 {
+    -DTARGET_SA525M
 }
 
 cxxflags:
 {
+    -DTARGET_SA525M
 }

@@ -52,6 +52,12 @@ void taf_pm_RemoveStateChangeHandler(taf_pm_StateChangeHandlerRef_t handlerRef)
     LE_INFO("[Simulation TestDouble]: %s", __FUNCTION__);
 }
 
+taf_pm_State_t taf_pm_GetPowerState()
+{
+    LE_INFO("[Simulation TestDouble]: %s", __FUNCTION__);
+    return TAF_PM_STATE_RESUME;
+}
+
 COMPONENT_INIT
 {
     LE_INFO("[Simulation TestDouble]: Power Manager Service started");

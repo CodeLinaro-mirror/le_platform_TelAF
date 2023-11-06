@@ -301,6 +301,7 @@ le_result_t taf_ecall_SetMsdVersion
     uint32_t msdVersion
 )
 {
+#if defined(LE_CONFIG_ENABLE_ECALL_MSD_V3)
     if ((msdVersion != MSD_VERSION_TWO) && (msdVersion != MSD_VERSION_THREE))
     {
         LE_ERROR("MsdVersion is set wrong value %d", msdVersion);
@@ -323,6 +324,9 @@ le_result_t taf_ecall_SetMsdVersion
 
 
     return LE_OK;
+#else
+    return LE_UNSUPPORTED;
+#endif
 }
 
 /*======================================================================
@@ -350,7 +354,7 @@ le_result_t taf_ecall_GetMsdVersion
 )
 {
     TAF_ERROR_IF_RET_VAL(msdVersion == NULL, LE_BAD_PARAMETER, "msdVersion pointer is NULL");
-
+#if defined(LE_CONFIG_ENABLE_ECALL_MSD_V3)
     le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateReadTxn( CFG_MODEMSERVICE_ECALL_PATH );
 
     if (le_cfg_NodeExists(iteratorRef, CFG_NODE_MSDVERSION))
@@ -363,6 +367,10 @@ le_result_t taf_ecall_GetMsdVersion
 
     le_cfg_CancelTxn(iteratorRef);
     return LE_FAULT;
+#else
+    *msdVersion = 2; //Currently we support only msdVersion 2.
+    return LE_OK;
+#endif
 }
 
 /*======================================================================

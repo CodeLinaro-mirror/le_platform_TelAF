@@ -1,0 +1,29 @@
+
+sandboxed: false
+
+executables:
+{
+    tafThermSvc = ( $TELAF_ROOT/components/tafThermSvc )
+}
+
+start: auto
+
+processes:
+{
+    run:
+    {
+        (tafThermSvc)
+    }
+
+    maxFileBytes: 8192K
+    faultAction: restart
+}
+
+bindings:
+{
+}
+
+extern:
+{
+    tafThermSvc.tafThermSvc.taf_therm
+}

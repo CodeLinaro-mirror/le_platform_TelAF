@@ -7,6 +7,7 @@
 apps:
 {
     // Platform services.
+    $TELAF_ROOT/apps/tafServices/tafThermSvc
     $TELAF_ROOT/apps/tafServices/tafVoiceCallSvc
     $TELAF_ROOT/apps/tafServices/tafSimCardSvc
     $TELAF_ROOT/apps/tafServices/tafRadioSvc
@@ -33,6 +34,7 @@ apps:
     $TELAF_ROOT/apps/tools/tafTools
 
     // test apps
+    // $TELAF_ROOT/apps/test/tafThermTest/tafThermUnitTest
     // $TELAF_ROOT/apps/test/tafDataCallTest/tafDataCallUnitTest/tafDataCallUnitTest
     // $TELAF_ROOT/apps/test/tafVoiceCallTest/tafVoiceCallUnitTest/tafVoiceCallUnitTest
     // $TELAF_ROOT/apps/test/tafRadioTest/tafRadioUnitTest

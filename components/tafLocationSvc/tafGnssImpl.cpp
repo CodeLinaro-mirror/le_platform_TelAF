@@ -1034,7 +1034,7 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 }
                 telux::loc::LocationInfoExValidity validityExMask =
                                                    locationInfo->getLocationInfoExValidity();
-                LE_INFO("LocationInfoExValidity->validityExMask: %lu ",validityExMask);
+                LE_INFO("LocationInfoExValidity->validityExMask: %" PRIu64 "", validityExMask);
                 if((validityExMask & telux::loc::HAS_ALTITUDE_MEAN_SEA_LEVEL))
                 {
                     LocationData->validityExMask |= (1ULL << TAF_GNSS_HAS_ALTITUDE_MEAN_SEA_LEVEL);

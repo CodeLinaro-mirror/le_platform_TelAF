@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -44,6 +44,7 @@ LE_REF_DEFINE_STATIC_MAP(tafPMReferences, TAF_PM_REFERENCE_DEFAULT_POOL_SIZE);
 
 #if LE_CONFIG_TARGET_SA525M
 LE_REF_DEFINE_STATIC_MAP(tafPMVmListRef, TAF_PM_VM_LIST_POOL_SIZE);
+std::promise<le_result_t> stateChangePromise;
 #endif
 
 /**
@@ -188,7 +189,7 @@ void taf_Handler::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *ct
     }
     le_mem_Release(pClient);
 #if LE_CONFIG_TARGET_SA525M
-    taf_PM tafPowerMgr = taf_PM::GetInstance();
+    auto &tafPowerMgr = taf_PM::GetInstance();
     le_ref_IterRef_t iterRef = le_ref_GetIterator(tafPowerMgr.vmListRefMap);
     while (le_ref_NextNode(iterRef) == LE_OK)
     {
@@ -331,8 +332,14 @@ void taf_PM::Init(void)
 void taf_Handler::commandCallback(ErrorCode errorCode) {
     if(errorCode == telux::common::ErrorCode::SUCCESS) {
         LE_INFO(" set TCU state command initiated successfully ");
+#if LE_CONFIG_TARGET_SA525M
+        stateChangePromise.set_value(LE_OK);
+#endif
     } else {
         LE_ERROR( " set TCU state command failed !!!");
+#if LE_CONFIG_TARGET_SA525M
+        stateChangePromise.set_value(LE_FAULT);
+#endif
     }
 }
 
@@ -514,6 +521,7 @@ taf_pm_State_t taf_PM::GetPowerState()
 }
 
 #if LE_CONFIG_TARGET_SA525M
+
 /**
  * Sets the power state to VM
  */
@@ -521,21 +529,46 @@ le_result_t taf_PM::SetPowerState(taf_pm_State_t state, const char* machineName)
 {
     TcuActivityState tcuState = tafStateToTcuState(state);
     LE_INFO( "SetPowerState state : %s to machine : %s", tcuStateToString(tcuState), machineName);
-    if( state == TAF_PM_STATE_SUSPEND && pm_recrd.wsAcquired > 0)
+
+    if(state == TAF_PM_STATE_SUSPEND && pm_recrd.wsAcquired > 0)
     {
         LE_ERROR("Trying to set suspend state when wake source is acquired");
         return LE_FAULT;
     }
+
     telux::common::Status status = telux::common::Status::FAILED;
+    stateChangePromise = std::promise<le_result_t>();
     status = tcuActivityMgr->setActivityState(
             tcuState, machineName, &taf_Handler::commandCallback);
     if( status == telux::common::Status::SUCCESS) {
         LE_INFO("cmd send successfully");
         curTcuState = state;
-        return LE_OK;
+        // blocking here to get result from callback
+        std::future<le_result_t> futResult = stateChangePromise.get_future();
+        std::future_status waitStatus = futResult.wait_for(std::chrono::seconds(SET_STATE_TIMEOUT));
+        if (std::future_status::timeout == waitStatus)
+        {
+            LE_ERROR("waiting promise timeout for %d seconds", SET_STATE_TIMEOUT);
+            return LE_FAULT;
+        }
+        else
+        {
+            le_result_t res = futResult.get();
+            LE_INFO("result is %s", res== LE_FAULT ? "FAULT" : "OK");
+            if(res == LE_OK &&
+                    strncmp(machineName, "ALL_MACHINES", SIZE_OF_STRING_ALL_MACHINES) == 0)
+            {
+                stateEvent_t evt;
+                evt.state = curTcuState;
+                le_event_Report(StateChangeEvent, &evt, sizeof(evt));
+                LE_INFO("Send state change event");
+            }
+            return res;
+        }
     } else {
         LE_ERROR("sending cmd failed");
     }
+
     return LE_FAULT;
 }
 
@@ -796,7 +829,7 @@ void tafTcuStateListener :: onSlaveAckStatusUpdate(Status status)
 void taf_PM::TafSigTermEventHandler(int tafSigNum)
 {
     LE_DEBUG("TafSigTermEventHandler :%d", tafSigNum);
-    taf_PM tafPwrMgr = taf_PM::GetInstance();
+    auto &tafPwrMgr = taf_PM::GetInstance();
     telux::common::Status status = telux::common::Status::FAILED;
 #if LE_CONFIG_TARGET_SA525M
     // Resume in SA525M before service termination as master app is terminating
@@ -830,7 +863,7 @@ void taf_PM::TafSigTermEventHandler(int tafSigNum)
 #if LE_CONFIG_TARGET_SA525M
 void tafTcuStateListener::onTcuActivityStateUpdate(TcuActivityState state, string machineName)
 {
-    taf_PM tafPwrMgr = taf_PM::GetInstance();
+    auto &tafPwrMgr = taf_PM::GetInstance();
     LE_INFO("onTcuActivityStateUpdate machine : %s state : %s\n", machineName.c_str(),
             tafPwrMgr.tcuStateToString(state));
 }
@@ -846,7 +879,6 @@ void tafTcuStateListener::onSlaveAckStatusUpdate(const Status status,
                     const vector<ClientInfo> nackResponseClients)
 {
     LE_INFO("onSlaveAckStatusUpdate machineName : %s", machineName.c_str());
-    taf_PM tafPwrMgr = taf_PM::GetInstance();
     if(status == telux::common::Status::SUCCESS) {
         LE_INFO("Slave applications successfully acknowledged the state transition");
     } else if(status == telux::common::Status::EXPIRED) {
@@ -869,9 +901,6 @@ void tafTcuStateListener::onSlaveAckStatusUpdate(const Status status,
                     nackResponseClients[i].second.c_str());
         }
     }
-    stateEvent_t evt;
-    evt.state = tafPwrMgr.curTcuState;
-    le_event_Report(tafPwrMgr.StateChangeEvent, &evt, sizeof(evt));
 }
 #endif
 
@@ -939,7 +968,7 @@ void taf_PM::sendAck(void* reportPtr)
 {
     Status ackStatus;
     TcuActivityState state = *(TcuActivityState*)reportPtr;
-    taf_PM tafPwrMgr = GetInstance();
+    auto &tafPwrMgr = GetInstance();
     if(state == TcuActivityState::SUSPEND) {
         ackStatus = tafPwrMgr.tcuActivityMgr->sendActivityStateAck(
                             TcuActivityStateAck::SUSPEND_ACK);

@@ -1,0 +1,60 @@
+maxThreads: 300
+
+username: telaf
+
+capability:
+{
+        CAP_WAKE_ALARM
+        CAP_NET_ADMIN
+        CAP_BLOCK_SUSPEND
+}
+
+executables:
+{
+        tafMngdPMSvc = ( $TELAF_ROOT/apps/tafMngdServices/PM/Components/tafMngdPMSvc )
+}
+
+start: manual
+
+processes:
+{
+        run:
+        {
+                (tafMngdPMSvc)
+        }
+
+        maxFileBytes: 8192K
+        faultAction: stopApp
+}
+
+sandboxed: false
+
+bindings:
+{
+    tafMngdPMSvc.tafMngdPMSvc.taf_pm -> tafPMSvc.taf_pm
+    tafMngdPMSvc.tafMngdPMSvc.taf_gpio -> tafGpioSvc.taf_gpio
+    tafMngdPMSvc.tafMngdPMSvc.taf_can -> tafCanSvc.taf_can
+    tafMngdPMSvc.tafMngdPMSvc.taf_sms -> tafSMSSvc.taf_sms
+}
+
+bundles:
+{
+    file:
+    {
+        [rw]    $TELAF_ROOT/apps/tafMngdServices/PM/Components/tafMngdPMSvc/config/tafMngdPMConfig.json   /
+    }
+}
+
+// Directory in which configuration JSONs will be installed
+requires:
+{
+    dir:
+    {
+        /data/ManagedServices /
+    }
+}
+
+extern:
+{
+    tafMngdPMSvc.tafMngdPMSvc.taf_mngd_pm
+}

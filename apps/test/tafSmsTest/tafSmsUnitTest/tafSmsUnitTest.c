@@ -531,6 +531,15 @@ __attribute__((unused)) static void Test_taf_sms_SetGetParam
     LE_TEST_ASSERT(taf_sms_GetType(tmpMsg) == TAF_SMS_TYPE_TX, "Test taf_sms_GetType");
 
     taf_sms_Delete(tmpMsg);
+
+    tmpMsg = taf_sms_Create();
+
+    size_t dataSize = sizeof(PDU_TEST_PATTERN_7BITS)/sizeof(PDU_TEST_PATTERN_7BITS[0]);
+
+    LE_TEST_ASSERT(taf_sms_SetPDU(tmpMsg, NULL, 0) != LE_OK, "Test taf_sms_SetPDU");
+
+    LE_TEST_ASSERT(taf_sms_SetPDU(tmpMsg, PDU_TEST_PATTERN_7BITS, dataSize) == LE_OK,
+                    "Test taf_sms_SetPDU");
 }
 
 /*======================================================================
@@ -721,6 +730,14 @@ __attribute__((unused)) static void RxHandler
     LE_TEST_ASSERT(taf_sms_GetSenderTel(msgRef, rxContent.text, sizeof(rxContent.text)) == LE_OK, "Test taf_sms_GetSenderTel");
 
     LE_INFO("taf_sms_GetSenderTel = %s", rxContent.text);
+
+    len = sizeof(rxContent.pdu);
+
+    LE_TEST_ASSERT(taf_sms_GetPDU(msgRef, rxContent.pdu, &len) == LE_OK, "Test taf_sms_GetPDU");
+
+    LE_INFO("PDU len = %" PRIuS, len);
+
+    LE_TEST_ASSERT(len > 0, "Test taf_sms_GetPDU length");
 
     switch(taf_sms_GetFormat(msgRef))
     {
@@ -920,7 +937,16 @@ __attribute__((unused)) static void Test_taf_sms_SendPdu
 {
 #ifdef TEST_SMS_PDU
     uint32_t dataSize = sizeof(PDU_TEST_PATTERN_7BITS)/sizeof(PDU_TEST_PATTERN_7BITS[0]);
-    taf_sms_SendPduMsg(PDU_TEST_PATTERN_7BITS, dataSize, 1000);
+    LE_TEST_ASSERT(taf_sms_SendPduMsg(PDU_TEST_PATTERN_7BITS, dataSize, 1000) == LE_OK,
+                    "Test taf_sms_SendPduMsg");
+
+    le_thread_Sleep(TIMEOUT_TX_TEST);
+
+    LE_TEST_ASSERT(taf_sms_SendPduMsgEx(PHONE_ID_PATTERN_1,
+                                        PDU_TEST_PATTERN_7BITS,
+                                        dataSize,
+                                        1000) == LE_OK,
+                                        "Test taf_sms_SendPduMsgEx");
 #else
     LE_UNUSED(PDU_TEST_PATTERN_7BITS);
 #endif

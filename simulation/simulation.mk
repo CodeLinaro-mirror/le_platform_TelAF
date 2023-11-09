@@ -9,9 +9,13 @@ Q?=@
 # If you want make a compilation in your docker container, get along with below.
 export within ?=
 
-ifeq ($(lastword $(MAKECMDGOALS)),simulation)
-$(error Please pass 'simula' for TelAF Simulation Target [simulation])
+# Some work needs to be done earlier or later, so we prevent the real simulation goal.
+ifneq ($(filter simulation,$(MAKECMDGOALS)),)
+$(error Please pass 'make simula-help' for TelAF Simulation Target [simulation])
 endif
+
+# Override the LEGATO_VERSION, to ensure the version is same as other targets.
+export LEGATO_VERSION=$(shell cat $(TELAF_ROOT)/VERSION 2> /dev/null)
 
 # For embedded target, the cross-compilation tool will change the 'sysroot'
 # to search header & libraries that have beed relocated.

@@ -66,7 +66,7 @@ void taf_RoutinCtrlSvr::UDSMsgHandler
     rcMsgPtr = (taf_RoutineCtrlReqMsg_t*)le_mem_ForceAlloc(reqMsgPool);
     memset(rcMsgPtr, 0, sizeof(taf_RoutineCtrlReqMsg_t));
 
-    rcMsgPtr->subFunc = msgPtr[1];
+    rcMsgPtr->subFunc = msgPtr[1] & 0x7F;
     rcMsgPtr->routineId = ntohs(*((uint16_t*)(msgPtr + 2)));
 
     copyLen = msgLen - 4 > TAF_DIAG_ROUTINE_CTRL_RECORD_LEN

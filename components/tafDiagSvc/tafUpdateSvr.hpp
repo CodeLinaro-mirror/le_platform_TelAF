@@ -184,6 +184,8 @@ namespace tafsvc
             void Init();
 
             static taf_UpdateSvr &GetInstance();
+            static void OnClientDisconnection(le_msg_SessionRef_t sessionRef,
+                                                       void *contextPtr);
 
             taf_diagUpdate_ServiceRef_t CreateUpdateSvc();
 

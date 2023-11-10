@@ -238,6 +238,7 @@ namespace doip{
 
             static void IndicateUdsMessage(void* param1Ptr, void* param2Ptr);
             static void RequestUdsMessage(void* param1Ptr, void* param2Ptr);
+            static void ConfirmUserMessage(void* param1Ptr, void* param2Ptr);
 
             void RespondHeaderNegativeACK(const char* ipPtr, uint16_t port,
                     taf_doipHeaderNACKCode_t nackCode);

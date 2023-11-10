@@ -102,7 +102,7 @@ taf_doip_Result_t Connection::Start()
 
     inBuf   = (taf_doip_Buffer_t*)le_mem_ForceAlloc(connectionMgr->inMsgPool);
     memset(inBuf, 0, sizeof(taf_doip_Buffer_t));
-    LE_INFO("Alloc a buffer(%p) for reception", inBuf);
+    LE_DEBUG("Alloc a buffer(%p) for reception", inBuf);
 
     //outBuf  = (taf_doipBuffer_t*)le_mem_ForceAlloc(mgr->msgPool);
     //memset(outBuf, 0, sizeof(taf_doipBuffer_t));
@@ -165,7 +165,7 @@ taf_doip_Result_t Connection::Start()
     LE_DEBUG("Set connection state machine into initialized");
     ConnectionStateMachine(TAF_DOIP_CONNECT_STATE_INITIALIZED, 0);
 
-    LE_INFO("Connection start successfully");
+    LE_DEBUG("Connection start successfully");
     return TAF_DOIP_RESULT_OK;
 
 errOut:
@@ -1137,19 +1137,12 @@ void Connection::DiagnosticMsgSvrSecondHandler
     taf_doipLink_t          link;
     uint32_t                pos = 0UL;
 
-    auto& cm = CommunicationMgr::GetInstance();
     auto& parser = ProtocolParser::GetInstance();
     auto&       vehicleMgr = VehicleManager::GetInstance();
     uint32_t    mds;
 
     link.commType = TAF_DOIP_SOCKET_TYPE_TCP;
     link.sockRef = cliSockRef;
-
-    if (cm.QueryPowerMode() != TAF_DOIP_POWER_MODE_READY)
-    {
-        LE_ERROR("Power mode is not ready for diagnostic!\n");
-        goto errOut2;
-    }
 
     if (udsTotalLen <= (TAF_DOIP_LOGICAL_ADDRESS_LENGTH * 2))
     {

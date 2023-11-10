@@ -1,0 +1,293 @@
+/*
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * @page c_tafDiagSecurity Diag Security Service
+ *
+ * @ref taf_diagSecurity_interface.h "API Reference"
+ *
+ * <HR>
+ *
+ * The diag security service APIs are part of the diagnostic service. The diag security service
+ * provides diag SecurityAccess(0x27) service. The purpose of this service is to provide a means
+ * to access data and/or diagnostic services, which have restricted access for security, emissions,
+ * or safety reasons.
+ *
+ * @section taf_diagSecurity_binding IPC interfaces binding
+ *
+ * The functions of this API are provided by the @b tafDiagSvc platform service.
+ *
+ * The following example illustrates how to bind to the diag security service.
+ *
+ * @verbatim
+   bindings:
+   {
+        clientExe.clientComponent.taf_diagSecurity -> tafDiagSvc.taf_diagSecurity
+   }
+   @endverbatim
+ *
+ * @section c_taf_diagSecurity_server_API Server Service APIs
+ *
+ * A diag security service reference can be got using taf_diagSecurity_GetService().
+ * Use the returned reference for subsequent operations.
+ *
+ * The following example illustrates how to set up a diag security server-service-instance.
+ *
+ * @code
+   taf_diagSecurity_ServiceRef_t svcRef;    // Service reference
+
+   // Get the service reference.
+   svcRef = taf_diagSecurity_GetService();
+   LE_ASSERT(svcRef != NULL);
+   @endcode
+ *
+ * @section c_taf_diag_security_access SecurityAccess(0x27) service
+ *
+ * After getting the service reference, an application can call
+ * taf_diagSecurity_AddRxSecAccessMsgHandler() to register a message handler for
+ * SecurityAccess(0x27) service. Once a diag security access request message is received,
+ * the handler will be called with the message reference and received security accessType passed
+ * as input parameters. The application performs the requested security operation based on the
+ * received security accessType and uses the message reference to send a response message using
+ * taf_diagSecurity_SendSecAccessResp(). Finally call taf_diagSecurity_RemoveSvc() to remove the
+ * created service.
+ *
+ * @code
+   // Rx message handler function.
+   void RxSecAccessMsgHandler
+   (
+        taf_diagSecurity_RxSecAccessMsgRef_t rxMsgRef,
+        uint8_t accessType,
+        void* contextPtr
+   )
+   {
+        // Process after succesfully receiving message
+   }
+
+   // Register the message handler.
+   taf_diagSecurity_RxSecAccessMsgHandlerRef_t RxSecAccessMsgHandlerRef =
+       taf_diagSecurity_AddRxSecAccessMsgHandler(SvcRef,
+            (taf_diagSecurity_RxSecAccessMsgHandlerFunc_t)RxSecAccessMsgHandler, NULL);
+   LE_ASSERT(RxSecAccessMsgHandlerRef != NULL);
+
+   // To remove the handler function.
+   taf_diagSecurity_RemoveRxSecAccessMsgHandler(RxSecAccessMsgHandlerRef);
+   @endcode
+ *
+ * The following APIs are provided to get the security access payload. The payload can be either
+ * securityAccessDataRecord or securityKey based on the accessType input of the registered
+ * RxSecAccessMsgHandler. The payload of requestSeed(0x01) acessType is securityAccessDataRecord
+ * and sendKey(0x02) accessType is securityKey.
+ *
+ * - taf_diagSecurity_GetSecAccessPayloadLen() -- Gets the security access payload length.
+ * - taf_diagSecurity_GetSecAccessPayload() -- Gets the security access payload.
+ *
+ * An application can send a response by calling taf_diagSecurity_SendSecAccessResp().
+ *
+ * @code
+   le_result_t result = taf_diagSecurity_SendSecAccessResp(rxMsgRef,
+           TAF_DIAGSECURITY_SEC_ACCESS_NO_ERROR, NULL, 0);
+   if (result != LE_OK)
+   {
+      LE_ERROR("Fail to send response.");
+      return result;
+   }
+   @endcode
+ *
+ * An application can remove the diag security server service by calling
+ * taf_diagSecurity_RemoveSvc().
+ *
+ * @code
+   le_result_t result = taf_diagSecurity_RemoveSvc(svcRef);
+   LE_ASSERT(result == LE_OK);
+   @endcode
+ *
+ * <HR>
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+
+USETYPES taf_types.api;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * The maximum size of the payload data in bytes.
+ */
+//-------------------------------------------------------------------------------------------------
+DEFINE MAX_PAYLOAD_SIZE = 4095;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * The maximum size of the SecurityAccess request payload data in bytes.
+ */
+//-------------------------------------------------------------------------------------------------
+DEFINE MAX_SEC_ACCESS_PAYLOAD_SIZE = 4093;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Error code for SecurityAccess.
+ */
+//-------------------------------------------------------------------------------------------------
+ENUM SecAccessErrorCode
+{
+    SEC_ACCESS_NO_ERROR = 0,
+    SEC_ACCESS_CONDITIONS_NOT_CORRECT = 0x22,
+    SEC_ACCESS_INVALID_KEY = 0x35
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Reference to the security service.
+ */
+//-------------------------------------------------------------------------------------------------
+REFERENCE Service;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Reference to the SecurityAccess received request message.
+ */
+//-------------------------------------------------------------------------------------------------
+REFERENCE RxSecAccessMsg;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the reference of a security service. If there is no security service, a new one will be
+ * created.
+ *
+ * @return
+ *     - Reference to the service instance.
+ *     - NULL if not allowed to create the service.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION Service GetService
+(
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Handler for a Rx security access message.
+ */
+//-------------------------------------------------------------------------------------------------
+HANDLER RxSecAccessMsgHandler
+(
+    RxSecAccessMsg rxMsgRef  IN,    ///< Received message reference.
+    uint8 accessType  IN            ///< Security access type.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * This event provides information about the Rx security access message.
+ */
+//-------------------------------------------------------------------------------------------------
+EVENT RxSecAccessMsg
+(
+    Service svcRef IN,               ///< Service reference.
+    RxSecAccessMsgHandler handler    ///< Received message handler.
+);
+
+/**
+ * Gets the payload length of the Rx security access message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetSecAccessPayloadLen
+(
+    RxSecAccessMsg rxMsgRef  IN,    ///< Received message reference.
+    uint16 payloadLen  OUT          ///< Security access payload length.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the payload of the Rx security access message. The payload can be either
+ * securityAccessDataRecord or securityKey based on request accessType.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_OVERFLOW -- Payload size is too small.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetSecAccessPayload
+(
+    RxSecAccessMsg rxMsgRef  IN,                       ///< Received message reference.
+    uint8 payload[MAX_SEC_ACCESS_PAYLOAD_SIZE]  OUT    ///< Security access payload.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Sends a response message for the Rx security access message.
+ *
+ * @note This function must be called to send a response if receiving a message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_FAULT -- Failed.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SendSecAccessResp
+(
+    RxSecAccessMsg rxMsgRef  IN,        ///< Received message reference.
+    SecAccessErrorCode errCode  IN,     ///< Error code type.
+    uint8 data[MAX_PAYLOAD_SIZE]  IN    ///< Payload data.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Removes the security service.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t RemoveSvc
+(
+    Service svcRef  IN    ///< Service reference.
+);

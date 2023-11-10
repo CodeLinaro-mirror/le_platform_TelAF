@@ -47,12 +47,13 @@ namespace tafsvc {
 
     typedef enum
     {
-        TAF_DIAG_SUCCESS = 0,                       ///< Successful.
-        TAF_DIAG_SERVICE_NOT_SUPPORTED = 0x11,      ///< Service is not supported
-        TAF_DIAG_SUBFUNCTION_NOT_SUPPORTED = 0x12,  ///< SubFunction is not supported.
-        TAF_DIAG_CONDITION_NOT_CORRECT = 0x22,      ///< Prerequisite conditions are not correct.
-        TAF_DIAG_REQUEST_SEQUENCE_ERROR = 0x24,     ///< Request sequence error.
-        TAF_DIAG_REQUEST_OUT_OF_RANGE = 0x31        ///< Parameter is out of range.
+        TAF_DIAG_SUCCESS = 0,                             ///< Successful.
+        TAF_DIAG_SERVICE_NOT_SUPPORTED = 0x11,            ///< Service is not supported
+        TAF_DIAG_SUBFUNCTION_NOT_SUPPORTED = 0x12,        ///< SubFunction is not supported.
+        TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT = 0x13, ///< Message length not correct.
+        TAF_DIAG_CONDITION_NOT_CORRECT = 0x22,            ///< Prerequisite conditions not correct.
+        TAF_DIAG_REQUEST_SEQUENCE_ERROR = 0x24,           ///< Request sequence error.
+        TAF_DIAG_REQUEST_OUT_OF_RANGE = 0x31              ///< Parameter is out of range.
     }taf_diag_ErrorCode_t;
 
     // Define the interface for each service.

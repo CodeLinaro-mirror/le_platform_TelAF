@@ -1,0 +1,40 @@
+cxxflags:
+{
+    -I$TELAF_ROOT/include
+    -I$LEGATO_BUILD/framework/libjansson/include
+    -ltelux_common
+    -O
+    -Wno-error
+}
+sources:
+{
+    tafTimeSvc.cpp
+    tafTimeImpl.cpp
+}
+requires:
+{
+    lib:
+    {
+        lib/libtelux_platform.so
+    }
+}
+provides:
+{
+    api:
+    {
+        taf_time.api [direct]
+    }
+}
+
+ldflags:
+ {
+     -ljansson
+ }
+
+bundles:
+{
+    file:
+    {
+        [r] tafTimeSvc.json   /
+    }
+}

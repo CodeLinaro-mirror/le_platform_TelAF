@@ -1,0 +1,29 @@
+{
+    "TimeService": {
+        "@version": "1.0",
+        "__comment__": [
+              "PollingInterval:",
+              "Time interval for looping the configured time sources.",
+              "",
+              "ToleranceMillsec:",
+              "The new time value will be set to the system only when the time",
+              "delta between the current system time and the new value is greater",
+              "than this value.",
+              ""
+        ],
+        "Sources": [
+            {
+                "Source": "ExAPP",
+                "SetTime":"true",
+                "Priority":"1"
+            },
+            {
+                "Source": "GNSS",
+                "SetTime":"true",
+                "Priority":"2"
+            }
+        ],
+        "PollingInterval": "63",
+        "ToleranceMillsec": "100"
+    }
+}

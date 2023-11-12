@@ -1,0 +1,23 @@
+sandboxed: false
+
+executables:
+{
+    tafTimeIntTest = ( tafTimeIntTest )
+}
+
+start: manual
+
+processes:
+{
+    run:
+    {
+        (tafTimeIntTest)
+    }
+
+    faultAction: stopApp
+}
+
+bindings:
+{
+    tafTimeIntTest.tafTimeIntTest.taf_time -> tafTimeSvc.taf_time
+}

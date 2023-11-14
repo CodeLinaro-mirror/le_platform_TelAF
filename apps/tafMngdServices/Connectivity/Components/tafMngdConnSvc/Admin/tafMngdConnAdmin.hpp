@@ -42,7 +42,6 @@
 
 #define TAF_MNGD_CONN_MAX_FILE_PATH_LEN    256
 #define TAF_MNGD_CONN_MAX_DATA_OBJ 16
-#define TAF_MNGD_CONN_MAX_DATA_START_RETRY_COUNT 1
 
 namespace telux {
 namespace tafsvc {
@@ -55,12 +54,17 @@ namespace tafsvc {
         TAF_MNGD_CONN_DATA_NOT_CONNECTED_SIM_NOT_READY,         ///< Sim not ready.
         TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_REGISTERED,         ///< Network registered.
         TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_NOT_REGISTERED,     ///< Network unregistered.
-        TAF_MNGD_CONN_DATA_NOT_CONNECTED_AWAITING_USER_COMMAND, ///< Awaiting user command.
+        TAF_MNGD_CONN_DATA_NOT_CONNECTED, ///< Awaiting user command.
         TAF_MNGD_CONN_DATA_NOT_CONNECTED_RETRYING,              ///< Retry to connect.
         TAF_MNGD_CONN_DATA_NOT_CONNECTED_FAILED,                ///< Data connection failure.
         TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE, ///< Active.
+        TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE,                  ///< Inactive.
+        TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE_RETRYING,         ///< Retry to connect when Inactive.
+        TAF_MNGD_CONN_DATA_NOT_CONNECTED_INACTIVE_RETRYING,     ///< Retry when data not connected
         TAF_MNGD_CONN_DATA_CONNECTED_IDLE,   ///< Idle.
-        TAF_MNGD_CONN_ADMIN_ERROR            ///< Error.
+        TAF_MNGD_CONN_ADMIN_ERROR,            ///< Error.
+        TAF_MNGD_CONN_DATA_CONNECTIONTEST_START,                ///<ConnectionTest Started
+        TAF_MNGD_CONN_DATA_CONNECTIONTEST_FAILED                ///<ConnectionTest failed
     } taf_mngd_Conn_Admin_State_t;
 
     /**
@@ -81,9 +85,11 @@ namespace tafsvc {
         TAF_MNGD_CONN_EVT_DATA_START_SYNC,
         TAF_MNGD_CONN_EVT_DATA_START_RETRY,
         TAF_MNGD_CONN_EVT_DATA_STOP_SYNC,
+        TAF_MNGD_CONN_EVT_DATA_STOP,
         TAF_MNGD_CONN_EVT_DATA_CONNECTION_CONNECTED,
         TAF_MNGD_CONN_EVT_DATA_CONNECTION_DISCONNECTED,
-        TAF_MNGD_CONN_EVT_GET_CONNECTION_INFO_SYNC
+        TAF_MNGD_CONN_EVT_GET_CONNECTION_INFO_SYNC,
+        TAF_MNGD_CONN_EVT_CONNECTIONTEST
     } taf_mngd_Conn_EventType_t;
 
     /**
@@ -129,6 +135,8 @@ namespace tafsvc {
         uint8_t                       slotId;                 // JSON Slot ID
         uint8_t                       phoneId;                // JSON Phone ID
         uint8_t                       dataStartRetryCount;    // Data Start retry count
+        uint8_t                       maxdataRetryCount;      // User provided max retry count
+        uint8_t                       dataConnTestFailedRetryCount; // ConnTest failed retry count
         uint32_t                      profileNumber;          // Profile number
         bool                          autoStart;              // Auto start or not
         bool                          needReConn;             //Need to reconnect for manualStart
@@ -140,8 +148,15 @@ namespace tafsvc {
         le_event_Id_t                 dataStateEvent;         //Data state event
         taf_dcs_Pdp_t                 ipType;                 // Ip type
         taf_mngd_Conn_DataRef_t       dataRef;
-        char                          ipv4Addr[TAF_DCS_IPV4_ADDR_MAX_LEN];
-        char                          ipv6Addr[TAF_DCS_IPV6_ADDR_MAX_LEN];
+        taf_dcs_ConState_t            dcsConState;            // DCS Data State
+        char                          conn_test_url[TAF_MNGD_CONN_MAX_CONNECTION_URL_LEN];
+                                      //URL to be used for ConnectionTest
+        char                          conn_test_ipv4Addr[TAF_MNGD_CONN_MAX_IPV4_LEN];
+                                      //IPv4 address to be used for ConnectionTest
+        char                          conn_test_ipv6Addr[TAF_MNGD_CONN_MAX_IPV6_LEN];
+                                      //IPv6 address to be used for ConnectionTest
+        char                          ipv4Addr[TAF_MNGD_CONN_MAX_IPV4_LEN];
+        char                          ipv6Addr[TAF_MNGD_CONN_MAX_IPV6_LEN];
     } taf_mngd_Conn_Ctx_t;
 
     class tafMngdConnAdmin: public ITafSvc
@@ -199,12 +214,19 @@ namespace tafsvc {
 
             taf_mngd_Conn_Ctx_t* GetConnCtx(uint8_t dataId);
             taf_mngd_Conn_Ctx_t* CreateConnCtx(uint8_t dataId, uint8_t slotId, uint8_t phoneId,
-                                               uint32_t profileId, bool autoStart);
+                                               uint32_t profileId, bool autoStart,
+                                               char* conn_test_url,
+                                               char* conn_test_ipv4Addr);
             le_result_t getProfileList( profileInfo_t *profileNumberList, int *listSize);
             bool IsStateConnected();
 
             void ResetDataRetryValues();
             void ResetDataRetryValues(uint8_t dataId);
+
+            //Connectiontest
+            void ConnectionTest(uint8_t dataId);
+            bool ConnectionTest_URL(std::string url);
+            bool ConnectionTest_IPv4(std::string ipv4);
 
             // Policy and Configuration to use
             taf_mngd_Conn_Policy_t Policy;

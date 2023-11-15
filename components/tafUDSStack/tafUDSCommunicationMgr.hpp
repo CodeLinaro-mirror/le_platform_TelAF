@@ -43,14 +43,18 @@ namespace taf{
 namespace uds{
 
     #define UDS_DATA_SIZE 4095
-    #define UDS_P2_SERVER 2000
-    #define UDS_P2_STAR_SERVER 3000
+    #define UDS_P2_SERVER 50
+    #define UDS_P2_STAR_SERVER 5000
     #define TAF_UDS_HANDLER_REF_CNT 1
 
     // DID Config tree definition
-    #define DID_NODE_LEN                 30
+    #define DID_NODE_LEN                 100
     #define DID_CONFIG_TREE_NODE         "diag/DID"
-    #define DID_CONFIG_TREE_DATA_FORMAT  "diag/DID/%2x"
+    #define DID_READ_PROPERTY_SUPPORTED_FUNCTION  "diag/DID/%2x/supported_functions/read_did"
+    #define DID_WRITE_PROPERTY_SUPPORTED_FUNCTION  "diag/DID/%2x/supported_functions/write_did"
+    #define DID_READ_SEC_PROPERTY_SUPPORTED_FUNCTION  "diag/DID/%2x/supported_functions/read_sec"
+    #define DID_WRITE_SEC_PROPERTY_SUPPORTED_FUNCTION  "diag/DID/%2x/supported_functions/write_sec"
+    #define DID_CONFIG_TREE_VALUE_FORMAT  "diag/DID/%2x/value"
     #define DID_DATA_FORMAT              "data%d"
 
     // DTC Config tree definition
@@ -60,6 +64,9 @@ namespace uds{
     #define DTC_STR_INFO_LEN                       20
     #define DTC_STATUS                             "status"
     #define DTC_SUB_FUNCTION_REPORT_DTC_BY_STATUS  0x2
+
+    // UDS minimal len
+    #define UDS_REQ_MIN_LEN 1
 
     // Negative Response (0x7F)
     #define UDS_NEGATIVE_RESP_SID 0x7F
@@ -80,6 +87,12 @@ namespace uds{
     // ReadDataByIdentifier service (0x22)
     #define UDS_READ_DID_REQ_MIN_LEN 3
     #define UDS_DID_LEN 2
+
+    // Security access service (0x27)
+    #define UDS_SECURITY_ACCESS_REQ_MIN_LEN 2
+    #define UDS_SECURITY_ACCESS_SEND_KEY_REQ_MIN_LEN 3 //sid(1)+subfunc(1)+securitykey(1)
+    #define UDS_SECURITY_ACCESS_RESP_MIN_LEN 2
+    #define UDS_SECURITY_ACCESS_RESP_SEED_ZERO_LEN 4
 
     // WriteDataByIdentifier service (0x2E)
     #define UDS_WRITE_DID_REQ_MIN_LEN 4
@@ -125,6 +138,7 @@ namespace uds{
         ECU_RESET_REQUEST_ID = 0x11,
         READ_DTC_INFO_REQUEST_ID = 0x19,
         READ_DID_REQUEST_ID = 0x22,
+        SECURITY_ACCESS_REQUEST_ID = 0x27,
         WRITE_DID_REQUEST_ID = 0x2E,
         ROUTINE_CONTROL_REQUEST_ID = 0x31,
         TRANSFER_DATA_REQUEST_ID = 0x36,
@@ -139,6 +153,7 @@ namespace uds{
         ECU_RESET_RESPONSE_ID = 0x51,
         READ_DTC_INFO_RESPONSE_ID = 0x59,
         READ_DID_RESPONSE_ID = 0x62,
+        SECURITY_ACCESS_RESPONSE_ID = 0x67,
         WRITE_DID_RESPONSE_ID = 0x6E,
         ROUTINE_CONTROL_RESPONSE_ID = 0x71,
         TRANSFER_DATA_RESPONSE_ID = 0x76,
@@ -155,9 +170,13 @@ namespace uds{
         INCORRECT_MSG_LEN_OR_INVALID_FORMAT = 0x13,
         RESP_TOO_LONG = 0x14,
         CONDITIONS_NOT_CORRECT = 0x22,
+        REQ_SEQUENCE_ERROR = 0x24,
         REQ_OUT_OF_RANGE = 0x31,
+        SECURITY_ACCESS_DENY = 0x33,
+        INVALID_KEY = 0x35,
         UPLOAD_DOWNLOAD_NOT_ACCEPTED = 0x70,
-        GENERAL_PROGRAMMING_FAILURE = 0x72
+        GENERAL_PROGRAMMING_FAILURE = 0x72,
+        REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING = 0x78
     }taf_UDSErrorCode_t;
 
     // UDS stack indication handler structure.
@@ -188,11 +207,15 @@ namespace uds{
             le_result_t UdsAddDiagIndicationHandler();
             static void DiagIndicationHandler( taf_doip_AddrInfo_t* addrInfoPtr,
                     taf_doip_DiagMsg_t* diagMsgPtr, taf_doip_Result_t result, void* userPtr);
+            static void DiagConfirmHandler(const taf_doip_AddrInfo_t* addrInfoPtr,
+                taf_doip_Result_t result, void* userPtr);
 
             le_result_t SendUDSResp( uint16_t sa, uint16_t ta, uint8_t addrType, uint8_t serviceId,
                     uint8_t err, const uint8_t* dataPtr, uint16_t dataSize);
 
             le_result_t SetNRC(uint8_t sid, uint8_t errorCode);
+            le_result_t SendNRC(uint8_t sid, uint8_t errorCode, taf_doip_AddrInfo_t*  addrInfoPtr);
+            void SendData(taf_doip_AddrInfo_t*  addrInfoPtr);
             le_result_t CheckAndSendInd(uint8_t sid, taf_doip_AddrInfo_t* addrInfoPtr,
                     taf_doip_DiagMsg_t* diagMsgPtr);
 
@@ -202,18 +225,25 @@ namespace uds{
             taf_UDSIndicationHandler_t udsIndicationHandler;
 
         private:
-            // Indicate recevied service message to Diag service.
-            le_result_t IndicateECUResetReq();       // ECUReset service (0x11).
-            le_result_t IndicateRoutinrCtrlReq();    // RoutineControl service (0x31).
-            le_result_t IndicateRxFileXferReq();     // RequestFileTransfer service (0x38).
-            le_result_t IndicateRxXferDataReq();     // TransferData service (0x36).
-            le_result_t IndicateRxXferExitReq();     // RequestTransferExit service (0x37).
+            // Indicate recevied service message to Diag service if necessary.
+            le_result_t IndicateECUResetReq(taf_doip_AddrInfo_t* addrInfoPtr,
+                    bool* isInternalHandle);    // ECUReset service (0x11).
+            le_result_t IndicateSecAccessReq(taf_doip_AddrInfo_t* addrInfoPtr,
+                    bool* isInternalHandle);    // SecurrityAccess service (0x27).
+            le_result_t IndicateRoutinrCtrlReq(taf_doip_AddrInfo_t* addrInfoPtr,
+                    bool* isInternalHandle);    // RoutineControl service (0x31).
+            le_result_t IndicateRxFileXferReq(taf_doip_AddrInfo_t* addrInfoPtr,
+                    bool* isInternalHandle);    // RequestFileTransfer service (0x38).
+            le_result_t IndicateRxXferDataReq(taf_doip_AddrInfo_t* addrInfoPtr,
+                    bool* isInternalHandle);    // TransferData service (0x36).
+            le_result_t IndicateRxXferExitReq(taf_doip_AddrInfo_t* addrInfoPtr,
+                    bool* isInternalHandle);    // RequestTransferExit service (0x37).
 
             // Internally check and Respond UDS message to uds client (through DoIP stack).
-            le_result_t SessionCtrlResp();    // SessionControl service (0x10).
-            le_result_t ReadDTCInfoResp();    // ReadDTCInformation service (0x19).
-            le_result_t ReadDIDResp();        // ReadDataByIdentifier service (0x22).
-            le_result_t WriteDIDResp();       // WriteDataByIdentifier service (0x2E).
+            le_result_t SessionCtrlResp(taf_doip_AddrInfo_t* addrInfoPtr);    // (0x10).
+            le_result_t ReadDTCInfoResp(taf_doip_AddrInfo_t* addrInfoPtr);    // (0x19).
+            le_result_t ReadDIDResp(taf_doip_AddrInfo_t* addrInfoPtr);    // (0x22).
+            le_result_t WriteDIDResp(taf_doip_AddrInfo_t* addrInfoPtr);   // (0x2E).
 
             // To read and write from ConfigTree.
             uint8_t readDIDFromConfigTree(const uint16_t dataId);
@@ -223,6 +253,8 @@ namespace uds{
 
             // Send UDS response message from Diag service.
             le_result_t ECUResetResp(uint8_t serviceId, uint8_t err);
+            le_result_t SecurityAccessResp(uint8_t serviceId, const uint8_t* dataPtr,
+                    uint16_t dataSize, uint8_t err);
             le_result_t RoutineCtrlResp(uint8_t serviceId, const uint8_t* dataPtr,
                     uint16_t dataSize, uint8_t err);
             le_result_t XferDataResp(uint8_t serviceId, const uint8_t* dataPtr,
@@ -233,14 +265,21 @@ namespace uds{
             // update status parameter.
             bool isXferActive = false;
 
+            // Security access request seed parameter.
+            uint8_t reqSeedLevel = 0;
+            // Security access level.
+            uint8_t securityLevel = 0;
+
             taf_doip_Ref_t  DoipEntityRef = NULL;
             taf_doip_DiagIndicationHandlerRef_t IndicationRef = NULL;
             taf_doip_PowerModeQueryHandlerRef_t PmQueryRef = NULL;
+            taf_doip_DiagConfirmHandlerRef_t ConfirmRef = NULL;
             taf_SessionType_t SessionType = DEFAULT_SESSION;
             uint8_t recvBuf[UDS_DATA_SIZE];
             uint8_t sendBuf[UDS_DATA_SIZE];
             uint16_t recvDataLen = 0;
             uint16_t sendDataLen = 0;
+            bool readyToRecvData = true;
             le_timer_Ref_t timerRef;
     };
 }

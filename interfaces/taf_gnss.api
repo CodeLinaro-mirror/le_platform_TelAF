@@ -91,11 +91,11 @@
  *
  * @subsection taf_gnss_EnableDisable Enable or Disable Location service
  *
- * The taf_gnss_Enable() API initializes the Location Service and prepares the TelAF
- * location service serve further requests after setting up internal states.
+ * The taf_gnss_Enable API initializes the Location Service and prepares the TelAF
+ * location service to serve further requests after setting up internal states.
  *
- * Through the taf_gnss_Disable() API, the Location Service is de-initialized and location
- * service disallows any further requests until it is enabled again via taf_gnss_Enable().
+ * Through the taf_gnss_Disable API, the Location Service is de-initialized and location
+ * service disallows any further requests until it is enabled again via taf_gnss_Enable.
  *
  * By default, when the service starts up, the Location Service is initialized
  * and is ready to serve incoming requests.
@@ -300,7 +300,30 @@
    }
    @endverbatim
  *
- * @subsection taf_gnss_NmeaSentences Control NMEA sentences
+ * @subsection taf_gnss_NmeaSentences APIs to control NMEA sentences
+ * A handler function should be registered for NMEA sentences notifications.
+ * @ref taf_gnss_AddNmeaHandler() allows users to register a NMEA handler.
+ *
+ * The handler function is invoked whenever new NMEA sentences are available.
+ *
+ * The handler must follow the below prototype:
+ *
+ * @verbatim
+   static void NmeaHandlerFunction
+   (
+       uint64_t timestamp,
+       char nmeaInfo[TAF_GNSS_NMEA_STRING_MAX],
+       void* contextPtr
+   )
+   {
+      // Process the NMEA sentence type received in the handler function.
+   }
+ * @endverbatim
+ *
+ * @note If many applications register handlers for NMEA notifications, they
+ *       will all receive it.
+ *
+ * An application may unregister a NMEA handler by calling @ref taf_gnss_RemoveNmeaHandler().
  *
  * The National Marine Electronics Association (NMEA) standard defines an electrical interface
  * and data protocol for communications between marine instrumentation.
@@ -371,7 +394,7 @@
    }
    @endverbatim
  * - taf_gnss_GetLocation() -- Triggered inside PositionHandlerFunction() function
- *   to get longitude,latitude and horzontal accuracy from the position sample reference.
+ *   to get longitude, latitude, and horizontal accuracy from the position sample reference.
  * @verbatim
    int32_t     latitude;
    int32_t     longitude;
@@ -382,7 +405,7 @@
    }
    @endverbatim
  * - taf_gnss_GetAltitude() -- Triggered inside PositionHandlerFunction() function
- *   to get altitude, vertical accuracy from the position sample reference.
+ *   to get altitude and vertical accuracy from the position sample reference.
  * @verbatim
    int32_t     altitude;
    int32_t     vAccuracy;
@@ -415,13 +438,13 @@
    }
    @endverbatim
  * - taf_gnss_GetGpsTime() -- Triggered inside PositionHandlerFunction() function
- *   to get gps time from the position sample reference.
+ *   to get GPS time from the position sample reference.
  * @verbatim
    uint32_t gpsWeek;
    uint32_t gpsTimeOfWeek;
    if(taf_gnss_GetGpsTime(positionSampleRef,&gpsWeek,&gpsTimeOfWeek) == LE_OK)
    {
-     // Process after successfully getting the gps time information.
+     // Process after successfully getting the GPS time information.
    }
    @endverbatim
  * - taf_gnss_GetGpsLeapSeconds() -- Triggered inside PositionHandlerFunction() function
@@ -485,7 +508,7 @@
    }
    @endverbatim
  * - taf_gnss_GetSatellitesInfo() -- Triggered inside PositionHandlerFunction() function
- *   uto get satellites information from the position sample reference.
+ *   to get satellites information from the position sample reference.
  * @verbatim
    uint16_t satIdPtr[TAF_GNSS_SV_INFO_MAX_LEN];
    size_t satIdNumElements = NUM_ARRAY_MEMBERS(satIdPtr);
@@ -544,7 +567,7 @@
    uint8_t minorVersion;
    if(taf_gnss_RobustLocationInformation(&enable,&enabled911, &majorVersion,&minorVersion) == LE_OK)
    {
-     // Process after successfully getting Robust location information for Enable/Disable, 911 enable or disable, major & minor version numbers
+     // Process after successfully getting Robust location information for Enable/Disable, 911 enable or disable, major and minor version numbers
    }
    @endverbatim
  * - taf_gnss_DefaultSecondaryBandConstellations() -- Triggered to set the default secondary band constellations.
@@ -590,7 +613,7 @@
    }
    @endverbatim
  * - taf_gnss_GetEllipticalUncertainty() -- Triggered inside the PositionHandlerFunction()
- *                                          function to get semi major, semi minor from positionSampleRef.
+ *                                          function to get semi major and semi minor from positionSampleRef.
  * @verbatim
    uint32_t SemiMajor;
    uint32_t SemiMinor;
@@ -707,7 +730,7 @@
    }
    @endverbatim
  * - taf_gnss_GetSbasCorrection() -- Triggered inside the PositionHandlerFunction()
- *                                   function to get Sbas correction from the position sample reference.
+ *                                   function to get SBAS correction from the position sample reference.
  * @verbatim
    uint32_t sbasMask;
    if(taf_gnss_GetSbasCorrection(positionSampleRef, &sbasMask) == LE_OK)
@@ -767,7 +790,7 @@
    }
    @endverbatim
  * - taf_gnss_GetRealTimeInformation() -- Triggered inside the PositionHandlerFunction()
- *                                        function to get real time information fromo the position sample reference.
+ *                                        function to get real time information from the position sample reference.
  * @verbatim
    uint64_t realTime;
    uint64_t realTimeUnc;
@@ -831,6 +854,83 @@
    @endverbatim
  * taf_gnss_SetDopResolution() and @c taf_gnss_GetDilutionOfPrecision() functions should be called
  * in the same thread or client session.
+ *
+ * - taf_gnss_SetMinGpsWeek() -- Sets the minimum GPS week used by the modem GNSS standard
+ * position engine (SPE). This API shall not be called when GNSS state is ACTIVE.
+ * Behavior is not defined if client issues a second request of SetMinGpsWeek without waiting
+ * for the previous SetMinGpsWeek to finish. Additionally minimum GPS week number shall NEVER
+ * be in the future of the current GPS Week.
+ * @verbatim
+   uint16        minGpsWeek = 1;
+   if(taf_gnss_SetMinGpsWeek(minGpsWeek) == LE_OK)
+   {
+     // Process after succesfully setting the minimum GPS week.
+   }
+   @endverbatim
+ *
+ * - taf_gnss_GetMinGpsWeek() -- Gets the minimum GPS week used by the modem GNSS standard
+ * position engine (SPE).
+ * @verbatim
+   uint16        minGpsWeek;
+   if(taf_gnss_GetMinGpsWeek(&minGpsWeek) == LE_OK)
+   {
+     // Process after succesfully getting the minimum GPS week.
+   }
+   @endverbatim
+ *
+ * A handler function should be registered for location capability notification.
+ * @ref taf_gnss_AddCapabilityChangeHandler() allows users to register a location capability handler.
+ *
+ * When the capability of the GNSS stack changes, the handler is invoked to notify
+ * the client about the update.
+ *
+ * The handler must follow the below prototype:
+ *
+ * @verbatim
+   static void CapabilityHandlerFunction
+   (
+       taf_gnss_LocCapabilityType_t locCapability,
+       void* contextPtr
+   )
+   {
+       // Process the location capability received in the handler function.
+   }
+ * @endverbatim
+ *
+ * @note If many applications register handlers for capability notifications, they
+ *       will all receive it.
+ *
+ * An application may unregister a capability handler by calling @ref taf_gnss_RemoveCapabilityChangeHandler().
+ *
+ * - taf_gnss_GetCapabilities() -- Gets the GNSS capability information.
+ * @verbatim
+   uint64  locCapability;
+   if(taf_gnss_GetCapabilities(&locCapability) == LE_OK)
+   {
+     // Process after succesfully getting the GNSS capability information.
+   }
+   @endverbatim
+ *
+ * - taf_gnss_SetNmeaConfiguration() -- Sets the configuration for NMEA sentences that will be
+ * received by the clients via @ref NmeaHandler.
+ *
+ * Without prior invocation to this API, all NMEA sentences supported in the system will get generated and delivered to all the
+ * clients that register to receive NMEA sentences. The configuration is common
+ * across all clients and updating it will affect all clients.
+ *
+ * @verbatim
+   taf_gnss_NmeaBitMask_t nmeaMask = TAF_GNSS_NMEA_MASK_GPGGA | TAF_GNSS_NMEA_MASK_GPGNS;
+   taf_gnss_GeodeticDatumType_t datumType = TAF_GNSS_GEODETIC_TYPE_WGS_84;
+   taf_gnss_LocEngineType engineType = TAF_GNSS_LOC_REQ_ENGINE_FUSED_BIT
+   if(taf_gnss_SetNmeaConfiguration(nmeaMask, datumType, engineType) == LE_OK)
+   {
+     // Process after succesfully getting the the NMEA sentences.
+   }
+   @endverbatim
+ *
+ * @note This API call is not incremental and the new NMEA configuration will completely overwrite
+ *       the previous call to this API.
+ *
  *
  * @subsection taf_gnss_GetLeapSeconds Get leap seconds event information
  *
@@ -933,6 +1033,13 @@ DEFINE MEASUREMENT_INFO_MAX = 30;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Define the maximum number of charaters for NMEA string.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE NMEA_STRING_MAX = 150;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Location service states.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1025,6 +1132,68 @@ STRUCT SvInfo
     double baseBandCnr;        ///< Carrier-to-noise ratio of the signal measured at baseband. Units: dB-Hz.
 };
 
+//------------------------------------------------------------------------------------------------
+/**
+ * Specify Location Capabilities Type.
+ */
+//------------------------------------------------------------------------------------------------
+BITMASK LocCapabilityType
+{
+  TIME_BASED_TRACKING,        ///< Time based tracking session is supported.
+  DISTANCE_BASED_TRACKING,    ///< Distance based tracking session is supported.
+  GNSS_MEASUREMENTS,          ///< Receiving GNSS measurement data is supported.
+  CONSTELLATION_ENABLEMENT,   ///< Support to configure constellations available.
+  CARRIER_PHASE,              ///< Support for carrier phase for Positioning
+                              ///  Measurement Engine (PPME) available.
+  QWES_GNSS_SINGLE_FREQUENCY, ///< Supports GNSS Single Frequency feature.
+  QWES_GNSS_MULTI_FREQUENCY,  ///< Supports GNSS Multi Frequency feature.
+                              ///  This indicates support for
+                              ///  GNSS single frequency is also available.
+  QWES_VPE,                   ///< Indicates VEPP license bundle is enabled. VEPP bundle include
+                              ///  Carrier Phase and SV Polynomial.
+  QWES_CV2X_LOCATION_BASIC,   ///< Indicates support for CV2X Location basic features. This bundle
+                              ///  includes features for GTS Time & Freq,
+                              ///  C-TUNC (Constrained Time uncertainty).
+  QWES_CV2X_LOCATION_PREMIUM, ///< Indicates support for CV2X Location premium features. This bundle
+                              ///  includes features for CV2X Location Basic features, QDR3 feature,
+                              ///  and PACE. (Position Assisted Clock Estimator).
+  QWES_PPE,                   ///< Indicates that PPE (Precise Positioning Engine) library
+                              ///  is enabled or Precise Positioning Framework (PPF) is available.
+                              ///  Framework (PPF) is available. This includes features for
+                              ///  Carrier Phase and SV Ephermeris.
+  QWES_QDR2,                  ///< Indicates QDR2_C license bundle is enabled.
+  QWES_QDR3,                  ///< Indicates QDR3_C license bundle is enabled.
+  TIME_BASED_BATCHING,        ///< Time based batching is supported.
+  DISTANCE_BASED_BATCHING,    ///< Distance based batching is supported.
+  GEOFENCE,                   ///< Geofencing is supported.
+  OUTDOOR_TRIP_BATCHING,      ///< Outdoor trip batching is supported.
+  SV_POLYNOMIAL,              ///< Support for SV polynomial is available.
+  NLOS_ML20                   ///< Indicates presence of ML Inference capability for
+                              ///  Pseudo Range Measurements.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Specifies the set of engines
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM LocEngineType
+{
+    LOC_ENGINE_UNKNOWN,     ///< Unknown engine type bit. Do not use it.
+    LOC_ENGINE_FUSED,       ///< Indicate that the fused/default position is needed to be
+                            ///  reported back for the tracking sessions. The default position
+                            ///  is the propagated/aggregated reports from all engines running
+                            ///  on the system (e.g.: DR/SPE/PPE) according to QTI algorithm.
+    LOC_ENGINE_SPE,         ///< Indicate that the unmodified SPE position is needed to be
+                            ///  reported back for the tracking sessions.
+    LOC_ENGINE_PPE,         ///< Indicate that the unmodified PPE position is needed to be
+                            ///  reported back for the tracking sessions.
+    LOC_ENGINE_VPE          ///< Indicate that the unmodified VPE position is needed to be
+                            ///  reported back for the tracking sessions.
+};
+
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for position information.
@@ -1045,6 +1214,26 @@ HANDLER PositionHandler
 EVENT Position
 (
  PositionHandler handler
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Handler for location capability event notification.
+ */
+//-------------------------------------------------------------------------------------------------
+HANDLER CapabilityChangeHandler
+(
+    LocCapabilityType locCapability    IN     ///< The location capability.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * This event provides information on location capability.
+ */
+//-------------------------------------------------------------------------------------------------
+EVENT CapabilityChange
+(
+    CapabilityChangeHandler handler ///< Capability change handler.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1237,7 +1426,7 @@ FUNCTION le_result_t GetAltitude
 FUNCTION le_result_t GetHorizontalSpeed
 (
     Sample positionSampleRef IN,        ///< Position sample reference.
-    uint32 hspeed OUT,                  ///< Horizontal speed in cm/s
+    uint32 hspeed OUT,                  ///< Horizontal speed in cm/s.
     uint32 hspeedAccuracy OUT           ///< Horizontal accuracy estimation in dm/sec.
                                         ///  Uncertainty is defined with 68% confidence level.
 );
@@ -1555,6 +1744,18 @@ BITMASK NmeaBitMask
     NMEA_MASK_GPZDA     ///< Not supported.
 };
 
+//------------------------------------------------------------------------------------------------
+/**
+ * Specify the geodetic datum for NMEA sentence types that are generated.
+ */
+//------------------------------------------------------------------------------------------------
+ENUM GeodeticDatumType {
+    GEODETIC_TYPE_NONE = -1,  ///< No type.
+    GEODETIC_TYPE_WGS_84 = 0, ///< Geodetic datum type to indicate the use of World Geodetic
+                              /// System 1984 (WGS84) system.
+    GEODETIC_TYPE_PZ_90 = 1   ///< Geodetic datum type to indicate the use of PZ90/GLONASS system.
+};
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Type of GNSS start.
@@ -1758,7 +1959,7 @@ ENUM LocationInfoExValidity
                                        ///  via @ref taf_gnss_GetConformityIndex
     HAS_LLA_VRP_BASED,                 ///< Valid LLA VRP based
                                        ///  via @ref taf_gnss_GetVRPBasedLLA
-    HAS_ENU_VELOCITY_VRP_BASED,        ///< Valid enu vrp based
+    HAS_ENU_VELOCITY_VRP_BASED,        ///< Valid ENU VRP based
                                        ///  via @ref taf_gnss_GetVRPBasedVelocity
     HAS_ALTITUDE_TYPE,                 ///< Valid altitude type
                                        ///  via @ref taf_gnss_AltType
@@ -2038,6 +2239,27 @@ STRUCT GnssMeasurementInfo {
   uint16 gnssSvId;              ///< GNSS SV ID
                                 /// For SV ID information, refer to @SvUsedInPosition.
 };
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Handler for NMEA event notification.
+ */
+//-------------------------------------------------------------------------------------------------
+HANDLER NmeaHandler
+(
+    uint64 timestamp                    IN,    ///< The timestamp.
+    string nmeaMask[NMEA_STRING_MAX]    IN     ///< The NMEA string.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * This event provides information about NMEA.
+ */
+//-------------------------------------------------------------------------------------------------
+EVENT Nmea
+(
+    NmeaHandler handler      ///< NMEA handler.
+);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2556,7 +2778,7 @@ FUNCTION le_result_t ConfigureRobustLocation
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This API retrieves the robust location settings and version info used by the 
+ * This API retrieves the robust location settings and version information used by the
  * GNSS standard position engine.
  *
  * @return
@@ -2756,7 +2978,7 @@ FUNCTION le_result_t GetConformityIndex
 FUNCTION le_result_t GetCalibrationData
 (
     Sample positionSampleRef IN, ///< Position sample reference.
-    uint32 calibPtr OUT,         ///< Calibration status. @ref CalibrationType
+    uint32 calibPtr OUT,         ///< Calibration status.
     uint8 percentPtr OUT         ///< Confidence percentage.
 );
 
@@ -3052,7 +3274,7 @@ FUNCTION le_result_t GetReportStatus
 FUNCTION le_result_t GetAltitudeMeanSeaLevel
 (
     Sample positionSampleRef IN,    ///< Position sample reference.
-    double altMeanSeaLevel OUT      ///< Altitude Mean Sea Level in meters units.
+    double altMeanSeaLevel OUT      ///< Altitude Mean Sea Level in meters.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -3098,4 +3320,93 @@ FUNCTION le_result_t GetSatellitesInfoEx
     Sample   positionSampleRef IN,                           ///< Position sample reference.
     Constellation constellation IN,                          ///< Constellation for which SVInfo is asked.
     SvInfo   svInfo[SV_INFO_MAX_SATS_IN_CONSTELLATIONS] OUT  ///< Satellite Vehicle information.
+);
+
+//------------------------------------------------------------------------------------------------
+/**
+ * Sets the minimum GPS week used by the modem GNSS standard position engine (SPE). This API shall not
+ * be called when GNSS state is ACTIVE.
+ * Behavior is not defined if client issues a second request of SetMinGpsWeek without waiting
+ * for the previous SetMinGpsWeek to finish. Additionally minimum GPS week number shall NEVER
+ * be in the future of the current GPS Week.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_NOT_PERMITTED  The GNSS device state is not ready.
+ *
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetMinGpsWeek
+(
+    uint16        minGpsWeek IN         ///< The minimum GPS week to be used by modem GNSS engine.
+);
+
+//------------------------------------------------------------------------------------------------
+/**
+ * Gets the minimum GPS week configuration used by the modem GNSS standard position
+ * engine (SPE). If this API is called right after SetMinGpsWeek, the returned setting may
+ * not match the one specified in SetMinGpsWeek, as the setting configured via
+ * SetMinGpsWeek can not be applied to the GNSS standard position engine(SPE) when the
+ * engine is in middle of a session. In poor GPS signal condition, the session may take up to 255
+ * seconds to finish. If after 255 seconds of invoking SetMinGpsWeek, the returned value
+ * still does not match, then the caller need to reapply the setting by invoking
+ * SetMinGpsWeek again.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_NO_MEMORY      The minGpsWeekPtr is NULL.
+ *  - LE_NOT_PERMITTED  The GNSS device state is not ready.
+ *
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetMinGpsWeek
+(
+    uint16  minGpsWeekPtr OUT  ///< Minimum GPS week used by modem GNSS engine.
+);
+
+//------------------------------------------------------------------------------------------------
+/**
+ * Gets the GNSS capability information. To know capability bit mask @ref LocCapabilityType.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetCapabilities
+(
+    uint64  locCapabilityPtr OUT  ///< The GNSS capability information.
+);
+
+//------------------------------------------------------------------------------------------------
+/**
+ * Configures the required NMEA sentences. Without prior invocation to this API, all NMEA sentences supported in
+ * the system will get generated and delivered to all the clients that register to receive NMEA
+ * sentences. The NMEA sentence type configuration is common across all clients and it will
+ * affect all clients.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_BAD_PARAMETER  the nmeaMask is zero.
+ *  - LE_FAULT          Failed.
+ *  - LE_NOT_PERMITTED  GNSS device is not ready.
+ *
+ * @warning This function may be subject to limitations depending on the platform.
+ *
+ * @note This API call is not incremental and the new NMEA configuration will completely overwrite
+ *       the previous call to this API.
+ *
+ * LE_GNSS_NMEA_MASK_PQXFI is deprecated; LE_GNSS_NMEA_MASK_PTYPE should be used instead.
+ *
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetNmeaConfiguration
+(
+    NmeaBitMask nmeaMask          IN,  ///< Bitmask for enabled NMEA sentence types.
+    GeodeticDatumType datumType   IN,  ///< Specify the datum type to be configured.
+    LocEngineType engineType      IN   ///< Specify the Engine type for which Nmea sentences
+                                       ///  should be generated. Also refer to @ref LocEngineType
 );

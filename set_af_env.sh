@@ -5,6 +5,9 @@ if [ -d "$TELAF_ROOT" ] && [ "$TELAF_ROOT" != "$CURDIR" ]; then
     echo "Error: The TELAF_ROOT was detected as already being present in this shell environment and inconsistent with the environment to be set. Please use a clean shell when sourcing this environment script."
     return
 fi
+
+PROG_NAME="set_af_env.sh"
+
 export TELAF_ROOT=${CURDIR}
 export LEGATO_ROOT=${CURDIR}/../legato/legato-af
 export LEGATO_VERSION=$(cat "${TELAF_ROOT}/VERSION" 2>/dev/null)
@@ -15,7 +18,14 @@ export TELAF_NOSHIP=${CURDIR}/../telaf-noship
 # Setup toolchain from default location
 setup_toolchain_default_location() {
     local TARGET=$1
-    echo "Setup Toolchain for $TARGET from /opt/qct/$TARGET"
+
+    if [ "$TARGET" == "simulation" ];then
+        local DEF_TOOLCHAIN_PATH=/tmp
+    else
+        local DEF_TOOLCHAIN_PATH=/opt/qct/$TARGET
+    fi
+
+    echo "Setup Toolchain for $TARGET from $DEF_TOOLCHAIN_PATH"
     if [ "$TARGET" == "sa415m" ]; then
         source /opt/qct/sa415m/environment-setup-armv7at2hf-neon-oe-linux-gnueabi
     elif [ "$TARGET" == "sa515m" ]; then
@@ -30,14 +40,17 @@ setup_toolchain_default_location() {
             export GCC_PREFIX="aarch64-oe-linux"
             source /opt/qct/sa525m/environment-setup-aarch64-oe-linux
         fi
+    elif [ "$TARGET" == "simulation" ]; then
+        # Simulation target depends on the HOST toolchains without any prefix & pre-build packages
+        export SYSROOT=/
     else
         echo " Missing target parameter!"
-        echo " e.g. $0 sa415m"
+        echo " e.g. source $PROG_NAME sa415m"
         return
     fi
 
     # TELAF_GLOBAL_TARGET_TOOLCHAIN_PATH environment variable will be used in findtoochain script.
-    export TELAF_GLOBAL_TARGET_TOOLCHAIN_PATH="/opt/qct/$TARGET"
+    export TELAF_GLOBAL_TARGET_TOOLCHAIN_PATH=$DEF_TOOLCHAIN_PATH
 }
 
 # Setup toolchain from custom location
@@ -71,6 +84,13 @@ setup_toolchain_custom_location() {
             export GCC_PREFIX="aarch64-oe-linux"
             source $TC_BASE_PATH/environment-setup-aarch64-oe-linux
         else
+            echo "Invalid toolchain path"
+            return
+        fi
+    elif [ "$TARGET" == "simulation" ]; then
+        # Simulation target depends on the HOST toolchains without any prefix & pre-build packages
+        export SYSROOT=/
+        if [ ! -e "$TC_BASE_PATH" ]; then
             echo "Invalid toolchain path"
             return
         fi
@@ -130,7 +150,7 @@ build_extras() {
 }
 
 function build_target() {
-    TARGET=$1
+    local TARGET=$1
 
     # Build TelAF OSS source code
     make "${TARGET}"
@@ -222,6 +242,22 @@ function build-sa525m-af() {
     build_target "${TARGET}"
 }
 
+function build-simulation-af() {
+    local TARGET="simulation"
+    if [ "$TARGET" != "$TARGET_GLOBAL" ]; then
+        echo "Error: Target parameter mismatch. Expected: $TARGET_GLOBAL, Actual: $TARGET"
+        return 1
+    fi
+
+    # Ex: build-simulation-af IMPORT_SDK_SIMULATION=y TELAF_SIMULATION_ENABLE_SMS=y sdk_rootfs=/path/to/sdk_rootfs
+    make simulac $@
+
+    if [ $? -eq 0 ]; then
+        # create the tarball for telaf app dependencies used for sdk patch
+        ${TELAF_ROOT}/bin/createsdk "${TARGET}" "${TELAF_ROOT}/../"
+    fi
+}
+
 function build-clean-af(){
     make clean
 }
@@ -238,6 +274,6 @@ elif [ $# -eq 2 ]; then
     # target and toolchain locations are provided. Setup toolchain from provided location
     setup_toolchain_custom_location "$TARGET_GLOBAL" $2
 else
-    echo "Correct Usage: $0 <target> <toolchain location(optional)>"
-    echo "Valid targets: sa415m, sa515m, sa525m"
+    echo "Correct Usage: source $PROG_NAME <target> <toolchain location(optional)>"
+    echo "Valid targets: sa415m, sa515m, sa525m, simulation"
 fi

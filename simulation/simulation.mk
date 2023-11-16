@@ -129,11 +129,11 @@ VSOMEIP_VERSION=$(_VSOMEIP_VERSION:%.tar.gz=vsomeip-%)
 
 define setup-simulation-dep
 	@if ! [ -e $(SIMULATION_DEPS_SOURCE)/.$(1).status ]; then \
-		$(MAKE) --no-print-directory $(1)_download $(1)_build $(1)_install ; \
+		$(MAKE) --no-print-directory simula-$(1)-download simula-$(1)-build simula-$(1)-install ; \
 	elif [ "`cat $(SIMULATION_DEPS_SOURCE)/.$(1).status`" = "Inited" ]; then \
-		$(MAKE) --no-print-directory $(1)_build $(1)_install ; \
+		$(MAKE) --no-print-directory simula-$(1)-build simula-$(1)-install ; \
 	elif [ "`cat $(SIMULATION_DEPS_SOURCE)/.$(1).status`" = "Compiled" ]; then \
-		$(MAKE) --no-print-directory $(1)_install ; \
+		$(MAKE) --no-print-directory simula-$(1)-install ; \
 	else \
 		echo "[$(1)] Ready" ; \
 	fi

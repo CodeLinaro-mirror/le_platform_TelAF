@@ -2138,11 +2138,14 @@ le_result_t taf_Gnss::Start
                 engineType |= (1UL << mEngineType);//FUSED mode is supported by default
                 mLocCmdResponseCb = std::make_shared<LocationCommandCallback>
                         ("startDetailedEngineReports");
-                mLocationManager->startDetailedEngineReports((uint32_t)optInterval,engineType,
+                telux::common::Status status = mLocationManager->startDetailedEngineReports(
+                        (uint32_t)optInterval,engineType,
                         std::bind(&LocationCommandCallback::commandResponse,
                             mLocCmdResponseCb, std::placeholders::_1),reportMask);
-                std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
-                if(futResult.get() == LE_OK)
+                if (telux::common::Status::SUCCESS != status) {
+                    result = LE_FAULT;
+                }
+                else if(CmdSynchronousPromise.get_future().get() == LE_OK)
                 {
                     mStarted = true;
                     GnssState = TAF_GNSS_STATE_ACTIVE;
@@ -5459,13 +5462,13 @@ le_result_t taf_Gnss::GetLocationOutputEngParams
 le_result_t taf_Gnss::GetReliabilityInformation
 (
     taf_gnss_SampleRef_t positionSampleRef,
-    uint16_t* horiReliblityPtr,
-    uint16_t* vertReliblityPtr
+    uint16_t* horiReliabilityPtr,
+    uint16_t* vertReliabilityPtr
 )
 {
     le_result_t result = LE_OK;
-    taf_gnss_PositionSampleRequest_t* posSampleReqPtr
-                                            = (taf_gnss_PositionSampleRequest_t *)le_ref_Lookup(PositionSampleMap,positionSampleRef);
+    taf_gnss_PositionSampleRequest_t* posSampleReqPtr =
+        (taf_gnss_PositionSampleRequest_t *)le_ref_Lookup(PositionSampleMap, positionSampleRef);
 
     result = CheckValidatePosition(posSampleReqPtr);
     if (result != LE_OK)
@@ -5473,16 +5476,16 @@ le_result_t taf_Gnss::GetReliabilityInformation
         return result;
     }
 
-    if (horiReliblityPtr)
+    if (horiReliabilityPtr)
     {
         if (posSampleReqPtr->positionSampleNodePtr->horiReliablityValid)
         {
-            *horiReliblityPtr = posSampleReqPtr->positionSampleNodePtr->horiReliablity;
+            *horiReliabilityPtr = posSampleReqPtr->positionSampleNodePtr->horiReliablity;
         }
         else
         {
-            LE_INFO("GetReliabilityInformation horizontal reliablity is invalid");
-            *horiReliblityPtr = UINT16_MAX;
+            LE_INFO("GetReliabilityInformation horizontal reliability is invalid");
+            *horiReliabilityPtr = UINT16_MAX;
             result = LE_OUT_OF_RANGE;
         }
     }
@@ -5490,16 +5493,16 @@ le_result_t taf_Gnss::GetReliabilityInformation
     {
         result = LE_FAULT;
     }
-    if (vertReliblityPtr)
+    if (vertReliabilityPtr)
     {
         if (posSampleReqPtr->positionSampleNodePtr->vertReliablityValid)
         {
-            *vertReliblityPtr = posSampleReqPtr->positionSampleNodePtr->vertReliablity;
+            *vertReliabilityPtr = posSampleReqPtr->positionSampleNodePtr->vertReliablity;
         }
         else
         {
-            LE_INFO("GetReliabilityInformation vertical reliablity is invalid");
-            *vertReliblityPtr = UINT16_MAX;
+            LE_INFO("GetReliabilityInformation vertical reliability is invalid");
+            *vertReliabilityPtr = UINT16_MAX;
             result = LE_OUT_OF_RANGE;
         }
     }

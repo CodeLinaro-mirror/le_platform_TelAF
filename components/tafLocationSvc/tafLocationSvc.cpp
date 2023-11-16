@@ -1579,12 +1579,13 @@ le_result_t taf_gnss_GetLocationOutputEngParams
 le_result_t taf_gnss_GetReliabilityInformation
 (
     taf_gnss_SampleRef_t positionSampleRef,
-    uint16_t* horiReliblityPtr,
-    uint16_t* vertReliblityPtr
+    uint16_t* horiReliabilityPtr,
+    uint16_t* vertReliabilityPtr
 )
 {
     auto &gnss = taf_Gnss::GetInstance();
-    return gnss.GetReliabilityInformation(positionSampleRef,horiReliblityPtr,vertReliblityPtr);
+    return gnss.GetReliabilityInformation(positionSampleRef, horiReliabilityPtr,
+        vertReliabilityPtr);
 }
 
 /**

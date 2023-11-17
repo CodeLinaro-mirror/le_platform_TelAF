@@ -39,6 +39,7 @@
 #define TEST_ECUREST
 #define TEST_UPDATE
 #define TEST_ROUTINE_CONTROL
+#define TEST_SECURITY_ACCESS
 
 #define CAN_BE_RESET 1
 #define UPDATE_PRE_DOWNLOAD_CHECK_IDENTIFIER 0x0246
@@ -55,6 +56,7 @@ static le_sem_Ref_t semRef;
 //Diag Reset
 static taf_diagReset_ServiceRef_t diagResetSvcRef = NULL;
 static taf_diagReset_RxMsgHandlerRef_t diagResetMsgRef = NULL;
+const uint8_t seedData[] = {0x36, 0x57};
 #endif
 
 #ifdef TEST_ROUTINE_CONTROL
@@ -63,6 +65,7 @@ static taf_diagRoutineCtrl_ServiceRef_t diagRCPreDlSvcRef = NULL;
 static taf_diagRoutineCtrl_ServiceRef_t diagRCPostDlSvcRef = NULL;
 static taf_diagRoutineCtrl_RxMsgHandlerRef_t diagRoutineCtrlMsgRef = NULL;
 #endif
+
 #ifdef TEST_UPDATE
 //Diag Update
 static taf_diagUpdate_ServiceRef_t diagUpdateSvcRef = NULL;
@@ -70,6 +73,13 @@ static taf_diagUpdate_RxFileXferMsgHandlerRef_t diagFileXferMsgRef = NULL;
 static taf_diagUpdate_RxXferDataMsgHandlerRef_t diagXferDataMsgRef = NULL;
 static taf_diagUpdate_RxXferExitMsgHandlerRef_t diagXferExitMsgRef = NULL;
 #endif
+
+#ifdef TEST_SECURITY_ACCESS
+//Diag Security
+static taf_diagSecurity_ServiceRef_t diagSecuritySvcRef = NULL;
+static taf_diagSecurity_RxSecAccessMsgHandlerRef_t diagSecurityMsgRef = NULL;
+#endif
+
 //TelAF Update
 static taf_update_StateHandlerRef_t UpdateStateHandlerRef = NULL;
 
@@ -693,6 +703,90 @@ void xferExitMsgHandler
 }
 #endif
 
+#ifdef TEST_SECURITY_ACCESS
+// Callback function for security request message
+void securityMsgHandler
+(
+    taf_diagSecurity_RxSecAccessMsgRef_t rxMsgRef,
+    uint8_t accessType,
+    void* contextPtr
+)
+{
+    size_t seedDataLen = 0, keyDataLen = 0;
+    uint8_t keyData[TAF_DIAGSECURITY_MAX_SEC_ACCESS_PAYLOAD_SIZE];
+
+    le_result_t result;
+
+    LE_TEST_INFO("Received security req msg access type: %d", accessType);
+
+    //Send seed response
+    if(accessType %2 != 0)
+    {
+        seedDataLen = sizeof(seedData);
+
+        if(taf_diagSecurity_SendSecAccessResp( rxMsgRef,
+                TAF_DIAGSECURITY_SEC_ACCESS_NO_ERROR, seedData, seedDataLen ) != LE_OK)
+        {
+            LE_ERROR("Send response error");
+        }
+    }
+    //Validate the key
+    else
+    {
+        result = taf_diagSecurity_GetSecAccessPayloadLen( rxMsgRef, (uint16_t *)&keyDataLen);
+        if(result != LE_OK || keyDataLen != sizeof(seedData) ||
+                keyDataLen > TAF_DIAGSECURITY_MAX_SEC_ACCESS_PAYLOAD_SIZE )
+        {
+            LE_ERROR("Getting key len");
+            if(taf_diagSecurity_SendSecAccessResp( rxMsgRef,
+                    TAF_DIAGSECURITY_SEC_ACCESS_INVALID_KEY, NULL,0) != LE_OK)
+            {
+                LE_ERROR("Send response error");
+            }
+            return;
+        }
+
+        result = taf_diagSecurity_GetSecAccessPayload( rxMsgRef, keyData, &keyDataLen);
+
+        if(result != LE_OK)
+        {
+            LE_ERROR("Getting key data");
+            if(taf_diagSecurity_SendSecAccessResp( rxMsgRef,
+                    TAF_DIAGSECURITY_SEC_ACCESS_CONDITIONS_NOT_CORRECT, NULL, 0) != LE_OK)
+            {
+                LE_ERROR("Send response error");
+            }
+            return;
+        }
+
+        //Validate the key, the algorithum is same as the python cliet tool
+        if(keyData[0] == seedData[0]+1 && keyData[1] == seedData[1]+2)
+        {
+            if(taf_diagSecurity_SendSecAccessResp( rxMsgRef,
+                    TAF_DIAGSECURITY_SEC_ACCESS_NO_ERROR, NULL,0) != LE_OK)
+            {
+                LE_ERROR("Send response error");
+            }
+
+        }
+        // Key is invalid
+        else
+        {
+            if(taf_diagSecurity_SendSecAccessResp( rxMsgRef,
+                    TAF_DIAGSECURITY_SEC_ACCESS_INVALID_KEY, NULL,0) != LE_OK)
+            {
+                LE_ERROR("Send response error");
+            }
+        }
+
+    }
+
+    return;
+
+}
+
+#endif
+
 static void* updateStateThread(void* contextPtr)
 {
     taf_update_ConnectService();
@@ -771,6 +865,22 @@ static void* diagUpdateMsgThread(void* ctxPtr)
 }
 #endif
 
+#ifdef TEST_SECURITY_ACCESS
+static void* diagSecurityMsgThread(void* ctxPtr)
+{
+    taf_diagSecurity_ConnectService();
+
+    diagSecurityMsgRef = taf_diagSecurity_AddRxSecAccessMsgHandler( diagSecuritySvcRef,
+                                                                    securityMsgHandler, NULL
+                                                                  );
+    LE_TEST_OK(diagSecurityMsgRef != NULL, "Registered successfully for securityMsgHandler");
+
+    le_sem_Post(semRef);
+    le_event_RunLoop();
+    return NULL;
+}
+#endif
+
 COMPONENT_INIT
 {
     LE_INFO("tafDiagApp starting");
@@ -780,39 +890,49 @@ COMPONENT_INIT
     semRef = le_sem_Create("SemRef", 0);
 
 #ifdef TEST_ECUREST
-    //create diag reset svc reference
+    //get diag reset svc reference
     diagResetSvcRef = taf_diagReset_GetService(TAF_DIAGRESET_ALL_RESET);
     if(diagResetSvcRef == NULL)
     {
-        LE_ERROR("Create diagReset service");
+        LE_ERROR("Get diagReset service");
         return;
     }
 #endif
 #ifdef TEST_ROUTINE_CONTROL
-    //create diag routinectrl svc reference for pre-download check
+    //get diag routinectrl svc reference for pre-download check
     diagRCPreDlSvcRef = taf_diagRoutineCtrl_GetService(UPDATE_PRE_DOWNLOAD_CHECK_IDENTIFIER);
     if(diagRCPreDlSvcRef == NULL)
     {
-        LE_ERROR("Create diagRoutineCtrl service for pre-download");
+        LE_ERROR("Get diagRoutineCtrl service for pre-download");
         return;
     }
 
-    //create diag routinectrl svc reference for post-download check
+    //get diag routinectrl svc reference for post-download check
     diagRCPostDlSvcRef = taf_diagRoutineCtrl_GetService(UPDATE_POST_DOWNLOAD_CHECK_IDENTIFIER);
     if(diagRCPostDlSvcRef == NULL)
     {
-        LE_ERROR("Create diagRoutineCtrl service for post-download");
+        LE_ERROR("Get diagRoutineCtrl service for post-download");
         return;
     }
 
 #endif
 
 #ifdef TEST_UPDATE
-    //create diag update reference
+    //get diag update reference
     diagUpdateSvcRef = taf_diagUpdate_GetService();
     if(diagUpdateSvcRef == NULL)
     {
-        LE_ERROR("Create diagUpdate service");
+        LE_ERROR("Get diagUpdate service");
+        return;
+    }
+#endif
+
+#ifdef TEST_SECURITY_ACCESS
+    //get diag security reference
+    diagSecuritySvcRef = taf_diagSecurity_GetService();
+    if(diagSecuritySvcRef == NULL)
+    {
+        LE_ERROR("Get diagSecurity service");
         return;
     }
 #endif
@@ -854,4 +974,16 @@ COMPONENT_INIT
     le_sem_Wait(semRef);
 
 #endif
+
+#ifdef TEST_SECURITY_ACCESS
+    // Create diag security message handle thread to handle security access(0x27)
+    le_thread_Ref_t diagSecurityThreadRef = le_thread_Create("diagSecurityTd",
+                                                            diagSecurityMsgThread, NULL
+                                                          );
+
+    le_thread_Start(diagSecurityThreadRef);
+    le_sem_Wait(semRef);
+
+#endif
+
 }

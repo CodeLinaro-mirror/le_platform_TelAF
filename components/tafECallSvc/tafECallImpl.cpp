@@ -1018,8 +1018,8 @@ le_result_t taf_ecall::SetNadDeregistrationTime(uint16_t deregTime)
         return LE_BUSY;
     }
 
-    if (deregTime < 60 || deregTime > 720) {
-        LE_ERROR("Error: Deregistration time %d min is not allowed [Range 60:720].", deregTime);
+    if (deregTime < 1 || deregTime > 720) {
+        LE_ERROR("Error: Deregistration time %d min is not allowed [Range 1:720].", deregTime);
         return LE_FAULT;
     }
 
@@ -1129,7 +1129,7 @@ le_result_t taf_ecall::GetNadClearDownFallbackTime(uint16_t* ccftTime)
     EcallConfig eCallConfig = {};
     Status status = CallManager->getECallConfig(eCallConfig);
     if (status == Status::SUCCESS && eCallConfig.configValidityMask.test(ECALL_CONFIG_T2_TIMER)) {
-        LE_INFO("NAD clear down fallback time (in minutes): %d", eCallConfig.t2Timer);
+        LE_INFO("NAD clear down fallback time (in minutes): %d", eCallConfig.t2Timer/60000);
         *ccftTime = (uint16_t) (eCallConfig.t2Timer/60000);
     } else {
         LE_ERROR("Unable to get clear down fallback time. Error: %d", (int) status);
@@ -1145,9 +1145,18 @@ le_result_t taf_ecall::SetNadMinNetworkRegistrationTime(uint16_t minNwRegTime)
         return LE_BUSY;
     }
 
-    if (minNwRegTime < 60 || minNwRegTime > 720) {
-        LE_ERROR("Error: min network registration time %d min is not allowed [Range 60:720].", minNwRegTime);
+    if (minNwRegTime < 1 || minNwRegTime > 720) {
+        LE_ERROR("Error: min network registration time %d min is not allowed [Range 1:720].", minNwRegTime);
         return LE_FAULT;
+    }
+
+    uint16_t minNwRegTimeGet = 0;
+    le_result_t result = GetNadMinNetworkRegistrationTime(&minNwRegTimeGet);
+    if ((result == LE_OK) &&
+        (minNwRegTimeGet == minNwRegTime))
+    {
+        LE_INFO("Setting min network registration time is the same as the current value");
+        return LE_OK;
     }
 
     uint32_t t9 = (uint32_t) minNwRegTime*60*1000;;
@@ -1157,9 +1166,29 @@ le_result_t taf_ecall::SetNadMinNetworkRegistrationTime(uint16_t minNwRegTime)
     eCallConfig.configValidityMask.set(ECALL_CONFIG_T9_TIMER);
     eCallConfig.t9Timer = t9;
     Status status = CallManager->setECallConfig(eCallConfig);
+    if (Status::SUCCESS != status)
+    {
+        LE_ERROR("Unable to set min network registration time. Error: %d", (int) status);
+        return LE_FAULT;
+    }
 
-    return Status::SUCCESS == status ? LE_OK : LE_FAULT;
-
+    uint16_t minNwRegTimeGetAfterSet = 0;
+    result = GetNadMinNetworkRegistrationTime(&minNwRegTimeGetAfterSet);
+    if ((result == LE_OK) &&
+        (minNwRegTimeGetAfterSet != minNwRegTime))
+    {
+        LE_ERROR("Error: Setting min network registration time is not consistent with get.");
+        t9 = (uint32_t) minNwRegTimeGet*60*1000;;
+        eCallConfig.configValidityMask.set(ECALL_CONFIG_T9_TIMER);
+        eCallConfig.t9Timer = t9;
+        status = CallManager->setECallConfig(eCallConfig);
+        if (Status::SUCCESS != status)
+        {
+            LE_ERROR("Unable to set the previous min network registration time. Error: %d", (int) status);
+        }
+        return LE_FAULT;
+    }
+    return result;
 }
 
 le_result_t taf_ecall::GetNadMinNetworkRegistrationTime(uint16_t* minNwRegTime)
@@ -1172,7 +1201,7 @@ le_result_t taf_ecall::GetNadMinNetworkRegistrationTime(uint16_t* minNwRegTime)
     EcallConfig eCallConfig = {};
     Status status = CallManager->getECallConfig(eCallConfig);
     if (status == Status::SUCCESS && eCallConfig.configValidityMask.test(ECALL_CONFIG_T9_TIMER)) {
-        LE_INFO("NAD min network registration time (in minutes): %d", eCallConfig.t9Timer);
+        LE_INFO("NAD min network registration time (in minutes): %d", eCallConfig.t9Timer/60000);
         *minNwRegTime = (uint16_t) (eCallConfig.t9Timer/60000);
     } else {
         LE_ERROR("Unable to get min network registration time. Error: %d", (int) status);

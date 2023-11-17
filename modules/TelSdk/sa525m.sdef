@@ -30,6 +30,10 @@ apps:
     $TELAF_ROOT/apps/tafServices/tafDiagSvc
     $TELAF_ROOT/apps/tafServices/tafTimeSvc
 
+    // IVSS services.
+    $TELAF_ROOT/apps/ivss/service/tafIvssRadioSvc/tafIvssRadioSvc
+    $TELAF_ROOT/apps/ivss/service/tafIvssSimSvc/tafIvssSimSvc
+
     // Command-line tools.
     $LEGATO_ROOT/apps/tools/tools
     $TELAF_ROOT/apps/tools/tafTools

@@ -43,17 +43,16 @@
 #include <string>
 
 #include <telux/common/CommonDefines.hpp>
-#include <telux/common/DeviceConfig.hpp>
 #include <telux/tel/Phone.hpp>
 #include <telux/tel/PhoneDefines.hpp>
 #include <telux/tel/PhoneFactory.hpp>
 #include <telux/tel/PhoneListener.hpp>
 #include <telux/tel/ImsServingSystemManager.hpp>
 
-#include "tafSvcIF.hpp"
+#include <telux/data/DataFactory.hpp>
+#include <telux/data/ServingSystemManager.hpp>
 
-#define TAF_RADIO_DEFAULT_SLOT_NUM 1
-#define TAF_RADIO_MULTI_SLOT_NUM 2
+#include "tafSvcIF.hpp"
 
 #define TAF_RADIO_PHONE_NUM 2
 
@@ -340,14 +339,40 @@ typedef struct
 
 //--------------------------------------------------------------------------------------------------
 /**
- * IMS registration status structure
+ * IMS status structure
  */
 //--------------------------------------------------------------------------------------------------
 typedef struct
 {
     uint8_t phoneId;
     taf_radio_ImsRegStatus_t status;
-} taf_RadioImsRegStatus_t;
+    taf_radio_ImsIndBitMask_t bitmask;
+    taf_radio_ImsRef_t imsRef;
+} taf_RadioImsStatus_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Data callback information structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    le_sem_Ref_t semaphore;
+    le_result_t result;
+    taf_radio_NetRegState_t psState;
+} taf_RadioDataCallbackInfo_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Signal strength structure.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint8_t phoneId;
+    int32_t rssi;
+    int32_t rsrp;
+} taf_RadioSsInd_t;
 
 namespace telux {
 namespace tafsvc {
@@ -364,11 +389,41 @@ namespace tafsvc {
 
     class taf_RadioImsServSysListener : public telux::tel::IImsServingSystemListener
     {
-    public:
-        SlotId slot = DEFAULT_SLOT_ID;
-        uint8_t phone = DEFAULT_PHONE_ID;
-        taf_RadioImsServSysListener(SlotId slotId);
-        void onImsRegStatusChange(telux::tel::ImsRegistrationInfo status) override;
+        public:
+            SlotId slot = DEFAULT_SLOT_ID;
+            uint8_t phone = DEFAULT_PHONE_ID;
+
+            taf_RadioImsServSysListener(SlotId slotId);
+            void onImsRegStatusChange(telux::tel::ImsRegistrationInfo status) override;
+#ifdef LE_CONFIG_FEATURE_ENHANCED_IMS
+            void onImsServiceInfoChange(telux::tel::ImsServiceInfo service) override;
+            void onImsPdpStatusInfoChange(telux::tel::ImsPdpStatusInfo status) override;
+#endif
+    };
+
+    class taf_RadioPhoneListener : public telux::tel::IPhoneListener
+    {
+        public:
+            void onVoiceServiceStateChanged(
+                int phoneId,
+                const std::shared_ptr<telux::tel::VoiceServiceInfo> &serviceInfo) override;
+            void onOperatingModeChanged(telux::tel::OperatingMode mode) override;
+            void onSignalStrengthChanged(int phoneId,
+                std::shared_ptr<telux::tel::SignalStrength> signalStrength) override;
+    };
+
+    class taf_RadioDataServSysListener : public telux::data::IServingSystemListener
+    {
+        public:
+            SlotId slot = DEFAULT_SLOT_ID;
+            uint8_t phone = DEFAULT_PHONE_ID;
+            taf_radio_NetRegState_t currState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
+            bool inService = false;
+            bool isRoaming = false;
+
+            taf_RadioDataServSysListener(SlotId slotId);
+            void onServiceStateChanged(telux::data::ServiceStatus status) override;
+            void onRoamingStatusChanged(telux::data::RoamingStatus status) override;
     };
 
     class taf_RadioSetOperatingModeCallback {
@@ -405,6 +460,27 @@ namespace tafsvc {
          */
         void signalStrengthResponse(std::shared_ptr<telux::tel::SignalStrength> signalStrength,
             telux::common::ErrorCode error) override;
+    };
+
+    class taf_RadioConfigureSignalStrengthCallback
+    {
+        public:
+            static le_sem_Ref_t semaphore;
+            static le_result_t result;
+
+            static void configureSignalStrengthResponse(telux::common::ErrorCode error);
+    };
+
+    class taf_RadioVoiceServiceStateCallback : public telux::tel::IVoiceServiceStateCallback
+    {
+        public:
+            le_sem_Ref_t semaphore;
+            le_result_t result;
+            telux::tel::VoiceServiceState voiceSvcState;
+
+            void voiceServiceStateResponse(
+                const std::shared_ptr<telux::tel::VoiceServiceInfo> &serviceInfo,
+                telux::common::ErrorCode error) override;
     };
 
     /*
@@ -476,6 +552,7 @@ namespace tafsvc {
     public:
         static le_sem_Ref_t semaphore;
         static le_result_t result;
+
         /*
          * This function is called after configuration of the rat preference.
          *
@@ -529,6 +606,31 @@ namespace tafsvc {
 
         static void imsRegStateResponse(telux::tel::ImsRegistrationInfo info,
             telux::common::ErrorCode error);
+
+#ifdef LE_CONFIG_FEATURE_ENHANCED_IMS
+        static taf_radio_ImsSvcStatus_t voip;
+        static taf_radio_ImsSvcStatus_t sms;
+        static taf_radio_PdpError_t pdpError;
+
+        static void imsSvcInfoResponse(telux::tel::ImsServiceInfo info,
+            telux::common::ErrorCode error);
+        static void imsPdpStatusResponse(telux::tel::ImsPdpStatusInfo status,
+            telux::common::ErrorCode error);
+#endif
+    };
+
+    class taf_RadioImsSettingCallback {
+    public:
+        static le_sem_Ref_t semaphore;
+        static le_result_t result;
+        static telux::tel::ImsServiceConfig config;
+        static char sipUserAgentPtr[TAF_RADIO_IMS_USER_AGENT_BYTES];
+
+        static void onRequestImsServiceConfig(SlotId slotId,
+            telux::tel::ImsServiceConfig configType, telux::common::ErrorCode error);
+        static void onResponseCallback(telux::common::ErrorCode error);
+        static void onRequestImsSipUserAgentConfig(SlotId slotId, std::string sipUserAgent,
+            telux::common::ErrorCode errorCode);
     };
 
     /*
@@ -547,6 +649,10 @@ namespace tafsvc {
         static taf_Radio &GetInstance();
 
         static void taf_radio_LayerImsRegStateHandler(void* reportPtr, void* layerHandlerFunc);
+        static void taf_radio_LayerOpModeHandler(void* reportPtr, void* layerHandlerFunc);
+        static void taf_radio_LayerNetRegStateHandler(void* reportPtr, void* layerHandlerFunc);
+        static void taf_radio_LayerImsStateHandler(void* reportPtr, void* layerHandlerFunc);
+        static void taf_radio_LayerSsHandler(void* reportPtr, void* layerHandlerFunc);
 
         /*
          * Command thread in radio service.
@@ -569,7 +675,8 @@ namespace tafsvc {
          */
         void Init(void);
 
-        size_t slotCount = TAF_RADIO_DEFAULT_SLOT_NUM;
+        void onInitCompleted(telux::common::ServiceStatus status);
+
         le_mem_PoolRef_t prefOpsListPool;
         le_mem_PoolRef_t prefOpPool;
         le_mem_PoolRef_t prefOpSafeRefPool;
@@ -580,7 +687,13 @@ namespace tafsvc {
         le_mem_PoolRef_t ngbrCellInfoPool;
         le_mem_PoolRef_t ngbrCellInfoSafeRefPool;
         le_mem_PoolRef_t metricsPool;
-        le_mem_PoolRef_t imsRegStatusChangePool;
+        le_mem_PoolRef_t phonePool;
+        le_mem_PoolRef_t imsStatusChangePool;
+        le_mem_PoolRef_t opModeChangePool;
+        le_mem_PoolRef_t netRegStatePool;
+        le_mem_PoolRef_t packSwStatePool;
+        le_mem_PoolRef_t ssChangePool;
+
         le_ref_MapRef_t prefOpListRefMap;
         le_ref_MapRef_t prefOpSafeRefMap;
         le_ref_MapRef_t scanOpListRefMap;
@@ -588,18 +701,43 @@ namespace tafsvc {
         le_ref_MapRef_t ngbrCellsRefMap;
         le_ref_MapRef_t ngbrCellInfoSafeRefMap;
         le_ref_MapRef_t metricsRefMap;
+        le_ref_MapRef_t imsRefMap;
+        le_ref_MapRef_t netStatusRefMap;
+
         le_event_Id_t imsRegStatusChangeId;
+        le_event_Id_t opModeChangeId;
+        le_event_Id_t netRegStateEvId;
+        le_event_Id_t packSwStateEvId;
+        le_event_Id_t imsStatusChangeId;
+        le_event_Id_t gsmSsChangeEvId;
+        le_event_Id_t umtsSsChangeEvId;
+        le_event_Id_t cdmaSsChangeEvId;
+        le_event_Id_t lteSsChangeEvId;
+        le_event_Id_t nr5gSsChangeEvId;
         static le_event_Id_t radioCmdEvId;
+
+        bool subSystemStatusUpdated = false;
+        std::mutex mtx;
+        std::condition_variable conVar;
+        taf_RadioDataCallbackInfo_t dataInfoCb;
         std::shared_ptr<taf_RadioSignalStrengthCallback> signalStrengthCb;
+        std::shared_ptr<taf_RadioVoiceServiceStateCallback> voiceSrvStateCb;
         std::shared_ptr<taf_RadioSetOperatingModeCallback> setOperatingModeCb;
         std::shared_ptr<taf_RadioGetOperatingModeCallback> getOperatingModeCb;
         std::vector<std::shared_ptr<taf_RadioNetworkSelectionListener>> networkListeners;
+        std::map<SlotId, std::shared_ptr<telux::tel::IImsServingSystemListener>> imsServSysListeners;
+        std::map<SlotId, std::shared_ptr<telux::data::IServingSystemListener>> dataServSysListeners;
         std::vector<std::shared_ptr<telux::tel::IPhone>> phones;
         std::vector<std::shared_ptr<telux::tel::INetworkSelectionManager>> networkManagers;
         std::vector<std::shared_ptr<telux::tel::IServingSystemManager>> servingSystemManagers;
         std::shared_ptr<telux::tel::IPhoneManager> phoneManager;
-        std::map<SlotId, std::shared_ptr<telux::tel::IImsServingSystemListener>> imsServSysListeners;
         std::map<SlotId, std::shared_ptr<telux::tel::IImsServingSystemManager>> imsServingSystemMgrs;
+        std::map<SlotId, std::shared_ptr<telux::tel::IImsSettingsManager>> imsSettingMgrs;
+        std::map<SlotId, std::shared_ptr<telux::data::IServingSystemManager>> dataServSysManagers;
+        std::map<le_event_HandlerRef_t, le_event_HandlerRef_t> pdpHandlerRefs;
+        taf_radio_ImsRef_t imsRefs[TAF_RADIO_PHONE_NUM];
+        taf_radio_NetStatusRef_t netStatusRefs[TAF_RADIO_PHONE_NUM];
+        std::shared_ptr<taf_RadioPhoneListener> phoneListener;
     };
 }
 }

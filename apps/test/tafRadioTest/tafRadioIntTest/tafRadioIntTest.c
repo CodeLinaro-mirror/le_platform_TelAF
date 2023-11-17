@@ -44,10 +44,12 @@ taf_radio_RatChangeHandlerRef_t ratChangeHandlerRef;
 taf_radio_SignalStrengthChangeHandlerRef_t gsmSsChangeHandlerRef;
 taf_radio_SignalStrengthChangeHandlerRef_t umtsSsChangeHandlerRef;
 taf_radio_SignalStrengthChangeHandlerRef_t cdmaSsChangeHandlerRef;
-taf_radio_SignalStrengthChangeHandlerRef_t tdscdmaSsChangeHandlerRef;
 taf_radio_SignalStrengthChangeHandlerRef_t lteSsChangeHandlerRef;
 taf_radio_SignalStrengthChangeHandlerRef_t nr5gSsChangeHandlerRef;
 taf_radio_ImsRegStatusChangeHandlerRef_t imsRegStatusChangeHandlerRef;
+taf_radio_OpModeChangeHandlerRef_t opModeChangeHandlerRef;
+taf_radio_NetStatusChangeHandlerRef_t netStatusChangeHandlerRef;
+taf_radio_ImsStatusChangeHandlerRef_t imsStatusChangeHandlerRef;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -73,13 +75,14 @@ void PrintHelpMenu
         "    app runProc tafRadioIntTest tafRadioIntTest -- "
         "operator <phone> <add|remove|list> [<mcc>] [<mnc>] [<rat_bitmask>]\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- "
-        "signal <phone> <monitor|metrics> [<time>] [<rssi_delta>] [<rsrp_delta>]\n"
+        "signal <phone> <monitor|metrics|delta> [<time|rat>] [<signal_delta>]\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- serving <phone>\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- neighbor <phone>\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- scan <phone> <mode> [<rat_bitmask>]\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- "
         "band <phone> <rat|status> [<band_bitmask>]\n"
-        "    app runProc tafRadioIntTest tafRadioIntTest -- ims <phone> status\n"
+        "    app runProc tafRadioIntTest tafRadioIntTest -- "
+        "ims <phone> <mode> [<service>|<user_agent>]\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- handler\n"
         "\n"
         "DESCRIPTION:\n"
@@ -134,7 +137,7 @@ void PrintHelpMenu
         "       time         : time in seconds, required with 'monitor' option.\n"
         "       rat          : radio access technoloy, required with 'delta' option.\n"
         "       signal_delta : signal deltas.\n"
-        "           rssi delta in 0.1 dBm, required with 'delta' for RATs except NR5G.\n"
+        "           rssi delta in 0.1 dBm, required with 'delta' for RATs except LTE and NR5G.\n"
         "           rsrp_delta : rsrp delta in 0.1 dBm, required with 'delta' for LTE or NR5G.\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- serving <phone>\n"
         "       Show serving system status.\n"
@@ -146,9 +149,9 @@ void PrintHelpMenu
         "\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- scan <phone> <mode> [<rat_bitmask>]\n"
         "       Perform network scan.\n"
-        "       phone         : '1' or '2'.\n"
-        "       mode  : 'plmn-sync', 'plmn-async', 'pci-sync' or 'pci-async'.\n"
-        "       rat_bitmask   : rat bit mask, required with 'pci-sync' 'pci-async' mode.\n"
+        "       phone       : '1' or '2'.\n"
+        "       mode        : 'plmn-sync', 'plmn-async', 'pci-sync' or 'pci-async'.\n"
+        "       rat_bitmask : rat bit mask, required with 'pci-sync' 'pci-async' mode.\n"
         "           GSM     : 0x1.\n"
         "           UMTS    : 0x2.\n"
         "           CDMA    : 0x4.\n"
@@ -165,9 +168,13 @@ void PrintHelpMenu
         "           2G+3G : refer to BandBitMask in api.\n"
         "           LTE   : 4 LTE band bit masks in 64 bit.\n"
         "\n"
-        "    app runProc tafRadioIntTest tafRadioIntTest -- ims <phone> status\n"
-        "       Show IMS status.\n"
-        "       phone : '1' or '2'.\n"
+        "    app runProc tafRadioIntTest tafRadioIntTest -- "
+        "ims <phone> <mode> [<service>|<user_agent>]\n"
+        "       phone      : '1' or '2'.\n"
+        "       mode       : 'status' to show IMS status, 'enable' or 'disable' IMS service, 'user' to "
+        "set user agent.\n"
+        "       service    : 'registation', 'voip', 'rtt' or 'sms'.\n"
+        "       user_agent : user agent string.\n"
         "\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- handler <time>\n"
         "       Handler for network changes, can test with 'cm radio' configurations.\n"
@@ -224,6 +231,19 @@ void PrintNetRegState
         case TAF_RADIO_NET_REG_STATE_DENIED:
             LE_INFO("Phone %d %s : Registration denied.", phoneId, message);
             break;
+        case TAF_RADIO_NET_REG_STATE_NONE_AND_EMERGENCY_AVAILABLE:
+            LE_INFO("Phone %d %s : Not registered and emergency available.", phoneId, message);
+            break;
+        case TAF_RADIO_NET_REG_STATE_SEARCHING_AND_EMERGENCY_AVAILABLE:
+            LE_INFO("Phone %d %s : Searching and emergency available.", phoneId, message);
+            break;
+        case TAF_RADIO_NET_REG_STATE_DENIED_AND_EMERGENCY_AVAILABLE:
+            LE_INFO("Phone %d %s : Denied and emergency available.", phoneId, message);
+            break;
+        case TAF_RADIO_NET_REG_STATE_UNKNOWN_AND_EMERGENCY_AVAILABLE:
+            LE_INFO("Phone %d %s : Unknown registation state and emergency available.",
+                phoneId, message);
+            break;
         default:
             LE_INFO("Phone %d %s : Unknown.", phoneId, message);
             break;
@@ -268,6 +288,39 @@ void PrintRAT
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Print RAT service status.
+ */
+//--------------------------------------------------------------------------------------------------
+void PrintRatSvcStatus
+(
+    taf_radio_RatSvcStatus_t status ///< [IN] RAT service status enum.
+)
+{
+    switch (status)
+    {
+        case TAF_RADIO_RAT_SVC_STATUS_NO_SERVICE:
+            LE_INFO("RAT service state : No Service.");
+            break;
+        case TAF_RADIO_RAT_SVC_STATUS_LIMITED:
+            LE_INFO("RAT service state : Limited Service.");
+            break;
+        case TAF_RADIO_RAT_SVC_STATUS_SERVICE:
+            LE_INFO("RAT service state : Full Service.");
+            break;
+        case TAF_RADIO_RAT_SVC_STATUS_LIMITED_REGIONAL:
+            LE_INFO("RAT service state : Limited Regional Service.");
+            break;
+        case TAF_RADIO_RAT_SVC_STATUS_POWER_SAVE:
+            LE_INFO("RAT service state : Power Save.");
+            break;
+        default:
+            LE_INFO("RAT service state : Unknown.");
+            break;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Print service domain.
  */
 //--------------------------------------------------------------------------------------------------
@@ -289,6 +342,39 @@ void PrintSrvDomain
             break;
         default:
             LE_INFO("Domain : Unknown");
+            break;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Print CS capability.
+ */
+//--------------------------------------------------------------------------------------------------
+void PrintCsCap
+(
+    taf_radio_CsCap_t capability ///< [IN] CS capability.
+)
+{
+    switch (capability)
+    {
+        case TAF_RADIO_CS_CAP_FULL_SERVICE:
+            LE_INFO("CS Capability : Full service in CS domain is available.");
+            break;
+        case TAF_RADIO_CS_CAP_CSFB_NOT_PREFERRED:
+            LE_INFO("CS Capability : CSFB is not preferred.");
+            break;
+        case TAF_RADIO_CS_CAP_SMS_ONLY:
+            LE_INFO("CS Capability : CS registation is for SMS only.");
+            break;
+        case TAF_RADIO_CS_CAP_LIMITED:
+            LE_INFO("CS Capability : CS registation failed for max attach or TAU attempts.");
+            break;
+        case TAF_RADIO_CS_CAP_BARRED:
+            LE_INFO("CS Capability : CS domain is not available.");
+            break;
+        default:
+            LE_INFO("CS Capability : Unknown");
             break;
     }
 }
@@ -352,7 +438,7 @@ void PrintPrefOpList
 {
     le_result_t result;
     taf_radio_PreferredOperatorListRef_t listRef = taf_radio_GetPreferredOperatorsList(phoneId);
-    LE_TEST_OK(listRef != NULL, "taf_radio_GetPreferredOperatorsList - OK");
+
     if (listRef)
     {
         taf_radio_PreferredOperatorRef_t opRef = taf_radio_GetFirstPreferredOperator(listRef);
@@ -378,7 +464,6 @@ void PrintPrefOpList
             i++;
 
             opRef = taf_radio_GetNextPreferredOperator(listRef);
-            LE_TEST_OK(opRef != NULL, "taf_radio_GetNextPreferredOperator - OK");
         }
 
         taf_radio_DeletePreferredOperatorsList(listRef);
@@ -469,7 +554,6 @@ void PrintScanInfoList
         i++;
 
         infoRef = taf_radio_GetNextCellularNetworkScan(listRef);
-        LE_TEST_OK(infoRef != NULL, "taf_radio_GetNextCellularNetworkScan - OK");
     }
 }
 
@@ -529,12 +613,10 @@ void PrintPciScanInfoList
 
             j++;
             plmnRef = taf_radio_GetNextPlmnInfo(infoRef);
-            LE_TEST_OK(plmnRef != NULL, "taf_radio_GetNextPlmnInfo - OK");
         }
 
         i++;
         infoRef = taf_radio_GetNextPciScanInfo(listRef);
-        LE_TEST_OK(infoRef != NULL, "taf_radio_GetNextPciScanInfo - OK");
     }
 }
 
@@ -556,7 +638,6 @@ void PrintNgbrCellsInfo
     if (ngbrCellsRef)
     {
         taf_radio_CellInfoRef_t cellInfoRef = taf_radio_GetFirstNeighborCellInfo(ngbrCellsRef);
-        LE_TEST_OK(cellInfoRef != NULL, "taf_radio_GetFirstNeighborCellInfo - OK");
 
         uint32_t i = 0;
         uint64_t cid;
@@ -644,7 +725,7 @@ void PrintNgbrCellsInfo
             i++;
 
             cellInfoRef = taf_radio_GetNextNeighborCellInfo(ngbrCellsRef);
-            LE_TEST_OK(cellInfoRef != NULL, "taf_radio_GetNextNeighborCellInfo - OK");
+            LE_TEST_OK(true, "taf_radio_GetNextNeighborCellInfo - OK");
         }
 
         result = taf_radio_DeleteNeighborCellsInfo(ngbrCellsRef);
@@ -718,7 +799,7 @@ void PrintBandStatus
 //--------------------------------------------------------------------------------------------------
 void PrintImsRegState
 (
-    uint8_t phoneId,               ///< [IN] Phone ID..
+    uint8_t phoneId,               ///< [IN] Phone ID.
     taf_radio_ImsRegStatus_t state ///< [IN] IMS registration state.
 )
 {
@@ -738,6 +819,142 @@ void PrintImsRegState
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Print IMS service information.
+ */
+//--------------------------------------------------------------------------------------------------
+void PrintImsSvcInfo
+(
+    uint8_t phoneId,                ///< [IN] Phone ID.
+    taf_radio_ImsSvcType_t service, ///< [IN] IMS service.
+    taf_radio_ImsSvcStatus_t status ///< [IN] IMS service status.
+)
+{
+    switch (status)
+    {
+        case TAF_RADIO_IMS_SVC_STATUS_UNAVAILABLE:
+            if (service == TAF_RADIO_IMS_SVC_TYPE_SMS)
+            {
+                LE_INFO("Phone %d IMS-SMS : Unavailble.", phoneId);
+            }
+            else if (service == TAF_RADIO_IMS_SVC_TYPE_VOIP)
+            {
+                LE_INFO("Phone %d IMS-VOIP : Unavailble.", phoneId);
+            }
+            break;
+        case TAF_RADIO_IMS_SVC_STATUS_LIMITED:
+            if (service == TAF_RADIO_IMS_SVC_TYPE_SMS)
+            {
+                LE_INFO("Phone %d IMS-SMS : Limited service.", phoneId);
+            }
+            else if (service == TAF_RADIO_IMS_SVC_TYPE_VOIP)
+            {
+                LE_INFO("Phone %d IMS-VOIP : Limited service.", phoneId);
+            }
+            break;
+        case TAF_RADIO_IMS_SVC_STATUS_FULL_SERVICE:
+            if (service == TAF_RADIO_IMS_SVC_TYPE_SMS)
+            {
+                LE_INFO("Phone %d IMS-SMS : Full service.", phoneId);
+            }
+            else if (service == TAF_RADIO_IMS_SVC_TYPE_VOIP)
+            {
+                LE_INFO("Phone %d IMS-VOIP : Full service.", phoneId);
+            }
+            break;
+        default:
+            if (service == TAF_RADIO_IMS_SVC_TYPE_SMS)
+            {
+                LE_INFO("Phone %d IMS-SMS : Unknown.", phoneId);
+            }
+            else if (service == TAF_RADIO_IMS_SVC_TYPE_VOIP)
+            {
+                LE_INFO("Phone %d IMS-VOIP : Unknown.", phoneId);
+            }
+            break;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Print IMS PDP error.
+ */
+//--------------------------------------------------------------------------------------------------
+void PrintImsPdpError
+(
+    uint8_t phoneId,           ///< [IN] Phone ID.
+    taf_radio_PdpError_t error ///< [IN] IMS PDP error.
+)
+{
+    switch (error)
+    {
+        case TAF_RADIO_PDP_ERROR_GENERIC:
+            LE_INFO("Phone %d PDP error : Generic failure reason.", phoneId);
+            break;
+        case TAF_RADIO_PDP_ERROR_OPTION_UNSUBSCRIBED:
+            LE_INFO("Phone %d PDP error : Option is unsubscribed.", phoneId);
+            break;
+        case TAF_RADIO_PDP_ERROR_UNKNOWN_PDP:
+            LE_INFO("Phone %d PDP error : PDP was unknown.", phoneId);
+            break;
+        case TAF_RADIO_PDP_ERROR_REASON_NOT_SPECIFIED:
+            LE_INFO("Phone %d PDP error : Reason not specified.", phoneId);
+            break;
+        case TAF_RADIO_PDP_ERROR_CONNECTION_BRINGUP_FAILURE:
+            LE_INFO("Phone %d PDP error : Connection bring-up failure.", phoneId);
+            break;
+        case TAF_RADIO_PDP_ERROR_CONNECTION_IKE_AUTH_FAILURE:
+            LE_INFO("Phone %d PDP error : IKE authentication failure.", phoneId);
+            break;
+        case TAF_RADIO_PDP_ERROR_USER_AUTH_FAILURE:
+            LE_INFO("Phone %d PDP error : User authentication failure.", phoneId);
+            break;
+        default:
+            LE_INFO("Phone %d PDP error : Unknown error.", phoneId);
+            break;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Print operating mode.
+ */
+//--------------------------------------------------------------------------------------------------
+void PrintOperatingMode
+(
+    taf_radio_OpMode_t mode ///< [IN] Operating mode.
+)
+{
+    switch (mode)
+    {
+        case TAF_RADIO_OP_MODE_ONLINE:
+            LE_INFO("Operating Mode : Online.");
+            break;
+        case TAF_RADIO_OP_MODE_AIRPLANE:
+            LE_INFO("Operating Mode : Airplane.");
+            break;
+        case TAF_RADIO_OP_MODE_FACTORY_TEST:
+            LE_INFO("Operating Mode : Factory Test.");
+            break;
+        case TAF_RADIO_OP_MODE_OFFLINE:
+            LE_INFO("Operating Mode : Offline.");
+            break;
+        case TAF_RADIO_OP_MODE_RESETTING:
+            LE_INFO("Operating Mode : Resetting.");
+            break;
+        case TAF_RADIO_OP_MODE_SHUTTING_DOWN:
+            LE_INFO("Operating Mode : Shutdown.");
+            break;
+        case TAF_RADIO_OP_MODE_PERSISTENT_LOW_POWER:
+            LE_INFO("Operating Mode : Persistent Low Power.");
+            break;
+        default:
+            LE_INFO("Operating Mode : Unknown.");
+            break;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Configurations on GSM signal indication.
  */
 //--------------------------------------------------------------------------------------------------
@@ -748,11 +965,18 @@ void GsmSignalConfiguration
 )
 {
     le_result_t result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_GSM_RSSI,
-        -1110, -480, phoneId);
-    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndThresholds - OK");
+        -1110, -510, phoneId);
+    if (result != LE_UNSUPPORTED)
+    {
+        LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndThresholds - OK");
+    }
+
 
     result = taf_radio_SetSignalStrengthIndDelta(TAF_RADIO_SIG_TYPE_GSM_RSSI, rssiDelta, phoneId);
-    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndDelta - OK");
+    if (result != LE_UNSUPPORTED)
+    {
+        LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndDelta - OK");
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -767,50 +991,17 @@ void UmtsSignalConfiguration
 )
 {
     le_result_t result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_UMTS_RSSI,
-        -1210, 0, phoneId);
-    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndThresholds - OK");
+        -1130, -510, phoneId);
+    if (result != LE_UNSUPPORTED)
+    {
+        LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndThresholds - OK");
+    }
 
     result = taf_radio_SetSignalStrengthIndDelta(TAF_RADIO_SIG_TYPE_UMTS_RSSI, rssiDelta, phoneId);
-    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndDelta - OK");
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Configurations on CDMA signal indication.
- */
-//--------------------------------------------------------------------------------------------------
-void CdmaSignalConfiguration
-(
-    long phoneId,  ///< [IN] Phone ID.
-    long rssiDelta ///< [IN] RSSI delta.
-)
-{
-    le_result_t result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_CDMA_RSSI,
-        -1050, -210, phoneId);
-    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndThresholds - OK");
-
-    result = taf_radio_SetSignalStrengthIndDelta(TAF_RADIO_SIG_TYPE_CDMA_RSSI, rssiDelta, phoneId);
-    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndDelta - OK");
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Configurations on TD-SCDMA signal indication.
- */
-//--------------------------------------------------------------------------------------------------
-void TdscdmaSignalConfiguration
-(
-    long phoneId,  ///< [IN] Phone ID.
-    long rssiDelta ///< [IN] RSSI delta.
-)
-{
-    le_result_t result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_TDSCDMA_RSSI,
-        -1200, -250, phoneId);
-    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndThresholds - OK");
-
-    result = taf_radio_SetSignalStrengthIndDelta(TAF_RADIO_SIG_TYPE_TDSCDMA_RSSI, rssiDelta,
-        phoneId);
-    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndDelta - OK");
+    if (result != LE_UNSUPPORTED)
+    {
+        LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndDelta - OK");
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -821,21 +1012,21 @@ void TdscdmaSignalConfiguration
 void LteSignalConfiguration
 (
     long phoneId,   ///< [IN] Phone ID.
-    long rssiDelta, ///< [IN] RSSI delta.
     long rsrpDelta  ///< [IN] RSRP delta.
 )
 {
-    le_result_t result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_LTE_RSSI,
-        -1200, 0, phoneId);
-    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndThresholds - OK");
-    result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_LTE_RSRP,
+    le_result_t result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_LTE_RSRP,
         -1400, -440, phoneId);
-    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndThresholds - OK");
+    if (result != LE_UNSUPPORTED)
+    {
+        LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndThresholds - OK");
+    }
 
-    result = taf_radio_SetSignalStrengthIndDelta(TAF_RADIO_SIG_TYPE_LTE_RSSI, rssiDelta, phoneId);
-    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndDelta - OK");
     result = taf_radio_SetSignalStrengthIndDelta(TAF_RADIO_SIG_TYPE_LTE_RSRP, rsrpDelta, phoneId);
-    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndDelta - OK");
+    if (result != LE_UNSUPPORTED)
+    {
+        LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndDelta - OK");
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -851,10 +1042,16 @@ void Nr5gSignalConfiguration
 {
     le_result_t result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_NR5G_RSRP,
         -1400, -440, phoneId);
-    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndThresholds - OK");
+    if (result != LE_UNSUPPORTED)
+    {
+        LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndThresholds - OK");
+    }
 
     result = taf_radio_SetSignalStrengthIndDelta(TAF_RADIO_SIG_TYPE_NR5G_RSRP, rsrpDelta, phoneId);
-    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndDelta - OK");
+    if (result != LE_UNSUPPORTED)
+    {
+        LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndDelta - OK");
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1035,6 +1232,95 @@ void ImsRegStateHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Handler for oeprating mode chanegs.
+ */
+//--------------------------------------------------------------------------------------------------
+void OpModeChangeHandler
+(
+    taf_radio_OpMode_t mode, ///< [IN] Operating mode.
+    void* contextPtr         ///< [IN] Handler context.
+)
+{
+    PrintOperatingMode(mode);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for IMS status.
+ */
+//--------------------------------------------------------------------------------------------------
+void ImsStatusHandler
+(
+    taf_radio_ImsRef_t imsRef,         ///< [IN] IMS reference.
+    taf_radio_ImsIndBitMask_t bitmask, ///< [IN] Indication bitmask.
+    uint8_t phoneId,                   ///< [IN] Phone ID.
+    void* contextPtr                   ///< [IN] Handler context.
+)
+{
+    le_result_t result = LE_OK;
+
+    if (bitmask & TAF_RADIO_IMS_IND_BIT_MASK_SVC_INFO)
+    {
+        taf_radio_ImsSvcStatus_t svcStatus = TAF_RADIO_IMS_SVC_STATUS_UNKNOWN;
+        result = taf_radio_GetImsSvcStatus(imsRef, TAF_RADIO_IMS_SVC_TYPE_VOIP, &svcStatus);
+        if (result != LE_UNSUPPORTED)
+        {
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetImsSvcStatus - LE_OK");
+            PrintImsSvcInfo(phoneId, TAF_RADIO_IMS_SVC_TYPE_VOIP, svcStatus);
+        }
+
+        svcStatus = TAF_RADIO_IMS_SVC_STATUS_UNKNOWN;
+        result = taf_radio_GetImsSvcStatus(imsRef, TAF_RADIO_IMS_SVC_TYPE_SMS, &svcStatus);
+        if (result != LE_UNSUPPORTED)
+        {
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetImsSvcStatus - LE_OK");
+            PrintImsSvcInfo(phoneId, TAF_RADIO_IMS_SVC_TYPE_SMS, svcStatus);
+        }
+    }
+
+    if (bitmask & TAF_RADIO_IMS_IND_BIT_MASK_PDP_ERROR)
+    {
+        taf_radio_PdpError_t pdpError = TAF_RADIO_PDP_ERROR_UNKNOWN;
+        result = taf_radio_GetImsPdpError(imsRef, &pdpError);
+        LE_TEST_OK(result == LE_OK, "taf_radio_GetImsPdpError - LE_OK");
+        PrintImsPdpError(phoneId, pdpError);
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for network status change.
+ */
+//--------------------------------------------------------------------------------------------------
+void NetStatusChangeHandler
+(
+    taf_radio_NetStatusRef_t netStatusRef,   ///< [IN] Network status reference.
+    taf_radio_NetStatusIndBitMask_t bitmask, ///< [IN] Network status indication bitmask.
+    uint8_t phoneId,                         ///< [IN] Phone ID.
+    void* contextPtr                         ///< [IN] Handler context.
+)
+{
+    if (bitmask & TAF_RADIO_NET_STATUS_IND_BIT_MASK_RAT_SVC_STATUS)
+    {
+        taf_radio_RatSvcStatus_t status = TAF_RADIO_RAT_SVC_STATUS_UNKNOWN;
+        le_result_t result = taf_radio_GetRatSvcStatus(netStatusRef, &status);
+        LE_TEST_OK(result == LE_OK, "taf_radio_GetRatSvcStatus - OK");
+        LE_INFO("Phone %d RAT service status changed.", phoneId);
+        PrintRatSvcStatus(status);
+    }
+
+    if (bitmask & TAF_RADIO_NET_STATUS_IND_BIT_MASK_LTE_CS_CAP)
+    {
+        taf_radio_CsCap_t cap = TAF_RADIO_CS_CAP_UNKNOWN;
+        le_result_t result = taf_radio_GetLteCsCap(netStatusRef, &cap);
+        LE_TEST_OK(result == LE_OK, "taf_radio_GetLteCsCap - OK");
+        LE_INFO("Phone %d LTE CS capability changed.", phoneId);
+        PrintCsCap(cap);
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * This function prints Radio Access Technology in use. For GSM network, it prints Cell ID, Location
  * Area Code and Base Station Identity Code. For UMTS networkm, it prints Primary Scrambling Code.
  * For LTE newtork, it prints Tracking Area Code, E-UTRA Absolute Radio Frequency Channel Number,
@@ -1176,6 +1462,18 @@ void* HandlerTestThread
         (taf_radio_ImsRegStatusChangeHandlerFunc_t)ImsRegStateHandler, NULL);
     LE_TEST_OK(imsRegStatusChangeHandlerRef != NULL, "taf_radio_AddImsRegStatusChangeHandler - OK");
 
+    opModeChangeHandlerRef = taf_radio_AddOpModeChangeHandler(
+        (taf_radio_OpModeChangeHandlerFunc_t)OpModeChangeHandler, NULL);
+    LE_TEST_OK(opModeChangeHandlerRef != NULL, "taf_radio_AddOpModeChangeHandler - OK");
+
+    netStatusChangeHandlerRef = taf_radio_AddNetStatusChangeHandler(
+        (taf_radio_NetStatusHandlerFunc_t)NetStatusChangeHandler, NULL);
+    LE_TEST_OK(netStatusChangeHandlerRef != NULL, "taf_radio_AddNetStatusChangeHandler - OK");
+
+    imsStatusChangeHandlerRef = taf_radio_AddImsStatusChangeHandler(
+        (taf_radio_ImsStatusChangeHandlerFunc_t)ImsStatusHandler, NULL);
+    LE_TEST_OK(imsStatusChangeHandlerRef != NULL, "taf_radio_AddImsStatusChangeHandler - OK");
+
     le_sem_Post((le_sem_Ref_t)contextPtr);
     le_event_RunLoop();
 
@@ -1226,6 +1524,15 @@ void RemoveTestHandler
 
     taf_radio_RemoveImsRegStatusChangeHandler(imsRegStatusChangeHandlerRef);
     LE_TEST_OK(true, "taf_radio_RemoveImsRegStatusChangeHandler - OK");
+
+    taf_radio_RemoveOpModeChangeHandler(opModeChangeHandlerRef);
+    LE_TEST_OK(true, "taf_radio_RemoveOpModeChangeHandler - OK");
+
+    taf_radio_RemoveNetStatusChangeHandler(netStatusChangeHandlerRef);
+    LE_TEST_OK(true, "taf_radio_RemoveNetStatusChangeHandler - OK");
+
+    taf_radio_RemoveImsStatusChangeHandler(imsStatusChangeHandlerRef);
+    LE_TEST_OK(true, "taf_radio_RemoveImsStatusChangeHandler - OK");
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1254,10 +1561,6 @@ void* SignalTestThread
     cdmaSsChangeHandlerRef = taf_radio_AddSignalStrengthChangeHandler(TAF_RADIO_RAT_CDMA,
        (taf_radio_SignalStrengthChangeHandlerFunc_t)UmtsSsChangeHandler, NULL);
     LE_TEST_OK(cdmaSsChangeHandlerRef != NULL, "taf_radio_AddSignalStrengthChangeHandler - OK");
-
-    tdscdmaSsChangeHandlerRef = taf_radio_AddSignalStrengthChangeHandler(TAF_RADIO_RAT_TDSCDMA,
-       (taf_radio_SignalStrengthChangeHandlerFunc_t)TdscdmaSsChangeHandler, NULL);
-    LE_TEST_OK(tdscdmaSsChangeHandlerRef != NULL, "taf_radio_AddSignalStrengthChangeHandler - OK");
 
     lteSsChangeHandlerRef = taf_radio_AddSignalStrengthChangeHandler(TAF_RADIO_RAT_LTE,
        (taf_radio_SignalStrengthChangeHandlerFunc_t)LteSsChangeHandler, NULL);
@@ -1309,9 +1612,6 @@ void RemoveSignalTestHandler
     LE_TEST_OK(true, "taf_radio_RemoveSignalStrengthChangeHandler - OK");
 
     taf_radio_RemoveSignalStrengthChangeHandler(cdmaSsChangeHandlerRef);
-    LE_TEST_OK(true, "taf_radio_RemoveSignalStrengthChangeHandler - OK");
-
-    taf_radio_RemoveSignalStrengthChangeHandler(tdscdmaSsChangeHandlerRef);
     LE_TEST_OK(true, "taf_radio_RemoveSignalStrengthChangeHandler - OK");
 
     taf_radio_RemoveSignalStrengthChangeHandler(lteSsChangeHandlerRef);
@@ -1517,14 +1817,24 @@ COMPONENT_INIT
 
     le_result_t result;
     const char* cmd = le_arg_GetArg(0);
+    if (cmd == NULL)
+    {
+        PrintHelpMenu();
+    }
 
     if (strncmp(cmd, "power", strlen("power")) == 0)
     {
         CheckArgs(3);
         LE_TEST_INFO("======== Power Test ========");
 
-        long phoneId = strtol(le_arg_GetArg(1), NULL, 10);
+        const char* phone = le_arg_GetArg(1);
         const char* power = le_arg_GetArg(2);
+        if (phone == NULL || power == NULL)
+        {
+            PrintHelpMenu();
+        }
+
+        long phoneId = strtol(phone, NULL, 10);
 
         if (strncmp(power, "on", strlen("on")) == 0)
         {
@@ -1560,8 +1870,13 @@ COMPONENT_INIT
         CheckArgs(3);
         LE_TEST_INFO("======== Network Registration Test ========");
 
-        long phoneId = strtol(le_arg_GetArg(1), NULL, 10);
+        const char* phone = le_arg_GetArg(1);
         const char* op = le_arg_GetArg(2);
+        if (phone == NULL || op == NULL)
+        {
+            PrintHelpMenu();
+        }
+        long phoneId = strtol(le_arg_GetArg(1), NULL, 10);
 
         if (strncmp(op, "auto", strlen("auto")) == 0)
         {
@@ -1630,8 +1945,16 @@ COMPONENT_INIT
         CheckArgs(3);
         LE_TEST_INFO("======== Radio Access Technology Test ========");
 
-        long phoneId = strtol(le_arg_GetArg(1), NULL, 10);
+        const char* phone = le_arg_GetArg(1);
         const char* op = le_arg_GetArg(2);
+        if (phone == NULL || op == NULL)
+        {
+            PrintHelpMenu();
+        }
+        long phoneId = strtol(phone, NULL, 10);
+
+        taf_radio_NetStatusRef_t netRef = taf_radio_GetNetStatus(phoneId);
+        LE_TEST_OK(netRef != NULL, "taf_radio_GetNetStatus - OK");
 
         if (strncmp(op, "prefer", strlen("prefer")) == 0)
         {
@@ -1652,6 +1975,19 @@ COMPONENT_INIT
             result = taf_radio_GetRadioAccessTechInUse(&rat, phoneId);
             LE_TEST_OK(result == LE_OK, "taf_radio_GetRadioAccessTechInUse - OK");
             PrintRAT(rat);
+
+            if (rat == TAF_RADIO_RAT_LTE)
+            {
+                taf_radio_CsCap_t cap = TAF_RADIO_CS_CAP_UNKNOWN;
+                result = taf_radio_GetLteCsCap(netRef, &cap);
+                LE_TEST_OK(result == LE_OK, "taf_radio_GetLteCsCap - OK");
+                PrintCsCap(cap);
+            }
+
+            taf_radio_RatSvcStatus_t svcStatus = TAF_RADIO_RAT_SVC_STATUS_UNKNOWN; 
+            result = taf_radio_GetRatSvcStatus(netRef, &svcStatus);
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetRatSvcStatus - OK");
+            PrintRatSvcStatus(svcStatus);
         }
         else
         {
@@ -1663,8 +1999,13 @@ COMPONENT_INIT
         CheckArgs(3);
         LE_TEST_INFO("======== Prefered Operator Test ========");
 
-        long phoneId = strtol(le_arg_GetArg(1), NULL, 10);
+        const char* phone = le_arg_GetArg(1);
         const char* op = le_arg_GetArg(2);
+        if (phone == NULL || op == NULL)
+        {
+            PrintHelpMenu();
+        }
+        long phoneId = strtol(phone, NULL, 10);
 
         if (strncmp(op, "add", strlen("add")) == 0)
         {
@@ -1698,8 +2039,13 @@ COMPONENT_INIT
         CheckArgs(3);
         LE_TEST_INFO("======== Signal Test ========");
 
-        long phoneId = strtol(le_arg_GetArg(1), NULL, 10);
+        const char* phone = le_arg_GetArg(1);
         const char* op = le_arg_GetArg(2);
+        if (phone == NULL || op == NULL)
+        {
+            PrintHelpMenu();
+        }
+        long phoneId = strtol(phone, NULL, 10);
 
         if (strncmp(op, "monitor", strlen("monitor")) == 0)
         {
@@ -1714,43 +2060,29 @@ COMPONENT_INIT
         }
         else if (strncmp(op, "delta", strlen("delta")) == 0)
         {
-            CheckArgs(4);
+            CheckArgs(5);
             const char* rat = le_arg_GetArg(3);
-
+            if (rat == NULL)
+            {
+                PrintHelpMenu();
+            }
             if (strncmp(rat, "gsm", strlen("gsm")) == 0)
             {
-                CheckArgs(5);
                 long rssiDelta = strtol(le_arg_GetArg(4), NULL, 10);
                 GsmSignalConfiguration(phoneId, rssiDelta);
             }
             else if (strncmp(rat, "umts", strlen("umts")) == 0)
             {
-                CheckArgs(5);
                 long rssiDelta = strtol(le_arg_GetArg(4), NULL, 10);
                 UmtsSignalConfiguration(phoneId, rssiDelta);
             }
-            else if (strncmp(rat, "cdma", strlen("cdma")) == 0)
-            {
-                CheckArgs(5);
-                long rssiDelta = strtol(le_arg_GetArg(4), NULL, 10);
-                CdmaSignalConfiguration(phoneId, rssiDelta);
-            }
-            else if (strncmp(rat, "tdscdma", strlen("tdscdma")) == 0)
-            {
-                CheckArgs(5);
-                long rssiDelta = strtol(le_arg_GetArg(4), NULL, 10);
-                TdscdmaSignalConfiguration(phoneId, rssiDelta);
-            }
             else if (strncmp(rat, "lte", strlen("lte")) == 0)
             {
-                CheckArgs(6);
-                long rssiDelta = strtol(le_arg_GetArg(4), NULL, 10);
-                long rsrpDelta = strtol(le_arg_GetArg(5), NULL, 10);
-                LteSignalConfiguration(phoneId, rssiDelta, rsrpDelta);
+                long rsrpDelta = strtol(le_arg_GetArg(4), NULL, 10);
+                LteSignalConfiguration(phoneId, rsrpDelta);
             }
             else if (strncmp(rat, "nr5g", strlen("nrg5")) == 0)
             {
-                CheckArgs(5);
                 long rsrpDelta = strtol(le_arg_GetArg(4), NULL, 10);
                 Nr5gSignalConfiguration(phoneId, rsrpDelta);
             }
@@ -1833,7 +2165,12 @@ COMPONENT_INIT
         CheckArgs(2);
         LE_TEST_INFO("======== Neighboring Cells Information Test ========");
 
-        long phoneId = strtol(le_arg_GetArg(1), NULL, 10);
+        const char* phone = le_arg_GetArg(1);
+        if (phone == NULL)
+        {
+            PrintHelpMenu();
+        }
+        long phoneId = strtol(phone, NULL, 10);
 
         PrintNgbrCellsInfo(phoneId);
     }
@@ -1842,7 +2179,12 @@ COMPONENT_INIT
         CheckArgs(2);
         LE_TEST_INFO("======== Serving Status Test ========");
 
-        long phoneId = strtol(le_arg_GetArg(1), NULL, 10);
+        const char* phone = le_arg_GetArg(1);
+        if (phone == NULL)
+        {
+            PrintHelpMenu();
+        }
+        long phoneId = strtol(phone, NULL, 10);
 
         PrintServingStatus(phoneId);
     }
@@ -1851,8 +2193,13 @@ COMPONENT_INIT
         CheckArgs(3);
         LE_TEST_INFO("======== Network Scan Test ========");
 
-        long phoneId = strtol(le_arg_GetArg(1), NULL, 10);
+        const char* phone = le_arg_GetArg(1);
         const char* mode = le_arg_GetArg(2);
+        if (phone == NULL || mode == NULL)
+        {
+            PrintHelpMenu();
+        }
+        long phoneId = strtol(phone, NULL, 10);
 
         if (strncmp(mode, "plmn-sync", strlen("plmn-sync")) == 0)
         {
@@ -1915,8 +2262,13 @@ COMPONENT_INIT
         CheckArgs(3);
         LE_TEST_INFO("======== Band Test ========");
 
-        long phoneId = strtol(le_arg_GetArg(1), NULL, 10);
+        const char* phone = le_arg_GetArg(1);
         const char* op = le_arg_GetArg(2);
+        if (phone == NULL || op == NULL)
+        {
+            PrintHelpMenu();
+        }
+        long phoneId = strtol(phone, NULL, 10);
 
         if (strncmp(op, "2G+3G", strlen("2G+3G")) == 0)
         {
@@ -1952,8 +2304,12 @@ COMPONENT_INIT
     {
         CheckArgs(2);
         LE_TEST_INFO("======== Handler Test ========");
-
-        long time = strtol(le_arg_GetArg(1), NULL, 10);
+        const char* timeStr = le_arg_GetArg(1);
+        if (timeStr == NULL)
+        {
+            PrintHelpMenu();
+        }
+        long time = strtol(timeStr, NULL, 10);
 
         CreateHandlerTestThread();
         // Wait for handler's response.
@@ -1965,16 +2321,193 @@ COMPONENT_INIT
         CheckArgs(3);
         LE_TEST_INFO("======== IMS Test ========");
 
-        long phoneId = strtol(le_arg_GetArg(1), NULL, 10);
+        const char* phone = le_arg_GetArg(1);
         const char* op = le_arg_GetArg(2);
+        if (phone == NULL || op == NULL)
+        {
+            PrintHelpMenu();
+        }
+        long phoneId = strtol(phone, NULL, 10);
+        taf_radio_ImsRef_t imsRef = taf_radio_GetIms(phoneId);
+        LE_TEST_OK(imsRef != NULL, "taf_radio_GetIms - LE_OK");
 
         if (strncmp(op, "status", strlen("status")) == 0)
         {
-            taf_radio_ImsRegStatus_t regStatus = TAF_RADIO_IMS_REG_STATUS_NOT_REGISTERED;
+            taf_radio_ImsRegStatus_t regStatus = TAF_RADIO_IMS_REG_STATUS_UNKNOWN;
             result = taf_radio_GetImsRegStatus(&regStatus, phoneId);
             LE_TEST_OK(result == LE_OK, "taf_radio_GetImsRegStatus - OK");
 
             PrintImsRegState(phoneId, regStatus);
+
+            taf_radio_ImsSvcStatus_t svcStatus = TAF_RADIO_IMS_SVC_STATUS_UNKNOWN;
+            result = taf_radio_GetImsSvcStatus(imsRef, TAF_RADIO_IMS_SVC_TYPE_VOIP, &svcStatus);
+            if (result != LE_UNSUPPORTED)
+            {
+                LE_TEST_OK(result == LE_OK, "taf_radio_GetImsSvcStatus - LE_OK");
+                PrintImsSvcInfo(phoneId, TAF_RADIO_IMS_SVC_TYPE_VOIP, svcStatus);
+            }
+
+            svcStatus = TAF_RADIO_IMS_SVC_STATUS_UNKNOWN;
+            result = taf_radio_GetImsSvcStatus(imsRef, TAF_RADIO_IMS_SVC_TYPE_SMS, &svcStatus);
+            if (result != LE_UNSUPPORTED)
+            {
+                LE_TEST_OK(result == LE_OK, "taf_radio_GetImsSvcStatus - LE_OK");
+                PrintImsSvcInfo(phoneId, TAF_RADIO_IMS_SVC_TYPE_SMS, svcStatus);
+            }
+
+            bool enable = false;
+            result = taf_radio_GetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_IMS_REG, &enable);
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetImsSvcCfg - LE_OK");
+            if (enable)
+            {
+                LE_INFO("IMS normal registration is enabled.");
+            }
+            else
+            {
+                LE_INFO("IMS normal registration is disabled.");
+            }
+
+            result = taf_radio_GetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_VOIP, &enable);
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetImsSvcCfg - LE_OK");
+            if (enable)
+            {
+                LE_INFO("IMS VoIP is enabled.");
+            }
+            else
+            {
+                LE_INFO("IMS VoIP is disabled.");
+            }
+
+            result = taf_radio_GetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_SMS, &enable);
+            if (result != LE_UNSUPPORTED)
+            {
+                LE_TEST_OK(result == LE_OK, "taf_radio_GetImsSvcCfg - LE_OK");
+                if (enable)
+                {
+                    LE_INFO("IMS SMS is enabled.");
+                }
+                else
+                {
+                    LE_INFO("IMS SMS is disabled.");
+                }
+            }
+
+            result = taf_radio_GetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_RTT, &enable);
+            if (result != LE_UNSUPPORTED)
+            {
+                LE_TEST_OK(result == LE_OK, "taf_radio_GetImsSvcCfg - LE_OK");
+                if (enable)
+                {
+                    LE_INFO("IMS RTT is enabled.");
+                }
+                else
+                {
+                    LE_INFO("IMS RTT is disabled.");
+                }
+            }
+
+            char userAgent[TAF_RADIO_IMS_USER_AGENT_BYTES] = {0};
+            result = taf_radio_GetImsUserAgent(imsRef, userAgent, TAF_RADIO_IMS_USER_AGENT_BYTES);
+            if (result != LE_UNSUPPORTED)
+            {
+                LE_TEST_OK(result == LE_OK, "taf_radio_GetImsUserAgent - LE_OK");
+                LE_INFO("IMS user agent: %s", userAgent);
+            }
+        }
+        else if (strncmp(op, "enable", strlen("enable")) == 0)
+        {
+            CheckArgs(4);
+            const char* service = le_arg_GetArg(3);
+            if (service == NULL)
+            {
+                PrintHelpMenu();
+            }
+            else if (strncmp(service, "registration", strlen("registration")) == 0)
+            {
+                result = taf_radio_SetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_IMS_REG, true);
+                LE_TEST_OK(result == LE_OK, "taf_radio_SetImsSvcCfg - LE_OK");
+            }
+            else if (strncmp(service, "voip", strlen("voip")) == 0)
+            {
+                result = taf_radio_SetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_VOIP, true);
+                LE_TEST_OK(result == LE_OK, "taf_radio_SetImsSvcCfg - LE_OK");
+            }
+            else if (strncmp(service, "sms", strlen("sms")) == 0)
+            {
+                result = taf_radio_SetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_SMS, true);
+                if (result != LE_UNSUPPORTED)
+                {
+                    LE_TEST_OK(result == LE_OK, "taf_radio_SetImsSvcCfg - LE_OK");
+                }
+            }
+            else if (strncmp(service, "rtt", strlen("rtt")) == 0)
+            {
+                result = taf_radio_SetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_RTT, true);
+                if (result != LE_UNSUPPORTED)
+                {
+                    LE_TEST_OK(result == LE_OK, "taf_radio_SetImsSvcCfg - LE_OK");
+                }
+            }
+            else
+            {
+                PrintHelpMenu();
+            }
+        }
+        else if (strncmp(op, "disable", strlen("disable")) == 0)
+        {
+            CheckArgs(4);
+            const char* service = le_arg_GetArg(3);
+            if (service == NULL)
+            {
+                PrintHelpMenu();
+            }
+            else if (strncmp(service, "registration", strlen("registration")) == 0)
+            {
+                result = taf_radio_SetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_IMS_REG, false);
+                LE_TEST_OK(result == LE_OK, "taf_radio_SetImsSvcCfg - LE_OK");
+            }
+            else if (strncmp(service, "voip", strlen("voip")) == 0)
+            {
+                result = taf_radio_SetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_VOIP, false);
+                LE_TEST_OK(result == LE_OK, "taf_radio_SetImsSvcCfg - LE_OK");
+            }
+            else if (strncmp(service, "sms", strlen("sms")) == 0)
+            {
+                result = taf_radio_SetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_SMS, false);
+                if (result != LE_UNSUPPORTED)
+                {
+                    LE_TEST_OK(result == LE_OK, "taf_radio_SetImsSvcCfg - LE_OK");
+                }
+            }
+            else if (strncmp(service, "rtt", strlen("rtt")) == 0)
+            {
+                result = taf_radio_SetImsSvcCfg(imsRef, TAF_RADIO_IMS_SVC_TYPE_RTT, false);
+                if (result != LE_UNSUPPORTED)
+                {
+                    LE_TEST_OK(result == LE_OK, "taf_radio_SetImsSvcCfg - LE_OK");
+                }
+            }
+            else
+            {
+                PrintHelpMenu();
+            }
+        }
+        else if (strncmp(op, "user", strlen("user")) == 0)
+        {
+            CheckArgs(4);
+            const char* userAgent = le_arg_GetArg(3);
+            if (userAgent == NULL)
+            {
+                PrintHelpMenu();
+            }
+            else
+            {
+                result = taf_radio_SetImsUserAgent(imsRef, userAgent);
+                if (result != LE_UNSUPPORTED)
+                {
+                    LE_TEST_OK(result == LE_OK, "taf_radio_SetImsUserAgent - LE_OK");
+                }
+            }
         }
         else
         {

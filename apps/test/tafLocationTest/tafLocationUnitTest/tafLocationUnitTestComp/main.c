@@ -39,6 +39,8 @@ static le_mem_PoolRef_t LevArmFramePool = NULL;
 static le_sem_Ref_t PositionHandlerSem;
 static taf_gnss_PositionHandlerRef_t PositionHandlerRef = NULL;
 static taf_pos_MovementHandlerRef_t  SamplePositionHandlerRef = NULL;
+static taf_gnss_NmeaHandlerRef_t NmeaHandlerRef = NULL;
+static taf_gnss_CapabilityChangeHandlerRef_t CapabilityChangeHandlerRef = NULL;
 
 
 void PrintGnssSignalType(uint32_t signalTypeMask) {
@@ -1703,6 +1705,205 @@ static void TestTafGnssPositionHandler
     LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting GNSS fixes");
     LE_TEST_OK(taf_gnss_Stop() == LE_OK, "taf_gnss_Stop-LE_OK");
 }
+
+
+void DisplayNmea(const char nmeaMask[TAF_GNSS_NMEA_STRING_MAX]) {
+    LE_INFO( "**** DisplayNmea NMEA handler string copied: %s****",nmeaMask);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler function for NMEA notifications.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+static void NmeaHandlerFunction
+(
+    uint64_t timestamp,
+    const char nmeaInfo[TAF_GNSS_NMEA_STRING_MAX],
+    void* contextPtr
+)
+{
+    LE_INFO("\n************* NMEA Information ***************\n");
+    LE_INFO("Timestamp                    : %"PRIu64" \n", timestamp);
+    DisplayNmea(nmeaInfo);
+    LE_INFO("**********************************************\n");
+}
+
+static void* NmeaThread
+(
+    void* context
+)
+{
+    LE_TEST_INFO("======== Nmea Handler thread  ========");
+    taf_gnss_ConnectService();
+    NmeaHandlerRef = taf_gnss_AddNmeaHandler(NmeaHandlerFunction, NULL);
+
+    //137.Nmea Handler
+    LE_TEST_OK((NmeaHandlerRef != NULL),
+            "Confirm Nmea handler was added successfully");
+
+    LE_TEST_INFO("======== Nmea Handler thread before le_event_RunLoop ========");
+    le_event_RunLoop();
+    LE_TEST_INFO("======== Nmea Handler thread After le_event_RunLoop ========");
+    return NULL;
+}
+
+static void TestTafGnssNmeaHandler
+(
+    void
+)
+{
+    le_thread_Ref_t nmeaThreadRef;
+    LE_INFO("TestTafGnssNmeaHandler");
+
+    LE_TEST_OK(((taf_gnss_Start()) == LE_OK), "taf_gnss_Start-LE_OK");
+    LE_TEST_INFO("Wait for 5 seconds");
+    le_thread_Sleep(5);
+
+    // Add Nmea Handler Test
+    nmeaThreadRef = le_thread_Create("NmeaThreadTest",NmeaThread,NULL);
+    LE_INFO("TestTafGnssNmeaHandler nmeaThreadRef :%p",nmeaThreadRef);
+    le_thread_Start(nmeaThreadRef);
+    LE_INFO("TestTafGnssNmeaHandler NmeaHandlerRef :%p",NmeaHandlerRef);
+    LE_TEST_INFO("Wait for 3 seconds to trigger NmeaHandlerfunction");
+    le_thread_Sleep(3);
+    taf_gnss_RemoveNmeaHandler(NmeaHandlerRef);
+
+    LE_INFO("TestTafGnssNmeaHandler->cancel the thread");
+    le_thread_Cancel(nmeaThreadRef);
+
+    //156.Stop
+    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting GNSS fixes");
+    LE_TEST_OK(taf_gnss_Stop() == LE_OK, "taf_gnss_Stop-LE_OK");
+}
+
+void DisplayCapabilities(taf_gnss_LocCapabilityType_t capabilityMask) {
+  LE_INFO("\n************* Capabilities Information *************\n");
+  LE_INFO("The location capabilities bit mask: 0x%08X\n", capabilityMask);
+  if (capabilityMask & TAF_GNSS_TIME_BASED_TRACKING) {
+    LE_INFO("Time based tracking\n");
+  }
+  if (capabilityMask & TAF_GNSS_DISTANCE_BASED_TRACKING) {
+    LE_INFO("Distance based tracking\n");
+  }
+  if (capabilityMask & TAF_GNSS_GNSS_MEASUREMENTS) {
+    LE_INFO("GNSS Measurement\n");
+  }
+  if (capabilityMask & TAF_GNSS_CONSTELLATION_ENABLEMENT) {
+    LE_INFO("Constellation enablement\n");
+  }
+  if (capabilityMask & TAF_GNSS_CARRIER_PHASE) {
+    LE_INFO("Carrier phase\n");
+  }
+  if (capabilityMask & TAF_GNSS_QWES_GNSS_SINGLE_FREQUENCY) {
+    LE_INFO("QWES GNSS single frequency\n");
+  }
+  if (capabilityMask & TAF_GNSS_QWES_GNSS_MULTI_FREQUENCY) {
+    LE_INFO("QWES GNSS multi frequency\n");
+  }
+  if (capabilityMask & TAF_GNSS_QWES_VPE) {
+    LE_INFO("QWES VPE\n");
+  }
+  if (capabilityMask & TAF_GNSS_QWES_CV2X_LOCATION_BASIC) {
+    LE_INFO("QWES CV2X location basic\n");
+  }
+  if (capabilityMask & TAF_GNSS_QWES_CV2X_LOCATION_PREMIUM) {
+    LE_INFO("QWES CV2X location premium\n");
+  }
+  if (capabilityMask & TAF_GNSS_QWES_PPE) {
+    LE_INFO("QWES PPE\n");
+  }
+  if (capabilityMask & TAF_GNSS_QWES_QDR2) {
+    LE_INFO("QWES QDR2\n");
+  }
+  if (capabilityMask & TAF_GNSS_QWES_QDR3) {
+    LE_INFO("QWES QDR3\n");
+  }
+  if (capabilityMask & TAF_GNSS_TIME_BASED_BATCHING) {
+    LE_INFO("TIME_BASED_BATCHING\n");
+  }
+  if (capabilityMask & TAF_GNSS_DISTANCE_BASED_BATCHING) {
+    LE_INFO("DISTANCE_BASED_BATCHING\n");
+  }
+  if (capabilityMask & TAF_GNSS_GEOFENCE) {
+    LE_INFO("GEOFENCE\n");
+  }
+  if (capabilityMask & TAF_GNSS_OUTDOOR_TRIP_BATCHING) {
+    LE_INFO("OUTDOOR_TRIP_BATCHING\n");
+  }
+  if (capabilityMask & TAF_GNSS_SV_POLYNOMIAL) {
+    LE_INFO("SV_POLYNOMIAL\n");
+  }
+  if (capabilityMask & TAF_GNSS_NLOS_ML20) {
+    LE_INFO("NLOS_ML20\n");
+  }
+  LE_INFO("****************************************************\n");
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler function for location capability notifications.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+static void CapabilityHandlerFunction
+(
+    taf_gnss_LocCapabilityType_t locCapability,
+    void* contextPtr
+)
+{
+    DisplayCapabilities(locCapability);
+}
+
+static void* CapabilityChangeThread
+(
+    void* context
+)
+{
+    LE_TEST_INFO("======== CapabilityChange Handler thread  ========");
+    taf_gnss_ConnectService();
+    CapabilityChangeHandlerRef = taf_gnss_AddCapabilityChangeHandler(CapabilityHandlerFunction, NULL);
+
+    //137.CapabilityChange Handler
+    LE_TEST_OK((CapabilityChangeHandlerRef != NULL),
+            "Confirm CapabilityChange handler was added successfully");
+
+    LE_TEST_INFO("======== CapabilityChange Handler thread before le_event_RunLoop ========");
+    le_event_RunLoop();
+    LE_TEST_INFO("======== CapabilityChange Handler thread After le_event_RunLoop ========");
+    return NULL;
+}
+
+static void TestTafGnssCapabilityChangeHandler
+(
+    void
+)
+{
+    le_thread_Ref_t capabilityChangeThreadRef;
+    LE_INFO("TestTafGnssCapabilityChangeHandler");
+
+    LE_TEST_OK(((taf_gnss_Start()) == LE_OK), "taf_gnss_Start-LE_OK");
+    LE_TEST_INFO("Wait for 5 seconds");
+    le_thread_Sleep(5);
+
+    // Add CapabilityChange Handler Test
+    capabilityChangeThreadRef = le_thread_Create("CapabilityChangeThreadTest",CapabilityChangeThread,NULL);
+    LE_INFO("TestTafGnssCapabilityChangeHandler capabilityChangeThreadRef :%p",capabilityChangeThreadRef);
+    le_thread_Start(capabilityChangeThreadRef);
+    LE_INFO("TestTafGnssCapabilityChangeHandler CapabilityChangeHandlerRef :%p",CapabilityChangeHandlerRef);
+    LE_TEST_INFO("Wait for 3 seconds to trigger CapabilityChangeHandlerfunction");
+    le_thread_Sleep(3);
+    taf_gnss_RemoveCapabilityChangeHandler(CapabilityChangeHandlerRef);
+
+    LE_INFO("TestTafGnssCapabilityChangeHandler->cancel the thread");
+    le_thread_Cancel(capabilityChangeThreadRef);
+
+    //156.Stop
+    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting GNSS fixes");
+    LE_TEST_OK(taf_gnss_Stop() == LE_OK, "taf_gnss_Stop-LE_OK");
+}
+
 static void TestTafGnssStart
 (
     void
@@ -3630,6 +3831,112 @@ static void TestTafGnssMinElevation
     le_thread_Sleep(5);
 }
 
+static void TestTafSetMinGpsWeek
+(
+    void
+)
+{
+    uint16_t minGpsWeek = 1;
+
+    le_result_t result = taf_gnss_SetMinGpsWeek(minGpsWeek);
+
+    switch (result)
+    {
+        case LE_OK:
+            LE_TEST_INFO("Success!\n");
+            break;
+        case LE_FAULT:
+            LE_TEST_INFO("Failed to set the minimum GPS week\n");
+            break;
+        case LE_NOT_PERMITTED:
+            LE_TEST_INFO("GNSS device is not in \"Ready\" state\n");
+            break;
+        default:
+            LE_TEST_INFO("Invalid status\n");
+            break;
+    }
+}
+
+static void TestTafGetMinGpsWeek
+(
+    void
+)
+{
+    uint16_t  minGpsWeek;
+    le_result_t result = taf_gnss_GetMinGpsWeek(&minGpsWeek);
+
+    switch (result)
+    {
+        case LE_OK:
+            LE_TEST_INFO("Minimum GPS week: %d\n", minGpsWeek);
+            break;
+        case LE_FAULT:
+            LE_TEST_INFO("Failed to get the minimum GPS week. See logs for details\n");
+            break;
+        case LE_NOT_PERMITTED:
+            LE_TEST_INFO("GNSS device is not in \"Ready\" state\n");
+            break;
+        default:
+            LE_TEST_INFO("Invalid status\n");
+            break;
+    }
+}
+
+static void TestTafGetCapabilities
+(
+    void
+)
+{
+    uint64_t  locCapability;
+    le_result_t result = taf_gnss_GetCapabilities(&locCapability);
+
+    switch (result)
+    {
+        case LE_OK:
+            LE_TEST_INFO("The location capabilities: %lu\n", locCapability);
+            break;
+        case LE_FAULT:
+            LE_TEST_INFO("Failed to get the location capabilities. See logs for details\n");
+            break;
+        default:
+            LE_TEST_INFO("Invalid status\n");
+            break;
+    }
+}
+
+static void TestTafSetNmeaConfiguration
+(
+    void
+)
+{
+    taf_gnss_NmeaBitMask_t nmeaMask = TAF_GNSS_NMEA_MASK_GPGGA | TAF_GNSS_NMEA_MASK_GPGNS | TAF_GNSS_NMEA_MASK_GPGSV
+            | TAF_GNSS_NMEA_MASK_GLGSV | TAF_GNSS_NMEA_MASK_GAGSV;
+    taf_gnss_GeodeticDatumType_t datumType = TAF_GNSS_GEODETIC_TYPE_WGS_84;
+    uint16_t engineType = TAF_GNSS_LOC_ENGINE_FUSED;
+
+    le_result_t result = taf_gnss_SetNmeaConfiguration(nmeaMask, datumType, engineType);
+
+    switch (result)
+    {
+        case LE_OK:
+            LE_TEST_INFO("Successfully enabled the NMEA!\n");
+            break;
+        case LE_FAULT:
+            LE_TEST_INFO("Failed to set NMEA. See logs for details\n");
+            break;
+        case LE_BAD_PARAMETER:
+            LE_TEST_INFO("Failed to set NMEA, incompatible bit mask\n");
+            break;
+       case LE_NOT_PERMITTED:
+            LE_TEST_INFO("SetNmea: GNSS is not in ready state!\n");
+            break;
+        default:
+            LE_TEST_INFO("Failed to set NMEA, error %d (%s)\n",
+                    result, LE_RESULT_TXT(result));
+            break;
+    }
+}
+
 static void TestTafPosHandler
 (
     void
@@ -4075,6 +4382,24 @@ COMPONENT_INIT
 {
    PositionHandlerSem = le_sem_Create("PosHandlerSem", 0);
 
+   LE_TEST_INFO("======== TestTafSetMinGpsWeek APIs Test  ========");
+   TestTafSetMinGpsWeek();
+
+   LE_TEST_INFO("Wait for 10 seconds to apply minGpsWeek by engin");
+   le_thread_Sleep(10);
+
+   LE_TEST_INFO("======== TestTafGetMinGpsWeek APIs Test  ========");
+   TestTafGetMinGpsWeek();
+
+   LE_TEST_INFO("======== TestTafSetNmeaConfiguration APIs Test  ========");
+   TestTafSetNmeaConfiguration();
+
+   LE_TEST_INFO("Wait for 5 seconds to apply Nmea");
+   le_thread_Sleep(5);
+
+   LE_TEST_INFO("======== TestTafGetCapabilities APIs Test  ========");
+   TestTafGetCapabilities();
+
    LE_TEST_INFO("======== TestTafGnssStart APIs Test  ========");
    TestTafGnssStart();
 
@@ -4107,6 +4432,12 @@ COMPONENT_INIT
 
    LE_TEST_INFO("======== GNSS Location information APIs Test  ========");
    TestTafGnssPositionHandler();
+
+   LE_TEST_INFO("======== GNSS NMEA handler Test  ========");
+   TestTafGnssNmeaHandler();
+
+   LE_TEST_INFO("======== GNSS Capability handler Test  ========");
+   TestTafGnssCapabilityChangeHandler();
 
    LE_TEST_INFO("==== GNSS Position information APIs Test====");
    TestTafPosHandler();

@@ -760,12 +760,12 @@ static void PositionHandlerFunction
     LE_TEST_OK(result == LE_OK, "taf_gnss_GetSvUsedInPosition-LE_OK");
     if (result == LE_OK)
     {
-        LE_TEST_INFO("SVs from GPS constellation  : %lu\n",svData->gps);
-        LE_TEST_INFO("SVs from GLONASS constellation  : %lu\n",svData->glo);
-        LE_TEST_INFO("SVs from GALILEO constellation   : %lu\n",svData->gal);
-        LE_TEST_INFO("SVs from BEIDOU constellation  : %lu\n",svData->bds);
-        LE_TEST_INFO("SVs from QZSS constellation  : %lu\n",svData->qzss);
-        LE_TEST_INFO("SVs from NAVIC constellation  : %lu\n",svData->navic);
+        LE_TEST_INFO("SVs from GPS constellation  : %"PRIu64"\n",svData->gps);
+        LE_TEST_INFO("SVs from GLONASS constellation  : %"PRIu64"\n",svData->glo);
+        LE_TEST_INFO("SVs from GALILEO constellation   : %"PRIu64"\n",svData->gal);
+        LE_TEST_INFO("SVs from BEIDOU constellation  : %"PRIu64"\n",svData->bds);
+        LE_TEST_INFO("SVs from QZSS constellation  : %"PRIu64"\n",svData->qzss);
+        LE_TEST_INFO("SVs from NAVIC constellation  : %"PRIu64"\n",svData->navic);
     }
     else if(result == LE_OUT_OF_RANGE)
     {
@@ -1265,8 +1265,8 @@ static void PositionHandlerFunction
     LE_TEST_OK(result == LE_OK, "taf_gnss_GetRealTimeInformation-LE_OK");
     if (result == LE_OK)
     {
-        LE_TEST_INFO("Elapsed real time: %lu ns\n",realTime);
-        LE_TEST_INFO("Elapsed real time uncertainity: %lu ns\n",realTimeUnc);
+        LE_TEST_INFO("Elapsed real time: %"PRIu64" ns\n",realTime);
+        LE_TEST_INFO("Elapsed real time uncertainity: %"PRIu64" ns\n",realTimeUnc);
     }
     else if(result == LE_OUT_OF_RANGE)
     {

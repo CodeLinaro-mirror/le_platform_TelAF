@@ -187,7 +187,12 @@ static void TafSigTermEventHandler(int tafSigNum)
 {
     auto &gpio = taf_Gpio::getInstance();
     LE_INFO("TafSigTermEventHandler :%d", tafSigNum);
-    taf_devMgr_UnloadDrv(gpio.gpioInf);
+
+    if(gpio.isDrvPresent == true && gpio.gpioInf != nullptr)
+    {
+        (*(gpio.gpioInf->releaseHAL))();
+        taf_devMgr_UnloadDrv(gpio.gpioInf);
+    }
     LE_INFO("unload successful");
 
     gpio.isDrvPresent = false;
@@ -237,14 +242,14 @@ COMPONENT_INIT
     else // successfully loaded
     {
         LE_INFO("Driver loaded successfully....");
-        //TAF_HAL_INFO_TAB.gpioInf = *gpioInf;
+
         gpio.isDrvPresent = true;
 
-        // init first
-        (*(gpio.gpioInf->InitHAL))();
+        // init VHAL module first
+        (*(gpio.gpioInf->initHAL))();
 
         // Get the GPIO number
-        size_t gpioCount = (*(gpio.gpioInf->getTotalGpioPinsHAL))();
+        size_t gpioCount = (*(gpio.gpioInf->getTotalGpioPins))();
         LE_INFO("Total GPIOs available in the system: %" PRIuS, gpioCount);
 
         if(gpioCount == 0)

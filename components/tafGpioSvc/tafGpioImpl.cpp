@@ -116,18 +116,17 @@ le_result_t taf_Gpio::writeGpioOutputValue
                 state = GPIO_HAL_STATE_LOW;
         }
 
-        if((*(gpioInf->writeOutputValueHAL)) == nullptr)
+        if((*(gpioInf->setOutputState)) == nullptr)
         {
             LE_ERROR("writeOutputValueHAL not initialized");
             return LE_IO_ERROR;
         }
-        taf_hal_gpio_Status status =
-            (*(gpioInf->writeOutputValueHAL))(tafGpioRef->pinNum, state);
-        if(status == GPIO_HAL_BUSY)
+        le_result_t status = (*(gpioInf->setOutputState))(tafGpioRef->pinNum, state);
+        if(status == LE_BUSY)
         {
             return LE_BUSY;
         }
-        else if(status == GPIO_HAL_ERROR)
+        else if(status == LE_IO_ERROR)
         {
             return LE_IO_ERROR;
         }
@@ -232,18 +231,17 @@ le_result_t taf_Gpio::setEdgeType
                 edgeType = GPIO_HAL_EDGE_UNKNOWN;
                 break;
         }
-        if((*(gpioInf->setEdgeTypeHAL)) == nullptr)
+        if((*(gpioInf->setEdgeSense)) == nullptr)
         {
-            LE_ERROR("setEdgeTypeHAL not initialized");
+            LE_ERROR("setEdgeSense not initialized");
             return LE_IO_ERROR;
         }
-        taf_hal_gpio_Status status =
-            (*(gpioInf->setEdgeTypeHAL))(tafGpioRef->pinNum, edgeType);
-        if(status == GPIO_HAL_BUSY)
+        le_result_t status = (*(gpioInf->setEdgeSense))(tafGpioRef->pinNum, edgeType);
+        if(status == LE_BUSY)
         {
             return LE_BUSY;
         }
-        else if(status == GPIO_HAL_ERROR)
+        else if(status == LE_IO_ERROR)
         {
             return LE_IO_ERROR;
         }
@@ -323,21 +321,20 @@ le_result_t taf_Gpio::setDirection
 
     if(isDrvPresent)
     {
-        uint32_t dir = (tafPinMode == GPIO_PIN_MODE_OUTPUT) ?
-            GPIOHANDLE_REQUEST_OUTPUT : GPIOHANDLE_REQUEST_INPUT;
+        taf_hal_gpio_Direction dir = (tafPinMode == GPIO_PIN_MODE_OUTPUT) ?
+            GPIO_HAL_DIRECTION_OUTPUT : GPIO_HAL_DIRECTION_INPUT;
 
-        if((*(gpioInf->setDirectionHAL)) == nullptr)
+        if((*(gpioInf->setDirection)) == nullptr)
         {
             LE_ERROR("setDirectionHAL not initialized");
             return LE_IO_ERROR;
         }
-        taf_hal_gpio_Status status =
-            (*(gpioInf->setDirectionHAL))(tafGpioRef->pinNum, dir);
-        if(status == GPIO_HAL_BUSY)
+        le_result_t status = (*(gpioInf->setDirection))(tafGpioRef->pinNum, dir);
+        if(status == LE_BUSY)
         {
             return LE_BUSY;
         }
-        else if(status == GPIO_HAL_ERROR)
+        else if(status == LE_IO_ERROR)
         {
             return LE_IO_ERROR;
         }
@@ -428,19 +425,18 @@ le_result_t taf_Gpio::setPolarity
             type = GPIO_HAL_ACTIVE_TYPE_HIGH;
         }
 
-        if((*(gpioInf->setPolarityHAL)) == nullptr)
+        if((*(gpioInf->setPolarity)) == nullptr)
         {
             LE_ERROR("setPolarityHAL not initialized");
             return LE_IO_ERROR;
         }
 
-        taf_hal_gpio_Status status =
-            (*(gpioInf->setPolarityHAL))(tafGpioRef->pinNum, type);
-        if(status == GPIO_HAL_BUSY)
+        le_result_t status = (*(gpioInf->setPolarity))(tafGpioRef->pinNum, type);
+        if(status == LE_BUSY)
         {
             return LE_BUSY;
         }
-        else if(status == GPIO_HAL_ERROR)
+        else if(status == LE_IO_ERROR)
         {
             return LE_IO_ERROR;
         }
@@ -491,16 +487,12 @@ le_result_t taf_Gpio::setPolarity
     }
 }
 
-static void gpioStateCb(int32_t pin, int32_t status)
+static void gpioStateCb(uint8_t pin, taf_hal_gpio_Edge edgeType)
 {
-    LE_INFO("*******gpio status change %d for pin %d", status, pin);
+    LE_INFO("*******gpio status change for pin %d", pin);
     auto &gpio = taf_Gpio::getInstance();
 
-    taf_gpioEvent_t event;
-    event.fd = -1;
-    event.state = (bool)status;
-    event.pinNum = pin;
-
+    taf_gpioEvent_t event = {-1, (edgeType == GPIO_HAL_EDGE_RISING), pin};
     le_event_Report(gpio.tafGpioEvent, &event, sizeof(taf_gpioEvent_t));
 }
 
@@ -542,7 +534,7 @@ void* taf_Gpio::setChangeCallback
 
     if(isDrvPresent)
     {
-        if((*(gpioInf->regCallbackHAL)) == nullptr)
+        if((*(gpioInf->registerCallback)) == nullptr)
         {
             LE_ERROR("regCallbackHAL not initialized");
             return nullptr;
@@ -568,7 +560,7 @@ void* taf_Gpio::setChangeCallback
                 break;
         }
 
-        (*(gpioInf->regCallbackHAL))(tafGpioRef->pinNum, edgeType, gpioStateCb);
+        (*(gpioInf->registerCallback))(tafGpioRef->pinNum, edgeType, gpioStateCb);
     }
     else
     {
@@ -659,10 +651,43 @@ void taf_Gpio::removeChangeCallback
         }
     }
 
-    if (gpioRef && gpioRef->handlerCount == 0 && gpioRef->fdMonitorRef != nullptr) {
-            LE_INFO("Stopping fd monitor");
-            le_fdMonitor_Delete(gpioRef->fdMonitorRef);
-            gpioRef->fdMonitorRef = nullptr;
+    if(isDrvPresent)
+    {
+        if((*(gpioInf->removeCallback)) == nullptr)
+        {
+            LE_ERROR("removeCallback not initialized");
+            return;
+        }
+
+        taf_hal_gpio_Edge edgeType;
+        switch(gpioRef->edge)
+        {
+            case TAF_GPIO_EDGE_NONE:
+                edgeType = GPIO_HAL_EDGE_NONE;
+                break;
+            case TAF_GPIO_EDGE_RISING:
+                edgeType = GPIO_HAL_EDGE_RISING;
+                break;
+            case TAF_GPIO_EDGE_FALLING:
+                edgeType = GPIO_HAL_EDGE_FALLING;
+                break;
+            case TAF_GPIO_EDGE_BOTH:
+                edgeType = GPIO_HAL_EDGE_BOTH;
+                break;
+            default:
+                edgeType = GPIO_HAL_EDGE_UNKNOWN;
+                break;
+        }
+
+        (*(gpioInf->removeCallback))(gpioRef->pinNum, edgeType);
+    }
+    else
+    {
+        if (gpioRef && gpioRef->handlerCount == 0 && gpioRef->fdMonitorRef != nullptr) {
+                LE_INFO("Stopping fd monitor");
+                le_fdMonitor_Delete(gpioRef->fdMonitorRef);
+                gpioRef->fdMonitorRef = nullptr;
+        }
     }
     LE_INFO("removeChangeCallback handlerRef");
 }
@@ -713,12 +738,12 @@ taf_gpio_State_t taf_Gpio::readValue
         tafGpioRef->isLocked = lock;
         tafGpioRef->lockedSession = sessionRef;
 
-        if((*(gpioInf->getValueHAL)) == nullptr)
+        if((*(gpioInf->getState)) == nullptr)
         {
             LE_ERROR("getValueHAL not initialized");
             return TAF_GPIO_BUSY;
         }
-        result = (*(gpioInf->getValueHAL))(tafGpioRef->pinNum, lock);
+        result = (*(gpioInf->getState))(tafGpioRef->pinNum);
         if(result < 0)
         {
             return TAF_GPIO_BUSY;
@@ -865,12 +890,12 @@ bool taf_Gpio::isActive
 
     if(isDrvPresent)
     {
-        if((*(gpioInf->getValueHAL)) == nullptr)
+        if((*(gpioInf->getState)) == nullptr)
         {
             LE_ERROR("getValueHAL not initialized");
             return false;
         }
-        return (*(gpioInf->getValueHAL))(tafGpioRef->pinNum, false) == 1;
+        return (*(gpioInf->getState))(tafGpioRef->pinNum) == 1;
     }
     else
     {
@@ -930,12 +955,12 @@ bool taf_Gpio::isInput
 
     if(isDrvPresent)
     {
-        if((*(gpioInf->getDirectionHAL)) == nullptr)
+        if((*(gpioInf->getDirection)) == nullptr)
         {
             LE_ERROR("getDirectionHAL not initialized");
             return false;
         }
-        return (*(gpioInf->getDirectionHAL))(tafGpioRef->pinNum) == GPIO_HAL_INPUT;
+        return (*(gpioInf->getDirection))(tafGpioRef->pinNum) == GPIO_HAL_DIRECTION_INPUT;
     }
     else
     {
@@ -975,12 +1000,12 @@ bool taf_Gpio::isOutput
 
     if(isDrvPresent)
     {
-        if((*(gpioInf->getDirectionHAL)) == nullptr)
+        if((*(gpioInf->getDirection)) == nullptr)
         {
             LE_ERROR("getDirectionHAL not initialized");
             return false;
         }
-        return (*(gpioInf->getDirectionHAL))(tafGpioRef->pinNum) == GPIO_HAL_OUTPUT;
+        return (*(gpioInf->getDirection))(tafGpioRef->pinNum) == GPIO_HAL_DIRECTION_OUTPUT;
     }
     else
     {
@@ -1024,12 +1049,12 @@ le_result_t taf_Gpio::getName
 
     if(isDrvPresent)
     {
-        if((*(gpioInf->getNameHAL)) == nullptr)
+        if((*(gpioInf->getName)) == nullptr)
         {
             LE_ERROR("getNameHAL not initialized");
             return LE_FAULT;
         }
-        le_utf8_Copy(name, (*(gpioInf->getNameHAL))(tafGpioRef->pinNum), nameSize, nullptr);;
+        le_utf8_Copy(name, (*(gpioInf->getName))(tafGpioRef->pinNum), nameSize, nullptr);;
     }
     else
     {
@@ -1059,12 +1084,12 @@ taf_gpio_ActiveType_t taf_Gpio::getPolarity
     if(isDrvPresent)
     {
         taf_gpio_ActiveType_t result;
-        if((*(gpioInf->getPolarityHAL)) == nullptr)
+        if((*(gpioInf->getPolarity)) == nullptr)
         {
             LE_ERROR("getPolarityHAL not initialized");
             return GPIO_ACTIVE_TYPE_UNKNOWN;
         }
-        taf_hal_gpio_ActiveType_t type = (*(gpioInf->getPolarityHAL))(tafGpioRef->pinNum);
+        taf_hal_gpio_ActiveType_t type = (*(gpioInf->getPolarity))(tafGpioRef->pinNum);
         switch(type)
         {
             case GPIO_HAL_ACTIVE_TYPE_LOW:
@@ -1115,11 +1140,39 @@ taf_gpio_Edge_t taf_Gpio::getEdgeSense
     TAF_ERROR_IF_RET_VAL(!tafGpioRef, TAF_GPIO_EDGE_UNKNOWN,
             "tafGpioRef is nullptr or object not initialized");
 
-    // Edge type is not valid for OUT pin
-    if (isOutput(tafGpioRef))
+    if(isDrvPresent)
     {
-        LE_WARN("Attempt to read edge sense on an output");
-        return TAF_GPIO_EDGE_NONE;
+        taf_gpio_Edge_t result;
+        if((*(gpioInf->getEdgeSense)) == nullptr)
+        {
+            LE_ERROR("getEdgeSense not initialized");
+            return TAF_GPIO_EDGE_UNKNOWN;
+        }
+        taf_hal_gpio_Edge type = (*(gpioInf->getEdgeSense))(tafGpioRef->pinNum);
+        switch(type)
+        {
+            case GPIO_HAL_EDGE_FALLING:
+                result = TAF_GPIO_EDGE_FALLING;
+                break;
+            case GPIO_HAL_EDGE_RISING:
+                result = TAF_GPIO_EDGE_RISING;
+                break;
+            case GPIO_HAL_EDGE_BOTH:
+                result = TAF_GPIO_EDGE_BOTH;
+                break;
+            default:
+                result = TAF_GPIO_EDGE_NONE;
+        }
+        return result;
+    }
+    else
+    {
+        // Edge type is not valid for OUT pin
+        if (isOutput(tafGpioRef))
+        {
+            LE_WARN("Attempt to read edge sense on an output");
+            return TAF_GPIO_EDGE_NONE;
+        }
     }
 
     return tafGpioRef->edge;

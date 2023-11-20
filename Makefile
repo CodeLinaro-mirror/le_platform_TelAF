@@ -16,8 +16,11 @@ export SELINUX_FILE_CONTEXTS := ${CURDIR}/security/selinux/sepolicy/files/file_c
 SE_FILES = $(shell find $(CURDIR)/security/selinux/sepolicy/ -name *.pp -type f)
 SE_MODS = $(shell find $(CURDIR)/security/selinux/sepolicy/ -name tmp -type d)
 
-# sub-mk for telaf simulation target
-include simulation/simulation.mk
+# Sub-Makefile for TelAF Simulation, but we need to
+# prevent 'simulation' target from affecting other targets.
+ifneq ($(filter simula%,$(MAKECMDGOALS)),)
+  include simulation/simulation.mk
+endif
 
 $(TARGETS):
 ifneq ($(TELAF_BUILD), $(wildcard $(TELAF_BUILD)))

@@ -46,6 +46,9 @@ void tafMngdPMCan::CanEventCallback(taf_can_CanInterfaceRef_t canInfRef, bool is
 {
     taf_pm_ConnectService();
     LE_DEBUG("CanEventCallback frameid is 0x%X", frameId);
+
+    TAF_ERROR_IF_RET_NIL(size > TAF_CAN_DATA_MAX_LENGTH, "Received size exceeds the max limit");
+
     le_hashmap_It_Ref_t iteratorRef = le_hashmap_GetIterator(canPMMap);
     while (le_hashmap_NextNode(iteratorRef) == LE_OK)
     {
@@ -55,7 +58,7 @@ void tafMngdPMCan::CanEventCallback(taf_can_CanInterfaceRef_t canInfRef, bool is
         char rcvData[(2*size) + 1];
         le_hex_BinaryToString(dataPtr, size, rcvData, (2*size) + 1);
         if((canFramePtr->canFrameId << 1 == frameId << 1) &&
-                (strncmp(rcvData, canFramePtr->msg, size) == 0))
+                (strncmp(rcvData, canFramePtr->msg, ((2*size) + 1)) == 0))
         {
             LE_INFO("canFrame 0x%X with msg %s initiate %s state", canFramePtr->canFrameId,
                     canFramePtr->msg, tafMngdPMSvc::tafStateToString(canFramePtr->state));
@@ -81,6 +84,23 @@ void tafMngdPMCan::RegisterCanEvents(uint32_t canFrameId, taf_mngd_pm_State_t st
     canPMFramePtr->canFrameId = canFrameId;
     le_utf8_Copy(canPMFramePtr->msg, msg, 32, NULL);
     canPMFramePtr->state = state;
+
+    le_hashmap_It_Ref_t iteratorRef = le_hashmap_GetIterator(canPMMap);
+    while (le_hashmap_NextNode(iteratorRef) == LE_OK)
+    {
+        taf_MngdPM_CanFrame_t* canFramePtr =
+                (taf_MngdPM_CanFrame_t*)le_hashmap_GetValue(iteratorRef);
+        TAF_ERROR_IF_RET_NIL(canFramePtr == nullptr, "Invalid hashmap reference");
+        if(canFramePtr->canFrameId == canPMFramePtr->canFrameId)
+        {
+            LE_INFO("Already registered for canFrameId");
+            canPMFramePtr->handlerRef = canFramePtr->handlerRef;
+            char stateName[32];
+            le_utf8_Copy(stateName, tafMngdPMSvc::tafStateToString(canPMFramePtr->state), 32, NULL);
+            le_hashmap_Put(canPMMap, stateName, canPMFramePtr);
+            return;
+        }
+    }
 
     // Create separate thread for registering for each frameid
     canPMFramePtr->threadRef = le_thread_Create("register_can_handler_thread",

@@ -54,7 +54,7 @@ digest_data = '5'
 update_file = "/home/ubuntu/data/update_ubi_ab.zip"
 restore_file = "/data/images/update_ubi_ab.zip"
 
-bytes_per_pack = 1200
+bytes_per_pack = 4000
 
 # UDS config information
 config = dict(udsoncan.configs.default_client_config)
@@ -87,7 +87,7 @@ def update_workflow():
             response = uds_client.change_session(DiagnosticSessionControl.Session.extendedDiagnosticSession)
             print(response)
 
-            # Step2: Read public data(ReadDataByIdentifier). 22 F0 11 A5 A5
+            # Step2: Read data(ReadDataByIdentifier). 22 F0 11 A5 A5
             response = uds_client.read_data_by_identifier(didlist=[0xF011,0xa5a5])
             values = response.service_data.values
             print(values)
@@ -96,24 +96,35 @@ def update_workflow():
             response = uds_client.change_session(DiagnosticSessionControl.Session.programmingSession)
             print(response)
 
-            # Step3: Read DTC(ReadDTCInformation). 19 02
+            # Step4: Read DTC(ReadDTCInformation). 19 02
             response = uds_client.get_dtc_by_status_mask(status_mask)
             print(response)
 
-            # Step4: Read data by Id(ReadDataByIdentifier). 22 A5 A5
+            # Step5: Read data by Id(ReadDataByIdentifier). 22 A5 A5
             response = uds_client.read_data_by_identifier(didlist=digest_did) # Only one
             print(response)
 
-            # Step5: Read public data(ReadDataByIdentifier). 22 F0 11
+            # Step6: Read public data(ReadDataByIdentifier). 22 F0 11
             response = uds_client.read_data_by_identifier(didlist=0xF011)
             values = response.service_data.values
             print(values)
 
-            # Step6: Write digest(WriteDataByIdentifier): 2E xx xx
+            # Step7: Security access #1-Request seed(SecurityAccess). 27 01
+            response = uds_client.request_seed(0x01)
+            seed = response.service_data.seed
+            
+            # Calculate key via seed.
+            key = dummy_send2key(level=0x01, seed=seed)
+            
+            # Step8: Security access #2-Send key(SecurityAccess). 27 02
+            response = uds_client.send_key(0x02, key)
+            print(response)
+
+            # Step9: Write digest(WriteDataByIdentifier): 2E xx xx
             response = uds_client.write_data_by_identifier(did=digest_did2, value=digest_data)
             print(response)
 
-            # Step7: Read data(ReadDataByIdentifier): 22 xx xx
+            # Step10: Read data(ReadDataByIdentifier): 22 xx xx
             response = uds_client.read_data_by_identifier(didlist=digest_did2)
             values = response.service_data.values
 
@@ -122,7 +133,7 @@ def update_workflow():
                 eof = f.tell()
 
                 print(eof)
-                # Step7: RequestFileTransfer(0x38)
+                # Step11: RequestFileTransfer(0x38)
                 response = uds_client.request_file_transfer(moop=1, path = restore_file, filesize=eof)
                 print(response)
                 print("Max length: %d" % response.service_data.max_length)
@@ -132,7 +143,7 @@ def update_workflow():
                 print("bytes_per_pack=%d" % bytes_per_pack)
                 f.seek(0, 0)
                 sq = 1
-                # Step8: Transfer Data(TransferData). 36
+                # Step12: Transfer Data(TransferData). 36
                 while f.tell() < eof:
                     bs = f.read(bytes_per_pack)
                     #response = uds_client.transfer_data(sq, bs)
@@ -143,15 +154,15 @@ def update_workflow():
                         sq = 0
                 f.close()
 
-            # Step9: Transter Exit(RequestTransferExit). 37
+            # Step13: Transter Exit(RequestTransferExit). 37
             response = uds_client.request_transfer_exit()
             print(response)
 
-            # Step10: Routine Control RUNDTCTEST(RoutineControl). 31 01 02 47 start to update
+            # Step14: Routine Control RUNDTCTEST(RoutineControl). 31 01 02 47 start to update
             response = uds_client.routine_control(routine_id=0x0247, control_type=0x01)
             print(response)
 
-            # Step11: Routine Control RUNDTCTEST(RoutineControl). 31 03 02 47 request update status
+            # Step15: Routine Control RUNDTCTEST(RoutineControl). 31 03 02 47 request update status
             for i in range(60):
                 time.sleep(5)
                 response = uds_client.routine_control(routine_id=0x0247, control_type=0x03)
@@ -164,7 +175,7 @@ def update_workflow():
 
             print(update_state)
 
-            # Step12: Return to default session(Perform ECU Reset). 10 01
+            # Step16: Return to default session(Perform ECU Reset). 10 01
             response = uds_client.change_session(DiagnosticSessionControl.Session.extendedDiagnosticSession)
             print(response)
 

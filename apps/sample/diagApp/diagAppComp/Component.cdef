@@ -10,6 +10,7 @@ requires:
         taf_diagReset.api
         taf_diagRoutineCtrl.api
         taf_diagUpdate.api
+        taf_diagSecurity.api
         taf_update.api
         taf_appMgmt.api
         taf_fwupdate.api

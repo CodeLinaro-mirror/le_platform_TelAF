@@ -76,16 +76,32 @@ void taf_Audio::ClientSessionCloseEventHandler
 {
     auto &audio = taf_Audio::GetInstance();
     le_ref_IterRef_t iteratorRef;
+    LE_DEBUG("ClientSessionCloseEventHandler sessionRef : %p", sessionRef);
 
     // Close audio streams
     // This is a two stage process: parse audio stream reference map
     // once in order to close dsp frontend file play/capture streams
     // first, then parse it a second time to close remaining streams.
     iteratorRef = le_ref_GetIterator(audio.AudioRefMap);
+    bool isSessionMatched = false;
+    taf_SessionRefNode_t* sessionRefNodePtr;
+    le_dls_Link_t* lPtr;
     while (le_ref_NextNode(iteratorRef) == LE_OK)
     {
         taf_audio_Stream_t* audioStreamPtr = (taf_audio_Stream_t*) le_ref_GetValue(iteratorRef);
-        if (audioStreamPtr
+        lPtr = le_dls_Peek(&(audioStreamPtr->sessionRefList));
+        while (lPtr != NULL)
+        {
+            sessionRefNodePtr = CONTAINER_OF(lPtr, taf_SessionRefNode_t, refNodeLink);
+            lPtr = le_dls_PeekNext(&(audioStreamPtr->sessionRefList), lPtr);
+            if ( sessionRefNodePtr->sessionRef == sessionRef )
+            {
+                LE_DEBUG("StopAudio for audioStreamPtr %p", audioStreamPtr);
+                isSessionMatched = true;
+                break;
+            }
+        }
+        if (isSessionMatched && audioStreamPtr
                 && ((audioStreamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_PLAY)
                 || (audioStreamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE)))
         {
@@ -95,11 +111,24 @@ void taf_Audio::ClientSessionCloseEventHandler
     }
     // Reset map iterator and close remaining streams
     iteratorRef = le_ref_GetIterator(audio.AudioRefMap);
+    isSessionMatched = false;
 
     while (le_ref_NextNode(iteratorRef) == LE_OK)
     {
         taf_audio_Stream_t* audioStreamPtr = (taf_audio_Stream_t*) le_ref_GetValue(iteratorRef);
-        if(audioStreamPtr) {
+        lPtr = le_dls_Peek(&(audioStreamPtr->sessionRefList));
+        while (lPtr != NULL)
+        {
+            sessionRefNodePtr = CONTAINER_OF(lPtr, taf_SessionRefNode_t, refNodeLink);
+            lPtr = le_dls_PeekNext(&(audioStreamPtr->sessionRefList), lPtr);
+            if ( sessionRefNodePtr->sessionRef == sessionRef )
+            {
+                LE_DEBUG("StopAudio for audioStreamPtr %p", audioStreamPtr);
+                isSessionMatched = true;
+                break;
+            }
+        }
+        if(isSessionMatched && audioStreamPtr) {
             audio.StopAudio(audioStreamPtr);
             audio.DeleteStream(audioStreamPtr, sessionRef, true);
         }
@@ -2151,8 +2180,8 @@ static void* Play( void* ctxPtr) {
             if(!audio.mFreeBuffers.empty() && (audio.mEmptyPipeline)) {
                 audio.mStreamBuffer = audio.mFreeBuffers.front();
                 audio.mFreeBuffers.pop();
-                numBytes = fread(audio.mStreamBuffer->getRawBuffer(),1,size,audio.mFile);
 
+                numBytes = fread(audio.mStreamBuffer->getRawBuffer(),1,size,audio.mFile);
                 if(numBytes != size && !feof(audio.mFile)) {
                     LE_DEBUG( "Unable to read specified bytes, bytes read: %d", numBytes);
                     audio.mStreamBuffer->reset();
@@ -2433,8 +2462,11 @@ le_result_t taf_Audio::PlayFile
     {
         LE_DEBUG("close previous streamPtr->fd.%d of interface.%d",
                  streamPtr->fd, streamPtr->interface);
-
-        close(streamPtr->fd);
+        if(mFile && fileno(mFile)>=0) {
+            fclose(mFile);
+        } else {
+            LE_DEBUG("file already closed");
+        }
         streamPtr->fd = fd;
     }
 
@@ -2858,7 +2890,11 @@ le_result_t taf_Audio::RecordFile
         LE_DEBUG("close previous streamPtr->fd.%d of interface.%d",
                  streamPtr->fd, streamPtr->interface);
         // close previous file
-        close(streamPtr->fd);
+        if(mFile && fileno(mFile)>=0) {
+            fclose(mFile);
+        } else {
+            LE_DEBUG("file already closed");
+        }
         streamPtr->fd = fd;
     }
     else

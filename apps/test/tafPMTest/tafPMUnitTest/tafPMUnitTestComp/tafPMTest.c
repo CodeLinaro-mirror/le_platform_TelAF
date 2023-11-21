@@ -176,18 +176,21 @@ void Test_tafPM_NewWakeupSourceDuplicateTag()
 
     LE_TEST_INFO("Testing creating of wake source with same tag, and the app will be killed");
     ws1 = taf_pm_NewWakeupSource(0, "pmtest1");
+    LE_TEST_OK(ws1 == NULL, "taf_pm_NewWakeupSource with duplicate TAG failed successfull");
 }
 
 void Test_tafPM_StayAwakeInvalidRef()
 {
     LE_TEST_INFO("Testing taf_pm_StayAwake on wake source with invalid reference, which will kill the app");
     res = taf_pm_StayAwake(ws);
+    LE_TEST_OK(res == LE_BAD_PARAMETER, "Test_tafPM_StayAwakeInvalidRef successfull");
 }
 
 void Test_tafPM_RelaxInvalidRef()
 {
     LE_TEST_INFO("Testing taf_pm_Relax on wake source with invalid reference, which will kill the app");
     res = taf_pm_Relax(ws);
+    LE_TEST_OK(res == LE_BAD_PARAMETER, "Test_tafPM_RelaxInvalidRef successfull");
 }
 
 void Test_tafPM_RelaxOverlap()

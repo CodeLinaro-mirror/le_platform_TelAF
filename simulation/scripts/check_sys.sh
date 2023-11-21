@@ -38,11 +38,11 @@ function check_user_umask ()
 {
     RESULT=0
     umask_val=`umask`
-    if [ "$umask_val" = "0022" ]
+    if [ "$umask_val" = "0022" -o "$umask_val" = "0002" ]
     then
         printf "%-30s ... %-20s ... [OK]\n" "Checking user umask" "$umask_val"
     else
-        printf "%-30s ... %-20s ... [NOK] <-- Please change your umask to '0022' manually.\n" "Checking user umask" "$umask_val"
+        printf "%-30s ... %-20s ... [NOK] <-- Please change your umask to '0022' or '0002' manually.\n" "Checking user umask" "$umask_val"
         RESULT=1
     fi
     return $RESULT

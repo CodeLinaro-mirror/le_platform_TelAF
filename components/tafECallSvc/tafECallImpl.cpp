@@ -309,7 +309,13 @@ void taf_ecall::InitializeECallPtr()
     ECallObject.msd.recentVehicleLocationN2.longitudeDelta = 0;
 
     ECallObject.msd.numberOfPassengers = 0;
-
+#if defined(LE_CONFIG_ENABLE_ECALL_MSD_OPTIONAL_DATA)
+    ECallObject.euroNCAPData.locationOfImpact = TAF_ECALL_LOI_UNKNOWN;
+    ECallObject.euroNCAPData.rolloverDetectedPresent = false;
+    ECallObject.euroNCAPData.rangeLimit = 125;
+    ECallObject.euroNCAPData.deltaVX = -45;
+    ECallObject.euroNCAPData.deltaVY = 10;
+#endif
     //ECallObject.msd.optionalPdu.eCallDefaultOptions.objId. =;
     ECallObject.msd.optionalPdu.eCallDefaultOptions.optionalData = '\0';
 
@@ -864,6 +870,259 @@ le_result_t taf_ecall::GetMsdTxMode ( taf_ecall_MsdTransmissionMode_t* modePtr)
 {
     *modePtr = ECallObject.msdTxMode;
     return LE_OK;
+}
+
+le_result_t taf_ecall::SetMsdAdditionalData(taf_ecall_CallRef_t ecallRef, const char* oid, const uint8_t* data, size_t dataLength)
+{
+    taf_ECall_t* eCallPtr =(taf_ECall_t*) le_ref_Lookup(ECallPtrRefMap, ecallRef);
+
+    TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
+
+    if (eCallPtr->isMsdUpdated)
+    {
+        LE_ERROR("MSD optional data is set by importing MSD");
+        return LE_DUPLICATE;
+    }
+#if defined(LE_CONFIG_ENABLE_ECALL_MSD_OPTIONAL_DATA)
+    eCallPtr->msd.optionals.optionalDataPresent = true;
+    eCallPtr->msd.optionalPdu.oid = oid;
+    memcpy(eCallPtr->oadData, data, dataLength);
+    eCallPtr->oadDataSize = dataLength;
+    string oadDataString;
+    for (int i = 0; i < (int)dataLength ; i++)
+    {
+        char s1 = char(eCallPtr->oadData[i] >> 4);
+        char s2 = char(eCallPtr->oadData[i] & 0xf);
+        s1 > 9 ? s1 += 55 : s1 += 48;
+        s2 > 9 ? s2 += 55 : s2 += 48;
+        oadDataString.append(1,s1);
+        oadDataString.append(1,s2);
+    }
+    LE_INFO("Euro NCAP MSD OAD data = %s", oadDataString.c_str());
+    std::vector<uint8_t> oadData(oadDataString.begin(), oadDataString.end());
+    eCallPtr->msd.optionalPdu.data = oadData;
+#endif
+    return LE_OK;
+}
+
+le_result_t taf_ecall::ResetMsdAdditionalData(taf_ecall_CallRef_t ecallRef)
+{
+    taf_ECall_t* eCallPtr =(taf_ECall_t*) le_ref_Lookup(ECallPtrRefMap, ecallRef);
+
+    TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
+
+    if (eCallPtr->isMsdUpdated)
+    {
+        LE_ERROR("MSD optional data is set by importing MSD");
+        return LE_DUPLICATE;
+    }
+#if defined(LE_CONFIG_ENABLE_ECALL_MSD_OPTIONAL_DATA)
+    eCallPtr->msd.optionals.optionalDataPresent = false;
+    memset(eCallPtr->oadData, 0, sizeof(eCallPtr->oadData));
+    eCallPtr->oadDataSize = 0;
+#endif
+    return LE_OK;
+}
+
+le_result_t taf_ecall::SetMsdEuroNCAPLocationOfImpact(taf_ecall_CallRef_t ecallRef, taf_ecall_IILocations_t iiLocations)
+{
+    taf_ECall_t* eCallPtr =(taf_ECall_t*) le_ref_Lookup(ECallPtrRefMap, ecallRef);
+
+    TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
+
+    if (eCallPtr->isMsdUpdated)
+    {
+        LE_ERROR("MSD optional data is set by importing MSD");
+        return LE_DUPLICATE;
+    }
+
+    if ((iiLocations < TAF_ECALL_LOI_UNKNOWN) || (iiLocations > TAF_ECALL_LOI_OTHER))
+    {
+        LE_ERROR("Invalid location of impact");
+        return LE_FAULT;
+    }
+#if defined(LE_CONFIG_ENABLE_ECALL_MSD_OPTIONAL_DATA)
+    ECallObject.euroNCAPData.locationOfImpact = iiLocations;
+    memset(eCallPtr->oadData, 0, sizeof(eCallPtr->oadData));
+    eCallPtr->oadDataSize = (size_t)msd_EncodeOptionalDataForEuroNCAP(&ECallObject.euroNCAPData, eCallPtr->oadData);
+    SetMsdAdditionalData(ecallRef, "8.1", eCallPtr->oadData, eCallPtr->oadDataSize);
+#endif
+    return LE_OK;
+}
+
+le_result_t taf_ecall::SetMsdEuroNCAPRolloverDetected(taf_ecall_CallRef_t ecallRef, bool rolloverDetected)
+{
+    taf_ECall_t* eCallPtr =(taf_ECall_t*) le_ref_Lookup(ECallPtrRefMap, ecallRef);
+
+    TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
+
+    if (eCallPtr->isMsdUpdated)
+    {
+        LE_ERROR("MSD optional data is set by importing MSD");
+        return LE_DUPLICATE;
+    }
+
+#if defined(LE_CONFIG_ENABLE_ECALL_MSD_OPTIONAL_DATA)
+    ECallObject.euroNCAPData.rolloverDetectedPresent = true;
+    ECallObject.euroNCAPData.rolloverDetected = rolloverDetected;
+    memset(eCallPtr->oadData, 0, sizeof(eCallPtr->oadData));
+    eCallPtr->oadDataSize = (size_t)msd_EncodeOptionalDataForEuroNCAP(&ECallObject.euroNCAPData, eCallPtr->oadData);
+    SetMsdAdditionalData(ecallRef, "8.1", eCallPtr->oadData, eCallPtr->oadDataSize);
+#endif
+    return LE_OK;
+}
+
+le_result_t taf_ecall::ResetMsdEuroNCAPRolloverDetected(taf_ecall_CallRef_t ecallRef)
+{
+    taf_ECall_t* eCallPtr =(taf_ECall_t*) le_ref_Lookup(ECallPtrRefMap, ecallRef);
+
+    TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
+
+    if (eCallPtr->isMsdUpdated)
+    {
+        LE_ERROR("MSD optional data is set by importing MSD");
+        return LE_DUPLICATE;
+    }
+#if defined(LE_CONFIG_ENABLE_ECALL_MSD_OPTIONAL_DATA)
+    ECallObject.euroNCAPData.rolloverDetectedPresent = false;
+    memset(eCallPtr->oadData, 0, sizeof(eCallPtr->oadData));
+    eCallPtr->oadDataSize = (size_t)msd_EncodeOptionalDataForEuroNCAP(&ECallObject.euroNCAPData, eCallPtr->oadData);
+    SetMsdAdditionalData(ecallRef, "8.1", eCallPtr->oadData, eCallPtr->oadDataSize);
+#endif
+    return LE_OK;
+}
+
+le_result_t taf_ecall::SetMsdEuroNCAPIIDeltaV(taf_ecall_CallRef_t ecallRef, uint8_t rangeLimit, int16_t deltaVX, int16_t deltaVY)
+{
+    taf_ECall_t* eCallPtr =(taf_ECall_t*) le_ref_Lookup(ECallPtrRefMap, ecallRef);
+
+    TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
+
+    if (eCallPtr->isMsdUpdated)
+    {
+        LE_ERROR("MSD optional data is set by importing MSD");
+        return LE_DUPLICATE;
+    }
+
+    if ((rangeLimit < 100) || (rangeLimit > 250) ||
+        (deltaVX < -250) || (deltaVX > 250) ||
+        (deltaVY < -250) || (deltaVY > 250))
+    {
+        LE_ERROR("Invalid delta");
+        return LE_FAULT;
+    }
+
+#if defined(LE_CONFIG_ENABLE_ECALL_MSD_OPTIONAL_DATA)
+    ECallObject.euroNCAPData.rangeLimit = rangeLimit;
+    ECallObject.euroNCAPData.deltaVX = deltaVX;
+    ECallObject.euroNCAPData.deltaVY = deltaVY;
+    memset(eCallPtr->oadData, 0, sizeof(eCallPtr->oadData));
+    eCallPtr->oadDataSize = (size_t)msd_EncodeOptionalDataForEuroNCAP(&ECallObject.euroNCAPData, eCallPtr->oadData);
+    SetMsdAdditionalData(ecallRef, "8.1", eCallPtr->oadData, eCallPtr->oadDataSize);
+#endif
+    return LE_OK;
+}
+
+uint16_t taf_ecall::PutBits(uint16_t msgOffset, uint16_t elmtLen, uint8_t* elmtPtr, uint8_t* msgPtr)
+{
+    std::vector<uint8_t> bitMask({0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01});
+    uint8_t msgPos = msgOffset & 0x07;
+    uint8_t  elmtPos  = 8 - ((elmtLen & 0x07) ? elmtLen & 0x07 : (elmtLen & 0x07) + 8);
+    msgPtr += msgOffset >> 3;
+    for (uint16_t i = 0; i < elmtLen; i++) {
+        uint8_t val = (*elmtPtr) & bitMask[elmtPos];
+        uint8_t mask = bitMask[elmtPos];
+        int8_t shift = msgPos - elmtPos;
+        if (shift >= 0) {
+            val >>= shift;
+            mask >>= shift;
+        } else {
+            val <<= (-shift);
+            mask <<= (-shift);
+        }
+
+        *msgPtr &= ~mask;
+        *msgPtr |= val;
+        elmtPos++;
+        msgPos++;
+        if (elmtPos > 7)
+        {
+            elmtPtr++;
+            elmtPos = 0;
+        }
+        if (msgPos > 7)
+        {
+            msgPtr++;
+            msgPos = 0;
+        }
+    }
+    return msgOffset + elmtLen;
+}
+
+uint16_t taf_ecall::PutTwoBytes(uint16_t  msgOffset, uint16_t elmtLen, uint16_t* elmtPtr, uint8_t* msgPtr)
+{
+    uint16_t  msgOffsetCurr = msgOffset;
+    std::vector<uint16_t> bitMask({0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80,
+		0x100, 0x200, 0x400, 0x800, 0x1000, 0x2000, 0x4000, 0x8000});
+
+    for (uint16_t i = 0; i < elmtLen; i++) {
+        if ((*elmtPtr & bitMask[elmtLen-i-1]) != 0) {
+            msgPtr[msgOffsetCurr >> 3] |= 0x01 << (7 - (msgOffsetCurr & 0x07));
+        } else {
+            msgPtr[msgOffsetCurr >> 3] &= ~(0x01 << (7 - (msgOffsetCurr & 0x07)));
+        }
+        msgOffsetCurr++;
+    }
+    return msgOffset + elmtLen;
+}
+
+int32_t taf_ecall::msd_EncodeOptionalDataForEuroNCAP(taf_EuroNCAPData_t* euroNCAPDataPtr, uint8_t* outDataPtr)
+{
+    uint8_t off=0;
+    int offset=0;
+    uint16_t msdMsgLen=0;
+
+    if (outDataPtr)
+    {
+        offset = PutBits(offset, 1, &off, outDataPtr);
+        offset = PutBits(offset, 1,(uint8_t*)&euroNCAPDataPtr->rolloverDetectedPresent
+                        , outDataPtr);
+        offset = PutBits(offset, 4,(uint8_t*)&euroNCAPDataPtr->locationOfImpact
+                        , outDataPtr);
+
+        if (euroNCAPDataPtr->rolloverDetectedPresent)
+        {
+               offset = PutBits(offset, 1
+                        , (uint8_t*)&euroNCAPDataPtr->rolloverDetected
+                        , outDataPtr);
+        }
+
+        uint8_t rangeLimitTmp = euroNCAPDataPtr->rangeLimit - 100;
+        int16_t deltaVXTmp = euroNCAPDataPtr->deltaVX + 255;
+        int16_t deltaVYTmp = euroNCAPDataPtr->deltaVY + 255;
+
+        offset = PutTwoBytes(offset, 9
+                         , (uint16_t*)&rangeLimitTmp
+                         , outDataPtr);
+        offset = PutTwoBytes(offset, 9
+                         , (uint16_t*)&deltaVXTmp
+                         , outDataPtr);
+        offset = PutTwoBytes(offset, 9
+                         , (uint16_t*)&deltaVYTmp
+                         , outDataPtr);
+
+        if (offset % 8)
+        {
+            msdMsgLen = (offset/8)+1;
+        }
+        else
+        {
+            msdMsgLen = (offset/8);
+        }
+    }
+
+    LE_INFO("MSD optional additional data length %d Bytes for %d bits", msdMsgLen, offset);
+    return msdMsgLen;
 }
 
 le_result_t taf_ecall::ImportMsd( taf_ecall_CallRef_t ecallRef, const uint8_t* pduMsd, size_t msdLength)

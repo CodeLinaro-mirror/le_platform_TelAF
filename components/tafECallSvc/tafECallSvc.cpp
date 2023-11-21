@@ -978,6 +978,201 @@ le_result_t taf_ecall_GetMsdTxMode
 
 /*======================================================================
 
+ FUNCTION       taf_ecall_SetMsdAdditionalData
+
+ DESCRIPTION    Sets the optional additional data for MSD transmission.
+
+ DEPENDENCIES   Initialization of ECall service
+
+ PARAMETERS     [IN] ecallRef : reference for ecall
+                [IN] oid : RELATIVE-OID
+                [IN] data : optional data
+                [IN] dataLength : the length of optional data
+
+ RETURN VALUE   le_result_t
+                    LE_BAD_PARAMETER:     Bad eCall reference.
+                    LE_FAULT:             Failed.
+                    LE_OK:                Succeeded.
+                    LE_DUPLICATE:         The MSD has already been imported.
+ NOTE           The process exits when an invalid eCall reference is given.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_ecall_SetMsdAdditionalData
+(
+    taf_ecall_CallRef_t ecallRef,
+    const char* oid,
+    const uint8_t* data,
+    size_t dataLength
+)
+{
+    TAF_ERROR_IF_RET_VAL(oid == NULL, LE_BAD_PARAMETER," oid pointer is NULL");
+    TAF_ERROR_IF_RET_VAL(data == NULL, LE_BAD_PARAMETER," data pointer is NULL");
+    TAF_ERROR_IF_RET_VAL(dataLength > TAF_ECALL_MAX_DATA_LENGTH,
+                    LE_FAULT, "optional data length exceeds max length")
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.SetMsdAdditionalData(ecallRef, oid, data, dataLength);
+}
+
+/*======================================================================
+
+ FUNCTION       taf_ecall_ResetMsdAdditionalData
+
+ DESCRIPTION    Resets the optional additional data for MSD transmission.
+
+ DEPENDENCIES   Initialization of ECall service
+
+ PARAMETERS     [IN] ecallRef : reference for ecall
+
+ RETURN VALUE   le_result_t
+                    LE_BAD_PARAMETER:     Bad eCall reference.
+                    LE_OK:                Succeeded.
+                    LE_DUPLICATE:         The MSD has already been imported.
+ NOTE           The process exits when an invalid eCall reference is given.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_ecall_ResetMsdAdditionalData
+(
+    taf_ecall_CallRef_t ecallRef
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.ResetMsdAdditionalData(ecallRef);
+}
+
+/*======================================================================
+
+ FUNCTION       taf_ecall_SetMsdEuroNCAPLocationOfImpact
+
+ DESCRIPTION    Sets the location of impact for Euro NCAP additional data.
+
+ DEPENDENCIES   Initialization of ECall service
+
+ PARAMETERS     [IN] ecallRef : reference for ecall
+                [IN] iiLocations : location of impact
+
+ RETURN VALUE   le_result_t
+                    LE_BAD_PARAMETER:     Bad eCall reference.
+                    LE_FAULT:             Failed.
+                    LE_OK:                Succeeded.
+                    LE_DUPLICATE:         The MSD has already been imported.
+ NOTE           The process exits when an invalid eCall reference is given.
+
+ SIDE EFFECTS
+
+======================================================================*/
+
+le_result_t taf_ecall_SetMsdEuroNCAPLocationOfImpact
+(
+    taf_ecall_CallRef_t ecallRef,
+    taf_ecall_IILocations_t iiLocations
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.SetMsdEuroNCAPLocationOfImpact(ecallRef, iiLocations);
+}
+
+/*======================================================================
+
+ FUNCTION       taf_ecall_SetMsdEuroNCAPRolloverDetected
+
+ DESCRIPTION    Sets the rollover detected for Euro NCAP additional data.
+
+ DEPENDENCIES   Initialization of ECall service
+
+ PARAMETERS     [IN] ecallRef : reference for ecall
+                [IN] rolloverDetected: rollover detected or not
+
+ RETURN VALUE   le_result_t
+                    LE_BAD_PARAMETER:     Bad eCall reference.
+                    LE_OK:                Succeeded.
+                    LE_DUPLICATE:         The MSD has already been imported.
+ NOTE           The process exits when an invalid eCall reference is given.
+
+ SIDE EFFECTS
+
+======================================================================*/
+
+le_result_t taf_ecall_SetMsdEuroNCAPRolloverDetected
+(
+    taf_ecall_CallRef_t ecallRef,
+    bool   rolloverDetected
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.SetMsdEuroNCAPRolloverDetected(ecallRef, rolloverDetected);
+}
+/*======================================================================
+
+ FUNCTION       taf_ecall_ResetMsdEuroNCAPRolloverDetected
+
+ DESCRIPTION    Resets the rollover detected for Euro NCAP additional data.
+
+ DEPENDENCIES   Initialization of ECall service
+
+ PARAMETERS     [IN] ecallRef : reference for ecall
+
+ RETURN VALUE   le_result_t
+                    LE_BAD_PARAMETER:     Bad eCall reference.
+                    LE_OK:                Succeeded.
+                    LE_DUPLICATE:         The MSD has already been imported.
+ NOTE           The process exits when an invalid eCall reference is given.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_ecall_ResetMsdEuroNCAPRolloverDetected
+(
+    taf_ecall_CallRef_t ecallRef
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.ResetMsdEuroNCAPRolloverDetected(ecallRef);
+}
+
+/*======================================================================
+
+ FUNCTION       taf_ecall_SetMsdEuroNCAPIIDeltaV
+
+ DESCRIPTION    Sets the IIDeltaV for Euro NCAP additional data.
+
+ DEPENDENCIES   Initialization of ECall service
+
+ PARAMETERS     [IN] ecallRef : reference for ecall
+                [IN] rangeLimit : unsigned upper limit of the detection range
+                     for delta-v
+                [IN] deltaVX : delta-v measured over the x-axis of the
+                     coordinate system of the vehicle
+                [IN] deltaVY : delta-v measured over the y-axis of the
+                     coordinate system of the vehicle
+
+ RETURN VALUE   le_result_t
+                    LE_BAD_PARAMETER:     Bad eCall reference.
+                    LE_FAULT:             Failed.
+                    LE_OK:                Succeeded.
+                    LE_DUPLICATE:         The MSD has already been imported.
+ NOTE           The process exits when an invalid eCall reference is given.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_ecall_SetMsdEuroNCAPIIDeltaV
+(
+    taf_ecall_CallRef_t ecallRef,
+    uint8_t   rangeLimit,
+    int16_t   deltaVX,
+    int16_t   deltaVY
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.SetMsdEuroNCAPIIDeltaV(ecallRef, rangeLimit, deltaVX, deltaVY);
+}
+
+/*======================================================================
+
  FUNCTION        taf_ecall_StartTest
 
  DESCRIPTION    Initiate a test voice eCall with a configured telephone

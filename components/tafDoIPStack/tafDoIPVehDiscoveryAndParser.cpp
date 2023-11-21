@@ -55,7 +55,7 @@ void ProtocolParser::PackGenericHeader
     uint32_t payloadLen
 )
 {
-    LE_INFO("PackGenericHeader!");
+    LE_DEBUG("PackGenericHeader!");
 
     if (headerPtr == NULL)
     {
@@ -93,7 +93,7 @@ void ProtocolParser::VehicleAnnounceOrIdRes
     uint8_t furtherAction
 )
 {
-    LE_INFO("VehicleAnnounceOrIdRes!");
+    LE_DEBUG("VehicleAnnounceOrIdRes!");
 
     if (linkPtr == NULL)
     {
@@ -162,7 +162,7 @@ void ProtocolParser::RoutingActivationRes
     uint32_t reserved
 )
 {
-    LE_INFO("RoutingActivationRes!");
+    LE_DEBUG("RoutingActivationRes!");
 
     if (linkPtr == NULL)
     {
@@ -203,7 +203,7 @@ void ProtocolParser::AliveCheckReq
     taf_doipLink_t *linkPtr
 )
 {
-    LE_INFO("AliveCheckReq!");
+    LE_DEBUG("AliveCheckReq!");
 
     if (linkPtr == NULL)
     {
@@ -229,7 +229,7 @@ void ProtocolParser::AliveCheckRes
     uint16_t equipLA
 )
 {
-    LE_INFO("AliveCheckRes!");
+    LE_DEBUG("AliveCheckRes!");
 
     if (linkPtr == NULL)
     {
@@ -260,7 +260,7 @@ void ProtocolParser::DiagPowerModeRes
     uint8_t powerMode
 )
 {
-    LE_INFO("DiagPowerModeRes!");
+    LE_DEBUG("DiagPowerModeRes!");
 
     if (linkPtr == NULL)
     {
@@ -294,7 +294,7 @@ void ProtocolParser::DoIPEntityStatusRes
     uint32_t maxDataSize
 )
 {
-    LE_INFO("DoIPEntityStatusRes!");
+    LE_DEBUG("DoIPEntityStatusRes!");
 
     if (linkPtr == NULL)
     {
@@ -334,7 +334,7 @@ void ProtocolParser::HeaderNegativeACK
     taf_doipHeaderNACKCode_t headerNACKCode
 )
 {
-    LE_INFO("HeaderNegativeACK!");
+    LE_DEBUG("HeaderNegativeACK!");
 
     if (linkPtr == NULL)
     {
@@ -373,7 +373,7 @@ void ProtocolParser::DiagNegativeACK
     taf_doipDiagNACKCode_t diagNACKCode
 )
 {
-    LE_INFO("DiagNegativeACK!");
+    LE_DEBUG("DiagNegativeACK!");
 
     if (linkPtr == NULL)
     {
@@ -421,7 +421,7 @@ void ProtocolParser::DiagPositiveACK
     uint16_t equipLA
 )
 {
-    LE_INFO("DiagPositiveACK!");
+    LE_DEBUG("DiagPositiveACK!");
 
     if (linkPtr == NULL)
     {
@@ -464,7 +464,7 @@ taf_doip_Result_t ProtocolParser::SendDoIPMsg
     size_t dataLen
 )
 {
-    LE_INFO("SendDoIPMsg!");
+    LE_DEBUG("SendDoIPMsg!");
 
     if (linkPtr == NULL)
     {
@@ -639,7 +639,7 @@ void ProtocolParser::UnpackHeaderStruct
     taf_doipHeader_t *headerPtr
 )
 {
-    LE_INFO("UnpackHeaderStruct!");
+    LE_DEBUG("UnpackHeaderStruct!");
 
     if (dataPtr == NULL)
     {
@@ -701,7 +701,7 @@ taf_doip_Result_t VehicleDiscovery::VehicleDiscoveryAnnounce
 (
 )
 {
-    LE_INFO("VehicleDiscoveryAnnounce!");
+    LE_DEBUG("VehicleDiscoveryAnnounce!");
 
     auto &vehicleMgr = VehicleManager::GetInstance();
     auto &vehicleDis = VehicleDiscovery::GetInstance();
@@ -710,14 +710,14 @@ taf_doip_Result_t VehicleDiscovery::VehicleDiscoveryAnnounce
 
     if (waitTimerRef != NULL)
     {
-        LE_INFO("call vehicle Announce Handler!");
+        LE_DEBUG("call vehicle Announce Handler!");
         uint32_t waitTime = le_rand_GetNumBetween(MIN_ANNOUNCE_WAIT_TIME, MAX_ANNOUNCE_WAIT_TIME);
         le_timer_SetMsInterval(waitTimerRef , waitTime);
         le_timer_SetRepeat(waitTimerRef , 1);
         le_timer_SetHandler(waitTimerRef , VehicleAnnounceTimerHandler);
         le_timer_Start(waitTimerRef);
-        LE_INFO("Announcement remaining time: %d", le_timer_GetMsTimeRemaining(waitTimerRef));
-        LE_INFO("called VehicleAnnounceTimerHandler!");
+        LE_DEBUG("Announcement remaining time: %d", le_timer_GetMsTimeRemaining(waitTimerRef));
+        LE_DEBUG("called VehicleAnnounceTimerHandler!");
     }
     else
     {
@@ -783,7 +783,7 @@ taf_doip_Result_t VehicleDiscovery::VehicleIdentityRes
     taf_doipLink_t *linkPtr
 )
 {
-    LE_INFO("VehicleIdentityRes!");
+    LE_DEBUG("VehicleIdentityRes!");
 
     if (linkPtr == NULL)
     {
@@ -807,7 +807,7 @@ void VehicleDiscovery::VehicleIdentityTimerHandler
     le_timer_Ref_t resTimerRef
 )
 {
-    LE_INFO("VehicleIdentityTimerHandler!");
+    LE_DEBUG("VehicleIdentityTimerHandler!");
 
     auto &vehicleMgr = VehicleManager::GetInstance();
     auto &parser = ProtocolParser::GetInstance();

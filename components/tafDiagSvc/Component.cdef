@@ -5,6 +5,7 @@ provides:
         taf_diagRoutineCtrl.api
         taf_diagUpdate.api
         taf_diagReset.api
+        taf_diagSecurity.api
     }
 }
 
@@ -38,6 +39,8 @@ sources:
         tafUpdateSvrImpl.cpp
         tafResetSvc.cpp
         tafResetSvrImpl.cpp
+        tafSecuritySvc.cpp
+        tafSecuritySvrImpl.cpp
         tafDiagFrontend.cpp
         tafDiagBackend.cpp
 }

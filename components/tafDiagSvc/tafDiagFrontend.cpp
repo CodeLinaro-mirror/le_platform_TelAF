@@ -38,6 +38,7 @@
 #include "tafRoutineCtrlSvr.hpp"
 #include "tafResetSvr.hpp"
 #include "tafUpdateSvr.hpp"
+#include "tafSecuritySvr.hpp"
 
 using namespace telux::tafsvc;
 
@@ -48,6 +49,11 @@ using namespace telux::tafsvc;
 //--------------------------------------------------------------------------------------------------
 COMPONENT_INIT
 {
+    LE_INFO("TelAF UDS Security service initialization start...");
+    auto& tafSecurity = taf_SecuritySvr::GetInstance();
+    tafSecurity.Init();
+    LE_INFO("TelAF UDS Security service initialization end...");
+
     LE_INFO("TelAF UDS routine conctrol service initialization start...");
     auto& tafRCS = taf_RoutinCtrlSvr::GetInstance();
     tafRCS.Init();

@@ -1575,7 +1575,8 @@ le_result_t tafMngdConnAdmin::InitializeStates()
                         LE_ERROR("APN get failed for profile %d ", profileNumber);
                         return LE_FAULT;
                     }
-                    if(strncmp(setapnPtr,getapnPtr)==0)
+                    size_t getapnLen = strlen(getapnPtr);
+                    if (strncmp(setapnPtr, getapnPtr, getapnLen) == 0)
                     {
                         LE_INFO("APN : %s already present for %d profile",
                                  setapnPtr, profileNumber);

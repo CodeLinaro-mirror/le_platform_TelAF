@@ -32,6 +32,98 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * @page c_tafDiagReset Diag Reset Service
+ *
+ * @ref taf_diagReset_interface.h "API Reference"
+ *
+ * <HR>
+ *
+ * The Reset(0x11) service APIs are part of the diag service. This service requests that the
+ * application perform a server reset based on the content of the resetType parameter in the
+ * ECUReset request message.
+ *
+ * @section taf_diagReset_binding IPC interfaces binding
+ *
+ * The functions of this API are provided by the @b tafDiagSvc platform service.
+ *
+ * The following example illustrates how to bind to the diag reset service.
+ *
+ * @verbatim
+   bindings:
+   {
+        clientExe.clientComponent.taf_diagReset -> tafDiagSvc.taf_diagReset
+   }
+   @endverbatim
+ *
+ * @section c_taf_diagReset_server_API Server Service APIs
+ *
+ * A diag reset service reference can be got using taf_diagReset_GetService() with the resetType
+ * passed as a parameter. Use the returned reference for subsequent operations.
+ *
+ * The following example illustrates how to set up a diag reset server-service-instance.
+ *
+ * @code
+   taf_diagReset_Type_t resetType = TAF_DIAGRESET_HARD_RESET; // Reset type.
+   taf_diagReset_ServiceRef_t svcRef;                         // Service reference
+
+   // Get the service reference.
+   svcRef = taf_diagReset_GetService(resetType);
+   LE_ASSERT(svcRef != NULL);
+   @endcode
+ *
+ * After getting the service reference, an application can call taf_diagReset_AddRxMsgHandler()
+ * to register a message handler for that service. Once a diag reset request message is received,
+ * the handler will be called with the message reference and received resetType passed as input
+ * parameters. The application performs the requested reset operation based on the resetType and
+ * uses the message reference to send a response message using taf_diagReset_Send_Resp(). Finally
+ * call taf_diagReset_RemoveSvc() to remove the created service.
+ *
+ * @code
+   // Rx message handler function.
+   void RxMsgHandler
+   (
+       taf_diagReset_RxMsgRef_t rxMsgRef,
+       taf_diagReset_Type_t resetType,
+       void* contextPtr
+   )
+   {
+    // Process after succesfully receiving message
+   }
+
+   // Register the message handler.
+   taf_diagReset_RxMsgHandlerRef_t RxMsgHandlerRef =
+       taf_diagReset_AddRxMsgHandler(SvcRef, (taf_diagReset_RxMsgHandlerFunc_t)RxMsgHandler, NULL);
+   LE_ASSERT(RxMsgHandlerRef != NULL);
+
+   // To remove the handler function.
+   taf_diagReset_RemoveRxMsgHandler(RxMsgHandlerRef);
+   @endcode
+ *
+ * An application can send a response by calling taf_diagReset_SendResp().
+ *
+ * @code
+   le_result_t result = taf_diagReset_SendResp(rxMsgRef, TAF_DIAGRESET_NO_ERROR);
+   if (result != LE_OK)
+   {
+      LE_ERROR("Fail to send response.");
+      return result;
+   }
+   @endcode
+ *
+ * An application can remove the diag reset server service by calling taf_diagReset_RemoveSvc().
+ *
+ * @code
+   le_result_t result = taf_diagReset_RemoveSvc(svcRef);
+   LE_ASSERT(result == LE_OK);
+   @endcode
+ *
+ * <HR>
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+
 USETYPES taf_types.api;
 
 //--------------------------------------------------------------------------------------------------
@@ -121,6 +213,7 @@ EVENT RxMsg
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- Reference not found.
  *     - LE_FAULT -- Failed.
  *
  * @note The process exits if an invalid reference is passed.
@@ -139,7 +232,6 @@ FUNCTION le_result_t SendResp
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid svcRef.
- *     - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t RemoveSvc

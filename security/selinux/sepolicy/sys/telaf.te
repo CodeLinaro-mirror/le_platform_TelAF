@@ -249,7 +249,6 @@ type telaf_devmgr_data_t;
 files_type(telaf_devmgr_exec_t);
 files_type(telaf_devmgr_data_t);
 init_telaf_core_domain(telaf_devmgr_t, telaf_devmgr_exec_t)
-allow telaf_devmgr_t data_t:file { map };
 allow telaf_devmgr_t telaf_devmgr_t:process { signal };
 allow telaf_devmgr_t telaf_devmgr_t:capability { sys_ptrace kill };
 allow telaf_devmgr_t proc_t:file { open read getattr };
@@ -263,6 +262,9 @@ gen_require(`
 ')
 allow telaf_devmgr_t telaf_tafGpioSvc_t:lnk_file { read };
 allow telaf_devmgr_t telaf_tafGpioSvc_t:process { signull };
+ifdef(`sa525m',`
+    allow telaf_devmgr_t data_t:file { map };
+')
 
 
 # Update daemon need to remove files during app uninstallation (telaf_admin_t also needs these permission)

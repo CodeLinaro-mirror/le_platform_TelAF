@@ -1236,7 +1236,7 @@ static void ScanStoredDriversAndCopy()
 
     while (n > 0)
     {
-        LE_INFO("file name: %s", fileList[n]->d_name);
+        LE_INFO("file name: %s", fileList[n - 1]->d_name);
         n--;
 
         char srcStr[DEV_MANAGER_DRIVER_LOCATION_MAX_LEN];
@@ -1312,7 +1312,7 @@ static void InstallPersistentDrivers()
 
     while (n > 0)
     {
-        LE_INFO("driver name: %s", driverList[n]->d_name);
+        LE_INFO("driver name: %s", driverList[n - 1]->d_name);
         n--;
 
         char srcStr[DEV_MANAGER_DRIVER_LOCATION_MAX_LEN];
@@ -1395,7 +1395,7 @@ COMPONENT_INIT
     {
         LE_INFO("Dev Manager storage dir does not exist, create it.");
 
-        if(mkdir(DEV_MANAGER_STORAGE, 0644) != 0)
+        if(mkdir(DEV_MANAGER_STORAGE, 0755) != 0)
         {
             LE_ERROR("Failed to create the dir %s", DEV_MANAGER_STORAGE);
             exit(-1);
@@ -1410,14 +1410,14 @@ COMPONENT_INIT
 #endif
 
         // go ahead creating the sub dir
-        if(mkdir(DEV_MANAGER_DRIVER_STORAGE, 0644) != 0)
+        if(mkdir(DEV_MANAGER_DRIVER_STORAGE, 0755) != 0)
         {
             LE_ERROR("Failed to create the dir %s",DEV_MANAGER_STORAGE);
             exit(-1);
         }
 
         // go ahead creating the sub dir
-        if(mkdir(DEV_MANAGER_TMP_STORAGE,0644) != 0)
+        if(mkdir(DEV_MANAGER_TMP_STORAGE,0755) != 0)
         {
             LE_ERROR("Failed to create the dir %s",DEV_MANAGER_TMP_STORAGE);
             exit(-1);
@@ -1437,21 +1437,21 @@ COMPONENT_INIT
         unlink(DEV_MANAGER_STORAGE);
 
         // Create the directory
-        if(mkdir(DEV_MANAGER_STORAGE,0644) != 0)
+        if(mkdir(DEV_MANAGER_STORAGE,0755) != 0)
         {
             LE_ERROR("Failed to create the dir %s",DEV_MANAGER_STORAGE);
             exit(-1);
         }
 
         // go ahead creating the sub dir
-        if(mkdir(DEV_MANAGER_DRIVER_STORAGE,0644) != 0)
+        if(mkdir(DEV_MANAGER_DRIVER_STORAGE,0755) != 0)
         {
             LE_ERROR("Failed to create the dir %s",DEV_MANAGER_STORAGE);
             exit(-1);
         }
 
         // go ahead creating the sub dir
-        if(mkdir(DEV_MANAGER_TMP_STORAGE,0644) != 0)
+        if(mkdir(DEV_MANAGER_TMP_STORAGE,0755) != 0)
         {
             LE_ERROR("Failed to create the dir %s",DEV_MANAGER_TMP_STORAGE);
             exit(-1);
@@ -1472,7 +1472,7 @@ COMPONENT_INIT
 
     // load driver from configTree before service- try to leverage mdef/modules
 
-    // Get a reference to the Log Control Protocol identification.
+    // Get a reference to the Protocol identification.
     le_msg_ProtocolRef_t protocolRef = le_msg_GetProtocolRef(DEV_MANAGER_PROTOCOL_ID,
                                                              DEV_MANAGER_MAX_CMD_PACKET_BYTES);
 

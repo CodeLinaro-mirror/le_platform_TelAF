@@ -3,20 +3,12 @@ sources:
     devManager.cpp
 }
 
-provides:
-{
-    api:
-    {
-      //taf_devMgr.api
-    }
-}
-
 requires:
 {
     lib:
     {
     #if ${LE_CONFIG_ENABLE_SELINUX} =y
-        lib/libsemanage.so.1
+        lib/libselinux.so.1
     #endif
     }
 }

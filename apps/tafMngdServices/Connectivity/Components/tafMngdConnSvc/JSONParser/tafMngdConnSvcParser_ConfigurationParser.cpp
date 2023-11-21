@@ -380,14 +380,14 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Use_Network_ID(
 /**
  * Data Profile Name can be a string or NULL.
  */
-bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Profile_Name(
+bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Name(
                                             taf_mngd_Conn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
     LE_DEBUG("%s", Value.c_str());
     taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
-    if (TAF_MNGD_JSON_DATA_TYPE_STRING != DataType && TAF_MNGD_JSON_DATA_TYPE_NULL != DataType)
+    if (TAF_MNGD_JSON_DATA_TYPE_STRING != DataType  && TAF_MNGD_JSON_DATA_TYPE_NULL != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
@@ -808,6 +808,7 @@ bool tafMngdConnSvc_ConfigurationParser::ParseAndUpdateConfigurationJSON(
                                 for (auto &iter: array_element.second)
                                 {
                                     if ( "ID" == iter.first ||
+                                        "Name" == iter.first ||
                                         "Use_Network_ID" == iter.first ||
                                         "AutoStart" == iter.first )
                                     {
@@ -940,8 +941,9 @@ void tafMngdConnSvc_ConfigurationParser::UpdateValidConfigurationFuncMap(void)
     // Data
     ConfigurationValidationFuncMap["Data:ID"]             = &Validate_MCSC_Data_ID;
     ConfigurationValidationFuncMap["Data:Use_Network_ID"] = &Validate_MCSC_Data_Use_Network_ID;
+    ConfigurationValidationFuncMap["Data:Name"]           = &Validate_MCSC_Data_Name;
+
     // Data:Profile
-    ConfigurationValidationFuncMap["Data:Profile:Name"]   = &Validate_MCSC_Data_Profile_Name;
     ConfigurationValidationFuncMap["Data:Profile:Number"] = &Validate_MCSC_Data_Profile_Number;
     ConfigurationValidationFuncMap["Data:Profile:APN"]    = &Validate_MCSC_Data_Profile_APN;
     // Data: AutoStart

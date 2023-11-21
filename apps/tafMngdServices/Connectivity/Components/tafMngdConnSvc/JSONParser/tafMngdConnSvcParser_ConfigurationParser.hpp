@@ -161,7 +161,7 @@ private:
     static bool Validate_MCSC_Data_Use_Network_ID(taf_mngd_Conn_Configuration_t &Configuration,
                                     std::string Value,
                                     int Index);
-    static bool Validate_MCSC_Data_Profile_Name(taf_mngd_Conn_Configuration_t &Configuration,
+    static bool Validate_MCSC_Data_Name(taf_mngd_Conn_Configuration_t &Configuration,
                                     std::string Value,
                                     int Index);
     static bool Validate_MCSC_Data_Profile_Number(taf_mngd_Conn_Configuration_t &Configuration,

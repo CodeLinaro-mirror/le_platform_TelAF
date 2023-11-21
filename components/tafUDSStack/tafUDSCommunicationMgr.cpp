@@ -68,8 +68,27 @@ void UdsCommunicationMgr::Init
 
     udsHandlerRefMap = le_ref_CreateMap("udsHandlerRefMap", TAF_UDS_HANDLER_REF_CNT);
 
+    timerRef = le_timer_Create("UDSP2Timer");
+    le_timer_SetMsInterval(timerRef, UDS_P2_STAR_SERVER);
+    le_timer_SetRepeat(timerRef, 1);
+    le_timer_SetHandler(timerRef, P2TimeoutHandler);
+
     LE_INFO("UDS communication manager ok.");
     return;
+}
+
+void UdsCommunicationMgr::P2TimeoutHandler
+(
+    le_timer_Ref_t timerRef
+)
+{
+    auto& udsCmMgr = UdsCommunicationMgr::GetInstance();
+    LE_INFO("--- time out");
+
+    udsCmMgr.readyToRecvData = true;
+    memset(udsCmMgr.recvBuf, 0, UDS_DATA_SIZE);
+    udsCmMgr.recvDataLen = 0;
+    udsCmMgr.sendDataLen = 0;
 }
 
 static taf_doip_PowerMode_t PowerModeQueryHandler
@@ -77,7 +96,7 @@ static taf_doip_PowerMode_t PowerModeQueryHandler
     void* userPtr
 )
 {
-    LE_INFO("PowerModeQueryHandler");
+    LE_DEBUG("PowerModeQueryHandler");
 
     return TAF_DOIP_POWER_MODE_READY;
 }
@@ -152,6 +171,55 @@ le_result_t UdsCommunicationMgr::SetNRC
 }
 
 /**
+ * Send NRC.
+ */
+le_result_t UdsCommunicationMgr::SendNRC
+(
+    uint8_t sid,
+    uint8_t errorCode,
+    taf_doip_AddrInfo_t*  addrInfoPtr
+)
+{
+    LE_DEBUG("SendNRC, sid= 0x%x, error code=0x%x",sid, errorCode);
+
+    // pack the NRC data
+    sendBuf[0] = UDS_NEGATIVE_RESP_SID;
+    sendBuf[1] = sid;
+    sendBuf[2] = errorCode;
+    sendDataLen = UDS_NEG_RESP_LEN;
+
+    SendData(addrInfoPtr);
+
+    return LE_OK;
+}
+
+void UdsCommunicationMgr::SendData
+(
+    taf_doip_AddrInfo_t*  addrInfoPtr
+)
+{
+    le_result_t ret;
+    taf_doip_AddrInfo_t respAddrInfo;
+    taf_doip_DiagMsg_t respDiagMsg;
+
+    respAddrInfo.sa = addrInfoPtr->ta;
+    respAddrInfo.ta = addrInfoPtr->sa;
+    respAddrInfo.taType = addrInfoPtr->taType;
+    respDiagMsg.dataPtr = sendBuf;
+    respDiagMsg.dataLen = sendDataLen;
+
+    ret = taf_doip_DiagRequest(&respAddrInfo, &respDiagMsg);
+    if(ret == LE_OK)
+    {
+        LE_DEBUG("Send Diagnostic response successfully");
+    }
+    else
+    {
+        LE_ERROR("Failed to send Diagnostic response");
+    }
+}
+
+/**
  * Read DID from ConfigTree on UDS client request.
  */
 uint8_t UdsCommunicationMgr::readDIDFromConfigTree
@@ -161,8 +229,31 @@ uint8_t UdsCommunicationMgr::readDIDFromConfigTree
 {
     le_cfg_ConnectService();
 
+    char securedDidNode[DID_NODE_LEN] = { 0 };
+    snprintf(securedDidNode, sizeof(securedDidNode), DID_READ_SEC_PROPERTY_SUPPORTED_FUNCTION,
+            dataId);
+    bool IsSecured = le_cfg_QuickGetBool(securedDidNode, false);
+
+    LE_DEBUG("securedDidNode =%s,supported: %d", securedDidNode, IsSecured);
+    if(IsSecured == true && securityLevel == 0)
+    {
+        LE_DEBUG("Did is secured and the server is not unlocked.");
+        return SECURITY_ACCESS_DENY;
+    }
+
+    char readDidNode[DID_NODE_LEN] = { 0 };
+    snprintf(readDidNode, sizeof(readDidNode), DID_READ_PROPERTY_SUPPORTED_FUNCTION, dataId);
+    bool IsSupported = le_cfg_QuickGetBool(readDidNode, false);
+
+    LE_DEBUG("readDidNode =%s,supported: %d", readDidNode, IsSupported);
+    if(IsSupported == false)
+    {
+        LE_DEBUG("ReadDid is not supported.");
+        return REQ_OUT_OF_RANGE;
+    }
+
     char node[DID_NODE_LEN] = { 0 };
-    snprintf(node, sizeof(node), DID_CONFIG_TREE_DATA_FORMAT, dataId);
+    snprintf(node, sizeof(node), DID_CONFIG_TREE_VALUE_FORMAT, dataId);
 
     le_cfg_IteratorRef_t iteratorRef_r = le_cfg_CreateReadTxn(node);
 
@@ -187,7 +278,7 @@ uint8_t UdsCommunicationMgr::readDIDFromConfigTree
 
         if(sendDataLen+i >= UDS_DATA_SIZE)
         {
-            LE_ERROR("Data length is too long");
+            LE_DEBUG("Data length is too long");
             le_cfg_CancelTxn(iteratorRef_r);
             return RESP_TOO_LONG;
         }
@@ -222,8 +313,31 @@ uint8_t UdsCommunicationMgr::writeDIDToConfigTree
         return REQ_OUT_OF_RANGE;
     }
 
+    char securedDidNode[DID_NODE_LEN] = { 0 };
+    snprintf(securedDidNode, sizeof(securedDidNode), DID_WRITE_SEC_PROPERTY_SUPPORTED_FUNCTION,
+            dataId);
+    bool IsSecured = le_cfg_QuickGetBool(securedDidNode, false);
+
+    LE_DEBUG("securedDidNode =%s,supported: %d", securedDidNode, IsSecured);
+    if(IsSecured == true && securityLevel == 0)
+    {
+        LE_DEBUG("Did is secured and the server is not unlocked.");
+        return SECURITY_ACCESS_DENY;
+    }
+
+    char writeDidNode[DID_NODE_LEN] = { 0 };
+    snprintf(writeDidNode, sizeof(writeDidNode), DID_WRITE_PROPERTY_SUPPORTED_FUNCTION, dataId);
+    bool IsSupported = le_cfg_QuickGetBool(writeDidNode, false);
+
+    LE_DEBUG("writeDidNode =%s,supported: %d", writeDidNode, IsSupported);
+    if(IsSupported == false)
+    {
+        LE_DEBUG("WriteDid is not supported.");
+        return REQ_OUT_OF_RANGE;
+    }
+
     char node[DID_NODE_LEN] = { 0 };
-    snprintf(node, sizeof(node), DID_CONFIG_TREE_DATA_FORMAT, dataId);
+    snprintf(node, sizeof(node), DID_CONFIG_TREE_VALUE_FORMAT, dataId);
     le_cfg_IteratorRef_t wrIter = le_cfg_CreateWriteTxn(node);
 
     if (wrIter == NULL)
@@ -332,6 +446,7 @@ uint8_t UdsCommunicationMgr::readDTCByStatusMask
  */
 le_result_t UdsCommunicationMgr::ReadDTCInfoResp
 (
+    taf_doip_AddrInfo_t*  addrInfoPtr
 )
 {
     LE_DEBUG("ReadDTCInfoResp");
@@ -339,36 +454,50 @@ le_result_t UdsCommunicationMgr::ReadDTCInfoResp
     uint8_t ret;
     // received service ID and sub function.
     uint8_t sid = recvBuf[0];
-    uint8_t subFunc = recvBuf[1];
+    uint8_t subFunc;
+
+    // Check the pointer.
+    if(addrInfoPtr == NULL)
+    {
+        LE_ERROR("Null pointer");
+        return LE_FAULT;
+    }
 
     // Received data length shall not be more than the UDS_DATA_SIZE (MAX limit)
     if(recvDataLen > UDS_DATA_SIZE)
     {
         LE_DEBUG("recvDataLen is more than the UDS_DATA_SIZE.");
-        return SetNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
     // Check negative err code for minimum request msg length
     if(recvDataLen < UDS_READ_DTC_INFO_REQ_MIN_LEN)
     {
         LE_DEBUG("recvDataLen is less than the ReadDTC request msg minimum length.");
-        return SetNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
+
+    subFunc = recvBuf[1] & 0x7f;
 
     // Supported sub function check, only support sub function 0x2 currently.
     if(subFunc != DTC_SUB_FUNCTION_REPORT_DTC_BY_STATUS)
     {
-        return SetNRC(sid, SUBFUNCTION_NOT_SUPPORTED);
+        return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED, addrInfoPtr);
     }
+
+    //Send RCRRP, since maybe it will spend much time to read data from config tree
+    SendNRC(sid, REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING, addrInfoPtr);
 
     uint8_t statusMask = recvBuf[2];
     ret = readDTCByStatusMask(statusMask);
 
     if (ret == REQ_OUT_OF_RANGE)
     {
-        return SetNRC(sid, REQ_OUT_OF_RANGE);
+        return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
     }
 
+    //Send positive response
+    SendData(addrInfoPtr);
     return LE_OK;
 }
 
@@ -377,6 +506,7 @@ le_result_t UdsCommunicationMgr::ReadDTCInfoResp
  */
 le_result_t UdsCommunicationMgr::ReadDIDResp
 (
+    taf_doip_AddrInfo_t*  addrInfoPtr
 )
 {
     LE_DEBUG("ReadDIDResp");
@@ -388,32 +518,42 @@ le_result_t UdsCommunicationMgr::ReadDIDResp
     // received service ID
     uint8_t sid = recvBuf[0];
 
+    // Check the pointer.
+    if(addrInfoPtr == NULL)
+    {
+        LE_ERROR("Null pointer");
+        return LE_FAULT;
+    }
+
     // Received data length shall not be more than the UDS_DATA_SIZE (MAX limit)
     if(recvDataLen > UDS_DATA_SIZE)
     {
         LE_DEBUG("recvDataLen is more than the UDS_DATA_SIZE.");
-        return SetNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
     // Check negative err code for minimum request msg length
     if(recvDataLen < UDS_READ_DID_REQ_MIN_LEN)
     {
         LE_DEBUG("recvDataLen is less than the ReadDID request msg minimum length.");
-        return SetNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
     // Maximum length check, NRC 13
     if((recvDataLen -1) % 2 !=0)
     {
-        return SetNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
     // Atleast one did present, NRC 31
     didNum = (recvDataLen -1)/2;
     if(didNum == 0)
     {
-        return SetNRC(sid, REQ_OUT_OF_RANGE);
+        return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
     }
+
+    //Send RCRRP, since maybe it will spend much time to read data from config tree
+    SendNRC(sid, REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING, addrInfoPtr);
 
     sendBuf[0] = READ_DID_RESPONSE_ID;
     sendDataLen = 1;
@@ -422,7 +562,7 @@ le_result_t UdsCommunicationMgr::ReadDIDResp
         //Total response length exceeded, NRC 14
         if(sendDataLen + UDS_DID_LEN > UDS_DATA_SIZE )
         {
-            return SetNRC(sid, RESP_TOO_LONG);
+            return SendNRC(sid, RESP_TOO_LONG, addrInfoPtr);
         }
 
         if ((i*UDS_DID_LEN + 2) < UDS_DATA_SIZE)
@@ -435,27 +575,21 @@ le_result_t UdsCommunicationMgr::ReadDIDResp
         }
         else
         {
-            return SetNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
+            return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
         }
 
         ret = readDIDFromConfigTree(did);
 
-        //check max send buf
-        if(ret == RESP_TOO_LONG)
+        //If response is negative, send NRC
+        if(ret != POSITIVE_RESPONSE)
         {
-            return SetNRC(sid, RESP_TOO_LONG);
+            return SendNRC(sid, ret, addrInfoPtr);
         }
-        //Can't get did value, because the did(2 bytes) is already filled in sendBuf, remove them.
-        else if (ret == REQ_OUT_OF_RANGE)
-        {
-            break;
-        }
+
     }
 
-    if(sendDataLen == 1)
-    {
-        return SetNRC(sid, REQ_OUT_OF_RANGE);
-    }
+    //Send positive response
+    SendData(addrInfoPtr);
 
     return LE_OK;
 }
@@ -465,6 +599,7 @@ le_result_t UdsCommunicationMgr::ReadDIDResp
  */
 le_result_t UdsCommunicationMgr::WriteDIDResp
 (
+    taf_doip_AddrInfo_t*  addrInfoPtr
 )
 {
     LE_DEBUG("WriteDIDResp");
@@ -476,34 +611,44 @@ le_result_t UdsCommunicationMgr::WriteDIDResp
     // received service ID
     uint8_t sid = recvBuf[0];
 
+    // Check the pointer.
+    if(addrInfoPtr == NULL)
+    {
+        LE_ERROR("Null pointer");
+        return LE_FAULT;
+    }
+
     // Check active session type for WriteDataByIdentifier.
     if (SessionType == DEFAULT_SESSION)
     {
         LE_DEBUG("Default session type is active for WriteDIDResp.");
-        return SetNRC(sid, CONDITIONS_NOT_CORRECT);
+        return SendNRC(sid, CONDITIONS_NOT_CORRECT, addrInfoPtr);
     }
 
     // Received data length shall not be more than the UDS_DATA_SIZE (MAX limit)
     if(recvDataLen > UDS_DATA_SIZE)
     {
         LE_DEBUG("recvDataLen is more than the UDS_DATA_SIZE.");
-        return SetNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
     // Check negative err code for minimum request msg length
     if(recvDataLen < UDS_WRITE_DID_REQ_MIN_LEN)
     {
         LE_DEBUG("recvDataLen is less than the WriteDID request msg minimum length.");
-        return SetNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
+
+    //Send RCRRP, since maybe it will spend much time to write data to config tree
+    SendNRC(sid, REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING, addrInfoPtr);
 
     did = (recvBuf[1] << 8) + recvBuf[2];
     dataPtr = &recvBuf[3];
 
     ret = writeDIDToConfigTree(did, dataPtr, recvDataLen-UDS_WRITE_DID_REQ_BASE_LEN);
-    if (ret == REQ_OUT_OF_RANGE)
+    if (ret != POSITIVE_RESPONSE)
     {
-        return SetNRC(sid, REQ_OUT_OF_RANGE);
+        return SendNRC(sid, ret, addrInfoPtr);
     }
 
     // Fill the response data
@@ -511,6 +656,9 @@ le_result_t UdsCommunicationMgr::WriteDIDResp
     sendBuf[1] = recvBuf[1];
     sendBuf[2] = recvBuf[2];
     sendDataLen = UDS_WRITE_DID_RESP_LEN;
+
+    //Send positive response
+    SendData(addrInfoPtr);
 
     return LE_OK;
 }
@@ -520,6 +668,7 @@ le_result_t UdsCommunicationMgr::WriteDIDResp
  */
 le_result_t UdsCommunicationMgr::SessionCtrlResp
 (
+    taf_doip_AddrInfo_t*  addrInfoPtr
 )
 {
     LE_DEBUG("SessionCtrlResp");
@@ -527,21 +676,28 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
     // received service ID
     uint8_t sid = recvBuf[0];
 
+    // Check the pointer.
+    if(addrInfoPtr == NULL)
+    {
+        LE_ERROR("Null pointer");
+        return LE_FAULT;
+    }
+
     // Received data length shall not be more than the UDS_DATA_SIZE (MAX limit)
     if(recvDataLen > UDS_DATA_SIZE)
     {
         LE_DEBUG("recvDataLen is more than the UDS_DATA_SIZE.");
-        return SetNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
     // Check negative err code for minimum request msg length
     if(recvDataLen < UDS_SESSION_CTRL_REQ_MIN_LEN)
     {
         LE_DEBUG("recvDataLen is less than the session control request msg minimum length.");
-        return SetNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
-    switch (recvBuf[1])
+    switch (recvBuf[1] & 0x7F)
     {
         case DEFAULT_SESSION:
             break;
@@ -551,7 +707,14 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
             break;
         default:
             LE_DEBUG("Requested session type is not supported");
-            return SetNRC(sid, SUBFUNCTION_NOT_SUPPORTED);
+            return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED, addrInfoPtr);
+    }
+
+    if(SessionType != DEFAULT_SESSION)
+    {
+        reqSeedLevel = 0;
+        securityLevel = 0;
+        LE_INFO("Session switched, reset the security level");
     }
 
     SessionType = (taf_SessionType_t)(recvBuf[1] & 0x7F);
@@ -565,6 +728,9 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
     sendBuf[5] = UDS_P2_STAR_SERVER & 0xff;
     sendDataLen = UDS_SESSION_CTRL_RESP_LEN;
 
+    //Send positive response
+    SendData(addrInfoPtr);
+
     return LE_OK;
 }
 
@@ -573,6 +739,8 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
  */
 le_result_t UdsCommunicationMgr::IndicateECUResetReq
 (
+    taf_doip_AddrInfo_t*  addrInfoPtr,
+    bool* isInternalHandle
 )
 {
     LE_DEBUG("IndicateECUResetReq");
@@ -580,25 +748,157 @@ le_result_t UdsCommunicationMgr::IndicateECUResetReq
     // received service ID
     uint8_t sid = recvBuf[0];
 
+    // Check the pointer.
+    if(addrInfoPtr == NULL || isInternalHandle == NULL)
+    {
+        LE_ERROR("Null pointer");
+        return LE_FAULT;
+    }
+
     // Check active session type for ECUReset.
     if (SessionType != EXTENDED_DIAGNOSTIC_SESSION)
     {
         LE_DEBUG("Extended session type is not active.");
-        return SetNRC(sid, CONDITIONS_NOT_CORRECT);
+        *isInternalHandle = true;
+        return SendNRC(sid, CONDITIONS_NOT_CORRECT, addrInfoPtr);
     }
 
     // Received data length shall not be more than the UDS_DATA_SIZE (MAX limit)
     if(recvDataLen > UDS_DATA_SIZE)
     {
         LE_DEBUG("recvDataLen is more than the UDS_DATA_SIZE.");
-        return SetNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
     // Check negative err code for minimum request msg length
     if(recvDataLen < UDS_ECU_RESET_REQ_MIN_LEN)
     {
         LE_DEBUG("recvDataLen is less than the ECUReset request msg minimum length.");
-        return SetNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+    }
+
+    //Will send indication to the diag service
+    *isInternalHandle = false;
+    return LE_OK;
+}
+
+/**
+ * Indicate received Security access message to Diag service.
+ */
+le_result_t UdsCommunicationMgr::IndicateSecAccessReq
+(
+    taf_doip_AddrInfo_t*  addrInfoPtr,
+    bool* isInternalHandle
+)
+{
+    LE_DEBUG("IndicateSecAccessReq");
+
+    // received service ID
+    uint8_t sid = recvBuf[0];
+    uint8_t subFunc;
+
+    // Check the pointer.
+    if(addrInfoPtr == NULL || isInternalHandle == NULL)
+    {
+        LE_ERROR("Null pointer");
+        return LE_FAULT;
+    }
+
+    // Check active session type for SecurityAccess.
+    if (SessionType == DEFAULT_SESSION)
+    {
+        LE_DEBUG("Default session type is active for IndicateSecAccessReq.");
+        *isInternalHandle = true;
+        return SendNRC(sid, CONDITIONS_NOT_CORRECT, addrInfoPtr);
+    }
+
+    // Received data length shall not be more than the UDS_DATA_SIZE (MAX limit)
+    if(recvDataLen > UDS_DATA_SIZE)
+    {
+        LE_DEBUG("recvDataLen is more than the UDS_DATA_SIZE.");
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+    }
+
+    // Check negative err code for minimum request msg length
+    if(recvDataLen < UDS_SECURITY_ACCESS_REQ_MIN_LEN)
+    {
+        LE_DEBUG("recvDataLen is less than the SecurityAccess msg minimum length.");
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+    }
+
+    subFunc = recvBuf[1] & 0x7f;
+
+    if(subFunc == 0 || (0x43 <= subFunc && subFunc >= 0x5E) || subFunc == 0x7f)
+    {
+        LE_DEBUG("subFunc is reserved.");
+        *isInternalHandle = true;
+        return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED, addrInfoPtr);
+    }
+
+    // requestSeed
+    if (subFunc % 2 !=0)
+    {
+        reqSeedLevel = subFunc;
+        //If already unlock with the same security level, send 0 as the seed.
+        if(subFunc == securityLevel)
+        {
+            //send data 00
+            // Fill the response data
+            sendBuf[0] = SECURITY_ACCESS_RESPONSE_ID;
+            sendBuf[1] = subFunc;
+            sendBuf[2] = 0;
+            sendBuf[3] = 0;
+            sendDataLen = UDS_SECURITY_ACCESS_RESP_SEED_ZERO_LEN;
+
+            //Send positive response
+            SendData(addrInfoPtr);
+            *isInternalHandle = true;
+            return LE_OK;
+        }
+        else
+        {
+            //Will send the indication to the diag service
+            *isInternalHandle = false;
+            return LE_OK;
+        }
+
+    }
+    // sendKey
+    else
+    {
+        // Check negative err code for minimum sendkey request msg length
+        if(recvDataLen < UDS_SECURITY_ACCESS_SEND_KEY_REQ_MIN_LEN)
+        {
+            LE_DEBUG("recvDataLen is less than the SecurityAccess sendkey msg minimum length.");
+            *isInternalHandle = true;
+            return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+        }
+
+        //Without first receiving a 'requestSeed' request message.
+        if(reqSeedLevel == 0)
+        {
+            LE_DEBUG("Without first receiving a 'requestSeed' request message.");
+            *isInternalHandle = true;
+            return SendNRC(sid, REQ_SEQUENCE_ERROR, addrInfoPtr);
+        }
+
+        //'SendKey' level shall equal the 'requestSeed' SubFunction parameter value plus one.
+        if(subFunc != reqSeedLevel + 1)
+        {
+            LE_DEBUG("SendKey level shall equal the 'requestSeed' SubFunc param value plus one.");
+            *isInternalHandle = true;
+            return SendNRC(sid, REQ_SEQUENCE_ERROR, addrInfoPtr);
+        }
+
+        reqSeedLevel = 0;
+
+        //Will send the indication to the diag service
+        *isInternalHandle = false;
+        return LE_OK;
     }
 
     return LE_OK;
@@ -609,6 +909,8 @@ le_result_t UdsCommunicationMgr::IndicateECUResetReq
  */
 le_result_t UdsCommunicationMgr::IndicateRoutinrCtrlReq
 (
+    taf_doip_AddrInfo_t*  addrInfoPtr,
+    bool* isInternalHandle
 )
 {
     LE_DEBUG("IndicateRoutinrCtrlReq");
@@ -616,27 +918,39 @@ le_result_t UdsCommunicationMgr::IndicateRoutinrCtrlReq
     // received service ID
     uint8_t sid = recvBuf[0];
 
+    // Check the pointer.
+    if(addrInfoPtr == NULL || isInternalHandle == NULL)
+    {
+        LE_ERROR("Null pointer");
+        return LE_FAULT;
+    }
+
     // Check active session type for RoutinrCtrlReq.
     if (SessionType == DEFAULT_SESSION)
     {
         LE_DEBUG("Default session type is active for RequestFileTransfer.");
-        return SetNRC(sid, CONDITIONS_NOT_CORRECT);
+        *isInternalHandle = true;
+        return SendNRC(sid, CONDITIONS_NOT_CORRECT, addrInfoPtr);
     }
 
     // Received data length shall not be more than the UDS_DATA_SIZE (MAX limit)
     if(recvDataLen > UDS_DATA_SIZE)
     {
         LE_DEBUG("recvDataLen is more than the UDS_DATA_SIZE.");
-        return SetNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
     // Check negative err code for minimum request msg length
     if(recvDataLen < UDS_ROUTINE_CTRL_REQ_MIN_LEN)
     {
         LE_DEBUG("recvDataLen is less than the RoutinrCtrlReq msg minimum length.");
-        return SetNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
+    //Will send the indication to the diag service
+    *isInternalHandle = false;
     return LE_OK;
 }
 
@@ -645,6 +959,8 @@ le_result_t UdsCommunicationMgr::IndicateRoutinrCtrlReq
  */
 le_result_t UdsCommunicationMgr::IndicateRxXferDataReq
 (
+    taf_doip_AddrInfo_t*  addrInfoPtr,
+    bool* isInternalHandle
 )
 {
     LE_DEBUG("IndicateRxXferDataReq");
@@ -652,16 +968,25 @@ le_result_t UdsCommunicationMgr::IndicateRxXferDataReq
     // received service ID
     uint8_t sid = recvBuf[0];
 
+    // Check the pointer.
+    if(addrInfoPtr == NULL || isInternalHandle == NULL)
+    {
+        LE_ERROR("Null pointer");
+        return LE_FAULT;
+    }
+
     // Check active session type for TransferData.
     if (SessionType != PROGRAMMING_SESSION)
     {
         LE_DEBUG("Programming session type is not active for TransferData.");
-        return SetNRC(sid, CONDITIONS_NOT_CORRECT);
+        *isInternalHandle = true;
+        return SendNRC(sid, CONDITIONS_NOT_CORRECT, addrInfoPtr);
     }
 
     if (!isXferActive)
     {
-        return SetNRC(sid, UPLOAD_DOWNLOAD_NOT_ACCEPTED);
+        *isInternalHandle = true;
+        return SendNRC(sid, UPLOAD_DOWNLOAD_NOT_ACCEPTED, addrInfoPtr);
     }
 
     // Received data length shall not be more than the UDS_DATA_SIZE (MAX limit)
@@ -669,7 +994,8 @@ le_result_t UdsCommunicationMgr::IndicateRxXferDataReq
     {
         isXferActive = false;
         LE_DEBUG("recvDataLen is more than the UDS_DATA_SIZE.");
-        return SetNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
     // Check negative err code for minimum request msg length
@@ -677,9 +1003,12 @@ le_result_t UdsCommunicationMgr::IndicateRxXferDataReq
     {
         isXferActive = false;
         LE_DEBUG("recvDataLen is less than the RxXferDataReq msg minimum length.");
-        return SetNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
+    //Will send the indication to the diag service
+    *isInternalHandle = false;
     return LE_OK;
 }
 
@@ -688,6 +1017,8 @@ le_result_t UdsCommunicationMgr::IndicateRxXferDataReq
  */
 le_result_t UdsCommunicationMgr::IndicateRxXferExitReq
 (
+    taf_doip_AddrInfo_t*  addrInfoPtr,
+    bool* isInternalHandle
 )
 {
     LE_DEBUG("IndicateRxXferExitReq");
@@ -695,32 +1026,45 @@ le_result_t UdsCommunicationMgr::IndicateRxXferExitReq
     // received service ID
     uint8_t sid = recvBuf[0];
 
+    // Check the pointer.
+    if(addrInfoPtr == NULL || isInternalHandle == NULL)
+    {
+        LE_ERROR("Null pointer");
+        return LE_FAULT;
+    }
+
     // Check active session type for RequestTransferExit.
     if (SessionType != PROGRAMMING_SESSION)
     {
         LE_DEBUG("Programming session type is not active for RequestTransferExit.");
-        return SetNRC(sid, CONDITIONS_NOT_CORRECT);
+        *isInternalHandle = true;
+        return SendNRC(sid, CONDITIONS_NOT_CORRECT, addrInfoPtr);
     }
 
     if (!isXferActive)
     {
-        return SetNRC(sid, UPLOAD_DOWNLOAD_NOT_ACCEPTED);
+        *isInternalHandle = true;
+        return SendNRC(sid, UPLOAD_DOWNLOAD_NOT_ACCEPTED, addrInfoPtr);
     }
 
     // Received data length shall not be more than the UDS_DATA_SIZE (MAX limit)
     if(recvDataLen > UDS_DATA_SIZE)
     {
         LE_DEBUG("recvDataLen is more than the UDS_DATA_SIZE.");
-        return SetNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
     // Check negative err code for minimum request msg length
     if (recvDataLen < UDS_REQ_XFER_EXIT_BASE_LEN)
     {
         LE_DEBUG("recvDataLen is less than the RxXferExitReq msg minimum length.");
-        return SetNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
+    //Will send indication to the diag service
+    *isInternalHandle = false;
     return LE_OK;
 }
 
@@ -729,6 +1073,8 @@ le_result_t UdsCommunicationMgr::IndicateRxXferExitReq
  */
 le_result_t UdsCommunicationMgr::IndicateRxFileXferReq
 (
+    taf_doip_AddrInfo_t*  addrInfoPtr,
+    bool* isInternalHandle
 )
 {
     LE_DEBUG("IndicateRxFileXferReq");
@@ -737,38 +1083,51 @@ le_result_t UdsCommunicationMgr::IndicateRxFileXferReq
     uint8_t sid = recvBuf[0];
     uint8_t fileSizeParameterLen = 0;
 
+    // Check the pointer.
+    if(addrInfoPtr == NULL || isInternalHandle == NULL)
+    {
+        LE_ERROR("Null pointer");
+        return LE_FAULT;
+    }
+
     // Check active session type for RequestFileTransfer.
     if (SessionType != PROGRAMMING_SESSION)
     {
         LE_DEBUG("Programming session type is not active for RequestFileTransfer.");
-        return SetNRC(sid, CONDITIONS_NOT_CORRECT);
+        *isInternalHandle = true;
+        return SendNRC(sid, CONDITIONS_NOT_CORRECT, addrInfoPtr);
     }
 
     if (isXferActive)
     {
-        return SetNRC(sid, CONDITIONS_NOT_CORRECT);
+        *isInternalHandle = true;
+        return SendNRC(sid, CONDITIONS_NOT_CORRECT, addrInfoPtr);
     }
 
     // Received data length shall not be more than the UDS_DATA_SIZE (MAX limit)
     if(recvDataLen > UDS_DATA_SIZE)
     {
         LE_DEBUG("recvDataLen is more than the UDS_DATA_SIZE.");
-        return SetNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
     // Check negative err code for minimum request msg length
     if (recvDataLen < UDS_REQ_FILE_XFER_BASE_LEN)
     {
         LE_DEBUG("recvDataLen is less than the RxFileXferReq msg minimum length.");
-        return SetNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
     uint8_t modeOfOperation = recvBuf[1];
     uint16_t filePathAndNameLen = recvBuf[2] << 8 | recvBuf[3]; //check MSB
 
-    if (filePathAndNameLen < 1)
+    if (filePathAndNameLen < 1 || (filePathAndNameLen >= (UDS_DATA_SIZE -
+            UDS_REQ_FILE_XFER_BASE_LEN - UDS_REQ_FILE_XFER_DATA_FORMAT_ID_LEN)))
     {
-        return SetNRC(sid, REQ_OUT_OF_RANGE);
+        *isInternalHandle = true;
+        return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
     }
 
     LE_DEBUG("modeofoperation =%d",modeOfOperation);
@@ -779,7 +1138,8 @@ le_result_t UdsCommunicationMgr::IndicateRxFileXferReq
             if (recvDataLen < (UDS_REQ_FILE_XFER_BASE_LEN + filePathAndNameLen +
                     UDS_REQ_FILE_XFER_DATA_FORMAT_ID_LEN))
             {
-                return SetNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
+                *isInternalHandle = true;
+                return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
             }
 
             fileSizeParameterLen = recvBuf[UDS_REQ_FILE_XFER_BASE_LEN +
@@ -787,14 +1147,16 @@ le_result_t UdsCommunicationMgr::IndicateRxFileXferReq
 
             if (fileSizeParameterLen > 4) //the file size will be more than 1G
             {
-                return SetNRC(sid, REQ_OUT_OF_RANGE);
+                *isInternalHandle = true;
+                return SendNRC(sid, REQ_OUT_OF_RANGE, addrInfoPtr);
             }
 
             if (recvDataLen < (UDS_REQ_FILE_XFER_BASE_LEN + filePathAndNameLen +
                     UDS_REQ_FILE_XFER_DATA_FORMAT_ID_LEN +
                             UDS_REQ_FILE_XFER_FILE_SIZE_PARAMETER_LEN + fileSizeParameterLen*2))
             {
-                return SetNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
+                *isInternalHandle = true;
+                return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
             }
         }
         break;
@@ -803,17 +1165,20 @@ le_result_t UdsCommunicationMgr::IndicateRxFileXferReq
         {
             if (recvDataLen < UDS_REQ_FILE_XFER_BASE_LEN + filePathAndNameLen)
             {
-                return SetNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
+                *isInternalHandle = true;
+                return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
             }
         }
         break;
 
         default:
             LE_ERROR("Requested mode of operation is not supported");
-            SetNRC(sid, CONDITIONS_NOT_CORRECT);
-            break;
+            *isInternalHandle = true;
+            return SendNRC(sid, CONDITIONS_NOT_CORRECT, addrInfoPtr);
     }
 
+    //Will send the indication to the diag service
+    *isInternalHandle = false;
     return LE_OK;
 }
 
@@ -833,13 +1198,13 @@ le_result_t UdsCommunicationMgr::CheckAndSendInd
     if(addrInfoPtr == NULL || diagMsgPtr == NULL)
     {
         LE_ERROR("Not find handler");
-        return SetNRC(sid, GENERAL_PROGRAMMING_FAILURE);
+        return LE_FAULT;
     }
 
     if(udsIndicationHandler.safeRef == NULL)
     {
         LE_ERROR("Not find handler");
-        return SetNRC(sid, GENERAL_PROGRAMMING_FAILURE);
+        return SendNRC(sid, GENERAL_PROGRAMMING_FAILURE, addrInfoPtr);
     }
 
     taf_UDSIndicationHandler_t* udsHandler =
@@ -849,15 +1214,21 @@ le_result_t UdsCommunicationMgr::CheckAndSendInd
     if(udsHandler == NULL)
     {
         LE_ERROR("Not find handler");
-        return SetNRC(sid, GENERAL_PROGRAMMING_FAILURE);
+        return SendNRC(sid, GENERAL_PROGRAMMING_FAILURE, addrInfoPtr);
     }
     if(udsHandler->funcPtr == NULL)
     {
         LE_ERROR("Not find handler");
-        return SetNRC(sid, GENERAL_PROGRAMMING_FAILURE);
+        return SendNRC(sid, GENERAL_PROGRAMMING_FAILURE, addrInfoPtr);
     }
 
+    //Send RCRRP, since the application might spend much time to handle the request.
+
+    SendNRC(sid, REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING, addrInfoPtr);
+
     LE_DEBUG("------callback -------");
+    readyToRecvData = false;
+    le_timer_Start(timerRef);
 
     indAddrInfo.sa = addrInfoPtr->sa;
     indAddrInfo.ta = addrInfoPtr->ta;
@@ -885,9 +1256,6 @@ void UdsCommunicationMgr::DiagIndicationHandler
 
     auto& udsCmMgr = UdsCommunicationMgr::GetInstance();
     bool isInternalHandle = true;
-
-    taf_doip_AddrInfo_t respAddrInfo;
-    taf_doip_DiagMsg_t respDiagMsg;
     le_result_t ret = LE_OK;
 
     if(addrInfoPtr == NULL)
@@ -896,9 +1264,17 @@ void UdsCommunicationMgr::DiagIndicationHandler
         return;
     }
 
-    if ((result == TAF_DOIP_RESULT_SA_REGISTERED) || (result == TAF_DOIP_RESULT_SA_DEREGISTERED))
+    if (result == TAF_DOIP_RESULT_SA_REGISTERED)
     {
         LE_DEBUG("result =%d",result);
+        return;
+    }
+
+    if (result == TAF_DOIP_RESULT_SA_DEREGISTERED)
+    {
+        le_timer_Stop(udsCmMgr.timerRef);
+        udsCmMgr.readyToRecvData = true;
+        udsCmMgr.isXferActive = false;
         return;
     }
 
@@ -917,11 +1293,24 @@ void UdsCommunicationMgr::DiagIndicationHandler
         return;
     }
 
+    if(!udsCmMgr.readyToRecvData)
+    {
+        LE_ERROR("Handle in progress, can't receive another request");
+        return;
+    }
+
     memcpy((char*)(udsCmMgr.recvBuf), (char*)(diagMsgPtr->dataPtr), UDS_DATA_SIZE);
     udsCmMgr.recvDataLen = diagMsgPtr->dataLen;
     udsCmMgr.sendDataLen = 0;
 
-    // recived service ID
+    // Check negative err code for minimum request msg length
+    if(udsCmMgr.recvDataLen < UDS_REQ_MIN_LEN)
+    {
+        LE_ERROR("recvDataLen is less than the UDS msg minimum length.");
+        return;
+    }
+
+    // received service ID
     uint8_t sid = udsCmMgr.recvBuf[0];
 
     LE_DEBUG("-------Request service id = 0x%x",sid);
@@ -931,105 +1320,119 @@ void UdsCommunicationMgr::DiagIndicationHandler
         case SESSION_CONTROL_REQUEST_ID:  // 0x10
         {
             // Check NRC and Handle it internally and then response to client.
-            ret = udsCmMgr.SessionCtrlResp();
+            ret = udsCmMgr.SessionCtrlResp(addrInfoPtr);
             isInternalHandle = true;
         }
         break;
         case ECU_RESET_REQUEST_ID:  // 0x11
         {
-            // Check NRC and then send indication to TelAf diag service for ECUReset request msg.
-            ret = udsCmMgr.IndicateECUResetReq();
-            isInternalHandle = false;
+            // Check NRC and then send indication to TelAf diag service if necessary for ECUReset
+            // request msg.
+            ret = udsCmMgr.IndicateECUResetReq(addrInfoPtr, &isInternalHandle);
         }
         break;
         case READ_DTC_INFO_REQUEST_ID:  // 0x19
         {
             // Check NRC and Handle it internally and then response to client.
-            ret = udsCmMgr.ReadDTCInfoResp();
+            ret = udsCmMgr.ReadDTCInfoResp(addrInfoPtr);
             isInternalHandle = true;
         }
         break;
         case READ_DID_REQUEST_ID:  // 0x22
         {
             // Check NRC and Handle it internally and then response to client.
-            ret = udsCmMgr.ReadDIDResp();
+            ret = udsCmMgr.ReadDIDResp(addrInfoPtr);
             isInternalHandle = true;
+        }
+        break;
+        case SECURITY_ACCESS_REQUEST_ID:  // 0x27
+        {
+            // Check NRC and then send indication to TelAf diag service if necessary for
+            // Security access request msg.
+            ret = udsCmMgr.IndicateSecAccessReq(addrInfoPtr, &isInternalHandle);
         }
         break;
         case WRITE_DID_REQUEST_ID:  // 0x2E
         {
             // Check NRC and Handle it internally and then response to client.
-            ret = udsCmMgr.WriteDIDResp();
+            ret = udsCmMgr.WriteDIDResp(addrInfoPtr);
             isInternalHandle = true;
         }
         break;
         case ROUTINE_CONTROL_REQUEST_ID: // 0x31
         {
-            // Check NRC and then send indication to TelAf diag service for
+            // Check NRC and then send indication to TelAf diag service if necessary for
             // RoutineControl request msg.
-            ret = udsCmMgr.IndicateRoutinrCtrlReq();
-            isInternalHandle = false;
+            ret = udsCmMgr.IndicateRoutinrCtrlReq(addrInfoPtr, &isInternalHandle);
         }
         break;
         case TRANSFER_DATA_REQUEST_ID:  // 0x36
         {
-            // Check NRC and then send indication to TelAf diag service for
+            // Check NRC and then send indication to TelAf diag service if necessary for
             // TransferData request msg.
-            udsCmMgr.IndicateRxXferDataReq();
-            isInternalHandle = false;
+            ret = udsCmMgr.IndicateRxXferDataReq(addrInfoPtr, &isInternalHandle);
         }
         break;
         case REQUEST_TRANSFER_EXIT_REQUEST_ID:  // 0x37
         {
-            // Check NRC and then send indication to TelAf diag service for
+            // Check NRC and then send indication to TelAf diag service if necessary for
             // RequestTransferExit request msg.
-            udsCmMgr.IndicateRxXferExitReq();
-            isInternalHandle = false;
+            ret = udsCmMgr.IndicateRxXferExitReq(addrInfoPtr, &isInternalHandle);
         }
         break;
         case REQUEST_FILE_TRANSFER_REQUEST_ID:  // 0x38
         {
-            // Check NRC and then send indication to TelAf diag service
+            // Check NRC and then send indication to TelAf diag service if necessary
             // for RequestFileTransfer request msg.
-            udsCmMgr.IndicateRxFileXferReq();
-            isInternalHandle = false;
+            ret = udsCmMgr.IndicateRxFileXferReq(addrInfoPtr, &isInternalHandle);
         }
         break;
         default:
         {
             LE_DEBUG("Service type is not supported");
-            udsCmMgr.SetNRC(sid, SERVICE_NOT_SUPPORTED);
+            ret = udsCmMgr.SendNRC(sid, SERVICE_NOT_SUPPORTED, addrInfoPtr);
+            isInternalHandle = true;
         }
         break;
     }
 
     if(ret != LE_OK)
     {
-        LE_ERROR("Send error");
+        LE_ERROR("Failed to handle request");
         return;
     }
 
-    if(!isInternalHandle && udsCmMgr.sendDataLen == 0)
+    if(!isInternalHandle)
     {
         udsCmMgr.CheckAndSendInd(sid, addrInfoPtr, diagMsgPtr);
     }
 
-    if(udsCmMgr.sendDataLen > 0 && udsCmMgr.sendDataLen < UDS_DATA_SIZE)
-    {
-        respAddrInfo.sa = addrInfoPtr->ta;
-        respAddrInfo.ta = addrInfoPtr->sa;
-        respAddrInfo.taType = addrInfoPtr->taType;
-        respDiagMsg.dataPtr = udsCmMgr.sendBuf;
-        respDiagMsg.dataLen = udsCmMgr.sendDataLen;
-
-        ret = taf_doip_DiagRequest(&respAddrInfo, &respDiagMsg);
-        if(ret == LE_OK)
-        {
-            LE_DEBUG("sent Diagnostic response successfully");
-        }
-    }
-
     return;
+}
+
+/**
+ * Receive confirmation message from DoIP.
+ */
+void UdsCommunicationMgr::DiagConfirmHandler
+(
+    const taf_doip_AddrInfo_t*  addrInfoPtr, ///< [IN] Logical address information pointer.
+    taf_doip_Result_t           result,      ///< [IN] Result of the confirm execution
+    void*                       userPtr      ///< [IN] User-defined pointer
+)
+{
+    auto& udsCmMgr = UdsCommunicationMgr::GetInstance();
+
+    LE_DEBUG("Receive doip confirmation, result is %d", result);
+
+    if (result == TAF_DOIP_RESULT_OK)
+    {
+        le_timer_Stop(udsCmMgr.timerRef);
+        udsCmMgr.readyToRecvData = true;
+    }
+    else
+    {
+        LE_ERROR("Failed to send the uds response.%d", result);
+    }
 }
 
 /**
@@ -1053,6 +1456,14 @@ le_result_t UdsCommunicationMgr::UdsAddDiagIndicationHandler
     if (IndicationRef == NULL)
     {
         LE_FATAL("Failed to register diag indication handler");
+        return LE_FAULT;
+    }
+
+    ConfirmRef = taf_doip_AddDiagConfirmHandler(DoipEntityRef,
+        (taf_doip_DiagConfirmHandlerFunc_t)DiagConfirmHandler, NULL);
+    if (ConfirmRef == NULL)
+    {
+        LE_FATAL("Failed to register diag confirmation handler");
         return LE_FAULT;
     }
 
@@ -1106,6 +1517,9 @@ le_result_t UdsCommunicationMgr::SendUDSResp
     {
         case ECU_RESET_REQUEST_ID:
             ret = ECUResetResp(serviceId, err);
+        break;
+        case SECURITY_ACCESS_REQUEST_ID:
+            ret = SecurityAccessResp(serviceId, dataPtr, dataSize, err);
         break;
         case ROUTINE_CONTROL_REQUEST_ID:
             ret = RoutineCtrlResp(serviceId, dataPtr, dataSize, err);
@@ -1175,6 +1589,55 @@ le_result_t UdsCommunicationMgr::ECUResetResp
 }
 
 /**
+ * Check error code and Pack SecurityAccess message to send to Diag client/tool.
+ */
+le_result_t UdsCommunicationMgr::SecurityAccessResp
+(
+    uint8_t serviceId,
+    const uint8_t* dataPtr,
+    uint16_t dataSize,
+    uint8_t err
+)
+{
+    LE_DEBUG("SecurityAccessResp");
+
+    // Check the send dataLength.
+    if (dataSize > UDS_DATA_SIZE - UDS_SECURITY_ACCESS_RESP_MIN_LEN)
+    {
+        LE_ERROR("Send dataLength is more than max size.");
+        return LE_FAULT;
+    }
+
+    if (POSITIVE_RESPONSE != err)
+    {
+        LE_DEBUG("Error code reported from Diag service");
+        SetNRC(serviceId, err);
+        return LE_OK;
+    }
+
+    uint8_t securityAccessType = recvBuf[1] & 0x7F;
+
+    sendBuf[0] = SECURITY_ACCESS_RESPONSE_ID;
+    sendBuf[1] = securityAccessType;
+
+    if (dataPtr != NULL && dataSize != 0)
+    {
+        memcpy(sendBuf + UDS_SECURITY_ACCESS_RESP_MIN_LEN, dataPtr, dataSize);
+        sendDataLen = UDS_SECURITY_ACCESS_RESP_MIN_LEN + dataSize;
+    }
+    else
+    {
+        sendDataLen = UDS_SECURITY_ACCESS_RESP_MIN_LEN;
+    }
+
+    if (securityAccessType % 2 ==0)
+        securityLevel = securityAccessType - 1;
+
+    LE_DEBUG("securityLevel = %d", securityLevel);
+    return LE_OK;
+}
+
+/**
  * Check error code and Pack RoutineCtrlResp message to send to Diag client/tool.
  */
 le_result_t UdsCommunicationMgr::RoutineCtrlResp
@@ -1186,6 +1649,13 @@ le_result_t UdsCommunicationMgr::RoutineCtrlResp
 )
 {
     LE_DEBUG("RoutineCtrlResp");
+
+    // Check the send dataLength.
+    if (dataSize > UDS_DATA_SIZE - UDS_ROUTINE_CTRL_RESP_MIN_LEN)
+    {
+        LE_ERROR("Send dataLength is more than max size.");
+        return LE_FAULT;
+    }
 
     if (POSITIVE_RESPONSE != err)
     {
@@ -1227,6 +1697,13 @@ le_result_t UdsCommunicationMgr::XferDataResp
 )
 {
     LE_DEBUG("XferDataResp");
+
+    // Check the send dataLength.
+    if (dataSize > UDS_DATA_SIZE - UDS_RESP_XFER_DATA_BASE_LEN)
+    {
+        LE_ERROR("Send dataLength is more than max size.");
+        return LE_FAULT;
+    }
 
     if (POSITIVE_RESPONSE != err)
     {

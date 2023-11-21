@@ -60,6 +60,7 @@ typedef struct taf_uds_DiagIndicationHandlerRef* taf_uds_DiagIndicationHandlerRe
 typedef enum {
     SID_DIAGNOSTIC_SESSION_CONTROL = 0x10,
     SID_READ_DATA_BY_IDENTIFIER = 0x22,
+    SID_SECURITY_ACCESS = 0x27,
     SID_ROUTINE_CONTROL = 0x31,
     SID_TRANSFER_DATA = 0x36,
     SID_REQUEST_TRANSFER_EXIT = 0x37,

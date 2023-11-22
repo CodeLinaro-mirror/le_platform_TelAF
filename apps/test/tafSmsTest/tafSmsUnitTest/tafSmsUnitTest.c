@@ -597,7 +597,7 @@ __attribute__((unused)) static void* SmsTxThread
 
     LE_TEST_ASSERT(taf_sms_SetText(tmpMsg_alphabet, TEXT_PATTERN_TEST) == LE_OK, "Test taf_sms_SetText");
 
-    LE_TEST_ASSERT(taf_sms_Send(tmpMsg_alphabet) == LE_OK, "Test taf_sms_Send");
+    LE_TEST_ASSERT(taf_sms_Send(tmpMsg_alphabet) == LE_OK, "Test taf_sms_Send %s", "#s# + send msg with type [alphabet]");
 
     le_thread_Sleep(TIMEOUT_TX_TEST);
 
@@ -611,7 +611,7 @@ __attribute__((unused)) static void* SmsTxThread
 
     LE_TEST_ASSERT(taf_sms_SetText(tmpMsg_num, TEXT_PATTERN_NUM) == LE_OK, "Test taf_sms_SetText");
 
-    LE_TEST_ASSERT(taf_sms_Send(tmpMsg_num) == LE_OK, "Test taf_sms_Send");
+    LE_TEST_ASSERT(taf_sms_Send(tmpMsg_num) == LE_OK, "Test taf_sms_Send %s", "#s# + send msg with type [number]");
 
     le_thread_Sleep(TIMEOUT_TX_TEST);
 
@@ -625,7 +625,7 @@ __attribute__((unused)) static void* SmsTxThread
 
     LE_TEST_ASSERT(taf_sms_SetText(tmpMsg_symbol, TEXT_PATTERN_SYMBOL) == LE_OK, "Test taf_sms_SetText");
 
-    LE_TEST_ASSERT(taf_sms_Send(tmpMsg_symbol) == LE_OK, "Test taf_sms_Send");
+    LE_TEST_ASSERT(taf_sms_Send(tmpMsg_symbol) == LE_OK, "Test taf_sms_Send %s", "#s# + send msg with type [symbol]");
 
     le_thread_Sleep(TIMEOUT_TX_TEST);
 
@@ -639,7 +639,7 @@ __attribute__((unused)) static void* SmsTxThread
 
     LE_TEST_ASSERT(taf_sms_SetBinary(tmpMsg_binary, binary_pattern, sizeof(binary_pattern)) == LE_OK, "Test taf_sms_SetBinary");
 
-    LE_TEST_ASSERT(taf_sms_Send(tmpMsg_binary) == LE_OK, "Test taf_sms_Send");
+    LE_TEST_ASSERT(taf_sms_Send(tmpMsg_binary) == LE_OK, "Test taf_sms_Send %s", "#s# + send msg with type [binary]");
 
     le_thread_Sleep(TIMEOUT_TX_TEST);
 
@@ -653,7 +653,7 @@ __attribute__((unused)) static void* SmsTxThread
 
     LE_TEST_ASSERT(taf_sms_SetUCS2(tmpMsg_ucs2, ucs2_pattern, sizeof(ucs2_pattern)/sizeof(ucs2_pattern[0])) == LE_OK, "Test taf_sms_SetUCS2");
 
-    LE_TEST_ASSERT(taf_sms_Send(tmpMsg_ucs2) == LE_OK, "Test taf_sms_Send");
+    LE_TEST_ASSERT(taf_sms_Send(tmpMsg_ucs2) == LE_OK, "Test taf_sms_Send %s", "#s# + send msg with type [ucs2]");
 
     le_thread_Sleep(TIMEOUT_TX_TEST);
 
@@ -1065,9 +1065,11 @@ void Test_main
     Test_taf_sms_SetGetLockStatus();
     LE_INFO("##### Test_taf_sms_SetGetLockStatus OK #####");
 
+#ifndef LE_CONFIG_TARGET_SIMULATION
     LE_INFO("===== Test_taf_sms_EncryptFromStorage =====");
     Test_taf_sms_EncryptFromStorage();
     LE_INFO("##### Test_taf_sms_EncryptFromStorage OK #####");
+#endif
 
     LE_INFO("===== Test_taf_sms_DeleteMsgFromStorage =====");
     Test_taf_sms_DeleteMsgFromStorage();

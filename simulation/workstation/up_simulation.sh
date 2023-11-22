@@ -14,6 +14,8 @@ if [ -v ON_TELAF_SIMULATION_DOCKER ]; then # [Docker-Container-Env]
     export ON_TELAF_SIMULATION_DOCKER=yes
     export PATH=/legato/systems/current/bin:$PATH
 
+    source $HOME/simulation/framework/environ.sh
+
     export TELAF_OK=0
     export TELAF_ERR=1
     export TELAF_TRUE=1
@@ -91,6 +93,15 @@ if [ -v ON_TELAF_SIMULATION_DOCKER ]; then # [Docker-Container-Env]
         if tar tzvf $SML_RO_TARBALL | grep 'install/.keep' > /dev/null 2>&1 ; then
             # extract the 'install/' directory to /usr/lib only, cut down 3-level parent-dirs
             tar zxf $SML_RO_TARBALL --no-same-owner --overwrite --strip-components=3 -C /usr/lib/ install
+        fi
+
+        SDK_ROOTFS=/legato/systems/current/sdk_rootfs
+        if [ -d ${SDK_ROOTFS} ]; then
+            cp -ar ${SDK_ROOTFS}/bin/* /bin
+            cp -ar ${SDK_ROOTFS}/lib/* /usr/lib
+            cp -ar ${SDK_ROOTFS}/data/* /data
+            cp -ar ${SDK_ROOTFS}/etc/* /etc
+            telsdk_simulation_server &
         fi
 
         chmod 755 $MOUNTPOINT_TELAF/systems/current/bin/*

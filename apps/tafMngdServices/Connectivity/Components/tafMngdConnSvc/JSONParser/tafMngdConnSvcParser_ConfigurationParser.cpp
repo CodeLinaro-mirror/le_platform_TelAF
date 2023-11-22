@@ -510,9 +510,9 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_AutoStart(
 }
 
 /**
- * Data Ping Test URL can be a string or NULL.
+ * Data Connection Test URL can be a string or NULL.
  */
-bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PingTest_URL(
+bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_ConnectionTest_URL(
                                             taf_mngd_Conn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
@@ -539,20 +539,20 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PingTest_URL(
     // Set to NULL or string
     if (TAF_MNGD_JSON_DATA_TYPE_NULL == DataType)
     {
-        memset(Configuration.Data[Index].PingTest.URL, 0, TAF_MNGD_CONN_MAX_PING_URL_LEN);
+        memset(Configuration.Data[Index].ConnectionTest.URL, 0, TAF_MNGD_CONN_MAX_CONNECTION_URL_LEN);
         return true;
     }
     // Valid String.
     // Since we have already validated string length above, we can ignore return value here
-    le_utf8_Copy(Configuration.Data[Index].PingTest.URL, Value.c_str(),
-                                        TAF_MNGD_CONN_MAX_PING_URL_LEN,NULL);
+    le_utf8_Copy(Configuration.Data[Index].ConnectionTest.URL, Value.c_str(),
+                                        TAF_MNGD_CONN_MAX_CONNECTION_URL_LEN,NULL);
     return true;
 }
 
 /**
- * Data Ping Test IPv4 can be a string or NULL.
+ * Data Connection Test IPv4 can be a string or NULL.
  */
-bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PingTest_IPv4(
+bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_ConnectionTest_IPv4(
                                             taf_mngd_Conn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
@@ -579,21 +579,21 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PingTest_IPv4(
     // Set to NULL or string
     if (TAF_MNGD_JSON_DATA_TYPE_NULL == DataType)
     {
-        memset(Configuration.Data[Index].PingTest.IPv4, 0, TAF_MNGD_CONN_MAX_IPV4_LEN);
+        memset(Configuration.Data[Index].ConnectionTest.IPv4, 0, TAF_MNGD_CONN_MAX_IPV4_LEN);
         return true;
     }
     // Valid String.
     // Since we have already validated string length above, we can ignore return value here
-    le_utf8_Copy(Configuration.Data[Index].PingTest.IPv4, Value.c_str(),
+    le_utf8_Copy(Configuration.Data[Index].ConnectionTest.IPv4, Value.c_str(),
                                                 TAF_MNGD_CONN_MAX_IPV4_LEN,NULL);
 
     return true;
 }
 
 /**
- * Data Ping Test IPv6 can be a string or NULL.
+ * Data Connection Test IPv6 can be a string or NULL.
  */
-bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PingTest_IPv6(
+bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_ConnectionTest_IPv6(
                                             taf_mngd_Conn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
@@ -620,12 +620,12 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PingTest_IPv6(
     // Set to NULL or string
     if (TAF_MNGD_JSON_DATA_TYPE_NULL == DataType)
     {
-        memset(Configuration.Data[Index].PingTest.IPv6, 0, TAF_MNGD_CONN_MAX_IPV6_LEN);
+        memset(Configuration.Data[Index].ConnectionTest.IPv6, 0, TAF_MNGD_CONN_MAX_IPV6_LEN);
         return true;
     }
     // Valid String.
     // Since we have already validated string length above, we can ignore return value here
-    le_utf8_Copy(Configuration.Data[Index].PingTest.IPv6, Value.c_str(),
+    le_utf8_Copy(Configuration.Data[Index].ConnectionTest.IPv6, Value.c_str(),
                                                 TAF_MNGD_CONN_MAX_IPV6_LEN,NULL);
     return true;
 }
@@ -865,14 +865,14 @@ bool tafMngdConnSvc_ConfigurationParser::ParseAndUpdateConfigurationJSON(
                                             }
                                         }
                                     }
-                                    // Iterate through PingTest object
-                                    else if ("PingTest" == iter.first)
+                                    // Iterate through ConnectionTest object
+                                    else if ("ConnectionTest" == iter.first)
                                     {
                                         log.clear();
-                                        log.append("\t\t").append("PingTest Node");
+                                        log.append("\t\t").append("ConnectionTest Node");
                                         LE_DEBUG ("%s", log.c_str() );
 
-                                        // Iterate through PingTest object
+                                        // Iterate through ConnectionTest object
                                         for (auto &iter2: iter.second) {
                                             log.clear();
                                             log.append("\t\t\t").append("Key: " + iter2.first +
@@ -946,10 +946,10 @@ void tafMngdConnSvc_ConfigurationParser::UpdateValidConfigurationFuncMap(void)
     ConfigurationValidationFuncMap["Data:Profile:APN"]    = &Validate_MCSC_Data_Profile_APN;
     // Data: AutoStart
     ConfigurationValidationFuncMap["Data:AutoStart"] = &Validate_MCSC_Data_AutoStart;
-    // Data:PingTest
-    ConfigurationValidationFuncMap["Data:PingTest:URL"]   = &Validate_MCSC_Data_PingTest_URL;
-    ConfigurationValidationFuncMap["Data:PingTest:IPv4"]  = &Validate_MCSC_Data_PingTest_IPv4;
-    ConfigurationValidationFuncMap["Data:PingTest:IPv6"]  = &Validate_MCSC_Data_PingTest_IPv6;
+    // Data:ConnectionTest
+    ConfigurationValidationFuncMap["Data:ConnectionTest:URL"]   = &Validate_MCSC_Data_ConnectionTest_URL;
+    ConfigurationValidationFuncMap["Data:ConnectionTest:IPv4"]  = &Validate_MCSC_Data_ConnectionTest_IPv4;
+    ConfigurationValidationFuncMap["Data:ConnectionTest:IPv6"]  = &Validate_MCSC_Data_ConnectionTest_IPv6;
 }
 
 void tafMngdConnSvc_ConfigurationParser::ResetConfigurationStructure (
@@ -982,9 +982,9 @@ void tafMngdConnSvc_ConfigurationParser::ResetConfigurationStructure (
         Configuration.Data[Index].Profile.ProfileNumber  = 0;
         Configuration.Data[Index].Profile.ProfileName[0] = '\0';
         Configuration.Data[Index].Profile.APN[0]         = '\0';
-        Configuration.Data[Index].PingTest.URL[0]        = '\0';
-        Configuration.Data[Index].PingTest.IPv4[0]       = '\0';
-        Configuration.Data[Index].PingTest.IPv6[0]       = '\0';
+        Configuration.Data[Index].ConnectionTest.URL[0]        = '\0';
+        Configuration.Data[Index].ConnectionTest.IPv4[0]       = '\0';
+        Configuration.Data[Index].ConnectionTest.IPv6[0]       = '\0';
     }
 }
 

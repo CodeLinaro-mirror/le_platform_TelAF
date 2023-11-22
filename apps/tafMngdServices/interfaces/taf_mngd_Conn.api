@@ -97,10 +97,11 @@
                                             ///  fails,the service will log an error and stop.
                     },
                     "AutoStart":"Yes",      ///< Data session is automatically started or not.
-                    "PingTest":{
-                        "URL": null,
-                        "IPv4": null,
-                        "IPv6": null
+                    "ConnectionTest":{      ///< URL or IP to perform ConnectionTest in order of
+                                            ///  preference
+                        "URL": null,        ///< Valid URL to work with
+                        "IPv4": null,       ///< Valid quad-dotted IP address
+                        "IPv6": null        ///< Not supported
                     }
                 }
             ]
@@ -122,6 +123,7 @@
  @endverbatim
  * @par List of valid values for "Version" key:
  *        23.07.00
+ *        23.11.00
  *
  *
  * @par Multiple Data Sessions:

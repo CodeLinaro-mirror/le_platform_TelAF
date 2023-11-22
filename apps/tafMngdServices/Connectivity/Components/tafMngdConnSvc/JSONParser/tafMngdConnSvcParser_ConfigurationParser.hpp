@@ -57,10 +57,10 @@ namespace telux {
 namespace tafsvc {
     typedef struct
     {
-        char URL[TAF_MNGD_CONN_MAX_PING_URL_LEN];
+        char URL[TAF_MNGD_CONN_MAX_CONNECTION_URL_LEN];
         char IPv4[TAF_MNGD_CONN_MAX_IPV4_LEN];
         char IPv6[TAF_MNGD_CONN_MAX_IPV6_LEN];
-    } taf_mngd_Conn_Configuration_Data_PingTest_t;
+    } taf_mngd_Conn_Configuration_Data_ConnectionTest_t;
 
     typedef struct
     {
@@ -75,7 +75,7 @@ namespace tafsvc {
         uint8_t Use_Network_ID;
         taf_mngd_Conn_Configuration_Data_Profile_t Profile;
         taf_mngd_Yes_No_t AutoStart; //Yes=1, No=0
-        taf_mngd_Conn_Configuration_Data_PingTest_t PingTest;
+        taf_mngd_Conn_Configuration_Data_ConnectionTest_t ConnectionTest;
     } taf_mngd_Conn_Configuration_Data_t;
 
     typedef struct
@@ -173,13 +173,13 @@ private:
     static bool Validate_MCSC_Data_AutoStart(taf_mngd_Conn_Configuration_t &Configuration,
                                                std::string Value,
                                                int Index);
-    static bool Validate_MCSC_Data_PingTest_URL(taf_mngd_Conn_Configuration_t &Configuration,
+    static bool Validate_MCSC_Data_ConnectionTest_URL(taf_mngd_Conn_Configuration_t &Configuration,
                                     std::string Value,
                                     int Index);
-    static bool Validate_MCSC_Data_PingTest_IPv4(taf_mngd_Conn_Configuration_t &Configuration,
+    static bool Validate_MCSC_Data_ConnectionTest_IPv4(taf_mngd_Conn_Configuration_t &Configuration,
                                                 std::string Value,
                                                 int Index);
-    static bool Validate_MCSC_Data_PingTest_IPv6(taf_mngd_Conn_Configuration_t &Configuration,
+    static bool Validate_MCSC_Data_ConnectionTest_IPv6(taf_mngd_Conn_Configuration_t &Configuration,
                                                 std::string Value,
                                                 int Index);
 

@@ -123,12 +123,12 @@ namespace tafsvc {
     const unsigned int TAF_MNGD_CONN_MAX_NW_REGISTRATION_TYPE_LEN = 8;
 
     /**
-     * \brief Maximum string length for URL for ping test.
+     * \brief Maximum string length for URL for connection test.
      *
      * Max URL length is 256 characters, including null terminator.
      *
      */
-    const unsigned int TAF_MNGD_CONN_MAX_PING_URL_LEN = 256;
+    const unsigned int TAF_MNGD_CONN_MAX_CONNECTION_URL_LEN = 256;
 
     /**
      * \brief Maximum string length for profile names.

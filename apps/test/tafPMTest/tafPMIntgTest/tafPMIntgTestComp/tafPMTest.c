@@ -35,6 +35,8 @@
 #include "main.h"
 
 taf_pm_StateChangeHandlerRef_t handlerRef;
+taf_pm_StateChangeExHandlerRef_t handlerExRef;
+
 static le_sem_Ref_t semRef;
 
 //Function to convert taf state to string
@@ -61,8 +63,26 @@ char* tafStateToString(taf_pm_State_t tafState)
 //Function called on state change
 void TestStateChangeHandler(taf_pm_State_t state, void* contextPtr)
 {
+    LE_INFO("State change triggered for %s\n", tafStateToString(state));
+    printf("\nState change triggered for %s\n", tafStateToString(state));
+}
+
+//Function called on state change
+void TestStateChangeExHandler(taf_pm_PowerStateRef_t powerStateRef,
+        taf_pm_NadVm_t vm_id, taf_pm_State_t state, void* contextPtr)
+{
     LE_TEST_INFO("State change triggered for %s\n", tafStateToString(state));
     printf("\nState change triggered for %s\n", tafStateToString(state));
+    if(state == TAF_PM_STATE_SHUTDOWN)
+    {
+        LE_INFO("Sent state change NACK for %s\n", tafStateToString(state));
+        printf("\n Sent state change NACK for %s\n", tafStateToString(state));
+        taf_pm_SendStateChangeAck(powerStateRef, state, TAF_PM_PVM, TAF_PM_NOT_READY);
+        return;
+    }
+    taf_pm_SendStateChangeAck(powerStateRef, state, TAF_PM_PVM, TAF_PM_READY);
+    LE_INFO("Sent state change acknowledge for %s\n", tafStateToString(state));
+    printf("\n Sent state change acknowledge for %s\n", tafStateToString(state));
 }
 
 taf_pm_WakeupSourceRef_t tafPMTest_create(const char* tag)
@@ -122,6 +142,11 @@ static void* test_stateChangeHandler(void* ctxPtr)
     handlerRef = taf_pm_AddStateChangeHandler(TestStateChangeHandler, NULL);
     printf("\nRegistered successfully for StateChangeListener\n");
     LE_ASSERT(handlerRef != NULL);
+
+    handlerExRef = taf_pm_AddStateChangeExHandler(TestStateChangeExHandler, NULL);
+    printf("\nRegistered successfully for StateChangeExListener\n");
+    LE_ASSERT(handlerExRef != NULL);
+
     le_sem_Post(semRef);
     le_event_RunLoop();
 }
@@ -134,6 +159,23 @@ le_result_t ctrlCmd_registerStateChangeListener()
             "ACTION : Trigger state change from telux_power_test_app and observe\n");
     LE_TEST_OK(NULL != handlerRef,"Registered successfully to listener for state change");
     return LE_OK;
+}
+
+le_result_t ctrlCmd_registerStateChangeExListener()
+{
+    LE_TEST_INFO("Test registerStateChangeExListener");
+    handlerExRef = taf_pm_AddStateChangeExHandler(TestStateChangeExHandler, NULL);
+    printf("\n====== Register listener for state change extended handler Test ======\n"
+            "ACTION : Trigger state change from telux_power_test_app and observe\n");
+    LE_TEST_OK(NULL != handlerExRef,"Registered successfully to listener for Ex state change");
+    return LE_OK;
+}
+
+void ctrlCmd_deregisterStateChangeExListener()
+{
+    LE_INFO("tafPMTest_deregisterStateChangeExListener");
+    taf_pm_RemoveStateChangeExHandler(handlerExRef);
+    printf("\n====== Extended StateChangeListener removed successfully ======\n");
 }
 
 le_result_t ctrlCmd_deregisterListenerTest()

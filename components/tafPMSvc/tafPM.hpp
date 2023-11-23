@@ -64,7 +64,8 @@ using namespace std;
 #define TAF_PM_CLIENT_DEFAULT_HASH_SIZE 31
 #define TAF_WAKEUP_SOURCE_DEFAULT_POOL_SIZE 64
 #define TAF_PM_REFERENCE_DEFAULT_POOL_SIZE   31
-
+#define TAF_POWER_SOURCE_DEFAULT_POOL_SIZE 64
+#define TAF_MNGD_PM_SERVICE 13
 /**
  * Wakeup source record definition
  */
@@ -107,6 +108,25 @@ typedef struct
     taf_pm_VMListRef_t ref;
 } taf_PMVmList_t;
 
+/*
+ * @brief The struct of Power state Ref list.
+ */
+typedef struct
+{
+    taf_pm_PowerStateRef_t pStateRef;
+} taf_PmPowerStateRef_t;
+
+/*
+ * @brief To store the handlerptr of clients .
+ */
+typedef struct
+{
+    taf_pm_StateChangeExHandlerRef_t handlerRef;     // this handler ref
+    taf_pm_StateChangeExHandlerFunc_t handlerPtr;    // this function ptr
+    bool             ismpm;                          // Var to find MPM handler
+    void *           contextPtr;                     // clientt context data
+    le_dls_Link_t    link;                           // link to handler list
+} taf_PStateHandlerCtx_t;
 #endif
 
 #define TAF_PM_WAKEUP_SOURCE_COOKIE 0xa1f6337b
@@ -153,8 +173,11 @@ namespace tafsvc {
     // define the callback class for TCU state change of local proc
     class tafTcuStateListener : public telux::power::ITcuActivityListener {
         public :
+            #if defined(TARGET_SA515M)
             void onTcuActivityStateUpdate(telux::power::TcuActivityState state) override;
             void onSlaveAckStatusUpdate(telux::common::Status status) override;
+            #endif
+
             #if defined(TARGET_SA525M)
             void onTcuActivityStateUpdate(TcuActivityState state, string machineName) override;
             void onMachineUpdate(const string machineName,
@@ -188,8 +211,10 @@ namespace tafsvc {
         taf_PM() {};
         ~taf_PM() {};
         std::shared_ptr<telux::power::ITcuActivityManager> tcuActivityMgr;
+        std::shared_ptr<telux::power::ITcuActivityManager> tcuSlaveActivityMgr;
         std::shared_ptr<telux::power::ITcuActivityManager> RemoteTcuActivityMgr = nullptr;
         std::shared_ptr<telux::power::ITcuActivityListener> tcuStateListener;
+        std::shared_ptr<telux::power::ITcuActivityListener> tcuSlaveStateListener;
         std::shared_ptr<telux::power::ITcuActivityListener> remoteTcuStateListener;
         std::shared_ptr<telux::common::IServiceStatusListener> tcuServiceStatusListener;
         le_event_Id_t StateChangeEvent;
@@ -214,6 +239,14 @@ namespace tafsvc {
         le_mem_PoolRef_t vmListPool;
         le_mem_PoolRef_t vmInfoPool;
         le_ref_MapRef_t vmListRefMap;
+        le_mem_PoolRef_t powerStateRefPool;
+        le_ref_MapRef_t powerStateRefMap;
+        le_event_Id_t stateChangeExEvent;
+        static void PowerStateChanged(void* reportPtr);
+        void CallClientHandlerFunc(taf_pm_State_t state);
+        le_mem_PoolRef_t powerStateHandlerPool;
+        le_dls_List_t powerStateHandlerList;
+        le_ref_MapRef_t powerStateHandlerRefMap;
         le_result_t SetPowerState(taf_pm_State_t state, const char *machineName);
         taf_pm_VMListRef_t GetMachineList();
         le_result_t GetFirstMachineName(taf_pm_VMListRef_t vmListRef,
@@ -221,6 +254,14 @@ namespace tafsvc {
         le_result_t GetNextMachineName(taf_pm_VMListRef_t vmListRef,
                 char* vmNamePtr, size_t vmNamePtrSize);
         le_result_t DeleteMachineList(taf_pm_VMListRef_t vmListRef);
+        void DeletePowerStateRefs();
+        void SendNackToPmd(taf_pm_State_t state);
+        void SendAckToPmd(taf_pm_State_t state);
+        void SendStateChangeAck(taf_pm_PowerStateRef_t powerStateRef,
+        taf_pm_State_t state, taf_pm_NadVm_t vm_id, taf_pm_ClientAck_t AckType);
+        taf_pm_StateChangeExHandlerRef_t AddStateChangeExHandler
+                (taf_pm_StateChangeExHandlerFunc_t handlerPtr,void* contextPtr);
+        void RemoveStateChangeExHandler(taf_pm_StateChangeExHandlerRef_t handlerRef);
         #endif
     };
 

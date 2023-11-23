@@ -87,13 +87,19 @@
     }
    @endverbatim
  *
- * TelAF Power Manager service will automatically release and delete all wakeup sources held on behalf
- * of an exiting or disconnecting client.
+ * TelAF Power Manager service will automatically release and delete all wakeup sources held on.
+ * behalf of an exiting or disconnecting client.
  *
  * Use the StateChange to register a notification callback function to be called before device state
  * triggers.
  * @verbatim
    stateChangehandlerRef = taf_pm_AddStateChangeHandler(TestStateChangeHandler, NULL);
+   @endverbatim
+ *
+ * Use the StateChangeEx to register a notification callback function to be called for every state
+ * change trigger.
+ * @verbatim
+    handlerExRef = taf_pm_AddStateChangeExHandler(TestStateChangeExHandler, NULL);
    @endverbatim
  *
  * @section taf_pm_getMachineList Get the available Virtual Machines
@@ -115,6 +121,16 @@
         res = taf_pm_GetNextMachineName(vmListRef, name, 32);
     }
     res = taf_pm_DeleteMachineList(vmListRef);
+   @endverbatim
+ *
+ * @section taf_pm_SendStateChangeAck Acknowledge on the state change notification
+ *
+ * TelAF Power Manager Service should know the acknowledgement of clients to proceed
+ * with the state change.
+ * TelAF Power Manager's client calls taf_pm_SendStateChangeAck()
+ * to send the acknowledgement for state change.
+ * @verbatim
+    taf_pm_SendStateChangeAck(powerStateRef, state, TAF_PM_PVM, TAF_PM_READY);
    @endverbatim
  *
  * <HR>
@@ -147,10 +163,12 @@ DEFINE REF_COUNT = 1;
  */
 ENUM State
 {
-    STATE_UNKNOWN,       ///< System state is unknown.
-    STATE_RESUME,        ///< System state is resume.
-    STATE_SUSPEND,       ///< System state is suspend.
-    STATE_SHUTDOWN       ///< System state is shutdown.
+    STATE_UNKNOWN,                ///< System state is unknown.
+    STATE_RESUME,                 ///< System state is resume.
+    STATE_SUSPEND,                ///< System state is suspend.
+    STATE_SHUTDOWN,               ///< System state is shutdown.
+    STATE_ALL_ACKED,              ///< State all clients ACKed.
+    STATE_ALL_WAKELOCKS_RELEASED  ///< State all wakelocks released.
 };
 
 /**
@@ -162,6 +180,28 @@ ENUM Status
     FAILED,          ///< API processing failed.
     EXPIRED          ///< Expired.
 };
+
+/**
+ * Virtual  Machine ID .
+ */
+ENUM NadVm
+{
+    PVM       ///< Client acknowledged.
+};
+
+/**
+ * State change registered clients acknowledgement.
+ */
+ENUM ClientAck
+{
+    READY,           ///< Client acknowledged.
+    NOT_READY       ///< Client not acknowledged.
+};
+
+/**
+ * Reference to the PowerState.
+ */
+REFERENCE PowerState;
 
 /**
  * State change handler.
@@ -177,6 +217,28 @@ HANDLER StateChangeHandler
 EVENT StateChange
 (
     StateChangeHandler handler  ///< The state change handler.
+);
+
+/**
+ * StateChangeEx change handler.
+ *
+ * @note This is supported only on SA525M.
+ */
+HANDLER StateChangeExHandler
+(
+    PowerState powerStateRef IN,   ///< PowerstateRef for StateChangeExHandler.
+    NadVm vm IN,                   ///<The VM ID of the machine.
+    State state IN                 ///< The system state.
+);
+
+/**
+ * TCU state change event of the local process.
+ *
+ * @note This is supported only on SA525M.
+ */
+EVENT StateChangeEx
+(
+    StateChangeExHandler handler  ///< The PmMasterWake source change handler.
 );
 
 /**
@@ -344,4 +406,19 @@ FUNCTION le_result_t GetNextMachineName
 FUNCTION le_result_t DeleteMachineList
 (
     VMList vmLsitRef IN                  ///< Virtual Machine list reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Receives the acknowledgement from clients for state change.
+ *
+ * @note This is supported only on SA525M.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION SendStateChangeAck
+(
+    PowerState powerStateRef IN,  ///< Power state reference for statechangehandler.
+    State state IN,               ///< The system state.
+    NadVm vm IN,                  ///< The VM ID of the machine.
+    ClientAck ack IN              ///< The acknowledgement type.
 );

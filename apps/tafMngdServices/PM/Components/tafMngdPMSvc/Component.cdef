@@ -22,6 +22,7 @@ requires:
         taf_sms.api
         taf_pm.api
         taf_gpio.api
+        le_appInfo.api
     }
 
     component:
@@ -38,6 +39,7 @@ cxxflags:
     -I$TELAF_ROOT/apps/tafMngdServices/PM/Components/tafMngdPMSvc/gpio/tafMngdPMGpio
     -I$TELAF_ROOT/apps/tafMngdServices/PM/Components/tafMngdPMSvc/sms/tafMngdPMSms
     -I$TELAF_ROOT/components/tafHalComp
+    -I${LEGATO_ROOT}/framework/liblegato
 }
 
 ldflags:

@@ -48,6 +48,7 @@ typedef struct{
 static le_sem_Ref_t semRef = NULL, queueSemRef = NULL;
 static le_thread_Ref_t threadRef = NULL;
 taf_pm_StateChangeHandlerRef_t handlerRef;
+taf_pm_StateChangeExHandlerRef_t handlerExRef;
 le_result_t res;
 int reqResult = 1;
 
@@ -138,6 +139,22 @@ void TestStateChangeHandler(taf_pm_State_t state, void* contextPtr)
     printf("\nState change triggered for %s\n", tafStateToString(state));
 }
 
+//Function called on power state change
+void TestStateChangeExHandler(taf_pm_PowerStateRef_t powerStateRef,
+        taf_pm_NadVm_t vm_id, taf_pm_State_t state, void* contextPtr)
+{
+    LE_TEST_INFO("State change triggered for %s\n", tafStateToString(state));
+    printf("\nState change triggered for %s\n", tafStateToString(state));
+    taf_pm_SendStateChangeAck(powerStateRef,state,TAF_PM_PVM,TAF_PM_READY);
+    LE_INFO("Sent state change acknowledge for %s\n", tafStateToString(state));
+    printf("\n Sent state change acknowledge for %s\n", tafStateToString(state));
+    if(state == TAF_PM_STATE_SHUTDOWN)
+    {
+        LE_INFO("Sent state change NACK for %s\n", tafStateToString(state));
+        printf("\n Sent state change NACK for %s\n", tafStateToString(state));
+    taf_pm_SendStateChangeAck(powerStateRef,state,TAF_PM_PVM,TAF_PM_NOT_READY);
+    }
+}
 static void* test_stateChangeHandler(void* ctxPtr)
 {
     taf_pm_ConnectService();
@@ -145,6 +162,10 @@ static void* test_stateChangeHandler(void* ctxPtr)
     LE_TEST_INFO("Testing taf_pm_AddStateChangeHandler on valid handler reference");
     handlerRef = taf_pm_AddStateChangeHandler(TestStateChangeHandler, NULL);
     LE_TEST_OK(handlerRef != NULL,"Register state change handler is successfull");
+
+    LE_TEST_INFO("Testing taf_pm_AddStateChangeExHandler on valid handler reference");
+    handlerExRef = taf_pm_AddStateChangeExHandler(TestStateChangeExHandler, NULL);
+    LE_TEST_OK(handlerExRef != NULL,"Register state change handler is successfull");
     le_sem_Post(semRef);
     le_event_RunLoop();
 }

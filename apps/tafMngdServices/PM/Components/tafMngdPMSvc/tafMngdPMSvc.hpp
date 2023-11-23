@@ -39,6 +39,10 @@
 #include "tafHalLib.hpp"
 
 #define TAF_MNGD_PM_VM_HASH_SIZE 10
+#define NODE_PRIMARY_NAD 0
+#define VHAL_ACK_TIMEOUT 10000
+#define WAKELOCK_WITHOUT_REF 0
+#define MAX_SESSION 1
 
 namespace telux {
 namespace tafsvc {
@@ -50,6 +54,40 @@ typedef struct
     taf_mngd_pm_State_t state;
 }taf_mngdPm_State_t;
 
+typedef struct
+{
+    le_msg_SessionRef_t sessionRef;
+    void* shutdownCBCtxPtr;
+    taf_mngd_pm_AsyncShutdownReqHandlerFunc_t shutdownCallbackFunc;
+}taf_mngdPm_ShutdownCb_t;
+
+typedef struct
+{
+    le_msg_SessionRef_t sessionRef;
+    void* restartCBCtxPtr;
+    taf_mngd_pm_AsyncRestartReqHandlerFunc_t restartCallbackFunc;
+}taf_mngdPm_RestartCb_t;
+
+typedef enum
+{
+    SYSTEM_FORCEFUL_SHUTDOWN,
+    RESTART_WITH_NAD_POWER_OFF_ON
+}taf_mngdPm_RequestedState_t;
+
+typedef struct
+{
+   le_msg_SessionRef_t sessionRef;
+   pid_t               pid;
+}
+taf_mngdPm_SessionNode_t;
+
+typedef struct
+{
+    le_hashmap_Ref_t    clients;
+    le_mem_PoolRef_t    SessionNodePool = NULL;
+}
+taf_mngdPm_Client_t;
+
 class tafMngdPMSvc: public ITafSvc
 {
     public:
@@ -60,9 +98,15 @@ class tafMngdPMSvc: public ITafSvc
         static tafMngdPMSvc &GetInstance();
         static le_result_t ParseJsonConfig(std::string configPath);
         static const char* tafStateToString(taf_mngd_pm_State_t tafState);
+        static void OnClientConnection(le_msg_SessionRef_t sessionRef, void *ctxPtr);
         static void OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *ctxPtr);
+        static le_result_t IsClientValid();
         static void StateChangeHandler(taf_pm_State_t state, void* contextPtr);
         static le_result_t InitVHalModule();
+        static void StateChangeExHandler(taf_pm_PowerStateRef_t powerStateRef,
+                taf_pm_NadVm_t vm_id, taf_pm_State_t state, void* contextPtr);
+        static void VhalAckTimerHandler(le_timer_Ref_t timerRef);
+
 };
 }
 }

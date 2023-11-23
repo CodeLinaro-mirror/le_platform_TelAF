@@ -77,7 +77,7 @@
    @endverbatim
  *
  * @section taf_mngd_pm_SetVMPowerState Set the power state for a particular Virtual Machine
- * in NAD.
+ * in NAD
  *
  * TelAF Power Management Service provides APIs to set the power state of a particular Virtual
  * Machine.
@@ -93,7 +93,7 @@
    @endverbatim
  *
  * @section taf_mngd_pm_GetVMPowerState Get the power state for a particular Virtual Machine
- * in NAD.
+ * in NAD
  *
  * TelAF Power Management Service provides APIs to get the power state of a particular Virtual
  * Machine.
@@ -125,6 +125,75 @@
     }
 
    @endverbatim
+ *
+ * @section taf_mngd_pm_shutdown Shutdown the system forcefully
+ *
+ * TelAF Power Management Service's client calls taf_mngd_pm_ShutdownReqAsync() to shut down the
+ * system forcefully.
+ * This function returns le_result_t and updates the results through callback function reference
+ * provided in the function call. This API will collaborate with the PM VHAL.
+ * @verbatim
+
+    void ForcedSystemShutdownCallBack(taf_mngd_pm_ShutdownMode_t mode,
+        taf_mngd_pm_ResponseMode_t ResponseMode, void* contextPtr)
+    {
+        LE_INFO("ForcedSystemShutdownCallBack ");
+    }
+
+    void ForcedSystemShutdown()
+    {
+        le_result_t result = taf_mngd_pm_ShutdownReqAsync(TAF_MNGD_PM_SYSTEM_FORCEFUL_SHUTDOWN,
+                ForcedSystemShutdownCallBack, NULL);
+
+        if(result == LE_OK) {
+            LE_INFO("Forcefull shutdown request sent successfully");
+        }
+    }
+
+   @endverbatim
+ *
+ * @section taf_mngd_pm_restart Restart the system forcefully
+ *
+ * TelAF Power Management Service's client calls taf_mngd_pm_RestartReqAsync() to restart the
+ * system forcefully.
+ * This function returns le_result_t and updates the results through callback function reference
+ * provided in the function call. This function also provides the ability to shut down the NAD on
+ * receiving this restart request in case customer wants to wake up the NAD after power off. This
+ * API will collaborate with the PM VHAL.
+ * @verbatim
+
+    void RestartCallback(taf_mngd_pm_RestartMode_t mode, taf_mngd_pm_ResponseMode_t rspmode,
+            void* contextPtr)
+    {
+        LE_INFO(" RestartCallback ");
+    }
+
+    void RestartSystem()
+    {
+        le_result_t res = taf_mngd_pm_RestartReqAsync(TAF_MNGD_PM_RESTART_SYSTEM_OFF_ON,
+                RestartCallback, NULL);
+        if(result == LE_OK) {
+            LE_INFO("Forcefull restart request sent successfully");
+        }
+    }
+   @endverbatim
+ * @section taf_mngd_pm_setTargetedMode Set the targeted power mode to the node
+ *
+ * TelAF Power Management Service's client calls taf_mngd_pm_SetNodeTargetedPowerMode() to set the
+ * power mode of the node.
+ * This function returns le_result_t and sets the targeted power mode of the node requested once
+ * all the wake sources are released. This API will collaborate with the PM VHAL.
+ * @verbatim
+
+    // To set the targeted power mode of NAD to SHUT DOWN.
+    void SetTargetedPowerMode()
+    {
+        result = taf_mngd_pm_SetNodeTargetedPowerMode(0,TAF_MNGD_PM_SHUTDOWN);
+        if(result == LE_OK)
+            LE_INFO("taf_mngd_pm_GracefulSysShutdownWakeLock triggered successfully");
+    }
+   @endverbatim
+ *
  *<HR>
  *
  */
@@ -152,6 +221,60 @@ ENUM State
     STATE_SUSPEND,       ///< Power state is suspend.
     STATE_SHUTDOWN       ///< Power state is shutdown.
 };
+
+/**
+ * Targeted power modes.
+ */
+ENUM TargetedPowerMode
+{
+    RESUME,            ///< Power mode is resume.
+    SUSPEND,           ///< Power mode is suspend.
+    SHUTDOWN           ///< Power mode is shutdown.
+};
+
+/**
+ * Response mode for async requests.
+ */
+ENUM ResponseMode
+{
+    READY,           ///< Response is ready.
+    NOT_READY,       ///< Response is not ready.
+    TIMEOUT          ///< Response is timeout.
+};
+
+/**
+ * Forceful shutdown request mode.
+ */
+ENUM ShutdownMode
+{
+    SYSTEM_FORCEFUL_SHUTDOWN     ///< System forceful shutdown.
+};
+
+/**
+ * Handler for async shutdown request.
+ */
+HANDLER AsyncShutdownReqHandler
+(
+    ShutdownMode requestedMode IN,   ///< Requested mode.
+    ResponseMode responseMode  IN    ///< Request response.
+);
+
+/**
+ * Restart request mode.
+ */
+ENUM RestartMode
+{
+    RESTART_SYSTEM_OFF_ON    ///< Restart System.
+};
+
+/**
+ * Handler for async restart request.
+ */
+HANDLER AsyncRestartReqHandler
+(
+    RestartMode restartMode   IN,    ///< Restart mode.
+    ResponseMode responseMode IN     ///< Request response.
+);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -205,4 +328,52 @@ FUNCTION le_result_t GetVMPowerState(
                                                 ///  available.
     string  vmName[MACHINE_NAME_LEN] IN,        ///< Virtual Machine name.
     State state OUT                             ///< State of the Virtual Machine.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the targeted power mode for the node.
+ * Node will initiate the requested power state once all wake sources are released.
+ * @return
+ *     - LE_OK             Successfully sets the targeted power mode.
+ *     - LE_BAD_PARAMETER  The given pmNodeId is invalid.
+ *     - LE_FAULT          Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetNodeTargetedPowerMode
+(
+    uint8 pmNodeId IN,               ///< The Node ID given.
+    TargetedPowerMode powerMode IN   ///< The power mode to be set.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Forcefully shuts down the system.
+ *
+ * @return
+ *     - LE_OK             Successfully sent the request.
+ *     - LE_BAD_PARAMETER  Invalid requested mode or handler reference.
+ *     - LE_FAULT          Failed to send the request.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ShutdownReqAsync
+(
+    ShutdownMode              requstedMode  IN,   ///< Requested mode.
+    AsyncShutdownReqHandler   handlerRef    IN    ///< Handler Reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Forcefully restarts the system.
+ *
+ * @return
+ *     - LE_OK             Successfully sent the request.
+ *     - LE_BAD_PARAMETER  Invalid requested mode or handler reference.
+ *     - LE_FAULT          Failed to send the request.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t RestartReqAsync
+(
+    RestartMode             restartMode  IN,   ///< Restart mode.
+    AsyncRestartReqHandler  handlerRef   IN    ///< Handler reference.
 );

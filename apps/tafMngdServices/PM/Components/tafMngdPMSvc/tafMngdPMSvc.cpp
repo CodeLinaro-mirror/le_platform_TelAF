@@ -39,19 +39,54 @@
 #include "gpio/tafMngdPMGpio.hpp"
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
+#include "limit.h"
 
 #define globalState "ALL"
 
 using namespace telux::tafsvc;
 namespace pt = boost::property_tree;
-
 static le_mem_PoolRef_t vmStatePool;
 static le_hashmap_Ref_t vmStateHashmap;
 le_thread_Ref_t SetStateResponseEventThreadRef = NULL;
 le_thread_Ref_t StateChangeEventThreadRef = NULL;
 taf_pm_StateChangeHandlerRef_t handlerRef;
+taf_pm_StateChangeExHandlerRef_t handlerExRef;
+taf_mngd_pm_TargetedPowerMode_t targetedPowerMode = TAF_MNGD_PM_RESUME;
+taf_pm_PowerStateRef_t powerStateRef;
+taf_mngdPm_RestartCb_t restartCB;
+taf_mngdPm_ShutdownCb_t shutdownCB;
+le_timer_Ref_t vhalAckTimerRef;
+taf_pm_WakeupSourceRef_t ws = nullptr;
+bool isGraceful = false;
+static pm_Inf_t *pmInf = nullptr;
+taf_mngdPm_RequestedState_t statePtr;
+taf_mngdPm_Client_t mngdPmClientInfo;
+LE_MEM_DEFINE_STATIC_POOL(SessionCtx, MAX_SESSION, sizeof(taf_mngdPm_SessionNode_t));
+const char* clientWhiteList[] = {"tafMngdPMIntTest","tafMngdPMUnitTest"};
 
-static pm_Inf_t *pmInf;
+le_result_t shutdownNAD()
+{
+    le_result_t res = taf_pm_SetAllVMPowerState(TAF_PM_STATE_SHUTDOWN);
+    if(res != LE_OK)
+    {
+        LE_ERROR("Failed to shutdown the NAD");
+    }
+    else
+    {
+        le_hashmap_It_Ref_t hashIter =
+                (le_hashmap_It_Ref_t)le_hashmap_GetIterator(vmStateHashmap);
+        while (LE_OK == le_hashmap_NextNode(hashIter))
+        {
+            taf_mngdPm_State_t *vmStatePtr =
+                    (taf_mngdPm_State_t*)le_hashmap_GetValue(hashIter);
+
+            if(vmStatePtr) {
+                vmStatePtr->state = TAF_MNGD_PM_STATE_SHUTDOWN;
+            }
+        }
+    }
+    return res;
+}
 
 void shutdownRespCB
 (
@@ -62,6 +97,44 @@ void shutdownRespCB
     LE_INFO("***** %s *****", __FUNCTION__);
     LE_INFO("taf_hal_pm_ShutdownMode: %d", mode);
     LE_INFO("taf_hal_pm_RspReason: %d", reason);
+    if(le_timer_IsRunning(vhalAckTimerRef))
+    {
+        LE_DEBUG("Stop the timer");
+        le_timer_Stop(vhalAckTimerRef);
+    }
+    if (mode == PM_HAL_SHUTDOWN_MODE_GRACEFUL && reason == PM_HAL_RSP_READY)
+    {
+        taf_pm_SendStateChangeAck(powerStateRef, TAF_PM_STATE_ALL_ACKED, TAF_PM_PVM, TAF_PM_READY);
+    }
+    else if (mode == PM_HAL_SHUTDOWN_MODE_GRACEFUL && reason == PM_HAL_RSP_NOT_READY)
+    {
+        taf_pm_SendStateChangeAck(powerStateRef, TAF_PM_STATE_ALL_ACKED, TAF_PM_PVM,
+                TAF_PM_NOT_READY);
+    }
+    else if (mode == PM_HAL_SHUTDOWN_MODE_FORCEFUL && reason == PM_HAL_RSP_READY)
+    {
+        if(shutdownCB.shutdownCallbackFunc)
+        {
+            shutdownCB.shutdownCallbackFunc(TAF_MNGD_PM_SYSTEM_FORCEFUL_SHUTDOWN, TAF_MNGD_PM_READY,
+                    shutdownCB.shutdownCBCtxPtr);
+        }
+        le_result_t res = shutdownNAD();
+        if(res == LE_OK)
+        {
+            isGraceful = false;
+        }
+    }
+    else if (mode == PM_HAL_SHUTDOWN_MODE_FORCEFUL && reason == PM_HAL_RSP_NOT_READY)
+    {
+        if(shutdownCB.shutdownCallbackFunc)
+        {
+            shutdownCB.shutdownCallbackFunc(
+                TAF_MNGD_PM_SYSTEM_FORCEFUL_SHUTDOWN,
+                TAF_MNGD_PM_NOT_READY,
+                shutdownCB.shutdownCBCtxPtr);
+        }
+    }
+    shutdownCB.shutdownCallbackFunc = nullptr;
 }
 
 void restartRespCB
@@ -73,6 +146,34 @@ void restartRespCB
     LE_INFO("***** %s *****", __FUNCTION__);
     LE_INFO("taf_hal_pm_RestartMode: %d", mode);
     LE_INFO("taf_hal_pm_RspReason: %d", reason);
+    if(le_timer_IsRunning(vhalAckTimerRef))
+    {
+        LE_INFO("vhalAckTimerRef");
+        LE_DEBUG("Stop the timer");
+        le_timer_Stop(vhalAckTimerRef);
+    }
+    if (mode == PM_HAL_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF && reason == PM_HAL_RSP_READY)
+    {
+        if(restartCB.restartCallbackFunc)
+        {
+            restartCB.restartCallbackFunc(TAF_MNGD_PM_RESTART_SYSTEM_OFF_ON, TAF_MNGD_PM_READY,
+                    restartCB.restartCBCtxPtr);
+        }
+        le_result_t res = shutdownNAD();
+        if(res == LE_OK)
+        {
+            isGraceful = false;
+        }
+    }
+    else if (mode == PM_HAL_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF && reason == PM_HAL_RSP_NOT_READY)
+    {
+        if(restartCB.restartCallbackFunc)
+        {
+            restartCB.restartCallbackFunc(TAF_MNGD_PM_RESTART_SYSTEM_OFF_ON, TAF_MNGD_PM_NOT_READY,
+                    restartCB.restartCBCtxPtr);
+        }
+    }
+    restartCB.restartCallbackFunc = nullptr;
 }
 
 void nodeStateChangeNotificationCB
@@ -86,6 +187,24 @@ void nodeStateChangeNotificationCB
     LE_INFO("pm_node_id: %d", pm_node_id);
     LE_INFO("taf_hal_pm_NodeState: %d", state);
     LE_INFO("taf_hal_pm_ConfirmStatus: %d", status);
+    if (state == PM_HAL_NODE_STATE_SHUTDOWN && status == PM_HAL_NODE_STATUS_READY)
+    {
+        taf_pm_SendStateChangeAck(powerStateRef, TAF_PM_STATE_SHUTDOWN, TAF_PM_PVM, TAF_PM_READY);
+    }
+    else if (state == PM_HAL_NODE_STATE_SHUTDOWN && status == PM_HAL_NODE_STATUS_NOT_READY)
+    {
+        taf_pm_SendStateChangeAck(powerStateRef, TAF_PM_STATE_SHUTDOWN, TAF_PM_PVM,
+                TAF_PM_NOT_READY);
+    }
+    else if (state == PM_HAL_NODE_STATE_SUSPEND && status == PM_HAL_NODE_STATUS_READY)
+    {
+        taf_pm_SendStateChangeAck(powerStateRef, TAF_PM_STATE_SUSPEND, TAF_PM_PVM, TAF_PM_READY);
+    }
+    else if (state == PM_HAL_NODE_STATE_SUSPEND && status == PM_HAL_NODE_STATUS_NOT_READY)
+    {
+        taf_pm_SendStateChangeAck(powerStateRef, TAF_PM_STATE_SUSPEND, TAF_PM_PVM,
+                TAF_PM_NOT_READY);
+    }
 }
 
 /**
@@ -94,7 +213,8 @@ void nodeStateChangeNotificationCB
 const char* tafMngdPMSvc::tafStateToString(taf_mngd_pm_State_t tafState)
 {
     const char *state;
-    switch(tafState) {
+    switch(tafState)
+    {
         case TAF_MNGD_PM_STATE_RESUME:
             state = "Resume";
             break;
@@ -122,7 +242,8 @@ le_result_t tafMngdPMSvc::ParseJsonConfig(std::string configPath)
     }
 
     std::ifstream jsonFile(configPath);
-    if (!jsonFile.is_open()) {
+    if (!jsonFile.is_open())
+    {
         LE_WARN ("Unable to open %s", configPath.c_str());
         return LE_FAULT;
     }
@@ -130,10 +251,12 @@ le_result_t tafMngdPMSvc::ParseJsonConfig(std::string configPath)
     // Create a root
     pt::ptree root;
     // Load the json file in this ptree
-    try{
+    try
+    {
         pt::read_json(configPath, root);
     }
-    catch (const std::exception &e) {
+    catch (const std::exception &e)
+    {
         LE_WARN ("read_json exception: %s. Check validity of JSON.", e.what());
         return LE_FAULT;
     }
@@ -141,9 +264,11 @@ le_result_t tafMngdPMSvc::ParseJsonConfig(std::string configPath)
     auto can = tafMngdPMCan::GetInstance();
     auto sms = tafMngdPMSms::GetInstance();
     auto gpio = tafMngdPMGpio::GetInstance();
-    for(auto & element : root) {
+    for(auto & element : root)
+    {
         //Product
-        if ("Product" == element.first ) {
+        if ("Product" == element.first )
+        {
             // Get the elements within "Product"
             if (element.second.get_value < std::string > () != "TelAF")
             {
@@ -153,7 +278,8 @@ le_result_t tafMngdPMSvc::ParseJsonConfig(std::string configPath)
         }
 
         //Name
-        if ("Name" == element.first ) {
+        if ("Name" == element.first )
+        {
 
             // Get the elements within "Product"
             if (element.second.get_value < std::string > ()
@@ -163,12 +289,17 @@ le_result_t tafMngdPMSvc::ParseJsonConfig(std::string configPath)
                 return LE_FAULT;
             }
         }
-        if ("ManagedPMService" == element.first ) {
-            for (auto & property: element.second) {
-                if ("Configuration" == property.first) {
-                    for (auto & config: property.second) {
+        if ("ManagedPMService" == element.first )
+        {
+            for (auto & property: element.second)
+            {
+                if ("Configuration" == property.first)
+                {
+                    for (auto & config: property.second)
+                    {
                         uint32_t frameId;
-                        if(config.first == "RESUME"){
+                        if(config.first == "RESUME")
+                        {
                             uint8_t resumeGpioPin = config.second.get<uint8_t>("gpio.pin_num");
                             LE_INFO("resumeGpioPin is %d", resumeGpioPin);
 
@@ -192,7 +323,8 @@ le_result_t tafMngdPMSvc::ParseJsonConfig(std::string configPath)
                             LE_INFO("resumeSmsMsg is %s", resumeSmsMsg.c_str());
                             sms.RegisterSms(resumeSmsMsg.c_str(), TAF_MNGD_PM_STATE_RESUME);
                         }
-                        if(config.first == "SUSPEND"){
+                        if(config.first == "SUSPEND")
+                        {
                             uint8_t suspendGpioPin = config.second.get<uint8_t>("gpio.pin_num");
                             LE_INFO("suspendGpioPin is %d", suspendGpioPin);
 
@@ -219,7 +351,8 @@ le_result_t tafMngdPMSvc::ParseJsonConfig(std::string configPath)
                             sms.RegisterSms(suspendSmsMsg.c_str(),
                                     TAF_MNGD_PM_STATE_SUSPEND);
                         }
-                        if(config.first == "SHUTDOWN"){
+                        if(config.first == "SHUTDOWN")
+                        {
                             uint8_t shutdownGpioPin = config.second.get<uint8_t>("gpio.pin_num");
                             LE_INFO("shutdownGpioPin is %d", shutdownGpioPin);
 
@@ -259,10 +392,19 @@ le_result_t taf_mngd_pm_SetNadPowerState(taf_mngd_pm_Nad_t nad, taf_mngd_pm_Stat
 {
     LE_DEBUG("taf_mngd_pm_setNadPowerState state : %s", tafMngdPMSvc::tafStateToString(state));
 
-    le_result_t res = taf_pm_SetAllVMPowerState((taf_pm_State_t)state);
-    if(res != LE_OK) {
+    le_result_t res = tafMngdPMSvc::IsClientValid();
+    if(res != LE_OK)
+    {
+        return res;
+    }
+
+    res = taf_pm_SetAllVMPowerState((taf_pm_State_t)state);
+    if(res != LE_OK)
+    {
         LE_ERROR("Failed to set the NAD power state");
-    } else {
+    }
+    else
+    {
         le_hashmap_It_Ref_t hashIter = (le_hashmap_It_Ref_t)le_hashmap_GetIterator(vmStateHashmap);
         while (LE_OK == le_hashmap_NextNode(hashIter))
         {
@@ -282,18 +424,25 @@ le_result_t taf_mngd_pm_SetVMPowerState(taf_mngd_pm_Nad_t nad, const char *machi
     LE_DEBUG("taf_mngd_pm_SetVMPowerState VM : %s state : %s", machineName,
             tafMngdPMSvc::tafStateToString(state));
 
+    le_result_t res = tafMngdPMSvc::IsClientValid();
+    if(res != LE_OK)
+    {
+        return res;
+    }
+
     TAF_ERROR_IF_RET_VAL(state == TAF_MNGD_PM_STATE_UNKNOWN || machineName == NULL,
             LE_BAD_PARAMETER, "state or machineName is not valid");
 
-    le_result_t res;
     char name[32] = {0};
     taf_pm_VMListRef_t vmListRef = taf_pm_GetMachineList( );
 
     TAF_ERROR_IF_RET_VAL(!vmListRef, LE_UNSUPPORTED, "Machine list not available");
 
     res = taf_pm_GetFirstMachineName(vmListRef, name, 32);
-    while(res == LE_OK){
-        if(machineName && strncmp(machineName, name, TAF_MNGD_PM_MACHINE_NAME_LEN) == 0){
+    while(res == LE_OK)
+    {
+        if(machineName && strncmp(machineName, name, TAF_MNGD_PM_MACHINE_NAME_LEN) == 0)
+        {
             taf_mngdPm_State_t *vmStatePtr =
                     (taf_mngdPm_State_t*)le_hashmap_Get(vmStateHashmap, name);
             TAF_ERROR_IF_RET_VAL(!vmStatePtr, LE_BAD_PARAMETER, "Machine name not available");
@@ -303,10 +452,13 @@ le_result_t taf_mngd_pm_SetVMPowerState(taf_mngd_pm_Nad_t nad, const char *machi
                     "Requested the already existing state");
 
             res = taf_pm_SetVMPowerState((taf_pm_State_t)state, machineName);
-            if(res != LE_OK) {
+            if(res != LE_OK)
+            {
                 LE_ERROR("Failed to trigger state change of %s VM", machineName);
                 return res;
-            } else {
+            }
+            else
+            {
                 LE_INFO("Successfully requested state change for %s VM", machineName);
                 taf_pm_DeleteMachineList(vmListRef);
                 le_hashmap_It_Ref_t hashIter =
@@ -315,9 +467,11 @@ le_result_t taf_mngd_pm_SetVMPowerState(taf_mngd_pm_Nad_t nad, const char *machi
                 {
                     taf_mngdPm_State_t *vmStatePtr =
                             (taf_mngdPm_State_t*)le_hashmap_GetValue(hashIter);
-                    if(vmStatePtr) {
+                    if(vmStatePtr)
+                    {
                         if(strncmp(vmStatePtr->vmName, machineName,
-                                TAF_MNGD_PM_MACHINE_NAME_LEN) == 0) {
+                                TAF_MNGD_PM_MACHINE_NAME_LEN) == 0)
+                        {
                             LE_DEBUG("Update %s VM state to %s", vmStatePtr->vmName,
                                     tafMngdPMSvc::tafStateToString(state));
                             vmStatePtr->state = state;
@@ -339,6 +493,12 @@ le_result_t taf_mngd_pm_GetVMPowerState(taf_mngd_pm_Nad_t nad, const char *machi
 {
     LE_DEBUG("taf_mngd_pm_GetVMPowerState %s state", machineName);
 
+    le_result_t res = tafMngdPMSvc::IsClientValid();
+    if(res != LE_OK)
+    {
+        return res;
+    }
+
     TAF_ERROR_IF_RET_VAL(state == NULL || machineName == NULL, LE_BAD_PARAMETER,
             "state or machineName is not valid");
 
@@ -347,8 +507,10 @@ le_result_t taf_mngd_pm_GetVMPowerState(taf_mngd_pm_Nad_t nad, const char *machi
     {
         taf_mngdPm_State_t *vmStatePtr = (taf_mngdPm_State_t*)le_hashmap_GetValue(hashIter);
 
-        if(vmStatePtr) {
-            if(strncmp(vmStatePtr->vmName, machineName, TAF_MNGD_PM_MACHINE_NAME_LEN) == 0) {
+        if(vmStatePtr)
+        {
+            if(strncmp(vmStatePtr->vmName, machineName, TAF_MNGD_PM_MACHINE_NAME_LEN) == 0)
+            {
                 LE_DEBUG("Update %s state", vmStatePtr->vmName);
                 *state = vmStatePtr->state;
                 return LE_OK;
@@ -359,9 +521,104 @@ le_result_t taf_mngd_pm_GetVMPowerState(taf_mngd_pm_Nad_t nad, const char *machi
     return LE_BAD_PARAMETER;
 }
 
+void tafMngdPMSvc::OnClientConnection(le_msg_SessionRef_t sessionRef, void *ctxPtr)
+{
+    LE_DEBUG("OnClientConnection");
+
+    pid_t pid;
+    char appName[LIMIT_MAX_PATH_BYTES] = {0};
+
+    if (LE_OK != le_msg_GetClientProcessId(sessionRef, &pid))
+    {
+        LE_ERROR("Error, Failed to get client pid.");
+    }
+
+    bool inTheWhiteList = false;
+    if (le_appInfo_GetName(pid, appName, sizeof(appName)) == LE_OK)
+    {
+        LE_INFO("client appName: %s", appName);
+
+        for(uint i = 0; i < sizeof(clientWhiteList) / sizeof(clientWhiteList[0]); i++)
+        {
+            if(strcmp(appName, clientWhiteList[i]) == 0)
+            {
+                LE_INFO("app is in the client white list");
+                inTheWhiteList = true;
+            }
+        }
+    }
+
+    taf_mngdPm_SessionNode_t* sessionNodePtr = nullptr;
+
+    if(inTheWhiteList)
+    {
+        sessionNodePtr =
+            (taf_mngdPm_SessionNode_t*)le_mem_ForceAlloc(mngdPmClientInfo.SessionNodePool);
+    }
+    else
+    {
+        sessionNodePtr =
+            (taf_mngdPm_SessionNode_t*)le_mem_TryAlloc(mngdPmClientInfo.SessionNodePool);
+    }
+
+    TAF_ERROR_IF_RET_NIL(sessionNodePtr == nullptr, "Cannot allocate sessionNode");
+
+    sessionNodePtr->sessionRef = sessionRef;
+
+    if (LE_OK != le_msg_GetClientProcessId(sessionRef, &sessionNodePtr->pid))
+    {
+        LE_ERROR("Error, Failed to get client pid.");
+    }
+
+    // update client record in table
+    if (le_hashmap_Put(mngdPmClientInfo.clients, sessionRef, sessionNodePtr))
+    {
+        LE_ERROR("Failed to add client record for session %p.", sessionRef);
+    }
+
+    LE_INFO("Session %p (process %d) connected", sessionRef, sessionNodePtr->pid);
+}
+
 void tafMngdPMSvc::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *ctxPtr)
 {
     LE_DEBUG("OnClientDisconnection");
+
+    taf_mngdPm_SessionNode_t* sessionNodePtr =
+            (taf_mngdPm_SessionNode_t*)le_hashmap_Remove(mngdPmClientInfo.clients, sessionRef);
+
+    TAF_ERROR_IF_RET_NIL(sessionNodePtr == nullptr, "Failed to remove sessionRef %p from table",
+                         sessionRef);
+    if(restartCB.sessionRef == sessionRef)
+         restartCB.restartCallbackFunc = nullptr;
+    if(shutdownCB.sessionRef == sessionRef)
+        shutdownCB.shutdownCallbackFunc = nullptr;
+    LE_INFO("Client with sessionRef %p (process %d) disconnected", sessionRef, sessionNodePtr->pid);
+
+    le_mem_Release(sessionNodePtr);
+}
+
+le_result_t tafMngdPMSvc::IsClientValid()
+{
+    le_msg_SessionRef_t sessionRef = taf_mngd_pm_GetClientSessionRef();
+
+    taf_mngdPm_SessionNode_t* sessionNodePtr =
+            (taf_mngdPm_SessionNode_t*)le_hashmap_Get(mngdPmClientInfo.clients, sessionRef);
+
+    TAF_ERROR_IF_RET_VAL(sessionNodePtr == nullptr,
+                            LE_UNSUPPORTED,
+                            "cannot find session %p from table", sessionRef);
+
+    pid_t pid;
+
+    TAF_ERROR_IF_RET_VAL(LE_OK != le_msg_GetClientProcessId(sessionRef, &pid),
+                            LE_UNSUPPORTED,
+                            "cannot get process id for session %p", sessionRef);
+
+    TAF_ERROR_IF_RET_VAL(pid != sessionNodePtr->pid,
+                            LE_UNSUPPORTED,
+                            "pid mismatched");
+
+    return LE_OK;
 }
 
 void tafMngdPMSvc::StateChangeHandler(taf_pm_State_t state, void* contextPtr)
@@ -379,6 +636,32 @@ void tafMngdPMSvc::StateChangeHandler(taf_pm_State_t state, void* contextPtr)
     }
 }
 
+void tafMngdPMSvc::VhalAckTimerHandler(le_timer_Ref_t timerRef)
+{
+    taf_mngdPm_RequestedState_t* state =
+      (taf_mngdPm_RequestedState_t*)le_timer_GetContextPtr(timerRef);
+    LE_INFO("Timer Expired state is %d", *(state));
+
+    if(*(state) == SYSTEM_FORCEFUL_SHUTDOWN)
+    {
+        LE_INFO("Timer expire for SYSTEM_FORCEFUL_SHUTDOWN");
+        if(shutdownCB.shutdownCallbackFunc)
+        {
+            shutdownCB.shutdownCallbackFunc(TAF_MNGD_PM_SYSTEM_FORCEFUL_SHUTDOWN, TAF_MNGD_PM_TIMEOUT,
+                    shutdownCB.shutdownCBCtxPtr);
+        }
+    }
+    else if (*(state) == RESTART_WITH_NAD_POWER_OFF_ON)
+    {
+            LE_INFO("Timer expire for TAF_MNGD_PM_RESTART_SYSTEM_OFF_ON");
+        if(restartCB.restartCallbackFunc)
+        {
+            restartCB.restartCallbackFunc(TAF_MNGD_PM_RESTART_SYSTEM_OFF_ON, TAF_MNGD_PM_TIMEOUT,
+                    restartCB.restartCBCtxPtr);
+        }
+    }
+}
+
 le_result_t tafMngdPMSvc::InitVHalModule()
 {
     // Load the driver and does not care the version
@@ -392,10 +675,179 @@ le_result_t tafMngdPMSvc::InitVHalModule()
     else // successfully loaded
     {
         LE_INFO("Loaded module %s successfully", TAF_PM_MODULE_NAME);
-        LE_INFO("Call pmInf(%p) init function", pmInf);
+        LE_DEBUG("Call pmInf(%p) init function", pmInf);
 
         // init first
         (*(pmInf->InitHAL))();
+        vhalAckTimerRef = le_timer_Create("VHAL ACK timer");
+        le_timer_SetMsInterval(vhalAckTimerRef, VHAL_ACK_TIMEOUT);
+        le_timer_SetHandler(vhalAckTimerRef, VhalAckTimerHandler);
+    }
+
+    return LE_OK;
+}
+
+void tafMngdPMSvc:: StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
+        taf_pm_NadVm_t vm_id, taf_pm_State_t state, void* contextPtr)
+{
+    LE_INFO("State change triggered in StateChangeExHandler");
+    powerStateRef = psRef;
+    if(state != TAF_PM_STATE_ALL_WAKELOCKS_RELEASED && !pmInf)
+    {
+        // Send ACK if no VHAL driver is available.
+        LE_DEBUG("Send ACK if there is no driver loaded");
+        taf_pm_SendStateChangeAck(powerStateRef, state, vm_id, TAF_PM_READY);
+        return;
+    }
+    if(state == TAF_PM_STATE_ALL_WAKELOCKS_RELEASED)
+    {
+        LE_DEBUG("Received all wakelocks released notification");
+        if(targetedPowerMode == TAF_MNGD_PM_SHUTDOWN)
+        {
+            le_result_t res = shutdownNAD();
+            if(res == LE_OK) {
+                isGraceful = true;
+            }
+        }
+    }
+    else if (state == TAF_PM_STATE_ALL_ACKED)
+    {
+        if(isGraceful)
+        {
+                LE_DEBUG("Send shutdownReqAsync %d", PM_HAL_SHUTDOWN_MODE_GRACEFUL);
+                (*(pmInf->shutdownReqAsync))(PM_HAL_SHUTDOWN_MODE_GRACEFUL, shutdownRespCB);
+        }
+        else
+        {
+            taf_pm_SendStateChangeAck(powerStateRef, TAF_PM_STATE_ALL_ACKED, TAF_PM_PVM,
+                    TAF_PM_READY);
+        }
+    }
+    else if(state == TAF_PM_STATE_SUSPEND)
+    {
+        LE_DEBUG("Send state change notification %d", PM_HAL_NODE_STATE_SUSPEND);
+        (*(pmInf->nodeStateChangeNotification))(NODE_PRIMARY_NAD, PM_HAL_NODE_STATE_SUSPEND,
+                nodeStateChangeNotificationCB);
+    }
+    else if(state == TAF_PM_STATE_SHUTDOWN)
+    {
+        LE_DEBUG("Send state change notification %d", PM_HAL_NODE_STATE_SHUTDOWN);
+        (*(pmInf->nodeStateChangeNotification))(NODE_PRIMARY_NAD, PM_HAL_NODE_STATE_SHUTDOWN,
+                nodeStateChangeNotificationCB);
+    }
+    else if(state == TAF_PM_STATE_RESUME)
+    {
+        LE_DEBUG("Send state change notification %d", PM_HAL_NODE_STATE_RESUME);
+        (*(pmInf->nodeStateChangeNotification))(NODE_PRIMARY_NAD, PM_HAL_NODE_STATE_RESUME,
+                nodeStateChangeNotificationCB);
+    }
+}
+
+le_result_t taf_mngd_pm_SetNodeTargetedPowerMode(uint8_t pm_node_id,
+        taf_mngd_pm_TargetedPowerMode_t powerMode)
+{
+    LE_INFO("taf_mngd_pm_SetNodeTargetedPowerMode powerMode : %d", powerMode);
+
+    le_result_t res = tafMngdPMSvc::IsClientValid();
+    if(res != LE_OK)
+    {
+        return res;
+    }
+
+    targetedPowerMode = powerMode;
+    isGraceful = true;
+
+    // Create and acquire a wakelock to get notified on last wakeup source release.
+    if(ws == nullptr)
+        ws = taf_pm_NewWakeupSource(WAKELOCK_WITHOUT_REF, "mpms");
+    if (ws != nullptr)
+    {
+        le_result_t res = taf_pm_StayAwake(ws);
+        if(res == LE_OK)
+            LE_DEBUG("Wake source acquired successfully");
+        res = taf_pm_Relax(ws);
+        if(res == LE_OK)
+            LE_DEBUG("Wake source released successfully");
+    }
+    else
+    {
+        LE_ERROR("Failed to create wakeup source!");
+    }
+    return LE_OK;
+}
+
+le_result_t taf_mngd_pm_ShutdownReqAsync(taf_mngd_pm_ShutdownMode_t mode,
+    taf_mngd_pm_AsyncShutdownReqHandlerFunc_t handlerPtr, void* contextPtr)
+{
+    le_result_t res = tafMngdPMSvc::IsClientValid();
+    if(res != LE_OK)
+    {
+        return res;
+    }
+
+    TAF_ERROR_IF_RET_VAL(!handlerPtr, LE_BAD_PARAMETER, "invalid handlerRef");
+
+    if(pmInf)
+    {
+        LE_INFO("Send shutdownReqAsync %d", PM_HAL_SHUTDOWN_MODE_FORCEFUL);
+        (*(pmInf->shutdownReqAsync))(PM_HAL_SHUTDOWN_MODE_FORCEFUL, shutdownRespCB);
+        taf_mngdPm_RequestedState_t statePtr = SYSTEM_FORCEFUL_SHUTDOWN;
+        le_timer_SetContextPtr(vhalAckTimerRef, &statePtr);
+        le_timer_Start(vhalAckTimerRef);
+        shutdownCB.shutdownCallbackFunc = handlerPtr;
+        shutdownCB.shutdownCBCtxPtr = contextPtr;
+        shutdownCB.sessionRef = taf_mngd_pm_GetClientSessionRef();
+    }
+    else 
+    {
+        LE_INFO("Ignore VHAL response if drive is not available");
+        le_result_t res = shutdownNAD();
+        if(res == LE_OK)
+        {
+            isGraceful = false;
+        }
+        // Send ready incase of driver not available.
+        handlerPtr(mode, TAF_MNGD_PM_READY, contextPtr);
+    }
+
+    return LE_OK;
+}
+
+le_result_t taf_mngd_pm_RestartReqAsync(taf_mngd_pm_RestartMode_t mode,
+    taf_mngd_pm_AsyncRestartReqHandlerFunc_t handlerPtr, void* contextPtr)
+{
+    le_result_t res = tafMngdPMSvc::IsClientValid();
+    if(res != LE_OK)
+    {
+        return res;
+    }
+
+    TAF_ERROR_IF_RET_VAL(!handlerRef, LE_BAD_PARAMETER, "invalid handlerRef");
+
+    if(mode == TAF_MNGD_PM_RESTART_SYSTEM_OFF_ON)
+    {
+        if(pmInf)
+        {
+            LE_INFO("Send restartReqAsync %d", PM_HAL_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF);
+            (*(pmInf->restartReqAsync))(PM_HAL_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF, restartRespCB);
+            statePtr = RESTART_WITH_NAD_POWER_OFF_ON;
+            le_timer_SetContextPtr(vhalAckTimerRef, &statePtr);
+            le_timer_Start(vhalAckTimerRef);
+            restartCB.restartCallbackFunc = handlerPtr;
+            restartCB.restartCBCtxPtr = contextPtr;
+            restartCB.sessionRef = taf_mngd_pm_GetClientSessionRef();
+        }
+        else
+        {
+            LE_INFO("Ignore VHAL response if drive is not available");
+            le_result_t res = shutdownNAD();
+            if(res == LE_OK)
+            {
+                isGraceful = false;
+            }
+            // Send ready incase of driver not available.
+            handlerPtr(mode, TAF_MNGD_PM_READY, contextPtr);
+        }
     }
 
     return LE_OK;
@@ -405,10 +857,28 @@ COMPONENT_INIT
 {
     LE_INFO("tafMngdPMSvc COMPONENT init...");
 
+    mngdPmClientInfo.SessionNodePool = le_mem_InitStaticPool(SessionCtx,
+                                        MAX_SESSION,
+                                        sizeof(taf_mngdPm_SessionNode_t));
+
+    // Create table of clients
+    mngdPmClientInfo.clients = le_hashmap_Create("tafMngdPMClient", MAX_SESSION,
+                                             le_hashmap_HashVoidPointer,
+                                             le_hashmap_EqualsVoidPointer);
+
+    if (NULL == mngdPmClientInfo.clients)
+    {
+        LE_FATAL("Failed to create client hashmap");
+    }
+
+    le_msg_AddServiceOpenHandler(taf_mngd_pm_GetServiceRef(), tafMngdPMSvc::OnClientConnection,
+            NULL);
+
     le_msg_AddServiceCloseHandler(taf_mngd_pm_GetServiceRef(), tafMngdPMSvc::OnClientDisconnection,
             NULL);
 
-    try {
+    try
+    {
         le_result_t res = tafMngdPMSvc::ParseJsonConfig(TAF_MNGD_PM_CONFIG_PATH);
         if (res == LE_OK)
         {
@@ -418,7 +888,9 @@ COMPONENT_INIT
         {
             LE_ERROR("Failed to parse the JSON");
         }
-    } catch (const std::exception &e) {
+    } 
+    catch (const std::exception &e)
+    {
         LE_ERROR("Exception while parsing the JSON");
     }
 
@@ -428,9 +900,11 @@ COMPONENT_INIT
     char name[32] = {0};
     taf_pm_VMListRef_t vmListRef = taf_pm_GetMachineList( );
     le_result_t res;
-    if(vmListRef) {
+    if(vmListRef)
+    {
         res = taf_pm_GetFirstMachineName(vmListRef, name, 32);
-        while(res == LE_OK){
+        while(res == LE_OK)
+        {
             taf_mngdPm_State_t *vmStatePtr = (taf_mngdPm_State_t*)le_mem_ForceAlloc(vmStatePool);
             memset(vmStatePtr, 0, sizeof(taf_mngdPm_State_t));
             vmStatePtr->nad = TAF_MNGD_PM_NAD1;
@@ -449,6 +923,10 @@ COMPONENT_INIT
         LE_INFO("Register state change handler is successfull");
 
     res = tafMngdPMSvc::InitVHalModule();
+
+    handlerExRef = taf_pm_AddStateChangeExHandler(tafMngdPMSvc::StateChangeExHandler, NULL);
+    if (handlerExRef)
+        LE_INFO("Register Extended state change handler is successfull");
 
     LE_INFO("COMPONENT end init");
 }

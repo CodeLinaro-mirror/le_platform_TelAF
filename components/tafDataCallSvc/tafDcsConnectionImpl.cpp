@@ -2136,7 +2136,7 @@ void taf_DataConnection::InternalEventHandler(void* reportPtr)
                 TAF_ERROR_IF_RET_NIL(isSendNotification != true,
                                      "won't send notification to listener");
                 LE_DEBUG("STARTCALLBACK:callStatus = %s, ipType=%d, ipv4status=%s, ipv6status=%s",
-                dataConnection.CallStatusToString(callCtxPtr->callStatus),(int)stateInfo.ipType,
+                dataConnection.CallStatusToString(callCtxPtr->callStatus),(int)callCtxPtr->ipType,
                 dataConnection.CallStatusToString(callCtxPtr->ipv4Status),
                 dataConnection.CallStatusToString(callCtxPtr->ipv6Status));
                 SendStatusChangedNotification(callCtxPtr,eventPtr);

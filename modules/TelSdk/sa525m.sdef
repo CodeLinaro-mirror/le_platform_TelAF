@@ -27,6 +27,7 @@ apps:
     $TELAF_ROOT/apps/tafMngdServices/Connectivity/tafMngdConnSvc
     $TELAF_ROOT/apps/tafMngdServices/PM/tafMngdPMSvc
     $TELAF_ROOT/apps/tafServices/tafDiagSvc
+    $TELAF_ROOT/apps/tafServices/tafTimeSvc
 
     // Command-line tools.
     $LEGATO_ROOT/apps/tools/tools
@@ -71,6 +72,8 @@ apps:
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMUnitTest/tafMngdPMUnitTest
     // $TELAF_ROOT/apps/sample/diagApp/tafDiagApp
     // $TELAF_ROOT/apps/test/tafAdefTest/tafAdefUnitTest
+    // $TELAF_ROOT/apps/test/tafTimeTest/tafTimeUnitTest
+    // $TELAF_ROOT/apps/test/tafTimeTest/tafTimeIntTest
 }
 
 commands:

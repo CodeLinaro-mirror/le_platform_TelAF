@@ -1,0 +1,22 @@
+sandboxed: false
+
+executables:
+{
+    tafThermUnitTest = ( tafThermUnitTest )
+}
+
+start: manual
+
+processes:
+{
+    run:
+    {
+        (tafThermUnitTest)
+    }
+    faultAction: stopApp
+}
+
+bindings:
+{
+    tafThermUnitTest.tafThermUnitTest.taf_therm -> tafThermSvc.taf_therm
+}

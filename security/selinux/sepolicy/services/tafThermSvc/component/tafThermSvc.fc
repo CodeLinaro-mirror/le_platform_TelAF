@@ -1,0 +1,6 @@
+# Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+/legato/systems/current/appsWriteable/tafThermSvc/lib(/.*)?                               gen_context(system_u:object_r:telaf_lib_t,s0)
+/legato/systems/current/appsWriteable/tafThermSvc/bin/tafThermSvc                            gen_context(system_u:object_r:telaf_tafThermSvc_exec_t,s0)
+/legato/apps/[^/]*/read-only/bin/tafThermSvc                                              gen_context(system_u:object_r:telaf_tafThermSvc_exec_t,s0)

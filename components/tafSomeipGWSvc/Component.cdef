@@ -8,6 +8,8 @@ sources:
 cxxflags:
 {
     -I$TELAF_ROOT/include
+    -Wno-error=deprecated-declarations
+    -Wno-deprecated-declarations
 }
 
 requires:

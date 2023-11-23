@@ -368,6 +368,7 @@ simula-help:
 	@echo
 	@echo "    - Boot up your simulation docker container that was built, depends which system version you selected (see 'simula-list')"
 	@echo "      + simula-up | simula-up-runtime  -- Boot up the runtime container to simulate"
+	@echo "      + simula-upx| simula-upx-runtime -- Boot up multi-runtime-containers to simulate"
 	@echo "      + simula-up-develop              -- Boot up the develop container for developers"
 	@echo
 	@echo "    - Docker operation helper commands"
@@ -385,7 +386,12 @@ simula-build-develop:
 	$(call build_simulation_docker_image,develop)
 
 simula-up simula-up-runtime:
-	$(call up_simulation_container,up_runtime.sh)
+	$(call up_simulation_container,up_runtime_master.sh)
+
+# slave-x containers are daemons, start first.
+simula-upx simula-upx-runtime:
+	$(call up_simulation_container,up_runtime_slavex.sh)
+	$(call up_simulation_container,up_runtime_master.sh)
 
 simula-up-develop:
 	$(call up_simulation_container,up_develop.sh)

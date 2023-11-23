@@ -608,16 +608,14 @@ le_result_t tafMngdConnAdmin::EventStartData(uint8_t dataId)
 
         case TAF_MNGD_CONN_DATA_NOT_CONNECTED_RETRYING:
         case TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_REGISTERED:
-        case TAF_MNGD_CONN_DATA_NOT_CONNECTED_AWAITING_USER_COMMAND:
+        case TAF_MNGD_CONN_DATA_NOT_CONNECTED:
 
             result = data.Startdata(connCtxPtr->phoneId, connCtxPtr->profileNumber);
             if(result == LE_OK || result == LE_DUPLICATE)
             {
-                //connection is created.
-                connCtxPtr->state = TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE;
-                ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_CONNECTED);
-                //If manually started the data successfully. Set reconnection flag to true.
-                connCtxPtr->needReConn = true;
+                LE_INFO("StartData returned LE_OK");
+                //connection is created. Now we will go for ConnectionTest
+                connCtxPtr->state = TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE;
                 return result;
             }
             else
@@ -676,7 +674,7 @@ le_result_t tafMngdConnAdmin::EventStartDataRetry(uint8_t dataId)
     }
 
     LE_INFO("Data Id: %d, Retries: %d", connCtxPtr->dataId, connCtxPtr->dataStartRetryCount);
-    if (connCtxPtr->dataStartRetryCount >= TAF_MNGD_CONN_MAX_DATA_START_RETRY_COUNT)
+    if (connCtxPtr->dataStartRetryCount >= connCtxPtr->maxdataRetryCount)
     {
         // It is not possible to proceed with the retry mechanism
         LE_ERROR("Data retry count exceeded. Data connection FAILED.");
@@ -729,7 +727,8 @@ le_result_t tafMngdConnAdmin::EventStartDataRetry(uint8_t dataId)
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Handle the event TAF_MNGD_CONN_EVT_DATA_STOP_SYNC which is sent by calling API.
+ * Handle the event TAF_MNGD_CONN_EVT_DATA_STOP_SYNC and TAF_MNGD_CONN_EVT_DATA_STOP
+ * which is sent by calling API.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t tafMngdConnAdmin::EventStopData(uint8_t dataId)
@@ -747,8 +746,10 @@ le_result_t tafMngdConnAdmin::EventStopData(uint8_t dataId)
     // Check if the data is started automatically by the service.
     // If true, return LE_NOT_PERMITTED
     // If false, allow DataStop to proceed.
-    if (true == connCtxPtr->autoStart)
+    if (true == connCtxPtr->autoStart &&
+        connCtxPtr->state!=TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE_RETRYING)
     {
+        LE_INFO(StateToString(connCtxPtr->state));
         LE_WARN("Stopping auto started(Autostart: Yes) data session is not allowed");
         return LE_NOT_PERMITTED;
     }
@@ -759,14 +760,45 @@ le_result_t tafMngdConnAdmin::EventStopData(uint8_t dataId)
         case TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_NOT_REGISTERED:
         case TAF_MNGD_CONN_DATA_NOT_CONNECTED_SIM_NOT_READY:
         case TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_REGISTERED:
-        case TAF_MNGD_CONN_DATA_NOT_CONNECTED_AWAITING_USER_COMMAND:
+        case TAF_MNGD_CONN_DATA_NOT_CONNECTED:
             LE_ERROR("Not started");
             return LE_FAULT;
+        case TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE_RETRYING:
+            result = data.Stopdata(connCtxPtr->phoneId, connCtxPtr->profileNumber);
+            if(result == LE_OK)
+            {
+                connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED_INACTIVE_RETRYING;
+                ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_DISCONNECTED);
+                if (connCtxPtr->dataConnTestFailedRetryCount >=
+                   connCtxPtr->maxdataRetryCount)
+                {
+                    // It is not possible to proceed with the retry mechanism
+                    connCtxPtr->dataConnTestFailedRetryCount = 0;
+                    LE_ERROR("Data retry count exceeded. Data connection FAILED.");
+                    connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED_FAILED;
+                    ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_CONNECTION_FAILED);
+                    return LE_NOT_POSSIBLE;
+                }
+                connCtxPtr->dataStartRetryCount = connCtxPtr->dataConnTestFailedRetryCount;
+                //Set the retry count to 1
+                connCtxPtr->dataConnTestFailedRetryCount += 1;
+                //If manually stopped the data successfully. Set reconnection flag to false.
+                connCtxPtr->needReConn = false;
+                return LE_OK;
+            }
+            else
+            {
+                connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED;
+                LE_ERROR("Stopping data failed");
+                ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_DISCONNECTED);
+                return LE_FAULT;
+            }
+            break;
         case TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE:
             result = data.Stopdata(connCtxPtr->phoneId, connCtxPtr->profileNumber);
             if(result == LE_OK)
             {
-                connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED_AWAITING_USER_COMMAND;
+                connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED;
                 ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_DISCONNECTED);
                 //If manually stopped the data successfully. Set reconnection flag to false.
                 connCtxPtr->needReConn = false;
@@ -774,14 +806,14 @@ le_result_t tafMngdConnAdmin::EventStopData(uint8_t dataId)
             }
             else
             {
-                connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED_AWAITING_USER_COMMAND;
+                connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED;
                 LE_ERROR("Stopping data failed");
                 ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_DISCONNECTED);
                 return LE_FAULT;
             }
             break;
         case TAF_MNGD_CONN_DATA_NOT_CONNECTED_RETRYING:
-            connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED_AWAITING_USER_COMMAND;
+            connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED;
             ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_DISCONNECTED);
             //If manually stopped the data successfully. Set reconnection flag to false.
             connCtxPtr->needReConn = false;
@@ -948,7 +980,7 @@ le_result_t tafMngdConnAdmin::EventNetworkRegState(uint8_t phoneId)
                     else
                     {
                         // Wait for user to call DataStart()
-                        connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED_AWAITING_USER_COMMAND;
+                        connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED;
                         ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_DISCONNECTED);
                     }
                     break;
@@ -1030,10 +1062,14 @@ void tafMngdConnAdmin::EventDataConnected(uint8_t dataId)
         return;
     }
 
-    //Status is set with value TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE after calling the SYNC API
-    //successfully. Don't need to do anything here. Otherwise tafMngdConnSvc status will be
-    // impacted by Xtra-daemon which starts/stops data session sometimes.
+    // Send an event to start ConnectionTest
+    LE_INFO("Sending event to start ConnectionTest for ID: %d", dataId);
+    connCtxPtr->state = TAF_MNGD_CONN_DATA_CONNECTIONTEST_START;
+    stateMachineEvent_t stateMachineEvt = {TAF_MNGD_CONN_EVT_INIT, 0};
+    stateMachineEvt.event = TAF_MNGD_CONN_EVT_CONNECTIONTEST;
+    stateMachineEvt.dataId = connCtxPtr->dataId;
 
+    le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1044,6 +1080,7 @@ void tafMngdConnAdmin::EventDataConnected(uint8_t dataId)
 //--------------------------------------------------------------------------------------------------
 void tafMngdConnAdmin::EventDataDisconnected(uint8_t dataId)
 {
+    LE_DEBUG("EventDataDisconnected-Start");
     taf_mngd_Conn_Ctx_t* connCtxPtr = NULL;
 
     connCtxPtr = GetConnCtx(dataId);
@@ -1052,11 +1089,11 @@ void tafMngdConnAdmin::EventDataDisconnected(uint8_t dataId)
         LE_ERROR("Can't find the context for dataId(%d)", dataId);
         return;
     }
-
     //Do action according to the current state.
     switch(connCtxPtr->state)
     {
         // Data disconnected from ACTIVE state
+        case TAF_MNGD_CONN_DATA_NOT_CONNECTED_INACTIVE_RETRYING:
         case TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE:
         {
             connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED_RETRYING;
@@ -1069,6 +1106,7 @@ void tafMngdConnAdmin::EventDataDisconnected(uint8_t dataId)
             le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
             break;
         }
+        // If ConnectionTest fails, we stop the data and then let the state handler to retry
 
         default:
             break;
@@ -1216,6 +1254,13 @@ void tafMngdConnAdmin::StateMachineHandler(void* reqPtr)
             mngdConnAdmin.CmdSynchronousPromise.set_value(result);
             break;
 
+        case TAF_MNGD_CONN_EVT_DATA_STOP:
+        {
+            mngdConnAdmin.ResetDataRetryValues(eventReq->dataId);
+            mngdConnAdmin.EventStopData(eventReq->dataId);
+            break;
+        }
+
         case TAF_MNGD_CONN_EVT_GET_CONNECTION_INFO_SYNC:
             result = mngdConnAdmin.EventGetConnectionInfo(eventReq->dataId);
             mngdConnAdmin.CmdSynchronousPromise.set_value(result);
@@ -1249,6 +1294,11 @@ void tafMngdConnAdmin::StateMachineHandler(void* reqPtr)
 
         case TAF_MNGD_CONN_EVT_DATA_CONNECTION_DISCONNECTED:
             mngdConnAdmin.EventDataDisconnected(eventReq->dataId);
+            break;
+
+        case TAF_MNGD_CONN_EVT_CONNECTIONTEST:
+            LE_DEBUG("Starting Connection test");
+            mngdConnAdmin.ConnectionTest(eventReq->dataId);
             break;
 
         default:
@@ -1319,7 +1369,9 @@ taf_mngd_Conn_Ctx_t* tafMngdConnAdmin::CreateConnCtx
     uint8_t slotId,
     uint8_t phoneId,
     uint32_t profileNumber,
-    bool autoStart
+    bool autoStart,
+    char* conn_test_url,
+    char* conn_test_ipv4Addr
 )
 {
     char timerName[32] = {0};
@@ -1338,6 +1390,20 @@ taf_mngd_Conn_Ctx_t* tafMngdConnAdmin::CreateConnCtx
     connCtxPtr->state = TAF_MNGD_CONN_ADMIN_INIT;
     connCtxPtr->dataState = TAF_MNGD_CONN_DATA_DISCONNECTED;
     connCtxPtr->ipType = TAF_DCS_PDP_UNKNOWN;
+    connCtxPtr->dataConnTestFailedRetryCount = 0;
+    connCtxPtr->maxdataRetryCount = 1;
+    if(conn_test_url!=NULL)
+    {
+        le_utf8_Copy(connCtxPtr->conn_test_url, conn_test_url,
+                    TAF_MNGD_CONN_MAX_CONNECTION_URL_LEN,NULL);
+    }
+    if(conn_test_ipv4Addr!=NULL)
+    {
+        le_utf8_Copy(connCtxPtr->conn_test_ipv4Addr, conn_test_ipv4Addr,
+                    TAF_MNGD_CONN_MAX_IPV4_LEN,NULL);
+    }
+
+
     memset(connCtxPtr->intfName, 0, sizeof(connCtxPtr->intfName));
 
     //Create timer
@@ -1504,6 +1570,8 @@ le_result_t tafMngdConnAdmin::InitializeStates()
     uint8_t dataId = 0, phoneId = 0, slotNumber = 0;
     uint32_t profileNumber = 0;
     bool autoStart = false;
+    char conn_test_url [TAF_MNGD_CONN_MAX_CONNECTION_URL_LEN];
+    char conn_test_ipv4Addr [TAF_MNGD_CONN_MAX_IPV4_LEN];
     le_result_t result;
     taf_mngd_Conn_Ctx_t* connCtxPtr = NULL;
     auto &radio = tafMngdConnRadio::GetInstance();
@@ -1526,6 +1594,20 @@ le_result_t tafMngdConnAdmin::InitializeStates()
             dataId = Configuration.Data[dataIdx].ID;
             autoStart = Configuration.Data[dataIdx].AutoStart;
             profileNumber = Configuration.Data[dataIdx].Profile.ProfileNumber;
+            if(Configuration.Data[dataIdx].ConnectionTest.URL!=NULL)
+            {
+                LE_INFO("Setting the url for testing");
+                le_utf8_Copy(conn_test_url, Configuration.Data[dataIdx].ConnectionTest.URL,
+                    TAF_MNGD_CONN_MAX_CONNECTION_URL_LEN,NULL);
+            }
+
+            if(Configuration.Data[dataIdx].ConnectionTest.IPv4[0]!='\0')
+            {
+                LE_INFO("Setting the ipv4 for testing");
+                le_utf8_Copy(conn_test_ipv4Addr, Configuration.Data[dataIdx].ConnectionTest.IPv4,
+                    TAF_MNGD_CONN_MAX_IPV4_LEN,NULL);
+            }
+
 
             // Iterate through all Configuration Network elements to find the phoneId
             for(networkIdx = 0; networkIdx < Configuration.NetworkCount; networkIdx++)
@@ -1602,7 +1684,8 @@ le_result_t tafMngdConnAdmin::InitializeStates()
             connCtxPtr = GetConnCtx(dataId);
             if(connCtxPtr == NULL)
             {
-                connCtxPtr = CreateConnCtx(dataId, slotNumber, phoneId, profileNumber, autoStart);
+                connCtxPtr = CreateConnCtx(dataId, slotNumber, phoneId, profileNumber, autoStart
+                                          ,conn_test_url, conn_test_ipv4Addr);
                 if(connCtxPtr == NULL)
                 {
                     LE_ERROR("Creating connection context failed");
@@ -1650,7 +1733,7 @@ le_result_t tafMngdConnAdmin::InitializeStates()
                 // Set state expecting application to start data
                 if (connCtxPtr->state == TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_REGISTERED)
                 {
-                    connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED_AWAITING_USER_COMMAND;
+                    connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED;
                     ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_DISCONNECTED);
                 }
             }
@@ -1698,6 +1781,134 @@ void tafMngdConnAdmin::DataRetryTimerHandler(le_timer_Ref_t timerRef)
 
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handle the event TAF_MNGD_CONN_EVT_CONNECTIONTEST which is sent when data start startup.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::ConnectionTest(uint8_t dataId)
+{
+    LE_INFO("ConnectionTest entered");
+    taf_mngd_Conn_Ctx_t *connCtxPtr = GetConnCtx(dataId);
+    std::string url = connCtxPtr->conn_test_url;
+    std::string ipv4add = connCtxPtr->conn_test_ipv4Addr;
+
+    //cURL will be tried first, and if it fails Ping will be used.
+    //If Ping also fails, data will be treated as not connected.
+
+    if(!url.empty())
+    {
+        if(ConnectionTest_URL(url))
+        {
+            //connection is created.
+            connCtxPtr->state = TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE;
+            ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_CONNECTED);
+            //If manually started the data successfully. Set reconnection flag to true.
+            connCtxPtr->needReConn = true;
+        }
+        else if(!ipv4add.empty() && ConnectionTest_IPv4(ipv4add))
+        {
+            //connection is created.
+            connCtxPtr->state = TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE;
+            ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_CONNECTED);
+            //If manually started the data successfully. Set reconnection flag to true.
+            connCtxPtr->needReConn = true;
+        }
+        else
+        {
+            // Connectiontest failed.
+            LE_INFO("ConnectionTest failed for dataID: %d", dataId);
+            connCtxPtr->state = TAF_MNGD_CONN_DATA_CONNECTIONTEST_FAILED;
+            LE_INFO("ConnectionTest failed. Stopping the data and retrying.");
+            connCtxPtr->state = TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE_RETRYING;
+            stateMachineEvent_t stateMachineEvt = {TAF_MNGD_CONN_EVT_INIT, 0};
+            stateMachineEvt.event=TAF_MNGD_CONN_EVT_DATA_STOP;
+            stateMachineEvt.dataId=connCtxPtr->dataId;
+            le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
+        }
+    }
+    else if(!ipv4add.empty())
+    {
+        if(ConnectionTest_IPv4(ipv4add))
+        {
+            //connection is created.
+            connCtxPtr->state = TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE;
+            ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_CONNECTED);
+            //If manually started the data successfully. Set reconnection flag to true.
+            connCtxPtr->needReConn = true;
+        }
+        else
+        {
+            // Connectiontest failed.
+            LE_INFO("ConnectionTest failed for dataID: %d", dataId);
+            connCtxPtr->state = TAF_MNGD_CONN_DATA_CONNECTIONTEST_FAILED;
+            LE_INFO("ConnectionTest failed. Stopping the data and retrying.");
+            connCtxPtr->state = TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE_RETRYING;
+            stateMachineEvent_t stateMachineEvt = {TAF_MNGD_CONN_EVT_INIT, 0};
+            stateMachineEvt.event=TAF_MNGD_CONN_EVT_DATA_STOP;
+            stateMachineEvt.dataId=connCtxPtr->dataId;
+            le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
+        }
+    }
+    //If both url and ipaddr is null
+    else
+    {
+        LE_INFO("ConnectionTest passed because both url and ipv4 are null for dataID: %d", dataId);
+        //connection is created.
+        connCtxPtr->state = TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE;
+        ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_CONNECTED);
+        //If manually started the data successfully. Set reconnection flag to true.
+        connCtxPtr->needReConn = true;
+    }
+}
+
+bool tafMngdConnAdmin::ConnectionTest_URL(std::string url)
+{
+    //Enable LE_CONFIG_DEBUG to get the output of curl in logs
+    #if LE_CONFIG_DEBUG
+        std::string curlCommand = "curl " + std::string(url);
+    #else
+        std::string curlCommand = "curl " + std::string(url) + " 1> /dev/null 2> /dev/null";
+
+    #endif
+
+    int result = system(curlCommand.c_str());
+    if(result==0)
+    {
+        //connection is created.
+        LE_INFO("ConnectionTest_URL passed");
+        return true;
+    }
+    LE_INFO ("ConnectionTest_URL failed");
+    return false;
+}
+
+bool tafMngdConnAdmin::ConnectionTest_IPv4(std::string ipv4)
+{
+    //Enable LE_CONFIG_DEBUG to get the output of ping in logs
+    LE_INFO("ConnectionTest_IPv4 entered");
+    #if LE_CONFIG_DEBUG
+        std::string pingCommand = "ping -c 5 "+ ipv4; //5 is the number of ping pockets
+    #else
+        std::string pingCommand = "ping -c 5 "+ ipv4 + " 1> /dev/null 2> /dev/null";
+    #endif
+    int result = system(pingCommand.c_str());
+
+    if(result==0)
+    {
+        //connection is created.
+        LE_INFO("ConnectionTest_IPv4 passed");
+        return true;
+    }
+    else
+    {
+        LE_INFO("ConnectionTest_IPv4 failed");
+        return false;
+    }
+    return false;
+}
+
+
 const char * tafMngdConnAdmin::EventToString(taf_mngd_Conn_EventType_t event)
 {
     switch (event)
@@ -1723,13 +1934,17 @@ const char * tafMngdConnAdmin::EventToString(taf_mngd_Conn_EventType_t event)
         case TAF_MNGD_CONN_EVT_DATA_START_RETRY:
             return "TAF_MNGD_CONN_EVT_DATA_START_RETRY";
         case TAF_MNGD_CONN_EVT_DATA_STOP_SYNC:
-            return "EVT_DATA_STO_SYNCP";
+            return "TAF_MNGD_CONN_EVT_DATA_STOP_SYNC";
+        case TAF_MNGD_CONN_EVT_DATA_STOP:
+            return "TAF_MNGD_CONN_EVT_DATA_STOP";
         case TAF_MNGD_CONN_EVT_DATA_CONNECTION_CONNECTED:
             return "TAF_MNGD_CONN_EVT_DATA_CONNECTION_CONNECTED";
         case TAF_MNGD_CONN_EVT_DATA_CONNECTION_DISCONNECTED:
             return "TAF_MNGD_CONN_EVT_DATA_CONNECTION_DISCONNECTED";
         case TAF_MNGD_CONN_EVT_GET_CONNECTION_INFO_SYNC:
             return "TAF_MNGD_CONN_EVT_GET_CONNECTION_INFO_SYNC";
+        case TAF_MNGD_CONN_EVT_CONNECTIONTEST:
+            return "TAF_MNGD_CONN_EVT_CONNECTIONTEST";
         default:
             LE_ERROR("unknown status: %d", event);
             return "unknow status";
@@ -1754,14 +1969,24 @@ const char * tafMngdConnAdmin::StateToString(taf_mngd_Conn_Admin_State_t state)
             return "TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_REGISTERED";
         case TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_NOT_REGISTERED:
             return "TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_NOT_REGISTERED";
-        case TAF_MNGD_CONN_DATA_NOT_CONNECTED_AWAITING_USER_COMMAND:
-            return "TAF_MNGD_CONN_DATA_NOT_CONNECTED_AWAITING_USER_COMMAND";
+        case TAF_MNGD_CONN_DATA_NOT_CONNECTED:
+            return "TAF_MNGD_CONN_DATA_NOT_CONNECTED";
         case TAF_MNGD_CONN_DATA_NOT_CONNECTED_RETRYING:
             return "TAF_MNGD_CONN_DATA_NOT_CONNECTED_RETRYING";
         case TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE:
             return "TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE";
+        case TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE:
+            return "TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE";
         case TAF_MNGD_CONN_DATA_CONNECTED_IDLE:
             return "TAF_MNGD_CONN_DATA_CONNECTED_IDLE";
+        case TAF_MNGD_CONN_DATA_CONNECTIONTEST_START:
+            return "TAF_MNGD_CONN_DATA_CONNECTIONTEST_START";
+        case TAF_MNGD_CONN_DATA_CONNECTIONTEST_FAILED:
+            return "TAF_MNGD_CONN_DATA_CONNECTIONTEST_FAILED";
+        case TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE_RETRYING:
+            return "TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE_RETRYING";
+        case TAF_MNGD_CONN_DATA_NOT_CONNECTED_INACTIVE_RETRYING:
+            return "TAF_MNGD_CONN_DATA_NOT_CONNECTED_INACTIVE_RETRYING";
         default:
             LE_ERROR("unknown status: %d", state);
             return "unknow status";

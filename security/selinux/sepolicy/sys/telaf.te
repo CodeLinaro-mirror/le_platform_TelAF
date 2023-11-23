@@ -144,6 +144,7 @@ gen_require(`
   type persist_t;
   type home_root_t;
   type user_home_dir_t;
+  type ping_exec_t;
 ')
 
 ## telaf framework policies and definitions
@@ -671,4 +672,9 @@ if (telaf_external_dependencies) {
     #============ To support telaf restart ===================
     allow telaf_sdir_t telaf_apptmp_rw_t:dir { remove_name };
     allow telaf_sdir_t telaf_apptmp_rw_t:sock_file { unlink };
+
+
+    #Ping Command
+    allow telaf_admin_t ping_exec_t:file { execute execute_no_trans map open read };
+    allow telaf_admin_t self:icmp_socket { create getopt read setopt write };
 }

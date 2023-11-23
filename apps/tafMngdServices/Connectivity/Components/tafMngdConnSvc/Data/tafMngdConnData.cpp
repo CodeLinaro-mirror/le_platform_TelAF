@@ -74,6 +74,16 @@ void tafMngdConnData::SessionStateChangeHandler
     profileId = taf_dcs_GetProfileIndex(profileRef);
     result = taf_dcs_GetPhoneId(profileRef, &phoneId);
 
+    LE_DEBUG("Data Connection State: %d, phoneid: %d, profileId: %d, PDP: %d",
+             state, phoneId, profileId, stateInfoPtr->ipType);
+    if(state == TAF_DCS_CONNECTED && stateInfoPtr->ipType!=TAF_DCS_PDP_IPV4)
+    {
+        //Only IPv4 is supported
+        //TODO: Add support for IPv6
+        LE_DEBUG("Returning from here as only IPv4 is supported");
+        return;
+    }
+
     if(result != LE_OK)
     {
         LE_ERROR("Can't find the phoneId for profileRef(%p)", profileRef);
@@ -81,23 +91,22 @@ void tafMngdConnData::SessionStateChangeHandler
     }
 
     LE_DEBUG ("Data Connection State: %d, phoneid: %d, profileId: %d", state, phoneId, profileId);
-
     connCtxPtr = mngdConnAdmin.GetConnCtx(phoneId, profileId);
-
     //The connection is not created by tafMngdConnSvc, don't report the event.
     if(connCtxPtr == NULL)
     {
         LE_DEBUG("Can't find the context for phoneId(%d), profileId(%d)", phoneId, profileId);
         return;
     }
-
     switch (state)
     {
         case TAF_DCS_DISCONNECTED:
+            LE_DEBUG ("Data Disconnected Event called for dataID  %d", connCtxPtr->dataId);
             stateMachineEvt.event = TAF_MNGD_CONN_EVT_DATA_CONNECTION_DISCONNECTED;
             stateMachineEvt.dataId = connCtxPtr->dataId;
             break;
         case TAF_DCS_CONNECTED:
+            LE_DEBUG ("Data connected Event called for dataID  %d", connCtxPtr->dataId);
             stateMachineEvt.event=TAF_MNGD_CONN_EVT_DATA_CONNECTION_CONNECTED;
             stateMachineEvt.dataId = connCtxPtr->dataId;
             break;

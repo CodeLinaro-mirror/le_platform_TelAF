@@ -106,7 +106,7 @@ void TestSetSystemTime
     LE_TEST_ASSERT(result == LE_OK,
                    "Test: taf_time_SetSystemTime() APIs - false");
 
-    LE_INFO("Set the time to %lld.%ld", (long long)newTime->sec, newTime->nanosec);
+    LE_INFO("Set the time to %"PRIu64".%"PRIu64, newTime->sec, newTime->nanosec);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -125,7 +125,7 @@ void TestGetSystemTime
     result = taf_time_GetSystemTime(&systemTime);
     LE_TEST_ASSERT(result == LE_OK,
                    "Test: taf_time_GetSystemTime() APIs.");
-    LE_INFO("System time is %lld.%ld\n", (long long)systemTime.sec, systemTime.nanosec);
+    LE_INFO("System time is %"PRIu64".%"PRIu64, systemTime.sec, systemTime.nanosec);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -147,7 +147,7 @@ void TestGetGnssTime
                         "Test: taf_time_GetGnssTime() APIs.");
     if (result == LE_OK)
     {
-        LE_INFO("GNSS time is %lld.%ld", (long long)gnssTime.sec, gnssTime.nanosec);
+        LE_INFO("GNSS time is %"PRIu64".%"PRIu64, gnssTime.sec, gnssTime.nanosec);
     }
 }
 

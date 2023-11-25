@@ -41,7 +41,7 @@ processes:
         }
 
         maxFileBytes: 8192K
-        faultAction: restart
+        faultAction: stopApp
 }
 
 sandboxed: false

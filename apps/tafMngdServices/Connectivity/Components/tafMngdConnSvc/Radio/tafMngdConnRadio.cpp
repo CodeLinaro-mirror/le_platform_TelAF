@@ -252,17 +252,7 @@ le_result_t tafMngdConnRadio::StartUp(uint8_t phoneId)
         }
     }
 
-    //Step 2 : Set All RAT
-    if(!IsAllRatSet(phoneId))
-    {
-        if(SetAllRat(phoneId) != LE_OK)
-        {
-            LE_ERROR("Radio SetAllRat failed");
-            return LE_FAULT;
-        }
-    }
-
-    //Step 3 : Set Auto Register Mode
+    //Step 2 : Set Auto Register Mode
     if(!IsAutoRegMode(phoneId))
     {
         if(SetAutoRegMode(phoneId) != LE_OK)

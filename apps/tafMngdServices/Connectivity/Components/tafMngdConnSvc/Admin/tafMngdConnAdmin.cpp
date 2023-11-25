@@ -1720,12 +1720,11 @@ le_result_t tafMngdConnAdmin::InitializeStates()
                 continue;
             }
 
-            result = radio.StartUp(connCtxPtr->phoneId);
-            if(result != LE_OK)
-            {
-                LE_ERROR("Radio startup failed");
-                continue;
-            }
+            // Send an event to start radio
+            LE_INFO("Sending event to start radio for phoneID: %d", phoneId);
+            stateMachineEvent_t stateMachineEvt = {TAF_MNGD_CONN_EVT_INIT, 0};
+            stateMachineEvt.event = TAF_MNGD_CONN_EVT_RADIO_POWER_ON;
+            le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
 
             //Update connCtxPtr->state according to the network register state.
             if(radio.IsNetworkRegistered(connCtxPtr->phoneId))

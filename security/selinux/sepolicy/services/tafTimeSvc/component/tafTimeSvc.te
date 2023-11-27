@@ -3,10 +3,6 @@
 
 policy_module(tafTimeSvc, 1.0)
 
-gen_require(`
-  type daemon_cl_device_t;
-')
-
 # Framework definition for telaf
 type telaf_tafTimeSvc_exec_t;
 files_type(telaf_tafTimeSvc_exec_t);
@@ -23,7 +19,6 @@ telaf_admin_manage_all_files_perms(telaf_tafTimeSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafTimeSvc_exec_t)
 
 # Allow timer service to access related system sources
-allow telaf_tafTimeSvc_t daemon_cl_device_t: chr_file { open read };
 allow telaf_tafTimeSvc_t self:capability { sys_time sys_admin };
 
 # Allow time service to register the time manager in telSDK

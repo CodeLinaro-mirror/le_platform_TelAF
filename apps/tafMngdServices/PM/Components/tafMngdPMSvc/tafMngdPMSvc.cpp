@@ -51,6 +51,43 @@ le_thread_Ref_t SetStateResponseEventThreadRef = NULL;
 le_thread_Ref_t StateChangeEventThreadRef = NULL;
 taf_pm_StateChangeHandlerRef_t handlerRef;
 
+static pm_Inf_t *pmInf;
+
+void shutdownRespCB
+(
+    taf_hal_pm_ShutdownMode mode,
+    taf_hal_pm_RspReason reason
+)
+{
+    LE_INFO("***** %s *****", __FUNCTION__);
+    LE_INFO("taf_hal_pm_ShutdownMode: %d", mode);
+    LE_INFO("taf_hal_pm_RspReason: %d", reason);
+}
+
+void restartRespCB
+(
+    taf_hal_pm_RestartMode mode,
+    taf_hal_pm_RspReason reason
+)
+{
+    LE_INFO("***** %s *****", __FUNCTION__);
+    LE_INFO("taf_hal_pm_RestartMode: %d", mode);
+    LE_INFO("taf_hal_pm_RspReason: %d", reason);
+}
+
+void nodeStateChangeNotificationCB
+(
+    uint8_t pm_node_id,
+    taf_hal_pm_NodeState state,
+    taf_hal_pm_ConfirmStatus status
+)
+{
+    LE_INFO("***** %s *****", __FUNCTION__);
+    LE_INFO("pm_node_id: %d", pm_node_id);
+    LE_INFO("taf_hal_pm_NodeState: %d", state);
+    LE_INFO("taf_hal_pm_ConfirmStatus: %d", status);
+}
+
 /**
  * To convert TafState to string
  */
@@ -342,6 +379,28 @@ void tafMngdPMSvc::StateChangeHandler(taf_pm_State_t state, void* contextPtr)
     }
 }
 
+le_result_t tafMngdPMSvc::InitVHalModule()
+{
+    // Load the driver and does not care the version
+    pmInf = (pm_Inf_t *)taf_devMgr_LoadDrv(TAF_PM_MODULE_NAME, nullptr);
+
+    if(pmInf == nullptr)
+    {
+        LE_ERROR("Can not load the driver %s", TAF_PM_MODULE_NAME);
+        return LE_FAULT;
+    }
+    else // successfully loaded
+    {
+        LE_INFO("Loaded module %s successfully", TAF_PM_MODULE_NAME);
+        LE_INFO("Call pmInf(%p) init function", pmInf);
+
+        // init first
+        (*(pmInf->InitHAL))();
+    }
+
+    return LE_OK;
+}
+
 COMPONENT_INIT
 {
     LE_INFO("tafMngdPMSvc COMPONENT init...");
@@ -388,6 +447,8 @@ COMPONENT_INIT
     handlerRef = taf_pm_AddStateChangeHandler(tafMngdPMSvc::StateChangeHandler, NULL);
     if (handlerRef)
         LE_INFO("Register state change handler is successfull");
+
+    res = tafMngdPMSvc::InitVHalModule();
 
     LE_INFO("COMPONENT end init");
 }

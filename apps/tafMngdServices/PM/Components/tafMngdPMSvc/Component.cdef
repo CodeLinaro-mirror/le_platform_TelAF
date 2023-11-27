@@ -23,6 +23,11 @@ requires:
         taf_pm.api
         taf_gpio.api
     }
+
+    component:
+    {
+        $TELAF_ROOT/components/tafHalComp
+    }
 }
 
 cxxflags:
@@ -32,6 +37,7 @@ cxxflags:
     -I$TELAF_ROOT/apps/tafMngdServices/PM/Components/tafMngdPMSvc/can/tafMngdPMCan
     -I$TELAF_ROOT/apps/tafMngdServices/PM/Components/tafMngdPMSvc/gpio/tafMngdPMGpio
     -I$TELAF_ROOT/apps/tafMngdServices/PM/Components/tafMngdPMSvc/sms/tafMngdPMSms
+    -I$TELAF_ROOT/components/tafHalComp
 }
 
 ldflags:

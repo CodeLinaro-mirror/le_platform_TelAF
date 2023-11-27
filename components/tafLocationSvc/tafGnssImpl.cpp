@@ -1542,62 +1542,62 @@ void tafLocationListener::onGnssNmeaInfo(uint64_t timestamp, const std::string &
     if ((gnss.mNmeaBitMask.compare(3,3,"GGA",0,3)) ==0) //1
     {
         gnss.mNmeaMask |= TAF_GNSS_NMEA_MASK_GPGGA;
-        LE_INFO("onGnssNmeaInfo: GPGGA");
+        LE_DEBUG("onGnssNmeaInfo: GPGGA");
     }
     if ((gnss.mNmeaBitMask.compare(3,3,"RMC",0,3)) ==0) //2
     {
         gnss.mNmeaMask |= TAF_GNSS_NMEA_MASK_GPRMC;
-        LE_INFO("onGnssNmeaInfo: GPRMC");
+        LE_DEBUG("onGnssNmeaInfo: GPRMC");
     }
     if ((gnss.mNmeaBitMask.compare(3,3,"GSA",0,3)) ==0) //4
     {
         gnss.mNmeaMask |= TAF_GNSS_NMEA_MASK_GNGSA;
-        LE_INFO("onGnssNmeaInfo: GNGSA");
+        LE_DEBUG("onGnssNmeaInfo: GNGSA");
     }
     if ((gnss.mNmeaBitMask.compare(3,3,"VTG",0,3)) ==0) //8
     {
         gnss.mNmeaMask |= TAF_GNSS_NMEA_MASK_GPVTG;
-        LE_INFO("onGnssNmeaInfo: GPVTG");
+        LE_DEBUG("onGnssNmeaInfo: GPVTG");
     }
     if ((gnss.mNmeaBitMask.compare(3,3,"GNS",0,3)) ==0) //16
     {
         gnss.mNmeaMask |= TAF_GNSS_NMEA_MASK_GPGNS;
-        LE_INFO("onGnssNmeaInfo: GPGNS");
+        LE_DEBUG("onGnssNmeaInfo: GPGNS");
     }
     if ((gnss.mNmeaBitMask.compare(3,3,"DTM",0,3)) ==0) //32
     {
         gnss.mNmeaMask |= TAF_GNSS_NMEA_MASK_GPDTM;
-        LE_INFO("onGnssNmeaInfo: GPDTM");
+        LE_DEBUG("onGnssNmeaInfo: GPDTM");
     }
     if((gnss.mNmeaBitMask.compare(1,5,"GPGSV",0,5)) ==0) //64
     {
         gnss.mNmeaMask |= TAF_GNSS_NMEA_MASK_GPGSV;
-        LE_INFO("onGnssNmeaInfo: GPGSV");
+        LE_DEBUG("onGnssNmeaInfo: GPGSV");
     }
     if((gnss.mNmeaBitMask.compare(1,5,"GLGSV",0,5)) ==0) //128
     {
         gnss.mNmeaMask |= TAF_GNSS_NMEA_MASK_GLGSV;
-        LE_INFO("onGnssNmeaInfo: GLGSV");
+        LE_DEBUG("onGnssNmeaInfo: GLGSV");
     }
     if ((gnss.mNmeaBitMask.compare(1,5,"GAGSV",0,5)) ==0) //256
     {
         gnss.mNmeaMask |= TAF_GNSS_NMEA_MASK_GAGSV;
-        LE_INFO("onGnssNmeaInfo: GAGSV");
+        LE_DEBUG("onGnssNmeaInfo: GAGSV");
     }
     if((gnss.mNmeaBitMask.compare(1,5,"GQGSV",0,5)) ==0) //512
     {
         gnss.mNmeaMask |= TAF_GNSS_NMEA_MASK_GQGSV;
-        LE_INFO("onGnssNmeaInfo: GQGSV");
+        LE_DEBUG("onGnssNmeaInfo: GQGSV");
     }
     if((gnss.mNmeaBitMask.compare(1,5,"GBGSV",0,5)) ==0) //1024
     {
         gnss.mNmeaMask |= TAF_GNSS_NMEA_MASK_GBGSV;
-        LE_INFO("onGnssNmeaInfo: GBGSV");
+        LE_DEBUG("onGnssNmeaInfo: GBGSV");
     }
     if((gnss.mNmeaBitMask.compare(1,5,"GIGSV",0,5)) ==0) //2048
     {
         gnss.mNmeaMask |= TAF_GNSS_NMEA_MASK_GIGSV;
-        LE_INFO("onGnssNmeaInfo: GIGSV");
+        LE_DEBUG("onGnssNmeaInfo: GIGSV");
     }
 
     gnss.mNmeaVar.notify_one();

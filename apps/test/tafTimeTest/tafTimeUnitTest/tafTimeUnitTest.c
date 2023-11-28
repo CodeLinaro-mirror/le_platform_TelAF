@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -35,6 +35,9 @@
 #include "legato.h"
 #include "interfaces.h"
 
+static taf_time_TimeSourceChangeHandlerRef_t TimeSourceChangeHandlerRef = NULL;
+static taf_time_TimeValueChangeHandlerRef_t TimeValueChangeHandlerRef = NULL;
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for time source change.
@@ -49,34 +52,51 @@ void TimeSourceChangeHandler
     // Just verify the API, there is NO call back in this test
     if (PreTimeSource == NewTimeSource)
     {
-        LE_INFO("Notification: No available time source. Pre %d, New %d\n",
+        LE_INFO("Notification - No available time source. Old %d, New %d\n",
                                             PreTimeSource, NewTimeSource);
     }
     else
     {
-        LE_INFO("Notification: Time source changed. Pre %d, New %d\n",
+        LE_INFO("Notification - TimeSourceChange: Old %d, New %d\n",
                                             PreTimeSource, NewTimeSource);
     }
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Register handler for time source change.
+ * Handler for time source which is using reference and registered to time service.
  */
 //--------------------------------------------------------------------------------------------------
-void TestTimeSourceChangeRegistration
+void TimeValueChangeHandler
 (
-    void
+    taf_time_TimeSourceRef_t timeSrcRef,
+    taf_time_TimeSpec_t* sourceTime,
+    void* contextPtr
 )
 {
-    taf_time_TimeSourceChangeHandlerRef_t timeSourceChangeHandlerRef =
-        taf_time_AddTimeSourceChangeHandler(
-        (taf_time_TimeSourceChangeHandlerFunc_t)TimeSourceChangeHandler, NULL);
-    LE_TEST_OK(timeSourceChangeHandlerRef != NULL,
-        "taf_time_AddTimeSourceChangeHandler - !NULL");
+    le_result_t result;
+    taf_time_TimeSpec_t time;
+    LE_INFO("Reference(%p) time from notification is %"PRIu64".%"PRIu64,
+                                 timeSrcRef, sourceTime->sec, sourceTime->nanosec);
 
-    taf_time_RemoveTimeSourceChangeHandler(timeSourceChangeHandlerRef);
-    LE_TEST_OK(true, "taf_time_RemoveTimeSourceChangeHandler - void");
+    // Get reference system time through reference object.
+    result = taf_time_GetRefSystemTime(timeSrcRef, &time);
+    LE_TEST_ASSERT(result == LE_OK || result == LE_UNAVAILABLE,
+                             "taf_time_GetRefSystemTime() API.");
+    if (result == LE_OK)
+    {
+        LE_INFO("Reference system time is %"PRIu64".%"PRIu64, time.sec, time.nanosec);
+    }
+
+    // Get reference gptp time through reference object.
+    result = taf_time_GetRefGptpTime(timeSrcRef, &time);
+    LE_TEST_ASSERT(result == LE_OK || result == LE_UNAVAILABLE,
+                                "taf_time_GetRefGptpTime() API.");
+    if (result == LE_OK)
+    {
+        LE_INFO("Reference gptp time is %"PRIu64".%"PRIu64, time.sec, time.nanosec);
+    }
+    return;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -91,22 +111,21 @@ void TestSetSystemTime
 {
     static le_mem_PoolRef_t NewTimePool = NULL;
     le_result_t result;
-    taf_time_TimeSpec_t *newTime;
+    taf_time_TimeSpec_t *newTimePtr;
     NewTimePool = le_mem_CreatePool("NewTimePool", sizeof(taf_time_TimeSpec_t));
-    newTime = (taf_time_TimeSpec_t*) le_mem_ForceAlloc(NewTimePool);
+    newTimePtr = (taf_time_TimeSpec_t*) le_mem_ForceAlloc(NewTimePool);
 
-    newTime->sec = 1667788990;
-    newTime->nanosec = 10000;
+    newTimePtr->sec = 1667788990;
+    newTimePtr->nanosec = 10000;
 
-    result = taf_time_SetSystemTime((const taf_time_TimeSpec_t*)newTime, true);
-    LE_TEST_ASSERT(result == LE_OK,
-                   "Test: taf_time_SetSystemTime() APIs - true");
+    result = taf_time_SetSystemTime((const taf_time_TimeSpec_t*)newTimePtr, true);
+    LE_TEST_ASSERT(result == LE_OK, "Test: taf_time_SetSystemTime() APIs - true");
 
-    result = taf_time_SetSystemTime((const taf_time_TimeSpec_t*)newTime, false);
-    LE_TEST_ASSERT(result == LE_OK,
-                   "Test: taf_time_SetSystemTime() APIs - false");
+    newTimePtr->sec += 20000000;
+    result = taf_time_SetSystemTime((const taf_time_TimeSpec_t*)newTimePtr, false);
+    LE_TEST_ASSERT(result == LE_OK, "Test: taf_time_SetSystemTime() APIs - false");
 
-    LE_INFO("Set the time to %"PRIu64".%"PRIu64, newTime->sec, newTime->nanosec);
+    LE_INFO("Set the time to %"PRIu64".%"PRIu64, newTimePtr->sec, newTimePtr->nanosec);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -123,8 +142,8 @@ void TestGetSystemTime
     taf_time_TimeSpec_t systemTime;
 
     result = taf_time_GetSystemTime(&systemTime);
-    LE_TEST_ASSERT(result == LE_OK,
-                   "Test: taf_time_GetSystemTime() APIs.");
+    LE_TEST_ASSERT(result == LE_OK, "Test: taf_time_GetSystemTime() APIs.");
+
     LE_INFO("System time is %"PRIu64".%"PRIu64, systemTime.sec, systemTime.nanosec);
 }
 
@@ -143,17 +162,139 @@ void TestGetGnssTime
 
     //GNSS not ready will return not found. Here just verify the API
     result = taf_time_GetGnssTime(&gnssTime);
-    LE_TEST_ASSERT((result == LE_OK||result == LE_NOT_FOUND),
+    LE_TEST_ASSERT((result == LE_OK||result == LE_UNAVAILABLE),
                         "Test: taf_time_GetGnssTime() APIs.");
     if (result == LE_OK)
     {
         LE_INFO("GNSS time is %"PRIu64".%"PRIu64, gnssTime.sec, gnssTime.nanosec);
     }
+
+    if (result == LE_UNAVAILABLE)
+    {
+        LE_INFO("GNSS time is not available now\n");
+    }
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get time through time source ID and return related reference.
+ */
+//--------------------------------------------------------------------------------------------------
+void TestGetSourceRef
+(
+    void
+)
+{
+    le_result_t result;
+    taf_time_TimeSpec_t time;
+    uint8_t sourceId = 1;
+    taf_time_TimeSourceRef_t timeSrcRef;
+
+    timeSrcRef = taf_time_GetTimeRef(sourceId);
+    LE_TEST_ASSERT(timeSrcRef != NULL, "taf_time_GetTimeRef() API.");
+
+    // Get time from a specify time source and related Reference.
+    result = taf_time_GetTime(timeSrcRef, &time);
+    LE_TEST_ASSERT(result == LE_OK || result == LE_UNAVAILABLE,
+                               "taf_time_GetTime() API.");
+    if (result == LE_OK)
+    {
+        LE_INFO("Reference %d time is %"PRIu64".%"PRIu64, sourceId, time.sec, time.nanosec);
+    }
+    LE_INFO("timeSrcRefPtr %p, sourceId (0x%x), status %d.", timeSrcRef, sourceId, result);
+
+    // Get reference system time through reference object.
+    result = taf_time_GetRefSystemTime(timeSrcRef, &time);
+    LE_TEST_ASSERT(result == LE_OK || result == LE_UNAVAILABLE,
+                             "taf_time_GetRefSystemTime() API.");
+    if (result == LE_OK)
+    {
+        LE_INFO("Reference system time is %"PRIu64".%"PRIu64, time.sec, time.nanosec);
+    }
+
+    // Get reference gptp time through reference object.
+    result = taf_time_GetRefGptpTime(timeSrcRef, &time);
+    LE_TEST_ASSERT(result == LE_OK || result == LE_UNAVAILABLE,
+                                "taf_time_GetRefGptpTime() API.");
+    if (result == LE_OK)
+    {
+        LE_INFO("Reference gptp time is %"PRIu64".%"PRIu64, time.sec, time.nanosec);
+    }
+
+    // Release the memory for this reference.
+    result = taf_time_ReleaseTimeRef(timeSrcRef);
+    if (result == LE_OK)
+    {
+        LE_INFO("The reference was successfully removed\n");
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This thread is created for adding handlers for testing reference time source notification.
+ */
+//--------------------------------------------------------------------------------------------------
+void TimeValueChangeHandlerTest
+(
+    void
+)
+{
+    le_result_t result;
+    uint8_t sourceId = 3;
+
+    taf_time_TimeSpec_t timeVal;
+    taf_time_TimeSourceRef_t timeSrcRef;
+
+    timeSrcRef = taf_time_GetTimeRef(sourceId);
+    LE_TEST_ASSERT(timeSrcRef != NULL, "taf_time_GetTimeRef() API.");
+
+    // Get time from a specify time source and related Reference.
+    result = taf_time_GetTime(timeSrcRef, &timeVal);
+    LE_TEST_ASSERT(result == LE_OK || result == LE_UNAVAILABLE,
+                                         "taf_time_GetTime() API.");
+    if (result == LE_OK)
+    {
+        LE_INFO("Reference %d time is %"PRIu64".%"PRIu64,
+                              sourceId, timeVal.sec, timeVal.nanosec);
+    }
+    LE_INFO("timeSrcRef %p, sourceId (0x%x), status %d.", timeSrcRef, sourceId, result);
+
+    // Register Reference time source got change Handler.
+    TimeValueChangeHandlerRef = taf_time_AddTimeValueChangeHandler(sourceId,
+              (taf_time_TimeValueChangeHandlerFunc_t)TimeValueChangeHandler, NULL);
+    LE_TEST_OK(TimeValueChangeHandlerRef != NULL, "taf_time_AddTimeValueChangeHandler() - OK");
+
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Register handler for time related information change.
+ */
+//--------------------------------------------------------------------------------------------------
+void TestTimeRegistrationHandler
+(
+    void
+)
+{
+    // Test time source change handler
+    TimeSourceChangeHandlerRef = taf_time_AddTimeSourceChangeHandler(
+        (taf_time_TimeSourceChangeHandlerFunc_t)TimeSourceChangeHandler, NULL);
+    LE_TEST_OK(TimeSourceChangeHandlerRef != NULL, "taf_time_AddTimeSourceChangeHandler - OK");
+
+    TimeValueChangeHandlerTest();
+
+    taf_time_RemoveTimeSourceChangeHandler(TimeSourceChangeHandlerRef);
+    LE_TEST_OK(true, "taf_time_RemoveTimeSourceChangeHandler - void");
+
+    taf_time_RemoveTimeValueChangeHandler(TimeValueChangeHandlerRef);
+    LE_TEST_OK(true, "taf_time_RemoveTimeValueChangeHandler - OK");
+}
+
+//--------------------------------------------------------------------------------------------------
 /**
  * Application initialization.
  */
+//--------------------------------------------------------------------------------------------------
 COMPONENT_INIT
 {
     LE_TEST_PLAN(LE_TEST_NO_PLAN);
@@ -163,11 +304,14 @@ COMPONENT_INIT
     LE_TEST_INFO("==========================================");
 
     TestSetSystemTime();
+
     TestGetSystemTime();
+
     TestGetGnssTime();
-    TestTimeSourceChangeRegistration();
+
+    TestTimeRegistrationHandler();
 
     LE_TEST_INFO("===== TimeSvc client API test DONE =====");
 
-     exit(EXIT_SUCCESS);
+    LE_TEST_EXIT;
 }

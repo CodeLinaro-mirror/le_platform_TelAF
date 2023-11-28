@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -49,6 +49,16 @@
 #include <telux/platform/TimeListener.hpp>
 #include <condition_variable>
 
+//For network time
+#include <telux/common/CommonDefines.hpp>
+#include <telux/common/DeviceConfig.hpp>
+#include <telux/tel/Phone.hpp>
+#include <telux/tel/PhoneDefines.hpp>
+#include <telux/tel/PhoneFactory.hpp>
+#include <telux/tel/PhoneListener.hpp>
+#include <telux/data/ServingSystemManager.hpp>
+#include <time.h>
+
 #define TAF_TIME_THREAD_STACK_SIZE 0x20000
 #define TAF_TIME_SERVICE_CONF_FILE       "tafTimeSvc.json"
 
@@ -63,15 +73,25 @@
  */
 //--------------------------------------------------------------------------------------------------
 #define TAF_TIME_STR_MAX 16
-#define TAF_TIME_SECOND_PER_LOOP_DEFAULT   63
+#define TAF_TIME_SECOND_PER_LOOP_DEFAULT   65
 #define TAF_TIME_SECOND_PER_COUNT_DEFAULT  1
 
 #define TAF_TIME_NSEC_PER_SEC             (1000000000)
 #define TAF_TIME_THRESHOLD_MILLISEC       (200)
 
 #define TAF_TIME_RECEIVE_GNSS_TIME_COUNT   5
-#define TAF_TIME_SYNC_GNSS_TIME_INTERVAL  (29000)
+#define TAF_TIME_SYNC_TIME_TIMER_INTERVAL (61000)
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Macro definition for network time.
+ */
+//--------------------------------------------------------------------------------------------------
+#define DEFAULT_SIM_SLOT_ID        1
+#define DEFAULT_PHONE_NUM_MAX      2
+#define NITZ_STR_BUF_MAX           60
+#define DEFAULT_TSR_EVENT_CNT      16
+#define DEFAULT_TSR_HANDLER_CNT    TAF_TIME_SRC_NAME_UNKNOWN
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -81,7 +101,6 @@
 
 using namespace telux::platform;
 using namespace telux::common;
-
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -122,6 +141,99 @@ typedef struct
     taf_time_TimeSources_t newSource; ///< New working time source
 } taf_TimeSourceStatus_t;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Network time information structure.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint16_t year;                 ///< Year.
+    uint8_t month;                 ///< Month. 1 is January and 12 is December.
+    uint8_t day;                   ///< Day. Range: 1 to 31.
+    uint8_t hour;                  ///< Hour. Range: 0 to 23.
+    uint8_t minute;                ///< Minute. Range: 0 to 59.
+    uint8_t second;                ///< Second. Range: 0 to 59.
+    uint8_t dayOfWeek;             ///< Day of the week. 0 is Monday and 6 is Sunday.
+    int8_t timeZone;               ///< Offset between UTC and local time in units of 15 minutes.
+                                   ///  Actual value = field value * 15 minutes.
+    uint8_t dstAdj;                ///< Daylight saving adjustment in hours to obtain local time.
+                                   ///  Possible values: 0, 1, and 2.
+    char nitzTime[NITZ_STR_BUF_MAX]; ///< Network Identity and Time Zone(NITZ) information in
+                                   ///  form "yyyy/mm/dd,hh:mm:ss(+/-)tzh:tzm,dt"
+}taf_time_NetTimeInfo_t;
+
+typedef struct
+{
+    taf_time_TimeSources_t sourceId;
+    taf_time_NetTimeInfo_t timeInfo;
+} taf_TimeNetTimeInfo_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Time source reference information structure.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint8_t dayOfWeek;        ///< Day of the week. 0 is Monday and 6 is Sunday.
+    int8_t timeZone;          ///< Offset between UTC and local time in units of 15 minutes (
+                              ///  signed value). Actual value = field value * 15 minutes.
+    uint8_t dstAdj;                  ///< Daylight saving adjustment in hours to obtain local
+                                     ///  time. Possible values: 0, 1, and 2.
+    char nitzTime[NITZ_STR_BUF_MAX]; ///< Network Identity and Time Zone(NITZ) information in
+                                     ///  the form "yyyy/mm/dd,hh:mm:ss(+/-)tzh:tzm,dt".
+    bool sourceValidity;                 ///< The validity for current time source.
+
+    taf_time_TimeSpec_t sourceUtcTime;   ///< Time of curr source in seconds/nanoseconds
+                                         ///  since epoch.
+    uint64_t sourceUtcTimeUnc;           ///< Source time Uncertainty.
+
+    taf_time_TimeSpec_t referRealTime;   ///< Elapsed system time created when sourceUtcTime
+                                         ///  was updated.
+    uint64_t referRealTimeUnc;           ///< System time Uncertainty.
+
+    taf_time_TimeSpec_t referPtpTime;    ///< Elapsed ptp time created when sourceUtcTime
+                                         ///  was updated.
+    uint64_t referPtpTimeUnc;            ///< GPTP time Uncertainty.
+
+} taf_DateTimeInf_t;
+
+typedef struct
+{
+    taf_time_TimeSources_t sourceId;               ///< Time source ID.
+    taf_time_TimeSourceRef_t ref;                      ///< own reference.
+    le_msg_SessionRef_t sessionRef;                ///< Client that connected to the service.
+    taf_DateTimeInf_t dateTimeInf;                 ///< Date time information.
+
+    taf_time_TimeValueChangeHandlerRef_t handlerRef; ///< Handler reference.
+    taf_time_TimeValueChangeHandlerFunc_t func;            ///< Handler function.
+    void* context;                                 ///< Handler context.
+} taf_TimeSourceInf_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The structure for event handler.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_time_TimeSources_t sourceId;
+    void* ref;
+}TS_Event_t;
+
+typedef struct
+{
+    taf_time_TimeSources_t sourceId;              ///< Time source ID.
+    void* ref;                                    ///< own reference.
+    taf_DateTimeInf_t dateTimeInf;                ///< Date time information.
+}TimeSourceRef_Event_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Class defination.
+ */
+//--------------------------------------------------------------------------------------------------
 
 namespace telux
 {
@@ -241,6 +353,14 @@ namespace telux
             public:
                 void onGnssUtcTimeUpdate(const uint64_t utc) override;
         };
+        class taf_TimeServingSystemListener : public telux::tel::IServingSystemListener
+        {
+            public:
+                uint8_t phone = DEFAULT_SIM_SLOT_ID;
+                taf_TimeServingSystemListener(uint8_t phone);
+                void onNetworkTimeChanged(telux::tel::NetworkTimeInfo info) override;
+        };
+
         class taf_Time : public ITafSvc
         {
             public:
@@ -263,56 +383,153 @@ namespace telux
                 const char* SourceNameIndexToStr(taf_time_TimeSources_t sourceName);
                 taf_time_TimeSources_t SourceNameStrToIndex(const char* typeNamePtr);
 
-                le_result_t ReadSourceConf(TimeSources& serviceCfg, const json_t *serviceData);
-                le_result_t ReadTimeConf(TimeSources& serviceCfg, const json_t *serviceData);
-                le_result_t LoadJsonConfiguration(TimeSources& serviceCfg, const char* filePathPtr);
+                le_result_t ReadSourceConf(TimeSources& serviceCfg,
+                                                                     const json_t *serviceDataPtr);
+                le_result_t ReadTimeConf(TimeSources& serviceCfg,
+                                                                     const json_t *serviceDataPtr);
+                le_result_t LoadJsonConfiguration(TimeSources& serviceCfg,
+                                                                          const char* filePathPtr);
                 void DeleteNotSupportedSource(TimeSources& serviceCfg);
 
-                taf_time_TimeSpec_t taf_time_Sub(taf_time_TimeSpec_t timeA, taf_time_TimeSpec_t timeB);
-                taf_time_TimeSpec_t taf_time_Add(taf_time_TimeSpec_t timeA, taf_time_TimeSpec_t timeB);
+                taf_time_TimeSpec_t taf_time_Sub(taf_time_TimeSpec_t timeA,
+                                                                        taf_time_TimeSpec_t timeB);
+                taf_time_TimeSpec_t taf_time_Add(taf_time_TimeSpec_t timeA,
+                                                                        taf_time_TimeSpec_t timeB);
                 bool TimeGreaterThan(taf_time_TimeSpec_t timeA,taf_time_TimeSpec_t timeB);
-                le_result_t ReadWriteDeltaTime(taf_time_TimeSpec_t* timeVal,
-                                                 taf_TimeReadWrite_t ReadWriteType);
-                le_result_t UpdateLocalGnssTime(taf_time_TimeSpec_t newGnssTime);
 
-                le_result_t GetBootTime(taf_time_TimeSpec_t* timeVal);
-                le_result_t GetRtcTime(taf_time_TimeSpec_t* timeVal);
-                le_result_t GetGnssTime(taf_time_TimeSpec_t* timeVal);
+                le_result_t ReadWriteDeltaTime(taf_time_TimeSpec_t* timeValPtr,
+                         taf_time_TimeSpec_t* deltaTimeDataPtr, taf_TimeReadWrite_t ReadWriteType);
+
+                le_result_t UpdateLocalTimeCache(taf_time_TimeSpec_t newTime,
+                   taf_time_TimeSources_t sourceName, taf_time_TimeSpec_t* deltaTimeDataBufferPtr);
+
+                le_result_t GetTimeFromLocalCache(taf_time_TimeSpec_t* timeValPtr,
+                         taf_time_TimeSpec_t* deltaTimeDataPtr, taf_time_TimeSources_t sourceName);
+
+                le_result_t GetBootTime(taf_time_TimeSpec_t* timeValPtr);
+                le_result_t GetRtcTime(taf_time_TimeSpec_t* timeValPtr);
+                le_result_t GetGnssTime(taf_time_TimeSpec_t* timeValPtr);
                 le_result_t GetExSetTimeStatus(void);
-                le_result_t GetSystemTime(taf_time_TimeSpec_t* timeVal);
+                le_result_t GetSystemTime(taf_time_TimeSpec_t* timeValPtr);
+                le_result_t GetNetworkTime(taf_time_TimeSpec_t* timeValPtr,
+                                                              taf_time_TimeSources_t sourceId);
 
+                le_result_t UpdateRefTimeInfo(taf_TimeSourceInf_t* timeSrcRefPrt,
+                                                              taf_time_TimeSpec_t* timeValPtr);
+                le_result_t UpdateDateTimeInfo(taf_TimeSourceInf_t* timeSrcRefPrt,
+                                                              taf_time_TimeSpec_t* timeValPtr);
+
+                le_result_t CheckSourceTime(taf_time_TimeSpec_t* timePtr,
+                                                           taf_time_TimeSources_t sourceIndex);
+                taf_time_TimeSourceRef_t GetTimeRef(taf_time_TimeSources_t sourceId);
+                le_result_t GetTime(taf_time_TimeSourceRef_t timeSrcRef,
+                                                              taf_time_TimeSpec_t* timeValPtr);
+                le_result_t GetRefSystemTime(taf_time_TimeSourceRef_t timeSrcRef,
+                                                              taf_time_TimeSpec_t* timeValPtr);
+                le_result_t GetRefGptpTime(taf_time_TimeSourceRef_t timeSrcRef,
+                                                              taf_time_TimeSpec_t* timeValPtr);
+                taf_TimeSourceInf_t* SearchSourceInfList(taf_time_TimeSources_t sourceId,
+                                             le_msg_SessionRef_t sessionRef, bool handlerFlag);
+                taf_TimeNetTimeInfo_t* SearchNetTimeInfList(taf_time_TimeSources_t sourceId);
+
+                bool IsNecessaryUpdateSystemTime(taf_time_TimeSpec_t timeVal,
+                                                               taf_time_TimeSpec_t systemTime);
                 le_result_t SetSystemTime(taf_time_TimeSpec_t timeVal,
-                                             taf_time_TimeSources_t sourceName, bool ackTimeSvc);
-                le_result_t SetTime(const char* sourceNameStr, taf_time_TimeSources_t sourceIndex);
+                                           taf_time_TimeSources_t sourceName, bool ackTimeSvc);
+                le_result_t SetTimeToRtc(taf_time_TimeSpec_t timeVal);
 
-                le_result_t RegGnssSyncTimeTask(void);
+                le_result_t RegGnssSyncTimeListener(void);
                 void TimeSourceChangeNotify(taf_time_TimeSources_t PreTimeSource,
                                              taf_time_TimeSources_t NewTimeSource);
 
                 le_result_t SetTimeBaseOnConfig(TimeSources serviceCfg,
-                                 taf_time_TimeSources_t* latestActiveTime);
+                                 taf_time_TimeSources_t* latestActiveTimePtr);
 
                 static void* SyncTimeTasks(void* contextPtr);
+                static void SyncTimeTimerHandler(le_timer_Ref_t timerRef);
                 static void SystemTimeUpdateTimerHandler(le_timer_Ref_t timerRef);
-                static void GetGnssTimeTimerHandler(le_timer_Ref_t timerRef);
-                static void LayerTimeSourceChangeHandler(void* reportPtr, void* layerHandlerFunc);
+                static void SyncGnssTime(void);
+                static void LayerTimeSourceChangeHandler(void* reportPtr,
+                                                                        void* layerHandlerFuncPtr);
+
+                static void SyncNetworkTime(void);
+                void NetworkTimeResponseUpdate(uint8_t phoneId,
+                    telux::tel::NetworkTimeInfo info, telux::common::ErrorCode error);
+                static void SyncNetworkTimeResponse(telux::tel::NetworkTimeInfo info,
+                                                                   telux::common::ErrorCode error);
+                static void SyncNetworkTimeResponse2(telux::tel::NetworkTimeInfo info,
+                                                                   telux::common::ErrorCode error);
+                le_result_t ConvertDateTimeToSec(struct tm dateTime,
+                                                                  taf_time_TimeSpec_t* timeValPtr);
+
+                le_result_t ConvertNetworkTimeToSec(telux::tel::NetworkTimeInfo info,
+                                                                  taf_time_TimeSpec_t* timeValPtr);
+                le_result_t RegNetworkTimeListener(void);
+                void InitGnssTime(void);
+                le_result_t InitNetworkTime(void);
+
+                taf_time_TimeValueChangeHandlerRef_t AddTimeValueChangeHandler(
+                             taf_time_TimeSources_t sourceId,
+                             taf_time_TimeValueChangeHandlerFunc_t handlerPtr, void* contextPtr);
+
+                void RemoveTimeValueChangeHandler(taf_time_TimeValueChangeHandlerRef_t handlerRef);
+                void NotifyRefTimeClient(TS_Event_t* tsEventPtr);
+                void StoreDateTimeInfo(telux::tel::NetworkTimeInfo info,
+                                                                  taf_time_TimeSources_t sourceId);
+                void ReportTimeValueChange(taf_time_TimeSources_t sourceId,
+                                   taf_time_TimeSpec_t timeVal, telux::tel::NetworkTimeInfo* info);
+                le_result_t CreateRefTimeForHandler(TimeSourceRef_Event_t* tsrEventPrt,
+                                   taf_time_TimeSpec_t timeVal, telux::tel::NetworkTimeInfo* info);
+                static void EventTimeValueChangeHandler(void* reportPtr);
+                le_result_t ReleaseTimeRef(taf_time_TimeSourceRef_t timeSrcRef);
 
                 le_event_Id_t timeSourceChangeId;
-                le_timer_Ref_t syncGnssTimerRef;
+
+                le_timer_Ref_t syncTimeTimerRef;
                 le_timer_Ref_t sysTimeUdTimerRef;
+
 
                 le_mem_PoolRef_t SetTimeStatusPool = NULL;
                 le_mem_PoolRef_t timeSourceChangePool = NULL;
-                le_mem_PoolRef_t DeltaTimeDataPool = NULL;
+
+                taf_time_TimeSpec_t* GnssDeltaTime = NULL;
+                le_result_t RegGnssTimeStatus = LE_NOT_FOUND;
+                le_mem_PoolRef_t GnssDeltaTimePool = NULL;
+
+
+                le_ref_MapRef_t SrcTimeRefMap;
+                le_mem_PoolRef_t SrcTimePool = NULL;
+
+                le_mem_PoolRef_t NetworkDeltaTimePool = NULL;
+                le_mem_PoolRef_t NetworkDeltaTime2Pool = NULL;
+
+                le_mem_PoolRef_t netTimeInfoPool = NULL;
+                le_ref_MapRef_t netTimeInfoRefMap = NULL;
+
+                taf_time_TimeSpec_t* NetworkDeltaTime = NULL;
+                taf_time_TimeSpec_t* NetworkDeltaTime2 = NULL;
+
+                le_result_t RegNetworkTimeStatus = LE_NOT_FOUND;
+                le_event_Id_t RefTimeEventId;
+                le_event_HandlerRef_t RefTimeEventHandlerRef;
+
+                // Time Source Reference event object.
+                le_ref_MapRef_t TsrEventMap;
+                le_mem_PoolRef_t TsrEventPool;
+
+                //For getting network time and notification
+                std::shared_ptr<telux::tel::IPhoneManager> phoneManager;
+                //std::vector<std::shared_ptr<telux::tel::IPhone>> phones;
+                std::vector<std::shared_ptr<taf_TimeServingSystemListener>> servSysListeners;
+                std::vector<std::shared_ptr<telux::tel::IServingSystemManager>> servingSystemManagers;
 
             private:
                 std::shared_ptr<ITimeListener> gnssTimeListener
                                                = std::make_shared<taf_TimeGnssListener>();
-
                 std::shared_ptr<ITimeManager> timeManager;
 
-                struct SetTimeStatus* SetTimeSt;
-                taf_time_TimeSpec_t* DeltaTimeData;
+                struct SetTimeStatus* SetTimeSt = NULL;
+                uint64_t TimeSourceStatusMap = 0x0;
 
                 pthread_mutex_t ProtectlocalTime_mutex;
         };

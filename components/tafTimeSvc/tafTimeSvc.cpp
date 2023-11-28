@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -65,14 +65,14 @@ using namespace telux::tafsvc;
 ======================================================================*/
 le_result_t taf_time_SetSystemTime
 (
-    const taf_time_TimeSpec_t * timeVal,
+    const taf_time_TimeSpec_t * timeValPtr,
     bool ackTimeSvc
 )
 {
     taf_time_TimeSpec_t time;
 
-    time.sec = timeVal->sec;
-    time.nanosec = timeVal->nanosec;
+    time.sec = timeValPtr->sec;
+    time.nanosec = timeValPtr->nanosec;
 
     auto &tafTime = taf_Time::GetInstance();
 
@@ -101,11 +101,11 @@ le_result_t taf_time_SetSystemTime
 ======================================================================*/
 le_result_t taf_time_GetSystemTime
 (
-    taf_time_TimeSpec_t* timeVal
+    taf_time_TimeSpec_t* timeValPtr
 )
 {
     auto &time = taf_Time::GetInstance();
-    return time.GetSystemTime(timeVal);
+    return time.GetSystemTime(timeValPtr);
 }
 
 /*======================================================================
@@ -121,6 +121,7 @@ le_result_t taf_time_GetSystemTime
 
  RETURN VALUE    le_result_t
                  LE_FAULT:             Fail.
+                 LE_UNAVAILABLE:       Not available.
                  LE_OK:                Success.
 
  SIDE EFFECTS
@@ -128,11 +129,11 @@ le_result_t taf_time_GetSystemTime
 ======================================================================*/
 le_result_t taf_time_GetGnssTime
 (
-    taf_time_TimeSpec_t* timeVal
+    taf_time_TimeSpec_t* timeValPtr
 )
 {
     auto &tafTime = taf_Time::GetInstance();
-    return tafTime.GetGnssTime(timeVal);
+    return tafTime.GetGnssTime(timeValPtr);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -155,7 +156,7 @@ taf_time_TimeSourceChangeHandlerRef_t taf_time_AddTimeSourceChangeHandler
     auto &tafTime = taf_Time::GetInstance();
 
     le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("TimeSourceChangeHandler",
-        tafTime.timeSourceChangeId, taf_Time::LayerTimeSourceChangeHandler,
+        tafTime.timeSourceChangeId, tafTime.LayerTimeSourceChangeHandler,
         (void*)handlerPtr);
 
     le_event_SetContextPtr(handlerRef, contextPtr);
@@ -176,9 +177,197 @@ void taf_time_RemoveTimeSourceChangeHandler
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 }
 
+/*======================================================================
+
+ FUNCTION        taf_time_GetTimeRef
+
+ DESCRIPTION     Gets the reference object of a time source.
+
+ DEPENDENCIES    Initialization of Time Service.
+
+ PARAMETERS      [IN] taf_time_TimeSources_t sourceId: Time source ID
+
+ RETURN VALUE
+                - Reference to the time source instance.
+                - NULL if not available.
+
+ SIDE EFFECTS
+
+======================================================================*/
+taf_time_TimeSourceRef_t taf_time_GetTimeRef
+(
+    taf_time_TimeSources_t sourceId  ///< Time source ID.
+)
+{
+    auto &tafTime = taf_Time::GetInstance();
+    return tafTime.GetTimeRef(sourceId);
+}
+
+/*======================================================================
+
+ FUNCTION        taf_time_GetTime
+
+ DESCRIPTION     Gets the time for this time reference and creates
+                 related time information.
+
+ DEPENDENCIES    Need to be called after the reference object was
+                 Created.
+
+ PARAMETERS      [IN] taf_time_TimeSourceRef_t * timeSrcRef: reference
+                      for related time source object.
+                 [OUT] taf_time_TimeSpec_t * timeVal: Time in
+                       seconds and nanoseconds.
+
+ RETURN VALUE    le_result_t
+                 LE_FAULT:        Something went wrong.
+                 LE_UNAVAILABLE:  This reference time is currently not
+                                  unavailable.
+                 LE_UNSUPPORTED:  Not supported for current time source.
+                 LE_OK:           Succeeded.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_time_GetTime
+(
+    taf_time_TimeSourceRef_t timeSrcRef,
+    taf_time_TimeSpec_t* timeValPtr
+)
+{
+    auto &tafTime = taf_Time::GetInstance();
+    return tafTime.GetTime(timeSrcRef, timeValPtr);
+}
+
+/*======================================================================
+
+ FUNCTION        taf_time_GetRefSystemTime
+
+ DESCRIPTION     Gets system time that created when related source
+                 time was created.
+
+ DEPENDENCIES    Need to be called after the reference object was
+                 Created.
+
+ PARAMETERS      [IN] taf_time_TimeSourceRef_t * timeSrcRef: reference
+                      for related time source object.
+                 [OUT] taf_time_TimeSpec_t * timeVal: Time in
+                       seconds and nanoseconds.
+
+ RETURN VALUE    le_result_t
+                 LE_FAULT:        Something went wrong.
+                 LE_UNAVAILABLE:  This reference time is currently not
+                                  unavailable.
+                 LE_UNSUPPORTED:  Not supported for current time source.
+                 LE_OK:           Succeeded.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_time_GetRefSystemTime
+(
+    taf_time_TimeSourceRef_t timeSrcRef,
+    taf_time_TimeSpec_t* timeValPtr
+)
+{
+    auto &tafTime = taf_Time::GetInstance();
+    return tafTime.GetRefSystemTime(timeSrcRef, timeValPtr);
+}
+
+/*======================================================================
+
+ FUNCTION        taf_time_GetRefSystemTime
+
+ DESCRIPTION     Gets gptp time that created when related source
+                 time was created.
+
+ DEPENDENCIES    Need to be called after this API:
+                 taf_time_GetTime().
+
+ PARAMETERS      [IN] taf_time_TimeSourceRef_t * timeSrcRef: reference
+                      for related time source object.
+                 [OUT] taf_time_TimeSpec_t * timeVal: Time in
+                       seconds and nanoseconds.
+
+ RETURN VALUE    le_result_t
+                 LE_FAULT:        Something went wrong.
+                 LE_UNAVAILABLE:  This reference time is currently not
+                                  unavailable.
+                 LE_UNSUPPORTED:  Not supported for current time source.
+                 LE_OK:           Succeeded.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_time_GetRefGptpTime
+(
+    taf_time_TimeSourceRef_t timeSrcRef,
+    taf_time_TimeSpec_t* timeValPtr
+)
+{
+    auto &tafTime = taf_Time::GetInstance();
+    return tafTime.GetRefGptpTime(timeSrcRef, timeValPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Release a source time reference.
+ *
+ * @return
+ *     - LE_OK if successful.
+ *     - LE_FAULT if any error occurs.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_time_ReleaseTimeRef
+(
+    taf_time_TimeSourceRef_t timeSrcRef
+)
+{
+    auto &tafTime = taf_Time::GetInstance();
+    return tafTime.ReleaseTimeRef(timeSrcRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler for the time source and its reference object.
+ *
+ * @return
+ *  - taf_time_TimeValueChangeHandlerRef_t Handler reference.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_time_TimeValueChangeHandlerRef_t taf_time_AddTimeValueChangeHandler
+(
+    taf_time_TimeSources_t sourceId,
+        ///< [IN] Time source ID.
+    taf_time_TimeValueChangeHandlerFunc_t handlerPtr,
+        ///< [IN] Handler function pointer.
+    void* contextPtr
+        ///< [IN] Handler context.
+)
+{
+    auto &time = taf_Time::GetInstance();
+    return time.AddTimeValueChangeHandler(sourceId, handlerPtr, contextPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler for time source reference object.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_time_RemoveTimeValueChangeHandler
+(
+    taf_time_TimeValueChangeHandlerRef_t handlerRef
+        ///< [IN] Handler Reference.
+)
+{
+    auto &time = taf_Time::GetInstance();
+    return time.RemoveTimeValueChangeHandler(handlerRef);
+}
+
+//--------------------------------------------------------------------------------------------------
 /**
  * Initialization for Time Service.
 */
+//--------------------------------------------------------------------------------------------------
 void taf_time_service_int(void)
 {
     LE_INFO("Time Service Init...");

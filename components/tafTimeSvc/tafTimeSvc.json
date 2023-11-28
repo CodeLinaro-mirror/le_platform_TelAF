@@ -21,9 +21,14 @@
                 "Source": "GNSS",
                 "SetTime":"true",
                 "Priority":"2"
+            },
+            {
+                "Source": "NETWORK",
+                "SetTime":"true",
+                "Priority":"3"
             }
         ],
-        "PollingInterval": "63",
-        "ToleranceMillsec": "100"
+        "PollingInterval": "65",
+        "ToleranceMillsec": "200"
     }
 }

@@ -132,7 +132,7 @@ std::shared_ptr<Connection> ConnectionManager::FindOrCreateConnection
 
     std::string ipStr;
     ipStr.assign(ip);
-    LE_INFO("Create connection(%s:%d)", ip, port);
+    LE_DEBUG("Create connection(%s:%d)", ip, port);
 
     return ServerCreateConnection(sockRef, ipStr, (uint16_t)port);
 }

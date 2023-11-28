@@ -156,10 +156,10 @@ taf_doip_Result_t CommunicationMgr::GetLocalIPAddr
 
         if (tmpPtr->ifa_addr->sa_family != af)
         {
-            LE_INFO("Address family is unmatch, skip.\n");
+            LE_DEBUG("Address family is unmatch, skip.\n");
             continue;
         }
-        LE_INFO("Start to get IP address, address family is %d.\n", af);
+        LE_DEBUG("Start to get IP address, address family is %d.\n", af);
 
         if (af == AF_INET6)
         {
@@ -192,7 +192,7 @@ taf_doip_Result_t CommunicationMgr::GetLocalIPAddr
         }
     }
 
-    LE_INFO("IP is %s\n", ip);
+    LE_DEBUG("IP is %s\n", ip);
 
     freeifaddrs(ifaPtr);
 
@@ -265,7 +265,7 @@ taf_doipSession_t* CommunicationMgr::FindDoipSession
         if (doipSessionPtr != NULL
             && sa == doipSessionPtr->logicalSrcAddr)
         {
-            LE_INFO("found a doip session, SA is '%d'\n", sa);
+            LE_DEBUG("found a doip session, SA is '%d'\n", sa);
             isFound = true;
             break;
         }
@@ -525,7 +525,6 @@ taf_doip_Result_t CommunicationMgr::TransUdsMessage
 {
     taf_doipSession_t*      sessionPtr;
     taf_doipDiagDataInfo_t* diagInfoPtr;
-    taf_doip_AddrInfo_t     addrInfo;
     char*                   diagDataPtr;
     uint32_t                pos = 0;
 
@@ -571,22 +570,8 @@ taf_doip_Result_t CommunicationMgr::TransUdsMessage
     diagInfoPtr->len    = pos;
 
     le_event_QueueFunctionToThread(mainThrRef, RequestUdsMessage, diagInfoPtr, NULL);
-
-    taf_doipDiagConfirmHandler_t*    handler;
-    handler = &sessionPtr->diagConfirmHandler;
-
-    le_mutex_Lock(handler->mutexRef);
-
-    if (handler->funcPtr != NULL)
-    {
-        addrInfo.sa = sa;
-        addrInfo.ta = ta;
-        addrInfo.taType = taType;
-
-        // Confirm the request result.
-        handler->funcPtr(&addrInfo, TAF_DOIP_RESULT_OK, handler->ctxPtr);
-    }
-    le_mutex_Unlock(handler->mutexRef);
+    le_event_QueueFunctionToThread(udsThrRef, ConfirmUserMessage, diagInfoPtr, NULL);
+    LE_DEBUG("TransUdsMessage done.");
 
     return TAF_DOIP_RESULT_OK;
 }
@@ -883,14 +868,7 @@ errOut:
     }
 
     // [DoIP-038],[DoIP-087]
-    auto& parser = ProtocolParser::GetInstance();
-    taf_doipLink_t link;
-
-    link.commType = TAF_DOIP_SOCKET_TYPE_UDP_UNI;
-    link.sockRef = udpDiscoverSockRef;
-    le_utf8_Copy(link.ip, ipPtr, strlen(ipPtr) + 1, NULL);
-    link.port = port;
-    parser.HeaderNegativeACK(&link, nackCode);
+    RespondHeaderNegativeACK(ipPtr, port, nackCode);
 
     return TAF_DOIP_RESULT_HDR_ERROR;
 }
@@ -1015,9 +993,11 @@ void CommunicationMgr::VehicleIdentifyReqWithEidHandler
     auto& vehicleMgr = VehicleManager::GetInstance();
     auto& parser = ProtocolParser::GetInstance();
 
-    if (payloadLen < TAF_DOIP_EID_SIZE)
+    if (payloadLen != TAF_DOIP_EID_SIZE)
     {
         LE_ERROR("EID is not enough in vehicle identification request.\n");
+        // [DoIP-45]
+        RespondHeaderNegativeACK(ipPtr, port, TAF_DOIP_HEADER_NACK_INVALID_PAYLOAD_LENGTH);
         return;
     }
 
@@ -1077,9 +1057,11 @@ void CommunicationMgr::VehicleIdentifyReqWithVinHandler
     auto& vehicleMgr = VehicleManager::GetInstance();
     auto& parser = ProtocolParser::GetInstance();
 
-    if (payloadLen < TAF_DOIP_VIN_SIZE)
+    if (payloadLen != TAF_DOIP_VIN_SIZE)
     {
         LE_ERROR("VIN is not enough in vehicle identification request.\n");
+        // [DoIP-45]
+        RespondHeaderNegativeACK(ipPtr, port, TAF_DOIP_HEADER_NACK_INVALID_PAYLOAD_LENGTH);
         return;
     }
 
@@ -1240,7 +1222,7 @@ void CommunicationMgr::TcpDataSocketEventCallback
         LE_ERROR("Failed to accept client connection.");
         return;
     }
-    LE_INFO("Accept a connection(%s:%d)", ip, port);
+    LE_DEBUG("Accept a connection(%s:%d)", ip, port);
 
     commMgr.connectionMgrPtr->FindOrCreateConnection(childSockRef, ip, port);
 
@@ -1290,6 +1272,46 @@ void CommunicationMgr::IndicateUdsMessage
 
     le_mem_Release(dataInfoPtr->data);
     le_mem_Release(dataInfoPtr);
+
+    return;
+}
+
+/*=================================================================================================
+ FUNCTION        CommunicationMgr::ConfirmUserMessage
+ DESCRIPTION     Confirm the user response message in the Uds handle thread.
+ PARAMETERS      [IN] dataPtr: uds data
+                 [IN] length: uds data length
+ RETURN VALUE    void
+=================================================================================================*/
+void CommunicationMgr::ConfirmUserMessage
+(
+    void* param1Ptr,
+    void* param2Ptr
+)
+{
+    taf_doipSession_t*      sessionPtr;
+    taf_doip_AddrInfo_t     addrInfo;
+    taf_doipDiagDataInfo_t* dataInfoPtr = (taf_doipDiagDataInfo_t*)param1Ptr;
+
+    auto&   cmMgr = CommunicationMgr::GetInstance();
+    sessionPtr = cmMgr.FindDoipSession(dataInfoPtr->sa);
+    if (sessionPtr != NULL)
+    {
+        taf_doipDiagConfirmHandler_t*    handler;
+        handler = &sessionPtr->diagConfirmHandler;
+
+        le_mutex_Lock(handler->mutexRef);
+        if (handler->funcPtr != NULL)
+        {
+            addrInfo.sa = dataInfoPtr->sa;
+            addrInfo.ta = dataInfoPtr->ta;
+            addrInfo.taType = (taf_doip_TaType_t)dataInfoPtr->taType;
+
+            // Confirm the request result.
+            handler->funcPtr(&addrInfo, TAF_DOIP_RESULT_OK, handler->ctxPtr);
+        }
+        le_mutex_Unlock(handler->mutexRef);
+    }
 
     return;
 }
@@ -1382,6 +1404,31 @@ void* CommunicationMgr::UdsHandleThread
 }
 
 /*=================================================================================================
+ FUNCTION        CommunicationMgr::RespondHeaderNegativeACK
+ DESCRIPTION     DoIP header negative ack response
+ PARAMETERS      [IN] ipPtr: Destination IP Pointer
+                 [IN] port: Destination port
+                 [IN] nackCode: negative ack code
+ RETURN VALUE    void
+=================================================================================================*/
+void CommunicationMgr::RespondHeaderNegativeACK
+(
+    const char* ipPtr,
+    uint16_t    port,
+    taf_doipHeaderNACKCode_t nackCode
+)
+{
+    auto& parser = ProtocolParser::GetInstance();
+    taf_doipLink_t link;
+
+    link.commType = TAF_DOIP_SOCKET_TYPE_UDP_UNI;
+    link.sockRef = udpDiscoverSockRef;
+    le_utf8_Copy(link.ip, ipPtr, strlen(ipPtr) + 1, NULL);
+    link.port = port;
+    parser.HeaderNegativeACK(&link, nackCode);
+}
+
+/*=================================================================================================
  FUNCTION        CommunicationMgr::SessionInit
  DESCRIPTION     Initialization of DoIP session resource
                  in communication manager
@@ -1433,7 +1480,7 @@ taf_doip_Result_t CommunicationMgr::SessionInit
             goto errOut;
         }
 
-        LE_INFO("Get IPv4-%s\n", localIp);
+        LE_DEBUG("Get IPv4-%s\n", localIp);
 
         tcpDataSockRef = le_socket_Create(NULL, tcpDataPort, localIp, TCP_TYPE);
         if (tcpDataSockRef == NULL)
@@ -1466,7 +1513,7 @@ taf_doip_Result_t CommunicationMgr::SessionInit
             goto errOut;
         }
 
-        LE_INFO("Get IPv6-%s\n", localIp);
+        LE_DEBUG("Get IPv6-%s\n", localIp);
 
         tcpDataSockRef = le_socket_Create(NULL, tcpDataPort, localIp, TCP_TYPE);
         if (tcpDataSockRef == NULL)

@@ -561,7 +561,7 @@ taf_doip_DiagIndicationHandlerRef_t taf_doip_AddDiagIndicationHandler
             &doipSessionPtr->diagIndicationHandler);
     if (handlerRef == NULL)
     {
-        LE_ERROR("Failed to create power query reference!!");
+        LE_ERROR("Failed to create diag indication reference!!");
         le_mutex_Unlock(doipSessionPtr->diagIndicationHandler.mutexRef);
         return NULL;
     }
@@ -647,7 +647,7 @@ taf_doip_DiagConfirmHandlerRef_t taf_doip_AddDiagConfirmHandler
             &doipSessionPtr->diagConfirmHandler);
     if (handlerRef == NULL)
     {
-        LE_ERROR("Failed to create power query reference!!");
+        LE_ERROR("Failed to create diag confirmation reference!!");
         le_mutex_Unlock(doipSessionPtr->diagConfirmHandler.mutexRef);
         return NULL;
     }

@@ -6,6 +6,8 @@ maxThreads: 300
 
 username: telaf
 
+startGroup: 0
+
 capability:
 {
     CAP_WAKE_ALARM

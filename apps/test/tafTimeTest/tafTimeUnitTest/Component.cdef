@@ -1,0 +1,12 @@
+sources:
+{
+    tafTimeUnitTest.c
+}
+
+requires:
+{
+    api:
+    {
+        taf_time.api
+    }
+}

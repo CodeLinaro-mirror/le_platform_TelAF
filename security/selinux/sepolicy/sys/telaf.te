@@ -144,6 +144,7 @@ gen_require(`
   type persist_t;
   type home_root_t;
   type user_home_dir_t;
+  type ping_exec_t;
 ')
 
 ## telaf framework policies and definitions
@@ -162,6 +163,7 @@ type telaf_app_bundle_t;
 files_type(telaf_app_bundle_t)
 
 # Telaf apps exec type definition
+attribute telaf_app_exec_attr;
 type telaf_app_exec_t;
 files_type(telaf_app_exec_t)
 
@@ -241,6 +243,31 @@ allow telaf_update_t shell_exec_t:file { exec_file_perms };
 allow telaf_update_t tmp_t:dir { search_dir_perms };
 allow telaf_update_t tmp_t:file { read_file_perms };
 
+# Define the deviceManager type
+type telaf_devmgr_t;
+type telaf_devmgr_exec_t;
+type telaf_devmgr_data_t;
+files_type(telaf_devmgr_exec_t);
+files_type(telaf_devmgr_data_t);
+init_telaf_core_domain(telaf_devmgr_t, telaf_devmgr_exec_t)
+allow telaf_devmgr_t telaf_devmgr_t:process { signal };
+allow telaf_devmgr_t telaf_devmgr_t:capability { sys_ptrace kill };
+allow telaf_devmgr_t proc_t:file { open read getattr };
+allow telaf_devmgr_t data_t:dir { relabelfrom relabelto search getattr };
+allow telaf_devmgr_t data_t:file { relabel_file_perms };
+allow telaf_devmgr_t telaf_devmgr_data_t:dir { relabel_dir_perms manage_dir_perms };
+allow telaf_devmgr_t telaf_devmgr_data_t:file { relabel_file_perms manage_file_perms mmap_file_perms  };
+allow telaf_devmgr_data_t fs_t:filesystem { associate };
+gen_require(`
+  type telaf_tafGpioSvc_t;
+')
+allow telaf_devmgr_t telaf_tafGpioSvc_t:lnk_file { read };
+allow telaf_devmgr_t telaf_tafGpioSvc_t:process { signull };
+ifdef(`sa525m',`
+    allow telaf_devmgr_t data_t:file { map };
+')
+
+
 # Update daemon need to remove files during app uninstallation (telaf_admin_t also needs these permission)
 allow telaf_admin_domain cgroup_t:dir { manage_dir_perms };
 allow telaf_admin_domain { fs_t tmpfs_t }:filesystem { unmount };
@@ -295,6 +322,7 @@ admin_pattern(telaf_admin_domain, telaf_apptmp_rw_t)
 admin_pattern(telaf_admin_domain, telaf_sdir_t)
 admin_pattern(telaf_admin_domain, telaf_logd_t)
 admin_pattern(telaf_admin_domain, telaf_cfgtree_t)
+admin_pattern(telaf_admin_domain, telaf_devmgr_t)
 
 # should have execute permission
 exec_files_pattern(telaf_admin_domain, telaf_lib_t, telaf_lib_t)
@@ -335,6 +363,7 @@ manage_chr_files_pattern(telaf_admin_domain, telaf_app_rw_t, telaf_app_rw_t)
 allow telaf_admin_domain telaf_sdir_t:unix_stream_socket { connectto read write getopt };
 allow telaf_admin_domain telaf_logd_t:unix_stream_socket { connectto read write getopt };
 allow telaf_admin_domain telaf_cfgtree_t:unix_stream_socket { connectto read write getopt };
+allow telaf_admin_domain telaf_devmgr_t:unix_stream_socket { connectto read write getopt };
 
 allow telaf_admin_domain telaf_overlay_t:dir { search };
 
@@ -637,10 +666,16 @@ if (telaf_external_dependencies) {
         #=========== To support adding boot KPI marker ==============
         allow telaf_app_domain boot_kpi_values_t:file { write open getattr };
         allow initrc_t boot_kpi_values_t:file { write open getattr };
+        allow telaf_admin_t ping_exec_t:file { map };
 
     ')
 
     #============ To support telaf restart ===================
     allow telaf_sdir_t telaf_apptmp_rw_t:dir { remove_name };
     allow telaf_sdir_t telaf_apptmp_rw_t:sock_file { unlink };
+
+
+    #Ping Command
+    allow telaf_admin_t ping_exec_t:file { execute execute_no_trans open read };
+    allow telaf_admin_t self:icmp_socket { create getopt read setopt write };
 }

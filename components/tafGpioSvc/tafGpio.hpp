@@ -42,6 +42,8 @@
 #include "legato.h"
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
+#include "tafHalLib.hpp"
+#include "tafHalGpio.h"
 
 #define DEV_NAME "/dev/gpiochip0"
 
@@ -56,6 +58,7 @@ using namespace std;
 struct taf_gpio{
     uint8_t pinNum;
     char gpioName[10];
+    char aliasName[TAF_GPIO_PIN_NAME_MAX_BYTE];
     int fdMonitor;
     int handlerCount;
     bool isLocked;
@@ -131,17 +134,20 @@ namespace tafsvc{
             bool isActive(taf_GpioRef_t gpioRef);
             bool isInput(taf_GpioRef_t gpioRef);
             bool isOutput(taf_GpioRef_t gpioRef);
+            le_result_t getName(taf_GpioRef_t gpioRef, char* name, size_t nameSize);
             taf_gpio_ActiveType_t getPolarity(taf_GpioRef_t gpioRef);
             taf_gpio_Edge_t getEdgeSense(taf_GpioRef_t gpioRef);
             le_result_t setEdgeSense(taf_GpioRef_t gpioRef, taf_gpio_Edge_t edge, bool lock,
                     le_fdMonitor_HandlerFunc_t fdMonFunc);
 
             taf_GpioRef_t tafGpioRefPin[MAX_PIN_NUMBER];
-            le_mem_PoolRef_t HandlerPool = NULL;
-            le_ref_MapRef_t  HandlerRefMap = NULL;
+            le_mem_PoolRef_t HandlerPool = nullptr;
+            le_ref_MapRef_t  HandlerRefMap = nullptr;
             le_dls_List_t GpioHandlerList;
             le_event_Id_t tafGpioEvent;
             int numOfGpios = -1;
+            bool isDrvPresent = false;
+            gpio_Inf_t *gpioInf = nullptr;
     };
 }
 }

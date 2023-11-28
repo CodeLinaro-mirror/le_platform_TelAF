@@ -1047,7 +1047,7 @@ FUNCTION le_result_t EncryptFromStorage
 FUNCTION le_result_t GetSmsCenterAddress
 (
     uint8   phoneId,                                        ///< Phone ID.
-    string  addr[taf_types.REMOTE_PARTY_NUM_MAX_BYTES] OUT  ///< Buffer to store SMS center address.
+    string  addr[SMSC_ADDR_BYTES] OUT                       ///< Buffer to store SMS center address.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1064,7 +1064,7 @@ FUNCTION le_result_t GetSmsCenterAddress
 FUNCTION le_result_t SetSmsCenterAddress
 (
     uint8   phoneId,                                      ///< Phone ID.
-    string  addr[taf_types.REMOTE_PARTY_NUM_MAX_BYTES] IN ///< SMS center address.
+    string  addr[SMSC_ADDR_BYTES] IN                      ///< SMS center address.
 );
 
 //--------------------------------------------------------------------------------------------------

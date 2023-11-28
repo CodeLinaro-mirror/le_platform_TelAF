@@ -1,7 +1,8 @@
 # Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
-FROM ubuntu:18.04
+ARG UBUNTU_DISTRO_ORIGIN
+FROM $UBUNTU_DISTRO_ORIGIN
 
 RUN apt-get -qq update
 RUN apt-get -y install sudo
@@ -17,8 +18,8 @@ RUN apt-get -y --no-install-recommends install ninja-build
 RUN apt-get -y --no-install-recommends install python-jinja2
 RUN DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install cmake
 RUN apt-get -y --no-install-recommends install python-setuptools
-RUN apt-get -y --no-install-recommends install git
 RUN apt-get -y --no-install-recommends install python
+RUN apt-get -y --no-install-recommends install git
 RUN apt-get -y --no-install-recommends install fakeroot
 RUN apt-get -y --no-install-recommends install file
 RUN apt-get -y --no-install-recommends install libcap-dev

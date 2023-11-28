@@ -56,7 +56,7 @@
 
 #define TAF_UPDATE_THREAD_STACK_SIZE 0x20000
 
-#define TAF_UPDATE_TIME_TO_ACCESS_FILE 10
+#define TAF_UPDATE_TIME_TO_ACCESS_FILE 20
 #define TAF_UPDATE_DOWNLOAD_TIME_INTERVAL 200
 
 #define TAF_UPDATE_QOTA_HEADER_SEG_NUM 13
@@ -112,9 +112,6 @@ namespace tafsvc {
         static void JsonEventHandler(le_json_Event_t event);
         static void JsonErrorHandler(le_json_Error_t error, const char* msg);
         le_result_t ParseBundle(const char* file);
-
-        void WriteFs(const char* filePath, uint8_t* buffer, size_t bufferSize);
-        void ReadFs(const char* filePath, uint8_t* buffer, size_t bufferSize);
 
         void NotifyDownloadFail();
         static void DownloadTimerHandler(le_timer_Ref_t timerRef);

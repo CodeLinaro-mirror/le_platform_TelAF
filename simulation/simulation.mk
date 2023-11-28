@@ -5,32 +5,74 @@
 TARGETS += simulation
 
 Q?=@
+
+# If you want make a compilation in your docker container, get along with below.
 export within ?=
 
-ifeq ($(lastword $(MAKECMDGOALS)),simulation)
-$(error Please pass 'simula' for TelAF Simulation Target [simulation])
+# Some work needs to be done earlier or later, so we prevent the real simulation goal.
+ifneq ($(filter simulation,$(MAKECMDGOALS)),)
+$(error Please pass 'make simula-help' for TelAF Simulation Target [simulation])
 endif
+
+# Override the LEGATO_VERSION, to ensure the version is same as other targets.
+export LEGATO_VERSION=$(shell cat $(TELAF_ROOT)/VERSION 2> /dev/null)
+
+# For embedded target, the cross-compilation tool will change the 'sysroot'
+# to search header & libraries that have beed relocated.
+# when we get the path by '--print-sysroot', that value will be returned.
+# But for simulation target, the default prefix (empty) is used,
+# because the host default environment for the gcc compiler is that.
+# So for consistency, we add the required path without any affect for mktools.
+export SYSROOT=/
 
 export SIMULATION_HOME := $(CURDIR)/simulation
 export SIMULATION_DEPS_INSTALL := $(SIMULATION_HOME)/deps/install
 export SIMULATION_DEPS_SOURCE := $(SIMULATION_HOME)/deps/source
 export SIMULATION_SCRIPTS := $(SIMULATION_HOME)/scripts
 export SIMULATION_WORKDIR := $(SIMULATION_HOME)/workstation
-SIMULATION_DEPS:= $(SIMULATION_HOME)/deps/install/boost $(SIMULATION_HOME)/deps/install/vsomeip
-SIMULATION_TARBALL:= $(SIMULATION_HOME)/workstation/telaf_simulation.tar
+SIMULATION_DEPS += # Empty is default, but it is post-extended
+SIMULATION_TARBALL := $(SIMULATION_HOME)/workstation/telaf_simulation.tar
 
-MKEXE_FLAGS_SIMULATION_EX += -X -std=c++11 -X -lstdc++ \
-                  --cxxflags=-I$(TELAF_ROOT)/simulation/deps/install/boost/include \
-                  --cxxflags=-I$(TELAF_ROOT)/simulation/deps/install/vsomeip/include \
-                  --ldflags=-L$(TELAF_ROOT)/simulation/deps/install/boost/lib \
-                  --ldflags=-L$(TELAF_ROOT)/simulation/deps/install/vsomeip/lib
+# Another way:
+# 1. mkdir $(SIMULATION_WORKDIR)/sdk_rootfs
+# 2. sudo mount --bind /path/to/sdk_rootfs  $(SIMULATION_WORKDIR)/sdk_rootfs
+export sdk_rootfs ?= $(SIMULATION_WORKDIR)/sdk_rootfs
+CHECK_SDK_ROOTFS := $(shell if [ -d "$(sdk_rootfs)" ]; then echo "y"; else echo "n"; fi)
 
-MKAPP_FLAGS_SIMULATION_EX += $(MKEXE_FLAGS_SIMULATION_EX)
-MKSYS_FLAGS_SIMULATION_EX += $(MKEXE_FLAGS_SIMULATION_EX)
+export IMPORT_SDK_SIMULATION ?= n
 
-export MKEXE_FLAGS_SIMULATION_EX MKAPP_FLAGS_SIMULATION_EX MKSYS_FLAGS_SIMULATION_EX
+ifneq ($(IMPORT_SDK_SIMULATION),n)
 
-.PHONY: sml simulation boost vsomeip
+ifeq ($(CHECK_SDK_ROOTFS),n)
+$(error sdk rootfs path is invalid [$(sdk_rootfs)], please check it)
+else
+$(warning sdk rootfs path [$(sdk_rootfs)])
+endif
+
+MKTOOLS_FLAGS_SIMULATION_EX += --cxxflags=-I$(sdk_rootfs)/include --ldflags=-L$(sdk_rootfs)/lib
+
+export TELAF_SIMULATION_ENABLE_SMS ?= n
+export TELAF_SIMULATION_ENABLE_DCS ?= n
+
+endif
+
+export TELAF_SIMULATION_ENABLE_SOMEIP_GW ?= y
+
+SIMULATION_SOMEIP_GW_DEPS_y := $(SIMULATION_HOME)/deps/install/boost $(SIMULATION_HOME)/deps/install/vsomeip
+SIMULATION_DEPS += $(SIMULATION_SOMEIP_GW_DEPS_$(TELAF_SIMULATION_ENABLE_SOMEIP_GW))
+
+MKTOOLS_FLAGS_SIMULATION_EX += -X -std=c++11 -X -lstdc++
+
+ifneq ($(TELAF_SIMULATION_ENABLE_SOMEIP_GW),n)
+MKTOOLS_FLAGS_SIMULATION_EX += --cxxflags=-I$(TELAF_ROOT)/simulation/deps/install/boost/include \
+                             --cxxflags=-I$(TELAF_ROOT)/simulation/deps/install/vsomeip/include \
+                             --ldflags=-L$(TELAF_ROOT)/simulation/deps/install/boost/lib \
+                             --ldflags=-L$(TELAF_ROOT)/simulation/deps/install/vsomeip/lib
+endif
+
+export MKTOOLS_FLAGS_SIMULATION_EX
+
+.PHONY: simulation boost vsomeip
 
 ifeq ($(within),)
 simula simulac simula-c: check-sys pre-simulation-build simulation post-simulation-build
@@ -38,7 +80,7 @@ else
 simula simulac simula-c: simula-up-develop-for-c
 endif
 
-os_version=$(shell grep -oP 'VERSION_ID=\K"(.+)"' /etc/os-release | tr -d '"')
+OS_VERSION=$(shell grep -oP 'VERSION_ID=\K"(.+)"' /etc/os-release | tr -d '"')
 
 check-sys:
 	@echo "TelAF Simulation pre-checking your system ..."
@@ -47,20 +89,36 @@ check-sys:
 	else \
 		if /bin/bash $(SIMULATION_SCRIPTS)/check_sys.sh ; then \
 			echo "Current system is [OK]"; \
-			echo -n "from $(os_version)" > $(SIMULATION_WORKDIR)/.check_done; \
+			echo -n "from $(OS_VERSION)" > $(SIMULATION_WORKDIR)/.check_done; \
 		else \
 			if [ -e $(SIMULATION_WORKDIR)/.check_done ]; then rm $(SIMULATION_WORKDIR)/.check_done; fi ; \
 			echo "Current system is [NOK], please check above log for details."; exit 1 ; \
 		fi \
 	fi
 
-pre-simulation-build: $(SIMULATION_HOME)/workstation/up_simulation.sh
+pre-simulation-build: $(SIMULATION_HOME)/workstation/up_simulation.sh $(SIMULATION_DEPS:%=%/lib)
 
+$(SIMULATION_SOMEIP_GW_DEPS_y:%=%/lib): simula-vsomeip
+
+post-simulation-build: CURRENT_SYSTEM_OUTPUT=$(TELAF_BUILD)/simulation/_staging_system.simulation.update_ro/systems/current
 post-simulation-build:
 	@echo "[Simulation]: Creating Tarball ..."
+ifneq ($(CHECK_SDK_ROOTFS),n)
+	@mkdir -p $(CURRENT_SYSTEM_OUTPUT)/sdk_rootfs
+	@cp -a $(sdk_rootfs)/* $(CURRENT_SYSTEM_OUTPUT)/sdk_rootfs
+endif
 	@tar cf $(SIMULATION_TARBALL) -C $(TELAF_BUILD)/simulation/_staging_system.simulation.update_ro .
 	@tar rf $(SIMULATION_TARBALL) -C $(SIMULATION_HOME)/workstation/ up_simulation.sh
 	@tar rf $(SIMULATION_TARBALL) -C $(SIMULATION_HOME)/workstation/ .check_done
+ifneq ($(TELAF_SIMULATION_ENABLE_SOMEIP_GW),n)
+	@tar rf $(SIMULATION_TARBALL) --exclude=install/boost/include \
+	                              --exclude=install/boost/lib/cmake \
+	                              --exclude=install/vsomeip/include \
+	                              --exclude=install/vsomeip/etc \
+	                              --exclude=install/vsomeip/lib/cmake \
+	                              --exclude=install/vsomeip/lib/pkgconfig \
+	                              -C $(SIMULATION_HOME)/deps/ install
+endif
 	@gzip -f $(SIMULATION_TARBALL)
 	@echo "[Simulation]: Tarball $(SIMULATION_TARBALL).gz done."
 
@@ -75,11 +133,11 @@ VSOMEIP_VERSION=$(_VSOMEIP_VERSION:%.tar.gz=vsomeip-%)
 
 define setup-simulation-dep
 	@if ! [ -e $(SIMULATION_DEPS_SOURCE)/.$(1).status ]; then \
-		$(MAKE) --no-print-directory $(1)_download $(1)_build $(1)_install ; \
+		$(MAKE) --no-print-directory simula-$(1)-download simula-$(1)-build simula-$(1)-install ; \
 	elif [ "`cat $(SIMULATION_DEPS_SOURCE)/.$(1).status`" = "Inited" ]; then \
-		$(MAKE) --no-print-directory $(1)_build $(1)_install ; \
+		$(MAKE) --no-print-directory simula-$(1)-build simula-$(1)-install ; \
 	elif [ "`cat $(SIMULATION_DEPS_SOURCE)/.$(1).status`" = "Compiled" ]; then \
-		$(MAKE) --no-print-directory $(1)_install ; \
+		$(MAKE) --no-print-directory simula-$(1)-install ; \
 	else \
 		echo "[$(1)] Ready" ; \
 	fi
@@ -247,6 +305,14 @@ vsomeip_status: $(SIMULATION_DEPS_SOURCE)/.vsomeip.status
 which_one_default := $(CURDIR)/simulation/which_one_default
 which_one := $(CURDIR)/simulation/workstation/.which_one
 get_which_one := `if [ -e $(which_one) ]; then cat $(which_one) ; else cat $(which_one_default) ; fi`
+which_one_point_version :=  $(shell echo $(get_which_one) | sed 's/\([0-9][0-9]\)/\1./')
+
+# If you want to specify a private hub address to get ubuntu base images, override 'from' in commands
+export from ?=
+
+ifneq ("$(origin from)","command line")
+export from := ubuntu:$(which_one_point_version)
+endif
 
 define up_simulation_container
 	@echo "Up Simulation with [$(1:up_%.sh=%)]"
@@ -254,9 +320,10 @@ define up_simulation_container
 	@echo "Down Simulation with [$(1:up_%.sh=%)], see you ~"
 endef
 
-define build_sml_docker_image
+define build_simulation_docker_image
 	@echo "[$@] build docker image..."
-	@docker compose -f "$(CURDIR)/simulation/docker/for_ubuntu_$(get_which_one)/docker-compose.yml" \
+	@export UBUNTU_DISTRO_ORIGIN=$(from) \
+	    && docker compose -f "$(CURDIR)/simulation/docker/for_ubuntu_$(get_which_one)/docker-compose.yml" \
 	    build telaf_simulation_$(1)_$(get_which_one)
 	@echo "[$@] image build done."
 endef
@@ -277,45 +344,54 @@ simula-help:
 	@echo "    > make simula-list"
 	@echo "    > make simula within='make simula'"
 	@echo
-	@echo " >> simula-action-args"
-	@echo "  - within='command'"
+	@echo "  >> simula-action-args"
+	@echo "    - within='command'"
+	@echo "    - from='hub-address'"
 	@echo
-	@echo " >> simula-action supported list as follows"
-	@echo "  - List & Switch simulation container distro system versions (default Ubuntu18.04)"
-	@echo "    + simula-list                    -- List all system distro versions simulation supported."
-	@echo "    + simula-distro-1804             -- Switch the system distro version to Ubuntu18.04"
-	@echo "    + simula-distro-2004             -- Switch the system distro version to Ubuntu20.04"
+	@echo "  >> simula-action supported list as follows"
+	@echo "    - List & Switch simulation container distro system versions (default Ubuntu18.04)"
+	@echo "      + simula-list                    -- List all system distro versions simulation supported."
+	@echo "      + simula-distro-1804             -- Switch the system distro version to Ubuntu18.04"
+	@echo "      + simula-distro-2004             -- Switch the system distro version to Ubuntu20.04"
 	@echo
-	@echo "  - Compile your simulation project on your HOST or CONTAINER"
-	@echo "    + simula | simulac               -- Incrementally compile simulation open source code on HOST"
-	@echo "    + simula-clean                   -- Just deep clean your simulation project"
-	@echo "    + simula within='<command>'      -- Incrementally compile simulation open source code in CONTAINER"
+	@echo "    - Compile your simulation project on your HOST or CONTAINER"
+	@echo "      + simula | simulac               -- Incrementally compile simulation open source code on HOST"
+	@echo "      + simula-clean                   -- Just deep clean your simulation project"
+	@echo "      + simula within='<command>'      -- Incrementally compile simulation open source code in CONTAINER"
 	@echo
-	@echo "  - Build your simulation docker containers cli, depends which system version you selected (see 'smlon')"
-	@echo "    + simula-build-runtime           -- Build a runtime docker image for running TelAF Simulation"
-	@echo "    + simula-build-develop           -- Build a develop docker image for developing Simulation in it"
-	@echo "    + simula-build-all               -- Build all docker images along with [runtime, develop, oncecmd]"
+	@echo "    - Build your simulation docker containers cli, depends which system version you selected (see 'simula-list')"
+	@echo "      + simula-build-runtime           -- Build a runtime docker image for running TelAF Simulation"
+	@echo "      + simula-build-develop           -- Build a develop docker image for developing Simulation in it"
+	@echo "      + simula-build-all               -- Build all docker images along with [runtime, develop, oncecmd]"
+	@echo "      + simula-build-runtime from='hub-address'"
+	@echo "                                       -- Specify a hub address you want to get the ubuntu base image and build it"
 	@echo
-	@echo "  - Boot up your simulation docker container that was built, depends which system version you selected (see 'smlon')"
-	@echo "    + simula-up | simula-up-runtime  -- Boot up the runtime container to simulate"
-	@echo "    + simula-up-develop              -- Boot up the develop container for developers"
+	@echo "    - Boot up your simulation docker container that was built, depends which system version you selected (see 'simula-list')"
+	@echo "      + simula-up | simula-up-runtime  -- Boot up the runtime container to simulate"
+	@echo "      + simula-upx| simula-upx-runtime -- Boot up multi-runtime-containers to simulate"
+	@echo "      + simula-up-develop              -- Boot up the develop container for developers"
 	@echo
-	@echo "  - Docker operation helper commands"
-	@echo "    + simula-listimg                 -- List all docker images on your host"
-	@echo "    + simula-listv                   -- List all volumes named along with 'telaf'"
-	@echo "    + simula-rmv                     -- Delete all volumes named along with 'telaf'"
+	@echo "    - Docker operation helper commands"
+	@echo "      + simula-listimg                 -- List all docker images on your host"
+	@echo "      + simula-listv                   -- List all volumes named along with 'telaf'"
+	@echo "      + simula-rmv                     -- Delete all volumes named along with 'telaf'"
 
 
 simula-buildall simula-build-all-docker-images: simula-build-runtime simula-build-develop
 
 simula-build simula-build-runtime:
-	$(call build_sml_docker_image,runtime)
+	$(call build_simulation_docker_image,runtime)
 
 simula-build-develop:
-	$(call build_sml_docker_image,develop)
+	$(call build_simulation_docker_image,develop)
 
 simula-up simula-up-runtime:
-	$(call up_simulation_container,up_runtime.sh)
+	$(call up_simulation_container,up_runtime_master.sh)
+
+# slave-x containers are daemons, start first.
+simula-upx simula-upx-runtime:
+	$(call up_simulation_container,up_runtime_slavex.sh)
+	$(call up_simulation_container,up_runtime_master.sh)
 
 simula-up-develop:
 	$(call up_simulation_container,up_develop.sh)

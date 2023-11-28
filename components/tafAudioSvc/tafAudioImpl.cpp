@@ -76,16 +76,32 @@ void taf_Audio::ClientSessionCloseEventHandler
 {
     auto &audio = taf_Audio::GetInstance();
     le_ref_IterRef_t iteratorRef;
+    LE_DEBUG("ClientSessionCloseEventHandler sessionRef : %p", sessionRef);
 
     // Close audio streams
     // This is a two stage process: parse audio stream reference map
     // once in order to close dsp frontend file play/capture streams
     // first, then parse it a second time to close remaining streams.
     iteratorRef = le_ref_GetIterator(audio.AudioRefMap);
+    bool isSessionMatched = false;
+    taf_SessionRefNode_t* sessionRefNodePtr;
+    le_dls_Link_t* lPtr;
     while (le_ref_NextNode(iteratorRef) == LE_OK)
     {
         taf_audio_Stream_t* audioStreamPtr = (taf_audio_Stream_t*) le_ref_GetValue(iteratorRef);
-        if (audioStreamPtr
+        lPtr = le_dls_Peek(&(audioStreamPtr->sessionRefList));
+        while (lPtr != NULL)
+        {
+            sessionRefNodePtr = CONTAINER_OF(lPtr, taf_SessionRefNode_t, refNodeLink);
+            lPtr = le_dls_PeekNext(&(audioStreamPtr->sessionRefList), lPtr);
+            if ( sessionRefNodePtr->sessionRef == sessionRef )
+            {
+                LE_DEBUG("StopAudio for audioStreamPtr %p", audioStreamPtr);
+                isSessionMatched = true;
+                break;
+            }
+        }
+        if (isSessionMatched && audioStreamPtr
                 && ((audioStreamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_PLAY)
                 || (audioStreamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE)))
         {
@@ -95,11 +111,24 @@ void taf_Audio::ClientSessionCloseEventHandler
     }
     // Reset map iterator and close remaining streams
     iteratorRef = le_ref_GetIterator(audio.AudioRefMap);
+    isSessionMatched = false;
 
     while (le_ref_NextNode(iteratorRef) == LE_OK)
     {
         taf_audio_Stream_t* audioStreamPtr = (taf_audio_Stream_t*) le_ref_GetValue(iteratorRef);
-        if(audioStreamPtr) {
+        lPtr = le_dls_Peek(&(audioStreamPtr->sessionRefList));
+        while (lPtr != NULL)
+        {
+            sessionRefNodePtr = CONTAINER_OF(lPtr, taf_SessionRefNode_t, refNodeLink);
+            lPtr = le_dls_PeekNext(&(audioStreamPtr->sessionRefList), lPtr);
+            if ( sessionRefNodePtr->sessionRef == sessionRef )
+            {
+                LE_DEBUG("StopAudio for audioStreamPtr %p", audioStreamPtr);
+                isSessionMatched = true;
+                break;
+            }
+        }
+        if(isSessionMatched && audioStreamPtr) {
             audio.StopAudio(audioStreamPtr);
             audio.DeleteStream(audioStreamPtr, sessionRef, true);
         }
@@ -492,6 +521,7 @@ le_result_t taf_Audio::StopAudio
             }
         }
     }
+    voiceStreamConfig = {};
     if (status == Status::SUCCESS) {
         LE_DEBUG("Stop successful");
     }
@@ -837,6 +867,10 @@ le_result_t taf_Audio::CreateandStart
                 isOutput = true;
             }
             if(isOutput)
+            LE_DEBUG("Output device exists!");
+
+#if defined(TARGET_SA525M)
+            if(isOutput && outputPtr->samplePcmConfig.sampleRate)
             {
                 if (voiceStreamConfig.sampleRate != 0)
                 {
@@ -849,9 +883,11 @@ le_result_t taf_Audio::CreateandStart
                 else
                 {
                     voiceStreamConfig.sampleRate = outputPtr->samplePcmConfig.sampleRate;
+                    LE_DEBUG("isOutput voiceStream sampling rate is set to:%d",
+                            voiceStreamConfig.sampleRate
+                            );
                 }
             }
-#if defined(TARGET_SA525M)
             bool isInput = false;
             // Set the config device type based on input device
             if (inputPtr->interface == TAF_AUDIO_IF_CODEC_MIC) {
@@ -882,7 +918,7 @@ le_result_t taf_Audio::CreateandStart
                 }
                 isInput = true;
             }
-            if(isInput)
+            if(isInput && inputPtr->samplePcmConfig.sampleRate)
             {
                 if (voiceStreamConfig.sampleRate != 0 )
                 {
@@ -895,6 +931,8 @@ le_result_t taf_Audio::CreateandStart
                 else
                 {
                     voiceStreamConfig.sampleRate = inputPtr->samplePcmConfig.sampleRate;
+                    LE_DEBUG("IsinputPtr voiceStream sampling rate is set to:%d",
+                            voiceStreamConfig.sampleRate);
                 }
             }
 #endif
@@ -907,11 +945,6 @@ le_result_t taf_Audio::CreateandStart
         {
             voiceStreamConfig.type = StreamType::VOICE_CALL;
             voiceStreamConfig.slotId = (SlotId)mSlotId;
-            if (voiceStreamConfig.sampleRate == 0)
-            {
-                voiceStreamConfig.sampleRate = 16000;
-                LE_INFO("setting default sampling rate as 16000");
-            }
             voiceStreamConfig.format = AudioFormat::PCM_16BIT_SIGNED;
             voiceStreamConfig.channelTypeMask = ChannelType::LEFT | ChannelType::RIGHT;
 
@@ -925,6 +958,11 @@ le_result_t taf_Audio::CreateandStart
 #if defined(TARGET_SA525M)
             if(voiceStreamConfig.deviceTypes.size() >= 2)
             {
+                if (voiceStreamConfig.sampleRate == 0)
+                {
+                    voiceStreamConfig.sampleRate = 16000;
+                    LE_INFO("setting default sampling rate as 16000");
+                }
                 res = StartAudio(voiceStreamConfig);
             }
             else {
@@ -932,6 +970,11 @@ le_result_t taf_Audio::CreateandStart
                 return res;
             }
 #else
+            if (voiceStreamConfig.sampleRate == 0)
+            {
+                voiceStreamConfig.sampleRate = 16000;
+                LE_INFO("setting default sampling rate as 16000");
+            }
             res = StartAudio(voiceStreamConfig);
 #endif
         } else {
@@ -2137,8 +2180,8 @@ static void* Play( void* ctxPtr) {
             if(!audio.mFreeBuffers.empty() && (audio.mEmptyPipeline)) {
                 audio.mStreamBuffer = audio.mFreeBuffers.front();
                 audio.mFreeBuffers.pop();
-                numBytes = fread(audio.mStreamBuffer->getRawBuffer(),1,size,audio.mFile);
 
+                numBytes = fread(audio.mStreamBuffer->getRawBuffer(),1,size,audio.mFile);
                 if(numBytes != size && !feof(audio.mFile)) {
                     LE_DEBUG( "Unable to read specified bytes, bytes read: %d", numBytes);
                     audio.mStreamBuffer->reset();
@@ -2419,8 +2462,11 @@ le_result_t taf_Audio::PlayFile
     {
         LE_DEBUG("close previous streamPtr->fd.%d of interface.%d",
                  streamPtr->fd, streamPtr->interface);
-
-        close(streamPtr->fd);
+        if(mFile && fileno(mFile)>=0) {
+            fclose(mFile);
+        } else {
+            LE_DEBUG("file already closed");
+        }
         streamPtr->fd = fd;
     }
 
@@ -2768,6 +2814,7 @@ void* taf_Audio::Record( void* ctxPtr) {
             le_clk_Time_t timeToWait = {0, waitTime * 1000};
             le_sem_WaitWithTimeOut(audio.mSemRef, timeToWait);
         }
+        audio.mFileFormat = AudioFormat::UNKNOWN;
         fflush(audio.mFile);
         fclose(audio.mFile);
         LE_INFO("File Recorded SuccessFully");
@@ -2843,7 +2890,11 @@ le_result_t taf_Audio::RecordFile
         LE_DEBUG("close previous streamPtr->fd.%d of interface.%d",
                  streamPtr->fd, streamPtr->interface);
         // close previous file
-        close(streamPtr->fd);
+        if(mFile && fileno(mFile)>=0) {
+            fclose(mFile);
+        } else {
+            LE_DEBUG("file already closed");
+        }
         streamPtr->fd = fd;
     }
     else

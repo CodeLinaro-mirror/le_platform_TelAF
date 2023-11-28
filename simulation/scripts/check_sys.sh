@@ -38,11 +38,11 @@ function check_user_umask ()
 {
     RESULT=0
     umask_val=`umask`
-    if [ "$umask_val" = "0022" ]
+    if [ "$umask_val" = "0022" -o "$umask_val" = "0002" ]
     then
         printf "%-30s ... %-20s ... [OK]\n" "Checking user umask" "$umask_val"
     else
-        printf "%-30s ... %-20s ... [NOK] <-- Please change your umask to '0022' manually.\n" "Checking user umask" "$umask_val"
+        printf "%-30s ... %-20s ... [NOK] <-- Please change your umask to '0022' or '0002' manually.\n" "Checking user umask" "$umask_val"
         RESULT=1
     fi
     return $RESULT
@@ -75,6 +75,42 @@ function check_gcc_gxx_version ()
     return $RESULT
 }
 
+function check_cgroup_version ()
+{
+    RESULT=0
+
+    if [ -d "/sys/fs/cgroup/freezer" ]
+    then
+        printf "%-30s ... %-20s ... [OK]\n" "CGROUP version" "V1"
+    else
+        printf "%-30s ... %-20s ... [NOK] <-- CGROUP V1 on the HOST is required\n" "CGROUP version" "V1"
+        RESULT=1
+    fi
+
+    return $RESULT
+}
+
+function check_docker_version ()
+{
+    RESULT=0
+    required_version="20.10.0"
+
+    if ! command -V docker &>/dev/null; then
+        printf "Please install the docker tool first ( >= $required_version )\n"
+        return 1
+    fi
+
+    docker_version=$(docker --version | awk '{print $3}' | cut -d ',' -f1)
+
+    if [[ "$(printf '%s\n' "$required_version" "$docker_version" | sort -V | head -n 1)" == "$required_version" ]]; then
+        printf "%-30s ... %-20s ... [OK] >= $required_version\n" "Docker version" "$required_version"
+    else
+        printf "%-30s ... %-20s ... [NOK] version < $required_version\n" "Docker version" "$required_version"
+        RESULT=1
+    fi
+    return $RESULT
+}
+
 ERR_EXIT='exit 1'
 
 total_packages_checking="
@@ -104,7 +140,11 @@ if ! check_system_version ; then
     eval $ERR_EXIT
 elif ! check_package_install $total_packages_checking ; then
     eval $ERR_EXIT
+elif ! check_docker_version ; then
+    eval $ERR_EXIT
 elif ! check_gcc_gxx_version ; then
+    eval $ERR_EXIT
+elif ! check_cgroup_version ; then
     eval $ERR_EXIT
 elif ! check_user_umask ; then
     eval $ERR_EXIT

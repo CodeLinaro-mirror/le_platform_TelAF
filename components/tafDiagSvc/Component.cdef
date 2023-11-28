@@ -1,0 +1,46 @@
+provides:
+{
+    api:
+    {
+        taf_diagRoutineCtrl.api
+        taf_diagUpdate.api
+        taf_diagReset.api
+        taf_diagSecurity.api
+    }
+}
+
+requires:
+{
+    component:
+    {
+        $TELAF_ROOT/components/tafUDSStack
+    }
+}
+
+cxxflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+    -I$TELAF_ROOT/include
+    -I$TELAF_ROOT/components/tafUDSStack
+}
+
+cflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+    -I$TELAF_ROOT/include
+    -I$TELAF_ROOT/components/tafUDSStack
+}
+
+sources:
+{
+        tafRoutineCtrlSvc.cpp
+        tafRoutineCtrlSvrImpl.cpp
+        tafUpdateSvc.cpp
+        tafUpdateSvrImpl.cpp
+        tafResetSvc.cpp
+        tafResetSvrImpl.cpp
+        tafSecuritySvc.cpp
+        tafSecuritySvrImpl.cpp
+        tafDiagFrontend.cpp
+        tafDiagBackend.cpp
+}

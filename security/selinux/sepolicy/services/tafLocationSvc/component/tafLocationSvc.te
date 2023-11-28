@@ -3,6 +3,10 @@
 
 policy_module(tafLocationSvc, 1.0)
 
+gen_require(`
+  type debugfs_t;
+')
+
 # Framework definition for telaf
 type telaf_tafLocationSvc_exec_t;
 files_type(telaf_tafLocationSvc_exec_t);
@@ -19,6 +23,9 @@ telux_allow_loc_data(telaf_tafLocationSvc_t)
 location_access_loc_bootkpi(telaf_tafLocationSvc_t)
 telux_allow_loc_config(telaf_tafLocationSvc_t)
 ')
+
+# Allow tafLocationSvc to search dir in debugfs
+allow telaf_tafLocationSvc_t debugfs_t:dir { search_dir_perms };
 
 # Allow update daemon to install/uninstall this service
 telaf_admin_manage_all_files_perms(telaf_tafLocationSvc_data_t)

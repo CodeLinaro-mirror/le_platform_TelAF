@@ -25,6 +25,7 @@ apps:
     $TELAF_ROOT/apps/tafServices/tafVNW/tafCanSvc
     $TELAF_ROOT/apps/tafServices/tafSomeipGWSvc
     $TELAF_ROOT/apps/tafMngdServices/Connectivity/tafMngdConnSvc
+    $TELAF_ROOT/apps/tafServices/tafDiagSvc
 
     // Command-line tools.
     $LEGATO_ROOT/apps/tools/tools
@@ -64,6 +65,9 @@ apps:
     // $TELAF_ROOT/apps/test/tafFSCryptTest/tafFSCryptUnitTest/tafFSCryptUnitTest
     // $TELAF_ROOT/apps/test/tafSomeipGWTest/tafSomeipSvrUnitTest/tafSomeipSvrUnitTest
     // $TELAF_ROOT/apps/test/tafSomeipGWTest/tafSomeipClntUnitTest/tafSomeipClntUnitTest
+    // $TELAF_ROOT/apps/test/tafAudioTest/tafAudioUnitTest/tafAudioUnitTest
+    // $TELAF_ROOT/apps/sample/diagApp/tafDiagApp
+    // $TELAF_ROOT/apps/test/tafAdefTest/tafAdefUnitTest
 }
 
 commands:
@@ -79,6 +83,8 @@ bindings:
     <c2c>.taf_appMgmt -> tafUpdateSvc.taf_appMgmt
     <c2c>.taf_fwupdate -> tafUpdateSvc.taf_fwupdate
     <c2c>.taf_dcs -> tafDataCallSvc.taf_dcs
+    <telaf>.DeviceManager -> <root>.DeviceManager
+    <root>.DeviceManagerTool -> <root>.DeviceManagerTool
 }
 
 interfaceSearch:

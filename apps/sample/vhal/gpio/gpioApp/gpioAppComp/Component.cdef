@@ -1,0 +1,25 @@
+requires:
+{
+    component:
+    {
+        $TELAF_ROOT/components/tafHalComp
+    }
+
+    lib:
+    {
+
+    }
+}
+
+cxxflags:
+{
+    -I$LEGATO_ROOT/framework/liblegato/linux
+    -I$TELAF_ROOT/include
+    -I$TELAF_ROOT/components/tafHalComp
+
+}
+
+sources:
+{
+    gpioApp.cpp
+}

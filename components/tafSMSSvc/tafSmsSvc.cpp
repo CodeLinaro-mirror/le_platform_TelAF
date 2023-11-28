@@ -1243,7 +1243,10 @@ taf_sms_LockStatus_t taf_sms_GetLockStatus
 
    taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(mySms.MsgRefMap, msgRef);
 
-   TAF_ERROR_IF_RET_VAL(msgPtr == NULL, TAF_SMS_LKSTS_UNKNOWN, "msgPtr is NULL!");
+   TAF_ERROR_IF_RET_VAL(msgPtr == nullptr, TAF_SMS_LKSTS_UNKNOWN, "msgPtr is NULL!");
+
+   TAF_ERROR_IF_RET_VAL(msgPtr->storage == TAF_SMS_STORAGE_SIM,
+      TAF_SMS_LKSTS_UNKNOWN, "Lock status not supported for SIM storage");
 
    return msgPtr->lockStatus;
 }
@@ -1700,7 +1703,10 @@ le_result_t taf_sms_LockFromStorage
 
    taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(mySms.MsgRefMap, msgRef);
 
-   TAF_ERROR_IF_RET_VAL(msgPtr == NULL, LE_NOT_FOUND, "Invalid msgPtr provided");
+   TAF_ERROR_IF_RET_VAL(msgPtr == nullptr, LE_NOT_FOUND, "Invalid msgPtr provided");
+
+   TAF_ERROR_IF_RET_VAL(msgPtr->storage == TAF_SMS_STORAGE_SIM,
+      LE_NOT_PERMITTED, "Lock status not supported for SIM storage");
 
    le_result_t res = taf_sms_hlos_SetLockStatus(msgPtr->storage, msgPtr->storageIdx, TAF_SMS_LKSTS_LOCKED);
 
@@ -1741,7 +1747,10 @@ le_result_t taf_sms_UnlockFromStorage
 
    taf_sms_Msg_t* msgPtr = (taf_sms_Msg_t*)le_ref_Lookup(mySms.MsgRefMap, msgRef);
 
-   TAF_ERROR_IF_RET_VAL(msgPtr == NULL, LE_NOT_FOUND, "Invalid msgPtr provided");
+   TAF_ERROR_IF_RET_VAL(msgPtr == nullptr, LE_NOT_FOUND, "Invalid msgPtr provided");
+
+   TAF_ERROR_IF_RET_VAL(msgPtr->storage == TAF_SMS_STORAGE_SIM,
+      LE_NOT_PERMITTED, "Lock status not supported for SIM storage");
 
    le_result_t res = taf_sms_hlos_SetLockStatus(msgPtr->storage, msgPtr->storageIdx, TAF_SMS_LKSTS_UNLOCKED);
 

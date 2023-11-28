@@ -1,0 +1,40 @@
+sources:
+{
+    gpio/tafMngdPMGpio.cpp
+    can/tafMngdPMCan.cpp
+    sms/tafMngdPMSms.cpp
+    tafMngdPMSvc.cpp
+}
+
+provides:
+{
+    api:
+    {
+        $TELAF_ROOT/apps/tafMngdServices/interfaces/taf_mngd_pm.api
+    }
+}
+
+requires:
+{
+    api:
+    {
+        taf_can.api
+        taf_sms.api
+        taf_pm.api
+        taf_gpio.api
+    }
+}
+
+cxxflags:
+{
+    -I$TELAF_ROOT/include
+    -I$TELAF_ROOT/apps/tafMngdServices/PM/Components/tafMngdPMSvc
+    -I$TELAF_ROOT/apps/tafMngdServices/PM/Components/tafMngdPMSvc/can/tafMngdPMCan
+    -I$TELAF_ROOT/apps/tafMngdServices/PM/Components/tafMngdPMSvc/gpio/tafMngdPMGpio
+    -I$TELAF_ROOT/apps/tafMngdServices/PM/Components/tafMngdPMSvc/sms/tafMngdPMSms
+}
+
+ldflags:
+{
+    -lboost_filesystem
+}

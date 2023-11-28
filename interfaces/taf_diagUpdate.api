@@ -1,0 +1,619 @@
+/*
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/**
+ * @page c_tafDiagUpdate Diag Update Service
+ *
+ * @ref taf_diagUpdate_service.h "API Reference"
+ *
+ * <HR>
+ *
+ * The diag update service APIs are used by applications to handle transfer requests from UDS
+ * clients. The diag update service includes the TransferData(0x36), RequestTransferExit(0x37), and
+ * RequestFileTransfer(0x38) services.
+ *
+ * @section c_taf_diagUpdate_binding IPC interfaces binding
+ *
+ * All functions of this API are provided by the @b tafDiagSvc platform service.
+ *
+ * The following example illustrates how to bind to the diag update service.
+ *
+ * @verbatim
+   bindings:
+   {
+        clientExe.clientComponent.taf_diagUpdate -> tafDiagSvc.taf_diagUpdate
+   }
+   @endverbatim
+ *
+ * @section c_taf_diag_update_file_transfer Request file transfer
+ *
+ * After getting a reference, an application registers a file transfer handler using
+ * taf_diagUpdate_AddRxFileXferMsgHandler(). Once a file transfer request message is received, the
+ * handler will be called indicating the new message.
+ *
+ * @code
+   diagFileXferMsgRef = taf_diagUpdate_AddRxFileXferMsgHandler( diagUpdateSvcRef,
+            fileXferMsgHandler, NULL );
+   @endcode
+ *
+ * An application can get a file path and name, and length by using
+ * taf_diagUpdate_GetFilePathAndName().
+ *
+ * @code
+   result = taf_diagUpdate_GetFilePathAndName( rxMsgRef,
+            (uint8_t *)filePathAndName, &fileLen );
+   if (result != LE_OK)
+   {
+        LE_ERROR("Fail to get file path and name, and length.");
+        return result;
+   }
+   @endcode
+ *
+ * An application can send a file transfer response by using taf_diagUpdate_SendFileXferResp().
+ *
+ * @code
+   result = taf_diagUpdate_SendFileXferResp(rxMsgRef, TAF_DIAGUPDATE_FILE_XFER_NO_ERROR);
+   if (result != LE_OK)
+   {
+        LE_ERROR("Fail to send response.");
+        return result;
+   }
+   @endcode
+ *
+ * The following APIs are provided for request file transfer.
+ *
+ * - taf_diagUpdate_AddRxFileXferMsgHandler() -- Adds a handler function for the specified event.
+ * - taf_diagUpdate_RemoveRxFileXferMsgHandler() -- Removes a handler function for the specified event.
+ * - taf_diagUpdate_GetFilePathAndName() -- Gets the file path and name.
+ * - taf_diagUpdate_GetDataFormatID() -- Gets the data format ID.
+ * - taf_diagUpdate_GetUnCompFileSize() -- Gets the size of the uncompressed file.
+ * - taf_diagUpdate_GetCompFileSize() -- Gets the size of the compressed file.
+ * - taf_diagUpdate_SendFileXferResp() -- Sends a response message for the file transfer message.
+
+ * @section c_taf_diag_update_transfer_data Transfer data
+ *
+ * An application registers a transfer data handler using taf_diagUpdate_AddRxXferDataMsgHandler().
+ * Once a transfer data request message is received, the handler will be called indicating the new
+ * message.
+ *
+ * @code
+   diagXferDataMsgRef = taf_diagUpdate_AddRxXferDataMsgHandler( diagUpdateSvcRef,
+            xferDataMsgHandler, NULL );
+   @endcode
+ *
+ * An application can get the data length and payload by using
+ * taf_diagUpdate_GetXferDataParamRecLen() and taf_diagUpdate_GetXferDataParamRec() referring to the
+ * following sample code snippets.
+ *
+ * @code
+   result = taf_diagUpdate_GetXferDataParamRecLen( rxMsgRef, (uint16_t *)&xferDataLen);
+   if (result != LE_OK)
+   {
+        LE_ERROR("Fail to get data length.");
+        return result;
+   }
+   @endcode
+ *
+ * @code
+   result = taf_diagUpdate_GetXferDataParamRec( rxMsgRef, xferData, &xferDataLen);
+   if (result != LE_OK)
+   {
+        LE_ERROR("Fail to get data payload.");
+        return result;
+   }
+   @endcode
+ *
+ * An application can send a transfer data response by using taf_diagUpdate_SendXferDataResp().
+ *
+ * @code
+   result = taf_diagUpdate_SendXferDataResp( rxMsgRef, TAF_DIAGUPDATE_XFER_DATA_NO_ERROR , NULL, 0);
+   if (result != LE_OK)
+   {
+      LE_ERROR("Fail to send response.");
+      return result;
+   }
+   @endcode
+ *
+ * The following APIs are provided for transfer data.
+ *
+ * - taf_diagUpdate_AddRxXferDataMsgHandler() -- Adds a handler function for the specified event.
+ * - taf_diagUpdate_RemoveRxXferDataMsgHandler() -- Removes a handler function for the specified event.
+ * - taf_diagUpdate_GetblockSeqCount() -- Gets the block sequence counter.
+ * - taf_diagUpdate_GetXferDataParamRecLen() -- Gets the data length.
+ * - taf_diagUpdate_GetXferDataParamRec() -- Gets the data payload.
+ * - taf_diagUpdate_SendXferDataResp() -- Sends a response message for the transfer data message.
+ *
+ * @section c_taf_diag_update_transfer_exit Request transfer exit
+ *
+ * An application registers a transfer exit handler using taf_diagUpdate_AddRxXferExitMsgHandler().
+ * Once a transfer exit request message is received, the handler will be called indicating the new
+ * message.
+ *
+ * @code
+   diagXferExitMsgRef = taf_diagUpdate_AddRxXferExitMsgHandler( diagUpdateSvcRef,
+            xferExitMsgHandler, NULL );
+   @endcode
+ *
+ * An application can send a transfer exit response by using taf_diagUpdate_SendXferDataResp().
+ *
+ * @code
+   result = taf_diagUpdate_SendXferExitResp( rxMsgRef, TAF_DIAGUPDATE_XFER_EXIT_NO_ERROR, NULL, 0 );
+   if (result != LE_OK)
+   {
+        LE_ERROR("Fail to send response.");
+        return result;
+   }
+   @endcode
+ *
+ * The following APIs are provided for request transfer exit.
+ *
+ * - taf_diagUpdate_AddRxXferExitMsgHandler() -- Adds a handler function for the specified event.
+ * - taf_diagUpdate_RemoveRxXferExitMsgHandler() -- Removes a handler function for the specified event.
+ * - taf_diagUpdate_GetXferExitParamRec() -- Gets the transfer request parameter record.
+ * - taf_diagUpdate_SendXferExitResp() -- Sends a response message for the transfer exit message.
+ *
+ * The following APIs are provided for service reference.
+ *
+ * - taf_diagUpdate_GetService() -- Gets the reference to a diag update service.
+ * - taf_diagUpdate_RemoveSvc() -- Removes the daig update service.
+ *
+ * <HR>
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+
+USETYPES taf_types.api;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The maximum size of the payload data in bytes.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_PAYLOAD_SIZE = 4095;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The maximum size of the FilePathAndName.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_PATH_AND_NAME_SIZE = 1024;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The maximum size of the transferRequestParameterRecord.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_XFER_PARAM_REC_SIZE = 4089;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Request file transfer mode of operationType.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM ModeOfOpsType
+{
+    ADD_FILE = 0x01,    ///< Add a file.
+    DELETE_FILE         ///< Delete a file.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Error code for RequestFileTransfer.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM FileXferErrorCode
+{
+    FILE_XFER_NO_ERROR = 0,                         ///< Success.
+    FILE_XFER_CONDITIONS_NOT_CORRECT = 0x22,        ///< Condition is not correct.
+    FILE_XFER_UPLOAD_DOWNLOAD_NOT_ACCEPTED = 0x70   ///< Operation is not accepted.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Error code for TransferData.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM XferDataErrorCode
+{
+    XFER_DATA_NO_ERROR = 0,                         ///< Success.
+    XFER_DATA_GENERAL_PROGRAMMING_FAILURE = 0x72,   ///< Programming failure.
+    XFER_DATA_VOLTAGE_TOO_HIGH = 0x92,              ///< Voltage is too high.
+    XFER_DATA_VOLTAGE_TOO_LOW = 0x93                ///< Voltage is too low.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Error code for RequestTransferExit.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM XferExitErrorCode
+{
+    XFER_EXIT_NO_ERROR = 0,                         ///< Success.
+    XFER_EXIT_GENERAL_PROGRAMMING_FAILURE = 0x72    ///< Programming failure.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reference to the update service.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE Service;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reference to the RequestFileTransfer received message.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE RxFileXferMsg;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reference to the RequestFileTransfer received message.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE RxXferDataMsg;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reference to the RequestFileTransfer received message.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE RxXferExitMsg;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the reference to a Diag update service, if there's no Diag update service,
+ * a new one will be created.
+ *
+ * @return
+ *     - Reference to the service instance.
+ *     - NULL if not allowed to create the service.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Service GetService
+(
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for a RequestFileTransfer message.
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER RxFileXferMsgHandler
+(
+    RxFileXferMsg rxMsgRef IN,     ///< Received message reference.
+    ModeOfOpsType modeOfOps IN     ///< Mode of operation
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This event provides information on RequestFileTransfer message.
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT RxFileXferMsg
+(
+    Service svcRef IN,              ///< Service reference.
+    RxFileXferMsgHandler handler    ///< Received message handler.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the file path and name of the Rx RequestFileTransfer message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_OVERFLOW -- Payload size is too small.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetFilePathAndName
+(
+    RxFileXferMsg rxMsgRef                  IN,    ///< Receive message reference.
+    uint8 fileName[MAX_PATH_AND_NAME_SIZE]  OUT    ///< File path and name.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the data format ID of the Rx RequestFileTransfer message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetDataFormatID
+(
+    RxFileXferMsg rxMsgRef  IN,    ///< Receive message reference.
+    uint8 dataFormatID      OUT    ///< Data format ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the size of the uncompressed file of the Rx RequestFileTransfer message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetUnCompFileSize
+(
+    RxFileXferMsg rxMsgRef  IN,    ///< Received message reference.
+    uint32 unCompFileSize   OUT    ///< Size of the uncompressed file.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the size of the compressed file of the Rx RequestFileTransfer message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetCompFileSize
+(
+    RxFileXferMsg rxMsgRef  IN,    ///< Received message reference.
+    uint32 compFileSize     OUT    ///< Size of the compressed file.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sends a response message for the Rx RequestFileTransfer message.
+ *
+ * @note This function must be called to send a response
+ *       if receiving a RequestFileTransfer message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_FAULT -- Failed.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SendFileXferResp
+(
+    RxFileXferMsg rxMsgRef       IN,    ///< Received message reference.
+    FileXferErrorCode errCode    IN     ///< Error code type.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for a TransferData message.
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER RxXferDataMsgHandler
+(
+    RxXferDataMsg rxMsgRef IN    ///< Received message reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This event provides information on TransferData message.
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT RxXferDataMsg
+(
+    Service svcRef IN,              ///< Service reference.
+    RxXferDataMsgHandler handler    ///< Received message handler.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the block sequence counter of the Rx TransferData message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetblockSeqCount
+(
+    RxXferDataMsg rxMsgRef IN,    ///< Received message reference.
+    uint8 count            OUT    ///< Block sequence counter.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the the data request record length of the Rx TransferData message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetXferDataParamRecLen
+(
+    RxXferDataMsg rxMsgRef    IN,    ///< Received message reference.
+    uint16 xferDataRecLen     OUT    ///< Transfer data request parameter record length.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the transfer data request record of the Rx TransferData message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_OVERFLOW -- Payload size is too small.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetXferDataParamRec
+(
+    RxXferDataMsg rxMsgRef                      IN,    ///< Received message reference.
+    uint8 xferDataRec[MAX_XFER_PARAM_REC_SIZE]  OUT    ///< Transfer data request parameter record.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sends a response message for the Rx TransferData message.
+ *
+ * @note This function must be called to send a response
+ *       if receiving a TransferData message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_FAULT -- Failed.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SendXferDataResp
+(
+    RxXferDataMsg rxMsgRef        IN,    ///< Received message reference.
+    XferDataErrorCode errCode     IN,    ///< Error code type.
+    uint8 data[MAX_PAYLOAD_SIZE]  IN     ///< Payload data.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for a RequestTransferExit message.
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER RxXferExitMsgHandler
+(
+    RxXferExitMsg rxMsgRef IN    ///< Received message reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This event provides information on RequestTransferExit message.
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT RxXferExitMsg
+(
+    Service svcRef IN,              ///< Service reference.
+    RxXferExitMsgHandler handler    ///< Received message handler.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the length of the received RequestTransferExit message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetXferExitParamRecLen
+(
+    RxXferExitMsg rxMsgRef    IN,    ///< Received message reference.
+    uint16 exitDataRecLen     OUT    ///< Transfer exit request parameter record length.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the transfer exit request parameter record of the Rx RequestTransferExit message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_OVERFLOW -- Payload size is too small.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetXferExitParamRec
+(
+    RxXferExitMsg rxMsgRef                      IN,    ///< Received message reference.
+    uint8 exitDataRec[MAX_XFER_PARAM_REC_SIZE]  OUT    ///< Transfer exit request parameter record.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sends a response message for the Rx RequestTransferExit message.
+ *
+ * @note This function must be called to send a response
+ *       if receiving a RequestTransferExit message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_FAULT -- Failed.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SendXferExitResp
+(
+    RxXferExitMsg rxMsgRef        IN,    ///< Received message reference.
+    XferExitErrorCode errCode     IN,    ///< Error code type.
+    uint8 data[MAX_PAYLOAD_SIZE]  IN     ///< Payload data.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Removes the Update server service.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t RemoveSvc
+(
+    Service svcRef  IN    ///< Service reference.
+);

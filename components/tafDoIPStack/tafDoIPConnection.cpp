@@ -102,7 +102,7 @@ taf_doip_Result_t Connection::Start()
 
     inBuf   = (taf_doip_Buffer_t*)le_mem_ForceAlloc(connectionMgr->inMsgPool);
     memset(inBuf, 0, sizeof(taf_doip_Buffer_t));
-    LE_INFO("Alloc a buffer(%p) for reception", inBuf);
+    LE_DEBUG("Alloc a buffer(%p) for reception", inBuf);
 
     //outBuf  = (taf_doipBuffer_t*)le_mem_ForceAlloc(mgr->msgPool);
     //memset(outBuf, 0, sizeof(taf_doipBuffer_t));
@@ -165,7 +165,7 @@ taf_doip_Result_t Connection::Start()
     LE_DEBUG("Set connection state machine into initialized");
     ConnectionStateMachine(TAF_DOIP_CONNECT_STATE_INITIALIZED, 0);
 
-    LE_INFO("Connection start successfully");
+    LE_DEBUG("Connection start successfully");
     return TAF_DOIP_RESULT_OK;
 
 errOut:
@@ -597,12 +597,7 @@ errOut:
     }
 
     // [DoIP-038],[DoIP-087]
-    auto& parser = ProtocolParser::GetInstance();
-    taf_doipLink_t link;
-
-    link.commType = TAF_DOIP_SOCKET_TYPE_TCP;
-    link.sockRef = cliSockRef;
-    parser.HeaderNegativeACK(&link, nackCode);
+    RespondHeaderNegativeACK(nackCode);
 
     return TAF_DOIP_RESULT_HDR_ERROR;
 }
@@ -644,8 +639,6 @@ void Connection::ProcessDoipMessage
         parser.AliveCheckRes(&link, testerSA);
         break;
     case TAF_DOIP_PAYLOAD_TYPE_ALIVE_CHECK_RESPONSE:
-
-
         LE_DEBUG("Alive check response is receiving.\n");
         AliveCheckResHandler(buffer->data + payloadPos,
                              payloadLen);
@@ -711,6 +704,7 @@ void Connection::RoutingActiveReqHandler
         TAF_DOIP_PAYLOAD_RA_ALL_LEN != payloadLen)
     {
         LE_ERROR("Invalid payload length.\n");
+        RespondHeaderNegativeACK(TAF_DOIP_HEADER_NACK_INVALID_PAYLOAD_LENGTH);
         return;
     }
 
@@ -1007,10 +1001,7 @@ void Connection::AliveCheckResHandler
     if (payloadLen != TAF_DOIP_LOGICAL_ADDRESS_LENGTH)
     {
         LE_ERROR("Invalid payload length(0x%x)!", payloadLen);
-        // Send DoIP header nack
-        link.commType = TAF_DOIP_SOCKET_TYPE_TCP;
-        link.sockRef = cliSockRef;
-        parser.HeaderNegativeACK(&link, TAF_DOIP_HEADER_NACK_INVALID_PAYLOAD_LENGTH);
+        RespondHeaderNegativeACK(TAF_DOIP_HEADER_NACK_INVALID_PAYLOAD_LENGTH);
         return;
     }
 
@@ -1146,7 +1137,6 @@ void Connection::DiagnosticMsgSvrSecondHandler
     taf_doipLink_t          link;
     uint32_t                pos = 0UL;
 
-    auto& cm = CommunicationMgr::GetInstance();
     auto& parser = ProtocolParser::GetInstance();
     auto&       vehicleMgr = VehicleManager::GetInstance();
     uint32_t    mds;
@@ -1154,16 +1144,10 @@ void Connection::DiagnosticMsgSvrSecondHandler
     link.commType = TAF_DOIP_SOCKET_TYPE_TCP;
     link.sockRef = cliSockRef;
 
-    if (cm.QueryPowerMode() != TAF_DOIP_POWER_MODE_READY)
-    {
-        LE_ERROR("Power mode is not ready for diagnostic!\n");
-        goto errOut2;
-    }
-
     if (udsTotalLen <= (TAF_DOIP_LOGICAL_ADDRESS_LENGTH * 2))
     {
         // Diagnostic payload length is at least 5 bytes.
-        parser.HeaderNegativeACK(&link, TAF_DOIP_HEADER_NACK_INVALID_PAYLOAD_LENGTH);
+        RespondHeaderNegativeACK(TAF_DOIP_HEADER_NACK_INVALID_PAYLOAD_LENGTH);
         goto errOut2;
     }
 
@@ -1414,4 +1398,24 @@ void Connection::AliveCheckTimerHandler
 
     // Close the connection and remove it.
     connectionPtr->ConnectionStateMachine(TAF_DOIP_CONNECT_STATE_FINALIZE, 0);
+}
+
+void Connection::RespondHeaderNegativeACK
+(
+    taf_doipHeaderNACKCode_t nackCode
+)
+{
+    auto& parser = ProtocolParser::GetInstance();
+    taf_doipLink_t link;
+
+    link.commType = TAF_DOIP_SOCKET_TYPE_TCP;
+    link.sockRef = cliSockRef;
+    parser.HeaderNegativeACK(&link, nackCode);
+
+    // [DoIP-087] Close socket if 'Incorrect pattern format' and Invalid payload length.
+    if (nackCode == TAF_DOIP_HEADER_NACK_INCORRECT_PATTERN_FORMAT
+        || nackCode == TAF_DOIP_HEADER_NACK_INVALID_PAYLOAD_LENGTH)
+    {
+        ConnectionStateMachine(TAF_DOIP_CONNECT_STATE_FINALIZE, 0);
+    }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -53,7 +53,7 @@ using namespace std;
  */
 #define TAF_TAG_PREFIX   "taf"
 
-#define TAF_WS_NAME_FORMAT TAF_TAG_PREFIX"_%s_%s"
+#define TAF_WS_NAME_FORMAT TAF_TAG_PREFIX"_%s_%p"
 #define TAF_WS_PROCNAME_LEN 30
 #define TAF_WS_NAME_LEN (sizeof(TAF_TAG_PREFIX) + TAF_PM_TAG_LEN + TAF_WS_PROCNAME_LEN + 3)
 
@@ -73,6 +73,7 @@ typedef struct
     uint32_t      cookie;
     char          name[TAF_WS_NAME_LEN];
     pid_t         clientPid;
+    le_msg_SessionRef_t sessionRef;
     uint32_t      acquired;
     bool          isRef;
     void          *wsRef;
@@ -83,6 +84,8 @@ taf_ws_t;
 
 #define TAF_PM_VM_LIST_POOL_SIZE   5
 #define TAF_PM_VM_INFO_POOL_SIZE   5
+#define SET_STATE_TIMEOUT 5
+#define SIZE_OF_STRING_ALL_MACHINES 13
 
 /*
  * @brief The struct of virtual machine info.
@@ -103,6 +106,7 @@ typedef struct
     le_sls_Link_t* currPtr;
     taf_pm_VMListRef_t ref;
 } taf_PMVmList_t;
+
 #endif
 
 #define TAF_PM_WAKEUP_SOURCE_COOKIE 0xa1f6337b
@@ -201,7 +205,6 @@ namespace tafsvc {
         le_result_t StayAwake( taf_pm_WakeupSourceRef_t w);
         le_result_t Relax( taf_pm_WakeupSourceRef_t w);
         taf_pm_State_t GetPowerState();
-        le_result_t SetPowerState(taf_pm_State_t state, const char *machineName);
         const char* tcuStateToString(telux::power::TcuActivityState state);
         taf_pm_StateChangeHandlerRef_t AddStateChangeHandler
                 (taf_pm_StateChangeHandlerFunc_t handlerPtr, void* contextPtr);
@@ -211,6 +214,7 @@ namespace tafsvc {
         le_mem_PoolRef_t vmListPool;
         le_mem_PoolRef_t vmInfoPool;
         le_ref_MapRef_t vmListRefMap;
+        le_result_t SetPowerState(taf_pm_State_t state, const char *machineName);
         taf_pm_VMListRef_t GetMachineList();
         le_result_t GetFirstMachineName(taf_pm_VMListRef_t vmListRef,
                 char* vmNamePtr, size_t vmNamePtrSize);

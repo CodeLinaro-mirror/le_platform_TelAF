@@ -357,15 +357,12 @@ le_result_t taf_Update::ParsePackage(const char* file)
         taf_update_StateInd_t stateInd;
         stateInd.ota = TAF_UPDATE_FOTA;
         stateInd.state = TAF_UPDATE_DOWNLOAD_SUCCESS;
-        le_utf8_Copy(stateInd.name, "firmware", TAF_UPDATE_MAX_PKG_NAME_LEN, NULL);
+        le_utf8_Copy(stateInd.name, TAF_UPDATE_FOTA_PAKCAGE_FILE_PATH,
+            TAF_UPDATE_MAX_PKG_NAME_LEN, NULL);
         le_event_Report(tafUpdate.stateEvId, &stateInd, sizeof(taf_update_StateInd_t));
 
         LE_INFO("FOTA package downloaded successfully.");
         tafUpdate.downloadState = TAF_UPDATE_IDLE;
-
-        auto &tafFwUpdate = taf_FwUpdate::GetInstance();
-        tafFwUpdate.isLocalUpgrade = false;
-        tafUpdate.WriteFs(TAF_FWUPDATE_FOTA_IS_LOCAL, (uint8_t*)&tafFwUpdate.isLocalUpgrade, sizeof(bool));
     } else {
         LE_INFO("Parsing app bundle.");
         TAF_ERROR_IF_RET_VAL(tafUpdate.ParseBundle(file) != LE_OK, LE_FAULT,
@@ -373,50 +370,6 @@ le_result_t taf_Update::ParsePackage(const char* file)
     }
 
     return LE_OK;
-}
-
-/*======================================================================
- FUNCTION        taf_Update::WriteFs
- DESCRIPTION     Write file
- PARAMETERS      [IN] filePath: File path.
-                 [IN] buffer: Buffer to write.
-                 [IN] bufferSize: Buffer size
- RETURN VALUE    void
-======================================================================*/
-void taf_Update::WriteFs(const char* filePath, uint8_t* buffer, size_t bufferSize)
-{
-    le_fs_FileRef_t fileRef;
-    le_result_t res = le_fs_Open(filePath, LE_FS_CREAT | LE_FS_WRONLY, &fileRef);
-    TAF_ERROR_IF_RET_NIL(res != LE_OK, "Fail to open file.");
-
-    res = le_fs_Write(fileRef, buffer, bufferSize);
-    if (res != LE_OK) {
-        LE_ERROR("Fail to write file.");
-    }
-
-    le_fs_Close(fileRef);
-}
-
-/*======================================================================
- FUNCTION        taf_Update::ReadFs
- DESCRIPTION     Read file
- PARAMETERS      [IN] filePath: File path.
-                 [IN] buffer: Buffer to read.
-                 [IN] bufferSize: Buffer size
- RETURN VALUE    void
-======================================================================*/
-void taf_Update::ReadFs(const char* filePath, uint8_t* buffer, size_t bufferSize)
-{
-    le_fs_FileRef_t fileRef;
-    le_result_t res = le_fs_Open(filePath, LE_FS_RDONLY, &fileRef);
-    TAF_ERROR_IF_RET_NIL(res != LE_OK, "Fail to open file.");
-
-    res = le_fs_Read(fileRef, buffer, &bufferSize);
-    if (res != LE_OK) {
-        LE_ERROR("Fail to read file.");
-    }
-
-    le_fs_Close(fileRef);
 }
 
 /*======================================================================
@@ -575,12 +528,13 @@ void taf_Update::RequestHandler(void* reqPtr)
             if (usrReq->ota == TAF_UPDATE_FOTA) {
                 LE_INFO("Install firmware request received.");
                 taf_FwUpdateReq_t updateReq;
-                updateReq.event = TAF_FWUPDATE_EV_START_INSTALL;
+                updateReq.event = TAF_FWUPDATE_EV_INSTALL;
+                le_utf8_Copy(updateReq.name, usrReq->name, TAF_UPDATE_MAX_PKG_NAME_LEN, NULL);
                 le_event_Report(taf_FwUpdate::fwUpdateEvId, &updateReq, sizeof(taf_FwUpdateReq_t));
             } else if (usrReq->ota == TAF_UPDATE_SOTA) {
                 LE_INFO("Install app request received.");
                 taf_AppMgmtUpdateReq_t updateReq;
-                updateReq.event = TAF_APPMGMT_EV_START_INSTALL;
+                updateReq.event = TAF_APPMGMT_EV_INSTALL;
                 le_utf8_Copy(updateReq.name, usrReq->name, TAF_UPDATE_MAX_PKG_NAME_LEN, NULL);
                 le_event_Report(taf_AppMgmt::appUpdateEvId, &updateReq, sizeof(taf_AppMgmtUpdateReq_t));
             } else {
@@ -615,7 +569,7 @@ void* taf_Update::RequestThread(void* contextPtr)
 ======================================================================*/
 void taf_Update::Init(void)
 {
-    std::chrono::time_point<std::chrono::system_clock> startTime = std::chrono::system_clock::now();
+    chrono::time_point<chrono::system_clock> startTime = chrono::system_clock::now();
 
     // 1. Get dowload session.
     daSessionID = taf_pa_update_GetSession();
@@ -645,7 +599,7 @@ void taf_Update::Init(void)
     le_timer_SetRepeat(dlTimerRef, 0);
     le_timer_SetHandler(dlTimerRef, DownloadTimerHandler);
 
-    std::chrono::time_point<std::chrono::system_clock> endTime = std::chrono::system_clock::now();
-    std::chrono::duration<double> elapsedTime = endTime - startTime;
+    chrono::time_point<chrono::system_clock> endTime = chrono::system_clock::now();
+    chrono::duration<double> elapsedTime = endTime - startTime;
     LE_INFO("Elapsed time for tafUpdate component: %lfs.", elapsedTime.count());
 }

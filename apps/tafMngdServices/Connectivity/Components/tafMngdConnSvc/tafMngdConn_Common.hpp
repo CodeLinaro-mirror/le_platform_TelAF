@@ -59,10 +59,10 @@ namespace tafsvc {
     /**
      * \brief Maximum string length for APN.
      *
-     * Max APN length is 128 characters, including null terminator.
+     * Max APN length is 64 characters, including null terminator.
      *
      */
-    const unsigned int TAF_MNGD_CONN_MAX_APN_LEN = 128;
+    const unsigned int TAF_MNGD_CONN_MAX_APN_LEN = 64;
 
     /**
      * \brief Maximum supported Data objects
@@ -123,12 +123,12 @@ namespace tafsvc {
     const unsigned int TAF_MNGD_CONN_MAX_NW_REGISTRATION_TYPE_LEN = 8;
 
     /**
-     * \brief Maximum string length for URL for ping test.
+     * \brief Maximum string length for URL for connection test.
      *
      * Max URL length is 256 characters, including null terminator.
      *
      */
-    const unsigned int TAF_MNGD_CONN_MAX_PING_URL_LEN = 256;
+    const unsigned int TAF_MNGD_CONN_MAX_CONNECTION_URL_LEN = 256;
 
     /**
      * \brief Maximum string length for profile names.
@@ -192,14 +192,53 @@ namespace tafsvc {
         TAF_MNGD_CONN_MAX_NW_REGISTRATION_TYPE_MANUAL = 1  /**<  Manual Value. 1 */
     } taf_mngd_NW_Registration_Type_t;
 
-    // Constant Strings
+    /**
+     * \brief Enumeration for valid JSON versions
+     *
+     * This enum will be mapped to a version string when mngdConnectivity.json is parsed.
+     * The valid versions strings are listed in tafMngdConnSvcJSONParser.hpp
+     *
+     * The enum uses numbers from the version string for easier readbility. Examples:
+     * TAF_23_07_00 = 230700
+     * TAF_23_10_00 = 231000
+     * TAF_24_01_00 = 240100
+     *
+     */
+    typedef enum
+    {
+        TAF_MNGD_CONN_JSON_VERSION_23_07_00 = 230700, //"TAF_23.07.00"
+        TAF_MNGD_CONN_JSON_VERSION_23_11_00 = 231100 //"TAF_23.11.00"
+    } taf_mngd_Conn_JSON_Version_t;
 
+    // Constant Strings
 
     /**
      * \brief Default Location for Configuration JSONs
      *
      */
     const std::string TAF_MNGD_DefaultLocation_Configuration("/data/ManagedServices");
+
+    /**
+     * \brief Value for Product in mngdConnectivity.json should be TelAF
+     *
+     */
+    const std::string TAF_MNGD_Default_Product_Value("TelAF");
+
+    /**
+     * \brief Maximum level of supported RecoveryLevel
+     *
+     * Maximum RecoveryLevel is 4 for Alpha2 Release
+     *
+     */
+    const int TAF_MNGD_CONN_MAX_RECOVERY_LEVEL = 4;
+
+        /**
+     * \brief Maximum level of supported RetryCount
+     *
+     * Maximum RetryCount is 255 for Alpha2 Release
+     *
+     */
+    const int TAF_MNGD_CONN_MAX_RETRY_COUNT = 255;
 
 }
 }

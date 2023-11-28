@@ -25,7 +25,7 @@
  * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
  * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS`
  * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
  * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
@@ -40,10 +40,8 @@
 #include "tafMngdConn_Common.hpp"
 #include "tafMngdConnSvcJSONParser.hpp"
 
-#define MAX_MNGD_CONN_FILE_PATH_LEN    256
-#define POWERON_STATE_MAX_CHECKING_TIMES  5
-#define RECONNECT_TIME_INTERVAL 3000
-#define RECONNECT_RETRY_COUNT 1
+#define TAF_MNGD_CONN_MAX_FILE_PATH_LEN    256
+#define TAF_MNGD_CONN_MAX_DATA_OBJ 16
 
 namespace telux {
 namespace tafsvc {
@@ -56,31 +54,59 @@ namespace tafsvc {
         TAF_MNGD_CONN_DATA_NOT_CONNECTED_SIM_NOT_READY,         ///< Sim not ready.
         TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_REGISTERED,         ///< Network registered.
         TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_NOT_REGISTERED,     ///< Network unregistered.
-        TAF_MNGD_CONN_DATA_NOT_CONNECTED_AWAITING_USER_COMMAND, ///< Awaiting user command.
+        TAF_MNGD_CONN_DATA_NOT_CONNECTED, ///< Awaiting user command.
         TAF_MNGD_CONN_DATA_NOT_CONNECTED_RETRYING,              ///< Retry to connect.
-        TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE,                    ///< Active.
-        TAF_MNGD_CONN_DATA_CONNECTED_IDLE,                      ///< Idle.
-        TAF_MNGD_CONN_ADMIN_ERROR                               ///< Error.
+        TAF_MNGD_CONN_DATA_NOT_CONNECTED_FAILED,                ///< Data connection failure.
+        TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE, ///< Active.
+        TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE,                  ///< Inactive.
+        TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE_RETRYING,         ///< Retry to connect when Inactive.
+        TAF_MNGD_CONN_DATA_NOT_CONNECTED_INACTIVE_RETRYING,     ///< Retry when data not connected
+        TAF_MNGD_CONN_DATA_CONNECTED_IDLE,   ///< Idle.
+        TAF_MNGD_CONN_ADMIN_ERROR,            ///< Error.
+        TAF_MNGD_CONN_DATA_CONNECTIONTEST_START,                ///<ConnectionTest Started
+        TAF_MNGD_CONN_DATA_CONNECTIONTEST_FAILED                ///<ConnectionTest failed
     } taf_mngd_Conn_Admin_State_t;
 
+    /**
+     * Events that can be sent to the state machine to act upon.
+     * Events that end with _SYNC are synchronous (API call from an application) and on completion
+     * return is provided via promise.
+     */
     typedef enum
     {
-        EVT_INIT = 0,
-        EVT_SET_POLICY_CONF,
-        EVT_SIM_READY,
-        EVT_SIM_NOT_READY,
-        EVT_NETWORK_REG_STATE,
-        EVT_NETWORK_UNREG_STATE,
-        EVT_DATA_START,
-        EVT_DATA_STOP,
-        EVT_DATA_CONNECTION_CONNECTED,
-        EVT_DATA_CONNECTION_DISCONNECTED,
-        EVT_GET_CONNECTION_INFO
-    }EventType_t;
+        TAF_MNGD_CONN_EVT_INIT = 0,
+        TAF_MNGD_CONN_EVT_SET_POLICY_CONF_SYNC,
+        TAF_MNGD_CONN_EVT_SIM_READY,
+        TAF_MNGD_CONN_EVT_SIM_NOT_READY,
+        TAF_MNGD_CONN_EVT_RADIO_POWER_ON,
+        TAF_MNGD_CONN_EVT_NETWORK_REG_STATE,
+        TAF_MNGD_CONN_EVT_NETWORK_UNREG_STATE,
+        TAF_MNGD_CONN_EVT_DATA_START,
+        TAF_MNGD_CONN_EVT_DATA_START_SYNC,
+        TAF_MNGD_CONN_EVT_DATA_START_RETRY,
+        TAF_MNGD_CONN_EVT_DATA_STOP_SYNC,
+        TAF_MNGD_CONN_EVT_DATA_STOP,
+        TAF_MNGD_CONN_EVT_DATA_CONNECTION_CONNECTED,
+        TAF_MNGD_CONN_EVT_DATA_CONNECTION_DISCONNECTED,
+        TAF_MNGD_CONN_EVT_GET_CONNECTION_INFO_SYNC,
+        TAF_MNGD_CONN_EVT_CONNECTIONTEST
+    } taf_mngd_Conn_EventType_t;
+
+    /**
+     * Data start retry intervals in milli seconds.
+    */
+    typedef enum
+    {
+        TAF_MNGD_CONN_RETRY_INTERVAL_1 = 30000,  // 30 seconds
+        TAF_MNGD_CONN_RETRY_INTERVAL_2 = 120000, // 2 minutes
+        TAF_MNGD_CONN_RETRY_INTERVAL_3 = 240000, // 4 minutes
+        TAF_MNGD_CONN_RETRY_INTERVAL_4 = 480000, // 8 minutes
+        TAF_MNGD_CONN_RETRY_INTERVAL_LAST = 960000, // 16 minutes
+    } taf_mngd_Conn_Data_Start_Retry_Intervals_t;
 
     typedef struct
     {
-        EventType_t                             event;
+        taf_mngd_Conn_EventType_t                   event;
         union
         {
             uint8_t                                 dataId;
@@ -105,22 +131,33 @@ namespace tafsvc {
 //Context to maintain the state for each data id.
     typedef struct tag_taf_mngd_Conn_Ctx
     {
-        uint8_t                                 dataId;         // Data ID
-        uint8_t                                 slotId;         // Slot ID
-        uint8_t                                 phoneId;        // Phone ID
-        uint32_t                                profileNumber;  // Profile number
-        bool                                    autoStart;      // Auto start or not
-        bool                                    needReConn; //Need to reconnect for manualStart
-        char                                    intfName[TAF_DCS_NAME_MAX_LEN]; // Interface name
-        le_dls_Link_t                           link;           // Link to data list
-        taf_mngd_Conn_Admin_State_t             state; // The Managed Connectivity state
-        taf_mngd_Conn_DataState_t               dataState; // The data state for notification
-        le_timer_Ref_t                          reconnTimerRef; // The timer reference
-        le_event_Id_t                           dataStateEvent; //Data state event
-        taf_dcs_Pdp_t                           ipType; // Ip type
-        taf_mngd_Conn_DataRef_t                 dataRef;
-        char                                    ipv4Addr[TAF_DCS_IPV4_ADDR_MAX_LEN];
-        char                                    ipv6Addr[TAF_DCS_IPV6_ADDR_MAX_LEN];
+        uint8_t                       dataId;                 // JSON Data ID
+        uint8_t                       slotId;                 // JSON Slot ID
+        uint8_t                       phoneId;                // JSON Phone ID
+        uint8_t                       dataStartRetryCount;    // Data Start retry count
+        uint8_t                       maxdataRetryCount;      // User provided max retry count
+        uint8_t                       dataConnTestFailedRetryCount; // ConnTest failed retry count
+        bool                          dataRetry;              // DataRetry enabled/disabled
+        uint32_t                      profileNumber;          // Profile number
+        bool                          autoStart;              // Auto start or not
+        bool                          needReConn;             //Need to reconnect for manualStart
+        char                          intfName[TAF_DCS_NAME_MAX_LEN]; // Interface name
+        le_dls_Link_t                 link;                   // Link to data list
+        taf_mngd_Conn_Admin_State_t   state;                  // The Managed Connectivity state
+        taf_mngd_Conn_DataState_t     dataState;              // The data state for notification
+        le_timer_Ref_t                dataStartRetryTimerRef; // Data start retry timer reference
+        le_event_Id_t                 dataStateEvent;         //Data state event
+        taf_dcs_Pdp_t                 ipType;                 // Ip type
+        taf_mngd_Conn_DataRef_t       dataRef;
+        taf_dcs_ConState_t            dcsConState;            // DCS Data State
+        char                          conn_test_url[TAF_MNGD_CONN_MAX_CONNECTION_URL_LEN];
+                                      //URL to be used for ConnectionTest
+        char                          conn_test_ipv4Addr[TAF_MNGD_CONN_MAX_IPV4_LEN];
+                                      //IPv4 address to be used for ConnectionTest
+        char                          conn_test_ipv6Addr[TAF_MNGD_CONN_MAX_IPV6_LEN];
+                                      //IPv6 address to be used for ConnectionTest
+        char                          ipv4Addr[TAF_MNGD_CONN_MAX_IPV4_LEN];
+        char                          ipv6Addr[TAF_MNGD_CONN_MAX_IPV6_LEN];
     } taf_mngd_Conn_Ctx_t;
 
     class tafMngdConnAdmin: public ITafSvc
@@ -158,7 +195,9 @@ namespace tafsvc {
             le_thread_Ref_t StateMachineEventThreadRef = NULL;
             void EventInit();
             le_result_t EventSetPolicyConfigJSONs(const char* ConfigFileNamePtr);
+            void EventSetRadioPowerOn();
             le_result_t EventStartData(uint8_t dataId);
+            le_result_t EventStartDataRetry(uint8_t dataId);
             le_result_t EventStopData(uint8_t dataId);
             le_result_t EventGetConnectionInfo(uint8_t dataId);
             le_result_t EventSimReadyState(uint8_t slotId);
@@ -167,8 +206,8 @@ namespace tafsvc {
             le_result_t EventNetworkUnregState(uint8_t phoneId);
             void EventDataConnected(uint8_t dataId);
             void EventDataDisconnected(uint8_t dataId);
-            static void ReconnectTimerHandler(le_timer_Ref_t timerRef);
-            le_result_t CreateConnectionsBasedPolicy();
+            static void DataRetryTimerHandler(le_timer_Ref_t timerRef);
+            le_result_t InitializeStates();
             le_dls_List_t ConnectionCtxList = LE_DLS_LIST_INIT;
             le_mem_PoolRef_t ConnCtxPool = NULL;
             le_mutex_Ref_t connCtxMutex = NULL; // Mutex for ConnectionCtxList
@@ -176,23 +215,32 @@ namespace tafsvc {
 
             taf_mngd_Conn_Ctx_t* GetConnCtx(uint8_t dataId);
             taf_mngd_Conn_Ctx_t* CreateConnCtx(uint8_t dataId, uint8_t slotId, uint8_t phoneId,
-                                               uint32_t profileId, bool autoStart);
+                                               uint32_t profileId, bool autoStart,
+                                               char* conn_test_url,
+                                               char* conn_test_ipv4Addr);
             le_result_t getProfileList( profileInfo_t *profileNumberList, int *listSize);
             bool IsStateConnected();
+
+            void ResetDataRetryValues();
+            void ResetDataRetryValues(uint8_t dataId);
+
+            //Connectiontest
+            void ConnectionTest(uint8_t dataId);
+            bool ConnectionTest_URL(std::string url);
+            bool ConnectionTest_IPv4(std::string ipv4);
 
             // Policy and Configuration to use
             taf_mngd_Conn_Policy_t Policy;
             taf_mngd_Conn_Configuration_t Configuration;
 
             //Config file name
-            char ConfigFileName[MAX_MNGD_CONN_FILE_PATH_LEN];
+            char ConfigFileName[TAF_MNGD_CONN_MAX_FILE_PATH_LEN];
 
             bool ReadJSONFileNamesFromConfigTree (char *ConfigurationFileNamePtr);
 
-            const char * EventToString(EventType_t event);
+            const char * EventToString(taf_mngd_Conn_EventType_t event);
             const char * StateToString(taf_mngd_Conn_Admin_State_t state);
             bool IsJsonValid = false;
     };
 }
 }
-

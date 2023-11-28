@@ -366,6 +366,9 @@ void taf_Handler::ProcessNewMessage(void* incomingMsgPtr)
       return;
    }
 
+   tafNewMsg->pdu.length = decodedPduMsg.dataLen;
+   memcpy(&(tafNewMsg->pdu), pdu, tafNewMsg->pdu.length);
+
    tafNewMsg->readStatus = TAF_SMS_RXSTS_UNREAD;
    tafNewMsg->lockStatus = TAF_SMS_LKSTS_UNLOCKED;
    tafNewMsg->type = TAF_SMS_TYPE_RX;
@@ -1382,6 +1385,8 @@ le_result_t taf_Sms::SendPDUMessage
    std::vector<telux::tel::PduBuffer> rawPdus;
    rawPdus.emplace_back(buffer);
 
+   SendMessageSyncPromise = std::promise<telux::common::ErrorCode>();
+
    std::chrono::seconds span(timeout);
    auto status = smsManager->sendRawSms(rawPdus,
         tafSmsCallback::sendSmsResponse);
@@ -1391,7 +1396,6 @@ le_result_t taf_Sms::SendPDUMessage
       return LE_FAULT;
    }
 
-   SendMessageSyncPromise = std::promise<telux::common::ErrorCode>();
    std::future<telux::common::ErrorCode> futResult =
       SendMessageSyncPromise.get_future();
    std::future_status waitStatus = futResult.wait_for(span);
@@ -1825,7 +1829,7 @@ void tafSmsCallback::sendSmsResponse(std::vector<int> msgRefs,
       LE_INFO("MsgRefs Size: %" PRIuS, msgRefs.size());
       for (int ref: msgRefs)
       {
-         LE_INFO("MsgRef : %d\n", ref);
+         LE_INFO("MsgRef : %d", ref);
       }
    }
    sms.SendMessageSyncPromise.set_value(error);
@@ -1924,7 +1928,14 @@ le_result_t taf_Sms::ActivateCellBroadcast(uint8_t phoneId, bool activate)
    // initialize the synchronous promise
    CBActivateSyncPromise = std::promise<le_result_t>();
    std::chrono::seconds span(TIMEOUT_ACTIVATE_CB);
+
    auto &sms = taf_Sms::GetInstance();
+   if (sms.CbManagers.empty())
+   {
+      LE_ERROR("Can not find any CellBroadcastManager");
+      return LE_FAULT;
+   }
+
    auto CbMgr = sms.CbManagers[phoneId - 1];
 
    if (CbMgr)
@@ -1966,7 +1977,14 @@ le_result_t taf_Sms::RequestBroadcastIds(uint8_t phoneId)
 
    CBRequestIdsSyncPromise = std::promise<le_result_t>();
    std::chrono::seconds span(TIMEOUT_RQUEST_CB_FILTER);
+
    auto &sms = taf_Sms::GetInstance();
+   if (sms.CbManagers.empty())
+   {
+      LE_ERROR("Can not find any CellBroadcastManager");
+      return LE_FAULT;
+   }
+
    auto CbMgr = sms.CbManagers[phoneId - 1];
 
    if (CbMgr)
@@ -2026,7 +2044,14 @@ le_result_t taf_Sms::AddCellBroadcastIds(uint8_t phoneId, uint16_t fromId, uint1
    // initialize the synchronous promise
    CBAddIdsSyncPromise = std::promise<le_result_t>();
    std::chrono::seconds span(TIMEOUT_ACTIVATE_CB);
+
    auto &sms = taf_Sms::GetInstance();
+   if (sms.CbManagers.empty())
+   {
+      LE_ERROR("Can not find any CellBroadcastManager");
+      return LE_FAULT;
+   }
+
    auto CbMgr = sms.CbManagers[phoneId - 1];
 
    if (CbMgr)
@@ -2128,7 +2153,14 @@ le_result_t taf_Sms::RemoveCellBroadcastIds(uint8_t phoneId, uint16_t fromId, ui
    // initialize the synchronous promise
    CBAddIdsSyncPromise = std::promise<le_result_t>();
    std::chrono::seconds span(TIMEOUT_ACTIVATE_CB);
+
    auto &sms = taf_Sms::GetInstance();
+   if (sms.CbManagers.empty())
+   {
+      LE_ERROR("Can not find any CellBroadcastManager");
+      return LE_FAULT;
+   }
+
    auto CbMgr = sms.CbManagers[phoneId - 1];
 
    if (CbMgr)

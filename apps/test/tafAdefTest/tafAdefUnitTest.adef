@@ -1,0 +1,28 @@
+sandboxed: false
+
+executables:
+{
+    tafAdefUnitTest = ( tafAdefUnitTestComp )
+}
+
+start: manual
+
+processes:
+{
+    run:
+    {
+        (tafAdefUnitTest)
+    }
+
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+
+    faultAction: stopApp
+}
+
+bindings:
+{
+    tafAdefUnitTest.tafAdefUnitTestComp.le_cfgAdmin -> <root>.le_cfgAdmin
+}

@@ -1,0 +1,14 @@
+#include "$TELAF_ROOT/modules/TelSdk/sa515m.sdef"
+
+apps:
+{
+    $TELAF_ROOT/apps/rpc/rpcProxy/tafRpcProxy.adef
+    $TELAF_ROOT/apps/rpc/rpcTest/helloRpcClient/printClient.adef
+}
+
+cflags:
+{
+    -DRPC_CLIENT_TEST
+    -DCLIENT_SYSTEM_ID=0x101
+    -DSERVER_SYSTEM_ID=0x102
+}

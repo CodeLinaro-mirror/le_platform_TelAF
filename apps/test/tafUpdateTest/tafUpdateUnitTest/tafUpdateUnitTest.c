@@ -209,11 +209,7 @@ void TestTafAppInformation(void)
 
     // App Information Create List Test
     taf_appMgmt_AppListRef_t listRef = taf_appMgmt_CreateAppList();
-    if (!SOTA_TEST) {
-        LE_TEST_OK((listRef == NULL), "taf_appMgmt_CreateAppList - NULL");
-    } else {
-        LE_TEST_OK((listRef != NULL), "taf_appMgmt_CreateAppList - !NULL");
-    }
+    LE_TEST_OK((listRef != NULL), "taf_appMgmt_CreateAppList - !NULL");
 
     // App Information Boundary Test
     appRef = taf_appMgmt_GetFirstApp(NULL);

@@ -1,0 +1,989 @@
+/**
+* Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* SPDX-License-Identifier: BSD-3-Clause-Clear
+**/
+
+//------------------------------------------------------------------------------------------------
+/**
+* @page c_taftherm Thermal Management Service
+*
+* @ref taf_therm_interface.h "API Reference"
+*
+* <HR>
+*
+* Components need access to the TelAF Thermal Manager to get information about present thermal 
+* zones and cooling devices.
+*
+* @section taf_therm_binding IPC interfaces binding
+*
+* The functions of this API are provided by the @b tafThermSvc application service.
+*
+* The following example illustrates how to bind to Therm services.
+*
+* @verbatim
+  bindings:
+  {
+      clientExe.clientComponent.taf_therm -> tafThermSvc.taf_therm
+  }
+  @endverbatim
+*
+* @section taf_therm_GetThermalZonesList Get the available thermal zone information.
+ *
+ * TelAF Thermal Manager Service provides APIs to know the available thermal zones
+ * on the device.
+ * TelAF Thermal Manager's client calls taf_therm_GetThermalZonesList() to get the reference of
+ * the available thermal zones.
+ * This function returns a @ref taf_therm_ThermalZoneListRef_t that can be later used to get
+ * the information of each thermal zone, and also to delete the list reference using
+ * taf_therm_DeleteThermalZoneList().
+ *
+ * @note
+ * Following APIs are supported only on SA525M devices:
+ * a. taf_therm_GetTripPointTripID()
+ * b. taf_therm_GetTripPointThermalZoneID()
+ * c. taf_therm_GetBoundTripPointTripID()
+ * d. taf_therm_GetBoundTripPointThermalZoneID()
+ *
+ * @verbatim
+
+ le_result_t result;
+    taf_therm_ThermalZoneListRef_t tZoneListRef = taf_therm_GetThermalZonesList();
+    if (tZoneListRef == NULL)
+        return;
+    taf_therm_ThermalZoneListRef_t headTZoneListRef = tZoneListRef;
+
+    taf_therm_ThermalZoneRef_t tZone = taf_therm_GetFirstThermalZone(tZoneListRef);
+    uint32_t thermalZoneListSize;
+    result = taf_therm_GetThermalZonesListSize(tZoneListRef, &thermalZoneListSize);
+    
+    while (tZone != NULL and thermalZoneListSize--)
+    {
+        uint32_t tripPointListSize;
+        result = taf_therm_GetTripPointListSize(tZone, &tripPointListSize);
+        uint32_t boundCDevListSize;
+        result = taf_therm_GetBoundCoolingDeviceListSize(tZone, &boundCDevListSize);
+        uint32_t tZoneid;
+        result = taf_therm_GetThermalZoneID(tZone, &tZoneid);
+        char thermalZoneType[TYPE_SIZE];
+        memset(thermalZoneType, 0, TYPE_SIZE);
+        result = taf_therm_GetThermalZoneType(tZone, thermalZoneType, sizeof(thermalZoneType));
+        uint32_t currTemp;
+        result = taf_therm_GetThermalZoneCurrentTemp(tZone, &currTemp);
+        uint32_t passiveTemp;
+        result = taf_therm_GetThermalZonePassiveTemp(tZone, &passiveTemp);  
+        if (tripPointListSize > 0)
+        {           
+            taf_therm_TripPointRef_t tripPoint = taf_therm_GetFirstTripPoint(tZone);
+            uint32_t listSize;
+            result = taf_therm_GetTripPointListSize(tZone, &listSize);
+            while (tripPoint != NULL and listSize--)
+            {
+                uint32_t tripID;
+                result = taf_therm_GetTripPointTripID(tripPoint, &tripID);
+                uint32_t tZoneID;
+                result = taf_therm_GetTripPointThermalZoneID(tripPoint, &tZoneID);
+                char tripType[TYPE_SIZE];
+                memset(tripType, 0, TYPE_SIZE);
+                taf_therm_GetTripPointType(tripPoint, tripType, sizeof(tripType));
+                uint32_t threshold;
+                result = taf_therm_GetTripPointThreshold(tripPoint, &threshold);
+                uint32_t hysterisis;
+                result = taf_therm_GetTripPointHysterisis(tripPoint, &hysterisis);
+                if (listSize > 0)
+                {
+                    tripPoint = taf_therm_GetNextTripPoint(tZone);
+                }
+            }
+        }
+        if (boundCDevListSize > 0)
+        {
+            taf_therm_BoundCoolingDeviceRef_t boundCDev = taf_therm_GetFirstBoundCDev(tZone);
+            uint32_t listSize;
+            result = taf_therm_GetBoundCoolingDeviceListSize(tZone, &listSize);
+
+            while (boundCDev != NULL and listSize--)
+            {
+                uint32_t coolingID;
+                result = taf_therm_GetBoundCoolingId(boundCDev, &coolingID);
+                uint32_t tripPointListSize;
+                if (taf_therm_GetBoundTripPointListSize(boundCDev, &tripPointListSize) <= 0)
+                    return;
+                taf_therm_TripPointRef_t boundTripPoint = taf_therm_GetFirstBoundTripPoint(boundCDev);
+                result = taf_therm_GetBoundTripPointListSize(boundCDev, &tripPointListSize);
+                while (boundTripPoint != NULL and tripPointListSize--)
+                {
+                    uint32_t boundTripID;
+                    result = taf_therm_GetBoundTripPointTripID(boundTripPoint, &boundTripID);
+                    uint32_t boundTZoneID;
+                    result = taf_therm_GetBoundTripPointThermalZoneID(boundTripPoint, &boundTZoneID);
+                    char boundTripType[TYPE_SIZE];
+                    memset(boundTripType, 0, TYPE_SIZE);
+                    taf_therm_GetBoundTripPointType(boundTripPoint, boundTripType, sizeof(boundTripType));
+                    uint32_t boundThreshold;
+                    result = taf_therm_GetBoundTripPointThreshold(boundTripPoint, &boundThreshold);
+                    uint32_t boundHysterisis;
+                    result = taf_therm_GetBoundTripPointHysterisis(boundTripPoint, &boundHysterisis);
+                    if (tripPointListSize > 0)
+                    {
+                        boundTripPoint = taf_therm_GetNextBoundTripPoint(boundCDev);
+                    }
+                }
+                if (listSize > 0)
+                {
+                    boundCDev = taf_therm_GetNextBoundCDev(tZone);
+                }
+            }
+        }
+        if (thermalZoneListSize > 0)
+        {
+            tZone = taf_therm_GetNextThermalZone(tZoneListRef);
+        }
+    }
+    result = taf_therm_DeleteThermalZoneList(headTZoneListRef);
+
+@endverbatim
+*
+* @section taf_therm_GetCoolingDeviceList Get the available cooling devices information.
+*
+* TelAF Thermal Manager Service provides APIs to know the available cooling devices
+* on the target.
+* TelAF Thermal Manager's client calls taf_therm_GetCoolingDeviceList() to get the cooling
+* devices available reference.
+* This function returns a @ref taf_therm_CoolingDeviceListRef_t that can be later used to get
+* the information of each cooling device, and also to delete the list reference using
+* taf_therm_DeleteCoolingDeviceList().
+*
+* @verbatim
+
+   le_result_t result;
+   taf_therm_CoolingDeviceListRef_t cDevListRef = taf_therm_GetCoolingDeviceList();
+
+    taf_therm_CoolingDeviceListRef_t headCDevListRef = cDevListRef;
+
+    taf_therm_CoolingDeviceRef_t cDev = taf_therm_GetFirstCoolingDevice(cDevListRef);
+    uint32_t coolingDeviceListSize;
+    result = taf_therm_GetCoolingDeviceListSize(cDevListRef, &coolingDeviceListSize);
+    while (cDev != NULL and coolingDeviceListSize--)
+    {
+        char description[TYPE_SIZE];
+        memset(description, 0, TYPE_SIZE);
+        result = taf_therm_GetCDevDescription(cDev, description, sizeof(description));
+        uint32_t coolingID;
+        result = taf_therm_GetCDevID(cDev, &coolingID);
+        uint32_t maxCooling;
+        result = taf_therm_GetCDevMaxCoolingLevel(cDev, &maxCooling);
+        uint32_t currCooling;
+        result = taf_therm_GetCDevCurrentCoolingLevel(cDev, &currCooling);
+        if (coolingDeviceListSize > 0) {
+            cDev = taf_therm_GetNextCoolingDevice(cDevListRef);
+        }
+    }
+    result = taf_therm_DeleteCoolingDeviceList(headCDevListRef);
+
+@endverbatim
+*
+* @section taf_therm_GetThermalZoneByName Get specified thermal zone information.
+*
+* TelAF Thermal Manager Service provides APIs to get information of thermal zone by name present
+* on the device.
+* TelAF Thermal Manager's client calls taf_therm_GetThermalZoneByName()
+* and provides the name of the specific thermal zone that the client wants the information about.
+* Client gets the reference of thermal zone, if available.
+* This function returns a @ref taf_therm_ThermalZoneRef_t that can be later used to get
+* the information of the thermal zone.
+*
+* @verbatim
+
+le_result_t result;
+taf_therm_ThermalZoneRef_t tZone = taf_therm_GetThermalZoneByName("ThermalZoneName");
+    if (tZone != NULL)
+    {
+            uint32_t tripPointListSize;
+        result = taf_therm_GetTripPointListSize(tZone, &tripPointListSize);
+        uint32_t boundCDevListSize;
+        result = taf_therm_GetBoundCoolingDeviceListSize(tZone, &boundCDevListSize);
+        uint32_t tZoneid;
+        result = taf_therm_GetThermalZoneID(tZone, &tZoneid);
+        char thermalZoneType[TYPE_SIZE];
+        memset(thermalZoneType, 0, TYPE_SIZE);
+        result = taf_therm_GetThermalZoneType(tZone, thermalZoneType, sizeof(thermalZoneType));
+        uint32_t currTemp;
+        result = taf_therm_GetThermalZoneCurrentTemp(tZone, &currTemp);
+        uint32_t passiveTemp;
+        result = taf_therm_GetThermalZonePassiveTemp(tZone, &passiveTemp);  
+        if (tripPointListSize > 0)
+        {           
+            taf_therm_TripPointRef_t tripPoint = taf_therm_GetFirstTripPoint(tZone);
+            uint32_t listSize;
+            result = taf_therm_GetTripPointListSize(tZone, &listSize);
+            while (tripPoint != NULL and listSize--)
+            {
+                uint32_t tripID;
+                result = taf_therm_GetTripPointTripID(tripPoint, &tripID);
+                uint32_t tZoneID;
+                result = taf_therm_GetTripPointThermalZoneID(tripPoint, &tZoneID);
+                char tripType[TYPE_SIZE];
+                memset(tripType, 0, TYPE_SIZE);
+                taf_therm_GetTripPointType(tripPoint, tripType, sizeof(tripType));
+                uint32_t threshold;
+                result = taf_therm_GetTripPointThreshold(tripPoint, &threshold);
+                uint32_t hysterisis;
+                result = taf_therm_GetTripPointHysterisis(tripPoint, &hysterisis);
+                if (listSize > 0)
+                {
+                    tripPoint = taf_therm_GetNextTripPoint(tZone);
+                }
+            }
+        }
+        if (boundCDevListSize > 0)
+        {
+            taf_therm_BoundCoolingDeviceRef_t boundCDev = taf_therm_GetFirstBoundCDev(tZone);
+            uint32_t listSize;
+            result = taf_therm_GetBoundCoolingDeviceListSize(tZone, &listSize);
+
+            while (boundCDev != NULL and listSize--)
+            {
+                uint32_t coolingID;
+                result = taf_therm_GetBoundCoolingId(boundCDev, &coolingID);
+                uint32_t tripPointListSize;
+                if (taf_therm_GetBoundTripPointListSize(boundCDev, &tripPointListSize) <= 0)
+                    return;
+                taf_therm_TripPointRef_t boundTripPoint = taf_therm_GetFirstBoundTripPoint(boundCDev);
+                result = taf_therm_GetBoundTripPointListSize(boundCDev, &tripPointListSize);
+                while (boundTripPoint != NULL and tripPointListSize--)
+                {
+                    uint32_t boundTripID;
+                    result = taf_therm_GetBoundTripPointTripID(boundTripPoint, &boundTripID);
+                    uint32_t boundTZoneID;
+                    result = taf_therm_GetBoundTripPointThermalZoneID(boundTripPoint, &boundTZoneID);
+                    char boundTripType[TYPE_SIZE];
+                    memset(boundTripType, 0, TYPE_SIZE);
+                    taf_therm_GetBoundTripPointType(boundTripPoint, boundTripType, sizeof(boundTripType));
+                    uint32_t boundThreshold;
+                    result = taf_therm_GetBoundTripPointThreshold(boundTripPoint, &boundThreshold);
+                    uint32_t boundHysterisis;
+                    result = taf_therm_GetBoundTripPointHysterisis(boundTripPoint, &boundHysterisis);
+                    if (tripPointListSize > 0)
+                    {
+                        boundTripPoint = taf_therm_GetNextBoundTripPoint(boundCDev);
+                    }
+                }
+                if (listSize > 0)
+                {
+                    boundCDev = taf_therm_GetNextBoundCDev(tZone);
+                }
+            }
+    }
+
+@endverbatim
+
+* @section taf_therm_GetCoolingDeviceByName Get specified cooling device information
+*
+* TelAF Thermal Manager Service provides APIs to get information of cooling device by name present
+* on the device.
+* TelAF Thermal Manager's client calls taf_therm_GetCoolingDeviceByName()
+* and provides the name of the specific cooling device that the client wants the information about.
+* Client gets the reference of cooling device, if available.
+* This function returns a @ref taf_therm_CoolingDeviceRef_t that can be later used to get
+* the information of each cooling device.
+*
+* @verbatim
+le_result_t result;
+taf_therm_CoolingDeviceRef_t cDev = taf_therm_GetCoolingDeviceByName("CoolingDeviceName");
+if (cDev != NULL)
+{
+        char description[TYPE_SIZE];
+        memset(description, 0, TYPE_SIZE);
+        result = taf_therm_GetCDevDescription(cDev, description, sizeof(description));
+        uint32_t coolingID;
+        result = taf_therm_GetCDevID(cDev, &coolingID);
+        uint32_t maxCooling;
+        result = taf_therm_GetCDevMaxCoolingLevel(cDev, &maxCooling);
+        uint32_t currCooling;
+        result = taf_therm_GetCDevCurrentCoolingLevel(cDev, &currCooling);
+}
+
+@endverbatim
+* <HR>
+*
+*/
+//------------------------------------------------------------------------------------------------
+
+DEFINE TYPE_MAX_SIZE = 32;
+
+/**
+ * Reference type for list of thermal zones.
+ */
+REFERENCE ThermalZoneList;
+
+/**
+ * Reference type for details of one thermal zone.
+ */
+REFERENCE ThermalZone;
+
+/**
+ * Reference type for details of trip point.
+ */
+REFERENCE TripPoint;
+
+/**
+ * Reference type for list of cooling device.
+ */
+REFERENCE CoolingDeviceList;
+
+/**
+ * Reference type for details of one cooling devices.
+ */
+REFERENCE CoolingDevice;
+
+/**
+ * Reference type for bound cooling devices.
+ */
+REFERENCE BoundCoolingDevice;
+
+/**
+ * States for Trip Points.
+ */
+ENUM TripType {
+   UNKNOWN,
+   CRITICAL,
+   HOT,
+   PASSIVE,
+   ACTIVE,
+   CONFIGURABLE_HIGH,
+   CONFIGURABLE_LOW
+};
+
+//------------------------------------------------------------------------------------------------
+/**
+* Gets the list of available thermal zones.
+*
+* @return
+ *  - NULL                            No thermal zone information found.
+ *  - taf_therm_ThermalZoneListRef    The thermal zone list object reference.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION ThermalZoneList GetThermalZonesList
+(
+);
+
+//------------------------------------------------------------------------------------------------
+/**
+* Gets the list size of available thermal zones.
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t  GetThermalZonesListSize
+(
+    ThermalZoneList ThermalZoneListRef        IN,        ///< Thermal zone list reference
+    uint32      thermalZoneListSize           OUT      ///< List size.
+);
+
+
+//------------------------------------------------------------------------------------------------
+/**
+ * Gets the first thermal zone object reference in the list of the
+ * thermal zones retrieved with taf_therm_GetThermalZonesList().
+ *
+ * @return
+ *  - NULL                          No thermal zone information found.
+ *  - taf_therm_ThermalZoneRef      The thermal zone object reference.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION ThermalZone GetFirstThermalZone
+(
+    ThermalZoneList ThermalZoneListRef        IN        ///< Thermal zone list reference
+);
+
+
+//------------------------------------------------------------------------------------------------
+/**
+ * Gets the next thermal zone object reference in the list of the
+ * thermal zones retrieved with taf_therm_GetThermalZonesList().
+ *
+ * @return
+ *  - NULL                          No thermal zone information found.
+ *  - taf_therm_ThermalZoneRef      The thermal zone object reference.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION ThermalZone GetNextThermalZone
+(
+    ThermalZoneList ThermalZoneListRef        IN        ///< Thermal zone list reference
+);
+
+
+//------------------------------------------------------------------------------------------------
+/**
+ * Gets the first trip point object reference from the thermal zone
+ * retrieved with taf_therm_GetFirstThermalZone() or taf_therm_GetNextThermalZone().
+ *
+ * @return
+ *  - NULL                          No trip point information found.
+ *  - taf_therm_TripPointRef        The trip point object reference.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION TripPoint GetFirstTripPoint
+(
+    ThermalZone ThermalZoneRef        IN        ///< Thermal zone reference
+);
+
+
+//------------------------------------------------------------------------------------------------
+/**
+ * Gets the next trip point object reference from the thermal zone
+ * retrieved with taf_therm_GetFirstThermalZone() or taf_therm_GetNextThermalZone().
+ *
+ * @return
+ *  - NULL                         No trip point information found.
+ *  - taf_therm_TripPointRef       The trip point object reference.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION TripPoint GetNextTripPoint
+(
+    ThermalZone ThermalZoneRef        IN        ///< Thermal zone reference
+);
+
+//------------------------------------------------------------------------------------------------
+/**
+ * Gets the first bound cooling device object reference from the thermal zone
+ * retrieved with taf_therm_GetFirstThermalZone() or taf_therm_GetNextThermalZone().
+ *
+ * @return
+ *  - NULL                                No bound cooling device information found.
+ *  - taf_therm_BoundCoolingDeviceRef     The bound cooling device object reference.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION BoundCoolingDevice GetFirstBoundCDev
+(
+    ThermalZone ThermalZoneRef        IN        ///< Thermal zone reference
+);
+
+
+//------------------------------------------------------------------------------------------------
+/**
+ * Gets the next bound cooling device object reference from the thermal zone
+ * retrieved with taf_therm_GetFirstThermalZone() or taf_therm_GetNextThermalZone().
+ *
+ * @return
+ *  - NULL                                    No bound cooling device information found.
+ *  - taf_therm_BoundCoolingDeviceRef         The bound cooling device object reference.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION BoundCoolingDevice GetNextBoundCDev
+(
+    ThermalZone ThermalZoneRef        IN        ///< Thermal zone reference
+);
+
+//------------------------------------------------------------------------------------------------
+/**
+* Retrieves a reference of the first trip point for the given bound cooling device.
+*
+* @return
+*  - NULL                          No bound trip point information found.
+*  - taf_therm_TripPointRef        The bound trip point object reference.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION TripPoint GetFirstBoundTripPoint
+(
+    BoundCoolingDevice BoundCoolingDeviceRef    IN        ///< Bound cooling device reference
+);
+
+
+//------------------------------------------------------------------------------------------------
+/**
+* Retrieves a reference of the next trip point for the given bound cooling device.
+*
+* @return
+*  - NULL                             No bound trip point information found.
+*  - taf_therm_TripPointRef           The bound trip point object reference.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION TripPoint GetNextBoundTripPoint
+(
+    BoundCoolingDevice BoundCoolingDeviceRef    IN        ///< Bound booling device reference
+);
+
+
+//------------------------------------------------------------------------------------------------
+/**
+* Retrieves the thermal zone ID for the given zone reference.
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetThermalZoneID
+(
+    ThermalZone ThermalZoneRef        IN,       ///< Thermal zone reference
+    uint32      thermalZoneID        OUT       ///< Thermal zone ID associated with
+                                              ///< the input thermal zone reference
+);
+
+
+//------------------------------------------------------------------------------------------------
+/**
+* Retrieves the thermal zone type.
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetThermalZoneType
+(
+    ThermalZone ThermalZoneRef                   IN,         ///< Thermal zone reference
+    string ThermalZoneType[TYPE_MAX_SIZE]        OUT        ///< Thermal zone type
+);
+
+//------------------------------------------------------------------------------------------------
+/**
+* Retrieves thermal zone current temperature.
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetThermalZoneCurrentTemp
+(
+    ThermalZone ThermalZoneRef  IN,      ///< Thermal zone reference
+    uint32      currTemp        OUT      ///< Thermal zone current temperature associated with
+                                         ///< the input thermal zone reference
+);
+
+//------------------------------------------------------------------------------------------------
+/**
+* Retrieves thermal zone passive temperature.
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetThermalZonePassiveTemp
+(
+    ThermalZone ThermalZoneRef  IN,        ///< Thermal zone reference
+    uint32      passiveTemp     OUT       ///< Thermal zone passive temperature associated with
+                                         ///< the input thermal zone reference
+);
+
+
+//------------------------------------------------------------------------------------------------
+/**
+* Retrieves the trip point list size.
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetTripPointListSize
+(
+    ThermalZone ThermalZoneRef        IN,       ///< Thermal zone reference
+    uint32      tripPointListSize     OUT      ///< The trip point device list size
+);
+
+//------------------------------------------------------------------------------------------------
+/**
+* Retrieves the bound cooling device list size.
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetBoundCoolingDeviceListSize
+(
+    ThermalZone ThermalZoneRef                IN,       ///< Thermal zone reference
+    uint32      boundCoolingDeviceListSize    OUT      ///< The bound cooling device list size
+);
+
+//------------------------------------------------------------------------------------------------
+/**
+* Retrieves the trip point type.
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetTripPointType
+(
+    TripPoint TripPointRef                    IN,         ///< Trip point reference
+    string TripType[TYPE_MAX_SIZE]            OUT        ///< Trip type associated with trip point
+);
+
+
+//------------------------------------------------------------------------------------------------
+/**
+* Retrieves the trip point threshold.
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetTripPointThreshold
+(
+    TripPoint TripPointRef        IN,        ///< Trip point reference
+    uint32    threshold          OUT        ///< The threshold associated with the input
+                                           ///< trip point reference
+);
+
+//------------------------------------------------------------------------------------------------
+/**
+* Retrieves the trip point hysteresis.
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetTripPointHysterisis
+(
+    TripPoint TripPointRef        IN,        ///< Trip point reference
+    uint32    hysterisis          OUT      ///< The hysteresis associated with the input
+                                           ///< trip point reference
+);
+
+//------------------------------------------------------------------------------------------------
+/**
+* Retrieves the trip point trip ID.
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*
+* @note
+* This is supported only on SA525M.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetTripPointTripID
+(
+    TripPoint TripPointRef        IN,        ///< Trip point reference
+    uint32    tripID              OUT      ///< The trip ID associated with the input
+                                           ///< trip point reference
+);
+
+//------------------------------------------------------------------------------------------------
+/**
+* Retrieves the thermal zone ID associated with the given trip point.
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*
+* @note
+* This is supported only on SA525M.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetTripPointThermalZoneID
+(
+    TripPoint TripPointRef        IN,      ///< Trip point reference
+    uint32    tZoneID             OUT      ///< The thermal zone ID associated with
+                                           ///< the input trip point reference
+);
+
+//------------------------------------------------------------------------------------------------
+/**
+* Retrieves the bound cooling device's cooling ID.
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetBoundCoolingId
+(
+    BoundCoolingDevice BoundCoolingDeviceRef  IN,      ///< The bound cooling device reference
+    uint32      boundCoolingId                OUT      ///< The cooling device ID associated with
+                                                       ///< the input bound cooling device object
+);
+
+//------------------------------------------------------------------------------------------------
+/**
+* Retrieves the bound cooling device trip point list size.
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetBoundTripPointListSize
+(
+    BoundCoolingDevice BoundCoolingDeviceRef    IN,      ///< The bound cooling device reference
+    uint32      boundTripPointListSize          OUT      ///< The bound cooling device trip
+                                                         ///< point list size
+);
+
+
+//------------------------------------------------------------------------------------------------
+/**
+* Retrieves bound cooling device's trip point type.
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetBoundTripPointType
+(
+    TripPoint TripPointRef                   IN,          ///< Trip point reference
+    string BoundTripType[TYPE_MAX_SIZE]      OUT          ///< Bound trip type associated with trip point
+);
+
+//------------------------------------------------------------------------------------------------
+/**
+* Retrieves the bound cooling device's trip point threshold.
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetBoundTripPointThreshold
+(
+    TripPoint TripPointRef        IN,        ///< Trip point reference
+    uint32    boundThreshold     OUT       ///< The threshold associated with the input bound
+                                          ///< cooling device's trip point object
+);
+
+
+//------------------------------------------------------------------------------------------------
+/**
+* Retrieves bound cooling device's trip point hysteresis.
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetBoundTripPointHysterisis
+(
+    TripPoint TripPointRef        IN,       ///< Trip point reference
+    uint32    boundHysterisis     OUT      ///< The hysteresis associated with the input bound cooling device's trip point object.
+                                          ///< cooling device's trip point object
+);
+
+//------------------------------------------------------------------------------------------------
+/**
+* Retrieves the bound trip point trip ID.
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*
+* @note This is supported only on SA525M.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetBoundTripPointTripID
+(
+    TripPoint TripPointRef        IN,        ///< Trip point reference
+    uint32    boundTripID        OUT      ///< The bound trip point trip ID associated with
+                                          ///< the input trip point reference
+);
+
+//------------------------------------------------------------------------------------------------
+/**
+* Retrieves the thermal zone ID the bound trip point is associated with.
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*
+* @note This is supported only on SA525M.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetBoundTripPointThermalZoneID
+(
+    TripPoint TripPointRef        IN,       ///< Trip point reference
+    uint32    boundTZoneID        OUT      ///< The bound thermal zone ID associated with
+                                          ///< the input trip point reference
+);
+
+
+//------------------------------------------------------------------------------------------------
+/**
+* Deletes the list of the thermal zones.
+*
+* @return
+*  - LE_BAD_PARAMETER -- Bad parameters.
+*  - LE_OK -- Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DeleteThermalZoneList
+(
+    ThermalZoneList ThermalZoneListRef        IN        ///< Thermal Zone list reference
+);
+
+
+//------------------------------------------------------------------------------------------------
+/**
+* Gets the list of available cooling devices.
+*
+* @return
+* - NULL                               No cooling device information found.
+* - taf_therm_CoolingDeviceListeRef    The cooling device object reference.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION CoolingDeviceList GetCoolingDeviceList
+(
+);
+
+//------------------------------------------------------------------------------------------------
+/**
+* Gets the list size of available cooling devices.
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetCoolingDeviceListSize
+(
+    CoolingDeviceList CDevListRef        IN,        ///< Thermal zone list reference
+    uint32      listSize                 OUT      ///< List size
+);
+
+
+//------------------------------------------------------------------------------------------------
+/**
+ * Gets the first cooling device object reference in the list of the
+ * cooling device retrieved with taf_therm_GetCoolingDeviceList().
+ *
+ * @return
+ *  - NULL                          No cooling device information found.
+ *  - taf_therm_CoolingDeviceRef    The cooling device object reference.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION CoolingDevice GetFirstCoolingDevice
+(
+    CoolingDeviceList CDevListRef        IN        ///< Cooling device list reference
+);
+
+
+//------------------------------------------------------------------------------------------------
+/**
+ * Gets the next cooling device object reference in the list of the
+ * cooling devices retrieved with taf_therm_GetCoolingDeviceList().
+ *
+ * @return
+ *  - NULL                          No cooling device information found.
+ *  - taf_therm_CoolingDeviceRef    The cooling device object reference.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION CoolingDevice GetNextCoolingDevice
+(
+    CoolingDeviceList CDevListRef        IN        ///< Cooling device reference
+);
+
+//------------------------------------------------------------------------------------------------
+/**
+* Retrieves the cooling device's cooling ID.
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetCDevID
+(
+    CoolingDevice CDevListRef    IN,        ///< Cooling device reference
+    uint32      cDevID           OUT      ///< The cooling device ID associated with the
+                                         ///< input cooling device object reference
+);
+
+//------------------------------------------------------------------------------------------------
+/**
+* Retrieves the cooling device description.
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetCDevDescription
+(
+    CoolingDevice CDevListRef               IN,   ///< Cooling device reference
+    string Description[TYPE_MAX_SIZE]       OUT   ///< The cooling device description associated 
+                                                 ///< with input cooling device object reference
+);
+
+
+//------------------------------------------------------------------------------------------------
+/**
+* Retrieves the cooling device's maximum cooling level.
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetCDevMaxCoolingLevel
+(
+    CoolingDevice CDevListRef        IN,      ///< Cooling device reference
+    uint32      maxCoolingLevel      OUT      ///< The maximum cooling level associated with
+                                              ///< the input cooling device object reference
+);
+
+//------------------------------------------------------------------------------------------------
+/**
+* Retrieves the cooling device's current cooling level.
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetCDevCurrentCoolingLevel
+(
+    CoolingDevice CDevListRef              IN,        ///< Cooling device reference
+    uint32      currentCoolingLevel        OUT      ///< The current cooling level associated with
+                                                   ///< the input cooling device object reference
+);
+
+//------------------------------------------------------------------------------------------------
+/**
+* Deletes the list of the cooling device retrieved with taf_therm_GetCoolingDeviceList().
+*
+* @return
+*  - LE_BAD_PARAMETER -- Bad parameters.
+*  - LE_OK -- Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DeleteCoolingDeviceList
+(
+    CoolingDeviceList CDevListRef        IN        ///< Cooling device list reference
+);
+
+//------------------------------------------------------------------------------------------------
+/**
+* Retrieves the thermal zone information of the given name.
+*
+* @return
+*  - NULL                           No thermal zone information found.
+*  - taf_therm_ThermalZoneRef       The thermal zone object reference.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION ThermalZone GetThermalZoneByName
+(
+    string ThermalZone[TYPE_MAX_SIZE]            IN        ///< Thermal zone name
+);
+
+//------------------------------------------------------------------------------------------------
+/**
+* Retrieves the information of the specific cooling device with the given name.
+*
+* @return
+*  - NULL                             No cooling device information found.
+*  - taf_therm_CoolingDeviceRef       The cooling device object reference.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION CoolingDevice GetCoolingDeviceByName
+(
+    string CoolingDevice[TYPE_MAX_SIZE]            IN        ///< The cooling device name
+);

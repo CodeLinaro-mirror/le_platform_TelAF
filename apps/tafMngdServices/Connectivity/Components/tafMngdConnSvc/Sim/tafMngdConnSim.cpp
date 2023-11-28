@@ -66,12 +66,12 @@ void tafMngdConnSim::SimStateHandler
     if(simId != TAF_SIM_SLOT_ID_1 && simId != TAF_SIM_SLOT_ID_2)
         return;
 
-    stateMachineEvent_t stateMachineEvt;
+    stateMachineEvent_t stateMachineEvt = {TAF_MNGD_CONN_EVT_INIT, 0};
 
     if(simState == TAF_SIM_READY)
-        stateMachineEvt.event=EVT_SIM_READY;
+        stateMachineEvt.event=TAF_MNGD_CONN_EVT_SIM_READY;
     else
-        stateMachineEvt.event=EVT_SIM_NOT_READY;
+        stateMachineEvt.event=TAF_MNGD_CONN_EVT_SIM_NOT_READY;
 
     stateMachineEvt.slotId = (uint8_t)simId;
 

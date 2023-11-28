@@ -42,6 +42,7 @@
 /legato/systems/current/bin/serviceDirectory         --          gen_context(system_u:object_r:telaf_sdir_exec_t,s0)
 /legato/systems/current/bin/watchdog                 --          gen_context(system_u:object_r:telaf_wdog_exec_t,s0)
 /legato/systems/current/bin/updateDaemon             --          gen_context(system_u:object_r:telaf_update_exec_t,s0)
+/legato/systems/current/bin/deviceManager            --          gen_context(system_u:object_r:telaf_devmgr_exec_t,s0)
 
 /legato/systems/current/lib(/.*)?                                gen_context(system_u:object_r:telaf_lib_t,s0)
 /legato/systems/current/appsWriteable(/.*)?                      gen_context(system_u:object_r:telaf_app_rw_t,s0)

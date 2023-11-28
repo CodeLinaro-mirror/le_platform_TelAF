@@ -142,6 +142,11 @@ namespace tafsvc {
         bool      satsUsedCountValid;
         bool      satInfoValid;
         bool      satMeasValid;
+        taf_gnss_GnssMeasurementInfo_t measInfo[TAF_GNSS_MEASUREMENT_INFO_MAX];
+        uint8_t   measInfoCount;
+        uint16_t SVIds[TAF_GNSS_MEASUREMENT_INFO_MAX];
+        uint8_t   SVIdsCount;
+        taf_gnss_ReportStatus_t reportStatus;
         int32_t   latitude;
         int32_t   longitude;
         int32_t   hAccuracy;
@@ -182,6 +187,54 @@ namespace tafsvc {
         taf_gnss_SvInfo_t  satInfo[TAF_GNSS_SV_INFO_MAX_LEN];
         taf_gnss_SvMeas_t  satMeas[TAF_GNSS_SV_INFO_MAX_LEN];
         float    robustConformity;
+        bool     conformityValid;
+        uint8_t  confidencePercent;
+        bool     confidencePercentValid;
+        uint8_t  calibrationStatus;
+        uint8_t  calibrationStatusValid;
+        taf_gnss_KinematicsData_t GnssKinematicsData;
+        bool     GnssKinematicsDataValid;
+        double   vrpLatitude;
+        bool     vrpLatitudeValid;
+        double   vrpLongitude;
+        bool     vrpLongitudeValid;
+        double   vrpAltitude;
+        bool     vrpAltitudeValid;
+        double   eastVel;
+        bool     eastVelValid;
+        double   northVel;
+        bool     northVelValid;
+        double   upVel;
+        bool     upVelValid;
+        taf_gnss_SvUsedInPosition_t svData;
+        bool     svDataValid;
+        uint32_t sbasMask;
+        bool     sbasMaskValid;
+        uint32_t validityMask;
+        bool     validityMaskValid;
+        uint64_t validityExMask;
+        bool     validityExMaskValid;
+        uint16_t engMask;
+        bool     engMaskValid;
+        uint16_t locationEngType;
+        bool     locationEngTypeValid;
+        uint16_t horiReliablity;
+        bool     horiReliablityValid;
+        uint16_t vertReliablity;
+        bool     vertReliablityValid;
+        double   azimuth;
+        bool     azimuthValid;
+        double   eastDev;
+        bool     eastDevValid;
+        double   northDev;
+        bool     northDevValid;
+        uint64_t realTime;
+        bool realTimeValid;
+        uint64_t realTimeUnc;
+        bool realTimeUncValid;
+        uint32_t techMask;
+        uint32_t techMaskValid;
+        double   altMeanSeaLevel;
         le_dls_Link_t   next;
     }
     taf_gnss_PositionSample_t;
@@ -365,6 +418,35 @@ namespace tafsvc {
                     uint8_t*  horConfidencePtr);
             le_result_t SetLeverArmConfig(const taf_gnss_LeverArmParams_t* LeverArmParamsPtr);
             le_result_t SetEngineType(taf_gnss_EngineReportsType_t EngineType);
+            le_result_t GetConformityIndex(taf_gnss_SampleRef_t positionSampleRef,double* indexPtr);
+            le_result_t GetCalibrationData(taf_gnss_SampleRef_t positionSampleRef,
+                    uint32_t* calibPtr,uint8_t* percentPtr);
+            le_result_t GetBodyFrameData(taf_gnss_SampleRef_t positionSampleRef,
+                    taf_gnss_KinematicsData_t* bodyDataPtr);
+            le_result_t GetVRPBasedLLA(taf_gnss_SampleRef_t positionSampleRef,
+                    double* vrpLatitudePtr, double* vrpLongitudePtr,double* vrpAttitudePtr);
+            le_result_t GetVRPBasedVelocity(taf_gnss_SampleRef_t positionSampleRef,
+                    double* eastVelPtr, double* northVelPtr, double* upVelPtr);
+            le_result_t GetSvUsedInPosition(taf_gnss_SampleRef_t positionSampleRef,
+                    taf_gnss_SvUsedInPosition_t* svDataPtr);
+            le_result_t GetSbasCorrection(taf_gnss_SampleRef_t positionSampleRef,
+                    uint32_t* sbasMaskPtr);
+            le_result_t GetPositionTechnology(taf_gnss_SampleRef_t positionSampleRef,
+                    uint32_t* techMaskPtr);
+            le_result_t GetLocationInfoValidity(taf_gnss_SampleRef_t positionSampleRef,
+                    uint32_t* validityMaskPtr,uint64_t* validityExMaskPtr);
+            le_result_t GetLocationOutputEngParams(taf_gnss_SampleRef_t positionSampleRef,
+                    uint16_t* engMaskPtr, uint16_t* locationEngTypePtr);
+            le_result_t GetReliabilityInformation(taf_gnss_SampleRef_t positionSampleRef,
+                    uint16_t* horiReliblityPtr, uint16_t* vertReliblityPtr);
+            le_result_t GetStdDeviationAzimuthInfo(taf_gnss_SampleRef_t positionSampleRef,
+                    double* azimuthPtr,double* eastDevPtr, double* northDevPtr);
+            le_result_t GetRealTimeInformation(taf_gnss_SampleRef_t positionSampleRef,
+                    uint64_t* realTimePtr,uint64_t* realTimeUncPtr);
+            le_result_t GetMeasurementUsageInfo(taf_gnss_SampleRef_t positionSampleRef, taf_gnss_GnssMeasurementInfo_t* measInfoPtr, size_t* measInfoLen);
+            le_result_t GetReportStatus(taf_gnss_SampleRef_t positionSampleRef, int32_t* reportStatusPtr);
+            le_result_t GetAltitudeMeanSeaLevel(taf_gnss_SampleRef_t positionSampleRef, double* altMeanSeaLevelPtr);
+            le_result_t GetSVIds(taf_gnss_SampleRef_t positionSampleRef, uint16_t* sVIdsPtr, size_t* sVIdsLen);
             le_mem_PoolRef_t   PositionHandlerPoolRef;
             le_mem_PoolRef_t   PositionSampleRequestPoolRef;
             le_event_Id_t positionEventId;
@@ -378,6 +460,7 @@ namespace tafsvc {
             std::condition_variable mMinEleVar;
             std::condition_variable mRobuLocVar;
             std::condition_variable mSecBandVar;
+            std::condition_variable mNmeaVar;
             std::mutex mMutex;
             std::mutex mGnssMutex;
             le_mutex_Ref_t mGnssMutexRef = NULL;

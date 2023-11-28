@@ -1,0 +1,39 @@
+sandboxed: false
+executables:
+{
+    tafDiagApp = ( diagAppComp )
+}
+
+
+processes:
+{
+    run:
+    {
+        (tafDiagApp)
+    }
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+
+    maxFileBytes: 1048576K
+}
+
+start: manual
+
+bindings:
+{
+    tafDiagApp.diagAppComp.taf_diagReset -> tafDiagSvc.taf_diagReset
+    tafDiagApp.diagAppComp.taf_diagRoutineCtrl -> tafDiagSvc.taf_diagRoutineCtrl
+    tafDiagApp.diagAppComp.taf_diagUpdate -> tafDiagSvc.taf_diagUpdate
+    tafDiagApp.diagAppComp.taf_diagSecurity -> tafDiagSvc.taf_diagSecurity
+    tafDiagApp.diagAppComp.taf_update -> tafUpdateSvc.taf_update
+    tafDiagApp.diagAppComp.taf_appMgmt -> tafUpdateSvc.taf_appMgmt
+    tafDiagApp.diagAppComp.taf_fwupdate -> tafUpdateSvc.taf_fwupdate
+}
+
+// Add SELinux module
+components:
+{
+    $TELAF_ROOT/security/selinux/sepolicy/sample/diagApp/component
+}

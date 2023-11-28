@@ -65,6 +65,8 @@ using namespace std;
 #define ISOVIS_MODEL_YEAR_LENGTH 1
 #define ISOVIS_SEQ_PLANT_START (ISOVIS_MODEL_YEAR_START + ISOVIS_MODEL_YEAR_LENGTH)
 #define ISOVIS_SEQ_PLANT_LENGTH 7
+#define MSD_VERSION_TWO 2
+#define MSD_VERSION_THREE 3
 
 namespace telux {
     namespace tafsvc {
@@ -167,6 +169,10 @@ namespace telux {
                 le_result_t SetNadDeregistrationTime(uint16_t deregTime);
                 le_result_t GetNadDeregistrationTime(uint16_t* deregTime);
                 le_result_t TerminateRegistration();
+                le_result_t SetNadClearDownFallbackTime(uint16_t ccftTime);
+                le_result_t GetNadClearDownFallbackTime(uint16_t* ccftTime);
+                le_result_t SetNadMinNetworkRegistrationTime(uint16_t minNwRegTime);
+                le_result_t GetNadMinNetworkRegistrationTime(uint16_t* minNwRegTime);
                 taf_ecall_State_t GetState ( taf_ecall_CallRef_t ecallRef);
                 taf_ecall_TerminationReason_t GetTerminationReason ( taf_ecall_CallRef_t ecallRef);
                 taf_ecall_StateChangeHandlerRef_t AddStateChangeHandler (taf_ecall_StateChangeHandlerFunc_t handlerPtr,

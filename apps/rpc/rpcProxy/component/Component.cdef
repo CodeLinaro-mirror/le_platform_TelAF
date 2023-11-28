@@ -1,0 +1,24 @@
+sources:
+{
+    rpcProxy.c
+    rpcProxyConfig.c
+    rpcClientProxy.c
+    rpcServerProxy.c
+    rpcProxyMessaging.c
+}
+
+requires:
+{
+    api:
+    {
+        $TELAF_ROOT/interfaces/someipGW/taf_someipClnt.api
+        $TELAF_ROOT/interfaces/someipGW/taf_someipSvr.api
+    }
+}
+
+cflags:
+{
+    -I${LEGATO_ROOT}/framework/liblegato
+    -I${LEGATO_ROOT}/framework/liblegato/linux
+    -I${LEGATO_ROOT}/framework/daemons/linux/serviceDirectory
+}

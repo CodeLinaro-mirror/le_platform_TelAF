@@ -1,6 +1,6 @@
 {
     "Product": "TelAF",
-    "Name": "Managed Connectivity Configuration - V1",
+    "Name": "Managed Connectivity Service",
     "ManagedConnectivityService": {
         "Version": "23.07.00",
         "Configuration": {

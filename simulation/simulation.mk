@@ -53,6 +53,7 @@ MKTOOLS_FLAGS_SIMULATION_EX += --cxxflags=-I$(sdk_rootfs)/include --ldflags=-L$(
 
 export TELAF_SIMULATION_ENABLE_SMS ?= n
 export TELAF_SIMULATION_ENABLE_DCS ?= n
+export TELAF_SIMULATION_ENABLE_SIM ?= n
 
 endif
 

@@ -23,16 +23,12 @@ ifneq ($(filter simula%,$(MAKECMDGOALS)),)
 endif
 
 $(TARGETS):
-ifneq ($(TELAF_BUILD), $(wildcard $(TELAF_BUILD)))
 	@ln -sf $(LEGATO_RELATIVE_PATH)/build ./build
-endif
 	$(shell $(GEN_FILE_CONTEXTS))
-	$(MAKE) --no-print-directory -C $(LEGATO_ROOT) $@ TELAF_ROOT_SET=$(TELAF_ROOT)
+	$(MAKE) --no-print-directory -C $(LEGATO_ROOT) $@ TELAF_ROOT=$(TELAF_ROOT)
 
 $(UTILITIES):
-	@$(MAKE) --no-print-directory -C $(LEGATO_ROOT) $@ TELAF_ROOT_SET=$(TELAF_ROOT)
-ifeq ($(TELAF_BUILD), $(wildcard $(TELAF_BUILD)))
+	@$(MAKE) --no-print-directory -C $(LEGATO_ROOT) $@ TELAF_ROOT=$(TELAF_ROOT)
 	@rm -rf $(TELAF_BUILD)
-endif
 	@rm -fr $(SE_FILES) $(SE_MODS)
 	@rm -f simulation/workstation/.check_done

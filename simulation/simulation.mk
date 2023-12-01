@@ -2,7 +2,7 @@
 # Makefile for TelAF Simulation Target
 # --------------------------------------------------------------------------------------------------
 
-TARGETS += simulation
+TARGETS += simulation menuconfig_simulation
 
 Q?=@
 
@@ -142,6 +142,8 @@ define setup-simulation-dep
 		echo "[$(1)] Ready" ; \
 	fi
 endef
+
+simula-menuconfig: menuconfig_simulation
 
 simula-boost: boost
 boost:
@@ -444,3 +446,6 @@ simula-remove-all-volumes:
 	@echo "[$@] detele all volumes done."
 
 simula-clean: distclean
+
+simula-clean-config:
+	@rm -f $(LEGATO_ROOT)/.config.simulation

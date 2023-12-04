@@ -28,6 +28,10 @@ apps:
     $TELAF_ROOT/apps/test/tafDataCallTest/tafDataCallUnitTest/tafDataCallUnitTest
 #endif
 
+#if ${TELAF_SIMULATION_ENABLE_DIAG} = y
+    $TELAF_ROOT/apps/tafServices/tafDiagSvc
+#endif
+
 }
 
 interfaceSearch:

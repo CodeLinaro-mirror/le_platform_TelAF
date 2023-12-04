@@ -449,3 +449,9 @@ simula-clean: distclean
 
 simula-clean-config:
 	@rm -f $(LEGATO_ROOT)/.config.simulation
+
+simula-clean-system:
+	@rm -rf build/simulation/{_staging_system.simulation.update,system}
+
+simula-rm-network:
+	@docker network rm $$(docker network ls -q --filter="name=telaf_simulation_runtime") > /dev/null

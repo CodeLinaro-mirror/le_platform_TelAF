@@ -15,6 +15,7 @@ if [ -v ON_TELAF_SIMULATION_DOCKER ]; then # [Docker-Container-Env]
     export ON_TELAF_SIMULATION_DOCKER=yes
 
     export PATH=/legato/systems/current/bin:$PATH
+    export PATH=/venv/bin:$PATH
 
     source $HOME/simulation/framework/environ.sh
 

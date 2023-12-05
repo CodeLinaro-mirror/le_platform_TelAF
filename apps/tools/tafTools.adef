@@ -9,6 +9,7 @@ sandboxed: false
 executables:
 {
     pm = (pm)
+    tafmodule = (tafmodule)
 }
 
 bindings:

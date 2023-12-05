@@ -258,11 +258,6 @@ allow telaf_devmgr_t data_t:file { relabel_file_perms };
 allow telaf_devmgr_t telaf_devmgr_data_t:dir { relabel_dir_perms manage_dir_perms };
 allow telaf_devmgr_t telaf_devmgr_data_t:file { relabel_file_perms manage_file_perms mmap_file_perms  };
 allow telaf_devmgr_data_t fs_t:filesystem { associate };
-gen_require(`
-  type telaf_tafGpioSvc_t;
-')
-allow telaf_devmgr_t telaf_tafGpioSvc_t:lnk_file { read };
-allow telaf_devmgr_t telaf_tafGpioSvc_t:process { signull };
 ifdef(`sa525m',`
     allow telaf_devmgr_t data_t:file { map };
 ')

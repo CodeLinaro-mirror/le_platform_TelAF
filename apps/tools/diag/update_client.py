@@ -42,6 +42,7 @@ from udsoncan import DidCodec, AsciiCodec
 import udsoncan.configs
 import logging
 import time
+import threading
 
 #logging.basicConfig(level=logging.DEBUG)
 
@@ -112,10 +113,10 @@ def update_workflow():
             # Step7: Security access #1-Request seed(SecurityAccess). 27 01
             response = uds_client.request_seed(0x01)
             seed = response.service_data.seed
-            
+
             # Calculate key via seed.
             key = dummy_send2key(level=0x01, seed=seed)
-            
+
             # Step8: Security access #2-Send key(SecurityAccess). 27 02
             response = uds_client.send_key(0x02, key)
             print(response)
@@ -163,8 +164,8 @@ def update_workflow():
             print(response)
 
             # Step15: Routine Control RUNDTCTEST(RoutineControl). 31 03 02 47 request update status
-            for i in range(60):
-                time.sleep(5)
+            for i in range(100):
+                time.sleep(3)
                 response = uds_client.routine_control(routine_id=0x0247, control_type=0x03)
                 print(response)
                 print(response.service_data.routine_status_record)
@@ -175,10 +176,21 @@ def update_workflow():
 
             print(update_state)
 
-            # Step16: Return to default session(Perform ECU Reset). 10 01
+            # Step16: Switch to extended session(Perform ECU Reset). 10 03
             response = uds_client.change_session(DiagnosticSessionControl.Session.extendedDiagnosticSession)
             print(response)
 
+            # Step17: Send tester present to maintain the current session. 3E 00
+            def sendPresent():
+                uds_client.tester_present()
+                print(response)
+
+            for i in range(3):
+                tr = threading.Timer(3,sendPresent)
+                tr.start()
+                tr.join()
+
+            # Step18: Send ECU Reset if the condition is met.
             if update_state == b'\x06':
                 response = uds_client.ecu_reset(reset_type=1) # Hard reset
                 print(response)

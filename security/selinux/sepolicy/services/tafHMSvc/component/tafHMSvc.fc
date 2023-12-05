@@ -1,0 +1,6 @@
+# Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+/legato/systems/current/appsWriteable/tafHMSvc/lib(/.*)?                               gen_context(system_u:object_r:telaf_lib_t,s0)
+/legato/systems/current/appsWriteable/tafHMSvc/bin/tafHMSvc                            gen_context(system_u:object_r:telaf_tafHMSvc_exec_t,s0)
+/legato/apps/[^/]*/read-only/bin/tafHMSvc                                              gen_context(system_u:object_r:telaf_tafHMSvc_exec_t,s0)

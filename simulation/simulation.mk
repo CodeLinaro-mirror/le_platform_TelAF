@@ -54,10 +54,12 @@ MKTOOLS_FLAGS_SIMULATION_EX += --cxxflags=-I$(sdk_rootfs)/include --ldflags=-L$(
 export TELAF_SIMULATION_ENABLE_SMS ?= n
 export TELAF_SIMULATION_ENABLE_DCS ?= n
 export TELAF_SIMULATION_ENABLE_SIM ?= n
+export TELAF_SIMULATION_ENABLE_LOC ?= n
 
 endif
 
 export TELAF_SIMULATION_ENABLE_SOMEIP_GW ?= y
+export TELAF_SIMULATION_ENABLE_DIAG ?= n
 
 SIMULATION_SOMEIP_GW_DEPS_y := $(SIMULATION_HOME)/deps/install/boost $(SIMULATION_HOME)/deps/install/vsomeip
 SIMULATION_DEPS += $(SIMULATION_SOMEIP_GW_DEPS_$(TELAF_SIMULATION_ENABLE_SOMEIP_GW))
@@ -76,10 +78,26 @@ export MKTOOLS_FLAGS_SIMULATION_EX
 .PHONY: simulation boost vsomeip
 
 ifeq ($(within),)
+
+ifeq ($(DEBUG),on)
+export DEBUG=1
+export STRIP_STAGING_TREE=0
+simula simulac simula-c: simula-clean-config check-sys pre-simulation-build simulation post-simulation-build
+else
 simula simulac simula-c: check-sys pre-simulation-build simulation post-simulation-build
+endif # end DEBUG
+
+else # below includes the appending 'within' option
+
+ifeq ($(DEBUG),on)
+export DEBUG=1
+export STRIP_STAGING_TREE=0
+simula simulac simula-c: simula-clean-config simula-up-develop-for-c
 else
 simula simulac simula-c: simula-up-develop-for-c
-endif
+endif # end DEBUG
+
+endif # end within
 
 OS_VERSION=$(shell grep -oP 'VERSION_ID=\K"(.+)"' /etc/os-release | tr -d '"')
 

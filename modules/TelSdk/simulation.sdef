@@ -38,6 +38,24 @@ apps:
     $TELAF_ROOT/apps/test/tafSimTest/tafSimUnitTest/tafSimUnitTest
 #endif
 
+#if ${TELAF_SIMULATION_ENABLE_DIAG} = y
+    $TELAF_ROOT/apps/tafServices/tafDiagSvc
+#endif
+
+#if ${TELAF_SIMULATION_ENABLE_LOC} = y
+    // from --> $TELAF_ROOT/apps/tafServices/tafLocationSvc
+    $TELAF_ROOT/simulation/bypass/telsdk/tafLocationSvc
+    $TELAF_ROOT/simulation/bypass/telsdk/gnssTool
+    $TELAF_ROOT/apps/test/tafLocationTest/tafLocationUnitTest/tafLocationUnitTest
+#endif
+
+}
+
+commands:
+{
+#if ${TELAF_SIMULATION_ENABLE_LOC} = y
+    gnss = gnssTool:/bin/gnss
+#endif
 }
 
 interfaceSearch:

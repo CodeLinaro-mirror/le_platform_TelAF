@@ -60,7 +60,8 @@ taf_therm_ThermalZoneListRef_t taf_therm_GetThermalZonesList()
  SIDE EFFECTS
 
 ======================================================================*/
-le_result_t taf_therm_GetThermalZonesListSize(taf_therm_ThermalZoneListRef_t listRef, uint32_t* listSize)
+le_result_t taf_therm_GetThermalZonesListSize(
+             taf_therm_ThermalZoneListRef_t listRef, uint32_t* listSize)
 {
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetThermalZonesListSize(listRef, listSize);
@@ -74,7 +75,7 @@ le_result_t taf_therm_GetThermalZonesListSize(taf_therm_ThermalZoneListRef_t lis
 
  DEPENDENCIES    Initialization of a thermal list
 
- PARAMETERS      [IN] taf_therm_ThermalZoneListRef_t ThermalZoneListRef: The thermal list reference.
+ PARAMETERS      [IN] taf_therm_ThermalZoneListRef_t ThermalZoneListRef:The thermal list reference.
 
  RETURN VALUE    taf_therm_ThermalZoneRef_t
                      nullptr:     Fail
@@ -207,7 +208,7 @@ taf_therm_BoundCoolingDeviceRef_t taf_therm_GetNextBoundCDev(taf_therm_ThermalZo
 
  DEPENDENCIES    Initialization of thermal list.
 
- PARAMETERS      [IN] taf_therm_ThermalZoneListRef_t ThermalZoneListRef: The thermal list reference.
+ PARAMETERS      [IN] taf_therm_ThermalZoneListRef_t ThermalZoneListRef:The thermal list reference.
 
  RETURN VALUE    le_result_t
                      LE_NOT_FOUND: Fail.
@@ -258,7 +259,8 @@ taf_therm_CoolingDeviceListRef_t taf_therm_GetCoolingDeviceList()
  SIDE EFFECTS
 
 ======================================================================*/
-le_result_t taf_therm_GetCoolingDeviceListSize(taf_therm_CoolingDeviceListRef_t listRef, uint32_t* listSize)
+le_result_t taf_therm_GetCoolingDeviceListSize(
+         taf_therm_CoolingDeviceListRef_t listRef, uint32_t* listSize)
 {
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetCoolingDeviceListSize(listRef, listSize);
@@ -282,7 +284,7 @@ le_result_t taf_therm_GetCoolingDeviceListSize(taf_therm_CoolingDeviceListRef_t 
 
 ======================================================================*/
 taf_therm_CoolingDeviceRef_t taf_therm_GetFirstCoolingDevice(
-    taf_therm_CoolingDeviceListRef_t listRef
+         taf_therm_CoolingDeviceListRef_t listRef
 )
 {
     auto& tafTherm = taf_Therm::GetInstance();
@@ -398,7 +400,7 @@ taf_therm_CoolingDeviceRef_t taf_therm_GetCoolingDeviceByName(const char* coolin
  SIDE EFFECTS
 
 ======================================================================*/
-le_result_t taf_therm_GetThermalZoneID(taf_therm_ThermalZoneRef_t listRef, uint32_t* thermalZoneID)
+le_result_t taf_therm_GetThermalZoneID(taf_therm_ThermalZoneRef_t listRef,uint32_t* thermalZoneID)
 {
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetThermalZoneID(listRef, thermalZoneID);
@@ -442,7 +444,8 @@ le_result_t taf_therm_GetThermalZoneType(
  SIDE EFFECTS
 
 ======================================================================*/
-le_result_t taf_therm_GetThermalZoneCurrentTemp(taf_therm_ThermalZoneRef_t listRef, uint32_t* currTemp)
+le_result_t taf_therm_GetThermalZoneCurrentTemp(
+         taf_therm_ThermalZoneRef_t listRef, uint32_t* currTemp)
 {
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetThermalZoneCurrentTemp(listRef, currTemp);
@@ -463,7 +466,8 @@ le_result_t taf_therm_GetThermalZoneCurrentTemp(taf_therm_ThermalZoneRef_t listR
  SIDE EFFECTS
 
 ======================================================================*/
-le_result_t taf_therm_GetThermalZonePassiveTemp(taf_therm_ThermalZoneRef_t listRef, uint32_t* passiveTemp)
+le_result_t taf_therm_GetThermalZonePassiveTemp(
+         taf_therm_ThermalZoneRef_t listRef, uint32_t* passiveTemp)
 {
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetThermalZonePassiveTemp(listRef, passiveTemp);
@@ -506,7 +510,8 @@ le_result_t taf_therm_GetTripPointListSize(taf_therm_ThermalZoneRef_t listRef, u
  SIDE EFFECTS
 
 ======================================================================*/
-le_result_t taf_therm_GetBoundCoolingDeviceListSize(taf_therm_ThermalZoneRef_t listRef, uint32_t* listSize)
+le_result_t taf_therm_GetBoundCoolingDeviceListSize(
+         taf_therm_ThermalZoneRef_t listRef, uint32_t* listSize)
 {
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetBoundCoolingDeviceListSize(listRef, listSize);
@@ -573,7 +578,7 @@ le_result_t taf_therm_GetTripPointThreshold(taf_therm_TripPointRef_t listRef, ui
  SIDE EFFECTS
 
 ======================================================================*/
-le_result_t taf_therm_GetTripPointHysterisis(taf_therm_TripPointRef_t listRef, uint32_t* hysterisis)
+le_result_t taf_therm_GetTripPointHysterisis(taf_therm_TripPointRef_t listRef,uint32_t* hysterisis)
 {
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetTripPointHysterisis(listRef, hysterisis);
@@ -618,7 +623,7 @@ le_result_t taf_therm_GetTripPointTripID(taf_therm_TripPointRef_t listRef, uint3
  SIDE EFFECTS
 
 ======================================================================*/
-le_result_t taf_therm_GetTripPointThermalZoneID(taf_therm_TripPointRef_t listRef, uint32_t* tZoneID)
+le_result_t taf_therm_GetTripPointThermalZoneID(taf_therm_TripPointRef_t listRef,uint32_t* tZoneID)
 {
     #if LE_CONFIG_ENABLE_THERMAL_GET_ZONE_ID
         auto& tafTherm = taf_Therm::GetInstance();
@@ -663,7 +668,8 @@ le_result_t taf_therm_GetCDevID(taf_therm_CoolingDeviceRef_t listRef, uint32_t* 
  SIDE EFFECTS
 
 ======================================================================*/
-le_result_t taf_therm_GetCDevMaxCoolingLevel(taf_therm_CoolingDeviceRef_t listRef, uint32_t* maxCoolingLevel)
+le_result_t taf_therm_GetCDevMaxCoolingLevel(
+        taf_therm_CoolingDeviceRef_t listRef, uint32_t* maxCoolingLevel)
 {
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetCDevMaxCoolingLevel(listRef, maxCoolingLevel);
@@ -684,7 +690,8 @@ le_result_t taf_therm_GetCDevMaxCoolingLevel(taf_therm_CoolingDeviceRef_t listRe
  SIDE EFFECTS
 
 ======================================================================*/
-le_result_t taf_therm_GetCDevCurrentCoolingLevel(taf_therm_CoolingDeviceRef_t listRef, uint32_t* currentCoolingLevel)
+le_result_t taf_therm_GetCDevCurrentCoolingLevel(
+        taf_therm_CoolingDeviceRef_t listRef, uint32_t* currentCoolingLevel)
 {
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetCDevCurrentCoolingLevel(listRef, currentCoolingLevel);
@@ -708,7 +715,7 @@ le_result_t taf_therm_GetCDevCurrentCoolingLevel(taf_therm_CoolingDeviceRef_t li
 
 ======================================================================*/
 le_result_t taf_therm_GetCDevDescription(
-    taf_therm_CoolingDeviceRef_t listRef, char* description, size_t listSize
+        taf_therm_CoolingDeviceRef_t listRef, char* description, size_t listSize
 )
 {
     auto& tafTherm = taf_Therm::GetInstance();
@@ -731,7 +738,8 @@ le_result_t taf_therm_GetCDevDescription(
  SIDE EFFECTS
 
 ======================================================================*/
-le_result_t taf_therm_GetBoundCoolingId(taf_therm_BoundCoolingDeviceRef_t listRef, uint32_t* boundCoolingId)
+le_result_t taf_therm_GetBoundCoolingId(
+        taf_therm_BoundCoolingDeviceRef_t listRef, uint32_t* boundCoolingId)
 {
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetBoundCoolingId(listRef, boundCoolingId);
@@ -753,7 +761,8 @@ le_result_t taf_therm_GetBoundCoolingId(taf_therm_BoundCoolingDeviceRef_t listRe
  SIDE EFFECTS
 
 ======================================================================*/
-le_result_t taf_therm_GetBoundTripPointListSize(taf_therm_BoundCoolingDeviceRef_t listRef, uint32_t* listSize)
+le_result_t taf_therm_GetBoundTripPointListSize(
+         taf_therm_BoundCoolingDeviceRef_t listRef, uint32_t* listSize)
 {
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetBoundTripPointListSize(listRef, listSize);
@@ -778,7 +787,7 @@ le_result_t taf_therm_GetBoundTripPointListSize(taf_therm_BoundCoolingDeviceRef_
 
 ======================================================================*/
 taf_therm_TripPointRef_t taf_therm_GetFirstBoundTripPoint(
-    taf_therm_BoundCoolingDeviceRef_t listRef
+        taf_therm_BoundCoolingDeviceRef_t listRef
 )
 {
     auto& tafTherm = taf_Therm::GetInstance();
@@ -804,7 +813,7 @@ taf_therm_TripPointRef_t taf_therm_GetFirstBoundTripPoint(
 
 ======================================================================*/
 taf_therm_TripPointRef_t taf_therm_GetNextBoundTripPoint(
-    taf_therm_BoundCoolingDeviceRef_t listRef
+        taf_therm_BoundCoolingDeviceRef_t listRef
 )
 {
     auto& tafTherm = taf_Therm::GetInstance();
@@ -827,7 +836,7 @@ taf_therm_TripPointRef_t taf_therm_GetNextBoundTripPoint(
 
 ======================================================================*/
 le_result_t taf_therm_GetBoundTripPointType(
-    taf_therm_TripPointRef_t listRef, char* boundTripType, size_t listSize
+        taf_therm_TripPointRef_t listRef, char* boundTripType, size_t listSize
 )
 {
     auto& tafTherm = taf_Therm::GetInstance();
@@ -849,7 +858,8 @@ le_result_t taf_therm_GetBoundTripPointType(
  SIDE EFFECTS
 
 ======================================================================*/
-le_result_t taf_therm_GetBoundTripPointThreshold(taf_therm_TripPointRef_t listRef, uint32_t* boundThreshold)
+le_result_t taf_therm_GetBoundTripPointThreshold(
+        taf_therm_TripPointRef_t listRef, uint32_t* boundThreshold)
 {
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetBoundTripPointThreshold(listRef, boundThreshold);
@@ -870,7 +880,8 @@ le_result_t taf_therm_GetBoundTripPointThreshold(taf_therm_TripPointRef_t listRe
  SIDE EFFECTS
 
 ======================================================================*/
-le_result_t taf_therm_GetBoundTripPointHysterisis(taf_therm_TripPointRef_t listRef, uint32_t* boundHysterisis)
+le_result_t taf_therm_GetBoundTripPointHysterisis(
+        taf_therm_TripPointRef_t listRef, uint32_t* boundHysterisis)
 {
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetBoundTripPointHysterisis(listRef, boundHysterisis);
@@ -878,7 +889,7 @@ le_result_t taf_therm_GetBoundTripPointHysterisis(taf_therm_TripPointRef_t listR
 
 /*======================================================================
 
- FUNCTION        taf_therm_GetTripPointTripID
+ FUNCTION        taf_therm_GetBoundTripPointTripID
 
  DESCRIPTION     Gets information for a trip point trip ID.
 
@@ -891,7 +902,8 @@ le_result_t taf_therm_GetBoundTripPointHysterisis(taf_therm_TripPointRef_t listR
  SIDE EFFECTS
 
 ======================================================================*/
-le_result_t taf_therm_GetBoundTripPointTripID(taf_therm_TripPointRef_t listRef, uint32_t* boundTripID)
+le_result_t taf_therm_GetBoundTripPointTripID(
+         taf_therm_TripPointRef_t listRef, uint32_t* boundTripID)
 {
 #if LE_CONFIG_ENABLE_THERMAL_GET_TRIP_ID
     auto& tafTherm = taf_Therm::GetInstance();
@@ -902,7 +914,7 @@ le_result_t taf_therm_GetBoundTripPointTripID(taf_therm_TripPointRef_t listRef, 
 
 /*======================================================================
 
- FUNCTION        taf_therm_GetTripPointThermalZoneID
+ FUNCTION        taf_therm_GetBoundTripPointThermalZoneID
 
  DESCRIPTION     Gets information of thermal zone ID the trip point is associated with.
 
@@ -915,11 +927,105 @@ le_result_t taf_therm_GetBoundTripPointTripID(taf_therm_TripPointRef_t listRef, 
  SIDE EFFECTS
 
 ======================================================================*/
-le_result_t taf_therm_GetBoundTripPointThermalZoneID(taf_therm_TripPointRef_t listRef, uint32_t* boundTZoneID)
+le_result_t taf_therm_GetBoundTripPointThermalZoneID(
+        taf_therm_TripPointRef_t listRef, uint32_t* boundTZoneID)
 {
 #if LE_CONFIG_ENABLE_THERMAL_GET_ZONE_ID
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.GetBoundTripPointThermalZoneID(listRef, boundTZoneID);
 #endif
     return LE_FAULT;
+}
+
+/**
+* FUNCTION     : taf_therm_AddTripEventHandler
+* DESCRIPTION  : Sends trip point tripped notification
+* DEPENDECY    :
+* PARAMETERS   : Trip Event Handler Function
+* RETURN VALUES: HandlerRef if registered successfully or else NULL
+*/
+taf_therm_TripEventHandlerRef_t taf_therm_AddTripEventHandler(
+         taf_therm_TripEventHandlerFunc_t handlerPtr, void* contextPtr)
+{
+    LE_DEBUG("AddStateChangeHandler for trip type change");
+    auto& tafTherm = taf_Therm::GetInstance();
+    return tafTherm.AddTripEventHandler(handlerPtr,contextPtr);
+}
+
+/**
+* FUNCTION     : taf_therm_RemoveTripEventHandler
+* DESCRIPTION  : Remove trip event handler
+* DEPENDECY    :
+* PARAMETERS   : trip event handler reference
+* RETURN VALUES:
+*/
+void taf_therm_RemoveTripEventHandler(taf_therm_TripEventHandlerRef_t handlerRef)
+{
+    LE_DEBUG("taf_therm_RemoveStateChangeHandler");
+    auto& tafTherm = taf_Therm::GetInstance();
+    tafTherm.RemoveTripEventHandler(handlerRef);
+}
+
+/**
+* FUNCTION     : taf_therm_AddCoolingLevelChangeEventHandler
+* DESCRIPTION  : Send cooling level change notification
+* DEPENDECY    :
+* PARAMETERS   : Cooling level change handler reference
+* RETURN VALUES: HandlerRef if registered successfully or else NULL
+*/
+taf_therm_CoolingLevelChangeEventHandlerRef_t taf_therm_AddCoolingLevelChangeEventHandler
+(
+   taf_therm_CoolingLevelChangeEventHandlerFunc_t handlerPtr, void* contextPtr
+)
+{
+    LE_DEBUG("AddStateChangeHandler for trip type change");
+    auto& tafTherm = taf_Therm::GetInstance();
+    return tafTherm.AddCoolingLevelChangeEventHandler(handlerPtr,contextPtr);
+}
+
+/**
+* FUNCTION     : taf_therm_RemoveCoolingLevelChangeEventHandler
+* DESCRIPTION  : Remove cooling level change handler
+* DEPENDECY    :
+* PARAMETERS   : Cooling level change handler reference
+* RETURN VALUES:
+*/
+
+void taf_therm_RemoveCoolingLevelChangeEventHandler
+(
+    taf_therm_CoolingLevelChangeEventHandlerRef_t handlerRef
+)
+{
+    LE_DEBUG("taf_therm_RemoveStateChangeHandler");
+    auto& tafTherm = taf_Therm::GetInstance();
+    tafTherm.RemoveCoolingLevelChangeEventHandler(handlerRef);
+}
+
+/**
+* FUNCTION     : taf_therm_ReleaseTripEventRef
+* DESCRIPTION  : Remove trip event change reference for the given trip point
+* DEPENDECY    :
+* PARAMETERS   : Trip Point reference
+* RETURN VALUES: LE_OK on success, LE_BAD_PARAMETER on invalid reference
+*/
+
+le_result_t taf_therm_ReleaseTripEventRef(taf_therm_TripPointRef_t tripEventRef) {
+    LE_DEBUG("taf_therm_ReleaseTripEventRef");
+    auto& tafTherm = taf_Therm::GetInstance();
+    return tafTherm.ReleaseTripEventRef(tripEventRef);
+}
+
+
+/**
+* FUNCTION     : taf_therm_ReleaseCoolingDeviceRef
+* DESCRIPTION  : Remove cooling level change reference for the given cooling device
+* DEPENDECY    :
+* PARAMETERS   : Cooling device reference
+* RETURN VALUES: LE_OK on success, LE_BAD_PARAMETER on invalid reference
+*/
+
+le_result_t taf_therm_ReleaseCoolingDeviceRef(taf_therm_CoolingDeviceRef_t cDevRef) {
+    LE_DEBUG("taf_therm_ReleaseCoolingDeviceRef");
+    auto& tafTherm = taf_Therm::GetInstance();
+    return tafTherm.ReleaseCoolingDeviceRef(cDevRef);
 }

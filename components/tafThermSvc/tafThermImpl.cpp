@@ -37,17 +37,17 @@ void taf_Handler::Init()
  }
 
 LE_MEM_DEFINE_STATIC_POOL(tZoneListPool, TAF_THERM_MAX_LIST_POOL_SIZE,
-    sizeof(taf_ThermalZoneList_t));
+        sizeof(taf_ThermalZoneList_t));
 LE_MEM_DEFINE_STATIC_POOL(tZonePool, TAF_THERM_MAX_ZONE_POOL_SIZE, sizeof(taf_ThermalZone_t));
 LE_MEM_DEFINE_STATIC_POOL(tripPointPool, TAF_THERM_MAX_ZONE_POOL_SIZE, sizeof(taf_TripPoint_t));
 LE_MEM_DEFINE_STATIC_POOL(boundCDPool, TAF_THERM_MAX_ZONE_POOL_SIZE,
-    sizeof(taf_BoundCoolingDevice_t));
+        sizeof(taf_BoundCoolingDevice_t));
 LE_MEM_DEFINE_STATIC_POOL(boundTripPointCDPool, TAF_THERM_MAX_ZONE_POOL_SIZE,
-    sizeof(taf_TripPoint_t));
+        sizeof(taf_TripPoint_t));
 LE_MEM_DEFINE_STATIC_POOL(cDevListPool, TAF_THERM_MAX_LIST_POOL_SIZE,
-    sizeof(taf_CoolingDeviceList_t));
+        sizeof(taf_CoolingDeviceList_t));
 LE_MEM_DEFINE_STATIC_POOL(cDevPool, TAF_THERM_MAX_ZONE_POOL_SIZE,
-    sizeof(taf_CoolingDevice_t));
+        sizeof(taf_CoolingDevice_t));
 
 LE_REF_DEFINE_STATIC_MAP(tZoneListRefMap, TAF_THERM_MAX_LIST_POOL_SIZE);
 LE_REF_DEFINE_STATIC_MAP(tZoneRefMap, TAF_THERM_MAX_LIST_POOL_SIZE);
@@ -84,7 +84,7 @@ telux::common::Status mapZoneNametoId()
     auto& tafTherm = taf_Therm::GetInstance();
     telux::common::Status status = telux::common::Status::FAILED;
     std::vector<std::shared_ptr<telux::therm::IThermalZone>> zonesInfo
-        = tafTherm.thermalManager->getThermalZones();
+            = tafTherm.thermalManager->getThermalZones();
     if (zonesInfo.size() > 0)
     {
         status = telux::common::Status::SUCCESS;
@@ -107,7 +107,7 @@ telux::common::Status mapCDeviceNametoId()
     auto& tafTherm = taf_Therm::GetInstance();
     telux::common::Status status = telux::common::Status::FAILED;
     std::vector<std::shared_ptr<telux::therm::ICoolingDevice>> cDevInfo
-        = tafTherm.thermalManager->getCoolingDevices();
+            = tafTherm.thermalManager->getCoolingDevices();
     if (cDevInfo.size() > 0)
     {
         status = telux::common::Status::SUCCESS;
@@ -130,16 +130,18 @@ telux::common::Status manageIndication(bool registerInd)
 {
     auto& tafTherm = taf_Therm::GetInstance();
     telux::common::Status status = telux::common::Status::FAILED;
-    tafTherm.thermalListener = std::make_shared<telux::therm::IThermalListener>();
+    tafTherm.thermalListener = std::make_shared<taf_ThermServiceListener>();
     if (registerInd)
     {
         status = tafTherm.thermalManager->registerListener(tafTherm.thermalListener);
-        LE_INFO("Listener registered - Success");
+        TAF_ERROR_IF_RET_VAL(status == telux::common::Status::FAILED,
+                status,"Listener registered - Failed");
     }
     else
     {
         status = tafTherm.thermalManager->deregisterListener(tafTherm.thermalListener);
-        LE_INFO("Listener Deregistered");
+        TAF_ERROR_IF_RET_VAL(status == telux::common::Status::FAILED,
+                status, "Listener deregistered - Failed");
     }
     if (status != telux::common::Status::SUCCESS)
     {
@@ -153,14 +155,6 @@ telux::common::Status manageIndication(bool registerInd)
         }
         return status;
     }
-    if (registerInd)
-    {
-        LE_INFO("Register");
-    }
-    else
-    {
-        LE_INFO("De-register");
-    }
     return status;
 }
 
@@ -170,7 +164,7 @@ telux::common::Status manageIndication(bool registerInd)
 
  DESCRIPTION     Initialization of the thermal Service and registering listeners
 
- DEPENDENCIES    The initialization of telaf.
+ DEPENDENCIES    The initialization of telaf
 
  PARAMETERS      None
 
@@ -187,7 +181,7 @@ void taf_Therm::Init(void)
     // Get thermal manager instance
     std::promise<telux::common::ServiceStatus> prom = std::promise<telux::common::ServiceStatus>();
     thermalManager = thermalFactory.getThermalManager([&](telux::common::ServiceStatus status)
-        { prom.set_value(status); }, procType);
+            { prom.set_value(status); }, procType);
 
     if (thermalManager == nullptr)
     {
@@ -229,7 +223,12 @@ void taf_Therm::Init(void)
     cDevListRefMap = le_ref_InitStaticMap(cDevListRefMap, TAF_THERM_MAX_LIST_POOL_SIZE);
     cDevRefMap = le_ref_InitStaticMap(cDevRefMap, TAF_THERM_MAX_LIST_POOL_SIZE);
 
-    le_msg_AddServiceCloseHandler(taf_therm_GetServiceRef(), taf_Handler::OnClientDisconnection, NULL);
+    le_msg_AddServiceCloseHandler(taf_therm_GetServiceRef(),
+        taf_Handler::OnClientDisconnection, NULL);
+
+    stateChangeEvent = le_event_CreateId("stateChangeEvent", sizeof(taf_TripEventInfo_t));
+    onCoolingLevelChangeEvent =
+            le_event_CreateId("onCoolingLevelChangeEvent", sizeof(coolingLevelChangeInfo_t));
 
     if (manageIndication(true) != telux::common::Status::SUCCESS)
     {
@@ -243,7 +242,7 @@ void taf_Therm::Init(void)
 
     if (mapCDeviceNametoId() != telux::common::Status::SUCCESS)
     {
-        LE_INFO("Failed to map cooling device names to cooling device ID ");
+        LE_INFO("Failed to map cooling device names to cooling device ID");
     }
     LE_INFO("Returning from thermal init()");
 }
@@ -256,7 +255,8 @@ void taf_Handler::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void* ct
      le_ref_IterRef_t cDevIterRef = le_ref_GetIterator(tafThermalMgr.cDevListRefMap);
      while (le_ref_NextNode(tZoneIterRef) == LE_OK)
      {
-         taf_ThermalZoneList_t* thermalListPtr = (taf_ThermalZoneList_t*)le_ref_GetValue(tZoneIterRef);
+         taf_ThermalZoneList_t* thermalListPtr =
+                 (taf_ThermalZoneList_t*)le_ref_GetValue(tZoneIterRef);
          if (thermalListPtr && thermalListPtr->sessionRef == sessionRef)
          {
              taf_therm_DeleteThermalZoneList(thermalListPtr->ref);
@@ -264,7 +264,8 @@ void taf_Handler::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void* ct
      }
      while (le_ref_NextNode(cDevIterRef) == LE_OK)
      {
-         taf_CoolingDeviceList_t* cDevListPtr = (taf_CoolingDeviceList_t*)le_ref_GetValue(cDevIterRef);
+         taf_CoolingDeviceList_t* cDevListPtr =
+             (taf_CoolingDeviceList_t*)le_ref_GetValue(cDevIterRef);
          if (cDevListPtr && cDevListPtr->sessionRef == sessionRef)
          {
              taf_therm_DeleteCoolingDeviceList(cDevListPtr->ref);
@@ -277,18 +278,18 @@ void taf_ThermServiceListener::onServiceStatusChange(telux::common::ServiceStatu
     LE_INFO("<Thermal Listener> taf_ThermServiceListener --> onServiceStatusChange");
     switch (serviceStatus)
     {
-    case telux::common::ServiceStatus::SERVICE_AVAILABLE:
-        LE_INFO("Thermal service status: Available.");
-        break;
-    case telux::common::ServiceStatus::SERVICE_UNAVAILABLE:
-        LE_INFO("Thermal service status: Unavailable.");
-        break;
-    case telux::common::ServiceStatus::SERVICE_FAILED:
-        LE_INFO("Thermal service status: Failed.");
-        break;
-    default:
-        LE_INFO("Thermal service status: Unknown.");
-        break;
+        case telux::common::ServiceStatus::SERVICE_AVAILABLE:
+            LE_INFO("Thermal service status: Available.");
+            break;
+        case telux::common::ServiceStatus::SERVICE_UNAVAILABLE:
+            LE_INFO("Thermal service status: Unavailable.");
+            break;
+        case telux::common::ServiceStatus::SERVICE_FAILED:
+            LE_INFO("Thermal service status: Failed.");
+            break;
+        default:
+            LE_INFO("Thermal service status: Unknown.");
+            break;
     }
 }
 
@@ -303,27 +304,27 @@ void GetTripType(taf_TripPoint_t* tripPointPtr,
             tripPointPtr->tripType = TAF_THERM_UNKNOWN;
         break;
 
-    case telux::therm::TripType::CRITICAL:
-        tripPointPtr->tripType = TAF_THERM_CRITICAL;
-        break;
-
-    case telux::therm::TripType::HOT:
-        tripPointPtr->tripType = TAF_THERM_HOT;
-        break;
-
-    case telux::therm::TripType::PASSIVE:
-        tripPointPtr->tripType = TAF_THERM_PASSIVE;
-        break;
-
-    case telux::therm::TripType::ACTIVE:
-        tripPointPtr->tripType = TAF_THERM_ACTIVE;
-        break;
-
-    case telux::therm::TripType::CONFIGURABLE_HIGH:
-        tripPointPtr->tripType = TAF_THERM_CONFIGURABLE_HIGH;
-        break;
-
-    case telux::therm::TripType::CONFIGURABLE_LOW:
+        case telux::therm::TripType::CRITICAL:
+            tripPointPtr->tripType = TAF_THERM_CRITICAL;
+            break;
+        
+        case telux::therm::TripType::HOT:
+            tripPointPtr->tripType = TAF_THERM_HOT;
+            break;
+        
+        case telux::therm::TripType::PASSIVE:
+            tripPointPtr->tripType = TAF_THERM_PASSIVE;
+            break;
+        
+        case telux::therm::TripType::ACTIVE:
+            tripPointPtr->tripType = TAF_THERM_ACTIVE;
+            break;
+        
+        case telux::therm::TripType::CONFIGURABLE_HIGH:
+            tripPointPtr->tripType = TAF_THERM_CONFIGURABLE_HIGH;
+            break;
+        
+        case telux::therm::TripType::CONFIGURABLE_LOW:
         tripPointPtr->tripType = TAF_THERM_CONFIGURABLE_LOW;
         break;
     }
@@ -333,13 +334,13 @@ taf_therm_ThermalZoneListRef_t taf_Therm::GetThermalZonesList()
 {
     auto& tafTherm = taf_Therm::GetInstance();
     taf_ThermalZoneList_t* tZoneListPtr =
-        (taf_ThermalZoneList_t*)le_mem_ForceAlloc(tafTherm.tZoneListPool);
+            (taf_ThermalZoneList_t*)le_mem_ForceAlloc(tafTherm.tZoneListPool);
     memset(tZoneListPtr, 0, sizeof(taf_ThermalZoneList_t));
     tZoneListPtr->ThermalZoneList = LE_SLS_LIST_INIT;
     tZoneListPtr->sessionRef = taf_therm_GetClientSessionRef();
     tZoneListPtr->currPtr = NULL;
     std::vector<std::shared_ptr<telux::therm::IThermalZone>> zonesInfo =
-        thermalManager->getThermalZones();
+            thermalManager->getThermalZones();
     tZoneListPtr->thermalZoneListSize = zonesInfo.size();
     if (zonesInfo.size() > 0)
     {
@@ -349,13 +350,13 @@ taf_therm_ThermalZoneListRef_t taf_Therm::GetThermalZonesList()
         taf_TripPoint_t* bindingPtr;
         for (size_t i = 0; i < zonesInfo.size(); i++)
         {
-			tZonePtr = (taf_ThermalZone_t*)le_mem_ForceAlloc(tafTherm.tZonePool);
+            tZonePtr = (taf_ThermalZone_t*)le_mem_ForceAlloc(tafTherm.tZonePool);
             memset(tZonePtr, 0, sizeof(taf_ThermalZone_t));
             tZonePtr->TripPointList = LE_SLS_LIST_INIT;
             tZonePtr->BoundCoolingDeviceList = LE_SLS_LIST_INIT;
             tZonePtr->currPtr = NULL;
             le_utf8_Copy(tZonePtr->Type, zonesInfo[i]->getDescription().c_str(),
-                TAF_THERM_ZONE_TYPE_MAX_SIZE, NULL);
+                    TAF_THERM_ZONE_TYPE_MAX_SIZE, NULL);
             tZonePtr->tZoneId = zonesInfo[i]->getId();
             tZonePtr->currTemp = zonesInfo[i]->getCurrentTemp();
             tZonePtr->passiveTemp = zonesInfo[i]->getPassiveTemp();
@@ -371,21 +372,21 @@ taf_therm_ThermalZoneListRef_t taf_Therm::GetThermalZonesList()
                 tripPointPtr->threshold = tripPoint[t]->getThresholdTemp();
                 tripPointPtr->hysteresis = tripPoint[t]->getHysteresis();
 
-                #if LE_CONFIG_ENABLE_THERMAL_GET_TRIP_ID
-                    tripPointPtr->tripId = tripPoint[t]->getTripId();
-                #endif
-                #if LE_CONFIG_ENABLE_THERMAL_GET_ZONE_ID
-                    tripPointPtr->tZoneId = tripPoint[t]->getTZoneId();
-                #endif
+#if LE_CONFIG_ENABLE_THERMAL_GET_TRIP_ID
+                tripPointPtr->tripId = tripPoint[t]->getTripId();
+#endif
+#if LE_CONFIG_ENABLE_THERMAL_GET_ZONE_ID
+                tripPointPtr->tZoneId = tripPoint[t]->getTZoneId();
+#endif
 
                 tripPointPtr->link = LE_SLS_LINK_INIT;
                 le_sls_Queue(&(tZonePtr->TripPointList), &(tripPointPtr->link));
                 tripPointPtr->ref =
-                    (taf_therm_TripPointRef_t)le_ref_CreateRef(tripPointRefMap, tripPointPtr);
+                        (taf_therm_TripPointRef_t)le_ref_CreateRef(tripPointRefMap, tripPointPtr);
             }
             //Bound Cooling Device Information
             std::vector<telux::therm::BoundCoolingDevice> boundCoolingDevice =
-                zonesInfo[i]->getBoundCoolingDevices();
+                    zonesInfo[i]->getBoundCoolingDevices();
             tZonePtr->boundCoolingDeviceListSize = boundCoolingDevice.size();
             for (size_t t = 0; t < boundCoolingDevice.size(); t++)
             {
@@ -396,51 +397,52 @@ taf_therm_ThermalZoneListRef_t taf_Therm::GetThermalZonesList()
                 boundCoolingDevicePtr->currPtr = NULL;
                 boundCoolingDevicePtr->coolingDeviceId = boundCoolingDevice[t].coolingDeviceId;
                 std::vector<std::shared_ptr<telux::therm::ITripPoint>> cDevBinding =
-                boundCoolingDevice[t].bindingInfo;
+                        boundCoolingDevice[t].bindingInfo;
                 boundCoolingDevicePtr->tripPointListSize = cDevBinding.size();
                 for (size_t idx = 0; idx < cDevBinding.size(); idx++)
                 {
-                   bindingPtr = (taf_TripPoint_t*)le_mem_ForceAlloc(tafTherm.boundTripPointCDPool);
-                   memset(bindingPtr, 0, sizeof(taf_TripPoint_t));
-                   GetTripType(bindingPtr, tripPoint[idx]);
-                   bindingPtr->threshold = tripPoint[idx]->getThresholdTemp();
-                   bindingPtr->hysteresis = tripPoint[idx]->getHysteresis();
+                    bindingPtr =(taf_TripPoint_t*)le_mem_ForceAlloc(tafTherm.boundTripPointCDPool);
+                    memset(bindingPtr, 0, sizeof(taf_TripPoint_t));
+                    GetTripType(bindingPtr, tripPoint[idx]);
+                    bindingPtr->threshold = tripPoint[idx]->getThresholdTemp();
+                    bindingPtr->hysteresis = tripPoint[idx]->getHysteresis();
 
-                #if LE_CONFIG_ENABLE_THERMAL_GET_TRIP_ID
-                   bindingPtr->tripId = tripPoint[idx]->getTripId();
-                #endif
-                #if LE_CONFIG_ENABLE_THERMAL_GET_ZONE_ID
-                   bindingPtr->tZoneId = tripPoint[idx]->getTZoneId();
-                #endif
-                   bindingPtr->link = LE_SLS_LINK_INIT;
-                   le_sls_Queue(&(boundCoolingDevicePtr->TripPointList), &(bindingPtr->link));
-                   bindingPtr->ref =
-                       (taf_therm_TripPointRef_t)le_ref_CreateRef(boundTripPointRefMap, bindingPtr);
+#if LE_CONFIG_ENABLE_THERMAL_GET_TRIP_ID
+                    bindingPtr->tripId = tripPoint[idx]->getTripId();
+#endif
+#if LE_CONFIG_ENABLE_THERMAL_GET_ZONE_ID
+                    bindingPtr->tZoneId = tripPoint[idx]->getTZoneId();
+#endif
+                    bindingPtr->link = LE_SLS_LINK_INIT;
+                    le_sls_Queue(&(boundCoolingDevicePtr->TripPointList), &(bindingPtr->link));
+                    bindingPtr->ref =
+                         (taf_therm_TripPointRef_t)le_ref_CreateRef(boundTripPointRefMap, bindingPtr);
                 }
                 boundCoolingDevicePtr->link = LE_SLS_LINK_INIT;
                 le_sls_Queue(&(tZonePtr->BoundCoolingDeviceList), &(boundCoolingDevicePtr->link));
                 boundCoolingDevicePtr->ref =
-                (taf_therm_BoundCoolingDeviceRef_t)le_ref_CreateRef(boundCDRefMap, boundCoolingDevicePtr);
+                     (taf_therm_BoundCoolingDeviceRef_t)
+                     le_ref_CreateRef(boundCDRefMap, boundCoolingDevicePtr);
             }
             tZonePtr->link = LE_SLS_LINK_INIT;
             le_sls_Queue(&(tZoneListPtr->ThermalZoneList), &(tZonePtr->link));
             tZonePtr->ref = (taf_therm_ThermalZoneRef_t)le_ref_CreateRef(tZoneRefMap, tZonePtr);
         }
         tZoneListPtr->ref =
-            (taf_therm_ThermalZoneListRef_t)le_ref_CreateRef(tZoneListRefMap, tZoneListPtr);
+                (taf_therm_ThermalZoneListRef_t)le_ref_CreateRef(tZoneListRefMap, tZoneListPtr);
         return tZoneListPtr->ref;
     }
     return NULL;
 }
 
+
 taf_therm_ThermalZoneRef_t taf_Therm::GetFirstThermalZone(
     taf_therm_ThermalZoneListRef_t tZoneListRef)
 {
     taf_ThermalZoneList_t* tZoneListPtr =
-        (taf_ThermalZoneList_t*)le_ref_Lookup(tZoneListRefMap, tZoneListRef);
+            (taf_ThermalZoneList_t*)le_ref_Lookup(tZoneListRefMap, tZoneListRef);
 
-    TAF_ERROR_IF_RET_VAL(tZoneListPtr == NULL, NULL, "Failed to remove sessionRef %p from table.",
-        tZoneListPtr);
+    TAF_ERROR_IF_RET_VAL(tZoneListPtr == NULL, NULL, "Failed to retrieve thermal zone.");
 
     le_sls_Link_t* tZonelinkPtr = le_sls_Peek(&(tZoneListPtr->ThermalZoneList));
     if (tZonelinkPtr != NULL)
@@ -457,10 +459,9 @@ taf_therm_ThermalZoneRef_t taf_Therm::GetNextThermalZone(
 )
 {
     taf_ThermalZoneList_t* tZoneListPtr =
-        (taf_ThermalZoneList_t*)le_ref_Lookup(tZoneListRefMap, tZoneListRef);
+            (taf_ThermalZoneList_t*)le_ref_Lookup(tZoneListRefMap, tZoneListRef);
 
-    TAF_ERROR_IF_RET_VAL(tZoneListPtr == NULL, NULL, "Failed to remove sessionRef %p from table.",
-        tZoneListPtr);
+    TAF_ERROR_IF_RET_VAL(tZoneListPtr == NULL, NULL, "Failed to retrieve next thermal zone.");
 
     le_sls_Link_t* tZonelinkPtr =
         le_sls_PeekNext(&(tZoneListPtr->ThermalZoneList), tZoneListPtr->currPtr);
@@ -477,7 +478,7 @@ taf_therm_TripPointRef_t taf_Therm::GetFirstTripPoint(taf_therm_ThermalZoneRef_t
 {
     taf_ThermalZone_t* tZonePtr = (taf_ThermalZone_t*)le_ref_Lookup(tZoneRefMap, listRef);
 
-    TAF_ERROR_IF_RET_VAL(tZonePtr == NULL, NULL, "Failed to remove sessionRef %p from table.", tZonePtr);
+    TAF_ERROR_IF_RET_VAL(tZonePtr == NULL, NULL,"Failed to retrieve thermal zone.");
 
     le_sls_Link_t* tripPointPtr = le_sls_Peek(&(tZonePtr->TripPointList));
     if (tripPointPtr != NULL)
@@ -493,7 +494,7 @@ taf_therm_TripPointRef_t taf_Therm::GetNextTripPoint(taf_therm_ThermalZoneRef_t 
 {
     taf_ThermalZone_t* tZonePtr = (taf_ThermalZone_t*)le_ref_Lookup(tZoneRefMap, listRef);
 
-    TAF_ERROR_IF_RET_VAL(tZonePtr == NULL, NULL, "Failed to remove sessionRef %p from table.", tZonePtr);
+    TAF_ERROR_IF_RET_VAL(tZonePtr == NULL, NULL,"Failed to retrieve next thermal zone.");
 
     le_sls_Link_t* tripPointPtr = le_sls_PeekNext(&(tZonePtr->TripPointList), tZonePtr->currPtr);
     if (tripPointPtr != NULL)
@@ -509,7 +510,7 @@ taf_therm_BoundCoolingDeviceRef_t taf_Therm::GetFirstBoundCDev(taf_therm_Thermal
 {
     taf_ThermalZone_t* tZonePtr = (taf_ThermalZone_t*)le_ref_Lookup(tZoneRefMap, listRef);
 
-    TAF_ERROR_IF_RET_VAL(tZonePtr == NULL, NULL, "Failed to remove sessionRef %p from table.", tZonePtr);
+    TAF_ERROR_IF_RET_VAL(tZonePtr == NULL, NULL,"Failed to retrieve next thermal zone.");
 
     le_sls_Link_t* cDevPtr = le_sls_Peek(&(tZonePtr->BoundCoolingDeviceList));
     if (cDevPtr != NULL)
@@ -525,7 +526,7 @@ taf_therm_BoundCoolingDeviceRef_t taf_Therm::GetNextBoundCDev(taf_therm_ThermalZ
 {
     taf_ThermalZone_t* tZonePtr = (taf_ThermalZone_t*)le_ref_Lookup(tZoneRefMap, listRef);
 
-    TAF_ERROR_IF_RET_VAL(tZonePtr == NULL, NULL, "Failed to remove sessionRef %p from table.", tZonePtr);
+    TAF_ERROR_IF_RET_VAL(tZonePtr == NULL, NULL,"Failed to retrieve next thermal zone.");
 
     le_sls_Link_t* cDevPtr
         = le_sls_PeekNext(&(tZonePtr->BoundCoolingDeviceList), tZonePtr->currPtr);
@@ -543,10 +544,10 @@ taf_therm_TripPointRef_t taf_Therm::GetFirstBoundTripPoint(
 )
 {
     taf_BoundCoolingDevice_t* boundTripPointPtr =
-        (taf_BoundCoolingDevice_t*)le_ref_Lookup(boundCDRefMap, listRef);
+            (taf_BoundCoolingDevice_t*)le_ref_Lookup(boundCDRefMap, listRef);
 
-    TAF_ERROR_IF_RET_VAL(boundTripPointPtr == NULL, NULL, "Failed to remove sessionRef %p from table.",
-        boundTripPointPtr);
+    TAF_ERROR_IF_RET_VAL(boundTripPointPtr == NULL, NULL,
+            "Failed to retrieve first bound trip point.");
 
     le_sls_Link_t* tripPointPtr = le_sls_Peek(&(boundTripPointPtr->TripPointList));
     if (tripPointPtr != NULL)
@@ -562,13 +563,12 @@ taf_therm_TripPointRef_t taf_Therm::GetNextBoundTripPoint(
 )
 {
     taf_BoundCoolingDevice_t* boundTripPointPtr =
-        (taf_BoundCoolingDevice_t*)le_ref_Lookup(boundCDRefMap, listRef);
+            (taf_BoundCoolingDevice_t*)le_ref_Lookup(boundCDRefMap, listRef);
 
-    TAF_ERROR_IF_RET_VAL(boundTripPointPtr == NULL, NULL, "Failed to remove sessionRef %p from table.",
-        boundTripPointPtr);
+    TAF_ERROR_IF_RET_VAL(boundTripPointPtr ==NULL,NULL,"Failed to retrieve next bound trip point");
 
     le_sls_Link_t* tripPointPtr =
-        le_sls_PeekNext(&(boundTripPointPtr->TripPointList), boundTripPointPtr->currPtr);
+            le_sls_PeekNext(&(boundTripPointPtr->TripPointList), boundTripPointPtr->currPtr);
 
     if (tripPointPtr != NULL)
     {
@@ -627,13 +627,13 @@ taf_therm_CoolingDeviceListRef_t taf_Therm::GetCoolingDeviceList()
 {
     auto& tafTherm = taf_Therm::GetInstance();
     taf_CoolingDeviceList_t* cDevListPtr =
-        (taf_CoolingDeviceList_t*)le_mem_ForceAlloc(tafTherm.cDevListPool);
+            (taf_CoolingDeviceList_t*)le_mem_ForceAlloc(tafTherm.cDevListPool);
     memset(cDevListPtr, 0, sizeof(taf_CoolingDeviceList_t));
     cDevListPtr->CoolingDeviceList = LE_SLS_LIST_INIT;
     cDevListPtr->sessionRef = taf_therm_GetClientSessionRef();
     cDevListPtr->currPtr = NULL;
     std::vector<std::shared_ptr<telux::therm::ICoolingDevice>> coolingDevices =
-        thermalManager->getCoolingDevices();
+            thermalManager->getCoolingDevices();
     cDevListPtr->coolingDeviceListSize = coolingDevices.size();
     if (coolingDevices.size() > 0)
     {
@@ -649,10 +649,11 @@ taf_therm_CoolingDeviceListRef_t taf_Therm::GetCoolingDeviceList()
             cDevPtr->currentCoolingLevel = coolingDevices[i]->getCurrentCoolingLevel();
             cDevPtr->link = LE_SLS_LINK_INIT;
             le_sls_Queue(&(cDevListPtr->CoolingDeviceList), &(cDevPtr->link));
-            cDevPtr->ref = (taf_therm_CoolingDeviceRef_t)le_ref_CreateRef(cDevRefMap, (void*)cDevPtr);
+            cDevPtr->ref =
+                (taf_therm_CoolingDeviceRef_t)le_ref_CreateRef(cDevRefMap, (void*)cDevPtr);
         }
         cDevListPtr->ref =
-            (taf_therm_CoolingDeviceListRef_t)le_ref_CreateRef(cDevListRefMap, cDevListPtr);
+                (taf_therm_CoolingDeviceListRef_t)le_ref_CreateRef(cDevListRefMap, cDevListPtr);
         return cDevListPtr->ref;
     }
     return NULL;
@@ -662,10 +663,9 @@ taf_therm_CoolingDeviceRef_t taf_Therm::GetFirstCoolingDevice(
     taf_therm_CoolingDeviceListRef_t cDevListRef)
 {
     taf_CoolingDeviceList_t* cDevListPtr =
-        (taf_CoolingDeviceList_t*)le_ref_Lookup(cDevListRefMap, cDevListRef);
+            (taf_CoolingDeviceList_t*)le_ref_Lookup(cDevListRefMap, cDevListRef);
 
-    TAF_ERROR_IF_RET_VAL(cDevListPtr == NULL, NULL, "Failed to remove sessionRef %p from table.",
-        cDevListPtr);
+    TAF_ERROR_IF_RET_VAL(cDevListPtr == NULL, NULL, "Failed to retrieve first cooling device.");
 
     le_sls_Link_t* cDevlinkPtr = le_sls_Peek(&(cDevListPtr->CoolingDeviceList));
     if (cDevlinkPtr != NULL)
@@ -684,8 +684,7 @@ taf_therm_CoolingDeviceRef_t taf_Therm::GetNextCoolingDevice(
     taf_CoolingDeviceList_t* cDevListPtr =
         (taf_CoolingDeviceList_t*)le_ref_Lookup(cDevListRefMap, cDevListRef);
 
-    TAF_ERROR_IF_RET_VAL(cDevListPtr == NULL, NULL, "Failed to remove sessionRef %p from table.",
-        cDevListPtr);
+    TAF_ERROR_IF_RET_VAL(cDevListPtr == NULL, NULL, "Failed to retrieve next cooling device.");
 
     le_sls_Link_t* cDevlinkPtr =
         le_sls_PeekNext(&(cDevListPtr->CoolingDeviceList), cDevListPtr->currPtr);
@@ -723,10 +722,10 @@ taf_therm_ThermalZoneRef_t taf_Therm::GetThermalZoneByName(const char *thermalZo
     int thermalZoneId = MapThermalZonetoId(thermalZoneName);
 
     TAF_ERROR_IF_RET_VAL(thermalZoneId == -1, NULL, "NO THERMAL ZONE ASSOCIATED WITH %s",
-        thermalZoneName);
+            thermalZoneName);
 
     std::shared_ptr<telux::therm::IThermalZone> thermalZone =
-        thermalManager->getThermalZone(thermalZoneId);
+            thermalManager->getThermalZone(thermalZoneId);
 
     taf_TripPoint_t* tripPointPtr;
     taf_BoundCoolingDevice_t* boundCoolingDevicePtr;
@@ -763,7 +762,7 @@ taf_therm_ThermalZoneRef_t taf_Therm::GetThermalZoneByName(const char *thermalZo
         tripPointPtr->link = LE_SLS_LINK_INIT;
         le_sls_Queue(&(tZonePtr->TripPointList), &(tripPointPtr->link));
         tripPointPtr->ref =
-            (taf_therm_TripPointRef_t)le_ref_CreateRef(tripPointRefMap, tripPointPtr);
+                (taf_therm_TripPointRef_t)le_ref_CreateRef(tripPointRefMap, tripPointPtr);
     }
     //Bound Cooling Device Information
     std::vector<telux::therm::BoundCoolingDevice> boundCoolingDevice =
@@ -802,7 +801,8 @@ taf_therm_ThermalZoneRef_t taf_Therm::GetThermalZoneByName(const char *thermalZo
         boundCoolingDevicePtr->link = LE_SLS_LINK_INIT;
         le_sls_Queue(&(tZonePtr->BoundCoolingDeviceList), &(boundCoolingDevicePtr->link));
         boundCoolingDevicePtr->ref =
-            (taf_therm_BoundCoolingDeviceRef_t)le_ref_CreateRef(boundCDRefMap, boundCoolingDevicePtr);
+                 (taf_therm_BoundCoolingDeviceRef_t)
+                 le_ref_CreateRef(boundCDRefMap, boundCoolingDevicePtr);
     }
     tZonePtr->ref = (taf_therm_ThermalZoneRef_t)le_ref_CreateRef(tZoneRefMap, tZonePtr);
     return tZonePtr->ref;
@@ -813,45 +813,54 @@ int taf_Therm::MapThermalZonetoId(const char *thermalZone)
     auto& tafTherm = taf_Therm::GetInstance();
 
     TAF_ERROR_IF_RET_VAL(zoneNameToIdMap.find(thermalZone) == zoneNameToIdMap.end(), -1,
-        "THERMAL ZONE NOT FOUND");
+            "THERMAL ZONE NOT FOUND");
 
     return tafTherm.zoneNameToIdMap[thermalZone];
 }
 
 
-le_result_t taf_Therm::GetThermalZoneID(taf_therm_ThermalZoneRef_t listRef, uint32_t* thermalZoneID)
+le_result_t taf_Therm::GetThermalZoneID(taf_therm_ThermalZoneRef_t listRef,uint32_t* thermalZoneID)
 {
     taf_ThermalZone_t* tZonePtr = (taf_ThermalZone_t*)le_ref_Lookup(tZoneRefMap, listRef);
 
-    TAF_ERROR_IF_RET_VAL(tZonePtr == NULL, LE_FAULT, "Failed to remove sessionRef %p from table.",
-        tZonePtr);
+    TAF_ERROR_IF_RET_VAL(tZonePtr == NULL, LE_FAULT, "Failed to retrieve thermal zone.");
 
     *thermalZoneID = tZonePtr->tZoneId;
     TAF_ERROR_IF_RET_VAL(*thermalZoneID < 0, LE_FAULT, "Failed to return thermal zone ID.");
     return LE_OK;
 }
 
-le_result_t taf_Therm::GetThermalZoneCurrentTemp(taf_therm_ThermalZoneRef_t listRef, uint32_t* currTemp)
+le_result_t taf_Therm::GetThermalZoneCurrentTemp
+(
+    taf_therm_ThermalZoneRef_t listRef, uint32_t* currTemp
+)
 {
     taf_ThermalZone_t* tZonePtr = (taf_ThermalZone_t*)le_ref_Lookup(tZoneRefMap, listRef);
 
-    TAF_ERROR_IF_RET_VAL(tZonePtr == NULL, LE_FAULT, "Invalid reference (%p) provided!", tZonePtr);
+    TAF_ERROR_IF_RET_VAL(tZonePtr == NULL, LE_FAULT,
+            "Invalid reference (%p) provided!", tZonePtr);
 
     *currTemp = tZonePtr->currTemp;
 
-    TAF_ERROR_IF_RET_VAL(*currTemp == (uint32_t) -274000, LE_FAULT, "Failed to return current temp.");
+    TAF_ERROR_IF_RET_VAL(*currTemp == (uint32_t) -274000, LE_FAULT,
+            "Failed to return current temp.");
     return LE_OK;
 }
 
-le_result_t taf_Therm::GetThermalZonePassiveTemp(taf_therm_ThermalZoneRef_t listRef, uint32_t* passiveTemp)
+le_result_t taf_Therm::GetThermalZonePassiveTemp
+(
+    taf_therm_ThermalZoneRef_t listRef, uint32_t* passiveTemp
+)
 {
     taf_ThermalZone_t* tZonePtr = (taf_ThermalZone_t*)le_ref_Lookup(tZoneRefMap, listRef);
 
-    TAF_ERROR_IF_RET_VAL(tZonePtr == NULL, LE_FAULT, "Invalid reference (%p) provided!", tZonePtr);
+    TAF_ERROR_IF_RET_VAL(tZonePtr == NULL, LE_FAULT,
+            "Invalid reference (%p) provided!", tZonePtr);
 
     *passiveTemp = tZonePtr->passiveTemp;
 
-    TAF_ERROR_IF_RET_VAL(*passiveTemp != (uint32_t) -274000, LE_FAULT, "Failed to return passive temp.");
+    TAF_ERROR_IF_RET_VAL(*passiveTemp != (uint32_t) -274000, LE_FAULT,
+            "Failed to return passive temp.");
     return LE_OK;
 }
 
@@ -866,23 +875,31 @@ le_result_t taf_Therm::GetTripPointListSize(taf_therm_ThermalZoneRef_t listRef, 
     return LE_OK;
 }
 
-le_result_t taf_Therm::GetThermalZonesListSize(taf_therm_ThermalZoneListRef_t listRef, uint32_t* listSize)
+le_result_t taf_Therm::GetThermalZonesListSize
+(
+    taf_therm_ThermalZoneListRef_t listRef, uint32_t* listSize
+)
 {
     taf_ThermalZoneList_t* tZoneListPtr =
-        (taf_ThermalZoneList_t*)le_ref_Lookup(tZoneListRefMap, listRef);
+            (taf_ThermalZoneList_t*)le_ref_Lookup(tZoneListRefMap, listRef);
 
-    TAF_ERROR_IF_RET_VAL(tZoneListPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",tZoneListPtr);
+    TAF_ERROR_IF_RET_VAL(tZoneListPtr == NULL, LE_FAULT,
+            "Invalid reference (%p) provided!",tZoneListPtr);
 
     *listSize = tZoneListPtr->thermalZoneListSize;
     TAF_ERROR_IF_RET_VAL(*listSize == 0, LE_FAULT, "List does not exist.");
     return LE_OK;
 }
 
-le_result_t taf_Therm::GetBoundCoolingDeviceListSize(taf_therm_ThermalZoneRef_t listRef, uint32_t* listSize)
+le_result_t taf_Therm::GetBoundCoolingDeviceListSize
+(
+    taf_therm_ThermalZoneRef_t listRef, uint32_t* listSize
+)
 {
     taf_ThermalZone_t* tZonePtr = (taf_ThermalZone_t*)le_ref_Lookup(tZoneRefMap, listRef);
 
-    TAF_ERROR_IF_RET_VAL(tZonePtr == NULL, LE_FAULT, "Invalid reference (%p) provided!", tZonePtr);
+    TAF_ERROR_IF_RET_VAL(tZonePtr == NULL, LE_FAULT,
+            "Invalid reference (%p) provided!", tZonePtr);
 
     *listSize = tZonePtr->boundCoolingDeviceListSize;
 
@@ -896,7 +913,8 @@ le_result_t taf_Therm::GetThermalZoneType(
 {
     taf_ThermalZone_t* tZonePtr = (taf_ThermalZone_t*)le_ref_Lookup(tZoneRefMap, listRef);
 
-    TAF_ERROR_IF_RET_VAL(tZonePtr == NULL, LE_FAULT,  "Invalid reference (%p) provided!", tZonePtr);
+    TAF_ERROR_IF_RET_VAL(tZonePtr == NULL, LE_FAULT,
+            "Invalid reference (%p) provided!", tZonePtr);
 
     snprintf(thermalZoneType, sizeof(tZonePtr->Type), "%s", tZonePtr->Type);
 
@@ -905,42 +923,44 @@ le_result_t taf_Therm::GetThermalZoneType(
 }
 
 
-le_result_t taf_Therm::GetTripPointType(taf_therm_TripPointRef_t listRef, char* tripType, size_t listSize)
+le_result_t taf_Therm::GetTripPointType(
+    taf_therm_TripPointRef_t listRef, char* tripType, size_t listSize
+)
 {
     taf_TripPoint_t* tripPointPtr = (taf_TripPoint_t*)le_ref_Lookup(tripPointRefMap, listRef);
 
-    TAF_ERROR_IF_RET_VAL(tripPointPtr == NULL, LE_FAULT, "Failed to remove sessionRef %p from table.", tripPointPtr);
+    TAF_ERROR_IF_RET_VAL(tripPointPtr == NULL, LE_FAULT,"Failed to retrieve trip point.");
 
     taf_therm_TripType_t tripTypeInfo = tripPointPtr->tripType;
     switch (tripTypeInfo)
     {
-    case TAF_THERM_UNKNOWN:
-        snprintf(tripType, sizeof("UNKNOWN"), "%s", "UNKNOWN");
-        break;
-
-    case TAF_THERM_CRITICAL:
-        snprintf(tripType, sizeof("CRITICAL"), "%s", "CRITICAL");
-        break;
-
-    case TAF_THERM_HOT:
-        snprintf(tripType, sizeof("HOT"), "%s", "HOT");
-        break;
-
-    case TAF_THERM_PASSIVE:
-        snprintf(tripType, sizeof("PASSIVE"), "%s", "PASSIVE");
-        break;
-
-    case TAF_THERM_ACTIVE:
-        snprintf(tripType, sizeof("ACTIVE"), "%s", "ACTIVE");
-        break;
-
-    case TAF_THERM_CONFIGURABLE_HIGH:
-        snprintf(tripType, sizeof("CONFIGURABLE_HIGH"), "%s", "CONFIGURABLE_HIGH");
-        break;
-
-    case TAF_THERM_CONFIGURABLE_LOW:
-        snprintf(tripType, sizeof("CONFIGURABLE_LOW"), "%s", "CONFIGURABLE_LOW");
-        break;
+        case TAF_THERM_UNKNOWN:
+            snprintf(tripType, sizeof("UNKNOWN"), "%s", "UNKNOWN");
+            break;
+        
+        case TAF_THERM_CRITICAL:
+            snprintf(tripType, sizeof("CRITICAL"), "%s", "CRITICAL");
+            break;
+        
+        case TAF_THERM_HOT:
+            snprintf(tripType, sizeof("HOT"), "%s", "HOT");
+            break;
+        
+        case TAF_THERM_PASSIVE:
+            snprintf(tripType, sizeof("PASSIVE"), "%s", "PASSIVE");
+            break;
+        
+        case TAF_THERM_ACTIVE:
+            snprintf(tripType, sizeof("ACTIVE"), "%s", "ACTIVE");
+            break;
+        
+        case TAF_THERM_CONFIGURABLE_HIGH:
+            snprintf(tripType, sizeof("CONFIGURABLE_HIGH"), "%s", "CONFIGURABLE_HIGH");
+            break;
+        
+        case TAF_THERM_CONFIGURABLE_LOW:
+            snprintf(tripType, sizeof("CONFIGURABLE_LOW"), "%s", "CONFIGURABLE_LOW");
+            break;
     }
 
     TAF_ERROR_IF_RET_VAL(tripType == NULL, LE_FAULT, "Failed to return trip type.");
@@ -952,7 +972,7 @@ le_result_t taf_Therm::GetTripPointThreshold(taf_therm_TripPointRef_t listRef, u
     taf_TripPoint_t* tripPointPtr = (taf_TripPoint_t*)le_ref_Lookup(tripPointRefMap, listRef);
 
     TAF_ERROR_IF_RET_VAL(tripPointPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
-        tripPointPtr);
+            tripPointPtr);
 
     *threshold = tripPointPtr->threshold;
 
@@ -960,16 +980,20 @@ le_result_t taf_Therm::GetTripPointThreshold(taf_therm_TripPointRef_t listRef, u
     return LE_OK;
 }
 
-le_result_t taf_Therm::GetTripPointHysterisis(taf_therm_TripPointRef_t listRef, uint32_t* hysterisis)
+le_result_t taf_Therm::GetTripPointHysterisis
+(
+    taf_therm_TripPointRef_t listRef, uint32_t* hysterisis
+)
 {
     taf_TripPoint_t* tripPointPtr = (taf_TripPoint_t*)le_ref_Lookup(tripPointRefMap, listRef);
 
     TAF_ERROR_IF_RET_VAL(tripPointPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
-        tripPointPtr);
+            tripPointPtr);
 
     *hysterisis = tripPointPtr->hysteresis;
 
-    TAF_ERROR_IF_RET_VAL(*hysterisis == (uint32_t) -274000, LE_FAULT, "Failed to return hysterisis.");
+    TAF_ERROR_IF_RET_VAL(*hysterisis == (uint32_t) -274000,
+             LE_FAULT, "Failed to return hysterisis.");
     return LE_OK;
 }
 
@@ -977,10 +1001,10 @@ le_result_t taf_Therm::GetTripPointHysterisis(taf_therm_TripPointRef_t listRef, 
 le_result_t taf_Therm::GetTripPointTripID(taf_therm_TripPointRef_t listRef, uint32_t* tripID)
         {
             taf_TripPoint_t* tripPointPtr =
-                (taf_TripPoint_t*)le_ref_Lookup(tripPointRefMap, listRef);
+                    (taf_TripPoint_t*)le_ref_Lookup(tripPointRefMap, listRef);
 
-            TAF_ERROR_IF_RET_VAL(tripPointPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
-                tripPointPtr);
+            TAF_ERROR_IF_RET_VAL(tripPointPtr == NULL, LE_FAULT,"Invalid reference (%p) provided!",
+                     tripPointPtr);
 
             *tripID = tripPointPtr->tripId;
 
@@ -990,13 +1014,16 @@ le_result_t taf_Therm::GetTripPointTripID(taf_therm_TripPointRef_t listRef, uint
 #endif
 
 #if LE_CONFIG_ENABLE_THERMAL_GET_ZONE_ID
-le_result_t taf_Therm::GetTripPointThermalZoneID(taf_therm_TripPointRef_t listRef, uint32_t* tZoneID)
+le_result_t taf_Therm::GetTripPointThermalZoneID
+(
+    taf_therm_TripPointRef_t listRef, uint32_t* tZoneID
+)
         {
             taf_TripPoint_t* tripPointPtr =
-                (taf_TripPoint_t*)le_ref_Lookup(tripPointRefMap, listRef);
+                    (taf_TripPoint_t*)le_ref_Lookup(tripPointRefMap, listRef);
 
-            TAF_ERROR_IF_RET_VAL(tripPointPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
-                tripPointPtr);
+            TAF_ERROR_IF_RET_VAL(tripPointPtr == NULL, LE_FAULT,"Invalid reference (%p) provided!",
+                    tripPointPtr);
 
             *tZoneID = tripPointPtr->tZoneId;
 
@@ -1010,7 +1037,7 @@ le_result_t taf_Therm::GetCDevID(taf_therm_CoolingDeviceRef_t listRef, uint32_t*
     taf_CoolingDevice_t* cDevPtr = (taf_CoolingDevice_t*)le_ref_Lookup(cDevRefMap, listRef);
 
     TAF_ERROR_IF_RET_VAL(cDevPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
-        cDevPtr);
+            cDevPtr);
 
     *cDevID = cDevPtr->cDevId;
     TAF_ERROR_IF_RET_VAL(*cDevID < 0, LE_FAULT, "Failed to return cooling device ID.");
@@ -1018,13 +1045,16 @@ le_result_t taf_Therm::GetCDevID(taf_therm_CoolingDeviceRef_t listRef, uint32_t*
 }
 
 
-le_result_t taf_Therm::GetCoolingDeviceListSize(taf_therm_CoolingDeviceListRef_t listRef, uint32_t* listSize)
+le_result_t taf_Therm::GetCoolingDeviceListSize
+(
+    taf_therm_CoolingDeviceListRef_t listRef, uint32_t* listSize
+)
 {
     taf_CoolingDeviceList_t* cDevPtr =
-        (taf_CoolingDeviceList_t*)le_ref_Lookup(cDevListRefMap, listRef);
+            (taf_CoolingDeviceList_t*)le_ref_Lookup(cDevListRefMap, listRef);
 
     TAF_ERROR_IF_RET_VAL(cDevPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
-        cDevPtr);
+            cDevPtr);
 
     *listSize = cDevPtr->coolingDeviceListSize;
 
@@ -1041,16 +1071,20 @@ le_result_t taf_Therm::GetCDevDescription(
 
     snprintf(description, sizeof(cDevPtr->description), "%s", cDevPtr->description);
 
-    TAF_ERROR_IF_RET_VAL(description == NULL, LE_FAULT, "Failed to return cooling device description.");
+    TAF_ERROR_IF_RET_VAL(description == NULL, LE_FAULT,
+            "Failed to return cooling device description.");
     return LE_OK;
 }
 
-le_result_t taf_Therm::GetCDevMaxCoolingLevel(taf_therm_CoolingDeviceRef_t listRef, uint32_t* maxCoolingLevel)
+le_result_t taf_Therm::GetCDevMaxCoolingLevel
+(
+    taf_therm_CoolingDeviceRef_t listRef, uint32_t* maxCoolingLevel
+)
 {
     taf_CoolingDevice_t* cDevPtr = (taf_CoolingDevice_t*)le_ref_Lookup(cDevRefMap, listRef);
 
     TAF_ERROR_IF_RET_VAL(cDevPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
-        cDevPtr);
+            cDevPtr);
 
     *maxCoolingLevel = cDevPtr->maxCoolingLevel;
 
@@ -1058,26 +1092,33 @@ le_result_t taf_Therm::GetCDevMaxCoolingLevel(taf_therm_CoolingDeviceRef_t listR
     return LE_OK;
 }
 
-le_result_t taf_Therm::GetCDevCurrentCoolingLevel(taf_therm_CoolingDeviceRef_t listRef, uint32_t* currentCoolingLevel)
+le_result_t taf_Therm::GetCDevCurrentCoolingLevel
+(
+    taf_therm_CoolingDeviceRef_t listRef, uint32_t* currentCoolingLevel
+)
 {
     taf_CoolingDevice_t* cDevPtr = (taf_CoolingDevice_t*)le_ref_Lookup(cDevRefMap, listRef);
 
     TAF_ERROR_IF_RET_VAL(cDevPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
-        cDevPtr);
+            cDevPtr);
 
     *currentCoolingLevel = cDevPtr->currentCoolingLevel;
 
-    TAF_ERROR_IF_RET_VAL(*currentCoolingLevel < 0, LE_FAULT, "Failed to return current cooling level.");
+    TAF_ERROR_IF_RET_VAL(*currentCoolingLevel < 0, LE_FAULT,
+            "Failed to return current cooling level.");
     return LE_OK;
 }
 
-le_result_t taf_Therm::GetBoundCoolingId(taf_therm_BoundCoolingDeviceRef_t listRef, uint32_t* boundCoolingId)
+le_result_t taf_Therm::GetBoundCoolingId
+(
+    taf_therm_BoundCoolingDeviceRef_t listRef, uint32_t* boundCoolingId
+)
 {
     taf_BoundCoolingDevice_t* boundCevPtr =
-        (taf_BoundCoolingDevice_t*)le_ref_Lookup(boundCDRefMap, listRef);
+            (taf_BoundCoolingDevice_t*)le_ref_Lookup(boundCDRefMap, listRef);
 
     TAF_ERROR_IF_RET_VAL(boundCevPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
-        boundCevPtr);
+            boundCevPtr);
 
     *boundCoolingId = boundCevPtr->coolingDeviceId;
 
@@ -1085,13 +1126,16 @@ le_result_t taf_Therm::GetBoundCoolingId(taf_therm_BoundCoolingDeviceRef_t listR
     return LE_OK;
 }
 
-le_result_t taf_Therm::GetBoundTripPointListSize(taf_therm_BoundCoolingDeviceRef_t listRef, uint32_t* listSize)
+le_result_t taf_Therm::GetBoundTripPointListSize
+(
+    taf_therm_BoundCoolingDeviceRef_t listRef, uint32_t* listSize
+)
 {
     taf_BoundCoolingDevice_t* boundCevPtr =
-        (taf_BoundCoolingDevice_t*)le_ref_Lookup(boundCDRefMap, listRef);
+            (taf_BoundCoolingDevice_t*)le_ref_Lookup(boundCDRefMap, listRef);
 
     TAF_ERROR_IF_RET_VAL(boundCevPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
-        boundCevPtr);
+            boundCevPtr);
 
     *listSize = boundCevPtr->tripPointListSize;
 
@@ -1104,82 +1148,92 @@ le_result_t taf_Therm::GetBoundTripPointType(
 )
 {
     taf_TripPoint_t* tripPointPtr =
-        (taf_TripPoint_t*)le_ref_Lookup(boundTripPointRefMap, listRef);
+            (taf_TripPoint_t*)le_ref_Lookup(boundTripPointRefMap, listRef);
 
-    TAF_ERROR_IF_RET_VAL(tripPointPtr == NULL, LE_FAULT, "Failed to remove sessionRef %p from table.",
-        tripPointPtr);
+    TAF_ERROR_IF_RET_VAL(tripPointPtr ==NULL,LE_FAULT,"Failed to retrieve trip point.");
 
     taf_therm_TripType_t tripTypeInfo = tripPointPtr->tripType;
     switch (tripTypeInfo)
     {
-    case TAF_THERM_UNKNOWN:
-        snprintf(tripType, sizeof("UNKNOWN"), "%s", "UNKNOWN");
-        break;
-
-    case TAF_THERM_CRITICAL:
-        snprintf(tripType, sizeof("CRITICAL"), "%s", "CRITICAL");
-        break;
-
-    case TAF_THERM_HOT:
-        snprintf(tripType, sizeof("HOT"), "%s", "HOT");
-        break;
-
-    case TAF_THERM_PASSIVE:
-        snprintf(tripType, sizeof("PASSIVE"), "%s", "PASSIVE");
-        break;
-
-    case TAF_THERM_ACTIVE:
-        snprintf(tripType, sizeof("ACTIVE"), "%s", "ACTIVE");
-        break;
-
-    case TAF_THERM_CONFIGURABLE_HIGH:
-        snprintf(tripType, sizeof("CONFIGURABLE_HIGH"), "%s", "CONFIGURABLE_HIGH");
-        break;
-
-    case TAF_THERM_CONFIGURABLE_LOW:
-        snprintf(tripType, sizeof("CONFIGURABLE_LOW"), "%s", "CONFIGURABLE_LOW");
-        break;
+        case TAF_THERM_UNKNOWN:
+            snprintf(tripType, sizeof("UNKNOWN"), "%s", "UNKNOWN");
+            break;
+        
+        case TAF_THERM_CRITICAL:
+            snprintf(tripType, sizeof("CRITICAL"), "%s", "CRITICAL");
+            break;
+        
+        case TAF_THERM_HOT:
+            snprintf(tripType, sizeof("HOT"), "%s", "HOT");
+            break;
+        
+        case TAF_THERM_PASSIVE:
+            snprintf(tripType, sizeof("PASSIVE"), "%s", "PASSIVE");
+            break;
+        
+        case TAF_THERM_ACTIVE:
+            snprintf(tripType, sizeof("ACTIVE"), "%s", "ACTIVE");
+            break;
+        
+        case TAF_THERM_CONFIGURABLE_HIGH:
+            snprintf(tripType, sizeof("CONFIGURABLE_HIGH"), "%s", "CONFIGURABLE_HIGH");
+            break;
+        
+        case TAF_THERM_CONFIGURABLE_LOW:
+            snprintf(tripType, sizeof("CONFIGURABLE_LOW"), "%s", "CONFIGURABLE_LOW");
+            break;
     }
 
     TAF_ERROR_IF_RET_VAL(tripType == NULL, LE_FAULT, "Failed to return bound trip point type.");
     return LE_OK;
 }
 
-le_result_t taf_Therm::GetBoundTripPointThreshold(taf_therm_TripPointRef_t listRef, uint32_t* boundThreshold)
+le_result_t taf_Therm::GetBoundTripPointThreshold
+(
+    taf_therm_TripPointRef_t listRef, uint32_t* boundThreshold
+)
 {
     taf_TripPoint_t* tripPointPtr =
-        (taf_TripPoint_t*)le_ref_Lookup(boundTripPointRefMap, listRef);
+            (taf_TripPoint_t*)le_ref_Lookup(boundTripPointRefMap, listRef);
 
     TAF_ERROR_IF_RET_VAL(tripPointPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
-        tripPointPtr);
+            tripPointPtr);
 
     *boundThreshold = tripPointPtr->threshold;
-    TAF_ERROR_IF_RET_VAL(*boundThreshold == (uint32_t) -274000, LE_FAULT, "Failed to return bound threshold.");
+    TAF_ERROR_IF_RET_VAL(*boundThreshold == (uint32_t) -274000, LE_FAULT,
+            "Failed to return bound threshold.");
     return LE_OK;
 }
 
-le_result_t taf_Therm::GetBoundTripPointHysterisis(taf_therm_TripPointRef_t listRef, uint32_t* boundHysterisis)
+le_result_t taf_Therm::GetBoundTripPointHysterisis
+(
+    taf_therm_TripPointRef_t listRef, uint32_t* boundHysterisis
+)
 {
     taf_TripPoint_t* tripPointPtr =
-        (taf_TripPoint_t*)le_ref_Lookup(boundTripPointRefMap, listRef);
+            (taf_TripPoint_t*)le_ref_Lookup(boundTripPointRefMap, listRef);
 
     TAF_ERROR_IF_RET_VAL(tripPointPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
-        tripPointPtr);
+            tripPointPtr);
 
     *boundHysterisis = tripPointPtr->hysteresis;
 
-    TAF_ERROR_IF_RET_VAL(*boundHysterisis == (uint32_t) -274000, LE_FAULT, "Failed to return bound hysterisis.");
+    TAF_ERROR_IF_RET_VAL(*boundHysterisis == (uint32_t) -274000, LE_FAULT,
+            "Failed to return bound hysterisis.");
     return LE_OK;
 }
 
 #if LE_CONFIG_ENABLE_THERMAL_GET_TRIP_ID
-le_result_t taf_Therm::GetBoundTripPointTripID(taf_therm_TripPointRef_t listRef, uint32_t* boundTripID)
+le_result_t taf_Therm::GetBoundTripPointTripID
+(
+    taf_therm_TripPointRef_t listRef, uint32_t* boundTripID
+)
 {
     taf_TripPoint_t* tripPointPtr =
-        (taf_TripPoint_t*)le_ref_Lookup(boundTripPointRefMap, listRef);
+            (taf_TripPoint_t*)le_ref_Lookup(boundTripPointRefMap, listRef);
 
     TAF_ERROR_IF_RET_VAL(tripPointPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
-        tripPointPtr);
+            tripPointPtr);
 
     *boundTripID = tripPointPtr->tripId;
 
@@ -1188,13 +1242,16 @@ le_result_t taf_Therm::GetBoundTripPointTripID(taf_therm_TripPointRef_t listRef,
 }
 #endif
 #if LE_CONFIG_ENABLE_THERMAL_GET_ZONE_ID
-le_result_t taf_Therm::GetBoundTripPointThermalZoneID(taf_therm_TripPointRef_t listRef, uint32_t* boundTZoneID)
+le_result_t taf_Therm::GetBoundTripPointThermalZoneID
+(
+    taf_therm_TripPointRef_t listRef, uint32_t* boundTZoneID
+)
 {
     taf_TripPoint_t* tripPointPtr =
-        (taf_TripPoint_t*)le_ref_Lookup(boundTripPointRefMap, listRef);
+            (taf_TripPoint_t*)le_ref_Lookup(boundTripPointRefMap, listRef);
 
     TAF_ERROR_IF_RET_VAL(tripPointPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
-        tripPointPtr);
+            tripPointPtr);
 
     *boundTZoneID = tripPointPtr->tZoneId;
 
@@ -1207,7 +1264,7 @@ int taf_Therm::MapCDevtoId(const char* cDev)
 {
     auto& tafTherm = taf_Therm::GetInstance();
 
-    TAF_ERROR_IF_RET_VAL(CDevNameToIdMap.find(cDev) == CDevNameToIdMap.end(), -1, "CDEV NOT FOUND");
+    TAF_ERROR_IF_RET_VAL(CDevNameToIdMap.find(cDev) == CDevNameToIdMap.end(), -1,"CDEV NOT FOUND");
 
     return tafTherm.CDevNameToIdMap[cDev];
 }
@@ -1217,17 +1274,200 @@ taf_therm_CoolingDeviceRef_t taf_Therm::GetCoolingDeviceByName(const char* cDevN
     auto& tafTherm = taf_Therm::GetInstance();
     int cDevID = MapCDevtoId(cDevName);
     TAF_ERROR_IF_RET_VAL(cDevID == -1, NULL, "NO COOLING DEVICE ASSOICIATED WITH %s",
-        cDevName);
+            cDevName);
     std::shared_ptr<telux::therm::ICoolingDevice> coolingDevices =
-        thermalManager->getCoolingDevice(cDevID);
+            thermalManager->getCoolingDevice(cDevID);
     taf_CoolingDevice_t* cDevPtr = (taf_CoolingDevice_t*)le_mem_ForceAlloc(tafTherm.cDevPool);
     memset(cDevPtr, 0, sizeof(taf_CoolingDevice_t));
     le_utf8_Copy(cDevPtr->description, coolingDevices->getDescription().c_str(),
-        TAF_THERM_ZONE_TYPE_MAX_SIZE, NULL);
+            TAF_THERM_ZONE_TYPE_MAX_SIZE, NULL);
     cDevPtr->cDevId = coolingDevices->getId();
     cDevPtr->maxCoolingLevel = coolingDevices->getMaxCoolingLevel();
     cDevPtr->currentCoolingLevel = coolingDevices->getCurrentCoolingLevel();
      cDevPtr->ref =
-         (taf_therm_CoolingDeviceRef_t)le_ref_CreateRef(cDevRefMap, cDevPtr);
+             (taf_therm_CoolingDeviceRef_t)le_ref_CreateRef(cDevRefMap, cDevPtr);
      return cDevPtr->ref;
+}
+
+void taf_Therm::EventChanged(void* reportPtr,void* secondLayerHandlerFunc)
+{
+    taf_TripEventInfo_t* eventType = (taf_TripEventInfo_t*)reportPtr;
+    taf_therm_TripEventHandlerFunc_t clientHandlerFunc =
+            (taf_therm_TripEventHandlerFunc_t)secondLayerHandlerFunc;
+    TAF_ERROR_IF_RET_NIL(clientHandlerFunc == NULL, "clientHandlerFunc is NULL !");
+    clientHandlerFunc(eventType->tripPoint->ref,
+            eventType->tripEvent,le_event_GetContextPtr());
+}
+
+taf_therm_TripEventHandlerRef_t taf_Therm::AddTripEventHandler
+(
+    taf_therm_TripEventHandlerFunc_t handlerPtr,void* contextPtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, NULL, "handlerPtr is NULL !");
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("Trip Type Change",
+            stateChangeEvent, EventChanged, (void*)handlerPtr);
+    le_event_SetContextPtr(handlerRef, contextPtr);
+    return (taf_therm_TripEventHandlerRef_t)handlerRef;
+}
+
+void taf_Therm::RemoveTripEventHandler(taf_therm_TripEventHandlerRef_t handlerRef)
+{
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
+    LE_INFO("Removed TripEventChangeHandler");
+}
+
+const char* convertTripTypeToStr(telux::therm::TripType type) {
+    const char* tripType;
+    switch (type) {
+        case telux::therm::TripType::CRITICAL:
+            tripType = "CRITICAL";
+            break;
+        case telux::therm::TripType::HOT:
+            tripType = "HOT";
+            break;
+        case telux::therm::TripType::PASSIVE:
+            tripType = "PASSIVE";
+            break;
+        case telux::therm::TripType::ACTIVE:
+            tripType = "ACTIVE";
+            break;
+        case telux::therm::TripType::CONFIGURABLE_HIGH:
+            tripType = "CONFIGURABLE_HIGH";
+            break;
+        case telux::therm::TripType::CONFIGURABLE_LOW:
+            tripType = "CONFIGURABLE_LOW";
+            break;
+        default:
+            tripType = "UNKNOWN";
+            break;
+    }
+    return tripType;
+}
+
+const char* taf_Therm::TripEventToString(telux::therm::TripEvent state)
+{
+    const char* tripEvent;
+
+    switch (state)
+    {
+        case telux::therm::TripEvent::CROSSED_UNDER:
+            tripEvent = "CROSSED_UNDER";
+            break;
+        case telux::therm::TripEvent::CROSSED_OVER:
+            tripEvent = "CROSSED_OVER";
+            break;
+        default:
+            tripEvent = "NONE";
+            break;
+    }
+    return tripEvent;
+}
+
+void taf_ThermServiceListener::onTripEvent
+(std::shared_ptr<telux::therm::ITripPoint> tripPoint, telux::therm::TripEvent tripEvent
+)
+{
+    auto& tafTherm = taf_Therm::GetInstance();
+    taf_TripPoint_t* triggeredTripPointPtr =
+            (taf_TripPoint_t*)le_mem_ForceAlloc(tafTherm.tripPointPool);
+    memset(triggeredTripPointPtr, 0, sizeof(taf_TripPoint_t));
+    triggeredTripPointPtr->ref =
+          (taf_therm_TripPointRef_t)
+          le_ref_CreateRef(tafTherm.tripPointRefMap,triggeredTripPointPtr);
+    taf_TripEventInfo_t evt;
+
+    if (tripEvent == telux::therm::TripEvent::NONE) {
+        evt.tripEvent = TAF_THERM_NONE;
+    }
+    else if (tripEvent == telux::therm::TripEvent::CROSSED_UNDER) {
+        evt.tripEvent = TAF_THERM_CROSSED_UNDER;
+
+    }
+    else if (tripEvent == telux::therm::TripEvent::CROSSED_OVER) {
+        evt.tripEvent = TAF_THERM_CROSSED_OVER;
+    }
+    GetTripType(triggeredTripPointPtr, tripPoint);
+    triggeredTripPointPtr->threshold = tripPoint->getThresholdTemp();
+    triggeredTripPointPtr->hysteresis = tripPoint->getHysteresis();
+    triggeredTripPointPtr->tripId = tripPoint->getTripId();
+    triggeredTripPointPtr->tZoneId = tripPoint->getTZoneId();
+    evt.tripPoint = triggeredTripPointPtr;
+
+    le_event_Report(tafTherm.stateChangeEvent, &evt, sizeof(evt));
+}
+
+void taf_Therm::CoolingLevelChanged(void* reportPtr, void* secondLayerHandlerFunc)
+{
+    coolingLevelChangeInfo_t* coolingDevice = (coolingLevelChangeInfo_t*)reportPtr;
+    taf_therm_CoolingLevelChangeEventHandlerFunc_t clientHandlerFunc =
+            (taf_therm_CoolingLevelChangeEventHandlerFunc_t)secondLayerHandlerFunc;
+    TAF_ERROR_IF_RET_NIL(clientHandlerFunc == NULL, "clientHandlerFunc is NULL !");
+    clientHandlerFunc(coolingDevice->cDevice->ref, le_event_GetContextPtr());
+}
+
+taf_therm_CoolingLevelChangeEventHandlerRef_t taf_Therm::AddCoolingLevelChangeEventHandler
+(
+    taf_therm_CoolingLevelChangeEventHandlerFunc_t handlerPtr, void* contextPtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, NULL, "handlerPtr is NULL !");
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("Cooling Level Change",
+             onCoolingLevelChangeEvent, CoolingLevelChanged, (void*)handlerPtr);
+    le_event_SetContextPtr(handlerRef, contextPtr);
+    return (taf_therm_CoolingLevelChangeEventHandlerRef_t)handlerRef;
+}
+
+void taf_ThermServiceListener::onCoolingDeviceLevelChange
+(
+    std::shared_ptr<telux::therm::ICoolingDevice> coolingDevice
+)
+{
+    auto& tafTherm = taf_Therm::GetInstance();
+    coolingLevelChangeInfo_t evt;
+    taf_CoolingDevice_t* triggeredCDevPtr =
+            (taf_CoolingDevice_t*)le_mem_ForceAlloc(tafTherm.cDevPool);
+    memset(triggeredCDevPtr, 0, sizeof(taf_CoolingDevice_t));
+    triggeredCDevPtr->ref =
+            (taf_therm_CoolingDeviceRef_t)le_ref_CreateRef(tafTherm.cDevRefMap, triggeredCDevPtr);
+    le_utf8_Copy(triggeredCDevPtr->description, coolingDevice->getDescription().c_str(),
+            TAF_THERM_ZONE_TYPE_MAX_SIZE, NULL);
+    triggeredCDevPtr->cDevId = coolingDevice->getId();
+    triggeredCDevPtr->maxCoolingLevel = coolingDevice->getMaxCoolingLevel();
+    triggeredCDevPtr->currentCoolingLevel = coolingDevice->getCurrentCoolingLevel();
+    evt.cDevice = triggeredCDevPtr;
+    le_event_Report(tafTherm.onCoolingLevelChangeEvent, &evt, sizeof(evt));
+}
+
+void taf_Therm::RemoveCoolingLevelChangeEventHandler
+(
+    taf_therm_CoolingLevelChangeEventHandlerRef_t handlerRef
+)
+{
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
+    LE_INFO("Removed CoolingLevelChangeEventHandler");
+}
+
+le_result_t taf_Therm::ReleaseTripEventRef(taf_therm_TripPointRef_t tripEventRef)
+{
+    auto& tafTherm = taf_Therm::GetInstance();
+    taf_TripPoint_t* tripPointPtr =
+            (taf_TripPoint_t*)le_ref_Lookup(tafTherm.tripPointRefMap, tripEventRef);
+
+    TAF_ERROR_IF_RET_VAL(tripPointPtr == NULL, LE_BAD_PARAMETER, "Reference is NULL");
+
+    le_ref_DeleteRef(tafTherm.tripPointRefMap, tripEventRef);
+    return LE_OK;
+}
+
+le_result_t taf_Therm::ReleaseCoolingDeviceRef(taf_therm_CoolingDeviceRef_t cDevRef)
+{
+    auto& tafTherm = taf_Therm::GetInstance();
+    taf_CoolingDevice_t* cDevPtr =
+            (taf_CoolingDevice_t*)le_ref_Lookup(tafTherm.cDevRefMap, cDevRef);
+
+    TAF_ERROR_IF_RET_VAL(cDevPtr == NULL, LE_BAD_PARAMETER, "Reference is NULL");
+
+    le_ref_DeleteRef(tafTherm.cDevRefMap, cDevRef);
+    return LE_OK;
 }

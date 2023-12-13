@@ -2162,6 +2162,9 @@ static void* Play( void* ctxPtr) {
                 audio.mFreeBuffers.push(audio.mStreamBuffer);
             } else {
                 LE_DEBUG( "Failed to get Stream Buffer ");
+                fclose(audio.mFile);
+                audio.mFile = NULL;
+                streamPtr->fd = -1;
                 return NULL;
             }
         }
@@ -2237,6 +2240,8 @@ static void* Play( void* ctxPtr) {
         audio.mFileFormat = AudioFormat::UNKNOWN;
         fflush(audio.mFile);
         fclose(audio.mFile);
+        audio.mFile = NULL;
+        streamPtr->fd = -1;
         if(audio.mIsPlayStreamCreated && audio.mIsPlaying) {
             audio.DeleteAudio(streamPtr);
             audio.mIsPlaying = false;
@@ -2460,13 +2465,11 @@ le_result_t taf_Audio::PlayFile
 
     if (( fd != TAF_AUDIO_NO_FD ) && ( streamPtr->fd != fd ))
     {
-        LE_DEBUG("close previous streamPtr->fd.%d of interface.%d",
-                 streamPtr->fd, streamPtr->interface);
-        if(mFile && fileno(mFile)>=0) {
-            fclose(mFile);
-        } else {
-            LE_DEBUG("file already closed");
+        if(mFile != NULL)
+        {
+            LE_ERROR("mFile is not NULL");
         }
+        LE_INFO("streamPtr->fd.%d of interface.%d ", streamPtr->fd, streamPtr->interface);
         streamPtr->fd = fd;
     }
 
@@ -2781,6 +2784,9 @@ void* taf_Audio::Record( void* ctxPtr) {
                 audio.mFreeBuffers.push(audio.mStreamBuffer);
             } else {
                 LE_DEBUG( "Failed to get Stream Buffer ");
+                fclose(audio.mFile);
+                audio.mFile = NULL;
+                streamPtr->fd = -1;
                 return NULL;
             }
         }
@@ -2817,6 +2823,8 @@ void* taf_Audio::Record( void* ctxPtr) {
         audio.mFileFormat = AudioFormat::UNKNOWN;
         fflush(audio.mFile);
         fclose(audio.mFile);
+        audio.mFile = NULL;
+        streamPtr->fd = -1;
         LE_INFO("File Recorded SuccessFully");
         if(audio.mIsCaptureStreamCreated) {
             audio.DeleteAudio(streamPtr);
@@ -2887,14 +2895,11 @@ le_result_t taf_Audio::RecordFile
 
     if (( fd != TAF_AUDIO_NO_FD ) && ( streamPtr->fd != fd ))
     {
-        LE_DEBUG("close previous streamPtr->fd.%d of interface.%d",
-                 streamPtr->fd, streamPtr->interface);
-        // close previous file
-        if(mFile && fileno(mFile)>=0) {
-            fclose(mFile);
-        } else {
-            LE_DEBUG("file already closed");
+        if(mFile != NULL)
+        {
+            LE_ERROR("mFile is not NULL");
         }
+        LE_INFO("streamPtr->fd.%d of interface.%d ", streamPtr->fd, streamPtr->interface);
         streamPtr->fd = fd;
     }
     else

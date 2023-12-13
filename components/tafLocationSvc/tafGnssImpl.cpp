@@ -347,6 +347,9 @@ void taf_Gnss::CopyPositionData
         LastDataPtr->satInfo[i].satSnr = CurrentDataPtr->satInfo[i].satSnr;
         LastDataPtr->satInfo[i].satAzim = CurrentDataPtr->satInfo[i].satAzim;
         LastDataPtr->satInfo[i].satElev = CurrentDataPtr->satInfo[i].satElev;
+        LastDataPtr->satInfo[i].signalType = CurrentDataPtr->satInfo[i].signalType;
+        LastDataPtr->satInfo[i].glonassFcn = CurrentDataPtr->satInfo[i].glonassFcn;
+        LastDataPtr->satInfo[i].baseBandCnr = CurrentDataPtr->satInfo[i].baseBandCnr;
     }
 
     for(i=0; i<TAF_GNSS_SV_INFO_MAX_LEN; i++)
@@ -745,6 +748,9 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                     LocationData->satInfo[i].satSnr = gnss.mSatInfo[i].satSnr;
                     LocationData->satInfo[i].satAzim = gnss.mSatInfo[i].satAzim;
                     LocationData->satInfo[i].satElev = gnss.mSatInfo[i].satElev;
+                    LocationData->satInfo[i].signalType = gnss.mSatInfo[i].signalType;
+                    LocationData->satInfo[i].glonassFcn = gnss.mSatInfo[i].glonassFcn;
+                    LocationData->satInfo[i].baseBandCnr = gnss.mSatInfo[i].baseBandCnr;
                 }
 
                 for(i=0; i<TAF_GNSS_SV_INFO_MAX_LEN; i++)
@@ -1513,6 +1519,9 @@ void tafLocationListener::onGnssSVInfo(const std::shared_ptr<telux::loc::IGnssSV
             gnss.mSatInfo[i].satSnr = svInfo->getSnr();
             gnss.mSatInfo[i].satAzim = svInfo->getAzimuth();
             gnss.mSatInfo[i].satElev = svInfo->getElevation();
+            gnss.mSatInfo[i].signalType = (uint32_t) svInfo->getSignalType();
+            gnss.mSatInfo[i].glonassFcn = svInfo->getGlonassFcn();
+            gnss.mSatInfo[i].baseBandCnr = svInfo->getBasebandCnr();
             i++;
         }
         gnss.mSvEnabled = true;
@@ -5721,6 +5730,92 @@ le_result_t taf_Gnss::GetSVIds
     *sVIdsLen = posSampleReqPtr->positionSampleNodePtr->SVIdsCount;
 
     return LE_OK;
+}
+
+le_result_t taf_Gnss::GetSatellitesInfoEx
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    taf_gnss_Constellation_t constellation,
+    taf_gnss_SvInfo_t* svInfoPtr,
+    size_t* svInfoLen
+
+)
+{
+    le_result_t result = LE_OK;
+    taf_gnss_PositionSampleRequest_t* posSampleReqPtr = (taf_gnss_PositionSampleRequest_t*)le_ref_Lookup(PositionSampleMap,positionSampleRef);
+    int i;
+
+    result = CheckValidatePosition(posSampleReqPtr);
+    if (result != LE_OK)
+    {
+        return result;
+    }
+
+    if (svInfoPtr && svInfoLen)
+    {
+        size_t svInfoNumElements = NUM_ARRAY_MEMBERS(posSampleReqPtr->positionSampleNodePtr->satInfo);
+        LE_INFO("GetSatellitesInfoEx: svInfoNumElements %d, constellation: %d, input len: %d", (int)svInfoNumElements, (int) constellation, (int) *svInfoLen);
+
+        if (posSampleReqPtr->positionSampleNodePtr->satInfoValid)
+        {
+            int count = 0;
+            for(i=0; i < (int) svInfoNumElements; i++)
+            {
+                if(posSampleReqPtr->positionSampleNodePtr->satInfo[i].satConst == constellation) {
+                  if (count < (int)*svInfoLen) {
+                    svInfoPtr[count].satId = posSampleReqPtr->positionSampleNodePtr->satInfo[i].satId;
+                    svInfoPtr[count].satConst = posSampleReqPtr->positionSampleNodePtr->satInfo[i].satConst;
+                    svInfoPtr[count].satTracked = posSampleReqPtr->positionSampleNodePtr->satInfo[i].satTracked;
+                    svInfoPtr[count].satSnr = posSampleReqPtr->positionSampleNodePtr->satInfo[i].satSnr;
+                    svInfoPtr[count].satAzim = posSampleReqPtr->positionSampleNodePtr->satInfo[i].satAzim;
+                    svInfoPtr[count].satElev = posSampleReqPtr->positionSampleNodePtr->satInfo[i].satElev;
+                    svInfoPtr[count].signalType = posSampleReqPtr->positionSampleNodePtr->satInfo[i].signalType;
+                    svInfoPtr[count].glonassFcn = posSampleReqPtr->positionSampleNodePtr->satInfo[i].glonassFcn;
+                    svInfoPtr[count].baseBandCnr = posSampleReqPtr->positionSampleNodePtr->satInfo[i].baseBandCnr;
+                    count++;
+                  }
+                }
+            }
+            if ((int)*svInfoLen <= count) {
+                result = LE_OVERFLOW;
+            }
+            *svInfoLen = count;
+        }
+        else
+        {
+            for(i=0; i<(int)*svInfoLen; i++)
+            {
+                svInfoPtr[i].satId = UINT16_MAX;
+                svInfoPtr[i].satConst = TAF_GNSS_SV_CONSTELLATION_UNDEFINED;
+                svInfoPtr[i].satTracked = false;
+                svInfoPtr[i].satSnr = UINT8_MAX;
+                svInfoPtr[i].satAzim = UINT16_MAX;
+                svInfoPtr[i].satElev = UINT8_MAX;
+                svInfoPtr[i].signalType = UINT32_MAX;
+                svInfoPtr[i].glonassFcn = UINT16_MAX;
+                svInfoPtr[i].baseBandCnr = 0.0;
+            }
+            result = LE_OUT_OF_RANGE;
+        }
+
+        if (posSampleReqPtr->positionSampleNodePtr->satsUsedCountValid)
+        {
+            for(i=0; i < (int)*svInfoLen; i++)
+            {
+                svInfoPtr[i].satUsed = posSampleReqPtr->positionSampleNodePtr->satInfo[i].satUsed;
+            }
+        }
+        else
+        {
+            for(i=0; i < (int)*svInfoLen; i++)
+            {
+                svInfoPtr[i].satUsed = false;
+            }
+            result = LE_OUT_OF_RANGE;
+        }
+    }
+
+    return result;
 }
 
 void taf_Gnss::RemovePositionHandler

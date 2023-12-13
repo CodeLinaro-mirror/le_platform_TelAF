@@ -516,6 +516,17 @@
      // Process after succesfully getting the satellite information.
    }
    @endverbatim
+ * - taf_gnss_GetSatellitesInfoEx() -- Triggered inside PositionHandlerFunction() function to get
+ *   the satellite vehicle informations of a given Constellation.
+ * @verbatim
+   taf_gnss_SvInfo_t svInfo[TAF_GNSS_SV_INFO_MAX_LEN];
+   size_t svInfoLen = TAF_GNSS_SV_INFO_MAX_LEN;
+   taf_gnss_Constellation_t constellation = TAF_GNSS_SV_CONSTELLATION_GPS;
+   if(le_gnss_GetSatellitesInfoEx(positionSampleRef, constellation, svInfo, &svInfoLen))
+   {
+     // Process after succesfully getting the satellite vehicle informations.
+   }
+   @endverbatim
  * - taf_gnss_GetSatellitesStatus() -- Triggered inside PositionHandlerFunction() function to get 
  *   positionSampleRef.
  * @verbatim
@@ -893,6 +904,13 @@ DEFINE SV_INFO_MAX_LEN = 150;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Defines the maximum length of the satellite vehicle information in a constellation.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE SV_INFO_MAX_SATS_IN_CONSTELLATIONS = 40;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Defines the maximum count of the secondary band constellations.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1003,6 +1021,25 @@ ENUM AltType
     ALT_TYPE_CALCULATED,       ///< Altitude is calculated.
     ALT_TYPE_ASSUMED           ///< Altitude is assumed as there may not be enough satellites to 
                                ///  determine the precise altitude.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Satellite Vehicle information.
+ */
+//--------------------------------------------------------------------------------------------------
+STRUCT SvInfo
+{
+    Constellation satConst;    ///< The constellation type in which this satellite vehicle belongs.
+    bool satUsed;              ///< The flag to indicate whether the satellite is used in computing the fix.
+    bool satTracked;           ///< The flag to indicate whether the satellite is used to track the vehicle. If it's tracked, the satSnr will hold valid value.
+    uint8 satSnr;              ///< The signal-to-noise ratio of the signal measured at antenna of the satellite vehicle. Units: dB-Hz
+    uint8 satElev;             ///< The satellite vehicle elevation angle. Units: Degrees. Range: 0 to 90.
+    uint16 satId;              ///< The GNSS satellite vehicle ID.
+    uint16 satAzim;            ///< The satellite vehicle azimuth angle. Units: Degrees. Range: 0 to 360.
+    uint32 signalType;         ///< The different types of signal for gps, galileo, beidou etc. @ref GnssSignalType.
+    uint16 glonassFcn;         ///< GLONASS frequency channel number in the range [1, 14] which is calculated as FCN [-7, 6] + 8.
+    double baseBandCnr;        ///< Carrier-to-noise ratio of the signal measured at baseband. Units: dB-Hz.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -3017,4 +3054,27 @@ FUNCTION le_result_t GetSVIds
 (
     Sample positionSampleRef IN,                 ///< Position sample reference.
     uint16 sVIdsPtr[MEASUREMENT_INFO_MAX] OUT    ///< IDs of GNSS Satellite Vehicles.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the satellite's vehicle information of a given constellation.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_BAD_PARAMETER  The positionSampleRef is invalid.
+ *  - LE_OUT_OF_RANGE   The retrieved parameter is invalid.
+ *  - LE_NO_MEMORY      The array length of svInfo is zero.
+ *  - LE_OVERFLOW       The array length of svInfo is less than available SV of a constellation.
+ *
+ * @note If the caller passes an invalid position sample reference to this function,
+ *       it is a fatal error and the client will be killed.
+*/
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetSatellitesInfoEx
+(
+    Sample   positionSampleRef IN,                           ///< Position sample reference.
+    Constellation constellation IN,                          ///< Constellation for which SVInfo is asked.
+    SvInfo   svInfo[SV_INFO_MAX_SATS_IN_CONSTELLATIONS] OUT  ///< Satellite Vehicle information.
 );

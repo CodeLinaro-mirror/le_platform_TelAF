@@ -1713,3 +1713,27 @@ le_result_t taf_gnss_GetSVIds
     auto &gnss = taf_Gnss::GetInstance();
     return gnss.GetSVIds(positionSampleRef, sVIdsPtr, sVIdsLen);
 }
+
+/**
+* FUNCTION     : GetSatellitesInfoEx
+* DESCRIPTION  : This function retrieves satellites vehicle information of a given constellation.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT, LE_OVERFLOW, LE_BAD_PARAMETER, LE_NO_MEMORY
+*                LE_OUT_OF_RANGE on failed with reason.
+*/
+le_result_t taf_gnss_GetSatellitesInfoEx
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    taf_gnss_Constellation_t constellation,
+    taf_gnss_SvInfo_t* LE_NONNULL svInfoPtr,
+    size_t* svInfoLen
+)
+{
+    TAF_ERROR_IF_RET_VAL(positionSampleRef == NULL, LE_BAD_PARAMETER, "Invalid gnss sample reference");
+    TAF_ERROR_IF_RET_VAL(svInfoPtr == NULL, LE_NO_MEMORY, "svInfoPtr is NULL");
+    TAF_ERROR_IF_RET_VAL(*svInfoLen == 0, LE_OUT_OF_RANGE, "svInfoLen is ZERO");
+
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetSatellitesInfoEx(positionSampleRef, constellation, svInfoPtr, svInfoLen);
+}

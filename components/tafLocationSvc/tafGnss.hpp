@@ -96,17 +96,6 @@ namespace tafsvc {
     }
     taf_gnss_SvMeas_t;
 
-    typedef struct {
-        taf_gnss_Constellation_t satConst;
-        bool      satUsed;
-        bool      satTracked;
-        uint8_t   satSnr;
-        uint8_t   satElev;
-        uint16_t  satId;
-        uint16_t  satAzim;
-    }
-    taf_gnss_SvInfo_t;
-
     typedef struct taf_gnss_PositionSample
     {
         taf_gnss_FixState_t fixState;
@@ -447,6 +436,7 @@ namespace tafsvc {
             le_result_t GetReportStatus(taf_gnss_SampleRef_t positionSampleRef, int32_t* reportStatusPtr);
             le_result_t GetAltitudeMeanSeaLevel(taf_gnss_SampleRef_t positionSampleRef, double* altMeanSeaLevelPtr);
             le_result_t GetSVIds(taf_gnss_SampleRef_t positionSampleRef, uint16_t* sVIdsPtr, size_t* sVIdsLen);
+            le_result_t GetSatellitesInfoEx(taf_gnss_SampleRef_t positionSampleRef, taf_gnss_Constellation_t constellation, taf_gnss_SvInfo_t* svInfoPtr, size_t* svInfoLen);
             le_mem_PoolRef_t   PositionHandlerPoolRef;
             le_mem_PoolRef_t   PositionSampleRequestPoolRef;
             le_event_Id_t positionEventId;

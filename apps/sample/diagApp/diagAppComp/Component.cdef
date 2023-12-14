@@ -11,9 +11,11 @@ requires:
         taf_diagRoutineCtrl.api
         taf_diagUpdate.api
         taf_diagSecurity.api
+        taf_diagDataID.api
         taf_update.api
         taf_appMgmt.api
         taf_fwupdate.api
+        le_cfg.api
     }
 }
 

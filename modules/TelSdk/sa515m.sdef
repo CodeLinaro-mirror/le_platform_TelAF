@@ -6,6 +6,9 @@
 
 apps:
 {
+    // RPC proxy
+    $TELAF_ROOT/apps/rpc/rpcProxy/tafRpcProxy
+
     // Platform services.
     $TELAF_ROOT/apps/tafServices/tafVoiceCallSvc
     $TELAF_ROOT/apps/tafServices/tafSimCardSvc
@@ -85,6 +88,7 @@ bindings:
     <c2c>.taf_dcs -> tafDataCallSvc.taf_dcs
     <telaf>.DeviceManager -> <root>.DeviceManager
     <root>.DeviceManagerTool -> <root>.DeviceManagerTool
+    <telaf>.sdirTool -> <root>.sdirTool
 }
 
 interfaceSearch:

@@ -34,6 +34,9 @@ apps:
     $TELAF_ROOT/apps/ivss/service/tafIvssRadioSvc/tafIvssRadioSvc
     $TELAF_ROOT/apps/ivss/service/tafIvssSimSvc/tafIvssSimSvc
 
+    // RPC proxy
+    $TELAF_ROOT/apps/rpc/rpcProxy/tafRpcProxy
+
     // Command-line tools.
     $LEGATO_ROOT/apps/tools/tools
     $TELAF_ROOT/apps/tools/tafTools
@@ -96,6 +99,7 @@ bindings:
 {
     <telaf>.DeviceManager -> <root>.DeviceManager
     <root>.DeviceManagerTool -> <root>.DeviceManagerTool
+    <telaf>.sdirTool -> <root>.sdirTool
 }
 
 interfaceSearch:

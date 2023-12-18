@@ -17,3 +17,7 @@ extern:
     printer = server.printServer.printer
 }
 
+bindings:
+{
+    server.printServer.taf_someipClnt -> tafSomeipGWSvc.taf_someipClnt
+}

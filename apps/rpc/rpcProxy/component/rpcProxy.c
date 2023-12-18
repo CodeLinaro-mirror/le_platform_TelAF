@@ -422,18 +422,21 @@ static void RpcConfigHandler
 {
     bool isRpcProxyDetected = false;
 
-    if (result != LE_OK)
+    if (result == LE_NOT_FOUND)
     {
-        LE_ERROR("Failed to load RPC configuration(result = '%s').", LE_RESULT_TXT(result));
-        return;
+        LE_FATAL("No JSON file or invalid JSON file is detected, Stop RPC proxy.");
     }
 
-    LE_INFO("Loading configuration done.");
+    if (result != LE_OK)
+    {
+        LE_FATAL("Failed to load RPC configuration(result = '%s'), Stop RPC proxy.",
+                 LE_RESULT_TXT(result));
+    }
 
     // Check the configuration.
     if (LE_OK != RpcConfigCheck(configPtr))
     {
-        LE_ERROR("RpcConfigCheck() failed.");
+        LE_ERROR("RpcConfigCheck() failed, RPC proxy is disabled.");
         return;
     }
 
@@ -443,7 +446,7 @@ static void RpcConfigHandler
     // Initialize RPC proxy.
     if (LE_OK != RpcSystemInit(configPtr))
     {
-        LE_ERROR("RpcSystemInit() failed.");
+        LE_ERROR("RpcSystemInit() failed, RPC proxy is disable.");
         return;
     }
 
@@ -452,7 +455,7 @@ static void RpcConfigHandler
     ret = rpcClientProxy_Init(configPtr->offerServices, configPtr->offerServiceCnt);
     if ((ret != LE_OK) && (ret != LE_NOT_FOUND))
     {
-        LE_ERROR("rpcClientProxy_Init() failed.");
+        LE_ERROR("rpcClientProxy_Init() failed, RPC proxy is disabled.");
         return;
     }
 
@@ -465,7 +468,7 @@ static void RpcConfigHandler
     ret = rpcServerProxy_Init(configPtr->requestServices, configPtr->requestServiceCnt);
     if ((ret != LE_OK) && (ret != LE_NOT_FOUND))
     {
-        LE_ERROR("rpcServerProxy_Init() failed.");
+        LE_ERROR("rpcServerProxy_Init() failed, RPC proxy is disabled.");
         return;
     }
 
@@ -476,7 +479,7 @@ static void RpcConfigHandler
 
     if (!isRpcProxyDetected)
     {
-        LE_ERROR("No RPC proxies are configured, RPC is disabled.");
+        LE_ERROR("No RPC proxies are configured, RPC proxy is disabled.");
         return;
     }
 
@@ -517,6 +520,7 @@ COMPONENT_INIT
 {
     DataInit();
     LE_INFO("Loading configuration starts ...");
-    rpcProxyConfig_LoadConfiguration(NULL, (RpcConfigCallbackFunc_t)RpcConfigHandler);
+    rpcProxyConfig_LoadConfiguration(TAF_RPC_DEFAULT_CONFIG_FILE,
+        (RpcConfigCallbackFunc_t)RpcConfigHandler);
 }
 

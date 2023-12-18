@@ -13,9 +13,12 @@ processes:
     }
 }
 
-// Bind to the service "<root>.printer" on remote RPC server system
-// with systemId 0x102.
+extern:
+{
+    rpcClientPrinter = client.printClient.printer
+}
+
 bindings:
 {
-   client.printClient.printer -> <root>.rpcServer_102_root_printer
+    client.printClient.taf_someipClnt -> tafSomeipGWSvc.taf_someipClnt
 }

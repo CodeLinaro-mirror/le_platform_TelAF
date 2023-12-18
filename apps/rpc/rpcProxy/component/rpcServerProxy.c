@@ -55,6 +55,7 @@ typedef struct SomeipClient
     taf_someipClnt_EventMsgHandlerRef_t eventHandlerRef;///< Someip client event handler ref
     taf_someipClnt_State_t serviceState;           ///< Someip service state
     bool isReliable;                               ///< Use TCP if true
+    uint16_t responseTimeout;                      ///< Response timeout seconds
 }SomeipClient_t;
 
 
@@ -430,6 +431,7 @@ static void RpcCreateSessionRespHandler
     LocalMsg_t* localMsgPtr;
     taf_someipClnt_ServiceRef_t serviceRef = rpcServerPtr->someipClient.serviceRef;
     bool isReliable = rpcServerPtr->someipClient.isReliable;
+    uint32_t timeoutSecs = (uint32_t)rpcServerPtr->someipClient.responseTimeout;
 
     switch (respType)
     {
@@ -486,6 +488,7 @@ static void RpcCreateSessionRespHandler
                             // to remote RPC proxy.
                             rpcProxyMessage_MessageRequestResponse(serviceRef,
                                                                    isReliable,
+                                                                   timeoutSecs,
                                                                    sessionId,
                                                                    localMsgPtr->msgRef,
                                                                    RpcMessageRespHandler,
@@ -661,6 +664,8 @@ static void ProxySessionMsgRecvHandler
 
     taf_someipClnt_ServiceRef_t serviceRef = rpcServerPtr->someipClient.serviceRef;
     bool isReliable = rpcServerPtr->someipClient.isReliable;
+    uint32_t timeoutSecs = (uint32_t)rpcServerPtr->someipClient.responseTimeout;
+
     le_msg_SessionRef_t sessionRef = le_msg_GetSession(msgRef);
     ProxySession_t* proxySessionPtr = FindProxySessionByRef(sessionRef, rpcServerPtr);
 
@@ -698,6 +703,7 @@ static void ProxySessionMsgRecvHandler
 
         rpcProxyMessage_MessageRequestResponse(serviceRef,
                                                isReliable,
+                                               timeoutSecs,
                                                proxySessionPtr->rpcSessionId,
                                                localMsgPtr->msgRef,
                                                RpcMessageRespHandler,
@@ -1109,7 +1115,7 @@ le_result_t rpcServerProxy_Init
     if (number == 0)
     {
         // Simply return LE_OK if no RPC servers configured.
-        LE_INFO("No RPC servers are configured.");
+        LE_INFO("No RPC serverProxy is configured.");
         return LE_NOT_FOUND;
     }
 
@@ -1184,6 +1190,7 @@ le_result_t rpcServerProxy_Init
 
             // SOME/IP client parameters.
             rpcServerProxyPtr->someipClient.isReliable = serviceConfigPtr->isReliable;
+            rpcServerProxyPtr->someipClient.responseTimeout = serviceConfigPtr->responseTimeout;
             rpcServerProxyPtr->someipClient.serviceId = serviceConfigPtr->service.id;
             rpcServerProxyPtr->someipClient.instanceId = systemId;
             rpcServerProxyPtr->someipClient.serviceRef = NULL;

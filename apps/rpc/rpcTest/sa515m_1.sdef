@@ -1,0 +1,17 @@
+#include "$TELAF_ROOT/modules/TelSdk/sa515m.sdef"
+
+apps:
+{
+    $TELAF_ROOT/apps/rpc/rpcTest/helloRpcServer/printServer.adef
+    $TELAF_ROOT/apps/rpc/rpcTest/helloRpcClient/printClient.adef
+}
+
+bindings:
+{
+    printClient.rpcClientPrinter -> <telaf>.rpcServer_102_root_printer
+}
+
+interfaceSearch:
+{
+    $TELAF_ROOT/interfaces/someipGW
+}

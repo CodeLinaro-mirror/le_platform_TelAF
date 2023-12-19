@@ -525,6 +525,7 @@ taf_doip_Result_t CommunicationMgr::TransUdsMessage
 {
     taf_doipSession_t*      sessionPtr;
     taf_doipDiagDataInfo_t* diagInfoPtr;
+    taf_doipDiagDataInfo_t* diagAddrInfoPtr;
     char*                   diagDataPtr;
     uint32_t                pos = 0;
 
@@ -543,6 +544,7 @@ taf_doip_Result_t CommunicationMgr::TransUdsMessage
 
     diagInfoPtr = (taf_doipDiagDataInfo_t*)le_mem_ForceAlloc(udsInfoPool);
     diagDataPtr = (char*)le_mem_ForceAlloc(connectionMgrPtr->udsMsgPool);
+    diagAddrInfoPtr = (taf_doipDiagDataInfo_t*)le_mem_ForceAlloc(udsInfoPool);
 
     // Pack DoIP header.
     auto& parser = ProtocolParser::GetInstance();
@@ -570,7 +572,11 @@ taf_doip_Result_t CommunicationMgr::TransUdsMessage
     diagInfoPtr->len    = pos;
 
     le_event_QueueFunctionToThread(mainThrRef, RequestUdsMessage, diagInfoPtr, NULL);
-    le_event_QueueFunctionToThread(udsThrRef, ConfirmUserMessage, diagInfoPtr, NULL);
+
+    diagAddrInfoPtr->sa = sa;
+    diagAddrInfoPtr->ta = ta;
+    diagAddrInfoPtr->taType = taType;
+    le_event_QueueFunctionToThread(udsThrRef, ConfirmUserMessage, diagAddrInfoPtr, NULL);
     LE_DEBUG("TransUdsMessage done.");
 
     return TAF_DOIP_RESULT_OK;
@@ -1312,6 +1318,7 @@ void CommunicationMgr::ConfirmUserMessage
         }
         le_mutex_Unlock(handler->mutexRef);
     }
+    le_mem_Release(dataInfoPtr);
 
     return;
 }
@@ -1331,12 +1338,45 @@ void CommunicationMgr::ReportConnectionEvent
     taf_doip_Result_t rgistResult
 )
 {
+    taf_doipDiagDataInfo_t* diagInfoPtr;
+
+    diagInfoPtr = (taf_doipDiagDataInfo_t*)le_mem_ForceAlloc(udsInfoPool);
+
+    diagInfoPtr->sa     = sa;
+    diagInfoPtr->ta     = ta;
+
+    // Currently, we only support physical addressing;
+    diagInfoPtr->taType = TAF_DOIP_TA_TYPE_PHYSICAL;
+
+    le_event_QueueFunctionToThread(udsThrRef,
+                                   CommunicationMgr::IndicateConnectionEvent,
+                                   diagInfoPtr,
+                                   (void*)rgistResult);
+
+    return;
+}
+
+/*=================================================================================================
+ FUNCTION        CommunicationMgr::IndicateConnectionEvent
+ DESCRIPTION     Indicate the connection event to the Uds handle thread.
+ PARAMETERS      [IN] param1Ptr: Address information.
+                 [IN] param2Ptr: Connection registered state.
+ RETURN VALUE    void
+=================================================================================================*/
+void CommunicationMgr::IndicateConnectionEvent
+(
+    void* param1Ptr,
+    void* param2Ptr
+)
+{
     taf_doipSession_t*      sessionPtr;
     taf_doip_AddrInfo_t     addrInfo;
     taf_doip_DiagIndicationHandlerFunc_t handlerFunc;
+    taf_doipDiagDataInfo_t* dataInfoPtr = (taf_doipDiagDataInfo_t*)param1Ptr;
+    size_t rgistResult = (size_t)param2Ptr;
 
     auto&   cmMgr = CommunicationMgr::GetInstance();
-    sessionPtr = cmMgr.FindDoipSession(ta);
+    sessionPtr = cmMgr.FindDoipSession(dataInfoPtr->ta);
     if (sessionPtr != NULL)
     {
         taf_doipIndicationHandler_t*    handler;
@@ -1348,14 +1388,15 @@ void CommunicationMgr::ReportConnectionEvent
 
         if (handlerFunc != NULL)
         {
-            addrInfo.sa = sa;
-            addrInfo.ta = ta;
-            addrInfo.taType = TAF_DOIP_TA_TYPE_PHYSICAL;
+            addrInfo.sa = dataInfoPtr->sa;
+            addrInfo.ta = dataInfoPtr->ta;
+            addrInfo.taType = (taf_doip_TaType_t)dataInfoPtr->taType;
 
             // Indicate reception message to upper layer.
-            handlerFunc(&addrInfo, NULL, rgistResult, handler->ctxPtr);
+            handlerFunc(&addrInfo, NULL, (taf_doip_Result_t)rgistResult, handler->ctxPtr);
         }
     }
+    le_mem_Release(dataInfoPtr);
 
     return;
 }

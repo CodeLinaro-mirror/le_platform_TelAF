@@ -129,6 +129,10 @@ if [ -v ON_TELAF_SIMULATION_DOCKER ]; then # [Docker-Container-Env]
     mount --bind -o ro /tmp/passwd /etc/passwd
     mount --bind -o ro /tmp/group  /etc/group
 
+    # Change the hostname to a specific label: simulation
+    # Also be used for syslog tag
+    hostname simulation
+
     # Busybox syslogd on Ubuntu
     /sbin/syslogd -C20000
 

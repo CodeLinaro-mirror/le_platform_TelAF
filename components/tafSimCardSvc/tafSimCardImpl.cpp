@@ -302,6 +302,10 @@ void taf_sim::Init(void)
     subMgr = phoneFactory.getSubscriptionManager();
     cardManager = phoneFactory.getCardManager();
     simProfileManager = phoneFactory.getSimProfileManager();
+    if (simProfileManager == nullptr)
+    {
+        LE_FATAL("Cannot get SIM manager!");
+    }
 
     bool subSystemStatus = simProfileManager->isSubsystemReady();
     if(!subSystemStatus) {
@@ -359,19 +363,19 @@ void taf_sim::Init(void)
 
     status = multiSimMgr->registerListener(multiSimListener);
     if(status != telux::common::Status::SUCCESS) {
-        LE_ERROR("Unable to registerListener");
+        LE_FATAL("Unable to registerListener");
     }
 
     auto ret = multiSimMgr->requestSlotStatus(tafMultiSimCallback::requestsSlotsStatusResponse);
     if(ret != telux::common::Status::SUCCESS){
-        LE_ERROR("Request slot status failed with error: %d", (int)ret);
+        LE_FATAL("Request slot status failed with error: %d", (int)ret);
     }
     errorStatus = slotStatusCbPromise.get_future().get();
     if(errorStatus == telux::common::ErrorCode::SUCCESS){
         LE_INFO("Initialize slot card map successfully, default selected slot: %d", (int)slot);
     }
     if(errorStatus != telux::common::ErrorCode::SUCCESS){
-        LE_ERROR("Initialize slot card map failed with error: %d", (int)slotStatusCbPromise.get_future().get());
+        LE_FATAL("Initialize slot card map failed with error: %d", (int)slotStatusCbPromise.get_future().get());
     }
 
 
@@ -391,7 +395,7 @@ void taf_sim::Init(void)
         status = subMgr->registerListener(subscriptionListener);
 
         if(status != telux::common::Status::SUCCESS) {
-            LE_INFO("Unable to registerListener");
+            LE_FATAL("Unable to registerListener");
         }
     }
 

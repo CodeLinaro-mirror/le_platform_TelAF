@@ -334,7 +334,7 @@ void taf_ecall::Init(void)
    });
    telux::common::ServiceStatus mgrStatus = prom.get_future().get();
    if (mgrStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE) {
-       LE_INFO("Cannot initialize all manager, ret: %d", (int)mgrStatus);
+       LE_FATAL("Cannot initialize all manager, ret: %d", (int)mgrStatus);
        return;
    }
 
@@ -363,7 +363,7 @@ void taf_ecall::Init(void)
           }
       }
    } else {
-      LE_ERROR("ERROR - Unable to initialize subsystem");
+      LE_FATAL("ERROR - Unable to initialize subsystem");
       return;
    }
 

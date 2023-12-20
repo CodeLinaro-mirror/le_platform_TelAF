@@ -1,0 +1,40 @@
+//--------------------------------------------------------------------------------------------------
+// TelSDK sa525m system definition that includes essential services.
+//--------------------------------------------------------------------------------------------------
+
+#include "$LEGATO_ROOT/legatoTargetConfig.sinc"
+
+apps:
+{
+    // Platform services.
+
+    // test apps
+
+    // Sample Applications
+    $LEGATO_ROOT/apps/sample/helloWorld/helloWorld.adef
+
+}
+
+commands:
+{
+}
+
+bindings:
+{
+
+}
+
+interfaceSearch:
+{
+    $TELAF_ROOT/interfaces
+}
+
+cflags:
+{
+    -DTARGET_SA525M
+}
+
+cxxflags:
+{
+    -DTARGET_SA525M
+}

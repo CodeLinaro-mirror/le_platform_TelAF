@@ -16,16 +16,29 @@
 #include <signal.h>
 #include <dirent.h>
 #include "file.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <setjmp.h>
 #ifdef LE_CONFIG_ENABLE_SELINUX
 #include <selinux/selinux.h>
 #endif
 
-#define DRIVER_TMP_STORAGE "/data/tmp/drivers/"
+DECLARE_SAFE_CALL();
+
+#ifdef LE_CONFIG_VHAL_DRIVER_DIR
+#       define DRIVER_TMP_STORAGE LE_CONFIG_VHAL_DRIVER_DIR
+#else
+#       define DRIVER_TMP_STORAGE "/data/tmp/drivers/"
+#endif
+
 #define DEV_MANAGER_STORAGE "/data/persist/devManager/"
 #define DEV_MANAGER_DRIVER_STORAGE DEV_MANAGER_STORAGE"drivers/"
 #define DEV_MANAGER_TMP_STORAGE DEV_MANAGER_STORAGE"tmp/"
 #define DEV_MANAGER_CMD_MAX_LEN   255
 #define DEV_MANAGER_STORAGE_CONTEXT "system_u:object_r:telaf_devmgr_data_t:s0"
+
+#define TIMER_SAFECALL 5
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -332,6 +345,34 @@ static void SendToDrvTool
     le_msg_Send(msgRef);
 }
 
+static void ListDrivers
+(
+    char* buffer,
+    size_t bufferSize
+)
+{
+    uint offset = 0;
+
+    le_dls_Link_t* linkPtr;
+    DeviceDriver_t* drvPtr;
+    linkPtr = le_dls_Peek(&DriverList);
+
+    while(offset < bufferSize && linkPtr != nullptr)
+    {
+        drvPtr = CONTAINER_OF(linkPtr, DeviceDriver_t, link);
+
+        char driverName[DEV_MANAGER_DRIVER_NAME_MAX_LEN] = {};
+
+        int n = snprintf(driverName, DEV_MANAGER_DRIVER_NAME_MAX_LEN,
+                         "%s %u.%u\n", drvPtr->name, drvPtr->majorVer, drvPtr->minorVer);
+        snprintf(buffer + offset, bufferSize - offset, "%s", driverName);
+
+        offset += n;
+
+        linkPtr = le_dls_PeekNext(&DriverList, linkPtr);
+    }
+}
+
 static DeviceDriver_t* FindDrv
 (
     const char* name,
@@ -372,7 +413,7 @@ static void SafeCloseDrv
 )
 {
     // the fisrt parameter is the DeviceDriver_t
-    // 2nd parameter, need free or not
+    // the second parameter, need free or not
 
     bool needToFree = (bool)param2;
 
@@ -383,6 +424,8 @@ static void SafeCloseDrv
     }
 
     DeviceDriver_t* drvPtr = (DeviceDriver_t*)param1;
+
+    LE_INFO("Close module: %s %u.%u", drvPtr->name, drvPtr->majorVer, drvPtr->minorVer);
 
     // now close the so
     dlclose(drvPtr->drvHandle);
@@ -495,7 +538,7 @@ le_result_t OpenDrvToGetInfo
  **/
 //---------------------------------------------------------------------------------------------------
 
-bool InstallDrvToDevManager
+le_result_t InstallDrvToDevManager
 (
     DeviceDriver_t* drvPtr,
     const char* name,
@@ -513,7 +556,7 @@ bool InstallDrvToDevManager
     if(drvPtr == nullptr)
     {
         LE_ERROR("nullptr pointer");
-        return false;
+        return LE_NOT_FOUND;
     }
 
     // check if the drv is installed by searching the list
@@ -523,7 +566,7 @@ bool InstallDrvToDevManager
     {
         // Driver exist
         LE_INFO("Driver %s already exists", name);
-        return false;
+        return LE_DUPLICATE;
     }
 
     // new driver, allocate a node
@@ -547,7 +590,7 @@ bool InstallDrvToDevManager
     {
         LE_ERROR("No valid vendor name\n");
 
-        return false;
+        return LE_UNAVAILABLE;
     }
 
     // fill the vendor info
@@ -556,7 +599,7 @@ bool InstallDrvToDevManager
     if((vendorName != nullptr) && (*vendorName == '\0'))
     {
         LE_ERROR("No valid vendor name\n");
-        return false;
+        return LE_BAD_PARAMETER;
     }
 
     if(le_utf8_Copy(drvPtr->vendor, vendorName, sizeof(drvPtr->vendor), nullptr) != LE_OK)
@@ -569,19 +612,34 @@ bool InstallDrvToDevManager
     {
         LE_ERROR("Installing drive file %s failed!",fname);
 
-        return false;
+        return LE_BAD_PARAMETER;
     }
 
-    // Initialize the hardware/power on
-    (*(mgrInf->powerOnInf))();
-
-    // Hw Init
-    if((*(mgrInf->hwInitInf))() != 0)
+    if(mgrInf->moduleType == TAF_MODULETYPE_HAL)
     {
-        LE_ERROR("Hardware Initialization failed!\n");
+        // Power on
+        int ret = 0;
+        ENTER_SAFE_CALL(TIMER_SAFECALL, ret, (*(mgrInf->powerOnInf)));
+        EXIT_SAFE_CALL();
 
-        return false;
+        if(ret == -1)
+        {
+            LE_ERROR("Called powerOnInf failed");
+            return LE_TERMINATED;
+        }
+
+        // Hardware init
+        ret = 0;
+        ENTER_SAFE_CALL(TIMER_SAFECALL, ret, (*(mgrInf->hwInitInf)));
+        EXIT_SAFE_CALL();
+
+        if(ret == -1)
+        {
+            LE_ERROR("Called hwInitInf failed");
+            return LE_TERMINATED;
+        }
     }
+
 
     // Hard initializaiton done, make it ready
     drvPtr->status = GetDrvStatus(drvPtr);
@@ -589,6 +647,88 @@ bool InstallDrvToDevManager
     // put the driver to the driver list
     le_dls_Queue(&DriverList, &drvPtr->link);
 
+    return LE_OK;
+}
+
+static bool ParseDrvInfo
+(
+    const char* drvInfo,        // IN
+    char*       name,           // OUT
+    bool*       ignoreVersion,  // OUT
+    uint16_t*   majorVer,       // OUT
+    uint16_t*	minorVer        // OUT
+)
+{
+    char ver[DEV_MANAGER_DRIVER_VERSION_MAX_LEN];
+    size_t nBytes_name, nBytes_majVer;
+
+    // parameter format.
+    // [cmd][driver name][:][majorVer][.][minorVer]
+    // commandData contains name and ver seperate by ":"
+    if(le_utf8_CopyUpToSubStr(name, &drvInfo[0], ":", DEV_MANAGER_DRIVER_NAME_MAX_LEN, &nBytes_name) != LE_OK)
+    {
+        LE_ERROR("Not valid drvInfo %s", drvInfo);
+        return false;
+    }
+
+    LE_INFO("name: %s", name);
+
+    // move to the next version string
+    if(le_utf8_Copy(ver, &drvInfo[nBytes_name + 1], sizeof(ver), nullptr) != LE_OK)
+    {
+        LE_ERROR("Not valid drvInfo %s", drvInfo);
+        return false;
+    }
+
+    LE_INFO("ver: %s", ver);
+
+    // check if it is '*', means ignore the version
+    if(ver[0] == '*')
+    {
+        LE_INFO("Ignore version");
+        *ignoreVersion = true;
+        return true;
+    }
+    else
+    {
+        char majorVerBuf[2] = {};
+        char minorVerBuf[2] = {};
+        int majorInt, minorInt;
+
+        // copy major version
+        if(le_utf8_CopyUpToSubStr(majorVerBuf, &ver[0], ".", sizeof(majorVerBuf), &nBytes_majVer) != LE_OK)
+        {
+            LE_ERROR("Not valid drvInfo %s", drvInfo);
+            return false;
+        }
+
+        LE_DEBUG("majorVerBuf: %s", majorVerBuf);
+
+        // copy minor version
+        if(le_utf8_Copy(minorVerBuf, &ver[nBytes_majVer + 1], sizeof(minorVerBuf), nullptr) != LE_OK)
+        {
+            LE_ERROR("Not valid drvInfo %s", drvInfo);
+            return false;
+        }
+
+        if(le_utf8_ParseInt(&majorInt, majorVerBuf) != LE_OK)
+        {
+            LE_ERROR("Not valid version %s", majorVerBuf);
+            return false;
+        }
+
+        if(le_utf8_ParseInt(&minorInt, minorVerBuf) != LE_OK)
+        {
+            LE_ERROR("Not valid version %s", minorVerBuf);
+            return false;
+        }
+        *ignoreVersion = false;
+
+        *majorVer = (uint16_t)majorInt;
+        *minorVer = (uint16_t)minorInt;
+
+        LE_INFO("Version: %u.%u", *majorVer, *minorVer);
+    }
     return true;
 }
 
@@ -660,11 +800,9 @@ void ClientMsgReceiveHandler
     // handle the install driver nad uninstall driver
     char req;
     char drvInfo[DEV_MANAGER_CMD_MAX_LEN]; // full path
-    char ver[DEV_MANAGER_DRIVER_VERSION_MAX_LEN];
     char name[DEV_MANAGER_DRIVER_NAME_MAX_LEN];
     bool ignoreVersion = false;
     uint16_t  majorVer, minorVer;
-    size_t nBytes_name, nBytes_majVer;
 
     DeviceDriver_t* drvPtr;
     char* msgPtrStart;
@@ -682,87 +820,13 @@ void ClientMsgReceiveHandler
 
         LE_INFO("drvInfo: %s", drvInfo);
 
-        // Get the driver name and version first
-        drvInfo[DEV_MANAGER_CMD_MAX_LEN - 1] = '\0';
-
-        // parameter format.
-        // [cmd][driver name][:][majorVer][.][minorVer]
-        // commandData contains name and ver seperate by ":"
-        if(le_utf8_CopyUpToSubStr(name, &drvInfo[0], ":", sizeof(name), &nBytes_name) != LE_OK)
+        if(ParseDrvInfo(drvInfo, name, &ignoreVersion, &majorVer, &minorVer) == false)
         {
             LE_ERROR("Not valid remove cmd packet %s !", drvInfo);
             // reuse the message for response
             snprintf(msgPtrStart, le_msg_GetMaxPayloadSize(msgRef), "*-1");
             le_msg_Respond(msgRef);
             return;
-        }
-
-        LE_INFO("name: %s", name);
-
-        // move to the next version string
-        if(le_utf8_Copy(ver, &drvInfo[nBytes_name + 1], sizeof(ver), nullptr) != LE_OK)
-        {
-            LE_ERROR("Not valid remove cmd packet %s !", drvInfo);
-            snprintf(msgPtrStart, le_msg_GetMaxPayloadSize(msgRef), "*-1");
-            le_msg_Respond(msgRef);
-            return;
-        }
-
-        LE_INFO("ver: %s", ver);
-
-        // check if it is '*', means ignore the version
-        if(ver[0] == '*')
-        {
-            LE_ERROR("Ignore version");
-            ignoreVersion = true;
-        }
-        else
-        {
-            char majorVerBuf[2] = {};
-            char minorVerBuf[2] = {};
-            int majorInt, minorInt;
-
-            // copy major version
-            if(le_utf8_CopyUpToSubStr(majorVerBuf, &ver[0], ".", sizeof(majorVerBuf), &nBytes_majVer) != LE_OK)
-            {
-                LE_ERROR("Not valid remove cmd packet %s !", drvInfo);
-                // reuse the message for response
-                snprintf(msgPtrStart, le_msg_GetMaxPayloadSize(msgRef), "*-1");
-                le_msg_Respond(msgRef);
-                return;
-            }
-
-            LE_INFO("majorVerBuf: %s", majorVerBuf);
-
-            // copy minor version
-            if(le_utf8_Copy(minorVerBuf, &ver[nBytes_majVer + 1], sizeof(minorVerBuf), nullptr) != LE_OK)
-            {
-                LE_ERROR("Not valid remove cmd packet %s !", drvInfo);
-                snprintf(msgPtrStart, le_msg_GetMaxPayloadSize(msgRef), "*-1");
-                le_msg_Respond(msgRef);
-                return;
-            }
-
-            if(le_utf8_ParseInt(&majorInt, majorVerBuf) != LE_OK)
-            {
-                LE_ERROR("Not valid version %s !", majorVerBuf);
-                snprintf(msgPtrStart, le_msg_GetMaxPayloadSize(msgRef), "*-1");
-                le_msg_Respond(msgRef);
-                return;
-            }
-
-            if(le_utf8_ParseInt(&minorInt, minorVerBuf) != LE_OK)
-            {
-                LE_ERROR("Not valid version %s !", minorVerBuf);
-                snprintf(msgPtrStart, le_msg_GetMaxPayloadSize(msgRef), "*-1");
-                le_msg_Respond(msgRef);
-                return;
-            }
-
-            majorVer = (uint16_t)majorInt;
-            minorVer = (uint16_t)minorInt;
-
-            LE_INFO("Version: %u.%u", majorVer, minorVer);
         }
 
         drvPtr = FindDrv(name, majorVer, minorVer, ignoreVersion);
@@ -907,22 +971,24 @@ void ToolMsgReceiveHandler
     const char* baseName;
     char newName[DEV_MANAGER_DRIVER_NAME_MAX_LEN]="";
     char tempName[DEV_MANAGER_DRIVER_NAME_MAX_LEN]="";
-    char verName[DEV_MANAGER_DRIVER_VENDOR_MAX_LEN] = "";
     char respPtr[DEV_MANAGER_MAX_RESP_MSG_BYTES] = "";
 
-    size_t numBytes;
     DeviceDriver_t* drvPtr = nullptr;
     DeviceDriver_t* tempDrvPtr = nullptr;
 
     struct stat sb;
+    bool installingNewFile = true;
 
     TAF_HAL_MGR_INF_t *mgrInf;
 
     void* drvHandle = nullptr;
     char* errMsg = nullptr;
     const char* drvName;
+    bool ignoreVersion;
     uint16_t  majorVer, minorVer;
 
+    int ret = 0;
+    le_result_t res = LE_OK;
 
     le_msg_SessionRef_t ipcSessionRef = le_msg_GetSession(msgRef);
 
@@ -960,12 +1026,16 @@ void ToolMsgReceiveHandler
                     // check if it's a regular file
                     if((sb.st_mode & S_IFMT) == S_IFREG)
                     {
+                        installingNewFile = false;
                         LE_WARN("Module file %s exist, continue to use it", newName);
                     }
                     else
                     {
-                        LE_ERROR("Remove the unknow objects %s",newName);
-                        unlink(newName);  // continue to install?
+                        LE_ERROR("Remove the unknown objects %s",newName);
+                        unlink(newName);
+                        snprintf(respPtr, sizeof(respPtr), "***ERROR: Unknown object exists");
+                        SendToDrvTool(ipcSessionRef, respPtr);
+                        break;
                     }
                 }
                 else if(link(commandData, newName) != 0)
@@ -985,7 +1055,6 @@ void ToolMsgReceiveHandler
                     LE_ERROR("Failed to change SELinux context");
                 }
 #endif
-
                 // Open driver and get information
                 if (OpenDrvToGetInfo(newName, &drvPtr, &drvName, &majorVer, &minorVer, respPtr) != LE_OK)
                 {
@@ -996,7 +1065,8 @@ void ToolMsgReceiveHandler
                 LE_INFO("Start to install the driver");
 
                 // Install driver
-                if(InstallDrvToDevManager(drvPtr, drvName, majorVer, minorVer, newName) == true)
+                res = InstallDrvToDevManager(drvPtr, drvName, majorVer, minorVer, newName);
+                if(res == LE_OK)
                 {
                     LE_INFO("Driver %s installed successfully!", drvName);
                     snprintf(respPtr, sizeof(respPtr),
@@ -1013,7 +1083,27 @@ void ToolMsgReceiveHandler
                 }
                 else
                 {
-                    LE_INFO("Fail to install the driver");
+                    LE_ERROR("Fail to install the driver");
+                    if(res == LE_DUPLICATE)
+                    {
+                        snprintf(respPtr, sizeof(respPtr), "***ERROR: Driver already exists");
+                    }
+                    else if(res == LE_TERMINATED)
+                    {
+                        snprintf(respPtr, sizeof(respPtr), "***ERROR: Failed to call driver function");
+                    }
+                    else
+                    {
+                        unlink(newName);
+                        snprintf(respPtr, sizeof(respPtr), "***ERROR: Failed to install it to device manager");
+                    }
+
+                    if(installingNewFile)
+                    {
+                        unlink(newName);
+                    }
+
+                    SendToDrvTool(ipcSessionRef, respPtr);
                     le_event_QueueFunction(SafeCloseDrv, drvPtr, (void*)true);
                 }
 
@@ -1021,15 +1111,12 @@ void ToolMsgReceiveHandler
 
             case DEV_MANAGER_TOOL_REMOVE_CMD:
 
-                 LE_INFO("Device Manager - remove the driver\n");
+                LE_INFO("Device Manager - remove the driver\n");
 
                 // to be safe
                 commandData[DEV_MANAGER_CMD_MAX_LEN-1] = '\0';
 
-                // parameter format.
-                // [cmd][driver name][:][majorVer][.][minorVer]
-                // commandData contains name and ver seperate by ":"
-                if(le_utf8_CopyUpToSubStr(tempName, &commandData[0], ":", sizeof(tempName), &numBytes) != LE_OK)
+                if(ParseDrvInfo(commandData, tempName, &ignoreVersion, &majorVer, &minorVer) == false)
                 {
                     LE_ERROR("Not valid remove cmd packet %s !",commandData);
                     snprintf(respPtr, sizeof(respPtr), "***ERROR: Not a vaild command");
@@ -1037,77 +1124,58 @@ void ToolMsgReceiveHandler
                     break;
                 }
 
-                // create a fullname path
-                if(le_path_Concat("/", newName, sizeof(newName), DEV_MANAGER_DRIVER_STORAGE, tempName, nullptr) != LE_OK)
-                {
-                    LE_ERROR("File name could be too long!");
-                    snprintf(respPtr, sizeof(respPtr), "***ERROR:Module File can not be reached");
-                    SendToDrvTool(ipcSessionRef,respPtr);
-                }
-
-                LE_INFO("File name:%s", newName);
-
-                // move to the next version string
-                if(le_utf8_Copy( verName, &commandData[numBytes + 1], sizeof(verName), nullptr) != LE_OK)
-                {
-                    LE_ERROR("Not valid remove cmd packet %s !",commandData);
-                    snprintf(respPtr, sizeof(respPtr), "***ERROR: Not a vaild version string");
-                    SendToDrvTool(ipcSessionRef, respPtr);
-                    break;
-                }
-
-                LE_INFO("Version: %s", verName);
-
-                // open the so to get real name
-                drvHandle = dlopen(newName, RTLD_NOW);
-
-                if(drvHandle == nullptr)
-                {
-                    LE_ERROR("Failed to load the driver %s %s",newName,dlerror());
-                    snprintf(respPtr, sizeof(respPtr), "***ERROR: Failed to load the driver");
-                    SendToDrvTool(ipcSessionRef,respPtr);
-
-                    //remove the driver
-                    unlink(newName);
-                    break;
-                }
-
-                mgrInf = (TAF_HAL_MGR_INF_t *)dlsym(drvHandle, TAF_HAL_INFO_TAB_STR);
-
-                errMsg = dlerror();
-
-                if(errMsg != nullptr)
-                {
-                    LE_ERROR("No HAL Information table");
-
-                    // close later
-                    snprintf(respPtr, sizeof(respPtr), "***ERROR: Invalid TelAF HAL module: %s", errMsg);
-                    SendToDrvTool(ipcSessionRef, respPtr);
-
-                    // we need to close this so
-                    tempDrvPtr = (DeviceDriver_t *)le_mem_ForceAlloc(DeviceDriverPoolRef);
-
-                    if(tempDrvPtr == nullptr)
-                    {
-                        LE_CRIT("Not enough memory!");
-
-                        // simply close session and return as we can not close it properly
-                        break;
-                    }
-
-                    // close it and return
-                    tempDrvPtr->drvHandle = drvHandle;
-                    le_event_QueueFunction(SafeCloseDrv, tempDrvPtr, (void*)true);
-
-                    break;
-                }
-
                 // search the driver list
-                drvPtr = FindDrv(mgrInf->name, mgrInf->majorVer, mgrInf->minorVer, false);
+                drvPtr = FindDrv(tempName, majorVer, minorVer, ignoreVersion);
 
                 // go ahead uninstalling the driver
                 if(drvPtr != nullptr)
                 {
+                    // open the so to get real name
+                    drvHandle = dlopen(drvPtr->loc, RTLD_NOW);
+
+                    if(drvHandle == nullptr)
+                    {
+                        errMsg = dlerror();
+
+                        LE_ERROR("Failed to load the driver %s %s",drvPtr->loc,dlerror());
+                        snprintf(respPtr, sizeof(respPtr), "***ERROR: Failed to load the driver: %s", errMsg);
+                        SendToDrvTool(ipcSessionRef,respPtr);
+
+                        //remove the driver
+                        unlink(drvPtr->loc);
+                        break;
+                    }
+
+                    mgrInf = (TAF_HAL_MGR_INF_t *)dlsym(drvHandle, TAF_HAL_INFO_TAB_STR);
+
+                    errMsg = dlerror();
+
+                    if(errMsg != nullptr)
+                    {
+                        LE_ERROR("No HAL Information table");
+
+                        // close later
+                        snprintf(respPtr, sizeof(respPtr), "***ERROR: Invalid TelAF HAL module: %s", errMsg);
+                        SendToDrvTool(ipcSessionRef, respPtr);
+
+                        // we need to close this so
+                        tempDrvPtr = (DeviceDriver_t *)le_mem_ForceAlloc(DeviceDriverPoolRef);
+
+                        if(tempDrvPtr == nullptr)
+                        {
+                            LE_CRIT("Not enough memory!");
+
+                            // simply close session and return as we can not close it properly
+                            break;
+                        }
+
+                        // close it and return
+                        tempDrvPtr->drvHandle = drvHandle;
+                        le_event_QueueFunction(SafeCloseDrv, tempDrvPtr, (void*)true);
+
+                        break;
+                    }
+
                     // save the handle for later use
                     drvPtr->drvHandle = drvHandle;
 
@@ -1123,8 +1191,24 @@ void ToolMsgReceiveHandler
 
                         break;
                     }
-                    // 2 turn off the power
-                    (*(mgrInf->powerOffInf))();
+
+                    if(mgrInf->moduleType == TAF_MODULETYPE_HAL)
+                    {
+                        // 2 turn off the power
+                        ENTER_SAFE_CALL(TIMER_SAFECALL, ret, (*(mgrInf->powerOffInf)));
+                        EXIT_SAFE_CALL();
+                        if(ret == -1)
+                        {
+                            LE_ERROR("Called powerOnInf failed");
+                        }
+                    }
+                }
+                else
+                {
+                    // close later
+                    snprintf(respPtr, sizeof(respPtr), "***ERROR: TelAF HAL module is not found");
+                    SendToDrvTool(ipcSessionRef, respPtr);
+                    break;
                 }
 
                 // continue to remove it from the driver list
@@ -1138,7 +1222,7 @@ void ToolMsgReceiveHandler
 
                     // close the handle and release the memory
                     le_event_QueueFunction(SafeCloseDrv, drvPtr, (void*)true);
-                    LE_INFO("Driver %s was uninstalled successfully!", newName);
+                    LE_INFO("Driver %s was uninstalled successfully!", drvPtr->loc);
                 }
                 else // not found
                 {
@@ -1159,14 +1243,17 @@ void ToolMsgReceiveHandler
                  break;
 
             case DEV_MANAGER_TOOL_LIST_DRIVERS:
+                LE_INFO("Device Manager - list all the available drivers");
 
-                 LE_INFO("Device Manager - list all the available drivers\n");
-                 break;
+                ListDrivers(respPtr, sizeof(respPtr));
+                SendToDrvTool(ipcSessionRef, respPtr);
+
+                break;
 
             case DEV_MANAGER_TOOL_QUERY_DRIVERS:
 
-                 LE_INFO("Device Manager - check the driver status\n");
-                 break;
+                LE_INFO("Device Manager - check the driver status\n");
+                break;
 
             default:
 
@@ -1191,13 +1278,13 @@ le_result_t copyFile(const char* sourcePath, const char* destPath)
 {
     FILE* sourceFile = fopen(sourcePath, "rb");
     if (sourceFile == nullptr) {
-        perror("Error opening source file");
+        LE_ERROR("Error opening source file");
         return LE_FAULT;
     }
 
     FILE* destFile = fopen(destPath, "wb");
     if (destFile == nullptr) {
-        perror("Error opening destination file");
+        LE_ERROR("Error opening destination file");
         fclose(sourceFile);
         return LE_FAULT;
     }
@@ -1221,11 +1308,11 @@ le_result_t copyFile(const char* sourcePath, const char* destPath)
  * List the drivers in temp file, and copy devManager storage
  */
 //--------------------------------------------------------------------------------------------------
-static void ScanStoredDriversAndCopy()
+static void ScanStoredDriversAndCopy(const char* path)
 {
     struct dirent **fileList;
     int n = 0;
-    n = scandir(DRIVER_TMP_STORAGE, &fileList, nullptr, alphasort);
+    n = scandir(path, &fileList, nullptr, alphasort);
 
     while (n > 0)
     {
@@ -1233,7 +1320,7 @@ static void ScanStoredDriversAndCopy()
         n--;
 
         char srcStr[DEV_MANAGER_DRIVER_LOCATION_MAX_LEN];
-        snprintf(srcStr, sizeof(srcStr), "%s%s", DRIVER_TMP_STORAGE,
+        snprintf(srcStr, sizeof(srcStr), "%s%s", path,
         le_path_GetBasenamePtr(fileList[n]->d_name, "/"));
 
         struct stat sb;
@@ -1341,7 +1428,7 @@ static void InstallPersistentDrivers()
 
         LE_INFO("Start to install the driver");
 
-        if(InstallDrvToDevManager(drvPtr, drvName, majorVer, minorVer, srcStr) == true)
+        if(InstallDrvToDevManager(drvPtr, drvName, majorVer, minorVer, srcStr) == LE_OK)
         {
             LE_INFO("Driver %s installed successfully!", drvName);
         }
@@ -1480,7 +1567,8 @@ COMPONENT_INIT
     le_msg_SetServiceRecvHandler(serviceRef,ToolMsgReceiveHandler, nullptr);
     le_msg_AdvertiseService(serviceRef);
 
-    ScanStoredDriversAndCopy();
+    ScanStoredDriversAndCopy(DRIVER_TMP_STORAGE);
+
     InstallPersistentDrivers();
 
     // Close the fd that we inherited from the Supervisor.  This will let the Supervisor know that

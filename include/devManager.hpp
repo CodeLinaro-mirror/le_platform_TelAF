@@ -32,7 +32,7 @@ extern "C" {
  * The maximum packet size in bytes of device manager commands.
  */
 //--------------------------------------------------------------------------------------------------
-#define DEV_MANAGER_MAX_CMD_PACKET_BYTES        300
+#define DEV_MANAGER_MAX_CMD_PACKET_BYTES        500
 
 //--------------------------------------------------------------------------------------------------
 /**

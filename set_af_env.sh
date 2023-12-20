@@ -242,6 +242,17 @@ function build-sa525m-af() {
     build_target "${TARGET}"
 }
 
+function build-sa525m-lxc-af() {
+    local TARGET="sa525m"
+    if [ "$TARGET" != "$TARGET_GLOBAL" ]; then
+        echo "Error: Target parameter mismatch. Expected: $TARGET_GLOBAL, Actual: $TARGET"
+        return 1
+    fi
+    # Set the flavor to lxc to build TelAF system for the container.
+    export BUILD_FLAVOR=lxc
+    build_target "${TARGET}"
+}
+
 function build-simulation-af() {
     local TARGET="simulation"
     if [ "$TARGET" != "$TARGET_GLOBAL" ]; then

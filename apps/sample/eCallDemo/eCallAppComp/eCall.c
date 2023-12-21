@@ -1082,11 +1082,14 @@ static int startECall()
 
     if (strcmp(eCallType, "AUTO") == 0)
     {
-        taf_ecall_StartAutomatic(ECallRef);
+        taf_ecall_SetMsdEuroNCAPLocationOfImpact(ECallRef, TAF_ECALL_LOI_FRONT);
+        taf_ecall_SetMsdEuroNCAPIIDeltaV(ECallRef, 125, -45, 10);
 
+        taf_ecall_StartAutomatic(ECallRef);
     }
     else if (strcmp(eCallType, "MANUAL") == 0)
     {
+        taf_ecall_ResetMsdAdditionalData(ECallRef);
         taf_ecall_StartManual(ECallRef);
     }
     else if (strcmp(eCallType, "TEST") == 0)

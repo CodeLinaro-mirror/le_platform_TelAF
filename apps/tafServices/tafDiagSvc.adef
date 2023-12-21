@@ -47,4 +47,5 @@ extern:
     tafDiagSvc.tafDiagSvc.taf_diagRoutineCtrl
     tafDiagSvc.tafDiagSvc.taf_diagUpdate
     tafDiagSvc.tafDiagSvc.taf_diagSecurity
+    tafDiagSvc.tafDiagSvc.taf_diagDataID
 }

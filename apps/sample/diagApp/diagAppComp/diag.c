@@ -35,12 +35,6 @@
 #include "legato.h"
 #include "interfaces.h"
 
-//tmp definition to test
-#define TEST_ECUREST
-#define TEST_UPDATE
-#define TEST_ROUTINE_CONTROL
-#define TEST_SECURITY_ACCESS
-
 #define CAN_BE_RESET 1
 #define UPDATE_PRE_DOWNLOAD_CHECK_IDENTIFIER 0x0246
 #define UPDATE_POST_DOWNLOAD_CHECK_IDENTIFIER 0x0247
@@ -50,35 +44,41 @@
 #define SYSTEM_COMMAND_STR_LENGTH 1030
 #define DELETE_SYSTEM_CMD_FORMAT "rm %s"
 
+// DID length definition
+#define DID_LEN                      2
+
+// DID Config tree definition
+#define DID_NODE_LEN                 100
+#define DID_CONFIG_TREE_NODE         "diag/DID"
+#define DID_CONFIG_TREE_VALUE_FORMAT "diag/DID/%2x/value"
+#define DID_DATA_FORMAT              "data%d"
+
 static le_sem_Ref_t semRef;
 
-#ifdef TEST_ECUREST
 //Diag Reset
 static taf_diagReset_ServiceRef_t diagResetSvcRef = NULL;
 static taf_diagReset_RxMsgHandlerRef_t diagResetMsgRef = NULL;
 const uint8_t seedData[] = {0x36, 0x57};
-#endif
 
-#ifdef TEST_ROUTINE_CONTROL
 //Diag Routine Control
 static taf_diagRoutineCtrl_ServiceRef_t diagRCPreDlSvcRef = NULL;
 static taf_diagRoutineCtrl_ServiceRef_t diagRCPostDlSvcRef = NULL;
 static taf_diagRoutineCtrl_RxMsgHandlerRef_t diagRoutineCtrlMsgRef = NULL;
-#endif
 
-#ifdef TEST_UPDATE
 //Diag Update
 static taf_diagUpdate_ServiceRef_t diagUpdateSvcRef = NULL;
 static taf_diagUpdate_RxFileXferMsgHandlerRef_t diagFileXferMsgRef = NULL;
 static taf_diagUpdate_RxXferDataMsgHandlerRef_t diagXferDataMsgRef = NULL;
 static taf_diagUpdate_RxXferExitMsgHandlerRef_t diagXferExitMsgRef = NULL;
-#endif
 
-#ifdef TEST_SECURITY_ACCESS
 //Diag Security
 static taf_diagSecurity_ServiceRef_t diagSecuritySvcRef = NULL;
 static taf_diagSecurity_RxSecAccessMsgHandlerRef_t diagSecurityMsgRef = NULL;
-#endif
+
+//Diag RDBI/WDBI
+static taf_diagDataID_ServiceRef_t diagDataIDSvcRef = NULL;
+static taf_diagDataID_RxReadDIDMsgHandlerRef_t diagReadDataIDMsgRef = NULL;
+static taf_diagDataID_RxWriteDIDMsgHandlerRef_t diagWriteDataIDMsgRef = NULL;
 
 //TelAF Update
 static taf_update_StateHandlerRef_t UpdateStateHandlerRef = NULL;
@@ -88,7 +88,6 @@ taf_update_State_t updateState = TAF_UPDATE_IDLE;
 FILE  *filePtr = NULL;
 static char filePath[UPDATE_FILE_PATH_LENGTH];
 
-#ifdef TEST_ECUREST
 //Function to convert reset type to string
 char* tafResetTypeToString(taf_diagReset_Type_t resetType)
 {
@@ -116,9 +115,7 @@ char* tafResetTypeToString(taf_diagReset_Type_t resetType)
     }
     return state;
 }
-#endif
 
-#ifdef TEST_ROUTINE_CONTROL
 //Function to convert routine control type to string
 char* tafRoutineCtrlTypeToString(taf_diagRoutineCtrl_Type_t routineCtrlType)
 {
@@ -140,9 +137,7 @@ char* tafRoutineCtrlTypeToString(taf_diagRoutineCtrl_Type_t routineCtrlType)
     }
     return state;
 }
-#endif
 
-#ifdef TEST_UPDATE
 //Function to convert modeOfOperation type to string
 char* tafModeOfOperationToString(taf_diagUpdate_ModeOfOpsType_t modeOfOps)
 {
@@ -169,11 +164,8 @@ static FILE* createFile(const char * pathNamePtr)
     mode_t f_attrib;
     f_attrib = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH;
 
-    FILE* file = le_flock_TryCreateStream(pathNamePtr,
-                                          LE_FLOCK_READ_AND_APPEND,
-                                          LE_FLOCK_FAIL_IF_EXIST ,
-                                          f_attrib,
-                                          &result);
+    FILE* file = le_flock_TryCreateStream(pathNamePtr, LE_FLOCK_READ_AND_APPEND,
+            LE_FLOCK_FAIL_IF_EXIST , f_attrib, &result);
     if(result != LE_OK)
     {
         LE_ERROR("ERROR TO CREATE FILE");
@@ -187,7 +179,6 @@ static FILE* createFile(const char * pathNamePtr)
 // Function to close a file
 static void closeFile()
 {
-
     if(filePtr != NULL)
     {
         le_flock_CloseStream(filePtr);
@@ -198,7 +189,6 @@ static void closeFile()
 // Function to write data into file
 static le_result_t writeFile(const uint8_t *data, const uint16_t len)
 {
-
     int bytes;
     if(filePtr == NULL)
     {
@@ -213,7 +203,6 @@ static le_result_t writeFile(const uint8_t *data, const uint16_t len)
     return LE_OK;
 }
 
-#endif
 // Callback function for TelAF update service to get the status
 /*
 
@@ -246,7 +235,6 @@ void updateStateHandler(taf_update_StateInd_t* indication, void* contextPtr)
     LE_INFO("-----Update state=%d",updateState);
 }
 
-#ifdef TEST_ECUREST
 // Callback function for reset request message
 // Hard reset type is used to reboot to active after firmware is installed in this sample.
 void resetMsgHandler
@@ -300,9 +288,6 @@ void resetMsgHandler
 
 }
 
-#endif
-
-#ifdef TEST_ROUTINE_CONTROL
 // Callback function for routine control request message
 void routineCtrl_0246_MsgHandler
 (
@@ -323,10 +308,8 @@ void routineCtrl_0246_MsgHandler
             if(PRE_DOWNLOAD_CHECK_OK)
             {
                 LE_INFO("Pre download check is OK");
-                if(taf_diagRoutineCtrl_SendResp( rxMsgRef,
-                                                 TAF_DIAGROUTINECTRL_NO_ERROR,
-                                                 NULL, 0
-                                               ) != LE_OK)
+                if(taf_diagRoutineCtrl_SendResp( rxMsgRef, TAF_DIAGROUTINECTRL_NO_ERROR,
+                        NULL, 0 ) != LE_OK)
                 {
                     LE_ERROR("Send response error");
                 }
@@ -335,9 +318,7 @@ void routineCtrl_0246_MsgHandler
             {
                 LE_ERROR("Pre download check is failed");
                 if(taf_diagRoutineCtrl_SendResp( rxMsgRef,
-                                                 TAF_DIAGROUTINECTRL_GENERAL_PROGRAMMING_FAILURE,
-                                                 NULL, 0
-                                               ) != LE_OK)
+                        TAF_DIAGROUTINECTRL_GENERAL_PROGRAMMING_FAILURE, NULL, 0 ) != LE_OK)
                 {
                     LE_ERROR("Send response error");
                 }
@@ -345,10 +326,8 @@ void routineCtrl_0246_MsgHandler
             break;
         default:
             //stop routine, request routine result,etc.
-            if(taf_diagRoutineCtrl_SendResp( rxMsgRef,
-                                             TAF_DIAGROUTINECTRL_NO_ERROR,
-                                             NULL, 0
-                                           ) != LE_OK)
+            if(taf_diagRoutineCtrl_SendResp( rxMsgRef, TAF_DIAGROUTINECTRL_NO_ERROR,
+                    NULL, 0 ) != LE_OK)
             {
                 LE_ERROR("Send response error");
             }
@@ -387,10 +366,8 @@ void routineCtrl_0247_MsgHandler
                 LE_INFO("update firmware, result=%d, filepath=%s",result, filePath);
                 if(result == LE_OK)
                 {
-                    if(taf_diagRoutineCtrl_SendResp( rxMsgRef,
-                                                     TAF_DIAGROUTINECTRL_NO_ERROR,
-                                                     NULL, 0
-                                                   ) != LE_OK)
+                    if(taf_diagRoutineCtrl_SendResp( rxMsgRef, TAF_DIAGROUTINECTRL_NO_ERROR,
+                            NULL, 0 ) != LE_OK)
                     {
                         LE_ERROR("Send response error");
                     }
@@ -398,9 +375,7 @@ void routineCtrl_0247_MsgHandler
                 else
                 {
                     if(taf_diagRoutineCtrl_SendResp( rxMsgRef,
-                                                    TAF_DIAGROUTINECTRL_GENERAL_PROGRAMMING_FAILURE,
-                                                    NULL, 0
-                                                   ) != LE_OK)
+                            TAF_DIAGROUTINECTRL_GENERAL_PROGRAMMING_FAILURE, NULL, 0 ) != LE_OK)
                     {
                         LE_ERROR("Send response error");
                     }
@@ -410,9 +385,7 @@ void routineCtrl_0247_MsgHandler
             {
                 LE_ERROR("Post download check is failed");
                 if(taf_diagRoutineCtrl_SendResp( rxMsgRef,
-                                                 TAF_DIAGROUTINECTRL_GENERAL_PROGRAMMING_FAILURE,
-                                                 NULL, 0
-                                               ) != LE_OK)
+                        TAF_DIAGROUTINECTRL_GENERAL_PROGRAMMING_FAILURE, NULL, 0 ) != LE_OK)
                 {
                     LE_ERROR("Send response error");
                 }
@@ -425,10 +398,8 @@ void routineCtrl_0247_MsgHandler
             recordData[0]= (uint8_t)updateState;
             dataLen = 1;
 
-            if(taf_diagRoutineCtrl_SendResp( rxMsgRef,
-                                             TAF_DIAGROUTINECTRL_NO_ERROR,
-                                             recordData, dataLen
-                                           ) != LE_OK)
+            if(taf_diagRoutineCtrl_SendResp( rxMsgRef, TAF_DIAGROUTINECTRL_NO_ERROR, recordData,
+                    dataLen ) != LE_OK)
             {
                 LE_ERROR("Send response error");
             }
@@ -436,10 +407,8 @@ void routineCtrl_0247_MsgHandler
             break;
         default:
             //stop routine, request routine result,etc.
-            if(taf_diagRoutineCtrl_SendResp( rxMsgRef,
-                                             TAF_DIAGROUTINECTRL_NO_ERROR,
-                                             NULL, 0
-                                           ) != LE_OK)
+            if(taf_diagRoutineCtrl_SendResp( rxMsgRef, TAF_DIAGROUTINECTRL_NO_ERROR,
+                    NULL, 0 ) != LE_OK)
             {
                 LE_ERROR("Send response error");
             }
@@ -447,9 +416,7 @@ void routineCtrl_0247_MsgHandler
     }
 
 }
-#endif
 
-#ifdef TEST_UPDATE
 // Callback function for file transfer request message
 void fileXferMsgHandler
 (
@@ -470,18 +437,14 @@ void fileXferMsgHandler
         case TAF_DIAGUPDATE_ADD_FILE:
             //Add file
 
-            result = taf_diagUpdate_GetFilePathAndName( rxMsgRef,
-                                                        (uint8_t *)filePathAndName,
-                                                        &fileLen
-                                                      );
-
+            result = taf_diagUpdate_GetFilePathAndName( rxMsgRef, (uint8_t *)filePathAndName,
+                    &fileLen );
 
             if(result != LE_OK)
             {
                 LE_ERROR("Getting file name");
                 if(taf_diagUpdate_SendFileXferResp( rxMsgRef,
-                                                    TAF_DIAGUPDATE_FILE_XFER_CONDITIONS_NOT_CORRECT
-                                                  ) != LE_OK)
+                        TAF_DIAGUPDATE_FILE_XFER_CONDITIONS_NOT_CORRECT ) != LE_OK)
                 {
                     LE_ERROR("Send response error");
                 }
@@ -496,8 +459,7 @@ void fileXferMsgHandler
             {
                 LE_ERROR("!!!! File creation failed");
                 if(taf_diagUpdate_SendFileXferResp( rxMsgRef,
-                                                   TAF_DIAGUPDATE_FILE_XFER_CONDITIONS_NOT_CORRECT
-                                                  ) != LE_OK)
+                        TAF_DIAGUPDATE_FILE_XFER_CONDITIONS_NOT_CORRECT ) != LE_OK)
                 {
                     LE_ERROR("Send response error");
                 }
@@ -506,8 +468,8 @@ void fileXferMsgHandler
             else
             {
                 LE_INFO("File creation ");
-                if(taf_diagUpdate_SendFileXferResp(rxMsgRef, TAF_DIAGUPDATE_FILE_XFER_NO_ERROR
-                                                  ) != LE_OK)
+                if(taf_diagUpdate_SendFileXferResp(rxMsgRef, TAF_DIAGUPDATE_FILE_XFER_NO_ERROR ) !=
+                        LE_OK)
                 {
                     LE_ERROR("Send response error");
                 }
@@ -516,17 +478,14 @@ void fileXferMsgHandler
             break;
         case TAF_DIAGUPDATE_DELETE_FILE:
 
-            result = taf_diagUpdate_GetFilePathAndName( rxMsgRef,
-                                                        (uint8_t*)filePathAndName,
-                                                        &fileLen
-                                                      );
+            result = taf_diagUpdate_GetFilePathAndName( rxMsgRef, (uint8_t*)filePathAndName,
+                    &fileLen );
 
             if(result != LE_OK)
             {
                 LE_ERROR("Getting file name");
                 if(taf_diagUpdate_SendFileXferResp( rxMsgRef,
-                                                   TAF_DIAGUPDATE_FILE_XFER_CONDITIONS_NOT_CORRECT
-                                                  ) != LE_OK)
+                        TAF_DIAGUPDATE_FILE_XFER_CONDITIONS_NOT_CORRECT ) != LE_OK)
                 {
                     LE_ERROR("Send response error");
                 }
@@ -540,8 +499,7 @@ void fileXferMsgHandler
             {
                 LE_ERROR("failed to delete %s", filePathAndName);
                 if(taf_diagUpdate_SendFileXferResp( rxMsgRef,
-                                                    TAF_DIAGUPDATE_FILE_XFER_CONDITIONS_NOT_CORRECT
-                                                  ) != LE_OK)
+                        TAF_DIAGUPDATE_FILE_XFER_CONDITIONS_NOT_CORRECT ) != LE_OK)
                 {
                     LE_ERROR("Send response error");
                 }
@@ -550,8 +508,7 @@ void fileXferMsgHandler
             else
             {
                 if(taf_diagUpdate_SendFileXferResp( rxMsgRef,
-                                                    TAF_DIAGUPDATE_FILE_XFER_NO_ERROR
-                                                  ) != LE_OK)
+                        TAF_DIAGUPDATE_FILE_XFER_NO_ERROR ) != LE_OK)
                 {
                     LE_ERROR("Send response error");
                 }
@@ -559,8 +516,8 @@ void fileXferMsgHandler
 
             break;
         default:
-            if(taf_diagUpdate_SendFileXferResp( rxMsgRef, TAF_DIAGUPDATE_FILE_XFER_NO_ERROR
-                                              ) != LE_OK)
+            if(taf_diagUpdate_SendFileXferResp( rxMsgRef, TAF_DIAGUPDATE_FILE_XFER_NO_ERROR ) !=
+                    LE_OK)
             {
                 LE_ERROR("Send response error");
             }
@@ -589,9 +546,7 @@ void xferDataMsgHandler
     {
         LE_ERROR("Getting file len");
         if(taf_diagUpdate_SendXferDataResp( rxMsgRef,
-                                            TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE,
-                                            NULL,0
-                                            ) != LE_OK)
+                TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE, NULL,0 ) != LE_OK)
         {
             LE_ERROR("Send response error");
         }
@@ -604,9 +559,7 @@ void xferDataMsgHandler
     {
         LE_ERROR("Getting file name");
         if(taf_diagUpdate_SendXferDataResp( rxMsgRef,
-                                            TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE,
-                                            NULL, 0
-                                          ) != LE_OK)
+                TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE, NULL, 0 ) != LE_OK)
         {
             LE_ERROR("Send response error");
         }
@@ -617,9 +570,7 @@ void xferDataMsgHandler
     {
         LE_ERROR("Getting data");
         if(taf_diagUpdate_SendXferDataResp( rxMsgRef,
-                                            TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE,
-                                            NULL, 0
-                                          ) != LE_OK)
+                TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE, NULL, 0 ) != LE_OK)
         {
             LE_ERROR("Send response error");
         }
@@ -634,9 +585,7 @@ void xferDataMsgHandler
         {
             LE_ERROR("Failed to write data");
             if(taf_diagUpdate_SendXferDataResp( rxMsgRef,
-                                               TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE,
-                                               NULL, 0
-                                              ) != LE_OK)
+                    TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE, NULL, 0 ) != LE_OK)
             {
                 LE_ERROR("Send response error");
             }
@@ -644,8 +593,7 @@ void xferDataMsgHandler
         else
         {
             if(taf_diagUpdate_SendXferDataResp( rxMsgRef,
-                                                TAF_DIAGUPDATE_XFER_DATA_NO_ERROR , NULL, 0
-                                              ) != LE_OK)
+                    TAF_DIAGUPDATE_XFER_DATA_NO_ERROR , NULL, 0 ) != LE_OK)
             {
                 LE_ERROR("Send response error");
             }
@@ -656,9 +604,7 @@ void xferDataMsgHandler
 
         LE_ERROR("File pointer is NULL");
         if(taf_diagUpdate_SendXferDataResp( rxMsgRef,
-                                            TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE,
-                                            NULL, 0
-                                          ) != LE_OK)
+                TAF_DIAGUPDATE_XFER_DATA_GENERAL_PROGRAMMING_FAILURE, NULL, 0 ) != LE_OK)
         {
             LE_ERROR("Send response error");
         }
@@ -682,8 +628,7 @@ void xferExitMsgHandler
     {
         closeFile();
         if(taf_diagUpdate_SendXferExitResp( rxMsgRef, TAF_DIAGUPDATE_XFER_EXIT_NO_ERROR,
-                                            NULL, 0
-                                          ) != LE_OK)
+                NULL, 0 ) != LE_OK)
         {
             LE_ERROR("Send response error");
         }
@@ -691,19 +636,15 @@ void xferExitMsgHandler
     else
     {
         if(taf_diagUpdate_SendXferExitResp( rxMsgRef, TAF_DIAGUPDATE_XFER_EXIT_NO_ERROR,
-                                            NULL, 0
-                                          ) != LE_OK)
+                NULL, 0 ) != LE_OK)
         {
             LE_ERROR("Send response error");
         }
 
     }
 
-
 }
-#endif
 
-#ifdef TEST_SECURITY_ACCESS
 // Callback function for security request message
 void securityMsgHandler
 (
@@ -778,14 +719,207 @@ void securityMsgHandler
                 LE_ERROR("Send response error");
             }
         }
-
     }
 
     return;
+}
+
+/**
+ * Read DID from ConfigTree.
+ */
+uint8_t readDIDFromConfigTree
+(
+    const uint16_t dataId,
+    uint8_t* sendBuf,
+    size_t* sendBufLen
+)
+{
+    le_cfg_ConnectService();
+
+    if(sendBuf == NULL || sendBufLen == NULL)
+    {
+        LE_ERROR("Null pointer.");
+        return TAF_DIAGDATAID_READ_DID_REQUEST_OUT_OF_RANGE;
+    }
+
+    char node[DID_NODE_LEN] = { 0 };
+    snprintf(node, sizeof(node), DID_CONFIG_TREE_VALUE_FORMAT, dataId);
+
+    le_cfg_IteratorRef_t iteratorRef_r = le_cfg_CreateReadTxn(node);
+
+    if (iteratorRef_r == NULL || (le_cfg_GoToFirstChild (iteratorRef_r) != LE_OK))
+    {
+        LE_ERROR("No DID node.");
+        le_cfg_CancelTxn(iteratorRef_r);
+        return TAF_DIAGDATAID_READ_DID_REQUEST_OUT_OF_RANGE;
+    }
+
+    int i = 0;
+    uint8_t data;
+    do{
+
+        if((*sendBufLen + i) >= TAF_DIAGDATAID_MAX_READ_DID_PAYLOAD_SIZE)
+        {
+            LE_DEBUG("Data length is too long");
+            le_cfg_CancelTxn(iteratorRef_r);
+            return TAF_DIAGDATAID_READ_DID_REQUEST_OUT_OF_RANGE;
+        }
+
+        data = le_cfg_GetInt(iteratorRef_r, "", 0);
+        sendBuf[*sendBufLen+i] = data;
+
+        i++;
+    }while (le_cfg_GoToNextSibling(iteratorRef_r) == LE_OK);
+
+    *sendBufLen =*sendBufLen + i;
+    le_cfg_CancelTxn(iteratorRef_r);
+
+    return TAF_DIAGDATAID_READ_DID_NO_ERROR ;
+}
+
+/**
+ * Write DID to ConfigTree.
+ */
+uint8_t writeDIDToConfigTree
+(
+    const uint16_t dataId,
+    const uint8_t* dataPtr,
+    uint16_t dataSize
+)
+{
+    le_cfg_ConnectService();
+
+    if(dataPtr == NULL)
+    {
+        LE_ERROR("Null pointer.");
+        return TAF_DIAGDATAID_WRITE_DID_GENERAL_PROGRAMMING_FAILURE;
+    }
+
+    char node[DID_NODE_LEN] = { 0 };
+    snprintf(node, sizeof(node), DID_CONFIG_TREE_VALUE_FORMAT, dataId);
+    le_cfg_IteratorRef_t wrIter = le_cfg_CreateWriteTxn(node);
+
+    if (wrIter == NULL)
+    {
+        LE_ERROR("Get write node failed.");
+        return TAF_DIAGDATAID_WRITE_DID_REQUEST_OUT_OF_RANGE;
+    }
+
+    //Need to clear the config tree since the length of the value written may be less than the old.
+    if(le_cfg_IsEmpty(wrIter, "") == false)
+    {
+        le_cfg_SetEmpty(wrIter, "");
+        LE_DEBUG("after clear, dataId=0x%x",dataId);
+        le_cfg_CommitTxn(wrIter);
+        wrIter = le_cfg_CreateWriteTxn(node);
+    }
+
+    for(int i=0; i < dataSize; i++)
+    {
+        char nodeDataStr[DID_NODE_LEN] = {0};
+        snprintf(nodeDataStr, sizeof(nodeDataStr), DID_DATA_FORMAT, i+1);
+        le_cfg_SetInt(wrIter, nodeDataStr, dataPtr[i]); //Store data
+    }
+    le_cfg_CommitTxn(wrIter);
+
+    return TAF_DIAGDATAID_WRITE_DID_NO_ERROR ;
+}
+
+// Callback function for read dataID6 request message 
+void readDataIDMsgHandler
+(
+    taf_diagDataID_RxReadDIDMsgRef_t rxMsgRef,
+    const uint16_t* dataIdPtr,
+    size_t dataIdSize,
+    void* contextPtr
+)
+{
+    uint8_t sendBuf[TAF_DIAGDATAID_MAX_READ_DID_PAYLOAD_SIZE];
+    size_t sendBufLen = 0;
+    uint8_t result;
+
+    if(dataIdSize == 0 || dataIdPtr == NULL)
+    {
+        if(taf_diagDataID_SendReadDIDResp( rxMsgRef, TAF_DIAGDATAID_READ_DID_REQUEST_OUT_OF_RANGE,
+                NULL, 0 ) != LE_OK)
+        {
+            LE_ERROR("Send response error");
+        }
+        return;
+    }
+
+    for( int i=0; i< (int)dataIdSize; i++)
+    {
+        if(sendBufLen + DID_LEN > TAF_DIAGDATAID_MAX_READ_DID_PAYLOAD_SIZE)
+        {
+            if(taf_diagDataID_SendReadDIDResp( rxMsgRef,
+                    TAF_DIAGDATAID_READ_DID_REQUEST_OUT_OF_RANGE, NULL, 0 ) != LE_OK)
+            {
+                LE_ERROR("Send response error");
+            }
+            return;
+        }
+
+        // Fill data id
+        sendBuf[sendBufLen] = (dataIdPtr[i] & 0xff00) >> 8;
+        sendBuf[sendBufLen+1] = dataIdPtr[i] & 0xff;
+        sendBufLen = sendBufLen + DID_LEN;
+
+        // Get record data for dataId[i] and fill record data into sendBuf
+        result = readDIDFromConfigTree(dataIdPtr[i], sendBuf, &sendBufLen);
+        if(result != TAF_DIAGDATAID_READ_DID_NO_ERROR)
+        {
+            if(taf_diagDataID_SendReadDIDResp( rxMsgRef, result, NULL, 0 ) != LE_OK)
+            {
+                LE_ERROR("Send response error");
+            }
+            return;
+        }
+
+    }
+
+    //All data are got, send response
+    if(taf_diagDataID_SendReadDIDResp( rxMsgRef,
+            TAF_DIAGDATAID_READ_DID_NO_ERROR , sendBuf, sendBufLen ) != LE_OK)
+    {
+        LE_ERROR("Send response error");
+    }
 
 }
 
-#endif
+// Callback function for writeDataID request message 
+void writeDataIDMsgHandler
+(
+    taf_diagDataID_RxWriteDIDMsgRef_t rxMsgRef,
+    uint16_t dataId,
+    void* contextPtr
+)
+{
+    uint8_t recordData[TAF_DIAGDATAID_MAX_DID_DATA_RECORD_SIZE];
+    size_t dataLen = 0;
+    le_result_t result;
+    uint8_t ret;
+
+    result = taf_diagDataID_GetWriteDataRecord(rxMsgRef, recordData, &dataLen);
+    if( result != LE_OK)
+    {
+        LE_ERROR("Getting data record");
+        if(taf_diagDataID_SendWriteDIDResp( rxMsgRef,
+                TAF_DIAGDATAID_WRITE_DID_REQUEST_OUT_OF_RANGE, dataId) != LE_OK)
+        {
+            LE_ERROR("Send response error");
+        }
+        return;
+    }
+
+    ret = writeDIDToConfigTree(dataId, recordData, dataLen);
+
+    if(taf_diagDataID_SendWriteDIDResp( rxMsgRef, ret, dataId) != LE_OK)
+    {
+        LE_ERROR("Send response error");
+    }
+
+}
 
 static void* updateStateThread(void* contextPtr)
 {
@@ -801,7 +935,6 @@ static void* updateStateThread(void* contextPtr)
     return NULL;
 }
 
-#ifdef TEST_ECUREST
 static void* diagResetMsgThread(void* ctxPtr)
 {
     taf_diagReset_ConnectService();
@@ -814,9 +947,7 @@ static void* diagResetMsgThread(void* ctxPtr)
     le_event_RunLoop();
     return NULL;
 }
-#endif
 
-#ifdef TEST_ROUTINE_CONTROL
 static void* diagRoutingCtrlMsgThread(void* ctxPtr)
 {
     taf_diagRoutineCtrl_ConnectService();
@@ -824,62 +955,72 @@ static void* diagRoutingCtrlMsgThread(void* ctxPtr)
     taf_update_ConnectService();
 
     diagRoutineCtrlMsgRef = taf_diagRoutineCtrl_AddRxMsgHandler( diagRCPreDlSvcRef,
-                                                                 routineCtrl_0246_MsgHandler, NULL);
+            routineCtrl_0246_MsgHandler, NULL);
     LE_TEST_OK(diagRoutineCtrlMsgRef != NULL,
               "Registered successfully for routineCtrl_0246_MsgHandler");
 
     diagRoutineCtrlMsgRef = taf_diagRoutineCtrl_AddRxMsgHandler( diagRCPostDlSvcRef,
-                                                                 routineCtrl_0247_MsgHandler, NULL);
+            routineCtrl_0247_MsgHandler, NULL);
     LE_TEST_OK(diagRoutineCtrlMsgRef != NULL,
-               "Registered successfully for routineCtrl_0247_MsgHandler");
+            "Registered successfully for routineCtrl_0247_MsgHandler");
 
     le_sem_Post(semRef);
     le_event_RunLoop();
     return NULL;
 }
-#endif
 
-#ifdef TEST_UPDATE
 static void* diagUpdateMsgThread(void* ctxPtr)
 {
     taf_diagUpdate_ConnectService();
 
     diagFileXferMsgRef = taf_diagUpdate_AddRxFileXferMsgHandler( diagUpdateSvcRef,
-                                                                 fileXferMsgHandler, NULL
-                                                               );
+            fileXferMsgHandler, NULL);
     LE_TEST_OK(diagFileXferMsgRef != NULL, "Registered successfully for fileXferMsgHandler");
 
     diagXferDataMsgRef = taf_diagUpdate_AddRxXferDataMsgHandler( diagUpdateSvcRef,
-                                                                 xferDataMsgHandler, NULL
-                                                               );
+            xferDataMsgHandler, NULL);
     LE_TEST_OK(diagXferDataMsgRef != NULL, "Registered successfully for xferDataMsgHandler");
 
     diagXferExitMsgRef = taf_diagUpdate_AddRxXferExitMsgHandler( diagUpdateSvcRef,
-                                                                 xferExitMsgHandler, NULL
-                                                               );
+            xferExitMsgHandler, NULL);
     LE_TEST_OK(diagXferExitMsgRef != NULL, "Registered successfully for xferExitMsgHandler");
 
     le_sem_Post(semRef);
     le_event_RunLoop();
     return NULL;
 }
-#endif
 
-#ifdef TEST_SECURITY_ACCESS
 static void* diagSecurityMsgThread(void* ctxPtr)
 {
     taf_diagSecurity_ConnectService();
 
     diagSecurityMsgRef = taf_diagSecurity_AddRxSecAccessMsgHandler( diagSecuritySvcRef,
-                                                                    securityMsgHandler, NULL
-                                                                  );
+            securityMsgHandler, NULL);
     LE_TEST_OK(diagSecurityMsgRef != NULL, "Registered successfully for securityMsgHandler");
 
     le_sem_Post(semRef);
     le_event_RunLoop();
     return NULL;
 }
-#endif
+
+static void* diagRWDataIdMsgThread(void* ctxPtr)
+{
+    taf_diagDataID_ConnectService();
+
+    diagReadDataIDMsgRef = taf_diagDataID_AddRxReadDIDMsgHandler( diagDataIDSvcRef,
+            readDataIDMsgHandler, NULL);
+    LE_TEST_OK(diagReadDataIDMsgRef != NULL,
+            "Registered successfully for readDataIDMsgHandler");
+
+    diagWriteDataIDMsgRef = taf_diagDataID_AddRxWriteDIDMsgHandler( diagDataIDSvcRef,
+            writeDataIDMsgHandler, NULL);
+    LE_TEST_OK(diagWriteDataIDMsgRef != NULL,
+            "Registered successfully for writeDataIDMsgHandler");
+
+    le_sem_Post(semRef);
+    le_event_RunLoop();
+    return NULL;
+}
 
 COMPONENT_INIT
 {
@@ -889,7 +1030,6 @@ COMPONENT_INIT
 
     semRef = le_sem_Create("SemRef", 0);
 
-#ifdef TEST_ECUREST
     //get diag reset svc reference
     diagResetSvcRef = taf_diagReset_GetService(TAF_DIAGRESET_ALL_RESET);
     if(diagResetSvcRef == NULL)
@@ -897,8 +1037,7 @@ COMPONENT_INIT
         LE_ERROR("Get diagReset service");
         return;
     }
-#endif
-#ifdef TEST_ROUTINE_CONTROL
+
     //get diag routinectrl svc reference for pre-download check
     diagRCPreDlSvcRef = taf_diagRoutineCtrl_GetService(UPDATE_PRE_DOWNLOAD_CHECK_IDENTIFIER);
     if(diagRCPreDlSvcRef == NULL)
@@ -915,9 +1054,6 @@ COMPONENT_INIT
         return;
     }
 
-#endif
-
-#ifdef TEST_UPDATE
     //get diag update reference
     diagUpdateSvcRef = taf_diagUpdate_GetService();
     if(diagUpdateSvcRef == NULL)
@@ -925,9 +1061,7 @@ COMPONENT_INIT
         LE_ERROR("Get diagUpdate service");
         return;
     }
-#endif
 
-#ifdef TEST_SECURITY_ACCESS
     //get diag security reference
     diagSecuritySvcRef = taf_diagSecurity_GetService();
     if(diagSecuritySvcRef == NULL)
@@ -935,55 +1069,56 @@ COMPONENT_INIT
         LE_ERROR("Get diagSecurity service");
         return;
     }
-#endif
+
+    //get diag Data ID reference
+    diagDataIDSvcRef = taf_diagDataID_GetService();
+    if(diagDataIDSvcRef == NULL)
+    {
+        LE_ERROR("Get diagDataID service");
+        return;
+    }
 
     // Create Update State Handler thread to get the update status
     le_thread_Ref_t updateStateThreadRef = le_thread_Create("updateStateTd",
-                                                             updateStateThread, NULL
-                                                           );
+            updateStateThread, NULL );
 
     le_thread_Start(updateStateThreadRef);
     le_sem_Wait(semRef);
 
-#ifdef TEST_ECUREST
     // Create diag reset message handle thread to handle ECUReset request(0x11)
     le_thread_Ref_t resetThreadRef = le_thread_Create("resetThread",
-                                                      diagResetMsgThread, NULL
-                                                     );
+            diagResetMsgThread, NULL);
 
     le_thread_Start(resetThreadRef);
     le_sem_Wait(semRef);
-#endif
-#ifdef TEST_ROUTINE_CONTROL
+
     // Create diag routine control message handle thread to handle routine control request(0x31)
     le_thread_Ref_t routineCtrlThreadRef = le_thread_Create("routineCtrlTd",
-                                                            diagRoutingCtrlMsgThread, NULL
-                                                           );
+            diagRoutingCtrlMsgThread, NULL);
 
     le_thread_Start(routineCtrlThreadRef);
     le_sem_Wait(semRef);
-#endif
-#ifdef TEST_UPDATE
+
     // Create diag upate message handle thread to handle filetransfer(0x38), transferdata(0x36)
     // and transfer exit(0x37)
     le_thread_Ref_t diagUpdateThreadRef = le_thread_Create("diagUpdateTd",
-                                                            diagUpdateMsgThread, NULL
-                                                          );
+            diagUpdateMsgThread, NULL);
 
     le_thread_Start(diagUpdateThreadRef);
     le_sem_Wait(semRef);
 
-#endif
-
-#ifdef TEST_SECURITY_ACCESS
     // Create diag security message handle thread to handle security access(0x27)
     le_thread_Ref_t diagSecurityThreadRef = le_thread_Create("diagSecurityTd",
-                                                            diagSecurityMsgThread, NULL
-                                                          );
+            diagSecurityMsgThread, NULL);
 
     le_thread_Start(diagSecurityThreadRef);
     le_sem_Wait(semRef);
 
-#endif
+    // Create diag RWDID message handle thread to handle read/wriet DID request
+    le_thread_Ref_t rwDataIdThreadRef = le_thread_Create("rwDataIdTd",
+            diagRWDataIdMsgThread, NULL);
+
+    le_thread_Start(rwDataIdThreadRef);
+    le_sem_Wait(semRef);
 
 }

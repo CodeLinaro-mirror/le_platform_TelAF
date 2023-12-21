@@ -3893,7 +3893,7 @@ static void TestTafGetCapabilities
     switch (result)
     {
         case LE_OK:
-            LE_TEST_INFO("The location capabilities: %lu\n", locCapability);
+            LE_TEST_INFO("The location capabilities: %"PRIu64"\n", locCapability);
             break;
         case LE_FAULT:
             LE_TEST_INFO("Failed to get the location capabilities. See logs for details\n");

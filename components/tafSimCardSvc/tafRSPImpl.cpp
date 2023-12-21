@@ -199,7 +199,7 @@ void taf_rsp::Init(void)
 
         //  Exit the application, if SDK is unable to initialize SimProfile subsystem
         if(subSystemStatus) {
-                LE_INFO( "Subsystem is ready");
+            LE_INFO( "Subsystem is ready");
             rspListener = std::make_shared<tafRspListener>();
             telux::common::Status status = simProfileManager->registerListener(rspListener);
             if(status != telux::common::Status::SUCCESS) {
@@ -222,10 +222,10 @@ void taf_rsp::Init(void)
             le_sem_Delete(semRef);
 
         } else {
-            LE_INFO("ERROR - Unable to initialize subsystem");
+            LE_FATAL("ERROR - Unable to initialize subsystem");
         }
     } else {
-        LE_INFO("ERROR - SimProfileManger is null");
+        LE_FATAL("ERROR - SimProfileManger is null");
     }
     char eidPtr[TAF_SIM_EID_BYTES];
     GetEID((taf_sim_Id_t)TAF_SIM_EXTERNAL_SLOT_2, eidPtr, TAF_SIM_EID_BYTES);

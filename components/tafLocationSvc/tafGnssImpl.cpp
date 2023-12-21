@@ -6282,12 +6282,12 @@ void taf_Gnss::Init()
 
     status = LocationManagerInit();
     if (status != telux::common::Status::SUCCESS) {
-        LE_CRIT("LocationManager not available");
+        LE_FATAL("LocationManager not available");
     }
 
     status = LocationConfiguratorInit();
     if (status != telux::common::Status::SUCCESS) {
-        LE_CRIT("LocationConfigurator not available");
+        LE_FATAL("LocationConfigurator not available");
     }
 
     // UnComment this code for injection of RTCM3 format data

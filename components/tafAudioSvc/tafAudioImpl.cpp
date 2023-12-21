@@ -2990,7 +2990,7 @@ void taf_Audio::Init(void)
     if (mAudioManager) {
         isReady = mAudioManager->isSubsystemReady();
     } else {
-        LE_ERROR("Invalid Audio Manager");
+        LE_FATAL("Invalid Audio Manager");
         return;
     }
 
@@ -3005,7 +3005,7 @@ void taf_Audio::Init(void)
         std::chrono::duration<double> elapsedTime = endTime - startTime;
         LE_INFO("Elapsed Time for Audio Subsystems to ready : %f", elapsedTime.count());
     } else {
-        LE_ERROR(" *** ERROR - Unable to initialize audio subsystem");
+        LE_FATAL(" *** ERROR - Unable to initialize audio subsystem");
         return;
     }
 
@@ -3013,7 +3013,7 @@ void taf_Audio::Init(void)
     mAudioListener = std::make_shared<tafAudioListener>();
     auto status = mAudioManager->registerListener(mAudioListener);
     if(status != telux::common::Status::SUCCESS) {
-        LE_INFO("Audio Listener Registeration failed");
+        LE_FATAL("Audio Listener Registeration failed");
     }
 
     mVoiceListener = std::make_shared<tafVoiceListener>();

@@ -87,6 +87,14 @@ const int DEFAULT_UNKNOWN = 0;
 #define GNSS_POSITION_HANDLER_HIGH       1
 #define DEFAULT_TIMEOUT_IN_SECONDS 5
 
+enum DataType
+{
+    TAF_GNSS_DATA_VACCURACY,
+    TAF_GNSS_DATA_VSPEEDACCURACY,
+    TAF_GNSS_DATA_HSPEEDACCURACY,
+    TAF_GNSS_DATA_UNKNOWN
+};
+
 namespace telux {
 namespace tafsvc {
 
@@ -332,7 +340,7 @@ namespace tafsvc {
             static taf_Gnss &GetInstance();
             static le_result_t CheckValidatePosition(
                     taf_gnss_PositionSampleRequest_t* positionSampleRequestNodePtr);
-            static le_result_t PositionDataCoversion(int32_t value, taf_gnss_DataType_t dataType,int32_t* valuePtr);
+            static le_result_t PositionDataCoversion(int32_t value, int8_t dataType,int32_t* valuePtr);
             static uint32_t TranslateDop(uint32_t dopValue);
             static void InitializeClient(taf_gnss_Client_t* clientRequestPtr);
             static taf_gnss_Client_t* DiscoverSessionRef( le_msg_SessionRef_t sessionRef);

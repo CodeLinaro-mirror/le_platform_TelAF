@@ -2547,7 +2547,7 @@ static void TestTafGnssNmeaSentences
     LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
 
     //Start
-    LE_TEST_INFO("taf_gnss_Start() API is called to stop reporting");
+    LE_TEST_INFO("taf_gnss_Start() API is called to start reporting");
     result = taf_gnss_Start();
     LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
 
@@ -3001,7 +3001,7 @@ static void TestTafGnssNmeaSentences
     if(result == LE_OK)
     {
 
-       LE_TEST_INFO("nmeaMaskPtr: %0x\n",nmeaMaskPtr);
+       LE_TEST_INFO("nmeaMaskPtr: %"PRIu64"\n",nmeaMaskPtr);
 
     }
     else
@@ -3038,6 +3038,205 @@ static void TestTafGnssNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
     result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
     LE_TEST_OK(result==LE_TIMEOUT, "taf_gnss_GetNmeaSentences-LE_TIMEOUT");
+
+    //Stop
+    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
+    result = taf_gnss_Stop();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
+
+    //SetNmeaSentence ->0x8000000
+    LE_TEST_INFO("SetNmeaSentences() API is called to set 0x8000000 NMEA sentence type");
+    nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GGA;
+    result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
+    LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
+
+    //Start
+    LE_TEST_INFO("taf_gnss_Start() API is called to stop reporting");
+    result = taf_gnss_Start();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
+    le_thread_Sleep(2);
+    LE_TEST_INFO("wait for 2 seconds");
+
+    //GetNmeaSentences
+    LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
+    result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
+    LE_TEST_OK(result==LE_OK, "taf_gnss_GetNmeaSentences-LE_OK");
+    if(result == LE_OK)
+    {
+
+       LE_TEST_INFO("nmeaMaskPtr: %"PRIu64"\n",nmeaMaskPtr);
+
+    }
+    else
+    {
+        LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
+    }
+
+    //Stop
+    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
+    result = taf_gnss_Stop();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
+
+    //SetNmeaSentence ->0x10000000
+    LE_TEST_INFO("SetNmeaSentences() API is called to set 0x10000000 NMEA sentence type");
+    nmeaMaskPtr = TAF_GNSS_NMEA_MASK_RMC;
+    result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
+    LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
+
+    //Start
+    LE_TEST_INFO("taf_gnss_Start() API is called to stop reporting");
+    result = taf_gnss_Start();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
+    le_thread_Sleep(2);
+    LE_TEST_INFO("wait for 2 seconds");
+
+    //GetNmeaSentences
+    LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
+    result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
+    LE_TEST_OK(result==LE_OK, "taf_gnss_GetNmeaSentences-LE_OK");
+    if(result == LE_OK)
+    {
+
+       LE_TEST_INFO("nmeaMaskPtr: %"PRIu64"\n",nmeaMaskPtr);
+
+    }
+    else
+    {
+        LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
+    }
+
+
+    //Stop
+    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
+    result = taf_gnss_Stop();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
+
+    //SetNmeaSentence ->0x20000000
+    LE_TEST_INFO("SetNmeaSentences() API is called to set 0x20000000 NMEA sentence type");
+    nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GSA;
+    result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
+    LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
+
+    //Start
+    LE_TEST_INFO("taf_gnss_Start() API is called to stop reporting");
+    result = taf_gnss_Start();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
+    le_thread_Sleep(2);
+    LE_TEST_INFO("wait for 2 seconds");
+
+    //GetNmeaSentences
+    LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
+    result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
+    LE_TEST_OK(result==LE_OK, "taf_gnss_GetNmeaSentences-LE_OK");
+    if(result == LE_OK)
+    {
+
+       LE_TEST_INFO("nmeaMaskPtr: %"PRIu64"\n",nmeaMaskPtr);
+
+    }
+    else
+    {
+        LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
+    }
+
+    //Stop
+    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
+    result = taf_gnss_Stop();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
+
+    //SetNmeaSentence ->0x40000000
+    LE_TEST_INFO("SetNmeaSentences() API is called to set 0x40000000 NMEA sentence type");
+    nmeaMaskPtr = TAF_GNSS_NMEA_MASK_VTG;
+    result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
+    LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
+
+    //Start
+    LE_TEST_INFO("taf_gnss_Start() API is called to stop reporting");
+    result = taf_gnss_Start();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
+    le_thread_Sleep(2);
+    LE_TEST_INFO("wait for 2 seconds");
+
+    //GetNmeaSentences
+    LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
+    result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
+    LE_TEST_OK(result==LE_OK, "taf_gnss_GetNmeaSentences-LE_OK");
+    if(result == LE_OK)
+    {
+
+       LE_TEST_INFO("nmeaMaskPtr: %"PRIu64"\n",nmeaMaskPtr);
+
+    }
+    else
+    {
+        LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
+    }
+
+    //Stop
+    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
+    result = taf_gnss_Stop();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
+
+    //SetNmeaSentence ->0x80000000
+    LE_TEST_INFO("SetNmeaSentences() API is called to set 0x80000000 NMEA sentence type");
+    nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GNS;
+    result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
+    LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
+
+    //Start
+    LE_TEST_INFO("taf_gnss_Start() API is called to stop reporting");
+    result = taf_gnss_Start();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
+    le_thread_Sleep(2);
+    LE_TEST_INFO("wait for 2 seconds");
+
+    //GetNmeaSentences
+    LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
+    result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
+    LE_TEST_OK(result==LE_OK, "taf_gnss_GetNmeaSentences-LE_OK");
+    if(result == LE_OK)
+    {
+
+       LE_TEST_INFO("nmeaMaskPtr: %"PRIu64"\n",nmeaMaskPtr);
+
+    }
+    else
+    {
+        LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
+    }
+
+    //Stop
+    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
+    result = taf_gnss_Stop();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
+
+    //SetNmeaSentence ->0x100000000
+    LE_TEST_INFO("SetNmeaSentences() API is called to set 0x100000000 NMEA sentence type");
+    nmeaMaskPtr = TAF_GNSS_NMEA_MASK_DTM;
+    result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
+    LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
+
+    //Start
+    LE_TEST_INFO("taf_gnss_Start() API is called to stop reporting");
+    result = taf_gnss_Start();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
+    le_thread_Sleep(2);
+    LE_TEST_INFO("wait for 2 seconds");
+
+    //GetNmeaSentences
+    LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
+    result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
+    LE_TEST_OK(result==LE_OK, "taf_gnss_GetNmeaSentences-LE_OK");
+    if(result == LE_OK)
+    {
+
+       LE_TEST_INFO("nmeaMaskPtr: %"PRIu64"\n",nmeaMaskPtr);
+
+    }
+    else
+    {
+        LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
+    }
 
     //Stop
     LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");

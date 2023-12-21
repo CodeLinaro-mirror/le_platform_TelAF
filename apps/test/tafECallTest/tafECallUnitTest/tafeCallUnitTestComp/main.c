@@ -156,6 +156,13 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
             LE_INFO("TAF_ECALL_STATE_ALACK_RECEIVED_CLEAR_DOWN");
             break;
         }
+        case TAF_ECALL_STATE_MSD_UPDATE_REQ:
+        {
+            printf("TAF_ECALL_STATE_MSD_UPDATE_REQ");
+            taf_ecall_ImportMsd(eCallReference, msdRawData, msdLength);
+            taf_ecall_SendMsd(eCallReference);
+            break;
+        }
         case TAF_ECALL_STATE_ENDED:
         {
             LE_INFO("TAF_ECALL_STATE_ENDED");
@@ -427,7 +434,6 @@ static void Test_ECall_StartAutomatic() {
     LE_INFO("Test_ECall_StartAutomatic callState = %d", (int) retrievedState);
 
     Test_ECall_ExportMsd(eCallRef);
-    Test_ECall_SendMsd(eCallRef);
 
     if(res == LE_OK) {
         le_sem_Wait(TestSemaphoreRef);

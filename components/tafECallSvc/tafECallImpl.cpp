@@ -263,6 +263,20 @@ void tafECallListener::onECallHlapTimerEvent(int phoneId, ECallHlapTimerEvents t
     }
 }
 
+void tafECallListener::OnMsdUpdateRequest(int phoneId) {
+    LE_DEBUG("OnMsdUpdateRequest");
+    taf_ecall_State_t state = TAF_ECALL_STATE_UNKNOWN;
+
+    state = TAF_ECALL_STATE_MSD_UPDATE_REQ;
+    if (state != TAF_ECALL_STATE_UNKNOWN) {
+        auto &eCall = taf_ecall::GetInstance();
+        StateChangeEvent_t stateEvent;
+        stateEvent.eCallRef = eCall.GetECallReference();
+        stateEvent.state = state;
+        le_event_Report(eCall.StateChangeEventId, &stateEvent, sizeof(StateChangeEvent_t));
+    }
+}
+
 void taf_ecall::InitializeECallPtr()
 {
 

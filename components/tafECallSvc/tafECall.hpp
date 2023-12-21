@@ -138,6 +138,7 @@ namespace telux {
             void onEmergencyNetworkScanFail(int phoneId) override;
 #endif
             void onECallHlapTimerEvent(int phoneId, ECallHlapTimerEvents timerEvents) override;
+            void OnMsdUpdateRequest(int phoneId);
 
              taf_ecall_State_t eCallMsdTransmissionStatusToState( ECallMsdTransmissionStatus status);
         };

@@ -45,6 +45,7 @@ namespace uds{
     #define UDS_DATA_SIZE 4095
     #define UDS_P2_SERVER 50
     #define UDS_P2_STAR_SERVER 5000
+    #define UDS_S3_SERVER 5000
     #define TAF_UDS_HANDLER_REF_CNT 1
 
     // DID Config tree definition
@@ -86,6 +87,8 @@ namespace uds{
 
     // ReadDataByIdentifier service (0x22)
     #define UDS_READ_DID_REQ_MIN_LEN 3
+    #define UDS_READ_DID_RESP_BASE_LEN 1
+    #define UDS_READ_DID_RESP_MIN_LEN 3
     #define UDS_DID_LEN 2
 
     // Security access service (0x27)
@@ -120,6 +123,10 @@ namespace uds{
     #define UDS_RESP_FILE_XFER_LEN_FORMAT_ID_LEN 1
     #define UDS_RESP_FILE_XFER_DATA_FORMAT_ID_LEN 1
 
+    // Tester present service (0x3E)
+    #define UDS_TESTER_PRESENT_REQ_LEN 2
+    #define UDS_TESTER_PRESENT_RESP_LEN 2
+
     // RequestFileTranser service mode of operation type
     typedef enum
     {
@@ -143,7 +150,8 @@ namespace uds{
         ROUTINE_CONTROL_REQUEST_ID = 0x31,
         TRANSFER_DATA_REQUEST_ID = 0x36,
         REQUEST_TRANSFER_EXIT_REQUEST_ID = 0x37,
-        REQUEST_FILE_TRANSFER_REQUEST_ID = 0x38
+        REQUEST_FILE_TRANSFER_REQUEST_ID = 0x38,
+        TESTER_PRESENT_REQUEST_ID = 0x3E
     }taf_UDSReqSvcID_t;
 
     // Diagnostic Response service ID
@@ -158,7 +166,8 @@ namespace uds{
         ROUTINE_CONTROL_RESPONSE_ID = 0x71,
         TRANSFER_DATA_RESPONSE_ID = 0x76,
         REQUEST_TRANSFER_EXIT_RESPONSE_ID = 0x77,
-        REQUEST_FILE_TRANSFER_RESPONSE_ID = 0x78
+        REQUEST_FILE_TRANSFER_RESPONSE_ID = 0x78,
+        TESTER_PRESENT_RESPONSE_ID = 0x7E
     }taf_UDSRespSvcID_t;
 
     // UDS error code.
@@ -192,7 +201,10 @@ namespace uds{
     {
         DEFAULT_SESSION = 0x01,
         PROGRAMMING_SESSION = 0x02,
-        EXTENDED_DIAGNOSTIC_SESSION = 0x03
+        EXTENDED_DIAGNOSTIC_SESSION = 0x03,
+        VEHICLE_MANUFACTURER_SPECIFIC_SESSION = 0x40,
+        FOTA_SESSION = 0x42,
+        SYSTEM_SUPPLIER_SPECIFIC_SESSION = 0x60
     }taf_SessionType_t;
 
     class UdsCommunicationMgr{
@@ -219,7 +231,8 @@ namespace uds{
             le_result_t CheckAndSendInd(uint8_t sid, taf_doip_AddrInfo_t* addrInfoPtr,
                     taf_doip_DiagMsg_t* diagMsgPtr);
 
-            static void P2TimeoutHandler(le_timer_Ref_t timerRef);
+            static void P2StarTimeoutHandler(le_timer_Ref_t timerRef);
+            static void S3TimeoutHandler(le_timer_Ref_t timerRef);
 
             le_ref_MapRef_t udsHandlerRefMap = NULL;
             taf_UDSIndicationHandler_t udsIndicationHandler;
@@ -228,6 +241,10 @@ namespace uds{
             // Indicate recevied service message to Diag service if necessary.
             le_result_t IndicateECUResetReq(taf_doip_AddrInfo_t* addrInfoPtr,
                     bool* isInternalHandle);    // ECUReset service (0x11).
+            le_result_t IndicateReadDIDResp(taf_doip_AddrInfo_t* addrInfoPtr,
+                    bool* isInternalHandle);    // ReadDID service (0x22).
+            le_result_t IndicateWriteDIDResp(taf_doip_AddrInfo_t* addrInfoPtr,
+                    bool* isInternalHandle);    // WriteDID service (0x2E).
             le_result_t IndicateSecAccessReq(taf_doip_AddrInfo_t* addrInfoPtr,
                     bool* isInternalHandle);    // SecurrityAccess service (0x27).
             le_result_t IndicateRoutinrCtrlReq(taf_doip_AddrInfo_t* addrInfoPtr,
@@ -242,17 +259,16 @@ namespace uds{
             // Internally check and Respond UDS message to uds client (through DoIP stack).
             le_result_t SessionCtrlResp(taf_doip_AddrInfo_t* addrInfoPtr);    // (0x10).
             le_result_t ReadDTCInfoResp(taf_doip_AddrInfo_t* addrInfoPtr);    // (0x19).
-            le_result_t ReadDIDResp(taf_doip_AddrInfo_t* addrInfoPtr);    // (0x22).
-            le_result_t WriteDIDResp(taf_doip_AddrInfo_t* addrInfoPtr);   // (0x2E).
+            le_result_t TesterPresentResp(taf_doip_AddrInfo_t*  addrInfoPtr);    // (0x3E)
 
-            // To read and write from ConfigTree.
-            uint8_t readDIDFromConfigTree(const uint16_t dataId);
-            uint8_t writeDIDToConfigTree(const uint16_t dataId,
-                    const uint8_t* dataPtr, uint16_t dataSize);
+            // To read DTC from ConfigTree.
             uint8_t readDTCByStatusMask(uint8_t statusMask);
 
             // Send UDS response message from Diag service.
             le_result_t ECUResetResp(uint8_t serviceId, uint8_t err);
+            le_result_t ReadDIDResp(uint8_t serviceId, const uint8_t* dataPtr,
+                    uint16_t dataSize, uint8_t err);
+            le_result_t WriteDIDResp(uint8_t serviceId, uint8_t err);
             le_result_t SecurityAccessResp(uint8_t serviceId, const uint8_t* dataPtr,
                     uint16_t dataSize, uint8_t err);
             le_result_t RoutineCtrlResp(uint8_t serviceId, const uint8_t* dataPtr,
@@ -280,7 +296,8 @@ namespace uds{
             uint16_t recvDataLen = 0;
             uint16_t sendDataLen = 0;
             bool readyToRecvData = true;
-            le_timer_Ref_t timerRef;
+            le_timer_Ref_t p2StarTimerRef;
+            le_timer_Ref_t s3TimerRef;
     };
 }
 }

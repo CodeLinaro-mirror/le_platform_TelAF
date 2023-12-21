@@ -249,7 +249,7 @@ else # [Non-Docker-Container-Env]
     IMG_VERSION=${IMG_VERSION:="1.0.0"}
     IPV6_NETWORK_NAME=${IPV6_NETWORK_NAME:="${CONTAINER_NAME%??}_ipv6net"}
     IPV6_DEFAULT_SUBNET=${IPV6_DEFAULT_SUBNET:="2001:0DB8::/112"}
-    BUILTIN_CONTAINER_OPTIONS=${BUILTIN_CONTAINER_OPTIONS:="-i -t --privileged=true --net=$IPV6_NETWORK_NAME"}
+    BUILTIN_CONTAINER_OPTIONS=${BUILTIN_CONTAINER_OPTIONS:="-i -t --privileged=true --cgroupns=private --net=$IPV6_NETWORK_NAME"}
     CONTAINER_OPTIONS=${CONTAINER_OPTIONS:="-p 9022:22 --rm"}
     SIMULATION_TARBALL_NAME=${SIMULATION_TARBALL_NAME:="telaf_simulation.tar.gz"}
 
@@ -283,7 +283,6 @@ else # [Non-Docker-Container-Env]
         -e CONTAINER_WHO_AM_I=$CONTAINER_WHO_AM_I \
         -e CONTAINER_NAME=$CONTAINER_NAME \
         -e SIMULATION_TARBALL_NAME=$SIMULATION_TARBALL_NAME \
-        -v /sys/fs/cgroup:/sys/fs/cgroup \
         -v $SML_WORKSPACE:/root/simulation:rw \
         -v $SML_APP_VOLUME:/app:rw \
         -v $SML_DATA_VOLUME:/data:rw \

@@ -32,6 +32,12 @@ apps:
     $TELAF_ROOT/apps/tafServices/tafDiagSvc
 #endif
 
+#if ${TELAF_SIMULATION_ENABLE_SIM} = y
+    // from --> $TELAF_ROOT/apps/tafServices/tafSimCardSvc
+    $TELAF_ROOT/simulation/bypass/telsdk/tafSimCardSvc
+    $TELAF_ROOT/apps/test/tafSimTest/tafSimUnitTest/tafSimUnitTest
+#endif
+
 }
 
 interfaceSearch:

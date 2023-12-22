@@ -85,6 +85,7 @@ commands:
     gnss = tools:/bin/gnss
     fwupdate = tools:/bin/fwupdate
     pm = tafTools:/bin/pm
+    tafmodule = tafTools:/bin/tafmodule
 }
 
 bindings:

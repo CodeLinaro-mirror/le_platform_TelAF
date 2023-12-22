@@ -341,4 +341,28 @@ interface(`telaf_read_lib_files',`
         allow $1 telaf_sys_t:dir { rw_dir_perms };
 ')
 
+########################################
+## <summary>
+##              Allow to load VHAL module via device Manager
+## </summary>
+## <param name="service_domain">
+##              <summary>
+##              The domain who need to load TelAF VHAL module
+##              </summary>
+## </param>
+#
+interface(`telaf_load_vhal_modules',`
+    gen_require(`
+            type telaf_devmgr_t;
+            type telaf_devmgr_data_t;
+    ')
 
+    allow telaf_devmgr_t $1:lnk_file { read };
+    allow telaf_devmgr_t $1:process { signull };
+    allow $1 telaf_devmgr_data_t:dir { search };
+    allow $1 telaf_devmgr_data_t:file { open read getattr execute };
+
+    ifdef(`sa525m',`
+    allow $1 telaf_devmgr_data_t:file { map };
+    ')
+')

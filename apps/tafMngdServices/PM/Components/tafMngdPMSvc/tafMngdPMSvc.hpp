@@ -35,6 +35,8 @@
 #include "legato.h"
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
+#include "tafHalPM.h"
+#include "tafHalLib.hpp"
 
 #define TAF_MNGD_PM_VM_HASH_SIZE 10
 
@@ -60,6 +62,7 @@ class tafMngdPMSvc: public ITafSvc
         static const char* tafStateToString(taf_mngd_pm_State_t tafState);
         static void OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *ctxPtr);
         static void StateChangeHandler(taf_pm_State_t state, void* contextPtr);
+        static le_result_t InitVHalModule();
 };
 }
 }

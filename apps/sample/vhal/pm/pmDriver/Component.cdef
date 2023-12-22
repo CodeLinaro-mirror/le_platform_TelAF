@@ -1,0 +1,9 @@
+sources:
+{
+    pmVHalDrv.c
+}
+
+cflags:
+{
+    -I $TELAF_ROOT/include
+}

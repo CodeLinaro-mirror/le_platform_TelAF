@@ -1449,8 +1449,8 @@ taf_ecall_TerminationReason_t taf_ecall_GetTerminationReason
 
  DESCRIPTION     Set the Public Safely Answering Point telephone number.
 
- @note That PSAP number is not applied to Manually or Automatically initiated eCall. For those
-   modes, an emergency call is launched.
+ @note The PSAP number is applicable in manually or automatically dialed eCalls. It is also
+   applicable to test eCalls that are dialed intentionally for testing, validating, or certifying.
 
  @warning This function doesn't modify the U/SIM content.
 
@@ -1484,8 +1484,8 @@ le_result_t taf_ecall_SetPsapNumber
  DESCRIPTION     Get the Public Safely Answering Point telephone number set with
    taf_ecall_SetPsapNumber() function.
 
- @note That PSAP number is not applied to Manually or Automatically initiated eCall. For those
-   modes, an emergency call is launched.
+ @note The PSAP number is applicable in manually or automatically dialed eCalls. It is also
+   applicable to test eCalls that are dialed intentionally for testing, validating, or certifying.
 
  @warning This function doesn't read the U/SIM content.
 

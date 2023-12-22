@@ -178,7 +178,7 @@
  * A third-party eCall number can be set/got with:
  *  - taf_ecall_SetPsapNumber()
  *  - taf_ecall_GetPsapNumber()
- * These configurations take effect at the next test eCall.
+ * These configurations take effect at the next eCall.
  *
  * To request that the modem reads the number from FDN/SDN, call taf_ecall_UseUSimNumbers() before starting
  * an eCall.
@@ -1183,8 +1183,8 @@ FUNCTION TerminationReason GetTerminationReason
 /**
  * Sets the public safely answering point (PSAP) phone number for eCall.
  *
- * @note The PSAP number is not applicable in manually or automatically dialed eCalls. It
- *       is only applicable to test eCalls that are dialed intentionally for testing, validating,
+ * @note The PSAP number is applicable in manually or automatically dialed eCalls. It is also
+ *       applicable to test eCalls that are dialed intentionally for testing, validating,
  *       or certifying.
  *
  * @warning This function doesn't modify the U/SIM content.
@@ -1206,8 +1206,8 @@ FUNCTION TerminationReason GetTerminationReason
 /**
  * Gets the PSAP number set with taf_ecall_SetPsapNumber().
  * 
- * @note The PSAP number is not applicable in manually or automatically dialed eCalls. It
- *       is only applicable to test eCalls that are dialed intentionally for testing, validating,
+ * @note The PSAP number is applicable in manually or automatically dialed eCalls. It is also
+ *       applicable to test eCalls that are dialed intentionally for testing, validating,
  *       or certifying.
  *
  * @warning This function doesn't read the U/SIM content.

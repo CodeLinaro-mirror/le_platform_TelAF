@@ -74,7 +74,6 @@ void taf_TimeGnssListener::onGnssUtcTimeUpdate
     auto &tafTime = taf_Time::GetInstance();
 
     if (utc == 0) {
-        LE_WARN("Received wrong UTC time\n");
         return;
     }
 
@@ -589,7 +588,7 @@ le_result_t taf_Time::UpdateLocalGnssTime
             return result;
         }
 
-        LE_INFO("Update GNSS time to: sec %ld , nsec %ld. DT milliSec %ld, Threshold %ld\n",
+        LE_DEBUG("Update GNSS time to: sec %ld , nsec %ld. DT milliSec %ld, Threshold %ld\n",
             newGnssTime.sec, newGnssTime.nanosec, deltaMilliSec, milliSecThreshold);
     }
 
@@ -681,7 +680,7 @@ le_result_t taf_Time::GetGnssTime
 
     if (DeltaTimeData->sec <= 0)
     {
-        LE_WARN("GNSS time not ready\n");
+        LE_DEBUG("GNSS time not ready\n");
         return LE_NOT_FOUND;
     }
 
@@ -697,7 +696,7 @@ le_result_t taf_Time::GetRtcTime
     taf_time_TimeSpec_t* timeVal
 )
 {
-    LE_ERROR("Unsupported function called - %s\n", __func__);
+    LE_DEBUG("Unsupported function called - %s\n", __func__);
     return LE_NOT_IMPLEMENTED;
 }
 
@@ -874,7 +873,7 @@ le_result_t taf_Time::SetTime
 
     if (result)
     {
-        LE_ERROR("Get %s time source failed\n", sourceNameStr);
+        LE_DEBUG("Get %s time source failed\n", sourceNameStr);
         return result;
     }
 
@@ -899,7 +898,7 @@ void taf_Time::TimeSourceChangeNotify
     taf_time_TimeSources_t NewTimeSource
 )
 {
-    LE_INFO("TimeSourceChange Old: %s, New: %s\n",
+    LE_DEBUG("TimeSourceChange Old: %s, New: %s\n",
             SourceNameIndexToStr(PreTimeSource), SourceNameIndexToStr(NewTimeSource));
 
     taf_TimeSourceStatus_t* statusPtr =
@@ -989,7 +988,7 @@ void taf_Time::SystemTimeUpdateTimerHandler
     result = tafTime.SetTimeBaseOnConfig(TimeSourceConf, &latestActiveTime);
     if (result != LE_OK)
     {
-        LE_WARN("Warning: Sync time failed, will try again after %ld seconds\n",
+        LE_DEBUG("Warning: Sync time failed, will try again after %ld seconds\n",
                                                 TimeSourceConf.pollingInterval);
     }
 
@@ -1160,7 +1159,7 @@ void taf_Time::GetGnssTimeTimerHandler(le_timer_Ref_t timerRef)
 {
     if (gnss_counter > 1)
     {
-        LE_WARN("Previous GNSS sync time task not exit\n");
+        LE_DEBUG("Previous GNSS sync time task not exit\n");
         return;
     }
     else

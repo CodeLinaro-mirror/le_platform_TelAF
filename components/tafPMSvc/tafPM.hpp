@@ -258,7 +258,7 @@ namespace tafsvc {
         void SendNackToPmd(taf_pm_State_t state);
         void SendAckToPmd(taf_pm_State_t state);
         void SendStateChangeAck(taf_pm_PowerStateRef_t powerStateRef,
-        taf_pm_State_t state, taf_pm_NadVm_t vm_id, taf_pm_ClientAck_t AckType);
+        taf_pm_State_t state, taf_pm_NadVm_t vm_id, taf_pm_ClientAck_t ackType);
         taf_pm_StateChangeExHandlerRef_t AddStateChangeExHandler
                 (taf_pm_StateChangeExHandlerFunc_t handlerPtr,void* contextPtr);
         void RemoveStateChangeExHandler(taf_pm_StateChangeExHandlerRef_t handlerRef);

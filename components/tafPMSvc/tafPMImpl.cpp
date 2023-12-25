@@ -155,7 +155,7 @@ void taf_Handler::OnClientConnection(le_msg_SessionRef_t sessionRef, void *ctxPt
         LE_FATAL("Failed to add client record for pid %d.", pClient->procId);
     }
 
-    LE_INFO("Client session %p disconnected.", sessionRef);
+    LE_INFO("Client %s/%d connected", pClient->name, pClient->procId);
 }
 
 /**
@@ -232,6 +232,8 @@ void taf_PM::Init(void)
     auto &powerFactory = PowerFactory::getInstance();
     // Get TCU-activity manager object
     std::promise<telux::common::ServiceStatus> prom = std::promise<telux::common::ServiceStatus>();
+    std::promise<telux::common::ServiceStatus> slaveProm
+                        = std::promise<telux::common::ServiceStatus>();
 #if defined(TARGET_SA515M)
     tcuActivityMgr = powerFactory.getTcuActivityManager(ClientType::MASTER, ProcType::LOCAL_PROC,
                         [&](telux::common::ServiceStatus status) {
@@ -253,7 +255,7 @@ void taf_PM::Init(void)
     slaveconfig.machineName =  ALL_MACHINES;
     tcuSlaveActivityMgr = powerFactory.getTcuActivityManager(slaveconfig,
                         [&](telux::common::ServiceStatus status) {
-                             prom.set_value(status);
+                             slaveProm.set_value(status);
                         });
 #endif
 #ifdef TARGET_SA415M
@@ -271,7 +273,8 @@ void taf_PM::Init(void)
 
 #if defined(TARGET_SA515M) || LE_CONFIG_TARGET_SA525M
     // wait unconditionally till the service is avilable
-    bool isReady = (prom.get_future().get() == telux::common::ServiceStatus::SERVICE_AVAILABLE);
+    bool isReady = (prom.get_future().get() == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+            && (slaveProm.get_future().get() == telux::common::ServiceStatus::SERVICE_AVAILABLE);
     if(isReady){
 #endif
 #ifdef TARGET_SA415M
@@ -591,7 +594,7 @@ taf_pm_StateChangeExHandlerRef_t taf_PM::AddStateChangeExHandler
     pClient = taf_PM::to_taf_Client_t(le_hashmap_Get(pm_recrd.clients,
             taf_pm_GetClientSessionRef()));
     LE_INFO("Client is %s", pClient->name);
-    if(strncmp(pClient->name, "tafMngdPMSvc",13)==0)
+    if(strncmp(pClient->name, "tafMngdPMSvc", 12) == 0)
     {
         LE_INFO("Client is MPM");
         handlerCtxPtr->ismpm = true;
@@ -1241,7 +1244,7 @@ void taf_PM:: SendNackToPmd(taf_pm_State_t state)
  * Calls from clients to acknowledge power state change transition.
  */
 void taf_PM::SendStateChangeAck(taf_pm_PowerStateRef_t powerStateRef,
-taf_pm_State_t state, taf_pm_NadVm_t vm_id, taf_pm_ClientAck_t AckType )
+taf_pm_State_t state, taf_pm_NadVm_t vm_id, taf_pm_ClientAck_t ackType )
 {
     LE_INFO("sendStateChangeAck");
     //Getting the current client data from pm_recrd
@@ -1264,13 +1267,13 @@ taf_pm_State_t state, taf_pm_NadVm_t vm_id, taf_pm_ClientAck_t AckType )
             return;
         }
     }
-    if(state == TAF_PM_STATE_ALL_ACKED && AckType == TAF_PM_READY)
+    if(state == TAF_PM_STATE_ALL_ACKED && ackType == TAF_PM_READY)
     {
          LE_INFO("Received ACK from client %s",pClient->name);
          SendAckToPmd(curTcuState);
          return;
     }
-    else if(state == TAF_PM_STATE_ALL_ACKED && AckType == TAF_PM_NOT_READY)
+    else if(state == TAF_PM_STATE_ALL_ACKED && ackType == TAF_PM_NOT_READY)
     {
         LE_INFO("Received NACK from client %s", pClient->name);
         isNack = true;
@@ -1279,7 +1282,7 @@ taf_pm_State_t state, taf_pm_NadVm_t vm_id, taf_pm_ClientAck_t AckType )
     }
     else if(curTcuState == state)
     {
-        if(AckType == TAF_PM_NOT_READY)
+        if(ackType == TAF_PM_NOT_READY)
         {
             LE_INFO("Received NACK from client %s for state %s", pClient->name,
                     tcuStateToString(tcuState));

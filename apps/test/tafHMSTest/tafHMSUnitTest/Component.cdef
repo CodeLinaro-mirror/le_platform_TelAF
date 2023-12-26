@@ -1,0 +1,17 @@
+
+sources:
+{
+    tafHMSUnitTest.cpp
+}
+
+requires:
+{
+    api:
+    {
+        taf_hms.api
+    }
+}
+cxxflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+}

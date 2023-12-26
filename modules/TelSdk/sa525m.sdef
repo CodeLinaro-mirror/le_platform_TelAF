@@ -29,6 +29,8 @@ apps:
     $TELAF_ROOT/apps/tafMngdServices/PM/tafMngdPMSvc
     $TELAF_ROOT/apps/tafServices/tafDiagSvc
     $TELAF_ROOT/apps/tafServices/tafTimeSvc
+    $TELAF_ROOT/apps/tafServices/tafHMSvc
+
 
     // IVSS services.
     $TELAF_ROOT/apps/ivss/service/tafIvssRadioSvc/tafIvssRadioSvc
@@ -85,6 +87,7 @@ apps:
     // $TELAF_ROOT/apps/test/tafTimeTest/tafTimeUnitTest
     // $TELAF_ROOT/apps/test/tafTimeTest/tafTimeIntTest
     // $TELAF_ROOT/apps/test/tafLXCIntTest/tafLXCIntTest.adef
+    // $TELAF_ROOT/apps/test/tafHMSTest/tafHMSUnitTest
 }
 
 commands:

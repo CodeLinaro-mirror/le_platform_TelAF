@@ -19,4 +19,6 @@ telaf_admin_manage_all_files_perms(telaf_tafRpcProxy_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafRpcProxy_exec_t)
 
 # Allow tafRpcProxy to call legato user API.
+ifdef(`sa525m',`
 allow telaf_tafRpcProxy_t etc_t:file { read open lock getattr };
+')

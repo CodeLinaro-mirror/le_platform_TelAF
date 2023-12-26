@@ -272,6 +272,7 @@ taf_pm_State_t state, taf_pm_NadVm_t vm_id, taf_pm_ClientAck_t ackType )
 #endif
 }
 
+
 /**
 * FUNCTION     : AddStateChangeExHandler
 * DESCRIPTION  : send state change notification
@@ -287,7 +288,9 @@ taf_pm_StateChangeExHandlerRef_t taf_pm_AddStateChangeExHandler
     auto &power = taf_PM::GetInstance();
     return power.AddStateChangeExHandler(handlerPtr, contextPtr);
 #endif
+    return NULL;
 }
+
 
 /**
 * FUNCTION     : RemoveStateChangeExHandler

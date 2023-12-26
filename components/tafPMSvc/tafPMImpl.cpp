@@ -540,11 +540,12 @@ le_result_t taf_PM::Relax( taf_pm_WakeupSourceRef_t wsRef)
 
     // if all the wake sources are in released state and set SUSPEND state
     if(pm_recrd.wsAcquired == 0) {
-
+#if LE_CONFIG_TARGET_SA525M
         auto &tafPwrMgr = taf_PM::GetInstance();
         stateEvent_t evt;
         evt.state = TAF_PM_STATE_ALL_WAKELOCKS_RELEASED;
         le_event_Report(tafPwrMgr.stateChangeExEvent, &evt, sizeof(evt));
+#endif
         if( RemoteTcuActivityMgr != nullptr)
         {
             telux::common::Status RemoteStatus = RemoteTcuActivityMgr->setActivityState(
@@ -1191,7 +1192,7 @@ void taf_PM::sendAck(void* reportPtr)
         }
     }
 }
-
+#if defined(TARGET_SA525M)
 void taf_PM:: SendAckToPmd(taf_pm_State_t state)
 {
     LE_INFO("SendAckToPmd");
@@ -1318,3 +1319,4 @@ taf_pm_State_t state, taf_pm_NadVm_t vm_id, taf_pm_ClientAck_t ackType )
                 tcuStateToString(tcuState));
     }
 }
+#endif

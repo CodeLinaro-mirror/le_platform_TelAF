@@ -15,7 +15,8 @@
 typedef enum
 {
     POWER_REQUEST_SHUTDOWN,
-    POWER_REQUEST_RESTART
+    POWER_REQUEST_RESTART,
+    POWER_REQUEST_SUSPEND
 } PowerRequest;
 
 typedef struct
@@ -25,6 +26,7 @@ typedef struct
     {
         taf_hal_pm_ShutdownMode shutdownMode;
         taf_hal_pm_RestartMode restartMode;
+        taf_hal_pm_SuspendMode suspendMode;
     };
 } PowerChangeReq_t;
 
@@ -68,6 +70,17 @@ typedef struct
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Restart response structure.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_hal_pm_SuspendMode mode;
+    taf_hal_pm_RspReason reason;
+} SuspendResp_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Note state change response structure.
  */
 //--------------------------------------------------------------------------------------------------
@@ -85,7 +98,9 @@ typedef struct
 //--------------------------------------------------------------------------------------------------
 static TAF_HAL_PM_SHUTDOWNRSPCALLBACK shutdownCallbackFunc = NULL;
 static TAF_HAL_PM_RESTARTRSPCALLBACK restartCallbackFunc = NULL;
+static TAF_HAL_PM_SUSPENDRSPCALLBACK suspendCallbackFunc = NULL;
 static TAF_HAL_PM_NODESTATECHANGENOTIFICATIONCONFIRMCALLBACK nodeStateChangeCallbackFunc = NULL;
+static TAF_HAL_PM_NODEEVENTCALLBACK nodeEventCallback = NULL;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -100,6 +115,13 @@ static le_event_Id_t ShutdownRespEventId;
  */
 //--------------------------------------------------------------------------------------------------
 static le_event_Id_t RestartRespEventId;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Event ID for suspend response.
+ */
+//--------------------------------------------------------------------------------------------------
+static le_event_Id_t SuspendRespEventId;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -158,6 +180,30 @@ static void ProcessRestartRespHandler
     }
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler to process a suspend response.
+ */
+//--------------------------------------------------------------------------------------------------
+static void ProcessSuspendRespHandler
+(
+    void* context
+)
+{
+    LE_INFO("PM_Drv: %s", __FUNCTION__);
+
+    taf_hal_pm_SuspendMode mode = ((RestartResp_t*)context)->mode;
+    taf_hal_pm_RspReason reason = ((RestartResp_t*)context)->reason;
+
+    if(suspendCallbackFunc)
+    {
+        suspendCallbackFunc(mode, reason);
+    }
+    else
+    {
+        LE_ERROR("suspend callback function is NULL");
+    }
+}
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler to process a note state change response.
@@ -267,6 +313,26 @@ static void ProcessPowerRequest
         }
         break;
 
+        case POWER_REQUEST_SUSPEND:
+        {
+            // use a timer here to simulate the communication with hardware component
+            LE_INFO("send the suspend request with mode: %u to hardware component ......",
+                    req->type);
+
+            // hardware communication
+
+            LE_INFO("get the suspend response from hardware component ......");
+
+            // set up the response parameters
+            SuspendResp_t resp = {0};
+            resp.mode = req->suspendMode;
+            resp.reason = PM_HAL_RSP_READY;
+
+            // fire event to to trigger response process
+            le_event_Report(SuspendRespEventId, (void*)&resp, sizeof(SuspendResp_t));
+        }
+        break;
+
         default:
             LE_ERROR("Invalid power request type: %u", req->type);
             le_mem_Release(req);
@@ -317,6 +383,12 @@ static le_result_t taf_hal_ShutdownReqAsync
     shutdownCallbackFunc = callback;
 
     PowerChangeReq_t* req = (PowerChangeReq_t *)le_mem_ForceAlloc(PowerRequestPoolRef);
+
+    if(req == NULL)
+    {
+        return LE_NO_MEMORY;
+    }
+
     req->type = POWER_REQUEST_SHUTDOWN;
     req->shutdownMode= mode;
 
@@ -336,8 +408,38 @@ static le_result_t taf_hal_RestartReqAsync
     restartCallbackFunc = callback;
 
     PowerChangeReq_t* req = (PowerChangeReq_t *)le_mem_ForceAlloc(PowerRequestPoolRef);
+
+    if(req == NULL)
+    {
+        return LE_NO_MEMORY;
+    }
+
     req->type = POWER_REQUEST_RESTART;
     req->restartMode = mode;
+
+    le_event_QueueFunction(ProcessPowerRequest, (void*)(req), NULL);
+    return LE_OK;
+}
+
+static le_result_t taf_hal_SuspendReqAsync
+(
+    taf_hal_pm_SuspendMode mode,
+    TAF_HAL_PM_SUSPENDRSPCALLBACK callback
+)
+{
+    LE_INFO("PM_VHAL: %s", __FUNCTION__);
+
+    suspendCallbackFunc = callback;
+
+    PowerChangeReq_t* req = (PowerChangeReq_t *)le_mem_ForceAlloc(PowerRequestPoolRef);
+
+    if(req == NULL)
+    {
+        return LE_NO_MEMORY;
+    }
+
+    req->type = POWER_REQUEST_SUSPEND;
+    req->suspendMode = mode;
 
     le_event_QueueFunction(ProcessPowerRequest, (void*)(req), NULL);
     return LE_OK;
@@ -360,6 +462,34 @@ static void taf_hal_NodeStateChangeNotification
     notif->state = state;
 
     le_event_QueueFunction(ProcessNodeStateChangeNotification, (void*)(notif), NULL);
+}
+
+static void taf_hal_nodeInfoNotification
+(
+    uint8_t pm_node_id,
+    taf_hal_pm_NodeInfo info,
+    const char* vhalTag
+)
+{
+    LE_INFO("PM_VHAL: %s", __FUNCTION__);
+
+    LE_INFO("taf_hal_pm_NodeInfo: %d", info);
+
+    LE_INFO("vhalTag: %s", vhalTag);
+}
+
+static le_result_t taf_hal_addNodeEventHanlder
+(
+    uint8_t pm_node_id,
+    TAF_HAL_PM_NODEEVENTCALLBACK callback
+)
+{
+    LE_INFO("PM_VHAL: %s", __FUNCTION__);
+
+    LE_INFO("pm_node_id: %d", pm_node_id);
+
+    nodeEventCallback = callback;
+    return LE_OK;
 }
 
 // Initialization function
@@ -396,6 +526,14 @@ static void Init(void)
                             RestartRespEventId,
                             ProcessRestartRespHandler);
 
+    // Create an event Id for suspend response event.
+    SuspendRespEventId = le_event_CreateId("SuspendRespEventId", sizeof(SuspendResp_t));
+
+    // Register handler for restart response events.
+    le_event_AddHandler("ProcessSuspendRespHandler",
+                            SuspendRespEventId,
+                            ProcessSuspendRespHandler);
+
     // Create an event Id for node state change response event.
     NoteStateChangeRespEventId = le_event_CreateId("NoteStateChangeRespEventId",
                                                     sizeof(NodeStateChangeResp_t));
@@ -413,6 +551,7 @@ LE_SHARED pm_InfoTab_t TAF_HAL_INFO_TAB = {
         .majorVer = 1,
         .minorVer = 0,
         .vendor = "QCT",
+        .moduleType = TAF_MODULETYPE_HAL,
         .serviceMax = 1,
         .hwInitInf = taf_hal_HwInit,
         .powerOffInf = taf_hal_PowerOff,
@@ -426,7 +565,10 @@ LE_SHARED pm_InfoTab_t TAF_HAL_INFO_TAB = {
         .InitHAL = Init,
         .shutdownReqAsync = taf_hal_ShutdownReqAsync,
         .restartReqAsync = taf_hal_RestartReqAsync,
+        .suspendReqAsync = taf_hal_SuspendReqAsync,
         .nodeStateChangeNotification = taf_hal_NodeStateChangeNotification,
+        .nodeInfoNotification = taf_hal_nodeInfoNotification,
+        .addNodeEventHandler = taf_hal_addNodeEventHanlder,
     }
 };
 

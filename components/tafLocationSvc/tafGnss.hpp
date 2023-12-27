@@ -483,9 +483,6 @@ namespace tafsvc {
             std::chrono::time_point<std::chrono::system_clock> mEndTime;
             std::condition_variable mCondVar;
             std::condition_variable mTtffVar;
-            std::condition_variable mMinEleVar;
-            std::condition_variable mRobuLocVar;
-            std::condition_variable mSecBandVar;
             std::condition_variable mNmeaVar;
             std::mutex mMutex;
             std::mutex mGnssMutex;
@@ -512,9 +509,6 @@ namespace tafsvc {
             bool mSvEnabled = false;
             bool mGnssSigEnabled = false;
             bool mTtffEnable;
-            bool mRequestSecBand = false;
-            bool mRequestRobLoc = false;
-            bool mGetMinEle = false;
             uint8_t mTotalSVTracked;
             taf_gnss_ConstellationBitMask_t mConstellationMask;
             le_dls_List_t    SvInfoList;
@@ -524,18 +518,12 @@ namespace tafsvc {
             taf_gnss_NmeaBitMask_t mNmeaMask = 0;
             taf_gnss_AltType_t mAltType;
             uint8_t mMinSvEle;
-            std::promise<le_result_t> CmdSynchronousPromise;
-            std::promise<le_result_t> CmdSecondBandInfo;
-            std::promise<le_result_t> CmdRobustLocationInfo;
-            std::promise<le_result_t> CmdMinSVElevation;
 
         private:
             std::shared_ptr<ILocationManager> mLocationManager = nullptr;
             std::shared_ptr<ILocationConfigurator> mLocationConfigurator = nullptr;
             std::shared_ptr<IDgnssManager> mDgnssManager = nullptr;
-            std::shared_ptr<LocationCommandCallback> mLocCmdResponseCb = nullptr;
             std::shared_ptr<tafLocationListener> mPosListener = nullptr;
-            std::shared_ptr<ILocationInfoBase> mBaselocationInfo = nullptr;
             telux::common::Status LocationConfiguratorInit();
             telux::common::Status LocationManagerInit();
             telux::common::Status DgnssManagerInit();

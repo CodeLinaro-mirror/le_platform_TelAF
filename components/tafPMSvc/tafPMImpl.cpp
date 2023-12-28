@@ -266,15 +266,19 @@ void taf_PM::Init(void)
         LE_INFO("tafPowerMgr is null Init...\n");
         return;
     }
+#if LE_CONFIG_TARGET_SA525M
     else if(tcuSlaveActivityMgr == nullptr)
     {
         LE_ERROR("tafPowerMgr is null Init for slave...\n");
     }
-
-#if defined(TARGET_SA515M) || LE_CONFIG_TARGET_SA525M
-    // wait unconditionally till the service is avilable
     bool isReady = (prom.get_future().get() == telux::common::ServiceStatus::SERVICE_AVAILABLE)
             && (slaveProm.get_future().get() == telux::common::ServiceStatus::SERVICE_AVAILABLE);
+    if(isReady){
+#endif
+
+#if defined(TARGET_SA515M)
+    // wait unconditionally till the service is avilable
+    bool isReady = (prom.get_future().get() == telux::common::ServiceStatus::SERVICE_AVAILABLE);
     if(isReady){
 #endif
 #ifdef TARGET_SA415M
@@ -302,6 +306,7 @@ void taf_PM::Init(void)
         } else {
             LE_INFO(" Registered Listener for TCU-activity state updates");
         }
+#if LE_CONFIG_TARGET_SA525M
         if(tcuSlaveActivityMgr) {
             //Register for state change listener to notify the state changes to clients
             tcuSlaveStateListener = std::make_shared<tafTcuStateListener>();
@@ -314,6 +319,7 @@ void taf_PM::Init(void)
                 LE_INFO(" Registered Listener for TCU-activity state updates");
             }
 		}
+#endif
     } else {
         LE_ERROR("ERROR Unable to intialize TCU activity service");
         return;

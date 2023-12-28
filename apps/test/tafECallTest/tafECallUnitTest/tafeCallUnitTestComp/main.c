@@ -264,6 +264,66 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
             LE_INFO("TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_FAILURE");
             break;
         }
+        case TAF_ECALL_STATE_T2_STARTED:
+        {
+            LE_INFO("TAF_ECALL_STATE_T2_STARTED");
+            break;
+        }
+        case TAF_ECALL_STATE_T5_STARTED:
+        {
+            LE_INFO("TAF_ECALL_STATE_T5_STARTED");
+            break;
+        }
+        case TAF_ECALL_STATE_T6_STARTED:
+        {
+            LE_INFO("TAF_ECALL_STATE_T6_STARTED");
+            break;
+        }
+        case TAF_ECALL_STATE_T7_STARTED:
+        {
+            LE_INFO("TAF_ECALL_STATE_T7_STARTED");
+            break;
+        }
+        case TAF_ECALL_STATE_T9_STARTED:
+        {
+            LE_INFO("TAF_ECALL_STATE_T9_STARTED");
+            break;
+        }
+        case TAF_ECALL_STATE_T10_STARTED:
+        {
+            LE_INFO("TAF_ECALL_STATE_T10_STARTED");
+            break;
+        }
+        case TAF_ECALL_STATE_T2_STOPPED:
+        {
+            LE_INFO("TAF_ECALL_STATE_T2_STOPPED");
+            break;
+        }
+        case TAF_ECALL_STATE_T5_STOPPED:
+        {
+            LE_INFO("TAF_ECALL_STATE_T5_STOPPED");
+            break;
+        }
+        case TAF_ECALL_STATE_T6_STOPPED:
+        {
+            LE_INFO("TAF_ECALL_STATE_T6_STOPPED");
+            break;
+        }
+        case TAF_ECALL_STATE_T7_STOPPED:
+        {
+            LE_INFO("TAF_ECALL_STATE_T7_STOPPED");
+            break;
+        }
+        case TAF_ECALL_STATE_T9_STOPPED:
+        {
+            LE_INFO("TAF_ECALL_STATE_T9_STOPPED");
+            break;
+        }
+        case TAF_ECALL_STATE_T10_STOPPED:
+        {
+            LE_INFO("TAF_ECALL_STATE_T10_STOPPED");
+            break;
+        }
         default:
         {
             LE_INFO("Unknown state");

@@ -213,6 +213,10 @@ namespace telux {
                 taf_ecall_State_t GetState ( taf_ecall_CallRef_t ecallRef);
                 taf_ecall_TerminationReason_t GetTerminationReason ( taf_ecall_CallRef_t ecallRef);
                 taf_ecall_Type_t GetType ( taf_ecall_CallRef_t ecallRef);
+                le_result_t GetHlapTimerState(taf_ecall_HlapTimerType_t timerType, taf_ecall_HlapTimerStatus_t* timerStatus, uint16_t* elapsedTime);
+                taf_ecall_HlapTimerStatus_t GetHlapTimerStatus(taf_ecall_HlapTimerType_t timerType);
+                taf_ecall_HlapTimerStatus_t ConvertHlapTimerStatus(telux::tel::HlapTimerStatus status);
+                uint16_t ConvertElapsedTime(std::chrono::time_point<std::chrono::system_clock> startTime);
                 taf_ecall_StateChangeHandlerRef_t AddStateChangeHandler (taf_ecall_StateChangeHandlerFunc_t handlerPtr,
                                                                                         void* contextPtr);
                 void RemoveStateChangeHandler (taf_ecall_StateChangeHandlerRef_t handlerRef);
@@ -237,6 +241,13 @@ namespace telux {
                 std::promise<telux::common::ErrorCode> makeEcallProm;
                 std::promise<telux::common::ErrorCode> makePrieCallProm;
                 CallEndCause CallEndError = telux::tel::CallEndCause::NORMAL;
+
+                std::chrono::time_point<std::chrono::system_clock> t2StartTime;
+                std::chrono::time_point<std::chrono::system_clock> t9StartTime;
+                std::chrono::time_point<std::chrono::system_clock> t10StartTime;
+                bool t2StartTimeSet = false;
+                bool t9StartTimeSet = false;
+                bool t10StartTimeSet = false;
 
             private:
                 std::shared_ptr<telux::tel::IPhoneManager> PhoneManager;

@@ -210,8 +210,12 @@
  *
  * The taf_ecall_SetNadMinNetworkRegistrationTime() API is used to set the time value of a
  * <em>minimum network registration timer</em> which starts right after an eCall ends, so that the NAD shall remain
- * registered on the serving network after an eCall ends and automatically receive calls from the PSAP.
+ * registered on the serving network after an eCall ends and automatically receive calls from the PSAP,
  * and then automatically deregisters from the network upon expiration of the timer.
+ *
+ * @section taf_ecall_timer_state NAD eCall HLAP timer state
+ *
+ * The taf_ecall_GetHlapTimerState() API is used to get the timer status and elapsed time based on HLAP timer type.
  *
  * @section taf_ecall_concurrency Concurrency of eCall
  *
@@ -473,7 +477,19 @@ ENUM State
     STATE_OUTBAND_MSD_TRANSMISSION_STARTED,   ///< Out-band MSD transmission started in NG eCall.
     STATE_OUTBAND_MSD_TRANSMISSION_SUCCESS,   ///< Out-band MSD transmission succeeded in NG eCall or private eCall.
     STATE_OUTBAND_MSD_TRANSMISSION_FAILURE,   ///< Out-band MSD transmission failed in NG eCall or private eCall.
-    STATE_MSD_UPDATE_REQ                      ///< Notify request from PSAP for MSD update
+    STATE_MSD_UPDATE_REQ,                     ///< Notify request from PSAP for MSD update.
+    STATE_T2_STARTED,                         ///< T2 Timer started.
+    STATE_T5_STARTED,                         ///< T5 Timer started.
+    STATE_T6_STARTED,                         ///< T6 Timer started.
+    STATE_T7_STARTED,                         ///< T7 Timer started.
+    STATE_T9_STARTED,                         ///< T9 Timer started.
+    STATE_T10_STARTED,                        ///< T10 Timer started.
+    STATE_T2_STOPPED,                         ///< T2 Timer stopped.
+    STATE_T5_STOPPED,                         ///< T5 Timer stopped.
+    STATE_T6_STOPPED,                         ///< T6 Timer stopped.
+    STATE_T7_STOPPED,                         ///< T7 Timer stopped.
+    STATE_T9_STOPPED,                         ///< T9 Timer stopped.
+    STATE_T10_STOPPED,                        ///< T10 Timer stopped.
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -564,6 +580,29 @@ ENUM Type
     TYPE_AUTO,
     TYPE_MANUAL,
     TYPE_PRIVATE
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * HLAP timer status
+ */
+//-------------------------------------------------------------------------------------------------
+ENUM HlapTimerStatus {
+    TIMER_STATUS_UNKNOWN,    ///< Unknown.
+    TIMER_STATUS_INACTIVE,   ///< eCall HLAP timer has not started or it has stopped/expired.
+    TIMER_STATUS_ACTIVE      ///< eCall HLAP timer has started but not yet stopped/expired.
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * HLAP timer type
+ */
+//-------------------------------------------------------------------------------------------------
+ENUM HlapTimerType {
+    TIMER_TYPE_UNKNOWN,      ///< Unknown timer
+    TIMER_TYPE_T2 = 2,       ///< T2 timer.
+    TIMER_TYPE_T9 = 9,       ///< T9 timer.
+    TIMER_TYPE_T10 = 10      ///< T10 timer.
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -1412,4 +1451,21 @@ FUNCTION le_result_t SetNadMinNetworkRegistrationTime
 FUNCTION le_result_t GetNadMinNetworkRegistrationTime
 (
     uint16 minNwRegTime OUT ///< The eCall minimum network registration time (in minutes).
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the eCall HLAP timer state of the NAD.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_FAULT -- Failed.
+ *  - LE_BAD_PARAMETER -- The HLAP timer type is out of range
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetHlapTimerState
+(
+    HlapTimerType timer IN,          ///<HLAP timer Type.
+    HlapTimerStatus timerStatus OUT, ///<The status of the HLAP timer.
+    uint16 elapsedTime OUT            ///<The elapsed time of the HLAP timer in unit of seconds.
 );

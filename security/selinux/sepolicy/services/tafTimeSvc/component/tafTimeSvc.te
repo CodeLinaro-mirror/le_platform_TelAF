@@ -22,5 +22,5 @@ telaf_admin_manage_all_files_perms(telaf_tafTimeSvc_exec_t)
 allow telaf_tafTimeSvc_t self:capability { sys_time sys_admin };
 
 # Allow time service to register the time manager in telSDK
-telux_allow_loc_data(telaf_tafTimeSvc_t)
+telux_allow_loc(telaf_tafTimeSvc_t)
 

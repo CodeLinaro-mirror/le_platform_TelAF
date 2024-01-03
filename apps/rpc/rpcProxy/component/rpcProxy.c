@@ -179,6 +179,40 @@ void rpcProxy_AddNode
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Recreate proxy binding entries for RPC client proxy nodes. This is triggered after application
+ * installation and uninstallation.
+ */
+//--------------------------------------------------------------------------------------------------
+void rpcProxy_CreateAllProxyBindings
+(
+    void
+)
+{
+    le_dls_Link_t* sysLinkPtr = le_dls_Peek(&RemoteSystemList);
+    while (sysLinkPtr != NULL)
+    {
+        RpcRemoteSystem_t* systemPtr = CONTAINER_OF(sysLinkPtr, RpcRemoteSystem_t, link);
+
+        le_dls_Link_t* nodeLinkPtr = le_dls_Peek(&systemPtr->rpcNodeList);
+        while (nodeLinkPtr != NULL)
+        {
+            ProxyNode_t* nodePtr = CONTAINER_OF(nodeLinkPtr, ProxyNode_t, link);
+            if ((nodePtr != NULL) && (nodePtr->type == RPC_CLIENT_PROXY))
+            {
+                RpcClientProxyNode_Ref_t nodeRef = (RpcClientProxyNode_Ref_t)nodePtr;
+                rpcClientProxy_CreateBinding(nodeRef);
+            }
+
+            nodeLinkPtr = le_dls_PeekNext(&systemPtr->rpcNodeList, nodeLinkPtr);
+        }
+
+        sysLinkPtr = le_dls_PeekNext(&RemoteSystemList, sysLinkPtr);
+    }
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Remote systems initialization function.
  */
 //--------------------------------------------------------------------------------------------------

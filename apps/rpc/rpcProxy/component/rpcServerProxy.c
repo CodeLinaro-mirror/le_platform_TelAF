@@ -591,8 +591,9 @@ static void ProxySessionCloseHandler
         return;
     }
 
-    LE_INFO("client-server session(ID=0x%x) of proxy service(%s) is closed.",
-            proxySessionPtr->rpcSessionId, rpcServerPtr->bindingInterface);
+    LE_INFO("client-server session(ID=0x%x) of proxy service(%s) is closed(remoteClosed=%s).",
+            proxySessionPtr->rpcSessionId, rpcServerPtr->bindingInterface,
+            proxySessionPtr->isRemoteClosed ? "TRUE" : "FALSE");
 
     // Set sessionRef to NULL, which indicates this proxy session is closed.
     proxySessionPtr->sessionRef = NULL;
@@ -1340,7 +1341,7 @@ static void RpcEventMsgHandler
     // Sanity check for parameters.
     LE_ASSERT((rpcServerPtr != NULL) && (rpcServerPtr->sysEventId == eventId) &&
               (rpcServerPtr->someipClient.serviceRef == serviceRef) &&
-              (dataPtr != NULL) && (dataSize > sizeof(RpcEventCommonHeader_t)));
+              (dataPtr != NULL) && (dataSize >= sizeof(RpcEventCommonHeader_t)));
 
     uint16_t serviceId = rpcServerPtr->someipClient.serviceId;
     uint16_t instanceId = rpcServerPtr->someipClient.instanceId;

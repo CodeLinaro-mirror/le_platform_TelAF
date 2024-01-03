@@ -13,6 +13,7 @@ requires:
     {
         $TELAF_ROOT/interfaces/someipGW/taf_someipClnt.api
         $TELAF_ROOT/interfaces/someipGW/taf_someipSvr.api
+        le_instStat.api
     }
 }
 

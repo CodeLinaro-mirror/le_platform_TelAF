@@ -217,4 +217,15 @@ void rpcProxy_AddNode
     ProxyNode_t* nodePtr                     ///< [IN] RPC proxy node pointer.
 );
 
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Recreate proxy binding entries for RPC client proxy nodes.
+ */
+//--------------------------------------------------------------------------------------------------
+void rpcProxy_CreateAllProxyBindings
+(
+    void
+);
+
 #endif /* TAF_RPC_PROXY_H_INCLUDE_GUARD */

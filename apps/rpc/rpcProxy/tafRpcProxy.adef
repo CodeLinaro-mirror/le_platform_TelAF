@@ -34,4 +34,5 @@ bindings:
 {
     tafRpcProxy.component.taf_someipClnt -> tafSomeipGWSvc.taf_someipClnt
     tafRpcProxy.component.taf_someipSvr -> tafSomeipGWSvc.taf_someipSvr
+    tafRpcProxy.component.le_instStat -> <root>.le_instStat
 }

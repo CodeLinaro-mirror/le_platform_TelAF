@@ -287,7 +287,7 @@
    taf_ecall_StateChangeHandlerRef = taf_ecall_AddStateChangeHandler((taf_ecall_StateChangeHandlerFunc_t) tafECallStateHandler, NULL);
    @endverbatim
  *
- * To stop an emergency call, an application can use taf_ecall_End().
+ * To end an emergency call, an application can use taf_ecall_End().
  *
  * Applications must use taf_ecall_Delete() to release @ref taf_ecall_CallRef_t emergency call
  * reference object when it is no longer used.
@@ -439,7 +439,7 @@ ENUM State
     STATE_UNKNOWN,                            ///< Unknown eCall state.
     STATE_ALERTING,                           ///< Alerting call; MO call only.
     STATE_ACTIVE,                             ///< Active eCall.
-    STATE_IDLE,                               ///< Idle.
+    STATE_IDLE,                               ///< Not supported.
     STATE_WAITING_PSAP_START_IND,             ///< Not supported.
     STATE_PSAP_START_RECEIVED,                ///< Send MSD (start) is received and sync is locked during in-band MSD transmission.
     STATE_MSD_TRANSMISSION_STARTED,           ///< In-band MSD transmission started.
@@ -1119,7 +1119,7 @@ FUNCTION le_result_t StartTest
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Stops the ongoing eCall session according to the given eCall reference.
+ *  Ends the ongoing eCall according to the given eCall reference.
  *
  * @return
  *      - LE_OK -- Succeeded.

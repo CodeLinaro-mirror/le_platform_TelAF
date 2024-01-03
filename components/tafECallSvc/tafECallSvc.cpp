@@ -1264,7 +1264,7 @@ le_result_t taf_ecall_StartAutomatic
 
  FUNCTION        taf_ecall_End
 
- DESCRIPTION     Stop the ongoing ecall session.
+ DESCRIPTION     End the ongoing ecall.
 
  DEPENDENCIES   Initialization of ECall service
 

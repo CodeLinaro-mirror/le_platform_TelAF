@@ -1,5 +1,9 @@
 maxThreads: 300
 
+username: telaf
+
+startGroup: 2
+
 groups:
 {
         system

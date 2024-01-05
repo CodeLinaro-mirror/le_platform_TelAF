@@ -40,24 +40,59 @@ then
 else
     ABS_PATH_TO_CURRENT_DIR="$(pwd)/$0"
 fi
-CURDIR=$(dirname $(dirname "$ABS_PATH_TO_CURRENT_DIR"))
+CURDIR=$(realpath $(dirname $(dirname "$ABS_PATH_TO_CURRENT_DIR")))
 
 if [ -d "$TELAF_ROOT" ] && [ "$TELAF_ROOT" != "$CURDIR" ]; then
     echo "Error: The TELAF_ROOT was detected as already being present in this shell environment and inconsistent with the environment to be set. Please use a clean shell when sourcing this environment script."
     exit;
 fi
 
+#Ensure presence of TELAF_GLOBAL_TARGET_TOOLCHAIN_PATH environment variable
+if [ ! -e "${TELAF_GLOBAL_TARGET_TOOLCHAIN_PATH}" ]; then
+    echo "source set_af_env.sh from a clean shell and then run bin/legs"
+    exit;
+fi
+
 # Configure TelAF root and interface path
-export TELAF_ROOT=$(dirname $(dirname "$ABS_PATH_TO_CURRENT_DIR"))
+export TELAF_ROOT=$(realpath $(dirname $(dirname "$ABS_PATH_TO_CURRENT_DIR")))
 export TELAF_INTERFACES=$TELAF_ROOT/interfaces
+export TELAF_MNGD_INTERFACES=$TELAF_ROOT/apps/tafMngdServices/interfaces
 export LEGATO_ROOT=$TELAF_ROOT/../legato/legato-af
 
+# If there is exactly one argument, legs will execute the argument in the TelAF shell.
+if [ $# -eq 1 ]; then
+    # User has provided command(s) to be executed in the TelAF build shell.
+
+    # Setup the TelAF framework shell
+    cd $LEGATO_ROOT
+    source $LEGATO_ROOT/framework/tools/scripts/configlegatoenv
+    cd $TELAF_ROOT
+    set -e
+    # Store user argument in a variable.
+    cmds=$1
+    # Split the argument passed by the user into separate commands using && as the delimiter
+    while [ "$cmds" != "$cmd" ] ;do
+        # extract each command
+        cmd=${cmds%%&&*}
+        # delete the extracted command and the delimiter from the argument string
+        cmds="${cmds#$cmd&&}"
+        # Execute the command
+        echo $cmd
+        $cmd
+        # Check the return and exit command failed.
+        retVal=$?
+        if [ $retVal -ne 0 ]; then
+            exit $retVal
+        fi
+    done
+    # Exit this shell
+    exit
+fi
 
 # Setup framework configuration in a sub-shell and start interperting stdin interactively.
 bash -i  <<EOF
 cd $LEGATO_ROOT
 source $LEGATO_ROOT/framework/tools/scripts/configlegatoenv
-cd $TELAF_ROOT
+if [ -v ORIGIN_DIR ]; then cd $ORIGIN_DIR; else cd $TELAF_ROOT; fi
 exec <> /dev/tty
 EOF
-

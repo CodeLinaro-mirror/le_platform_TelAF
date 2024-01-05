@@ -6,5 +6,5 @@ includedir=${prefix}/legato/legato-af
 Name: TelAF
 Description: Telematics Application Framework
 Version: 1.1
-Libs: -L${libdir}/build/sa515m/framework/lib
-Cflags: -I${includedir}/framework/include -I${includedir}/build/sa515m/framework/include
+Libs: -L${libdir}/build/${MACHINE}/framework/lib
+Cflags: -I${includedir}/framework/include -I${includedir}/build/${MACHINE}/framework/include

@@ -1,0 +1,377 @@
+/*
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * @page c_taf_mngd_Conn Managed Connectivity Service
+ *
+ * @ref taf_mngd_Conn_interface.h "API Reference"
+ *
+ * <HR>
+ *
+ * The Managed Connectivity service APIs help to manage Connectivity on the NAD/TCU.
+ *
+ * @section taf_mngd_Conn_binding IPC interfaces binding
+ *
+ *
+ * The following example illustrates how to bind to the Managed Connectivity service.
+ * @verbatim
+   bindings:
+   {
+       clientExe.clientComponent.taf_mngd_Conn -> tafMngdConnSvc.taf_mngd_Conn
+   }
+   @endverbatim
+ *
+ * @section taf_mngd_Conn_Connectivity Managed Connectivity
+ *
+ * Before starting the service, the user should place a JSON file named
+ * mngdConnectivity.json into /data/ManagedServices directory. This JSON file contains a
+ * Configuration object and a Policy object. The Policy object manages the execution of the service
+ * using the parameters provided via the Configuration object.
+ *
+ * Template of mngdConnectivity.json:
+ * @verbatim
+ {
+    "Product": "TelAF",
+    "Name": "Managed Connectivity Service",
+    "ManagedConnectivityService": {
+        "Version": "23.07.00",
+        "Configuration": {                 ///< Configuration Object.
+            "Name": "Default",
+            "Sim":[
+                {
+                    "ID": 1,               ///< Sim ID corresponding to the Use_Sim_ID in "Network".
+                    "Name": "AT&T",
+                    "SlotNumber": 1        ///< Slot ID.
+                }
+            ],
+            "Network":[
+                {
+                    "ID": 1,          ///< Network ID corresponding to the Use_Network_ID in "Data".
+                    "Use_Sim_ID": 1,        ///< SIM ID which is used for this network.
+                    "PhoneID": 1,           ///< Phone ID.
+                    "Registration": "Auto"  ///< Is automatically registered or not.
+                }
+            ],
+            "Data":[                   ///< Support for multiple data sessions
+                {
+                    "ID": 1,           ///< Data ID corresponding to the Use_Data_ID in policy file.
+                    "Name": "Profile1", ///< Profile Name.
+                    "Use_Network_ID": 1,    ///< Network ID which is used for this data connection.
+                    "Profile":{
+                        "Number": 1,        ///< Profile number.
+                        "APN": "apn1"       ///< Profile APN. If APN is valid, profile will be
+                                            ///< updated with the provided APN. The service will not
+                                            ///< validate the correctness of the APN. If update
+                                            ///< fails,the service will log an error and stop.
+                    },
+                    "AutoStart":"Yes",      ///< Data session is automatically started or not.
+                    "ConnectionTest":{      ///< URL or IP to perform ConnectionTest in order of
+                                            ///< preference
+                        "URL": null,        ///< Valid URL to work with
+                        "IPv4": null,       ///< Valid quad-dotted IP address
+                        "IPv6": null        ///< Not supported
+                    }
+                }
+                {
+                    "ID": 2,
+                    "Name": "Profile2",
+                    "Use_Network_ID": 1,
+                    "Profile":{
+                        "Number": 2,
+                        "APN": "apn2"
+                    },
+                    "AutoStart":"Yes",
+                     "ConnectionTest":{
+                        "URL": null,
+                        "IPv4": null,
+                        "IPv6": null
+                    }
+                }
+            ]
+        },
+        "Policy": {                         ///< Policy Object.
+            "Name": "Default",
+            "DataSession":{
+                "Fallback": "No",
+                "DataConnection":[          ///< Connections will be started based on the respective
+                                            ///<  priority of the data ID.
+                    {
+                        "Priority": "1",    ///< User defined priority. 1 is the highest priority.
+                                            ///< Duplication is not allowed.
+                        "Use_Data_ID": "1"  ///< Data ID which is used for the data connection.
+                    },
+                    {
+                        "Priority": "2",
+                        "Use_Data_ID": "2"
+                    }
+                ],
+                "DataStartRetry": {
+                     "Enable": "Yes",  ///< Yes is when there is any issue which makes the ongoing
+                                       ///< data connection unavailable, the service will start
+                                       ///< retrying on establishment of the data connection.
+                                       ///< No means there is not data connection establishment
+                                       ///< retry when the ongoing one is not available.
+                     "RetryCount": 1   ///< The total count of data connection establishment retry.
+                                       ///< Retry after 30s and after that in steps of 2,4,8,16 mins.
+                },
+                "MultiDataSession": {
+                    "Enable": "Yes",        ///< Yes for enabling multiple data session support,
+                                            ///< no for disabling multiple data session support.
+                    "NumConnections": 2     ///< The maximum number of concurrent data sessions.
+                }
+            }
+        }
+    }
+}
+ @endverbatim
+ * @par List of valid values for "Version" key:
+ *        23.07.00
+ *        23.11.00
+ *
+ *
+ * @par Multiple Data Sessions:
+ *      For multiple data sessions, add Data object(s) and matching DataConnection object(s).
+ *
+ *
+ * @note The Managed Connectivity Service will stop if the JSON is invalid or inaccessible.
+ *
+ * @section taf_mngd_Conn_usage_flow Typical application call flow
+ *
+ * - Automatic Data Connection Establishment
+ *
+ * @image html conn_usage_flow_auto_data_connection.jpg
+ *
+ * Background setup:
+ *
+ * Set the Data→AutoStart key as Yes in the mngdConnectivity.json file.
+ * Steps:
+ *
+ * #a.1 -- Get the data reference for a given data ID.
+ *
+ * #a.2 -- Register the data state change handler to be able to receive the data state notification.
+ *
+ * #a.3 -- Query the data connection state with the data reference.
+ *
+ * #a.4 -- Receive the data connected notification from TelAF managed connectivity service.
+ *
+ * #a.5 -- Query the IP address of the active data connection.
+ *
+ * #s.1 -- Parse mngdConnectivity.json and validate Configuration and Policy parameters. If the
+ * .json file is inaccessible or if the validation fails, tafMngdConnSvc will stop.
+ *
+ * #s.2 -- Check SIM presence and registration.
+ *
+ * #s.3 -- Register notification handlers.
+ *
+ * #s.4 -- Start the data call.
+ *
+ * #s.5 -- Receive the data call notification and process it.
+ *
+ * @note The application steps from #a.1 to #a.5 happen in parallel with TelAF managed connectivity
+ * operation steps from #s.1 to #s.5. There is no strict sequence dependency from application operations
+ * to the service operations.
+ *
+ * - Customer Application Triggered Data Connection Establishment
+ *
+ * @image html conn_usage_flow_user_triggered_data_connection.jpg
+ *
+ * Background setup:
+ *
+ * Set Data→AutoStart key as No in the mngdConnectivity.json file.
+ *
+ * Steps:
+ *
+ * #s.1 -- Parse mngdConnectivity.json and validate Configuration and Policy parameters. If the
+ * .json file is inaccessible or if the validation fails, tafMngdConnSvc will stop.
+ *
+ * #s.2 -- Register notification handlers.
+ *
+ * #a.3 -- Get the data reference for a given data ID.
+ *
+ * #a.4 -- Register the data state change handler to be able to receive the data state notification.
+ *
+ * #a.5 -- Query the data connection state with the data reference.
+ *
+ * #a.6 -- Trigger the data connection establishment startup.
+ *
+ * #s.7 -- Check SIM presence and registration.
+ *
+ * #s.8 -- Start the data call.
+ *
+ * #s.9 -- Receive the data call state notification and process it.
+ *
+ * #a.10 -- Receive the data connected state notification.
+ *
+ * #a.11 -- Query the IP address of the active data connection.
+ *
+ * <HR>
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Include Managed Services common definitions.
+ */
+//--------------------------------------------------------------------------------------------------
+USETYPES taf_mngd_Common.api;
+USETYPES taf_sim.api;
+USETYPES taf_radio.api;
+USETYPES taf_dcs.api;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reference to data.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE Data;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The data state.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM DataState
+{
+    DATA_DISCONNECTED,                       ///< Data disconnected. Recovery steps will be enabled.
+    DATA_CONNECTED,                          ///< Data connected.
+    DATA_CONNECTION_FAILED                   ///< Data connection failed.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for data state.
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER DataStateHandler
+(
+    Data dataRef                                         IN, ///< The data reference.
+    DataState state                                      IN  ///< The data state.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Events to report data state.
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT DataState
+(
+    Data dataRef,                                            ///< The data reference.
+    DataStateHandler handler                                 ///< The event handler reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+* Gets the data reference for the given data ID.
+*
+* @return
+*  - NULL -- Error.
+*  - Others -- The data reference.
+*/
+//--------------------------------------------------------------------------------------------------
+FUNCTION Data GetData
+(
+    uint8 dataId                                         IN ///< The data ID to use.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Starts a data session for the given data reference. This API should be used when the value of
+ * "AutoStart" is "No" in the configuration file.
+ *
+ * @note This API is global control, not per-client control.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_DUPLICATE -- The data connection is already started.
+ *   - LE_IN_PROGRESS -- The data connection establishment is retried.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DataStart
+(
+    Data dataRef                                          IN ///< The data reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Stops a data cellular session for the given data reference.
+ *
+ * @note This API is global control, not per-client control.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_FAULT -- Failed.
+ *   - LE_NOT_PERMITTED -- If data is auto started by the service, application cannot stop data.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DataStop
+(
+    Data dataRef                                          IN ///< The data reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the data connection state information for the given data reference.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DataGetConnectionState
+(
+    Data dataRef                                          IN,  ///< The data reference.
+    uint8 dataId                                          OUT, ///< The data ID.
+    DataState state                                       OUT ///< The data state.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the data connection IP addresses for the given data reference.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DataGetConnectionIPAddresses
+(
+    Data dataRef                                          IN,  ///< The data reference.
+    string IPv4Addr[taf_dcs.IPV4_ADDR_MAX_LEN]            OUT, ///< IPv4 Address.
+    string IPv6Addr[taf_dcs.IPV6_ADDR_MAX_LEN]            OUT  ///< IPv6 Address.
+);

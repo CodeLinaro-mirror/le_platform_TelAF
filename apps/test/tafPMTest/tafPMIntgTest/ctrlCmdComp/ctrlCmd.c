@@ -73,9 +73,31 @@ static void PrintHelp
         "\n"
         "    pmTest test6\n"
         "       Test getState.\n"
+        "    Please do (logread -f |grep -i \"tafPMIntgTest\" &) to check state before this cmd.\n"
         "\n"
         "    pmTest test7\n"
         "       Test acquire and release multiple times WL with reference.\n"
+        "\n"
+        "    pmTest resume\n"
+        "       Resume whole device.\n"
+        "\n"
+#if LE_CONFIG_TARGET_SA525M
+        "    pmTest getAllMachines\n"
+        "       To get all the machines available.\n"
+        "    Please do (logread -f |grep -i \"tafPMIntgTest\" &) to check machine names before this cmd.\n"
+        "\n"
+        "    pmTest resume <vm_name>\n"
+        "       Resume the particular virtual machine.\n"
+        "\n"
+        "    pmTest suspend\n"
+        "       suspend whole device.\n"
+        "\n"
+        "    pmTest suspend <vm_name>\n"
+        "       suspend the particular virtual machine.\n"
+        "\n"
+        "    pmTest shutdown\n"
+        "       suspend whole device.\n"
+#endif
         );
 
     exit(EXIT_SUCCESS);
@@ -86,6 +108,15 @@ static void CommandHandler
     const char* argPtr                  ///< [IN] Command-line argument.
 )
 {
+    le_result_t res = LE_OK;
+    const char* arg;
+    arg = le_arg_GetArg(1);
+    if(le_arg_NumArgs() == 2 && arg == NULL)
+    {
+        arg = le_arg_GetArg(1);
+        LE_ERROR("tafPMIntgTest: NULL argument received, Line %d", __LINE__);
+        exit(EXIT_FAILURE);
+    }
     if (strcmp(argPtr, "test1") == 0 && le_arg_NumArgs() == 1)
     {
         ctrlCmd_registerStateChangeListener();
@@ -107,12 +138,43 @@ static void CommandHandler
     } else if (strcmp(argPtr, "test7") == 0 && le_arg_NumArgs() == 1)
     {
         ctrlCmd_test7();
+    } else if (strcmp(argPtr, "getAllMachines") == 0 && le_arg_NumArgs() == 1)
+    {
+        ctrlCmd_getAllMachines();
+    } else if (strcmp(argPtr, "resume") == 0 && le_arg_NumArgs() >= 1)
+    {
+        if(le_arg_NumArgs() == 2 && arg != NULL) {
+            res = ctrlCmd_resumeVM(arg);
+        } else if(le_arg_NumArgs() == 1){
+            res = ctrlCmd_resume();
+        }
+        if(res != LE_OK)
+            LE_ERROR("Failed to resume the device");
+    } else if (strcmp(argPtr, "suspend") == 0 && le_arg_NumArgs() >= 1)
+    {
+        if(le_arg_NumArgs() == 2 && arg != NULL) {
+            res = ctrlCmd_suspendVM(arg);
+        } else if(le_arg_NumArgs() == 1) {
+            res = ctrlCmd_suspend();
+        }
+        if(res != LE_OK)
+            LE_ERROR("Failed to suspend the device");
+    } else if (strcmp(argPtr, "shutdown") == 0 && le_arg_NumArgs() >= 1)
+    {
+        if(le_arg_NumArgs() == 2 && arg != NULL) {
+            res = ctrlCmd_shutdownVM(arg);
+        } else if(le_arg_NumArgs() == 1) {
+            res = ctrlCmd_shutdown();
+        }
+        if(res != LE_OK)
+            LE_ERROR("Failed to shutdown the device");
     } else
     {
         fprintf(stderr, "Unknown command.\n");
         fprintf(stderr, "Try '%s --help'.\n", ProgramName);
         exit(EXIT_FAILURE);
     }
+    exit(EXIT_SUCCESS);
 }
 
 COMPONENT_INIT

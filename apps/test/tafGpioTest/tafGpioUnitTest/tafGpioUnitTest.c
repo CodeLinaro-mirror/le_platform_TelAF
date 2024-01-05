@@ -210,6 +210,21 @@ static void Test_taf_gpio_RemoveCallback() {
         LE_TEST_OK(true, "Test_taf_gpio_RemoveCallback done");
     }
 }
+static void Test_taf_gpio_GetName(int pinNum) {
+    LE_INFO("Test Test_taf_gpio_GetName for PIN %d", pinNum);
+    char pinName[TAF_GPIO_PIN_NAME_MAX_BYTE] = {};
+    le_result_t res = taf_gpio_GetName(pinNum, pinName, TAF_GPIO_PIN_NAME_MAX_BYTE);
+    if(res == LE_OK)
+    {
+        LE_INFO("Test taf_gpio_GetName for PIN %d, name = %s", pinNum, pinName);
+    }
+    else if(res == LE_NOT_IMPLEMENTED)
+    {
+        LE_INFO("Test taf_gpio_GetName for PIN %d, not implemented", pinNum);
+    }
+
+    LE_TEST_OK(true, "Test_taf_gpio_GetName done");
+}
 static void Test_ExtremeValues(int pinNum)
 {
     LE_INFO("================ Test_ExtremeValues ================");
@@ -313,6 +328,9 @@ static void Test_gpio
         LE_TEST_INFO("Test taf_gpio_GetPolarity for outPin after setting ACTIVE_HIGH");
         taf_gpio_Polarity_t polarityType = taf_gpio_GetPolarity(outPinNum);
         LE_TEST_OK(polarityType == TAF_GPIO_ACTIVE_HIGH, "Test_taf_gpio_GetPolarity done");
+
+        LE_INFO("====== Test get name for output pin ======");
+        Test_taf_gpio_GetName(outPinNum);
     }
     else
     {
@@ -380,6 +398,9 @@ static void Test_gpio
         le_thread_Ref_t threadRef = le_thread_Create("taf_GPIO_StateHandler",
                 Test_taf_gpio_ChangeCallback, NULL);
         le_thread_Start(threadRef);
+
+        LE_INFO("====== Test get name for input pin ======");
+        Test_taf_gpio_GetName(inPinNum);
     }
     else
     {
@@ -405,28 +426,57 @@ COMPONENT_INIT
 {
     LE_INFO("====== Start GPIO test ======");
     int NumberOfArgs = le_arg_NumArgs();
+    const char *arg = NULL;
     if(NumberOfArgs >= 1)
     {
-        outPinNum = atoi(le_arg_GetArg(0));
+        arg = le_arg_GetArg(0);
+        if(arg == NULL)
+        {
+            LE_ERROR("GPIO test: NULL argument received, Line %d", __LINE__);
+            exit(EXIT_FAILURE);
+        }
+        outPinNum = atoi(arg);
     }
     if(NumberOfArgs >= 2)
     {
-        inPinNum = atoi(le_arg_GetArg(1));
+        arg = le_arg_GetArg(1);
+        if(arg == NULL)
+        {
+            LE_ERROR("GPIO test: NULL argument received, Line %d", __LINE__);
+            exit(EXIT_FAILURE);
+        }
+        inPinNum = atoi(arg);
         if (outPinNum == inPinNum)
+        {
             DisplayUsage();
+        }
     }
 
     if(NumberOfArgs >= 1)
     {
-        const char* arg = "";
         arg = le_arg_GetArg(0);
-        if(strcmp(arg,"help") == 0)
+        if(arg == NULL)
+        {
+            LE_ERROR("GPIO test: NULL argument received, Line %d", __LINE__);
+            exit(EXIT_FAILURE);
+        }
+        if(strcmp(arg, "help") == 0)
         {
             DisplayUsage();
         }
         Test_gpio();
     }
-    if(NumberOfArgs == 3 && strcmp(le_arg_GetArg(2),"true") == 0) {
-        LE_TEST_EXIT;
+
+    if(NumberOfArgs == 3) {
+        arg = le_arg_GetArg(2);
+        if(arg == NULL)
+        {
+            LE_ERROR("GPIO test: NULL argument received, Line %d", __LINE__);
+            exit(EXIT_FAILURE);
+        }
+        if(strcmp(arg, "true") == 0)
+        {
+            LE_TEST_EXIT;
+        }
     }
 }

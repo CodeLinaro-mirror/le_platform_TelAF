@@ -584,7 +584,7 @@ void TestTafRadioBand
 {
     taf_radio_BandBitMask_t bandMask = 0x0;
     uint64_t lteBand[TAF_RADIO_LTE_BAND_GROUP_NUM] = {0};
-    size_t lteBandSize;
+    size_t lteBandSize = 0;
 
     le_result_t result = taf_radio_GetBandPreferences(&bandMask, DEFAULT_PHONE_ID);
     LE_TEST_OK(result == LE_OK, "taf_radio_GetBandPreferences - LE_OK");
@@ -731,7 +731,7 @@ void TestTafRadioServingStatus
         case TAF_RADIO_RAT_NR5G:
             nrCid = taf_radio_GetServingNrCellId(DEFAULT_PHONE_ID);
             LE_TEST_OK(true, "taf_radio_GetServingNrCellId - uint64_t");
-            LE_INFO("cell id : %llu.", nrCid);
+            LE_INFO("cell id : %" PRIuS, (size_t)nrCid);
 
             arFcn = taf_radio_GetServingCellNrArfcn(DEFAULT_PHONE_ID);
             LE_TEST_OK(true, "taf_radio_GetServingCellNrArfcn - int32_t");
@@ -777,7 +777,6 @@ void TestTafRadioNeighborCells
     if (ngbrCellsRef)
     {
         taf_radio_CellInfoRef_t cellInfoRef = taf_radio_GetFirstNeighborCellInfo(ngbrCellsRef);
-        LE_TEST_OK(cellInfoRef != NULL, "taf_radio_GetFirstNeighborCellInfo - !NULL");
 
         uint64_t cid;
         uint32_t lac;
@@ -798,7 +797,7 @@ void TestTafRadioNeighborCells
                 case TAF_RADIO_RAT_GSM:
                     cid = taf_radio_GetNeighborCellId(cellInfoRef);
                     LE_TEST_OK(true, "taf_radio_GetNeighborCellId - uint64_t");
-                    LE_INFO("cid : %llu.", cid);
+                    LE_INFO("cid : %" PRIuS, (size_t)cid);
                     lac = taf_radio_GetNeighborCellLocAreaCode(cellInfoRef);
                     LE_TEST_OK(true, "taf_radio_GetNeighborCellLocAreaCode - uint32_t");
                     LE_INFO("lac : %d.", lac);
@@ -821,28 +820,26 @@ void TestTafRadioNeighborCells
                 case TAF_RADIO_RAT_TDSCDMA:
                     cid = taf_radio_GetNeighborCellId(cellInfoRef);
                     LE_TEST_OK(true, "taf_radio_GetNeighborCellId - uint64_t");
-                    LE_INFO("cid : %llu.", cid);
+                    LE_INFO("cid : %" PRIuS, (size_t)cid);
                     rxlevel = taf_radio_GetNeighborCellRxLevel(cellInfoRef);
                     LE_TEST_OK(true, "taf_radio_GetNeighborCellRxLevel - int32_t");
-                    LE_INFO("cid : %llu", cid);
                     LE_INFO("rxlevel : %d", rxlevel);
                     break;
                 case TAF_RADIO_RAT_NR5G:
                     cid = taf_radio_GetNeighborCellId(cellInfoRef);
                     LE_TEST_OK(true, "taf_radio_GetNeighborCellId - uint64_t");
-                    LE_INFO("cid : %llu.", cid);
+                    LE_INFO("cid : %" PRIuS, (size_t)cid);
                     nrpcid = taf_radio_GetPhysicalNeighborNrCellId(cellInfoRef);
                     LE_TEST_OK(true, "taf_radio_GetPhysicalNeighborNrCellId - uint32_t");
                     rxlevel = taf_radio_GetNeighborCellRxLevel(cellInfoRef);
                     LE_TEST_OK(true, "taf_radio_GetNeighborCellRxLevel - int32_t");
-                    LE_INFO("cid : %llu", cid);
                     LE_INFO("nrpcid : %d", nrpcid);
                     LE_INFO("rxlevel : %d", rxlevel);
                     break;
                 case TAF_RADIO_RAT_LTE:
                     cid = taf_radio_GetNeighborCellId(cellInfoRef);
                     LE_TEST_OK(true, "taf_radio_GetNeighborCellId - uint64_t");
-                    LE_INFO("cid : %llu.", cid);
+                    LE_INFO("cid : %" PRIuS, (size_t)cid);
                     pcid = taf_radio_GetPhysicalNeighborLteCellId(cellInfoRef);
                     LE_TEST_OK(true, "taf_radio_GetNeighborCellUmtsEcIo - uint16_t");
                     LE_INFO("pcid : %d.", pcid);
@@ -855,7 +852,6 @@ void TestTafRadioNeighborCells
             }
 
             cellInfoRef = taf_radio_GetNextNeighborCellInfo(ngbrCellsRef);
-            LE_TEST_OK(cellInfoRef != NULL, "taf_radio_GetNextNeighborCellInfo - !NULL");
         }
 
         result = taf_radio_DeleteNeighborCellsInfo(ngbrCellsRef);
@@ -1044,7 +1040,6 @@ void TestTafRadioNetworkScan
             LE_INFO("home : %d.", home);
 
             infoRef = taf_radio_GetNextCellularNetworkScan(listRef);
-            LE_TEST_OK(infoRef != NULL, "taf_radio_GetNextCellularNetworkScan - !NULL");
         }
 
         result = taf_radio_DeleteCellularNetworkScan(listRef);
@@ -1089,11 +1084,9 @@ void TestTafRadioNetworkScan
                 LE_TEST_OK(result == LE_OK, "taf_radio_GetPciScanMccMnc - LE_OK");
 
                 plmnRef = taf_radio_GetNextPlmnInfo(pciInfoRef);
-                LE_TEST_OK(plmnRef != NULL, "taf_radio_GetNextPlmnInfo - !NULL");
             }
 
             pciInfoRef = taf_radio_GetNextPciScanInfo(pciListRef);
-            LE_TEST_OK(pciInfoRef != NULL, "taf_radio_GetNextPciScanInfo - !NULL");
         }
 
         result = taf_radio_DeletePciNetworkScan(pciListRef);
@@ -1103,6 +1096,56 @@ void TestTafRadioNetworkScan
     CreatePciNetworkScanTestThread();
     le_sem_Wait(scanSemaphore);
     le_sem_Delete(scanSemaphore);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for network registration state.
+ */
+//--------------------------------------------------------------------------------------------------
+void ImsRegStateHandler
+(
+    taf_radio_ImsRegStatus_t status, ///< [IN] IMS registation state.
+    uint8_t phoneId,                 ///< [IN] Phone ID.
+    void* contextPtr                 ///< [IN] Handler context.
+)
+{
+    switch (status)
+    {
+        case TAF_RADIO_IMS_REG_STATUS_REGISTERED:
+            LE_INFO("Phone %d IMS : Registered.", phoneId);
+            break;
+        case TAF_RADIO_IMS_REG_STATUS_NOT_REGISTERED:
+            LE_INFO("Phone %d IMS : Not registered.", phoneId);
+            break;
+        default:
+            LE_INFO("Phone %d IMS : Unknown.", phoneId);
+            break;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Test IMS registation status.
+ */
+//--------------------------------------------------------------------------------------------------
+void TestTafRadioImsRegistration
+(
+    void
+)
+{
+    taf_radio_ImsRegStatusChangeHandlerRef_t imsRegStatusChangeHandlerRef =
+        taf_radio_AddImsRegStatusChangeHandler(
+        (taf_radio_ImsRegStatusChangeHandlerFunc_t)ImsRegStateHandler, NULL);
+    LE_TEST_OK(imsRegStatusChangeHandlerRef != NULL,
+        "taf_radio_AddImsRegStatusChangeHandler - !NULL");
+
+    taf_radio_ImsRegStatus_t regStatus = TAF_RADIO_IMS_REG_STATUS_NOT_REGISTERED;
+    le_result_t result = taf_radio_GetImsRegStatus(&regStatus, DEFAULT_PHONE_ID);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetImsRegStatus - LE_OK");
+
+    taf_radio_RemoveImsRegStatusChangeHandler(imsRegStatusChangeHandlerRef);
+    LE_TEST_OK(true, "taf_radio_RemoveImsRegStatusChangeHandler - void");
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1121,6 +1164,8 @@ COMPONENT_INIT
     TestTafRadioAccessTechnoloy();
     LE_TEST_INFO("======== Radio Band Test ========");
     TestTafRadioBand();
+    LE_TEST_INFO("======== Radio Operator Preferences Test ========");
+    TestTafRadioOperatorPreferences();
     LE_TEST_INFO("======== Radio Serving Status Test ========");
     TestTafRadioServingStatus();
     LE_TEST_INFO("======== Radio Neighboring Cells Test ========");
@@ -1129,6 +1174,8 @@ COMPONENT_INIT
     TestTafRadioSignal();
     LE_TEST_INFO("======== Radio Network Scan Test ========");
     TestTafRadioNetworkScan();
+    LE_TEST_INFO("======== Radio IMS Registration Test ========");
+    TestTafRadioImsRegistration();
 
     LE_TEST_EXIT;
 }

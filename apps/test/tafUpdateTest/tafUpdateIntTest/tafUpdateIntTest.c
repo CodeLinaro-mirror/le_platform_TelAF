@@ -55,7 +55,7 @@ void PrintHelpMenu()
     LE_INFO("Description:");
     LE_INFO("help             : Print help menu.");
     LE_INFO("download         : Download OTA package.");
-    LE_INFO("install firmware : Install firmware.");
+    LE_INFO("install firmware [path] : Install firmware.");
     LE_INFO("install [app]    : Install application.");
     LE_INFO("version firmware : Show firmware version.");
     LE_INFO("version [app]    : Show app version.");
@@ -226,7 +226,9 @@ COMPONENT_INIT
         CreateHandlerThread();
         const char* name = le_arg_GetArg(1);
         if (strncmp(name, "firmware", strlen("firmware")) == 0) {
-            taf_update_Install(TAF_UPDATE_FOTA, name);
+            const char* path = le_arg_GetArg(2);
+            if (path != NULL)
+                taf_update_Install(TAF_UPDATE_FOTA, path);
             le_sem_Wait(semaphore);
         } else if (name != NULL) {
             taf_update_Install(TAF_UPDATE_SOTA, name);

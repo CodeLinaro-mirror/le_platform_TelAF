@@ -43,12 +43,12 @@ void DataAdaptor::DumpDataProfile
 )
 {
     taf_dcs_ProfileInfo_t profilesInfoPtr[TAF_DCS_PROFILE_LIST_MAX_ENTRY];
-    size_t listSize;
+    size_t listSize = 0;
     le_result_t result;
 
     result = taf_dcs_GetProfileList(profilesInfoPtr, &listSize);
     LE_ASSERT(result == LE_OK);
-    LE_INFO("got profile list, num: %d, result: %d", listSize, result);
+    LE_INFO("got profile list, num: %" PRIuS ", result: %d", listSize, result);
     LE_INFO("%-6s""%-6s""%-12s", "Index", "type", "Name");
     for (int i = 0; i < listSize; i++)
     {

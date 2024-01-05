@@ -59,8 +59,8 @@ using namespace telux::common;
 #define DEFAULT_PHONE_ID 1
 
 #define MAX_OF_SMS_MSG_IN_STORAGE   256
-#define MAX_OF_SMS_MSG    (MAX_OF_SMS_MSG_IN_STORAGE*4)
-#define MAX_OF_LIST    128
+#define MAX_OF_SMS_MSG    (MAX_OF_SMS_MSG_IN_STORAGE*2)
+#define MAX_OF_LIST    25
 
 #define MAX_SMS_SESSION 5
 

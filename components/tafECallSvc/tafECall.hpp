@@ -36,7 +36,6 @@
 #include <telux/tel/PhoneFactory.hpp>
 #include "telux/common/CommonDefines.hpp"
 #include "tafSvcIF.hpp"
-#include "taf_pa_ecall.hpp"
 
 using namespace telux::tel;
 using namespace telux::common;
@@ -66,10 +65,8 @@ using namespace std;
 #define ISOVIS_MODEL_YEAR_LENGTH 1
 #define ISOVIS_SEQ_PLANT_START (ISOVIS_MODEL_YEAR_START + ISOVIS_MODEL_YEAR_LENGTH)
 #define ISOVIS_SEQ_PLANT_LENGTH 7
-
-#define DEFAULT_ECALL_NUM "112"
-#define CFG_PSAP_NUMBER "PsapNum"
-#define CFG_NAD_DEREG_TIME "NadDeregTime"
+#define MSD_VERSION_TWO 2
+#define MSD_VERSION_THREE 3
 
 namespace telux {
     namespace tafsvc {
@@ -137,7 +134,7 @@ namespace telux {
             void onCallInfoChange(std::shared_ptr<telux::tel::ICall> call) override;
             void onECallMsdTransmissionStatus(
                     int phoneId, telux::tel::ECallMsdTransmissionStatus msdTransmissionStatus) override;
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
             void onEmergencyNetworkScanFail(int phoneId) override;
 #endif
             void onECallHlapTimerEvent(int phoneId, ECallHlapTimerEvents timerEvents) override;
@@ -172,6 +169,10 @@ namespace telux {
                 le_result_t SetNadDeregistrationTime(uint16_t deregTime);
                 le_result_t GetNadDeregistrationTime(uint16_t* deregTime);
                 le_result_t TerminateRegistration();
+                le_result_t SetNadClearDownFallbackTime(uint16_t ccftTime);
+                le_result_t GetNadClearDownFallbackTime(uint16_t* ccftTime);
+                le_result_t SetNadMinNetworkRegistrationTime(uint16_t minNwRegTime);
+                le_result_t GetNadMinNetworkRegistrationTime(uint16_t* minNwRegTime);
                 taf_ecall_State_t GetState ( taf_ecall_CallRef_t ecallRef);
                 taf_ecall_TerminationReason_t GetTerminationReason ( taf_ecall_CallRef_t ecallRef);
                 taf_ecall_StateChangeHandlerRef_t AddStateChangeHandler (taf_ecall_StateChangeHandlerFunc_t handlerPtr,
@@ -209,7 +210,6 @@ namespace telux {
 
                 taf_ECall_t ECallObject;
                 le_ref_MapRef_t ECallPtrRefMap = NULL;
-                bool isUseUSimNumbers = false;
                 void InitializeECallPtr();
 
         };

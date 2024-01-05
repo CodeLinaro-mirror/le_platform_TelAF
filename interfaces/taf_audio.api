@@ -221,6 +221,18 @@
 
    @endverbatim
 
+ * @note This also needs to be called for a voice call on SA525M device.
+ *
+ * @verbatim
+
+    TxMdmRef = taf_audio_OpenModemVoiceTx(1);
+    LE_ERROR_IF(( NULL == TxMdmRef), "taf_audio_OpenModemVoiceTx returns NULL!");
+
+    InRef = taf_audio_OpenMic();
+    LE_ERROR_IF((NULL == InRef), "taf_audio_OpenMic returns NULL!");
+
+   @endverbatim
+
  * @subsection c_connectors_oncallhold Connector and open file from location when call is on hold
  * When a voice call is on hold there will be local file playback of audio.
  *

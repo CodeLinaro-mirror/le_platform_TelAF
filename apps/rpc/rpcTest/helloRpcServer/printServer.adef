@@ -1,0 +1,19 @@
+sandboxed: false
+executables:
+{
+    server = (printServer)
+}
+
+processes:
+{
+    run:
+    {
+        (server)
+    }
+}
+
+extern:
+{
+    printer = server.printServer.printer
+}
+

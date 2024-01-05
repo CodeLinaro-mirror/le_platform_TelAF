@@ -1,0 +1,49 @@
+sources:
+{
+    tafMngdConnSvc.cpp
+    Admin/tafMngdConnAdmin.cpp
+    Data/tafMngdConnData.cpp
+    Radio/tafMngdConnRadio.cpp
+    Sim/tafMngdConnSim.cpp
+    JSONParser/tafMngdConnSvcJSONParser.cpp
+    JSONParser/tafMngdSvcJSONParser_Helper.cpp
+    JSONParser/tafMngdConnSvcParser_PolicyParser.cpp
+    JSONParser/tafMngdConnSvcParser_ConfigurationParser.cpp
+    ConfigTreeHelper/tafMngdConn_ConfigTreeHelper.cpp
+}
+
+provides:
+{
+    api:
+    {
+        $TELAF_ROOT/apps/tafMngdServices/interfaces/taf_mngd_Conn.api
+    }
+}
+
+requires:
+{
+    api:
+    {
+        taf_dcs.api
+        taf_radio.api
+        taf_sim.api
+        le_cfg.api
+    }
+}
+
+cxxflags:
+{
+    -I$TELAF_ROOT/include
+    -I$TELAF_ROOT/apps/tafMngdServices/Connectivity/Components/tafMngdConnSvc/ConfigTreeHelper
+    -I$TELAF_ROOT/apps/tafMngdServices/Connectivity/Components/tafMngdConnSvc/Admin
+    -I$TELAF_ROOT/apps/tafMngdServices/Connectivity/Components/tafMngdConnSvc/Data
+    -I$TELAF_ROOT/apps/tafMngdServices/Connectivity/Components/tafMngdConnSvc/Radio
+    -I$TELAF_ROOT/apps/tafMngdServices/Connectivity/Components/tafMngdConnSvc/Sim
+    -I$TELAF_ROOT/apps/tafMngdServices/Connectivity/Components/tafMngdConnSvc/JSONParser
+    -I$TELAF_ROOT/apps/tafMngdServices/Connectivity/Components/tafMngdConnSvc
+}
+
+ldflags:
+{
+    -lboost_filesystem
+}

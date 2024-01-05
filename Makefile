@@ -2,7 +2,7 @@
 # Makefile used to build the Telematics application framework.
 # --------------------------------------------------------------------------------------------------
 
-TARGETS := sa415m sa515m
+TARGETS := sa415m sa515m sa525m
 UTILITIES := clean distclean
 
 export LEGATO_RELATIVE_PATH := ../legato/legato-af
@@ -16,17 +16,23 @@ export SELINUX_FILE_CONTEXTS := ${CURDIR}/security/selinux/sepolicy/files/file_c
 SE_FILES = $(shell find $(CURDIR)/security/selinux/sepolicy/ -name *.pp -type f)
 SE_MODS = $(shell find $(CURDIR)/security/selinux/sepolicy/ -name tmp -type d)
 
+# Sub-Makefile for TelAF Simulation, but we need to
+# prevent 'simulation' target from affecting other targets.
+ifneq ($(filter simula%,$(MAKECMDGOALS)),)
+  include simulation/simulation.mk
+endif
+
 $(TARGETS):
 ifneq ($(TELAF_BUILD), $(wildcard $(TELAF_BUILD)))
 	@ln -sf $(LEGATO_RELATIVE_PATH)/build ./build
 endif
 	$(shell $(GEN_FILE_CONTEXTS))
-	$(MAKE) -C $(LEGATO_ROOT) $@ TELAF_ROOT_SET=$(TELAF_ROOT)
+	$(MAKE) --no-print-directory -C $(LEGATO_ROOT) $@ TELAF_ROOT_SET=$(TELAF_ROOT)
 
 $(UTILITIES):
-	$(MAKE) -C $(LEGATO_ROOT) $@ TELAF_ROOT_SET=$(TELAF_ROOT)
+	@$(MAKE) --no-print-directory -C $(LEGATO_ROOT) $@ TELAF_ROOT_SET=$(TELAF_ROOT)
 ifeq ($(TELAF_BUILD), $(wildcard $(TELAF_BUILD)))
 	@rm -rf $(TELAF_BUILD)
 endif
 	@rm -fr $(SE_FILES) $(SE_MODS)
-
+	@rm -f simulation/workstation/.check_done

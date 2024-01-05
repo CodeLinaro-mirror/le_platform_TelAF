@@ -131,32 +131,42 @@ le_result_t taf_net_GetInterfaceList(taf_net_InterfaceInfo_t *intfInfoList, size
     TAF_ERROR_IF_RET_VAL(intfInfoList == NULL, LE_BAD_PARAMETER, "intfInfoList is NULL!");
     TAF_ERROR_IF_RET_VAL(listSize == NULL, LE_BAD_PARAMETER, "listSize is NULL!");
 
-    result = taf_dcs_GetProfileList(profilesInfoPtr, &profListSize);
-
-    if(result != LE_OK)
+    for(int phoneId = 1; phoneId <= MAX_SLOT_COUNT; phoneId++)
     {
-        //To get wifi interface name information will be supported
-        return LE_FAULT;
-    }
-
-    for (size_t i = 0; i < profListSize; i++)
-    {
-        const taf_dcs_ProfileInfo_t *profileInfoPtr = &profilesInfoPtr[i];
-        profileRef=taf_dcs_GetProfile(profileInfoPtr->index);
-
-        if(profileRef == NULL)
-            continue;
-
-        result=taf_dcs_GetInterfaceName(profileRef, interfaceName, TAF_NET_INTERFACE_NAME_MAX_LEN);
-
+        result = taf_dcs_GetProfileListEx(phoneId, profilesInfoPtr, &profListSize);
         if(result != LE_OK)
+        {
+            LE_DEBUG("Getting profile list for phone id %d failed", phoneId);
             continue;
+        }
 
-        le_utf8_Copy(intfInfoList[intfIdx].interfaceName, interfaceName,
-                     TAF_NET_INTERFACE_NAME_MAX_LEN, NULL);
-        intfInfoList[intfIdx].tech = TAF_NET_TECH_CELLULAR;
-        intfInfoList[intfIdx].state = TAF_NET_STATE_UP;
-        intfIdx++;
+        for (size_t i = 0; i < profListSize; i++)
+        {
+            const taf_dcs_ProfileInfo_t *profileInfoPtr = &profilesInfoPtr[i];
+            profileRef=taf_dcs_GetProfileEx(phoneId, profileInfoPtr->index);
+
+            if(profileRef == NULL)
+                continue;
+
+            result=taf_dcs_GetInterfaceName(profileRef,
+                                            interfaceName,
+                                            TAF_NET_INTERFACE_NAME_MAX_LEN);
+
+            if(result != LE_OK)
+                continue;
+
+            if(intfIdx >= TAF_NET_INTERFACE_NAME_MAX_NUM)
+            {
+                LE_ERROR("The interface number exceeds the max number");
+                break;
+            }
+
+            le_utf8_Copy(intfInfoList[intfIdx].interfaceName, interfaceName,
+                        TAF_NET_INTERFACE_NAME_MAX_LEN, NULL);
+            intfInfoList[intfIdx].tech = TAF_NET_TECH_CELLULAR;
+            intfInfoList[intfIdx].state = TAF_NET_STATE_UP;
+            intfIdx++;
+        }
     }
 
     *listSize=intfIdx;
@@ -358,6 +368,7 @@ le_result_t taf_net_SetDefaultGW(const char *namePtr)
     char ipv4GwAddr[NET_IPV4_ADDR_MAX_BYTES];
     char ipv6GwAddr[NET_IPV6_ADDR_MAX_BYTES];
     uint32_t profileId=0;
+    uint8_t phoneId=0;
     le_result_t ipv4Ret, ipv6Ret, result=LE_NOT_FOUND;
 
     TAF_ERROR_IF_RET_VAL(namePtr == NULL, LE_BAD_PARAMETER, "interface name is NULL!");
@@ -365,15 +376,13 @@ le_result_t taf_net_SetDefaultGW(const char *namePtr)
     auto &network = taf_Net::GetInstance();
 
     result = taf_dcs_GetProfileIdByInterfaceName(namePtr, &profileId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Can't find profile id by name!");
 
-    if(result != LE_OK)
-    { // to be supported: get wifi gateway address or ethernet gateway address
-        LE_ERROR("interface : %s is invalid to get default gateway address", namePtr);
-        return LE_FAULT;
-    }
+    result = taf_dcs_GetPhoneIdByInterfaceName(namePtr, &phoneId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Can't find phone id by name!");
 
     //get cellular default gateway address
-    profileRef= taf_dcs_GetProfile( profileId );
+    profileRef= taf_dcs_GetProfileEx(phoneId, profileId );
 
     if(profileRef == NULL)
     {
@@ -413,6 +422,7 @@ le_result_t taf_net_GetInterfaceGW(const char *namePtr, char *ipv4AddrPtr, size_
 {
     taf_dcs_ProfileRef_t profileRef=NULL;
     uint32_t profileId=0;
+    uint8_t phoneId=0;
     le_result_t ipv4Ret,ipv6Ret,result=LE_NOT_FOUND;
 
     TAF_ERROR_IF_RET_VAL(namePtr == NULL, LE_BAD_PARAMETER, "interface name is NULL!");
@@ -420,15 +430,13 @@ le_result_t taf_net_GetInterfaceGW(const char *namePtr, char *ipv4AddrPtr, size_
     TAF_ERROR_IF_RET_VAL(ipv6AddrPtr == NULL, LE_BAD_PARAMETER, "ipv6AddrPtr is NULL!");
 
     result = taf_dcs_GetProfileIdByInterfaceName(namePtr, &profileId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Can't find profile id by name!");
 
-    if(result != LE_OK)
-    { // to be supported: get wifi gateway address or ethernet gateway address
-        LE_ERROR("interface : %s is invalid to get default gateway address", namePtr);
-        return LE_FAULT;
-    }
+    result = taf_dcs_GetPhoneIdByInterfaceName(namePtr, &phoneId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Can't find phone id by name!");
 
     //get cellular gateway address
-    profileRef= taf_dcs_GetProfile( profileId );
+    profileRef= taf_dcs_GetProfileEx(phoneId, profileId );
 
     if(profileRef == NULL)
     {
@@ -463,6 +471,7 @@ le_result_t taf_net_SetDNS(const char *namePtr)
 {
     taf_dcs_ProfileRef_t profileRef=NULL;
     uint32_t profileId=0;
+    uint8_t phoneId=0;
     char ipv4DnsAddrs[NET_DNS_MAX_NUMBER_PER_INTERFACE][NET_IPV4_ADDR_MAX_BYTES] = {{0}, {0}};
     char ipv6DnsAddrs[NET_DNS_MAX_NUMBER_PER_INTERFACE][NET_IPV6_ADDR_MAX_BYTES] = {{0}, {0}};
     le_result_t ipv4Ret,ipv6Ret,result=LE_NOT_FOUND;
@@ -472,14 +481,12 @@ le_result_t taf_net_SetDNS(const char *namePtr)
     TAF_ERROR_IF_RET_VAL(namePtr == NULL, LE_BAD_PARAMETER, "interface name is NULL!");
 
     result = taf_dcs_GetProfileIdByInterfaceName(namePtr, &profileId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Can't find profile id by name!");
 
-    if(result != LE_OK)
-    { // to be supported: get wifi DNS address or ethernet DNS address
-        LE_ERROR("interface : %s is invalid to get default DNS address", namePtr);
-        return LE_FAULT;
-    }
+    result = taf_dcs_GetPhoneIdByInterfaceName(namePtr, &phoneId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Can't find phone id by name!");
 
-    profileRef= taf_dcs_GetProfile( profileId );
+    profileRef= taf_dcs_GetProfileEx(phoneId, profileId );
 
     if(profileRef == NULL)
     {
@@ -520,21 +527,20 @@ le_result_t taf_net_GetInterfaceDNS(const char *namePtr,
 {
     taf_dcs_ProfileRef_t profileRef=NULL;
     uint32_t profileId=0;
+    uint8_t phoneId=0;
     le_result_t ipv4Ret,ipv6Ret,result=LE_NOT_FOUND;
 
     TAF_ERROR_IF_RET_VAL(namePtr == NULL, LE_BAD_PARAMETER, "interface name is NULL!");
     TAF_ERROR_IF_RET_VAL(dnsSvrAddrsPtr == NULL, LE_BAD_PARAMETER, "dnsSvrAddrsPtr is NULL!");
 
-    result = taf_dcs_GetProfileIdByInterfaceName(namePtr,&profileId);
+    result = taf_dcs_GetProfileIdByInterfaceName(namePtr, &profileId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Can't find profile id by name!");
 
-    if(result != LE_OK)
-    { // to be supported: get wifi DNS address or ethernet DNS address
-        LE_ERROR("interface : %s is invalid to get default DNS address", namePtr);
-        return LE_FAULT;
-    }
+    result = taf_dcs_GetPhoneIdByInterfaceName(namePtr, &phoneId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Can't find phone id by name!");
 
     //get cellular DNS address
-    profileRef= taf_dcs_GetProfile( profileId);
+    profileRef= taf_dcs_GetProfileEx(phoneId, profileId);
 
     if(profileRef == NULL)
     {
@@ -633,11 +639,11 @@ le_result_t taf_net_AddDestNatEntryOnDefaultPdn
 
     if(!tafNat.IsRmnetBringUp(profileId))
     {
-        LE_ERROR("Rmnet interface is not bringed up");
+        LE_ERROR("Rmnet interface is not brought up");
         return LE_FAULT;
     }
 
-    result=tafNat.AddDestNatEntry( profileId, privateIpAddr,privatePort,globalPort,ipProto);
+    result=tafNat.AddDestNatEntry(profileId, privateIpAddr, privatePort, globalPort, ipProto);
     return result;
 }
 
@@ -671,11 +677,11 @@ le_result_t taf_net_RemoveDestNatEntryOnDefaultPdn
 
     if(!tafNat.IsRmnetBringUp(profileId))
     {
-        LE_ERROR("Rmnet interface is not bringed up");
+        LE_ERROR("Rmnet interface is not brought up");
         return LE_FAULT;
     }
 
-    result=tafNat.RemoveDestNatEntry( profileId, privateIpAddr,privatePort,globalPort,ipProto);
+    result=tafNat.RemoveDestNatEntry( profileId, privateIpAddr, privatePort, globalPort, ipProto);
     return result;
 }
 
@@ -708,11 +714,11 @@ le_result_t taf_net_AddDestNatEntryOnDemandPdn
 
     if(!tafNat.IsRmnetBringUp(profileId))
     {
-        LE_ERROR("Rmnet interface is not bringed up");
+        LE_ERROR("Rmnet interface is not brought up");
         return LE_FAULT;
     }
 
-    result=tafNat.AddDestNatEntry( profileId, privateIpAddr,privatePort,globalPort,ipProto);
+    result=tafNat.AddDestNatEntry( profileId, privateIpAddr, privatePort, globalPort, ipProto);
     return result;
 }
 
@@ -745,11 +751,11 @@ le_result_t taf_net_RemoveDestNatEntryOnDemandPdn
 
     if(!tafNat.IsRmnetBringUp(profileId))
     {
-        LE_ERROR("Rmnet interface is not bringed up");
+        LE_ERROR("Rmnet interface is not brought up");
         return LE_FAULT;
     }
 
-    result=tafNat.RemoveDestNatEntry( profileId, privateIpAddr,privatePort,globalPort,ipProto);
+    result=tafNat.RemoveDestNatEntry( profileId, privateIpAddr, privatePort, globalPort, ipProto);
     return result;
 }
 
@@ -789,7 +795,7 @@ taf_net_DestNatEntryListRef_t taf_net_GetDestNatEntryListOnDemandPdn
 
     if(!tafNat.IsRmnetBringUp(profileId))
     {
-        LE_ERROR("Rmnet interface is not bringed up");
+        LE_ERROR("Rmnet interface is not brought up");
         return NULL;
     }
 
@@ -901,6 +907,30 @@ taf_net_VlanRef_t taf_net_CreateVlan
 
     return tafVlan.CreateVlan(vlanId, isAccelerated, taf_net_GetClientSessionRef());
 }
+
+/**
+ * Set a VLAN priority.
+ *
+ * @param [in] vlanRef                  The VLAN reference.
+ * @param [in] priority                 The priority.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_NOT_FOUND                VLAN is not present.
+ *          LE_BAD_PARAMETER            Invalid parameter.
+ *          LE_FAULT                    Failed to set priority to a VLAN.
+ *
+ */
+le_result_t taf_net_SetVlanPriority
+(
+    taf_net_VlanRef_t vlanRef,
+    uint8_t priority
+)
+{
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    return tafVlan.SetVlanPriority(vlanRef, priority);
+}
+
 
 /**
  * Remove a VLAN. If the VLAN interface is present in this VLAN, it can't be removed.
@@ -1083,6 +1113,27 @@ taf_net_VlanIfType_t taf_net_GetVlanInterfaceType
 }
 
 /**
+ * Get the VLAN priority with a VLAN interface reference.
+ *
+ * @param [in] vlanIfRef                The interface reference.
+ * @param [out] priority                The VLAN priority.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_NOT_FOUND                VLAN is not present.
+ *          LE_BAD_PARAMETER            Invalid parameter.
+ */
+le_result_t taf_net_GetVlanPriority
+(
+    taf_net_VlanIfRef_t vlanIfRef,
+    uint8_t* priority
+)
+{
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    return tafVlan.GetVlanPriority(vlanIfRef, priority);
+}
+
+/**
  * Get the reference of the VLAN entry list.
  *
  * @returns NULL                        Failure.
@@ -1210,6 +1261,26 @@ int32_t taf_net_GetVlanBoundProfileId
 }
 
 /**
+ * Get the bound phone id and profile id.
+ *
+ * @param [in] vlanEntryRef             The VLAN entry reference.
+ * @param [in] phoneId                  The phone id for VLAN association.
+ *
+ * @returns less than 0                 Reference is null or can't find profile id.
+ *          Others                      Success
+ */
+le_result_t taf_net_GetVlanBoundPhoneId
+(
+    taf_net_VlanEntryRef_t vlanEntryRef,
+    uint8_t* phoneId
+)
+{
+    auto &tafVlan = taf_Vlan::GetInstance();
+
+    return tafVlan.GetVlanPhoneId(vlanEntryRef, phoneId);
+}
+
+/**
  * Bind a VLAN with a particular profile ID. This API can only be supported on device mode 0
  *
  * @param [in] vlanRef                  The VLAN Reference.
@@ -1230,11 +1301,53 @@ le_result_t taf_net_BindVlanWithProfile
 )
 {
     le_result_t result;
+    uint8_t slotId;
     auto &tafVlan = taf_Vlan::GetInstance();
+    auto &network = taf_Net::GetInstance();
 
     TAF_ERROR_IF_RET_VAL(vlanRef == nullptr , LE_BAD_PARAMETER, "vlanRef is null");
 
-    result=tafVlan.BindVlanWithProfile(vlanRef, profileId);
+    result = network.getSlotIdFromPhoneId(DEFAULT_PHONE_ID_1, &slotId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "failed to get slot id from phone id");
+
+    result=tafVlan.BindVlanWithProfile(vlanRef, slotId, profileId);
+    return result;
+}
+
+/**
+ * Bind a VLAN with a particular profile ID. This API can only be supported on device mode 0
+ *
+ * @param [in] vlanRef                  The VLAN Reference.
+ * @param [in] phoneId                  The phone id for VLAN association.
+ * @param [in] profileId                The profile id for VLAN association.
+ *
+ * @returns LE_OK                       Success.
+ *          LE_NOT_FOUND:               VLAN not found
+ *          LE_BAD_PARAMETER            Invalid parameter.
+ *          LE_FAULT                    Failed to bind VLAN with profile.
+ *          LE_TIMEOUT                  Time out.
+ *
+ * @note  If bind VLAN with default profile id and phone id, the system will auto reboot after 5
+ *        seconds
+ */
+le_result_t taf_net_BindVlanWithProfileEx
+(
+    taf_net_VlanRef_t vlanRef,
+    uint8_t phoneId,
+    uint32_t profileId
+)
+{
+    le_result_t result;
+    uint8_t slotId;
+    auto &tafVlan = taf_Vlan::GetInstance();
+    auto &network = taf_Net::GetInstance();
+
+    TAF_ERROR_IF_RET_VAL(vlanRef == nullptr , LE_BAD_PARAMETER, "vlanRef is null");
+
+    result = network.getSlotIdFromPhoneId(phoneId, &slotId);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, result, "failed to get slot id from phone id");
+
+    result=tafVlan.BindVlanWithProfile(vlanRef, slotId, profileId);
     return result;
 }
 
@@ -1907,40 +2020,6 @@ le_result_t taf_net_GetSessionConfig
     auto &tafL2tp = taf_L2tp::GetInstance();
 
     return tafL2tp.GetSessionConfig(tunnelEntryRef, sessionConfigPtr, sessionConfigSizePtr);
-}
-
-/**
- * Set device mode.
- *
- * @param [in] deviceMode            Device mode value.
- *
- * @returns LE_OK                    Success.
- *          LE_BAD_PARAMETER         Invalid device mode.
- *          LE_FAULT                 Failed to set device mode
- *
- * @note    if device mode is changed, the system will auto reboot after 5 seconds
- */
-le_result_t taf_net_SetDeviceMode
-(
-    taf_net_DeviceMode_t deviceMode
-)
-{
-    return taf_pa_net_SetDeviceMode(deviceMode);
-}
-
-/**
- * Get device mode.
- *
- * @param   None.
- *
- * @returns taf_net_DeviceMode_t.
- */
-taf_net_DeviceMode_t taf_net_GetDeviceMode
-(
-    void
-)
-{
-    return taf_pa_net_GetDeviceMode();
 }
 
 /*=========================================SOCKS=========================================*/

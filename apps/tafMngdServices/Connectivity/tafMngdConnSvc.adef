@@ -1,0 +1,59 @@
+maxThreads: 300
+
+username: telaf
+
+capability:
+{
+        CAP_WAKE_ALARM
+        CAP_NET_ADMIN
+        CAP_BLOCK_SUSPEND
+}
+
+groups:
+{
+        system
+        diag
+        radio
+        inet
+        locclient
+}
+
+requires:
+{
+    configTree:
+    {
+        [w] .       // Request write access to Managed Connectivity Service's Config Tree
+    }
+}
+
+executables:
+{
+        tafMngdConnSvc = ( $TELAF_ROOT/apps/tafMngdServices/Connectivity/Components/tafMngdConnSvc )
+}
+
+start: manual
+
+processes:
+{
+        run:
+        {
+                (tafMngdConnSvc)
+        }
+
+        maxFileBytes: 8192K
+        faultAction: stopApp
+}
+
+sandboxed: false
+
+bindings:
+{
+    tafMngdConnSvc.tafMngdConnSvc.taf_dcs -> tafDataCallSvc.taf_dcs
+    tafMngdConnSvc.tafMngdConnSvc.taf_radio -> tafRadioSvc.taf_radio
+    tafMngdConnSvc.tafMngdConnSvc.taf_sim -> tafSimCardSvc.taf_sim
+}
+
+extern:
+{
+    tafMngdConnSvc.tafMngdConnSvc.taf_mngd_Conn
+}

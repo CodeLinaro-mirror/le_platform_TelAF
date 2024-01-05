@@ -1,6 +1,12 @@
 sandboxed: false
 
+start: auto
+
 maxThreads: 300
+
+username: telaf
+
+startGroup: 0
 
 capability:
 {

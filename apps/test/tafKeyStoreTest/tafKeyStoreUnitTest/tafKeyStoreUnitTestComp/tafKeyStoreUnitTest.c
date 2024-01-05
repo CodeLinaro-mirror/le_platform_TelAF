@@ -41,10 +41,9 @@
 #include "interfaces.h"
 #include "linux/file.h"
 #include <openssl/hmac.h>
-#include <openssl/sha.h>
 #include <openssl/rsa.h>
-#include <openssl/md5.h>
 #include <openssl/x509.h>
+#include <openssl/evp.h>
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1435,25 +1434,67 @@ __attribute__((unused)) static void RsaKeyExportTest(void)
     LE_INFO("x.509 public key size = %"PRIuS"", expKeySize);
 
     // Verify the signature using the OpenSSL APIs.
-    MD5_CTX md5ctx;
-    uint8_t md5Digest[MD5_DIGEST_LENGTH] = {0};
-    RSA *rsaPubPtr = NULL;
+    uint8_t md5Digest[EVP_MAX_MD_SIZE] = {0};
     const uint8_t* expDataPtr = expKeyData;
+
     // Import a x.509 public key.
-    rsaPubPtr = d2i_RSA_PUBKEY(NULL, &expDataPtr, expKeySize);
-    LE_TEST_ASSERT(rsaPubPtr != NULL, "Test import the RSA public key to OpenSSL key object.");
+    EVP_PKEY* evpPubKey = d2i_PUBKEY(NULL, &expDataPtr, expKeySize);
+    LE_TEST_ASSERT(evpPubKey != NULL, "Test import the RSA public key to OpenSSL key object.");
 
-    MD5_Init(&md5ctx);
-    MD5_Update(&md5ctx, message, sizeof(message));
-    MD5_Final(md5Digest, &md5ctx);
+    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+    if(ctx == NULL)
+    {
+        LE_ERROR("ctx is NULL");
+        return;
+    }
 
-    int err = RSA_verify(NID_md5, md5Digest, sizeof(md5Digest), signature, signatureSize, rsaPubPtr);
+    const EVP_MD* method = EVP_md5();
+
+    EVP_DigestInit_ex(ctx, method, NULL);
+    EVP_DigestUpdate(ctx, message, sizeof(message));
+    EVP_DigestFinal_ex(ctx, md5Digest, NULL);
+    EVP_MD_CTX_free(ctx);
+
+    ctx = EVP_MD_CTX_new();
+    if(ctx == NULL)
+    {
+        LE_ERROR("ctx is NULL");
+        return;
+    }
+
+    method = EVP_md5();
+
+    EVP_DigestVerifyInit(ctx, NULL, method, NULL, evpPubKey);
+    int err = 0;
+    if(EVP_DigestVerifyUpdate(ctx, message, sizeof(message)) == 1)
+    {
+        err = EVP_DigestVerifyFinal(ctx, signature, signatureSize);
+    }
+    EVP_MD_CTX_free(ctx);
+
     LE_TEST_ASSERT(err == 1, "Verify the signature with OpenSSL API.");
 
     memset(signature, 0, signatureSize);
-    err = RSA_verify(NID_md5, md5Digest, sizeof(md5Digest), signature, signatureSize, rsaPubPtr);
+
+    ctx = EVP_MD_CTX_new();
+    if(ctx == NULL)
+    {
+        LE_ERROR("ctx is NULL");
+        return;
+    }
+
+    method = EVP_md5();
+
+    EVP_DigestVerifyInit(ctx, NULL, method, NULL, evpPubKey);
+    err = 0;
+    if(EVP_DigestVerifyUpdate(ctx, message, sizeof(message)) == 1)
+    {
+        err = EVP_DigestVerifyFinal(ctx, signature, signatureSize);
+    }
+    EVP_MD_CTX_free(ctx);
+    EVP_PKEY_free(evpPubKey);
+
     LE_TEST_ASSERT(err != 1, "Verify wrong signature with OpenSSL API.");
-    RSA_free(rsaPubPtr);
 }
 
 COMPONENT_INIT

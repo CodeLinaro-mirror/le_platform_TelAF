@@ -1,14 +1,17 @@
 maxThreads: 300
 
+username: telaf
+
+startGroup: 15
+
 capability:
 {
         CAP_WAKE_ALARM
         CAP_SYS_MODULE
         CAP_BLOCK_SUSPEND
-
+        CAP_DAC_OVERRIDE
 #if ${LE_CONFIG_TEST_COVERAGE} = y
         CAP_DAC_READ_SEARCH
-        CAP_DAC_OVERRIDE
 #endif
 }
 

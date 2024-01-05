@@ -27,6 +27,11 @@
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*  Changes from Qualcomm Innovation Center are provided under the following license:
+ *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #include "legato.h"
 #include "interfaces.h"
 #include "telux/tel/PhoneFactory.hpp"
@@ -556,14 +561,14 @@ void taf_VoiceCall::ShowAll()
     }
 
     LE_DEBUG("========================== voice call show all start ==========================");
-    LE_DEBUG("SessionCtx list num: %d", le_dls_NumLinks(&SessionCtxList));
+    LE_DEBUG("SessionCtx list num: %" PRIuS, le_dls_NumLinks(&SessionCtxList));
     le_dls_Link_t* linkPtr = le_dls_Peek(&SessionCtxList);
     while (linkPtr)
     {
         taf_SessionCtx_t* sessionCtxTmpPtr = CONTAINER_OF(linkPtr, taf_SessionCtx_t, link);
         linkPtr = le_dls_PeekNext(&SessionCtxList, linkPtr);
 
-        LE_DEBUG("   [%d]sessionCtx:%p Ref: %p Handler Num: %d, CallRef Num: %d",
+        LE_DEBUG("   [%d]sessionCtx:%p Ref: %p Handler Num: %" PRIuS ", CallRef Num: %" PRIuS,
             i++, sessionCtxTmpPtr, sessionCtxTmpPtr->sessionRef,
             le_dls_NumLinks(&sessionCtxTmpPtr->handlerList), le_dls_NumLinks(&sessionCtxTmpPtr->callRefList));
 
@@ -582,19 +587,19 @@ void taf_VoiceCall::ShowAll()
             taf_CallRefNode_t * callRefPtr = CONTAINER_OF(linkCallRef, taf_CallRefNode_t, link);
             linkCallRef = le_dls_PeekPrev(&sessionCtxTmpPtr->callRefList, linkCallRef);
 
-            LE_DEBUG("       [%d]callRef: 0x%x", k++, (uint32_t)callRefPtr->callRef);
+            LE_DEBUG("       [%d]callRef: %p", k++, callRefPtr->callRef);
         }
     }
 
     i = 0, j = 0, k = 0;
-    LE_DEBUG("CallCtx Num: %d", le_dls_NumLinks(&CallCtrlList));
+    LE_DEBUG("CallCtx Num: %" PRIuS, le_dls_NumLinks(&CallCtrlList));
     linkPtr = le_dls_Peek(&CallCtrlList);
     while ( linkPtr )
     {
         taf_VoiceCtrl_t* callCtxPtr = CONTAINER_OF( linkPtr, taf_VoiceCtrl_t, link);
         linkPtr = le_dls_PeekNext(&CallCtrlList, linkPtr);
-        LE_DEBUG("   [%d]ID: %d, destId: %s, callRef: 0x%x, event: %s, termination: %s",
-            i++, callCtxPtr->phoneId, callCtxPtr->destId, (uint32_t)callCtxPtr->callRef,
+        LE_DEBUG("   [%d]ID: %d, destId: %s, callRef: %p, event: %s, termination: %s",
+            i++, callCtxPtr->phoneId, callCtxPtr->destId, callCtxPtr->callRef,
             EventToString(callCtxPtr->event), TerminationToString(callCtxPtr->termination));
 
         le_dls_Link_t* linkSessionRefPtr = le_dls_Peek(&(callCtxPtr->sessionRefList));
@@ -725,7 +730,7 @@ le_result_t taf_VoiceCall::SendCallEventToClient(taf_VoiceCtrl_t *callCtxPtr, bo
             }
             else
             {
-                LE_WARN("sessionRefNode already exist or session handler(%d) is nout bound", numLinks);
+                LE_WARN("sessionRefNode already exist or session handler(%" PRIuS ") is nout bound", numLinks);
             }
         }
     }

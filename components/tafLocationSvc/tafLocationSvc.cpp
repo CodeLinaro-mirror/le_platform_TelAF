@@ -1225,7 +1225,7 @@ le_result_t taf_gnss_GetSupportedNmeaSentences
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
 */
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 le_result_t taf_gnss_ConfigureEngineState
 (
     taf_gnss_EngineType_t engtype,
@@ -1279,7 +1279,7 @@ le_result_t taf_gnss_RobustLocationInformation
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
 */
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 le_result_t taf_gnss_DefaultSecondaryBandConstellations
 (
 )
@@ -1295,10 +1295,10 @@ le_result_t taf_gnss_DefaultSecondaryBandConstellations
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
 */
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 le_result_t taf_gnss_RequestSecondaryBandConstellations
 (
-   int32_t* constellationSb
+   uint32_t* constellationSb
 )
 {
     auto &gnss = taf_Gnss::GetInstance();
@@ -1312,7 +1312,7 @@ le_result_t taf_gnss_RequestSecondaryBandConstellations
 * PARAMETERS   :
 * RETURN VALUES: LE_OK on success, LE_FAULT LE_UNSUPPORTED LE_NOT_PERMITTED LE_BAD_PARAMETER on failed with reason
 */
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 le_result_t taf_gnss_ConfigureSecondaryBandConstellations
 (
     uint32_t constellationSb
@@ -1357,4 +1357,359 @@ le_result_t taf_gnss_GetEllipticalUncertainty
     auto &gnss = taf_Gnss::GetInstance();
     return gnss.GetEllipticalUncertainty(positionSampleRef,horUncEllipseSemiMajorPtr,
             horUncEllipseSemiMinorPtr,horConfidencePtr);
+}
+
+/**
+* FUNCTION     : SetLeverArmConfig
+* DESCRIPTION  : Set the Lever Arm configuration Parameters
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_BAD_PARAMETER LE_NOT_PERMITTED on failed with reason
+*/
+le_result_t taf_gnss_SetLeverArmConfig
+(
+    const taf_gnss_LeverArmParams_t* LeverArmParamsPtr
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.SetLeverArmConfig(LeverArmParamsPtr);
+}
+
+/**
+* FUNCTION     : SetEngineType
+* DESCRIPTION  : This function sets the GNSS device with engine type
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT LE_BAD_PARAMETER LE_NOT_PERMITTED on failed with reason
+*/
+le_result_t taf_gnss_SetEngineType
+(
+    taf_gnss_EngineReportsType_t EngineType
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.SetEngineType(EngineType);
+}
+
+/**
+* FUNCTION     : GetConformityIndex
+* DESCRIPTION  : This function gets the conformity index
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
+*/
+le_result_t taf_gnss_GetConformityIndex
+(
+ taf_gnss_SampleRef_t positionSampleRef,
+double* indexPtr
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetConformityIndex(positionSampleRef,indexPtr);
+}
+
+/**
+* FUNCTION     : GetCalibrationData
+* DESCRIPTION  : This function gets the sensor calibration status and confidence percent.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
+*/
+le_result_t taf_gnss_GetCalibrationData
+(
+ taf_gnss_SampleRef_t positionSampleRef,
+uint32_t* calibPtr,
+uint8_t* percentPtr
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetCalibrationData(positionSampleRef,calibPtr,percentPtr);
+}
+
+/**
+* FUNCTION     : GetBodyFrameData
+* DESCRIPTION  : This function gets the body frame data
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
+*/
+le_result_t taf_gnss_GetBodyFrameData
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+taf_gnss_KinematicsData_t* bodyDataPtr
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetBodyFrameData(positionSampleRef,bodyDataPtr);
+}
+
+/**
+* FUNCTION     : GetVRPBasedLLA
+* DESCRIPTION  : This function gets Vechile reference point based latitude,longitude & altitude information
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
+*/
+le_result_t taf_gnss_GetVRPBasedLLA
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    double* vrpLatitudePtr,
+    double* vrpLongitudePtr,
+    double* vrpAttitudePtr
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetVRPBasedLLA(positionSampleRef,vrpLatitudePtr,vrpLongitudePtr,vrpAttitudePtr);
+}
+
+/**
+* FUNCTION     : GetVRPBasedVelocity
+* DESCRIPTION  : This function gets Vehicle reference point based east,north & up velocity information
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
+*/
+le_result_t taf_gnss_GetVRPBasedVelocity
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    double* eastVelPtr,
+    double* northVelPtr,
+    double* upVelPtr
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetVRPBasedVelocity(positionSampleRef,eastVelPtr,northVelPtr,upVelPtr);
+}
+
+/**
+* FUNCTION     : GetSvUsedInPosition
+* DESCRIPTION  : This function gets the set of satellite vehicles that are used to calculate position.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
+*/
+le_result_t taf_gnss_GetSvUsedInPosition
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    taf_gnss_SvUsedInPosition_t* svDataPtr
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetSvUsedInPosition(positionSampleRef,svDataPtr);
+}
+
+/**
+* FUNCTION     : GetSbasCorrection
+* DESCRIPTION  : This function gets navigation solution mask used to indicate SBAS corrections.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
+*/
+le_result_t taf_gnss_GetSbasCorrection
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    uint32_t* sbasMaskPtr
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetSbasCorrection(positionSampleRef,sbasMaskPtr);
+}
+
+/**
+* FUNCTION     : GetPositionTechnology
+* DESCRIPTION  : This function gets technology mask to indicate which technology is used.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
+*/
+le_result_t taf_gnss_GetPositionTechnology
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    uint32_t* techMaskPtr
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetPositionTechnology(positionSampleRef,techMaskPtr);
+}
+
+/**
+* FUNCTION     : GetLocationInfoValidity
+* DESCRIPTION  : This function gets the validity of the Location basic Info.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
+*/
+le_result_t taf_gnss_GetLocationInfoValidity
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    uint32_t* validityMaskPtr,
+    uint64_t* validityExMaskPtr
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetLocationInfoValidity(positionSampleRef,validityMaskPtr,validityExMaskPtr);
+}
+
+/**
+* FUNCTION     : GetLocationOutputEngParams
+* DESCRIPTION  : This function gets the combination of position engines and type of
+*                location engine used in calculating the position report.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
+*/
+le_result_t taf_gnss_GetLocationOutputEngParams
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    uint16_t* engMaskPtr,
+    uint16_t* locationEngTypePtr
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetLocationOutputEngParams(positionSampleRef,engMaskPtr,locationEngTypePtr);
+}
+
+/**
+* FUNCTION     : GetReliabilityInformation
+* DESCRIPTION  : This function gets the reliability of the horizontal & vertical positions.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
+*/
+le_result_t taf_gnss_GetReliabilityInformation
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    uint16_t* horiReliblityPtr,
+    uint16_t* vertReliblityPtr
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetReliabilityInformation(positionSampleRef,horiReliblityPtr,vertReliblityPtr);
+}
+
+/**
+* FUNCTION     : GetStdDeviationAzimuthInfo
+* DESCRIPTION  : This function gets the elliptical horizontal uncertainty azimuth of orientation,
+*                east and north standard deviations.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
+*/
+le_result_t taf_gnss_GetStdDeviationAzimuthInfo
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    double* azimuthPtr,
+    double* eastDevPtr,
+    double* northDevPtr
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetStdDeviationAzimuthInfo(positionSampleRef,azimuthPtr,eastDevPtr,northDevPtr);
+}
+
+/**
+* FUNCTION     : GetRealTimeInformation
+* DESCRIPTION  : This function gets elapsed real time and its uncertainity values in nano-second.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT,LE_OUT_OF_RANGE on failed with reason
+*/
+le_result_t taf_gnss_GetRealTimeInformation
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    uint64_t* realTimePtr,
+    uint64_t* realTimeUncPtr
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetRealTimeInformation(positionSampleRef,realTimePtr,realTimeUncPtr);
+}
+
+/**
+* FUNCTION     : GetMeasurementUsageInfo
+* DESCRIPTION  : This function retrieves gnss measurement usage info.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT, LE_OVERFLOW, LE_BAD_PARAMETER, LE_NO_MEMORY
+*                LE_OUT_OF_RANGE on failed with reason.
+*/
+le_result_t taf_gnss_GetMeasurementUsageInfo
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    taf_gnss_GnssMeasurementInfo_t* LE_NONNULL measInfoPtr,
+    size_t* measInfoLen
+)
+{
+    TAF_ERROR_IF_RET_VAL(positionSampleRef == NULL, LE_BAD_PARAMETER, "Invalid gnss sample reference");
+    TAF_ERROR_IF_RET_VAL(measInfoPtr == NULL, LE_NO_MEMORY, "measInfoPtr is NULL");
+    TAF_ERROR_IF_RET_VAL(*measInfoLen == 0, LE_OUT_OF_RANGE, "measInfoLen is ZERO");
+    TAF_ERROR_IF_RET_VAL(*measInfoLen > TAF_GNSS_MEASUREMENT_INFO_MAX, LE_OVERFLOW, "Too many elements.");
+
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetMeasurementUsageInfo(positionSampleRef, measInfoPtr, measInfoLen);
+}
+
+/**
+* FUNCTION     : GetReportStatus
+* DESCRIPTION  : This function retrieves the status of report in terms of how optimally
+               : the report was calculated by the engine.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT, LE_BAD_PARAMETER, LE_NO_MEMORY on failed with reason
+*/
+le_result_t taf_gnss_GetReportStatus
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    int32_t* reportStatusPtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(positionSampleRef == NULL, LE_BAD_PARAMETER, "Invalid gnss sample reference");
+    TAF_ERROR_IF_RET_VAL(reportStatusPtr == NULL, LE_NO_MEMORY, "reportStatusPtr is NULL");
+
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetReportStatus(positionSampleRef, reportStatusPtr);
+}
+
+/**
+* FUNCTION     : GetAltitudeMeanSeaLevel
+* DESCRIPTION  : This function retrieves the altitude with respect to mean sea level in Meters.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT, LE_BAD_PARAMETER, LE_NO_MEMORY on failed with reason
+*/
+le_result_t taf_gnss_GetAltitudeMeanSeaLevel
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    double* altMeanSeaLevelPtr
+)
+{
+    TAF_ERROR_IF_RET_VAL(positionSampleRef == NULL, LE_BAD_PARAMETER, "Invalid gnss sample reference");
+    TAF_ERROR_IF_RET_VAL(altMeanSeaLevelPtr == NULL, LE_NO_MEMORY, "altMeanSeaLevelPtr is NULL");
+
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetAltitudeMeanSeaLevel(positionSampleRef, altMeanSeaLevelPtr);
+}
+
+/**
+* FUNCTION     : GetSVIds
+* DESCRIPTION  : This function retrieves GNSS Satellite Vehicles used in position data.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT, LE_OVERFLOW, LE_BAD_PARAMETER, LE_NO_MEMORY
+*                LE_OUT_OF_RANGE on failed with reason.
+*/
+le_result_t taf_gnss_GetSVIds
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    uint16_t* LE_NONNULL sVIdsPtr,
+    size_t* sVIdsLen
+)
+{
+    TAF_ERROR_IF_RET_VAL(positionSampleRef == NULL, LE_BAD_PARAMETER, "Invalid gnss sample reference");
+    TAF_ERROR_IF_RET_VAL(sVIdsPtr == NULL, LE_NO_MEMORY, "measInfoPtr is NULL");
+    TAF_ERROR_IF_RET_VAL(*sVIdsLen == 0, LE_OUT_OF_RANGE, "measInfoLen is ZERO");
+    TAF_ERROR_IF_RET_VAL(*sVIdsLen > TAF_GNSS_MEASUREMENT_INFO_MAX, LE_OVERFLOW, "Too many elements.");
+
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetSVIds(positionSampleRef, sVIdsPtr, sVIdsLen);
 }

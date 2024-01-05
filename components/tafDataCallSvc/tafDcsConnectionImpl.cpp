@@ -89,7 +89,7 @@ LE_MEM_DEFINE_STATIC_POOL(RoamingStatusPool, TAF_DCS_MAX_SESSION_REF,
                           sizeof(taf_dcs_RoamingStatusInd_t));
 
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 taf_DataConnServingSystemListener::taf_DataConnServingSystemListener(SlotId slot) : slotId(slot) {}
 
 void taf_DataConnServingSystemListener::onServiceStateChanged(telux::data::ServiceStatus status)
@@ -167,14 +167,51 @@ void taf_DataConnectionListener::onDataCallInfoChanged
     callEvent.ipv4Status    = iCall->getIpv4Info().status;
     if (callEvent.ipv4Status == telux::data::DataCallStatus::NET_CONNECTED)
     {
-        callEvent.ipv4AddrInfo  = iCall->getIpv4Info().addr;
+        le_utf8_Copy(callEvent.ipv4AddrInfo.ifAddress, iCall->getIpv4Info().addr.ifAddress.c_str(),
+                     TAF_DCS_IPV4_ADDR_MAX_LEN, NULL);
+
+        callEvent.ipv4AddrInfo.ifMask = iCall->getIpv4Info().addr.ifMask;
+
+        le_utf8_Copy(callEvent.ipv4AddrInfo.gwAddress, iCall->getIpv4Info().addr.gwAddress.c_str(),
+                     TAF_DCS_IPV4_ADDR_MAX_LEN, NULL);
+
+        callEvent.ipv4AddrInfo.gwMask = iCall->getIpv4Info().addr.gwMask;
+
+        le_utf8_Copy(callEvent.ipv4AddrInfo.primaryDnsAddress,
+                     iCall->getIpv4Info().addr.primaryDnsAddress.c_str(),
+                     TAF_DCS_IPV4_ADDR_MAX_LEN, NULL);
+
+        le_utf8_Copy(callEvent.ipv4AddrInfo.secondaryDnsAddress,
+                     iCall->getIpv4Info().addr.secondaryDnsAddress.c_str(),
+                     TAF_DCS_IPV4_ADDR_MAX_LEN, NULL);
     }
+
     callEvent.ipv6Status        = iCall->getIpv6Info().status;
+
     if (callEvent.ipv6Status == telux::data::DataCallStatus::NET_CONNECTED)
     {
-        callEvent.ipv6AddrInfo  = iCall->getIpv6Info().addr;
+        le_utf8_Copy(callEvent.ipv6AddrInfo.ifAddress, iCall->getIpv6Info().addr.ifAddress.c_str(),
+                     TAF_DCS_IPV6_ADDR_MAX_LEN, NULL);
+
+        callEvent.ipv6AddrInfo.ifMask = iCall->getIpv6Info().addr.ifMask;
+
+        le_utf8_Copy(callEvent.ipv6AddrInfo.gwAddress, iCall->getIpv6Info().addr.gwAddress.c_str(),
+                     TAF_DCS_IPV6_ADDR_MAX_LEN, NULL);
+
+        callEvent.ipv6AddrInfo.gwMask = iCall->getIpv6Info().addr.gwMask;
+
+        le_utf8_Copy(callEvent.ipv6AddrInfo.primaryDnsAddress,
+                     iCall->getIpv6Info().addr.primaryDnsAddress.c_str(),
+                     TAF_DCS_IPV6_ADDR_MAX_LEN, NULL);
+
+        le_utf8_Copy(callEvent.ipv6AddrInfo.secondaryDnsAddress,
+                     iCall->getIpv6Info().addr.secondaryDnsAddress.c_str(),
+                     TAF_DCS_IPV6_ADDR_MAX_LEN, NULL);
+
     }
-    callEvent.ifName            = iCall->getInterfaceName();
+
+    le_utf8_Copy(callEvent.ifName, iCall->getInterfaceName().c_str(), TAF_DCS_NAME_MAX_LEN, NULL);
+
     callEvent.dataBearerTech    = iCall->getCurrentBearerTech();
 
     le_event_Report(dataConnection.CallEvent, &callEvent, sizeof(dataCallEvent_t));
@@ -459,7 +496,57 @@ void taf_DataConnection::StartDataCallCallback
     callEvent.slotId        = slotId;
     callEvent.ipType        = iCall->getIpFamilyType();
     callEvent.ipv4Status    = iCall->getIpv4Info().status;
+    if (callEvent.ipv4Status == telux::data::DataCallStatus::NET_CONNECTED)
+    {
+        le_utf8_Copy(callEvent.ipv4AddrInfo.ifAddress, iCall->getIpv4Info().addr.ifAddress.c_str(),
+                     TAF_DCS_IPV4_ADDR_MAX_LEN, NULL);
+
+        callEvent.ipv4AddrInfo.ifMask = iCall->getIpv4Info().addr.ifMask;
+
+        le_utf8_Copy(callEvent.ipv4AddrInfo.gwAddress, iCall->getIpv4Info().addr.gwAddress.c_str(),
+                     TAF_DCS_IPV4_ADDR_MAX_LEN, NULL);
+
+        callEvent.ipv4AddrInfo.gwMask = iCall->getIpv4Info().addr.gwMask;
+
+        le_utf8_Copy(callEvent.ipv4AddrInfo.primaryDnsAddress,
+                     iCall->getIpv4Info().addr.primaryDnsAddress.c_str(),
+                     TAF_DCS_IPV4_ADDR_MAX_LEN, NULL);
+
+        le_utf8_Copy(callEvent.ipv4AddrInfo.secondaryDnsAddress,
+                     iCall->getIpv4Info().addr.secondaryDnsAddress.c_str(),
+                     TAF_DCS_IPV4_ADDR_MAX_LEN, NULL);
+    }
+
     callEvent.ipv6Status    = iCall->getIpv6Info().status;
+
+    if (callEvent.ipv6Status == telux::data::DataCallStatus::NET_CONNECTED)
+    {
+        le_utf8_Copy(callEvent.ipv6AddrInfo.ifAddress, iCall->getIpv6Info().addr.ifAddress.c_str(),
+                     TAF_DCS_IPV6_ADDR_MAX_LEN, NULL);
+
+        callEvent.ipv6AddrInfo.ifMask = iCall->getIpv6Info().addr.ifMask;
+
+        le_utf8_Copy(callEvent.ipv6AddrInfo.gwAddress, iCall->getIpv6Info().addr.gwAddress.c_str(),
+                     TAF_DCS_IPV6_ADDR_MAX_LEN, NULL);
+
+        callEvent.ipv6AddrInfo.gwMask = iCall->getIpv6Info().addr.gwMask;
+
+        le_utf8_Copy(callEvent.ipv6AddrInfo.primaryDnsAddress,
+                     iCall->getIpv6Info().addr.primaryDnsAddress.c_str(),
+                     TAF_DCS_IPV6_ADDR_MAX_LEN, NULL);
+
+        le_utf8_Copy(callEvent.ipv6AddrInfo.secondaryDnsAddress,
+                     iCall->getIpv6Info().addr.secondaryDnsAddress.c_str(),
+                     TAF_DCS_IPV6_ADDR_MAX_LEN, NULL);
+    }
+    if (callEvent.callStatus == telux::data::DataCallStatus::NET_CONNECTED)
+    {
+        le_utf8_Copy(callEvent.ifName, iCall->getInterfaceName().c_str(), TAF_DCS_NAME_MAX_LEN, NULL);
+    }
+    callEvent.dataBearerTech    = iCall->getCurrentBearerTech();
+    LE_DEBUG("ipv4 status=%s, ipv6 status=%s",
+              dataConnection.CallStatusToString(callEvent.ipv4Status),
+              dataConnection.CallStatusToString(callEvent.ipv6Status));
     LE_DEBUG("Start callback:event=%d,errcode=%d, callstatus=%s, slotId=%d, profileId=%d, ipType=%d",
              (int)callEvent.event, (int)callEvent.errorCode,
              dataConnection.CallStatusToString(callEvent.callStatus), callEvent.slotId,
@@ -498,7 +585,55 @@ void taf_DataConnection::StopDataCallCallback
     callEvent.slotId        = slotId;
     callEvent.ipType        = iCall->getIpFamilyType();
     callEvent.ipv4Status    = iCall->getIpv4Info().status;
+    if (callEvent.ipv4Status == telux::data::DataCallStatus::NET_CONNECTED)
+    {
+        le_utf8_Copy(callEvent.ipv4AddrInfo.ifAddress, iCall->getIpv4Info().addr.ifAddress.c_str(),
+                     TAF_DCS_IPV4_ADDR_MAX_LEN, NULL);
+
+        callEvent.ipv4AddrInfo.ifMask = iCall->getIpv4Info().addr.ifMask;
+
+        le_utf8_Copy(callEvent.ipv4AddrInfo.gwAddress, iCall->getIpv4Info().addr.gwAddress.c_str(),
+                     TAF_DCS_IPV4_ADDR_MAX_LEN, NULL);
+
+        callEvent.ipv4AddrInfo.gwMask = iCall->getIpv4Info().addr.gwMask;
+
+        le_utf8_Copy(callEvent.ipv4AddrInfo.primaryDnsAddress,
+                     iCall->getIpv4Info().addr.primaryDnsAddress.c_str(),
+                     TAF_DCS_IPV4_ADDR_MAX_LEN, NULL);
+
+        le_utf8_Copy(callEvent.ipv4AddrInfo.secondaryDnsAddress,
+                     iCall->getIpv4Info().addr.secondaryDnsAddress.c_str(),
+                     TAF_DCS_IPV4_ADDR_MAX_LEN, NULL);
+    }
     callEvent.ipv6Status    = iCall->getIpv6Info().status;
+    if (callEvent.ipv6Status == telux::data::DataCallStatus::NET_CONNECTED)
+    {
+        le_utf8_Copy(callEvent.ipv6AddrInfo.ifAddress, iCall->getIpv6Info().addr.ifAddress.c_str(),
+                     TAF_DCS_IPV6_ADDR_MAX_LEN, NULL);
+
+        callEvent.ipv6AddrInfo.ifMask = iCall->getIpv6Info().addr.ifMask;
+
+        le_utf8_Copy(callEvent.ipv6AddrInfo.gwAddress, iCall->getIpv6Info().addr.gwAddress.c_str(),
+                     TAF_DCS_IPV6_ADDR_MAX_LEN, NULL);
+
+        callEvent.ipv6AddrInfo.gwMask = iCall->getIpv6Info().addr.gwMask;
+
+        le_utf8_Copy(callEvent.ipv6AddrInfo.primaryDnsAddress,
+                     iCall->getIpv6Info().addr.primaryDnsAddress.c_str(),
+                     TAF_DCS_IPV6_ADDR_MAX_LEN, NULL);
+
+        le_utf8_Copy(callEvent.ipv6AddrInfo.secondaryDnsAddress,
+                     iCall->getIpv6Info().addr.secondaryDnsAddress.c_str(),
+                     TAF_DCS_IPV6_ADDR_MAX_LEN, NULL);
+    }
+    if (callEvent.callStatus == telux::data::DataCallStatus::NET_CONNECTED)
+    {
+        le_utf8_Copy(callEvent.ifName, iCall->getInterfaceName().c_str(), TAF_DCS_NAME_MAX_LEN, NULL);
+        callEvent.dataBearerTech    = iCall->getCurrentBearerTech();
+    }
+    LE_DEBUG("ipv4 status=%s, ipv6 status=%s",
+              dataConnection.CallStatusToString(callEvent.ipv4Status),
+              dataConnection.CallStatusToString(callEvent.ipv6Status));
     LE_DEBUG("stop callback:event=%d, errcode=%d, callstatus=%s, slotId=%d, profileId=%d, ipType=%d",
              (int)callEvent.event,(int)callEvent.errorCode,
             dataConnection.CallStatusToString(callEvent.callStatus), callEvent.slotId,
@@ -674,7 +809,7 @@ le_result_t taf_DataConnection::SendSettingDefaultProfileIdCmd(uint8_t slotId, i
 
 le_result_t taf_DataConnection::SendGettingDefaultProfileIdCmd()
 {
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 
     if(dataConnectionManagers.find((SlotId)SLOT_ID_1) == dataConnectionManagers.end())
     {
@@ -1216,11 +1351,11 @@ le_result_t taf_DataConnection::StopSessionCmdSync
     size_t numLinks = le_dls_NumLinks(&callCtxPtr->sessionRefList);
     pthread_mutex_unlock(&callCtxPtr->sessionListMutex);
 
-    LE_INFO("numlink=%d", numLinks);
+    LE_INFO("numlink=%" PRIuS, numLinks);
 
     if (numLinks > 0)
     {
-        LE_INFO("slotId(%d) profile(%d) is used by (%d) clients, nothing to do in this operation",
+        LE_INFO("slotId(%d) profile(%d) is used by (%" PRIuS ") clients, nothing to do in this operation",
                  slotId, profileId, numLinks);
         return LE_OK;
     }
@@ -1348,12 +1483,12 @@ void taf_DataConnection::StopSessionCmdAsync
     size_t numLinks = le_dls_NumLinks(&callCtxPtr->sessionRefList);
     pthread_mutex_unlock(&callCtxPtr->sessionListMutex);
 
-    LE_INFO("numlink=%d",numLinks);
+    LE_INFO("numlink=%" PRIuS, numLinks);
 
     // Check if more than one session uses this data connection
     if (numLinks > 0)
     {
-        LE_INFO("slotId(%d) profile(%d) is used by (%d) clients, nothing to do in this operation",
+        LE_INFO("slotId(%d) profile(%d) is used by (%" PRIuS ") clients, nothing to do in this operation",
                  slotId, profileId, numLinks);
         handlerPtr(profileRef, LE_OK, contextPtr);
         return;
@@ -1423,7 +1558,7 @@ le_result_t taf_DataConnection::GetDefaultProfileIdSync(uint8_t *slotId, uint32_
 
 // In SA415M with old telsdk version, there is no getDefaultProfile function which will not set
 // CmdSynchronousPromise value
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     // blocking here to get response
     std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
     result = futResult.get();
@@ -1669,7 +1804,7 @@ le_result_t taf_DataConnection::GetRoamingStatus
 {
     TAF_ERROR_IF_RET_VAL(isRoamingPtr == NULL || typePtr == NULL, LE_BAD_PARAMETER, "ptr is null");
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
         auto reqRoamingStatusCbFunc = std::bind(
                                     &taf_DataConnRequestRoamingStatusCallback::requestRoamingStatus,
                                     reqRoamingStatusCb,
@@ -1851,31 +1986,32 @@ bool taf_DataConnection::updateStatus(taf_dcs_CallCtx_t *callCtxPtr, dataCallEve
         break;
 
         case telux::data::DataCallStatus::NET_CONNECTED:
-            le_utf8_Copy(callCtxPtr->intfName, eventPtr->ifName.c_str(),
+            callCtxPtr->ipType     = eventPtr->ipType;
+            le_utf8_Copy(callCtxPtr->intfName, eventPtr->ifName,
                          sizeof(callCtxPtr->intfName), NULL);
             if (eventPtr->ipv4Status == telux::data::DataCallStatus::NET_CONNECTED)
             {
-                le_utf8_Copy(callCtxPtr->ipv4Addr, eventPtr->ipv4AddrInfo.ifAddress.c_str(),
+                le_utf8_Copy(callCtxPtr->ipv4Addr, eventPtr->ipv4AddrInfo.ifAddress,
                              TAF_DCS_IPV4_ADDR_MAX_LEN, NULL);
-                le_utf8_Copy(callCtxPtr->ipv4Gw, eventPtr->ipv4AddrInfo.gwAddress.c_str(),
+                le_utf8_Copy(callCtxPtr->ipv4Gw, eventPtr->ipv4AddrInfo.gwAddress,
                              TAF_DCS_IPV4_ADDR_MAX_LEN, NULL);
-                le_utf8_Copy(callCtxPtr->ipv4Dns1, eventPtr->ipv4AddrInfo.primaryDnsAddress.c_str(),
+                le_utf8_Copy(callCtxPtr->ipv4Dns1, eventPtr->ipv4AddrInfo.primaryDnsAddress,
                              TAF_DCS_IPV4_ADDR_MAX_LEN, NULL);
                 le_utf8_Copy(callCtxPtr->ipv4Dns2,
-                             eventPtr->ipv4AddrInfo.secondaryDnsAddress.c_str(),
+                             eventPtr->ipv4AddrInfo.secondaryDnsAddress,
                              TAF_DCS_IPV4_ADDR_MAX_LEN, NULL);
             }
 
             if (eventPtr->ipv6Status == telux::data::DataCallStatus::NET_CONNECTED)
             {
-                le_utf8_Copy(callCtxPtr->ipv6Addr, eventPtr->ipv6AddrInfo.ifAddress.c_str(),
+                le_utf8_Copy(callCtxPtr->ipv6Addr, eventPtr->ipv6AddrInfo.ifAddress,
                              TAF_DCS_IPV6_ADDR_MAX_LEN, NULL);
-                le_utf8_Copy(callCtxPtr->ipv6Gw, eventPtr->ipv6AddrInfo.gwAddress.c_str(),
+                le_utf8_Copy(callCtxPtr->ipv6Gw, eventPtr->ipv6AddrInfo.gwAddress,
                              TAF_DCS_IPV6_ADDR_MAX_LEN, NULL);
-                le_utf8_Copy(callCtxPtr->ipv6Dns1, eventPtr->ipv6AddrInfo.primaryDnsAddress.c_str(),
+                le_utf8_Copy(callCtxPtr->ipv6Dns1, eventPtr->ipv6AddrInfo.primaryDnsAddress,
                              TAF_DCS_IPV6_ADDR_MAX_LEN, NULL);
                 le_utf8_Copy(callCtxPtr->ipv6Dns2,
-                             eventPtr->ipv6AddrInfo.secondaryDnsAddress.c_str(),
+                             eventPtr->ipv6AddrInfo.secondaryDnsAddress,
                              TAF_DCS_IPV6_ADDR_MAX_LEN, NULL);
             }
 
@@ -1997,11 +2133,13 @@ void taf_DataConnection::InternalEventHandler(void* reportPtr)
             else
             {
                 isSendNotification = updateStatus(callCtxPtr, eventPtr);
-                stateInfo.ipType = GetEvtInfoFromConnStatus(callCtxPtr,
-                                                    telux::data::DataCallStatus::NET_CONNECTING);
                 TAF_ERROR_IF_RET_NIL(isSendNotification != true,
                                      "won't send notification to listener");
-                SendNotificationStateEvent(TAF_DCS_CONNECTING, &stateInfo, callCtxPtr);
+                LE_DEBUG("STARTCALLBACK:callStatus = %s, ipType=%d, ipv4status=%s, ipv6status=%s",
+                dataConnection.CallStatusToString(callCtxPtr->callStatus),(int)callCtxPtr->ipType,
+                dataConnection.CallStatusToString(callCtxPtr->ipv4Status),
+                dataConnection.CallStatusToString(callCtxPtr->ipv6Status));
+                SendStatusChangedNotification(callCtxPtr,eventPtr);
 
                 // If the call back is from synchronous data call, need to set the result
                 if (callCtxPtr->funcType == CALL_FUNCTION_SYNC_START)
@@ -2064,11 +2202,13 @@ void taf_DataConnection::InternalEventHandler(void* reportPtr)
             else
             {
                 isSendNotification = updateStatus(callCtxPtr, eventPtr);
-                stateInfo.ipType = GetEvtInfoFromConnStatus(callCtxPtr,
-                                                    telux::data::DataCallStatus::NET_CONNECTING);
                 TAF_ERROR_IF_RET_NIL(isSendNotification != true,
                                      "won't send notification to listener");
-                SendNotificationStateEvent(TAF_DCS_DISCONNECTING, &stateInfo, callCtxPtr);
+                LE_DEBUG("STOPCALLBACK:callStatus = %s, ipType=%d, ipv4status=%s, ipv6status=%s",
+                          dataConnection.CallStatusToString(callCtxPtr->callStatus),(int)stateInfo.ipType,
+                          dataConnection.CallStatusToString(callCtxPtr->ipv4Status),
+                          dataConnection.CallStatusToString(callCtxPtr->ipv6Status));
+                SendStatusChangedNotification(callCtxPtr,eventPtr);
 
                 // If the call back is from synchronous data call, need to set the result
                 if (callCtxPtr->funcType == CALL_FUNCTION_SYNC_STOP)
@@ -2609,7 +2749,7 @@ void taf_DataConnection::CloseEventHandler
     return;
 }
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 void taf_DataConnection::onInitCompleted(telux::common::ServiceStatus status)
 {
     std::lock_guard<std::mutex> lock(mtx);
@@ -2741,7 +2881,7 @@ void taf_DataConnection::Init(void)
 {
     auto &dataFactory = telux::data::DataFactory::getInstance();
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 
     int noOfSlots = MIN_SLOT_COUNT;
     if(telux::common::DeviceConfig::isMultiSimSupported())
@@ -2915,7 +3055,7 @@ void taf_DataConnection::Init(void)
     callCtxMutex = le_mutex_CreateNonRecursive("callCtxMutex");
     handlerlistMutex = le_mutex_CreateNonRecursive("handlerlistMutex");
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     // Add power state change handler
     taf_pm_AddStateChangeHandler(PowerStateChangeHandler, NULL);
     if (taf_pm_GetPowerState() != TAF_PM_STATE_SUSPEND)

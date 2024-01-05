@@ -13,16 +13,14 @@ requires:
     api:
     {
         le_update.api
-        le_updateCtrl.api
 
         le_appRemove.api
         le_appCtrl.api
         le_appInfo.api
+
         le_cfg.api
 
-#if ${TARGET} = sa515m
         taf_mrc.api
-#endif
     }
 
     component:
@@ -57,3 +55,10 @@ sources:
     tafFwUpdateImpl.cpp
 }
 
+bundles:
+{
+    file:
+    {
+        [r] tafUpdate.json    /
+    }
+}

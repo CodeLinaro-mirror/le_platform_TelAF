@@ -16,6 +16,7 @@
         }
     ],
     "routing" : "tafSomeipGWSvc",
+    "network" : "tafSomeipGWSvc",
     "service-discovery" :
     {
         "enable" : "true",

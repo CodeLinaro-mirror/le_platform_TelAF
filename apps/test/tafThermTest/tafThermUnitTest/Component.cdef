@@ -1,0 +1,17 @@
+
+sources:
+{
+    tafThermUnitTest.cpp
+}
+
+requires:
+{
+    api:
+    {
+        taf_therm.api
+    }
+}
+cxxflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+}

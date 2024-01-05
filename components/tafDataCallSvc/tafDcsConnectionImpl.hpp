@@ -76,7 +76,7 @@
 #include "telux/tel/PhoneFactory.hpp"
 #include "telux/common/CommonDefines.hpp"
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 #include <telux/tel/ServingSystemManager.hpp>
 #endif
 #include "tafSvcIF.hpp"
@@ -157,19 +157,29 @@ namespace tafsvc {
         le_event_Id_t                           sessionStateEvent;
     } taf_dcs_CallCtx_t;
 
+    typedef struct IpAddrInfo
+    {
+        char                                    ifAddress[TAF_DCS_IPV6_ADDR_MAX_LEN];
+        uint32_t                                ifMask;
+        char                                    gwAddress[TAF_DCS_IPV6_ADDR_MAX_LEN];
+        uint32_t                                gwMask = 0;
+        char                                    primaryDnsAddress[TAF_DCS_IPV6_ADDR_MAX_LEN];
+        char                                    secondaryDnsAddress[TAF_DCS_IPV6_ADDR_MAX_LEN];
+    }taf_dcs_IpAddrInfo_t;
+
     typedef struct
     {
         EventType_t                             event;
         int32_t                                 profileId;
         uint8_t                                 slotId;
         telux::common::ErrorCode                errorCode;
-        std::string                             ifName;
+        char                                    ifName[TAF_DCS_NAME_MAX_LEN];
         telux::data::IpFamilyType               ipType;
         telux::data::DataCallStatus             callStatus;
         telux::data::DataCallStatus             ipv4Status;
         telux::data::DataCallStatus             ipv6Status;
-        telux::data::IpAddrInfo                 ipv4AddrInfo;
-        telux::data::IpAddrInfo                 ipv6AddrInfo;
+        taf_dcs_IpAddrInfo_t                    ipv4AddrInfo;
+        taf_dcs_IpAddrInfo_t                    ipv6AddrInfo;
         telux::data::DataBearerTechnology       dataBearerTech;
     } dataCallEvent_t;
 
@@ -192,7 +202,7 @@ namespace tafsvc {
         public:
           void onDataCallInfoChanged(const std::shared_ptr<telux::data::IDataCall> &iCall) override;
     };
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     class taf_DataConnServingSystemListener : public telux::data::IServingSystemListener
     {
         public:
@@ -234,7 +244,7 @@ namespace tafsvc {
         public:
             taf_DataConnection() {};
             ~taf_DataConnection() {};
-        #ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
             void onInitCompleted(telux::common::ServiceStatus status);
         #endif
             void Init(void);
@@ -348,7 +358,7 @@ namespace tafsvc {
             taf_dcs_Pdp_t GetEvtInfoFromConnStatus(taf_dcs_CallCtx_t *callCtxPtr,
                                                    telux::data::DataCallStatus callStatus);
             static void CloseEventHandler(le_msg_SessionRef_t sessionRef, void* contextPtr);
-        #ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
             bool subSystemStatusUpdated;
             std::mutex mtx;
             std::condition_variable conVar;

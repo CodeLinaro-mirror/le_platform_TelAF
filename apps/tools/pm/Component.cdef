@@ -1,0 +1,12 @@
+requires:
+{
+    api:
+    {
+        taf_pm.api
+    }
+}
+
+sources:
+{
+    pm.c
+}

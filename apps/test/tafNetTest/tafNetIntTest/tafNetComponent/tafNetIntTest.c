@@ -33,8 +33,8 @@
  */
 
 /*
- * @file       tafDataUnitTest.cpp
- * @brief      This file includes unit test functions of the Data Service.
+ * @file       tafNetIntTest.cpp
+ * @brief      This file includes integration test functions of the Networking Service.
  */
 
 #include "legato.h"
@@ -78,11 +78,13 @@ static void PrintUsage ()
             "app runProc tafNetIntTest --exe=tafNetIntTest -- getdestnatlistondemandpdn \
 <profileid>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- createvlan <vlanId> <type> \
-<isAccelerated>\n"
+<isAccelerated> [optional priority]\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- removevlan <vlanId> <type>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- getvlaninterfaceinfo <vlanid>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- bindwithprofile \
 <vlanid> <profileid>\n"
+            "app runProc tafNetIntTest --exe=tafNetIntTest -- bindwithprofileex \
+<vlanid> <phoneid> <profileid>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- unbindwithprofile <vlanid>\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- getvlanentryinfo\n"
             "app runProc tafNetIntTest --exe=tafNetIntTest -- enablel2tp <enablemss> <enablemtu> \
@@ -210,6 +212,7 @@ static void* DestNatThread(void* contextPtr)
 
     return NULL;
 }
+
 static void* HandlerThread(void* contextPtr)
 {
     LE_INFO("======== Test Thread of Net Service Start ========");
@@ -222,25 +225,26 @@ static void* HandlerThread(void* contextPtr)
     LE_INFO("======== 1. Network Add Handlers ========");
 
     LE_INFO("======== 1.1 Route change Handler ========");
-    le_thread_Ref_t threadRef = le_thread_Create("NetRouteThread", NetRouteThread, NULL);
+    le_thread_Ref_t threadRef = le_thread_Create("NetRouteTh", NetRouteThread, NULL);
     le_thread_Start(threadRef);
     le_clk_Time_t timeToWait = {5, 0};
     LE_ASSERT(le_sem_WaitWithTimeOut(semaphore, timeToWait) == LE_OK);
 
     LE_INFO("======== 1.2 Gateway change Handler ========");
-    threadRef = le_thread_Create("NetGatewayThread", NetGatewayThread, NULL);
+    threadRef = le_thread_Create("NetGatewayTh", NetGatewayThread, NULL);
     le_thread_Start(threadRef);
     LE_ASSERT(le_sem_WaitWithTimeOut(semaphore, timeToWait) == LE_OK);
 
     LE_INFO("======== 1.3 DNS change Handler ========");
-    threadRef = le_thread_Create("DNSChangeThread", NetDNSThread, NULL);
+    threadRef = le_thread_Create("DNSChangeTh", NetDNSThread, NULL);
     le_thread_Start(threadRef);
     LE_ASSERT(le_sem_WaitWithTimeOut(semaphore, timeToWait) == LE_OK);
 
-    LE_INFO("======== 1.4 DNS change Handler ========");
-    threadRef = le_thread_Create("DestNatChangeThread", DestNatThread, NULL);
+    LE_INFO("======== 1.4 Nat change Handler ========");
+    threadRef = le_thread_Create("DestNatChgTh", DestNatThread, NULL);
     le_thread_Start(threadRef);
     LE_ASSERT(le_sem_WaitWithTimeOut(semaphore, timeToWait) == LE_OK);
+
     return NULL;
 }
 
@@ -258,7 +262,7 @@ static int TafNetGetInterfaceList()
     }
 
     result = taf_net_GetInterfaceList(intfInfoListPtr,&listSize);
-    LE_INFO("----interface number=%d,result=%d\n",listSize,result);
+    LE_INFO("----interface number=%" PRIuS ",result=%d\n",listSize,result);
     for(int i=0;i<listSize;i++)
     {
         LE_INFO("----interface name =%s,technology =%d,state =%d",intfInfoListPtr[i].interfaceName,
@@ -284,8 +288,18 @@ static int TafNetChangeIpRoute()
     const char* intfName = le_arg_GetArg(1);
     const char* destAddr = le_arg_GetArg(2);
     const char* prefixLength = le_arg_GetArg(3);
-    uint16_t metric = strtol(le_arg_GetArg(4), NULL, 0);
-    uint8_t isAdd = strtol(le_arg_GetArg(5), NULL, 0);
+    const char* metricPtr = le_arg_GetArg(4);
+    const char* isAddPtr = le_arg_GetArg(5);
+
+    if(intfName == NULL || destAddr == NULL || prefixLength == NULL || metricPtr == NULL ||
+       isAddPtr == NULL)
+    {
+        LE_ERROR("ifNamePtr, destAddr, prefixLength, metricPtr or isAddPtr is NULL");
+        exit(EXIT_FAILURE);
+    }
+
+    uint16_t metric = strtol(metricPtr, NULL, 0);
+    uint8_t isAdd = strtol(isAddPtr, NULL, 0);
 
     result=taf_net_ChangeRoute(intfName,destAddr,prefixLength,metric,isAdd);
     LE_INFO("----result =%d" ,result);
@@ -313,6 +327,12 @@ static int TafNetGetInterfaceGw()
     memset(ipv4addr, 0 , NET_IPV4_ADDR_MAX_BYTES);
     memset(ipv6addr, 0 , NET_IPV6_ADDR_MAX_BYTES);
 
+    if(intfName == NULL)
+    {
+        LE_ERROR("ifNamePtr is NULL");
+        exit(EXIT_FAILURE);
+    }
+
     result=taf_net_GetInterfaceGW(intfName,ipv4addr , sizeof(ipv4addr), ipv6addr, sizeof(ipv6addr));
 
     LE_INFO("----result =%d" ,result);
@@ -338,6 +358,12 @@ static int TafNetGetInterfaceDns()
     const char* intfName = le_arg_GetArg(1);
 
     taf_net_DnsServerAddresses_t dnsServerAddressesPtr;
+
+    if(intfName == NULL)
+    {
+        LE_ERROR("ifNamePtr is NULL");
+        exit(EXIT_FAILURE);
+    }
 
     result=taf_net_GetInterfaceDNS(intfName,&dnsServerAddressesPtr);
 
@@ -366,6 +392,12 @@ static int TafNetSetDns()
 
     const char* intfName = le_arg_GetArg(1);
 
+    if(intfName == NULL)
+    {
+        LE_ERROR("ifNamePtr is NULL");
+        exit(EXIT_FAILURE);
+    }
+
     result=taf_net_SetDNS(intfName);
 
     LE_INFO("----result %d" ,result);
@@ -387,6 +419,12 @@ static int TafNetSetDefaultGw()
     }
 
     const char* intfName = le_arg_GetArg(1);
+
+    if(intfName == NULL)
+    {
+        LE_ERROR("ifNamePtr is NULL");
+        exit(EXIT_FAILURE);
+    }
 
     result=taf_net_SetDefaultGW(intfName);
 
@@ -410,6 +448,12 @@ static int TafNetBackupSetAndRestoregw()
     }
 
     const char* intfName = le_arg_GetArg(1);
+
+    if(intfName == NULL)
+    {
+        LE_ERROR("ifNamePtr is NULL");
+        exit(EXIT_FAILURE);
+    }
 
     taf_net_BackupDefaultGW();
 
@@ -439,10 +483,18 @@ static int TafNatAddDestNatOnDefaultPdn()
     }
 
     const char* privateIpaddr = le_arg_GetArg(1);
-    uint16_t priPort = strtol(le_arg_GetArg(2), NULL, 0);
-    uint16_t gblPort = strtol(le_arg_GetArg(3), NULL, 0);
-
+    const char* priPortPtr = le_arg_GetArg(2);
+    const char* gblPortPtr = le_arg_GetArg(3);
     const char* ipproto = le_arg_GetArg(4);
+
+    if(privateIpaddr == NULL || priPortPtr == NULL || gblPortPtr == NULL || ipproto == NULL)
+    {
+        LE_ERROR("privateIpaddr, priPortPtr, gblPortPtr or ipproto is NULL");
+        exit(EXIT_FAILURE);
+    }
+
+    uint16_t priPort = strtol(priPortPtr, NULL, 0);
+    uint16_t gblPort = strtol(gblPortPtr, NULL, 0);
 
     if(strncmp(ipproto,"tcp",NET_IP_PROTO_NUMBER_LEN) ==0 ||
        strncmp(ipproto,"TCP",NET_IP_PROTO_NUMBER_LEN) ==0)
@@ -475,10 +527,18 @@ static int TafNatDelDestNatOnDefaultPdn()
     }
 
     const char* privateIpaddr = le_arg_GetArg(1);
-    uint16_t priPort = strtol(le_arg_GetArg(2), NULL, 0);
-    uint16_t gblPort = strtol(le_arg_GetArg(3), NULL, 0);
-
+    const char* priPortPtr = le_arg_GetArg(2);
+    const char* gblPortPtr = le_arg_GetArg(3);
     const char* ipproto = le_arg_GetArg(4);
+
+    if(privateIpaddr == NULL || priPortPtr == NULL || gblPortPtr == NULL || ipproto == NULL)
+    {
+        LE_ERROR("privateIpaddr, priPortPtr, gblPortPtr or ipproto is NULL");
+        exit(EXIT_FAILURE);
+    }
+
+    uint16_t priPort = strtol(priPortPtr, NULL, 0);
+    uint16_t gblPort = strtol(gblPortPtr, NULL, 0);
 
     if(strncmp(ipproto,"tcp",NET_IP_PROTO_NUMBER_LEN) ==0 ||
        strncmp(ipproto,"TCP",NET_IP_PROTO_NUMBER_LEN) ==0)
@@ -554,12 +614,22 @@ static int TafNatAddDestNatOnDemandPdn()
         exit(EXIT_FAILURE);
     }
 
-    uint32_t profileId = strtol(le_arg_GetArg(1), NULL, 0);
+    const char* profileIdPtr = le_arg_GetArg(1);
     const char* privateIpaddr = le_arg_GetArg(2);
-    uint16_t priPort = strtol(le_arg_GetArg(3), NULL, 0);
-    uint16_t gblPort = strtol(le_arg_GetArg(4), NULL, 0);
-
+    const char* priPortPtr = le_arg_GetArg(3);
+    const char* gblPortPtr = le_arg_GetArg(4);
     const char* ipproto = le_arg_GetArg(5);
+
+    if(profileIdPtr == NULL || privateIpaddr == NULL || priPortPtr == NULL || gblPortPtr == NULL ||
+       ipproto == NULL)
+    {
+        LE_ERROR("profileIdPtr, privateIpaddr, priPortPtr, gblPortPtr or ipproto is NULL");
+        exit(EXIT_FAILURE);
+    }
+
+    uint32_t profileId = strtol(profileIdPtr, NULL, 0);
+    uint16_t priPort = strtol(priPortPtr, NULL, 0);
+    uint16_t gblPort = strtol(gblPortPtr, NULL, 0);
 
     if(strncmp(ipproto,"tcp",NET_IP_PROTO_NUMBER_LEN) ==0 ||
        strncmp(ipproto,"TCP",NET_IP_PROTO_NUMBER_LEN) ==0)
@@ -591,11 +661,22 @@ static int TafNatDelDestNatOnDemandPdn()
         exit(EXIT_FAILURE);
     }
 
-    uint32_t profileId = strtol(le_arg_GetArg(1), NULL, 0);
+    const char* profileIdPtr = le_arg_GetArg(1);
     const char* privateIpaddr = le_arg_GetArg(2);
-    uint16_t priPort = strtol(le_arg_GetArg(3), NULL, 0);
-    uint16_t gblPort = strtol(le_arg_GetArg(4), NULL, 0);
+    const char* priPortPtr = le_arg_GetArg(3);
+    const char* gblPortPtr = le_arg_GetArg(4);
     const char* ipproto = le_arg_GetArg(5);
+
+    if(profileIdPtr == NULL || privateIpaddr == NULL || priPortPtr == NULL || gblPortPtr == NULL ||
+       ipproto == NULL)
+    {
+        LE_ERROR("profileIdPtr, privateIpaddr, priPortPtr, gblPortPtr or ipproto is NULL");
+        exit(EXIT_FAILURE);
+    }
+
+    uint32_t profileId = strtol(profileIdPtr, NULL, 0);
+    uint16_t priPort = strtol(priPortPtr, NULL, 0);
+    uint16_t gblPort = strtol(gblPortPtr, NULL, 0);
 
     if(strncmp(ipproto,"tcp",NET_IP_PROTO_NUMBER_LEN) ==0 ||
        strncmp(ipproto,"TCP",NET_IP_PROTO_NUMBER_LEN) ==0)
@@ -624,7 +705,16 @@ static int TafNatGetDestNatListOnDemandPdn()
         exit(EXIT_FAILURE);
     }
     char ipProtoStr[NET_IP_PROTO_NUMBER_LEN];
-    uint32_t profileId = strtol(le_arg_GetArg(1), NULL, 0);
+
+    const char* profileIdPtr = le_arg_GetArg(1);
+
+    if(profileIdPtr == NULL)
+    {
+        LE_ERROR("profileIdPtr is NULL");
+        exit(EXIT_FAILURE);
+    }
+
+    uint32_t profileId = strtol(profileIdPtr, NULL, 0);
     taf_net_DestNatEntryListRef_t listRef=taf_net_GetDestNatEntryListOnDemandPdn(profileId);
 
     if(listRef !=NULL)
@@ -671,12 +761,23 @@ static int TafVlanInterfaceInfo()
 {
     le_result_t ret;
     int ifType=0;
+    uint8_t priority=0;
+
     if (le_arg_NumArgs() !=2)
     {
         PrintUsage();
         exit(EXIT_FAILURE);
     }
-    uint16_t vlanId = strtol(le_arg_GetArg(1), NULL, 0);
+
+    const char* vlanIdPtr = le_arg_GetArg(1);
+
+    if(vlanIdPtr == NULL)
+    {
+        LE_ERROR("vlanIdPtr is NULL");
+        exit(EXIT_FAILURE);
+    }
+
+    uint16_t vlanId = strtol(vlanIdPtr, NULL, 0);
 
     taf_net_VlanRef_t vlanRef=taf_net_GetVlanById(vlanId);
 
@@ -691,6 +792,13 @@ static int TafVlanInterfaceInfo()
             ifType=taf_net_GetVlanInterfaceType(entryRef);
 
             LE_INFO("ifType=%d",ifType);
+
+            ret = taf_net_GetVlanPriority(entryRef, &priority);
+            if(ret == LE_OK)
+                LE_INFO("priority=%d",priority);
+            else
+                LE_INFO("Getting priority error");
+
             entryRef=taf_net_GetNextVlanInterface(listRef);
         }
 
@@ -712,16 +820,47 @@ static int TafVlanInterfaceInfo()
 static int TafCreateVlan()
 {
     le_result_t ret;
-    if (le_arg_NumArgs() !=4)
+    if (le_arg_NumArgs() !=4 && le_arg_NumArgs() !=5)
     {
         PrintUsage();
         exit(EXIT_FAILURE);
     }
 
-    uint16_t vlanId = strtol(le_arg_GetArg(1), NULL, 0);
-    taf_net_VlanIfType_t ifType = (taf_net_VlanIfType_t)strtol(le_arg_GetArg(2), NULL, 0);
-    bool isAccelerated = strtol(le_arg_GetArg(3), NULL, 0);
+    const char* vlanIdPtr = le_arg_GetArg(1);
+    const char* ifTypePtr = le_arg_GetArg(2);
+    const char* isAcceleratedPtr = le_arg_GetArg(3);
+
+
+    if(vlanIdPtr == NULL || ifTypePtr == NULL || isAcceleratedPtr == NULL)
+    {
+        LE_ERROR("vlanIdPtr, ifTypePtr, isAcceleratedPtr or priorityPtr is NULL");
+        exit(EXIT_FAILURE);
+    }
+
+    uint16_t vlanId = strtol(vlanIdPtr, NULL, 0);
+    taf_net_VlanIfType_t ifType = (taf_net_VlanIfType_t)strtol(ifTypePtr, NULL, 0);
+    bool isAccelerated = strtol(isAcceleratedPtr, NULL, 0);
     taf_net_VlanRef_t vlanRef=taf_net_CreateVlan(vlanId,isAccelerated);
+
+    if(le_arg_NumArgs() ==5)
+    {
+        const char* priorityPtr = le_arg_GetArg(4);
+        if(priorityPtr == NULL)
+        {
+            LE_ERROR("priorityPtr is NULL");
+            exit(EXIT_FAILURE);
+        }
+
+        uint8_t priority = strtol(priorityPtr, NULL, 0);
+        ret = taf_net_SetVlanPriority(vlanRef, priority);
+
+        if(ret != LE_OK)
+        {
+            LE_INFO("---Setting VLAN priority error");
+            return EXIT_FAILURE;
+        }
+    }
+
     if(vlanRef != NULL)
     {
         ret=taf_net_AddVlanInterface(vlanRef,ifType);
@@ -745,8 +884,17 @@ static int TafRemoveVlan()
         exit(EXIT_FAILURE);
     }
 
-    uint16_t vlanId = strtol(le_arg_GetArg(1), NULL, 0);
-    taf_net_VlanIfType_t ifType = (taf_net_VlanIfType_t)strtol(le_arg_GetArg(2), NULL, 0);
+    const char* vlanIdPtr = le_arg_GetArg(1);
+    const char* ifTypePtr = le_arg_GetArg(2);
+
+    if(vlanIdPtr == NULL || ifTypePtr == NULL)
+    {
+        LE_ERROR("vlanIdPtr or ifTypePtr is NULL");
+        exit(EXIT_FAILURE);
+    }
+
+    uint16_t vlanId = strtol(vlanIdPtr, NULL, 0);
+    taf_net_VlanIfType_t ifType = (taf_net_VlanIfType_t)strtol(ifTypePtr, NULL, 0);
 
     taf_net_VlanRef_t vlanRef=taf_net_GetVlanById(vlanId);
 
@@ -762,6 +910,7 @@ static int TafRemoveVlan()
 static int TafVlanInfo()
 {
     int vlanId=0;
+    uint8_t phoneId=0;
     int profileId=0;
     le_result_t ret;
     bool isAccelerated=false;
@@ -790,12 +939,24 @@ static int TafVlanInfo()
                 LE_INFO("----isAccelerated=%d",isAccelerated);
             }
 
+
             profileId=taf_net_GetVlanBoundProfileId(entryRef);
 
             if(profileId == -1)
                 LE_INFO("----no binding----");
             else
-                LE_INFO("----profile id=%d----",profileId);
+            {
+                ret=taf_net_GetVlanBoundPhoneId(entryRef, &phoneId);
+                if(ret != LE_OK)
+                {
+                    LE_ERROR("error binding info");
+                }
+                else
+                {
+                    LE_INFO("----phone id=%d----", phoneId);
+                    LE_INFO("----profile id=%d----",profileId);
+                }
+            }
 
             entryRef=taf_net_GetNextVlanEntry(listRef);
         }
@@ -824,12 +985,60 @@ static int TafVlanBindWithProfile()
         exit(EXIT_FAILURE);
     }
 
-    uint32_t vlanid = strtol(le_arg_GetArg(1), NULL, 0);
-    uint32_t profileid = strtol(le_arg_GetArg(2), NULL, 0);
+    const char* vlanIdPtr = le_arg_GetArg(1);
+    const char* profileidPtr = le_arg_GetArg(2);
+
+    if(vlanIdPtr == NULL || profileidPtr == NULL)
+    {
+        LE_ERROR("vlanIdPtr or profileidPtr is NULL");
+        exit(EXIT_FAILURE);
+    }
+
+    uint32_t vlanid = strtol(vlanIdPtr, NULL, 0);
+    uint32_t profileid = strtol(profileidPtr, NULL, 0);
 
     taf_net_VlanRef_t vlanRef=taf_net_GetVlanById(vlanid);
 
     ret = taf_net_BindVlanWithProfile(vlanRef,profileid);
+    if(ret == LE_OK)
+    {
+        LE_INFO("----bind with profile  ok");
+    }
+    else
+    {
+        LE_INFO("----bind with profile error");
+    }
+
+    return EXIT_SUCCESS;
+}
+
+static int TafVlanBindWithProfileEx()
+{
+    le_result_t ret;
+
+    if (le_arg_NumArgs() !=4)
+    {
+        PrintUsage();
+        exit(EXIT_FAILURE);
+    }
+
+    const char* vlanIdPtr = le_arg_GetArg(1);
+    const char* phoneIdPtr = le_arg_GetArg(2);
+    const char* profileIdPtr = le_arg_GetArg(3);
+
+    if(vlanIdPtr == NULL || phoneIdPtr == NULL || profileIdPtr == NULL)
+    {
+        LE_ERROR("vlanIdPtr, phoneIdPtr or profileIdPtr is NULL");
+        exit(EXIT_FAILURE);
+    }
+
+    uint32_t vlanid = strtol(vlanIdPtr, NULL, 0);
+    uint8_t phoneid = strtol(phoneIdPtr, NULL, 0);
+    uint32_t profileid = strtol(profileIdPtr, NULL, 0);
+
+    taf_net_VlanRef_t vlanRef=taf_net_GetVlanById(vlanid);
+
+    ret = taf_net_BindVlanWithProfileEx(vlanRef, phoneid, profileid);
     if(ret == LE_OK)
     {
         LE_INFO("----bind with profile  ok");
@@ -852,7 +1061,15 @@ static int TafVlanUnBindWithProfile()
         exit(EXIT_FAILURE);
     }
 
-    uint32_t vlanid = strtol(le_arg_GetArg(1), NULL, 0);
+    const char* vlanIdPtr = le_arg_GetArg(1);
+
+    if(vlanIdPtr == NULL)
+    {
+        LE_ERROR("vlanIdPtr is NULL");
+        exit(EXIT_FAILURE);
+    }
+
+    uint32_t vlanid = strtol(vlanIdPtr, NULL, 0);
 
     taf_net_VlanRef_t vlanRef=taf_net_GetVlanById(vlanid);
 
@@ -878,9 +1095,19 @@ static int TafEnableL2tp()
         exit(EXIT_FAILURE);
     }
 
-    bool enablemss = strtol(le_arg_GetArg(1), NULL, 0);
-    bool enablemtu = strtol(le_arg_GetArg(2), NULL, 0);
-    uint32_t mtusize = strtol(le_arg_GetArg(3), NULL, 0);
+    const char* enablemssPtr = le_arg_GetArg(1);
+    const char* enablemtuPtr = le_arg_GetArg(2);
+    const char* mtusizePtr = le_arg_GetArg(3);
+
+    if(enablemssPtr == NULL || enablemtuPtr == NULL || mtusizePtr == NULL)
+    {
+        LE_ERROR("enablemssPtr, enablemssPtr or mtusizePtr is NULL");
+        exit(EXIT_FAILURE);
+    }
+
+    bool enablemss = strtol(enablemssPtr, NULL, 0);
+    bool enablemtu = strtol(enablemtuPtr, NULL, 0);
+    uint32_t mtusize = strtol(mtusizePtr, NULL, 0);
 
     ret=taf_net_EnableL2tp(enablemss, enablemtu, mtusize);
     LE_INFO("enablemss =%d, enablemtu=%d, mtusize=%d",enablemss, enablemtu, mtusize);
@@ -979,22 +1206,60 @@ static int TafCreateL2tpTunnel()
     }
 
     //Get local tunnel id
-    localtunnelId = strtol(le_arg_GetArg(paramIndex), NULL, 0);//paramIndex=1
+    const char* localtunnelIdPtr = le_arg_GetArg(paramIndex);
+
+    if(localtunnelIdPtr == NULL)
+    {
+        LE_ERROR("localtunnelIdPtr is NULL");
+        exit(EXIT_FAILURE);
+    }
+
+    localtunnelId = strtol(localtunnelIdPtr, NULL, 0);//paramIndex=1
     paramIndex++;
     //Get peer tunnel id
-    peertunnelId = strtol(le_arg_GetArg(paramIndex), NULL, 0);//paramIndex=2
+    const char* peertunnelIdPtr = le_arg_GetArg(paramIndex);
+
+    if(peertunnelIdPtr == NULL)
+    {
+        LE_ERROR("peertunnelIdPtr is NULL");
+        exit(EXIT_FAILURE);
+    }
+
+    peertunnelId = strtol(peertunnelIdPtr, NULL, 0);//paramIndex=2
     paramIndex++;
     //Get encapsulation protocol
-    encaproto = strtol(le_arg_GetArg(paramIndex), NULL, 0);//paramIndex=3
+    const char* encaprotoPtr = le_arg_GetArg(paramIndex);
+
+    if(encaprotoPtr == NULL)
+    {
+        LE_ERROR("encaprotoPtr is NULL");
+        exit(EXIT_FAILURE);
+    }
+    encaproto = strtol(encaprotoPtr, NULL, 0);//paramIndex=3
     paramIndex++;
 
     if(encaproto == (int)TAF_NET_L2TP_UDP)
     {
         //Get local udp port
-        localudpport = strtol(le_arg_GetArg(paramIndex), NULL, 0);//paramIndex=4
+        const char* localudpportPtr = le_arg_GetArg(paramIndex);
+
+        if(localudpportPtr == NULL)
+        {
+            LE_ERROR("localudpportPtr is NULL");
+            exit(EXIT_FAILURE);
+        }
+
+        localudpport = strtol(localudpportPtr, NULL, 0);//paramIndex=4
         paramIndex++;
         //Get peer udp port
-        peerudpport = strtol(le_arg_GetArg(paramIndex), NULL, 0);//paramIndex=5
+        const char* peerudpportPtr = le_arg_GetArg(paramIndex);
+
+        if(peerudpportPtr == NULL)
+        {
+            LE_ERROR("peerudpportPtr is NULL");
+            exit(EXIT_FAILURE);
+        }
+        peerudpport = strtol(peerudpportPtr, NULL, 0);//paramIndex=5
         paramIndex++;
 
         //Check if udp port is valid
@@ -1013,14 +1278,30 @@ static int TafCreateL2tpTunnel()
 
     //Get peer ip address
     peerIpAddrPtr = le_arg_GetArg(paramIndex);//paramIndex=4 or paramIndex=6
+    if(peerIpAddrPtr == NULL)
+    {
+        LE_ERROR("peerIpAddrPtr is NULL");
+        exit(EXIT_FAILURE);
+    }
     paramIndex++;
 
     //Get interface name
     ifNamePtr = le_arg_GetArg(paramIndex);//paramIndex=5 or paramIndex=7
+    if(ifNamePtr == NULL)
+    {
+        LE_ERROR("ifNamePtr is NULL");
+        exit(EXIT_FAILURE);
+    }
     paramIndex++;
 
     //Get session number
-    sessionNum = strtol(le_arg_GetArg(paramIndex), NULL, 0);//paramIndex=6 or paramIndex=8
+    const char* sessionNumPtr = le_arg_GetArg(paramIndex);//paramIndex=6 or paramIndex=8
+    if(sessionNumPtr == NULL)
+    {
+        LE_ERROR("sessionNumPtr is NULL");
+        exit(EXIT_FAILURE);
+    }
+    sessionNum = strtol(sessionNumPtr, NULL, 0);
     paramIndex++;
 
     //Check if the session number is valid
@@ -1118,7 +1399,15 @@ static int TafRemoveL2tpTunnel()
         exit(EXIT_FAILURE);
     }
 
-    uint32_t localtunnelId = strtol(le_arg_GetArg(1), NULL, 0);
+    const char* localtunnelIdPtr = le_arg_GetArg(1);
+
+    if(localtunnelIdPtr == NULL)
+    {
+        LE_ERROR("localtunnelIdPtr is NULL");
+        exit(EXIT_FAILURE);
+    }
+
+    uint32_t localtunnelId = strtol(localtunnelIdPtr, NULL, 0);
 
     taf_net_TunnelRef_t tunnelRef= taf_net_GetTunnelRefById(localtunnelId);
 
@@ -1215,7 +1504,7 @@ static int TafGetTunnelInfo()
                     LE_INFO("----session %d peer id is %d",i, sessionConfig[i].peerId);
                 }
             }
-            LE_INFO("----session num = %d",sessionNum);
+            LE_INFO("----session num = %" PRIuS,sessionNum);
             entryRef=taf_net_GetNextTunnelEntry(listRef);
         }
 
@@ -1654,6 +1943,10 @@ COMPONENT_INIT
         {
             status=TafVlanBindWithProfile();
         }
+        else if(strcmp(testType, "bindwithprofileex") == 0)
+        {
+            status=TafVlanBindWithProfileEx();
+        }
         else if(strcmp(testType, "unbindwithprofile") == 0)
         {
             status=TafVlanUnBindWithProfile();
@@ -1751,7 +2044,3 @@ COMPONENT_INIT
         exit(status);
     }
 }
-
-
-
-

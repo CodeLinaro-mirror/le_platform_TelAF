@@ -43,12 +43,17 @@
 #include <string>
 
 #include <telux/common/CommonDefines.hpp>
+#include <telux/common/DeviceConfig.hpp>
 #include <telux/tel/Phone.hpp>
 #include <telux/tel/PhoneDefines.hpp>
 #include <telux/tel/PhoneFactory.hpp>
 #include <telux/tel/PhoneListener.hpp>
+#include <telux/tel/ImsServingSystemManager.hpp>
 
 #include "tafSvcIF.hpp"
+
+#define TAF_RADIO_DEFAULT_SLOT_NUM 1
+#define TAF_RADIO_MULTI_SLOT_NUM 2
 
 #define TAF_RADIO_PHONE_NUM 2
 
@@ -295,8 +300,8 @@ typedef struct
  */
 typedef struct
 {
-    std::vector<taf_RadioCellInfo_t> servingCell;
-    std::vector<taf_RadioCellInfo_t> neighborCell;
+    std::vector<std::shared_ptr<taf_RadioCellInfo_t>> servingCell;
+    std::vector<std::shared_ptr<taf_RadioCellInfo_t>> neighborCell;
 } taf_RadioCellListInfo_t;
 
 //--------------------------------------------------------------------------------------------------
@@ -333,6 +338,17 @@ typedef struct
     le_sls_Link_t* currPtr;
 } taf_RadioNgbrCells_t;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * IMS registration status structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint8_t phoneId;
+    taf_radio_ImsRegStatus_t status;
+} taf_RadioImsRegStatus_t;
+
 namespace telux {
 namespace tafsvc {
     /*
@@ -344,6 +360,15 @@ namespace tafsvc {
         std::vector<telux::tel::OperatorInfo> opInfos;
         void onNetworkScanResults(telux::tel::NetworkScanStatus scanStatus,
             std::vector<telux::tel::OperatorInfo> operatorInfos) override;
+    };
+
+    class taf_RadioImsServSysListener : public telux::tel::IImsServingSystemListener
+    {
+    public:
+        SlotId slot = DEFAULT_SLOT_ID;
+        uint8_t phone = DEFAULT_PHONE_ID;
+        taf_RadioImsServSysListener(SlotId slotId);
+        void onImsRegStatusChange(telux::tel::ImsRegistrationInfo status) override;
     };
 
     class taf_RadioSetOperatingModeCallback {
@@ -495,6 +520,17 @@ namespace tafsvc {
             telux::common::ErrorCode error);
     };
 
+    class taf_RadioImsServSysCallback
+    {
+    public:
+        static le_sem_Ref_t semaphore;
+        static le_result_t result;
+        static telux::tel::RegistrationStatus status;
+
+        static void imsRegStateResponse(telux::tel::ImsRegistrationInfo info,
+            telux::common::ErrorCode error);
+    };
+
     /*
      * @brief The Radio Service class defined as a middleware between interfaces and implementation.
      */
@@ -509,6 +545,8 @@ namespace tafsvc {
          * @returns    Static reference of instance.
          */
         static taf_Radio &GetInstance();
+
+        static void taf_radio_LayerImsRegStateHandler(void* reportPtr, void* layerHandlerFunc);
 
         /*
          * Command thread in radio service.
@@ -531,6 +569,7 @@ namespace tafsvc {
          */
         void Init(void);
 
+        size_t slotCount = TAF_RADIO_DEFAULT_SLOT_NUM;
         le_mem_PoolRef_t prefOpsListPool;
         le_mem_PoolRef_t prefOpPool;
         le_mem_PoolRef_t prefOpSafeRefPool;
@@ -541,6 +580,7 @@ namespace tafsvc {
         le_mem_PoolRef_t ngbrCellInfoPool;
         le_mem_PoolRef_t ngbrCellInfoSafeRefPool;
         le_mem_PoolRef_t metricsPool;
+        le_mem_PoolRef_t imsRegStatusChangePool;
         le_ref_MapRef_t prefOpListRefMap;
         le_ref_MapRef_t prefOpSafeRefMap;
         le_ref_MapRef_t scanOpListRefMap;
@@ -548,6 +588,7 @@ namespace tafsvc {
         le_ref_MapRef_t ngbrCellsRefMap;
         le_ref_MapRef_t ngbrCellInfoSafeRefMap;
         le_ref_MapRef_t metricsRefMap;
+        le_event_Id_t imsRegStatusChangeId;
         static le_event_Id_t radioCmdEvId;
         std::shared_ptr<taf_RadioSignalStrengthCallback> signalStrengthCb;
         std::shared_ptr<taf_RadioSetOperatingModeCallback> setOperatingModeCb;
@@ -557,6 +598,8 @@ namespace tafsvc {
         std::vector<std::shared_ptr<telux::tel::INetworkSelectionManager>> networkManagers;
         std::vector<std::shared_ptr<telux::tel::IServingSystemManager>> servingSystemManagers;
         std::shared_ptr<telux::tel::IPhoneManager> phoneManager;
+        std::map<SlotId, std::shared_ptr<telux::tel::IImsServingSystemListener>> imsServSysListeners;
+        std::map<SlotId, std::shared_ptr<telux::tel::IImsServingSystemManager>> imsServingSystemMgrs;
     };
 }
 }

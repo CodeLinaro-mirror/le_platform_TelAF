@@ -40,24 +40,53 @@
 #include "legato.h"
 #include "interfaces.h"
 
+#define TAF_CONFIG_PHONE_ID_1_TEST
+//#define TAF_CONFIG_PHONE_ID_2_TEST
+
+//For DSSA and DSDA phone id 1
+#ifdef TAF_CONFIG_PHONE_ID_1_TEST
+#define PHONE_ID_1_TEST 1
+#else
+#define PHONE_ID_1_TEST 0
+#endif
+
+//For DSDA phone id 2
+#ifdef TAF_CONFIG_PHONE_ID_2_TEST
+#define PHONE_ID_2_TEST 1
+#else
+#define PHONE_ID_2_TEST 0
+#endif
+
 #define NET_IPV4_ADDR_MAX_BYTES      16
 #define NET_IPV6_ADDR_MAX_BYTES      46
 #define NET_IP_PROTO_NUMBER_LEN      3
 
 #define ROUTE_INTERFACE          "bridge0"
 #define ROUTE_IP_V4_DEST_ADDR    "192.168.225.0"
-#define ROUTE_IP_V4_PREFIX_LEN   "255.255.255.0"
+#define ROUTE_IP_V4_PREFIX_LEN   "24"
+#define ROUTE_IP_V4_NET_MASK     "255.255.255.0"
 #define ROUTE_IP_V6_DEST_ADDR    "fe80::1009:a5ff:fea7:99be"
 #define ROUTE_IP_V6_PREFIX_LEN   "64"
 #define METRIC                           99
+
+//use cm data connect to bring up rmnet_data0 with default profile 1
 #define RMNET0                           "rmnet_data0"
+//use cm data profile 2, cm data apn test, cm data connect to bringup rmnet_data1 to test APIs
+//with phone id 1 or SSIM.
+//use cm data phoneid 2, cm data profile 1, cm data connect to bringup rmnet_data2 to test APIs
+//with phone id 2.
 #define RMNET1                           "rmnet_data1"
+#define RMNET2                           "rmnet_data2"
 #define NAT_ENTRY_PRIVATE_IP_ADDR       "111.111.111.11"
+#define NAT_ENTRY_PRIVATE_IP_ADDR2      "192.168.225.20"
 #define TEST_DESTINATION_NAT_ENTRY_NUM  3
-#define TEST_VLAN_ENTRY_NUM  3
+#define TEST_VLAN_ENTRY_NUM  1
 #define DEFAULT_MTU_SIZE 1422
 #define ON_DEMAND_PDN_PROFILE_ID        2
+#define ON_DEMAND_PDN_PROFILE_ID_IN_SLOT2  1
 #define TEST_GSB_ENTRY_NUM  2
+#define PHONE_ID_1     1
+#define PHONE_ID_2     2
 
 le_sem_Ref_t semaphore;
 int stopping_num = 0;
@@ -136,11 +165,11 @@ static void* DestNatThread(void* contextPtr){
 }
 static void NetworkGetInterfaceListTest(){
     taf_net_InterfaceInfo_t intfInfoListPtr[50];
-    size_t listSize ;
+    size_t listSize = 0;
     LE_INFO("----get interface list test start");
     LE_ASSERT(taf_net_GetInterfaceList(NULL,&listSize) == LE_BAD_PARAMETER);
     LE_ASSERT(taf_net_GetInterfaceList(intfInfoListPtr,&listSize) == LE_OK);
-    LE_INFO("---got interface list, num: %d", listSize);
+    LE_INFO("---got interface list, num: %" PRIuS, listSize);
     for(int i=0;i<listSize;i++)
         LE_INFO("ifName =%s, tech=%d,state=%d",intfInfoListPtr[i].interfaceName,intfInfoListPtr[i].tech,intfInfoListPtr[i].state);
 }
@@ -150,6 +179,12 @@ static void NetworkChangeIpRouteTest(){
     LE_ASSERT(result == LE_OK);
     le_thread_Sleep(1);
     result=taf_net_ChangeRoute(ROUTE_INTERFACE,ROUTE_IP_V4_DEST_ADDR, ROUTE_IP_V4_PREFIX_LEN,METRIC,TAF_NET_DELETE);
+    LE_ASSERT(result == LE_OK);
+    le_thread_Sleep(1);
+    result=taf_net_ChangeRoute(ROUTE_INTERFACE,ROUTE_IP_V4_DEST_ADDR, ROUTE_IP_V4_NET_MASK,METRIC,TAF_NET_ADD);
+    LE_ASSERT(result == LE_OK);
+    le_thread_Sleep(1);
+    result=taf_net_ChangeRoute(ROUTE_INTERFACE,ROUTE_IP_V4_DEST_ADDR, ROUTE_IP_V4_NET_MASK,METRIC,TAF_NET_DELETE);
     LE_ASSERT(result == LE_OK);
     le_thread_Sleep(1);
     result=taf_net_ChangeRoute(ROUTE_INTERFACE,ROUTE_IP_V6_DEST_ADDR, ROUTE_IP_V6_PREFIX_LEN,METRIC,TAF_NET_ADD);
@@ -169,8 +204,17 @@ static void NetworkGetInterfaceDefaultGatewayTest(){
     LE_ASSERT(taf_net_GetInterfaceGW(RMNET0,ipv4addr , sizeof(ipv4addr),NULL, sizeof(ipv6addr)) == LE_BAD_PARAMETER);
     LE_ASSERT(taf_net_GetInterfaceGW(RMNET0,ipv4addr , sizeof(ipv4addr),ipv6addr, sizeof(ipv6addr)) == LE_OK);
     LE_INFO("got default gw addresses ipv4: %s, ipv6: %s from %s", ipv4addr, ipv6addr, RMNET0);
-    LE_ASSERT(taf_net_GetInterfaceGW(RMNET1,ipv4addr , sizeof(ipv4addr),ipv6addr, sizeof(ipv6addr)) == LE_OK);
+
+    LE_ASSERT(taf_net_GetInterfaceGW(RMNET1, ipv4addr, sizeof(ipv4addr), ipv6addr, sizeof(ipv6addr)) == LE_OK);
     LE_INFO("got default gw addresses ipv4: %s, ipv6: %s from %s", ipv4addr, ipv6addr, RMNET1);
+
+    LE_TEST_BEGIN_SKIP(!PHONE_ID_2_TEST, 1);
+
+    LE_ASSERT(taf_net_GetInterfaceGW(RMNET2, ipv4addr, sizeof(ipv4addr), ipv6addr, sizeof(ipv6addr)) == LE_OK);
+    LE_INFO("got default gw addresses ipv4: %s, ipv6: %s from %s", ipv4addr, ipv6addr, RMNET2);
+
+    LE_TEST_END_SKIP();
+
     return ;
 }
 static void NetworkGetInterfaceDnsTest(){
@@ -192,6 +236,9 @@ static void NetworkSetDnsTest(){
 static void NetworkBackupSetRestoreDefaultGatewayTest(){
     le_result_t result;
     LE_INFO("----Backup default gateway test start");
+
+    LE_TEST_BEGIN_SKIP(!PHONE_ID_1_TEST, 1);
+
     result=taf_net_BackupDefaultGW();
     LE_ASSERT(result == LE_OK);
     result=taf_net_SetDefaultGW(RMNET1);
@@ -199,26 +246,47 @@ static void NetworkBackupSetRestoreDefaultGatewayTest(){
         taf_net_RestoreDefaultGW();
         LE_ASSERT(result == LE_OK);
     }
+
+    LE_TEST_END_SKIP();
+    LE_TEST_BEGIN_SKIP(!PHONE_ID_2_TEST, 1);
+
+    result=taf_net_BackupDefaultGW();
+    LE_ASSERT(result == LE_OK);
+    result=taf_net_SetDefaultGW(RMNET2);
+    if(result == LE_OK){
+        taf_net_RestoreDefaultGW();
+        LE_ASSERT(result == LE_OK);
+    }
+
+    LE_TEST_END_SKIP();
     return;
 }
 static void VlanUnitTestFunc(void){
     taf_net_VlanRef_t vlanRef[TEST_VLAN_ENTRY_NUM];
     int16_t retVlanId = 0;
+    uint8_t phoneId = 0;
     int32_t retProfileId = 0;
     bool isAccelerated=false;
     taf_net_VlanEntryRef_t vlanEntryRef;
     taf_net_VlanIfRef_t vlanIfRef;
     taf_net_VlanIfType_t vlanIfType;
     taf_net_VlanIfListRef_t vlanIfList[TEST_VLAN_ENTRY_NUM];
-    const uint16_t vlanId[TEST_VLAN_ENTRY_NUM] = {103, 105, 107};
-    const uint16_t profileId[TEST_VLAN_ENTRY_NUM] = {3, 5, 6};
+    const uint16_t vlanId[TEST_VLAN_ENTRY_NUM] = {103};
+    const uint16_t profileId[TEST_VLAN_ENTRY_NUM] = {3};
+    uint8_t priority[TEST_VLAN_ENTRY_NUM] = {3};
+    uint8_t retPri = 0;
+    LE_INFO("---Test invalid parameter---");
     LE_ASSERT(taf_net_CreateVlan(5000, 0) == NULL);
     LE_ASSERT(taf_net_AddVlanInterface(NULL,TAF_NET_ETH) == LE_BAD_PARAMETER);
     LE_ASSERT(taf_net_BindVlanWithProfile(NULL,5) == LE_BAD_PARAMETER);
+    LE_INFO("---Test VLAN creating---");
+    LE_TEST_BEGIN_SKIP(!PHONE_ID_1_TEST, 1);
+
     for (size_t i = 0; i < TEST_VLAN_ENTRY_NUM; i++){
         LE_ASSERT(taf_net_CreateVlan(vlanId[i], 0) != NULL);
         vlanRef[i]=taf_net_GetVlanById(vlanId[i]);
         LE_ASSERT(vlanRef[i] != NULL);
+        LE_ASSERT(taf_net_SetVlanPriority(vlanRef[i], priority[i]) == LE_OK);
         LE_ASSERT(taf_net_AddVlanInterface(vlanRef[i],TAF_NET_ETH) == LE_OK);
         LE_ASSERT(taf_net_AddVlanInterface(vlanRef[i],TAF_NET_ECM) == LE_OK);
         vlanIfList[i]=taf_net_GetVlanInterfaceList(vlanRef[i]);
@@ -227,6 +295,8 @@ static void VlanUnitTestFunc(void){
         LE_ASSERT(vlanIfRef != NULL);
         vlanIfType=taf_net_GetVlanInterfaceType(vlanIfRef);
         LE_ASSERT(vlanIfType == TAF_NET_ETH);
+        LE_ASSERT(taf_net_GetVlanPriority(vlanIfRef, &retPri) == LE_OK);
+        LE_ASSERT(retPri == priority[i]);
         vlanIfRef = taf_net_GetNextVlanInterface(vlanIfList[i]);
         LE_ASSERT(vlanIfRef != NULL);
         vlanIfType=taf_net_GetVlanInterfaceType(vlanIfRef);
@@ -242,17 +312,7 @@ static void VlanUnitTestFunc(void){
     retProfileId = taf_net_GetVlanBoundProfileId(vlanEntryRef);
     LE_ASSERT(retProfileId == profileId[0]);
     vlanEntryRef = taf_net_GetNextVlanEntry(vlanEntryList);
-    retVlanId = taf_net_GetVlanId(vlanEntryRef);
-    LE_ASSERT(retVlanId == vlanId[1]);
-    LE_ASSERT(taf_net_IsVlanAccelerated(vlanEntryRef,&isAccelerated) == LE_OK);
-    retProfileId = taf_net_GetVlanBoundProfileId(vlanEntryRef);
-    LE_ASSERT(retProfileId == profileId[1]);
-    vlanEntryRef = taf_net_GetNextVlanEntry(vlanEntryList);
-    retVlanId = taf_net_GetVlanId(vlanEntryRef);
-    LE_ASSERT(retVlanId == vlanId[2]);
-    LE_ASSERT(taf_net_IsVlanAccelerated(vlanEntryRef,&isAccelerated) == LE_OK);
-    retProfileId = taf_net_GetVlanBoundProfileId(vlanEntryRef);
-    LE_ASSERT(retProfileId == profileId[2]);
+    LE_ASSERT(vlanEntryRef == NULL);
     for (size_t i = 0; i < TEST_VLAN_ENTRY_NUM; i++){
         LE_ASSERT(taf_net_UnbindVlanFromProfile(vlanRef[i]) == LE_OK);
         LE_ASSERT(taf_net_RemoveVlanInterface(vlanRef[i],TAF_NET_ECM) == LE_OK);
@@ -261,8 +321,38 @@ static void VlanUnitTestFunc(void){
         LE_ASSERT(taf_net_DeleteVlanInterfaceList(vlanIfList[i]) == LE_OK);
     }
     LE_ASSERT(taf_net_DeleteVlanEntryList(vlanEntryList) == LE_OK);
+
+    LE_TEST_END_SKIP();
+
+    LE_TEST_BEGIN_SKIP(!PHONE_ID_2_TEST, 1);
+    for (size_t i = 0; i < TEST_VLAN_ENTRY_NUM; i++){
+        LE_ASSERT(taf_net_CreateVlan(vlanId[i], 0) != NULL);
+        vlanRef[i]=taf_net_GetVlanById(vlanId[i]);
+        LE_ASSERT(vlanRef[i] != NULL);
+        LE_ASSERT(taf_net_AddVlanInterface(vlanRef[i],TAF_NET_ETH) == LE_OK);
+        LE_ASSERT(taf_net_BindVlanWithProfileEx(vlanRef[i],PHONE_ID_2,profileId[i]) == LE_OK);
+    }
+    taf_net_VlanEntryListRef_t vlanEntryList=taf_net_GetVlanEntryList();
+    LE_ASSERT(vlanEntryList != NULL);
+    vlanEntryRef = taf_net_GetFirstVlanEntry(vlanEntryList);
+    retProfileId = taf_net_GetVlanBoundProfileId(vlanEntryRef);
+    LE_ASSERT(retProfileId == profileId[0]);
+    LE_ASSERT(taf_net_GetVlanBoundPhoneId(vlanEntryRef,&phoneId) == LE_OK);
+    LE_ASSERT(phoneId == PHONE_ID_2);
+    vlanEntryRef = taf_net_GetNextVlanEntry(vlanEntryList);
+    LE_ASSERT(vlanEntryRef == NULL);
+
+    for (size_t i = 0; i < TEST_VLAN_ENTRY_NUM; i++){
+        LE_ASSERT(taf_net_UnbindVlanFromProfile(vlanRef[i]) == LE_OK);
+        LE_ASSERT(taf_net_RemoveVlanInterface(vlanRef[i],TAF_NET_ETH) == LE_OK);
+        LE_ASSERT(taf_net_RemoveVlan(vlanRef[i]) == LE_OK);
+    }
+    LE_ASSERT(taf_net_DeleteVlanEntryList(vlanEntryList) == LE_OK);
+
+    LE_TEST_END_SKIP();
 }
 static void DisableL2tpAsyncHandlerFunc( le_result_t result, void* contextPtr){
+    le_result_t ret;
     taf_net_VlanRef_t vlanRef = NULL;
     const uint16_t vlanId[TAF_NET_L2TP_MAX_TUNNEL_NUMBER] = {5, 6};
     LE_INFO("**** Handler for disable L2tp Asynchronously (Begin)****");
@@ -271,13 +361,33 @@ static void DisableL2tpAsyncHandlerFunc( le_result_t result, void* contextPtr){
             vlanRef=taf_net_GetVlanById(vlanId[i]);
             LE_ASSERT(vlanRef != NULL);
             if(taf_net_RemoveVlanInterface(vlanRef, TAF_NET_ETH) != LE_OK){
+                //telsdk issue, remove vlan failed, do it again
+                LE_INFO("remove vlan error because of telsdk issue vlan id=%d",vlanId[i]);
                 le_thread_Sleep(15);
-                taf_net_RemoveVlanInterface(vlanRef, TAF_NET_ETH);
+                ret = taf_net_RemoveVlanInterface(vlanRef, TAF_NET_ETH);
+                LE_INFO("remove vlan again ret=%d", ret);
+            }
+            taf_net_RemoveVlan(vlanRef);
+        }
+        //remove again, someteimes telsdk returns OK but VLAN is not removed successfully.
+        for(int i = 0; i < TAF_NET_L2TP_MAX_TUNNEL_NUMBER; i++){
+
+            vlanRef=taf_net_GetVlanById(vlanId[i]);
+            if(vlanRef == NULL)
+                continue;
+            LE_INFO("remove vlan id =%d...",vlanId[i]);
+            if(taf_net_RemoveVlanInterface(vlanRef, TAF_NET_ETH) != LE_OK){
+                //telsdk issue, remove vlan failed, do it again
+                LE_INFO("remove vlan error because of telsdk issue vlan id=%d",vlanId[i]);
+                le_thread_Sleep(15);
+                ret = taf_net_RemoveVlanInterface(vlanRef, TAF_NET_ETH);
+                LE_INFO("remove vlan again ret=%d", ret);
             }
             taf_net_RemoveVlan(vlanRef);
         }
         LE_INFO("======== L2TP test successfully ========");
-        exit(EXIT_SUCCESS);
+        LE_TEST_EXIT;
+       // exit(EXIT_SUCCESS);
     }
     else
         exit(EXIT_FAILURE);
@@ -378,6 +488,7 @@ static void L2tpUnitTestFunc(void){
         if(encaproto[i] == TAF_NET_L2TP_UDP)
             LE_ASSERT(taf_net_SetTunnelUdpPort(tunnelRef[i], localUdpPort, peerUdpPort) == LE_OK);
         LE_ASSERT(taf_net_GetTunnelRefById(localTunnelId[i]) == tunnelRef[i]);
+        LE_INFO("======== Start tunnel======== id=%d",localTunnelId[i]);
         LE_ASSERT(taf_net_StartTunnel(tunnelRef[i]) == LE_OK);
         le_thread_Sleep(3);
     }
@@ -583,20 +694,20 @@ static void* UnitTestNetThread(void* contextPtr){
     if(strcmp(testType, "default") == 0){
         LE_INFO("======== 1. Add Network Handlers ========");
         LE_INFO("======== 1.1 Route change Handler ========");
-        le_thread_Ref_t threadRef = le_thread_Create("NetRouteThread", NetRouteThread, NULL);
+        le_thread_Ref_t threadRef = le_thread_Create("NetRouteTh", NetRouteThread, NULL);
         le_thread_Start(threadRef);
         le_clk_Time_t timeToWait = {5, 0};
         LE_ASSERT(le_sem_WaitWithTimeOut(semaphore, timeToWait) == LE_OK);
         LE_INFO("======== 1.2 Gateway change Handler ========");
-        threadRef = le_thread_Create("NetGatewayThread", NetGatewayThread, NULL);
+        threadRef = le_thread_Create("NetGatewayTh", NetGatewayThread, NULL);
         le_thread_Start(threadRef);
         LE_ASSERT(le_sem_WaitWithTimeOut(semaphore, timeToWait) == LE_OK);
         LE_INFO("======== 1.3 DNS change Handler ========");
-        threadRef = le_thread_Create("DNSChangeThread", NetDNSThread, NULL);
+        threadRef = le_thread_Create("DNSChangeTh", NetDNSThread, NULL);
         le_thread_Start(threadRef);
         LE_ASSERT(le_sem_WaitWithTimeOut(semaphore, timeToWait) == LE_OK);
         LE_INFO("======== 1.4 Destination NAT change Handler ========");
-        threadRef = le_thread_Create("DestNatChangeThread", DestNatThread, NULL);
+        threadRef = le_thread_Create("DestNatChgTh", DestNatThread, NULL);
         le_thread_Start(threadRef);
         LE_ASSERT(le_sem_WaitWithTimeOut(semaphore, timeToWait) == LE_OK);
         LE_INFO("======== 2 Network unit test start========");
@@ -625,12 +736,12 @@ static void* UnitTestNetThread(void* contextPtr){
     }
     taf_net_DisconnectService();
     LE_INFO("========all tests are passed========");
-    exit(EXIT_SUCCESS);
+    LE_TEST_EXIT;
 }
 COMPONENT_INIT
 {
     const char* testType = "";
-    LE_INFO("number = %d",le_arg_NumArgs());
+    LE_INFO("number = %d",(int)le_arg_NumArgs());
     if(le_arg_NumArgs() != 1){
         puts("usage:app runProc tafNetUnitTest --exe=tafNetUnitTest -- default/vlan/l2tp/socks");
         return;

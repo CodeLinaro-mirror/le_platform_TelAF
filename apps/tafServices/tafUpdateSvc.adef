@@ -1,7 +1,13 @@
 maxThreads: 300
 
+username: telaf
+
+startGroup: 7
+
 capability:
 {
+        CAP_CHOWN
+        CAP_FOWNER
         CAP_WAKE_ALARM
         CAP_SYS_RESOURCE
         CAP_DAC_OVERRIDE
@@ -39,8 +45,7 @@ requires :
 {
     configTree:
     {
-        [w] .
-        [r] system
+        [rw] system
     }
 }
 
@@ -57,11 +62,8 @@ processes:
 
 bindings:
 {
-#if ${TARGET} = sa515m
     tafUpdateSvc.tafUpdateSvc.taf_mrc -> tafMRCSvc.taf_mrc
-#endif
     tafUpdateSvc.tafUpdateSvc.le_update -> <root>.le_update
-    tafUpdateSvc.tafUpdateSvc.le_updateCtrl -> <root>.le_updateCtrl
     tafUpdateSvc.tafUpdateSvc.le_cfg -> <root>.le_cfg
     tafUpdateSvc.tafUpdateSvc.le_appCtrl -> <root>.le_appCtrl
     tafUpdateSvc.tafUpdateSvc.le_appInfo -> <root>.le_appInfo

@@ -70,7 +70,7 @@
 
 //-------------------------------------------------------------------------------------------------
 /**
- * @page c_tafecall Emergency Call Service
+ * @page c_tafecall eCall Service
  *
  * @ref taf_ecall_interface.h "API Reference"
  *
@@ -108,8 +108,7 @@
  * - taf_ecall_ForceOnlyMode() -- This API makes the eCall operating mode eCall only. Only emergency 
  *   numbers should be used to start eCall sessions in this mode. The modem may not try to register
  *   with the cellular network. The modem is forced to behave as only eCalls are allowed regardless
- *   of the the U/SIM operation mode. The change is not persistent if the device is rebooted, so this
- *   function may need to be called before starting an eCall.
+ *   of the the U/SIM operation mode. The change persists if the device is rebooted.
  *
  * - taf_ecall_ForcePersistentOnlyMode() -- Same as taf_ecall_ForceOnlyMode(), but this change persists
  *   through device reboot, i.e., power cycles.
@@ -126,6 +125,13 @@
  *   - @ref TAF_ECALL_MODE_ECALL -- eCall only mode as per U/SIM operation mode or forced by
  *                                  the application through the taf_ecall_ForceOnlyMode() API.
  *   - @ref TAF_ECALL_FORCED_PERSISTENT_ONLY_MODE -- eCall only that persists over power cycles.
+ *
+ *@section taf_ecall_MsdVersion eCall MSD version
+ *
+ * MSD version can be set/got with:
+ *  - taf_ecall_SetMsdVersion()
+ *  - taf_ecall_GetMsdVersion()
+ * These configurations take effect at the next test eCall and currently only MSD version 2 and 3 are supported.
  *
  * @section taf_ecall_session Session of eCall
  *
@@ -194,6 +200,16 @@
  * by the PSAP or by taf_ecall_End(), then a user can terminate eCall registration anytime after
  * T9 but before T10 expiration by calling the taf_ecall_TerminateRegistration() API.
  *
+ * The taf_ecall_SetNadClearDownFallbackTime() API is used to set the time value of a
+ * <em>clear down fallback timer</em> which starts when an eCall connects, so that if the NAD does not receive a clear
+ * down indication from network or a clear down message (AL-ACK) from the PSAP during an ecall and then
+ * automatically triggers an eCall end upon expiration of the timer.
+ *
+ * The taf_ecall_SetNadMinNetworkRegistrationTime() API is used to set the time value of a
+ * <em>minimum network registration timer</em> which starts right after an eCall ends, so that the NAD shall remain
+ * registered on the serving network after an eCall ends and automatically receive calls from the PSAP.
+ * and then automatically deregisters from the network upon expiration of the timer.
+ *
  * @section taf_ecall_concurrency Concurrency of eCall
  *
  * If another application wants to use the eCall service when a session is already active, the
@@ -207,8 +223,8 @@
  *
  * The dynamic values of MSD can be written with the following APIs.
  * - taf_ecall_SetMsdPosition() -- Sets the position of the vehicle.
- * - taf_ecall_SetMsdPositionN1() -- Sets the first delta position of the vehicle.
- * - taf_ecall_SetMsdPositionN2() -- Sets the second delta position of the vehicle.
+ * - taf_ecall_SetMsdPositionN1() -- Sets the position delta N-1 for MSD transmission.
+ * - taf_ecall_SetMsdPositionN2() -- Sets the position delta N-2 for MSD transmission.
  * - taf_ecall_SetMsdPassengersCount() -- Sets the number of passengers.
  *
  * The MSD is automatically encoded with the previous MSD values set earlier.
@@ -225,7 +241,7 @@
  * - @ref TAF_ECALL_TX_MODE_PULL -- MSD has been sent when asked by the PSAP
  *
  * An application can import an existing MSD using the taf_ecall_ImportMsd() API.
- * The existing MSD must follow the requirements presented in the "EN 15722:2013" publication (this
+ * The existing MSD must follow the requirements presented in the "EN15722:2020" publication (this
  * publication is prepared by Technical Committee CEN/TC 278 “Intelligent Transport Systems").
  *
  * @warning The imported MSD does not consider the values provided by the
@@ -287,8 +303,12 @@
  *       state change handler will be notified that the eCall state is DIALING and then ALERTING which means that the eCall
  *       successfully reached the PSAP.
  *
- *       After the eCall is answered by the PSAP, the eCall state changes to ACTIVE and in MSD Pull mode, when the eCall Service
- *       gets an indication from the PSAP to receive MSD, the state transfers to TAF_STATE_PSAP_START_RECEIVED.
+ *       After the eCall is answered by the PSAP, the eCall state changes to ACTIVE and in MSD Pull mode, the eCall Service
+ *       gets a state indication from the PSAP to receive MSD.
+ *       But the state indication is not supported in the platform now. It will be supported in future.
+ *       Without the state indication, as of now, the client application should update MSD to the NAD (i.e., modem) by calling
+ *       the taf_ecall_SendMsd() API. Later, when the NAD gets an indication from the PSAP in pull mode, NAD will use the updated
+ *       MSD and send it to the PSAP.
  *
  * #5 -- Start sending encoded MSD via the eCall Service to the PSAP. The eCall state becomes TAF_STATE_MSD_TRANSMISSION_STARTED and the
  *       TAF_STATE_LL_ACK_RECEIVED.
@@ -328,8 +348,8 @@ DEFINE  MAX_MSD_LENGTH = (140);
  */
 ENUM OpMode
 {
-    MODE_NORMAL,           ///< eCall and normal voice calls are allowed
-    MODE_ECALL,            ///< Only eCalls are allowed.
+    MODE_NORMAL,           ///< eCall normal mode.
+    MODE_ECALL,            ///< eCall only mode according to U/SIM operation mode.
     NONE                   ///< Invalid mode.
 };
 
@@ -361,6 +381,16 @@ ENUM MsdVehicleType
     MOTOR_CYCLES_CLASS_L5E,                ///< Motorcycles (Class L5e)
     MOTOR_CYCLES_CLASS_L6E,                ///< Motorcycles (Class L6e)
     MOTOR_CYCLES_CLASS_L7E,                ///< Motorcycles (Class L7e)
+    TRAILERS_CLASS_O,                      ///< Trailers (Class O)
+    AGRI_VEHICLES_CLASS_R,                 ///< Agricultural vehicles (Class R)
+    AGRI_VEHICLES_CLASS_S,                 ///< Agricultural vehicles (Class S)
+    AGRI_VEHICLES_CLASS_T,                 ///< Agricultural vehicles (Class T)
+    OFF_ROAD_VEHICLES_G,                   ///< Off-road vehicles (Class G)
+    SPECIAL_PURPOSE_MOTOR_CARAVAN_CLASS_SA,///< Special purpose motor caravan (Class SA)
+    SPECIAL_PURPOSE_ARMOURED_VEHICLE_CLASS_SB,///< Special purpose armoured vehicle (Class SB)
+    SPECIAL_PURPOSE_AMBULANCE_CLASS_SC,    ///< Special purpose ambulance (Class SC)
+    SPECIAL_PURPOSE_HEARSE_CLASS_SD,       ///< Special purpose hearse (Class SD)
+    OTHER_VEHICLE_CLASS,                   ///< Other vehicle class
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -400,7 +430,7 @@ ENUM State
     STATE_ENDED,                              ///< Call stopped.
     STATE_RESET,                              ///< Not supported.
     STATE_COMPLETED,                          ///< Not supported.
-    STATE_FAILED,                             ///< eCall start failed.
+    STATE_FAILED,                             ///< Not supported.
     STATE_END_OF_REDIAL_PERIOD,               ///< Not supported.
     STATE_T2_EXPIRED,                         ///< T2 timer expired.
     STATE_TIMEOUT_T3,                         ///< Not  supported.
@@ -601,11 +631,13 @@ FUNCTION le_result_t GetConfiguredOperationMode
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Sets the MSD version. The API is not supported on this platform.
+ *  Sets the MSD version.
  *
  * @return
- *      - LE_UNSUPPORTED -- Not supported.
+ *      - LE_OK -- Succeeded.
+ *      - LE_FAULT -- Failed.
  *
+ * @note Currently, only MSD version 2 and 3 are supported.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetMsdVersion
@@ -615,12 +647,14 @@ FUNCTION le_result_t SetMsdVersion
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Gets the MSD version. Currently, only MSD version 2 is supported.
+ *  Gets the MSD version.
  *
  * @return
- *      - LE_BAD_PARAMETER -- Invalid parameters.
  *      - LE_OK -- Succeeded.
+ *      - LE_FAULT -- Failed.
+ *      - LE_BAD_PARAMETER -- Invalid parameters.
  *
+ * @note Currently, only MSD version 2 and 3 are supported.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetMsdVersion
@@ -650,6 +684,7 @@ FUNCTION le_result_t SetVehicleType
  * @return
  *      - LE_OK -- Succeeded.
  *      - LE_FAULT -- Failed.
+ *      - LE_BAD_PARAMETER -- Invalid parameters.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -665,6 +700,7 @@ FUNCTION le_result_t GetVehicleType
  * @return
  *      - LE_OK -- Succeeded.
  *      - LE_FAULT -- Failed.
+ *      - LE_BAD_PARAMETER -- Invalid parameters.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -679,6 +715,7 @@ FUNCTION le_result_t SetVIN
  * @return
  *      - LE_OK -- Succeeded.
  *      - LE_FAULT -- Failed.
+ *      - LE_BAD_PARAMETER -- Invalid parameters.
  *
  */
 FUNCTION le_result_t GetVIN
@@ -692,7 +729,6 @@ FUNCTION le_result_t GetVIN
  *
  * @return
  *      - LE_OK -- Succeeded.
- *      - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -772,38 +808,54 @@ FUNCTION le_result_t SetMsdPosition
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Sets the change in latitude and longitude compared
- * to the last MSD transmission.
+ * Sets the position delta N-1 for MSD transmission.
  *
  * @return
- *      - LE_OK -- Succeeded.
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
  *      - LE_FAULT -- Failed.
+ *      - LE_OK -- Succeeded.
+ *      - LE_DUPLICATE -- The MSD has already been imported.
  *
+ * @note The process exits when an invalid eCall reference is given.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetMsdPositionN1
 (
     Call  ecallRef   IN,        ///< SIM slot ID.
     int32 latitudeDeltaN1 IN,   ///< First latitude delta.
+                                ///< 1 Unit = 100 miliarcseconds, which is approximately 3m
+                                ///< maximum value: 511 = 0 0'51.100'' (+- 1580m)
+                                ///< minimum value: -512 = -0 0'51.200'' (+- -1583m)
     int32 longitudeDeltaN1 IN   ///< First longitude delta.
+                                ///< 1 Unit = 100 miliarcseconds, which is approximately 3m
+                                ///< maximum value: 511 = 0 0'51.100'' (+- 1580m)
+                                ///< minimum value: -512 = -0 0'51.200'' (+- -1583m)
 );
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Sets the change in latitude and longitude compared
- * to the last MSD transmission.
+ * Sets the position delta N-2 for MSD transmission.
  *
  * @return
- *      - LE_OK -- Succeeded.
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
  *      - LE_FAULT -- Failed.
+ *      - LE_OK -- Succeeded.
+ *      - LE_DUPLICATE -- The MSD has already been imported.
  *
+ * @note The process exits when an invalid eCall reference is given.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetMsdPositionN2
 (
     Call  ecallRef   IN,        ///< SIM slot ID.
     int32 latitudeDeltaN2 IN,   ///< Second latitude delta.
+                                ///< 1 Unit = 100 miliarcseconds, which is approximately 3m
+                                ///< maximum value: 511 = 0 0'51.100'' (+- 1580m)
+                                ///< minimum value: -512 = -0 0'51.200'' (+- -1583m)
     int32 longitudeDeltaN2 IN   ///< Second longitude delta.
+                                ///< 1 Unit = 100 miliarcseconds, which is approximately 3m
+                                ///< maximum value: 511 = 0 0'51.100'' (+- 1580m)
+                                ///< minimum value: -512 = -0 0'51.200'' (+- -1583m)
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -811,9 +863,11 @@ FUNCTION le_result_t SetMsdPositionN2
  *  Sets the number of passengers according to the given eCall reference.
  *
  * @return
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
  *      - LE_OK -- Succeeded.
- *      - LE_FAULT -- Failed.
+ *      - LE_DUPLICATE -- The MSD has already been imported.
  *
+ * @note The process exits when an invalid eCall reference is given.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetMsdPassengersCount
@@ -828,8 +882,10 @@ FUNCTION le_result_t SetMsdPassengersCount
  *
  * @return
  *      - LE_OK -- Succeeded.
- *      - LE_FAULT -- Failed.
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
+ *      - LE_OVERFLOW -- The size of the MSD buffer is wrong.
  *
+ * @note The process exits if an invalid eCall reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ImportMsd
@@ -844,8 +900,12 @@ FUNCTION le_result_t ImportMsd
  *
  * @return
  *      - LE_OK -- Succeeded.
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
+ *      - LE_OVERFLOW -- The size of the MSD buffer is wrong.
+ *      - LE_NOT_FOUND -- The MSD is not imported or updated.
  *      - LE_FAULT -- Failed.
  *
+ * @note The process exits if an invalid eCall reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ExportMsd
@@ -928,6 +988,7 @@ FUNCTION le_result_t StartTest
  * @return
  *      - LE_OK -- Succeeded.
  *      - LE_FAULT -- Failed.
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -941,9 +1002,9 @@ FUNCTION le_result_t End
  *  Gets the currrent eCall state according to the given eCall reference.
  *
  * @return
- *      - LE_OK -- Succeeded.
- *      - LE_FAULT -- Failed.
+ *      - The current state of the given eCall.
  *
+ * @note The process exits if an invalid eCall reference is passed.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION State GetState
@@ -953,13 +1014,13 @@ FUNCTION State GetState
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Gets the platform-specific reason for a recently terminated call according to the given 
+ * Gets the platform-specific reason for a recently terminated call according to the given
  * eCall reference.
  *
  * @return
- *      - LE_OK -- Succeeded.
- *      - LE_FAULT -- Failed.
+ *      - The platform-specific termination code.
  *
+ * @note The API is not supported in this platform.
  */
 //-------------------------------------------------------------------------------------------------
 FUNCTION int32 GetPlatformSpecificTerminationCode
@@ -1018,7 +1079,6 @@ FUNCTION TerminationReason GetTerminationReason
  * @return
  *  - LE_OK -- Succeeded.
  *  - LE_FAULT -- Failed or taf_ecall_SetPsapNumber() has never been called before.
- *  - LE_OVERFLOW -- The retrieved PSAP number is too long for the out parameter.
  *  - LE_BAD_PARAMETER -- The PSAP number is null.
  *
  */
@@ -1090,4 +1150,68 @@ FUNCTION le_result_t GetNadDeregistrationTime
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t TerminateRegistration
 (
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the eCall clear down fallback time of the NAD. If the NAD does not receive a clear
+ * down indication from network or a clear down message (AL-ACK) from the PSAP during
+ * an ecall, then it will trigger an automatic call end when clear down fallback time out.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_BUSY -- An eCall session is in progress.
+ *  - LE_FAULT -- Failed.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetNadClearDownFallbackTime
+(
+    uint16 ccftTime IN ///< The eCall clear down fallback time (in minutes).
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the eCall clear down fallback time of the NAD.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetNadClearDownFallbackTime
+(
+    uint16 ccftTime OUT ///< The eCall clear down fallback time (in minutes).
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the eCall minimum network registration time of the NAD. After an eCall ends, the
+ * NAD shall remain registered on the serving network. During this time, the NAD can
+ * automatically receive calls from the PSAP.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_BUSY -- An eCall session is in progress.
+ *  - LE_FAULT -- Failed.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetNadMinNetworkRegistrationTime
+(
+    uint16 minNwRegTime IN ///< The eCall minimum network registration time (in minutes).
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the eCall minimum network registration time of the NAD.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetNadMinNetworkRegistrationTime
+(
+    uint16 minNwRegTime OUT ///< The eCall minimum network registration time (in minutes).
 );

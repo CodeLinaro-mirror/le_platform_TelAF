@@ -1,5 +1,9 @@
 sandboxed: false
 
+username: telaf
+
+startGroup: 14
+
 capability:
 {
         CAP_WAKE_ALARM

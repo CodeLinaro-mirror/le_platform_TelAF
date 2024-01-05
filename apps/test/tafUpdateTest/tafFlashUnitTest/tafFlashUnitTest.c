@@ -43,7 +43,7 @@
 #define FLASH_FILE_NAME_BYTES 256
 
 #define MTD_TEST_PARTITION "abl_b"
-#define UBI_TEST_VOLUME "system_b"
+#define UBI_TEST_VOLUME "telaf_b"
 
 /*======================================================================
  FUNCTION        TestTafFlashInit
@@ -130,6 +130,7 @@ void TestTafFlashMtdRead(void)
 {
     taf_flash_PartitionRef_t partitionRef;
     uint32_t blocksNumber = 0, badBlocksNumber = 0, blockSize = 0, pageSize = 0;
+    size_t bSize = 0, pSize = 0;
     bool isGoodBlock;
     le_result_t result;
     uint8_t block[TAF_FLASH_MTD_BLOCK_MAX_READ_SIZE] = { 0 };
@@ -153,17 +154,17 @@ void TestTafFlashMtdRead(void)
     LE_TEST_OK(true, "taf_flash_MtdIsBlockGood - %d", isGoodBlock);
 
     // Read MTD Block Test
-    result = taf_flash_MtdReadBlock(NULL, 0, block, &blockSize);
+    result = taf_flash_MtdReadBlock(NULL, 0, block, &bSize);
     LE_TEST_OK((result == LE_BAD_PARAMETER), "taf_flash_MtdReadBlock - LE_BAD_PARAMETER");
 
-    result = taf_flash_MtdReadBlock(partitionRef, 0, NULL, &blockSize);
+    result = taf_flash_MtdReadBlock(partitionRef, 0, NULL, &bSize);
     LE_TEST_OK((result == LE_BAD_PARAMETER), "taf_flash_MtdReadBlock - LE_BAD_PARAMETER");
 
     result = taf_flash_MtdReadBlock(partitionRef, 0, block, NULL);
     LE_TEST_OK((result == LE_BAD_PARAMETER), "taf_flash_MtdReadBlock - LE_BAD_PARAMETER");
 
     LE_TEST_BEGIN_SKIP(!isGoodBlock, 1);
-    result = taf_flash_MtdReadBlock(partitionRef, 0, block, &blockSize);
+    result = taf_flash_MtdReadBlock(partitionRef, 0, block, &bSize);
     LE_TEST_OK((result == LE_OK), "taf_flash_MtdReadBlock - LE_OK");
 
     snprintf(file, sizeof(file), "/%s.bdat", MTD_TEST_PARTITION);
@@ -172,27 +173,28 @@ void TestTafFlashMtdRead(void)
     {
         LE_ERROR("Fail to open file.");
     }
-    result = le_fs_Write(fileRef, block, blockSize);
+    result = le_fs_Write(fileRef, block, bSize);
     if (result != LE_OK)
     {
         LE_ERROR("Fail to write file.");
     }
     le_fs_Close(fileRef);
-    LE_INFO("Read block and write to %s with size %d.", file, blockSize);
+    LE_INFO("Read block and write to %s with size %" PRIuS, file, bSize);
     LE_TEST_END_SKIP();
 
     // Read MTD Page Test
-    result = taf_flash_MtdReadPage(NULL, 0, page, &pageSize);
+    pSize = (size_t)pageSize;
+    result = taf_flash_MtdReadPage(NULL, 0, page, &pSize);
     LE_TEST_OK((result == LE_BAD_PARAMETER), "taf_flash_MtdReadPage - LE_BAD_PARAMETER");
 
-    result = taf_flash_MtdReadPage(partitionRef, 0, NULL, &pageSize);
+    result = taf_flash_MtdReadPage(partitionRef, 0, NULL, &pSize);
     LE_TEST_OK((result == LE_BAD_PARAMETER), "taf_flash_MtdReadPage - LE_BAD_PARAMETER");
 
     result = taf_flash_MtdReadPage(partitionRef, 0, page, NULL);
     LE_TEST_OK((result == LE_BAD_PARAMETER), "taf_flash_MtdReadPage - LE_BAD_PARAMETER");
 
     LE_TEST_BEGIN_SKIP(!isGoodBlock, 1);
-    result = taf_flash_MtdReadPage(partitionRef, 0, page, &pageSize);
+    result = taf_flash_MtdReadPage(partitionRef, 0, page, &pSize);
     LE_TEST_OK((result == LE_OK), "taf_flash_MtdReadPage - LE_OK");
 
     snprintf(file, sizeof(file), "/%s.pdat", MTD_TEST_PARTITION);
@@ -201,13 +203,13 @@ void TestTafFlashMtdRead(void)
     {
         LE_ERROR("Fail to open file.");
     }
-    result = le_fs_Write(fileRef, page, pageSize);
+    result = le_fs_Write(fileRef, page, pSize);
     if (result != LE_OK)
     {
         LE_ERROR("Fail to write file.");
     }
     le_fs_Close(fileRef);
-    LE_INFO("Read page and write to %s with size %d.", file, pageSize);
+    LE_INFO("Read page and write to %s with size %" PRIuS, file, pSize);
     LE_TEST_END_SKIP();
 
     // Close MTD Test
@@ -225,6 +227,7 @@ void TestTafFlashMtdWrite(void)
 {
     taf_flash_PartitionRef_t partitionRef;
     uint32_t blocksNumber = 0, badBlocksNumber = 0, blockSize = 0, pageSize = 0;
+    size_t bSize = 0, pSize = 0;
     bool isGoodBlock;
     le_result_t result;
     uint8_t block[TAF_FLASH_MTD_BLOCK_MAX_WRITE_SIZE] = { 0 };
@@ -264,7 +267,7 @@ void TestTafFlashMtdWrite(void)
     {
         LE_ERROR("Fail to open file.");
     }
-    result = le_fs_Read(fileRef, block, &blockSize);
+    result = le_fs_Read(fileRef, block, &bSize);
     if (result != LE_OK)
     {
         LE_ERROR("Fail to read file.");
@@ -274,10 +277,10 @@ void TestTafFlashMtdWrite(void)
     result = taf_flash_MtdEraseBlock(partitionRef, 0);
     LE_TEST_OK((result == LE_OK), "taf_flash_MtdEraseBlock - LE_OK");
 
-    result = taf_flash_MtdWriteBlock(partitionRef, 0, block, blockSize);
+    result = taf_flash_MtdWriteBlock(partitionRef, 0, block, bSize);
     LE_TEST_OK((result == LE_OK), "taf_flash_MtdWriteBlock - LE_OK");
 
-    LE_INFO("Read %s and write to block with size %d.", file, blockSize);
+    LE_INFO("Read %s and write to block with size %" PRIuS, file, bSize);
     LE_TEST_END_SKIP();
 
     // Write MTD Page Test
@@ -294,17 +297,19 @@ void TestTafFlashMtdWrite(void)
     {
         LE_ERROR("Fail to open file.");
     }
-    result = le_fs_Read(fileRef, page, &pageSize);
+
+    pSize = (size_t)pageSize;
+    result = le_fs_Read(fileRef, page, &pSize);
     if (result != LE_OK)
     {
         LE_ERROR("Fail to read file.");
     }
     le_fs_Close(fileRef);
 
-    result = taf_flash_MtdWritePage(partitionRef, 0, page, pageSize);
+    result = taf_flash_MtdWritePage(partitionRef, 0, page, pSize);
     LE_TEST_OK((result == LE_OK), "taf_flash_MtdWritePage - LE_OK");
 
-    LE_INFO("Read %s and write to page with size %d.", file, pageSize);
+    LE_INFO("Read %s and write to page with size %" PRIuS, file, pSize);
     LE_TEST_END_SKIP();
 
     // Close MTD Test
@@ -410,7 +415,7 @@ void TestTafFlashUbiRead(void)
         LE_ERROR("Fail to write file.");
     }
     le_fs_Close(fileRef);
-    LE_INFO("Read block and write to %s with size %d.", file, blockSize);
+    LE_INFO("Read block and write to %s with size %" PRIuS, file, blockSize);
 
     // Close UBI Test
     result = taf_flash_UbiClose(volumeRef);
@@ -467,7 +472,7 @@ void TestTafFlashUbiWrite(void)
     result = taf_flash_UbiWrite(volumeRef, block, blockSize);
     LE_TEST_OK((result == LE_OK), "taf_flash_UbiWrite - LE_OK");
 
-    LE_INFO("Read %s and write to block with size %d.", file, blockSize);
+    LE_INFO("Read %s and write to block with size %" PRIuS, file, blockSize);
 
     // Close UBI Test
     result = taf_flash_UbiClose(volumeRef);

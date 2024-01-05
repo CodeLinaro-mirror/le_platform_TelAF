@@ -237,7 +237,9 @@
  *
  * @subsection taf_gnss_SetGetConstellation GNSS constellation selection
  *
- * The taf_gnss_SetConstellation() function selects the GNSS constellation(s) used in solution.
+ * The taf_gnss_SetConstellation() function blacklists some constellations or subset of SVs from
+ * the constellation from being used by the GNSS standard position engine (SPE).
+ * Supported constellations for this API are GLONASS, QZSS, BEIDOU, GALILEO, and SBAS.
  * If all GNSS constellations are disabled, the GNSS engine is disabled.
  * @verbatim
    taf_gnss_ConstellationBitMask_t constellationMask;
@@ -245,6 +247,12 @@
    if(taf_gnss_SetConstellation(constellationMask)== LE_OK)
    {
      // Process after succesfully setting the costellation type.
+   }
+
+   constellationMask = TAF_GNSS_CONSTELLATION_SBAS | TAF_GNSS_CONSTELLATION_BEIDOU;
+   if(taf_gnss_SetConstellation(constellationMask)== LE_OK)
+   {
+     // Process after succesfully setting the costellation types.
    }
    @endverbatim
  *
@@ -598,6 +606,223 @@
      // Process after succesfully getting the elliptical uncertainty values.
    }
    @endverbatim
+ * - taf_gnss_SetDRConfig() -- Triggered to configure the dead reckoning parameters.
+ * @verbatim
+   taf_gnss_DrParams_t *drParamsPtr;
+   static le_mem_PoolRef_t DrFramePool = NULL;
+   DrFramePool = le_mem_CreatePool("DrframePool", sizeof(taf_gnss_DrParams_t));
+   drParamsPtr = (taf_gnss_DrParams_t*) le_mem_ForceAlloc(DrFramePool);
+   drParamsPtr->rollOffset = 1.2;
+   drParamsPtr->yawOffset = 2.3;
+   drParamsPtr->pitchOffset = 3.4;
+   drParamsPtr->offsetUnc = 180.0;
+   drParamsPtr->speedFactor = 1.0;
+   drParamsPtr->speedFactorUnc = 0.0;
+   drParamsPtr->gyroFactor = 1.0;
+   drParamsPtr->gyroFactorUnc = 0.0;
+   if(taf_gnss_SetDRConfig(drParamsPtr) == LE_OK)
+   {
+     // Process after succesfully configuring the dead reckoning parameters.
+   }
+   le_mem_Release(drParamsPtr);
+ * - taf_gnss_SetLeverArmConfig() -- Triggered to configure the lever arm parameters.
+ * @verbatim
+   taf_gnss_LeverArmParams_t *leverArmParamsPtr;
+   static le_mem_PoolRef_t LevArmFramePool = NULL;
+   LevArmFramePool = le_mem_CreatePool("LevArmFramePool", sizeof(taf_gnss_LeverArmParams_t));
+   leverArmParamsPtr = (taf_gnss_LeverArmParams_t*) le_mem_ForceAlloc(LevArmFramePool);
+   leverArmParamsPtr->forwardOffsetMeters = 5.5;
+   leverArmParamsPtr->sidewaysOffsetMeters = 1.2;
+   leverArmParamsPtr->upOffsetMeters = 1.0;
+   leverArmParamsPtr->levArmType = TAF_GNSS_LEVER_ARM_TYPE_GNSS_TO_VRP;
+   if(taf_gnss_SetLeverArmConfig(leverArmParamsPtr) == LE_OK)
+   {
+     // Process after succesfully configuring the lever arm parameters.
+   }
+   le_mem_Release(leverArmParamsPtr);
+ * - taf_gnss_SetEngineType() -- Triggered to set an engine type.
+ * @verbatim
+   taf_gnss_EngineReportsType_t EngineType;
+   EngineType = TAF_GNSS_ENGINE_REPORT_TYPE_FUSED;
+   if(taf_gnss_SetEngineType(EngineType) == LE_OK)
+   {
+     // Process after succesfully setting an engine type.
+   }
+ * - taf_gnss_GetConformityIndex() -- Triggered inside the PositionHandlerFunction()
+ *                                    function to get positionSampleRef.
+ * @verbatim
+   double indexPtr;
+   if(taf_gnss_GetConformityIndex(positionSampleRef,&indexPtr) == LE_OK)
+   {
+     // Process after succesfully getting the conformity index.
+   }
+   @endverbatim
+ * - taf_gnss_GetCalibrationData() -- Triggered inside the PositionHandlerFunction()
+ *                                                 function to get positionSampleRef.
+ * @verbatim
+   uint32 calibPtr;
+   uint8_t percentPtr;
+   if(taf_gnss_GetCalibrationData(positionSampleRef,&calibPtr,&percentPtr) == LE_OK)
+   {
+     // Process after succesfully getting the calibration status and confidence percent.
+   }
+   @endverbatim
+ * - taf_gnss_GetBodyFrameData() -- Triggered inside the PositionHandlerFunction()
+ *                                  function to get positionSampleRef.
+ * @verbatim
+   taf_gnss_KinematicsData_t *bodyFrameData;
+   le_mem_PoolRef_t bodyFramePool = NULL;
+   bodyFramePool = le_mem_CreatePool("bodyFramePool", sizeof(taf_gnss_KinematicsData_t));
+   bodyFrameData = (taf_gnss_KinematicsData_t*) le_mem_ForceAlloc(bodyFramePool);
+   if(taf_gnss_GetBodyFrameData(positionSampleRef,bodyFrameData) == LE_OK)
+   {
+     // Process after succesfully getting the body frame parameters.
+   }
+   @endverbatim
+ * - taf_gnss_GetVRPBasedLLA() -- Triggered inside the PositionHandlerFunction()
+ *                                function to get positionSampleRef.
+ * @verbatim
+   double vrpLatitude;
+   double vrpLongitude;
+   double vrpAltitude;
+   if(taf_gnss_GetVRPBasedLLA(positionSampleRef, &vrpLatitude,&vrpLongitude,&vrpAltitude) == LE_OK)
+   {
+     // Process after succesfully getting VRP based latitude, longitude, and altitude information.
+   }
+   @endverbatim
+ * - taf_gnss_GetVRPBasedVelocity() -- Triggered inside the PositionHandlerFunction()
+ *                                     function to get positionSampleRef.
+ * @verbatim
+   double eastVel;
+   double northVel;
+   double upVel;
+   if(taf_gnss_GetVRPBasedVelocity(positionSampleRef, &eastVel,&northVel,&upVel) == LE_OK)
+   {
+     // Process after succesfully getting VRP based east, north, and up velocity information.
+   }
+   @endverbatim
+ * - taf_gnss_GetSvUsedInPosition() -- Triggered inside the PositionHandlerFunction()
+ *                                     function to get positionSampleRef.
+ * @verbatim
+   taf_gnss_SvUsedInPosition_t *svData;
+   le_mem_PoolRef_t svFramePool = NULL;
+   svFramePool = le_mem_CreatePool("svFramePool", sizeof(taf_gnss_SvUsedInPosition_t));
+   svData = (taf_gnss_SvUsedInPosition_t*) le_mem_ForceAlloc(svFramePool);
+   if(taf_gnss_GetSvUsedInPosition(positionSampleRef, svData) == LE_OK)
+   {
+     // Process after succesfully getting set of SVs that are used to calculate position.
+   }
+   @endverbatim
+ * - taf_gnss_GetSbasCorrection() -- Triggered inside the PositionHandlerFunction()
+ *                                   function to get positionSampleRef.
+ * @verbatim
+   uint32_t sbasMask;
+   if(taf_gnss_GetSbasCorrection(positionSampleRef, &sbasMask) == LE_OK)
+   {
+     // Process after succesfully getting the mask used to indicate SBAS corrections.
+   }
+   @endverbatim
+ * - taf_gnss_GetPositionTechnology() -- Triggered inside the PositionHandlerFunction()
+ *                                       function to get positionSampleRef.
+ * @verbatim
+   uint32_t techMask;
+   if(taf_gnss_GetPositionTechnology(positionSampleRef,&techMask) == LE_OK)
+   {
+     // Process after succesfully getting position tech mask to indicate which technology is used
+     // and technlogy used in computing the fix.
+   }
+   @endverbatim
+ * - taf_gnss_GetLocationInfoValidity() -- Triggered inside the PositionHandlerFunction()
+ *                                         function to get positionSampleRef.
+ * @verbatim
+   uint32_t validityMask;
+   uint64_t validityExMask;
+   if(taf_gnss_GetLocationInfoValidity(positionSampleRef, &validityMask,&validityExMask) == LE_OK)
+   {
+     // Process after succesfully getting the validity of the Location basic information
+     // and validity of Location Ex basic information.
+   }
+   @endverbatim
+ * - taf_gnss_GetLocationOutputEngParams() -- Triggered inside the PositionHandlerFunction()
+ *                                           function to get positionSampleRef.
+ * @verbatim
+   uint16_t engMask;
+   uint16_t locationEngType;
+   if(taf_gnss_GetLocationOutputEngParams(positionSampleRef, &engMask,&locationEngType) == LE_OK)
+   {
+     // Process after succesfully getting the location engine mask and engine type parameters.
+   }
+   @endverbatim
+ * - taf_gnss_GetReliabilityInformation() -- Triggered inside the PositionHandlerFunction()
+ *                                           function to get positionSampleRef.
+ * @verbatim
+   uint16_t horiReliablity;
+   uint16_t vertReliablity;
+   if(taf_gnss_GetReliabilityInformation(positionSampleRef, &horiReliablity,&vertReliablity) == LE_OK)
+   {
+     // Process after succesfully getting the horizontal and vertical reliablity information.
+   }
+   @endverbatim
+ * - taf_gnss_GetStdDeviationAzimuthInfo() -- Triggered inside the PositionHandlerFunction()
+ *                                            function to get positionSampleRef.
+ * @verbatim
+   double azimuth;
+   double eastDev;
+   double northDev;
+   if(taf_gnss_GetStdDeviationAzimuthInfo(positionSampleRef, &azimuth,&eastDev,&northDev) == LE_OK)
+   {
+     // Process after succesfully getting the azimuth, east, and north deviation information.
+   }
+   @endverbatim
+ * - taf_gnss_GetRealTimeInformation() -- Triggered inside the PositionHandlerFunction()
+ *                                        function to get positionSampleRef.
+ * @verbatim
+   uint64_t realTime;
+   uint64_t realTimeUnc;
+   if(taf_gnss_GetRealTimeInformation(positionSampleRef, &realTime,&realTimeUnc) == LE_OK)
+   {
+     // Process after succesfully getting elapsed real time and its uncertainity.
+   }
+   @endverbatim
+ * - taf_gnss_GetMeasurementUsageInfo() -- Triggered inside the PositionHandlerFunction()
+ *                                         function to get GNSS measurement usage information.
+ * @verbatim
+   taf_gnss_GnssMeasurementInfo_t measInfo[TAF_GNSS_MEASUREMENT_INFO_MAX];
+   size_t gnssMeasLen = TAF_GNSS_MEASUREMENT_INFO_MAX;
+   if(taf_gnss_GetMeasurementUsageInfo(positionSampleRef, measInfo, &gnssMeasLen) == LE_OK)
+   {
+     // Process after succesfully getting GNSS measurement information.
+   }
+   @endverbatim
+ * - taf_gnss_GetReportStatus() -- Triggered inside the PositionHandlerFunction()
+ *                                 function to get status of report in terms of how optimally
+ *                                 the report was calculated by the engine.
+ * @verbatim
+   int32_t reportStatus = -1;
+   if(taf_gnss_GetReportStatus(positionSampleRef, &reportStatus) == LE_OK)
+   {
+     // Process after succesfully getting the report status.
+   }
+   @endverbatim
+ * - taf_gnss_GetAltitudeMeanSeaLevel() -- Triggered inside the PositionHandlerFunction() function
+ *                                         to get altitude in respect to mean sea level in meters.
+ * @verbatim
+   double altMSeaLevel;
+   if(taf_gnss_GetAltitudeMeanSeaLevel(positionSampleRef, &altMSeaLevel) == LE_OK)
+   {
+     // Process after succesfully getting the mean sea level.
+   }
+   @endverbatim
+ * - taf_gnss_GetSVIds() -- Triggered inside the PositionHandlerFunction() function
+ *                          to get GNSS Satellite Vehicles used in position data.
+ * @verbatim
+   uint16_t svIds[TAF_GNSS_MEASUREMENT_INFO_MAX];
+   size_t svIdsLen = TAF_GNSS_MEASUREMENT_INFO_MAX;
+   if(taf_gnss_GetSVIds(positionSampleRef, svIds, &svIdsLen) == LE_OK)
+   {
+     // Process after succesfully getting the GNSS Satellite Vehicles used in position data.
+   }
+   @endverbatim
  * taf_gnss_GetDilutionOfPrecision() -- Gets the Dilution of Precision (DOP) paramters with a
  * resolution of 3 decimal places by default. This resolution can be modified by calling the
  * @c taf_gnss_SetDopResolution() function first.
@@ -697,6 +922,13 @@ DEFINE NMEA_MASK_PQXFI        = 0x4000;
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE MIN_ELEVATION_MAX_DEGREE = 90;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Define the maximum number of measure usages information.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MEASUREMENT_INFO_MAX = 30;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -832,13 +1064,13 @@ FUNCTION Sample GetLastSampleRef
  *  - LE_FAULT Failed.
  *
  * @note If the caller passes an invalid position sample reference or a null pointer to this
- *       function, it is a fatal error and the function will not return.
+ *       function, it is a fatal error and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetPositionState
 (
- Sample   positionSampleRef IN,          ///< Position sample reference.
- FixState state OUT                      ///< Position fix state.
+    Sample   positionSampleRef IN,          ///< Position sample reference.
+    FixState state OUT                      ///< Position fix state.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -846,12 +1078,12 @@ FUNCTION le_result_t GetPositionState
  * Releases the position sample.
  *
  * @note If the caller passes an invalid position sample reference to this function,
- *       it is a fatal error and the function will not return.
+ *       it is a fatal error and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION ReleaseSampleRef
 (
- Sample positionSampleRef IN        ///< Position sample reference.
+    Sample positionSampleRef IN        ///< Position sample reference.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -861,10 +1093,10 @@ FUNCTION ReleaseSampleRef
 //--------------------------------------------------------------------------------------------------
 ENUM DataType
 {
-   DATA_VACCURACY,         ///< Vertical accuracy data.
-   DATA_VSPEEDACCURACY,    ///< Vertical speed accuracy data.
-   DATA_HSPEEDACCURACY,    ///< Horizontal speed accuracy data.
-   DATA_UNKNOWN            ///< Unknown data type.
+    DATA_VACCURACY,         ///< Vertical accuracy data.
+    DATA_VSPEEDACCURACY,    ///< Vertical speed accuracy data.
+    DATA_HSPEEDACCURACY,    ///< Horizontal speed accuracy data.
+    DATA_UNKNOWN            ///< Unknown data type.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -889,15 +1121,15 @@ ENUM DataType
  *       valid. Compare them with INT32_MAX.
  *
  * @note If the caller passes an invalid position sample reference to this function,
- *       it is a fatal error and the function will not return.
+ *       it is a fatal error and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetLocation
 (
- Sample positionSampleRef IN, ///< Position sample reference
- int32 latitude OUT,          ///< WGS84 latitude in degrees.
- int32 longitude OUT,         ///< WGS84 longitude in degrees.
- int32 hAccuracy OUT          ///< Horizontal accuracy in meters.
+    Sample positionSampleRef IN, ///< Position sample reference
+    int32 latitude OUT,          ///< WGS84 latitude in degrees.
+    int32 longitude OUT,         ///< WGS84 longitude in degrees.
+    int32 hAccuracy OUT          ///< Horizontal accuracy in meters.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -920,14 +1152,14 @@ FUNCTION le_result_t GetLocation
  * @note directionPtr and directionAccuracyPtr can be set to NULL if not needed.
  *
  * @note If the caller passes an invalid position sample reference to this function,
- *       it is a fatal error and the function will not return.
+ *       it is a fatal error and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetDirection
 (
- Sample  positionSampleRef IN,       ///< Position sample reference.
- uint32  direction OUT,              ///< Direction in degrees.
- uint32  directionAccuracy OUT       ///< Direction accuracy estimation.
+    Sample  positionSampleRef IN,       ///< Position sample reference.
+    uint32  direction OUT,              ///< Direction in degrees.
+    uint32  directionAccuracy OUT       ///< Direction accuracy estimation.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -944,24 +1176,24 @@ FUNCTION le_result_t GetDirection
  * @note For a 2D position fix, the altitude will be indicated as invalid and set to INT32_MAX
  *
  * @note Vertical position accuracy is set to meters with 1 decimal place (3047 = 3.0
- *       meters) by default. To change its accuracy, call the @c taf_gnss_SetDataResolution() function. 
- *       Vertical position accuracy is set as data type and accuracy from 0 to 3 decimal place is set 
- *       as resolution.
+ *       meters)by default.To change its accuracy,call the @c taf_gnss_SetDataResolution() function.
+ *       Vertical position accuracy is set as data type and accuracy from 0 to 3 decimal place is
+ *       set as resolution.
  *
  * @note In case the function returns LE_OUT_OF_RANGE, some of the retrieved parameters may be
  *       valid. Compare them with INT32_MAX.
  *
  * @note If the caller passes an invalid position reference to this function,
- *       it is a fatal error and the function will not return.
+ *       it is a fatal error and the client will be killed.
  *
  * @note altitudePtr and altitudeAccuracyPtr can be set to NULL if not needed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetAltitude
 (
- Sample positionSampleRef  IN,   ///< Position sample reference
- int32 altitude OUT,             ///< Altitude in meters above mean sea level.
- int32 vAccuracy OUT             ///< Vertical accuracy in meters.
+    Sample positionSampleRef  IN,   ///< Position sample reference
+    int32 altitude OUT,             ///< Altitude in meters above mean sea level.
+    int32 vAccuracy OUT             ///< Vertical accuracy in meters.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -986,7 +1218,7 @@ FUNCTION le_result_t GetAltitude
  *       valid. Compare them with UINT32_MAX.
  *
  * @note If the caller passes an invalid position sample reference to this function,
- *       it is a fatal error and the function will not return.
+ *       it is a fatal error and the client will be killed.
  *
  *
  * @warning The horizontal speed accuracy is platform dependent.
@@ -994,9 +1226,9 @@ FUNCTION le_result_t GetAltitude
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetHorizontalSpeed
 (
- Sample positionSampleRef IN,        ///< Position sample reference.
- uint32 hspeed OUT,                  ///< Horizontal speed in m/sec.
- uint32 hspeedAccuracy OUT           ///< Horizontal accuracy estimation in m/sec.
+    Sample positionSampleRef IN,        ///< Position sample reference.
+    uint32 hspeed OUT,                  ///< Horizontal speed in m/sec.
+    uint32 hspeedAccuracy OUT           ///< Horizontal accuracy estimation in m/sec.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1022,7 +1254,7 @@ FUNCTION le_result_t GetHorizontalSpeed
  *       valid. Compare them with INT32_MAX.
  *
  * @note If the caller passes an invalid position sample reference to this function,
- *       it is a fatal error and the function will not return.
+ *       it is a fatal error and the client will be killed.
  *
  *
  * @warning The vertical speed accuracy is platform dependent.
@@ -1030,9 +1262,9 @@ FUNCTION le_result_t GetHorizontalSpeed
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetVerticalSpeed
 (
- Sample positionSampleRef IN,         ///< Position sample reference.
- int32  vspeed OUT,                   ///< Vertical speed in m/sec.
- int32  vspeedAccuracy OUT            ///< Vertical speed's accuracy estimation in m/sec.
+    Sample positionSampleRef IN,         ///< Position sample reference.
+    int32  vspeed OUT,                   ///< Vertical speed in m/sec.
+    int32  vspeedAccuracy OUT            ///< Vertical speed's accuracy estimation in m/sec.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1046,7 +1278,7 @@ FUNCTION le_result_t GetVerticalSpeed
 
  *
  * @note If the caller passes an invalid position sample reference or a null pointer to this
- *       function, it is a fatal error and the function will not return.
+ *       function, it is a fatal error and the client will be killed.
  *
  *
  * This function is deprecated; le_gnss_GetLeapSeconds should be used instead.
@@ -1055,8 +1287,8 @@ FUNCTION le_result_t GetVerticalSpeed
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t  GetGpsLeapSeconds
 (
- Sample positionSampleRef  IN,       ///< Position sample reference.
- uint8  leapSeconds OUT              ///< UTC leap seconds in seconds.
+    Sample positionSampleRef  IN,       ///< Position sample reference.
+    uint8  leapSeconds OUT              ///< UTC leap seconds in seconds.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1069,15 +1301,15 @@ FUNCTION le_result_t  GetGpsLeapSeconds
  *  - LE_OK            Succeeded.
  *
  * @note If the caller passes an invalid position sample reference or null pointers to this
- *       function, it is a fatal error and the function will not return.
+ *       function, it is a fatal error and the client will be killed.
 */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetDate
 (
- Sample positionSampleRef IN, ///< Position sample reference.
- uint16 year OUT,             ///< UTC year A.D., e.g., 2022.
- uint16 month OUT,            ///< UTC month of the year; range is 1 to 12.
- uint16 day OUT               ///< UTC days of the month; range is 1 to 31.
+    Sample positionSampleRef IN, ///< Position sample reference.
+    uint16 year OUT,             ///< UTC year A.D., e.g., 2022.
+    uint16 month OUT,            ///< UTC month of the year; range is 1 to 12.
+    uint16 day OUT               ///< UTC days of the month; range is 1 to 31.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1090,16 +1322,16 @@ FUNCTION le_result_t GetDate
  *  - LE_OK            Succeeded.
  *
  * @note If the caller passes an invalid position sample reference or null pointers to this
- *       function, it is a fatal error and the function will not return.
+ *       function, it is a fatal error and the client will be killed.
 */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetTime
 (
- Sample positionSampleRef  IN, ///< Position sample reference.
- uint16 hours OUT,             ///< UTC hours of the day; range is 0 to 23.
- uint16 minutes OUT,           ///< UTC minutes of the hour; range is 0 to 59.
- uint16 seconds OUT,           ///< UTC seconds of the minute; range is 0 to 59.
- uint16 milliseconds OUT       ///< UTC milliseconds of the second; range is 0 to 999.
+    Sample positionSampleRef  IN, ///< Position sample reference.
+    uint16 hours OUT,             ///< UTC hours of the day; range is 0 to 23.
+    uint16 minutes OUT,           ///< UTC minutes of the hour; range is 0 to 59.
+    uint16 seconds OUT,           ///< UTC seconds of the minute; range is 0 to 59.
+    uint16 milliseconds OUT       ///< UTC milliseconds of the second; range is 0 to 999.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1149,7 +1381,8 @@ BITMASK ConstellationBitMask
     CONSTELLATION_BEIDOU,                   ///< BEIDOU constellation.
     CONSTELLATION_GALILEO,                  ///< GALILEO constellation.
     CONSTELLATION_SBAS,                     ///< SBAS constellation.
-    CONSTELLATION_QZSS                      ///< QZSS constellation.
+    CONSTELLATION_QZSS,                     ///< QZSS constellation.
+    CONSTELLATION_NAVIC                     ///< NAVIC constellation.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -1227,7 +1460,8 @@ FUNCTION le_result_t Stop
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetConstellation
 (
- ConstellationBitMask constellationMask      IN  ///< GNSS constellation type used in the solution.
+    ConstellationBitMask constellationMask      IN  ///< GNSS constellation type used
+                                                    /// in the solution.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1239,13 +1473,13 @@ FUNCTION le_result_t SetConstellation
  *  - LE_FAULT Failed.
  *
  * @note If the caller passes a null pointer to this function, it is a fatal error and the
- *       function will not return.
+ *       client will be killed.
  *
 */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetConstellation
 (
- ConstellationBitMask constellationMask  OUT  ///< GNSS constellation type used in the solution.
+    ConstellationBitMask constellationMask  OUT  ///< GNSS constellation type used in the solution.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1344,40 +1578,424 @@ ENUM StartMode
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Type of lever arm.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM LeverArmType
+{
+    LEVER_ARM_TYPE_GNSS_TO_VRP = 1,     ///< Vehicle reference point with regard to
+                                        ///  the origin(at the GNSS antenna).
+    LEVER_ARM_TYPE_DR_IMU_TO_GNSS = 2,  ///< GNSS antenna with regard to the origin at
+                                        ///  the IMU for DR Engine.
+    LEVER_ARM_TYPE_VPE_IMU_TO_GNSS = 3  ///< GNSS antenna with regard to the origin at
+                                        ///  the IMU for VPE.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Type of engine.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM EngineReportsType
+{
+    ENGINE_REPORT_TYPE_FUSED = 0,   ///< Fused mode supports SPE/DRE/PPE.
+    ENGINE_REPORT_TYPE_SPE = 1,     ///< SPE engine type.
+    ENGINE_REPORT_TYPE_PPE= 2,      ///< PPE engine type.
+    ENGINE_REPORT_TYPE_VPE = 3      ///< VPE engine type.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Status of the calibration.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM CalibrationType {
+    DR_ROLL_CALIBRATION_NEEDED,    ///< Roll calibration needed.
+    DR_PITCH_CALIBRATION_NEEDED,   ///< Pitch calibration needed.
+    DR_YAW_CALIBRATION_NEEDED,     ///< Yaw calibration needed.
+    DR_ODO_CALIBRATION_NEEDED,     ///< Odo calibration needed.
+    DR_GYRO_CALIBRATION_NEEDED     ///< Gyro calibration needed.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Type of kinematics data validity.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM KinematicsDataValidityType {
+    HAS_LONG_ACCEL,         ///< Forward acceleration in body frame.
+    HAS_LAT_ACCEL,          ///< Sideward acceleration in body frame.
+    HAS_VERT_ACCEL,         ///< Vertical acceleration in body frame.
+    HAS_YAW_RATE,           ///< Heading rate.
+    HAS_PITCH,              ///< Body pitch.
+    HAS_LONG_ACCEL_UNC,     ///< Uncertainty of forward acceleration in body frame.
+    HAS_LAT_ACCEL_UNC,      ///< Uncertainty of side-ward acceleration in body frame.
+    HAS_VERT_ACCEL_UNC,     ///< Uncertainty of vertical acceleration in body frame.
+    HAS_YAW_RATE_UNC,       ///< Uncertainty of heading rate.
+    HAS_PITCH_UNC,          ///< Uncertainty of body pitch.
+    HAS_PITCH_RATE_BIT,     ///< Body pitch rate.
+    HAS_PITCH_RATE_UNC_BIT, ///< Uncertainty of pitch rate.
+    HAS_ROLL_BIT,           ///< Roll of body frame.
+    HAS_ROLL_UNC_BIT,       ///< Uncertainty of roll.
+    HAS_ROLL_RATE_BIT,      ///< Roll rate of body frame.
+    HAS_ROLL_RATE_UNC_BIT,  ///< Uncertainty of roll rate.
+    HAS_YAW_BIT,            ///< Yaw of body frame.
+    HAS_YAW_UNC_BIT         ///< Uncertainty of yaw.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Type of SBAS correction.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM SbasBitMask {
+    SBAS_CORRECTION_IONO,     ///< Specify whether SBAS ionospheric correction
+                              ///  is used.
+    SBAS_CORRECTION_FAST,     ///< Specify whether SBAS fast correction is used.
+    SBAS_CORRECTION_LONG,     ///< Specify whether SBAS long correction is used.
+    SBAS_INTEGRITY,           ///< Specify whether SBAS integrity information
+                              ///  is used.
+    SBAS_CORRECTION_DGNSS,    ///< Specify whether SBAS DGNSS correction is used.
+    SBAS_CORRECTION_RTK,      ///< Specify whether SBAS RTK correction is used.
+    SBAS_CORRECTION_PPP,      ///< Specify whether SBAS PPP correction is used.
+    SBAS_CORRECTION_RTK_FIXED,///< Specify whether SBAS RTK fixed correction
+                              ///  is used.
+    SBAS_CORRECTED_SV_USED,   ///< Specify only SBAS corrected SV is used
+    SBAS_COUNT                ///< Bitset.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Validity of location information.
+ */
+//--------------------------------------------------------------------------------------------------
+BITMASK LocationInfoValidity
+{
+    HAS_LAT_LONG_BIT,             ///< Location has valid latitude and longitude.
+    HAS_ALTITUDE_BIT,             ///< Location has valid altitude.
+    HAS_SPEED_BIT,                ///< Location has valid speed.
+    HAS_HEADING_BIT,              ///< Location has valid heading.
+    HAS_HORIZONTAL_ACCURACY_BIT,  ///< Location has valid horizontal accuracy.
+    HAS_VERTICAL_ACCURACY_BIT,    ///< Location has valid vertical accuracy.
+    HAS_SPEED_ACCURACY_BIT,       ///< Location has valid speed accuracy.
+    HAS_HEADING_ACCURACY_BIT,     ///< Location has valid heading accuracy.
+    HAS_TIMESTAMP_BIT,            ///< Location has valid timestamp.
+    HAS_ELAPSED_REAL_TIME_BIT,    ///< Location has valid elapsed real time.
+    HAS_ELAPSED_REAL_TIME_UNC_BIT ///< Location has valid elapsed real time uncertainty.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Validity of extended location information.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM LocationInfoExValidity
+{
+    HAS_ALTITUDE_MEAN_SEA_LEVEL,       ///< Valid altitude mean sea level.
+    HAS_DOP,                           ///< Valid PDOP, HDOP, and VDOP.
+    HAS_MAGNETIC_DEVIATION,            ///< Valid magnetic deviation.
+    HAS_HOR_RELIABILITY,               ///< Valid horizontal reliability.
+    HAS_VER_RELIABILITY,               ///< Valid vertical reliability.
+    HAS_HOR_ACCURACY_ELIP_SEMI_MAJOR,  ///< Valid elipsode semi major.
+    HAS_HOR_ACCURACY_ELIP_SEMI_MINOR,  ///< Valid elipsode semi minor.
+    HAS_HOR_ACCURACY_ELIP_AZIMUTH,     ///< Valid accuracy elipsode azimuth.
+    HAS_GNSS_SV_USED_DATA,             ///< Valid GNSS SV information in pos data including
+                                       ///  measurement information.
+    HAS_NAV_SOLUTION_MASK,             ///< Valid navSolutionMask.
+    HAS_POS_TECH_MASK,                 ///< Valid LocPosTechMask.
+    HAS_SV_SOURCE_INFO,                ///< Valid LocSvInfoSource.
+    HAS_POS_DYNAMICS_DATA,             ///< Valid position dynamics data.
+    HAS_EXT_DOP,                       ///< Valid GDOP and TDOP.
+    HAS_NORTH_STD_DEV,                 ///< Valid North standard deviation.
+    HAS_EAST_STD_DEV,                  ///< Valid East standard deviation.
+    HAS_NORTH_VEL,                     ///< Valid North Velocity.
+    HAS_EAST_VEL,                      ///< Valid East Velocity.
+    HAS_UP_VEL,                        ///< Valid Up Velocity.
+    HAS_NORTH_VEL_UNC,                 ///< Valid North Velocity Uncertainty.
+    HAS_EAST_VEL_UNC,                  ///< Valid East Velocity Uncertainty.
+    HAS_UP_VEL_UNC,                    ///< Valid Up Velocity Uncertainty.
+    HAS_LEAP_SECONDS,                  ///< Valid leap_seconds.
+    HAS_TIME_UNC,                      ///< Valid timeUncMs.
+    HAS_NUM_SV_USED_IN_POSITION,       ///< Valid number of SV used.
+    HAS_CALIBRATION_CONFIDENCE_PERCENT,///< Valid sensor calibrationConfidencePercent.
+    HAS_CALIBRATION_STATUS,            ///< Valid sensor calibrationConfidence.
+    HAS_OUTPUT_ENG_TYPE,               ///< Valid output engine type.
+    HAS_OUTPUT_ENG_MASK,               ///< Valid output engine mask.
+    HAS_CONFORMITY_INDEX_FIX,          ///< Valid conformity index.
+    HAS_LLA_VRP_BASED,                 ///< Valid LLA VRP based.
+    HAS_ENU_VELOCITY_VRP_BASED,        ///< Valid enu vrp based.
+    HAS_ALTITUDE_TYPE,                 ///< Valid altitude type.
+    HAS_REPORT_STATUS,                 ///< Valid report status.
+    HAS_INTEGRITY_RISK_USED,           ///< Valid integrity risk.
+    HAS_PROTECT_LEVEL_ALONG_TRACK,     ///< Valid protect level along track.
+    HAS_PROTECT_LEVEL_CROSS_TRACK,     ///< Valid protect level cross track.
+    HAS_PROTECT_LEVEL_VERTICAL,        ///< Valid protect level vertical.
+    HAS_SOLUTION_STATUS                ///< Valid DR Solution status.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Type of positioning engine.
+ */
+//--------------------------------------------------------------------------------------------------
+BITMASK EngineMask
+{
+    STANDARD_POSITIONING_ENGINE,      ///< For standard GNSS position engines.
+    DEAD_RECKONING_ENGINE,            ///< For dead reckoning position engines.
+    PRECISE_POSITIONING_ENGINE,       ///< For precise position engines.
+    VP_POSITIONING_ENGINE             ///< For VP position engine.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Type of location engine.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM LocationAggregationType
+{
+    LOC_OUTPUT_ENGINE_FUSED,        ///< This is the propagated/aggregated report
+                                    /// from the fixes of all engines running on the
+                                    /// system (e.g., DR/SPE/PPE).
+    LOC_OUTPUT_ENGINE_SPE,          ///< This fix is the unmodified fix from modem GNSS engine.
+    LOC_OUTPUT_ENGINE_PPE,          ///< This is the unmodified fix from PPP engine.
+    LOC_OUTPUT_ENGINE_VPE           ///< This is the unmodified fix from VPE engine.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reliability of the horizontal and vertical positions.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM LocationReliability
+{
+    RELIABILITY_UNKNOWN  = -1,    ///< Unknown location reliability.
+    RELIABILITY_NOT_SET  = 0,     ///< Location reliability is not set. The reliability
+                                  /// of this position report could not be determined.
+                                  /// It could be unreliable/reliable.
+    RELIABILITY_VERY_LOW = 1,     ///< Location reliability is very low.
+    RELIABILITY_LOW = 2,          ///< Location reliability is low, little, or no
+                                  ///  cross-checking is possible.
+    RELIABILITY_MEDIUM = 3,       ///< Location reliability is medium, limited cross-check passed.
+    RELIABILITY_HIGH = 4          ///< Location reliability is high, strong cross-check passed.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Type of location technology.
+ */
+//--------------------------------------------------------------------------------------------------
+BITMASK LocationTechnologyType
+{
+    LOC_GNSS,                     ///< Location was calculated using GNSS-based technology.
+    LOC_CELL,                     ///< Location was calculated using Cell-based technology.
+    LOC_WIFI,                     ///< Location was calculated using WiFi-based technology.
+    LOC_SENSORS,                  ///< Location was calculated using Sensors-based technology.
+    LOC_REFERENCE_LOCATION,       ///< Location was calculated using Reference location.
+    LOC_INJECTED_COARSE_POSITION, ///< Location was calculated using Coarse position injected
+                                  ///  into the location engine.
+    LOC_AFLT,                     ///< Location was calculated using AFLT.
+    LOC_HYBRID,                   ///< Location was calculated using GNSS and
+                                  ///  network-provided measurements.
+    LOC_PPE,                      ///< Location was calculated using Precise position engine.
+    LOC_VEH,                      ///< Location was calculated using Vehicular data.
+    LOC_VIS,                      ///< Location was calculated using Visual data.
+    LOC_PROPAGATED                ///< Location was calculated using Propagation logic,
+                                  ///  which uses cached measurements.
+};
+
+//------------------------------------------------------------------------------------------------
+/**
+ * Specify the different types of constellation supported.
+ */
+//------------------------------------------------------------------------------------------------
+ENUM GnssSystem {
+  LOC_SV_SYSTEM_UNKNOWN = -1,  ///< UNKNOWN satellite.
+  LOC_SV_SYSTEM_GPS = 1,       ///< GPS satellite.
+  LOC_SV_SYSTEM_GALILEO = 2,   ///< GALILEO satellite.
+  LOC_SV_SYSTEM_SBAS = 3,      ///< SBAS satellite.
+  LOC_SV_SYSTEM_COMPASS = 4,   ///< COMPASS satellite. This is not supported.
+  LOC_SV_SYSTEM_GLONASS = 5,   ///< GLONASS satellite.
+  LOC_SV_SYSTEM_BDS = 6,       ///< BDS satellite
+  LOC_SV_SYSTEM_QZSS = 7,      ///< QZSS satellite.
+  LOC_SV_SYSTEM_NAVIC = 8      ///< NAVIC satellite.
+};
+
+//------------------------------------------------------------------------------------------------
+/** Specify GNSS signal type and RF Band used in struct GnssMeasurementInfo
+ *  and ISVInfo class.
+ */
+//------------------------------------------------------------------------------------------------
+ENUM GnssSignalType {
+  UNKNOWN_SIGNAL_MASK = 0,     ///< GNSS signal type is unknown.
+  GPS_L1CA = 1,                ///< GNSS signal is of GPS L1CA RF Band.
+  GPS_L1C = 2,                 ///< GNSS signal is of GPS L1C RF Band.
+  GPS_L2 = 4,                  ///< GNSS signal is of GPS L2 RF Band.
+  GPS_L5 = 8,                  ///< GNSS signal is of GPS L5 RF Band.
+  GLONASS_G1 = 16,             ///< GNSS signal is of GLONASS G1 (L1OF) RF Band.
+  GLONASS_G2 = 32,             ///< GNSS signal is of GLONASS G2 (L2OF) RF Band.
+  GALILEO_E1 = 64,             ///< GNSS signal is of GALILEO E1 RF Band.
+  GALILEO_E5A = 128,           ///< GNSS signal is of GALILEO E5A RF Band.
+  GALILIEO_E5B = 256,          ///< GNSS signal is of GALILEO E5B RF Band.
+  BEIDOU_B1 = 512,             ///< GNSS signal is of BEIDOU B1 RF Band.
+  BEIDOU_B2 = 1024,            ///< GNSS signal is of BEIDOU B2 RF Band.
+  QZSS_L1CA = 2048,            ///< GNSS signal is of QZSS L1CA RF Band.
+  QZSS_L1S = 4096,             ///< GNSS signal is of QZSS L1S RF Band.
+  QZSS_L2 = 8192,              ///< GNSS signal is of QZSS L2 RF Band
+  QZSS_L5 = 16384,             ///< GNSS signal is of QZSS L5 RF Band.
+  SBAS_L1 = 32768,             ///< GNSS signal is of SBAS L1 RF Band.
+  BEIDOU_B1I = 65536,          ///< GNSS signal is of BEIDOU B1I RF Band.
+  BEIDOU_B1C = 131072,         ///< GNSS signal is of BEIDOU B1C RF Band.
+  BEIDOU_B2I = 262144,         ///< GNSS signal is of BEIDOU B2I RF Band.
+  BEIDOU_B2AI = 524288,        ///< GNSS signal is of BEIDOU B2AI RF Band.
+  NAVIC_L5 = 1048576,          ///< GNSS signal is of NAVIC L5 RF Band.
+  BEIDOU_B2AQ = 2097152        ///< GNSS signal is of BEIDOU B2A_Q RF Band.
+};
+
+//------------------------------------------------------------------------------------------------
+/**
+ * Specify the status of the report.
+ */
+//------------------------------------------------------------------------------------------------
+ENUM ReportStatus {
+    REPORT_STATUS_UNKNOWN = -1,      ///< Report status is unknown.
+    REPORT_STATUS_SUCCESS = 0,       ///< Report status is successful. The engine is able to calculate the desired fix.
+                                     ///  Most of the fields in ILocationInfoEx will be valid.
+    REPORT_STATUS_INTERMEDIATE = 1,  ///< Report is still in progress. The engine has not completed its
+                                     ///  calculations when this report was generated. Accuracy of various
+                                     ///  in Ifields is non-optimal. Only some of the fields LocationInfoEx
+                                     ///  will be valid.
+    REPORT_STATUS_FAILURE = 2        ///< Report status has failed. The engine is not able to calculate the fix.
+                                     ///  Most of the fields in ILocationInfoEx will be invalid.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Dead reckoning configuration parameters.
  */
 //--------------------------------------------------------------------------------------------------
 STRUCT DrParams
 {
-   double rollOffset;    ///< The misalignment of the sensor board along the horizontal plane of the vehicle
-                         ///  chassis measured looking from the vehicle to forward direction. In unit of degrees.
-                         ///  Range is -180.0 to 180.0.
-   double yawOffset;     ///< The misalignment along the horizontal plane of the vehicle chassis measured
-                         ///  looking from the vehicle to the right side. Positive pitch indicates vehicle is
-                         ///  inclined such that forward wheels are at higher elevation than rear wheels.
-                         ///  In unit of degrees. Range is -180.0 to 180.0.
-   double pitchOffset;   ///< The angle between the vehicle forward direction and the sensor axis as seen
-                         ///  from the top of the vehicle, and measured in counterclockwise direction.
-                         ///  In unit of degrees. Range is -180.0 to 180.0.
-   double offsetUnc;     ///< Single uncertainty number that may be the largest of the uncertainties for
-                         ///  roll offset, pitch offset and yaw offset. In unit of degrees.
-                         ///  Range is -180.0 to 180.0.
-   double speedFactor;   ///< Vehicle speed scale factor configuration input for the dead reckoning positioning
-                         ///  engine. The multiplicative scale factor is applied to the received vehicle
-                         ///  speed value (in meters/second) to obtain the true vehicle speed. Range is 0.9 to 1.1.
-                         ///  @note The scale factor is specific to a given vehicle make and model.
-   double speedFactorUnc;///< Vehicle speed scale factor uncertainty (68% confidence) configuration input for
-                         ///  the dead reckoning positioning engine. Range is 0.0 to 0.1.
-                         ///  @note The scale factor uncertainty is specific to a given vehicle make and model.
-   double gyroFactor;    ///< Gyroscope scale factor configuration input for the dead reckoning positioning engine.
-                         ///  The multiplicative scale factor is applied to received gyroscope value to obtain
-                         ///  the true value. Range is 0.9 to 1.1.
-                         ///  @note The scale factor is specific to the Gyroscope sensor and typically derived 
-                         ///        from either the sensor's data-sheet or from actual calibration.
-   double gyroFactorUnc; ///< Gyroscope scale factor uncertainty (68% confidence) configuration input for the
-                         ///  dead reckoning positioning engine. Range is 0.0 to 0.1. 
-                         ///  @note The scale factor uncertainty is specific to the Gyroscope sensor and typically 
-                         ///        derived from either the sensor's data-sheet or from actual calibration.
+    double rollOffset;    ///< The misalignment of the sensor board along the horizontal plane of
+                          ///  the vehicle chassis measured looking from the vehicle to forward
+                          ///  direction. In unit of degrees. Range is -180.0 to 180.0.
+    double yawOffset;     ///< The misalignment along the horizontal plane of the vehicle chassis
+                          ///  measured looking from the vehicle to the right side. Positive pitch
+                          ///  indicates vehicle is inclined such that the forward wheels are at
+                          ///  higher elevation than the rear wheels. In unit of degrees.
+                          ///  Range is -180.0 to 180.0.
+    double pitchOffset;   ///< The angle between the vehicle forward direction and the sensor
+                          ///  axis as seen from the top of the vehicle, and measured in
+                          ///  counterclockwise direction. In unit of degrees.
+                          ///  Range is -180.0 to 180.0.
+    double offsetUnc;     ///< Single uncertainty number that may be the largest of the
+                          ///  uncertainties for roll offset, pitch offset, and yaw offset.
+                          ///  In unit of degrees. Range is -180.0 to 180.0.
+    double speedFactor;   ///< Vehicle speed scale factor configuration input for the
+                          ///  dead reckoning positioning engine. The multiplicative scale factor is
+                          ///  applied to the received vehicle speed value (in meters/second) to
+                          ///  obtain the true vehicle speed. Range is 0.9 to 1.1.
+                          ///  @note The scale factor is specific to a given vehicle make and model.
+    double speedFactorUnc;///< Vehicle speed scale factor uncertainty (68% confidence) configuration
+                          ///  input for the dead reckoning positioning engine. Range is 0.0 to 0.1.
+                          ///  @note The scale factor uncertainty is specific to a given
+                          ///  vehicle make and model.
+    double gyroFactor;    ///< Gyroscope scale factor configuration input for the dead reckoning
+                          ///  positioning engine.The multiplicative scale factor is applied
+                          ///  to received gyroscope value to obtain the true value. Range is
+                          ///  0.9 to 1.1. @note The scale factor is specific to the Gyroscope
+                          ///  sensor and typically derived from either the sensor's data sheet
+                          ///  or from actual calibration.
+    double gyroFactorUnc; ///< Gyroscope scale factor uncertainty (68% confidence) configuration
+                          ///  input for the dead reckoning positioning engine. Range is 0.0 to 0.1.
+                          ///  @note The scale factor uncertainty is specific to the Gyroscope
+                          ///  sensor and typically derived from either the sensor's data sheet
+                          ///  or from actual calibration.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Lever arm configuration parameters.
+ */
+//--------------------------------------------------------------------------------------------------
+STRUCT LeverArmParams
+{
+    double forwardOffsetMeters;  ///< Offset along the vehicle forward axis, in unit of meters.
+    double sidewaysOffsetMeters; ///< Offset along the vehicle starboard axis, in unit of meters.
+                                 /// Left side offset is negative, and right side offset is positive.
+    double upOffsetMeters;       /// Offset along the vehicle up axis, in unit of meters.
+    uint8 levArmType;            /// Type of lever arm parameter.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Kinematics related information related to device body frame parameters.
+ */
+//--------------------------------------------------------------------------------------------------
+STRUCT KinematicsData
+{
+    uint64 bodyFrameDataMask; ///< The valid bits of the body frame data.
+    double longAccel;         ///< Forward acceleration in body frame (met/sec^2).
+    double latAccel;          ///< Sideward acceleration in body frame (met/sec^2).
+    double vertAccel;         ///< Vertical acceleration in body frame (met/sec^2).
+    double yawRate;           ///< Heading rate (rad/sec).
+    double pitch;             ///< Body pitch (radians).
+    double longAccelUnc;      ///< Uncertainty of forward acceleration in body frame (met/sec^2).
+    double latAccelUnc;       ///< Uncertainty of side-ward acceleration in body frame (met/sec^2).
+    double vertAccelUnc;      ///< Uncertainty of vertical acceleration in body frame (met/sec^2).
+    double yawRateUnc;        ///< Uncertainty of heading rate (rad/second).
+    double pitchUnc;          ///< Uncertainty of body pitch (radians).
+    double pitchRate;         ///< Body pitch rate, in unit of rad/sec.
+    double pitchRateUnc;      ///< Uncertainty of pitch rate, in unit of rad/sec.
+    double roll;              ///< Roll of the body frame, clockwise is positive, in unit of radian.
+    double rollUnc;           ///< Uncertainty of roll, in unit of radian.
+    double rollRate;          ///< Roll rate of the body frame, clockwise is positive,
+                              ///  in unit of rad/sec.
+    double rollRateUnc;       ///< Uncertainty of roll rate, in unit of rad/sec.
+    double yaw;               ///< Yaw of the body frame, clockwise is positive, in unit of radian.
+    double yawUnc;            ///< Uncertainty of yaw, in unit of radian.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set of SVs that are used to calculate position.
+ */
+//--------------------------------------------------------------------------------------------------
+STRUCT SvUsedInPosition
+{
+    uint64 gps;    ///< Specify the set of SVs from GPS constellation that are used to compute the position.
+                   ///  Bit 0 to Bit 31 corresponds to GPS SV ID 1 to 32.
+    uint64 glo;    ///< Specify the set of SVs from GLONASS constellation that are used to compute the position.
+                   ///  Bit 0 to Bit 31 corresponds to GLO SV ID 65 to 96.
+    uint64 gal;    ///< Specify the set of SVs from GALILEO constellation that are used to compute the position.
+                   ///  Bit 0 to Bit 35 corresponds to GAL SV ID 301 to 336.
+    uint64 bds;    ///< Specify the set of SVs from BEIDOU constellation that are used to compute the position.
+                   ///  Bit 0 to Bit 62 corresponds to BDS SV ID 201 to 263.
+    uint64 qzss;   ///< Specify the set of SVs from QZSS constellation that are used to compute the position.
+                   ///  Bit 0 to Bit 4 corresponds to QZSS SV ID 193 to 197.
+    uint64 navic;  ///< Specify the set of SVs from NAVIC constellation that are used to compute the position.
+                   ///  Bit 0 to Bit 13 corresponds to NAVIC SV ID 401 to 414.
+};
+
+//------------------------------------------------------------------------------------------------
+/** Specify the satellite vehicle measurements that are used
+ *  to calculate location in @ref ILocationInfoEx.
+ */
+//------------------------------------------------------------------------------------------------
+STRUCT GnssMeasurementInfo {
+  uint32 gnssSignalType;        ///< GnssSignalType mask
+  GnssSystem gnssConstellation; ///< Specifies GNSS Constellation Type
+
+  uint16 gnssSvId;              ///< GNSS SV ID
+                                /// For GPS:      1 to 32.
+                                /// For GLONASS:  [65, 96] or [97, 110].
+                                /// [65, 96] if orbital slot number(OSN) is known.
+                                /// [97, 110] as frequency channel number(FCN) [-7, 6] plus 104.
+                                /// i.e., encode FCN (-7) as 97, FCN (0) as 104, FCN (6) as 110.
+                                /// For SBAS:     120 to 158 and 183 to 191.
+                                /// For QZSS:     193 to 197.
+                                /// For BDS:      201 to 263.
+                                /// For GAL:      301 to 336.
+                                /// For NAVIC:    401 to 414.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -1407,15 +2025,16 @@ FUNCTION State GetState
  *       valid. Compare them with UINT8_MAX.
  *
  * @note If the caller passes an invalid position sample reference to this function,
- *       it is a fatal error and the function will not return.
+ *       it is a fatal error and the client will be killed.
 */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetSatellitesStatus
 (
- Sample        positionSampleRef IN,     ///< Position sample reference.
- uint8         satsInViewCount OUT,      ///< Number of satellites in view.
- uint8         satsTrackingCount OUT,    ///< Number of satellites in view when tracking GNSS.
- uint8         satsUsedCount OUT         ///< Number of satellites in view used for GNSS navigation.
+    Sample        positionSampleRef IN,     ///< Position sample reference.
+    uint8         satsInViewCount OUT,      ///< Number of satellites in view.
+    uint8         satsTrackingCount OUT,    ///< Number of satellites in view when tracking GNSS.
+    uint8         satsUsedCount OUT         ///< Number of satellites in view used for
+                                            ///  GNSS navigation.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1428,12 +2047,12 @@ FUNCTION le_result_t GetSatellitesStatus
  *  - LE_NOT_PERMITTED The GNSS device state is not ready.
  *
  * @note If the caller passes a null pointer to this function, it is a fatal error and the
- *       function will not return.
+ *       client will be killed.
 */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetAcquisitionRate
 (
- uint32 rate      OUT  ///< Acquisition rate in milliseconds for GNSS.
+    uint32 rate      OUT  ///< Acquisition rate in milliseconds for GNSS.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1447,12 +2066,12 @@ FUNCTION le_result_t GetAcquisitionRate
  *  - LE_FAULT         Failed.
  *
  * @note If the caller passes a null pointer to this function, it is a fatal error and the
- *       function will not return.
+ *       client will be killed.
 */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetTtff
 (
- uint32 ttff                     OUT ///< TTFF in milliseconds.
+    uint32 ttff                     OUT ///< TTFF in milliseconds.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1475,20 +2094,20 @@ FUNCTION le_result_t GetTtff
  *       valid.
  *
  * @note If the caller passes an invalid position sample reference to this function,
- *       it is a fatal error and the function will not return
+ *       it is a fatal error and the client will be killed.
 */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetSatellitesInfo
 (
- Sample        positionSampleRef IN,             ///< Position sample reference.
- uint16        satId[SV_INFO_MAX_LEN] OUT,       ///< Satellites in view ID number.
- Constellation satConst[SV_INFO_MAX_LEN] OUT,    ///< GNSS constellation type used.
- bool          satUsed[SV_INFO_MAX_LEN] OUT,     ///< True if satellite in view used.
- uint8         satSnr[SV_INFO_MAX_LEN] OUT,      ///< Satellites in view signal-to-noise ratio.
- uint16        satAzim[SV_INFO_MAX_LEN] OUT,     ///< Satellites in view azimuth; range is 0
-                                                 ///  to 360 degrees.
- uint8         satElev[SV_INFO_MAX_LEN] OUT      ///< Satellites in view elevation; range is 0
-                                                 ///  to 90 degrees.
+    Sample        positionSampleRef IN,             ///< Position sample reference.
+    uint16        satId[SV_INFO_MAX_LEN] OUT,       ///< Satellites in view ID number.
+    Constellation satConst[SV_INFO_MAX_LEN] OUT,    ///< GNSS constellation type used.
+    bool          satUsed[SV_INFO_MAX_LEN] OUT,     ///< True if satellite in view used.
+    uint8         satSnr[SV_INFO_MAX_LEN] OUT,      ///< Satellites in view signal-to-noise ratio.
+    uint16        satAzim[SV_INFO_MAX_LEN] OUT,     ///< Satellites in view azimuth; range is 0
+                                                    ///  to 360 degrees.
+    uint8         satElev[SV_INFO_MAX_LEN] OUT      ///< Satellites in view elevation; range is 0
+                                                    ///  to 90 degrees.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1501,7 +2120,7 @@ FUNCTION le_result_t GetSatellitesInfo
  *  - LE_OK            Succeeded.
  *
  * @note If the caller passes an invalid position sample reference or a null pointer to this
- *       function, it is a fatal error and the function will not return.
+ *       function, it is a fatal error and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetTimeAccuracy
@@ -1522,7 +2141,7 @@ FUNCTION le_result_t GetTimeAccuracy
  * @note The epoch time is the number of seconds elapsed.
  *
  * @note If the caller passes an invalid position sample reference or a null pointer to this
- *       function, it is a fatal error and the function will not return.
+ *       function, it is a fatal error and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetEpochTime
@@ -1564,7 +2183,7 @@ FUNCTION le_result_t SetDopResolution
  *       The resolution can be modified by calling the @c taf_gnss_SetDopResolution() function.
  *
  * @note If the caller passes an invalid position sample reference to this function,
- *       it is a fatal error and the function will not return.
+ *       it is a fatal error and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetDilutionOfPrecision
@@ -1588,7 +2207,7 @@ FUNCTION le_result_t GetDilutionOfPrecision
  *       International Earth Rotation and Reference Systems Service (IERS).
  *
  * @note If the caller passes a null pointer to this function, it is considered a fatal
- *       error and the function will not return.
+ *       error and the client will be killed.
  *
  * @note If the return value of a parameter is INT32_MAX/UINT64_MAX, the parameter is not valid.
  *
@@ -1613,7 +2232,7 @@ FUNCTION le_result_t GetLeapSeconds
  *  - LE_OK            Succeeded.
  *
  * @note If the caller passes an invalid position sample reference or null pointers to this
- *       function, it is a fatal error and the function will not return.
+ *       function, it is a fatal error and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetGpsTime
@@ -1716,7 +2335,7 @@ FUNCTION le_result_t ForceHotRestart
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetSupportedConstellations
 (
- ConstellationBitMask constellationMask  OUT  ///< Supported GNSS constellations.
+    ConstellationBitMask constellationMask  OUT  ///< Supported GNSS constellations.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1734,7 +2353,7 @@ FUNCTION le_result_t GetSupportedConstellations
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetMinElevation
 (
- uint8 minElevation IN  ///< Minimum elevation in degrees.
+    uint8 minElevation IN  ///< Minimum elevation in degrees.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1751,7 +2370,7 @@ FUNCTION le_result_t SetMinElevation
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t StartMode
 (
- StartMode mode IN  ///< Start Mode.
+    StartMode mode IN  ///< Start Mode.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1764,12 +2383,12 @@ FUNCTION le_result_t StartMode
  *  - LE_UNSUPPORTED Not supported.
  *
  * @note If the caller passes n null pointer to this function, it is a fatal error and the
- *       function will not return.
+ *       client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetMinElevation
 (
- uint8  minElevationPtr OUT  ///< Minimum elevation in degrees; range is 0 to 90.
+    uint8  minElevationPtr OUT  ///< Minimum elevation in degrees; range is 0 to 90.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1795,7 +2414,7 @@ FUNCTION le_result_t GetMinElevation
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetNmeaSentences
 (
- NmeaBitMask nmeaMask      IN  ///< Bitmask for enabled NMEA sentence types.
+    NmeaBitMask nmeaMask      IN  ///< Bitmask for enabled NMEA sentence types.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1805,12 +2424,11 @@ FUNCTION le_result_t SetNmeaSentences
  * @return
  *  - LE_OK             Succeeded.
  *  - LE_FAULT          Failed.
- *  - LE_BUSY           Service is busy.
  *  - LE_TIMEOUT        Timeout occurred.
  *  - LE_NOT_PERMITTED  GNSS device is not ready. 
  *
  * @note If the caller passes a null pointer to this function, it is a fatal error and the
- *       function will not return.
+ *       client will be killed.
  *
  * @note Some NMEA sentences are unsupported depending on the platform.
  *       The bitmask for an unset or unsupported NMEA sentence is zero.
@@ -1818,7 +2436,7 @@ FUNCTION le_result_t SetNmeaSentences
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetNmeaSentences
 (
- NmeaBitMask nmeaMaskPtr     OUT  ///< Bitmask for enabled NMEA sentence types.
+    NmeaBitMask nmeaMaskPtr     OUT  ///< Bitmask for enabled NMEA sentence types.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1833,12 +2451,12 @@ FUNCTION le_result_t GetNmeaSentences
  *  - LE_NOT_PERMITTED  GNSS device is not ready.
  *
  * @note If the caller passes a null pointer to this function, it is a fatal error, the
- *       function will not return.
+ *       client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetDRConfig
 (
- DrParams drParamsPtr  IN ///< The structure reference which passes dead reckoning parameters.
+    DrParams drParamsPtr  IN ///< The structure reference which passes dead reckoning parameters.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1852,7 +2470,7 @@ FUNCTION le_result_t SetDRConfig
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetSupportedNmeaSentences
 (
- NmeaBitMask nmeaMaskPtr     OUT  ///< Supported NMEA sentence types.
+    NmeaBitMask nmeaMaskPtr     OUT  ///< Supported NMEA sentence types.
 );
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1864,7 +2482,7 @@ FUNCTION le_result_t GetSupportedNmeaSentences
  *  - LE_NOT_PERMITTED  GNSS device is not ready.
  *
  * @note If the caller passes a null pointer to this function, it is a fatal error and the
- *       function will not return.
+ *       client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ConfigureEngineState
@@ -1883,7 +2501,7 @@ FUNCTION le_result_t ConfigureEngineState
  *  - LE_NOT_PERMITTED  GNSS device is not active.
  *
  * @note If the caller passes a null pointer to this function, it is a fatal error and the
- *       function will not return.
+ *       client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ConfigureRobustLocation
@@ -1903,7 +2521,7 @@ FUNCTION le_result_t ConfigureRobustLocation
  *  - LE_NOT_PERMITTED  GNSS device is not active.
  *
  * @note If the caller passes a null pointer to this function, it is a fatal error and the
- *       function will not return.
+ *       client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t RobustLocationInformation
@@ -1924,7 +2542,7 @@ FUNCTION le_result_t RobustLocationInformation
  *  - LE_NOT_PERMITTED  GNSS device is not ready.
  *
  * @note If the caller passes a null pointer to this function, it is a fatal error and the
- *       function will not return.
+ *       client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DefaultSecondaryBandConstellations
@@ -1941,12 +2559,12 @@ FUNCTION le_result_t DefaultSecondaryBandConstellations
  *  - LE_NOT_PERMITTED  GNSS device is not ready.
  *
  * @note If the caller passes a null pointer to this function, it is a fatal error and the
- *       function will not return.
+ *       client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t RequestSecondaryBandConstellations
 (
-    int32 constellationSb OUT ///< Bitmask to get enabled secondary band constellations.
+    uint32 constellationSb OUT ///< Bitmask to get enabled secondary band constellations.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -1959,7 +2577,7 @@ FUNCTION le_result_t RequestSecondaryBandConstellations
  *  - LE_NOT_PERMITTED  GNSS device is not ready. 
  *
  * @note If the caller passes a null pointer to this function, it is a fatal error and the
- *       function will not return.
+ *       client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ConfigureSecondaryBandConstellations
@@ -1977,7 +2595,7 @@ FUNCTION le_result_t ConfigureSecondaryBandConstellations
  *  - LE_NOT_PERMITTED  The GNSS device is not in the Active state.
  *
  * @note If the caller passes a null pointer to this function, it is a fatal error
- *       and the function will not return.
+ *       and the client will be killed.
  */
 
 //--------------------------------------------------------------------------------------------------
@@ -1997,7 +2615,7 @@ FUNCTION le_result_t GetMagneticDeviation
  *  - LE_NOT_PERMITTED  The GNSS device is not in the Active state.
  *
  * @note If the caller passes a null pointer to this function, it is a fatal error
- *       and the function will not return.
+ *       and the client will be killed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetEllipticalUncertainty
@@ -2006,4 +2624,397 @@ FUNCTION le_result_t GetEllipticalUncertainty
     uint32 horUncEllipseSemiMajorPtr OUT, ///< Horizontal semi-major elliptical uncertainty.
     uint32 horUncEllipseSemiMinorPtr OUT, ///< Horizontal semi-minor elliptical uncertainty.
     uint8  horConfidencePtr          OUT  ///< Horizontal confidence level.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the Lever Arm configuration Parameters.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_BAD_PARAMETER  Invalid lever arm parameter provided.
+ *  - LE_NOT_PERMITTED  The GNSS device is not in the ready state.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetLeverArmConfig
+(
+    LeverArmParams LeverArmParamsPtr IN ///< The structure reference passes lever arm parameters.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the GNSS device specified engine type.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_BAD_PARAMETER  Invalid engine type parameter provided.
+ *  - LE_NOT_PERMITTED  The GNSS device is not in the ready state.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetEngineType
+(
+    EngineReportsType EngineType IN ///< Engine type.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the conformity index.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
+ *
+ * @note When robust location is enabled, comformity index will be returned.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetConformityIndex
+(
+    Sample positionSampleRef IN, ///< Position sample reference.
+    double index OUT             ///< Conformity index.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the sensor calibration status and confidence percent.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetCalibrationData
+(
+    Sample positionSampleRef IN, ///< Position sample reference.
+    uint32 calibPtr OUT,         ///< Calibration status.
+    uint8 percentPtr OUT         ///< Confidence percent.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the body frame data.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetBodyFrameData
+(
+    Sample positionSampleRef IN,  ///< Position sample reference.
+    KinematicsData bodyDataPtr  OUT   ///< Body data reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets vehicle reference point based latitude, longitude, and altitude information.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetVRPBasedLLA
+(
+    Sample positionSampleRef IN,     ///< Position sample reference.
+    double vrpLatitudePtr  OUT,      ///< VRP based latitude.
+    double vrpLongitudePtr OUT,      ///< VRP based longtitude.
+    double vrpAltitudePtr  OUT       ///< VRP based altitude.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets vehicle reference point based east, north, and up velocity information.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetVRPBasedVelocity
+(
+    Sample positionSampleRef IN,     ///< Position sample reference.
+    double eastVelPtr  OUT,          ///< East velocity.
+    double northVelPtr OUT,          ///< North velocity.
+    double upVelPtr  OUT             ///< Up velocity.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the set of satellite vehicles that are used to calculate position.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetSvUsedInPosition
+(
+    Sample positionSampleRef IN,    ///< Position sample reference.
+    SvUsedInPosition svDataPtr OUT  ///< SV data reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets navigation solution mask used to indicate SBAS corrections.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetSbasCorrection
+(
+    Sample positionSampleRef IN,    ///< Position sample reference.
+    uint32 sbasMaskPtr OUT          ///< SBAS bit mask.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets position technology mask to indicate which technology is used.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetPositionTechnology
+(
+    Sample positionSampleRef IN,    ///< Position sample reference.
+    uint32 techMaskPtr OUT          ///< Technology mask.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the validity of the location basic information.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetLocationInfoValidity
+(
+    Sample positionSampleRef IN,    ///< Position sample reference.
+    uint32 validityMaskPtr OUT,     ///< Validity bit mask.
+    uint64 validityExMaskPtr OUT    ///< Validity ex bit mask.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the the combination of position engines and location engine type
+ * used in calculating the position report.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetLocationOutputEngParams
+(
+    Sample positionSampleRef IN,    ///< Position sample reference.
+    uint16 engMaskPtr OUT,          ///< Engine type bit mask.
+    uint16 engTypePtr OUT           ///< Location engine type.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the reliability of the horizontal and vertical positions.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetReliabilityInformation
+(
+    Sample positionSampleRef IN,    ///< Position sample reference.
+    uint16 horiReliblityPtr OUT,    ///< Horizontal reliablity.
+    uint16 vertReliblityPtr OUT     ///< Vertical reliablity.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the elliptical horizontal uncertainty azimuth of orientation,
+ * east and north standard deviations.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetStdDeviationAzimuthInfo
+(
+    Sample positionSampleRef IN,    ///< Position sample reference.
+    double azimuthPtr OUT,          ///< Retrieves elliptical horizontal uncertainty azimuth of orientation.
+                                    /// Units: Decimal degrees
+                                    /// Range: 0 to 180
+                                    /// Confidence for uncertainty is not specified.
+    double eastDevPtr OUT,          ///< East standard deviation.
+                                    /// Retrieves east standard deviation.
+                                    /// Units: Meters
+                                    /// Uncertainty is defined with 68% confidence level.
+    double northDevPtr OUT          ///< North standard deviation.
+                                    /// Retrieves north standard deviation.
+                                    /// Units: Meters
+                                    /// Uncertainty is defined with 68% confidence level.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the elapsed real time and its uncertainity values in nano-second.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_OUT_OF_RANGE   If the retrieved parameter is invalid.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetRealTimeInformation
+(
+    Sample positionSampleRef IN, ///< Position sample reference.
+    uint64 realTimePtr OUT,      ///< Elapsed real time in nano-second.
+    uint64 realTimeUncPtr OUT    ///< Elapsed real time uncertainty in nano-second.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the information about GNSS measurement usages.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_BAD_PARAMETER  The given positionSampleRef is invalid.
+ *  - LE_OUT_OF_RANGE   The retrieved parameter is invalid.
+ *  - LE_NO_MEMORY      The array length of measInfoPtr is zero.
+ *  - LE_OVERFLOW       The array length of measInfoPtr is greater than MEASUREMENT_INFO_MAX.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetMeasurementUsageInfo
+(
+    Sample positionSampleRef IN,                                 ///< Position sample reference.
+    GnssMeasurementInfo measInfoPtr[MEASUREMENT_INFO_MAX] OUT    ///< GNSS measurement information.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the status of report in terms of how optimally the report was calculated by the engine.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_BAD_PARAMETER  The given positionSampleRef is invalid.
+ *  - LE_NO_MEMORY      The reportStatus is invalid.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetReportStatus
+(
+    Sample positionSampleRef IN,    ///< Position sample reference.
+    int32 reportStatus OUT          ///< Engine type bit mask.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the altitude with respect to mean sea level in Meters units.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_BAD_PARAMETER  The positionSampleRef is invalid.
+ *  - LE_NO_MEMORY      The altMeanSeaLevel is invalid.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetAltitudeMeanSeaLevel
+(
+    Sample positionSampleRef IN,    ///< Position sample reference.
+    double altMeanSeaLevel OUT      ///< Altitude Mean Sea Level.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the GNSS Satellite Vehicles used in position data.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_BAD_PARAMETER  The positionSampleRef is invalid.
+ *  - LE_OUT_OF_RANGE   The retrieved parameter is invalid.
+ *  - LE_NO_MEMORY      The array length of sVIdsPtr is zero.
+ *  - LE_OVERFLOW       The array length of sVIdsPtr is greater than MEASUREMENT_INFO_MAX.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ *       and the client will be killed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetSVIds
+(
+    Sample positionSampleRef IN,                 ///< Position sample reference.
+    uint16 sVIdsPtr[MEASUREMENT_INFO_MAX] OUT    ///< IDs of GNSS Satellite Vehicles.
 );

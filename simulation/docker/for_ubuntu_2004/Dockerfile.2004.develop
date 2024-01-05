@@ -1,0 +1,49 @@
+# Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+ARG UBUNTU_DISTRO_ORIGIN
+FROM $UBUNTU_DISTRO_ORIGIN
+
+RUN apt-get -qq update
+RUN apt-get -y install sudo
+RUN apt-get update --fix-missing
+
+RUN apt-get -y --no-install-recommends install ca-certificates
+RUN update-ca-certificates
+RUN apt-get -y --no-install-recommends install build-essential
+RUN apt-get -y --no-install-recommends install libssl-dev
+RUN apt-get -y --no-install-recommends install curl
+RUN apt-get -y --no-install-recommends install python3
+RUN apt-get -y --no-install-recommends install ninja-build
+RUN apt-get -y --no-install-recommends install python-jinja2
+RUN DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install cmake
+RUN apt-get -y --no-install-recommends install python-setuptools
+RUN apt-get -y --no-install-recommends install python2
+RUN apt-get -y --no-install-recommends install git
+RUN apt-get -y --no-install-recommends install fakeroot
+RUN apt-get -y --no-install-recommends install file
+RUN apt-get -y --no-install-recommends install libcap-dev
+
+# Create a non-root user: [developer] for development, with password: [simula]
+RUN useradd --create-home --no-log-init --shell /bin/bash developer
+RUN adduser developer sudo
+RUN echo 'developer:simula' | chpasswd
+RUN echo 'developer ALL=(ALL:ALL) ALL' >> /etc/sudoers
+
+# Configure fixuid for dynamic uid/gid passing.
+RUN USER=developer && \
+    GROUP=developer && \
+    curl -SsL https://github.com/boxboat/fixuid/releases/download/v0.4.1/fixuid-0.4.1-linux-amd64.tar.gz | tar -C /usr/local/bin -xzf - && \
+    chown root:root /usr/local/bin/fixuid && \
+    chmod 4755 /usr/local/bin/fixuid && \
+    mkdir -p /etc/fixuid && \
+    printf "user: $USER\ngroup: $GROUP\npaths:\n  - /tmp\n" > /etc/fixuid/config.yml
+
+WORKDIR /home/developer/
+USER developer
+
+RUN echo 'if [ "`id -u`" -eq 0 ]; then PS1="[Build Your Simulation] \\u:\\w # "; else PS1="[Build Your Simulation] \\u:\\w $ "; fi' >> ~/.bashrc
+
+# You should pass arguments such as : '-u $(id -u):$(id -g)' to 'docker run' command.
+# Caution: please MOUNT your opensource project at the special location.
+ENTRYPOINT ["/usr/local/bin/fixuid", "-q", "/workspace/telaf/simulation/scripts/forward_to_container.sh"]

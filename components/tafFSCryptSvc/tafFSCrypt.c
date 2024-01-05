@@ -38,9 +38,9 @@
 #include "tafFSCrypt.h"
 
 #include "limit.h"
-#include <openssl/sha.h>
-#include <openssl/md5.h>
+
 #include <openssl/err.h>
+#include <openssl/evp.h>
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -144,22 +144,41 @@ static void key_descriptor_to_hex
 static void compute_descriptor(const uint8_t key[FSC_MAX_KEY_SIZE],
                                char descriptor[FS_KEY_DESCRIPTOR_HEX_SIZE])
 {
-    SHA512_CTX sha512Ctx;
-    uint8_t digest1[SHA512_DIGEST_LENGTH];
-    uint8_t digest2[SHA512_DIGEST_LENGTH];
+    uint8_t digest1[EVP_MAX_MD_SIZE];
+    uint8_t digest2[EVP_MAX_MD_SIZE];
 
-    SHA512_Init(&sha512Ctx);
-    SHA512_Update(&sha512Ctx, key, FSC_MAX_KEY_SIZE);
-    SHA512_Final(digest1, &sha512Ctx);
+    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+    const EVP_MD* method = EVP_sha512();
 
-    SHA512_Init(&sha512Ctx);
-    SHA512_Update(&sha512Ctx, digest1, SHA512_DIGEST_LENGTH);
-    SHA512_Final(digest2, &sha512Ctx);
+    if(ctx == NULL)
+    {
+        LE_ERROR("ctx is NULL");
+        return;
+    }
+    // double hash the key
+
+    // first hash
+    EVP_DigestInit_ex(ctx, method, NULL);
+    EVP_DigestUpdate(ctx, key, FSC_MAX_KEY_SIZE);
+    EVP_DigestFinal_ex(ctx, digest1, NULL);
+    EVP_MD_CTX_free(ctx);
+
+    // second hash
+    ctx = EVP_MD_CTX_new();
+    if(ctx == NULL)
+    {
+        LE_ERROR("ctx is NULL");
+        return;
+    }
+    EVP_DigestInit_ex(ctx, method, NULL);
+    EVP_DigestUpdate(ctx, digest1, EVP_MAX_MD_SIZE);
+    EVP_DigestFinal_ex(ctx, digest2, NULL);
+    EVP_MD_CTX_free(ctx);
 
     key_descriptor_to_hex(digest2, descriptor);
 
-    memset(digest1, 0, SHA512_DIGEST_LENGTH);
-    memset(digest2, 0, SHA512_DIGEST_LENGTH);
+    memset(digest1, 0, EVP_MAX_MD_SIZE);
+    memset(digest2, 0, EVP_MAX_MD_SIZE);
 }
 
 //--------------------------------------------------------------------------------------------------

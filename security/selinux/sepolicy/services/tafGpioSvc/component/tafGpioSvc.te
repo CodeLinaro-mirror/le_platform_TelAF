@@ -48,6 +48,17 @@ gen_require(`
     allow telaf_tafGpioSvc_t gpiochip_device_t:chr_file read_file_perms;
 ')
 
+# use VHAL driver object
+gen_require(`
+  type telaf_devmgr_data_t;
+')
+allow telaf_tafGpioSvc_t telaf_devmgr_data_t:dir { search };
+allow telaf_tafGpioSvc_t telaf_devmgr_data_t:file { open read getattr execute };
+ifdef(`sa525m',`
+    allow telaf_tafGpioSvc_t telaf_devmgr_data_t:file { map };
+')
+
+
 
 # Allow update daemon to install/uninstall this service
 telaf_admin_manage_all_files_perms(telaf_tafGpioSvc_data_t)

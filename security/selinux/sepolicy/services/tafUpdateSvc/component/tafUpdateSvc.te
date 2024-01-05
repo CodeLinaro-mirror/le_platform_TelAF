@@ -33,6 +33,9 @@ gen_require(`
     type ubi_device_t;
     type unreserved_port_t;
     type user_home_dir_t;
+    type telaf_lib_t;
+    type telaf_app_bundle_t;
+    attribute telaf_app_exec_attr;
 ')
 
 type telaf_tafUpdateSvc_exec_t;
@@ -50,9 +53,23 @@ ifndef(`sa525m',`
         type mtd_block_t;
     ')
     allow telaf_update_t ota_master_da_data_t:file { read };
-    allow telaf_tafUpdateSvc_t ota_master_da_data_t:dir { rw_dir_perms };
+    allow telaf_tafUpdateSvc_t ota_master_da_data_t:dir { manage_dir_perms relabelfrom };
     allow telaf_tafUpdateSvc_t ota_master_da_data_t:file { manage_file_perms };
     allow telaf_tafUpdateSvc_t mtd_block_t:blk_file {rw_file_perms};
+')
+ifdef(`sa525m',`
+    gen_require(`
+        type data_t;
+        type cert_t;
+        type recovery_exec_t;
+    ')
+    allow telaf_update_t data_t:file { read };
+    allow telaf_tafUpdateSvc_t data_t:dir { manage_dir_perms relabelfrom };
+    allow telaf_tafUpdateSvc_t data_t:file { map manage_file_perms };
+
+    allow telaf_tafUpdateSvc_t recovery_exec_t:file { map exec_file_perms };
+    allow telaf_tafUpdateSvc_t cert_t:dir { search_dir_perms };
+    allow telaf_tafUpdateSvc_t cert_t:file { read_file_perms };
 ')
 
 # download agent policy
@@ -82,6 +99,7 @@ allow telaf_tafUpdateSvc_t kernel_t:system { syslog_read };
 allow telaf_tafUpdateSvc_t leprop_sock_t:sock_file { write };
 allow telaf_tafUpdateSvc_t cache_t:dir { manage_dir_perms };
 allow telaf_tafUpdateSvc_t cache_t:file { manage_file_perms };
+allow telaf_tafUpdateSvc_t cache_t:lnk_file { manage_file_perms };
 allow telaf_tafUpdateSvc_t leprop_t:unix_stream_socket { connectto };
 allow telaf_tafUpdateSvc_t fs_t:filesystem { getattr unmount };
 # allow access to /dev/mtd devices
@@ -106,6 +124,13 @@ systemd_start_power_units(telaf_tafUpdateSvc_t)
 allow telaf_tafUpdateSvc_t ubi_device_t:chr_file { rw_file_perms };
 
 init_telaf_app_domain(telaf_tafUpdateSvc_t,telaf_tafUpdateSvc_exec_t)
+
+# app management policy
+allow telaf_tafUpdateSvc_t telaf_lib_t:dir { manage_dir_perms relabelto };
+allow telaf_tafUpdateSvc_t telaf_lib_t:file { manage_file_perms relabel_file_perms };
+allow telaf_tafUpdateSvc_t telaf_app_bundle_t:lnk_file { read_file_perms };
+allow telaf_tafUpdateSvc_t telaf_app_exec_attr:lnk_file { read_file_perms };
+allow telaf_tafUpdateSvc_t telaf_app_exec_attr:file { manage_file_perms relabel_file_perms };
 
 # Allow update daemon to install/uninstall this service
 telaf_admin_manage_all_files_perms(telaf_tafUpdateSvc_data_t)

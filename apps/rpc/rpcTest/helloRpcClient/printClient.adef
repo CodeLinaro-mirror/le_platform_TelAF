@@ -1,0 +1,21 @@
+sandboxed: false
+start: manual
+executables:
+{
+    client = (printClient)
+}
+
+processes:
+{
+    run:
+    {
+        (client)
+    }
+}
+
+// Bind to the service "<root>.printer" on remote RPC server system
+// with systemId 0x102.
+bindings:
+{
+   client.printClient.printer -> <root>.rpcServer_102_root_printer
+}

@@ -45,6 +45,21 @@ COMPONENT_INIT
     auto &ecall = taf_ecall::GetInstance();
     ecall.Init();
     LE_INFO(" tafECall service Ready...\n");
+
+    // Add boot KPI marker
+    const char *kpi_file = "/sys/kernel/boot_kpi/kpi_values";
+    const char *kpi_marker = "L - TelAF eCall service is ready";
+    FILE *file = fopen(kpi_file, "w");
+    if (file == NULL)
+    {
+        LE_ERROR("%s does not exist", kpi_file);
+        return;
+    }
+    if (fwrite(kpi_marker, sizeof(char), strlen(kpi_marker), file) != strlen(kpi_marker))
+    {
+        LE_ERROR("failed to write %s to %s", kpi_marker, kpi_file);
+    }
+    fclose(file);
 }
 
 /*======================================================================
@@ -268,14 +283,15 @@ le_result_t taf_ecall_GetConfiguredOperationMode
 
  FUNCTION        taf_ecall_SetMsdVersion
 
- DESCRIPTION     Set MSD version. It is not supported on this platform.
+ DESCRIPTION     Set MSD version. Only supports MSD version two and three.
 
  DEPENDENCIES    Initialization of ECall Service
 
  PARAMETERS      [IN] msdVersion: msd version value
 
  RETURN VALUE    le_result_t
-                     LE_UNSUPPORTED:       Not supported.
+                     LE_FAULT:             Fail.
+                     LE_OK:                Success.
 
  SIDE EFFECTS
 
@@ -285,22 +301,48 @@ le_result_t taf_ecall_SetMsdVersion
     uint32_t msdVersion
 )
 {
+#if defined(LE_CONFIG_ENABLE_ECALL_MSD_V3)
+    if ((msdVersion != MSD_VERSION_TWO) && (msdVersion != MSD_VERSION_THREE))
+    {
+        LE_ERROR("MsdVersion is set wrong value %d", msdVersion);
+        return LE_FAULT;
+    }
+
+    uint32_t msdVersionRead = 0;
+    if ((taf_ecall_GetMsdVersion(&msdVersionRead) == LE_OK) && (msdVersionRead == msdVersion))
+    {
+        LE_DEBUG("MsdVersion is set to the same value as the current one %d", msdVersion);
+        return LE_OK;
+    }
+
+    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn( CFG_MODEMSERVICE_ECALL_PATH );
+
+    le_cfg_SetInt(iteratorRef, CFG_NODE_MSDVERSION, msdVersion);
+    le_cfg_CommitTxn(iteratorRef);
+
+    LE_DEBUG("Set MsdVersion to %d", msdVersion);
+
+
+    return LE_OK;
+#else
     return LE_UNSUPPORTED;
+#endif
 }
 
 /*======================================================================
 
  FUNCTION        taf_ecall_GetMsdVersion
 
- DESCRIPTION     Get Msd version. Platform supports msdVersion 2.
+ DESCRIPTION     Get Msd version.
 
  DEPENDENCIES    Initialization of ECall Service
 
- PARAMETERS      [OUT] msdVersion: ptr to save msd version. Currently we
-                 support only msdVersion 2. So msdVersion will return value 2.
+ PARAMETERS      [OUT] msdVersion: ptr to save msd version. Only
+                 supports MSD version two and three.
 
  RETURN VALUE    le_result_t
                      LE_BAD_PARAMETER:     Invalid parameters.
+                     LE_FAULT:             Fail.
                      LE_OK:                Success.
 
  SIDE EFFECTS
@@ -312,9 +354,23 @@ le_result_t taf_ecall_GetMsdVersion
 )
 {
     TAF_ERROR_IF_RET_VAL(msdVersion == NULL, LE_BAD_PARAMETER, "msdVersion pointer is NULL");
+#if defined(LE_CONFIG_ENABLE_ECALL_MSD_V3)
+    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateReadTxn( CFG_MODEMSERVICE_ECALL_PATH );
 
+    if (le_cfg_NodeExists(iteratorRef, CFG_NODE_MSDVERSION))
+    {
+        *msdVersion = le_cfg_GetInt(iteratorRef, CFG_NODE_MSDVERSION, 0);
+        LE_DEBUG("MSD version is %d", *msdVersion);
+        le_cfg_CancelTxn(iteratorRef);
+        return LE_OK;
+    }
+
+    le_cfg_CancelTxn(iteratorRef);
+    return LE_FAULT;
+#else
     *msdVersion = 2; //Currently we support only msdVersion 2.
     return LE_OK;
+#endif
 }
 
 /*======================================================================
@@ -328,7 +384,6 @@ le_result_t taf_ecall_GetMsdVersion
  PARAMETERS      [IN] vehicleType: vehicle type
 
  RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER:     Invalid parameters.
                      LE_FAULT:             Fail.
                      LE_OK:                Success.
 
@@ -337,6 +392,12 @@ le_result_t taf_ecall_GetMsdVersion
 ======================================================================*/
 le_result_t taf_ecall_SetVehicleType (taf_ecall_MsdVehicleType_t vehicleType)
 {
+    if ((vehicleType < TAF_ECALL_PASSENGER_VEHICLE_CLASS_M1) ||
+        (vehicleType > TAF_ECALL_OTHER_VEHICLE_CLASS))
+    {
+        LE_ERROR("VehicleType is wrong %d", vehicleType);
+        return LE_FAULT;
+    }
     le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn( CFG_MODEMSERVICE_ECALL_PATH );
 
     le_cfg_SetInt(iteratorRef, CFG_NODE_MSDVEHTYPE, vehicleType);
@@ -386,6 +447,42 @@ le_result_t taf_ecall_GetVehicleType
     return LE_FAULT;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * The Vehicle Identification Number is defined by iso 3833 as a 17 character
+ * alphanumeric code, which includes the letters (F"A".."H"|"J".."N"|"P"|"R".."Z")
+ * and the digit ("0".."9")
+ */
+//--------------------------------------------------------------------------------------------------
+static int CheckVIN
+(
+    char *vin
+)
+{
+    int ret = 0;
+    char c;
+
+    while ( (*vin) && (!ret) )
+    {
+        c= (char)(*vin);
+        if (( (c >= 'A') && (c <= 'H') ) ||
+            ( (c >= 'J') && (c <= 'N') ) ||
+            ( c == 'P' ) ||
+            ( (c >= 'R') && (c <= 'Z') ) ||
+            ( (c >= '0') && (c <= '9') ) )
+        {
+            vin++;
+        }
+        else
+        {
+            ret = -1;
+            LE_ERROR("%c is not allowed", *vin);
+        }
+    }
+
+    return ret;
+}
+
 /*======================================================================
 
  FUNCTION        taf_ecall_SetVIN
@@ -412,6 +509,11 @@ le_result_t taf_ecall_SetVIN
     TAF_ERROR_IF_RET_VAL(strlen(vin) != TAF_ECALL_MAX_VIN_LENGTH, LE_FAULT,
             "VIN length is wrong");
 
+    if (CheckVIN((char *)vin))
+    {
+        return LE_BAD_PARAMETER;
+    }
+    LE_INFO(" vehicle idendification number =  %s", vin);
     le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn( CFG_MODEMSERVICE_ECALL_PATH );
 
     le_cfg_SetString(iteratorRef, CFG_NODE_MSDVIN, vin);
@@ -482,8 +584,6 @@ le_result_t taf_ecall_GetVIN
  PARAMETERS      [IN] propulsionType: propulsion storage type
 
  RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER:     Invalid parameters.
-                     LE_FAULT:             Fail.
                      LE_OK:                Success.
 
  SIDE EFFECTS
@@ -495,60 +595,73 @@ le_result_t taf_ecall_SetPropulsionType
 )
 {
 
-    le_cfg_QuickDeleteNode( CFG_ECALL_PROPULSIONTYPE_PATH );
-
     le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn(CFG_ECALL_PROPULSIONTYPE_PATH);
-    le_result_t res = LE_FAULT;
 
     if (TAF_ECALL_PROP_TYPE_GASOLINE_TANK & propulsionType)
     {
         le_cfg_SetBool(iteratorRef, CFG_NODE_PROPULSION_GASOLINE, true);
-        res = LE_OK;
+    }
+    else
+    {
+        le_cfg_SetBool(iteratorRef, CFG_NODE_PROPULSION_GASOLINE, false);
     }
 
     if (TAF_ECALL_PROP_TYPE_DIESEL_TANK & propulsionType)
     {
         le_cfg_SetBool(iteratorRef, CFG_NODE_PROPULSION_DIESEL, true);
-        res = LE_OK;
+    }
+    else
+    {
+        le_cfg_SetBool(iteratorRef, CFG_NODE_PROPULSION_DIESEL, false);
     }
 
     if (TAF_ECALL_PROP_TYPE_COMPRESSED_NATURALGAS & propulsionType)
     {
         le_cfg_SetBool(iteratorRef, CFG_NODE_PROPULSION_NATURALGAS, true);
-        res = LE_OK;
+    }
+    else
+    {
+        le_cfg_SetBool(iteratorRef, CFG_NODE_PROPULSION_NATURALGAS, false);
     }
 
     if (TAF_ECALL_PROP_TYPE_PROPANE_GAS & propulsionType)
     {
         le_cfg_SetBool(iteratorRef, CFG_NODE_PROPULSION_PROPANE, true);
-        res = LE_OK;
+    }
+    else
+    {
+        le_cfg_SetBool(iteratorRef, CFG_NODE_PROPULSION_PROPANE, false);
     }
 
     if (TAF_ECALL_PROP_TYPE_ELECTRIC & propulsionType)
     {
         le_cfg_SetBool(iteratorRef, CFG_NODE_PROPULSION_ELECTRIC, true);
-        res = LE_OK;
+    }
+    else
+    {
+        le_cfg_SetBool(iteratorRef, CFG_NODE_PROPULSION_ELECTRIC, false);
     }
 
     if (TAF_ECALL_PROP_TYPE_HYDROGEN & propulsionType)
     {
         le_cfg_SetBool(iteratorRef, CFG_NODE_PROPULSION_HYDROGEN, true);
-        res = LE_OK;
+    }
+    else
+    {
+        le_cfg_SetBool(iteratorRef, CFG_NODE_PROPULSION_HYDROGEN, false);
     }
 
     if (TAF_ECALL_PROP_TYPE_OTHER & propulsionType)
     {
         le_cfg_SetBool(iteratorRef, CFG_NODE_PROPULSION_OTHER, true);
-        res = LE_OK;
+    }
+    else
+    {
+        le_cfg_SetBool(iteratorRef, CFG_NODE_PROPULSION_OTHER, false);
     }
 
-    if (res == LE_OK)
-    {
-        le_cfg_CommitTxn(iteratorRef);
-        return LE_OK;
-    }
-    le_cfg_CancelTxn( iteratorRef );
-    return LE_FAULT;
+    le_cfg_CommitTxn(iteratorRef);
+    return LE_OK;
 }
 
 /*======================================================================
@@ -562,7 +675,6 @@ le_result_t taf_ecall_SetPropulsionType
  PARAMETERS      [OUT]propulsionStorageType vehicle propulsion storage type
 
  RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER:     Invalid parameters.
                      LE_FAULT:             Fail.
                      LE_OK:                Success.
 
@@ -691,21 +803,29 @@ le_result_t taf_ecall_SetMsdPosition
 
 /*======================================================================
 
- FUNCTION        taf_ecall_SetMsdPositionN1
+ FUNCTION       taf_ecall_SetMsdPositionN1
 
- DESCRIPTION    Set the change in latitude and longitude compared
-                to the last MSD transmission.
+ DESCRIPTION    Sets the position delta N-1 for MSD transmission.
 
  DEPENDENCIES   Initialization of ECall service
 
  PARAMETERS     [IN]ecallRef : reference for ecall
                 [IN]latitudeDeltaN1: change in latitude value
+                                     < 1 Unit = 100 miliarcseconds, which is approximately 3m
+                                     < maximum value: 511 = 0 0'51.100'' (±1580m)
+                                     < minimum value: -512 = -0 0'51.200'' (± -1583m)
                 [IN]longitudeDeltaN1: change longitude value
+                                     < 1 Unit = 100 miliarcseconds, which is approximately 3m
+                                     < maximum value: 511 = 0 0'51.100'' (±1580m)
+                                     < minimum value: -512 = -0 0'51.200'' (± -1583m)
 
- RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER:     Invalid parameters.
-                     LE_FAULT:             Fail.
-                     LE_OK:                Success.
+ RETURN VALUE   le_result_t
+                    LE_BAD_PARAMETER:     Bad eCall reference.
+                    LE_FAULT:             Failed.
+                    LE_OK:                Succeeded.
+                    LE_DUPLICATE:         The MSD has already been imported.
+
+ NOTE           The process exits when an invalid eCall reference is given.
 
  SIDE EFFECTS
 
@@ -718,27 +838,33 @@ le_result_t taf_ecall_SetMsdPositionN1
 )
 {
     auto &ecall = taf_ecall::GetInstance();
-    ecall.SetMsdPositionN1(ecallRef, latitudeDeltaN1, longitudeDeltaN1);
-    return LE_OK;
+    return ecall.SetMsdPositionN1(ecallRef, latitudeDeltaN1, longitudeDeltaN1);
 }
 
 /*======================================================================
 
- FUNCTION        taf_ecall_SetMsdPositionN2
+ FUNCTION       taf_ecall_SetMsdPositionN2
 
- DESCRIPTION    Set the change in latitude and longitude compared
-                to the last MSD transmission.
+ DESCRIPTION    Sets the position delta N-2 for MSD transmission.
 
  DEPENDENCIES   Initialization of ECall service
 
  PARAMETERS     [IN]ecallRef : reference for ecall
                 [IN]latitudeDeltaN2: change in latitude value
+                                     < 1 Unit = 100 miliarcseconds, which is approximately 3m
+                                     < maximum value: 511 = 0 0'51.100'' (±1580m)
+                                     < minimum value: -512 = -0 0'51.200'' (± -1583m)
                 [IN]longitudeDeltaN2: change longitude value
+                                     < 1 Unit = 100 miliarcseconds, which is approximately 3m
+                                     < maximum value: 511 = 0 0'51.100'' (±1580m)
+                                     < minimum value: -512 = -0 0'51.200'' (± -1583m)
 
- RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER:     Invalid parameters.
-                     LE_FAULT:             Fail.
-                     LE_OK:                Success.
+ RETURN VALUE   le_result_t
+                    LE_BAD_PARAMETER:     Bad eCall reference.
+                    LE_FAULT:             Failed.
+                    LE_OK:                Succeeded.
+                    LE_DUPLICATE:         The MSD has already been imported.
+ NOTE           The process exits when an invalid eCall reference is given.
 
  SIDE EFFECTS
 
@@ -751,8 +877,7 @@ le_result_t taf_ecall_SetMsdPositionN2
 )
 {
     auto &ecall = taf_ecall::GetInstance();
-    ecall.SetMsdPositionN2(ecallRef, latitudeDeltaN2, longitudeDeltaN2);
-    return LE_OK;
+    return ecall.SetMsdPositionN2(ecallRef, latitudeDeltaN2, longitudeDeltaN2);
 }
 
 /*======================================================================
@@ -767,9 +892,11 @@ le_result_t taf_ecall_SetMsdPositionN2
                  [IN] passengerCount: number of passenger
 
  RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER:     Invalid parameters.
-                     LE_FAULT:             Fail.
-                     LE_OK:                Success.
+                    LE_BAD_PARAMETER:     Bad eCall reference.
+                    LE_OK:                Succeeded.
+                    LE_DUPLICATE:         The MSD has already been imported.
+
+ NOTE           The process exits when an invalid eCall reference is given.
 
  SIDE EFFECTS
 
@@ -781,9 +908,7 @@ le_result_t taf_ecall_SetMsdPassengersCount
 )
 {
     auto &ecall = taf_ecall::GetInstance();
-    ecall.SetMsdPassengersCount(ecallRef, passengerCount);
-
-    return LE_OK;
+    return ecall.SetMsdPassengersCount(ecallRef, passengerCount);
 }
 
 /*======================================================================
@@ -866,6 +991,7 @@ le_result_t taf_ecall_GetMsdTxMode
                      LE_BAD_PARAMETER:     Invalid parameters.
                      LE_FAULT:             Fail.
                      LE_OK:                Success.
+                     LE_BUSY:              eCall session is already in progress.
 
  SIDE EFFECTS
 
@@ -894,6 +1020,7 @@ le_result_t taf_ecall_StartTest
                      LE_BAD_PARAMETER:     Invalid parameters.
                      LE_FAULT:             Fail.
                      LE_OK:                Success.
+                     LE_BUSY:              eCall session is already in progress.
 
  SIDE EFFECTS
 
@@ -922,6 +1049,7 @@ le_result_t taf_ecall_StartManual
                      LE_BAD_PARAMETER:     Invalid parameters.
                      LE_FAULT:             Fail.
                      LE_OK:                Success.
+                     LE_BUSY:              eCall session is already in progress.
 
  SIDE EFFECTS
 
@@ -978,9 +1106,11 @@ le_result_t taf_ecall_End
                  [IN] msdLength: length of msd in pdu format
 
  RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER:     Invalid parameters.
-                     LE_FAULT:             Fail.
                      LE_OK:                Success.
+                     LE_BAD_PARAMETER:     Invalid parameters.
+                     LE_OVERFLOW:          The size of the MSD buffer is wrong.
+
+ NOTE            The process exits if an invalid eCall reference is passed.
 
  SIDE EFFECTS
 
@@ -1013,9 +1143,13 @@ le_result_t taf_ecall_ImportMsd
  PARAMETERS      [IN] ecallRef: ecall reference
 
  RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER:     Invalid parameters.
-                     LE_FAULT:             Fail.
                      LE_OK:                Success.
+                     LE_BAD_PARAMETER:     Invalid parameters.
+                     LE_OVERFLOW:          The size of the MSD buffer is wrong.
+                     LE_NOT_FOUND:         The MSD is not imported or updated.
+                     LE_FAULT:             Fail.
+
+ NOTE            The process exits if an invalid eCall reference is passed.
 
  SIDE EFFECTS
 
@@ -1167,7 +1301,6 @@ le_result_t taf_ecall_SetPsapNumber
  RETURN VALUE             le_result_t
     - LE_OK               On success
     - LE_FAULT            On failures or if le_ecall_SetPsapNumber() has never been called before
-    - LE_OVERFLOW         Retrieved PSAP number is too long for the out parameter
     - LE_BAD_PARAMETER    If Psap number is null
 
  @note If the passed PSAP pointer is NULL, a fatal error is raised and the function will not
@@ -1280,5 +1413,109 @@ le_result_t taf_ecall_TerminateRegistration
 {
     auto &ecall = taf_ecall::GetInstance();
     return ecall.TerminateRegistration();
+}
+
+int32_t taf_ecall_GetPlatformSpecificTerminationCode
+(
+    taf_ecall_CallRef_t ecallRef
+)
+{
+    LE_WARN("Not supported.");
+    return 0;
+}
+
+/*======================================================================
+
+ FUNCTION      taf_ecall_SetNadClearDownFallbackTime
+
+ Sets the eCall clear down fallback time of the NAD. If the NAD doesn't receive a clear
+ down indication from network or a clear down message (AL-ACK) from the PSAP during
+ an ecall, then will trigger an automatic call end when clear down fallback time out.
+
+ @return
+  - LE_OK         On success
+  - LE_BUSY       An eCall session is in progress
+  - LE_FAULT      On failures
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_ecall_SetNadClearDownFallbackTime
+(
+    uint16_t ccftTime //NAD (network access device) clear down fallback time in minutes
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.SetNadClearDownFallbackTime(ccftTime);
+}
+
+/*======================================================================
+
+ FUNCTION      taf_ecall_GetNadClearDownFallbackTime
+
+ Gets the eCall clear down fallback time of the NAD (network access device) .
+
+ @return
+  - LE_OK          On success
+  - LE_FAULT       On failures
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_ecall_GetNadClearDownFallbackTime
+(
+    uint16_t* ccftTime //NAD (network access device) clear down fallback time in minutes
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.GetNadClearDownFallbackTime(ccftTime);
+}
+
+/*======================================================================
+
+ FUNCTION      taf_ecall_SetNadMinNetworkRegistrationTime
+
+ Sets the eCall minimum network registration time of the NAD. After an eCall ends, the
+ NAD shall remain registered on the serving network. During this time, the NAD can
+ automatically receive calls from the PSAP.
+
+ @return
+  - LE_OK         On success
+  - LE_BUSY       An eCall session is in progress
+  - LE_FAULT      On failures
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_ecall_SetNadMinNetworkRegistrationTime
+(
+    uint16_t minNwRegTime //NAD (network access device) minimum network registration time in minutes
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.SetNadMinNetworkRegistrationTime(minNwRegTime);
+}
+
+/*======================================================================
+
+ FUNCTION      taf_ecall_GetNadMinNetworkRegistrationTime
+
+ Gets the eCall minimum network registration time of the NAD.
+
+ @return
+  - LE_OK          On success
+  - LE_FAULT       On failures
+
+ SIDE EFFECTS
+
+======================================================================*/
+
+le_result_t taf_ecall_GetNadMinNetworkRegistrationTime
+(
+    uint16_t* minNwRegTime //NAD (network access device) minimum network registration time in minutes
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.GetNadMinNetworkRegistrationTime(minNwRegTime);
 }
 

@@ -1,0 +1,14 @@
+sources:
+{
+    tafAudioUnitTest.cpp
+}
+
+requires:
+{
+    api:
+    {
+        taf_audio.api
+    }
+}
+
+

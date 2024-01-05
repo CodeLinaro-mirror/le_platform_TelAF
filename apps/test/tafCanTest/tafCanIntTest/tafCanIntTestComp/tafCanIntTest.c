@@ -206,15 +206,29 @@ static void* test_CanEventHandler
 )
 {
     le_result_t result;
-    uint32_t frameId;
-    uint32_t frIdMask;
-
     taf_can_ConnectService();
 
     const char* infNamePtr = le_arg_GetArg(1);
+    if (infNamePtr == NULL)
+    {
+        LE_ERROR("CAN test: NULL argument received, Line %d", __LINE__);
+        return NULL;
+    }
+
     taf_can_InfProtocol_t canInfType = TAF_CAN_RAW_SOCK;
-    frameId = le_hex_HexaToInteger(le_arg_GetArg(2));
-    frIdMask = le_hex_HexaToInteger(le_arg_GetArg(3));
+
+    const char *frameIdPtr = le_arg_GetArg(2);
+    const char *frIdMaskPtr = le_arg_GetArg(3);
+
+    if (frameIdPtr == NULL || frIdMaskPtr == NULL)
+    {
+        LE_ERROR("CAN test: NULL argument received, Line %d", __LINE__);
+        return NULL;
+    }
+
+    uint32_t frameId = le_hex_HexaToInteger(frameIdPtr);
+    uint32_t frIdMask = le_hex_HexaToInteger(frIdMaskPtr);
+
     uint8_t test = 1;
 
     taf_can_CanInterfaceRef_t canInfRef = test_taf_can_CreateCanInf(infNamePtr, canInfType);
@@ -420,6 +434,11 @@ COMPONENT_INIT
         LE_TEST_INFO("Testing to know whether the device support FD frame or not");
 
         const char* infNamePtr = le_arg_GetArg(1);
+        if (infNamePtr == NULL)
+        {
+            LE_ERROR("CAN test: NULL argument received, Line %d", __LINE__);
+            exit(EXIT_FAILURE);
+        }
         taf_can_InfProtocol_t canInfType = TAF_CAN_RAW_SOCK;
 
         taf_can_CanInterfaceRef_t canInfRef = test_taf_can_CreateCanInf(infNamePtr, canInfType);
@@ -454,6 +473,11 @@ COMPONENT_INIT
         LE_TEST_INFO("Testing to know whether the FD frame is enabled or not");
 
         const char* infNamePtr = le_arg_GetArg(1);
+        if (infNamePtr == NULL)
+        {
+            LE_ERROR("CAN test: NULL argument received, Line %d", __LINE__);
+            exit(EXIT_FAILURE);
+        }
         taf_can_InfProtocol_t canInfType = TAF_CAN_RAW_SOCK;
 
         taf_can_CanInterfaceRef_t canInfRef = test_taf_can_CreateCanInf(infNamePtr, canInfType);
@@ -540,11 +564,17 @@ COMPONENT_INIT
 
         le_result_t result;
         const char* infNamePtr = le_arg_GetArg(1);
-        taf_can_InfProtocol_t canInfType = TAF_CAN_RAW_SOCK;
-        frameId = le_hex_HexaToInteger(le_arg_GetArg(2));
-
+        const char *frameIdPtr = le_arg_GetArg(2);
         const char* dataPtr = le_arg_GetArg(3);
-        int datalen = strlen(le_arg_GetArg(3));
+
+        if (infNamePtr == NULL || frameIdPtr == NULL || dataPtr == NULL)
+        {
+            LE_ERROR("CAN test: NULL argument received, Line %d", __LINE__);
+            exit(EXIT_FAILURE);
+        }
+        taf_can_InfProtocol_t canInfType = TAF_CAN_RAW_SOCK;
+        frameId = le_hex_HexaToInteger(frameIdPtr);
+        int datalen = strlen(dataPtr);
 
         taf_can_CanInterfaceRef_t canInfRef = test_taf_can_CreateCanInf(infNamePtr, canInfType);
         taf_can_CanFrameRef_t frameRef = test_taf_can_CreateCanFrame(canInfRef, frameId);
@@ -573,11 +603,19 @@ COMPONENT_INIT
 
         le_result_t result;
 
+        const char* loopbackPtr = le_arg_GetArg(1);
         const char* infNamePtr = le_arg_GetArg(2);
-        frameId = le_hex_HexaToInteger(le_arg_GetArg(3));
-
+        const char *frameIdPtr = le_arg_GetArg(3);
         const char* dataPtr = le_arg_GetArg(4);
-        int datalen = strlen(le_arg_GetArg(4));
+
+        if (loopbackPtr == NULL || infNamePtr == NULL || frameIdPtr == NULL || dataPtr == NULL)
+        {
+            LE_ERROR("CAN test: NULL argument received, Line %d", __LINE__);
+            exit(EXIT_FAILURE);
+        }
+
+        frameId = le_hex_HexaToInteger(frameIdPtr);
+        int datalen = strlen(dataPtr);
 
         taf_can_InfProtocol_t canInfType = TAF_CAN_RAW_SOCK;
         taf_can_FrameType_t frameType = TAF_CAN_CAN_FRAME;
@@ -585,13 +623,13 @@ COMPONENT_INIT
         taf_can_CanInterfaceRef_t canInfRef = test_taf_can_CreateCanInf(infNamePtr, canInfType);
         taf_can_CanFrameRef_t frameRef = test_taf_can_CreateCanFrame(canInfRef, frameId);
 
-        if(strcmp("enableLoopback", le_arg_GetArg(1)) == 0)
+        if(strcmp("enableLoopback", loopbackPtr) == 0)
         {
             result = taf_can_EnableLoopback(canInfRef);
             LE_TEST_OK(result == LE_OK, "taf_can_EnableLoopback - LE_OK");
             printf("\n Loopback enabled \n");
         }
-        else if(strcmp("disableLoopback", le_arg_GetArg(1)) == 0)
+        else if(strcmp("disableLoopback", loopbackPtr) == 0)
         {
             result = taf_can_DisableLoopback(canInfRef);
             LE_TEST_OK(result == LE_OK, "taf_can_DisableLoopback - LE_OK");
@@ -653,11 +691,18 @@ COMPONENT_INIT
         LE_TEST_INFO("Testing TelAF Send CAN-FD Frame - TAF_CAN_CAN_FD_FRAME");
 
         le_result_t result;
+        const char* loopbackPtr = le_arg_GetArg(1);
         const char* infNamePtr = le_arg_GetArg(2);
-        frameId = le_hex_HexaToInteger(le_arg_GetArg(3));
-
+        const char *frameIdPtr = le_arg_GetArg(3);
         const char* dataPtr = le_arg_GetArg(4);
-        int datalen = strlen(le_arg_GetArg(4));
+        if (loopbackPtr == NULL || infNamePtr == NULL || frameIdPtr == NULL || dataPtr == NULL)
+        {
+            LE_ERROR("CAN test: NULL argument received, Line %d", __LINE__);
+            exit(EXIT_FAILURE);
+        }
+
+        frameId = le_hex_HexaToInteger(frameIdPtr);
+        int datalen = strlen(dataPtr);
 
         taf_can_InfProtocol_t canInfType = TAF_CAN_RAW_SOCK;
         taf_can_FrameType_t frameType = TAF_CAN_CAN_FD_FRAME;
@@ -665,13 +710,13 @@ COMPONENT_INIT
         taf_can_CanInterfaceRef_t canInfRef = test_taf_can_CreateCanInf(infNamePtr, canInfType);
         taf_can_CanFrameRef_t frameRef = test_taf_can_CreateCanFrame(canInfRef, frameId);
 
-        if(strcmp("enableLoopback", le_arg_GetArg(1)) == 0)
+        if(strcmp("enableLoopback", loopbackPtr) == 0)
         {
             result = taf_can_EnableLoopback(canInfRef);
             LE_TEST_OK(result == LE_OK, "taf_can_EnableLoopback - LE_OK");
             printf("\n Loopback enabled \n");
         }
-        else if(strcmp("disableLoopback", le_arg_GetArg(1)) == 0)
+        else if(strcmp("disableLoopback", loopbackPtr) == 0)
         {
             result = taf_can_DisableLoopback(canInfRef);
             LE_TEST_OK(result == LE_OK, "taf_can_DisableLoopback - LE_OK");
@@ -736,11 +781,19 @@ COMPONENT_INIT
         LE_TEST_INFO("Testing TelAF Send CAN-FD Frame - TAF_CAN_AUTO_FRAME");
 
         le_result_t result;
-        const char* infNamePtr = le_arg_GetArg(2);
-        frameId = le_hex_HexaToInteger(le_arg_GetArg(3));
 
+        const char* loopbackPtr = le_arg_GetArg(1);
+        const char* infNamePtr = le_arg_GetArg(2);
+        const char *frameIdPtr = le_arg_GetArg(3);
         const char* dataPtr = le_arg_GetArg(4);
-        int datalen = strlen(le_arg_GetArg(4));
+        if (loopbackPtr == NULL || infNamePtr == NULL || frameIdPtr == NULL || dataPtr == NULL)
+        {
+            LE_ERROR("CAN test: NULL argument received, Line %d", __LINE__);
+            exit(EXIT_FAILURE);
+        }
+
+        frameId = le_hex_HexaToInteger(frameIdPtr);
+        int datalen = strlen(dataPtr);
 
         taf_can_InfProtocol_t canInfType = TAF_CAN_RAW_SOCK;
         taf_can_FrameType_t frameType= TAF_CAN_AUTO_FRAME;
@@ -748,13 +801,13 @@ COMPONENT_INIT
         taf_can_CanInterfaceRef_t canInfRef = test_taf_can_CreateCanInf(infNamePtr, canInfType);
         taf_can_CanFrameRef_t frameRef = test_taf_can_CreateCanFrame(canInfRef, frameId);
 
-        if(strcmp("enableLoopback", le_arg_GetArg(1)) == 0)
+        if(strcmp("enableLoopback", loopbackPtr) == 0)
         {
             result = taf_can_EnableLoopback(canInfRef);
             LE_TEST_OK(result == LE_OK, "taf_can_EnableLoopback - LE_OK");
             printf("\n Loopback enabled \n");
         }
-        else if(strcmp("disableLoopback", le_arg_GetArg(1)) == 0)
+        else if(strcmp("disableLoopback", loopbackPtr) == 0)
         {
             result = taf_can_DisableLoopback(canInfRef);
             LE_TEST_OK(result == LE_OK, "taf_can_DisableLoopback - LE_OK");

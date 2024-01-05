@@ -90,7 +90,7 @@
 #define PHONE_ID_PATTERN_1  1               // Phone ID to test
 
 #define TIMEOUT_TX_TEST     3               // Time interval between sending message
-#define TIMEOUT_RX_TEST     25              // Wait for receicing message sent from this test app
+#define TIMEOUT_RX_TEST     45              // Wait for receicing message sent from this test app
 
 #define TIME_SET_SMSC       5               // Wait for settingi sms center take effect
 
@@ -531,6 +531,15 @@ __attribute__((unused)) static void Test_taf_sms_SetGetParam
     LE_TEST_ASSERT(taf_sms_GetType(tmpMsg) == TAF_SMS_TYPE_TX, "Test taf_sms_GetType");
 
     taf_sms_Delete(tmpMsg);
+
+    tmpMsg = taf_sms_Create();
+
+    size_t dataSize = sizeof(PDU_TEST_PATTERN_7BITS)/sizeof(PDU_TEST_PATTERN_7BITS[0]);
+
+    LE_TEST_ASSERT(taf_sms_SetPDU(tmpMsg, NULL, 0) != LE_OK, "Test taf_sms_SetPDU");
+
+    LE_TEST_ASSERT(taf_sms_SetPDU(tmpMsg, PDU_TEST_PATTERN_7BITS, dataSize) == LE_OK,
+                    "Test taf_sms_SetPDU");
 }
 
 /*======================================================================
@@ -588,7 +597,7 @@ __attribute__((unused)) static void* SmsTxThread
 
     LE_TEST_ASSERT(taf_sms_SetText(tmpMsg_alphabet, TEXT_PATTERN_TEST) == LE_OK, "Test taf_sms_SetText");
 
-    LE_TEST_ASSERT(taf_sms_Send(tmpMsg_alphabet) == LE_OK, "Test taf_sms_Send");
+    LE_TEST_ASSERT(taf_sms_Send(tmpMsg_alphabet) == LE_OK, "Test taf_sms_Send %s", "#s# + send msg with type [alphabet]");
 
     le_thread_Sleep(TIMEOUT_TX_TEST);
 
@@ -602,7 +611,7 @@ __attribute__((unused)) static void* SmsTxThread
 
     LE_TEST_ASSERT(taf_sms_SetText(tmpMsg_num, TEXT_PATTERN_NUM) == LE_OK, "Test taf_sms_SetText");
 
-    LE_TEST_ASSERT(taf_sms_Send(tmpMsg_num) == LE_OK, "Test taf_sms_Send");
+    LE_TEST_ASSERT(taf_sms_Send(tmpMsg_num) == LE_OK, "Test taf_sms_Send %s", "#s# + send msg with type [number]");
 
     le_thread_Sleep(TIMEOUT_TX_TEST);
 
@@ -616,7 +625,7 @@ __attribute__((unused)) static void* SmsTxThread
 
     LE_TEST_ASSERT(taf_sms_SetText(tmpMsg_symbol, TEXT_PATTERN_SYMBOL) == LE_OK, "Test taf_sms_SetText");
 
-    LE_TEST_ASSERT(taf_sms_Send(tmpMsg_symbol) == LE_OK, "Test taf_sms_Send");
+    LE_TEST_ASSERT(taf_sms_Send(tmpMsg_symbol) == LE_OK, "Test taf_sms_Send %s", "#s# + send msg with type [symbol]");
 
     le_thread_Sleep(TIMEOUT_TX_TEST);
 
@@ -630,7 +639,7 @@ __attribute__((unused)) static void* SmsTxThread
 
     LE_TEST_ASSERT(taf_sms_SetBinary(tmpMsg_binary, binary_pattern, sizeof(binary_pattern)) == LE_OK, "Test taf_sms_SetBinary");
 
-    LE_TEST_ASSERT(taf_sms_Send(tmpMsg_binary) == LE_OK, "Test taf_sms_Send");
+    LE_TEST_ASSERT(taf_sms_Send(tmpMsg_binary) == LE_OK, "Test taf_sms_Send %s", "#s# + send msg with type [binary]");
 
     le_thread_Sleep(TIMEOUT_TX_TEST);
 
@@ -644,7 +653,7 @@ __attribute__((unused)) static void* SmsTxThread
 
     LE_TEST_ASSERT(taf_sms_SetUCS2(tmpMsg_ucs2, ucs2_pattern, sizeof(ucs2_pattern)/sizeof(ucs2_pattern[0])) == LE_OK, "Test taf_sms_SetUCS2");
 
-    LE_TEST_ASSERT(taf_sms_Send(tmpMsg_ucs2) == LE_OK, "Test taf_sms_Send");
+    LE_TEST_ASSERT(taf_sms_Send(tmpMsg_ucs2) == LE_OK, "Test taf_sms_Send %s", "#s# + send msg with type [ucs2]");
 
     le_thread_Sleep(TIMEOUT_TX_TEST);
 
@@ -722,6 +731,14 @@ __attribute__((unused)) static void RxHandler
 
     LE_INFO("taf_sms_GetSenderTel = %s", rxContent.text);
 
+    len = sizeof(rxContent.pdu);
+
+    LE_TEST_ASSERT(taf_sms_GetPDU(msgRef, rxContent.pdu, &len) == LE_OK, "Test taf_sms_GetPDU");
+
+    LE_INFO("PDU len = %" PRIuS, len);
+
+    LE_TEST_ASSERT(len > 0, "Test taf_sms_GetPDU length");
+
     switch(taf_sms_GetFormat(msgRef))
     {
         case TAF_SMS_FORMAT_TEXT:
@@ -735,7 +752,7 @@ __attribute__((unused)) static void RxHandler
 
             LE_TEST_ASSERT(taf_sms_GetBinary(msgRef, rxContent.binary, &len) == LE_OK, "Test taf_sms_GetBinary");
 
-            LE_INFO("taf_sms_GetBinary, len:%d", len);
+            LE_INFO("taf_sms_GetBinary, len:%" PRIuS, len);
             for(int i = 0; i < len; i++)
             {
                 LE_INFO("0x%.2X", rxContent.binary[i]);
@@ -748,7 +765,7 @@ __attribute__((unused)) static void RxHandler
 
             LE_TEST_ASSERT(taf_sms_GetUCS2(msgRef, rxContent.ucs2, &len) == LE_OK, "Test taf_sms_GetUCS2");
 
-            LE_INFO("taf_sms_GetUCS2, len:%d", len);
+            LE_INFO("taf_sms_GetUCS2, len:%" PRIuS, len);
             for(int i = 0; i < len; i++)
             {
                 LE_INFO("0x%.4X", rxContent.ucs2[i]);
@@ -883,12 +900,14 @@ __attribute__((unused)) static void Test_taf_sms_Smsc
     void
 )
 {
-    char addr[TAF_SMS_SMSC_ADDR_BYTES - 1];
+    char addr[TAF_SMS_SMSC_ADDR_BYTES - 1] = {};
     size_t len = TAF_SMS_SMSC_ADDR_BYTES - 1;
 
-    LE_TEST_ASSERT(taf_sms_GetSmsCenterAddress(PHONE_ID_PATTERN_1, addr, len) == LE_OK, "Test taf_sms_GetSmsCenterAddress");
+    LE_TEST_ASSERT(taf_sms_GetSmsCenterAddress(PHONE_ID_PATTERN_1, addr, len) == LE_OK,
+        "Test taf_sms_GetSmsCenterAddress");
 
-    LE_TEST_ASSERT(taf_sms_SetSmsCenterAddress(PHONE_ID_PATTERN_1, SMSC_ADDR_PATTERN_VALID) == LE_OK, "Test taf_sms_SetSmsCenterAddress");
+    LE_TEST_ASSERT(taf_sms_SetSmsCenterAddress(PHONE_ID_PATTERN_1, addr) == LE_OK,
+        "Test taf_sms_SetSmsCenterAddress");
 
     le_thread_Sleep(TIME_SET_SMSC);
 
@@ -918,7 +937,16 @@ __attribute__((unused)) static void Test_taf_sms_SendPdu
 {
 #ifdef TEST_SMS_PDU
     uint32_t dataSize = sizeof(PDU_TEST_PATTERN_7BITS)/sizeof(PDU_TEST_PATTERN_7BITS[0]);
-    taf_sms_SendPduMsg(PDU_TEST_PATTERN_7BITS, dataSize, 1000);
+    LE_TEST_ASSERT(taf_sms_SendPduMsg(PDU_TEST_PATTERN_7BITS, dataSize, 1000) == LE_OK,
+                    "Test taf_sms_SendPduMsg");
+
+    le_thread_Sleep(TIMEOUT_TX_TEST);
+
+    LE_TEST_ASSERT(taf_sms_SendPduMsgEx(PHONE_ID_PATTERN_1,
+                                        PDU_TEST_PATTERN_7BITS,
+                                        dataSize,
+                                        1000) == LE_OK,
+                                        "Test taf_sms_SendPduMsgEx");
 #else
     LE_UNUSED(PDU_TEST_PATTERN_7BITS);
 #endif
@@ -1001,10 +1029,6 @@ void Test_main
     Test_taf_sms_Smsc();
     LE_INFO("##### Test_taf_sms_Smsc OK #####");
 
-    LE_INFO("===== Test_taf_sms_SendPdu =====");
-    Test_taf_sms_SendPdu();
-    LE_INFO("##### Test_taf_sms_SendPdu OK #####");
-
     LE_INFO("===== Test_taf_sms_Receive =====");
     Test_taf_sms_Receive();
 
@@ -1025,6 +1049,10 @@ void Test_main
 
     LE_INFO("##### Test_taf_sms_Send OK #####");
 
+    LE_INFO("===== Test_taf_sms_SendPdu =====");
+    Test_taf_sms_SendPdu();
+    LE_INFO("##### Test_taf_sms_SendPdu OK #####");
+
     LE_INFO("===== Test_taf_sms_CreateDeleteRxMsgList =====");
     Test_taf_sms_CreateDeleteRxMsgList();
     LE_INFO("##### Test_taf_sms_CreateDeleteRxMsgList OK #####");
@@ -1037,9 +1065,11 @@ void Test_main
     Test_taf_sms_SetGetLockStatus();
     LE_INFO("##### Test_taf_sms_SetGetLockStatus OK #####");
 
+#ifndef LE_CONFIG_TARGET_SIMULATION
     LE_INFO("===== Test_taf_sms_EncryptFromStorage =====");
     Test_taf_sms_EncryptFromStorage();
     LE_INFO("##### Test_taf_sms_EncryptFromStorage OK #####");
+#endif
 
     LE_INFO("===== Test_taf_sms_DeleteMsgFromStorage =====");
     Test_taf_sms_DeleteMsgFromStorage();

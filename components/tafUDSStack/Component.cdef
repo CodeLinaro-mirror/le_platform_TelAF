@@ -1,0 +1,34 @@
+sources:
+{
+    tafUDSCommunicationMgr.cpp
+    tafUDSStack.cpp
+}
+
+cflags:
+{
+    -I$TELAF_ROOT/include
+    -I$TELAF_ROOT/components/tafDoIPStack
+    -I${LEGATO_ROOT}/framework/liblegato
+}
+
+cxxflags:
+{
+    -I$TELAF_ROOT/include
+    -I$TELAF_ROOT/components/tafDoIPStack
+    -I${LEGATO_ROOT}/framework/liblegato
+}
+
+requires:
+{
+    api:
+    {
+         le_cfg.api
+    }
+
+    component:
+    {
+        $TELAF_ROOT/components/tafDoIPStack
+    }
+
+}
+

@@ -76,16 +76,32 @@ void taf_Audio::ClientSessionCloseEventHandler
 {
     auto &audio = taf_Audio::GetInstance();
     le_ref_IterRef_t iteratorRef;
+    LE_DEBUG("ClientSessionCloseEventHandler sessionRef : %p", sessionRef);
 
     // Close audio streams
     // This is a two stage process: parse audio stream reference map
     // once in order to close dsp frontend file play/capture streams
     // first, then parse it a second time to close remaining streams.
     iteratorRef = le_ref_GetIterator(audio.AudioRefMap);
+    bool isSessionMatched = false;
+    taf_SessionRefNode_t* sessionRefNodePtr;
+    le_dls_Link_t* lPtr;
     while (le_ref_NextNode(iteratorRef) == LE_OK)
     {
         taf_audio_Stream_t* audioStreamPtr = (taf_audio_Stream_t*) le_ref_GetValue(iteratorRef);
-        if (audioStreamPtr
+        lPtr = le_dls_Peek(&(audioStreamPtr->sessionRefList));
+        while (lPtr != NULL)
+        {
+            sessionRefNodePtr = CONTAINER_OF(lPtr, taf_SessionRefNode_t, refNodeLink);
+            lPtr = le_dls_PeekNext(&(audioStreamPtr->sessionRefList), lPtr);
+            if ( sessionRefNodePtr->sessionRef == sessionRef )
+            {
+                LE_DEBUG("StopAudio for audioStreamPtr %p", audioStreamPtr);
+                isSessionMatched = true;
+                break;
+            }
+        }
+        if (isSessionMatched && audioStreamPtr
                 && ((audioStreamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_PLAY)
                 || (audioStreamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE)))
         {
@@ -95,11 +111,24 @@ void taf_Audio::ClientSessionCloseEventHandler
     }
     // Reset map iterator and close remaining streams
     iteratorRef = le_ref_GetIterator(audio.AudioRefMap);
+    isSessionMatched = false;
 
     while (le_ref_NextNode(iteratorRef) == LE_OK)
     {
         taf_audio_Stream_t* audioStreamPtr = (taf_audio_Stream_t*) le_ref_GetValue(iteratorRef);
-        if(audioStreamPtr) {
+        lPtr = le_dls_Peek(&(audioStreamPtr->sessionRefList));
+        while (lPtr != NULL)
+        {
+            sessionRefNodePtr = CONTAINER_OF(lPtr, taf_SessionRefNode_t, refNodeLink);
+            lPtr = le_dls_PeekNext(&(audioStreamPtr->sessionRefList), lPtr);
+            if ( sessionRefNodePtr->sessionRef == sessionRef )
+            {
+                LE_DEBUG("StopAudio for audioStreamPtr %p", audioStreamPtr);
+                isSessionMatched = true;
+                break;
+            }
+        }
+        if(isSessionMatched && audioStreamPtr) {
             audio.StopAudio(audioStreamPtr);
             audio.DeleteStream(audioStreamPtr, sessionRef, true);
         }
@@ -321,7 +350,7 @@ le_result_t taf_Audio::StartAudio
 )
 {
     // SA415M does not support slotId. Comment this function as a workaround.
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     LE_DEBUG("Create and Start audio\n");
     resetCallbackPromise();
     auto status = Status::FAILED;
@@ -390,6 +419,7 @@ le_result_t taf_Audio::StartAudio
     if(mAudioVoiceStream && (config.slotId == SLOT_ID_1) && !mVoiceEnabled1) {
         status = mAudioVoiceStream->startAudio(StartAudioCallback);
         Status st = mAudioVoiceStream->registerListener(mVoiceListener);
+        voiceStreamConfig = {};
         if(st == Status::SUCCESS) {
             LE_DEBUG("Request to register Voice Listener Sent" );
         }
@@ -397,6 +427,7 @@ le_result_t taf_Audio::StartAudio
 
     if(mAudioVoiceStream2 && (config.slotId == SLOT_ID_2) && !mVoiceEnabled2) {
         status = mAudioVoiceStream2->startAudio(StartAudioCallback);
+        voiceStreamConfig = {};
     }
 
     if (mAudioVoiceStream || mAudioVoiceStream2) {
@@ -490,6 +521,7 @@ le_result_t taf_Audio::StopAudio
             }
         }
     }
+    voiceStreamConfig = {};
     if (status == Status::SUCCESS) {
         LE_DEBUG("Stop successful");
     }
@@ -740,7 +772,10 @@ void taf_Audio::DeleteHashMap
     {
         currentStreamPtr = (taf_audio_Stream_t const *)le_hashmap_GetValue(Iterator);
 
-        le_hashmap_Remove(currentStreamPtr->connList,connPtr);
+        if (currentStreamPtr != nullptr)
+        {
+            le_hashmap_Remove(currentStreamPtr->connList,connPtr);
+        }
     }
 
     Iterator = (le_hashmap_It_Ref_t)le_hashmap_GetIterator(connPtr->audioOutList);
@@ -748,7 +783,10 @@ void taf_Audio::DeleteHashMap
     {
         currentStreamPtr = (taf_audio_Stream_t const *)le_hashmap_GetValue(Iterator);
 
-        le_hashmap_Remove(currentStreamPtr->connList,connPtr);
+        if (currentStreamPtr != nullptr)
+        {
+            le_hashmap_Remove(currentStreamPtr->connList,connPtr);
+        }
     }
 
     le_hashmap_RemoveAll(connPtr->audioInList);
@@ -772,12 +810,15 @@ le_result_t taf_Audio::CreateandStart
     taf_audio_Stream_t* outputPtr;
     taf_audio_Stream_t* currentPtr;
     le_result_t res = LE_FAULT;
+    bool isOutput = false;
 
     le_hashmap_It_Ref_t streamIterator = le_hashmap_GetIterator(streamListPtr);
 
     while (le_hashmap_NextNode(streamIterator) == LE_OK)
     {
         currentPtr = (taf_audio_Stream_t*)le_hashmap_GetValue(streamIterator);
+
+        TAF_ERROR_IF_RET_VAL( currentPtr == nullptr, LE_BAD_PARAMETER, "currentPtr is nullptr!");
 
         LE_DEBUG("CurrentStream %p",currentPtr);
 
@@ -796,60 +837,146 @@ le_result_t taf_Audio::CreateandStart
                 inputPtr->interface,
                 outputPtr->interface);
 
-        StreamConfig config = {};
-        if (mModemRx && mSpeaker && !mCallStarted)
-        {
-            config.type = StreamType::VOICE_CALL;
-#ifdef TARGET_SA515M
-            config.slotId = (SlotId)mSlotId;
-#endif
-            if (outputPtr->samplePcmConfig.sampleRate != 0)
-            {
-                config.sampleRate = outputPtr->samplePcmConfig.sampleRate;
-            }
-            else
-            {
-                config.sampleRate = 16000;
-                LE_INFO("setting default sampling rate as 16000");
-            }
-            config.format = AudioFormat::PCM_16BIT_SIGNED;
-            config.channelTypeMask = ChannelType::LEFT | ChannelType::RIGHT;
-
             // Set the config device type based on output device
             if (outputPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER) {
-                config.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_SPEAKER);
+                voiceStreamConfig.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_SPEAKER);
                 LE_DEBUG("set config with device type speaker");
+                isOutput = true;
             }
             else if (outputPtr->interface == TAF_AUDIO_IF_PCM_SPEAKER) {
-                config.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_HEADSET_SPEAKER);
+                voiceStreamConfig.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_HEADSET_SPEAKER);
                 LE_DEBUG("set config with device type headset speaker");
+                isOutput = true;
             }
             else if (outputPtr->interface == TAF_AUDIO_IF_I2S_SPEAKER) {
-                config.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_SPEAKER);
+                voiceStreamConfig.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_SPEAKER);
                 LE_DEBUG("set config with device type speaker");
                 taf_audio_I2SChannel_t channel = outputPtr->channelMode;
                 switch(channel)
                 {
                     case TAF_AUDIO_I2S_LEFT:
-                        config.channelTypeMask = ChannelType::LEFT;
+                        voiceStreamConfig.channelTypeMask = ChannelType::LEFT;
                         break;
                     case TAF_AUDIO_I2S_RIGHT:
-                        config.channelTypeMask = ChannelType::RIGHT;
+                        voiceStreamConfig.channelTypeMask = ChannelType::RIGHT;
                         break;
                     default:
-                        config.channelTypeMask = ChannelType::LEFT | ChannelType::RIGHT;
+                        voiceStreamConfig.channelTypeMask = ChannelType::LEFT | ChannelType::RIGHT;
                         break;
                 }
+                isOutput = true;
             }
-#ifdef TARGET_SA515M
-            if (streamPtr->echoCancellerEnabled) {
-                config.ecnrMode = EcnrMode::ENABLE;
-            } else {
-                config.ecnrMode = EcnrMode::DISABLE;
+            if(isOutput)
+            LE_DEBUG("Output device exists!");
+
+#if defined(TARGET_SA525M)
+            if(isOutput && outputPtr->samplePcmConfig.sampleRate)
+            {
+                if (voiceStreamConfig.sampleRate != 0)
+                {
+                    TAF_ERROR_IF_RET_VAL(
+                        voiceStreamConfig.sampleRate != outputPtr->samplePcmConfig.sampleRate,
+                        LE_FAULT,
+                        "Make sure both the input and output sampling rate is the same"
+                    );
+                }
+                else
+                {
+                    voiceStreamConfig.sampleRate = outputPtr->samplePcmConfig.sampleRate;
+                    LE_DEBUG("isOutput voiceStream sampling rate is set to:%d",
+                            voiceStreamConfig.sampleRate
+                            );
+                }
+            }
+            bool isInput = false;
+            // Set the config device type based on input device
+            if (inputPtr->interface == TAF_AUDIO_IF_CODEC_MIC) {
+                voiceStreamConfig.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_MIC);
+                LE_DEBUG("set config with device type mic");
+                isInput = true;
+            }
+            else if (inputPtr->interface == TAF_AUDIO_IF_PCM_MIC) {
+                voiceStreamConfig.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_HEADSET_MIC);
+                LE_DEBUG("set config with device type headset mic");
+                isInput = true;
+            }
+            else if (inputPtr->interface == TAF_AUDIO_IF_I2S_MIC) {
+                voiceStreamConfig.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_MIC);
+                LE_DEBUG("set config with device type mic");
+                taf_audio_I2SChannel_t channel = inputPtr->channelMode;
+                switch(channel)
+                {
+                    case TAF_AUDIO_I2S_LEFT:
+                        voiceStreamConfig.channelTypeMask = ChannelType::LEFT;
+                        break;
+                    case TAF_AUDIO_I2S_RIGHT:
+                        voiceStreamConfig.channelTypeMask = ChannelType::RIGHT;
+                        break;
+                    default:
+                        voiceStreamConfig.channelTypeMask = ChannelType::LEFT | ChannelType::RIGHT;
+                        break;
+                }
+                isInput = true;
+            }
+            if(isInput && inputPtr->samplePcmConfig.sampleRate)
+            {
+                if (voiceStreamConfig.sampleRate != 0 )
+                {
+                    TAF_ERROR_IF_RET_VAL(
+                        voiceStreamConfig.sampleRate != inputPtr->samplePcmConfig.sampleRate,
+                        LE_FAULT,
+                        "Make sure both the input and output sampling rate is same"
+                    );
+                }
+                else
+                {
+                    voiceStreamConfig.sampleRate = inputPtr->samplePcmConfig.sampleRate;
+                    LE_DEBUG("IsinputPtr voiceStream sampling rate is set to:%d",
+                            voiceStreamConfig.sampleRate);
+                }
             }
 #endif
+
+#if defined(TARGET_SA525M)
+        if (mModemRx && mModemTx && mSpeaker && mMic && !mCallStarted)
+#else
+        if (mModemRx && mSpeaker && !mCallStarted)
+#endif
+        {
+            voiceStreamConfig.type = StreamType::VOICE_CALL;
+            voiceStreamConfig.slotId = (SlotId)mSlotId;
+            voiceStreamConfig.format = AudioFormat::PCM_16BIT_SIGNED;
+            voiceStreamConfig.channelTypeMask = ChannelType::LEFT | ChannelType::RIGHT;
+
+            if (streamPtr->echoCancellerEnabled) {
+                voiceStreamConfig.ecnrMode = EcnrMode::ENABLE;
+            } else {
+                voiceStreamConfig.ecnrMode = EcnrMode::DISABLE;
+            }
+
             DtmfAudioRef = (taf_audio_StreamRef_t)streamPtr;
-            res = StartAudio(config);
+#if defined(TARGET_SA525M)
+            if(voiceStreamConfig.deviceTypes.size() >= 2)
+            {
+                if (voiceStreamConfig.sampleRate == 0)
+                {
+                    voiceStreamConfig.sampleRate = 16000;
+                    LE_INFO("setting default sampling rate as 16000");
+                }
+                res = StartAudio(voiceStreamConfig);
+            }
+            else {
+                res = LE_OK;
+                return res;
+            }
+#else
+            if (voiceStreamConfig.sampleRate == 0)
+            {
+                voiceStreamConfig.sampleRate = 16000;
+                LE_INFO("setting default sampling rate as 16000");
+            }
+            res = StartAudio(voiceStreamConfig);
+#endif
         } else {
             res = LE_OK;
         }
@@ -982,19 +1109,21 @@ le_result_t taf_Audio::StopandDelete
     {
         currentPtr=(taf_audio_Stream_t*)le_hashmap_GetValue(streamIterator);
 
-        if (streamPtr->device)
+        if(currentPtr != nullptr)
         {
-            inputPtr  = streamPtr;
-            outputPtr = currentPtr;
-        }
-        else
-        {
-            inputPtr  = currentPtr;
-            outputPtr = streamPtr;
-        }
-
-        LE_DEBUG("inputInterface.%d with outputInterface.%d",
+            if (streamPtr->device)
+            {
+                inputPtr  = streamPtr;
+                outputPtr = currentPtr;
+            }
+            else
+            {
+                inputPtr  = currentPtr;
+                outputPtr = streamPtr;
+            }
+            LE_DEBUG("inputInterface.%d with outputInterface.%d",
                 inputPtr->interface, outputPtr->interface);
+        }
     }
     res = StopAudio(streamPtr);
     res = DeleteAudio(streamPtr);
@@ -1017,7 +1146,11 @@ void taf_Audio::CloseConnector
     while (le_hashmap_NextNode(Iterator)==LE_OK)
     {
         currentStreamPtr=(taf_audio_Stream_t*)le_hashmap_GetValue(Iterator);
-        StopandDelete(currentStreamPtr,connPtr->audioOutList);
+
+        if(currentStreamPtr != nullptr)
+        {
+            StopandDelete(currentStreamPtr,connPtr->audioOutList);
+        }
     }
 }
 
@@ -1039,7 +1172,10 @@ void taf_Audio::DisconnectConnectors
     {
         currentconnPtr = (taf_audio_Connector_t const *)le_hashmap_GetValue(Iterator);
 
-        Disconnect(currentconnPtr->connRef, streamPtr->streamRef);
+        if(currentconnPtr != nullptr)
+        {
+            Disconnect(currentconnPtr->connRef, streamPtr->streamRef);
+        }
     }
 }
 
@@ -1418,8 +1554,17 @@ void taf_Audio::DeleteStream
     {
         mSpeaker = false;
     }
+    else if(streamPtr->interface == TAF_AUDIO_IF_CODEC_MIC
+            || streamPtr->interface == TAF_AUDIO_IF_PCM_MIC
+            || streamPtr->interface == TAF_AUDIO_IF_I2S_MIC)
+    {
+        mMic = false;
+    }
     if(streamPtr->interface == TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX) {
         mModemRx = false;
+    }
+    else if(streamPtr->interface == TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_TX) {
+        mModemTx = false;
     }
     lPtr = le_dls_Peek(&(streamPtr->sessionRefList));
     while (lPtr != NULL)
@@ -1567,7 +1712,7 @@ taf_audio_StreamRef_t taf_Audio::OpenMic
 )
 {
     CreateStream_t createAudio;
-
+    mMic = true;
     createAudio.HwDevice = true;
     createAudio.interface = TAF_AUDIO_IF_CODEC_MIC;
 
@@ -1580,8 +1725,12 @@ taf_audio_StreamRef_t taf_Audio::OpenModemVoiceTx
 )
 {
     mSlotId = slotId;
-    LE_DEBUG("Feature yet to Implement");
-    return NULL;
+    CreateStream_t createAudio;
+    mModemTx = true;
+    createAudio.HwDevice = true;
+    createAudio.interface = TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_TX;
+
+    return CreateStream(&createAudio);
 }
 
 /**
@@ -1596,7 +1745,7 @@ taf_audio_StreamRef_t taf_Audio::OpenI2sRx
             NULL, "Channel mode is not supported");
 
     CreateStream_t createAudio;
-
+    mMic = true;
     createAudio.HwDevice = true;
     createAudio.interface = TAF_AUDIO_IF_I2S_MIC;
     createAudio.channelMode = mode;
@@ -1634,7 +1783,7 @@ taf_audio_StreamRef_t taf_Audio::OpenPcmRx
 )
 {
     CreateStream_t createAudio;
-
+    mMic = true;
     createAudio.HwDevice = true;
     createAudio.interface = TAF_AUDIO_IF_PCM_MIC;
     createAudio.timeSlot = timeslot;
@@ -1894,6 +2043,12 @@ le_result_t taf_Audio::PlayDtmf
     return LE_OK;
 }
 
+void taf_Audio::StopDtmf(taf_audio_StreamRef_t streamRef)
+{
+    LE_WARN("Not supported.");
+    return;
+}
+
 /**
  * Get the player interface
  */
@@ -2025,8 +2180,8 @@ static void* Play( void* ctxPtr) {
             if(!audio.mFreeBuffers.empty() && (audio.mEmptyPipeline)) {
                 audio.mStreamBuffer = audio.mFreeBuffers.front();
                 audio.mFreeBuffers.pop();
-                numBytes = fread(audio.mStreamBuffer->getRawBuffer(),1,size,audio.mFile);
 
+                numBytes = fread(audio.mStreamBuffer->getRawBuffer(),1,size,audio.mFile);
                 if(numBytes != size && !feof(audio.mFile)) {
                     LE_DEBUG( "Unable to read specified bytes, bytes read: %d", numBytes);
                     audio.mStreamBuffer->reset();
@@ -2141,9 +2296,15 @@ static le_result_t PlayWave
         while (le_hashmap_NextNode(connItr)==LE_OK)
         {
             currentconnPtr = (taf_audio_Connector_t const *)le_hashmap_GetValue(connItr);
+            TAF_ERROR_IF_RET_VAL( currentconnPtr == NULL,
+                    LE_BAD_PARAMETER,"currentconnPtr is nullptr!");
+
             strmItr = (le_hashmap_It_Ref_t)le_hashmap_GetIterator(currentconnPtr->audioOutList);
             while (le_hashmap_NextNode(strmItr)==LE_OK) {
                 outStreamPtr = (taf_audio_Stream_t const *)le_hashmap_GetValue(strmItr);
+                TAF_ERROR_IF_RET_VAL( outStreamPtr == NULL,
+                        LE_BAD_PARAMETER,"outStreamPtr is nullptr!");
+
                 if (outStreamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER){
                     config.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_SPEAKER);
                     LE_DEBUG("set config with device type speaker");
@@ -2240,10 +2401,16 @@ static le_result_t PlayAmr
             while (le_hashmap_NextNode(connItr)==LE_OK)
             {
                 currentconnPtr = (taf_audio_Connector_t const *)le_hashmap_GetValue(connItr);
+                TAF_ERROR_IF_RET_VAL( currentconnPtr == NULL,
+                        LE_BAD_PARAMETER,"currentconnPtr is nullptr!");
+
                 strmItr = (le_hashmap_It_Ref_t)
                         le_hashmap_GetIterator(currentconnPtr->audioOutList);
                 while (le_hashmap_NextNode(strmItr)==LE_OK) {
                     outStreamPtr = (taf_audio_Stream_t const *)le_hashmap_GetValue(strmItr);
+                    TAF_ERROR_IF_RET_VAL( outStreamPtr == NULL,
+                            LE_BAD_PARAMETER,"outStreamPtr is nullptr!");
+
                     if (outStreamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER){
                         config.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_SPEAKER);
                         LE_DEBUG("set config with device type speaker");
@@ -2295,8 +2462,11 @@ le_result_t taf_Audio::PlayFile
     {
         LE_DEBUG("close previous streamPtr->fd.%d of interface.%d",
                  streamPtr->fd, streamPtr->interface);
-
-        close(streamPtr->fd);
+        if(mFile && fileno(mFile)>=0) {
+            fclose(mFile);
+        } else {
+            LE_DEBUG("file already closed");
+        }
         streamPtr->fd = fd;
     }
 
@@ -2312,7 +2482,7 @@ le_result_t taf_Audio::PlayFile
                 auto &audio = taf_Audio::GetInstance();
                 StreamConfig config = {};
                 config.type = StreamType::PLAY;
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
                 config.slotId = DEFAULT_SLOT_ID;
 #endif
                 config.format = AudioFormat::PCM_16BIT_SIGNED;
@@ -2328,10 +2498,16 @@ le_result_t taf_Audio::PlayFile
                 while (le_hashmap_NextNode(connItr)==LE_OK)
                 {
                     currentconnPtr = (taf_audio_Connector_t const *)le_hashmap_GetValue(connItr);
+                    TAF_ERROR_IF_RET_VAL( currentconnPtr == NULL,
+                            LE_BAD_PARAMETER,"currentconnPtr is nullptr!");
+
                     strmItr = (le_hashmap_It_Ref_t)
                             le_hashmap_GetIterator(currentconnPtr->audioOutList);
                     while (le_hashmap_NextNode(strmItr)==LE_OK) {
                         outStreamPtr = (taf_audio_Stream_t const *)le_hashmap_GetValue(strmItr);
+                        TAF_ERROR_IF_RET_VAL( outStreamPtr == NULL,
+                                LE_BAD_PARAMETER,"outStreamPtr is nullptr!");
+
                         if (outStreamPtr->interface == TAF_AUDIO_IF_CODEC_SPEAKER){
                             config.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_SPEAKER);
                             LE_DEBUG("set config with device type speaker");
@@ -2638,6 +2814,7 @@ void* taf_Audio::Record( void* ctxPtr) {
             le_clk_Time_t timeToWait = {0, waitTime * 1000};
             le_sem_WaitWithTimeOut(audio.mSemRef, timeToWait);
         }
+        audio.mFileFormat = AudioFormat::UNKNOWN;
         fflush(audio.mFile);
         fclose(audio.mFile);
         LE_INFO("File Recorded SuccessFully");
@@ -2713,7 +2890,11 @@ le_result_t taf_Audio::RecordFile
         LE_DEBUG("close previous streamPtr->fd.%d of interface.%d",
                  streamPtr->fd, streamPtr->interface);
         // close previous file
-        close(streamPtr->fd);
+        if(mFile && fileno(mFile)>=0) {
+            fclose(mFile);
+        } else {
+            LE_DEBUG("file already closed");
+        }
         streamPtr->fd = fd;
     }
     else
@@ -2726,7 +2907,7 @@ le_result_t taf_Audio::RecordFile
         auto &audio = taf_Audio::GetInstance();
         StreamConfig config = {};
         config.type = StreamType::CAPTURE;
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
         config.slotId = DEFAULT_SLOT_ID;
 #endif
         config.format = AudioFormat::PCM_16BIT_SIGNED;
@@ -2743,10 +2924,16 @@ le_result_t taf_Audio::RecordFile
         while (le_hashmap_NextNode(connItr)==LE_OK)
         {
             currentconnPtr = (taf_audio_Connector_t const *)le_hashmap_GetValue(connItr);
+            TAF_ERROR_IF_RET_VAL( currentconnPtr == NULL,
+                    LE_BAD_PARAMETER,"currentconnPtr is nullptr!");
+
             strmItr = (le_hashmap_It_Ref_t)
                     le_hashmap_GetIterator(currentconnPtr->audioInList);
             while (le_hashmap_NextNode(strmItr)==LE_OK) {
                 outStreamPtr = (taf_audio_Stream_t const *)le_hashmap_GetValue(strmItr);
+                TAF_ERROR_IF_RET_VAL( outStreamPtr == NULL,
+                        LE_BAD_PARAMETER,"outStreamPtr is nullptr!");
+
                 if (outStreamPtr->interface == TAF_AUDIO_IF_CODEC_MIC){
                     config.deviceTypes.emplace_back(DeviceType::DEVICE_TYPE_MIC);
                     LE_DEBUG("set config with device type mic");

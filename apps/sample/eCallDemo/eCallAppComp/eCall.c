@@ -53,6 +53,83 @@ static taf_pos_MovementHandlerRef_t  SamplePositionHandlerRef = NULL;
 static int32_t latitude = INT32_MAX, longitude = INT32_MAX, hAccuracy = INT32_MAX;
 static uint32_t direction = UINT32_MAX, dirAccuracy = UINT32_MAX;
 static bool exitApp = true;
+bool isMsgPrinted = false;
+uint32_t msdVersion = 2;
+
+static uint8_t msdRawData[39] = {2, 37, 28, 6, 128, 227, 10, 81, 67, 158, 41, 85, 212, 56, 0,
+        128, 8, 55, 248, 12, 159, 215, 07, 240, 154, 148, 189, 211, 14, 85, 224, 128, 0, 0, 1,
+        255, 255, 224, 64};
+
+/*CEN ECall MSD EN 15722:2015
+MSD PDU
+02251C0680E30A51439E2955D43800800837F80C9FD707F09A94BDD30E55E080000001FFFFE040
+
+Byte0:0x02
+msd version:2
+
+Byte1:0x25
+msd content length:37
+
+Byte2(bit7-bit2):0x1C
+Extension of MSD message:0(Absent)
+Optional Additional Data:0(Absent)
+Extension of MSD structure:0(Absent)
+recentVehickeLocationN1:1(Present)
+recentVehickeLocationN2:1(Present)
+number of Passengers:1(Present)
+
+Byte2(bit1-bit0)/Byte3(bit7-bit2):0x1C 0x06
+message ID:1
+
+Byte3(bit1-bit0)/Byte4(bit7):0x06 0x80
+Automatic Activation:1
+Test Call:0
+Position Can Be Trusted:1
+
+Byte4(bit6-bit2):0x80
+Vehicle Type:0(passengerVehicleClassM1)
+
+Byte4(bit1-bit0)/Byte5-Byte17(bit7-bit4)
+VIN:ECALLEXAMPLE02023
+
+Byte17(bit3-bit0)-Byte19(bit7-bit5)
+Gasoline Tank:1
+Diese Tank:0
+Compressed Natural Gas:0
+Liquid Propane Gas:0
+Electric Energy Storage:0
+Hydrogen storage:0
+Other storage:0
+
+Byte19(bit4-bit0)-Byte23(bit7-bit5)
+TimeStamp:1694414911
+
+Byte23(bit4-bit0)-Byte27(bit7-bit5)
+PositionLatitude:81044974
+
+Byte27(bit4-bit0)-Byte31(bit7-bit5)
+PositionLongitude:410169092
+
+Byte31(bit4-bit0)-Byte32(bit7-bit5)
+Vehicle Direction:0
+
+Byte32(bit4-bit0)-Byte33(bit7-bit3)
+recentVehickeLocationN1(Latitude):-512
+
+Byte33(bit2-bit0)-Byte34(bit7-bit1)
+recentVehickeLocationN1(Longitude):-512
+
+Byte34(bit0)-Byte36(bit7)
+recentVehickeLocationN2(Latitude):511
+
+Byte36(bit6-bit0)-Byte37(bit7-bit5)
+recentVehickeLocationN2(Longitude):511
+
+Byte37(bit4-bit0)-Byte38(bit7-bit5)
+Number of passenger:2
+*/
+
+static uint8_t msdLength = 39;
 
 static void SamplePositionHandler
 (
@@ -215,16 +292,17 @@ static void CloseAudio() {
     }
 }
 
-static void taf_ecall_TerminateRegistration_test()
+static int terminateRegistration()
 {
     // Test Case
     le_result_t result = taf_ecall_TerminateRegistration();
     if (result == LE_OK)
     {
-        LE_INFO("TerminateRegistration SUCCESS!!!\n");
+        printf("TerminateRegistration SUCCESS!!!\n");
     } else {
-        LE_ERROR("TerminateRegistration FAILED. Error: %d\n", (int) result);
+        printf("TerminateRegistration FAILED. Error: %d\n", (int) result);
     }
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
 static void* CommandInput(void* contextPtr)
@@ -234,20 +312,39 @@ static void* CommandInput(void* contextPtr)
     taf_ecall_ConnectService();
 
     do {
-        printf("The call is in progress... Press 'h' to hangup.\n");
+        if (!isMsgPrinted) {
+            isMsgPrinted = true;
+            printf("\n-------------------------------------------------\n");
+            printf("\t\teCall Menu\t\t\n");
+            printf("-------------------------------------------------\n");
+            printf("\th - Hangup the eCall\n");
+            printf("\tt - Terminate registration\n");
+            printf("\tq - Quit test\n");
+            printf("-------------------------------------------------\n");
+        }
+        printf("eCall> ");
+
         char *p = fgets(input_str,sizeof(input_str),stdin);
 
         if (p != NULL && input_str[0]=='h') {
             printf("User input: %c, so hanging up the call...\n", input_str[0]);
-            le_result_t result = taf_ecall_End(ECallRef);
+            le_result_t result =  ECallRef != NULL ? taf_ecall_End(ECallRef) : LE_FAULT;
+            printf("Hangup %s\n", result == LE_OK ? "success." : "failed!!");
             LE_INFO("CommandInput: hanging up the call, result %d\n", (int) result);
+        } else if (p != NULL && input_str[0]=='t') {
+            printf("User input: %c, so terminate registration...\n", input_str[0]);
+            int res = terminateRegistration();
+            LE_INFO("CommandInput: terminate registration, res: %d\n", res);
+        } else if (p != NULL && input_str[0]=='q') {
+            exitApp = true;
+            le_thread_Cancel(ECallCmdThreadRef);
+            ECallCmdThreadRef = NULL;
         } else {
-            printf("Invalid input just ignore it!\n");
+            isMsgPrinted = false;
         }
-    } while(input_str[0]!='h');
+    } while(input_str[0]!='q');
 
-    le_thread_Cancel(ECallCmdThreadRef);
-
+    exit(EXIT_SUCCESS);
     return NULL;
 }
 
@@ -276,7 +373,7 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
 
     LE_INFO("Ecall state change event, state = %d", state );
     LE_INFO("Ecall state change event, reference = %p", eCallReference );
-    printf("=================\033[1;35mNOTIFICATION\033[0m=================\n");
+    printf("\n=================\033[1;35mNOTIFICATION\033[0m=================\n");
     printf("Time: %s",  getCurrentTime());
     printf("Ecall state change event, state = %d\n", state );
     ECallState = state;
@@ -360,9 +457,7 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
                 LE_INFO("ECall ENDed, terminate reason  = %d", lcf );
                 printf("Call Termination reason: %d", lcf);
             }
-            taf_ecall_TerminateRegistration_test();
             CloseAudio();
-            exitApp = true;
             break;
         }
         case TAF_ECALL_STATE_RESET:
@@ -378,7 +473,7 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         case TAF_ECALL_STATE_FAILED:
         {
             printf("TAF_ECALL_STATE_FAILED");
-            exitApp = true;
+            exitApp = false;
             break;
         }
         case TAF_ECALL_STATE_END_OF_REDIAL_PERIOD:
@@ -460,15 +555,12 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
     printf("\n==============================================\n");
     if (exitApp) {
         le_thread_Cancel(ECallCmdThreadRef);
+        ECallCmdThreadRef = NULL;
         exit(EXIT_SUCCESS);
     } else {
-        if (ECallState == TAF_ECALL_STATE_DIALING) {
-            le_thread_Cancel(ECallCmdThreadRef);
-            ECallCmdThreadRef = le_thread_Create("ECalltTh", CommandInput, NULL);
-            le_thread_Start(ECallCmdThreadRef);
-        } else {
-            printf("The call is in progress... Press 'h' to hangup.\n");
-        }
+        le_thread_Cancel(ECallCmdThreadRef);
+        ECallCmdThreadRef = le_thread_Create("ECalltTh", CommandInput, NULL);
+        le_thread_Start(ECallCmdThreadRef);
     }
 }
 
@@ -477,9 +569,282 @@ static void PrintUsage ()
     puts("\n"
             "tafECallApp -- setOpMode <NORMAL/ECALL_ONLY> <SLOT1/SLOT2>\n"
             "tafECallApp -- getOpMode <SLOT1/SLOT2>\n"
+            "tafECallApp -- setPsapNumber <NUMBER>\n"
+            "tafECallApp -- getPsapNumber\n"
+            "tafECallApp -- importMsd <MSD bytes in decimal e.g. 2 41 68 6 128 227 10 ...>\n"
+            "\t\t[Note: If no MSD input, then default MSD shall be used]\n"
+            "tafECallApp -- exportMsd\n"
+            "tafECallApp -- useUSimNumbers\n"
+            "tafECallApp -- setNadDeregTime <time in minutes>\n"
+            "tafECallApp -- getNadDeregTime\n"
+            "tafECallApp -- setMsdVersion <2/3>\n"
+            "tafECallApp -- getMsdVersion\n"
+            "tafECallApp -- setNadClearDownFallbackTime <time in minutes>\n"
+            "tafECallApp -- getNadClearDownFallbackTime\n"
+            "tafECallApp -- setNadMinNetworkRegistrationTime <time in minutes>\n"
+            "tafECallApp -- getNadMinNetworkRegistrationTime\n"
             "tafECallApp -- start <AUTO/MANUAL/TEST>\n"
+            "tafECallApp -- end\n"
+            "tafECallApp -- terminateReg\n"
             "tafECallApp -- gpio <PIN>"
             "\n");
+}
+
+static int setPsapNumber()
+{
+    if (le_arg_NumArgs() < 3)
+    {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
+
+    const char* psapNum =  le_arg_GetArg(2);
+    if (psapNum == NULL)
+    {
+        printf("Input psap number is not vaild!\n");
+        printf("Failed!! try again...\n");
+        return EXIT_FAILURE;
+    }
+
+    le_result_t result = taf_ecall_SetPsapNumber(psapNum);
+    LE_TEST_OK(result == LE_OK, "setPsapNumber - LE_OK");
+    printf("Update PSAP number as %s is %s\n", psapNum, result == LE_OK ? "Success." : "Failed!!");
+
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+static int getPsapNumber()
+{
+    char psapNumber[TAF_SIM_PHONE_NUM_MAX_LEN];
+    le_result_t result = taf_ecall_GetPsapNumber(psapNumber, TAF_SIM_PHONE_NUM_MAX_LEN);
+    LE_TEST_OK(result == LE_OK || strcmp("None", psapNumber) == 0, "getPsapNumber - LE_OK");
+    printf("Result: %s\n", result == LE_OK ? "Success." : "Failed!!");
+    if (result == LE_OK) {
+        printf("The PSAP Number is %s\n", psapNumber);
+    }
+    LE_TEST_INFO("getPsapNumber done");
+
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+static int exportMsd()
+{
+    // Test Case
+    uint8_t msdRawDataExport[TAF_ECALL_MAX_MSD_LENGTH];
+    size_t msdLengthExport = TAF_ECALL_MAX_MSD_LENGTH;
+
+    memset(msdRawDataExport, 0, TAF_ECALL_MAX_MSD_LENGTH);
+
+    ECallRef = taf_ecall_Create();
+    le_result_t result = taf_ecall_ExportMsd(ECallRef, msdRawDataExport, &msdLengthExport);
+    LE_TEST_OK(result == LE_OK, "ExportMsd - LE_OK");
+    if (result == LE_NOT_FOUND) {
+        printf("MSD not found! May not set it.\n");
+    } else {
+        printf("Result of ExportMsd is %s\n", result == LE_OK ? "Success." : "Failed!!");
+    }
+
+    if(result == LE_OK) {
+        printf("Retrieved MSD[%d] is: ", (int)msdLengthExport);
+        for (int i = 0; i < msdLengthExport; i++) {
+            printf("%d ", msdRawDataExport[i]);
+        }
+        printf("\n");
+    }
+
+    LE_TEST_INFO("ExportMsd done.");
+
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+static int importMsd()
+{
+    int count = le_arg_NumArgs();
+    le_result_t result = LE_FAULT;
+
+    LE_INFO("ImportMsd NumArgs = %d", count);
+
+    if (count < 3)
+    {
+        printf("No MSD input! Default MSD will be set.\n");
+        ECallRef = taf_ecall_Create();
+        result = taf_ecall_ImportMsd(ECallRef, msdRawData, msdLength);
+        printf("Result of importMsd is %s\n", result == LE_OK ? "Success." : "Failed!!");
+        return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+    }
+
+    if (count < 6) {
+        printf("Too few MSD input! Input minimum 4 bytes of MSD array.\n");
+        printf("Failed!! try again...\n");
+        return EXIT_FAILURE;
+    }
+
+    uint8_t msdPdu[TAF_ECALL_MAX_MSD_LENGTH];
+    const char* inputMsdLengthPtr = le_arg_GetArg(3);
+
+    if (inputMsdLengthPtr == NULL)
+    {
+        printf("Input MSD length is not vaild!\n");
+        printf("Failed!! try again...\n");
+        return EXIT_FAILURE;
+    }
+
+    int inputMsdLength = atoi(inputMsdLengthPtr);
+
+    if (inputMsdLength > TAF_ECALL_MAX_MSD_LENGTH - 2) {
+        printf("Input MSD length %d is not vaild!\n", inputMsdLength);
+        printf("Failed!! try again...\n");
+        return EXIT_FAILURE;
+    }
+
+    size_t msdPduLength = (count - 2) < TAF_ECALL_MAX_MSD_LENGTH ? (count - 2) : TAF_ECALL_MAX_MSD_LENGTH;
+    msdPduLength = inputMsdLength < msdPduLength ?  inputMsdLength : msdPduLength;
+
+    if ((count - 4) > inputMsdLength) {
+        printf("OVERFLOW: Input beyond %d bytes of MSD shall be ignore.\n", (int)msdPduLength+2);
+    } else if (inputMsdLength > count-4) {
+        printf("Too few MSD input! Input %d bytes of MSD elements.\n", inputMsdLength+2);
+        printf("Failed!! try again...\n");;
+        return EXIT_FAILURE;
+    }
+
+    memset(msdPdu, 0, TAF_ECALL_MAX_MSD_LENGTH);
+
+    LE_INFO("ImportMsd NumArgs = %d, msdPduLength: %d ", count, (int)msdPduLength);
+
+    for (int i = 0; i < msdPduLength+2; i++) {
+        const char* bytePtr = le_arg_GetArg(i+2);
+
+        if (bytePtr == NULL)
+        {
+            printf("Input at position %d is NULL!\n", i+2);
+            printf("Failed!! try again...\n");
+            return EXIT_FAILURE;
+        }
+
+        int byte = atoi(bytePtr);
+
+        if (byte < 0 || byte > 255) {
+            printf("Wrong input as %d (Range 0 to 255).\n", byte);
+            printf("Failed!! try again...\n");
+            return EXIT_FAILURE;
+        }
+
+        msdPdu[i] = (uint8_t) byte;
+    }
+
+    ECallRef = taf_ecall_Create();
+    result = taf_ecall_ImportMsd(ECallRef, msdPdu, msdPduLength+2);
+    LE_TEST_OK(result == LE_OK, "importMsd - LE_OK");
+    printf("Result of importMsd is %s\n", result == LE_OK ? "Success." : "Failed!!");
+
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+static int useUSimNumbers()
+{
+    le_result_t result = taf_ecall_UseUSimNumbers();
+    LE_TEST_OK(result == LE_OK, "useUSimNumbers - LE_OK");
+    printf("Result: %s\n", result == LE_OK ? "Success." : "Failed!!");
+    LE_TEST_INFO("useUSimNumbers done");
+
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+static int getNadDeregTime()
+{
+    // Test Case
+    uint16_t deregTimeOrg = 0;
+    le_result_t result = taf_ecall_GetNadDeregistrationTime(&deregTimeOrg);
+    LE_TEST_OK(result == LE_OK, "getNadDeregTime - LE_OK");
+    printf("Result: %s\n", result == LE_OK ? "Success." : "Failed!!");
+    if (result == LE_OK) {
+        printf("NAD de-registration time: %d min.\n", deregTimeOrg);
+    }
+
+    LE_TEST_INFO("getNadDeregTime done");
+
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+static int setNadDeregTime()
+{
+    if (le_arg_NumArgs() < 3)
+    {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
+
+    uint16_t deregTime = atoi(le_arg_GetArg(2));
+    le_result_t result = taf_ecall_SetNadDeregistrationTime(deregTime);
+    LE_TEST_OK(result == LE_OK, "setNadDeregTime - LE_OK");
+    printf("Set de-reg time as %d is %s\n", deregTime, result == LE_OK ? "Success." : "Failed!");
+
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+static int getNadClearDownFallbackTime()
+{
+    // Test Case
+    uint16_t ccftTime = 0;
+    le_result_t result = taf_ecall_GetNadClearDownFallbackTime(&ccftTime);
+    LE_TEST_OK(result == LE_OK, "getNadClearDownFallbackTime - LE_OK");
+    printf("Result: %s\n", result == LE_OK ? "Success." : "Failed!!");
+    if (result == LE_OK) {
+        printf("NAD clear down fallback time: %d min.\n", ccftTime);
+    }
+
+    LE_TEST_INFO("getNadClearDownFallbackTime done");
+
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+static int setNadClearDownFallbackTime()
+{
+    if (le_arg_NumArgs() < 3)
+    {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
+
+    uint16_t ccftTime = atoi(le_arg_GetArg(2));
+    le_result_t result = taf_ecall_SetNadClearDownFallbackTime(ccftTime);
+    LE_TEST_OK(result == LE_OK, "setNadClearDownFallbackTime - LE_OK");
+    printf("Set clear down fallback time as %d is %s\n", ccftTime, result == LE_OK ? "Success." : "Failed!");
+
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+static int getNadMinNetworkRegistrationTime()
+{
+    // Test Case
+    uint16_t minNwRegTime = 0;
+    le_result_t result = taf_ecall_GetNadMinNetworkRegistrationTime(&minNwRegTime);
+    LE_TEST_OK(result == LE_OK, "getNadMinNetworkRegistrationTime - LE_OK");
+    printf("Result: %s\n", result == LE_OK ? "Success." : "Failed!!");
+    if (result == LE_OK) {
+        printf("NAD min network registration time: %d min.\n", minNwRegTime);
+    }
+
+    LE_TEST_INFO("getNadMinNetworkRegistrationTime done");
+
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+static int setNadMinNetworkRegistrationTime()
+{
+    if (le_arg_NumArgs() < 3)
+    {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
+
+    uint16_t minNwRegTime = atoi(le_arg_GetArg(2));
+    le_result_t result = taf_ecall_SetNadMinNetworkRegistrationTime(minNwRegTime);
+    LE_TEST_OK(result == LE_OK, "setNadMinNetworkRegistrationTime - LE_OK");
+    printf("Set min network registration time as %d is %s\n", minNwRegTime, result == LE_OK ? "Success." : "Failed!");
+
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
 static int setOpMode()
@@ -571,15 +936,49 @@ static int getOpMode()
     return EXIT_FAILURE;
 }
 
+static int getMsdVersion()
+{
+    le_result_t result = taf_ecall_GetMsdVersion(&msdVersion);
+    LE_TEST_OK(result == LE_OK, "getMsdVersion - LE_OK");
+    printf("Result: %s\n", result == LE_OK ? "Success." : "Failed!!");
+    if (result == LE_OK) {
+        printf("Get msd version: %d\n", msdVersion);
+    }
+
+    LE_TEST_INFO("getMsdVersion done");
+
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+static int setMsdVersion()
+{
+    if (le_arg_NumArgs() < 3)
+    {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
+
+    uint32_t msdVersion = atoi(le_arg_GetArg(2));
+    le_result_t result = taf_ecall_SetMsdVersion(msdVersion);
+    LE_TEST_OK(result == LE_OK, "setMsdVersion - LE_OK");
+    printf("Set msd version as %d %s\n", msdVersion, result == LE_OK ? "Success." : "Failed!");
+
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
 static void updateMsdInformation()
 {
     taf_ecall_MsdVehicleType_t vehType = TAF_ECALL_PASSENGER_VEHICLE_CLASS_M1;
     taf_ecall_PropulsionStorageType_t propulsionStorage = TAF_ECALL_PROP_TYPE_GASOLINE_TANK;
 
-    uint32_t msdVersion = 2;
-    if (taf_ecall_SetMsdVersion(msdVersion) != LE_OK)
+    uint32_t msdVersion = 0;
+    if (taf_ecall_GetMsdVersion(&msdVersion) != LE_OK)
     {
-        LE_ERROR("Unable to set MSD version");
+        msdVersion = 2;
+        if (taf_ecall_SetMsdVersion(msdVersion) != LE_OK)
+        {
+            LE_ERROR("Unable to set MSD version");
+        }
     }
 
     if (taf_ecall_SetMsdTxMode(TAF_ECALL_MSD_TX_MODE_PUSH) != LE_OK)
@@ -600,31 +999,6 @@ static void updateMsdInformation()
     if (taf_ecall_SetPropulsionType(propulsionStorage) != LE_OK)
     {
         LE_ERROR("Unable to set propulsion type");
-    }
-}
-
-static void taf_ecall_GetNadDeregTime_test()
-{
-    // Test Case
-    uint16_t deregTimeOrg = 0;
-    le_result_t result = taf_ecall_GetNadDeregistrationTime(&deregTimeOrg);
-    if (result == LE_OK)
-    {
-        LE_INFO("GetNadDeregTime SUCCESS!!! DeregTime (in minutes): %d\n", deregTimeOrg);
-    } else {
-        LE_ERROR("GetNadDeregTime FAILED. Error: %d\n", (int) result);
-    }
-}
-
-static void taf_ecall_SetNadDeregTime_test()
-{
-    // Test Case
-    le_result_t result = taf_ecall_SetNadDeregistrationTime(7*60); // 7 hrs
-    if (result == LE_OK)
-    {
-        LE_INFO("SetNadDeregistrationTime as 7 hrs SUCCESS!!!\n");
-    } else {
-        LE_ERROR("SetNadDeregistrationTime FAILED. Error: %d\n", (int) result);
     }
 }
 
@@ -666,7 +1040,18 @@ static void updateLocationInformation(taf_ecall_CallRef_t eCallRef)
     {
         LE_ERROR("Unable to set location information");
     }
+ 
+    result = taf_ecall_SetMsdPositionN1(eCallRef, -512, -512);
+    if (result != LE_OK)
+    {
+       LE_ERROR("Unable to set the position delta N-1 for MSD transmission.");
+    }
 
+    result = taf_ecall_SetMsdPositionN2(eCallRef, 511, 511);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Unable to set the position delta N-2 for MSD transmission.");
+    }
 }
 
 static int startECall()
@@ -687,9 +1072,6 @@ static int startECall()
     updateMsdInformation();
 
     taf_ecall_SetMsdPassengersCount(ECallRef, 2);
-
-    taf_ecall_GetNadDeregTime_test();
-    taf_ecall_SetNadDeregTime_test();
 
     if (strcmp(eCallType, "AUTO") == 0)
     {
@@ -757,6 +1139,7 @@ static int addGPIOHandler()
 COMPONENT_INIT
 {
     int status = EXIT_SUCCESS;
+    le_result_t result = LE_FAULT;
     exitApp = true;
 
     LE_INFO("ECallTestApp COMPONENT_INIT...");
@@ -771,33 +1154,109 @@ COMPONENT_INIT
     }
 
     const char* command = le_arg_GetArg(1);
+    HandlerRef = taf_ecall_AddStateChangeHandler(tafECallStateHandler, NULL);
     if (command == NULL || strcmp(command, "help") == 0)
     {
         PrintUsage();
         exit(EXIT_SUCCESS);
     }
-    if (strcmp(command, "setOpMode") == 0)
+    else if (strcmp(command, "setOpMode") == 0)
     {
         status = setOpMode();
     }
-    if (strcmp(command, "getOpMode") == 0)
+    else if (strcmp(command, "getOpMode") == 0)
     {
         status = getOpMode();
     }
-    HandlerRef = taf_ecall_AddStateChangeHandler(tafECallStateHandler, NULL);
-    if (strcmp(command, "start") == 0)
+    else if (strcmp(command, "setPsapNumber") == 0)
+    {
+        status = setPsapNumber();
+    }
+    else if (strcmp(command, "getPsapNumber") == 0)
+    {
+        status = getPsapNumber();
+    }
+    else if (strcmp(command, "importMsd") == 0)
+    {
+        status = importMsd();
+    }
+    else if (strcmp(command, "exportMsd") == 0)
+    {
+        status = exportMsd();
+    }
+    else if (strcmp(command, "useUSimNumbers") == 0)
+    {
+        status = useUSimNumbers();
+    }
+    else if (strcmp(command, "setNadDeregTime") == 0)
+    {
+        status = setNadDeregTime();
+    }
+    else if (strcmp(command, "getNadDeregTime") == 0)
+    {
+        status = getNadDeregTime();
+    }
+    else if (strcmp(command, "setMsdVersion") == 0)
+    {
+        status = setMsdVersion();
+    }
+    else if (strcmp(command, "getMsdVersion") == 0)
+    {
+        status = getMsdVersion();
+    }
+    else if (strcmp(command, "setNadClearDownFallbackTime") == 0)
+    {
+        status = setNadClearDownFallbackTime();
+    }
+    else if (strcmp(command, "getNadClearDownFallbackTime") == 0)
+    {
+        status = getNadClearDownFallbackTime();
+    }
+    else if (strcmp(command, "setNadMinNetworkRegistrationTime") == 0)
+    {
+        status = setNadMinNetworkRegistrationTime();
+    }
+    else if (strcmp(command, "getNadMinNetworkRegistrationTime") == 0)
+    {
+        status = getNadMinNetworkRegistrationTime();
+    }
+    else if (strcmp(command, "start") == 0)
     {
         status = startECall();
-        exitApp = false;
+        exitApp = status == EXIT_SUCCESS ? false : true;
     }
-
-    if (strcmp(command, "gpio") == 0)
+    else if (strcmp(command, "end") == 0)
+    {
+        ECallRef = taf_ecall_Create();
+        if (ECallRef) {
+            result = taf_ecall_End(ECallRef);
+        }
+        printf("Hangup %s\n", result == LE_OK ? "success." : "failed!!" );
+        isMsgPrinted = true;
+        status = result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+        exitApp = result == LE_OK ? false : true;
+    }
+    else if (strcmp(command, "terminateReg") == 0)
+    {
+        status = terminateRegistration();
+        isMsgPrinted = true;
+        exitApp = status == EXIT_SUCCESS ? false : true;
+    }
+    else if (strcmp(command, "gpio") == 0)
     {
         status = addGPIOHandler();
         exitApp = false;
+    } else {
+        PrintUsage();
     }
 
     if (exitApp) {
+        le_thread_Cancel(ECallCmdThreadRef);
+        ECallCmdThreadRef = NULL;
         exit(status);
+    } else {
+        le_thread_Cancel(ECallCmdThreadRef);
+        ECallCmdThreadRef = le_thread_Create("ECalltTh", CommandInput, NULL);
+        le_thread_Start(ECallCmdThreadRef);
     }
 }

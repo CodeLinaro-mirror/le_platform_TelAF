@@ -207,7 +207,7 @@ __attribute__((unused)) void RxMessageHandler
     uint16_t methodId;
     uint16_t clientId;
     uint8_t msgType;
-    size_t payloadSize;
+    size_t payloadSize = 0;
 
     // Get the serviceId and instanceId.
     LE_TEST_ASSERT(LE_OK == taf_someipSvr_GetServiceId(msgRef, &serviceId, &instanceId),
@@ -225,11 +225,11 @@ __attribute__((unused)) void RxMessageHandler
                    "RxMessageHandler taf_someipSvr_GetMsgType() API.");
 
     // Get the payload size and data.
-    LE_TEST_ASSERT(LE_OK == taf_someipSvr_GetPayloadSize(msgRef, &payloadSize),
+    LE_TEST_ASSERT(LE_OK == taf_someipSvr_GetPayloadSize(msgRef, (uint32_t *)&payloadSize),
                    "RxMessageHandler taf_someipSvr_GetPayloadSize() API.");
 
     LE_TEST_INFO(
-        "REQUEST (servId/instId/methId/cliId/msgType/len=0x%x/0x%x/0x%x/0x%x/0x%x/0x%x) recieved.",
+        "REQUEST (servId/instId/methId/cliId/msgType/len=0x%x/0x%x/0x%x/0x%x/0x%x/0x%" PRIxS ") recieved.",
         serviceId, instanceId, methodId, clientId, msgType, payloadSize);
 
     if (payloadSize != 0)

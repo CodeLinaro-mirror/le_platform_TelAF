@@ -27,6 +27,11 @@
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*  Changes from Qualcomm Innovation Center are provided under the following license:
+ *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 /*
  * @file       tafDcsProfileImpl.cpp
  * @brief      This file provides the implementation of taf data profile management.
@@ -450,7 +455,7 @@ le_result_t taf_DataProfile::GetAuthentication(
 
 le_result_t taf_DataProfile::GetApn(taf_dcs_ProfileRef_t profileRef, char *apnPtr, size_t apnSize)
 {
-    TAF_ERROR_IF_RET_VAL(apnSize < TAF_DCS_APN_NAME_MAX_LEN, LE_OVERFLOW, "apnSize(%d) is smaller than NAME_MAX_BYTES(%d)", apnSize, TAF_DCS_APN_NAME_MAX_LEN);
+    TAF_ERROR_IF_RET_VAL(apnSize < TAF_DCS_APN_NAME_MAX_LEN, LE_OVERFLOW, "apnSize(%zu) is smaller than NAME_MAX_BYTES(%d)", apnSize, TAF_DCS_APN_NAME_MAX_LEN);
     TAF_ERROR_IF_RET_VAL((profileRef == NULL) || (apnPtr == NULL), LE_NOT_FOUND, "some pointers may be null");
     taf_dcs_ProfileCtx_t* profileCtxPtr = (taf_dcs_ProfileCtx_t* )le_ref_Lookup(ProfileRefMap, (void*)profileRef);
     TAF_ERROR_IF_RET_VAL(profileCtxPtr == NULL, LE_NOT_FOUND, "cannot get profile context from reference(%p)", profileRef);
@@ -825,7 +830,7 @@ void* taf_DataProfile::ProfileEventThread(void* contextPtr)
     return NULL;
 }
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 void taf_DataProfile::onInitCompleted(telux::common::ServiceStatus status)
 {
     std::lock_guard<std::mutex> lock(mtx);
@@ -856,7 +861,7 @@ void taf_DataProfile::Init(void)
 
     auto &dataFactory = telux::data::DataFactory::getInstance();
 
-#ifdef TARGET_SA515M
+#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 
     if(telux::common::DeviceConfig::isMultiSimSupported())
     {

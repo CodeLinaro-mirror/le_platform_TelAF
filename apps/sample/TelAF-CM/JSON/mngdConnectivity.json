@@ -1,0 +1,54 @@
+{
+    "Product": "TelAF",
+    "Name": "Managed Connectivity Service",
+    "ManagedConnectivityService": {
+        "Version": "23.07.00",
+        "Configuration": {
+            "Name": "Default",
+            "Sim":[
+                {
+                    "ID": 1,
+                    "Name": "AT&T",
+                    "SlotNumber": 1
+                }
+            ],
+            "Network":[
+                {
+                    "ID": 1,
+                    "Use_Sim_ID": 1,
+                    "PhoneID": 1,
+                    "Registration": "Auto"
+                }
+            ],
+            "Data":[
+                {
+                    "ID": 1,
+                    "Use_Network_ID": 1,
+                    "Profile":{
+                        "Name": "Profile1",
+                        "Number": 1,
+                        "APN": null
+                    },
+                    "AutoStart":"Yes",
+                    "PingTest":{
+                        "URL": null,
+                        "IPv4": null,
+                        "IPv6": null
+                    }
+                }
+            ]
+        },
+        "Policy": {
+            "Name": "Default",
+            "DataSession":{
+                "Fallback": "No",
+                "DataConnection":[
+                    {
+                        "Priority": "1",
+                        "Use_Data_ID": "1"
+                    }
+                ]
+            }
+        }
+    }
+}

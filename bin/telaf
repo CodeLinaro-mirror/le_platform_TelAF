@@ -18,14 +18,6 @@ TELAF_ACTION=$1
 # Search for the installed TelAF system bin first.
 export PATH=/legato/systems/current/bin:/mnt/legato/system/bin:/sbin:$PATH
 
-# Check if ps is supporting arguments.If it is supporting, then we need to run "ps aux" to be able
-# to see the supervisor process if it is running.Otherwise, we can just run "ps".
-TP='ps aux'
-if ! $TP > /dev/null 2>&1
-then
-    TP=ps
-fi
-
 TelafPrintUsage()
 {
     echo -e "NAME"
@@ -48,7 +40,7 @@ TelafPrintUsage()
 # Takes a single argument, which is the name of the process.
 IsProcessRunning()
 {
-    $TP | grep $1 | grep -v grep > /dev/null
+    pidof $1 > /dev/null
 }
 
 
@@ -84,8 +76,12 @@ StartTelaf()
     fi
 
     echo "Starting TelAF..."
-
-    /mnt/legato/start
+    if [ -v ON_TELAF_SIMULATION_DOCKER ]; then
+        # For current simulation docker image that didn't use systemd
+        /mnt/legato/start
+    else
+        systemctl start telaf
+    fi
 
     echo "TelAF is started."
 }
@@ -100,7 +96,8 @@ StopTelaf()
         wasTelafRunning="yes"
 
         # StopTelafTimeout will be scaled according to the number of running TelAF services.
-        # Estimation of 5 seconds for the TelAF framework itself, and 3 seconds per TelAF service to shutdown.
+        # Estimation of 5 seconds for the TelAF framework itself, and 3 seconds per TelAF service to
+        # shutdown.
         StopTelafTimeout=$(( 5 + $(app status | grep running | wc -l) * 3 ))
 
         echo -n "Stopping TelAF"
@@ -130,7 +127,7 @@ StopTelaf()
 
             # Wait for all killed processes to die before proceeding.
             echo -n "Hard-killing TelAF"
-            telafcountDown=StopTelafTimeout
+            telafcountDown=$StopTelafTimeout
             while [ $telafcountDown -ne 0 ]
             do
                 if IsProcessRunning startSystem

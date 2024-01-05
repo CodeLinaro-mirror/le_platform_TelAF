@@ -27,6 +27,11 @@
  *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*  Changes from Qualcomm Innovation Center are provided under the following license:
+ *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 /*
  * @file       tafRadioSvc.cpp
  * @brief      This file provides the radio service as interfaces described
@@ -348,10 +353,10 @@ le_result_t taf_radio_GetRegisterMode
         "Null ptr(mncPtr)");
 
     TAF_ERROR_IF_RET_VAL(mccPtrSize < TAF_RADIO_MCC_BYTES, LE_BAD_PARAMETER,
-        "Invalid para(mccPtrSize: %d < %d)", mccPtrSize, TAF_RADIO_MCC_BYTES);
+        "Invalid para(mccPtrSize: %" PRIuS " < %d)", mccPtrSize, TAF_RADIO_MCC_BYTES);
 
     TAF_ERROR_IF_RET_VAL(mncPtrSize < TAF_RADIO_MNC_BYTES, LE_BAD_PARAMETER,
-        "Invalid para(mncPtrSize: %d < %d)", mncPtrSize, TAF_RADIO_MNC_BYTES);
+        "Invalid para(mncPtrSize: %" PRIuS " < %d)", mncPtrSize, TAF_RADIO_MNC_BYTES);
 
     TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
         "Invalid para(phoneId:%d)", phoneId);
@@ -797,13 +802,13 @@ le_result_t taf_radio_GetPreferredOperatorDetails
         "Null ptr(mccPtr)");
 
     TAF_ERROR_IF_RET_VAL(mccPtrSize < TAF_RADIO_MCC_BYTES, LE_BAD_PARAMETER,
-        "Invalid para(mccPtrSize: %d < %d)", mccPtrSize, TAF_RADIO_MCC_BYTES);
+        "Invalid para(mccPtrSize: %" PRIuS " < %d)", mccPtrSize, TAF_RADIO_MCC_BYTES);
 
     TAF_ERROR_IF_RET_VAL(mncPtr == nullptr, LE_BAD_PARAMETER,
         "Null ptr(mncPtr)");
 
     TAF_ERROR_IF_RET_VAL(mncPtrSize < TAF_RADIO_MNC_BYTES, LE_BAD_PARAMETER,
-        "Invalid para(mncPtrSize: %d < %d)", mncPtrSize, TAF_RADIO_MNC_BYTES);
+        "Invalid para(mncPtrSize: %" PRIuS " < %d)", mncPtrSize, TAF_RADIO_MNC_BYTES);
 
     TAF_ERROR_IF_RET_VAL(ratMaskPtr == nullptr, LE_BAD_PARAMETER,
         "Null ptr(ratMaskPtr)");
@@ -1127,7 +1132,16 @@ le_result_t taf_radio_GetRatPreferences(taf_radio_RatBitMask_t* ratMaskPtr, uint
         ratMask |= TAF_RADIO_RAT_BIT_MASK_NR5G;
     }
 
-    *ratMaskPtr = ratMask;
+    if (ratMask == (TAF_RADIO_RAT_BIT_MASK_GSM | TAF_RADIO_RAT_BIT_MASK_CDMA |
+        TAF_RADIO_RAT_BIT_MASK_UMTS | TAF_RADIO_RAT_BIT_MASK_TDSCDMA |
+        TAF_RADIO_RAT_BIT_MASK_LTE | TAF_RADIO_RAT_BIT_MASK_NR5G))
+    {
+        *ratMaskPtr = TAF_RADIO_RAT_BIT_MASK_ALL;
+    }
+    else
+    {
+        *ratMaskPtr = ratMask;
+    }
 
     return LE_OK;
 }
@@ -1792,18 +1806,18 @@ uint32_t taf_radio_GetServingCellId(uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT32_MAX,
         "No serving cell.");
 
-    switch (taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat)
+    switch (taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat)
     {
         case TAF_RADIO_RAT_GSM:
-            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0].gsm.cid;
+            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->gsm.cid;
         case TAF_RADIO_RAT_UMTS:
-            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0].umts.cid;
+            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->umts.cid;
         case TAF_RADIO_RAT_TDSCDMA:
-            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0].tdscdma.cid;
+            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->tdscdma.cid;
         case TAF_RADIO_RAT_LTE:
-            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0].lte.cid;
+            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->lte.cid;
         default:
-            LE_ERROR("Invalid RAT(%d)", taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat);
+            LE_ERROR("Invalid RAT(%d)", taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat);
     }
 
     return UINT32_MAX;
@@ -1849,16 +1863,16 @@ uint32_t taf_radio_GetServingCellLocAreaCode(uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT32_MAX,
         "No serving cell.");
 
-    switch (taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat)
+    switch (taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat)
     {
         case TAF_RADIO_RAT_GSM:
-            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0].gsm.lac;
+            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->gsm.lac;
         case TAF_RADIO_RAT_UMTS:
-            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0].umts.lac;
+            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->umts.lac;
         case TAF_RADIO_RAT_TDSCDMA:
-            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0].tdscdma.lac;
+            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->tdscdma.lac;
         default:
-            LE_ERROR("Invalid RAT(%d)", taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat);
+            LE_ERROR("Invalid RAT(%d)", taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat);
     }
 
     return UINT32_MAX;
@@ -1904,10 +1918,10 @@ uint16_t taf_radio_GetServingCellLteTracAreaCode(uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT16_MAX,
         "No serving cell.");
 
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat !=
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
         TAF_RADIO_RAT_LTE, UINT16_MAX, "Serving cell is not LTE.");
 
-    return (uint16_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0].lte.tac;
+    return (uint16_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->lte.tac;
 }
 
 /*======================================================================
@@ -1950,10 +1964,10 @@ uint32_t taf_radio_GetServingCellEarfcn(uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT32_MAX,
         "No serving cell.");
 
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat !=
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
         TAF_RADIO_RAT_LTE, UINT32_MAX, "Serving cell is not LTE.");
 
-    return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0].lte.earfcn;
+    return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->lte.earfcn;
 }
 
 /*======================================================================
@@ -1996,14 +2010,14 @@ uint32_t taf_radio_GetServingCellTimingAdvance(uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT32_MAX,
         "No serving cell.");
 
-    switch (taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat)
+    switch (taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat)
     {
         case TAF_RADIO_RAT_GSM:
-            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0].gsm.ta;
+            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->gsm.ta;
         case TAF_RADIO_RAT_LTE:
-            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0].lte.ta;
+            return (uint32_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->lte.ta;
         default:
-            LE_ERROR("Invalid RAT(%d)", taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat);
+            LE_ERROR("Invalid RAT(%d)", taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat);
     }
 
     return UINT32_MAX;
@@ -2049,10 +2063,10 @@ uint16_t taf_radio_GetPhysicalServingLteCellId(uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT16_MAX,
         "No serving cell.");
 
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat !=
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
         TAF_RADIO_RAT_LTE, UINT16_MAX, "Serving cell is not LTE.");
 
-    return (uint16_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0].lte.pcid;
+    return (uint16_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->lte.pcid;
 }
 
 /*======================================================================
@@ -2100,10 +2114,10 @@ le_result_t taf_radio_GetServingCellGsmBsic(uint8_t* bsicPtr, uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), LE_FAULT,
         "No serving cell.");
 
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat !=
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
         TAF_RADIO_RAT_GSM, LE_FAULT, "Serving cell is not GSM.");
 
-    *bsicPtr = (uint8_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0].gsm.bsic;
+    *bsicPtr = (uint8_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->gsm.bsic;
 
     return LE_OK;
 }
@@ -2148,10 +2162,10 @@ uint16_t taf_radio_GetServingCellScramblingCode(uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT16_MAX,
         "No serving cell.");
 
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat !=
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
         TAF_RADIO_RAT_UMTS, UINT16_MAX, "Serving cell is not UMTS.");
 
-    return (uint16_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0].umts.psc;
+    return (uint16_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->umts.psc;
 }
 
 /*======================================================================
@@ -2221,13 +2235,13 @@ le_result_t taf_radio_GetCurrentNetworkMccMnc
         "Null ptr(mccStr)");
 
     TAF_ERROR_IF_RET_VAL(mccStrNumElements < TAF_RADIO_MCC_BYTES, LE_BAD_PARAMETER,
-        "Invalid para(mccStrNumElements: %d < %d)", mccStrNumElements, TAF_RADIO_MCC_BYTES);
+        "Invalid para(mccStrNumElements: %" PRIuS " < %d)", mccStrNumElements, TAF_RADIO_MCC_BYTES);
 
     TAF_ERROR_IF_RET_VAL(mncStr == nullptr, LE_BAD_PARAMETER,
         "Null ptr(mncStr)");
 
     TAF_ERROR_IF_RET_VAL(mncStrNumElements < TAF_RADIO_MNC_BYTES, LE_BAD_PARAMETER,
-        "Invalid para(mncStrNumElements: %d < %d)", mncStrNumElements, TAF_RADIO_MNC_BYTES);
+        "Invalid para(mncStrNumElements: %" PRIuS " < %d)", mncStrNumElements, TAF_RADIO_MNC_BYTES);
 
     TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
         "Invalid para(phoneId:%d)", phoneId);
@@ -2495,13 +2509,13 @@ le_result_t taf_radio_GetCellularNetworkMccMnc
         "Null ptr(mccPtr)");
 
     TAF_ERROR_IF_RET_VAL(mccPtrSize < TAF_RADIO_MCC_BYTES, LE_BAD_PARAMETER,
-        "Invalid para(mccPtrSize: %d < %d)", mccPtrSize, TAF_RADIO_MCC_BYTES);
+        "Invalid para(mccPtrSize: %" PRIuS " < %d)", mccPtrSize, TAF_RADIO_MCC_BYTES);
 
     TAF_ERROR_IF_RET_VAL(mncPtr == nullptr, LE_BAD_PARAMETER,
         "Null ptr(mncPtr)");
 
     TAF_ERROR_IF_RET_VAL(mncPtrSize < TAF_RADIO_MNC_BYTES, LE_BAD_PARAMETER,
-        "Invalid para(mncPtrSize: %d < %d)", mncPtrSize, TAF_RADIO_MNC_BYTES);
+        "Invalid para(mncPtrSize: %" PRIuS " < %d)", mncPtrSize, TAF_RADIO_MNC_BYTES);
 
     auto &tafRadio = taf_Radio::GetInstance();
     taf_RadioScanOp_t* opPtr = (taf_RadioScanOp_t*)le_ref_Lookup(tafRadio.scanOpSafeRefMap, scanInformationRef);
@@ -2822,10 +2836,10 @@ uint64_t taf_radio_GetServingNrCellId
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT64_MAX,
         "No serving cell.");
 
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat !=
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
         TAF_RADIO_RAT_NR5G, LE_FAULT, "Serving cell is not NR5G.");
 
-    return taf_RadioCellInfoCallback::cellListInfo.servingCell[0].nr5g.cid;
+    return taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->nr5g.cid;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2861,10 +2875,10 @@ int32_t taf_radio_GetServingCellNrTracAreaCode
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), INT32_MAX,
         "No serving cell.");
 
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat !=
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
         TAF_RADIO_RAT_NR5G, INT32_MAX, "Serving cell is not NR5G.");
 
-    return taf_RadioCellInfoCallback::cellListInfo.servingCell[0].nr5g.tac;
+    return taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->nr5g.tac;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2901,13 +2915,13 @@ int32_t taf_radio_GetServingCellNrArfcn
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), INT32_MAX,
         "No serving cell.");
 
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat !=
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
         TAF_RADIO_RAT_NR5G, INT32_MAX, "Serving cell is not NR5G.");
 
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0].nr5g.arfcn == -1,
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->nr5g.arfcn == -1,
         INT32_MAX, "Arfcn is unknown.");
 
-    return taf_RadioCellInfoCallback::cellListInfo.servingCell[0].nr5g.arfcn;
+    return taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->nr5g.arfcn;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2943,10 +2957,10 @@ uint32_t taf_radio_GetPhysicalServingNrCellId
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT32_MAX,
         "No serving cell.");
 
-    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0].rat !=
+    TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat !=
         TAF_RADIO_RAT_NR5G, UINT32_MAX, "Serving cell is not NR5G.");
 
-    return taf_RadioCellInfoCallback::cellListInfo.servingCell[0].nr5g.pcid;
+    return taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->nr5g.pcid;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -3027,7 +3041,31 @@ taf_radio_NeighborCellsRef_t taf_radio_GetNeighborCellsInfo
     for (auto cell : taf_RadioCellInfoCallback::cellListInfo.neighborCell)
     {
         ngbrCellInfoPtr = (taf_RadioNgbrCellInfo_t*)le_mem_ForceAlloc(tafRadio.ngbrCellInfoPool);
-        ngbrCellInfoPtr->cell = cell;
+        ngbrCellInfoPtr->cell.rat = cell->rat;
+        ngbrCellInfoPtr->cell.ss = cell->ss;
+        switch (cell->rat)
+        {
+            case TAF_RADIO_RAT_GSM:
+                ngbrCellInfoPtr->cell.gsm = cell->gsm;
+                break;
+            case TAF_RADIO_RAT_CDMA:
+                ngbrCellInfoPtr->cell.cdma = cell->cdma;
+                break;
+            case TAF_RADIO_RAT_UMTS:
+                ngbrCellInfoPtr->cell.umts = cell->umts;
+                break;
+            case TAF_RADIO_RAT_TDSCDMA:
+                ngbrCellInfoPtr->cell.tdscdma = cell->tdscdma;
+                break;
+            case TAF_RADIO_RAT_LTE:
+                ngbrCellInfoPtr->cell.lte = cell->lte;
+                break;
+            case TAF_RADIO_RAT_NR5G:
+                ngbrCellInfoPtr->cell.nr5g = cell->nr5g;
+                break;
+            default:
+                break;
+        }
         ngbrCellInfoPtr->link = LE_SLS_LINK_INIT;
         le_sls_Queue(&(ngbrCellsPtr->cellInfoList), &(ngbrCellInfoPtr->link));
     }
@@ -3476,7 +3514,7 @@ le_result_t taf_radio_SetLteBandPreferences
     TAF_ERROR_IF_RET_VAL(bandMask == NULL, LE_BAD_PARAMETER, "Null ptr(bandMask)");
 
     TAF_ERROR_IF_RET_VAL(bandMaskSize < TAF_RADIO_LTE_BAND_GROUP_NUM, LE_BAD_PARAMETER,
-        "Invalid para(bandMaskSize:%d)", bandMaskSize);
+        "Invalid para(bandMaskSize:%" PRIuS ")", bandMaskSize);
 
     return taf_pa_radio_SetLteBandPreferences(bandMask, bandMaskSize, phoneId);
 }
@@ -3754,10 +3792,10 @@ le_result_t taf_radio_GetPciScanMccMnc
     TAF_ERROR_IF_RET_VAL(mncPtr == NULL, LE_BAD_PARAMETER, "Null ptr(mncPtr)");
 
     TAF_ERROR_IF_RET_VAL(mccPtrSize < TAF_RADIO_MCC_BYTES, LE_BAD_PARAMETER,
-        "Invalid para(mccPtrSize: %d < %d)", mccPtrSize, TAF_RADIO_MCC_BYTES);
+        "Invalid para(mccPtrSize: %" PRIuS " < %d)", mccPtrSize, TAF_RADIO_MCC_BYTES);
 
     TAF_ERROR_IF_RET_VAL(mncPtrSize < TAF_RADIO_MNC_BYTES, LE_BAD_PARAMETER,
-        "Invalid para(mncPtrSize: %d < %d)", mncPtrSize, TAF_RADIO_MNC_BYTES);
+        "Invalid para(mncPtrSize: %" PRIuS " < %d)", mncPtrSize, TAF_RADIO_MNC_BYTES);
 
     return taf_pa_radio_GetPciScanMccMnc(plmnRef, mccPtr, mccPtrSize, mncPtr, mncPtrSize);
 }
@@ -3782,4 +3820,94 @@ le_result_t taf_radio_DeletePciNetworkScan
         "Null reference(pciScanInformationListRef)");
 
     return taf_pa_radio_DeletePciNetworkScan(pciScanInformationListRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get IMS registration status.
+ *
+ * @return
+ *  - LE_FAULT         On failure.
+ *  - LE_OK            On success.
+ *  - LE_BAD_PARAMETER Invalid parameters.
+ *  - LE_TIMEOUT       Time out.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetImsRegStatus
+(
+    taf_radio_ImsRegStatus_t* statusPtr, ///< [OUT] IMS registration status.
+    uint8_t phoneId                      ///< [IN] Phone ID.
+)
+{
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
+        "Invalid para(phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(statusPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(statusPtr)");
+
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    SlotId slotId = (SlotId)tafRadio.phoneManager->getSlotIdFromPhoneId(phoneId);
+    TAF_ERROR_IF_RET_VAL(tafRadio.imsServingSystemMgrs[slotId] == nullptr, LE_FAULT,
+        "Invalid IMS serving system manager(slotId:%d)", slotId);
+
+    auto ret = tafRadio.imsServingSystemMgrs[slotId]->requestRegistrationInfo(
+        taf_RadioImsServSysCallback::imsRegStateResponse);
+    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioImsServSysCallback::semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_TIMEOUT, "Wait semaphore timeout");
+
+    if (taf_RadioImsServSysCallback::status == telux::tel::RegistrationStatus::REGISTERED ||
+        taf_RadioImsServSysCallback::status == telux::tel::RegistrationStatus::LIMITED_REGISTERED)
+    {
+        *statusPtr = TAF_RADIO_IMS_REG_STATUS_REGISTERED;
+    }
+    else
+    {
+        *statusPtr = TAF_RADIO_IMS_REG_STATUS_NOT_REGISTERED;
+    }
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler for IMS registration status.
+ *
+ * @return
+ *  - taf_radio_ImsRegStatusChangeHandlerRef_t Handler reference.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_ImsRegStatusChangeHandlerRef_t taf_radio_AddImsRegStatusChangeHandler
+(
+    taf_radio_ImsRegStatusChangeHandlerFunc_t handlerPtr,
+        ///< [IN] Handler function for IMS registration status.
+    void* contextPtr
+        ///< [IN] Handler context.
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("ImsRegStatusChangeHandler",
+        tafRadio.imsRegStatusChangeId, taf_Radio::taf_radio_LayerImsRegStateHandler,
+        (void*)handlerPtr);
+
+    le_event_SetContextPtr(handlerRef, contextPtr);
+
+    return (taf_radio_ImsRegStatusChangeHandlerRef_t)(handlerRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler for IMS registration status.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_radio_RemoveImsRegStatusChangeHandler
+(
+    taf_radio_ImsRegStatusChangeHandlerRef_t handlerRef ///< [IN] Handler reference.
+)
+{
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 }

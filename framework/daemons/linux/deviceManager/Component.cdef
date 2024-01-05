@@ -1,0 +1,20 @@
+sources:
+{
+    devManager.cpp
+}
+
+requires:
+{
+    lib:
+    {
+    #if ${LE_CONFIG_ENABLE_SELINUX} =y
+        lib/libselinux.so.1
+    #endif
+    }
+}
+
+cxxflags:
+{
+    -DFRAMEWORK_WDOG_NAME=DevManagerWdog
+    -I$TELAF_ROOT/include
+}

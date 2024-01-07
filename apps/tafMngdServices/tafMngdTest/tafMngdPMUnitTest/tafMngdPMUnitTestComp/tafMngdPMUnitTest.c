@@ -49,6 +49,8 @@ static le_sem_Ref_t semRef = NULL, queueSemRef = NULL;
 static le_thread_Ref_t threadRef = NULL;
 taf_pm_StateChangeHandlerRef_t handlerRef;
 taf_pm_StateChangeExHandlerRef_t handlerExRef;
+taf_mngd_pm_StateChangeHandlerRef_t mpmsHanlerRef;
+
 le_result_t res;
 int reqResult = 1;
 
@@ -155,9 +157,56 @@ void TestStateChangeExHandler(taf_pm_PowerStateRef_t powerStateRef,
     taf_pm_SendStateChangeAck(powerStateRef,state,TAF_PM_PVM,TAF_PM_NOT_READY);
     }
 }
+
+// function called on MPMS power state change
+void TestMPMSStateChangeHandler(taf_mngd_pm_StateInd_t* indication, void* contextPtr)
+{
+    switch(indication->state)
+    {
+        case TAF_MNGD_PM_STATE_RESUME:
+            LE_TEST_INFO("MPMS state change to %s\n", "TAF_MNGD_PM_STATE_RESUME");
+            printf("\nMPMS state change to %s\n", "TAF_MNGD_PM_STATE_RESUME");
+            break;
+
+        case TAF_MNGD_PM_STATE_SUSPEND:
+            LE_TEST_INFO("MPMS state change to %s\n", "TAF_MNGD_PM_STATE_SUSPEND");
+            printf("\nMPMS state change to %s\n", "TAF_MNGD_PM_STATE_SUSPEND");
+            break;
+
+        case TAF_MNGD_PM_STATE_SHUTDOWN:
+            LE_TEST_INFO("MPMS state change to %s\n", "TAF_MNGD_PM_STATE_SHUTDOWN");
+            printf("\nMPMS state change to %s\n", "TAF_MNGD_PM_STATE_SHUTDOWN");
+            break;
+
+        case TAF_MNGD_PM_STATE_RELEASING_WAKE_SOURCE:
+            LE_TEST_INFO("MPMS state change to %s\n", "TAF_MNGD_PM_STATE_RELEASING_WAKE_SOURCE");
+            printf("\nMPMS state change to %s\n", "TAF_MNGD_PM_STATE_RELEASING_WAKE_SOURCE");
+            break;
+
+        case TAF_MNGD_PM_STATE_SUSPENDING:
+            LE_TEST_INFO("MPMS state change to %s\n", "TAF_MNGD_PM_STATE_SUSPENDING");
+            printf("\nMPMS state change to %s\n", "TAF_MNGD_PM_STATE_SUSPENDING");
+            break;
+
+        case TAF_MNGD_PM_STATE_SHUTTING_DOWN:
+            LE_TEST_INFO("MPMS state change to %s\n", "TAF_MNGD_PM_STATE_SHUTTING_DOWN");
+            printf("\nMPMS state change to %s\n", "TAF_MNGD_PM_STATE_SHUTTING_DOWN");
+            break;
+
+        case TAF_MNGD_PM_STATE_WAKING_UP:
+            LE_TEST_INFO("MPMS state change to %s\n", "TAF_MNGD_PM_STATE_WAKING_UP");
+            printf("\nMPMS state change to %s\n", "TAF_MNGD_PM_STATE_WAKING_UP");
+            break;
+
+        default:
+            break;
+    }
+}
+
 static void* test_stateChangeHandler(void* ctxPtr)
 {
     taf_pm_ConnectService();
+    taf_mngd_pm_ConnectService();
 
     LE_TEST_INFO("Testing taf_pm_AddStateChangeHandler on valid handler reference");
     handlerRef = taf_pm_AddStateChangeHandler(TestStateChangeHandler, NULL);
@@ -166,6 +215,13 @@ static void* test_stateChangeHandler(void* ctxPtr)
     LE_TEST_INFO("Testing taf_pm_AddStateChangeExHandler on valid handler reference");
     handlerExRef = taf_pm_AddStateChangeExHandler(TestStateChangeExHandler, NULL);
     LE_TEST_OK(handlerExRef != NULL,"Register state change handler is successfull");
+
+    LE_TEST_INFO("Testing taf_mngd_pm_AddStateChangeHandler on valid handler reference");
+    mpmsHanlerRef = taf_mngd_pm_AddStateChangeHandler(
+                    (taf_mngd_pm_StateChangeHandlerFunc_t)TestMPMSStateChangeHandler,
+                    NULL);
+    LE_TEST_OK(handlerExRef != NULL,"Register MPMS state change handler is successfull");
+
     le_sem_Post(semRef);
     le_event_RunLoop();
 }

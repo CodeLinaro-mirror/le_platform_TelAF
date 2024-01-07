@@ -3,6 +3,7 @@ sources:
     gpio/tafMngdPMGpio.cpp
     can/tafMngdPMCan.cpp
     sms/tafMngdPMSms.cpp
+    tafMngdPMImpl.cpp
     tafMngdPMSvc.cpp
 }
 

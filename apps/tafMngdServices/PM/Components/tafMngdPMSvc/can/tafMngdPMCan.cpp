@@ -61,8 +61,35 @@ void tafMngdPMCan::CanEventCallback(taf_can_CanInterfaceRef_t canInfRef, bool is
                 (strncmp(rcvData, canFramePtr->msg, ((2*size) + 1)) == 0))
         {
             LE_INFO("canFrame 0x%X with msg %s initiate %s state", canFramePtr->canFrameId,
-                    canFramePtr->msg, tafMngdPMSvc::tafStateToString(canFramePtr->state));
+                    canFramePtr->msg, tafMngdPMSvc::TafStateToString(canFramePtr->state));
+
+            taf_mngd_pm_State_t requestedState;
+            switch((taf_pm_State_t)canFramePtr->state)
+            {
+                case TAF_PM_STATE_SUSPEND:
+                    requestedState = TAF_MNGD_PM_STATE_SUSPENDING;
+                    break;
+
+                case TAF_PM_STATE_SHUTDOWN:
+                    requestedState = TAF_MNGD_PM_STATE_SHUTTING_DOWN;
+                    break;
+
+                case TAF_PM_STATE_RESUME:
+                    requestedState = TAF_MNGD_PM_STATE_WAKING_UP;
+                    break;
+
+                default:
+                    break;
+            }
+
+            if(tafMngdPMSvc::RequestStateChange(requestedState) != LE_OK)
+            {
+                return;
+            }
+
             taf_pm_SetAllVMPowerState((taf_pm_State_t)canFramePtr->state);
+
+            tafMngdPMSvc::ProcessStateChange(requestedState);
         }
     }
 }
@@ -96,7 +123,7 @@ void tafMngdPMCan::RegisterCanEvents(uint32_t canFrameId, taf_mngd_pm_State_t st
             LE_INFO("Already registered for canFrameId");
             canPMFramePtr->handlerRef = canFramePtr->handlerRef;
             char stateName[32];
-            le_utf8_Copy(stateName, tafMngdPMSvc::tafStateToString(canPMFramePtr->state), 32, NULL);
+            le_utf8_Copy(stateName, tafMngdPMSvc::TafStateToString(canPMFramePtr->state), 32, NULL);
             le_hashmap_Put(canPMMap, stateName, canPMFramePtr);
             return;
         }
@@ -136,7 +163,7 @@ void* tafMngdPMCan::RegisterCanHandler(void* canFramePtr)
         return NULL;
     }
     char stateName[32];
-    le_utf8_Copy(stateName, tafMngdPMSvc::tafStateToString(canPMFramePtr->state), 32, NULL);
+    le_utf8_Copy(stateName, tafMngdPMSvc::TafStateToString(canPMFramePtr->state), 32, NULL);
     le_hashmap_Put(canPMMap, stateName, canPMFramePtr);
     le_event_RunLoop();
 }

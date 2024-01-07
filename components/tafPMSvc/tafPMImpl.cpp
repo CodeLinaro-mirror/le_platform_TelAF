@@ -503,6 +503,13 @@ le_result_t taf_PM::StayAwake(taf_pm_WakeupSourceRef_t wsRef)
             LE_ERROR("sending cmd failed");
         }
 #endif
+#if LE_CONFIG_TARGET_SA525M
+    le_result_t res;
+    res = SetPowerState(TAF_PM_STATE_RESUME, "ALL_MACHINES");
+    if(res == LE_OK)
+        LE_INFO("System resumed on wakesource acquisition");
+#endif
+
     }
     return LE_OK;
 }

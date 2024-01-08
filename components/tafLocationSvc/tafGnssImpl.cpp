@@ -1564,33 +1564,57 @@ void tafLocationListener::onGnssNmeaInfo(uint64_t timestamp, const std::string &
 
     if ((gnss.mNmeaBitMask.compare(3,3,"GGA",0,3)) ==0) //1
     {
-        gnss.mNmeaMask |= TAF_GNSS_NMEA_MASK_GPGGA;
-        LE_DEBUG("onGnssNmeaInfo: GPGGA");
+        gnss.mNmeaMask |= TAF_GNSS_NMEA_MASK_GGA;
+        if ((gnss.mNmeaBitMask.compare(1,2,"GP",0,2)) ==0)
+        {
+            gnss.mNmeaMask |= TAF_GNSS_NMEA_MASK_GPGGA;
+        }
+        LE_DEBUG("onGnssNmeaInfo: GGA");
     }
     if ((gnss.mNmeaBitMask.compare(3,3,"RMC",0,3)) ==0) //2
     {
-        gnss.mNmeaMask |= TAF_GNSS_NMEA_MASK_GPRMC;
-        LE_DEBUG("onGnssNmeaInfo: GPRMC");
+        gnss.mNmeaMask |= TAF_GNSS_NMEA_MASK_RMC;
+        if ((gnss.mNmeaBitMask.compare(1,2,"GP",0,2)) ==0)
+        {
+            gnss.mNmeaMask |= TAF_GNSS_NMEA_MASK_GPRMC;
+        }
+        LE_DEBUG("onGnssNmeaInfo: RMC");
     }
     if ((gnss.mNmeaBitMask.compare(3,3,"GSA",0,3)) ==0) //4
     {
-        gnss.mNmeaMask |= TAF_GNSS_NMEA_MASK_GNGSA;
-        LE_DEBUG("onGnssNmeaInfo: GNGSA");
+        gnss.mNmeaMask |= TAF_GNSS_NMEA_MASK_GSA;
+        if ((gnss.mNmeaBitMask.compare(1,2,"GN",0,2)) ==0)
+        {
+            gnss.mNmeaMask |= TAF_GNSS_NMEA_MASK_GNGSA;
+        }
+        LE_DEBUG("onGnssNmeaInfo: GSA");
     }
     if ((gnss.mNmeaBitMask.compare(3,3,"VTG",0,3)) ==0) //8
     {
-        gnss.mNmeaMask |= TAF_GNSS_NMEA_MASK_GPVTG;
-        LE_DEBUG("onGnssNmeaInfo: GPVTG");
+        gnss.mNmeaMask |= TAF_GNSS_NMEA_MASK_VTG;
+        if ((gnss.mNmeaBitMask.compare(1,2,"GP",0,2)) ==0)
+        {
+            gnss.mNmeaMask |= TAF_GNSS_NMEA_MASK_GPVTG;
+        }
+        LE_DEBUG("onGnssNmeaInfo: VTG");
     }
     if ((gnss.mNmeaBitMask.compare(3,3,"GNS",0,3)) ==0) //16
     {
-        gnss.mNmeaMask |= TAF_GNSS_NMEA_MASK_GPGNS;
-        LE_DEBUG("onGnssNmeaInfo: GPGNS");
+        gnss.mNmeaMask |= TAF_GNSS_NMEA_MASK_GNS;
+        if ((gnss.mNmeaBitMask.compare(1,2,"GP",0,2)) ==0)
+        {
+            gnss.mNmeaMask |= TAF_GNSS_NMEA_MASK_GPGNS;
+        }
+        LE_DEBUG("onGnssNmeaInfo: GNS");
     }
     if ((gnss.mNmeaBitMask.compare(3,3,"DTM",0,3)) ==0) //32
     {
-        gnss.mNmeaMask |= TAF_GNSS_NMEA_MASK_GPDTM;
-        LE_DEBUG("onGnssNmeaInfo: GPDTM");
+        gnss.mNmeaMask |= TAF_GNSS_NMEA_MASK_DTM;
+        if ((gnss.mNmeaBitMask.compare(1,2,"GP",0,2)) ==0)
+        {
+            gnss.mNmeaMask |= TAF_GNSS_NMEA_MASK_GPDTM;
+        }
+        LE_DEBUG("onGnssNmeaInfo: DTM");
     }
     if((gnss.mNmeaBitMask.compare(1,5,"GPGSV",0,5)) ==0) //64
     {
@@ -1807,7 +1831,7 @@ void LocationCommandCallback::onSecondaryBandInfo(telux::loc::ConstellationSet s
 le_result_t taf_Gnss::PositionDataCoversion
 (
  int32_t value,
- taf_gnss_DataType_t dataType,
+ int8_t dataType,
  int32_t* dataPtr
 )
 {
@@ -2684,7 +2708,7 @@ le_result_t taf_Gnss::GetConstellation
                 }
                 if (LE_OK != result)
                 {
-                    *constellationMaskPtr = 0;;
+                    *constellationMaskPtr = 0;
                     LE_ERROR("constellation type is invalid");
                     result = LE_FAULT;
                     LE_ERROR("Unable to get the constellation, error = %d (%s)",
@@ -4219,12 +4243,12 @@ le_result_t taf_Gnss::SetNmeaSentences
 {
     le_result_t result = LE_NOT_PERMITTED;
 
-    LE_DEBUG("SetNmeaSentences nmeaMask: %d", nmeaMask);
+    LE_DEBUG("SetNmeaSentences nmeaMask: %" PRIu64"", nmeaMask);
 
     // Check if the bit mask is correct
     if (nmeaMask == 0)
     {
-        LE_ERROR("Unable to set the enabled NMEA sentences, wrong bit mask 0x%08X", nmeaMask);
+        LE_ERROR("Unable to set the enabled NMEA sentences, wrong bit mask %" PRIu64"", nmeaMask);
         result = LE_BAD_PARAMETER;
     }
     else
@@ -4237,6 +4261,36 @@ le_result_t taf_Gnss::SetNmeaSentences
                 // Set the enabled NMEA sentences
                 CmdSynchronousPromise = std::promise<le_result_t>();
                 mLocCmdResponseCb = std::make_shared<LocationCommandCallback> ("configureNmeaTypes");
+                if(nmeaMask > TAF_GNSS_NMEA_MASK_GPZDA)
+                {
+                    taf_gnss_NmeaBitMask_t nmeaSetResult = 0;
+                    if(nmeaMask & TAF_GNSS_NMEA_MASK_GGA)
+                    {
+                        nmeaSetResult |= TAF_GNSS_NMEA_MASK_GPGGA;
+                    }
+                    if(nmeaMask & TAF_GNSS_NMEA_MASK_RMC)
+                    {
+                        nmeaSetResult |= TAF_GNSS_NMEA_MASK_GPRMC;
+                    }
+                    if(nmeaMask & TAF_GNSS_NMEA_MASK_GSA)
+                    {
+                        nmeaSetResult |= TAF_GNSS_NMEA_MASK_GNGSA;
+                    }
+                    if(nmeaMask & TAF_GNSS_NMEA_MASK_VTG)
+                    {
+                        nmeaSetResult |= TAF_GNSS_NMEA_MASK_GPVTG;
+                    }
+                    if(nmeaMask & TAF_GNSS_NMEA_MASK_GNS)
+                    {
+                        nmeaSetResult |= TAF_GNSS_NMEA_MASK_GPGNS;
+                    }
+                    if(nmeaMask & TAF_GNSS_NMEA_MASK_DTM)
+                    {
+                        nmeaSetResult |= TAF_GNSS_NMEA_MASK_GPDTM;
+                    }
+                    nmeaMask |= nmeaSetResult;
+                }
+                LE_INFO("SetNmeaSentences nmeaMask mask is : %" PRIu64 "", nmeaMask);
                 mLocationConfigurator->configureNmeaTypes(nmeaMask,std::bind(
                    &LocationCommandCallback::commandResponse, mLocCmdResponseCb,
                       std::placeholders::_1));
@@ -4317,7 +4371,7 @@ le_result_t taf_Gnss::GetNmeaSentences
             }
             if (LE_OK != result)
             {
-                *nmeaMaskPtr = 0;;
+                *nmeaMaskPtr = 0;
                 LE_ERROR("NmeaSentence type is invalid");
                 result = LE_FAULT;
                 LE_ERROR("Unable to get the enabled NMEA sentences, error = %d (%s)",
@@ -6075,12 +6129,12 @@ le_result_t taf_Gnss::SetNmeaConfiguration
 #else
     (void)engineType;
 #endif
-    LE_DEBUG("SetNmeaConfiguration nmeaMask: %d and datumType: %d", nmeaMask, datumType);
+    LE_DEBUG("SetNmeaConfiguration nmeaMask: %" PRIu64" and datumType: %d", nmeaMask, datumType);
 
     // Check if the bit mask is correct
     if (nmeaMask == 0)
     {
-        LE_ERROR("Unable to set the enabled NMEA, wrong bit mask 0x%08X", nmeaMask);
+        LE_ERROR("Unable to set the enabled NMEA, wrong bit mask %" PRIu64 "", nmeaMask);
         result = LE_BAD_PARAMETER;
     }
     else

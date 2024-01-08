@@ -1297,19 +1297,6 @@ FUNCTION ReleaseSampleRef
 
 //--------------------------------------------------------------------------------------------------
 /**
-*  Data types.
-*/
-//--------------------------------------------------------------------------------------------------
-ENUM DataType
-{
-    DATA_VACCURACY,         ///< Vertical accuracy data.
-    DATA_VSPEEDACCURACY,    ///< Vertical speed accuracy data.
-    DATA_HSPEEDACCURACY,    ///< Horizontal speed accuracy data.
-    DATA_UNKNOWN            ///< Unknown data type.
-};
-
-//--------------------------------------------------------------------------------------------------
-/**
  * Gets the location data (latitude, longitude, horizontal accuracy).
  *
  * @return
@@ -1628,7 +1615,7 @@ FUNCTION le_result_t Stop
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets the GNSS constellation bitmask which needs to be blacklisted.
+ * Sets the GNSS constellation bitmask that needs to be blacklisted.
  *
  * @return
  *  - LE_FAULT         Failed.
@@ -1714,19 +1701,28 @@ ENUM EngineType
 //--------------------------------------------------------------------------------------------------
 BITMASK NmeaBitMask
 {
-    NMEA_MASK_GPGGA,    ///< GPGGA type enabled -- GPS fix data.
+    NMEA_MASK_GPGGA,    ///< GPGGA type enabled -- GPS fix data.Deprecate, use NMEA_MASK_GGA.
+                        ///  instead.This is internally mapped to NMEA_MASK_GGA.
     NMEA_MASK_GPRMC,    ///< GPRMC type enabled -- GPS recommended minimum data.
+                        ///  Deprecate, use NMEA_MASK_RMC instead.This is internally mapped to
+                        ///  NMEA_MASK_RMC.
     NMEA_MASK_GNGSA,    ///< GNGSA type enabled -- GNSS DOP and active satellites.
+                        ///  Deprecate, use NMEA_MASK_GSA instead.This is internally mapped to
+                        ///  NMEA_MASK_GSA.
     NMEA_MASK_GPVTG,    ///< GPVTG type enabled -- GPS vector track and speed over the ground.
-    NMEA_MASK_GPGNS,    ///< GPGNS type enabled -- Fix data for GPS.
+                        ///  Deprecate, use NMEA_MASK_VTG instead.This is internally mapped to
+                        ///  NMEA_MASK_VTG
+    NMEA_MASK_GPGNS,    ///< GPGNS type enabled -- Fix data for GPS.Deprecate, use NMEA_MASK_GNS.
+                        ///  This is internally mapped to NMEA_MASK_GNS.
     NMEA_MASK_GPDTM,    ///< GPDTM type enabled -- Local geodetic datum and datum offset from a
-                        ///  reference.
+                        ///  reference.Deprecate, use NMEA_MASK_DTM instead.This is internally
+                        ///  mapped to NMEA_MASK_DTM.
     NMEA_MASK_GPGSV,    ///< GPGSV type enabled --  GPS satellites in view.
     NMEA_MASK_GLGSV,    ///< GLGSV type enabled --  GLONASS satellites in view.
     NMEA_MASK_GAGSV,    ///< GAGSV type enabled --  Galileo satellites in view.
-    NMEA_MASK_GQGSV,    ///< GQGSV type enabled.
-    NMEA_MASK_GBGSV,    ///< GBGSV type enabled.
-    NMEA_MASK_GIGSV,    ///< GIGSV type enabled.
+    NMEA_MASK_GQGSV,    ///< GQGSV type enabled --  NMEA sentence for SVs from QZSS constellation.
+    NMEA_MASK_GBGSV,    ///< GBGSV type enabled --  NMEA sentence for SVs from BEIDOU constellation
+    NMEA_MASK_GIGSV,    ///< GIGSV type enabled --  NMEA sentence for SVs from NAVIC constellation.
     NMEA_MASK_GPGSA,    ///< Not supported.
     NMEA_MASK_GAGGA,    ///< Not supported.
     NMEA_MASK_GAGSA,    ///< Not supported.
@@ -1741,7 +1737,14 @@ BITMASK NmeaBitMask
     NMEA_MASK_GAGNS,    ///< Not supported.
     NMEA_MASK_GNGNS,    ///< Not supported.
     NMEA_MASK_GPGST,    ///< Not supported.
-    NMEA_MASK_GPZDA     ///< Not supported.
+    NMEA_MASK_GPZDA,    ///< Not supported.
+    NMEA_MASK_GGA,      ///< GGA type enabled -- GNSS fix data.
+    NMEA_MASK_RMC,      ///< RMC type enabled -- GNSS recommended minimum data.
+    NMEA_MASK_GSA,      ///< GSA type enabled -- GNSS DOP and active satellites.
+    NMEA_MASK_VTG,      ///< VTG type enabled -- GNSS vector track and speed over the ground.
+    NMEA_MASK_GNS,      ///< GNS type enabled -- Fix data for GNSS.
+    NMEA_MASK_DTM       ///< DTM type enabled -- Local geodetic datum and datum offset from a
+                        ///  reference.
 };
 
 //------------------------------------------------------------------------------------------------
@@ -2665,14 +2668,13 @@ FUNCTION le_result_t GetMinElevation
  *  - LE_OK             Succeeded.
  *  - LE_BAD_PARAMETER  Bitmask exceeds the maximal value.
  *  - LE_FAULT          Failed.
- *  - LE_BUSY           Service is busy.
- *  - LE_TIMEOUT        Timeout occurred.
  *  - LE_NOT_PERMITTED  Location service is not ready.
  *
  * @warning This function may be subject to limitations depending on the platform.
  *
  * @note Some NMEA sentences are unsupported depending on the platform.
- *       Setting an unsuported NMEA sentence will report an error.
+ *       Setting an unsuported NMEA sentence will not report an error but
+ *       we cannot receive the NMEA callback function to fetch the same.
  *
  *
  */
@@ -2690,13 +2692,14 @@ FUNCTION le_result_t SetNmeaSentences
  *  - LE_OK             Succeeded.
  *  - LE_FAULT          Failed.
  *  - LE_TIMEOUT        Timeout occurred.
- *  - LE_NOT_PERMITTED  Location service is not ready. 
+ *  - LE_NOT_PERMITTED  Location service is not active.
  *
  * @note If the caller passes a null pointer to this function, it is a fatal error and the
  *       client will be killed.
  *
  * @note Some NMEA sentences are unsupported depending on the platform.
- *       The bitmask for an unset or unsupported NMEA sentence is zero.
+ *       We cannot receive the NMEA callback function to fetch the unsupported
+ *       NMEA sentences.So the bitmask won't get for those NMEA sentences.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetNmeaSentences
@@ -2730,7 +2733,8 @@ FUNCTION le_result_t SetDRConfig
  *
  * @return 
  * - LE_OK               Succeeded.
- * - LE_UNSUPPORTED      Not supported on this platform.
+ * - LE_NOT_PERMITTED    Location service is not ready.
+ * - LE_FAULT            Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetSupportedNmeaSentences
@@ -2890,13 +2894,13 @@ FUNCTION le_result_t GetMagneticDeviation
 FUNCTION le_result_t GetEllipticalUncertainty
 (
     Sample positionSampleRef          IN, ///< Position sample reference.
-    uint32 horUncEllipseSemiMajorPtr OUT, ///< Horizontal semi-major elliptical uncertainty. It's
+    uint32 horUncEllipseSemiMajorPtr OUT, ///< Horizontal semi-major elliptical uncertainty. It is
                                           ///  semi-major axis of horizontal elliptical uncertainty.
                                           ///  Units: Meters Uncertainty is defined with 39% confidence level.
-    uint32 horUncEllipseSemiMinorPtr OUT, ///< Horizontal semi-minor elliptical uncertainty. It's
+    uint32 horUncEllipseSemiMinorPtr OUT, ///< Horizontal semi-minor elliptical uncertainty. It is
                                           ///  semi-minor axis of horizontal elliptical uncertainty.
                                           ///  Units: Meters Uncertainty is defined with 39% confidence level.
-    uint8  horConfidencePtr          OUT  ///< Horizontal confidence level. It's defined with 39% confidence level.
+    uint8  horConfidencePtr          OUT  ///< Horizontal confidence level. It is defined with 39% confidence level.
 );
 
 //--------------------------------------------------------------------------------------------------

@@ -1,0 +1,23 @@
+{
+    "systems" :
+    [
+        {
+            "id" : "0x101",
+            "name" : "SA525M_1"
+        },
+        {
+            "id" : "0x102",
+            "name" : "SA525M_2"
+        }
+    ],
+    "rpc_services" :
+    [
+        {
+            "name" : "printer",
+            "user" : "root",
+            "offer_systems" : [ "SA525M_1", "SA525M_2" ]
+        }
+    ]
+}
+
+

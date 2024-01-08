@@ -1,0 +1,23 @@
+externalBuild:
+{
+    "capicxx-core-gen -sk $TELAF_ROOT/apps/ivss/fidl/SimSvc/SimSvc.fidl"
+    "capicxx-core-gen -sk $TELAF_ROOT/apps/ivss/fidl/SimSvc/SimSvc.fdepl"
+    "capicxx-someip-gen $TELAF_ROOT/apps/ivss/fidl/SimSvc/SimSvc.fdepl"
+    "bash $TELAF_ROOT/apps/ivss/common/make.sh SimSvc"
+}
+
+bundles:
+{
+    file:
+    {
+        $BUILDDIR/build/libSimSvc-someip.so   /lib/
+    }
+}
+
+provides:
+{
+    headerDir:
+    {
+        $BUILDDIR/src-gen
+    }
+}

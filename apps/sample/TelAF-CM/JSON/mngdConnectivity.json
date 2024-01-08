@@ -1,8 +1,8 @@
 {
     "Product": "TelAF",
-    "Name": "Managed Connectivity Service",
+    "Name": "MngdConn",
     "ManagedConnectivityService": {
-        "Version": "23.07.00",
+        "Version": "23.11.00",
         "Configuration": {
             "Name": "Default",
             "Sim":[
@@ -23,14 +23,29 @@
             "Data":[
                 {
                     "ID": 1,
+                    "Name": null,
                     "Use_Network_ID": 1,
                     "Profile":{
-                        "Name": "Profile1",
                         "Number": 1,
                         "APN": null
                     },
                     "AutoStart":"Yes",
-                    "PingTest":{
+                    "ConnectionTest":{
+                        "URL": null,
+                        "IPv4": null,
+                        "IPv6": null
+                    }
+                },
+                {
+                    "ID": 2,
+                    "Name": null,
+                    "Use_Network_ID": 1,
+                    "Profile":{
+                        "Number": 2,
+                        "APN": null
+                    },
+                    "AutoStart":"Yes",
+                     "ConnectionTest":{
                         "URL": null,
                         "IPv4": null,
                         "IPv6": null
@@ -41,13 +56,24 @@
         "Policy": {
             "Name": "Default",
             "DataSession":{
-                "Fallback": "No",
                 "DataConnection":[
                     {
                         "Priority": "1",
                         "Use_Data_ID": "1"
+                    },
+                    {
+                        "Priority": "2",
+                        "Use_Data_ID": "2"
                     }
-                ]
+                ],
+                "DataStartRetry": {
+                     "Enable": "Yes",
+                     "RetryCount": 1
+                },
+                "MultiDataSession": {
+                    "Enable": "Yes",
+                    "NumConnections": 2
+                }
             }
         }
     }

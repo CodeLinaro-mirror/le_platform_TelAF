@@ -37,6 +37,7 @@
 
 #include "limit.h"
 #include "user.h"
+#include "jansson.h"
 
 
 //--------------------------------------------------------------------------------------------------
@@ -55,6 +56,19 @@
 //---------------------------------------------------------------------------------
 #define RPC_MAX_SYSTEMS  8           // Maximum RPC systems can be confingured for a service.
 #define RPC_MAX_SERVICES 64          // Maximum RPC services can be configured in JSON file.
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * MACRO definition for the default value of configuration items.
+ */
+//--------------------------------------------------------------------------------------------------
+#define TAF_RPC_DEFAULT_CONFIG_FILE "taf_rpc.json"
+#define TAF_RPC_DEFAULT_SERVICE_VER "ANY_VERSION"
+#define TAF_RPC_DEFAULT_RESP_TIMEOUT 30
+#define TAF_RPC_DEFAULT_CONNECTION_TYPE "TCP"
+#define TAF_RPC_DEFAULT_BASE_SERVICE_ID 0xED00
+#define TAF_RPC_DEFAULT_BASE_PORT_NUMBER 40000
 
 
 //--------------------------------------------------------------------------------------------------

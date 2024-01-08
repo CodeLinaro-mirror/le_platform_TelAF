@@ -13,6 +13,11 @@ workstation/.simula.*
 workstation/.ssh
 *.log
 
+*.so
+*.o
+*.a
+*.out
+*.elf
 
 # For python-related files
 __pycache__/

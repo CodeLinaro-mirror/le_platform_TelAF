@@ -29,6 +29,15 @@ apps:
     $TELAF_ROOT/apps/tafMngdServices/PM/tafMngdPMSvc
     $TELAF_ROOT/apps/tafServices/tafDiagSvc
     $TELAF_ROOT/apps/tafServices/tafTimeSvc
+    $TELAF_ROOT/apps/tafServices/tafHMSvc
+
+
+    // IVSS services.
+    $TELAF_ROOT/apps/ivss/service/tafIvssRadioSvc/tafIvssRadioSvc
+    $TELAF_ROOT/apps/ivss/service/tafIvssSimSvc/tafIvssSimSvc
+
+    // RPC proxy
+    $TELAF_ROOT/apps/rpc/rpcProxy/tafRpcProxy
 
     // Command-line tools.
     $LEGATO_ROOT/apps/tools/tools
@@ -72,10 +81,13 @@ apps:
     // $TELAF_ROOT/apps/test/tafSomeipGWTest/tafSomeipClntUnitTest/tafSomeipClntUnitTest
     // $TELAF_ROOT/apps/test/tafAudioTest/tafAudioUnitTest/tafAudioUnitTest
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMUnitTest/tafMngdPMUnitTest
+    // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMIntTest/tafMngdPMIntTest
     // $TELAF_ROOT/apps/sample/diagApp/tafDiagApp
     // $TELAF_ROOT/apps/test/tafAdefTest/tafAdefUnitTest
     // $TELAF_ROOT/apps/test/tafTimeTest/tafTimeUnitTest
     // $TELAF_ROOT/apps/test/tafTimeTest/tafTimeIntTest
+    // $TELAF_ROOT/apps/test/tafLXCIntTest/tafLXCIntTest.adef
+    // $TELAF_ROOT/apps/test/tafHMSTest/tafHMSUnitTest
 }
 
 commands:
@@ -84,12 +96,14 @@ commands:
     gnss = tools:/bin/gnss
     fwupdate = tools:/bin/fwupdate
     pm = tafTools:/bin/pm
+    tafmodule = tafTools:/bin/tafmodule
 }
 
 bindings:
 {
     <telaf>.DeviceManager -> <root>.DeviceManager
     <root>.DeviceManagerTool -> <root>.DeviceManagerTool
+    <telaf>.sdirTool -> <root>.sdirTool
 }
 
 interfaceSearch:

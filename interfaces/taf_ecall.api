@@ -226,6 +226,12 @@
  * - taf_ecall_SetMsdPositionN1() -- Sets the position delta N-1 for MSD transmission.
  * - taf_ecall_SetMsdPositionN2() -- Sets the position delta N-2 for MSD transmission.
  * - taf_ecall_SetMsdPassengersCount() -- Sets the number of passengers.
+ * - taf_ecall_SetMsdAdditionalData() -- Sets the additional data of the the vehicle.
+ * - taf_ecall_ResetMsdAdditionalData() -- Resets the additional data of the the vehicle.
+ * - taf_ecall_SetMsdEuroNCAPLocationOfImpact() -- Sets the location of impact for Euro NCAP additional data of the vehicle.
+ * - taf_ecall_SetMsdEuroNCAPRolloverDetected() -- Sets the rollover detected for Euro NCAP additional data of the vehicle.
+ * - taf_ecall_ResetMsdEuroNCAPLocationOfImpact() -- Resets the rollover detected for Euro NCAP additional data of the vehicle.
+ * - taf_ecall_SetMsdEuroNCAPIIDeltaV() -- Sets the IIDeltaV for Euro NCAP additional data of the vehicle.
  *
  * The MSD is automatically encoded with the previous MSD values set earlier.
  *
@@ -304,9 +310,8 @@
  *       successfully reached the PSAP.
  *
  *       After the eCall is answered by the PSAP, the eCall state changes to ACTIVE and in MSD Pull mode, the eCall Service
- *       gets a state indication from the PSAP to receive MSD.
- *       But the state indication is not supported in the platform now. It will be supported in future.
- *       Without the state indication, as of now, the client application should update MSD to the NAD (i.e., modem) by calling
+ *       gets a state indication TAF_STATE_MSD_UPDATE_REQ from the PSAP to receive MSD.
+ *       Without this state indication, as of now, the client application should update MSD to the NAD (i.e., modem) by calling
  *       the taf_ecall_SendMsd() API. Later, when the NAD gets an indication from the PSAP in pull mode, NAD will use the updated
  *       MSD and send it to the PSAP.
  *
@@ -341,7 +346,9 @@ DEFINE TX_MODE_PUSH = 1;
 
 DEFINE MAX_VIN_LENGTH  =  (17);
 DEFINE MAX_VIN_BYTES  =  MAX_VIN_LENGTH + (1);
-DEFINE  MAX_MSD_LENGTH = (140);
+DEFINE MAX_OID_LENGTH  =  (8);
+DEFINE MAX_DATA_LENGTH  =  (94);
+DEFINE MAX_MSD_LENGTH = (140);
 
 /**
  *  Operational modes.
@@ -410,6 +417,21 @@ BITMASK PropulsionStorageType
 };
 
 /**
+ *  Vehicle location of impact per Euro NCAP.
+ *
+ */
+ENUM IILocations
+{
+    LOI_UNKNOWN,
+    LOI_NONE,
+    LOI_FRONT,
+    LOI_REAR,
+    LOI_DRIVERSIDE,
+    LOI_NONDRIVERSIDE,
+    LOI_OTHER
+};
+
+/**
  *  eCall states.
  */
 ENUM State
@@ -444,7 +466,8 @@ ENUM State
     STATE_ACK_OUT_OF_ORDER,                   ///< Out of order ACK message detected during in-band MSD transmission.
     STATE_OUTBAND_MSD_TRANSMISSION_STARTED,   ///< Out-band MSD transmission started in NG eCall.
     STATE_OUTBAND_MSD_TRANSMISSION_SUCCESS,   ///< Out-band MSD transmission succeeded in NG eCall.
-    STATE_OUTBAND_MSD_TRANSMISSION_FAILURE    ///< Out-band MSD transmission failed in NG eCall.
+    STATE_OUTBAND_MSD_TRANSMISSION_FAILURE,   ///< Out-band MSD transmission failed in NG eCall.
+    STATE_MSD_UPDATE_REQ                      ///< Notify request from PSAP for MSD update
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -874,6 +897,119 @@ FUNCTION le_result_t SetMsdPassengersCount
 (
     Call   ecallRef IN,        ///< SIM slot ID.
     uint32 passengersCount IN  ///< Passenger count.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Sets the optional additional data for MSD transmission.
+ *
+ * @return
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
+ *      - LE_FAULT -- Failed.
+ *      - LE_OK -- Succeeded.
+ *      - LE_DUPLICATE -- The MSD has already been imported.
+ *
+ * @note The process exits when an invalid eCall reference is given.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetMsdAdditionalData
+(
+    Call   ecallRef IN,               ///< eCall reference.
+    string oid[MAX_OID_LENGTH] IN,    ///< Oid
+    uint8  data[MAX_DATA_LENGTH] IN   ///< Data
+);
+
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Resets the optional additional data for MSD transmission.
+ *
+ * @return
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
+ *      - LE_OK -- Succeeded.
+ *      - LE_DUPLICATE -- The MSD has already been imported.
+ *
+ * @note The process exits when an invalid eCall reference is given.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ResetMsdAdditionalData
+(
+    Call  ecallRef IN               ///< eCall reference.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Sets the location of impact for Euro NCAP additional data.
+ *
+ * @return
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
+ *      - LE_FAULT -- Failed.
+ *      - LE_OK -- Succeeded.
+ *      - LE_DUPLICATE -- The MSD has already been imported.
+ *
+ * @note The process exits when an invalid eCall reference is given.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetMsdEuroNCAPLocationOfImpact
+(
+    Call  ecallRef IN,               ///< eCall reference.
+    IILocations iiLocations IN       ///< Location of impact
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Sets the rollover detected for Euro NCAP additional data.
+ *
+ * @return
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
+ *      - LE_OK -- Succeeded.
+ *      - LE_DUPLICATE -- The MSD has already been imported.
+ *
+ * @note The process exits when an invalid eCall reference is given.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetMsdEuroNCAPRolloverDetected
+(
+    Call  ecallRef IN,               ///< eCall reference.
+    bool  rolloverDetected IN        ///< Rollover detected
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Resets the rollover detected for Euro NCAP additional data.
+ *
+ * @return
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
+ *      - LE_OK -- Succeeded.
+ *      - LE_DUPLICATE -- The MSD has already been imported.
+ *
+ * @note The process exits when an invalid eCall reference is given.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ResetMsdEuroNCAPRolloverDetected
+(
+    Call  ecallRef IN               ///< eCall reference.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Sets the IIDeltaV for Euro NCAP additional data.
+ *
+ * @return
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
+ *      - LE_FAULT -- Failed.
+ *      - LE_OK -- Succeeded.
+ *      - LE_DUPLICATE -- The MSD has already been imported.
+ *
+ * @note The process exits when an invalid eCall reference is given.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetMsdEuroNCAPIIDeltaV
+(
+    Call   ecallRef IN,               ///< eCall reference.
+    uint8  rangeLimit IN,             ///< Range limit
+    int16  deltaVX IN,                ///< DeltaVX
+    int16  deltaVY IN                 ///< DeltaVY
 );
 
 //-------------------------------------------------------------------------------------------------

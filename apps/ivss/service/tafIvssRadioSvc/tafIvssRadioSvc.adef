@@ -1,0 +1,29 @@
+sandboxed: false
+
+start: manual
+
+
+executables:
+{
+    tafIvssRadioSvc = ( tafIvssRadioSvc )
+}
+
+processes:
+{
+    envVars:
+    {
+        VSOMEIP_CONFIGURATION = vsomeipRef.json
+        COMMONAPI_CONFIG = commonapiRef.ini
+    }
+
+    run:
+    {
+        ( tafIvssRadioSvc )
+    }
+    maxFileBytes: 8192K
+}
+
+bindings:
+{
+    tafIvssRadioSvc.tafIvssRadioSvc.taf_radio -> tafRadioSvc.taf_radio
+}

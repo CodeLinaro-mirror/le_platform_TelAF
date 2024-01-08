@@ -1,0 +1,61 @@
+/*
+* Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* SPDX-License-Identifier: BSD-3-Clause-Clear
+*/
+
+package com.qualcomm.qti.modem
+import com.qualcomm.qti.modem.CommonTypes.* from "../common/CommonTypes.fidl"
+
+interface SimSvc
+{
+    version { major 0 minor 1 }
+
+    <** @description: State of the card **>
+    enumeration States
+    {
+        PRESENT         ///< SIM card is present.
+        ABSENT          ///< SIM card is absent.
+        READY           ///< SIM card is present and ready to use.
+        RESTRICTED      ///< SIM card is present but not usable due to carrier restrictions
+        ERROR           ///< SIM card has error; either card is removed or not readable.
+        STATE_UNKNOWN   ///< SIM card state is unknown.
+    }
+
+    <** @description: Get Imsi from the Sim Card **>
+    method GetImsi
+    {
+        in
+        {
+            PhoneId phoneId     ///< Phone ID.
+        }
+        out
+        {
+            String imsi         ///< IMSI as output.
+        }
+        error Result            ///< return result.
+    }
+
+    <** @description: Get the state of the card **>
+    method GetState
+    {
+        in
+        {
+            PhoneId phoneId     ///< Phone ID.
+        }
+        out
+        {
+            States simState     ///< SIM card State.
+        }
+        error Result            ///< return result.
+    }
+
+    <** @description: SIM card state change event **>
+    broadcast SimState
+    {
+        out
+        {
+            PhoneId phoneId     ///< Phone ID.
+            States simState     ///< SIM card State.
+        }
+    }
+}

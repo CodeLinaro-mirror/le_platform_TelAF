@@ -1,0 +1,29 @@
+sandboxed: false
+
+start: manual
+
+
+executables:
+{
+    tafIvssSimSvc = ( tafIvssSimSvc )
+}
+
+processes:
+{
+    envVars:
+    {
+        VSOMEIP_CONFIGURATION = vsomeipRef.json
+        COMMONAPI_CONFIG = commonapiRef.ini
+    }
+
+    run:
+    {
+        ( tafIvssSimSvc )
+    }
+    maxFileBytes: 8192K
+}
+
+bindings:
+{
+    tafIvssSimSvc.tafIvssSimSvc.taf_sim -> tafSimCardSvc.taf_sim
+}

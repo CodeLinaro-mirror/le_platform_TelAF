@@ -1,0 +1,36 @@
+provides:
+{
+    api:
+    {
+        taf_hms.api
+    }
+}
+
+requires:
+{
+    component:
+    {
+        $LEGATO_ROOT/components/watchdogChain
+
+    }
+    lib:
+    {
+    }
+}
+
+cxxflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+    -I$TELAF_ROOT/include
+}
+
+cflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+}
+
+sources:
+{
+    tafHMSvc.cpp
+    tafHMImpl.cpp
+}

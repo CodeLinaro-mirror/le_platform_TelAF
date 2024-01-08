@@ -911,7 +911,7 @@ void taf_DataProfile::Init(void)
         }
         else
         {
-            LE_CRIT("Unable to init data profile component for slot id %d !",(int)slotIdx);
+            LE_FATAL("Unable to init data profile component for slot id %d !",(int)slotIdx);
         }
     }
 #else
@@ -935,7 +935,7 @@ void taf_DataProfile::Init(void)
     }
     else
     {
-        LE_CRIT("Unable to init data profile component for slot id !");
+        LE_FATAL("Unable to init data profile component for slot id !");
     }
 #endif
 

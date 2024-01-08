@@ -302,6 +302,10 @@ void taf_sim::Init(void)
     subMgr = phoneFactory.getSubscriptionManager();
     cardManager = phoneFactory.getCardManager();
     simProfileManager = phoneFactory.getSimProfileManager();
+    if (simProfileManager == nullptr)
+    {
+        LE_FATAL("Cannot get SIM manager!");
+    }
 
     bool subSystemStatus = simProfileManager->isSubsystemReady();
     if(!subSystemStatus) {
@@ -328,15 +332,35 @@ void taf_sim::Init(void)
         // If we want to wait unconditionally for telephony subsystem to be ready
         subSystemStatus = f.get();
     }
-    if(multiSimMgr){
-        isMultiSimMgrReady = multiSimMgr->isSubsystemReady();
-    }
 
-    if(!isMultiSimMgrReady) {
-        LE_INFO("MultiSimManager subsystem is not ready, wait for it to be ready." );
-        std::future<bool> fStatus = multiSimMgr->onSubsystemReady();
-        // If we want to wait unconditionally for telephony subsystem to be ready
-        isMultiSimMgrReady = fStatus.get();
+    if(multiSimMgr){
+
+        isMultiSimMgrReady = multiSimMgr->isSubsystemReady();
+
+        if(!isMultiSimMgrReady) {
+            LE_INFO("MultiSimManager subsystem is not ready, wait for it to be ready." );
+            std::future<bool> fStatus = multiSimMgr->onSubsystemReady();
+            // If we want to wait unconditionally for telephony subsystem to be ready
+            isMultiSimMgrReady = fStatus.get();
+        }
+        multiSimListener = std::make_shared<tafMultiSimListener>();
+
+        status = multiSimMgr->registerListener(multiSimListener);
+        if(status != telux::common::Status::SUCCESS) {
+            LE_FATAL("Unable to registerListener");
+        }
+
+        auto ret = multiSimMgr->requestSlotStatus(tafMultiSimCallback::requestsSlotsStatusResponse);
+        if(ret != telux::common::Status::SUCCESS){
+            LE_FATAL("Request slot status failed with error: %d", (int)ret);
+        }
+        errorStatus = slotStatusCbPromise.get_future().get();
+        if(errorStatus == telux::common::ErrorCode::SUCCESS){
+            LE_INFO("Initialize slot card map successfully, default selected slot: %d", (int)slot);
+        }
+        if(errorStatus != telux::common::ErrorCode::SUCCESS){
+            LE_FATAL("Initialize slot card map failed with error: %d", (int)errorStatus);
+        }
     }
 
     if(subSystemStatus) {
@@ -355,26 +379,6 @@ void taf_sim::Init(void)
         IccidChangeEventId = le_event_CreateId("IccidChangeEventId", sizeof(sim_iccid_event_t));
     }
 
-    multiSimListener = std::make_shared<tafMultiSimListener>();
-
-    status = multiSimMgr->registerListener(multiSimListener);
-    if(status != telux::common::Status::SUCCESS) {
-        LE_ERROR("Unable to registerListener");
-    }
-
-    auto ret = multiSimMgr->requestSlotStatus(tafMultiSimCallback::requestsSlotsStatusResponse);
-    if(ret != telux::common::Status::SUCCESS){
-        LE_ERROR("Request slot status failed with error: %d", (int)ret);
-    }
-    errorStatus = slotStatusCbPromise.get_future().get();
-    if(errorStatus == telux::common::ErrorCode::SUCCESS){
-        LE_INFO("Initialize slot card map successfully, default selected slot: %d", (int)slot);
-    }
-    if(errorStatus != telux::common::ErrorCode::SUCCESS){
-        LE_ERROR("Initialize slot card map failed with error: %d", (int)slotStatusCbPromise.get_future().get());
-    }
-
-
     bool subscriptionSubSystemStatus = subMgr->isSubsystemReady();
     if(!subscriptionSubSystemStatus) {
         LE_INFO("Subscription subsystem is not ready" );
@@ -391,7 +395,7 @@ void taf_sim::Init(void)
         status = subMgr->registerListener(subscriptionListener);
 
         if(status != telux::common::Status::SUCCESS) {
-            LE_INFO("Unable to registerListener");
+            LE_FATAL("Unable to registerListener");
         }
     }
 

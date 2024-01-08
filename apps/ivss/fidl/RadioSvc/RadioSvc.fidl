@@ -1,0 +1,95 @@
+/*
+* Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* SPDX-License-Identifier: BSD-3-Clause-Clear
+*/
+
+package com.qualcomm.qti.modem
+import com.qualcomm.qti.modem.CommonTypes.* from "../common/CommonTypes.fidl"
+
+interface RadioSvc
+{
+    version { major 0 minor 1 }
+
+    <** @description: Type to represent different RATs supported by the system **>
+    enumeration Rat
+    {
+        RAT_UNKNOWN //< Unknown RAT.
+        RAT_GSM     //< GSM - Global System for Mobile communications.
+        RAT_GPRS    //< GSM GPRS - General Packet Radio Service.
+        RAT_EDGE    //< GSM EDGE - Enhanced Data rate for GSM Evolution.
+        RAT_EHRPD   //< CDMA EHRPD - Evolved High Rate Package Data.
+        RAT_UMTS    //< UMTS - Universal Mobile Telecommunications System.
+        RAT_HSPA    //< UMTS HSPA - High Speed Packet Access.
+        RAT_HSDPA   //< UMTS HSDPA - High Speed Downlink Packet Access.
+        RAT_HSUPA   //< UMTS HSUPA - High Speed Uplink Packet Access.
+        RAT_HSPAP   //< UMTS HSPAP - HSPA+.
+        RAT_TDSCDMA //< TDSCDMA - Time Division-Synchronous Code Division Multiple Access.
+        RAT_LTE     //< LTE - Long Term Evolution.
+        RAT_LTE_CA  //< LTE CA - LTE Carrier Aggregation.
+        RAT_NR5G    //< NR5G - New Radio 5G.
+    }
+
+    <** @description: Set power state of the Radio **>
+    method SetRadioPower
+    {
+        in
+        {
+            PhoneId phoneId     ///< Phone ID.
+            OnOffType power     ///< Power state.
+        }
+        error Result            ///< return result.
+    }
+
+    <** @description: Get power state of the Radio **>
+    method GetRadioPower
+    {
+        in
+        {
+            PhoneId phoneId     ///< Phone ID.
+        }
+        out
+        {
+            OnOffType power     ///< Power state.
+        }
+        error Result            ///< return result.
+    }
+
+    <** @description: Get signal strength of the Radio **>
+    method GetSignalStrength
+    {
+        in
+        {
+            PhoneId phoneId     ///< Phone ID.
+            Rat rat             ///< Radio Access Technology.
+        }
+
+        out
+        {
+            Int32 ss            ///< Signal strength in dBm.
+            Int32 rsrp          ///< Reference signal receive power in dBm.
+        }
+        error Result            ///< return result.
+    }
+
+    <** @description: Event to report signal strength change  **>
+    broadcast SignalStrength
+    {
+        out
+        {
+            Rat rat             ///< Radio Access Technology.
+            Int32 ss            ///< Signal strength in dBm.
+            Int32 rsrp          ///< Reference signal receive power in dBm.
+            PhoneId phoneId     ///< Phone ID.
+        }
+    }
+
+    <** @description: Event to report RAT change  **>
+    broadcast RadioRat
+    {
+        out
+        {
+            Rat rat             ///< Radio Access Technology.
+            PhoneId phoneId     ///< Phone ID.
+        }
+    }
+}

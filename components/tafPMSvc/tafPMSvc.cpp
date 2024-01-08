@@ -254,3 +254,56 @@ le_result_t taf_pm_DeleteMachineList( taf_pm_VMListRef_t vmListRef )
 #endif
    return LE_UNSUPPORTED;
 }
+
+/**
+* FUNCTION     : SendStateChangeAck
+* DESCRIPTION  : Receives the acktype and ack state from clients
+* DEPENDECY    :
+* PARAMETERS   : [IN] taf_pm_State_t : Changed State notified to client for ack.
+                 [IN] taf_pm_ClientAck_t : Ack type from client for the changed state.
+*/
+void taf_pm_SendStateChangeAck(taf_pm_PowerStateRef_t powerStateRef,
+taf_pm_State_t state, taf_pm_NadVm_t vm_id, taf_pm_ClientAck_t ackType )
+{
+   LE_INFO("taf_pm_SendStateChangeAck");
+#if LE_CONFIG_TARGET_SA525M
+   auto &power = taf_PM::GetInstance();
+   power.SendStateChangeAck(powerStateRef,state,vm_id,ackType);
+#endif
+}
+
+
+/**
+* FUNCTION     : AddStateChangeExHandler
+* DESCRIPTION  : send state change notification
+* DEPENDECY    :
+* PARAMETERS   : handlerPtr to be called after state change and contextPtr
+* RETURN VALUES: handlerRef if registered successfully or else NULL
+*/
+taf_pm_StateChangeExHandlerRef_t taf_pm_AddStateChangeExHandler
+        (taf_pm_StateChangeExHandlerFunc_t handlerPtr,void* contextPtr)
+{
+    LE_DEBUG("AddStateChangeExHandler in Service class");
+#if LE_CONFIG_TARGET_SA525M
+    auto &power = taf_PM::GetInstance();
+    return power.AddStateChangeExHandler(handlerPtr, contextPtr);
+#endif
+    return NULL;
+}
+
+
+/**
+* FUNCTION     : RemoveStateChangeExHandler
+* DESCRIPTION  : remove state change handler
+* DEPENDECY    :
+* PARAMETERS   : state change handler reference to be removed
+* RETURN VALUES:
+*/
+void taf_pm_RemoveStateChangeExHandler(taf_pm_StateChangeExHandlerRef_t handlerRef)
+{
+   LE_DEBUG("RemoveStateChangeExHandler");
+#if LE_CONFIG_TARGET_SA525M
+   auto &power = taf_PM::GetInstance();
+   power.RemoveStateChangeExHandler(handlerRef);
+#endif
+}

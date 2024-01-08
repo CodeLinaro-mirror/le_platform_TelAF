@@ -78,6 +78,15 @@ static void PrintHelp
         "    pmTest test7\n"
         "       Test acquire and release multiple times WL with reference.\n"
         "\n"
+        "    pmTest test8\n"
+        "       Testcase to registers for Extend state change.\n"
+        "       Send state change to receive the callback in test app.\n"
+        "       This test case is supported only for 525 target.\n"
+        "\n"
+        "    pmTest test9\n"
+        "       Teasecase to unregisters the Extend state change callback\n"
+        "       This test case is supported only for 525 target.\n"
+        "\n"
         "    pmTest resume\n"
         "       Resume whole device.\n"
         "\n"
@@ -141,7 +150,13 @@ static void CommandHandler
     } else if (strcmp(argPtr, "getAllMachines") == 0 && le_arg_NumArgs() == 1)
     {
         ctrlCmd_getAllMachines();
-    } else if (strcmp(argPtr, "resume") == 0 && le_arg_NumArgs() >= 1)
+    } else if (strcmp(argPtr, "test8") == 0 && le_arg_NumArgs() == 1)
+    {
+        ctrlCmd_registerStateChangeExListener();
+    } else if (strcmp(argPtr, "test9") == 0 && le_arg_NumArgs() == 1)
+    {
+        ctrlCmd_deregisterStateChangeExListener();
+    }else if (strcmp(argPtr, "resume") == 0 && le_arg_NumArgs() >= 1)
     {
         if(le_arg_NumArgs() == 2 && arg != NULL) {
             res = ctrlCmd_resumeVM(arg);

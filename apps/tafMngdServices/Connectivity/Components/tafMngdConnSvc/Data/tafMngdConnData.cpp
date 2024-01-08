@@ -238,7 +238,7 @@ le_result_t tafMngdConnData::GetConnectionInfo(taf_mngd_Conn_Ctx_t* connCtxPtr)
     result = taf_dcs_GetInterfaceName(profileRef, connCtxPtr->intfName, TAF_DCS_NAME_MAX_LEN);
     if(result != LE_OK)
     {
-        LE_ERROR("Getting interface name failed");
+        LE_ERROR("Getting interface name failed for dataID %d",connCtxPtr->dataId);
         return result;
     }
 
@@ -252,7 +252,7 @@ le_result_t tafMngdConnData::GetConnectionInfo(taf_mngd_Conn_Ctx_t* connCtxPtr)
 
         if(result != LE_OK)
         {
-            LE_ERROR("Getting IPV4 address failed");
+            LE_ERROR("Getting IPV4 address failed for dataID %d ",connCtxPtr->dataId);
             return result;
         }
     }
@@ -263,7 +263,7 @@ le_result_t tafMngdConnData::GetConnectionInfo(taf_mngd_Conn_Ctx_t* connCtxPtr)
 
         if(result != LE_OK)
         {
-            LE_ERROR("Getting IPV6 address failed");
+            LE_ERROR("Getting IPV6 address failed for dataID %d ",connCtxPtr->dataId);
             return result;
         }
     }
@@ -274,7 +274,7 @@ le_result_t tafMngdConnData::GetConnectionInfo(taf_mngd_Conn_Ctx_t* connCtxPtr)
 
         if(result != LE_OK)
         {
-            LE_ERROR("Getting IPV4 address failed");
+            LE_ERROR("Getting IPV4 address failed for dataID %d ",connCtxPtr->dataId);
             return result;
         }
 
@@ -282,7 +282,7 @@ le_result_t tafMngdConnData::GetConnectionInfo(taf_mngd_Conn_Ctx_t* connCtxPtr)
 
         if(result != LE_OK)
         {
-            LE_ERROR("Getting IPV6 address failed");
+            LE_ERROR("Getting IPV6 address failed for dataID %d ",connCtxPtr->dataId);
             return result;
         }
     }

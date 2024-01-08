@@ -2924,7 +2924,7 @@ void taf_DataConnection::Init(void)
         }
         else
         {
-            LE_ERROR("Failed to get connection Manager instance ");
+            LE_FATAL("Failed to get connection Manager instance ");
         }
 
         if(subSysReady)
@@ -2933,7 +2933,7 @@ void taf_DataConnection::Init(void)
         }
         else
         {
-            LE_CRIT("Unable to init data connection component for slot %d !",(int)slotIdx);
+            LE_FATAL("Unable to init data connection component for slot %d !",(int)slotIdx);
         }
 
         /* register data connection status listener */
@@ -2987,7 +2987,7 @@ void taf_DataConnection::Init(void)
         }
         else
         {
-            LE_ERROR("Failed to get serving system Manager instance ");
+            LE_FATAL("Failed to get serving system Manager instance ");
         }
 
     }
@@ -3017,7 +3017,7 @@ void taf_DataConnection::Init(void)
     }
     else
     {
-        LE_CRIT("unable to init data connection component!");
+        LE_FATAL("unable to init data connection component!");
     }
 
     /* register data connection status listener */

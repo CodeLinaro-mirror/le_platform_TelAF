@@ -1,0 +1,66 @@
+{
+    "systems" :
+    [
+        {
+            "id" : "0x101",
+            "name" : "SERVER"
+        },
+        {
+            "id" : "0x102",
+            "name" : "CLIENT"
+        }
+    ],
+    "rpc_services" :
+    [
+        {
+            "name" : "taf_radio",
+            "user" : "telaf",
+            "offer_systems" : [ "SERVER" ]
+        },
+        {
+            "name" : "taf_sms",
+            "user" : "telaf",
+            "offer_systems" : [ "SERVER" ]
+        },
+        {
+            "name" : "taf_voicecall",
+            "user" : "telaf",
+            "offer_systems" : [ "SERVER" ]
+        },
+        {
+            "name" : "taf_ecall",
+            "user" : "telaf",
+            "offer_systems" : [ "SERVER" ]
+        },
+        {
+            "name" : "taf_net",
+            "user" : "telaf",
+            "offer_systems" : [ "SERVER" ]
+        },
+        {
+            "name" : "taf_dcs",
+            "user" : "telaf",
+            "offer_systems" : [ "SERVER" ]
+        },
+        {
+            "name" : "taf_pm",
+            "user" : "telaf",
+            "offer_systems" : [ "SERVER" ]
+        },
+        {
+            "name" : "taf_gnss",
+            "user" : "telaf",
+            "offer_systems" : [ "SERVER" ]
+        },
+        {
+            "name" : "taf_pos",
+            "user" : "telaf",
+            "offer_systems" : [ "SERVER" ]
+        },
+        {
+            "name" : "taf_posCtrl",
+            "user" : "telaf",
+            "offer_systems" : [ "SERVER" ]
+        }
+    ]
+}

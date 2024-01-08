@@ -39,6 +39,7 @@ static le_thread_Ref_t ThreadRef = NULL;
 static le_timer_Ref_t TimerRef = NULL;
 static le_timer_Ref_t Timer1Ref = NULL;
 static uint32_t MsgCnt = 0;
+static uint16_t MySystemId = 0;
 
 static void TimerHandler
 (
@@ -47,12 +48,13 @@ static void TimerHandler
 {
     char reqMsg[128] = { 0 };
     char rspMsg[128] = { 0 };
+    uint16_t rspSystemId = 0;
 
     snprintf(reqMsg, sizeof(reqMsg), "HelloWorld_0x%x", MsgCnt++);
-    printer_Print(reqMsg, rspMsg, sizeof(rspMsg));
+    printer_Print(MySystemId, reqMsg, &rspSystemId, rspMsg, sizeof(rspMsg));
 
     LE_INFO("Sent request: '%s'", reqMsg);
-    LE_INFO("Received response: '%s'", rspMsg);
+    LE_INFO("Received response from system(0x%x): '%s'", rspSystemId, rspMsg);
 }
 
 static void ChangeHandler
@@ -93,6 +95,8 @@ static void* ClientThread
 
 COMPONENT_INIT
 {
+    MySystemId = taf_someipClnt_GetClientId();
+
     TimerRef = le_timer_Create("Helloworld timer");
     le_timer_SetMsInterval(TimerRef, 5000);
     le_timer_SetHandler(TimerRef, TimerHandler);

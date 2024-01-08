@@ -21,4 +21,20 @@ cflags:
     -I${LEGATO_ROOT}/framework/liblegato
     -I${LEGATO_ROOT}/framework/liblegato/linux
     -I${LEGATO_ROOT}/framework/daemons/linux/serviceDirectory
+    -I${LEGATO_BUILD}/framework/libjansson/include
+}
+
+ldflags:
+{
+    -ljansson
+}
+
+bundles:
+{
+    // Bundle a reference JSON file. The valid JSON file
+    // name shall be "taf_rpc.json".
+    file:
+    {
+        [rw] taf_rpc_sample.json   /
+    }
 }

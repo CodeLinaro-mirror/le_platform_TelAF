@@ -38,6 +38,8 @@
 taf_pm_StateChangeHandlerRef_t StateChangeRefHandler;
 char* tafStateToString(taf_pm_State_t tafState);
 void TestStateChangeHandler(taf_pm_State_t state, void* contextPtr);
+void TestStateChangeExHandler(taf_pm_PowerStateRef_t powerStateRef,
+        taf_pm_NadVm_t vm_id, taf_pm_State_t state, void* contextPtr);
 taf_pm_WakeupSourceRef_t tafPMTest_create(const char* tag);
 void tafPMTest_acquire(taf_pm_WakeupSourceRef_t ref);
 void tafPMTest_release(taf_pm_WakeupSourceRef_t ref);

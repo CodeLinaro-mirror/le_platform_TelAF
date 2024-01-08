@@ -15,6 +15,7 @@ if [ -v ON_TELAF_SIMULATION_DOCKER ]; then # [Docker-Container-Env]
     export ON_TELAF_SIMULATION_DOCKER=yes
 
     export PATH=/legato/systems/current/bin:$PATH
+    export PATH=/venv/bin:$PATH
 
     source $HOME/simulation/framework/environ.sh
 
@@ -128,6 +129,10 @@ if [ -v ON_TELAF_SIMULATION_DOCKER ]; then # [Docker-Container-Env]
     cp /etc/group /tmp/group
     mount --bind -o ro /tmp/passwd /etc/passwd
     mount --bind -o ro /tmp/group  /etc/group
+
+    # Change the hostname to a specific label: simulation
+    # Also be used for syslog tag
+    hostname simulation
 
     # Busybox syslogd on Ubuntu
     /sbin/syslogd -C20000
@@ -245,7 +250,7 @@ else # [Non-Docker-Container-Env]
     IMG_VERSION=${IMG_VERSION:="1.0.0"}
     IPV6_NETWORK_NAME=${IPV6_NETWORK_NAME:="${CONTAINER_NAME%??}_ipv6net"}
     IPV6_DEFAULT_SUBNET=${IPV6_DEFAULT_SUBNET:="2001:0DB8::/112"}
-    BUILTIN_CONTAINER_OPTIONS=${BUILTIN_CONTAINER_OPTIONS:="-i -t --privileged=true --net=$IPV6_NETWORK_NAME"}
+    BUILTIN_CONTAINER_OPTIONS=${BUILTIN_CONTAINER_OPTIONS:="-i -t --privileged=true --cgroupns=private --net=$IPV6_NETWORK_NAME"}
     CONTAINER_OPTIONS=${CONTAINER_OPTIONS:="-p 9022:22 --rm"}
     SIMULATION_TARBALL_NAME=${SIMULATION_TARBALL_NAME:="telaf_simulation.tar.gz"}
 
@@ -279,7 +284,6 @@ else # [Non-Docker-Container-Env]
         -e CONTAINER_WHO_AM_I=$CONTAINER_WHO_AM_I \
         -e CONTAINER_NAME=$CONTAINER_NAME \
         -e SIMULATION_TARBALL_NAME=$SIMULATION_TARBALL_NAME \
-        -v /sys/fs/cgroup:/sys/fs/cgroup \
         -v $SML_WORKSPACE:/root/simulation:rw \
         -v $SML_APP_VOLUME:/app:rw \
         -v $SML_DATA_VOLUME:/data:rw \

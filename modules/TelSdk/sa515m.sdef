@@ -6,6 +6,9 @@
 
 apps:
 {
+    // RPC proxy
+    $TELAF_ROOT/apps/rpc/rpcProxy/tafRpcProxy
+
     // Platform services.
     $TELAF_ROOT/apps/tafServices/tafVoiceCallSvc
     $TELAF_ROOT/apps/tafServices/tafSimCardSvc
@@ -26,6 +29,7 @@ apps:
     $TELAF_ROOT/apps/tafServices/tafSomeipGWSvc
     $TELAF_ROOT/apps/tafMngdServices/Connectivity/tafMngdConnSvc
     $TELAF_ROOT/apps/tafServices/tafDiagSvc
+    $TELAF_ROOT/apps/tafServices/tafHMSvc
 
     // Command-line tools.
     $LEGATO_ROOT/apps/tools/tools
@@ -68,6 +72,7 @@ apps:
     // $TELAF_ROOT/apps/test/tafAudioTest/tafAudioUnitTest/tafAudioUnitTest
     // $TELAF_ROOT/apps/sample/diagApp/tafDiagApp
     // $TELAF_ROOT/apps/test/tafAdefTest/tafAdefUnitTest
+    // $TELAF_ROOT/apps/test/tafHMSTest/tafHMSUnitTest
 }
 
 commands:
@@ -85,6 +90,7 @@ bindings:
     <c2c>.taf_dcs -> tafDataCallSvc.taf_dcs
     <telaf>.DeviceManager -> <root>.DeviceManager
     <root>.DeviceManagerTool -> <root>.DeviceManagerTool
+    <telaf>.sdirTool -> <root>.sdirTool
 }
 
 interfaceSearch:

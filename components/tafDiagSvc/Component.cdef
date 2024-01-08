@@ -6,6 +6,7 @@ provides:
         taf_diagUpdate.api
         taf_diagReset.api
         taf_diagSecurity.api
+        taf_diagDataID.api
     }
 }
 
@@ -41,6 +42,8 @@ sources:
         tafResetSvrImpl.cpp
         tafSecuritySvc.cpp
         tafSecuritySvrImpl.cpp
+        tafDataIDSvc.cpp
+        tafDataIDSvrImpl.cpp
         tafDiagFrontend.cpp
         tafDiagBackend.cpp
 }

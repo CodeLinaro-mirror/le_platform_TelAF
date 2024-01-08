@@ -1,0 +1,23 @@
+externalBuild:
+{
+    "capicxx-core-gen -sk $TELAF_ROOT/apps/ivss/fidl/RadioSvc/RadioSvc.fidl"
+    "capicxx-core-gen -sk $TELAF_ROOT/apps/ivss/fidl/RadioSvc/RadioSvc.fdepl"
+    "capicxx-someip-gen $TELAF_ROOT/apps/ivss/fidl/RadioSvc/RadioSvc.fdepl"
+    "bash $TELAF_ROOT/apps/ivss/common/make.sh RadioSvc"
+}
+
+bundles:
+{
+    file:
+    {
+        $BUILDDIR/build/libRadioSvc-someip.so   /lib/
+    }
+}
+
+provides:
+{
+    headerDir:
+    {
+        $BUILDDIR/src-gen
+    }
+}

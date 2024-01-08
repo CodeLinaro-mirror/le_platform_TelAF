@@ -1,0 +1,35 @@
+#
+# Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+#
+
+menu "TelAF"
+
+### "Hidden" Options ###
+config PLATFORM_COMMON_OPTION
+  bool
+  default n
+
+config TELAF_VERSION
+  string "TelAF Version"
+  default "$(TELAF_VERSION)" if !$(empty,$(TELAF_VERSION))
+  default "telaf.lnx.1.1-xxxxxx"
+
+
+menu "apps"
+rsource "apps/KConfig"
+endmenu # end "apps"
+
+menu "components"
+rsource "components/KConfig"
+endmenu # end "components"
+
+menu "framework"
+rsource "framework/daemons/linux/deviceManager/KConfig"
+endmenu # end "framework"
+
+menu "simulation"
+rsource "simulation/simulation.kconfig"
+endmenu # end "simulation"
+
+endmenu # end "TelAF"

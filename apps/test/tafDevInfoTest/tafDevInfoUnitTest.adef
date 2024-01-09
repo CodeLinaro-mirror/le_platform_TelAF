@@ -1,0 +1,22 @@
+sandboxed: false
+
+executables:
+{
+    tafDevInfoUnitTest = ( tafDevInfoUnitTest )
+}
+
+start: manual
+
+processes:
+{
+    run:
+    {
+        (tafDevInfoUnitTest)
+    }
+    faultAction: stopApp
+}
+
+bindings:
+{
+    tafDevInfoUnitTest.tafDevInfoUnitTest.taf_info -> tafDevInfoSvc.taf_info
+}

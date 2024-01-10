@@ -28,6 +28,7 @@ apps:
     $TELAF_ROOT/apps/tafServices/tafSomeipGWSvc
     $TELAF_ROOT/apps/tafMngdServices/Connectivity/tafMngdConnSvc
     $TELAF_ROOT/apps/tafMngdServices/PM/tafMngdPMSvc
+    $TELAF_ROOT/apps/tafMngdServices/Audio/tafMngdAudioSvc
     $TELAF_ROOT/apps/tafServices/tafDiagSvc
     $TELAF_ROOT/apps/tafServices/tafTimeSvc
     $TELAF_ROOT/apps/tafServices/tafHMSvc
@@ -85,6 +86,7 @@ apps:
     // $TELAF_ROOT/apps/test/tafAudioTest/tafAudioUnitTest/tafAudioUnitTest
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMUnitTest/tafMngdPMUnitTest
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMIntTest/tafMngdPMIntTest
+    // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdAudioUnitTest/tafMngdAudioUnitTest
     // $TELAF_ROOT/apps/sample/diagApp/tafDiagApp
     // $TELAF_ROOT/apps/test/tafAdefTest/tafAdefUnitTest
     // $TELAF_ROOT/apps/test/tafTimeTest/tafTimeUnitTest

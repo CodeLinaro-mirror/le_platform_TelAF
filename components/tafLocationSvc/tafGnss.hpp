@@ -280,30 +280,6 @@ namespace tafsvc {
     }
     taf_gnss_Client_t;
 
-    class LocationCommandCallback : public telux::common::ICommandResponseCallback {
-        public:
-            LocationCommandCallback(std::string cmdName);
-            void commandResponse(telux::common::ErrorCode error);
-
-            void onGnssEnergyConsumedInfo(telux::loc::GnssEnergyConsumedInfo gnssEnergyConsumed,
-                    telux::common::ErrorCode error);
-
-            void onGetYearOfHwInfo(uint16_t yearOfHw, telux::common::ErrorCode error);
-
-            void onMinSVElevationInfo(uint8_t minSVElevation, telux::common::ErrorCode error);
-
-            void onRobustLocationInfo(const telux::loc::RobustLocationConfiguration rLConfig,
-                    telux::common::ErrorCode error);
-
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-            void onSecondaryBandInfo(const telux::loc::ConstellationSet set,
-                    telux::common::ErrorCode error);
-#endif
-
-            void onTerrestrialPositionInfo(const std::shared_ptr<
-                    telux::loc::ILocationInfoBase> locationInfo);
-    };
-
     class tafLocationListener : public telux::loc::ILocationListener,
     public telux::loc::ILocationSystemInfoListener {
         public:

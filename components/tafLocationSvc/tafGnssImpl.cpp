@@ -1689,11 +1689,6 @@ void tafLocationListener::onLocationSystemInfo(const telux::loc::LocationSystemI
     le_mutex_Unlock(gnss.mGnssMutexRef);
 }
 
-LocationCommandCallback::LocationCommandCallback(std::string cmdName) {
-    auto &gnss = taf_Gnss::GetInstance();
-    gnss.mCommandName = cmdName;
-}
-
 le_result_t taf_Gnss::PositionDataCoversion
 (
  int32_t value,
@@ -4354,6 +4349,43 @@ le_result_t taf_Gnss::SetNmeaSentences
                         p.set_value(LE_FAULT);
                     }
                 };
+                if(nmeaMask > TAF_GNSS_NMEA_MASK_GPZDA)
+                {
+                    taf_gnss_NmeaBitMask_t nmeaSetResult = 0;
+                    if(nmeaMask & TAF_GNSS_NMEA_MASK_GGA)
+                    {
+                        nmeaSetResult |= TAF_GNSS_NMEA_MASK_GPGGA;
+                        LE_INFO("SetNmeaSentences ->TAF_GNSS_NMEA_MASK_GGA");
+                    }
+                    if(nmeaMask & TAF_GNSS_NMEA_MASK_RMC)
+                    {
+                        nmeaSetResult |= TAF_GNSS_NMEA_MASK_GPRMC;
+                        LE_INFO("SetNmeaSentences ->TAF_GNSS_NMEA_MASK_RMC");
+                    }
+                    if(nmeaMask & TAF_GNSS_NMEA_MASK_GSA)
+                    {
+                        nmeaSetResult |= TAF_GNSS_NMEA_MASK_GNGSA;
+                        LE_INFO("SetNmeaSentences ->TAF_GNSS_NMEA_MASK_GSA");
+                    }
+                    if(nmeaMask & TAF_GNSS_NMEA_MASK_VTG)
+                    {
+                        nmeaSetResult |= TAF_GNSS_NMEA_MASK_GPVTG;
+                        LE_INFO("SetNmeaSentences ->TAF_GNSS_NMEA_MASK_VTG");
+                    }
+                    if(nmeaMask & TAF_GNSS_NMEA_MASK_GNS)
+                    {
+                        nmeaSetResult |= TAF_GNSS_NMEA_MASK_GPGNS;
+                        LE_INFO("SetNmeaSentences ->TAF_GNSS_NMEA_MASK_GNS");
+                    }
+                    if(nmeaMask & TAF_GNSS_NMEA_MASK_DTM)
+                    {
+                        nmeaSetResult |= TAF_GNSS_NMEA_MASK_GPDTM;
+                        LE_INFO("SetNmeaSentences ->TAF_GNSS_NMEA_MASK_DTM");
+                    }
+                    nmeaMask |= nmeaSetResult;
+                }
+                LE_INFO("SetNmeaSentences nmeaMask mask is : %" PRIu64 "", nmeaMask);
+
                 auto status = mLocationConfigurator->configureNmeaTypes(nmeaMask, cb);
                 if(status != telux::common::Status::SUCCESS)
                 {

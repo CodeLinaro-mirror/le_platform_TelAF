@@ -18,17 +18,15 @@
 
 static const char *lxcContainerNameStr = "telaflxc";
 static const char *lxcContainerPathStr = "/tmp/container";
-static const char *lxcConfFileStr = "/etc/lxc/lxc_networking.conf";
+#define TELAF_LXC_CONTAINER_PATH "/tmp/container/telaflxc"
+static const char *lxcConfFileStr = "/etc/lxc/lxc_telaf.conf";
 static const char *lxcHostIPStr = "192.168.2.200";
 static const char *lxcLogPathStr = "/tmp/container_log";
-// This folder will be mounted as RW inside the container on /tmp
-static const char *lxcSharedFolderBaseStr = "/var/volatile/telaflxc";
-static const char *lxcSharedFolderPathStr = "/var/volatile/telaflxc/tmp";
 
 static void PrintUsage(void)
 {
     puts("\n"
-         "app runProc tafLXCIntTest lxcTest -- create <lxc.conf>\n"
+         "app runProc tafLXCIntTest lxcTest -- create [lxc.conf]\n"
          "app runProc tafLXCIntTest lxcTest -- destroy\n"
          "app runProc tafLXCIntTest lxcTest -- start \n"
          "app runProc tafLXCIntTest lxcTest -- stop \n"
@@ -75,12 +73,6 @@ static int lxcTestCreateContainer()
     result = lxcCreateDir(lxcLogPathStr);
     LE_TEST_ASSERT((result == LE_OK), "Create Container Log Folder - LE_OK");
 
-    result = lxcCreateDir(lxcSharedFolderBaseStr);
-    LE_TEST_ASSERT((result == LE_OK), "Create Container Shared Base Folder - LE_OK");
-
-    result = lxcCreateDir(lxcSharedFolderPathStr);
-    LE_TEST_ASSERT((result == LE_OK), "Create Container Shared Folder - LE_OK");
-
     if (2 == le_arg_NumArgs())
     {
         // Use user provided configuration file
@@ -121,9 +113,9 @@ static int lxcTestDestroyContainer()
     int result = system(systemCmd);
 
     // The conatiner is manually managed. So delete the container path
-    if (le_dir_IsDir(lxcContainerPathStr))
+    if (le_dir_IsDir(TELAF_LXC_CONTAINER_PATH))
     {
-        result = le_dir_RemoveRecursive(lxcContainerPathStr);
+        result = le_dir_RemoveRecursive(TELAF_LXC_CONTAINER_PATH);
     }
 
     if (0 != result)
@@ -205,7 +197,7 @@ static int lxcTestGetContainerStatus()
     / # echo $?
     1
     */
-    if ( 0 != system (systemCmd) )
+    if ( 0 != system(systemCmd) )
     {
         LE_TEST_INFO("LXC Container does not exist");
         return LE_FAULT;

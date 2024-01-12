@@ -9,10 +9,10 @@ else # when source me
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 fi
 
-if [ -v ON_TELAF_SIMULATION_DOCKER ]; then # [Docker-Container-Env]
+if [ -n "${TELAF_IN_CONTAINER}" ]; then # [Docker-Container-Env]
 
     # Once again to ensure the 'ssh-server' to be accessed normally
-    export ON_TELAF_SIMULATION_DOCKER=yes
+    export TELAF_IN_CONTAINER=yes
 
     export PATH=/legato/systems/current/bin:$PATH
     export PATH=/venv/bin:$PATH

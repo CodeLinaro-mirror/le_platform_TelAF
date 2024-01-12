@@ -144,6 +144,13 @@ taf_can_CanInterfaceRef_t taf_Can::CreateCanInf
     taf_canInterface_t* canInfCtxPtr = (taf_canInterface_t *)le_mem_ForceAlloc(CanInfPool);
     TAF_ERROR_IF_RET_VAL(canInfCtxPtr == NULL, NULL, "cannot alloc memory for canInfCtxPtr!");
 
+    if (le_utf8_Copy(canInfCtxPtr->infName, infNamePtr, TAF_CAN_INTERFACE_NAME_MAX_LEN, NULL)
+            != LE_OK)
+    {
+        LE_ERROR("Invalid lengh of interface name.");
+        return NULL;
+    }
+
     canInfCtxPtr->sockFd = sock;
     canInfCtxPtr->ifNo = ifr.ifr_ifindex;
     canInfCtxPtr->canInfType = canInfType;
@@ -154,43 +161,6 @@ taf_can_CanInterfaceRef_t taf_Can::CreateCanInf
     canInfCtxPtr->sessionRef = taf_can_GetClientSessionRef();
     canInfCtxPtr->canInfRef = (taf_can_CanInterfaceRef_t)le_ref_CreateRef(CanInfRefMap,
             canInfCtxPtr);
-
-    // Setting hardware filter
-    taf_canHwFilter_t canHwFilter;
-    struct ifreq ifrHw;
-
-    char ch;
-    size_t size = strlen(infNamePtr);
-    uint8_t digit, infSuffix = 0;
-
-    for(size_t i=0; i<size; i++)
-    {
-        ch = infNamePtr[i];
-        if(ch >= '0' && ch <= '9')
-        {
-            digit = ch - '0';
-            infSuffix = infSuffix*10 + digit;
-        }
-    }
-
-    le_utf8_Copy(ifrHw.ifr_name, infNamePtr, TAF_CAN_INTERFACE_NAME_MAX_LEN, NULL);
-
-    canHwFilter.ifNo = infSuffix;
-    canHwFilter.frameId = 0x0;
-    canHwFilter.frIdMask = 0x40000000;
-    ifrHw.ifr_data = (char *)&canHwFilter;
-
-    int rc = -1;
-    rc = ioctl(sock, IOCTL_ADD_FRAME_FILTER, &ifrHw);
-    if (rc != 0)
-    {
-        LE_ERROR("FrameFilter ioctl for ifNo %d returned error: %d %s\n",
-                ifrHw.ifr_ifindex, rc, strerror(errno));
-    }
-    else
-    {
-        LE_INFO("HW filter is set");
-    }
 
     return canInfCtxPtr->canInfRef;
 }
@@ -218,15 +188,10 @@ le_result_t taf_Can::SetFilter
         rfilter.can_id   = frameId;
         rfilter.can_mask = (CAN_EFF_FLAG | CAN_RTR_FLAG | CAN_SFF_MASK);
     }
-    else if(frameId > MAX_SFF_FRAME_ID && frameId <= MAX_EFF_FRAME_ID)
+    else
     {
         rfilter.can_id   = frameId | CAN_EFF_FLAG;
         rfilter.can_mask = (CAN_EFF_FLAG | CAN_RTR_FLAG | CAN_EFF_MASK);
-    }
-    else
-    {
-        LE_ERROR("FrameId is out of range");
-        return LE_OUT_OF_RANGE;
     }
 
     if(canInfCtxPtr->canInfType == TAF_CAN_RAW_SOCK)
@@ -661,6 +626,46 @@ taf_can_CanEventHandlerRef_t taf_Can::AddCanEventHandler
         }
     }
 
+    // Setting hardware filter
+    struct canHwFilter canHwFilter;
+    struct ifreq ifrHw;
+
+    char ch;
+    size_t size = strlen(canInfCtxPtr->infName);
+    uint8_t digit, infSuffix = 0;
+
+    for(size_t i=0; i<size; i++)
+    {
+        ch = canInfCtxPtr->infName[i];
+        if(ch >= '0' && ch <= '9')
+        {
+            digit = ch - '0';
+            infSuffix = infSuffix*10 + digit;
+        }
+    }
+
+    le_utf8_Copy(ifrHw.ifr_name, canInfCtxPtr->infName, TAF_CAN_INTERFACE_NAME_MAX_LEN, NULL);
+
+    canHwFilter.ifNo = infSuffix;
+    canHwFilter.frameId = frameId;
+    canHwFilter.frIdMask = frIdMask | CAN_RTR_FLAG;
+    ifrHw.ifr_data = (char *)&canHwFilter;
+
+    LE_DEBUG("IfaceNo:%i, frameId:0x%x, mask:0x%x", infSuffix, canHwFilter.frameId,
+            canHwFilter.frIdMask);
+
+    int rc = -1;
+    rc = ioctl(canInfCtxPtr->sockFd, IOCTL_ADD_FRAME_FILTER, &ifrHw);
+    if (rc != 0)
+    {
+        LE_ERROR("FrameFilter ioctl for ifNo %d returned error: %d %s\n",
+                ifrHw.ifr_ifindex, rc, strerror(errno));
+    }
+    else
+    {
+        LE_INFO("HW filter is set");
+    }
+
     // Store the callback function and context pointer
     taf_CallbackHandler_t* handlerCtxPtr = (taf_CallbackHandler_t *)le_mem_ForceAlloc(HandlerPool);
     TAF_ERROR_IF_RET_VAL(handlerCtxPtr == NULL, NULL, "cannot alloc memory for handler context!");
@@ -778,14 +783,9 @@ taf_can_CanFrameRef_t taf_Can::CreateCanFrame
     {
         canFrameCtxPtr->frameId = frameId;
     }
-    else if(frameId > MAX_SFF_FRAME_ID && frameId <= MAX_EFF_FRAME_ID)
-    {
-        canFrameCtxPtr->frameId = frameId | CAN_EFF_FLAG;
-    }
     else
     {
-        LE_ERROR("FrameId is out of range");
-        return NULL;
+        canFrameCtxPtr->frameId = frameId | CAN_EFF_FLAG;
     }
 
     canFrameCtxPtr->canInfRef = canInfRef;

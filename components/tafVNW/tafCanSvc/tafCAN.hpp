@@ -35,6 +35,7 @@
 #ifndef TAFCAN_HPP
 #define TAFCAN_HPP
 
+#include <stdio.h>
 #include <linux/can.h>
 #include <linux/can/raw.h>
 #include <sys/socket.h>
@@ -47,6 +48,7 @@
 
 #define SIOCDEVPRIVATE 0x89F0
 #define IOCTL_ADD_FRAME_FILTER (SIOCDEVPRIVATE + 2)
+#define __packed __attribute__((packed))
 
 // Base frame_id is upto 11 bits can_id
 #define MAX_SFF_FRAME_ID 0x7ff
@@ -65,13 +67,13 @@
 
 typedef struct
 {
-    uint32_t                     frameId;
-    uint32_t                     frIdMask;
-    taf_can_CanInterfaceRef_t    canInfRef;
-    taf_can_CanEventHandlerRef_t handlerRef;
-    taf_can_CallbackFunc_t       handlerPtr;
-    void*                        contextPtr;
-    le_dls_Link_t                link;
+    uint32_t                      frameId;
+    uint32_t                      frIdMask;
+    taf_can_CanInterfaceRef_t     canInfRef;
+    taf_can_CanEventHandlerRef_t  handlerRef;
+    taf_can_CallbackFunc_t        handlerPtr;
+    void*                         contextPtr;
+    le_dls_Link_t                 link;
 }taf_CallbackHandler_t;
 
 /**
@@ -81,6 +83,7 @@ typedef struct
 {
     int                       sockFd;
     int8_t                    ifNo;
+    char                      infName[TAF_CAN_INTERFACE_NAME_MAX_LEN];
     bool                      canFdEnabled;
     bool                      loopackEnabled;
     bool                      recvOwnMsgEnabled;
@@ -106,13 +109,13 @@ typedef struct
 }
 taf_canFrame_t;
 
-typedef struct
+struct canHwFilter
 {
     uint8_t  ifNo;
     uint32_t frameId;
     uint32_t frIdMask;
-}
-taf_canHwFilter_t;
+    uint8_t type;
+}__packed;
 
 namespace telux {
 namespace tafsvc {

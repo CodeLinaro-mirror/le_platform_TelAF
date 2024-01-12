@@ -1057,7 +1057,7 @@ le_result_t taf_gnss_GetDilutionOfPrecision
 * DESCRIPTION  : This function gets leap seconds information
 * DEPENDECY    :
 * PARAMETERS   :
-* RETURN VALUES: LE_OK on success, LE_TIMEOUT LE_UNSUPPORTED LE_FAULT on failed
+* RETURN VALUES: LE_OK on success,LE_FAULT on failed
 */
 le_result_t taf_gnss_GetLeapSeconds
 (
@@ -1884,9 +1884,45 @@ le_result_t taf_gnss_SetNmeaConfiguration
 (
     taf_gnss_NmeaBitMask_t nmeaMask,         ///< [IN] Bit mask for enabled NMEA sentences.
     taf_gnss_GeodeticDatumType_t datumType,  ///< [IN] Specify the datum type to be configured.
-    taf_gnss_LocEngineType_t engineType                      ///< [IN] Specify the Engine type.
+    taf_gnss_LocEngineType_t engineType      ///< [IN] Specify the Engine type.
 )
 {
     auto &gnss = taf_Gnss::GetInstance();
     return gnss.SetNmeaConfiguration(nmeaMask, datumType, engineType);
+}
+
+/**
+* FUNCTION     : GetXtraStatus
+* DESCRIPTION  : Gets the Xtra status.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT,LE_NOT_PERMITTED on failed
+*/
+le_result_t taf_gnss_GetXtraStatus
+(
+    taf_gnss_XtraStatusParams_t* xtraParams //Specify Xtra assistant data's current status,
+                                            // validity and whether it is enabled.
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetXtraStatus(xtraParams);
+}
+
+/**
+* FUNCTION     : GetGnssData
+* DESCRIPTION  : Get GNSS data for data mask, jammer indication and agc.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT,LE_NO_MEMORY on failed
+*/
+le_result_t taf_gnss_GetGnssData
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    taf_gnss_GnssData_t* gnssDataPtr,
+    size_t* maxSignalTypes
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    TAF_ERROR_IF_RET_VAL(gnssDataPtr == NULL, LE_NO_MEMORY, "gnssDataPtr is NULL");
+    return gnss.GetGnssData(positionSampleRef,gnssDataPtr,maxSignalTypes);
 }

@@ -28,7 +28,7 @@
 
  * Changes from Qualcomm Innovation Center are provided under the following license:
 
- * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2024 Qualcomm Innovation Center, Inc. All rights reserved.
 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -931,6 +931,37 @@
  * @note This API call is not incremental and the new NMEA configuration will completely overwrite
  *       the previous call to this API.
  *
+ * - taf_gnss_GetXtraStatus() -- Gets whether the XTRA feature is enabled or not,
+ * XTRA data status, and the valid time in hours.
+ *
+ * @verbatim
+   taf_gnss_XtraStatusParams_t *XtraParamsPtr;
+   le_result_t result = LE_FAULT;
+   le_mem_PoolRef_t XtraFramePool = NULL;
+   XtraFramePool = le_mem_CreatePool("XtraFramePool", sizeof(taf_gnss_XtraStatusParams_t));
+   XtraParamsPtr = (taf_gnss_XtraStatusParams_t*) le_mem_ForceAlloc(XtraFramePool);
+   if(XtraParamsPtr != NULL)
+   {
+       if(taf_gnss_GetXtraStatus(XtraParamsPtr) == LE_OK)
+       {
+         // Process after successfully getting the XTRA data parameters.
+       }
+   }
+   le_mem_Release(XtraParamsPtr);
+   @endverbatim
+ *
+ * - taf_gnss_GetGnssData() -- Gets GNSS data for data mask, jammer indication, and
+ *   Automatic Gain Control (AGC) information.
+ *
+ * @verbatim
+   size_t maxSigTypes = TAF_GNSS_NUMBER_OF_SIGNAL_TYPES_MAX;
+   taf_gnss_GnssData_t gnssDataPtr[TAF_GNSS_NUMBER_OF_SIGNAL_TYPES_MAX];
+   if(taf_gnss_GetGnssData(positionSampleRef, gnssDataPtr, &maxSigTypes))
+   {
+     // Process after successfully getting data mask, jammer, and AGC information.
+   }
+   @endverbatim
+ *
  *
  * @subsection taf_gnss_GetLeapSeconds Get leap seconds event information
  *
@@ -1037,6 +1068,27 @@ DEFINE MEASUREMENT_INFO_MAX = 30;
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE NMEA_STRING_MAX = 150;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Define the maximum number of charaters for CA path.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE CA_PATH_MAX = 128;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Define the maximum number of charaters for URL path.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE URL_PATH_MAX = 128;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Defines the maximum number of GNSS data signal types.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE NUMBER_OF_SIGNAL_TYPES_MAX = 20;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -2048,6 +2100,17 @@ BITMASK LocationTechnologyType
 
 //------------------------------------------------------------------------------------------------
 /**
+ * Specify the GnssDataValidityType mask.
+ */
+//------------------------------------------------------------------------------------------------
+BITMASK GnssDataValidityType
+{
+    HAS_JAMMER,   ///< Jammer Indicator is available.
+    HAS_AGC       ///< AGC is available.
+};
+
+//------------------------------------------------------------------------------------------------
+/**
  * Specify the different types of constellation supported.
  */
 //------------------------------------------------------------------------------------------------
@@ -2110,6 +2173,24 @@ ENUM ReportStatus {
     REPORT_STATUS_FAILURE = 2        ///< Report status has failed. The engine is not able to calculate the fix.
                                      ///  Most of the fields in position sample
                                      ///  will be invalid.
+};
+
+//------------------------------------------------------------------------------------------------
+/**
+ * Specify the status of the previously downloaded XTRA data.
+ */
+//------------------------------------------------------------------------------------------------
+ENUM XtraDataStatus
+{
+    XTRA_DATA_STATUS_UNKNOWN,   ///< If XTRA feature is disabled or if XTRA feature is enabled,
+                                ///  but XTRA daemon has not yet retrieved the assistance data status
+                                ///  from modem on early stage of device bootup, XTRA data status
+                                ///  will be unknown.
+    XTRA_DATA_STATUS_NOT_AVAIL, ///< If XTRA feature is enabled, but XTRA data is not present
+                                ///  on the device.
+    XTRA_DATA_STATUS_NOT_VALID, ///< If XTRA feature is enabled, but XTRA data is not valid.
+    XTRA_DATA_STATUS_VALID      ///< If XTRA feature is enabled, XTRA data has been downloaded,
+                                ///  and is currently valid.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -2241,6 +2322,33 @@ STRUCT GnssMeasurementInfo {
 
   uint16 gnssSvId;              ///< GNSS SV ID
                                 /// For SV ID information, refer to @SvUsedInPosition.
+};
+
+//------------------------------------------------------------------------------------------------
+/**
+ * Jammer and AGC GNSS Data parameters.
+ */
+//------------------------------------------------------------------------------------------------
+STRUCT GnssData
+{
+  uint32 gnssDataMask; ///< bitwise OR of GnssDataValidityType
+  double jammerInd;    ///< Each index represents the signal type in GnssDataSignalTypes.
+  double agc;          ///< Automatic gain control for each signal type. Each index
+                       ///  corresponds to the signal type in GnssDataSignalTypes.
+};
+
+
+STRUCT XtraStatusParams
+{
+    uint8 featureEnabled;     ///< XTRA assistance data and NTP time
+                              ///  download is enabled or disabled.
+    uint32 xtraDataStatus;    ///< XTRA assistance data status.
+                              ///  If XTRA assistance data download is not enabled,
+                              ///  this field will be set to TAF_GNSS_XTRA_DATA_STATUS_UNKNOWN.
+    uint32 xtraValidForHours; ///< Number of hours that XTRA assistance data will
+                              ///  remain valid. This field will be valid when xtraDataStatus
+                              ///  is set to TAF_GNSS_XTRA_DATA_STATUS_VALID. For all other
+                              ///  XtraDataStatus, this field will be set to 0.
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -2467,8 +2575,6 @@ FUNCTION le_result_t GetDilutionOfPrecision
  * @return
  *  - LE_OK            Succeeded.
  *  - LE_FAULT         Failed to get the data.
- *  - LE_TIMEOUT       Timeout occured.
- *  - LE_UNSUPPORTED   Not supported on this platform.
  *
  * @note Insertion of each UTC leap second is usually decided about six months in advance by the
  *       International Earth Rotation and Reference Systems Service (IERS).
@@ -3413,4 +3519,38 @@ FUNCTION le_result_t SetNmeaConfiguration
     GeodeticDatumType datumType   IN,  ///< Specify the datum type to be configured.
     LocEngineType engineType      IN   ///< Specify the Engine type for which Nmea sentences
                                        ///  should be generated. Also refer to @ref LocEngineType
+);
+
+//------------------------------------------------------------------------------------------------
+/**
+ * Gets the XTRA status.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_NOT_PERMITTED  GNSS device is not ready.
+ *
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetXtraStatus
+(
+    XtraStatusParams xtraParams OUT ///< Specify XTRA assistant data's current status,
+                                    ///  validity, and whether it is enabled.
+);
+
+//------------------------------------------------------------------------------------------------
+/**
+ * Gets GNSS data for data mask, jammer indication, and automatic gain control.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_NO_MEMORY      The gnssDataPtr is NULL.
+ *
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetGnssData
+(
+    Sample positionSampleRef                         IN, ///< Position sample reference
+    GnssData gnssDataPtr[NUMBER_OF_SIGNAL_TYPES_MAX] OUT ///< GNSS data in Jammer indication and AGC.
 );

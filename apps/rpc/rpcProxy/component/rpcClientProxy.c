@@ -598,7 +598,7 @@ le_result_t rpcClientProxy_Init
     if (number == 0)
     {
         // Simply return LE_OK if no RPC clients configured.
-        LE_INFO("No RPC clients are configured.");
+        LE_INFO("No RPC clientProxy is configured.");
         return LE_NOT_FOUND;
     }
 

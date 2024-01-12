@@ -168,4 +168,6 @@ COMPONENT_INIT
     TestTimeSourceChangeRegistration();
 
     LE_TEST_INFO("===== TimeSvc client API test DONE =====");
+
+     exit(EXIT_SUCCESS);
 }

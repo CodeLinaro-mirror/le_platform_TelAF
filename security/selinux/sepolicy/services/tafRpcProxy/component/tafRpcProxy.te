@@ -1,0 +1,24 @@
+# Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+policy_module(tafRpcProxy, 1.0)
+
+# Framework definition for telaf
+type telaf_tafRpcProxy_exec_t;
+files_type(telaf_tafRpcProxy_exec_t);
+
+type telaf_tafRpcProxy_t;
+
+type telaf_tafRpcProxy_data_t;
+files_type(telaf_tafRpcProxy_data_t);
+
+init_telaf_app_domain(telaf_tafRpcProxy_t,telaf_tafRpcProxy_exec_t)
+
+# Allow update daemon to install/uninstall this service
+telaf_admin_manage_all_files_perms(telaf_tafRpcProxy_data_t)
+telaf_admin_manage_all_files_perms(telaf_tafRpcProxy_exec_t)
+
+# Allow tafRpcProxy to call legato user API.
+ifdef(`sa525m',`
+allow telaf_tafRpcProxy_t etc_t:file { read open lock getattr };
+')

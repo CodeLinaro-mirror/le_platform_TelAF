@@ -1,20 +1,37 @@
 sandboxed: false
 
+maxThreads: 300
+
+username: telaf
+
+startGroup: 0
+
+capability:
+{
+    CAP_WAKE_ALARM
+    CAP_BLOCK_SUSPEND
+    CAP_DAC_OVERRIDE
+    CAP_SYS_ADMIN
+    CAP_DAC_READ_SEARCH
+}
+
 executables:
 {
-    tafRpcProxyExe = (component)
+    tafRpcProxy = (component)
 }
 
 processes:
 {
     run:
     {
-        (tafRpcProxyExe)
+        (tafRpcProxy)
     }
+
+    faultAction: restart
 }
 
 bindings:
 {
-    tafRpcProxyExe.component.taf_someipClnt -> tafSomeipGWSvc.taf_someipClnt
-    tafRpcProxyExe.component.taf_someipSvr -> tafSomeipGWSvc.taf_someipSvr
+    tafRpcProxy.component.taf_someipClnt -> tafSomeipGWSvc.taf_someipClnt
+    tafRpcProxy.component.taf_someipSvr -> tafSomeipGWSvc.taf_someipSvr
 }

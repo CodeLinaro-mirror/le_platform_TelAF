@@ -13,6 +13,8 @@ from ..utest import tafSmsUnitTest_helper as utest_sms_helper
 from ..utest import tafSomeipGWTest_helper as utest_someip_helper
 from ..utest import tafDataCallUnitTest_helper as utest_dcs_helper
 from .container import master, slavex
+from ..tool import replace as t_replace
+from ..tool import diag_client
 
 def precondition_test():
     result = subprocess.run("telaf status", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
@@ -24,11 +26,11 @@ def dispatch_subcmd_jobs(args):
 
     if args.subcommand == "utest":
         precondition_test()
-        if args.whichone == "someip":
+        if args.which_utest == "someip":
             utest_someip_helper.to_run()
-        elif args.whichone == "sms":
+        elif args.which_utest == "sms":
             utest_sms_helper.to_run()
-        elif args.whichone == "dcs":
+        elif args.which_utest == "dcs":
             utest_dcs_helper.to_run()
 
     elif args.subcommand == "slave":
@@ -49,6 +51,15 @@ def dispatch_subcmd_jobs(args):
             master.login_master()
         elif args.info is True:
             master.show_info()
+
+    elif args.subcommand == "tool":
+        if args.tools == "replace":
+            print("FILE: {}\nFROM-PATTERN:{}\nTO-PATTERN:{}".format(
+                args.rfile,args.from_pattern, args.to_pattern))
+            t_replace.replace(args.rfile, args.from_pattern, args.to_pattern)
+        if args.tools == "diag":
+            print(args)
+            diag_client.to_do(args.cfile, args.s_ip, args.s_logaddr)
 
 
 def doit():
@@ -75,7 +86,20 @@ def doit():
                                   help="show the master information for prompt")
 
     subparser_utest = subparsers.add_parser("utest", help="Run some helper scripts for unit test")
-    subparser_utest.add_argument('whichone', choices=('sms', 'someip', 'dcs'), help="Unit testcase list that supported")
+    subparser_utest.add_argument('which_utest', choices=('sms', 'someip', 'dcs'), help="Unit testcase list that supported")
+
+    subparser_tool = subparsers.add_parser("tool", help="Provide some tools to simplify operations")
+    subparser_tools = subparser_tool.add_subparsers(dest="tools", help="Collect some tools in here")
+
+    sub_tool_replace = subparser_tools.add_parser("replace", help="Replace some contents in some files with in-place-mode")
+    sub_tool_replace.add_argument("rfile", metavar='<file-to-replace>', help="which file do you want replace")
+    sub_tool_replace.add_argument("from_pattern", metavar='<from-pattern>', help="original text pattern")
+    sub_tool_replace.add_argument("to_pattern", metavar='<to-pattern>', help="new text pattern")
+
+    sub_tool_diag = subparser_tools.add_parser("diag", help="As a diag client tool to do some test")
+    sub_tool_diag.add_argument("-c", "--cfile", dest="cfile", metavar='<uds-doip-config-file>', help="a config-file for uds & doip")
+    sub_tool_diag.add_argument("-p", "--server-ip", dest="s_ip", metavar='<server-ip-address>', help="doip server IP address")
+    sub_tool_diag.add_argument("-a", "--server-logical-address", dest="s_logaddr", metavar='<server-logical-address>', help="uds server logical address")
 
     args = parser.parse_args()
     dispatch_subcmd_jobs(args)

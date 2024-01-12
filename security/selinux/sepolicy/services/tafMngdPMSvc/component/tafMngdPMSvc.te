@@ -22,3 +22,5 @@ ifdef(`sa525m',`
 telaf_admin_manage_all_files_perms(telaf_tafMngdPMSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafMngdPMSvc_exec_t)
 
+# use VHAL driver object
+telaf_load_vhal_modules(telaf_tafMngdPMSvc_t)

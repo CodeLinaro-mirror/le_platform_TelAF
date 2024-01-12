@@ -51,7 +51,7 @@ typedef struct OfferServiceConfigEntry
         uint16_t number;                          // Port number.
     }port;
     SystemId_t clientSystems[RPC_MAX_SYSTEMS];    // Remote client system ID array.
-    uint16_t systemCnt;                           // Count in array.
+    uint8_t systemCnt;                            // Count in array.
 }OfferServiceConfigEntry_t;
 
 
@@ -64,8 +64,9 @@ typedef struct RequestServiceConfigEntry
 {
     ServiceLink_t service;                        // Requesting service data struct.
     bool isReliable;                              // If using reliable connection.
+    uint16_t responseTimeout;                     // Response timeout seconds.
     SystemId_t serverSystems[RPC_MAX_SYSTEMS];    // Remote server system ID array.
-    uint16_t systemCnt;                           // Count in array.
+    uint8_t systemCnt;                            // Count in array.
 }RequestServiceConfigEntry_t;
 
 
@@ -112,7 +113,7 @@ typedef void (*RpcConfigCallbackFunc_t)
 //--------------------------------------------------------------------------------------------------
 void rpcProxyConfig_LoadConfiguration
 (
-    char* filePathPtr,                  // The full path of the JSON file.
+    const char* filePathPtr,            // The full path of the JSON file.
     RpcConfigCallbackFunc_t funcPtr     // The callback function pointer.
 );
 

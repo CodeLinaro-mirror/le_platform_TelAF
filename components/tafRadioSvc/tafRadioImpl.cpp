@@ -1281,7 +1281,7 @@ void taf_Radio::Init(void)
                 elapsedTime = endTime - startTime;
                 LE_INFO("Elapsed time for %" PRIuS " network subsystem: %lfs", index, elapsedTime.count());
             } else {
-                LE_ERROR("Fail to init %" PRIuS " network subsystem", index);
+                LE_FATAL("Fail to init %" PRIuS " network subsystem", index);
             }
         }
 
@@ -1302,11 +1302,11 @@ void taf_Radio::Init(void)
                 elapsedTime = endTime - startTime;
                 LE_INFO("Elapsed time for %" PRIuS " serving subsystem: %lfs", index, elapsedTime.count());
             } else {
-                LE_ERROR("Fail to init %" PRIuS " serving subsystem", index);
+                LE_FATAL("Fail to init %" PRIuS " serving subsystem", index);
             }
         }
     } else {
-        LE_ERROR("Fail to init telephony subsystem");
+        LE_FATAL("Fail to init telephony subsystem");
     }
 
     // 10. Initiate IMS serving system
@@ -1339,7 +1339,7 @@ void taf_Radio::Init(void)
                 });
             if (!imsServingSystemMgr)
             {
-                LE_ERROR("Failed to get IMS Serving System instance.");
+                LE_FATAL("Failed to get IMS Serving System instance.");
             }
             else
             {
@@ -1360,7 +1360,7 @@ void taf_Radio::Init(void)
                 }
                 else
                 {
-                    LE_ERROR("Fail to init IMS serving subsystem");
+                    LE_FATAL("Fail to init IMS serving subsystem");
                 }
             }
         }

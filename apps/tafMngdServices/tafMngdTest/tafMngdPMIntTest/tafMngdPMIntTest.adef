@@ -1,0 +1,31 @@
+sandboxed: false
+
+executables:
+{
+    tafMngdPMIntTest = (
+      $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMIntTest/tafMngdPMIntTestComponent )
+}
+
+start: manual
+
+processes:
+{
+    run:
+    {
+        (tafMngdPMIntTest)
+    }
+
+    faultAction: stopApp
+
+    #if ${LE_CONFIG_SERVICES_WATCHDOG} = y
+        maxWatchdogTimeout: 100000
+    #else
+        watchdogTimeout: never
+    #endif
+}
+
+bindings:
+{
+    tafMngdPMIntTest.tafMngdPMIntTestComponent.taf_mngd_pm -> tafMngdPMSvc.taf_mngd_pm
+    tafMngdPMIntTest.tafMngdPMIntTestComponent.taf_pm -> tafPMSvc.taf_pm
+}

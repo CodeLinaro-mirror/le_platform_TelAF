@@ -34,8 +34,10 @@
 
 FUNCTION Print
 (
-    string reqMsg[100] IN,   // Send a request message
-    string rspMsg[100] OUT   // Receive a response message
+    uint16 reqSystemId  IN,   // Request/my system ID
+    string reqMsg[100]  IN,   // Send a request message
+    uint16 rspSystemId  OUT,  // Response/peer system ID
+    string rspMsg[100]  OUT   // Receive a response message
 );
 
 HANDLER ChangeHandler

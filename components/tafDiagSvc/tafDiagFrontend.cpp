@@ -39,6 +39,7 @@
 #include "tafResetSvr.hpp"
 #include "tafUpdateSvr.hpp"
 #include "tafSecuritySvr.hpp"
+#include "tafDataIDSvr.hpp"
 
 using namespace telux::tafsvc;
 
@@ -67,6 +68,11 @@ COMPONENT_INIT
     auto &reset = taf_ResetSvr::GetInstance();
     reset.Init();
     LE_INFO("TelAF UDS update service initialization end...");
+
+    LE_INFO("TelAF UDS DataID service initialization start...");
+    auto& did = taf_DataIDSvr::GetInstance();
+    did.Init();
+    LE_INFO("TelAF UDS DataID service initialization end...");
 
     LE_INFO("TelAF Diag Backend initialization start...");
     auto& tafBackend = taf_DiagBackend::GetInstance();

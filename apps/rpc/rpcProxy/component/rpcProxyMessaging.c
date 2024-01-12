@@ -381,6 +381,7 @@ void rpcProxyMessage_MessageRequestResponse
 (
     taf_someipClnt_ServiceRef_t serviceRef,    ///< [IN] SOME/IP service reference.
     bool isReliable,                           ///< [IN] True if using TCP.
+    uint32_t timeoutSecs,                      ///< [IN] Response timeout secs.
     uint32_t sessionId,                        ///< [IN] RPC session Id.
     le_msg_MessageRef_t msgRef,                ///< [IN] IPC message reference.
     RpcMessageHandlerFunc_t respHandler,       ///< [IN] Response handler.
@@ -401,6 +402,9 @@ void rpcProxyMessage_MessageRequestResponse
     {
         LE_ASSERT(LE_OK == taf_someipClnt_SetReliable(rpcMsgRef));
     }
+
+    // Set timeout secs.
+    LE_ASSERT(LE_OK == taf_someipClnt_SetTimeout(rpcMsgRef, timeoutSecs*1000));
 
     // Set the RPC session ID and convert it to Network-Order.
     RpcMessageCommonHeader_t msgHeader;

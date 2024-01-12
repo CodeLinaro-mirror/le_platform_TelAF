@@ -37,6 +37,7 @@
 
 taf_pm_WakeupSourceRef_t ws, wsRef, ws1;
 taf_pm_StateChangeHandlerRef_t handlerRef;
+taf_pm_StateChangeExHandlerRef_t handlerExRef;
 static le_sem_Ref_t semRef;
 le_result_t res;
 
@@ -132,6 +133,17 @@ void TestStateChangeHandler(taf_pm_State_t state, void* contextPtr)
     printf("\nState change triggered for %s\n", tafStateToString(state));
 }
 
+//Function called on state change
+void TestStateChangeExHandler(taf_pm_PowerStateRef_t powerStateRef,
+        taf_pm_NadVm_t vm_id, taf_pm_State_t state, void* contextPtr)
+{
+    LE_TEST_INFO("State change triggered for %s\n", tafStateToString(state));
+    printf("\nState change triggered for %s\n", tafStateToString(state));
+    taf_pm_SendStateChangeAck(powerStateRef, state, TAF_PM_PVM, TAF_PM_READY);
+    LE_INFO("Send state change acknowledge for %s\n", tafStateToString(state));
+    printf("\n Send state change acknowledge for %s\n", tafStateToString(state));
+}
+
 static void* test_stateChangeHandler(void* ctxPtr)
 {
     taf_pm_ConnectService();
@@ -147,6 +159,10 @@ static void* test_stateChangeHandler(void* ctxPtr)
     LE_TEST_INFO("Testing taf_pm_AddStateChangeHandler on valid handler reference");
     handlerRef = taf_pm_AddStateChangeHandler(TestStateChangeHandler, NULL);
     LE_TEST_OK(handlerRef != NULL,"Register state change handler is successfull");
+
+    LE_TEST_INFO("Testing taf_pm_AddStateChangeExHandler on valid handler reference");
+    handlerExRef = taf_pm_AddStateChangeExHandler(TestStateChangeExHandler, NULL);
+    LE_TEST_OK(handlerExRef != NULL,"Register state change handler is successfull");
     le_sem_Post(semRef);
     le_event_RunLoop();
 }
@@ -221,7 +237,19 @@ COMPONENT_INIT
     if (strcmp(procName, "proc1") == 0)
     {
         Test_tafPM_registerListener();
+#if defined(TARGET_SA525M)
+    le_result_t res;
+    res = taf_pm_SetAllVMPowerState(TAF_PM_STATE_SUSPEND);
+    if(res == LE_OK)
+    {
+       LE_INFO("suspend is initiated succesfully");
+       WaitForSem_Timeout(semRef, 3);
+    }
 
+    res = taf_pm_SetAllVMPowerState(TAF_PM_STATE_RESUME);
+    if(res == LE_OK)
+       LE_INFO("Resume is initiated succesfully");
+#endif
         Test_tafPM_createWakeupSource();
 
         Test_tafPM_StayAwake();

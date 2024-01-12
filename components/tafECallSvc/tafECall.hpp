@@ -86,6 +86,17 @@ namespace telux {
 
         typedef struct
         {
+            taf_ecall_IILocations_t locationOfImpact;
+            bool rolloverDetectedPresent;
+            bool rolloverDetected;
+            uint8_t rangeLimit;
+            int16_t deltaVX;
+            int16_t deltaVY;
+        }
+        taf_EuroNCAPData_t;
+
+        typedef struct
+        {
             taf_ecall_CallRef_t                 reference;
             telux::tel::ECallMsdData            msd;
             bool                                isMsdUpdated;
@@ -95,6 +106,9 @@ namespace telux {
             size_t                              pduMsdSize;
             int32_t                             callIndex;
             taf_ecall_State_t                   state;
+            taf_EuroNCAPData_t                  euroNCAPData;
+            uint8_t                             oadData[TAF_ECALL_MAX_DATA_LENGTH];
+            size_t                              oadDataSize;
         }
         taf_ECall_t;
 
@@ -138,6 +152,7 @@ namespace telux {
             void onEmergencyNetworkScanFail(int phoneId) override;
 #endif
             void onECallHlapTimerEvent(int phoneId, ECallHlapTimerEvents timerEvents) override;
+            void OnMsdUpdateRequest(int phoneId);
 
              taf_ecall_State_t eCallMsdTransmissionStatusToState( ECallMsdTransmissionStatus status);
         };
@@ -162,6 +177,15 @@ namespace telux {
                 le_result_t SetMsdPassengersCount (taf_ecall_CallRef_t  ecallRef, uint32_t passengerCount);
                 le_result_t SetMsdTxMode (taf_ecall_MsdTransmissionMode_t txMode);
                 le_result_t GetMsdTxMode ( taf_ecall_MsdTransmissionMode_t* modePtr);
+                le_result_t SetMsdAdditionalData(taf_ecall_CallRef_t ecallRef, const char* oid, const uint8_t* data, size_t dataLength);
+                le_result_t ResetMsdAdditionalData(taf_ecall_CallRef_t ecallRef);
+                le_result_t SetMsdEuroNCAPLocationOfImpact(taf_ecall_CallRef_t ecallRef, taf_ecall_IILocations_t iiLocations);
+                le_result_t SetMsdEuroNCAPRolloverDetected(taf_ecall_CallRef_t ecallRef, bool rolloverDetected);
+                le_result_t ResetMsdEuroNCAPRolloverDetected(taf_ecall_CallRef_t ecallRef);
+                le_result_t SetMsdEuroNCAPIIDeltaV(taf_ecall_CallRef_t ecallRef, uint8_t rangeLimit, int16_t deltaVX, int16_t deltaVY);
+                int32_t msd_EncodeOptionalDataForEuroNCAP(taf_EuroNCAPData_t* euroNCAPDataPtr, uint8_t* outDataPtr);
+                static uint16_t PutBits(uint16_t msgOffset, uint16_t elmtLen, uint8_t* elmtPtr, uint8_t* msgPtr);
+                static uint16_t PutTwoBytes(uint16_t  msgOffset, uint16_t  elmtLen,uint16_t* elmtPtr, uint8_t*  msgPtr);
                 le_result_t SetPsapNumber( const char* psapNumber );
                 le_result_t GetPsapNumber( char* psapNumber, size_t psapNumLength );
                 le_result_t UseUSimNumbers();

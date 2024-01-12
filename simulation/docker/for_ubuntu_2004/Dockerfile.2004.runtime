@@ -36,6 +36,13 @@ RUN apt-get -y --no-install-recommends install tcpdump
 RUN apt-get -y --no-install-recommends install lsb-release
 RUN apt-get -y --no-install-recommends install libcap-dev
 
+RUN apt-get -y --no-install-recommends install python3-pip
+RUN apt-get -y --no-install-recommends install python3-venv
+RUN /usr/bin/python3 -m venv /venv
+ENV PATH=/venv/bin:$PATH
+RUN python3.8 -m pip install doipclient
+RUN python3.8 -m pip install udsoncan
+RUN python3.8 -m pip install pyyaml
 
 # Make root password to: [simula]
 RUN echo 'root:simula' | chpasswd

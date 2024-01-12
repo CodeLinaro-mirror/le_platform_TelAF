@@ -46,6 +46,10 @@ static uint8_t msdRawData[43] = {2, 41, 68, 6, 128, 227, 10, 81, 67, 158, 41, 85
             164, 56, 119, 207, 131, 54, 210, 63, 65, 104, 16, 24, 8, 32, 19, 198, 68, 0, 0, 48, 20};
 static uint8_t msdLength = 43;
 static bool testToBeCounted = true;
+static uint8_t oadDataFirst[8] = {8, 41, 68, 6, 128, 20, 8, 9};
+static uint8_t oadDataLengthFirst = 8;
+static uint8_t oadDataSec[6] = {8, 41, 68, 6, 128, 20};
+static uint8_t oadDataLengthSec = 6;
 
 static void Test_ecall_TerminateRegistration()
 {
@@ -154,6 +158,13 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         case TAF_ECALL_STATE_ALACK_RECEIVED_CLEAR_DOWN:
         {
             LE_INFO("TAF_ECALL_STATE_ALACK_RECEIVED_CLEAR_DOWN");
+            break;
+        }
+        case TAF_ECALL_STATE_MSD_UPDATE_REQ:
+        {
+            printf("TAF_ECALL_STATE_MSD_UPDATE_REQ");
+            taf_ecall_ImportMsd(eCallReference, msdRawData, msdLength);
+            taf_ecall_SendMsd(eCallReference);
             break;
         }
         case TAF_ECALL_STATE_ENDED:
@@ -369,6 +380,55 @@ static void Test_MSD_Information()
     LE_TEST_OK(res == LE_OK || res == LE_DUPLICATE, "taf_ecall_SetMsdPassengersCount done");
     LE_INFO("Set number of passengers completed");
 
+    res = taf_ecall_SetMsdAdditionalData(eCallRef, "8.1", oadDataFirst, oadDataLengthFirst);
+    LE_TEST_OK(res == LE_OK, "taf_ecall_SetMsdAdditionalData done");
+
+    res = taf_ecall_SetMsdAdditionalData(eCallRef, "8.1.2", oadDataFirst, oadDataLengthFirst);
+    LE_TEST_OK(res == LE_OK, "taf_ecall_SetMsdAdditionalData done");
+
+    res = taf_ecall_SetMsdAdditionalData(eCallRef, "8.1", oadDataSec, oadDataLengthSec);
+    LE_TEST_OK(res == LE_OK, "taf_ecall_SetMsdAdditionalData done");
+
+    res = taf_ecall_ResetMsdAdditionalData(eCallRef);
+    LE_TEST_OK(res == LE_OK, "taf_ecall_ResetMsdAdditioanllData");
+
+    res = taf_ecall_SetMsdEuroNCAPLocationOfImpact(eCallRef, 10);
+    LE_TEST_OK(res != LE_OK, "taf_ecall_SetMsdEuroNCAPLocationOfImpact");
+
+    res = taf_ecall_SetMsdEuroNCAPIIDeltaV(eCallRef, 90, -45, 10);
+    LE_TEST_OK(res != LE_OK, "taf_ecall_SetMsdEuroNCAPIIDeltaV");
+
+    res = taf_ecall_SetMsdEuroNCAPIIDeltaV(eCallRef, 120, -251, 10);
+    LE_TEST_OK(res != LE_OK, "taf_ecall_SetMsdEuroNCAPIIDeltaV");
+
+    res = taf_ecall_SetMsdEuroNCAPIIDeltaV(eCallRef, 120, -201, 251);
+    LE_TEST_OK(res != LE_OK, "taf_ecall_SetMsdEuroNCAPIIDeltaV");
+
+    res = taf_ecall_SetMsdEuroNCAPLocationOfImpact(eCallRef, TAF_ECALL_LOI_FRONT);
+    LE_TEST_OK(res == LE_OK, "taf_ecall_SetMsdEuroNCAPLocationOfImpact");
+
+    res = taf_ecall_SetMsdEuroNCAPIIDeltaV(eCallRef, 125, -45, 10);
+    LE_TEST_OK(res == LE_OK, "taf_ecall_SetMsdEuroNCAPIIDeltaV");
+
+    res = taf_ecall_SetMsdEuroNCAPRolloverDetected(eCallRef, 1);
+    LE_TEST_OK(res == LE_OK, "taf_ecall_SetMsdEuroNCAPRolloverDetected");
+
+    res = taf_ecall_ResetMsdEuroNCAPRolloverDetected(eCallRef);
+    LE_TEST_OK(res == LE_OK, "taf_ecall_ResetMsdEuroNCAPRolloverDetected");
+
+    res = taf_ecall_ResetMsdAdditionalData(eCallRef);
+    LE_TEST_OK(res == LE_OK, "taf_ecall_ResetMsdAdditioanllData");
+
+    res = taf_ecall_SetMsdEuroNCAPLocationOfImpact(eCallRef, TAF_ECALL_LOI_NONDRIVERSIDE);
+    LE_TEST_OK(res == LE_OK, "taf_ecall_SetMsdEuroNCAPLocationOfImpact");
+
+    taf_ecall_ImportMsd(eCallRef, msdRawData, msdLength);
+    res = taf_ecall_SetMsdAdditionalData(eCallRef, "8.1.2", oadDataFirst, oadDataLengthFirst);
+    LE_TEST_OK(res != LE_OK, "taf_ecall_SetMsdAdditionalData done");
+
+    res = taf_ecall_ResetMsdAdditionalData(eCallRef);
+    LE_TEST_OK(res != LE_OK, "taf_ecall_ResetMsdAdditionalData");
+
     LE_INFO("Set msd information test completed");
 }
 
@@ -427,7 +487,6 @@ static void Test_ECall_StartAutomatic() {
     LE_INFO("Test_ECall_StartAutomatic callState = %d", (int) retrievedState);
 
     Test_ECall_ExportMsd(eCallRef);
-    Test_ECall_SendMsd(eCallRef);
 
     if(res == LE_OK) {
         le_sem_Wait(TestSemaphoreRef);

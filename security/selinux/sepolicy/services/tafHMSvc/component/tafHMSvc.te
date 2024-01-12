@@ -1,0 +1,21 @@
+# Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+policy_module(tafHMSvc, 1.0)
+
+# Framework definition for telaf
+type telaf_tafHMSvc_exec_t;
+files_type(telaf_tafHMSvc_exec_t);
+
+type telaf_tafHMSvc_t;
+
+type telaf_tafHMSvc_data_t;
+files_type(telaf_tafHMSvc_data_t);
+
+init_telaf_app_domain(telaf_tafHMSvc_t,telaf_tafHMSvc_exec_t)
+
+kernel_read_system_state(telaf_tafHMSvc_t)
+
+# Allow update daemon to install/uninstall this service
+telaf_admin_manage_all_files_perms(telaf_tafHMSvc_data_t)
+telaf_admin_manage_all_files_perms(telaf_tafHMSvc_exec_t)

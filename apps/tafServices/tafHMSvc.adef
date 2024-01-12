@@ -1,0 +1,57 @@
+maxThreads: 300
+
+username: telaf
+
+startGroup: 16
+
+groups:
+{
+        system
+        diag
+        radio
+        inet
+        locclient
+}
+
+capability:
+{
+        CAP_CHOWN
+        CAP_FOWNER
+        CAP_WAKE_ALARM
+        CAP_SYS_RESOURCE
+        CAP_DAC_OVERRIDE
+        CAP_BLOCK_SUSPEND
+        CAP_SYS_BOOT
+
+#if ${LE_CONFIG_TEST_COVERAGE} = y
+        CAP_DAC_READ_SEARCH
+#endif
+}
+sandboxed: false
+
+executables:
+{
+    tafHMSvc = ( $TELAF_ROOT/components/tafHMSvc )
+}
+
+start: auto
+
+processes:
+{
+    run:
+    {
+        (tafHMSvc)
+    }
+
+    maxFileBytes: 8192K
+    faultAction: restart
+}
+
+bindings:
+{
+}
+
+extern:
+{
+    tafHMSvc.tafHMSvc.taf_hms
+}

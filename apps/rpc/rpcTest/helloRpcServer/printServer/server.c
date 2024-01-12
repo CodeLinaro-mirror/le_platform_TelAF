@@ -46,17 +46,21 @@ typedef struct
 static le_mem_PoolRef_t ChangeHandlerPool = NULL;
 static le_ref_MapRef_t ChangeHandlerRefMap = NULL;
 static le_timer_Ref_t TimerRef = NULL;
+static uint16_t MySystemId = 0;
 
 void printer_Print
 (
+    uint16_t reqSystemId,
     const char* reqMsg,
+    uint16_t* rspSystemIdPtr,
     char* rspMsg,
     size_t rspMsgSize
 )
 {
     snprintf(rspMsg, rspMsgSize, "%s", reqMsg);
+    *rspSystemIdPtr = MySystemId;
 
-    LE_INFO("Received request: '%s'", reqMsg);
+    LE_INFO("Received request from system(0x%x): '%s'", reqSystemId, reqMsg);
     LE_INFO("sent response: '%s'", rspMsg);
 }
 
@@ -102,7 +106,8 @@ static void TimerHandler
     static uint32_t msgCnt = 0;
     char msgData[128] = { 0 };
 
-    snprintf(msgData, sizeof(msgData), "Change message 0x%x", msgCnt++);
+    snprintf(msgData, sizeof(msgData), "Change message 0x%x from system(0x%x).",
+             msgCnt++, MySystemId);
 
     le_ref_IterRef_t iterRef = le_ref_GetIterator(ChangeHandlerRefMap);
     while (le_ref_NextNode(iterRef) == LE_OK)
@@ -115,6 +120,8 @@ static void TimerHandler
 
 COMPONENT_INIT
 {
+    MySystemId = taf_someipClnt_GetClientId();
+
     ChangeHandlerPool = le_mem_CreatePool("ChangeHandlerPool", sizeof(ChangeHandler_t));
     ChangeHandlerRefMap = le_ref_CreateMap("ChangeHandlerRefMap", 16);
     TimerRef = le_timer_Create("NotifyChanges timer");

@@ -4,7 +4,7 @@ TARGETS := $(MAKECMDGOALS)
 all: $(TARGETS)
 
 $(TARGETS):
-	mkapp -t $@ tafRpcProxy.adef
+	mkapp -t $@ tafRpcProxy.adef -C "-O2" -X "-O2"
 
 .PHONY: clean
 clean:

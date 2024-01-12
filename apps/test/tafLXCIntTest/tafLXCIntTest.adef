@@ -1,0 +1,24 @@
+sandboxed: false
+
+executables:
+{
+    lxcTest = ( lxcIntTestComponent )
+}
+
+start: manual
+
+processes:
+{
+    run:
+    {
+        (lxcTest)
+    }
+
+    faultAction: stopApp
+
+    #if ${LE_CONFIG_SERVICES_WATCHDOG} = y
+        maxWatchdogTimeout: 100000
+    #else
+        watchdogTimeout: never
+    #endif
+}

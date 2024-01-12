@@ -47,6 +47,9 @@ allow telaf_tafSomeipGWSvc_t self:tcp_socket create_stream_socket_perms;
 # Allow tafSomeipGWSvc to manipulate netlink_route_socket
 allow telaf_tafSomeipGWSvc_t self:netlink_route_socket rw_netlink_socket_perms;
 
+# Allow tafSomeipGWSvc to manipulate capabilites
+allow telaf_tafSomeipGWSvc_t self:capability { net_admin };
+
 # Misc rules for network socket
 allow telaf_tafSomeipGWSvc_t proc_net_t:file read_file_perms;
 allow telaf_tafSomeipGWSvc_t { unreserved_port_t node_t }:udp_socket { name_bind node_bind };

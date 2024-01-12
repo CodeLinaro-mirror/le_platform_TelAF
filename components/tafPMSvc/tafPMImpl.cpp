@@ -39,12 +39,26 @@
 #include "tafPM.hpp"
 
 static taf_powerManager_t pm_recrd;
+/**
+ * State Change registered Clients record
+ */
+std::vector<taf_pm_PowerStateRef_t>regClientrecrd;
+
+/**
+ * State Change Acknowledged Clients record
+ */
+std::vector<taf_pm_PowerStateRef_t>ackClientrecrd;
+
+#if LE_CONFIG_TARGET_SA515M
 static bool isResumed = false;
+#endif
 LE_REF_DEFINE_STATIC_MAP(tafPMReferences, TAF_PM_REFERENCE_DEFAULT_POOL_SIZE);
 
 #if LE_CONFIG_TARGET_SA525M
 LE_REF_DEFINE_STATIC_MAP(tafPMVmListRef, TAF_PM_VM_LIST_POOL_SIZE);
 std::promise<le_result_t> stateChangePromise;
+static bool isNack = false;
+
 #endif
 
 /**
@@ -158,7 +172,7 @@ void taf_Handler::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *ct
 
     TAF_ERROR_IF_RET_NIL(pClient == NULL, "Failed to remove sessionRef %p from table.", sessionRef);
 
-    LE_INFO("Client session %p disconnected.", sessionRef);
+    LE_INFO("Client proccessId %d disconnected.", pClient->procId);
 
     // Find and remove all wakeup sources held for this client
     iter = le_hashmap_GetIterator(pm_recrd.locks);
@@ -218,6 +232,8 @@ void taf_PM::Init(void)
     auto &powerFactory = PowerFactory::getInstance();
     // Get TCU-activity manager object
     std::promise<telux::common::ServiceStatus> prom = std::promise<telux::common::ServiceStatus>();
+    std::promise<telux::common::ServiceStatus> slaveProm
+                        = std::promise<telux::common::ServiceStatus>();
 #if defined(TARGET_SA515M)
     tcuActivityMgr = powerFactory.getTcuActivityManager(ClientType::MASTER, ProcType::LOCAL_PROC,
                         [&](telux::common::ServiceStatus status) {
@@ -233,6 +249,14 @@ void taf_PM::Init(void)
                         [&](telux::common::ServiceStatus status) {
                              prom.set_value(status);
                         });
+    ClientInstanceConfig slaveconfig;
+    slaveconfig.clientType = ClientType::SLAVE;
+    slaveconfig.clientName = "tafPMSvc";
+    slaveconfig.machineName =  ALL_MACHINES;
+    tcuSlaveActivityMgr = powerFactory.getTcuActivityManager(slaveconfig,
+                        [&](telux::common::ServiceStatus status) {
+                             slaveProm.set_value(status);
+                        });
 #endif
 #ifdef TARGET_SA415M
     tcuActivityMgr = powerFactory.getTcuActivityManager(ClientType::MASTER);
@@ -242,10 +266,15 @@ void taf_PM::Init(void)
         LE_INFO("tafPowerMgr is null Init...\n");
         return;
     }
+    else if(tcuSlaveActivityMgr == nullptr)
+    {
+        LE_ERROR("tafPowerMgr is null Init for slave...\n");
+    }
 
 #if defined(TARGET_SA515M) || LE_CONFIG_TARGET_SA525M
     // wait unconditionally till the service is avilable
-    bool isReady = (prom.get_future().get() == telux::common::ServiceStatus::SERVICE_AVAILABLE);
+    bool isReady = (prom.get_future().get() == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+            && (slaveProm.get_future().get() == telux::common::ServiceStatus::SERVICE_AVAILABLE);
     if(isReady){
 #endif
 #ifdef TARGET_SA415M
@@ -255,7 +284,8 @@ void taf_PM::Init(void)
 
         // Register for TCU service status change
         tcuServiceStatusListener = std::make_shared<tafTcuServiceStatusListener>();
-        telux::common::Status status = tcuActivityMgr->registerServiceStateListener(tcuServiceStatusListener);
+        telux::common::Status status =
+                tcuActivityMgr->registerServiceStateListener(tcuServiceStatusListener);
         if(status != telux::common::Status::SUCCESS) {
             LE_ERROR(" Failed to register for service state change ");
         }
@@ -272,6 +302,18 @@ void taf_PM::Init(void)
         } else {
             LE_INFO(" Registered Listener for TCU-activity state updates");
         }
+        if(tcuSlaveActivityMgr) {
+            //Register for state change listener to notify the state changes to clients
+            tcuSlaveStateListener = std::make_shared<tafTcuStateListener>();
+            telux::common::Status registerStatuSlave =
+                    tcuSlaveActivityMgr->registerListener(tcuSlaveStateListener);
+
+            if(registerStatuSlave != telux::common::Status::SUCCESS) {
+                LE_INFO(" ERROR - Failed to register for TCU-activity state updates");
+            } else {
+                LE_INFO(" Registered Listener for TCU-activity state updates");
+            }
+		}
     } else {
         LE_ERROR("ERROR Unable to intialize TCU activity service");
         return;
@@ -303,7 +345,7 @@ void taf_PM::Init(void)
 
     // Create table of clients
     pm_recrd.clients = le_hashmap_Create("tafPMClient", TAF_PM_CLIENT_DEFAULT_HASH_SIZE,
-                                             le_hashmap_HashVoidPointer, le_hashmap_EqualsVoidPointer);
+        le_hashmap_HashVoidPointer, le_hashmap_EqualsVoidPointer);
 
     if (NULL == pm_recrd.clients)
     {
@@ -322,6 +364,19 @@ void taf_PM::Init(void)
     vmListPool = le_mem_CreatePool("tafPMVirtualMachineList", sizeof(taf_PMVmList_t));
     vmInfoPool = le_mem_CreatePool("tafPMVirtualMachineInfo", sizeof(taf_PMVmInfo_t));
     vmListRefMap = le_ref_InitStaticMap(tafPMVmListRef, TAF_PM_VM_LIST_POOL_SIZE);
+
+    powerStateRefPool = le_mem_CreatePool("tafPMPowerStateRefList", sizeof(taf_PmPowerStateRef_t));
+    powerStateRefMap = le_ref_CreateMap("tafPMpowrStateRefMap", TAF_POWER_SOURCE_DEFAULT_POOL_SIZE);
+
+    stateChangeExEvent = le_event_CreateId("tafstateChangeExEvent", sizeof(stateEvent_t));
+    le_event_AddHandler("tafPMPowerStateChange event", stateChangeExEvent, PowerStateChanged);
+
+    powerStateHandlerPool = le_mem_CreatePool("tafPMPStateHandlerList",
+        sizeof(taf_PStateHandlerCtx_t));
+    powerStateHandlerList = LE_DLS_LIST_INIT;
+    powerStateHandlerRefMap = le_ref_CreateMap("tafPStateHandler",
+        TAF_POWER_SOURCE_DEFAULT_POOL_SIZE);
+
 #endif
     LE_INFO("tafPM service init done...\n");
 }
@@ -457,9 +512,10 @@ le_result_t taf_PM::Relax( taf_pm_WakeupSourceRef_t wsRef)
     ws = taf_PM::ToTafWakeupSource(wsRef);
     TAF_ERROR_IF_RET_VAL(!ws, LE_BAD_PARAMETER, "Invalid Wakeup source reference.\n");
 
+
     wsEntry = (taf_ws_t*)le_hashmap_Get(pm_recrd.locks, ws->name);
 
-    TAF_ERROR_IF_RET_VAL(!wsEntry, LE_BAD_PARAMETER, "Wakeup source '%s' not created.\n", wsEntry->name);
+    TAF_KILL_CLIENT_IF_RET_VAL(!wsEntry, LE_OK, "Wakeup source '%s' not created.\n", wsEntry->name);
 
     TAF_ERROR_IF_RET_VAL(!wsEntry->acquired, LE_OK, "Wakeup source '%s' already released",
             wsEntry->name);
@@ -484,6 +540,12 @@ le_result_t taf_PM::Relax( taf_pm_WakeupSourceRef_t wsRef)
 
     // if all the wake sources are in released state and set SUSPEND state
     if(pm_recrd.wsAcquired == 0) {
+#if LE_CONFIG_TARGET_SA525M
+        auto &tafPwrMgr = taf_PM::GetInstance();
+        stateEvent_t evt;
+        evt.state = TAF_PM_STATE_ALL_WAKELOCKS_RELEASED;
+        le_event_Report(tafPwrMgr.stateChangeExEvent, &evt, sizeof(evt));
+#endif
         if( RemoteTcuActivityMgr != nullptr)
         {
             telux::common::Status RemoteStatus = RemoteTcuActivityMgr->setActivityState(
@@ -519,6 +581,133 @@ taf_pm_State_t taf_PM::GetPowerState()
 }
 
 #if LE_CONFIG_TARGET_SA525M
+/**
+ * To add handler for Extend power state change notification
+ */
+taf_pm_StateChangeExHandlerRef_t taf_PM::AddStateChangeExHandler
+(taf_pm_StateChangeExHandlerFunc_t handlerPtr, void* contextPtr)
+{
+    LE_INFO("AddStateChangeExHandler");
+    TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, NULL, "INVALID handler reference.");
+    taf_PStateHandlerCtx_t * handlerCtxPtr =
+            (taf_PStateHandlerCtx_t *)le_mem_ForceAlloc(powerStateHandlerPool);
+    taf_Client_t *pClient;
+    pClient = taf_PM::to_taf_Client_t(le_hashmap_Get(pm_recrd.clients,
+            taf_pm_GetClientSessionRef()));
+    LE_INFO("Client is %s", pClient->name);
+    if(strncmp(pClient->name, "tafMngdPMSvc", 12) == 0)
+    {
+        LE_INFO("Client is MPM");
+        handlerCtxPtr->ismpm = true;
+    }
+    else
+    {
+        LE_INFO("Client is %s", pClient->name);
+        handlerCtxPtr->ismpm = false;
+    }
+    handlerCtxPtr->handlerPtr = handlerPtr;
+    handlerCtxPtr->contextPtr = contextPtr;
+    handlerCtxPtr->handlerRef = (taf_pm_StateChangeExHandlerRef_t)le_ref_CreateRef(
+            powerStateHandlerRefMap, handlerCtxPtr);
+    handlerCtxPtr->link = LE_DLS_LINK_INIT;
+    le_dls_Queue(&powerStateHandlerList, &handlerCtxPtr->link);
+
+    return handlerCtxPtr->handlerRef;
+}
+
+void taf_PM::PowerStateChanged(void* reportPtr)
+{
+    stateEvent_t* stateEvent = (stateEvent_t*)reportPtr;
+    taf_PM tafPwrMgr = taf_PM::GetInstance();
+    tafPwrMgr.CallClientHandlerFunc(stateEvent->state);
+}
+
+void taf_PM::DeletePowerStateRefs()
+{
+    LE_INFO("DeletePowerStateRefs");
+    for (auto it = regClientrecrd.begin(); it != regClientrecrd.end(); ++it) {
+        if (*it != NULL)
+        {
+            le_ref_DeleteRef(powerStateRefMap, *it);
+        }
+    }
+}
+
+/**
+ * To Call Clients for Extend power state change notification
+ */
+void taf_PM::CallClientHandlerFunc(taf_pm_State_t state)
+{
+    LE_INFO("CallClientHandlerFunc");
+    le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&powerStateHandlerList);
+    //clearing the previous references for new state notification
+    DeletePowerStateRefs();
+    regClientrecrd.clear();
+    ackClientrecrd.clear();
+    isNack = false;
+    while (linkHandlerPtr)
+    {
+        taf_PStateHandlerCtx_t * handlerCtxPtr =
+                CONTAINER_OF(linkHandlerPtr, taf_PStateHandlerCtx_t, link);
+        linkHandlerPtr = le_dls_PeekPrev(&powerStateHandlerList, linkHandlerPtr);
+        if (handlerCtxPtr->handlerPtr)
+        {
+            LE_INFO("Client found");
+            /////Notifying only to MPMS for graceful
+            if((state == TAF_PM_STATE_ALL_WAKELOCKS_RELEASED || state == TAF_PM_STATE_ALL_ACKED))
+            {
+                if(handlerCtxPtr->ismpm == true)
+                {
+                    LE_INFO("Notified to MPM");
+                    taf_PmPowerStateRef_t* pmPStateListPtr =
+                            (taf_PmPowerStateRef_t*)le_mem_ForceAlloc(powerStateRefPool);
+
+                    pmPStateListPtr->pStateRef =
+                            (taf_pm_PowerStateRef_t)le_ref_CreateRef(powerStateRefMap, pmPStateListPtr);
+
+                    regClientrecrd.push_back(pmPStateListPtr->pStateRef);
+                    handlerCtxPtr->handlerPtr(pmPStateListPtr->pStateRef, TAF_PM_PVM, state,
+                            handlerCtxPtr->contextPtr);
+                    return;
+                }
+                else {
+                    continue;
+                }
+            }
+            else {
+                LE_INFO("Notifying to PM clients");
+                /// //creating a power state ref for each client
+                taf_PmPowerStateRef_t* pmPStateListPtr =
+                        (taf_PmPowerStateRef_t*)le_mem_ForceAlloc(powerStateRefPool);
+                pmPStateListPtr->pStateRef =
+                        (taf_pm_PowerStateRef_t)le_ref_CreateRef(powerStateRefMap, pmPStateListPtr);
+                regClientrecrd.push_back(pmPStateListPtr->pStateRef);
+                handlerCtxPtr->handlerPtr(pmPStateListPtr->pStateRef, TAF_PM_PVM, state,
+                        handlerCtxPtr->contextPtr);
+            }
+        }
+    }
+}
+/**
+ * Removes Extend power state change handler
+ */
+void taf_PM::RemoveStateChangeExHandler(taf_pm_StateChangeExHandlerRef_t handlerRef)
+{
+    LE_INFO("RemoveStateChangeExHandler");
+    le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&powerStateHandlerList);
+    while (linkHandlerPtr)
+    {
+        taf_PStateHandlerCtx_t * handlerCtxPtr =
+                CONTAINER_OF(linkHandlerPtr, taf_PStateHandlerCtx_t, link);
+        linkHandlerPtr = le_dls_PeekPrev(&powerStateHandlerList, linkHandlerPtr);
+        if (handlerCtxPtr && handlerCtxPtr->handlerRef == handlerRef)
+        {
+            le_ref_DeleteRef(powerStateHandlerRefMap, handlerRef);
+            le_dls_Remove(&powerStateHandlerList, &(handlerCtxPtr->link));
+            le_mem_Release((void*)handlerCtxPtr);
+        }
+    }
+}
 
 /**
  * Sets the power state to VM
@@ -553,14 +742,6 @@ le_result_t taf_PM::SetPowerState(taf_pm_State_t state, const char* machineName)
         {
             le_result_t res = futResult.get();
             LE_INFO("result is %s", res== LE_FAULT ? "FAULT" : "OK");
-            if(res == LE_OK &&
-                    strncmp(machineName, "ALL_MACHINES", SIZE_OF_STRING_ALL_MACHINES) == 0)
-            {
-                stateEvent_t evt;
-                evt.state = curTcuState;
-                le_event_Report(StateChangeEvent, &evt, sizeof(evt));
-                LE_INFO("Send state change event");
-            }
             return res;
         }
     } else {
@@ -752,6 +933,7 @@ taf_pm_StateChangeHandlerFunc_t handlerPtr, void* contextPtr)
     le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("tafStateChange EventId",
             StateChangeEvent, StateChanged, (void*)handlerPtr);
     le_event_SetContextPtr(handlerRef, contextPtr);
+
     return (taf_pm_StateChangeHandlerRef_t)handlerRef;
 }
 
@@ -772,6 +954,7 @@ void taf_PM::RemoveStateChangeHandler(taf_pm_StateChangeHandlerRef_t handlerRef)
     LE_INFO("Removed StateChangeHandler");
 }
 
+#if LE_CONFIG_TARGET_SA515M
 /**
  * callback function to receive TCU activity state update
  */
@@ -823,6 +1006,7 @@ void tafTcuStateListener :: onSlaveAckStatusUpdate(Status status)
 {
     LE_INFO("onSlaveAckStatusUpdate status %d\n", (int)status);
 }
+#endif
 
 void taf_PM::TafSigTermEventHandler(int tafSigNum)
 {
@@ -849,6 +1033,13 @@ void taf_PM::TafSigTermEventHandler(int tafSigNum)
         LE_DEBUG("Deregistered listener for TCU-activity state updates on service termination");
     }
 
+    status = tafPwrMgr.tcuSlaveActivityMgr->deregisterListener(tafPwrMgr.tcuSlaveStateListener);
+    if(status != telux::common::Status::SUCCESS) {
+        LE_ERROR("Failed to deregister slave for TCU-activity state update on service termination");
+    } else {
+        LE_DEBUG("Deregistered slave listener for TCU-activity state updates on service termination");
+    }
+
     status = tafPwrMgr.tcuActivityMgr->deregisterServiceStateListener(tafPwrMgr
             .tcuServiceStatusListener);
     if(status != telux::common::Status::SUCCESS) {
@@ -864,6 +1055,22 @@ void tafTcuStateListener::onTcuActivityStateUpdate(TcuActivityState state, strin
     auto &tafPwrMgr = taf_PM::GetInstance();
     LE_INFO("onTcuActivityStateUpdate machine : %s state : %s\n", machineName.c_str(),
             tafPwrMgr.tcuStateToString(state));
+    ackClientrecrd.clear();
+    LE_INFO("ackClientrecrd size is:%ld",ackClientrecrd.size());
+    stateEvent_t evt;
+    if(state == TcuActivityState::SUSPEND) {
+        evt.state = TAF_PM_STATE_SUSPEND;
+    } else if(state == TcuActivityState::SHUTDOWN) {
+        evt.state = TAF_PM_STATE_SHUTDOWN;
+    } else if(state == TcuActivityState::RESUME) {
+        evt.state = TAF_PM_STATE_RESUME;
+    }
+
+    // send state change notification to all the handlers registered
+    LE_INFO("sent report state %s\n",tafPwrMgr.tcuStateToString(state));
+    le_event_Report(tafPwrMgr.StateChangeEvent, &evt, sizeof(evt));
+    LE_INFO("sent Extend report state %s\n",tafPwrMgr.tcuStateToString(state));
+    le_event_Report(tafPwrMgr.stateChangeExEvent, &evt, sizeof(evt));
 }
 
 void tafTcuStateListener::onMachineUpdate(const string machineName, const MachineEvent machineEvt)
@@ -985,3 +1192,131 @@ void taf_PM::sendAck(void* reportPtr)
         }
     }
 }
+#if defined(TARGET_SA525M)
+void taf_PM:: SendAckToPmd(taf_pm_State_t state)
+{
+    LE_INFO("SendAckToPmd");
+    auto &tafPwrMgr = GetInstance();
+    Status ackStatus;
+    if(state == TAF_PM_STATE_SUSPEND) {
+        ackStatus = tafPwrMgr.tcuSlaveActivityMgr->sendActivityStateAck(
+                            StateChangeResponse::ACK, TcuActivityState::SUSPEND);
+        if(ackStatus == Status::SUCCESS) {
+            LE_INFO("Sent SUSPEND acknowledgement to TCU successfully");
+        } else {
+            LE_INFO("Failed to send SUSPEND acknowledgement to TCU!");
+        }
+    } else if(state == TAF_PM_STATE_SHUTDOWN) {
+        ackStatus = tafPwrMgr.tcuSlaveActivityMgr->sendActivityStateAck(
+                            StateChangeResponse::ACK, TcuActivityState::SHUTDOWN);
+        if(ackStatus == Status::SUCCESS) {
+            LE_INFO("Sent SHUTDOWN acknowledgement to TCU successfully");
+        } else {
+            LE_INFO("Failed to send SHUTDOWN acknowledgement to TCU !");
+        }
+    }
+}
+
+void taf_PM:: SendNackToPmd(taf_pm_State_t state)
+{
+    LE_INFO("SendNackToPmd");
+    auto &tafPwrMgr = GetInstance();
+    Status ackStatus;
+    if(state == TAF_PM_STATE_SUSPEND) {
+        ackStatus = tafPwrMgr.tcuSlaveActivityMgr->sendActivityStateAck(
+                            StateChangeResponse::NACK, TcuActivityState::SUSPEND);
+        if(ackStatus == Status::SUCCESS) {
+            LE_INFO("Sent SUSPEND NACK successfully");
+        } else {
+            LE_INFO("Failed to send SUSPEND NACK !");
+        }
+    } else if(state == TAF_PM_STATE_SHUTDOWN) {
+        ackStatus = tafPwrMgr.tcuSlaveActivityMgr->sendActivityStateAck(
+                            StateChangeResponse::NACK, TcuActivityState::SHUTDOWN);
+        if(ackStatus == Status::SUCCESS) {
+            LE_INFO("Sent SHUTDOWN NACK successfully");
+        } else {
+            LE_INFO("Failed to send SHUTDOWN NACK !");
+        }
+    }
+}
+
+/**
+ * Calls from clients to acknowledge power state change transition.
+ */
+void taf_PM::SendStateChangeAck(taf_pm_PowerStateRef_t powerStateRef,
+taf_pm_State_t state, taf_pm_NadVm_t vm_id, taf_pm_ClientAck_t ackType )
+{
+    LE_INFO("sendStateChangeAck");
+    //Getting the current client data from pm_recrd
+    taf_Client_t *pClient;
+    pClient = taf_PM::to_taf_Client_t(le_hashmap_Get(pm_recrd.clients,
+            taf_pm_GetClientSessionRef()));
+    TcuActivityState tcuState = tafStateToTcuState(state);
+    // validate client record existed in state change registered clients
+    for (auto it = regClientrecrd.begin(); it != regClientrecrd.end(); ++it ) {
+        if (*it == (taf_pm_PowerStateRef_t)powerStateRef) {
+            LE_INFO("Client found in record");
+            if(isNack) {
+                LE_INFO("Nack received from previous client");
+                return ;
+            }
+            break;
+        }
+        if (it == regClientrecrd.end()) {
+            LE_INFO("Client not found in the regClientrecrd");
+            return;
+        }
+    }
+    if(state == TAF_PM_STATE_ALL_ACKED && ackType == TAF_PM_READY)
+    {
+         LE_INFO("Received ACK from client %s",pClient->name);
+         SendAckToPmd(curTcuState);
+         return;
+    }
+    else if(state == TAF_PM_STATE_ALL_ACKED && ackType == TAF_PM_NOT_READY)
+    {
+        LE_INFO("Received NACK from client %s", pClient->name);
+        isNack = true;
+        SendNackToPmd(curTcuState);
+        return;
+    }
+    else if(curTcuState == state)
+    {
+        if(ackType == TAF_PM_NOT_READY)
+        {
+            LE_INFO("Received NACK from client %s for state %s", pClient->name,
+                    tcuStateToString(tcuState));
+            isNack = true;
+            SendNackToPmd(state);
+        }
+        else
+        {
+            LE_INFO("Received ACK from client %s for state %s",pClient->name,
+                    tcuStateToString(tcuState));
+
+            ackClientrecrd.push_back((taf_pm_PowerStateRef_t)powerStateRef);
+            LE_INFO("regClientrecrd size is %ld ,ackClientrecrd size is:%ld",regClientrecrd.size(),
+                    ackClientrecrd.size());
+            //If Last acknowledged client , proceed for ack state change
+            if(regClientrecrd.size() == ackClientrecrd.size())
+            {
+                auto &tafPwrMgr = taf_PM::GetInstance();
+                stateEvent_t evt;
+                evt.state = TAF_PM_STATE_ALL_ACKED;
+                le_event_Report(tafPwrMgr.stateChangeExEvent, &evt, sizeof(evt));
+            }
+            else
+            {
+                LE_INFO("All clients not acknowledged for state change yet");
+                return;
+            }
+        }
+    }
+    else
+    {
+        LE_INFO("Client %s Ack response not sent for current transition %s", pClient->name,
+                tcuStateToString(tcuState));
+    }
+}
+#endif

@@ -20,7 +20,11 @@ else ifeq ($(TARGET),sa515m)
 else ifeq ($(TARGET),sa525m)
      export READ_ONLY := 1
 
-     export SDEF_TO_USE ?= $(LEGATO_TELSDK_ROOT)/sa525m.sdef
+     ifeq ($(BUILD_FLAVOR),lxc)
+        export SDEF_TO_USE ?= $(LEGATO_TELSDK_ROOT)/sa525m-lxc.sdef
+     else
+        export SDEF_TO_USE ?= $(LEGATO_TELSDK_ROOT)/sa525m.sdef
+     endif
 
      export STRIP_STAGING_TREE ?= 1
 

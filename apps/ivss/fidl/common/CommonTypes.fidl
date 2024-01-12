@@ -1,0 +1,55 @@
+/*
+* Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* SPDX-License-Identifier: BSD-3-Clause-Clear
+*/
+
+package com.qualcomm.qti.modem
+
+typeCollection CommonTypes
+{
+    version { major 0 minor 1 }
+
+    <** @description: Possible errors returned by the service **>
+    enumeration Result
+    {
+        OK                   ///< Successful.
+        NOT_FOUND            //< Referenced item does not exist or could not be found.
+        OUT_OF_RANGE         //< An index or other value is out of range.
+        NO_MEMORY            //< Insufficient memory is available.
+        NOT_PERMITTED        //< Current user does not have permission to perform requested action.
+        FAULT                //< Unspecified internal error.
+        COMM_ERROR           //< Communications error.
+        TIMEOUT              //< A time-out occurred.
+        OVERFLOW             //< An overflow occurred or would have occurred.
+        UNDERFLOW            //< An underflow occurred or would have occurred.
+        WOULD_BLOCK          //< Would have blocked if non-blocking behaviour was not requested.
+        DEADLOCK             //< Would have caused a deadlock.
+        FORMAT_ERROR         //< Format error.
+        DUPLICATE            //< Duplicate entry found or operation already performed.
+        BAD_PARAMETER        //< Parameter is invalid.
+        CLOSED               //< The resource is closed.
+        BUSY                 //< The resource is busy.
+        UNSUPPORTED          //< The underlying resource does not support this operation.
+        IO_ERROR             //< An IO operation failed.
+        NOT_IMPLEMENTED      //< Unimplemented functionality.
+        UNAVAILABLE          //< A transient or temporary loss of a service or resource.
+        TERMINATED           //< The process, operation, data stream, session, etc. has stopped.
+        IN_PROGRESS          //< The operation is in progress.
+        SUSPENDED            //< The operation is suspended.
+    }
+
+    <** @description: Type to represent On and Off states **>
+    enumeration OnOffType
+    {
+        OFF
+        ON
+    }
+
+    <** @description: Phone Id **>
+    enumeration PhoneId
+    {
+        PHONE_ID_1 = 1      //< SIM inserted in slot 1.
+        PHONE_ID_2 = 2      //< SIM inserted in slot 2.
+    }
+}
+

@@ -668,6 +668,80 @@ taf_gnss_PositionHandlerRef_t taf_gnss_AddPositionHandler
 }
 
 /**
+* FUNCTION     : RemoveCapabilityHandler
+* DESCRIPTION  : This function must be called to remove a handler for Capability notifications
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: Doesn't return on failure, so there's no need to check the return value for errors
+*/
+void taf_gnss_RemoveCapabilityChangeHandler
+(
+ taf_gnss_CapabilityChangeHandlerRef_t handlerRef
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.RemoveCapabilityHandler(handlerRef);
+}
+
+/**
+* FUNCTION     : AddCapabilityHandler
+* DESCRIPTION  : This function must be called to register an handler for Capability notifications
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: A handler reference, which is only needed for later removal of the handler
+*/
+taf_gnss_CapabilityChangeHandlerRef_t taf_gnss_AddCapabilityChangeHandler
+(
+ taf_gnss_CapabilityChangeHandlerFunc_t handlerPtr,
+ void* contextPtr
+)
+{
+    le_event_HandlerRef_t handlerRef;
+    auto &gnss = taf_Gnss::GetInstance();
+    handlerRef = (le_event_HandlerRef_t)gnss.AddCapabilityHandler(handlerPtr, contextPtr);
+    le_event_SetContextPtr(handlerRef, contextPtr);
+
+    return (taf_gnss_CapabilityChangeHandlerRef_t)(handlerRef);
+}
+
+/**
+* FUNCTION     : RemoveNmeaHandler
+* DESCRIPTION  : This function must be called to remove a handler for NMEA notifications
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: Doesn't return on failure, so there's no need to check the return value for errors
+*/
+void taf_gnss_RemoveNmeaHandler
+(
+ taf_gnss_NmeaHandlerRef_t handlerRef
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.RemoveNmeaHandler(handlerRef);
+}
+
+/**
+* FUNCTION     : AddNmeaHandler
+* DESCRIPTION  : This function must be called to register an handler for NMEA notifications
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: A handler reference, which is only needed for later removal of the handler
+*/
+taf_gnss_NmeaHandlerRef_t taf_gnss_AddNmeaHandler
+(
+ taf_gnss_NmeaHandlerFunc_t handlerPtr,
+ void* contextPtr
+)
+{
+    le_event_HandlerRef_t handlerRef;
+    auto &gnss = taf_Gnss::GetInstance();
+    handlerRef = (le_event_HandlerRef_t)gnss.AddNmeaHandler(handlerPtr, contextPtr);
+    le_event_SetContextPtr(handlerRef, contextPtr);
+
+    return (taf_gnss_NmeaHandlerRef_t)(handlerRef);
+}
+
+/**
 * FUNCTION     : Enable
 * DESCRIPTION  : This function enables the GNSS device
 * DEPENDECY    :
@@ -1579,12 +1653,13 @@ le_result_t taf_gnss_GetLocationOutputEngParams
 le_result_t taf_gnss_GetReliabilityInformation
 (
     taf_gnss_SampleRef_t positionSampleRef,
-    uint16_t* horiReliblityPtr,
-    uint16_t* vertReliblityPtr
+    uint16_t* horiReliabilityPtr,
+    uint16_t* vertReliabilityPtr
 )
 {
     auto &gnss = taf_Gnss::GetInstance();
-    return gnss.GetReliabilityInformation(positionSampleRef,horiReliblityPtr,vertReliblityPtr);
+    return gnss.GetReliabilityInformation(positionSampleRef, horiReliabilityPtr,
+        vertReliabilityPtr);
 }
 
 /**
@@ -1712,4 +1787,106 @@ le_result_t taf_gnss_GetSVIds
 
     auto &gnss = taf_Gnss::GetInstance();
     return gnss.GetSVIds(positionSampleRef, sVIdsPtr, sVIdsLen);
+}
+
+/**
+* FUNCTION     : GetSatellitesInfoEx
+* DESCRIPTION  : This function retrieves satellites vehicle information of a given constellation.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT, LE_OVERFLOW, LE_BAD_PARAMETER, LE_NO_MEMORY
+*                LE_OUT_OF_RANGE on failed with reason.
+*/
+le_result_t taf_gnss_GetSatellitesInfoEx
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    taf_gnss_Constellation_t constellation,
+    taf_gnss_SvInfo_t* LE_NONNULL svInfoPtr,
+    size_t* svInfoLen
+)
+{
+    TAF_ERROR_IF_RET_VAL(positionSampleRef == NULL, LE_BAD_PARAMETER, "Invalid gnss sample reference");
+    TAF_ERROR_IF_RET_VAL(svInfoPtr == NULL, LE_NO_MEMORY, "svInfoPtr is NULL");
+    TAF_ERROR_IF_RET_VAL(*svInfoLen == 0, LE_OUT_OF_RANGE, "svInfoLen is ZERO");
+
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetSatellitesInfoEx(positionSampleRef, constellation, svInfoPtr, svInfoLen);
+}
+
+/**
+* FUNCTION     : SetMinGpsWeek
+* DESCRIPTION  : This function sets the minimum GPS week used by the modem GNSS standard position
+*                engine (SPE) and shall not be called while GNSS SPE is in the middle of a session.
+*                Client needs to assure that there is no active GNSS SPE session prior to issuing
+*                this command. Behavior is not defined if client issues a second request of
+*                SetMinGpsWeek without waiting for the previous SetMinGpsWeek to finish. Additionally
+*                minimum GPS week number shall NEVER be in the future of the current GPS Week.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT, LE_NOT_PERMITTED on failed
+*/
+le_result_t taf_gnss_SetMinGpsWeek
+(
+    uint16_t minGpsWeek
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.SetMinGpsWeek(minGpsWeek);
+}
+
+/**
+* FUNCTION     : GetMinGpsWeek
+* DESCRIPTION  : This function gets the minimum GPS week.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT, LE_NO_MEMORY, LE_NOT_PERMITTED on failed.
+*/
+le_result_t taf_gnss_GetMinGpsWeek
+(
+ uint16_t*  minGpsWeekPtr
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetMinGpsWeek(minGpsWeekPtr);
+}
+
+/**
+* FUNCTION     : GetCapabilities
+* DESCRIPTION  : This function gets the GNSS capability information.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT on failed.
+*/
+le_result_t taf_gnss_GetCapabilities
+(
+ uint64_t*  locCapabilityPtr
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetCapabilities(locCapabilityPtr);
+}
+
+/**
+* FUNCTION     : SetNmeaConfiguration
+* DESCRIPTION  : Sets the NMEA sentences. Without prior invocation to this API, all NMEA
+                 sentences supported in the system will get generated and delivered to
+                 all the clients that register to receive NMEA sentences. The NMEA sentence
+                 type configuration is common across all clients and updating it will affect
+                 all clients. Please note that for the NMEA datum type request to be successful,
+                 the nmea provider configuration in the GPS configuration file should be set to
+                 application processor.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT, LE_BAD_PARAMETER, LE_NOT_PERMITTED on failed
+*/
+
+le_result_t taf_gnss_SetNmeaConfiguration
+(
+    taf_gnss_NmeaBitMask_t nmeaMask,         ///< [IN] Bit mask for enabled NMEA sentences.
+    taf_gnss_GeodeticDatumType_t datumType,  ///< [IN] Specify the datum type to be configured.
+    taf_gnss_LocEngineType_t engineType                      ///< [IN] Specify the Engine type.
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.SetNmeaConfiguration(nmeaMask, datumType, engineType);
 }

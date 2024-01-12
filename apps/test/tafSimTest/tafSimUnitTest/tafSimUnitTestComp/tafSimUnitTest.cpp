@@ -653,7 +653,7 @@ COMPONENT_INIT
 
     taf_sim_SetServerDisconnectHandler(SessionDisconnectHandler, NULL);
 
-    if(simId && pinPtr && lockType && newPinPtr && pukPtr)
+    if(simId && pinPtr && newPinPtr && pukPtr)
     {
         tafSimUnitTest_info(simId);
 

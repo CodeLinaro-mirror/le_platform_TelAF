@@ -1377,8 +1377,7 @@ void taf_VoiceCall::Init(void)
 
     telux::common::ServiceStatus mgrStatus = prom.get_future().get();
     if (mgrStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE) {
-        LE_INFO("Cannot initialize all manager, ret: %d", (int)mgrStatus);
-        return;
+        LE_FATAL("Cannot initialize all manager, ret: %d", (int)mgrStatus);
     }
 
     // TelAF side initializations
@@ -1419,7 +1418,7 @@ void taf_VoiceCall::Init(void)
     Status ret = CallMgr->registerListener(CallLsn);
     if(ret!= Status::SUCCESS)
     {
-        LE_CRIT("Cannot register Listern for call event!\n");
+        LE_FATAL("Cannot register Listern for call event!\n");
     }
 
     CallCb = std::make_shared<tafDialCallback>();

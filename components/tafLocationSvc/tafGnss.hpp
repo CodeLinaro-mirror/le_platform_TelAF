@@ -96,17 +96,6 @@ namespace tafsvc {
     }
     taf_gnss_SvMeas_t;
 
-    typedef struct {
-        taf_gnss_Constellation_t satConst;
-        bool      satUsed;
-        bool      satTracked;
-        uint8_t   satSnr;
-        uint8_t   satElev;
-        uint16_t  satId;
-        uint16_t  satAzim;
-    }
-    taf_gnss_SvInfo_t;
-
     typedef struct taf_gnss_PositionSample
     {
         taf_gnss_FixState_t fixState;
@@ -251,6 +240,19 @@ namespace tafsvc {
 
     typedef struct
     {
+        taf_gnss_LocCapabilityType_t locCapability;
+    }
+    CapabilityChangeEvent_t;
+
+    typedef struct
+    {
+        uint64_t timestamp;
+        char nmeaMask[TAF_GNSS_NMEA_STRING_MAX];
+    }
+    NmeaInfoEvent_t;
+
+    typedef struct
+    {
         taf_gnss_SampleRef_t             positionSampleRef;
         taf_gnss_PositionSample_t*       positionSampleNodePtr;
         le_msg_SessionRef_t             sessionRef;
@@ -279,8 +281,6 @@ namespace tafsvc {
                     telux::common::ErrorCode error);
 
             void onGetYearOfHwInfo(uint16_t yearOfHw, telux::common::ErrorCode error);
-
-            void onMinGpsWeekInfo(uint16_t minGpsWeek, telux::common::ErrorCode error);
 
             void onMinSVElevationInfo(uint8_t minSVElevation, telux::common::ErrorCode error);
 
@@ -313,6 +313,8 @@ namespace tafsvc {
 
             void onLocationSystemInfo(const telux::loc::LocationSystemInfo &locationSystemInfo) override;
 
+            void onCapabilitiesInfo(const telux::loc::LocCapability capabilityInfo) override;
+
             ~tafLocationListener() {};
     };
 
@@ -342,6 +344,15 @@ namespace tafsvc {
             taf_gnss_PositionHandlerRef_t AddPositionHandler(
                     taf_gnss_PositionHandlerFunc_t handlerPtr, void* contextPtr);
             void RemovePositionHandler(taf_gnss_PositionHandlerRef_t handlerRef);
+
+            taf_gnss_CapabilityChangeHandlerRef_t AddCapabilityHandler(
+                    taf_gnss_CapabilityChangeHandlerFunc_t handlerPtr, void* contextPtr);
+            static void FirstLayerCapabilityHandler(void* reportPtr, void* secondLayerHandlerFunc);
+            void RemoveCapabilityHandler(taf_gnss_CapabilityChangeHandlerRef_t handlerRef);
+            taf_gnss_NmeaHandlerRef_t AddNmeaHandler(taf_gnss_NmeaHandlerFunc_t handlerPtr, void* contextPtr);
+            void RemoveNmeaHandler(taf_gnss_NmeaHandlerRef_t handlerRef);
+            static void FirstLayerNmeaHandler(void* reportPtr, void* secondLayerHandlerFunc);
+
             taf_gnss_SampleRef_t GetLastSampleRef(void);
             void ReleaseClientRef( void* RefPtr);
             static void CloseEventHandler(le_msg_SessionRef_t sessionRef, void* contextPtr);
@@ -447,10 +458,17 @@ namespace tafsvc {
             le_result_t GetReportStatus(taf_gnss_SampleRef_t positionSampleRef, int32_t* reportStatusPtr);
             le_result_t GetAltitudeMeanSeaLevel(taf_gnss_SampleRef_t positionSampleRef, double* altMeanSeaLevelPtr);
             le_result_t GetSVIds(taf_gnss_SampleRef_t positionSampleRef, uint16_t* sVIdsPtr, size_t* sVIdsLen);
+            le_result_t GetSatellitesInfoEx(taf_gnss_SampleRef_t positionSampleRef, taf_gnss_Constellation_t constellation, taf_gnss_SvInfo_t* svInfoPtr, size_t* svInfoLen);
+            le_result_t SetMinGpsWeek(uint16_t minGpsWeek);
+            le_result_t GetMinGpsWeek(uint16_t* minGpsWeekPtr);
+            le_result_t GetCapabilities(uint64_t* locCapabilityPtr);
+            le_result_t SetNmeaConfiguration(taf_gnss_NmeaBitMask_t nmeaMask, taf_gnss_GeodeticDatumType_t datumType, taf_gnss_LocEngineType_t engineType);
             le_mem_PoolRef_t   PositionHandlerPoolRef;
             le_mem_PoolRef_t   PositionSampleRequestPoolRef;
             le_event_Id_t positionEventId;
             le_mem_PoolRef_t   PositionSamplePoolRef;
+            le_event_Id_t locCapabilityEventId;
+            le_event_Id_t nmeaEventId;
             taf_gnss_PositionSample_t   LastPositionSample;
             taf_gnss_PositionSample_t mSatParams;
             std::chrono::time_point<std::chrono::system_clock> mStartTime;
@@ -466,6 +484,8 @@ namespace tafsvc {
             le_mutex_Ref_t mGnssMutexRef = NULL;
             uint32_t mTtffPtr;
             int32_t NumOfPositionHandlers;
+            int32_t NumOfCapabilityHandlers;
+            int32_t NumOfNmeaHandlers;
             uint8_t mLeapSeconds = 0;
             std::vector<float> mVerticalSpeed;
             std::vector<float> mVerticalSpeedAccuracy;

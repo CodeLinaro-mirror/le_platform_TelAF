@@ -365,7 +365,7 @@ static DeviceDriver_t* FindDrv
 }
 
 // Used in QueueFunction to close driver
-static void SafeDlcoseDrv
+static void SafeCloseDrv
 (
     void* param1,
     void* param2
@@ -374,7 +374,7 @@ static void SafeDlcoseDrv
     // the fisrt parameter is the DeviceDriver_t
     // 2nd parameter, need free or not
 
-    bool needToFree = *((bool*)param2);
+    bool needToFree = (bool)param2;
 
     if(param1 == nullptr)
     {
@@ -450,8 +450,7 @@ le_result_t OpenDrvToGetInfo
         snprintf(respPtr, DEV_MANAGER_MAX_RESP_MSG_BYTES, "***ERROR: Failed to load the driver");
 
         //remove the driver
-        bool freePtr = true;
-        le_event_QueueFunction(SafeDlcoseDrv, *drvPtr, (void*)(&freePtr));
+        le_event_QueueFunction(SafeCloseDrv, *drvPtr, (void*)true);
         unlink(drvFile);
         return LE_FAULT;
     }
@@ -478,8 +477,7 @@ le_result_t OpenDrvToGetInfo
         snprintf(respPtr, DEV_MANAGER_MAX_RESP_MSG_BYTES, "***ERROR: Not a vaild telaf driver");
 
         //remove the driver
-        bool freePtr = true;
-        le_event_QueueFunction(SafeDlcoseDrv, *drvPtr, (void*)(&freePtr));
+        le_event_QueueFunction(SafeCloseDrv, *drvPtr, (void*)true);
         unlink(drvFile);
         return LE_FAULT;
     }
@@ -1009,16 +1007,14 @@ void ToolMsgReceiveHandler
                     drvName = nullptr;
 
                     // we can not close the handle immediately, do not relase
-                    bool freePtr = false;
-                    le_event_QueueFunction(SafeDlcoseDrv, drvPtr, (void*)(&freePtr));
+                    le_event_QueueFunction(SafeCloseDrv, drvPtr, (void*)false);
 
                     LE_INFO("Successfully close the handle");
                 }
                 else
                 {
                     LE_INFO("Fail to install the driver");
-                    bool freePtr = true;
-                    le_event_QueueFunction(SafeDlcoseDrv, drvPtr, (void*)(&freePtr));
+                    le_event_QueueFunction(SafeCloseDrv, drvPtr, (void*)true);
                 }
 
                 break;
@@ -1101,8 +1097,7 @@ void ToolMsgReceiveHandler
 
                     // close it and return
                     tempDrvPtr->drvHandle = drvHandle;
-                    bool freePtr = true;
-                    le_event_QueueFunction(SafeDlcoseDrv, tempDrvPtr, (void*)(&freePtr));
+                    le_event_QueueFunction(SafeCloseDrv, tempDrvPtr, (void*)true);
 
                     break;
                 }
@@ -1124,8 +1119,7 @@ void ToolMsgReceiveHandler
                         SendToDrvTool(ipcSessionRef, respPtr);
 
                         // close it and keep this node in the list
-                        bool freePtr = false;
-                        le_event_QueueFunction(SafeDlcoseDrv, drvPtr, (void*)(&freePtr));
+                        le_event_QueueFunction(SafeCloseDrv, drvPtr, (void*)false);
 
                         break;
                     }
@@ -1141,9 +1135,9 @@ void ToolMsgReceiveHandler
 
                     snprintf(respPtr, sizeof(respPtr), "Telaf HAL Module was removed successfully");
                     SendToDrvTool(ipcSessionRef, respPtr);
+
                     // close the handle and release the memory
-                    bool freePtr = true;
-                    le_event_QueueFunction(SafeDlcoseDrv, drvPtr, (void*)(&freePtr));
+                    le_event_QueueFunction(SafeCloseDrv, drvPtr, (void*)true);
                     LE_INFO("Driver %s was uninstalled successfully!", newName);
                 }
                 else // not found
@@ -1159,8 +1153,7 @@ void ToolMsgReceiveHandler
 
                     // close it and return
                     tempDrvPtr->drvHandle = drvHandle;
-                    bool freePtr = true;
-                    le_event_QueueFunction(SafeDlcoseDrv, tempDrvPtr, (void*)(&freePtr));
+                    le_event_QueueFunction(SafeCloseDrv, tempDrvPtr, (void*)true);
                 }
 
                  break;
@@ -1325,7 +1318,7 @@ static void InstallPersistentDrivers()
         DeviceDriver_t* drvPtr = nullptr;
         const char* drvName;
         uint16_t  majorVer, minorVer;
-        bool freePtr = false;
+        bool freeDrv = false;
 
         if (stat(srcStr, &sb) == 0)
         {
@@ -1355,11 +1348,11 @@ static void InstallPersistentDrivers()
         else
         {
             LE_INFO("Fail to install the driver");
-            freePtr = true;
+            freeDrv = true;
         }
 
         // we can not close the handle immediately, do not relase
-        le_event_QueueFunction(SafeDlcoseDrv, drvPtr, (void*)(&freePtr));
+        le_event_QueueFunction(SafeCloseDrv, drvPtr, (void*)freeDrv);
     }
 }
 

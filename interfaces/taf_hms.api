@@ -1,0 +1,52 @@
+/**
+* Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* SPDX-License-Identifier: BSD-3-Clause-Clear
+**/
+//------------------------------------------------------------------------------------------------
+/**
+* @page c_tafhms Health Monitor Service
+*
+* @ref taf_hms_interface.h "API Reference"
+*
+* <HR>
+*
+* Components need access to the TelAF Health Monitor to get information about CPU
+* usage and RAM usage.
+*
+* @section taf_hms_binding IPC interfaces binding
+*
+* The functions of this API are provided by the @b tafHMSSvc application service.
+*/
+
+
+///------------------------------------------------------------------------------------------------
+/**
+* Gets the cpu Idle value from " /proc/stat ".
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t  GetCpuLoad
+(
+    double  cpuCurrentLoad           OUT      ///< CPU Idle percentage.
+);
+
+
+//------------------------------------------------------------------------------------------------
+/**
+* Gets the meminfo value from " /proc/meminfo ".
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t  GetRamMemInfo
+(
+    uint32 ramTotalMem           OUT,      ///< Total Memory in kB.
+    uint32 ramUsedMem            OUT,      ///< Used Memory in kB.
+    uint32 ramFreeMem            OUT      ///< Free memory in kB.
+);
+

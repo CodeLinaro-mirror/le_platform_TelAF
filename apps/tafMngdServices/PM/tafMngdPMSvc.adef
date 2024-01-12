@@ -35,6 +35,7 @@ bindings:
     tafMngdPMSvc.tafMngdPMSvc.taf_gpio -> tafGpioSvc.taf_gpio
     tafMngdPMSvc.tafMngdPMSvc.taf_can -> tafCanSvc.taf_can
     tafMngdPMSvc.tafMngdPMSvc.taf_sms -> tafSMSSvc.taf_sms
+    tafMngdPMSvc.tafMngdPMSvc.le_appInfo -> <root>.le_appInfo
 }
 
 bundles:

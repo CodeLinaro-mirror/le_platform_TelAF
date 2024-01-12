@@ -14,9 +14,39 @@ files_type(telaf_tafMngdConnSvc_data_t);
 
 init_telaf_app_domain(telaf_tafMngdConnSvc_t,telaf_tafMngdConnSvc_exec_t)
 
+
+gen_require(`
+    type etc_t;
+    type home_root_t;
+    type http_port_t;
+    type net_conf_t;
+    type proc_t;
+    type shell_exec_t;
+    type ping_exec_t;
+    type systemd_resolved_var_run_t;
+')
+
 ifdef(`sa525m',`
     allow telaf_tafMngdConnSvc_exec_t telaf_admin_t:lnk_file {read};
 ')
+
+#Allow for running curl and ping for ConnectivityTest in sa525
+allow telaf_tafMngdConnSvc_t etc_t:file { getattr open read };
+allow telaf_tafMngdConnSvc_t etc_t:lnk_file read;
+allow telaf_tafMngdConnSvc_t home_root_t:dir search;
+allow telaf_tafMngdConnSvc_t http_port_t:tcp_socket name_connect;
+allow telaf_tafMngdConnSvc_t net_conf_t:file { getattr open read };
+allow telaf_tafMngdConnSvc_t self:netlink_route_socket { bind create getattr nlmsg_read read write };
+allow telaf_tafMngdConnSvc_t self:tcp_socket { read write connect create getattr getopt setopt };
+allow telaf_tafMngdConnSvc_t self:udp_socket { connect create getattr read setopt write };
+allow telaf_tafMngdConnSvc_t shell_exec_t:file { execute execute_no_trans open read };
+allow telaf_tafMngdConnSvc_t proc_t:file { read open getattr};
+
+#Allow for running curl and ping for ConnectivityTest in sa515
+allow telaf_tafMngdConnSvc_t ping_exec_t:file getattr;
+allow telaf_tafMngdConnSvc_t systemd_resolved_var_run_t:dir search;
+allow telaf_tafMngdConnSvc_t systemd_resolved_var_run_t:file { getattr open read };
+
 
 # Allow update daemon to install/uninstall this service
 telaf_admin_manage_all_files_perms(telaf_tafMngdConnSvc_data_t)

@@ -1,0 +1,19 @@
+#include "$TELAF_ROOT/modules/TelSdk/sa525m.sdef"
+
+apps:
+{
+    $TELAF_ROOT/apps/rpc/rpcTest/helloRpcServer/printServer.adef
+    $TELAF_ROOT/apps/rpc/rpcTest/helloRpcClient/printClient.adef
+}
+
+// The RPC system ID of my system is 0x101, the peer system ID is 0x102
+// So here we shall bind to peer system for RPC test.
+bindings:
+{
+    printClient.rpcClientPrinter -> <telaf>.rpcServer_102_root_printer
+}
+
+interfaceSearch:
+{
+    $TELAF_ROOT/interfaces/someipGW
+}

@@ -448,6 +448,13 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
             printf("TAF_ECALL_STATE_ALACK_RECEIVED_CLEAR_DOWN");
             break;
         }
+        case TAF_ECALL_STATE_MSD_UPDATE_REQ:
+        {
+            printf("TAF_ECALL_STATE_MSD_UPDATE_REQ");
+            taf_ecall_ImportMsd(eCallReference, msdRawData, msdLength);
+            taf_ecall_SendMsd(eCallReference);
+            break;
+        }
         case TAF_ECALL_STATE_ENDED:
         {
             printf("TAF_ECALL_STATE_ENDED\n");
@@ -1075,11 +1082,14 @@ static int startECall()
 
     if (strcmp(eCallType, "AUTO") == 0)
     {
-        taf_ecall_StartAutomatic(ECallRef);
+        taf_ecall_SetMsdEuroNCAPLocationOfImpact(ECallRef, TAF_ECALL_LOI_FRONT);
+        taf_ecall_SetMsdEuroNCAPIIDeltaV(ECallRef, 125, -45, 10);
 
+        taf_ecall_StartAutomatic(ECallRef);
     }
     else if (strcmp(eCallType, "MANUAL") == 0)
     {
+        taf_ecall_ResetMsdAdditionalData(ECallRef);
         taf_ecall_StartManual(ECallRef);
     }
     else if (strcmp(eCallType, "TEST") == 0)

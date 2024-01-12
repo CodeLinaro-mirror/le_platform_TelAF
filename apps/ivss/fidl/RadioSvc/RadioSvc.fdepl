@@ -1,0 +1,66 @@
+/*
+* Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* SPDX-License-Identifier: BSD-3-Clause-Clear
+*/
+
+import "platform:/plugin/org.genivi.commonapi.someip/deployment/CommonAPI-4-SOMEIP_deployment_spec.fdepl"
+import "platform:/plugin/org.genivi.commonapi.core/deployment/CommonAPI_deployment_spec.fdepl"
+import "RadioSvc.fidl"
+import "../common/CommonTypes.fdepl"
+
+define org.genivi.commonapi.core.deployment for interface com.qualcomm.qti.modem.RadioSvc
+{
+    DefaultEnumBackingType = UInt32
+
+    enumeration Rat
+    {
+        EnumBackingType = UInt32
+    }
+}
+
+define org.genivi.commonapi.someip.deployment for interface com.qualcomm.qti.modem.RadioSvc
+{
+    SomeIpServiceID = 0xED80
+
+    enumeration Rat
+    {
+        SomeIpEnumWidth = 4
+    }
+
+    method SetRadioPower
+    {
+        SomeIpMethodID = 30010
+    }
+
+    method GetRadioPower
+    {
+        SomeIpMethodID = 30020
+    }
+
+    method GetSignalStrength
+    {
+        SomeIpMethodID = 30030
+    }
+
+    broadcast SignalStrength
+    {
+        SomeIpEventID = 33020
+        SomeIpEventGroups = { 33020 }
+    }
+
+    broadcast RadioRat
+    {
+        SomeIpEventID = 33030
+        SomeIpEventGroups = { 33030 }
+    }
+}
+
+define org.genivi.commonapi.someip.deployment for provider as Service
+{
+    instance com.qualcomm.qti.modem.RadioSvc
+    {
+        InstanceId = "modem.RadioSvc"
+
+        SomeIpInstanceID = 1
+    }
+}

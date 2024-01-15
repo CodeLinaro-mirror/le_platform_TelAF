@@ -49,6 +49,11 @@ if [ -n "${TELAF_IN_CONTAINER}" ]; then # [Docker-Container-Env]
         echo
     fi
 
+    # Add a hook script for doing some thing every time you login
+    if [ -f $HOME/simulation/.simula.always.sh ]; then
+        source $HOME/simulation/.simula.always.sh
+    fi
+
     if [ -f /tmp/telaf_simulation_up ]; then
         return # multi-user access with ssh-tool ? keep ONLY once init-action.
     fi
@@ -149,6 +154,7 @@ if [ -n "${TELAF_IN_CONTAINER}" ]; then # [Docker-Container-Env]
 
     mkdir -p /data/le_fs
     mkdir -p /data/persist
+    mkdir -p /data/ManagedServices
     chmod 0777 /data/le_fs
 
     MOUNTPOINT_TELAF="/mnt/legato"
@@ -169,11 +175,11 @@ if [ -n "${TELAF_IN_CONTAINER}" ]; then # [Docker-Container-Env]
 
         SDK_ROOTFS=/legato/systems/current/sdk_rootfs
         if [ -d ${SDK_ROOTFS} ]; then
-            cp -ar ${SDK_ROOTFS}/bin/* /bin
-            cp -ar ${SDK_ROOTFS}/lib/* /usr/lib
-            cp -ar ${SDK_ROOTFS}/data/* /data
-            cp -ar ${SDK_ROOTFS}/etc/* /etc
-            telsdk_simulation_server &
+            cp -a -r -d ${SDK_ROOTFS}/* /
+            chmod 0766 /etc/telux/*
+            chmod -R 0777 /data/telux
+            ln -s /bin/telsdk_simulation_server /usr/bin/telsdk_simulation_server
+            supervisord -c /etc/supervisord.conf
         fi
 
         chmod 755 $MOUNTPOINT_TELAF/systems/current/bin/*
@@ -184,6 +190,11 @@ if [ -n "${TELAF_IN_CONTAINER}" ]; then # [Docker-Container-Env]
             if [ "$from_version" != "from 18.04" ] && [ "$from_version" != "from 20.04" ]; then
                 echo "Exist .check_done, but [$from_version], not in [18.04, 20.04], please rebuild your tarball."
                 exit 1
+            fi
+
+            # Script that is only used for initialization once
+            if [ -f $HOME/simulation/.simula.once.sh ]; then
+                source $HOME/simulation/.simula.once.sh
             fi
 
             # here we go, happy to simulate

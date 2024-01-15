@@ -10,6 +10,9 @@ workstation/*.update
 workstation/sdk_rootfs
 workstation/.slavex
 workstation/.simula.*
+!workstation/.simula.always.sh
+!workstation/.simula.once.sh
+.simulation.build
 workstation/.ssh
 *.log
 

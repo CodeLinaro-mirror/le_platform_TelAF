@@ -1,0 +1,7 @@
+start: manual
+sandboxed: false
+
+executables:
+{
+    tafmodule = ($TELAF_ROOT/apps/tools/tafmodule)
+}

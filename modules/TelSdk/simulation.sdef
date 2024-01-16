@@ -11,6 +11,8 @@ apps:
 
     $TELAF_ROOT/simulation/pa/taf_pa_simula_pm/tafPMSvc
 
+    $TELAF_ROOT/simulation/bypass/telaf/tafmodule
+
 #if ${TELAF_SIMULATION_ENABLE_SOMEIP_GW} = y
     $TELAF_ROOT/apps/tafServices/tafSomeipGWSvc
     $TELAF_ROOT/apps/test/tafSomeipGWTest/tafSomeipClntUnitTest/tafSomeipClntUnitTest
@@ -52,6 +54,15 @@ commands:
 #if ${TELAF_SIMULATION_ENABLE_LOC} = y
     gnss = gnssTool:/bin/gnss
 #endif
+
+    tafmodule = tafmodule:/bin/tafmodule
+}
+
+bindings:
+{
+    <telaf>.DeviceManager -> <root>.DeviceManager
+    <root>.DeviceManagerTool -> <root>.DeviceManagerTool
+    <telaf>.sdirTool -> <root>.sdirTool
 }
 
 interfaceSearch:
@@ -59,6 +70,7 @@ interfaceSearch:
     $TELAF_ROOT/interfaces
     $TELAF_ROOT/interfaces/tafVNW
     $LEGATO_ROOT/apps/sample/helloIpc
+    $TELAF_ROOT/interfaces/someipGW
 }
 
 cflags:

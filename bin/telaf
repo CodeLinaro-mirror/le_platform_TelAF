@@ -76,7 +76,7 @@ StartTelaf()
     fi
 
     echo "Starting TelAF..."
-    if [ -v ON_TELAF_SIMULATION_DOCKER ]; then
+    if [ -n "${TELAF_IN_CONTAINER}" ]; then
         # For current simulation docker image that didn't use systemd
         /mnt/legato/start
     else

@@ -11,6 +11,7 @@
 #include <telux/tel/MultiSimManager.hpp>
 #include <telux/common/CommonDefines.hpp>
 
+#include "common/AsyncTaskQueue.hpp"
 #include "common/ListenerManager.hpp"
 
 #define INVALID_SLOT_COUNT -1

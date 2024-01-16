@@ -6,27 +6,25 @@
 
 apps:
 {
-    // Platform services.
-
-    // test apps
-
     // Sample Applications
     $LEGATO_ROOT/apps/sample/helloWorld/helloWorld.adef
 
-}
+    // Platform Services
+    $TELAF_ROOT/apps/tafServices/tafSomeipGWSvc
 
-commands:
-{
+    // RPC proxy
+    $TELAF_ROOT/apps/rpc/rpcProxy/tafRpcProxy
 }
 
 bindings:
 {
-
+    <telaf>.sdirTool -> <root>.sdirTool
 }
 
 interfaceSearch:
 {
     $TELAF_ROOT/interfaces
+    $TELAF_ROOT/interfaces/someipGW
 }
 
 cflags:

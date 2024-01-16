@@ -6,6 +6,8 @@ TARGETS += simulation menuconfig_simulation
 
 Q?=@
 
+-include $(TELAF_ROOT)/simulation/.simulation.build
+
 # If you want make a compilation in your docker container, get along with below.
 export within ?=
 
@@ -474,3 +476,6 @@ simula-clean-system:
 
 simula-rm-network:
 	@docker network rm $$(docker network ls -q --filter="name=telaf_simulation_runtime") > /dev/null
+
+simula-build-config simula-bc:
+	@cat $(TELAF_ROOT)/simulation/.simulation.build

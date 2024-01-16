@@ -47,6 +47,8 @@ ENV PATH=/venv/bin:$PATH
 RUN python3.8 -m pip install doipclient
 RUN python3.8 -m pip install udsoncan
 RUN python3.8 -m pip install pyyaml
+RUN python3.8 -m pip install supervisor
+RUN python3.8 -m pip install supervisor-stdout
 
 # Make root password to: [simula]
 RUN echo 'root:simula' | chpasswd
@@ -54,8 +56,8 @@ RUN echo 'root:simula' | chpasswd
 WORKDIR /root
 
 # Distinguish between container and host
-ENV ON_TELAF_SIMULATION_DOCKER=yes
-RUN echo "ON_TELAF_SIMULATION_DOCKER=yes" >> ~/.bashrc
+ENV TELAF_IN_CONTAINER=yes
+RUN echo "TELAF_IN_CONTAINER=yes" >> ~/.bashrc
 
 # Injects the script of simulation
 RUN echo 'if [ "`id -u`" -eq 0 ]; then PS1="[TelAF Simulation] \\u:\\w # "; else PS1="[TelAF Simulation] \\u:\\w $ "; fi' >> ~/.bashrc

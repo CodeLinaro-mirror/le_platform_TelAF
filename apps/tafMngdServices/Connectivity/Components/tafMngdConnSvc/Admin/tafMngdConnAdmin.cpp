@@ -589,7 +589,8 @@ le_result_t tafMngdConnAdmin::EventStartData(uint8_t dataId)
         LE_ERROR("Json is needed");
         return LE_FAULT;
     }
-
+    std::string state = StateToString(connCtxPtr->state);
+    LE_DEBUG("State is %s", state.c_str());
     //Do action according to the current state.
     switch(connCtxPtr->state)
     {
@@ -633,11 +634,13 @@ le_result_t tafMngdConnAdmin::EventStartData(uint8_t dataId)
             break;
 
         case TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE:
-            LE_INFO("Already active");
+        case TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE:
+            LE_INFO("Already connected");
             return LE_DUPLICATE;
             break;
 
         default:
+            LE_INFO("Default case. Returning LE_FAULT from here. State is %s", state.c_str());
             return LE_FAULT;
     }
 

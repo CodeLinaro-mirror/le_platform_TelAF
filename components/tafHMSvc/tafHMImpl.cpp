@@ -18,6 +18,7 @@
 #include <string>
 
 
+using namespace std;
 using namespace telux::tafsvc;
 
 
@@ -32,7 +33,7 @@ taf_Hms &taf_Hms::GetInstance()
 
 //--------------------------------------------------------------------------------------------------
 /**
- ** Gets the cpu Idle value from " /proc/stat ".
+ ** Gets the total cpu usage from " /proc/stat ".
  **
  ** @return
  ** - LE_FAULT         Failed.
@@ -69,10 +70,157 @@ le_result_t taf_Hms::GetCpuLoad
     // Calculate CPU idle time as a percentage
     uint32_t total = user + nice + system + idle;
     double idle_percentage = ((double)idle / total) * 100;
+    double currentCPULoad = 100.0 - idle_percentage;
 
-    *cpuCurrentLoadPtr = idle_percentage;
-    LE_INFO("CPU Idle Percentage: %.2f%%\n", idle_percentage);
+    *cpuCurrentLoadPtr = currentCPULoad;
+    LE_INFO("Current CPU Load: %.2f%%\n", currentCPULoad);
     return LE_OK;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ ** Gets number of CPU core from " /proc/cpuinfo ".
+ **
+ ** @return
+ ** - LE_FAULT         Failed.
+ ** - LE_OK            Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+uint32_t taf_Hms::GetCpuCoreNum
+(
+    void
+)
+{
+    FILE *fp;
+    char line[256];
+    int core_count = 0;
+
+    // Open /proc/cpuinfo file
+    fp = fopen("/proc/cpuinfo", "r");
+    if (fp == NULL) {
+        LE_ERROR("Error opening /proc/cpuinfo");
+        return LE_FAULT;
+    }
+
+    // Read line by line and count the number of cores
+    while (fgets(line, sizeof(line), fp)) {
+        if (strncmp(line, "processor", 9) == 0) {
+            core_count++;
+        }
+    }
+
+    fclose(fp);
+
+    // Print the total number of CPU cores
+    LE_INFO("Total CPU cores: %d\n", core_count);
+    return core_count;
+}
+
+
+// Function to calculate total CPU usage for a core
+double calculate_core_cpu_usage(struct CPUCore core)
+{
+    uint32_t total_non_idle = core.user + core.nice + core.system +
+                         core.irq + core.softirq + core.steal + core.guest;
+    uint32_t total_time = total_non_idle + core.idle;
+    return ((double)total_non_idle / total_time) * 100.0;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ ** Gets the CPU usage of each core from " /proc/stat ".
+ **
+ ** @return
+ ** - LE_FAULT         Failed.
+ ** - LE_OK            Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_Hms::GetIndvCoreUsage
+(
+    uint32_t coreID,
+        ///< [IN] Core ID
+    double* cpuUsagePtr
+        ///< [OUT] cpuUsage
+)
+{
+    FILE* fp;
+    char buffer[1024];
+    uint32_t cpu_count = 0;
+    struct CPUCore cpu_usage[MAX_CORES];
+
+    fp = fopen("/proc/stat", "r");
+    if (fp == NULL) {
+        LE_ERROR("Error opening /proc/stat");
+        return LE_FAULT;
+    }
+
+    // Read /proc/stat line by line
+    while (fgets(buffer, sizeof(buffer), fp))
+    {
+        if (strncmp(buffer, "cpu", 3) == 0)
+        {
+            uint32_t current_core_id;
+            sscanf(buffer, "cpu%d", &current_core_id);
+            if (current_core_id == coreID)
+            {
+                // Parse the buffer manually to extract CPU usage fields
+                char *ptr = buffer;
+                while (*ptr != '\0')
+                {
+                    if (strncmp(ptr, " ", 1) == 0)
+                    {
+                        uint32_t value;
+                        if (sscanf(ptr, " %d", &value) == 1)
+                        {
+                            switch(cpu_count)
+                            {
+                                case 0:
+                                    cpu_usage[coreID].user = value;
+                                    break;
+                                case 1:
+                                    cpu_usage[coreID].nice = value;
+                                    break;
+                                case 2:
+                                    cpu_usage[coreID].system = value;
+                                    break;
+                                case 3:
+                                    cpu_usage[coreID].idle = value;
+                                    break;
+                                case 4:
+                                    cpu_usage[coreID].iowait = value;
+                                    break;
+                                case 5:
+                                    cpu_usage[coreID].irq = value;
+                                    break;
+                                case 6:
+                                    cpu_usage[coreID].softirq = value;
+                                    break;
+                                case 7:
+                                    cpu_usage[coreID].steal = value;
+                                    break;
+                                case 8:
+                                    cpu_usage[coreID].guest = value;
+                                    break;
+                                default:
+                                    break;
+                            }
+                            cpu_count++;
+                            if (cpu_count == MAX_FIELDS) break;
+                        }
+                    }
+                    ptr++;
+                }
+                fclose(fp);
+                *cpuUsagePtr = calculate_core_cpu_usage(cpu_usage[coreID]);
+                return LE_OK;
+            }
+        }
+    }
+
+    // Core ID not found
+    LE_ERROR("Error: Core ID %d not found\n", coreID);
+    return LE_FAULT;
 }
 
 
@@ -129,6 +277,7 @@ le_result_t taf_Hms::GetRamMemInfo
     LE_INFO("Free Memory: %d kB\n", free_mem);
     return LE_OK;
 }
+
 
 
 void taf_Hms::Init()

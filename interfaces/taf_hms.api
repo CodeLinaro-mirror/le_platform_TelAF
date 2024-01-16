@@ -16,12 +16,74 @@
 * @section taf_hms_binding IPC interfaces binding
 *
 * The functions of this API are provided by the @b tafHMSSvc application service.
+*
+* The following example illustrates how to bind to TelAF Health Monitor services.
+*
+* @verbatim
+  bindings:
+  {
+      clientExe.clientComponent.taf_hms -> tafHMSvc.taf_hms
+  }
+  @endverbatim
+*
+* @section taf_hms_GetCpuLoad Get the total CPU usage
+* The API of taf_hms_GetCpuLoad() provides the current total CPU usage in percentage.
+* @verbatim
+  le_result_t result;
+  double cpuLoadValue;
+  result = taf_hms_GetCpuLoad(&cpuLoadValue);
+  if(result == LE_OK)
+  {
+      LE_INFO("CPU Load Idle Percentage: %.2f%%\n",cpuLoadValue);
+  }
+  else
+  {
+      LE_INFO("Failed ! to get CPU Load information");
+  }
+  @endverbatim
+*
+* @section taf_hms_GetCpuCoreNum Get the total number of CPU core
+* The API of taf_hms_GetCpuCoreNum() provides the total number of CPU core.
+* @verbatim
+  uint32_t cpuCoreNum = taf_hms_GetCpuCoreNum(&cpuCoreNum);
+  @endverbatim
+*
+* @section taf_hms_GetIndvCoreUsage Get the individual CPU core usage
+* The API of taf_hms_GetIndvCoreUsage() provides the total CPU usage of individual core.
+* @verbatim
+  le_result_t result;
+  uint32_t core_id = 0;
+  result = taf_hms_GetIndvCoreUsage(core_id, &cpuUsage);
+  if (result == LE_OK)
+  {
+    LE_INFO("CPU Usage for core %d %d\n", core_id, cpuUsage);
+  }
+  @endverbatim
+*
+* @section taf_hms_GetRamMemInfo Get the memory information
+* The API of taf_hms_GetRamMemInfo() provides the current RAM in total, used and free memory information.
+* @verbatim
+  le_result_t result;
+  uint32_t ramTotalMem, ramUsedMem, ramFreeMem;
+  result = taf_hms_GetRamMemInfo( &ramTotalMem, &ramUsedMem, &ramFreeMem);
+  if(result == LE_OK)
+  {
+      LE_INFO(" Total Memory: %d kB\n", ramTotalMem);
+      LE_INFO(" Used Memory: %d kB\n", ramUsedMem);
+      LE_INFO(" Free Memory: %d kB\n", ramFreeMem);
+  }
+  else
+  {
+      LE_INFO("Failed ! to get RAM information");
+  }
+  @endverbatim
+*
 */
 
 
 ///------------------------------------------------------------------------------------------------
 /**
-* Gets the cpu Idle value from " /proc/stat ".
+* Gets the total CPU usage from " /proc/stat ".
 *
 * @return
 * - LE_FAULT         Failed.
@@ -30,7 +92,38 @@
 //------------------------------------------------------------------------------------------------
 FUNCTION le_result_t  GetCpuLoad
 (
-    double  cpuCurrentLoad           OUT      ///< CPU Idle percentage.
+    double  cpuCurrentLoad           OUT      ///< CPU Total Usage.
+);
+
+
+///------------------------------------------------------------------------------------------------
+/**
+* Gets number of CPU core from " /proc/cpuinfo ".
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION uint32 GetCpuCoreNum
+(
+);
+
+
+///------------------------------------------------------------------------------------------------
+/**
+* Gets the CPU usage of each core from " /proc/stat ".
+* The API provides total CPU usage of each core ranging from 0 to 100 %.
+* The coreID range can be 0 - (cpuCoreNum-1), the result value can be LE_OK.
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetIndvCoreUsage
+(
+    uint32  coreID       IN,    ///< Core ID
+    double  cpuUsage     OUT    ///< cpuUsage
 );
 
 
@@ -49,4 +142,3 @@ FUNCTION le_result_t  GetRamMemInfo
     uint32 ramUsedMem            OUT,      ///< Used Memory in kB.
     uint32 ramFreeMem            OUT      ///< Free memory in kB.
 );
-

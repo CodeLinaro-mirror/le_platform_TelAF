@@ -22,6 +22,10 @@ static const char *lxcContainerPathStr = "/tmp/container";
 static const char *lxcConfFileStr = "/etc/lxc/lxc_telaf.conf";
 static const char *lxcHostIPStr = "192.168.2.200";
 static const char *lxcLogPathStr = "/tmp/container_log";
+#define TELAF_LXC_RW_DATA    "/data/lxc_rw/data"
+#define TELAF_LXC_RW_APP     "/data/lxc_rw/app"
+#define TELAF_LXC_RW_PERSIST "/data/lxc_rw/persist"
+#define TELAF_LXC_RW_TMP     "/data/lxc_rw/tmp"
 
 static void PrintUsage(void)
 {
@@ -72,6 +76,18 @@ static int lxcTestCreateContainer()
 
     result = lxcCreateDir(lxcLogPathStr);
     LE_TEST_ASSERT((result == LE_OK), "Create Container Log Folder - LE_OK");
+
+    result = lxcCreateDir(TELAF_LXC_RW_DATA);
+    LE_TEST_ASSERT((result == LE_OK), "Create PVM mount point data in /data/lxc_rw");
+
+    result = lxcCreateDir(TELAF_LXC_RW_APP);
+    LE_TEST_ASSERT((result == LE_OK), "Create PVM mount point app in /data/lxc_rw");
+
+    result = lxcCreateDir(TELAF_LXC_RW_PERSIST);
+    LE_TEST_ASSERT((result == LE_OK), "Create PVM mount point persist in /data/lxc_rw");
+
+    result = lxcCreateDir(TELAF_LXC_RW_TMP);
+    LE_TEST_ASSERT((result == LE_OK), "Create PVM mount point tmp in /data/lxc_rw");
 
     if (2 == le_arg_NumArgs())
     {

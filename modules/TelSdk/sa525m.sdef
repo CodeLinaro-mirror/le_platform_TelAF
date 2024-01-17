@@ -109,6 +109,7 @@ bindings:
 interfaceSearch:
 {
     $TELAF_ROOT/interfaces
+    $TELAF_ROOT/interfaces/someipGW
     $TELAF_ROOT/interfaces/tafVNW
     $TELAF_ROOT/apps/tafMngdServices/interfaces
     interfaces/positioning

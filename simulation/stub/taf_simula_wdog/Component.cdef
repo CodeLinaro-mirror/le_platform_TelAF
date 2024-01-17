@@ -1,6 +1,6 @@
 sources :
 {
-    taf_pa_simula_wdog.c
+    taf_simula_wdog.c
 }
 
 cflags:

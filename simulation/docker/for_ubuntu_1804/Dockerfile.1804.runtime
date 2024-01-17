@@ -12,7 +12,6 @@ RUN apt-get -y --no-install-recommends install ca-certificates
 RUN update-ca-certificates
 RUN apt-get -y --no-install-recommends install curl
 RUN apt-get -y --no-install-recommends install build-essential
-RUN apt-get -y --no-install-recommends install libssl-dev
 RUN apt-get -y --no-install-recommends install coreutils
 RUN apt-get -y --no-install-recommends install psmisc
 RUN apt-get -y --no-install-recommends install policycoreutils

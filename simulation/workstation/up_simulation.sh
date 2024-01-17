@@ -166,19 +166,31 @@ if [ -n "${TELAF_IN_CONTAINER}" ]; then # [Docker-Container-Env]
     if [ -f $SML_RO_TARBALL ]; then
 
         # extract the tarball to /mnt/legato without the 'install/' directory
-        tar zxf $SML_RO_TARBALL --no-same-owner --overwrite -C $MOUNTPOINT_TELAF --exclude up_simulation.sh --exclude install
+        tar zxf $SML_RO_TARBALL --no-same-owner --overwrite -C $MOUNTPOINT_TELAF --exclude up_simulation.sh
 
-        if tar tzvf $SML_RO_TARBALL | grep 'install/.keep' > /dev/null 2>&1 ; then
-            # extract the 'install/' directory to /usr/lib only, cut down 3-level parent-dirs
-            tar zxf $SML_RO_TARBALL --no-same-owner --overwrite --strip-components=3 -C /usr/lib/ install
+        if tar tzvf $SML_RO_TARBALL | grep 'taf_rootfs/.keep' > /dev/null 2>&1 ; then
+            # extract the 'taf_rootfs/' directory to /usr/lib only, cut down 2-level parent-dirs
+            tar zxf $SML_RO_TARBALL --no-same-owner --overwrite --strip-components=2 -C /usr/lib taf_rootfs
+        else
+            echo "[taf_rootfs/.keep] isn't in [$SML_RO_TARBALL], please check it first, stop simulation."
+            exit 1
         fi
 
         SDK_ROOTFS=/legato/systems/current/sdk_rootfs
         if [ -d ${SDK_ROOTFS} ]; then
-            cp -a -r -d ${SDK_ROOTFS}/* /
+            # Follow SDK Dockerfile configuration
+            cp -a -r -d ${SDK_ROOTFS}/bin/* /usr/bin/
+            cp -a -r -d ${SDK_ROOTFS}/lib/* /usr/lib/
+            cp -a -r -d ${SDK_ROOTFS}/include/* /usr/include/
+            cp -a -r -d ${SDK_ROOTFS}/share/* /usr/share/
+            cp -a -r -d ${SDK_ROOTFS}/etc/* /etc/
+            cp -a -r -d ${SDK_ROOTFS}/data/* /data/
+
+            # Change the dirs' mode for others access
             chmod 0766 /etc/telux/*
             chmod -R 0777 /data/telux
-            ln -s /bin/telsdk_simulation_server /usr/bin/telsdk_simulation_server
+
+            # Use supervisord to start and monitor telsdk_simulation_server
             supervisord -c /etc/supervisord.conf
         fi
 

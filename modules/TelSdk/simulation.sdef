@@ -9,7 +9,7 @@ apps:
     $LEGATO_ROOT/apps/sample/helloIpc/printClient
     $LEGATO_ROOT/apps/sample/helloIpc/printServer
 
-    $TELAF_ROOT/simulation/pa/taf_pa_simula_pm/tafPMSvc
+    $TELAF_ROOT/simulation/stub/taf_simula_pm/tafPMSvc
 
     $TELAF_ROOT/simulation/bypass/telaf/tafmodule
 

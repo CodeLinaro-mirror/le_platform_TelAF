@@ -10,6 +10,51 @@ export SIMULATION_DEPS_ROOTFS := $(SIMULATION_HOME)/deps/taf_rootfs
 # Required extend tools to be installed in dev HOST
 export SIMULATION_HOST_XTOOLS := $(SIMULATION_HOME)/deps/host_xtools
 
+# This file with a valid format of xx.xx or empty are used to check compatibility
+deps_origin=$(SIMULATION_HOME)/deps/.deps.origin
+
+precheck_deps := \
+  if [ -e "$(deps_origin)" ]; then \
+    ORIG_VERSION=$$(cat $(deps_origin)) ; \
+    if echo "$$ORIG_VERSION" | grep -qE '^[0-9][0-9]\.[0-9][0-9]$$'; then \
+      if [ "$(OS_VERSION)" = "$$ORIG_VERSION" ]; then \
+        echo "Prechecking dependencies is consistent [OK]" ; \
+      else \
+        echo ; \
+        echo "Prechecking dependencies is [NOK]" ; \
+        echo "Origin from: $$ORIG_VERSION" ; \
+        echo "Current ver: $(OS_VERSION)" ; \
+        echo ; \
+        echo "Ignore this warning ..." ; \
+		echo "If you want to be consistent, delete [$(deps_origin)]" and rebuild all; \
+        echo ; \
+      fi ; \
+    else \
+      echo "Invalid context in [$(deps_origin)], continue ... " ; \
+    fi ; \
+  else \
+    echo "Not found file [$(deps_origin)]" ; \
+	echo "Touch it and clean all 3rd party deps, rebuilding all dpes ... " ; \
+    touch $(deps_origin) && rm -rf $(SIMULATION_DEPS_ROOTFS)/* $(SIMULATION_HOST_XTOOLS)/* ; \
+  fi
+
+mark_deps_origin := \
+  if ! [ -s "$(deps_origin)" ]; then \
+    echo -n "$(OS_VERSION)" > $(deps_origin) ; \
+    echo "Mark 3rd party dependencies from [$(OS_VERSION)]" ; \
+  fi
+
+# All pre actions for handling dependencies.
+# Check the existed 3rd party dependencies if fulfill current system
+_pre_deps:
+	$Q $(precheck_deps)
+
+# All post actions for handling dependencies.
+# Mark the 3rd party dependencies that are from which ubuntu distro version
+# to be used by the precondition checking steps
+_post_deps:
+	$Q $(mark_deps_origin)
+
 # -- The steps for all dependencies --
 #-> [clean]    1. Clean original compression files and directories (every time)
 #-> [download] 2. Download & extract the compression files
@@ -120,16 +165,85 @@ vsomeip_: _cmake _boost
 #-> 3. [compile]
 	$Q cd $(SIMULATION_DEPS_SOURCE)/$@ \
 	  && echo "[$@] configure firstly" \
-	  && mkdir -p build && cd build \
-	  && $(SIMULATION_HOST_XTOOLS)/bin/cmake \
-	    -DBoost_INCLUDE_DIR=$(SIMULATION_DEPS_ROOTFS)/include \
-	    -DBoost_LIBRARY_DIR=$(SIMULATION_DEPS_ROOTFS)/lib \
-	    -DENABLE_SIGNAL_HANDLING=1 \
-	    -DCMAKE_INSTALL_PREFIX=$(SIMULATION_DEPS_ROOTFS) .. > ./__config.log 2>&1 \
-	    && echo "[$@] compiling ..." \
+	    && mkdir -p build && cd build \
+	    && $(SIMULATION_HOST_XTOOLS)/bin/cmake \
+	      -DBoost_INCLUDE_DIR=$(SIMULATION_DEPS_ROOTFS)/include \
+	      -DBoost_LIBRARY_DIR=$(SIMULATION_DEPS_ROOTFS)/lib \
+	      -DENABLE_SIGNAL_HANDLING=1 \
+	      -DCMAKE_INSTALL_PREFIX=$(SIMULATION_DEPS_ROOTFS) .. > ./__config.log 2>&1 \
+	  && echo "[$@] compiling ..." \
 	    && make > ./__build.log 2>&1
 #-> 4. [install]
 	$Q cd $(SIMULATION_DEPS_SOURCE)/$@/build \
 	  && echo "[$@] installing ..." \
-	  && make install > ./__install.log 2>&1
+	    && make install > ./__install.log 2>&1
+	$Q echo "[$@] Done"
+
+
+.PHONE: openssl
+
+OPENSSL_URL?=https://github.com/openssl/openssl.git
+OPENSSL_VERSION=openssl-3.0.9
+
+_openssl: $(SIMULATION_DEPS_ROOTFS)/include/openssl/opensslconf.h
+	$Q echo "[$@] Already preparation"
+
+$(SIMULATION_DEPS_ROOTFS)/include/openssl/opensslconf.h:
+	$Q $(MAKE) --no-print-directory simula-openssl
+
+simula-openssl: openssl_
+openssl_:
+#-> 1. [clean]
+	$Q echo "[$@] cleaning compression and directories" \
+	  && rm -rf $(SIMULATION_DEPS_SOURCE)/$@
+#-> 2. [download]
+	$Q echo "[$@] downloading from [$(OPENSSL_URL)]" \
+	  && git clone -q --depth 1 --branch ${OPENSSL_VERSION} --single-branch \
+	         ${OPENSSL_URL} $(SIMULATION_DEPS_SOURCE)/$@ > ./__download.log 2>&1
+	$Q echo "[$@] just from git repo, no need to extract"
+#-> 3. [compile]
+	$Q cd $(SIMULATION_DEPS_SOURCE)/$@ \
+	  && echo "[$@] configure firstly" \
+	    && ./Configure --prefix=${SIMULATION_DEPS_ROOTFS} > ./__config.log 2>&1 \
+	  && echo "[$@] compiling ..." \
+	    && make > ./__build.log 2>&1
+#-> 4. [install]
+	$Q cd $(SIMULATION_DEPS_SOURCE)/$@ \
+	  && echo "[$@] installing ..." \
+	    && make install_sw > ./__install.log 2>&1
+	$Q echo "[$@] Done"
+
+
+.PHONE: curl
+
+CURL_URL?=https://github.com/curl/curl.git
+CURL_VERSION=curl-7_69_1
+
+_curl: $(SIMULATION_DEPS_ROOTFS)/include/curl/curl.h
+	$Q echo "[$@] Already preparation"
+
+$(SIMULATION_DEPS_ROOTFS)/include/curl/curl.h:
+	$Q $(MAKE) --no-print-directory simula-curl
+
+simula-curl: curl_
+curl_:
+#-> 1. [clean]
+	$Q echo "[$@] cleaning compression and directories" \
+	  && rm -rf $(SIMULATION_DEPS_SOURCE)/$@
+#-> 2. [download]
+	$Q echo "[$@] downloading from [$(CURL_URL)]" \
+	  && git clone -q --depth 1 --branch ${CURL_VERSION} --single-branch \
+	         ${CURL_URL} $(SIMULATION_DEPS_SOURCE)/$@ > ./__download.log 2>&1
+	$Q echo "[$@] just from git repo, no need to extract"
+#-> 3. [compile]
+	$Q cd $(SIMULATION_DEPS_SOURCE)/$@ \
+	  && echo "[$@] configure firstly" \
+	    && mkdir -p build && cd build \
+	    && cmake -DCMAKE_INSTALL_PREFIX=${SIMULATION_DEPS_ROOTFS} .. > ./__config.log 2>&1 \
+	  && echo "[$@] compiling ..." \
+	    && make > ./__build.log 2>&1
+#-> 4. [install]
+	$Q cd $(SIMULATION_DEPS_SOURCE)/$@/build \
+	  && echo "[$@] installing ..." \
+	    && make install > ./__install.log 2>&1
 	$Q echo "[$@] Done"

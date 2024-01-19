@@ -4,6 +4,7 @@ deps/taf_rootfs/*
 !deps/taf_rootfs/.keep
 deps/source/*
 !deps/source/.keep
+deps/.deps.origin
 workstation/telaf_simulation.tar.gz
 workstation/local_dev_home
 workstation/.check_done

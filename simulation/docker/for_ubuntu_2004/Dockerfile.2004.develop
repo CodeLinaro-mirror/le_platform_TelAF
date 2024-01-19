@@ -35,8 +35,14 @@ RUN python3 -m pip install doipclient==1.1.1
 RUN python3 -m pip install udsoncan==1.17.1
 RUN python3 -m pip install pyyaml
 
+ARG DEVELOPER_UID=1000
+ARG DEVELOPER_GID=1000
+
 # Create a non-root user: [developer] for development, with password: [simula]
-RUN useradd --create-home --no-log-init --shell /bin/bash developer
+RUN addgroup --gid $DEVELOPER_GID developer && \
+    adduser --uid $DEVELOPER_UID --ingroup developer --home /home/developer \
+            --shell /bin/bash --disabled-password --gecos "" developer
+
 RUN adduser developer sudo
 RUN echo 'developer:simula' | chpasswd
 RUN echo 'developer ALL=(ALL:ALL) ALL' >> /etc/sudoers
@@ -54,7 +60,8 @@ WORKDIR /home/developer/
 USER developer
 
 RUN echo 'if [ "`id -u`" -eq 0 ]; then PS1="[Build Your Simulation] \\u:\\w # "; else PS1="[Build Your Simulation] \\u:\\w $ "; fi' >> ~/.bashrc
+ENTRYPOINT ["/bin/bash", "/home/developer/simulation_ro/scripts/forward_to_container.sh"]
 
 # You should pass arguments such as : '-u $(id -u):$(id -g)' to 'docker run' command.
 # Caution: please MOUNT your opensource project at the special location.
-ENTRYPOINT ["/usr/local/bin/fixuid", "-q", "/home/developer/simulation_ro/scripts/forward_to_container.sh"]
+# ENTRYPOINT ["/usr/local/bin/fixuid", "-q", "/home/developer/simulation_ro/scripts/forward_to_container.sh"]

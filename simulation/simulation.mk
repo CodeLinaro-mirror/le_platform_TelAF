@@ -38,10 +38,14 @@ export SIMULATION_SCRIPTS := $(SIMULATION_HOME)/scripts
 export SIMULATION_WORKDIR := $(SIMULATION_HOME)/workstation
 SIMULATION_TARBALL := $(SIMULATION_HOME)/workstation/telaf_simulation.tar
 
+# Get the distro version of current system, refer to: /etc/os-release
+OS_VERSION=$(shell grep -oP 'VERSION_ID=\K"(.+)"' /etc/os-release | tr -d '"')
+
 # Sub-Makefile to handle all target dependencies and extended host tools
 include $(SIMULATION_HOME)/deps/dependence.mk
 
-SIMULATION_DEPS += # Empty is default, but it is post-extended
+SIMULATION_DEPS += _openssl _curl
+SIMULATION_DEPS_ALL = _pre_deps $(SIMULATION_DEPS) _post_deps
 
 # Another way:
 # 1. mkdir $(SIMULATION_WORKDIR)/sdk_rootfs
@@ -117,8 +121,6 @@ else # below includes the appending 'within' option
 
 endif # end within
 
-OS_VERSION=$(shell grep -oP 'VERSION_ID=\K"(.+)"' /etc/os-release | tr -d '"')
-
 check-sys:
 	$Q echo "TelAF Simulation pre-checking your system ..."
 	$Q if [ -e $(SIMULATION_WORKDIR)/.check_done ] && [ "`umask`" = "0022" ]; then \
@@ -134,7 +136,7 @@ check-sys:
 	fi
 
 
-pre-simulation-build: $(SIMULATION_HOME)/workstation/up_simulation.sh $(SIMULATION_DEPS)
+pre-simulation-build: $(SIMULATION_HOME)/workstation/up_simulation.sh $(SIMULATION_DEPS_ALL)
 post-simulation-build: CURRENT_SYSTEM_OUTPUT=$(TELAF_BUILD)/simulation/_staging_system.simulation.update_ro/systems/current
 post-simulation-build:
 	$Q echo "[Simulation]: Creating Tarball ..."
@@ -199,9 +201,13 @@ define up_simulation_container
 	$Q echo "Down Simulation with [$(1:up_%.sh=%)], see you ~"
 endef
 
+# Configure the UID & GID during docker build image times along with environment variables
+# Rebuild all docker images for special UID:GID. please check: DEVELOPER_UID & DEVELOPER_GID
 define build_simulation_docker_image
 	$Q echo "[$@] build docker image..."
 	$Q export UBUNTU_DISTRO_ORIGIN=$(from) \
+	    && export DEVELOPER_UID=$(shell id -u) \
+	    && export DEVELOPER_GID=$(shell id -g) \
 	    && docker compose -f "$(CURDIR)/simulation/docker/for_ubuntu_$(get_which_one)/docker-compose.yml" \
 	    build $(docker_build_opts) telaf_simulation_$(1)_$(get_which_one)
 	$Q echo "[$@] image build done."

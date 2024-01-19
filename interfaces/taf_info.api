@@ -1,0 +1,76 @@
+/**
+* Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+* SPDX-License-Identifier: BSD-3-Clause-Clear
+**/
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * @page c_tafinfo Device Information Service
+ *
+ * @ref taf_info_interface.h "API Reference"
+ *
+ * <HR>
+ *
+ * The Device Information Service can be used to obtain information and properties (like IMEI)
+ * of the device that runs this service.
+ *
+ * @section taf_info_binding IPC interfaces binding
+ *
+ * The functions of this API are provided by the @b tafDevInfoSvc application service.
+ *
+ * The following example illustrates how to bind to TelAF device information service.
+ *
+ * @verbatim
+   bindings:
+   {
+       clientExe.clientComponent.taf_info-> tafDevInfoSvc.taf_info
+   }
+   @endverbatim
+ *
+ * @section taf_info_GetImei Get IMEI of the device
+ *
+ * TelAF Device Information Service provides API to get the International Mobile Equipment Identity (IMEI)
+ * of the device.
+ * The following example illustrates how to get the IMEI of the device
+ *
+ * @code
+        char imei[TAF_INFO_IMEI_MAX_BYTES];
+        le_result_t result = taf_info_GetImei(imei, sizeof(imei));
+        if(result == LE_OK)
+        {
+            // success
+            LE_INFO("IMEI: %s", imei);
+        }
+        else
+        {
+            LE_INFO("Get IMEI failed");
+        }
+   @endcode
+ *
+ * <HR>
+ *
+ */
+//------------------------------------------------------------------------------------------------
+
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Maximum IMEI length including null termination character.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE IMEI_MAX_BYTES = 16;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Retrieves the International Mobile Equipment Identity (IMEI).
+ *
+ * @return LE_FAULT         -- Failed to retrieve the IMEI.
+ *         LE_OVERFLOW      -- IMEI length exceeds the maximum length.
+ *         LE_OK            -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetImei
+(
+    string imei[IMEI_MAX_BYTES] OUT     ///< IMEI number.
+);

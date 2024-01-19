@@ -1,116 +1,143 @@
-#Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
-#SPDX-License-Identifier: BSD-3-Clause-Clear
+#!/usr/bin/env sh
 
-#!/bin/sh
-
-# Starts/stops/restarts and installs the TelAF framework.
-# status provides the TelAF running state
-# version provides the current TelAF version
-
-TELAF_INSTALLED_VERSION=/legato/systems/current/version
-TELAF_STORAGE="df app"
-TELAF_DISK_TYPE="mount -l"
-TELAF_SECURITY="semodule -l"
-
-TELAF_ACTION=$1
+# Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 
 # system/bin and /sbin should be in the path.
 # Search for the installed TelAF system bin first.
 export PATH=/legato/systems/current/bin:/mnt/legato/system/bin:/sbin:$PATH
 
+TELAF_INSTALLED_VERSION=/legato/systems/current/version
+
+xPS=
+if ls -l $(which ps) | grep busybox > /dev/null
+then
+    if [ -n "${TELAF_IN_CONTAINER}" ]; then
+        # For LXC container
+        xPS="ps -w"
+    else
+        # For PVM
+        xPS="ps -e"
+    fi
+else
+    # For Docker container
+    xPS="ps -aux"
+fi
+
 TelafPrintUsage()
 {
-    echo -e "NAME"
-    echo -e " TelAF -> TelAF tool to be used to control the TelAF Application Framework.\n"
-    echo -e "OVERVIEW"
-    echo -e "  telaf [start|stop|restart|status|version|help]\n"
-    echo -e "HELP MENU"
-    echo -e "\ttelaf start\n\t\t:Starts the TelAF Application Framework."
-    echo -e "\ttelaf stop\n\t\t:Stops the TelAF Application Framework."
-    echo -e "\ttelaf restart\n\t\t:Restarts the TelAF Application Framework."
-    echo -e "\ttelaf status\n\t\t:Displays the current running state."
-    echo -e "\ttelaf version\n\t\t:Displays the currently installed TelAF version."
-    echo -e "\ttelaf help\n\t\t:Displays TelAF usage help."
-    echo -e "\ttelaf storage\n\t\t:Shows type and the disk/flash usage of telaf."
-    echo -e "\ttelaf memory\n\t\t:Shows the memory usage of the telaf."
-    echo -e "\ttelaf security\n\t\t:Shows the list of telaf selinux modules."
+    echo "NAME"
+    echo "  TelAF -> TelAF tool to be used to control the TelAF Application Framework."
+    echo "OVERVIEW"
+    echo "  telaf [start|stop|restart|status|version|storage|security|help]"
+    echo "HELP MENU"
+    echo "  telaf start"
+    echo "    :Starts the TelAF Application Framework."
+    echo "  telaf stop"
+    echo "    :Stops the TelAF Application Framework."
+    echo "  telaf restart"
+    echo "    :Restarts the TelAF Application Framework."
+    echo "  telaf status"
+    echo "    :Displays the current running state."
+    echo "  telaf version"
+    echo "    :Displays the currently installed TelAF version."
+    echo "  telaf help"
+    echo "    :Displays TelAF usage help."
+    echo "  telaf storage"
+    echo "    :Shows type and the disk/flash usage of telaf."
+    echo "  telaf memory"
+    echo "    :Shows the memory usage of the telaf."
+    echo "  telaf security"
+    echo "    :Shows the list of telaf selinux modules."
 }
 
-# Checks if a process with a given name is running or not.
-# Takes a single argument, which is the name of the process.
-IsProcessRunning()
+IsSystemInstalled()
 {
-    pidof $1 > /dev/null
+    if [ -e "${TELAF_INSTALLED_VERSION}" ]
+    then
+        return 0
+    else
+        return 1
+    fi
 }
 
+IsFrameworkRunning()
+{
+    ${xPS} | grep $(cat ${TELAF_INSTALLED_VERSION} | sed 's/_modified$//') | grep -v grep > /dev/null
+}
 
 TelafStatus()
 {
-    telafSystems=`ls /legato/systems 2> /dev/null`
-    if ! [ "$telafSystems" ]
+    if ! IsSystemInstalled
     then
-        printf "TelAF systems not installed"
-    else
-        printf "TelAF Systems installed"
+        echo "TelAF systems are not installed"
+        exit 1
     fi
 
-    printf "\nTelAF framework is "
-    if IsProcessRunning supervisor
+    echo "TelAF Systems were installed"
+    echo -n "TelAF framework is "
+    if IsFrameworkRunning
     then
-        echo "running."
+        echo "running"
         exit 0
     else
-        echo "not running."
+        echo "not running"
         exit 1
     fi
 }
 
-
 StartTelaf()
 {
-    # If TelAF is already running.
-    if IsProcessRunning supervisor
+    if ! IsSystemInstalled
     then
-        echo "The TelAF Supervisor is already running."
+        echo "TelAF systems are not installed"
+        exit 1
+    fi
+
+    # If TelAF is already running.
+    if IsFrameworkRunning
+    then
+        echo "The TelAF Supervisor is already running"
         exit 0
     fi
 
-    echo "Starting TelAF..."
+    echo "Starting TelAF ..."
+
     if [ -n "${TELAF_IN_CONTAINER}" ]; then
-        # For current simulation docker image that didn't use systemd
+        # In LXC & Docker containers, don't use systemd
         /mnt/legato/start
     else
         systemctl start telaf
     fi
 
-    echo "TelAF is started."
+    echo "TelAF is started"
 }
-
 
 StopTelaf()
 {
-    wasTelafRunning="no"
-
-    if IsProcessRunning supervisor
+    if ! IsSystemInstalled
     then
-        wasTelafRunning="yes"
+        echo "TelAF systems are not installed"
+        exit 1
+    fi
 
+    if IsFrameworkRunning
+    then
         # StopTelafTimeout will be scaled according to the number of running TelAF services.
         # Estimation of 5 seconds for the TelAF framework itself, and 3 seconds per TelAF service to
         # shutdown.
         StopTelafTimeout=$(( 5 + $(app status | grep running | wc -l) * 3 ))
 
-        echo -n "Stopping TelAF"
+        echo -n "Stopping TelAF "
 
         # Direct the Supervisor to shutdown TelAF.
         app "stopLegato" 2> /dev/null &
-        appToolPid=$!
 
         # wait for TelAF supervisor to shutdown
         telafcountDown=$StopTelafTimeout
         while [ $telafcountDown -ne 0 ]
         do
-            if IsProcessRunning supervisor
+            if IsFrameworkRunning
             then
                 echo -n "."
                 sleep 1
@@ -121,61 +148,45 @@ StopTelaf()
         done
         echo
 
-        # If TelAF is already running shuts down
-        if IsProcessRunning supervisor
+        # If TelAF is still running
+        if IsFrameworkRunning
         then
-
-            # Wait for all killed processes to die before proceeding.
-            echo -n "Hard-killing TelAF"
-            telafcountDown=$StopTelafTimeout
-            while [ $telafcountDown -ne 0 ]
-            do
-                if IsProcessRunning startSystem
-                then
-                    echo -n "."
-                    sleep 1
-                else
-                    break
-                fi
-                telafcountDown=`expr $telafcountDown - 1`
-            done
-            echo
-
-            # If startSystem is still running, reboot the system.
-            if IsProcessRunning startSystem
-            then
-                echo "TelAF may still be alive after an attempt of hard-kill. Rebooting the system."
-                reboot
-            fi
+            echo "TelAF may still be alive after an attempt of hard-kill, rebooting the system"
+            reboot
         fi
-    fi
-
-    # Make sure the serviceDirectory isn't still running.
-    if IsProcessRunning serviceDirectory
-    then
-        wasTelafRunning="yes"
-
-        echo "Service Directory is still running. Killing it now ..."
-
-        killall serviceDirectory > /dev/null 2>&1
-
-    fi
-
-
-    if [ $wasTelafRunning = "yes" ]
-    then
-        echo "TelAF is stopped."
     else
-        echo "TelAF wasn't running."
+        echo "TelAF wasn't running"
+        return
     fi
-}
 
+    SupervisorPID=$(${xPS} | grep /legato/systems/current/bin/supervisor \
+                           | grep `cat ${TELAF_INSTALLED_VERSION} | sed 's/_modified$//'` \
+                           | grep -v grep | awk '{print $1}')
+
+    for SdirPID in `pidof serviceDirectory`
+    do
+        FatherPID=$(awk '{print $4}' /proc/${SdirPID}/stat)
+        if [ "$FatherPID" == "$SupervisorPID" ]
+        then
+            echo "serviceDirectory may still be alive, hard-kill it"
+            kill -9 $SdirPID
+        fi
+    done
+
+    echo "TelAF is stopped"
+}
 
 RestartTelaf()
 {
-    if IsProcessRunning supervisor
+    if ! IsSystemInstalled
     then
-        echo "Restarting TelAF... "
+        echo "TelAF systems are not installed"
+        exit 1
+    fi
+
+    if IsFrameworkRunning
+    then
+        echo "Restarting TelAF ..."
 
         # Direct the Supervisor to restart TelAF.
         app "restartLegato" 2> /dev/null
@@ -188,76 +199,78 @@ RestartTelaf()
 
 TelafStorage()
 {
-
-   echo -e "telaf type :"
-   $TELAF_DISK_TYPE | grep telaf | grep squashfs
-   echo -e "\n"
-   echo -e "disk/flash usage of telaf:"
-   $TELAF_STORAGE
-
+    echo "TelAF type :"
+    mount | grep telaf | grep squashfs
+    echo
+    echo "Disk/Flash usage of TelAF:"
+    df app
 }
 
 TelafMemory()
 {
-
-   echo "telaf memory ->to be implemented."
-
+    echo "TelAF memory -> to be implemented"
 }
 
 TelafSecurity()
 {
-
-   echo "telaf SELinux modules list :"
-   $TELAF_SECURITY | grep taf | grep -v staff
-
+    echo "TelAF SELinux modules list :"
+    semodule -l | grep taf | grep -v staff
 }
 
-case "$TELAF_ACTION" in
-start)
-    StartTelaf
-    ;;
-
-stop)
-    StopTelaf
-    ;;
-
-restart)
-    RestartTelaf
-    ;;
-
-status)
-    TelafStatus
-    ;;
-
-storage)
-    TelafStorage
-    ;;
-
-memory)
-    TelafMemory
-    ;;
-
-security)
-    TelafSecurity
-    ;;
-
-help | --help | -h)
-    TelafPrintUsage
-    ;;
-
-version)
+TelafVersion()
+{
     if [ -f $TELAF_INSTALLED_VERSION ]
     then
         cat $TELAF_INSTALLED_VERSION
     else
-        echo "UNKNOWN VERSION"
+        echo "Unknown VERSION"
         exit 1
     fi
-    ;;
+}
 
-*)
-    TelafPrintUsage
-    exit 1
-    ;;
+TELAF_ACTION=$1
 
+case "$TELAF_ACTION" in
+    start)
+        StartTelaf
+        ;;
+
+    stop)
+        StopTelaf
+        ;;
+
+    restart)
+        RestartTelaf
+        ;;
+
+    status)
+        TelafStatus
+        ;;
+
+    storage)
+        TelafStorage
+        ;;
+
+    memory)
+        TelafMemory
+        ;;
+
+    security)
+        TelafSecurity
+        ;;
+
+    help|--help|-h)
+        TelafPrintUsage
+        ;;
+
+    version|--version|-v)
+        TelafVersion
+        ;;
+
+    *)
+        TelafPrintUsage
+        exit 1
+        ;;
 esac
+
+exit 0

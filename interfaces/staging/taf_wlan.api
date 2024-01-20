@@ -29,6 +29,101 @@
 */
 //--------------------------------------------------------------------------------------------------
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * WLAN SSID max length.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_SSID_LENGTH        = 32;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * WLAN Passphrase max length.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_PASSPHRASE_LENGTH  = 63;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * WLAN connected client name max length.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_DEVICE_NAME_LENGTH = 32;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * WLAN supported radio bands.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM Band
+{
+    BAND_UNKNOWN,   ///< To skip setting band, pass UNKNOWN.
+    BAND_5_GHz,     ///< 5 GHz band.
+    BAND_24_GHz     ///< 2.4 GHz band.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * WLAN AP type.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM APType
+{
+    UNKNOWN_AP,   ///< To skip setting AP type, pass UNKNOWN.
+    PRIVATE_AP,   ///< Private AP.
+    GUEST_AP      ///< Guest AP.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * WLAN security mode.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM SecurityMode
+{
+    SEC_MODE_UNKNOWN, ///< To skip setting security mode, pass UNKNOWN.
+    SEC_MODE_OPEN,    ///< Open System Architecture.
+    SEC_MODE_WEP,     ///< Wired Equivalent Privacy.
+    SEC_MODE_WPA,     ///< Wi-Fi Protected Access.
+    SEC_MODE_WPA2,    ///< Wi-Fi Protected Access II.
+    SEC_MODE_WPA3     ///< Wi-Fi Protected Access III.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * WLAN security authentication methods.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM SecurityAuthMethod
+{
+    SEC_AUTH_METHOD_UNKNOWN,    ///< To skip setting auth method, pass UNKNOWN.
+    SEC_AUTH_METHOD_NONE,       ///< No Authentication - Open System.
+    SEC_AUTH_METHOD_PSK,        ///< Pre-Shared Key.
+    SEC_AUTH_METHOD_EAP_SIM,    ///< EAP - Subscriber Identity Module.
+    SEC_AUTH_METHOD_EAP_AKA,    ///< EAP - Authentication and Key Agreement.
+    SEC_AUTH_METHOD_EAP_LEAP,   ///< EAP - Lightweight Extensible Authentication Protocol.
+    SEC_AUTH_METHOD_EAP_TLS,    ///< EAP - Transport Layer Security.
+    SEC_AUTH_METHOD_EAP_TTLS,   ///< EAP - Tunneled Transport Layer Security.
+    SEC_AUTH_METHOD_EAP_PEAP,   ///< EAP - Protected EAP.
+    SEC_AUTH_METHOD_EAP_FAST,   ///< EAP - Flexible Authentication via Secure Tunneling.
+    SEC_AUTH_METHOD_EAP_PSK,    ///< EAP - Pre-Shared Key.
+    SEC_AUTH_METHOD_SAE         ///< Simultaneous Authentication of Equals.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * WLAN encryption methods.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM SecurityEncryptionMethod
+{
+    SEC_ENCRYPT_METHOD_UNKNOWN,   ///< To skip setting encryption method, pass UNKNOWN.
+    SEC_ENCRYPT_METHOD_RC4,       ///< Rivest Cipher 4.
+    SEC_ENCRYPT_METHOD_TKIP,      ///< Temporal Key Integrity Protocol.
+    SEC_ENCRYPT_METHOD_AES,       ///< Advanced Encryption Standard.
+    SEC_ENCRYPT_METHOD_GCMP       ///< Galois/Counter Mode Protocol.
+};
+
 //-------------------------------------------------------------------------------------------------
 /**
  * WLAN Device state.

@@ -477,7 +477,7 @@ allow telaf_app_domain syslogd_t:shm { read unix_read associate };
 
 # Define core domain
 allow telaf_core_domain telaf_fw_t : dir { manage_dir_perms };
-allow telaf_core_domain telaf_lib_t : { file dir } { read execute getattr };
+allow telaf_core_domain telaf_lib_t : { file dir lnk_file } { read execute getattr };
 allow telaf_core_domain telaf_app_rw_t : { file dir unix_dgram_socket socket sock_file } *;
 allow telaf_core_domain telaf_app_ro_t : { file dir } ~{ write };
 allow telaf_core_domain telaf_sys_t : { file dir lnk_file } *;

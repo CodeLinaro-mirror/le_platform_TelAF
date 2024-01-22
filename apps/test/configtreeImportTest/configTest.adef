@@ -1,0 +1,39 @@
+start: manual
+sandboxed: true
+
+requires:
+{
+    configTree:
+    {
+        [w] .
+    }
+}
+
+capability:
+{
+    CAP_WAKE_ALARM
+    CAP_FOWNER
+    CAP_SYS_ADMIN
+    CAP_BLOCK_SUSPEND
+    CAP_DAC_READ_SEARCH
+    CAP_DAC_OVERRIDE
+}
+
+executables:
+{
+     testConfigTree = (configComponent)
+}
+
+bindings:
+{
+    testConfigTree.configComponent.le_cfg -> <root>.le_cfg
+    testConfigTree.configComponent.le_cfgAdmin -> <root>.le_cfgAdmin
+}
+
+processes:
+{
+    run:
+    {
+        (testConfigTree)
+    }
+}

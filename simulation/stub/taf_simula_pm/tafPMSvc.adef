@@ -27,7 +27,7 @@ sandboxed: false
 
 executables:
 {
-    tafPMSvc = ( $TELAF_ROOT/simulation/pa/taf_pa_simula_pm/tafPMSvc )
+    tafPMSvc = ( tafPMSvc )
 }
 
 start: auto

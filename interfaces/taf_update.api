@@ -162,7 +162,21 @@ DEFINE MAX_PKG_NAME_LEN = 48;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The download session reference.
+ * File path length with null character.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE FILE_PATH_LEN = 256;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Session name length with null character.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE SESSION_NAME_LEN = 32;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Update session reference.
  */
 //--------------------------------------------------------------------------------------------------
 REFERENCE Session;
@@ -191,6 +205,9 @@ ENUM State
     ROLLBACK,          ///< Rollback state, rollback to the original system.
     ROLLBACK_SUCCESS,  ///< Rollback success state, rollback to the original system succeeded.
     ROLLBACK_FAIL,     ///< Rollback fail state, rollback to the original system failed.
+    SYNCHRONIZING,     ///< Bank synchronization is ongoing.
+    SYNC_SUCCESS,      ///< Bank synchronization is successful.
+    SYNC_FAIL,         ///< Bank synchronization is failed.
     REPORTING          ///< Reporting state, update service is reporting state to server.
 };
 
@@ -206,7 +223,6 @@ ENUM Error
     INTERNAL_ERROR,    ///< Internal error.
     SECURITY_FAILURE,  ///< Security check failure.
     PACKAGE_NOT_FOUND, ///< Package not found.
-    APP_NOT_FOUND,     ///< App not found.
     APP_NOT_RUNNING    ///< App is not in running state.
 };
 
@@ -224,38 +240,27 @@ ENUM OTA
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Download progress state.
+ * Update package type.
  */
 //--------------------------------------------------------------------------------------------------
-ENUM ProgressState
+ENUM PackageType
 {
-    PROGRESS_INIT,        ///< Download initialized.
-    PROGRESS_DOWNLOADING, ///< Downloading.
-    PROGRESS_FINISH,      ///< Download finished.
-    PROGRESS_ERROR        ///< Error occurred during the download process.
+    PACKAGE_TYPE_QOTA_PACKAGE, ///< Package with QOTA header.
+    PACKAGE_TYPE_NAD_ZIP,      ///< Zip file for NAD update.
+    PACKAGE_TYPE_TELAF_APP,    ///< TelAF app bundle.
+    PACKAGE_TYPE_UNKNOWN       ///< Unknown package.
 };
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Report state.
+ * Bank enum.
  */
 //--------------------------------------------------------------------------------------------------
-ENUM ReportState
+ENUM Bank
 {
-    REPORT_RECEIVED = 1,      ///< Download agent has received the update script.
-    REPORT_CANCEL,            ///< User has cancelled the update.
-    REPORT_DOWNLOADING,       ///< Downloading package.
-    REPORT_DOWNLOADED,        ///< Package downloaded to the device.
-    REPORT_REBOOT,            ///< Device rebooting.
-    REPORT_SUCCESS,           ///< Update succeeded.
-    REPORT_FAILURE,           ///< Update failed.
-    REPORT_DOWNLOAD_FAIL,     ///< Failed to download package.
-    REPORT_MD5_CHECK_SUCCESS, ///< Package passed MD5 check.
-    REPORT_MD5_CHECK_FAIL,    ///< Package failed MD5 check.
-    REPORT_PKI_CHECK_SUCCESS, ///< Package passed PKI vertification.
-    REPORT_PKI_CHECK_FAIL,    ///< Package failed to pass PKI vertification.
-    REPORT_ROLLBACK_SUCCESS,  ///< Device rollback succeeded.
-    REPORT_ROLLBACK_FAIL      ///< Device rollback failed.
+    BANK_A,      ///< Bank A in dual system.
+    BANK_B,      ///< Bank B in dual system.
+    BANK_UNKNOWN ///< Unknown bank.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -267,10 +272,9 @@ STRUCT StateInd
 {
     State state;                   ///< Update state.
     Error error;                   ///< Error in update progress.
-    uint32 percent;                ///< Percentage of progress, applicable for downloading or 
-                                   ///  installing states.
+    uint32 percent;                ///< Percentage of progress.
     OTA ota;                       ///< OTA workflow.
-    string name[MAX_PKG_NAME_LEN]; ///< OTA package name.
+    string name[SESSION_NAME_LEN]; ///< Session name.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -309,6 +313,8 @@ FUNCTION Download
 /**
  * Installs an OTA package on the target device.
  *
+ * @note QOTA header should be removed before calling this API.
+ *
  * @return
  * - LE_FAULT -- Failed.
  * - LE_OK -- Succeeded.
@@ -318,4 +324,193 @@ FUNCTION le_result_t Install
 (
     OTA ota IN,                      ///< OTA workflow.
     string name[MAX_PKG_NAME_LEN] IN ///< OTA package name.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets download session.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetDownloadSession
+(
+    string cfgFile[FILE_PATH_LEN] IN, ///< Configuration file for download session.
+    Session session OUT               ///< Download session reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Starts download.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t StartDownload
+(
+    Session session IN ///< Download session reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Pauses download.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t PauseDownload
+(
+    Session session IN ///< Download session reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Resumes download.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ResumeDownload
+(
+    Session session IN ///< Download session reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Cancels download.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t CancelDownload
+(
+    Session session IN ///< Download session reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets installation session.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetInstallationSession
+(
+    PackageType pkgType IN,           ///< Package type for installation.
+    string cfgFile[FILE_PATH_LEN] IN, ///< Configuration file for installation session.
+    Session session OUT               ///< Installation session reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Checks prerequisites for installation.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t InstallPreCheck
+(
+    Session session IN,               ///< Installation session reference.
+    string manifest[FILE_PATH_LEN] IN ///< Manifest for pre-check.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Start installation.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t StartInstall
+(
+    Session session IN,              ///< Installation session reference.
+    string pkgPath[FILE_PATH_LEN] IN ///< Package path.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Verification post installation, check if flashing properly on inactive bank.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t InstallPostCheck
+(
+    Session session IN ///< Installation session reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the active bank.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetActiveBank
+(
+    Session session IN, ///< Installation session reference.
+    Bank bank OUT       ///< The active bank.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Activation verification, check if each component has the updated version.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t VerifyActivation
+(
+    Session session IN,               ///< Installation session reference.
+    string manifest[FILE_PATH_LEN] IN ///< Manifest for activation verification.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Rollback to previous configurations to keep pesistency.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t Rollback
+(
+    Session session IN ///< Installation session reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Bank synchronization.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t Sync
+(
+    Session session IN ///< Installation session reference.
 );

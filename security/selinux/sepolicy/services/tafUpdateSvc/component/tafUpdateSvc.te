@@ -11,6 +11,7 @@ gen_require(`
     type cgroup_t;
     type device_t;
     type etc_t;
+    type firmware_t;
     type fixed_disk_device_t;
     type fs_t;
     type home_root_t;
@@ -35,6 +36,8 @@ gen_require(`
     type user_home_dir_t;
     type telaf_lib_t;
     type telaf_app_bundle_t;
+    type telaf_devmgr_t;
+    type telaf_devmgr_data_t;
     attribute telaf_app_exec_attr;
 ')
 
@@ -106,6 +109,10 @@ allow telaf_tafUpdateSvc_t fs_t:filesystem { getattr unmount };
 storage_raw_write_fixed_disk(telaf_tafUpdateSvc_t)
 storage_raw_read_fixed_disk(telaf_tafUpdateSvc_t)
 
+# allow access to /firmware/images/Ver_Info.txt
+allow telaf_tafUpdateSvc_t firmware_t:dir { search_dir_perms };
+allow telaf_tafUpdateSvc_t firmware_t:file { read_file_perms };
+
 # reboot policy
 allow telaf_tafUpdateSvc_t init_t:dir { search };
 allow telaf_tafUpdateSvc_t init_t:file { exec_file_perms };
@@ -122,6 +129,12 @@ systemd_start_power_units(telaf_tafUpdateSvc_t)
 
 # flash access
 allow telaf_tafUpdateSvc_t ubi_device_t:chr_file { rw_file_perms };
+
+# device manager
+# to be replaced with telaf_load_vhal_modules
+allow telaf_devmgr_t telaf_tafUpdateSvc_t:lnk_file { read_file_perms };
+allow telaf_tafUpdateSvc_t telaf_devmgr_data_t:file { exec_file_perms };
+allow telaf_tafUpdateSvc_t telaf_devmgr_data_t:dir { search_dir_perms };
 
 init_telaf_app_domain(telaf_tafUpdateSvc_t,telaf_tafUpdateSvc_exec_t)
 

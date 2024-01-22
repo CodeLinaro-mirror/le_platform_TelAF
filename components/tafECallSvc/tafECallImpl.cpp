@@ -345,53 +345,55 @@ void taf_ecall::InitializeECallPtr()
 
 void taf_ecall::Init(void)
 {
-   //  Get the PhoneFactory and PhoneManager instances.
-   auto &phoneFactory = telux::tel::PhoneFactory::getInstance();
+    //  Get the PhoneFactory and PhoneManager instances.
+    auto &phoneFactory = telux::tel::PhoneFactory::getInstance();
 
-   std::promise<telux::common::ServiceStatus> prom;
-   CallManager = phoneFactory.getCallManager([&](telux::common::ServiceStatus status) {
-       prom.set_value(status);
-   });
-   telux::common::ServiceStatus mgrStatus = prom.get_future().get();
-   if (mgrStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE) {
-       LE_FATAL("Cannot initialize all manager, ret: %d", (int)mgrStatus);
-       return;
-   }
+    std::promise<telux::common::ServiceStatus> prom;
+    CallManager = phoneFactory.getCallManager([&](telux::common::ServiceStatus status) {
+        prom.set_value(status);
+    });
+    telux::common::ServiceStatus mgrStatus = prom.get_future().get();
+    if (mgrStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE) {
+        LE_FATAL("Cannot initialize all manager, ret: %d", (int)mgrStatus);
+        return;
+    }
 
-   PhoneManager = phoneFactory.getPhoneManager();
-   //  Check if telephony subsystem is ready
-   bool subSystemStatus = PhoneManager->isSubsystemReady();
+    PhoneManager = phoneFactory.getPhoneManager();
+    //  Check if telephony subsystem is ready
+    bool subSystemStatus = PhoneManager->isSubsystemReady();
 
-   //  If telephony subsystem is not ready, wait for it to be ready
-   if(!subSystemStatus) {
-      LE_INFO("\n\nTelephony subsystem is not ready, Please wait");
-      std::future<bool> f = PhoneManager->onSubsystemReady();
-      // If we want to wait unconditionally for telephony subsystem to be ready
-      subSystemStatus = f.get();
-   }
+    //  If telephony subsystem is not ready, wait for it to be ready
+    if(!subSystemStatus) {
+       LE_INFO("\n\nTelephony subsystem is not ready, Please wait");
+       std::future<bool> f = PhoneManager->onSubsystemReady();
+       // If we want to wait unconditionally for telephony subsystem to be ready
+       subSystemStatus = f.get();
+     }
 
-   //  Exit the service, if SDK is unable to initialize telephony subsystems
-   if(subSystemStatus) {
-      std::vector<int> phoneIds;
-      telux::common::Status status = PhoneManager->getPhoneIds(phoneIds);
-      if (status == telux::common::Status::SUCCESS) {
-          for (auto index = 1; index <= (int)phoneIds.size(); index++) {
-              auto phone = PhoneManager->getPhone(index);
-              if (phone != nullptr) {
-                  Phones.emplace_back(phone);
-              }
-          }
+    //  Exit the service, if SDK is unable to initialize telephony subsystems
+    if(subSystemStatus) {
+       std::vector<int> phoneIds;
+       telux::common::Status status = PhoneManager->getPhoneIds(phoneIds);
+       if (status == telux::common::Status::SUCCESS) {
+           for (auto index = 1; index <= (int)phoneIds.size(); index++) {
+               auto phone = PhoneManager->getPhone(index);
+               if (phone != nullptr) {
+                    Phones.emplace_back(phone);
+               }
+           }
       }
-   } else {
-      LE_FATAL("ERROR - Unable to initialize subsystem");
-      return;
-   }
+    } else {
+       LE_FATAL("ERROR - Unable to initialize subsystem");
+       return;
+    }
 
-   InitializeECallPtr();
+    InitializeECallPtr();
 
     le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateReadTxn( CFG_MODEMSERVICE_ECALL_PATH );
     int opMode = le_cfg_GetInt(iteratorRef, CFG_NODE_OPMODE, 0);
+    int numType = le_cfg_GetInt(iteratorRef, CFG_NODE_NUMTYPE, 0);
     le_cfg_CancelTxn(iteratorRef);
+
     if (opMode == TAF_ECALL_FORCED_PERSISTENT_ONLY_MODE) {
         uint8_t phoneId = PhoneManager->getPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
         le_result_t res = SetECallOperatingMode(phoneId, TAF_ECALL_MODE_ECALL);
@@ -405,14 +407,23 @@ void taf_ecall::Init(void)
         LE_CRIT("Cannot register Listern for ecall event!\n");
     }
 
+    EcallConfig eCallConfig = {};
+    ret = CallManager->getECallConfig(eCallConfig);
+    if (ret == Status::SUCCESS) {
+        LE_INFO("Get eCall configuration successfully when init.");
+        if ((eCallConfig.numType == ECallNumType::OVERRIDDEN) || 
+            (numType == SET_PSAP_NUM_TYPE_OVERRIDDEN)) {
+            isUseUSimNum = false;
+        }
+    }
 
-   CallCommandCb = std::make_shared<tafCallCommandCallback>();
-   UpdateMsdCb = std::make_shared<tafUpdateMsdCommandCallback>();
-   HangupCb = std::make_shared<tafHangupCommandCallback>();
+    CallCommandCb = std::make_shared<tafCallCommandCallback>();
+    UpdateMsdCb = std::make_shared<tafUpdateMsdCommandCallback>();
+    HangupCb = std::make_shared<tafHangupCommandCallback>();
 
-   StateChangeEventId = le_event_CreateId("NewStateEventId", sizeof(StateChangeEvent_t));
+    StateChangeEventId = le_event_CreateId("NewStateEventId", sizeof(StateChangeEvent_t));
 
-   le_cfg_AddChangeHandler(CFG_MODEMSERVICE_ECALL_PATH, ConfigChangeHandler, NULL);
+    le_cfg_AddChangeHandler(CFG_MODEMSERVICE_ECALL_PATH, ConfigChangeHandler, NULL);
 }
 
 taf_ecall &taf_ecall::GetInstance()
@@ -459,10 +470,9 @@ le_result_t taf_ecall::SetPsapNumber(const char* psapNumber)
 
     EcallConfig eCallConfig;
     eCallConfig.configValidityMask.set(ECALL_CONFIG_OVERRIDDEN_NUM);
-    eCallConfig.configValidityMask.set(ECALL_CONFIG_NUM_TYPE);
-    eCallConfig.numType = ECallNumType::OVERRIDDEN;
     eCallConfig.overriddenNum = psapNumber;
     Status status = CallManager->setECallConfig(eCallConfig);
+    isUseUSimNum = false;
 
     return Status::SUCCESS == status ? LE_OK : LE_FAULT;
 }
@@ -573,28 +583,82 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
 
     ECallObject.msd.timestamp = (uint32_t)time(NULL);
 
+    Status ret;
+    EcallConfig eCallConfig = {};
+    ret = CallManager->getECallConfig(eCallConfig);
+    if (ret == Status::SUCCESS) {
+        LE_INFO("Get eCall configuration successfully.");
+    }
+
     if (eCallVariant == ECallVariant::ECALL_TEST)
     {
         ECallObject.msd.control.automaticActivation = false;
         ECallObject.msd.control.testCall = true;
+        if (isUseUSimNum == false)
+        {
+            if (eCallConfig.numType != ECallNumType::OVERRIDDEN)
+            {
+                eCallConfig.configValidityMask.set(ECALL_CONFIG_NUM_TYPE);
+                eCallConfig.numType = ECallNumType::OVERRIDDEN;
+                ret = CallManager->setECallConfig(eCallConfig);
+                if (ret == Status::SUCCESS)
+                {
+                    LE_INFO("Set eCall configuration with overridden number type successfully");
+                }
+            }
+        }
     }
-    else if ( emergencyCategory == ECallCategory::VOICE_EMER_CAT_AUTO_ECALL)
+    else if (( emergencyCategory == ECallCategory::VOICE_EMER_CAT_AUTO_ECALL) ||
+             ( emergencyCategory == ECallCategory::VOICE_EMER_CAT_MANUAL))
     {
-        ECallObject.msd.control.automaticActivation = true;
-        ECallObject.msd.control.testCall = false;
-    }
-    else if ( emergencyCategory == ECallCategory::VOICE_EMER_CAT_MANUAL)
-    {
-        ECallObject.msd.control.automaticActivation = false;
-        ECallObject.msd.control.testCall = false;
-    }
+        if (eCallConfig.numType != ECallNumType::DEFAULT)
+        {
+            eCallConfig.configValidityMask.set(ECALL_CONFIG_NUM_TYPE);
+            eCallConfig.numType = ECallNumType::DEFAULT;
+            ret = CallManager->setECallConfig(eCallConfig);
+            if (ret == Status::SUCCESS)
+            {
+                LE_INFO("Set eCall configuration with default number type successfully");
+            }
 
-    Status ret;
+            if (isUseUSimNum == false)
+            {
+                le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn( CFG_MODEMSERVICE_ECALL_PATH );
+                le_cfg_SetInt(iteratorRef, CFG_NODE_NUMTYPE, (int) SET_PSAP_NUM_TYPE_OVERRIDDEN);
+                le_cfg_CommitTxn(iteratorRef);
+            }
+        }
 
-    EcallConfig eCallConfig = {};
-    ret = CallManager->getECallConfig(eCallConfig);
-    if (ret == Status::SUCCESS) {
-        LE_INFO("get eCall configuration successfully.");
+        if ((0 == strncmp(eCallConfig.overriddenNum.c_str(), "112", 3)) ||
+            (0 == strncmp(eCallConfig.overriddenNum.c_str(), "911", 3)) ||
+            (0 == strncmp(eCallConfig.overriddenNum.c_str(), "999", 3)))
+        {
+            ECallObject.msd.control.testCall = false;
+        }
+        else if (eCallConfig.overriddenNum.empty())
+        {
+            ECallObject.msd.control.testCall = false;
+            eCallConfig.configValidityMask.set(ECALL_CONFIG_OVERRIDDEN_NUM);
+            eCallConfig.overriddenNum = "112";
+            ret = CallManager->setECallConfig(eCallConfig);
+            if (ret == Status::SUCCESS)
+            {
+                LE_INFO("Set eCall configuration with number 112 successfully");
+            }
+        }
+        else
+        {
+            ECallObject.msd.control.testCall = true;
+        }
+
+        if ( emergencyCategory == ECallCategory::VOICE_EMER_CAT_AUTO_ECALL)
+        {
+            ECallObject.msd.control.automaticActivation = true;
+        }
+        else
+        {
+            ECallObject.msd.control.automaticActivation = false;
+        }
     }
 
     LE_INFO("ECall Variant: %d, phoneId: %d, isMsdUpdated: %d\n",
@@ -1281,6 +1345,11 @@ le_result_t taf_ecall::UseUSimNumbers()
     eCallConfig.numType = ECallNumType::DEFAULT;
     Status status = CallManager->setECallConfig(eCallConfig);
     LE_INFO("UseUSimNumbers: status %d", (int) status);
+    isUseUSimNum = true;
+    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn( CFG_MODEMSERVICE_ECALL_PATH );
+    le_cfg_SetInt(iteratorRef, CFG_NODE_NUMTYPE, (int) SET_PSAP_NUM_TYPE_DEFFAULT);
+    le_cfg_CommitTxn(iteratorRef);
+
     return Status::SUCCESS == status ? LE_OK : LE_FAULT;
 }
 

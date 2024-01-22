@@ -24,6 +24,7 @@ gen_require(`
     type shell_exec_t;
     type ping_exec_t;
     type systemd_resolved_var_run_t;
+    type cert_t;
 ')
 
 ifdef(`sa525m',`
@@ -43,9 +44,14 @@ allow telaf_tafMngdConnSvc_t shell_exec_t:file { execute execute_no_trans open r
 allow telaf_tafMngdConnSvc_t proc_t:file { read open getattr};
 
 #Allow for running curl and ping for ConnectivityTest in sa515
-allow telaf_tafMngdConnSvc_t ping_exec_t:file getattr;
+allow telaf_tafMngdConnSvc_t ping_exec_t:file { getattr open read execute execute_no_trans};
 allow telaf_tafMngdConnSvc_t systemd_resolved_var_run_t:dir search;
 allow telaf_tafMngdConnSvc_t systemd_resolved_var_run_t:file { getattr open read };
+allow telaf_tafMngdConnSvc_t self:capability net_raw;
+allow telaf_tafMngdConnSvc_t self:process { getcap setcap };
+allow telaf_tafMngdConnSvc_t self:rawip_socket { create getopt read setopt write };
+allow telaf_tafMngdConnSvc_t cert_t:dir search;
+allow telaf_tafMngdConnSvc_t cert_t:file { getattr open read };
 
 
 # Allow update daemon to install/uninstall this service

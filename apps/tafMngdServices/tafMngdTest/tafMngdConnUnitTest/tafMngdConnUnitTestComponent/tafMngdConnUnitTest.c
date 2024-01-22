@@ -100,7 +100,10 @@ static void* UnitTestThread(void* contextPtr)
     TestSemRef = le_sem_Create("testSem", 0);
 
     dataRef = taf_mngd_Conn_GetData(DEFAULT_DATA_ID);
-    LE_TEST_OK(dataRef != NULL, "taf_mngd_Conn_GetData OK");
+
+    LE_TEST_INIT;
+
+    LE_TEST_ASSERT(dataRef != NULL, "taf_mngd_Conn_GetData");
 
     le_thread_Ref_t mngdConnThRef = le_thread_Create("MngdConnTestTh", HandlerThread,
                                                      (void*)dataRef);
@@ -109,25 +112,31 @@ static void* UnitTestThread(void* contextPtr)
 
     le_sem_Wait(TestSemRef);
 
-    result=taf_mngd_Conn_DataStart(dataRef);
-    LE_TEST_OK(result == LE_OK, "Data_Start OK");
+
+    result = taf_mngd_Conn_DataStart(dataRef);
+    LE_TEST_OK(result == LE_OK, "Data_Start");
+    LE_TEST_INFO("Data_Start Result: %d", result);
 
     result=taf_mngd_Conn_DataGetConnectionState(dataRef, &dataId, &state);
-    LE_TEST_OK(result == LE_OK, "ConnectionState OK");
+    LE_TEST_OK(result == LE_OK, "ConnectionState");
+    LE_TEST_INFO("ConnectionState Result: %d", result);
 
     result=taf_mngd_Conn_DataGetConnectionIPAddresses(dataRef,
                                                       ipv4Addr, TAF_DCS_IPV4_ADDR_MAX_LEN,
                                                       ipv6Addr, TAF_DCS_IPV6_ADDR_MAX_LEN);
-    LE_TEST_OK(result == LE_OK, "ConnectionIPAddresses OK");
+    LE_TEST_OK(result == LE_OK, "ConnectionIPAddresses");
+    LE_TEST_INFO("ConnectionIPAddresses Result: %d", result);
+
+    sleep(3);
 
     result=taf_mngd_Conn_DataStop(dataRef);
-    LE_TEST_OK(result == LE_OK, "Data_Stop OK");
+    LE_TEST_OK(result == LE_OK, "Data_Stop");
+    LE_TEST_INFO("Data_Stop Result: %d", result);
 
     sleep(3);
 
     taf_mngd_Conn_RemoveDataStateHandler(statHandlerRef);
 
-    LE_INFO("====all tests are passed");
     LE_TEST_EXIT;
 }
 

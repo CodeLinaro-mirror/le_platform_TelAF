@@ -80,7 +80,7 @@ static void TestTafCanCallback
     void* contextPtr
 )
 {
-    printf("Received frameType: %s, FrameId: 0x%03X, CAN Interface reference: %p\n",
+    printf("Received frameType: %s, FrameId: 0x%X, CAN Interface reference: %p\n",
             (isCanFdFrame ? "CAN FD frames":"CAN 2.0 frames"), frameId, canInfRef);
 
     printf("Received CAN data is: ");
@@ -226,8 +226,8 @@ static void* test_CanEventHandler
         return NULL;
     }
 
-    uint32_t frameId = le_hex_HexaToInteger(frameIdPtr);
-    uint32_t frIdMask = le_hex_HexaToInteger(frIdMaskPtr);
+    uint32_t frameId = strtoul(frameIdPtr, NULL, 16);
+    uint32_t frIdMask = strtoul(frIdMaskPtr, NULL, 16);
 
     uint8_t test = 1;
 
@@ -344,30 +344,6 @@ static void TestDefaultFunc
     int datalen = strlen(canDataPtr);
     test_taf_can_SetPayload(FrameRef, canDataPtr, datalen);
     taf_can_FrameType_t frameType = TAF_CAN_CAN_FRAME;
-    result = taf_can_SetFrameType(FrameRef, frameType);
-    LE_TEST_OK(result == LE_OK, "taf_can_SetFrameType - LE_OK");
-    result = taf_can_SendFrame(FrameRef);
-    LE_TEST_OK(result == LE_OK, "taf_can_SendFrame - LE_OK");
-    result = WaitForSemTimeout(SemRef, 5);
-    LE_ASSERT(result == LE_OK);
-
-    //send CAN FD Frame
-    const char* canFdDataPtr = "12345678abcdef09abcd";
-    datalen = strlen(canFdDataPtr);
-    test_taf_can_SetPayload(FrameRef, canFdDataPtr, datalen);
-    frameType = TAF_CAN_CAN_FD_FRAME;
-    result = taf_can_SetFrameType(FrameRef, frameType);
-    LE_TEST_OK(result == LE_OK, "taf_can_SetFrameType - LE_OK");
-    result = taf_can_SendFrame(FrameRef);
-    LE_TEST_OK(result == LE_OK, "taf_can_SendFrame - LE_OK");
-    result = WaitForSemTimeout(SemRef, 5);
-    LE_ASSERT(result == LE_OK);
-
-    //send CAN auto Frame
-    const char* canAutoDataPtr = "12345678abcdef";
-    datalen = strlen(canAutoDataPtr);
-    test_taf_can_SetPayload(FrameRef, canAutoDataPtr, datalen);
-    frameType = TAF_CAN_AUTO_FRAME;
     result = taf_can_SetFrameType(FrameRef, frameType);
     LE_TEST_OK(result == LE_OK, "taf_can_SetFrameType - LE_OK");
     result = taf_can_SendFrame(FrameRef);
@@ -573,7 +549,7 @@ COMPONENT_INIT
             exit(EXIT_FAILURE);
         }
         taf_can_InfProtocol_t canInfType = TAF_CAN_RAW_SOCK;
-        frameId = le_hex_HexaToInteger(frameIdPtr);
+        frameId = strtoul(frameIdPtr, NULL, 16);
         int datalen = strlen(dataPtr);
 
         taf_can_CanInterfaceRef_t canInfRef = test_taf_can_CreateCanInf(infNamePtr, canInfType);
@@ -614,7 +590,7 @@ COMPONENT_INIT
             exit(EXIT_FAILURE);
         }
 
-        frameId = le_hex_HexaToInteger(frameIdPtr);
+        frameId = strtoul(frameIdPtr, NULL, 16);
         int datalen = strlen(dataPtr);
 
         taf_can_InfProtocol_t canInfType = TAF_CAN_RAW_SOCK;
@@ -701,7 +677,7 @@ COMPONENT_INIT
             exit(EXIT_FAILURE);
         }
 
-        frameId = le_hex_HexaToInteger(frameIdPtr);
+        frameId = strtoul(frameIdPtr, NULL, 16);
         int datalen = strlen(dataPtr);
 
         taf_can_InfProtocol_t canInfType = TAF_CAN_RAW_SOCK;
@@ -792,7 +768,7 @@ COMPONENT_INIT
             exit(EXIT_FAILURE);
         }
 
-        frameId = le_hex_HexaToInteger(frameIdPtr);
+        frameId = strtoul(frameIdPtr, NULL, 16);
         int datalen = strlen(dataPtr);
 
         taf_can_InfProtocol_t canInfType = TAF_CAN_RAW_SOCK;

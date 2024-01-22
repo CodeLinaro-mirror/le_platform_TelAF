@@ -35,15 +35,11 @@
 #include <chrono>
 #include <fstream>
 
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/json_parser.hpp>
-
 #include "tafUpdate.hpp"
 #include "tafFwUpdate.hpp"
 
 using namespace std;
 using namespace telux::tafsvc;
-using namespace boost::property_tree;
 
 le_event_Id_t taf_FwUpdate::fwUpdateEvId = nullptr;
 le_event_Id_t taf_FwUpdate::fwTimerEvId = nullptr;
@@ -70,12 +66,11 @@ void taf_FwUpdate::SetState
     taf_update_State_t state ///< [IN] Update state.
 )
 {
-    le_fs_FileRef_t fileRef;
-    if (le_fs_Open(TAF_FWUPDATE_FOTA_STATE, LE_FS_CREAT | LE_FS_WRONLY, &fileRef) == LE_OK)
-    {
-        le_fs_Write(fileRef, (uint8_t*)&state, sizeof(taf_update_State_t));
-        le_fs_Close(fileRef);
-    }
+
+    FILE* fp = fopen(TAF_FWUPDATE_FOTA_STATE, "w");
+    fwrite(&state, sizeof(taf_update_State_t), 1, fp);
+    fflush(fp);
+    fclose(fp);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -88,13 +83,12 @@ taf_update_State_t taf_FwUpdate::GetState
     void
 )
 {
-    le_fs_FileRef_t fileRef;
     taf_update_State_t state = TAF_UPDATE_IDLE;
-    if (le_fs_Open(TAF_FWUPDATE_FOTA_STATE, LE_FS_RDONLY, &fileRef) == LE_OK)
+    if (access(TAF_FWUPDATE_FOTA_STATE, F_OK) == 0)
     {
-        size_t size = sizeof(taf_update_State_t);
-        le_fs_Read(fileRef, (uint8_t*)&state, &size);
-        le_fs_Close(fileRef);
+        FILE* fp = fopen(TAF_FWUPDATE_FOTA_STATE, "r");
+        fread(&state, sizeof(taf_update_State_t), 1, fp);
+        fclose(fp);
     }
     return state;
 }
@@ -110,14 +104,12 @@ void taf_FwUpdate::ReportStatus
     uint32_t percent          ///< [IN] Update percent.
 )
 {
-    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
     auto &tafUpdate = taf_Update::GetInstance();
-    taf_update_StateInd_t stateInd;
-    stateInd.ota = TAF_UPDATE_FOTA;
-    stateInd.percent = percent;
-    stateInd.state = state;
-    le_utf8_Copy(stateInd.name, tafFwUpdate.filePath, TAF_UPDATE_MAX_PKG_NAME_LEN, NULL);
-    le_event_Report(tafUpdate.stateEvId, &stateInd, sizeof(taf_update_StateInd_t));
+    taf_update_StateInd_t report;
+    report.percent = percent;
+    report.state = state;
+    le_utf8_Copy(report.name, "firmware update session", TAF_UPDATE_SESSION_NAME_LEN, NULL);
+    le_event_Report(tafUpdate.stateEvId, &report, sizeof(taf_update_StateInd_t));
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -147,6 +139,10 @@ void taf_FwUpdate::UpdateProgress
             {
                 LE_ERROR("Fail to send OTA end message to MRC daemon.");
             }
+            if (taf_mrc_SendOtaAbsyncMsg() != LE_OK)
+            {
+                LE_ERROR("Fail to send OTA sync message to MRC daemon.");
+            }
             tafFwUpdate.SetState(TAF_UPDATE_IDLE);
             break;
         case TAF_UPDATE_INSTALL_SUCCESS:
@@ -155,16 +151,35 @@ void taf_FwUpdate::UpdateProgress
             le_event_Report(taf_FwUpdate::fwTimerEvId, &timerOp, sizeof(taf_FwUpdateTimerOp_t));
             tafFwUpdate.SetState(TAF_UPDATE_INSTALL_SUCCESS);
             break;
-        case TAF_UPDATE_PROBATION:
-            LE_INFO("Probation %d%%...", tafFwUpdate.percent);
-            tafFwUpdate.SetState(TAF_UPDATE_PROBATION);
-            break;
         case TAF_UPDATE_PROBATION_SUCCESS:
             LE_INFO("Probation success.");
-            tafFwUpdate.SetState(TAF_UPDATE_IDLE);
+            tafFwUpdate.SetState(TAF_UPDATE_PROBATION_SUCCESS);
             break;
         case TAF_UPDATE_PROBATION_FAIL:
-            LE_INFO("Probation failed.");
+            LE_INFO("Probation success.");
+            tafFwUpdate.SetState(TAF_UPDATE_PROBATION_FAIL);
+            break;
+        case TAF_UPDATE_SYNCHRONIZING:
+            LE_INFO("Synchronizing %d%%...", tafFwUpdate.percent);
+            break;
+        case TAF_UPDATE_SYNC_SUCCESS:
+            LE_INFO("Sync success.");
+            timerOp = TAF_FWUPDATE_TIMER_OP_SYNC_STOP;
+            le_event_Report(taf_FwUpdate::fwTimerEvId, &timerOp, sizeof(taf_FwUpdateTimerOp_t));
+            tafFwUpdate.SetState(TAF_UPDATE_IDLE);
+            break;
+        case TAF_UPDATE_SYNC_FAIL:
+            LE_INFO("Sync failed.");
+            timerOp = TAF_FWUPDATE_TIMER_OP_SYNC_STOP;
+            le_event_Report(taf_FwUpdate::fwTimerEvId, &timerOp, sizeof(taf_FwUpdateTimerOp_t));
+            tafFwUpdate.SetState(TAF_UPDATE_SYNC_FAIL);
+            break;
+        case TAF_UPDATE_ROLLBACK_SUCCESS:
+            LE_INFO("Rollback success.");
+            tafFwUpdate.SetState(TAF_UPDATE_IDLE);
+            break;
+        case TAF_UPDATE_ROLLBACK_FAIL:
+            LE_INFO("Rollback failed.");
             tafFwUpdate.SetState(TAF_UPDATE_IDLE);
             break;
         default:
@@ -197,55 +212,29 @@ le_result_t taf_FwUpdate::SendPipeCmd(const char* cmd, const char* mod)
     return LE_OK;
 }
 
-/*======================================================================
- FUNCTION        taf_FwUpdate::ProbationTimerHandler
- DESCRIPTION     Probation timer handler for firmware
- PARAMETERS      [IN] timerRef: Timer reference
- RETURN VALUE    void
-======================================================================*/
-void taf_FwUpdate::ProbationTimerHandler(le_timer_Ref_t timerRef)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sync timer handler.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_FwUpdate::SyncTimerHandler
+(
+    le_timer_Ref_t timerRef ///< [IN] Timer reference.
+)
 {
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
 
     uint32_t time = le_timer_GetExpiryCount(timerRef);
 
-    if (time >= tafFwUpdate.prbtTime)
-    {
-        LE_INFO("Probation timer stopped.");
+    tafFwUpdate.percent = time * 100 / TAF_FWUPDATE_MRC_SYNC_TIME;
 
-        if (tafFwUpdate.autoSync)
-        {
-            LE_INFO("Sending OTA sync message to MRC darmon.");
-            if (taf_mrc_SendOtaAbsyncMsg() != LE_OK)
-            {
-                LE_ERROR("Fail to send OTA AB Sync message to MRC daemon.");
-                tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION_FAIL);
-                return;
-            }
-        }
-        tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION_SUCCESS);
-    }
-    else
+    if (tafFwUpdate.percent > 100)
     {
-        if (tafFwUpdate.prbtTime)
-        {
-            if (tafFwUpdate.autoSync)
-            {
-                tafFwUpdate.percent = time * 100 / (tafFwUpdate.prbtTime +
-                    TAF_FWUPDATE_MRC_SYNC_TIME);
-            }
-            else
-            {
-                tafFwUpdate.percent = time * 100 / tafFwUpdate.prbtTime;
-            }
-
-            tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION);
-        }
-        else
-        {
-            LE_ERROR("Invalid probation time.");
-        }
+        tafFwUpdate.percent = 100;
+        LE_INFO("Waiting to complete the synchronization...");
     }
+
+    tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNCHRONIZING);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -285,6 +274,183 @@ void taf_FwUpdate::InstallTimerHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Get rootfs version.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_FwUpdate::GetRootfsVersion
+(
+    char* version ///< [OUT] Current rootfs version.
+)
+{
+    std::ifstream rootfsFin(TAF_ROOTFS_VERSION_FILE);
+    std::string rootfsVer;
+
+    getline(rootfsFin, rootfsVer);
+
+    le_utf8_Copy(version, rootfsVer.c_str(), TAF_FWUPDATE_MAX_VERS_LEN, NULL);
+
+    rootfsFin.close();
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get telaf version.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_FwUpdate::GetTelafVersion
+(
+    char* version ///< [OUT] Current telaf version.
+)
+{
+    std::ifstream telafFin(TAF_TELAF_VERSION_FILE);
+    std::string telafVer;
+
+    getline(telafFin, telafVer);
+
+    le_utf8_Copy(version, telafVer.c_str(), TAF_TELAF_VERSION_LEN, NULL);
+
+    telafFin.close();
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get firmware version.
+ *
+ * @return
+ *  - LE_FAULT On failure.
+ *  - LE_OK    On success.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_FwUpdate::GetFirmwareVersion
+(
+    char* version ///< [OUT] Current firmware version.
+)
+{
+    std::ifstream firmwareFin(TAF_FIRMWARE_VERSION_FILE);
+    std::string firmwareVer;
+
+    size_t start = string::npos;
+    while (getline(firmwareFin, firmwareVer))
+    {
+        start = firmwareVer.find("MPSS");
+        if (start != string::npos)
+            break;
+    }
+   
+    size_t end = firmwareVer.find(",");
+    if (start != string::npos && end != string::npos)
+    {
+        firmwareVer = firmwareVer.substr(start, end - start - 1);
+    }
+    else
+    {
+        LE_ERROR("Invalid character in current firmware version.");
+        return LE_FAULT;
+    }
+
+    le_utf8_Copy(version, firmwareVer.c_str(), TAF_FWUPDATE_MAX_VERS_LEN, NULL);
+
+    firmwareFin.close();
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Firmware installation pre-check.
+ *
+ * @return
+ *  - LE_FAULT On failure.
+ *  - LE_OK    On success.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_FwUpdate::InstallPreCheck
+(
+    const char* manifest ///< [IN] File path for manifest.
+)
+{
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+
+    if (strncmp(manifest, TAF_FWUPDATE_BYPASS_CHECK_TAG,
+        strlen(TAF_FWUPDATE_BYPASS_CHECK_TAG)) == 0)
+    {
+        LE_INFO("Bypass activation verification.");
+        return LE_OK;
+    }
+
+    std::ifstream manifestFin(manifest);
+    std::string manifestVer;
+
+    char rootfsVer[TAF_FWUPDATE_MAX_VERS_LEN] = {0};
+    char telafVer[TAF_TELAF_VERSION_LEN] = {0};
+    char firmwareVer[TAF_FWUPDATE_MAX_VERS_LEN] = {0};
+
+    tafFwUpdate.GetRootfsVersion(rootfsVer);
+    tafFwUpdate.GetTelafVersion(telafVer);
+    le_result_t result = tafFwUpdate.GetFirmwareVersion(firmwareVer);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Fail to get current firmware version.");
+        return LE_FAULT;
+    }
+
+    LE_INFO("Current rootfs version : %s", rootfsVer);
+    LE_INFO("Current telaf version : %s", telafVer);
+    LE_INFO("Current firmware version : %s", firmwareVer);
+
+    // Check if rootfs version is downgraded.
+    getline(manifestFin, manifestVer);
+    size_t pos = manifestVer.find(":");
+    if (pos == string::npos)
+    {
+        LE_ERROR("Invalid character in rootfs version from manifest.");
+        return LE_FAULT;
+    }
+    manifestVer = manifestVer.substr(pos + 1);
+    if (strncmp(manifestVer.c_str(), rootfsVer, strlen(rootfsVer)) < 0)
+    {
+        LE_ERROR("Detect rootfs version %s is downgraded.", manifestVer.c_str());
+        return LE_FAULT;
+    }
+
+    // Check if firmware version is downgraded.
+    getline(manifestFin, manifestVer);
+    pos = manifestVer.find(":");
+    if (pos == string::npos)
+    {
+        LE_ERROR("Invalid character in firmware version from manifest.");
+        return LE_FAULT;
+    }
+    manifestVer = manifestVer.substr(pos + 1);
+    if (strncmp(manifestVer.c_str(), firmwareVer, strlen(firmwareVer)) < 0)
+    {
+        LE_ERROR("Detect firmware version %s is downgraded.", manifestVer.c_str());
+        return LE_FAULT;
+    }
+
+    // Check if telaf version is downgraded.
+    getline(manifestFin, manifestVer);
+    pos = manifestVer.find(":");
+    if (pos == string::npos)
+    {
+        LE_ERROR("Invalid character in telaf version from manifest.");
+        return LE_FAULT;
+    }
+    manifestVer = manifestVer.substr(pos + 1);
+    if (strncmp(manifestVer.c_str(), telafVer, strlen(telafVer)) < 0)
+    {
+        LE_ERROR("Detect telaf version %s is downgraded.", manifestVer.c_str());
+        return LE_FAULT;
+    }
+
+    // Close file stream.
+    manifestFin.close();
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Install firmware.
  */
 //--------------------------------------------------------------------------------------------------
@@ -315,7 +481,6 @@ void taf_FwUpdate::InstallFirmware
         + TAF_FWUPDATE_PROC_MRC_TIME;
     LE_INFO("Estimate to complete installation in %d s.", tafFwUpdate.totalTime);
     infile.close();
-    le_utf8_Copy(tafFwUpdate.filePath, filePath, TAF_UPDATE_MAX_PKG_NAME_LEN, NULL);
 
     // 4. Start timer to report progress.
     taf_FwUpdateTimerOp_t timerOp = TAF_FWUPDATE_TIMER_OP_INST_START;
@@ -379,19 +544,198 @@ void taf_FwUpdate::InstallFirmware
         return;
     }
 
-    // 9. Mark install success with file.
-    LE_INFO("Marking FOTA success.");
-    le_fs_FileRef_t fileRef;
-    ret = le_fs_Open("/INSTALL_SUCCESS", LE_FS_CREAT, &fileRef);
-    if (ret != LE_OK)
+    // 9. Install successfully.
+    tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_SUCCESS);
+
+    // 10. Synchronize state to storage.
+    if (tafFwUpdate.SendPipeCmd("sync", "w") != LE_OK)
     {
-        LE_ERROR("Fail to mark install success.");
-        tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
-        return;
+        LE_ERROR("Fail to send sync cmd.");
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Firmware installation post-check.
+ *
+ * @return
+ *  - LE_FAULT On failure.
+ *  - LE_OK    On success.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_FwUpdate::InstallPostCheck
+(
+    const char* filePath ///< [IN] File path.
+)
+{
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+
+    LE_INFO("recovery client start post-check.");
+    char instCmd[TAF_FWUPDATE_INSTALL_CMD_LEN];
+    snprintf(instCmd, sizeof(instCmd), "recovery --update_package=%s:--post_verify", filePath);
+    if (tafFwUpdate.SendPipeCmd(instCmd, "w") != LE_OK)
+    {
+        LE_ERROR("Fail to send pipe cmd.");
+        return LE_FAULT;
     }
 
-    // 10. Install successfully.
-    tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_SUCCESS);
+    LE_INFO("Checking post-check log.");
+    ifstream fin(TAF_FWUPDATE_RECOVERY_LOG_FILE);
+    string strline;
+    int line = 0;
+    le_result_t ret = LE_OK;
+    while (getline(fin, strline))
+    {
+        line++;
+        if (strline.find("--post_verify") != string::npos)
+        {
+            LE_DEBUG("Found --post_verify in line %d", line);
+            ret = LE_OK;
+        }
+
+        if (strline.find("partition has unexpected contents after OTA update") != string::npos)
+        {
+            LE_DEBUG("Found verification failure in line %d", line);
+            ret = LE_FAULT;
+        }
+    }
+    fin.close();
+
+    return ret;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get active bank.
+ *
+ * @return
+ *  - LE_FAULT On failure.
+ *  - LE_OK    On success.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_FwUpdate::GetActiveBank
+(
+    taf_update_Bank_t* bankPtr ///< [OUT] The active bank.
+)
+{
+    le_result_t result = LE_OK;
+    char cmdRes[TAF_FWUPDATE_CMD_RESULT_LEN];
+
+    FILE* fp = popen("/usr/bin/nad-abctl --boot_slot", "r");
+    TAF_ERROR_IF_RET_VAL(fp == NULL, LE_FAULT, "popen failed.");
+
+    fgets(cmdRes, sizeof(cmdRes), fp);
+    string resStr(cmdRes);
+    if (resStr.find("a") != string::npos)
+    {
+        *bankPtr = TAF_UPDATE_BANK_A;
+    }
+    else if (resStr.find("b") != string::npos)
+    {
+        *bankPtr = TAF_UPDATE_BANK_B;
+    }
+    else
+    {
+        LE_ERROR("Invalid result for getting active bank.");
+        result = LE_FAULT;
+    }
+
+    pclose(fp);
+
+    return result;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Verify activation.
+ *
+ * @return
+ *  - LE_FAULT On failure.
+ *  - LE_OK    On success.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_FwUpdate::VerifyActivation
+(
+    const char* manifest ///< [IN] File path for manifest.
+)
+{
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+
+    if (strncmp(manifest, TAF_FWUPDATE_BYPASS_CHECK_TAG,
+        strlen(TAF_FWUPDATE_BYPASS_CHECK_TAG)) == 0)
+    {
+        LE_INFO("Bypass activation verification.");
+        return LE_OK;
+    }
+
+    std::ifstream manifestFin(manifest);
+    std::string manifestVer;
+
+    char rootfsVer[TAF_FWUPDATE_MAX_VERS_LEN] = {0};
+    char telafVer[TAF_TELAF_VERSION_LEN] = {0};
+    char firmwareVer[TAF_FWUPDATE_MAX_VERS_LEN] = {0};
+
+    tafFwUpdate.GetRootfsVersion(rootfsVer);
+    tafFwUpdate.GetTelafVersion(telafVer);
+    le_result_t result = tafFwUpdate.GetFirmwareVersion(firmwareVer);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Fail to get current firmware version.");
+        return LE_FAULT;
+    }
+
+    LE_INFO("Current rootfs version : %s", rootfsVer);
+    LE_INFO("Current telaf version : %s", telafVer);
+    LE_INFO("Current firmware version : %s", firmwareVer);
+
+    // Check if rootfs version is an updated version.
+    getline(manifestFin, manifestVer);
+    size_t pos = manifestVer.find(":");
+    if (pos == string::npos)
+    {
+        LE_ERROR("Invalid character in rootfs version from manifest.");
+        return LE_FAULT;
+    }
+    manifestVer = manifestVer.substr(pos + 1);
+    if (strncmp(manifestVer.c_str(), rootfsVer, strlen(rootfsVer)) != 0)
+    {
+        LE_ERROR("Detect rootfs version %s is not updated.", manifestVer.c_str());
+        return LE_FAULT;
+    }
+    // Check if firmware version is an updated version.
+    getline(manifestFin, manifestVer);
+    pos = manifestVer.find(":");
+    if (pos == string::npos)
+    {
+        LE_ERROR("Invalid character in firmware version from manifest.");
+        return LE_FAULT;
+    }
+    manifestVer = manifestVer.substr(pos + 1);
+    if (strncmp(manifestVer.c_str(), firmwareVer, strlen(firmwareVer)) != 0)
+    {
+        LE_ERROR("Detect firmware version %s is not updated.", manifestVer.c_str());
+        return LE_FAULT;
+    }
+
+    // Check if telaf version is an updated version.
+    getline(manifestFin, manifestVer);
+    pos = manifestVer.find(":");
+    if (pos == string::npos)
+    {
+        LE_ERROR("Invalid character in telaf version from manifest.");
+        return LE_FAULT;
+    }
+    manifestVer = manifestVer.substr(pos + 1);
+    if (strncmp(manifestVer.c_str(), telafVer, strlen(telafVer)) != 0)
+    {
+        LE_ERROR("Detect telaf version %s is not updated.", manifestVer.c_str());
+        return LE_FAULT;
+    }
+
+    // Close file stream.
+    manifestFin.close();
+
+    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -415,11 +759,11 @@ void taf_FwUpdate::TimerOpHandler
         case TAF_FWUPDATE_TIMER_OP_INST_STOP:
             le_timer_Stop(tafFwUpdate.instTimerRef);
             break;
-        case TAF_FWUPDATE_TIMER_OP_PRBT_START:
-            le_timer_Start(tafFwUpdate.prbtTimerRef);
+        case TAF_FWUPDATE_TIMER_OP_SYNC_START:
+            le_timer_Start(tafFwUpdate.syncTimerRef);
             break;
-        case TAF_FWUPDATE_TIMER_OP_PRBT_STOP:
-            le_timer_Stop(tafFwUpdate.prbtTimerRef);
+        case TAF_FWUPDATE_TIMER_OP_SYNC_STOP:
+            le_timer_Stop(tafFwUpdate.syncTimerRef);
             break;
         default:
             LE_ERROR("Invalid timer option (%d).", *op);
@@ -440,9 +784,10 @@ void* taf_FwUpdate::TimerThread
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
 
     // 1. Create probation timer.
-    tafFwUpdate.prbtTimerRef = le_timer_Create("Firmware Probation Timer");
-    le_timer_SetMsInterval(tafFwUpdate.prbtTimerRef, 1000);
-    le_timer_SetHandler(tafFwUpdate.prbtTimerRef, ProbationTimerHandler);
+    tafFwUpdate.syncTimerRef = le_timer_Create("Firmware Sync Timer");
+    le_timer_SetMsInterval(tafFwUpdate.syncTimerRef, 1000);
+    le_timer_SetRepeat(tafFwUpdate.syncTimerRef, 0);
+    le_timer_SetHandler(tafFwUpdate.syncTimerRef, SyncTimerHandler);
 
     // 2. Create install timer.
     tafFwUpdate.instTimerRef = le_timer_Create("Firmware Install Timer");
@@ -476,7 +821,7 @@ void taf_FwUpdate::FwUpdateHandler(void* reqPtr)
             if (updateReq->event == TAF_FWUPDATE_EV_INSTALL)
             {
                 LE_INFO("FOTA start.");
-                tafFwUpdate.InstallFirmware(updateReq->name);
+                tafFwUpdate.InstallFirmware(updateReq->filePath);
             }
             else
             {
@@ -492,13 +837,97 @@ void taf_FwUpdate::FwUpdateHandler(void* reqPtr)
                     LE_FATAL("Fail to reboot. Errno = %s.", LE_ERRNO_TXT(errno));
                 }
             }
+            else if (updateReq->event == TAF_FWUPDATE_EV_VERIFY_ACTIVATION)
+            {
+                LE_INFO("Activation verification.");
+
+                if (tafFwUpdate.VerifyActivation(updateReq->filePath) != LE_OK)
+                {
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION_FAIL);
+                }
+                else
+                {
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION_SUCCESS);
+                }
+            }
             else
             {
                 LE_ERROR("Invalid operation (%d) for install success state.", updateReq->event);
             }
             break;
-        case TAF_UPDATE_PROBATION:
-            LE_ERROR("Invalid operation for probation state.");
+        case TAF_UPDATE_PROBATION_SUCCESS:
+            if (updateReq->event == TAF_FWUPDATE_EV_SYNC)
+            {
+                LE_INFO("Start bank synchronization.");
+                tafFwUpdate.SetState(TAF_UPDATE_SYNCHRONIZING);
+
+                taf_FwUpdateTimerOp_t timerOp = TAF_FWUPDATE_TIMER_OP_SYNC_START;
+                le_event_Report(taf_FwUpdate::fwTimerEvId, &timerOp, sizeof(taf_FwUpdateTimerOp_t));
+
+                if (taf_mrc_SendOtaAbsyncMsg() != LE_OK)
+                {
+                    LE_ERROR("Fail to send OTA AB Sync message to MRC daemon.");
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
+                }
+                else
+                {
+                    LE_INFO("Send OTA AB Sync message to MRC daemon successfully.");
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_SUCCESS);
+                }
+            }
+            else
+            {
+                LE_ERROR("Invalid operation (%d) for probation success state.", updateReq->event);
+            }
+            break;
+        case TAF_UPDATE_PROBATION_FAIL:
+            if (updateReq->event == TAF_FWUPDATE_EV_ROLLBACK)
+            {
+                LE_INFO("Start rollback.");
+
+                if (access(updateReq->filePath, 0))
+                {
+                    LE_ERROR("%s not exists.", updateReq->filePath);
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_ROLLBACK_FAIL);
+                }
+                else
+                {
+                    remove(updateReq->filePath);
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_ROLLBACK_SUCCESS);
+                }
+            }
+            else
+            {
+                LE_ERROR("Invalid operation (%d) for probation success state.", updateReq->event);
+            }
+            break;
+        case TAF_UPDATE_SYNCHRONIZING:
+            LE_ERROR("Invalid operation for synchronizing state.");
+            break;
+        case TAF_UPDATE_SYNC_FAIL:
+            if (updateReq->event == TAF_FWUPDATE_EV_SYNC)
+            {
+                LE_INFO("Retry bank synchronization.");
+
+                // Start timer to report progress.
+                taf_FwUpdateTimerOp_t timerOp = TAF_FWUPDATE_TIMER_OP_SYNC_START;
+                le_event_Report(taf_FwUpdate::fwTimerEvId, &timerOp, sizeof(taf_FwUpdateTimerOp_t));
+
+                if (taf_mrc_SendOtaAbsyncMsg() != LE_OK)
+                {
+                    LE_ERROR("Fail to send OTA AB Sync message to MRC daemon.");
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
+                }
+                else
+                {
+                    LE_ERROR("Send OTA AB Sync message to MRC daemon successfully.");
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_SUCCESS);
+                }
+            }
+            else
+            {
+                LE_ERROR("Invalid operation (%d) for sync fail state.", updateReq->event);
+            }
             break;
         default:
             LE_ERROR("Invalid state (%d).", state);
@@ -534,18 +963,11 @@ void taf_FwUpdate::Init
 {
     chrono::time_point<chrono::system_clock> startTime = chrono::system_clock::now();
 
-    // 1. Get configurations from json file.
-    ptree root;
-    read_json("tafUpdate.json", root);
-    prbtTime = root.get<uint32_t>("firmware.probation.time");
-    autoSync = root.get<bool>("firmware.probation.auto_sync");
-    taf_update_State_t state = GetState();
-
-    // 2. Create event for firmware update.
+    // 1. Create event for firmware update.
     fwUpdateEvId = le_event_CreateId("fwUpdateEvId", sizeof(taf_FwUpdateReq_t));
     fwTimerEvId = le_event_CreateId("fwTimerEvId", sizeof(taf_FwUpdateTimerOp_t));
 
-    // 3. Create thread for firmware update.
+    // 2. Create thread for firmware update.
     le_sem_Ref_t semaphore = le_sem_Create("fwUpdateThreadSem", 0);
     le_thread_Ref_t threadRef = le_thread_Create("fwUpdateThread", FwUpdateThread, (void*)semaphore);
     le_thread_SetStackSize(threadRef, TAF_UPDATE_THREAD_STACK_SIZE);
@@ -553,7 +975,7 @@ void taf_FwUpdate::Init
     le_sem_Wait(semaphore);
     le_sem_Delete(semaphore);
 
-    // 4. Create thread for timer.
+    // 3. Create thread for timer.
     semaphore = le_sem_Create("fwTimerThreadSem", 0);
     threadRef = le_thread_Create("fwTimerThread", TimerThread, (void*)semaphore);
     le_thread_SetStackSize(threadRef, TAF_UPDATE_THREAD_STACK_SIZE);
@@ -561,25 +983,8 @@ void taf_FwUpdate::Init
     le_sem_Wait(semaphore);
     le_sem_Delete(semaphore);
 
-    // 5. Initiate from current state.
-    if (le_fs_Exists("/INSTALL_SUCCESS"))
-    {
-        LE_INFO("Removing file tag...");
-        le_fs_Delete("/INSTALL_SUCCESS");
-        if (prbtTime)
-        {
-            SetState(TAF_UPDATE_PROBATION);
-            le_timer_SetRepeat(prbtTimerRef, prbtTime);
-            taf_FwUpdateTimerOp_t timerOp = TAF_FWUPDATE_TIMER_OP_PRBT_START;
-            le_event_Report(taf_FwUpdate::fwTimerEvId, &timerOp, sizeof(taf_FwUpdateTimerOp_t));
-        }
-        else
-        {
-            LE_INFO("FOTA probation disabled.");
-            SetState(TAF_UPDATE_IDLE);
-        }
-    }
-
+    // 4. Initiate from current state.
+    taf_update_State_t state = GetState();
     switch (state)
     {
         case TAF_UPDATE_IDLE:
@@ -588,29 +993,10 @@ void taf_FwUpdate::Init
             UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
             break;
         case TAF_UPDATE_INSTALL_SUCCESS:
-            if (prbtTime)
-            {
-                SetState(TAF_UPDATE_PROBATION);
-                le_timer_SetRepeat(prbtTimerRef, prbtTime);
-                taf_FwUpdateTimerOp_t timerOp = TAF_FWUPDATE_TIMER_OP_PRBT_START;
-                le_event_Report(taf_FwUpdate::fwTimerEvId, &timerOp, sizeof(taf_FwUpdateTimerOp_t));
-            }
-            else
-            {
-                LE_INFO("FOTA probation disabled.");
-                if (autoSync)
-                {
-                    LE_INFO("Sending OTA sync message to MRC darmon.");
-                    if (taf_mrc_SendOtaAbsyncMsg() != LE_OK)
-                    {
-                        LE_ERROR("Fail to send OTA AB Sync message to MRC daemon.");
-                    }
-                }
-                SetState(TAF_UPDATE_IDLE);
-            }
-        case TAF_UPDATE_PROBATION:
-            UpdateProgress(TAF_UPDATE_PROBATION_FAIL);
+            LE_INFO("Install success.");
             break;
+        case TAF_UPDATE_SYNCHRONIZING:
+            UpdateProgress(TAF_UPDATE_SYNC_FAIL);
         default:
             LE_ERROR("FOTA invalid state(%d), reset to idle.", state);
             SetState(TAF_UPDATE_IDLE);

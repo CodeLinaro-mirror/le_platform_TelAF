@@ -40,6 +40,12 @@
 #include "legato.h"
 #include "interfaces.h"
 
+#ifdef TAF_CONFIG_DOWNLOAD_TEST
+#define DOWNLOAD_TEST 1
+#else
+#define DOWNLOAD_TEST 0
+#endif
+
 #ifdef TAF_CONFIG_FOTA_TEST
 #define FOTA_TEST 1
 #else
@@ -54,9 +60,11 @@
 
 #define DOWNLOAD_TIME 600
 
+#define SESSION_CONF_FILE "/data/session.conf"
+
 #define FOTA_INSTALL_TIME 600
 
-#define SOTA_APP_NAME "helloWorld"
+#define SOTA_APP_NAME "/data/images/app_helloWorld"
 #define SOTA_INSTALL_TIME 10
 #define SOTA_PROBATION_TIME 15
 
@@ -79,24 +87,16 @@ void StateHandlerFunction(taf_update_StateInd_t* indication, void* contextPtr)
             LE_INFO("Downloading %d%% .", indication->percent);
             break;
         case TAF_UPDATE_DOWNLOAD_SUCCESS:
-            if (indication->ota == TAF_UPDATE_FOTA) {
-                LE_INFO("Download firmware successfully.");
-            } else {
-                LE_INFO("Download app %s successfully.", indication->name);
-            }
+            LE_INFO("Download is successful.");
             break;
         case TAF_UPDATE_INSTALLING:
             LE_INFO("Installing %d%% .", indication->percent);
             break;
         case TAF_UPDATE_INSTALL_FAIL:
-            LE_INFO("Install %s fail.", indication->name);
+            LE_INFO("Instalation is failed.");
             break;
         case TAF_UPDATE_INSTALL_SUCCESS:
-            if (indication->ota == TAF_UPDATE_FOTA) {
-                LE_INFO("Install firmware successfully.");
-            } else {
-                LE_INFO("Install app %s successfully.", indication->name);
-            }
+            LE_INFO("Installation is successful.");
             break;
         case TAF_UPDATE_PROBATION:
             LE_INFO("Probation.");
@@ -162,13 +162,17 @@ void TestTafUpdateDownload(void)
 {
     LE_TEST_INFO("Start taf_update_Download Test");
 
+    LE_TEST_BEGIN_SKIP(!DOWNLOAD_TEST, 2);
     // Download Test
-    taf_update_Download();
-    LE_TEST_OK(true, "taf_update_Download - void");
+    taf_update_SessionRef_t sessRef = NULL;
+    le_result_t result = taf_update_GetDownloadSession(SESSION_CONF_FILE, &sessRef);
+    LE_TEST_OK(result == LE_OK, "taf_update_GetDownloadSession - OK");
 
-#ifdef TAF_CONFIG_DOWNLOAD_TEST
+    result = taf_update_StartDownload(sessRef);
+    LE_TEST_OK(result == LE_OK, "taf_update_Download - OK");
+
     le_thread_Sleep(DOWNLOAD_TIME);
-#endif
+    LE_TEST_END_SKIP();
 }
 
 /*======================================================================
@@ -180,13 +184,18 @@ void TestTafUpdateDownload(void)
 void TestTafUpdateInstall(void)
 {
     le_result_t result;
+    taf_update_SessionRef_t sessRef = NULL;
 
     LE_TEST_INFO("Start taf_update_Install Test");
 
     // Install Test
     LE_TEST_BEGIN_SKIP(!SOTA_TEST, 1);
-    result = taf_update_Install(TAF_UPDATE_SOTA, SOTA_APP_NAME);
-    LE_TEST_OK((result == LE_OK), "taf_update_Install - LE_OK");
+    result = taf_update_GetInstallationSession(TAF_UPDATE_PACKAGE_TYPE_TELAF_APP,
+        SESSION_CONF_FILE, &sessRef);
+    LE_TEST_OK(result == LE_OK, "taf_update_GetInstallationSession - OK");
+    result = taf_update_StartInstall(sessRef, SOTA_APP_NAME);
+    LE_TEST_OK(result == LE_OK, "taf_update_Install - OK");
+
     le_thread_Sleep(SOTA_INSTALL_TIME);
 
     LE_TEST_END_SKIP();

@@ -43,6 +43,9 @@
 le_sem_Ref_t semaphore;
 taf_update_StateHandlerRef_t handlerRef;
 
+#define SESSION_CONF_FILE "/data/session.conf"
+#define IMAGE_VERSION_FILE "/data/image_version.txt"
+
 /*======================================================================
  FUNCTION        PrintHelpMenu
  DESCRIPTION     Print help menue
@@ -53,18 +56,24 @@ void PrintHelpMenu()
 {
     LE_INFO("Please run \"app runProc tafUpdateIntTest tafUpdateIntTest -- [option]\"");
     LE_INFO("Description:");
-    LE_INFO("help             : Print help menu.");
-    LE_INFO("download         : Download OTA package.");
+    LE_INFO("help                    : Print help menu.");
+    LE_INFO("download                : Download OTA package.");
+    LE_INFO("install-precheck        : Install precheck with image versions.");
     LE_INFO("install firmware [path] : Install firmware.");
-    LE_INFO("install [app]    : Install application.");
-    LE_INFO("version firmware : Show firmware version.");
-    LE_INFO("version [app]    : Show app version.");
-    LE_INFO("reboot           : Reboot to active slot.");
-    LE_INFO("start [app]      : Start application.");
-    LE_INFO("stop [app]       : Stop application.");
-    LE_INFO("uninstall [app]  : Uninstall application.");
-    LE_INFO("appState [app]   : Show app running state.");
-    LE_INFO("appInfo          : Show app information.");
+    LE_INFO("install-postcheck       : Install postcheck on partition md5.");
+    LE_INFO("install [appBundlePath] : Install application.");
+    LE_INFO("get-active-bank         : Get active bank.");
+    LE_INFO("activation              : Activation verification on image versions after bank switch.");
+    LE_INFO("rollback                : Perform rollback.");
+    LE_INFO("bank-sync               : Bank synchronization.");
+    LE_INFO("version firmware        : Show firmware version.");
+    LE_INFO("version [app]           : Show app version.");
+    LE_INFO("reboot                  : Reboot to active slot.");
+    LE_INFO("start [app]             : Start application.");
+    LE_INFO("stop [app]              : Stop application.");
+    LE_INFO("uninstall [app]         : Uninstall application.");
+    LE_INFO("appState [app]          : Show app running state.");
+    LE_INFO("appInfo                 : Show app information.");
 }
 
 /*======================================================================
@@ -74,7 +83,7 @@ void PrintHelpMenu()
                  [IN] contextPtr: Context
  RETURN VALUE    void
 ======================================================================*/
-void StateHandler(taf_update_StateInd_t* indication, void* contextPtr)
+void StateHandler(taf_update_StateInd_t* indication, taf_update_SessionRef_t sessRef, void* contextPtr)
 {
     switch (indication->state) {
         case TAF_UPDATE_DOWNLOAD_FAIL:
@@ -85,11 +94,6 @@ void StateHandler(taf_update_StateInd_t* indication, void* contextPtr)
             LE_INFO("Downloading %d%% .", indication->percent);
             break;
         case TAF_UPDATE_DOWNLOAD_SUCCESS:
-            if (indication->ota == TAF_UPDATE_FOTA) {
-                LE_INFO("Download firmware successfully.");
-            } else {
-                LE_INFO("Download app %s successfully.", indication->name);
-            }
             LE_TEST_OK(true, "taf_update_Download - OK");
             le_sem_Post(semaphore);
             break;
@@ -97,16 +101,10 @@ void StateHandler(taf_update_StateInd_t* indication, void* contextPtr)
             LE_INFO("Installing %d%% .", indication->percent);
             break;
         case TAF_UPDATE_INSTALL_FAIL:
-            LE_ERROR("Install %s fail.", indication->name);
             LE_TEST_OK(false, "taf_update_Install - Fail");
             le_sem_Post(semaphore);
             break;
         case TAF_UPDATE_INSTALL_SUCCESS:
-            if (indication->ota == TAF_UPDATE_FOTA) {
-                LE_INFO("Install firmware successfully.");
-            } else {
-                LE_INFO("Install app %s successfully.", indication->name);
-            }
             LE_TEST_OK(true, "taf_update_Install - OK");
             le_sem_Post(semaphore);
             break;
@@ -210,33 +208,121 @@ COMPONENT_INIT
 {
     LE_TEST_PLAN(LE_TEST_NO_PLAN);
 
-    le_result_t result;
     const char* cmd = le_arg_GetArg(0);
     semaphore = le_sem_Create("semaphore", 0);
-
+    le_result_t result;
+    taf_update_SessionRef_t sessRef = NULL;
     if (strncmp(cmd, "download", strlen("download")) == 0) {
         LE_TEST_INFO("======== Download Test ========");
         CreateHandlerThread();
-        taf_update_Download();
+        result = taf_update_GetDownloadSession(SESSION_CONF_FILE, &sessRef);
+        LE_TEST_OK(result == LE_OK, "taf_update_GetDownloadSession - OK");
+        result = taf_update_StartDownload(sessRef);
+        LE_TEST_OK(result == LE_OK, "taf_update_Download - OK");
         le_sem_Wait(semaphore);
         taf_update_RemoveStateHandler(handlerRef);
         LE_TEST_OK(true, "taf_update_RemoveStateHandler - OK");
-    } else if (strncmp(cmd, "install", strlen("install")) == 0) {
+    }
+    else if (strncmp(cmd, "install-precheck", strlen("install-precheck")) == 0)
+    {
+        LE_TEST_INFO("======== Install Pre-Check Test ========");
+        result = taf_update_GetInstallationSession(TAF_UPDATE_PACKAGE_TYPE_NAD_ZIP,
+            SESSION_CONF_FILE, &sessRef);
+        LE_TEST_OK(result == LE_OK, "taf_update_GetInstallationSession - OK");
+
+        result = taf_update_InstallPreCheck(sessRef, IMAGE_VERSION_FILE);
+        LE_TEST_OK(result == LE_OK, "taf_update_InstallPreCheck - OK");
+    }
+    else if (strncmp(cmd, "install-postcheck", strlen("install-postcheck")) == 0)
+    {
+        LE_TEST_INFO("======== Install Post-Check Test ========");
+        result = taf_update_GetInstallationSession(TAF_UPDATE_PACKAGE_TYPE_NAD_ZIP,
+            SESSION_CONF_FILE, &sessRef);
+        LE_TEST_OK(result == LE_OK, "taf_update_GetInstallationSession - OK");
+
+        result = taf_update_InstallPostCheck(sessRef);
+        LE_TEST_OK(result == LE_OK, "taf_update_InstallPostCheck - OK");
+    }
+    else if (strncmp(cmd, "install", strlen("install")) == 0) {
         LE_TEST_INFO("======== Install Test ========");
         CreateHandlerThread();
         const char* name = le_arg_GetArg(1);
         if (strncmp(name, "firmware", strlen("firmware")) == 0) {
+            result = taf_update_GetInstallationSession(TAF_UPDATE_PACKAGE_TYPE_NAD_ZIP,
+                SESSION_CONF_FILE, &sessRef);
+            LE_TEST_OK(result == LE_OK, "taf_update_GetInstallationSession - OK");
             const char* path = le_arg_GetArg(2);
             if (path != NULL)
-                taf_update_Install(TAF_UPDATE_FOTA, path);
+            {
+                result = taf_update_StartInstall(sessRef, path);
+                LE_TEST_OK(result == LE_OK, "taf_update_StartInstall - OK");
+            }
             le_sem_Wait(semaphore);
         } else if (name != NULL) {
-            taf_update_Install(TAF_UPDATE_SOTA, name);
+            result = taf_update_GetInstallationSession(TAF_UPDATE_PACKAGE_TYPE_TELAF_APP,
+                SESSION_CONF_FILE, &sessRef);
+            LE_TEST_OK(result == LE_OK, "taf_update_GetInstallationSession - OK");
+            result = taf_update_StartInstall(sessRef, name);
+            LE_TEST_OK(result == LE_OK, "taf_update_StartInstall - OK");
             le_sem_Wait(semaphore);
         }
         taf_update_RemoveStateHandler(handlerRef);
         LE_TEST_OK(true, "taf_update_RemoveStateHandler - OK");
-    } else if (strncmp(cmd, "version", strlen("version")) == 0) {
+    }
+    else if (strncmp(cmd, "get-active-bank", strlen("get-active-bank")) == 0)
+    {
+        LE_TEST_INFO("======== Active Bank Test ========");
+        result = taf_update_GetInstallationSession(TAF_UPDATE_PACKAGE_TYPE_NAD_ZIP,
+            SESSION_CONF_FILE, &sessRef);
+        LE_TEST_OK(result == LE_OK, "taf_update_GetInstallationSession - OK");
+
+        taf_update_Bank_t bank = TAF_UPDATE_BANK_UNKNOWN;
+        result = taf_update_GetActiveBank(sessRef, &bank);
+        LE_TEST_OK(result == LE_OK, "taf_update_GetActiveBank - OK");
+        switch (bank)
+        {
+            case TAF_UPDATE_BANK_A:
+                LE_INFO("Active bank is A.");
+                break;
+            case TAF_UPDATE_BANK_B:
+                LE_INFO("Active bank is B.");
+                break;
+            default:
+                LE_INFO("Active bank is Unknown.");
+                break;
+        }
+    }
+    else if (strncmp(cmd, "activation", strlen("activation")) == 0)
+    {
+        LE_TEST_INFO("======== Activation Test ========");
+        result = taf_update_GetInstallationSession(TAF_UPDATE_PACKAGE_TYPE_NAD_ZIP,
+            SESSION_CONF_FILE, &sessRef);
+        LE_TEST_OK(result == LE_OK, "taf_update_GetInstallationSession - OK");
+
+        result = taf_update_VerifyActivation(sessRef, IMAGE_VERSION_FILE);
+        LE_TEST_OK(result == LE_OK, "taf_update_VerifyActivation - OK");
+    }
+    else if (strncmp(cmd, "bank-sync", strlen("bank-sync")) == 0)
+    {
+        LE_TEST_INFO("======== Bank Sync Test ========");
+        result = taf_update_GetInstallationSession(TAF_UPDATE_PACKAGE_TYPE_NAD_ZIP,
+            SESSION_CONF_FILE, &sessRef);
+        LE_TEST_OK(result == LE_OK, "taf_update_GetInstallationSession - OK");
+
+        result = taf_update_Sync(sessRef);
+        LE_TEST_OK(result == LE_OK, "taf_update_Sync - OK");
+    }
+    else if (strncmp(cmd, "rollback", strlen("rollback")) == 0)
+    {
+        LE_TEST_INFO("======== Rollback Test ========");
+        result = taf_update_GetInstallationSession(TAF_UPDATE_PACKAGE_TYPE_NAD_ZIP,
+            SESSION_CONF_FILE, &sessRef);
+        LE_TEST_OK(result == LE_OK, "taf_update_GetInstallationSession - OK");
+
+        result = taf_update_Rollback(sessRef);
+        LE_TEST_OK(result == LE_OK, "taf_update_Rollback - OK");
+    }
+	else if (strncmp(cmd, "version", strlen("version")) == 0) {
         LE_TEST_INFO("======== Version Test ========");
         const char* name = le_arg_GetArg(1);
         if (strncmp(name, "firmware", strlen("firmware")) == 0) {

@@ -578,13 +578,12 @@ void taf_AppMgmt::UpdateProgress
 
     // 2. Report current status to user.
     auto &tafUpdate = taf_Update::GetInstance();
-    taf_update_StateInd_t stateInd;
-    stateInd.ota = TAF_UPDATE_SOTA;
-    stateInd.percent = percent;
-    stateInd.error = error;
-    stateInd.state = state;
-    le_utf8_Copy(stateInd.name, tafAppMgmt.appName, TAF_APPMGMT_APP_NAME_BYTES, NULL);
-    le_event_Report(tafUpdate.stateEvId, &stateInd, sizeof(taf_update_StateInd_t));
+    taf_update_StateInd_t report;
+    report.percent = percent;
+    report.state = state;
+    report.error = error;
+    le_utf8_Copy(report.name, "app update session", TAF_UPDATE_SESSION_NAME_LEN, NULL);
+    le_event_Report(tafUpdate.stateEvId, &report, sizeof(taf_update_StateInd_t));
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1174,11 +1173,11 @@ void taf_AppMgmt::AppUpdateHandler
     switch (tafAppMgmt.state)
     {
         case TAF_UPDATE_IDLE:
-            le_utf8_Copy(tafAppMgmt.appName, updateReq->name, TAF_APPMGMT_APP_NAME_BYTES, NULL);
+            le_utf8_Copy(tafAppMgmt.appName, updateReq->appName, TAF_APPMGMT_APP_NAME_BYTES, NULL);
             if (updateReq->event == TAF_APPMGMT_EV_INSTALL)
             {
                 tafAppMgmt.state = TAF_UPDATE_INSTALLING;
-                LE_INFO("Installing app %s.", updateReq->name);
+                LE_INFO("Installing app %s.", updateReq->appName);
 
                 if (tafAppMgmt.IsSysApp(tafAppMgmt.appName))
                 {
@@ -1189,7 +1188,7 @@ void taf_AppMgmt::AppUpdateHandler
                 }
 
                 char path[PATH_MAX] = {0};
-                snprintf(path, sizeof(path), TAF_UPDATE_SOTA_PAKCAGE_FILE_PATH, updateReq->name);
+                snprintf(path, sizeof(path), TAF_UPDATE_SOTA_PAKCAGE_FILE_PATH, updateReq->appName);
 
                 if (!tafAppMgmt.IsValidToInstall(tafAppMgmt.appName, path))
                 {
@@ -1218,9 +1217,9 @@ void taf_AppMgmt::AppUpdateHandler
                 }
 
                 le_result_t result = le_update_Start(fd);
-                if (result != LE_OK) 
+                if (result != LE_OK)
                 {
-                    LE_ERROR("Fail to install app %s.", updateReq->name);
+                    LE_ERROR("Fail to install app %s.", updateReq->appName);
                     le_update_End();
                     tafAppMgmt.UpdateProgress(TAF_UPDATE_INSTALL_FAIL, 0, TAF_UPDATE_BAD_PACKAGE);
                 }
@@ -1231,9 +1230,9 @@ void taf_AppMgmt::AppUpdateHandler
             else if (updateReq->event == TAF_APPMGMT_EV_PROBATION)
             {
                 tafAppMgmt.state = TAF_UPDATE_PROBATION;
-                LE_INFO("Starting app %s probation.", updateReq->name);
+                LE_INFO("Starting app %s probation.", updateReq->appName);
 
-                le_appCtrl_Start(updateReq->name);
+                le_appCtrl_Start(updateReq->appName);
                 LE_INFO("Starting probation timer...");
                 le_timer_SetRepeat(tafAppMgmt.prbtTimerRef, tafAppMgmt.prbtTime);
                 le_timer_Start(tafAppMgmt.prbtTimerRef);
@@ -1268,9 +1267,9 @@ void taf_AppMgmt::AppUpdateHandler
                 }
 
                 le_result_t result = le_update_Start(fd);
-                if (result != LE_OK) 
+                if (result != LE_OK)
                 {
-                    LE_ERROR("Fail to rollback app %s.", updateReq->name);
+                    LE_ERROR("Fail to rollback app %s.", updateReq->appName);
                     le_update_End();
                     tafAppMgmt.UpdateProgress(TAF_UPDATE_ROLLBACK_FAIL, 0, TAF_UPDATE_BAD_PACKAGE);
                 }

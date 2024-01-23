@@ -1,0 +1,35 @@
+provides:
+{
+    api:
+    {
+        taf_wlan.api
+    }
+}
+
+requires:
+{
+    lib:
+    {
+        lib/libtelux_wlan.so
+        lib/libtelux_common.so
+    }
+
+}
+
+cxxflags:
+{
+    -I$TELAF_ROOT/include
+    -ltelux_wlan
+    -ltelux_common
+}
+
+cflags:
+{
+}
+
+sources:
+{
+    tafWlanSvc.cpp
+    tafWlanSvcImpl.cpp
+    tafWlanListener.cpp
+}

@@ -1,0 +1,12 @@
+sources:
+{
+    wlanUnitTest.cpp
+}
+
+requires:
+{
+    api:
+    {
+        taf_wlan.api
+    }
+}

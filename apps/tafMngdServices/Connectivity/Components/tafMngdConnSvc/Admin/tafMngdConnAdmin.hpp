@@ -142,6 +142,8 @@ namespace tafsvc {
         bool                          autoStart;              // Auto start or not
         bool                          needReConn;             //Need to reconnect for manualStart
         char                          intfName[TAF_DCS_NAME_MAX_LEN]; // Interface name
+        char                          dns1Addr[TAF_MNGD_CONN_MAX_IPV4_LEN]; // First dns Address
+        char                          dns2Addr[TAF_MNGD_CONN_MAX_IPV4_LEN]; // Second dns Address
         le_dls_Link_t                 link;                   // Link to data list
         taf_mngd_Conn_Admin_State_t   state;                  // The Managed Connectivity state
         taf_mngd_Conn_DataState_t     dataState;              // The data state for notification
@@ -226,8 +228,8 @@ namespace tafsvc {
 
             //Connectiontest
             void ConnectionTest(uint8_t dataId);
-            bool ConnectionTest_URL(std::string url);
-            bool ConnectionTest_IPv4(std::string ipv4);
+            bool ConnectionTest_URL(std::string url, std::string interfaceName);
+            bool ConnectionTest_IPv4(std::string ipv4, std::string interfaceName);
 
             // Policy and Configuration to use
             taf_mngd_Conn_Policy_t Policy;

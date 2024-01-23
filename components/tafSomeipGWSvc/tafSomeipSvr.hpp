@@ -76,6 +76,7 @@ typedef struct
 typedef struct
 {
     taf_someipSvr_ServiceRef_t serviceRef;          ///< Service reference.
+    uint8_t routingId;                              ///< Routing Identifier.
     uint16_t serviceId;                             ///< Service Identifier.
     uint16_t instanceId;                            ///< Instance Identifier.
     uint16_t groupId;                               ///< EventGroup Identifier.
@@ -91,6 +92,7 @@ typedef struct
 //--------------------------------------------------------------------------------------------------
 typedef struct
 {
+    uint8_t routingId;                              ///< Routing Identifier.
     uint16_t serviceId;                             ///< Service Identifier.
     uint16_t instanceId;                            ///< Instance Identifier.
     uint8_t majorVersion;                           ///< Major Version.
@@ -143,6 +145,7 @@ typedef struct
 {
     le_dls_Link_t link;                                 ///< Link to the Rx message list.
     taf_someipSvr_RxMsgRef_t ref;                       ///< own reference.
+    uint8_t routingId;                                  ///< Routing Identifier.
     uint16_t serviceId;                                 ///< Service Identifier.
     uint16_t instanceId;                                ///< Instance Identifier.
     uint16_t methodId;                                  ///< Method Identifier.
@@ -181,8 +184,8 @@ namespace telux
                 static void ServiceObjDestructor(void* objPtr);
 
                 // Public methods.
-                void VSOMEIPInit(const std::shared_ptr<vsomeip::application>& app);
-                void VSOMEIPHandler(const std::shared_ptr<vsomeip::message>& msg);
+                void VSOMEIPHandler(uint8_t routingId,
+                                         const std::shared_ptr<vsomeip::message>& msg);
                 bool VSOMEIPSubsHandler(taf_someipSvr_SubscriptionHandlerRef_t subsHandlerRef,
                                               vsomeip::client_t clientId, uid_t uId, gid_t gId,
                                               bool isSubscribed);
@@ -190,7 +193,7 @@ namespace telux
                 void ProcessRxMsgRef(void* msgRef);
                 void ProcessSubsHandle(VsSubsHandle_t handle);
 
-                taf_someipSvr_ServiceRef_t GetServiceRef(uint16_t serviceId,
+                taf_someipSvr_ServiceRef_t GetServiceRef(uint8_t routingId, uint16_t serviceId,
                                                              uint16_t instanceId);
                 le_result_t SetServiceVersion(taf_someipSvr_ServiceRef_t serviceRef,
                                                     uint8_t majVer,
@@ -253,12 +256,11 @@ namespace telux
                                              size_t dataSize);
                 le_result_t ReleaseRxMsg(taf_someipSvr_RxMsgRef_t msgRef);
 
-                // Public varibles.
-                le_sem_Ref_t InitSem;
-                std::shared_ptr<vsomeip::application> VsomeipApp;
             private:
                 // Internal search functions.
-                SomeipSvr_Service_t* SearchServiceInList(uint16_t serviceId, uint16_t instanceId);
+                SomeipSvr_Service_t* SearchServiceInList(    uint8_t routingId,
+                                                               uint16_t serviceId,
+                                                               uint16_t instanceId);
                 SomeipSvr_Event_t* SearchEventInList    (le_dls_List_t* eventListPtr,
                                                            uint16_t eventId);
                 SomeipSvr_EventGroup_t* SearchEventGroupInList(le_dls_List_t* eventGroupListPtr,

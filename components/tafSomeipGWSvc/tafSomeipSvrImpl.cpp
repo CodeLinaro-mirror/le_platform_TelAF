@@ -4,6 +4,7 @@
  */
 
 #include "tafSomeipSvr.hpp"
+#include "tafSomeipGWSvc.hpp"
 
 using namespace telux::tafsvc;
 using namespace std;
@@ -21,24 +22,12 @@ taf_SomeipSvr& taf_SomeipSvr::GetInstance()
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Save the VSOME/IP application share pointer.
- */
-//--------------------------------------------------------------------------------------------------
-void taf_SomeipSvr::VSOMEIPInit
-(
-    const std::shared_ptr<vsomeip::application>& app
-)
-{
-    VsomeipApp = app;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
  * Generic VSOME/IP message handler.
  */
 //--------------------------------------------------------------------------------------------------
 void taf_SomeipSvr::VSOMEIPHandler
 (
+    uint8_t routingId,
     const std::shared_ptr<vsomeip::message>& msg
 )
 {
@@ -47,6 +36,7 @@ void taf_SomeipSvr::VSOMEIPHandler
     memset(rxMsgPtr, 0, sizeof(SomeipSvr_RxMsg_t));
 
     // Fill message fields.
+    rxMsgPtr->routingId = routingId;
     rxMsgPtr->serviceId = msg->get_service();
     rxMsgPtr->instanceId = msg->get_instance();
     rxMsgPtr->clientId = msg->get_client();
@@ -76,8 +66,8 @@ void taf_SomeipSvr::VSOMEIPHandler
     rxMsgPtr->ref = (taf_someipSvr_RxMsgRef_t)le_ref_CreateRef(RxMsgRefMap, rxMsgPtr);
 
     // Report to our rx Handler.
-    LE_DEBUG("VSOMEIP rxMsgRef(%p) for service(0x%x/0x%x) is created.", rxMsgPtr->ref,
-            rxMsgPtr->serviceId, rxMsgPtr->instanceId);
+    LE_DEBUG("VSOMEIP rxMsgRef(%p) of service(%u:0x%x/0x%x) is created.", rxMsgPtr->ref,
+             rxMsgPtr->routingId, rxMsgPtr->serviceId, rxMsgPtr->instanceId);
 
     // Create a generic response message object.
     VsMsg_t vsMsg;
@@ -142,22 +132,26 @@ void taf_SomeipSvr::VSOMEIPOfferService
     // Sanity check for the service.
     LE_ASSERT((servicePtr != NULL) && (!servicePtr->isOffered));
 
+    // Get corresponding vsomeip routing manager instance.
+    std::shared_ptr<vsomeip::application> routingApp =
+        someip_GetRoutingManager(servicePtr->routingId);
+
     // Offer the service locally first.
-    VsomeipApp->offer_service(servicePtr->serviceId, servicePtr->instanceId,
+    routingApp->offer_service(servicePtr->serviceId, servicePtr->instanceId,
                               servicePtr->majorVersion, servicePtr->minorVersion);
 
     // Update service configuration so that the local service can be offered on the network
     // later as well.
     if (servicePtr->udpPort != 0)
     {
-        VsomeipApp->update_service_configuration(servicePtr->serviceId,
+        routingApp->update_service_configuration(servicePtr->serviceId,
                                                  servicePtr->instanceId,
                                                  servicePtr->udpPort,
                                                  false, false, true);
     }
     if (servicePtr->tcpPort != 0)
     {
-        VsomeipApp->update_service_configuration(servicePtr->serviceId,
+        routingApp->update_service_configuration(servicePtr->serviceId,
                                                  servicePtr->instanceId,
                                                  servicePtr->tcpPort, true,
                                                  servicePtr->isMagicCookieEnabled,
@@ -166,15 +160,15 @@ void taf_SomeipSvr::VSOMEIPOfferService
 
     // Since the update_service_configuration() can be only called after the service is offered,
     // here we need restart the service to make the new configuration take effect immediately.
-    VsomeipApp->stop_offer_service(servicePtr->serviceId, servicePtr->instanceId,
+    routingApp->stop_offer_service(servicePtr->serviceId, servicePtr->instanceId,
                                    servicePtr->majorVersion, servicePtr->minorVersion);
-    VsomeipApp->offer_service(servicePtr->serviceId, servicePtr->instanceId,
+    routingApp->offer_service(servicePtr->serviceId, servicePtr->instanceId,
                               servicePtr->majorVersion, servicePtr->minorVersion);
 
     // Service is marked as offered.
     servicePtr->isOffered = true;
-    LE_INFO("VSOMEIP offered Service(0x%x/0x%x) of version(0x%x/0x%x).",
-            servicePtr->serviceId, servicePtr->instanceId,
+    LE_INFO("VSOMEIP offered Service(%u:0x%x/0x%x) of version(0x%x/0x%x).",
+            servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId,
             servicePtr->majorVersion, servicePtr->minorVersion);
 }
 
@@ -191,14 +185,18 @@ void taf_SomeipSvr::VSOMEIPStopOfferService
     // Sanity check for the service.
     LE_ASSERT((servicePtr != NULL) && (servicePtr->isOffered));
 
+    // Get corresponding vsomeip routing manager instance.
+    std::shared_ptr<vsomeip::application> routingApp =
+        someip_GetRoutingManager(servicePtr->routingId);
+
     // Stop service.
-    VsomeipApp->stop_offer_service(servicePtr->serviceId, servicePtr->instanceId,
+    routingApp->stop_offer_service(servicePtr->serviceId, servicePtr->instanceId,
                                    servicePtr->majorVersion, servicePtr->minorVersion);
 
     // Remove UPD port from the configuration.
     if (servicePtr->udpPort != 0)
     {
-        VsomeipApp->update_service_configuration(servicePtr->serviceId,
+        routingApp->update_service_configuration(servicePtr->serviceId,
                                                  servicePtr->instanceId,
                                                  servicePtr->udpPort,
                                                  false, false, false);
@@ -206,7 +204,7 @@ void taf_SomeipSvr::VSOMEIPStopOfferService
     // Remove TCP port from the configuration.
     if (servicePtr->tcpPort != 0)
     {
-        VsomeipApp->update_service_configuration(servicePtr->serviceId,
+        routingApp->update_service_configuration(servicePtr->serviceId,
                                                  servicePtr->instanceId,
                                                  servicePtr->tcpPort, true,
                                                  servicePtr->isMagicCookieEnabled,
@@ -215,8 +213,8 @@ void taf_SomeipSvr::VSOMEIPStopOfferService
 
     // Service is marked as stopped.
     servicePtr->isOffered = false;
-    LE_INFO("VSOMEIP stopped Service(0x%x/0x%x) of version(0x%x/0x%x).",
-            servicePtr->serviceId, servicePtr->instanceId,
+    LE_INFO("VSOMEIP stopped Service(%u:0x%x/0x%x) of version(0x%x/0x%x).",
+            servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId,
             servicePtr->majorVersion, servicePtr->minorVersion);
 }
 
@@ -241,6 +239,10 @@ void taf_SomeipSvr::VSOMEIPOfferEvent
         (SomeipSvr_Service_t*)le_ref_Lookup(ServiceRefMap, eventPtr->serviceRef);
     LE_ASSERT((servicePtr != NULL) && (servicePtr->isOffered));
 
+    // Get corresponding vsomeip routing manager instance.
+    std::shared_ptr<vsomeip::application> routingApp =
+        someip_GetRoutingManager(servicePtr->routingId);
+
     // Populate the eventgroups that contain the event.
     std::set<vsomeip::eventgroup_t> groups;
     le_dls_Link_t* linkPtr = le_dls_Peek(&eventPtr->eventGroupList);
@@ -259,21 +261,22 @@ void taf_SomeipSvr::VSOMEIPOfferEvent
     if (eventPtr->eventType == TAF_SOMEIPDEF_ET_FIELD)
     {
         // Offer a field event.
-        VsomeipApp->offer_event(servicePtr->serviceId, servicePtr->instanceId,
+        routingApp->offer_event(servicePtr->serviceId, servicePtr->instanceId,
                                 eventPtr->eventId, groups, vsomeip::event_type_e::ET_FIELD);
     }
     else
     {
         // Offer a pure event with cycle time.
-        VsomeipApp->offer_event(servicePtr->serviceId, servicePtr->instanceId,
+        routingApp->offer_event(servicePtr->serviceId, servicePtr->instanceId,
                                 eventPtr->eventId, groups, vsomeip::event_type_e::ET_EVENT,
                                 std::chrono::milliseconds(eventPtr->cycleTime));
     }
 
     // Mark the event is offered.
     eventPtr->isOffered = true;
-    LE_INFO("VSOMEIP offered Event(id=0x%x) of Service(0x%x/0x%x).",
-             eventPtr->eventId, servicePtr->serviceId, servicePtr->instanceId);
+    LE_INFO("VSOMEIP offered Event(id=0x%x) of Service(%u:0x%x/0x%x).",
+             eventPtr->eventId, servicePtr->routingId,
+             servicePtr->serviceId, servicePtr->instanceId);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -297,12 +300,17 @@ void taf_SomeipSvr::VSOMEIPStopOfferEvent
         (SomeipSvr_Service_t*)le_ref_Lookup(ServiceRefMap, eventPtr->serviceRef);
     LE_ASSERT((servicePtr != NULL) && (servicePtr->isOffered));
 
+    // Get corresponding vsomeip routing manager instance.
+    std::shared_ptr<vsomeip::application> routingApp =
+        someip_GetRoutingManager(servicePtr->routingId);
+
     // Stop offering event.
-    VsomeipApp->stop_offer_event(servicePtr->serviceId, servicePtr->instanceId,
+    routingApp->stop_offer_event(servicePtr->serviceId, servicePtr->instanceId,
                                  eventPtr->eventId);
     eventPtr->isOffered = false;
-    LE_INFO("VSOMEIP stopped Event(id=0x%x) of Service(0x%x/0x%x).",
-             eventPtr->eventId, servicePtr->serviceId, servicePtr->instanceId);
+    LE_INFO("VSOMEIP stopped Event(id=0x%x) of Service(%u:0x%x/0x%x).",
+             eventPtr->eventId, servicePtr->routingId,
+             servicePtr->serviceId, servicePtr->instanceId);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -351,9 +359,13 @@ void taf_SomeipSvr::VSOMEIPSendResponse
     // Sanity check.
     LE_ASSERT((reqPtr != NULL) && (reqPtr->msgType == TAF_SOMEIPDEF_MT_REQUEST))
 
-    SomeipSvr_Service_t* servicePtr = SearchServiceInList(reqPtr->serviceId,
+    SomeipSvr_Service_t* servicePtr = SearchServiceInList(reqPtr->routingId, reqPtr->serviceId,
                                                           reqPtr->instanceId);
     LE_ASSERT((servicePtr != NULL) && (servicePtr->isOffered));
+
+    // Get corresponding vsomeip routing manager instance.
+    std::shared_ptr<vsomeip::application> routingApp =
+        someip_GetRoutingManager(servicePtr->routingId);
 
     // Create the response.
     std::shared_ptr<vsomeip::message> response =
@@ -389,10 +401,11 @@ void taf_SomeipSvr::VSOMEIPSendResponse
     }
 
     // Send the response.
-    VsomeipApp->send(response);
+    routingApp->send(response);
 
-    LE_DEBUG("VSOMEIP sent Response(id=0x%x) of Service(0x%x/0x%x).",
-             reqPtr->methodId, servicePtr->serviceId, servicePtr->instanceId);
+    LE_DEBUG("VSOMEIP sent Response(id=0x%x) of Service(%u:0x%x/0x%x).",
+             reqPtr->methodId, servicePtr->routingId,
+             servicePtr->serviceId, servicePtr->instanceId);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -418,17 +431,22 @@ void taf_SomeipSvr::VSOMEIPNotify
     (SomeipSvr_Service_t*)le_ref_Lookup(ServiceRefMap, eventPtr->serviceRef);
     LE_ASSERT((servicePtr != NULL) && (servicePtr->isOffered));
 
+    // Get corresponding vsomeip routing manager instance.
+    std::shared_ptr<vsomeip::application> routingApp =
+        someip_GetRoutingManager(servicePtr->routingId);
+
     // Send the notification.
     auto payload = vsomeip::runtime::get()->create_payload();
     if ((dataPtr != NULL) && (dataSize != 0))
     {
         payload->set_data(dataPtr, dataSize);
     }
-    VsomeipApp->notify(servicePtr->serviceId, servicePtr->instanceId,
+    routingApp->notify(servicePtr->serviceId, servicePtr->instanceId,
                        eventPtr->eventId, payload);
 
-    LE_DEBUG("VSOMEIP notified event(id=0x%x) of Service(0x%x/0x%x).",
-            eventPtr->eventId, servicePtr->serviceId, servicePtr->instanceId);
+    LE_DEBUG("VSOMEIP notified event(id=0x%x) of Service(%u:0x%x/0x%x).",
+             eventPtr->eventId, servicePtr->routingId,
+             servicePtr->serviceId, servicePtr->instanceId);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -450,7 +468,7 @@ void taf_SomeipSvr::ProcessRxMsgRef
     {
         // Get the service object.
         SomeipSvr_Service_t* servicePtr =
-            SearchServiceInList(rxMsgPtr->serviceId, rxMsgPtr->instanceId);
+            SearchServiceInList(rxMsgPtr->routingId, rxMsgPtr->serviceId, rxMsgPtr->instanceId);
 
         // Simply free the message if no service and/or handler is found to handle it.
         if ((servicePtr == NULL) || (servicePtr->handlerRef == NULL))
@@ -507,7 +525,7 @@ void taf_SomeipSvr::ProcessSubsHandle
             return;
         }
 
-        LE_INFO("GroupId(0x%x) of service(0x%x/0x%x) is '%s' from client(0x%x).",
+        LE_DEBUG("GroupId(0x%x) of service(0x%x/0x%x) is '%s' from client(0x%x).",
                 handlerPtr->groupId, handlerPtr->serviceId, handlerPtr->instanceId,
                 handle.isSubscribed ? "Subscribed" : "Unsubscribed", handle.clientId);
 
@@ -578,7 +596,7 @@ void taf_SomeipSvr::EventObjDestructor
         SomeipSvr_Event_t* eventPtr = (SomeipSvr_Event_t*)objPtr;
         mySomeipSvr.ClearEventGroupList(&eventPtr->eventGroupList);
 
-        LE_INFO("Destructor event(id=0x%x).", eventPtr->eventId);
+        LE_DEBUG("Destructor event(id=0x%x).", eventPtr->eventId);
     }
 }
 
@@ -605,7 +623,8 @@ void taf_SomeipSvr::ServiceObjDestructor
         // Clear the event list.
         mySomeipSvr.ClearEventList(&servicePtr->eventList);
 
-        LE_INFO("Destructor service(0x%x/0x%x).", servicePtr->serviceId, servicePtr->instanceId);
+        LE_DEBUG("Destructor service(%u:0x%x/0x%x).", servicePtr->routingId,
+                servicePtr->serviceId, servicePtr->instanceId);
     }
 }
 
@@ -648,7 +667,8 @@ void taf_SomeipSvr::OnClientDisconnection
             }
 
             // Free the service.
-            LE_INFO("Freed Service(0x%x/0x%x).", servicePtr->serviceId, servicePtr->instanceId);
+            LE_DEBUG("Freed Service(%u:0x%x/0x%x).", servicePtr->routingId,
+                    servicePtr->serviceId, servicePtr->instanceId);
             le_ref_DeleteRef(mySomeipSvr.ServiceRefMap, servicePtr->ref);
             le_mem_Release(servicePtr);
         }
@@ -662,6 +682,7 @@ void taf_SomeipSvr::OnClientDisconnection
 //--------------------------------------------------------------------------------------------------
 SomeipSvr_Service_t* taf_SomeipSvr::SearchServiceInList
 (
+    uint8_t routingId,
     uint16_t serviceId,
     uint16_t instanceId
 )
@@ -673,6 +694,7 @@ SomeipSvr_Service_t* taf_SomeipSvr::SearchServiceInList
         SomeipSvr_Service_t* servicePtr = (SomeipSvr_Service_t*)le_ref_GetValue(iterRef);
 
         if ((servicePtr != NULL) &&
+            (servicePtr->routingId == routingId) &&
             (servicePtr->serviceId == serviceId) &&
             (servicePtr->instanceId == instanceId))
         {
@@ -786,7 +808,7 @@ void taf_SomeipSvr::ClearEventList
 
         if (eventPtr != NULL)
         {
-            LE_INFO("Freed event(id=0x%x).", eventPtr->eventId);
+            LE_DEBUG("Freed event(id=0x%x).", eventPtr->eventId);
             le_mem_Release(eventPtr);
         }
 
@@ -812,7 +834,7 @@ void taf_SomeipSvr::ClearEventGroupList
 
         if (egroupPtr != NULL)
         {
-            LE_INFO("Freed eventGroup(id=0x%x).", egroupPtr->groupId);
+            LE_DEBUG("Freed eventGroup(id=0x%x).", egroupPtr->groupId);
             le_mem_Release(egroupPtr);
         }
 
@@ -838,7 +860,7 @@ void taf_SomeipSvr::ClearRxMessageList
 
         if (msgPtr != NULL)
         {
-            LE_INFO("Freed rxMsg(ref=%p).", msgPtr->ref);
+            LE_DEBUG("Freed rxMsg(ref=%p).", msgPtr->ref);
             le_ref_DeleteRef(RxMsgRefMap, msgPtr->ref);
             le_mem_Release(msgPtr);
         }
@@ -855,6 +877,7 @@ void taf_SomeipSvr::ClearRxMessageList
 //--------------------------------------------------------------------------------------------------
 taf_someipSvr_ServiceRef_t taf_SomeipSvr::GetServiceRef
 (
+    uint8_t routingId,
     uint16_t serviceId,
     uint16_t instanceId
 )
@@ -869,7 +892,7 @@ taf_someipSvr_ServiceRef_t taf_SomeipSvr::GetServiceRef
     }
 
     // Search the service.
-    SomeipSvr_Service_t* servicePtr = SearchServiceInList(serviceId, instanceId);
+    SomeipSvr_Service_t* servicePtr = SearchServiceInList(routingId, serviceId, instanceId);
 
     // Create a service object if it doesn't exist in the list.
     if (servicePtr == NULL)
@@ -878,6 +901,7 @@ taf_someipSvr_ServiceRef_t taf_SomeipSvr::GetServiceRef
         memset(servicePtr, 0, sizeof(SomeipSvr_Service_t));
 
         // Init the serviceId and instanceId and versions.
+        servicePtr->routingId = routingId;
         servicePtr->serviceId = serviceId;
         servicePtr->instanceId = instanceId;
         servicePtr->majorVersion = TAF_SOMEIPDEF_DEFAULT_MAJOR;
@@ -903,21 +927,22 @@ taf_someipSvr_ServiceRef_t taf_SomeipSvr::GetServiceRef
         // Create a Safe Reference for this service object.
         servicePtr->ref = (taf_someipSvr_ServiceRef_t)le_ref_CreateRef(ServiceRefMap, servicePtr);
 
-        LE_INFO("serviceRef %p of client %p is created for Service(0x%x/0x%x).",
-                servicePtr->ref, servicePtr->sessionRef, serviceId, instanceId);
+        LE_DEBUG("serviceRef %p of client %p is created for Service(%u:0x%x/0x%x).",
+                servicePtr->ref, servicePtr->sessionRef, routingId, serviceId, instanceId);
     }
     else
     {
         // Only the service owner app can get the service reference for subsequent operations.
         if (servicePtr->sessionRef != taf_someipSvr_GetClientSessionRef())
         {
-            LE_ERROR("The Service(0x%x/0x%x) is not created by the client.",
-                     servicePtr->serviceId, servicePtr->instanceId);
+            LE_ERROR("The Service(%u:0x%x/0x%x) is not created by the client.",
+                     servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
             return NULL;
         }
     }
 
-    LE_INFO("Get serviceRef %p for Service(0x%x/0x%x).", servicePtr->ref, serviceId, instanceId);
+    LE_DEBUG("Get serviceRef %p for Service(%u:0x%x/0x%x).", servicePtr->ref,
+            routingId, serviceId, instanceId);
 
     return servicePtr->ref;
 }
@@ -949,16 +974,16 @@ le_result_t taf_SomeipSvr::SetServiceVersion
     // Only the service owner app can get the service reference for subsequent operations.
     if (servicePtr->sessionRef != taf_someipSvr_GetClientSessionRef())
     {
-        LE_ERROR("The Service(0x%x/0x%x) is not created by this client.",
-                 servicePtr->serviceId, servicePtr->instanceId);
+        LE_ERROR("The Service(%u:0x%x/0x%x) is not created by this client.",
+                 servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
         return LE_NOT_PERMITTED;
     }
 
     // Check if the service is already offered.
     if (servicePtr->isOffered)
     {
-        LE_ERROR("Service(0x%x/0x%x) is already offered.",
-                 servicePtr->serviceId, servicePtr->instanceId);
+        LE_ERROR("Service(%u:0x%x/0x%x) is already offered.",
+                 servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
         return LE_NOT_PERMITTED;
     }
 
@@ -966,7 +991,7 @@ le_result_t taf_SomeipSvr::SetServiceVersion
     servicePtr->majorVersion = majVer;
     servicePtr->minorVersion = minVer;
 
-    LE_INFO("Set majVer=0x%x minVer=0x%x for serviceRef %p.", majVer, minVer, serviceRef);
+    LE_DEBUG("Set majVer=0x%x minVer=0x%x for serviceRef %p.", majVer, minVer, serviceRef);
     return LE_OK;
 }
 
@@ -998,16 +1023,16 @@ le_result_t taf_SomeipSvr::SetServicePort
     // Only the service owner app can get the service reference for subsequent operations.
     if (servicePtr->sessionRef != taf_someipSvr_GetClientSessionRef())
     {
-        LE_ERROR("The Service(0x%x/0x%x) is not created by this client.",
-                 servicePtr->serviceId, servicePtr->instanceId);
+        LE_ERROR("The Service(%u:0x%x/0x%x) is not created by this client.",
+                 servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
         return LE_NOT_PERMITTED;
     }
 
     // Check if the service is already offered.
     if (servicePtr->isOffered)
     {
-        LE_ERROR("Service(0x%x/0x%x) is already offered.",
-                 servicePtr->serviceId, servicePtr->instanceId);
+        LE_ERROR("Service(%u:0x%x/0x%x) is already offered.",
+                 servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
         return LE_NOT_PERMITTED;
     }
 
@@ -1016,7 +1041,7 @@ le_result_t taf_SomeipSvr::SetServicePort
     servicePtr->tcpPort = tcpPort;
     servicePtr->isMagicCookieEnabled = enableMagicCookies;
 
-    LE_INFO("Set udpPort=0x%x tcpPort=0x%x MagicCookie= 0x%x for serviceRef %p.",
+    LE_DEBUG("Set udpPort=0x%x tcpPort=0x%x MagicCookie= 0x%x for serviceRef %p.",
             udpPort, tcpPort, enableMagicCookies, serviceRef);
     return LE_OK;
 }
@@ -1046,16 +1071,16 @@ le_result_t taf_SomeipSvr::OfferService
     // Only the service owner app can get the service reference for subsequent operations.
     if (servicePtr->sessionRef != taf_someipSvr_GetClientSessionRef())
     {
-        LE_ERROR("The Service(0x%x/0x%x) is not created by this client.",
-                 servicePtr->serviceId, servicePtr->instanceId);
+        LE_ERROR("The Service(%u:0x%x/0x%x) is not created by this client.",
+                 servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
         return LE_NOT_PERMITTED;
     }
 
     // Check if the service is already offered.
     if (servicePtr->isOffered)
     {
-        LE_WARN("Service(0x%x/0x%x) is already offered, skipped OfferService().",
-                 servicePtr->serviceId, servicePtr->instanceId);
+        LE_WARN("Service(%u:0x%x/0x%x) is already offered, skipped OfferService().",
+                 servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
         return LE_DUPLICATE;
     }
 
@@ -1090,16 +1115,16 @@ le_result_t taf_SomeipSvr::StopOfferService
     // Only the service owner app can get the service reference for subsequent operations.
     if (servicePtr->sessionRef != taf_someipSvr_GetClientSessionRef())
     {
-        LE_ERROR("The Service(0x%x/0x%x) is not created by this client.",
-                 servicePtr->serviceId, servicePtr->instanceId);
+        LE_ERROR("The Service(%u:0x%x/0x%x) is not created by this client.",
+                 servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
         return LE_NOT_PERMITTED;
     }
 
     // Check if the service is already stopped.
     if (!servicePtr->isOffered)
     {
-        LE_WARN("Service(0x%x/0x%x) is already stopped, skipped StopOfferService().",
-                 servicePtr->serviceId, servicePtr->instanceId);
+        LE_WARN("Service(%u:0x%x/0x%x) is already stopped, skipped StopOfferService().",
+                 servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
         return LE_DUPLICATE;
     }
 
@@ -1150,8 +1175,8 @@ le_result_t taf_SomeipSvr::EnableEvent
     // Only the service owner app can get the service reference for subsequent operations.
     if (servicePtr->sessionRef != taf_someipSvr_GetClientSessionRef())
     {
-        LE_ERROR("The Service(0x%x/0x%x) is not created by this client.",
-                 servicePtr->serviceId, servicePtr->instanceId);
+        LE_ERROR("The Service(%u:0x%x/0x%x) is not created by this client.",
+                 servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
         return LE_NOT_PERMITTED;
     }
 
@@ -1177,15 +1202,15 @@ le_result_t taf_SomeipSvr::EnableEvent
         // Add the event into service event list.
         le_dls_Queue(&servicePtr->eventList, &eventPtr->link);
 
-        LE_INFO("Created Event(id=0x%x) for Service(0x%x/0x%x)",
-                eventId, servicePtr->serviceId, servicePtr->instanceId);
+        LE_DEBUG("Created Event(id=0x%x) for Service(%u:0x%x/0x%x)",
+                eventId, servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
     }
 
     // Check if the event is already offered.
     if (eventPtr->isOffered)
     {
-        LE_ERROR("Event(id=0x%x) of Service(0x%x/0x%x) is already offered.",
-                 eventId, servicePtr->serviceId, servicePtr->instanceId);
+        LE_ERROR("Event(id=0x%x) of Service(%u:0x%x/0x%x) is already offered.",
+                 eventId, servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
         return LE_NOT_PERMITTED;
     }
 
@@ -1204,14 +1229,16 @@ le_result_t taf_SomeipSvr::EnableEvent
         // Add the eventGroup into the event group list.
         le_dls_Queue(&eventPtr->eventGroupList, &egroupPtr->link);
 
-        LE_INFO("Created EventGroup(id=0x%x) for event(id=0x%x) of Service(0x%x/0x%x)",
-                eventgroupId, eventId, servicePtr->serviceId, servicePtr->instanceId);
+        LE_DEBUG("Created EventGroup(id=0x%x) for event(id=0x%x) of Service(%u:0x%x/0x%x)",
+                eventgroupId, eventId, servicePtr->routingId,
+                servicePtr->serviceId, servicePtr->instanceId);
     }
 
     // Enable the event after eventGroup is set.
     eventPtr->isEnabled = true;
-    LE_INFO("Enabled eventGroup(id=0x%x) for event(id=0x%x) of service(0x%x/0x%x)",
-            eventgroupId, eventId, servicePtr->serviceId, servicePtr->instanceId);
+    LE_DEBUG("Enabled eventGroup(id=0x%x) for event(id=0x%x) of service(%u:0x%x/0x%x)",
+            eventgroupId, eventId, servicePtr->routingId,
+            servicePtr->serviceId, servicePtr->instanceId);
 
     return LE_OK;
 }
@@ -1250,8 +1277,8 @@ le_result_t taf_SomeipSvr::SetEventType
     // Only the service owner app can get the service reference for subsequent operations.
     if (servicePtr->sessionRef != taf_someipSvr_GetClientSessionRef())
     {
-        LE_ERROR("The Service(0x%x/0x%x) is not created by this client.",
-                 servicePtr->serviceId, servicePtr->instanceId);
+        LE_ERROR("The Service(%u:0x%x/0x%x) is not created by this client.",
+                 servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
         return LE_NOT_PERMITTED;
     }
 
@@ -1277,22 +1304,22 @@ le_result_t taf_SomeipSvr::SetEventType
         // Add the event into service event list.
         le_dls_Queue(&servicePtr->eventList, &eventPtr->link);
 
-        LE_INFO("Created Event(id=0x%x) for Service(0x%x/0x%x)",
-                eventId, servicePtr->serviceId, servicePtr->instanceId);
+        LE_DEBUG("Created Event(id=0x%x) for Service(%u:0x%x/0x%x)",
+                eventId, servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
     }
 
     // Check if the event is already offered.
     if (eventPtr->isOffered)
     {
-        LE_ERROR("Event(id=0x%x) for Service(0x%x/0x%x) is already offered.",
-                 eventId, servicePtr->serviceId, servicePtr->instanceId);
+        LE_ERROR("Event(id=0x%x) for Service(%u:0x%x/0x%x) is already offered.",
+                 eventId, servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
         return LE_NOT_PERMITTED;
     }
 
     // Set event type.
     eventPtr->eventType = eventType;
 
-    LE_INFO("Set eventType(0x%x) for Event(id=0x%x) for serviceRef %p.",
+    LE_DEBUG("Set eventType(0x%x) for Event(id=0x%x) for serviceRef %p.",
              eventType, eventId, serviceRef);
     return LE_OK;
 }
@@ -1331,8 +1358,8 @@ le_result_t taf_SomeipSvr::SetEventCycleTime
     // Only the service owner app can get the service reference for subsequent operations.
     if (servicePtr->sessionRef != taf_someipSvr_GetClientSessionRef())
     {
-        LE_ERROR("The Service(0x%x/0x%x) is not created by this client.",
-                 servicePtr->serviceId, servicePtr->instanceId);
+        LE_ERROR("The Service(%u:0x%x/0x%x) is not created by this client.",
+                 servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
         return LE_NOT_PERMITTED;
     }
 
@@ -1358,15 +1385,15 @@ le_result_t taf_SomeipSvr::SetEventCycleTime
         // Add the event into service event list.
         le_dls_Queue(&servicePtr->eventList, &eventPtr->link);
 
-        LE_INFO("Create Event(id=0x%x) for Service(0x%x/0x%x)",
-                eventId, servicePtr->serviceId, servicePtr->instanceId);
+        LE_DEBUG("Create Event(id=0x%x) for Service(%u:0x%x/0x%x)",
+                eventId, servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
     }
 
     // Check if the event is already offered.
     if (eventPtr->isOffered)
     {
-        LE_ERROR("Event(id=0x%x) for Service(0x%x/0x%x) is already offered.",
-                 eventId, servicePtr->serviceId, servicePtr->instanceId);
+        LE_ERROR("Event(id=0x%x) for Service(%u:0x%x/0x%x) is already offered.",
+                 eventId, servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
         return LE_NOT_PERMITTED;
     }
 
@@ -1380,7 +1407,7 @@ le_result_t taf_SomeipSvr::SetEventCycleTime
     // Set event clcle time
     eventPtr->cycleTime = cycleTime;
 
-    LE_INFO("Set cycleTime(0x%x) for Event(id=0x%x) for serviceRef %p.",
+    LE_DEBUG("Set cycleTime(0x%x) for Event(id=0x%x) for serviceRef %p.",
             cycleTime, eventId, serviceRef);
     return LE_OK;
 }
@@ -1418,8 +1445,8 @@ le_result_t taf_SomeipSvr::DisableEvent
     // Only the service owner app can get the service reference for subsequent operations.
     if (servicePtr->sessionRef != taf_someipSvr_GetClientSessionRef())
     {
-        LE_ERROR("The Service(0x%x/0x%x) is not created by this client.",
-                 servicePtr->serviceId, servicePtr->instanceId);
+        LE_ERROR("The Service(%u:0x%x/0x%x) is not created by this client.",
+                 servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
         return LE_NOT_PERMITTED;
     }
 
@@ -1431,8 +1458,8 @@ le_result_t taf_SomeipSvr::DisableEvent
         // Check if the event is already offered.
         if (eventPtr->isOffered)
         {
-            LE_WARN("Event(id=0x%x) of Service(0x%x/0x%x) is already offered.",
-                    eventId, servicePtr->serviceId, servicePtr->instanceId);
+            LE_WARN("Event(id=0x%x) of Service(%u:0x%x/0x%x) is already offered.",
+                    eventId, servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
             return LE_NOT_PERMITTED;
         }
 
@@ -1443,16 +1470,16 @@ le_result_t taf_SomeipSvr::DisableEvent
 
             // Disable the event after eventGroup list is cleared.
             eventPtr->isEnabled = false;
-            LE_INFO("Disabled event(id=0x%x) of service(0x%x/0x%x)",
-                    eventId, servicePtr->serviceId, servicePtr->instanceId);
+            LE_DEBUG("Disabled event(id=0x%x) of service(%u:0x%x/0x%x)",
+                    eventId, servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
             return LE_OK;
         }
     }
 
     // If event object is not found then it's disabled and not offered by default,
     // return LE_OK is fine.
-    LE_WARN("Event(id=0x%x) of Service(0x%x/0x%x) is already disabled.",
-            eventId, servicePtr->serviceId, servicePtr->instanceId);
+    LE_WARN("Event(id=0x%x) of Service(%u:0x%x/0x%x) is already disabled.",
+            eventId, servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
     return LE_OK;
 }
 
@@ -1489,8 +1516,8 @@ le_result_t taf_SomeipSvr::OfferEvent
     // Only the service owner app can get the service reference for subsequent operations.
     if (servicePtr->sessionRef != taf_someipSvr_GetClientSessionRef())
     {
-        LE_ERROR("The Service(0x%x/0x%x) is not created by this client.",
-                 servicePtr->serviceId, servicePtr->instanceId);
+        LE_ERROR("The Service(%u:0x%x/0x%x) is not created by this client.",
+                 servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
         return LE_NOT_PERMITTED;
     }
 
@@ -1498,8 +1525,8 @@ le_result_t taf_SomeipSvr::OfferEvent
     // after its service being offered.
     if (!servicePtr->isOffered)
     {
-        LE_ERROR("Service(0x%x/0x%x) is not offered yet.",
-                 servicePtr->serviceId, servicePtr->instanceId);
+        LE_ERROR("Service(%u:0x%x/0x%x) is not offered yet.",
+                 servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
         return LE_NOT_PERMITTED;
     }
 
@@ -1511,16 +1538,16 @@ le_result_t taf_SomeipSvr::OfferEvent
     if ((eventPtr == NULL) || (!eventPtr->isEnabled) ||
         (le_dls_IsEmpty(&eventPtr->eventGroupList)))
     {
-        LE_ERROR("Event(id=0x%x) of Service(0x%x/0x%x) is not enabled yet.",
-                 eventId, servicePtr->serviceId, servicePtr->instanceId);
+        LE_ERROR("Event(id=0x%x) of Service(%u:0x%x/0x%x) is not enabled yet.",
+                 eventId, servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
         return LE_NOT_PERMITTED;
     }
 
     // Check if the event is offered.
     if (eventPtr->isOffered)
     {
-        LE_ERROR("Event(id=0x%x) of Service(0x%x/0x%x) is already offered.",
-                 eventId, servicePtr->serviceId, servicePtr->instanceId);
+        LE_ERROR("Event(id=0x%x) of Service(%u:0x%x/0x%x) is already offered.",
+                 eventId, servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
         return LE_DUPLICATE;
     }
 
@@ -1563,16 +1590,16 @@ le_result_t taf_SomeipSvr::StopOfferEvent
     // Only the service owner app can get the service reference for subsequent operations.
     if (servicePtr->sessionRef != taf_someipSvr_GetClientSessionRef())
     {
-        LE_ERROR("The Service(0x%x/0x%x) is not created by this client.",
-                 servicePtr->serviceId, servicePtr->instanceId);
+        LE_ERROR("The Service(%u:0x%x/0x%x) is not created by this client.",
+                 servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
         return LE_NOT_PERMITTED;
     }
 
     // Check if the service is offered.
     if (!servicePtr->isOffered)
     {
-        LE_WARN("Service(0x%x/0x%x) is not offered yet.",
-                 servicePtr->serviceId, servicePtr->instanceId);
+        LE_WARN("Service(%u:0x%x/0x%x) is not offered yet.",
+                 servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
         return LE_NOT_PERMITTED;
     }
 
@@ -1583,16 +1610,16 @@ le_result_t taf_SomeipSvr::StopOfferEvent
     if ((eventPtr == NULL) || (!eventPtr->isEnabled) ||
         (le_dls_IsEmpty(&eventPtr->eventGroupList)))
     {
-        LE_ERROR("Event(id=0x%x) of Service(0x%x/0x%x) is not enabled yet.",
-                 eventId, servicePtr->serviceId, servicePtr->instanceId);
+        LE_ERROR("Event(id=0x%x) of Service(%u:0x%x/0x%x) is not enabled yet.",
+                 eventId, servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
         return LE_NOT_PERMITTED;
     }
 
     // Check if the event is stopped.
     if (!eventPtr->isOffered)
     {
-        LE_ERROR("Event(id=0x%x) of Service(0x%x/0x%x) is already stopped.",
-                 eventId, servicePtr->serviceId, servicePtr->instanceId);
+        LE_ERROR("Event(id=0x%x) of Service(%u:0x%x/0x%x) is already stopped.",
+                 eventId, servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
         return LE_DUPLICATE;
     }
 
@@ -1637,16 +1664,16 @@ le_result_t taf_SomeipSvr::Notify
     // Only the service owner app can get the service reference for subsequent operations.
     if (servicePtr->sessionRef != taf_someipSvr_GetClientSessionRef())
     {
-        LE_ERROR("The Service(0x%x/0x%x) is not created by this client.",
-                 servicePtr->serviceId, servicePtr->instanceId);
+        LE_ERROR("The Service(%u:0x%x/0x%x) is not created by this client.",
+                 servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
         return LE_NOT_PERMITTED;
     }
 
     // Check if the service is offered.
     if (!servicePtr->isOffered)
     {
-        LE_WARN("Service(0x%x/0x%x) is not offered yet.",
-                 servicePtr->serviceId, servicePtr->instanceId);
+        LE_WARN("Service(%u:0x%x/0x%x) is not offered yet.",
+                 servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
         return LE_NOT_PERMITTED;
     }
 
@@ -1657,16 +1684,16 @@ le_result_t taf_SomeipSvr::Notify
     if ((eventPtr == NULL) || (!eventPtr->isEnabled) ||
         (le_dls_IsEmpty(&eventPtr->eventGroupList)))
     {
-        LE_ERROR("Event(id=0x%x) of Service(0x%x/0x%x) is not enabled yet.",
-                 eventId, servicePtr->serviceId, servicePtr->instanceId);
+        LE_ERROR("Event(id=0x%x) of Service(%u:0x%x/0x%x) is not enabled yet.",
+                 eventId, servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
         return LE_NOT_PERMITTED;
     }
 
     // Check if the event is stopped.
     if (!eventPtr->isOffered)
     {
-        LE_ERROR("Event(id=0x%x) of Service(0x%x/0x%x) is not offered.",
-                 eventId, servicePtr->serviceId, servicePtr->instanceId);
+        LE_ERROR("Event(id=0x%x) of Service(%u:0x%x/0x%x) is not offered.",
+                 eventId, servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
         return LE_NOT_PERMITTED;
     }
 
@@ -1703,16 +1730,16 @@ taf_someipSvr_RxMsgHandlerRef_t taf_SomeipSvr::AddRxMsgHandler
     // Only the service owner app can get the service reference for subsequent operations.
     if (servicePtr->sessionRef != taf_someipSvr_GetClientSessionRef())
     {
-        LE_ERROR("The Service(0x%x/0x%x) is not created by this client.",
-                 servicePtr->serviceId, servicePtr->instanceId);
+        LE_ERROR("The Service(%u:0x%x/0x%x) is not created by this client.",
+                 servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
         return NULL;
     }
 
     // Check if a Rx Handler for the service is already registered.
     if (servicePtr->handlerRef != NULL)
     {
-        LE_ERROR("Rx Handler for Service(0x%x/0x%x) is already registered.",
-                 servicePtr->serviceId, servicePtr->instanceId);
+        LE_ERROR("Rx Handler for Service(%u:0x%x/0x%x) is already registered.",
+                 servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
         return NULL;
     }
 
@@ -1731,8 +1758,9 @@ taf_someipSvr_RxMsgHandlerRef_t taf_SomeipSvr::AddRxMsgHandler
     // Attach the Rx Handler to the service.
     servicePtr->handlerRef = rxHandlerPtr->ref;
 
-    LE_INFO("Created handlerRef(%p) for Service(0x%x/0x%x).",
-            rxHandlerPtr->ref, servicePtr->serviceId, servicePtr->instanceId);
+    LE_DEBUG("Created handlerRef(%p) for Service(%u:0x%x/0x%x).",
+            rxHandlerPtr->ref, servicePtr->routingId,
+            servicePtr->serviceId, servicePtr->instanceId);
 
     return rxHandlerPtr->ref;
 }
@@ -1763,8 +1791,8 @@ void taf_SomeipSvr::RemoveRxMsgHandler
         {
             if (servicePtr->sessionRef != taf_someipSvr_GetClientSessionRef())
             {
-                LE_ERROR("The Service(0x%x/0x%x) is not created by this client.",
-                         servicePtr->serviceId, servicePtr->instanceId);
+                LE_ERROR("The Service(%u:0x%x/0x%x) is not created by this client.",
+                         servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
                 return;
             }
 
@@ -1772,15 +1800,11 @@ void taf_SomeipSvr::RemoveRxMsgHandler
             servicePtr->handlerRef = NULL;
         }
 
-        LE_INFO("Removed rxHandlerRef(%p).", handlerRef);
+        LE_DEBUG("Removed rxHandlerRef(%p).", handlerRef);
 
         // Free the handler.
         le_ref_DeleteRef(RxHandlerRefMap, handlerRef);
         le_mem_Release(rxHandlerPtr);
-    }
-    else
-    {
-        LE_ERROR("Invalid rxHandlerRef(%p).", handlerRef);
     }
 
     return;
@@ -1815,8 +1839,8 @@ taf_someipSvr_SubscriptionHandlerRef_t taf_SomeipSvr::AddSubscriptionHandler
     // Only the service owner app can get the service reference for subsequent operations.
     if (servicePtr->sessionRef != taf_someipSvr_GetClientSessionRef())
     {
-        LE_ERROR("The Service(0x%x/0x%x) is not created by this client.",
-                 servicePtr->serviceId, servicePtr->instanceId);
+        LE_ERROR("The Service(%u:0x%x/0x%x) is not created by this client.",
+                 servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
         return NULL;
     }
 
@@ -1826,8 +1850,9 @@ taf_someipSvr_SubscriptionHandlerRef_t taf_SomeipSvr::AddSubscriptionHandler
         SearchSubscriptionHandlerInList(serviceRef, eventGroupId);
     if (subsHandlerPtr != NULL)
     {
-        LE_ERROR("SubsHandler for groupId(0x%x) of Service(0x%x/0x%x) is already registered.",
-                 eventGroupId, servicePtr->serviceId, servicePtr->instanceId);
+        LE_ERROR("SubsHandler for groupId(0x%x) of Service(%u:0x%x/0x%x) is already registered.",
+                 eventGroupId, servicePtr->routingId,
+                 servicePtr->serviceId, servicePtr->instanceId);
         return NULL;
     }
 
@@ -1837,6 +1862,7 @@ taf_someipSvr_SubscriptionHandlerRef_t taf_SomeipSvr::AddSubscriptionHandler
 
     // Init the fields.
     subsHandlerPtr->serviceRef = serviceRef;
+    subsHandlerPtr->routingId = servicePtr->routingId;
     subsHandlerPtr->serviceId = servicePtr->serviceId;
     subsHandlerPtr->instanceId = servicePtr->instanceId;
     subsHandlerPtr->groupId = eventGroupId;
@@ -1846,8 +1872,12 @@ taf_someipSvr_SubscriptionHandlerRef_t taf_SomeipSvr::AddSubscriptionHandler
         (taf_someipSvr_SubscriptionHandlerRef_t)le_ref_CreateRef(SubsHandlerRefMap,
                                                                  subsHandlerPtr);
 
+    // Get corresponding vsomeip routing manager instance.
+    std::shared_ptr<vsomeip::application> routingApp =
+        someip_GetRoutingManager(servicePtr->routingId);
+
     // Register to VSOMEIP subs handler.
-    VsomeipApp->register_subscription_handler(servicePtr->serviceId,
+    routingApp->register_subscription_handler(servicePtr->serviceId,
                                               servicePtr->instanceId,
                                               eventGroupId,
                                               std::bind(&taf_SomeipSvr::VSOMEIPSubsHandler,
@@ -1856,8 +1886,9 @@ taf_someipSvr_SubscriptionHandlerRef_t taf_SomeipSvr::AddSubscriptionHandler
                                               std::placeholders::_3,
                                               std::placeholders::_4));
 
-    LE_INFO("Created SubsHandlerRef(%p) for groupId(0x%x) of Service(0x%x/0x%x).",
-            subsHandlerPtr->ref, eventGroupId, servicePtr->serviceId, servicePtr->instanceId);
+    LE_DEBUG("Created SubsHandlerRef(%p) for groupId(0x%x) of Service(%u:0x%x/0x%x).",
+            subsHandlerPtr->ref, eventGroupId,
+            servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
 
     return subsHandlerPtr->ref;
 }
@@ -1888,25 +1919,26 @@ void taf_SomeipSvr::RemoveSubscriptionHandler
         {
             if (servicePtr->sessionRef != taf_someipSvr_GetClientSessionRef())
             {
-                LE_ERROR("The Service(0x%x/0x%x) is not created by this client.",
-                         servicePtr->serviceId, servicePtr->instanceId);
+                LE_ERROR("The Service(%u:0x%x/0x%x) is not created by this client.",
+                         servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
                 return;
             }
         }
 
-        LE_INFO("Removed subsHandlerRef(%p).", handlerRef);
+        LE_DEBUG("Removed subsHandlerRef(%p).", handlerRef);
+
+        // Get corresponding vsomeip routing manager instance.
+        std::shared_ptr<vsomeip::application> routingApp =
+            someip_GetRoutingManager(subsHandlerPtr->routingId);
 
         // Deregister VSOMEIP subs handler.
-        VsomeipApp->unregister_subscription_handler(subsHandlerPtr->serviceId,
+        routingApp->unregister_subscription_handler(subsHandlerPtr->serviceId,
                                                     subsHandlerPtr->instanceId,
                                                     subsHandlerPtr->groupId);
+
         // Free the handler.
         le_ref_DeleteRef(SubsHandlerRefMap, handlerRef);
         le_mem_Release(subsHandlerPtr);
-    }
-    else
-    {
-        LE_ERROR("Invalid subsHandlerRef(%p).", handlerRef);
     }
 
     return;
@@ -2118,20 +2150,22 @@ le_result_t taf_SomeipSvr::SendResponse
     LE_ASSERT(msgPtr->ref == msgRef);
 
     // Get the service.
-    SomeipSvr_Service_t* servicePtr = SearchServiceInList(msgPtr->serviceId, msgPtr->instanceId);
+    SomeipSvr_Service_t* servicePtr = SearchServiceInList(msgPtr->routingId, msgPtr->serviceId,
+                                                          msgPtr->instanceId);
 
     // Check if the service is offered.
     if ((servicePtr == NULL) || (!servicePtr->isOffered))
     {
-        LE_ERROR("Service(0x%x/0x%x) is not offered.", msgPtr->serviceId, msgPtr->instanceId);
+        LE_ERROR("Service(%u:0x%x/0x%x) is not offered.", msgPtr->routingId,
+                 msgPtr->serviceId, msgPtr->instanceId);
         return LE_NOT_PERMITTED;
     }
 
     // Only the service owner app can get the service reference for subsequent operations.
     if (servicePtr->sessionRef != taf_someipSvr_GetClientSessionRef())
     {
-        LE_ERROR("The Service(0x%x/0x%x) is not created by this client.",
-                 servicePtr->serviceId, servicePtr->instanceId);
+        LE_ERROR("The Service(%u:0x%x/0x%x) is not created by this client.",
+                 servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
         return LE_NOT_PERMITTED;
     }
 
@@ -2172,7 +2206,8 @@ le_result_t taf_SomeipSvr::ReleaseRxMsg
     LE_ASSERT(msgPtr->ref == msgRef);
 
     // Get the service.
-    SomeipSvr_Service_t* servicePtr = SearchServiceInList(msgPtr->serviceId, msgPtr->instanceId);
+    SomeipSvr_Service_t* servicePtr = SearchServiceInList(msgPtr->routingId, msgPtr->serviceId,
+                                                          msgPtr->instanceId);
 
     if (servicePtr == NULL)
     {
@@ -2183,8 +2218,8 @@ le_result_t taf_SomeipSvr::ReleaseRxMsg
     // Only the service owner app can get the service reference for subsequent operations.
     if (servicePtr->sessionRef != taf_someipSvr_GetClientSessionRef())
     {
-        LE_ERROR("The Service(0x%x/0x%x) is not created by this client.",
-                 servicePtr->serviceId, servicePtr->instanceId);
+        LE_ERROR("The Service(%u:0x%x/0x%x) is not created by this client.",
+                 servicePtr->routingId, servicePtr->serviceId, servicePtr->instanceId);
         return LE_NOT_PERMITTED;
     }
 
@@ -2235,8 +2270,6 @@ void taf_SomeipSvr::Init
     // Create client session close hander.
     le_msg_AddServiceCloseHandler(taf_someipSvr_GetServiceRef(),
                                   taf_SomeipSvr::OnClientDisconnection, NULL);
-
-    InitSem = le_sem_Create("Server InitSem", 0);
 
     LE_INFO("taf_SomeipSvr Service started");
 }

@@ -1,0 +1,24 @@
+sources:
+{ 
+    testAppB.c
+    $CURDIR/../common/multiRoutMgrsTest.c
+}
+
+requires:
+{
+    api:
+    {
+        $TELAF_ROOT/interfaces/someipGW/taf_someipSvr.api
+        $TELAF_ROOT/interfaces/someipGW/taf_someipClnt.api
+    }
+}
+
+cflags:
+{
+    -I${LEGATO_ROOT}/framework/liblegato
+    -I${CURDIR}/../common
+    -Wno-error=pointer-to-int-cast
+    -Wno-pointer-to-int-cast
+    -Wno-error=int-to-pointer-cast
+    -Wno-int-to-pointer-cast
+}

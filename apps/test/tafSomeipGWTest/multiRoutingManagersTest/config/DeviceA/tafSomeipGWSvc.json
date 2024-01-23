@@ -3,7 +3,7 @@
     "device" : "bridge0",
     "logging" :
     {
-        "level" : "error",
+        "level" : "debug",
         "console" : "true",
         "file" : { "enable" : "false", "path" : "/tmp/vsomeip.log" },
         "version" : { "enable" : "false", "interval" : "10" },

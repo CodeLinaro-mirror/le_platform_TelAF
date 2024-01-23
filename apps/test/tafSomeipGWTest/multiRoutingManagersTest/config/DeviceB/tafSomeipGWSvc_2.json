@@ -1,6 +1,6 @@
 {
-    "unicast" : "192.168.225.1",
-    "device" : "bridge0",
+    "unicast" : "10.10.2.2",
+    "device" : "eth0.2",
     "logging" :
     {
         "level" : "error",
@@ -12,16 +12,16 @@
     "applications" :
     [
         {
-            "name" : "tafSomeipGWSvc",
-            "id" : "0x0101"
+            "name" : "tafSomeipGWSvc_2",
+            "id" : "0x0302"
         }
     ],
-    "routing" : "tafSomeipGWSvc",
-    "network" : "tafSomeipGWSvc",
+    "routing" : "tafSomeipGWSvc_2",
+    "network" : "tafSomeipGWSvc_2",
     "service-discovery" :
     {
         "enable" : "true",
-        "multicast" : "224.0.0.1",
+        "multicast" : "226.0.0.1",
         "port" : "30490",
         "protocol" : "udp",
         "initial_delay_min" : "10",

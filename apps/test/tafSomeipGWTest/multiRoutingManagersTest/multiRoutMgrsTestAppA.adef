@@ -1,0 +1,21 @@
+start: manual
+sandboxed: false
+
+executables:
+{
+    multiRoutMgrsTestAppA = ( CompA )
+}
+
+processes:
+{
+    run:
+    {
+        ( multiRoutMgrsTestAppA )
+    }
+}
+
+bindings:
+{
+    multiRoutMgrsTestAppA.CompA.taf_someipSvr -> tafSomeipGWSvc.taf_someipSvr
+    multiRoutMgrsTestAppA.CompA.taf_someipClnt -> tafSomeipGWSvc.taf_someipClnt
+}

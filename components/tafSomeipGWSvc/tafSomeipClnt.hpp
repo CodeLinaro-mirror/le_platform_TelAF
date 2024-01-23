@@ -39,6 +39,7 @@ typedef enum
 
 typedef struct
 {
+    uint8_t routingId;
     uint16_t serviceId;
     uint16_t instanceId;
     uint8_t majVer;
@@ -75,6 +76,7 @@ typedef enum
 //--------------------------------------------------------------------------------------------------
 typedef struct
 {
+    uint8_t  routingId;                             ///< Routing Identifier.
     uint16_t serviceId;                             ///< Service Identifier.
     uint16_t instanceId;                            ///< Instance Identifier.
     uint16_t methodId;                              ///< Method Identifier.
@@ -172,6 +174,7 @@ typedef struct
 typedef struct
 {
     le_dls_Link_t link;                             ///< Link to the list.
+    uint8_t routingId;                              ///< Routing Identifier.
     uint16_t serviceId;                             ///< Service Identifier.
     uint16_t instanceId;                            ///< Instance Identifier.
     ServiceState_t state;                           ///< Service state.
@@ -272,10 +275,12 @@ namespace telux
                 static bool HashCompareTxnIds(const void* firstKeyPtr, const void* secondKeyPtr);
 
                 // Public methods used in VSOMEIP handlers or context.
-                void VSOMEIPInit(const std::shared_ptr<vsomeip::application>& app);
-                void VSOMEIPRespHandler(const std::shared_ptr<vsomeip::message>& msg);
-                void VSOMEIPEventHandler(const std::shared_ptr<vsomeip::message>& msg);
-                void VSOMEIPStateHandler(uint16_t serviceId, uint16_t instanceId, bool isAvailable);
+                void VSOMEIPRespHandler(uint8_t routingId,
+                                              const std::shared_ptr<vsomeip::message>& msg);
+                void VSOMEIPEventHandler(uint8_t routingId,
+                                               const std::shared_ptr<vsomeip::message>& msg);
+                void VSOMEIPStateHandler(uint8_t routingId, uint16_t serviceId,
+                                               uint16_t instanceId, bool isAvailable);
 
                 // Public methods used in generic service layer.
                 void ClientDisconnection(le_msg_SessionRef_t sessionRef, void *contextPtr);
@@ -287,8 +292,9 @@ namespace telux
                 void TxnTimerExpiryHandler(le_timer_Ref_t timerRef);
 
                 // Pubilc methods for API handler wrapper.
-                uint16_t GetClientId(void);
-                taf_someipClnt_ServiceRef_t RequestService(uint16_t serviceId, uint16_t instanceId);
+                uint16_t GetClientId(uint8_t routingId);
+                taf_someipClnt_ServiceRef_t RequestService(uint8_t routingId, uint16_t serviceId,
+                                                                uint16_t instanceId);
                 le_result_t ReleaseService(taf_someipClnt_ServiceRef_t serviceRef);
                 le_result_t GetState(taf_someipClnt_ServiceRef_t serviceRef,
                                         taf_someipClnt_State_t* statePtr);
@@ -329,11 +335,10 @@ namespace telux
                     void* contextPtr);
                 void RemoveEventMsgHandler(taf_someipClnt_EventMsgHandlerRef_t handlerRef);
 
-                // Public varibles.
-                le_sem_Ref_t InitSem;
             private:
                 // Internal functions.
-                SomeipClnt_Service_t* FindService(uint16_t serviceId, uint16_t instanceId);
+                SomeipClnt_Service_t* FindService(uint8_t routingId, uint16_t serviceId,
+                                                      uint16_t instanceId);
                 SvcClient_t* FindSvcClient(SomeipClnt_Service_t* serverPtr,
                                                le_msg_SessionRef_t clientSessionRef);
                 bool IsSvcClientReleasable(SvcClient_t* svcClientPtr);
@@ -355,13 +360,11 @@ namespace telux
                 void VSOMEIPReleaseService(SomeipClnt_Service_t* servicePtr);
                 void VSOMEIPSendRequest(CommonMsgHdr_t* msgHdrPtr,bool isNonRetMsg,
                                               bool isReliable, Payload_t* payloadPtr);
-                bool VSOMEIPGetServiceInfo(uint16_t serviceId, uint16_t instanceId,
-                                            uint8_t* majVerPtr, uint32_t* minVerPtr);
+                bool VSOMEIPGetServiceInfo(uint8_t routingId, uint16_t serviceId,
+                                                  uint16_t instanceId, uint8_t* majVerPtr,
+                                                  uint32_t* minVerPtr);
                 void VSOMEIPSubscribeEventGroup(SomeipClnt_Group_t* groupPtr);
                 void VSOMEIPUnsubscribeEventGroup(SomeipClnt_Group_t* groupPtr);
-
-                // VSOME/IP client ID.
-                uint16_t VsClientId;
 
                 // Global Txn hash map and Txn object.
                 le_hashmap_Ref_t TxnHashMapRef;
@@ -403,8 +406,6 @@ namespace telux
                 // VSOMEIP interface.
                 le_event_Id_t VsMsgEvent;
                 le_event_HandlerRef_t VsMsgEventHandlerRef;
-
-                std::shared_ptr<vsomeip::application> VsomeipApp;
         };
     }
 }

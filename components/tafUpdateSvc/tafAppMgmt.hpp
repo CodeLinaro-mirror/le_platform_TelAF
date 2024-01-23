@@ -44,6 +44,7 @@
 #define TAF_APPMGMT_SYSTEM_APPS_NODE "system:/apps/%s"
 #define TAF_APPMGMT_TELAF_APPS "/legato/apps"
 #define TAF_APPMGMT_TELAF_APPS_NODE "/legato/apps/%s"
+#define TAF_APPMGMT_APP_INSTALL_PATH_PREFIX "/data/images/app_"
 #define TAF_APPMGMT_APP_BACKUP_DIR "/data/images"
 #define TAF_APPMGMT_APP_BACKUP_NODE "/data/images/%s"
 #define TAF_APPMGMT_APP_BACKUP_PATH "/data/images/app_%s.backup"
@@ -93,7 +94,7 @@ typedef enum
 typedef struct
 {
     taf_AppMgmtUpdateEvent_t event;
-    char name[TAF_APPMGMT_APP_NAME_BYTES];
+    char appName[TAF_APPMGMT_APP_NAME_BYTES];
 } taf_AppMgmtUpdateReq_t;
 
 namespace telux {

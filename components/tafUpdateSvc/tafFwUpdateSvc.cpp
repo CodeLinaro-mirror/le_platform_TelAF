@@ -52,38 +52,52 @@ void taf_fwupdate_RebootToActive()
     le_event_Report(taf_FwUpdate::fwUpdateEvId, &updateReq, sizeof(taf_FwUpdateReq_t));
 }
 
-/*======================================================================
- FUNCTION        taf_fwupdate_GetFirmwareVersion
- DESCRIPTION     Get firmware version
- PARAMETERS      [OUT] versionPtr: Firmware version
-                 [IN] versionNumElements: version size in bytes
- RETURN VALUE    void
-======================================================================*/
-le_result_t taf_fwupdate_GetFirmwareVersion(char* versionPtr, size_t versionNumElements)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get current firmware version.
+ *
+ * @return
+ *  - LE_FAULT         On failure.
+ *  - LE_OK            On success.
+ *  - LE_BAD_PARAMETER Invalid parameters.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_fwupdate_GetFirmwareVersion
+(
+    char* versionPtr,         ///< [OUT] Firmware version string.
+    size_t versionNumElements ///< [IN] The number of characters in version.
+)
 {
     TAF_ERROR_IF_RET_VAL(versionPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(versionPtr)");
 
-    std::ifstream fin(TAF_FWUPDATE_VERSION_FILE);
-    std::string verstr;
-    getline(fin, verstr);
-    le_utf8_Copy(versionPtr, verstr.c_str(), TAF_FWUPDATE_MAX_VERS_LEN, NULL);
-    fin.close();
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+
+    if (tafFwUpdate.GetFirmwareVersion(versionPtr) != LE_OK)
+    {
+        LE_ERROR("Fail to get firmware version.");
+        return LE_FAULT;
+    }
 
     return LE_OK;
 }
 
-/*======================================================================
- FUNCTION        taf_fwupdate_Install
- DESCRIPTION     Install firmware
- PARAMETERS      void
- RETURN VALUE    void
-======================================================================*/
+//--------------------------------------------------------------------------------------------------
+/**
+ * Install firmware.
+ *
+ * @return
+ *  - LE_FAULT On failure.
+ *  - LE_OK    On success.
+ */
+//--------------------------------------------------------------------------------------------------
 le_result_t taf_fwupdate_Install()
 {
     taf_FwUpdateReq_t fwupdateReq;
+
     fwupdateReq.event = TAF_FWUPDATE_EV_INSTALL;
-    le_utf8_Copy(fwupdateReq.name, TAF_UPDATE_FOTA_PAKCAGE_FILE_PATH,
-        TAF_UPDATE_MAX_PKG_NAME_LEN, NULL);
+    le_utf8_Copy(fwupdateReq.filePath, TAF_FWUPDATE_LOCAL_PACAKAGE_PATH,
+        TAF_UPDATE_FILE_PATH_LEN, NULL);
     le_event_Report(taf_FwUpdate::fwUpdateEvId, &fwupdateReq, sizeof(taf_FwUpdateReq_t));
+
     return LE_OK;
 }

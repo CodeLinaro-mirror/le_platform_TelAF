@@ -86,6 +86,10 @@ le_result_t taf_Mrc::SendOtaMsg(taf_MrcOtaMsgType_t type)
              opStatus = telux::platform::OperationStatus::SUCCESS;
              status = tafMrc.fsManager->otaCompleted(opStatus, cb);
              break;
+        case TAF_MRC_OTA_MSG_TYPE_END_FAILURE:
+             opStatus = telux::platform::OperationStatus::FAILURE;
+             status = tafMrc.fsManager->otaCompleted(opStatus, cb);
+             break;
         case TAF_MRC_OTA_MSG_TYPE_ABSYNC:
              status = tafMrc.fsManager->startAbSync(cb);
              break;

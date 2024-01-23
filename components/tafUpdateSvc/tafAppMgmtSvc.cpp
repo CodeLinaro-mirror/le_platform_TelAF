@@ -278,7 +278,7 @@ le_result_t taf_appMgmt_Start(const char* appName)
     {
         taf_AppMgmtUpdateReq_t updateReq;
         updateReq.event = TAF_APPMGMT_EV_PROBATION;
-        le_utf8_Copy(updateReq.name, appName, TAF_APPMGMT_APP_NAME_BYTES, NULL);
+        le_utf8_Copy(updateReq.appName, appName, TAF_APPMGMT_APP_NAME_BYTES, NULL);
         le_event_Report(tafAppMgmt.appUpdateEvId, &updateReq, sizeof(taf_AppMgmtUpdateReq_t));
         return LE_OK;
     }

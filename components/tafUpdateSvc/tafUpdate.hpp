@@ -41,59 +41,98 @@
 #ifndef TAFUPDATE_HPP
 #define TAFUPDATE_HPP
 
-#include <map>
 #include <string>
 
 #include "legato.h"
 #include "interfaces.h"
 
 #include "tafSvcIF.hpp"
-#include "taf_pa_update.hpp"
+#include "tafHalLib.hpp"
+#include "tafPiDA.h"
 
-#define TAF_UPDATE_PAKCAGE_FILE_PATH "/data/images/TCU_target"
-#define TAF_UPDATE_FOTA_PAKCAGE_FILE_PATH "/data/images/firmware"
 #define TAF_UPDATE_SOTA_PAKCAGE_FILE_PATH "/data/images/app_%s"
 
 #define TAF_UPDATE_THREAD_STACK_SIZE 0x20000
 
-#define TAF_UPDATE_TIME_TO_ACCESS_FILE 20
-#define TAF_UPDATE_DOWNLOAD_TIME_INTERVAL 200
+#define TAF_UPDATE_SESSION_NUM 5
 
-#define TAF_UPDATE_QOTA_HEADER_SEG_NUM 13
+
 #define TAF_UPDATE_QOTA_HEADER_SIZE 48
+#define TAF_UPDATE_QOTA_MAGIC_SIZE 4
 
 #define TAF_UPDATE_RW_BUFFER_SIZE 4096
-
-// User request event
-typedef enum {
-    TAF_UPDATE_REQ_DOWNLOAD,
-    TAF_UPDATE_REQ_INSTALL
-} taf_UpdateReqEvent_t;
 
 // Download event
 typedef enum {
     TAF_UPDATE_DL_START,
-    TAF_UPDATE_DL_PAUSED,
+    TAF_UPDATE_DL_PAUSE,
     TAF_UPDATE_DL_RESUME,
+    TAF_UPDATE_DL_CANCEL
 } taf_UpdateDlEvent_t;
 
-// QOTA header segment
-typedef struct {
-    const char* name;
-    size_t size;
-} taf_UpdateQotaHeaderSeg_t;
+//--------------------------------------------------------------------------------------------------
+/**
+ * Update session type enum.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    TAF_UPDATE_SESSION_TYPE_PLUGIN_DOWNLOAD,
+    TAF_UPDATE_SESSION_TYPE_PLUGIN_UPDATE,
+    TAF_UPDATE_SESSION_TYPE_QOTA_PARSE,
+    TAF_UPDATE_SESSION_TYPE_FW_UPDATE,
+    TAF_UPDATE_SESSION_TYPE_APP_UPDATE
+} taf_UpdateSessionType_t;
 
-// User Request
-typedef struct {
-    taf_UpdateReqEvent_t event;
-    taf_update_OTA_t ota;
-    char name[TAF_UPDATE_MAX_PKG_NAME_LEN];
-} taf_UpdateUsrReq_t;
+//--------------------------------------------------------------------------------------------------
+/**
+ * Download session structure.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    le_timer_Ref_t timerRef;
+    taf_pi_da_SessionRef_t sessRef;
+    taf_update_State_t state;
+    int percent;
+    int error;
+} taf_UpdateDownloadSession_t;
 
-// Download request
-typedef struct {
+//--------------------------------------------------------------------------------------------------
+/**
+ * Firmware install session structure.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    char filePath[TAF_UPDATE_FILE_PATH_LEN];
+} taf_UpdateFwInstallSession_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Download request structure.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
     taf_UpdateDlEvent_t event;
+    taf_UpdateDownloadSession_t* sessPtr;
 } taf_UpdateDlReq_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Update session structure.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_UpdateSessionType_t sessType;
+    union
+    {
+        taf_UpdateDownloadSession_t dlSess;
+        taf_UpdateFwInstallSession_t fwSess;
+    };
+} taf_UpdateSession_t;
 
 namespace telux {
 namespace tafsvc {
@@ -104,36 +143,30 @@ namespace tafsvc {
 
         static taf_Update &GetInstance();
 
-        bool CheckHeader(const char* src, const char* dst, int n);
-        le_result_t ParseHeader(const char* file, taf_update_OTA_t* ota);
-        le_result_t RemoveHeader(const char* file);
-        le_result_t ParsePackage(const char* file);
-        static void NameEventHandler(le_json_Event_t event);
-        static void JsonEventHandler(le_json_Event_t event);
-        static void JsonErrorHandler(le_json_Error_t error, const char* msg);
-        le_result_t ParseBundle(const char* file);
+        le_result_t CheckQotaHeader(const char* file);
+        le_result_t RemoveQotaHeader(const char* file);
 
-        void NotifyDownloadFail();
+        void ReportDownloadStatus(taf_UpdateDownloadSession_t* sessPtr, taf_update_State_t state);
         static void DownloadTimerHandler(le_timer_Ref_t timerRef);
 
         static void StateLayeredHandler(void* reportPtr, void* layerHandlerFunc);
 
         static void DownloadHandler(void* reqPtr);
-        static void RequestHandler(void* reqPtr);
-        static void* RequestThread(void* contextPtr);
 
         void Init(void);
 
-        le_event_Id_t stateEvId;
-        static le_event_Id_t requestEvId;
-        le_event_Id_t downloadEvId;
+        da_Inf_t* daInfPtr;
 
-        le_timer_Ref_t dlTimerRef;
-        taf_update_State_t downloadState = TAF_UPDATE_IDLE;
-        taf_update_SessionRef_t daSessionID;
-        std::map<std::string, char*> qotaHeader;
-        int dlAppFd;
-        char dlAppName[TAF_APPMGMT_APP_NAME_BYTES];
+        le_mem_PoolRef_t sessionPool;
+        le_ref_MapRef_t sessionMap;
+
+        taf_update_SessionRef_t dlSessRef;
+        taf_update_SessionRef_t qotaSessRef;
+        taf_update_SessionRef_t fwSessRef;
+        taf_update_SessionRef_t appSessRef;
+
+        le_event_Id_t stateEvId;
+        le_event_Id_t downloadEvId;
     };
 }
 }

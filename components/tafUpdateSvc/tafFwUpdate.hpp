@@ -41,42 +41,50 @@
 #include "tafSvcIF.hpp"
 
 #define TAF_FWUPDATE_INSTALL_CMD_LEN 256
+#define TAF_FWUPDATE_CMD_RESULT_LEN 32
 // Data proccessing rate is about 3.84 MB/s.
 #define TAF_FWUPDATE_PROC_DATA_RATE 4035394
 
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 // 33s for OTA start message and 17s for OTA end message.
 #define TAF_FWUPDATE_PROC_MRC_TIME 50
-// 98s for OTA sync message.
-#define TAF_FWUPDATE_MRC_SYNC_TIME 98
-#else
-#define TAF_FWUPDATE_PROC_MRC_TIME 0
-#define TAF_FWUPDATE_MRC_SYNC_TIME 0
-#endif
+// 111s for OTA sync message.
+#define TAF_FWUPDATE_MRC_SYNC_TIME 111
+
+#define TAF_FIRMWARE_VERSION_LINE_NUM 16
+#define TAF_TELAF_VERSION_LEN 21
+
+#define TAF_FWUPDATE_BYPASS_CHECK_TAG "NULL"
 
 #define TAF_FWUPDATE_RECOVERY_LOG_FILE "/tmp/recovery.log"
-#define TAF_FWUPDATE_VERSION_FILE "/etc/version"
 
-#define TAF_FWUPDATE_FOTA_STATE "/fotaState"
+#define TAF_TELAF_VERSION_FILE "/legato/systems/current/version"
+#define TAF_ROOTFS_VERSION_FILE "/etc/version"
+#define TAF_FIRMWARE_VERSION_FILE "/firmware/image/Ver_Info.txt"
+
+#define TAF_FWUPDATE_FOTA_STATE "/data/le_fs/fotaState"
+#define TAF_FWUPDATE_LOCAL_PACAKAGE_PATH "/data/images/firmware"
 
 // Firmware update event
 typedef enum {
     TAF_FWUPDATE_EV_INSTALL,
-    TAF_FWUPDATE_EV_REBOOT_TO_ACTIVE
+    TAF_FWUPDATE_EV_REBOOT_TO_ACTIVE,
+    TAF_FWUPDATE_EV_VERIFY_ACTIVATION,
+    TAF_FWUPDATE_EV_SYNC,
+    TAF_FWUPDATE_EV_ROLLBACK
 } taf_FwUpdateEvent_t;
 
 // Timer options
 typedef enum {
     TAF_FWUPDATE_TIMER_OP_INST_START,
     TAF_FWUPDATE_TIMER_OP_INST_STOP,
-    TAF_FWUPDATE_TIMER_OP_PRBT_START,
-    TAF_FWUPDATE_TIMER_OP_PRBT_STOP
+    TAF_FWUPDATE_TIMER_OP_SYNC_START,
+    TAF_FWUPDATE_TIMER_OP_SYNC_STOP
 } taf_FwUpdateTimerOp_t;
 
 // Firmware update request
 typedef struct {
     taf_FwUpdateEvent_t event;
-    char name[TAF_UPDATE_MAX_PKG_NAME_LEN];
+    char filePath[TAF_UPDATE_FILE_PATH_LEN];
 } taf_FwUpdateReq_t;
 
 namespace telux {
@@ -96,10 +104,20 @@ namespace tafsvc {
         void ReportStatus(taf_update_State_t state, uint32_t percent);
         void UpdateProgress(taf_update_State_t state);
 
-        static void ProbationTimerHandler(le_timer_Ref_t timerRef);
+        static void SyncTimerHandler(le_timer_Ref_t timerRef);
         static void InstallTimerHandler(le_timer_Ref_t timerRef);
 
+        void GetRootfsVersion(char* version);
+        void GetTelafVersion(char* version);
+        le_result_t GetFirmwareVersion(char* version);
+
+        le_result_t InstallPreCheck(const char* manifest);
         void InstallFirmware(const char* filePath);
+        le_result_t InstallPostCheck(const char* filePath);
+
+        le_result_t GetActiveBank(taf_update_Bank_t* bankPtr);
+        le_result_t VerifyActivation(const char* manifest);
+
         void Init(void);
 
         static void FwUpdateHandler(void* reqPtr);
@@ -111,14 +129,11 @@ namespace tafsvc {
         static le_event_Id_t fwUpdateEvId;
         static le_event_Id_t fwTimerEvId;
 
-        le_timer_Ref_t prbtTimerRef;
+        le_timer_Ref_t syncTimerRef;
         le_timer_Ref_t instTimerRef;
-        uint32_t prbtTime = 0;
+
         uint32_t percent = 0;
         uint32_t totalTime = 0;
-
-        bool autoSync = true;
-        char filePath[TAF_UPDATE_MAX_PKG_NAME_LEN];
     };
 }
 }

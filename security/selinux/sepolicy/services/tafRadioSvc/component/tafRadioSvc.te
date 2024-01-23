@@ -19,6 +19,10 @@ ifdef(`sa525m',`
     telux_allow_tel_phone_mgmt(telaf_tafRadioSvc_t)
     telux_allow_tel_network_selection_ops(telaf_tafRadioSvc_t)
     telux_allow_tel_private_info_read(telaf_tafRadioSvc_t)
+    telux_allow_tel_ims_settings(telaf_tafRadioSvc_t)
+
+    telux_allow_data(telaf_tafRadioSvc_t)
+    telux_allow_data_setting(telaf_tafRadioSvc_t)
 ')
 
 init_telaf_app_domain(telaf_tafRadioSvc_t,telaf_tafRadioSvc_exec_t)

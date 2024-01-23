@@ -64,70 +64,6 @@ LE_SHARED int32_t taf_pa_radio_GetPlatformSpecificRegistrationErrorCode
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get network registration state
- */
-//--------------------------------------------------------------------------------------------------
-LE_SHARED le_result_t taf_pa_radio_GetNetRegState
-(
-    taf_radio_NetRegState_t* statePtr,
-    uint8_t phoneId
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Get packet switched state
- */
-//--------------------------------------------------------------------------------------------------
-LE_SHARED le_result_t taf_pa_radio_GetPacketSwitchedState
-(
-    taf_radio_NetRegState_t* statePtr,
-    uint8_t phoneId
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Add handler for network registration state
- */
-//--------------------------------------------------------------------------------------------------
-LE_SHARED taf_radio_NetRegStateEventHandlerRef_t taf_pa_radio_AddNetRegStateEventHandler
-(
-    taf_radio_NetRegStateHandlerFunc_t handlerFuncPtr,
-    void* contextPtr
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Remove handler for network registration state
- */
-//--------------------------------------------------------------------------------------------------
-LE_SHARED void taf_pa_radio_RemoveNetRegStateEventHandler
-(
-    taf_radio_NetRegStateEventHandlerRef_t handlerRef
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Add handler for packet switched state
- */
-//--------------------------------------------------------------------------------------------------
-LE_SHARED taf_radio_PacketSwitchedChangeHandlerRef_t taf_pa_radio_AddPacketSwitchedChangeHandler
-(
-    taf_radio_PacketSwitchedChangeHandlerFunc_t handlerFuncPtr,
-    void* contextPtr
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Remove handler for packet switched state
- */
-//--------------------------------------------------------------------------------------------------
-LE_SHARED void taf_pa_radio_RemovePacketSwitchedChangeHandler
-(
-    taf_radio_PacketSwitchedChangeHandlerRef_t handlerRef
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
  * Add handler for network registration rejection
  */
 //--------------------------------------------------------------------------------------------------
@@ -177,28 +113,6 @@ LE_SHARED le_result_t taf_pa_radio_GetRadioAccessTechInUse
 (
     taf_radio_Rat_t* ratPtr,
     uint8_t phoneId
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Add handler for signal strength change
- */
-//--------------------------------------------------------------------------------------------------
-LE_SHARED taf_radio_SignalStrengthChangeHandlerRef_t taf_pa_radio_AddSignalStrengthChangeHandler
-(
-    taf_radio_Rat_t rat,
-    taf_radio_SignalStrengthChangeHandlerFunc_t handlerFuncPtr,
-    void* contextPtr
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Remove handler for signal strength change
- */
-//--------------------------------------------------------------------------------------------------
-LE_SHARED void taf_pa_radio_RemoveSignalStrengthChangeHandler
-(
-    taf_radio_SignalStrengthChangeHandlerRef_t handlerRef
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -318,31 +232,6 @@ LE_SHARED le_result_t taf_pa_radio_GetLteBandPreferences
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Set signal strength indication thresholds
- */
-//--------------------------------------------------------------------------------------------------
-LE_SHARED le_result_t taf_pa_radio_SetSignalStrengthIndThresholds
-(
-    taf_radio_SigType_t sigType,
-    int32_t lowerRangeThreshold,
-    int32_t upperRangeThreshold,
-    uint8_t phoneId
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Set signal strength indication delta
- */
-//--------------------------------------------------------------------------------------------------
-LE_SHARED le_result_t taf_pa_radio_SetSignalStrengthIndDelta
-(
-    taf_radio_SigType_t sigType,
-    uint16_t delta,
-    uint8_t phoneId
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
  * Perform network scan with Pysical Cell ID
  */
 //--------------------------------------------------------------------------------------------------
@@ -434,6 +323,60 @@ LE_SHARED le_result_t taf_pa_radio_GetPciScanMccMnc
 LE_SHARED le_result_t taf_pa_radio_DeletePciNetworkScan
 (
     taf_radio_PciScanInformationListRef_t scanInformationListRef
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set reference.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED void taf_pa_radio_SetReference
+(
+    uint8_t phoneId,
+    taf_radio_NetStatusRef_t netStatusRef
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Get LTE CS capabilitiy.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_radio_GetLteCsCap
+(
+    uint8_t phoneId,
+    taf_radio_CsCap_t* capabilitiy
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Get RAT service status.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_pa_radio_GetRatSvcStatus
+(
+    uint8_t phoneId,
+    taf_radio_RatSvcStatus_t* status
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler for network status.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED taf_radio_NetStatusChangeHandlerRef_t taf_pa_radio_AddNetStatusChangeHandler
+(
+    taf_radio_NetStatusHandlerFunc_t handlerFuncPtr,
+    void* contextPtr
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler for network status.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED void taf_pa_radio_RemoveNetStatusChangeHandler
+(
+    taf_radio_NetStatusChangeHandlerRef_t handlerRef ///< [IN] Handler reference.
 );
 
 #endif /* TAF_PA_RADIO_HPP */

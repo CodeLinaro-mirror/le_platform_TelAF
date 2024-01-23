@@ -444,6 +444,13 @@ DEFINE LTE_BAND_GROUP_NUM = 4;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * IMS user agent bytes with null characters.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE IMS_USER_AGENT_BYTES = 1024;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * The preferred operator list reference.
  */
 //--------------------------------------------------------------------------------------------------
@@ -514,6 +521,20 @@ REFERENCE PlmnInformation;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ *  IMS reference.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE Ims;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Network status reference.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE NetStatus;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Radio Access Technology (RAT).
  */
 //--------------------------------------------------------------------------------------------------
@@ -541,6 +562,36 @@ ENUM Rat
     RAT_LTE,     ///< LTE - Long Term Evolution.
     RAT_LTE_CA,  ///< LTE CA - LTE Carrier Aggregation.
     RAT_NR5G     ///< NR5G - New Radio 5G.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * RAT service status.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM RatSvcStatus
+{
+    RAT_SVC_STATUS_UNKNOWN = -1,     ///< Unknown.
+    RAT_SVC_STATUS_NO_SERVICE,       ///< No service.
+    RAT_SVC_STATUS_LIMITED,          ///< Limited service.
+    RAT_SVC_STATUS_SERVICE,          ///< Service.
+    RAT_SVC_STATUS_LIMITED_REGIONAL, ///< Limited regional service.
+    RAT_SVC_STATUS_POWER_SAVE        ///< Power save.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Circuit-Switched capabilities.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM CsCap
+{
+    CS_CAP_UNKNOWN = -1,       ///< Unknown capabilitiy.
+    CS_CAP_FULL_SERVICE,       ///< Full service in CS domain is available.
+    CS_CAP_CSFB_NOT_PREFERRED, ///< CSFB is not preferred.
+    CS_CAP_SMS_ONLY,           ///< CS registation is for SMS only.
+    CS_CAP_LIMITED,            ///< CS registation failed for maximum attach or TAU attempts.
+    CS_CAP_BARRED              ///< CS domain is not available.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -618,12 +669,20 @@ ENUM NetRejCause
 //--------------------------------------------------------------------------------------------------
 ENUM NetRegState
 {
-    NET_REG_STATE_NONE,      ///< Not registered and not searching.
-    NET_REG_STATE_HOME,      ///< Home registered.
-    NET_REG_STATE_SEARCHING, ///< Not registered and searching.
-    NET_REG_STATE_DENIED,    ///< Registered denied.
-    NET_REG_STATE_ROAMING,   ///< Roaming registered.
-    NET_REG_STATE_UNKNOWN    ///< Unknown state.
+    NET_REG_STATE_NONE,                              ///< Not registered and not searching.
+    NET_REG_STATE_HOME,                              ///< Home registered.
+    NET_REG_STATE_SEARCHING,                         ///< Not registered and searching.
+    NET_REG_STATE_DENIED,                            ///< Registration denied.
+    NET_REG_STATE_ROAMING,                           ///< Roaming registered.
+    NET_REG_STATE_UNKNOWN,                           ///< Unknown registration state.
+    NET_REG_STATE_NONE_AND_EMERGENCY_AVAILABLE,      ///< Not registered and not searching, but
+                                                     ///  emergency calls are enabled.
+    NET_REG_STATE_SEARCHING_AND_EMERGENCY_AVAILABLE, ///< Not registered and searching, but
+                                                     ///  emergency calls are enabled.
+    NET_REG_STATE_DENIED_AND_EMERGENCY_AVAILABLE,    ///< Registration denied, but emergency calls
+                                                     ///  are enabled.
+    NET_REG_STATE_UNKNOWN_AND_EMERGENCY_AVAILABLE,   ///< Unknown registration state, but emergency
+                                                     ///  calls are enabled.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -662,8 +721,70 @@ ENUM SigType
 //--------------------------------------------------------------------------------------------------
 ENUM ImsRegStatus
 {
-    IMS_REG_STATUS_NOT_REGISTERED, ///< IMS not registered.
-    IMS_REG_STATUS_REGISTERED      ///< IMS registered.
+    IMS_REG_STATUS_UNKNOWN = -1,      ///< Unknown status.
+    IMS_REG_STATUS_NOT_REGISTERED,    ///< Not registered.
+    IMS_REG_STATUS_REGISTRERING,      ///< Registering.
+    IMS_REG_STATUS_REGISTERED,        ///< Registered.
+    IMS_REG_STATUS_LIMITED_REGISTERED ///< Limited registration.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * IMS service type.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM ImsSvcType
+{
+    IMS_SVC_TYPE_IMS_REG, ///< IMS normal registration.
+    IMS_SVC_TYPE_SMS,     ///< SMS service.
+    IMS_SVC_TYPE_VOIP,    ///< Voice call service.
+    IMS_SVC_TYPE_RTT      ///< Resource translation table.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * IMS service status.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM ImsSvcStatus
+{
+    IMS_SVC_STATUS_UNKNOWN = -1, ///< Unknown status.
+    IMS_SVC_STATUS_UNAVAILABLE,  ///< Unavailable service status.
+    IMS_SVC_STATUS_LIMITED,      ///< Limited service status.
+    IMS_SVC_STATUS_FULL_SERVICE  ///< Full service status.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * PDP error enum.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM PdpError
+{
+    PDP_ERROR_UNKNOWN = -1,                ///< Unknown error.
+    PDP_ERROR_GENERIC,                     ///< Generic failure reason for other than specified.
+    PDP_ERROR_OPTION_UNSUBSCRIBED,         ///< Option is unsubscribed.
+    PDP_ERROR_UNKNOWN_PDP,                 ///< PDP was unknown.
+    PDP_ERROR_REASON_NOT_SPECIFIED,        ///< Reason not specified.
+    PDP_ERROR_CONNECTION_BRINGUP_FAILURE,  ///< Connection bring-up failure.
+    PDP_ERROR_CONNECTION_IKE_AUTH_FAILURE, ///< IKE authentication failure.
+    PDP_ERROR_USER_AUTH_FAILURE            ///< User authentication failure.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Operating mode enum.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM OpMode
+{
+    OP_MODE_ONLINE,              ///< Online mode.
+    OP_MODE_AIRPLANE,            ///< Low Power mode, temporarily disabled RF.
+    OP_MODE_FACTORY_TEST,        ///< Special mode for manufacturer use.
+    OP_MODE_OFFLINE,             ///< Device has deactivated RF and partially shutdown.
+    OP_MODE_RESETTING,           ///< Device is in process of power cycling.
+    OP_MODE_SHUTTING_DOWN,       ///< Device is in process of shutting down.
+    OP_MODE_PERSISTENT_LOW_POWER ///< Persistent low power mode.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -752,6 +873,28 @@ BITMASK BandBitMask
     BAND_BIT_MASK_CLASS_19,                    ///< Band Class 19.
     BAND_BIT_MASK_WCDMA_JAPAN_850_BAND,        ///< WCDMA Japan 850 band.
     BAND_BIT_MASK_WCDMA_JAPAN_1500_BAND,       ///< WCDMA Japan 1500 band.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * IMS indication bitmask.
+ */
+//--------------------------------------------------------------------------------------------------
+BITMASK ImsIndBitMask
+{
+    IMS_IND_BIT_MASK_SVC_INFO,   ///< Indication for IMS service information changes.
+    IMS_IND_BIT_MASK_PDP_ERROR   ///< Indication for IMS PDP error.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Network status indication bitmask.
+ */
+//--------------------------------------------------------------------------------------------------
+BITMASK NetStatusIndBitMask
+{
+    NET_STATUS_IND_BIT_MASK_RAT_SVC_STATUS, ///< Indication for RAT service status changes.
+    NET_STATUS_IND_BIT_MASK_LTE_CS_CAP      ///< Indication for LTE CS capabilitiy changes.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -849,7 +992,7 @@ HANDLER PacketSwitchedChangeHandler
 HANDLER SignalStrengthChangeHandler
 (
     int32 ss IN,     ///< Signal strength in dBm.
-    int32 rsrp IN,   ///< Reference signal receive quality in dB.
+    int32 rsrp IN,   ///< Reference signal received power in dB.
     uint8 phoneId IN ///< Phone ID.
 );
 
@@ -883,6 +1026,40 @@ HANDLER PciNetworkScanHandler
 (
     PciScanInformationList listRef, ///< PCI network scan information list reference.
     uint8 phoneId                   ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for operating mode change.
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER OpModeChangeHandler
+(
+    OpMode mode IN ///< Operating mode.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for network status.
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER NetStatusHandler
+(
+    NetStatus netStatus IN,         ///< Network status reference.
+    NetStatusIndBitMask bitmask IN, ///< Network status indication bitmask.
+    uint8 phoneId IN                ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for IMS status change.
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER ImsStatusChangeHandler
+(
+    Ims imsRef IN,            ///< IMS reference.
+    ImsIndBitMask bitmask IN, ///< IMS indication bitmask.
+    uint8 phoneId IN          ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -944,6 +1121,36 @@ EVENT SignalStrengthChange
 EVENT ImsRegStatusChange
 (
     ImsRegStatusChangeHandler handler ///< Handler for IMS registration status change.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Event to report operating mode changes.
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT OpModeChange
+(
+    OpModeChangeHandler handler ///< Handler for operating mode changes.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Event to report network status changes.
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT NetStatusChange
+(
+    NetStatusHandler handler ///< Handler for network status changes.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Event to report IMS status.
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT ImsStatusChange
+(
+    ImsStatusChangeHandler handler ///< Handler for IMS status change.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -2210,6 +2417,68 @@ FUNCTION le_result_t GetNeighborCellGsmBsic
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Gets the network status reference.
+ *
+ * @return
+ *  - Non-null pointer -- Network status reference.
+ *  - Null pointer -- Internal error.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION NetStatus GetNetStatus
+(
+    uint8 phoneId IN ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the RAT service status.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *  - LE_TIMEOUT -- Time out.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetRatSvcStatus
+(
+    NetStatus netRef IN,    ///< Network status reference.
+    RatSvcStatus status OUT ///< RAT service status.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the CS capabilitiy of LTE network.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *  - LE_TIMEOUT -- Time out.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetLteCsCap
+(
+    NetStatus netRef IN, ///< Network status reference.
+    CsCap capability OUT ///< CS capabilitiy of LTE network.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the IMS reference.
+ *
+ * @return
+ *  - Non-null pointer -- IMS reference.
+ *  - Null pointer -- Internal error.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Ims GetIms
+(
+    uint8 phoneId IN ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Gets the IMS registration status.
  *
  * @return
@@ -2223,4 +2492,109 @@ FUNCTION le_result_t GetImsRegStatus
 (
     ImsRegStatus status OUT, ///< IMS registration status.
     uint8 phoneId IN         ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the IMS service status.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *  - LE_TIMEOUT -- Time out.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetImsSvcStatus
+(
+    Ims imsRef IN,          ///< IMS reference.
+    ImsSvcType service IN,  ///< IMS service type.
+    ImsSvcStatus status OUT ///< IMS service status.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the PDP error code.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *  - LE_TIMEOUT -- Time out.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetImsPdpError
+(
+    Ims imsRef IN,     ///< IMS reference.
+    PdpError error OUT ///< PDP error code.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the IMS service enablement configuration parameters.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *  - LE_TIMEOUT -- Time out.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetImsSvcCfg
+(
+    Ims imsRef IN,         ///< IMS reference.
+    ImsSvcType service IN, ///< IMS service type.
+    bool enable IN         ///< True if enabling service, false if disabling service.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the IMS service enablement configuration parameters.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *  - LE_TIMEOUT -- Time out.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetImsSvcCfg
+(
+    Ims imsRef IN,         ///< IMS reference.
+    ImsSvcType service IN, ///< IMS service type.
+    bool enable OUT        ///< True if service is enabled, false if service is disabled.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the user agent.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *  - LE_TIMEOUT -- Time out.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetImsUserAgent
+(
+    Ims imsRef IN,                            ///< IMS reference.
+    string userAgent[IMS_USER_AGENT_BYTES] IN ///< User agent string to be sent with SIP message.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the user agent.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *  - LE_TIMEOUT -- Time out.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetImsUserAgent
+(
+    Ims imsRef IN,                             ///< IMS reference.
+    string userAgent[IMS_USER_AGENT_BYTES] OUT ///< User agent string to be sent with SIP message.
 );

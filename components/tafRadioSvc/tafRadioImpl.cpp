@@ -106,31 +106,314 @@ void taf_RadioImsServSysListener::onImsRegStatusChange
     telux::tel::ImsRegistrationInfo status ///< [IN] IMS registration status
 )
 {
+    LE_DEBUG("<SDK Listener> taf_RadioImsServSysListener --> onImsRegStatusChange");
+
+    auto &tafRadio = taf_Radio::GetInstance();
+    taf_RadioImsStatus_t* statusPtr =
+        (taf_RadioImsStatus_t*)le_mem_ForceAlloc(tafRadio.imsStatusChangePool);
+    statusPtr->phoneId = phone;
+    statusPtr->status = (taf_radio_ImsRegStatus_t)status.imsRegStatus;
+    statusPtr->imsRef = tafRadio.imsRefs[phone - 1];
+    le_event_ReportWithRefCounting(tafRadio.imsRegStatusChangeId, (void*)statusPtr);
+}
+
+#ifdef LE_CONFIG_FEATURE_ENHANCED_IMS
+//--------------------------------------------------------------------------------------------------
+/**
+ * Listener for IMS service information.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_RadioImsServSysListener::onImsServiceInfoChange
+(
+    telux::tel::ImsServiceInfo service ///< [IN] IMS service information.
+)
+{
+    LE_DEBUG("<SDK Listener> taf_RadioImsServSysListener --> onImsServiceInfoChange");
+
+    auto &tafRadio = taf_Radio::GetInstance();
+    taf_RadioImsStatus_t* statusPtr =
+        (taf_RadioImsStatus_t*)le_mem_ForceAlloc(tafRadio.imsStatusChangePool);
+    statusPtr->bitmask = TAF_RADIO_IMS_IND_BIT_MASK_SVC_INFO;
+    statusPtr->phoneId = phone;
+    statusPtr->imsRef = tafRadio.imsRefs[phone - 1];
+    le_event_ReportWithRefCounting(tafRadio.imsStatusChangeId, (void*)statusPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Listener for IMS PDP status.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_RadioImsServSysListener::onImsPdpStatusInfoChange
+(
+    telux::tel::ImsPdpStatusInfo status ///< [IN] IMS PDP status.
+)
+{
+    LE_DEBUG("<SDK Listener> taf_RadioImsServSysListener --> onImsPdpStatusInfoChange");
+
+    auto &tafRadio = taf_Radio::GetInstance();
+    taf_RadioImsStatus_t* statusPtr =
+        (taf_RadioImsStatus_t*)le_mem_ForceAlloc(tafRadio.imsStatusChangePool);
+    statusPtr->bitmask = TAF_RADIO_IMS_IND_BIT_MASK_PDP_ERROR;
+    statusPtr->phoneId = phone;
+    statusPtr->imsRef = tafRadio.imsRefs[phone - 1];
+    le_event_ReportWithRefCounting(tafRadio.imsStatusChangeId, (void*)statusPtr);
+}
+#endif
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Listener for operating mode.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_RadioPhoneListener::onOperatingModeChanged
+(
+    telux::tel::OperatingMode mode ///< [IN] Operating mode.
+)
+{
+    LE_DEBUG("<SDK Listener> taf_RadioPhoneListener --> onOperatingModeChanged");
+
     auto &tafRadio = taf_Radio::GetInstance();
 
-    switch (status.imsRegStatus)
+    taf_radio_OpMode_t* modePtr =
+        (taf_radio_OpMode_t*)le_mem_ForceAlloc(tafRadio.opModeChangePool);
+	*modePtr = (taf_radio_OpMode_t)mode;
+    le_event_ReportWithRefCounting(tafRadio.opModeChangeId, (void*)modePtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Listener for voice service state.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_RadioPhoneListener::onVoiceServiceStateChanged
+(
+    int phoneId,
+        ///< [IN] Phone ID.
+    const std::shared_ptr<telux::tel::VoiceServiceInfo> &srvInfo
+        ///< [IN] Voice service information.
+)
+{
+    LE_DEBUG("<SDK Listener> taf_RadioPhoneListener --> onVoiceServiceStateChanged");
+
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    taf_radio_NetRegStateInd_t* indPtr =
+        (taf_radio_NetRegStateInd_t*)le_mem_ForceAlloc(tafRadio.netRegStatePool);
+    indPtr->phoneId = phoneId;
+    if (srvInfo != nullptr)
     {
-        case telux::tel::RegistrationStatus::NOT_REGISTERED:
+        switch (srvInfo->getVoiceServiceState())
         {
-            taf_RadioImsRegStatus_t* statusPtr =
-               (taf_RadioImsRegStatus_t*)le_mem_ForceAlloc(tafRadio.imsRegStatusChangePool);
-            statusPtr->status = TAF_RADIO_IMS_REG_STATUS_NOT_REGISTERED;
-            statusPtr->phoneId = phone;
-            le_event_ReportWithRefCounting(tafRadio.imsRegStatusChangeId, (void*)statusPtr);
-            break;
+            case telux::tel::VoiceServiceState::NOT_REG_AND_NOT_SEARCHING:
+                indPtr->state = TAF_RADIO_NET_REG_STATE_NONE;
+                break;
+            case telux::tel::VoiceServiceState::REG_HOME:
+                indPtr->state = TAF_RADIO_NET_REG_STATE_HOME;
+                break;
+            case telux::tel::VoiceServiceState::NOT_REG_AND_SEARCHING:
+                indPtr->state = TAF_RADIO_NET_REG_STATE_SEARCHING;
+                break;
+            case telux::tel::VoiceServiceState::REG_DENIED:
+                indPtr->state = TAF_RADIO_NET_REG_STATE_DENIED;
+                break;
+            case telux::tel::VoiceServiceState::REG_ROAMING:
+                indPtr->state = TAF_RADIO_NET_REG_STATE_ROAMING;
+                break;
+            case telux::tel::VoiceServiceState::NOT_REG_AND_EMERGENCY_AVAILABLE_AND_NOT_SEARCHING:
+                indPtr->state = TAF_RADIO_NET_REG_STATE_NONE_AND_EMERGENCY_AVAILABLE;
+                break;
+            case telux::tel::VoiceServiceState::NOT_REG_AND_EMERGENCY_AVAILABLE_AND_SEARCHING:
+                indPtr->state = TAF_RADIO_NET_REG_STATE_SEARCHING_AND_EMERGENCY_AVAILABLE;
+                break;
+            case telux::tel::VoiceServiceState::REG_DENIED_AND_EMERGENCY_AVAILABLE:
+                indPtr->state = TAF_RADIO_NET_REG_STATE_DENIED_AND_EMERGENCY_AVAILABLE;
+                break;
+            case telux::tel::VoiceServiceState::UNKNOWN_AND_EMERGENCY_AVAILABLE:
+                indPtr->state= TAF_RADIO_NET_REG_STATE_UNKNOWN_AND_EMERGENCY_AVAILABLE;
+                break;
+            default:
+                indPtr->state = TAF_RADIO_NET_REG_STATE_UNKNOWN;
         }
-        case telux::tel::RegistrationStatus::REGISTERED:
-        case telux::tel::RegistrationStatus::LIMITED_REGISTERED:
-        {
-            taf_RadioImsRegStatus_t* statusPtr =
-               (taf_RadioImsRegStatus_t*)le_mem_ForceAlloc(tafRadio.imsRegStatusChangePool);
-            statusPtr->status = TAF_RADIO_IMS_REG_STATUS_REGISTERED;
-            statusPtr->phoneId = phone;
-            le_event_ReportWithRefCounting(tafRadio.imsRegStatusChangeId, (void*)statusPtr);
+    }
+    else
+    {
+        indPtr->state = TAF_RADIO_NET_REG_STATE_UNKNOWN;
+    }
+    le_event_ReportWithRefCounting(tafRadio.netRegStateEvId, (void*)indPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Listener for operating mode.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_RadioPhoneListener::onSignalStrengthChanged
+(
+    int phoneId,                                               ///< [IN] Phone ID.
+    std::shared_ptr<telux::tel::SignalStrength> signalStrength ///< [IN] Signal strength.
+)
+{
+    LE_DEBUG("<SDK Listener> taf_RadioPhoneListener --> onSignalStrengthChanged");
+
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    if (signalStrength->getGsmSignalStrength() != nullptr &&
+        signalStrength->getGsmSignalStrength()->getGsmSignalStrength() !=
+        INVALID_SIGNAL_STRENGTH_VALUE)
+    {
+        taf_RadioSsInd_t* ssPtr = (taf_RadioSsInd_t*)le_mem_ForceAlloc(tafRadio.ssChangePool);
+        ssPtr->phoneId = phoneId;
+        ssPtr->rssi = signalStrength->getGsmSignalStrength()->getDbm();
+        le_event_ReportWithRefCounting(tafRadio.gsmSsChangeEvId, (void*)ssPtr);
+    }
+
+    if (signalStrength->getCdmaSignalStrength() != nullptr &&
+        signalStrength->getCdmaSignalStrength()->getDbm() != INVALID_SIGNAL_STRENGTH_VALUE)
+    {
+        taf_RadioSsInd_t* ssPtr = (taf_RadioSsInd_t*)le_mem_ForceAlloc(tafRadio.ssChangePool);
+        ssPtr->phoneId = phoneId;
+        ssPtr->rssi = signalStrength->getCdmaSignalStrength()->getDbm();
+        le_event_ReportWithRefCounting(tafRadio.cdmaSsChangeEvId, (void*)ssPtr);
+    }
+
+    if (signalStrength->getWcdmaSignalStrength() != nullptr &&
+        signalStrength->getWcdmaSignalStrength()->getSignalStrength() !=
+        INVALID_SIGNAL_STRENGTH_VALUE)
+    {
+        taf_RadioSsInd_t* ssPtr = (taf_RadioSsInd_t*)le_mem_ForceAlloc(tafRadio.ssChangePool);
+        ssPtr->phoneId = phoneId;
+        ssPtr->rssi = signalStrength->getWcdmaSignalStrength()->getDbm();
+        le_event_ReportWithRefCounting(tafRadio.umtsSsChangeEvId, (void*)ssPtr);
+    }
+
+    if (signalStrength->getLteSignalStrength() != nullptr &&
+        signalStrength->getLteSignalStrength()->getLteSignalStrength() !=
+        INVALID_SIGNAL_STRENGTH_VALUE)
+    {
+        taf_RadioSsInd_t* ssPtr = (taf_RadioSsInd_t*)le_mem_ForceAlloc(tafRadio.ssChangePool);
+        ssPtr->phoneId = phoneId;
+        ssPtr->rsrp = signalStrength->getLteSignalStrength()->getDbm();
+        le_event_ReportWithRefCounting(tafRadio.lteSsChangeEvId, (void*)ssPtr);
+    }
+
+    if (signalStrength->getNr5gSignalStrength() != nullptr &&
+        signalStrength->getNr5gSignalStrength()->getDbm() != INVALID_SIGNAL_STRENGTH_VALUE)
+    {
+        taf_RadioSsInd_t* ssPtr = (taf_RadioSsInd_t*)le_mem_ForceAlloc(tafRadio.ssChangePool);
+        ssPtr->phoneId = phoneId;
+        ssPtr->rsrp = signalStrength->getNr5gSignalStrength()->getDbm();
+        le_event_ReportWithRefCounting(tafRadio.nr5gSsChangeEvId, (void*)ssPtr);
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Initiate listener for Data serving system.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_RadioDataServSysListener::taf_RadioDataServSysListener
+(
+    SlotId slotId ///< [IN] Slot ID.
+) : slot(slotId)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+    if (tafRadio.phoneManager != nullptr)
+    {
+        phone = (uint8_t)(tafRadio.phoneManager->getPhoneIdFromSlotId((int)slotId));
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Listener for Data service state.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_RadioDataServSysListener::onServiceStateChanged
+(
+    telux::data::ServiceStatus status ///< [IN] Data service state.
+)
+{
+    LE_DEBUG("<SDK Listener> taf_RadioDataServSysListener --> onServiceStateChanged");
+
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    taf_radio_NetRegStateInd_t* indPtr;
+    taf_radio_NetRegState_t nextState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
+
+    switch (status.serviceState)
+    {
+        case telux::data::DataServiceState::IN_SERVICE:
+            inService = true;
+            if (isRoaming)
+            {
+                nextState = TAF_RADIO_NET_REG_STATE_ROAMING;
+            }
+            else
+            {
+                nextState = TAF_RADIO_NET_REG_STATE_HOME;
+            }
             break;
-        }
+        case telux::data::DataServiceState::OUT_OF_SERVICE:
+            inService = false;
+            nextState = TAF_RADIO_NET_REG_STATE_NONE;
+            break;
         default:
+            nextState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
             break;
+    }
+
+    if (nextState != currState)
+    {
+        currState = nextState;
+        indPtr = (taf_radio_NetRegStateInd_t*)le_mem_ForceAlloc(tafRadio.packSwStatePool);
+        indPtr->phoneId = phone;
+        indPtr->state = currState;
+        le_event_ReportWithRefCounting(tafRadio.packSwStateEvId, (void*)indPtr);
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Listener for Data roaming state.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_RadioDataServSysListener::onRoamingStatusChanged
+(
+    telux::data::RoamingStatus status ///< [IN] Data roaming state.
+)
+{
+    LE_DEBUG("<SDK Listener> taf_RadioDataServSysListener --> onRoamingStatusChanged");
+
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    taf_radio_NetRegStateInd_t* indPtr;
+    taf_radio_NetRegState_t nextState = TAF_RADIO_NET_REG_STATE_UNKNOWN;
+
+    isRoaming = status.isRoaming;
+    if (isRoaming)
+    {
+        nextState = TAF_RADIO_NET_REG_STATE_ROAMING;
+    }
+    else
+    {
+        if (inService)
+        {
+            nextState = TAF_RADIO_NET_REG_STATE_HOME;
+        }
+        else
+        {
+            nextState = TAF_RADIO_NET_REG_STATE_NONE;
+        }
+    }
+
+    if (nextState != currState)
+    {
+        currState = nextState;
+        indPtr = (taf_radio_NetRegStateInd_t*)le_mem_ForceAlloc(tafRadio.packSwStatePool);
+        indPtr->phoneId = phone;
+        indPtr->state = currState;
+        le_event_ReportWithRefCounting(tafRadio.packSwStateEvId, (void*)indPtr);
     }
 }
 
@@ -169,6 +452,8 @@ void taf_RadioGetOperatingModeCallback::operatingModeResponse
     telux::common::ErrorCode error           ///< [IN] Error code.
 )
 {
+    LE_DEBUG("<SDK Callback> taf_RadioGetOperatingModeCallback --> operatingModeResponse");
+
     if (error != telux::common::ErrorCode::SUCCESS)
     {
         LE_ERROR("Error(%d)", (int)error);
@@ -266,6 +551,75 @@ void taf_RadioSignalStrengthCallback::signalStrengthResponse
         ssMetrics.nr5g.rsrq = signalStrength->getNr5gSignalStrength()->getReferenceSignalReceiveQuality();
         ssMetrics.nr5g.rsrp = signalStrength->getNr5gSignalStrength()->getDbm();
         ssMetrics.nr5g.snr = signalStrength->getNr5gSignalStrength()->getReferenceSignalSnr();
+    }
+
+    le_sem_Post(semaphore);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Semaphore for configuring signal strength.
+ */
+//--------------------------------------------------------------------------------------------------
+le_sem_Ref_t taf_RadioConfigureSignalStrengthCallback::semaphore = NULL;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Result of configuring signal strength.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_RadioConfigureSignalStrengthCallback::result = LE_OK;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Response for configuring signal strength.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_RadioConfigureSignalStrengthCallback::configureSignalStrengthResponse
+(
+    telux::common::ErrorCode error ///< [IN] Error code.
+)
+{
+    LE_DEBUG("<SDK Callback> taf_RadioConfigureSignalStrengthCallback --> \
+        configureSignalStrengthResponse");
+
+    if (error != telux::common::ErrorCode::SUCCESS)
+    {
+        LE_ERROR("Error(%d)", (int)error);
+        result = LE_FAULT;
+    }
+    else
+    {
+        result = LE_OK;
+    }
+
+    le_sem_Post(semaphore);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Response for getting voice service state.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_RadioVoiceServiceStateCallback::voiceServiceStateResponse
+(
+    const std::shared_ptr<telux::tel::VoiceServiceInfo> &serviceInfo,
+        ///< [IN] Voice service information.
+    telux::common::ErrorCode error
+        ///< [IN] Error code.
+)
+{
+    LE_DEBUG("<SDK Callback> taf_RadioVoiceServiceStateCallback --> voiceServiceStateResponse");
+
+    if (error != telux::common::ErrorCode::SUCCESS || serviceInfo == nullptr)
+    {
+        LE_ERROR("Error(%d)", (int)error);
+        result = LE_FAULT;
+    }
+    else
+    {
+        voiceSvcState = serviceInfo->getVoiceServiceState();
+        result = LE_OK;
     }
 
     le_sem_Post(semaphore);
@@ -753,6 +1107,257 @@ void taf_RadioImsServSysCallback::imsRegStateResponse
     le_sem_Post(semaphore);
 }
 
+#ifdef LE_CONFIG_FEATURE_ENHANCED_IMS
+//--------------------------------------------------------------------------------------------------
+/**
+ * IMS VoIP service status.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_ImsSvcStatus_t taf_RadioImsServSysCallback::voip = TAF_RADIO_IMS_SVC_STATUS_UNKNOWN;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * IMS SMS service status.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_ImsSvcStatus_t taf_RadioImsServSysCallback::sms = TAF_RADIO_IMS_SVC_STATUS_UNKNOWN;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * IMS PDP error.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_PdpError_t taf_RadioImsServSysCallback::pdpError = TAF_RADIO_PDP_ERROR_UNKNOWN;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Convert IMS service status.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_ImsSvcStatus_t ConvertImsSvcStatus
+(
+    telux::tel::CellularServiceStatus status ///< [IN] IMS service status.
+)
+{
+    switch (status)
+    {
+        case telux::tel::CellularServiceStatus::NO_SERVICE:
+            return TAF_RADIO_IMS_SVC_STATUS_UNAVAILABLE;
+        case telux::tel::CellularServiceStatus::LIMITED_SERVICE:
+            return TAF_RADIO_IMS_SVC_STATUS_LIMITED;
+        case telux::tel::CellularServiceStatus::FULL_SERVICE:
+            return TAF_RADIO_IMS_SVC_STATUS_FULL_SERVICE;
+        default:
+            break;
+    }
+
+    return TAF_RADIO_IMS_SVC_STATUS_UNKNOWN;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Convert IMS PDP error.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_PdpError_t ConvertImsPdpError
+(
+    telux::tel::PdpFailureCode error ///< [IN] IMS PDP error.
+)
+{
+    switch (error)
+    {
+        case telux::tel::PdpFailureCode::OTHER_FAILURE:
+            return TAF_RADIO_PDP_ERROR_GENERIC;
+        case telux::tel::PdpFailureCode::OPTION_UNSUBSCRIBED:
+            return TAF_RADIO_PDP_ERROR_OPTION_UNSUBSCRIBED;
+        case telux::tel::PdpFailureCode::UNKNOWN_PDP:
+            return TAF_RADIO_PDP_ERROR_UNKNOWN_PDP;
+        case telux::tel::PdpFailureCode::REASON_NOT_SPECIFIED:
+            return TAF_RADIO_PDP_ERROR_REASON_NOT_SPECIFIED;
+        case telux::tel::PdpFailureCode::CONNECTION_BRINGUP_FAILURE:
+            return TAF_RADIO_PDP_ERROR_CONNECTION_BRINGUP_FAILURE;
+        case telux::tel::PdpFailureCode::CONNECTION_IKE_AUTH_FAILURE:
+            return TAF_RADIO_PDP_ERROR_CONNECTION_IKE_AUTH_FAILURE;
+        case telux::tel::PdpFailureCode::USER_AUTH_FAILED:
+            return TAF_RADIO_PDP_ERROR_USER_AUTH_FAILURE;
+        default:
+            break;
+    }
+
+    return TAF_RADIO_PDP_ERROR_UNKNOWN;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Response for getting IMS service information.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_RadioImsServSysCallback::imsSvcInfoResponse
+(
+    telux::tel::ImsServiceInfo info, ///< [IN] IMS service information.
+    telux::common::ErrorCode error   ///< [IN] Error code.
+)
+{
+    LE_DEBUG("<SDK Callback> taf_RadioImsServSysCallback --> imsSvcInfoResponse");
+
+    if (error != telux::common::ErrorCode::SUCCESS)
+    {
+        LE_ERROR("Error(%d)", (int)error);
+        result = LE_FAULT;
+    }
+    else
+    {
+        sms = ConvertImsSvcStatus(info.sms);
+        voip = ConvertImsSvcStatus(info.voice);
+        result = LE_OK;
+    }
+
+    le_sem_Post(semaphore);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Response for getting IMS PDP status.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_RadioImsServSysCallback::imsPdpStatusResponse
+(
+    telux::tel::ImsPdpStatusInfo status,       ///< [IN] IMS PDP status.
+    telux::common::ErrorCode error ///< [IN] Error code.
+)
+{
+    LE_DEBUG("<SDK Callback> taf_RadioImsServSysCallback --> imsPdpStatusResponse");
+
+    if (error != telux::common::ErrorCode::SUCCESS)
+    {
+        LE_ERROR("Error(%d)", (int)error);
+        result = LE_FAULT;
+    }
+    else
+    {
+        pdpError = ConvertImsPdpError(status.failureCode);
+        result = LE_OK;
+    }
+
+    le_sem_Post(semaphore);
+}
+#endif
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Semaphore for IMS settings.
+ */
+//--------------------------------------------------------------------------------------------------
+le_sem_Ref_t taf_RadioImsSettingCallback::semaphore = NULL;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Result of IMS settings.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_RadioImsSettingCallback::result = LE_OK;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * IMS service configurations.
+ */
+//--------------------------------------------------------------------------------------------------
+telux::tel::ImsServiceConfig taf_RadioImsSettingCallback::config;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * IMS sip user agent.
+ */
+//--------------------------------------------------------------------------------------------------
+char taf_RadioImsSettingCallback::sipUserAgentPtr[TAF_RADIO_IMS_USER_AGENT_BYTES] = {0};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Response for setting IMS configurations.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_RadioImsSettingCallback::onResponseCallback
+(
+    telux::common::ErrorCode error ///< [IN] Error code.
+)
+{
+    LE_DEBUG("<SDK Callback> taf_RadioImsSettingCallback --> onResponseCallback");
+
+    if (error != telux::common::ErrorCode::SUCCESS)
+    {
+        LE_ERROR("Error(%d)", (int)error);
+        result = LE_FAULT;
+    }
+    else
+    {
+        result = LE_OK;
+    }
+
+    le_sem_Post(semaphore);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Response for getting IMS configurations.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_RadioImsSettingCallback::onRequestImsServiceConfig
+(
+    SlotId slotId,                           ///< [IN] Slot ID.
+    telux::tel::ImsServiceConfig configType, ///< [IN] IMS service configurations.
+    telux::common::ErrorCode error           ///< [IN] Error code.
+)
+{
+    LE_DEBUG("<SDK Callback> taf_RadioImsSettingCallback --> onRequestImsServiceConfig");
+
+    if (error != telux::common::ErrorCode::SUCCESS)
+    {
+        LE_ERROR("Error(%d)", (int)error);
+        result = LE_FAULT;
+    }
+    else
+    {
+        config = configType;
+        result = LE_OK;
+    }
+
+    le_sem_Post(semaphore);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Response for getting IMS sip user agent.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_RadioImsSettingCallback::onRequestImsSipUserAgentConfig
+(
+    SlotId slotId,                 ///< [IN] Slot ID.
+    std::string sipUserAgent,      ///< [IN] IMS service configurations.
+    telux::common::ErrorCode error ///< [IN] Error code.
+)
+{
+    LE_DEBUG("<SDK Callback> taf_RadioImsSettingCallback --> onRequestImsSipUserAgentConfig");
+
+    if (error != telux::common::ErrorCode::SUCCESS)
+    {
+        LE_ERROR("Error(%d)", (int)error);
+        result = LE_FAULT;
+    }
+    else
+    {
+        sipUserAgentPtr[0] = '\0';
+        if (sipUserAgent.c_str() != NULL)
+        {
+            le_utf8_Copy(sipUserAgentPtr, sipUserAgent.c_str(),
+                TAF_RADIO_IMS_USER_AGENT_BYTES, NULL);
+        }
+        result = LE_OK;
+    }
+
+    le_sem_Post(semaphore);
+}
+
+
 LE_MEM_DEFINE_STATIC_POOL(prefOpsListPool, TAF_RADIO_PREFERRED_OPERATORS_LISTS_MAX_NUM, sizeof(taf_RadioPrefOpList_t));
 
 LE_MEM_DEFINE_STATIC_POOL(prefOpPool, TAF_RADIO_PREFERRED_OPERATORS_MAX_NUM, sizeof(taf_RadioPrefOp_t));
@@ -766,6 +1371,13 @@ LE_MEM_DEFINE_STATIC_POOL(scanOpPool, TAF_RADIO_SCAN_OPERATORS_MAX_NUM, sizeof(t
 LE_MEM_DEFINE_STATIC_POOL(scanOpSafeRefPool, TAF_RADIO_SCAN_OPERATORS_MAX_NUM, sizeof(taf_RadioScanOpSafeRef_t));
 
 LE_MEM_DEFINE_STATIC_POOL(metricsPool, TAF_RADIO_METRICS_MAX_NUM, sizeof(taf_RadioSignalMetrics_t));
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Static pool for IMS references.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_MEM_DEFINE_STATIC_POOL(phonePool, TAF_RADIO_PHONE_NUM, sizeof(uint8_t));
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -814,6 +1426,20 @@ LE_REF_DEFINE_STATIC_MAP(ngbrCellsRefMap, TAF_RADIO_NEIGHBOR_CELLS_MAX_NUM);
 //--------------------------------------------------------------------------------------------------
 LE_REF_DEFINE_STATIC_MAP(ngbrCellInfoSafeRefMap, TAF_RADIO_NEIGHBOR_CELL_INFO_MAX_NUM);
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Static map for IMS references.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_REF_DEFINE_STATIC_MAP(imsRefMap, TAF_RADIO_PHONE_NUM);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Static map for ne references.
+ */
+//--------------------------------------------------------------------------------------------------
+LE_REF_DEFINE_STATIC_MAP(netStatusRefMap, TAF_RADIO_PHONE_NUM);
+
 le_event_Id_t taf_Radio::radioCmdEvId = nullptr;
 
 //--------------------------------------------------------------------------------------------------
@@ -833,8 +1459,106 @@ void taf_Radio::taf_radio_LayerImsRegStateHandler
         (taf_radio_ImsRegStatusChangeHandlerFunc_t)layerHandlerFunc;
     if (handlerFunc)
     {
-        taf_RadioImsRegStatus_t* statusPtr = (taf_RadioImsRegStatus_t*)reportPtr;
+        taf_RadioImsStatus_t* statusPtr = (taf_RadioImsStatus_t*)reportPtr;
         handlerFunc(statusPtr->status, statusPtr->phoneId, le_event_GetContextPtr());
+    }
+
+    le_mem_Release(reportPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Layered handler for operating mode.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_Radio::taf_radio_LayerOpModeHandler
+(
+    void* reportPtr,       ///< [IN] Report pointer.
+    void* layerHandlerFunc ///< [IN] Layered function.
+)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
+
+    taf_radio_OpModeChangeHandlerFunc_t handlerFunc =
+        (taf_radio_OpModeChangeHandlerFunc_t)layerHandlerFunc;
+    if (handlerFunc)
+    {
+        taf_radio_OpMode_t* modePtr = (taf_radio_OpMode_t*)reportPtr;
+        handlerFunc(*modePtr, le_event_GetContextPtr());
+    }
+
+    le_mem_Release(reportPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Layered handler for network registration state.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_Radio::taf_radio_LayerNetRegStateHandler
+(
+    void* reportPtr,       ///< [IN] Report pointer.
+    void* layerHandlerFunc ///< [IN] Layered function.
+)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
+
+    taf_radio_NetRegStateHandlerFunc_t handlerFunc =
+        (taf_radio_NetRegStateHandlerFunc_t)layerHandlerFunc;
+    if (handlerFunc)
+    {
+        handlerFunc((taf_radio_NetRegStateInd_t*)reportPtr, le_event_GetContextPtr());
+    }
+
+    le_mem_Release(reportPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Layered handler for IMS state.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_Radio::taf_radio_LayerImsStateHandler
+(
+    void* reportPtr,       ///< [IN] Report pointer.
+    void* layerHandlerFunc ///< [IN] Layered function.
+)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
+
+    taf_radio_ImsStatusChangeHandlerFunc_t handlerFunc =
+        (taf_radio_ImsStatusChangeHandlerFunc_t)layerHandlerFunc;
+
+    taf_RadioImsStatus_t* statusPtr = (taf_RadioImsStatus_t*)reportPtr;
+    if (handlerFunc)
+    {
+        handlerFunc(statusPtr->imsRef, statusPtr->bitmask, statusPtr->phoneId,
+            le_event_GetContextPtr());
+    }
+
+    le_mem_Release(reportPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Layered handler for signal strength.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_Radio::taf_radio_LayerSsHandler
+(
+    void* reportPtr,       ///< [IN] Report pointer.
+    void* layerHandlerFunc ///< [IN] Layered function.
+)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
+
+    taf_radio_SignalStrengthChangeHandlerFunc_t handlerFunc =
+        (taf_radio_SignalStrengthChangeHandlerFunc_t)layerHandlerFunc;
+
+    taf_RadioSsInd_t* ssPtr = (taf_RadioSsInd_t*)reportPtr;
+    if (handlerFunc)
+    {
+        handlerFunc(ssPtr->rssi, ssPtr->rsrp, ssPtr->phoneId, le_event_GetContextPtr());
     }
 
     le_mem_Release(reportPtr);
@@ -1081,19 +1805,29 @@ void RegisterListener
 )
 {
     auto &tafRadio = taf_Radio::GetInstance();
-    for (size_t i = 1; i <= tafRadio.slotCount; i++)
+
+    telux::common::Status status = tafRadio.phoneManager->registerListener(tafRadio.phoneListener);
+    if (status != telux::common::Status::SUCCESS)
     {
-        auto listener = std::make_shared<taf_RadioImsServSysListener>((SlotId)i);
-        telux::common::Status status =
-            tafRadio.imsServingSystemMgrs[(SlotId)i]->registerListener(listener);
-        if (status != telux::common::Status::SUCCESS)
+        LE_ERROR("Failed to register phone listener.");
+    }
+
+    for (size_t i = 1; i <= tafRadio.phones.size(); i++)
+    {
+        int slot = tafRadio.phoneManager->getSlotIdFromPhoneId(i);
+        if (tafRadio.imsServingSystemMgrs[(SlotId)slot] != nullptr &&
+            tafRadio.imsServSysListeners[(SlotId)slot] != nullptr)
         {
-            LE_ERROR("Failed to register IMS serving system listener.");
+            status = tafRadio.imsServingSystemMgrs[(SlotId)slot]->registerListener(
+                tafRadio.imsServSysListeners[(SlotId)slot]);
+            if (status != telux::common::Status::SUCCESS)
+            {
+                LE_ERROR("Failed to register IMS serving system listener.");
+            }
         }
-        else
-        {
-            tafRadio.imsServSysListeners.emplace((SlotId)i, listener);
-        }
+
+        tafRadio.dataServSysManagers[(SlotId)slot]->registerListener(
+            tafRadio.dataServSysListeners[(SlotId)slot]);
     }
 }
 
@@ -1108,16 +1842,26 @@ void DeregisterListener
 )
 {
     auto &tafRadio = taf_Radio::GetInstance();
-    for (size_t i = 1; i <= tafRadio.slotCount; i++)
+
+    tafRadio.phoneManager->removeListener(tafRadio.phoneListener);
+
+    for (size_t i = 1; i <= tafRadio.phones.size(); i++)
     {
-        if (tafRadio.imsServingSystemMgrs[(SlotId)i] != nullptr &&
-            tafRadio.imsServSysListeners[(SlotId)i] != nullptr)
+        int slot = (int)tafRadio.phoneManager->getSlotIdFromPhoneId(i);
+        if (tafRadio.imsServingSystemMgrs[(SlotId)slot] != nullptr &&
+            tafRadio.imsServSysListeners[(SlotId)slot] != nullptr)
         {
-            tafRadio.imsServingSystemMgrs[(SlotId)i]->deregisterListener(
-                tafRadio.imsServSysListeners[(SlotId)i]);
+            tafRadio.imsServingSystemMgrs[(SlotId)slot]->deregisterListener(
+                tafRadio.imsServSysListeners[(SlotId)slot]);
+        }
+
+        if (tafRadio.dataServSysManagers[(SlotId)slot] != nullptr &&
+            tafRadio.dataServSysListeners[(SlotId)slot] != nullptr)
+        {
+            tafRadio.dataServSysManagers[(SlotId)slot]->deregisterListener(
+                tafRadio.dataServSysListeners[(SlotId)slot]);
         }
     }
-    tafRadio.imsServSysListeners.clear();
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1148,21 +1892,26 @@ void PowerStateChangeHandler
     }
 }
 
-/*======================================================================
+//--------------------------------------------------------------------------------------------------
+/**
+ * Subsystem completes intialization.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_Radio::onInitCompleted
+(
+    telux::common::ServiceStatus status ///< [IN] Service status.
+)
+{
+    std::lock_guard<std::mutex> lock(mtx);
+    subSystemStatusUpdated = true;
+    conVar.notify_all();
+}
 
- FUNCTION        taf_Radio::Init
-
- DESCRIPTION     Initialization of the Radio Service
-
- DEPENDENCIES    The initialization of telaf.
-
- PARAMETERS      None
-
- RETURN VALUE    None
-
- SIDE EFFECTS
-
-======================================================================*/
+//--------------------------------------------------------------------------------------------------
+/**
+ * Initialization.
+ */
+//--------------------------------------------------------------------------------------------------
 void taf_Radio::Init(void)
 {
     std::chrono::time_point<std::chrono::system_clock> startTime, endTime;
@@ -1171,22 +1920,35 @@ void taf_Radio::Init(void)
     // 1. Initiate the semaphore
     taf_RadioNetworkResponseCallback::selModeSem = le_sem_Create("taf_RadioSelModeSem", 0);
     taf_RadioNetworkResponseCallback::prefNetSem = le_sem_Create("taf_RadioPrefNetSem", 0);
-    taf_RadioPreferredNetworksResponseCallback::semaphore = le_sem_Create("taf_RadioPrefNetworkRespCbSem", 0);
+    taf_RadioPreferredNetworksResponseCallback::semaphore =
+        le_sem_Create("taf_RadioPrefNetworkRespCbSem", 0);
     taf_RadioServingSystemResponseCallback::semaphore = le_sem_Create("taf_RadioSrvSysSem", 0);
-    taf_RadioRatPreferenceResponseCallback::semaphore = le_sem_Create("taf_RadioRatPrefRespCbSem", 0);
+    taf_RadioRatPreferenceResponseCallback::semaphore =
+        le_sem_Create("taf_RadioRatPrefRespCbSem", 0);
     taf_RadioCellInfoCallback::semaphore = le_sem_Create("taf_RadioCellInfoCbSem", 0);
     taf_RadioPerformNetworkScanCallback::semaphore = le_sem_Create("taf_RadioPerfNetScanCbSem", 0);
     taf_RadioImsServSysCallback::semaphore = le_sem_Create("taf_RadioImsServSysCbSem", 0);
+    taf_RadioImsSettingCallback::semaphore = le_sem_Create("taf_RadioImsSettingCbSem", 0);
+    taf_RadioConfigureSignalStrengthCallback::semaphore = le_sem_Create("taf_RadioSigCfgCbSem", 0);
 
     imsRegStatusChangeId = le_event_CreateIdWithRefCounting("ImsRegStatus");
+    opModeChangeId = le_event_CreateIdWithRefCounting("OpMode");
+    netRegStateEvId = le_event_CreateIdWithRefCounting("NetRegState");
+    packSwStateEvId = le_event_CreateIdWithRefCounting("PackSwState");
+    imsStatusChangeId = le_event_CreateIdWithRefCounting("ImsStatus");
+    gsmSsChangeEvId = le_event_CreateIdWithRefCounting("GsmSsChange");
+    umtsSsChangeEvId = le_event_CreateIdWithRefCounting("UmtsSsChange");
+    cdmaSsChangeEvId = le_event_CreateIdWithRefCounting("CdmaSsChange");
+    lteSsChangeEvId = le_event_CreateIdWithRefCounting("LteSsChange");
+    nr5gSsChangeEvId = le_event_CreateIdWithRefCounting("Nr5gSsChange");
 
     // 2. Initiate the memory pool
     prefOpsListPool = le_mem_InitStaticPool(prefOpsListPool,
         TAF_RADIO_PREFERRED_OPERATORS_LISTS_MAX_NUM, sizeof(taf_RadioPrefOpList_t));
     prefOpPool = le_mem_InitStaticPool(prefOpPool, TAF_RADIO_PREFERRED_OPERATORS_MAX_NUM,
         sizeof(taf_RadioPrefOp_t));
-    prefOpSafeRefPool = le_mem_InitStaticPool(prefOpSafeRefPool, TAF_RADIO_PREFERRED_OPERATORS_MAX_NUM,
-        sizeof(taf_RadioPrefOpSafeRef_t));
+    prefOpSafeRefPool = le_mem_InitStaticPool(prefOpSafeRefPool,
+        TAF_RADIO_PREFERRED_OPERATORS_MAX_NUM, sizeof(taf_RadioPrefOpSafeRef_t));
     scanOpsListPool = le_mem_InitStaticPool(scanOpsListPool,
         TAF_RADIO_SCAN_OPERATORS_LISTS_MAX_NUM, sizeof(taf_RadioScanOpList_t));
     scanOpPool = le_mem_InitStaticPool(scanOpPool, TAF_RADIO_SCAN_OPERATORS_MAX_NUM,
@@ -1201,7 +1963,13 @@ void taf_Radio::Init(void)
         sizeof(taf_RadioNgbrCellInfo_t));
     ngbrCellInfoSafeRefPool = le_mem_InitStaticPool(ngbrCellInfoSafeRefPool,
         TAF_RADIO_NEIGHBOR_CELL_INFO_MAX_NUM, sizeof(taf_RadioNgbrCellInfoSafeRef_t));
-    imsRegStatusChangePool = le_mem_CreatePool("imsRegStatusChangePool", sizeof(taf_RadioImsRegStatus_t));
+    phonePool = le_mem_InitStaticPool(phonePool, TAF_RADIO_PHONE_NUM, sizeof(uint8_t));
+
+    opModeChangePool = le_mem_CreatePool("opModeChangePool", sizeof(taf_radio_OpMode_t));
+    netRegStatePool = le_mem_CreatePool("netRegStatePool", sizeof(taf_radio_NetRegStateInd_t));
+    packSwStatePool = le_mem_CreatePool("packSwStatePool", sizeof(taf_radio_NetRegStateInd_t));
+    imsStatusChangePool = le_mem_CreatePool("imsStatusChangePool", sizeof(taf_RadioImsStatus_t));
+    ssChangePool = le_mem_CreatePool("ssChangePool", sizeof(taf_RadioSsInd_t));
 
     // 3. Initiate the reference map.
     prefOpListRefMap = le_ref_InitStaticMap(prefOpListRefMap, TAF_RADIO_PREFERRED_OPERATORS_LISTS_MAX_NUM);
@@ -1212,11 +1980,23 @@ void taf_Radio::Init(void)
     ngbrCellsRefMap = le_ref_InitStaticMap(ngbrCellsRefMap, TAF_RADIO_NEIGHBOR_CELLS_MAX_NUM);
     ngbrCellInfoSafeRefMap = le_ref_InitStaticMap(ngbrCellInfoSafeRefMap,
         TAF_RADIO_NEIGHBOR_CELL_INFO_MAX_NUM);
+    imsRefMap = le_ref_InitStaticMap(imsRefMap, TAF_RADIO_PHONE_NUM);
+    netStatusRefMap = le_ref_InitStaticMap(netStatusRefMap, TAF_RADIO_PHONE_NUM);
+    for (uint8_t phoneId = 1; phoneId <= TAF_RADIO_PHONE_NUM; phoneId++)
+    {
+        uint8_t* phonePtr = (uint8_t*)le_mem_ForceAlloc(phonePool);
+        *phonePtr = phoneId;
+        imsRefs[phoneId - 1] = (taf_radio_ImsRef_t)le_ref_CreateRef(imsRefMap, (void*)phonePtr);
+        netStatusRefs[phoneId - 1] =
+            (taf_radio_NetStatusRef_t)le_ref_CreateRef(netStatusRefMap, (void*)phonePtr);
+        taf_pa_radio_SetReference(phoneId, netStatusRefs[phoneId - 1]);
+    }
 
     startTime = std::chrono::system_clock::now();
 
-    // 4. Get the PhoneFactory and PhoneManager instances
+    // 4. Get the PhoneFactory, dataFactory and PhoneManager instances
     auto &phoneFactory = telux::tel::PhoneFactory::getInstance();
+    auto &dataFactory = telux::data::DataFactory::getInstance();
     phoneManager = phoneFactory.getPhoneManager();
 
     // 5. Check if telephony subsystem is ready
@@ -1227,30 +2007,39 @@ void taf_Radio::Init(void)
         //  Wait until the subsystem is ready.
         subSystemStatus = f.get();
     }
+    phoneListener = std::make_shared<taf_RadioPhoneListener>();
 
-    if (subSystemStatus) {
+    if (subSystemStatus)
+    {
         endTime = std::chrono::system_clock::now();
         elapsedTime = endTime - startTime;
-        LE_INFO("Elapsed time for telephony subsystem: %lfs", elapsedTime.count());
+        LE_INFO("Elapsed time for Telephony subsystem: %lfs", elapsedTime.count());
 
         // 6. Instantiate Phone
         std::vector<int> phoneIds;
         telux::common::Status status = phoneManager->getPhoneIds(phoneIds);
-        if (status == telux::common::Status::SUCCESS) {
-            for (size_t index = 1; index <= phoneIds.size(); index++) {
+        if (status == telux::common::Status::SUCCESS)
+        {
+            for (size_t index = 1; index <= phoneIds.size(); index++)
+            {
                 auto phone = phoneManager->getPhone(index);
-                if (phone != nullptr) {
+                if (phone != nullptr)
+                {
                     phones.emplace_back(phone);
                 }
-                auto networkManager = telux::tel::PhoneFactory::getInstance().getNetworkSelectionManager(index);
-                if (networkManager != nullptr) {
+                auto networkManager =
+                    telux::tel::PhoneFactory::getInstance().getNetworkSelectionManager(index);
+                if (networkManager != nullptr)
+                {
                     networkManagers.emplace_back(networkManager);
                     auto networkListener = std::make_shared<taf_RadioNetworkSelectionListener>();
                     networkListener->semaphore = le_sem_Create("networkListenerSem", 0);
                     networkListeners.emplace_back(networkListener);
                 }
-                auto servingSystemManager = telux::tel::PhoneFactory::getInstance().getServingSystemManager(index);
-                if (servingSystemManager != nullptr) {
+                auto servingSystemManager =
+                     telux::tel::PhoneFactory::getInstance().getServingSystemManager(index);
+                if (servingSystemManager != nullptr)
+                {
                     servingSystemManagers.emplace_back(servingSystemManager);
                 }
             }
@@ -1258,75 +2047,75 @@ void taf_Radio::Init(void)
 
         // 7. Instantiate RadioCallback
         signalStrengthCb = std::make_shared<taf_RadioSignalStrengthCallback>();
+        voiceSrvStateCb = std::make_shared<taf_RadioVoiceServiceStateCallback>();
         setOperatingModeCb = std::make_shared<taf_RadioSetOperatingModeCallback>();
         getOperatingModeCb = std::make_shared<taf_RadioGetOperatingModeCallback>();
+        voiceSrvStateCb->semaphore = le_sem_Create("taf_RadioVoiceSrvStateCbSem", 0);
         signalStrengthCb->semaphore = le_sem_Create("taf_RadioSgnStrengthCbSem", 0);
         setOperatingModeCb->semaphore = le_sem_Create("taf_RadioSetOpModeCbSem", 0);
         getOperatingModeCb->semaphore = le_sem_Create("taf_RadioGetOpModeCbSem", 0);
+        dataInfoCb.semaphore = le_sem_Create("dataInfoCbSem", 0);
 
-        for (size_t index = 0; index < networkManagers.size(); index++) {
+        // 8. Initialize network subsystem.
+        for (size_t index = 0; index < networkManagers.size(); index++)
+        {
             startTime = std::chrono::system_clock::now();
-
-            // 8. Check if network subsystem is ready
             bool networkSystemStatus = networkManagers[index]->isSubsystemReady();
-            if (!networkSystemStatus) {
+            if (!networkSystemStatus)
+            {
                 LE_INFO("Network subsystem wait to be ready...");
                 std::future<bool> f = networkManagers[index]->onSubsystemReady();
                 //  Wait until the subsystem is ready.
                 networkSystemStatus = f.get();
             }
 
-            if (networkSystemStatus) {
+            if (networkSystemStatus)
+            {
                 endTime = std::chrono::system_clock::now();
                 elapsedTime = endTime - startTime;
-                LE_INFO("Elapsed time for %" PRIuS " network subsystem: %lfs", index, elapsedTime.count());
-            } else {
-                LE_FATAL("Fail to init %" PRIuS " network subsystem", index);
+                LE_INFO("Elapsed time for %" PRIuS " Network subsystem: %lfs",
+                    index, elapsedTime.count());
+            }
+            else
+            {
+                LE_FATAL("Fail to init %" PRIuS " Network subsystem", index);
             }
         }
 
-        for (size_t index = 0; index < servingSystemManagers.size(); index++) {
+        // 9. Initialize telephony serving subsystem.
+        for (size_t index = 0; index < servingSystemManagers.size(); index++)
+       {
             startTime = std::chrono::system_clock::now();
-
-            // 9. Check if serving subsystem is ready
             bool servingSystemStatus = servingSystemManagers[index]->isSubsystemReady();
-            if (!servingSystemStatus) {
+            if (!servingSystemStatus)
+            {
                 LE_INFO("Serving subsystem wait to be ready...");
                 std::future<bool> f = servingSystemManagers[index]->onSubsystemReady();
                 //  Wait until the subsystem is ready.
                 servingSystemStatus = f.get();
             }
 
-            if (servingSystemStatus) {
+            if (servingSystemStatus)
+            {
                 endTime = std::chrono::system_clock::now();
                 elapsedTime = endTime - startTime;
-                LE_INFO("Elapsed time for %" PRIuS " serving subsystem: %lfs", index, elapsedTime.count());
-            } else {
-                LE_FATAL("Fail to init %" PRIuS " serving subsystem", index);
+                LE_INFO("Elapsed time for %" PRIuS " Tel Serving subsystem: %lfs",
+                    index, elapsedTime.count());
+            }
+            else
+            {
+                LE_FATAL("Fail to init %" PRIuS " Tel Serving subsystem", index);
             }
         }
-    } else {
-        LE_FATAL("Fail to init telephony subsystem");
-    }
 
-    // 10. Initiate IMS serving system
-    if (telux::common::DeviceConfig::isMultiSimSupported())
-    {
-        slotCount = TAF_RADIO_MULTI_SLOT_NUM;
-    }
-    for (size_t index = 1; index <= slotCount; index++)
-    {
-        startTime = std::chrono::system_clock::now();
-
-        if (imsServingSystemMgrs.find((SlotId)index) != imsServingSystemMgrs.end())
+        for (size_t index = 1; index <= phoneIds.size(); index++)
         {
-            LE_INFO("IMS Serving System manager is already initialized.");
-        }
-        else
-        {
+            // 10. Initialize IMS serving subsystem.
+            startTime = std::chrono::system_clock::now();
+            int slot = (int)phoneManager->getSlotIdFromPhoneId(index);
             std::promise<telux::common::ServiceStatus> prom;
             auto imsServingSystemMgr = phoneFactory.getImsServingSystemManager(
-                (SlotId)index,[&](telux::common::ServiceStatus status)
+                (SlotId)slot,[&](telux::common::ServiceStatus status)
                 {
                     if (status == telux::common::ServiceStatus::SERVICE_AVAILABLE)
                     {
@@ -1337,9 +2126,10 @@ void taf_Radio::Init(void)
                         prom.set_value(telux::common::ServiceStatus::SERVICE_FAILED);
                     }
                 });
+
             if (!imsServingSystemMgr)
             {
-                LE_FATAL("Failed to get IMS Serving System instance.");
+                LE_ERROR("Failed to get IMS Serving System instance.");
             }
             else
             {
@@ -1352,21 +2142,102 @@ void taf_Radio::Init(void)
                 }
                 if (imsServSysMgrStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
                 {
-                    imsServingSystemMgrs.emplace((SlotId)index, imsServingSystemMgr);
+                    imsServingSystemMgrs.emplace((SlotId)slot, imsServingSystemMgr);
                     endTime = std::chrono::system_clock::now();
                     elapsedTime = endTime - startTime;
-                    LE_INFO("Elapsed time for %" PRIuS" IMS serving subsystem: %lfs",
-                        index, elapsedTime.count());
+                    LE_INFO("Elapsed time for %d IMS Serving subsystem: %lfs",
+                        slot, elapsedTime.count());
+
+                    auto listener = std::make_shared<taf_RadioImsServSysListener>((SlotId)slot);
+                    imsServSysListeners.emplace((SlotId)slot, listener);
                 }
                 else
                 {
-                    LE_FATAL("Fail to init IMS serving subsystem");
+                    LE_FATAL("Fail to init IMS Serving subsystem");
                 }
+            }
+
+            // 11. Initialize IMS settings subsystem.
+            startTime = std::chrono::system_clock::now();
+            std::promise<telux::common::ServiceStatus> promSetting;
+            auto imsSettingMgr = phoneFactory.getImsSettingsManager(
+                [&](telux::common::ServiceStatus status)
+                {
+                    if (status == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+                    {
+                        promSetting.set_value(telux::common::ServiceStatus::SERVICE_AVAILABLE);
+                    }
+                    else
+                    {
+                        promSetting.set_value(telux::common::ServiceStatus::SERVICE_FAILED);
+                    }
+                });
+
+            if (!imsSettingMgr)
+            {
+                LE_ERROR("Failed to get IMS Settings instance.");
+            }
+            else
+            {
+                telux::common::ServiceStatus imsSettingMgrStatus = imsSettingMgr->getServiceStatus();
+                if (imsSettingMgrStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
+                {
+                    LE_INFO("IMS setting subsystem wait to be ready...");
+                    imsSettingMgrStatus = promSetting.get_future().get();
+                }
+                if (imsSettingMgrStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+                {
+                    imsSettingMgrs.emplace((SlotId)slot, imsSettingMgr);
+                    endTime = std::chrono::system_clock::now();
+                    elapsedTime = endTime - startTime;
+                    LE_INFO("Elapsed time for %d IMS setting subsystem: %lfs",
+                        slot, elapsedTime.count());
+                }
+                else
+                {
+                    LE_FATAL("Fail to init IMS Setting subsystem");
+                }
+            }
+
+            // 12. Initialize data serving subsystem.
+            telux::common::ServiceStatus subSystemStatus =
+                telux::common::ServiceStatus::SERVICE_FAILED;
+            auto initCb = std::bind(&taf_Radio::onInitCompleted, this, std::placeholders::_1);
+            auto servingSystemMgr = dataFactory.getServingSystemManager((SlotId)slot, initCb);
+            if (servingSystemMgr)
+            {
+                std::unique_lock<std::mutex> uLock(mtx);
+                conVar.wait(uLock, [this]{return this->subSystemStatusUpdated;});
+                subSystemStatus = servingSystemMgr->getServiceStatus();
+
+                if (subSystemStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+                {
+                    dataServSysManagers.emplace((SlotId)slot, servingSystemMgr);
+                    endTime = std::chrono::system_clock::now();
+                    elapsedTime = endTime - startTime;
+                    LE_INFO("Elapsed time for %d data serving subsystem: %lfs",
+                        slot, elapsedTime.count());
+
+                    auto listener = std::make_shared<taf_RadioDataServSysListener>((SlotId)slot);
+                    dataServSysListeners.emplace((SlotId)slot, listener);
+                }
+                else
+                {
+                    LE_FATAL("Fail to init Data Serving subsystem");
+                }
+            }
+            else
+            {
+                LE_ERROR("Failed to get Data Serving System instance.");
             }
         }
     }
+    else
+    {
+        LE_FATAL("Fail to init Telephony subsystem");
+    }
 
-    // 11. Create and start command thread.
+    // 13. Create and start command thread.
     le_sem_Ref_t radioCmdThreadSem = le_sem_Create("radioCmdThreadSem", 0);
     radioCmdEvId = le_event_CreateId("radioCmd", sizeof(taf_RadioCmdReq_t));
     le_thread_Ref_t radioCmdThreadRef = le_thread_Create("radioCmdThread", RadioCmdThread, (void*)radioCmdThreadSem);
@@ -1374,10 +2245,10 @@ void taf_Radio::Init(void)
     le_thread_Start(radioCmdThreadRef);
     le_sem_Wait(radioCmdThreadSem);
 
-    // 12. Delete semaphore.
+    // 14. Delete semaphore.
     le_sem_Delete(radioCmdThreadSem);
 
-    // 13. Add power state change handle.
+    // 15. Add power state change handle.
     taf_pm_AddStateChangeHandler(PowerStateChangeHandler, NULL);
     if (taf_pm_GetPowerState() != TAF_PM_STATE_SUSPEND)
     {

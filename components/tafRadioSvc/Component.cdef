@@ -17,6 +17,7 @@ requires:
     lib:
     {
         lib/libtelux_tel.so
+        lib/libtelux_data.so
     }
 
     api:
@@ -31,6 +32,7 @@ cxxflags:
     -I$TELAF_ROOT/include
     -I$TELAF_ROOT/components/stub/taf_pa_radio
     -ltelux_tel
+    -ltelux_data
 }
 
 cflags:

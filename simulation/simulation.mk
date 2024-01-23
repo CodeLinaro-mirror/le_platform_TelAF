@@ -123,6 +123,7 @@ $(SIMULATION_SOMEIP_GW_DEPS_y:%=%/lib): simula-vsomeip
 
 post-simulation-build: CURRENT_SYSTEM_OUTPUT=$(TELAF_BUILD)/simulation/_staging_system.simulation.update_ro/systems/current
 post-simulation-build:
+<<<<<<< HEAD   (23bddc version: Update VERSION to telaf.lnx.1.1-231202)
 	@echo "[Simulation]: Creating Tarball ..."
 ifneq ($(CHECK_SDK_ROOTFS),n)
 	@mkdir -p $(CURRENT_SYSTEM_OUTPUT)/sdk_rootfs
@@ -139,6 +140,19 @@ ifneq ($(TELAF_SIMULATION_ENABLE_SOMEIP_GW),n)
 	                              --exclude=install/vsomeip/lib/cmake \
 	                              --exclude=install/vsomeip/lib/pkgconfig \
 	                              -C $(SIMULATION_HOME)/deps/ install
+=======
+	$Q echo "[Simulation]: Creating Tarball ..."
+	$Q tar cf $(SIMULATION_TARBALL) -C $(TELAF_BUILD)/simulation/_staging_system.simulation.update_ro .
+	$Q tar rf $(SIMULATION_TARBALL) -C $(SIMULATION_HOME)/workstation/ up_simulation.sh
+	$Q tar rf $(SIMULATION_TARBALL) -C $(SIMULATION_HOME)/workstation/ .check_done
+	$Q tar rf $(SIMULATION_TARBALL) --exclude=taf_rootfs/include \
+	                                --exclude=taf_rootfs/lib/cmake \
+	                                --exclude=taf_rootfs/lib/pkgconfig \
+	                                --exclude=taf_rootfs/etc \
+	                                -C $(SIMULATION_HOME)/deps taf_rootfs
+ifneq ($(CHECK_SDK_ROOTFS),n)
+	$Q tar rf $(SIMULATION_TARBALL) --transform 's/rootfs/sdk_rootfs/' -C $(sdk_rootfs)/../ rootfs
+>>>>>>> CHANGE (ea2856 simulation: Fix the issues of system library dependencies an)
 endif
 	@gzip -f $(SIMULATION_TARBALL)
 	@echo "[Simulation]: Tarball $(SIMULATION_TARBALL).gz done."

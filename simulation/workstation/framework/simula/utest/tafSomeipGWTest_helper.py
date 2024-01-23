@@ -12,9 +12,18 @@ meet different environments, ex. the simulation docker container.
 
 import sys, re
 import fileinput
-import socket
+import socket, fcntl, struct
 from ..core.logger import L
 from .helper import quick_run, check_returncode
+
+# No external packages and no need to connect other nodes
+def get_ip_address(ifname):
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    return socket.inet_ntoa(fcntl.ioctl(
+        s.fileno(),
+        0x8915,  # SIOCGIFADDR
+        struct.pack('256s', ifname[:15])
+    )[20:24])
 
 def to_run():
 
@@ -41,7 +50,7 @@ def to_run():
                 match = find_me.search(line)
                 if match:
                     original_ip = match.group(1)
-                    local_ip = socket.gethostbyname(socket.gethostname())
+                    local_ip = get_ip_address('eth0') # In container, we fix the ifname to 'eth0'
                     mline = line.replace(original_ip, local_ip)
                     L.info("Change IP [{}] -> [{}]".format(original_ip, local_ip))
                 else:

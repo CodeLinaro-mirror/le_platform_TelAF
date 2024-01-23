@@ -23,6 +23,7 @@ RUN apt-get -y --no-install-recommends install git
 RUN apt-get -y --no-install-recommends install fakeroot
 RUN apt-get -y --no-install-recommends install file
 RUN apt-get -y --no-install-recommends install libcap-dev
+RUN apt-get -y --no-install-recommends install libssl-dev
 
 RUN apt-get -y --no-install-recommends install python3-pip
 RUN apt-get -y --no-install-recommends install python3-venv
@@ -54,4 +55,4 @@ RUN echo 'if [ "`id -u`" -eq 0 ]; then PS1="[Build Your Simulation] \\u:\\w # ";
 
 # You should pass arguments such as : '-u $(id -u):$(id -g)' to 'docker run' command.
 # Caution: please MOUNT your opensource project at the special location.
-ENTRYPOINT ["/usr/local/bin/fixuid", "-q", "/workspace/telaf/simulation/scripts/forward_to_container.sh"]
+ENTRYPOINT ["/usr/local/bin/fixuid", "-q", "/home/developer/simulation_ro/scripts/forward_to_container.sh"]

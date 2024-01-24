@@ -14,8 +14,11 @@ if [ -n "${TELAF_IN_CONTAINER}" ]; then # [Docker-Container-Env]
     # Once again to ensure the 'ssh-server' to be accessed normally
     export TELAF_IN_CONTAINER=yes
 
-    export PATH=/legato/systems/current/bin:$PATH
-    export PATH=/venv/bin:$PATH
+    PATH=/legato/systems/current/bin:$PATH
+    PATH=/legato/taf_rootfs/bin:$PATH
+    PATH=/legato/sdk_rootfs/bin:$PATH
+    PATH=/venv/bin:$PATH
+    export PATH
 
     source $HOME/simulation/framework/environ.sh
 
@@ -27,12 +30,12 @@ if [ -n "${TELAF_IN_CONTAINER}" ]; then # [Docker-Container-Env]
     function change_PS1()
     {
         if [ -e "$HOME/.whoami" ]; then
-            # prompt on master: [TelAF Simulation] (master):/path/to/here #
+            # prompt on master: [TelAF Simulation] :/path/to/here #
             # prompt on slavex: [TelAF Simulation] (slave@ip-address):/path/to/here #
             # Every time you login the container, the prompt should change accordingly
             export CONTAINER_WHO_AM_I=$(awk '{print $1}' $HOME/.whoami)
             if [ "$CONTAINER_WHO_AM_I" == "master" ];then
-                export PS1='[\[\e[0;33m\]TelAF Simulation\[\e[0m\]] (\[\e[1;31m\]\[\e[1m\]$CONTAINER_WHO_AM_I\[\e[0m\]):\w \$ '
+                export PS1='[\[\e[0;33m\]TelAF Simulation\[\e[0m\]] :\w \$ '
             else
                 SLAVE_IP=$(awk '{print $2}' $HOME/.whoami)
                 export PS1='[\[\e[0;33m\]TelAF Simulation\[\e[0m\]] (\[\e[1;31m\]\[\e[1m\]$CONTAINER_WHO_AM_I@$SLAVE_IP\[\e[0m\]):\w \$ '
@@ -53,6 +56,9 @@ if [ -n "${TELAF_IN_CONTAINER}" ]; then # [Docker-Container-Env]
     if [ -f $HOME/simulation/.simula.always.sh ]; then
         source $HOME/simulation/.simula.always.sh
     fi
+
+    # Touch the new loader configuration
+    sync && ldconfig
 
     if [ -f /tmp/telaf_simulation_up ]; then
         return # multi-user access with ssh-tool ? keep ONLY once init-action.
@@ -160,6 +166,13 @@ if [ -n "${TELAF_IN_CONTAINER}" ]; then # [Docker-Container-Env]
     MOUNTPOINT_TELAF="/mnt/legato"
     mount -o bind $MOUNTPOINT_TELAF /legato
 
+    # Update the runtime library pathes for taf & sdk.
+    echo "/legato/taf_rootfs/lib"   >> /etc/ld.so.conf
+    echo "/legato/taf_rootfs/lib64" >> /etc/ld.so.conf
+    echo "/legato/sdk_rootfs/lib"   >> /etc/ld.so.conf
+
+    sync && ldconfig
+
     # Use SIMULATION_TARBALL_NAME to ensure which image we could use
     SML_RO_TARBALL=$HOME/simulation/$SIMULATION_TARBALL_NAME
 
@@ -168,15 +181,8 @@ if [ -n "${TELAF_IN_CONTAINER}" ]; then # [Docker-Container-Env]
         # extract the tarball to /mnt/legato without the 'install/' directory
         tar zxf $SML_RO_TARBALL --no-same-owner --overwrite -C $MOUNTPOINT_TELAF --exclude up_simulation.sh
 
-        if tar tzvf $SML_RO_TARBALL | grep 'taf_rootfs/.keep' > /dev/null 2>&1 ; then
-            # extract the 'taf_rootfs/' directory to /usr/lib only, cut down 2-level parent-dirs
-            tar zxf $SML_RO_TARBALL --no-same-owner --overwrite --strip-components=2 -C /usr/lib taf_rootfs
-        else
-            echo "[taf_rootfs/.keep] isn't in [$SML_RO_TARBALL], please check it first, stop simulation."
-            exit 1
-        fi
-
-        SDK_ROOTFS=/legato/systems/current/sdk_rootfs
+        # If we have SDK simulation dependencies, deploy the stuff into our system
+        SDK_ROOTFS=/legato/sdk_rootfs
         if [ -d ${SDK_ROOTFS} ]; then
             # Follow SDK Dockerfile configuration
             cp -a -r -d ${SDK_ROOTFS}/bin/* /usr/bin/
@@ -187,6 +193,7 @@ if [ -n "${TELAF_IN_CONTAINER}" ]; then # [Docker-Container-Env]
             cp -a -r -d ${SDK_ROOTFS}/data/* /data/
 
             # Change the dirs' mode for others access
+            chmod 0755 /etc/telux
             chmod 0766 /etc/telux/*
             chmod -R 0777 /data/telux
 
@@ -224,6 +231,8 @@ if [ -n "${TELAF_IN_CONTAINER}" ]; then # [Docker-Container-Env]
     # Mark done
     touch /tmp/telaf_simulation_up
     change_PS1
+
+    ldconfig
 
 else # [Non-Docker-Container-Env]
 

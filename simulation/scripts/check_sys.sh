@@ -95,6 +95,11 @@ function check_docker_version ()
     RESULT=0
     required_version="20.10.0"
 
+    # In dev-container, don't need to check the docker tool
+    if [ -n "${TELAF_DEV_IN_CONTAINER}" ]; then
+        return 0
+    fi
+
     if ! command -V docker &>/dev/null; then
         printf "Please install the docker tool first ( >= $required_version )\n"
         return 1

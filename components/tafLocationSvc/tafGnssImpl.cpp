@@ -83,7 +83,6 @@ void speedScaleUtility(telux::loc::DREngineConfiguration& drConfig,
         const taf_gnss_DrParams_t* drParamsPtr);
 void gyroScaleUtility(telux::loc::DREngineConfiguration& drConfig,
         const taf_gnss_DrParams_t* drParamsPtr);
-
 taf_Gnss &taf_Gnss::GetInstance()
 {
     static taf_Gnss instance;
@@ -200,6 +199,15 @@ telux::common::Status taf_Gnss::LocationManagerInit() {
 #endif
         mPosListener = std::make_shared<tafLocationListener>();
         mLocationManager->registerListenerEx(mPosListener);
+        auto status = mLocationManager->registerForSystemInfoUpdates(mPosListener);//lsc
+        if(telux::common::Status::SUCCESS == status)
+        {
+            LE_INFO("register a listener for Location system information");
+        }
+        else
+        {
+            LE_ERROR("cannot register a listener for Location system information");
+        }
     } else {
         LE_INFO("Location manager already initialized");
     }
@@ -445,6 +453,13 @@ void taf_Gnss::CopyPositionData
         LastDataPtr->SVIds[i] = CurrentDataPtr->SVIds[i];
     }
     LastDataPtr->SVIdsCount = CurrentDataPtr->SVIdsCount;
+    for(i=0; i<TAF_GNSS_NUMBER_OF_SIGNAL_TYPES_MAX; i++)
+    {
+        LastDataPtr->gnssData[i].gnssDataMask = CurrentDataPtr->gnssData[i].gnssDataMask;
+        LastDataPtr->gnssData[i].jammerInd = CurrentDataPtr->gnssData[i].jammerInd;
+        LastDataPtr->gnssData[i].agc = CurrentDataPtr->gnssData[i].agc;
+    }
+    LastDataPtr->gnssDataValid = CurrentDataPtr->gnssDataValid;
     LastDataPtr->next = LE_DLS_LINK_INIT;
 
     return;
@@ -580,6 +595,7 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 LocationData->realTimeValid = true;
                 LocationData->realTimeUncValid = true;
                 LocationData->techMaskValid = true;
+                LocationData->gnssDataValid = true;
                 if(locationInfo->getAltitudeType() == telux::loc::AltitudeType::CALCULATED)
                 {
                     gnss.mAltType = TAF_GNSS_ALT_TYPE_CALCULATED;
@@ -1411,6 +1427,13 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                     LocationData->techMask |= TAF_GNSS_LOC_PROPAGATED;
                     LE_INFO("location calculated using Propagation logic");
                 }
+
+                for(i=0; i<TAF_GNSS_NUMBER_OF_SIGNAL_TYPES_MAX; i++)
+                {
+                    LocationData->gnssData[i].gnssDataMask = gnss.mGnssData[i].gnssDataMask;
+                    LocationData->gnssData[i].jammerInd = gnss.mGnssData[i].jammerInd;
+                    LocationData->gnssData[i].agc = gnss.mGnssData[i].agc;
+                }
                 LocationData->next = LE_DLS_LINK_INIT;
 
                 le_event_ReportWithRefCounting(gnss.positionEventId, LocationData);
@@ -1536,6 +1559,34 @@ void tafLocationListener::onGnssSignalInfo(
     le_mutex_Lock(gnss.mGnssMutexRef);
     if(gnss.NumOfPositionHandlers ) {
         LE_DEBUG("**** Gnss Signal Information ****" );
+        for(int sig = 0; sig < static_cast<int>(
+            telux::loc::GnssDataSignalTypes::GNSS_DATA_MAX_NUMBER_OF_SIGNAL_TYPES);sig++)
+        {
+            LE_INFO("onGnssSignalInfo Signal Type : %d",sig);
+            LE_INFO("onGnssSignalInfo gnssDataMask: %d",gnssDatainfo->getGnssData().gnssDataMask[sig]);
+            if(telux::loc::GnssDataValidityType::HAS_JAMMER == ((gnssDatainfo->getGnssData().gnssDataMask[sig])
+            & (telux::loc::GnssDataValidityType::HAS_JAMMER)))
+            {
+                LE_INFO("onGnssSignalInfo jammerInd: %lf",gnssDatainfo->getGnssData().jammerInd[sig]);
+                gnss.mGnssData[sig].gnssDataMask |= TAF_GNSS_HAS_JAMMER;
+                gnss.mGnssData[sig].jammerInd = gnssDatainfo->getGnssData().jammerInd[sig];
+            }
+            else
+            {
+                LE_INFO("onGnssSignalInfo JAMMER Ind Not Present ");
+            }
+            if(telux::loc::GnssDataValidityType::HAS_AGC == ((gnssDatainfo->getGnssData().gnssDataMask[sig])
+             & (telux::loc::GnssDataValidityType::HAS_AGC)))
+            {
+                LE_INFO("onGnssSignalInfo agc: %lf",gnssDatainfo->getGnssData().agc[sig]);
+                gnss.mGnssData[sig].gnssDataMask |= TAF_GNSS_HAS_AGC;
+                gnss.mGnssData[sig].agc = gnssDatainfo->getGnssData().agc[sig];
+            }
+            else
+            {
+                LE_INFO("onGnssSignalInfo AGC Not Present");
+            }
+        }
         gnss.mGnssSigEnabled = true;
     }
     le_mutex_Unlock(gnss.mGnssMutexRef);
@@ -1683,10 +1734,69 @@ void tafLocationListener::onLocationSystemInfo(const telux::loc::LocationSystemI
         &locationSystemInfo) {
     auto &gnss = taf_Gnss::GetInstance();
     le_mutex_Lock(gnss.mGnssMutexRef);
-    if(gnss.NumOfPositionHandlers ) {
-        LE_DEBUG( "**** Location System Information ****" );
+    LE_DEBUG( "**** Location System Information ****" );
+    LE_INFO( "**** Location System Information locationSystemInfoValidity:%d",locationSystemInfo.valid);
+    LE_INFO( "**** Location System Information LeapSecondInfoValidity:%d",locationSystemInfo.info.valid);
+    telux::loc::LocationSystemInfoValidity locationSystemInfoMask = locationSystemInfo.valid;
+    telux::loc::LeapSecondInfoValidity leapSecondSysInfoMask = locationSystemInfo.info.valid;
+    if(locationSystemInfoMask & telux::loc::LOCATION_SYS_INFO_LEAP_SECOND)
+    {
+        LE_INFO(" onLocationSystemInfo: contains current leap second or leap second change info");
+        gnss.mCurrentLeapSeconds = locationSystemInfo.info.current;
+        gnss.mCurrentLeapSeconds = gnss.mCurrentLeapSeconds * 1000;//millisseoncds
+        LE_INFO("onLocationSystemInfo gnss.mCurrentLeapSeconds: %d",gnss.mCurrentLeapSeconds);
     }
+    if(leapSecondSysInfoMask & telux::loc::LEAP_SECOND_SYS_INFO_CURRENT_LEAP_SECONDS_BIT)
+    {
+        LE_INFO("onLocationSystemInfo: current leap second info is available.");
+    }
+    if(leapSecondSysInfoMask & telux::loc::LEAP_SECOND_SYS_INFO_LEAP_SECOND_CHANGE_BIT)
+    {
+        LE_INFO(" The last known leap change event is available.");
+    }
+    telux::loc::TimeInfo timeInfo = locationSystemInfo.info.info.timeInfo;
+    LE_INFO("onLocationSystemInfo System time week : %u",(unsigned)timeInfo.systemWeek);
+    LE_INFO("onLocationSystemInfo System time week ms: : %u",(unsigned)timeInfo.systemMsec);
+    LE_INFO("onLocationSystemInfo LeapSecondCurrent : %d", unsigned(locationSystemInfo.info.current));
+    gnss.mGpsTime = (uint64_t)(timeInfo.systemWeek  * 7);//7 days
+    gnss.mGpsTime = (uint64_t) gnss.mGpsTime * 24;//24 hours
+    gnss.mGpsTime = (uint64_t) gnss.mGpsTime* 3600;//seconds
+    gnss.mGpsTime = (uint64_t) gnss.mGpsTime* 1000; //milli seconds
+    gnss.mGpsTime = (uint64_t) gnss.mGpsTime + (unsigned)timeInfo.systemMsec;
+    LE_INFO("onLocationSystemInfo overall gnss.mGpsTime : %" PRIi64 "",gnss.mGpsTime);
+    LE_INFO("onLocationSystemInfo System clk time : %lf",timeInfo.systemClkTimeBias);
+    LE_INFO("onLocationSystemInfo System clk time uncertainty valid: %lf",timeInfo.systemClkTimeUncMs);
+    LE_INFO("onLocationSystemInfo System reference valid: %u",(unsigned)timeInfo.refFCount);
+    LE_INFO("onLocationSystemInfo System num clock reset valid: %u",(unsigned)timeInfo.numClockResets);
+    LE_INFO("onLocationSystemInfo leapSecondsBeforeChange : %u",
+            unsigned(locationSystemInfo.info.info.leapSecondsBeforeChange));
+    LE_INFO("onLocationSystemInfo leapSecondsAfterChange :%u",
+           unsigned(locationSystemInfo.info.info.leapSecondsAfterChange));
+    gnss.mChangeEventTime = locationSystemInfo.info.info.leapSecondsBeforeChange*1000;//msec
+    gnss.mNextLeapSeconds = locationSystemInfo.info.info.leapSecondsAfterChange*1000;//msec
     le_mutex_Unlock(gnss.mGnssMutexRef);
+}
+
+void tafLocationListener::onXtraStatusUpdate(const telux::loc::XtraStatus xtraStatus)
+{
+    LE_INFO("********** Xtra Status Info **********" );
+    LE_INFO("Xtra Feature Enabled: %d", xtraStatus.featureEnabled);
+    LE_INFO("Xtra Feature Validity: %d",xtraStatus.xtraValidForHours);
+    switch(xtraStatus.xtraDataStatus)
+    {
+        case telux::loc::XtraDataStatus::STATUS_UNKNOWN:
+            LE_INFO("Unknown");
+            break;
+        case telux::loc::XtraDataStatus::STATUS_NOT_AVAIL:
+            LE_INFO("Not available");
+            break;
+        case telux::loc::XtraDataStatus::STATUS_NOT_VALID:
+            LE_INFO("Invalid");
+            break;
+        case telux::loc::XtraDataStatus::STATUS_VALID:
+            LE_INFO("Valid");
+            break;
+    }
 }
 
 le_result_t taf_Gnss::PositionDataCoversion
@@ -3338,8 +3448,15 @@ le_result_t taf_Gnss::GetLeapSeconds
  int32_t* nextLeapSeconds
 )
 {
-    LE_DEBUG("GetLeapSeconds is not implemented");
-    return LE_UNSUPPORTED;
+    TAF_ERROR_IF_RET_VAL( NULL == gpsTime, LE_FAULT, "gpsTime is NULL");
+    TAF_ERROR_IF_RET_VAL( NULL == currentLeapSeconds, LE_FAULT, "currentLeapSeconds is NULL");
+    TAF_ERROR_IF_RET_VAL( NULL == changeEventTime, LE_FAULT, "changeEventTime is NULL");
+    TAF_ERROR_IF_RET_VAL( NULL == nextLeapSeconds, LE_FAULT, "nextLeapSeconds is NULL");
+    *gpsTime = mGpsTime;
+    *currentLeapSeconds = mCurrentLeapSeconds;
+    *changeEventTime = mChangeEventTime;
+    *nextLeapSeconds = mNextLeapSeconds;
+    return LE_OK;
 }
 
 le_result_t taf_Gnss::GetGpsTime
@@ -6417,6 +6534,129 @@ le_result_t taf_Gnss::SetNmeaConfiguration
     return result;
 }
 
+le_result_t taf_Gnss::GetXtraStatus
+(
+    taf_gnss_XtraStatusParams_t* xtraParams //Specify Xtra assistant data's current status,
+                                          // validity and whether it is enabled.
+)
+{
+    le_result_t result = LE_NOT_PERMITTED;
+
+    TAF_ERROR_IF_RET_VAL(NULL == xtraParams, LE_FAULT, "xtraParams is NULL");
+
+    switch (GnssState)
+    {
+        case TAF_GNSS_STATE_READY:
+        case TAF_GNSS_STATE_ACTIVE:
+        {
+            std::promise<le_result_t> p;
+            auto cb = [&p](telux::loc::XtraStatus xtraStatus, telux::common::ErrorCode error)
+            {
+                auto &gnss = taf_Gnss::GetInstance();
+                if(error == telux::common::ErrorCode::SUCCESS)
+                {
+                    LE_INFO("***Request xtra status Info ****");
+                    LE_INFO("Xtra Feature Enabled: %d",xtraStatus.featureEnabled);
+                    //LE_INFO("Xtra data status: %d ",xtraStatus.xtraDataStatus);
+                    LE_INFO("Xtra status valid for hours :%d",xtraStatus.xtraValidForHours);
+                    gnss.mfeatureEnabled = xtraStatus.featureEnabled;
+                    gnss.mXtraValidForHours = xtraStatus.xtraValidForHours;
+                    switch(xtraStatus.xtraDataStatus)
+                    {
+                        case telux::loc::XtraDataStatus::STATUS_UNKNOWN:
+                        LE_INFO("GetXtraStatus Unknown");
+                        gnss.mXtraDataStatus = TAF_GNSS_XTRA_DATA_STATUS_UNKNOWN;
+                        break;
+                        case telux::loc::XtraDataStatus::STATUS_NOT_AVAIL:
+                        LE_INFO("GetXtraStatus Not available");
+                        gnss.mXtraDataStatus = TAF_GNSS_XTRA_DATA_STATUS_NOT_AVAIL;
+                        break;
+                        case telux::loc::XtraDataStatus::STATUS_NOT_VALID:
+                        LE_INFO("GetXtraStatus Invalid");
+                        gnss.mXtraDataStatus = TAF_GNSS_XTRA_DATA_STATUS_NOT_VALID;
+                        break;
+                        case telux::loc::XtraDataStatus::STATUS_VALID:
+                        LE_INFO("GetXtraStatus Valid \n");
+                        gnss.mXtraDataStatus = TAF_GNSS_XTRA_DATA_STATUS_VALID;
+                        break;
+                    }
+                    p.set_value(LE_OK);
+                }
+                else
+                {
+                    LE_DEBUG("*Request xtra status failed errorCode: %d ", int(error));
+                    p.set_value(LE_FAULT);
+                }
+            };
+            auto status = mLocationConfigurator->requestXtraStatus(cb);
+            if (status != telux::common::Status::SUCCESS) {
+                return LE_FAULT;
+            }
+            std::future<le_result_t> futResult = p.get_future();
+            if(futResult.get() == LE_OK)
+            {
+                LE_INFO("Request xtra status is success");
+                result = LE_OK;
+                xtraParams->featureEnabled = mfeatureEnabled;
+                xtraParams->xtraValidForHours = mXtraValidForHours;
+                xtraParams->xtraDataStatus = mXtraDataStatus;
+            }
+            else
+            {
+                LE_ERROR("Request xtra status is failed");
+                result = LE_FAULT;
+            }
+        }
+        break;
+        case TAF_GNSS_STATE_UNINITIALIZED:
+        case TAF_GNSS_STATE_DISABLED:
+        {
+            LE_ERROR("GetXtraStatus: Bad state for that request [%d]", GnssState);
+            result = LE_NOT_PERMITTED;
+        }
+        break;
+        default:
+        {
+                LE_ERROR("GetXtraStatus: Unknown GNSS state %d", GnssState);
+                result = LE_FAULT;
+        }
+        break;
+    }
+    return result;
+}
+le_result_t taf_Gnss::GetGnssData
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    taf_gnss_GnssData_t* gnssDataPtr,
+    size_t* maxSignalTypes
+)
+{
+    le_result_t result = LE_OK;
+    taf_gnss_PositionSampleRequest_t* posSampleReqPtr = (taf_gnss_PositionSampleRequest_t*)le_ref_Lookup(PositionSampleMap,positionSampleRef);
+    int i;
+
+    result = CheckValidatePosition(posSampleReqPtr);
+    if (result != LE_OK)
+    {
+        return result;
+    }
+
+    if (posSampleReqPtr->positionSampleNodePtr->gnssDataValid)
+    {
+        for(i=0; i < (int)*maxSignalTypes; i++)
+        {
+            gnssDataPtr[i].gnssDataMask = posSampleReqPtr->positionSampleNodePtr->gnssData[i].gnssDataMask;
+            gnssDataPtr[i].jammerInd = posSampleReqPtr->positionSampleNodePtr->gnssData[i].jammerInd;
+            gnssDataPtr[i].agc = posSampleReqPtr->positionSampleNodePtr->gnssData[i].agc;
+        }
+    }
+    else
+    {
+        LE_INFO("GetGnssData Invalid");
+    }
+    return result;
+}
+
 void taf_Gnss::RemovePositionHandler
 (
     taf_gnss_PositionHandlerRef_t handlerRef
@@ -6534,7 +6774,16 @@ void taf_Gnss::CloseEventHandler
 
 taf_Gnss::~taf_Gnss() {
    if(mLocationManager && mPosListener) {
-      mLocationManager->deRegisterListenerEx(mPosListener);
+        mLocationManager->deRegisterListenerEx(mPosListener);
+        auto status = mLocationManager->deRegisterForSystemInfoUpdates(mPosListener);
+        if(status == telux::common::Status::SUCCESS)
+        {
+            LE_ERROR("Deregistered a listener for location system information");
+        }
+        else
+        {
+            LE_ERROR("Failed to deregister a listener for location system information");
+        }
    }
    if(mPosListener) {
       mPosListener = nullptr;
@@ -6560,6 +6809,7 @@ void taf_Gnss::Init()
     LastPositionSample.fixState = TAF_GNSS_STATE_FIX_NO_POS;
     memset(&mSatParams, 0, sizeof(mSatParams));
     memset(&mSatInfo, 0, sizeof(mSatInfo));
+    memset(&mGnssData,0, sizeof(mGnssData));
 
     status = LocationManagerInit();
     if (status != telux::common::Status::SUCCESS) {

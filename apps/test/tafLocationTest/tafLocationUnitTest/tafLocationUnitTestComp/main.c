@@ -1454,6 +1454,40 @@ static void PositionHandlerFunction
         LE_TEST_INFO(" %d", svIds[i]);
     }
 
+    //Get Jammer and Automatic Gain Control information
+    size_t maxSigTypes = TAF_GNSS_NUMBER_OF_SIGNAL_TYPES_MAX;
+    taf_gnss_GnssData_t gnssDataPtr[TAF_GNSS_NUMBER_OF_SIGNAL_TYPES_MAX];
+    LE_TEST_INFO("taf_gnss_GetGnssData is triggered\n");
+    result = taf_gnss_GetGnssData(positionSampleRef, gnssDataPtr, &maxSigTypes);
+
+    LE_TEST_OK(result == LE_OK, "taf_gnss_GetGnssData-LE_OK");
+
+    for(uint8_t i = 0; i < maxSigTypes; i++)
+    {
+        LE_TEST_INFO("GetGnssData type :%d", i);
+        LE_TEST_INFO("gnssDataMask:%d", gnssDataPtr[i].gnssDataMask);
+        if(gnssDataPtr[i].gnssDataMask & TAF_GNSS_HAS_JAMMER)
+        {
+            LE_TEST_INFO("jammerInd is present");
+            LE_TEST_INFO("jammerInd: %lf",gnssDataPtr[i].jammerInd);
+        }
+        else
+        {
+            LE_TEST_INFO("jammerInd is not present");
+        }
+        if(gnssDataPtr[i].gnssDataMask & TAF_GNSS_HAS_AGC)
+        {
+            LE_TEST_INFO("Automatic Gain Control is present");
+            LE_TEST_INFO("AGC: %lf",gnssDataPtr[i].agc);
+        }
+        else
+        {
+            LE_TEST_INFO("Automatic Gain Control is not present");
+        }
+        LE_TEST_INFO("\n");
+    }
+
+
     LE_TEST_INFO("taf_gnss_ReleaseSampleRef is triggered");
     taf_gnss_ReleaseSampleRef(positionSampleRef);
     le_sem_Post(PositionHandlerSem);
@@ -4461,6 +4495,58 @@ static void TestTafGnssStartMode
 
 }
 
+static void TestTafGnssXtraInformation
+(
+    void
+)
+{
+    taf_gnss_XtraStatusParams_t *XtraParamsPtr;
+    le_result_t result = LE_FAULT;
+    le_mem_PoolRef_t XtraFramePool = NULL;
+    XtraFramePool = le_mem_CreatePool("XtraFramePool", sizeof(taf_gnss_XtraStatusParams_t));
+    XtraParamsPtr = (taf_gnss_XtraStatusParams_t*) le_mem_ForceAlloc(XtraFramePool);
+
+    if(XtraParamsPtr != NULL)
+    {
+        LE_TEST_INFO("taf_gnss_GetXtraStatus API is called to get xtra information");
+        result = taf_gnss_GetXtraStatus(XtraParamsPtr);
+    }
+    else
+    {
+        LE_TEST_INFO("XtraParamPtr is NULL pointer");
+    }
+    LE_TEST_OK(result == LE_OK, "taf_gnss_GetXtraStatus-LE_OK");
+    if(result == LE_OK)
+    {
+        LE_TEST_INFO("**** Request Xtra Status Info ****\n");
+        LE_TEST_INFO("GetXtraStatus featureEnabled:%d",XtraParamsPtr->featureEnabled);
+        if(XtraParamsPtr->xtraDataStatus == TAF_GNSS_XTRA_DATA_STATUS_UNKNOWN)
+        {
+            LE_TEST_INFO("GetXtraStatus xtraDataStatus:Unknown");
+        }
+        else if(XtraParamsPtr->xtraDataStatus == TAF_GNSS_XTRA_DATA_STATUS_NOT_AVAIL)
+        {
+            LE_TEST_INFO("GetXtraStatus xtraDataStatus:Not available");
+        }
+        else if(XtraParamsPtr->xtraDataStatus == TAF_GNSS_XTRA_DATA_STATUS_NOT_VALID)
+        {
+            LE_TEST_INFO("GetXtraStatus xtraDataStatus:Not valid");
+        }
+        else if(XtraParamsPtr->xtraDataStatus == TAF_GNSS_XTRA_DATA_STATUS_VALID)
+        {
+            LE_TEST_INFO("GetXtraStatus xtraDataStatus:Valid");
+        }
+    }
+    else
+    {
+        LE_TEST_INFO("taf_gnss_GetXtraStatus failed to get xtra status");
+    }
+    LE_TEST_INFO("GetXtraStatus xtraValidForHours:%d\n",XtraParamsPtr->xtraValidForHours);
+
+    //release the memory
+    le_mem_Release(XtraParamsPtr);
+}
+
 static void TestTafGnssRestart
 (
     void
@@ -4540,6 +4626,22 @@ static void TestTafGnssRestart
         LE_TEST_INFO("TTFF start not available");
     }
 
+    //Get Leap Seconds-LE_OK
+    LE_TEST_INFO("taf_gnss_GetLeapSeconds() API is triggerred to get Leap Seconds");
+    result =taf_gnss_GetLeapSeconds(&gpsTime,&currentLeapSeconds,&changeEventTime,&nextLeapSeconds);
+    LE_TEST_OK(result == LE_OK, "taf_gnss_GetLeapSeconds-LE_OK");
+    if(result == LE_OK)
+    {
+        LE_TEST_INFO("taf_gnss_GetLeapSeconds gpsTime = %lu msec", gpsTime);
+        LE_TEST_INFO("taf_gnss_GetLeapSeconds currentLeapSeconds = %d msec", currentLeapSeconds);
+        LE_TEST_INFO("taf_gnss_GetLeapSeconds changeEventTime = %lu msec", changeEventTime);
+        LE_TEST_INFO("taf_gnss_GetLeapSeconds nextLeapSeconds = %d msec", nextLeapSeconds);
+    }
+    else
+    {
+        LE_TEST_INFO("taf_gnss_GetLeapSeconds is failed");
+    }
+
    //207.Stop
     LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
     result = taf_gnss_Stop();
@@ -4569,10 +4671,21 @@ static void TestTafGnssRestart
     result = taf_gnss_ForceFactoryRestart();
     LE_TEST_OK(result == LE_UNSUPPORTED, "taf_gnss_ForceFactoryRestart-LE_UNSUPPORTED");
 
-    //212. Get Leap Seconds-NOT SUPPORTED
-    LE_TEST_INFO("taf_gnss_GetLeapSeconds() API is triggerred to get Gps Leap Seconds");
+    //212. Get Leap Seconds-LE_OK
+    LE_TEST_INFO("taf_gnss_GetLeapSeconds() API is triggerred to get Leap Seconds");
     result =taf_gnss_GetLeapSeconds(&gpsTime,&currentLeapSeconds,&changeEventTime,&nextLeapSeconds);
-    LE_TEST_OK(result == LE_UNSUPPORTED, "taf_gnss_GetLeapSeconds-LE_UNSUPPORTED");
+    LE_TEST_OK(result == LE_OK, "taf_gnss_GetLeapSeconds-LE_OK");
+    if(result == LE_OK)
+    {
+        LE_TEST_INFO("taf_gnss_GetLeapSeconds gpsTime = %lu msec", gpsTime);
+        LE_TEST_INFO("taf_gnss_GetLeapSeconds currentLeapSeconds = %d msec", currentLeapSeconds);
+        LE_TEST_INFO("taf_gnss_GetLeapSeconds changeEventTime = %lu msec", changeEventTime);
+        LE_TEST_INFO("taf_gnss_GetLeapSeconds nextLeapSeconds = %d msec", nextLeapSeconds);
+    }
+    else
+    {
+        LE_TEST_INFO("taf_gnss_GetLeapSeconds is failed");
+    }
 
 
 }
@@ -4646,6 +4759,9 @@ COMPONENT_INIT
 
    LE_TEST_INFO("====TestTafGnssStartMode APIs Test====");
    TestTafGnssStartMode();
+
+   LE_TEST_INFO("======== TestTafGnssXtraInformation ======");
+   TestTafGnssXtraInformation();
 
    LE_TEST_INFO("======== TestTafGnssRestart ======");
    TestTafGnssRestart();

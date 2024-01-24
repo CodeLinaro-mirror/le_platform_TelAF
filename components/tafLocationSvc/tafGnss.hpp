@@ -232,6 +232,8 @@ namespace tafsvc {
         uint32_t techMask;
         uint32_t techMaskValid;
         double   altMeanSeaLevel;
+        taf_gnss_GnssData_t gnssData[TAF_GNSS_NUMBER_OF_SIGNAL_TYPES_MAX];
+        bool  gnssDataValid;
         le_dls_Link_t   next;
     }
     taf_gnss_PositionSample_t;
@@ -281,7 +283,7 @@ namespace tafsvc {
     taf_gnss_Client_t;
 
     class tafLocationListener : public telux::loc::ILocationListener,
-    public telux::loc::ILocationSystemInfoListener {
+    public telux::loc::ILocationConfigListener,public telux::loc::ILocationSystemInfoListener {
         public:
 
             void onGnssSVInfo(const std::shared_ptr<telux::loc::IGnssSVInfo> &gnssSVInfo) override;
@@ -298,6 +300,7 @@ namespace tafsvc {
             void onLocationSystemInfo(const telux::loc::LocationSystemInfo &locationSystemInfo) override;
 
             void onCapabilitiesInfo(const telux::loc::LocCapability capabilityInfo) override;
+            void onXtraStatusUpdate(const telux::loc::XtraStatus xtraStatus) override;
 
             ~tafLocationListener() {};
     };
@@ -447,6 +450,9 @@ namespace tafsvc {
             le_result_t GetMinGpsWeek(uint16_t* minGpsWeekPtr);
             le_result_t GetCapabilities(uint64_t* locCapabilityPtr);
             le_result_t SetNmeaConfiguration(taf_gnss_NmeaBitMask_t nmeaMask, taf_gnss_GeodeticDatumType_t datumType, taf_gnss_LocEngineType_t engineType);
+            le_result_t GetXtraStatus(taf_gnss_XtraStatusParams_t* xtraParams);
+            le_result_t GetGnssData(taf_gnss_SampleRef_t positionSampleRef,taf_gnss_GnssData_t* gnssDataPtr,size_t* maxSignalTypes);
+
             le_mem_PoolRef_t   PositionHandlerPoolRef;
             le_mem_PoolRef_t   PositionSampleRequestPoolRef;
             le_event_Id_t positionEventId;
@@ -486,10 +492,19 @@ namespace tafsvc {
             bool mGnssSigEnabled = false;
             bool mTtffEnable;
             uint8_t mTotalSVTracked;
+            uint8_t mfeatureEnabled;
+            uint32_t mXtraValidForHours;
+            uint32_t mXtraDataStatus;
+            uint64_t mGpsTime = 0;
+            int32_t mCurrentLeapSeconds = 0;
+            uint64_t mChangeEventTime = 0;
+            int32_t mNextLeapSeconds = 0;
+
             taf_gnss_ConstellationBitMask_t mConstellationMask;
             le_dls_List_t    SvInfoList;
             std::string mCommandName;
             taf_gnss_SvInfo_t  mSatInfo[TAF_GNSS_SV_INFO_MAX_LEN];
+            taf_gnss_GnssData_t mGnssData[TAF_GNSS_NUMBER_OF_SIGNAL_TYPES_MAX];
             taf_gnss_SvMeas_t  mSatMeas;
             taf_gnss_NmeaBitMask_t mNmeaMask = 0;
             taf_gnss_AltType_t mAltType;

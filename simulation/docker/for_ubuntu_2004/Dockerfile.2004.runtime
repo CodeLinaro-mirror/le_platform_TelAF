@@ -39,11 +39,11 @@ RUN apt-get -y --no-install-recommends install python3-pip
 RUN apt-get -y --no-install-recommends install python3-venv
 RUN /usr/bin/python3 -m venv /venv
 ENV PATH=/venv/bin:$PATH
-RUN python3.8 -m pip install doipclient
-RUN python3.8 -m pip install udsoncan
-RUN python3.8 -m pip install pyyaml
-RUN python3.8 -m pip install supervisor
-RUN python3.8 -m pip install supervisor-stdout
+RUN python3 -m pip install doipclient
+RUN python3 -m pip install udsoncan
+RUN python3 -m pip install pyyaml
+RUN python3 -m pip install supervisor
+RUN python3 -m pip install supervisor-stdout
 
 # Make root password to: [simula]
 RUN echo 'root:simula' | chpasswd

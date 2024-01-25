@@ -13,6 +13,10 @@ Q ?=@
 # If you want make a compilation in your docker container, get along with below.
 export within ?=
 
+# Sometimes, due to docker's caching, it can lead docker image rebuilding failure.
+# So we need to add some options for building images, such as "--no-cache"
+docker_build_opts ?=
+
 # Some work needs to be done earlier or later, so we prevent the real simulation goal.
 ifneq ($(filter simulation,$(MAKECMDGOALS)),)
   $(error Please pass 'make simula-help' for TelAF Simulation Target [simulation])
@@ -150,6 +154,24 @@ export from ?=
 
 ifneq ("$(origin from)","command line")
   export from := ubuntu:$(which_one_point_version)
+else
+  # Check if the current version matches the version passed in, if not, please 'make simula-distro-<version>'
+  FROM_TYPICAL_VERSION=$(shell echo $(from) | sed 's/.*:\(.*\)/\1/')
+  ifneq ("$(FROM_TYPICAL_VERSION)","$(which_one_point_version)")
+    $(error "Mismatched version, current wanted [$(which_one_point_version)], but got [$(FROM_TYPICAL_VERSION)].\
+	         Please check 'make simula-list' to ensure the version to be supported.")
+  endif
+
+  # NOTE: in addition to the officially supported versions, you can create your own, but we will not give technical support
+  # Step 1. Create directory & Dockerfiles: <version> -> 2204, <dot-version> -> 22.04
+  #      1.1 simulation/docker/for_ubuntu_<version>
+  #      1.2 simulation/docker/for_ubuntu_<version>/docker-compose.yml
+  #      1.2.2 Add the docker-compose.yml with correct Dockerfile names
+  #      1.3 simulation/docker/for_ubuntu_<version>/Dockerfile.<version>.runtime
+  #      1.4 simulation/docker/for_ubuntu_<version>/Dockerfile.<version>.develop
+  # Step 2. Change the 'simulation/workstation/.which_one' to which <version> you want
+  # Step 3. Rebuild all images: make simula-buildall from=ubuntu:<dot-version>
+
 endif
 
 define up_simulation_container
@@ -162,7 +184,7 @@ define build_simulation_docker_image
 	$Q echo "[$@] build docker image..."
 	$Q export UBUNTU_DISTRO_ORIGIN=$(from) \
 	    && docker compose -f "$(CURDIR)/simulation/docker/for_ubuntu_$(get_which_one)/docker-compose.yml" \
-	    build telaf_simulation_$(1)_$(get_which_one)
+	    build $(docker_build_opts) telaf_simulation_$(1)_$(get_which_one)
 	$Q echo "[$@] image build done."
 endef
 
@@ -241,6 +263,9 @@ simula-list simula-list-distro:
 	$Q echo "TelAF Simulation support list:"
 	$Q echo -n "  [1] ubuntu20.04"; if [ "$(get_which_one)" = "2004" ]; then echo " <--" ; else echo ; fi
 	$Q echo -n "  [2] ubuntu18.04"; if [ "$(get_which_one)" = "1804" ]; then echo " <--" ; else echo ; fi
+	$Q if [ "$(get_which_one)" != "1804" ] \
+	   && [ "$(get_which_one)" != "2004" ]; then \
+	      echo -n "  [x] ubuntu$(which_one_point_version)"; echo " <-- (unknown version)" ; fi
 
 simula-distro-1804:
 	$Q echo -n "1804" > $(which_one)

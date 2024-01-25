@@ -17,7 +17,7 @@ find_package(Legato REQUIRED)
 file(GLOB_RECURSE UNITTEST_ADEF_FILES ${TESTAPP_PATH}/*UnitTest.adef)
 foreach( unittestfile  ${UNITTEST_ADEF_FILES} )
     message(STATUS "adef file: ${unittestfile}")
-    mkapp( ${unittestfile} -i ${Interfaces})
+    mkapp( ${unittestfile} -i ${Interfaces} -i ${Interfaces}/staging)
 endforeach()
 
 # Build integration test apps
@@ -25,7 +25,7 @@ set(APP_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build/TestApps/Integration_testapp)
 file(GLOB_RECURSE UNITTEST_ADEF_FILES ${TESTAPP_PATH}/*Int*Test.adef)
 foreach( unittestfile  ${UNITTEST_ADEF_FILES} )
     message(STATUS "adef file: ${unittestfile}")
-    mkapp( ${unittestfile} -i ${Interfaces})
+    mkapp( ${unittestfile} -i ${Interfaces} -i ${Interfaces}/staging)
 endforeach()
 
 # Build console test apps

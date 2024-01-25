@@ -206,4 +206,7 @@ COMPONENT_INIT
     auto &myWlanAP = taf_WlanAPSvcImpl::GetInstance();
     myWlanAP.Init();
     LE_INFO("tafWlan AP Service init completed.\n");
+    auto &myWlanSTA = taf_WlanSTASvcImpl::GetInstance();
+    myWlanSTA.Init();
+    LE_INFO("tafWlan STA Service init completed.\n");
 }

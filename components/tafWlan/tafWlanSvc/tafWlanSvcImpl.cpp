@@ -182,6 +182,14 @@ le_result_t taf_WlanSvcImpl::SetMode
         numAP  = 1;
         numSTA = 0;
         break;
+    case TAF_WLAN_MODE_STA:
+        numAP  = 0;
+        numSTA = 1;
+        break;
+    case TAF_WLAN_MODE_STA_AP:
+        numAP  = 1;
+        numSTA = 1;
+        break;
     // Unsupported modes
     case TAF_WLAN_MODE_UNSUPPORTED:
     default:
@@ -238,6 +246,16 @@ le_result_t taf_WlanSvcImpl::GetMode
     {
         // AP only
         *wlanModePtr = TAF_WLAN_MODE_AP;
+    }
+    else if (0==numOfAP && 1 == numOfSTA)
+    {
+        // STA only
+        *wlanModePtr = TAF_WLAN_MODE_STA;
+    }
+    else if (1==numOfAP && 1 == numOfSTA)
+    {
+        // STA + AP
+        *wlanModePtr = TAF_WLAN_MODE_STA_AP;
     }
     else
     {

@@ -42,4 +42,5 @@ extern:
 {
     tafWlanSvc.tafWlanSvc.taf_wlan
     tafWlanSvc.tafWlanSvc.taf_wlanAp
+    tafWlanSvc.tafWlanSvc.taf_wlanSta
 }

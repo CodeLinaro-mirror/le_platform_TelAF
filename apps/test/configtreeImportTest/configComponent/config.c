@@ -42,11 +42,11 @@ static void TestImportJSON(const char* testRoot, bool isSuccess)
     LE_INFO("IMPORT TREE: %s", pathBuffer);
     LE_INFO("Import: %s", filePath);
     if(isSuccess){
-        LE_TEST(le_cfgAdmin_ImportTreeExt(iterRef, filePath, pathBuffer) == LE_OK);
+        LE_TEST(le_cfgAdmin_ImportTree(iterRef, filePath, pathBuffer) == LE_OK);
         le_cfg_CommitTxn(iterRef);
     }
     else {
-        LE_TEST(le_cfgAdmin_ImportTreeExt(iterRef, filePath, pathBuffer) != LE_OK);
+        LE_TEST(le_cfgAdmin_ImportTree(iterRef, filePath, pathBuffer) != LE_OK);
         le_cfg_CancelTxn(iterRef);
     }
 
@@ -72,4 +72,6 @@ COMPONENT_INIT
     TestImportJSON("errorFormat", false);
 
     LE_INFO("---------- All Tests Complete in: %s ----------------------------------", TestRootDir);
+
+    LE_TEST_EXIT;
 }

@@ -218,7 +218,7 @@
  * - taf_net_GetVlanInterfaceType()    -- Gets the VLAN interface type.
  *
  * @note When adding or deleting a VLAN interface for a VLAN with isAccelerated as true, if the interface is
- *       the first added or last deleted for the interface type in the system, the system will automatically 
+ *       the first added or last deleted for the interface type in the system, the system will automatically
  *       reboot after 5 seconds.
  *
  *
@@ -338,7 +338,7 @@
  * authentication method type, setting and getting LAN interface, and adding and removing SOCKS
  * associations between usernames and profile IDs.
  *
- * SOCKS can be enabled using taf_net_EnableSocks. After setting the authentication method type 
+ * SOCKS can be enabled using taf_net_EnableSocks. After setting the authentication method type
  * and LAN interface, and adding the association the application can enable SOCKS.
  *
  * The following example shows how to enable SOCKS. This example starts a SOCKS application which
@@ -394,11 +394,11 @@
  * @section c_taf_net_GSB_management GSB management
  *
  * Generic software bridge (GSB) management provides APIs for enabling and disabling GSB, adding and
- * removing GSB, and querying GSB information. GSB enables hardware IP acceleration (IPA) for 
+ * removing GSB, and querying GSB information. GSB enables hardware IP acceleration (IPA) for
  * traffic on physical interfaces corresponding to the NON-QTI WLAN and ethernet chips.
  *
  * @note GSB APIs are not supported on SA515M.
- * The following example shows how to add GSB. This example adds an interface named "wlan0", 
+ * The following example shows how to add GSB. This example adds an interface named "wlan0",
  * of TAF_NET_GSB_WLAN_AP type, and with 800 Mbps bandwidth.
  *
  * @verbatim
@@ -513,6 +513,13 @@ DEFINE  IPV6_ADDR_MAX_LEN = 46;
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE  IP_ADDR_MAX_LEN = IPV6_ADDR_MAX_LEN;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * MAC address maximum length.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE  MAC_ADDR_MAX_LEN = 17;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1342,7 +1349,7 @@ FUNCTION le_result_t SetVlanPriority
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Removes a VLAN. 
+ * Removes a VLAN.
  *
  * @note The system is not allowed to remove a VLAN if the VLAN interface list is not empty.
  *
@@ -1620,7 +1627,7 @@ FUNCTION le_result_t GetVlanBoundPhoneId
 //--------------------------------------------------------------------------------------------------
 /**
  * Binds a VLAN with a specified profile ID.
- * 
+ *
  * @note Binding VLAN with the default profile ID results in the system automatically rebooting
  *       after 5 seconds.
  *

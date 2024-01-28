@@ -3,6 +3,7 @@ provides:
     api:
     {
         taf_wlan.api
+        taf_wlanAp.api
     }
 }
 
@@ -32,4 +33,8 @@ sources:
     tafWlanSvc.cpp
     tafWlanSvcImpl.cpp
     tafWlanListener.cpp
+    tafWlanAPSvc.cpp
+    tafWlanAPSvcImpl.cpp
+    tafWlanAPListener.cpp
+    taf_WlanHelper.cpp
 }

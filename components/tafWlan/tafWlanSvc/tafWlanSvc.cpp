@@ -200,7 +200,10 @@ le_result_t taf_wlan_GetMode
 COMPONENT_INIT
 {
     LE_INFO("tafWlan COMPONENT_INIT\n");
-    auto &myWlan = taf_WlanSvcImpl::GetInstance();
+    auto &myWlan   = taf_WlanSvcImpl::GetInstance();
     myWlan.Init();
     LE_INFO("tafWlan Service init completed.\n");
+    auto &myWlanAP = taf_WlanAPSvcImpl::GetInstance();
+    myWlanAP.Init();
+    LE_INFO("tafWlan AP Service init completed.\n");
 }

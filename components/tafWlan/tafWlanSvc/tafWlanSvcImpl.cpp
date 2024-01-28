@@ -289,7 +289,11 @@ void taf_WlanSvcImpl::Init(void)
 
     wlanListener = std::make_shared<taf_WlanListener>();
     // Register the Listener class
-    wlanDevMgr->registerListener(wlanListener);
+    telux::common::ErrorCode retCode = wlanDevMgr->registerListener(wlanListener);
+    if (telux::common::ErrorCode::SUCCESS != retCode)
+    {
+        LE_WARN("WLAN registerListener failed: %d", (int)retCode);
+    }
 
     // Create WLAN state event ID
     wlanDevStateChangeEvID = le_event_CreateIdWithRefCounting("DeviceStateChangeEvent");

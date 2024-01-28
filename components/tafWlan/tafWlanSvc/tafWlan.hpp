@@ -11,6 +11,8 @@
  *
  */
 
+#pragma once
+
 #include "legato.h"
 #include "interfaces.h"
 
@@ -39,10 +41,43 @@ namespace telux
 
         //------------------------------------------------------------------------------------------
         /**
+        * The TelAF WLAN helper class. It provides the following:
+        *   - Functions to transform TelAF to TelSDK values and vice-versa
+        */
+        //------------------------------------------------------------------------------------------
+        class taf_WlanHelper
+        {
+            public:
+            // BandType conversion
+            static taf_wlan_Band_t BandTypeToTAF (telux::wlan::BandType bandType);
+            static telux::wlan::BandType BandTypeToTelux (taf_wlan_Band_t bandType);
+
+            // APType conversion
+            static taf_wlan_APType_t APTypeToTAF (telux::wlan::ApType APType);
+            static telux::wlan::ApType APTypeToTelux(taf_wlan_APType_t APType);
+
+            // SecMode conversion
+            static taf_wlan_SecurityMode_t SecModeToTAF(telux::wlan::SecMode SecMode);
+            static telux::wlan::SecMode SecModeToTelux(taf_wlan_SecurityMode_t SecMode);
+
+            // SecAuth conversion
+            static taf_wlan_SecurityAuthMethod_t SecAuthToTAF(telux::wlan::SecAuth SecAuth);
+            static telux::wlan::SecAuth SecAuthToTelux(taf_wlan_SecurityAuthMethod_t SecAuth);
+
+            // SecEncrypt conversion
+            static taf_wlan_SecurityEncryptionMethod_t
+                            SecEncryptToTAF(telux::wlan::SecEncrypt SecEncrypt);
+            static telux::wlan::SecEncrypt
+            SecEncryptToTelux(taf_wlan_SecurityEncryptionMethod_t SecEncrypt);
+        };
+
+        //------------------------------------------------------------------------------------------
+        /**
         * The TelAF WLAN listener class for TelSDK notifications.
         */
         //------------------------------------------------------------------------------------------
-        class taf_WlanListener: public telux::wlan::IWlanListener {
+        class taf_WlanListener: public telux::wlan::IWlanListener
+        {
             public:
                 // Subsystem state change handler
                 void onServiceStatusChange (telux::common::ServiceStatus status);
@@ -94,5 +129,63 @@ namespace telux
             le_mem_PoolRef_t DeviceStatusPool;
             le_mutex_Ref_t wlanMutexRef = NULL;
         };
-    }
-}
+
+
+        //------------------------------------------------------------------------------------------
+        /**
+        * The TelAF WLAN AP listener class for TelSDK notifications.
+        */
+        //------------------------------------------------------------------------------------------
+        class taf_WlanAPListener: public telux::wlan::IApListener
+        {
+            public:
+                // AP Config changed handler
+                void onApConfigChanged (telux::wlan::Id apId) override;
+                // AP Band changed handler
+                void onApBandChanged(telux::wlan::BandType radio) override;
+
+                void onApDeviceStatusChanged(
+                    telux::wlan::ApDeviceConnectionEvent event,
+                    std::vector<telux::wlan::DeviceIndInfo> info) override;
+        };
+
+        //------------------------------------------------------------------------------------------
+        /**
+        * The TelAF WLAN Access Point APIs implementation class.
+        */
+        //------------------------------------------------------------------------------------------
+        class taf_WlanAPSvcImpl : public ITafSvc
+        {
+        public:
+            // Inherited functions
+            void Init(void);
+            taf_WlanAPSvcImpl() {};
+            ~taf_WlanAPSvcImpl() {};
+
+            static taf_WlanAPSvcImpl &GetInstance();
+
+            // WLan AP Service Implementations
+            le_result_t Start              ( void );
+            le_result_t Stop               ( void );
+            le_result_t Restart            ( void );
+            le_result_t SetConfig          (const taf_wlanAp_WlanAPConfig_t *wlanAPConfigPtr);
+            le_result_t GetConfig          (taf_wlanAp_WlanAPConfig_t *wlanAPConfigPtr);
+            le_result_t SetSecurityConfig
+                                     ( const taf_wlanAp_WlanAPSecurityConfig_t* wlanAPSecCfgPtr );
+            le_result_t GetSecurityConfig  ( taf_wlanAp_WlanAPSecurityConfig_t* wlanAPSecCfgPtr );
+            le_result_t GetStatus          ( taf_wlanAp_WlanAPStatus_t* wlanAPStatusPtr );
+            le_result_t GetConnectedDevices( uint16_t *numDevicesPtr,
+                                             taf_wlanAp_WlanAPConnectedDeviceInfo_t *DevInfoPtr,
+                                             size_t *DevInfoSizePtr
+                                           );
+
+        private:
+            // AP ID to use
+            const telux::wlan::Id wlanAPID = telux::wlan::Id::PRIMARY;
+            // The WLAN AP Manager
+            std::shared_ptr<telux::wlan::IApInterfaceManager> wlanAPMgr;
+            // The WLAN AP Listener class object
+            std::shared_ptr<telux::tafsvc::taf_WlanAPListener> wlanAPListener;
+        };
+    } //namespace tafsvc
+} //namespace telux

@@ -1,0 +1,29 @@
+sandboxed: true
+
+executables:
+{
+    wlanAPTest = ( wlanAPIntTestComponent )
+}
+
+start: manual
+
+processes:
+{
+    run:
+    {
+        (wlanAPTest)
+    }
+
+    faultAction: stopApp
+
+    #if ${LE_CONFIG_SERVICES_WATCHDOG} = y
+        maxWatchdogTimeout: 100000
+    #else
+        watchdogTimeout: never
+    #endif
+}
+
+bindings:
+{
+    wlanAPTest.wlanAPIntTestComponent.taf_wlanAp -> tafWlanSvc.taf_wlanAp
+}

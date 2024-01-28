@@ -44,13 +44,13 @@ boost_:
 #-> 3. [compile]
 	$Q cd $(SIMULATION_DEPS_SOURCE)/$@ \
 	  && echo "[$@] configure firstly" \
-	  && ./bootstrap.sh --prefix=$(SIMULATION_DEPS_ROOTFS) > /dev/null \
+	  && ./bootstrap.sh --prefix=$(SIMULATION_DEPS_ROOTFS) > ./__config.log 2>&1 \
 	  && echo "[$@] compiling ..."  \
-	  && ./b2 > /dev/null
+	  && ./b2 > ./__build.log 2>&1
 #-> 4. [install]
 	$Q cd $(SIMULATION_DEPS_SOURCE)/$@ \
 	  && echo "[$@] installing ..." \
-	  && ./b2 install > /dev/null
+	  && ./b2 install > ./__install.log 2>&1
 	$Q echo "[$@] Done"
 
 

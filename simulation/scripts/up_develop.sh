@@ -21,6 +21,7 @@ if [ -n "${within}" ]; then
     # Example: make simula within="'hostname && make simula-clean && make simulac'"
     docker run ${BUILTIN_CONTAINER_OPTIONS} -u $(id -u):$(id -g) \
         -e TELAF_DEV_IN_CONTAINER=${project_root} \
+        -e CPLUS_INCLUDE_PATH='/usr/include/python2.7/' \
         -v ${simulation_base}:/home/developer/simulation_ro:ro \
         -v ${project_root}:${project_root}:rw \
         ${IMG_NAME}:${IMG_VERSION} bash -c -- "'${within}'"
@@ -43,6 +44,7 @@ else # only one parameter
         docker run --name ${CONTAINER_NAME} \
             ${BUILTIN_CONTAINER_OPTIONS} \
             ${CONTAINER_OPTIONS} -u $(id -u):$(id -g) \
+            -e CPLUS_INCLUDE_PATH='/usr/include/python2.7/' \
             -e TELAF_DEV_IN_CONTAINER=${project_root} \
             -v ${simulation_base}:/home/developer/simulation_ro:ro \
             -v ${project_root}:${project_root}:rw \

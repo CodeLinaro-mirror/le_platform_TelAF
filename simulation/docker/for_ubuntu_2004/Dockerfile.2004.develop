@@ -23,14 +23,17 @@ RUN apt-get -y --no-install-recommends install fakeroot
 RUN apt-get -y --no-install-recommends install file
 RUN apt-get -y --no-install-recommends install libcap-dev
 RUN apt-get -y --no-install-recommends install libssl-dev
+RUN DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install wget
+RUN DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install git
+RUN apt-get -y --no-install-recommends install python2-dev
 
 RUN apt-get -y --no-install-recommends install python3-pip
 RUN apt-get -y --no-install-recommends install python3-venv
 RUN /usr/bin/python3 -m venv /venv
 ENV PATH=/venv/bin:$PATH
-RUN python3.8 -m pip install doipclient
-RUN python3.8 -m pip install udsoncan
-RUN python3.8 -m pip install pyyaml
+RUN python3 -m pip install doipclient
+RUN python3 -m pip install udsoncan
+RUN python3 -m pip install pyyaml
 
 # Create a non-root user: [developer] for development, with password: [simula]
 RUN useradd --create-home --no-log-init --shell /bin/bash developer

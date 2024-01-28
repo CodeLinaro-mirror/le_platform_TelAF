@@ -11,7 +11,14 @@ telaf_root=$project_top/telaf
 
 cd $telaf_root
 echo -e "\n-- container information record begin --"
+
 cat /etc/os-release
+
 echo -e "\nTelAF-Simulation Project : ${project_top}\n"
+
+echo "Environment Variables [BEG]"
+env
+echo "Environment Variables [END]"
+
 echo -e "-- container information record done --\n"
 eval "$@"

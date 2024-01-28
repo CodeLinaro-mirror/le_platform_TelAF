@@ -113,6 +113,7 @@ interfaceSearch:
     $TELAF_ROOT/interfaces
     $TELAF_ROOT/interfaces/someipGW
     $TELAF_ROOT/interfaces/tafVNW
+    $TELAF_ROOT/interfaces/staging
     $TELAF_ROOT/apps/tafMngdServices/interfaces
     interfaces/positioning
     $LEGATO_ROOT/apps/sample/voiceCallApp

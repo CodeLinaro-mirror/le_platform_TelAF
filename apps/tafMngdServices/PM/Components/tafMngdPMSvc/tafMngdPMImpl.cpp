@@ -685,6 +685,19 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
     powerStateRef = psRef;
     if(state != TAF_PM_STATE_ALL_WAKELOCKS_RELEASED && !pmInf)
     {
+        if(state == TAF_PM_STATE_SUSPEND)
+        {
+            ProcessStateChange(TAF_MNGD_PM_STATE_SUSPEND);
+        }
+        else if(state == TAF_PM_STATE_SHUTDOWN)
+        {
+            ProcessStateChange(TAF_MNGD_PM_STATE_SHUTDOWN);
+        }
+        else if(state == TAF_PM_STATE_RESUME)
+        {
+            ProcessStateChange(TAF_MNGD_PM_STATE_RESUME);
+        }
+
         // Send ACK if no VHAL driver is available.
         LE_DEBUG("Send ACK if there is no driver loaded");
         taf_pm_SendStateChangeAck(powerStateRef, state, vm_id, TAF_PM_READY);

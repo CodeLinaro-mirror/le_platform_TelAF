@@ -58,8 +58,8 @@ DEFINE MAX_DEVICE_NAME_LENGTH = 32;
 ENUM Band
 {
     BAND_UNKNOWN,   ///< To skip setting band, pass UNKNOWN.
-    BAND_5_GHz,     ///< 5 GHz band.
-    BAND_24_GHz     ///< 2.4 GHz band.
+    BAND_5_GHZ,     ///< 5 GHz band.
+    BAND_2P4_GHZ    ///< 2.4 GHz band.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -143,8 +143,10 @@ ENUM DeviceState
 //-------------------------------------------------------------------------------------------------
 ENUM DeviceMode
 {
-    MODE_UNSUPPORTED = -1,  ///< Unsupported mode.
-    MODE_AP=0               ///< Single access point.
+    MODE_UNSUPPORTED = -1,   ///< Unsupported mode.
+    MODE_AP,                 ///< Single access point.
+    MODE_STA,                ///< Single station.
+    MODE_STA_AP              ///< AP + STA.
 };
 
 //--------------------------------------------------------------------------------------------------

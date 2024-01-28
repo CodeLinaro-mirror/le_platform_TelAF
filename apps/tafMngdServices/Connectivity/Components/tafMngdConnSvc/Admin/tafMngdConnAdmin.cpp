@@ -1062,8 +1062,10 @@ le_result_t tafMngdConnAdmin::EventNetworkUnregState(uint8_t phoneId)
 //--------------------------------------------------------------------------------------------------
 void tafMngdConnAdmin::EventDataConnected(uint8_t dataId)
 {
-
+    le_result_t result;
     taf_mngd_Conn_Ctx_t* connCtxPtr = NULL;
+
+    taf_dcs_ProfileRef_t profileRef = NULL;
 
     connCtxPtr = GetConnCtx(dataId);
 
@@ -1072,6 +1074,29 @@ void tafMngdConnAdmin::EventDataConnected(uint8_t dataId)
         LE_ERROR("Can't find the context for dataId(%d)", dataId);
         return;
     }
+
+    //Check for interface
+    profileRef = taf_dcs_GetProfileEx (connCtxPtr->phoneId, connCtxPtr->profileNumber);
+
+    result = taf_dcs_GetInterfaceName(profileRef, connCtxPtr->intfName, TAF_DCS_NAME_MAX_LEN);
+    if(result != LE_OK)
+    {
+        LE_ERROR("Getting interface name failed for dataID %d",connCtxPtr->dataId);
+        return;
+    }
+    LE_INFO("Interface Name for DataID: %d is %s", dataId, connCtxPtr->intfName);
+
+    //Check for corresponding DNS
+    result = taf_dcs_GetIPv4DNSAddresses(profileRef, connCtxPtr->dns1Addr, TAF_MNGD_CONN_MAX_IPV4_LEN
+                                        ,connCtxPtr->dns2Addr,TAF_MNGD_CONN_MAX_IPV4_LEN);
+
+    if(result != LE_OK)
+    {
+        LE_ERROR("Getting dns address failed for dataID %d",connCtxPtr->dataId);
+        return;
+    }
+    LE_INFO("DNS addresses for DataID: %d are %s and %s", dataId, connCtxPtr->dns1Addr,
+            connCtxPtr->dns2Addr);
 
     // Send an event to start ConnectionTest
     LE_INFO("Sending event to start ConnectionTest for ID: %d", dataId);
@@ -1417,6 +1442,8 @@ taf_mngd_Conn_Ctx_t* tafMngdConnAdmin::CreateConnCtx
 
     connCtxPtr->dataRetry = Policy.DataSession.DataStartRetry.Enable;
     memset(connCtxPtr->intfName, 0, sizeof(connCtxPtr->intfName));
+    memset(connCtxPtr->dns1Addr, 0, sizeof(connCtxPtr->dns1Addr));
+    memset(connCtxPtr->dns2Addr, 0, sizeof(connCtxPtr->dns2Addr));
 
     //Create timer
     snprintf(timerName, sizeof(timerName)-1, "dataId-%d Timer", dataId);
@@ -1808,13 +1835,14 @@ void tafMngdConnAdmin::ConnectionTest(uint8_t dataId)
     taf_mngd_Conn_Ctx_t *connCtxPtr = GetConnCtx(dataId);
     std::string url = connCtxPtr->conn_test_url;
     std::string ipv4add = connCtxPtr->conn_test_ipv4Addr;
+    std::string interfaceName = connCtxPtr->intfName;
 
     //cURL will be tried first, and if it fails Ping will be used.
     //If Ping also fails, data will be treated as not connected.
 
     if(!url.empty())
     {
-        if(ConnectionTest_URL(url))
+        if(ConnectionTest_URL(url , interfaceName))
         {
             //connection is created.
             connCtxPtr->state = TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE;
@@ -1822,7 +1850,7 @@ void tafMngdConnAdmin::ConnectionTest(uint8_t dataId)
             //If manually started the data successfully. Set reconnection flag to true.
             connCtxPtr->needReConn = true;
         }
-        else if(!ipv4add.empty() && ConnectionTest_IPv4(ipv4add))
+        else if(!ipv4add.empty() && ConnectionTest_IPv4(ipv4add , interfaceName))
         {
             //connection is created.
             connCtxPtr->state = TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE;
@@ -1845,7 +1873,7 @@ void tafMngdConnAdmin::ConnectionTest(uint8_t dataId)
     }
     else if(!ipv4add.empty())
     {
-        if(ConnectionTest_IPv4(ipv4add))
+        if(ConnectionTest_IPv4(ipv4add , interfaceName))
         {
             //connection is created.
             connCtxPtr->state = TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE;
@@ -1878,13 +1906,14 @@ void tafMngdConnAdmin::ConnectionTest(uint8_t dataId)
     }
 }
 
-bool tafMngdConnAdmin::ConnectionTest_URL(std::string url)
+bool tafMngdConnAdmin::ConnectionTest_URL(std::string url, std::string interfaceName)
 {
     //Enable LE_CONFIG_DEBUG to get the output of curl in logs
     #if LE_CONFIG_DEBUG
-        std::string curlCommand = "curl " + std::string(url);
+        std::string curlCommand = "curl --interface" + interfaceName + " " + url);
     #else
-        std::string curlCommand = "curl " + std::string(url) + " 1> /dev/null 2> /dev/null";
+        std::string curlCommand = "curl --interface " + interfaceName + " " + url
+                                   + " 1> /dev/null 2> /dev/null";
 
     #endif
 
@@ -1892,33 +1921,35 @@ bool tafMngdConnAdmin::ConnectionTest_URL(std::string url)
     if(result==0)
     {
         //connection is created.
-        LE_INFO("ConnectionTest_URL passed");
+        LE_INFO("ConnectionTest_URL passed for interface %s",interfaceName.c_str());
         return true;
     }
-    LE_INFO ("ConnectionTest_URL failed");
+    LE_INFO ("ConnectionTest_URL failed for interface %s",interfaceName.c_str());
     return false;
 }
 
-bool tafMngdConnAdmin::ConnectionTest_IPv4(std::string ipv4)
+bool tafMngdConnAdmin::ConnectionTest_IPv4(std::string ipv4, std::string interfaceName)
 {
     //Enable LE_CONFIG_DEBUG to get the output of ping in logs
-    LE_INFO("ConnectionTest_IPv4 entered");
+    LE_INFO("ConnectionTest_IPv4 entered for interface %s",interfaceName.c_str());
     #if LE_CONFIG_DEBUG
-        std::string pingCommand = "ping -c 5 "+ ipv4; //5 is the number of ping pockets
+        std::string pingCommand = "ping -c 5 -I "+ interfaceName +" "+ ipv4;
+        //5 is the number of ping pockets
     #else
-        std::string pingCommand = "ping -c 5 "+ ipv4 + " 1> /dev/null 2> /dev/null";
+        std::string pingCommand = "ping -c 5 -I "+ interfaceName +" "+  ipv4
+                                  + " 1> /dev/null 2> /dev/null";
     #endif
     int result = system(pingCommand.c_str());
 
     if(result==0)
     {
         //connection is created.
-        LE_INFO("ConnectionTest_IPv4 passed");
+        LE_INFO("ConnectionTest_IPv4 passed for interface %s",interfaceName.c_str());
         return true;
     }
     else
     {
-        LE_INFO("ConnectionTest_IPv4 failed");
+        LE_INFO("ConnectionTest_IPv4 failed for interface %s",interfaceName.c_str());
         return false;
     }
     return false;

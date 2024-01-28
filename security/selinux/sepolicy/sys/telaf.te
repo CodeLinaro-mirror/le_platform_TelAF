@@ -668,9 +668,4 @@ if (telaf_external_dependencies) {
     #============ To support telaf restart ===================
     allow telaf_sdir_t telaf_apptmp_rw_t:dir { remove_name };
     allow telaf_sdir_t telaf_apptmp_rw_t:sock_file { unlink };
-
-
-    #Ping Command
-    allow telaf_admin_t ping_exec_t:file { execute execute_no_trans open read };
-    allow telaf_admin_t self:icmp_socket { create getopt read setopt write };
 }

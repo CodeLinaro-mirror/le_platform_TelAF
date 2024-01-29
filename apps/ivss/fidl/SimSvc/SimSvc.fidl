@@ -21,7 +21,7 @@ interface SimSvc
         STATE_UNKNOWN   ///< SIM card state is unknown.
     }
 
-    <** @description: Get Imsi from the Sim Card **>
+    <** @description: Retrieves the IMSI for the SIM **>
     method GetImsi
     {
         in
@@ -35,7 +35,7 @@ interface SimSvc
         error Result            ///< return result.
     }
 
-    <** @description: Get the state of the card **>
+    <** @description: Gets the state of the SIM card **>
     method GetState
     {
         in

@@ -71,6 +71,33 @@ interface RadioSvc
         error Result            ///< return result.
     }
 
+    <** @description: Get the network registration mode **>
+    method GetRegisterMode
+    {
+        in
+        {
+            PhoneId phoneId     ///< Phone ID.
+        }
+        out
+        {
+            Boolean isManual    ///< True if manual, false if automatic.
+            String mcc          ///< MCC.
+            String mnc          ///< MNC.
+
+        }
+        error Result            ///< return result.
+    }
+
+    <** @description: Registers to network using automatic mode **>
+    method SetAutomaticRegisterMode
+    {
+        in
+        {
+            PhoneId phoneId     ///< Phone ID.
+        }
+        error Result            ///< return result.
+    }
+
     <** @description: Event to report signal strength change  **>
     broadcast SignalStrength
     {

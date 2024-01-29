@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
@@ -8,22 +8,90 @@
 
 #include "legato.h"
 #include "interfaces.h"
+#include "tafSvcIF.hpp"
+
 #include <CommonAPI/CommonAPI.hpp>
 #include <v0/com/qualcomm/qti/modem/RadioSvcStubDefault.hpp>
 #include <tafIvssCommon.hpp>
 
 using namespace v0::com::qualcomm::qti::modem;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the radio power state structure
+ */
+//--------------------------------------------------------------------------------------------------
 typedef struct
 {
-    le_sem_Ref_t semRef;    ///< Semaphore
-    uint8_t phoneId;        ///< Phone ID.
-    le_onoff_t power;       ///< Power state
-    taf_radio_Rat_t rat;    ///< Radio Access Technology.
-    int32_t ss;             ///< Signal strength in dBm.
-    int32_t rsrp;           ///< Reference signal receive quality in dB.
-    le_result_t result;     ///< The result
-}IvssRadioSvc_method_t;
+    uint8_t phoneId;                    ///< [IN] Phone ID.
+    le_onoff_t power;                   ///< [IN] Power state
+}taf_IvssRadio_SetRadioPower_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the radio power state structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint8_t phoneId;                    ///< [IN] Phone ID.
+    le_onoff_t power;                   ///< [OUT] Power state
+}taf_IvssRadio_GetRadioPower_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets signal strength structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint8_t phoneId;                    ///< [IN] Phone ID.
+    taf_radio_Rat_t rat;                ///< [IN] Radio Access Technology.
+    int32_t ss;                         ///< [OUT] Signal strength in dBm.
+    int32_t rsrp;                       ///< [OUT] Reference signal receive quality in dB.
+}taf_IvssRadio_GetSignalStrength_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the network registration mode structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint8_t phoneId;                    ///< [IN] Phone ID.
+    bool isManual;                      ///< [OUT] True if manual, false if automatic.
+    char mcc[TAF_RADIO_MCC_BYTES];      ///< [OUT] MCC.
+    char mnc[TAF_RADIO_MNC_BYTES];      ///< [OUT] MNC.
+}taf_IvssRadio_GetRegisterMode_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Registers to network using automatic mode structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint8_t phoneId;                    ///< [IN] Phone ID.
+}taf_IvssRadio_SetAutomaticRegisterMode_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Ivss radio method indication structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    le_sem_Ref_t semRef;                ///< [IN] Semaphore
+    le_result_t result;                 ///< [OUT] The result
+    union
+    {
+        taf_IvssRadio_SetRadioPower_t setRadioPower;
+        taf_IvssRadio_GetRadioPower_t getRadioPower;
+        taf_IvssRadio_GetSignalStrength_t getSignalStrength;
+        taf_IvssRadio_GetRegisterMode_t getRegisterMode;
+        taf_IvssRadio_SetAutomaticRegisterMode_t setAutomaticRegisterMode;
+    };
+}taf_IvssRadio_Ind_t;
 
 inline RadioSvc::Rat RatRadioToIvss(taf_radio_Rat_t rat)
 {
@@ -150,10 +218,16 @@ public:
         CommonTypes::PhoneId _phoneId, GetRadioPowerReply_t _reply);
     virtual void GetSignalStrength(const std::shared_ptr<CommonAPI::ClientId> _client,
         CommonTypes::PhoneId _phoneId, RadioSvc::Rat _rat, GetSignalStrengthReply_t _reply);
+    virtual void GetRegisterMode(const std::shared_ptr<CommonAPI::ClientId> _client,
+        CommonTypes::PhoneId _phoneId, GetRegisterModeReply_t _reply);
+    virtual void SetAutomaticRegisterMode(const std::shared_ptr<CommonAPI::ClientId> _client,
+        CommonTypes::PhoneId _phoneId, SetAutomaticRegisterModeReply_t _reply);
 
     static void SetRadioPowerHandler(void* reportPtr);
     static void GetRadioPowerHandler(void* reportPtr);
     static void GetSignalStrengthHandler(void* reportPtr);
+    static void GetRegisterModeHandler(void* reportPtr);
+    static void SetAutomaticRegisterModeHandler(void* reportPtr);
 
     // memory pools.
     le_mem_PoolRef_t EventPool;
@@ -162,10 +236,14 @@ public:
     le_event_Id_t SetRadioPowerEvent = NULL;
     le_event_Id_t GetRadioPowerEvent = NULL;
     le_event_Id_t GetSignalStrengthEvent = NULL;
+    le_event_Id_t GetRegisterModeEvent = NULL;
+    le_event_Id_t SetAutomaticRegisterModeEvent = NULL;
 
     le_event_HandlerRef_t SetRadioPowerEventHandlerRef;
     le_event_HandlerRef_t GetRadioPowerEventHandlerRef;
     le_event_HandlerRef_t GetSignalStrengthEventHandlerRef;
+    le_event_HandlerRef_t GetRegisterModeEventHandlerRef;
+    le_event_HandlerRef_t SetAutomaticRegisterModeEventHandlerRef;
 
     taf_radio_RatChangeHandlerRef_t RatChangeHandlerRef;
     taf_radio_SignalStrengthChangeHandlerRef_t GsmSsChangeHandlerRef;

@@ -1,4 +1,28 @@
-# Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 ## <summary> devices interface </summary>
+
+#######################################
+# <summary>
+#        Allow telaf_tafSomeipGWSvc_t to connect to other vsomeip services
+# </summary>
+# <param name="domain">
+#        <summary>
+#        Type to be used as a daemon domain.
+#        </summary>
+# </param>
+# <param name="entry_point">
+#        <summary>
+#        Type of the program to be used as an entry point to this domain
+#        </summary>
+# </param>
+
+interface(`telaf_tafSomeipGWSvc_connect',`
+    gen_require(`
+            type telaf_tafSomeipGWSvc_t;
+    ')
+
+    allow $1 telaf_tafSomeipGWSvc_t:unix_stream_socket { connectto };
+    allow telaf_tafSomeipGWSvc_t $1:unix_stream_socket { connectto };
+')

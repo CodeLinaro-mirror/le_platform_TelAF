@@ -13,9 +13,18 @@
         {
             "name" : "radioSvcTest",
             "id" : "0x1201"
+        },
+        {
+            "name" : "SimSvcTest",
+            "id" : "0x1301"
+        },
+        {
+            "name" : "InfoSvcTest",
+            "id" : "0x1401"
         }
     ],
-	"routing" : "radioSvcTest",
+    "routing" : "radioSvcTest",
+    "network" : "radioSvcTest",
     "service-discovery" :
     {
         "enable" : "true",

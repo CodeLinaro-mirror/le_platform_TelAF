@@ -22,7 +22,7 @@ capability:
 
 executables:
 {
-    tafIvssSimSvc = ( tafIvssSimSvc )
+    tafIvssInfoSvc = ( tafIvssInfoSvc )
 }
 
 processes:
@@ -35,12 +35,12 @@ processes:
 
     run:
     {
-        ( tafIvssSimSvc )
+        ( tafIvssInfoSvc )
     }
     maxFileBytes: 8192K
 }
 
 bindings:
 {
-    tafIvssSimSvc.tafIvssSimSvc.taf_sim -> tafSimCardSvc.taf_sim
+    tafIvssInfoSvc.tafIvssInfoSvc.taf_info -> tafDevInfoSvc.taf_info
 }

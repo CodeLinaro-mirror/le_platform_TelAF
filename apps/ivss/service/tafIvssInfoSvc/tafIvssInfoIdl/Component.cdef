@@ -1,0 +1,23 @@
+externalBuild:
+{
+    "capicxx-core-gen -sk $TELAF_ROOT/apps/ivss/fidl/InfoSvc/InfoSvc.fidl"
+    "capicxx-core-gen -sk $TELAF_ROOT/apps/ivss/fidl/InfoSvc/InfoSvc.fdepl"
+    "capicxx-someip-gen $TELAF_ROOT/apps/ivss/fidl/InfoSvc/InfoSvc.fdepl"
+    "bash $TELAF_ROOT/apps/ivss/common/make.sh InfoSvc"
+}
+
+bundles:
+{
+    file:
+    {
+        $BUILDDIR/build/libInfoSvc-someip.so   /lib/
+    }
+}
+
+provides:
+{
+    headerDir:
+    {
+        $BUILDDIR/src-gen
+    }
+}

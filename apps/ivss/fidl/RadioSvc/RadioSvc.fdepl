@@ -42,6 +42,16 @@ define org.genivi.commonapi.someip.deployment for interface com.qualcomm.qti.mod
         SomeIpMethodID = 30030
     }
 
+    method GetRegisterMode
+    {
+        SomeIpMethodID = 30040
+    }
+
+    method SetAutomaticRegisterMode
+    {
+        SomeIpMethodID = 30050
+    }
+
     broadcast SignalStrength
     {
         SomeIpEventID = 33020

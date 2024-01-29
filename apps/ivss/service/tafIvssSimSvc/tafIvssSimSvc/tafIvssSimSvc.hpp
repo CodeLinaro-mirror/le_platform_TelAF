@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
@@ -8,20 +8,51 @@
 
 #include "legato.h"
 #include "interfaces.h"
+#include "tafSvcIF.hpp"
+
 #include <CommonAPI/CommonAPI.hpp>
 #include <v0/com/qualcomm/qti/modem/SimSvcStubDefault.hpp>
 #include <tafIvssCommon.hpp>
 
 using namespace v0::com::qualcomm::qti::modem;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Retrieves the IMSI for the SIM structure
+ */
+//--------------------------------------------------------------------------------------------------
 typedef struct
 {
-    le_sem_Ref_t semRef;            ///< [IN] Semaphore
     taf_sim_Id_t slotId;                ///< [IN] Slot ID
-    char imsi[TAF_SIM_IMSI_BYTES];  ///< [OUT] IMSI as output.
-    taf_sim_States_t simState;      ///< [OUT] SIM card states
-    le_result_t result;             ///< [OUT] The result
-}IvssSimSvc_method_t;
+    char imsi[TAF_SIM_IMSI_BYTES];      ///< [OUT] IMSI as output.
+}taf_IvssSim_GetImsi_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the state of the SIM card structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_sim_Id_t slotId;                ///< [IN] Slot ID
+    taf_sim_States_t simState;          ///< [OUT] SIM card states
+}taf_IvssSim_GetState_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Ivss sim method indication structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    le_sem_Ref_t semRef;                ///< [IN] Semaphore
+    le_result_t result;                 ///< [OUT] The result
+    union
+    {
+        taf_IvssSim_GetImsi_t getImsi;
+        taf_IvssSim_GetState_t getState;
+    };
+}taf_IvssSim_Ind_t;
 
 inline CommonTypes::PhoneId PhoneIdSimToIvss(taf_sim_Id_t slotId)
 {

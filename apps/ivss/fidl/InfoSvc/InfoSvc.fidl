@@ -1,0 +1,23 @@
+/*
+* Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+* SPDX-License-Identifier: BSD-3-Clause-Clear
+*/
+
+package com.qualcomm.qti.modem
+import com.qualcomm.qti.modem.CommonTypes.* from "../common/CommonTypes.fidl"
+
+interface InfoSvc
+{
+    version { major 0 minor 1 }
+
+    <** @description: Retrieves the International Mobile Equipment Identity (IMEI). **>
+    method GetImei
+    {
+        out
+        {
+            String imei         ///< IMEI number.
+
+        }
+        error Result            ///< return result.
+    }
+}

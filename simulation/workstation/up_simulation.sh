@@ -121,6 +121,7 @@ if [ -n "${TELAF_IN_CONTAINER}" ]; then # [Docker-Container-Env]
     # Create some default users
     useradd -M --no-log-init --shell /bin/bash telaf
     useradd -M --no-log-init --shell /bin/bash appdefault
+    useradd -M --no-log-init --gid root --shell /bin/bash securityunpack
 
     echo "/mnt/legato/system/lib" > /tmp/ld.so.conf
 
@@ -200,8 +201,6 @@ if [ -n "${TELAF_IN_CONTAINER}" ]; then # [Docker-Container-Env]
             # Use supervisord to start and monitor telsdk_simulation_server
             supervisord -c /etc/supervisord.conf
         fi
-
-        chmod 755 $MOUNTPOINT_TELAF/systems/current/bin/*
 
         CONTAINER_DISTRO_VERSION=$(grep -oP 'VERSION_ID="\K[^"]+' /etc/os-release)
 

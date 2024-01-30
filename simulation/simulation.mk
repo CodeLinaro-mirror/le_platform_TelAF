@@ -47,9 +47,15 @@ include $(SIMULATION_HOME)/deps/dependence.mk
 SIMULATION_DEPS += _openssl _curl
 SIMULATION_DEPS_ALL = _pre_deps $(SIMULATION_DEPS) _post_deps
 
-# Another way:
-# 1. mkdir $(SIMULATION_WORKDIR)/sdk_rootfs
-# 2. sudo mount --bind /path/to/sdk_rootfs  $(SIMULATION_WORKDIR)/sdk_rootfs
+# [1] Another way: (not in container)
+#   1. mkdir $(SIMULATION_WORKDIR)/sdk_rootfs
+#   2. sudo mount --bind /path/to/sdk_rootfs  $(SIMULATION_WORKDIR)/sdk_rootfs
+# [2] In container:
+#   1. Before you start the container, please put the 'sdk' project into the same level as the 'telaf' project:
+#   - top_level_dir
+#    |- sdk/
+#    |- telaf/
+#   2. specify the sdk_root=/path/to/the/sdk/rootfs
 export sdk_rootfs ?= $(SIMULATION_WORKDIR)/sdk_rootfs
 CHECK_SDK_ROOTFS := $(shell if [ -d "$(sdk_rootfs)" ]; then echo "y"; else echo "n"; fi)
 
@@ -85,17 +91,24 @@ endif
 
 export TELAF_SIMULATION_ENABLE_SOMEIP_GW ?= y
 export TELAF_SIMULATION_ENABLE_DIAG ?= n
+export TELAF_SIMULATION_ENABLE_CAPI ?= y
 
 SIMULATION_SOMEIP_GW_DEPS_y := _vsomeip
-SIMULATION_DEPS += $(SIMULATION_SOMEIP_GW_DEPS_$(TELAF_SIMULATION_ENABLE_SOMEIP_GW))
+SIMULATION_COMMON_API_DEPS_y := _capi_core_rt _capi_someip_rt _capi_tools
+SIMULATION_DEPS += \
+  $(SIMULATION_SOMEIP_GW_DEPS_$(TELAF_SIMULATION_ENABLE_SOMEIP_GW)) \
+  $(SIMULATION_COMMON_API_DEPS_$(TELAF_SIMULATION_ENABLE_CAPI))
 
+# Common options for C++
 MKTOOLS_FLAGS_SIMULATION_EX += -X -std=c++11 -X -lstdc++
 
-ifneq ($(TELAF_SIMULATION_ENABLE_SOMEIP_GW),n)
-  MKTOOLS_FLAGS_SIMULATION_EX += \
-    --cxxflags=-I$(SIMULATION_DEPS_ROOTFS)/include \
-	--ldflags=-L$(SIMULATION_DEPS_ROOTFS)/lib
-endif
+# Suppress the boost warning output
+MKTOOLS_FLAGS_SIMULATION_EX += -X -DBOOST_BIND_GLOBAL_PLACEHOLDERS
+
+# Exported 3rd party dependencies
+MKTOOLS_FLAGS_SIMULATION_EX += \
+  --cxxflags=-I$(SIMULATION_DEPS_ROOTFS)/include \
+  --ldflags=-L$(SIMULATION_DEPS_ROOTFS)/lib
 
 export MKTOOLS_FLAGS_SIMULATION_EX
 
@@ -103,21 +116,23 @@ export MKTOOLS_FLAGS_SIMULATION_EX
 
 ifeq ($(within),)
 
-  ifeq ($(DEBUG),on)
-    export DEBUG=1 STRIP_STAGING_TREE=0
+  ifeq ($(XDEBUG),on)
+    export DEBUG=1
+    export STRIP_STAGING_TREE=0
     simula simulac simula-c: simula-clean-config check-sys pre-simulation-build simulation post-simulation-build
   else
     simula simulac simula-c: check-sys pre-simulation-build simulation post-simulation-build
-  endif # end DEBUG
+  endif # end XDEBUG
 
 else # below includes the appending 'within' option
 
-  ifeq ($(DEBUG),on)
-    export DEBUG=1 STRIP_STAGING_TREE=0
+  ifeq ($(XDEBUG),on)
+    export DEBUG=1
+    export STRIP_STAGING_TREE=0
     simula simulac simula-c: simula-clean-config simula-up-develop-for-c
   else
     simula simulac simula-c: simula-up-develop-for-c
-  endif # end DEBUG
+  endif # end XDEBUG
 
 endif # end within
 
@@ -149,7 +164,6 @@ endif
 	$Q tar rf $(SIMULATION_TARBALL) --exclude=taf_rootfs/include \
 	                                --exclude=taf_rootfs/lib/cmake \
 	                                --exclude=taf_rootfs/lib/pkgconfig \
-	                                --exclude=taf_rootfs/etc \
 	                                -C $(SIMULATION_HOME)/deps taf_rootfs
 ifneq ($(CHECK_SDK_ROOTFS),n)
 	$Q tar rf $(SIMULATION_TARBALL) --transform 's/rootfs/sdk_rootfs/' -C $(sdk_rootfs)/../ rootfs
@@ -262,7 +276,7 @@ simula-help:
 	@echo "      + simula-rmv                     -- Delete all volumes named along with 'telaf'"
 
 
-simula-buildall simula-build-all-docker-images: simula-build-runtime simula-build-develop
+simula-buildall simula-build-all simula-build-all-docker-images: simula-build-runtime simula-build-develop
 
 simula-build simula-build-runtime:
 	$(call build_simulation_docker_image,runtime)

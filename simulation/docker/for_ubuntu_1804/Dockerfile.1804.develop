@@ -26,6 +26,8 @@ RUN apt-get -y --no-install-recommends install libssl-dev
 RUN DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install wget
 RUN DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install git
 RUN apt-get -y --no-install-recommends install python-dev
+RUN DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install unzip
+RUN DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install openjdk-8-jre
 
 RUN apt-get -y --no-install-recommends install python3-venv
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -39,9 +41,10 @@ RUN python3 -m pip install doipclient==1.1.1
 RUN python3 -m pip install udsoncan==1.17.1
 RUN python3 -m pip install pyyaml
 
+RUN apt-get -y --no-install-recommends install pkg-config
+
 ARG DEVELOPER_UID=1000
 ARG DEVELOPER_GID=1000
-
 
 # Create a non-root user: [developer] for development, with password: [simula]
 RUN addgroup --gid $DEVELOPER_GID developer && \

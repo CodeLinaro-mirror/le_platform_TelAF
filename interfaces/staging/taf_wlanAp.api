@@ -79,10 +79,10 @@ STRUCT WlanAPSecurityConfig
 STRUCT WlanAPStatus
 {
     bool   bEnabled;                                 ///< AP status.
-    string IntfName[taf_net.INTERFACE_NAME_MAX_LEN]; ///< Assocaited host interface name.
-    string IPv4Address[taf_net.IPV4_ADDR_MAX_LEN];   ///< Assocaited IPv4 address.
-    string IPv6Address[taf_net.IPV6_ADDR_MAX_LEN];   ///< Assocaited IPv6 address.
-    string MACAddress[taf_net.MAC_ADDR_MAX_LEN];     ///< Assocaited MAC address.
+    string IntfName[taf_net.INTERFACE_NAME_MAX_LEN]; ///< Associated host interface name.
+    string IPv4Address[taf_net.IPV4_ADDR_MAX_LEN];   ///< Associated IPv4 address.
+    string IPv6Address[taf_net.IPV6_ADDR_MAX_LEN];   ///< Associated IPv6 address.
+    string MACAddress[taf_net.MAC_ADDR_MAX_LEN];     ///< Associated MAC address.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -103,6 +103,20 @@ STRUCT WlanAPConnectedDeviceInfo
  * APIs avaiable in WLAN Access Point Management service.
  */
 //--------------------------------------------------------------------------------------------------
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Returns the WLAN AP reference.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION WlanAP GetWlanAP(
+    taf_wlan.APid APid IN,                                  ///< AP identifier
+    string APIntfName[taf_net.INTERFACE_NAME_MAX_LEN]  IN   ///< AP assocaited host interface name.
+);
 
 //--------------------------------------------------------------------------------------------------
 /**

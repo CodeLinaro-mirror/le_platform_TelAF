@@ -28,6 +28,7 @@
  *
 */
 //--------------------------------------------------------------------------------------------------
+USETYPES taf_net.api;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -49,6 +50,20 @@ DEFINE MAX_PASSPHRASE_LENGTH  = 63;
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE MAX_DEVICE_NAME_LENGTH = 32;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Maximum number of access points supported.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_NUM_AP = 2;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Maximum number of stations supported.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_NUM_STA = 1;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -133,7 +148,7 @@ ENUM DeviceState
 {
     OFF,          ///< WLAN device is OFF.
     ON,           ///< WLAN device is ON.
-    UNAVAILABLE   ///< WLAN device state is not availble.
+    UNAVAILABLE   ///< WLAN device state is not available.
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -141,12 +156,56 @@ ENUM DeviceState
  * Supported WLAN Device modes.
  */
 //-------------------------------------------------------------------------------------------------
-ENUM DeviceMode
+ENUM DeviceMode{
+    MODE_UNSUPPORTED = -1, ///< Unsupported mode.
+    MODE_AP,               ///< Single access point.
+    MODE_STA,              ///< Single station.
+    MODE_STA_AP,           ///< AP + STA.
+    MODE_AP_AP             ///< AP + AP.
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * AP identifier. Maximum number of identifiers will be MAX_NUM_AP.
+ */
+//-------------------------------------------------------------------------------------------------
+ENUM APid{
+    AP_ID1,
+    AP_ID2
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * STA identifier. Maximum number of identifiers will be MAX_NUM_STA.
+ */
+//-------------------------------------------------------------------------------------------------
+ENUM STAid{
+    STA_ID1
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * AP interface information. This should be used to get AP reference.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+STRUCT APIntfInfo{
+    APid id;                                         ///< AP identifier
+    string IntfName[taf_net.INTERFACE_NAME_MAX_LEN]; ///< Associated host interface name.
+    string MACAddress[taf_net.MAC_ADDR_MAX_LEN];     ///< Associated MAC address.
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * STA interface information. This should be used to get STA reference.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+STRUCT STAIntfInfo
 {
-    MODE_UNSUPPORTED = -1,   ///< Unsupported mode.
-    MODE_AP,                 ///< Single access point.
-    MODE_STA,                ///< Single station.
-    MODE_STA_AP              ///< AP + STA.
+    STAid id;                                         ///< STA identifier
+    string IntfName[taf_net.INTERFACE_NAME_MAX_LEN];  ///< Associated host interface name.
+    string MACAddress[taf_net.MAC_ADDR_MAX_LEN];      ///< Associated MAC address.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -266,4 +325,21 @@ FUNCTION le_result_t GetMode
 (
     Wlan WlanRef         IN,  ///< The WLAN reference. Reserved for future use.
     DeviceMode wlanMode  OUT  ///< The WLAN device mode.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets active WLAN interface(s) information.
+ * The information returned should be used to get the AP and STA reference(s) respectively.
+ *
+ * @return
+ * - LE_OK            Succeeded.
+ * - Appropriate error is returned on failure.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetIntfInfo(
+    Wlan WlanRef IN,                           ///< The WLAN reference. Reserved for future use.
+    APIntfInfo  APIntfinfo[MAX_NUM_AP] OUT,    ///< The WLAN AP interfaces information.
+    STAIntfInfo STAIntfinfo[MAX_NUM_STA] OUT   ///< The WLAN STA interfaces information.
 );

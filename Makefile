@@ -22,6 +22,9 @@ ifneq ($(filter simula%,$(MAKECMDGOALS)),)
   include simulation/simulation.mk
 endif
 
+# SDK configurations
+include config.mk
+
 $(TARGETS):
 	@ln -sf $(LEGATO_RELATIVE_PATH)/build ./build
 	$(shell $(GEN_FILE_CONTEXTS))

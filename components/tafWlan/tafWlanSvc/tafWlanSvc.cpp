@@ -187,6 +187,51 @@ le_result_t taf_wlan_GetMode
     auto &myWlan = taf_WlanSvcImpl::GetInstance();
     return myWlan.GetMode(wlanModePtr);
 }
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets active WLAN interface(s) information.
+ * The information returned should be used to get the AP and STA reference(s) respectively.
+ *
+ * @return
+ * - LE_OK            Succeeded.
+ * - Appropriate error is returned on failure.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_wlan_GetIntfInfo
+(
+    taf_wlan_WlanRef_t WlanRef,
+        ///< [IN] The WLAN reference. Reserved for future use.
+    taf_wlan_APIntfInfo_t* APIntfinfoPtr,
+        ///< [OUT] The WLAN AP interfaces information.
+    size_t* APIntfinfoSizePtr,
+        ///< [INOUT]
+    taf_wlan_STAIntfInfo_t* STAIntfinfoPtr,
+        ///< [OUT] The WLAN STA interfaces information.
+    size_t* STAIntfinfoSizePtr
+        ///< [INOUT]
+)
+{
+    LE_UNUSED (WlanRef);
+    TAF_ERROR_IF_RET_VAL(NULL == APIntfinfoPtr,
+                                      LE_BAD_PARAMETER, "APIntfinfoPtr is NULL!");
+    TAF_ERROR_IF_RET_VAL(NULL == APIntfinfoSizePtr,
+                                      LE_BAD_PARAMETER, "APIntfinfoSizePtr is NULL!");
+    TAF_ERROR_IF_RET_VAL(0 == *APIntfinfoSizePtr,
+                                      LE_BAD_PARAMETER, "APIntfinfoSizePtr is 0!");
+    TAF_ERROR_IF_RET_VAL(NULL == STAIntfinfoPtr,
+                                      LE_BAD_PARAMETER, "STAIntfinfoPtr is NULL!");
+    TAF_ERROR_IF_RET_VAL(NULL == STAIntfinfoSizePtr,
+                                      LE_BAD_PARAMETER, "STAIntfinfoSizePtr is NULL!");
+    TAF_ERROR_IF_RET_VAL(0 == *STAIntfinfoSizePtr,
+                                      LE_BAD_PARAMETER, "STAIntfinfoSizePtr is 0!");
+
+    auto &myWlan = taf_WlanSvcImpl::GetInstance();
+    return myWlan.GetIntfInfo(APIntfinfoPtr,APIntfinfoSizePtr,STAIntfinfoPtr,STAIntfinfoSizePtr);
+}
+
+
 //--------------------------------------------------------------------------------------------------
 /**
  * COMPONENT_INIT

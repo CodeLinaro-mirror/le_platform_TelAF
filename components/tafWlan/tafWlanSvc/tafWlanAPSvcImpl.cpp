@@ -499,6 +499,27 @@ le_result_t taf_WlanAPSvcImpl::GetConnectedDevices(
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Returns the WLAN AP reference.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_wlanAp_WlanAPRef_t taf_WlanAPSvcImpl::GetWlanAP(
+    taf_wlan_APid_t APid,
+    ///< [IN] AP identifier
+    const char *LE_NONNULL APIntfName
+    ///< [IN] AP assocaited host interface name.
+)
+{
+    LE_UNUSED(APid);
+    LE_UNUSED(APIntfName);
+    return NULL;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Return the instance of taf_wlanAp implementation class.
  */
 //--------------------------------------------------------------------------------------------------

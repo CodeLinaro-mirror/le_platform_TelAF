@@ -445,3 +445,78 @@ taf_wlanSta_State_t taf_WlanHelper::StaIntfStatusToTAF(telux::wlan::StaInterface
     LE_WARN("Control should not reach here");
     return TAF_WLANSTA_STATE_UNKNOWN;
 }
+
+////--------------------------------------------------------------------------------------------------
+/**
+ * Convert Telux WLAN ID to TelAF AP ID
+ */
+//--------------------------------------------------------------------------------------------------
+taf_wlan_APid_t taf_WlanHelper::TeluxIdtoTAFAPId(telux::wlan::Id id)
+{
+    if (telux::wlan::Id::PRIMARY == id)
+    {
+        return TAF_WLAN_AP_ID1;
+    }
+    else if (telux::wlan::Id::SECONDARY == id)
+    {
+        return TAF_WLAN_AP_ID2;
+    }
+
+    // To avoid error "control reaches end of non-void function", return some value with warning
+    LE_WARN("Control should not reach here");
+    return TAF_WLAN_AP_ID1;
+}
+
+////--------------------------------------------------------------------------------------------------
+/**
+ * Convert TelAF AP ID to Telux WLAN ID
+ */
+//--------------------------------------------------------------------------------------------------
+telux::wlan::Id taf_WlanHelper::TAFAPidtoTeluxId(taf_wlan_APid_t id)
+{
+    if (TAF_WLAN_AP_ID1 == id)
+    {
+        return telux::wlan::Id::PRIMARY;
+    }
+    else if (TAF_WLAN_AP_ID2 == id)
+    {
+        return telux::wlan::Id::SECONDARY;
+    }
+    // To avoid error "control reaches end of non-void function", return some value with warning
+    LE_WARN("Control should not reach here");
+    return telux::wlan::Id::PRIMARY;
+}
+
+////--------------------------------------------------------------------------------------------------
+/**
+ * Convert Telux WLAN ID to TelAF STA ID
+ */
+//--------------------------------------------------------------------------------------------------
+taf_wlan_STAid_t taf_WlanHelper::TeluxIdtoTAFSTAId(telux::wlan::Id id)
+{
+    if (telux::wlan::Id::PRIMARY == id)
+    {
+        return TAF_WLAN_STA_ID1;
+    }
+
+    // To avoid error "control reaches end of non-void function", return some value with warning
+    LE_WARN("Control should not reach here");
+    return TAF_WLAN_STA_ID1;
+}
+
+////--------------------------------------------------------------------------------------------------
+/**
+ * Convert TelAF STA ID to Telux WLAN ID
+ */
+//--------------------------------------------------------------------------------------------------
+telux::wlan::Id taf_WlanHelper::TAFSTAidtoTeluxId(taf_wlan_STAid_t id)
+{
+    if (TAF_WLAN_STA_ID1 == id)
+    {
+        return telux::wlan::Id::PRIMARY;
+    }
+
+    // To avoid error "control reaches end of non-void function", return some value with warning
+    LE_WARN("Control should not reach here");
+    return telux::wlan::Id::PRIMARY;
+}

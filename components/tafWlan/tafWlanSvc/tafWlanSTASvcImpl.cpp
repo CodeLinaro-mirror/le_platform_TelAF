@@ -422,3 +422,24 @@ void taf_WlanSTASvcImpl::Init()
 
     return;
 }
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Returns the WLAN STA reference.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_wlanSta_WlanSTARef_t taf_WlanSTASvcImpl::GetWlanSTA (
+    taf_wlan_STAid_t STAid,
+        ///< [IN] STA identifier
+    const char* LE_NONNULL STAIntfName
+        ///< [IN] AP assocaited host interface name.
+)
+{
+    LE_UNUSED(STAid);
+    LE_UNUSED(STAIntfName);
+    return NULL;
+}

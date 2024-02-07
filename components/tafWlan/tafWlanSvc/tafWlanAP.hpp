@@ -17,6 +17,13 @@ namespace telux
 {
     namespace tafsvc
     {
+        typedef struct
+        {
+            le_dls_Link_t           link;
+            taf_wlanAp_WlanAPRef_t  wlanAPRef;
+            taf_wlan_APid_t         id;
+            char                    interfaceName[TAF_NET_INTERFACE_NAME_MAX_LEN + 1];
+        } taf_wlan_AP_Ctx_t;
 
         //------------------------------------------------------------------------------------------
         /**
@@ -52,27 +59,44 @@ namespace telux
             static taf_WlanAPSvcImpl &GetInstance();
 
             // WLan AP Service Implementations
-            taf_wlanAp_WlanAPRef_t GetWlanAP(taf_wlan_APid_t APid,
-                                             const char *LE_NONNULL APIntfName);
-            le_result_t Start(void);
-            le_result_t Stop(void);
-            le_result_t Restart(void);
-            le_result_t SetConfig(const taf_wlanAp_WlanAPConfig_t *wlanAPConfigPtr);
-            le_result_t GetConfig(taf_wlanAp_WlanAPConfig_t *wlanAPConfigPtr);
-            le_result_t SetSecurityConfig(const taf_wlanAp_WlanAPSecurityConfig_t *wlanAPSecCfgPtr);
-            le_result_t GetSecurityConfig(taf_wlanAp_WlanAPSecurityConfig_t *wlanAPSecCfgPtr);
-            le_result_t GetStatus(taf_wlanAp_WlanAPStatus_t *wlanAPStatusPtr);
-            le_result_t GetConnectedDevices(uint16_t *numDevicesPtr,
-                                            taf_wlanAp_WlanAPConnectedDeviceInfo_t *DevInfoPtr,
-                                            size_t *DevInfoSizePtr);
+            le_result_t Start(taf_wlanAp_WlanAPRef_t apRef);
+            le_result_t Stop(taf_wlanAp_WlanAPRef_t apRef);
+            le_result_t Restart(taf_wlanAp_WlanAPRef_t apRef);
+            le_result_t SetConfig(taf_wlanAp_WlanAPRef_t apRef,
+                const taf_wlanAp_WlanAPConfig_t *wlanAPConfigPtr);
+            le_result_t GetConfig(taf_wlanAp_WlanAPRef_t apRef,
+                taf_wlanAp_WlanAPConfig_t *wlanAPConfigPtr);
+            le_result_t SetSecurityConfig(taf_wlanAp_WlanAPRef_t apRef,
+                const taf_wlanAp_WlanAPSecurityConfig_t *wlanAPSecCfgPtr);
+            le_result_t GetSecurityConfig(taf_wlanAp_WlanAPRef_t apRef,
+                taf_wlanAp_WlanAPSecurityConfig_t *wlanAPSecCfgPtr);
+            le_result_t GetStatus(taf_wlanAp_WlanAPRef_t wlanAPRef,
+                taf_wlanAp_WlanAPStatus_t *wlanAPStatusPtr);
+            le_result_t GetConnectedDevices(taf_wlanAp_WlanAPRef_t wlanAPRef,
+                uint16_t *numDevicesPtr, taf_wlanAp_WlanAPConnectedDeviceInfo_t *DevInfoPtr,
+                size_t *DevInfoSizePtr);
+            taf_wlanAp_WlanAPRef_t GetWlanAPReference(taf_wlan_APid_t apID,
+                const char *LE_NONNULL apIntfName);
+            taf_wlan_AP_Ctx_t* GetWlanAPCtx(taf_wlan_APid_t apID);
 
         private:
-            // AP ID to use
-            const telux::wlan::Id wlanAPID = telux::wlan::Id::PRIMARY;
             // The WLAN AP Manager
             std::shared_ptr<telux::wlan::IApInterfaceManager> wlanAPMgr;
+
             // The WLAN AP Listener class object
             std::shared_ptr<telux::tafsvc::taf_WlanAPListener> wlanAPListener;
+
+            // AP Reference map
+            le_ref_MapRef_t APRefMap = nullptr;
+
+            // Mutex for AP context list
+            le_mutex_Ref_t APCtxMutex = nullptr;
+
+            // Memory pool for STA context(s)
+            le_mem_PoolRef_t APCtxPool = nullptr;
+
+            // List of STA context(s)
+            le_dls_List_t APCtxList = LE_DLS_LIST_INIT;
         };
     } // namespace tafsvc
 } // namespace telux

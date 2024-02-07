@@ -16,6 +16,76 @@
 
 using namespace telux::tafsvc;
 
+LE_MEM_DEFINE_STATIC_POOL(tafWlanAPCtx, TAF_WLAN_MAX_NUM_AP, sizeof(taf_wlan_AP_Ctx_t));
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Returns the context for a given WLAN AP ID.
+ *
+ * @return
+ * - WLAN AP context on success, nullptr on failure
+ */
+//--------------------------------------------------------------------------------------------------
+taf_wlan_AP_Ctx_t* taf_WlanAPSvcImpl::GetWlanAPCtx
+(
+    taf_wlan_APid_t apID                ///< [IN] AP identifier
+)
+{
+    le_dls_Link_t* linkPtr = nullptr;
+    le_mutex_Lock(APCtxMutex);
+    linkPtr = le_dls_Peek(&APCtxList);
+    while (linkPtr)
+    {
+        taf_wlan_AP_Ctx_t* ctxPtr = CONTAINER_OF(linkPtr, taf_wlan_AP_Ctx_t, link);
+        linkPtr = le_dls_PeekNext(&APCtxList, linkPtr);
+        if (ctxPtr->id == apID)
+        {
+            le_mutex_Unlock(APCtxMutex);
+            return ctxPtr;
+        }
+    }
+    le_mutex_Unlock(APCtxMutex);
+    return nullptr;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Returns the WLAN AP reference.
+ *
+ * @return
+ * - WLAN AP reference on success, nullptr on failure
+ */
+//--------------------------------------------------------------------------------------------------
+taf_wlanAp_WlanAPRef_t taf_WlanAPSvcImpl::GetWlanAPReference
+(
+    taf_wlan_APid_t apID,               ///< [IN] AP identifier
+    const char *LE_NONNULL apIntfName   ///< [IN] AP assocaited host interface name.
+)
+{
+    taf_wlan_AP_Ctx_t* ctxPtr = GetWlanAPCtx(apID);
+    if (ctxPtr == nullptr)
+    {
+        LE_ERROR ("Unable to context for AP ID: %d", apID);
+        return nullptr;
+    }
+
+    if (strlen(apIntfName) == 0)
+    {
+        LE_ERROR ("apIntfName is invalid");
+        return nullptr;
+    }
+
+    le_result_t ret = le_utf8_Copy(ctxPtr->interfaceName, apIntfName,
+        TAF_NET_INTERFACE_NAME_MAX_LEN, nullptr);
+    if (ret != LE_OK)
+    {
+        LE_WARN("Interface name copy error: %d", ret);
+    }
+
+    LE_INFO("AP ID: %d, Interface name: %s", ctxPtr->id, ctxPtr->interfaceName);
+    return ctxPtr->wlanAPRef;
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Starts the specified Access Point.
@@ -25,21 +95,26 @@ using namespace telux::tafsvc;
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_WlanAPSvcImpl::Start(void)
+le_result_t taf_WlanAPSvcImpl::Start(taf_wlanAp_WlanAPRef_t apRef)
 {
     if (nullptr == wlanAPMgr)
     {
         LE_WARN ("WLAN AP Manager not initialized");
         return LE_FAULT;
     }
+
+    taf_wlan_AP_Ctx_t *ctxPtr = (taf_wlan_AP_Ctx_t *)le_ref_Lookup(APRefMap, (void *)apRef);
+    TAF_ERROR_IF_RET_VAL(ctxPtr == nullptr, LE_FAULT, "Unable to find context");
+
+    telux::wlan::Id id = taf_WlanHelper::TAFAPidtoTeluxId(ctxPtr->id);
     telux::common::ErrorCode errCode =
-            wlanAPMgr->manageApService(wlanAPID, telux::wlan::ServiceOperation::START);
+            wlanAPMgr->manageApService(id, telux::wlan::ServiceOperation::START);
     if (telux::common::ErrorCode::SUCCESS != errCode)
     {
         LE_WARN("WLAN AP Start failed with error : %d", (int)errCode);
         return LE_FAULT;
     }
-    LE_INFO ("WLAN AP Start success");
+    LE_INFO("WLAN AP Start success");
     return LE_OK;
 }
 
@@ -52,21 +127,27 @@ le_result_t taf_WlanAPSvcImpl::Start(void)
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_WlanAPSvcImpl::Stop(void)
+le_result_t taf_WlanAPSvcImpl::Stop(taf_wlanAp_WlanAPRef_t apRef)
 {
     if (nullptr == wlanAPMgr)
     {
         LE_WARN ("WLAN AP Manager not initialized");
         return LE_FAULT;
     }
+
+    taf_wlan_AP_Ctx_t *ctxPtr = (taf_wlan_AP_Ctx_t *)le_ref_Lookup(APRefMap, (void *)apRef);
+    TAF_ERROR_IF_RET_VAL(ctxPtr == nullptr, LE_FAULT, "Unable to find context");
+
+    telux::wlan::Id id = taf_WlanHelper::TAFAPidtoTeluxId(ctxPtr->id);
+
     telux::common::ErrorCode errCode =
-            wlanAPMgr->manageApService(wlanAPID, telux::wlan::ServiceOperation::STOP);
+            wlanAPMgr->manageApService(id, telux::wlan::ServiceOperation::STOP);
     if (telux::common::ErrorCode::SUCCESS != errCode)
     {
         LE_WARN("WLAN AP Stop failed with error : %d", (int)errCode);
         return LE_FAULT;
     }
-    LE_INFO ("WLAN AP Stop success");
+    LE_INFO("WLAN AP Stop success");
     return LE_OK;
 }
 
@@ -79,15 +160,20 @@ le_result_t taf_WlanAPSvcImpl::Stop(void)
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_WlanAPSvcImpl::Restart ( void )
+le_result_t taf_WlanAPSvcImpl::Restart(taf_wlanAp_WlanAPRef_t apRef)
 {
     if (nullptr == wlanAPMgr)
     {
         LE_WARN("WLAN AP Manager not initialized");
         return LE_FAULT;
     }
+
+    taf_wlan_AP_Ctx_t *ctxPtr = (taf_wlan_AP_Ctx_t *)le_ref_Lookup(APRefMap, (void *)apRef);
+    TAF_ERROR_IF_RET_VAL(ctxPtr == nullptr, LE_FAULT, "Unable to find context");
+
+    telux::wlan::Id id = taf_WlanHelper::TAFAPidtoTeluxId(ctxPtr->id);
     telux::common::ErrorCode errCode =
-        wlanAPMgr->manageApService(wlanAPID, telux::wlan::ServiceOperation::RESTART);
+        wlanAPMgr->manageApService(id, telux::wlan::ServiceOperation::RESTART);
     if (telux::common::ErrorCode::SUCCESS != errCode)
     {
         LE_WARN("WLAN AP Restart failed with error : %d", (int)errCode);
@@ -106,7 +192,11 @@ le_result_t taf_WlanAPSvcImpl::Restart ( void )
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_WlanAPSvcImpl::SetConfig ( const taf_wlanAp_WlanAPConfig_t* wlanAPConfigPtr )
+le_result_t taf_WlanAPSvcImpl::SetConfig
+(
+    taf_wlanAp_WlanAPRef_t apRef,
+    const taf_wlanAp_WlanAPConfig_t* wlanAPConfigPtr
+)
 {
     std::vector<telux::wlan::ApConfig> config;
     telux::wlan::ApConfig configSet;
@@ -116,6 +206,11 @@ le_result_t taf_WlanAPSvcImpl::SetConfig ( const taf_wlanAp_WlanAPConfig_t* wlan
         return LE_FAULT;
     }
 
+    taf_wlan_AP_Ctx_t *ctxPtr = (taf_wlan_AP_Ctx_t *)le_ref_Lookup(APRefMap, (void *)apRef);
+    TAF_ERROR_IF_RET_VAL(ctxPtr == nullptr, LE_FAULT, "Unable to find context");
+
+    telux::wlan::Id id = taf_WlanHelper::TAFAPidtoTeluxId(ctxPtr->id);
+
     // Get the current configuration and set only the values that are required.
     telux::common::ErrorCode errCode = wlanAPMgr->getConfig(config);
     if (errCode == telux::common::ErrorCode::SUCCESS)
@@ -123,7 +218,7 @@ le_result_t taf_WlanAPSvcImpl::SetConfig ( const taf_wlanAp_WlanAPConfig_t* wlan
         for (auto &cfg : config)
         {
             LE_DEBUG("cfg ------------------------------------------");
-            if (wlanAPID == cfg.id)
+            if (id == cfg.id)
             {
                 configSet = cfg;
                 for (auto &netCfg : configSet.network)
@@ -150,6 +245,7 @@ le_result_t taf_WlanAPSvcImpl::SetConfig ( const taf_wlanAp_WlanAPConfig_t* wlan
     }
     return LE_OK;
 }
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets the configuration for the specified Access Point.
@@ -159,7 +255,11 @@ le_result_t taf_WlanAPSvcImpl::SetConfig ( const taf_wlanAp_WlanAPConfig_t* wlan
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_WlanAPSvcImpl::GetConfig ( taf_wlanAp_WlanAPConfig_t* wlanAPConfigPtr )
+le_result_t taf_WlanAPSvcImpl::GetConfig
+(
+    taf_wlanAp_WlanAPRef_t apRef,
+    taf_wlanAp_WlanAPConfig_t* wlanAPConfigPtr
+)
 {
     if (nullptr == wlanAPMgr)
     {
@@ -173,11 +273,17 @@ le_result_t taf_WlanAPSvcImpl::GetConfig ( taf_wlanAp_WlanAPConfig_t* wlanAPConf
         LE_WARN("WLAN AP GetConfig failed with error : %d", (int)errCode);
         return LE_FAULT;
     }
+
+    taf_wlan_AP_Ctx_t *ctxPtr = (taf_wlan_AP_Ctx_t *)le_ref_Lookup(APRefMap, (void *)apRef);
+    TAF_ERROR_IF_RET_VAL(ctxPtr == nullptr, LE_FAULT, "Unable to find context");
+
+    telux::wlan::Id id = taf_WlanHelper::TAFAPidtoTeluxId(ctxPtr->id);
+
     for (auto &cfg : config)
     {
-        LE_DEBUG ("------------------------------------------");
-        LE_DEBUG ("AP Id: %d", (int)cfg.id);
-        if (wlanAPID == cfg.id)
+        LE_DEBUG("------------------------------------------");
+        LE_DEBUG("AP Id: %d", (int)cfg.id);
+        if (id == cfg.id)
         {
             LE_DEBUG("AP Venue Type : %d", (int)cfg.venue.type);
             LE_DEBUG("AP Venue Group: %d", (int)cfg.venue.group);
@@ -190,7 +296,7 @@ le_result_t taf_WlanAPSvcImpl::GetConfig ( taf_wlanAp_WlanAPConfig_t* wlanAPConf
                 LE_DEBUG("AP Radio: %d", (int)netCfg.info.apRadio);
                 LE_DEBUG("AP SSID: %s", netCfg.ssid.c_str());
                 ret = le_utf8_Copy(wlanAPConfigPtr->SSID, netCfg.ssid.c_str(),
-                                              TAF_WLAN_MAX_SSID_LENGTH+1,NULL);
+                        TAF_WLAN_MAX_SSID_LENGTH + 1, nullptr);
                 if (LE_OK != ret)
                 {
                     LE_WARN("SSID copy error: %d", ret);
@@ -219,8 +325,11 @@ le_result_t taf_WlanAPSvcImpl::GetConfig ( taf_wlanAp_WlanAPConfig_t* wlanAPConf
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t
-taf_WlanAPSvcImpl::SetSecurityConfig ( const taf_wlanAp_WlanAPSecurityConfig_t* wlanAPSecCfgPtr )
+le_result_t taf_WlanAPSvcImpl::SetSecurityConfig
+(
+    taf_wlanAp_WlanAPRef_t apRef,
+    const taf_wlanAp_WlanAPSecurityConfig_t* wlanAPSecCfgPtr
+)
 {
     telux::common::ErrorCode errCode = telux::common::ErrorCode::SUCCESS;
     telux::wlan::ApSecurity secConfig = {};
@@ -247,14 +356,19 @@ taf_WlanAPSvcImpl::SetSecurityConfig ( const taf_wlanAp_WlanAPSecurityConfig_t* 
         secConfig.encrypt = taf_WlanHelper::SecEncryptToTelux(wlanAPSecCfgPtr->SecEncryptMethod);
     }
 
-    errCode = wlanAPMgr->setSecurityConfig(wlanAPID, secConfig);
+    taf_wlan_AP_Ctx_t *ctxPtr = (taf_wlan_AP_Ctx_t *)le_ref_Lookup(APRefMap, (void *)apRef);
+    TAF_ERROR_IF_RET_VAL(ctxPtr == nullptr, LE_FAULT, "Unable to find context");
+
+    telux::wlan::Id id = taf_WlanHelper::TAFAPidtoTeluxId(ctxPtr->id);
+
+    errCode = wlanAPMgr->setSecurityConfig(id, secConfig);
     if (telux::common::ErrorCode::SUCCESS != errCode)
     {
         LE_WARN("WLAN AP SetSecurityConfig failed with error : %d", (int)errCode);
         return LE_FAULT;
     }
 
-    errCode = wlanAPMgr->setPassPhrase(wlanAPID, wlanAPSecCfgPtr->PassPhrase);
+    errCode = wlanAPMgr->setPassPhrase(id, wlanAPSecCfgPtr->PassPhrase);
     if (telux::common::ErrorCode::SUCCESS != errCode)
     {
         LE_WARN("WLAN AP SetSecurityConfig(passpharase) failed with error : %d", (int)errCode);
@@ -272,8 +386,11 @@ taf_WlanAPSvcImpl::SetSecurityConfig ( const taf_wlanAp_WlanAPSecurityConfig_t* 
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t
-taf_WlanAPSvcImpl::GetSecurityConfig  ( taf_wlanAp_WlanAPSecurityConfig_t* wlanAPSecCfgPtr )
+le_result_t taf_WlanAPSvcImpl::GetSecurityConfig
+(
+    taf_wlanAp_WlanAPRef_t apRef,
+    taf_wlanAp_WlanAPSecurityConfig_t* wlanAPSecCfgPtr
+)
 {
     if (nullptr == wlanAPMgr)
     {
@@ -287,11 +404,17 @@ taf_WlanAPSvcImpl::GetSecurityConfig  ( taf_wlanAp_WlanAPSecurityConfig_t* wlanA
         LE_WARN("WLAN AP GetConfig failed with error : %d", (int)errCode);
         return LE_FAULT;
     }
+
+    taf_wlan_AP_Ctx_t *ctxPtr = (taf_wlan_AP_Ctx_t *)le_ref_Lookup(APRefMap, (void *)apRef);
+    TAF_ERROR_IF_RET_VAL(ctxPtr == nullptr, LE_FAULT, "Unable to find context");
+
+    telux::wlan::Id id = taf_WlanHelper::TAFAPidtoTeluxId(ctxPtr->id);
+
     for (auto &cfg : config)
     {
         LE_DEBUG("------------------------------------------");
         LE_DEBUG("AP Id: %d", (int)cfg.id);
-        if (wlanAPID == cfg.id)
+        if (id == cfg.id)
         {
             LE_DEBUG("AP Venue Type : %d", (int)cfg.venue.type);
             LE_DEBUG("AP Venue Group: %d", (int)cfg.venue.group);
@@ -318,7 +441,7 @@ taf_WlanAPSvcImpl::GetSecurityConfig  ( taf_wlanAp_WlanAPSecurityConfig_t* wlanA
                                        taf_WlanHelper::SecEncryptToTAF(netCfg.apSecurity.encrypt);
                 LE_DEBUG("AP Passphrase: %s", netCfg.passPhrase.c_str());
                 ret = le_utf8_Copy(wlanAPSecCfgPtr->PassPhrase, netCfg.passPhrase.c_str(),
-                                               TAF_WLAN_MAX_PASSPHRASE_LENGTH+1, NULL);
+                                               TAF_WLAN_MAX_PASSPHRASE_LENGTH + 1, nullptr);
                 if (LE_OK != ret)
                 {
                     LE_WARN("PassPhrase copy error: %d", ret);
@@ -338,8 +461,11 @@ taf_WlanAPSvcImpl::GetSecurityConfig  ( taf_wlanAp_WlanAPSecurityConfig_t* wlanA
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t
-taf_WlanAPSvcImpl::GetStatus ( taf_wlanAp_WlanAPStatus_t* wlanAPStatusPtr )
+le_result_t taf_WlanAPSvcImpl::GetStatus
+(
+    taf_wlanAp_WlanAPRef_t apRef,
+    taf_wlanAp_WlanAPStatus_t* wlanAPStatusPtr
+)
 {
     if (nullptr == wlanAPMgr)
     {
@@ -356,14 +482,20 @@ taf_WlanAPSvcImpl::GetStatus ( taf_wlanAp_WlanAPStatus_t* wlanAPStatusPtr )
         LE_WARN("WLAN AP GetStatus failed with error : %d", (int)errCode);
         return LE_FAULT;
     }
-    if (status.size()>0)
+
+    taf_wlan_AP_Ctx_t *ctxPtr = (taf_wlan_AP_Ctx_t *)le_ref_Lookup(APRefMap, (void *)apRef);
+    TAF_ERROR_IF_RET_VAL(ctxPtr == nullptr, LE_FAULT, "Unable to find context");
+
+    telux::wlan::Id id = taf_WlanHelper::TAFAPidtoTeluxId(ctxPtr->id);
+
+    if (status.size() > 0)
     {
         le_result_t ret;
         for (auto &ap : status)
         {
             LE_DEBUG("------------------------------------------");
             LE_DEBUG("AP Info");
-            if (wlanAPID == ap.id)
+            if (id == ap.id)
             {
                 LE_DEBUG ("Id                 : %d", (int)ap.id);
                 LE_DEBUG ("Network Interface  : %s", ap.name.c_str());
@@ -371,19 +503,19 @@ taf_WlanAPSvcImpl::GetStatus ( taf_wlanAp_WlanAPStatus_t* wlanAPStatusPtr )
                 LE_DEBUG ("MAC Addr           : %s", ap.macAddress.c_str());
                 wlanAPStatusPtr->bEnabled = true;
                 ret = le_utf8_Copy (wlanAPStatusPtr->IntfName, ap.name.c_str(),
-                                                            TAF_NET_INTERFACE_NAME_MAX_LEN+1, NULL);
+                        TAF_NET_INTERFACE_NAME_MAX_LEN + 1, nullptr);
                 if (LE_OK != ret)
                 {
                     LE_WARN("IntfName copy error: %d", ret);
                 }
                 ret = le_utf8_Copy(wlanAPStatusPtr->IPv4Address, ap.ipv4Address.c_str(),
-                                   TAF_NET_IPV4_ADDR_MAX_LEN + 1, NULL);
+                                   TAF_NET_IPV4_ADDR_MAX_LEN + 1, nullptr);
                 if (LE_OK != ret)
                 {
                     LE_WARN("IPv4Address copy error: %d", ret);
                 }
                 ret = le_utf8_Copy(wlanAPStatusPtr->MACAddress, ap.macAddress.c_str(),
-                                   TAF_NET_MAC_ADDR_MAX_LEN + 1, NULL);
+                                   TAF_NET_MAC_ADDR_MAX_LEN + 1, nullptr);
                 if (LE_OK != ret)
                 {
                     LE_WARN("MACAddress copy error: %d", ret);
@@ -409,7 +541,9 @@ taf_WlanAPSvcImpl::GetStatus ( taf_wlanAp_WlanAPStatus_t* wlanAPStatusPtr )
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_WlanAPSvcImpl::GetConnectedDevices(
+le_result_t taf_WlanAPSvcImpl::GetConnectedDevices
+(
+    taf_wlanAp_WlanAPRef_t apRef,
     uint16_t *numDevicesPtr,
     ///< [OUT] Nmber of devices connected to the AP.
     taf_wlanAp_WlanAPConnectedDeviceInfo_t *DevInfoPtr,
@@ -434,6 +568,12 @@ le_result_t taf_WlanAPSvcImpl::GetConnectedDevices(
         LE_WARN("WLAN AP GetConnectedDevices failed with error : %d", (int)errCode);
         return LE_FAULT;
     }
+
+    taf_wlan_AP_Ctx_t *ctxPtr = (taf_wlan_AP_Ctx_t *)le_ref_Lookup(APRefMap, (void *)apRef);
+    TAF_ERROR_IF_RET_VAL(ctxPtr == nullptr, LE_FAULT, "Unable to find context");
+
+    telux::wlan::Id id = taf_WlanHelper::TAFAPidtoTeluxId(ctxPtr->id);
+
     for (auto &dev : deviceList)
     {
         LE_DEBUG("------------------------------------------");
@@ -441,7 +581,7 @@ le_result_t taf_WlanAPSvcImpl::GetConnectedDevices(
         LE_DEBUG("Device Name            : %s", dev.name.c_str());
         LE_DEBUG("Device MAC Address     : %s", dev.macAddress.c_str());
         LE_DEBUG("Device IPv4 Address    : %s", dev.ipv4Address.c_str());
-        if (wlanAPID == dev.id)
+        if (id == dev.id)
         {
             // Place this device in the AP specific vector
             APSepcificDevList.push_back(dev);
@@ -473,21 +613,22 @@ le_result_t taf_WlanAPSvcImpl::GetConnectedDevices(
     }
 
     // Populate device information up to to DevInfoSize elements.
-    for (int i = 0; i < (int)*DevInfoSizePtr; i++)
+    for (int i = 0; i < (int)*DevInfoSizePtr; ++i)
     {
         ret = le_utf8_Copy(DevInfoPtr[i].Name, APSepcificDevList[i].name.c_str(),
-                        TAF_WLAN_MAX_DEVICE_NAME_LENGTH+1, NULL);
-        if (LE_OK != ret) {
+                        TAF_WLAN_MAX_DEVICE_NAME_LENGTH + 1, nullptr);
+        if (LE_OK != ret)
+        {
             LE_WARN("Device Name copy error: %d", ret);
         }
         ret = le_utf8_Copy(DevInfoPtr[i].MACAddress, APSepcificDevList[i].macAddress.c_str(),
-                        TAF_NET_MAC_ADDR_MAX_LEN+1, NULL);
+                        TAF_NET_MAC_ADDR_MAX_LEN + 1, nullptr);
         if (LE_OK != ret)
         {
             LE_WARN("Device MAC address copy error: %d", ret);
         }
         ret = le_utf8_Copy(DevInfoPtr[i].IPv4Address, APSepcificDevList[i].ipv4Address.c_str(),
-                        TAF_NET_IPV4_ADDR_MAX_LEN+1, NULL);
+                        TAF_NET_IPV4_ADDR_MAX_LEN + 1, nullptr);
         if (LE_OK != ret)
         {
             LE_WARN("Device IPv4 address copy error: %d", ret);
@@ -495,27 +636,6 @@ le_result_t taf_WlanAPSvcImpl::GetConnectedDevices(
     }
 
     return LE_OK;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Returns the WLAN AP reference.
- *
- * @return
- * - LE_OK -- Succeeded.
- * - Others -- Failed.
- */
-//--------------------------------------------------------------------------------------------------
-taf_wlanAp_WlanAPRef_t taf_WlanAPSvcImpl::GetWlanAP(
-    taf_wlan_APid_t APid,
-    ///< [IN] AP identifier
-    const char *LE_NONNULL APIntfName
-    ///< [IN] AP assocaited host interface name.
-)
-{
-    LE_UNUSED(APid);
-    LE_UNUSED(APIntfName);
-    return NULL;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -553,6 +673,33 @@ void taf_WlanAPSvcImpl::Init()
     if (telux::common::ErrorCode::SUCCESS != retCode)
     {
         LE_WARN("WLAN AP registerListener failed: %d", (int)retCode);
+    }
+
+    APCtxPool = le_mem_InitStaticPool(tafWlanAPCtx, TAF_WLAN_MAX_NUM_AP,
+        sizeof(taf_wlan_AP_Ctx_t));
+
+    APCtxMutex = le_mutex_CreateNonRecursive("APCtxMutex");
+
+    APRefMap = le_ref_CreateMap("APRefMap", TAF_WLAN_MAX_NUM_AP);
+
+    for (int id = 0; id < TAF_WLAN_MAX_NUM_AP; ++id)
+    {
+        taf_wlan_AP_Ctx_t *ctxPtr = (taf_wlan_AP_Ctx_t *)le_mem_ForceAlloc(APCtxPool);
+        if (ctxPtr == nullptr)
+        {
+            LE_FATAL("Unable to allocate ctxPtr for AP ID: %d", id);
+        }
+        ctxPtr->id = (taf_wlan_APid_t)id;
+        ctxPtr->interfaceName[0] = 0;
+        taf_wlanAp_WlanAPRef_t apRef =
+            (taf_wlanAp_WlanAPRef_t)le_ref_CreateRef(APRefMap, (void *)ctxPtr);
+        if (apRef == nullptr)
+        {
+            LE_FATAL("Unable to allocate reference for AP ID: %d", id);
+        }
+        ctxPtr->wlanAPRef = apRef;
+        le_dls_Queue(&APCtxList, &ctxPtr->link);
+        LE_DEBUG("Context created for STA ID: %d", ctxPtr->id);
     }
 
     LE_INFO(" *** Wlan AP Initialized *** ");

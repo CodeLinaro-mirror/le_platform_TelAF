@@ -34,17 +34,26 @@ USETYPES taf_net.api;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Maximum number of AP scan results that will be returned.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_APSCAN_RESULT_NUM = 16;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * WLAN STA status.
  */
 //--------------------------------------------------------------------------------------------------
-ENUM State
-{
-    STATE_UNKNOWN,               ///< Station interface is unknown.
-    STATE_CONNECTING ,           ///< Station interface is connecting.
-    STATE_CONNECTED,             ///< Station interface is connected.
-    STATE_DISCONNECTED,          ///< Station interface is disconnected.
-    STATE_ASSOCIATION_FAILED,    ///< Station is unable to associate with AP.
-    STATE_IP_ASSIGNMENT_FAILED   ///< Station is unable to get IP address via DHCP.
+ENUM State{
+    STATE_UNKNOWN,              ///< Station interface is unknown.
+    STATE_CONNECTING,           ///< Station interface is connecting.
+    STATE_CONNECTED,            ///< Station interface is connected.
+    STATE_DISCONNECTED,         ///< Station interface is disconnected.
+    STATE_ASSOCIATION_FAILED,   ///< Station is unable to associate with AP.
+    STATE_IP_ASSIGNMENT_FAILED, ///< Station is unable to get IP address via DHCP.
+    STATE_SCAN_STARTED,         ///< Available access points scan started.
+    STATE_SCAN_COMPLETED,       ///< Available access points scan is complete.
+    STATE_SCAN_FAILED,          ///< Available access points scan failed.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -73,17 +82,35 @@ ENUM IPType
 
 //--------------------------------------------------------------------------------------------------
 /**
- * WLAN STA IP configuration..
+ * WLAN STA IP configuration.
  */
 //--------------------------------------------------------------------------------------------------
 STRUCT IPConfig
 {
-    string IPv4Addr[taf_net.IPV4_ADDR_MAX_LEN];    ///< IPv4 address to be assigned..
+    string IPv4Addr[taf_net.IPV4_ADDR_MAX_LEN];    ///< IPv4 address to be assigned.
     string GWAddr[taf_net.IPV4_ADDR_MAX_LEN];      ///< IPv4 address of the gateway.
     string DNSAddr[taf_net.IPV4_ADDR_MAX_LEN];     ///< DNS IPv4 address.
     string NetMask[taf_net.IPV4_ADDR_MAX_LEN];     ///< Subnet mask.
 };
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Information about available Access Points that were found during a scan.
+ */
+//--------------------------------------------------------------------------------------------------
+STRUCT APInfo
+{
+    string  BSSID[taf_wlan.MAX_BSSID_LENGTH];              ///< BSSID of the AP.
+    string  SSID[taf_wlan.MAX_SSID_LENGTH];                ///< IPv4 address of the gateway.
+    int16 SignalLevel;                                     ///< Signal level in dBm.
+    uint16 Frequency;                                      ///< Frequency in MHz.
+    taf_wlan.ServiceSet SS;                                ///< Service Set.
+    taf_wlan.SecurityMode secMode;                         ///< Security Mode.
+    taf_wlan.SecurityAuthMethod secAuthMethod;             ///< Security Authentication Method.
+    taf_wlan.SecurityEncryptionMethod secEncryptionMethod; ///< Security Encryption Method.
+    bool WPSEnabled;                                       ///< TRUE - WPS is enabled.
+                                                           ///< FALSE - WPS is not enabled.
+};
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -94,7 +121,27 @@ REFERENCE WlanSTA;
 
 //-------------------------------------------------------------------------------------------------
 /*
- * APIs avaiable in WLAN Access Point Management service.
+ * The WLAN STA event handler.
+ */
+//-------------------------------------------------------------------------------------------------
+HANDLER Handler(
+    WlanSTA wlanSTARef IN, ///< The WLAN STA reference.
+    State staState IN      ///< WLAN STA states.
+);
+
+//-------------------------------------------------------------------------------------------------
+/*
+ * STA events to report.
+ */
+//-------------------------------------------------------------------------------------------------
+EVENT Event(
+    WlanSTA wlanSTARef IN, ///< The WLAN STA reference.
+    Handler handler IN
+);
+
+//-------------------------------------------------------------------------------------------------
+/*
+ * APIs available in WLAN Access Point Management service.
  */
 //--------------------------------------------------------------------------------------------------
 
@@ -103,13 +150,13 @@ REFERENCE WlanSTA;
  * Returns the WLAN STA reference.
  *
  * @return
- * - LE_OK -- Succeeded.
- * - Others -- Failed.
+ * - Valid reference on success.
+ *
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION WlanSTA GetWlanSTA(
     taf_wlan.STAid STAid IN,                                ///< STA identifier
-    string STAIntfName[taf_net.INTERFACE_NAME_MAX_LEN] IN   ///< AP assocaited host interface name.
+    string STAIntfName[taf_net.INTERFACE_NAME_MAX_LEN] IN   ///< STA associated host interface name.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -123,7 +170,7 @@ FUNCTION WlanSTA GetWlanSTA(
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Start
 (
-    WlanSTA wlanSTARef   IN     ///< The WLAN STA reference. Reserved for future use.
+    WlanSTA wlanSTARef   IN     ///< The WLAN STA reference.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -137,7 +184,7 @@ FUNCTION le_result_t Start
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Stop
 (
-    WlanSTA wlanSTARef   IN     ///< The WLAN STA reference. Reserved for future use.
+    WlanSTA wlanSTARef   IN     ///< The WLAN STA reference.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -151,7 +198,7 @@ FUNCTION le_result_t Stop
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Restart
 (
-    WlanSTA wlanSTARef   IN     ///< The WLAN STA reference. Reserved for future use.
+    WlanSTA wlanSTARef   IN     ///< The WLAN STA reference.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -165,7 +212,7 @@ FUNCTION le_result_t Restart
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetMode
 (
-    WlanSTA wlanSTARef   IN,     ///< The WLAN STA reference. Reserved for future use.
+    WlanSTA wlanSTARef   IN,     ///< The WLAN STA reference.
     Mode    StaMode      IN      ///< The WLAN STA mode to set.
 );
 
@@ -180,7 +227,7 @@ FUNCTION le_result_t SetMode
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetMode
 (
-    WlanSTA wlanSTARef   IN,     ///< The WLAN STA reference. Reserved for future use.
+    WlanSTA wlanSTARef   IN,     ///< The WLAN STA reference.
     Mode    StaMode      OUT     ///< The WLAN STA mode that is set.
 );
 
@@ -195,7 +242,7 @@ FUNCTION le_result_t GetMode
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetStaticIPConfig
 (
-    WlanSTA        wlanSTARef         IN,     ///< The WLAN STA reference. Reserved for future use.
+    WlanSTA        wlanSTARef         IN,     ///< The WLAN STA reference.
     IPConfig       StaIPConfig        IN      ///< IP address to set for static IP address mode.
 );
 
@@ -210,7 +257,7 @@ FUNCTION le_result_t SetStaticIPConfig
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetIPConfig
 (
-    WlanSTA        wlanSTARef         IN,     ///< The WLAN STA reference. Reserved for future use.
+    WlanSTA        wlanSTARef         IN,     ///< The WLAN STA reference.
     IPType         StaIPType          OUT,    ///< Dynamic or Static IP address.
     IPConfig       StaStaticIPConfig  OUT     ///< Details of static IP configuration.
 );
@@ -226,10 +273,41 @@ FUNCTION le_result_t GetIPConfig
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetStatus
 (
-    WlanSTA        wlanSTARef              IN, ///< The WLAN STA reference. Reserved for future use.
+    WlanSTA        wlanSTARef              IN, ///< The WLAN STA reference.
     State          StaSate                           OUT, ///< Station state.
     string IntfName[taf_net.INTERFACE_NAME_MAX_LEN]  OUT, ///< Associated host interface name.
     string IPv4Address[taf_net.IPV4_ADDR_MAX_LEN]    OUT, ///< Associated IPv4 address.
     string IPv6Address[taf_net.IPV6_ADDR_MAX_LEN]    OUT, ///< Associated IPv6 address.
     string MACAddress[taf_net.MAC_ADDR_MAX_LEN]      OUT  ///< Associated MAC address.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Scan for available access points. This is an asynchronous operation and will trigger event
+ * STATE_SCAN_COMPLETE on completion.
+ * Use GetAPScanResults to get the results of the scan.
+ * When a scan is started, it will clear the results from earlier scans.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DoAPScan(
+    WlanSTA wlanSTARef IN                               ///< The WLAN STA reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the list of scanned access points. This list is updated after every call to DoScan.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetAPScanResults(
+    WlanSTA wlanSTARef IN,                      ///< The WLAN STA reference.
+    uint16  numAP      OUT,                     ///< Number of APs found in the scan.
+    APInfo  ApInfo[MAX_APSCAN_RESULT_NUM] OUT   ///< Available AP information.
 );

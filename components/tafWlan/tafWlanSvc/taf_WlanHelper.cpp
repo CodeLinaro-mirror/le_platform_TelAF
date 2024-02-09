@@ -17,6 +17,41 @@ using namespace telux::tafsvc;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Trim trailing space from a string.
+ * This helper function needed because the WPA_EVENT_ defines have a trailing space.
+ */
+//--------------------------------------------------------------------------------------------------
+std::string taf_WlanHelper::StrTrimEndSpace(const std::string &str)
+{
+    size_t endpos = str.find_last_not_of(" \t");
+    if (std::string::npos != endpos)
+    {
+        return str.substr(0, endpos + 1);
+    }
+    return str;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Split string based on delimiter
+ */
+//--------------------------------------------------------------------------------------------------
+std::vector<std::string> taf_WlanHelper::StrSplit(const std::string &str, char delim)
+{
+    std::vector<std::string> result;
+    std::stringstream ss(str);
+    std::string item;
+
+    while (getline(ss, item, delim))
+    {
+        result.push_back(item);
+    }
+
+    return result;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Convert BandType from TelSDK to TelAF value
  */
 //--------------------------------------------------------------------------------------------------

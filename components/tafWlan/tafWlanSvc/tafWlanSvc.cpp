@@ -74,7 +74,7 @@ void taf_wlan_RemoveDeviceStateHandler
         ///< [IN]
 )
 {
-    TAF_ERROR_IF_RET_NIL(handlerRef == nullptr, "Null ptr(handlerRef)");
+    TAF_ERROR_IF_RET_NIL(handlerRef == NULL, "handlerRef is NULL!");
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
     return;
 }

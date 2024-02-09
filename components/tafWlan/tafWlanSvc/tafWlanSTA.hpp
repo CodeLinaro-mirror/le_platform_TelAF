@@ -13,6 +13,11 @@
 #pragma once
 #include "tafWlan.hpp"
 
+#define WLANSTA_MAX_WPA_EVENT_LEN 64
+
+
+#define WPA_SUPPLICANT_LOCATION_PATH "/var/run/wpa_supplicant/"
+
 namespace telux
 {
     namespace tafsvc
@@ -25,10 +30,67 @@ namespace telux
         typedef struct
         {
             taf_wlan_STAid_t         id;
-            taf_wlanSta_WlanSTARef_t staRef;
-            le_dls_Link_t            link; // Link to sta context list
+            taf_wlanSta_WlanSTARef_t staRef;    // Station reference.
+            le_dls_Link_t            link;      // Link to sta context list
+            le_event_Id_t            StaEvent;  // STA state event for applications.
             char IntfName[TAF_NET_INTERFACE_NAME_MAX_LEN+1];
-        } STACtx_t;
+            uint16_t numScannedAPs;             // Number of available APs
+            taf_wlanSta_APInfo_t ApInfo[TAF_WLANSTA_MAX_APSCAN_RESULT_NUM];
+        } StaCtx_t;
+
+        //------------------------------------------------------------------------------------------
+        /**
+         * STA service commands
+         */
+        //------------------------------------------------------------------------------------------
+        typedef enum
+        {
+            EVT_WPA_DO_SCAN = 0   // Perform AP scan
+        } StaCmd_e;
+
+        //------------------------------------------------------------------------------------------
+        /**
+         * WPA events for use with promise/future in STA service
+         */
+        //------------------------------------------------------------------------------------------
+        typedef enum
+        {
+            EVT_WPA_ERROR,
+            EVT_WPA_AP_SCAN_DONE,
+        } StaWpaEvt_e;
+
+        //------------------------------------------------------------------------------------------
+        /**
+         * Context to pass to supplicant monitoring thread
+         */
+        //------------------------------------------------------------------------------------------
+        typedef struct
+        {
+            char IntfName[TAF_NET_INTERFACE_NAME_MAX_LEN + 1];
+            char EventToMonitor[WLANSTA_MAX_WPA_EVENT_LEN];
+        } SuppThreadCtx_t;
+
+        //------------------------------------------------------------------------------------------
+        /**
+         * StaCmd_t data structure
+         */
+        //------------------------------------------------------------------------------------------
+        typedef struct
+        {
+            StaCtx_t  *CtxPtr;  // STA context
+            StaCmd_e  cmd;      // STA command.
+        } StaCmd_t;
+
+        //------------------------------------------------------------------------------------------
+        /**
+         * Sta Events data structure
+         */
+        //------------------------------------------------------------------------------------------
+        typedef struct
+        {
+            taf_wlanSta_WlanSTARef_t staRef; // Station reference.
+            taf_wlanSta_State_t      state;  // State state to report.
+        } StaEvents_t;
 
         //------------------------------------------------------------------------------------------
         /**
@@ -82,10 +144,30 @@ namespace telux
                                   size_t IPv6AddressSize,
                                   char *MACAddress,
                                   size_t MACAddressSize);
+            le_result_t DoAPScan(taf_wlanSta_WlanSTARef_t staRef);
+            le_result_t GetAPScanResults(taf_wlanSta_WlanSTARef_t staRef,
+                                         uint16_t *numAPPtr,
+                                         taf_wlanSta_APInfo_t *ApInfoPtr,
+                                         size_t *ApInfoSizePtr);
+            taf_wlanSta_EventHandlerRef_t AddEventHandler(taf_wlanSta_WlanSTARef_t staRef,
+                                                          taf_wlanSta_HandlerFunc_t handlerPtr,
+                                                          void *contextPtr);
+            void RemoveEventHandler(taf_wlanSta_EventHandlerRef_t handlerRef);
 
         private:
+            // Promise/Future to synchronize WPA indications
+            std::promise<StaWpaEvt_e> PromiseWPA;
+
             // Functions
-            STACtx_t *GetStaCtx(taf_wlan_STAid_t staId);
+            StaCtx_t *GetStaCtx(taf_wlan_STAid_t staId);
+            static void StaCmdHandler(void *StaCmdPtr);
+            static void *StaCmdThreadHdlr(void *context);
+            static void *StaWpaSuppMonitorThreadHdlr(void *context);
+            static void FirstLayerEventHandler(void *reportPtr, void *secondLayerHandlerFunc);
+            void ReportStaState(StaCtx_t *StaCtxPtr, taf_wlanSta_State_t state);
+            void PerformScan(StaCtx_t *CtxPtr);
+            void PopulateScanResults(StaCtx_t *CtxPtr, const char *ScanResultsPtr);
+            void ParseScanResultsFlags(StaCtx_t *CtxPtr, int Index, std::string FlagsStr);
 
             // The WLAN STA Manager
             std::shared_ptr<telux::wlan::IStaInterfaceManager> wlanSTAMgr;
@@ -93,13 +175,23 @@ namespace telux
             std::shared_ptr<telux::tafsvc::taf_WlanSTAListener> wlanSTAListener;
 
             // Memory pool for STA context(s)
-            le_mem_PoolRef_t STACtxPool = NULL;
+            le_mem_PoolRef_t STACtxPoolRef = NULL;
             // List of STA context(s)
             le_dls_List_t    STACtxList  = LE_DLS_LIST_INIT;
             // Mutex for STA context list
             le_mutex_Ref_t   STACtxMutex = NULL;
             // Station Reference map
             le_ref_MapRef_t StaRefMap = NULL;
+
+            // Memory pool ref for Sta events
+            le_mem_PoolRef_t StaEventsPoolRef = NULL;
+            // Mutex for STA events
+            le_mutex_Ref_t STAEventsMutexRef  = NULL;
+
+            // Internal events
+            le_event_Id_t StaCommand;
+            // STA internal commands thread reference
+            le_thread_Ref_t  StaCmdThreadRef;
         };
     } // namespace tafsvc
 } // namespace telux

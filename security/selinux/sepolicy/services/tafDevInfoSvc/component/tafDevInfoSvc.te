@@ -8,6 +8,11 @@ type telaf_tafDevInfoSvc_exec_t;
 files_type(telaf_tafDevInfoSvc_exec_t);
 
 type telaf_tafDevInfoSvc_t;
+gen_require(`
+    type net_conf_t;
+    type firmware_t;
+    type proc_t;
+')
 
 type telaf_tafDevInfoSvc_data_t;
 files_type(telaf_tafDevInfoSvc_data_t);
@@ -19,3 +24,8 @@ init_telaf_app_domain(telaf_tafDevInfoSvc_t,telaf_tafDevInfoSvc_exec_t)
 # Allow update daemon to install/uninstall this service
 telaf_admin_manage_all_files_perms(telaf_tafDevInfoSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafDevInfoSvc_exec_t)
+allow telaf_tafDevInfoSvc_t net_conf_t:file { read_file_perms };
+allow telaf_tafDevInfoSvc_t firmware_t:file { read_file_perms };
+allow telaf_tafDevInfoSvc_t firmware_t:dir { search_dir_perms };
+allow telaf_tafDevInfoSvc_t proc_t:file { read_file_perms };
+allow telaf_tafDevInfoSvc_t proc_t:dir { search_dir_perms };

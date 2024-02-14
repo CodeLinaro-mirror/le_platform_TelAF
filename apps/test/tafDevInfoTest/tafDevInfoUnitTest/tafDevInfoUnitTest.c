@@ -25,8 +25,32 @@
 __attribute__((unused)) static void Test_taf_info_GetImei() {
     char imei[TAF_INFO_IMEI_MAX_BYTES];
     le_result_t result = taf_info_GetImei(imei, sizeof(imei));
-    LE_TEST_INFO("IMEI: %s", imei);
-    LE_TEST_ASSERT(result == LE_OK, "Test taf_info_GetImei");
+    LE_TEST_OK(result == LE_OK, "Test taf_info_GetImei: End");
+}
+
+__attribute__((unused)) static void Test_taf_info_GetModel() {
+    char model[TAF_INFO_MODEL_MAX_BYTES];
+    le_result_t result = taf_info_GetModel(model, sizeof(model));
+    LE_TEST_OK(result == LE_OK, "Test taf_info_GetModel: End");
+}
+
+
+__attribute__((unused)) static void Test_taf_info_GetKernelVersion() {
+    char version[TAF_INFO_VERSION_MAX_BYTES];
+    le_result_t result = taf_info_GetKernelVersion(version, sizeof(version));
+    LE_TEST_OK(result == LE_OK, "Test taf_info_GetKernelVersion: End");
+}
+
+__attribute__((unused)) static void Test_taf_info_GetModemVersion() {
+    char modem[TAF_INFO_MODEM_MAX_BYTES];
+    le_result_t result = taf_info_GetModemVersion(modem, sizeof(modem));
+    LE_TEST_OK(result == LE_OK, "Test taf_info_GetModemVersion: End");
+}
+
+__attribute__((unused)) static void Test_taf_info_GetTZVersion() {
+    char tz[TAF_INFO_TZ_MAX_BYTES];
+    le_result_t result = taf_info_GetTZVersion(tz, sizeof(tz));
+    LE_TEST_OK(result == LE_OK, "Test taf_info_GetTZVersion: End");
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -39,7 +63,18 @@ COMPONENT_INIT {
 
     LE_TEST_INFO("===== Test_taf_info_GetImei =====");
     Test_taf_info_GetImei();
-    LE_TEST_INFO("##### Test_taf_info_GetImei OK #####");
+
+    LE_TEST_INFO("======= Test_taf_info_GetModel========");
+    Test_taf_info_GetModel();
+
+    LE_TEST_INFO("==== Test_taf_info_GetModemVersion===========");
+    Test_taf_info_GetModemVersion();
+
+    LE_TEST_INFO("======= Test_taf_info_GetKernelVersion========");
+    Test_taf_info_GetKernelVersion();
+
+    LE_TEST_INFO("==== Test_taf_info_GetTZVersion===========");
+    Test_taf_info_GetTZVersion();
 
     LE_TEST_INFO("======== Device Info Unit Test End ========");
     exit(EXIT_SUCCESS);

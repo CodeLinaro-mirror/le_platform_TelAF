@@ -71,8 +71,10 @@ static taf_diagUpdate_RxFileXferMsgHandlerRef_t diagFileXferMsgRef = NULL;
 static taf_diagUpdate_RxXferDataMsgHandlerRef_t diagXferDataMsgRef = NULL;
 static taf_diagUpdate_RxXferExitMsgHandlerRef_t diagXferExitMsgRef = NULL;
 
-//Diag Security
+//Diag Session/Security
 static taf_diagSecurity_ServiceRef_t diagSecuritySvcRef = NULL;
+static taf_diagSecurity_RxSesTypeCheckHandlerRef_t diagSesTypeMsgRef = NULL;
+static taf_diagSecurity_SesChangeHandlerRef_t diagSesChangeRef = NULL;
 static taf_diagSecurity_RxSecAccessMsgHandlerRef_t diagSecurityMsgRef = NULL;
 
 //Diag RDBI/WDBI
@@ -645,6 +647,41 @@ void xferExitMsgHandler
 
 }
 
+// Callback function for sessionCtrl request message
+void sesTypeMsgHandler
+(
+    taf_diagSecurity_RxSesTypeCheckRef_t rxMsgRef,
+    taf_diagSecurity_SessionType_t SesCtrlType,
+    void* contextPtr
+)
+{
+    LE_TEST_INFO("Received session control type req msg");
+    LE_TEST_INFO("Received session control type is %x", SesCtrlType);
+
+    le_result_t result;
+
+    result = taf_diagSecurity_SendSesTypeCheckResp(rxMsgRef, TAF_DIAGSECURITY_SES_CONTROL_NO_ERROR);
+    if (result == LE_OK)
+    {
+        LE_TEST_INFO("Session response is sent");
+    }
+}
+
+// Callback function for session change message
+void sesChangeHandler
+(
+    taf_diagSecurity_SesChangeRef_t sesChangeRef,
+    taf_diagSecurity_SessionType_t PreviousType,
+    taf_diagSecurity_SessionType_t CurrentType,
+    void* contextPtr
+)
+{
+    LE_TEST_INFO("sesChangeHandler");
+    LE_TEST_INFO("Previous session type: %x, Current session type: %x", PreviousType, CurrentType);
+
+    return;
+}
+
 // Callback function for security request message
 void securityMsgHandler
 (
@@ -994,6 +1031,14 @@ static void* diagSecurityMsgThread(void* ctxPtr)
 {
     taf_diagSecurity_ConnectService();
 
+    diagSesTypeMsgRef = taf_diagSecurity_AddRxSesTypeCheckHandler( diagSecuritySvcRef,
+            sesTypeMsgHandler, NULL);
+    LE_TEST_OK(diagSesTypeMsgRef != NULL, "Registered successfully for sesTypeMsgHandler");
+
+    diagSesChangeRef = taf_diagSecurity_AddSesChangeHandler( diagSecuritySvcRef,
+            sesChangeHandler, NULL);
+    LE_TEST_OK(diagSesChangeRef != NULL, "Registered successfully for sesChangeHandler");
+
     diagSecurityMsgRef = taf_diagSecurity_AddRxSecAccessMsgHandler( diagSecuritySvcRef,
             securityMsgHandler, NULL);
     LE_TEST_OK(diagSecurityMsgRef != NULL, "Registered successfully for securityMsgHandler");
@@ -1068,6 +1113,14 @@ COMPONENT_INIT
     {
         LE_ERROR("Get diagSecurity service");
         return;
+    }
+    // Get the current session type
+    le_result_t result;
+    taf_diagSecurity_SessionType_t currentSesType;
+    result = taf_diagSecurity_GetCurrentSesType(diagSecuritySvcRef, &currentSesType);
+    if (result == LE_OK)
+    {
+        LE_TEST_INFO("Current active session type is %x", currentSesType);
     }
 
     //get diag Data ID reference

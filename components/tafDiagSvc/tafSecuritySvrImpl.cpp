@@ -71,7 +71,13 @@ taf_diagSecurity_ServiceRef_t taf_SecuritySvr::GetService
         servicePtr = (taf_SecuritySvc_t *)le_mem_ForceAlloc(SvcPool);
         memset(servicePtr, 0, sizeof(taf_SecuritySvc_t));
 
-        // Init the service Rx Handler.
+        // Init the sessionCtrl service Rx Handler.
+        servicePtr->SesTypeHandlerRef = NULL;
+
+        // Init the session change Handler.
+        servicePtr->sesChangeHandlerRef = NULL;
+
+        // Init the securityAccess service Rx Handler.
         servicePtr->handlerRef = NULL;
 
         // Attach the service to the client.
@@ -152,7 +158,77 @@ void taf_SecuritySvr::UDSMsgHandler
     addrInfo.ta = addrPtr->sa;
     addrInfo.taType = addrPtr->taType;
 
-    if (sid == SID_SECURITY_ACCESS)
+    if (sid == SID_DIAGNOSTIC_SESSION_CONTROL)
+    {
+        taf_SesTypeRxMsg_t* rxSesTypePtr = NULL;
+        rxSesTypePtr = (taf_SesTypeRxMsg_t*)le_mem_ForceAlloc(RxSesTypePool);
+        memset(rxSesTypePtr, 0, sizeof(taf_SesTypeRxMsg_t));
+
+        memcpy(&rxSesTypePtr->addrInfo, addrPtr, sizeof(taf_uds_AddrInfo_t));
+        rxSesTypePtr->sesType = (taf_diagSecurity_SessionType_t)(msgPtr[msgPos] & 0x7F);
+        LE_INFO("Receive seesion type: %x", rxSesTypePtr->sesType);
+        msgPos += 1;
+
+        switch (rxSesTypePtr->sesType)
+        {
+            case TAF_DIAGSECURITY_DEFAULT:
+                break;
+            case TAF_DIAGSECURITY_PROGRAMMING:
+                break;
+            case TAF_DIAGSECURITY_EXTENDED:
+                break;
+            case TAF_DIAGSECURITY_VEHICLE_MANUFACTURER_SPECIFIC:
+                break;
+            case TAF_DIAGSECURITY_FOTA:
+                break;
+            case TAF_DIAGSECURITY_SYSTEM_SUPPLIER_SPECIFIC:
+                break;
+            default:
+                LE_DEBUG("Requested session type is not supported");
+                errCode = TAF_DIAG_SUBFUNCTION_NOT_SUPPORTED;
+                SendNRCResp(sid, &addrInfo, errCode);
+                return;
+        }
+
+        rxSesTypePtr->link = LE_DLS_LINK_INIT;
+        rxSesTypePtr->rxSesTypeRef = (taf_diagSecurity_RxSesTypeCheckRef_t)le_ref_CreateRef(
+                RxSesTypeRefMap, rxSesTypePtr);
+
+        LE_DEBUG("Receive message(%p) for serviceId: 0x%x and subFunction: 0x%x)",
+                rxSesTypePtr->rxSesTypeRef, sid, rxSesTypePtr->sesType);
+
+        // Report the session control request message to message handler in service layer.
+        le_event_ReportWithRefCounting(SesTypeEvent, rxSesTypePtr);
+    }
+    else if(sid == sessionChangeId)
+    {
+        taf_SesChangeMsg_t* sesChangePtr = NULL;
+
+        sesChangePtr = (taf_SesChangeMsg_t*)le_mem_ForceAlloc(SesChangePool);
+        memset(sesChangePtr, 0, sizeof(taf_SesChangeMsg_t));
+
+        memcpy(&sesChangePtr->addrInfo, addrPtr, sizeof(taf_uds_AddrInfo_t));
+        sesChangePtr->previousSesType = (taf_diagSecurity_SessionType_t)msgPtr[msgPos];
+        msgPos += 1;
+
+        sesChangePtr->currentSesType = (taf_diagSecurity_SessionType_t)msgPtr[msgPos];
+        msgPos += 1;
+
+        // Update the local session type with current active session type and
+        // maintain it in service.
+        currentSesType = sesChangePtr->currentSesType;
+
+        sesChangePtr->link = LE_DLS_LINK_INIT;
+        sesChangePtr->sesChangeRef = (taf_diagSecurity_SesChangeRef_t)le_ref_CreateRef(
+                SesChangeRefMap, sesChangePtr);
+
+        LE_DEBUG("Previous session type: %X and Current session type: %x",
+                sesChangePtr->previousSesType, sesChangePtr->currentSesType);
+
+        // Report the session control request message to message handler in service layer.
+        le_event_ReportWithRefCounting(SesChangeEvent, sesChangePtr);
+    }
+    else if (sid == SID_SECURITY_ACCESS)
     {
         taf_SecAccessRxMsg_t* rxSecAccessMsgPtr = NULL;
 
@@ -194,6 +270,402 @@ void taf_SecuritySvr::UDSMsgHandler
     }
 
     return;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Add a Rx handler for a sessionCtrl service.
+ */
+//-------------------------------------------------------------------------------------------------
+taf_diagSecurity_RxSesTypeCheckHandlerRef_t taf_SecuritySvr::AddRxSesTypeCheckHandler
+(
+    taf_diagSecurity_ServiceRef_t svcRef,
+    taf_diagSecurity_RxSesTypeHandlerFunc_t handlerPtr,
+    void* contextPtr
+)
+{
+    LE_DEBUG("AddRxSesTypeCheckHandler!");
+
+    taf_SecuritySvc_t* servicePtr = (taf_SecuritySvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
+    TAF_ERROR_IF_RET_VAL(servicePtr == NULL, NULL, "Invalid service reference provided");
+
+    TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, NULL, "Invalid handlerPtr!");
+
+    if (servicePtr->SesTypeHandlerRef != NULL)
+    {
+        LE_ERROR("Rx handler is already registered");
+
+        return NULL;
+    }
+
+    taf_SesTypeReqHandler_t* handlerObjPtr = NULL;
+    handlerObjPtr = (taf_SesTypeReqHandler_t*)le_mem_ForceAlloc(ReqSesTypeHandlerPool);
+
+    // Initialize the RxHandler object.
+    handlerObjPtr->svcRef     = svcRef;
+    handlerObjPtr->func       = handlerPtr;
+    handlerObjPtr->ctxPtr     = contextPtr;
+    handlerObjPtr->SesTypeHandlerRef =
+            (taf_diagSecurity_RxSesTypeCheckHandlerRef_t)le_ref_CreateRef(
+                    ReqSesTypeHandlerRefMap, handlerObjPtr);
+
+    // Attach handler to service.
+    servicePtr->SesTypeHandlerRef = handlerObjPtr->SesTypeHandlerRef;
+
+    LE_INFO("Session control: Registered Rx Handler");
+
+    return handlerObjPtr->SesTypeHandlerRef;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * SessionCtrl event handler.
+ */
+//-------------------------------------------------------------------------------------------------
+void taf_SecuritySvr::RxSesCtrlEventHandler
+(
+    void* reportPtr
+)
+{
+    LE_DEBUG("RxSesCtrlEventHandler!");
+
+    auto &security = taf_SecuritySvr::GetInstance();
+
+    taf_SesTypeRxMsg_t* rxSesTypePtr = (taf_SesTypeRxMsg_t*)reportPtr;
+    TAF_ERROR_IF_RET_NIL(rxSesTypePtr == NULL, "rxSesTypePtr is Null");
+
+    taf_SecuritySvc_t* servicePtr = NULL;
+    taf_SesTypeReqHandler_t* handlerObjPtr = NULL;
+
+
+    servicePtr = (taf_SecuritySvc_t*)security.GetServiceObj();
+    if (servicePtr == NULL)
+    {
+        le_ref_DeleteRef(security.RxSesTypeRefMap, rxSesTypePtr->rxSesTypeRef);
+        le_mem_Release(rxSesTypePtr);
+        return;
+    }
+
+    if (servicePtr->SesTypeHandlerRef == NULL)
+    {
+        LE_WARN("Did not register handler for session control service.");
+        le_ref_DeleteRef(security.RxSesTypeRefMap, rxSesTypePtr->rxSesTypeRef);
+        le_mem_Release(rxSesTypePtr);
+        return;
+    }
+
+    // Lookup message handler of this service
+    handlerObjPtr =
+            (taf_SesTypeReqHandler_t*)le_ref_Lookup(security.ReqSesTypeHandlerRefMap,
+                    servicePtr->SesTypeHandlerRef);
+    if (handlerObjPtr == NULL || handlerObjPtr->func == NULL)
+    {
+        le_ref_DeleteRef(security.RxSesTypeRefMap, rxSesTypePtr->rxSesTypeRef);
+        le_mem_Release(rxSesTypePtr);
+        return;
+    }
+
+    // Add the message in service message list and notify to application.
+    rxSesTypePtr->link = LE_DLS_LINK_INIT;
+    le_dls_Queue(&servicePtr->rxSesTypeList, &rxSesTypePtr->link);
+    handlerObjPtr->func(rxSesTypePtr->rxSesTypeRef, rxSesTypePtr->sesType,
+            handlerObjPtr->ctxPtr);
+
+    return;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Remove the Rx handler for a session control service.
+ */
+//-------------------------------------------------------------------------------------------------
+void taf_SecuritySvr::RemoveRxSesTypeCheckHandler
+(
+    taf_diagSecurity_RxSesTypeCheckHandlerRef_t handlerRef
+)
+{
+    LE_DEBUG("RemoveRxSesTypeCheckHandler!");
+
+    TAF_ERROR_IF_RET_NIL(handlerRef == NULL, "Invalid handlerRef");
+
+    taf_SecuritySvc_t* servicePtr = NULL;
+    taf_SesTypeReqHandler_t* handlerObjPtr = NULL;
+
+    handlerObjPtr = (taf_SesTypeReqHandler_t*)le_ref_Lookup(ReqSesTypeHandlerRefMap,
+            handlerRef);
+    TAF_ERROR_IF_RET_NIL(handlerObjPtr == NULL, "Invalid handlerObjPtr");
+
+    servicePtr = (taf_SecuritySvc_t*)le_ref_Lookup(SvcRefMap, handlerObjPtr->svcRef);
+    if (servicePtr == NULL)
+    {
+        LE_WARN("The handler is not belong to this service.");
+        le_ref_DeleteRef(ReqSesTypeHandlerRefMap, handlerRef);
+        le_mem_Release(handlerObjPtr);
+
+        return;
+    }
+
+    // Detach the handler from service.
+    servicePtr->SesTypeHandlerRef = NULL;
+
+    // Clear Rx Handler resources
+    handlerObjPtr->SesTypeHandlerRef = NULL;
+    handlerObjPtr->svcRef            = NULL;
+    handlerObjPtr->func              = NULL;
+    handlerObjPtr->ctxPtr            = NULL;
+
+    // Free the handler.
+    le_ref_DeleteRef(ReqSesTypeHandlerRefMap, handlerRef);
+    le_mem_Release(handlerObjPtr);
+
+    return;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Send Session control response to UDS stack.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_SecuritySvr::SendSesTypeCheckResp
+(
+    taf_diagSecurity_RxSesTypeCheckRef_t rxSesTypeRef,
+    taf_diagSecurity_SesControlErrorCode_t errCode
+)
+{
+    LE_DEBUG("SendSesTypeCheckResp");
+
+    TAF_ERROR_IF_RET_VAL(rxSesTypeRef == NULL, LE_BAD_PARAMETER, "Invalid rxSesTypeRef");
+
+    le_result_t ret;
+
+    taf_SesTypeRxMsg_t* rxSesTypePtr =
+            (taf_SesTypeRxMsg_t*)le_ref_Lookup(RxSesTypeRefMap, rxSesTypeRef);
+    if (rxSesTypePtr == NULL)
+    {
+        LE_ERROR("Cannot find the reqMsg");
+        return LE_NOT_FOUND;
+    }
+
+    taf_SecuritySvc_t* servicePtr = (taf_SecuritySvc_t*)GetServiceObj();
+    if (servicePtr == NULL)
+    {
+        LE_ERROR("Not found registered security service for this request!");
+        return LE_NOT_FOUND;
+    }
+
+    // Call UDS function to send the response message.
+    auto &backend = taf_DiagBackend::GetInstance();
+    taf_uds_AddrInfo_t addrInfo;
+    addrInfo.sa = rxSesTypePtr->addrInfo.ta;
+    addrInfo.ta = rxSesTypePtr->addrInfo.sa;
+    addrInfo.taType = rxSesTypePtr->addrInfo.taType;
+
+    if (errCode == 0)
+    {
+        // Positive response.
+        ret = backend.RespDiagPositive(reqSesCtrlSvcId, &addrInfo);
+        if (ret != LE_OK)
+        {
+            LE_ERROR("Failed to send session control positive response.(%d)", ret);
+            return ret;
+        }
+    }
+    else
+    {
+        // Negative response.
+        ret = backend.RespDiagNegative(reqSesCtrlSvcId, &addrInfo, errCode);
+        if (ret != LE_OK)
+        {
+            LE_ERROR("Failed to send session control negative response.(%d)", ret);
+            return ret;
+        }
+    }
+
+    // Remove the message from service message list.
+    le_dls_Remove(&(servicePtr->rxSesTypeList), &(rxSesTypePtr->link));
+
+    // Free the message
+    le_ref_DeleteRef(RxSesTypeRefMap, rxSesTypePtr->rxSesTypeRef);
+    le_mem_Release(rxSesTypePtr);
+
+    return LE_OK;
+}
+
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Add a handler for a session change.
+ */
+//-------------------------------------------------------------------------------------------------
+taf_diagSecurity_SesChangeHandlerRef_t taf_SecuritySvr::AddSesChangeHandler
+(
+    taf_diagSecurity_ServiceRef_t svcRef,
+    taf_diagSecurity_SesChangeHandlerFunc_t handlerPtr,
+    void* contextPtr
+)
+{
+    LE_DEBUG("AddSesChangeHandler!");
+
+    taf_SecuritySvc_t* servicePtr = (taf_SecuritySvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
+    TAF_ERROR_IF_RET_VAL(servicePtr == NULL, NULL, "Invalid service reference provided");
+
+    TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, NULL, "Invalid handlerPtr!");
+
+    if (servicePtr->sesChangeHandlerRef != NULL)
+    {
+        LE_ERROR("Handler is already registered");
+        return NULL;
+    }
+
+    taf_SesChangeHandler_t* handlerObjPtr = NULL;
+    handlerObjPtr = (taf_SesChangeHandler_t*)le_mem_ForceAlloc(SesChangeHandlerPool);
+
+    // Initialize the RxHandler object.
+    handlerObjPtr->svcRef     = svcRef;
+    handlerObjPtr->func       = handlerPtr;
+    handlerObjPtr->ctxPtr     = contextPtr;
+    handlerObjPtr->sesChangeHandlerRef =
+            (taf_diagSecurity_SesChangeHandlerRef_t)le_ref_CreateRef(
+                    SesChangeHandlerRefMap, handlerObjPtr);
+
+    // Attach handler to service.
+    servicePtr->sesChangeHandlerRef = handlerObjPtr->sesChangeHandlerRef;
+
+    LE_INFO("Session change: Registered Rx Handler");
+
+    return handlerObjPtr->sesChangeHandlerRef;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * SessionChange event handler.
+ */
+//-------------------------------------------------------------------------------------------------
+void taf_SecuritySvr::SesChangeEventHandler
+(
+    void* reportPtr
+)
+{
+    LE_DEBUG("SesChangeEventHandler!");
+
+    auto &security = taf_SecuritySvr::GetInstance();
+
+    taf_SesChangeMsg_t* SesChangePtr = (taf_SesChangeMsg_t*)reportPtr;
+    TAF_ERROR_IF_RET_NIL(SesChangePtr == NULL, "SesChangePtr is Null");
+
+    taf_SecuritySvc_t* servicePtr = NULL;
+    taf_SesChangeHandler_t* handlerObjPtr = NULL;
+
+
+    servicePtr = (taf_SecuritySvc_t*)security.GetServiceObj();
+    if (servicePtr == NULL)
+    {
+        le_ref_DeleteRef(security.SesChangeRefMap, SesChangePtr->sesChangeRef);
+        le_mem_Release(SesChangePtr);
+        return;
+    }
+
+    if (servicePtr->sesChangeHandlerRef == NULL)
+    {
+        LE_WARN("Did not register handler for session change.");
+        le_ref_DeleteRef(security.SesChangeRefMap, SesChangePtr->sesChangeRef);
+        le_mem_Release(SesChangePtr);
+        return;
+    }
+
+    // Lookup message handler of this service
+    handlerObjPtr =
+            (taf_SesChangeHandler_t*)le_ref_Lookup(security.SesChangeHandlerRefMap,
+                    servicePtr->sesChangeHandlerRef);
+    if (handlerObjPtr == NULL || handlerObjPtr->func == NULL)
+    {
+        le_ref_DeleteRef(security.SesChangeRefMap, SesChangePtr->sesChangeRef);
+        le_mem_Release(SesChangePtr);
+        return;
+    }
+
+    // Add the message in service message list and notify to application.
+    SesChangePtr->link = LE_DLS_LINK_INIT;
+    le_dls_Queue(&servicePtr->rxSesChangeList, &SesChangePtr->link);
+    handlerObjPtr->func(SesChangePtr->sesChangeRef, SesChangePtr->previousSesType,
+            SesChangePtr->currentSesType, handlerObjPtr->ctxPtr);
+
+    return;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Remove the handler for a session change.
+ */
+//-------------------------------------------------------------------------------------------------
+void taf_SecuritySvr::RemoveSesChangeHandler
+(
+    taf_diagSecurity_SesChangeHandlerRef_t handlerRef
+)
+{
+    LE_DEBUG("RemoveSesChangeHandler!");
+
+    TAF_ERROR_IF_RET_NIL(handlerRef == NULL, "Invalid handlerRef");
+
+    taf_SecuritySvc_t* servicePtr = NULL;
+    taf_SesChangeHandler_t* handlerObjPtr = NULL;
+
+    handlerObjPtr = (taf_SesChangeHandler_t*)le_ref_Lookup(SesChangeHandlerRefMap,
+            handlerRef);
+    TAF_ERROR_IF_RET_NIL(handlerObjPtr == NULL, "Invalid handlerObjPtr");
+
+    servicePtr = (taf_SecuritySvc_t*)le_ref_Lookup(SvcRefMap, handlerObjPtr->svcRef);
+    if (servicePtr == NULL)
+    {
+        LE_WARN("The handler is not belong to this service.");
+        le_ref_DeleteRef(SesChangeHandlerRefMap, handlerRef);
+        le_mem_Release(handlerObjPtr);
+
+        return;
+    }
+
+    // Detach the handler from service.
+    servicePtr->sesChangeHandlerRef = NULL;
+
+    // Clear Rx Handler resources
+    handlerObjPtr->sesChangeHandlerRef = NULL;
+    handlerObjPtr->svcRef            = NULL;
+    handlerObjPtr->func              = NULL;
+    handlerObjPtr->ctxPtr            = NULL;
+
+    // Free the handler.
+    le_ref_DeleteRef(SesChangeHandlerRefMap, handlerRef);
+    le_mem_Release(handlerObjPtr);
+
+    return;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the current active session type.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_SecuritySvr::GetCurrentSesType
+(
+    taf_diagSecurity_ServiceRef_t svcRef,
+    taf_diagSecurity_SessionType_t* currentTypePtr
+)
+{
+    LE_DEBUG("GetCurrentSesType!");
+
+    taf_SecuritySvc_t* servicePtr = (taf_SecuritySvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
+    TAF_ERROR_IF_RET_VAL(servicePtr == NULL, LE_BAD_PARAMETER,
+            "Invalid service reference provided");
+
+    if (currentTypePtr == NULL)
+    {
+        LE_ERROR("Cannot find the currentTypePtr");
+        return LE_NOT_FOUND;
+    }
+
+    *currentTypePtr = currentSesType;
+
+    return LE_OK;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -324,9 +796,18 @@ void taf_SecuritySvr::RemoveRxSecAccessMsgHandler
     {
         LE_WARN("The handler is not belong to this service.");
         le_ref_DeleteRef(ReqSecAccessHandlerRefMap, handlerRef);
-
+        le_mem_Release(handlerObjPtr);
         return;
     }
+
+    // Detach the handler from service.
+    servicePtr->handlerRef = NULL;
+
+    // Clear Rx Handler resources
+    handlerObjPtr->handlerRef = NULL;
+    handlerObjPtr->svcRef     = NULL;
+    handlerObjPtr->func       = NULL;
+    handlerObjPtr->ctxPtr     = NULL;
 
     // Free the handler.
     le_ref_DeleteRef(ReqSecAccessHandlerRefMap, handlerRef);
@@ -400,33 +881,6 @@ le_result_t taf_SecuritySvr::GetSecAccessPayload
 
     memcpy(payloadPtr, rxSecAccessMsgPtr->Payload, rxSecAccessMsgPtr->PayloadLen);
     *payloadSizePtr = rxSecAccessMsgPtr->PayloadLen;
-
-    return LE_OK;
-}
-
-//-------------------------------------------------------------------------------------------------
-/**
- * Send NRC response to UDS stack.
- */
-//-------------------------------------------------------------------------------------------------
-le_result_t taf_SecuritySvr::SendNRCResp
-(
-    uint8_t sid,
-    taf_uds_AddrInfo_t*  addrInfoPtr,
-    uint8_t errCode
-)
-{
-    LE_DEBUG("SendNRCResp");
-
-    TAF_ERROR_IF_RET_VAL(addrInfoPtr == NULL, LE_BAD_PARAMETER, "Invalid addrInfoPtr");
-
-    // Call UDS function to send the response message.
-    auto &backend = taf_DiagBackend::GetInstance();
-    taf_uds_AddrInfo_t addrInfo;
-    addrInfo.sa = addrInfoPtr->ta;
-    addrInfo.ta = addrInfoPtr->sa;
-    addrInfo.taType = addrInfoPtr->taType;
-    backend.RespDiagNegative(sid, &addrInfo, errCode);
 
     return LE_OK;
 }
@@ -517,6 +971,133 @@ le_result_t taf_SecuritySvr::SendSecAccessResp
 
 //-------------------------------------------------------------------------------------------------
 /**
+ * Send NRC response to UDS stack.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_SecuritySvr::SendNRCResp
+(
+    uint8_t sid,
+    taf_uds_AddrInfo_t*  addrInfoPtr,
+    uint8_t errCode
+)
+{
+    LE_DEBUG("SendNRCResp");
+
+    TAF_ERROR_IF_RET_VAL(addrInfoPtr == NULL, LE_BAD_PARAMETER, "Invalid addrInfoPtr");
+
+    // Call UDS function to send the response message.
+    auto &backend = taf_DiagBackend::GetInstance();
+    taf_uds_AddrInfo_t addrInfo;
+    addrInfo.sa = addrInfoPtr->ta;
+    addrInfo.ta = addrInfoPtr->sa;
+    addrInfo.taType = addrInfoPtr->taType;
+    backend.RespDiagNegative(sid, &addrInfo, errCode);
+
+    return LE_OK;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Clear sessionCtrl message list.
+*/
+//-------------------------------------------------------------------------------------------------
+void taf_SecuritySvr::ClearSesTypeMsgList
+(
+    taf_SecuritySvc_t* servicePtr
+)
+{
+    LE_DEBUG("ClearSesTypeMsgList");
+    TAF_ERROR_IF_RET_NIL(servicePtr == NULL, "Invalid servicePtr");
+
+    // Clear the UDS Rx message of sessionCtrl list.
+    le_dls_Link_t* linkPtr = le_dls_Pop(&servicePtr->rxSesTypeList);
+    while (linkPtr != NULL)
+    {
+        taf_SesTypeRxMsg_t* rxSesTypePtr = CONTAINER_OF(linkPtr, taf_SesTypeRxMsg_t, link);
+        if (rxSesTypePtr != NULL)
+        {
+            LE_INFO("Release ReqMsg(ref=%p)", rxSesTypePtr->rxSesTypeRef);
+            // Free the message
+            le_ref_DeleteRef(RxSesTypeRefMap, rxSesTypePtr->rxSesTypeRef);
+            le_mem_Release(rxSesTypePtr);
+        }
+
+        // Process next node.
+        linkPtr = le_dls_Pop(&servicePtr->rxSesTypeList);
+    }
+
+    return;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Clear session change message list.
+*/
+//-------------------------------------------------------------------------------------------------
+void taf_SecuritySvr::ClearSesChangeMsgList
+(
+    taf_SecuritySvc_t* servicePtr
+)
+{
+    LE_DEBUG("ClearSesChangeMsgList");
+    TAF_ERROR_IF_RET_NIL(servicePtr == NULL, "Invalid servicePtr");
+
+    // Clear the UDS Rx message of sessionCtrl list.
+    le_dls_Link_t* linkPtr = le_dls_Pop(&servicePtr->rxSesChangeList);
+    while (linkPtr != NULL)
+    {
+        taf_SesChangeMsg_t* sesChangePtr = CONTAINER_OF(linkPtr, taf_SesChangeMsg_t, link);
+        if (sesChangePtr != NULL)
+        {
+            LE_INFO("Release ReqMsg(ref=%p)", sesChangePtr->sesChangeRef);
+            // Free the message
+            le_ref_DeleteRef(SesChangeRefMap, sesChangePtr->sesChangeRef);
+            le_mem_Release(sesChangePtr);
+        }
+
+        // Process next node.
+        linkPtr = le_dls_Pop(&servicePtr->rxSesChangeList);
+    }
+
+    return;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Clear security access message list.
+*/
+//-------------------------------------------------------------------------------------------------
+void taf_SecuritySvr::ClearSecAccessMsgList
+(
+    taf_SecuritySvc_t* servicePtr
+)
+{
+    LE_DEBUG("ClearSecAccessMsgList");
+    TAF_ERROR_IF_RET_NIL(servicePtr == NULL, "Invalid servicePtr");
+
+    // Clear the UDS Rx message of securityAccess list.
+    le_dls_Link_t* linkPtr = le_dls_Pop(&servicePtr->rxMsgList);
+    while (linkPtr != NULL)
+    {
+        taf_SecAccessRxMsg_t* rxSecAccessMsgPtr = CONTAINER_OF(linkPtr, taf_SecAccessRxMsg_t,
+                link);
+        if (rxSecAccessMsgPtr != NULL)
+        {
+            LE_INFO("Release ReqMsg(ref=%p)", rxSecAccessMsgPtr->rxMsgRef);
+            // Free the message
+            le_ref_DeleteRef(RxSecAccessMsgRefMap, rxSecAccessMsgPtr->rxMsgRef);
+            le_mem_Release(rxSecAccessMsgPtr);
+        }
+
+        // Process next node.
+        linkPtr = le_dls_Pop(&servicePtr->rxMsgList);
+    }
+
+    return;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
  * Remove the created service and release the alloted memory.
  */
 //-------------------------------------------------------------------------------------------------
@@ -530,41 +1111,34 @@ le_result_t taf_SecuritySvr::RemoveSvc
     taf_SecuritySvc_t* servicePtr = (taf_SecuritySvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
     TAF_ERROR_IF_RET_VAL(servicePtr == NULL, LE_BAD_PARAMETER, "Invalid servicePtr");
 
-    // Clear the UDS Rx message list.
-    le_dls_Link_t* linkPtr = le_dls_Pop(&(servicePtr->rxMsgList));
-    while (linkPtr != NULL)
-    {
-        taf_SecAccessRxMsg_t* rxSecAccessMsgPtr = CONTAINER_OF(linkPtr, taf_SecAccessRxMsg_t,
-                link);
-        if (rxSecAccessMsgPtr != NULL)
-        {
-            LE_INFO("Release (rxMsgRef: %p)", rxSecAccessMsgPtr->rxMsgRef);
-            le_ref_DeleteRef(RxSecAccessMsgRefMap, rxSecAccessMsgPtr->rxMsgRef);
-            le_mem_Release(rxSecAccessMsgPtr);
-        }
+    // Release session control and security access message resources.
+    ClearSesTypeMsgList(servicePtr);
+    ClearSecAccessMsgList(servicePtr);
+    ClearSecAccessMsgList(servicePtr);
 
-        // Process next node.
-        linkPtr = le_dls_Pop(&(servicePtr->rxMsgList));
+    // Clear the registered session control handler
+    if (servicePtr->SesTypeHandlerRef != NULL)
+    {
+        RemoveRxSesTypeCheckHandler(servicePtr->SesTypeHandlerRef);
+        servicePtr->SesTypeHandlerRef = NULL;
     }
 
-    // Clear the registered handler
+    // Clear the registered session change handler
+    if (servicePtr->sesChangeHandlerRef != NULL)
+    {
+        RemoveSesChangeHandler(servicePtr->sesChangeHandlerRef);
+        servicePtr->sesChangeHandlerRef = NULL;
+    }
+
+    // Clear the registered security access handler
     if (servicePtr->handlerRef != NULL)
     {
-        taf_SecAccessReqHandler_t* handlerObjPtr = NULL;
-
-        handlerObjPtr = (taf_SecAccessReqHandler_t*)le_ref_Lookup(ReqSecAccessHandlerRefMap,
-                servicePtr->handlerRef);
-        if (handlerObjPtr != NULL)
-        {
-            le_ref_DeleteRef(ReqSecAccessHandlerRefMap, handlerObjPtr->handlerRef);
-            le_mem_Release(handlerObjPtr);
-        }
-
+        RemoveRxSecAccessMsgHandler(servicePtr->handlerRef);
         servicePtr->handlerRef = NULL;
     }
 
     // Clear service object
-    le_ref_DeleteRef(SvcRefMap, servicePtr->svcRef);
+    le_ref_DeleteRef(SvcRefMap, (void*)servicePtr->svcRef);
     le_mem_Release(servicePtr);
 
     return LE_OK;
@@ -612,17 +1186,39 @@ void taf_SecuritySvr::Init()
 
     // Create memory pools.
     SvcPool = le_mem_CreatePool("SecuritySvcPool", sizeof(taf_SecuritySvc_t));
+    RxSesTypePool = le_mem_CreatePool("RxSesTypePool", sizeof(taf_SesTypeRxMsg_t));
+    ReqSesTypeHandlerPool = le_mem_CreatePool("ReqSesTypeHandlerPool",
+            sizeof(taf_SesTypeReqHandler_t));
+    SesChangePool = le_mem_CreatePool("SesChangePool", sizeof(taf_SesChangeMsg_t));
+    SesChangeHandlerPool = le_mem_CreatePool("SesChangeHandlerPool",
+            sizeof(taf_SesChangeHandler_t));
     RxSecAccessMsgPool = le_mem_CreatePool("SecAccessRxMsgPool", sizeof(taf_SecAccessRxMsg_t));
     ReqSecAccessHandlerPool = le_mem_CreatePool("SecAccessReqHandlerPool",
             sizeof(taf_SecAccessReqHandler_t));
 
     // Create reference maps
     SvcRefMap = le_ref_CreateMap("SecuritySvcRefMap", DEFAULT_SVC_REF_CNT);
+    RxSesTypeRefMap = le_ref_CreateMap("SesTypeRxMsgRefMap", DEFAULT_RX_MSG_REF_CNT);
+    ReqSesTypeHandlerRefMap = le_ref_CreateMap("SesTypeReqHandlerRefMap",
+            DEFAULT_RX_HANDLER_REF_CNT);
+    SesChangeRefMap = le_ref_CreateMap("SesChangeRefMap", DEFAULT_RX_MSG_REF_CNT);
+    SesChangeHandlerRefMap = le_ref_CreateMap("SesChangeHandlerRefMap",
+            DEFAULT_RX_HANDLER_REF_CNT);
     RxSecAccessMsgRefMap = le_ref_CreateMap("SecAccessRxMsgRefMap", DEFAULT_RX_MSG_REF_CNT);
     ReqSecAccessHandlerRefMap = le_ref_CreateMap("SecAccessReqHandlerRefMap",
             DEFAULT_RX_HANDLER_REF_CNT);
 
-    // Create event and add the event handler.
+    // Create an event and add the event handler for session control.
+    SesTypeEvent = le_event_CreateIdWithRefCounting("SesTypeEvent");
+    SesTypeEventHandlerRef = le_event_AddHandler("SesTypeEventHandlerRef", SesTypeEvent,
+            taf_SecuritySvr::RxSesCtrlEventHandler);
+
+    // Create an event and add the event handler for session change.
+    SesChangeEvent = le_event_CreateIdWithRefCounting("SesChangeEvent");
+    SesChangeEventHandlerRef = le_event_AddHandler("SesChangeEventHandlerRef", SesChangeEvent,
+            taf_SecuritySvr::SesChangeEventHandler);
+
+    // Create an event and add the event handler for security access.
     SecAccessEvent = le_event_CreateIdWithRefCounting("SecAccessEvent");
     SecAccessEventHandlerRef = le_event_AddHandler("SecAccessEventHandlerRef", SecAccessEvent,
             taf_SecuritySvr::RxSecAccessEventHandler);
@@ -631,6 +1227,8 @@ void taf_SecuritySvr::Init()
     le_msg_AddServiceCloseHandler(taf_diagSecurity_GetServiceRef(), OnClientDisconnection, NULL);
 
     auto& backend = taf_DiagBackend::GetInstance();
+    backend.RegisterUdsService(reqSesCtrlSvcId, this);
+    backend.RegisterUdsService(sessionChangeId, this);
     backend.RegisterUdsService(reqSecAccessSvcId, this);
 
     LE_INFO("Diag Security Service started!");

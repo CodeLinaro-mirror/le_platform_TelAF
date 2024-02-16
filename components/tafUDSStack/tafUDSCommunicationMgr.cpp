@@ -104,9 +104,43 @@ void UdsCommunicationMgr::S3TimeoutHandler
 )
 {
     auto& udsCmMgr = UdsCommunicationMgr::GetInstance();
-    LE_INFO("P3 time out");
+    LE_INFO("Session time out");
 
+    // copy the previous session type as old session locally.
+    taf_SessionType_t oldSessionType = udsCmMgr.SessionType;
+
+    // Change the session type as default since Session time out.
     udsCmMgr.SessionType = DEFAULT_SESSION;
+
+    LE_DEBUG("Notify session change since session time out and session changed to Default type!");
+    if (oldSessionType != udsCmMgr.SessionType)
+    {
+        // Indicate session change to the application.
+        taf_doip_DiagMsg_t sesChangeMsg;
+        if(udsCmMgr.udsIndicationHandler.safeRef == NULL)
+        {
+            LE_ERROR("Not find handler to notify session change");
+            return;
+        }
+
+        taf_UDSIndicationHandler_t* udsHandler =
+                (taf_UDSIndicationHandler_t*)le_ref_Lookup(udsCmMgr.udsHandlerRefMap,
+                        udsCmMgr.udsIndicationHandler.safeRef);
+
+        if(udsHandler == NULL || udsHandler->funcPtr == NULL)
+        {
+            LE_ERROR("Not find handler to notify session change");
+            return;
+        }
+
+        udsCmMgr.sesChangeBuf[0] = udsCmMgr.sesChangeId;
+        udsCmMgr.sesChangeBuf[1] = oldSessionType;
+        udsCmMgr.sesChangeBuf[2] = udsCmMgr.SessionType;
+        sesChangeMsg.dataPtr = udsCmMgr.sesChangeBuf;
+        sesChangeMsg.dataLen = UDS_SESSION_CHANGE_DATA_SIZE;
+        udsHandler->funcPtr(&(udsCmMgr.addrInfo), &sesChangeMsg, TAF_DOIP_RESULT_OK,
+                udsHandler->ctxPtr);
+    }
 }
 
 static taf_doip_PowerMode_t PowerModeQueryHandler
@@ -543,21 +577,21 @@ le_result_t UdsCommunicationMgr::IndicateWriteDIDResp
 }
 
 /**
- * Send Session control response message.
+ * Indicate received SessionCtrl message to Diag service.
  */
-le_result_t UdsCommunicationMgr::SessionCtrlResp
+le_result_t UdsCommunicationMgr::IndicateSessionCtrlReq
 (
-    taf_doip_AddrInfo_t*  addrInfoPtr
+    taf_doip_AddrInfo_t* addrInfoPtr,
+    bool* isInternalHandle
 )
 {
-    LE_DEBUG("SessionCtrlResp");
+    LE_DEBUG("IndicateSessionCtrlReq");
 
     // received service ID
     uint8_t sid = recvBuf[0];
-    taf_SessionType_t newSessionType;
 
     // Check the pointer.
-    if(addrInfoPtr == NULL)
+    if(addrInfoPtr == NULL || isInternalHandle == NULL)
     {
         LE_ERROR("Null pointer");
         return LE_FAULT;
@@ -567,13 +601,15 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
     if(recvDataLen > UDS_DATA_SIZE)
     {
         LE_DEBUG("recvDataLen is more than the UDS_DATA_SIZE.");
+        *isInternalHandle = true;
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
     // Check negative err code for minimum request msg length
     if(recvDataLen < UDS_SESSION_CTRL_REQ_MIN_LEN)
     {
-        LE_DEBUG("recvDataLen is less than the session control request msg minimum length.");
+        LE_DEBUG("recvDataLen is less than the SessionCtrl request msg minimum length.");
+        *isInternalHandle = true;
         return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
     }
 
@@ -593,52 +629,17 @@ le_result_t UdsCommunicationMgr::SessionCtrlResp
             break;
         default:
             LE_DEBUG("Requested session type is not supported");
+            *isInternalHandle = true;
             return SendNRC(sid, SUBFUNCTION_NOT_SUPPORTED, addrInfoPtr);
     }
 
-    newSessionType = (taf_SessionType_t)(recvBuf[1] & 0x7F);
+    // copy addressInfo localy to use while sending session change indication.
+    addrInfo.sa = addrInfoPtr->sa;
+    addrInfo.ta = addrInfoPtr->ta;
+    addrInfo.taType = addrInfoPtr->taType;
 
-    if(SessionType != newSessionType)
-    {
-        // Session switched to default session.
-        if(newSessionType == DEFAULT_SESSION)
-        {
-            LE_DEBUG("Session switched to default, stop s3 timer");
-            le_timer_Stop(s3TimerRef);
-        }
-        //Session switched to non-default session.
-        else
-        {
-            LE_DEBUG("Session switched to non-default, start s3 timer");
-            if(le_timer_IsRunning(s3TimerRef))
-                le_timer_Restart(s3TimerRef);
-            else
-                le_timer_Start(s3TimerRef);
-        }
-
-        //Non default session to other session.
-        if(SessionType != DEFAULT_SESSION)
-        {
-            reqSeedLevel = 0;
-            securityLevel = 0;
-            LE_DEBUG("Session switched, reset the security level");
-        }
-    }
-
-    SessionType = newSessionType;
-
-    // Fill the response data
-    sendBuf[0] = SESSION_CONTROL_RESPONSE_ID;
-    sendBuf[1] = recvBuf[1] & 0x7F;
-    sendBuf[2] = (UDS_P2_SERVER & 0xff00) >> 8;
-    sendBuf[3] = UDS_P2_SERVER & 0xff;
-    sendBuf[4] = (UDS_P2_STAR_SERVER & 0xff00) >> 8;
-    sendBuf[5] = UDS_P2_STAR_SERVER & 0xff;
-    sendDataLen = UDS_SESSION_CTRL_RESP_LEN;
-
-    //Send positive response
-    SendData(addrInfoPtr);
-
+    //Will send indication to the diag service
+    *isInternalHandle = false;
     return LE_OK;
 }
 
@@ -1231,12 +1232,19 @@ void UdsCommunicationMgr::DiagIndicationHandler
 
     if (result == TAF_DOIP_RESULT_SA_DEREGISTERED)
     {
-        LE_INFO("Disconnected, stop timer");
-        //Stop s3 timer
+        LE_INFO("Disconnected, stopped the running timer");
+
+        // Stop s3 timer
         if(le_timer_IsRunning(udsCmMgr.s3TimerRef))
+        {
+            LE_DEBUG("stop s3 running timer");
             le_timer_Stop(udsCmMgr.s3TimerRef);
-        //Stop p2 start timer
+        }
+
+        // Stop p2 timer
+        LE_DEBUG("stop P2 timer");
         le_timer_Stop(udsCmMgr.p2StarTimerRef);
+
         udsCmMgr.readyToRecvData = true;
         udsCmMgr.isXferActive = false;
         return;
@@ -1283,9 +1291,9 @@ void UdsCommunicationMgr::DiagIndicationHandler
     {
         case SESSION_CONTROL_REQUEST_ID:  // 0x10
         {
-            // Check NRC and Handle it internally and then response to client.
-            ret = udsCmMgr.SessionCtrlResp(addrInfoPtr);
-            isInternalHandle = true;
+            // Check NRC and then send indication to TelAf diag service if necessary for Session
+            // control request msg.
+            ret = udsCmMgr.IndicateSessionCtrlReq(addrInfoPtr, &isInternalHandle);
         }
         break;
         case ECU_RESET_REQUEST_ID:  // 0x11
@@ -1388,6 +1396,51 @@ void UdsCommunicationMgr::DiagIndicationHandler
 }
 
 /**
+ * Session change timer setting
+*/
+void UdsCommunicationMgr::SesChangeTimer
+(
+)
+{
+    auto& udsCmMgr = UdsCommunicationMgr::GetInstance();
+    LE_DEBUG("SesChangeTimer");
+
+    if (udsCmMgr.recvBuf[0] == SESSION_CONTROL_REQUEST_ID)
+    {
+        taf_SessionType_t newSessionType;
+
+        newSessionType = (taf_SessionType_t)(udsCmMgr.recvBuf[1] & 0x7F);
+
+        if(udsCmMgr.SessionType != newSessionType)
+        {
+            // Session switched to default session.
+            if(newSessionType == DEFAULT_SESSION)
+            {
+                if(le_timer_IsRunning(udsCmMgr.s3TimerRef))
+                    le_timer_Stop(udsCmMgr.s3TimerRef);
+            }
+            //Session switched to non-default session.
+            else
+            {
+                if(le_timer_IsRunning(udsCmMgr.s3TimerRef))
+                    le_timer_Restart(udsCmMgr.s3TimerRef);
+                else
+                    le_timer_Start(udsCmMgr.s3TimerRef);
+            }
+
+            //Non default session to other session.
+            if(udsCmMgr.SessionType != DEFAULT_SESSION)
+            {
+                udsCmMgr.reqSeedLevel = 0;
+                udsCmMgr.securityLevel = 0;
+                LE_DEBUG("Session switched, reset the security level");
+            }
+        }
+    }
+}
+
+
+/**
  * Receive confirmation message from DoIP.
  */
 void UdsCommunicationMgr::DiagConfirmHandler
@@ -1400,6 +1453,12 @@ void UdsCommunicationMgr::DiagConfirmHandler
     auto& udsCmMgr = UdsCommunicationMgr::GetInstance();
 
     LE_DEBUG("Receive doip confirmation, result is %d", result);
+
+    // If service response is session control type then start timer for Non-default session.
+    if (udsCmMgr.recvBuf[0] == SESSION_CONTROL_REQUEST_ID)
+    {
+        udsCmMgr.SesChangeTimer();
+    }
 
     if (result == TAF_DOIP_RESULT_OK)
     {
@@ -1492,6 +1551,9 @@ le_result_t UdsCommunicationMgr::SendUDSResp
     //Send UDS response according to the service id.
     switch(serviceId)
     {
+        case SESSION_CONTROL_REQUEST_ID:
+            ret = SessionCtrlResp(serviceId, err);
+        break;
         case ECU_RESET_REQUEST_ID:
             ret = ECUResetResp(serviceId, err);
         break;
@@ -1539,6 +1601,76 @@ le_result_t UdsCommunicationMgr::SendUDSResp
     if (ret == LE_OK)
     {
         LE_DEBUG("Requested Diagnostic message response sent.");
+    }
+
+    return LE_OK;
+}
+
+/**
+ * Check error code and Pack SessionCtrlResp message to send to Diag client/tool.
+ */
+le_result_t UdsCommunicationMgr::SessionCtrlResp
+(
+    uint8_t serviceId,
+    uint8_t err
+)
+{
+    LE_INFO("SessionCtrlResp");
+
+    if (POSITIVE_RESPONSE != err)
+    {
+        LE_DEBUG("Error code reported from Diag service");
+        SetNRC(serviceId, err);
+        return LE_OK;
+    }
+
+    taf_SessionType_t oldSessionType;
+    taf_SessionType_t newSessionType;
+
+    newSessionType = (taf_SessionType_t)(recvBuf[1] & 0x7F);
+
+    // copy the previous session type as old session locally.
+    oldSessionType = SessionType;
+
+    // change the session type as requested and maintain it in stack
+    SessionType = newSessionType;
+
+    // Fill the response data to send the session response msg to DTool
+    sendBuf[0] = SESSION_CONTROL_RESPONSE_ID;
+    sendBuf[1] = recvBuf[1] & 0x7F;
+    sendBuf[2] = (UDS_P2_SERVER & 0xff00) >> 8;
+    sendBuf[3] = UDS_P2_SERVER & 0xff;
+    sendBuf[4] = (UDS_P2_STAR_SERVER & 0xff00) >> 8;
+    sendBuf[5] = UDS_P2_STAR_SERVER & 0xff;
+    sendDataLen = UDS_SESSION_CTRL_RESP_LEN;
+
+    // Notify session change to the application.
+    if (oldSessionType != newSessionType)
+    {
+        taf_doip_DiagMsg_t sesChangeMsg;
+        if(udsIndicationHandler.safeRef == NULL)
+        {
+            LE_ERROR("Not find handler to notify session change");
+            return LE_OK;
+        }
+
+        taf_UDSIndicationHandler_t* udsHandler =
+                (taf_UDSIndicationHandler_t*)le_ref_Lookup(udsHandlerRefMap,
+                        udsIndicationHandler.safeRef);
+
+        if(udsHandler == NULL || udsHandler->funcPtr == NULL)
+        {
+            LE_ERROR("Not find handler to notify session change!");
+            return LE_OK;
+        }
+
+        LE_DEBUG("Notify session change to application!");
+        sesChangeBuf[0] = sesChangeId;
+        sesChangeBuf[1] = oldSessionType;
+        sesChangeBuf[2] = SessionType;
+        sesChangeMsg.dataPtr = sesChangeBuf;
+        sesChangeMsg.dataLen = UDS_SESSION_CHANGE_DATA_SIZE;
+        udsHandler->funcPtr(&addrInfo, &sesChangeMsg, TAF_DOIP_RESULT_OK, udsHandler->ctxPtr);
     }
 
     return LE_OK;

@@ -76,6 +76,7 @@ namespace uds{
     // Session control service (0x10)
     #define UDS_SESSION_CTRL_REQ_MIN_LEN 2
     #define UDS_SESSION_CTRL_RESP_LEN 6
+    #define UDS_SESSION_CHANGE_DATA_SIZE 3
 
     // ECUReset service (0x11)
     #define UDS_ECU_RESET_REQ_MIN_LEN 2
@@ -239,6 +240,8 @@ namespace uds{
 
         private:
             // Indicate recevied service message to Diag service if necessary.
+            le_result_t IndicateSessionCtrlReq(taf_doip_AddrInfo_t* addrInfoPtr,
+                    bool* isInternalHandle);    // SessionCtrl service (0x10).
             le_result_t IndicateECUResetReq(taf_doip_AddrInfo_t* addrInfoPtr,
                     bool* isInternalHandle);    // ECUReset service (0x11).
             le_result_t IndicateReadDIDResp(taf_doip_AddrInfo_t* addrInfoPtr,
@@ -257,7 +260,6 @@ namespace uds{
                     bool* isInternalHandle);    // RequestTransferExit service (0x37).
 
             // Internally check and Respond UDS message to uds client (through DoIP stack).
-            le_result_t SessionCtrlResp(taf_doip_AddrInfo_t* addrInfoPtr);    // (0x10).
             le_result_t ReadDTCInfoResp(taf_doip_AddrInfo_t* addrInfoPtr);    // (0x19).
             le_result_t TesterPresentResp(taf_doip_AddrInfo_t*  addrInfoPtr);    // (0x3E)
 
@@ -265,6 +267,7 @@ namespace uds{
             uint8_t readDTCByStatusMask(uint8_t statusMask);
 
             // Send UDS response message from Diag service.
+            le_result_t SessionCtrlResp(uint8_t serviceId, uint8_t err);
             le_result_t ECUResetResp(uint8_t serviceId, uint8_t err);
             le_result_t ReadDIDResp(uint8_t serviceId, const uint8_t* dataPtr,
                     uint16_t dataSize, uint8_t err);
@@ -278,6 +281,8 @@ namespace uds{
             le_result_t ReqXferExitResp(uint8_t serviceId, uint8_t err);
             le_result_t ReqFileXferResp(uint8_t serviceId, uint8_t err);
 
+            void SesChangeTimer();
+
             // update status parameter.
             bool isXferActive = false;
 
@@ -285,6 +290,11 @@ namespace uds{
             uint8_t reqSeedLevel = 0;
             // Security access level.
             uint8_t securityLevel = 0;
+
+            //session change parameter.
+            uint8_t sesChangeId = 0xFF;
+            taf_doip_AddrInfo_t addrInfo;
+            uint8_t sesChangeBuf[UDS_SESSION_CHANGE_DATA_SIZE];
 
             taf_doip_Ref_t  DoipEntityRef = NULL;
             taf_doip_DiagIndicationHandlerRef_t IndicationRef = NULL;

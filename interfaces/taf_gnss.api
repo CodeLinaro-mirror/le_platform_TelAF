@@ -244,9 +244,9 @@
  * @verbatim
    taf_gnss_ConstellationBitMask_t constellationMask;
    constellationMask = TAF_GNSS_CONSTELLATION_GPS;
-   if(taf_gnss_SetConstellation(constellationMask)== LE_OK)
+   if(taf_gnss_SetConstellation(constellationMask)== LE_FAULT)
    {
-     // Process after successfully blacklisting GPS.
+     // GPS constellation and SVs cannot be blacklisted.
    }
 
    constellationMask = TAF_GNSS_CONSTELLATION_SBAS | TAF_GNSS_CONSTELLATION_BEIDOU;
@@ -259,12 +259,12 @@
  *
  * @warning Some constellation types are unsupported depending on the platform.
  *
- * The taf_gnss_GetConstellation() function gets the enabled GNSS constellation(s).
+ * The taf_gnss_GetConstellation() function gets the blacklisted GNSS constellation(s).
  * @verbatim
    taf_gnss_ConstellationBitMask_t constellationMask;
    if(taf_gnss_GetConstellation(&constellationMask)== LE_OK)
    {
-     // Process after successfully getting the constellation type.
+     // Process after successfully getting the blacklisted constellation type.
    }
    @endverbatim
  *
@@ -1678,6 +1678,8 @@ FUNCTION le_result_t Stop
  * @warning Some constellation types are unsupported depending on the platform.
  *
  * @warning The settings are platform dependent.
+ *
+ * @note GPS constellation and SVs cannot be blacklisted.
 */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetConstellation
@@ -2500,7 +2502,7 @@ FUNCTION le_result_t GetSatellitesInfo
 FUNCTION le_result_t GetTimeAccuracy
 (
     Sample positionSampleRef  IN,       ///< Position sample reference.
-    uint32 timeAccuracy OUT             ///< Time accuracy in milliseconds. For PVT report from SPE
+    uint32 timeAccuracy OUT             ///< Time accuracy in nanoseconds. For PVT report from SPE
                                         ///  engine, confidence level is at 99%.
 );
 

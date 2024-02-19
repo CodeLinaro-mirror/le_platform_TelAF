@@ -653,13 +653,19 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 if(locationInfo->getVelocityEastNorthUp(gnss.mVerticalSpeed) ==
                         telux::common::Status::SUCCESS)
                 {
-                    for(auto i = 0; (unsigned)i < gnss.mVerticalSpeed.size() - 1; ++i)
+                    if(gnss.mVerticalSpeed.size() == VERTICAL_SPEED_SIZE)
                     {
-                        LocationData->vSpeed = (int32_t) (gnss.mVerticalSpeed[i]*100);
-                        LE_INFO("onDetailedEngineLocationUpdate gnss.mVerticalSpeed[%d]:"
-                                "%lf ",i,gnss.mVerticalSpeed[i]);
-                        LE_INFO("onDetailedEngineLocationUpdate LocationData->vSpeed[%d]:"
-                                "%d ",i,LocationData->vSpeed);
+                        LocationData->vSpeed = (int32_t)
+                            (gnss.mVerticalSpeed[VERTICAL_SPEED_ACCURACY_INDEX]*100);
+                        LE_INFO("onDetailedEngineLocationUpdate LocationData->vSpeed:%d ",
+                            LocationData->vSpeed);
+                        LE_INFO("onDetailedEngineLocationUpdate mVerticalSpeed:%lf ",
+                            gnss.mVerticalSpeed[gnss.mVerticalSpeed.size()-1]);
+                    }
+                    else
+                    {
+                        LocationData->vSpeed = 0;
+                        LE_INFO("mVerticalSpeed.size()!=3");
                     }
                 }
                 else
@@ -670,13 +676,19 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 if(locationInfo->getVelocityUncertaintyEastNorthUp(gnss.mVerticalSpeedAccuracy) ==
                         telux::common::Status::SUCCESS)
                 {
-                    for(auto i = 0; (unsigned)i < gnss.mVerticalSpeedAccuracy.size() - 1; ++i)
+                    if(gnss.mVerticalSpeedAccuracy.size() == VERTICAL_SPEED_SIZE)
                     {
-                        LocationData->vSpeedAccuracy =(int32_t)(gnss.mVerticalSpeedAccuracy[i]*1e+3);
-                        LE_INFO("onDetailedEngineLocationUpdate gnss.mVerticalSpeedAccuracy[%d]:"
-                                "%lf ",i, gnss.mVerticalSpeedAccuracy[i]);
-                        LE_INFO("onDetailedEngineLocationUpdate LocationData->vSpeedAccuracy[%d]:"
-                                "%d ",i, LocationData->vSpeedAccuracy);
+                        LocationData->vSpeedAccuracy = (int32_t)
+                            (gnss.mVerticalSpeedAccuracy[VERTICAL_SPEED_ACCURACY_INDEX]*1000);
+                        LE_INFO("onDetailedEngineLocationUpdate LocationData->vSpeedAccuracy:%d ",
+                             LocationData->vSpeedAccuracy);
+                        LE_INFO("onDetailedEngineLocationUpdate mVerticalSpeedAccuracy:%lf ",
+                             gnss.mVerticalSpeedAccuracy[gnss.mVerticalSpeedAccuracy.size()-1]);
+                    }
+                    else
+                    {
+                        LocationData->vSpeedAccuracy = 0;
+                        LE_INFO("mVerticalSpeedAccuracy.size()!=3");
                     }
                 }
                 else
@@ -703,7 +715,19 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                     LocationData->gpsWeek = 0;
                     LocationData->gpsTimeOfWeek = 0;
                 }
-                LocationData->timeAccuracy = locationInfo->getTimeUncMs();
+                float value = locationInfo->getTimeUncMs();
+                LE_INFO("timeAccuracy value:%lf",value);
+                if ((value * 1e+6) >= UINT32_MAX)
+                {
+                    LocationData->timeAccuracy = UINT32_MAX;
+                    LE_INFO("timeAccuracy->UINT32_MAX:%d",LocationData->timeAccuracy);
+                }
+                else
+                {
+                    // do the round off to nanosecond
+                    LocationData->timeAccuracy = (uint32_t)((uint64_t)((value*1e+7)+5))/10;
+                    LE_INFO("LocationData->timeAccuracy:%d",LocationData->timeAccuracy);
+                }
                 LocationData->positionLatency = 0;
                 LocationData->hdop = locationInfo->getHorizontalDop() *1e+3;
                 LocationData->vdop = locationInfo->getVerticalDop() * 1e+3;
@@ -2771,25 +2795,32 @@ le_result_t taf_Gnss::GetPositionState
     }
 
 
-    if (posSampleReqPtr->positionSampleNodePtr->satsUsedCount <3)
-    {
-        posSampleReqPtr->positionSampleNodePtr->fixState = TAF_GNSS_STATE_FIX_ESTIMATED;
-        LE_INFO("FixState is Estimated");
-    }
-    else if ((posSampleReqPtr->positionSampleNodePtr->satsUsedCount ==3) ||
-             ((posSampleReqPtr->positionSampleNodePtr->satsUsedCount >3) &&
-              (posSampleReqPtr->positionSampleNodePtr->altitudeValid == false))||
-             ((posSampleReqPtr->positionSampleNodePtr->satsUsedCount >3) &&
-              (posSampleReqPtr->positionSampleNodePtr->altitudeValid == true)
-                && (mAltType == TAF_GNSS_ALT_TYPE_ASSUMED)))
-    {
-        posSampleReqPtr->positionSampleNodePtr->fixState = TAF_GNSS_STATE_FIX_2D;
-        LE_INFO("FixState is 2D");
-    }
-    else
+    if (posSampleReqPtr->positionSampleNodePtr->altitudeValid == true)
     {
         posSampleReqPtr->positionSampleNodePtr->fixState = TAF_GNSS_STATE_FIX_3D;
         LE_INFO("FixState is 3D");
+    }
+    else
+    {
+         //used sv count check here as location CE's suggestion
+        if((posSampleReqPtr->positionSampleNodePtr->latitudeValid == true) &&
+                (posSampleReqPtr->positionSampleNodePtr->longitudeValid == true))
+        {
+            posSampleReqPtr->positionSampleNodePtr->fixState = TAF_GNSS_STATE_FIX_2D;
+            LE_INFO("FixState is 2D");
+        }
+        else
+        {
+            posSampleReqPtr->positionSampleNodePtr->fixState = TAF_GNSS_STATE_FIX_NO_POS;
+            LE_INFO("FixState is unknown");
+        }
+    }
+    if ((posSampleReqPtr->positionSampleNodePtr->techMaskValid == true) &&
+        ((posSampleReqPtr->positionSampleNodePtr->techMask == TAF_GNSS_LOC_SENSORS) ||
+         (posSampleReqPtr->positionSampleNodePtr->techMask == TAF_GNSS_LOC_PROPAGATED)))
+    {
+        posSampleReqPtr->positionSampleNodePtr->fixState = TAF_GNSS_STATE_FIX_ESTIMATED;
+        LE_INFO("FixState is Estimated");
     }
     *statePtr = posSampleReqPtr->positionSampleNodePtr->fixState;
 
@@ -3307,10 +3338,14 @@ le_result_t taf_Gnss::GetTimeAccuracy
 
     if (posReqPtr->positionSampleNodePtr->timeAccuracyValid)
     {
-        result = LE_OK;
         if (timeAccuracyPtr)
         {
             *timeAccuracyPtr = posReqPtr->positionSampleNodePtr->timeAccuracy;
+            if(*timeAccuracyPtr == UINT32_MAX)
+            {
+                result = LE_OUT_OF_RANGE;
+                LE_INFO("GetTimeAccuracy: LE_OUT_OF_RANGE");
+            }
         }
     }
     else
@@ -3318,7 +3353,7 @@ le_result_t taf_Gnss::GetTimeAccuracy
         result = LE_OUT_OF_RANGE;
         if (timeAccuracyPtr)
         {
-            *timeAccuracyPtr = UINT16_MAX;
+            *timeAccuracyPtr = UINT32_MAX;
         }
     }
 
@@ -6810,7 +6845,7 @@ void taf_Gnss::Init()
     memset(&mSatParams, 0, sizeof(mSatParams));
     memset(&mSatInfo, 0, sizeof(mSatInfo));
     memset(&mGnssData,0, sizeof(mGnssData));
-
+    mGnssMutexRef =  le_mutex_CreateRecursive("GnssMutex");
     status = LocationManagerInit();
     if (status != telux::common::Status::SUCCESS) {
         LE_FATAL("LocationManager not available");
@@ -6874,7 +6909,6 @@ void taf_Gnss::Init()
 
     le_msg_ServiceRef_t msgService = taf_gnss_GetServiceRef();
     le_msg_AddServiceCloseHandler(msgService, CloseEventHandler, NULL);
-    mGnssMutexRef =  le_mutex_CreateRecursive("GnssMutex");
 
     return;
 }

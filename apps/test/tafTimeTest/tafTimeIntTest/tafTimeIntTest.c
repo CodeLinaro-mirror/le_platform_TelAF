@@ -38,11 +38,11 @@
 static taf_time_TimeSourceChangeHandlerRef_t TimeSourceChangeHandlerRef = NULL;
 static taf_time_TimeValueChangeHandlerRef_t TimeValueChangeHandlerRef = NULL;
 
-//--------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
 /**
  * Print help menu to stdout and exit.
  */
-//--------------------------------------------------------------------------------------------------
+ //-------------------------------------------------------------------------------------------------
 void TimePrintHelpMenu
 (
     void
@@ -55,6 +55,10 @@ void TimePrintHelpMenu
         "SYNOPSIS:\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- help\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- get gnssTime\n"
+        "    app runProc tafTimeIntTest tafTimeIntTest -- get rtcTime\n"
+        "    app runProc tafTimeIntTest tafTimeIntTest -- set rtcTime 1688998899 1000\n"
+        "    app runProc tafTimeIntTest tafTimeIntTest -- asyncSet rtcTime 1688998899 1000\n"
+        "    app runProc tafTimeIntTest tafTimeIntTest -- asyncGet rtcTime\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- get systemTime\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- get GetTime 1\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- handler 10\n"
@@ -68,6 +72,12 @@ void TimePrintHelpMenu
         "\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- get gnssTime\n"
         "       Get time service maintained gnss time.\n"
+        "\n"
+        "    app runProc tafTimeIntTest tafTimeIntTest -- get rtcTime\n"
+        "       Get RTC time from device or VHAL.\n"
+        "\n"
+        "    app runProc tafTimeIntTest tafTimeIntTest -- set rtcTime\n"
+        "       Update rtc time with 'seconds' + 'nanose' as input.\n"
         "\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- get systemTime\n"
         "       Get system time.\n"
@@ -93,11 +103,11 @@ void TimePrintHelpMenu
 }
 
 
-//--------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
 /**
  * Handler for time source change that used by system.
  */
-//--------------------------------------------------------------------------------------------------
+ //-------------------------------------------------------------------------------------------------
 void TimeSourceChangeHandler
 (
     taf_time_TimeSources_t PreTimeSource,
@@ -108,20 +118,20 @@ void TimeSourceChangeHandler
     if (PreTimeSource == NewTimeSource)
     {
         LE_INFO("Notification - No available time source. Old %d, New %d\n",
-                                            PreTimeSource, NewTimeSource);
+            PreTimeSource, NewTimeSource);
     }
     else
     {
         LE_INFO("Notification - TimeSourceChange: Old %d, New %d\n",
-                                            PreTimeSource, NewTimeSource);
+            PreTimeSource, NewTimeSource);
     }
 }
 
-//--------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
 /**
  * Handler for time source which is using reference and registered to time service.
  */
-//--------------------------------------------------------------------------------------------------
+ //------------------------------------------------------------------------------------------------
 void TimeValueChangeHandler
 (
     taf_time_TimeSourceRef_t timeSrcRef,
@@ -132,12 +142,12 @@ void TimeValueChangeHandler
     le_result_t result;
     taf_time_TimeSpec_t time;
     LE_INFO("Reference(%p) time from notification is %"PRIu64".%"PRIu64,
-                                 timeSrcRef, sourceTime->sec, sourceTime->nanosec);
+        timeSrcRef, sourceTime->sec, sourceTime->nanosec);
 
     // Get reference system time through reference object.
     result = taf_time_GetRefSystemTime(timeSrcRef, &time);
     LE_TEST_ASSERT(result == LE_OK || result == LE_UNAVAILABLE,
-                             "taf_time_GetRefSystemTime() API.");
+        "taf_time_GetRefSystemTime() API.");
     if (result == LE_OK)
     {
         LE_INFO("Reference system time is %"PRIu64".%"PRIu64, time.sec, time.nanosec);
@@ -146,7 +156,7 @@ void TimeValueChangeHandler
     // Get reference gptp time through reference object.
     result = taf_time_GetRefGptpTime(timeSrcRef, &time);
     LE_TEST_ASSERT(result == LE_OK || result == LE_UNAVAILABLE,
-                                "taf_time_GetRefGptpTime() API.");
+        "taf_time_GetRefGptpTime() API.");
     if (result == LE_OK)
     {
         LE_INFO("Reference gptp time is %"PRIu64".%"PRIu64, time.sec, time.nanosec);
@@ -156,22 +166,22 @@ void TimeValueChangeHandler
 
 void IntTestSetSystemTime
 (
-    taf_time_TimeSpec_t *newTimePtr
+    taf_time_TimeSpec_t* newTimePtr
 )
 {
     le_result_t result;
 
     result = taf_time_SetSystemTime(newTimePtr, true);
     LE_TEST_ASSERT(result == LE_OK,
-                   "Test: taf_time_SetSystemTime() APIs.");
+        "Test: taf_time_SetSystemTime() APIs.");
     LE_INFO("Set the time to %"PRIu64".%"PRIu64, newTimePtr->sec, newTimePtr->nanosec);
 }
 
-//--------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
 /**
  * Set system time through parameter 'CLOCK_REALTIME'.
  */
-//--------------------------------------------------------------------------------------------------
+ //-------------------------------------------------------------------------------------------------
 void TestSetSystemTime
 (
     void
@@ -179,9 +189,9 @@ void TestSetSystemTime
 {
     static le_mem_PoolRef_t NewTimePool = NULL;
     le_result_t result;
-    taf_time_TimeSpec_t *newTimePtr;
+    taf_time_TimeSpec_t* newTimePtr;
     NewTimePool = le_mem_CreatePool("NewTimePool", sizeof(taf_time_TimeSpec_t));
-    newTimePtr = (taf_time_TimeSpec_t*) le_mem_ForceAlloc(NewTimePool);
+    newTimePtr = (taf_time_TimeSpec_t*)le_mem_ForceAlloc(NewTimePool);
 
     newTimePtr->sec = 1667788990;
     newTimePtr->nanosec = 10000;
@@ -196,11 +206,28 @@ void TestSetSystemTime
     LE_INFO("Set the time to %"PRIu64".%"PRIu64, newTimePtr->sec, newTimePtr->nanosec);
 }
 
-//--------------------------------------------------------------------------------------------------
+void TestSetTimeToRtc(taf_time_TimeSpec_t* newTime)
+{
+    le_result_t result;
+    result = taf_time_SetTimeToRtc(newTime);
+    LE_TEST_ASSERT((result == LE_OK || result == LE_UNSUPPORTED),
+        "Test: taf_time_SetTimeToRtc() APIs.");
+    if (result == LE_OK)
+    {
+        LE_INFO("Set time %"PRIu64".%"PRIu64" to RTC\n", newTime->sec, newTime->nanosec);
+    }
+    else
+    {
+        LE_INFO("Setting time to read-only RTC is not supported\n");
+    }
+}
+
+
+//-------------------------------------------------------------------------------------------------
 /**
  * Get system time through parameter 'CLOCK_REALTIME'.
  */
-//--------------------------------------------------------------------------------------------------
+ //-------------------------------------------------------------------------------------------------
 void TestGetSystemTime
 (
     void
@@ -215,11 +242,11 @@ void TestGetSystemTime
     LE_INFO("System time is %"PRIu64".%"PRIu64, systemTime.sec, systemTime.nanosec);
 }
 
-//--------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
 /**
  * Get GNSS time that is maintained in time service.
  */
-//--------------------------------------------------------------------------------------------------
+ //------------------------------------------------------------------------------------------------
 void TestGetGnssTime
 (
     void
@@ -230,8 +257,8 @@ void TestGetGnssTime
 
     //GNSS not ready will return not found. Here just verify the API
     result = taf_time_GetGnssTime(&gnssTime);
-    LE_TEST_ASSERT((result == LE_OK||result == LE_UNAVAILABLE),
-                        "Test: taf_time_GetGnssTime() APIs.");
+    LE_TEST_ASSERT((result == LE_OK || result == LE_UNAVAILABLE),
+        "Test: taf_time_GetGnssTime() APIs.");
     if (result == LE_OK)
     {
         LE_INFO("GNSS time is %"PRIu64".%"PRIu64, gnssTime.sec, gnssTime.nanosec);
@@ -243,11 +270,32 @@ void TestGetGnssTime
     }
 }
 
-//--------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get RTC time from device or VHAL interface.
+ */
+ //------------------------------------------------------------------------------------------------
+void TestGetRtcTime
+(
+    void
+)
+{
+    le_result_t result;
+    taf_time_TimeSpec_t rtcTime;
+
+    result = taf_time_GetRtcTime(&rtcTime);
+    LE_TEST_ASSERT(result == LE_OK,
+        "Test: taf_time_GetRtcTime() APIs.");
+    LE_INFO("RTC time is %"PRIu64".%"PRIu64, rtcTime.sec, rtcTime.nanosec);
+}
+
+//-------------------------------------------------------------------------------------------------
+
+//-------------------------------------------------------------------------------------------------
 /**
  * Get time through time source ID and return related reference.
  */
-//--------------------------------------------------------------------------------------------------
+ //------------------------------------------------------------------------------------------------
 void TestGetSourceRef
 (
     void
@@ -264,7 +312,7 @@ void TestGetSourceRef
     // Get time from a specify time source and related Reference.
     result = taf_time_GetTime(timeSrcRef, &time);
     LE_TEST_ASSERT(result == LE_OK || result == LE_UNAVAILABLE,
-                               "taf_time_GetTime() API.");
+        "taf_time_GetTime() API.");
     if (result == LE_OK)
     {
         LE_INFO("Reference %d time is %"PRIu64".%"PRIu64, sourceId, time.sec, time.nanosec);
@@ -274,7 +322,7 @@ void TestGetSourceRef
     // Get reference system time through reference object.
     result = taf_time_GetRefSystemTime(timeSrcRef, &time);
     LE_TEST_ASSERT(result == LE_OK || result == LE_UNAVAILABLE,
-                             "taf_time_GetRefSystemTime() API.");
+        "taf_time_GetRefSystemTime() API.");
     if (result == LE_OK)
     {
         LE_INFO("Reference system time is %"PRIu64".%"PRIu64, time.sec, time.nanosec);
@@ -283,7 +331,7 @@ void TestGetSourceRef
     // Get reference gptp time through reference object.
     result = taf_time_GetRefGptpTime(timeSrcRef, &time);
     LE_TEST_ASSERT(result == LE_OK || result == LE_UNAVAILABLE,
-                                "taf_time_GetRefGptpTime() API.");
+        "taf_time_GetRefGptpTime() API.");
     if (result == LE_OK)
     {
         LE_INFO("Reference gptp time is %"PRIu64".%"PRIu64, time.sec, time.nanosec);
@@ -297,11 +345,11 @@ void TestGetSourceRef
     }
 }
 
-//--------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
 /**
  * This thread is created for adding handlers for time source status change notification.
  */
-//--------------------------------------------------------------------------------------------------
+ //------------------------------------------------------------------------------------------------
 void* TimeHandlerTestThread
 (
     void* contextPtr ///< [IN] Thread context.
@@ -321,11 +369,11 @@ void* TimeHandlerTestThread
     return NULL;
 }
 
-//--------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
 /**
  * This thread is created for adding handlers for testing reference time source notification.
  */
-//--------------------------------------------------------------------------------------------------
+ //------------------------------------------------------------------------------------------------
 void* TimeValueChangeHandlerTestThread
 (
     void* contextPtr ///< [IN] Thread context.
@@ -338,7 +386,7 @@ void* TimeValueChangeHandlerTestThread
 
     // Register Reference time source got change Handler.
     TimeValueChangeHandlerRef = taf_time_AddTimeValueChangeHandler(sourceId,
-              (taf_time_TimeValueChangeHandlerFunc_t)TimeValueChangeHandler, NULL);
+        (taf_time_TimeValueChangeHandlerFunc_t)TimeValueChangeHandler, NULL);
     LE_TEST_OK(TimeValueChangeHandlerRef != NULL, "taf_time_AddTimeValueChangeHandler() - OK");
 
     le_sem_Post((le_sem_Ref_t)contextPtr);
@@ -347,11 +395,11 @@ void* TimeValueChangeHandlerTestThread
     return NULL;
 }
 
-//--------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
 /**
  * Remove handlers for time source status change notification.
  */
-//--------------------------------------------------------------------------------------------------
+ //------------------------------------------------------------------------------------------------
 void RemoveTestHandler
 (
     void
@@ -362,11 +410,11 @@ void RemoveTestHandler
     LE_TEST_OK(true, "taf_time_RemoveTimeSourceChangeHandler - OK");
 }
 
-//--------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
 /**
  * Remove handlers for reference time source.
  */
-//--------------------------------------------------------------------------------------------------
+ //------------------------------------------------------------------------------------------------
 void RemoveRefTimeTestHandler
 (
     void
@@ -377,11 +425,11 @@ void RemoveRefTimeTestHandler
     LE_TEST_OK(true, "taf_time_RemoveTimeValueChangeHandler - OK");
 }
 
-//--------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
 /**
  * Create thread for test handler.
  */
-//--------------------------------------------------------------------------------------------------
+ //------------------------------------------------------------------------------------------------
 void CreateTimeHandlerTestThread
 (
     void
@@ -389,18 +437,18 @@ void CreateTimeHandlerTestThread
 {
     le_sem_Ref_t semaphore = le_sem_Create("timeSemaphore", 0);
     le_thread_Ref_t threadRef = le_thread_Create("TimeSrcChangeTh",
-                                TimeHandlerTestThread, (void*)semaphore);
+        TimeHandlerTestThread, (void*)semaphore);
     le_thread_Start(threadRef);
 
     le_sem_Wait(semaphore);
     le_sem_Delete(semaphore);
 }
 
-//--------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
 /**
  * Create thread for test handler.
  */
-//--------------------------------------------------------------------------------------------------
+ //------------------------------------------------------------------------------------------------
 void CreateTimeValueChangeHandlerTestThread
 (
     long time
@@ -408,7 +456,7 @@ void CreateTimeValueChangeHandlerTestThread
 {
     le_sem_Ref_t semaphore = le_sem_Create("timeSemaphore", 0);
     le_thread_Ref_t threadRef = le_thread_Create("TimeSrcChangeTh",
-                                TimeValueChangeHandlerTestThread, (void*)semaphore);
+        TimeValueChangeHandlerTestThread, (void*)semaphore);
     le_thread_Start(threadRef);
 
     le_thread_Sleep(time);
@@ -416,12 +464,12 @@ void CreateTimeValueChangeHandlerTestThread
     le_sem_Delete(semaphore);
 }
 
-//--------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
 /**
  * This function checks the number of input parameters, if it is less than argNum, then it prints
  * the help menu.
  */
-//--------------------------------------------------------------------------------------------------
+ //------------------------------------------------------------------------------------------------
 void TimeCheckArgs
 (
     uint8_t argNum ///< [IN] The number of arguments.
@@ -432,6 +480,53 @@ void TimeCheckArgs
         TimePrintHelpMenu();
     }
 }
+
+
+
+static void getRTCTimeAsync(const taf_time_TimeSpec_t* timeVal,
+    le_result_t responseState, void* contextPtr)
+{
+    LE_TEST_ASSERT(responseState == LE_OK, "Test: getRTCTimeAsync response mode is LE_OK");
+    LE_INFO("Reference system time is %"PRIu64".%"PRIu64, timeVal->sec, timeVal->nanosec);
+}
+
+void* TestGetRTCAsync(void* ctxPtr)
+{
+    LE_INFO("TestDrv: %s", __FUNCTION__);
+    taf_time_ConnectService();
+    le_result_t res = taf_time_GetRtcTimeReqAsync(getRTCTimeAsync, NULL);
+    LE_TEST_OK(res == LE_OK, "----success----");
+    le_event_RunLoop();
+    return NULL;
+}
+
+void CreateGetRtcVhalTestThread
+(
+    void
+)
+{
+    le_thread_Ref_t threadRef = le_thread_Create("TestGetRTCAsyncThread",
+        TestGetRTCAsync, NULL);
+    le_thread_Start(threadRef);
+}
+
+void AsyncGetCmdTest(void)
+{
+    TimeCheckArgs(2);
+    const char* cmd = le_arg_GetArg(1);
+    if (strncmp(cmd, "rtcTime", strlen(cmd)) == 0)
+    {
+        CreateGetRtcVhalTestThread();
+    }
+    else
+    {
+        TimePrintHelpMenu();
+    }
+}
+
+
+
+
 void TimeGetCmdTest(void)
 {
     TimeCheckArgs(2);
@@ -444,6 +539,10 @@ void TimeGetCmdTest(void)
     {
         TestGetGnssTime();
     }
+    else if (strncmp(cmd, "rtcTime", strlen("rtcTime")) == 0)
+    {
+        TestGetRtcTime();
+    }
     else if (strncmp(cmd, "GetTime", strlen(cmd)) == 0)
     {
         TimeCheckArgs(3);
@@ -453,16 +552,16 @@ void TimeGetCmdTest(void)
 void TimeSetCmdTest(void)
 {
     static le_mem_PoolRef_t NewTimePool = NULL;
-    taf_time_TimeSpec_t *newTimePtr;
+    taf_time_TimeSpec_t* newTimePtr;
 
     TimeCheckArgs(2);
-    const char*  cmd = le_arg_GetArg(1);
+    const char* cmd = le_arg_GetArg(1);
 
     if (strncmp(cmd, "time", strlen(cmd)) == 0)
     {
         TimeCheckArgs(4);
         NewTimePool = le_mem_CreatePool("NewTimePool", sizeof(taf_time_TimeSpec_t));
-        newTimePtr = (taf_time_TimeSpec_t*) le_mem_ForceAlloc(NewTimePool);
+        newTimePtr = (taf_time_TimeSpec_t*)le_mem_ForceAlloc(NewTimePool);
 
         newTimePtr->sec = strtol(le_arg_GetArg(2), NULL, 10);;
         newTimePtr->nanosec = strtol(le_arg_GetArg(3), NULL, 10);;
@@ -470,12 +569,23 @@ void TimeSetCmdTest(void)
 
         IntTestSetSystemTime(newTimePtr);
     }
+    else if (strncmp(cmd, "rtcTime", strlen(cmd)) == 0)
+    {
+        TimeCheckArgs(4);
+        NewTimePool = le_mem_CreatePool("NewTimePool", sizeof(taf_time_TimeSpec_t));
+        newTimePtr = (taf_time_TimeSpec_t*)le_mem_ForceAlloc(NewTimePool);
+        newTimePtr->sec = strtol(le_arg_GetArg(2), NULL, 10);;
+        newTimePtr->nanosec = strtol(le_arg_GetArg(3), NULL, 10);;
+        LE_INFO("======== Test set time to RTC ========\n");
+
+        TestSetTimeToRtc(newTimePtr);
+    }
     else if (strncmp(cmd, "timeLoop", strlen(cmd)) == 0)
     {
         le_result_t result;
         TimeCheckArgs(5);
         NewTimePool = le_mem_CreatePool("NewTimePool", sizeof(taf_time_TimeSpec_t));
-        newTimePtr = (taf_time_TimeSpec_t*) le_mem_ForceAlloc(NewTimePool);
+        newTimePtr = (taf_time_TimeSpec_t*)le_mem_ForceAlloc(NewTimePool);
 
         newTimePtr->sec = strtol(le_arg_GetArg(2), NULL, 10);;
         newTimePtr->nanosec = strtol(le_arg_GetArg(3), NULL, 10);;
@@ -513,7 +623,6 @@ void TimeHandlerTest(void)
     le_thread_Sleep(time);
 
     RemoveTestHandler();
-
 }
 
 void TimeValueChangeHandlerTest(void)
@@ -527,13 +636,70 @@ void TimeValueChangeHandlerTest(void)
     RemoveRefTimeTestHandler();
 }
 
-//--------------------------------------------------------------------------------------------------
-/**
- * Component initialization.
- */
-//--------------------------------------------------------------------------------------------------
+void setRTCTimeAsync(le_result_t responseState, void* contextPtr)
+{
+    LE_TEST_ASSERT(responseState == LE_OK, "Test: setRTCTimeAsync response mode is LE_OK");
+}
+
+void* TestSetRTCAsync(void* cxtptr)
+{
+        LE_INFO("TestDrv: %s", __FUNCTION__);
+        taf_time_ConnectService();
+        static le_mem_PoolRef_t NewTimePool = NULL;
+        taf_time_TimeSpec_t* newTimePtr;
+        NewTimePool = le_mem_CreatePool("TimePool", sizeof(taf_time_TimeSpec_t));
+        newTimePtr = (taf_time_TimeSpec_t*)le_mem_ForceAlloc(NewTimePool);
+        newTimePtr->sec = strtol(le_arg_GetArg(2), NULL, 10);;
+        newTimePtr->nanosec = strtol(le_arg_GetArg(3), NULL, 10);;
+        le_result_t res = taf_time_SetRtcTimeReqAsync(newTimePtr, setRTCTimeAsync, NULL);
+        LE_TEST_ASSERT(res == LE_OK, "Test: taf_time_SetRtcTimeReqAsync() APIs - true");
+
+
+        if (res == LE_OK)
+        {
+            LE_INFO("----success----");
+        }
+        else
+        {
+            LE_ERROR("request failed");
+        }
+        le_event_RunLoop();
+        return NULL;
+}
+
+void CreateSetRtcVhalTestThread
+(
+    void
+)
+{
+    le_thread_Ref_t threadRef = le_thread_Create("TestSetRTCAsyncThread",
+        TestSetRTCAsync, NULL);
+    le_thread_Start(threadRef);
+}
+
+void AsyncSetCmdTest(void)
+{
+    TimeCheckArgs(2);
+    const char* cmd = le_arg_GetArg(1);
+    if (strncmp(cmd, "rtcTime", strlen(cmd)) == 0)
+    {
+        CreateSetRtcVhalTestThread();
+
+    }
+    else
+    {
+        TimePrintHelpMenu();
+    }
+}
+
+    //--------------------------------------------------------------------------------------------------
+    /**
+     * Component initialization.
+     */
+     //--------------------------------------------------------------------------------------------------
 COMPONENT_INIT
 {
+    LE_INFO("*** Checking for Console args ***");
     LE_TEST_PLAN(LE_TEST_NO_PLAN);
 
     TimeCheckArgs(1);
@@ -557,10 +723,17 @@ COMPONENT_INIT
     {
         TimeValueChangeHandlerTest();
     }
+    else if (strncmp(cmd, "asyncGet", strlen(cmd)) == 0)
+    {
+        AsyncGetCmdTest();
+    }
+    else if (strncmp(cmd, "asyncSet", strlen(cmd)) == 0)
+    {
+        AsyncSetCmdTest();
+    }
     else
     {
         TimePrintHelpMenu();
     }
-
-    LE_TEST_EXIT;
+   LE_TEST_EXIT;
 }

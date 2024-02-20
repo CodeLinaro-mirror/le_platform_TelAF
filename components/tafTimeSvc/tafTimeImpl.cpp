@@ -836,7 +836,29 @@ le_result_t taf_Time::GetRtcTime
     taf_time_TimeSpec_t* timeValPtr
 )
 {
-    LE_DEBUG("Unsupported function called - %s\n", __func__);
+    int result = 0;
+    if (isDrvPresent)
+    {
+        if ((*(timeInf->getRtcTimeHAL)) == nullptr)
+        {
+            LE_ERROR("getRtcTimeHAL not initialized");
+            return LE_FAULT;
+        }
+
+        struct TimeSpec obj;
+        obj.sec = timeValPtr->sec;
+        obj.nanosec = timeValPtr->nanosec;
+        result = (*(timeInf->getRtcTimeHAL))(&obj);
+        if (result < 0)
+        {
+            return LE_FAULT;
+        }
+        return LE_OK;
+    }
+    else
+    {
+        LE_ERROR("Unsupported function called - %s\n", __func__);
+    }
     return LE_NOT_IMPLEMENTED;
 }
 
@@ -1621,25 +1643,6 @@ le_result_t taf_Time::SetSystemTime
         SetTimeSt->externalSetTime = true;
     }
     return result;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- *  Update the time to RTC device or VHAL interface.
- *
- * @return
- *     - LE_OK -- Succeeded.
- *     - LE_FAULT -- If any error occurs.
- *     - LE_NOT_IMPLEMENTED -- Not implemented.
- */
-//--------------------------------------------------------------------------------------------------
-le_result_t taf_Time::SetTimeToRtc
-(
-    taf_time_TimeSpec_t timeVal
-)
-{
-    LE_DEBUG("Unsupported function called - %s\n", __func__);
-    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2462,6 +2465,158 @@ void taf_Time::InitGnssTime(void)
     }
 }
 
+void taf_Time::getRTCRespCB(struct TimeSpec timeVal, le_result_t result)
+{
+    if (getRTCCB.getRTCCallbackFunc)
+    {
+        taf_time_TimeSpec_t timeSpec = { 0 };
+        timeSpec.sec = timeVal.sec;
+        timeSpec.nanosec = timeVal.nanosec;
+        getRTCCB.getRTCCallbackFunc(&timeSpec, result, getRTCCB.getRTCCtxPtr);
+    }
+    return;
+}
+
+void taf_Time::setRTCRespCB(le_result_t result)
+{
+    if (setRTCCB.setRTCCallbackFunc)
+    {
+        setRTCCB.setRTCCallbackFunc(result, setRTCCB.setRTCCtxPtr);
+    }
+    return;
+}
+
+le_result_t taf_Time::GetInternalRtcTime
+(
+    taf_time_TimeSpec_t* timeVal
+)
+{
+    int fd, ret;
+    struct tm rtc_tm;
+
+    memset(&rtc_tm, 0, sizeof(struct tm));
+    do
+    {
+        fd = TEMP_FAILURE_RETRY(open(TAF_TIME_RTC_DEV_NAME, O_WRONLY));
+        if (fd < 0)
+        {
+            fd = -errno;
+        }
+    } while (fd == -EBUSY);
+
+    if (fd < 0)
+    {
+        LE_ERROR("Open %s failed\n", TAF_TIME_RTC_DEV_NAME);
+        return LE_FAULT;
+    }
+
+    do
+    {
+        ret = TEMP_FAILURE_RETRY(ioctl(fd, RTC_RD_TIME, &rtc_tm));
+        if (ret < 0) {
+            ret = -errno;
+        }
+    } while (ret == -EBUSY);
+    close(fd);
+
+    if (ret < 0)
+    {
+        LE_ERROR("Read %s failed\n", TAF_TIME_RTC_DEV_NAME);
+        return LE_FAULT;
+    }
+
+    LE_DEBUG("RTC Time:  %04d-%02d-%02d, %02d:%02d:%02d\n",
+        rtc_tm.tm_year + 1900, rtc_tm.tm_mon + 1, rtc_tm.tm_mday,
+        rtc_tm.tm_hour, rtc_tm.tm_min, rtc_tm.tm_sec);
+
+    timeVal->sec = mktime(&rtc_tm) + rtc_tm.tm_gmtoff;
+    if (timeVal->sec < 0)
+    {
+        LE_ERROR("Invalid RTC seconds = %ld\n", timeVal->sec);
+        return LE_FAULT;
+    }
+    timeVal->nanosec = 0;
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Update the time to RTC device or VHAL interface.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_FAULT -- If any error occurs.
+ */
+ //--------------------------------------------------------------------------------------------------
+le_result_t taf_Time::SetTimeToRtc
+(
+    taf_time_TimeSpec_t timeVal
+)
+{
+    int ret = 0;
+
+    if (isDrvPresent)
+    {
+        struct TimeSpec time;
+        time.sec = timeVal.sec;
+        time.nanosec = timeVal.nanosec;
+
+        if ((*(timeInf->setRtcTimeHAL)) == nullptr)
+        {
+            LE_ERROR("setRtcTimeHAL not initialized");
+            return LE_FAULT;
+        }
+        ret = (*(timeInf->setRtcTimeHAL))(time);
+        if (ret < 0)
+        {
+            return LE_FAULT;
+        }
+    }
+    else
+    {
+        LE_DEBUG("SetTimeToRtc not supported");
+        return LE_UNSUPPORTED;
+    }
+    return LE_OK;
+}
+
+le_result_t taf_Time::GetRtcTimeReqAsync(taf_time_AsyncGetTimeReqHandlerFunc_t handlerPtr,
+    void* contextPtr)
+{
+    auto& time = taf_Time::GetInstance();
+    le_result_t result;
+    if ((*(time.timeInf->getRtcTimeReqAsync)) == nullptr)
+    {
+        LE_ERROR("getRtcTimeHAL not initialized - Async");
+        return LE_FAULT;
+    }
+    (telux::tafsvc::taf_Time::getRTCCB).getRTCCallbackFunc = handlerPtr;
+    (telux::tafsvc::taf_Time::getRTCCB).getRTCCtxPtr = contextPtr;
+    (telux::tafsvc::taf_Time::getRTCCB).sessionRef = taf_time_GetClientSessionRef();
+    result = (*(time.timeInf->getRtcTimeReqAsync))(taf_Time::getRTCRespCB);
+    return result;
+}
+
+le_result_t taf_Time::SetRtcTimeReqAsync(const taf_time_TimeSpec_t* timeValPtr,
+    taf_time_AsyncSetTimeReqHandlerFunc_t handlerPtr, void* contextPtr)
+{
+    auto& time = taf_Time::GetInstance();
+    if ((*(time.timeInf->setRtcTimeReqAsync)) == nullptr)
+    {
+        LE_ERROR("setRtcTimeReqAsync not initialized");
+        return LE_FAULT;
+    }
+    (telux::tafsvc::taf_Time::setRTCCB).setRTCCallbackFunc = handlerPtr;
+    (telux::tafsvc::taf_Time::setRTCCB).setRTCCtxPtr = contextPtr;
+    (telux::tafsvc::taf_Time::setRTCCB).sessionRef = taf_time_GetClientSessionRef();
+    struct TimeSpec timeSpec;
+    timeSpec.sec = timeValPtr->sec;
+    timeSpec.nanosec = timeValPtr->nanosec;
+    le_result_t result = (*(time.timeInf->setRtcTimeReqAsync))(&timeSpec, taf_Time::setRTCRespCB);
+    return result;
+}
+
 /*======================================================================
 
  FUNCTION        taf_Time::Init
@@ -2482,7 +2637,7 @@ void taf_Time::Init(void)
     le_result_t result;
 
     // 1. Create memory pools and initialization
-    SetTimeStatusPool = le_mem_CreatePool("TimeSvc SetStatusPool ", sizeof(SetTimeStatus));
+    SetTimeStatusPool = le_mem_CreatePool("TimeSvc SetStatusPool", sizeof(SetTimeStatus));
     SetTimeSt = (SetTimeStatus *)le_mem_ForceAlloc(SetTimeStatusPool);
     memset(SetTimeSt, 0, sizeof(struct SetTimeStatus));
     SetTimeSt->preActiveTimeSource = TAF_TIME_SRC_NAME_UNKNOWN;
@@ -2513,3 +2668,6 @@ void taf_Time::Init(void)
     le_thread_Start(threadRunTimeSyncRef);
 
 }
+
+taf_time_setRTCCb_t telux::tafsvc::taf_Time::setRTCCB;
+taf_time_getRTCCb_t telux::tafsvc::taf_Time::getRTCCB;

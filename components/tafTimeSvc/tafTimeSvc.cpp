@@ -36,11 +36,15 @@
 #include <string>
 #include <memory>
 #include <ctime>
+#include <setjmp.h>
 #include "tafTime.hpp"
 
 using namespace telux::platform;
 using namespace telux::common;
 using namespace telux::tafsvc;
+
+#define TIMER_SAFECALL 5
+DECLARE_SAFE_CALL();
 
 /*======================================================================
 
@@ -135,6 +139,34 @@ le_result_t taf_time_GetGnssTime
     auto &tafTime = taf_Time::GetInstance();
     return tafTime.GetGnssTime(timeValPtr);
 }
+
+/*======================================================================
+
+ FUNCTION        taf_time_GetRtcTime
+
+ DESCRIPTION     Get RTC time from device or VHAL interface.
+
+ DEPENDENCIES    Initialization of Time Service
+
+ PARAMETERS      [IN] taf_time_TimeSpec_t * timeVal: Time in
+                      seconds and nanoseconds.
+
+ RETURN VALUE    le_result_t
+                 LE_FAULT:             Fail.
+                 LE_OK:                Success.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_time_GetRtcTime
+(
+    taf_time_TimeSpec_t* timeVal
+)
+{
+    auto& tafTime = taf_Time::GetInstance();
+    return tafTime.GetRtcTime(timeVal);
+}
+
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -363,16 +395,149 @@ void taf_time_RemoveTimeValueChangeHandler
     return time.RemoveTimeValueChangeHandler(handlerRef);
 }
 
-//--------------------------------------------------------------------------------------------------
+
+/*-------------------------------------------------------------------------
+
+ FUNCTION        taf_time_GetRtcTimeReqAsync
+
+ DESCRIPTION     Get time RTC device or VHAL interface in async mode.
+
+ DEPENDENCIES    Initialization of Time Service
+
+ PARAMETERS      [IN] taf_time_TimeSpec_t * timeVal: Time in
+                      seconds and nanoseconds.
+                 [IN] taf_time_AsyncSetTimeReqHandlerFunc_t: callback
+                      handler function
+
+ RETURN VALUE    le_result_t
+                 LE_FAULT:             Fail.
+                 LE_OK:                Success.
+                 LE_NOT_IMPLEMENTED:   Not Implemented.
+
+ SIDE EFFECTS
+
+------------------------------------------------------------------------------*/
+le_result_t taf_time_GetRtcTimeReqAsync(taf_time_AsyncGetTimeReqHandlerFunc_t handlerPtr,
+        void* contextPtr)
+{
+    auto& time = taf_Time::GetInstance();
+
+    if (time.isDrvPresent)
+    {
+        return time.GetRtcTimeReqAsync(handlerPtr, contextPtr);
+    }
+    else
+    {
+        LE_ERROR("Unsupported function called - %s\n", __func__);
+    }
+    return LE_NOT_IMPLEMENTED;
+}
+
+/*-------------------------------------------------------------------------
+
+ FUNCTION        taf_time_SetRtcTimeReqAsync
+
+ DESCRIPTION     Update the time to RTC device or VHAL interface in async mode.
+
+ DEPENDENCIES    Initialization of Time Service
+
+ PARAMETERS      [IN] taf_time_TimeSpec_t * timeVal: Time in
+                      seconds and nanoseconds.
+                 [IN] taf_time_AsyncSetTimeReqHandlerFunc_t: callback
+                      handler function
+
+ RETURN VALUE    le_result_t
+                 LE_FAULT:             Fail.
+                 LE_OK:                Success.
+                 LE_NOT_IMPLEMENTED:   Not Implemented.
+
+ SIDE EFFECTS
+------------------------------------------------------------------------------*/
+
+le_result_t taf_time_SetRtcTimeReqAsync(const taf_time_TimeSpec_t* timeValPtr,
+        taf_time_AsyncSetTimeReqHandlerFunc_t handlerPtr, void* contextPtr)
+{
+    auto& time = taf_Time::GetInstance();
+    if (time.isDrvPresent)
+    {
+        return time.SetRtcTimeReqAsync(timeValPtr, handlerPtr, contextPtr);
+    }
+    else
+    {
+        LE_ERROR("Unsupported function called - %s\n", __func__);
+    }
+    return LE_NOT_IMPLEMENTED;
+}
+
+/*-------------------------------------------------------------------------
+
+ FUNCTION        taf_time_SetTimeToRtc
+
+ DESCRIPTION     Update the time to RTC device or VHAL interface.
+
+ DEPENDENCIES    Initialization of Time Service
+
+ PARAMETERS      [IN] taf_time_TimeSpec_t * timeVal: Time in
+                      seconds and nanoseconds.
+
+ RETURN VALUE    le_result_t
+                 LE_FAULT:             Fail.
+                 LE_OK:                Success.
+
+ SIDE EFFECTS
+
+------------------------------------------------------------------------------*/
+le_result_t taf_time_SetTimeToRtc
+(
+    const taf_time_TimeSpec_t* timeVal
+)
+{
+    taf_time_TimeSpec_t time;
+    time.sec = timeVal->sec;
+    time.nanosec = timeVal->nanosec;
+
+    auto& tafTime = taf_Time::GetInstance();
+    return tafTime.SetTimeToRtc(time);
+}
+
+//-------------------------------------------------------------------------------------------------
 /**
  * Initialization for Time Service.
 */
-//--------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
 void taf_time_service_int(void)
 {
     LE_INFO("Time Service Init...");
+    sleep(2);
     auto &time = taf_Time::GetInstance();
     time.Init();
+    //Need to move to 'tafTimeImpl.cpp'
+//-----------------------------------------------------------------------------
+// load driver
+    LE_INFO("Loading the driver");
+    time.timeInf = (time_Inf_t*)taf_devMgr_LoadDrv(TAF_TIME_MODULE_NAME, nullptr);
+    if (time.timeInf == nullptr)
+    {
+        LE_ERROR("Can not load the driver %s", TAF_TIME_MODULE_NAME);
+        time.isDrvPresent = false;
+    }
+    else // successfully loaded
+    {
+        LE_INFO("Driver loaded successfully....");
+        time.isDrvPresent = true;
+
+        // init first
+        int ret = 0;
+        ENTER_SAFE_CALL(TIMER_SAFECALL, ret, (*(time.timeInf->InitHAL)));
+        EXIT_SAFE_CALL();
+
+        if (ret == -1)
+        {
+            LE_ERROR("Called InitHAL failed");
+            return;
+        }
+    }
+    //-----------------------------------------------------------------------------
     LE_INFO("Time Service ready");
     return;
 }

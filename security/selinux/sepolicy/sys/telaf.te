@@ -257,11 +257,12 @@ allow telaf_devmgr_t data_t:dir { relabelfrom relabelto search getattr };
 allow telaf_devmgr_t data_t:file { relabel_file_perms };
 allow telaf_devmgr_t telaf_devmgr_data_t:dir { relabel_dir_perms manage_dir_perms };
 allow telaf_devmgr_t telaf_devmgr_data_t:file { relabel_file_perms manage_file_perms mmap_file_perms  };
+
 allow telaf_devmgr_data_t fs_t:filesystem { associate };
+
 ifdef(`sa525m',`
     allow telaf_devmgr_t data_t:file { map };
 ')
-
 
 # Update daemon need to remove files during app uninstallation (telaf_admin_t also needs these permission)
 allow telaf_admin_domain cgroup_t:dir { manage_dir_perms };

@@ -158,309 +158,308 @@
  @endverbatim
  * @section json_details Configurations and Policy
  *
- *
- * The following table illustrates details about Configuration and Policy JSON
-*@htmlonly
-* <table border="1">
-* <thead>
-*   <tr>
-*     <th  colspan="4">Object   (and subobjects)</th>
-*     <th >Property</th>
-*     <th >TelAF Data Type</th>
-*     <th >Default Value</th>
-*     <th >Description</th>
-*   </tr>
-* </thead>
-* <tbody>
-*   <tr>
-*     <td  colspan="4">Product</td>
-*     <td >Product</td>
-*     <td >char</td>
-*     <td >TelAF</td>
-*     <td >This value is fixed to "TelAF"</td>
-*   </tr>
-*   <tr>
-*     <td  colspan="4">Name</td>
-*     <td >Name</td>
-*     <td >char</td>
-*     <td >Managed Connectivity Service</td>
-*     <td >Optional and not used by the service.</td>
-*   </tr>
-*   <tr>
-*     <td  rowspan="56">ManagedConnectivityService</td>
-*     <td  colspan="3" rowspan="3">Version</td>
-*     <td  rowspan="3">Version</td>
-*     <td  rowspan="3">char</td>
-*     <td  rowspan="3">TAF_XX.YY.ZZ</td>
-*     <td  rowspan="3">
-*          <ul>
-*               <li>This field is used by the service to identify which version of TelAF this
-*                   configuration file conforms to. This will be updated by Qualcomm when there is a
-*                   change in the configuration file.
-*               </li>
-*               <li> Users should ensure only valid versions are used in this field.
-*                      The service will reject JSONs with invalid version.
-*               </li>
-*          </ul>
-*     </td>
-*   </tr>
-*   <tr>
-*   </tr>
-*   <tr>
-*   </tr>
-*   <tr>
-*     <td  rowspan="34">Configuration</td>
-*     <td  colspan="2">Name</td>
-*     <td >Name</td>
-*     <td >char</td>
-*     <td >"Default"</td>
-*     <td >Optional and not used by the service.</td>
-*   </tr>
-*   <tr>
-*     <td  colspan="2" rowspan="3">Sim (Array Object)</td>
-*     <td >ID</td>
-*     <td >unit8_t</td>
-*     <td >Starts with 1 and is incremented by 1 for each array object</td>
-*     <td >User provided ID to uniquely identify this object.</td>
-*   </tr>
-*   <tr>
-*     <td >Name</td>
-*     <td >char</td>
-*     <td >null</td>
-*     <td >User provided name of the carrier to which this SIM belongs.
-*          This is not used by the service.</td>
-*   </tr>
-*   <tr>
-*     <td >SlotNumber</td>
-*     <td >unit8_t</td>
-*     <td >1</td>
-*     <td >Sim Slot number to use.</td>
-*   </tr>
-*   <tr>
-*     <td  colspan="2" rowspan="6">Network (Array Object)</td>
-*     <td >ID</td>
-*     <td >unit8_t</td>
-*     <td >Starts with 1 and is incremented by 1 for each array object</td>
-*     <td >User provided ID to uniquely identify this object.</td>
-*   </tr>
-*   <tr>
-*     <td >Use_Sim_ID</td>
-*     <td >unit8_t</td>
-*     <td >Points to a valid Sim object</td>
-*     <td >This is a reference to the Sim object on which this Network object depends</td>
-*   </tr>
-*   <tr>
-*     <td >PhoneID</td>
-*     <td >unit8_t</td>
-*     <td >0</td>
-*     <td >Phone ID to use if multi card is supported</td>
-*   </tr>
-*   <tr>
-*     <td  rowspan="3">Registration</td>
-*     <td  rowspan="3">char</td>
-*     <td  rowspan="3">"Auto" <br> "Manual"</td>
-*     <td  rowspan="3">Only "Auto" mode is supported.</td>
-*   </tr>
-*   <tr>
-*   </tr>
-*   <tr>
-*   </tr>
-*   <tr>
-*     <td  rowspan="24">Data</td>
-*     <td >ID</td>
-*     <td >ID</td>
-*     <td >unit8_t</td>
-*     <td >Starts with 1 and is incremented by 1 for each array object</td>
-*     <td >User provided string to identify Data object. This is not used by the service.</td>
-*   </tr>
-*   <tr>
-*     <td >Name</td>
-*     <td >Name</td>
-*     <td >char</td>
-*     <td >null</td>
-*     <td >This is not used by the service. Can be used by users as label to identify the
-*          Data object. </td>
-*   </tr>
-*   <tr>
-*     <td >Use_Network_ID</td>
-*     <td >Use_Network_ID</td>
-*     <td >unit8_t</td>
-*     <td >Points to a valid Network object</td>
-*     <td >This is a reference to the Network object on which this Data object depends. </td>
-*   </tr>
-*   <tr>
-*     <td  rowspan="2">Profile</td>
-*     <td  rowspan="2">Number</td>
-*     <td  rowspan="2">unit8_t</td>
-*     <td  rowspan="2">1</td>
-*     <td  rowspan="2">Check if the profile is default or not. If not default, look for "Route Items"
-*     </td>
-*   </tr>
-*   <tr>
-*   </tr>
-*   <tr>
-*     <td  rowspan="5">Details of data profile to use with this data object.</td>
-*     <td  rowspan="5">APN</td>
-*     <td  rowspan="5">char</td>
-*     <td  rowspan="5">null</td>
-*     <td  rowspan="5">If null, do not make any changes to APN. <br> If APN set fails, log an ERROR,
-*                      stop the service.</td>
-*   </tr>
-*   <tr>
-*   </tr>
-*   <tr>
-*   </tr>
-*   <tr>
-*   </tr>
-*   <tr>
-*   </tr>
-*   <tr>
-*     <td  rowspan="5">AutoStart</td>
-*     <td  rowspan="5">AutoStart</td>
-*     <td  rowspan="5">char</td>
-*     <td  rowspan="5">Yes</td>
-*     <td  rowspan="5">
-*       <ul>
-*             <li> "Yes": Data session with this profile will be started automatically by the
-*                   Service. </li>
-*             <li> If there are multiple data objects set to auto start, which data IDs will be
-*                  started will be based on Policy's "Priority" and "MultiDataSession". </li>
-*             <li> "No": User application will have to call "Data_Start()" function with the
-*                   respective "Data ID" reference. </li>
-*       </ul>
-*     </td>
-*   </tr>
-*   <tr>
-*   </tr>
-*   <tr>
-*   </tr>
-*   <tr>
-*   </tr>
-*   <tr>
-*   </tr>
-*   <tr>
-*     <td rowspan="9">ConnectionTest
-*       <ul><li>URL or IP that the Managed Service should use for running connection tests.
-*               This will be used only once during data startup for checking connectivity.
-*                null values will be skipped.</li>
-*           <li>Connection test will be run over the interface that matches with the data profile.
-*           </li>
-*           <li>cURL will be tried first, and if it fails ping will be used. If ping also fails,
-*               data will be treated as not connected. </li>
-*       </ul>
-*    </td>
-*     <td  rowspan="5">URL</td>
-*     <td  rowspan="5">char</td>
-*     <td  rowspan="5">null</td>
-*     <td  rowspan="5">URL to use for connection test</td>
-*   </tr>
-*   <tr>
-*   </tr>
-*   <tr>
-*   </tr>
-*   <tr>
-*   </tr>
-*   <tr>
-*   </tr>
-*   <tr>
-*     <td >IPv4</td>
-*     <td >char</td>
-*     <td >null</td>
-*     <td >IPv4 address to use for connection test</td>
-*   </tr>
-*   <tr>
-*     <td  rowspan="3">IPv6</td>
-*     <td  rowspan="3">char</td>
-*     <td  rowspan="3">null</td>
-*     <td  rowspan="3">IPv6 address to use for connection test (if supported by the data profile)
-*     </td>
-*   </tr>
-*   <tr>
-*   </tr>
-*   <tr>
-*   </tr>
-*   <tr>
-*     <td  rowspan="19">Policy</td>
-*     <td  colspan="2">Name</td>
-*     <td >Name</td>
-*     <td >char</td>
-*     <td >Default</td>
-*     <td >Optional and not used by the service.</td>
-*   </tr>
-*   <tr>
-*     <td  rowspan="17">DataSession</td>
-*     <td  rowspan="8">DataConnection</td>
-*     <td  rowspan="5">Priority</td>
-*     <td  rowspan="5">uint8_t</td>
-*     <td  rowspan="5">1,2,3..N objects</td>
-*     <td  rowspan="5">User defined priority.<br> 1 is highest priority.<br> Duplicates are not
-*                      allowed. </td>
-*   </tr>
-*   <tr>
-*   </tr>
-*   <tr>
-*   </tr>
-*   <tr>
-*   </tr>
-*   <tr>
-*   </tr>
-*   <tr>
-*     <td  rowspan="3">Use_Data_ID</td>
-*     <td  rowspan="3">uint8_t</td>
-*     <td  rowspan="3">Data ID</td>
-*     <td  rowspan="3">Valid reference to Configuration→Data→ID.<br> Sharing same Data ID among
-*                      different data connection object is not allowed
-*     </td>
-*   </tr>
-*   <tr>
-*   </tr>
-*   <tr>
-*   </tr>
-*   <tr>
-*     <td  rowspan="5">MultiDataSession</td>
-*     <td  rowspan="3">Enable</td>
-*     <td  rowspan="3">char</td>
-*     <td  rowspan="3">No</td>
-*     <td  rowspan="3">Multiple data session support, enable/disable.</td>
-*   </tr>
-*   <tr>
-*   </tr>
-*   <tr>
-*   </tr>
-*   <tr>
-*     <td >NumConnections</td>
-*     <td >uint8_t</td>
-*     <td >1</td>
-*     <td >Maximum number of multiple data sessions to enable. This should be less than or equal to
-*          the number of objects in "DataConnection".</td>
-*   </tr>
-*   <tr>
-*     <td  rowspan="3">Enable</td>
-*     <td  rowspan="3">char</td>
-*     <td  rowspan="3">Yes</td>
-*     <td  rowspan="3">In case of error during data start, this controls whether data retry
-*                      should be attempted or not.</td>
-*   </tr>
-*   <tr>
-*     <td rowspan="4">DataStartRetry</td>
-*   </tr>
-*   <tr>
-*   </tr>
-*   <tr>
-*     <td >RetryCount</td>
-*     <td >uint8_t</td>
-*     <td >1</td>
-*     <td >Retry after 30s and after that in steps of 2, 4, 8, 16 minutes.
-*          Retries after this will be in steps of 16 minutes up to "RetryCount" until data start
-*          succeeds. If data start does not succeed even after retries, return error </td>
-*   </tr>
-* </tbody>
-* </table>
-@endhtmlonly
+ * The following table illustrates details about Configuration and Policy JSON.
+ * @htmlonly
+ * <table border="1">
+ * <thead>
+ *   <tr>
+ *     <th  colspan="4">Object   (and subobjects)</th>
+ *     <th >Property</th>
+ *     <th >TelAF Data Type</th>
+ *     <th >Default Value</th>
+ *     <th >Description</th>
+ *   </tr>
+ * </thead>
+ * <tbody>
+ *   <tr>
+ *     <td  colspan="4">Product</td>
+ *     <td >Product</td>
+ *     <td >char</td>
+ *     <td >TelAF</td>
+ *     <td >This value is fixed to "TelAF"</td>
+ *   </tr>
+ *   <tr>
+ *     <td  colspan="4">Name</td>
+ *     <td >Name</td>
+ *     <td >char</td>
+ *     <td >Managed Connectivity Service</td>
+ *     <td >Optional and not used by the service.</td>
+ *   </tr>
+ *   <tr>
+ *     <td  rowspan="56">ManagedConnectivityService</td>
+ *     <td  colspan="3" rowspan="3">Version</td>
+ *     <td  rowspan="3">Version</td>
+ *     <td  rowspan="3">char</td>
+ *     <td  rowspan="3">TAF_XX.YY.ZZ</td>
+ *     <td  rowspan="3">
+ *          <ul>
+ *               <li>This field is used by the service to identify which version of TelAF this
+ *                   configuration file conforms to. This will be updated by Qualcomm when there is a
+ *                   change in the configuration file.
+ *               </li>
+ *               <li> Users should ensure only valid versions are used in this field.
+ *                      The service will reject JSONs with invalid version.
+ *               </li>
+ *          </ul>
+ *     </td>
+ *   </tr>
+ *   <tr>
+ *   </tr>
+ *   <tr>
+ *   </tr>
+ *   <tr>
+ *     <td  rowspan="34">Configuration</td>
+ *     <td  colspan="2">Name</td>
+ *     <td >Name</td>
+ *     <td >char</td>
+ *     <td >"Default"</td>
+ *     <td >Optional and not used by the service.</td>
+ *   </tr>
+ *   <tr>
+ *     <td  colspan="2" rowspan="3">Sim (Array Object)</td>
+ *     <td >ID</td>
+ *     <td >unit8_t</td>
+ *     <td >Starts with 1 and is incremented by 1 for each array object</td>
+ *     <td >User provided ID to uniquely identify this object.</td>
+ *   </tr>
+ *   <tr>
+ *     <td >Name</td>
+ *     <td >char</td>
+ *     <td >null</td>
+ *     <td >User provided name of the carrier to which this SIM belongs.
+ *          This is not used by the service.</td>
+ *   </tr>
+ *   <tr>
+ *     <td >SlotNumber</td>
+ *     <td >unit8_t</td>
+ *     <td >1</td>
+ *     <td >Sim Slot number to use.</td>
+ *   </tr>
+ *   <tr>
+ *     <td  colspan="2" rowspan="6">Network (Array Object)</td>
+ *     <td >ID</td>
+ *     <td >unit8_t</td>
+ *     <td >Starts with 1 and is incremented by 1 for each array object</td>
+ *     <td >User provided ID to uniquely identify this object.</td>
+ *   </tr>
+ *   <tr>
+ *     <td >Use_Sim_ID</td>
+ *     <td >unit8_t</td>
+ *     <td >Points to a valid Sim object</td>
+ *     <td >This is a reference to the Sim object on which this Network object depends</td>
+ *   </tr>
+ *   <tr>
+ *     <td >PhoneID</td>
+ *     <td >unit8_t</td>
+ *     <td >0</td>
+ *     <td >Phone ID to use if multi card is supported</td>
+ *   </tr>
+ *   <tr>
+ *     <td  rowspan="3">Registration</td>
+ *     <td  rowspan="3">char</td>
+ *     <td  rowspan="3">"Auto" <br> "Manual"</td>
+ *     <td  rowspan="3">Only "Auto" mode is supported.</td>
+ *   </tr>
+ *   <tr>
+ *   </tr>
+ *   <tr>
+ *   </tr>
+ *   <tr>
+ *     <td  rowspan="24">Data</td>
+ *     <td >ID</td>
+ *     <td >ID</td>
+ *     <td >unit8_t</td>
+ *     <td >Starts with 1 and is incremented by 1 for each array object</td>
+ *     <td >User provided string to identify Data object. This is not used by the service.</td>
+ *   </tr>
+ *   <tr>
+ *     <td >Name</td>
+ *     <td >Name</td>
+ *     <td >char</td>
+ *     <td >null</td>
+ *     <td >This is not used by the service. Can be used by users as label to identify the
+ *          Data object. </td>
+ *   </tr>
+ *   <tr>
+ *     <td >Use_Network_ID</td>
+ *     <td >Use_Network_ID</td>
+ *     <td >unit8_t</td>
+ *     <td >Points to a valid Network object</td>
+ *     <td >This is a reference to the Network object on which this Data object depends. </td>
+ *   </tr>
+ *   <tr>
+ *     <td  rowspan="2">Profile</td>
+ *     <td  rowspan="2">Number</td>
+ *     <td  rowspan="2">unit8_t</td>
+ *     <td  rowspan="2">1</td>
+ *     <td  rowspan="2">Check if the profile is default or not. If not default, look for "Route Items"
+ *     </td>
+ *   </tr>
+ *   <tr>
+ *   </tr>
+ *   <tr>
+ *     <td  rowspan="5">Details of data profile to use with this data object.</td>
+ *     <td  rowspan="5">APN</td>
+ *     <td  rowspan="5">char</td>
+ *     <td  rowspan="5">null</td>
+ *     <td  rowspan="5">If null, do not make any changes to APN. <br> If APN set fails, log an ERROR,
+ *                      stop the service.</td>
+ *   </tr>
+ *   <tr>
+ *   </tr>
+ *   <tr>
+ *   </tr>
+ *   <tr>
+ *   </tr>
+ *   <tr>
+ *   </tr>
+ *   <tr>
+ *     <td  rowspan="5">AutoStart</td>
+ *     <td  rowspan="5">AutoStart</td>
+ *     <td  rowspan="5">char</td>
+ *     <td  rowspan="5">Yes</td>
+ *     <td  rowspan="5">
+ *       <ul>
+ *             <li> "Yes": Data session with this profile will be started automatically by the
+ *                   Service. </li>
+ *             <li> If there are multiple data objects set to auto start, which data IDs will be
+ *                  started will be based on Policy's "Priority" and "MultiDataSession". </li>
+ *             <li> "No": User application will have to call "Data_Start()" function with the
+ *                   respective "Data ID" reference. </li>
+ *       </ul>
+ *     </td>
+ *   </tr>
+ *   <tr>
+ *   </tr>
+ *   <tr>
+ *   </tr>
+ *   <tr>
+ *   </tr>
+ *   <tr>
+ *   </tr>
+ *   <tr>
+ *     <td rowspan="9">ConnectionTest
+ *       <ul><li>URL or IP that the Managed Service should use for running connection tests.
+ *               This will be used only once during data startup for checking connectivity.
+ *                null values will be skipped.</li>
+ *           <li>Connection test will be run over the interface that matches with the data profile.
+ *           </li>
+ *           <li>cURL will be tried first, and if it fails ping will be used. If ping also fails,
+ *               data will be treated as not connected. </li>
+ *       </ul>
+ *    </td>
+ *     <td  rowspan="5">URL</td>
+ *     <td  rowspan="5">char</td>
+ *     <td  rowspan="5">null</td>
+ *     <td  rowspan="5">URL to use for connection test</td>
+ *   </tr>
+ *   <tr>
+ *   </tr>
+ *   <tr>
+ *   </tr>
+ *   <tr>
+ *   </tr>
+ *   <tr>
+ *   </tr>
+ *   <tr>
+ *     <td >IPv4</td>
+ *     <td >char</td>
+ *     <td >null</td>
+ *     <td >IPv4 address to use for connection test</td>
+ *   </tr>
+ *   <tr>
+ *     <td  rowspan="3">IPv6</td>
+ *     <td  rowspan="3">char</td>
+ *     <td  rowspan="3">null</td>
+ *     <td  rowspan="3">IPv6 address to use for connection test (if supported by the data profile)
+ *     </td>
+ *   </tr>
+ *   <tr>
+ *   </tr>
+ *   <tr>
+ *   </tr>
+ *   <tr>
+ *     <td  rowspan="19">Policy</td>
+ *     <td  colspan="2">Name</td>
+ *     <td >Name</td>
+ *     <td >char</td>
+ *     <td >Default</td>
+ *     <td >Optional and not used by the service.</td>
+ *   </tr>
+ *   <tr>
+ *     <td  rowspan="17">DataSession</td>
+ *     <td  rowspan="8">DataConnection</td>
+ *     <td  rowspan="5">Priority</td>
+ *     <td  rowspan="5">uint8_t</td>
+ *     <td  rowspan="5">1,2,3..N objects</td>
+ *     <td  rowspan="5">User defined priority.<br> 1 is highest priority.<br> Duplicates are not
+ *                      allowed. </td>
+ *   </tr>
+ *   <tr>
+ *   </tr>
+ *   <tr>
+ *   </tr>
+ *   <tr>
+ *   </tr>
+ *   <tr>
+ *   </tr>
+ *   <tr>
+ *     <td  rowspan="3">Use_Data_ID</td>
+ *     <td  rowspan="3">uint8_t</td>
+ *     <td  rowspan="3">Data ID</td>
+ *     <td  rowspan="3">Valid reference to Configuration→Data→ID.<br> Sharing same Data ID among
+ *                      different data connection object is not allowed
+ *     </td>
+ *   </tr>
+ *   <tr>
+ *   </tr>
+ *   <tr>
+ *   </tr>
+ *   <tr>
+ *     <td  rowspan="5">MultiDataSession</td>
+ *     <td  rowspan="3">Enable</td>
+ *     <td  rowspan="3">char</td>
+ *     <td  rowspan="3">No</td>
+ *     <td  rowspan="3">Multiple data session support, enable/disable.</td>
+ *   </tr>
+ *   <tr>
+ *   </tr>
+ *   <tr>
+ *   </tr>
+ *   <tr>
+ *     <td >NumConnections</td>
+ *     <td >uint8_t</td>
+ *     <td >1</td>
+ *     <td >Maximum number of multiple data sessions to enable. This should be less than or equal to
+ *          the number of objects in "DataConnection".</td>
+ *   </tr>
+ *   <tr>
+ *     <td  rowspan="3">Enable</td>
+ *     <td  rowspan="3">char</td>
+ *     <td  rowspan="3">Yes</td>
+ *     <td  rowspan="3">In case of error during data start, this controls whether data retry
+ *                      should be attempted or not.</td>
+ *   </tr>
+ *   <tr>
+ *     <td rowspan="4">DataStartRetry</td>
+ *   </tr>
+ *   <tr>
+ *   </tr>
+ *   <tr>
+ *     <td >RetryCount</td>
+ *     <td >uint8_t</td>
+ *     <td >1</td>
+ *     <td >Retry after 30s and after that in steps of 2, 4, 8, 16 minutes.
+ *          Retries after this will be in steps of 16 minutes up to "RetryCount" until data start
+ *          succeeds. If data start does not succeed even after retries, return error </td>
+ *   </tr>
+ * </tbody>
+ * </table>
+ * @endhtmlonly
 
  * @par List of valid values for "Version" key:
- *        23.07.00
- *        23.11.00
+ *      -- 23.07.00
+ *      -- 23.11.00
  *
  *
  * @par Multiple Data Sessions:

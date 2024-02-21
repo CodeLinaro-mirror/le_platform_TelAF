@@ -86,14 +86,14 @@ void TimePrintHelpMenu
         "       Get source time of 'sourceId' and will return reference which can be used\n"
         "       to get other time information that this 'sourceId' time was created.\n"
         "\n"
-        "    app runProc tafTimeIntTest tafTimeIntTest -- handler WaitSeconds\n"
+        "    app runProc tafTimeIntTest tafTimeIntTest -- handler 'WaitSeconds'\n"
         "       Monitor system time status, will receive notification when system time\n"
         "       got changed in 'WaitSeconds' seconds."
         "\n"
-        "    app runProc tafTimeIntTest tafTimeIntTest -- set time\n"
+        "    app runProc tafTimeIntTest tafTimeIntTest -- set time 'seconds' 'nanoseconds'\n"
         "       Set system time with 'seconds' + 'nanose' as input.\n"
         "\n"
-        "    app runProc tafTimeIntTest tafTimeIntTest -- set timeLoop\n"
+        "    app runProc tafTimeIntTest tafTimeIntTest -- set timeLoop 'sec' 'nanos' 'WiatSec'\n"
         "       Set system time with 'seconds' + 'nanosec' + 'interval' as in put, this"
         "       command will set the system time in a loop according to its paramtere."
         "\n"
@@ -102,6 +102,23 @@ void TimePrintHelpMenu
     exit(EXIT_SUCCESS);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Convert the seconds from epoch to date time format.
+ */
+//--------------------------------------------------------------------------------------------------
+void ConvertSecToDateTime
+(
+    taf_time_TimeSpec_t timeVal
+)
+{
+    time_t epoch_seconds = timeVal.sec;
+    struct tm *timeinfo = gmtime(&epoch_seconds);
+    char tmpBuffer[80];
+
+    strftime(tmpBuffer, 80, "%c", timeinfo);
+    LE_INFO("UTC time: %s\n", tmpBuffer);
+}
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -240,6 +257,7 @@ void TestGetSystemTime
     LE_TEST_ASSERT(result == LE_OK, "Test: taf_time_GetSystemTime() APIs.");
 
     LE_INFO("System time is %"PRIu64".%"PRIu64, systemTime.sec, systemTime.nanosec);
+    ConvertSecToDateTime(systemTime);
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -262,9 +280,9 @@ void TestGetGnssTime
     if (result == LE_OK)
     {
         LE_INFO("GNSS time is %"PRIu64".%"PRIu64, gnssTime.sec, gnssTime.nanosec);
+        ConvertSecToDateTime(gnssTime);
     }
-
-    if (result == LE_UNAVAILABLE)
+    else
     {
         LE_INFO("GNSS time is not available now\n");
     }
@@ -295,8 +313,8 @@ void TestGetRtcTime
 /**
  * Get time through time source ID and return related reference.
  */
- //------------------------------------------------------------------------------------------------
-void TestGetSourceRef
+//--------------------------------------------------------------------------------------------------
+void TestGetTimeRef
 (
     void
 )
@@ -316,6 +334,7 @@ void TestGetSourceRef
     if (result == LE_OK)
     {
         LE_INFO("Reference %d time is %"PRIu64".%"PRIu64, sourceId, time.sec, time.nanosec);
+        ConvertSecToDateTime(time);
     }
     LE_INFO("timeSrcRef %p, sourceId (0x%x), status %d.", timeSrcRef, sourceId, result);
 
@@ -326,6 +345,7 @@ void TestGetSourceRef
     if (result == LE_OK)
     {
         LE_INFO("Reference system time is %"PRIu64".%"PRIu64, time.sec, time.nanosec);
+        ConvertSecToDateTime(time);
     }
 
     // Get reference gptp time through reference object.
@@ -335,6 +355,7 @@ void TestGetSourceRef
     if (result == LE_OK)
     {
         LE_INFO("Reference gptp time is %"PRIu64".%"PRIu64, time.sec, time.nanosec);
+        ConvertSecToDateTime(time);
     }
 
     // Release the memory for this reference.
@@ -481,8 +502,6 @@ void TimeCheckArgs
     }
 }
 
-
-
 static void getRTCTimeAsync(const taf_time_TimeSpec_t* timeVal,
     le_result_t responseState, void* contextPtr)
 {
@@ -525,12 +544,11 @@ void AsyncGetCmdTest(void)
 }
 
 
-
-
 void TimeGetCmdTest(void)
 {
     TimeCheckArgs(2);
     const char* cmd = le_arg_GetArg(1);
+
     if (strncmp(cmd, "systemTime", strlen(cmd)) == 0)
     {
         TestGetSystemTime();
@@ -546,7 +564,7 @@ void TimeGetCmdTest(void)
     else if (strncmp(cmd, "GetTime", strlen(cmd)) == 0)
     {
         TimeCheckArgs(3);
-        TestGetSourceRef();
+        TestGetTimeRef();
     }
 }
 void TimeSetCmdTest(void)

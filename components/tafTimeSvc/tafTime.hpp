@@ -214,7 +214,7 @@ typedef struct
 typedef struct
 {
     taf_time_TimeSources_t sourceId;               ///< Time source ID.
-    taf_time_TimeSourceRef_t ref;                      ///< own reference.
+    taf_time_TimeSourceRef_t ref;                  ///< own reference.
     le_msg_SessionRef_t sessionRef;                ///< Client that connected to the service.
     taf_DateTimeInf_t dateTimeInf;                 ///< Date time information.
 
@@ -441,7 +441,6 @@ namespace telux
                 le_result_t GetNetworkTime(taf_time_TimeSpec_t* timeValPtr,
                                                               taf_time_TimeSources_t sourceId);
 
-
                 le_result_t UpdateRefTimeInfo(taf_TimeSourceInf_t* timeSrcRefPrt,
                                                               taf_time_TimeSpec_t* timeValPtr);
                 le_result_t UpdateDateTimeInfo(taf_TimeSourceInf_t* timeSrcRefPrt,
@@ -466,7 +465,8 @@ namespace telux
                                            taf_time_TimeSources_t sourceName, bool ackTimeSvc);
                 le_result_t SetTimeToRtc(taf_time_TimeSpec_t timeVal);
 
-                le_result_t RegGnssSyncTimeListener(void);
+                le_result_t RegGnssTimeListener(void);
+                void DeregGnssTimeListener(void);
                 void TimeSourceChangeNotify(taf_time_TimeSources_t PreTimeSource,
                                              taf_time_TimeSources_t NewTimeSource);
 
@@ -480,7 +480,7 @@ namespace telux
                 static void LayerTimeSourceChangeHandler(void* reportPtr,
                                                                         void* layerHandlerFuncPtr);
 
-                static void SyncNetworkTime(void);
+                static void RequestNetworkTime(void);
                 void NetworkTimeResponseUpdate(uint8_t phoneId,
                     telux::tel::NetworkTimeInfo info, telux::common::ErrorCode error);
                 static void SyncNetworkTimeResponse(telux::tel::NetworkTimeInfo info,
@@ -493,7 +493,9 @@ namespace telux
                 le_result_t ConvertNetworkTimeToSec(telux::tel::NetworkTimeInfo info,
                                                                   taf_time_TimeSpec_t* timeValPtr);
                 le_result_t RegNetworkTimeListener(void);
-                void InitGnssTime(void);
+                void DeregNetworkTimeListener(void);
+
+                le_result_t InitGnssTime(void);
                 le_result_t InitNetworkTime(void);
 
                 taf_time_TimeValueChangeHandlerRef_t AddTimeValueChangeHandler(
@@ -521,7 +523,7 @@ namespace telux
                 le_mem_PoolRef_t timeSourceChangePool = NULL;
 
                 taf_time_TimeSpec_t* GnssDeltaTime = NULL;
-                le_result_t RegGnssTimeStatus = LE_NOT_FOUND;
+                le_result_t InitGnssTimeStatus = LE_UNAVAILABLE;
                 le_mem_PoolRef_t GnssDeltaTimePool = NULL;
 
 
@@ -537,7 +539,7 @@ namespace telux
                 taf_time_TimeSpec_t* NetworkDeltaTime = NULL;
                 taf_time_TimeSpec_t* NetworkDeltaTime2 = NULL;
 
-                le_result_t RegNetworkTimeStatus = LE_NOT_FOUND;
+                le_result_t InitNetworkTimeStatus = LE_UNAVAILABLE;
                 le_event_Id_t RefTimeEventId;
                 le_event_HandlerRef_t RefTimeEventHandlerRef;
 
@@ -549,7 +551,7 @@ namespace telux
                 std::shared_ptr<telux::tel::IPhoneManager> phoneManager;
                 //std::vector<std::shared_ptr<telux::tel::IPhone>> phones;
                 std::vector<std::shared_ptr<taf_TimeServingSystemListener>> servSysListeners;
-                std::vector<std::shared_ptr<telux::tel::IServingSystemManager>>servingSystemManagers;
+                std::vector<std::shared_ptr<telux::tel::IServingSystemManager>> servingSystemManagers;
 
                 time_Inf_t* timeInf = nullptr;
                 bool isDrvPresent = false;
@@ -562,11 +564,10 @@ namespace telux
                 le_result_t GetRtcTimeReqAsync(taf_time_AsyncGetTimeReqHandlerFunc_t handlerPtr,
                     void* contextPtr);
 
-
             private:
-                std::shared_ptr<ITimeListener> gnssTimeListener
-                                               = std::make_shared<taf_TimeGnssListener>();
+                std::shared_ptr<ITimeListener> gnssTimeListener = nullptr;
                 std::shared_ptr<ITimeManager> timeManager;
+                TimeTypeMask SupportTimeMask;
 
                 struct SetTimeStatus* SetTimeSt = NULL;
                 uint64_t TimeSourceStatusMap = 0x0;

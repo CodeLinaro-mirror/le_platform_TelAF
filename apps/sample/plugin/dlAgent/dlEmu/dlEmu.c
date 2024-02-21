@@ -69,87 +69,6 @@ LE_REF_DEFINE_STATIC_MAP(sessionRefMap, DA_SESSION_NUM);
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Power on download agent.
- */
-//--------------------------------------------------------------------------------------------------
-void taf_hal_PowerOn()
-{
-    LE_INFO("Power on DA.");
-    return;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Power off download agent.
- */
-//--------------------------------------------------------------------------------------------------
-void taf_hal_PowerOff()
-{
-    LE_INFO("Power off DA.");
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Initialize download agent hardware.
- */
-//--------------------------------------------------------------------------------------------------
-int taf_hal_HwInit()
-{
-    LE_INFO("DA hardware initializing.");
-
-    return 0;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Set download agent to sleep.
- *
- * @return
- * - 0      -- Succeeded.
- * - Others -- Failed.
- */
-//--------------------------------------------------------------------------------------------------
-int taf_hal_Sleep()
-{
-    LE_INFO("Set DA module to sleep.");
-
-    return 0;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Wake up download agent.
- *
- * @return
- * - 0      -- Succeeded.
- * - Others -- Failed.
- */
-//--------------------------------------------------------------------------------------------------
-int taf_hal_Wakeup()
-{
-    LE_INFO("Wakeup DA module.");
-
-    return 0;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Selftest on download agent module.
- *
- * @return
- * - 0      -- Succeeded.
- * - Others -- Failed.
- */
-//--------------------------------------------------------------------------------------------------
-int taf_hal_SelfTest()
-{
-    LE_INFO("DA module selftest.");
-
-    return 0;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
  * Get download agent information table.
  *
  * @return
@@ -548,12 +467,9 @@ LE_SHARED da_InfoTab_t TAF_HAL_INFO_TAB =
     {
         .name = TAF_DA_MODULE_NAME,
         .majorVer = 1,
-        .minorVer = 0,
+        .minorVer = 1,
         .vendor = "QCT",
-        .hwInitInf = taf_hal_HwInit,
-        .powerOffInf = taf_hal_PowerOff,
-        .powerOnInf = taf_hal_PowerOn,
-        .selfTest = taf_hal_SelfTest,
+        .moduleType = TAF_MODULETYPE_PLUG_IN,
         .getModInf = taf_hal_GetModInf,
         .res = { 0 },
     },

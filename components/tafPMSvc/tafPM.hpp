@@ -81,7 +81,7 @@ typedef struct
 }
 taf_ws_t;
 
-#if defined(TARGET_SA525M)
+#if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
 
 #define TAF_PM_VM_LIST_POOL_SIZE   5
 #define TAF_PM_VM_INFO_POOL_SIZE   5
@@ -173,12 +173,12 @@ namespace tafsvc {
     // define the callback class for TCU state change of local proc
     class tafTcuStateListener : public telux::power::ITcuActivityListener {
         public :
-            #if defined(TARGET_SA515M)
+            #ifndef LE_CONFIG_ENABLE_MULTI_VM_SUPPORT
             void onTcuActivityStateUpdate(telux::power::TcuActivityState state) override;
             void onSlaveAckStatusUpdate(telux::common::Status status) override;
             #endif
 
-            #if defined(TARGET_SA525M)
+            #if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
             void onTcuActivityStateUpdate(TcuActivityState state, string machineName) override;
             void onMachineUpdate(const string machineName,
                     const MachineEvent machineEvent) override;
@@ -234,11 +234,18 @@ namespace tafsvc {
         taf_pm_StateChangeHandlerRef_t AddStateChangeHandler
                 (taf_pm_StateChangeHandlerFunc_t handlerPtr, void* contextPtr);
         void RemoveStateChangeHandler(taf_pm_StateChangeHandlerRef_t handlerRef);
-        #if defined(TARGET_SA525M)
+        #if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
         taf_pm_State_t curTcuState;
         le_mem_PoolRef_t vmListPool;
         le_mem_PoolRef_t vmInfoPool;
         le_ref_MapRef_t vmListRefMap;
+        le_result_t SetPowerState(taf_pm_State_t state, const char *machineName);
+        taf_pm_VMListRef_t GetMachineList();
+        le_result_t GetFirstMachineName(taf_pm_VMListRef_t vmListRef,
+                char* vmNamePtr, size_t vmNamePtrSize);
+        le_result_t GetNextMachineName(taf_pm_VMListRef_t vmListRef,
+                char* vmNamePtr, size_t vmNamePtrSize);
+        le_result_t DeleteMachineList(taf_pm_VMListRef_t vmListRef);
         le_mem_PoolRef_t powerStateRefPool;
         le_ref_MapRef_t powerStateRefMap;
         le_event_Id_t stateChangeExEvent;
@@ -247,13 +254,6 @@ namespace tafsvc {
         le_mem_PoolRef_t powerStateHandlerPool;
         le_dls_List_t powerStateHandlerList;
         le_ref_MapRef_t powerStateHandlerRefMap;
-        le_result_t SetPowerState(taf_pm_State_t state, const char *machineName);
-        taf_pm_VMListRef_t GetMachineList();
-        le_result_t GetFirstMachineName(taf_pm_VMListRef_t vmListRef,
-                char* vmNamePtr, size_t vmNamePtrSize);
-        le_result_t GetNextMachineName(taf_pm_VMListRef_t vmListRef,
-                char* vmNamePtr, size_t vmNamePtrSize);
-        le_result_t DeleteMachineList(taf_pm_VMListRef_t vmListRef);
         void DeletePowerStateRefs();
         void SendNackToPmd(taf_pm_State_t state);
         void SendAckToPmd(taf_pm_State_t state);

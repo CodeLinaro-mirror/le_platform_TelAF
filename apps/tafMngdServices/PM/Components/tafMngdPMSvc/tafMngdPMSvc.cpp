@@ -45,151 +45,6 @@ using namespace telux::tafsvc;
 LE_MEM_DEFINE_STATIC_POOL(SessionCtx, MAX_SESSION, sizeof(taf_mngdPm_SessionNode_t));
 
 /**
- * Set the NAD to requested power state.
- */
-le_result_t taf_mngd_pm_SetNadPowerState(taf_mngd_pm_Nad_t nad, taf_mngd_pm_State_t state)
-{
-    LE_DEBUG("taf_mngd_pm_setNadPowerState state : %s", tafMngdPMSvc::TafStateToString(state));
-
-    auto &mpms = tafMngdPMSvc::GetInstance();
-
-    if(tafMngdPMSvc::IsClientValid() == false)
-    {
-        return LE_UNSUPPORTED;
-    }
-
-    le_result_t res = taf_pm_SetAllVMPowerState((taf_pm_State_t)state);
-    if(res != LE_OK)
-    {
-        LE_ERROR("Failed to set the NAD power state");
-    }
-    else
-    {
-        le_hashmap_It_Ref_t hashIter = (le_hashmap_It_Ref_t)le_hashmap_GetIterator(mpms.vmStateHashmap);
-        while (LE_OK == le_hashmap_NextNode(hashIter))
-        {
-            taf_mngdPm_State_t *vmStatePtr = (taf_mngdPm_State_t*)le_hashmap_GetValue(hashIter);
-
-            if(vmStatePtr) {
-                vmStatePtr->state = state;
-            }
-        }
-    }
-    return res;
-}
-/**
- * Set the VM to requested power state
- */
-
-le_result_t taf_mngd_pm_SetVMPowerState(taf_mngd_pm_Nad_t nad, const char *machineName,
-        taf_mngd_pm_State_t state)
-{
-    LE_DEBUG("taf_mngd_pm_SetVMPowerState VM : %s state : %s", machineName,
-            tafMngdPMSvc::TafStateToString(state));
-
-    auto &mpms = tafMngdPMSvc::GetInstance();
-
-    if(tafMngdPMSvc::IsClientValid() == false)
-    {
-        return LE_UNSUPPORTED;
-    }
-
-    TAF_ERROR_IF_RET_VAL(state == TAF_MNGD_PM_STATE_UNKNOWN || machineName == NULL,
-            LE_BAD_PARAMETER, "state or machineName is not valid");
-
-    char name[32] = {0};
-    taf_pm_VMListRef_t vmListRef = taf_pm_GetMachineList( );
-
-    TAF_ERROR_IF_RET_VAL(!vmListRef, LE_UNSUPPORTED, "Machine list not available");
-
-    le_result_t res = taf_pm_GetFirstMachineName(vmListRef, name, 32);
-    while(res == LE_OK)
-    {
-        if(machineName && strncmp(machineName, name, TAF_MNGD_PM_MACHINE_NAME_LEN) == 0)
-        {
-            taf_mngdPm_State_t *vmStatePtr =
-                    (taf_mngdPm_State_t*)le_hashmap_Get(mpms.vmStateHashmap, name);
-            TAF_ERROR_IF_RET_VAL(!vmStatePtr, LE_BAD_PARAMETER, "Machine name not available");
-
-            // return LE_BAD_PARAMETER when received request for the same current power state.
-            TAF_ERROR_IF_RET_VAL(vmStatePtr->state == state, LE_BAD_PARAMETER,
-                    "Requested the already existing state");
-
-            res = taf_pm_SetVMPowerState((taf_pm_State_t)state, machineName);
-            if(res != LE_OK)
-            {
-                LE_ERROR("Failed to trigger state change of %s VM", machineName);
-                return res;
-            }
-            else
-            {
-                LE_INFO("Successfully requested state change for %s VM", machineName);
-                taf_pm_DeleteMachineList(vmListRef);
-                le_hashmap_It_Ref_t hashIter =
-                        (le_hashmap_It_Ref_t)le_hashmap_GetIterator(mpms.vmStateHashmap);
-                while (LE_OK == le_hashmap_NextNode(hashIter))
-                {
-                    taf_mngdPm_State_t *vmStatePtr =
-                            (taf_mngdPm_State_t*)le_hashmap_GetValue(hashIter);
-                    if(vmStatePtr)
-                    {
-                        if(strncmp(vmStatePtr->vmName, machineName,
-                                TAF_MNGD_PM_MACHINE_NAME_LEN) == 0)
-                        {
-                            LE_DEBUG("Update %s VM state to %s", vmStatePtr->vmName,
-                                    tafMngdPMSvc::TafStateToString(state));
-                            vmStatePtr->state = state;
-                        }
-                    }
-                }
-                return res;
-            }
-        }
-        res = taf_pm_GetNextMachineName(vmListRef, name, 32);
-    }
-    taf_pm_DeleteMachineList(vmListRef);
-    LE_ERROR("machineName %s provided is not available", machineName);
-    return LE_BAD_PARAMETER;
-}
-
-/**
- * Gets the VM current power state.
- */
-le_result_t taf_mngd_pm_GetVMPowerState(taf_mngd_pm_Nad_t nad, const char *machineName,
-        taf_mngd_pm_State_t *state)
-{
-    LE_DEBUG("taf_mngd_pm_GetVMPowerState %s state", machineName);
-
-    auto &mpms = tafMngdPMSvc::GetInstance();
-
-    if(tafMngdPMSvc::IsClientValid() == false)
-    {
-        return LE_UNSUPPORTED;
-    }
-
-    TAF_ERROR_IF_RET_VAL(state == NULL || machineName == NULL, LE_BAD_PARAMETER,
-            "state or machineName is not valid");
-
-    le_hashmap_It_Ref_t hashIter = (le_hashmap_It_Ref_t)le_hashmap_GetIterator(mpms.vmStateHashmap);
-    while (LE_OK == le_hashmap_NextNode(hashIter))
-    {
-        taf_mngdPm_State_t *vmStatePtr = (taf_mngdPm_State_t*)le_hashmap_GetValue(hashIter);
-
-        if(vmStatePtr)
-        {
-            if(strncmp(vmStatePtr->vmName, machineName, TAF_MNGD_PM_MACHINE_NAME_LEN) == 0)
-            {
-                LE_DEBUG("Update %s state", vmStatePtr->vmName);
-                *state = vmStatePtr->state;
-                return LE_OK;
-            }
-        }
-    }
-    LE_ERROR("machineName %s provided is not available", machineName);
-    return LE_BAD_PARAMETER;
-}
-
-/**
  * Sets the NAD to Targeted  power mode.
  */
 le_result_t taf_mngd_pm_SetNodeTargetedPowerMode(uint8_t pm_node_id,
@@ -477,12 +332,12 @@ le_result_t taf_mngd_pm_RelaxNode(taf_mngd_pm_wsRef_t wsRef)
                 LE_INFO("nodeInfoNotification for vhalTag: %s", wsRefCtxPtr->vhalTag);
                 (*(mpms.pmInf->nodeInfoNotification))(wsRefCtxPtr->pmNodeId, PM_HAL_NODE_INFO_LOCK_RELEASED,
                     wsRefCtxPtr->vhalTag);
-                if(mpms.wsCount > 0)
-                {
-                    mpms.wsCount--;
-                }
-            res = tafMngdPMSvc::ReleaseWakeLock();
             }
+            if(mpms.wsCount > 0)
+            {
+                mpms.wsCount--;
+            }
+            res = tafMngdPMSvc::ReleaseWakeLock();
         }
     }
     if(ispresent)
@@ -493,6 +348,43 @@ le_result_t taf_mngd_pm_RelaxNode(taf_mngd_pm_wsRef_t wsRef)
     else
         return LE_FAULT;
 }
+
+/**
+ * Initiates the forceful restart for the given node.
+ */
+le_result_t taf_mngd_pm_ShutdownNode (uint8_t pmNodeId)
+{
+    LE_DEBUG("taf_mngd_pm_ShutdownNode pmNodeId : %d", pmNodeId);
+
+    auto &mpms = tafMngdPMSvc::GetInstance();
+    if(tafMngdPMSvc::IsClientValid() == false)
+    {
+        return LE_UNSUPPORTED;
+    }
+    le_result_t res = mpms.ShutdownNAD();
+    return res;
+}
+
+/**
+ * Initiates the forceful shutdown for the given node.
+ */
+le_result_t taf_mngd_pm_RestartNode (uint8_t pmNodeId)
+{
+    LE_INFO("taf_mngd_pm_RestartNode");
+    if(tafMngdPMSvc::IsClientValid() == false)
+    {
+        return LE_UNSUPPORTED;
+    }
+    if (reboot(RB_AUTOBOOT)) {
+        LE_INFO("System is rebooted");
+        return LE_OK;
+    }
+    else {
+        LE_INFO("System reboot failed");
+        return LE_FAULT;
+    }
+}
+
 
 /**
  * Adds the client to StateChangeHandler.

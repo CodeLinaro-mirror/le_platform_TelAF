@@ -38,6 +38,7 @@
 #include "tafHalPM.h"
 #include "tafHalLib.hpp"
 #include <vector>
+#include <sys/reboot.h>
 
 #define TAF_MNGD_PM_VM_HASH_SIZE 10
 #define NODE_PRIMARY_NAD 0
@@ -45,12 +46,11 @@
 #define VHAL_WAKESOURCE_TIMEOUT 10000
 #define NODE_ID 0
 #define WAKELOCK_WITHOUT_REF 0
-#define MAX_SESSION 1
+#define MAX_SESSION 5
 #define TAF_WAKE_SOURCE_REF_POOL_SIZE 4
 #define STAYAWAKE "STAYAWAKE"
 #define RELAX "RELAX"
 #define SHUTDOWN "SHUTDOWN"
-
 namespace telux {
 namespace tafsvc {
 

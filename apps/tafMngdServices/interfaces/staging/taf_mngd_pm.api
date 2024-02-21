@@ -62,70 +62,6 @@
  * The default configuration file is available at
  * /legato/systems/current/appsWriteable/tafMngdPMSvc/tafMngdPMConfig.json
  *
- * @section taf_mngd_pm_SetNadPowerState Set the power state of NAD
- *
- * TelAF Power Management Service provides APIs to set the power state of a given NAD device.
- * TelAF Power Management Service's client calls taf_mngd_pm_SetNadPowerState() to set the power
- * state of the machine.
- * @verbatim
-
-    le_result_t res = taf_mngd_pm_SetNadPowerState(TAF_MNGD_PM_NAD1, TAF_MNGD_PM_SUSPEND);
-    if (res == LE_OK) {
-        LE_INFO("Successfully triggered suspend");
-    }
-
-   @endverbatim
- *
- * @section taf_mngd_pm_SetVMPowerState Set the power state for a particular Virtual Machine
- * in NAD
- *
- * TelAF Power Management Service provides APIs to set the power state of a particular Virtual
- * Machine.
- * TelAF Power Management Service's client calls taf_mngd_pm_SetVMPowerState() to set the power
- * state of the particular Virtual Machine. To get the available Virtual Machines, client calls
- * taf_pm_GetMachineList().
- *
- * @verbatim
-
-    le_result_t res = taf_mngd_pm_SetVMPowerState(TAF_MNGD_PM_NAD1, "VMName",
-            TAF_MNGD_PM_SUSPEND);
-
-   @endverbatim
- *
- * @section taf_mngd_pm_GetVMPowerState Get the power state for a particular Virtual Machine
- * in NAD
- *
- * TelAF Power Management Service provides APIs to get the power state of a particular Virtual
- * Machine.
- * TelAF Power Management Service's client calls taf_mngd_pm_GetVMPowerState() to get the power
- * state of a particular Virtual Machine.
- * This function returns le_result_t and updates the state of the Virtual Machine.
- * @verbatim
-
-    static char* StateToString(taf_mngd_pm_State_t *state)
-    {
-        switch (*state)
-        {
-            case TAF_MNGD_PM_STATE_RESUME:
-                return "RESUME";
-            case TAF_MNGD_PM_STATE_SUSPEND:
-                return "SUSPEND";
-            case TAF_MNGD_PM_STATE_SHUTDOWN:
-                return "SHUTDOWN";
-            default:
-                LE_ERROR("unknown state");
-                return "UNKNOWN";
-        }
-    }
-
-    void Test_GetVMPowerState() {
-        taf_mngd_pm_State_t state;
-        le_result_t res = taf_mngd_pm_GetVMPowerState(TAF_MNGD_PM_NAD1, arg, &state);
-        LE_INFO("state is %s", StateToString(state));
-    }
-
-   @endverbatim
- *
  * @section taf_mngd_pm_shutdown Shutdown the system forcefully
  *
  * TelAF Power Management Service's client calls taf_mngd_pm_ShutdownReqAsync() to shut down the
@@ -380,60 +316,6 @@ EVENT StateChange
 
 //--------------------------------------------------------------------------------------------------
 /**
-* Sets the power state of the given NAD.
-*
-* @return
-*     - LE_OK             Successfully changed the state of device.
-*     - LE_BAD_PARAMETER  Invalid state.
-*     - LE_BUSY           The state transition request is in progress.
-*     - LE_FAULT          Failed.
-*/
-//--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t SetNadPowerState
-(
-    Nad nad IN,                 ///< NAD power state to be changed.
-    State state IN              ///< State to be set.
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
-* Sets the power state to the respective Virtual Machine in the given NAD.
-*
-* @return
-*     - LE_OK             Successfully changed the state of the Virtual Machine.
-*     - LE_BAD_PARAMETER  The given Virtual Machine is not available in the mentioned NAD
-*                         or the given state is invalid.
-*     - LE_BUSY           The state transition request is in progress.
-*     - LE_FAULT          Failed.
-*/
-//--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t SetVMPowerState
-(
-    Nad nad IN,                                ///< NAD where the mentioned Virtual Machine is
-                                               ///  available.
-    string  vmName[MACHINE_NAME_LEN] IN,       ///< Virtual Machine name.
-    State   state IN                           ///< State to be set.
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
-* Gets the power state of the respective Virtual Machine in the given NAD.
-*
-* @return
-*     - LE_OK            Success.
-*     - LE_BAD_PARAMETER Invalid parameters.
-*     - LE_FAULT         Failed.
-*/
-//--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t GetVMPowerState(
-    Nad nad IN,                                 ///< NAD where the mentioned Virtual Machine is
-                                                ///  available.
-    string  vmName[MACHINE_NAME_LEN] IN,        ///< Virtual Machine name.
-    State state OUT                             ///< State of the Virtual Machine.
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
  * Sets the targeted power mode for the node.
  * Node will initiate the requested power state once all wake sources are released.
  * @return
@@ -537,4 +419,33 @@ FUNCTION le_result_t RelaxNode (
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t StayAwakeNode(
     ws wsRef IN     ///< The wakesource reference ID given.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Initiates the forceful shutdown for the given node.
+ * @return
+ *     - LE_OK             Successfully shuts down for the given node.
+ *     - LE_BAD_PARAMETER  The given pmNodeId is invalid.
+ *     - LE_FAULT          Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ShutdownNode
+(
+    uint8 pmNodeId IN   ///< The Node ID given.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Initiates the forceful restart for the given node.
+ *
+ * @return
+ *     - LE_OK             Successfully restarts for the given node.
+ *     - LE_BAD_PARAMETER  Invalid requested mode or handler reference.
+ *     - LE_FAULT          Failed to send the request.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t RestartNode
+(
+    uint8 pmNodeId IN   ///< The Node ID given.
 );

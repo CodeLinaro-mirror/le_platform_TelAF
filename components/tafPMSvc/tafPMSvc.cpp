@@ -153,7 +153,7 @@ void taf_pm_RemoveStateChangeHandler(taf_pm_StateChangeHandlerRef_t handlerRef)
 le_result_t taf_pm_SetAllVMPowerState(taf_pm_State_t state)
 {
    LE_DEBUG("taf_pm_SetAllVMPowerState");
-#if LE_CONFIG_TARGET_SA525M
+#if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
    auto &power = taf_PM::GetInstance();
    return power.SetPowerState(state, "ALL_MACHINES");
 #endif
@@ -170,7 +170,7 @@ le_result_t taf_pm_SetAllVMPowerState(taf_pm_State_t state)
 le_result_t taf_pm_SetVMPowerState(taf_pm_State_t state, const char *machineName)
 {
    LE_DEBUG("taf_pm_SetVMPowerState");
-#if LE_CONFIG_TARGET_SA525M
+#if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
    auto &power = taf_PM::GetInstance();
    return power.SetPowerState(state, machineName);
 #endif
@@ -187,7 +187,7 @@ le_result_t taf_pm_SetVMPowerState(taf_pm_State_t state, const char *machineName
 taf_pm_VMListRef_t taf_pm_GetMachineList( )
 {
    LE_DEBUG("taf_pm_GetVirtualMachineList");
-#if LE_CONFIG_TARGET_SA525M
+#if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
    auto &power = taf_PM::GetInstance();
    return power.GetMachineList();
 #endif
@@ -208,7 +208,7 @@ le_result_t taf_pm_GetFirstMachineName( taf_pm_VMListRef_t vmListRef,
 char* vmNamePtr, size_t vmNamePtrSize )
 {
    LE_DEBUG("taf_pm_GetFirstMachineName");
-#if LE_CONFIG_TARGET_SA525M
+#if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
    auto &power = taf_PM::GetInstance();
    return power.GetFirstMachineName(vmListRef, vmNamePtr, vmNamePtrSize);
 #endif
@@ -229,7 +229,7 @@ le_result_t taf_pm_GetNextMachineName( taf_pm_VMListRef_t vmListRef,
 char* vmNamePtr, size_t vmNamePtrSize )
 {
    LE_DEBUG("taf_pm_GetNextMachineName");
-#if LE_CONFIG_TARGET_SA525M
+#if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
    auto &power = taf_PM::GetInstance();
    return power.GetNextMachineName(vmListRef, vmNamePtr, vmNamePtrSize);
 #endif
@@ -248,7 +248,7 @@ char* vmNamePtr, size_t vmNamePtrSize )
 le_result_t taf_pm_DeleteMachineList( taf_pm_VMListRef_t vmListRef )
 {
    LE_DEBUG("taf_pm_DeleteMachineList");
-#if LE_CONFIG_TARGET_SA525M
+#if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
    auto &power = taf_PM::GetInstance();
    return power.DeleteMachineList(vmListRef);
 #endif
@@ -266,12 +266,11 @@ void taf_pm_SendStateChangeAck(taf_pm_PowerStateRef_t powerStateRef,
 taf_pm_State_t state, taf_pm_NadVm_t vm_id, taf_pm_ClientAck_t ackType )
 {
    LE_INFO("taf_pm_SendStateChangeAck");
-#if LE_CONFIG_TARGET_SA525M
+#if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
    auto &power = taf_PM::GetInstance();
    power.SendStateChangeAck(powerStateRef,state,vm_id,ackType);
 #endif
 }
-
 
 /**
 * FUNCTION     : AddStateChangeExHandler
@@ -284,7 +283,7 @@ taf_pm_StateChangeExHandlerRef_t taf_pm_AddStateChangeExHandler
         (taf_pm_StateChangeExHandlerFunc_t handlerPtr,void* contextPtr)
 {
     LE_DEBUG("AddStateChangeExHandler in Service class");
-#if LE_CONFIG_TARGET_SA525M
+#if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
     auto &power = taf_PM::GetInstance();
     return power.AddStateChangeExHandler(handlerPtr, contextPtr);
 #endif
@@ -302,7 +301,7 @@ taf_pm_StateChangeExHandlerRef_t taf_pm_AddStateChangeExHandler
 void taf_pm_RemoveStateChangeExHandler(taf_pm_StateChangeExHandlerRef_t handlerRef)
 {
    LE_DEBUG("RemoveStateChangeExHandler");
-#if LE_CONFIG_TARGET_SA525M
+#if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
    auto &power = taf_PM::GetInstance();
    power.RemoveStateChangeExHandler(handlerRef);
 #endif

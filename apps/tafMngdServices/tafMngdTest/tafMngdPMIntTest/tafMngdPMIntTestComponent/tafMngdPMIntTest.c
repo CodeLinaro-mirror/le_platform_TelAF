@@ -80,7 +80,14 @@ static void PrintUsage ()
         "--------2 -> For VOICE_CALL wakeuptype------------\n"
         "--------3 -> For MCU_VHAL wakeuptype------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ResumeSystem <wakeuptype>\n"
-        "\n");
+        "\n"
+        "------------To restart the particular node with node ID-----------\n"
+        "--------0 -> For NAD ------------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- RestartNode <NODE_ID>\n"
+        "\n"
+        "------------To Shutdown the particular node with node ID-----------\n"
+        "--------0 -> For NAD ------------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ShutdownNode <NODE_ID>\n");
 }
 
 void RestartCallback(taf_mngd_pm_RestartMode_t mode, taf_mngd_pm_ResponseMode_t rspmode ,
@@ -321,6 +328,42 @@ static int ResumeSystem(const char* wakeuptype)
    return res;
 }
 
+static int RestartNode(const char* node_id)
+{
+    LE_INFO("RestartNode");
+    le_result_t res = LE_FAULT;
+    uint8_t Node = atoi(node_id);
+    LE_INFO("RestartNode for %d", Node);
+    res = taf_mngd_pm_RestartNode(Node);
+    if(res == LE_OK)
+    {
+        LE_INFO("restarted the node");
+        return EXIT_SUCCESS;
+    }
+    else {
+        LE_ERROR("RestartNode failed");
+        return EXIT_FAILURE;
+    }
+}
+
+static int ShutdownNode(const char* node_id)
+{
+    LE_INFO("ShutdownNode");
+    le_result_t res = LE_FAULT;
+    uint8_t Node = atoi(node_id);
+    LE_INFO("ShutdownNode for NAD %d", Node);
+    res = taf_mngd_pm_ShutdownNode(Node);
+    if(res == LE_OK)
+    {
+        LE_INFO("ShutdownNode is successfull");
+        return EXIT_SUCCESS;
+    }
+    else {
+        LE_ERROR("ShutdownNode failed");
+        return EXIT_FAILURE;
+    }
+}
+
 COMPONENT_INIT
 {
     const char* testType = "";
@@ -377,6 +420,16 @@ COMPONENT_INIT
         else if(strcmp(testType, "ResumeSystem") == 0)
         {
             status = ResumeSystem(testPar);
+            exit(status);
+        }
+        else if(strcmp(testType, "RestartNode") == 0)
+        {
+            status = RestartNode(testPar);
+            exit(status);
+        }
+        else if(strcmp(testType, "ShutdownNode") == 0)
+        {
+            status = ShutdownNode(testPar);
             exit(status);
         }
         else

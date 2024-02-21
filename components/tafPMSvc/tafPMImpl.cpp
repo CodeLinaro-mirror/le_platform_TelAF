@@ -39,6 +39,13 @@
 #include "tafPM.hpp"
 
 static taf_powerManager_t pm_recrd;
+
+#ifndef LE_CONFIG_ENABLE_MULTI_VM_SUPPORT
+static bool isResumed = false;
+#endif
+LE_REF_DEFINE_STATIC_MAP(tafPMReferences, TAF_PM_REFERENCE_DEFAULT_POOL_SIZE);
+
+#if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
 /**
  * State Change registered Clients record
  */
@@ -49,16 +56,9 @@ std::vector<taf_pm_PowerStateRef_t>regClientrecrd;
  */
 std::vector<taf_pm_PowerStateRef_t>ackClientrecrd;
 
-#if LE_CONFIG_TARGET_SA515M
-static bool isResumed = false;
-#endif
-LE_REF_DEFINE_STATIC_MAP(tafPMReferences, TAF_PM_REFERENCE_DEFAULT_POOL_SIZE);
-
-#if LE_CONFIG_TARGET_SA525M
 LE_REF_DEFINE_STATIC_MAP(tafPMVmListRef, TAF_PM_VM_LIST_POOL_SIZE);
 std::promise<le_result_t> stateChangePromise;
 static bool isNack = false;
-
 #endif
 
 /**
@@ -202,7 +202,7 @@ void taf_Handler::OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *ct
         le_mem_Release(ws);
     }
     le_mem_Release(pClient);
-#if LE_CONFIG_TARGET_SA525M
+#if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
     auto &tafPowerMgr = taf_PM::GetInstance();
     le_ref_IterRef_t iterRef = le_ref_GetIterator(tafPowerMgr.vmListRefMap);
     while (le_ref_NextNode(iterRef) == LE_OK)
@@ -234,13 +234,14 @@ void taf_PM::Init(void)
     std::promise<telux::common::ServiceStatus> prom = std::promise<telux::common::ServiceStatus>();
     std::promise<telux::common::ServiceStatus> slaveProm
                         = std::promise<telux::common::ServiceStatus>();
-#if defined(TARGET_SA515M)
+#ifndef LE_CONFIG_ENABLE_MULTI_VM_SUPPORT
     tcuActivityMgr = powerFactory.getTcuActivityManager(ClientType::MASTER, ProcType::LOCAL_PROC,
                         [&](telux::common::ServiceStatus status) {
                              prom.set_value(status);
                         });
 #endif
-#if LE_CONFIG_TARGET_SA525M
+
+#if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
     ClientInstanceConfig config;
     config.clientType = ClientType::MASTER;
     config.clientName = "tafPMSvc";
@@ -258,15 +259,12 @@ void taf_PM::Init(void)
                              slaveProm.set_value(status);
                         });
 #endif
-#ifdef TARGET_SA415M
-    tcuActivityMgr = powerFactory.getTcuActivityManager(ClientType::MASTER);
-#endif
     if(tcuActivityMgr == nullptr)
     {
         LE_INFO("tafPowerMgr is null Init...\n");
         return;
     }
-#if LE_CONFIG_TARGET_SA525M
+#if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
     else if(tcuSlaveActivityMgr == nullptr)
     {
         LE_ERROR("tafPowerMgr is null Init for slave...\n");
@@ -275,14 +273,10 @@ void taf_PM::Init(void)
             && (slaveProm.get_future().get() == telux::common::ServiceStatus::SERVICE_AVAILABLE);
     if(isReady){
 #endif
-
-#if defined(TARGET_SA515M)
+#ifndef LE_CONFIG_ENABLE_MULTI_VM_SUPPORT
     // wait unconditionally till the service is avilable
     bool isReady = (prom.get_future().get() == telux::common::ServiceStatus::SERVICE_AVAILABLE);
     if(isReady){
-#endif
-#ifdef TARGET_SA415M
-    if(true){
 #endif
         LE_INFO("TCU Activity manager is available");
 
@@ -306,7 +300,7 @@ void taf_PM::Init(void)
         } else {
             LE_INFO(" Registered Listener for TCU-activity state updates");
         }
-#if LE_CONFIG_TARGET_SA525M
+#if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
         if(tcuSlaveActivityMgr) {
             //Register for state change listener to notify the state changes to clients
             tcuSlaveStateListener = std::make_shared<tafTcuStateListener>();
@@ -318,7 +312,7 @@ void taf_PM::Init(void)
             } else {
                 LE_INFO(" Registered Listener for TCU-activity state updates");
             }
-		}
+        }
 #endif
     } else {
         LE_ERROR("ERROR Unable to intialize TCU activity service");
@@ -365,12 +359,11 @@ void taf_PM::Init(void)
     le_sig_Block(SIGTERM);
     le_sig_SetEventHandler(SIGTERM, taf_PM::TafSigTermEventHandler);
 
-#if LE_CONFIG_TARGET_SA525M
+#if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
     curTcuState = TAF_PM_STATE_RESUME;
     vmListPool = le_mem_CreatePool("tafPMVirtualMachineList", sizeof(taf_PMVmList_t));
     vmInfoPool = le_mem_CreatePool("tafPMVirtualMachineInfo", sizeof(taf_PMVmInfo_t));
     vmListRefMap = le_ref_InitStaticMap(tafPMVmListRef, TAF_PM_VM_LIST_POOL_SIZE);
-
     powerStateRefPool = le_mem_CreatePool("tafPMPowerStateRefList", sizeof(taf_PmPowerStateRef_t));
     powerStateRefMap = le_ref_CreateMap("tafPMpowrStateRefMap", TAF_POWER_SOURCE_DEFAULT_POOL_SIZE);
 
@@ -382,7 +375,6 @@ void taf_PM::Init(void)
     powerStateHandlerList = LE_DLS_LIST_INIT;
     powerStateHandlerRefMap = le_ref_CreateMap("tafPStateHandler",
         TAF_POWER_SOURCE_DEFAULT_POOL_SIZE);
-
 #endif
     LE_INFO("tafPM service init done...\n");
 }
@@ -393,12 +385,12 @@ void taf_PM::Init(void)
 void taf_Handler::commandCallback(ErrorCode errorCode) {
     if(errorCode == telux::common::ErrorCode::SUCCESS) {
         LE_INFO(" set TCU state command initiated successfully ");
-#if LE_CONFIG_TARGET_SA525M
+#if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
         stateChangePromise.set_value(LE_OK);
 #endif
     } else {
         LE_ERROR( " set TCU state command failed !!!");
-#if LE_CONFIG_TARGET_SA525M
+#if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
         stateChangePromise.set_value(LE_FAULT);
 #endif
     }
@@ -494,7 +486,7 @@ le_result_t taf_PM::StayAwake(taf_pm_WakeupSourceRef_t wsRef)
         }
     }
     if(tcuActivityMgr->getActivityState() != TcuActivityState::RESUME) {
-#if defined(TARGET_SA515M) || defined(TARGET_SA415M)
+#ifndef LE_CONFIG_ENABLE_MULTI_VM_SUPPORT
         telux::common::Status status = tcuActivityMgr->setActivityState(
                 TcuActivityState::RESUME, &taf_Handler::commandCallback);
         if( status == telux::common::Status::SUCCESS) {
@@ -503,7 +495,7 @@ le_result_t taf_PM::StayAwake(taf_pm_WakeupSourceRef_t wsRef)
             LE_ERROR("sending cmd failed");
         }
 #endif
-#if LE_CONFIG_TARGET_SA525M
+#if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
     le_result_t res;
     res = SetPowerState(TAF_PM_STATE_RESUME, "ALL_MACHINES");
     if(res == LE_OK)
@@ -553,7 +545,7 @@ le_result_t taf_PM::Relax( taf_pm_WakeupSourceRef_t wsRef)
 
     // if all the wake sources are in released state and set SUSPEND state
     if(pm_recrd.wsAcquired == 0) {
-#if LE_CONFIG_TARGET_SA525M
+#if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
         auto &tafPwrMgr = taf_PM::GetInstance();
         stateEvent_t evt;
         evt.state = TAF_PM_STATE_ALL_WAKELOCKS_RELEASED;
@@ -569,7 +561,7 @@ le_result_t taf_PM::Relax( taf_pm_WakeupSourceRef_t wsRef)
                 LE_ERROR("sending cmd failed for remote proc");
             }
         }
-#if defined(TARGET_SA515M) || defined(TARGET_SA415M)
+#ifndef LE_CONFIG_ENABLE_MULTI_VM_SUPPORT
         telux::common::Status status = tcuActivityMgr->setActivityState(
                 TcuActivityState::SUSPEND, &taf_Handler::commandCallback);
         if( status == telux::common::Status::SUCCESS) {
@@ -593,7 +585,7 @@ taf_pm_State_t taf_PM::GetPowerState()
     return (tcuStateToTafPowerState(state));
 }
 
-#if LE_CONFIG_TARGET_SA525M
+#if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
 /**
  * To add handler for Extend power state change notification
  */
@@ -760,7 +752,6 @@ le_result_t taf_PM::SetPowerState(taf_pm_State_t state, const char* machineName)
     } else {
         LE_ERROR("sending cmd failed");
     }
-
     return LE_FAULT;
 }
 
@@ -967,7 +958,7 @@ void taf_PM::RemoveStateChangeHandler(taf_pm_StateChangeHandlerRef_t handlerRef)
     LE_INFO("Removed StateChangeHandler");
 }
 
-#if LE_CONFIG_TARGET_SA515M
+#ifndef LE_CONFIG_ENABLE_MULTI_VM_SUPPORT
 /**
  * callback function to receive TCU activity state update
  */
@@ -1026,7 +1017,7 @@ void taf_PM::TafSigTermEventHandler(int tafSigNum)
     LE_DEBUG("TafSigTermEventHandler :%d", tafSigNum);
     auto &tafPwrMgr = taf_PM::GetInstance();
     telux::common::Status status = telux::common::Status::FAILED;
-#if LE_CONFIG_TARGET_SA525M
+#if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
     // Resume in SA525M before service termination as master app is terminating
     if(tafPwrMgr.tcuActivityMgr->getActivityState() != TcuActivityState::RESUME) {
         status = tafPwrMgr.tcuActivityMgr->setActivityState(
@@ -1062,7 +1053,7 @@ void taf_PM::TafSigTermEventHandler(int tafSigNum)
     }
 }
 
-#if LE_CONFIG_TARGET_SA525M
+#if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
 void tafTcuStateListener::onTcuActivityStateUpdate(TcuActivityState state, string machineName)
 {
     auto &tafPwrMgr = taf_PM::GetInstance();
@@ -1078,7 +1069,6 @@ void tafTcuStateListener::onTcuActivityStateUpdate(TcuActivityState state, strin
     } else if(state == TcuActivityState::RESUME) {
         evt.state = TAF_PM_STATE_RESUME;
     }
-
     // send state change notification to all the handlers registered
     LE_INFO("sent report state %s\n",tafPwrMgr.tcuStateToString(state));
     le_event_Report(tafPwrMgr.StateChangeEvent, &evt, sizeof(evt));
@@ -1205,7 +1195,8 @@ void taf_PM::sendAck(void* reportPtr)
         }
     }
 }
-#if defined(TARGET_SA525M)
+
+#if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
 void taf_PM:: SendAckToPmd(taf_pm_State_t state)
 {
     LE_INFO("SendAckToPmd");

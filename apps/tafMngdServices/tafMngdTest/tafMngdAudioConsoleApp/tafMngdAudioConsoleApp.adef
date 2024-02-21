@@ -1,0 +1,30 @@
+sandboxed: false
+
+executables:
+{
+    tafMngdAudioConsoleApp =
+            ($TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdAudioConsoleApp/tafMngdAudioConsoleAppComp)
+}
+
+start: manual
+
+processes:
+{
+    run:
+    {
+        (tafMngdAudioConsoleApp)
+    }
+
+    faultAction: stopApp
+
+    #if ${LE_CONFIG_SERVICES_WATCHDOG} = y
+        maxWatchdogTimeout: 100000
+    #else
+        watchdogTimeout: never
+    #endif
+}
+
+bindings:
+{
+    tafMngdAudioConsoleApp.tafMngdAudioConsoleAppComp.taf_mngd_audio -> tafMngdAudioSvc.taf_mngd_audio
+}

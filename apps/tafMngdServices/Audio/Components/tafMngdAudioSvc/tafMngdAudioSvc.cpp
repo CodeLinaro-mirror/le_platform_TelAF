@@ -168,6 +168,7 @@ taf_mngd_audio_RouteRef_t taf_mngd_audio_OpenRoute
     auto &mngdAudio = taf_MngdAudio::GetInstance();
     return mngdAudio.OpenRoute(route, mode, sinkRef, sourceRef);
 }
+
 /**
 * FUNCTION     : CloseRoute
 * DESCRIPTION  : Closes the audio route
@@ -182,6 +183,108 @@ le_result_t taf_mngd_audio_CloseRoute
 {
     auto &mngdAudio = taf_MngdAudio::GetInstance();
     return mngdAudio.CloseRoute(routeRef);
+}
+
+/**
+* FUNCTION     : OpenPlayer
+* DESCRIPTION  : Opens the stream for player
+* DEPENDECY    :
+* PARAMETERS   : direction
+* RETURN VALUES: Stream reference on success and null on failure.
+*/
+taf_mngd_audio_StreamRef_t taf_mngd_audio_OpenPlayer
+(
+    taf_mngd_audio_Direction_t direction
+)
+{
+    auto &mngdAudio = taf_MngdAudio::GetInstance();
+    return mngdAudio.OpenPlayer(direction);
+}
+
+/**
+* FUNCTION     : PlayFile
+* DESCRIPTION  : Plays the audio file
+* DEPENDECY    :
+* PARAMETERS   : Player stream reference and audio file path
+* RETURN VALUES: LE_OK on success and LE_FAULT on failure.
+*/
+le_result_t taf_mngd_audio_PlayFile
+(
+    taf_mngd_audio_StreamRef_t streamRef,
+    const char *srcPath
+)
+{
+    auto &mngdAudio = taf_MngdAudio::GetInstance();
+    return mngdAudio.PlayFile(streamRef, srcPath);
+}
+
+/**
+* FUNCTION     : OpenRecorder
+* DESCRIPTION  : Opens the stream for recorder
+* DEPENDECY    :
+* PARAMETERS   : direction
+* RETURN VALUES: Stream reference on success and null on failure.
+*/
+taf_mngd_audio_StreamRef_t taf_mngd_audio_OpenRecorder
+(
+    taf_mngd_audio_Direction_t direction
+)
+{
+    auto &mngdAudio = taf_MngdAudio::GetInstance();
+    return mngdAudio.OpenRecorder(direction);
+}
+
+/**
+* FUNCTION     : RecordFile
+* DESCRIPTION  : Records the audio file
+* DEPENDECY    :
+* PARAMETERS   : Recorder stream reference and audio file path
+* RETURN VALUES: LE_OK on success and LE_FAULT on failure.
+*/
+le_result_t taf_mngd_audio_RecordFile
+(
+    taf_mngd_audio_StreamRef_t streamRef,
+    const char *srcPath
+)
+{
+    auto &mngdAudio = taf_MngdAudio::GetInstance();
+    return mngdAudio.RecordFile(streamRef, srcPath);
+}
+
+/**
+* FUNCTION     : Stop
+* DESCRIPTION  : Stops the active playback/record
+* DEPENDECY    :
+* PARAMETERS   : Player/recorder stream reference
+* RETURN VALUES: LE_OK on success and LE_FAULT on failure.
+*/
+le_result_t taf_mngd_audio_Stop
+(
+    taf_mngd_audio_StreamRef_t streamRef
+)
+{
+    auto &mngdAudio = taf_MngdAudio::GetInstance();
+    return mngdAudio.Stop(streamRef);
+}
+
+taf_mngd_audio_MediaHandlerRef_t taf_mngd_audio_AddMediaHandler
+(
+   taf_mngd_audio_StreamRef_t streamRef,
+   taf_mngd_audio_MediaHandlerFunc_t handlerPtr,
+   void* contextPtr
+)
+{
+    auto &mngdAudio = taf_MngdAudio::GetInstance();
+    return mngdAudio.AddMediaHandler(streamRef, handlerPtr, contextPtr);
+}
+
+void taf_mngd_audio_RemoveMediaHandler
+(
+   taf_mngd_audio_MediaHandlerRef_t handlerRef
+)
+{
+    auto &mngdAudio = taf_MngdAudio::GetInstance();
+    return mngdAudio.RemoveMediaHandler(handlerRef);
 }
 
 COMPONENT_INIT

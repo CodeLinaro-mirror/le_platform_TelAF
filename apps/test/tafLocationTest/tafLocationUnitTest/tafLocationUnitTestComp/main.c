@@ -1644,6 +1644,11 @@ static void* PositionThread
 {
     LE_TEST_INFO("======== Position Handler thread  ========");
     taf_gnss_ConnectService();
+
+    le_result_t result = taf_gnss_Start();
+
+    LE_INFO("Result of gnss start: %d", (int)result);
+
     PositionHandlerRef = taf_gnss_AddPositionHandler(PositionHandlerFunction, NULL);
 
     //137.Position Handler
@@ -1771,6 +1776,11 @@ static void* NmeaThread
 {
     LE_TEST_INFO("======== Nmea Handler thread  ========");
     taf_gnss_ConnectService();
+
+    le_result_t result = taf_gnss_Start();
+
+    LE_INFO("Result of gnss start: %d", (int)result);
+
     NmeaHandlerRef = taf_gnss_AddNmeaHandler(NmeaHandlerFunction, NULL);
 
     //137.Nmea Handler
@@ -1897,6 +1907,11 @@ static void* CapabilityChangeThread
 {
     LE_TEST_INFO("======== CapabilityChange Handler thread  ========");
     taf_gnss_ConnectService();
+
+    le_result_t result = taf_gnss_Start();
+
+    LE_INFO("Result of gnss start: %d", (int)result);
+
     CapabilityChangeHandlerRef = taf_gnss_AddCapabilityChangeHandler(CapabilityHandlerFunction, NULL);
 
     //137.CapabilityChange Handler

@@ -18,6 +18,25 @@ using namespace telux::tafsvc;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Returns the WLAN AP reference.
+ *
+ * @return
+ * - WLAN AP reference on success, nullptr on failure
+ */
+//--------------------------------------------------------------------------------------------------
+taf_wlanAp_WlanAPRef_t taf_wlanAp_GetWlanAP
+(
+    taf_wlan_APid_t apID,               ///< [IN] AP identifier
+    const char* LE_NONNULL apIntfName   ///< [IN] AP assocaited host interface name.
+)
+{
+    TAF_ERROR_IF_RET_VAL(apIntfName == nullptr, nullptr, "apIntfName is nullptr!");
+    auto &wlan = taf_WlanAPSvcImpl::GetInstance();
+    return wlan.GetWlanAPReference(apID, apIntfName);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Starts the specified Access Point.
  *
  * @return
@@ -27,14 +46,13 @@ using namespace telux::tafsvc;
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_wlanAp_Start
 (
-    taf_wlanAp_WlanAPRef_t wlanAPRef
-        ///< [IN] The WLAN AP reference. Reserved for future use.
+    taf_wlanAp_WlanAPRef_t wlanAPRef    ///< [IN] The WLAN AP reference.
 )
 {
-    LE_UNUSED (wlanAPRef);
-    auto &myWlan = taf_WlanAPSvcImpl::GetInstance();
-    return myWlan.Start();
+    auto &wlan = taf_WlanAPSvcImpl::GetInstance();
+    return wlan.Start(wlanAPRef);
 }
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Stops the specified Access Point.
@@ -46,14 +64,13 @@ le_result_t taf_wlanAp_Start
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_wlanAp_Stop
 (
-    taf_wlanAp_WlanAPRef_t wlanAPRef
-        ///< [IN] The WLAN AP reference. Reserved for future use.
+    taf_wlanAp_WlanAPRef_t wlanAPRef    ///< [IN] The WLAN AP reference.
 )
 {
-    LE_UNUSED (wlanAPRef);
-    auto &myWlan = taf_WlanAPSvcImpl::GetInstance();
-    return myWlan.Stop();
+    auto &wlan = taf_WlanAPSvcImpl::GetInstance();
+    return wlan.Stop(wlanAPRef);
 }
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Restarts the specified Access Point.
@@ -65,14 +82,13 @@ le_result_t taf_wlanAp_Stop
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_wlanAp_Restart
 (
-    taf_wlanAp_WlanAPRef_t wlanAPRef
-        ///< [IN] The WLAN AP reference. Reserved for future use.
+    taf_wlanAp_WlanAPRef_t wlanAPRef    ///< [IN] The WLAN AP reference.
 )
 {
-    LE_UNUSED (wlanAPRef);
-    auto &myWlan = taf_WlanAPSvcImpl::GetInstance();
-    return myWlan.Restart();
+    auto &wlan = taf_WlanAPSvcImpl::GetInstance();
+    return wlan.Restart(wlanAPRef);
 }
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Sets the configuration for the specified Access Point.
@@ -85,16 +101,16 @@ le_result_t taf_wlanAp_Restart
 le_result_t taf_wlanAp_SetConfig
 (
     taf_wlanAp_WlanAPRef_t wlanAPRef,
-        ///< [IN] The WLAN AP reference. Reserved for future use.
+        ///< [IN] The WLAN AP reference.
     const taf_wlanAp_WlanAPConfig_t * LE_NONNULL ConfigPtr
         ///< [IN] The WLAN AP configuration.
 )
 {
-    LE_UNUSED (wlanAPRef);
-    TAF_ERROR_IF_RET_VAL(NULL == ConfigPtr, LE_BAD_PARAMETER, "ConfigPtr is NULL!");
-    auto &myWlan = taf_WlanAPSvcImpl::GetInstance();
-    return myWlan.SetConfig(ConfigPtr);
+    TAF_ERROR_IF_RET_VAL(nullptr == ConfigPtr, LE_BAD_PARAMETER, "ConfigPtr is nullptr!");
+    auto &wlan = taf_WlanAPSvcImpl::GetInstance();
+    return wlan.SetConfig(wlanAPRef, ConfigPtr);
 }
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets the configuration for the specified Access Point.
@@ -107,16 +123,17 @@ le_result_t taf_wlanAp_SetConfig
 le_result_t taf_wlanAp_GetConfig
 (
     taf_wlanAp_WlanAPRef_t wlanAPRef,
-        ///< [IN] The WLAN AP reference. Reserved for future use.
+        ///< [IN] The WLAN AP reference.
     taf_wlanAp_WlanAPConfig_t * ConfigPtr
         ///< [OUT] The WLAN AP configuration.
 )
 {
-    LE_UNUSED (wlanAPRef);
-    TAF_ERROR_IF_RET_VAL(NULL == ConfigPtr, LE_BAD_PARAMETER, "ConfigPtr is NULL!");
-    auto &myWlan = taf_WlanAPSvcImpl::GetInstance();
-    return myWlan.GetConfig(ConfigPtr);
+    TAF_ERROR_IF_RET_VAL(nullptr == ConfigPtr, LE_BAD_PARAMETER,
+        "ConfigPtr is nullptr!");
+    auto &wlan = taf_WlanAPSvcImpl::GetInstance();
+    return wlan.GetConfig(wlanAPRef, ConfigPtr);
 }
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Sets the security configuration for the specified Access Point.
@@ -129,16 +146,17 @@ le_result_t taf_wlanAp_GetConfig
 le_result_t taf_wlanAp_SetSecurityConfig
 (
     taf_wlanAp_WlanAPRef_t wlanAPRef,
-        ///< [IN] The WLAN AP reference. Reserved for future use.
+        ///< [IN] The WLAN AP reference.
     const taf_wlanAp_WlanAPSecurityConfig_t * LE_NONNULL SecurityConfigPtr
         ///< [IN] The WLAN AP security configuration.
 )
 {
-    LE_UNUSED (wlanAPRef);
-    TAF_ERROR_IF_RET_VAL(NULL == SecurityConfigPtr, LE_BAD_PARAMETER, "SecurityConfigPtr is NULL!");
-    auto &myWlan = taf_WlanAPSvcImpl::GetInstance();
-    return myWlan.SetSecurityConfig(SecurityConfigPtr);
-    }
+    TAF_ERROR_IF_RET_VAL(nullptr == SecurityConfigPtr, LE_BAD_PARAMETER,
+        "SecurityConfigPtr is nullptr!");
+    auto &wlan = taf_WlanAPSvcImpl::GetInstance();
+    return wlan.SetSecurityConfig(wlanAPRef, SecurityConfigPtr);
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets the security configuration for the specified Access Point.
@@ -151,16 +169,17 @@ le_result_t taf_wlanAp_SetSecurityConfig
 le_result_t taf_wlanAp_GetSecurityConfig
 (
     taf_wlanAp_WlanAPRef_t wlanAPRef,
-        ///< [IN] The WLAN AP reference. Reserved for future use.
+        ///< [IN] The WLAN AP reference.
     taf_wlanAp_WlanAPSecurityConfig_t * SecurityConfigPtr
         ///< [OUT] The WLAN AP security configuration.
 )
 {
-    LE_UNUSED (wlanAPRef);
-    TAF_ERROR_IF_RET_VAL(NULL == SecurityConfigPtr, LE_BAD_PARAMETER, "SecurityConfigPtr is NULL!");
-    auto &myWlan = taf_WlanAPSvcImpl::GetInstance();
-    return myWlan.GetSecurityConfig(SecurityConfigPtr);
+    TAF_ERROR_IF_RET_VAL(nullptr == SecurityConfigPtr, LE_BAD_PARAMETER,
+        "SecurityConfigPtr is nullptr!");
+    auto &wlan = taf_WlanAPSvcImpl::GetInstance();
+    return wlan.GetSecurityConfig(wlanAPRef, SecurityConfigPtr);
 }
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets the status of the specified Access Point.
@@ -173,15 +192,15 @@ le_result_t taf_wlanAp_GetSecurityConfig
 le_result_t taf_wlanAp_GetStatus
 (
     taf_wlanAp_WlanAPRef_t wlanAPRef,
-        ///< [IN] The WLAN AP reference. Reserved for future use.
+        ///< [IN] The WLAN AP reference.
     taf_wlanAp_WlanAPStatus_t * StatusPtr
         ///< [OUT] The WLAN AP status.
 )
 {
-    LE_UNUSED (wlanAPRef);
-    TAF_ERROR_IF_RET_VAL(NULL == StatusPtr, LE_BAD_PARAMETER, "StatusPtr is NULL!");
-    auto &myWlan = taf_WlanAPSvcImpl::GetInstance();
-    return myWlan.GetStatus(StatusPtr);
+    TAF_ERROR_IF_RET_VAL(nullptr == StatusPtr, LE_BAD_PARAMETER,
+        "StatusPtr is nullptr!");
+    auto &wlan = taf_WlanAPSvcImpl::GetInstance();
+    return wlan.GetStatus(wlanAPRef, StatusPtr);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -196,7 +215,7 @@ le_result_t taf_wlanAp_GetStatus
 le_result_t taf_wlanAp_GetConnectedDevices
 (
     taf_wlanAp_WlanAPRef_t wlanAPRef,
-        ///< [IN] The WLAN AP reference. Reserved for future use.
+        ///< [IN] The WLAN AP reference.
     uint16_t* numDevicesPtr,
         ///< [OUT] Number of devices connected to the AP.
     taf_wlanAp_WlanAPConnectedDeviceInfo_t* DevInfoPtr,
@@ -205,32 +224,13 @@ le_result_t taf_wlanAp_GetConnectedDevices
         ///< [INOUT]
 )
 {
-    LE_UNUSED (wlanAPRef);
-    TAF_ERROR_IF_RET_VAL(NULL == numDevicesPtr, LE_BAD_PARAMETER, "numDevicesPtr is NULL!");
-    TAF_ERROR_IF_RET_VAL(NULL == DevInfoPtr, LE_BAD_PARAMETER, "DevInfoPtr is NULL!");
-    TAF_ERROR_IF_RET_VAL(NULL == DevInfoSizePtr, LE_BAD_PARAMETER, "DevInfoSizePtr is NULL!");
-    auto &myWlan = taf_WlanAPSvcImpl::GetInstance();
-    return myWlan.GetConnectedDevices(numDevicesPtr,DevInfoPtr,DevInfoSizePtr);
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Returns the WLAN AP reference.
- *
- * @return
- * - LE_OK -- Succeeded.
- * - Others -- Failed.
- */
-//--------------------------------------------------------------------------------------------------
-taf_wlanAp_WlanAPRef_t taf_wlanAp_GetWlanAP
-(
-    taf_wlan_APid_t APid,
-        ///< [IN] AP identifier
-    const char* LE_NONNULL APIntfName
-        ///< [IN] AP assocaited host interface name.
-)
-{
-    TAF_ERROR_IF_RET_VAL(NULL == APIntfName, NULL, "APIntfName is NULL!");
-    auto &myWlan = taf_WlanAPSvcImpl::GetInstance();
-    return myWlan.GetWlanAP(APid,APIntfName);
+    TAF_ERROR_IF_RET_VAL(nullptr == numDevicesPtr, LE_BAD_PARAMETER,
+        "numDevicesPtr is nullptr!");
+    TAF_ERROR_IF_RET_VAL(nullptr == DevInfoPtr, LE_BAD_PARAMETER,
+        "DevInfoPtr is nullptr!");
+    TAF_ERROR_IF_RET_VAL(nullptr == DevInfoSizePtr, LE_BAD_PARAMETER,
+        "DevInfoSizePtr is nullptr!");
+    auto &wlan = taf_WlanAPSvcImpl::GetInstance();
+    return wlan.GetConnectedDevices(wlanAPRef, numDevicesPtr, DevInfoPtr,
+        DevInfoSizePtr);
 }

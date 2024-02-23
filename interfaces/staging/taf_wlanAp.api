@@ -129,7 +129,7 @@ FUNCTION WlanAP GetWlanAP(
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Start
 (
-    WlanAP wlanAPRef   IN     ///< The WLAN AP reference. Reserved for future use.
+    WlanAP wlanAPRef   IN     ///< The WLAN AP reference.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -143,7 +143,7 @@ FUNCTION le_result_t Start
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Stop
 (
-    WlanAP wlanAPRef   IN     ///< The WLAN AP reference. Reserved for future use.
+    WlanAP wlanAPRef   IN     ///< The WLAN AP reference.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -157,7 +157,7 @@ FUNCTION le_result_t Stop
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t Restart
 (
-    WlanAP wlanAPRef   IN     ///< The WLAN AP reference. Reserved for future use.
+    WlanAP wlanAPRef   IN     ///< The WLAN AP reference.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -171,7 +171,7 @@ FUNCTION le_result_t Restart
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetConfig
 (
-    WlanAP       wlanAPRef   IN,     ///< The WLAN AP reference. Reserved for future use.
+    WlanAP       wlanAPRef   IN,     ///< The WLAN AP reference.
     WlanAPConfig Config      IN      ///< The WLAN AP configuration.
 );
 
@@ -186,7 +186,7 @@ FUNCTION le_result_t SetConfig
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetConfig
 (
-    WlanAP       wlanAPRef  IN,     ///< The WLAN AP reference. Reserved for future use.
+    WlanAP       wlanAPRef  IN,     ///< The WLAN AP reference.
     WlanAPConfig Config     OUT     ///< The WLAN AP configuration.
 );
 
@@ -201,7 +201,7 @@ FUNCTION le_result_t GetConfig
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetSecurityConfig
 (
-    WlanAP               wlanAPRef       IN,     ///< The WLAN AP reference. Reserved for future use.
+    WlanAP               wlanAPRef       IN,     ///< The WLAN AP reference.
     WlanAPSecurityConfig SecurityConfig  IN      ///< The WLAN AP security configuration.
 );
 
@@ -216,7 +216,7 @@ FUNCTION le_result_t SetSecurityConfig
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetSecurityConfig
 (
-    WlanAP               wlanAPRef       IN,     ///< The WLAN AP reference. Reserved for future use.
+    WlanAP               wlanAPRef       IN,     ///< The WLAN AP reference.
     WlanAPSecurityConfig SecurityConfig  OUT     ///< The WLAN AP security configuration.
 );
 
@@ -231,7 +231,7 @@ FUNCTION le_result_t GetSecurityConfig
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetStatus
 (
-    WlanAP       wlanAPRef  IN,     ///< The WLAN AP reference. Reserved for future use.
+    WlanAP       wlanAPRef  IN,     ///< The WLAN AP reference.
     WlanAPStatus Status     OUT     ///< The WLAN AP status.
 );
 
@@ -246,7 +246,7 @@ FUNCTION le_result_t GetStatus
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetConnectedDevices
 (
-    WlanAP  wlanAPRef  IN,      ///< The WLAN AP reference. Reserved for future use.
+    WlanAP  wlanAPRef  IN,      ///< The WLAN AP reference.
     uint16   numDevices OUT,     ///< Number of devices connected to the AP.
     WlanAPConnectedDeviceInfo DevInfo[MAX_CONNECTED_DEVICES] OUT
                                 ///< Connected device information.

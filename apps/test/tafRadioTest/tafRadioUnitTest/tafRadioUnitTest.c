@@ -491,14 +491,18 @@ void TestTafRadioPower
     result = taf_radio_SetRadioPower(LE_ON, DEFAULT_PHONE_ID);
     LE_TEST_OK(result == LE_OK, "taf_radio_SetRadioPower - LE_OK");
 
-    result = taf_radio_GetRadioPower(&power, DEFAULT_PHONE_ID);
-    LE_TEST_OK(result == LE_OK, "taf_radio_GetRadioPower - LE_OK");
-
-
     taf_radio_RemoveOpModeChangeHandler(opModeChangeHandlerRef);
     LE_TEST_OK(true, "taf_radio_RemoveOpModeChangeHandler - OK");
     // wait for network reconnection.
     le_thread_Sleep(5);
+
+    result = taf_radio_GetRadioPower(&power, DEFAULT_PHONE_ID);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetRadioPower - LE_OK");
+    if (power != LE_ON)
+    {
+        LE_ERROR("Radio is not powered on.");
+        exit(0);
+    }
 }
 
 //--------------------------------------------------------------------------------------------------

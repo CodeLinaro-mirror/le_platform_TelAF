@@ -15,17 +15,51 @@
 
 #include "legato.h"
 #include "interfaces.h"
-
 #include "tafSvcIF.hpp"
-#include <future>
 #include <telux/wlan/WlanDefines.hpp>
 #include <telux/wlan/WlanFactory.hpp>
 #include <telux/wlan/WlanDeviceManager.hpp>
+
+#include <future>
+#include <sstream>
 
 #include "tafWlanAP.hpp"
 #include "tafWlanSTA.hpp"
 
 #define TAF_WLAN_MAX_SESSION_REF 20
+
+// ServiceSet string
+#define TAF_WLAN_ESS_STR "ESS"
+
+// SecurityMode Strings
+#define TAF_WLAN_SEC_MODE_WEP_STR "WEP"
+#define TAF_WLAN_SEC_MODE_WPA_STR  "WPA"
+#define TAF_WLAN_SEC_MODE_WPA2_STR "WPA2"
+#define TAF_WLAN_SEC_MODE_WPA3_STR "WPA3"
+
+// SecurityAuthMethod strings
+#define TAF_WLAN_SEC_AUTH_METHOD_PSK_STR "PSK"
+#define TAF_WLAN_SEC_AUTH_METHOD_EAP_STR "EAP"
+#define TAF_WLAN_SEC_AUTH_METHOD_SAE_STR "SAE"
+// SecurityAuthMethod EAP strings
+#define TAF_WLAN_SEC_AUTH_METHOD_EAP_SIM_STR  "SIM"
+#define TAF_WLAN_SEC_AUTH_METHOD_EAP_AKA_STR  "AKA"
+#define TAF_WLAN_SEC_AUTH_METHOD_EAP_LEAP_STR "LEAP"
+#define TAF_WLAN_SEC_AUTH_METHOD_EAP_TLS_STR  "TLS"
+#define TAF_WLAN_SEC_AUTH_METHOD_EAP_TTLS_STR "TTLS"
+#define TAF_WLAN_SEC_AUTH_METHOD_EAP_PEAP_STR "PEAP"
+#define TAF_WLAN_SEC_AUTH_METHOD_EAP_FAST_STR "FAST"
+#define TAF_WLAN_SEC_AUTH_METHOD_EAP_PSK_STR  "PSK"
+
+// SecurityEncryptionMethod strings
+#define TAF_WLAN_SEC_ENCRYPT_METHOD_RC4_STR  "RC4"
+#define TAF_WLAN_SEC_ENCRYPT_METHOD_TKIP_STR "TKIP"
+#define TAF_WLAN_SEC_ENCRYPT_METHOD_AES_STR  "AES"
+#define TAF_WLAN_SEC_ENCRYPT_METHOD_CCMP_STR "CCMP"
+#define TAF_WLAN_SEC_ENCRYPT_METHOD_GCMP_STR "GCMP"
+
+// SecurityEncryptionMethod strings
+#define TAF_WLAN_WPS_STR "WPS"
 
 namespace telux
 {
@@ -51,10 +85,14 @@ namespace telux
         class taf_WlanHelper
         {
             public:
+
+            // String helper functions
+            static std::string StrTrimEndSpace(const std::string &str);
+            static std::vector<std::string> StrSplit(const std::string &str, char delim);
+
             // BandType conversion
             static taf_wlan_Band_t BandTypeToTAF (telux::wlan::BandType bandType);
             static telux::wlan::BandType BandTypeToTelux (taf_wlan_Band_t bandType);
-
 
             ///////////////////////////////////////
             // APType conversion
@@ -156,7 +194,7 @@ namespace telux
                                                 telux::common::ServiceStatus::SERVICE_FAILED;
 
             le_event_Id_t wlanDevStateChangeEvID; // The WLAN device state change event ID
-            le_mem_PoolRef_t DeviceStatusPool;
+            le_mem_PoolRef_t DeviceStatusPoolRef = NULL;
             le_mutex_Ref_t wlanMutexRef = NULL;
         };
     } //namespace tafsvc

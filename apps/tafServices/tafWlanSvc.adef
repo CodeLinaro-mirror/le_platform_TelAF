@@ -8,11 +8,8 @@ capability:
         CAP_WAKE_ALARM
         CAP_NET_BIND_SERVICE
         CAP_NET_ADMIN
-
-#if ${LE_CONFIG_TEST_COVERAGE} = y
-        CAP_DAC_READ_SEARCH
         CAP_DAC_OVERRIDE
-#endif
+        CAP_DAC_READ_SEARCH
 }
 
 groups:
@@ -30,11 +27,16 @@ executables:
 
 processes:
 {
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+
     run:
     {
         (tafWlanSvc)
     }
-    maxFileBytes: 8192K
+    maxFileBytes: 16384K
     faultAction: stopApp
 }
 

@@ -195,7 +195,7 @@ le_result_t taf_WlanSvcImpl::SetMode
         numSTA = 0;
         break;
     // Unsupported modes
-    case TAF_WLAN_MODE_UNSUPPORTED:
+    case TAF_WLAN_MODE_UNKNOWN:
     default:
         LE_WARN ("Invalid Device Mode: %d", wlanMode);
         return LE_BAD_PARAMETER;
@@ -270,7 +270,7 @@ le_result_t taf_WlanSvcImpl::GetMode
     {
         // Unsupported mode
         LE_WARN ("Unsupported mode");
-        *wlanModePtr = TAF_WLAN_MODE_UNSUPPORTED;
+        *wlanModePtr = TAF_WLAN_MODE_UNKNOWN;
         return LE_UNSUPPORTED;
     }
 
@@ -344,23 +344,14 @@ le_result_t taf_WlanSvcImpl::GetIntfInfo
     for (auto &ap : status[0].apStatus)
     {
         le_result_t ret = LE_OK;
-        LE_DEBUG("AP[%d] Id       : %d", iCount, static_cast<int>(ap.id));
-        APIntfinfoPtr[iCount].id = static_cast<taf_wlan_APid_t>(ap.id);
-
+        APIntfinfoPtr[iCount].id = taf_WlanHelper::TeluxIdtoTAFAPId(ap.id);
+        LE_DEBUG("AP[%d] Id       : %d", iCount, APIntfinfoPtr[iCount].id);
         LE_DEBUG("AP[%d] Intf Name: %s", iCount, ap.name.c_str());
         ret = le_utf8_Copy(APIntfinfoPtr[iCount].IntfName, ap.name.c_str(),
                            TAF_NET_INTERFACE_NAME_MAX_LEN + 1, NULL);
         if (LE_OK != ret)
         {
             LE_WARN("IntfName copy error: %d", ret);
-        }
-
-        LE_DEBUG("AP[%d] MAC Addr : %s", iCount, ap.macAddress.c_str());
-        ret = le_utf8_Copy(APIntfinfoPtr[iCount].MACAddress, ap.macAddress.c_str(),
-                                                        TAF_NET_MAC_ADDR_MAX_LEN + 1, NULL);
-        if (LE_OK != ret)
-        {
-            LE_WARN("MACAddress copy error: %d", ret);
         }
         iCount++;
     }
@@ -383,23 +374,15 @@ le_result_t taf_WlanSvcImpl::GetIntfInfo
     for (auto &sta : status[0].staStatus)
     {
         le_result_t ret = LE_OK;
-        LE_DEBUG("STA[%d] Id       : %d", iCount, static_cast<int>(sta.id));
-        STAIntfinfoPtr[iCount].id = static_cast<taf_wlan_STAid_t>(sta.id);
 
+        STAIntfinfoPtr[iCount].id = taf_WlanHelper::TeluxIdtoTAFSTAId(sta.id);
+        LE_DEBUG("STA[%d] Id       : %d", iCount, STAIntfinfoPtr[iCount].id);
         LE_DEBUG("STA[%d] Intf Name: %s", iCount, sta.name.c_str());
         ret = le_utf8_Copy(STAIntfinfoPtr[iCount].IntfName, sta.name.c_str(),
                            TAF_NET_INTERFACE_NAME_MAX_LEN + 1, NULL);
         if (LE_OK != ret)
         {
             LE_WARN("IntfName copy error: %d", ret);
-        }
-
-        LE_DEBUG("STA[%d] MAC Addr : %s", iCount, sta.macAddress.c_str());
-        ret = le_utf8_Copy(STAIntfinfoPtr[iCount].MACAddress, sta.macAddress.c_str(),
-                           TAF_NET_MAC_ADDR_MAX_LEN + 1, NULL);
-        if (LE_OK != ret)
-        {
-            LE_WARN("MACAddress copy error: %d", ret);
         }
         iCount++;
     }
@@ -459,8 +442,8 @@ void taf_WlanSvcImpl::Init(void)
     // Create wlan mutex
     wlanMutexRef =  le_mutex_CreateRecursive("WlanMutex");
     // Create mem pool for state change event reporting.
-    DeviceStatusPool = le_mem_InitStaticPool( DeviceStatusPool, TAF_WLAN_MAX_SESSION_REF,
-                                              sizeof(taf_wlan_DeviceState_t));
+    DeviceStatusPoolRef = le_mem_InitStaticPool(DeviceStatusPool, TAF_WLAN_MAX_SESSION_REF,
+                                                sizeof(taf_wlan_DeviceState_t));
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -474,7 +457,7 @@ void taf_WlanSvcImpl::SetDeviceState (bool enable)
     // Send event to applications.
     le_mutex_Lock(wlanMutexRef);
 
-    devStatePtr = (taf_wlan_DeviceState_t *)le_mem_ForceAlloc(DeviceStatusPool);
+    devStatePtr = (taf_wlan_DeviceState_t *)le_mem_ForceAlloc(DeviceStatusPoolRef);
     if (enable) {
         LE_INFO( "Send TAF_WLAN_ON Event" );
         *devStatePtr = TAF_WLAN_ON;
@@ -505,7 +488,7 @@ void taf_WlanSvcImpl::SetSubsystemState (telux::common::ServiceStatus status)
         // Send TAF_WLAN_UNAVAILABLE event to applications.
         le_mutex_Lock(wlanMutexRef);
         LE_INFO( "Send TAF_WLAN_UNAVAILABLE Event" );
-        devStatePtr = (taf_wlan_DeviceState_t *)le_mem_ForceAlloc(DeviceStatusPool);
+        devStatePtr = (taf_wlan_DeviceState_t *)le_mem_ForceAlloc(DeviceStatusPoolRef);
         *devStatePtr = TAF_WLAN_UNAVAILABLE;
         le_event_ReportWithRefCounting(wlanDevStateChangeEvID, (void *)devStatePtr);
         le_mutex_Unlock(wlanMutexRef);

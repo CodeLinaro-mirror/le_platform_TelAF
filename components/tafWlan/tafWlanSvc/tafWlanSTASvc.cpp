@@ -18,6 +18,41 @@ using namespace telux::tafsvc;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Add handler function for EVENT 'taf_wlanSta_Event'
+ */
+//--------------------------------------------------------------------------------------------------
+taf_wlanSta_EventHandlerRef_t taf_wlanSta_AddEventHandler(
+    taf_wlanSta_WlanSTARef_t wlanSTARef,
+    ///< [IN] The WLAN STA reference.
+    taf_wlanSta_HandlerFunc_t handlerPtr,
+    ///< [IN]
+    void *contextPtr
+    ///< [IN]
+)
+{
+    TAF_ERROR_IF_RET_VAL(NULL == wlanSTARef, NULL, "wlanSTARef is NULL!");
+    TAF_ERROR_IF_RET_VAL(NULL == handlerPtr, NULL, "handlerPtr is NULL!");
+    auto &myWlanSta = taf_WlanSTASvcImpl::GetInstance();
+    return myWlanSta.AddEventHandler(wlanSTARef, handlerPtr, contextPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_wlanSta_Event'
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_wlanSta_RemoveEventHandler(
+    taf_wlanSta_EventHandlerRef_t handlerRef
+    ///< [IN]
+)
+{
+    TAF_ERROR_IF_RET_NIL(NULL == handlerRef, "handlerRef is NULL!");
+    auto &myWlanSta = taf_WlanSTASvcImpl::GetInstance();
+    return myWlanSta.RemoveEventHandler(handlerRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Starts the specified station.
  *
  * @return
@@ -136,7 +171,6 @@ le_result_t taf_wlanSta_SetStaticIPConfig
         ///< [IN] IP address to set for static IP address mode.
 )
 {
-    LE_UNUSED (wlanSTARef);
     TAF_ERROR_IF_RET_VAL(NULL == StaIPConfigPtr, LE_BAD_PARAMETER,
                                                      "StaIPConfigPtr is NULL!");
     auto &myWlanSta = taf_WlanSTASvcImpl::GetInstance();
@@ -162,7 +196,6 @@ le_result_t taf_wlanSta_GetIPConfig
         ///< [OUT] Details of static IP configuration.
 )
 {
-    LE_UNUSED (wlanSTARef);
     TAF_ERROR_IF_RET_VAL(NULL == StaIPTypePtr, LE_BAD_PARAMETER,"StaIPTypePtr is NULL!");
     auto &myWlanSta = taf_WlanSTASvcImpl::GetInstance();
     return myWlanSta.GetIPConfig(wlanSTARef, StaIPTypePtr, StaStaticIPConfigPtr);
@@ -201,12 +234,62 @@ le_result_t taf_wlanSta_GetStatus
         ///< [IN]
 )
 {
-    LE_UNUSED (wlanSTARef);
+    TAF_ERROR_IF_RET_VAL(NULL == wlanSTARef, LE_BAD_PARAMETER, "wlanSTARef is NULL!");
     auto &myWlanSta = taf_WlanSTASvcImpl::GetInstance();
     return myWlanSta.GetStatus(wlanSTARef, StaSatePtr, IntfName, IntfNameSize,
                                IPv4Address, IPv4AddressSize,
                                IPv6Address, IPv6AddressSize,
                                MACAddress, MACAddressSize);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Scan for available access points. This is an asynchronous operation and will trigger event
+ * STATE_SCAN_COMPLETE on completion.
+ * Use GetAPScanResults to get the results of the scan.
+ * When a scan is started, it will clear the results from earlier scans.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_wlanSta_DoAPScan(
+    taf_wlanSta_WlanSTARef_t wlanSTARef
+    ///< [IN] The WLAN STA reference.
+)
+{
+    TAF_ERROR_IF_RET_VAL(NULL == wlanSTARef, LE_BAD_PARAMETER, "wlanSTARef is NULL!");
+    auto &myWlanSta = taf_WlanSTASvcImpl::GetInstance();
+    return myWlanSta.DoAPScan(wlanSTARef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the list of scanned access points. This list is updated after every call to DoScan.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_wlanSta_GetAPScanResults(
+    taf_wlanSta_WlanSTARef_t wlanSTARef,
+    ///< [IN] The WLAN STA reference.
+    uint16_t *numAPPtr,
+    ///< [OUT] Number of APs found in the scan.
+    taf_wlanSta_APInfo_t *ApInfoPtr,
+    ///< [OUT] Scanned available AP information.
+    size_t *ApInfoSizePtr
+    ///< [INOUT]
+)
+{
+    TAF_ERROR_IF_RET_VAL(NULL == wlanSTARef, LE_BAD_PARAMETER, "wlanSTARef is NULL!");
+    TAF_ERROR_IF_RET_VAL(NULL == numAPPtr, LE_BAD_PARAMETER, "numAPPtr is NULL!");
+    TAF_ERROR_IF_RET_VAL(NULL == ApInfoPtr, LE_BAD_PARAMETER, "ApInfoPtr is NULL!");
+    TAF_ERROR_IF_RET_VAL(NULL == ApInfoSizePtr, LE_BAD_PARAMETER, "ApInfoSizePtr is NULL!");
+    auto &myWlanSta = taf_WlanSTASvcImpl::GetInstance();
+    return myWlanSta.GetAPScanResults(wlanSTARef, numAPPtr, ApInfoPtr, ApInfoSizePtr);
 }
 
 //--------------------------------------------------------------------------------------------------

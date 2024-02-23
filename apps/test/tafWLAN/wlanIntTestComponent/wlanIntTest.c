@@ -65,8 +65,8 @@ static le_result_t wlanTestGetState()
 
 static void PrintMode(taf_wlan_DeviceMode_t mode)
 {
-    if (TAF_WLAN_MODE_UNSUPPORTED == mode)
-        LE_TEST_INFO("Mode: TAF_WLAN_MODE_UNSUPPORTED(%d)", mode);
+    if (TAF_WLAN_MODE_UNKNOWN == mode)
+        LE_TEST_INFO("Mode: TAF_WLAN_MODE_UNKNOWN(%d)", mode);
     else if (TAF_WLAN_MODE_AP == mode)
         LE_TEST_INFO("Mode: TAF_WLAN_MODE_AP(%d)", mode);
     else if (TAF_WLAN_MODE_STA == mode)
@@ -82,7 +82,7 @@ static void PrintMode(taf_wlan_DeviceMode_t mode)
 }
 static le_result_t wlanTestGetMode()
 {
-    taf_wlan_DeviceMode_t mode=TAF_WLAN_MODE_UNSUPPORTED;
+    taf_wlan_DeviceMode_t mode = TAF_WLAN_MODE_UNKNOWN;
     le_result_t result = taf_wlan_GetMode(NULL, &mode);
     fprintf (stderr, "taf_wlan_GetMode Return:%d Mode: %d\n",result,mode);
     PrintMode(mode);
@@ -111,7 +111,6 @@ static le_result_t wlanTestGetInterfaces()
     {
         LE_TEST_INFO("AP ID        : %d", APIntf[i].id);
         LE_TEST_INFO("AP Intf Name : %s", APIntf[i].IntfName);
-        LE_TEST_INFO("AP MAC Addr  : %s", APIntf[i].MACAddress);
     }
     LE_TEST_INFO("----------------------------------");
     LE_TEST_INFO("Num STA: %ld", STAIntfSize);
@@ -119,7 +118,6 @@ static le_result_t wlanTestGetInterfaces()
     {
         LE_TEST_INFO("STA ID        : %d", STAIntf[i].id);
         LE_TEST_INFO("STA Intf Name : %s", STAIntf[i].IntfName);
-        LE_TEST_INFO("STA MAC Addr  : %s", STAIntf[i].MACAddress);
     }
     LE_TEST_INFO("----------------------------------");
     return result;

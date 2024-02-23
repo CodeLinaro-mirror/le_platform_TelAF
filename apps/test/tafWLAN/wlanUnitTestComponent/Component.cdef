@@ -8,5 +8,6 @@ requires:
     api:
     {
         taf_wlan.api
+        taf_wlanSta.api
     }
 }

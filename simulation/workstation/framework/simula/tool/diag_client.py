@@ -95,6 +95,5 @@ def to_do(cfile, s_ip, s_logaddr):
     diag = DiagClient(cfile, s_ip, s_logaddr)
     diag.do_connect()
 
-    print(diag.doip_request_diagnostic_power_mode())
     print(diag.doip_request_alive_check())
     print(diag.uds_change_to_default_session())

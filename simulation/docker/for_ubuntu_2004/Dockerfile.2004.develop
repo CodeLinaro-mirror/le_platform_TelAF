@@ -31,8 +31,8 @@ RUN apt-get -y --no-install-recommends install python3-pip
 RUN apt-get -y --no-install-recommends install python3-venv
 RUN /usr/bin/python3 -m venv /venv
 ENV PATH=/venv/bin:$PATH
-RUN python3 -m pip install doipclient
-RUN python3 -m pip install udsoncan
+RUN python3 -m pip install doipclient==1.1.1
+RUN python3 -m pip install udsoncan==1.17.1
 RUN python3 -m pip install pyyaml
 
 # Create a non-root user: [developer] for development, with password: [simula]

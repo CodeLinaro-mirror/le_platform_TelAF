@@ -35,7 +35,7 @@ static void TestImportJSON(const char* testRoot, bool isSuccess)
 
     char filePath[PATH_MAX] = "";
     snprintf(filePath,
-     150, "/legato/systems/current/appsWriteable/configTest/data/configTest-%s.json", testRoot);
+     150, "/legato/systems/current/appsWriteable/configUnitTest/data/configTest-%s.json", testRoot);
 
     le_cfg_IteratorRef_t iterRef = le_cfg_CreateWriteTxn("");
 

@@ -190,6 +190,10 @@ le_result_t taf_WlanSvcImpl::SetMode
         numAP  = 1;
         numSTA = 1;
         break;
+    case TAF_WLAN_MODE_AP_AP:
+        numAP = 2;
+        numSTA = 0;
+        break;
     // Unsupported modes
     case TAF_WLAN_MODE_UNSUPPORTED:
     default:
@@ -257,6 +261,11 @@ le_result_t taf_WlanSvcImpl::GetMode
         // STA + AP
         *wlanModePtr = TAF_WLAN_MODE_STA_AP;
     }
+    else if (2 == numOfAP && 0 == numOfSTA)
+    {
+        // AP + AP
+        *wlanModePtr = TAF_WLAN_MODE_AP_AP;
+    }
     else
     {
         // Unsupported mode
@@ -267,6 +276,137 @@ le_result_t taf_WlanSvcImpl::GetMode
 
     return LE_OK;
 }
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets active WLAN interface(s) information.
+ * The information returned should be used to get the AP and STA reference(s) respectively.
+ *
+ * @return
+ * - LE_OK            Succeeded.
+ * - Appropriate error is returned on failure.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_WlanSvcImpl::GetIntfInfo
+(
+    taf_wlan_APIntfInfo_t* APIntfinfoPtr,
+        ///< [OUT] The WLAN AP interfaces information.
+    size_t* APIntfinfoSizePtr,
+        ///< [INOUT]
+    taf_wlan_STAIntfInfo_t* STAIntfinfoPtr,
+        ///< [OUT] The WLAN STA interfaces information.
+    size_t* STAIntfinfoSizePtr
+        ///< [INOUT]
+)
+{
+    std::vector<telux::wlan::InterfaceStatus> status;
+    bool isEnabled;
+    int iCount = 0;
+    size_t APSize = 0, STASize = 0;
+    if (nullptr == wlanDevMgr)
+    {
+        LE_WARN("WLAN Device not initialized");
+        return LE_NOT_PERMITTED;
+    }
+    telux::common::ErrorCode errCode = wlanDevMgr->getStatus(isEnabled, status);
+    if (telux::common::ErrorCode::SUCCESS != errCode)
+    {
+        LE_WARN("WLAN getStatus failed: %d", (int)errCode);
+        return LE_FAULT;
+    }
+
+    // Do not get interface information if WLAN is disabled
+    if (!isEnabled)
+    {
+        LE_WARN("WLAN is disabled");
+        *APIntfinfoSizePtr = 0;
+        *STAIntfinfoSizePtr = 0;
+        return LE_OK;
+    }
+
+    LE_DEBUG("Sizeof(InterfaceStatus) %ld", sizeof(status));
+    // Even though InterfaceStatus is a vector, we will use only the first element.
+
+    // Get AP interface information
+    APSize = status[0].apStatus.size();
+    if (APSize > *APIntfinfoSizePtr)
+    {
+        LE_WARN("APIntfinfoSize[%ld] smaller than number of APs[%ld]", *APIntfinfoSizePtr, APSize);
+        // Populate only up to APIntfinfoSize
+        APSize = *APIntfinfoSizePtr;
+    }
+    else
+    {
+        *APIntfinfoSizePtr = APSize;
+    }
+    LE_DEBUG("Num APs %ld", *APIntfinfoSizePtr);
+    for (auto &ap : status[0].apStatus)
+    {
+        le_result_t ret = LE_OK;
+        LE_DEBUG("AP[%d] Id       : %d", iCount, static_cast<int>(ap.id));
+        APIntfinfoPtr[iCount].id = static_cast<taf_wlan_APid_t>(ap.id);
+
+        LE_DEBUG("AP[%d] Intf Name: %s", iCount, ap.name.c_str());
+        ret = le_utf8_Copy(APIntfinfoPtr[iCount].IntfName, ap.name.c_str(),
+                           TAF_NET_INTERFACE_NAME_MAX_LEN + 1, NULL);
+        if (LE_OK != ret)
+        {
+            LE_WARN("IntfName copy error: %d", ret);
+        }
+
+        LE_DEBUG("AP[%d] MAC Addr : %s", iCount, ap.macAddress.c_str());
+        ret = le_utf8_Copy(APIntfinfoPtr[iCount].MACAddress, ap.macAddress.c_str(),
+                                                        TAF_NET_MAC_ADDR_MAX_LEN + 1, NULL);
+        if (LE_OK != ret)
+        {
+            LE_WARN("MACAddress copy error: %d", ret);
+        }
+        iCount++;
+    }
+
+    STASize = status[0].staStatus.size();
+    if (STASize > *STAIntfinfoSizePtr)
+    {
+        LE_WARN("STAIntfinfoSize[%ld] smaller than number of STAs[%ld]", *STAIntfinfoSizePtr, STASize);
+        // Populate only up to STAIntfinfoSize
+        STASize = *STAIntfinfoSizePtr;
+    }
+    else
+    {
+        *STAIntfinfoSizePtr = STASize;
+    }
+    LE_DEBUG("Num STAs %ld", *STAIntfinfoSizePtr);
+
+    // Reset iCount
+    iCount = 0;
+    for (auto &sta : status[0].staStatus)
+    {
+        le_result_t ret = LE_OK;
+        LE_DEBUG("STA[%d] Id       : %d", iCount, static_cast<int>(sta.id));
+        STAIntfinfoPtr[iCount].id = static_cast<taf_wlan_STAid_t>(sta.id);
+
+        LE_DEBUG("STA[%d] Intf Name: %s", iCount, sta.name.c_str());
+        ret = le_utf8_Copy(STAIntfinfoPtr[iCount].IntfName, sta.name.c_str(),
+                           TAF_NET_INTERFACE_NAME_MAX_LEN + 1, NULL);
+        if (LE_OK != ret)
+        {
+            LE_WARN("IntfName copy error: %d", ret);
+        }
+
+        LE_DEBUG("STA[%d] MAC Addr : %s", iCount, sta.macAddress.c_str());
+        ret = le_utf8_Copy(STAIntfinfoPtr[iCount].MACAddress, sta.macAddress.c_str(),
+                           TAF_NET_MAC_ADDR_MAX_LEN + 1, NULL);
+        if (LE_OK != ret)
+        {
+            LE_WARN("MACAddress copy error: %d", ret);
+        }
+        iCount++;
+    }
+
+    return LE_OK;
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Service initialization function

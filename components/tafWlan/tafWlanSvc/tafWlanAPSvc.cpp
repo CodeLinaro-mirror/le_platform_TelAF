@@ -212,3 +212,25 @@ le_result_t taf_wlanAp_GetConnectedDevices
     auto &myWlan = taf_WlanAPSvcImpl::GetInstance();
     return myWlan.GetConnectedDevices(numDevicesPtr,DevInfoPtr,DevInfoSizePtr);
 }
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Returns the WLAN AP reference.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_wlanAp_WlanAPRef_t taf_wlanAp_GetWlanAP
+(
+    taf_wlan_APid_t APid,
+        ///< [IN] AP identifier
+    const char* LE_NONNULL APIntfName
+        ///< [IN] AP assocaited host interface name.
+)
+{
+    TAF_ERROR_IF_RET_VAL(NULL == APIntfName, NULL, "APIntfName is NULL!");
+    auto &myWlan = taf_WlanAPSvcImpl::GetInstance();
+    return myWlan.GetWlanAP(APid,APIntfName);
+}

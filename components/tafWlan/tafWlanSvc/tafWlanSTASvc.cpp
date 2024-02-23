@@ -208,3 +208,25 @@ le_result_t taf_wlanSta_GetStatus
                                 IPv6Address,IPv6AddressSize,
                                 MACAddress,MACAddressSize);
 }
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Returns the WLAN STA reference.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_wlanSta_WlanSTARef_t taf_wlanSta_GetWlanSTA
+(
+    taf_wlan_STAid_t STAid,
+        ///< [IN] STA identifier
+    const char* LE_NONNULL STAIntfName
+        ///< [IN] AP assocaited host interface name.
+)
+{
+    TAF_ERROR_IF_RET_VAL(NULL == STAIntfName, NULL,"STAIntfName is NULL!");
+    auto &myWlanSta = taf_WlanSTASvcImpl::GetInstance();
+    return myWlanSta.GetWlanSTA (STAid,STAIntfName);
+}

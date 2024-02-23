@@ -21,6 +21,8 @@ void PrintUsage(void)
          "app runProc tafWLANIntTest wlanTest -- GetState\n"
          "app runProc tafWLANIntTest wlanTest -- GetMode\n"
          "app runProc tafWLANIntTest wlanTest -- SetMode <mode>\n"
+         "            Modes: 0-AP 1-STA 2-STA+AP 3-AP+AP\n"
+         "app runProc tafWLANIntTest wlanTest -- GetInterfaces\n"
          "\n");
 }
 
@@ -71,6 +73,8 @@ static void PrintMode(taf_wlan_DeviceMode_t mode)
         LE_TEST_INFO("Mode: TAF_WLAN_MODE_STA(%d)", mode);
     else if (TAF_WLAN_MODE_STA_AP == mode)
         LE_TEST_INFO("Mode: TAF_WLAN_MODE_STA_AP(%d)", mode);
+    else if (TAF_WLAN_MODE_AP_AP == mode)
+        LE_TEST_INFO("Mode: TAF_WLAN_MODE_AP_AP(%d)", mode);
     else {
         // Control should not reach here
         LE_TEST_INFO("*ERR* Unsupported Mode: %d", mode);
@@ -94,6 +98,33 @@ static le_result_t wlanTestSetMode()
     return result;
 }
 
+static le_result_t wlanTestGetInterfaces()
+{
+    taf_wlan_APIntfInfo_t  APIntf[TAF_WLAN_MAX_NUM_AP] = {0};
+    taf_wlan_STAIntfInfo_t STAIntf[TAF_WLAN_MAX_NUM_STA] = {0};
+    size_t APIntfSize = TAF_WLAN_MAX_NUM_AP, STAIntfSize = TAF_WLAN_MAX_NUM_STA;
+    le_result_t result = taf_wlan_GetIntfInfo(NULL, APIntf, &APIntfSize, STAIntf, &STAIntfSize);
+    fprintf(stderr, "taf_wlan_GetIntfInfo Return:%d\n", result);
+    LE_TEST_INFO("----------------------------------");
+    LE_TEST_INFO("Num AP : %ld", APIntfSize);
+    for (int i = 0; i < APIntfSize;i++)
+    {
+        LE_TEST_INFO("AP ID        : %d", APIntf[i].id);
+        LE_TEST_INFO("AP Intf Name : %s", APIntf[i].IntfName);
+        LE_TEST_INFO("AP MAC Addr  : %s", APIntf[i].MACAddress);
+    }
+    LE_TEST_INFO("----------------------------------");
+    LE_TEST_INFO("Num STA: %ld", STAIntfSize);
+    for (int i = 0; i < STAIntfSize; i++)
+    {
+        LE_TEST_INFO("STA ID        : %d", STAIntf[i].id);
+        LE_TEST_INFO("STA Intf Name : %s", STAIntf[i].IntfName);
+        LE_TEST_INFO("STA MAC Addr  : %s", STAIntf[i].MACAddress);
+    }
+    LE_TEST_INFO("----------------------------------");
+    return result;
+}
+
 inline void CheckNumArgs(size_t NumArgs, size_t ExpectedNumArgs)
 {
     if (NumArgs!=ExpectedNumArgs)
@@ -113,40 +144,47 @@ COMPONENT_INIT
     size_t numArgs = le_arg_NumArgs();
 
     const char *testType = le_arg_GetArg(0);
-    if (strncmp(testType, "On", strlen(testType)) == 0)
+    if (strncasecmp(testType, "On", strlen("On")) == 0)
     {
         LE_TEST_INFO("======== WLAN Test: On ========");
         CheckNumArgs(numArgs,1);
         status = wlanTestOn();
         LE_TEST_OK(LE_OK == status, "WLAN Test: On");
     }
-    else if (strncmp(testType, "Off", strlen(testType)) == 0)
+    else if (strncasecmp(testType, "Off", strlen("Off")) == 0)
     {
         LE_TEST_INFO("======== WLAN Test: Off ========");
         CheckNumArgs(numArgs,1);
         status = wlanTestOff();
         LE_TEST_OK(LE_OK == status, "WLAN Test: Off");
     }
-    else if (strncmp(testType, "GetState", strlen(testType)) == 0)
+    else if (strncasecmp(testType, "GetState", strlen("GetState")) == 0)
     {
         LE_TEST_INFO("======== WLAN Test: GetState ========");
         CheckNumArgs(numArgs,1);
         status = wlanTestGetState();
         LE_TEST_OK(LE_OK == status, "WLAN Test: GetState");
     }
-    else if (strncmp(testType, "GetMode", strlen(testType)) == 0)
+    else if (strncasecmp(testType, "GetMode", strlen("GetMode")) == 0)
     {
         LE_TEST_INFO("======== WLAN Test: GetMode========");
         CheckNumArgs(numArgs,1);
         status = wlanTestGetMode();
         LE_TEST_OK(LE_OK == status, "WLAN Test: GetMode");
     }
-    else if (strncmp(testType, "SetMode", strlen(testType)) == 0)
+    else if (strncasecmp(testType, "SetMode", strlen("SetMode")) == 0)
     {
         LE_TEST_INFO("======== WLAN Test: SetMode========");
         CheckNumArgs(numArgs,2);
         status = wlanTestSetMode();
         LE_TEST_OK(LE_OK == status, "WLAN Test: SetMode");
+    }
+    else if (strncasecmp(testType, "GetInterfaces", strlen("GetInterfaces")) == 0)
+    {
+        LE_TEST_INFO("======== WLAN Test: GetInterfaces========");
+        CheckNumArgs(numArgs, 1);
+        status = wlanTestGetInterfaces();
+        LE_TEST_OK(LE_OK == status, "WLAN Test: GetInterfaces");
     }
     else
     {

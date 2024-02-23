@@ -58,9 +58,9 @@
    }
  * @endverbatim
 
- * @section c_taf_time_Get Get time
+ * @section c_taf_time_Get Get the time
  *
- * Users can get the time from different time sources with the following APIs:
+ * To get the current local system time and GNSS time, the following APIs can be used.
  *
  *  - taf_time_GetSystemTime() -- Gets the local system time.
  *
@@ -84,57 +84,11 @@
 
  * @endcode
  *
- * @section c_taf_time_Set Set the system time and get the notification when the time
- * source is changed
- *
- * - taf_time_SetSystemTime() -- Sets system time in the format of seconds and nanosconds.
- * - taf_time_AddTimeSourceChangeHandler() -- Adds the time source changed handler.
- * - taf_time_RemoveTimeSourceChangeHandler() -- Removes the registered time source changed handler.
- *
- * @code
- *
-   static le_mem_PoolRef_t NewTimePool = NULL;
-   taf_time_TimeSpec_t *newTime;
-   NewTimePool = le_mem_CreatePool("NewTimePool", sizeof(taf_time_TimeSpec_t));
-   newTime = (taf_time_TimeSpec_t*) le_mem_ForceAlloc(NewTimePool);
-
-   newTime->sec = 1667788990;
-   newTime->nanosec = 10000;
-
-   if(taf_time_SetSystemTime((const taf_time_TimeSpec_t*)newTime, true)== LE_OK)
-   {
-        // Process received time.
-   }
-
-   // Time source change indication handler.
-   void TimeSourceChangeHandler
-   (
-        taf_time_TimeSources_t PreTimeSource,
-        taf_time_TimeSources_t NewTimeSource
-   )
-   {
-        LE_INFO("Old time source: %d, New time source: %d\n",PreTimeSource, NewTimeSource);
-   }
-
-   // Add handler for time source change.
-   taf_time_TimeSourceChangeHandlerRef_t TimeSourceChangeHandlerRef =
-   taf_time_AddTimeSourceChangeHandler
-   (
-        (taf_time_TimeSourceChangeHandlerFunc_t)TimeSourceChangeHandler, NULL
-   );
-
-  // Time source change in some cases.
-
- *
- * @endcode
- *
- * @section c_taf_time_GetRef Get the time
- *
  * When trying to get the time information of a given time source, the application shall first
  * get the time reference by calling taf_time_GetTimeRef(), then call taf_time_GetTime()
- * to create related time information. With the reference object, taf_time_GetRefSystemTime()
- * and taf_time_GetRefGptpTime() are two APIs to get the system time and GPTP time created
- * by taf_time_GetTime(). When the reference is not needed, call taf_time_ReleaseTimeRef()
+ * to fetch the related time information. With the reference object, taf_time_GetRefSystemTime()
+ * and taf_time_GetRefGptpTime() are two APIs to get the system time and GPTP time fetched
+ * from taf_time_GetTime(). When the reference is not needed, call taf_time_ReleaseTimeRef()
  * to release the time reference.
  *
  * The following example illustrates how to get the time information.
@@ -183,6 +137,27 @@
 
  *
    @endcode
+ *
+ * @section c_taf_time_Set Set the system time
+ *
+ * - taf_time_SetSystemTime() -- Sets system time in the format of seconds and nanosconds.
+ *
+ * @code
+ *
+   static le_mem_PoolRef_t NewTimePool = NULL;
+   taf_time_TimeSpec_t *newTime;
+   NewTimePool = le_mem_CreatePool("NewTimePool", sizeof(taf_time_TimeSpec_t));
+   newTime = (taf_time_TimeSpec_t*) le_mem_ForceAlloc(NewTimePool);
+
+   newTime->sec = 1667788990;
+   newTime->nanosec = 10000;
+
+   if(taf_time_SetSystemTime((const taf_time_TimeSpec_t*)newTime, true)== LE_OK)
+   {
+        // Process received time.
+   }
+ *
+ * @endcode
  *
  * @section c_taf_time_TimeValueChangeHandler_API Time notification
  *
@@ -264,6 +239,34 @@
 
  *
    @endcode
+ *
+ * To receive the time source change notification, the following APIs should be used.
+ * - taf_time_AddTimeSourceChangeHandler() -- Adds the time source changed handler.
+ * - taf_time_RemoveTimeSourceChangeHandler() -- Removes the registered time source changed handler.
+ *
+ * @code
+ *
+   // Time source change indication handler.
+   void TimeSourceChangeHandler
+   (
+        taf_time_TimeSources_t PreTimeSource,
+        taf_time_TimeSources_t NewTimeSource
+   )
+   {
+        LE_INFO("Old time source: %d, New time source: %d\n",PreTimeSource, NewTimeSource);
+   }
+
+   // Add handler for time source change.
+   taf_time_TimeSourceChangeHandlerRef_t TimeSourceChangeHandlerRef =
+   taf_time_AddTimeSourceChangeHandler
+   (
+        (taf_time_TimeSourceChangeHandlerFunc_t)TimeSourceChangeHandler, NULL
+   );
+
+  // Time source change in some cases.
+
+ *
+ * @endcode
  *
  * <HR>
  *

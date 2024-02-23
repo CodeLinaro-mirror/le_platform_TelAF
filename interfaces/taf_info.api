@@ -43,9 +43,86 @@
         }
         else
         {
-            LE_INFO("Get IMEI failed");
+            LE_ERROR("Get IMEI failed");
         }
    @endcode
+ *
+ * @section taf_info_GetModel Get the model of the device
+ *
+ * - taf_info_GetModel() -- Gets the model of the device to see whether it is SA525M or SA515M.
+ *
+ * The following example illustrates how to get the model of the device
+ *
+ * @code
+        char model[TAF_INFO_MODEL_MAX_BYTES];
+        le_result_t result = taf_info_GetModel(model, sizeof(model));
+        if(result == LE_OK)
+        {
+            LE_INFO("Device Model : %s", model);
+        }
+        else
+        {
+            LE_ERROR("Get Device Model failed");
+        }
+   @endcode
+ *
+ * @section taf_info_GetKernelVersion Get the kernel version of the device
+ *
+ * - taf_info_GetKernelVersion() -- Gets the kernel version appended with boot version of the device.
+ *
+ * The following example illustrates how to get the kernel version along with boot version.
+ *
+ * @code
+        char version[TAF_INFO_VERSION_MAX_BYTES];
+        le_result_t result = taf_info_GetKernelVersion(version, sizeof(version));
+        if(result == LE_OK)
+        {
+            LE_INFO("Kernel Version : %s", version);
+        }
+        else
+        {
+            LE_ERROR("Get Kernel Version failed");
+        }
+   @endcode
+ *
+ * @section taf_info_GetModemVersion Get the modem version of the device
+ *
+ * - taf_info_GetModemVersion() -- Gets the modem version of device.
+ *
+ * The following example illustrates how to get the modem version
+ *
+ * @code
+        char modem[TAF_INFO_MODEM_MAX_BYTES];
+        le_result_t result = taf_info_GetModemVersion(modem, sizeof(modem));
+        if(result == LE_OK)
+        {
+            LE_INFO("Modem Version: %s", modem);
+        }
+        else
+        {
+            LE_ERROR("Get Modem Version failed");
+        }
+   @endcode
+ *
+ * @section taf_info_GetTZVersion Get the TrustZone version of the device
+ *
+ * - taf_info_GetTZVersion() -- Gets the TZ version of device.
+ *
+ * The following example illustrates how to get the TZ version of the device
+ *
+ * @code
+        char tz[TAF_INFO_TZ_MAX_BYTES];
+        le_result_t result = taf_info_GetTZVersion(tz, sizeof(tz));
+        if(result == LE_OK)
+        {
+            LE_INFO("TZ Version: %s", tz;
+        }
+        else
+        {
+            LE_ERROR("Get TZ Version failed");
+        }
+   @endcode
+ *
  *
  * <HR>
  *
@@ -60,6 +137,10 @@
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE IMEI_MAX_BYTES = 16;
+DEFINE MODEL_MAX_BYTES = 256;
+DEFINE VERSION_MAX_BYTES = 256;
+DEFINE MODEM_MAX_BYTES = 256;
+DEFINE TZ_MAX_BYTES = 256;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -73,4 +154,59 @@ DEFINE IMEI_MAX_BYTES = 16;
 FUNCTION le_result_t GetImei
 (
     string imei[IMEI_MAX_BYTES] OUT     ///< IMEI number.
+);
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Retrieves the Device Model.
+ *
+ * @return LE_FAULT         -- Failed to retrieve the Device Model.
+ *         LE_OK            -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetModel
+(
+    string model[MODEL_MAX_BYTES] OUT   ///< Device Model
+);
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Retrieves the Kernel Version.
+ *
+ * @return LE_FAULT         -- Failed to retrieve the Kernel Version.
+ *         LE_OK            -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetKernelVersion
+(
+    string version[VERSION_MAX_BYTES] OUT    ///< Kernel Version
+);
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Retrieves the Modem Version.
+ *
+ * @return LE_FAULT         -- Failed to retrieve the Modem Version.
+ *         LE_OK            -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetModemVersion
+(
+    string modem[MODEM_MAX_BYTES] OUT    ///< Modem Version
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Retrieves the TZ Version.
+ *
+ * @return LE_FAULT         -- Failed to retrieve the TZ Version.
+ *         LE_OK            -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetTZVersion
+(
+    string tz[TZ_MAX_BYTES] OUT     ///< TZ version
 );

@@ -53,6 +53,13 @@ DEFINE MAX_DEVICE_NAME_LENGTH = 32;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * WLAN BSSID(Basic Service Set Identifier) max length.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_BSSID_LENGTH = 17;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Maximum number of access points supported.
  */
 //--------------------------------------------------------------------------------------------------
@@ -139,6 +146,17 @@ ENUM SecurityEncryptionMethod
     SEC_ENCRYPT_METHOD_GCMP       ///< Galois/Counter Mode Protocol.
 };
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * WLAN Service Set type.
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM ServiceSet{
+    SS_UNKNOWN,    ///< To skip setting encryption method, pass UNKNOWN.
+    SS_BASIC,      ///< Basic Service Set(BSS).
+    SS_EXTENDED    ///< Extended Service Set(ESS).
+};
+
 //-------------------------------------------------------------------------------------------------
 /**
  * WLAN Device state.
@@ -157,7 +175,7 @@ ENUM DeviceState
  */
 //-------------------------------------------------------------------------------------------------
 ENUM DeviceMode{
-    MODE_UNSUPPORTED = -1, ///< Unsupported mode.
+    MODE_UNKNOWN = -1, ///< Unsupported mode.
     MODE_AP,               ///< Single access point.
     MODE_STA,              ///< Single station.
     MODE_STA_AP,           ///< AP + STA.
@@ -192,7 +210,6 @@ ENUM STAid{
 STRUCT APIntfInfo{
     APid id;                                         ///< AP identifier
     string IntfName[taf_net.INTERFACE_NAME_MAX_LEN]; ///< Associated host interface name.
-    string MACAddress[taf_net.MAC_ADDR_MAX_LEN];     ///< Associated MAC address.
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -205,7 +222,6 @@ STRUCT STAIntfInfo
 {
     STAid id;                                         ///< STA identifier
     string IntfName[taf_net.INTERFACE_NAME_MAX_LEN];  ///< Associated host interface name.
-    string MACAddress[taf_net.MAC_ADDR_MAX_LEN];      ///< Associated MAC address.
 };
 
 //--------------------------------------------------------------------------------------------------

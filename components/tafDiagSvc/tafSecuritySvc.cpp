@@ -71,6 +71,135 @@ taf_diagSecurity_ServiceRef_t taf_diagSecurity_GetService
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Add handler function for EVENT 'taf_diagSecurity_RxSesTypeCheck'
+ *
+ * This event provides information on Rx session control type.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_diagSecurity_RxSesTypeCheckHandlerRef_t taf_diagSecurity_AddRxSesTypeCheckHandler
+(
+    taf_diagSecurity_ServiceRef_t svcRef,
+        ///< [IN] Service reference.
+    taf_diagSecurity_RxSesTypeHandlerFunc_t handlerPtr,
+        ///< [IN] Received message handler.
+    void* contextPtr
+        ///< [IN]
+)
+{
+    LE_DEBUG("taf_diagSecurity_AddRxSesTypeCheckHandler");
+    auto &security = taf_SecuritySvr::GetInstance();
+    return security.AddRxSesTypeCheckHandler(svcRef, handlerPtr, contextPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_diagSecurity_RxSesTypeCheck'
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_diagSecurity_RemoveRxSesTypeCheckHandler
+(
+    taf_diagSecurity_RxSesTypeCheckHandlerRef_t handlerRef
+        ///< [IN]
+)
+{
+    LE_DEBUG("taf_diagSecurity_RemoveRxSesTypeCheckHandler");
+    auto &security = taf_SecuritySvr::GetInstance();
+    return security.RemoveRxSesTypeCheckHandler(handlerRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sends a response message for the condition check of Rx session control type.
+ *
+ * @note This function must be called to send a response if receiving a message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_FAULT -- Failed.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diagSecurity_SendSesTypeCheckResp
+(
+    taf_diagSecurity_RxSesTypeCheckRef_t rxSesTypeRef,
+        ///< [IN] Received session type reference.
+    taf_diagSecurity_SesControlErrorCode_t errCode
+        ///< [IN] Error code type.
+)
+{
+    LE_DEBUG("taf_diagSecurity_SendSesTypeCheckResp");
+    auto &security = taf_SecuritySvr::GetInstance();
+    return security.SendSesTypeCheckResp(rxSesTypeRef, errCode);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler function for EVENT 'taf_diagSecurity_SesChange'
+ *
+ * This event provides information on session control type change.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_diagSecurity_SesChangeHandlerRef_t taf_diagSecurity_AddSesChangeHandler
+(
+    taf_diagSecurity_ServiceRef_t svcRef,
+        ///< [IN] Service reference.
+    taf_diagSecurity_SesChangeHandlerFunc_t handlerPtr,
+        ///< [IN] Received message handler.
+    void* contextPtr
+        ///< [IN]
+)
+{
+    LE_DEBUG("taf_diagSecurity_AddSesChangeHandler");
+    auto &security = taf_SecuritySvr::GetInstance();
+    return security.AddSesChangeHandler(svcRef, handlerPtr, contextPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_diagSecurity_SesChange'
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_diagSecurity_RemoveSesChangeHandler
+(
+    taf_diagSecurity_SesChangeHandlerRef_t handlerRef
+        ///< [IN]
+)
+{
+    LE_DEBUG("taf_diagSecurity_RemoveSesChangeHandler");
+    auto &security = taf_SecuritySvr::GetInstance();
+    return security.RemoveSesChangeHandler(handlerRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the current session control type.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_diagSecurity_GetCurrentSesType
+(
+    taf_diagSecurity_ServiceRef_t svcRef,
+        ///< [IN] Service reference.
+    taf_diagSecurity_SessionType_t* currentTypePtr
+        ///< [OUT] current session type.
+)
+{
+    LE_DEBUG("taf_diagSecurity_GetCurrentSesType");
+    auto &security = taf_SecuritySvr::GetInstance();
+    return security.GetCurrentSesType(svcRef, currentTypePtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Add handler function for EVENT 'taf_diagSecurity_RxSecAccessMsg'
  *
  * This event provides information on Rx security access message.

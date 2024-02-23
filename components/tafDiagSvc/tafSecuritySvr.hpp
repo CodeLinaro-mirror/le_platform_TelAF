@@ -46,16 +46,73 @@
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Diagnostic SecurityAccess service structure.
+ * Diagnostic Security service ( SessionControl (0x10) and SecurityAccess (0x27)) structure.
  */
 //-------------------------------------------------------------------------------------------------
 typedef struct
 {
-    taf_diagSecurity_ServiceRef_t svcRef;                   ///< Own reference.
-    le_dls_List_t rxMsgList;                                ///< Rx message list of the svc.
-    taf_diagSecurity_RxSecAccessMsgHandlerRef_t handlerRef; ///< Rx Message handler ref of the svc.
-    le_msg_SessionRef_t sessionRef;                         ///< Client-server session reference.
+    taf_diagSecurity_ServiceRef_t svcRef;                          ///< Own reference.
+    le_dls_List_t rxSesTypeList;                                   ///< Rx sesCtrlType list.
+    le_dls_List_t rxSesChangeList;                                 ///< Rx seschange list.
+    le_dls_List_t rxMsgList;                                       ///< Rx secAccess message list.
+    taf_diagSecurity_RxSesTypeCheckHandlerRef_t SesTypeHandlerRef; ///< Rx sesCtrlType handler ref.
+    taf_diagSecurity_SesChangeHandlerRef_t sesChangeHandlerRef;    ///< Rx sesChange handler ref.
+    taf_diagSecurity_RxSecAccessMsgHandlerRef_t handlerRef;        ///< Rx SecAccess handler ref.
+    le_msg_SessionRef_t sessionRef;                                ///< Client-server session ref.
 }taf_SecuritySvc_t;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Diagnostic SessionControl service Rx message.
+ */
+//-------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_diagSecurity_RxSesTypeCheckRef_t rxSesTypeRef; ///< Own reference.
+    taf_uds_AddrInfo_t addrInfo;                       ///< Rx logical address.
+    taf_diagSecurity_SessionType_t sesType;            ///< Rx subFunction.
+    le_dls_Link_t link;                                ///< Link to the Rx msg list.
+}taf_SesTypeRxMsg_t;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Diagnostic SessionControl service handler structure.
+ */
+//-------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_diagSecurity_RxSesTypeCheckHandlerRef_t SesTypeHandlerRef; ///< Own reference.
+    taf_diagSecurity_ServiceRef_t svcRef;                          ///< Service reference.
+    taf_diagSecurity_RxSesTypeHandlerFunc_t func;                  ///< Handler function.
+    void* ctxPtr;                                                  ///< Handler context.
+}taf_SesTypeReqHandler_t;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Diagnostic Session change service message.
+ */
+//-------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_diagSecurity_SesChangeRef_t sesChangeRef;    ///< Own reference.
+    taf_uds_AddrInfo_t addrInfo;                     ///< logical address.
+    taf_diagSecurity_SessionType_t previousSesType;  ///< Previous session type.
+    taf_diagSecurity_SessionType_t currentSesType;   ///< Current active session type.
+    le_dls_Link_t link;                              ///< Link to the Rx msg list.
+}taf_SesChangeMsg_t;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Diagnostic Session change service handler structure.
+ */
+//-------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_diagSecurity_SesChangeHandlerRef_t  sesChangeHandlerRef;  ///< Own reference.
+    taf_diagSecurity_ServiceRef_t svcRef;                         ///< Service reference.
+    taf_diagSecurity_SesChangeHandlerFunc_t func;                 ///< Handler function.
+    void* ctxPtr;                                                 ///< Handler context.
+}taf_SesChangeHandler_t;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -105,6 +162,28 @@ namespace telux {
 
                 taf_diagSecurity_ServiceRef_t GetService();
 
+                // SessionControl 0x10
+                static void RxSesCtrlEventHandler(void* reportPtr);
+                taf_diagSecurity_RxSesTypeCheckHandlerRef_t AddRxSesTypeCheckHandler(
+                        taf_diagSecurity_ServiceRef_t svcRef,
+                                taf_diagSecurity_RxSesTypeHandlerFunc_t handlerPtr,
+                                        void* contextPtr);
+                void RemoveRxSesTypeCheckHandler(taf_diagSecurity_RxSesTypeCheckHandlerRef_t
+                        handlerRef);
+                le_result_t SendSesTypeCheckResp(taf_diagSecurity_RxSesTypeCheckRef_t rxSesTypeRef,
+                        taf_diagSecurity_SesControlErrorCode_t errCode);
+
+                // Session change indication function
+                static void SesChangeEventHandler(void* reportPtr);
+                taf_diagSecurity_SesChangeHandlerRef_t AddSesChangeHandler(
+                        taf_diagSecurity_ServiceRef_t svcRef,
+                                taf_diagSecurity_SesChangeHandlerFunc_t handlerPtr,
+                                        void* contextPtr);
+                void RemoveSesChangeHandler(taf_diagSecurity_SesChangeHandlerRef_t handlerRef);
+                le_result_t GetCurrentSesType(taf_diagSecurity_ServiceRef_t svcRef,
+                        taf_diagSecurity_SessionType_t* currentTypePtr);
+
+                // SecurityAccess 0x11
                 static void RxSecAccessEventHandler(void* reportPtr);
                 taf_diagSecurity_RxSecAccessMsgHandlerRef_t AddRxSecAccessMsgHandler(
                         taf_diagSecurity_ServiceRef_t svcRef,
@@ -131,23 +210,46 @@ namespace telux {
                 le_result_t SendNRCResp(uint8_t sid, taf_uds_AddrInfo_t*  addrInfoPtr,
                         uint8_t errCode);
 
+                uint8_t reqSesCtrlSvcId = 0x10;     // Session control request service ID.
+                uint8_t respSesCtrlSvcId = 0x50;    // Session control response service ID.
                 uint8_t reqSecAccessSvcId = 0x27;   // Security access request service ID.
                 uint8_t respSecAccessSvcId = 0x67;  // Security access response service ID.
+                uint8_t sessionChangeId = 0xFF;     // Session change dummy ID.
                 uint16_t logAddr;                   // Service logic address.
+
+                // To clear message list.
+                void ClearSesTypeMsgList(taf_SecuritySvc_t* servicePtr);
+                void ClearSesChangeMsgList(taf_SecuritySvc_t* servicePtr);
+                void ClearSecAccessMsgList(taf_SecuritySvc_t* servicePtr);
 
                 // Service and event object
                 le_mem_PoolRef_t SvcPool;
                 le_ref_MapRef_t SvcRefMap;
 
+                // Maintain current session type and set default session on starting of service.
+                taf_diagSecurity_SessionType_t currentSesType = TAF_DIAGSECURITY_DEFAULT;
+
                 // Rx message resource
+                le_mem_PoolRef_t RxSesTypePool;
+                le_ref_MapRef_t RxSesTypeRefMap;
+                le_mem_PoolRef_t SesChangePool;
+                le_ref_MapRef_t SesChangeRefMap;
                 le_mem_PoolRef_t RxSecAccessMsgPool;
                 le_ref_MapRef_t RxSecAccessMsgRefMap;
 
                 // Rx request handler object
+                le_mem_PoolRef_t ReqSesTypeHandlerPool;
+                le_ref_MapRef_t ReqSesTypeHandlerRefMap;
+                le_mem_PoolRef_t SesChangeHandlerPool;
+                le_ref_MapRef_t SesChangeHandlerRefMap;
                 le_mem_PoolRef_t ReqSecAccessHandlerPool;
                 le_ref_MapRef_t ReqSecAccessHandlerRefMap;
 
                 // Event for service.
+                le_event_Id_t SesTypeEvent;
+                le_event_HandlerRef_t SesTypeEventHandlerRef;
+                le_event_Id_t SesChangeEvent;
+                le_event_HandlerRef_t SesChangeEventHandlerRef;
                 le_event_Id_t SecAccessEvent;
                 le_event_HandlerRef_t SecAccessEventHandlerRef;
         };

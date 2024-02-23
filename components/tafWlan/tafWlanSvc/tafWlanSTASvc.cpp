@@ -28,12 +28,12 @@ using namespace telux::tafsvc;
 le_result_t taf_wlanSta_Start
 (
     taf_wlanSta_WlanSTARef_t wlanSTARef
-        ///< [IN] The WLAN STA reference. Reserved for future use.
+        ///< [IN] The WLAN STA reference.
 )
 {
-    LE_UNUSED (wlanSTARef);
+    TAF_ERROR_IF_RET_VAL(NULL == wlanSTARef, LE_BAD_PARAMETER, "wlanSTARef is NULL!");
     auto &myWlanSta = taf_WlanSTASvcImpl::GetInstance();
-    return myWlanSta.Start();
+    return myWlanSta.Start(wlanSTARef);
 }
 //--------------------------------------------------------------------------------------------------
 /**
@@ -47,12 +47,12 @@ le_result_t taf_wlanSta_Start
 le_result_t taf_wlanSta_Stop
 (
     taf_wlanSta_WlanSTARef_t wlanSTARef
-        ///< [IN] The WLAN STA reference. Reserved for future use.
+        ///< [IN] The WLAN STA reference.
 )
 {
-    LE_UNUSED (wlanSTARef);
+    TAF_ERROR_IF_RET_VAL(NULL == wlanSTARef, LE_BAD_PARAMETER, "wlanSTARef is NULL!");
     auto &myWlanSta = taf_WlanSTASvcImpl::GetInstance();
-    return myWlanSta.Stop();
+    return myWlanSta.Stop(wlanSTARef);
 }
 //--------------------------------------------------------------------------------------------------
 /**
@@ -66,12 +66,12 @@ le_result_t taf_wlanSta_Stop
 le_result_t taf_wlanSta_Restart
 (
     taf_wlanSta_WlanSTARef_t wlanSTARef
-        ///< [IN] The WLAN STA reference. Reserved for future use.
+        ///< [IN] The WLAN STA reference.
 )
 {
-    LE_UNUSED (wlanSTARef);
+    TAF_ERROR_IF_RET_VAL(NULL == wlanSTARef, LE_BAD_PARAMETER, "wlanSTARef is NULL!");
     auto &myWlanSta = taf_WlanSTASvcImpl::GetInstance();
-    return myWlanSta.Restart();
+    return myWlanSta.Restart(wlanSTARef);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -86,14 +86,14 @@ le_result_t taf_wlanSta_Restart
 le_result_t taf_wlanSta_SetMode
 (
     taf_wlanSta_WlanSTARef_t wlanSTARef,
-        ///< [IN] The WLAN STA reference. Reserved for future use.
+        ///< [IN] The WLAN STA reference.
     taf_wlanSta_Mode_t StaMode
         ///< [IN] The WLAN STA mode to set.
 )
 {
     LE_UNUSED (wlanSTARef);
     auto &myWlanSta = taf_WlanSTASvcImpl::GetInstance();
-    return myWlanSta.SetMode(StaMode);
+    return myWlanSta.SetMode(wlanSTARef, StaMode);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -108,7 +108,7 @@ le_result_t taf_wlanSta_SetMode
 le_result_t taf_wlanSta_GetMode
 (
     taf_wlanSta_WlanSTARef_t wlanSTARef,
-        ///< [IN] The WLAN STA reference. Reserved for future use.
+        ///< [IN] The WLAN STA reference.
     taf_wlanSta_Mode_t* StaModePtr
         ///< [OUT] The WLAN STA mode that is set.
 )
@@ -116,7 +116,7 @@ le_result_t taf_wlanSta_GetMode
     LE_UNUSED (wlanSTARef);
     TAF_ERROR_IF_RET_VAL(NULL == StaModePtr, LE_BAD_PARAMETER, "StaModePtr is NULL!");
     auto &myWlanSta = taf_WlanSTASvcImpl::GetInstance();
-    return myWlanSta.GetMode(StaModePtr);
+    return myWlanSta.GetMode(wlanSTARef, StaModePtr);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -131,7 +131,7 @@ le_result_t taf_wlanSta_GetMode
 le_result_t taf_wlanSta_SetStaticIPConfig
 (
     taf_wlanSta_WlanSTARef_t wlanSTARef,
-        ///< [IN] The WLAN STA reference. Reserved for future use.
+        ///< [IN] The WLAN STA reference.
     const taf_wlanSta_IPConfig_t * LE_NONNULL StaIPConfigPtr
         ///< [IN] IP address to set for static IP address mode.
 )
@@ -140,7 +140,7 @@ le_result_t taf_wlanSta_SetStaticIPConfig
     TAF_ERROR_IF_RET_VAL(NULL == StaIPConfigPtr, LE_BAD_PARAMETER,
                                                      "StaIPConfigPtr is NULL!");
     auto &myWlanSta = taf_WlanSTASvcImpl::GetInstance();
-    return myWlanSta.SetStaticIPConfig(StaIPConfigPtr);
+    return myWlanSta.SetStaticIPConfig(wlanSTARef, StaIPConfigPtr);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -155,7 +155,7 @@ le_result_t taf_wlanSta_SetStaticIPConfig
 le_result_t taf_wlanSta_GetIPConfig
 (
     taf_wlanSta_WlanSTARef_t wlanSTARef,
-        ///< [IN] The WLAN STA reference. Reserved for future use.
+        ///< [IN] The WLAN STA reference.
     taf_wlanSta_IPType_t* StaIPTypePtr,
         ///< [OUT] Dynamic or Static IP address.
     taf_wlanSta_IPConfig_t * StaStaticIPConfigPtr
@@ -165,7 +165,7 @@ le_result_t taf_wlanSta_GetIPConfig
     LE_UNUSED (wlanSTARef);
     TAF_ERROR_IF_RET_VAL(NULL == StaIPTypePtr, LE_BAD_PARAMETER,"StaIPTypePtr is NULL!");
     auto &myWlanSta = taf_WlanSTASvcImpl::GetInstance();
-    return myWlanSta.GetIPConfig(StaIPTypePtr,StaStaticIPConfigPtr);
+    return myWlanSta.GetIPConfig(wlanSTARef, StaIPTypePtr, StaStaticIPConfigPtr);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -180,7 +180,7 @@ le_result_t taf_wlanSta_GetIPConfig
 le_result_t taf_wlanSta_GetStatus
 (
     taf_wlanSta_WlanSTARef_t wlanSTARef,
-        ///< [IN] The WLAN STA reference. Reserved for future use.
+        ///< [IN] The WLAN STA reference.
     taf_wlanSta_State_t* StaSatePtr,
         ///< [OUT] Station state.
     char* IntfName,
@@ -203,10 +203,10 @@ le_result_t taf_wlanSta_GetStatus
 {
     LE_UNUSED (wlanSTARef);
     auto &myWlanSta = taf_WlanSTASvcImpl::GetInstance();
-    return myWlanSta.GetStatus (StaSatePtr,IntfName,IntfNameSize,
-                                IPv4Address, IPv4AddressSize,
-                                IPv6Address,IPv6AddressSize,
-                                MACAddress,MACAddressSize);
+    return myWlanSta.GetStatus(wlanSTARef, StaSatePtr, IntfName, IntfNameSize,
+                               IPv4Address, IPv4AddressSize,
+                               IPv6Address, IPv6AddressSize,
+                               MACAddress, MACAddressSize);
 }
 
 //--------------------------------------------------------------------------------------------------

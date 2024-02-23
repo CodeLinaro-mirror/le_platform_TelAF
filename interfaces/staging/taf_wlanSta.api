@@ -100,6 +100,20 @@ REFERENCE WlanSTA;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Returns the WLAN STA reference.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION WlanSTA GetWlanSTA(
+    taf_wlan.STAid STAid IN,                                ///< STA identifier
+    string STAIntfName[taf_net.INTERFACE_NAME_MAX_LEN] IN   ///< AP assocaited host interface name.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Starts the specified station.
  *
  * @return
@@ -214,8 +228,8 @@ FUNCTION le_result_t GetStatus
 (
     WlanSTA        wlanSTARef              IN, ///< The WLAN STA reference. Reserved for future use.
     State          StaSate                           OUT, ///< Station state.
-    string IntfName[taf_net.INTERFACE_NAME_MAX_LEN]  OUT, ///< Assocaited host interface name.
-    string IPv4Address[taf_net.IPV4_ADDR_MAX_LEN]    OUT, ///< Assocaited IPv4 address.
-    string IPv6Address[taf_net.IPV6_ADDR_MAX_LEN]    OUT, ///< Assocaited IPv6 address.
-    string MACAddress[taf_net.MAC_ADDR_MAX_LEN]      OUT  ///< Assocaited MAC address.
+    string IntfName[taf_net.INTERFACE_NAME_MAX_LEN]  OUT, ///< Associated host interface name.
+    string IPv4Address[taf_net.IPV4_ADDR_MAX_LEN]    OUT, ///< Associated IPv4 address.
+    string IPv6Address[taf_net.IPV6_ADDR_MAX_LEN]    OUT, ///< Associated IPv6 address.
+    string MACAddress[taf_net.MAC_ADDR_MAX_LEN]      OUT  ///< Associated MAC address.
 );

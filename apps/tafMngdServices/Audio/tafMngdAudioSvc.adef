@@ -1,0 +1,36 @@
+maxThreads: 300
+
+username: telaf
+
+capability:
+{
+    CAP_WAKE_ALARM
+    CAP_NET_ADMIN
+    CAP_BLOCK_SUSPEND
+}
+
+executables:
+{
+    tafMngdAudioSvc = ( $TELAF_ROOT/apps/tafMngdServices/Audio/Components/tafMngdAudioSvc )
+}
+
+start: manual
+
+processes:
+{
+    run:
+    {
+        (tafMngdAudioSvc)
+    }
+
+    maxFileBytes: 8192K
+    faultAction: restart
+
+}
+
+sandboxed: false
+
+extern:
+{
+    tafMngdAudioSvc.tafMngdAudioSvc.taf_mngd_audio
+}

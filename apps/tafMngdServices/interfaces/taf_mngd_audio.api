@@ -1,0 +1,292 @@
+/*
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * @page c_taf_mngd_audio Managed Audio Service
+ *
+ * @ref taf_mngd_audio_interface.h "API Reference"
+ *
+ * <HR>
+ *
+ * The Managed Audio service APIs help to do audio operations on the NAD/TCU.
+ *
+ * @section taf_mngd_audio_binding IPC interfaces binding
+ *
+ *
+ * The following example illustrates how to bind to the Managed Audio service.
+ * @verbatim
+   bindings:
+   {
+       clientExe.clientComponent.taf_mngd_audio -> tafMngdAudioSvc.taf_mngd_audio
+   }
+   @endverbatim
+ *
+ * @section c_taf_mngd_audio_openRoute Open/Close Route for the requested route type and mode
+ *
+ * TelAF Managed Audio Service helps the user to open the audio connection for the requested route
+ * type like ecall, non-ecall or playback/capture and mode type as voice call, force open for voice
+ * call, playback, record.
+ * Once route is opened, connect the sink reference and source reference to the
+ * respective Rx/Tx connectors in case of voice call.
+ * If the audio VHAL module is available, the VHAL OpenRoute will get called after the requested
+ * audio route for the mode is established.
+ *
+ * Reference created by OpenRoute is used to close the route using taf_mngd_audio_CloseRoute() API.
+ * @verbatim
+
+    taf_mngd_audio_StreamRef_t sinkRef = NULL;
+    taf_mngd_audio_StreamRef_t sourceRef = NULL;
+    taf_mngd_audio_RouteRef_t routeRef = NULL:
+    routeRef = taf_mngd_audio_OpenRoute( TAF_MNGD_AUDIO_ROUTE_0, TAF_MNGD_AUDIO_VOICE_CALL,
+            &sinkRef, &sourceRef);
+    if(routeRef != NULL) {
+        LE_INFO("OpenRoute successfull sinkRef %p sourceRef %p", sinkRef, sourceRef);
+    }
+
+    taf_mngd_audio_ConnectorRef_t rxConn = taf_mngd_audio_CreateConnector();
+    taf_mngd_audio_ConnectorRef_t txConn = taf_mngd_audio_CreateConnector();
+
+    taf_mngd_audio_StreamRef_t rxStreamRef = taf_mngd_audio_OpenModemVoiceRx(1);
+    // true to enable ECNR configuration.
+    taf_mngd_audio_StreamRef_t txStreamRef = taf_mngd_audio_OpenModemVoiceTx(1, true);
+
+    res = taf_mngd_audio_Connect(rxConn, sinkRef);
+    if(res == LE_OK) {
+        LE_INFO("sinkRef connected successfully to rxConn" );
+    }
+
+    res = taf_mngd_audio_Connect(txConn, sourceRef);
+    if(res == LE_OK) {
+        LE_INFO("sourceRef connected successfully to txConn" );
+    }
+
+    res = taf_mngd_audio_Connect(rxConn, rxStreamRef);
+    if(res == LE_OK) {
+        LE_INFO("rxStreamRef connected successfully to rxConn" );
+    }
+
+    res = taf_mngd_audio_Connect(txConn, txStreamRef);
+    if(res == LE_OK) {
+        LE_INFO("txStreamRef connected successfully to txConn" );
+    }
+
+    res = taf_mngd_audio_CloseRoute(routeRef);
+    if(res == LE_OK) {
+        LE_INFO("taf_mngd_audio_CloseRoute successful" );
+    }
+
+    taf_mngd_audio_Disconnect(txConn, txStreamRef);
+
+    taf_mngd_audio_Disconnect(rxConn, sinkRef);
+
+    taf_mngd_audio_Disconnect(txConn, sourceRef);
+
+    taf_mngd_audio_Disconnect(rxConn, rxStreamRef);
+
+   @endverbatim
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+
+/**
+ * Reference type for audio stream.
+ */
+REFERENCE Stream;
+
+/**
+ * Reference type for audio connector.
+ */
+REFERENCE Connector;
+
+/**
+ * Reference type for route.
+ */
+REFERENCE Route;
+
+/**
+ * Route IDs.
+ */
+ENUM RouteId
+{
+    ROUTE_0 = 0,
+    ROUTE_1,
+    ROUTE_2,
+    ROUTE_3,
+    ROUTE_4,
+    ROUTE_MAX
+};
+
+/**
+ * Audio mode types.
+ */
+ENUM Mode
+{
+    VOICE_CALL,             ///< Voice calls.
+    VOICE_CALL_FORCE_OPEN,  ///< Force open for calls.
+    LOCAL_PLAYBACK,         ///< Downlink playback.
+    LOCAL_RECORDING,        ///< Downlink recording.
+    LOCAL_LOOPBACK          ///< For factory testing.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Creates a new connector.
+ *
+ * @return
+ *    - Reference to the audio connector on success.
+ *    - NULL on error.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Connector CreateConnector
+(
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Deletes a connected connector.
+ *
+ * @note Function fails on passing bad reference.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION DeleteConnector
+(
+    Connector connRef IN ///< Connector reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Closes the stream reference.
+ *
+ * @note Function fails on passing bad reference.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Close
+(
+    Stream sRef IN ///< Audio stream reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Connects a connector for an audio stream reference.
+ *
+ * @return
+ *     - LE_OK            Success.
+ *     - LE_BAD_PARAMETER On bad references.
+ *     - LE_FAULT         Failure.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t Connect
+(
+    Connector connRef IN, ///< Connector reference.
+    Stream    sRef    IN  ///< Audio stream reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Disconnects a connector for an audio stream reference.
+ *
+ * @note Function fails on passing bad reference.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Disconnect
+(
+    Connector connRef IN, ///< Connector reference.
+    Stream    sRef IN     ///< Audio stream reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Opens an audio stream reference for voice Rx.
+ *
+ * @return
+ *    - Reference to an audio stream
+ *    - NULL on error.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Stream OpenModemVoiceRx
+(
+    uint32 slotId IN    ///< Slot ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Opens an audio stream reference for voice Tx.
+ *
+ * @return
+ *    - Reference to an audio stream
+ *    - NULL on error.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Stream OpenModemVoiceTx
+(
+    uint32 slotId IN,    ///< Slot ID.
+    bool enableEcnr IN   ///< Enable ECNR.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Opens the audio stream for the requested route and mode.
+ * If the audio VHAL module is available, the VHAL OpenRoute will get called after the requested
+ * audio route for the mode is established.
+ *
+ * Reference created is used to close the route using CloseRoute.
+ *
+ * @return
+ *     - Route reference on success.
+ *     - NULL on failure.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Route OpenRoute
+(
+    RouteId   route     IN,      ///< Route ID.
+    Mode      mode      IN,      ///< Mode type.
+    Stream    sinkRef   OUT,     ///< Sink stream reference.
+    Stream    sourceRef OUT      ///< Source stream reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Closes the route reference if opened.
+ *
+ * @return
+ *     - LE_OK                 Success.
+ *     - LE_BAD_PARAMETER      Route reference is not opened or invalid reference.
+ *     - LE_FAULT              Failure.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t CloseRoute
+(
+    Route routeRef  IN      ///< Route reference created on OpenRoute.
+);

@@ -361,12 +361,16 @@ COMPONENT_INIT
                 char input_str[5];
                 while(le_sem_TryWait(tafAudioAppSem)!=LE_OK)
                 {
-                    fgets(input_str,sizeof(input_str),stdin);
+                    if( fgets(input_str,sizeof(input_str),stdin) == NULL )
+                    {
+                        LE_ERROR("Error reading input string");
+                        return;
+                    }
                     if(input_str[0]=='s')
                     {
                         std::cout<<"****Stopping audio playback***"<<endl;
                         Test_Mngd_Audio_Playback_Stop();
-                        break; 
+                        break;
                     }
                 }
             } else if(strcmp(le_arg_GetArg(1),"record") == 0)
@@ -376,12 +380,16 @@ COMPONENT_INIT
                 char input_str[5];
                 while(le_sem_TryWait(tafAudioAppSem)!=LE_OK)
                 {
-                    fgets(input_str,sizeof(input_str),stdin);
+                    if( fgets(input_str,sizeof(input_str),stdin) == NULL )
+                    {
+                        LE_ERROR("Error reading input string");
+                        return;
+                    }
                     if(input_str[0]=='s')
                     {
                         std::cout<<"****Stopping audio recording***"<<endl;
                         Test_Mngd_Audio_Record_Stop();
-                        break; 
+                        break;
                     }
                 }
             } else if(strcmp(le_arg_GetArg(1),"voicecall") == 0)
@@ -391,12 +399,16 @@ COMPONENT_INIT
                 char input_str[5];
                 while(le_sem_TryWait(tafAudioAppSem)!=LE_OK)
                 {
-                    fgets(input_str,sizeof(input_str),stdin);
+                    if( fgets(input_str,sizeof(input_str),stdin) == NULL )
+                    {
+                        LE_ERROR("Error reading input string");
+                        return;
+                    }
                     if(input_str[0]=='s')
                     {
                         std::cout<<"****Stopping voice call audio***"<<endl;
                         Test_Mngd_Audio_VoiceCall_Stop();
-                        break; 
+                        break;
                     }
                 }
             }

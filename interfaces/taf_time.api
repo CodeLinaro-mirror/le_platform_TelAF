@@ -339,8 +339,28 @@ FUNCTION le_result_t GetSystemTime
  *  - LE_FAULT -- Internal error.
  *
  */
+
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetGnssTime
+(
+    TimeSpec timeVal OUT ///< Time in seconds/nanoseconds
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the RTC time.
+ *
+ * It returns the RTC time in seconds/nanoseconds since epoch via output timeVal.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- The RTC time is not available.
+ *  - LE_FAULT -- Internal error.
+ *
+ */
+
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetRtcTime
 (
     TimeSpec timeVal OUT ///< Time in seconds/nanoseconds
 );
@@ -489,5 +509,66 @@ FUNCTION le_result_t GetRefGptpTime
 FUNCTION le_result_t ReleaseTimeRef
 (
     TimeSource  timeSrcRef  IN  ///< Time source reference.
+);
+
+HANDLER AsyncGetTimeReqHandler
+(
+    TimeSpec    timeVal   IN,            ///< Time in seconds/nanoseconds.
+    le_result_t responseState IN    ///< Status response.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the RTC time asynchronously.
+ *
+ * It returns the RTC time in seconds/nanoseconds since epoch via output timeVal.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_UNAVAILABLE -- The RTC time is not available.
+ *  - LE_FAULT -- Internal error.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetRtcTimeReqAsync
+(
+    AsyncGetTimeReqHandler    handlerRef   IN    ///< Handler
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the time to RTC device.
+ *
+ * @return
+ * - LE_OK            Succeeded.
+ * - Appropriate error is returned on failure.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetTimeToRtc
+(
+    TimeSpec timeVal IN ///< Time in seconds/nanoseconds
+);
+
+
+HANDLER AsyncSetTimeReqHandler
+(
+    le_result_t responseState     IN    ///< Status response.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets RTC time asynchronously.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_UNAVAILABLE -- The rtc time is not available.
+ *  - LE_FAULT -- Internal error.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetRtcTimeReqAsync
+(
+    TimeSpec timeVal                      IN,        ///< Time in seconds/nanoseconds
+    AsyncSetTimeReqHandler handlerRef     IN         ///< Handler
 );
 

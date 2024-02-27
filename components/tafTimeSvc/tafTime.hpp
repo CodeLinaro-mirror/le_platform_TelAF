@@ -32,6 +32,9 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef TAF_TIME_HEADER
+#define TAF_TIME_HEADER
+
 #include "legato.h"
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
@@ -42,6 +45,14 @@
 #include <vector>
 #include <algorithm>
 #include <string>
+
+// For using VHAL
+#include "tafSvcIF.hpp"
+#include "tafHalLib.hpp"
+#include "tafHalTime.h"
+
+// For RTC
+#include <linux/rtc.h>
 
 //For gnss time listener
 #include <telux/platform/PlatformFactory.hpp>
@@ -67,11 +78,12 @@
 #define TAF_TIME_TOLERANCES_SETTING_STR  "ToleranceMillsec"
 #define TAF_TIME_SERVICE_SOURCE_STR      "Sources"
 
-//--------------------------------------------------------------------------------------------------
+#define TAF_TIME_RTC_DEV_NAME "/dev/rtc0"
+//-------------------------------------------------------------------------------------------------
 /**
  * Macro definition for time source.
  */
-//--------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
 #define TAF_TIME_STR_MAX 16
 #define TAF_TIME_SECOND_PER_LOOP_DEFAULT   65
 #define TAF_TIME_SECOND_PER_COUNT_DEFAULT  1
@@ -82,11 +94,11 @@
 #define TAF_TIME_RECEIVE_GNSS_TIME_COUNT   5
 #define TAF_TIME_SYNC_TIME_TIMER_INTERVAL (61000)
 
-//--------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
 /**
  * Macro definition for network time.
  */
-//--------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
 #define DEFAULT_SIM_SLOT_ID        1
 #define DEFAULT_PHONE_NUM_MAX      2
 #define NITZ_STR_BUF_MAX           60
@@ -228,6 +240,20 @@ typedef struct
     void* ref;                                    ///< own reference.
     taf_DateTimeInf_t dateTimeInf;                ///< Date time information.
 }TimeSourceRef_Event_t;
+
+typedef struct
+{
+    le_msg_SessionRef_t sessionRef;
+    void* getRTCCtxPtr;
+    taf_time_AsyncGetTimeReqHandlerFunc_t getRTCCallbackFunc;
+}taf_time_getRTCCb_t;
+
+typedef struct
+{
+    le_msg_SessionRef_t sessionRef;
+    void* setRTCCtxPtr;
+    taf_time_AsyncSetTimeReqHandlerFunc_t setRTCCallbackFunc;
+}taf_time_setRTCCb_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -411,8 +437,10 @@ namespace telux
                 le_result_t GetGnssTime(taf_time_TimeSpec_t* timeValPtr);
                 le_result_t GetExSetTimeStatus(void);
                 le_result_t GetSystemTime(taf_time_TimeSpec_t* timeValPtr);
+                le_result_t GetInternalRtcTime(taf_time_TimeSpec_t* timeVal);
                 le_result_t GetNetworkTime(taf_time_TimeSpec_t* timeValPtr,
                                                               taf_time_TimeSources_t sourceId);
+
 
                 le_result_t UpdateRefTimeInfo(taf_TimeSourceInf_t* timeSrcRefPrt,
                                                               taf_time_TimeSpec_t* timeValPtr);
@@ -521,7 +549,19 @@ namespace telux
                 std::shared_ptr<telux::tel::IPhoneManager> phoneManager;
                 //std::vector<std::shared_ptr<telux::tel::IPhone>> phones;
                 std::vector<std::shared_ptr<taf_TimeServingSystemListener>> servSysListeners;
-                std::vector<std::shared_ptr<telux::tel::IServingSystemManager>> servingSystemManagers;
+                std::vector<std::shared_ptr<telux::tel::IServingSystemManager>>servingSystemManagers;
+
+                time_Inf_t* timeInf = nullptr;
+                bool isDrvPresent = false;
+                static taf_time_getRTCCb_t getRTCCB;
+                static taf_time_setRTCCb_t setRTCCB;
+                static void getRTCRespCB(struct TimeSpec timeVal, le_result_t result);
+                static void setRTCRespCB(le_result_t result);
+                le_result_t SetRtcTimeReqAsync(const taf_time_TimeSpec_t* timeValPtr,
+                    taf_time_AsyncSetTimeReqHandlerFunc_t handlerPtr, void* contextPtr);
+                le_result_t GetRtcTimeReqAsync(taf_time_AsyncGetTimeReqHandlerFunc_t handlerPtr,
+                    void* contextPtr);
+
 
             private:
                 std::shared_ptr<ITimeListener> gnssTimeListener
@@ -535,3 +575,4 @@ namespace telux
         };
     }
 }
+#endif

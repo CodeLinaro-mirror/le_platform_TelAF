@@ -1,0 +1,10 @@
+sources:
+{
+    rtcVHalDrv.c
+}
+
+cflags:
+{
+    -DFRAMEWORK_WDOG_NAME=DevManagerWdog
+    -I $TELAF_ROOT/include
+}

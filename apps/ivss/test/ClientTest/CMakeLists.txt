@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
 
-project(IvssRadioSvcTest)
+project(IvssClientTest)
 
 #SET(MAX_LOG_LEVEL "DEBUG" CACHE STRING "maximum log level")
 message(STATUS "PROJECT_NAME: ${PROJECT_NAME}")
@@ -27,19 +27,18 @@ include_directories(
 )
 
 # Application
-set(PRJ_NAME_CLIENT ${PROJECT_NAME}Client)
 FILE(GLOB PRJ_SRC_LIB_SRCS ${PRJ_SRC_PATH}/*cpp)
 FILE(GLOB PRJ_SRC_GEN_SRCS ${PRJ_SRC_GEN_PATH}/*.cpp)
 
-add_executable(${PRJ_NAME_CLIENT}
+add_executable(${PROJECT_NAME}
     ${PRJ_SRC_LIB_SRCS}
     ${PRJ_SRC_GEN_SRCS}
 )
 
-target_link_libraries(${PRJ_NAME_CLIENT} CommonAPI CommonAPI-SomeIP vsomeip3)
+target_link_libraries(${PROJECT_NAME} CommonAPI CommonAPI-SomeIP vsomeip3)
 
 install (
-    TARGETS ${PRJ_NAME_CLIENT}
+    TARGETS ${PROJECT_NAME}
     RUNTIME DESTINATION ./ COMPONENT bin)
 
 set(EXAMPLE_CONFIG_FILES

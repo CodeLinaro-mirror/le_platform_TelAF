@@ -2,19 +2,19 @@ requires:
 {
     component:
     {
-        $CURDIR/../tafIvssSimIdl
+        $CURDIR/../tafIvssInfoIdl
     }
 
     api:
     {
-        $TELAF_ROOT/interfaces/taf_sim.api
+        $TELAF_ROOT/interfaces/taf_info.api
     }
 }
 
 sources:
 {
-    tafIvssSimSvc.cpp
-    tafIvssSimSvcImpl.cpp
+    tafIvssInfoSvc.cpp
+    tafIvssInfoSvcImpl.cpp
 }
 
 cxxflags:

@@ -40,13 +40,6 @@ using namespace std;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Counter for receiving GNSS UTC report.
- */
-//--------------------------------------------------------------------------------------------------
-static int gnss_counter = 0;
-
-//--------------------------------------------------------------------------------------------------
-/**
  * Object to store time source configuration.
  */
 //--------------------------------------------------------------------------------------------------
@@ -128,18 +121,15 @@ void taf_TimeGnssListener::onGnssUtcTimeUpdate
         return;
     }
 
-    if (gnss_counter > 1 && utc % 1000 == 0)
+    if ( utc % 1000 == 0)
      {
         timeVal.sec = (utc / 1000);
         timeVal.nanosec = (utc % 1000)*1000*1000;
 
+        LE_DEBUG("Received gnss UTC time: %" PRIu64 "\n", timeVal.sec);
         tafTime.UpdateLocalTimeCache(timeVal, TAF_TIME_SRC_NAME_GNSS, tafTime.GnssDeltaTime);
-        if (gnss_counter == 2)
-        {
-            // Only report one time for each loop.
-            tafTime.ReportTimeValueChange(TAF_TIME_SRC_NAME_GNSS, timeVal, NULL);
-        }
-        gnss_counter--;
+        tafTime.ReportTimeValueChange(TAF_TIME_SRC_NAME_GNSS, timeVal, NULL);
+        tafTime.DeregGnssTimeListener();
     }
 }
 
@@ -1035,7 +1025,7 @@ le_result_t taf_Time::UpdateDateTimeInfo
             LE_ERROR("snprintf failed for nitzTime\n");
             return LE_FAULT;
         }
-        LE_INFO("Old: %s\n", nitzTimeStr.c_str());
+        LE_DEBUG("Old: %s\n", nitzTimeStr.c_str());
         LE_INFO("New: %s\n", timeSrcRefPrt->dateTimeInf.nitzTime);
     }
     else
@@ -1085,7 +1075,7 @@ taf_time_TimeSourceRef_t taf_Time::GetTimeRef
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get the source time and fill related data to the reference object.
+ * Get the time source and fill related data to the reference object.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_Time::GetTime
@@ -1136,7 +1126,7 @@ le_result_t taf_Time::GetTime
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get reference system time when related source time was created.
+ * Get reference system time when related time source was created.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_Time::GetRefSystemTime
@@ -1171,7 +1161,7 @@ le_result_t taf_Time::GetRefSystemTime
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get reference gptp time when related source time was created.
+ * Get reference gptp time when related time source was created.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_Time::GetRefGptpTime
@@ -1205,7 +1195,7 @@ le_result_t taf_Time::GetRefGptpTime
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Releases a source time reference.
+ * Releases a time source reference.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_Time::ReleaseTimeRef
@@ -1620,8 +1610,7 @@ le_result_t taf_Time::SetSystemTime
             }
         }
 
-        result = SetTimeToRtc(timeVal);
-        if (result != LE_OK)
+        if (LE_OK != SetTimeToRtc(timeVal))
         {
             LE_WARN("Set %s time for RTC failed\n", SourceNameIndexToStr(timeSource));
         }
@@ -1642,7 +1631,7 @@ le_result_t taf_Time::SetSystemTime
     {
         SetTimeSt->externalSetTime = true;
     }
-    return result;
+    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1820,7 +1809,7 @@ le_result_t taf_Time::SetTimeBaseOnConfig
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Invalid parameters.
- *     - LE_NOT_FOUND -- Time source not available.
+ *     - LE_UNAVAILABLE -- Time source not available.
  */
 //--------------------------------------------------------------------------------------------------
 void taf_Time::SystemTimeUpdateTimerHandler
@@ -1829,7 +1818,7 @@ void taf_Time::SystemTimeUpdateTimerHandler
 )
 {
     taf_Time& tafTime = taf_Time::GetInstance();
-    le_result_t result = LE_NOT_FOUND;
+    le_result_t result = LE_UNAVAILABLE;
     taf_time_TimeSources_t latestActiveTime = TAF_TIME_SRC_NAME_UNKNOWN;
 
 
@@ -1851,7 +1840,8 @@ void taf_Time::SystemTimeUpdateTimerHandler
         tafTime.TimeSourceChangeNotify(tafTime.SetTimeSt->preActiveTimeSource, latestActiveTime);
     }
 
-    if (tafTime.SetTimeSt->preActiveTimeSource != latestActiveTime)
+    if ((tafTime.SetTimeSt->preActiveTimeSource != latestActiveTime)
+        && (latestActiveTime != TAF_TIME_SRC_NAME_UNKNOWN))
     {
         tafTime.SetTimeSt->preActiveTimeSource = latestActiveTime;
     }
@@ -1867,7 +1857,8 @@ void taf_Time::SystemTimeUpdateTimerHandler
 //--------------------------------------------------------------------------------------------------
 void *taf_Time::SyncTimeTasks(void* contextPtr)
 {
-    le_result_t result;
+    le_result_t regGnssTimeStatus = LE_UNAVAILABLE;
+    le_result_t regNetworkTimeStatus = LE_UNAVAILABLE;
     long int interval;
 
     taf_Time& tafTime = taf_Time::GetInstance();
@@ -1875,13 +1866,17 @@ void *taf_Time::SyncTimeTasks(void* contextPtr)
     // Check if the network time source is required
     if (TimeSourceConf.IsSourceExist(tafTime.SourceNameIndexToStr(TAF_TIME_SRC_NAME_NETWORK)))
     {
-        result = tafTime.InitNetworkTime();
-        if (result == LE_OK)
+        tafTime.InitNetworkTimeStatus = tafTime.InitNetworkTime();
+        if (tafTime.InitNetworkTimeStatus == LE_OK)
         {
-            tafTime.RegNetworkTimeStatus = tafTime.RegNetworkTimeListener();
-            if (tafTime.RegNetworkTimeStatus != LE_OK)
+            regNetworkTimeStatus = tafTime.RegNetworkTimeListener();
+            if (regNetworkTimeStatus != LE_OK)
             {
-                LE_WARN("Warning: RegNetworkTimeStatus failed\n");
+                LE_WARN("Warning: regNetworkTimeStatus failed\n");
+            }
+            else
+            {
+                tafTime.RequestNetworkTime();
             }
         }
     }
@@ -1889,16 +1884,20 @@ void *taf_Time::SyncTimeTasks(void* contextPtr)
     // Check if the GNSS time source is required
     if (TimeSourceConf.IsSourceExist(tafTime.SourceNameIndexToStr(TAF_TIME_SRC_NAME_GNSS)))
     {
-        tafTime.InitGnssTime();
-        tafTime.RegGnssTimeStatus = tafTime.RegGnssSyncTimeListener();
-        if (tafTime.RegGnssTimeStatus != LE_OK)
+        tafTime.InitGnssTimeStatus = tafTime.InitGnssTime();
+
+        if (tafTime.InitGnssTimeStatus == LE_OK)
         {
-            LE_WARN("Warning: RegGnssSyncTimeListener failed\n");
+            regGnssTimeStatus = tafTime.RegGnssTimeListener();
+            if (regGnssTimeStatus != LE_OK)
+            {
+                LE_WARN("Warning: regGnssTimeListener failed\n");
+            }
         }
     }
 
-    if ( tafTime.RegNetworkTimeStatus == LE_OK
-        || tafTime.RegGnssTimeStatus == LE_OK
+    if ( regNetworkTimeStatus == LE_OK
+        || regGnssTimeStatus == LE_OK
        )
     {
         interval = TimeSourceConf.pollingInterval * 1000;
@@ -1923,6 +1922,9 @@ void *taf_Time::SyncTimeTasks(void* contextPtr)
         {
             TimeSourceConf.pollingInterval = TAF_TIME_SECOND_PER_LOOP_DEFAULT;
         }
+
+        //Update the system time as quickly as possible.
+        SystemTimeUpdateTimerHandler(NULL);
 
         // Create timer to update the system time
         LE_INFO("Starting sync time timer, interval: %ld sec\n", TimeSourceConf.pollingInterval);
@@ -1970,82 +1972,45 @@ void taf_Time::LayerTimeSourceChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Create the time manager.
+ * Register the GNSS time listener.
  *
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_UNAVAILABLE -- If any error occurs.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_Time::RegGnssSyncTimeListener(void)
+le_result_t taf_Time::RegGnssTimeListener(void)
 {
-    auto &platformFactory = PlatformFactory::getInstance();
-    bool statusUpdated = false;
-    auto servicStatus = telux::common::ServiceStatus::SERVICE_UNAVAILABLE;
-    auto statusCb = [&statusUpdated, &servicStatus](telux::common::ServiceStatus status)
+    if (gnssTimeListener == nullptr)
     {
-        std::lock_guard<std::mutex> lock(mtx);
-        statusUpdated = true;
-        servicStatus = status;
-        cv.notify_all();
-    };
-
-    timeManager = platformFactory.getTimeManager(statusCb);
-    if (timeManager)
-    {
-        // Wait for time manager to be ready
-        std::unique_lock<std::mutex> lck(mtx);
-        cv.wait(lck, [&statusUpdated] { return statusUpdated; });
+        gnssTimeListener = std::make_shared<taf_TimeGnssListener>();
+        auto myStatus = timeManager->registerListener(gnssTimeListener, SupportTimeMask);
+        if (myStatus != Status::SUCCESS)
+        {
+            LE_ERROR("Failed to register time listener\n");
+            gnssTimeListener = nullptr;
+            return LE_UNAVAILABLE;
+        }
+        LE_DEBUG("gnssTimeListener was started\n");
     }
-
-    if (servicStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
-    {
-        LE_INFO("Time manager is ready\n");
-    }
-    else
-    {
-        LE_WARN("Unable to initialize time manager\n");
-        return LE_UNAVAILABLE;
-    }
-
-    TimeTypeMask mask;
-    mask.set(SupportedTimeType::GNSS_UTC_TIME);
-
-    // FIXME: Since register and deregister the listener from ITimeManager will
-    // bring memory leak, so only rigister it at the first initialization and
-    // then do not exit if no error.
-
-    auto myStatus = timeManager->registerListener(gnssTimeListener, mask);
-    if (myStatus != Status::SUCCESS)
-    {
-        LE_WARN("Failed to register time listener\n");
-        return LE_UNAVAILABLE;
-    }
-    LE_INFO("gnssTimeListener started\n");
 
     return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * A timer handler to periodically start the GNSS listener according to some condition.
+ * De-Register the GNSS time listener.
  */
 //--------------------------------------------------------------------------------------------------
-void taf_Time::SyncGnssTime(void)
+void taf_Time::DeregGnssTimeListener(void)
 {
-    if (gnss_counter > 1)
+    if (timeManager && gnssTimeListener != nullptr)
     {
-        LE_DEBUG("Previous GNSS sync time task not exit\n");
-        return;
-    }
-    else
-    {
-        gnss_counter = TAF_TIME_RECEIVE_GNSS_TIME_COUNT;
-    }
+        timeManager->deregisterListener(gnssTimeListener, SupportTimeMask);
+        gnssTimeListener = nullptr;
 
-    // TODO: Since register and deregister the listener from ITimeManager will
-    // bring memory leak issue, so here not implement the deregister function,
-    // need to improve it when this issue get fix.
+        LE_DEBUG("GnssTimeListener was deregistered\n");
+    }
 }
 
 void taf_Time::SyncTimeTimerHandler(le_timer_Ref_t timerRef)
@@ -2053,16 +2018,16 @@ void taf_Time::SyncTimeTimerHandler(le_timer_Ref_t timerRef)
     auto &tafTime = taf_Time::GetInstance();
     uint32_t time = le_timer_GetExpiryCount(timerRef);
 
-    if (tafTime.RegGnssTimeStatus == LE_OK)
+    if (tafTime.InitGnssTimeStatus == LE_OK)
     {
-        tafTime.SyncGnssTime();
+        tafTime.RegGnssTimeListener();
     }
 
-    if ((tafTime.RegNetworkTimeStatus == LE_OK)
+    if ((tafTime.InitNetworkTimeStatus == LE_OK)
         && (time % 5 == 1) /* Not to update network (not accuracy) time so frequently */
     )
     {
-        tafTime.SyncNetworkTime();
+        tafTime.RequestNetworkTime();
     }
 }
 
@@ -2186,11 +2151,10 @@ void taf_Time::NetworkTimeResponseUpdate
 
     if (error != telux::common::ErrorCode::SUCCESS)
     {
-        LE_ERROR("SyncNetworkTime Error(%d) for phone %d", (int)error, phoneId);
+        LE_ERROR("Register network time for phone %d, Error(%d)", phoneId, (int)error);
         return;
     }
 
-    LE_DEBUG("Phone %d, NITZ:%s\n", phoneId, info.nitzTime.c_str());
     result = ConvertNetworkTimeToSec(info, &timeVal);
     if (phoneId == 1)
     {
@@ -2251,13 +2215,19 @@ void taf_Time::SyncNetworkTimeResponse2
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sync network time.
+ * Request network time.
  */
 //--------------------------------------------------------------------------------------------------
-void taf_Time::SyncNetworkTime(    void)
+void taf_Time::RequestNetworkTime(    void)
 {
     auto &tafTime = taf_Time::GetInstance();
     telux::common::Status ret;
+
+    if (tafTime.servSysListeners.empty())
+    {
+        LE_DEBUG("There is no active servSysListeners");
+        return;
+    }
 
     for (size_t i = 0; i < tafTime.servingSystemManagers.size(); i++)
     {
@@ -2303,7 +2273,8 @@ le_result_t taf_Time::RegNetworkTimeListener
     for (size_t i = 0; i < tafTime.servingSystemManagers.size(); i++)
     {
 
-        LE_INFO("servingSystemManagers.size: %ld\n", servingSystemManagers.size());
+        LE_DEBUG("Trying to Register the servSysListener, size: %ld\n",
+                                                       servingSystemManagers.size());
         auto servSysListener = std::make_shared<taf_TimeServingSystemListener>(
                                 phoneManager->getPhoneIdFromSlotId(i+1));
 
@@ -2325,6 +2296,31 @@ le_result_t taf_Time::RegNetworkTimeListener
     }
 
     return result;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * De-Register network time Listener.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_Time::DeregNetworkTimeListener
+(
+    void
+)
+{
+    auto &tafTime = taf_Time::GetInstance();
+    LE_DEBUG("Tring to deregister the servSysListeners");
+
+    for (size_t i = 0; i < tafTime.servingSystemManagers.size(); i++)
+    {
+        if (tafTime.servingSystemManagers[i] != nullptr
+            && tafTime.servSysListeners[i] != nullptr)
+        {
+            tafTime.servingSystemManagers[i]->deregisterListener(
+                tafTime.servSysListeners[i]);
+        }
+    }
+    tafTime.servSysListeners.clear();
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2450,9 +2446,40 @@ le_result_t taf_Time::InitNetworkTime(void)
  * GNSS time initialization.
  */
 //--------------------------------------------------------------------------------------------------
-void taf_Time::InitGnssTime(void)
+le_result_t taf_Time::InitGnssTime(void)
 {
     le_result_t result;
+
+    auto &platformFactory = PlatformFactory::getInstance();
+    bool statusUpdated = false;
+    auto servicStatus = telux::common::ServiceStatus::SERVICE_UNAVAILABLE;
+    auto statusCb = [&statusUpdated, &servicStatus](telux::common::ServiceStatus status)
+    {
+        std::lock_guard<std::mutex> lock(mtx);
+        statusUpdated = true;
+        servicStatus = status;
+        cv.notify_all();
+    };
+
+    timeManager = platformFactory.getTimeManager(statusCb);
+    if (timeManager)
+    {
+        // Wait for time manager to be ready
+        std::unique_lock<std::mutex> lck(mtx);
+        cv.wait(lck, [&statusUpdated] { return statusUpdated; });
+    }
+
+    if (servicStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+    {
+        LE_INFO("Time manager is ready\n");
+    }
+    else
+    {
+        LE_WARN("Unable to initialize time manager\n");
+        return LE_UNAVAILABLE;
+    }
+
+    SupportTimeMask.set(SupportedTimeType::GNSS_UTC_TIME);
 
     GnssDeltaTimePool = le_mem_CreatePool("TimeSvc GnssDeltaTime ", sizeof(taf_time_TimeSpec_t));
     GnssDeltaTime = (taf_time_TimeSpec_t *)le_mem_ForceAlloc(GnssDeltaTimePool);
@@ -2462,6 +2489,42 @@ void taf_Time::InitGnssTime(void)
     if (result)
     {
         LE_WARN("Clean GNSS delta time failed\n");
+    }
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for power state changes.
+ */
+//--------------------------------------------------------------------------------------------------
+void PowerStateChangeHandler
+(
+    taf_pm_State_t state, ///< [IN] PM state.
+    void* contextPtr      ///< [IN] Handler context.
+)
+{
+    auto &tafTime = taf_Time::GetInstance();
+    if (state == TAF_PM_STATE_RESUME)
+    {
+        LE_DEBUG("Power state change to RESUME");
+        if (tafTime.InitNetworkTimeStatus == LE_OK)
+        {
+            tafTime.RegNetworkTimeListener();
+        }
+    }
+    else if (state == TAF_PM_STATE_SUSPEND)
+    {
+        LE_DEBUG("Power state change to SUSPEND");
+        if (tafTime.InitNetworkTimeStatus == LE_OK)
+        {
+            tafTime.DeregNetworkTimeListener();
+        }
+
+        if (tafTime.InitGnssTimeStatus == LE_OK)
+        {
+            tafTime.DeregGnssTimeListener();
+        }
     }
 }
 
@@ -2666,6 +2729,9 @@ void taf_Time::Init(void)
     // 3. Create thread for runtime sync time.
     le_thread_Ref_t threadRunTimeSyncRef = le_thread_Create("SyncTimeThread", SyncTimeTasks, NULL);
     le_thread_Start(threadRunTimeSyncRef);
+
+    // 4. Add power state change handle.
+    taf_pm_AddStateChangeHandler(PowerStateChangeHandler, NULL);
 
 }
 

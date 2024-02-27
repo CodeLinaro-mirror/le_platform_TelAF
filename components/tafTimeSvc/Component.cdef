@@ -25,6 +25,11 @@ requires:
         $TELAF_ROOT/components/tafGptpLibrary
     }
 
+    api:
+    {
+        taf_pm.api
+    }
+
     lib:
     {
         lib/libtelux_platform.so

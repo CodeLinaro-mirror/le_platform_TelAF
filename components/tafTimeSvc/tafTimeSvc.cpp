@@ -50,7 +50,7 @@ DECLARE_SAFE_CALL();
 
  FUNCTION        taf_time_SetSystemTime
 
- DESCRIPTION     Set system READ time.
+ DESCRIPTION     Set system REAL time.
 
  DEPENDENCIES    Initialization of Time Service
 
@@ -89,7 +89,7 @@ le_result_t taf_time_SetSystemTime
 
  FUNCTION        taf_time_GetSystemTime
 
- DESCRIPTION     Get system READ time.
+ DESCRIPTION     Get system REAL time.
 
  DEPENDENCIES    Initialization of Time Service
 
@@ -342,7 +342,7 @@ le_result_t taf_time_GetRefGptpTime
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Release a source time reference.
+ * Release a time source reference.
  *
  * @return
  *     - LE_OK if successful.

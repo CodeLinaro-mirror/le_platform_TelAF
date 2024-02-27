@@ -40,7 +40,25 @@ static taf_time_TimeValueChangeHandlerRef_t TimeValueChangeHandlerRef = NULL;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Handler for time source change.
+ * Convert the seconds from epoch to date time format.
+ */
+//--------------------------------------------------------------------------------------------------
+void ConvertSecToDateTime
+(
+    taf_time_TimeSpec_t timeVal
+)
+{
+    time_t epoch_seconds = timeVal.sec;
+    struct tm *timeinfo = gmtime(&epoch_seconds);
+    char tmpBuffer[80];
+
+    strftime(tmpBuffer, 80, "%c", timeinfo);
+    LE_INFO("UTC time: %s\n", tmpBuffer);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for time source change that used by system.
  */
 //--------------------------------------------------------------------------------------------------
 void TimeSourceChangeHandler
@@ -145,6 +163,7 @@ void TestGetSystemTime
     LE_TEST_ASSERT(result == LE_OK, "Test: taf_time_GetSystemTime() APIs.");
 
     LE_INFO("System time is %"PRIu64".%"PRIu64, systemTime.sec, systemTime.nanosec);
+    ConvertSecToDateTime(systemTime);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -167,9 +186,9 @@ void TestGetGnssTime
     if (result == LE_OK)
     {
         LE_INFO("GNSS time is %"PRIu64".%"PRIu64, gnssTime.sec, gnssTime.nanosec);
+        ConvertSecToDateTime(gnssTime);
     }
-
-    if (result == LE_UNAVAILABLE)
+    else
     {
         LE_INFO("GNSS time is not available now\n");
     }
@@ -180,7 +199,7 @@ void TestGetGnssTime
  * Get time through time source ID and return related reference.
  */
 //--------------------------------------------------------------------------------------------------
-void TestGetSourceRef
+void TestGetTimeRef
 (
     void
 )
@@ -200,8 +219,9 @@ void TestGetSourceRef
     if (result == LE_OK)
     {
         LE_INFO("Reference %d time is %"PRIu64".%"PRIu64, sourceId, time.sec, time.nanosec);
+        ConvertSecToDateTime(time);
     }
-    LE_INFO("timeSrcRefPtr %p, sourceId (0x%x), status %d.", timeSrcRef, sourceId, result);
+    LE_INFO("timeSrcRef %p, sourceId (0x%x), status %d.", timeSrcRef, sourceId, result);
 
     // Get reference system time through reference object.
     result = taf_time_GetRefSystemTime(timeSrcRef, &time);
@@ -210,6 +230,7 @@ void TestGetSourceRef
     if (result == LE_OK)
     {
         LE_INFO("Reference system time is %"PRIu64".%"PRIu64, time.sec, time.nanosec);
+        ConvertSecToDateTime(time);
     }
 
     // Get reference gptp time through reference object.
@@ -219,6 +240,7 @@ void TestGetSourceRef
     if (result == LE_OK)
     {
         LE_INFO("Reference gptp time is %"PRIu64".%"PRIu64, time.sec, time.nanosec);
+        ConvertSecToDateTime(time);
     }
 
     // Release the memory for this reference.
@@ -308,6 +330,8 @@ COMPONENT_INIT
     TestGetSystemTime();
 
     TestGetGnssTime();
+
+    TestGetTimeRef();
 
     TestTimeRegistrationHandler();
 

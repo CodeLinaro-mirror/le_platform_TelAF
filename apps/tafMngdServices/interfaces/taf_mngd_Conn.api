@@ -625,7 +625,8 @@ FUNCTION Data GetData
  * Starts a data session for the given data reference. This API should be used when the value of
  * "AutoStart" is "No" in the configuration file.
  *
- * @note This API is global control, not per-client control.
+ * The service tracks clients that call DataStart for Data objects with AutoStart:No and is used
+ * to manage DataStop behavior.
  *
  * @return
  *   - LE_OK -- Succeeded.
@@ -643,7 +644,8 @@ FUNCTION le_result_t DataStart
 /**
  * Stops a data cellular session for the given data reference.
  *
- * @note This API is global control, not per-client control.
+ * Data will be stopped only when all clients that have called DataStart for data objects with
+ * AutoStart:No either stop data or exit.
  *
  * @return
  *   - LE_OK -- Succeeded.

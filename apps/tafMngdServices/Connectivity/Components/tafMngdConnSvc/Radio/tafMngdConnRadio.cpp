@@ -61,7 +61,7 @@ void tafMngdConnRadio::GsmSsChangeHandler
     void* contextPtr
 )
 {
-    LE_INFO("Phone ID %d GSM rssi : %d dBm", phoneId, ss);
+    LE_DEBUG("Phone ID %d GSM rssi : %d dBm", phoneId, ss);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -77,7 +77,7 @@ void tafMngdConnRadio::UmtsSsChangeHandler
     void* contextPtr
 )
 {
-    LE_INFO("Phone ID %d UMTS rssi : %d dBm", phoneId, ss);
+    LE_DEBUG("Phone ID %d UMTS rssi : %d dBm", phoneId, ss);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -93,7 +93,7 @@ void tafMngdConnRadio::CdmaSsChangeHandler
     void* contextPtr
 )
 {
-    LE_INFO("Phone ID %d CDMA rssi : %d dBm", phoneId, ss);
+    LE_DEBUG("Phone ID %d CDMA rssi : %d dBm", phoneId, ss);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -109,7 +109,7 @@ void tafMngdConnRadio::TdscdmaSsChangeHandler
     void* contextPtr
 )
 {
-    LE_INFO("Phone ID %d TDSCDMA rssi : %d dBm", phoneId, ss);
+    LE_DEBUG("Phone ID %d TDSCDMA rssi : %d dBm", phoneId, ss);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -125,7 +125,7 @@ void tafMngdConnRadio::LteSsChangeHandler
     void* contextPtr
 )
 {
-    LE_INFO("Phone %d LTE rssi : %d dBm", phoneId, ss);
+    LE_DEBUG("Phone %d LTE rssi : %d dBm", phoneId, ss);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -141,7 +141,7 @@ void tafMngdConnRadio::Nr5gSsChangeHandler
     void* contextPtr
 )
 {
-    LE_INFO("Phone %d NR5G rssi : %d dBm", phoneId, ss);
+    LE_DEBUG("Phone %d NR5G rssi : %d dBm", phoneId, ss);
 }
 
 //--------------------------------------------------------------------------------------------------

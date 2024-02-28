@@ -51,6 +51,7 @@ bindings:
     tafMngdConnSvc.tafMngdConnSvc.taf_dcs -> tafDataCallSvc.taf_dcs
     tafMngdConnSvc.tafMngdConnSvc.taf_radio -> tafRadioSvc.taf_radio
     tafMngdConnSvc.tafMngdConnSvc.taf_sim -> tafSimCardSvc.taf_sim
+    tafMngdConnSvc.tafMngdConnSvc.le_appInfo -> <root>.le_appInfo
 }
 
 extern:

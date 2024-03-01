@@ -11,8 +11,8 @@
 #include "legato.h"
 #include "interfaces.h"
 
-static le_sem_Ref_t wlanSemRef = NULL;
-static taf_wlanSta_WlanSTARef_t wlanSTARef = NULL;
+static le_sem_Ref_t wlanSemRef = nullptr;
+static taf_wlanSta_WlanSTARef_t wlanSTARef = nullptr;
 
 //static const taf_wlan_STAid_t STAid = TAF_WLAN_STA_ID1;
 //static const char* wlanIntf = "wlan0";
@@ -40,7 +40,7 @@ static const char *StaEventsToStr(taf_wlanSta_State_t State)
 
     // Control should not reach here
     LE_TEST_INFO("*ERR* Unsupported State: %d", State);
-    return NULL;
+    return nullptr;
 }
 
 static const char *SecModeToStr(taf_wlan_SecurityMode_t mode)
@@ -155,8 +155,8 @@ static void *wlanThreadHdlr(void *contextPtr)
     taf_wlan_ConnectService();
     taf_wlanSta_ConnectService();
 
-    taf_wlanSta_EventHandlerRef_t staHdlrRef = taf_wlanSta_AddEventHandler(wlanSTARef,
-                                                                        StationEventHandler, NULL);
+    taf_wlanSta_EventHandlerRef_t staHdlrRef =
+        taf_wlanSta_AddEventHandler(wlanSTARef, StationEventHandler, nullptr);
     LE_UNUSED(staHdlrRef);
 
     // Allow main thread to proceed.
@@ -165,7 +165,7 @@ static void *wlanThreadHdlr(void *contextPtr)
     // Service events
     le_event_RunLoop();
 
-    return NULL;
+    return nullptr;
 }
 
 static void PrintAPIntfInfo(taf_wlan_APIntfInfo_t *APIntfInfoPtr, size_t APIntfinfoSize)
@@ -201,12 +201,12 @@ COMPONENT_INIT
 
     // Register device state handler
     taf_wlan_DeviceStateHandlerRef_t devHdlrRef =
-        taf_wlan_AddDeviceStateHandler(NULL, DeviceStateHandler, NULL);
+        taf_wlan_AddDeviceStateHandler(nullptr, DeviceStateHandler, nullptr);
     LE_UNUSED(devHdlrRef);
 
     // Get Mode
     LE_TEST_INFO("======== WLAN Unit Test: taf_wlan_GetMode ========");
-    result = taf_wlan_GetMode(NULL, &mode);
+    result = taf_wlan_GetMode(nullptr, &mode);
     LE_TEST_INFO("Mode: %d", mode);
     LE_TEST_OK(LE_OK == result, "WLAN Unit Test: taf_wlan_GetMode");
     // Check if STA is enabled
@@ -219,7 +219,7 @@ COMPONENT_INIT
 
     // Get State
     LE_TEST_INFO("======== WLAN Unit Test: taf_wlan_GetState ========");
-    result = taf_wlan_GetState(NULL, &state);
+    result = taf_wlan_GetState(nullptr, &state);
     LE_TEST_INFO("State: %d", state);
     LE_TEST_OK(LE_OK == result, "WLAN Unit Test: taf_wlan_GetState");
     // Ensure WLAN is ON.
@@ -239,20 +239,20 @@ COMPONENT_INIT
     if (bRestartWLAN)
     {
         LE_TEST_INFO("======== WLAN Unit Test: taf_wlan_TurnOff ========");
-        result = taf_wlan_TurnOff(NULL);
+        result = taf_wlan_TurnOff(nullptr);
         LE_TEST_OK(LE_OK == result, "WLAN Unit Test: taf_wlan_TurnOff");
     }
 
     // Set STA Mode
     LE_TEST_INFO("======== WLAN Unit Test: taf_wlan_SetMode ========");
     mode = TAF_WLAN_MODE_STA_AP;
-    result = taf_wlan_SetMode(NULL, mode);
+    result = taf_wlan_SetMode(nullptr, mode);
     LE_TEST_OK(LE_OK == result, "WLAN Unit Test: taf_wlan_SetMode");
 
     // Turn ON WLAN if needed
     // Get State
     LE_TEST_INFO("======== WLAN Unit Test: taf_wlan_GetState ========");
-    result = taf_wlan_GetState(NULL, &state);
+    result = taf_wlan_GetState(nullptr, &state);
     LE_TEST_INFO("State: %d", state);
     LE_TEST_OK(LE_OK == result, "WLAN Unit Test: taf_wlan_GetState");
     // Ensure WLAN is ON.
@@ -264,17 +264,17 @@ COMPONENT_INIT
     {
         LE_TEST_INFO("WLAN is OFF");
         LE_TEST_INFO("======== WLAN Unit Test: taf_wlan_TurnOn ========");
-        result = taf_wlan_TurnOn(NULL);
+        result = taf_wlan_TurnOn(nullptr);
         LE_TEST_OK(LE_OK == result, "WLAN Unit Test: taf_wlan_TurnOn");
     }
 
     // Get Interface information
     LE_TEST_INFO("======== WLAN Unit Test: taf_wlan_GetIntfInfo ========");
-    taf_wlan_APIntfInfo_t APInfo[TAF_WLAN_MAX_NUM_AP] = {0};
+    taf_wlan_APIntfInfo_t APInfo[TAF_WLAN_MAX_NUM_AP] = {};
     size_t APIntfInfoSize = TAF_WLAN_MAX_NUM_AP;
-    taf_wlan_STAIntfInfo_t STAInfo[TAF_WLAN_MAX_NUM_STA] = {0};
+    taf_wlan_STAIntfInfo_t STAInfo[TAF_WLAN_MAX_NUM_STA] = {};
     size_t STAIntfInfoSize = TAF_WLAN_MAX_NUM_STA;
-    result = taf_wlan_GetIntfInfo(NULL, APInfo, &APIntfInfoSize, STAInfo, &STAIntfInfoSize);
+    result = taf_wlan_GetIntfInfo(nullptr, APInfo, &APIntfInfoSize, STAInfo, &STAIntfInfoSize);
     LE_TEST_OK(LE_OK == result, "WLAN Unit Test: taf_wlan_GetIntfInfo");
     PrintAPIntfInfo(APInfo, APIntfInfoSize);
     PrintSTAIntfInfo(STAInfo, STAIntfInfoSize);
@@ -282,12 +282,12 @@ COMPONENT_INIT
     // Get WLAN STA Reference
     LE_TEST_INFO("======== Get WLAN STA Reference ========");
     wlanSTARef = taf_wlanSta_GetWlanSTA(STAInfo[0].id, STAInfo[0].IntfName);
-    LE_TEST_OK(NULL != wlanSTARef, "WLAN Unit Test: taf_wlanSta_GetWlanSTA");
+    LE_TEST_OK(nullptr != wlanSTARef, "WLAN Unit Test: taf_wlanSta_GetWlanSTA");
 
     // Register for events
     LE_TEST_INFO("======== Register for events ========");
     wlanSemRef = le_sem_Create("wlanSem", 0);
-    le_thread_Ref_t wlanThreadRef = le_thread_Create("wlanThread", wlanThreadHdlr, NULL);
+    le_thread_Ref_t wlanThreadRef = le_thread_Create("wlanThread", wlanThreadHdlr, nullptr);
     le_thread_Start(wlanThreadRef);
     le_sem_Wait(wlanSemRef);
 
@@ -306,7 +306,7 @@ COMPONENT_INIT
     result = taf_wlanSta_GetAPScanResults(wlanSTARef, &numScanedAPs, ApInfo, &APInfoSize);
     LE_TEST_ASSERT(LE_OK == result, "WLAN Unit Test: taf_wlanSta_GetAPScanResults");
     LE_TEST_INFO("Num APs available     : %d", numScanedAPs);
-    LE_TEST_INFO("Num elements populated: %ld", APInfoSize);
+    LE_TEST_INFO("Num elements populated: %" PRIuS "", APInfoSize);
 
     // Ensure the number of APs scanned and elements populated are equal
     LE_TEST_OK(numScanedAPs==APInfoSize, "num APs scanned and elements populated should be equal");
@@ -323,7 +323,7 @@ COMPONENT_INIT
     result = taf_wlanSta_GetAPScanResults(wlanSTARef, &numScanedAPs, ApInfo, &APInfoSize);
     LE_TEST_ASSERT(LE_OK == result, "WLAN Unit Test: taf_wlanSta_GetAPScanResults");
     LE_TEST_INFO("Num APs available     : %d", numScanedAPs);
-    LE_TEST_INFO("Num elements populated: %ld", APInfoSize);
+    LE_TEST_INFO("Num elements populated: %" PRIuS "", APInfoSize);
 
     // Ensure the number of APs scanned and elements populated are NOT equal
     LE_TEST_OK(APInfoSize <= numScanedAPs, "APInfoSize is lesser than or equal to numScanedAPs");

@@ -99,13 +99,13 @@ static le_result_t wlanTestGetInterfaces() {
     le_result_t result = taf_wlan_GetIntfInfo(NULL, APIntf, &APIntfSize, STAIntf, &STAIntfSize);
     fprintf(stderr, "taf_wlan_GetIntfInfo Return:%d\n", result);
     LE_TEST_INFO("----------------------------------");
-    LE_TEST_INFO("Num AP : %ld", APIntfSize);
+    LE_TEST_INFO("Num AP : %" PRIuS "", APIntfSize);
     for (int i = 0; i < APIntfSize; i++) {
         LE_TEST_INFO("AP ID        : %d", APIntf[i].id);
         LE_TEST_INFO("AP Intf Name : %s", APIntf[i].IntfName);
     }
     LE_TEST_INFO("----------------------------------");
-    LE_TEST_INFO("Num STA: %ld", STAIntfSize);
+    LE_TEST_INFO("Num STA: %" PRIuS "", STAIntfSize);
     for (int i = 0; i < STAIntfSize; i++) {
         LE_TEST_INFO("STA ID        : %d", STAIntf[i].id);
         LE_TEST_INFO("STA Intf Name : %s", STAIntf[i].IntfName);

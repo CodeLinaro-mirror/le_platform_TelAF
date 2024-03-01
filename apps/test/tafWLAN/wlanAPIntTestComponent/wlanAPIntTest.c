@@ -200,7 +200,7 @@ static le_result_t wlanAPTestGetConnectedDevices(taf_wlanAp_WlanAPRef_t apRef) {
         return result;
 
     LE_TEST_INFO("Num devices connected             : %d", numDevices);
-    LE_TEST_INFO("Num device info elements populated: %ld", DevInfoSize);
+    LE_TEST_INFO("Num device info elements populated: %" PRIuS "", DevInfoSize);
     for (int i = 0; i < DevInfoSize; i++) {
         LE_TEST_INFO("Device : %d", (i + 1));
         LE_TEST_INFO("   Name        : %s", DevInfo[i].Name);

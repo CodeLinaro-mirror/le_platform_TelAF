@@ -116,13 +116,20 @@ namespace uds{
     #define UDS_RESP_XFER_EXIT_BASE_LEN 1
 
     // RequestFileTranser service (0x38)
-    #define UDS_REQ_FILE_XFER_BASE_LEN 4
-    #define UDS_REQ_FILE_XFER_DATA_FORMAT_ID 1
-    #define UDS_REQ_FILE_XFER_FILE_SIZE_PARAMETER_LEN 1
-    #define UDS_REQ_FILE_XFER_DATA_FORMAT_ID_LEN 1
-    #define UDS_RESP_FILE_XFER_BASE_LEN 2
-    #define UDS_RESP_FILE_XFER_LEN_FORMAT_ID_LEN 1
-    #define UDS_RESP_FILE_XFER_DATA_FORMAT_ID_LEN 1
+    #define SIZE_OF_SID    1 /* RequestFileTransfer Request SID */
+    #define SIZE_OF_MOOP   1 /* modeOfOperation */
+    #define SIZE_OF_FPL    2 /* filePathAndNameLength */
+    #define SIZE_OF_FP_B1  1 /* first byte of filePathAndName */
+    #define SIZE_OF_DFI_   1 /* dataFormatIdentifier */
+    #define SIZE_OF_FSL    1 /*fileSizeParameterLength */
+
+    #define RFT_MIN_LEN    (SIZE_OF_SID + SIZE_OF_MOOP + SIZE_OF_FPL + SIZE_OF_FP_B1)
+    #define RFT_BASE_LEN   (RFT_MIN_LEN - SIZE_OF_FP_B1)
+    #define INDEX_FP_B1    (SIZE_OF_SID + SIZE_OF_MOOP + SIZE_OF_FPL)
+
+    #define SIZE_OF_R_SID  SIZE_OF_SID /* RequestFileTransfer Response SID  */
+    #define SIZE_OF_LFID   1 /* lengthFormatIdentifier */
+    #define RRFT_BASE_LEN  (SIZE_OF_R_SID + SIZE_OF_MOOP)
 
     // Tester present service (0x3E)
     #define UDS_TESTER_PRESENT_REQ_LEN 2
@@ -131,12 +138,12 @@ namespace uds{
     // RequestFileTranser service mode of operation type
     typedef enum
     {
-        ADD_FILE = 0x01,
-        DELETE_FILE = 0x02,
-        REPLACE_FILE = 0x03,
-        READ_FILE = 0x04,
-        READ_DIR = 0x05,
-        RESUME_FILE = 0x06
+        MOOP_ADD_FILE     = 0x01,
+        MOOP_DELETE_FILE  = 0x02,
+        MOOP_REPLACE_FILE = 0x03,
+        MOOP_READ_FILE    = 0x04,
+        MOOP_READ_DIR     = 0x05,
+        MOOP_RESUME_FILE  = 0x06
     }taf_UDSReqFileXferMOOPType_t;
 
     // Diagnostic Request service ID
@@ -205,6 +212,7 @@ namespace uds{
         EXTENDED_DIAGNOSTIC_SESSION = 0x03,
         VEHICLE_MANUFACTURER_SPECIFIC_SESSION = 0x40,
         FOTA_SESSION = 0x42,
+        DOWNLOADED_ENUMLATION_SESSION = 0x52,
         SYSTEM_SUPPLIER_SPECIFIC_SESSION = 0x60
     }taf_SessionType_t;
 
@@ -279,9 +287,11 @@ namespace uds{
             le_result_t XferDataResp(uint8_t serviceId, const uint8_t* dataPtr,
                     uint16_t dataSize, uint8_t err);
             le_result_t ReqXferExitResp(uint8_t serviceId, uint8_t err);
-            le_result_t ReqFileXferResp(uint8_t serviceId, uint8_t err);
+            le_result_t ReqFileXferResp(uint8_t serviceId, const uint8_t* dataPtr,
+                    uint16_t dataSize, uint8_t err);
 
             void SesChangeTimer();
+            static void IndicateWhenChangingToDefault();
 
             // update status parameter.
             bool isXferActive = false;

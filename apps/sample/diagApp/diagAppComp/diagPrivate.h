@@ -32,21 +32,20 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "diag.h"
+#ifndef DIAGPRIVATE_H
+#define DIAGPRIVATE_H
 
-COMPONENT_INIT
-{
-    LE_INFO("%s [start]", __FUNCTION__);
+#include "legato.h"
+#include "interfaces.h"
 
-    LE_FATAL_IF(diagSecurityAccess_Init() != LE_OK, "diagSecurityAccess_Init -> init failed");
-    LE_FATAL_IF(diagReadWriteDid_Init() != LE_OK, "diagReadWriteDid_Init -> init failed");
-    LE_FATAL_IF(diagRequestFileTransfer_Init() != LE_OK,
-                "diagRequestFileTransfer_Init -> init failed");
+#define SYSTEM_COMMAND_STR_LENGTH 1030
+#define DELETE_SYSTEM_CMD_FORMAT "rm %s"
+
+void diagRFT_DeactivateProgramming(void);
+const char * diagRFT_GetCompleteFileName(void);
 
 #ifndef LE_CONFIG_TARGET_SIMULATION
-    LE_FATAL_IF(diagReset_Init() != LE_OK, "diagReset_Init -> init failed");
-    LE_FATAL_IF(diagRoutineControl_Init() != LE_OK, "diagRoutineControl_Init -> init failed");
+taf_update_State_t diagRoutineCtrl_GetUpdateState();
 #endif
 
-    LE_INFO("%s [done]", __FUNCTION__);
-}
+#endif /* DIAGPRIVATE_H */

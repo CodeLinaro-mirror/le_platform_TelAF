@@ -32,6 +32,7 @@ apps:
 
 #if ${TELAF_SIMULATION_ENABLE_DIAG} = y
     $TELAF_ROOT/apps/tafServices/tafDiagSvc
+    $TELAF_ROOT/apps/sample/diagApp/tafDiagApp
 #endif
 
 #if ${TELAF_SIMULATION_ENABLE_SIM} = y

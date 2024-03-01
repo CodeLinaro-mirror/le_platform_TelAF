@@ -200,6 +200,29 @@ le_result_t taf_diagUpdate_GetCompFileSize
     return tafUpdateSvr.GetCompFileSize(rxMsgRef, compFileSizePtr);
 }
 
+le_result_t taf_diagUpdate_SetFilePosition
+(
+    taf_diagUpdate_RxFileXferMsgRef_t rxMsgRef,
+    uint64_t filePosition
+)
+{
+    return taf_UpdateSvr::GetInstance().SetFilePosition(rxMsgRef,
+                                                        filePosition);
+}
+
+le_result_t taf_diagUpdate_SetFileSizeOrDirInfoLength
+(
+    taf_diagUpdate_RxFileXferMsgRef_t rxMsgRef,
+    uint64_t fileSizeUncompressedOrDirInfoLength,
+    uint64_t fileSizeCompressed
+)
+{
+    return taf_UpdateSvr::GetInstance().SetFileSizeOrDirInfoLength(
+                                          rxMsgRef,
+                                          fileSizeUncompressedOrDirInfoLength,
+                                          fileSizeCompressed);
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Sends a response message for the Rx RequestFileTransfer message.

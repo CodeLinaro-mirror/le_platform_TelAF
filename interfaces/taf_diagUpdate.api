@@ -80,6 +80,31 @@
    }
    @endcode
  *
+ * An application can set the file position by using taf_diagUpdate_SetFilePosition().
+ *
+ * @code
+   result = taf_diagUpdate_SetFilePosition(rxMsgRef, sizeOfFilePosition);
+   if (result != LE_OK)
+   {
+        LE_ERROR("Fail to set file position as response: %d", result);
+        return result;
+   }
+   @endcode
+ *
+ * An application can set the file size or directory information length
+ * by using taf_diagUpdate_SetFileSizeOrDirInfoLength().
+ *
+ * @code
+   result = taf_diagUpdate_SetFileSizeOrDirInfoLength(rxMsgRef,
+                                                      fileSizeUncompressedOrDirInfoLength,
+                                                      fileSizeCompressed);
+   if (result != LE_OK)
+   {
+        LE_ERROR("Fail to set file size or dir info len as response: %d", result);
+        return result;
+   }
+   @endcode
+ *
  * An application can send a file transfer response by using taf_diagUpdate_SendFileXferResp().
  *
  * @code
@@ -99,6 +124,9 @@
  * - taf_diagUpdate_GetDataFormatID() -- Gets the data format ID.
  * - taf_diagUpdate_GetUnCompFileSize() -- Gets the size of the uncompressed file.
  * - taf_diagUpdate_GetCompFileSize() -- Gets the size of the compressed file.
+ * - taf_diagUpdate_SetFilePosition() -- Set the file position into a response message.
+ * - taf_diagUpdate_SetFileSizeOrDirInfoLength() -- Set the file size or directory info length
+ *                                                  into a response message.
  * - taf_diagUpdate_SendFileXferResp() -- Sends a response message for the file transfer message.
 
  * @section c_taf_diag_update_transfer_data Transfer data
@@ -218,13 +246,32 @@ DEFINE MAX_XFER_PARAM_REC_SIZE = 4089;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * The fixed size for the filePosition
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE FILE_POSITION_SIZE = 8;
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The maximum size of the file size or directory information length (2 ^ (4 * 8) = 4G).
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE FILE_SIZE_OR_DIR_INFO_LEN = 4;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Request file transfer mode of operationType.
  */
 //--------------------------------------------------------------------------------------------------
 ENUM ModeOfOpsType
 {
-    ADD_FILE = 0x01,    ///< Add a file.
-    DELETE_FILE         ///< Delete a file.
+    ADD_FILE     = 0x01,  ///< Add a file.
+    DELETE_FILE  = 0x02,  ///< Delete a file.
+    REPLACE_FILE = 0x03,  ///< Replace a file.
+    READ_FILE    = 0x04,  ///< Read a file.
+    READ_DIR     = 0x05,  ///< Read a directory.
+    RESUME_FILE  = 0x06   ///< Resume a file.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -400,6 +447,46 @@ FUNCTION le_result_t GetCompFileSize
 (
     RxFileXferMsg rxMsgRef  IN,    ///< Received message reference.
     uint32 compFileSize     OUT    ///< Size of the compressed file.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the file position into RequestFileTransfer response message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef or wrong modeOfOperation.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetFilePosition
+(
+    RxFileXferMsg rxMsgRef IN,  ///< Received message reference.
+    uint64 filePosition    IN   ///< Specifies the byte position for downloading file resume.
+);
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the fileSizeUncompressedOrDirInfoLength and fileSizeCompressed
+ * into RequestFileTransfer response message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef or wrong modeOfOperation.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_OVERFLOW -- file size more than UINT32_MAX.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetFileSizeOrDirInfoLength
+(
+    RxFileXferMsg rxMsgRef                     IN, ///< Received message reference.
+    uint64 fileSizeUncompressedOrDirInfoLength IN, ///< Specifies the size of the uncompressed file to be uploaded or the length of the directory information to be read in bytes.
+    uint64 fileSizeCompressed                  IN  ///< Specifies the size of the compressed file in bytes.
 );
 
 //--------------------------------------------------------------------------------------------------

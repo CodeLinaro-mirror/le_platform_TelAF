@@ -32,21 +32,15 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "diag.h"
+#ifndef DIAG_H
+#define DIAG_H
 
-COMPONENT_INIT
-{
-    LE_INFO("%s [start]", __FUNCTION__);
+#include "diagPrivate.h"
 
-    LE_FATAL_IF(diagSecurityAccess_Init() != LE_OK, "diagSecurityAccess_Init -> init failed");
-    LE_FATAL_IF(diagReadWriteDid_Init() != LE_OK, "diagReadWriteDid_Init -> init failed");
-    LE_FATAL_IF(diagRequestFileTransfer_Init() != LE_OK,
-                "diagRequestFileTransfer_Init -> init failed");
+le_result_t diagReadWriteDid_Init(void);
+le_result_t diagRequestFileTransfer_Init(void);
+le_result_t diagReset_Init(void);
+le_result_t diagRoutineControl_Init(void);
+le_result_t diagSecurityAccess_Init(void);
 
-#ifndef LE_CONFIG_TARGET_SIMULATION
-    LE_FATAL_IF(diagReset_Init() != LE_OK, "diagReset_Init -> init failed");
-    LE_FATAL_IF(diagRoutineControl_Init() != LE_OK, "diagRoutineControl_Init -> init failed");
-#endif
-
-    LE_INFO("%s [done]", __FUNCTION__);
-}
+#endif /* DIAG_H */

@@ -1,21 +1,30 @@
 sources:
 {
     diag.c
+    diagSecurityAccess.c
+    diagReadWriteDid.c
+    diagRequestFileTransfer.c
+#if ${LE_CONFIG_TARGET_SIMULATION} = ""
+    diagReset.c
+    diagRoutineControl.c
+#endif
 }
 
 requires:
 {
     api:
     {
+        le_cfg.api
         taf_diagReset.api
         taf_diagRoutineCtrl.api
         taf_diagUpdate.api
         taf_diagSecurity.api
         taf_diagDataID.api
+    #if ${LE_CONFIG_TARGET_SIMULATION} = ""
         taf_update.api
         taf_appMgmt.api
         taf_fwupdate.api
-        le_cfg.api
+    #endif
     }
 }
 

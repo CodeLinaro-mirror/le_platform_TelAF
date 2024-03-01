@@ -138,6 +138,11 @@ post-simulation-build:
 ifneq ($(CHECK_SDK_ROOTFS),n)
 	$Q tar rf $(SIMULATION_TARBALL) --transform 's/rootfs/sdk_rootfs/' -C $(sdk_rootfs)/../ rootfs
 endif
+ifneq ($(TELAF_SIMULATION_ENABLE_DIAG),n)
+	$Q cp $(TELAF_ROOT)/apps/tools/diag/diag_test_38_36_37.py $(SIMULATION_WORKDIR)/
+else
+	$Q if [ -e "$(SIMULATION_WORKDIR)/diag_test_38_36_37.py" ]; then rm -f $(SIMULATION_WORKDIR)/diag_test_38_36_37.py ; fi
+endif
 	$Q gzip -f $(SIMULATION_TARBALL)
 	$Q echo "[Simulation]: Tarball $(SIMULATION_TARBALL).gz done."
 

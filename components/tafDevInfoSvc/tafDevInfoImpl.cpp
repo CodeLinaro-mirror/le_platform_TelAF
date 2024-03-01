@@ -20,6 +20,7 @@ using namespace std;
 /**
  * callback to receive Device information service status change
  */
+#ifdef LE_CONFIG_GET_IMEI_SUPPORT
 void tafdevinfoServiceStatusListener::onServiceStatusChange(ServiceStatus status) {
     if (status == ServiceStatus::SERVICE_UNAVAILABLE) {
         LE_INFO("Service Status : UNAVAILABLE");
@@ -27,12 +28,14 @@ void tafdevinfoServiceStatusListener::onServiceStatusChange(ServiceStatus status
         LE_INFO("Service Status : AVAILABLE");
     }
 }
+#endif
 
 taf_info& taf_info::GetInstance() {
     static taf_info obj;
     return obj;
 }
 
+#ifdef LE_CONFIG_GET_IMEI_SUPPORT
 le_result_t taf_info::GetIMEI(char* imeiPtr, size_t numElements) {
     LE_INFO("taf_info::GetIMEI");
 
@@ -40,14 +43,13 @@ le_result_t taf_info::GetIMEI(char* imeiPtr, size_t numElements) {
     telux::common::Status status = deviceInfoManager->getIMEI(imei);
     TAF_ERROR_IF_RET_VAL(status != Status::SUCCESS, LE_FAULT,
         "request for IMEI failed(status = %d)", static_cast<int>(status));
-
     le_utf8_Copy(imeiPtr, imei.c_str(), numElements, nullptr);
 
     LE_INFO("Retrieved IMEI successfully: %s", imeiPtr);
 
     return LE_OK;
 }
-
+#endif
 
 le_result_t taf_info::GetDeviceModel(char* modelPtr, size_t numElements) {
     LE_DEBUG("taf_info::GetDeviceModel");
@@ -166,7 +168,7 @@ le_result_t taf_info::GetKernelVersion(char* versionPtr, size_t numElements) {
 
 void taf_info::Init() {
     LE_INFO("taf_info::Init");
-
+#ifdef LE_CONFIG_GET_IMEI_SUPPORT
     // Get platform factory.
     auto& platformFactory = PlatformFactory::getInstance();
 
@@ -196,4 +198,5 @@ void taf_info::Init() {
     if (status != telux::common::Status::SUCCESS) {
         LE_ERROR("Failed to register for service state change ");
     }
+#endif
 }

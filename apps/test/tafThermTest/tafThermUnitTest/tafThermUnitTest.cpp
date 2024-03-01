@@ -526,7 +526,7 @@ le_result_t WaitForSem_Timeout
       uint32_t seconds
 )
 {
-    le_clk_Time_t timeToWait = { seconds, 0 };
+    le_clk_Time_t timeToWait = { static_cast<int>(seconds), 0 };
     return le_sem_WaitWithTimeOut(semRef, timeToWait);
 }
 

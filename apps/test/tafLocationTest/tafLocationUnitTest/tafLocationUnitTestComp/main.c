@@ -4632,9 +4632,9 @@ static void TestTafGnssRestart
     LE_TEST_OK(result == LE_OK, "taf_gnss_GetLeapSeconds-LE_OK");
     if(result == LE_OK)
     {
-        LE_TEST_INFO("taf_gnss_GetLeapSeconds gpsTime = %lu msec", gpsTime);
+        LE_TEST_INFO("taf_gnss_GetLeapSeconds gpsTime = %" PRIu64 " msec", gpsTime);
         LE_TEST_INFO("taf_gnss_GetLeapSeconds currentLeapSeconds = %d msec", currentLeapSeconds);
-        LE_TEST_INFO("taf_gnss_GetLeapSeconds changeEventTime = %lu msec", changeEventTime);
+        LE_TEST_INFO("taf_gnss_GetLeapSeconds changeEventTime = %" PRIu64 " msec", changeEventTime);
         LE_TEST_INFO("taf_gnss_GetLeapSeconds nextLeapSeconds = %d msec", nextLeapSeconds);
     }
     else
@@ -4677,9 +4677,9 @@ static void TestTafGnssRestart
     LE_TEST_OK(result == LE_OK, "taf_gnss_GetLeapSeconds-LE_OK");
     if(result == LE_OK)
     {
-        LE_TEST_INFO("taf_gnss_GetLeapSeconds gpsTime = %lu msec", gpsTime);
+        LE_TEST_INFO("taf_gnss_GetLeapSeconds gpsTime = %" PRIu64 " msec", gpsTime);
         LE_TEST_INFO("taf_gnss_GetLeapSeconds currentLeapSeconds = %d msec", currentLeapSeconds);
-        LE_TEST_INFO("taf_gnss_GetLeapSeconds changeEventTime = %lu msec", changeEventTime);
+        LE_TEST_INFO("taf_gnss_GetLeapSeconds changeEventTime = %" PRIu64 " msec", changeEventTime);
         LE_TEST_INFO("taf_gnss_GetLeapSeconds nextLeapSeconds = %d msec", nextLeapSeconds);
     }
     else

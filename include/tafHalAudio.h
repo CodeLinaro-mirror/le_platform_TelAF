@@ -64,6 +64,14 @@
     .audioInf = {
         .InitHAL = Init,
         .CtlSetAudioStatus = taf_hal_CtlSetAudioStatus,
+        .SendVendorConfig = taf_hal_SendVendorConfig,
+        .GetNodeType = taf_hal_GetNodeType,
+        .SendNodeVendorConfig = taf_hal_SendNodeVendorConfig,
+        .SetNodePowerState = taf_hal_SetNodePowerState,
+        .GetNodePowerState = taf_hal_GetNodePowerState,
+        .SetNodeMuteState = taf_hal_SetNodeMuteState,
+        .GetNodeMuteState = taf_hal_GetNodeMuteState,
+        .AddNodeStateChangeHandler = taf_hal_AddNodeStateChangeHandler,
     }
 
  * @endcode
@@ -98,6 +106,43 @@ typedef enum
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Audio device types
+ */
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    AUDIO_HAL_NODE_INVALID = -1,
+    AUDIO_HAL_NODE_CODEC,
+    AUDIO_HAL_NODE_PA,
+    AUDIO_HAL_NODE_A2B,
+    AUDIO_HAL_NODE_MAX
+} taf_hal_audio_NodeType;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Audio device events
+ */
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    AUDIO_HAL_MUTE,
+    AUDIO_HAL_UNMUTE
+} taf_hal_audio_DevEvent;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Audio device power states
+ */
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    POWER_OFF,
+    SUSPEND,
+    ACTIVE
+} taf_hal_audio_Powerstate;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Initializes the Audio VHAL driver.
  * @param void
  *
@@ -117,15 +162,163 @@ typedef void (*INIT)(void);
  *      result for setting audio status
  */
 //--------------------------------------------------------------------------------------------------
+typedef le_result_t (*TAF_HAL_CTLSETAUDIOSTATUS)
+(
+    bool isActive,
+    uint32_t route, taf_hal_audio_Mode mode
+);
 
-typedef le_result_t (*TAF_HAL_CTLSETAUDIOSTATUS)(bool status,
-    uint32_t route, taf_hal_audio_Mode mode);
+//--------------------------------------------------------------------------------------------------
+/** Vendor configuration from app to vendor to perform customized operations.
+ * @param
+ *      config      - Vendor configuration
+ *
+ * @return
+ *      Result for sending vendor configuration.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef le_result_t (*TAF_HAL_AUDIO_SENDVENDORCONFIG)
+(
+    const char* config
+);
+
+//--------------------------------------------------------------------------------------------------
+/** Gets audio device type of the requested audio node.
+ * @param
+ *      nodeId      - Audio device node ID
+ *
+ * @return
+ *      Type of audio device.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef taf_hal_audio_NodeType (*TAF_HAL_AUDIO_GETNODETYPE)
+(
+    uint8_t nodeId
+);
+
+//--------------------------------------------------------------------------------------------------
+/** Sends the audio device configuration to vendor for customized operations.
+ * @param
+ *      nodeId      - Audio device node ID
+ *      config      - Audio device configuration
+ *
+ * @return
+ *      Result of sending audio device configuration to vendor.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef le_result_t (*TAF_HAL_AUDIO_SENDNODEVENDORCONFIG)
+(
+    uint8_t nodeId,
+    const char* config
+);
+
+//--------------------------------------------------------------------------------------------------
+/** Sets the audio device power state.
+ * @param
+ *      nodeId      - Audio device node ID
+ *      state       - Power state to be set
+ *
+ * @return
+ *      Result of setting audio device power state.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef le_result_t (*TAF_HAL_AUDIO_SETNODEPOWERSTATE)
+(
+    uint8_t nodeId,
+    taf_hal_audio_Powerstate state
+);
+
+//--------------------------------------------------------------------------------------------------
+/** Gets the audio device power state.
+ * @param
+ *      nodeId      - Audio device node ID
+ *      state       - Power state
+ *
+ * @return
+ *      Result of getting audio device power state.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef le_result_t (*TAF_HAL_AUDIO_GETNODEPOWERSTATE)
+(
+    uint8_t nodeId,
+    taf_hal_audio_Powerstate *state
+);
+
+//--------------------------------------------------------------------------------------------------
+/** Sets the audio device mute status.
+ * @param
+ *      nodeId      - Audio device node ID
+ *      mute        - True to mute, false to unmute
+ *
+ * @return
+ *      Result of setting audio device mute status.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef le_result_t (*TAF_HAL_AUDIO_SETNODEMUTESTATE)
+(
+    uint8_t nodeId,
+    bool mute
+);
+
+//--------------------------------------------------------------------------------------------------
+/** Gets the audio device mute status.
+ * @param
+ *      nodeId      - Audio device node ID
+ *      isMuted     - Mute status
+ *
+ * @return
+ *      Result of getting mute status of the audio device.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef le_result_t (*TAF_HAL_AUDIO_GETNODEMUTESTATE)
+(
+    uint8_t nodeId,
+    bool *isMuted
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Device state changed event callback function.
+ * @param
+ *      nodeId              - Corresponding node to respond
+ *      audio_device_event  - Corresponding node information to respond
+ * @return void
+ */
+//--------------------------------------------------------------------------------------------------
+typedef void (*TAF_HAL_AUDIO_DEVSTATECHANGECALLBACK)
+(
+    uint8_t nodeId,
+    taf_hal_audio_DevEvent audio_device_event
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Adds node state change event handler.
+ * @param
+ *      nodeId   - Corresponding node to respond
+ *      callback - Node state change handler callback
+ * @return
+ *      Result for adding the handler
+ */
+//--------------------------------------------------------------------------------------------------
+typedef le_result_t (*TAF_HAL_AUDIO_ADDNODESTATECHANGEHANDLER)
+(
+    uint8_t nodeId,
+    TAF_HAL_AUDIO_DEVSTATECHANGECALLBACK callback
+);
 
 typedef struct
 {
     INIT InitHAL;
     TAF_HAL_CTLSETAUDIOSTATUS CtlSetAudioStatus;
-
+    TAF_HAL_AUDIO_SENDVENDORCONFIG SendVendorConfig;
+    TAF_HAL_AUDIO_GETNODETYPE GetNodeType;
+    TAF_HAL_AUDIO_SENDNODEVENDORCONFIG SendNodeVendorConfig;
+    TAF_HAL_AUDIO_SETNODEPOWERSTATE SetNodePowerState;
+    TAF_HAL_AUDIO_GETNODEPOWERSTATE GetNodePowerState;
+    TAF_HAL_AUDIO_SETNODEMUTESTATE SetNodeMuteState;
+    TAF_HAL_AUDIO_GETNODEMUTESTATE GetNodeMuteState;
+    TAF_HAL_AUDIO_ADDNODESTATECHANGEHANDLER AddNodeStateChangeHandler;
 } audio_Inf_t;
 
 typedef struct

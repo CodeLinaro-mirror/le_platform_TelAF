@@ -927,6 +927,32 @@ void taf_MngdAudio::InitStream
     streamPtr->connList = GetHashMap();
 }
 
+static void DeleteEventId
+(
+ le_event_Id_t eventId
+)
+{
+    auto &mngdAudio = taf_MngdAudio::GetInstance();
+    le_dls_Link_t* linkPtr = le_dls_Peek(&mngdAudio.EventIdList);
+
+    while (linkPtr!=NULL)
+    {
+        tafEventIdList* curPtr = CONTAINER_OF(linkPtr,
+                tafEventIdList, next);
+
+        if (curPtr->eventId == eventId)
+        {
+            LE_DEBUG("Found eventId to release (%p)", curPtr->eventId);
+            curPtr->inUse = false;
+            return;
+        }
+        linkPtr = le_dls_PeekNext(&mngdAudio.EventIdList,linkPtr);
+    }
+
+    LE_DEBUG("Nothing to delete");
+    return;
+}
+
 /**
  * Stream destructor
  */
@@ -957,6 +983,7 @@ void taf_MngdAudio::DestructStream( void *objPtr )
 
     le_hashmap_RemoveAll(streamPtr->connList);
     mngdAudio.ClearHashMap(streamPtr->connList);
+    DeleteEventId(streamPtr->eventId);
     le_ref_DeleteRef(mngdAudio.StreamRefMap, streamPtr->streamRef);
 }
 

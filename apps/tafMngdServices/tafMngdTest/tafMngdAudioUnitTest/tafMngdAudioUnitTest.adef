@@ -28,4 +28,5 @@ processes:
 bindings:
 {
     tafMngdAudioUnitTest.tafMngdAudioUnitTestComp.taf_mngd_audio -> tafMngdAudioSvc.taf_mngd_audio
+    tafMngdAudioUnitTest.tafMngdAudioUnitTestComp.taf_mngd_audioHw -> tafMngdAudioSvc.taf_mngd_audioHw
 }

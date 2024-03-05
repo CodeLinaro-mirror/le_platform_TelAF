@@ -68,6 +68,15 @@ taf_mngd_JSON_Data_Types_t telux::tafsvc::tafMngd_GetDataType(std::string Value)
         return TAF_MNGD_JSON_DATA_TYPE_NW_REGISTRATION;
     }
 
+    if (boost::iequals(Value, "None")) {
+        return TAF_MNGD_JSON_DATA_TYPE_NONE;
+    }
+
+    if (boost::iequals(Value, "L1"))
+    {
+        return TAF_MNGD_JSON_DATA_TYPE_CONNRECOVERY_LEVEL;
+    }
+
     // Only positive integers
     if (std::regex_match(Value, std::regex("[0-9]+"))){
         return TAF_MNGD_JSON_DATA_TYPE_NUMBER;
@@ -95,12 +104,28 @@ taf_mngd_NW_Registration_Type_t
 {
     if (boost::iequals(Value, "Auto"))
     {
-        return TAF_MNGD_CONN_MAX_NW_REGISTRATION_TYPE_AUTO;
+        return TAF_MNGD_CONN_NW_REGISTRATION_TYPE_AUTO;
     }
 
     if (boost::iequals(Value, "Manual"))
     {
-        return TAF_MNGD_CONN_MAX_NW_REGISTRATION_TYPE_MANUAL;
+        return TAF_MNGD_CONN_NW_REGISTRATION_TYPE_MANUAL;
     }
     return (taf_mngd_NW_Registration_Type_t)TAF_MNGD_JSON_DATA_TYPE_UNKNOWN;
+}
+
+taf_mngd_Conn_Policy_ConnRecoveryLevel_t telux::tafsvc::
+                                                tafMngd_Convert_to_ConnRecovery_Level_Type_enum
+                                                (std::string Value)
+{
+    if (boost::iequals(Value, "None"))
+    {
+        return TAF_MNGD_CONN_CONNECTIONRECOVERY_TYPE_NONE;
+    }
+
+    if (boost::iequals(Value, "L1"))
+    {
+        return TAF_MNGD_CONN_CONNECTIONRECOVERY_TYPE_L1;
+    }
+    return (taf_mngd_Conn_Policy_ConnRecoveryLevel_t)TAF_MNGD_JSON_DATA_TYPE_UNKNOWN;
 }

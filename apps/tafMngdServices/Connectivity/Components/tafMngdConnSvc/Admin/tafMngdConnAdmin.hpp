@@ -67,8 +67,8 @@ namespace tafsvc {
         TAF_MNGD_CONN_DATA_NOT_CONNECTED_INACTIVE_RETRYING,     ///< Retry when data not connected
         TAF_MNGD_CONN_DATA_CONNECTED_IDLE,   ///< Idle.
         TAF_MNGD_CONN_ADMIN_ERROR,            ///< Error.
-        TAF_MNGD_CONN_DATA_CONNECTIONTEST_START,                ///<ConnectionTest Started
-        TAF_MNGD_CONN_DATA_CONNECTIONTEST_FAILED                ///<ConnectionTest failed
+        TAF_MNGD_CONN_DATA_START_CONNECTIONTEST_START,          ///<DataStartConnectionTest Started
+        TAF_MNGD_CONN_DATA_START_CONNECTIONTEST_FAILED          ///<DataStartConnectionTest failed
     } taf_mngd_Conn_Admin_State_t;
 
     /**
@@ -93,7 +93,7 @@ namespace tafsvc {
         TAF_MNGD_CONN_EVT_DATA_CONNECTION_CONNECTED,
         TAF_MNGD_CONN_EVT_DATA_CONNECTION_DISCONNECTED,
         TAF_MNGD_CONN_EVT_GET_CONNECTION_INFO_SYNC,
-        TAF_MNGD_CONN_EVT_CONNECTIONTEST
+        TAF_MNGD_CONN_EVT_DATA_START_CONNECTIONTEST
     } taf_mngd_Conn_EventType_t;
 
     /**
@@ -169,11 +169,11 @@ namespace tafsvc {
         taf_mngd_Conn_DataRef_t       dataRef;
         taf_dcs_ConState_t            dcsConState;            // DCS Data State
         char                          conn_test_url[TAF_MNGD_CONN_MAX_CONNECTION_URL_LEN];
-                                      //URL to be used for ConnectionTest
+                                      //URL to be used for DataStartConnectionTest
         char                          conn_test_ipv4Addr[TAF_MNGD_CONN_MAX_IPV4_LEN];
-                                      //IPv4 address to be used for ConnectionTest
+                                      //IPv4 address to be used for DataStartConnectionTest
         char                          conn_test_ipv6Addr[TAF_MNGD_CONN_MAX_IPV6_LEN];
-                                      //IPv6 address to be used for ConnectionTest
+                                      //IPv6 address to be used for DataStartConnectionTest
         char                          ipv4Addr[TAF_MNGD_CONN_MAX_IPV4_LEN];
         char                          ipv6Addr[TAF_MNGD_CONN_MAX_IPV6_LEN];
         // Clients that have called Data Start
@@ -251,9 +251,9 @@ namespace tafsvc {
             void ResetDataRetryValues(uint8_t dataId);
 
             //Connectiontest
-            void ConnectionTest(uint8_t dataId);
-            bool ConnectionTest_URL(std::string url, std::string interfaceName);
-            bool ConnectionTest_IPv4(std::string ipv4, std::string interfaceName);
+            void DataStartConnectionTest(uint8_t dataId);
+            bool DataStartConnectionTest_URL(std::string url, std::string interfaceName);
+            bool DataStartConnectionTest_IPv4(std::string ipv4, std::string interfaceName);
 
             // Policy and Configuration to use
             taf_mngd_Conn_Policy_t Policy;

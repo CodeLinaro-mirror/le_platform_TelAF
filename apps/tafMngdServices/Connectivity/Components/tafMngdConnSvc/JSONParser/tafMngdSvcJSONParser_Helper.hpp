@@ -105,6 +105,18 @@ namespace tafsvc {
          */
         TAF_MNGD_JSON_DATA_TYPE_ARRAY,
 
+        /**
+         * \brief None Data type when ConnectivityRecovery is disabled
+         *
+         */
+        TAF_MNGD_JSON_DATA_TYPE_NONE,
+
+        /**
+         * \brief ConnectivityRecovery Level data type.
+         *
+         */
+        TAF_MNGD_JSON_DATA_TYPE_CONNRECOVERY_LEVEL
+
     } taf_mngd_JSON_Data_Types_t;
 
     /*
@@ -127,6 +139,14 @@ namespace tafsvc {
      * @param [in] Value       Auto/Manual (in string format) read from JSON
      */
     taf_mngd_NW_Registration_Type_t tafMngd_Convert_to_NW_Registration_Type_enum(std::string Value);
+
+    /*
+     * This function will return taf_mngd_Conn_Policy_ConnRecoveryLevel_t enum from None/L1 string
+     *
+     * @param [in] Value       None/L1 (in string format) read from JSON
+     */
+    taf_mngd_Conn_Policy_ConnRecoveryLevel_t tafMngd_Convert_to_ConnRecovery_Level_Type_enum
+                                            (std::string Value);
 
 }
 }

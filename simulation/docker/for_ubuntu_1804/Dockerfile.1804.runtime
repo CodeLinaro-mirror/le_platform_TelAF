@@ -34,6 +34,9 @@ RUN apt-get -y --no-install-recommends install gdb
 RUN apt-get -y --no-install-recommends install tcpdump
 RUN apt-get -y --no-install-recommends install lsb-release
 RUN apt-get -y --no-install-recommends install libcap-dev
+RUN apt-get -y --no-install-recommends install libasound2-dev
+RUN apt-get -y --no-install-recommends install alsa alsa-utils alsa-tools
+RUN apt-get -y --no-install-recommends install pulseaudio pulseaudio-utils
 
 RUN apt-get -y --no-install-recommends install python3-venv
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \

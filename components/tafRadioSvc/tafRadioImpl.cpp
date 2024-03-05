@@ -806,7 +806,7 @@ void taf_RadioPerformNetworkScanCallback::performNetworkScanResponse
 )
 {
     LE_DEBUG("<SDK Callback> taf_RadioPerformNetworkScanCallback --> performNetworkScanResponse");
-    if (error != telux::common::ErrorCode::SUCCESS) 
+    if (error != telux::common::ErrorCode::SUCCESS)
     {
         LE_ERROR("Error(%d)", (int)error);
         result = LE_FAULT;
@@ -1088,7 +1088,7 @@ void taf_RadioCellInfoCallback::cellInfoListResponse
 
         result = LE_OK;
     }
-    else 
+    else
     {
         LE_ERROR("Error(%d)", (int)error);
         result = LE_FAULT;
@@ -1777,7 +1777,7 @@ void taf_Radio::RadioProcCmdHandler(void* cmdReqPtr)
                 le_sls_Queue(&(opsList->scanOpList), &(opPtr->link));
             }
 
-            taf_radio_ScanInformationListRef_t listRef = 
+            taf_radio_ScanInformationListRef_t listRef =
                 (taf_radio_ScanInformationListRef_t)le_ref_CreateRef(tafRadio.scanOpListRefMap, (void*)opsList);
             taf_radio_CellularNetworkScanHandlerFunc_t handlerFunc =
                 (taf_radio_CellularNetworkScanHandlerFunc_t)cmdReq->handlerFuncPtr;

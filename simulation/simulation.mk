@@ -59,12 +59,23 @@ else
   # $(warning sdk rootfs path [$(sdk_rootfs)])
 endif
 
-MKTOOLS_FLAGS_SIMULATION_EX += --cxxflags=-I$(sdk_rootfs)/include --ldflags=-L$(sdk_rootfs)/lib
+MKTOOLS_FLAGS_SIMULATION_EX += --cxxflags=-I$(sdk_rootfs)/include \
+                               --cxxflags=-I$(SIMULATION_DEPS_ROOTFS)/include \
+                               --ldflags=-L$(sdk_rootfs)/lib \
+                               --ldflags=-L$(SIMULATION_DEPS_ROOTFS)/lib
 
 export TELAF_SIMULATION_ENABLE_SMS ?= n
 export TELAF_SIMULATION_ENABLE_DCS ?= n
 export TELAF_SIMULATION_ENABLE_SIM ?= n
 export TELAF_SIMULATION_ENABLE_LOC ?= n
+export TELAF_SIMULATION_ENABLE_RADIO ?= n
+
+export TELAF_SIMULATION_ENABLE_MNGD_CONN ? = n
+ifneq ($(TELAF_SIMULATION_ENABLE_MNGD_CONN),n)
+  TELAF_SIMULATION_ENABLE_DCS := y
+  TELAF_SIMULATION_ENABLE_SIM := y
+  TELAF_SIMULATION_ENABLE_RADIO := y
+endif
 
 endif
 
@@ -130,6 +141,9 @@ post-simulation-build:
 	$Q tar cf $(SIMULATION_TARBALL) -C $(TELAF_BUILD)/simulation/_staging_system.simulation.update_ro .
 	$Q tar rf $(SIMULATION_TARBALL) -C $(SIMULATION_HOME)/workstation/ up_simulation.sh
 	$Q tar rf $(SIMULATION_TARBALL) -C $(SIMULATION_HOME)/workstation/ .check_done
+ifneq ($(TELAF_SIMULATION_ENABLE_MNGD_CONN),n)
+	$Q cp $(TELAF_ROOT)/apps/sample/TelAF-CM/JSON/mngdConnectivity.json $(SIMULATION_HOME)/deps/taf_rootfs
+endif
 	$Q tar rf $(SIMULATION_TARBALL) --exclude=taf_rootfs/include \
 	                                --exclude=taf_rootfs/lib/cmake \
 	                                --exclude=taf_rootfs/lib/pkgconfig \

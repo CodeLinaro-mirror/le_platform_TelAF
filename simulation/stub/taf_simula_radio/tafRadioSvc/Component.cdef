@@ -1,0 +1,17 @@
+provides:
+{
+    api:
+    {
+        taf_radio.api
+    }
+}
+
+cxxflags:
+{
+    -I$TELAF_ROOT/include
+}
+
+sources:
+{
+    tafRadioSvcStub.c
+}

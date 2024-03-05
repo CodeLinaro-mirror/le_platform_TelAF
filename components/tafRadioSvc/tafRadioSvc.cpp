@@ -444,7 +444,7 @@ le_result_t taf_radio_AddPreferredOperator
         preferedOp.ratMask.set(telux::tel::RatType::NR5G);
         preferedOp.ratMask.set(telux::tel::RatType::LTE);
         preferedOp.ratMask.set(telux::tel::RatType::UMTS);
-    } 
+    }
     else
     {
         if (ratMask & TAF_RADIO_RAT_BIT_MASK_GSM)

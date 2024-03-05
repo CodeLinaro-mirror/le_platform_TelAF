@@ -48,6 +48,16 @@ apps:
     $TELAF_ROOT/apps/test/tafLocationTest/tafLocationUnitTest/tafLocationUnitTest
 #endif
 
+#if ${TELAF_SIMULATION_ENABLE_RADIO} = y
+    // from --> $TELAF_ROOT/apps/tafServices/tafRadioSvc
+    $TELAF_ROOT/simulation/stub/taf_simula_radio/tafRadioSvc
+#endif
+
+#if ${TELAF_SIMULATION_ENABLE_MNGD_CONN} = y
+    $TELAF_ROOT/apps/tafMngdServices/Connectivity/tafMngdConnSvc
+    $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdConnUnitTest/tafMngdConnUnitTest
+#endif
+
 }
 
 commands:
@@ -72,6 +82,7 @@ interfaceSearch:
     $TELAF_ROOT/interfaces/tafVNW
     $LEGATO_ROOT/apps/sample/helloIpc
     $TELAF_ROOT/interfaces/someipGW
+    $TELAF_ROOT/apps/tafMngdServices/interfaces
 }
 
 cflags:

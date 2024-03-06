@@ -311,7 +311,7 @@ void taf_Handler::Init()
 
 void taf_Handler::ProcessNewMessage(void* incomingMsgPtr)
 {
-   LE_INFO("ProcessNewMessage");
+   LE_DEBUG("ProcessNewMessage");
 
    newSms_t *newMsgPtr = (newSms_t*) incomingMsgPtr;
 
@@ -322,16 +322,16 @@ void taf_Handler::ProcessNewMessage(void* incomingMsgPtr)
 
    tafNewMsg->phoneId = newMsgPtr->phoneId;
 
+   taf_sms_Pdu_t pduMsg = {0};
+
+   le_hex_StringToBinary(newMsgPtr->pdu, strlen(newMsgPtr->pdu), pduMsg.data, sizeof(pduMsg.data));
+
+   pduMsg.length = strlen(newMsgPtr->pdu) / 2;
+   LE_DEBUG("pduMsg.length = %d", pduMsg.length);
+
    if(sms.sysPrefStorage == TAF_SMS_STORAGE_HLOS)
    {
-      taf_sms_Pdu_t pduMsg = {0};
-
       pduMsg.storage = TAF_SMS_STORAGE_HLOS;
-
-      le_hex_StringToBinary(newMsgPtr->pdu, strlen(newMsgPtr->pdu), pduMsg.data, sizeof(pduMsg.data));
-
-      pduMsg.length = strlen(newMsgPtr->pdu) / 2;
-      LE_INFO("pduMsg.length = %d", pduMsg.length);
 
       TAF_ERROR_IF_RET_NIL(pduMsg.length > sizeof(pduMsg.data), "Invalid msg length(%d)", pduMsg.length);
 
@@ -348,11 +348,8 @@ void taf_Handler::ProcessNewMessage(void* incomingMsgPtr)
    }
 
    sms_PduMsg_t decodedPduMsg = {0};
-   uint8_t pdu[TAF_SMS_PDU_BYTES] = {0};
 
-   le_hex_StringToBinary(newMsgPtr->pdu, strlen(newMsgPtr->pdu), pdu, sizeof(pdu));
-
-   if(smsPdu_Decode(SMS_PROTOCOL_GSM, pdu, &decodedPduMsg) != LE_OK)
+   if(smsPdu_Decode(SMS_PROTOCOL_GSM, pduMsg.data, &decodedPduMsg) != LE_OK)
    {
       LE_INFO("smsPdu_Decode fail");
       le_mem_Release(tafNewMsg);
@@ -366,8 +363,8 @@ void taf_Handler::ProcessNewMessage(void* incomingMsgPtr)
       return;
    }
 
-   tafNewMsg->pdu.length = decodedPduMsg.dataLen;
-   memcpy(&(tafNewMsg->pdu), pdu, tafNewMsg->pdu.length);
+   tafNewMsg->pdu.length = pduMsg.length;
+   memcpy(&(tafNewMsg->pdu.data), pduMsg.data, tafNewMsg->pdu.length);
 
    tafNewMsg->readStatus = TAF_SMS_RXSTS_UNREAD;
    tafNewMsg->lockStatus = TAF_SMS_LKSTS_UNLOCKED;

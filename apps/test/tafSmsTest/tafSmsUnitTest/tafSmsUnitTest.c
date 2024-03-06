@@ -739,6 +739,19 @@ __attribute__((unused)) static void RxHandler
 
     LE_TEST_ASSERT(len > 0, "Test taf_sms_GetPDU length");
 
+    bool PDU_IsEmpty = true;
+
+    for(int i = 0; i < len; i++)
+    {
+        LE_INFO("PDU data[%d] = 0x%x" PRIuS, i, rxContent.pdu[i]);
+        if(rxContent.pdu[i] != 0)
+        {
+            PDU_IsEmpty = false;
+            break;
+        }
+    }
+    LE_TEST_ASSERT(PDU_IsEmpty == false, "Test taf_sms_GetPDU content");
+
     switch(taf_sms_GetFormat(msgRef))
     {
         case TAF_SMS_FORMAT_TEXT:

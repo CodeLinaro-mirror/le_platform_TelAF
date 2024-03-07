@@ -1217,7 +1217,7 @@ le_result_t taf_ks_ProvisionRsaEncKeyValue
     taf_ks_KeyRef_t keyRef,
         ///< [IN] Key reference
     taf_ks_RsaKeySize_t keySize,
-        ///< [IN] Key Size, ignored if impData is provided
+        ///< [IN] Key size. Shall match the import key size if impData is provided.
     taf_ks_RsaEncPadding_t padding,
         ///< [IN] RSA encryption padding type
     const uint8_t* impDataPtr,
@@ -1303,7 +1303,7 @@ le_result_t taf_ks_ProvisionRsaSigKeyValue
     taf_ks_KeyRef_t keyRef,
         ///< [IN] Key reference
     taf_ks_RsaKeySize_t keySize,
-        ///< [IN] Key Size, ignored if impData is provided
+        ///< [IN] Key size. Shall match the import key size if impData is provided.
     taf_ks_RsaSigPadding_t padding,
         ///< [IN] RSA signature padding type
     const uint8_t* impDataPtr,
@@ -1389,7 +1389,7 @@ le_result_t taf_ks_ProvisionEcdsaKeyValue
     taf_ks_KeyRef_t keyRef,
         ///< [IN] Key reference
     taf_ks_EccKeySize_t keySize,
-        ///< [IN] ECC curve, ignored if impData is provided
+        ///< [IN] Key size. Shall match the import key size if impData is provided.
     taf_ks_Digest_t digest,
         ///< [IN] Digest
     const uint8_t* impDataPtr,
@@ -1475,7 +1475,7 @@ le_result_t taf_ks_ProvisionAesKeyValue
     taf_ks_KeyRef_t keyRef,
         ///< [IN] Key reference
     taf_ks_AesKeySize_t keySize,
-        ///< [IN] AES key size, ignored if impData is provided
+        ///< [IN] Key size. Shall match the import key size if impData is provided.
     taf_ks_AesBlockMode_t mode,
         ///< [IN] AES block mode
     const uint8_t* impDataPtr,
@@ -1561,7 +1561,7 @@ le_result_t taf_ks_ProvisionHmacKeyValue
     taf_ks_KeyRef_t keyRef,
         ///< [IN] Key reference
     uint32_t keySize,
-        ///< [IN] HMAC Key Size, ignored if impData is provided
+        ///< [IN] Key size. Shall match the import key size if impData is provided.
     taf_ks_Digest_t digest,
         ///< [IN] digest
     const uint8_t* impDataPtr,

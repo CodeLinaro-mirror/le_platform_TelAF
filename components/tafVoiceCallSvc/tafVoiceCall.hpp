@@ -60,6 +60,8 @@ using namespace telux::common;
 
 #define TIMEOUT_CALLCOMMAND_CB 2
 
+#define MAX_INIT_TIMEOUT 5
+
 typedef struct
 {
     taf_voicecall_CallRef_t  callRef;

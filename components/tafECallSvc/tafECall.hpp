@@ -71,6 +71,7 @@ using namespace std;
 #define SET_PSAP_NUM_TYPE_DEFFAULT 0
 #define SET_PSAP_NUM_TYPE_OVERRIDDEN 1
 #define MAX_EU_MSD_LENGTH 140
+#define MAX_INIT_TIMEOUT 5
 
 namespace telux {
     namespace tafsvc {

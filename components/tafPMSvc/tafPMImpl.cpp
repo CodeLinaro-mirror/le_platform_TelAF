@@ -650,6 +650,7 @@ void taf_PM::CallClientHandlerFunc(taf_pm_State_t state)
     regClientrecrd.clear();
     ackClientrecrd.clear();
     isNack = false;
+    int8_t size = 0;
     while (linkHandlerPtr)
     {
         taf_PStateHandlerCtx_t * handlerCtxPtr =
@@ -690,9 +691,16 @@ void taf_PM::CallClientHandlerFunc(taf_pm_State_t state)
                 handlerCtxPtr->handlerPtr(pmPStateListPtr->pStateRef, TAF_PM_PVM, state,
                         handlerCtxPtr->contextPtr);
             }
+            size++;
         }
     }
+    if(size == 0)
+    {
+        LE_INFO("No client registered for statechangeex handler");
+        SendAckToPmd(curTcuState);
+    }
 }
+
 /**
  * Removes Extend power state change handler
  */
@@ -1020,6 +1028,7 @@ void taf_PM::TafSigTermEventHandler(int tafSigNum)
 #if defined(LE_CONFIG_ENABLE_MULTI_VM_SUPPORT)
     // Resume in SA525M before service termination as master app is terminating
     if(tafPwrMgr.tcuActivityMgr->getActivityState() != TcuActivityState::RESUME) {
+        stateChangePromise = std::promise<le_result_t>();
         status = tafPwrMgr.tcuActivityMgr->setActivityState(
                 TcuActivityState::RESUME, ALL_MACHINES, &taf_Handler::commandCallback);
         if( status == telux::common::Status::SUCCESS) {

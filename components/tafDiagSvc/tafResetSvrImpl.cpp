@@ -362,9 +362,19 @@ void taf_ResetSvr::RemoveRxMsgHandler
     {
         LE_WARN("The handler is not belong to this service.");
         le_ref_DeleteRef(ReqHandlerRefMap, handlerRef);
+        le_mem_Release(handlerPtr);
 
         return;
     }
+
+    // Detach the handler from service.
+    servicePtr->handlerRef = NULL;
+
+    // Clear Rx Handler resources
+    handlerPtr->handlerRef = NULL;
+    handlerPtr->svcRef     = NULL;
+    handlerPtr->func       = NULL;
+    handlerPtr->ctxPtr     = NULL;
 
     // Free the handler.
     le_ref_DeleteRef(ReqHandlerRefMap, handlerRef);
@@ -471,6 +481,39 @@ le_result_t taf_ResetSvr::SendResp
 
 //-------------------------------------------------------------------------------------------------
 /**
+ * Clear reset message list.
+ */
+//-------------------------------------------------------------------------------------------------
+void taf_ResetSvr::ClearResetMsgList
+(
+    taf_ResetSvc_t* servicePtr
+)
+{
+    LE_DEBUG("ClearResetMsgList");
+    TAF_ERROR_IF_RET_NIL(servicePtr == NULL, "Invalid servicePtr");
+
+    // Clear the UDS Rx message of reset list.
+    le_dls_Link_t* linkPtr = le_dls_Pop(&servicePtr->rxMsgList);
+    while (linkPtr != NULL)
+    {
+        taf_ResetRxMsg_t* msgPtr = CONTAINER_OF(linkPtr, taf_ResetRxMsg_t, link);
+        if (msgPtr != NULL)
+        {
+            LE_INFO("Release (rxMsgRef: %p, subFunc: 0x%x)", msgPtr->rxMsgRef, msgPtr->subFunc);
+            // Free the message
+            le_ref_DeleteRef(RxMsgRefMap, msgPtr->rxMsgRef);
+            le_mem_Release(msgPtr);
+        }
+
+        // Process next node.
+        linkPtr = le_dls_Pop(&servicePtr->rxMsgList);
+    }
+
+    return;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
  * Remove the created service and release the alloted memory.
  */
 //-------------------------------------------------------------------------------------------------
@@ -484,40 +527,18 @@ le_result_t taf_ResetSvr::RemoveSvc
     taf_ResetSvc_t* servicePtr = (taf_ResetSvc_t*)le_ref_Lookup(SvcRefMap, svcRef);
     TAF_ERROR_IF_RET_VAL(servicePtr == NULL, LE_BAD_PARAMETER, "Invalid servicePtr");
 
-    // Clear the UDS Rx message list.
-    le_dls_Link_t* linkPtr = le_dls_Pop(&(servicePtr->rxMsgList));
-    while (linkPtr != NULL)
-    {
-        taf_ResetRxMsg_t* msgPtr = CONTAINER_OF(linkPtr, taf_ResetRxMsg_t, link);
-        if (msgPtr != NULL)
-        {
-            LE_INFO("Release (rxMsgRef: %p, subFunc: 0x%x)", msgPtr->rxMsgRef, msgPtr->subFunc);
-            le_ref_DeleteRef(RxMsgRefMap, msgPtr->rxMsgRef);
-            le_mem_Release(msgPtr);
-        }
+    // Release reset message resources.
+    ClearResetMsgList(servicePtr);
 
-        // Process next node.
-        linkPtr = le_dls_Pop(&(servicePtr->rxMsgList));
-    }
-
-    // Clear the registered handler
+    // Clear the registered reset handler
     if (servicePtr->handlerRef != NULL)
     {
-        taf_ResetReqHandler_t* handlerPtr = NULL;
-
-        handlerPtr =
-                (taf_ResetReqHandler_t*)le_ref_Lookup(ReqHandlerRefMap, servicePtr->handlerRef);
-        if (handlerPtr != NULL)
-        {
-            le_ref_DeleteRef(ReqHandlerRefMap, handlerPtr->handlerRef);
-            le_mem_Release(handlerPtr);
-        }
-
+        RemoveRxMsgHandler(servicePtr->handlerRef);
         servicePtr->handlerRef = NULL;
     }
 
     // Clear service object
-    le_ref_DeleteRef(SvcRefMap, servicePtr->svcRef);
+    le_ref_DeleteRef(SvcRefMap, (void*)servicePtr->svcRef);
     le_mem_Release(servicePtr);
 
     return LE_OK;

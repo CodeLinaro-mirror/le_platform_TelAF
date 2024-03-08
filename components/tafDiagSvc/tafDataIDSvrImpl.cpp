@@ -78,7 +78,7 @@ taf_diagDataID_ServiceRef_t taf_DataIDSvr::GetService
         servicePtr->readDIDHandlerRef = NULL;
         servicePtr->writeDIDHandlerRef = NULL;
 
-        // Init update message list.
+        // Init dataID message list.
         servicePtr->readDIDMsgList  = LE_DLS_LIST_INIT;
         servicePtr->writeDIDMsgList = LE_DLS_LIST_INIT;
 
@@ -89,7 +89,7 @@ taf_diagDataID_ServiceRef_t taf_DataIDSvr::GetService
         servicePtr->svcRef = (taf_diagDataID_ServiceRef_t)le_ref_CreateRef(SvcRefMap,
                 servicePtr);
 
-        LE_DEBUG("svcRef %p of client %p is created for security access.",
+        LE_DEBUG("svcRef %p of client %p is created for DataId.",
                 servicePtr->svcRef, servicePtr->sessionRef);
     }
     else
@@ -102,7 +102,7 @@ taf_diagDataID_ServiceRef_t taf_DataIDSvr::GetService
         }
     }
 
-    LE_INFO("Get serviceRef %p for Diag security service.", servicePtr->svcRef);
+    LE_INFO("Get serviceRef %p for Diag DataId service.", servicePtr->svcRef);
 
     return servicePtr->svcRef;
 }
@@ -374,9 +374,19 @@ void taf_DataIDSvr::RemoveRxReadDIDMsgHandler
     {
         LE_WARN("The handler is not belong to this service.");
         le_ref_DeleteRef(ReqReadDIDHandlerRefMap, handlerRef);
+        le_mem_Release(handlerObjPtr);
 
         return;
     }
+
+    // Detach the handler from service.
+    servicePtr->readDIDHandlerRef = NULL;
+
+    // Clear Rx Handler resources
+    handlerObjPtr->handlerRef = NULL;
+    handlerObjPtr->svcRef     = NULL;
+    handlerObjPtr->func       = NULL;
+    handlerObjPtr->ctxPtr     = NULL;
 
     // Free the handler.
     le_ref_DeleteRef(ReqReadDIDHandlerRefMap, handlerRef);
@@ -587,9 +597,19 @@ void taf_DataIDSvr::RemoveRxWriteDIDMsgHandler
     {
         LE_WARN("The handler is not belong to this service.");
         le_ref_DeleteRef(ReqWriteDIDHandlerRefMap, handlerRef);
+        le_mem_Release(handlerObjPtr);
 
         return;
     }
+
+    // Detach the handler from service.
+    servicePtr->writeDIDHandlerRef = NULL;
+
+    // Clear Rx Handler resources
+    handlerObjPtr->handlerRef = NULL;
+    handlerObjPtr->svcRef     = NULL;
+    handlerObjPtr->func       = NULL;
+    handlerObjPtr->ctxPtr     = NULL;
 
     // Free the handler.
     le_ref_DeleteRef(ReqWriteDIDHandlerRefMap, handlerRef);

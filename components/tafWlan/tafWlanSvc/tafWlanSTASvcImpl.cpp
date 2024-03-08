@@ -376,6 +376,14 @@ void taf_WlanSTASvcImpl::PopulateScanResults(StaCtx_t *CtxPtr, const char *ScanR
 
     while (std::getline(buf_stream, line, '\n'))
     {
+        if (CtxPtr->numScannedAPs >= TAF_WLANSTA_MAX_APSCAN_RESULT_NUM)
+        {
+            // Max number of scanned APs supported is reached. Break from loop.
+            LE_WARN("Max number of scanned APs(%d) supported is reached",
+                static_cast<int>(TAF_WLANSTA_MAX_APSCAN_RESULT_NUM));
+            break;
+        }
+
         // Check if the line has "frequency". This is the heading line. skip it.
         if (line.find("frequency") != std::string::npos)
         {
@@ -495,7 +503,6 @@ void taf_WlanSTASvcImpl::PerformScan(StaCtx_t *CtxPtr)
                   WLANSTA_MAX_WPA_EVENT_LEN+1, NULL);
     supplicantThreadRef = le_thread_Create("supplicantThread", StaWpaSuppMonitorThreadHdlr,
                                                                               (void *)&ThreadCtx);
-    le_thread_Start(supplicantThreadRef);
 
     // Start SCAN
     LE_DEBUG("WPA CMD: SCAN");
@@ -527,6 +534,8 @@ void taf_WlanSTASvcImpl::PerformScan(StaCtx_t *CtxPtr)
     }
     else
     {
+        le_thread_Start(supplicantThreadRef);
+
         // SCAN is running. Wait for it to complete.
         PromiseWPA = std::promise<StaWpaEvt_e>();
         StaWpaEvt_e staWpaEvt = PromiseWPA.get_future().get();

@@ -37,14 +37,15 @@ USETYPES taf_net.api;
  * Maximum number of AP scan results that will be returned.
  */
 //--------------------------------------------------------------------------------------------------
-DEFINE MAX_APSCAN_RESULT_NUM = 16;
+DEFINE MAX_APSCAN_RESULT_NUM = 24;
 
 //--------------------------------------------------------------------------------------------------
 /**
  * WLAN STA status.
  */
 //--------------------------------------------------------------------------------------------------
-ENUM State{
+ENUM State
+{
     STATE_UNKNOWN,              ///< Station interface is unknown.
     STATE_CONNECTING,           ///< Station interface is connecting.
     STATE_CONNECTED,            ///< Station interface is connected.
@@ -124,7 +125,8 @@ REFERENCE WlanSTA;
  * The WLAN STA event handler.
  */
 //-------------------------------------------------------------------------------------------------
-HANDLER Handler(
+HANDLER Handler
+(
     WlanSTA wlanSTARef IN, ///< The WLAN STA reference.
     State staState IN      ///< WLAN STA states.
 );
@@ -134,7 +136,8 @@ HANDLER Handler(
  * STA events to report.
  */
 //-------------------------------------------------------------------------------------------------
-EVENT Event(
+EVENT Event
+(
     WlanSTA wlanSTARef IN, ///< The WLAN STA reference.
     Handler handler IN
 );
@@ -154,7 +157,8 @@ EVENT Event(
  *
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION WlanSTA GetWlanSTA(
+FUNCTION WlanSTA GetWlanSTA
+(
     taf_wlan.STAid STAid IN,                                ///< STA identifier
     string STAIntfName[taf_net.INTERFACE_NAME_MAX_LEN] IN   ///< STA associated host interface name.
 );
@@ -293,7 +297,8 @@ FUNCTION le_result_t GetStatus
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t DoAPScan(
+FUNCTION le_result_t DoAPScan
+(
     WlanSTA wlanSTARef IN                               ///< The WLAN STA reference.
 );
 
@@ -306,7 +311,8 @@ FUNCTION le_result_t DoAPScan(
  * - Others -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t GetAPScanResults(
+FUNCTION le_result_t GetAPScanResults
+(
     WlanSTA wlanSTARef IN,                      ///< The WLAN STA reference.
     uint16  numAP      OUT,                     ///< Number of APs found in the scan.
     APInfo  ApInfo[MAX_APSCAN_RESULT_NUM] OUT   ///< Available AP information.

@@ -35,14 +35,14 @@ USETYPES taf_net.api;
  * WLAN SSID max length.
  */
 //--------------------------------------------------------------------------------------------------
-DEFINE MAX_SSID_LENGTH        = 32;
+DEFINE MAX_SSID_LENGTH = 32;
 
 //--------------------------------------------------------------------------------------------------
 /**
  * WLAN Passphrase max length.
  */
 //--------------------------------------------------------------------------------------------------
-DEFINE MAX_PASSPHRASE_LENGTH  = 63;
+DEFINE MAX_PASSPHRASE_LENGTH = 63;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -151,7 +151,8 @@ ENUM SecurityEncryptionMethod
  * WLAN Service Set type.
  */
 //--------------------------------------------------------------------------------------------------
-ENUM ServiceSet{
+ENUM ServiceSet
+{
     SS_UNKNOWN,    ///< To skip setting encryption method, pass UNKNOWN.
     SS_BASIC,      ///< Basic Service Set(BSS).
     SS_EXTENDED    ///< Extended Service Set(ESS).
@@ -174,7 +175,8 @@ ENUM DeviceState
  * Supported WLAN Device modes.
  */
 //-------------------------------------------------------------------------------------------------
-ENUM DeviceMode{
+ENUM DeviceMode
+{
     MODE_UNKNOWN = -1, ///< Unsupported mode.
     MODE_AP,               ///< Single access point.
     MODE_STA,              ///< Single station.
@@ -187,7 +189,8 @@ ENUM DeviceMode{
  * AP identifier. Maximum number of identifiers will be MAX_NUM_AP.
  */
 //-------------------------------------------------------------------------------------------------
-ENUM APid{
+ENUM APid
+{
     AP_ID1,
     AP_ID2
 };
@@ -197,7 +200,8 @@ ENUM APid{
  * STA identifier. Maximum number of identifiers will be MAX_NUM_STA.
  */
 //-------------------------------------------------------------------------------------------------
-ENUM STAid{
+ENUM STAid
+{
     STA_ID1
 };
 
@@ -207,7 +211,8 @@ ENUM STAid{
  *
  */
 //-------------------------------------------------------------------------------------------------
-STRUCT APIntfInfo{
+STRUCT APIntfInfo
+{
     APid id;                                         ///< AP identifier
     string IntfName[taf_net.INTERFACE_NAME_MAX_LEN]; ///< Associated host interface name.
 };
@@ -354,7 +359,8 @@ FUNCTION le_result_t GetMode
  *
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t GetIntfInfo(
+FUNCTION le_result_t GetIntfInfo
+(
     Wlan WlanRef IN,                           ///< The WLAN reference. Reserved for future use.
     APIntfInfo  APIntfinfo[MAX_NUM_AP] OUT,    ///< The WLAN AP interfaces information.
     STAIntfInfo STAIntfinfo[MAX_NUM_STA] OUT   ///< The WLAN STA interfaces information.

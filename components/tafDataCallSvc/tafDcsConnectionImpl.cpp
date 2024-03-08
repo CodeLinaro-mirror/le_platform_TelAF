@@ -2752,9 +2752,13 @@ void taf_DataConnection::CloseEventHandler
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 void taf_DataConnection::onInitCompleted(telux::common::ServiceStatus status)
 {
+    LE_INFO("Received service status: %d", (int)status);
     std::lock_guard<std::mutex> lock(mtx);
-    subSystemStatusUpdated = true;
-    conVar.notify_all();
+    if (status != telux::common::ServiceStatus::SERVICE_UNAVAILABLE)
+    {
+        subSystemStatusUpdated = true;
+        conVar.notify_all();
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2898,11 +2902,16 @@ void taf_DataConnection::Init(void)
                                     std::placeholders::_1);
         auto conneMgr = dataFactory.getDataConnectionManager((SlotId)slotIdx, initConnCb);
         bool subSysReady = false;
+        auto timeout = std::chrono::seconds(DATA_SUBSYSTEM_INIT_TIMEOUT);
 
         if (conneMgr)
         {
             std::unique_lock<std::mutex> uLock(mtx);
-            conVar.wait(uLock, [this]{return this->subSystemStatusUpdated;});
+            if (!conVar.wait_for(uLock, timeout, [this]{return this->subSystemStatusUpdated;}))
+            {
+                LE_FATAL("Timeout to wait data connection component initialization for slot %d !",
+                            (int)slotIdx);
+            }
             subSystemStatus = conneMgr->getServiceStatus();
 
             if (subSystemStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)

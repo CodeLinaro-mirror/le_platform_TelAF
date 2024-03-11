@@ -115,11 +115,49 @@
         le_result_t result = taf_info_GetTZVersion(tz, sizeof(tz));
         if(result == LE_OK)
         {
-            LE_INFO("TZ Version: %s", tz;
+            LE_INFO("TZ Version: %s", tz);
         }
         else
         {
             LE_ERROR("Get TZ Version failed");
+        }
+   @endcode
+ *
+ * @section taf_info_GetTelafVersion Get the TelAF version
+ *
+ * - taf_info_GetTelafVersion() -- Gets the TelAF version.
+ *
+ * The following example illustrates how to get the TelAF version.
+ *
+ * @code
+        char telafVersion[TAF_INFO_TELAF_VERSION_MAX_BYTES];
+        le_result_t result = taf_info_GetTelafVersion(telafVersion, sizeof(telafVersion));
+        if(result == LE_OK)
+        {
+            LE_INFO("TelAF Version: %s", telafVersion);
+        }
+        else
+        {
+            LE_ERROR("Get TelAF Version failed");
+        }
+   @endcode
+ *
+ * @section taf_info_GetRootfsVersion Get the root file system version
+ *
+ * - taf_info_GetRootfsVersion() -- Gets the root file system version.
+ *
+ * The following example illustrates how to get the root file system version.
+ *
+ * @code
+        char rootfsVersion[TAF_INFO_ROOTFS_VERSION_MAX_BYTES];
+        le_result_t result = taf_info_GetRootfsVersion(rootfsVersion, sizeof(rootfsVersion));
+        if(result == LE_OK)
+        {
+            LE_INFO("RootFS Version: %s", rootfsVersion);
+        }
+        else
+        {
+            LE_ERROR("Get RootFS Version failed");
         }
    @endcode
  *
@@ -141,6 +179,8 @@ DEFINE MODEL_MAX_BYTES = 256;
 DEFINE VERSION_MAX_BYTES = 256;
 DEFINE MODEM_MAX_BYTES = 256;
 DEFINE TZ_MAX_BYTES = 256;
+DEFINE TELAF_VERSION_MAX_BYTES = 256;
+DEFINE ROOTFS_VERSION_MAX_BYTES = 256;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -210,4 +250,30 @@ FUNCTION le_result_t GetModemVersion
 FUNCTION le_result_t GetTZVersion
 (
     string tz[TZ_MAX_BYTES] OUT     ///< TZ version
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Retrieves the TelAF Version.
+ *
+ * @return LE_FAULT         -- Failed to retrieve the TelAF Version.
+ *         LE_OK            -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetTelafVersion
+(
+    string telafVersion[TELAF_VERSION_MAX_BYTES] OUT     ///< TelAF version
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Retrieves the root file system Version.
+ *
+ * @return LE_FAULT         -- Failed to retrieve the root file system version.
+ *         LE_OK            -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetRootfsVersion
+(
+    string rootfsVersion[ROOTFS_VERSION_MAX_BYTES] OUT     ///< Root file system version
 );

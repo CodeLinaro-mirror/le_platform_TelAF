@@ -166,6 +166,50 @@ le_result_t taf_info::GetKernelVersion(char* versionPtr, size_t numElements) {
     return LE_OK;
 }
 
+le_result_t taf_info::GetTelafVersion(char* telafVersionPtr, size_t numElements) {
+    LE_DEBUG("taf_info::GetTelafVersion");
+    std::string telafVersion="";
+    fstream file;
+    size_t pos;
+    file.open("/legato/systems/current/version",ios::in);
+    if (file.is_open()){
+        getline(file,telafVersion);
+        pos = telafVersion.find("_");
+        if(pos != std::string::npos){
+            telafVersion = telafVersion.substr(0,pos);
+        }
+        file.close();
+    }else{
+        LE_ERROR("Error opening file");
+        return LE_FAULT;
+    }
+    le_utf8_Copy(telafVersionPtr, telafVersion.c_str(), numElements, nullptr);
+    LE_DEBUG("Retrieved TelAF Version successfully: %s", telafVersionPtr);
+    return LE_OK;
+}
+
+le_result_t taf_info::GetRootfsVersion(char* rootfsVersionPtr, size_t numElements) {
+    LE_DEBUG("taf_info::GetRootfsVersion");
+    std::string rootfsVersion="";
+    fstream file;
+    size_t pos;
+    file.open("/etc/version",ios::in);
+    if (file.is_open()){
+        getline(file,rootfsVersion);
+        pos = rootfsVersion.find("-");
+        if(pos != std::string::npos){
+            rootfsVersion = rootfsVersion.substr(0,pos);
+        }
+        file.close();
+    }else{
+        LE_ERROR("Error opening file");
+        return LE_FAULT;
+    }
+    le_utf8_Copy(rootfsVersionPtr, rootfsVersion.c_str(), numElements, nullptr);
+    LE_DEBUG("Retrieved RootFS Version successfully: %s", rootfsVersionPtr);
+    return LE_OK;
+}
+
 void taf_info::Init() {
     LE_INFO("taf_info::Init");
 #ifdef LE_CONFIG_GET_IMEI_SUPPORT

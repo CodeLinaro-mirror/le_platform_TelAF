@@ -41,6 +41,8 @@ namespace tafsvc {
         le_result_t GetKernelVersion(char* versionPtr, size_t numElements);
         le_result_t GetModemVersion(char* modemPtr, size_t numElements);
         le_result_t GetTzVersion(char* tzPtr, size_t numElements);
+        le_result_t GetTelafVersion(char* telafVersionPtr, size_t numElements);
+        le_result_t GetRootfsVersion(char* rootfsVersionPtr, size_t numElements);
 #ifdef LE_CONFIG_GET_IMEI_SUPPORT
         le_result_t GetIMEI(char* imeiPtr, size_t numElements);
         std::shared_ptr<telux::platform::IDeviceInfoListener> devinfoServiceStatusListener

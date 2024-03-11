@@ -58,6 +58,19 @@ __attribute__((unused)) static void Test_taf_info_GetTZVersion() {
     LE_TEST_OK(result == LE_OK, "Test taf_info_GetTZVersion: End");
 }
 
+static void Test_taf_info_GetTelafVersion() {
+    char telafVersion[TAF_INFO_TELAF_VERSION_MAX_BYTES];
+    le_result_t result = taf_info_GetTelafVersion(telafVersion, sizeof(telafVersion));
+    LE_TEST_OK(result == LE_OK, "Test taf_info_GetTelafVersion: End");
+}
+
+static void Test_taf_info_GetRootfsVersion() {
+    char rootfsVersion[TAF_INFO_ROOTFS_VERSION_MAX_BYTES];
+    le_result_t result = taf_info_GetRootfsVersion(rootfsVersion, sizeof(rootfsVersion));
+    LE_TEST_OK(result == LE_OK, "Test taf_info_GetRootfsVersion: End");
+}
+
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Component initialization.
@@ -80,6 +93,12 @@ COMPONENT_INIT {
 
     LE_TEST_INFO("==== Test_taf_info_GetTZVersion===========");
     Test_taf_info_GetTZVersion();
+
+    LE_TEST_INFO("==== Test taf_info_GetTelafVersion======");
+    Test_taf_info_GetTelafVersion();
+
+    LE_TEST_INFO("==== Test taf_info_GetRootfsVersion======");
+    Test_taf_info_GetRootfsVersion();
 
     LE_TEST_INFO("======== Device Info Unit Test End ========");
     exit(EXIT_SUCCESS);

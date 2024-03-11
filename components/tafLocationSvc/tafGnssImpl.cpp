@@ -104,22 +104,22 @@ telux::common::Status taf_Gnss::DgnssManagerInit() {
                 }
             });
         if (!mDgnssManager) {
-            LE_INFO( "Failed to get Gnss manager object");
+            LE_DEBUG( "Failed to get Gnss manager object");
             return Status::FAILED;
         }
 
         startTime = std::chrono::system_clock::now();
         ServiceStatus dgnssMgrStatus = mDgnssManager->getServiceStatus();
         if(dgnssMgrStatus != ServiceStatus::SERVICE_AVAILABLE) {
-            LE_INFO( "Dgnss subsystem is not ready, Please wait");
+            LE_DEBUG( "Dgnss subsystem is not ready, Please wait");
         }
         dgnssMgrStatus = prom.get_future().get();
         if(dgnssMgrStatus == ServiceStatus::SERVICE_AVAILABLE) {
             endTime = std::chrono::system_clock::now();
             std::chrono::duration<double> elapsedTime = endTime - startTime;
-            LE_INFO( "Elapsed Time for Dgnss subsystems to ready : %lf", elapsedTime.count());
+            LE_DEBUG( "Elapsed Time for Dgnss subsystems to ready : %lf", elapsedTime.count());
         } else {
-            LE_INFO( "ERROR - Unable to initialize Dgnss subsystem");
+            LE_DEBUG( "ERROR - Unable to initialize Dgnss subsystem");
             return telux::common::Status::NOTREADY;
         }
 #endif
@@ -129,7 +129,7 @@ telux::common::Status taf_Gnss::DgnssManagerInit() {
         bool subSystemsStatus = mDgnssManager->isSubsystemReady();
         startTime = std::chrono::system_clock::now();
         if(!subSystemsStatus) {
-            LE_INFO( "Dgnss subsystem is not ready, Please wait");
+            LE_DEBUG( "Dgnss subsystem is not ready, Please wait");
             std::future<bool> f = mDgnssManager->onSubsystemReady();
             subSystemsStatus = f.get();
         }
@@ -137,14 +137,14 @@ telux::common::Status taf_Gnss::DgnssManagerInit() {
         if(subSystemsStatus) {
             endTime = std::chrono::system_clock::now();
             std::chrono::duration<double> elapsedTime = endTime - startTime;
-            LE_INFO( "Elapsed Time for Dgnss subsystems to ready : %lf", elapsedTime.count());
+            LE_DEBUG( "Elapsed Time for Dgnss subsystems to ready : %lf", elapsedTime.count());
         } else {
-            LE_INFO( "ERROR - Unable to initialize Dgnss subsystem");
+            LE_DEBUG( "ERROR - Unable to initialize Dgnss subsystem");
             return telux::common::Status::NOTREADY;
         }
 #endif
    } else {
-       LE_INFO("Dgnss manager is already initialized");
+       LE_DEBUG("Dgnss manager is already initialized");
    }
    return telux::common::Status::SUCCESS;
 }
@@ -165,15 +165,15 @@ telux::common::Status taf_Gnss::LocationManagerInit(taf_gnss_Client_t* clientReq
         startTime = std::chrono::system_clock::now();
         ServiceStatus locMgrStatus = clientRequestPtr->locationManager->getServiceStatus();
         if(locMgrStatus != ServiceStatus::SERVICE_AVAILABLE) {
-            LE_INFO("Location subsystem is not ready, Please wait");
+            LE_DEBUG("Location subsystem is not ready, Please wait");
         }
         locMgrStatus = prom.get_future().get();
         if(locMgrStatus == ServiceStatus::SERVICE_AVAILABLE) {
             endTime = std::chrono::system_clock::now();
             std::chrono::duration<double> elapsedTime = endTime - startTime;
-            LE_INFO("Elapsed Time for Subsystems to ready : %lf",elapsedTime.count());
+            LE_DEBUG("Elapsed Time for Subsystems to ready : %lf",elapsedTime.count());
         } else {
-            LE_INFO("ERROR - Unable to initialize Location subsystem");
+            LE_DEBUG("ERROR - Unable to initialize Location subsystem");
             return telux::common::Status::FAILED;
         }
 #endif
@@ -183,7 +183,7 @@ telux::common::Status taf_Gnss::LocationManagerInit(taf_gnss_Client_t* clientReq
         bool subSystemsStatus = clientRequestPtr->locationManager->isSubsystemReady();
         startTime = std::chrono::system_clock::now();
         if(!subSystemsStatus) {
-            LE_INFO( "Location subsystem is not ready, Please wait");
+            LE_DEBUG( "Location subsystem is not ready, Please wait");
             std::future<bool> f = clientRequestPtr->locationManager->onSubsystemReady();
             subSystemsStatus = f.get();
         }
@@ -191,15 +191,15 @@ telux::common::Status taf_Gnss::LocationManagerInit(taf_gnss_Client_t* clientReq
         if(subSystemsStatus) {
             endTime = std::chrono::system_clock::now();
             std::chrono::duration<double> elapsedTime = endTime - startTime;
-            LE_INFO( "Elapsed Time for Subsystems to ready : %lf", elapsedTime.count());
+            LE_DEBUG( "Elapsed Time for Subsystems to ready : %lf", elapsedTime.count());
         } else {
-            LE_INFO( "ERROR - Unable to initialize Location subsystem");
+            LE_DEBUG( "ERROR - Unable to initialize Location subsystem");
             return telux::common::Status::NOTREADY;
         }
 #endif
 
         clientRequestPtr->PositionHandlerRefMap = le_ref_CreateMap("PositionHandlerRefMap", 4);
-        LE_INFO("LocationManagerInit for sessionRef: %p",  clientRequestPtr->sessionRef);
+        LE_DEBUG("LocationManagerInit for sessionRef: %p",  clientRequestPtr->sessionRef);
         clientRequestPtr->posListener = std::make_shared<tafLocationListener>();
         clientRequestPtr->posListener->clientSessionRef = &clientRequestPtr->sessionRef;
         clientRequestPtr->positionEventId = le_event_CreateIdWithRefCounting("positionEventId");
@@ -209,14 +209,14 @@ telux::common::Status taf_Gnss::LocationManagerInit(taf_gnss_Client_t* clientReq
         auto status = clientRequestPtr->locationManager->registerForSystemInfoUpdates(clientRequestPtr->posListener);//lsc
         if(telux::common::Status::SUCCESS == status)
         {
-            LE_INFO("register a client specific listener for Location system information");
+            LE_DEBUG("register a client specific listener for Location system information");
         }
         else
         {
-            LE_ERROR("cannot register client specific listener for Location system information");
+            LE_DEBUG("cannot register client specific listener for Location system information");
         }
     } else {
-        LE_INFO("Location manager already initialized");
+        LE_DEBUG("Location manager already initialized");
     }
     return telux::common::Status::SUCCESS;
 }
@@ -237,15 +237,15 @@ telux::common::Status taf_Gnss::LocationConfiguratorInit() {
         startTime = std::chrono::system_clock::now();
         ServiceStatus locCfgStatus = mLocationConfigurator->getServiceStatus();
         if(locCfgStatus != ServiceStatus::SERVICE_AVAILABLE) {
-            LE_INFO("Location configuration subsystem is not ready, Please wait");
+            LE_DEBUG("Location configuration subsystem is not ready, Please wait");
         }
         locCfgStatus = prom.get_future().get();
         if(locCfgStatus == ServiceStatus::SERVICE_AVAILABLE) {
             endTime = std::chrono::system_clock::now();
             std::chrono::duration<double> elapsedTime = endTime - startTime;
-            LE_INFO("Elapsed Time for configuration subsystems to ready : %lf",elapsedTime.count());
+            LE_DEBUG("Elapsed Time for configuration subsystems to ready : %lf",elapsedTime.count());
         } else {
-            LE_INFO("ERROR - Unable to initialize Location configuration subsystem"
+            LE_DEBUG("ERROR - Unable to initialize Location configuration subsystem"
                    );
             return telux::common::Status::FAILED;
         }
@@ -256,7 +256,7 @@ telux::common::Status taf_Gnss::LocationConfiguratorInit() {
         bool subSystemsStatus = mLocationConfigurator->isSubsystemReady();
         startTime = std::chrono::system_clock::now();
         if(!subSystemsStatus) {
-            LE_INFO("Location configuration subsystem is not ready, Please wait");
+            LE_DEBUG("Location configuration subsystem is not ready, Please wait");
             std::future<bool> f = mLocationConfigurator->onSubsystemReady();
             subSystemsStatus = f.get();
         }
@@ -264,14 +264,14 @@ telux::common::Status taf_Gnss::LocationConfiguratorInit() {
         if(subSystemsStatus) {
             endTime = std::chrono::system_clock::now();
             std::chrono::duration<double> elapsedTime = endTime - startTime;
-            LE_INFO("Elapsed Time for configuration subsystems to ready : %lf",elapsedTime.count());
+            LE_DEBUG("Elapsed Time for configuration subsystems to ready : %lf",elapsedTime.count());
         } else {
-            LE_INFO("ERROR - Unable to initialize Location configuration subsystem");
+            LE_DEBUG("ERROR - Unable to initialize Location configuration subsystem");
             return telux::common::Status::NOTREADY;
         }
 #endif
     } else {
-        LE_INFO("Location configurator is already initialized");
+        LE_DEBUG("Location configurator is already initialized");
     }
     return telux::common::Status::SUCCESS;
 }
@@ -497,7 +497,7 @@ void taf_Gnss::GnssPositionHandler
 
     if(!gnss.NumOfPositionHandlers)
     {
-        LE_INFO("No positioning handlers, exit Handler Function");
+        LE_DEBUG("No positioning handlers, exit Handler Function");
         le_mem_Release(currentPosPtr);
         return;
     }
@@ -627,17 +627,17 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 if(locationInfo->getAltitudeType() == telux::loc::AltitudeType::CALCULATED)
                 {
                     clientRequestPtr->mAltType = TAF_GNSS_ALT_TYPE_CALCULATED;
-                    LE_INFO("onDetailedEngineLocationUpdate: AltitudeType->CALCULATED");
+                    LE_DEBUG("onDetailedEngineLocationUpdate: AltitudeType->CALCULATED");
                 }
                 else if(locationInfo->getAltitudeType() == telux::loc::AltitudeType::ASSUMED)
                 {
                     clientRequestPtr->mAltType = TAF_GNSS_ALT_TYPE_ASSUMED;
-                    LE_INFO("onDetailedEngineLocationUpdate: AltitudeType->ASSUMED");
+                    LE_DEBUG("onDetailedEngineLocationUpdate: AltitudeType->ASSUMED");
                 }
                 else
                 {
                     clientRequestPtr->mAltType = TAF_GNSS_ALT_TYPE_UNKNOWN;
-                    LE_INFO("onDetailedEngineLocationUpdate: AltitudeType->UNKNOWN");
+                    LE_DEBUG("onDetailedEngineLocationUpdate: AltitudeType->UNKNOWN");
                 }
                 for (auto i = 0; i < TAF_GNSS_MEASUREMENT_INFO_MAX; i++) {
                     memset((void*) &LocationData->measInfo[i], 0, sizeof(taf_gnss_GnssMeasurementInfo_t));
@@ -685,21 +685,21 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                     {
                         LocationData->vSpeed = (int32_t)
                             (clientRequestPtr->mVerticalSpeed[VERTICAL_SPEED_ACCURACY_INDEX]*100);
-                        LE_INFO("onDetailedEngineLocationUpdate LocationData->vSpeed:%d ",
+                        LE_DEBUG("onDetailedEngineLocationUpdate LocationData->vSpeed:%d ",
                             LocationData->vSpeed);
-                        LE_INFO("onDetailedEngineLocationUpdate mVerticalSpeed:%lf ",
+                        LE_DEBUG("onDetailedEngineLocationUpdate mVerticalSpeed:%lf ",
                             clientRequestPtr->mVerticalSpeed[clientRequestPtr->mVerticalSpeed.size()-1]);
                     }
                     else
                     {
                         LocationData->vSpeed = 0;
-                        LE_INFO("mVerticalSpeed.size()!=3");
+                        LE_DEBUG("mVerticalSpeed.size()!=3");
                     }
                 }
                 else
                 {
                     LocationData->vSpeed = 0;
-                    LE_INFO("onDetailedEngineLocationUpdate vSpeed fail");
+                    LE_DEBUG("onDetailedEngineLocationUpdate vSpeed fail");
                 }
                 if(locationInfo->getVelocityUncertaintyEastNorthUp(clientRequestPtr->mVerticalSpeedAccuracy) ==
                         telux::common::Status::SUCCESS)
@@ -708,21 +708,21 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                     {
                         LocationData->vSpeedAccuracy = (int32_t)
                             (clientRequestPtr->mVerticalSpeedAccuracy[VERTICAL_SPEED_ACCURACY_INDEX]*1000);
-                        LE_INFO("onDetailedEngineLocationUpdate LocationData->vSpeedAccuracy:%d ",
+                        LE_DEBUG("onDetailedEngineLocationUpdate LocationData->vSpeedAccuracy:%d ",
                              LocationData->vSpeedAccuracy);
-                        LE_INFO("onDetailedEngineLocationUpdate mVerticalSpeedAccuracy:%lf ",
+                        LE_DEBUG("onDetailedEngineLocationUpdate mVerticalSpeedAccuracy:%lf ",
                              clientRequestPtr->mVerticalSpeedAccuracy[clientRequestPtr->mVerticalSpeedAccuracy.size()-1]);
                     }
                     else
                     {
                         LocationData->vSpeedAccuracy = 0;
-                        LE_INFO("mVerticalSpeedAccuracy.size()!=3");
+                        LE_DEBUG("mVerticalSpeedAccuracy.size()!=3");
                     }
                 }
                 else
                 {
                     LocationData->vSpeedAccuracy = 0;
-                    LE_INFO("onDetailedEngineLocationUpdate vSpeedAccuracy fail");
+                    LE_DEBUG("onDetailedEngineLocationUpdate vSpeedAccuracy fail");
                 }
                 LocationData->magneticDeviation = locationInfo->getMagneticDeviation()*10;
                 LocationData->epochTime = locationInfo->getTimeStamp();
@@ -744,17 +744,17 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                     LocationData->gpsTimeOfWeek = 0;
                 }
                 float value = locationInfo->getTimeUncMs();
-                LE_INFO("timeAccuracy value:%lf",value);
+                LE_DEBUG("timeAccuracy value:%lf",value);
                 if ((value * 1e+6) >= UINT32_MAX)
                 {
                     LocationData->timeAccuracy = UINT32_MAX;
-                    LE_INFO("timeAccuracy->UINT32_MAX:%d",LocationData->timeAccuracy);
+                    LE_DEBUG("timeAccuracy->UINT32_MAX:%d",LocationData->timeAccuracy);
                 }
                 else
                 {
                     // do the round off to nanosecond
                     LocationData->timeAccuracy = (uint32_t)((uint64_t)((value*1e+7)+5))/10;
-                    LE_INFO("LocationData->timeAccuracy:%d",LocationData->timeAccuracy);
+                    LE_DEBUG("LocationData->timeAccuracy:%d",LocationData->timeAccuracy);
                 }
                 LocationData->positionLatency = 0;
                 LocationData->hdop = locationInfo->getHorizontalDop() *1e+3;
@@ -766,7 +766,7 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                     time_t realtime;
                     realtime = (time_t)((locationInfo->getTimeStamp() / 1000));
                     tm *ltm = localtime(&realtime);
-                    LE_INFO("onDetailedEngineLocationUpdate !UNKNOWN_TIMESTAMP");
+                    LE_DEBUG("onDetailedEngineLocationUpdate !UNKNOWN_TIMESTAMP");
                     if(ltm != NULL)
                     {
                         LocationData->year = 1900+ltm->tm_year;
@@ -784,7 +784,7 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                     }
                 } else {
                     LE_DEBUG("Time stamp Not Valid");
-                    LE_INFO("onDetailedEngineLocationUpdate UNKNOWN_TIMESTAMP");
+                    LE_DEBUG("onDetailedEngineLocationUpdate UNKNOWN_TIMESTAMP");
                    //UNKNOWN_TIMESTAMP which is zero(as UTC timeStamp has elapsed since
                    //January 1, 1970, it cannot be 0)
                     LocationData->year = 1970;
@@ -830,146 +830,146 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 LocationData->confidencePercent = locationInfo->getCalibrationConfidencePercent();
                 telux::loc::DrCalibrationStatus calibrationStatus =
                                                 locationInfo->getCalibrationStatus();
-                LE_INFO("onDetailedEngineLocationUpdate calibrationStatus %d", calibrationStatus);
+                LE_DEBUG("onDetailedEngineLocationUpdate calibrationStatus %d", calibrationStatus);
                 if((calibrationStatus & telux::loc::DR_ROLL_CALIBRATION_NEEDED))
                 {
-                    LE_INFO("onDetailedEngineLocationUpdate Roll calibration is needed");
+                    LE_DEBUG("onDetailedEngineLocationUpdate Roll calibration is needed");
                     LocationData->calibrationStatus |= ((1<<TAF_GNSS_DR_ROLL_CALIBRATION_NEEDED));
                 }
                 if((calibrationStatus & telux::loc::DR_PITCH_CALIBRATION_NEEDED))
                 {
-                    LE_INFO("onDetailedEngineLocationUpdate Pitch calibration is needed");
+                    LE_DEBUG("onDetailedEngineLocationUpdate Pitch calibration is needed");
                     LocationData->calibrationStatus |= ((1<<TAF_GNSS_DR_PITCH_CALIBRATION_NEEDED));
                 }
                 if((calibrationStatus & telux::loc::DR_YAW_CALIBRATION_NEEDED))
                 {
-                    LE_INFO("onDetailedEngineLocationUpdate Yaw calibration is needed");
+                    LE_DEBUG("onDetailedEngineLocationUpdate Yaw calibration is needed");
                     LocationData->calibrationStatus |= ((1<<TAF_GNSS_DR_YAW_CALIBRATION_NEEDED));
                 }
                 if((calibrationStatus & telux::loc::DR_ODO_CALIBRATION_NEEDED))
                 {
-                    LE_INFO("onDetailedEngineLocationUpdate Odo calibration is needed");
+                    LE_DEBUG("onDetailedEngineLocationUpdate Odo calibration is needed");
                     LocationData->calibrationStatus |= ((1<<TAF_GNSS_DR_ODO_CALIBRATION_NEEDED));
                 }
                 if((calibrationStatus & telux::loc::DR_GYRO_CALIBRATION_NEEDED))
                 {
-                    LE_INFO("onDetailedEngineLocationUpdate Gyro calibration is needed");
+                    LE_DEBUG("onDetailedEngineLocationUpdate Gyro calibration is needed");
                     LocationData->calibrationStatus |= ((1<<TAF_GNSS_DR_GYRO_CALIBRATION_NEEDED));
                 }
-                LE_INFO("onDetailedEngineLocationUpdate Location position dynamic");
+                LE_DEBUG("onDetailedEngineLocationUpdate Location position dynamic");
                 telux::loc::GnssKinematicsData GnssKinData = locationInfo->getBodyFrameData();
                 telux::loc::KinematicDataValidity GnssKinDataValidity =
                                                   GnssKinData.bodyFrameDataMask;
-                LE_INFO("onDetailedEngineLocationUpdate GnssKinDataValidity:%0x",
+                LE_DEBUG("onDetailedEngineLocationUpdate GnssKinDataValidity:%0x",
                                                   GnssKinDataValidity);
                 if((GnssKinDataValidity & telux::loc::HAS_LONG_ACCEL))
                 {
-                    LE_INFO("Navigation data has Forward Acceleration");
+                    LE_DEBUG("Navigation data has Forward Acceleration");
                     LocationData->GnssKinematicsData.bodyFrameDataMask |=
                                                      (1<<TAF_GNSS_HAS_LONG_ACCEL);
                 }
                 if((GnssKinDataValidity & telux::loc::HAS_LAT_ACCEL))
                 {
-                    LE_INFO("Navigation data has Sideward Acceleration");
+                    LE_DEBUG("Navigation data has Sideward Acceleration");
                     LocationData->GnssKinematicsData.bodyFrameDataMask |=
                                                      (1<<TAF_GNSS_HAS_LAT_ACCEL);
                 }
                 if((GnssKinDataValidity & telux::loc::HAS_VERT_ACCEL))
                 {
-                    LE_INFO("Navigation data has Vertical Acceleration");
+                    LE_DEBUG("Navigation data has Vertical Acceleration");
                     LocationData->GnssKinematicsData.bodyFrameDataMask |=
                                                      (1<<TAF_GNSS_HAS_VERT_ACCEL);
                 }
                 if((GnssKinDataValidity & telux::loc::HAS_YAW_RATE))
                 {
-                    LE_INFO("Navigation data has Heading Rate");
+                    LE_DEBUG("Navigation data has Heading Rate");
                     LocationData->GnssKinematicsData.bodyFrameDataMask |=
                                                      (1<<TAF_GNSS_HAS_YAW_RATE);
                 }
                 if((GnssKinDataValidity & telux::loc::HAS_PITCH))
                 {
-                    LE_INFO("Navigation data has Pitch");
+                    LE_DEBUG("Navigation data has Pitch");
                     LocationData->GnssKinematicsData.bodyFrameDataMask |= (1<<TAF_GNSS_HAS_PITCH);
                 }
                 if((GnssKinDataValidity & telux::loc::HAS_LONG_ACCEL_UNC))
                 {
-                    LE_INFO("Navigation data has Forward Acceleration Unc");
+                    LE_DEBUG("Navigation data has Forward Acceleration Unc");
                     LocationData->GnssKinematicsData.bodyFrameDataMask |=
                                                      (1<<TAF_GNSS_HAS_LONG_ACCEL_UNC);
                 }
                 if((GnssKinDataValidity & telux::loc::HAS_LAT_ACCEL_UNC))
                 {
-                    LE_INFO("Navigation data has Sideward Acceleration Unc");
+                    LE_DEBUG("Navigation data has Sideward Acceleration Unc");
                     LocationData->GnssKinematicsData.bodyFrameDataMask |=
                                                      (1<<TAF_GNSS_HAS_LAT_ACCEL_UNC);
                 }
                 if((GnssKinDataValidity & telux::loc::HAS_VERT_ACCEL_UNC))
                 {
-                    LE_INFO("Navigation data has Vertical Acceleration Unc");
+                    LE_DEBUG("Navigation data has Vertical Acceleration Unc");
                     LocationData->GnssKinematicsData.bodyFrameDataMask |=
                                                     (1<<TAF_GNSS_HAS_VERT_ACCEL_UNC);
                 }
                 if((GnssKinDataValidity & telux::loc::HAS_YAW_RATE_UNC))
                 {
-                    LE_INFO("Navigation data has Heading Rate Unc");
+                    LE_DEBUG("Navigation data has Heading Rate Unc");
                     LocationData->GnssKinematicsData.bodyFrameDataMask |=
                                                     (1<<TAF_GNSS_HAS_YAW_RATE_UNC);
                 }
                 if((GnssKinDataValidity & telux::loc::HAS_PITCH_UNC))
                 {
-                    LE_INFO("Navigation data has Body Pitch Unc");
+                    LE_DEBUG("Navigation data has Body Pitch Unc");
                     LocationData->GnssKinematicsData.bodyFrameDataMask |=
                                                     (1<<TAF_GNSS_HAS_PITCH_UNC);
                 }
                 if((GnssKinDataValidity & telux::loc::HAS_PITCH_RATE_BIT))
                 {
-                    LE_INFO("Navigation data has Pitch rate");
+                    LE_DEBUG("Navigation data has Pitch rate");
                     LocationData->GnssKinematicsData.bodyFrameDataMask |=
                                                      (1<<TAF_GNSS_HAS_PITCH_RATE_BIT);
                 }
                 if((GnssKinDataValidity & telux::loc::HAS_PITCH_RATE_UNC_BIT))
                 {
-                    LE_INFO("Navigation data has Pitch rate Unc");
+                    LE_DEBUG("Navigation data has Pitch rate Unc");
                     LocationData->GnssKinematicsData.bodyFrameDataMask |=
                                                      (1<<TAF_GNSS_HAS_PITCH_RATE_UNC_BIT);
                 }
                 if((GnssKinDataValidity & telux::loc::HAS_ROLL_BIT))
                 {
-                    LE_INFO("Navigation data has roll");
+                    LE_DEBUG("Navigation data has roll");
                     LocationData->GnssKinematicsData.bodyFrameDataMask |= (1<<TAF_GNSS_HAS_ROLL_BIT);
                 }
                 if((GnssKinDataValidity & telux::loc::HAS_ROLL_UNC_BIT))
                 {
-                    LE_INFO("Navigation data has roll Unc ");
+                    LE_DEBUG("Navigation data has roll Unc ");
                     LocationData->GnssKinematicsData.bodyFrameDataMask |=
                                                      (1<<TAF_GNSS_HAS_ROLL_UNC_BIT);
                 }
                 if((GnssKinDataValidity & telux::loc::HAS_ROLL_RATE_BIT))
                 {
-                    LE_INFO("Navigation data has roll rate ");
+                    LE_DEBUG("Navigation data has roll rate ");
                     LocationData->GnssKinematicsData.bodyFrameDataMask |=
                                                      (1<<TAF_GNSS_HAS_ROLL_RATE_BIT);
                 }
                 if((GnssKinDataValidity & telux::loc::HAS_ROLL_RATE_UNC_BIT))
                 {
-                    LE_INFO("Navigation data has roll rate Unc ");
+                    LE_DEBUG("Navigation data has roll rate Unc ");
                     LocationData->GnssKinematicsData.bodyFrameDataMask |=
                                                      (1<<TAF_GNSS_HAS_ROLL_RATE_UNC_BIT);
                 }
                 if((GnssKinDataValidity & telux::loc::HAS_YAW_BIT))
                 {
-                    LE_INFO("Navigation data has Yaw bit ");
+                    LE_DEBUG("Navigation data has Yaw bit ");
                     LocationData->GnssKinematicsData.bodyFrameDataMask |= (1<<TAF_GNSS_HAS_YAW_BIT);
                 }
                 if((GnssKinDataValidity & telux::loc::HAS_YAW_UNC_BIT))
                 {
-                    LE_INFO("Navigation data has Yaw bit Unc ");
+                    LE_DEBUG("Navigation data has Yaw bit Unc ");
                     LocationData->GnssKinematicsData.bodyFrameDataMask |=
                                                      (1<<TAF_GNSS_HAS_YAW_UNC_BIT);
                 }
                 else
                 {
-                    LE_INFO("Navigation data is not found");
+                    LE_DEBUG("Navigation data is not found");
                 }
                 LocationData->GnssKinematicsData.longAccel = GnssKinData.longAccel;
                 LocationData->GnssKinematicsData.latAccel = GnssKinData.latAccel;
@@ -1006,412 +1006,412 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 if(correction[(telux::loc::SbasCorrectionType)telux::loc::SBAS_CORRECTION_IONO])
                 {
                     LocationData->sbasMask |= (1<<TAF_GNSS_SBAS_CORRECTION_IONO);
-                    LE_INFO("SBAS ionospheric correction is used");
+                    LE_DEBUG("SBAS ionospheric correction is used");
                 }
                 if(correction[(telux::loc::SbasCorrectionType)telux::loc::SBAS_CORRECTION_FAST])
                 {
                     LocationData->sbasMask |= (1<<TAF_GNSS_SBAS_CORRECTION_FAST);
-                    LE_INFO("SBAS fast correction is used");
+                    LE_DEBUG("SBAS fast correction is used");
                 }
                 if(correction[(telux::loc::SbasCorrectionType)telux::loc::SBAS_CORRECTION_LONG])
                 {
                     LocationData->sbasMask |= (1<<TAF_GNSS_SBAS_CORRECTION_LONG);
-                    LE_INFO("SBAS long correction is used");
+                    LE_DEBUG("SBAS long correction is used");
                 }
                 if(correction[(telux::loc::SbasCorrectionType)telux::loc::SBAS_INTEGRITY])
                 {
                     LocationData->sbasMask |= (1<<TAF_GNSS_SBAS_INTEGRITY);
-                    LE_INFO("SBAS integrity information is used");
+                    LE_DEBUG("SBAS integrity information is used");
                 }
                 if(correction[(telux::loc::SbasCorrectionType)telux::loc::SBAS_CORRECTION_DGNSS])
                 {
                     LocationData->sbasMask |= (1<<TAF_GNSS_SBAS_CORRECTION_DGNSS);
-                    LE_INFO("SBAS DGNSS correction information is used");
+                    LE_DEBUG("SBAS DGNSS correction information is used");
                 }
                 if(correction[(telux::loc::SbasCorrectionType)telux::loc::SBAS_CORRECTION_RTK])
                 {
                     LocationData->sbasMask |= (1<<TAF_GNSS_SBAS_CORRECTION_RTK);
-                    LE_INFO("SBAS RTK correction information is used");
+                    LE_DEBUG("SBAS RTK correction information is used");
                 }
                 if(correction[(telux::loc::SbasCorrectionType)telux::loc::SBAS_CORRECTION_PPP])
                 {
                     LocationData->sbasMask |= (1<<TAF_GNSS_SBAS_CORRECTION_PPP);
-                    LE_INFO("SBAS PPP correction information is used");
+                    LE_DEBUG("SBAS PPP correction information is used");
                 }
                 if(correction[(telux::loc::SbasCorrectionType)telux::loc::SBAS_CORRECTION_RTK_FIXED])
                 {
                     LocationData->sbasMask |= (1<<TAF_GNSS_SBAS_CORRECTION_RTK_FIXED);
-                    LE_INFO("SBAS RTK fixed correction information is used");
+                    LE_DEBUG("SBAS RTK fixed correction information is used");
                 }
                 if(correction[(telux::loc::SbasCorrectionType)
                                telux::loc::SBAS_CORRECTION_ONLY_SBAS_CORRECTED_SV_USED_])
                 {
                     LocationData->sbasMask |= (1<<TAF_GNSS_SBAS_CORRECTED_SV_USED);
-                    LE_INFO("SBAS corrected SV is used");
+                    LE_DEBUG("SBAS corrected SV is used");
                 }
                 telux::loc::LocationInfoValidity validityMask = locationInfo->getLocationInfoValidity();
-                LE_INFO("LocationInfoExValidity->validityMask: %u ",validityMask);
+                LE_DEBUG("LocationInfoExValidity->validityMask: %u ",validityMask);
                 if((validityMask & telux::loc::HAS_LAT_LONG_BIT))
                 {
                     LocationData->validityMask |= TAF_GNSS_HAS_LAT_LONG_BIT;
-                    LE_INFO("valid latitude longitude");
+                    LE_DEBUG("valid latitude longitude");
                 }
                 if((validityMask & telux::loc::HAS_ALTITUDE_BIT))
                 {
                     LocationData->validityMask |= TAF_GNSS_HAS_ALTITUDE_BIT;
-                    LE_INFO("valid altitude");
+                    LE_DEBUG("valid altitude");
                 }
                 if((validityMask & telux::loc::HAS_SPEED_BIT))
                 {
                     LocationData->validityMask |= TAF_GNSS_HAS_SPEED_BIT;
-                    LE_INFO("valid speed");
+                    LE_DEBUG("valid speed");
                 }
                 if((validityMask & telux::loc::HAS_HEADING_BIT))
                 {
                     LocationData->validityMask |= TAF_GNSS_HAS_HEADING_BIT;
-                    LE_INFO("valid heading");
+                    LE_DEBUG("valid heading");
                 }
                 if((validityMask & telux::loc::HAS_HORIZONTAL_ACCURACY_BIT))
                 {
                     LocationData->validityMask |= TAF_GNSS_HAS_HORIZONTAL_ACCURACY_BIT;
-                    LE_INFO("valid horizontal accuracy");
+                    LE_DEBUG("valid horizontal accuracy");
                 }
                 if((validityMask & telux::loc::HAS_VERTICAL_ACCURACY_BIT))
                 {
                     LocationData->validityMask |= TAF_GNSS_HAS_VERTICAL_ACCURACY_BIT;
-                    LE_INFO("valid vertical accuracy");
+                    LE_DEBUG("valid vertical accuracy");
                 }
                 if((validityMask & telux::loc::HAS_SPEED_ACCURACY_BIT))
                 {
                     LocationData->validityMask |= TAF_GNSS_HAS_SPEED_ACCURACY_BIT;
-                    LE_INFO("valid speed accuracy");
+                    LE_DEBUG("valid speed accuracy");
                 }
                 if((validityMask & telux::loc::HAS_HEADING_ACCURACY_BIT))
                 {
                     LocationData->validityMask |= TAF_GNSS_HAS_HEADING_ACCURACY_BIT;
-                    LE_INFO("valid heading accuracy");
+                    LE_DEBUG("valid heading accuracy");
                 }
                 if((validityMask & telux::loc::HAS_TIMESTAMP_BIT))
                 {
                     LocationData->validityMask |= TAF_GNSS_HAS_TIMESTAMP_BIT;
-                    LE_INFO("valid timestamp");
+                    LE_DEBUG("valid timestamp");
                 }
                 if((validityMask & telux::loc::HAS_ELAPSED_REAL_TIME_BIT))
                 {
                     LocationData->validityMask |= TAF_GNSS_HAS_ELAPSED_REAL_TIME_BIT;
-                    LE_INFO("valid elapsed real time");
+                    LE_DEBUG("valid elapsed real time");
                 }
                 if((validityMask & telux::loc::HAS_ELAPSED_REAL_TIME_UNC_BIT))
                 {
                     LocationData->validityMask |= TAF_GNSS_HAS_ELAPSED_REAL_TIME_UNC_BIT;
-                    LE_INFO("valid elapsed real time Uncertainity");
+                    LE_DEBUG("valid elapsed real time Uncertainity");
                 }
                 telux::loc::LocationInfoExValidity validityExMask =
                                                    locationInfo->getLocationInfoExValidity();
-                LE_INFO("LocationInfoExValidity->validityExMask: %" PRIu64 "", validityExMask);
+                LE_DEBUG("LocationInfoExValidity->validityExMask: %" PRIu64 "", validityExMask);
                 if((validityExMask & telux::loc::HAS_ALTITUDE_MEAN_SEA_LEVEL))
                 {
                     LocationData->validityExMask |= (1ULL << TAF_GNSS_HAS_ALTITUDE_MEAN_SEA_LEVEL);
-                    LE_INFO("valid altitude mean sea level");
+                    LE_DEBUG("valid altitude mean sea level");
                 }
                 if((validityExMask & telux::loc::HAS_DOP))
                 {
                     LocationData->validityExMask |= (1ULL << TAF_GNSS_HAS_DOP);
-                    LE_INFO("valid pdop, hdop, vdop");
+                    LE_DEBUG("valid pdop, hdop, vdop");
                 }
                 if((validityExMask & telux::loc::HAS_MAGNETIC_DEVIATION))
                 {
                     LocationData->validityExMask |= (1ULL << TAF_GNSS_HAS_MAGNETIC_DEVIATION);
-                    LE_INFO("valid magnetic deviation");
+                    LE_DEBUG("valid magnetic deviation");
                 }
                 if((validityExMask & telux::loc::HAS_HOR_RELIABILITY))
                 {
                     LocationData->validityExMask |= (1ULL << TAF_GNSS_HAS_HOR_RELIABILITY);
-                    LE_INFO("valid horizontal reliability");
+                    LE_DEBUG("valid horizontal reliability");
                 }
                 if((validityExMask & telux::loc::HAS_VER_RELIABILITY))
                 {
                     LocationData->validityExMask |= (1ULL << TAF_GNSS_HAS_VER_RELIABILITY);
-                    LE_INFO("valid vertical reliability");
+                    LE_DEBUG("valid vertical reliability");
                 }
                 if((validityExMask & telux::loc::HAS_HOR_ACCURACY_ELIP_SEMI_MAJOR))
                 {
                     LocationData->validityExMask |=
                                                  (1ULL << TAF_GNSS_HAS_HOR_ACCURACY_ELIP_SEMI_MAJOR);
-                    LE_INFO("valid elipsode semi major");
+                    LE_DEBUG("valid elipsode semi major");
                 }
                 if((validityExMask & telux::loc::HAS_HOR_ACCURACY_ELIP_SEMI_MINOR))
                 {
                     LocationData->validityExMask |=
                                                  (1ULL << TAF_GNSS_HAS_HOR_ACCURACY_ELIP_SEMI_MINOR);
-                    LE_INFO("valid elipsode semi minor");
+                    LE_DEBUG("valid elipsode semi minor");
                 }
                 if((validityExMask & telux::loc::HAS_HOR_ACCURACY_ELIP_AZIMUTH))
                 {
                     LocationData->validityExMask |=
                                                  (1ULL << TAF_GNSS_HAS_HOR_ACCURACY_ELIP_AZIMUTH);
-                    LE_INFO("valid accuracy elipsode azimuth");
+                    LE_DEBUG("valid accuracy elipsode azimuth");
                 }
                 if((validityExMask & telux::loc::HAS_GNSS_SV_USED_DATA))
                 {
                     LocationData->validityExMask |= (1ULL << TAF_GNSS_HAS_GNSS_SV_USED_DATA);
-                    LE_INFO("valid gnss sv used in pos data");
+                    LE_DEBUG("valid gnss sv used in pos data");
                 }
                 if((validityExMask & telux::loc::HAS_NAV_SOLUTION_MASK))
                 {
                     LocationData->validityExMask |= (1ULL << TAF_GNSS_HAS_NAV_SOLUTION_MASK);
-                    LE_INFO("valid navSolutionMask");
+                    LE_DEBUG("valid navSolutionMask");
                 }
                 if((validityExMask & telux::loc::HAS_POS_TECH_MASK))
                 {
                     LocationData->validityExMask |= (1ULL << TAF_GNSS_HAS_POS_TECH_MASK);
-                    LE_INFO("valid LocPosTechMask");
+                    LE_DEBUG("valid LocPosTechMask");
                 }
                 if((validityExMask & telux::loc::HAS_SV_SOURCE_INFO))
                 {
                     LocationData->validityExMask |= (1ULL << TAF_GNSS_HAS_SV_SOURCE_INFO);
-                    LE_INFO("valid LocSvInfoSource");
+                    LE_DEBUG("valid LocSvInfoSource");
                 }
                 if((validityExMask & telux::loc::HAS_POS_DYNAMICS_DATA))
                 {
                     LocationData->validityExMask |= (1ULL << TAF_GNSS_HAS_POS_DYNAMICS_DATA);
-                    LE_INFO("valid position dynamics data");
+                    LE_DEBUG("valid position dynamics data");
                 }
                 if((validityExMask & telux::loc::HAS_EXT_DOP))
                 {
                     LocationData->validityExMask |= (1ULL << TAF_GNSS_HAS_EXT_DOP);
-                    LE_INFO("valid gdop, tdop");
+                    LE_DEBUG("valid gdop, tdop");
                 }
                 if((validityExMask & telux::loc::HAS_NORTH_STD_DEV))
                 {
                     LocationData->validityExMask |= (1ULL << TAF_GNSS_HAS_NORTH_STD_DEV);
-                    LE_INFO("valid North standard deviation");
+                    LE_DEBUG("valid North standard deviation");
                 }
                 if((validityExMask & telux::loc::HAS_EAST_STD_DEV))
                 {
                     LocationData->validityExMask |= (1ULL << TAF_GNSS_HAS_EAST_STD_DEV);
-                    LE_INFO("valid East standard deviation");
+                    LE_DEBUG("valid East standard deviation");
                 }
                 if((validityExMask & telux::loc::HAS_NORTH_VEL))
                 {
                     LocationData->validityExMask |= (1ULL << TAF_GNSS_HAS_NORTH_VEL);
-                    LE_INFO("valid North Velocity");
+                    LE_DEBUG("valid North Velocity");
                 }
                 if((validityExMask & telux::loc::HAS_EAST_VEL))
                 {
                     LocationData->validityExMask |= (1ULL << TAF_GNSS_HAS_EAST_VEL);
-                    LE_INFO("valid East Velocity");
+                    LE_DEBUG("valid East Velocity");
                 }
                 if((validityExMask & telux::loc::HAS_UP_VEL))
                 {
                     LocationData->validityExMask |= (1ULL << TAF_GNSS_HAS_UP_VEL);
-                    LE_INFO("valid Up Velocity");
+                    LE_DEBUG("valid Up Velocity");
                 }
                 if((validityExMask & telux::loc::HAS_NORTH_VEL_UNC))
                 {
                     LocationData->validityExMask |= (1ULL << TAF_GNSS_HAS_NORTH_VEL_UNC);
-                    LE_INFO("valid North Velocity Uncertainty");
+                    LE_DEBUG("valid North Velocity Uncertainty");
                 }
                 if((validityExMask & telux::loc::HAS_EAST_VEL_UNC))
                 {
                     LocationData->validityExMask |= (1ULL << TAF_GNSS_HAS_EAST_VEL_UNC);
-                    LE_INFO("valid East Velocity Uncertainty");
+                    LE_DEBUG("valid East Velocity Uncertainty");
                 }
                 if((validityExMask & telux::loc::HAS_UP_VEL_UNC))
                 {
                     LocationData->validityExMask |= (1ULL << TAF_GNSS_HAS_UP_VEL_UNC);
-                    LE_INFO("valid Up Velocity Uncertainty");
+                    LE_DEBUG("valid Up Velocity Uncertainty");
                 }
                 if((validityExMask & telux::loc::HAS_LEAP_SECONDS))
                 {
                     LocationData->validityExMask |= (1ULL << TAF_GNSS_HAS_LEAP_SECONDS);
-                    LE_INFO("valid leap_seconds");
+                    LE_DEBUG("valid leap_seconds");
                 }
                 if((validityExMask & telux::loc::HAS_TIME_UNC))
                 {
                     LocationData->validityExMask |= (1ULL << TAF_GNSS_HAS_TIME_UNC);
-                    LE_INFO("valid timeUncMs");
+                    LE_DEBUG("valid timeUncMs");
                 }
                 if((validityExMask & telux::loc::HAS_NUM_SV_USED_IN_POSITION))
                 {
                     LocationData->validityExMask |=
                                                (1ULL << TAF_GNSS_HAS_NUM_SV_USED_IN_POSITION);
-                    LE_INFO("valid number of sv used");
+                    LE_DEBUG("valid number of sv used");
                 }
                 if((validityExMask & telux::loc::HAS_CALIBRATION_CONFIDENCE_PERCENT))
                 {
                     LocationData->validityExMask |=
                                                (1ULL << TAF_GNSS_HAS_CALIBRATION_CONFIDENCE_PERCENT);
-                    LE_INFO("valid sensor calibrationConfidencePercent");
+                    LE_DEBUG("valid sensor calibrationConfidencePercent");
                 }
                 if((validityExMask & telux::loc::HAS_CALIBRATION_STATUS))
                 {
                     LocationData->validityExMask |= (1ULL << TAF_GNSS_HAS_CALIBRATION_STATUS);
-                    LE_INFO("valid sensor calibrationConfidence");
+                    LE_DEBUG("valid sensor calibrationConfidence");
                 }
                 if((validityExMask & telux::loc::HAS_OUTPUT_ENG_TYPE))
                 {
                     LocationData->validityExMask |= (1ULL << TAF_GNSS_HAS_OUTPUT_ENG_TYPE);
-                    LE_INFO("valid output engine type");
+                    LE_DEBUG("valid output engine type");
                 }
                 if((validityExMask & telux::loc::HAS_OUTPUT_ENG_MASK))
                 {
                     LocationData->validityExMask |= (1ULL << TAF_GNSS_HAS_OUTPUT_ENG_MASK);
-                    LE_INFO("valid output engine mask");
+                    LE_DEBUG("valid output engine mask");
                 }
                 if((validityExMask & telux::loc::HAS_CONFORMITY_INDEX_FIX))
                 {
                     LocationData->validityExMask |= (1ULL << TAF_GNSS_HAS_CONFORMITY_INDEX_FIX);
-                    LE_INFO("valid conformity index");
+                    LE_DEBUG("valid conformity index");
                 }
                 if((validityExMask & telux::loc::HAS_LLA_VRP_BASED))
                 {
                     LocationData->validityExMask |= (1ULL << TAF_GNSS_HAS_LLA_VRP_BASED);
-                    LE_INFO("valid lla vrp based");
+                    LE_DEBUG("valid lla vrp based");
                 }
                 if((validityExMask & telux::loc::HAS_ENU_VELOCITY_VRP_BASED))
                 {
                     LocationData->validityExMask |= (1ULL << TAF_GNSS_HAS_ENU_VELOCITY_VRP_BASED);
-                    LE_INFO("valid enu velocity vrp based");
+                    LE_DEBUG("valid enu velocity vrp based");
                 }
                 if((validityExMask & telux::loc::HAS_ALTITUDE_TYPE))
                 {
                     LocationData->validityExMask |= (1ULL << TAF_GNSS_HAS_ALTITUDE_TYPE);
-                    LE_INFO("valid altitude type");
+                    LE_DEBUG("valid altitude type");
                 }
                 if((validityExMask & telux::loc::HAS_REPORT_STATUS))
                 {
                     LocationData->validityExMask |= (1ULL << TAF_GNSS_HAS_REPORT_STATUS);
-                    LE_INFO("valid report status");
+                    LE_DEBUG("valid report status");
                 }
                 if((validityExMask & telux::loc::HAS_INTEGRITY_RISK_USED))
                 {
                     LocationData->validityExMask |= (1ULL << TAF_GNSS_HAS_INTEGRITY_RISK_USED);
-                    LE_INFO("valid integrity risk");
+                    LE_DEBUG("valid integrity risk");
                 }
                 if((validityExMask & telux::loc::HAS_PROTECT_LEVEL_ALONG_TRACK))
                 {
                     LocationData->validityExMask |=
                                                 (1ULL << TAF_GNSS_HAS_PROTECT_LEVEL_ALONG_TRACK);
-                    LE_INFO("valid protect along track");
+                    LE_DEBUG("valid protect along track");
                 }
                 if((validityExMask & telux::loc::HAS_PROTECT_LEVEL_CROSS_TRACK))
                 {
                     LocationData->validityExMask |=
                                                 (1ULL << TAF_GNSS_HAS_PROTECT_LEVEL_CROSS_TRACK);
-                    LE_INFO("valid protect cross track");
+                    LE_DEBUG("valid protect cross track");
                 }
                 if((validityExMask & telux::loc::HAS_PROTECT_LEVEL_VERTICAL))
                 {
                     LocationData->validityExMask |=
                                                 (1ULL << TAF_GNSS_HAS_PROTECT_LEVEL_VERTICAL);
-                    LE_INFO("valid protect vertical");
+                    LE_DEBUG("valid protect vertical");
                 }
                 telux::loc::PositioningEngine posEngineBits = locationInfo->getLocOutputEngMask();
                 if(posEngineBits & telux::loc::STANDARD_POSITIONING_ENGINE)
                 {
                     LocationData->engMask |= TAF_GNSS_STANDARD_POSITIONING_ENGINE;
-                    LE_INFO("eng Mask is STANDARD_POSITIONING_ENGINE");
+                    LE_DEBUG("eng Mask is STANDARD_POSITIONING_ENGINE");
                 }
                 if(posEngineBits & telux::loc::DEAD_RECKONING_ENGINE)
                 {
                     LocationData->engMask |= TAF_GNSS_DEAD_RECKONING_ENGINE;
-                    LE_INFO("eng Mask is DEAD_RECKONING_ENGINE");
+                    LE_DEBUG("eng Mask is DEAD_RECKONING_ENGINE");
                 }
                 if(posEngineBits & telux::loc::PRECISE_POSITIONING_ENGINE)
                 {
                     LocationData->engMask |= TAF_GNSS_PRECISE_POSITIONING_ENGINE;
-                    LE_INFO("eng Mask is PRECISE_POSITIONING_ENGINE");
+                    LE_DEBUG("eng Mask is PRECISE_POSITIONING_ENGINE");
                 }
                 if(posEngineBits & telux::loc::VP_POSITIONING_ENGINE)
                 {
                     LocationData->engMask |= TAF_GNSS_VP_POSITIONING_ENGINE;
-                    LE_INFO("eng Mask is VP_POSITIONING_ENGINE");
+                    LE_DEBUG("eng Mask is VP_POSITIONING_ENGINE");
                 }
                 telux::loc::LocationAggregationType locEngineType = locationInfo->getLocOutputEngType();
                 if(locEngineType == telux::loc::LOC_OUTPUT_ENGINE_FUSED)
                 {
                     LocationData->locationEngType = TAF_GNSS_LOC_OUTPUT_ENGINE_FUSED;
-                    LE_INFO("location eng type is FUSED");
+                    LE_DEBUG("location eng type is FUSED");
                 }
                 if(locEngineType == telux::loc::LOC_OUTPUT_ENGINE_SPE)
                 {
                     LocationData->locationEngType = TAF_GNSS_LOC_OUTPUT_ENGINE_SPE;
-                    LE_INFO("location eng type is SPE");
+                    LE_DEBUG("location eng type is SPE");
                 }
                 if(locEngineType == telux::loc::LOC_OUTPUT_ENGINE_PPE)
                 {
                     LocationData->locationEngType = TAF_GNSS_LOC_OUTPUT_ENGINE_PPE;
-                    LE_INFO("location eng type is PPE");
+                    LE_DEBUG("location eng type is PPE");
                 }
                 if(locEngineType == telux::loc::LOC_OUTPUT_ENGINE_VPE)
                 {
                     LocationData->locationEngType = TAF_GNSS_LOC_OUTPUT_ENGINE_VPE;
-                    LE_INFO("location eng type is VPE");
+                    LE_DEBUG("location eng type is VPE");
                 }
                 telux::loc::LocationReliability locReliability =
                                                    locationInfo->getHorizontalReliability();
                 if(locReliability == telux::loc::LocationReliability::NOT_SET)
                 {
                     LocationData->horiReliablity = TAF_GNSS_RELIABILITY_NOT_SET;
-                    LE_INFO("horizontal reliablity is NOT SET");
+                    LE_DEBUG("horizontal reliablity is NOT SET");
                 }
                 else if(locReliability == telux::loc::LocationReliability::VERY_LOW)
                 {
                     LocationData->horiReliablity = TAF_GNSS_RELIABILITY_VERY_LOW;
-                    LE_INFO("horizontal reliablity is VERY LOW");
+                    LE_DEBUG("horizontal reliablity is VERY LOW");
                 }
                 else if(locReliability == telux::loc::LocationReliability::LOW)
                 {
                     LocationData->horiReliablity = TAF_GNSS_RELIABILITY_LOW;
-                    LE_INFO("horizontal reliablity is LOW");
+                    LE_DEBUG("horizontal reliablity is LOW");
                 }
                 else if(locReliability == telux::loc::LocationReliability::MEDIUM)
                 {
                     LocationData->horiReliablity = TAF_GNSS_RELIABILITY_MEDIUM;
-                    LE_INFO("horizontal reliablity is MEDIUM");
+                    LE_DEBUG("horizontal reliablity is MEDIUM");
                 }
                 else if(locReliability == telux::loc::LocationReliability::HIGH)
                 {
                     LocationData->horiReliablity = TAF_GNSS_RELIABILITY_HIGH;
-                    LE_INFO("horizontal reliablity is HIGH");
+                    LE_DEBUG("horizontal reliablity is HIGH");
                 }
                 else
                 {
                     LocationData->horiReliablity = TAF_GNSS_RELIABILITY_UNKNOWN;
-                    LE_INFO("horizontal reliablity is UNKNOWN");
+                    LE_DEBUG("horizontal reliablity is UNKNOWN");
                 }
                 telux::loc::LocationReliability vertLocReliability =
                                                    locationInfo->getVerticalReliability();
                 if(vertLocReliability == telux::loc::LocationReliability::NOT_SET)
                 {
                     LocationData->vertReliablity = TAF_GNSS_RELIABILITY_NOT_SET;
-                    LE_INFO("vertical reliablity is NOT SET");
+                    LE_DEBUG("vertical reliablity is NOT SET");
                 }
                 else if(vertLocReliability == telux::loc::LocationReliability::VERY_LOW)
                 {
                     LocationData->vertReliablity = TAF_GNSS_RELIABILITY_VERY_LOW;
-                    LE_INFO("vertical reliablity is VERY LOW");
+                    LE_DEBUG("vertical reliablity is VERY LOW");
                 }
                 else if(vertLocReliability == telux::loc::LocationReliability::LOW)
                 {
                     LocationData->vertReliablity = TAF_GNSS_RELIABILITY_LOW;
-                    LE_INFO("vertical reliablity is LOW");
+                    LE_DEBUG("vertical reliablity is LOW");
                 }
                 else if(vertLocReliability == telux::loc::LocationReliability::MEDIUM)
                 {
                     LocationData->vertReliablity = TAF_GNSS_RELIABILITY_MEDIUM;
-                    LE_INFO("vertical reliablity is MEDIUM");
+                    LE_DEBUG("vertical reliablity is MEDIUM");
                 }
                 else if(vertLocReliability == telux::loc::LocationReliability::HIGH)
                 {
                     LocationData->vertReliablity = TAF_GNSS_RELIABILITY_HIGH;
-                    LE_INFO("vertical reliablity is HIGH");
+                    LE_DEBUG("vertical reliablity is HIGH");
                 }
                 else
                 {
                     LocationData->vertReliablity = TAF_GNSS_RELIABILITY_UNKNOWN;
-                    LE_INFO("vertical reliablity is UNKNOWN");
+                    LE_DEBUG("vertical reliablity is UNKNOWN");
                 }
                 LocationData->azimuth = locationInfo->getHorizontalUncertaintyAzimuth();
                 LocationData->eastDev = locationInfo->getEastStandardDeviation();
@@ -1422,62 +1422,62 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 if((techMask & telux::loc::LOC_GNSS))
                 {
                     LocationData->techMask |= TAF_GNSS_LOC_GNSS;
-                    LE_INFO("location calculated using GNSS");
+                    LE_DEBUG("location calculated using GNSS");
                 }
                 if((techMask & telux::loc::LOC_CELL))
                 {
                     LocationData->techMask |= TAF_GNSS_LOC_CELL;
-                    LE_INFO("location calculated using CELL");
+                    LE_DEBUG("location calculated using CELL");
                 }
                 if((techMask & telux::loc::LOC_WIFI))
                 {
                     LocationData->techMask |= TAF_GNSS_LOC_WIFI;
-                    LE_INFO("location calculated using WIFI");
+                    LE_DEBUG("location calculated using WIFI");
                 }
                 if((techMask & telux::loc::LOC_SENSORS))
                 {
                     LocationData->techMask |= TAF_GNSS_LOC_SENSORS;
-                    LE_INFO("location calculated using SENSORS");
+                    LE_DEBUG("location calculated using SENSORS");
                 }
                 if((techMask & telux::loc::LOC_REFERENCE_LOCATION))
                 {
                     LocationData->techMask |= TAF_GNSS_LOC_REFERENCE_LOCATION;
-                    LE_INFO("location calculated using Reference location");
+                    LE_DEBUG("location calculated using Reference location");
                 }
                 if((techMask & telux::loc::LOC_INJECTED_COARSE_POSITION))
                 {
                     LocationData->techMask |= TAF_GNSS_LOC_INJECTED_COARSE_POSITION;
-                    LE_INFO("location calculated using Coarse position injected");
+                    LE_DEBUG("location calculated using Coarse position injected");
                 }
                 if((techMask & telux::loc::LOC_AFLT))
                 {
                     LocationData->techMask |= TAF_GNSS_LOC_AFLT;
-                    LE_INFO("location calculated using AFLT");
+                    LE_DEBUG("location calculated using AFLT");
                 }
                 if((techMask & telux::loc::LOC_HYBRID))
                 {
                     LocationData->techMask |= TAF_GNSS_LOC_HYBRID;
-                    LE_INFO("location calculated using GNSS and network-provided measurements");
+                    LE_DEBUG("location calculated using GNSS and network-provided measurements");
                 }
                 if((techMask & telux::loc::LOC_PPE))
                 {
                     LocationData->techMask |= TAF_GNSS_LOC_PPE;
-                    LE_INFO("location calculated using Precise position engine");
+                    LE_DEBUG("location calculated using Precise position engine");
                 }
                 if((techMask & telux::loc::LOC_VEH))
                 {
                     LocationData->techMask |= TAF_GNSS_LOC_VEH;
-                    LE_INFO("location calculated using Vehicular data");
+                    LE_DEBUG("location calculated using Vehicular data");
                 }
                 if((techMask & telux::loc::LOC_VIS))
                 {
                     LocationData->techMask |= TAF_GNSS_LOC_VIS;
-                    LE_INFO("location calculated using Visual data");
+                    LE_DEBUG("location calculated using Visual data");
                 }
                 if((techMask & telux::loc::LOC_PROPAGATED))
                 {
                     LocationData->techMask |= TAF_GNSS_LOC_PROPAGATED;
-                    LE_INFO("location calculated using Propagation logic");
+                    LE_DEBUG("location calculated using Propagation logic");
                 }
 
                 for(i=0; i<TAF_GNSS_NUMBER_OF_SIGNAL_TYPES_MAX; i++)
@@ -1627,29 +1627,29 @@ void tafLocationListener::onGnssSignalInfo(
         for(int sig = 0; sig < static_cast<int>(
             telux::loc::GnssDataSignalTypes::GNSS_DATA_MAX_NUMBER_OF_SIGNAL_TYPES);sig++)
         {
-            LE_INFO("onGnssSignalInfo Signal Type : %d",sig);
-            LE_INFO("onGnssSignalInfo gnssDataMask: %d",gnssDatainfo->getGnssData().gnssDataMask[sig]);
+            LE_DEBUG("onGnssSignalInfo Signal Type : %d",sig);
+            LE_DEBUG("onGnssSignalInfo gnssDataMask: %d",gnssDatainfo->getGnssData().gnssDataMask[sig]);
             if(telux::loc::GnssDataValidityType::HAS_JAMMER == ((gnssDatainfo->getGnssData().gnssDataMask[sig])
             & (telux::loc::GnssDataValidityType::HAS_JAMMER)))
             {
-                LE_INFO("onGnssSignalInfo jammerInd: %lf",gnssDatainfo->getGnssData().jammerInd[sig]);
+                LE_DEBUG("onGnssSignalInfo jammerInd: %lf",gnssDatainfo->getGnssData().jammerInd[sig]);
                 clientRequestPtr->mGnssData[sig].gnssDataMask |= TAF_GNSS_HAS_JAMMER;
                 clientRequestPtr->mGnssData[sig].jammerInd = gnssDatainfo->getGnssData().jammerInd[sig];
             }
             else
             {
-                LE_INFO("onGnssSignalInfo JAMMER Ind Not Present ");
+                LE_DEBUG("onGnssSignalInfo JAMMER Ind Not Present ");
             }
             if(telux::loc::GnssDataValidityType::HAS_AGC == ((gnssDatainfo->getGnssData().gnssDataMask[sig])
              & (telux::loc::GnssDataValidityType::HAS_AGC)))
             {
-                LE_INFO("onGnssSignalInfo agc: %lf",gnssDatainfo->getGnssData().agc[sig]);
+                LE_DEBUG("onGnssSignalInfo agc: %lf",gnssDatainfo->getGnssData().agc[sig]);
                 clientRequestPtr->mGnssData[sig].gnssDataMask |= TAF_GNSS_HAS_AGC;
                 clientRequestPtr->mGnssData[sig].agc = gnssDatainfo->getGnssData().agc[sig];
             }
             else
             {
-                LE_INFO("onGnssSignalInfo AGC Not Present");
+                LE_DEBUG("onGnssSignalInfo AGC Not Present");
             }
         }
         clientRequestPtr->mGnssSigEnabled = true;
@@ -1660,7 +1660,7 @@ void tafLocationListener::onGnssSignalInfo(
 void tafLocationListener::onCapabilitiesInfo(
         const telux::loc::LocCapability capabilityInfo) {
     auto &gnss = taf_Gnss::GetInstance();
-    LE_INFO("onCapabilitiesInfo: The capabilityInfo is %d for *sessionRef: %p", (int) capabilityInfo, *clientSessionRef);
+    LE_DEBUG("onCapabilitiesInfo: The capabilityInfo is %d for *sessionRef: %p", (int) capabilityInfo, *clientSessionRef);
     taf_gnss_Client_t* clientRequestPtr = NULL;
     clientRequestPtr = gnss.DiscoverSessionRef(*clientSessionRef);
 
@@ -1795,7 +1795,7 @@ void tafLocationListener::onGnssNmeaInfo(uint64_t timestamp, const std::string &
         {
             nmeaEvent.nmeaMask[i] = gnss.mNmeaBitMask.c_str()[i];
         }
-        LE_INFO( "**** NMEA handler string copied is: %s****",nmeaEvent.nmeaMask);
+        LE_DEBUG( "**** NMEA handler string copied is: %s****",nmeaEvent.nmeaMask);
         le_event_Report(clientRequestPtr->nmeaEventId, &nmeaEvent, sizeof(nmeaEvent));
     }
     le_mutex_Unlock(clientRequestPtr->mGnssMutexRef);
@@ -1833,42 +1833,42 @@ void tafLocationListener::onLocationSystemInfo(const telux::loc::LocationSystemI
     le_mutex_Lock(clientRequestPtr->mGnssMutexRef);
 
     LE_DEBUG( "**** Location System Information ****" );
-    LE_INFO( "**** Location System Information locationSystemInfoValidity:%d",locationSystemInfo.valid);
-    LE_INFO( "**** Location System Information LeapSecondInfoValidity:%d",locationSystemInfo.info.valid);
+    LE_DEBUG( "**** Location System Information locationSystemInfoValidity:%d",locationSystemInfo.valid);
+    LE_DEBUG( "**** Location System Information LeapSecondInfoValidity:%d",locationSystemInfo.info.valid);
     telux::loc::LocationSystemInfoValidity locationSystemInfoMask = locationSystemInfo.valid;
     telux::loc::LeapSecondInfoValidity leapSecondSysInfoMask = locationSystemInfo.info.valid;
     if(locationSystemInfoMask & telux::loc::LOCATION_SYS_INFO_LEAP_SECOND)
     {
-        LE_INFO(" onLocationSystemInfo: contains current leap second or leap second change info");
+        LE_DEBUG(" onLocationSystemInfo: contains current leap second or leap second change info");
         clientRequestPtr->mCurrentLeapSeconds = locationSystemInfo.info.current;
         clientRequestPtr->mCurrentLeapSeconds = clientRequestPtr->mCurrentLeapSeconds * 1000;//millisseoncds
-        LE_INFO("onLocationSystemInfo gnss.mCurrentLeapSeconds: %d",clientRequestPtr->mCurrentLeapSeconds);
+        LE_DEBUG("onLocationSystemInfo gnss.mCurrentLeapSeconds: %d",clientRequestPtr->mCurrentLeapSeconds);
     }
     if(leapSecondSysInfoMask & telux::loc::LEAP_SECOND_SYS_INFO_CURRENT_LEAP_SECONDS_BIT)
     {
-        LE_INFO("onLocationSystemInfo: current leap second info is available.");
+        LE_DEBUG("onLocationSystemInfo: current leap second info is available.");
     }
     if(leapSecondSysInfoMask & telux::loc::LEAP_SECOND_SYS_INFO_LEAP_SECOND_CHANGE_BIT)
     {
-        LE_INFO(" The last known leap change event is available.");
+        LE_DEBUG(" The last known leap change event is available.");
     }
     telux::loc::TimeInfo timeInfo = locationSystemInfo.info.info.timeInfo;
-    LE_INFO("onLocationSystemInfo System time week : %u",(unsigned)timeInfo.systemWeek);
-    LE_INFO("onLocationSystemInfo System time week ms: : %u",(unsigned)timeInfo.systemMsec);
-    LE_INFO("onLocationSystemInfo LeapSecondCurrent : %d", unsigned(locationSystemInfo.info.current));
+    LE_DEBUG("onLocationSystemInfo System time week : %u",(unsigned)timeInfo.systemWeek);
+    LE_DEBUG("onLocationSystemInfo System time week ms: : %u",(unsigned)timeInfo.systemMsec);
+    LE_DEBUG("onLocationSystemInfo LeapSecondCurrent : %d", unsigned(locationSystemInfo.info.current));
     clientRequestPtr->mGpsTime = (uint64_t)(timeInfo.systemWeek  * 7);//7 days
     clientRequestPtr->mGpsTime = (uint64_t) clientRequestPtr->mGpsTime * 24;//24 hours
     clientRequestPtr->mGpsTime = (uint64_t) clientRequestPtr->mGpsTime* 3600;//seconds
     clientRequestPtr->mGpsTime = (uint64_t) clientRequestPtr->mGpsTime* 1000; //milli seconds
     clientRequestPtr->mGpsTime = (uint64_t) clientRequestPtr->mGpsTime + (unsigned)timeInfo.systemMsec;
-    LE_INFO("onLocationSystemInfo overall clientRequestPtr->mGpsTime : %" PRIi64 "",clientRequestPtr->mGpsTime);
-    LE_INFO("onLocationSystemInfo System clk time : %lf",timeInfo.systemClkTimeBias);
-    LE_INFO("onLocationSystemInfo System clk time uncertainty valid: %lf",timeInfo.systemClkTimeUncMs);
-    LE_INFO("onLocationSystemInfo System reference valid: %u",(unsigned)timeInfo.refFCount);
-    LE_INFO("onLocationSystemInfo System num clock reset valid: %u",(unsigned)timeInfo.numClockResets);
-    LE_INFO("onLocationSystemInfo leapSecondsBeforeChange : %u",
+    LE_DEBUG("onLocationSystemInfo overall clientRequestPtr->mGpsTime : %" PRIi64 "",clientRequestPtr->mGpsTime);
+    LE_DEBUG("onLocationSystemInfo System clk time : %lf",timeInfo.systemClkTimeBias);
+    LE_DEBUG("onLocationSystemInfo System clk time uncertainty valid: %lf",timeInfo.systemClkTimeUncMs);
+    LE_DEBUG("onLocationSystemInfo System reference valid: %u",(unsigned)timeInfo.refFCount);
+    LE_DEBUG("onLocationSystemInfo System num clock reset valid: %u",(unsigned)timeInfo.numClockResets);
+    LE_DEBUG("onLocationSystemInfo leapSecondsBeforeChange : %u",
             unsigned(locationSystemInfo.info.info.leapSecondsBeforeChange));
-    LE_INFO("onLocationSystemInfo leapSecondsAfterChange :%u",
+    LE_DEBUG("onLocationSystemInfo leapSecondsAfterChange :%u",
            unsigned(locationSystemInfo.info.info.leapSecondsAfterChange));
     clientRequestPtr->mChangeEventTime = locationSystemInfo.info.info.leapSecondsBeforeChange*1000;//msec
     clientRequestPtr->mNextLeapSeconds = locationSystemInfo.info.info.leapSecondsAfterChange*1000;//msec
@@ -1877,22 +1877,22 @@ void tafLocationListener::onLocationSystemInfo(const telux::loc::LocationSystemI
 
 void tafLocationListener::onXtraStatusUpdate(const telux::loc::XtraStatus xtraStatus)
 {
-    LE_INFO("********** Xtra Status Info **********" );
-    LE_INFO("Xtra Feature Enabled: %d", xtraStatus.featureEnabled);
-    LE_INFO("Xtra Feature Validity: %d",xtraStatus.xtraValidForHours);
+    LE_DEBUG("********** Xtra Status Info **********" );
+    LE_DEBUG("Xtra Feature Enabled: %d", xtraStatus.featureEnabled);
+    LE_DEBUG("Xtra Feature Validity: %d",xtraStatus.xtraValidForHours);
     switch(xtraStatus.xtraDataStatus)
     {
         case telux::loc::XtraDataStatus::STATUS_UNKNOWN:
-            LE_INFO("Unknown");
+            LE_DEBUG("Unknown");
             break;
         case telux::loc::XtraDataStatus::STATUS_NOT_AVAIL:
-            LE_INFO("Not available");
+            LE_DEBUG("Not available");
             break;
         case telux::loc::XtraDataStatus::STATUS_NOT_VALID:
-            LE_INFO("Invalid");
+            LE_DEBUG("Invalid");
             break;
         case telux::loc::XtraDataStatus::STATUS_VALID:
-            LE_INFO("Valid");
+            LE_DEBUG("Valid");
             break;
     }
 }
@@ -2072,7 +2072,7 @@ taf_gnss_Client_t* taf_Gnss::AcquireSessionRef
             gnss.mClientRefCount++;
         }
 
-        LE_INFO("SessionRef %p was not found, Create Client session, total count %d", sessionRef, gnss.mClientRefCount);
+        LE_DEBUG("SessionRef %p was not found, Create Client session, total count %d", sessionRef, gnss.mClientRefCount);
         LE_DEBUG("reqRefPtr %p, clientRequestPtr %p", reqRefPtr, clientRequestPtr);
 
         clientRequestPtr->clientRefPtr = reqRefPtr;
@@ -2124,7 +2124,7 @@ taf_gnss_State_t taf_Gnss::GetState
 
     TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, TAF_GNSS_STATE_READY, "clientRequestPtr is NULL");
 
-    LE_INFO("GNSS GetState [%d]", clientRequestPtr->GnssState);
+    LE_DEBUG("GNSS GetState [%d]", clientRequestPtr->GnssState);
 
     return clientRequestPtr->GnssState;
 }
@@ -2191,51 +2191,51 @@ le_result_t taf_Gnss::SetConstellation
 
     TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
 
-    LE_INFO("SetConstellation constellationMask is 0x%02X",constellationMask);
+    LE_DEBUG("SetConstellation constellationMask is 0x%02X",constellationMask);
     if( constellationMask & TAF_GNSS_CONSTELLATION_GPS)
     {
-        LE_INFO("constellation type GPS is not supported");
+        LE_DEBUG("constellation type GPS is not supported");
     }
     if( constellationMask & TAF_GNSS_CONSTELLATION_GLONASS)
     {
         blackListInfo.constellation = telux::loc::GnssConstellationType::GLONASS;
         svBlackList.push_back(blackListInfo);
-        LE_INFO("constellation type is GLONASS");
+        LE_DEBUG("constellation type is GLONASS");
     }
     if( constellationMask & TAF_GNSS_CONSTELLATION_BEIDOU)
     {
         blackListInfo.constellation = telux::loc::GnssConstellationType::BDS;
         svBlackList.push_back(blackListInfo);
-        LE_INFO("constellation type is BEIDOU");
+        LE_DEBUG("constellation type is BEIDOU");
     }
     if( constellationMask & TAF_GNSS_CONSTELLATION_GALILEO)
     {
         blackListInfo.constellation = telux::loc::GnssConstellationType::GALILEO;
         svBlackList.push_back(blackListInfo);
-        LE_INFO("constellation type is GALILEO");
+        LE_DEBUG("constellation type is GALILEO");
     }
     if( constellationMask & TAF_GNSS_CONSTELLATION_SBAS)
     {
         blackListInfo.constellation = telux::loc::GnssConstellationType::SBAS;
         svBlackList.push_back(blackListInfo);
-        LE_INFO("constellation type is SBAS");
+        LE_DEBUG("constellation type is GLONASS");
     }
     if( constellationMask & TAF_GNSS_CONSTELLATION_QZSS)
     {
         blackListInfo.constellation = telux::loc::GnssConstellationType::QZSS;
         svBlackList.push_back(blackListInfo);
-        LE_INFO("constellation type is QZSS");
+        LE_DEBUG("constellation type is QZSS");
     }
     if( constellationMask & TAF_GNSS_CONSTELLATION_NAVIC)
     {
         blackListInfo.constellation = telux::loc::GnssConstellationType::NAVIC;
         svBlackList.push_back(blackListInfo);
-        LE_INFO("constellation type is NAVIC");
+        LE_DEBUG("constellation type is NAVIC");
     }
     if (blackListInfo.constellation == telux::loc::GnssConstellationType::UNKNOWN)
     {
         svBlackList.push_back(blackListInfo);
-        LE_INFO("constellation type is UNKNOWN");
+        LE_DEBUG("constellation type is UNKNOWN");
     }
 
     switch (clientRequestPtr->GnssState)
@@ -2273,7 +2273,7 @@ le_result_t taf_Gnss::SetConstellation
                 {
                     result = LE_OK;
                     mConstellationMask = constellationMask;
-                    LE_INFO("SetConstellation is success");
+                    LE_DEBUG("SetConstellation is success ");
                 }
                 else
                 {
@@ -2305,7 +2305,7 @@ le_result_t taf_Gnss::Start
 
     TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
 
-    LE_INFO("Start: gnssClientPtr %p, gnssPtr->sessionRef %p, num of active client %d",
+    LE_DEBUG("Start: gnssClientPtr %p, gnssPtr->sessionRef %p, num of active client %d",
             clientRequestPtr, clientRequestPtr->sessionRef, mClientRefCount);
 
     switch (clientRequestPtr->GnssState)
@@ -2316,7 +2316,7 @@ le_result_t taf_Gnss::Start
             if (!clientRequestPtr->mStarted)
             {
                 int optInterval = clientRequestPtr->mAcqRate;
-                LE_INFO("Start->  mAcqRate: %d",clientRequestPtr->mAcqRate);
+                LE_DEBUG("Start->  mAcqRate: %d",clientRequestPtr->mAcqRate);
                 if( optInterval == 0  || optInterval < 100)
                 {
                     LE_DEBUG("Start->mAcqRate is zero, so set default to 100ms");
@@ -2326,8 +2326,8 @@ le_result_t taf_Gnss::Start
                 LocReqEngine engineType = DEFAULT_UNKNOWN;
                 GnssReportTypeMask reportMask = DEFAULT_UNKNOWN;
                 reportMask = 0x7f;//all reports are enabled
-                LE_INFO("Start->reportMask : %u",reportMask);
-                LE_INFO("Start->mEngineType : %d",clientRequestPtr->mEngineType);
+                LE_DEBUG("Start->reportMask : %u",reportMask);
+                LE_DEBUG("Start->mEngineType : %d",clientRequestPtr->mEngineType);
                 engineType |= (1UL << clientRequestPtr->mEngineType);//FUSED mode is supported by default
 
                 std::promise<le_result_t> p;
@@ -2352,14 +2352,14 @@ le_result_t taf_Gnss::Start
                         clientRequestPtr->mStarted = true;
                         clientRequestPtr->GnssState = TAF_GNSS_STATE_ACTIVE;
                         result = LE_OK;
-                        LE_INFO("Start() is success");
+                        LE_DEBUG("Start() is success");
                         clientRequestPtr->mStartTime = std::chrono::system_clock::now();
                         clientRequestPtr->mTtffEnabled = true;
                     }
                     else
                     {
                         result = LE_FAULT;
-                        LE_INFO("Start() is failed");
+                        LE_DEBUG("Start() is failed");
                     }
                 }
             }
@@ -2714,7 +2714,7 @@ taf_gnss_PositionHandlerRef_t taf_Gnss::AddPositionHandler
     positionHandlerPtr->handlerContextPtr = contextPtr;
     positionHandlerPtr->sessionRef = taf_gnss_GetClientSessionRef();
 
-    LE_INFO("AddPositionHandler() sessionRef: %p", positionHandlerPtr->sessionRef);
+    LE_DEBUG("AddPositionHandler() sessionRef: %p", positionHandlerPtr->sessionRef);
 
     taf_gnss_Client_t* clientRequestPtr = NULL;
     clientRequestPtr = AcquireSessionRef();
@@ -2970,7 +2970,7 @@ le_result_t taf_Gnss::GetPositionState
     if (posSampleReqPtr->positionSampleNodePtr->altitudeValid == true)
     {
         posSampleReqPtr->positionSampleNodePtr->fixState = TAF_GNSS_STATE_FIX_3D;
-        LE_INFO("FixState is 3D");
+        LE_DEBUG("FixState is 3D");
     }
     else
     {
@@ -2979,12 +2979,12 @@ le_result_t taf_Gnss::GetPositionState
                 (posSampleReqPtr->positionSampleNodePtr->longitudeValid == true))
         {
             posSampleReqPtr->positionSampleNodePtr->fixState = TAF_GNSS_STATE_FIX_2D;
-            LE_INFO("FixState is 2D");
+            LE_DEBUG("FixState is 2D");
         }
         else
         {
             posSampleReqPtr->positionSampleNodePtr->fixState = TAF_GNSS_STATE_FIX_NO_POS;
-            LE_INFO("FixState is unknown");
+            LE_DEBUG("FixState is unknown");
         }
     }
     if ((posSampleReqPtr->positionSampleNodePtr->techMaskValid == true) &&
@@ -2992,7 +2992,7 @@ le_result_t taf_Gnss::GetPositionState
          (posSampleReqPtr->positionSampleNodePtr->techMask == TAF_GNSS_LOC_PROPAGATED)))
     {
         posSampleReqPtr->positionSampleNodePtr->fixState = TAF_GNSS_STATE_FIX_ESTIMATED;
-        LE_INFO("FixState is Estimated");
+        LE_DEBUG("FixState is Estimated");
     }
     *statePtr = posSampleReqPtr->positionSampleNodePtr->fixState;
 
@@ -3516,7 +3516,7 @@ le_result_t taf_Gnss::GetTimeAccuracy
             if(*timeAccuracyPtr == UINT32_MAX)
             {
                 result = LE_OUT_OF_RANGE;
-                LE_INFO("GetTimeAccuracy: LE_OUT_OF_RANGE");
+                LE_DEBUG("GetTimeAccuracy: LE_OUT_OF_RANGE");
             }
         }
     }
@@ -3791,7 +3791,7 @@ le_result_t taf_Gnss::ForceColdRestart
                     }
                 };
 
-                LE_INFO("ForceColdRestart mStarted: %d", clientRequestPtr->mStarted);
+                LE_DEBUG("ForceColdRestart mStarted: %d", clientRequestPtr->mStarted);
 
                 telux::common::Status status = mLocationConfigurator->deleteAllAidingData(cb1);
                 if (status != telux::common::Status::SUCCESS)
@@ -3836,11 +3836,11 @@ le_result_t taf_Gnss::ForceColdRestart
                             {
                                 clientRequestPtr->mStarted = false;
                                 clientRequestPtr->GnssState = TAF_GNSS_STATE_READY;
-                                LE_INFO("ForceColdRestart->Stop() is success");
+                                LE_DEBUG("ForceColdRestart->Stop() is success");
                             }
                             else
                             {
-                                LE_INFO("ForceColdRestart->Stop() is failed");
+                                LE_DEBUG("ForceColdRestart->Stop() is failed");
                                 result = LE_FAULT;
                             }
                         }
@@ -3851,7 +3851,7 @@ le_result_t taf_Gnss::ForceColdRestart
                     //start Detailed Engine report
                     if (!clientRequestPtr->mStarted) {
                         int optInterval = clientRequestPtr->mAcqRate;
-                        LE_INFO("ForceColdRestart->  optInterval: %d",optInterval);
+                        LE_DEBUG("ForceColdRestart->  optInterval: %d",optInterval);
                         if( optInterval == 0  || optInterval < 100) {
                             LE_DEBUG("ForceColdRestart mAcqRate is zero, so set default to 100ms");
                             optInterval = 100;
@@ -3861,7 +3861,7 @@ le_result_t taf_Gnss::ForceColdRestart
                         LocReqEngine engineType = DEFAULT_UNKNOWN;
                         GnssReportTypeMask reportMask = DEFAULT_UNKNOWN;
                         reportMask = 0x7f;//all reports are enabled
-                        LE_INFO("ForceColdRestart->reportMask : %u",reportMask);
+                        LE_DEBUG("ForceColdRestart->reportMask : %u",reportMask);
                         engineType |= (1UL << clientRequestPtr->mEngineType);
 
                         std::promise<le_result_t> p;
@@ -3888,14 +3888,14 @@ le_result_t taf_Gnss::ForceColdRestart
                             {
                                 clientRequestPtr->mStarted = true;
                                 clientRequestPtr->GnssState = TAF_GNSS_STATE_ACTIVE;
-                                LE_INFO("ForceColdRestart->Start() is success");
+                                LE_DEBUG("ForceColdRestart->Start() is success");
                                 clientRequestPtr->mTtffPtr = 0; //reset TTFF value
                                 clientRequestPtr->mStartTime = std::chrono::system_clock::now();
                                 clientRequestPtr->mTtffEnabled = true;
                             }
                             else
                             {
-                                LE_INFO("ForceColdRestart->Start() is failed");
+                                LE_DEBUG("ForceColdRestart->Start() is failed");
                                 result = LE_FAULT;
                             }
                         }
@@ -3998,11 +3998,11 @@ le_result_t taf_Gnss::ForceWarmRestart
                             {
                                 clientRequestPtr->mStarted = false;
                                 clientRequestPtr->GnssState = TAF_GNSS_STATE_READY;
-                                LE_INFO("ForceWarmRestart->Stop() is success");
+                                LE_DEBUG("ForceWarmRestart->Stop() is success");
                             }
                             else
                             {
-                                LE_INFO("ForceWarmRestart->Stop() is failed");
+                                LE_DEBUG("ForceWarmRestart->Stop() is failed");
                                 result = LE_FAULT;
                             }
                         }
@@ -4026,7 +4026,7 @@ le_result_t taf_Gnss::ForceWarmRestart
                                 p.set_value(LE_FAULT);
                             }
                         };
-                        LE_INFO("ForceWarmRestart->  optInterval: %d",optInterval);
+                        LE_DEBUG("ForceWarmRestart->  optInterval: %d",optInterval);
                         if( optInterval == 0  || optInterval < 100) {
                             LE_DEBUG("ForceWarmRestart mAcqRate is zero, so set default to 100ms");
                             optInterval = 100;
@@ -4036,7 +4036,7 @@ le_result_t taf_Gnss::ForceWarmRestart
                         LocReqEngine engineType = DEFAULT_UNKNOWN;
                         GnssReportTypeMask reportMask = DEFAULT_UNKNOWN;
                         reportMask = 0x7f;//all reports are enabled
-                        LE_INFO("ForceWarmRestart->reportMask : %u",reportMask);
+                        LE_DEBUG("ForceWarmRestart->reportMask : %u",reportMask);
                         engineType |= (1UL << clientRequestPtr->mEngineType);
                         LE_DEBUG("ForceWarmRestart ->startDetailedEngineReports()");
                         status = clientRequestPtr->locationManager->startDetailedEngineReports((uint32_t)optInterval,
@@ -4052,14 +4052,14 @@ le_result_t taf_Gnss::ForceWarmRestart
                             {
                                 clientRequestPtr->mStarted = true;
                                 clientRequestPtr->GnssState = TAF_GNSS_STATE_ACTIVE;
-                                LE_INFO("ForceWarmRestart->Start() is success");
+                                LE_DEBUG("ForceWarmRestart->Start() is success");
                                 clientRequestPtr->mTtffPtr = 0; //reset TTFF value
                                 clientRequestPtr->mStartTime = std::chrono::system_clock::now();
                                 clientRequestPtr->mTtffEnabled = true;
                             }
                             else
                             {
-                                LE_INFO("ForceWarmRestart->Start() is failed");
+                                LE_DEBUG("ForceWarmRestart->Start() is failed");
                                 result = LE_FAULT;
                             }
                         }
@@ -4125,11 +4125,11 @@ le_result_t taf_Gnss::ForceHotRestart
                         {
                             clientRequestPtr->mStarted = false;
                             clientRequestPtr->GnssState = TAF_GNSS_STATE_READY;
-                            LE_INFO("ForceHotRestart->Stop() is success");
+                            LE_DEBUG("ForceHotRestart->Stop() is success");
                         }
                         else
                         {
-                            LE_INFO("ForceHotRestart->Stop() is failed");
+                            LE_DEBUG("ForceHotRestart->Stop() is failed");
                             result = LE_FAULT;
                             return result;
                         }
@@ -4149,7 +4149,7 @@ le_result_t taf_Gnss::ForceHotRestart
                             p.set_value(LE_FAULT);
                         }
                     };
-                    LE_INFO("ForceHotRestart->  optInterval: %d",optInterval);
+                    LE_DEBUG("ForceHotRestart->  optInterval: %d",optInterval);
                     if( optInterval == 0  || optInterval < 100) {
                         LE_DEBUG("ForceHotRestart()->mAcqRate is zero, so set default to 100ms");
                         optInterval = 100;
@@ -4158,7 +4158,7 @@ le_result_t taf_Gnss::ForceHotRestart
                     LocReqEngine engineType = DEFAULT_UNKNOWN;
                     GnssReportTypeMask reportMask = DEFAULT_UNKNOWN;
                     reportMask = 0x7f;//all reports are enabled
-                    LE_INFO("ForceHotRestart->reportMask : %u",reportMask);
+                    LE_DEBUG("ForceHotRestart->reportMask : %u",reportMask);
                     engineType |= (1UL << clientRequestPtr->mEngineType);
                     auto status = clientRequestPtr->locationManager->startDetailedEngineReports((uint32_t)optInterval,
                         engineType, cb, reportMask);
@@ -4177,12 +4177,12 @@ le_result_t taf_Gnss::ForceHotRestart
                             clientRequestPtr->mTtffPtr = 0; //reset TTFF value
                             clientRequestPtr->mStartTime = std::chrono::system_clock::now();
                             clientRequestPtr->mTtffEnabled = true;
-                            LE_INFO("ForceHotRestart->Start() is success");
+                            LE_DEBUG("ForceHotRestart->Start() is success");
                         }
                         else
                         {
                             result = LE_FAULT;
-                            LE_INFO("ForceHotRestart->Stop() is failed");
+                            LE_DEBUG("ForceHotRestart->Stop() is failed");
                         }
                     }
                 }
@@ -4287,13 +4287,13 @@ le_result_t taf_Gnss::SetMinElevation
                 std::future<le_result_t> futResult = p.get_future();
                 if(futResult.get() == LE_OK)
                 {
-                    LE_INFO("SetMinElevation is success");
+                    LE_DEBUG("SetMinElevation is success");
                     result = LE_OK;
                     mMinSvEle = minElevation;
                 }
                 else
                 {
-                    LE_INFO("SetMinElevation is failed");
+                    LE_DEBUG("SetMinElevation is failed");
                     result = LE_FAULT;
                 }
             }
@@ -4347,7 +4347,7 @@ le_result_t taf_Gnss::StartMode
         {
             if(mode == TAF_GNSS_HOT_START) //Hot Start
             {
-                LE_INFO("Hot Start! No operation\n");
+                LE_DEBUG("Hot Start! No operation\n");
             }
             else if(mode == TAF_GNSS_WARM_START) //Warm Start
             {
@@ -4415,7 +4415,7 @@ le_result_t taf_Gnss::StartMode
             else
             {
 
-                LE_INFO("Invalid Start Mode!\n");
+                LE_ERROR("Invalid Start Mode!\n");
                 result = LE_FAULT;
             }
 
@@ -4433,7 +4433,7 @@ le_result_t taf_Gnss::StartMode
                             p.set_value(LE_FAULT);
                         }
                     };
-                    LE_INFO("StartMode()->  mAcqRate: %d",clientRequestPtr->mAcqRate);
+                    LE_DEBUG("StartMode()->  mAcqRate: %d",clientRequestPtr->mAcqRate);
                     if( optInterval == 0  || optInterval < 100)
                     {
                         LE_DEBUG("StartMode()->mAcqRate is zero, so set default to 100ms");
@@ -4443,7 +4443,7 @@ le_result_t taf_Gnss::StartMode
                     LocReqEngine engineType = DEFAULT_UNKNOWN;
                     GnssReportTypeMask reportMask = DEFAULT_UNKNOWN;
                     reportMask = 0x7f;//all reports are enabled
-                    LE_INFO("StartMode->reportMask : %u",reportMask);
+                    LE_DEBUG("StartMode->reportMask : %u",reportMask);
                     engineType |= (1UL << clientRequestPtr->mEngineType);
                     auto status = clientRequestPtr->locationManager->startDetailedEngineReports((uint32_t)optInterval,
                         engineType, cb, reportMask);
@@ -4459,14 +4459,14 @@ le_result_t taf_Gnss::StartMode
                         {
                             clientRequestPtr->mStarted = true;
                             clientRequestPtr->GnssState = TAF_GNSS_STATE_ACTIVE;
-                            LE_INFO("StartMode->Start() is success");
+                            LE_DEBUG("StartMode->Start() is success");
                             clientRequestPtr->mTtffEnabled = true;
                             clientRequestPtr->mTtffPtr = 0; //reset ttff value
                             clientRequestPtr->mStartTime = std::chrono::system_clock::now();
                         }
                         else
                         {
-                            LE_INFO("StartMode->Start() is failed");
+                            LE_DEBUG("StartMode->Start() is failed");
                             result = LE_FAULT;
                         }
                     }
@@ -4522,12 +4522,12 @@ le_result_t taf_Gnss::GetMinElevation
         {
             std::promise<le_result_t> p;
             auto cb = [&p](uint8_t minSVElevation, telux::common::ErrorCode error) {
-                LE_INFO("***Request minimum SV Elevation Info ****");
+                LE_DEBUG("***Request minimum SV Elevation Info ****");
                 auto &gnss = taf_Gnss::GetInstance();
                 if(error == telux::common::ErrorCode::SUCCESS)
                 {
                     gnss.mRequestMinEle = minSVElevation;
-                    LE_INFO("onMinSVElevationInfo gnss.mRequestMinEle: %d",gnss.mRequestMinEle);
+                    LE_DEBUG("onMinSVElevationInfo gnss.mRequestMinEle: %d",gnss.mRequestMinEle);
                     p.set_value(LE_OK);
                 }
                 else
@@ -4547,13 +4547,13 @@ le_result_t taf_Gnss::GetMinElevation
                 std::future<le_result_t> futResult = p.get_future();
                 if(futResult.get() == LE_OK)
                 {
-                    LE_INFO("requestMinSVElevation is Success");
+                    LE_DEBUG("requestMinSVElevation is Success");
                     result = LE_OK;
                     *minElevationPtr = mRequestMinEle;
                 }
                 else
                 {
-                    LE_INFO("requestMinSVElevation is Failed");
+                    LE_DEBUG("requestMinSVElevation is Failed");
                     result = LE_FAULT;
                 }
             }
@@ -4629,7 +4629,7 @@ le_result_t taf_Gnss::Stop
     {
         case TAF_GNSS_STATE_ACTIVE:
             {
-                LE_INFO("Stop() is started: %d", (int) clientRequestPtr->mStarted);
+                LE_DEBUG("Stop() is started: %d", (int) clientRequestPtr->mStarted);
 
                 if (clientRequestPtr->mStarted)
                 {
@@ -4656,12 +4656,12 @@ le_result_t taf_Gnss::Stop
                             clientRequestPtr->GnssState = TAF_GNSS_STATE_READY;
                             result = LE_OK;
                             gnss.mNmeaMask = 0;//reset nmeaMask on triggering stop.
-                            LE_INFO("Stop() is success");
+                            LE_DEBUG("Stop() is success");
                         }
                         else
                         {
                             result = LE_FAULT;
-                            LE_INFO("Stop() is failed");
+                            LE_DEBUG("Stop() is failed");
                         }
                     }
                 }
@@ -4732,36 +4732,36 @@ le_result_t taf_Gnss::SetNmeaSentences
                     if(nmeaMask & TAF_GNSS_NMEA_MASK_GGA)
                     {
                         nmeaSetResult |= TAF_GNSS_NMEA_MASK_GPGGA;
-                        LE_INFO("SetNmeaSentences ->TAF_GNSS_NMEA_MASK_GGA");
+                        LE_DEBUG("SetNmeaSentences ->TAF_GNSS_NMEA_MASK_GGA");
                     }
                     if(nmeaMask & TAF_GNSS_NMEA_MASK_RMC)
                     {
                         nmeaSetResult |= TAF_GNSS_NMEA_MASK_GPRMC;
-                        LE_INFO("SetNmeaSentences ->TAF_GNSS_NMEA_MASK_RMC");
+                        LE_DEBUG("SetNmeaSentences ->TAF_GNSS_NMEA_MASK_RMC");
                     }
                     if(nmeaMask & TAF_GNSS_NMEA_MASK_GSA)
                     {
                         nmeaSetResult |= TAF_GNSS_NMEA_MASK_GNGSA;
-                        LE_INFO("SetNmeaSentences ->TAF_GNSS_NMEA_MASK_GSA");
+                        LE_DEBUG("SetNmeaSentences ->TAF_GNSS_NMEA_MASK_GSA");
                     }
                     if(nmeaMask & TAF_GNSS_NMEA_MASK_VTG)
                     {
                         nmeaSetResult |= TAF_GNSS_NMEA_MASK_GPVTG;
-                        LE_INFO("SetNmeaSentences ->TAF_GNSS_NMEA_MASK_VTG");
+                        LE_DEBUG("SetNmeaSentences ->TAF_GNSS_NMEA_MASK_VTG");
                     }
                     if(nmeaMask & TAF_GNSS_NMEA_MASK_GNS)
                     {
                         nmeaSetResult |= TAF_GNSS_NMEA_MASK_GPGNS;
-                        LE_INFO("SetNmeaSentences ->TAF_GNSS_NMEA_MASK_GNS");
+                        LE_DEBUG("SetNmeaSentences ->TAF_GNSS_NMEA_MASK_GNS");
                     }
                     if(nmeaMask & TAF_GNSS_NMEA_MASK_DTM)
                     {
                         nmeaSetResult |= TAF_GNSS_NMEA_MASK_GPDTM;
-                        LE_INFO("SetNmeaSentences ->TAF_GNSS_NMEA_MASK_DTM");
+                        LE_DEBUG("SetNmeaSentences ->TAF_GNSS_NMEA_MASK_DTM");
                     }
                     nmeaMask |= nmeaSetResult;
                 }
-                LE_INFO("SetNmeaSentences nmeaMask mask is : %" PRIu64 "", nmeaMask);
+                LE_DEBUG("SetNmeaSentences nmeaMask mask is : %" PRIu64 "", nmeaMask);
 
                 auto status = mLocationConfigurator->configureNmeaTypes(nmeaMask, cb);
                 if(status != telux::common::Status::SUCCESS)
@@ -4774,12 +4774,12 @@ le_result_t taf_Gnss::SetNmeaSentences
                     if(futResult.get() == LE_OK)
                     {
                         result = LE_OK;
-                        LE_INFO("SetNmeaSentences() is success");
+                        LE_DEBUG("SetNmeaSentences() is success");
                     }
                     else
                     {
                         result = LE_FAULT;
-                        LE_INFO("SetNmeaSentences() is failed");
+                        LE_DEBUG("SetNmeaSentences() is failed");
                     }
                 }
                 if (LE_OK != result)
@@ -4967,14 +4967,14 @@ le_result_t taf_Gnss::SetDRConfig(const taf_gnss_DrParams_t* drParamsPtr)
             // Set the DR Configuration Validity
             telux::common::Status status = mLocationConfigurator->configureDR(drConfig, cb);
             if (status == telux::common::Status::FAILED) {
-                LE_INFO("SetDRConfigValidity is failed");
+                LE_DEBUG("SetDRConfigValidity is failed");
                 result = LE_FAULT;
             } else if (telux::common::Status::SUCCESS == status) {
                 std::future<le_result_t> futResult = p.get_future();
                 result = futResult.get();
                 if(result == LE_OK)
                 {
-                    LE_INFO("SetDRConfigValidity is Success");
+                    LE_DEBUG("SetDRConfigValidity is Success");
                 }
             }
             if (LE_OK != result)
@@ -5039,8 +5039,8 @@ le_result_t taf_Gnss::ConfigureEngineState
     le_result_t result = LE_OK;
     telux::loc::EngineType engineType;
     telux::loc::LocationEngineRunState engineState;
-    LE_INFO("ConfigureEngineState engtype:%d", engtype);
-    LE_INFO("ConfigureEngineState engState:%d", engState);
+    LE_DEBUG("ConfigureEngineState engtype:%d", engtype);
+    LE_DEBUG("ConfigureEngineState engState:%d", engState);
     taf_gnss_Client_t* clientRequestPtr = NULL;
     clientRequestPtr = AcquireSessionRef();
 
@@ -5049,7 +5049,7 @@ le_result_t taf_Gnss::ConfigureEngineState
     {
         case TAF_GNSS_ENGINE_TYPE_DRE:
             engineType = telux::loc::EngineType::DRE;
-            LE_INFO("ConfigureEngineState TAF_GNSS_ENGINE_TYPE_DRE");
+            LE_DEBUG("ConfigureEngineState TAF_GNSS_ENGINE_TYPE_DRE");
             break;
         default:
         {
@@ -5062,11 +5062,11 @@ le_result_t taf_Gnss::ConfigureEngineState
     {
         case TAF_GNSS_ENGINE_STATE_SUSPENDED:
             engineState = telux::loc::LocationEngineRunState::SUSPENDED;
-            LE_INFO("ConfigureEngineState TAF_GNSS_ENGINE_STATE_SUSPENDED");
+            LE_DEBUG("ConfigureEngineState TAF_GNSS_ENGINE_STATE_SUSPENDED");
             break;
         case TAF_GNSS_ENGINE_STATE_RUNNING:
             engineState = telux::loc::LocationEngineRunState::RUNNING;
-            LE_INFO("ConfigureEngineState TAF_GNSS_ENGINE_STATE_RUNNING");
+            LE_DEBUG("ConfigureEngineState TAF_GNSS_ENGINE_STATE_RUNNING");
             break;
         default:
         {
@@ -5107,11 +5107,11 @@ le_result_t taf_Gnss::ConfigureEngineState
                     std::future<le_result_t> futResult = p.get_future();
                     if(futResult.get() == LE_OK)
                     {
-                        LE_INFO("ConfigureEngineState succeed.");
+                        LE_DEBUG("ConfigureEngineState succeed.");
                     }
                     else
                     {
-                        LE_INFO("ConfigureEngineState failed");
+                        LE_DEBUG("ConfigureEngineState failed");
                         result = LE_FAULT;
                     }
                 }
@@ -5135,8 +5135,8 @@ le_result_t taf_Gnss::ConfigureRobustLocation
 )
 {
     le_result_t result = LE_OK;
-    LE_INFO("ConfigureRobustLocation enable:%d", enable);
-    LE_INFO("ConfigureRobustLocation enabled911:%d", enabled911);
+    LE_DEBUG("ConfigureRobustLocation enable:%d", enable);
+    LE_DEBUG("ConfigureRobustLocation enabled911:%d", enabled911);
     bool enableRobustloc = false;
     bool enableE911loc = false;
     taf_gnss_Client_t* clientRequestPtr = NULL;
@@ -5147,11 +5147,11 @@ le_result_t taf_Gnss::ConfigureRobustLocation
     {
        case 0:
             enableRobustloc = false;
-            LE_INFO("ConfigureRobustLocation Disable");
+            LE_DEBUG("ConfigureRobustLocation Disable");
             break;
        case 1:
             enableRobustloc = true;
-            LE_INFO("ConfigureRobustLocation Enable");
+            LE_DEBUG("ConfigureRobustLocation Enable");
             break;
         default:
         {
@@ -5164,11 +5164,11 @@ le_result_t taf_Gnss::ConfigureRobustLocation
     {
        case 0:
             enableE911loc = false;
-            LE_INFO("ConfigureRobustLocation disable enableE911");
+            LE_DEBUG("ConfigureRobustLocation disable enableE911");
             break;
        case 1:
             enableE911loc = true;
-            LE_INFO("ConfigureRobustLocation Enable enableE911");
+            LE_DEBUG("ConfigureRobustLocation Enable enableE911");
             break;
         default:
         {
@@ -5202,7 +5202,7 @@ le_result_t taf_Gnss::ConfigureRobustLocation
                     enableRobustloc, enableE911loc, cb);
                 if(status != telux::common::Status::SUCCESS)
                 {
-                    LE_INFO("ConfigureEngineState failed");
+                    LE_DEBUG("ConfigureEngineState failed");
                     result = LE_FAULT;
                 }
                 else
@@ -5232,7 +5232,7 @@ le_result_t taf_Gnss::RobustLocationInformation
 )
 {
     le_result_t result = LE_OK;
-    LE_INFO("RobustLocationInformation");
+    LE_DEBUG("RobustLocationInformation");
     if((enable == NULL) || (enabled911 == NULL)
         || (majorVersion == NULL) || (minorVersion == NULL))
     {
@@ -5258,7 +5258,7 @@ le_result_t taf_Gnss::RobustLocationInformation
                 auto cb = [&p](const telux::loc::RobustLocationConfiguration
                     rLConfig, telux::common::ErrorCode error) {
                     auto &gnss = taf_Gnss::GetInstance();
-                    LE_INFO("****onRobustLocationInfo **");
+                    LE_DEBUG("****onRobustLocationInfo **");
                     if(error == telux::common::ErrorCode::SUCCESS)
                     {
                         if(rLConfig.validMask & telux::loc::VALID_ENABLED)
@@ -5274,10 +5274,10 @@ le_result_t taf_Gnss::RobustLocationInformation
                             gnss.mMajorVersion = unsigned (rLConfig.version.major);
                             gnss.mMinorVersion = rLConfig.version.minor;
                         }
-                        LE_INFO("***onRobustLocationInfo gnss.enable: %d", gnss.mEnable);
-                        LE_INFO("***onRobustLocationInfo gnss.enabled911: %d", gnss.mEnabled911);
-                        LE_INFO("***onRobustLocationInfo gnss.majorVersion: %d", gnss.mMajorVersion);
-                        LE_INFO("***onRobustLocationInfo gnss.minorVersion: %d", gnss.mMinorVersion);
+                        LE_DEBUG("***onRobustLocationInfo gnss.enable: %d", gnss.mEnable);
+                        LE_DEBUG("***onRobustLocationInfo gnss.enabled911: %d", gnss.mEnabled911);
+                        LE_DEBUG("***onRobustLocationInfo gnss.majorVersion: %d", gnss.mMajorVersion);
+                        LE_DEBUG("***onRobustLocationInfo gnss.minorVersion: %d", gnss.mMinorVersion);
                         p.set_value(LE_OK);
                     }
                     else
@@ -5297,7 +5297,7 @@ le_result_t taf_Gnss::RobustLocationInformation
                     std::future<le_result_t> futResult = p.get_future();
                     if(futResult.get() == LE_OK)
                     {
-                        LE_INFO("RobustLocationInformation is Success");
+                        LE_DEBUG("RobustLocationInformation is Success");
                         *enable = mEnable;
                         *enabled911 = mEnabled911;
                         *majorVersion = mMajorVersion;
@@ -5305,7 +5305,7 @@ le_result_t taf_Gnss::RobustLocationInformation
                     }
                     else
                     {
-                        LE_INFO("RobustLocationInformation is Failed");
+                        LE_DEBUG("RobustLocationInformation is Failed");
                         result = LE_FAULT;
                     }
                 }
@@ -5326,7 +5326,7 @@ le_result_t taf_Gnss::DefaultSecondaryBandConstellations
 (
 )
 {
-    LE_INFO("DefaultSecondaryBandConstellations");
+    LE_DEBUG("DefaultSecondaryBandConstellations");
 
     le_result_t result = LE_FAULT;
     taf_gnss_Client_t* clientRequestPtr = NULL;
@@ -5362,14 +5362,14 @@ le_result_t taf_Gnss::DefaultSecondaryBandConstellations
             telux::common::Status status = mLocationConfigurator->configureSecondaryBand(
                 constellationSet, cb);
             if (status == telux::common::Status::NOTIMPLEMENTED) {
-                LE_INFO("Not implemented");
+                LE_DEBUG("Not implemented");
                 result = LE_FAULT;
             } else if (telux::common::Status::SUCCESS == status) {
                 std::future<le_result_t> futResult = p.get_future();
                 result = futResult.get();
                 if(result == LE_OK)
                 {
-                    LE_INFO("Success");
+                    LE_DEBUG("Success");
                 }
             }
         }
@@ -5389,7 +5389,7 @@ le_result_t taf_Gnss::RequestSecondaryBandConstellations
    uint32_t * constellationSb
 )
 {
-    LE_INFO("RequestSecondaryBandConstellation");
+    LE_DEBUG("RequestSecondaryBandConstellation");
     le_result_t result = LE_FAULT;
 
     if (NULL == constellationSb)
@@ -5418,54 +5418,54 @@ le_result_t taf_Gnss::RequestSecondaryBandConstellations
             std::promise<le_result_t> p;
             auto cb = [&p](telux::loc::ConstellationSet set, telux::common::ErrorCode error) {
                 auto &gnss = taf_Gnss::GetInstance();
-                LE_INFO("***Request Secondary Band Info ****");
+                LE_DEBUG("***Request Secondary Band Info ****");
                 if(error == telux::common::ErrorCode::SUCCESS)
                 {
                     for (auto item : set)
                     {
                         if (item == telux::loc::GnssConstellationType::GPS)
                         {
-                            LE_INFO("onSecondaryBandInfo: GPS");
+                            LE_DEBUG("onSecondaryBandInfo: GPS");
                             gnss.mRequestSB |= (1<<(TAF_GNSS_SB_CONSTELLATION_GPS-1));//1st bit
                         }
                         else if (item == telux::loc::GnssConstellationType::GALILEO)
                         {
-                            LE_INFO("onSecondaryBandInfo: GALILEO");
+                            LE_DEBUG("onSecondaryBandInfo: GALILEO");
                             gnss.mRequestSB |= (1<<(TAF_GNSS_SB_CONSTELLATION_GALILEO-1));//2nd bit
                         }
                         else if (item == telux::loc::GnssConstellationType::SBAS)
                         {
-                            LE_INFO("onSecondaryBandInfo: SBAS");
+                            LE_DEBUG("onSecondaryBandInfo: SBAS");
                             gnss.mRequestSB |= (1<<(TAF_GNSS_SB_CONSTELLATION_SBAS-1));//3rd bit
                         }
                         else if (item == telux::loc::GnssConstellationType::COMPASS)
                         {
-                            LE_INFO("onSecondaryBandInfo: COMPASS");
+                            LE_DEBUG("onSecondaryBandInfo: COMPASS");
                             gnss.mRequestSB |= (1<<(TAF_GNSS_SB_CONSTELLATION_COMPASS-1)); //4th bit
                         }
                         else if (item == telux::loc::GnssConstellationType::GLONASS)
                         {
-                            LE_INFO("onSecondaryBandInfo: GLONASS");
+                            LE_DEBUG("onSecondaryBandInfo: GLONASS");
                             gnss.mRequestSB |= (1<<(TAF_GNSS_SB_CONSTELLATION_GLONASS-1)); //5th bit
                         }
                         else if (item == telux::loc::GnssConstellationType::BDS)
                         {
-                            LE_INFO("onSecondaryBandInfo: BDS");
+                            LE_DEBUG("onSecondaryBandInfo: BDS");
                             gnss.mRequestSB |= (1<<(TAF_GNSS_SB_CONSTELLATION_BDS-1));//6th bit
                         }
                         else if (item == telux::loc::GnssConstellationType::QZSS)
                         {
-                            LE_INFO("onSecondaryBandInfo: QZSS");
+                            LE_DEBUG("onSecondaryBandInfo: QZSS");
                             gnss.mRequestSB |=(1<<(TAF_GNSS_SB_CONSTELLATION_QZSS-1));//7th bit
                         }
                         else if (item == telux::loc::GnssConstellationType::NAVIC)
                         {
-                            LE_INFO("onSecondaryBandInfo: NAVIC");
+                            LE_DEBUG("onSecondaryBandInfo: NAVIC");
                             gnss.mRequestSB |= (1<<(TAF_GNSS_SB_CONSTELLATION_NAVIC-1));//8th bit
                         }
                         else
                         {
-                            LE_INFO("onSecondaryBandInfo: Not supported");
+                            LE_DEBUG("onSecondaryBandInfo: Not supported");
                         }
                     }
                     p.set_value(LE_OK);
@@ -5483,13 +5483,13 @@ le_result_t taf_Gnss::RequestSecondaryBandConstellations
             std::future<le_result_t> futResult = p.get_future();
             if(futResult.get() == LE_OK)
             {
-                LE_INFO("Request secondary band constellations is success");
+                LE_DEBUG("Request secondary band constellations is success");
                 result = LE_OK;
                 *constellationSb = mRequestSB;
             }
             else
             {
-                LE_INFO("Request secondary band constellations is failed");
+                LE_DEBUG("Request secondary band constellations is failed");
                 result = LE_FAULT;
             }
         }
@@ -5509,7 +5509,7 @@ le_result_t taf_Gnss::ConfigureSecondaryBandConstellations
    uint32_t constellationSb
 )
 {
-    LE_INFO("ConfigureSecondaryBandConstellations");
+    LE_DEBUG("ConfigureSecondaryBandConstellations");
     le_result_t result = LE_FAULT;
     taf_gnss_Client_t* clientRequestPtr = NULL;
     clientRequestPtr = AcquireSessionRef();
@@ -5519,42 +5519,42 @@ le_result_t taf_Gnss::ConfigureSecondaryBandConstellations
     if( constellationSb & (1<<(TAF_GNSS_SB_CONSTELLATION_GPS-1))) //GPS->1
     {
         constellationSet.insert(telux::loc::GnssConstellationType::GPS);
-        LE_INFO("ConfigureSecondary Band constellation GPS");
+        LE_DEBUG("ConfigureSecondary Band constellation GPS");
     }
     if( constellationSb & (1<<(TAF_GNSS_SB_CONSTELLATION_GALILEO-1))) //GALILEO->2
     {
         constellationSet.insert(telux::loc::GnssConstellationType::GALILEO);
-        LE_INFO("ConfigureSecondary Band constellation GALILEO");
+        LE_DEBUG("ConfigureSecondary Band constellation GALILEO");
     }
     if( constellationSb & (1<<(TAF_GNSS_SB_CONSTELLATION_SBAS-1)))//SBAS->4
     {
         constellationSet.insert(telux::loc::GnssConstellationType::SBAS);
-        LE_INFO("ConfigureSecondary Band constellation SBAS");
+        LE_DEBUG("ConfigureSecondary Band constellation SBAS");
     }
     if( constellationSb & (1<<(TAF_GNSS_SB_CONSTELLATION_COMPASS-1))) //COMPASS->8
     {
         constellationSet.insert(telux::loc::GnssConstellationType::COMPASS);
-        LE_INFO("ConfigureSecondary Band constellation COMPASS");
+        LE_DEBUG("ConfigureSecondary Band constellation COMPASS");
     }
     if( constellationSb & (1<<(TAF_GNSS_SB_CONSTELLATION_GLONASS-1)))//GLONASS->16
     {
         constellationSet.insert(telux::loc::GnssConstellationType::GLONASS);
-        LE_INFO("ConfigureSecondary Band constellation GLONASS");
+        LE_DEBUG("ConfigureSecondary Band constellation GLONASS");
     }
     if( constellationSb & (1<<(TAF_GNSS_SB_CONSTELLATION_BDS-1))) //BDS->32
     {
         constellationSet.insert(telux::loc::GnssConstellationType::BDS);
-        LE_INFO("ConfigureSecondary Band constellation BDS");
+        LE_DEBUG("ConfigureSecondary Band constellation BDS");
     }
     if( constellationSb & (1<<(TAF_GNSS_SB_CONSTELLATION_QZSS-1))) //QZSS->64
     {
         constellationSet.insert(telux::loc::GnssConstellationType::QZSS);
-        LE_INFO("ConfigureSecondary Band constellation QZSS");
+        LE_DEBUG("ConfigureSecondary Band constellation QZSS");
     }
     if( constellationSb & (1<<(TAF_GNSS_SB_CONSTELLATION_NAVIC-1))) //NAVIC->128
     {
         constellationSet.insert(telux::loc::GnssConstellationType::NAVIC);
-        LE_INFO("ConfigureSecondary Band constellation NAVIC");
+        LE_DEBUG("ConfigureSecondary Band constellation NAVIC");
     }
     switch ( clientRequestPtr->GnssState)
     {
@@ -5583,14 +5583,14 @@ le_result_t taf_Gnss::ConfigureSecondaryBandConstellations
             telux::common::Status status = mLocationConfigurator->configureSecondaryBand(
                 constellationSet, cb);
             if (status == telux::common::Status::NOTIMPLEMENTED) {
-                LE_INFO("Not implemented");
+                LE_DEBUG("Not implemented");
                 result = LE_FAULT;
             } else if (telux::common::Status::SUCCESS == status) {
                 std::future<le_result_t> futResult = p.get_future();
                 result = futResult.get();
                 if(result == LE_OK)
                 {
-                    LE_INFO("Success");
+                    LE_DEBUG("Success");
                 }
             }
         }
@@ -5626,7 +5626,7 @@ le_result_t taf_Gnss::SetLeverArmConfig(const taf_gnss_LeverArmParams_t* LeverAr
             if((LeverArmParamsPtr->levArmType < TAF_GNSS_LEVER_ARM_TYPE_GNSS_TO_VRP)
                 || (LeverArmParamsPtr->levArmType >TAF_GNSS_LEVER_ARM_TYPE_VPE_IMU_TO_GNSS))
             {
-                LE_INFO("invalid Lever Arm type, returning");
+                LE_DEBUG("invalid Lever Arm type, returning");
                 return LE_BAD_PARAMETER;
             }
             //Filling the Lever Arm types
@@ -5669,12 +5669,12 @@ le_result_t taf_Gnss::SetLeverArmConfig(const taf_gnss_LeverArmParams_t* LeverAr
                 std::future<le_result_t> futResult = p.get_future();
                 if(futResult.get() == LE_OK)
                 {
-                    LE_INFO("Set Lever Arm parameters is OK");
+                    LE_DEBUG("Set Lever Arm parameters is OK");
                     result = LE_OK;
                 }
                 else
                 {
-                    LE_INFO("Set Lever Arm parameters is FAILED");
+                    LE_DEBUG("Set Lever Arm parameters is FAILED");
                     result = LE_FAULT;
                 }
                 if (LE_OK != result)
@@ -5706,11 +5706,11 @@ le_result_t taf_Gnss::SetLeverArmConfig(const taf_gnss_LeverArmParams_t* LeverAr
 le_result_t taf_Gnss::SetEngineType(taf_gnss_EngineReportsType_t EngineType)
 {
     le_result_t result = LE_FAULT;
-    LE_INFO("SetEngineType EngineType %d",EngineType);
+    LE_DEBUG("SetEngineType EngineType %d",EngineType);
     if((EngineType <TAF_GNSS_ENGINE_REPORT_TYPE_FUSED)
           || (EngineType>TAF_GNSS_ENGINE_REPORT_TYPE_VPE))
     {
-        LE_INFO("SetEngineType: Unknown Engine type");
+        LE_DEBUG("SetEngineType: Unknown Engine type");
         return LE_BAD_PARAMETER;
     }
     taf_gnss_Client_t* clientRequestPtr = NULL;
@@ -5725,7 +5725,7 @@ le_result_t taf_Gnss::SetEngineType(taf_gnss_EngineReportsType_t EngineType)
             // Set Engine Type
             clientRequestPtr->mEngineType = EngineType;
             result = LE_OK;
-            LE_INFO("SetEngineType->EngineType:%d",clientRequestPtr->mEngineType);
+            LE_DEBUG("SetEngineType->EngineType:%d",clientRequestPtr->mEngineType);
         }
         break;
         case TAF_GNSS_STATE_ACTIVE:
@@ -5771,7 +5771,7 @@ le_result_t taf_Gnss::GetConformityIndex
         }
         else
         {
-            LE_INFO("GetConformityIndex is not valid");
+            LE_DEBUG("GetConformityIndex is not valid");
             result = LE_OUT_OF_RANGE;
         }
     }
@@ -5806,7 +5806,7 @@ le_result_t taf_Gnss::GetCalibrationData
         }
         else
         {
-            LE_INFO("GetCalibrationData is not valid");
+            LE_DEBUG("GetCalibrationData is not valid");
             result = LE_OUT_OF_RANGE;
         }
     }
@@ -5822,7 +5822,7 @@ le_result_t taf_Gnss::GetCalibrationData
         }
         else
         {
-            LE_INFO("GetCalibrationData is not valid");
+            LE_DEBUG("GetCalibrationData is not valid");
             result = LE_OUT_OF_RANGE;
         }
     }
@@ -5894,7 +5894,7 @@ le_result_t taf_Gnss::GetBodyFrameData
         }
         else
         {
-            LE_INFO("GetBodyFrameData is not valid");
+            LE_DEBUG("GetBodyFrameData is not valid");
             result = LE_OUT_OF_RANGE;
         }
     }
@@ -5931,7 +5931,7 @@ le_result_t taf_Gnss::GetVRPBasedLLA
         }
         else
         {
-            LE_INFO("GetVRPBasedLLA latitude is not valid");
+            LE_DEBUG("GetVRPBasedLLA latitude is not valid");
             *vrpLatitudePtr = DBL_MAX;
             result = LE_OUT_OF_RANGE;
         }
@@ -5948,7 +5948,7 @@ le_result_t taf_Gnss::GetVRPBasedLLA
         }
         else
         {
-            LE_INFO("GetVRPBasedLLA longtitude is not valid");
+            LE_DEBUG("GetVRPBasedLLA longtitude is not valid");
             *vrpLongitudePtr = DBL_MAX;
             result = LE_OUT_OF_RANGE;
         }
@@ -5965,7 +5965,7 @@ le_result_t taf_Gnss::GetVRPBasedLLA
         }
         else
         {
-            LE_INFO("GetVRPBasedLLA altitude is not valid");
+            LE_DEBUG("GetVRPBasedLLA altitude is not valid");
             *vrpAltitudePtr = DBL_MAX;
             result = LE_OUT_OF_RANGE;
         }
@@ -6003,7 +6003,7 @@ le_result_t taf_Gnss::GetVRPBasedVelocity
         }
         else
         {
-            LE_INFO("GetVRPBasedVelocity east velocity is not valid");
+            LE_DEBUG("GetVRPBasedVelocity east velocity is not valid");
             *eastVelPtr = DBL_MAX;
             return LE_OUT_OF_RANGE;
         }
@@ -6020,7 +6020,7 @@ le_result_t taf_Gnss::GetVRPBasedVelocity
         }
         else
         {
-            LE_INFO("GetVRPBasedVelocity north velocity is not valid");
+            LE_DEBUG("GetVRPBasedVelocity north velocity is not valid");
             *northVelPtr = DBL_MAX;
             result = LE_OUT_OF_RANGE;
         }
@@ -6037,7 +6037,7 @@ le_result_t taf_Gnss::GetVRPBasedVelocity
         }
         else
         {
-            LE_INFO("GetVRPBasedVelocity up velocity is not valid");
+            LE_DEBUG("GetVRPBasedVelocity up velocity is not valid");
             *upVelPtr = DBL_MAX;
             result = LE_OUT_OF_RANGE;
         }
@@ -6078,7 +6078,7 @@ le_result_t taf_Gnss::GetSvUsedInPosition
         }
         else
         {
-            LE_INFO("GetSvUsedInPosition is invalid");
+            LE_DEBUG("GetSvUsedInPosition is invalid");
             svDataPtr->gps = UINT64_MAX;
             svDataPtr->glo = UINT64_MAX;
             svDataPtr->gal = UINT64_MAX;
@@ -6119,7 +6119,7 @@ le_result_t taf_Gnss::GetSbasCorrection
         }
         else
         {
-            LE_INFO("GetSbasCorrection is invalid");
+            LE_DEBUG("GetSbasCorrection is invalid");
             result = LE_OUT_OF_RANGE;
         }
     }
@@ -6154,7 +6154,7 @@ le_result_t taf_Gnss::GetPositionTechnology
         }
         else
         {
-            LE_INFO("GetPositionTechnology: loc tech is invalid");
+            LE_DEBUG("GetPositionTechnology: loc tech is invalid");
             result = LE_OUT_OF_RANGE;
         }
     }
@@ -6190,7 +6190,7 @@ le_result_t taf_Gnss::GetLocationInfoValidity
         }
         else
         {
-            LE_INFO("GetLocationInfoValidity is invalid");
+            LE_DEBUG("GetLocationInfoValidity is invalid");
             result = LE_OUT_OF_RANGE;
         }
     }
@@ -6206,7 +6206,7 @@ le_result_t taf_Gnss::GetLocationInfoValidity
         }
         else
         {
-            LE_INFO("GetLocationInfoExValidity is invalid");
+            LE_DEBUG("GetLocationInfoExValidity is invalid");
             result = LE_OUT_OF_RANGE;
         }
     }
@@ -6242,7 +6242,7 @@ le_result_t taf_Gnss::GetLocationOutputEngParams
         }
         else
         {
-            LE_INFO("GetLocationOutputEngParams eng mask is invalid");
+            LE_DEBUG("GetLocationOutputEngParams eng mask is invalid");
             *engMaskPtr = UINT16_MAX;
             result = LE_OUT_OF_RANGE;
         }
@@ -6259,7 +6259,7 @@ le_result_t taf_Gnss::GetLocationOutputEngParams
         }
         else
         {
-            LE_INFO("GetLocationOutputEngParams location engine type is invalid");
+            LE_DEBUG("GetLocationOutputEngParams location engine type is invalid");
             *locationEngTypePtr = UINT16_MAX;
             result = LE_OUT_OF_RANGE;
         }
@@ -6296,7 +6296,7 @@ le_result_t taf_Gnss::GetReliabilityInformation
         }
         else
         {
-            LE_INFO("GetReliabilityInformation horizontal reliability is invalid");
+            LE_DEBUG("GetReliabilityInformation horizontal reliability is invalid");
             *horiReliabilityPtr = UINT16_MAX;
             result = LE_OUT_OF_RANGE;
         }
@@ -6313,7 +6313,7 @@ le_result_t taf_Gnss::GetReliabilityInformation
         }
         else
         {
-            LE_INFO("GetReliabilityInformation vertical reliability is invalid");
+            LE_DEBUG("GetReliabilityInformation vertical reliability is invalid");
             *vertReliabilityPtr = UINT16_MAX;
             result = LE_OUT_OF_RANGE;
         }
@@ -6351,7 +6351,7 @@ le_result_t taf_Gnss::GetStdDeviationAzimuthInfo
         }
         else
         {
-            LE_INFO("GetStdDeviationAzimuthInfo: azimuth is invalid");
+            LE_DEBUG("GetStdDeviationAzimuthInfo: azimuth is invalid");
             *azimuthPtr = DBL_MAX;
             result = LE_OUT_OF_RANGE;
         }
@@ -6368,7 +6368,7 @@ le_result_t taf_Gnss::GetStdDeviationAzimuthInfo
         }
         else
         {
-            LE_INFO("GetStdDeviationAzimuthInfo: eastDev is invalid");
+            LE_DEBUG("GetStdDeviationAzimuthInfo: eastDev is invalid");
             *eastDevPtr = DBL_MAX;
             result = LE_OUT_OF_RANGE;
         }
@@ -6385,7 +6385,7 @@ le_result_t taf_Gnss::GetStdDeviationAzimuthInfo
         }
         else
         {
-            LE_INFO("GetStdDeviationAzimuthInfo: northDev is invalid");
+            LE_DEBUG("GetStdDeviationAzimuthInfo: northDev is invalid");
             *northDevPtr = DBL_MAX;
             result = LE_OUT_OF_RANGE;
         }
@@ -6422,7 +6422,7 @@ le_result_t taf_Gnss::GetRealTimeInformation
         }
         else
         {
-            LE_INFO("GetRealTimeInformation: real time is invalid");
+            LE_DEBUG("GetRealTimeInformation: real time is invalid");
             *realTimePtr = UINT64_MAX;
             return LE_OUT_OF_RANGE;
         }
@@ -6439,7 +6439,7 @@ le_result_t taf_Gnss::GetRealTimeInformation
         }
         else
         {
-            LE_INFO("GetRealTimeInformation: real time unc is invalid");
+            LE_DEBUG("GetRealTimeInformation: real time unc is invalid");
             *realTimeUncPtr = UINT64_MAX;
             result = LE_OUT_OF_RANGE;
         }
@@ -6569,7 +6569,7 @@ le_result_t taf_Gnss::GetSatellitesInfoEx
     if (svInfoPtr && svInfoLen)
     {
         size_t svInfoNumElements = NUM_ARRAY_MEMBERS(posSampleReqPtr->positionSampleNodePtr->satInfo);
-        LE_INFO("GetSatellitesInfoEx: svInfoNumElements %d, constellation: %d, input len: %d", (int)svInfoNumElements, (int) constellation, (int) *svInfoLen);
+        LE_DEBUG("GetSatellitesInfoEx: svInfoNumElements %d, constellation: %d, input len: %d", (int)svInfoNumElements, (int) constellation, (int) *svInfoLen);
 
         if (posSampleReqPtr->positionSampleNodePtr->satInfoValid)
         {
@@ -6668,7 +6668,7 @@ le_result_t taf_Gnss::SetMinGpsWeek
             }
             else
             {
-                LE_INFO("configureMinGpsWeek is failed");
+                LE_DEBUG("configureMinGpsWeek is failed");
                 result = LE_FAULT;
             }
         }
@@ -6720,15 +6720,15 @@ le_result_t taf_Gnss::GetMinGpsWeek
                 return result;
             }
             telux::common::ErrorCode error = q.get_future().get();
-            LE_INFO("GetMinGpsWeek: error code %d", (int) error);
+            LE_DEBUG("GetMinGpsWeek: error code %d", (int) error);
             if (error == ErrorCode::SUCCESS) {
-                LE_INFO("GetMinGpsWeek is Success.");
+                LE_DEBUG("GetMinGpsWeek is Success.");
                 result = LE_OK;
                 *minGpsWeekPtr = p.get_future().get();
             }
             else
             {
-                LE_INFO("GetMinGpsWeek is Failed!");
+                LE_DEBUG("GetMinGpsWeek is Failed!");
                 result = LE_FAULT;
             }
         }
@@ -6757,7 +6757,7 @@ le_result_t taf_Gnss::GetCapabilities
 
     *locCapabilityPtr = clientRequestPtr->locationManager->getCapabilities();
 
-    LE_INFO("GetCapabilities: Location Capabilites is %" PRIu64 "", *locCapabilityPtr);
+    LE_DEBUG("GetCapabilities: Location Capabilites is %" PRIu64 "", *locCapabilityPtr);
 
     return LE_OK;
 }
@@ -6826,7 +6826,7 @@ le_result_t taf_Gnss::SetNmeaConfiguration
                 else
                 {
                     result = LE_FAULT;
-                    LE_INFO("SetNmeaConfiguration() is failed!");
+                    LE_DEBUG("SetNmeaConfiguration() is failed!");
                 }
                 if (LE_OK != result)
                 {
@@ -6879,28 +6879,28 @@ le_result_t taf_Gnss::GetXtraStatus
                 auto &gnss = taf_Gnss::GetInstance();
                 if(error == telux::common::ErrorCode::SUCCESS)
                 {
-                    LE_INFO("***Request xtra status Info ****");
-                    LE_INFO("Xtra Feature Enabled: %d",xtraStatus.featureEnabled);
+                    LE_DEBUG("***Request xtra status Info ****");
+                    LE_DEBUG("Xtra Feature Enabled: %d",xtraStatus.featureEnabled);
                     //LE_INFO("Xtra data status: %d ",xtraStatus.xtraDataStatus);
-                    LE_INFO("Xtra status valid for hours :%d",xtraStatus.xtraValidForHours);
+                    LE_DEBUG("Xtra status valid for hours :%d",xtraStatus.xtraValidForHours);
                     gnss.mfeatureEnabled = xtraStatus.featureEnabled;
                     gnss.mXtraValidForHours = xtraStatus.xtraValidForHours;
                     switch(xtraStatus.xtraDataStatus)
                     {
                         case telux::loc::XtraDataStatus::STATUS_UNKNOWN:
-                        LE_INFO("GetXtraStatus Unknown");
+                        LE_DEBUG("GetXtraStatus Unknown");
                         gnss.mXtraDataStatus = TAF_GNSS_XTRA_DATA_STATUS_UNKNOWN;
                         break;
                         case telux::loc::XtraDataStatus::STATUS_NOT_AVAIL:
-                        LE_INFO("GetXtraStatus Not available");
+                        LE_DEBUG("GetXtraStatus Not available");
                         gnss.mXtraDataStatus = TAF_GNSS_XTRA_DATA_STATUS_NOT_AVAIL;
                         break;
                         case telux::loc::XtraDataStatus::STATUS_NOT_VALID:
-                        LE_INFO("GetXtraStatus Invalid");
+                        LE_DEBUG("GetXtraStatus Invalid");
                         gnss.mXtraDataStatus = TAF_GNSS_XTRA_DATA_STATUS_NOT_VALID;
                         break;
                         case telux::loc::XtraDataStatus::STATUS_VALID:
-                        LE_INFO("GetXtraStatus Valid \n");
+                        LE_DEBUG("GetXtraStatus Valid \n");
                         gnss.mXtraDataStatus = TAF_GNSS_XTRA_DATA_STATUS_VALID;
                         break;
                     }
@@ -6919,7 +6919,7 @@ le_result_t taf_Gnss::GetXtraStatus
             std::future<le_result_t> futResult = p.get_future();
             if(futResult.get() == LE_OK)
             {
-                LE_INFO("Request xtra status is success");
+                LE_DEBUG("Request xtra status is success");
                 result = LE_OK;
                 xtraParams->featureEnabled = mfeatureEnabled;
                 xtraParams->xtraValidForHours = mXtraValidForHours;
@@ -6976,7 +6976,7 @@ le_result_t taf_Gnss::GetGnssData
     }
     else
     {
-        LE_INFO("GetGnssData Invalid");
+        LE_DEBUG("GetGnssData Invalid");
     }
     return result;
 }
@@ -7057,7 +7057,7 @@ void taf_Gnss::OpenEventHandler
     void* contextPtr
 )
 {
-    LE_INFO("OnClientConnection sessionRef: %p", sessionRef);
+    LE_DEBUG("OnClientConnection sessionRef: %p", sessionRef);
 
     taf_gnss_Client_t* clientRequestPtr = NULL;
     clientRequestPtr = AcquireSessionRef();
@@ -7072,7 +7072,7 @@ void taf_Gnss::CloseEventHandler
 )
 {
     auto &gnss = taf_Gnss::GetInstance();
-    LE_INFO("SessionRef (%p) has been closed", sessionRef);
+    LE_DEBUG("SessionRef (%p) has been closed", sessionRef);
 
     TAF_ERROR_IF_RET_NIL( sessionRef == NULL, "sessionRef is NULL");
 

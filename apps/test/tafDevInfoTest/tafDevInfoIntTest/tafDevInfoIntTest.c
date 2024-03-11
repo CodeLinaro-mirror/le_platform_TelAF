@@ -94,35 +94,40 @@ COMPONENT_INIT
         LE_TEST_INFO("======== GetImei Test ========");
         CheckNumArgs(numArgs,1);
         status = Test_GetImei();
-        LE_TEST_OK(LE_OK == status, "GetImei Test: Success");
+#ifdef LE_CONFIG_GET_IMEI_SUPPORT
+        LE_TEST_OK(status == LE_OK, "Test taf_info_GetImei: End");
+#endif
+#ifndef LE_CONFIG_GET_IMEI_SUPPORT
+        LE_TEST_OK(status == LE_UNSUPPORTED, "UNSUPPORTED :Test taf_info_GetImei End");
+#endif
     }
     else if (strncmp(testType, "kernel", strlen(testType)) == 0)
     {
         LE_TEST_INFO("======== GetKernelVersion Test ========");
         CheckNumArgs(numArgs,1);
         status = Test_GetKernelVersion();
-        LE_TEST_OK(LE_OK == status, "GetKernelVersion Test: Success");
+        LE_TEST_OK(LE_OK == status, "GetKernelVersion Test: End");
     }
     else if (strncmp(testType, "modem", strlen(testType)) == 0)
     {
         LE_TEST_INFO("======== GetModemVersion========");
         CheckNumArgs(numArgs,1);
         status = Test_GetModemVersion();
-        LE_TEST_OK(LE_OK == status, "GetModemVersion Test: Success");
+        LE_TEST_OK(LE_OK == status, "GetModemVersion Test: End");
     }
     else if (strncmp(testType, "tz", strlen(testType)) == 0)
     {
         LE_TEST_INFO("======== GetTZVersion========");
         CheckNumArgs(numArgs,1);
         status = Test_GetTZVersion();
-        LE_TEST_OK(LE_OK == status, "GetTZVersion Test: Success");
+        LE_TEST_OK(LE_OK == status, "GetTZVersion Test: End");
     }
     else if (strncmp(testType, "model", strlen(testType)) == 0)
     {
         LE_TEST_INFO("======== GetDeviceModel========");
         CheckNumArgs(numArgs,1);
         status = Test_GetDeviceModel();
-        LE_TEST_OK(LE_OK == status, "GetDeviceModel Test: Success");
+        LE_TEST_OK(LE_OK == status, "GetDeviceModel Test: End");
     }
     else
     {

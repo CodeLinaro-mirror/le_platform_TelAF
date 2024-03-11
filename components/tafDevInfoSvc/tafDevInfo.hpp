@@ -23,12 +23,12 @@ using namespace telux::tafsvc;
 using namespace telux::platform;
 namespace telux {
 namespace tafsvc {
-
+#ifdef LE_CONFIG_GET_IMEI_SUPPORT
     class tafdevinfoServiceStatusListener : public telux::platform::IDeviceInfoListener {
     public:
         void onServiceStatusChange(telux::common::ServiceStatus serviceStatus) override;
     };
-
+#endif
     class taf_info : public ITafSvc {
     public:
         taf_info() = default;
@@ -37,15 +37,16 @@ namespace tafsvc {
         static taf_info& GetInstance();
         void Init();
 
-        le_result_t GetIMEI(char* imeiPtr, size_t numElements);
         le_result_t GetDeviceModel(char* modelPtr, size_t numElements);
         le_result_t GetKernelVersion(char* versionPtr, size_t numElements);
         le_result_t GetModemVersion(char* modemPtr, size_t numElements);
         le_result_t GetTzVersion(char* tzPtr, size_t numElements);
-
+#ifdef LE_CONFIG_GET_IMEI_SUPPORT
+        le_result_t GetIMEI(char* imeiPtr, size_t numElements);
         std::shared_ptr<telux::platform::IDeviceInfoListener> devinfoServiceStatusListener
             = nullptr;
         std::shared_ptr<IDeviceInfoManager> deviceInfoManager = nullptr;
+#endif
     };
 }
 }

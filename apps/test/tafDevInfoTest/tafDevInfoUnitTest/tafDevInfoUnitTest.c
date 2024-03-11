@@ -25,7 +25,12 @@
 __attribute__((unused)) static void Test_taf_info_GetImei() {
     char imei[TAF_INFO_IMEI_MAX_BYTES];
     le_result_t result = taf_info_GetImei(imei, sizeof(imei));
+#ifdef LE_CONFIG_GET_IMEI_SUPPORT
     LE_TEST_OK(result == LE_OK, "Test taf_info_GetImei: End");
+#endif
+#ifndef LE_CONFIG_GET_IMEI_SUPPORT
+    LE_TEST_OK(result == LE_UNSUPPORTED, "UNSUPPORTED on this Platform: Test taf_info_GetImei End");
+#endif
 }
 
 __attribute__((unused)) static void Test_taf_info_GetModel() {

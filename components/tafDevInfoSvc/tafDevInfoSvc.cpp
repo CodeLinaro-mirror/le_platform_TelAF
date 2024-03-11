@@ -23,8 +23,11 @@ COMPONENT_INIT {
 ======================================================================*/
 le_result_t taf_info_GetImei(char* imeiPtr, size_t numElements) {
     TAF_ERROR_IF_RET_VAL(imeiPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(imeiPtr)");
+#ifdef LE_CONFIG_GET_IMEI_SUPPORT
     auto& tafDevInfo = taf_info::GetInstance();
     return tafDevInfo.GetIMEI(imeiPtr, numElements);
+#endif
+    return LE_UNSUPPORTED;
 }
 
 /*======================================================================

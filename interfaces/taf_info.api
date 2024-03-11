@@ -148,6 +148,7 @@ DEFINE TZ_MAX_BYTES = 256;
  *
  * @return LE_FAULT         -- Failed to retrieve the IMEI.
  *         LE_OVERFLOW      -- IMEI length exceeds the maximum length.
+ *         LE_UNSUPPORTED   -- Not Supported.
  *         LE_OK            -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------

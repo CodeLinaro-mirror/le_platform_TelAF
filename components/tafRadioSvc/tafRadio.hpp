@@ -70,6 +70,8 @@
 #define TAF_RADIO_NEIGHBOR_CELLS_MAX_NUM 10
 #define TAF_RADIO_NEIGHBOR_CELL_INFO_MAX_NUM 6
 
+#define TAF_RADIO_SUBSYSTEM_TIMEOUT 5
+
 /*
  * @brief The emum of radio command type.
  */

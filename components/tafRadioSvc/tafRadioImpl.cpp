@@ -1903,8 +1903,16 @@ void taf_Radio::onInitCompleted
 )
 {
     std::lock_guard<std::mutex> lock(mtx);
-    subSystemStatusUpdated = true;
-    conVar.notify_all();
+    if (status == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+    {
+        LE_INFO("Status : available.");
+        subSystemStatusUpdated = true;
+        conVar.notify_all();
+    }
+    else
+    {
+        LE_ERROR("Invalid status: %d", (int)status);
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1914,9 +1922,6 @@ void taf_Radio::onInitCompleted
 //--------------------------------------------------------------------------------------------------
 void taf_Radio::Init(void)
 {
-    std::chrono::time_point<std::chrono::system_clock> startTime, endTime;
-    std::chrono::duration<double> elapsedTime;
-
     // 1. Initiate the semaphore
     taf_RadioNetworkResponseCallback::selModeSem = le_sem_Create("taf_RadioSelModeSem", 0);
     taf_RadioNetworkResponseCallback::prefNetSem = le_sem_Create("taf_RadioPrefNetSem", 0);
@@ -1992,28 +1997,46 @@ void taf_Radio::Init(void)
         taf_pa_radio_SetReference(phoneId, netStatusRefs[phoneId - 1]);
     }
 
-    startTime = std::chrono::system_clock::now();
-
     // 4. Get the PhoneFactory, dataFactory and PhoneManager instances
     auto &phoneFactory = telux::tel::PhoneFactory::getInstance();
     auto &dataFactory = telux::data::DataFactory::getInstance();
-    phoneManager = phoneFactory.getPhoneManager();
+    std::promise<telux::common::ServiceStatus> promPhone;
+    phoneManager = phoneFactory.getPhoneManager([&](telux::common::ServiceStatus svcStatus)
+        {
+            promPhone.set_value(svcStatus);
+        });
 
     // 5. Check if telephony subsystem is ready
-    bool subSystemStatus = phoneManager->isSubsystemReady();
-    if (!subSystemStatus) {
-        LE_INFO("Telephony subsystem wait to be ready...");
-        future<bool> f = phoneManager->onSubsystemReady();
-        //  Wait until the subsystem is ready.
-        subSystemStatus = f.get();
-    }
-    phoneListener = std::make_shared<taf_RadioPhoneListener>();
-
-    if (subSystemStatus)
+    bool isReady = false;
+    if (!phoneManager)
     {
-        endTime = std::chrono::system_clock::now();
-        elapsedTime = endTime - startTime;
-        LE_INFO("Elapsed time for Telephony subsystem: %lfs", elapsedTime.count());
+        LE_FATAL("Invalid phone manager.");
+    }
+    else
+    {
+        std::future<telux::common::ServiceStatus> initFuture = promPhone.get_future();
+        std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(
+            TAF_RADIO_SUBSYSTEM_TIMEOUT));
+        telux::common::ServiceStatus serviceStatus;
+        if (std::future_status::timeout == waitStatus)
+        {
+            LE_FATAL("Timeout waiting for telephony susbsytem.");
+        }
+        else
+        {
+            serviceStatus = initFuture.get();
+            if (serviceStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
+            {
+                LE_FATAL("Fail to initiate telephony susbsytem.");
+            }
+            else
+            {
+                LE_INFO("Telephony subsystem is ready.");
+                isReady = true;
+            }
+        }
+
+        phoneListener = std::make_shared<taf_RadioPhoneListener>();
 
         // 6. Instantiate Phone
         std::vector<int> phoneIds;
@@ -2027,25 +2050,90 @@ void taf_Radio::Init(void)
                 {
                     phones.emplace_back(phone);
                 }
+
+                // 7. Initialize network subsystem.
+                isReady = false;
+                std::promise<telux::common::ServiceStatus> promNet;
                 auto networkManager =
-                    telux::tel::PhoneFactory::getInstance().getNetworkSelectionManager(index);
-                if (networkManager != nullptr)
+                    telux::tel::PhoneFactory::getInstance().getNetworkSelectionManager(index,
+                    [&](telux::common::ServiceStatus svcStatus)
+                    {
+                        promNet.set_value(svcStatus);
+                    });
+                if (!networkManager)
                 {
-                    networkManagers.emplace_back(networkManager);
-                    auto networkListener = std::make_shared<taf_RadioNetworkSelectionListener>();
-                    networkListener->semaphore = le_sem_Create("networkListenerSem", 0);
-                    networkListeners.emplace_back(networkListener);
+                    LE_FATAL("Invalid network manager.");
                 }
+                else
+                {
+                    std::future<telux::common::ServiceStatus> initFuture = promNet.get_future();
+                    std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(
+                        TAF_RADIO_SUBSYSTEM_TIMEOUT));
+                    if (std::future_status::timeout == waitStatus)
+                    {
+                        LE_FATAL("Timeout waiting for network susbsytem.");
+                    }
+                    else
+                    {
+                        serviceStatus = initFuture.get();
+                        if (serviceStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
+                        {
+                            LE_FATAL("Fail to initiate network susbsytem.");
+                        }
+                        else
+                        {
+                            isReady = true;
+                            LE_INFO("%" PRIuS " network subsystem is ready.", index);
+                            networkManagers.emplace_back(networkManager);
+                            auto networkListener =
+                                std::make_shared<taf_RadioNetworkSelectionListener>();
+                            networkListener->semaphore = le_sem_Create("networkListenerSem", 0);
+                            networkListeners.emplace_back(networkListener);
+                        }
+                    }
+                }
+
+                // 8. Initialize serving subsystem.
+                isReady = false;
+                std::promise<telux::common::ServiceStatus> promSrv;
                 auto servingSystemManager =
-                     telux::tel::PhoneFactory::getInstance().getServingSystemManager(index);
+                     telux::tel::PhoneFactory::getInstance().getServingSystemManager(index,
+                    [&](telux::common::ServiceStatus svcStatus)
+                    {
+                        promSrv.set_value(svcStatus);
+                    });
+                if (!servingSystemManager)
+                {
+                    LE_FATAL("Invalid serving manager.");
+                }
                 if (servingSystemManager != nullptr)
                 {
-                    servingSystemManagers.emplace_back(servingSystemManager);
+                    std::future<telux::common::ServiceStatus> initFuture = promSrv.get_future();
+                    std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(
+                        TAF_RADIO_SUBSYSTEM_TIMEOUT));
+                    if (std::future_status::timeout == waitStatus)
+                    {
+                        LE_FATAL("Timeout waiting for serving susbsytem.");
+                    }
+                    else
+                    {
+                        serviceStatus = initFuture.get();
+                        if (serviceStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
+                        {
+                            LE_FATAL("Fail to initiate serving susbsytem.");
+                        }
+                        else
+                        {
+                            isReady = true;
+                            LE_INFO("%" PRIuS " serving subsystem is ready.", index);
+                            servingSystemManagers.emplace_back(servingSystemManager);
+                        }
+                    }
                 }
             }
         }
 
-        // 7. Instantiate RadioCallback
+        // 9. Instantiate RadioCallback
         signalStrengthCb = std::make_shared<taf_RadioSignalStrengthCallback>();
         voiceSrvStateCb = std::make_shared<taf_RadioVoiceServiceStateCallback>();
         setOperatingModeCb = std::make_shared<taf_RadioSetOperatingModeCallback>();
@@ -2056,68 +2144,50 @@ void taf_Radio::Init(void)
         getOperatingModeCb->semaphore = le_sem_Create("taf_RadioGetOpModeCbSem", 0);
         dataInfoCb.semaphore = le_sem_Create("dataInfoCbSem", 0);
 
-        // 8. Initialize network subsystem.
-        for (size_t index = 0; index < networkManagers.size(); index++)
-        {
-            startTime = std::chrono::system_clock::now();
-            bool networkSystemStatus = networkManagers[index]->isSubsystemReady();
-            if (!networkSystemStatus)
-            {
-                LE_INFO("Network subsystem wait to be ready...");
-                std::future<bool> f = networkManagers[index]->onSubsystemReady();
-                //  Wait until the subsystem is ready.
-                networkSystemStatus = f.get();
-            }
-
-            if (networkSystemStatus)
-            {
-                endTime = std::chrono::system_clock::now();
-                elapsedTime = endTime - startTime;
-                LE_INFO("Elapsed time for %" PRIuS " Network subsystem: %lfs",
-                    index, elapsedTime.count());
-            }
-            else
-            {
-                LE_FATAL("Fail to init %" PRIuS " Network subsystem", index);
-            }
-        }
-
-        // 9. Initialize telephony serving subsystem.
-        for (size_t index = 0; index < servingSystemManagers.size(); index++)
-       {
-            startTime = std::chrono::system_clock::now();
-            bool servingSystemStatus = servingSystemManagers[index]->isSubsystemReady();
-            if (!servingSystemStatus)
-            {
-                LE_INFO("Serving subsystem wait to be ready...");
-                std::future<bool> f = servingSystemManagers[index]->onSubsystemReady();
-                //  Wait until the subsystem is ready.
-                servingSystemStatus = f.get();
-            }
-
-            if (servingSystemStatus)
-            {
-                endTime = std::chrono::system_clock::now();
-                elapsedTime = endTime - startTime;
-                LE_INFO("Elapsed time for %" PRIuS " Tel Serving subsystem: %lfs",
-                    index, elapsedTime.count());
-            }
-            else
-            {
-                LE_FATAL("Fail to init %" PRIuS " Tel Serving subsystem", index);
-            }
-        }
-
         for (size_t index = 1; index <= phoneIds.size(); index++)
         {
-            // 10. Initialize IMS serving subsystem.
-            startTime = std::chrono::system_clock::now();
+            // 10. Initialize data serving subsystem.
+            isReady = false;
             int slot = (int)phoneManager->getSlotIdFromPhoneId(index);
+            telux::common::ServiceStatus subSystemStatus =
+                telux::common::ServiceStatus::SERVICE_FAILED;
+            auto initCb = std::bind(&taf_Radio::onInitCompleted, this, std::placeholders::_1);
+            auto servingSystemMgr = dataFactory.getServingSystemManager((SlotId)slot, initCb);
+            if (servingSystemMgr)
+            {
+                std::unique_lock<std::mutex> uLock(mtx);
+                if (!conVar.wait_for(uLock, std::chrono::seconds(TAF_RADIO_SUBSYSTEM_TIMEOUT),
+                    [this]{return this->subSystemStatusUpdated;}))
+                {
+                    LE_FATAL("Timeout waiting for data serving susbsytem");
+                }
+
+                subSystemStatus = servingSystemMgr->getServiceStatus();
+                if (subSystemStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+                {
+                    isReady = true;
+                    LE_INFO("%d data serving subsystem is ready.", slot);
+                    dataServSysManagers.emplace((SlotId)slot, servingSystemMgr);
+                    auto listener = std::make_shared<taf_RadioDataServSysListener>((SlotId)slot);
+                    dataServSysListeners.emplace((SlotId)slot, listener);
+                }
+                else
+                {
+                    LE_FATAL("Fail to init Data Serving subsystem");
+                }
+            }
+            else
+            {
+                LE_ERROR("Failed to get Data Serving System instance.");
+            }
+
+            // 11. Initialize IMS serving subsystem.
+            isReady = false;
             std::promise<telux::common::ServiceStatus> prom;
             auto imsServingSystemMgr = phoneFactory.getImsServingSystemManager(
-                (SlotId)slot,[&](telux::common::ServiceStatus status)
+                (SlotId)slot,[&](telux::common::ServiceStatus svcStatus)
                 {
-                    if (status == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+                    if (svcStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
                     {
                         prom.set_value(telux::common::ServiceStatus::SERVICE_AVAILABLE);
                     }
@@ -2138,15 +2208,23 @@ void taf_Radio::Init(void)
                 if (imsServSysMgrStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
                 {
                     LE_INFO("IMS serving subsystem wait to be ready...");
-                    imsServSysMgrStatus = prom.get_future().get();
+                    std::future<telux::common::ServiceStatus> initFuture = prom.get_future();
+                    std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(
+                        TAF_RADIO_SUBSYSTEM_TIMEOUT));
+                    if (std::future_status::timeout == waitStatus)
+                    {
+                        LE_FATAL ("Timeout waiting for IMS serving susbsytem");
+                    }
+                    else
+                    {
+                        imsServSysMgrStatus = initFuture.get();
+                    }
                 }
                 if (imsServSysMgrStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
                 {
+                    isReady = true;
                     imsServingSystemMgrs.emplace((SlotId)slot, imsServingSystemMgr);
-                    endTime = std::chrono::system_clock::now();
-                    elapsedTime = endTime - startTime;
-                    LE_INFO("Elapsed time for %d IMS Serving subsystem: %lfs",
-                        slot, elapsedTime.count());
+                    LE_INFO("%d IMS serving subsystem is ready.", slot);
 
                     auto listener = std::make_shared<taf_RadioImsServSysListener>((SlotId)slot);
                     imsServSysListeners.emplace((SlotId)slot, listener);
@@ -2157,13 +2235,13 @@ void taf_Radio::Init(void)
                 }
             }
 
-            // 11. Initialize IMS settings subsystem.
-            startTime = std::chrono::system_clock::now();
+            // 12. Initialize IMS settings subsystem.
+            isReady = false;
             std::promise<telux::common::ServiceStatus> promSetting;
             auto imsSettingMgr = phoneFactory.getImsSettingsManager(
-                [&](telux::common::ServiceStatus status)
+                [&](telux::common::ServiceStatus svcStatus)
                 {
-                    if (status == telux::common::ServiceStatus::SERVICE_AVAILABLE)
+                    if (svcStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
                     {
                         promSetting.set_value(telux::common::ServiceStatus::SERVICE_AVAILABLE);
                     }
@@ -2183,76 +2261,51 @@ void taf_Radio::Init(void)
                 if (imsSettingMgrStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
                 {
                     LE_INFO("IMS setting subsystem wait to be ready...");
-                    imsSettingMgrStatus = promSetting.get_future().get();
+                    std::future<telux::common::ServiceStatus> initFuture = promSetting.get_future();
+                    std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(
+                        TAF_RADIO_SUBSYSTEM_TIMEOUT));
+                    if (std::future_status::timeout == waitStatus)
+                    {
+                        LE_FATAL ("Timeout waiting for IMS setting susbsytem");
+                    }
+                    else
+                    {
+                        imsSettingMgrStatus = initFuture.get();
+                    }
                 }
                 if (imsSettingMgrStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
                 {
+                    isReady = true;
                     imsSettingMgrs.emplace((SlotId)slot, imsSettingMgr);
-                    endTime = std::chrono::system_clock::now();
-                    elapsedTime = endTime - startTime;
-                    LE_INFO("Elapsed time for %d IMS setting subsystem: %lfs",
-                        slot, elapsedTime.count());
+                    LE_INFO("%d IMS setting subsystem is ready.", slot);
                 }
                 else
                 {
                     LE_FATAL("Fail to init IMS Setting subsystem");
                 }
             }
-
-            // 12. Initialize data serving subsystem.
-            telux::common::ServiceStatus subSystemStatus =
-                telux::common::ServiceStatus::SERVICE_FAILED;
-            auto initCb = std::bind(&taf_Radio::onInitCompleted, this, std::placeholders::_1);
-            auto servingSystemMgr = dataFactory.getServingSystemManager((SlotId)slot, initCb);
-            if (servingSystemMgr)
-            {
-                std::unique_lock<std::mutex> uLock(mtx);
-                conVar.wait(uLock, [this]{return this->subSystemStatusUpdated;});
-                subSystemStatus = servingSystemMgr->getServiceStatus();
-
-                if (subSystemStatus == telux::common::ServiceStatus::SERVICE_AVAILABLE)
-                {
-                    dataServSysManagers.emplace((SlotId)slot, servingSystemMgr);
-                    endTime = std::chrono::system_clock::now();
-                    elapsedTime = endTime - startTime;
-                    LE_INFO("Elapsed time for %d data serving subsystem: %lfs",
-                        slot, elapsedTime.count());
-
-                    auto listener = std::make_shared<taf_RadioDataServSysListener>((SlotId)slot);
-                    dataServSysListeners.emplace((SlotId)slot, listener);
-                }
-                else
-                {
-                    LE_FATAL("Fail to init Data Serving subsystem");
-                }
-            }
-            else
-            {
-                LE_ERROR("Failed to get Data Serving System instance.");
-            }
         }
     }
-    else
+
+    if (isReady)
     {
-        LE_FATAL("Fail to init Telephony subsystem");
-    }
+        // 13. Create and start command thread.
+        le_sem_Ref_t radioCmdThreadSem = le_sem_Create("radioCmdThreadSem", 0);
+        radioCmdEvId = le_event_CreateId("radioCmd", sizeof(taf_RadioCmdReq_t));
+        le_thread_Ref_t radioCmdThreadRef = le_thread_Create("radioCmdThread", RadioCmdThread, (void*)radioCmdThreadSem);
+        le_thread_SetStackSize(radioCmdThreadRef, TAF_RADIO_THREAD_STACK_SIZE);
+        le_thread_Start(radioCmdThreadRef);
+        le_sem_Wait(radioCmdThreadSem);
 
-    // 13. Create and start command thread.
-    le_sem_Ref_t radioCmdThreadSem = le_sem_Create("radioCmdThreadSem", 0);
-    radioCmdEvId = le_event_CreateId("radioCmd", sizeof(taf_RadioCmdReq_t));
-    le_thread_Ref_t radioCmdThreadRef = le_thread_Create("radioCmdThread", RadioCmdThread, (void*)radioCmdThreadSem);
-    le_thread_SetStackSize(radioCmdThreadRef, TAF_RADIO_THREAD_STACK_SIZE);
-    le_thread_Start(radioCmdThreadRef);
-    le_sem_Wait(radioCmdThreadSem);
+        // 14. Delete semaphore.
+        le_sem_Delete(radioCmdThreadSem);
 
-    // 14. Delete semaphore.
-    le_sem_Delete(radioCmdThreadSem);
-
-    // 15. Add power state change handle.
-    taf_pm_AddStateChangeHandler(PowerStateChangeHandler, NULL);
-    if (taf_pm_GetPowerState() != TAF_PM_STATE_SUSPEND)
-    {
-        RegisterListener();
-        taf_pa_radio_EnableIndication();
+        // 15. Add power state change handle.
+        taf_pm_AddStateChangeHandler(PowerStateChangeHandler, NULL);
+        if (taf_pm_GetPowerState() != TAF_PM_STATE_SUSPEND)
+        {
+            RegisterListener();
+            taf_pa_radio_EnableIndication();
+        }
     }
 }

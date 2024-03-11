@@ -236,6 +236,7 @@ namespace tafsvc {
         double   altMeanSeaLevel;
         taf_gnss_GnssData_t gnssData[TAF_GNSS_NUMBER_OF_SIGNAL_TYPES_MAX];
         bool  gnssDataValid;
+        le_msg_SessionRef_t*         clientSessionRefPtr;
         le_dls_Link_t   next;
     }
     taf_gnss_PositionSample_t;
@@ -272,18 +273,6 @@ namespace tafsvc {
     }
     taf_gnss_PositionSampleRequest_t;
 
-    typedef struct
-    {
-        void*                       clientRefPtr;
-        le_msg_SessionRef_t         sessionRef;
-        taf_gnss_Resolution_t        dopResolution;
-        taf_gnss_Resolution_t        vAccuracyResolution;
-        taf_gnss_Resolution_t        vSpeedAccuracyResolution;
-        taf_gnss_Resolution_t        hSpeedAccuracyResolution;
-        le_dls_Link_t               next;
-    }
-    taf_gnss_Client_t;
-
     class tafLocationListener : public telux::loc::ILocationListener,
     public telux::loc::ILocationConfigListener,public telux::loc::ILocationSystemInfoListener {
         public:
@@ -304,6 +293,8 @@ namespace tafsvc {
             void onCapabilitiesInfo(const telux::loc::LocCapability capabilityInfo) override;
             void onXtraStatusUpdate(const telux::loc::XtraStatus xtraStatus) override;
 
+            le_msg_SessionRef_t*         clientSessionRef;
+
             ~tafLocationListener() {};
     };
 
@@ -311,6 +302,52 @@ namespace tafsvc {
         public:
             void onDgnssStatusUpdate(DgnssStatus status) override;
     };
+
+    typedef struct
+    {
+        void*                       clientRefPtr;
+        le_msg_SessionRef_t         sessionRef;
+        taf_gnss_Resolution_t        dopResolution;
+        taf_gnss_Resolution_t        vAccuracyResolution;
+        taf_gnss_Resolution_t        vSpeedAccuracyResolution;
+        taf_gnss_Resolution_t        hSpeedAccuracyResolution;
+        taf_gnss_State_t GnssState;
+        int mAcqRate;
+        LocReqEngine mEngineType;
+        bool mTtffEnabled;
+        std::chrono::time_point<std::chrono::system_clock> mStartTime;
+        std::chrono::time_point<std::chrono::system_clock> mEndTime;
+        std::shared_ptr<ILocationManager> locationManager;
+        bool mStarted;
+        std::shared_ptr<tafLocationListener> posListener;
+        le_event_HandlerRef_t HandlerRef;
+        le_event_Id_t positionEventId;
+        le_event_Id_t locCapabilityEventId;
+        le_event_Id_t nmeaEventId;
+        taf_gnss_PositionSample_t   LastPositionSample;
+        le_ref_MapRef_t PositionHandlerRefMap;
+        taf_gnss_PositionSample_t mSatParams;
+        std::vector<float> mVerticalSpeed;
+        std::vector<float> mVerticalSpeedAccuracy;
+        uint32_t mTtffPtr;
+        uint8_t mTotalSVTracked;
+        uint64_t mGpsTime;
+        int32_t mCurrentLeapSeconds;
+        uint64_t mChangeEventTime;
+        uint8_t mLeapSeconds;
+        int32_t mNextLeapSeconds;
+        le_dls_List_t    SvInfoList;
+        taf_gnss_SvInfo_t  mSatInfo[TAF_GNSS_SV_INFO_MAX_LEN];
+        taf_gnss_GnssData_t mGnssData[TAF_GNSS_NUMBER_OF_SIGNAL_TYPES_MAX];
+        taf_gnss_SvMeas_t  mSatMeas;
+        taf_gnss_AltType_t mAltType;
+        std::mutex mMutex;
+        le_mutex_Ref_t mGnssMutexRef;
+        bool mSvEnabled = false;
+        bool mGnssSigEnabled = false;
+        le_dls_Link_t               next;
+    }
+    taf_gnss_Client_t;
 
     class taf_Gnss: public ITafSvc
     {
@@ -345,6 +382,7 @@ namespace tafsvc {
             taf_gnss_SampleRef_t GetLastSampleRef(void);
             void ReleaseClientRef( void* RefPtr);
             static void CloseEventHandler(le_msg_SessionRef_t sessionRef, void* contextPtr);
+            static void OpenEventHandler(le_msg_SessionRef_t sessionRef, void* contextPtr);
             le_result_t GetPositionState( taf_gnss_SampleRef_t positionSampleRef,
                     taf_gnss_FixState_t* statePtr);
             void ReleaseSampleRef(taf_gnss_SampleRef_t positionSampleRef);
@@ -457,29 +495,12 @@ namespace tafsvc {
 
             le_mem_PoolRef_t   PositionHandlerPoolRef;
             le_mem_PoolRef_t   PositionSampleRequestPoolRef;
-            le_event_Id_t positionEventId;
             le_mem_PoolRef_t   PositionSamplePoolRef;
-            le_event_Id_t locCapabilityEventId;
-            le_event_Id_t nmeaEventId;
-            taf_gnss_PositionSample_t   LastPositionSample;
-            taf_gnss_PositionSample_t mSatParams;
-            std::chrono::time_point<std::chrono::system_clock> mStartTime;
-            std::chrono::time_point<std::chrono::system_clock> mEndTime;
-            std::condition_variable mCondVar;
-            std::condition_variable mTtffVar;
             std::condition_variable mNmeaVar;
-            std::mutex mMutex;
-            std::mutex mGnssMutex;
-            le_mutex_Ref_t mGnssMutexRef = NULL;
-            uint32_t mTtffPtr;
             int32_t NumOfPositionHandlers;
             int32_t NumOfCapabilityHandlers;
+            int32_t mClientRefCount;
             int32_t NumOfNmeaHandlers;
-            uint8_t mLeapSeconds = 0;
-            std::vector<float> mVerticalSpeed;
-            std::vector<float> mVerticalSpeedAccuracy;
-            int mAcqRate;
-            LocReqEngine mEngineType = 0;//By default set to FUSED mode
             std::string mNmeaBitMask;
             uint8_t mEnable;
             uint8_t mEnabled911;
@@ -487,46 +508,24 @@ namespace tafsvc {
             uint8_t mMinorVersion;
             int mRequestSB;
             int mRequestMinEle;
-            bool mStarted = false;
-            bool mTtffEnabled = false;
-            bool mConstellationEnabled = false;
-            bool mSvEnabled = false;
-            bool mGnssSigEnabled = false;
-            bool mTtffEnable;
-            uint8_t mTotalSVTracked;
             uint8_t mfeatureEnabled;
             uint32_t mXtraValidForHours;
             uint32_t mXtraDataStatus;
-            uint64_t mGpsTime = 0;
-            int32_t mCurrentLeapSeconds = 0;
-            uint64_t mChangeEventTime = 0;
-            int32_t mNextLeapSeconds = 0;
 
             taf_gnss_ConstellationBitMask_t mConstellationMask;
-            le_dls_List_t    SvInfoList;
-            std::string mCommandName;
-            taf_gnss_SvInfo_t  mSatInfo[TAF_GNSS_SV_INFO_MAX_LEN];
-            taf_gnss_GnssData_t mGnssData[TAF_GNSS_NUMBER_OF_SIGNAL_TYPES_MAX];
-            taf_gnss_SvMeas_t  mSatMeas;
             taf_gnss_NmeaBitMask_t mNmeaMask = 0;
-            taf_gnss_AltType_t mAltType;
             uint8_t mMinSvEle;
 
         private:
-            std::shared_ptr<ILocationManager> mLocationManager = nullptr;
             std::shared_ptr<ILocationConfigurator> mLocationConfigurator = nullptr;
             std::shared_ptr<IDgnssManager> mDgnssManager = nullptr;
-            std::shared_ptr<tafLocationListener> mPosListener = nullptr;
             telux::common::Status LocationConfiguratorInit();
-            telux::common::Status LocationManagerInit();
+            telux::common::Status LocationManagerInit(taf_gnss_Client_t* clientRequestPtr);
             telux::common::Status DgnssManagerInit();
             le_mem_PoolRef_t   ClientPoolRef;
             le_ref_MapRef_t PositionSampleMap;
             le_ref_MapRef_t ClientRequestRefMap;
-            le_ref_MapRef_t PositionHandlerRefMap;
             le_dls_List_t    SessionCtxList;
-            taf_gnss_State_t GnssState;
-            le_event_HandlerRef_t HandlerRef;
     };
     }
 }

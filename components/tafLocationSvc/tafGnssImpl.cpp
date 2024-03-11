@@ -149,21 +149,21 @@ telux::common::Status taf_Gnss::DgnssManagerInit() {
    return telux::common::Status::SUCCESS;
 }
 
-telux::common::Status taf_Gnss::LocationManagerInit() {
-    if(mLocationManager == nullptr) {
+telux::common::Status taf_Gnss::LocationManagerInit(taf_gnss_Client_t* clientRequestPtr) {
+    if(clientRequestPtr->locationManager == nullptr) {
         std::promise<ServiceStatus> prom = std::promise<ServiceStatus>();
         std::chrono::time_point<std::chrono::system_clock> startTime, endTime;
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
         auto &locationFactory = LocationFactory::getInstance();
-        mLocationManager = locationFactory.getLocationManager([&](ServiceStatus status) {
+        clientRequestPtr->locationManager = locationFactory.getLocationManager([&](ServiceStatus status) {
                 if (status == ServiceStatus::SERVICE_AVAILABLE) {
-                prom.set_value(ServiceStatus::SERVICE_AVAILABLE);
+                    prom.set_value(ServiceStatus::SERVICE_AVAILABLE);
                 } else {
-                prom.set_value(ServiceStatus::SERVICE_UNAVAILABLE);
+                    prom.set_value(ServiceStatus::SERVICE_UNAVAILABLE);
                 }
                 });
         startTime = std::chrono::system_clock::now();
-        ServiceStatus locMgrStatus = mLocationManager->getServiceStatus();
+        ServiceStatus locMgrStatus = clientRequestPtr->locationManager->getServiceStatus();
         if(locMgrStatus != ServiceStatus::SERVICE_AVAILABLE) {
             LE_INFO("Location subsystem is not ready, Please wait");
         }
@@ -179,12 +179,12 @@ telux::common::Status taf_Gnss::LocationManagerInit() {
 #endif
 #ifdef TARGET_SA415M
         auto &locationFactory = LocationFactory::getInstance();
-        mLocationManager = locationFactory.getLocationManager();
-        bool subSystemsStatus = mLocationManager->isSubsystemReady();
+        clientRequestPtr->locationManager = locationFactory.getLocationManager();
+        bool subSystemsStatus = clientRequestPtr->locationManager->isSubsystemReady();
         startTime = std::chrono::system_clock::now();
         if(!subSystemsStatus) {
             LE_INFO( "Location subsystem is not ready, Please wait");
-            std::future<bool> f = mLocationManager->onSubsystemReady();
+            std::future<bool> f = clientRequestPtr->locationManager->onSubsystemReady();
             subSystemsStatus = f.get();
         }
 
@@ -197,16 +197,23 @@ telux::common::Status taf_Gnss::LocationManagerInit() {
             return telux::common::Status::NOTREADY;
         }
 #endif
-        mPosListener = std::make_shared<tafLocationListener>();
-        mLocationManager->registerListenerEx(mPosListener);
-        auto status = mLocationManager->registerForSystemInfoUpdates(mPosListener);//lsc
+
+        clientRequestPtr->PositionHandlerRefMap = le_ref_CreateMap("PositionHandlerRefMap", 4);
+        LE_INFO("LocationManagerInit for sessionRef: %p",  clientRequestPtr->sessionRef);
+        clientRequestPtr->posListener = std::make_shared<tafLocationListener>();
+        clientRequestPtr->posListener->clientSessionRef = &clientRequestPtr->sessionRef;
+        clientRequestPtr->positionEventId = le_event_CreateIdWithRefCounting("positionEventId");
+        clientRequestPtr->HandlerRef = le_event_AddHandler("LocUpdateEventId", clientRequestPtr->positionEventId, taf_Gnss::GnssPositionHandler);
+
+        clientRequestPtr->locationManager->registerListenerEx(clientRequestPtr->posListener);
+        auto status = clientRequestPtr->locationManager->registerForSystemInfoUpdates(clientRequestPtr->posListener);//lsc
         if(telux::common::Status::SUCCESS == status)
         {
-            LE_INFO("register a listener for Location system information");
+            LE_INFO("register a client specific listener for Location system information");
         }
         else
         {
-            LE_ERROR("cannot register a listener for Location system information");
+            LE_ERROR("cannot register client specific listener for Location system information");
         }
     } else {
         LE_INFO("Location manager already initialized");
@@ -275,6 +282,7 @@ void taf_Gnss::CopyPositionData
     taf_gnss_PositionSample_t* CurrentDataPtr
 )
 {
+    LastDataPtr->clientSessionRefPtr = CurrentDataPtr->clientSessionRefPtr;
     LastDataPtr->fixState = CurrentDataPtr->fixState;
     LastDataPtr->latitudeValid = CurrentDataPtr->latitudeValid;
     LastDataPtr->latitude = CurrentDataPtr->latitude;
@@ -478,7 +486,14 @@ void taf_Gnss::GnssPositionHandler
     TAF_ERROR_IF_RET_NIL( currentPosPtr == NULL, "currentPosPtr is Null");
 
     LE_DEBUG("Handler Function called with position %p", currentPosPtr);
-    CopyPositionData(&gnss.LastPositionSample, currentPosPtr);
+
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+
+    clientRequestPtr = gnss.DiscoverSessionRef(*currentPosPtr->clientSessionRefPtr);
+
+    TAF_ERROR_IF_RET_NIL(NULL == clientRequestPtr, "GnssPositionHandler did not find sessionRef");
+
+    CopyPositionData(&clientRequestPtr->LastPositionSample, currentPosPtr);
 
     if(!gnss.NumOfPositionHandlers)
     {
@@ -487,11 +502,13 @@ void taf_Gnss::GnssPositionHandler
         return;
     }
 
-    le_ref_IterRef_t iterRef = le_ref_GetIterator(gnss.PositionHandlerRefMap);
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(clientRequestPtr->PositionHandlerRefMap);
     while (le_ref_NextNode(iterRef) == LE_OK)
     {
         posHandlerPtr = (taf_gnss_PositionHandler_t*)le_ref_GetValue(iterRef);
-        LE_ASSERT(posHandlerPtr != NULL);
+        if(posHandlerPtr == NULL) {
+            return;
+        }
         posSampleReqPtr = (taf_gnss_PositionSampleRequest_t*)le_mem_ForceAlloc(gnss.PositionSampleRequestPoolRef);
         memset(posSampleReqPtr, 0, sizeof(taf_gnss_PositionSampleRequest_t));
 
@@ -499,11 +516,15 @@ void taf_Gnss::GnssPositionHandler
             (taf_gnss_PositionSample_t*)le_mem_ForceAlloc(gnss.PositionSamplePoolRef);
         memset(posSampleReqPtr->positionSampleNodePtr, 0, sizeof(taf_gnss_PositionSample_t));
 
-        memcpy(posSampleReqPtr->positionSampleNodePtr, &gnss.LastPositionSample,
+        memcpy(posSampleReqPtr->positionSampleNodePtr, &clientRequestPtr->LastPositionSample,
                 sizeof(taf_gnss_PositionSample_t));
 
         posSampleReqPtr->sessionRef = posHandlerPtr->sessionRef;
 
+        if (posSampleReqPtr->sessionRef != *currentPosPtr->clientSessionRefPtr) {
+            LE_ERROR("GnssPositionHandler session ref does not match! ReqPtr.sessionRef: %p, Sample.sessionRef: %p", posSampleReqPtr->sessionRef, *currentPosPtr->clientSessionRefPtr);
+            return;
+        }
         posSampleReqPtr->positionSampleRef =
            (taf_gnss_SampleRef_t)le_ref_CreateRef(gnss.PositionSampleMap, posSampleReqPtr);
 
@@ -512,7 +533,6 @@ void taf_Gnss::GnssPositionHandler
 
         posHandlerPtr->handlerFuncPtr(posSampleReqPtr->positionSampleRef,
                                       posHandlerPtr->handlerContextPtr);
-
     }
 
     le_mem_Release(currentPosPtr);
@@ -522,23 +542,31 @@ void taf_Gnss::GnssPositionHandler
 void tafLocationListener::onDetailedEngineLocationUpdate(
       const std::vector<std::shared_ptr<telux::loc::ILocationInfoEx> > &locationEngineInfo) {
     auto &gnss = taf_Gnss::GetInstance();
-    if (gnss.mTtffEnabled)
-    {
-        gnss.mEndTime = std::chrono::system_clock::now();
-        gnss.mTtffEnabled = false;
+    LE_DEBUG("onDetailedEngineUpdate *sessionRef: %p", *clientSessionRef);
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = gnss.DiscoverSessionRef(*clientSessionRef);
+
+    if (NULL == clientRequestPtr) {
+        LE_DEBUG("onDetailedEngineUpdate did not find sessionRef: %p", *clientSessionRef);
+        return;
     }
-    le_mutex_Lock(gnss.mGnssMutexRef);
+
+    if (clientRequestPtr->mTtffEnabled)
+    {
+        clientRequestPtr->mEndTime = std::chrono::system_clock::now();
+        clientRequestPtr->mTtffEnabled = false;
+    }
+    le_mutex_Lock(clientRequestPtr->mGnssMutexRef);
     if(gnss.NumOfPositionHandlers )
     {
         LE_DEBUG("**** Detailed Engine Location Report ****");
         for (auto locationInfo : locationEngineInfo) {
-            LE_INFO( "onDetailedEngineLocationUpdate conformity: %lf",
-                    locationInfo->getConformityIndex());
-            if ( gnss.mSvEnabled && gnss.mGnssSigEnabled )
+            if ( clientRequestPtr->mSvEnabled && clientRequestPtr->mGnssSigEnabled )
             {
                 taf_gnss_PositionSample_t* LocationData =
                         (taf_gnss_PositionSample_t*)le_mem_ForceAlloc(gnss.PositionSamplePoolRef);
                 uint8_t i;
+                LocationData->clientSessionRefPtr = &clientRequestPtr->sessionRef;
                 LocationData->latitudeValid = true;
                 LocationData->longitudeValid = true;
                 LocationData->hAccuracyValid = true;
@@ -598,17 +626,17 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 LocationData->gnssDataValid = true;
                 if(locationInfo->getAltitudeType() == telux::loc::AltitudeType::CALCULATED)
                 {
-                    gnss.mAltType = TAF_GNSS_ALT_TYPE_CALCULATED;
+                    clientRequestPtr->mAltType = TAF_GNSS_ALT_TYPE_CALCULATED;
                     LE_INFO("onDetailedEngineLocationUpdate: AltitudeType->CALCULATED");
                 }
                 else if(locationInfo->getAltitudeType() == telux::loc::AltitudeType::ASSUMED)
                 {
-                    gnss.mAltType = TAF_GNSS_ALT_TYPE_ASSUMED;
+                    clientRequestPtr->mAltType = TAF_GNSS_ALT_TYPE_ASSUMED;
                     LE_INFO("onDetailedEngineLocationUpdate: AltitudeType->ASSUMED");
                 }
                 else
                 {
-                    gnss.mAltType = TAF_GNSS_ALT_TYPE_UNKNOWN;
+                    clientRequestPtr->mAltType = TAF_GNSS_ALT_TYPE_UNKNOWN;
                     LE_INFO("onDetailedEngineLocationUpdate: AltitudeType->UNKNOWN");
                 }
                 for (auto i = 0; i < TAF_GNSS_MEASUREMENT_INFO_MAX; i++) {
@@ -650,17 +678,17 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 LocationData->altitudeOnWgs84 = 0;
                 LocationData->hSpeed = locationInfo->getSpeed()*100;
                 LocationData->hSpeedAccuracy = locationInfo->getSpeedUncertainty()*1e+3;
-                if(locationInfo->getVelocityEastNorthUp(gnss.mVerticalSpeed) ==
+                if(locationInfo->getVelocityEastNorthUp(clientRequestPtr->mVerticalSpeed) ==
                         telux::common::Status::SUCCESS)
                 {
-                    if(gnss.mVerticalSpeed.size() == VERTICAL_SPEED_SIZE)
+                    if(clientRequestPtr->mVerticalSpeed.size() == VERTICAL_SPEED_SIZE)
                     {
                         LocationData->vSpeed = (int32_t)
-                            (gnss.mVerticalSpeed[VERTICAL_SPEED_ACCURACY_INDEX]*100);
+                            (clientRequestPtr->mVerticalSpeed[VERTICAL_SPEED_ACCURACY_INDEX]*100);
                         LE_INFO("onDetailedEngineLocationUpdate LocationData->vSpeed:%d ",
                             LocationData->vSpeed);
                         LE_INFO("onDetailedEngineLocationUpdate mVerticalSpeed:%lf ",
-                            gnss.mVerticalSpeed[gnss.mVerticalSpeed.size()-1]);
+                            clientRequestPtr->mVerticalSpeed[clientRequestPtr->mVerticalSpeed.size()-1]);
                     }
                     else
                     {
@@ -673,17 +701,17 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                     LocationData->vSpeed = 0;
                     LE_INFO("onDetailedEngineLocationUpdate vSpeed fail");
                 }
-                if(locationInfo->getVelocityUncertaintyEastNorthUp(gnss.mVerticalSpeedAccuracy) ==
+                if(locationInfo->getVelocityUncertaintyEastNorthUp(clientRequestPtr->mVerticalSpeedAccuracy) ==
                         telux::common::Status::SUCCESS)
                 {
-                    if(gnss.mVerticalSpeedAccuracy.size() == VERTICAL_SPEED_SIZE)
+                    if(clientRequestPtr->mVerticalSpeedAccuracy.size() == VERTICAL_SPEED_SIZE)
                     {
                         LocationData->vSpeedAccuracy = (int32_t)
-                            (gnss.mVerticalSpeedAccuracy[VERTICAL_SPEED_ACCURACY_INDEX]*1000);
+                            (clientRequestPtr->mVerticalSpeedAccuracy[VERTICAL_SPEED_ACCURACY_INDEX]*1000);
                         LE_INFO("onDetailedEngineLocationUpdate LocationData->vSpeedAccuracy:%d ",
                              LocationData->vSpeedAccuracy);
                         LE_INFO("onDetailedEngineLocationUpdate mVerticalSpeedAccuracy:%lf ",
-                             gnss.mVerticalSpeedAccuracy[gnss.mVerticalSpeedAccuracy.size()-1]);
+                             clientRequestPtr->mVerticalSpeedAccuracy[clientRequestPtr->mVerticalSpeedAccuracy.size()-1]);
                     }
                     else
                     {
@@ -768,29 +796,29 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                     LocationData->milliseconds = 0;
                 }
                 LocationData->horConfidence = 39;
-                if(locationInfo->getLeapSeconds(gnss.mLeapSeconds) ==
+                if(locationInfo->getLeapSeconds(clientRequestPtr->mLeapSeconds) ==
                         telux::common::Status::SUCCESS)
                 {
-                    LocationData->leapSeconds = gnss.mLeapSeconds;
+                    LocationData->leapSeconds = clientRequestPtr->mLeapSeconds;
                 } else {
                     LocationData->leapSeconds = 0;
                 }
-                LocationData->satsInViewCount = gnss.mSatParams.satsInViewCount;
-                LocationData->satsTrackingCount = gnss.mTotalSVTracked;
+                LocationData->satsInViewCount = clientRequestPtr->mSatParams.satsInViewCount;
+                LocationData->satsTrackingCount = clientRequestPtr->mTotalSVTracked;
                 LocationData->satsUsedCount = locationInfo->getNumSvUsed();
 
                 for(i=0; i<TAF_GNSS_SV_INFO_MAX_LEN; i++)
                 {
-                    LocationData->satInfo[i].satId = gnss.mSatInfo[i].satId;
-                    LocationData->satInfo[i].satConst = gnss.mSatInfo[i].satConst;
-                    LocationData->satInfo[i].satUsed = gnss.mSatInfo[i].satUsed;
-                    LocationData->satInfo[i].satTracked = gnss.mSatInfo[i].satTracked;
-                    LocationData->satInfo[i].satSnr = gnss.mSatInfo[i].satSnr;
-                    LocationData->satInfo[i].satAzim = gnss.mSatInfo[i].satAzim;
-                    LocationData->satInfo[i].satElev = gnss.mSatInfo[i].satElev;
-                    LocationData->satInfo[i].signalType = gnss.mSatInfo[i].signalType;
-                    LocationData->satInfo[i].glonassFcn = gnss.mSatInfo[i].glonassFcn;
-                    LocationData->satInfo[i].baseBandCnr = gnss.mSatInfo[i].baseBandCnr;
+                    LocationData->satInfo[i].satId = clientRequestPtr->mSatInfo[i].satId;
+                    LocationData->satInfo[i].satConst = clientRequestPtr->mSatInfo[i].satConst;
+                    LocationData->satInfo[i].satUsed = clientRequestPtr->mSatInfo[i].satUsed;
+                    LocationData->satInfo[i].satTracked = clientRequestPtr->mSatInfo[i].satTracked;
+                    LocationData->satInfo[i].satSnr = clientRequestPtr->mSatInfo[i].satSnr;
+                    LocationData->satInfo[i].satAzim = clientRequestPtr->mSatInfo[i].satAzim;
+                    LocationData->satInfo[i].satElev = clientRequestPtr->mSatInfo[i].satElev;
+                    LocationData->satInfo[i].signalType = clientRequestPtr->mSatInfo[i].signalType;
+                    LocationData->satInfo[i].glonassFcn = clientRequestPtr->mSatInfo[i].glonassFcn;
+                    LocationData->satInfo[i].baseBandCnr = clientRequestPtr->mSatInfo[i].baseBandCnr;
                 }
 
                 for(i=0; i<TAF_GNSS_SV_INFO_MAX_LEN; i++)
@@ -1454,26 +1482,34 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
 
                 for(i=0; i<TAF_GNSS_NUMBER_OF_SIGNAL_TYPES_MAX; i++)
                 {
-                    LocationData->gnssData[i].gnssDataMask = gnss.mGnssData[i].gnssDataMask;
-                    LocationData->gnssData[i].jammerInd = gnss.mGnssData[i].jammerInd;
-                    LocationData->gnssData[i].agc = gnss.mGnssData[i].agc;
+                    LocationData->gnssData[i].gnssDataMask = clientRequestPtr->mGnssData[i].gnssDataMask;
+                    LocationData->gnssData[i].jammerInd = clientRequestPtr->mGnssData[i].jammerInd;
+                    LocationData->gnssData[i].agc = clientRequestPtr->mGnssData[i].agc;
                 }
                 LocationData->next = LE_DLS_LINK_INIT;
 
-                le_event_ReportWithRefCounting(gnss.positionEventId, LocationData);
-                gnss.mSvEnabled = false;
-                gnss.mGnssSigEnabled = false;
+                le_event_ReportWithRefCounting(clientRequestPtr->positionEventId, LocationData);
+                clientRequestPtr->mSvEnabled = false;
+                clientRequestPtr->mGnssSigEnabled = false;
             }
         }
     }
-    le_mutex_Unlock(gnss.mGnssMutexRef);
+    le_mutex_Unlock(clientRequestPtr->mGnssMutexRef);
 }
 
 void tafLocationListener::onGnssSVInfo(const std::shared_ptr<telux::loc::IGnssSVInfo> &gnssSVInfo) {
     auto &gnss = taf_Gnss::GetInstance();
 
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = gnss.DiscoverSessionRef(*clientSessionRef);
+
+    if (NULL == clientRequestPtr) {
+        LE_DEBUG("onGnssSVInfo did not find sessionRef: %p", *clientSessionRef);
+        return;
+    }
+
     //To get the constellation
-    std::unique_lock<std::mutex> lock(gnss.mMutex);
+    std::unique_lock<std::mutex> lock(clientRequestPtr->mMutex);
     for(auto svInfo : gnssSVInfo->getSVInfoList()) {
         switch(svInfo->getConstellation()) {
             case telux::loc::GnssConstellationType::GPS:
@@ -1502,14 +1538,12 @@ void tafLocationListener::onGnssSVInfo(const std::shared_ptr<telux::loc::IGnssSV
                 break;
         }
     }
-    gnss.mCondVar.notify_one();
-    le_mutex_Lock(gnss.mGnssMutexRef);
+    le_mutex_Lock(clientRequestPtr->mGnssMutexRef);
     if(gnss.NumOfPositionHandlers ) {
         LE_DEBUG("**** Satellite Vehicle Information ****");
         int i = 0;
-        gnss.mConstellationEnabled = false;
-        gnss.mSatParams.satsInViewCount = gnssSVInfo->getSVInfoList().size();
-        gnss.mTotalSVTracked = 0;
+        clientRequestPtr->mSatParams.satsInViewCount = gnssSVInfo->getSVInfoList().size();
+        clientRequestPtr->mTotalSVTracked = 0;
         for(auto svInfo : gnssSVInfo->getSVInfoList()) {
 
             if(i >= TAF_GNSS_SV_INFO_MAX_LEN)
@@ -1520,67 +1554,74 @@ void tafLocationListener::onGnssSVInfo(const std::shared_ptr<telux::loc::IGnssSV
 
             switch(svInfo->getConstellation()) {
                 case telux::loc::GnssConstellationType::GPS:
-                    gnss.mSatInfo[i].satConst = TAF_GNSS_SV_CONSTELLATION_GPS;
+                    clientRequestPtr->mSatInfo[i].satConst = TAF_GNSS_SV_CONSTELLATION_GPS;
                     break;
                 case telux::loc::GnssConstellationType::GLONASS:
-                    gnss.mSatInfo[i].satConst = TAF_GNSS_SV_CONSTELLATION_GLONASS;
+                    clientRequestPtr->mSatInfo[i].satConst = TAF_GNSS_SV_CONSTELLATION_GLONASS;
                     break;
                 case telux::loc::GnssConstellationType::BDS:
-                    gnss.mSatInfo[i].satConst = TAF_GNSS_SV_CONSTELLATION_BEIDOU;
+                    clientRequestPtr->mSatInfo[i].satConst = TAF_GNSS_SV_CONSTELLATION_BEIDOU;
                     break;
                 case telux::loc::GnssConstellationType::GALILEO:
-                    gnss.mSatInfo[i].satConst = TAF_GNSS_SV_CONSTELLATION_GALILEO;
+                    clientRequestPtr->mSatInfo[i].satConst = TAF_GNSS_SV_CONSTELLATION_GALILEO;
                     break;
                 case telux::loc::GnssConstellationType::SBAS:
-                    gnss.mSatInfo[i].satConst = TAF_GNSS_SV_CONSTELLATION_SBAS;
+                    clientRequestPtr->mSatInfo[i].satConst = TAF_GNSS_SV_CONSTELLATION_SBAS;
                     break;
                 case telux::loc::GnssConstellationType::QZSS:
-                    gnss.mSatInfo[i].satConst = TAF_GNSS_SV_CONSTELLATION_QZSS;
+                    clientRequestPtr->mSatInfo[i].satConst = TAF_GNSS_SV_CONSTELLATION_QZSS;
                     break;
                 default:
-                    gnss.mSatInfo[i].satConst = TAF_GNSS_SV_CONSTELLATION_UNDEFINED;
+                    clientRequestPtr->mSatInfo[i].satConst = TAF_GNSS_SV_CONSTELLATION_UNDEFINED;
                     LE_ERROR("Constellation type: UNKNOWN");
                     break;
             }
 
-            gnss.mSatInfo[i].satId = svInfo->getId();
+            clientRequestPtr->mSatInfo[i].satId = svInfo->getId();
             if(svInfo->getHasFix() == SVInfoAvailability::YES)
             {
-                gnss.mSatInfo[i].satUsed = true;
+                clientRequestPtr->mSatInfo[i].satUsed = true;
                 LE_DEBUG("onGnssSVInfo: svInfo->getHasFix()->SVInfoAvailability::YES");
             }
             else
             {
-                gnss.mSatInfo[i].satUsed = false;
+                clientRequestPtr->mSatInfo[i].satUsed = false;
             }
             if(svInfo->getSnr()!=0)
             {
-                gnss.mTotalSVTracked++;
-                gnss.mSatInfo[i].satTracked = true;
+                clientRequestPtr->mTotalSVTracked++;
+                clientRequestPtr->mSatInfo[i].satTracked = true;
                 LE_DEBUG("onGnssSVInfo: svInfo->getSnr() is NON ZERO");
             }
             else
             {
-            gnss.mSatInfo[i].satTracked = false;
+            clientRequestPtr->mSatInfo[i].satTracked = false;
             }
-            gnss.mSatInfo[i].satSnr = svInfo->getSnr();
-            gnss.mSatInfo[i].satAzim = svInfo->getAzimuth();
-            gnss.mSatInfo[i].satElev = svInfo->getElevation();
-            gnss.mSatInfo[i].signalType = (uint32_t) svInfo->getSignalType();
-            gnss.mSatInfo[i].glonassFcn = svInfo->getGlonassFcn();
-            gnss.mSatInfo[i].baseBandCnr = svInfo->getBasebandCnr();
+            clientRequestPtr->mSatInfo[i].satSnr = svInfo->getSnr();
+            clientRequestPtr->mSatInfo[i].satAzim = svInfo->getAzimuth();
+            clientRequestPtr->mSatInfo[i].satElev = svInfo->getElevation();
+            clientRequestPtr->mSatInfo[i].signalType = (uint32_t) svInfo->getSignalType();
+            clientRequestPtr->mSatInfo[i].glonassFcn = svInfo->getGlonassFcn();
+            clientRequestPtr->mSatInfo[i].baseBandCnr = svInfo->getBasebandCnr();
             i++;
         }
-        gnss.mSvEnabled = true;
-        gnss.mSatParams.satsTrackingCount = gnss.mTotalSVTracked;
+        clientRequestPtr->mSvEnabled = true;
+        clientRequestPtr->mSatParams.satsTrackingCount = clientRequestPtr->mTotalSVTracked;
     }
-    le_mutex_Unlock(gnss.mGnssMutexRef);
+    le_mutex_Unlock(clientRequestPtr->mGnssMutexRef);
 }
 
 void tafLocationListener::onGnssSignalInfo(
         const std::shared_ptr<telux::loc::IGnssSignalInfo> &gnssDatainfo) {
     auto &gnss = taf_Gnss::GetInstance();
-    le_mutex_Lock(gnss.mGnssMutexRef);
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = gnss.DiscoverSessionRef(*clientSessionRef);
+
+    if (NULL == clientRequestPtr) {
+        LE_DEBUG("onGnssSignalInfo did not find sessionRef: %p", *clientSessionRef);
+        return;
+    }
+    le_mutex_Lock(clientRequestPtr->mGnssMutexRef);
     if(gnss.NumOfPositionHandlers ) {
         LE_DEBUG("**** Gnss Signal Information ****" );
         for(int sig = 0; sig < static_cast<int>(
@@ -1592,8 +1633,8 @@ void tafLocationListener::onGnssSignalInfo(
             & (telux::loc::GnssDataValidityType::HAS_JAMMER)))
             {
                 LE_INFO("onGnssSignalInfo jammerInd: %lf",gnssDatainfo->getGnssData().jammerInd[sig]);
-                gnss.mGnssData[sig].gnssDataMask |= TAF_GNSS_HAS_JAMMER;
-                gnss.mGnssData[sig].jammerInd = gnssDatainfo->getGnssData().jammerInd[sig];
+                clientRequestPtr->mGnssData[sig].gnssDataMask |= TAF_GNSS_HAS_JAMMER;
+                clientRequestPtr->mGnssData[sig].jammerInd = gnssDatainfo->getGnssData().jammerInd[sig];
             }
             else
             {
@@ -1603,39 +1644,55 @@ void tafLocationListener::onGnssSignalInfo(
              & (telux::loc::GnssDataValidityType::HAS_AGC)))
             {
                 LE_INFO("onGnssSignalInfo agc: %lf",gnssDatainfo->getGnssData().agc[sig]);
-                gnss.mGnssData[sig].gnssDataMask |= TAF_GNSS_HAS_AGC;
-                gnss.mGnssData[sig].agc = gnssDatainfo->getGnssData().agc[sig];
+                clientRequestPtr->mGnssData[sig].gnssDataMask |= TAF_GNSS_HAS_AGC;
+                clientRequestPtr->mGnssData[sig].agc = gnssDatainfo->getGnssData().agc[sig];
             }
             else
             {
                 LE_INFO("onGnssSignalInfo AGC Not Present");
             }
         }
-        gnss.mGnssSigEnabled = true;
+        clientRequestPtr->mGnssSigEnabled = true;
     }
-    le_mutex_Unlock(gnss.mGnssMutexRef);
+    le_mutex_Unlock(clientRequestPtr->mGnssMutexRef);
 }
 
 void tafLocationListener::onCapabilitiesInfo(
         const telux::loc::LocCapability capabilityInfo) {
-    LE_INFO("onCapabilitiesInfo: The capabilityInfo is %d", (int) capabilityInfo);
     auto &gnss = taf_Gnss::GetInstance();
-    le_mutex_Lock(gnss.mGnssMutexRef);
+    LE_INFO("onCapabilitiesInfo: The capabilityInfo is %d for *sessionRef: %p", (int) capabilityInfo, *clientSessionRef);
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = gnss.DiscoverSessionRef(*clientSessionRef);
+
+    if (NULL == clientRequestPtr) {
+        LE_DEBUG("onCapabilitiesInfo did not find sessionRef: %p", *clientSessionRef);
+        return;
+    }
+
+    le_mutex_Lock(clientRequestPtr->mGnssMutexRef);
     if(gnss.NumOfCapabilityHandlers) {
         LE_DEBUG( "**** Gnss Capabilities Information ****" );
         CapabilityChangeEvent_t capabilityEvent;
         capabilityEvent.locCapability = (taf_gnss_LocCapabilityType_t) capabilityInfo;
-        le_event_Report(gnss.locCapabilityEventId, &capabilityEvent, sizeof(CapabilityChangeEvent_t));
+        le_event_Report(clientRequestPtr->locCapabilityEventId, &capabilityEvent, sizeof(CapabilityChangeEvent_t));
     }
-    le_mutex_Unlock(gnss.mGnssMutexRef);
+    le_mutex_Unlock(clientRequestPtr->mGnssMutexRef);
 }
 
 void tafLocationListener::onGnssNmeaInfo(uint64_t timestamp, const std::string &nmea) {
     auto &gnss = taf_Gnss::GetInstance();
+    LE_DEBUG("onGnssNmeaInfo for *sessionRef: %p", *clientSessionRef);
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = gnss.DiscoverSessionRef(*clientSessionRef);
+
+    if (NULL == clientRequestPtr) {
+        LE_DEBUG("onGnssNmeaInfo did not find sessionRef: %p", *clientSessionRef);
+        return;
+    }
     //Format : $GPGGA,075446.90,00-0.000000,S,00000.000000,E,1,00,1.0,936.4,M,-936.4,M,,*7D^M
     gnss.mNmeaBitMask = nmea;
     LE_DEBUG( "**** Gnss Nmea Information  gnss.mNmeaBitMask: %s****",gnss.mNmeaBitMask.c_str());
-    std::unique_lock<std::mutex> lock(gnss.mMutex);
+    std::unique_lock<std::mutex> lock(clientRequestPtr->mMutex);
 
     if ((gnss.mNmeaBitMask.compare(3,3,"GGA",0,3)) ==0) //1
     {
@@ -1723,12 +1780,12 @@ void tafLocationListener::onGnssNmeaInfo(uint64_t timestamp, const std::string &
     }
 
     gnss.mNmeaVar.notify_one();
-    le_mutex_Lock(gnss.mGnssMutexRef);
+    le_mutex_Lock(clientRequestPtr->mGnssMutexRef);
     LE_DEBUG("onGnssNmeaInfo: NumOfNmeaHandlers = %d", gnss.NumOfNmeaHandlers);
     if(gnss.NumOfNmeaHandlers) {
         LE_DEBUG( "**** Gnss Nmea Information ****" );
-        //gnss.mSatMeas.satId = nmea;
-        gnss.mSatMeas.satLatency = timestamp;
+        //clientRequestPtr->mSatMeas.satId = nmea;
+        clientRequestPtr->mSatMeas.satLatency = timestamp;
 
         NmeaInfoEvent_t nmeaEvent;
         nmeaEvent.timestamp = timestamp;
@@ -1739,25 +1796,42 @@ void tafLocationListener::onGnssNmeaInfo(uint64_t timestamp, const std::string &
             nmeaEvent.nmeaMask[i] = gnss.mNmeaBitMask.c_str()[i];
         }
         LE_INFO( "**** NMEA handler string copied is: %s****",nmeaEvent.nmeaMask);
-        le_event_Report(gnss.nmeaEventId, &nmeaEvent, sizeof(nmeaEvent));
+        le_event_Report(clientRequestPtr->nmeaEventId, &nmeaEvent, sizeof(nmeaEvent));
     }
-    le_mutex_Unlock(gnss.mGnssMutexRef);
+    le_mutex_Unlock(clientRequestPtr->mGnssMutexRef);
 }
 
 void tafLocationListener::onGnssMeasurementsInfo(const telux::loc::
         GnssMeasurements &measurementInfo) {
     auto &gnss = taf_Gnss::GetInstance();
-    le_mutex_Lock(gnss.mGnssMutexRef);
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = gnss.DiscoverSessionRef(*clientSessionRef);
+
+    if (NULL == clientRequestPtr) {
+        LE_DEBUG("onGnssMeasurementsInfo did not find sessionRef: %p", *clientSessionRef);
+        return;
+    }
+    le_mutex_Lock(clientRequestPtr->mGnssMutexRef);
     if(gnss.NumOfPositionHandlers ) {
         LE_DEBUG("**** Gnss Measurements Information ****");
     }
-    le_mutex_Unlock(gnss.mGnssMutexRef);
+    le_mutex_Unlock(clientRequestPtr->mGnssMutexRef);
 }
 
 void tafLocationListener::onLocationSystemInfo(const telux::loc::LocationSystemInfo
         &locationSystemInfo) {
     auto &gnss = taf_Gnss::GetInstance();
-    le_mutex_Lock(gnss.mGnssMutexRef);
+
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = gnss.DiscoverSessionRef(*clientSessionRef);
+
+    if (NULL == clientRequestPtr) {
+        LE_DEBUG("onLocationSystemInfo did not find sessionRef: %p", *clientSessionRef);
+        return;
+    }
+
+    le_mutex_Lock(clientRequestPtr->mGnssMutexRef);
+
     LE_DEBUG( "**** Location System Information ****" );
     LE_INFO( "**** Location System Information locationSystemInfoValidity:%d",locationSystemInfo.valid);
     LE_INFO( "**** Location System Information LeapSecondInfoValidity:%d",locationSystemInfo.info.valid);
@@ -1766,9 +1840,9 @@ void tafLocationListener::onLocationSystemInfo(const telux::loc::LocationSystemI
     if(locationSystemInfoMask & telux::loc::LOCATION_SYS_INFO_LEAP_SECOND)
     {
         LE_INFO(" onLocationSystemInfo: contains current leap second or leap second change info");
-        gnss.mCurrentLeapSeconds = locationSystemInfo.info.current;
-        gnss.mCurrentLeapSeconds = gnss.mCurrentLeapSeconds * 1000;//millisseoncds
-        LE_INFO("onLocationSystemInfo gnss.mCurrentLeapSeconds: %d",gnss.mCurrentLeapSeconds);
+        clientRequestPtr->mCurrentLeapSeconds = locationSystemInfo.info.current;
+        clientRequestPtr->mCurrentLeapSeconds = clientRequestPtr->mCurrentLeapSeconds * 1000;//millisseoncds
+        LE_INFO("onLocationSystemInfo gnss.mCurrentLeapSeconds: %d",clientRequestPtr->mCurrentLeapSeconds);
     }
     if(leapSecondSysInfoMask & telux::loc::LEAP_SECOND_SYS_INFO_CURRENT_LEAP_SECONDS_BIT)
     {
@@ -1782,12 +1856,12 @@ void tafLocationListener::onLocationSystemInfo(const telux::loc::LocationSystemI
     LE_INFO("onLocationSystemInfo System time week : %u",(unsigned)timeInfo.systemWeek);
     LE_INFO("onLocationSystemInfo System time week ms: : %u",(unsigned)timeInfo.systemMsec);
     LE_INFO("onLocationSystemInfo LeapSecondCurrent : %d", unsigned(locationSystemInfo.info.current));
-    gnss.mGpsTime = (uint64_t)(timeInfo.systemWeek  * 7);//7 days
-    gnss.mGpsTime = (uint64_t) gnss.mGpsTime * 24;//24 hours
-    gnss.mGpsTime = (uint64_t) gnss.mGpsTime* 3600;//seconds
-    gnss.mGpsTime = (uint64_t) gnss.mGpsTime* 1000; //milli seconds
-    gnss.mGpsTime = (uint64_t) gnss.mGpsTime + (unsigned)timeInfo.systemMsec;
-    LE_INFO("onLocationSystemInfo overall gnss.mGpsTime : %" PRIi64 "",gnss.mGpsTime);
+    clientRequestPtr->mGpsTime = (uint64_t)(timeInfo.systemWeek  * 7);//7 days
+    clientRequestPtr->mGpsTime = (uint64_t) clientRequestPtr->mGpsTime * 24;//24 hours
+    clientRequestPtr->mGpsTime = (uint64_t) clientRequestPtr->mGpsTime* 3600;//seconds
+    clientRequestPtr->mGpsTime = (uint64_t) clientRequestPtr->mGpsTime* 1000; //milli seconds
+    clientRequestPtr->mGpsTime = (uint64_t) clientRequestPtr->mGpsTime + (unsigned)timeInfo.systemMsec;
+    LE_INFO("onLocationSystemInfo overall clientRequestPtr->mGpsTime : %" PRIi64 "",clientRequestPtr->mGpsTime);
     LE_INFO("onLocationSystemInfo System clk time : %lf",timeInfo.systemClkTimeBias);
     LE_INFO("onLocationSystemInfo System clk time uncertainty valid: %lf",timeInfo.systemClkTimeUncMs);
     LE_INFO("onLocationSystemInfo System reference valid: %u",(unsigned)timeInfo.refFCount);
@@ -1796,9 +1870,9 @@ void tafLocationListener::onLocationSystemInfo(const telux::loc::LocationSystemI
             unsigned(locationSystemInfo.info.info.leapSecondsBeforeChange));
     LE_INFO("onLocationSystemInfo leapSecondsAfterChange :%u",
            unsigned(locationSystemInfo.info.info.leapSecondsAfterChange));
-    gnss.mChangeEventTime = locationSystemInfo.info.info.leapSecondsBeforeChange*1000;//msec
-    gnss.mNextLeapSeconds = locationSystemInfo.info.info.leapSecondsAfterChange*1000;//msec
-    le_mutex_Unlock(gnss.mGnssMutexRef);
+    clientRequestPtr->mChangeEventTime = locationSystemInfo.info.info.leapSecondsBeforeChange*1000;//msec
+    clientRequestPtr->mNextLeapSeconds = locationSystemInfo.info.info.leapSecondsAfterChange*1000;//msec
+    le_mutex_Unlock(clientRequestPtr->mGnssMutexRef);
 }
 
 void tafLocationListener::onXtraStatusUpdate(const telux::loc::XtraStatus xtraStatus)
@@ -1909,14 +1983,16 @@ taf_gnss_Client_t* taf_Gnss::DiscoverSessionRef
     while (LE_OK == result)
     {
         taf_gnss_Client_t* gnssPtr = (taf_gnss_Client_t*) le_ref_GetValue(iterRef);
-        LE_ASSERT(gnssPtr != NULL);
+        if(gnssPtr == NULL) {
+            return NULL;
+        }
 
         LE_DEBUG("gnssPtr %p, gnssPtr->sessionRef %p, sessionRef %p",
                  gnssPtr, gnssPtr->sessionRef, sessionRef);
 
         if (sessionRef == gnssPtr->sessionRef)
         {
-             LE_DEBUG("SessionRef %p found in Client session", sessionRef);
+             LE_DEBUG("sessionRef %p found in Client session", sessionRef);
              return gnssPtr;
         }
         result = le_ref_NextNode(iterRef);
@@ -1938,10 +2014,37 @@ void taf_Gnss::InitializeClient
     taf_gnss_Client_t* clientRequestPtr
 )
 {
+    auto &gnss = taf_Gnss::GetInstance();
+    telux::common::Status status = telux::common::Status::FAILED;
+    memset(&clientRequestPtr->LastPositionSample, 0, sizeof(clientRequestPtr->LastPositionSample));
+    clientRequestPtr->LastPositionSample.fixState = TAF_GNSS_STATE_FIX_NO_POS;
+    memset(&clientRequestPtr->mSatParams, 0, sizeof(clientRequestPtr->mSatParams));
     clientRequestPtr->dopResolution = TAF_GNSS_RES_THREE_DECIMAL;
     clientRequestPtr->vAccuracyResolution = TAF_GNSS_RES_THREE_DECIMAL;
     clientRequestPtr->vSpeedAccuracyResolution = TAF_GNSS_RES_ONE_DECIMAL;
     clientRequestPtr->hSpeedAccuracyResolution = TAF_GNSS_RES_ONE_DECIMAL;
+    clientRequestPtr->GnssState = TAF_GNSS_STATE_READY;
+    clientRequestPtr->mStarted = false;
+    clientRequestPtr->mTtffEnabled = false;
+    clientRequestPtr->mEngineType = 0; //By default set to FUSED mode
+    clientRequestPtr->mTtffPtr = 0;
+    clientRequestPtr->mAcqRate = 0;
+    clientRequestPtr->mGpsTime = 0;
+    clientRequestPtr->mCurrentLeapSeconds = 0;
+    clientRequestPtr->mChangeEventTime = 0;
+    clientRequestPtr->mLeapSeconds = 0;
+    clientRequestPtr->mNextLeapSeconds = 0;
+    memset(&clientRequestPtr->mSatInfo, 0, sizeof(clientRequestPtr->mSatInfo));
+    memset(&clientRequestPtr->mGnssData,0, sizeof(clientRequestPtr->mGnssData));
+    clientRequestPtr->mGnssMutexRef = le_mutex_CreateRecursive("GnssMutexCl");
+
+    status = gnss.LocationManagerInit(clientRequestPtr);
+    if (status != telux::common::Status::SUCCESS) {
+        LE_FATAL("LocationManager for sessionRef %p is not available", clientRequestPtr);
+    }
+
+    clientRequestPtr->locCapabilityEventId = le_event_CreateId("LocCapabilityEventId", sizeof(CapabilityChangeEvent_t));
+    clientRequestPtr->nmeaEventId = le_event_CreateId("NmeaEventId", sizeof(NmeaInfoEvent_t));
 }
 
 taf_gnss_Client_t* taf_Gnss::AcquireSessionRef
@@ -1959,14 +2062,19 @@ taf_gnss_Client_t* taf_Gnss::AcquireSessionRef
     {
         clientRequestPtr = (taf_gnss_Client_t*)le_mem_ForceAlloc(gnss.ClientPoolRef);
 
+        clientRequestPtr->sessionRef = sessionRef;
+
         InitializeClient(clientRequestPtr);
 
         void* reqRefPtr = le_ref_CreateRef(gnss.ClientRequestRefMap, clientRequestPtr);
+        if (sessionRef!=nullptr) {
+            //External client increase Client ref count
+            gnss.mClientRefCount++;
+        }
 
-        LE_DEBUG("SessionRef %p was not found, Create Client session", sessionRef);
+        LE_INFO("SessionRef %p was not found, Create Client session, total count %d", sessionRef, gnss.mClientRefCount);
         LE_DEBUG("reqRefPtr %p, clientRequestPtr %p", reqRefPtr, clientRequestPtr);
 
-        clientRequestPtr->sessionRef = sessionRef;
         clientRequestPtr->clientRefPtr = reqRefPtr;
     }
 
@@ -2011,7 +2119,14 @@ taf_gnss_State_t taf_Gnss::GetState
  void
 )
 {
-    return GnssState;
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, TAF_GNSS_STATE_READY, "clientRequestPtr is NULL");
+
+    LE_INFO("GNSS GetState [%d]", clientRequestPtr->GnssState);
+
+    return clientRequestPtr->GnssState;
 }
 
 le_result_t taf_Gnss::Enable
@@ -2020,33 +2135,37 @@ le_result_t taf_Gnss::Enable
 )
 {
     le_result_t result = LE_FAULT;
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
 
-    switch (GnssState)
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+
+    switch (clientRequestPtr->GnssState)
     {
         case TAF_GNSS_STATE_DISABLED:
         {
-                GnssState = TAF_GNSS_STATE_READY;
+                clientRequestPtr->GnssState = TAF_GNSS_STATE_READY;
                 result = LE_OK;
-                mStarted = false;
+                clientRequestPtr->mStarted = false;
         }
         break;
         case TAF_GNSS_STATE_READY:
         case TAF_GNSS_STATE_ACTIVE:
         {
-            LE_ERROR("Bad state for that request [%d]", GnssState);
+            LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
             result = LE_DUPLICATE;
         }
         break;
         case TAF_GNSS_STATE_UNINITIALIZED:
         {
-            LE_ERROR("Bad state for that request [%d]", GnssState);
+            LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
             result = LE_NOT_PERMITTED;
         }
         break;
         default:
         {
             result = LE_FAULT;
-            LE_ERROR("Unknown GNSS state %d", GnssState);
+            LE_ERROR("Unknown GNSS state %d", clientRequestPtr->GnssState);
         }
         break;
     }
@@ -2067,6 +2186,10 @@ le_result_t taf_Gnss::SetConstellation
     bool deviceReset = false;
     blackListInfo.svId = 0; // Here 0 means blacklist all SVIds of a given constellation type
     blackListInfo.constellation = telux::loc::GnssConstellationType::UNKNOWN;
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
 
     LE_INFO("SetConstellation constellationMask is 0x%02X",constellationMask);
     if( constellationMask & TAF_GNSS_CONSTELLATION_GPS)
@@ -2115,12 +2238,12 @@ le_result_t taf_Gnss::SetConstellation
         LE_INFO("constellation type is UNKNOWN");
     }
 
-    switch (GnssState)
+    switch (clientRequestPtr->GnssState)
     {
         case TAF_GNSS_STATE_UNINITIALIZED:
         case TAF_GNSS_STATE_DISABLED:
         {
-            LE_ERROR("Bad state for that request [%d]", GnssState);
+            LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
             result = LE_NOT_PERMITTED;
         }
         break;
@@ -2162,7 +2285,7 @@ le_result_t taf_Gnss::SetConstellation
         default:
         {
             result = LE_FAULT;
-            LE_ERROR("Unknown GNSS state %d", GnssState);
+            LE_ERROR("Unknown GNSS state %d", clientRequestPtr->GnssState);
         }
         break;
     }
@@ -2177,27 +2300,35 @@ le_result_t taf_Gnss::Start
 {
     le_result_t result = LE_FAULT;
 
-    switch (GnssState)
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+
+    LE_INFO("Start: gnssClientPtr %p, gnssPtr->sessionRef %p, num of active client %d",
+            clientRequestPtr, clientRequestPtr->sessionRef, mClientRefCount);
+
+    switch (clientRequestPtr->GnssState)
     {
         case TAF_GNSS_STATE_READY:
         {
             // Start GNSS
-            if (!mStarted)
+            if (!clientRequestPtr->mStarted)
             {
-                int optInterval = mAcqRate;
-                LE_INFO("Start->  mAcqRate: %d",mAcqRate);
+                int optInterval = clientRequestPtr->mAcqRate;
+                LE_INFO("Start->  mAcqRate: %d",clientRequestPtr->mAcqRate);
                 if( optInterval == 0  || optInterval < 100)
                 {
                     LE_DEBUG("Start->mAcqRate is zero, so set default to 100ms");
                     optInterval = 100;
-                    mAcqRate = optInterval;
+                    clientRequestPtr->mAcqRate = optInterval;
                 }
                 LocReqEngine engineType = DEFAULT_UNKNOWN;
                 GnssReportTypeMask reportMask = DEFAULT_UNKNOWN;
                 reportMask = 0x7f;//all reports are enabled
                 LE_INFO("Start->reportMask : %u",reportMask);
-                LE_INFO("Start->mEngineType : %d",mEngineType);
-                engineType |= (1UL << mEngineType);//FUSED mode is supported by default
+                LE_INFO("Start->mEngineType : %d",clientRequestPtr->mEngineType);
+                engineType |= (1UL << clientRequestPtr->mEngineType);//FUSED mode is supported by default
 
                 std::promise<le_result_t> p;
                 auto cb = [&p](telux::common::ErrorCode error) {
@@ -2208,7 +2339,7 @@ le_result_t taf_Gnss::Start
                         p.set_value(LE_FAULT);
                     }
                 };
-                auto status = mLocationManager->startDetailedEngineReports(
+                auto status = clientRequestPtr->locationManager->startDetailedEngineReports(
                         (uint32_t)optInterval, engineType, cb, reportMask);
                 if(telux::common::Status::SUCCESS != status)
                 {
@@ -2218,12 +2349,12 @@ le_result_t taf_Gnss::Start
                 {
                     if(p.get_future().get() == LE_OK)
                     {
-                        mStarted = true;
-                        GnssState = TAF_GNSS_STATE_ACTIVE;
+                        clientRequestPtr->mStarted = true;
+                        clientRequestPtr->GnssState = TAF_GNSS_STATE_ACTIVE;
                         result = LE_OK;
                         LE_INFO("Start() is success");
-                        mStartTime = std::chrono::system_clock::now();
-                        mTtffEnabled = true;
+                        clientRequestPtr->mStartTime = std::chrono::system_clock::now();
+                        clientRequestPtr->mTtffEnabled = true;
                     }
                     else
                     {
@@ -2237,20 +2368,20 @@ le_result_t taf_Gnss::Start
         case TAF_GNSS_STATE_UNINITIALIZED:
         case TAF_GNSS_STATE_DISABLED:
         {
-            LE_ERROR("Bad state for that request [%d]", GnssState);
+            LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
             result = LE_NOT_PERMITTED;
         }
         break;
         case TAF_GNSS_STATE_ACTIVE:
         {
-            LE_ERROR("Bad state for that request [%d]", GnssState);
+            LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
             result = LE_DUPLICATE;
         }
         break;
         default:
         {
             result = LE_FAULT;
-            LE_ERROR("Unknown GNSS state %d", GnssState);
+            LE_ERROR("Unknown GNSS state %d", clientRequestPtr->GnssState);
         }
         break;
     }
@@ -2328,12 +2459,17 @@ le_result_t taf_Gnss::GetAcquisitionRate
 
     TAF_KILL_CLIENT_IF_RET_VAL((ratePtr == NULL), LE_FAULT, "Pointer is NULL");
 
-    switch (GnssState)
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+
+    switch (clientRequestPtr->GnssState)
     {
         case TAF_GNSS_STATE_UNINITIALIZED:
         case TAF_GNSS_STATE_DISABLED:
         {
-            LE_ERROR("Bad state for that request [%d]", GnssState);
+            LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
             result = LE_NOT_PERMITTED;
         }
         break;
@@ -2341,14 +2477,14 @@ le_result_t taf_Gnss::GetAcquisitionRate
         case TAF_GNSS_STATE_ACTIVE:
         {
             // Set the GNSS device acquisition rate
-            *ratePtr = mAcqRate;
+            *ratePtr = clientRequestPtr->mAcqRate;
             result = LE_OK;
         }
         break;
         default:
         {
             result = LE_FAULT;
-            LE_ERROR("Unknown GNSS state %d", GnssState);
+            LE_ERROR("Unknown GNSS state %d", clientRequestPtr->GnssState);
         }
         break;
     }
@@ -2522,12 +2658,17 @@ le_result_t taf_Gnss::GetTtff
 
     le_result_t result = LE_FAULT;
 
-    switch (GnssState)
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+
+    switch (clientRequestPtr->GnssState)
     {
         case TAF_GNSS_STATE_DISABLED:
         case TAF_GNSS_STATE_UNINITIALIZED:
         {
-            LE_ERROR("Bad state for that request [%d]", GnssState);
+            LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
             result = LE_NOT_PERMITTED;
         }
         break;
@@ -2536,16 +2677,15 @@ le_result_t taf_Gnss::GetTtff
         {
 // Start Detailed Engine Reports, if not already started
 
-            if(!mTtffPtr && !mTtffEnabled) //calculate ttff on device boot up & cold/warm/hot restart procedure
+            if(!clientRequestPtr->mTtffPtr && !clientRequestPtr->mTtffEnabled) //calculate ttff on device boot up & cold/warm/hot restart procedure
             {
-                std::chrono::duration<double> elapsedTime = mEndTime - mStartTime;
+                std::chrono::duration<double> elapsedTime = clientRequestPtr->mEndTime - clientRequestPtr->mStartTime;
                 *ttffPtr = elapsedTime.count() * 1e+3;
-                mTtffPtr = *ttffPtr ;
-                mTtffEnable = true;
+                clientRequestPtr->mTtffPtr = *ttffPtr ;
             }
             else //fetch the first TTFF value & return back
             {
-                *ttffPtr = mTtffPtr;
+                *ttffPtr = clientRequestPtr->mTtffPtr;
             }
             result = LE_OK;
         }
@@ -2553,7 +2693,7 @@ le_result_t taf_Gnss::GetTtff
         default:
         {
             result = LE_FAULT;
-            LE_ERROR("Unknown GNSS state %d", GnssState);
+            LE_ERROR("Unknown GNSS state %d", clientRequestPtr->GnssState);
         }
         break;
     }
@@ -2573,8 +2713,15 @@ taf_gnss_PositionHandlerRef_t taf_Gnss::AddPositionHandler
     positionHandlerPtr->handlerFuncPtr = handlerPtr;
     positionHandlerPtr->handlerContextPtr = contextPtr;
     positionHandlerPtr->sessionRef = taf_gnss_GetClientSessionRef();
+
+    LE_INFO("AddPositionHandler() sessionRef: %p", positionHandlerPtr->sessionRef);
+
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, NULL, "clientRequestPtr is NULL");
+
     positionHandlerPtr->handlerRef =
-        (taf_gnss_PositionHandlerRef_t)le_ref_CreateRef(PositionHandlerRefMap, positionHandlerPtr);
+        (taf_gnss_PositionHandlerRef_t)le_ref_CreateRef(clientRequestPtr->PositionHandlerRefMap, positionHandlerPtr);
 
     NumOfPositionHandlers++;
 
@@ -2594,7 +2741,11 @@ taf_gnss_CapabilityChangeHandlerRef_t taf_Gnss::AddCapabilityHandler
 
     TAF_KILL_CLIENT_IF_RET_VAL(handlerPtr == NULL, NULL, "Handler pointer is NULL");
 
-    handlerRef = le_event_AddLayeredHandler("CapabilityHandler", locCapabilityEventId,
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, NULL, "AddCapabilityHandler: clientRequestPtr is NULL");
+
+    handlerRef = le_event_AddLayeredHandler("CapabilityHandler", clientRequestPtr->locCapabilityEventId,
             FirstLayerCapabilityHandler, (void*)handlerPtr);
 
     NumOfCapabilityHandlers++;
@@ -2633,7 +2784,11 @@ taf_gnss_NmeaHandlerRef_t taf_Gnss::AddNmeaHandler
 
     TAF_KILL_CLIENT_IF_RET_VAL(handlerPtr == NULL, NULL, "Handler pointer is NULL");
 
-    handlerRef = le_event_AddLayeredHandler("NmeaHandler", nmeaEventId,
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, NULL, "AddCapabilityHandler: clientRequestPtr is NULL");
+
+    handlerRef = le_event_AddLayeredHandler("NmeaHandler", clientRequestPtr->nmeaEventId,
             FirstLayerNmeaHandler, (void*)handlerPtr);
 
     NumOfNmeaHandlers++;
@@ -2670,14 +2825,17 @@ le_result_t taf_Gnss::GetConstellation
     le_result_t result = LE_FAULT;
 
     TAF_KILL_CLIENT_IF_RET_VAL((constellationMaskPtr == NULL), LE_FAULT, "constellationMaskPtr is NULL");
-    //mConstellationEnabled = true;
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
 
-    switch (GnssState)
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+
+    switch (clientRequestPtr->GnssState)
     {
         case TAF_GNSS_STATE_UNINITIALIZED:
         case TAF_GNSS_STATE_DISABLED:
             {
-                LE_ERROR("Bad state for that request [%d]", GnssState);
+                LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
                 result = LE_NOT_PERMITTED;
             }
             break;
@@ -2740,7 +2898,7 @@ le_result_t taf_Gnss::GetConstellation
         default:
             {
                 result = LE_FAULT;
-                LE_ERROR("Unknown GNSS state %d", GnssState);
+                LE_ERROR("Unknown GNSS state %d", clientRequestPtr->GnssState);
             }
             break;
     }
@@ -2753,6 +2911,13 @@ taf_gnss_SampleRef_t taf_Gnss::GetLastSampleRef
     void
 )
 {
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    le_msg_SessionRef_t sessionRef = taf_gnss_GetClientSessionRef();
+
+    clientRequestPtr = DiscoverSessionRef(sessionRef);
+
+    TAF_ERROR_IF_RET_VAL(NULL == clientRequestPtr, NULL, "clientRequestPtr is NULL");
+
     taf_gnss_PositionSampleRequest_t* posSampleReqPtr =
         (taf_gnss_PositionSampleRequest_t*)le_mem_ForceAlloc(PositionSampleRequestPoolRef);
 
@@ -2762,12 +2927,12 @@ taf_gnss_SampleRef_t taf_Gnss::GetLastSampleRef
        (taf_gnss_PositionSample_t*)le_mem_ForceAlloc(PositionSamplePoolRef);
     memset(posSampleReqPtr->positionSampleNodePtr, 0, sizeof(taf_gnss_PositionSample_t));
 
-    memcpy(posSampleReqPtr->positionSampleNodePtr, &LastPositionSample, sizeof(taf_gnss_PositionSample_t));
+    memcpy(posSampleReqPtr->positionSampleNodePtr, &clientRequestPtr->LastPositionSample, sizeof(taf_gnss_PositionSample_t));
 
 
     LE_DEBUG("Get sample %p", posSampleReqPtr->positionSampleNodePtr);
 
-    posSampleReqPtr->sessionRef = taf_gnss_GetClientSessionRef();
+    posSampleReqPtr->sessionRef = sessionRef;
 
     taf_gnss_SampleRef_t reqRef = (taf_gnss_SampleRef_t)le_ref_CreateRef(PositionSampleMap, posSampleReqPtr);
     posSampleReqPtr->positionSampleRef = reqRef;
@@ -2794,6 +2959,13 @@ le_result_t taf_Gnss::GetPositionState
         return result;
     }
 
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = gnss.DiscoverSessionRef(posSampleReqPtr->sessionRef);
+
+    if (NULL == clientRequestPtr) {
+        LE_ERROR("GetPositionState did not find sessionRef: %p", posSampleReqPtr->sessionRef);
+        return LE_FAULT;
+    }
 
     if (posSampleReqPtr->positionSampleNodePtr->altitudeValid == true)
     {
@@ -3487,10 +3659,15 @@ le_result_t taf_Gnss::GetLeapSeconds
     TAF_ERROR_IF_RET_VAL( NULL == currentLeapSeconds, LE_FAULT, "currentLeapSeconds is NULL");
     TAF_ERROR_IF_RET_VAL( NULL == changeEventTime, LE_FAULT, "changeEventTime is NULL");
     TAF_ERROR_IF_RET_VAL( NULL == nextLeapSeconds, LE_FAULT, "nextLeapSeconds is NULL");
-    *gpsTime = mGpsTime;
-    *currentLeapSeconds = mCurrentLeapSeconds;
-    *changeEventTime = mChangeEventTime;
-    *nextLeapSeconds = mNextLeapSeconds;
+
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+
+    *gpsTime = clientRequestPtr->mGpsTime;
+    *currentLeapSeconds = clientRequestPtr->mCurrentLeapSeconds;
+    *changeEventTime = clientRequestPtr->mChangeEventTime;
+    *nextLeapSeconds = clientRequestPtr->mNextLeapSeconds;
     return LE_OK;
 }
 
@@ -3541,8 +3718,13 @@ le_result_t taf_Gnss::SetAcquisitionRate
 
     TAF_ERROR_IF_RET_VAL( 0 == rate, LE_OUT_OF_RANGE, "Acquisition rate is zero");
 
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+
     // Check the GNSS device state
-    switch (GnssState)
+    switch (clientRequestPtr->GnssState)
     {
         case TAF_GNSS_STATE_READY:
         {
@@ -3552,7 +3734,7 @@ le_result_t taf_Gnss::SetAcquisitionRate
                 rate = 100;
                 LE_DEBUG("SetAcquisitionRate -> mAcqRate is less than 100ms, so set default to 100ms");
             }
-            mAcqRate = rate;
+            clientRequestPtr->mAcqRate = rate;
             result = LE_OK;
         }
         break;
@@ -3561,13 +3743,13 @@ le_result_t taf_Gnss::SetAcquisitionRate
         case TAF_GNSS_STATE_DISABLED:
         {
             result = LE_NOT_PERMITTED;
-            LE_ERROR("Bad state for that request [%d]", GnssState);
+            LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
         }
         break;
         default:
         {
             result = LE_FAULT;
-            LE_ERROR("Unknown GNSS state %d", GnssState);
+            LE_ERROR("Unknown GNSS state %d", clientRequestPtr->GnssState);
         }
         break;
     }
@@ -3581,14 +3763,18 @@ le_result_t taf_Gnss::ForceColdRestart
 )
 {
     le_result_t result = LE_OK;
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
 
-    switch (GnssState)
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+
+    switch (clientRequestPtr->GnssState)
     {
         case TAF_GNSS_STATE_READY:
         case TAF_GNSS_STATE_DISABLED:
         case TAF_GNSS_STATE_UNINITIALIZED:
         {
-            LE_ERROR("Wrong Gnss State [%d]", GnssState);
+            LE_ERROR("Wrong Gnss State [%d]", clientRequestPtr->GnssState);
             result = LE_NOT_PERMITTED;
         }
         break;
@@ -3605,7 +3791,7 @@ le_result_t taf_Gnss::ForceColdRestart
                     }
                 };
 
-                LE_INFO("ForceColdRestart mStarted: %d", mStarted);
+                LE_INFO("ForceColdRestart mStarted: %d", clientRequestPtr->mStarted);
 
                 telux::common::Status status = mLocationConfigurator->deleteAllAidingData(cb1);
                 if (status != telux::common::Status::SUCCESS)
@@ -3627,7 +3813,7 @@ le_result_t taf_Gnss::ForceColdRestart
                 if(result == LE_OK)
                 {
                     // stop Detailed Reports
-                    if (mStarted)
+                    if (clientRequestPtr->mStarted)
                     {
                         std::promise<le_result_t> p2;
                         auto cb2 = [&p2](telux::common::ErrorCode error) {
@@ -3638,7 +3824,7 @@ le_result_t taf_Gnss::ForceColdRestart
                                 p2.set_value(LE_FAULT);
                             }
                         };
-                        auto status = mLocationManager->stopReports(cb2);
+                        auto status = clientRequestPtr->locationManager->stopReports(cb2);
                         if(status != telux::common::Status::SUCCESS)
                         {
                             result = LE_FAULT;
@@ -3648,8 +3834,8 @@ le_result_t taf_Gnss::ForceColdRestart
                             std::future<le_result_t> futResult = p2.get_future();
                             if(futResult.get() == LE_OK)
                             {
-                                mStarted = false;
-                                GnssState = TAF_GNSS_STATE_READY;
+                                clientRequestPtr->mStarted = false;
+                                clientRequestPtr->GnssState = TAF_GNSS_STATE_READY;
                                 LE_INFO("ForceColdRestart->Stop() is success");
                             }
                             else
@@ -3663,20 +3849,20 @@ le_result_t taf_Gnss::ForceColdRestart
                 if(result == LE_OK)
                 {
                     //start Detailed Engine report
-                    if (!mStarted) {
-                        int optInterval = mAcqRate;
+                    if (!clientRequestPtr->mStarted) {
+                        int optInterval = clientRequestPtr->mAcqRate;
                         LE_INFO("ForceColdRestart->  optInterval: %d",optInterval);
                         if( optInterval == 0  || optInterval < 100) {
                             LE_DEBUG("ForceColdRestart mAcqRate is zero, so set default to 100ms");
                             optInterval = 100;
-                            mAcqRate = optInterval;
+                            clientRequestPtr->mAcqRate = optInterval;
                         }
 
                         LocReqEngine engineType = DEFAULT_UNKNOWN;
                         GnssReportTypeMask reportMask = DEFAULT_UNKNOWN;
                         reportMask = 0x7f;//all reports are enabled
                         LE_INFO("ForceColdRestart->reportMask : %u",reportMask);
-                        engineType |= (1UL << mEngineType);
+                        engineType |= (1UL << clientRequestPtr->mEngineType);
 
                         std::promise<le_result_t> p;
                         auto cb = [&p](telux::common::ErrorCode error) {
@@ -3689,7 +3875,7 @@ le_result_t taf_Gnss::ForceColdRestart
                         };
 
                         LE_DEBUG("ForceColdRestart ->startDetailedEngineReports()");
-                        auto status = mLocationManager->startDetailedEngineReports(
+                        auto status = clientRequestPtr->locationManager->startDetailedEngineReports(
                             (uint32_t)optInterval, engineType, cb, reportMask);
                         if(status != telux::common::Status::SUCCESS)
                         {
@@ -3700,12 +3886,12 @@ le_result_t taf_Gnss::ForceColdRestart
                             std::future<le_result_t> futResult = p.get_future();
                             if(futResult.get() == LE_OK)
                             {
-                                mStarted = true;
-                                GnssState = TAF_GNSS_STATE_ACTIVE;
+                                clientRequestPtr->mStarted = true;
+                                clientRequestPtr->GnssState = TAF_GNSS_STATE_ACTIVE;
                                 LE_INFO("ForceColdRestart->Start() is success");
-                                mTtffPtr = 0; //reset TTFF value
-                                mStartTime = std::chrono::system_clock::now();
-                                mTtffEnabled = true;
+                                clientRequestPtr->mTtffPtr = 0; //reset TTFF value
+                                clientRequestPtr->mStartTime = std::chrono::system_clock::now();
+                                clientRequestPtr->mTtffEnabled = true;
                             }
                             else
                             {
@@ -3719,7 +3905,7 @@ le_result_t taf_Gnss::ForceColdRestart
         break;
         default:
         {
-            LE_ERROR("Invalid GNSS state %d", GnssState);
+            LE_ERROR("Invalid GNSS state %d", clientRequestPtr->GnssState);
             result = LE_FAULT;
         }
         break;
@@ -3734,20 +3920,25 @@ le_result_t taf_Gnss::ForceWarmRestart
 )
 {
     le_result_t result = LE_OK;
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
 
-    switch (GnssState)
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+
+    switch (clientRequestPtr->GnssState)
     {
         case TAF_GNSS_STATE_READY:
         case TAF_GNSS_STATE_DISABLED:
         case TAF_GNSS_STATE_UNINITIALIZED:
         {
-            LE_ERROR("Wrong Gnss state [%d]", GnssState);
+            LE_ERROR("Wrong Gnss state [%d]", clientRequestPtr->GnssState);
             result = LE_NOT_PERMITTED;
         }
         break;
         case TAF_GNSS_STATE_ACTIVE:
         {
                 std::promise<le_result_t> p1;
+
                 auto cb1 = [&p1](telux::common::ErrorCode error) {
                     if(error == telux::common::ErrorCode::SUCCESS) {
                         p1.set_value(LE_OK);
@@ -3783,7 +3974,7 @@ le_result_t taf_Gnss::ForceWarmRestart
                 if(result == LE_OK)
                 {
                     // stop Detailed Reports
-                    if (mStarted)
+                    if (clientRequestPtr->mStarted)
                     {
                         std::promise<le_result_t> p2;
                         auto cb2 = [&p2](telux::common::ErrorCode error) {
@@ -3795,7 +3986,7 @@ le_result_t taf_Gnss::ForceWarmRestart
                             }
                         };
 
-                        status = mLocationManager->stopReports(cb2);
+                        status = clientRequestPtr->locationManager->stopReports(cb2);
                         if(status != telux::common::Status::SUCCESS)
                         {
                             result = LE_FAULT;
@@ -3805,8 +3996,8 @@ le_result_t taf_Gnss::ForceWarmRestart
                             std::future<le_result_t> futResult = p2.get_future();
                             if(futResult.get() == LE_OK)
                             {
-                                mStarted = false;
-                                GnssState = TAF_GNSS_STATE_READY;
+                                clientRequestPtr->mStarted = false;
+                                clientRequestPtr->GnssState = TAF_GNSS_STATE_READY;
                                 LE_INFO("ForceWarmRestart->Stop() is success");
                             }
                             else
@@ -3824,8 +4015,8 @@ le_result_t taf_Gnss::ForceWarmRestart
                 if(result == LE_OK)
                 {
                     //start Detailed Engine report
-                    if (!mStarted) {
-                        int optInterval = mAcqRate;
+                    if (!clientRequestPtr->mStarted) {
+                        int optInterval = clientRequestPtr->mAcqRate;
                         std::promise<le_result_t> p;
                         auto cb = [&p](telux::common::ErrorCode error) {
                             if(error == telux::common::ErrorCode::SUCCESS) {
@@ -3839,16 +4030,16 @@ le_result_t taf_Gnss::ForceWarmRestart
                         if( optInterval == 0  || optInterval < 100) {
                             LE_DEBUG("ForceWarmRestart mAcqRate is zero, so set default to 100ms");
                             optInterval = 100;
-                            mAcqRate = optInterval;
+                            clientRequestPtr->mAcqRate = optInterval;
                         }
 
                         LocReqEngine engineType = DEFAULT_UNKNOWN;
                         GnssReportTypeMask reportMask = DEFAULT_UNKNOWN;
                         reportMask = 0x7f;//all reports are enabled
                         LE_INFO("ForceWarmRestart->reportMask : %u",reportMask);
-                        engineType |= (1UL << mEngineType);
+                        engineType |= (1UL << clientRequestPtr->mEngineType);
                         LE_DEBUG("ForceWarmRestart ->startDetailedEngineReports()");
-                        status = mLocationManager->startDetailedEngineReports((uint32_t)optInterval,
+                        status = clientRequestPtr->locationManager->startDetailedEngineReports((uint32_t)optInterval,
                                 engineType, cb, reportMask);
                         if(status != telux::common::Status::SUCCESS)
                         {
@@ -3859,12 +4050,12 @@ le_result_t taf_Gnss::ForceWarmRestart
                             std::future<le_result_t> futResult = p.get_future();
                             if(futResult.get() == LE_OK)
                             {
-                                mStarted = true;
-                                GnssState = TAF_GNSS_STATE_ACTIVE;
+                                clientRequestPtr->mStarted = true;
+                                clientRequestPtr->GnssState = TAF_GNSS_STATE_ACTIVE;
                                 LE_INFO("ForceWarmRestart->Start() is success");
-                                mTtffPtr = 0; //reset TTFF value
-                                mStartTime = std::chrono::system_clock::now();
-                                mTtffEnabled = true;
+                                clientRequestPtr->mTtffPtr = 0; //reset TTFF value
+                                clientRequestPtr->mStartTime = std::chrono::system_clock::now();
+                                clientRequestPtr->mTtffEnabled = true;
                             }
                             else
                             {
@@ -3878,7 +4069,7 @@ le_result_t taf_Gnss::ForceWarmRestart
         break;
         default:
         {
-            LE_ERROR("Invalid GNSS state %d", GnssState);
+            LE_ERROR("Invalid GNSS state %d", clientRequestPtr->GnssState);
             result = LE_FAULT;
         }
         break;
@@ -3893,21 +4084,25 @@ le_result_t taf_Gnss::ForceHotRestart
 )
 {
     le_result_t result = LE_OK;
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
 
-    switch (GnssState)
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+
+    switch (clientRequestPtr->GnssState)
     {
         case TAF_GNSS_STATE_READY:
         case TAF_GNSS_STATE_DISABLED:
         case TAF_GNSS_STATE_UNINITIALIZED:
         {
-            LE_ERROR("Wrong Gnss State [%d]", GnssState);
+            LE_ERROR("Wrong Gnss State [%d]", clientRequestPtr->GnssState);
             result = LE_NOT_PERMITTED;
         }
         break;
         case TAF_GNSS_STATE_ACTIVE:
             {
                 // stop Detailed Reports
-                if (mStarted) {
+                if (clientRequestPtr->mStarted) {
                     std::promise<le_result_t> p;
                     auto cb = [&p](telux::common::ErrorCode error) {
                         if(error == telux::common::ErrorCode::SUCCESS) {
@@ -3917,7 +4112,7 @@ le_result_t taf_Gnss::ForceHotRestart
                             p.set_value(LE_FAULT);
                         }
                     };
-                    auto status = mLocationManager->stopReports(cb);
+                    auto status = clientRequestPtr->locationManager->stopReports(cb);
                     if(status != telux::common::Status::SUCCESS)
                     {
                         result = LE_FAULT;
@@ -3928,8 +4123,8 @@ le_result_t taf_Gnss::ForceHotRestart
                         std::future<le_result_t> futResult = p.get_future();
                         if(futResult.get() == LE_OK)
                         {
-                            mStarted = false;
-                            GnssState = TAF_GNSS_STATE_READY;
+                            clientRequestPtr->mStarted = false;
+                            clientRequestPtr->GnssState = TAF_GNSS_STATE_READY;
                             LE_INFO("ForceHotRestart->Stop() is success");
                         }
                         else
@@ -3943,8 +4138,8 @@ le_result_t taf_Gnss::ForceHotRestart
                 sleep(5); // 5sec sleep required to stop and start Gnss engine
 
                 //start Detailed report
-                if (!mStarted) {
-                    int optInterval = mAcqRate;
+                if (!clientRequestPtr->mStarted) {
+                    int optInterval = clientRequestPtr->mAcqRate;
                     std::promise<le_result_t> p;
                     auto cb = [&p](telux::common::ErrorCode error) {
                         if(error == telux::common::ErrorCode::SUCCESS) {
@@ -3958,14 +4153,14 @@ le_result_t taf_Gnss::ForceHotRestart
                     if( optInterval == 0  || optInterval < 100) {
                         LE_DEBUG("ForceHotRestart()->mAcqRate is zero, so set default to 100ms");
                         optInterval = 100;
-                        mAcqRate = optInterval;
+                        clientRequestPtr->mAcqRate = optInterval;
                     }
                     LocReqEngine engineType = DEFAULT_UNKNOWN;
                     GnssReportTypeMask reportMask = DEFAULT_UNKNOWN;
                     reportMask = 0x7f;//all reports are enabled
                     LE_INFO("ForceHotRestart->reportMask : %u",reportMask);
-                    engineType |= (1UL << mEngineType);
-                    auto status = mLocationManager->startDetailedEngineReports((uint32_t)optInterval,
+                    engineType |= (1UL << clientRequestPtr->mEngineType);
+                    auto status = clientRequestPtr->locationManager->startDetailedEngineReports((uint32_t)optInterval,
                         engineType, cb, reportMask);
                     if(status != telux::common::Status::SUCCESS)
                     {
@@ -3977,11 +4172,11 @@ le_result_t taf_Gnss::ForceHotRestart
                         std::future<le_result_t> futResult = p.get_future();
                         if(futResult.get() == LE_OK)
                         {
-                            mStarted = true;
-                            GnssState = TAF_GNSS_STATE_ACTIVE;
-                            mTtffPtr = 0; //reset TTFF value
-                            mStartTime = std::chrono::system_clock::now();
-                            mTtffEnabled = true;
+                            clientRequestPtr->mStarted = true;
+                            clientRequestPtr->GnssState = TAF_GNSS_STATE_ACTIVE;
+                            clientRequestPtr->mTtffPtr = 0; //reset TTFF value
+                            clientRequestPtr->mStartTime = std::chrono::system_clock::now();
+                            clientRequestPtr->mTtffEnabled = true;
                             LE_INFO("ForceHotRestart->Start() is success");
                         }
                         else
@@ -3996,7 +4191,7 @@ le_result_t taf_Gnss::ForceHotRestart
         default:
         {
             result = LE_FAULT;
-            LE_ERROR("Invalid GNSS state %d", GnssState);
+            LE_ERROR("Invalid GNSS state %d", clientRequestPtr->GnssState);
         }
         break;
     }
@@ -4011,9 +4206,13 @@ le_result_t taf_Gnss::GetSupportedConstellations
 {
      TAF_ERROR_IF_RET_VAL( constellationMaskPtr == NULL, LE_FAULT, "constellationMaskPtr is NULL !");
      le_result_t result = LE_NOT_PERMITTED;
+     taf_gnss_Client_t* clientRequestPtr = NULL;
+     clientRequestPtr = AcquireSessionRef();
+
+     TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
 
     // Check the GNSS device state
-    switch (GnssState)
+    switch (clientRequestPtr->GnssState)
     {
         case TAF_GNSS_STATE_READY:
         {
@@ -4030,13 +4229,13 @@ le_result_t taf_Gnss::GetSupportedConstellations
         case TAF_GNSS_STATE_ACTIVE:
         case TAF_GNSS_STATE_DISABLED:
         {
-            LE_ERROR("Bad state for that request [%d]", GnssState);
+            LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
             result = LE_NOT_PERMITTED;
         }
         break;
         default:
         {
-            LE_ERROR("Unknown GNSS state %d", GnssState);
+            LE_ERROR("Unknown GNSS state %d", clientRequestPtr->GnssState);
             result = LE_FAULT;
         }
         break;
@@ -4052,14 +4251,18 @@ le_result_t taf_Gnss::SetMinElevation
 {
     le_result_t result = LE_FAULT;
     TAF_ERROR_IF_RET_VAL( minElevation > TAF_GNSS_MIN_ELEVATION_MAX_DEGREE, LE_OUT_OF_RANGE, "minimum elevation is above maximal range");
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
 
-    switch (GnssState)
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+
+    switch (clientRequestPtr->GnssState)
     {
         case TAF_GNSS_STATE_ACTIVE:
         case TAF_GNSS_STATE_DISABLED:
         case TAF_GNSS_STATE_UNINITIALIZED:
         {
-            LE_ERROR("Wrong Gnss State [%d]", GnssState);
+            LE_ERROR("Wrong Gnss State [%d]", clientRequestPtr->GnssState);
             result = LE_NOT_PERMITTED;
         }
         break;
@@ -4099,7 +4302,7 @@ le_result_t taf_Gnss::SetMinElevation
         default:
         {
             result = LE_FAULT;
-            LE_ERROR("Invalid GNSS state %d", GnssState);
+            LE_ERROR("Invalid GNSS state %d", clientRequestPtr->GnssState);
         }
         break;
     }
@@ -4128,13 +4331,17 @@ le_result_t taf_Gnss::StartMode
 )
 {
     le_result_t result = LE_OK;
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
 
     if (mode >= TAF_GNSS_UNKNOWN_START)
     {
         LE_ERROR("Invalid start mode %d", mode);
         return LE_BAD_PARAMETER;
     }
-    switch (GnssState)
+    switch (clientRequestPtr->GnssState)
     {
         case TAF_GNSS_STATE_READY:
         {
@@ -4214,9 +4421,9 @@ le_result_t taf_Gnss::StartMode
 
             if(result == LE_OK)
             {
-                if (!mStarted)
+                if (!clientRequestPtr->mStarted)
                 {
-                    int optInterval = mAcqRate;
+                    int optInterval = clientRequestPtr->mAcqRate;
                     std::promise<le_result_t> p;
                     auto cb = [&p](telux::common::ErrorCode error) {
                         if(error == telux::common::ErrorCode::SUCCESS) {
@@ -4226,19 +4433,19 @@ le_result_t taf_Gnss::StartMode
                             p.set_value(LE_FAULT);
                         }
                     };
-                    LE_INFO("StartMode()->  mAcqRate: %d",mAcqRate);
+                    LE_INFO("StartMode()->  mAcqRate: %d",clientRequestPtr->mAcqRate);
                     if( optInterval == 0  || optInterval < 100)
                     {
                         LE_DEBUG("StartMode()->mAcqRate is zero, so set default to 100ms");
                         optInterval = 100;
-                        mAcqRate = optInterval;
+                        clientRequestPtr->mAcqRate = optInterval;
                     }
                     LocReqEngine engineType = DEFAULT_UNKNOWN;
                     GnssReportTypeMask reportMask = DEFAULT_UNKNOWN;
                     reportMask = 0x7f;//all reports are enabled
                     LE_INFO("StartMode->reportMask : %u",reportMask);
-                    engineType |= (1UL << mEngineType);
-                    auto status = mLocationManager->startDetailedEngineReports((uint32_t)optInterval,
+                    engineType |= (1UL << clientRequestPtr->mEngineType);
+                    auto status = clientRequestPtr->locationManager->startDetailedEngineReports((uint32_t)optInterval,
                         engineType, cb, reportMask);
                     if(status != telux::common::Status::SUCCESS)
                     {
@@ -4246,16 +4453,16 @@ le_result_t taf_Gnss::StartMode
                     }
                     else
                     {
-                        mStartTime = std::chrono::system_clock::now();
+                        clientRequestPtr->mStartTime = std::chrono::system_clock::now();
                         std::future<le_result_t> futResult = p.get_future();
                         if(futResult.get() == LE_OK)
                         {
-                            mStarted = true;
-                            GnssState = TAF_GNSS_STATE_ACTIVE;
+                            clientRequestPtr->mStarted = true;
+                            clientRequestPtr->GnssState = TAF_GNSS_STATE_ACTIVE;
                             LE_INFO("StartMode->Start() is success");
-                            mTtffEnabled = true;
-                            mTtffPtr = 0; //reset ttff value
-                            mStartTime = std::chrono::system_clock::now();
+                            clientRequestPtr->mTtffEnabled = true;
+                            clientRequestPtr->mTtffPtr = 0; //reset ttff value
+                            clientRequestPtr->mStartTime = std::chrono::system_clock::now();
                         }
                         else
                         {
@@ -4270,20 +4477,20 @@ le_result_t taf_Gnss::StartMode
         case TAF_GNSS_STATE_UNINITIALIZED:
         case TAF_GNSS_STATE_DISABLED:
         {
-            LE_ERROR("Bad state for that request [%d]", GnssState);
+            LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
             result = LE_NOT_PERMITTED;
         }
         break;
         case TAF_GNSS_STATE_ACTIVE:
         {
-            LE_ERROR("Bad state for that request [%d]", GnssState);
+            LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
             result = LE_DUPLICATE;
         }
         break;
         default:
         {
             result = LE_FAULT;
-            LE_ERROR("Unknown GNSS state %d", GnssState);
+            LE_ERROR("Unknown GNSS state %d", clientRequestPtr->GnssState);
         }
         break;
     }
@@ -4297,13 +4504,17 @@ le_result_t taf_Gnss::GetMinElevation
 {
     le_result_t result = LE_FAULT;
     TAF_KILL_CLIENT_IF_RET_VAL( NULL == minElevationPtr, LE_FAULT, "minElevationPtr is NULL");
-    switch (GnssState)
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+    switch (clientRequestPtr->GnssState)
     {
         case TAF_GNSS_STATE_ACTIVE:
         case TAF_GNSS_STATE_DISABLED:
         case TAF_GNSS_STATE_UNINITIALIZED:
         {
-            LE_ERROR("Wrong Gnss State [%d]", GnssState);
+            LE_ERROR("Wrong Gnss State [%d]", clientRequestPtr->GnssState);
             result = LE_NOT_PERMITTED;
         }
         break;
@@ -4315,7 +4526,6 @@ le_result_t taf_Gnss::GetMinElevation
                 auto &gnss = taf_Gnss::GetInstance();
                 if(error == telux::common::ErrorCode::SUCCESS)
                 {
-                    LE_DEBUG("onMinSVElevationInfo %s sent successfully", gnss.mCommandName.c_str());
                     gnss.mRequestMinEle = minSVElevation;
                     LE_INFO("onMinSVElevationInfo gnss.mRequestMinEle: %d",gnss.mRequestMinEle);
                     p.set_value(LE_OK);
@@ -4352,7 +4562,7 @@ le_result_t taf_Gnss::GetMinElevation
         default:
         {
             result = LE_FAULT;
-            LE_ERROR("Invalid GNSS state %d", GnssState);
+            LE_ERROR("Invalid GNSS state %d", clientRequestPtr->GnssState);
         }
         break;
     }
@@ -4366,32 +4576,36 @@ le_result_t taf_Gnss::Disable
 )
 {
     le_result_t result = LE_FAULT;
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
 
-    switch (GnssState)
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+
+    switch (clientRequestPtr->GnssState)
     {
         case TAF_GNSS_STATE_READY:
         {
-                GnssState = TAF_GNSS_STATE_DISABLED;
+                clientRequestPtr->GnssState = TAF_GNSS_STATE_DISABLED;
                 result = LE_OK;
         }
         break;
         case TAF_GNSS_STATE_DISABLED:
         {
-            LE_ERROR("Bad state for that request [%d]", GnssState);
+            LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
             result = LE_DUPLICATE;
         }
         break;
         case TAF_GNSS_STATE_UNINITIALIZED:
         case TAF_GNSS_STATE_ACTIVE:
         {
-            LE_ERROR("Bad state for that request [%d]", GnssState);
+            LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
             result = LE_NOT_PERMITTED;
         }
         break;
         default:
         {
             result = LE_FAULT;
-            LE_ERROR("Unknown GNSS state %d", GnssState);
+            LE_ERROR("Unknown GNSS state %d", clientRequestPtr->GnssState);
         }
         break;
     }
@@ -4405,12 +4619,19 @@ le_result_t taf_Gnss::Stop
 )
 {
     le_result_t result = LE_FAULT;
+    auto &gnss = taf_Gnss::GetInstance();
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
 
-    switch (GnssState)
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+
+    switch (clientRequestPtr->GnssState)
     {
         case TAF_GNSS_STATE_ACTIVE:
             {
-                if (mStarted)
+                LE_INFO("Stop() is started: %d", (int) clientRequestPtr->mStarted);
+
+                if (clientRequestPtr->mStarted)
                 {
                     std::promise<le_result_t> p;
                     auto cb = [&p](telux::common::ErrorCode error) {
@@ -4421,7 +4642,7 @@ le_result_t taf_Gnss::Stop
                             p.set_value(LE_FAULT);
                         }
                     };
-                    auto status = mLocationManager->stopReports(cb);
+                    auto status = clientRequestPtr->locationManager->stopReports(cb);
                     if(status != telux::common::Status::SUCCESS)
                     {
                         result = LE_FAULT;
@@ -4431,10 +4652,10 @@ le_result_t taf_Gnss::Stop
                         std::future<le_result_t> futResult = p.get_future();
                         if(futResult.get() == LE_OK)
                         {
-                            mStarted = false;
-                            GnssState = TAF_GNSS_STATE_READY;
+                            clientRequestPtr->mStarted = false;
+                            clientRequestPtr->GnssState = TAF_GNSS_STATE_READY;
                             result = LE_OK;
-                            mNmeaMask = 0;//reset nmeaMask on triggering stop.
+                            gnss.mNmeaMask = 0;//reset nmeaMask on triggering stop.
                             LE_INFO("Stop() is success");
                         }
                         else
@@ -4448,21 +4669,21 @@ le_result_t taf_Gnss::Stop
         break;
         case TAF_GNSS_STATE_READY:
         {
-            LE_ERROR("Bad state for that request [%d]", GnssState);
+            LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
             result = LE_DUPLICATE;
         }
         break;
         case TAF_GNSS_STATE_UNINITIALIZED:
         case TAF_GNSS_STATE_DISABLED:
         {
-            LE_ERROR("Bad state for that request [%d]", GnssState);
+            LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
             result = LE_NOT_PERMITTED;
         }
         break;
         default:
         {
             result = LE_FAULT;
-            LE_ERROR("Unknown GNSS state %d", GnssState);
+            LE_ERROR("Unknown GNSS state %d", clientRequestPtr->GnssState);
         }
         break;
     }
@@ -4475,6 +4696,10 @@ le_result_t taf_Gnss::SetNmeaSentences
 )
 {
     le_result_t result = LE_FAULT;
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
 
     LE_DEBUG("SetNmeaSentences nmeaMask: %" PRIu64"", nmeaMask);
 
@@ -4487,7 +4712,7 @@ le_result_t taf_Gnss::SetNmeaSentences
     else
     {
         // Check the GNSS device state
-        switch (GnssState)
+        switch (clientRequestPtr->GnssState)
         {
             case TAF_GNSS_STATE_READY:
             {
@@ -4568,13 +4793,13 @@ le_result_t taf_Gnss::SetNmeaSentences
             case TAF_GNSS_STATE_ACTIVE:
             case TAF_GNSS_STATE_DISABLED:
             {
-                LE_ERROR("Bad state for that request [%d]", GnssState);
+                LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
                 result = LE_NOT_PERMITTED;
             }
             break;
             default:
             {
-                LE_ERROR("Unknown GNSS state %d", GnssState);
+                LE_ERROR("Unknown GNSS state %d", clientRequestPtr->GnssState);
                 result = LE_FAULT;
             }
             break;
@@ -4596,15 +4821,19 @@ le_result_t taf_Gnss::GetNmeaSentences
         return LE_FAULT;
     }
 
-     le_result_t result = LE_NOT_PERMITTED;
+    le_result_t result = LE_NOT_PERMITTED;
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
 
     // Check the GNSS device state
-    switch (GnssState)
+    switch (clientRequestPtr->GnssState)
     {
         case TAF_GNSS_STATE_ACTIVE:
         {
             // Get the enabled NMEA sentences
-            std::unique_lock<std::mutex> lock(mMutex);
+            std::unique_lock<std::mutex> lock(clientRequestPtr->mMutex);
             auto nmeaStatus = mNmeaVar.wait_for(lock,std::chrono::seconds(DEFAULT_TIMEOUT_IN_SECONDS));
             if(nmeaStatus == std::cv_status::timeout)
             {
@@ -4612,6 +4841,7 @@ le_result_t taf_Gnss::GetNmeaSentences
                 result = LE_TIMEOUT;
                 return result;
             }
+
             if(mNmeaMask != 0)
             {
                 *nmeaMaskPtr = mNmeaMask;
@@ -4635,13 +4865,13 @@ le_result_t taf_Gnss::GetNmeaSentences
         case TAF_GNSS_STATE_UNINITIALIZED:
         case TAF_GNSS_STATE_DISABLED:
         {
-            LE_ERROR("Bad state for that request [%d]", GnssState);
+            LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
             result = LE_NOT_PERMITTED;
         }
         break;
         default:
         {
-            LE_ERROR("Unknown GNSS state %d", GnssState);
+            LE_ERROR("Unknown GNSS state %d", clientRequestPtr->GnssState);
             result = LE_FAULT;
         }
         break;
@@ -4658,9 +4888,13 @@ le_result_t taf_Gnss::GetSupportedNmeaSentences
 
     TAF_ERROR_IF_RET_VAL( nmeaMaskPtr == NULL, LE_FAULT, "nmeaMaskPtr is NULL !");
     le_result_t result = LE_NOT_PERMITTED;
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
 
     // Check the GNSS device state
-    switch (GnssState)
+    switch (clientRequestPtr->GnssState)
     {
         case TAF_GNSS_STATE_READY:
         {
@@ -4684,13 +4918,13 @@ le_result_t taf_Gnss::GetSupportedNmeaSentences
         case TAF_GNSS_STATE_ACTIVE:
         case TAF_GNSS_STATE_DISABLED:
         {
-            LE_ERROR("Bad state for that request [%d]", GnssState);
+            LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
             result = LE_NOT_PERMITTED;
         }
         break;
         default:
         {
-            LE_ERROR("Unknown GNSS state %d", GnssState);
+            LE_ERROR("Unknown GNSS state %d", clientRequestPtr->GnssState);
             result = LE_FAULT;
         }
         break;
@@ -4705,9 +4939,13 @@ le_result_t taf_Gnss::SetDRConfig(const taf_gnss_DrParams_t* drParamsPtr)
     telux::loc::DREngineConfiguration drConfig;
     drConfig.validMask = static_cast<telux::loc::DRConfigValidity>(0);
     TAF_KILL_CLIENT_IF_RET_VAL( NULL == drParamsPtr, LE_FAULT, "drParamsPtr is NULL");
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
 
  // Check the GNSS device state
-    switch (GnssState)
+    switch (clientRequestPtr->GnssState)
     {
         case TAF_GNSS_STATE_READY:
         {
@@ -4750,13 +4988,13 @@ le_result_t taf_Gnss::SetDRConfig(const taf_gnss_DrParams_t* drParamsPtr)
         case TAF_GNSS_STATE_ACTIVE:
         case TAF_GNSS_STATE_DISABLED:
         {
-            LE_ERROR("Bad state for that request [%d]", GnssState);
+            LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
             result = LE_NOT_PERMITTED;
         }
         break;
         default:
         {
-            LE_ERROR("Unknown GNSS state %d", GnssState);
+            LE_ERROR("Unknown GNSS state %d", clientRequestPtr->GnssState);
             result = LE_FAULT;
         }
         break;
@@ -4803,6 +5041,10 @@ le_result_t taf_Gnss::ConfigureEngineState
     telux::loc::LocationEngineRunState engineState;
     LE_INFO("ConfigureEngineState engtype:%d", engtype);
     LE_INFO("ConfigureEngineState engState:%d", engState);
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
     switch(engtype)
     {
         case TAF_GNSS_ENGINE_TYPE_DRE:
@@ -4833,12 +5075,12 @@ le_result_t taf_Gnss::ConfigureEngineState
             return result;
         }
     }
-    switch (GnssState)
+    switch (clientRequestPtr->GnssState)
     {
         case TAF_GNSS_STATE_DISABLED:
         case TAF_GNSS_STATE_UNINITIALIZED:
         {
-            LE_ERROR("Wrong Gnss State [%d]", GnssState);
+            LE_ERROR("Wrong Gnss State [%d]", clientRequestPtr->GnssState);
             result = LE_NOT_PERMITTED;
         }
         break;
@@ -4877,7 +5119,7 @@ le_result_t taf_Gnss::ConfigureEngineState
         break;
         default:
         {
-            LE_ERROR("Invalid GNSS state %d", GnssState);
+            LE_ERROR("Invalid GNSS state %d", clientRequestPtr->GnssState);
             result = LE_FAULT;
         }
         break;
@@ -4897,6 +5139,10 @@ le_result_t taf_Gnss::ConfigureRobustLocation
     LE_INFO("ConfigureRobustLocation enabled911:%d", enabled911);
     bool enableRobustloc = false;
     bool enableE911loc = false;
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
     switch(enable)
     {
        case 0:
@@ -4931,12 +5177,12 @@ le_result_t taf_Gnss::ConfigureRobustLocation
             return result;
         }
     }
-    switch (GnssState)
+    switch (clientRequestPtr->GnssState)
     {
         case TAF_GNSS_STATE_DISABLED:
         case TAF_GNSS_STATE_UNINITIALIZED:
         {
-            LE_ERROR("Wrong Gnss State [%d]", GnssState);
+            LE_ERROR("Wrong Gnss State [%d]", clientRequestPtr->GnssState);
             result = LE_NOT_PERMITTED;
         }
         break;
@@ -4968,7 +5214,7 @@ le_result_t taf_Gnss::ConfigureRobustLocation
         break;
         default:
         {
-            LE_ERROR("Invalid GNSS state %d", GnssState);
+            LE_ERROR("Invalid GNSS state %d", clientRequestPtr->GnssState);
             result = LE_FAULT;
         }
         break;
@@ -4992,12 +5238,16 @@ le_result_t taf_Gnss::RobustLocationInformation
     {
         return LE_FAULT;
     }
-    switch (GnssState)
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+    switch (clientRequestPtr->GnssState)
     {
         case TAF_GNSS_STATE_DISABLED:
         case TAF_GNSS_STATE_UNINITIALIZED:
         {
-            LE_ERROR("Wrong Gnss State [%d]", GnssState);
+            LE_ERROR("Wrong Gnss State [%d]", clientRequestPtr->GnssState);
             result = LE_NOT_PERMITTED;
         }
         break;
@@ -5011,7 +5261,6 @@ le_result_t taf_Gnss::RobustLocationInformation
                     LE_INFO("****onRobustLocationInfo **");
                     if(error == telux::common::ErrorCode::SUCCESS)
                     {
-                        LE_DEBUG("onRobustLocationInfo %s sent successfully", gnss.mCommandName.c_str());
                         if(rLConfig.validMask & telux::loc::VALID_ENABLED)
                         {
                             gnss.mEnable = rLConfig.enabled;
@@ -5064,7 +5313,7 @@ le_result_t taf_Gnss::RobustLocationInformation
         break;
         default:
         {
-            LE_ERROR("Invalid GNSS state %d", GnssState);
+            LE_ERROR("Invalid GNSS state %d", clientRequestPtr->GnssState);
             result = LE_FAULT;
         }
         break;
@@ -5080,14 +5329,18 @@ le_result_t taf_Gnss::DefaultSecondaryBandConstellations
     LE_INFO("DefaultSecondaryBandConstellations");
 
     le_result_t result = LE_FAULT;
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
 
-    switch (GnssState)
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+
+    switch (clientRequestPtr->GnssState)
     {
         case TAF_GNSS_STATE_UNINITIALIZED:
         case TAF_GNSS_STATE_DISABLED:
         case TAF_GNSS_STATE_ACTIVE:
         {
-            LE_ERROR("Bad state for that request [%d]", GnssState);
+            LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
             result = LE_NOT_PERMITTED;
         }
         break;
@@ -5124,7 +5377,7 @@ le_result_t taf_Gnss::DefaultSecondaryBandConstellations
         default:
         {
             result = LE_FAULT;
-            LE_ERROR("Unknown GNSS state %d", GnssState);
+            LE_ERROR("Unknown GNSS state %d", clientRequestPtr->GnssState);
         }
         break;
     }
@@ -5144,14 +5397,18 @@ le_result_t taf_Gnss::RequestSecondaryBandConstellations
         LE_KILL_CLIENT("constellationSb is NULL !");
         return result;
     }
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
 
-    switch (GnssState)
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+
+    switch ( clientRequestPtr->GnssState)
     {
         case TAF_GNSS_STATE_UNINITIALIZED:
         case TAF_GNSS_STATE_DISABLED:
         case TAF_GNSS_STATE_ACTIVE:
         {
-            LE_ERROR("Bad state for that request [%d]", GnssState);
+            LE_ERROR("Bad state for that request [%d]",  clientRequestPtr->GnssState);
             result = LE_NOT_PERMITTED;
         }
         break;
@@ -5240,7 +5497,7 @@ le_result_t taf_Gnss::RequestSecondaryBandConstellations
         default:
         {
             result = LE_FAULT;
-            LE_ERROR("Unknown GNSS state %d", GnssState);
+            LE_ERROR("Unknown GNSS state %d",  clientRequestPtr->GnssState);
         }
         break;
     }
@@ -5254,6 +5511,10 @@ le_result_t taf_Gnss::ConfigureSecondaryBandConstellations
 {
     LE_INFO("ConfigureSecondaryBandConstellations");
     le_result_t result = LE_FAULT;
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
     telux::loc::ConstellationSet constellationSet{};
     if( constellationSb & (1<<(TAF_GNSS_SB_CONSTELLATION_GPS-1))) //GPS->1
     {
@@ -5295,13 +5556,13 @@ le_result_t taf_Gnss::ConfigureSecondaryBandConstellations
         constellationSet.insert(telux::loc::GnssConstellationType::NAVIC);
         LE_INFO("ConfigureSecondary Band constellation NAVIC");
     }
-    switch (GnssState)
+    switch ( clientRequestPtr->GnssState)
     {
         case TAF_GNSS_STATE_UNINITIALIZED:
         case TAF_GNSS_STATE_DISABLED:
         case TAF_GNSS_STATE_ACTIVE:
         {
-            LE_ERROR("Bad state for that request [%d]", GnssState);
+            LE_ERROR("Bad state for that request [%d]",  clientRequestPtr->GnssState);
             result = LE_NOT_PERMITTED;
         }
         break;
@@ -5337,7 +5598,7 @@ le_result_t taf_Gnss::ConfigureSecondaryBandConstellations
         default:
         {
             result = LE_FAULT;
-            LE_ERROR("Unknown GNSS state %d", GnssState);
+            LE_ERROR("Unknown GNSS state %d",  clientRequestPtr->GnssState);
         }
         break;
     }
@@ -5353,8 +5614,12 @@ le_result_t taf_Gnss::SetLeverArmConfig(const taf_gnss_LeverArmParams_t* LeverAr
     telux::loc::LeverArmType leverArmType;
     telux::loc::LeverArmParams leverArmParams;
     TAF_KILL_CLIENT_IF_RET_VAL( NULL == LeverArmParamsPtr, LE_FAULT, "LeverArmParamsPtr is NULL");
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
 
-    switch (GnssState)
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+
+    switch ( clientRequestPtr->GnssState)
     {
         case TAF_GNSS_STATE_READY:
         {
@@ -5424,13 +5689,13 @@ le_result_t taf_Gnss::SetLeverArmConfig(const taf_gnss_LeverArmParams_t* LeverAr
         case TAF_GNSS_STATE_ACTIVE:
         case TAF_GNSS_STATE_DISABLED:
         {
-            LE_ERROR("Bad state for that request [%d]", GnssState);
+            LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
             result = LE_NOT_PERMITTED;
         }
         break;
         default:
         {
-            LE_ERROR("Unknown GNSS state %d", GnssState);
+            LE_ERROR("Unknown GNSS state %d", clientRequestPtr->GnssState);
             result = LE_FAULT;
         }
         break;
@@ -5448,22 +5713,26 @@ le_result_t taf_Gnss::SetEngineType(taf_gnss_EngineReportsType_t EngineType)
         LE_INFO("SetEngineType: Unknown Engine type");
         return LE_BAD_PARAMETER;
     }
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
 
-    switch (GnssState)
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+
+    switch (clientRequestPtr->GnssState)
     {
         case TAF_GNSS_STATE_READY:
         {
             // Set Engine Type
-            mEngineType = EngineType;
+            clientRequestPtr->mEngineType = EngineType;
             result = LE_OK;
-            LE_INFO("SetEngineType->EngineType:%d",mEngineType);
+            LE_INFO("SetEngineType->EngineType:%d",clientRequestPtr->mEngineType);
         }
         break;
         case TAF_GNSS_STATE_ACTIVE:
         case TAF_GNSS_STATE_UNINITIALIZED:
         case TAF_GNSS_STATE_DISABLED:
         {
-            LE_ERROR("Bad state for that request [%d]", GnssState);
+            LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
             result = LE_NOT_PERMITTED;
         }
         break;
@@ -5471,7 +5740,7 @@ le_result_t taf_Gnss::SetEngineType(taf_gnss_EngineReportsType_t EngineType)
         default:
         {
             result = LE_FAULT;
-            LE_ERROR("Unknown GNSS state %d", GnssState);
+            LE_ERROR("Unknown GNSS state %d", clientRequestPtr->GnssState);
         }
         break;
     }
@@ -6371,14 +6640,18 @@ le_result_t taf_Gnss::SetMinGpsWeek
 {
     le_result_t result = LE_FAULT;
     std::promise<telux::common::ErrorCode> p;
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
 
-    switch (GnssState)
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+
+    switch (clientRequestPtr->GnssState)
     {
         case TAF_GNSS_STATE_ACTIVE:
         case TAF_GNSS_STATE_DISABLED:
         case TAF_GNSS_STATE_UNINITIALIZED:
         {
-             LE_ERROR("Wrong Gnss State [%d]", GnssState);
+             LE_ERROR("Wrong Gnss State [%d]", clientRequestPtr->GnssState);
              result = LE_NOT_PERMITTED;
         }
         break;
@@ -6403,7 +6676,7 @@ le_result_t taf_Gnss::SetMinGpsWeek
         default:
         {
             result = LE_FAULT;
-            LE_ERROR("Invalid GNSS state %d", GnssState);
+            LE_ERROR("Invalid GNSS state %d", clientRequestPtr->GnssState);
         }
         break;
     }
@@ -6418,12 +6691,16 @@ le_result_t taf_Gnss::GetMinGpsWeek
 {
     le_result_t result = LE_FAULT;
     TAF_ERROR_IF_RET_VAL(NULL == minGpsWeekPtr, LE_FAULT, "minGpsWeekPtr is NULL");
-    switch (GnssState)
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+    switch (clientRequestPtr->GnssState)
     {
         case TAF_GNSS_STATE_DISABLED:
         case TAF_GNSS_STATE_UNINITIALIZED:
         {
-            LE_ERROR("GetMinGpsWeek: Wrong Gnss State [%d]", GnssState);
+            LE_ERROR("GetMinGpsWeek: Wrong Gnss State [%d]", clientRequestPtr->GnssState);
             result = LE_NOT_PERMITTED;
         }
         break;
@@ -6459,7 +6736,7 @@ le_result_t taf_Gnss::GetMinGpsWeek
         default:
         {
             result = LE_FAULT;
-            LE_ERROR("GetMinGpsWeek: Invalid GNSS state %d", GnssState);
+            LE_ERROR("GetMinGpsWeek: Invalid GNSS state %d", clientRequestPtr->GnssState);
         }
         break;
     }
@@ -6473,8 +6750,12 @@ le_result_t taf_Gnss::GetCapabilities
 )
 {
     TAF_ERROR_IF_RET_VAL(NULL == locCapabilityPtr, LE_FAULT, "locCapabilityPtr is NULL");
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
 
-    *locCapabilityPtr = mLocationManager->getCapabilities();
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+
+    *locCapabilityPtr = clientRequestPtr->locationManager->getCapabilities();
 
     LE_INFO("GetCapabilities: Location Capabilites is %" PRIu64 "", *locCapabilityPtr);
 
@@ -6490,6 +6771,10 @@ le_result_t taf_Gnss::SetNmeaConfiguration
 {
     le_result_t result = LE_NOT_PERMITTED;
     std::promise<telux::common::ErrorCode> p;
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
 
     telux::loc::NmeaConfig nmeaConfig;
     nmeaConfig.sentenceConfig = nmeaMask;
@@ -6524,7 +6809,7 @@ le_result_t taf_Gnss::SetNmeaConfiguration
     else
     {
         // Check the GNSS device state
-        switch (GnssState)
+        switch (clientRequestPtr->GnssState)
         {
             case TAF_GNSS_STATE_READY:
             case TAF_GNSS_STATE_ACTIVE:
@@ -6553,13 +6838,13 @@ le_result_t taf_Gnss::SetNmeaConfiguration
             case TAF_GNSS_STATE_UNINITIALIZED:
             case TAF_GNSS_STATE_DISABLED:
             {
-                LE_ERROR("SetNmeaConfiguration: Bad state for that request [%d]", GnssState);
+                LE_ERROR("SetNmeaConfiguration: Bad state for that request [%d]", clientRequestPtr->GnssState);
                 result = LE_NOT_PERMITTED;
             }
             break;
             default:
             {
-                LE_ERROR("SetNmeaConfiguration: Unknown GNSS state %d", GnssState);
+                LE_ERROR("SetNmeaConfiguration: Unknown GNSS state %d", clientRequestPtr->GnssState);
                 result = LE_FAULT;
             }
             break;
@@ -6578,8 +6863,12 @@ le_result_t taf_Gnss::GetXtraStatus
     le_result_t result = LE_NOT_PERMITTED;
 
     TAF_ERROR_IF_RET_VAL(NULL == xtraParams, LE_FAULT, "xtraParams is NULL");
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
 
-    switch (GnssState)
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+
+    switch (clientRequestPtr->GnssState)
     {
         case TAF_GNSS_STATE_READY:
         case TAF_GNSS_STATE_ACTIVE:
@@ -6646,13 +6935,13 @@ le_result_t taf_Gnss::GetXtraStatus
         case TAF_GNSS_STATE_UNINITIALIZED:
         case TAF_GNSS_STATE_DISABLED:
         {
-            LE_ERROR("GetXtraStatus: Bad state for that request [%d]", GnssState);
+            LE_ERROR("GetXtraStatus: Bad state for that request [%d]", clientRequestPtr->GnssState);
             result = LE_NOT_PERMITTED;
         }
         break;
         default:
         {
-                LE_ERROR("GetXtraStatus: Unknown GNSS state %d", GnssState);
+                LE_ERROR("GetXtraStatus: Unknown GNSS state %d", clientRequestPtr->GnssState);
                 result = LE_FAULT;
         }
         break;
@@ -6697,18 +6986,25 @@ void taf_Gnss::RemovePositionHandler
     taf_gnss_PositionHandlerRef_t handlerRef
 )
 {
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+
+    TAF_ERROR_IF_RET_NIL( NULL == clientRequestPtr, "clientRequestPtr is NULL");
+
     taf_gnss_PositionHandler_t* positionHandlerPtr =
-        (taf_gnss_PositionHandler_t*)le_ref_Lookup(PositionHandlerRefMap, handlerRef);
+        (taf_gnss_PositionHandler_t*)le_ref_Lookup(clientRequestPtr->PositionHandlerRefMap, handlerRef);
 
     if (positionHandlerPtr != NULL)
     {
-        LE_ASSERT(positionHandlerPtr->handlerRef == handlerRef);
+        if(positionHandlerPtr->handlerRef != handlerRef) {
+            return;
+        }
         NumOfPositionHandlers--;
 
         LE_DEBUG("Removed positionHandlerRef(%p) for positionHandlerPtr(%p) (totalCnt=0x%x).",
                  positionHandlerPtr->handlerRef, positionHandlerPtr, NumOfPositionHandlers);
         le_mem_Release(positionHandlerPtr);
-        le_ref_DeleteRef(PositionHandlerRefMap, handlerRef);
+        le_ref_DeleteRef(clientRequestPtr->PositionHandlerRefMap, handlerRef);
     }
     else
     {
@@ -6725,7 +7021,7 @@ void taf_Gnss::ReleaseClientRef
     void* clientPosPtr = le_ref_Lookup(gnss.ClientRequestRefMap, RefPtr);
     if (NULL == clientPosPtr)
     {
-        LE_KILL_CLIENT("Invalid positioning service activation reference %p", RefPtr);
+        LE_ERROR("Invalid positioning service activation reference %p", RefPtr);
     }
     else
     {
@@ -6755,6 +7051,20 @@ void taf_Gnss::ReleaseSampleRef
     le_mem_Release(posSampleReqPtr);
 }
 
+void taf_Gnss::OpenEventHandler
+(
+    le_msg_SessionRef_t sessionRef,
+    void* contextPtr
+)
+{
+    LE_INFO("OnClientConnection sessionRef: %p", sessionRef);
+
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+    TAF_ERROR_IF_RET_NIL(NULL == clientRequestPtr, "OnClientConnection clientRequestPtr is NULL");
+    return;
+}
+
 void taf_Gnss::CloseEventHandler
 (
     le_msg_SessionRef_t sessionRef,
@@ -6766,13 +7076,24 @@ void taf_Gnss::CloseEventHandler
 
     TAF_ERROR_IF_RET_NIL( sessionRef == NULL, "sessionRef is NULL");
 
+    if (gnss.GetState() == TAF_GNSS_STATE_ACTIVE) {
+        gnss.Stop();
+    }
+
+    if (sessionRef!=nullptr && gnss.mClientRefCount > 0){
+        //External Client release, decrement client ref count
+        gnss.mClientRefCount--;
+    }
+
     le_ref_IterRef_t iterRef = le_ref_GetIterator(gnss.PositionSampleMap);
     le_result_t result = le_ref_NextNode(iterRef);
     while (LE_OK == result)
     {
         taf_gnss_PositionSampleRequest_t *positionSampleRequestPtr =
                                 (taf_gnss_PositionSampleRequest_t*)le_ref_GetValue(iterRef);
-        LE_ASSERT(positionSampleRequestPtr != NULL);
+        if(positionSampleRequestPtr == NULL) {
+            return;
+        }
 
         if (positionSampleRequestPtr->sessionRef == sessionRef)
         {
@@ -6808,24 +7129,39 @@ void taf_Gnss::CloseEventHandler
 }
 
 taf_Gnss::~taf_Gnss() {
-   if(mLocationManager && mPosListener) {
-        mLocationManager->deRegisterListenerEx(mPosListener);
-        auto status = mLocationManager->deRegisterForSystemInfoUpdates(mPosListener);
-        if(status == telux::common::Status::SUCCESS)
-        {
-            LE_ERROR("Deregistered a listener for location system information");
-        }
-        else
-        {
-            LE_ERROR("Failed to deregister a listener for location system information");
-        }
-   }
-   if(mPosListener) {
-      mPosListener = nullptr;
-   }
+    auto &gnss = taf_Gnss::GetInstance();
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(gnss.ClientRequestRefMap);
+    le_result_t result = le_ref_NextNode(iterRef);
 
-   if(mLocationManager) {
-      mLocationManager = nullptr;
+    while (LE_OK == result)
+    {
+        taf_gnss_Client_t* gnssPtr = (taf_gnss_Client_t*) le_ref_GetValue(iterRef);
+        if(gnssPtr == NULL) {
+            return;
+        }
+
+        LE_DEBUG("gnssPtr %p, gnssPtr->sessionRef %p",
+                 gnssPtr, gnssPtr->sessionRef);
+        if(gnssPtr->locationManager && gnssPtr->posListener) {
+            gnssPtr->locationManager->deRegisterListenerEx(gnssPtr->posListener);
+            auto status = gnssPtr->locationManager->deRegisterForSystemInfoUpdates(gnssPtr->posListener);
+            if(status == telux::common::Status::SUCCESS)
+            {
+                LE_DEBUG("Deregistered a listener for location system information");
+            }
+            else
+            {
+                LE_ERROR("Failed to deregister a listener for location system information");
+            }
+        }
+        if(gnssPtr->posListener) {
+            gnssPtr->posListener = nullptr;
+        }
+
+        if(gnssPtr->locationManager) {
+            gnssPtr->locationManager = nullptr;
+        }
+        result = le_ref_NextNode(iterRef);
    }
 }
 
@@ -6834,22 +7170,10 @@ void taf_Gnss::Init()
 
     telux::common::Status status = telux::common::Status::FAILED;
     SessionCtxList = LE_DLS_LIST_INIT;
-    mTtffEnable = false;
-    mTtffPtr = 0;
-    GnssState = TAF_GNSS_STATE_UNINITIALIZED;
     NumOfPositionHandlers = 0;
     NumOfCapabilityHandlers = 0;
     NumOfNmeaHandlers = 0;
-    memset(&LastPositionSample, 0, sizeof(LastPositionSample));
-    LastPositionSample.fixState = TAF_GNSS_STATE_FIX_NO_POS;
-    memset(&mSatParams, 0, sizeof(mSatParams));
-    memset(&mSatInfo, 0, sizeof(mSatInfo));
-    memset(&mGnssData,0, sizeof(mGnssData));
-    mGnssMutexRef =  le_mutex_CreateRecursive("GnssMutex");
-    status = LocationManagerInit();
-    if (status != telux::common::Status::SUCCESS) {
-        LE_FATAL("LocationManager not available");
-    }
+    mClientRefCount = 0;
 
     status = LocationConfiguratorInit();
     if (status != telux::common::Status::SUCCESS) {
@@ -6862,27 +7186,6 @@ void taf_Gnss::Init()
         LE_CRIT("DGnss not available");
     }*/
 
-    switch (GnssState)
-    {
-        case TAF_GNSS_STATE_UNINITIALIZED:
-            {
-                GnssState = TAF_GNSS_STATE_READY;
-            }
-            break;
-        case TAF_GNSS_STATE_READY:
-        case TAF_GNSS_STATE_ACTIVE:
-        case TAF_GNSS_STATE_DISABLED:
-            {
-                LE_ERROR("Bad state for that request [%d]", GnssState);
-            }
-            break;
-        default:
-            {
-                LE_ERROR("Unknown GNSS state [%d]", GnssState);
-            }
-            break;
-    }
-
     PositionHandlerPoolRef = le_mem_InitStaticPool(PositionHandler, GNSS_POSITION_HANDLER_HIGH,
             sizeof(taf_gnss_PositionHandler_t));
 
@@ -6892,22 +7195,14 @@ void taf_Gnss::Init()
     PositionSampleRequestPoolRef = le_mem_InitStaticPool(PositionSampleRequest,
             GNSS_POSITION_SAMPLE_MAX, sizeof(taf_gnss_PositionSampleRequest_t));
 
-    PositionHandlerRefMap = le_ref_CreateMap("PositionHandlerRefMap", 16);
-
     PositionSampleMap = le_ref_InitStaticMap(PositionSampleMap, GNSS_POSITION_SAMPLE_MAX);
 
     ClientRequestRefMap = le_ref_CreateMap("ClientRequestRefMap", TAF_CONFIG_POSITIONING_ACTIVATION_MAX);
 
     ClientPoolRef = le_mem_InitStaticPool(Client, TAF_CONFIG_POSITIONING_ACTIVATION_MAX, sizeof(taf_gnss_Client_t));
 
-    positionEventId = le_event_CreateIdWithRefCounting("positionEventId");
-
-    HandlerRef = le_event_AddHandler("LocUpdateEventId", positionEventId, taf_Gnss::GnssPositionHandler);
-
-    locCapabilityEventId = le_event_CreateId("LocCapabilityEventId", sizeof(CapabilityChangeEvent_t));
-    nmeaEventId = le_event_CreateId("NmeaEventId", sizeof(NmeaInfoEvent_t));
-
     le_msg_ServiceRef_t msgService = taf_gnss_GetServiceRef();
+    le_msg_AddServiceOpenHandler(msgService, OpenEventHandler, NULL);
     le_msg_AddServiceCloseHandler(msgService, CloseEventHandler, NULL);
 
     return;

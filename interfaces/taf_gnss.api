@@ -87,6 +87,17 @@
    }
    @endverbatim
  *
+ * The location service provides multi-client safe APIs. An API call from a client thread
+ * (main or sub thread) will be treated a new session in location service. The client needs
+ * to connect the location service by API taf_gnss_ConnectService(), setting specific settings
+ * if required (else default settings will be applied), starting the engine report by the API
+ * taf_gnss_Start(), and adding handler by taf_gnss_AddPositionHandler(). Then client can get the
+ * GNSS data/information and the engine reports in the same thread until the client disconnects
+ * from the location service. The previous settings and data shall not persist for next
+ * run/iteration if the client thread exits. Note that each time a client creates a new thread, it
+ * needs to connect, call, and set APIs, taf_gnss_Start(), taf_gnss_AddPositionHandler() for the
+ * new session to set up.
+ *
  * @section taf_gnss_ControlApi GNSS Control APIs
  *
  * @subsection taf_gnss_EnableDisable Enable or Disable Location service

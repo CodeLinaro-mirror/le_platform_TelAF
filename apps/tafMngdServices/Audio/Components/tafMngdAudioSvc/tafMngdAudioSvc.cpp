@@ -287,6 +287,71 @@ void taf_mngd_audio_RemoveMediaHandler
     return mngdAudio.RemoveMediaHandler(handlerRef);
 }
 
+/**
+* FUNCTION     : CreatePlayList
+* DESCRIPTION  : Creates an audio playList reference.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: PlayList reference.
+*/
+taf_mngd_audio_PlayListRef_t taf_mngd_audio_CreatePlayList
+(
+)
+{
+    auto &audio = taf_MngdAudio::GetInstance();
+    return audio.CreatePlayList();
+}
+
+/**
+* FUNCTION     : AddPlayListEntry
+* DESCRIPTION  : Adds an audio file to playList reference.
+* DEPENDECY    :
+* PARAMETERS   : PlayList reference, file source path, repeat count.
+* RETURN VALUES: LE_OK on success and LE_FAULT on failure.
+*/
+le_result_t taf_mngd_audio_AddPlayListEntry
+(
+ taf_mngd_audio_PlayListRef_t playListRef,
+ const char *scrPath,
+ int32_t repeat
+)
+{
+    auto &audio = taf_MngdAudio::GetInstance();
+    return audio.AddPlayListEntry(playListRef, scrPath, repeat);
+}
+
+/**
+* FUNCTION     : DeletePlayList
+* DESCRIPTION  : Deletes playList reference.
+* DEPENDECY    :
+* PARAMETERS   : PlayList reference.
+* RETURN VALUES: LE_OK on success and LE_FAULT on failure.
+*/
+le_result_t taf_mngd_audio_DeletePlayList
+(
+ taf_mngd_audio_PlayListRef_t playListRef
+)
+{
+    auto &audio = taf_MngdAudio::GetInstance();
+    return audio.DeletePlayList(playListRef);
+}
+
+/**
+* FUNCTION     : PlayFile
+* DESCRIPTION  : Plays the audio file list.
+* DEPENDECY    :
+* PARAMETERS   : Player stream reference and playList reference
+* RETURN VALUES: LE_OK on success and LE_FAULT on failure.
+*/
+le_result_t taf_mngd_audio_PlayFileList
+(
+ taf_mngd_audio_StreamRef_t streamRef, taf_mngd_audio_PlayListRef_t playListRef
+)
+{
+    auto &audio = taf_MngdAudio::GetInstance();
+    return audio.PlayFileList(streamRef, playListRef);
+}
+
 COMPONENT_INIT
 {
     LE_INFO("tafMngdAudioSvc COMPONENT init...");

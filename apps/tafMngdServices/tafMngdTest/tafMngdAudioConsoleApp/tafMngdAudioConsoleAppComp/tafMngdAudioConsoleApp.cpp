@@ -46,6 +46,7 @@ taf_mngd_audio_StreamRef_t sinkRef = NULL, recorderRef = NULL, playerRef = NULL;
 taf_mngd_audio_StreamRef_t sourceRef = NULL, rxStreamRef = NULL, txStreamRef = NULL;
 taf_mngd_audio_RouteRef_t routeRef = NULL;
 taf_mngd_audio_ConnectorRef_t rxConn = NULL, txConn = NULL, playerConnRef = NULL, connRef = NULL;
+taf_mngd_audio_PlayListRef_t playListRef = NULL;
 le_result_t res;
 static le_thread_Ref_t Player_thread_ref, Recorder_thread_ref;
 taf_mngd_audio_RouteId_t routeId;
@@ -151,6 +152,47 @@ void Test_Mngd_Audio_Playback(const char* filePath)
         std::cout<<"****Failed to start playback***"<<endl;
         exit(0);
     }
+}
+
+void Test_Mngd_Audio_PlayList_Setup(const char* filePath)
+{
+    LE_TEST_INFO("Test OpenRoute for LOCAL_PLAYBACK");
+    routeRef = taf_mngd_audio_OpenRoute( routeId, TAF_MNGD_AUDIO_LOCAL_PLAYBACK,
+            &sinkRef, &sourceRef);
+    LE_TEST_OK(routeRef != NULL,
+            "OpenRoute successfull for LOCAL_PLAYBACK when other route is not active");
+
+    if(routeRef == NULL)
+    {
+        std::cout<<"****Failed to create route for playback***"<<endl;
+        exit(0);
+    }
+
+    LE_TEST_INFO("Test taf_mngd_audio_OpenPlayer(TAF_MNGD_AUDIO_RX)");
+    playerRef = taf_mngd_audio_OpenPlayer(TAF_MNGD_AUDIO_RX);
+    LE_TEST_OK(playerRef != NULL, "Successfully opened the player stream");
+
+    Player_thread_ref = le_thread_Create("taf_audio_svc_test_thread",
+            Test_taf_mngd_audio_AddHandler, (void*)playerRef);
+    le_thread_Start(Player_thread_ref);
+
+    le_sem_Wait(tafAudioAppSem);
+
+    LE_TEST_INFO("Test taf_mngd_audio_CreateConnector");
+    taf_mngd_audio_ConnectorRef_t playerConnRef = taf_mngd_audio_CreateConnector();
+    LE_TEST_OK(playerConnRef != NULL, "Successfully created Connector ");
+
+    LE_TEST_INFO("Test taf_mngd_audio_Connect to connect sinkRef and playerConnRef");
+    res = taf_mngd_audio_Connect(playerConnRef, sinkRef);
+    LE_TEST_OK(res == LE_OK, "Successfully connected sinkRef to ConnectorRef");
+
+    LE_TEST_INFO("Test taf_mngd_audio_Connect to connect playerRef and playerConnRef");
+    res = taf_mngd_audio_Connect(playerConnRef, playerRef);
+    LE_TEST_OK(res == LE_OK, "Successfully connected recorderRef to ConnectorRef");
+
+    LE_TEST_INFO("Test taf_mngd_audio_CreatePlayList to create playerListRef");
+    playListRef = taf_mngd_audio_CreatePlayList();
+    LE_TEST_OK(res == LE_OK, "Successfully create playerListRef");
 }
 
 void Test_Mngd_Audio_Record(const char* filePath)
@@ -323,6 +365,31 @@ void PrintHelp()
     std::cout<<"app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- route0 voicecall force"<<endl;
     std::cout<<"Ex: app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- route0 playback /data/test.wav"<<endl;
     std::cout<<"Ex: app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- route0 record /data/record.wav"<<endl;
+    std::cout<<"Ex: app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- route0 repeated_playback"<<endl;
+}
+
+void Test_Mngd_Audio_Add_File(string srcPath, int32_t repeat){
+    LE_TEST_INFO("Test taf_mngd_audio_AddPlayListEntry to add a playback file");
+    res = taf_mngd_audio_AddPlayListEntry(playListRef, srcPath.c_str(), repeat);
+    LE_TEST_OK(res == LE_OK, "Successfully added file to playerListRef");
+}
+
+void Test_Mngd_Audio_Start_PlayFileList(){
+    LE_TEST_INFO("Test taf_mngd_audio_PlayFileList to play a file list");
+    res = taf_mngd_audio_PlayFileList(playerRef, playListRef);
+    LE_TEST_OK(res == LE_OK, "Successfully started the file list playback");
+
+    if(res != LE_OK)
+    {
+        std::cout<<"****Failed to start playback***"<<endl;
+        exit(0);
+    }
+}
+
+void Test_Mngd_Audio_Delete_PlayList(){
+    LE_TEST_INFO("Test taf_mngd_audio_DeletePlayList to delete playerListRef");
+    res = taf_mngd_audio_DeletePlayList(playListRef);
+    LE_TEST_OK(res == LE_OK, "Successfully deleted playerListRef");
 }
 
 COMPONENT_INIT
@@ -370,6 +437,43 @@ COMPONENT_INIT
                     {
                         std::cout<<"****Stopping audio playback***"<<endl;
                         Test_Mngd_Audio_Playback_Stop();
+                        break;
+                    }
+                }
+            } else if( strcmp(le_arg_GetArg(1),"repeated_playback") == 0)
+            {
+                int repeat = 0;
+                int numFiles = 0;
+                std::string fileName = "";
+
+                Test_Mngd_Audio_PlayList_Setup(le_arg_GetArg(2));
+
+                cout << "Enter the number of files: ";
+                cin >> numFiles;
+                for(int i = 0; i<numFiles;i++){
+                    cout << "Enter the file source path: ";
+                    cin >> fileName;
+                    cout << "Enter the repeat count: ";
+                    cin >> repeat;
+                    Test_Mngd_Audio_Add_File(fileName, repeat);
+                }
+
+                Test_Mngd_Audio_Start_PlayFileList();
+
+                std::cout<<"Press s to stop Audio Playback"<<endl;
+                char input_str[5];
+                while(le_sem_TryWait(tafAudioAppSem)!=LE_OK)
+                {
+                    if( fgets(input_str,sizeof(input_str),stdin) == NULL )
+                    {
+                        LE_ERROR("Error reading input string");
+                        return;
+                    }
+                    if(input_str[0]=='s')
+                    {
+                        std::cout<<"****Stopping audio playback***"<<endl;
+                        Test_Mngd_Audio_Playback_Stop();
+                        Test_Mngd_Audio_Delete_PlayList();
                         break;
                     }
                 }

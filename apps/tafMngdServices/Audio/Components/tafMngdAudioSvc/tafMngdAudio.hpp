@@ -50,6 +50,8 @@ using namespace telux::audio;
 #define TOTAL_BUFFERS              2
 #define DEFAULT_SAMPLERATE         48000
 #define DEFAULT_BITSPERSAMPLE      16
+#define MAX_NUM_OF_PLAYLIST        4
+#define MAX_NUM_OF_PLAYBACK_FILES  8
 
 #define DEVICE_TYPE_SINK_0   1
 #define DEVICE_TYPE_SINK_1   2
@@ -218,6 +220,23 @@ typedef struct {
     le_dls_Link_t  next;
 }tafEventIdList;
 
+typedef struct
+{
+    std::string absoluteFilePath; //Absolute path of the file
+    int32_t  repeat; // Defines how a file should be played. -1 = infinite loop, 0 = play once,
+                     // x = repeat X times.
+}taf_PlaybackFile_t;
+
+typedef struct
+{
+    taf_PlaybackFile_t filesToPlay[MAX_NUM_OF_PLAYBACK_FILES]; // Array of Playback files
+    uint32_t numOfFilesToPlay;                                 // Number of Playback files
+    bool isPlaybackInProgress;
+    le_msg_SessionRef_t sessionRef;
+    taf_mngd_audio_PlayListRef_t playListRef;
+
+}taf_PlaybackList_t;
+
 /**
  * Audio format.
  */
@@ -256,6 +275,8 @@ class taf_MngdAudio : public ITafSvc
         bool mIsPlaying = false;
         taf_mngd_audio_Stream_t* playerStreamPtr;
         AudioFormat mFileFormat = AudioFormat::UNKNOWN;
+        taf_mngd_audio_PlayListRef_t currPlayListRef;
+        le_ref_MapRef_t PlaybackListRefMap = NULL;
 
         void Init(void);
 
@@ -281,6 +302,12 @@ class taf_MngdAudio : public ITafSvc
         le_result_t Stop(taf_mngd_audio_StreamRef_t streamRef);
         le_result_t PlayFile( taf_mngd_audio_StreamRef_t streamRef, const char *srcPath);
         le_result_t setVhalRouteStatus(taf_mngd_audio_Mode_t mode, bool status);
+        taf_mngd_audio_PlayListRef_t CreatePlayList();
+        le_result_t AddPlayListEntry(taf_mngd_audio_PlayListRef_t playListRef, const char *scrPath,
+                int32_t repeat);
+        le_result_t DeletePlayList(taf_mngd_audio_PlayListRef_t playListRef);
+        le_result_t PlayFileList ( taf_mngd_audio_StreamRef_t streamRef,
+                taf_mngd_audio_PlayListRef_t playListRef);
 
         private:
 
@@ -316,6 +343,7 @@ class taf_MngdAudio : public ITafSvc
         le_mem_PoolRef_t RoutePool = NULL;
         le_mem_PoolRef_t EventHandlerRefNodePool = NULL;
         le_mem_PoolRef_t EventIdPool = NULL;
+        le_mem_PoolRef_t PlaybackListPool = NULL;
 
         le_ref_MapRef_t ConnectorRefMap = NULL;
         le_ref_MapRef_t StreamRefMap = NULL;
@@ -338,6 +366,10 @@ class taf_MngdAudio : public ITafSvc
         le_result_t StartAudio( StreamConfig config );
         le_result_t PlayWave( taf_mngd_audio_Stream_t* streamPtr, const char *srcPath);
         le_result_t PlayAmr( taf_mngd_audio_Stream_t* streamPtr, const char *srcPath);
+        le_result_t ReadPcmHeader( taf_mngd_audio_Stream_t* streamPtr, const char *srcPath,
+                StreamConfig &config);
+        le_result_t ReadAmrHeader( taf_mngd_audio_Stream_t* streamPtr, const char *srcPath,
+                StreamConfig &config);
         ssize_t ReadHeader( int fd, void* bufPtr, size_t bufSize);
         le_result_t setWavHeader( FILE *mFile, taf_mngd_audio_Stream_t *config);
         le_result_t StopAudio(taf_mngd_audio_Stream_t* streamPtr);

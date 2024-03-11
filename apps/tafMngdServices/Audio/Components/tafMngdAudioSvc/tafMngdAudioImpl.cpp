@@ -48,6 +48,7 @@ LE_MEM_DEFINE_STATIC_POOL(tafSessionRef, MAX_STREAM, sizeof(taf_SessionRefNode_t
 LE_MEM_DEFINE_STATIC_POOL(tafMngdAudioRoute, MAX_ROUTE, sizeof(taf_mngd_audio_Route_t));
 LE_MEM_DEFINE_STATIC_POOL(tafEventIdPool, MAX_STREAM, sizeof(tafEventIdList));
 LE_MEM_DEFINE_STATIC_POOL(tafEventHandlerRef, MAX_CONNECTOR, sizeof(EventHandlerRefNode_t));
+LE_MEM_DEFINE_STATIC_POOL(tafPlaybackListRef, MAX_NUM_OF_PLAYLIST, sizeof(taf_PlaybackList_t));
 
 // Resets the global callback promise variable
 static inline void resetCallbackPromise(void) {
@@ -129,6 +130,10 @@ void taf_MngdAudio::Init(void)
     EventHandlerRefNodePool = le_mem_InitStaticPool(tafEventHandlerRef, MAX_CONNECTOR,
             sizeof(EventHandlerRefNode_t));
     EventHandlerRefMap = le_ref_CreateMap("TAFEventHandlerMap", MAX_CONNECTOR);
+    PlaybackListPool = le_mem_InitStaticPool(tafPlaybackListRef, MAX_NUM_OF_PLAYLIST,
+            sizeof(taf_PlaybackList_t));
+    PlaybackListRefMap = le_ref_CreateMap("TAFPlaybackListMap", MAX_NUM_OF_PLAYLIST);
+
     mSemRef = le_sem_Create("tafSem", 0);
 
     HashMapList = LE_DLS_LIST_INIT;
@@ -149,7 +154,40 @@ void taf_MngdAudio::ClientSessionCloseEventHandler
 
     LE_DEBUG("ClientSessionCloseEventHandler sessionRef : %p", sessionRef);
 
+    // Close audio streams
+    // This is a two stage process: parse audio stream reference map
+    // once in order to close dsp frontend file play/capture streams
+    // first, then parse it a second time to close remaining streams.
     le_ref_IterRef_t iteratorRef;
+    iteratorRef = le_ref_GetIterator(mngdAudio.StreamRefMap);
+    bool isSessionMatched = false;
+    taf_SessionRefNode_t* sessionRefNodePtr;
+    le_dls_Link_t* lPtr;
+    while (le_ref_NextNode(iteratorRef) == LE_OK)
+    {
+        taf_mngd_audio_Stream_t* audioStreamPtr =
+                (taf_mngd_audio_Stream_t*) le_ref_GetValue(iteratorRef);
+        lPtr = le_dls_Peek(&(audioStreamPtr->sessionRefList));
+        while (lPtr != NULL)
+        {
+            sessionRefNodePtr = CONTAINER_OF(lPtr, taf_SessionRefNode_t, refNodeLink);
+            lPtr = le_dls_PeekNext(&(audioStreamPtr->sessionRefList), lPtr);
+            if ( sessionRefNodePtr->sessionRef == sessionRef )
+            {
+                LE_DEBUG("StopAudio for audioStreamPtr %p", audioStreamPtr);
+                isSessionMatched = true;
+                break;
+            }
+        }
+        if (isSessionMatched && audioStreamPtr
+                && ((audioStreamPtr->interface == TAF_MNGD_AUDIO_IF_DSP_FRONTEND_FILE_PLAY)
+                || (audioStreamPtr->interface == TAF_MNGD_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE)))
+        {
+            mngdAudio.StopAudio(audioStreamPtr);
+            mngdAudio.DeleteAudioStream(audioStreamPtr);
+        }
+    }
+
     iteratorRef = le_ref_GetIterator(mngdAudio.RouteRefMap);
     while (le_ref_NextNode(iteratorRef) == LE_OK)
     {
@@ -165,10 +203,6 @@ void taf_MngdAudio::ClientSessionCloseEventHandler
 
     // Close audio streams
     iteratorRef = le_ref_GetIterator(mngdAudio.StreamRefMap);
-    bool isSessionMatched = false;
-    taf_SessionRefNode_t* sessionRefNodePtr;
-    le_dls_Link_t* lPtr;
-
     while (le_ref_NextNode(iteratorRef) == LE_OK)
     {
         taf_mngd_audio_Stream_t* streamPtr =
@@ -215,6 +249,20 @@ void taf_MngdAudio::ClientSessionCloseEventHandler
             taf_mngd_audio_DeleteConnector( connectorRef );
         }
     }
+
+    iteratorRef = le_ref_GetIterator(mngdAudio.PlaybackListRefMap);
+    while (le_ref_NextNode(iteratorRef) == LE_OK)
+    {
+        taf_PlaybackList_t* playListPtr = (taf_PlaybackList_t*) le_ref_GetValue(iteratorRef);
+
+        if ( playListPtr && playListPtr->sessionRef == sessionRef )
+        {
+            LE_INFO("Delete PlayList for %p playListRef", iteratorRef);
+            mngdAudio.DeletePlayList(playListPtr->playListRef);
+            break;
+        }
+    }
+
 }
 
 size_t HashRef
@@ -1974,6 +2022,74 @@ le_result_t taf_MngdAudio::PlayWave
     return LE_OK;
 }
 
+le_result_t taf_MngdAudio::ReadPcmHeader
+(
+    taf_mngd_audio_Stream_t* streamPtr,
+    const char *srcPath,
+    StreamConfig &config
+)
+{
+    WavHeader_t wHdr;
+
+    if (ReadHeader(streamPtr->fd, &wHdr, sizeof(wHdr)) != sizeof(wHdr))
+    {
+        LE_WARN("WAV detection: cannot read header");
+        return LE_FAULT;
+    }
+
+    if ((wHdr.riffId != ID_RIFF)  ||
+            (wHdr.riffFmt != ID_WAVE) ||
+            (wHdr.chunkId != ID_FMT)    ||
+            (wHdr.formatTag != FORMAT_PCM) ||
+            (wHdr.chunkSize != 16))
+    {
+        LE_WARN("WAV detection: unrecognized wav format");
+        lseek(streamPtr->fd, -sizeof(wHdr), SEEK_CUR);
+        return LE_FAULT;
+    }
+
+    config.type = StreamType::PLAY;
+    config.sampleRate = wHdr.sampleRate;
+    config.channelTypeMask = (wHdr.channelsCount == 2)
+            ? (ChannelType::LEFT | ChannelType::RIGHT) : ChannelType::LEFT;
+    config.format = AudioFormat::PCM_16BIT_SIGNED;
+
+    // Set the config device type based on output device
+    le_hashmap_It_Ref_t connItr =
+            (le_hashmap_It_Ref_t)le_hashmap_GetIterator(streamPtr->connList);
+    taf_mngd_audio_Connector_t const * currentconnPtr;
+    taf_mngd_audio_Stream_t const * outStreamPtr;
+    le_hashmap_It_Ref_t strmItr;
+    while (le_hashmap_NextNode(connItr)==LE_OK)
+    {
+        currentconnPtr = (taf_mngd_audio_Connector_t const *)le_hashmap_GetValue(connItr);
+        TAF_ERROR_IF_RET_VAL( currentconnPtr == NULL,
+                LE_BAD_PARAMETER,"currentconnPtr is nullptr!");
+
+        strmItr = (le_hashmap_It_Ref_t)le_hashmap_GetIterator(currentconnPtr->audioOutList);
+        while (le_hashmap_NextNode(strmItr)==LE_OK) {
+            outStreamPtr = (taf_mngd_audio_Stream_t const *)le_hashmap_GetValue(strmItr);
+            TAF_ERROR_IF_RET_VAL( outStreamPtr == NULL,
+                    LE_BAD_PARAMETER,"outStreamPtr is nullptr!");
+
+            if (outStreamPtr->interface == TAF_MNGD_AUDIO_IF_CODEC_SPEAKER_0){
+                config.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SINK_0);
+                LE_DEBUG("set config with device type speaker 0");
+            }
+            else if (outStreamPtr->interface == TAF_MNGD_AUDIO_IF_CODEC_SPEAKER_1) {
+                config.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SINK_1);
+                LE_DEBUG("set config with device type speaker 1");
+            }
+            else if (outStreamPtr->interface == TAF_MNGD_AUDIO_IF_CODEC_SPEAKER_2) {
+                config.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SINK_2);
+                LE_DEBUG("set config with device type speaker 2");
+            }
+        }
+    }
+    mFileFormat = config.format;
+    return LE_OK;
+}
+
 /**
  * Get AMR file format info and Play
  */
@@ -2084,8 +2200,109 @@ le_result_t taf_MngdAudio::PlayAmr
         close(streamPtr->fd);
         return LE_OK;
     }
-
     return LE_FAULT;
+}
+
+/**
+ * Get AMR file format info and Play
+ */
+
+le_result_t taf_MngdAudio::ReadAmrHeader
+(
+    taf_mngd_audio_Stream_t* streamPtr,
+    const char* srcPath,
+    StreamConfig &config
+)
+{
+    taf_mngd_audio_FileFormat_t format = TAF_MNGD_AUDIO_FILE_MAX;
+
+    telux::audio::AmrwbpParams amrParams{};
+    config.type = StreamType::PLAY;
+    amrParams.bitWidth = 16;
+    config.formatParams = &amrParams;
+    char header[10] = {0};
+
+    if ( read(streamPtr->fd, header, 9) != 9 )
+    {
+        LE_WARN("AMR detection: cannot read header");
+        return LE_FAULT;
+    }
+    if ( strncmp(header, "#!AMR", 5) == 0 )
+    {
+        format = TAF_MNGD_AUDIO_FILE_MAX;
+
+        if ( strncmp(header+5, "-WB\n", 4) == 0 )
+        {
+            LE_DEBUG("AMR-WB Detected");
+            format = TAF_MNGD_AUDIO_FILE_AMR_WB;
+        }
+        else if ( strncmp(header+5, "-NB\n", 4) == 0 )
+        {
+            LE_DEBUG("AMR-NB Detected");
+            format = TAF_MNGD_AUDIO_FILE_AMR_NB;
+        }
+        else if ( strncmp(header+5, "\n", 1) == 0 )
+        {
+            LE_DEBUG("AMR-NB Detected");
+            format = TAF_MNGD_AUDIO_FILE_AMR_NB;
+            lseek(streamPtr->fd, -3, SEEK_CUR);
+        }
+        else
+        {
+            LE_ERROR("Not an AMR file");
+            return LE_FAULT;
+        }
+        LE_INFO("****AMR detected format is %d", format);
+        if (format == TAF_MNGD_AUDIO_FILE_AMR_WB)
+        {
+            config.format = AudioFormat::AMRWB;
+            config.sampleRate = 16000;
+        }
+        else
+        {
+            config.format = AudioFormat::AMRNB;
+            config.sampleRate = 8000;
+        }
+
+        config.channelTypeMask = 1;
+
+        // Set the config device type based on output device
+        le_hashmap_It_Ref_t connItr =
+                (le_hashmap_It_Ref_t)le_hashmap_GetIterator(streamPtr->connList);
+        taf_mngd_audio_Connector_t const * currentconnPtr;
+        taf_mngd_audio_Stream_t const * outStreamPtr;
+        le_hashmap_It_Ref_t strmItr;
+        while (le_hashmap_NextNode(connItr)==LE_OK)
+        {
+            currentconnPtr = (taf_mngd_audio_Connector_t const *)le_hashmap_GetValue(connItr);
+            TAF_ERROR_IF_RET_VAL( currentconnPtr == NULL,
+                    LE_BAD_PARAMETER,"currentconnPtr is nullptr!");
+
+            strmItr = (le_hashmap_It_Ref_t)
+                    le_hashmap_GetIterator(currentconnPtr->audioOutList);
+            while (le_hashmap_NextNode(strmItr)==LE_OK) {
+                outStreamPtr = (taf_mngd_audio_Stream_t const *)le_hashmap_GetValue(strmItr);
+                TAF_ERROR_IF_RET_VAL( outStreamPtr == NULL,
+                        LE_BAD_PARAMETER,"outStreamPtr is nullptr!");
+
+                if (outStreamPtr->interface == TAF_MNGD_AUDIO_IF_CODEC_SPEAKER_0){
+                    config.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SINK_0);
+                    LE_DEBUG("set config with device type speaker 0");
+                }
+                else if (outStreamPtr->interface == TAF_MNGD_AUDIO_IF_CODEC_SPEAKER_1) {
+                    config.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SINK_1);
+                    LE_DEBUG("set config with device type speaker 1");
+                }
+                else if (outStreamPtr->interface == TAF_MNGD_AUDIO_IF_CODEC_SPEAKER_2) {
+                    config.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SINK_2);
+                    LE_DEBUG("set config with device type speaker 2");
+                }
+            }
+        }
+        mFileFormat = config.format;
+    }
+
+    return LE_OK;
 }
 
 /**
@@ -2298,10 +2515,15 @@ void tafPromptsStatusListener::onPlaybackStopped() {
     streamEvent.event.mediaEvent = TAF_MNGD_AUDIO_MEDIA_STOPPED;
     le_event_Report(streamEvent.streamPtr->eventId, &streamEvent,
             sizeof(taf_mngd_audio_StreamEvent_t));
+    taf_PlaybackList_t* playListPtr = (taf_PlaybackList_t*)le_ref_Lookup(
+            mngdAudio.PlaybackListRefMap, mngdAudio.currPlayListRef);
+    TAF_ERROR_IF_RET_NIL( playListPtr == NULL, "playListPtr is nullptr!");
+    playListPtr->isPlaybackInProgress = false;
+    mngdAudio.currPlayListRef = NULL;
 }
 
 void tafPromptsStatusListener::onError(telux::common::ErrorCode error, std::string file) {
-    LE_DEBUG("onError : Error encounter while playing the file %s", file.c_str());
+    LE_ERROR("onError : Error encounter while playing the file %s", file.c_str());
     auto &mngdAudio = taf_MngdAudio::GetInstance();
     mngdAudio.mIsPlaying = false;
     mngdAudio.mFileFormat = AudioFormat::UNKNOWN;
@@ -2314,6 +2536,11 @@ void tafPromptsStatusListener::onError(telux::common::ErrorCode error, std::stri
     le_event_Report(streamEvent.streamPtr->eventId, &streamEvent,
             sizeof(taf_mngd_audio_StreamEvent_t));
     mngdAudio.setVhalRouteStatus(TAF_MNGD_AUDIO_LOCAL_PLAYBACK, false);
+    taf_PlaybackList_t* playListPtr = (taf_PlaybackList_t*)le_ref_Lookup(
+            mngdAudio.PlaybackListRefMap, mngdAudio.currPlayListRef);
+    TAF_ERROR_IF_RET_NIL( playListPtr == NULL, "playListPtr is nullptr!");
+    playListPtr->isPlaybackInProgress = false;
+    mngdAudio.currPlayListRef = NULL;
 }
 
 void tafPromptsStatusListener::onFilePlayed(std::string file) {
@@ -2334,4 +2561,154 @@ void tafPromptsStatusListener::onPlaybackFinished() {
     le_event_Report(streamEvent.streamPtr->eventId, &streamEvent,
             sizeof(taf_mngd_audio_StreamEvent_t));
     mngdAudio.setVhalRouteStatus(TAF_MNGD_AUDIO_LOCAL_PLAYBACK, false);
+    taf_PlaybackList_t* playListPtr = (taf_PlaybackList_t*)le_ref_Lookup(
+            mngdAudio.PlaybackListRefMap, mngdAudio.currPlayListRef);
+    TAF_ERROR_IF_RET_NIL( playListPtr == NULL, "playListPtr is nullptr!");
+    playListPtr->isPlaybackInProgress = false;
+    mngdAudio.currPlayListRef = NULL;
+}
+
+taf_mngd_audio_PlayListRef_t taf_MngdAudio::CreatePlayList
+(
+)
+{
+    taf_PlaybackList_t* playListptr = NULL;
+
+    playListptr = (taf_PlaybackList_t*)le_mem_ForceAlloc(PlaybackListPool);
+    TAF_ERROR_IF_RET_VAL( playListptr == NULL, NULL, "playListptr is nullptr!");
+
+    playListptr->playListRef = (taf_mngd_audio_PlayListRef_t)le_ref_CreateRef(PlaybackListRefMap,
+            playListptr);
+    LE_DEBUG("Create playListRef %p", playListptr->playListRef);
+
+    playListptr->sessionRef = taf_mngd_audio_GetClientSessionRef();
+
+    return playListptr->playListRef;
+}
+
+le_result_t taf_MngdAudio::AddPlayListEntry
+(
+    taf_mngd_audio_PlayListRef_t playListRef, const char * scrPath, int32_t repeat
+)
+{
+    taf_PlaybackList_t* playListPtr = (taf_PlaybackList_t*)le_ref_Lookup(PlaybackListRefMap,
+            playListRef);
+    TAF_ERROR_IF_RET_VAL( playListPtr == NULL, LE_BAD_PARAMETER, "playListptr is invalid!");
+
+    //Check if playback is in progress.
+    TAF_ERROR_IF_RET_VAL(playListPtr->isPlaybackInProgress, LE_BUSY, "Playback is in progress");
+
+    if(playListPtr->numOfFilesToPlay == MAX_NUM_OF_PLAYBACK_FILES) {
+        LE_ERROR("Maximum number of files added to the Playlist");
+        return LE_FAULT;
+    }
+
+    taf_PlaybackFile_t playbackFile{};
+    playbackFile.absoluteFilePath = scrPath;
+    playbackFile.repeat = repeat;
+
+    playListPtr->filesToPlay[playListPtr->numOfFilesToPlay] = playbackFile;
+    playListPtr->numOfFilesToPlay++;
+
+    return LE_OK;
+}
+
+le_result_t taf_MngdAudio::DeletePlayList
+(
+    taf_mngd_audio_PlayListRef_t playListRef
+)
+{
+    taf_PlaybackList_t* playListptr = (taf_PlaybackList_t*)le_ref_Lookup(PlaybackListRefMap,
+            playListRef);
+    TAF_ERROR_IF_RET_VAL( playListptr == NULL, LE_BAD_PARAMETER, "playListptr is invalid!");
+
+    //Check if playback is in progress.
+    TAF_ERROR_IF_RET_VAL(playListptr->isPlaybackInProgress, LE_BUSY, "Playback is in progress");
+
+    le_ref_DeleteRef(PlaybackListRefMap, playListptr->playListRef);
+    le_mem_Release(playListptr);
+
+    return LE_OK;
+}
+
+le_result_t taf_MngdAudio::PlayFileList
+(
+ taf_mngd_audio_StreamRef_t streamRef, taf_mngd_audio_PlayListRef_t playListRef
+)
+{
+    taf_mngd_audio_Stream_t* streamPtr = (taf_mngd_audio_Stream_t*)le_ref_Lookup(StreamRefMap,
+            streamRef);
+    TAF_ERROR_IF_RET_VAL((streamPtr == NULL), LE_FAULT, "Invalid reference");
+
+    TAF_ERROR_IF_RET_VAL(streamPtr->interface != TAF_MNGD_AUDIO_IF_DSP_FRONTEND_FILE_PLAY,
+            LE_BAD_PARAMETER, "Invalid stream reference");
+
+    le_result_t res = LE_FAULT;
+
+    TAF_ERROR_IF_RET_VAL(mIsPlaying, LE_BUSY, "Another playback is in progress");
+
+    taf_PlaybackList_t* playListptr = (taf_PlaybackList_t*)le_ref_Lookup(PlaybackListRefMap,
+            playListRef);
+    TAF_ERROR_IF_RET_VAL( playListptr == NULL, LE_BAD_PARAMETER, "playListptr is invalid!");
+
+    char const* srcPath = playListptr->filesToPlay[0].absoluteFilePath.c_str();
+
+    int AudioFileFd;
+    if((AudioFileFd=open(srcPath, O_RDONLY)) == -1)
+    {
+        LE_ERROR("File might not exist or failed to open the file %s", srcPath);
+        return LE_FAULT;
+    } else
+    {
+        LE_INFO("Successfully opened file %s", srcPath);
+        streamPtr->fd = AudioFileFd;
+    }
+
+    playerStreamPtr = streamPtr;
+    StreamConfig config = {};
+
+    res = ReadPcmHeader(streamPtr, srcPath, config);
+
+    if (res != LE_OK && mFileFormat == AudioFormat::UNKNOWN)
+    {
+        res = ReadAmrHeader(streamPtr, srcPath, config);
+
+        if (res != LE_OK && mFileFormat == AudioFormat::UNKNOWN) {
+            LE_ERROR( " Unknown audio format");
+            playerStreamPtr = nullptr;
+            return LE_FAULT;
+        }
+    }
+
+    telux::common::ErrorCode ec;
+    std::vector<telux::audio::PlaybackFile> filesToPlay;
+
+    for(uint32_t i = 0; i<playListptr->numOfFilesToPlay; i++) {
+        telux::audio::PlaybackFile pbFile{};
+        pbFile.absoluteFilePath = playListptr->filesToPlay[i].absoluteFilePath;
+
+        if(playListptr->filesToPlay[i].repeat == -1){
+            pbFile.repeatInfo.type = telux::audio::RepeatType::INDEFINITELY;
+        } else{
+            pbFile.repeatInfo.type = telux::audio::RepeatType::COUNT;
+            pbFile.repeatInfo.count = playListptr->filesToPlay[i].repeat + 1;
+        }
+
+        filesToPlay.push_back(pbFile);
+    }
+
+    repeatedPlayerStatusListener = std::make_shared<tafPromptsStatusListener>();
+    ec = mAudioPlayer->startPlayback(config, filesToPlay, repeatedPlayerStatusListener);
+    if (ec != telux::common::ErrorCode::SUCCESS) {
+        LE_ERROR("failed start, err %d", static_cast<int>(ec));
+        return LE_FAULT;
+    }
+
+    LE_INFO(" Repeat playback started");
+    mIsPlaying = true;
+    currPlayListRef = playListptr->playListRef;
+    playListptr->isPlaybackInProgress = true;
+    close(streamPtr->fd);
+
+    return LE_OK;
 }

@@ -2989,20 +2989,36 @@ void taf_Audio::Init(void)
     startTime = std::chrono::system_clock::now();
 
     auto &audioFactory = AudioFactory::getInstance();
-
-    mAudioManager = audioFactory.getAudioManager();
     bool isReady = false;
-    if (mAudioManager) {
-        isReady = mAudioManager->isSubsystemReady();
-    } else {
-        LE_FATAL("Invalid Audio Manager");
-        return;
+
+    std::promise<telux::common::ServiceStatus> p{};
+    mAudioManager = audioFactory.getAudioManager(
+            [&p](telux::common::ServiceStatus status) {
+        LE_INFO("Getting status: %d from call manager", (int)status);
+        // If the status is SERVICE_UNAVAILABLE,
+        // the call manager will also update the status through initCB
+        if (status != telux::common::ServiceStatus::SERVICE_UNAVAILABLE)
+        {
+            p.set_value(status);
+        }
+    });
+
+    if (!mAudioManager) {
+        LE_FATAL("Can't get IAudioManager");
     }
 
-    if (!isReady) {
-        LE_INFO("Audio subsystem is not ready, Please wait ...");
-        std::future<bool> f = mAudioManager->onSubsystemReady();
-        isReady = f.get();
+    std::future<telux::common::ServiceStatus> initFuture = p.get_future();
+    std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(SUBSYSTEM_TIMEOUT));
+    telux::common::ServiceStatus serviceStatus;
+    if (std::future_status::timeout == waitStatus)
+    {
+        LE_FATAL ("Timeout waiting for susbsytem");
+    } else {
+        serviceStatus = initFuture.get();
+        if (serviceStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE) {
+            LE_FATAL(" *** ERROR - Unable to initialize audio subsystem");
+        }
+        isReady = true;
     }
 
     if (isReady) {

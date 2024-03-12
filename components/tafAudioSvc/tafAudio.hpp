@@ -47,6 +47,7 @@
 using namespace telux::common;
 using namespace telux::audio;
 
+#define SUBSYSTEM_TIMEOUT          5
 #define TIMEOUT                    5
 #define DEFAULT_STREAMPOOL_SIZE    1
 #define MAX_STREAM                 6

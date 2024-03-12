@@ -1695,11 +1695,11 @@ void taf_Time::TimeSourceChangeNotify
     if (NewTimeSource == PreTimeSource &&
         NewTimeSource == TAF_TIME_SRC_NAME_UNKNOWN)
     {
-        LE_INFO("TimeSourceChange, no active time source\n");
+        LE_DEBUG("TimeSourceChange, no active time source\n");
     }
     else
     {
-        LE_INFO("TimeSourceChange Old: %s, New: %s\n",
+        LE_DEBUG("TimeSourceChange Old: %s, New: %s\n",
                 SourceNameIndexToStr(PreTimeSource), SourceNameIndexToStr(NewTimeSource));
     }
 
@@ -2151,7 +2151,7 @@ void taf_Time::NetworkTimeResponseUpdate
 
     if (error != telux::common::ErrorCode::SUCCESS)
     {
-        LE_ERROR("Register network time for phone %d, Error(%d)", phoneId, (int)error);
+        LE_DEBUG("Register network time for phone %d, Error(%d)", phoneId, (int)error);
         return;
     }
 

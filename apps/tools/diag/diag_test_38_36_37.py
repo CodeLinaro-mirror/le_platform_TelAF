@@ -343,8 +343,4 @@ def main():
     testcases(args.cfile, args.s_ip, args.s_phyaddr)
 
 if __name__ == "__main__":
-    if os.environ["TELAF_IN_CONTAINER"] != "yes":
-        print("This test script only can be run in simulation environment")
-        sys.exit(0)
-
     main()

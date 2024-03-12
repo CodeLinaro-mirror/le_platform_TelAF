@@ -1175,7 +1175,7 @@ le_result_t taf_UpdateSvr::SetFilePosition(
     TAF_ERROR_IF_RET_VAL(msgPtr->operationType != TAF_DIAGUPDATE_RESUME_FILE,
                          LE_BAD_PARAMETER, "Set filePosition in not RESULE_FILE context");
 
-    LE_DEBUG("File Position: %ld", filePosition);
+    LE_DEBUG("File Position: %" PRIu64, filePosition);
     BigEndianNumberFormat(filePosition, mFilePosition, TAF_DIAGUPDATE_FILE_POSITION_SIZE);
 
     return LE_OK;
@@ -1213,7 +1213,7 @@ le_result_t taf_UpdateSvr::SetFileSizeOrDirInfoLength(
     BigEndianNumberFormat(fileSizeUncompressedOrDirInfoLength,
                           mFileSizeUncompressedOrDirInfoLength,
                           TAF_DIAGUPDATE_FILE_SIZE_OR_DIR_INFO_LEN);
-    LE_DEBUG("fileSizeUncompressedOrDirInfoLength: %ld", fileSizeUncompressedOrDirInfoLength);
+    LE_DEBUG("fileSizeUncompressedOrDirInfoLength: %" PRIu64, fileSizeUncompressedOrDirInfoLength);
 
     if (msgPtr->operationType == TAF_DIAGUPDATE_READ_FILE)
     {
@@ -1221,7 +1221,7 @@ le_result_t taf_UpdateSvr::SetFileSizeOrDirInfoLength(
                               mFileSizeCompressed,
                               TAF_DIAGUPDATE_FILE_SIZE_OR_DIR_INFO_LEN);
     }
-    LE_DEBUG("fileSizeCompressed: %ld", fileSizeCompressed);
+    LE_DEBUG("fileSizeCompressed: %" PRIu64, fileSizeCompressed);
 
     BigEndianNumberFormat(nCharsToSave, mFileSizeOrDirInfoParameterLength, SIZE_OF_FSDIL);
     LE_DEBUG("fileSizeOrDirInfoParameterLength = %d", nCharsToSave);

@@ -38,6 +38,7 @@
 const char* wavfilePath = "/data/test.wav";
 const char* amrfilePath = "/data/test.amr";
 const char* recordfilePath = "/data/record.wav";
+int repeat = 1;
 static le_sem_Ref_t tafAudioAppSem;
 static taf_mngd_audio_MediaHandlerRef_t MediaHandlerRef = NULL;
 le_clk_Time_t Timeout = { 3 , 0 };
@@ -45,6 +46,7 @@ static le_thread_Ref_t Player_thread_ref, Recorder_thread_ref;
 taf_mngd_audio_StreamRef_t recorderRef = NULL, playerRef = NULL, playerRef1 = NULL,
         recorderRef1 = NULL, sinkRef = NULL, sourceRef = NULL, rxStreamRef = NULL,
         txStreamRef = NULL, sinkRef1 = NULL, sourceRef1 = NULL;
+taf_mngd_audio_PlayListRef_t playListRef = NULL;
 taf_mngd_audio_RouteRef_t routeRef = NULL, routeRef1 = NULL;
 taf_mngd_audio_ConnectorRef_t rxConn = NULL, txConn = NULL, connRef = NULL;
 le_result_t res;
@@ -286,6 +288,98 @@ void TEST_MNGD_AUDIO_PLAYBACK()
     LE_TEST_OK(res == LE_OK, "Successfully started the file playback");
 
     le_sem_Wait(tafAudioAppSem);
+
+    LE_TEST_INFO("Test taf_mngd_audio_Disconnect to disconnect playerRef from connRef");
+    taf_mngd_audio_Disconnect(connRef, playerRef);
+    LE_TEST_OK(true, "Successfully disconnected playerRef from ConnectorRef");
+
+    LE_TEST_INFO("Test taf_mngd_audio_Close to close playerRef");
+    taf_mngd_audio_Close(playerRef);
+    LE_TEST_OK(true, "Successfully closed playerRef");
+
+    LE_TEST_INFO("Test taf_mngd_audio_CloseRoute");
+    res = taf_mngd_audio_CloseRoute(routeRef);
+    LE_TEST_OK(res == LE_OK, "Successfully closed the LOACL_PLAYBACK route");
+
+}
+
+void TEST_MNGD_AUDIO_PLAYBACK_FILE_LIST()
+{
+    LE_TEST_INFO("Test OpenRoute for PLAYBACK_FILE_LIST");
+    routeRef = taf_mngd_audio_OpenRoute( TAF_MNGD_AUDIO_ROUTE_0, TAF_MNGD_AUDIO_LOCAL_PLAYBACK,
+            &sinkRef, &sourceRef);
+    LE_TEST_OK(routeRef != NULL,
+            "OpenRoute successfull for LOCAL_PLAYBACK when other route is not active");
+
+    LE_TEST_INFO("Test taf_mngd_audio_OpenPlayer(RX)");
+    playerRef = taf_mngd_audio_OpenPlayer(TAF_MNGD_AUDIO_RX);
+    LE_TEST_OK(playerRef != NULL, "Successfully opened the player stream");
+
+    Player_thread_ref = le_thread_Create("taf_mngd_audio_ut_thread",
+            Test_taf_mngd_audio_AddHandler, (void*)playerRef);
+    le_thread_Start(Player_thread_ref);
+
+    le_sem_Wait(tafAudioAppSem);
+
+    LE_TEST_INFO("Test taf_mngd_audio_CreateConnector");
+    taf_mngd_audio_ConnectorRef_t playerConnRef = taf_mngd_audio_CreateConnector();
+    LE_TEST_OK(playerConnRef != NULL, "Successfully created Connector ");
+
+    LE_TEST_INFO("Test taf_mngd_audio_Connect to connect sinkRef and playerConnRef");
+    res = taf_mngd_audio_Connect(playerConnRef, sinkRef);
+    LE_TEST_OK(res == LE_OK, "Successfully connected sinkRef to ConnectorRef");
+
+    LE_TEST_INFO("Test taf_mngd_audio_Connect to connect playerRef and playerConnRef");
+    res = taf_mngd_audio_Connect(playerConnRef, playerRef);
+    LE_TEST_OK(res == LE_OK, "Successfully connected playerRef to playerConnRef");
+
+    LE_TEST_INFO("Test taf_mngd_audio_CreatePlayList to create playerListRef");
+    playListRef = taf_mngd_audio_CreatePlayList();
+    LE_TEST_OK(res == LE_OK, "Successfully create playerListRef");
+
+    LE_TEST_INFO("Test taf_mngd_audio_AddPlayListEntry to add a playback file");
+    res = taf_mngd_audio_AddPlayListEntry(playListRef, wavfilePath, repeat);
+    LE_TEST_OK(res == LE_OK, "Successfully added file to playerListRef");
+
+    LE_TEST_INFO("Test taf_mngd_audio_PlayFileList to play a file list");
+    res = taf_mngd_audio_PlayFileList(playerRef, playListRef);
+    LE_TEST_OK(res == LE_OK, "Successfully started the file list playback");
+
+    le_sem_WaitWithTimeOut(tafAudioAppSem, Timeout);
+
+    LE_TEST_INFO("Test taf_mngd_audio_Stop playback");
+    res = taf_mngd_audio_Stop(playerRef);
+    LE_TEST_OK(res == LE_OK, "Successfully stopped the file playback");
+
+    le_sem_Wait(tafAudioAppSem);
+
+    LE_TEST_INFO("Test taf_mngd_audio_DeletePlayList to delete playerListRef");
+    res = taf_mngd_audio_DeletePlayList(playListRef);
+    LE_TEST_OK(res == LE_OK, "Successfully deleted playerListRef");
+
+    LE_TEST_INFO("Test taf_mngd_audio_CreatePlayList to create playerListRef");
+    playListRef = taf_mngd_audio_CreatePlayList();
+    LE_TEST_OK(res == LE_OK, "Successfully create playerListRef");
+
+    LE_TEST_INFO("Test taf_mngd_audio_AddPlayListEntry to add a playback file");
+    res = taf_mngd_audio_AddPlayListEntry(playListRef, amrfilePath, repeat);
+    LE_TEST_OK(res == LE_OK, "Successfully added file to playerListRef");
+
+    LE_TEST_INFO("Test taf_mngd_audio_PlayFileList to play a file list");
+    res = taf_mngd_audio_PlayFileList(playerRef, playListRef);
+    LE_TEST_OK(res == LE_OK, "Successfully started the file list playback");
+
+    le_sem_WaitWithTimeOut(tafAudioAppSem, Timeout);
+
+    LE_TEST_INFO("Test taf_mngd_audio_Stop playback");
+    res = taf_mngd_audio_Stop(playerRef);
+    LE_TEST_OK(res == LE_OK, "Successfully stopped the file playback");
+
+    le_sem_Wait(tafAudioAppSem);
+
+    LE_TEST_INFO("Test taf_mngd_audio_DeletePlayList to delete playerListRef");
+    res = taf_mngd_audio_DeletePlayList(playListRef);
+    LE_TEST_OK(res == LE_OK, "Successfully deleted playerListRef");
 
     LE_TEST_INFO("Test taf_mngd_audio_Disconnect to disconnect playerRef from connRef");
     taf_mngd_audio_Disconnect(connRef, playerRef);
@@ -573,6 +667,8 @@ COMPONENT_INIT
     TEST_OPEN_ROUTE();
 
     TEST_MNGD_AUDIO_PLAYBACK();
+
+    TEST_MNGD_AUDIO_PLAYBACK_FILE_LIST();
 
     TEST_MNGD_AUDIO_RECORD();
 

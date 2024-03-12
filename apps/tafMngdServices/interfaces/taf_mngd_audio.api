@@ -56,8 +56,10 @@
  * @section c_taf_mngd_audio_openRoute Open/Close Route for the requested route type and mode
  *
  * TelAF Managed Audio Service helps the user to open the audio connection for the requested route
- * type like ecall, non-ecall or playback/capture and mode type as voice call, force open for voice
- * call, playback, record.
+ * type like ecall, non-ecall or playback/capture or playback of a playlist of audio files and
+ * mode type as voice call, force open for voice call, playback, record.
+ * For playback of a playlist, only similar format audio files are expected in the playlist.
+ *
  * Once route is opened, connect the sink reference and source reference to the
  * respective Rx/Tx connectors in case of voice call.
  * If the audio VHAL module is available, the VHAL OpenRoute will get called after the requested
@@ -220,6 +222,122 @@
     }
    @endverbatim
  *
+ * @subsection c_open_route_playback Open route for local playback of a playlist of audio files
+ *
+ * @verbatim
+    taf_mngd_audio_StreamRef_t sinkRef = NULL, sourceRef = NULL, playerRef = NULL;
+    taf_mngd_audio_RouteRef_t routeRef = NULL;
+
+    void* Test_taf_mngd_audio_AddHandler(void* ctxPtr)
+    {
+        le_sem_Ref_t sem = NULL;
+        taf_mngd_audio_ConnectService();
+
+        taf_mngd_audio_StreamRef_t streamRef = (taf_mngd_audio_StreamRef_t)ctxPtr;
+        MediaHandlerRef = taf_mngd_audio_AddMediaHandler(streamRef, MyMediaEventHandler, NULL);
+        if(MediaHandlerRef != NULL)
+            LE_INFO("Successfully registered for media handler");
+
+        sem = le_sem_FindSemaphore("tafAudioAppSem");
+        if(sem != NULL)
+        {
+            le_sem_Post(sem);
+        }
+        else
+        {
+            LE_ERROR_IF((sem == NULL), "tafAudioAppSem is NULL!");
+        }
+        le_event_RunLoop();
+        return NULL;
+    }
+    static void MyMediaEventHandler
+    (
+        taf_mngd_audio_StreamRef_t          streamRef,
+        taf_mngd_audio_MediaEvent_t         event,
+        void*                               contextPtr
+    )
+    {
+        switch(event)
+        {
+            case TAF_MNGD_AUDIO_MEDIA_ENDED:
+                LE_INFO(true," Playback completed");
+                break;
+            case TAF_MNGD_AUDIO_MEDIA_STOPPED:
+                LE_INFO(true," Playback/capture stopped");
+                break;
+            case TAF_MNGD_AUDIO_MEDIA_ERROR:
+                LE_INFO(true, "File event is TAF_AUDIO_MEDIA_ERROR.");
+                break;
+            case TAF_MNGD_AUDIO_MEDIA_NO_MORE_SAMPLES:
+                LE_INFO(true, "File event is TAF_AUDIO_MEDIA_NO_MORE_SAMPLES.");
+                break;
+            default:
+                LE_INFO(true, "File event is %d", event);
+                break;
+        }
+    }
+    void TEST_PLAYLIST_PLAYBACK()
+    {
+        routeRef = taf_mngd_audio_OpenRoute( TAF_MNGD_AUDIO_ROUTE_0, TAF_MNGD_AUDIO_LOCAL_PLAYBACK,
+                &sinkRef, &sourceRef);
+        if(routeRef != NULL)
+            LE_INFO("Successfully open route for playback");
+
+        playerRef = taf_mngd_audio_OpenPlayer(TAF_MNGD_AUDIO_RX);
+        if(playerRef != NULL)
+            LE_INFO("Successfully created player stream reference");
+
+        Player_thread_ref = le_thread_Create("taf_mngd_audio_ut_thread",
+                Test_taf_mngd_audio_AddHandler, (void*)playerRef);
+        le_thread_Start(Player_thread_ref);
+        le_sem_Wait(tafAudioAppSem);
+
+        taf_mngd_audio_ConnectorRef_t playerConnRef = taf_mngd_audio_CreateConnector();
+        if(playerConnRef != NULL)
+            LE_INFO("Successfully created connector reference for playback");
+
+        res = taf_mngd_audio_Connect(playerConnRef, sinkRef);
+        if(res == LE_OK)
+            LE_INFO("Successfully connected sinkRef to playerConnRef");
+
+        res = taf_mngd_audio_Connect(playerConnRef, playerRef);
+        if(res == LE_OK)
+            LE_INFO("Successfully connected playerRef to playerConnRef");
+
+        taf_mngd_audio_PlayListRef_t playListRef = taf_mngd_audio_CreatePlayList();
+        if(playListRef != NULL)
+            LE_INFO("Successfully created playListRef reference for playback");
+
+        string srcPath = /data/test.wav;
+        int repeat = 1;
+
+        res = taf_mngd_audio_AddPlayListEntry(playListRef, srcPath.c_str(), repeat);
+        if(res == LE_OK)
+            LE_INFO("Successfully added file to playerListRef");
+
+        res = taf_mngd_audio_PlayFileList(playerRef, playListRef);
+        if(res == LE_OK)
+            LE_INFO("Successfully file list playback has started");
+
+        // To stop playback
+        res = taf_mngd_audio_Stop(playerRef);
+        if(res == LE_OK)
+            LE_INFO("Successfully stopped the file list playback");
+
+        res = taf_mngd_audio_DeletePlayList(playListRef);
+        if(res == LE_OK)
+            LE_INFO("Successfully deleted playerListRef");
+
+        taf_mngd_audio_Disconnect(connRef, playerRef);
+
+        taf_mngd_audio_Close(playerRef);
+
+        res = taf_mngd_audio_CloseRoute(routeRef);
+        if(res == LE_OK)
+            LE_INFO("Successfully closed the playback route");
+    }
+   @endverbatim
+ *
  * @subsection c_open_route_record Open route for local recording
  *
  * @verbatim
@@ -230,7 +348,7 @@
     {
         le_sem_Ref_t sem = NULL;
         taf_mngd_audio_ConnectService();
- 
+
         taf_mngd_audio_StreamRef_t streamRef = (taf_mngd_audio_StreamRef_t)ctxPtr;
         MediaHandlerRef = taf_mngd_audio_AddMediaHandler(streamRef, MyMediaEventHandler, NULL);
         if(MediaHandlerRef != NULL)
@@ -318,6 +436,7 @@
         res = taf_mngd_audio_CloseRoute(routeRef);
         if(res == LE_OK)
             LE_INFO("Successfully closed the recording route");
+    }
 
    @endverbatim
  */
@@ -337,6 +456,11 @@ REFERENCE Connector;
  * Reference type for route.
  */
 REFERENCE Route;
+
+/**
+ * Reference type for the playback list.
+ */
+REFERENCE PlayList;
 
 DEFINE MAX_SRC_PATH_LEN = 50;
 
@@ -608,4 +732,58 @@ EVENT Media
 (
     Stream       streamRef IN, ///< Audio stream reference.
     MediaHandler handler       ///< Media handler.
+);
+
+/**
+ * Creates an audio playback list reference.
+ *
+ * @return Reference to the audio playback list, NULL on error.
+ */
+FUNCTION PlayList CreatePlayList
+(
+);
+
+/**
+ * Adds an audio playback file to the playback list using reference.
+ *
+ * @return
+ * - LE_FAULT         Failure.
+ * - LE_BAD_PARAMETER Invalid playlist reference.
+ * - LE_BUSY          Playback corresponding to playlist reference is active.
+ * - LE_OK            Success.
+ */
+FUNCTION le_result_t AddPlayListEntry
+(
+    PlayList playListRef IN,
+    string scrPath[MAX_SRC_PATH_LEN] IN,
+    int32 count IN
+);
+
+/**
+ * Deletes the reference of playback list.
+ *
+ * @return
+ * - LE_FAULT         Failure.
+ * - LE_BAD_PARAMETER Invalid playlist reference.
+ * - LE_BUSY          Playback corresponding to playlist reference is active.
+ * - LE_OK            Success.
+ */
+FUNCTION le_result_t DeletePlayList
+(
+    PlayList playListRef
+);
+
+/**
+ * Plays the audio files in the play list reference.
+ *
+ * @return
+ *     - LE_OK                 Success.
+ *     - LE_BUSY          Playback corresponding to playlist reference is active.
+ *     - LE_BAD_PARAMETER      Stream or playlist reference is not valid.
+ *     - LE_FAULT              Failure.
+ */
+FUNCTION le_result_t PlayFileList
+(
+    Stream   streamRef  IN,
+    PlayList playListRef
 );

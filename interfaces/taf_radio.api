@@ -388,6 +388,38 @@
  *
    @endcode
  *
+ * @section c_taf_radio_ratCapability RAT Capability Information
+ *
+ * Users can get the number of SIMs and RAT capabilities in given slot.
+ *
+ *
+ *  - taf_radio_GetHardwareSimConfig() --
+ *    Gets the maximum number of SIMs that can be supported simultaneously and the maximum number
+ *    of SIMs that can be simultaneously active.If the maximum active SIM number is
+ *    less than the maximum number, any combination of the SIMs can be active and the remaining
+ *    can be in standby.
+ *
+ *  - taf_radio_GetHardwareSIMRatCapabilities() --
+ *    simRatCapMask - Gets the supported SIM RAT capabilities which intersects with the device
+ *    supported RAT capabilities and the device supported RAT capabilities in given slot.
+ *    deviceRatCapMask - Gets the supported device RAT capabilities supported in given slot.
+ *
+ * The following example illustrates the API usage.
+ *
+ * @code
+ *
+
+   // Gets sim count
+   uint8_t totalSimCount = 0;
+   uint8_t maxActiveSims = 0;
+   le_result_t result = taf_radio_GetHardwareSimConfig(&totalSimCount,&maxActiveSims);
+
+   // Gets RAT Capabilities
+   taf_radio_RatBitMask_t deviceRatCapMask;
+   taf_radio_RatBitMask_t simRatCapMask;
+   result = taf_radio_GetHardwareSIMRatCapabilities(&deviceRatCapMask,&simRatCapMask,phoneId);
+ *
+   @endcode
  * <HR>
  *
  */
@@ -450,6 +482,7 @@ DEFINE LTE_BAND_GROUP_NUM = 4;
 DEFINE IMS_USER_AGENT_BYTES = 1024;
 
 //--------------------------------------------------------------------------------------------------
+
 /**
  * The preferred operator list reference.
  */
@@ -605,47 +638,52 @@ ENUM NetRejCause
     NET_REJ_CAUSE_GENERAL,                           ///< General.
     NET_REJ_CAUSE_AUTH_FAILURE,                      ///< Authentication failure.
     NET_REJ_CAUSE_IMSI_UNKNOWN,                      ///< IMSI unknown in HLR.
-    NET_REJ_CAUSE_ILLEGAL_MS,                        ///< Illegal Mobile Station (MS); network refuses 
-                                                     ///  service to the MS either because an identity 
-                                                     ///  of the MS is not acceptable to the network 
-                                                     ///  or because the MS does not pass the 
-                                                     ///  authentication check.
-    NET_REJ_CAUSE_IMSI_UNKNOWN_VLR,                  ///< IMSI unknown in Visitors Location Register (VLR).
-    NET_REJ_CAUSE_IMEI_NOT_ACCEPTED,                 ///< Network does not accept emergency call 
-                                                     ///  establishment using an IMEI or not accept 
-                                                     ///  attach procedure for emergency services using 
-                                                     ///  an IMEI.
+    NET_REJ_CAUSE_ILLEGAL_MS,                        ///< Illegal Mobile Station (MS); network
+                                                     ///  refuses service to the MS either because
+                                                     ///  an identity of the MS is not acceptable
+                                                     ///  to the network or because the MS does not
+                                                     ///  pass the authentication check.
+    NET_REJ_CAUSE_IMSI_UNKNOWN_VLR,                  ///< IMSI unknown in Visitors Location Register
+                                                     ///  (VLR).
+    NET_REJ_CAUSE_IMEI_NOT_ACCEPTED,                 ///< Network does not accept emergency call
+                                                     ///  establishment using an IMEI or not accept
+                                                     ///  attach procedure for emergency services
+                                                     ///  using an IMEI.
     NET_REJ_CAUSE_ILLEGAL_ME,                        ///< ME used is not acceptable to the network.
     NET_REJ_CAUSE_GPRS_SERVICES_NOT_ALLOWED,         ///< Not allowed to operate GPRS services.
-    NET_REJ_CAUSE_GPRS_NON_GPRS_NOT_ALLOWED,         ///< Not allowed to operate either GPRS or 
+    NET_REJ_CAUSE_GPRS_NON_GPRS_NOT_ALLOWED,         ///< Not allowed to operate either GPRS or
                                                      ///  non-GPRS services.
-    NET_REJ_CAUSE_MS_IDENTITY_FAILED,                ///< The network cannot derive the MS's identity 
-                                                     ///  from the P-TMSI/GUTI.
+    NET_REJ_CAUSE_MS_IDENTITY_FAILED,                ///< The network cannot derive the MS's
+                                                     ///  identity from the P-TMSI/GUTI.
     NET_REJ_CAUSE_IMPLICITLY_DETACHED,               ///< Network has implicitly detached the MS.
-    NET_REJ_CAUSE_PLMN_NOT_ALLOWED,                  ///< If the network initiates a detach request or 
-                                                     ///  UE requests a services, in a PLMN where the MS, 
-                                                     ///  by subscription or due to operator determined 
-                                                     ///  barring is not allowed to operate.
-    NET_REJ_CAUSE_LOCATION_AREA_NOT_ALLOWED,         ///< Network initiates a detach request, in a 
-                                                     ///  location area where the HPLMN determines that 
-                                                     ///  the MS, by subscription, is not allowed to operate 
-                                                     ///  or roaming subscriber the subscriber is denied 
-                                                     ///  service even if other PLMNs are available on 
-                                                     ///  which registration was possible.
+    NET_REJ_CAUSE_PLMN_NOT_ALLOWED,                  ///< If the network initiates a detach request
+                                                     ///  or UE requests a services, in a PLMN where
+                                                     ///  the MS, by subscription or due to operator
+                                                     ///  determined barring is not allowed to
+                                                     ///  operate.
+    NET_REJ_CAUSE_LOCATION_AREA_NOT_ALLOWED,         ///< Network initiates a detach request, in a
+                                                     ///  location area where the HPLMN determines
+                                                     ///  that the MS, by subscription, is not
+                                                     ///  allowed to operate or roaming subscriber
+                                                     ///  the subscriber is denied service even if
+                                                     ///  other PLMNs are available on which
+                                                     ///  registration was possible.
     NET_REJ_CAUSE_ROAMING_NOT_ALLOWED,               ///< Roaming not allowed in this Location Area.
     NET_REJ_CAUSE_GPRS_NOT_ALLOWED_IN_PLMN,          ///< GPRS services not allowed in this PLMN.
     NET_REJ_CAUSE_NO_SUITABLE_CELLS,                 ///< No Suitable Cells in this Location Area.
     NET_REJ_CAUSE_MSC_TEMPORARILY_NOT_REACHABLE,     ///< MSC temporarily not reachable.
     NET_REJ_CAUSE_NETWORK_FAILURE,                   ///< Network Failure.
     NET_REJ_CAUSE_MAC_FAILURE = 20,                  ///< MAC failure.
-    NET_REJ_CAUSE_SYNC_FAILURE,                      ///< USIM detects that the SQN in the AUTHENTICATION REQUEST 
-                                                     ///  or AUTHENTICATION_AND_CIPHERING REQUEST message is 
-                                                     ///  out of range.
-    NET_REJ_CAUSE_CONGESTION,                        ///< Network cannot serve a request from the MS because 
-                                                     ///  of congestion.
+    NET_REJ_CAUSE_SYNC_FAILURE,                      ///< USIM detects that the SQN in the
+                                                     ///  AUTHENTICATION REQUEST
+                                                     ///  or AUTHENTICATION_AND_CIPHERING REQUEST
+                                                     ///  message is out of range.
+    NET_REJ_CAUSE_CONGESTION,                        ///< Network cannot serve a request from the MS
+                                                     ///  because of congestion.
     NET_REJ_CAUSE_GSM_AUTHENTICATION_UNACCEPTABLE,   ///< GSM authentication unacceptable.
     NET_REJ_CAUSE_NOT_AUTHORIZED = 25,               ///< Not authorized for this CSG.
-    NET_REJ_CAUSE_SMS_PROVIDED_VIA_GPRS = 28,        ///< SMS provided via GPRS in this routing area.
+    NET_REJ_CAUSE_SMS_PROVIDED_VIA_GPRS = 28,        ///< SMS provided via GPRS in this routing
+                                                     ///  area.
     NET_REJ_CAUSE_SERVICE_OPTION_NOT_SUPPORTED = 32, ///< Service option not supported.
     NET_REJ_CAUSE_SERVICE_OPTION_NOT_SUBCRIBED,      ///< Requested service option not subscribed.
     NET_REJ_CAUSE_SERVICE_OPTION_OUT_OF_ORDER,       ///< Service option temporarily out of order.
@@ -654,11 +692,15 @@ ENUM NetRejCause
     NET_REJ_CAUSE_RETRY_FOR_NEW_CELL = 48,           ///< Retry upon entry into a new cell.
     NET_REJ_CAUSE_INCORRECT_MESSAGE = 95,            ///< Semantically incorrect message.
     NET_REJ_CAUSE_INVALID_INFO,                      ///< Invalid mandatory information.
-    NET_REJ_CAUSE_MSG_TYPE_NOT_IMPLEMENTED,          ///< Message type non-existent or not implemented.
-    NET_REJ_CAUSE_MSG_TYPE_NOT_COMPATIBLE,           ///< Message type not compatible with protocol state.
-    NET_REJ_CAUSE_INFO_NOT_IMPLEMENTED,              ///< Information element non-existent or not implemented.
+    NET_REJ_CAUSE_MSG_TYPE_NOT_IMPLEMENTED,          ///< Message type non-existent or not
+                                                     ///  implemented.
+    NET_REJ_CAUSE_MSG_TYPE_NOT_COMPATIBLE,           ///< Message type not compatible with protocol
+                                                     ///  state.
+    NET_REJ_CAUSE_INFO_NOT_IMPLEMENTED,              ///< Information element non-existent or not
+                                                     ///  implemented.
     NET_REJ_CAUSE_CONDITIONAL_IE_ERROR,              ///< Conditional IE error.
-    NET_REJ_CAUSE_MSG_NOT_COMPATIBLE,                ///< Message not compatible with protocol state.
+    NET_REJ_CAUSE_MSG_NOT_COMPATIBLE,                ///< Message not compatible with protocol
+                                                     ///  state.
     NET_REJ_CAUSE_PROTOCOL_ERROR_UNSPECIFIED = 111   ///< Protocol error; unspecified.
 };
 
@@ -788,6 +830,26 @@ ENUM OpMode
 };
 
 //--------------------------------------------------------------------------------------------------
+ENUM NREndcAvailability
+{
+    NR_ENDC_UNKNOWN,        ///< NR ENDC status unknown.
+    NR_ENDC_AVAILABLE,      ///< NR ENDC is available.
+    NR_ENDC_UNAVAILABLE     ///< NR ENDC is not available.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * DCNR (Dual Connectivity with NR) Restriction status on 5G NR
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM NRDcnrRestriction
+{
+    NR_DCNR_UNKNOWN,        ///< NR DCNR status unknown.
+    NR_DCNR_RESTRICTED,     ///< NR DCNR is restricted.
+    NR_DCNR_UNRESTRICTED    ///< NR DCNR is not restricted.
+};
+
+//--------------------------------------------------------------------------------------------------
 /**
  * RAT bitmask.
  */
@@ -896,6 +958,7 @@ BITMASK NetStatusIndBitMask
     NET_STATUS_IND_BIT_MASK_RAT_SVC_STATUS, ///< Indication for RAT service status changes.
     NET_STATUS_IND_BIT_MASK_LTE_CS_CAP      ///< Indication for LTE CS capabilitiy changes.
 };
+
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1214,7 +1277,7 @@ FUNCTION le_result_t SetAutomaticRegisterMode
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetManualRegisterMode
 (
-    string mcc[MCC_LEN] IN,     ///< MCC. 
+    string mcc[MCC_LEN] IN,     ///< MCC.
     string mnc[MNC_MAX_LEN] IN, ///< MNC.
     uint8 phoneId IN            ///< Phone ID.
 );
@@ -1925,17 +1988,18 @@ FUNCTION uint16 GetServingCellScramblingCode
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Gets the current network name.
+ *  Gets the current network's short name.
  *
  * @return
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
+ *  - LE_TIMEOUT -- Time out.
  *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetCurrentNetworkName
 (
-    string nameStr[NETWORK_NAME_MAX_LEN] OUT, ///< Current network name.
+    string nameStr[NETWORK_NAME_MAX_LEN] OUT, ///< Current network's short name.
     uint8 phoneId IN                          ///< Phone ID.
 );
 
@@ -2598,3 +2662,71 @@ FUNCTION le_result_t GetImsUserAgent
     Ims imsRef IN,                             ///< IMS reference.
     string userAgent[IMS_USER_AGENT_BYTES] OUT ///< User agent string to be sent with SIP message.
 );
+
+/**
+ *  Gets the DCNR and ENDC mode status.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetNrDualConnectivityStatus
+(
+    NREndcAvailability statusEndc OUT,         ///< ENDC availability status.
+    NRDcnrRestriction statusDcnr OUT,          ///< DCNR restriction status.
+    uint8 phoneId IN                           ///< Phone ID.
+);
+
+/**
+ *  Gets the long name of the network.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_TIMEOUT -- Time out.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetCurrentNetworkLongName
+(
+    string longNameStr[NETWORK_NAME_MAX_LEN] OUT,   ///< Long network name.
+    uint8 phoneId IN                                ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the details of the total SIM count and maximum active SIM count.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *  - LE_TIMEOUT -- Time out.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetHardwareSimConfig
+(
+    uint8 totalSimCount OUT,   ///< The maximum number of SIMs supported simultaneously.
+    uint8 maxActiveSims OUT    ///< The maximum number of SIMs that can be active simultaneously.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the RAT capabilities supported by hardware and SIM based on a given phone ID.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *  - LE_TIMEOUT -- Time out.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetHardwareSimRatCapabilities
+(
+    RatBitMask deviceRatCapMask OUT,     ///< Device RAT capability bitmask.
+    RatBitMask simRatCapMask OUT,        ///< SIM RAT capability bitmask.
+    uint8 phoneId IN                     ///< Phone ID.
+);
+

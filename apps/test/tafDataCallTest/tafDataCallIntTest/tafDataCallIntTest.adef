@@ -1,3 +1,4 @@
+maxThreads: 600
 executables:
 {
     tafDataCallIntTest = ( $TELAF_ROOT/apps/test/tafDataCallTest/tafDataCallIntTest/tafDataCallIntTestComponent )

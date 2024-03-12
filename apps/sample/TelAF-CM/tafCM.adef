@@ -1,3 +1,4 @@
+maxThreads: 600
 // Application is sandboxed
 sandboxed: true
 

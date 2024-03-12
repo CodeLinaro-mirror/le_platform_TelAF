@@ -1,6 +1,6 @@
 sandboxed: false
 
-maxThreads: 300
+maxThreads: 600
 
 username: telaf
 

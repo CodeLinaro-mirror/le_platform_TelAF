@@ -180,6 +180,9 @@ void PrintHelpMenu
         "       Handler for network changes, can test with 'cm radio' configurations.\n"
         "       time : monitor time in seconds.\n"
         "\n"
+        "    app runProc tafRadioIntTest tafRadioIntTest -- cellularCapability <phone>\n"
+        "       To show hardware capabilities related to SIM and hardware RAT.\n"
+        "\n"
     );
 
     exit(EXIT_SUCCESS);
@@ -1335,7 +1338,11 @@ void PrintServingStatus
     le_result_t result;
     char mccStr[TAF_RADIO_MCC_BYTES] = {0};
     char mncStr[TAF_RADIO_MNC_BYTES] = {0};
-    char name[TAF_RADIO_NETWORK_NAME_MAX_LEN] = {0};
+    char longOperatorStr[TAF_RADIO_NETWORK_NAME_MAX_LEN] = {0};
+    char shortOperatorStr[TAF_RADIO_NETWORK_NAME_MAX_LEN] = {0};
+
+    taf_radio_NREndcAvailability_t endcStatus;
+    taf_radio_NRDcnrRestriction_t dcnrStatus;
 
     taf_radio_Rat_t rat;
     result = taf_radio_GetRadioAccessTechInUse(&rat, phoneId);
@@ -1417,14 +1424,64 @@ void PrintServingStatus
             break;
     }
 
-    result = taf_radio_GetCurrentNetworkName(name, TAF_RADIO_NETWORK_NAME_MAX_LEN, phoneId);
-    LE_TEST_OK(result == LE_OK, "taf_radio_GetCurrentNetworkName - OK");
-    LE_INFO("Phone %d current network name %s", phoneId, name);
+    result = taf_radio_GetCurrentNetworkName(shortOperatorStr, TAF_RADIO_NETWORK_NAME_MAX_LEN,
+             phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetCurrentNetworkName short- OK");
+    LE_INFO("Phone %d current network short name %s", phoneId, shortOperatorStr);
+
+    result = taf_radio_GetCurrentNetworkLongName(longOperatorStr, TAF_RADIO_NETWORK_NAME_MAX_LEN,
+             phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetCurrentNetworkName long - OK");
+    LE_INFO("Phone %d current network long name %s", phoneId, longOperatorStr);
 
     result = taf_radio_GetCurrentNetworkMccMnc(mccStr, TAF_RADIO_MCC_BYTES, mncStr,
         TAF_RADIO_MNC_BYTES, phoneId);
     LE_TEST_OK(result == LE_OK, "taf_radio_GetCurrentNetworkMccMnc - OK");
     LE_INFO("Phone %d current network MCC %s MNC %s", phoneId, mccStr, mncStr);
+
+    result = taf_radio_GetNrDualConnectivityStatus(&endcStatus,&dcnrStatus,
+            phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetNrDualConnectivityStatus - LE_OK");
+    LE_INFO("Phone %d current endc / dcnr  status %d / %d", phoneId, endcStatus, dcnrStatus);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This function prints Cellular Capabilities
+ * Max SIM supported and max sim which can be simultaneously supported to make calls
+ * SIM Rat capability
+ * Hardware Rat capability
+ */
+//--------------------------------------------------------------------------------------------------
+void PrintCellularCapabilityStatus
+(
+    uint8_t phoneId ///< [IN] Phone ID.
+)
+{
+
+    le_result_t result;
+
+    uint8_t totalSimCount = 0;
+    uint8_t maxActiveSims = 0;
+
+    result = taf_radio_GetHardwareSimConfig(&totalSimCount,&maxActiveSims);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetHardwareSimConfig - LE_OK");
+
+    LE_INFO("totalSimCount : %d.", totalSimCount);
+    LE_INFO("maxActiveSims : %d.", maxActiveSims);
+
+    taf_radio_RatBitMask_t deviceRatCapMask = 0x0;
+    taf_radio_RatBitMask_t simRatCapMask = 0x0;
+
+    result = taf_radio_GetHardwareSimRatCapabilities(&deviceRatCapMask,&simRatCapMask,
+             phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetHardwareSIMRatCapabilities - LE_OK");
+
+
+    LE_INFO("Phone %d deviceRatCapabilities",phoneId);
+    PrintRatBitMask(deviceRatCapMask);
+    LE_INFO("Phone %d simRatCapabilities",phoneId);
+    PrintRatBitMask(simRatCapMask);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2513,6 +2570,20 @@ COMPONENT_INIT
         {
             PrintHelpMenu();
         }
+    }
+    else if (strncmp(cmd, "cellularCapability", strlen("cellularCapability")) == 0)
+    {
+        CheckArgs(2);
+        LE_TEST_INFO("======== Cellular Capability ========");
+
+        const char* phone = le_arg_GetArg(1);
+        if (phone == NULL)
+        {
+            PrintHelpMenu();
+        }
+        long phoneId = strtol(phone, NULL, 10);
+
+        PrintCellularCapabilityStatus(phoneId);
     }
     else
     {

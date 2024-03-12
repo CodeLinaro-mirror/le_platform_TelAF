@@ -363,6 +363,18 @@ typedef struct
     le_result_t result;
     taf_radio_NetRegState_t psState;
 } taf_RadioDataCallbackInfo_t;
+//--------------------------------------------------------------------------------------------------
+/**
+ * Operator Name callback information structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    le_sem_Ref_t semaphore;
+    le_result_t result;
+    char longOpNamePtr[TAF_RADIO_NETWORK_NAME_MAX_LEN];
+    char shortOpNamePtr[TAF_RADIO_NETWORK_NAME_MAX_LEN];
+} taf_OperatorNameCallbackInfo_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -635,6 +647,28 @@ namespace tafsvc {
             telux::common::ErrorCode errorCode);
     };
 
+     /*
+     * @brief A cellular capability callback class must be provided when request for hardware
+     *        capabilities.
+     */
+    class taf_RadioCellularCapsCallback : public telux::tel::ICellularCapabilityCallback {
+    public:
+        le_sem_Ref_t semaphore;
+        le_result_t result;
+        uint8_t simCount;
+        uint8_t maxActiveSIM;
+        std::vector<telux::tel::SimRatCapability> simRatCaps;
+        std::vector<telux::tel::DeviceRatCapability> deviceRatCaps;
+        /*
+         * This function is called after getting the hardware capability.
+         *
+         * @param [in] signalStrength    The signal strength information.
+         * @param [in] error             The error code of getting the signal strength.
+         */
+        void cellularCapabilityResponse( telux::tel::CellularCapabilityInfo  capabilityInfo,
+            telux::common::ErrorCode error) override;
+    };
+
     /*
      * @brief The Radio Service class defined as a middleware between interfaces and implementation.
      */
@@ -722,10 +756,12 @@ namespace tafsvc {
         std::mutex mtx;
         std::condition_variable conVar;
         taf_RadioDataCallbackInfo_t dataInfoCb;
+        taf_OperatorNameCallbackInfo_t opNameCb;
         std::shared_ptr<taf_RadioSignalStrengthCallback> signalStrengthCb;
         std::shared_ptr<taf_RadioVoiceServiceStateCallback> voiceSrvStateCb;
         std::shared_ptr<taf_RadioSetOperatingModeCallback> setOperatingModeCb;
         std::shared_ptr<taf_RadioGetOperatingModeCallback> getOperatingModeCb;
+        std::shared_ptr<taf_RadioCellularCapsCallback> cellularCapsCb;
         std::vector<std::shared_ptr<taf_RadioNetworkSelectionListener>> networkListeners;
         std::map<SlotId, std::shared_ptr<telux::tel::IImsServingSystemListener>> imsServSysListeners;
         std::map<SlotId, std::shared_ptr<telux::data::IServingSystemListener>> dataServSysListeners;

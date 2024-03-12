@@ -558,6 +558,44 @@ void taf_RadioSignalStrengthCallback::signalStrengthResponse
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Response for getting cellular capability.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_RadioCellularCapsCallback::cellularCapabilityResponse
+(
+     telux::tel::CellularCapabilityInfo   capabilityInfo,  ///< [IN] Cellular Capability.
+     telux::common::ErrorCode error                        ///< [IN] Error code.
+)
+{
+    LE_DEBUG("<SDK Callback> taf_RadioCellularCapsCallback --> cellularCapabilityResponse");
+
+    if (error == telux::common::ErrorCode::SUCCESS)
+    {
+        simCount = capabilityInfo.simCount;
+        maxActiveSIM = capabilityInfo.maxActiveSims;
+
+        for (auto simCaps : capabilityInfo.simRatCapabilities)
+        {
+            simRatCaps.emplace_back(simCaps);
+        }
+        for (auto deviceCaps : capabilityInfo.deviceRatCapability)
+        {
+            deviceRatCaps.emplace_back(deviceCaps);
+        }
+        result = LE_OK;
+    }
+    else
+    {
+        LE_ERROR("Error(%d)", (int)error);
+        result = LE_FAULT;
+    }
+
+    le_sem_Post(semaphore);
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Semaphore for configuring signal strength.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1402,6 +1440,11 @@ LE_MEM_DEFINE_STATIC_POOL(ngbrCellInfoPool, TAF_RADIO_NEIGHBOR_CELL_INFO_MAX_NUM
 LE_MEM_DEFINE_STATIC_POOL(ngbrCellInfoSafeRefPool, TAF_RADIO_NEIGHBOR_CELL_INFO_MAX_NUM,
     sizeof(taf_RadioNgbrCellInfoSafeRef_t));
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Static pool for IMS references.
+ */
+//--------------------------------------------------------------------------------------------------
 LE_REF_DEFINE_STATIC_MAP(prefOpListRefMap, TAF_RADIO_PREFERRED_OPERATORS_LISTS_MAX_NUM);
 
 LE_REF_DEFINE_STATIC_MAP(prefOpSafeRefMap, TAF_RADIO_PREFERRED_OPERATORS_MAX_NUM);
@@ -1976,8 +2019,9 @@ void taf_Radio::Init(void)
     imsStatusChangePool = le_mem_CreatePool("imsStatusChangePool", sizeof(taf_RadioImsStatus_t));
     ssChangePool = le_mem_CreatePool("ssChangePool", sizeof(taf_RadioSsInd_t));
 
+
     // 3. Initiate the reference map.
-    prefOpListRefMap = le_ref_InitStaticMap(prefOpListRefMap, TAF_RADIO_PREFERRED_OPERATORS_LISTS_MAX_NUM);
+    prefOpListRefMap = le_ref_InitStaticMap(prefOpListRefMap,TAF_RADIO_PREFERRED_OPERATORS_LISTS_MAX_NUM);
     prefOpSafeRefMap = le_ref_InitStaticMap(prefOpSafeRefMap, TAF_RADIO_PREFERRED_OPERATORS_MAX_NUM);
     scanOpListRefMap = le_ref_InitStaticMap(scanOpListRefMap, TAF_RADIO_SCAN_OPERATORS_LISTS_MAX_NUM);
     scanOpSafeRefMap = le_ref_InitStaticMap(scanOpSafeRefMap, TAF_RADIO_SCAN_OPERATORS_MAX_NUM);
@@ -2138,11 +2182,16 @@ void taf_Radio::Init(void)
         voiceSrvStateCb = std::make_shared<taf_RadioVoiceServiceStateCallback>();
         setOperatingModeCb = std::make_shared<taf_RadioSetOperatingModeCallback>();
         getOperatingModeCb = std::make_shared<taf_RadioGetOperatingModeCallback>();
+        cellularCapsCb = std::make_shared<taf_RadioCellularCapsCallback>();
         voiceSrvStateCb->semaphore = le_sem_Create("taf_RadioVoiceSrvStateCbSem", 0);
         signalStrengthCb->semaphore = le_sem_Create("taf_RadioSgnStrengthCbSem", 0);
         setOperatingModeCb->semaphore = le_sem_Create("taf_RadioSetOpModeCbSem", 0);
         getOperatingModeCb->semaphore = le_sem_Create("taf_RadioGetOpModeCbSem", 0);
+        cellularCapsCb->semaphore = le_sem_Create("CellCapsCbSem", 0);
         dataInfoCb.semaphore = le_sem_Create("dataInfoCbSem", 0);
+        opNameCb.semaphore = le_sem_Create("OopNameCbSem", 0);
+        opNameCb.longOpNamePtr[TAF_RADIO_NETWORK_NAME_MAX_LEN] = {0};
+        opNameCb.shortOpNamePtr[TAF_RADIO_NETWORK_NAME_MAX_LEN] = {0};
 
         for (size_t index = 1; index <= phoneIds.size(); index++)
         {

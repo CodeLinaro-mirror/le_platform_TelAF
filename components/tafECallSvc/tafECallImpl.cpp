@@ -364,48 +364,85 @@ void taf_ecall::Init(void)
 {
     //  Get the PhoneFactory and PhoneManager instances.
     auto &phoneFactory = telux::tel::PhoneFactory::getInstance();
-
     std::promise<telux::common::ServiceStatus> prom;
+
     CallManager = phoneFactory.getCallManager([&](telux::common::ServiceStatus status) {
-        prom.set_value(status);
+        LE_INFO("Getting status: %d from call manager", (int)status);
+        // If the status is SERVICE_UNAVAILABLE, the call manager will also update the status through initCB
+        if (status != telux::common::ServiceStatus::SERVICE_UNAVAILABLE)
+        {
+            prom.set_value(status);
+        }
     });
-    telux::common::ServiceStatus mgrStatus = prom.get_future().get();
-    if (mgrStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE) {
-        LE_FATAL("Cannot initialize all manager, ret: %d", (int)mgrStatus);
-        return;
+    if (!CallManager)
+    {
+        LE_FATAL("Can't get call manager");
     }
 
-    PhoneManager = phoneFactory.getPhoneManager();
-    //  Check if telephony subsystem is ready
-    bool subSystemStatus = PhoneManager->isSubsystemReady();
+    std::future<telux::common::ServiceStatus> initFuture = prom.get_future();
+    std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(MAX_INIT_TIMEOUT));
+    telux::common::ServiceStatus serviceStatus;
+    if (std::future_status::timeout == waitStatus)
+    {
+        LE_FATAL ("Timeout waiting for susbsytem");
+    }
+    else
+    {
+        serviceStatus = initFuture.get();
+        if (serviceStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
+        {
+            LE_FATAL(" *** ERROR - Unable to initialize call subsystem");
+        }
+    }
 
-    //  If telephony subsystem is not ready, wait for it to be ready
-    if(!subSystemStatus) {
-       LE_INFO("\n\nTelephony subsystem is not ready, Please wait");
-       std::future<bool> f = PhoneManager->onSubsystemReady();
-       // If we want to wait unconditionally for telephony subsystem to be ready
-       subSystemStatus = f.get();
-     }
+    std::promise<telux::common::ServiceStatus> phoneMgrprom;
+    auto PhoneManager = PhoneFactory::getInstance().getPhoneManager([&] (telux::common::ServiceStatus status) {
+        LE_INFO("Getting status: %d from phone manager", (int)status);
+        // If the status is SERVICE_UNAVAILABLE, the call manager will also update the status through initCB
+        if (status != telux::common::ServiceStatus::SERVICE_UNAVAILABLE)
+        {
+            phoneMgrprom.set_value(status);
+        }
+    });
+    if (!PhoneManager)
+    {
+        LE_FATAL("Can't get phone manager");
+    }
 
+    telux::common::ServiceStatus phoneMgrStatus = PhoneManager->getServiceStatus();
+    if (phoneMgrStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE) {
+        LE_INFO("telephony subsystem is not ready, wait for it to be ready");
+        std::future<telux::common::ServiceStatus> initFuture = phoneMgrprom.get_future();
+        std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(MAX_INIT_TIMEOUT));
+        if (std::future_status::timeout == waitStatus)
+        {
+            LE_FATAL("Timeout waiting for susbsytem");
+        }
+        else
+        {
+            serviceStatus = initFuture.get();
+            if (serviceStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
+            {
+                LE_FATAL(" *** ERROR - Unable to initialize phone subsystem");
+            }
+        }
+    }
     //  Exit the service, if SDK is unable to initialize telephony subsystems
-    if(subSystemStatus) {
-       std::vector<int> phoneIds;
-       telux::common::Status status = PhoneManager->getPhoneIds(phoneIds);
-       if (status == telux::common::Status::SUCCESS) {
-           for (auto index = 1; index <= (int)phoneIds.size(); index++) {
-               auto phone = PhoneManager->getPhone(index);
-               if (phone != nullptr) {
-                    Phones.emplace_back(phone);
-               }
-           }
-      }
-    } else {
-       LE_FATAL("ERROR - Unable to initialize subsystem");
-       return;
+    std::vector<int> phoneIds;
+    telux::common::Status status = PhoneManager->getPhoneIds(phoneIds);
+    if (status == telux::common::Status::SUCCESS)
+    {
+        for (auto index = 1; index <= (int)phoneIds.size(); index++)
+        {
+            auto phone = PhoneManager->getPhone(index);
+            if (phone != nullptr)
+            {
+                Phones.emplace_back(phone);
+            }
+        }
     }
-
+    
     InitializeECallPtr();
-
     le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateReadTxn( CFG_MODEMSERVICE_ECALL_PATH );
     int opMode = le_cfg_GetInt(iteratorRef, CFG_NODE_OPMODE, 0);
     int numType = le_cfg_GetInt(iteratorRef, CFG_NODE_NUMTYPE, 0);

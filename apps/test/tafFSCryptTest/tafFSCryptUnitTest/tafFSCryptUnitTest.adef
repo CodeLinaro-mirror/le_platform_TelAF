@@ -1,3 +1,4 @@
+maxThreads: 600
 start: manual
 sandboxed: false
 

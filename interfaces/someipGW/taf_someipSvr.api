@@ -39,9 +39,10 @@
  * @verbatim
    {
     "unicast" : "192.168.225.1",
+    "device" : "bridge0",
     "logging" :
     {
-        "level" : "warning",
+        "level" : "error",
         "console" : "true",
         "file" : { "enable" : "false", "path" : "/tmp/vsomeip.log" },
         "version" : { "enable" : "false", "interval" : "10" },
@@ -55,6 +56,7 @@
         }
     ],
     "routing" : "tafSomeipGWSvc",
+    "network" : "tafSomeipGWSvc",
     "service-discovery" :
     {
         "enable" : "true",
@@ -72,29 +74,82 @@
    }
    @endverbatim
  *
- * Mandatorily, The @b unicast shall be set with the correct IP address in the system for SOME/IP
- * commuications. The @b id in @b applications shall be set with a unique client ID within the
- * vehicle's SOME/IP network. Optionally, the SOME/IP-SD parameters in @b service-discovery can be
- * changed if needed.
+ * Mandatorily, the @b unicast and @b device must be set with the correct IP address and
+ * network interface in the system for SOME/IP communications. The @b id in applications section
+ * shall be set with a unique client ID within the given network. Optionally, the SOME/IP-SD
+ * parameters (like @b multicast) in service-discovery section can be changed if needed.
  *
  * Restart the tafSomeipGWSvc service or reboot the device to make the new configuration take effect
- * after any modification.
+ * after any modifications.
  *
  * Finally run below command to add a route entry for the SOME/IP-SD multicast address(Suppose the
- * interface name of the unicast address is "bridge0" and the multicast address is "224.0.0.1"):
+ * network interface is "bridge0" and the multicast address is "224.0.0.1"):
  * @verbatim
    route add 224.0.0.1 dev bridge0
    @endverbatim
  *
+ * @section c_taf_someipSvr_multi_networks Multiple networks/VLANs configuration
+ *
+ * The default configuration file is only for single network/VLAN which is also the default network.
+ * If the user wants to support multiple networks/VLANs in the GW service, they have to create
+ * additional configuration files. These configuration files can be someipGWSvc_1.json to
+ * tafSomeipGWSvc_7.json, which means a maximum of 8 networks/VLANs can be supported. For example,
+ * the user can create below configuration file to support the second network/VLAN in the GW service:
+ *
+ * @verbatim
+   {
+    "unicast" : "192.168.226.1",
+    "device" : "eth1",
+    "logging" :
+    {
+        "level" : "error",
+        "console" : "true",
+        "file" : { "enable" : "false", "path" : "/tmp/vsomeip.log" },
+        "version" : { "enable" : "false", "interval" : "10" },
+        "dlt" : "false"
+    },
+    "applications" :
+    [
+        {
+            "name" : "tafSomeipGWSvc_1",
+            "id" : "0x0102"
+        }
+    ],
+    "routing" : "tafSomeipGWSvc_1",
+    "network" : "tafSomeipGWSvc_1",
+    "service-discovery" :
+    {
+        "enable" : "true",
+        "multicast" : "225.0.0.1",
+        "port" : "30490",
+        "protocol" : "udp",
+        "initial_delay_min" : "10",
+        "initial_delay_max" : "100",
+        "repetitions_base_delay" : "200",
+        "repetitions_max" : "3",
+        "ttl" : "3",
+        "cyclic_offer_delay" : "2000",
+        "request_response_delay" : "1500"
+    }
+   }
+   @endverbatim
+ *
+ * In this case, a second configuration file tafSomeipGWSvc_1.json is created for network interface
+ * "eth1" with its own network address and multicast address.
+ *
+ * @note The value of @b name, @b routing, and @b network in configuration file must match the file
+ * name, which is tafSomeipGWSvc_1 in this case.
+ *
  * @section c_taf_someipSvr_server_API Server Service APIs
  *
  * Before setting up a server-service-instance, application shall first get the service reference by
- * calling taf_someipSvr_GetService() and use the reference returned for subsequent operations.
+ * calling taf_someipSvr_GetService() or taf_someipSvr_GetServiceEx() and use the reference returned
+ * for subsequent operations.
  *
  * @note One SOME/IP server-service-instance can be only represented by one application.
  *
  * The following example illustrates how to set up a SOME/IP server-service-instance and offer the
- * service within vehicle network.
+ * service on default network interface.
  *
  * @code
    const uint16_t serviceId = 0x1234;     // Service ID
@@ -105,7 +160,7 @@
    const uint16_t udpPort = 40001;        // UDP port of the service
    taf_someipSvr_ServiceRef_t serviceRef; // Service reference
 
-   // Get the service reference.
+   // Get the service reference on the default network interface.
    serviceRef = taf_someipSvr_GetService(serviceId, instanceId);
    LE_ASSERT(serviceRef != NULL);
 
@@ -245,7 +300,7 @@ REFERENCE RxMsg;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the reference to a server-service-instance.
+ * Gets the reference to a server-service-instance on default network interface.
  *
  * @return
  *     - Reference to the service instance.
@@ -256,6 +311,23 @@ FUNCTION Service GetService
 (
     uint16   serviceId                IN, ///< Service ID.
     uint16   instanceId               IN  ///< Instance ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the reference to a server-service-instance on a dedicated network interface. The ifName
+ * shall match the device name specified in one of the JSON files.
+ *
+ * @return
+ *     - Reference to the service instance.
+ *     - NULL if not allowed to represent the service.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Service GetServiceEx
+(
+    uint16   serviceId                                IN, ///< Service ID.
+    uint16   instanceId                               IN, ///< Instance ID.
+    string   ifName[taf_someipDef.MAX_IFNAME_LENGTH]  IN  ///< Network interface name.
 );
 
 //--------------------------------------------------------------------------------------------------

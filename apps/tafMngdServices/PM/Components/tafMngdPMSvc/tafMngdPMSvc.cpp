@@ -216,12 +216,18 @@ taf_mngd_pm_wsRef_t taf_mngd_pm_NewNodeWakeupSource( uint8_t pmNodeId,
     LE_INFO("taf_mngd_pm_NewNodeWakeupSource");
     bool inThewsWhiteList = false;
     auto &mpms = tafMngdPMSvc::GetInstance();
-
-    for (auto it = mpms.wsWhiteList.begin(); it != mpms.wsWhiteList.end(); ++it ) {
-        if (*it == wakeupType) {
-            LE_INFO("wakeupType found in wsWhiteList");
-            inThewsWhiteList = true;
-            break;
+    if(wakeupType == TAF_MNGD_PM_APP_STAYAWAKE)
+    {
+        inThewsWhiteList = true;
+    }
+    else
+    {
+        for (auto it = mpms.wsWhiteList.begin(); it != mpms.wsWhiteList.end(); ++it ) {
+            if (*it == wakeupType) {
+                LE_INFO("wakeupType found in wsWhiteList");
+                inThewsWhiteList = true;
+                break;
+            }
         }
     }
     if(inThewsWhiteList)
@@ -270,10 +276,26 @@ le_result_t taf_mngd_pm_StayAwakeNode(taf_mngd_pm_wsRef_t wsRef)
         taf_wsRefCtx_t * wsRefCtxPtr =
                 CONTAINER_OF(linkHandlerPtr, taf_wsRefCtx_t, link);
         linkHandlerPtr = le_dls_PeekPrev(&(mpms.wsRefList), linkHandlerPtr);
-        if (wsRefCtxPtr && wsRef && wsRefCtxPtr->wsRef == wsRef)
+        if(wsRefCtxPtr->wakeupType == TAF_MNGD_PM_APP_STAYAWAKE)
+        {
+            ispresent = true;
+            LE_INFO("WakeupType is TAF_MNGD_PM_APP_STAYAWAKE");
+            mpms.wsCount++;
+            res = tafMngdPMSvc::AcquireWakeLock();
+            //sending notification to VHAL
+            if(res == LE_OK && wsRefCtxPtr->vhalTag != NULL && mpms.pmInf)
+            {
+                LE_INFO("send nodeInfoNotification for vhalTag:%s", wsRefCtxPtr->vhalTag);
+                (*(mpms.pmInf->nodeInfoNotification))(wsRefCtxPtr->pmNodeId,
+                    PM_HAL_NODE_INFO_LOCK_ACQUIRED, wsRefCtxPtr->vhalTag);
+            }
+            break;
+        }
+        else if (wsRefCtxPtr && wsRef && wsRefCtxPtr->wsRef == wsRef)
         {
             for (auto it = mpms.wsWhiteList.begin(); it != mpms.wsWhiteList.end(); ++it ) {
-                if (*it == wsRefCtxPtr->wakeupType) {
+                if (*it == wsRefCtxPtr->wakeupType)
+                {
                     ispresent = true;
                     LE_INFO("WakeupType matched with whitelisting wakeup_source");
                     mpms.wsCount++;
@@ -285,6 +307,7 @@ le_result_t taf_mngd_pm_StayAwakeNode(taf_mngd_pm_wsRef_t wsRef)
                         (*(mpms.pmInf->nodeInfoNotification))(wsRefCtxPtr->pmNodeId,
                             PM_HAL_NODE_INFO_LOCK_ACQUIRED, wsRefCtxPtr->vhalTag);
                     }
+                    break;
                 }
             }
         }
@@ -322,7 +345,8 @@ le_result_t taf_mngd_pm_RelaxNode(taf_mngd_pm_wsRef_t wsRef)
         taf_wsRefCtx_t * wsRefCtxPtr =
                 CONTAINER_OF(linkHandlerPtr, taf_wsRefCtx_t, link);
         linkHandlerPtr = le_dls_PeekPrev(&(mpms.wsRefList), linkHandlerPtr);
-        if ((wsRefCtxPtr) && wsRef && (wsRefCtxPtr->wsRef == wsRef))
+        if ((wsRefCtxPtr->wakeupType == TAF_MNGD_PM_APP_STAYAWAKE) ||
+                ((wsRefCtxPtr) && wsRef && (wsRefCtxPtr->wsRef == wsRef)))
         {
             ispresent = true;
             LE_INFO("WakeupType matched with whitelisting wakeup_source");
@@ -339,6 +363,7 @@ le_result_t taf_mngd_pm_RelaxNode(taf_mngd_pm_wsRef_t wsRef)
             }
             res = tafMngdPMSvc::ReleaseWakeLock();
         }
+        break;
     }
     if(ispresent)
     {

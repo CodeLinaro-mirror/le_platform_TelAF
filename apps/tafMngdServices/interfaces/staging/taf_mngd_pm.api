@@ -252,9 +252,10 @@ ENUM ShutdownMode
  */
 ENUM WakeupType
 {
-    SMS,        ///< The wakeup type is SMS for system wakeup.
-    VOICE_CALL, ///< The wakeup type is VOICE_CALL for system wakeup.
-    MCU_VHAL    ///< The wakeup type is  MCU / VHAL for system wakeup
+    APP_STAYAWAKE,  ///< The wakeup type is to keep the system awake.
+    SMS,            ///< The wakeup type is SMS for system wakeup.
+    VOICE_CALL,     ///< The wakeup type is VOICE_CALL for system wakeup.
+    MCU_VHAL        ///< The wakeup type is  MCU / VHAL for system wakeup.
 };
 DEFINE WSREF_MAXLEN   = (32);
 

@@ -71,11 +71,13 @@ static void PrintUsage ()
         "--------7 -> For SMS, VOICE_CALL and MCU_VHAL wakeuptype------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- SetModemWakeupSource <wakeuptype>\n"
         "------------To suspend the system with wakeuptypes-----------\n"
+        "--------0 -> For APP_STAYAWAKE wakeuptype------------\n"
         "--------1 -> For SMS wakeuptype------------\n"
         "--------2 -> For VOICE_CALL wakeuptype------------\n"
         "--------3 -> For MCU_VHAL wakeuptype------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- SuspendSystem <wakeuptype>\n"
         "------------To resume the system with wakeuptypes-----------\n"
+        "--------0 -> For APP_STAYAWAKE wakeuptype------------\n"
         "--------1 -> For SMS wakeuptype------------\n"
         "--------2 -> For VOICE_CALL wakeuptype------------\n"
         "--------3 -> For MCU_VHAL wakeuptype------\n"
@@ -244,7 +246,17 @@ static int SuspendSystem(const char* wakeuptype)
 {
     le_result_t res = LE_FAULT;
     taf_mngd_pm_wsRef_t wsRef = NULL;
-    if(strcmp(wakeuptype, "1") == 0) {
+    if(strcmp(wakeuptype, "0") == 0) {
+        LE_INFO("NewNodeWakeupSource wakeuptype is APP_STAYAWAKE");
+        wsRef = taf_mngd_pm_NewNodeWakeupSource(NODE_ID, TAF_MNGD_PM_APP_STAYAWAKE, vHalTag);
+        if(wsRef != NULL) {
+            LE_INFO("NewNodeWakeupSource ref is created for APP_STAYAWAKE");
+            res = taf_mngd_pm_RelaxNode(wsRef);
+            if(res == LE_OK)
+                LE_INFO("suspended sysytem with wakeuptype APP_STAYAWAKE");
+        }
+    }
+    else if(strcmp(wakeuptype, "1") == 0) {
         LE_INFO("NewNodeWakeupSource wakeuptype is SMS");
         wsRef = taf_mngd_pm_NewNodeWakeupSource(NODE_ID, TAF_MNGD_PM_SMS, vHalTag);
         if(wsRef != NULL) {
@@ -285,7 +297,19 @@ static int ResumeSystem(const char* wakeuptype)
 {
     le_result_t res = LE_FAULT;
     taf_mngd_pm_wsRef_t wsRef = NULL;
-    if(strcmp(wakeuptype, "1") == 0) {
+    if(strcmp(wakeuptype, "0") == 0) {
+        LE_INFO("NewNodeWakeupSource wakeuptype is APP_STAYAWAKE");
+        wsRef = taf_mngd_pm_NewNodeWakeupSource(NODE_ID, TAF_MNGD_PM_APP_STAYAWAKE, vHalTag);
+        if(wsRef != NULL) {
+            LE_INFO("NewNodeWakeupSource ref is created for APP_STAYAWAKE");
+            res = taf_mngd_pm_StayAwakeNode(wsRef);
+            if(res == LE_OK) {
+                LE_INFO("Resumed sysytem with wakeuptype APP_STAYAWAKE");
+                return EXIT_SUCCESS;
+             }
+        }
+    }
+    else if(strcmp(wakeuptype, "1") == 0) {
         LE_INFO("NewNodeWakeupSource wakeuptype is SMS");
         wsRef = taf_mngd_pm_NewNodeWakeupSource(NODE_ID, TAF_MNGD_PM_SMS, vHalTag);
         if(wsRef != NULL) {

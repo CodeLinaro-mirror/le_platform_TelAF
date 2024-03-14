@@ -886,6 +886,7 @@ size_t pduEncodeAddr
         addrPtr++;
     }
 
+    uint numLen = 0;
     for(uint i = 0; i < length; i += 2)
     {
         number[i + 1] = addrPtr[i];
@@ -898,9 +899,10 @@ size_t pduEncodeAddr
         {
             number[i] = 'F';
         }
+        numLen +=2;
     }
 
-    le_hex_StringToBinary(number, strlen(number), bufferOut, size);
+    le_hex_StringToBinary(number, numLen, bufferOut, size);
 
     return length;
 }

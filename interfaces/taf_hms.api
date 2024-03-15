@@ -78,7 +78,141 @@
   }
   @endverbatim
 *
+*
+*
+*  @section taf_hms_GetUbiDevInfoList Get the UBI device information
+* The following APIs are provided for UBI device information
+* taf_hms_GetUbiDevInfoList()   Gets the list of available UBI device information.
+* taf_hms_DeleteUbiDevInfoList() Deletes the UBI list reference.
+* taf_hms_GetFirstUbiDevInfo()  Gets the first UBI device Info object reference in the list.
+* taf_hms_GetNextUbiDevInfo()  Gets the next UBI device Info object reference in the list.
+* taf_hms_GetUbiDevMaxEraseCnt()    Gets UBI information for current maximum erase count.
+* taf_hms_GetUbiDevBadBlkCnt()   Gets UBI information for bad block count.
+* taf_hms_GetUbiDevId() Gets UBI device ID.
+ * @verbatim
+    taf_hms_UbiDevInfoListRef_t ubiDevListRef = taf_hms_GetUbiDevInfoList();
+    taf_hms_UbiDevInfoRef_t UbiDevInfo = taf_hms_GetFirstUbiDevInfo(ubiDevListRef);
+    uint32_t ubiDeviceListSize;
+    result = taf_hms_GetUbiDevInfoListSize(ubiDevListRef, &ubiDeviceListSize);
+    while (UbiDevInfo != NULL and ubiDeviceListSize--)
+    {
+        uint32_t ubiEraseCount;
+        result = taf_hms_GetUbiDevEc(UbiDevInfo, &ubiEraseCount);
+
+        uint32_t ubiBadblock;
+        result = taf_hms_GetUbiDevBbc(UbiDevInfo, &ubiBadblock);
+
+        if (ubiDeviceListSize > 0) {
+            UbiDevInfo = taf_hms_GetNextUbiDevInfo(ubiDevListRef);
+        }
+    }
+  @endverbatim
+*
+* @section taf_hms_GetUbiVolInfoList  Get the UBI volume information
+* The following APIs are provided for UBI volume information
+* taf_hms_GetFirstUbiVolInfo()  Gets the first UBI volume Info object reference in the list.
+* taf_hms_GetNextUbiVolInfo() Gets the next UBI volume Info object reference in the list.
+* taf_hms_GetUbiVolName() Gets name of UBI volume.
+* taf_hms_GetUbiVolSize() Gets size of UBI volume.
+* taf_hms_GetUbiVolId() Gets UBI volume ID.
+*
+* @verbatim
+  taf_hms_UbiVolInfoListRef_t ubiVolListRef = taf_hms_GetUbiVolInfoList();
+    taf_hms_UbiVolInfoRef_t UbiVolInfo = taf_hms_GetFirstUbiVolInfo(ubiVolListRef);
+    uint32_t ubiVolumeListSize;
+    result = taf_hms_GetUbiVolInfoListSize(ubiVolListRef, &ubiVolumeListSize);
+    while (UbiVolInfo != NULL and ubiVolumeListSize--)
+    {
+        char ubiVolName[NAME_SIZE];
+        memset(ubiVolName, 0, NAME_SIZE);
+        taf_hms_GetUbiVolName(UbiVolInfo, ubiVolName, sizeof(ubiVolName));
+
+        uint32_t ubiVolSize;
+        result = taf_hms_GetUbiVolSize(UbiVolInfo, &ubiVolSize);
+
+        if (ubiVolumeListSize > 0) {
+            UbiVolInfo = taf_hms_GetNextUbiVolInfo(ubiVolListRef);
+        }
+    }
+   @endverbatim
+*
+* @section taf_hms_GetMtdInfoList Get the MTD device information
+* The following APIs are provided for MTD device information
+* taf_hms_GetMtdInfoList() Gets the list of available MTD information.
+* taf_hms_DeleteMtdInfoList() Deletes the MTD list reference.
+* taf_hms_GetFirstMtdInfo() Gets the first MtdInfo object reference in the list.
+* taf_hms_GetNextMtdInfo() Gets the next MtdInfo object reference in the list.
+* taf_hms_GetMtdDevName()  Gets MTD device name.
+* taf_hms_GetMtdDevBlkSize() Gets MTD information for block size.
+* taf_hms_GetMtdDevId() Gets MTD device ID.
+* taf_hms_GetMtdDevBlkCnt() Gets MTD block count.
+*@verbatim
+    taf_hms_MtdInfoListRef_t mtdListRef = taf_hms_GetMtdInfoList();
+    taf_hms_MtdInfoRef_t MtdInfo = taf_hms_GetFirstMtdInfo(mtdListRef);
+    uint32_t mtdDevListSize;
+    result = taf_hms_GetMtdInfoListSize(mtdListRef, &mtdDevListSize);
+    while (MtdInfo != NULL and mtdDevListSize--)
+    {
+        char MtdDevName[NAME_SIZE];
+        memset(MtdDevName, 0, NAME_SIZE);
+        taf_hms_GetMtdDevName(MtdInfo, MtdDevName, sizeof(MtdDevName));
+
+        if (mtdDevListSize > 0) {
+            MtdInfo = taf_hms_GetNextMtdInfo(mtdListRef);
+        }
+    }
+    @endverbatim
+*
+* <HR>
+*
 */
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The maximum size of the String.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_NAME_SIZE = 32;
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The UBI device information list reference.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE UbiDevInfoList;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reference type for details of UBI device info.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE UbiDevInfo;
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reference type for details of UBI volume info.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE UbiVolInfo;
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The MTD information list reference.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE MtdDevInfoList;
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reference type for details of MTD info.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE MtdDevInfo;
 
 
 ///------------------------------------------------------------------------------------------------
@@ -141,4 +275,320 @@ FUNCTION le_result_t  GetRamMemInfo
     uint32 ramTotalMem           OUT,      ///< Total Memory in kB.
     uint32 ramUsedMem            OUT,      ///< Used Memory in kB.
     uint32 ramFreeMem            OUT      ///< Free memory in kB.
+);
+
+
+//------------------------------------------------------------------------------------------------
+/**
+* Gets the list of available UBI device information.
+*
+* @return
+ *  - NULL                            No information found.
+ *  - taf_hms_UbiDevInfoListRef    The UBI device Info list object reference.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION UbiDevInfoList GetUbiDevInfoList
+(
+);
+
+
+//------------------------------------------------------------------------------------------------
+/**
+ * Gets the first UBI device Info object reference in the list of the
+ * UbiDevInfoList retrieved with taf_hms_GetUbiDevInfoList().
+ *
+ * @return
+ *  - NULL                          No information found.
+ *  - taf_hms_UbiDevInfoListRef      The UBI device Info object reference.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION UbiDevInfo GetFirstUbiDevInfo
+(
+    UbiDevInfoList ubiDevInfoListRef        IN        ///< UBI device list reference
+);
+
+
+//------------------------------------------------------------------------------------------------
+/**
+* Deletes the UbiDevInfoList list retrieved with taf_hms_GetUbiDevInfoList().
+*
+* @return
+*  - LE_BAD_PARAMETER -- Bad parameters.
+*  - LE_OK -- Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DeleteUbiDevInfoList
+(
+    UbiDevInfoList ubiDevInfoListRef        IN        ///< UBI device list reference
+);
+
+
+//------------------------------------------------------------------------------------------------
+/**
+ * Gets the next UBI device Info object reference in the list of the
+ * UBIInfoList retrieved with taf_hms_GetUBIInfoList().
+ *
+ * @return
+ *  - NULL                          No information found.
+ *  - taf_hms_UbiDevInfoListRef      The UBI device Info object reference.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION UbiDevInfo GetNextUbiDevInfo
+(
+    UbiDevInfoList ubiDevInfoListRef        IN        ///< UBI device list reference
+);
+
+
+///------------------------------------------------------------------------------------------------
+/**
+* Gets UBI device ID
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetUbiDevId
+(
+    UbiDevInfo ubiDevInfoRef  IN,      ///< UBI device Info reference.
+    uint32 ubiDevId OUT                   ///< UBI device ID
+);
+
+
+///------------------------------------------------------------------------------------------------
+/**
+* Gets UBI information for current maximum erase count from " /sys/class/ubi/ubi%d/ ".
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetUbiDevMaxEraseCnt
+(
+    UbiDevInfo ubiDevInfoRef  IN,      ///< UBI device Info reference.
+    uint32 ubiEraseCnt OUT       ///< Erase count.
+);
+
+
+///------------------------------------------------------------------------------------------------
+/**
+* Gets UBI information for bad block count from " /sys/class/ubi/ubi%d/ ".
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetUbiDevBadBlkCnt
+(
+    UbiDevInfo ubiDevInfoRef  IN,      ///< UBI device Info reference.
+    uint32 ubiBbCnt OUT       ///< Bad Block count.
+);
+
+
+//------------------------------------------------------------------------------------------------
+/**
+ * Gets the first UBI volume Info object reference in the list of the
+ * UbiVolInfoList retrieved with taf_hms_GetUbiDevInfoList().
+ *
+ * @return
+ *  - NULL                          No information found.
+ *  - taf_hms_UbiVolInfoListRef      The UBI device Info object reference.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION UbiVolInfo GetFirstUbiVolInfo
+(
+   UbiDevInfo ubiDevInfoRef  IN      ///< UBI device Info reference.
+);
+
+
+//------------------------------------------------------------------------------------------------
+/**
+ * Gets the next UBI volume Info object reference in the list of the
+ * UbiVolInfoList retrieved with taf_hms_GetUbiDevInfoList().
+ *
+ * @return
+ *  - NULL                          No information found.
+ *  - taf_hms_UbiVolInfoListRef      The UBI volume Info object reference.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION UbiVolInfo GetNextUbiVolInfo
+(
+    UbiDevInfo ubiDevInfoRef  IN      ///< UBI device Info reference.
+);
+
+
+//------------------------------------------------------------------------------------------------
+/**
+* Gets UBI volume ID.
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetUbiVolId
+(
+    UbiVolInfo ubiVolInfoRef IN,
+    uint32 ubiVolId OUT
+);
+
+
+///------------------------------------------------------------------------------------------------
+/**
+* Gets name of UBI volume.
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetUbiVolName
+(
+    UbiVolInfo ubiVolInfoRef  IN,      ///< UBI device Info reference.
+    string ubiVolName[MAX_NAME_SIZE] OUT       ///< UBI volume name.
+);
+
+
+///------------------------------------------------------------------------------------------------
+/**
+* Gets size of UBI volume in bytes.
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetUbiVolSize
+(
+    UbiVolInfo ubiVolInfoRef  IN,      ///< UBI device Info reference.
+    uint32 ubiVolSize    OUT      ///< UBI volume size.
+);
+
+
+
+
+//------------------------------------------------------------------------------------------------
+/**
+* Gets the list of available MTD Node.
+*
+* @return
+ *  - NULL                            No information found.
+ *  - taf_hms_MtdInfoListRef    The MtdInfo list object reference.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION MtdDevInfoList GetMtdDevInfoList
+(
+);
+
+
+//------------------------------------------------------------------------------------------------
+/**
+* Deletes the MtdInfoList list retrieved with taf_hms_GetMtdInfoList().
+*
+* @return
+*  - LE_BAD_PARAMETER -- Bad parameters.
+*  - LE_OK -- Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DeleteMtdDevInfoList
+(
+    MtdDevInfoList mtdDevInfoListRef        IN        ///< MTD device list reference
+);
+
+
+//------------------------------------------------------------------------------------------------
+/**
+ * Gets the first MtdInfo object reference in the list of the
+ * MtdInfoList retrieved with taf_hms_GetMtdInfoList().
+ *
+ * @return
+ *  - NULL                          No information found.
+ *  - taf_hms_MtdInfoListRef      The MtdInfo object reference.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION MtdDevInfo GetFirstMtdDevInfo
+(
+    MtdDevInfoList mtdDevInfoListRef        IN        ///< MTD node list reference
+);
+
+
+//------------------------------------------------------------------------------------------------
+/**
+ * Gets the next MtdInfo object reference in the list of the
+ * MtdInfoList retrieved with taf_hms_GetMtdInfoList().
+ *
+ * @return
+ *  - NULL                          No information found.
+ *  - taf_hms_MtdInfoListRef      The MtdInfo object reference.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION MtdDevInfo GetNextMtdDevInfo
+(
+    MtdDevInfoList mtdDevInfoListRef        IN        ///< MTD node list reference
+);
+
+
+///------------------------------------------------------------------------------------------------
+/**
+* Gets MTD information for name from " /sys/class/mtd/mtd%d/ ".
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetMtdDevName
+(
+    MtdDevInfo mtdDevInfoRef  IN,      ///<  MTD Info reference.
+    string mtdName[MAX_NAME_SIZE] OUT        ///< MTD name.
+);
+
+
+///------------------------------------------------------------------------------------------------
+/**
+* Gets MTD information for block size in bytes.
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetMtdDevBlkSize
+(
+    MtdDevInfo mtdDevInfoRef  IN,      ///< MTD Info reference.
+    uint32 mtdBlkSize OUT       ///< Bad block size.
+);
+
+
+///------------------------------------------------------------------------------------------------
+/**
+* Gets MTD information for device ID.
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetMtdDevId
+(
+    MtdDevInfo mtdDevInfoRef  IN,      ///< MTD Info reference.
+    uint32 mtdDevId OUT       ///< Device ID.
+);
+
+
+///------------------------------------------------------------------------------------------------
+/**
+* Gets MTD information for block count.
+*
+* @return
+* - LE_FAULT         Failed.
+* - LE_OK            Succeeded.
+*/
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetMtdDevBlkCnt
+(
+    MtdDevInfo mtdDevInfoRef  IN,      ///< MTD Info reference.
+    uint32 mtdBlkCnt OUT       ///< Block count.
 );

@@ -28,6 +28,8 @@
  */
 #include "main.h"
 
+static taf_sim_FPLMNListRef_t FplmnListRef;
+
 static void TestNewSimStateHandler
 (
     taf_sim_Id_t     simId,

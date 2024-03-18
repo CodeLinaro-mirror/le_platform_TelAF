@@ -465,7 +465,7 @@ allow telaf_core_domain telaf_admin_domain:{ file dir unix_dgram_socket unix_str
 allow telaf_core_domain telaf_app_domain:{ file dir unix_dgram_socket unix_stream_socket socket sock_file } *;
 allow telaf_core_domain telaf_admin_t:fifo_file { read write };
 allow telaf_core_domain telaf_lib_t:dir { search };
-allow telaf_core_domain telaf_lib_t:file { read_file_perms mmap_file_perms };
+allow telaf_core_domain telaf_lib_t:file { read_file_perms mmap_read_file_perms };
 allow telaf_core_domain devlog_t:sock_file write;
 allow telaf_core_domain etc_t:file { read open lock getattr };
 allow telaf_core_domain tmp_t:dir { search_dir_perms };

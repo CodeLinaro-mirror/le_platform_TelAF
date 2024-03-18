@@ -59,6 +59,7 @@ class tafMngdConnRadio: public ITafSvc
         le_result_t StartUp(uint8_t phoneId);
         bool IsPowerOn(uint8_t phoneId);
         le_result_t PowerOn(uint8_t phoneId);
+        le_result_t PowerOff(uint8_t phoneId);
         le_result_t SetAllRat(uint8_t phoneId);
         bool IsAllRatSet(uint8_t phoneId);
         le_result_t SetAutoRegMode(uint8_t phoneId);

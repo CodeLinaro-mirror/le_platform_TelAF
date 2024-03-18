@@ -157,34 +157,54 @@ taf_mngd_Conn_DataStateHandlerRef_t taf_mngd_Conn_AddDataStateHandler
     void* contextPtr
 )
 {
-    auto &admin = tafMngdConnAdmin::GetInstance();
-
     TAF_ERROR_IF_RET_VAL(dataRef == NULL, NULL, "Null ptr(dataRef)");
     TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, NULL, "Null ptr(handlerPtr)");
-
-    le_event_Id_t dataStateEvent = admin.GetDataStateEvent(dataRef);
-    if(dataStateEvent == NULL)
-    {
-        LE_ERROR("Data event is not initialized");
-        return NULL;
-    }
-
-    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("ConnStateHandler",
-        dataStateEvent, admin.FirstLayerConnStateHandler,
-        (void*)handlerPtr);
-
-    le_event_SetContextPtr(handlerRef, contextPtr);
-
-    return (taf_mngd_Conn_DataStateHandlerRef_t)(handlerRef);
-
+    auto &admin = tafMngdConnAdmin::GetInstance();
+    return admin.AddDataStateHandler(dataRef, handlerPtr, contextPtr);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_mngd_Conn_DataState'
+ */
+//--------------------------------------------------------------------------------------------------
 void taf_mngd_Conn_RemoveDataStateHandler(taf_mngd_Conn_DataStateHandlerRef_t handlerRef)
 {
 
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler function for EVENT 'taf_mngd_Conn_RecoveryState'
+ *
+ * Events to report recovery state.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_mngd_Conn_RecoveryStateHandlerRef_t taf_mngd_Conn_AddRecoveryStateHandler(
+    taf_mngd_Conn_RecoveryStateHandlerFunc_t handlerPtr,
+    ///< [IN] The event handler reference.
+    void *contextPtr
+    ///< [IN]
+)
+{
+    TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, NULL, "Null ptr(handlerPtr)");
+    auto &admin = tafMngdConnAdmin::GetInstance();
+    return admin.AddRecoveryStateHandler(handlerPtr, contextPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_mngd_Conn_RecoveryState'
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_mngd_Conn_RemoveRecoveryStateHandler(
+    taf_mngd_Conn_RecoveryStateHandlerRef_t handlerRef
+    ///< [IN]
+)
+{
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
+}
 
 COMPONENT_INIT
 {

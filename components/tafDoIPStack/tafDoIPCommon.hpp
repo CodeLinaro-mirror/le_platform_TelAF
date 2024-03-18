@@ -229,7 +229,7 @@
 #define TAF_DOIP_IPTYPE_MAX_LEN             8
 
 #define TAF_DOIP_INTERFACE_DEFAULT          "bridge0"
-#define TAF_DOIP_INTERFACE_NAME_MAX_LEN     8
+#define TAF_DOIP_INTERFACE_NAME_MAX_LEN     30
 
 #define TAF_DOIP_UDP_BROADCAST_IP           "255.255.255.255"
 #define TAF_DOIP_UDP6_BROADCAST_IP          "FF02::1"

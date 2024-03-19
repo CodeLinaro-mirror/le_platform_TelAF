@@ -1,0 +1,50 @@
+# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+policy_module(tafLxcInitApp, 1.0)
+
+gen_require(`
+type shell_exec_t;
+type etc_t;
+type adbd_system_data_t;
+type data_t;
+type qcmap_etc_data_t;
+type sensor_util_t;
+type system_data_t;
+type wifi_system_data_t;
+type usb_dev_t;
+type unlabeled_t;
+')
+
+type telaf_tafLxcInitApp_exec_t;
+files_type(telaf_tafLxcInitApp_exec_t);
+
+type telaf_tafLxcInitApp_t;
+
+type telaf_tafLxcInitApp_data_t;
+files_type(telaf_tafLxcInitApp_data_t);
+
+type telaf_tafLxc_etc_t;
+files_type(telaf_tafLxc_etc_t);
+
+init_telaf_app_domain(telaf_tafLxcInitApp_t,telaf_tafLxcInitApp_exec_t)
+
+telaf_admin_manage_all_files_perms(telaf_tafLxcInitApp_data_t)
+telaf_admin_manage_all_files_perms(telaf_tafLxcInitApp_exec_t)
+
+
+telaf_admin_file_perms(telaf_tafLxcInitApp_t, telaf_tafLxcInitApp_data_t)
+
+unconfined_domain(telaf_tafLxcInitApp_t)
+
+allow telaf_tafLxcInitApp_t adbd_system_data_t:file mounton;
+allow telaf_tafLxcInitApp_t data_t:chr_file unlink;
+allow telaf_tafLxcInitApp_t data_t:dir mounton;
+allow telaf_tafLxcInitApp_t qcmap_etc_data_t:dir search;
+allow telaf_tafLxcInitApp_t qcmap_etc_data_t:file mounton;
+allow telaf_tafLxcInitApp_t sensor_util_t:dir search;
+allow telaf_tafLxcInitApp_t sensor_util_t:file mounton;
+allow telaf_tafLxcInitApp_t system_data_t:dir mounton;
+allow telaf_tafLxcInitApp_t usb_dev_t:dir search;
+allow telaf_tafLxcInitApp_t wifi_system_data_t:dir search;
+allow telaf_tafLxcInitApp_t wifi_system_data_t:file mounton;

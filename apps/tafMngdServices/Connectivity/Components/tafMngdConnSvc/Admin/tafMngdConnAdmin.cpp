@@ -1351,6 +1351,14 @@ void tafMngdConnAdmin::EventDataConnectedActive(uint8_t dataId)
         return;
     }
     connCtxPtr->wasConnectivityRecoveryDone = false;
+
+    // Start the Periodic Connection Test timer
+    LE_INFO("Periodic Connection Test Interval: %d ms",
+                connCtxPtr->conn_periodic_test_interval*1000);
+    le_timer_SetMsInterval(connCtxPtr->periodicConnectivityTestTimerRef,
+                connCtxPtr->conn_periodic_test_interval*1000);
+    le_timer_Start(connCtxPtr->periodicConnectivityTestTimerRef);
+
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1542,6 +1550,13 @@ void tafMngdConnAdmin::StateMachineHandler(void* reqPtr)
             break;
         }
 
+        case TAF_MNGD_CONN_EVT_DATA_START_PERIODIC_CONNECTIONTEST:
+        {
+            LE_DEBUG("Starting Periodic Connection test");
+            mngdConnAdmin.EventDataPeriodicConnectivityTest(eventReq->dataId);
+            break;
+        }
+
         case TAF_MNGD_CONN_EVT_GET_CONNECTION_INFO_SYNC:
             result = mngdConnAdmin.EventGetConnectionInfo(eventReq->dataId);
             mngdConnAdmin.CmdSynchronousPromise.set_value(result);
@@ -1684,6 +1699,7 @@ taf_mngd_Conn_Ctx_t* tafMngdConnAdmin::CreateConnCtx
     connCtxPtr->slotId = slotId;
     connCtxPtr->phoneId = phoneId;
     connCtxPtr->dataStartRetryCount = 0;
+    connCtxPtr->conn_periodic_test_retryCount = 1;
     connCtxPtr->profileNumber = profileNumber;
     connCtxPtr->autoStart = autoStart;
     connCtxPtr->needReConn = false;
@@ -1724,6 +1740,15 @@ taf_mngd_Conn_Ctx_t* tafMngdConnAdmin::CreateConnCtx
     uint32_t recoveryDelay = Policy.DataSession.ConnectivityRecovery.StartWaitTime * 1000; //ms
     LE_INFO("Connectivity Recovery Delay: %d ms", recoveryDelay);
     le_timer_SetMsInterval(connCtxPtr->recoveryScheduleTimerRef, recoveryDelay);
+
+    //Create PeriodicConnectivityTest timer
+    snprintf(timerName, sizeof(timerName)-1, "dataId-%d PeriodicTest Timer", dataId);
+    connCtxPtr->periodicConnectivityTestTimerRef = le_timer_Create(timerName);
+    le_timer_SetContextPtr(connCtxPtr->periodicConnectivityTestTimerRef, connCtxPtr);
+    le_timer_SetWakeup(connCtxPtr->periodicConnectivityTestTimerRef, false);
+    le_timer_SetHandler(connCtxPtr->periodicConnectivityTestTimerRef,
+                        PeriodicConnectivityTestTimerHandler);
+
 
     //Create event id
     snprintf(eventName, sizeof(eventName)-1, "connCtx-%d", dataId);
@@ -2099,6 +2124,16 @@ le_result_t tafMngdConnAdmin::InitializeStates()
             connCtxPtr->maxdataRetryCount = Configuration.Data[dataIdx].DataStartRetry.RetryCount;
             connCtxPtr->dataRetry = Configuration.Data[dataIdx].DataStartRetry.Enable;
 
+            le_utf8_Copy(connCtxPtr->conn_periodic_test_url,
+                    Configuration.Data[dataIdx].PeriodicConnectivityCheck.URL,
+                    TAF_MNGD_CONN_MAX_CONNECTION_URL_LEN,NULL);
+
+            connCtxPtr->conn_periodic_test_interval =
+                                Configuration.Data[dataIdx].PeriodicConnectivityCheck.Interval;
+
+            connCtxPtr->conn_periodic_test_maxRetryCount =
+                                Configuration.Data[dataIdx].PeriodicConnectivityCheck.RetryCount;
+
             if(sim.IsSimReady(slotNumber))
             {
                 connCtxPtr->adminState = TAF_MNGD_CONN_DATA_NOT_CONNECTED_SIM_READY;
@@ -2218,6 +2253,37 @@ void tafMngdConnAdmin::DataRetryTimerHandler(le_timer_Ref_t timerRef)
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * PeriodicConnectivityTest timer handler
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::PeriodicConnectivityTestTimerHandler(le_timer_Ref_t timerRef)
+{
+    LE_DEBUG("PeriodicConnectivityTest handler");
+    auto &mngdConnAdmin = tafMngdConnAdmin::GetInstance();
+    taf_mngd_Conn_Ctx_t *connCtxPtr = (taf_mngd_Conn_Ctx_t *)le_timer_GetContextPtr(timerRef);
+    if(connCtxPtr == NULL)
+    {
+        LE_INFO("Stop the timer.");
+        if (le_timer_IsRunning(timerRef))
+            le_timer_Stop(timerRef);
+        return;
+    }
+
+    LE_DEBUG ("Periodic Connectivity test retry count is %d",
+            connCtxPtr->conn_periodic_test_retryCount );
+
+    stateMachineEvent_t stateMachineEvt = {TAF_MNGD_CONN_EVT_INIT, 0};
+    stateMachineEvt.dataId = connCtxPtr->dataId;
+    // Send PeriodicConnectivityTestStart event to the admin
+    stateMachineEvt.event = TAF_MNGD_CONN_EVT_DATA_START_PERIODIC_CONNECTIONTEST;
+    le_event_Report(mngdConnAdmin.StateMachineEventId,
+                    &stateMachineEvt, sizeof(stateMachineEvent_t));
+    LE_INFO("Sent %s to admin",
+        mngdConnAdmin.EventToString(TAF_MNGD_CONN_EVT_DATA_START_PERIODIC_CONNECTIONTEST));
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Handle the event TAF_MNGD_CONN_EVT_DATA_START_CONNECTIONTEST which is sent when data is started.
  */
 //--------------------------------------------------------------------------------------------------
@@ -2295,6 +2361,77 @@ void tafMngdConnAdmin::EventDataStartConnectionTest(uint8_t dataId)
         ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_CONNECTED);
         //If manually started the data successfully. Set reconnection flag to true.
         connCtxPtr->needReConn = true;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handle the event TAF_MNGD_CONN_EVT_DATA_START_PERIODIC_CONNECTIONTEST which is sent when data is
+ * started.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::EventDataPeriodicConnectivityTest(uint8_t dataId)
+{
+    LE_DEBUG("PeriodicConnectivityTest entered");
+    taf_mngd_Conn_Ctx_t *connCtxPtr = GetConnCtx(dataId);
+    std::string url = connCtxPtr->conn_periodic_test_url;
+    std::string interfaceName = connCtxPtr->intfName;
+
+    if(!url.empty())
+    {
+
+            if(!DataStartConnectionTest_URL(url, interfaceName))
+            {
+                // PeriodicConnectivitytest failed for this iteration.
+                LE_INFO("PeriodicConnectivitytest failed for dataID: %d", dataId);
+                //Report and update the state (only once)
+                if(connCtxPtr->dataState!=TAF_MNGD_CONN_DATA_CONNECTION_STALLED)
+                {
+                    ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_CONNECTION_STALLED);
+                }
+                //Increase the RetryCount in case of failure
+                connCtxPtr->conn_periodic_test_retryCount =
+                                            connCtxPtr->conn_periodic_test_retryCount + 1;
+
+                if(connCtxPtr->conn_periodic_test_retryCount <=
+                                                connCtxPtr->conn_periodic_test_maxRetryCount)
+                {
+                    // Start the Periodic Connection Test timer
+                    le_timer_Start(connCtxPtr->periodicConnectivityTestTimerRef);
+                }
+                else
+                {
+                    // It is not possible to proceed with the PeriodicConnectivityTest retries
+                    LE_ERROR("PeriodicConnectivityTest retry count exceeded. Start DataRetry");
+                    //Start the retry procedure
+                    connCtxPtr->adminState = TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE_RETRYING;
+                    stateMachineEvent_t stateMachineEvt = {TAF_MNGD_CONN_EVT_INIT, 0};
+                    stateMachineEvt.event=TAF_MNGD_CONN_EVT_DATA_STOP;
+                    stateMachineEvt.dataId=connCtxPtr->dataId;
+                    le_event_Report(StateMachineEventId, &stateMachineEvt,
+                                    sizeof(stateMachineEvent_t));
+                }
+            }
+            else
+            {
+                //Reset the retryCount
+                connCtxPtr->conn_periodic_test_retryCount = 1;
+
+                // Start the Periodic Connection Test timer
+                le_timer_Start(connCtxPtr->periodicConnectivityTestTimerRef);
+
+                //Change the State back to connected
+                if(connCtxPtr->dataState==TAF_MNGD_CONN_DATA_CONNECTION_STALLED)
+                {
+                    connCtxPtr->adminState = TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE;
+                    ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_CONNECTED);
+                }
+            }
+    }
+    else
+    {
+        //In case of null url
+        le_timer_Stop(connCtxPtr->periodicConnectivityTestTimerRef);
     }
 }
 
@@ -2549,6 +2686,8 @@ const char * tafMngdConnAdmin::EventToString(taf_mngd_Conn_EventType_t event)
             return "TAF_MNGD_CONN_EVT_GET_CONNECTION_INFO_SYNC";
         case TAF_MNGD_CONN_EVT_DATA_START_CONNECTIONTEST:
             return "TAF_MNGD_CONN_EVT_DATA_START_CONNECTIONTEST";
+        case TAF_MNGD_CONN_EVT_DATA_START_PERIODIC_CONNECTIONTEST:
+            return "TAF_MNGD_CONN_EVT_DATA_START_PERIODIC_CONNECTIONTEST";
         case TAF_MNGD_CONN_EVT_CONN_RECOVERY_SCHEDULE:
             return "TAF_MNGD_CONN_EVT_CONN_RECOVERY_SCHEDULE";
         case TAF_MNGD_CONN_EVT_CONN_RECOVERY_CANCEL:

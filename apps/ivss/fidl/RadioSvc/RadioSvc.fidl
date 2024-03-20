@@ -10,23 +10,69 @@ interface RadioSvc
 {
     version { major 0 minor 1 }
 
+    <** @description: RAT bitmask **>
+    typedef RatBitMask is UInt32
+    const UInt32 RAT_BIT_MASK_GSM = 0x1         /// GSM bitmask.
+    const UInt32 RAT_BIT_MASK_UMTS = 0x2        /// UMTS bitmask.
+    const UInt32 RAT_BIT_MASK_CDMA = 0x4        /// CDMA bitmask.
+    const UInt32 RAT_BIT_MASK_TDSCDMA = 0x8     /// TDSCDMA bitmask.
+    const UInt32 RAT_BIT_MASK_LTE = 0x10        /// LTE bitmask.
+    const UInt32 RAT_BIT_MASK_NR5G = 0x20       /// NR5G bitmask.
+    const UInt32 RAT_BIT_MASK_ALL = 0x40        /// All RAT bitmask.
+
     <** @description: Type to represent different RATs supported by the system **>
     enumeration Rat
     {
-        RAT_UNKNOWN //< Unknown RAT.
-        RAT_GSM     //< GSM - Global System for Mobile communications.
-        RAT_GPRS    //< GSM GPRS - General Packet Radio Service.
-        RAT_EDGE    //< GSM EDGE - Enhanced Data rate for GSM Evolution.
-        RAT_EHRPD   //< CDMA EHRPD - Evolved High Rate Package Data.
-        RAT_UMTS    //< UMTS - Universal Mobile Telecommunications System.
-        RAT_HSPA    //< UMTS HSPA - High Speed Packet Access.
-        RAT_HSDPA   //< UMTS HSDPA - High Speed Downlink Packet Access.
-        RAT_HSUPA   //< UMTS HSUPA - High Speed Uplink Packet Access.
-        RAT_HSPAP   //< UMTS HSPAP - HSPA+.
-        RAT_TDSCDMA //< TDSCDMA - Time Division-Synchronous Code Division Multiple Access.
-        RAT_LTE     //< LTE - Long Term Evolution.
-        RAT_LTE_CA  //< LTE CA - LTE Carrier Aggregation.
-        RAT_NR5G    //< NR5G - New Radio 5G.
+        RAT_UNKNOWN ///< Unknown RAT.
+        RAT_GSM     ///< GSM - Global System for Mobile communications.
+        RAT_GPRS    ///< GSM GPRS - General Packet Radio Service.
+        RAT_EDGE    ///< GSM EDGE - Enhanced Data rate for GSM Evolution.
+        RAT_EHRPD   ///< CDMA EHRPD - Evolved High Rate Package Data.
+        RAT_UMTS    ///< UMTS - Universal Mobile Telecommunications System.
+        RAT_HSPA    ///< UMTS HSPA - High Speed Packet Access.
+        RAT_HSDPA   ///< UMTS HSDPA - High Speed Downlink Packet Access.
+        RAT_HSUPA   ///< UMTS HSUPA - High Speed Uplink Packet Access.
+        RAT_HSPAP   ///< UMTS HSPAP - HSPA+.
+        RAT_TDSCDMA ///< TDSCDMA - Time Division-Synchronous Code Division Multiple Access.
+        RAT_LTE     ///< LTE - Long Term Evolution.
+        RAT_LTE_CA  ///< LTE CA - LTE Carrier Aggregation.
+        RAT_NR5G    ///< NR5G - New Radio 5G.
+    }
+
+    <** @description: Network registration state **>
+    enumeration NetRegState
+    {
+        NET_REG_STATE_NONE                      ///< Not registered and not searching.
+        NET_REG_STATE_HOME                      ///< Home registered.
+        NET_REG_STATE_SEARCHING                 ///< Not registered and searching.
+        NET_REG_STATE_DENIED                    ///< Registration denied.
+        NET_REG_STATE_ROAMING                   ///< Roaming registered.
+        NET_REG_STATE_UNKNOWN                   ///< Unknown registration state.
+        NET_REG_STATE_EMERGENCY_AVAILABLE       ///< Not registered and not searching,
+    }
+
+    <** @description: ENDC(Enhanced Dual Connectivity) Availability status on 5G NR**>
+    enumeration NREndcAvailability
+    {
+        NR_ENDC_UNKNOWN       ///< NR ENDC Status unknown.
+        NR_ENDC_AVAILABLE     ///< NR ENDC is Available
+        NR_ENDC_UNAVAILABLE   ///< NR ENDC is not Available
+    }
+
+    <** @description: DCNR(Dual Connectivity with NR) Restriction status on 5G NR **>
+    enumeration NRDcnrRestriction
+    {
+        NR_DCNR_UNKNOWN         ///< NR DCNR Status unknown.
+        NR_DCNR_RESTRICTED      ///< NR DCNR is Restricted
+        NR_DCNR_UNRESTRICTED    ///< NR DCNR is not Restricted
+    }
+
+    <** @description: Radio status enum **>
+    enumeration States
+    {
+        OFF             ///< Radio explictly powered off
+        UNAVAILABLE     ///< Radio unavailable
+        ON              ///< Radio is on
     }
 
     <** @description: Set power state of the Radio **>
@@ -98,6 +144,82 @@ interface RadioSvc
         error Result            ///< return result.
     }
 
+    <** @description: Gets SIM maximum counts and RAT capabilities **>
+    method GetHardwareConfig
+    {
+        in
+        {
+            PhoneId phoneId                 ///< Phone ID.
+        }
+        out
+        {
+            UInt8 totalSimCount             ///< The max number of sims supported simultaneously.
+            UInt8 maxActiveSims             ///< The max number of sims that can be active
+                                            /// simultaneously.
+            RatBitMask deviceRatCapMask     ///< Device rat capability bitmask.
+            RatBitMask simRatCapMask        ///< Sim rat capability bitmask.
+        }
+        error Result                        ///< return result.
+    }
+
+    <** @description: Gets the RAT preferences **>
+    method GetRatPreferences
+    {
+        in
+        {
+            PhoneId phoneId     ///< Phone ID.
+        }
+        out
+        {
+            RatBitMask ratMask  ///< Bitmask for RAT prefences.
+        }
+        error Result            ///< return result.
+    }
+
+    <** @description: Gets the long name and short name of the network **>
+    method GetCurrentNetworkName
+    {
+        in
+        {
+            PhoneId phoneId     ///< Phone ID.
+        }
+        out
+        {
+            String longName     ///< Current network's long name.
+            String shortName    ///< Current network's short name.
+        }
+        error Result            ///< return result.
+    }
+
+    <** @description: Gets the network registration state **>
+    method GetNetRegState
+    {
+        in
+        {
+            PhoneId phoneId     ///< Phone ID.
+        }
+        out
+        {
+            NetRegState netReg  ///< Network registration state.
+        }
+        error Result            ///< return result.
+    }
+
+    <** @description: Gets the DCNR and ENDC mode status **>
+    method GetNrDualConnectivityStatus
+    {
+        in
+        {
+            PhoneId phoneId                 ///< Phone ID.
+        }
+        out
+        {
+            NREndcAvailability statusEndc   ///< ENDC availability status.
+            NRDcnrRestriction statusDcnr    ///< DCNR restriction status.
+        }
+        error Result                        ///< return result.
+    }
+
     <** @description: Event to report signal strength change  **>
     broadcast SignalStrength
     {
@@ -117,6 +239,15 @@ interface RadioSvc
         {
             Rat rat             ///< Radio Access Technology.
             PhoneId phoneId     ///< Phone ID.
+        }
+    }
+
+    <** @description: Event to radio state change  **>
+    broadcast RadioState
+    {
+        out
+        {
+            States radioState   ///< Radio state.
         }
     }
 }

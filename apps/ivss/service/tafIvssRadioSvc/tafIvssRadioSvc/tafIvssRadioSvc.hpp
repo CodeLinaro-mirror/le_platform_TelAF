@@ -76,6 +76,66 @@ typedef struct
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Gets SIM maximum counts and RAT capabilities structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint8_t phoneId;                    ///< [IN] Phone ID.
+    uint8_t totalSimCount;              ///< [OUT] The max number of sims supported simultaneously.
+    uint8_t maxActiveSims;              ///< [OUT] The max number of sims that can be active
+    taf_radio_RatBitMask_t deviceRatCapMask;    ///< [OUT] Device rat capability bitmask.
+    taf_radio_RatBitMask_t simRatCapMask;       ///< [OUT] Sim rat capability bitmask.
+}taf_IvssRadio_GetHardwareConfig_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the RAT preferences structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint8_t phoneId;                    ///< [IN] Phone ID.
+    taf_radio_RatBitMask_t ratMask;     ///< [OUT] Device rat capability bitmask.
+}taf_IvssRadio_GetRatPreferences_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the long name and short name of the network structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint8_t phoneId;                                    ///< [IN] Phone ID.
+    char longName[TAF_RADIO_NETWORK_NAME_MAX_LEN];      ///< [OUT] Long network name.
+    char shortName[TAF_RADIO_NETWORK_NAME_MAX_LEN];     ///< [OUT] Short network name.
+}taf_IvssRadio_GetCurrentNetworkName_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the network registration state structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint8_t phoneId;                        ///< [IN] Phone ID.
+    taf_radio_NetRegState_t netReg;         ///< [OUT] Network registration state.
+}taf_IvssRadio_GetNetRegState_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the DCNR and ENDC mode status
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint8_t phoneId;                                ///< [IN] Phone ID.
+    taf_radio_NREndcAvailability_t statusEndc;      ///< [OUT] Endc status.
+    taf_radio_NRDcnrRestriction_t statusDcnr;       ///< [OUT] Dcnr status.
+}taf_IvssRadio_GetNrDualConnectivityStatus_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Ivss radio method indication structure
  */
 //--------------------------------------------------------------------------------------------------
@@ -90,9 +150,19 @@ typedef struct
         taf_IvssRadio_GetSignalStrength_t getSignalStrength;
         taf_IvssRadio_GetRegisterMode_t getRegisterMode;
         taf_IvssRadio_SetAutomaticRegisterMode_t setAutomaticRegisterMode;
+        taf_IvssRadio_GetHardwareConfig_t getHardwareConfig;
+        taf_IvssRadio_GetRatPreferences_t getRatPreferences;
+        taf_IvssRadio_GetCurrentNetworkName_t getCurrentNetworkName;
+        taf_IvssRadio_GetNetRegState_t getNetRegState;
+        taf_IvssRadio_GetNrDualConnectivityStatus_t getNrDualConnectivityStatus;
     };
 }taf_IvssRadio_Ind_t;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Convert rat type from radio to IVSS
+ */
+//--------------------------------------------------------------------------------------------------
 inline RadioSvc::Rat RatRadioToIvss(taf_radio_Rat_t rat)
 {
     RadioSvc::Rat ret = RadioSvc::Rat::RAT_UNKNOWN;
@@ -147,6 +217,11 @@ inline RadioSvc::Rat RatRadioToIvss(taf_radio_Rat_t rat)
     return ret;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Convert rat type from IVSS to radio
+ */
+//--------------------------------------------------------------------------------------------------
 inline taf_radio_Rat_t RatIvssToRadio(RadioSvc::Rat rat)
 {
     taf_radio_Rat_t ret = TAF_RADIO_RAT_UNKNOWN;
@@ -201,14 +276,185 @@ inline taf_radio_Rat_t RatIvssToRadio(RadioSvc::Rat rat)
     return ret;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Convert RAT bitmask type from radio to IVSS
+ */
+//--------------------------------------------------------------------------------------------------
+inline RadioSvc::RatBitMask RatBitMaskRadioToIvss(taf_radio_RatBitMask_t ratBitMask)
+{
+    RadioSvc constObj;
+    RadioSvc::RatBitMask ret = 0x0;
+    if (ratBitMask & TAF_RADIO_RAT_BIT_MASK_ALL)
+    {
+        ret |= constObj.RAT_BIT_MASK_ALL;
+    }
+    if (ratBitMask & TAF_RADIO_RAT_BIT_MASK_GSM)
+    {
+        ret |= constObj.RAT_BIT_MASK_GSM;
+    }
+    if (ratBitMask & TAF_RADIO_RAT_BIT_MASK_UMTS)
+    {
+        ret |= constObj.RAT_BIT_MASK_UMTS;
+    }
+    if (ratBitMask & TAF_RADIO_RAT_BIT_MASK_CDMA)
+    {
+        ret |= constObj.RAT_BIT_MASK_CDMA;
+    }
+    if (ratBitMask & TAF_RADIO_RAT_BIT_MASK_TDSCDMA)
+    {
+        ret |= constObj.RAT_BIT_MASK_TDSCDMA;
+    }
+    if (ratBitMask & TAF_RADIO_RAT_BIT_MASK_LTE)
+    {
+        ret |= constObj.RAT_BIT_MASK_LTE;
+    }
+    if (ratBitMask & TAF_RADIO_RAT_BIT_MASK_NR5G)
+    {
+        ret |= constObj.RAT_BIT_MASK_NR5G;
+    }
+    return ret;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Convert network registration state type from radio to IVSS
+ */
+//--------------------------------------------------------------------------------------------------
+inline RadioSvc::NetRegState NetRegRadioToIvss(taf_radio_NetRegState_t netReg)
+{
+    RadioSvc::NetRegState ret = RadioSvc::NetRegState::NET_REG_STATE_UNKNOWN;
+    switch (netReg)
+    {
+        case TAF_RADIO_NET_REG_STATE_NONE:
+            ret = RadioSvc::NetRegState::NET_REG_STATE_NONE;
+            break;
+        case TAF_RADIO_NET_REG_STATE_HOME:
+            ret = RadioSvc::NetRegState::NET_REG_STATE_HOME;
+            break;
+        case TAF_RADIO_NET_REG_STATE_SEARCHING:
+            ret = RadioSvc::NetRegState::NET_REG_STATE_SEARCHING;
+            break;
+        case TAF_RADIO_NET_REG_STATE_DENIED:
+            ret = RadioSvc::NetRegState::NET_REG_STATE_DENIED;
+            break;
+        case TAF_RADIO_NET_REG_STATE_ROAMING:
+            ret = RadioSvc::NetRegState::NET_REG_STATE_ROAMING;
+            break;
+        case TAF_RADIO_NET_REG_STATE_UNKNOWN:
+            ret = RadioSvc::NetRegState::NET_REG_STATE_UNKNOWN;
+            break;
+        case TAF_RADIO_NET_REG_STATE_NONE_AND_EMERGENCY_AVAILABLE:
+        case TAF_RADIO_NET_REG_STATE_SEARCHING_AND_EMERGENCY_AVAILABLE:
+        case TAF_RADIO_NET_REG_STATE_DENIED_AND_EMERGENCY_AVAILABLE:
+        case TAF_RADIO_NET_REG_STATE_UNKNOWN_AND_EMERGENCY_AVAILABLE:
+            ret = RadioSvc::NetRegState::NET_REG_STATE_EMERGENCY_AVAILABLE;
+            break;
+        default:
+            LE_ERROR("NetRegRadioToIvss : Unsupported input (%d)", static_cast<int>(netReg));
+            break;
+    }
+    return ret;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Convert NREndc availability status type from radio to IVSS
+ */
+//--------------------------------------------------------------------------------------------------
+inline RadioSvc::NREndcAvailability NREndcRadioToIvss(taf_radio_NREndcAvailability_t statusEndc)
+{
+    RadioSvc::NREndcAvailability ret = RadioSvc::NREndcAvailability::NR_ENDC_UNKNOWN;
+    switch (statusEndc)
+    {
+        case TAF_RADIO_NR_ENDC_UNKNOWN:
+            ret = RadioSvc::NREndcAvailability::NR_ENDC_UNKNOWN;
+            break;
+        case TAF_RADIO_NR_ENDC_AVAILABLE:
+            ret = RadioSvc::NREndcAvailability::NR_ENDC_AVAILABLE;
+            break;
+        case TAF_RADIO_NR_ENDC_UNAVAILABLE:
+            ret = RadioSvc::NREndcAvailability::NR_ENDC_UNAVAILABLE;
+            break;
+        default:
+            LE_ERROR("NREndcRadioToIvss : Unsupported input (%d)", static_cast<int>(statusEndc));
+            break;
+    }
+    return ret;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Convert NRDcnr restriction status type from radio to IVSS
+ */
+//--------------------------------------------------------------------------------------------------
+inline RadioSvc::NRDcnrRestriction NRDcnrRadioToIvss(taf_radio_NRDcnrRestriction_t statusDcnr)
+{
+    RadioSvc::NRDcnrRestriction ret = RadioSvc::NRDcnrRestriction::NR_DCNR_UNKNOWN;
+    switch (statusDcnr)
+    {
+        case TAF_RADIO_NR_DCNR_UNKNOWN:
+            ret = RadioSvc::NRDcnrRestriction::NR_DCNR_UNKNOWN;
+            break;
+        case TAF_RADIO_NR_DCNR_RESTRICTED:
+            ret = RadioSvc::NRDcnrRestriction::NR_DCNR_RESTRICTED;
+            break;
+        case TAF_RADIO_NR_DCNR_UNRESTRICTED:
+            ret = RadioSvc::NRDcnrRestriction::NR_DCNR_UNRESTRICTED;
+            break;
+        default:
+            LE_ERROR("NRDcnrRadioToIvss : Unsupported input (%d)", static_cast<int>(statusDcnr));
+            break;
+    }
+    return ret;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Convert states type from radio to IVSS
+ */
+//--------------------------------------------------------------------------------------------------
+inline RadioSvc::States StatesRadioToIvss(taf_radio_OpMode_t mode)
+{
+    RadioSvc::States ret = RadioSvc::States::UNAVAILABLE;
+    switch (mode)
+    {
+        case TAF_RADIO_OP_MODE_ONLINE:
+            ret = RadioSvc::States::ON;
+            break;
+        case TAF_RADIO_OP_MODE_AIRPLANE:
+        case TAF_RADIO_OP_MODE_PERSISTENT_LOW_POWER:
+            ret = RadioSvc::States::OFF;
+            break;
+        case TAF_RADIO_OP_MODE_FACTORY_TEST:
+        case TAF_RADIO_OP_MODE_OFFLINE:
+        case TAF_RADIO_OP_MODE_RESETTING:
+        case TAF_RADIO_OP_MODE_SHUTTING_DOWN:
+            ret = RadioSvc::States::UNAVAILABLE;
+            break;
+        default:
+            LE_ERROR("StatesRadioToIvss : Unsupported input (%d)", static_cast<int>(mode));
+            break;
+    }
+    return ret;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * IVSS radio service class
+ */
+//--------------------------------------------------------------------------------------------------
 class tafIvssRadioSvcStubImpl: public v0_1::com::qualcomm::qti::modem::RadioSvcStubDefault
 {
 public:
     tafIvssRadioSvcStubImpl() {};
     virtual ~tafIvssRadioSvcStubImpl() {};
 
+    /*
+     * The initialization function of the Radio Service.
+     */
     void Init();
-    // Static member functions.
+
     static tafIvssRadioSvcStubImpl &GetInstance();
     std::shared_ptr<tafIvssRadioSvcStubImpl> IvssSevice;
 
@@ -222,35 +468,62 @@ public:
         CommonTypes::PhoneId _phoneId, GetRegisterModeReply_t _reply);
     virtual void SetAutomaticRegisterMode(const std::shared_ptr<CommonAPI::ClientId> _client,
         CommonTypes::PhoneId _phoneId, SetAutomaticRegisterModeReply_t _reply);
+    virtual void GetHardwareConfig(const std::shared_ptr<CommonAPI::ClientId> _client,
+        CommonTypes::PhoneId _phoneId, GetHardwareConfigReply_t _reply);
+    virtual void GetRatPreferences(const std::shared_ptr<CommonAPI::ClientId> _client,
+        CommonTypes::PhoneId _phoneId, GetRatPreferencesReply_t _reply);
+    virtual void GetCurrentNetworkName(const std::shared_ptr<CommonAPI::ClientId> _client,
+        CommonTypes::PhoneId _phoneId, GetCurrentNetworkNameReply_t _reply);
+    virtual void GetNetRegState(const std::shared_ptr<CommonAPI::ClientId> _client,
+        CommonTypes::PhoneId _phoneId, GetNetRegStateReply_t _reply);
+    virtual void GetNrDualConnectivityStatus(const std::shared_ptr<CommonAPI::ClientId> _client,
+        CommonTypes::PhoneId _phoneId, GetNrDualConnectivityStatusReply_t _reply);
 
     static void SetRadioPowerHandler(void* reportPtr);
     static void GetRadioPowerHandler(void* reportPtr);
     static void GetSignalStrengthHandler(void* reportPtr);
     static void GetRegisterModeHandler(void* reportPtr);
     static void SetAutomaticRegisterModeHandler(void* reportPtr);
+    static void GetHardwareConfigHandler(void* reportPtr);
+    static void GetRatPreferencesHandler(void* reportPtr);
+    static void GetCurrentNetworkNameHandler(void* reportPtr);
+    static void GetNetRegStateHandler(void* reportPtr);
+    static void GetNrDualConnectivityStatusHandler(void* reportPtr);
 
     // memory pools.
     le_mem_PoolRef_t EventPool;
 
-    // commonapi interface.
+    // ivss method.
     le_event_Id_t SetRadioPowerEvent = NULL;
     le_event_Id_t GetRadioPowerEvent = NULL;
     le_event_Id_t GetSignalStrengthEvent = NULL;
     le_event_Id_t GetRegisterModeEvent = NULL;
     le_event_Id_t SetAutomaticRegisterModeEvent = NULL;
+    le_event_Id_t GetHardwareConfigEvent = NULL;
+    le_event_Id_t GetRatPreferencesEvent = NULL;
+    le_event_Id_t GetCurrentNetworkNameEvent = NULL;
+    le_event_Id_t GetNetRegStateEvent = NULL;
+    le_event_Id_t GetNrDualConnectivityStatusEvent = NULL;
 
     le_event_HandlerRef_t SetRadioPowerEventHandlerRef;
     le_event_HandlerRef_t GetRadioPowerEventHandlerRef;
     le_event_HandlerRef_t GetSignalStrengthEventHandlerRef;
     le_event_HandlerRef_t GetRegisterModeEventHandlerRef;
     le_event_HandlerRef_t SetAutomaticRegisterModeEventHandlerRef;
+    le_event_HandlerRef_t GetHardwareConfigEventHandlerRef;
+    le_event_HandlerRef_t GetRatPreferencesEventHandlerRef;
+    le_event_HandlerRef_t GetCurrentNetworkNameEventHandlerRef;
+    le_event_HandlerRef_t GetNetRegStateEventHandlerRef;
+    le_event_HandlerRef_t GetNrDualConnectivityStatusEventHandlerRef;
 
+    // ivss event.
     taf_radio_RatChangeHandlerRef_t RatChangeHandlerRef;
     taf_radio_SignalStrengthChangeHandlerRef_t GsmSsChangeHandlerRef;
     taf_radio_SignalStrengthChangeHandlerRef_t UmtsSsChangeHandlerRef;
     taf_radio_SignalStrengthChangeHandlerRef_t TdscdmaSsChangeHandlerRef;
     taf_radio_SignalStrengthChangeHandlerRef_t LteSsChangeHandlerRef;
     taf_radio_SignalStrengthChangeHandlerRef_t Nr5gSsChangeHandlerRef;
+    taf_radio_OpModeChangeHandlerRef_t StateChangeHandlerRef;
 };
 
 #endif // TAFIVSSRADIOSVCSTUBIMPL_HPP_

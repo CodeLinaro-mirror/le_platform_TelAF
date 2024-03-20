@@ -16,16 +16,31 @@ define org.genivi.commonapi.core.deployment for interface com.qualcomm.qti.modem
     {
         EnumBackingType = UInt32
     }
+
+    enumeration NetRegState
+    {
+        EnumBackingType = UInt32
+    }
+
+    enumeration NREndcAvailability
+    {
+        EnumBackingType = UInt32
+    }
+
+    enumeration NRDcnrRestriction
+    {
+        EnumBackingType = UInt32
+    }
+
+    enumeration States
+    {
+        EnumBackingType = UInt32
+    }
 }
 
 define org.genivi.commonapi.someip.deployment for interface com.qualcomm.qti.modem.RadioSvc
 {
     SomeIpServiceID = 0xED80
-
-    enumeration Rat
-    {
-        SomeIpEnumWidth = 4
-    }
 
     method SetRadioPower
     {
@@ -52,6 +67,31 @@ define org.genivi.commonapi.someip.deployment for interface com.qualcomm.qti.mod
         SomeIpMethodID = 30050
     }
 
+    method GetHardwareConfig
+    {
+        SomeIpMethodID = 30060
+    }
+
+    method GetRatPreferences
+    {
+        SomeIpMethodID = 30070
+    }
+
+    method GetCurrentNetworkName
+    {
+        SomeIpMethodID = 30080
+    }
+
+    method GetNetRegState
+    {
+        SomeIpMethodID = 30090
+    }
+
+    method GetNrDualConnectivityStatus
+    {
+        SomeIpMethodID = 30100
+    }
+
     broadcast SignalStrength
     {
         SomeIpEventID = 33020
@@ -62,6 +102,12 @@ define org.genivi.commonapi.someip.deployment for interface com.qualcomm.qti.mod
     {
         SomeIpEventID = 33030
         SomeIpEventGroups = { 33030 }
+    }
+
+    broadcast RadioState
+    {
+        SomeIpEventID = 33040
+        SomeIpEventGroups = { 33040 }
     }
 }
 

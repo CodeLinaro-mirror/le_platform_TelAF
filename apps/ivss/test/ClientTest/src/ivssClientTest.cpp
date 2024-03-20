@@ -101,6 +101,31 @@ std::string StateToString
 
     return stateString;
 }
+
+std::string RadioStatesToString
+(
+    RadioSvc::States radioState ///< [IN] Radio state.
+)
+{
+    std::string statesString;
+    switch (radioState)
+    {
+        case RadioSvc::States::ON:
+            statesString = "ON";
+            break;
+        case RadioSvc::States::OFF:
+            statesString = "OFF";
+            break;
+        case RadioSvc::States::UNAVAILABLE:
+            statesString = "UNAVAILABLE";
+            break;
+        default:
+            statesString = "Unsupported";
+            break;
+    }
+
+    return statesString;
+}
 //--------------------------------------------------------------------------------------------------
 /**
  * main
@@ -109,19 +134,24 @@ std::string StateToString
 int main(int argc, char* argv[])
 {
     uint32_t svcMask = IVSS_TEST_SVC_MASK_ALL;
-    if (argc >= 2) 
+    if (argc >= 2)
     {
         std::string inputMask = argv[1];
         std::istringstream iss(inputMask);
 
-        if (inputMask.size() >= 2 && (inputMask.substr(0, 2) == "0x" || inputMask.substr(0, 2) == "0X")) {
+        if (inputMask.size() >= 2 && (inputMask.substr(0, 2) == "0x" ||
+            inputMask.substr(0, 2) == "0X"))
+        {
             // Resolve to hexadecimal
             iss >> std::hex >> svcMask;
-        } else {
+        }
+        else 
+        {
             // Resolve to decimal
             iss >> std::dec >> svcMask;
         }
-        if (iss.fail()) {
+        if (iss.fail())
+        {
             std::cerr << "Invalid value: " << inputMask << std::endl;
             return 1;
         }
@@ -170,7 +200,15 @@ int main(int argc, char* argv[])
                 std::cout << "======== GetSignalStrengthEvent Test ========" << std::endl;
                 std::cout << "Rat is :" << RatToString(rat) << std::endl;
                 std::cout << "phoneId = " << static_cast<unsigned int>(phoneId) << "  ss = " << ss
-                        << "  rsrp = " << rsrp << std::endl<< std::endl;
+                    << "  rsrp = " << rsrp << std::endl<< std::endl;
+            }
+        );
+
+        radioProxy->getRadioStateEvent().subscribe([&](const RadioSvc::States& radioState)
+            {
+                std::cout << "======== getRadioStateEvent Test ========" << std::endl;
+                std::cout << "Radio State change to :" << RadioStatesToString(radioState)
+                    << std::endl << std::endl;
             }
         );
 
@@ -180,7 +218,7 @@ int main(int argc, char* argv[])
         CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!")
         CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!")
         std::cout << "SetRadioPower SUCCESS " << std::endl << std::endl;
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        std::this_thread::sleep_for(std::chrono::seconds(2));
 
         std::cout << "======== getPower Test ========" << "'\n";
         radioProxy->GetRadioPower(phoneId, callStatus, methodError, power);
@@ -195,7 +233,7 @@ int main(int argc, char* argv[])
         CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!")
         CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!")
         std::cout << "SetRadioPower SUCCESS " << std::endl << std::endl;
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        std::this_thread::sleep_for(std::chrono::seconds(2));
 
         std::cout << "======== getPower Test ========" << "'\n";
         radioProxy->GetRadioPower(phoneId, callStatus, methodError, power);
@@ -223,8 +261,9 @@ int main(int argc, char* argv[])
         radioProxy->GetRegisterMode(phoneId, callStatus, methodError, isManual, mcc, mnc);
         CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!")
         CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!")
-        std::cout << "get Register Mode: isManual=" << isManual << " , mcc=" << mcc << " mnc=" << mnc
-            << std::endl << std::endl;
+        std::cout << "get Register Mode: isManual=" << isManual << " , mcc=" << mcc << " mnc="
+            << mnc << std::endl << std::endl;
+
 
         std::cout << "======== set Automatic Register Mode Test ========" << "'\n";
         rat = RadioSvc::Rat::RAT_LTE;
@@ -232,7 +271,65 @@ int main(int argc, char* argv[])
         CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!")
         CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!")
         std::cout << "set Automatic Register Mode success" << std::endl << std::endl;
+
+
+        std::cout << "======== Get Hardware Config Test ========" << "'\n";
+        uint8_t totalSimCount = 0;
+        uint8_t maxActiveSims = 0;
+        RadioSvc::RatBitMask deviceRatCapMask = 0x0;
+        RadioSvc::RatBitMask simRatCapMask = 0x0;
+        radioProxy->GetHardwareConfig(phoneId, callStatus, methodError, totalSimCount,
+            maxActiveSims, deviceRatCapMask, simRatCapMask);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!")
+        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!")
+        std::cout << "GetHardwareConfig: totalSimCount "
+            << static_cast<unsigned int>(totalSimCount) << "'\n"
+            << "maxActiveSims " << static_cast<unsigned int>(maxActiveSims) << "'\n"
+            << "deviceRatCapMask "<< static_cast<unsigned int>(deviceRatCapMask) << "'\n"
+            << "simRatCapMask "<< static_cast<unsigned int>(simRatCapMask) << "'\n"
+            << std::endl << std::endl;
+
+
+        std::cout << "======== Get Rat Preferences Test ========" << "'\n";
+        RadioSvc::RatBitMask ratMask = 0x0;
+        radioProxy->GetRatPreferences(phoneId, callStatus, methodError, ratMask);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!")
+        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!")
+        std::cout << "GetRatPreferences: ratMask " << static_cast<unsigned int>(ratMask)
+            << std::endl << std::endl;
+
+
+        std::cout << "======== Get Current Network Name Test ========" << "'\n";
+        std::string longName;
+        std::string shortName;
+        radioProxy->GetCurrentNetworkName(phoneId, callStatus, methodError, longName, shortName);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!")
+        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!")
+        std::cout << "GetCurrentNetworkName: longName " << longName << " shortName " << shortName
+            << std::endl << std::endl;
+
+
+        std::cout << "======== Get NetRegState Test ========" << "'\n";
+        RadioSvc::NetRegState netReg;
+        radioProxy->GetNetRegState(phoneId, callStatus, methodError, netReg);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!")
+        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!")
+        std::cout << "GetNetRegState: netReg " << static_cast<unsigned int>(netReg)
+            << std::endl << std::endl;
+
+
+        std::cout << "======== Get NrDualConnectivityStatus Test ========" << "'\n";
+        RadioSvc::NREndcAvailability statusEndc;
+        RadioSvc::NRDcnrRestriction statusDcnr;
+        radioProxy->GetNrDualConnectivityStatus(phoneId, callStatus, methodError, statusEndc,
+            statusDcnr);
+        CHECK_RETURN_VALUE(callStatus == CommonAPI::CallStatus::SUCCESS, "Remote call failed!")
+        CHECK_RETURN_VALUE(methodError == CommonTypes::Result::OK, "methodError!")
+        std::cout << "GetNrDualConnectivityStatus: statusEndc "
+            << static_cast<unsigned int>(statusEndc) << " statusDcnr "
+            << static_cast<unsigned int>(statusDcnr) << std::endl << std::endl;
     }
+
 
     if (svcMask & IVSS_TEST_SVC_SIM_MASK) {
         std::shared_ptr<SimSvcProxy<>> simProxy = runtime->buildProxy < SimSvcProxy > ("local",
@@ -271,6 +368,7 @@ int main(int argc, char* argv[])
         std::cout << "get Status: " << StateToString(simState) << std::endl << std::endl;
     }
 
+
     if (svcMask & IVSS_TEST_SVC_INFO_MASK) {
         std::shared_ptr<InfoSvcProxy<>> infoProxy = runtime->buildProxy < InfoSvcProxy > ("local",
             "modem.InfoSvc", "InfoSvcTest");;
@@ -292,7 +390,7 @@ int main(int argc, char* argv[])
 
     while (true) {
         std::cout << "Waiting for event... (Abort with CTRL+C)" << std::endl;
-        std::this_thread::sleep_for(std::chrono::seconds(5));   
+        std::this_thread::sleep_for(std::chrono::seconds(20));
     }
 
     return 0;

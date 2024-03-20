@@ -76,6 +76,7 @@
 #define TAF_TIME_SERVICE_HEADER_STR      "TimeService"
 #define TAF_TIME_INTERVAL_SETTING_STR    "PollingInterval"
 #define TAF_TIME_TOLERANCES_SETTING_STR  "ToleranceMillsec"
+#define TAF_TIME_ALLOWOVERRIDE_STR      "AllowOverrideAfterFail"
 #define TAF_TIME_SERVICE_SOURCE_STR      "Sources"
 
 #define TAF_TIME_RTC_DEV_NAME "/dev/rtc0"
@@ -257,6 +258,18 @@ typedef struct
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * The structure for getting info about current sytem timesource info.
+ */
+ //--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_time_TimeSources_t source = TAF_TIME_SRC_NAME_UNKNOWN;
+    bool validity;
+    uint64_t loopCount;
+}taf_timeSource_Info;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Class defination.
  */
 //--------------------------------------------------------------------------------------------------
@@ -280,6 +293,7 @@ namespace telux
             std::vector<Source> source;
             long int pollingInterval;
             long int toleranceMillsec;
+            int64_t allowOverrideAfterFail;
             int sourceArrySize;
             int sourceVectorSize;
 
@@ -370,6 +384,10 @@ namespace telux
                 if (toleranceMillsec) {
                     LE_INFO("ToleranceMillsec: %ld\n", toleranceMillsec);
                 }
+                if (allowOverrideAfterFail) {
+                    LE_INFO("allowOverrideAfterFail: %ld\n", allowOverrideAfterFail);
+                }
+                LE_INFO("allowOverrideAfterFail: %ld\n", allowOverrideAfterFail);
                 LE_INFO("Time source size: %ld\n", source.size());
             }
         };
@@ -563,6 +581,7 @@ namespace telux
                     taf_time_AsyncSetTimeReqHandlerFunc_t handlerPtr, void* contextPtr);
                 le_result_t GetRtcTimeReqAsync(taf_time_AsyncGetTimeReqHandlerFunc_t handlerPtr,
                     void* contextPtr);
+                bool isNewTimeSrcSetTimeAllowed(taf_time_TimeSources_t newTimeSource);
 
             private:
                 std::shared_ptr<ITimeListener> gnssTimeListener = nullptr;
@@ -571,7 +590,7 @@ namespace telux
 
                 struct SetTimeStatus* SetTimeSt = NULL;
                 uint64_t TimeSourceStatusMap = 0x0;
-
+                int64_t AllowOverrideAfterFail = -1;
                 pthread_mutex_t ProtectlocalTime_mutex;
         };
     }

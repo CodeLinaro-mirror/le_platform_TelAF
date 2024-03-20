@@ -26,7 +26,7 @@
 //--------------------------------------------------------------------------------------------------
 extern "C" LE_SHARED le_result_t taf_time_GetLocalPtpTime
 (
-    timespec* timeValPtr
+    struct timespec* timeValPtr
 )
 {
     struct timespec ts;

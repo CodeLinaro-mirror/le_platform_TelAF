@@ -453,7 +453,6 @@ le_result_t taf_time_GetRtcTimeReqAsync(taf_time_AsyncGetTimeReqHandlerFunc_t ha
 
  SIDE EFFECTS
 ------------------------------------------------------------------------------*/
-
 le_result_t taf_time_SetRtcTimeReqAsync(const taf_time_TimeSpec_t* timeValPtr,
         taf_time_AsyncSetTimeReqHandlerFunc_t handlerPtr, void* contextPtr)
 {

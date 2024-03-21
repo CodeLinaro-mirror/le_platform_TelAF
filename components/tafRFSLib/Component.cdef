@@ -1,0 +1,34 @@
+sources:
+{
+    tafRFSLib.cpp
+}
+
+requires:
+{
+    lib:
+    {
+    #if ${LE_CONFIG_ENABLE_SELINUX} =y
+        lib/libselinux.so.1
+    #endif
+    }
+}
+
+cxxflags:
+{
+    -I $TELAF_ROOT/include
+    -I $LEGATO_ROOT/framework/liblegato/
+    -I $TELAF_ROOT/include/staging
+}
+
+cflags:
+{
+    -I $TELAF_ROOT/include
+    -I $LEGATO_ROOT/framework/liblegato/
+    -I $TELAF_ROOT/include/staging
+}
+
+ldflags:
+{
+    -lssl
+    -lcrypto
+}

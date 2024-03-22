@@ -7,6 +7,7 @@ provides:
         taf_diagReset.api
         taf_diagSecurity.api
         taf_diagDataID.api
+        taf_diagEvent.api
     }
 }
 
@@ -14,7 +15,9 @@ requires:
 {
     component:
     {
+        $TELAF_ROOT/components/tafDiagSvc/tafDiagCfg
         $TELAF_ROOT/components/tafUDSStack
+        $TELAF_ROOT/components/tafDataAccessComp
     }
 }
 
@@ -23,6 +26,8 @@ cxxflags:
     -I$LEGATO_ROOT/components/watchdogChain
     -I$TELAF_ROOT/include
     -I$TELAF_ROOT/components/tafUDSStack
+    -I$TELAF_ROOT/components/tafDataAccessComp
+    -I$TELAF_ROOT/components/tafDiagSvc/tafDiagCfg
 }
 
 cflags:
@@ -30,6 +35,7 @@ cflags:
     -I$LEGATO_ROOT/components/watchdogChain
     -I$TELAF_ROOT/include
     -I$TELAF_ROOT/components/tafUDSStack
+    -I$TELAF_ROOT/components/tafDataAccessComp
 }
 
 sources:
@@ -44,6 +50,9 @@ sources:
         tafSecuritySvrImpl.cpp
         tafDataIDSvc.cpp
         tafDataIDSvrImpl.cpp
+        tafEventSvc.cpp
+        tafEventSvrImpl.cpp
+        tafDTCInfImpl.cpp
         tafDiagFrontend.cpp
         tafDiagBackend.cpp
 }

@@ -57,8 +57,8 @@ bool tafMngdConnSvc_PolicyParser::Validate_DS_DC_Use_Data_ID(taf_mngd_Conn_Polic
 {
     LE_DEBUG("%s", Value.c_str());
 
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
-    if (TAF_MNGD_JSON_DATA_TYPE_NUMBER != DataType)
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
@@ -86,8 +86,8 @@ bool tafMngdConnSvc_PolicyParser::Validate_DS_DC_Priority(taf_mngd_Conn_Policy_t
                                                         int Index)
 {
     LE_DEBUG("%s", Value.c_str());
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
-    if (TAF_MNGD_JSON_DATA_TYPE_NUMBER != DataType)
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
@@ -114,14 +114,14 @@ bool tafMngdConnSvc_PolicyParser::Validate_DS_Fallback(taf_mngd_Conn_Policy_t &P
                                                         int Index)
 {
     LE_DEBUG("%s", Value.c_str());
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
-    if (TAF_MNGD_JSON_DATA_TYPE_YES_NO != DataType)
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_YES_NO != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
     }
     // Valid value. Update Policy.
-    Policy.DataSession.Fallback = tafMngd_Convert_to_Yes_No_enum(Value);
+    Policy.DataSession.Fallback = mcs_Convert_to_Yes_No_enum(Value);
     return true;
 }
 
@@ -133,20 +133,20 @@ bool tafMngdConnSvc_PolicyParser::Validate_MCSP_Name(taf_mngd_Conn_Policy_t &Pol
                                                         int Index)
 {
     LE_DEBUG("%s", Value.c_str());
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
-    if (TAF_MNGD_JSON_DATA_TYPE_STRING!= DataType)
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_STRING!= DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
     }
-    // Max string length should be TAF_MNGD_CONN_MAX_NAME_LEN
-    if (Value.size() > TAF_MNGD_CONN_MAX_NAME_LEN)
+    // Max string length should be MCS_MAX_NAME_LEN
+    if (Value.size() > MCS_MAX_NAME_LEN)
     {
         LE_WARN("Name is too long");
         return false;
     }
     // Valid value. Update Policy.
-    le_utf8_Copy(Policy.Name, Value.c_str(), TAF_MNGD_CONN_MAX_NAME_LEN,NULL);
+    le_utf8_Copy(Policy.Name, Value.c_str(), MCS_MAX_NAME_LEN,NULL);
     return true;
 }
 
@@ -160,14 +160,14 @@ bool tafMngdConnSvc_PolicyParser::Validate_DS_MDS_Enable(taf_mngd_Conn_Policy_t 
                                                         int Index)
 {
     LE_DEBUG("%s", Value.c_str());
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
-    if (TAF_MNGD_JSON_DATA_TYPE_YES_NO != DataType)
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_YES_NO != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
     }
     // Valid value. Update Policy.
-    Policy.DataSession.MultiDataSession.Enable = tafMngd_Convert_to_Yes_No_enum(Value);
+    Policy.DataSession.MultiDataSession.Enable = mcs_Convert_to_Yes_No_enum(Value);
     return true;
 }
 
@@ -180,8 +180,8 @@ bool tafMngdConnSvc_PolicyParser::Validate_DS_MDS_NumConnections(taf_mngd_Conn_P
 {
     LE_DEBUG("%s", Value.c_str());
 
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
-    if (TAF_MNGD_JSON_DATA_TYPE_NUMBER != DataType)
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
@@ -200,22 +200,22 @@ bool tafMngdConnSvc_PolicyParser::Validate_DS_CR_Level(taf_mngd_Conn_Policy_t &P
 {
     LE_DEBUG("%s", Value.c_str());
     //Check the JSON version to be atleast 24.03.00
-    if(Policy.Version != TAF_MNGD_CONN_JSON_Version_24_03_00)
+    if(Policy.Version != MCS_JSON_VERSION_24_03_00)
     {
         LE_WARN("Invalid JSON version");
         return false;
     }
 
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
-    if (TAF_MNGD_JSON_DATA_TYPE_CONNRECOVERY_LEVEL != DataType &&
-        TAF_MNGD_JSON_DATA_TYPE_NONE != DataType &&
-        TAF_MNGD_JSON_DATA_TYPE_NULL != DataType)
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_CONNRECOVERY_LEVEL != DataType &&
+        MCS_JSON_DATA_TYPE_NONE != DataType &&
+        MCS_JSON_DATA_TYPE_NULL != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
     }
 
-    if (TAF_MNGD_JSON_DATA_TYPE_UNKNOWN == DataType)
+    if (MCS_JSON_DATA_TYPE_UNKNOWN == DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
@@ -224,7 +224,7 @@ bool tafMngdConnSvc_PolicyParser::Validate_DS_CR_Level(taf_mngd_Conn_Policy_t &P
     // Valid value. Update Policy.
     // Since we have already validated type above, we can ignore return value here
     Policy.DataSession.ConnectivityRecovery.Level =
-                                        tafMngd_Convert_to_ConnRecovery_Level_Type_enum(Value);
+                                        mcs_Convert_to_ConnRecovery_Level_Type_enum(Value);
 
     return true;
 }
@@ -238,9 +238,9 @@ bool tafMngdConnSvc_PolicyParser::Validate_DS_CR_StartWaitTime(taf_mngd_Conn_Pol
 {
     LE_DEBUG("%s", Value.c_str());
 
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
-    if (TAF_MNGD_JSON_DATA_TYPE_NUMBER != DataType&&
-        TAF_MNGD_JSON_DATA_TYPE_NULL != DataType)
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NUMBER != DataType&&
+        MCS_JSON_DATA_TYPE_NULL != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
@@ -284,7 +284,7 @@ bool tafMngdConnSvc_PolicyParser::ValidateValue(taf_mngd_Conn_Policy_t &Policy,
  *
  * Function to parse JOSN. This function is aware of the JSON layout and will get each value
  * validated. This function will set the correct index for arrays. For non-array values, it
- * will set the index to -1 (TAF_MNGD_CONN_INVALID_INDEX)
+ * will set the index to -1 (MCS_INVALID_INDEX)
  *
  */
 bool tafMngdConnSvc_PolicyParser::ParseAndUpdatePolicyJSON(taf_mngd_Conn_Policy_t &Policy,
@@ -331,7 +331,7 @@ bool tafMngdConnSvc_PolicyParser::ParseAndUpdatePolicyJSON(taf_mngd_Conn_Policy_
                             // Validate the value and update Policy structure.
                             // Pass an invalid index as these are not arrays
                             if (!ValidateValue(Policy, JSON_Property, JSON_Value,
-                                                                TAF_MNGD_CONN_INVALID_INDEX))
+                                                                MCS_INVALID_INDEX))
                             {
                                 LE_WARN("Invalid JSON_Property Value");
                                 LE_INFO("JSON_Property: %s, Value: %s", JSON_Property.c_str(),
@@ -357,7 +357,7 @@ bool tafMngdConnSvc_PolicyParser::ParseAndUpdatePolicyJSON(taf_mngd_Conn_Policy_
                                     JSON_Value.append(child.second.get_value<std::string>());
                                     // Validate values. Index is set to invald.
                                     if (!ValidateValue(Policy, JSON_Property, JSON_Value,
-                                                                TAF_MNGD_CONN_INVALID_INDEX))
+                                                                MCS_INVALID_INDEX))
                                     {
                                         LE_WARN("Invalid JSON_Property Value");
                                         LE_INFO("JSON_Property: %s, Value: %s",
@@ -421,7 +421,7 @@ bool tafMngdConnSvc_PolicyParser::ParseAndUpdatePolicyJSON(taf_mngd_Conn_Policy_
                                             // Validate values. Index is set to correct value
                                             // as this is an array.
                                             if (!ValidateValue(Policy, JSON_Property, JSON_Value,
-                                            TAF_MNGD_CONN_INVALID_INDEX))
+                                            MCS_INVALID_INDEX))
                                             {
                                                 LE_WARN("Invalid JSON_Property Value");
                                                 LE_INFO("JSON_Property: %s, Value: %s",
@@ -448,7 +448,7 @@ bool tafMngdConnSvc_PolicyParser::ParseAndUpdatePolicyJSON(taf_mngd_Conn_Policy_
                                             // Validate values. Index is set to correct value
                                             // as this is an array.
                                             if (!ValidateValue(Policy, JSON_Property, JSON_Value,
-                                            TAF_MNGD_CONN_INVALID_INDEX))
+                                            MCS_INVALID_INDEX))
                                             {
                                                 LE_WARN("Invalid JSON_Property Value");
                                                 LE_INFO("JSON_Property: %s, Value: %s",

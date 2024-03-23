@@ -57,25 +57,25 @@ namespace tafsvc {
          * \brief Unknown data type
          *
          */
-        TAF_MNGD_JSON_DATA_TYPE_UNKNOWN = -1,
+        MCS_JSON_DATA_TYPE_UNKNOWN = -1,
 
         /**
          * \brief String data type
          *
          */
-        TAF_MNGD_JSON_DATA_TYPE_STRING,
+        MCS_JSON_DATA_TYPE_STRING,
 
         /**
          * \brief Number data type
          *
          */
-        TAF_MNGD_JSON_DATA_TYPE_NUMBER,
+        MCS_JSON_DATA_TYPE_NUMBER,
 
         /**
          * \brief Yes/No data type, a.k.a boolean
          *
          */
-        TAF_MNGD_JSON_DATA_TYPE_YES_NO,
+        MCS_JSON_DATA_TYPE_YES_NO,
 
         /**
          * \brief Network Registration data type.
@@ -85,67 +85,67 @@ namespace tafsvc {
          * - Manual
          *
          */
-        TAF_MNGD_JSON_DATA_TYPE_NW_REGISTRATION,
+        MCS_JSON_DATA_TYPE_NW_REGISTRATION,
 
         /**
          * \brief NULL data type
          *
          */
-        TAF_MNGD_JSON_DATA_TYPE_NULL,
+        MCS_JSON_DATA_TYPE_NULL,
 
         /**
          * \brief Object data type is not used
          *
          */
-        TAF_MNGD_JSON_DATA_TYPE_OBJECT,
+        MCS_JSON_DATA_TYPE_OBJECT,
 
         /**
          * \brief Array data type is not used
          *
          */
-        TAF_MNGD_JSON_DATA_TYPE_ARRAY,
+        MCS_JSON_DATA_TYPE_ARRAY,
 
         /**
          * \brief None Data type when ConnectivityRecovery is disabled
          *
          */
-        TAF_MNGD_JSON_DATA_TYPE_NONE,
+        MCS_JSON_DATA_TYPE_NONE,
 
         /**
          * \brief ConnectivityRecovery Level data type.
          *
          */
-        TAF_MNGD_JSON_DATA_TYPE_CONNRECOVERY_LEVEL
+        MCS_JSON_DATA_TYPE_CONNRECOVERY_LEVEL
 
-    } taf_mngd_JSON_Data_Types_t;
+    } mcs_JSON_Data_Types_t;
 
     /*
      * This function will return the data type of the value passed to it
      *
      * @param [in] Value       Value (in string format) read from JSON
      */
-    taf_mngd_JSON_Data_Types_t tafMngd_GetDataType(std::string Value);
+    mcs_JSON_Data_Types_t mcs_GetDataType(std::string Value);
 
     /*
-     * This function will return taf_mngd_Yes_No_t enum from Yes/No string
+     * This function will return mcs_Yes_No_t enum from Yes/No string
      *
      * @param [in] Value       Yes/No (in string format) read from JSON
      */
-    taf_mngd_Yes_No_t tafMngd_Convert_to_Yes_No_enum(std::string Value);
+    mcs_Yes_No_t mcs_Convert_to_Yes_No_enum(std::string Value);
 
     /*
-     * This function will return taf_mngd_NW_Registration_Type_t enum from registration type string.
+     * This function will return mcs_NW_Registration_Type_t enum from registration type string.
      *
      * @param [in] Value       Auto/Manual (in string format) read from JSON
      */
-    taf_mngd_NW_Registration_Type_t tafMngd_Convert_to_NW_Registration_Type_enum(std::string Value);
+    mcs_NW_Registration_Type_t mcs_Convert_to_NW_Registration_Type_enum(std::string Value);
 
     /*
-     * This function will return taf_mngd_Conn_Policy_ConnRecoveryLevel_t enum from None/L1 string
+     * This function will return mcs_Policy_ConnRecoveryLevel_t enum from None/L1 string
      *
      * @param [in] Value       None/L1 (in string format) read from JSON
      */
-    taf_mngd_Conn_Policy_ConnRecoveryLevel_t tafMngd_Convert_to_ConnRecovery_Level_Type_enum
+    mcs_Policy_ConnRecoveryLevel_t mcs_Convert_to_ConnRecovery_Level_Type_enum
                                             (std::string Value);
 
 }

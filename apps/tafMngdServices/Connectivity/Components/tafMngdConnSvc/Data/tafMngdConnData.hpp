@@ -51,7 +51,7 @@ namespace tafsvc {
             static tafMngdConnData &GetInstance();
             le_result_t Startdata(uint8_t phoneId, uint32_t profileId);
             le_result_t Stopdata(uint8_t phoneId, uint32_t profileId);
-            le_result_t GetConnectionInfo(taf_mngd_Conn_Ctx_t* connCtxPtr);
+            le_result_t GetConnectionInfo(mcs_DataCtx_t* dataCtxPtr);
             le_result_t GetAllConnectionInfo(profileInfo_t *profileNumberList, int listSize);
             void RegisterEvents();
             static void SessionStateChangeHandler (taf_dcs_ProfileRef_t profileRef,

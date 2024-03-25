@@ -811,6 +811,7 @@ FUNCTION le_result_t GetVIN
  *
  * @return
  *      - LE_OK -- Succeeded.
+ *      - LE_FAULT -- Failed.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -947,6 +948,7 @@ FUNCTION le_result_t SetMsdPositionN2
  *
  * @return
  *      - LE_BAD_PARAMETER -- Bad eCall reference.
+ *      - LE_FAULT -- Failed.
  *      - LE_OK -- Succeeded.
  *      - LE_DUPLICATE -- The MSD has already been imported.
  *
@@ -986,6 +988,7 @@ FUNCTION le_result_t SetMsdAdditionalData
  *
  * @return
  *      - LE_BAD_PARAMETER -- Bad eCall reference.
+ *      - LE_FAULT -- Failed.
  *      - LE_OK -- Succeeded.
  *      - LE_DUPLICATE -- The MSD has already been imported.
  *
@@ -1022,6 +1025,7 @@ FUNCTION le_result_t SetMsdEuroNCAPLocationOfImpact
  *
  * @return
  *      - LE_BAD_PARAMETER -- Bad eCall reference.
+ *      - LE_FAULT -- Failed.
  *      - LE_OK -- Succeeded.
  *      - LE_DUPLICATE -- The MSD has already been imported.
  *
@@ -1040,6 +1044,7 @@ FUNCTION le_result_t SetMsdEuroNCAPRolloverDetected
  *
  * @return
  *      - LE_BAD_PARAMETER -- Bad eCall reference.
+ *      - LE_FAULT -- Failed.
  *      - LE_OK -- Succeeded.
  *      - LE_DUPLICATE -- The MSD has already been imported.
  *

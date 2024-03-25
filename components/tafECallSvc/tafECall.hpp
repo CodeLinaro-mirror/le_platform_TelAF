@@ -37,6 +37,10 @@
 #include "telux/common/CommonDefines.hpp"
 #include "tafSvcIF.hpp"
 
+// For using VHAL
+#include "tafHalLib.hpp"
+#include "tafHalECall.h"
+
 using namespace telux::tel;
 using namespace telux::common;
 using namespace std;
@@ -229,6 +233,9 @@ namespace telux {
                 le_result_t ImportMsd( taf_ecall_CallRef_t ecallRef, const uint8_t* pdumsd, size_t msdLength);
                 le_result_t ExportMsd( taf_ecall_CallRef_t ecallRef, uint8_t* pdumsd, size_t* msdLength);
                 le_result_t SendMsd( taf_ecall_CallRef_t ecallRef);
+                static int CheckVIN(char *vin);
+                le_result_t UpdateMsdVehicleInfo();
+                le_result_t UpdateMsdInformation(taf_ecall_CallRef_t ecallRef);
                 void SetSessionState(tafECallSession_t session);
                 void SetECallState(taf_ecall_State_t state);
                 void ClearPduMsd();
@@ -249,6 +256,9 @@ namespace telux {
                 bool t2StartTimeSet = false;
                 bool t9StartTimeSet = false;
                 bool t10StartTimeSet = false;
+
+                eCall_Inf_t *eCallInf = nullptr;
+                bool isDrvPresent = false;
 
             private:
                 std::shared_ptr<telux::tel::IPhoneManager> PhoneManager;

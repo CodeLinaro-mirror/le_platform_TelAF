@@ -1,0 +1,13 @@
+sources:
+{
+    diagEventApp.c
+}
+
+requires:
+{
+    api:
+    {
+        taf_diagEvent.api
+    }
+}
+

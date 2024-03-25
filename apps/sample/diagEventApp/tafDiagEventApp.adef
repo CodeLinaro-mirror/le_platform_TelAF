@@ -1,0 +1,28 @@
+sandboxed: false
+executables:
+{
+    tafDiagEventApp = ( diagEventAppComp )
+}
+
+
+processes:
+{
+    run:
+    {
+        (tafDiagEventApp)
+    }
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+
+    maxFileBytes: 8192K
+}
+
+start: manual
+
+bindings:
+{
+    tafDiagEventApp.diagEventAppComp.taf_diagEvent -> tafDiagSvc.taf_diagEvent
+}
+

@@ -37,12 +37,24 @@
 #include "tafMngdConnRadio.hpp"
 #include "tafMngdConnSim.hpp"
 #include "tafMngdConnAdmin.hpp"
+#include "limit.h"
 
 using namespace telux::tafsvc;
 
 #define CONFIG_FILE_NAME "mngdConnectivity.json"
 
-LE_MEM_DEFINE_STATIC_POOL(tafMngdConn, TAF_MNGD_CONN_MAX_DATA_OBJ, sizeof(taf_mngd_Conn_Ctx_t));
+/**
+ * Initialize static variables
+ */
+taf_mngdConn_Clients_t tafMngdConnAdmin::ConnectedClients = {NULL, NULL};
+
+/**
+ * Initialize static memory pools
+ */
+LE_MEM_DEFINE_STATIC_POOL(tafMngdConnMemPool, TAF_MNGD_CONN_MAX_DATA_OBJ,
+                                            sizeof(taf_mngd_Conn_Ctx_t));
+LE_MEM_DEFINE_STATIC_POOL(ConnectedClientsCtxMemPool, TAF_MNGD_CONN_MAX_SESSIONS,
+                                            sizeof(taf_mngdConn_ClientNode_t));
 
 tafMngdConnAdmin &tafMngdConnAdmin::GetInstance()
 {
@@ -127,8 +139,8 @@ void tafMngdConnAdmin::Init(void)
     Sim_init();
 
     //Initiate the memory pool.
-    ConnCtxPool = le_mem_InitStaticPool(tafMngdConn, TAF_MNGD_CONN_MAX_DATA_OBJ,
-                                            sizeof(taf_mngd_Conn_Ctx_t));
+    ConnCtxPool = le_mem_InitStaticPool(tafMngdConnMemPool, TAF_MNGD_CONN_MAX_DATA_OBJ,
+                                        sizeof(taf_mngd_Conn_Ctx_t));
 
     connStatePool = le_mem_CreatePool("connStatePool", sizeof(DataState_t));
 
@@ -171,6 +183,131 @@ void tafMngdConnAdmin::Init(void)
         LE_FATAL("Correct JSON files are needed.");
     }
 
+    // Create client connect/disconnect handlers
+    le_msg_AddServiceOpenHandler(taf_mngd_Conn_GetServiceRef(),
+                                            tafMngdConnAdmin::OnClientConnect,NULL);
+
+    le_msg_AddServiceCloseHandler(taf_mngd_Conn_GetServiceRef(),
+                                            tafMngdConnAdmin::OnClientDisconnect,NULL);
+
+    // Create memory pool for connected client nodes.
+    ConnectedClients.memPool = le_mem_InitStaticPool(ConnectedClientsCtxMemPool,
+                                                        TAF_MNGD_CONN_MAX_SESSIONS,
+                                                        sizeof(taf_mngdConn_ClientNode_t));
+    // Create hash map of connected clients
+    ConnectedClients.hashMap = le_hashmap_Create("ClientsHashMap", TAF_MNGD_CONN_MAX_SESSIONS,
+                                                 le_hashmap_HashVoidPointer,
+                                                 le_hashmap_EqualsVoidPointer);
+
+    if (NULL == ConnectedClients.hashMap)
+    {
+        LE_FATAL("Failed to create connected client hashmap");
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Client connect function.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::OnClientConnect(le_msg_SessionRef_t sessionRef, void *ctxPtr)
+{
+    LE_UNUSED(ctxPtr);
+    pid_t pid;
+    char appName[LIMIT_MAX_PATH_BYTES] = {0};
+
+    LE_INFO("Client %p Connected.", sessionRef);
+    if (LE_OK != le_msg_GetClientProcessId(sessionRef, &pid))
+    {
+        LE_WARN("Error, Failed to get client pid.");
+    }
+
+    if (le_appInfo_GetName(pid, appName, sizeof(appName)) == LE_OK)
+    {
+        LE_DEBUG ("Client Details: pid: %ld, name: %s", static_cast<long int>(pid), appName);
+    }
+    else
+    {
+        LE_WARN("Error, Failed to get client app name");
+    }
+
+    // Add this client to ConnectedClients hash map
+    taf_mngdConn_ClientNode_t *clientNodePtr =
+        (taf_mngdConn_ClientNode_t *)le_mem_TryAlloc(ConnectedClients.memPool);
+    TAF_ERROR_IF_RET_NIL(clientNodePtr == nullptr, "Cannot allocate connected clientNodePtr");
+
+    clientNodePtr->sessionRef = sessionRef;
+    clientNodePtr->pid        = pid;
+
+    if (le_hashmap_Put(ConnectedClients.hashMap, sessionRef, clientNodePtr))
+    {
+        LE_ERROR("Failed to add connected client record for session %p.", sessionRef);
+    }
+    LE_INFO("Number of clients: %" PRIuS, le_hashmap_Size(ConnectedClients.hashMap));
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Client disconnect function.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::OnClientDisconnect(le_msg_SessionRef_t sessionRef, void *ctxPtr)
+{
+    LE_UNUSED(ctxPtr);
+
+    LE_INFO("Client %p Disconnected.", sessionRef);
+
+    // Remove this client from ConnectedClients hash map
+    taf_mngdConn_ClientNode_t *clientNodePtr =
+        (taf_mngdConn_ClientNode_t *)le_hashmap_Remove(ConnectedClients.hashMap, sessionRef);
+    TAF_ERROR_IF_RET_NIL(clientNodePtr == nullptr,
+                         "Failed to get sessionRef %p from ConnectedClients hashmap", sessionRef);
+    le_mem_Release(clientNodePtr);
+    LE_DEBUG("Number of clients: %" PRIuS,le_hashmap_Size(ConnectedClients.hashMap));
+
+    // Check if this client had requested a data session
+    auto &admin = tafMngdConnAdmin::GetInstance();
+    le_mutex_Lock(admin.connCtxMutex);
+    le_dls_Link_t *linkPtr = le_dls_Peek(&admin.ConnectionCtxList);
+
+    while (linkPtr)
+    {
+        taf_mngd_Conn_Ctx_t *connCtxPtr = CONTAINER_OF(linkPtr, taf_mngd_Conn_Ctx_t, link);
+        if (TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE == connCtxPtr->state ||
+            TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE == connCtxPtr->state ||
+            TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE_RETRYING == connCtxPtr->state ||
+            TAF_MNGD_CONN_DATA_CONNECTED_IDLE == connCtxPtr->state)
+        {
+            // Remove this client from the list of clients that have requested data
+            connCtxPtr->clients.erase(sessionRef);
+            // Check if this data id auto started or not
+            if (false == connCtxPtr->autoStart)
+            {
+                LE_INFO("Data ID %d manually started", connCtxPtr->dataId);
+                // Check if this client was the last client that requested data
+                if (connCtxPtr->clients.empty())
+                {
+                    LE_INFO("Client %p is the last client that requested data", sessionRef);
+                    LE_INFO("Requesting data stop for Data ID %d", connCtxPtr->dataId);
+                    // Send a data stop request
+                    stateMachineEvent_t stateMachineEvt = {TAF_MNGD_CONN_EVT_INIT, 0};
+                    stateMachineEvt.event = TAF_MNGD_CONN_EVT_DATA_STOP;
+                    stateMachineEvt.dataId = connCtxPtr->dataId;
+                    le_event_Report(admin.StateMachineEventId, &stateMachineEvt,
+                                                            sizeof(stateMachineEvent_t));
+                }
+                else
+                {
+                    LE_INFO("Number of clients still using data(id: %d) %" PRIuS,
+                                                                    connCtxPtr->dataId,
+                                                                    connCtxPtr->clients.size());
+                }
+            }
+        }
+        // Move to the next item in the list
+        linkPtr = le_dls_PeekNext(&admin.ConnectionCtxList, linkPtr);
+    }
+    le_mutex_Unlock(admin.connCtxMutex);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -300,6 +437,15 @@ le_result_t tafMngdConnAdmin::Startdata(taf_mngd_Conn_DataRef_t dataRef)
     // blocking here to get response
     std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
     result = futResult.get();
+
+    // If data start is success and the data id is not auto started, then add this client to the
+    // list of clients that have requested data start with this data id.
+    if ((LE_OK == result || LE_DUPLICATE == result) && (!connCtxPtr->autoStart))
+    {
+        le_msg_SessionRef_t sessionRef = taf_mngd_Conn_GetClientSessionRef();
+        LE_INFO("Client %p started data for Data ID: %d", sessionRef, connCtxPtr->dataId);
+        connCtxPtr->clients.insert(sessionRef);
+    }
     return result;
 }
 
@@ -323,6 +469,23 @@ le_result_t tafMngdConnAdmin::Stopdata(taf_mngd_Conn_DataRef_t dataRef)
         return LE_FAULT;
     }
 
+    // Remove this client from the list of clients that have requested data start.
+    le_msg_SessionRef_t sessionRef = taf_mngd_Conn_GetClientSessionRef();
+    LE_INFO("Client %p stopped data for Data ID: %d", sessionRef, connCtxPtr->dataId);
+    connCtxPtr->clients.erase(sessionRef);
+
+    // If the clients list is not empty, simply return OK.
+    if (!connCtxPtr->clients.empty())
+    {
+        LE_INFO("Number of clients still using data(id: %d) %" PRIuS, connCtxPtr->dataId,
+                                                            connCtxPtr->clients.size());
+        LE_INFO("Return LE_OK without stopping data");
+        return LE_OK;
+    }
+
+    // Last client called data stop. Stop data connection.
+    LE_INFO("No more clients using data(id: %d)", connCtxPtr->dataId);
+    LE_INFO("Stopping data for Data ID %d", connCtxPtr->dataId);
     stateMachineEvent_t stateMachineEvt = {TAF_MNGD_CONN_EVT_INIT, 0};
     stateMachineEvt.event=TAF_MNGD_CONN_EVT_DATA_STOP_SYNC;
     stateMachineEvt.dataId=connCtxPtr->dataId;
@@ -331,6 +494,7 @@ le_result_t tafMngdConnAdmin::Stopdata(taf_mngd_Conn_DataRef_t dataRef)
     //wait until return
     std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
     result = futResult.get();
+
     return result;
 }
 
@@ -760,7 +924,7 @@ le_result_t tafMngdConnAdmin::EventStopData(uint8_t dataId)
     if (true == connCtxPtr->autoStart &&
         connCtxPtr->state!=TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE_RETRYING)
     {
-        LE_INFO(StateToString(connCtxPtr->state));
+        LE_INFO("%s",StateToString(connCtxPtr->state));
         LE_WARN("Stopping auto started(Autostart: Yes) data session is not allowed");
         return LE_NOT_PERMITTED;
     }
@@ -1738,6 +1902,8 @@ le_result_t tafMngdConnAdmin::InitializeStates()
 
                 ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_DISCONNECTED);
             }
+            // Clear the list of clients
+            connCtxPtr->clients.clear();
 
             if(sim.IsSimReady(slotNumber))
             {

@@ -39,9 +39,13 @@
 #include <future>
 #include "tafMngdConn_Common.hpp"
 #include "tafMngdConnSvcJSONParser.hpp"
+#include <set>
 
 #define TAF_MNGD_CONN_MAX_FILE_PATH_LEN    256
 #define TAF_MNGD_CONN_MAX_DATA_OBJ 16
+
+// Maximum nmber of client sessions
+#define TAF_MNGD_CONN_MAX_SESSIONS 16
 
 namespace telux {
 namespace tafsvc {
@@ -128,6 +132,18 @@ namespace tafsvc {
         taf_mngd_Conn_DataState_t               dataState;
     } profileInfo_t;
 
+    typedef struct
+    {
+        le_msg_SessionRef_t sessionRef;
+        pid_t pid;
+    } taf_mngdConn_ClientNode_t;
+
+    typedef struct
+    {
+        le_hashmap_Ref_t hashMap;
+        le_mem_PoolRef_t memPool;
+    } taf_mngdConn_Clients_t;
+
 //Context to maintain the state for each data id.
     typedef struct tag_taf_mngd_Conn_Ctx
     {
@@ -160,6 +176,8 @@ namespace tafsvc {
                                       //IPv6 address to be used for ConnectionTest
         char                          ipv4Addr[TAF_MNGD_CONN_MAX_IPV4_LEN];
         char                          ipv6Addr[TAF_MNGD_CONN_MAX_IPV6_LEN];
+        // Clients that have called Data Start
+        std::set<le_msg_SessionRef_t> clients;
     } taf_mngd_Conn_Ctx_t;
 
     class tafMngdConnAdmin: public ITafSvc
@@ -209,11 +227,17 @@ namespace tafsvc {
             void EventDataConnected(uint8_t dataId);
             void EventDataDisconnected(uint8_t dataId);
             static void DataRetryTimerHandler(le_timer_Ref_t timerRef);
+            static void OnClientConnect(le_msg_SessionRef_t sessionRef, void *ctxPtr);
+            static void OnClientDisconnect(le_msg_SessionRef_t sessionRef, void *ctxPtr);
             le_result_t InitializeStates();
+
             le_dls_List_t ConnectionCtxList = LE_DLS_LIST_INIT;
             le_mem_PoolRef_t ConnCtxPool = NULL;
             le_mutex_Ref_t connCtxMutex = NULL; // Mutex for ConnectionCtxList
             le_ref_MapRef_t DataRefMap = NULL;
+
+            // resources for multi-client management
+            static taf_mngdConn_Clients_t ConnectedClients;
 
             taf_mngd_Conn_Ctx_t* GetConnCtx(uint8_t dataId);
             taf_mngd_Conn_Ctx_t* CreateConnCtx(uint8_t dataId, uint8_t slotId, uint8_t phoneId,

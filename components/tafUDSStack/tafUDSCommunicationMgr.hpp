@@ -83,8 +83,8 @@ namespace uds{
     #define UDS_ECU_RESET_RESP_BASE_LEN 2
 
     // ReadDTCInformation service (0x19)
-    #define UDS_READ_DTC_INFO_REQ_MIN_LEN 3
-    #define UDS_READ_DTC_INFO_RESP_BASE_LEN 3
+    #define UDS_READ_DTC_INFO_REQ_MIN_LEN 2
+    #define UDS_READ_DTC_INFO_RESP_BASE_LEN 2
 
     // ReadDataByIdentifier service (0x22)
     #define UDS_READ_DID_REQ_MIN_LEN 3
@@ -135,6 +135,14 @@ namespace uds{
     #define UDS_TESTER_PRESENT_REQ_LEN 2
     #define UDS_TESTER_PRESENT_RESP_LEN 2
 
+    // ClearDiagnosticInformation service (0x14)
+    #define UDS_CLEAR_DIAG_INFO_REQ_MIN_LEN 4
+    #define UDS_CLEAR_DIAG_INFO_RESP_LEN 1
+
+    // ControlDTCSetting service (0x85)
+    #define UDS_CTRL_DTC_SETTING_REQ_MIN_LEN 2
+    #define UDS_CTRL_DTC_SETTING_RESP_LEN 2
+
     // RequestFileTranser service mode of operation type
     typedef enum
     {
@@ -151,6 +159,7 @@ namespace uds{
     {
         SESSION_CONTROL_REQUEST_ID = 0x10,
         ECU_RESET_REQUEST_ID = 0x11,
+        CLEAR_DIAG_INFO_REQUEST_ID = 0x14,
         READ_DTC_INFO_REQUEST_ID = 0x19,
         READ_DID_REQUEST_ID = 0x22,
         SECURITY_ACCESS_REQUEST_ID = 0x27,
@@ -159,7 +168,8 @@ namespace uds{
         TRANSFER_DATA_REQUEST_ID = 0x36,
         REQUEST_TRANSFER_EXIT_REQUEST_ID = 0x37,
         REQUEST_FILE_TRANSFER_REQUEST_ID = 0x38,
-        TESTER_PRESENT_REQUEST_ID = 0x3E
+        TESTER_PRESENT_REQUEST_ID = 0x3E,
+        CONTROL_DTC_SETTING_REQUEST_ID = 0x85
     }taf_UDSReqSvcID_t;
 
     // Diagnostic Response service ID
@@ -167,6 +177,7 @@ namespace uds{
     {
         SESSION_CONTROL_RESPONSE_ID = 0x50,
         ECU_RESET_RESPONSE_ID = 0x51,
+        CLEAR_DIAG_INFO_RESPONSE_ID = 0x54,
         READ_DTC_INFO_RESPONSE_ID = 0x59,
         READ_DID_RESPONSE_ID = 0x62,
         SECURITY_ACCESS_RESPONSE_ID = 0x67,
@@ -175,7 +186,8 @@ namespace uds{
         TRANSFER_DATA_RESPONSE_ID = 0x76,
         REQUEST_TRANSFER_EXIT_RESPONSE_ID = 0x77,
         REQUEST_FILE_TRANSFER_RESPONSE_ID = 0x78,
-        TESTER_PRESENT_RESPONSE_ID = 0x7E
+        TESTER_PRESENT_RESPONSE_ID = 0x7E,
+        CONTROL_DTC_SETTING_RESPONSE_ID = 0xC5
     }taf_UDSRespSvcID_t;
 
     // UDS error code.
@@ -266,6 +278,12 @@ namespace uds{
                     bool* isInternalHandle);    // TransferData service (0x36).
             le_result_t IndicateRxXferExitReq(taf_doip_AddrInfo_t* addrInfoPtr,
                     bool* isInternalHandle);    // RequestTransferExit service (0x37).
+            le_result_t IndicateClearDiagInfoReq(taf_doip_AddrInfo_t*  addrInfoPtr,
+                    bool* isInternalHandle);    // ClearDiagnosticInformation service (0x14)
+            le_result_t IndicateCtrlDTCSettingReq(taf_doip_AddrInfo_t*  addrInfoPtr,
+                    bool* isInternalHandle);    // ControlDTCSetting service (0x85)
+            le_result_t IndicateReadDTCInfoReq(taf_doip_AddrInfo_t*  addrInfoPtr,
+                    bool* isInternalHandle);    // ReadDTCInfo service (0x19)
 
             // Internally check and Respond UDS message to uds client (through DoIP stack).
             le_result_t ReadDTCInfoResp(taf_doip_AddrInfo_t* addrInfoPtr);    // (0x19).
@@ -292,6 +310,10 @@ namespace uds{
 
             void SesChangeTimer();
             static void IndicateWhenChangingToDefault();
+            le_result_t ReadDTCInfoResp(uint8_t serviceId, const uint8_t* dataPtr,
+                    uint16_t dataSize, uint8_t err);
+            le_result_t ClearDiagInfoResp(uint8_t serviceId, uint8_t err);
+            le_result_t CtrlDTCSettingResp(uint8_t serviceId, uint8_t err);
 
             // update status parameter.
             bool isXferActive = false;

@@ -1159,6 +1159,140 @@ le_result_t UdsCommunicationMgr::TesterPresentResp
 }
 
 /**
+ * Check NRC and Indicate received ClearDiagnosticInformation (0x14) message to Diag service.
+ */
+le_result_t UdsCommunicationMgr::IndicateClearDiagInfoReq
+(
+    taf_doip_AddrInfo_t*  addrInfoPtr,
+    bool* isInternalHandle
+)
+{
+    LE_DEBUG("IndicateClearDiagInfoReq");
+
+    // received service ID
+    uint8_t sid = recvBuf[0];
+
+    // Check the pointer.
+    if(addrInfoPtr == NULL || isInternalHandle == NULL)
+    {
+        LE_ERROR("Null pointer");
+        return LE_FAULT;
+    }
+
+    // Received data length shall not be more than the UDS_DATA_SIZE (MAX limit)
+    if(recvDataLen > UDS_DATA_SIZE)
+    {
+        LE_DEBUG("recvDataLen is more than the UDS_DATA_SIZE.");
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+    }
+
+    // Check negative err code for minimum request msg length
+    if(recvDataLen < UDS_CLEAR_DIAG_INFO_REQ_MIN_LEN)
+    {
+        LE_DEBUG("recvDataLen is less than the ClearDiagnosticInformation msg minimum length.");
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+    }
+
+    //Will send the indication to the diag service
+    *isInternalHandle = false;
+    return LE_OK;
+}
+
+/**
+ * Check NRC and Indicate received ControlDTCSetting (0x85) message to Diag service.
+ */
+le_result_t UdsCommunicationMgr::IndicateCtrlDTCSettingReq
+(
+    taf_doip_AddrInfo_t*  addrInfoPtr,
+    bool* isInternalHandle
+)
+{
+    LE_DEBUG("IndicateClearDiagInfoReq");
+
+    // received service ID
+    uint8_t sid = recvBuf[0];
+
+    // Check the pointer.
+    if(addrInfoPtr == NULL || isInternalHandle == NULL)
+    {
+        LE_ERROR("Null pointer");
+        return LE_FAULT;
+    }
+
+    // Check active session type for ControlDTCSetting.
+    if (SessionType == DEFAULT_SESSION)
+    {
+        LE_DEBUG("Default session type is active for ControlDTCSetting.");
+        *isInternalHandle = true;
+        return SendNRC(sid, CONDITIONS_NOT_CORRECT, addrInfoPtr);
+    }
+
+    // Received data length shall not be more than the UDS_DATA_SIZE (MAX limit)
+    if(recvDataLen > UDS_DATA_SIZE)
+    {
+        LE_DEBUG("recvDataLen is more than the UDS_DATA_SIZE.");
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+    }
+
+    // Check negative err code for minimum request msg length
+    if(recvDataLen < UDS_CTRL_DTC_SETTING_REQ_MIN_LEN)
+    {
+        LE_DEBUG("recvDataLen is less than the ControlDTCSetting msg minimum length.");
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+    }
+
+    //Will send the indication to the diag service
+    *isInternalHandle = false;
+    return LE_OK;
+}
+
+/**
+ * Check NRC and Indicate received ReadDTCInformation (0x19) message to Diag service.
+ */
+le_result_t UdsCommunicationMgr::IndicateReadDTCInfoReq
+(
+    taf_doip_AddrInfo_t*  addrInfoPtr,
+    bool* isInternalHandle
+)
+{
+    LE_DEBUG("ReadDTCInfoResp");
+
+    // received service ID and sub function.
+    uint8_t sid = recvBuf[0];
+
+    // Check the pointer.
+    if(addrInfoPtr == NULL || isInternalHandle == NULL)
+    {
+        LE_ERROR("Null pointer");
+        return LE_FAULT;
+    }
+
+    // Received data length shall not be more than the UDS_DATA_SIZE (MAX limit)
+    if(recvDataLen > UDS_DATA_SIZE)
+    {
+        LE_DEBUG("recvDataLen is more than the UDS_DATA_SIZE.");
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+    }
+
+    // Check negative err code for minimum request msg length
+    if(recvDataLen < UDS_READ_DTC_INFO_REQ_MIN_LEN)
+    {
+        LE_DEBUG("recvDataLen is less than the ReadDTC request msg minimum length.");
+        *isInternalHandle = true;
+        return SendNRC(sid, INCORRECT_MSG_LEN_OR_INVALID_FORMAT, addrInfoPtr);
+    }
+
+    //Will send the indication to the diag service
+    *isInternalHandle = false;
+    return LE_OK;
+}
+
+/**
  * Check NRC and Send indication message to Diag service.
  */
 le_result_t UdsCommunicationMgr::CheckAndSendInd
@@ -1324,9 +1458,9 @@ void UdsCommunicationMgr::DiagIndicationHandler
         break;
         case READ_DTC_INFO_REQUEST_ID:  // 0x19
         {
-            // Check NRC and Handle it internally and then response to client.
-            ret = udsCmMgr.ReadDTCInfoResp(addrInfoPtr);
-            isInternalHandle = true;
+            // Check NRC and then send indication to TelAf diag service if necessary for ReadDTCInfo
+            // request msg.
+            ret = udsCmMgr.IndicateReadDTCInfoReq(addrInfoPtr, &isInternalHandle);
         }
         break;
         case READ_DID_REQUEST_ID:  // 0x22
@@ -1381,6 +1515,18 @@ void UdsCommunicationMgr::DiagIndicationHandler
             // Check NRC and Handle it internally and then response to client.
             ret = udsCmMgr.TesterPresentResp(addrInfoPtr);
             isInternalHandle = true;
+        }
+        break;
+        case CLEAR_DIAG_INFO_REQUEST_ID:  // 0x14
+        {
+            // Check NRC and then send indication to TelAf diag service if necessary.
+            ret = udsCmMgr.IndicateClearDiagInfoReq(addrInfoPtr, &isInternalHandle);
+        }
+        break;
+        case CONTROL_DTC_SETTING_REQUEST_ID:  // 0x85
+        {
+            // Check NRC and then send indication to TelAf diag service if necessary.
+            ret = udsCmMgr.IndicateCtrlDTCSettingReq(addrInfoPtr, &isInternalHandle);
         }
         break;
         default:
@@ -1596,6 +1742,15 @@ le_result_t UdsCommunicationMgr::SendUDSResp
         break;
         case REQUEST_FILE_TRANSFER_REQUEST_ID:
             ret = ReqFileXferResp(serviceId, dataPtr, dataSize, err);
+        break;
+        case CLEAR_DIAG_INFO_REQUEST_ID:
+            ret = ClearDiagInfoResp(serviceId, err);
+        break;
+        case READ_DTC_INFO_REQUEST_ID:
+            ret = ReadDTCInfoResp(serviceId, dataPtr, dataSize, err);
+        break;
+        case CONTROL_DTC_SETTING_REQUEST_ID:
+            ret = CtrlDTCSettingResp(serviceId, err);
         break;
         default:
             SetNRC(serviceId, SERVICE_NOT_SUPPORTED);
@@ -2085,6 +2240,102 @@ le_result_t UdsCommunicationMgr::ReqFileXferResp
             LE_ERROR("Response for requested mode of operation is not supported");
             break;
     }
+
+    return LE_OK;
+}
+
+/**
+ * Check error code and Pack ReadDTCInfoResp message to send to Diag client/tool.
+ */
+le_result_t UdsCommunicationMgr::ReadDTCInfoResp
+(
+    uint8_t serviceId,
+    const uint8_t* dataPtr,
+    uint16_t dataSize,
+    uint8_t err
+)
+{
+    LE_DEBUG("ReadDTCInfoResp");
+
+    // Check the send dataLength.
+    if (dataSize > UDS_DATA_SIZE - UDS_READ_DTC_INFO_RESP_BASE_LEN)
+    {
+        LE_ERROR("dataLength is not correct.");
+        return LE_FAULT;
+    }
+
+    if (POSITIVE_RESPONSE != err)
+    {
+        LE_DEBUG("Error code reported from Diag service");
+        SetNRC(serviceId, err);
+        return LE_OK;
+    }
+
+    uint8_t reportType = recvBuf[1] & 0x7F;  // Equal to subfunction 0~6bit
+
+    sendBuf[0] = READ_DTC_INFO_RESPONSE_ID;
+    sendBuf[1] = reportType;
+
+    if (dataPtr != NULL && dataSize != 0)
+    {
+        memcpy(sendBuf + UDS_READ_DTC_INFO_RESP_BASE_LEN, dataPtr, dataSize);
+        sendDataLen = UDS_READ_DTC_INFO_RESP_BASE_LEN + dataSize;
+    }
+    else
+    {
+        sendDataLen = UDS_READ_DTC_INFO_RESP_BASE_LEN;
+    }
+
+    return LE_OK;
+}
+
+/**
+ * Check error code and Pack ClearDiagInfo message to send to Diag client/tool.
+ */
+le_result_t UdsCommunicationMgr::ClearDiagInfoResp
+(
+    uint8_t serviceId,
+    uint8_t err
+)
+{
+    LE_DEBUG("ClearDiagInfoResp");
+
+    if (POSITIVE_RESPONSE != err)
+    {
+        LE_DEBUG("Error code reported from Diag service");
+        SetNRC(serviceId, err);
+        return LE_OK;
+    }
+
+    sendBuf[0] = CLEAR_DIAG_INFO_RESPONSE_ID;
+    sendDataLen = UDS_CLEAR_DIAG_INFO_RESP_LEN;
+
+    return LE_OK;
+}
+
+/**
+ * Check error code and Pack CtrlDTCSetting message to send to Diag client/tool.
+ */
+le_result_t UdsCommunicationMgr::CtrlDTCSettingResp
+(
+    uint8_t serviceId,
+    uint8_t err
+)
+{
+    LE_DEBUG("ClearDiagInfoResp");
+
+    if (POSITIVE_RESPONSE != err)
+    {
+        LE_DEBUG("Error code reported from Diag service");
+        SetNRC(serviceId, err);
+        return LE_OK;
+    }
+
+    uint8_t settingType = recvBuf[1] & 0x7F;  // Equal to subfunction 0~6bit
+
+    sendBuf[0] = CONTROL_DTC_SETTING_RESPONSE_ID;
+    sendBuf[1] = settingType;
+    sendDataLen = UDS_CTRL_DTC_SETTING_RESP_LEN;
 
     return LE_OK;
 }

@@ -1,0 +1,54 @@
+sources:
+{
+    tafDataAccessComp.cpp
+    tafDataAccessCompImpl.cpp
+    tafDataStatement.cpp
+    tafDTCEntity.cpp
+    tafDTCEntityDAO.cpp
+    tafEventEntity.cpp
+    tafEventEntityDAO.cpp
+    tafIOFactory.cpp
+    tafSQLite3Handler.cpp
+}
+
+cxxflags:
+{
+    -I$TELAF_ROOT/include
+    -I$TELAF_ROOT/components/tafDiagSvc/tafDiagCfg
+}
+
+cflags:
+{
+    -I$TELAF_ROOT/include
+    -I$TELAF_ROOT/components/tafDiagSvc/tafDiagCfg
+}
+
+requires:
+{
+    component:
+    {
+        $TELAF_ROOT/components/tafDiagSvc/tafDiagCfg
+    }
+    lib:
+    {
+    #if ${LE_CONFIG_ENABLE_SELINUX} =y
+        lib/libselinux.so.1
+    #endif
+    }    
+}
+
+provides:
+{
+}
+
+ldflags:
+{
+    -lsqlite3
+}
+
+bundles:
+{
+    file:
+    {
+    }
+}

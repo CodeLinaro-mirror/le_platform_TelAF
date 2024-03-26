@@ -1,0 +1,23 @@
+sandboxed: false
+
+executables:
+{
+    tafDataAccessTest = ( tafDataAccessTestComp )
+}
+
+start: manual
+
+processes:
+{
+    run:
+    {
+        (tafDataAccessTest)
+    }
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+    faultAction: stopApp
+
+    maxFileBytes: 1048576K
+}

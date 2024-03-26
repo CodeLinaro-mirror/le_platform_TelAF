@@ -1,0 +1,25 @@
+sources:
+{
+    tafDataAccessTest.c
+    tafDataAccessTestCfg.cpp
+}
+
+requires:
+{
+    component:
+    {
+        $TELAF_ROOT/components/tafDataAccessComp
+        $TELAF_ROOT/components/tafDiagSvc/tafDiagCfg
+    }
+}
+
+cflags:
+{
+    -I$TELAF_ROOT/components/tafDataAccessComp
+}
+
+cxxflags:
+{
+    -I$TELAF_ROOT/components/tafDataAccessComp
+    -I$TELAF_ROOT/components/tafDiagSvc/tafDiagCfg
+}

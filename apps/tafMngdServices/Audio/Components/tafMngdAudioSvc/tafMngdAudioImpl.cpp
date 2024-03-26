@@ -2577,6 +2577,10 @@ taf_mngd_audio_PlayListRef_t taf_MngdAudio::CreatePlayList
     playListptr = (taf_PlaybackList_t*)le_mem_ForceAlloc(PlaybackListPool);
     TAF_ERROR_IF_RET_VAL( playListptr == NULL, NULL, "playListptr is nullptr!");
 
+    playListptr->isPlaybackInProgress = false;
+    memset(playListptr->filesToPlay, 0, MAX_NUM_OF_PLAYBACK_FILES * sizeof(taf_PlaybackFile_t));
+    playListptr->numOfFilesToPlay = 0;
+
     playListptr->playListRef = (taf_mngd_audio_PlayListRef_t)le_ref_CreateRef(PlaybackListRefMap,
             playListptr);
     LE_DEBUG("Create playListRef %p", playListptr->playListRef);

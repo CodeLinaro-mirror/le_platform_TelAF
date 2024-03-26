@@ -473,10 +473,10 @@ COMPONENT_INIT
                     {
                         std::cout<<"****Stopping audio playback***"<<endl;
                         Test_Mngd_Audio_Playback_Stop();
-                        Test_Mngd_Audio_Delete_PlayList();
                         break;
                     }
                 }
+                Test_Mngd_Audio_Delete_PlayList();
             } else if(strcmp(le_arg_GetArg(1),"record") == 0)
             {
                 Test_Mngd_Audio_Record(le_arg_GetArg(2));

@@ -21,6 +21,8 @@ void PrintUsage(void)
          "app runProc tafDevInfoIntTest tafDevInfoIntTest -- modem\n"
          "app runProc tafDevInfoIntTest tafDevInfoIntTest -- tz\n"
          "app runProc tafDevInfoIntTest tafDevInfoIntTest -- model\n"
+         "app runProc tafDevInfoIntTest tafDevInfoIntTest -- telaf\n"
+         "app runProc tafDevInfoIntTest tafDevInfoIntTest -- rootfs\n"
          "\n");
 }
 
@@ -66,6 +68,24 @@ static le_result_t Test_GetDeviceModel()
     le_result_t result = taf_info_GetModel(model, sizeof(model));
     LE_INFO("taf_info_GetTZVersion Return : %d\n", result);
     printf("Device Model : %s\n", model);
+    return result;
+}
+
+static le_result_t Test_GetTelafVersion()
+{
+    char telafVersion[TAF_INFO_TELAF_VERSION_MAX_BYTES];
+    le_result_t result = taf_info_GetTelafVersion(telafVersion, sizeof(telafVersion));
+    LE_INFO("taf_info_GetTelafVersion Return : %d\n", result);
+    printf("Telaf Version : %s\n", telafVersion);
+    return result;
+}
+
+static le_result_t Test_GetRootfsVersion()
+{
+    char rootfsVersion[TAF_INFO_ROOTFS_VERSION_MAX_BYTES];
+    le_result_t result = taf_info_GetRootfsVersion(rootfsVersion, sizeof(rootfsVersion));
+    LE_INFO("taf_info_GetRootfsVersion Return : %d\n", result);
+    printf("Rootfs Version : %s\n", rootfsVersion);
     return result;
 }
 
@@ -128,6 +148,20 @@ COMPONENT_INIT
         CheckNumArgs(numArgs,1);
         status = Test_GetDeviceModel();
         LE_TEST_OK(LE_OK == status, "GetDeviceModel Test: End");
+    }
+    else if (strncmp(testType, "telaf", strlen(testType)) == 0)
+    {
+        LE_TEST_INFO("======== GetTelafVersion========");
+        CheckNumArgs(numArgs,1);
+        status = Test_GetTelafVersion();
+        LE_TEST_OK(LE_OK == status, "GetTelafVersion Test: End");
+    }
+    else if (strncmp(testType, "rootfs", strlen(testType)) == 0)
+    {
+        LE_TEST_INFO("======== GetRootfsVersion========");
+        CheckNumArgs(numArgs,1);
+        status = Test_GetRootfsVersion();
+        LE_TEST_OK(LE_OK == status, "GetRootfsVersion Test: End");
     }
     else
     {

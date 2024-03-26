@@ -77,3 +77,27 @@ le_result_t taf_info_GetTZVersion(char* tzPtr, size_t numElements) {
     auto& tafDevInfo = taf_info::GetInstance();
     return tafDevInfo.GetTzVersion(tzPtr, numElements);
 }
+
+/*======================================================================
+ FUNCTION        taf_info_GetTelafVersion
+ DESCRIPTION     Get Telaf Version
+ PARAMETERS      [OUT]  telafVersionPtr
+                 [IN]   numElements: telaf version size in bytes
+ RETURN VALUE    void
+======================================================================*/
+le_result_t taf_info_GetTelafVersion(char* telafVersionPtr, size_t numElements) {
+    auto& tafDevInfo = taf_info::GetInstance();
+    return tafDevInfo.GetTelafVersion(telafVersionPtr, numElements);
+}
+
+/*======================================================================
+ FUNCTION        taf_info_GetRootfsVersion
+ DESCRIPTION     Get RootFS Version
+ PARAMETERS      [OUT]  rootfsVersionPtr
+                 [IN]   numElements: Rootfs version size in bytes
+ RETURN VALUE    void
+======================================================================*/
+le_result_t taf_info_GetRootfsVersion(char* rootfsVersionPtr, size_t numElements) {
+    auto& tafDevInfo = taf_info::GetInstance();
+    return tafDevInfo.GetRootfsVersion(rootfsVersionPtr, numElements);
+}

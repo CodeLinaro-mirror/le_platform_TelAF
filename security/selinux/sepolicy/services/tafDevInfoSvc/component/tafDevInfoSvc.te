@@ -13,6 +13,7 @@ gen_require(`
     type firmware_t;
     type proc_t;
     type etc_t;
+    type telaf_sys_t;
 ')
 
 type telaf_tafDevInfoSvc_data_t;
@@ -31,3 +32,6 @@ allow telaf_tafDevInfoSvc_t firmware_t:dir { search_dir_perms };
 allow telaf_tafDevInfoSvc_t proc_t:file { read_file_perms };
 allow telaf_tafDevInfoSvc_t proc_t:dir { search_dir_perms };
 allow telaf_tafDevInfoSvc_t etc_t:file { read_file_perms };
+allow telaf_tafDevInfoSvc_t etc_t:dir { search_dir_perms };
+allow telaf_tafDevInfoSvc_t telaf_sys_t:file { read_file_perms };
+allow telaf_tafDevInfoSvc_t telaf_sys_t:dir { search_dir_perms };

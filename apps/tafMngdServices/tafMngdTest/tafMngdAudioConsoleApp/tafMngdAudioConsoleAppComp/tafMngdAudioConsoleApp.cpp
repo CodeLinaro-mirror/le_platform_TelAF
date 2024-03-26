@@ -85,6 +85,7 @@ static void MyMediaEventHandler
             le_sem_Post(tafAudioAppSem);
             break;
     }
+    exit(EXIT_SUCCESS);
 }
 
 void* Test_taf_mngd_audio_AddHandler(void* ctxPtr)

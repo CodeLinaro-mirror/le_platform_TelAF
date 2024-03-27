@@ -35,7 +35,7 @@ static int WriteTimeToFile(struct TimeSpec timeVal)
 {
     int fd;
 
-    LE_INFO("TestDrv: %s", __FUNCTION__);
+    LE_DEBUG("TestDrv: %s", __FUNCTION__);
     if ((fd = open(TAF_HAL_FILE_NAME, O_RDWR | O_CREAT | O_SYNC, 0666)) < 0)
     {
         LE_INFO("Open file %s failed\n", TAF_HAL_FILE_NAME);
@@ -55,7 +55,7 @@ static int ReadTimeFromFile(struct TimeSpec* timeVal)
 {
     int fd;
 
-    LE_INFO("TestDrv: %s", __FUNCTION__);
+    LE_DEBUG("TestDrv: %s", __FUNCTION__);
     if ((fd = open(TAF_HAL_FILE_NAME, O_RDONLY)) < 0)
     {
         LE_INFO("Open file %s failed\n", TAF_HAL_FILE_NAME);
@@ -109,13 +109,11 @@ static int taf_hal_SelfTest()
 
 static int tal_hal_GetRtcTime(struct TimeSpec* timeVal)
 {
-
-    LE_INFO("tal_hal_GetRtcTime");
     int fd, ret;
     struct tm rtc_tm;
     time_t secs = 0;
 
-    LE_INFO("TestDrv: %s", __FUNCTION__);
+    LE_DEBUG("TestDrv: %s", __FUNCTION__);
     memset(&rtc_tm, 0, sizeof(struct tm));
     do
     {
@@ -241,7 +239,7 @@ static void* taf_hal_GetModInf(void)
 
 static void GetRTCRespHandler (void* context)
 {
-    LE_INFO("TestDrv: %s", __FUNCTION__);
+    LE_DEBUG("TestDrv: %s", __FUNCTION__);
     struct TimeSpec timeVal = ((GetRTCRequest_t*)context)->timeVal;
     le_result_t responseState = ((GetRTCRequest_t*)context)->responseState;
     if (getRTCAsyncCallbackFunc)
@@ -258,7 +256,7 @@ static void GetRTCRespHandler (void* context)
 
 static void ProcessGetRTCRequest(void* param1,void* param2)
 {
-    LE_INFO("TestDrv: %s", __FUNCTION__);
+    LE_DEBUG("TestDrv: %s", __FUNCTION__);
     GetRTCRequest_t* req = (GetRTCRequest_t*)(param1);
 
     //Get the RTC value
@@ -273,7 +271,7 @@ static void ProcessGetRTCRequest(void* param1,void* param2)
 
 static le_result_t taf_hal_getRtcTimeReqAsync(TAF_HAL_GETRTCASYNCCALLBACK callback)
 {
-    LE_INFO("TestDrv: %s", __FUNCTION__);
+    LE_DEBUG("TestDrv: %s", __FUNCTION__);
     getRTCAsyncCallbackFunc = callback;
     GetRTCRequest_t* req = (GetRTCRequest_t*)le_mem_ForceAlloc(GetRTCRequestPoolRef);
     le_event_QueueFunction(ProcessGetRTCRequest, (void*)(req), NULL);
@@ -282,7 +280,7 @@ static le_result_t taf_hal_getRtcTimeReqAsync(TAF_HAL_GETRTCASYNCCALLBACK callba
 
 static void SetRTCRespHandler(void* context)
 {
-    LE_INFO("TestDrv: %s", __FUNCTION__);
+    LE_DEBUG("TestDrv: %s", __FUNCTION__);
     le_result_t responseState = ((SetRTCRequest_t*)context)->responseState;
     if (setRTCAsyncCallbackFunc)
     {
@@ -297,7 +295,7 @@ static void SetRTCRespHandler(void* context)
 
 static void ProcessSetRTCRequest(void* param1, void* param2)
 {
-    LE_INFO("TestDrv: %s", __FUNCTION__);
+    LE_DEBUG("TestDrv: %s", __FUNCTION__);
     SetRTCRequest_t* req = (SetRTCRequest_t*)(param1);
     //Set the return value of response
     req->responseState = LE_OK;
@@ -309,7 +307,7 @@ static void ProcessSetRTCRequest(void* param1, void* param2)
 static le_result_t taf_hal_setRtcTimeReqAsync(const struct TimeSpec* timeVal,
     TAF_HAL_SETRTCASYNCCALLBACK callback)
 {
-    LE_INFO("TestDrv: %s", __FUNCTION__);
+    LE_DEBUG("TestDrv: %s", __FUNCTION__);
     setRTCAsyncCallbackFunc = callback;
     //Set the RTC values
     LE_INFO("RTC time set to  %"PRIu64".%"PRIu64" to RTC\n", timeVal->sec, timeVal->nanosec);
@@ -321,7 +319,7 @@ static le_result_t taf_hal_setRtcTimeReqAsync(const struct TimeSpec* timeVal,
 
 static void taf_hal_Init(void)
 {
-    LE_INFO("TestDrv: %s", __FUNCTION__);
+    LE_DEBUG("TestDrv: %s", __FUNCTION__);
     GetRTCRequestPoolRef = le_mem_CreatePool("GetRTCRequest", sizeof(GetRTCRequest_t));
     GetRTCRequestEventId = le_event_CreateId("GetRTCRequestEventId", sizeof(GetRTCRequest_t));
     // Register handler for get RTC asyn response events.

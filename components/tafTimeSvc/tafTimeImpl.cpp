@@ -45,6 +45,7 @@ using namespace std;
 //--------------------------------------------------------------------------------------------------
 #define TAF_TIME_MAX_SOURCE_NUMBER (TAF_TIME_SRC_NAME_UNKNOWN*3)
 TimeSources TimeSourceConf(TAF_TIME_MAX_SOURCE_NUMBER);
+taf_timeSource_Info LatestTimeSourceInfo;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -348,6 +349,7 @@ le_result_t taf_Time::ReadTimeConf
     json_t *itemData;
     const char* value;
     long int pollingInterval, toleranceMillsec;
+    int64_t allowOverrideAfterFail = -1;
 
     itemData = json_object_get(serviceDataPtr, TAF_TIME_INTERVAL_SETTING_STR);
     if (!json_is_string(itemData))
@@ -370,6 +372,19 @@ le_result_t taf_Time::ReadTimeConf
     value = json_string_value(itemData);
     sscanf(value,"%ld", &toleranceMillsec);
     serviceCfg.toleranceMillsec = toleranceMillsec;
+
+    itemData = json_object_get(serviceDataPtr, TAF_TIME_ALLOWOVERRIDE_STR);
+    if (!json_is_string(itemData))
+    {
+        LE_WARN("Warning: AllowOverrideAfterFail string was not found\n");
+        return LE_NOT_FOUND;
+    }
+
+    value = json_string_value(itemData);
+    sscanf(value, "%ld", &allowOverrideAfterFail);
+    serviceCfg.allowOverrideAfterFail = allowOverrideAfterFail;
+
+    AllowOverrideAfterFail = allowOverrideAfterFail;
 
     return LE_OK;
 }
@@ -843,6 +858,8 @@ le_result_t taf_Time::GetRtcTime
         {
             return LE_FAULT;
         }
+        timeValPtr->sec = obj.sec;
+        timeValPtr->nanosec = obj.nanosec;
         return LE_OK;
     }
     else
@@ -1579,14 +1596,12 @@ le_result_t taf_Time::SetSystemTime
             return LE_NOT_PERMITTED;
         }
     }
-
     result = GetSystemTime(&systemTime);
     if (result != LE_OK)
     {
         LE_ERROR("Get system time failed\n");
         return result;
     }
-
     if (IsNecessaryUpdateSystemTime(timeVal, systemTime))
     {
         newTime.tv_sec = timeVal.sec;
@@ -1610,7 +1625,7 @@ le_result_t taf_Time::SetSystemTime
             }
         }
 
-        if (LE_OK != SetTimeToRtc(timeVal))
+        if (LE_OK != SetRtcTimeReqAsync(&timeVal, nullptr, NULL))
         {
             LE_WARN("Set %s time for RTC failed\n", SourceNameIndexToStr(timeSource));
         }
@@ -1619,6 +1634,7 @@ le_result_t taf_Time::SetSystemTime
                     "%" PRIu64 ".%" PRIu64 ", from:%" PRIu64 ".%" PRIu64 ". SRC: %s\n",
             newTime.tv_sec, newTime.tv_nsec, systemTime.sec, systemTime.nanosec,
                                                      SourceNameIndexToStr(timeSource));
+
     }
 
     if (SetTimeSt->preActiveTimeSource != timeSource)
@@ -1627,6 +1643,14 @@ le_result_t taf_Time::SetSystemTime
         SetTimeSt->preActiveTimeSource = timeSource;
     }
 
+    if (LatestTimeSourceInfo.source != timeSource)
+    {
+        LE_INFO("Switching time source from %s to %s",
+            SourceNameIndexToStr(LatestTimeSourceInfo.source), SourceNameIndexToStr(timeSource));
+        LatestTimeSourceInfo.source = timeSource;
+        LatestTimeSourceInfo.loopCount = 0;
+        AllowOverrideAfterFail = TimeSourceConf.allowOverrideAfterFail;
+    }
     if (ackTimeSvc)
     {
         SetTimeSt->externalSetTime = true;
@@ -1652,11 +1676,10 @@ le_result_t taf_Time::CheckSourceTime
 )
 {
     le_result_t result;
-
     switch (sourceIndex)
     {
         case TAF_TIME_SRC_NAME_RTC:
-            result = GetRtcTime(timePtr);
+            result = GetRtcTimeReqAsync(nullptr, NULL);
             break;
 
         case TAF_TIME_SRC_NAME_GNSS:
@@ -1737,17 +1760,16 @@ le_result_t taf_Time::SetTimeBaseOnConfig
     // Flag "setStatus" is used to prevent the system time being overwrite by low priority
     // time source, the priority of the time source in vector "source" is: 0 > 1 > 2 ...
     bool setStatus = false;
-
     if (serviceCfg.source.empty())
     {
         LE_ERROR("Time source configuration not found\n");
         return LE_BAD_PARAMETER;
     }
-
     //1. Check the status for all supported time sources.
     //2. Get the time from the first high priority and active time source.
     //3. Set the time to system.
     TimeSourceStatusMap = 0x0;
+    LatestTimeSourceInfo.loopCount++;
     for (i = 0; i < (int)serviceCfg.source.size(); i++)
     {
         sourceIndex = SourceNameStrToIndex(serviceCfg.source[i].sourceName.c_str());
@@ -1757,48 +1779,62 @@ le_result_t taf_Time::SetTimeBaseOnConfig
             LE_DEBUG("Get %s time source failed\n", serviceCfg.source[i].sourceName.c_str());
             continue;
         }
-
         // Set the bit map for the available time source
         TimeSourceStatusMap = TimeSourceStatusMap | (1 << sourceIndex);
 
         if (serviceCfg.source[i].setSystemTime && !setStatus)
         {
-            if (sourceIndex == TAF_TIME_SRC_NAME_EX_APP)
+            if (!isNewTimeSrcSetTimeAllowed(sourceIndex))
             {
-                // External app set time was done outside of this loop and
-                // the result was feedback through function "GetTimeSource"
-                result = LE_OK;
+                // If the time source with ID 'i' set time is not allowed, the next
+                // ID 'i+1' with lower priority set time is also not allowed for
+                // current set time interval. So break to wait for next interval.
+                LE_DEBUG("New time source is not allowed to set system time");
+                break;
             }
             else
             {
-                result = SetSystemTime(time, sourceIndex, false);
+                if (sourceIndex == TAF_TIME_SRC_NAME_EX_APP
+                    || sourceIndex == TAF_TIME_SRC_NAME_RTC)
+                {
+                    // External app and RTC set time was done outside of this loop and
+                    // the result was feedback through function "CheckSourceTime"
+                    result = LE_OK;
+                }
+                else
+                {
+                    LE_DEBUG("Setting the new time with source %s",
+                        SourceNameIndexToStr(sourceIndex));
+                    result = SetSystemTime(time, sourceIndex, false);
+                }
             }
-
             if (result == LE_OK)
             {
                 setStatus = true;
-
                 //Record the successed source
                 *latestActiveTimePtr = sourceIndex;
             }
         }
-
         LE_DEBUG("Tatol: %ld, latest: %s, current: %s, priority: %d,"
-                    " set allow: %d, status: %d, result: %d\n",
+            " set allow: %d, status: %d, result: %d\n",
             serviceCfg.source.size(), SourceNameIndexToStr(*latestActiveTimePtr),
             serviceCfg.source[i].sourceName.c_str(), i,
             serviceCfg.source[i].setSystemTime, setStatus, result);
-
     }
 
     if (setStatus)
     {
         return LE_OK;
     }
-
+    else
+    {
+        if (AllowOverrideAfterFail > 0)
+        {
+            AllowOverrideAfterFail--;
+        }
+    }
     return result;
 }
-
 //--------------------------------------------------------------------------------------------------
 /**
  * Sync the time to the system according to the JSON configuration items. There may be many different
@@ -1820,7 +1856,6 @@ void taf_Time::SystemTimeUpdateTimerHandler
     taf_Time& tafTime = taf_Time::GetInstance();
     le_result_t result = LE_UNAVAILABLE;
     taf_time_TimeSources_t latestActiveTime = TAF_TIME_SRC_NAME_UNKNOWN;
-
 
     result = tafTime.SetTimeBaseOnConfig(TimeSourceConf, &latestActiveTime);
     if (result != LE_OK)
@@ -1907,7 +1942,6 @@ void *taf_Time::SyncTimeTasks(void* contextPtr)
         }
 
         // Create timer to update the local GNSS time
-        LE_INFO("Starting sync time timer, interval: %ld millisec\n", interval);
         tafTime.syncTimeTimerRef = le_timer_Create("syncTimeTimer");
         le_timer_SetMsInterval(tafTime.syncTimeTimerRef, interval);
         le_timer_SetRepeat(tafTime.syncTimeTimerRef, 0);
@@ -1922,10 +1956,8 @@ void *taf_Time::SyncTimeTasks(void* contextPtr)
         {
             TimeSourceConf.pollingInterval = TAF_TIME_SECOND_PER_LOOP_DEFAULT;
         }
-
         //Update the system time as quickly as possible.
         SystemTimeUpdateTimerHandler(NULL);
-
         // Create timer to update the system time
         LE_INFO("Starting sync time timer, interval: %ld sec\n", TimeSourceConf.pollingInterval);
         tafTime.sysTimeUdTimerRef = le_timer_Create("sysTimeUpdateTimer");
@@ -2528,26 +2560,97 @@ void PowerStateChangeHandler
     }
 }
 
-void taf_Time::getRTCRespCB(struct TimeSpec timeVal, le_result_t result)
+bool taf_Time::isNewTimeSrcSetTimeAllowed(taf_time_TimeSources_t newTimeSource)
 {
+    if (LatestTimeSourceInfo.source == TAF_TIME_SRC_NAME_UNKNOWN)
+    {
+        //1. Current system time was not sync by any of the time source, need to be sync
+        return true;
+    }
+
+    int position = TimeSourceConf.findSourcePosition(SourceNameIndexToStr(newTimeSource));
+    if (position < 0)
+    {
+        LE_ERROR("%s is not found\n", SourceNameIndexToStr(newTimeSource));
+        return false;
+    }
+    int newPriorityNum = TimeSourceConf.source[position].priority;
+
+    position = TimeSourceConf.findSourcePosition(SourceNameIndexToStr(LatestTimeSourceInfo.source));
+    if (position < 0)
+    {
+        LE_ERROR("%s is not found\n", SourceNameIndexToStr(LatestTimeSourceInfo.source));
+        return false;
+    }
+    int currPriorityNum = TimeSourceConf.source[position].priority;
+
+    LE_DEBUG("currPriorityNum %d, newPriorityNum %d, AllowOverrideAfterFail %ld\n",
+        currPriorityNum, newPriorityNum, AllowOverrideAfterFail);
+
+    // Note, the small priority number will have higher priority
+    if (newPriorityNum <= currPriorityNum)
+    {
+        //2. Then new time source has higher priority, the update is acceptable
+        return true;
+    }
+
+    if (newPriorityNum > currPriorityNum && AllowOverrideAfterFail == 0)
+    {
+        //3. Curr time source has higher priority and was timeout,
+        //   the system time need to be updated
+        return true;
+    }
+
+    return false;
+}
+
+
+void taf_Time::getRTCRespCB(struct TimeSpec timeVal, le_result_t response)
+{
+    auto& time = taf_Time::GetInstance();
+    taf_time_TimeSpec_t timeSpec = { 0 };
+    le_result_t result = LE_TERMINATED;
+
+    timeSpec.sec = timeVal.sec;
+    timeSpec.nanosec = timeVal.nanosec;
+
+    if (response != LE_OK)
+    {
+        LE_ERROR("Get RTC response not ok %d\n", response);
+        result = LE_TERMINATED;
+    }
+    else
+    {
+        if (time.isNewTimeSrcSetTimeAllowed(TAF_TIME_SRC_NAME_RTC))
+        {
+            result = time.SetSystemTime(timeSpec, TAF_TIME_SRC_NAME_RTC, false);
+        }
+    }
+
     if (getRTCCB.getRTCCallbackFunc)
     {
-        taf_time_TimeSpec_t timeSpec = { 0 };
-        timeSpec.sec = timeVal.sec;
-        timeSpec.nanosec = timeVal.nanosec;
         getRTCCB.getRTCCallbackFunc(&timeSpec, result, getRTCCB.getRTCCtxPtr);
     }
     return;
 }
 
-void taf_Time::setRTCRespCB(le_result_t result)
+void taf_Time::setRTCRespCB(le_result_t response)
 {
+    le_result_t result = LE_TERMINATED;
+
+    if (response != LE_OK)
+    {
+        LE_ERROR("Set RTC response not ok %d\n", response);
+        result = LE_TERMINATED;
+    }
+
     if (setRTCCB.setRTCCallbackFunc)
     {
         setRTCCB.setRTCCallbackFunc(result, setRTCCB.setRTCCtxPtr);
     }
     return;
 }
+
 
 le_result_t taf_Time::GetInternalRtcTime
 (
@@ -2625,7 +2728,7 @@ le_result_t taf_Time::SetTimeToRtc
         time.sec = timeVal.sec;
         time.nanosec = timeVal.nanosec;
 
-        if ((*(timeInf->setRtcTimeHAL)) == nullptr)
+        if ((timeInf == nullptr) || (*(timeInf->setRtcTimeHAL)) == nullptr)
         {
             LE_ERROR("setRtcTimeHAL not initialized");
             return LE_FAULT;
@@ -2647,39 +2750,62 @@ le_result_t taf_Time::SetTimeToRtc
 le_result_t taf_Time::GetRtcTimeReqAsync(taf_time_AsyncGetTimeReqHandlerFunc_t handlerPtr,
     void* contextPtr)
 {
-    auto& time = taf_Time::GetInstance();
-    le_result_t result;
-    if ((*(time.timeInf->getRtcTimeReqAsync)) == nullptr)
+    le_result_t result = LE_UNSUPPORTED;
+
+    if (isDrvPresent)
     {
-        LE_ERROR("getRtcTimeHAL not initialized - Async");
-        return LE_FAULT;
+        if ((timeInf == nullptr) || ((*(timeInf->getRtcTimeReqAsync)) == nullptr))
+        {
+            LE_ERROR("getRtcTimeHAL not initialized - Async");
+            return LE_FAULT;
+        }
+
+        (telux::tafsvc::taf_Time::getRTCCB).getRTCCallbackFunc = handlerPtr;
+        (telux::tafsvc::taf_Time::getRTCCB).getRTCCtxPtr = contextPtr;
+        (telux::tafsvc::taf_Time::getRTCCB).sessionRef = taf_time_GetClientSessionRef();
+
+        result = (*(timeInf->getRtcTimeReqAsync))(taf_Time::getRTCRespCB);
     }
-    (telux::tafsvc::taf_Time::getRTCCB).getRTCCallbackFunc = handlerPtr;
-    (telux::tafsvc::taf_Time::getRTCCB).getRTCCtxPtr = contextPtr;
-    (telux::tafsvc::taf_Time::getRTCCB).sessionRef = taf_time_GetClientSessionRef();
-    result = (*(time.timeInf->getRtcTimeReqAsync))(taf_Time::getRTCRespCB);
+    else
+    {
+        LE_DEBUG("GetRtcTimeReqAsync not supported");
+        return LE_UNSUPPORTED;
+    }
+
     return result;
 }
 
 le_result_t taf_Time::SetRtcTimeReqAsync(const taf_time_TimeSpec_t* timeValPtr,
     taf_time_AsyncSetTimeReqHandlerFunc_t handlerPtr, void* contextPtr)
 {
-    auto& time = taf_Time::GetInstance();
-    if ((*(time.timeInf->setRtcTimeReqAsync)) == nullptr)
+    le_result_t result = LE_UNSUPPORTED;
+
+    if (isDrvPresent)
     {
-        LE_ERROR("setRtcTimeReqAsync not initialized");
-        return LE_FAULT;
+        if ((timeInf == nullptr) || ((*(timeInf->setRtcTimeReqAsync)) == nullptr))
+        {
+            LE_ERROR("setRtcTimeReqAsync not initialized");
+            return LE_FAULT;
+        }
+
+        (telux::tafsvc::taf_Time::setRTCCB).setRTCCallbackFunc = handlerPtr;
+        (telux::tafsvc::taf_Time::setRTCCB).setRTCCtxPtr = contextPtr;
+        (telux::tafsvc::taf_Time::setRTCCB).sessionRef = taf_time_GetClientSessionRef();
+
+        struct TimeSpec timeSpec;
+        timeSpec.sec = timeValPtr->sec;
+        timeSpec.nanosec = timeValPtr->nanosec;
+
+        result = (*(timeInf->setRtcTimeReqAsync))(&timeSpec, taf_Time::setRTCRespCB);
     }
-    (telux::tafsvc::taf_Time::setRTCCB).setRTCCallbackFunc = handlerPtr;
-    (telux::tafsvc::taf_Time::setRTCCB).setRTCCtxPtr = contextPtr;
-    (telux::tafsvc::taf_Time::setRTCCB).sessionRef = taf_time_GetClientSessionRef();
-    struct TimeSpec timeSpec;
-    timeSpec.sec = timeValPtr->sec;
-    timeSpec.nanosec = timeValPtr->nanosec;
-    le_result_t result = (*(time.timeInf->setRtcTimeReqAsync))(&timeSpec, taf_Time::setRTCRespCB);
+    else
+    {
+        LE_DEBUG("SetRtcTimeReqAsync not supported");
+        return LE_UNSUPPORTED;
+    }
+
     return result;
 }
-
 /*======================================================================
 
  FUNCTION        taf_Time::Init

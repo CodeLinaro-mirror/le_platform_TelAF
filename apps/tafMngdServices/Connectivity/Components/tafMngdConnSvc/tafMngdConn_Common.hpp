@@ -75,7 +75,8 @@ namespace tafsvc {
     /**
      * \brief Maximum supported Data Connection objects
      *
-     * Number of Data Connection objects in the Policy JSON that the Connectivity service can manage.
+     * Number of Data Connection objects in the Policy JSON that the Connectivity
+     * service can manage.
      *
      */
     const unsigned int TAF_MNGD_CONN_MAX_DATA_CONNECION_OBJECT_COUNT = 2;
@@ -188,9 +189,15 @@ namespace tafsvc {
 
     typedef enum
     {
-        TAF_MNGD_CONN_MAX_NW_REGISTRATION_TYPE_AUTO   = 0, /**<  Auto value. 0 */
-        TAF_MNGD_CONN_MAX_NW_REGISTRATION_TYPE_MANUAL = 1  /**<  Manual Value. 1 */
+        TAF_MNGD_CONN_NW_REGISTRATION_TYPE_AUTO   = 0, /**<  Auto value. 0 */
+        TAF_MNGD_CONN_NW_REGISTRATION_TYPE_MANUAL = 1  /**<  Manual Value. 1 */
     } taf_mngd_NW_Registration_Type_t;
+
+    typedef enum
+    {
+        TAF_MNGD_CONN_CONNECTIONRECOVERY_TYPE_NONE = 0, /**<  DISABLED value. 0 */
+        TAF_MNGD_CONN_CONNECTIONRECOVERY_TYPE_L1 = 1  /**<  L1 Value. 1 */
+    } taf_mngd_Conn_Policy_ConnRecoveryLevel_t;
 
     /**
      * \brief Enumeration for valid JSON versions
@@ -207,7 +214,8 @@ namespace tafsvc {
     typedef enum
     {
         TAF_MNGD_CONN_JSON_VERSION_23_07_00 = 230700, //"TAF_23.07.00"
-        TAF_MNGD_CONN_JSON_VERSION_23_11_00 = 231100 //"TAF_23.11.00"
+        TAF_MNGD_CONN_JSON_VERSION_23_11_00 = 231100, //"TAF_23.11.00"
+        TAF_MNGD_CONN_JSON_Version_24_03_00 = 240300  //"TAF_24.03.00"
     } taf_mngd_Conn_JSON_Version_t;
 
     // Constant Strings

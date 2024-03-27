@@ -2,19 +2,20 @@
     "Product": "TelAF",
     "Name": "MngdConn",
     "ManagedConnectivityService": {
-        "Version": "23.11.00",
+        "Version": "24.03.00",
         "Configuration": {
             "Name": "Default",
             "Sim":[
                 {
                     "ID": 1,
-                    "Name": "AT&T",
+                    "Name": "SIM1",
                     "SlotNumber": 1
                 }
             ],
             "Network":[
                 {
                     "ID": 1,
+                    "Name": "Network1",
                     "Use_Sim_ID": 1,
                     "PhoneID": 1,
                     "Registration": "Auto"
@@ -23,32 +24,50 @@
             "Data":[
                 {
                     "ID": 1,
-                    "Name": null,
+                    "Name": "Data1",
                     "Use_Network_ID": 1,
                     "Profile":{
                         "Number": 1,
                         "APN": null
                     },
                     "AutoStart":"Yes",
-                    "ConnectionTest":{
+                     "DataStartRetry": {
+                       "Enable": "Yes",
+                       "RetryCount": 1
+                    },
+                    "DataStartConnectionTest":{
                         "URL": null,
                         "IPv4": null,
                         "IPv6": null
+                    },
+                     "PeriodicConnectivityCheck":{
+                        "Interval": 60,
+                        "RetryCount": 5,
+                        "URL": null
                     }
                 },
                 {
                     "ID": 2,
-                    "Name": null,
+                    "Name": "Data2",
                     "Use_Network_ID": 1,
                     "Profile":{
                         "Number": 2,
                         "APN": null
                     },
-                    "AutoStart":"Yes",
-                     "ConnectionTest":{
+                    "AutoStart":"No",
+                     "DataStartRetry": {
+                       "Enable": "Yes",
+                       "RetryCount": 1
+                    },
+                     "DataStartConnectionTest":{
                         "URL": null,
                         "IPv4": null,
                         "IPv6": null
+                    },
+                     "PeriodicConnectivityCheck":{
+                        "Interval": 60,
+                        "RetryCount": 5,
+                        "URL": null
                     }
                 }
             ]
@@ -66,13 +85,13 @@
                         "Use_Data_ID": "2"
                     }
                 ],
-                "DataStartRetry": {
-                     "Enable": "Yes",
-                     "RetryCount": 1
-                },
                 "MultiDataSession": {
                     "Enable": "Yes",
                     "NumConnections": 2
+                },
+                "ConnectivityRecovery": {
+                    "Level": "None",
+                    "StartWaitTime": 30
                 }
             }
         }

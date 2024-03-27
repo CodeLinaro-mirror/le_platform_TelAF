@@ -779,7 +779,7 @@ le_result_t tafMngdConnAdmin::EventStartData(uint8_t dataId)
             if(result == LE_OK || result == LE_DUPLICATE)
             {
                 LE_INFO("StartData returned LE_OK");
-                //connection is created. Now we will go for ConnectionTest
+                //connection is created. Now we will go for DataStartConnectionTest
                 connCtxPtr->state = TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE;
                 return result;
             }
@@ -1251,8 +1251,8 @@ void tafMngdConnAdmin::EventDataConnected(uint8_t dataId)
     LE_INFO("Interface Name for DataID: %d is %s", dataId, connCtxPtr->intfName);
 
     //Check for corresponding DNS
-    result = taf_dcs_GetIPv4DNSAddresses(profileRef, connCtxPtr->dns1Addr, TAF_MNGD_CONN_MAX_IPV4_LEN
-                                        ,connCtxPtr->dns2Addr,TAF_MNGD_CONN_MAX_IPV4_LEN);
+    result = taf_dcs_GetIPv4DNSAddresses(profileRef, connCtxPtr->dns1Addr,
+            TAF_MNGD_CONN_MAX_IPV4_LEN,connCtxPtr->dns2Addr,TAF_MNGD_CONN_MAX_IPV4_LEN);
 
     if(result != LE_OK)
     {
@@ -1262,11 +1262,11 @@ void tafMngdConnAdmin::EventDataConnected(uint8_t dataId)
     LE_INFO("DNS addresses for DataID: %d are %s and %s", dataId, connCtxPtr->dns1Addr,
             connCtxPtr->dns2Addr);
 
-    // Send an event to start ConnectionTest
-    LE_INFO("Sending event to start ConnectionTest for ID: %d", dataId);
-    connCtxPtr->state = TAF_MNGD_CONN_DATA_CONNECTIONTEST_START;
+    // Send an event to start DataStartConnectionTest
+    LE_INFO("Sending event to start DataStartConnectionTest for ID: %d", dataId);
+    connCtxPtr->state = TAF_MNGD_CONN_DATA_START_CONNECTIONTEST_START;
     stateMachineEvent_t stateMachineEvt = {TAF_MNGD_CONN_EVT_INIT, 0};
-    stateMachineEvt.event = TAF_MNGD_CONN_EVT_CONNECTIONTEST;
+    stateMachineEvt.event = TAF_MNGD_CONN_EVT_DATA_START_CONNECTIONTEST;
     stateMachineEvt.dataId = connCtxPtr->dataId;
 
     le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
@@ -1306,7 +1306,7 @@ void tafMngdConnAdmin::EventDataDisconnected(uint8_t dataId)
             le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
             break;
         }
-        // If ConnectionTest fails, we stop the data and then let the state handler to retry
+    // If DataStartConnectionTest fails, we stop the data and then let the state handler to retry
 
         default:
             break;
@@ -1496,9 +1496,9 @@ void tafMngdConnAdmin::StateMachineHandler(void* reqPtr)
             mngdConnAdmin.EventDataDisconnected(eventReq->dataId);
             break;
 
-        case TAF_MNGD_CONN_EVT_CONNECTIONTEST:
+        case TAF_MNGD_CONN_EVT_DATA_START_CONNECTIONTEST:
             LE_DEBUG("Starting Connection test");
-            mngdConnAdmin.ConnectionTest(eventReq->dataId);
+            mngdConnAdmin.DataStartConnectionTest(eventReq->dataId);
             break;
 
         default:
@@ -1591,7 +1591,7 @@ taf_mngd_Conn_Ctx_t* tafMngdConnAdmin::CreateConnCtx
     connCtxPtr->dataState = TAF_MNGD_CONN_DATA_DISCONNECTED;
     connCtxPtr->ipType = TAF_DCS_PDP_UNKNOWN;
     connCtxPtr->dataConnTestFailedRetryCount = 0;
-    connCtxPtr->maxdataRetryCount = Policy.DataSession.DataStartRetry.RetryCount;
+
     if(conn_test_url!=NULL)
     {
         le_utf8_Copy(connCtxPtr->conn_test_url, conn_test_url,
@@ -1603,8 +1603,6 @@ taf_mngd_Conn_Ctx_t* tafMngdConnAdmin::CreateConnCtx
                     TAF_MNGD_CONN_MAX_IPV4_LEN,NULL);
     }
 
-
-    connCtxPtr->dataRetry = Policy.DataSession.DataStartRetry.Enable;
     memset(connCtxPtr->intfName, 0, sizeof(connCtxPtr->intfName));
     memset(connCtxPtr->dns1Addr, 0, sizeof(connCtxPtr->dns1Addr));
     memset(connCtxPtr->dns2Addr, 0, sizeof(connCtxPtr->dns2Addr));
@@ -1619,7 +1617,7 @@ taf_mngd_Conn_Ctx_t* tafMngdConnAdmin::CreateConnCtx
 
     // create reference for this connectivity context
     taf_mngd_Conn_DataRef_t dataRef = (taf_mngd_Conn_DataRef_t)le_ref_CreateRef(DataRefMap,
-                                                                                (void *)connCtxPtr);
+                                                                            (void *)connCtxPtr);
     TAF_ERROR_IF_RET_VAL(connCtxPtr == NULL, NULL, "Cannot alloc dataRef");
 
     connCtxPtr->dataRef = dataRef;
@@ -1781,11 +1779,6 @@ le_result_t tafMngdConnAdmin::InitializeStates()
     auto &sim = tafMngdConnSim::GetInstance();
     taf_dcs_ProfileRef_t profileRef = NULL;
 
-    //Update the dataConnectionCount
-    if(Policy.DataSession.DataStartRetry.Enable)
-    {
-        Policy.DataSession.dataConnectionCount = Policy.DataSession.MultiDataSession.NumConnections;
-    }
     //Iterate through Policy DataSession elements to create the data sessions
     for (sessionIdx = 0; sessionIdx < Policy.DataSession.dataConnectionCount; sessionIdx++)
     {
@@ -1796,24 +1789,31 @@ le_result_t tafMngdConnAdmin::InitializeStates()
         for (dataIdx = 0; dataIdx < Configuration.DataCount; dataIdx++)
         {
             if(Configuration.Data[dataIdx].ID !=
-                                         Policy.DataSession.DataConnection[sessionIdx].Use_Data_ID)
-                continue;
+                                 Policy.DataSession.DataConnection[sessionIdx].Use_Data_ID)
+            continue;
 
+            //Update the dataConnectionCount
+            if(Configuration.Data[dataIdx].DataStartRetry.Enable)
+            {
+                Policy.DataSession.dataConnectionCount =
+                       Policy.DataSession.MultiDataSession.NumConnections;
+            }
             dataId = Configuration.Data[dataIdx].ID;
             autoStart = Configuration.Data[dataIdx].AutoStart;
             profileNumber = Configuration.Data[dataIdx].Profile.ProfileNumber;
-            if(Configuration.Data[dataIdx].ConnectionTest.URL!=NULL)
+            if(Configuration.Data[dataIdx].DataStartConnectionTest.URL!=NULL)
             {
                 LE_INFO("Setting the url for testing");
-                le_utf8_Copy(conn_test_url, Configuration.Data[dataIdx].ConnectionTest.URL,
+                le_utf8_Copy(conn_test_url,Configuration.Data[dataIdx].DataStartConnectionTest.URL,
                     TAF_MNGD_CONN_MAX_CONNECTION_URL_LEN,NULL);
             }
 
-            if(Configuration.Data[dataIdx].ConnectionTest.IPv4[0]!='\0')
+            if(Configuration.Data[dataIdx].DataStartConnectionTest.IPv4[0]!='\0')
             {
                 LE_INFO("Setting the ipv4 for testing");
-                le_utf8_Copy(conn_test_ipv4Addr, Configuration.Data[dataIdx].ConnectionTest.IPv4,
-                    TAF_MNGD_CONN_MAX_IPV4_LEN,NULL);
+                le_utf8_Copy(conn_test_ipv4Addr,
+                            Configuration.Data[dataIdx].DataStartConnectionTest.IPv4,
+                            TAF_MNGD_CONN_MAX_IPV4_LEN,NULL);
             }
 
 
@@ -1905,6 +1905,9 @@ le_result_t tafMngdConnAdmin::InitializeStates()
             // Clear the list of clients
             connCtxPtr->clients.clear();
 
+            connCtxPtr->maxdataRetryCount = Configuration.Data[dataIdx].DataStartRetry.RetryCount;
+            connCtxPtr->dataRetry = Configuration.Data[dataIdx].DataStartRetry.Enable;
+
             if(sim.IsSimReady(slotNumber))
             {
                 connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED_SIM_READY;
@@ -1992,12 +1995,12 @@ void tafMngdConnAdmin::DataRetryTimerHandler(le_timer_Ref_t timerRef)
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Handle the event TAF_MNGD_CONN_EVT_CONNECTIONTEST which is sent when data start startup.
+ * Handle the event TAF_MNGD_CONN_EVT_DATA_START_CONNECTIONTEST which is sent on data startup.
  */
 //--------------------------------------------------------------------------------------------------
-void tafMngdConnAdmin::ConnectionTest(uint8_t dataId)
+void tafMngdConnAdmin::DataStartConnectionTest(uint8_t dataId)
 {
-    LE_INFO("ConnectionTest entered");
+    LE_INFO("DataStartConnectionTest entered");
     taf_mngd_Conn_Ctx_t *connCtxPtr = GetConnCtx(dataId);
     std::string url = connCtxPtr->conn_test_url;
     std::string ipv4add = connCtxPtr->conn_test_ipv4Addr;
@@ -2008,7 +2011,7 @@ void tafMngdConnAdmin::ConnectionTest(uint8_t dataId)
 
     if(!url.empty())
     {
-        if(ConnectionTest_URL(url , interfaceName))
+        if(DataStartConnectionTest_URL(url , interfaceName))
         {
             //connection is created.
             connCtxPtr->state = TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE;
@@ -2016,7 +2019,7 @@ void tafMngdConnAdmin::ConnectionTest(uint8_t dataId)
             //If manually started the data successfully. Set reconnection flag to true.
             connCtxPtr->needReConn = true;
         }
-        else if(!ipv4add.empty() && ConnectionTest_IPv4(ipv4add , interfaceName))
+        else if(!ipv4add.empty() && DataStartConnectionTest_IPv4(ipv4add , interfaceName))
         {
             //connection is created.
             connCtxPtr->state = TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE;
@@ -2027,9 +2030,9 @@ void tafMngdConnAdmin::ConnectionTest(uint8_t dataId)
         else
         {
             // Connectiontest failed.
-            LE_INFO("ConnectionTest failed for dataID: %d", dataId);
-            connCtxPtr->state = TAF_MNGD_CONN_DATA_CONNECTIONTEST_FAILED;
-            LE_INFO("ConnectionTest failed. Stopping the data and retrying.");
+            LE_INFO("DataStartConnectionTest failed for dataID: %d", dataId);
+            connCtxPtr->state = TAF_MNGD_CONN_DATA_START_CONNECTIONTEST_FAILED;
+            LE_INFO("DataStartConnectionTest failed. Stopping the data and retrying.");
             connCtxPtr->state = TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE_RETRYING;
             stateMachineEvent_t stateMachineEvt = {TAF_MNGD_CONN_EVT_INIT, 0};
             stateMachineEvt.event=TAF_MNGD_CONN_EVT_DATA_STOP;
@@ -2039,7 +2042,7 @@ void tafMngdConnAdmin::ConnectionTest(uint8_t dataId)
     }
     else if(!ipv4add.empty())
     {
-        if(ConnectionTest_IPv4(ipv4add , interfaceName))
+        if(DataStartConnectionTest_IPv4(ipv4add , interfaceName))
         {
             //connection is created.
             connCtxPtr->state = TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE;
@@ -2050,9 +2053,9 @@ void tafMngdConnAdmin::ConnectionTest(uint8_t dataId)
         else
         {
             // Connectiontest failed.
-            LE_INFO("ConnectionTest failed for dataID: %d", dataId);
-            connCtxPtr->state = TAF_MNGD_CONN_DATA_CONNECTIONTEST_FAILED;
-            LE_INFO("ConnectionTest failed. Stopping the data and retrying.");
+            LE_INFO("DataStartConnectionTest failed for dataID: %d", dataId);
+            connCtxPtr->state = TAF_MNGD_CONN_DATA_START_CONNECTIONTEST_FAILED;
+            LE_INFO("DataStartConnectionTest failed. Stopping the data and retrying.");
             connCtxPtr->state = TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE_RETRYING;
             stateMachineEvent_t stateMachineEvt = {TAF_MNGD_CONN_EVT_INIT, 0};
             stateMachineEvt.event=TAF_MNGD_CONN_EVT_DATA_STOP;
@@ -2063,7 +2066,8 @@ void tafMngdConnAdmin::ConnectionTest(uint8_t dataId)
     //If both url and ipaddr is null
     else
     {
-        LE_INFO("ConnectionTest passed because both url and ipv4 are null for dataID: %d", dataId);
+        LE_INFO("DataStartConnectionTest passed because both url and ipv4 are null for dataID: %d",
+                dataId);
         //connection is created.
         connCtxPtr->state = TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE;
         ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_CONNECTED);
@@ -2072,7 +2076,7 @@ void tafMngdConnAdmin::ConnectionTest(uint8_t dataId)
     }
 }
 
-bool tafMngdConnAdmin::ConnectionTest_URL(std::string url, std::string interfaceName)
+bool tafMngdConnAdmin::DataStartConnectionTest_URL(std::string url, std::string interfaceName)
 {
     //Enable LE_CONFIG_DEBUG to get the output of curl in logs
     #if LE_CONFIG_DEBUG
@@ -2087,17 +2091,17 @@ bool tafMngdConnAdmin::ConnectionTest_URL(std::string url, std::string interface
     if(result==0)
     {
         //connection is created.
-        LE_INFO("ConnectionTest_URL passed for interface %s",interfaceName.c_str());
+        LE_INFO("DataStartConnectionTest_URL passed for interface %s",interfaceName.c_str());
         return true;
     }
-    LE_INFO ("ConnectionTest_URL failed for interface %s",interfaceName.c_str());
+    LE_INFO ("DataStartConnectionTest_URL failed for interface %s",interfaceName.c_str());
     return false;
 }
 
-bool tafMngdConnAdmin::ConnectionTest_IPv4(std::string ipv4, std::string interfaceName)
+bool tafMngdConnAdmin::DataStartConnectionTest_IPv4(std::string ipv4, std::string interfaceName)
 {
     //Enable LE_CONFIG_DEBUG to get the output of ping in logs
-    LE_INFO("ConnectionTest_IPv4 entered for interface %s",interfaceName.c_str());
+    LE_INFO("DataStartConnectionTest_IPv4 entered for interface %s",interfaceName.c_str());
     #if LE_CONFIG_DEBUG
         std::string pingCommand = "ping -c 5 -I "+ interfaceName +" "+ ipv4;
         //5 is the number of ping pockets
@@ -2110,12 +2114,12 @@ bool tafMngdConnAdmin::ConnectionTest_IPv4(std::string ipv4, std::string interfa
     if(result==0)
     {
         //connection is created.
-        LE_INFO("ConnectionTest_IPv4 passed for interface %s",interfaceName.c_str());
+        LE_INFO("DataStartConnectionTest_IPv4 passed for interface %s",interfaceName.c_str());
         return true;
     }
     else
     {
-        LE_INFO("ConnectionTest_IPv4 failed for interface %s",interfaceName.c_str());
+        LE_INFO("DataStartConnectionTest_IPv4 failed for interface %s",interfaceName.c_str());
         return false;
     }
     return false;
@@ -2156,8 +2160,8 @@ const char * tafMngdConnAdmin::EventToString(taf_mngd_Conn_EventType_t event)
             return "TAF_MNGD_CONN_EVT_DATA_CONNECTION_DISCONNECTED";
         case TAF_MNGD_CONN_EVT_GET_CONNECTION_INFO_SYNC:
             return "TAF_MNGD_CONN_EVT_GET_CONNECTION_INFO_SYNC";
-        case TAF_MNGD_CONN_EVT_CONNECTIONTEST:
-            return "TAF_MNGD_CONN_EVT_CONNECTIONTEST";
+        case TAF_MNGD_CONN_EVT_DATA_START_CONNECTIONTEST:
+            return "TAF_MNGD_CONN_EVT_DATA_START_CONNECTIONTEST";
         default:
             LE_ERROR("unknown status: %d", event);
             return "unknow status";
@@ -2192,10 +2196,10 @@ const char * tafMngdConnAdmin::StateToString(taf_mngd_Conn_Admin_State_t state)
             return "TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE";
         case TAF_MNGD_CONN_DATA_CONNECTED_IDLE:
             return "TAF_MNGD_CONN_DATA_CONNECTED_IDLE";
-        case TAF_MNGD_CONN_DATA_CONNECTIONTEST_START:
-            return "TAF_MNGD_CONN_DATA_CONNECTIONTEST_START";
-        case TAF_MNGD_CONN_DATA_CONNECTIONTEST_FAILED:
-            return "TAF_MNGD_CONN_DATA_CONNECTIONTEST_FAILED";
+        case TAF_MNGD_CONN_DATA_START_CONNECTIONTEST_START:
+            return "TAF_MNGD_CONN_DATA_START_CONNECTIONTEST_START";
+        case TAF_MNGD_CONN_DATA_START_CONNECTIONTEST_FAILED:
+            return "TAF_MNGD_CONN_DATA_START_CONNECTIONTEST_FAILED";
         case TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE_RETRYING:
             return "TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE_RETRYING";
         case TAF_MNGD_CONN_DATA_NOT_CONNECTED_INACTIVE_RETRYING:

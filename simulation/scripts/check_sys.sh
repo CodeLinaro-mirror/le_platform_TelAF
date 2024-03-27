@@ -125,7 +125,6 @@ total_packages_checking="
     curl
     python3
     ninja-build
-    python-jinja2
     cmake
     python-setuptools
     git
@@ -135,9 +134,11 @@ total_packages_checking="
 "
 
 if [ $OS_VERSION = "20.04" ]; then
-    total_packages_checking+="python2"
+    total_packages_checking+=" python2"
+    total_packages_checking+=" python-jinja2"
 else # = 18.04
-    total_packages_checking+="python"
+    total_packages_checking+=" python"
+    total_packages_checking+=" python-jinja2"
 fi
 
 

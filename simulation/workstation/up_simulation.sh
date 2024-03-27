@@ -203,11 +203,24 @@ if [ -n "${TELAF_IN_CONTAINER}" ]; then # [Docker-Container-Env]
 
         chmod 755 $MOUNTPOINT_TELAF/systems/current/bin/*
 
-        from_version=`cat $MOUNTPOINT_TELAF/.check_done`
+        CONTAINER_DISTRO_VERSION=$(grep -oP 'VERSION_ID="\K[^"]+' /etc/os-release)
 
         if [ -e $MOUNTPOINT_TELAF/.check_done ] ; then
-            if [ "$from_version" != "from 18.04" ] && [ "$from_version" != "from 20.04" ]; then
-                echo "Exist .check_done, but [$from_version], not in [18.04, 20.04], please rebuild your tarball."
+
+            FROM_VERSION_STR=`cat $MOUNTPOINT_TELAF/.check_done`
+
+            if [ "$FROM_VERSION_STR" != "from 18.04" ] \
+            && [ "$FROM_VERSION_STR" != "from 20.04" ]; then
+                echo "Exist .check_done, but [$FROM_VERSION_STR], not in [18.04, 20.04], please rebuild your tarball."
+                exit 1
+            fi
+
+            FROM_VERSION=`echo ${FROM_VERSION_STR} | cut -d ' ' -f 2`
+            if [ "$FROM_VERSION" != "$CONTAINER_DISTRO_VERSION" ];then
+                echo "Mismatch [${SIMULATION_TARBALL_NAME}] tarball !"
+                echo "Build from: [ubuntu-${FROM_VERSION}]"
+                echo "Deploy to : [ubuntu-${CONTAINER_DISTRO_VERSION}]"
+                echo -e "\nPlease re-build your project in corresponding ubuntu system.\n"
                 exit 1
             fi
 

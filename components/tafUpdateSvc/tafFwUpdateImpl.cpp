@@ -156,7 +156,7 @@ void taf_FwUpdate::UpdateProgress
             tafFwUpdate.SetState(TAF_UPDATE_PROBATION_SUCCESS);
             break;
         case TAF_UPDATE_PROBATION_FAIL:
-            LE_INFO("Probation success.");
+            LE_INFO("Probation failed.");
             tafFwUpdate.SetState(TAF_UPDATE_PROBATION_FAIL);
             break;
         case TAF_UPDATE_SYNCHRONIZING:

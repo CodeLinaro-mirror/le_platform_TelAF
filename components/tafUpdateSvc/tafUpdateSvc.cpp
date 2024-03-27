@@ -298,6 +298,8 @@ le_result_t taf_update_GetInstallationSession
 )
 {
     auto &tafUpdate = taf_Update::GetInstance();
+    taf_UpdateSession_t* sessPtr = NULL;
+    int ret = 0;
 
     switch (pkgType)
     {
@@ -309,6 +311,21 @@ le_result_t taf_update_GetInstallationSession
             break;
         case TAF_UPDATE_PACKAGE_TYPE_TELAF_APP:
             *sessionRef = tafUpdate.appSessRef;
+            break;
+        case TAF_UPDATE_PACKAGE_TYPE_UAPI_PACKAGE:
+            TAF_ERROR_IF_RET_VAL(tafUpdate.uaInfPtr == NULL, LE_UNSUPPORTED,
+                "Please install UA plug-in module.");
+
+            TAF_ERROR_IF_RET_VAL(tafUpdate.uaInfPtr->getSess == NULL, LE_UNSUPPORTED,
+                "Get UA plug-in update session is not supported.");
+
+            sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap, tafUpdate.upiSessRef);
+            TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up update session.");
+
+            ret = (*(tafUpdate.uaInfPtr->getSess))(cfgFile, &sessPtr->upiSess.sessRef);
+            TAF_ERROR_IF_RET_VAL(ret != 0, LE_FAULT, "Fail to get UA plug-in update session.");
+
+            *sessionRef = tafUpdate.upiSessRef;
             break;
         default:
             LE_ERROR("Unsupported package type (%d) for installation.", pkgType);
@@ -458,6 +475,7 @@ le_result_t taf_update_StartInstall
 
     taf_FwUpdateReq_t fwReq;
     taf_AppMgmtUpdateReq_t appReq;
+    taf_UpdateReq_t updateReq;
 
     taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
         sessionRef);
@@ -482,6 +500,18 @@ le_result_t taf_update_StartInstall
             le_utf8_Copy(appReq.appName, pkgPath + strlen(TAF_APPMGMT_APP_INSTALL_PATH_PREFIX),
                 TAF_UPDATE_FILE_PATH_LEN, NULL);
             le_event_Report(taf_AppMgmt::appUpdateEvId, &appReq, sizeof(taf_AppMgmtUpdateReq_t));
+            break;
+        case TAF_UPDATE_SESSION_TYPE_PLUGIN_UPDATE:
+            TAF_ERROR_IF_RET_VAL(tafUpdate.uaInfPtr == NULL, LE_UNSUPPORTED,
+                "Please install UA module.");
+
+            TAF_ERROR_IF_RET_VAL(tafUpdate.uaInfPtr->startInstall == NULL, LE_UNSUPPORTED,
+                "UA plug-in start install function is not supported.");
+
+            updateReq.event = TAF_UPDATE_INST_START;
+            updateReq.sessPtr = &sessPtr->upiSess;
+            le_utf8_Copy(updateReq.filePath, pkgPath, TAF_UPDATE_FILE_PATH_LEN, NULL);
+            le_event_Report(tafUpdate.updatePiEvId, &updateReq, sizeof(taf_UpdateReq_t));
             break;
         default:
             LE_ERROR("Unsupported session type (%d) for installation.", sessPtr->sessType);

@@ -411,6 +411,149 @@ void taf_Update::DownloadHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Report update status.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_Update::ReportUpdateStatus
+(
+    taf_UpdatePlugInSession_t* sessPtr, ///< [IN] Update Plug-In session.
+    taf_update_State_t state            ///< [IN] Update state to be reported to client.
+)
+{
+    auto &tafUpdate = taf_Update::GetInstance();
+
+    if (state == TAF_UPDATE_INSTALL_SUCCESS || state == TAF_UPDATE_INSTALL_FAIL)
+    {
+        sessPtr->state = TAF_UPDATE_IDLE;
+    }
+    else
+    {
+        sessPtr->state = state;
+    }
+
+    taf_update_StateInd_t report;
+    report.percent = sessPtr->percent;
+    report.state = state;
+    le_utf8_Copy(report.name, "update plugin session", TAF_UPDATE_SESSION_NAME_LEN, NULL);
+    le_event_Report(tafUpdate.stateEvId, &report, sizeof(taf_update_StateInd_t));
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Update timer handler.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_Update::UpdateTimerHandler
+(
+    le_timer_Ref_t timerRef ///< [IN] Update timer reference.
+)
+{
+    auto &tafUpdate = taf_Update::GetInstance();
+
+    taf_UpdatePlugInSession_t* sessPtr =
+        (taf_UpdatePlugInSession_t*)le_timer_GetContextPtr(timerRef);
+
+    taf_pi_ua_Status_t status = TAF_PI_UA_STATUS_INIT;
+    int ret = (*(tafUpdate.uaInfPtr->getProgress))(sessPtr->sessRef, &status, &sessPtr->percent,
+        &sessPtr->error);
+    if (ret)
+    {
+        LE_ERROR("UA plug-in get update progress failed, ret = %d.", ret);
+        le_timer_Stop(timerRef);
+        tafUpdate.ReportUpdateStatus(sessPtr, TAF_UPDATE_INSTALL_FAIL);
+    }
+    else
+    {
+        switch (status)
+        {
+            case TAF_PI_UA_STATUS_INIT:
+                LE_INFO("UA plug-in current status is update init.");
+                break;
+            case TAF_PI_UA_STATUS_UPDATING:
+                LE_INFO("UA plug-in current status updating, percent = %d.",
+                    sessPtr->percent);
+                tafUpdate.ReportUpdateStatus(sessPtr, TAF_UPDATE_INSTALLING);
+                break;
+            case TAF_PI_UA_STATUS_FINISH:
+                LE_INFO("UA plug-in current status is update finish.");
+                le_timer_Stop(timerRef);
+                tafUpdate.ReportUpdateStatus(sessPtr, TAF_UPDATE_INSTALL_SUCCESS);
+                break;
+            case TAF_PI_UA_STATUS_ERROR:
+                LE_INFO("UA plug-in current status is update error, error code = %d.",
+                    sessPtr->error);
+                le_timer_Stop(timerRef);
+                tafUpdate.ReportUpdateStatus(sessPtr, TAF_UPDATE_INSTALL_FAIL);
+                break;
+            default:
+                LE_ERROR("UA plug-in current status is unknown, status = %d.", status);
+                le_timer_Stop(timerRef);
+                tafUpdate.ReportUpdateStatus(sessPtr, TAF_UPDATE_INSTALL_FAIL);
+        }
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Update handler.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_Update::UpdateHandler
+(
+    void* reqPtr ///< [IN] Update request pointer.
+)
+{
+    auto &tafUpdate = taf_Update::GetInstance();
+
+    taf_UpdateReq_t* updateReq = (taf_UpdateReq_t*)reqPtr;
+    taf_UpdatePlugInSession_t* sessPtr = updateReq->sessPtr;
+
+    switch (sessPtr->state)
+    {
+        case TAF_UPDATE_IDLE:
+            if (updateReq->event == TAF_UPDATE_INST_START)
+            {
+                LE_INFO("UA plug-in start to install.");
+                sessPtr->state = TAF_UPDATE_INSTALLING;
+                sessPtr->percent = 0;
+                int ret = (*(tafUpdate.uaInfPtr->startInstall))(sessPtr->sessRef,
+                    updateReq->filePath);
+                if (ret)
+                {
+                    LE_ERROR("UA plug-in install failed, ret = %d.", ret);
+                    tafUpdate.ReportUpdateStatus(sessPtr, TAF_UPDATE_INSTALL_FAIL);
+                }
+                else
+                {
+                    if (tafUpdate.uaInfPtr->getProgress == NULL)
+                    {
+                        LE_WARN("UA plug-in get update progress is not supported.");
+                        tafUpdate.ReportUpdateStatus(sessPtr, TAF_UPDATE_INSTALL_SUCCESS);
+                    }
+                    else
+                    {
+                        LE_INFO("Start update timer.");
+                        le_timer_SetContextPtr(sessPtr->timerRef, (void*)sessPtr);
+                        le_timer_Start(sessPtr->timerRef);
+                    }
+                }
+            }
+            else
+            {
+                LE_ERROR("UA plug-in is in idle state, invalid event(%d).", updateReq->event);
+            }
+            break;
+        case TAF_UPDATE_INSTALLING:
+            LE_ERROR("UA plug-in is in installing state, invalid event(%d).", updateReq->event);
+            break;
+        default:
+            LE_ERROR("UA plug-in is in unknown state, state = %d.", sessPtr->state);
+    }
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Intialization.
  */
 //--------------------------------------------------------------------------------------------------
@@ -424,6 +567,7 @@ void taf_Update::Init
     // 1. Create events.
     stateEvId = le_event_CreateId("stateEvId", sizeof(taf_update_StateInd_t));
     downloadEvId = le_event_CreateId("downloadEvId", sizeof(taf_UpdateDlReq_t));
+    updatePiEvId = le_event_CreateId("updatePiEvId", sizeof(taf_UpdateReq_t));
 
     // 2. Create session reference map and pool.
     sessionMap = le_ref_InitStaticMap(sessionMap, TAF_UPDATE_SESSION_NUM);
@@ -450,12 +594,38 @@ void taf_Update::Init
 
         // Initiate download state.
         sessPtr->dlSess.state = TAF_UPDATE_IDLE;
-
         dlSessRef = (taf_update_SessionRef_t)le_ref_CreateRef(sessionMap, (void*)sessPtr);
         if (daInfPtr->init != NULL)
         {
             LE_INFO("DA plug-in init...");
             (*(daInfPtr->init))();
+        }
+    }
+
+    // 4. Load Update agent plug-in module.
+    uaInfPtr = (ua_Inf_t *)taf_devMgr_LoadDrv(TAF_UA_MODULE_NAME, NULL);
+    if (uaInfPtr == NULL)
+    {
+        LE_WARN("UA module not installed.");
+    }
+    else
+    {
+        sessPtr = (taf_UpdateSession_t*)le_mem_ForceAlloc(sessionPool);
+        sessPtr->sessType = TAF_UPDATE_SESSION_TYPE_PLUGIN_UPDATE;
+
+        // Create update timer.
+        sessPtr->upiSess.timerRef = le_timer_Create("Update Timer");
+        le_timer_SetMsInterval(sessPtr->upiSess.timerRef, TAF_UPDATE_TIMER_INTERVAL);
+        le_timer_SetRepeat(sessPtr->upiSess.timerRef, 0);
+        le_timer_SetHandler(sessPtr->upiSess.timerRef, UpdateTimerHandler);
+
+        // Initiate update state.
+        sessPtr->upiSess.state = TAF_UPDATE_IDLE;
+        upiSessRef = (taf_update_SessionRef_t)le_ref_CreateRef(sessionMap, (void*)sessPtr);
+        if (uaInfPtr->init != NULL)
+        {
+            LE_INFO("UA plug-in init...");
+            (*(uaInfPtr->init))();
         }
     }
 
@@ -474,6 +644,7 @@ void taf_Update::Init
 
     // 5. Register event handler.
     le_event_AddHandler("DownloadHandler", downloadEvId, DownloadHandler);
+    le_event_AddHandler("UpdateHandler", updatePiEvId, UpdateHandler);
 
     chrono::time_point<chrono::system_clock> endTime = chrono::system_clock::now();
     chrono::duration<double> elapsedTime = endTime - startTime;

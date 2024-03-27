@@ -107,6 +107,7 @@ namespace tafsvc {
         TAF_MNGD_CONN_EVT_DATA_CONNECTION_DISCONNECTED,
         TAF_MNGD_CONN_EVT_GET_CONNECTION_INFO_SYNC,
         TAF_MNGD_CONN_EVT_DATA_START_CONNECTIONTEST,
+        TAF_MNGD_CONN_EVT_DATA_START_PERIODIC_CONNECTIONTEST,
         TAF_MNGD_CONN_EVT_CONN_RECOVERY_SCHEDULE, // Schedule connectivity recovery
         TAF_MNGD_CONN_EVT_CONN_RECOVERY_CANCEL,
         TAF_MNGD_CONN_EVT_CONN_RECOVERY_START_L1
@@ -189,6 +190,8 @@ namespace tafsvc {
         taf_mngd_Conn_DataState_t     dataState;              // The data state for notification
         le_timer_Ref_t                dataStartRetryTimerRef; // Data start retry timer reference
         le_timer_Ref_t                recoveryScheduleTimerRef; // Recovery schedule timer reference
+        le_timer_Ref_t                periodicConnectivityTestTimerRef;
+                                                   // periodicConnectivityTestTimerRef timer reference
         le_event_Id_t                 dataStateEvent;         //Data state event
         taf_dcs_Pdp_t                 ipType;                 // Ip type
         taf_mngd_Conn_DataRef_t       dataRef;
@@ -202,7 +205,15 @@ namespace tafsvc {
         char                          ipv4Addr[TAF_MNGD_CONN_MAX_IPV4_LEN];
         char                          ipv6Addr[TAF_MNGD_CONN_MAX_IPV6_LEN];
         bool                          isConnectivityRecoveryScheduled;
-        bool                          wasConnectivityRecoveryDone;
+                                      //PeriodicConnectivityTest URL
+        char                          conn_periodic_test_url[TAF_MNGD_CONN_MAX_CONNECTION_URL_LEN];
+                                      //PeriodicConnectivityTest Interval
+        uint8_t                       conn_periodic_test_interval;
+                                      //PeriodicConnectivityTest RetryCount
+        uint8_t                       conn_periodic_test_retryCount;
+                                      //PeriodicConnectivityTest MaxRetryCount
+        uint8_t                       conn_periodic_test_maxRetryCount;
+	    bool                          wasConnectivityRecoveryDone;
         // Clients that have called Data Start
         std::set<le_msg_SessionRef_t> clients;
     } taf_mngd_Conn_Ctx_t;
@@ -259,6 +270,7 @@ namespace tafsvc {
             void EventDataDisconnected(uint8_t dataId);
             static void DataRetryTimerHandler(le_timer_Ref_t timerRef);
             static void RecoveryScheduleTimerHandler(le_timer_Ref_t timerRef);
+            static void PeriodicConnectivityTestTimerHandler(le_timer_Ref_t timerRef);
             static void OnClientConnect(le_msg_SessionRef_t sessionRef, void *ctxPtr);
             static void OnClientDisconnect(le_msg_SessionRef_t sessionRef, void *ctxPtr);
             static void FirstLayerDataStateHandler(void *reportPtr, void *secondLayerHandlerFunc);
@@ -302,6 +314,7 @@ namespace tafsvc {
 
             //Connectiontest
             void EventDataStartConnectionTest(uint8_t dataId);
+            void EventDataPeriodicConnectivityTest(uint8_t dataId);
             bool DataStartConnectionTest_URL(std::string url, std::string interfaceName);
             bool DataStartConnectionTest_IPv4(std::string ipv4, std::string interfaceName);
 

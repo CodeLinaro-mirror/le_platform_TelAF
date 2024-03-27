@@ -188,7 +188,7 @@ void tafMngdConnRadio::PackSwStateHandler
 void tafMngdConnRadio::RegisterEvents()
 {
     taf_radio_ConnectService();
-
+/*
     gsmSsChangeHandlerRef = taf_radio_AddSignalStrengthChangeHandler(TAF_RADIO_RAT_GSM,
                             (taf_radio_SignalStrengthChangeHandlerFunc_t)GsmSsChangeHandler, NULL);
 
@@ -224,7 +224,7 @@ void tafMngdConnRadio::RegisterEvents()
 
     if(nr5gSsChangeHandlerRef == NULL)
         LE_ERROR("Adding NR5G signal strength change handler failed");
-
+*/
     packSwStateHandlerRef = taf_radio_AddPacketSwitchedChangeHandler(
                             (taf_radio_PacketSwitchedChangeHandlerFunc_t)PackSwStateHandler, NULL);
 
@@ -272,9 +272,21 @@ le_result_t tafMngdConnRadio::StartUp(uint8_t phoneId)
 //--------------------------------------------------------------------------------------------------
 le_result_t tafMngdConnRadio::PowerOn(uint8_t phoneId)
 {
-    LE_INFO("Set radio poweron");
+    LE_INFO("Set radio power on");
 
     return taf_radio_SetRadioPower(LE_ON, phoneId);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Power off the radio.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t tafMngdConnRadio::PowerOff(uint8_t phoneId)
+{
+    LE_INFO("Set radio power off");
+
+    return taf_radio_SetRadioPower(LE_OFF, phoneId);
 }
 
 //--------------------------------------------------------------------------------------------------

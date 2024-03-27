@@ -432,7 +432,7 @@ bool tafMngdConnSvc_PolicyParser::ParseAndUpdatePolicyJSON(taf_mngd_Conn_Policy_
                                         }
                                 }
                                 if ("ConnectivityRecovery" == child.first) {
-                                // Use an iterator to go through  the ConnectivityRecovery elements
+                                 // Use an iterator to go through  the ConnectivityRecovery elements
                                     for (auto &it: child.second) {
                                             log.clear();
                                             log.append ( std::string ("\t") + "Key: "

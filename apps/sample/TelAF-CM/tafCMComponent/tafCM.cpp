@@ -57,6 +57,26 @@ using std::string;
 namespace pt = boost::property_tree;
 
 /**
+ * Connectivity recovery state returned by Managed Connectivity Service
+ **/
+static void RecoveryStateHandler(taf_mngd_Conn_RecoveryState_t state,
+                                 uint8_t dataId, void *contextPtr)
+{
+    LE_INFO("Recovery event for Data Id: %d", dataId);
+    if (TAF_MNGD_CONN_RECOVERY_L1_SCHEDULED == state)
+    {
+        LE_INFO("Recovery State: RECOVERY_L1_SCHEDULED");
+    }
+    else if (TAF_MNGD_CONN_RECOVERY_L1_STARTED == state)
+    {
+        LE_INFO("Recovery State: RECOVERY_L1_STARTED");
+    }
+
+    LE_UNUSED(contextPtr);
+    return;
+}
+
+/**
  * Return Connection information
 */
 static int getConnectionInfo(taf_mngd_Conn_DataRef_t dataRef)
@@ -73,15 +93,6 @@ static int getConnectionInfo(taf_mngd_Conn_DataRef_t dataRef)
         return result;
     }
     LE_INFO("Data ID  = %d ", dataID);
-    if (TAF_MNGD_CONN_DATA_DISCONNECTED == state)
-    {
-        LE_INFO("Data Disconnected");
-        return LE_OK;
-    }
-    else
-    {
-        LE_INFO("Data Connected");
-    }
 
     // Data is connected. Get IP addresses
     result = taf_mngd_Conn_DataGetConnectionIPAddresses(dataRef,
@@ -89,7 +100,6 @@ static int getConnectionInfo(taf_mngd_Conn_DataRef_t dataRef)
                                                         ipv6Addr, TAF_DCS_IPV6_ADDR_MAX_LEN);
     if (LE_OK == result)
     {
-        LE_INFO("State    = %d ", state);
         if (ipv4Addr[0] != '\0')
             LE_INFO("IPv4Addr = %s", ipv4Addr);
         if (ipv6Addr[0] != '\0')
@@ -102,15 +112,34 @@ static int getConnectionInfo(taf_mngd_Conn_DataRef_t dataRef)
 }
 
 /**
- *  State returned by Managed Connectivity Service
+ * Data state returned by Managed Connectivity Service
  **/
 static void ConnectionStateHandler(taf_mngd_Conn_DataRef_t dataRef,
                                    taf_mngd_Conn_DataState_t dataState,
                                    void *contextPtr)
 {
     // Handle event
-    getConnectionInfo(dataRef);
-    return;
+    if (TAF_MNGD_CONN_DATA_CONNECTED == dataState)
+    {
+        LE_INFO("Data Connected");
+        getConnectionInfo(dataRef);
+    }
+    else if (TAF_MNGD_CONN_DATA_DISCONNECTED == dataState)
+    {
+        LE_INFO("Data Disconnected");
+    }
+    else if (TAF_MNGD_CONN_DATA_CONNECTION_FAILED == dataState)
+    {
+        LE_INFO("Data Connection failed");
+    }
+    else if (TAF_MNGD_CONN_DATA_CONNECTION_STALLED == dataState)
+    {
+        LE_INFO("Data Connection stalled");
+    }
+    else
+    {
+        LE_INFO("UNsupported data state: %d", dataState);
+    }
 }
 
 /**
@@ -192,6 +221,9 @@ COMPONENT_INIT
         LE_WARN("Error in mapping Data ID and AutoStart");
         return;
     }
+
+    // Register recovery state handler
+    taf_mngd_Conn_AddRecoveryStateHandler(RecoveryStateHandler, NULL);
 
     // Create tafMngdConn Data references for the Data IDs.
     // Once the references are created, register for data session notifications.

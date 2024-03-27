@@ -44,31 +44,43 @@
 #define TAF_MNGD_CONN_MAX_FILE_PATH_LEN    256
 #define TAF_MNGD_CONN_MAX_DATA_OBJ 16
 
+// Radio off time for L1 recovery
+#define TAF_MNGD_CONN_L1_RECOVERY_RADIO_OFF_TIME 5
+
 // Maximum nmber of client sessions
 #define TAF_MNGD_CONN_MAX_SESSIONS 16
 
 namespace telux {
 namespace tafsvc {
-
-    // States as recognized by the Admin component
+    //----------------------------------------------------------------------------------------------
+    /**
+     * States as recognized by the Admin component
+     */
+    //----------------------------------------------------------------------------------------------
     typedef enum
     {
-        TAF_MNGD_CONN_ADMIN_INIT,                               ///< Init.
-        TAF_MNGD_CONN_DATA_NOT_CONNECTED_SIM_READY,             ///< Sim ready.
-        TAF_MNGD_CONN_DATA_NOT_CONNECTED_SIM_NOT_READY,         ///< Sim not ready.
-        TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_REGISTERED,         ///< Network registered.
-        TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_NOT_REGISTERED,     ///< Network unregistered.
-        TAF_MNGD_CONN_DATA_NOT_CONNECTED, ///< Awaiting user command.
-        TAF_MNGD_CONN_DATA_NOT_CONNECTED_RETRYING,              ///< Retry to connect.
-        TAF_MNGD_CONN_DATA_NOT_CONNECTED_FAILED,                ///< Data connection failure.
-        TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE, ///< Active.
-        TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE,                  ///< Inactive.
-        TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE_RETRYING,         ///< Retry to connect when Inactive.
-        TAF_MNGD_CONN_DATA_NOT_CONNECTED_INACTIVE_RETRYING,     ///< Retry when data not connected
-        TAF_MNGD_CONN_DATA_CONNECTED_IDLE,   ///< Idle.
-        TAF_MNGD_CONN_ADMIN_ERROR,            ///< Error.
-        TAF_MNGD_CONN_DATA_START_CONNECTIONTEST_START,          ///<DataStartConnectionTest Started
-        TAF_MNGD_CONN_DATA_START_CONNECTIONTEST_FAILED          ///<DataStartConnectionTest failed
+        TAF_MNGD_CONN_ADMIN_INIT,                           ///< Init.
+        TAF_MNGD_CONN_DATA_NOT_CONNECTED_SIM_READY,         ///< Sim ready.
+        TAF_MNGD_CONN_DATA_NOT_CONNECTED_SIM_NOT_READY,     ///< Sim not ready.
+        TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_REGISTERED,     ///< Network registered.
+        TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_NOT_REGISTERED, ///< Network unregistered.
+        TAF_MNGD_CONN_DATA_NOT_CONNECTED,                   ///< Awaiting user command.
+        TAF_MNGD_CONN_DATA_NOT_CONNECTED_RETRYING,          ///< Retry to connect.
+        TAF_MNGD_CONN_DATA_NOT_CONNECTED_FAILED,            ///< Data connection failure.
+        TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE,                ///< Active.
+        TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE,              ///< Inactive.
+        TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE_RETRYING,     ///< Retry to connect when Inactive.
+        TAF_MNGD_CONN_DATA_NOT_CONNECTED_INACTIVE_RETRYING, ///< Retry when data not connected
+        TAF_MNGD_CONN_DATA_CONNECTED_IDLE,                  ///< Idle.
+        TAF_MNGD_CONN_ADMIN_ERROR,                          ///< Error.
+        TAF_MNGD_CONN_DATA_START_CONNECTIONTEST_START,      ///< DataStartConnectionTest Started
+        TAF_MNGD_CONN_DATA_START_CONNECTIONTEST_FAILED,     ///< DataStartConnectionTest failed
+        TAF_MNGD_CONN_RECOVERY_SCHEDULED_L1,                ///< L1 connectivity recovery scheduled.
+        TAF_MNGD_CONN_RECOVERY_STARTED_L1,                  ///< L1 connectivity recovery started.
+        TAF_MNGD_CONN_RECOVERY_FAILED_L1,
+        TAF_MNGD_CONN_RECOVERY_SCHEDULED_L2,                ///< L2 connectivity recovery scheduled.
+        TAF_MNGD_CONN_RECOVERY_STARTED_L2,                  ///< L2 connectivity recovery started.
+        TAF_MNGD_CONN_RECOVERY_FAILED_L2
     } taf_mngd_Conn_Admin_State_t;
 
     /**
@@ -91,9 +103,13 @@ namespace tafsvc {
         TAF_MNGD_CONN_EVT_DATA_STOP_SYNC,
         TAF_MNGD_CONN_EVT_DATA_STOP,
         TAF_MNGD_CONN_EVT_DATA_CONNECTION_CONNECTED,
+        TAF_MNGD_CONN_EVT_DATA_CONNECTION_CONNECTED_ACTIVE,
         TAF_MNGD_CONN_EVT_DATA_CONNECTION_DISCONNECTED,
         TAF_MNGD_CONN_EVT_GET_CONNECTION_INFO_SYNC,
-        TAF_MNGD_CONN_EVT_DATA_START_CONNECTIONTEST
+        TAF_MNGD_CONN_EVT_DATA_START_CONNECTIONTEST,
+        TAF_MNGD_CONN_EVT_CONN_RECOVERY_SCHEDULE, // Schedule connectivity recovery
+        TAF_MNGD_CONN_EVT_CONN_RECOVERY_CANCEL,
+        TAF_MNGD_CONN_EVT_CONN_RECOVERY_START_L1
     } taf_mngd_Conn_EventType_t;
 
     /**
@@ -119,11 +135,19 @@ namespace tafsvc {
         };
     } stateMachineEvent_t;
 
+    /* Internal structure to report Data State */
     typedef struct
     {
         taf_mngd_Conn_DataRef_t                 dataRef;
         taf_mngd_Conn_DataState_t               dataState;
     } DataState_t;
+
+    /* Internal structure to report Recovery State */
+    typedef struct
+    {
+        taf_mngd_Conn_RecoveryState_t recoveryState;
+        uint8_t                       dataId;
+    } RecoveryState_t;
 
     typedef struct
     {
@@ -161,9 +185,10 @@ namespace tafsvc {
         char                          dns1Addr[TAF_MNGD_CONN_MAX_IPV4_LEN]; // First dns Address
         char                          dns2Addr[TAF_MNGD_CONN_MAX_IPV4_LEN]; // Second dns Address
         le_dls_Link_t                 link;                   // Link to data list
-        taf_mngd_Conn_Admin_State_t   state;                  // The Managed Connectivity state
+        taf_mngd_Conn_Admin_State_t   adminState;               // Internal MCS state
         taf_mngd_Conn_DataState_t     dataState;              // The data state for notification
         le_timer_Ref_t                dataStartRetryTimerRef; // Data start retry timer reference
+        le_timer_Ref_t                recoveryScheduleTimerRef; // Recovery schedule timer reference
         le_event_Id_t                 dataStateEvent;         //Data state event
         taf_dcs_Pdp_t                 ipType;                 // Ip type
         taf_mngd_Conn_DataRef_t       dataRef;
@@ -176,6 +201,8 @@ namespace tafsvc {
                                       //IPv6 address to be used for DataStartConnectionTest
         char                          ipv4Addr[TAF_MNGD_CONN_MAX_IPV4_LEN];
         char                          ipv6Addr[TAF_MNGD_CONN_MAX_IPV6_LEN];
+        bool                          isConnectivityRecoveryScheduled;
+        bool                          wasConnectivityRecoveryDone;
         // Clients that have called Data Start
         std::set<le_msg_SessionRef_t> clients;
     } taf_mngd_Conn_Ctx_t;
@@ -188,7 +215,6 @@ namespace tafsvc {
 
             void Init(void);
             static tafMngdConnAdmin &GetInstance();
-            le_result_t SetPolicyConfigurationJSONs(const char* ConfigFileNamePtr);
             taf_mngd_Conn_DataRef_t GetRefByDataId(uint8_t dataId);
             le_result_t Startdata(taf_mngd_Conn_DataRef_t dataRef);
             le_result_t Stopdata(taf_mngd_Conn_DataRef_t dataRef);
@@ -198,17 +224,17 @@ namespace tafsvc {
             le_result_t GetConnectionIPAddresses( taf_mngd_Conn_DataRef_t dataRef,
                                                   char *ipv4AddrPtr, size_t ipv4AddrSize,
                                                   char *ipv6AddrPtr, size_t ipv6AddrSize);
-            static void* callback_thread(void* contextPtr);
-            static void* StateMachineEventThread(void* contextPtr);
-            le_event_Id_t StateMachineEventId;
-            le_mem_PoolRef_t connStatePool;
-            static void StateMachineHandler(void* reqPtr);
-            std::promise<le_result_t> CmdSynchronousPromise;
+
             taf_mngd_Conn_Ctx_t* GetConnCtx(uint8_t phoneId, uint32_t profileNumber);
-            le_event_Id_t GetDataStateEvent(taf_mngd_Conn_DataRef_t dataRef);
-            static void FirstLayerConnStateHandler(void* reportPtr, void* secondLayerHandlerFunc);
-            void ReportAndUpdateDataState(taf_mngd_Conn_Ctx_t* connCtxPtr,
-                                          taf_mngd_Conn_DataState_t newstate);
+            taf_mngd_Conn_DataStateHandlerRef_t AddDataStateHandler(
+                taf_mngd_Conn_DataRef_t dataRef,
+                taf_mngd_Conn_DataStateHandlerFunc_t handlerPtr,
+                void *contextPtr);
+            taf_mngd_Conn_RecoveryStateHandlerRef_t AddRecoveryStateHandler(
+                taf_mngd_Conn_RecoveryStateHandlerFunc_t handlerPtr,
+                void *contextPtr);
+
+            le_event_Id_t StateMachineEventId;
 
         private:
             le_thread_Ref_t tafMngd_event_thread=NULL;
@@ -224,17 +250,41 @@ namespace tafsvc {
             le_result_t EventSimNotReadyState(uint8_t slotId);
             le_result_t EventNetworkRegState(uint8_t phoneId);
             le_result_t EventNetworkUnregState(uint8_t phoneId);
+            le_result_t SetPolicyConfigurationJSONs(const char *ConfigFileNamePtr);
+
+            le_event_Id_t GetDataStateEvent(taf_mngd_Conn_DataRef_t dataRef);
+
             void EventDataConnected(uint8_t dataId);
+            void EventDataConnectedActive(uint8_t dataId);
             void EventDataDisconnected(uint8_t dataId);
             static void DataRetryTimerHandler(le_timer_Ref_t timerRef);
+            static void RecoveryScheduleTimerHandler(le_timer_Ref_t timerRef);
             static void OnClientConnect(le_msg_SessionRef_t sessionRef, void *ctxPtr);
             static void OnClientDisconnect(le_msg_SessionRef_t sessionRef, void *ctxPtr);
+            static void FirstLayerDataStateHandler(void *reportPtr, void *secondLayerHandlerFunc);
+            static void FirstLayerRecoveryStateHandler( void *reportPtr,
+                                                        void *secondLayerHandlerFunc);
+            static void *callback_thread(void *contextPtr);
+            static void *StateMachineEventThread(void *contextPtr);
+            static void StateMachineHandler(void *reqPtr);
+
+            void ReportAndUpdateDataState(taf_mngd_Conn_Ctx_t *connCtxPtr,
+                                          taf_mngd_Conn_DataState_t newstate);
+            void ReportRecoveryStateEvent(taf_mngd_Conn_RecoveryState_t recoveryState,
+                                          uint8_t dataId);
             le_result_t InitializeStates();
+
+
+            le_mem_PoolRef_t dataStatePool;
+            std::promise<le_result_t> CmdSynchronousPromise;
 
             le_dls_List_t ConnectionCtxList = LE_DLS_LIST_INIT;
             le_mem_PoolRef_t ConnCtxPool = NULL;
             le_mutex_Ref_t connCtxMutex = NULL; // Mutex for ConnectionCtxList
             le_ref_MapRef_t DataRefMap = NULL;
+
+            le_mem_PoolRef_t recoveryStatePool;
+            le_event_Id_t recoveryStateEvent; // Recovery state event
 
             // resources for multi-client management
             static taf_mngdConn_Clients_t ConnectedClients;
@@ -251,9 +301,14 @@ namespace tafsvc {
             void ResetDataRetryValues(uint8_t dataId);
 
             //Connectiontest
-            void DataStartConnectionTest(uint8_t dataId);
+            void EventDataStartConnectionTest(uint8_t dataId);
             bool DataStartConnectionTest_URL(std::string url, std::string interfaceName);
             bool DataStartConnectionTest_IPv4(std::string ipv4, std::string interfaceName);
+
+            // Connectivity Recovery
+            void EventConnRecoverySchedule(uint8_t dataId);
+            void EventConnRecoveryCancel(uint8_t dataId);
+            void EventL1ConnRecoveryStart(uint8_t dataId);
 
             // Policy and Configuration to use
             taf_mngd_Conn_Policy_t Policy;

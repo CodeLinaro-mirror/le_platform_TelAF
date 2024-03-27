@@ -142,7 +142,12 @@ void tafMngdConnAdmin::Init(void)
     ConnCtxPool = le_mem_InitStaticPool(tafMngdConnMemPool, TAF_MNGD_CONN_MAX_DATA_OBJ,
                                         sizeof(taf_mngd_Conn_Ctx_t));
 
-    connStatePool = le_mem_CreatePool("connStatePool", sizeof(DataState_t));
+    dataStatePool = le_mem_CreatePool("dataStatePool", sizeof(DataState_t));
+
+
+    recoveryStatePool = le_mem_CreatePool("recoveryStatePool", sizeof(RecoveryState_t));
+    // Create recovery state event
+    recoveryStateEvent = le_event_CreateIdWithRefCounting("RecoveryStateEvent");
 
     //Create reference map for data context
     DataRefMap = le_ref_CreateMap("DataRefMap", TAF_MNGD_CONN_MAX_DATA_OBJ);
@@ -273,10 +278,10 @@ void tafMngdConnAdmin::OnClientDisconnect(le_msg_SessionRef_t sessionRef, void *
     while (linkPtr)
     {
         taf_mngd_Conn_Ctx_t *connCtxPtr = CONTAINER_OF(linkPtr, taf_mngd_Conn_Ctx_t, link);
-        if (TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE == connCtxPtr->state ||
-            TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE == connCtxPtr->state ||
-            TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE_RETRYING == connCtxPtr->state ||
-            TAF_MNGD_CONN_DATA_CONNECTED_IDLE == connCtxPtr->state)
+        if (TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE == connCtxPtr->adminState ||
+            TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE == connCtxPtr->adminState ||
+            TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE_RETRYING == connCtxPtr->adminState ||
+            TAF_MNGD_CONN_DATA_CONNECTED_IDLE == connCtxPtr->adminState)
         {
             // Remove this client from the list of clients that have requested data
             connCtxPtr->clients.erase(sessionRef);
@@ -295,6 +300,17 @@ void tafMngdConnAdmin::OnClientDisconnect(le_msg_SessionRef_t sessionRef, void *
                     stateMachineEvt.dataId = connCtxPtr->dataId;
                     le_event_Report(admin.StateMachineEventId, &stateMachineEvt,
                                                             sizeof(stateMachineEvent_t));
+                    // Check if connectivity recovery is scheduled
+                    if (connCtxPtr->isConnectivityRecoveryScheduled)
+                    {
+                        // Send an event to cancel a scheduled recovery
+                        stateMachineEvt = {TAF_MNGD_CONN_EVT_INIT, 0};
+                        stateMachineEvt.event = TAF_MNGD_CONN_EVT_CONN_RECOVERY_CANCEL;
+                        stateMachineEvt.dataId = connCtxPtr->dataId;
+                        le_event_Report(admin.StateMachineEventId, &stateMachineEvt,
+                                        sizeof(stateMachineEvent_t));
+                        connCtxPtr->isConnectivityRecoveryScheduled = false;
+                    }
                 }
                 else
                 {
@@ -304,6 +320,7 @@ void tafMngdConnAdmin::OnClientDisconnect(le_msg_SessionRef_t sessionRef, void *
                 }
             }
         }
+
         // Move to the next item in the list
         linkPtr = le_dls_PeekNext(&admin.ConnectionCtxList, linkPtr);
     }
@@ -407,6 +424,49 @@ taf_mngd_Conn_DataRef_t tafMngdConnAdmin::GetRefByDataId(uint8_t dataId)
     }
 
     return connCtxPtr->dataRef;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add data state handler.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_mngd_Conn_DataStateHandlerRef_t tafMngdConnAdmin::AddDataStateHandler(
+    taf_mngd_Conn_DataRef_t dataRef,
+    taf_mngd_Conn_DataStateHandlerFunc_t handlerPtr,
+    void *contextPtr)
+{
+    le_event_Id_t dataStateEvent = GetDataStateEvent(dataRef);
+    if (dataStateEvent == NULL)
+    {
+        LE_ERROR("Data event is not initialized");
+        return NULL;
+    }
+
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("DataStateHandler",
+                                                                  dataStateEvent,
+                                                                  FirstLayerDataStateHandler,
+                                                                  (void *)handlerPtr);
+
+    le_event_SetContextPtr(handlerRef, contextPtr);
+    return (taf_mngd_Conn_DataStateHandlerRef_t)(handlerRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add recovery state handler.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_mngd_Conn_RecoveryStateHandlerRef_t tafMngdConnAdmin::AddRecoveryStateHandler(
+    taf_mngd_Conn_RecoveryStateHandlerFunc_t handlerPtr,
+    void *contextPtr)
+{
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("RecoveryStateHandler",
+                                                                  recoveryStateEvent,
+                                                                  FirstLayerRecoveryStateHandler,
+                                                                  (void *)handlerPtr);
+    le_event_SetContextPtr(handlerRef, contextPtr);
+    return (taf_mngd_Conn_RecoveryStateHandlerRef_t)(handlerRef);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -621,7 +681,7 @@ le_result_t tafMngdConnAdmin::GetConnectionIPAddresses
 //--------------------------------------------------------------------------------------------------
 void tafMngdConnAdmin::EventInit()
 {
-    // Initialize states
+    // Initialize states for each data object
     le_result_t result = InitializeStates();
     if (LE_OK != result)
     {
@@ -753,10 +813,10 @@ le_result_t tafMngdConnAdmin::EventStartData(uint8_t dataId)
         LE_ERROR("Json is needed");
         return LE_FAULT;
     }
-    std::string state = StateToString(connCtxPtr->state);
+    std::string state = StateToString(connCtxPtr->adminState);
     LE_DEBUG("State is %s", state.c_str());
     //Do action according to the current state.
-    switch(connCtxPtr->state)
+    switch(connCtxPtr->adminState)
     {
         case TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_NOT_REGISTERED:
                 // Network is not yet registed. Wait for registered event and data state will
@@ -780,13 +840,13 @@ le_result_t tafMngdConnAdmin::EventStartData(uint8_t dataId)
             {
                 LE_INFO("StartData returned LE_OK");
                 //connection is created. Now we will go for DataStartConnectionTest
-                connCtxPtr->state = TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE;
+                connCtxPtr->adminState = TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE;
                 return result;
             }
             else
             {
                 LE_ERROR("Starting a data call failed. Retrying ...");
-                connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED_RETRYING;
+                connCtxPtr->adminState = TAF_MNGD_CONN_DATA_NOT_CONNECTED_RETRYING;
                 ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_DISCONNECTED);
                 // Send TAF_MNGD_CONN_EVT_DATA_START_RETRY event to admin to handle accordingly
                 stateMachineEvent_t stateMachineEvt = {TAF_MNGD_CONN_EVT_INIT, 0};
@@ -827,7 +887,7 @@ le_result_t tafMngdConnAdmin::EventStartDataRetry(uint8_t dataId)
     if (connCtxPtr == NULL)
     {
         LE_ERROR("Unable to find context for data ID: %d", dataId);
-        connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED_FAILED;
+        connCtxPtr->adminState = TAF_MNGD_CONN_DATA_NOT_CONNECTED_FAILED;
         ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_CONNECTION_FAILED);
         return LE_FAULT;
     }
@@ -835,7 +895,7 @@ le_result_t tafMngdConnAdmin::EventStartDataRetry(uint8_t dataId)
     if(!connCtxPtr->dataRetry)
     {
         LE_ERROR("Data retry disabled.");
-        connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED_FAILED;
+        connCtxPtr->adminState = TAF_MNGD_CONN_DATA_NOT_CONNECTED_FAILED;
         ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_CONNECTION_FAILED);
         return LE_NOT_POSSIBLE;
     }
@@ -853,13 +913,13 @@ le_result_t tafMngdConnAdmin::EventStartDataRetry(uint8_t dataId)
     {
         // It is not possible to proceed with the retry mechanism
         LE_ERROR("Data retry count exceeded. Data connection FAILED.");
-        connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED_FAILED;
+        connCtxPtr->adminState = TAF_MNGD_CONN_DATA_NOT_CONNECTED_FAILED;
         ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_CONNECTION_FAILED);
         return LE_NOT_POSSIBLE;
     }
 
-    le_timer_SetContextPtr(connCtxPtr->dataStartRetryTimerRef, (void *)connCtxPtr);
     le_timer_SetHandler(connCtxPtr->dataStartRetryTimerRef, DataRetryTimerHandler);
+    le_timer_SetContextPtr(connCtxPtr->dataStartRetryTimerRef, (void *)connCtxPtr);
 
     // Increment the retry count number
     connCtxPtr->dataStartRetryCount = (connCtxPtr->dataStartRetryCount) + 1;
@@ -922,15 +982,15 @@ le_result_t tafMngdConnAdmin::EventStopData(uint8_t dataId)
     // If true, return LE_NOT_PERMITTED
     // If false, allow DataStop to proceed.
     if (true == connCtxPtr->autoStart &&
-        connCtxPtr->state!=TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE_RETRYING)
+        connCtxPtr->adminState!=TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE_RETRYING)
     {
-        LE_INFO("%s",StateToString(connCtxPtr->state));
+        LE_INFO("%s",StateToString(connCtxPtr->adminState));
         LE_WARN("Stopping auto started(Autostart: Yes) data session is not allowed");
         return LE_NOT_PERMITTED;
     }
 
     //Do action according to the current state.
-    switch(connCtxPtr->state)
+    switch(connCtxPtr->adminState)
     {
         case TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_NOT_REGISTERED:
         case TAF_MNGD_CONN_DATA_NOT_CONNECTED_SIM_NOT_READY:
@@ -942,7 +1002,7 @@ le_result_t tafMngdConnAdmin::EventStopData(uint8_t dataId)
             result = data.Stopdata(connCtxPtr->phoneId, connCtxPtr->profileNumber);
             if(result == LE_OK)
             {
-                connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED_INACTIVE_RETRYING;
+                connCtxPtr->adminState = TAF_MNGD_CONN_DATA_NOT_CONNECTED_INACTIVE_RETRYING;
                 ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_DISCONNECTED);
                 if (connCtxPtr->dataConnTestFailedRetryCount >=
                    connCtxPtr->maxdataRetryCount)
@@ -950,7 +1010,7 @@ le_result_t tafMngdConnAdmin::EventStopData(uint8_t dataId)
                     // It is not possible to proceed with the retry mechanism
                     connCtxPtr->dataConnTestFailedRetryCount = 0;
                     LE_ERROR("Data retry count exceeded. Data connection FAILED.");
-                    connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED_FAILED;
+                    connCtxPtr->adminState = TAF_MNGD_CONN_DATA_NOT_CONNECTED_FAILED;
                     ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_CONNECTION_FAILED);
                     return LE_NOT_POSSIBLE;
                 }
@@ -963,7 +1023,7 @@ le_result_t tafMngdConnAdmin::EventStopData(uint8_t dataId)
             }
             else
             {
-                connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED;
+                connCtxPtr->adminState = TAF_MNGD_CONN_DATA_NOT_CONNECTED;
                 LE_ERROR("Stopping data failed");
                 ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_DISCONNECTED);
                 return LE_FAULT;
@@ -973,7 +1033,7 @@ le_result_t tafMngdConnAdmin::EventStopData(uint8_t dataId)
             result = data.Stopdata(connCtxPtr->phoneId, connCtxPtr->profileNumber);
             if(result == LE_OK)
             {
-                connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED;
+                connCtxPtr->adminState = TAF_MNGD_CONN_DATA_NOT_CONNECTED;
                 ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_DISCONNECTED);
                 //If manually stopped the data successfully. Set reconnection flag to false.
                 connCtxPtr->needReConn = false;
@@ -981,14 +1041,14 @@ le_result_t tafMngdConnAdmin::EventStopData(uint8_t dataId)
             }
             else
             {
-                connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED;
+                connCtxPtr->adminState = TAF_MNGD_CONN_DATA_NOT_CONNECTED;
                 LE_ERROR("Stopping data failed");
                 ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_DISCONNECTED);
                 return LE_FAULT;
             }
             break;
         case TAF_MNGD_CONN_DATA_NOT_CONNECTED_RETRYING:
-            connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED;
+            connCtxPtr->adminState = TAF_MNGD_CONN_DATA_NOT_CONNECTED;
             ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_DISCONNECTED);
             //If manually stopped the data successfully. Set reconnection flag to false.
             connCtxPtr->needReConn = false;
@@ -1058,10 +1118,10 @@ le_result_t tafMngdConnAdmin::EventSimReadyState(uint8_t slotId)
         linkPtr = le_dls_PeekNext(&ConnectionCtxList, linkPtr);
         if(slotId == connCtxPtr->slotId)
         {
-            if(connCtxPtr->state == TAF_MNGD_CONN_DATA_NOT_CONNECTED_SIM_NOT_READY ||
-               connCtxPtr->state == TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_NOT_REGISTERED)
+            if(connCtxPtr->adminState == TAF_MNGD_CONN_DATA_NOT_CONNECTED_SIM_NOT_READY ||
+               connCtxPtr->adminState == TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_NOT_REGISTERED)
             {
-                connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED_SIM_READY;
+                connCtxPtr->adminState = TAF_MNGD_CONN_DATA_NOT_CONNECTED_SIM_READY;
                 result = radio.StartUp(connCtxPtr->phoneId);
                 if(result != LE_OK)
                 {
@@ -1099,8 +1159,8 @@ le_result_t tafMngdConnAdmin::EventSimNotReadyState(uint8_t slotId)
         linkPtr = le_dls_PeekNext(&ConnectionCtxList, linkPtr);
         if(slotId == connCtxPtr->slotId)
         {
-            if(connCtxPtr->state == TAF_MNGD_CONN_DATA_NOT_CONNECTED_SIM_READY)
-                connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED_SIM_NOT_READY;
+            if(connCtxPtr->adminState == TAF_MNGD_CONN_DATA_NOT_CONNECTED_SIM_READY)
+                connCtxPtr->adminState = TAF_MNGD_CONN_DATA_NOT_CONNECTED_SIM_NOT_READY;
 
             ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_DISCONNECTED);
         }
@@ -1131,16 +1191,16 @@ le_result_t tafMngdConnAdmin::EventNetworkRegState(uint8_t phoneId)
         linkPtr = le_dls_PeekNext(&ConnectionCtxList, linkPtr);
         if(phoneId == connCtxPtr->phoneId)
         {
-            LE_INFO("current state= %d, autoStart = %d, needReconn=%d",
-                     connCtxPtr->state, connCtxPtr->autoStart, connCtxPtr->needReConn);
+            LE_INFO("current admin state= %d, autoStart = %d, needReconn=%d",
+                     connCtxPtr->adminState, connCtxPtr->autoStart, connCtxPtr->needReConn);
             //Do action according to the current state.
-            switch(connCtxPtr->state)
+            switch(connCtxPtr->adminState)
             {
                 case TAF_MNGD_CONN_DATA_NOT_CONNECTED_SIM_NOT_READY:
                 case TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_NOT_REGISTERED:
                 case TAF_MNGD_CONN_DATA_NOT_CONNECTED_SIM_READY:
 
-                    connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_REGISTERED;
+                    connCtxPtr->adminState = TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_REGISTERED;
                     ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_DISCONNECTED);
                     //Start a data call if autoStart, or reconnection flag is true
                     if(connCtxPtr->autoStart || connCtxPtr->needReConn)
@@ -1155,7 +1215,7 @@ le_result_t tafMngdConnAdmin::EventNetworkRegState(uint8_t phoneId)
                     else
                     {
                         // Wait for user to call DataStart()
-                        connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED;
+                        connCtxPtr->adminState = TAF_MNGD_CONN_DATA_NOT_CONNECTED;
                         ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_DISCONNECTED);
                     }
                     break;
@@ -1196,7 +1256,7 @@ le_result_t tafMngdConnAdmin::EventNetworkUnregState(uint8_t phoneId)
         if(phoneId == connCtxPtr->phoneId)
         {
             //Do action according to the current state.
-            switch(connCtxPtr->state)
+            switch(connCtxPtr->adminState)
             {
                 case TAF_MNGD_CONN_DATA_NOT_CONNECTED_RETRYING:
                     // Stop data start retry timer if it's running
@@ -1210,7 +1270,7 @@ le_result_t tafMngdConnAdmin::EventNetworkUnregState(uint8_t phoneId)
             }
             // Update service state and report DISCONNECTED event
             LE_INFO("Report data disconnected event");
-            connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_NOT_REGISTERED;
+            connCtxPtr->adminState = TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_NOT_REGISTERED;
             ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_DISCONNECTED);
         }
     }
@@ -1264,12 +1324,33 @@ void tafMngdConnAdmin::EventDataConnected(uint8_t dataId)
 
     // Send an event to start DataStartConnectionTest
     LE_INFO("Sending event to start DataStartConnectionTest for ID: %d", dataId);
-    connCtxPtr->state = TAF_MNGD_CONN_DATA_START_CONNECTIONTEST_START;
+    connCtxPtr->adminState = TAF_MNGD_CONN_DATA_START_CONNECTIONTEST_START;
     stateMachineEvent_t stateMachineEvt = {TAF_MNGD_CONN_EVT_INIT, 0};
     stateMachineEvt.event = TAF_MNGD_CONN_EVT_DATA_START_CONNECTIONTEST;
     stateMachineEvt.dataId = connCtxPtr->dataId;
 
     le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handle the event TAF_MNGD_CONN_EVT_DATA_CONNECTION_CONNECTED_ACTIVE which is sent by data module
+ * when the data connection is started and data start connection tests succeed.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::EventDataConnectedActive(uint8_t dataId)
+{
+    LE_INFO ("Data(%d) is CONNECTED ACTIVE", dataId);
+
+    // Reset the recovery performed flag
+    taf_mngd_Conn_Ctx_t *connCtxPtr = NULL;
+    connCtxPtr = GetConnCtx(dataId);
+    if (connCtxPtr == NULL)
+    {
+        LE_ERROR("Can't find the context for dataId(%d)", dataId);
+        return;
+    }
+    connCtxPtr->wasConnectivityRecoveryDone = false;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1290,13 +1371,13 @@ void tafMngdConnAdmin::EventDataDisconnected(uint8_t dataId)
         return;
     }
     //Do action according to the current state.
-    switch(connCtxPtr->state)
+    switch(connCtxPtr->adminState)
     {
         // Data disconnected from ACTIVE state
         case TAF_MNGD_CONN_DATA_NOT_CONNECTED_INACTIVE_RETRYING:
         case TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE:
         {
-            connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED_RETRYING;
+            connCtxPtr->adminState = TAF_MNGD_CONN_DATA_NOT_CONNECTED_RETRYING;
             LE_INFO("Data call disconnected, retrying");
             ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_DISCONNECTED);
             // Send TAF_MNGD_CONN_EVT_DATA_START_RETRY event to the admin to handle accordingly
@@ -1492,14 +1573,33 @@ void tafMngdConnAdmin::StateMachineHandler(void* reqPtr)
             mngdConnAdmin.EventDataConnected(eventReq->dataId);
             break;
 
+        case TAF_MNGD_CONN_EVT_DATA_CONNECTION_CONNECTED_ACTIVE:
+            mngdConnAdmin.EventDataConnectedActive(eventReq->dataId);
+            break;
+
         case TAF_MNGD_CONN_EVT_DATA_CONNECTION_DISCONNECTED:
             mngdConnAdmin.EventDataDisconnected(eventReq->dataId);
             break;
 
         case TAF_MNGD_CONN_EVT_DATA_START_CONNECTIONTEST:
             LE_DEBUG("Starting Connection test");
-            mngdConnAdmin.DataStartConnectionTest(eventReq->dataId);
+            mngdConnAdmin.EventDataStartConnectionTest(eventReq->dataId);
             break;
+
+        case TAF_MNGD_CONN_EVT_CONN_RECOVERY_SCHEDULE:
+            LE_DEBUG("Connectivity Recovery Schedule event");
+            mngdConnAdmin.EventConnRecoverySchedule(eventReq->dataId);
+            break;
+
+        case TAF_MNGD_CONN_EVT_CONN_RECOVERY_CANCEL:
+            LE_DEBUG("Connectivity Recovery Cancel event");
+            mngdConnAdmin.EventConnRecoveryCancel(eventReq->dataId);
+            break;
+
+        case TAF_MNGD_CONN_EVT_CONN_RECOVERY_START_L1:
+        LE_DEBUG("L1 Connectivity Recovery Start event");
+        mngdConnAdmin.EventL1ConnRecoveryStart(eventReq->dataId);
+        break;
 
         default:
             LE_ERROR("Undefined request received.");
@@ -1587,10 +1687,12 @@ taf_mngd_Conn_Ctx_t* tafMngdConnAdmin::CreateConnCtx
     connCtxPtr->profileNumber = profileNumber;
     connCtxPtr->autoStart = autoStart;
     connCtxPtr->needReConn = false;
-    connCtxPtr->state = TAF_MNGD_CONN_ADMIN_INIT;
+    connCtxPtr->adminState = TAF_MNGD_CONN_ADMIN_INIT;
     connCtxPtr->dataState = TAF_MNGD_CONN_DATA_DISCONNECTED;
     connCtxPtr->ipType = TAF_DCS_PDP_UNKNOWN;
     connCtxPtr->dataConnTestFailedRetryCount = 0;
+    connCtxPtr->isConnectivityRecoveryScheduled = false;
+    connCtxPtr->wasConnectivityRecoveryDone = false;
 
     if(conn_test_url!=NULL)
     {
@@ -1607,9 +1709,21 @@ taf_mngd_Conn_Ctx_t* tafMngdConnAdmin::CreateConnCtx
     memset(connCtxPtr->dns1Addr, 0, sizeof(connCtxPtr->dns1Addr));
     memset(connCtxPtr->dns2Addr, 0, sizeof(connCtxPtr->dns2Addr));
 
-    //Create timer
-    snprintf(timerName, sizeof(timerName)-1, "dataId-%d Timer", dataId);
+    //Create data start retry timer
+    snprintf(timerName, sizeof(timerName)-1, "dataId-%d Start Retry Timer", dataId);
     connCtxPtr->dataStartRetryTimerRef = le_timer_Create(timerName);
+    le_timer_SetWakeup(connCtxPtr->dataStartRetryTimerRef, false);
+
+    // Create recovery schedule timer
+    memset(timerName, 0, sizeof(timerName));
+    snprintf(timerName, sizeof(timerName) - 1, "dataId-%d Recovery Timer", dataId);
+    connCtxPtr->recoveryScheduleTimerRef = le_timer_Create(timerName);
+    le_timer_SetHandler(connCtxPtr->recoveryScheduleTimerRef, RecoveryScheduleTimerHandler);
+    le_timer_SetWakeup(connCtxPtr->recoveryScheduleTimerRef, false);
+    le_timer_SetContextPtr(connCtxPtr->recoveryScheduleTimerRef, connCtxPtr);
+    uint32_t recoveryDelay = Policy.DataSession.ConnectivityRecovery.StartWaitTime * 1000; //ms
+    LE_INFO("Connectivity Recovery Delay: %d ms", recoveryDelay);
+    le_timer_SetMsInterval(connCtxPtr->recoveryScheduleTimerRef, recoveryDelay);
 
     //Create event id
     snprintf(eventName, sizeof(eventName)-1, "connCtx-%d", dataId);
@@ -1643,7 +1757,7 @@ bool tafMngdConnAdmin::IsStateConnected()
     {
         taf_mngd_Conn_Ctx_t* connCtxPtr = CONTAINER_OF(linkPtr, taf_mngd_Conn_Ctx_t, link);
         linkPtr = le_dls_PeekNext(&ConnectionCtxList, linkPtr);
-        if (connCtxPtr->state == TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE)
+        if (connCtxPtr->adminState == TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE)
         {
             le_mutex_Unlock(connCtxMutex);
             return true;
@@ -1712,10 +1826,10 @@ le_result_t tafMngdConnAdmin::getProfileList
 
 //--------------------------------------------------------------------------------------------------
 /**
- * FirstLayerConnStateHandler.
+ * FirstLayerDataStateHandler.
  */
 //--------------------------------------------------------------------------------------------------
-void tafMngdConnAdmin::FirstLayerConnStateHandler(void* reportPtr, void* secondLayerHandlerFunc)
+void tafMngdConnAdmin::FirstLayerDataStateHandler(void* reportPtr, void* secondLayerHandlerFunc)
 {
     TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
 
@@ -1731,7 +1845,7 @@ void tafMngdConnAdmin::FirstLayerConnStateHandler(void* reportPtr, void* secondL
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Report connectivity state.
+ * Report connectivity state and update internal state
  */
 //--------------------------------------------------------------------------------------------------
 void tafMngdConnAdmin::ReportAndUpdateDataState
@@ -1746,17 +1860,94 @@ void tafMngdConnAdmin::ReportAndUpdateDataState
     if(connCtxPtr->dataState == newstate)
         return;
 
-    DataState_t* connStateIndPtr =
-                (DataState_t*)le_mem_ForceAlloc(admin.connStatePool);
+    DataState_t *dataStateIndPtr =
+        (DataState_t *)le_mem_ForceAlloc(admin.dataStatePool);
 
-    connStateIndPtr->dataRef = connCtxPtr->dataRef;
-    connStateIndPtr->dataState = newstate;
+    dataStateIndPtr->dataRef = connCtxPtr->dataRef;
+    dataStateIndPtr->dataState = newstate;
     LE_INFO("#########send state dataRef=%p, state = %d  ",
-            connStateIndPtr->dataRef, newstate);
+            dataStateIndPtr->dataRef, newstate);
 
-    le_event_ReportWithRefCounting(connCtxPtr->dataStateEvent, (void*)connStateIndPtr);
+    le_event_ReportWithRefCounting(connCtxPtr->dataStateEvent, (void *)dataStateIndPtr);
     //Update data state
     connCtxPtr->dataState = newstate;
+
+    /**
+     * Send an event to the state machine to handle event. This checking is done here as the state
+     * is updated here and application events are sent.
+    */
+
+    /**
+     * If current data state is TAF_MNGD_CONN_DATA_NOT_CONNECTED_FAILED && apps are notified with
+     * LE_MNGD_CONN_DATA_CONNECTION_FAILED event, then connectivity recovery should be triggered.
+     */
+    if (TAF_MNGD_CONN_DATA_NOT_CONNECTED_FAILED == connCtxPtr->adminState &&
+        TAF_MNGD_CONN_DATA_CONNECTION_FAILED    == connCtxPtr->dataState)
+    {
+        LE_INFO("Data (%d) not connected failed. Scheduling connectivity recovery.",
+                                                                        connCtxPtr->dataId);
+        stateMachineEvent_t stateMachineEvt = {TAF_MNGD_CONN_EVT_INIT, 0};
+        stateMachineEvt.dataId = connCtxPtr->dataId;
+        stateMachineEvt.event  = TAF_MNGD_CONN_EVT_CONN_RECOVERY_SCHEDULE;
+        le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
+        return;
+    }
+    /**
+     * If current data state is TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE && apps are notified with
+     * TAF_MNGD_CONN_DATA_CONNECTED event, then send admin event
+     * TAF_MNGD_CONN_EVT_DATA_CONNECTION_CONNECTED_ACTIVE.
+     */
+    if (TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE == connCtxPtr->adminState &&
+        TAF_MNGD_CONN_DATA_CONNECTED == connCtxPtr->dataState)
+    {
+        LE_INFO("Data (%d) connected active.", connCtxPtr->dataId);
+        stateMachineEvent_t stateMachineEvt = {TAF_MNGD_CONN_EVT_INIT, 0};
+        stateMachineEvt.dataId = connCtxPtr->dataId;
+        stateMachineEvt.event = TAF_MNGD_CONN_EVT_DATA_CONNECTION_CONNECTED_ACTIVE;
+        le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
+        return;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * FirstLayerRecoveryStateHandler.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::FirstLayerRecoveryStateHandler(void *reportPtr, void *secondLayerHandlerFunc)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
+
+    RecoveryState_t *recoveryStatePtr = (RecoveryState_t *)reportPtr;
+    TAF_ERROR_IF_RET_NIL(secondLayerHandlerFunc == NULL, "Null ptr(secondLayerHandlerFunc)");
+
+    taf_mngd_Conn_RecoveryStateHandlerFunc_t handlerFunc =
+        (taf_mngd_Conn_RecoveryStateHandlerFunc_t)secondLayerHandlerFunc;
+    handlerFunc(recoveryStatePtr->recoveryState,
+                recoveryStatePtr->dataId,
+                le_event_GetContextPtr());
+
+    le_mem_Release(reportPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Send recovery state event to all clients.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::ReportRecoveryStateEvent(
+    taf_mngd_Conn_RecoveryState_t recoveryState,
+    uint8_t dataId
+)
+{
+    auto &admin = tafMngdConnAdmin::GetInstance();
+
+    RecoveryState_t *recoveryStateIndPtr =
+                                    (RecoveryState_t *)le_mem_ForceAlloc(admin.recoveryStatePool);
+    TAF_ERROR_IF_RET_NIL(recoveryStateIndPtr == NULL, "Unable to alloc recoveryStateIndPtr");
+    recoveryStateIndPtr->recoveryState = recoveryState;
+    recoveryStateIndPtr->dataId = dataId;
+    le_event_ReportWithRefCounting(admin.recoveryStateEvent, (void *)recoveryStateIndPtr);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1910,12 +2101,12 @@ le_result_t tafMngdConnAdmin::InitializeStates()
 
             if(sim.IsSimReady(slotNumber))
             {
-                connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED_SIM_READY;
+                connCtxPtr->adminState = TAF_MNGD_CONN_DATA_NOT_CONNECTED_SIM_READY;
             }
             else
             {
                 LE_ERROR("SIM NOT READY");
-                connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED_SIM_NOT_READY;
+                connCtxPtr->adminState = TAF_MNGD_CONN_DATA_NOT_CONNECTED_SIM_NOT_READY;
                 continue;
             }
 
@@ -1925,11 +2116,11 @@ le_result_t tafMngdConnAdmin::InitializeStates()
             stateMachineEvt.event = TAF_MNGD_CONN_EVT_RADIO_POWER_ON;
             le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
 
-            //Update connCtxPtr->state according to the network register state.
+            //Update connCtxPtr->adminState according to the network register state.
             if(radio.IsNetworkRegistered(connCtxPtr->phoneId))
-                connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_REGISTERED;
+                connCtxPtr->adminState = TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_REGISTERED;
             else
-                connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_NOT_REGISTERED;
+                connCtxPtr->adminState = TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_NOT_REGISTERED;
 
             if ( Configuration.Data[dataIdx].AutoStart)
             {
@@ -1943,9 +2134,9 @@ le_result_t tafMngdConnAdmin::InitializeStates()
             else
             {
                 // Set state expecting application to start data
-                if (connCtxPtr->state == TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_REGISTERED)
+                if (connCtxPtr->adminState == TAF_MNGD_CONN_DATA_NOT_CONNECTED_NW_REGISTERED)
                 {
-                    connCtxPtr->state = TAF_MNGD_CONN_DATA_NOT_CONNECTED;
+                    connCtxPtr->adminState = TAF_MNGD_CONN_DATA_NOT_CONNECTED;
                     ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_DISCONNECTED);
                 }
             }
@@ -1954,10 +2145,42 @@ le_result_t tafMngdConnAdmin::InitializeStates()
 
     return LE_OK;
 }
+//--------------------------------------------------------------------------------------------------
+/**
+ * Connectivity recovery schedule timer handler
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::RecoveryScheduleTimerHandler(le_timer_Ref_t timerRef)
+{
+    LE_INFO("Connectivity Recovery timer handler");
+    auto &mngdConnAdmin = tafMngdConnAdmin::GetInstance();
+    taf_mngd_Conn_Ctx_t *connCtxPtr = (taf_mngd_Conn_Ctx_t *)le_timer_GetContextPtr(timerRef);
+    if (NULL == connCtxPtr)
+    {
+        LE_WARN("connCtxPtr is null");
+        return;
+    }
+
+    stateMachineEvent_t stateMachineEvt = {TAF_MNGD_CONN_EVT_INIT, 0};
+    stateMachineEvt.dataId = connCtxPtr->dataId;
+    // Check if the data context is still in the recovery scheduled state
+    if (TAF_MNGD_CONN_RECOVERY_SCHEDULED_L1 == connCtxPtr->adminState)
+    {
+        // Send L1 recovery start event to the admin
+        stateMachineEvt.event = TAF_MNGD_CONN_EVT_CONN_RECOVERY_START_L1;
+        le_event_Report(mngdConnAdmin.StateMachineEventId,
+                        &stateMachineEvt, sizeof(stateMachineEvent_t));
+        LE_INFO("Sent %s to admin",
+                        mngdConnAdmin.EventToString(TAF_MNGD_CONN_EVT_CONN_RECOVERY_START_L1));
+        return;
+    }
+    LE_INFO("Unhandled state: %s", mngdConnAdmin.StateToString(connCtxPtr->adminState));
+    return;
+}
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Timer handler.
+ * Data start retry timer handler.
  */
 //--------------------------------------------------------------------------------------------------
 void tafMngdConnAdmin::DataRetryTimerHandler(le_timer_Ref_t timerRef)
@@ -1974,7 +2197,7 @@ void tafMngdConnAdmin::DataRetryTimerHandler(le_timer_Ref_t timerRef)
     }
 
     //If need to reconnect, start a data call
-    if(connCtxPtr->state == TAF_MNGD_CONN_DATA_NOT_CONNECTED_RETRYING)
+    if(connCtxPtr->adminState == TAF_MNGD_CONN_DATA_NOT_CONNECTED_RETRYING)
     {
         // Send TAF_MNGD_CONN_EVT_DATA_START event to admin
         LE_INFO("Send TAF_MNGD_CONN_EVT_DATA_START event");
@@ -1984,7 +2207,7 @@ void tafMngdConnAdmin::DataRetryTimerHandler(le_timer_Ref_t timerRef)
         le_event_Report(mngdConnAdmin.StateMachineEventId,
                                             &stateMachineEvt, sizeof(stateMachineEvent_t));
     }
-    else if(connCtxPtr->state == TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE)
+    else if(connCtxPtr->adminState == TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE)
     {
         LE_INFO("Connected, stop the timer.");
         if (le_timer_IsRunning(timerRef))
@@ -1995,10 +2218,10 @@ void tafMngdConnAdmin::DataRetryTimerHandler(le_timer_Ref_t timerRef)
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Handle the event TAF_MNGD_CONN_EVT_DATA_START_CONNECTIONTEST which is sent on data startup.
+ * Handle the event TAF_MNGD_CONN_EVT_DATA_START_CONNECTIONTEST which is sent when data is started.
  */
 //--------------------------------------------------------------------------------------------------
-void tafMngdConnAdmin::DataStartConnectionTest(uint8_t dataId)
+void tafMngdConnAdmin::EventDataStartConnectionTest(uint8_t dataId)
 {
     LE_INFO("DataStartConnectionTest entered");
     taf_mngd_Conn_Ctx_t *connCtxPtr = GetConnCtx(dataId);
@@ -2014,7 +2237,7 @@ void tafMngdConnAdmin::DataStartConnectionTest(uint8_t dataId)
         if(DataStartConnectionTest_URL(url , interfaceName))
         {
             //connection is created.
-            connCtxPtr->state = TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE;
+            connCtxPtr->adminState = TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE;
             ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_CONNECTED);
             //If manually started the data successfully. Set reconnection flag to true.
             connCtxPtr->needReConn = true;
@@ -2022,7 +2245,7 @@ void tafMngdConnAdmin::DataStartConnectionTest(uint8_t dataId)
         else if(!ipv4add.empty() && DataStartConnectionTest_IPv4(ipv4add , interfaceName))
         {
             //connection is created.
-            connCtxPtr->state = TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE;
+            connCtxPtr->adminState = TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE;
             ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_CONNECTED);
             //If manually started the data successfully. Set reconnection flag to true.
             connCtxPtr->needReConn = true;
@@ -2031,9 +2254,8 @@ void tafMngdConnAdmin::DataStartConnectionTest(uint8_t dataId)
         {
             // Connectiontest failed.
             LE_INFO("DataStartConnectionTest failed for dataID: %d", dataId);
-            connCtxPtr->state = TAF_MNGD_CONN_DATA_START_CONNECTIONTEST_FAILED;
-            LE_INFO("DataStartConnectionTest failed. Stopping the data and retrying.");
-            connCtxPtr->state = TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE_RETRYING;
+            LE_INFO("Stopping the data and retrying.");
+            connCtxPtr->adminState = TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE_RETRYING;
             stateMachineEvent_t stateMachineEvt = {TAF_MNGD_CONN_EVT_INIT, 0};
             stateMachineEvt.event=TAF_MNGD_CONN_EVT_DATA_STOP;
             stateMachineEvt.dataId=connCtxPtr->dataId;
@@ -2045,7 +2267,7 @@ void tafMngdConnAdmin::DataStartConnectionTest(uint8_t dataId)
         if(DataStartConnectionTest_IPv4(ipv4add , interfaceName))
         {
             //connection is created.
-            connCtxPtr->state = TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE;
+            connCtxPtr->adminState = TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE;
             ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_CONNECTED);
             //If manually started the data successfully. Set reconnection flag to true.
             connCtxPtr->needReConn = true;
@@ -2054,9 +2276,9 @@ void tafMngdConnAdmin::DataStartConnectionTest(uint8_t dataId)
         {
             // Connectiontest failed.
             LE_INFO("DataStartConnectionTest failed for dataID: %d", dataId);
-            connCtxPtr->state = TAF_MNGD_CONN_DATA_START_CONNECTIONTEST_FAILED;
+            connCtxPtr->adminState = TAF_MNGD_CONN_DATA_START_CONNECTIONTEST_FAILED;
             LE_INFO("DataStartConnectionTest failed. Stopping the data and retrying.");
-            connCtxPtr->state = TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE_RETRYING;
+            connCtxPtr->adminState = TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE_RETRYING;
             stateMachineEvent_t stateMachineEvt = {TAF_MNGD_CONN_EVT_INIT, 0};
             stateMachineEvt.event=TAF_MNGD_CONN_EVT_DATA_STOP;
             stateMachineEvt.dataId=connCtxPtr->dataId;
@@ -2067,9 +2289,9 @@ void tafMngdConnAdmin::DataStartConnectionTest(uint8_t dataId)
     else
     {
         LE_INFO("DataStartConnectionTest passed because both url and ipv4 are null for dataID: %d",
-                dataId);
+                                                                                            dataId);
         //connection is created.
-        connCtxPtr->state = TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE;
+        connCtxPtr->adminState = TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE;
         ReportAndUpdateDataState(connCtxPtr, TAF_MNGD_CONN_DATA_CONNECTED);
         //If manually started the data successfully. Set reconnection flag to true.
         connCtxPtr->needReConn = true;
@@ -2080,7 +2302,7 @@ bool tafMngdConnAdmin::DataStartConnectionTest_URL(std::string url, std::string 
 {
     //Enable LE_CONFIG_DEBUG to get the output of curl in logs
     #if LE_CONFIG_DEBUG
-        std::string curlCommand = "curl --interface" + interfaceName + " " + url);
+        std::string curlCommand = "curl --interface " + interfaceName + " " + url;
     #else
         std::string curlCommand = "curl --interface " + interfaceName + " " + url
                                    + " 1> /dev/null 2> /dev/null";
@@ -2125,6 +2347,169 @@ bool tafMngdConnAdmin::DataStartConnectionTest_IPv4(std::string ipv4, std::strin
     return false;
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Schedule connectivity recovery process event handler.
+ * - Send appropriate recovery schduled notification to applications
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::EventConnRecoverySchedule (uint8_t dataId)
+{
+    taf_mngd_Conn_Ctx_t *connCtxPtr = GetConnCtx(dataId);
+    if (nullptr == connCtxPtr)
+    {
+        LE_ERROR("Unable to get reference for data id: %d", dataId);
+        return;
+    }
+
+    LE_INFO("Data Id: %d, Admin State: %d", dataId, connCtxPtr->adminState);
+
+    // Check if connectivity recovery is enabled in policy.
+    if (TAF_MNGD_CONN_CONNECTIONRECOVERY_TYPE_NONE ==
+                Policy.DataSession.ConnectivityRecovery.Level)
+    {
+        LE_INFO ("Connectivity Recovery is not enabled. Unable to recover data");
+        return;
+    }
+
+    if (connCtxPtr->wasConnectivityRecoveryDone)
+    {
+        LE_WARN("Connectivity Recovery already performed. Unable to recover data");
+        return;
+    }
+
+    // Update this context that recovery is scheduled.
+    if (TAF_MNGD_CONN_DATA_NOT_CONNECTED_FAILED == connCtxPtr->adminState)
+    {
+        // Update the admin state to L1 recovery scheduled
+        connCtxPtr->adminState = TAF_MNGD_CONN_RECOVERY_SCHEDULED_L1;
+        LE_INFO("L1 recovery scheduled for Data id: %d", dataId);
+    }
+    else if (TAF_MNGD_CONN_RECOVERY_FAILED_L1 == connCtxPtr->adminState)
+    {
+        // Update the admin state to L2 recovery scheduled
+        connCtxPtr->adminState = TAF_MNGD_CONN_RECOVERY_SCHEDULED_L2;
+        LE_INFO("L2 recovery scheduled for Data id: %d", dataId);
+    }
+    else
+    {
+        LE_WARN("Invalid state: %d", connCtxPtr->adminState);
+        return;
+    }
+
+    // Report recovery state to all clients
+    ReportRecoveryStateEvent(TAF_MNGD_CONN_RECOVERY_L1_SCHEDULED, connCtxPtr->dataId);
+
+    // Start the recovery schedule timer
+    le_timer_Start(connCtxPtr->recoveryScheduleTimerRef);
+    // Track that a recovery is scheduled. This is needed to send canceled notification (if needed).
+    connCtxPtr->isConnectivityRecoveryScheduled = true;
+
+    return;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Cancel a scheduled recovery
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::EventConnRecoveryCancel(uint8_t dataId)
+{
+    LE_INFO("Cancel a scheduled recovery");
+    taf_mngd_Conn_Ctx_t *connCtxPtr = GetConnCtx(dataId);
+    if (nullptr == connCtxPtr)
+    {
+        LE_ERROR("Unable to get reference for data id: %d", dataId);
+        return;
+    }
+    // Stop recovery timer if it is running
+    if (le_timer_IsRunning(connCtxPtr->recoveryScheduleTimerRef))
+    {
+        le_timer_Stop(connCtxPtr->recoveryScheduleTimerRef);
+    }
+    // TBD : Send timer canceled event to clients
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Start L1 recovery process event handler.
+ * - Send CONN_RECOVERY_L1_STARTED notification to applications
+ * - Stop all active data sessions
+ * - Mark sessions for restarting as needed
+ * - Turn of radio, wait 5s and turn on radio
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::EventL1ConnRecoveryStart(uint8_t dataId)
+{
+    // Send an event to all applications that L1 recovery has started.
+    taf_mngd_Conn_Ctx_t *connCtxPtr = GetConnCtx(dataId);
+    if (nullptr == connCtxPtr)
+    {
+        LE_ERROR("Unable to get reference for data id: %d", dataId);
+        return;
+    }
+
+    // Reset connectivity recovery scheduled flag
+    connCtxPtr->isConnectivityRecoveryScheduled = false;
+    // Mark that connectivity recovery was tried
+    connCtxPtr->wasConnectivityRecoveryDone = true;
+    // Set the reconnected needed flag to TRUE
+    connCtxPtr->needReConn = true;
+
+    ReportRecoveryStateEvent(TAF_MNGD_CONN_RECOVERY_L1_STARTED, connCtxPtr->dataId);
+
+    // Stop all active data sessions
+    le_mutex_Lock(connCtxMutex);
+    le_dls_Link_t *linkPtr = le_dls_Peek(&ConnectionCtxList);
+
+    while (linkPtr)
+    {
+        taf_mngd_Conn_Ctx_t *connCtxPtr = CONTAINER_OF(linkPtr, taf_mngd_Conn_Ctx_t, link);
+        if (TAF_MNGD_CONN_DATA_CONNECTED_ACTIVE == connCtxPtr->adminState ||
+            TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE == connCtxPtr->adminState ||
+            TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE_RETRYING == connCtxPtr->adminState ||
+            TAF_MNGD_CONN_DATA_CONNECTED_IDLE == connCtxPtr->adminState)
+        {
+                // Send a data stop request synchronously
+                stateMachineEvent_t stateMachineEvt = {TAF_MNGD_CONN_EVT_INIT, 0};
+                stateMachineEvt.event = TAF_MNGD_CONN_EVT_DATA_STOP_SYNC;
+                stateMachineEvt.dataId = connCtxPtr->dataId;
+                le_event_Report(StateMachineEventId, &stateMachineEvt,
+                                sizeof(stateMachineEvent_t));
+                // wait until return
+                std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
+                le_result_t result = futResult.get();
+                if (LE_OK != result)
+                {
+                    LE_WARN("Stop data for Data Id(%d) failed: %d", connCtxPtr->dataId, result);
+                }
+                // Set the reconnected needed flag to TRUE
+                connCtxPtr->needReConn = true;
+        }
+        // Move to the next item in the list
+        linkPtr = le_dls_PeekNext(&ConnectionCtxList, linkPtr);
+    }
+    le_mutex_Unlock(connCtxMutex);
+
+    // All data sessions have been stopped. Toggle the radio link that is linked to this data ID.
+    auto &radio = tafMngdConnRadio::GetInstance();
+    le_result_t result = radio.PowerOff(connCtxPtr->phoneId);
+    if (LE_OK != result)
+    {
+        LE_WARN ("Radio power off failed: %d", result);
+    }
+    LE_INFO("Radio turned off");
+    sleep(TAF_MNGD_CONN_L1_RECOVERY_RADIO_OFF_TIME);
+    result = radio.PowerOn(connCtxPtr->phoneId);
+    if (LE_OK != result)
+    {
+        LE_WARN ("Radio power on failed: %d", result);
+    }
+    LE_INFO("Radio turned on");
+
+    //NAD should register again and data will be based on received events
+}
+
 
 const char * tafMngdConnAdmin::EventToString(taf_mngd_Conn_EventType_t event)
 {
@@ -2156,12 +2541,20 @@ const char * tafMngdConnAdmin::EventToString(taf_mngd_Conn_EventType_t event)
             return "TAF_MNGD_CONN_EVT_DATA_STOP";
         case TAF_MNGD_CONN_EVT_DATA_CONNECTION_CONNECTED:
             return "TAF_MNGD_CONN_EVT_DATA_CONNECTION_CONNECTED";
+        case TAF_MNGD_CONN_EVT_DATA_CONNECTION_CONNECTED_ACTIVE:
+            return "TAF_MNGD_CONN_EVT_DATA_CONNECTION_CONNECTED_ACTIVE";
         case TAF_MNGD_CONN_EVT_DATA_CONNECTION_DISCONNECTED:
             return "TAF_MNGD_CONN_EVT_DATA_CONNECTION_DISCONNECTED";
         case TAF_MNGD_CONN_EVT_GET_CONNECTION_INFO_SYNC:
             return "TAF_MNGD_CONN_EVT_GET_CONNECTION_INFO_SYNC";
         case TAF_MNGD_CONN_EVT_DATA_START_CONNECTIONTEST:
             return "TAF_MNGD_CONN_EVT_DATA_START_CONNECTIONTEST";
+        case TAF_MNGD_CONN_EVT_CONN_RECOVERY_SCHEDULE:
+            return "TAF_MNGD_CONN_EVT_CONN_RECOVERY_SCHEDULE";
+        case TAF_MNGD_CONN_EVT_CONN_RECOVERY_CANCEL:
+            return "TAF_MNGD_CONN_EVT_CONN_RECOVERY_CANCEL";
+        case TAF_MNGD_CONN_EVT_CONN_RECOVERY_START_L1:
+            return "TAF_MNGD_CONN_EVT_CONN_RECOVERY_START_L1";
         default:
             LE_ERROR("unknown status: %d", event);
             return "unknow status";
@@ -2204,6 +2597,18 @@ const char * tafMngdConnAdmin::StateToString(taf_mngd_Conn_Admin_State_t state)
             return "TAF_MNGD_CONN_DATA_CONNECTED_INACTIVE_RETRYING";
         case TAF_MNGD_CONN_DATA_NOT_CONNECTED_INACTIVE_RETRYING:
             return "TAF_MNGD_CONN_DATA_NOT_CONNECTED_INACTIVE_RETRYING";
+        case TAF_MNGD_CONN_RECOVERY_SCHEDULED_L1:
+            return "TAF_MNGD_CONN_RECOVERY_SCHEDULED_L1";
+        case TAF_MNGD_CONN_RECOVERY_STARTED_L1:
+            return "TAF_MNGD_CONN_RECOVERY_STARTED_L1";
+        case TAF_MNGD_CONN_RECOVERY_FAILED_L1:
+            return "TAF_MNGD_CONN_RECOVERY_FAILED_L1";
+        case TAF_MNGD_CONN_RECOVERY_SCHEDULED_L2:
+            return "TAF_MNGD_CONN_RECOVERY_SCHEDULED_L2";
+        case TAF_MNGD_CONN_RECOVERY_STARTED_L2:
+            return "TAF_MNGD_CONN_RECOVERY_STARTED_L2";
+        case TAF_MNGD_CONN_RECOVERY_FAILED_L2:
+            return "TAF_MNGD_CONN_RECOVERY_FAILED_L2";
         default:
             LE_ERROR("unknown status: %d", state);
             return "unknow status";

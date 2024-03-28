@@ -1449,6 +1449,7 @@ static void ClientIpcSessionClosed
     void*               contextPtr
 )
 {
+    LE_INFO("Client session %p is closed", ipcSessionRef);
     return;
 }
 

@@ -44,7 +44,7 @@ typedef void (*TAF_HAL_INIT)(void);
  *      Returns for the request.
  */
  //--------------------------------------------------------------------------------------------------
-typedef int (*TAF_HAL_GETRTCTIME)(struct TimeSpec* timeVal);
+typedef le_result_t (*TAF_HAL_GETRTCTIME)(struct TimeSpec* timeVal);
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -56,7 +56,7 @@ typedef int (*TAF_HAL_GETRTCTIME)(struct TimeSpec* timeVal);
  *      Returns for the request.
  */
  //--------------------------------------------------------------------------------------------------
-typedef int (*TAF_HAL_SETRTCTIME)(struct TimeSpec timeVal);
+typedef le_result_t (*TAF_HAL_SETRTCTIME)(struct TimeSpec timeVal);
 
 //--------------------------------------------------------------------------------------------------
 /**

@@ -196,6 +196,25 @@ void TestGetGnssTime
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Get RTC time from device or VHAL interface.
+ */
+//--------------------------------------------------------------------------------------------------
+void TestGetRtcTime
+(
+    void
+)
+{
+    le_result_t result;
+    taf_time_TimeSpec_t rtcTime;
+
+    result = taf_time_GetRtcTime(&rtcTime);
+    LE_TEST_ASSERT(result == LE_OK,
+        "Test: taf_time_GetRtcTime() APIs.");
+    LE_INFO("RTC time is %"PRIu64".%"PRIu64, rtcTime.sec, rtcTime.nanosec);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Get time through time source ID and return related reference.
  */
 //--------------------------------------------------------------------------------------------------
@@ -311,10 +330,107 @@ void TestTimeRegistrationHandler
     taf_time_RemoveTimeValueChangeHandler(TimeValueChangeHandlerRef);
     LE_TEST_OK(true, "taf_time_RemoveTimeValueChangeHandler - OK");
 }
+//--------------------------------------------------------------------------------------------------
+/**
+ * Test RTC Async get time API.
+ */
+//--------------------------------------------------------------------------------------------------
+static void getRTCTimeAsync(const taf_time_TimeSpec_t* timeVal,
+    le_result_t responseState, void* contextPtr)
+{
+    LE_INFO("responseState: %d", responseState);
+    LE_TEST_ASSERT(responseState == LE_OK, "Test: getRTCTimeAsync response mode is LE_OK");
+    LE_INFO("Received async vhal RTC time is %"PRIu64".%"PRIu64, timeVal->sec, timeVal->nanosec);
+
+    le_sem_Post((le_sem_Ref_t)contextPtr);
+}
+
+void* TestGetRTCAsync(void* ctxPtr)
+{
+    taf_time_ConnectService();
+    le_result_t res = taf_time_GetRtcTimeReqAsync(getRTCTimeAsync, (void*)ctxPtr);
+    LE_TEST_ASSERT(res == LE_OK || res == LE_UNSUPPORTED, "taf_time_GetRtcTimeReqAsync - OK");
+
+    if (res == LE_UNSUPPORTED)
+    {
+        // If RTC VHAL was not installed, for RTC async API it will report LE_UNSUPPORTED
+        // and without callback, so need to release the semphone here.
+        LE_INFO("RTC Async get time API (work with VHAL) received: Unsupported");
+        le_sem_Post((le_sem_Ref_t)ctxPtr);
+    }
+
+    le_event_RunLoop();
+    return NULL;
+}
+
+void TestRtcVhalAsyncGetTime
+(
+    void
+)
+{
+    le_sem_Ref_t semAGetRtcVhal = le_sem_Create("AsynGetRtcVhal", 0);
+    le_thread_Ref_t threadRef = le_thread_Create("TestGetRTCAsyncThread",
+        TestGetRTCAsync, (void*)semAGetRtcVhal);
+
+    le_thread_Start(threadRef);
+
+    le_sem_Wait(semAGetRtcVhal);
+    le_sem_Delete(semAGetRtcVhal);
+}
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Application initialization.
+ * Test RTC Async set time API.
+ */
+//--------------------------------------------------------------------------------------------------
+void setRTCTimeAsync(le_result_t responseState, void* contextPtr)
+{
+    LE_TEST_ASSERT(responseState == LE_OK, "Test: setRTCTimeAsync response mode is LE_OK");
+    le_sem_Post((le_sem_Ref_t)contextPtr);
+}
+
+void* TestSetRTCAsync(void* cxtPtr)
+{
+        taf_time_ConnectService();
+        static le_mem_PoolRef_t NewTimePool = NULL;
+        taf_time_TimeSpec_t* newTimePtr;
+        NewTimePool = le_mem_CreatePool("TimePool", sizeof(taf_time_TimeSpec_t));
+        newTimePtr = (taf_time_TimeSpec_t*)le_mem_ForceAlloc(NewTimePool);
+        newTimePtr->sec = 1712345678;
+        newTimePtr->nanosec = 12345678;
+        le_result_t res = taf_time_SetRtcTimeReqAsync(newTimePtr, setRTCTimeAsync, (void*)cxtPtr);
+        LE_TEST_ASSERT(res == LE_OK || res == LE_UNSUPPORTED,
+            "Test: taf_time_SetRtcTimeReqAsync() APIs - ok");
+
+        if (res == LE_UNSUPPORTED)
+        {
+            // If RTC VHAL was not installed, for RTC async API it will report LE_UNSUPPORTED
+            // and without callback, so need to release the semphone here.
+            LE_INFO("RTC Async set time API (work with VHAL) received: Unsupported");
+            le_sem_Post((le_sem_Ref_t)cxtPtr);
+        }
+
+        le_event_RunLoop();
+        return NULL;
+}
+
+void TestRtcVhalAsyncSetTime
+(
+    void
+)
+{
+    le_sem_Ref_t semASetRtcVhal = le_sem_Create("AsynSetRtcVhal", 0);
+    le_thread_Ref_t threadRef = le_thread_Create("TestSetRTCAsyncThread",
+        TestSetRTCAsync, (void*)semASetRtcVhal);
+    le_thread_Start(threadRef);
+
+    le_sem_Wait(semASetRtcVhal);
+    le_sem_Delete(semASetRtcVhal);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Component initialization.
  */
 //--------------------------------------------------------------------------------------------------
 COMPONENT_INIT
@@ -330,8 +446,12 @@ COMPONENT_INIT
     TestGetSystemTime();
 
     TestGetGnssTime();
+    TestGetRtcTime();
 
     TestGetTimeRef();
+
+    TestRtcVhalAsyncSetTime();
+    TestRtcVhalAsyncGetTime();
 
     TestTimeRegistrationHandler();
 

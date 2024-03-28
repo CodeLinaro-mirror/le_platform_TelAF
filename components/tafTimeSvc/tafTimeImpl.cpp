@@ -833,7 +833,6 @@ le_result_t taf_Time::GetNetworkTime
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_FAULT -- If any error occurs.
- *     - LE_NOT_IMPLEMENTED -- Not implemented.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_Time::GetRtcTime
@@ -841,7 +840,7 @@ le_result_t taf_Time::GetRtcTime
     taf_time_TimeSpec_t* timeValPtr
 )
 {
-    int result = 0;
+    le_result_t result = LE_FAULT;
     if (isDrvPresent)
     {
         if ((*(timeInf->getRtcTimeHAL)) == nullptr)
@@ -851,11 +850,10 @@ le_result_t taf_Time::GetRtcTime
         }
 
         struct TimeSpec obj;
-        obj.sec = timeValPtr->sec;
-        obj.nanosec = timeValPtr->nanosec;
         result = (*(timeInf->getRtcTimeHAL))(&obj);
         if (result < 0)
         {
+            LE_ERROR("getRtcTimeHAL return failed");
             return LE_FAULT;
         }
         timeValPtr->sec = obj.sec;
@@ -864,9 +862,13 @@ le_result_t taf_Time::GetRtcTime
     }
     else
     {
-        LE_ERROR("Unsupported function called - %s\n", __func__);
+        result = GetInternalRtcTime(timeValPtr);
+        if(result < 0)
+        {
+            return result;
+        }
     }
-    return LE_NOT_IMPLEMENTED;
+    return result;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -885,6 +887,27 @@ le_result_t taf_Time::GetExSetTimeStatus(void)
         //Clear the flag here, and it needs to be set 'true' through API
         //'setSystemTime' by external function
         SetTimeSt->externalSetTime = false;
+        return LE_OK;
+    }
+    return LE_TIMEOUT;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get RTC async callback function set time status for current run loop.
+ *
+ * @return
+ *     - LE_OK -- RTC async callback function set time occurred.
+ *     - LE_TIMEOUT -- RTC async callback set time did not occur.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_Time::GetAsyncRtcSetTimeStatus(void)
+{
+    if (SetTimeSt->asyncRtcSetTime)
+    {
+        // Clear the flag here, and it needs to be set 'true' in the callback function of
+        //  RTC async set time API
+        SetTimeSt->asyncRtcSetTime = false;
         return LE_OK;
     }
     return LE_TIMEOUT;
@@ -1111,7 +1134,15 @@ le_result_t taf_Time::GetTime
         return LE_BAD_PARAMETER;
     }
 
-    result = CheckSourceTime(timeValPtr, srcTimePtr->sourceId);
+    if (srcTimePtr->sourceId == TAF_TIME_SRC_NAME_RTC)
+    {
+        // Here the RTC is a sync API
+        result = GetRtcTime(timeValPtr);
+    }
+    else
+    {
+        result = CheckSourceTime(timeValPtr, srcTimePtr->sourceId);
+    }
     if (result != LE_OK)
     {
         LE_ERROR("Get %s time source failed\n", SourceNameIndexToStr(srcTimePtr->sourceId));
@@ -1518,7 +1549,7 @@ void taf_Time::ReportTimeValueChange
  *     - false         -- Not need to update system time.
  */
 //--------------------------------------------------------------------------------------------------
-bool taf_Time::IsNecessaryUpdateSystemTime
+bool taf_Time::IsThresholdSetTimeAllow
 (
     taf_time_TimeSpec_t timeVal,
     taf_time_TimeSpec_t systemTime
@@ -1602,13 +1633,17 @@ le_result_t taf_Time::SetSystemTime
         LE_ERROR("Get system time failed\n");
         return result;
     }
-    if (IsNecessaryUpdateSystemTime(timeVal, systemTime))
+    if (IsThresholdSetTimeAllow(timeVal, systemTime))
     {
         newTime.tv_sec = timeVal.sec;
         newTime.tv_nsec = timeVal.nanosec;
 
         if (clock_settime(CLOCK_REALTIME, &newTime) < 0)
         {
+            LE_ERROR("Update sys time to:  "
+            "%" PRIu64 ".%" PRIu64 ", from:%" PRIu64 ".%" PRIu64 ". SRC: %s, ackTimeSvc %d\n",
+                newTime.tv_sec, newTime.tv_nsec, systemTime.sec, systemTime.nanosec,
+                SourceNameIndexToStr(timeSource), ackTimeSvc);
             switch (errno)
             {
                 case EPERM:
@@ -1637,24 +1672,25 @@ le_result_t taf_Time::SetSystemTime
 
     }
 
-    if (SetTimeSt->preActiveTimeSource != timeSource)
-    {
-        TimeSourceChangeNotify(SetTimeSt->preActiveTimeSource, timeSource);
-        SetTimeSt->preActiveTimeSource = timeSource;
-    }
-
     if (LatestTimeSourceInfo.source != timeSource)
     {
         LE_INFO("Switching time source from %s to %s",
             SourceNameIndexToStr(LatestTimeSourceInfo.source), SourceNameIndexToStr(timeSource));
+        TimeSourceChangeNotify(LatestTimeSourceInfo.source, timeSource);
+
         LatestTimeSourceInfo.source = timeSource;
         LatestTimeSourceInfo.loopCount = 0;
         AllowOverrideAfterFail = TimeSourceConf.allowOverrideAfterFail;
     }
-    if (ackTimeSvc)
+    if (ackTimeSvc && (timeSource == TAF_TIME_SRC_NAME_EX_APP))
     {
         SetTimeSt->externalSetTime = true;
     }
+    else if (timeSource == TAF_TIME_SRC_NAME_RTC)
+    {
+        SetTimeSt->asyncRtcSetTime = true;
+    }
+
     return LE_OK;
 }
 
@@ -1680,6 +1716,10 @@ le_result_t taf_Time::CheckSourceTime
     {
         case TAF_TIME_SRC_NAME_RTC:
             result = GetRtcTimeReqAsync(nullptr, NULL);
+            if (result == LE_OK)
+            {
+                return GetAsyncRtcSetTimeStatus();
+            }
             break;
 
         case TAF_TIME_SRC_NAME_GNSS:
@@ -1749,10 +1789,11 @@ void taf_Time::TimeSourceChangeNotify
 le_result_t taf_Time::SetTimeBaseOnConfig
 (
     TimeSources serviceCfg,
-    taf_time_TimeSources_t* latestActiveTimePtr
+    uint64_t* timeSrcStatusMap
 )
 {
     le_result_t result = LE_UNAVAILABLE;
+    uint64_t TimeSourceStatusMap = 0x0;
     taf_time_TimeSources_t sourceIndex;
     taf_time_TimeSpec_t time;
     int i;
@@ -1781,57 +1822,40 @@ le_result_t taf_Time::SetTimeBaseOnConfig
         }
         // Set the bit map for the available time source
         TimeSourceStatusMap = TimeSourceStatusMap | (1 << sourceIndex);
-
-        if (serviceCfg.source[i].setSystemTime && !setStatus)
+        if (sourceIndex == TAF_TIME_SRC_NAME_EX_APP
+            || sourceIndex == TAF_TIME_SRC_NAME_RTC)
         {
-            if (!isNewTimeSrcSetTimeAllowed(sourceIndex))
-            {
-                // If the time source with ID 'i' set time is not allowed, the next
-                // ID 'i+1' with lower priority set time is also not allowed for
-                // current set time interval. So break to wait for next interval.
-                LE_DEBUG("New time source is not allowed to set system time");
-                break;
-            }
-            else
-            {
-                if (sourceIndex == TAF_TIME_SRC_NAME_EX_APP
-                    || sourceIndex == TAF_TIME_SRC_NAME_RTC)
-                {
-                    // External app and RTC set time was done outside of this loop and
-                    // the result was feedback through function "CheckSourceTime"
-                    result = LE_OK;
-                }
-                else
-                {
-                    LE_DEBUG("Setting the new time with source %s",
-                        SourceNameIndexToStr(sourceIndex));
-                    result = SetSystemTime(time, sourceIndex, false);
-                }
-            }
+            //ExAPP or RTC set time successful out of this function loop
+            setStatus = true;
+        }
+        else if (!setStatus && isNewTimeSrcSetTimeAllowed(sourceIndex))
+        {
+            LE_DEBUG("Setting the new time with source %s",
+                SourceNameIndexToStr(sourceIndex));
+            result = SetSystemTime(time, sourceIndex, false);
             if (result == LE_OK)
             {
                 setStatus = true;
-                //Record the successed source
-                *latestActiveTimePtr = sourceIndex;
             }
         }
+
         LE_DEBUG("Tatol: %ld, latest: %s, current: %s, priority: %d,"
             " set allow: %d, status: %d, result: %d\n",
-            serviceCfg.source.size(), SourceNameIndexToStr(*latestActiveTimePtr),
+            serviceCfg.source.size(), SourceNameIndexToStr(LatestTimeSourceInfo.source),
             serviceCfg.source[i].sourceName.c_str(), i,
             serviceCfg.source[i].setSystemTime, setStatus, result);
     }
+
+    *timeSrcStatusMap = TimeSourceStatusMap;
 
     if (setStatus)
     {
         return LE_OK;
     }
-    else
+
+    if (AllowOverrideAfterFail > 0)
     {
-        if (AllowOverrideAfterFail > 0)
-        {
-            AllowOverrideAfterFail--;
-        }
+        AllowOverrideAfterFail--;
     }
     return result;
 }
@@ -1855,9 +1879,9 @@ void taf_Time::SystemTimeUpdateTimerHandler
 {
     taf_Time& tafTime = taf_Time::GetInstance();
     le_result_t result = LE_UNAVAILABLE;
-    taf_time_TimeSources_t latestActiveTime = TAF_TIME_SRC_NAME_UNKNOWN;
+    uint64_t timeSrcStatusMap = 0x0;
 
-    result = tafTime.SetTimeBaseOnConfig(TimeSourceConf, &latestActiveTime);
+    result = tafTime.SetTimeBaseOnConfig(TimeSourceConf, &timeSrcStatusMap);
     if (result != LE_OK)
     {
         LE_DEBUG("Warning: Sync time failed, will try again after %ld seconds\n",
@@ -1865,20 +1889,13 @@ void taf_Time::SystemTimeUpdateTimerHandler
     }
     else
     {
-        LE_DEBUG("Time sources status: 0x%08lx\n", tafTime.TimeSourceStatusMap);
+        LE_DEBUG("Time sources status: 0x%08lx\n", timeSrcStatusMap);
     }
 
-    if (latestActiveTime == TAF_TIME_SRC_NAME_UNKNOWN
-        && tafTime.SetTimeSt->preActiveTimeSource == TAF_TIME_SRC_NAME_UNKNOWN)
+    if (timeSrcStatusMap == 0x0)
     {
         // No available time source
-        tafTime.TimeSourceChangeNotify(tafTime.SetTimeSt->preActiveTimeSource, latestActiveTime);
-    }
-
-    if ((tafTime.SetTimeSt->preActiveTimeSource != latestActiveTime)
-        && (latestActiveTime != TAF_TIME_SRC_NAME_UNKNOWN))
-    {
-        tafTime.SetTimeSt->preActiveTimeSource = latestActiveTime;
+        tafTime.TimeSourceChangeNotify(TAF_TIME_SRC_NAME_UNKNOWN, TAF_TIME_SRC_NAME_UNKNOWN);
     }
 }
 
@@ -2574,6 +2591,12 @@ bool taf_Time::isNewTimeSrcSetTimeAllowed(taf_time_TimeSources_t newTimeSource)
         LE_ERROR("%s is not found\n", SourceNameIndexToStr(newTimeSource));
         return false;
     }
+
+    if (!TimeSourceConf.source[position].setSystemTime)
+    {
+        LE_DEBUG("Set time configuration 'SetTime' was not 'true'.");
+        return false;
+    }
     int newPriorityNum = TimeSourceConf.source[position].priority;
 
     position = TimeSourceConf.findSourcePosition(SourceNameIndexToStr(LatestTimeSourceInfo.source));
@@ -2614,43 +2637,45 @@ void taf_Time::getRTCRespCB(struct TimeSpec timeVal, le_result_t response)
     timeSpec.sec = timeVal.sec;
     timeSpec.nanosec = timeVal.nanosec;
 
-    if (response != LE_OK)
+    if (getRTCCB.getRTCCallbackFunc)
     {
-        LE_ERROR("Get RTC response not ok %d\n", response);
-        result = LE_TERMINATED;
+        getRTCCB.getRTCCallbackFunc(&timeSpec, response, getRTCCB.getRTCCtxPtr);
     }
-    else
+    else// Time service internally get RTC time from VHAL does not need callback function
     {
+        if (response != LE_OK)
+        {
+            LE_ERROR("Response for getting RTC time is not ok %d\n", response);
+            return;
+        }
         if (time.isNewTimeSrcSetTimeAllowed(TAF_TIME_SRC_NAME_RTC))
         {
             result = time.SetSystemTime(timeSpec, TAF_TIME_SRC_NAME_RTC, false);
+            if (result != LE_OK)
+            {
+                LE_DEBUG("Set RTC to system failed %d\n", result);
+                return;
+            }
         }
     }
 
-    if (getRTCCB.getRTCCallbackFunc)
-    {
-        getRTCCB.getRTCCallbackFunc(&timeSpec, result, getRTCCB.getRTCCtxPtr);
-    }
     return;
 }
 
 void taf_Time::setRTCRespCB(le_result_t response)
 {
-    le_result_t result = LE_TERMINATED;
-
     if (response != LE_OK)
     {
-        LE_ERROR("Set RTC response not ok %d\n", response);
-        result = LE_TERMINATED;
+        LE_DEBUG("Set RTC response not ok %d\n", response);
     }
 
     if (setRTCCB.setRTCCallbackFunc)
     {
-        setRTCCB.setRTCCallbackFunc(result, setRTCCB.setRTCCtxPtr);
+        setRTCCB.setRTCCallbackFunc(response, setRTCCB.setRTCCtxPtr);
     }
+
     return;
 }
-
 
 le_result_t taf_Time::GetInternalRtcTime
 (
@@ -2829,7 +2854,6 @@ void taf_Time::Init(void)
     SetTimeStatusPool = le_mem_CreatePool("TimeSvc SetStatusPool", sizeof(SetTimeStatus));
     SetTimeSt = (SetTimeStatus *)le_mem_ForceAlloc(SetTimeStatusPool);
     memset(SetTimeSt, 0, sizeof(struct SetTimeStatus));
-    SetTimeSt->preActiveTimeSource = TAF_TIME_SRC_NAME_UNKNOWN;
 
     timeSourceChangePool = le_mem_CreatePool("timeSourceChangePool",
                                               sizeof(taf_TimeSourceStatus_t));

@@ -320,6 +320,7 @@ static void* CommandInput(void* contextPtr)
             printf("\th - Hangup the eCall\n");
             printf("\tt - Terminate registration\n");
             printf("\ts - Import and send MSD\n");
+            printf("\tg - Get hlap timer state\n");
             printf("\tq - Quit test\n");
             printf("-------------------------------------------------\n");
         }
@@ -378,7 +379,26 @@ static void* CommandInput(void* contextPtr)
                     LE_INFO("CommandInput: send MSD, res: %d\n", res);
                 }
             }
-        }else if(p != NULL && input_str[0]=='q') {
+        } else if (p != NULL && input_str[0]=='g') {
+            printf("User input: %c, so enter the hlap timer type eg: 2...\n", input_str[0]);
+            p = fgets(input_str,sizeof(input_str),stdin);
+            taf_ecall_HlapTimerType_t timerType;
+            taf_ecall_HlapTimerStatus_t timerStatus;
+            uint16_t remainTime;
+            if (p != NULL && input_str[0]=='2')
+            {
+               timerType = TAF_ECALL_TIMER_TYPE_T2;
+            } else if (p != NULL && input_str[0]=='9') {
+               timerType = TAF_ECALL_TIMER_TYPE_T9;
+            } else if (p != NULL && input_str[0]=='1' && input_str[1]=='0'){
+               timerType = TAF_ECALL_TIMER_TYPE_T10;
+            } else {
+               timerType = TAF_ECALL_TIMER_TYPE_UNKNOWN;
+            }
+            le_result_t result = taf_ecall_GetHlapTimerState(timerType, &timerStatus, &remainTime);
+            printf("Get hlap timer state %s\n", result == LE_OK ? "success." : "failed!!"); 
+            printf("Hlap timer status is %d and the remaining time is %d\n", timerStatus, remainTime);
+        }else if (p != NULL && input_str[0]=='q') {
             exitApp = true;
             le_thread_Cancel(ECallCmdThreadRef);
             ECallCmdThreadRef = NULL;
@@ -594,6 +614,66 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
             printf("TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_FAILURE");
             break;
         }
+        case TAF_ECALL_STATE_T2_STARTED:
+        {
+            printf("TAF_ECALL_STATE_T2_STARTED");
+            break;
+        }
+        case TAF_ECALL_STATE_T5_STARTED:
+        {
+            printf("TAF_ECALL_STATE_T5_STARTED");
+            break;
+        }
+        case TAF_ECALL_STATE_T6_STARTED:
+        {
+            printf("TAF_ECALL_STATE_T6_STARTED");
+            break;
+        }
+        case TAF_ECALL_STATE_T7_STARTED:
+        {
+            printf("TAF_ECALL_STATE_T7_STARTED");
+            break;
+        }
+        case TAF_ECALL_STATE_T9_STARTED:
+        {
+            printf("TAF_ECALL_STATE_T9_STARTED");
+            break;
+        }
+        case TAF_ECALL_STATE_T10_STARTED:
+        {
+            printf("TAF_ECALL_STATE_T10_STARTED");
+            break;
+        }
+        case TAF_ECALL_STATE_T2_STOPPED:
+        {
+            printf("TAF_ECALL_STATE_T2_STOPPED");
+            break;
+        }
+        case TAF_ECALL_STATE_T5_STOPPED:
+        {
+            printf("TAF_ECALL_STATE_T5_STOPPED");
+            break;
+        }
+        case TAF_ECALL_STATE_T6_STOPPED:
+        {
+            printf("TAF_ECALL_STATE_T6_STOPPED");
+            break;
+        }
+        case TAF_ECALL_STATE_T7_STOPPED:
+        {
+            printf("TAF_ECALL_STATE_T7_STOPPED");
+            break;
+        }
+        case TAF_ECALL_STATE_T9_STOPPED:
+        {
+            printf("TAF_ECALL_STATE_T9_STOPPED");
+            break;
+        }
+        case TAF_ECALL_STATE_T10_STOPPED:
+        {
+            printf("TAF_ECALL_STATE_T10_STOPPED");
+            break;
+        }
         default:
         {
             printf("Unknown state");
@@ -635,7 +715,8 @@ static void PrintUsage ()
             "tafECallApp -- start <PRIVATE> <NUMBER> [contentType] [acceptInfo]\n"
             "tafECallApp -- end\n"
             "tafECallApp -- terminateReg\n"
-            "tafECallApp -- gpio <PIN>"
+            "tafECallApp -- gpio <PIN>\n"
+            "tafECallApp -- getHlapTimerState <hlap timer type>\n"
             "\n");
 }
 
@@ -1205,6 +1286,24 @@ static int addGPIOHandler()
     return EXIT_SUCCESS;
 }
 
+static int getHlapTimerState()
+{
+    if (le_arg_NumArgs() < 3)
+    {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
+
+    taf_ecall_HlapTimerType_t hlapTimerType = atoi(le_arg_GetArg(2));
+    taf_ecall_HlapTimerStatus_t timerStatus;
+    uint16_t elapsedTime;
+    le_result_t result = taf_ecall_GetHlapTimerState(hlapTimerType, &timerStatus, &elapsedTime);
+    LE_TEST_OK(result == LE_OK, "getHlapTimerState - LE_OK");
+    printf("Get eCall hlap timer status as: %d, elapsedTime as: %d\n", timerStatus, elapsedTime);
+
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
 COMPONENT_INIT
 {
     int status = EXIT_SUCCESS;
@@ -1315,6 +1414,10 @@ COMPONENT_INIT
     {
         status = addGPIOHandler();
         exitApp = false;
+    }
+    else if (strcmp(command, "getHlapTimerState") == 0)
+    {
+        status = getHlapTimerState();
     } else {
         PrintUsage();
     }

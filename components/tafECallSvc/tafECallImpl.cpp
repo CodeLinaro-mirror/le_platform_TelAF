@@ -169,7 +169,10 @@ void tafECallListener::onCallInfoChange(std::shared_ptr<telux::tel::ICall> call)
         eCall.CallEndError = call->getCallEndCause();
         LE_INFO("ECall ENDed terminate reason = %d", (int) eCall.CallEndError);
         isCallStateSet = true;
-
+        if (eCall.t9StartTimeSet == true)
+        {
+            eCall.t9StartTime = std::chrono::system_clock::now();
+        }
     }
     eCall.SetSessionState(sessionState);
     eCall.SetECallState(state);
@@ -248,8 +251,10 @@ void tafECallListener::onECallMsdTransmissionStatus(
 void tafECallListener::onECallHlapTimerEvent(int phoneId, ECallHlapTimerEvents timerEvents) {
     LE_DEBUG("onECallHlapTimerEvent ");
     taf_ecall_State_t state = TAF_ECALL_STATE_UNKNOWN;
+    auto &eCall = taf_ecall::GetInstance();
     if(timerEvents.t2 == HlapTimerEvent::EXPIRED) {
         state = TAF_ECALL_STATE_T2_EXPIRED;
+        eCall.t2StartTimeSet = false;
     }
     if(timerEvents.t5 == HlapTimerEvent::EXPIRED) {
         state = TAF_ECALL_STATE_T5_EXPIRED;
@@ -262,12 +267,57 @@ void tafECallListener::onECallHlapTimerEvent(int phoneId, ECallHlapTimerEvents t
     }
     if(timerEvents.t9 == HlapTimerEvent::EXPIRED) {
         state = TAF_ECALL_STATE_T9_EXPIRED;
+        eCall.t9StartTimeSet = false;
     }
-#if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     if(timerEvents.t10 == HlapTimerEvent::EXPIRED) {
         state = TAF_ECALL_STATE_T10_EXPIRED;
+        eCall.t10StartTimeSet = false;
     }
-#endif
+    if(timerEvents.t2 == HlapTimerEvent::STARTED) {
+        state = TAF_ECALL_STATE_T2_STARTED;
+        eCall.t2StartTime = std::chrono::system_clock::now();
+        eCall.t2StartTimeSet = true;
+    }
+    if(timerEvents.t5 == HlapTimerEvent::STARTED) {
+        state = TAF_ECALL_STATE_T5_STARTED;
+    }
+    if(timerEvents.t6 == HlapTimerEvent::STARTED) {
+        state = TAF_ECALL_STATE_T6_STARTED;
+    }
+    if(timerEvents.t7 == HlapTimerEvent::STARTED) {
+        state = TAF_ECALL_STATE_T7_STARTED;
+    }
+    if(timerEvents.t9 == HlapTimerEvent::STARTED) {
+        state = TAF_ECALL_STATE_T9_STARTED;
+        eCall.t9StartTime = std::chrono::system_clock::now();
+        eCall.t9StartTimeSet = true;
+    }
+    if(timerEvents.t10 == HlapTimerEvent::STARTED) {
+        state = TAF_ECALL_STATE_T10_STARTED;
+        eCall.t10StartTime = std::chrono::system_clock::now();
+        eCall.t10StartTimeSet = true;
+    }
+    if(timerEvents.t2 == HlapTimerEvent::STOPPED) {
+        state = TAF_ECALL_STATE_T2_STOPPED;
+        eCall.t2StartTimeSet = false;
+    }
+    if(timerEvents.t5 == HlapTimerEvent::STOPPED) {
+        state = TAF_ECALL_STATE_T5_STOPPED;
+    }
+    if(timerEvents.t6 == HlapTimerEvent::STOPPED) {
+        state = TAF_ECALL_STATE_T6_STOPPED;
+    }
+    if(timerEvents.t7 == HlapTimerEvent::STOPPED) {
+        state = TAF_ECALL_STATE_T7_STOPPED;
+    }
+    if(timerEvents.t9 == HlapTimerEvent::STOPPED) {
+        state = TAF_ECALL_STATE_T9_STOPPED;
+        eCall.t9StartTimeSet = false;
+    }
+    if(timerEvents.t10 == HlapTimerEvent::STOPPED) {
+        state = TAF_ECALL_STATE_T10_STOPPED;
+        eCall.t10StartTimeSet = false;
+    }
     if (state != TAF_ECALL_STATE_UNKNOWN) {
         auto &eCall = taf_ecall::GetInstance();
         StateChangeEvent_t stateEvent;
@@ -1520,6 +1570,20 @@ le_result_t taf_ecall::SetNadDeregistrationTime(uint16_t deregTime)
         return LE_BUSY;
     }
 
+    if (GetHlapTimerStatus(TAF_ECALL_TIMER_TYPE_T10) != TAF_ECALL_TIMER_STATUS_INACTIVE)
+    {
+        LE_ERROR("Error: Deregistration timer is running");
+        return LE_BUSY;
+    }
+
+    uint16_t minNwRegTime = 0;
+    if ((LE_OK != GetNadMinNetworkRegistrationTime(&minNwRegTime)) ||
+        (deregTime < minNwRegTime))
+    {
+        LE_ERROR("Error: dereg timer should not less than minNwRegTime");
+        return LE_FAULT;
+    }
+
     if (deregTime < 1 || deregTime > 720) {
         LE_ERROR("Error: Deregistration time %d min is not allowed [Range 1:720].", deregTime);
         return LE_FAULT;
@@ -1604,6 +1668,12 @@ le_result_t taf_ecall::SetNadClearDownFallbackTime(uint16_t ccftTime)
         return LE_BUSY;
     }
 
+    if (GetHlapTimerStatus(TAF_ECALL_TIMER_TYPE_T2) != TAF_ECALL_TIMER_STATUS_INACTIVE)
+    {
+        LE_ERROR("Error: clear down fallback timer is running");
+        return LE_BUSY;
+    }
+
     if (ccftTime < 1 || ccftTime > 720) {
         LE_ERROR("Error: clear down fallback time %d min is not allowed [Range 1:720].", ccftTime);
         return LE_FAULT;
@@ -1647,8 +1717,22 @@ le_result_t taf_ecall::SetNadMinNetworkRegistrationTime(uint16_t minNwRegTime)
         return LE_BUSY;
     }
 
+    if (GetHlapTimerStatus(TAF_ECALL_TIMER_TYPE_T9) != TAF_ECALL_TIMER_STATUS_INACTIVE)
+    {
+        LE_ERROR("Error: min network registration timer is running");
+        return LE_BUSY;
+    }
+
     if (minNwRegTime < 1 || minNwRegTime > 720) {
         LE_ERROR("Error: min network registration time %d min is not allowed [Range 1:720].", minNwRegTime);
+        return LE_FAULT;
+    }
+
+    uint16_t deregTime = 0;
+    if ((LE_OK != GetNadDeregistrationTime(&deregTime)) ||
+        (deregTime < minNwRegTime))
+    {
+        LE_ERROR("Error: dereg timer should not less than minNwRegTime");
         return LE_FAULT;
     }
 
@@ -1710,6 +1794,175 @@ le_result_t taf_ecall::GetNadMinNetworkRegistrationTime(uint16_t* minNwRegTime)
     }
 
     return Status::SUCCESS == status ? LE_OK : LE_FAULT;
+}
+
+le_result_t taf_ecall::GetHlapTimerState(taf_ecall_HlapTimerType_t timerType, taf_ecall_HlapTimerStatus_t* timerStatus, uint16_t* elapsedTime)
+{
+    if ((timerStatus == NULL) || (elapsedTime == NULL))
+    {
+        LE_ERROR("timerStatus or elapsedTime is null.");
+        return LE_FAULT;
+    }
+
+    uint16_t ccftTime = 0;
+    uint16_t minNwRegTime = 0;
+    uint16_t deregTime = 0;
+    uint16_t t2ElapsedTime = 0;
+    uint16_t t9ElapsedTime = 0;
+    uint16_t t10ElapsedTime = 0;
+    *timerStatus = GetHlapTimerStatus(timerType);
+    if (*timerStatus == TAF_ECALL_TIMER_STATUS_ACTIVE)
+    {
+        switch (timerType)
+        {
+            case TAF_ECALL_TIMER_TYPE_T2:
+                if (LE_OK != GetNadClearDownFallbackTime(&ccftTime))
+                {
+                    LE_ERROR("GetNadClearDownFallbackTime wrong.");
+                    return LE_FAULT;
+                }
+
+                if (t2StartTimeSet == true)
+                {
+                    t2ElapsedTime = ConvertElapsedTime(t2StartTime);
+                } else {
+                    LE_ERROR("Get hlap timer T2 is active, but start time is not set.");
+                    return LE_FAULT;
+                }
+
+                if (ccftTime*60 >= t2ElapsedTime)
+                {
+                    *elapsedTime = t2ElapsedTime;
+                } else {
+                    LE_ERROR("Get hlap timer T2 state wrong as elapsed time is out of range.");
+                    return LE_FAULT;
+                }
+                break;
+            case TAF_ECALL_TIMER_TYPE_T9:
+                if (LE_OK != GetNadMinNetworkRegistrationTime(&minNwRegTime))
+                {
+                    LE_ERROR("GetNadMinNetworkRegistrationTime wrong as elapsed time is out of range.");
+                    return LE_FAULT;
+                }
+
+                if (t9StartTimeSet == true)
+                {
+                    t9ElapsedTime = ConvertElapsedTime(t9StartTime);
+                } else {
+                    LE_ERROR("Get hlap timer T9 is active, but start time is not set.");
+                    return LE_FAULT;
+                }
+
+                if (minNwRegTime*60 >= t9ElapsedTime)
+                {
+                    *elapsedTime = t9ElapsedTime;
+                } else {
+                    LE_ERROR("Get hlap timer T9 state wrong as elapsed time is out of range.");
+                    return LE_FAULT;
+                }
+                break;
+            case TAF_ECALL_TIMER_TYPE_T10:
+                if (LE_OK != GetNadDeregistrationTime(&deregTime))
+                {
+                     LE_ERROR("GetNadDeregistrationTime wrong.");
+                     return LE_FAULT;
+                }
+
+                if (t10StartTimeSet == true)
+                {
+                    t10ElapsedTime = ConvertElapsedTime(t10StartTime);
+                } else {
+                    LE_ERROR("Get hlap timer T10 is active, but start time is not set.");
+                    return LE_FAULT;
+                }
+
+                if (deregTime*60 >= t10ElapsedTime)
+                {
+                    *elapsedTime = t10ElapsedTime;
+                } else {
+                    LE_ERROR("Get hlap timer T10 state wrong as elapsed time is out of range.");
+                    return LE_FAULT;
+                }
+                break;
+            case TAF_ECALL_TIMER_TYPE_UNKNOWN:
+            default:
+                LE_ERROR("Wrong hlap timer type.");
+                return LE_BAD_PARAMETER;
+            }
+    }
+    else
+    {
+       *elapsedTime = 0;
+    }
+    LE_INFO("Get eCall hlap timer status as: %d, elapsedTime as: %d", *timerStatus, *elapsedTime);
+    return LE_OK;
+}
+
+taf_ecall_HlapTimerStatus_t taf_ecall::GetHlapTimerStatus(taf_ecall_HlapTimerType_t timerType) {
+    taf_ecall_HlapTimerStatus_t timerStatus;
+    std::promise<telux::common::ErrorCode> p;
+    std::promise<int> q;
+    std::promise<ECallHlapTimerStatus> r;
+    int phone_id = PhoneManager->getPhoneIdFromSlotId((int)taf_sim_GetSelectedCard());
+    telux::tel::ECallHlapTimerStatusCallback cb =
+        [&p, &q, &r](telux::common::ErrorCode error, int phoneId, ECallHlapTimerStatus hlapTimerStatus) {
+        p.set_value(error);
+        q.set_value(phoneId);
+        r.set_value(hlapTimerStatus);
+    };
+
+    Status status = CallManager->requestECallHlapTimerStatus(phone_id, cb);
+    if (status == Status::SUCCESS) {
+        LE_INFO("Get eCall hlap timer successfully.");
+        telux::common::ErrorCode error = p.get_future().get();
+        LE_INFO("Get eCall hlap timer state: error code %d", (int) error);
+
+        if (error == ErrorCode::SUCCESS) {
+            if (phone_id != q.get_future().get())
+            {
+                LE_ERROR("Wrong phoneId.");
+                return TAF_ECALL_TIMER_STATUS_UNKNOWN;
+            }
+            switch (timerType)
+            {
+                case TAF_ECALL_TIMER_TYPE_T2:
+                    timerStatus = ConvertHlapTimerStatus(r.get_future().get().t2);
+                    break;
+                case TAF_ECALL_TIMER_TYPE_T9:
+                    timerStatus = ConvertHlapTimerStatus(r.get_future().get().t9);
+                    break;
+                case TAF_ECALL_TIMER_TYPE_T10:
+                    timerStatus = ConvertHlapTimerStatus(r.get_future().get().t10);
+                    break;
+                case TAF_ECALL_TIMER_TYPE_UNKNOWN:
+                default:
+                    LE_ERROR("Wrong hlap timer type.");
+                    return TAF_ECALL_TIMER_STATUS_UNKNOWN;
+            }
+            return timerStatus;
+        }
+    }
+    return TAF_ECALL_TIMER_STATUS_UNKNOWN;
+}
+
+taf_ecall_HlapTimerStatus_t taf_ecall::ConvertHlapTimerStatus(telux::tel::HlapTimerStatus status) {
+    switch(status) {
+        case telux::tel::HlapTimerStatus::INACTIVE:
+            return TAF_ECALL_TIMER_STATUS_INACTIVE;
+        case telux::tel::HlapTimerStatus::ACTIVE:
+            return TAF_ECALL_TIMER_STATUS_ACTIVE;
+        case telux::tel::HlapTimerStatus::UNKNOWN:
+            return TAF_ECALL_TIMER_STATUS_UNKNOWN;
+        default:
+            return TAF_ECALL_TIMER_STATUS_UNKNOWN;
+    }
+}
+
+uint16_t taf_ecall::ConvertElapsedTime(std::chrono::time_point<std::chrono::system_clock> startTime)
+{
+    std::chrono::duration<double> duration = std::chrono::system_clock::now() - startTime;
+    uint16_t elapsedTime = static_cast<uint16_t>(duration.count());
+    return elapsedTime;
 }
 
 taf_ecall_StateChangeHandlerRef_t taf_ecall::AddStateChangeHandler

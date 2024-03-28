@@ -1767,3 +1767,31 @@ le_result_t taf_ecall_GetNadMinNetworkRegistrationTime
     return ecall.GetNadMinNetworkRegistrationTime(minNwRegTime);
 }
 
+/*======================================================================
+
+ FUNCTION        taf_ecall_GetHlapTimerState
+
+ DESCRIPTION     Get eCall hlap timer state
+
+ DEPENDENCIES    Initialization of ECall service
+
+ PARAMETERS      [IN] ecallRef: ecall reference
+
+ RETURN VALUE    le_result_t
+                     LE_BAD_PARAMETER:     Invalid parameters.
+                     LE_FAULT:             Fail.
+                     LE_OK:                Success.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_ecall_GetHlapTimerState
+(
+    taf_ecall_HlapTimerType_t timerType, //Hlap timer type
+    taf_ecall_HlapTimerStatus_t* timerStatus, //The status of hlap timer
+    uint16_t* elapsedTime //The elapsed time of hlap timer
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.GetHlapTimerState(timerType, timerStatus, elapsedTime);
+}

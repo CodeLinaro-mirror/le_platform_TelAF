@@ -367,6 +367,15 @@ void PrintHelp()
     std::cout<<"Ex: app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- route0 playback /data/test.wav"<<endl;
     std::cout<<"Ex: app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- route0 record /data/record.wav"<<endl;
     std::cout<<"Ex: app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- route0 repeated_playback"<<endl;
+    std::cout<<"Ex: app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- node <node_id> getNodeType"<<endl;
+    std::cout<<"Ex: app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- node 1 getNodeType"<<endl;
+    std::cout<<"Ex: app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- node 1 setPowerState ACTIVE"<<endl;
+    std::cout<<"Ex: app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- node 1 getPowerState"<<endl;
+    std::cout<<"Ex: app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- node 1 setMuteState true"<<endl;
+    std::cout<<"Ex: app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- node 1 getMuteState"<<endl;
+    std::cout<<"Ex: app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- node 1 regsiterNodeEvent"<<endl;
+    std::cout<<"Ex: app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- setVendorConfig /data/config.xml"<<endl;
+    std::cout<<"Ex: app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- node 1 setNodeVendorConfig /data/config.xml"<<endl;
 }
 
 void Test_Mngd_Audio_Add_File(string srcPath, int32_t repeat){
@@ -393,6 +402,19 @@ void Test_Mngd_Audio_Delete_PlayList(){
     LE_TEST_OK(res == LE_OK, "Successfully deleted playerListRef");
 }
 
+static void NodeEventCallback(uint8_t nodeId, taf_mngd_audioHw_Event_t event, void* contextPtr)
+{
+    const char* nodeEvent = "";
+    if ( event == TAF_MNGD_AUDIOHW_MUTE )
+    {
+        nodeEvent = "mute";
+    } else if ( event == TAF_MNGD_AUDIOHW_UNMUTE)
+    {
+        nodeEvent = "unmute";
+    }
+    printf("Node event for node %s\n", nodeEvent);
+}
+
 COMPONENT_INIT
 {
 
@@ -403,6 +425,7 @@ COMPONENT_INIT
         if(strcmp(le_arg_GetArg(0), "help") == 0)
         {
             PrintHelp();
+            exit(EXIT_SUCCESS);
         }
         else
         {
@@ -516,6 +539,213 @@ COMPONENT_INIT
                         break;
                     }
                 }
+            }  else if (strcmp(le_arg_GetArg(0),"node") == 0)
+            {
+                uint8_t nodeId;
+                const char* arg1 = le_arg_GetArg(1);
+                le_result_t res;
+                if ( arg1 != NULL )
+                {
+                    nodeId = atoi(arg1);
+                    const char* arg2 = le_arg_GetArg(2);
+                    if (arg2 == NULL)
+                    {
+                        LE_ERROR("invalid argument!");
+                        exit(EXIT_SUCCESS);
+                    }
+                    if (strcmp(arg2, "getNodeType") == 0)
+                    {
+                        LE_INFO("Test taf_mngd_audioHw_GetNodeType");
+                        taf_mngd_audioHw_NodeType_t nodeType =
+                                taf_mngd_audioHw_GetNodeType(nodeId);
+                        if ( nodeType == TAF_MNGD_AUDIOHW_AUDIO_CODEC )
+                        {
+                            printf("Audio device type is CODEC\n");
+                        } else if ( nodeType == TAF_MNGD_AUDIOHW_AUDIO_PA )
+                        {
+                            printf("Audio device type is PA\n");
+                        } else if ( nodeType == TAF_MNGD_AUDIOHW_AUDIO_A2B )
+                        {
+                            printf("Audio device type is A2B\n");
+                        } else {
+                            printf("Audio device type is not defined\n");
+                        }
+                        exit(EXIT_SUCCESS);
+                    } else if ( strcmp(arg2, "setNodeVendorConfig") == 0)
+                    {
+                        const char* configPath = le_arg_GetArg(3);
+                        if( configPath == NULL )
+                        {
+                            LE_ERROR("Invalid configPath!");
+                            exit(EXIT_SUCCESS);
+                        }
+                        LE_INFO("Test taf_mngd_audioHw_SendNodeConfigure");
+                        res = taf_mngd_audioHw_SendNodeVendorConfig(nodeId, configPath);
+                        if ( res == LE_OK )
+                        {
+                            printf("Successfully sent the audio device configuration to VHAL\n");
+                        }
+                        else
+                        {
+                            printf("Failed to send the configuration to VHAL\n");
+                        }
+                        exit(EXIT_SUCCESS);
+                    } else if ( strcmp(arg2, "setPowerState") == 0)
+                    {
+                        const char* state = le_arg_GetArg(3);
+                        if( state == NULL )
+                        {
+                            LE_ERROR("Invalid state!");
+                            exit(EXIT_SUCCESS);
+                        }
+                        if ( strcmp(state, "ACTIVE") == 0 )
+                        {
+                            LE_INFO("Set power state to ACTIVE for node %d", nodeId);
+                            res = taf_mngd_audioHw_SetNodePowerState(nodeId,
+                                    TAF_MNGD_AUDIOHW_ACTIVE);
+                            if( res == LE_OK )
+                            {
+                                printf("Successfully set the audio device power state to ACTIVE\n");
+                            }
+                            else
+                            {
+                                printf("Failed to set the device power state to ACTIVE\n");
+                            }
+                        } else if ( strcmp(state, "SUSPEND") == 0)
+                        {
+                            LE_INFO("Set power state to SUSPEND for node %d", nodeId);
+                            res = taf_mngd_audioHw_SetNodePowerState(nodeId,
+                                    TAF_MNGD_AUDIOHW_SUSPEND);
+                            if( res == LE_OK )
+                            {
+                                printf("Successfully set the audio device power state to SUSPEND\n");
+                            }
+                            else
+                            {
+                                printf("Failed to set the device power state to SUSPEND\n");
+                            }
+                        } else if ( strcmp(state, "POWER_OFF") == 0)
+                        {
+                            LE_INFO("Set power state to POWER_OFF for node %d", nodeId);
+                            res = taf_mngd_audioHw_SetNodePowerState(nodeId,
+                                    TAF_MNGD_AUDIOHW_POWER_OFF);
+                            if( res == LE_OK )
+                            {
+                                printf("Successfully set the node power state to POWER_OFF\n");
+                            }
+                            else
+                            {
+                                printf("Failed to set the device power state to POWER_OFF\n");
+                            }
+                        } else
+                            printf("Invalid state");
+                        exit(EXIT_SUCCESS);
+                    }  else if ( strcmp(arg2, "getPowerState") == 0)
+                    {
+                        taf_mngd_audioHw_NodePowerState_t state;
+                        LE_INFO("Get power state of node %d", nodeId);
+                        res = taf_mngd_audioHw_GetNodePowerState(nodeId, &state);
+                        if( res == LE_OK )
+                        {
+                            LE_INFO("power state is %d", state);
+                            const char* pwState;
+                            if ( state == TAF_MNGD_AUDIOHW_ACTIVE )
+                            {
+                                pwState = "ACTIVE";
+                            } else if ( state == TAF_MNGD_AUDIOHW_SUSPEND )
+                            {
+                                pwState = "SUSPEND";
+                            } else if ( state == TAF_MNGD_AUDIOHW_POWER_OFF )
+                            {
+                                pwState = "POWER_OFF";
+                            } else {
+                                pwState = "INVALID";
+                            }
+                            printf("Node power state is %s\n", pwState);
+                        }
+                        else
+                        {
+                            printf("Failed to get the power state\n");
+                        }
+                        exit(EXIT_SUCCESS);
+                    }  else if ( strcmp(arg2, "setMuteState") == 0)
+                    {
+                        const char* isMute = le_arg_GetArg(3);
+                        if( isMute == NULL )
+                        {
+                            LE_ERROR("Invalid configPath!");
+                            exit(EXIT_SUCCESS);
+                        }
+                        if ( strcmp(isMute, "true") == 0 )
+                        {
+                            LE_INFO("Set mute to %d node device", nodeId);
+                            res = taf_mngd_audioHw_SetNodeMuteState( nodeId, true );
+                            if ( res == LE_OK )
+                            {
+                                printf("Successfully muted the node\n");
+                            } else {
+                                printf("Failed to mute the node\n");
+                            }
+                            exit(EXIT_SUCCESS);
+                        } else {
+                            LE_INFO("Set unmute to %d node device", nodeId);
+                            res = taf_mngd_audioHw_SetNodeMuteState( nodeId, false );
+                            if ( res == LE_OK )
+                            {
+                                printf("Successfully unmuted the node\n");
+                            } else {
+                                printf("Failed to unmute the node\n");
+                            }
+                            exit(EXIT_SUCCESS);
+                        }
+                    }   else if ( strcmp(arg2, "getMuteState") == 0)
+                    {
+                        bool isMute;
+                        LE_INFO("Get mute state of node %d", nodeId);
+                        res = taf_mngd_audioHw_GetNodeMuteState(nodeId, &isMute);
+                        if( res == LE_OK )
+                        {
+                            const char* muteState;
+                            muteState = isMute ? "true" : "false";
+                            printf("Node mute state is %s\n", muteState);
+                        }
+                        else
+                        {
+                            printf("Failed to get the mute state\n");
+                        }
+                        exit(EXIT_SUCCESS);
+                    } else if ( strcmp(arg2, "regsiterNodeEvent") == 0)
+                    {
+                        taf_mngd_audioHw_NodeStateChangeHandlerRef_t handlerRef;
+                        handlerRef = taf_mngd_audioHw_AddNodeStateChangeHandler(nodeId,
+                                NodeEventCallback, NULL);
+                        if( handlerRef != NULL )
+                        {
+                            printf("Successfully registered for node event\n");
+                        }
+                        else
+                        {
+                            printf("Failed to register the node event\n");
+                            exit(EXIT_FAILURE);
+                        }
+                        return;
+                    }
+                }
+            } else if (strcmp(le_arg_GetArg(0), "setVendorConfig") == 0)
+            {
+                const char* configPath = le_arg_GetArg(1);
+                if (configPath == NULL)
+                {
+                    LE_ERROR("Invalid configPath");
+                }
+                res = taf_mngd_audioHw_SendVendorConfig(configPath);
+                if ( res == LE_OK )
+                {
+                    printf("Successfully sent the vendor configuration\n");
+                } else {
+                    printf("Failed to send the vendor configuration\n");
+                }
+                exit(EXIT_SUCCESS);
             }
         }
     } else {

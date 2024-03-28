@@ -277,6 +277,7 @@ class taf_MngdAudio : public ITafSvc
         AudioFormat mFileFormat = AudioFormat::UNKNOWN;
         taf_mngd_audio_PlayListRef_t currPlayListRef;
         le_ref_MapRef_t PlaybackListRefMap = NULL;
+        le_dls_List_t  EventIdList = LE_DLS_LIST_INIT;
 
         void Init(void);
 
@@ -352,7 +353,6 @@ class taf_MngdAudio : public ITafSvc
 
         le_dls_List_t  ConnectorList = LE_DLS_LIST_INIT;
         le_dls_List_t  HashMapList = LE_DLS_LIST_INIT;
-        le_dls_List_t  EventIdList = LE_DLS_LIST_INIT;
 
         taf_mngd_audio_StreamRef_t CreateStream( StreamConfig_t* streamConfPtr );
         void InitStream( taf_mngd_audio_Stream_t* streamPtr );

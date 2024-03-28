@@ -9,7 +9,8 @@ provides:
 {
     api:
     {
-        $TELAF_ROOT/apps/tafMngdServices/interfaces/taf_mngd_audio.api
+        $TELAF_ROOT/apps/tafMngdServices/interfaces/staging/taf_mngd_audio.api
+        $TELAF_ROOT/apps/tafMngdServices/interfaces/staging/taf_mngd_audioHw.api
     }
 }
 

@@ -37,6 +37,26 @@
 #include "tafHalAudio.h"
 #include "tafHalLib.hpp"
 
+#define MAX_VENDOR_NODES  8
+
+/**
+ * Node Event Handler Reference structure
+ */
+typedef struct
+{
+    taf_mngd_audioHw_NodeStateChangeHandlerRef_t  handlerRef;
+    uint8_t                                       nodeId;
+    void*                                         userCtx;
+    le_dls_Link_t                                 next;
+    le_event_Id_t                                 eventId;
+}
+NodeEventHandlerRefNode_t;
+
+typedef struct {
+    uint8_t nodeId;
+    taf_mngd_audioHw_Event_t event;
+}NodeEvent_t;
+
 namespace taf {
 namespace audioVhal {
 
@@ -47,9 +67,12 @@ class taf_MngdAudioVhal
         audio_Inf_t *audioInf = nullptr;
 
         bool isVhalLoaded = false;
+        le_mem_PoolRef_t NodeEventHandlerRefPool = NULL;
+        le_dls_List_t NodeEventHandlerList;
 
         static taf_MngdAudioVhal &GetInstance();
-
+        static void NodeEventHandler(void* reportPtr, void* secondLayerHandlerFunc);
+        static void NodeEventCB(uint8_t nodeId, taf_hal_audio_DevEvent event);
         taf_MngdAudioVhal() {};
         ~taf_MngdAudioVhal() {};
 
@@ -57,6 +80,17 @@ class taf_MngdAudioVhal
         bool isAudioDrvAvailable();
         le_result_t OpenRoute(bool status, taf_mngd_audio_RouteId_t route,
                 taf_mngd_audio_Mode_t mode);
+        taf_mngd_audioHw_NodeType_t GetNodeType(uint8_t audioNodeId);
+        le_result_t SendNodeVendorConfig(uint8_t audioNodeId, const char* configPath);
+        le_result_t SendVendorConfig(const char* configPath);
+        le_result_t SetNodePowerState(uint8_t audioNodeId, taf_mngd_audioHw_NodePowerState_t state);
+        le_result_t GetNodePowerState(uint8_t audioNodeId,
+                taf_mngd_audioHw_NodePowerState_t *state);
+        le_result_t SetNodeMuteState(uint8_t audioNodeId, bool mute);
+        le_result_t GetNodeMuteState(uint8_t audioNodeId, bool *isMuted);
+        taf_mngd_audioHw_NodeStateChangeHandlerRef_t AddNodeStateChangeHandler( uint8_t audioNodeId,
+                taf_mngd_audioHw_NodeStateHandlerFunc_t handlerPtr, void* contextPtr);
+        void RemoveNodeStateChangeHandler(taf_mngd_audioHw_NodeStateChangeHandlerRef_t handlerRef);
 };
 }
 }

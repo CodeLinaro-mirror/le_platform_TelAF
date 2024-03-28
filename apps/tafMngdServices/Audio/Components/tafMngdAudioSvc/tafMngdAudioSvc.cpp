@@ -32,8 +32,10 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "tafMngdAudio.hpp"
+#include "tafMngdAudioVhal.hpp"
 
 using namespace telux::tafsvc;
+using namespace taf::audioVhal;
 
 /**
 * FUNCTION     : CreateConnector
@@ -350,6 +352,111 @@ le_result_t taf_mngd_audio_PlayFileList
 {
     auto &audio = taf_MngdAudio::GetInstance();
     return audio.PlayFileList(streamRef, playListRef);
+}
+
+taf_mngd_audioHw_NodeType_t taf_mngd_audioHw_GetNodeType
+(
+    uint8_t audioNodeId
+)
+{
+    auto &mngdAudioVhal = taf_MngdAudioVhal::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!mngdAudioVhal.isAudioDrvAvailable(), TAF_MNGD_AUDIOHW_INVALID,
+            "Audio drive is not available!");
+    return mngdAudioVhal.GetNodeType(audioNodeId);
+}
+
+le_result_t taf_mngd_audioHw_SendNodeVendorConfig
+(
+    uint8_t audioNodeId,
+    const char* configPath
+)
+{
+    auto &mngdAudioVhal = taf_MngdAudioVhal::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!mngdAudioVhal.isAudioDrvAvailable(), LE_UNSUPPORTED,
+            "Audio drive is not available!");
+    return mngdAudioVhal.SendNodeVendorConfig(audioNodeId, configPath);
+}
+
+le_result_t taf_mngd_audioHw_SendVendorConfig
+(
+    const char* configPath
+)
+{
+    auto &mngdAudioVhal = taf_MngdAudioVhal::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!mngdAudioVhal.isAudioDrvAvailable(), LE_UNSUPPORTED,
+            "Audio drive is not available!");
+    return mngdAudioVhal.SendVendorConfig(configPath);
+}
+
+le_result_t taf_mngd_audioHw_SetNodePowerState
+(
+    uint8_t audioNodeId,
+    taf_mngd_audioHw_NodePowerState_t state
+)
+{
+    auto &mngdAudioVhal = taf_MngdAudioVhal::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!mngdAudioVhal.isAudioDrvAvailable(), LE_UNSUPPORTED,
+            "Audio drive is not available!");
+    return mngdAudioVhal.SetNodePowerState(audioNodeId, state);
+}
+
+le_result_t taf_mngd_audioHw_GetNodePowerState
+(
+    uint8_t audioNodeId,
+    taf_mngd_audioHw_NodePowerState_t *state
+)
+{
+    auto &mngdAudioVhal = taf_MngdAudioVhal::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!mngdAudioVhal.isAudioDrvAvailable(), LE_UNSUPPORTED,
+            "Audio drive is not available!");
+    return mngdAudioVhal.GetNodePowerState(audioNodeId, state);
+}
+
+le_result_t taf_mngd_audioHw_SetNodeMuteState
+(
+    uint8_t audioNodeId,
+    bool mute
+)
+{
+    auto &mngdAudioVhal = taf_MngdAudioVhal::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!mngdAudioVhal.isAudioDrvAvailable(), LE_UNSUPPORTED,
+            "Audio drive is not available!");
+    return mngdAudioVhal.SetNodeMuteState(audioNodeId, mute);
+}
+
+le_result_t taf_mngd_audioHw_GetNodeMuteState
+(
+    uint8_t audioNodeId,
+    bool *isMuted
+)
+{
+    auto &mngdAudioVhal = taf_MngdAudioVhal::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!mngdAudioVhal.isAudioDrvAvailable(), LE_UNSUPPORTED,
+            "Audio drive is not available!");
+    return mngdAudioVhal.GetNodeMuteState(audioNodeId, isMuted);
+}
+
+taf_mngd_audioHw_NodeStateChangeHandlerRef_t taf_mngd_audioHw_AddNodeStateChangeHandler
+(
+    uint8_t audioNodeId,
+    taf_mngd_audioHw_NodeStateHandlerFunc_t handlerPtr,
+    void* contextPtr
+)
+{
+    auto &mngdAudioVhal = taf_MngdAudioVhal::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!mngdAudioVhal.isAudioDrvAvailable(), NULL,
+            "Audio drive is not available!");
+    return mngdAudioVhal.AddNodeStateChangeHandler(audioNodeId, handlerPtr, contextPtr);
+}
+
+void taf_mngd_audioHw_RemoveNodeStateChangeHandler
+(
+    taf_mngd_audioHw_NodeStateChangeHandlerRef_t handlerRef
+)
+{
+    auto &mngdAudioVhal = taf_MngdAudioVhal::GetInstance();
+    TAF_ERROR_IF_RET_NIL(!mngdAudioVhal.isAudioDrvAvailable(), "Audio drive is not available!");
+    mngdAudioVhal.RemoveNodeStateChangeHandler(handlerRef);
 }
 
 COMPONENT_INIT

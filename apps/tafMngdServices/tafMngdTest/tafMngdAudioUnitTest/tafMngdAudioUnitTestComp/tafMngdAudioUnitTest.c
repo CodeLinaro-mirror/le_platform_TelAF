@@ -35,6 +35,7 @@
 #include "legato.h"
 #include "interfaces.h"
 
+le_result_t res;
 const char* wavfilePath = "/data/test.wav";
 const char* amrfilePath = "/data/test.amr";
 const char* recordfilePath = "/data/record.wav";
@@ -49,7 +50,6 @@ taf_mngd_audio_StreamRef_t recorderRef = NULL, playerRef = NULL, playerRef1 = NU
 taf_mngd_audio_PlayListRef_t playListRef = NULL;
 taf_mngd_audio_RouteRef_t routeRef = NULL, routeRef1 = NULL;
 taf_mngd_audio_ConnectorRef_t rxConn = NULL, txConn = NULL, connRef = NULL;
-le_result_t res;
 
 static void MyMediaEventHandler
 (
@@ -657,6 +657,85 @@ void TEST_MNGD_AUDIO_VOICE_CONNECTION()
     LE_TEST_OK(routeRef == NULL, "OpenRoute Failed for ROUTE_3");
 }
 
+static void NodeStateChangeCallback(uint8_t audioNodeId, taf_mngd_audioHw_Event_t event,
+    void* contextPtr)
+{
+    LE_INFO("Received node state change callback for audio device %d for event %d",
+    audioNodeId, event);
+}
+
+void TEST_MNGD_AUDIO_VHAL_DEV_APIS()
+{
+    le_result_t res;
+    const char* configurePath = "/data/audioConfigure.xml";
+    taf_mngd_audioHw_NodePowerState_t state;
+    bool muteState;
+    taf_mngd_audioHw_NodeStateChangeHandlerRef_t handlerRef;
+
+    LE_TEST_INFO("Test taf_mngd_audioHw_GetNodeType");
+    taf_mngd_audioHw_NodeType_t nodeType = taf_mngd_audioHw_GetNodeType(0x1);
+    LE_TEST_OK(nodeType != TAF_MNGD_AUDIOHW_INVALID, "Successfully got the audio device type");
+
+    LE_TEST_INFO("Test taf_mngd_audioHw_SendNodeConfigure");
+    res = taf_mngd_audioHw_SendNodeVendorConfig(0x1, configurePath);
+    LE_TEST_OK(res == LE_OK, "Successfully send the audio device configuration to VHAL");
+
+    LE_TEST_INFO("Test taf_mngd_audioHw_SendHWConfig");
+    res = taf_mngd_audioHw_SendVendorConfig(configurePath);
+    LE_TEST_OK(res == LE_OK, "Successfully sent the configuration to VHAL");
+
+    LE_TEST_INFO("Test taf_mngd_audioHw_SetNodePowerState SUSPEND");
+    res = taf_mngd_audioHw_SetNodePowerState(0x1, TAF_MNGD_AUDIOHW_SUSPEND);
+    LE_TEST_OK(res == LE_OK, "Successfully set the audio device power state");
+
+    LE_TEST_INFO("Test taf_mngd_audioHw_GetNodePowerState");
+    res = taf_mngd_audioHw_GetNodePowerState(0x1, &state);
+    LE_TEST_OK(state == TAF_MNGD_AUDIOHW_SUSPEND,
+            "Successfully got the audio device power state SUSPEND, res is %d", res);
+
+    LE_TEST_INFO("Test taf_mngd_audioHw_SetNodePowerState POWER_OFF");
+    res = taf_mngd_audioHw_SetNodePowerState(0x1, TAF_MNGD_AUDIOHW_POWER_OFF);
+    LE_TEST_OK(res == LE_OK, "Successfully set the audio device power state");
+
+    LE_TEST_INFO("Test taf_mngd_audioHw_GetNodePowerState");
+    res = taf_mngd_audioHw_GetNodePowerState(0x1, &state);
+    LE_TEST_OK(state == TAF_MNGD_AUDIOHW_POWER_OFF,
+            "Successfully got the audio device power state POWER_OFF, res is %d", res);
+
+    LE_TEST_INFO("Test taf_mngd_audioHw_SetNodePowerState ACTIVE");
+    res = taf_mngd_audioHw_SetNodePowerState(0x1, TAF_MNGD_AUDIOHW_ACTIVE);
+    LE_TEST_OK(res == LE_OK, "Successfully set the audio device power state");
+
+    LE_TEST_INFO("Test taf_mngd_audioHw_GetNodePowerState");
+    res = taf_mngd_audioHw_GetNodePowerState(0x1, &state);
+    LE_TEST_OK(state == TAF_MNGD_AUDIOHW_ACTIVE,
+            "Successfully got the audio device power state ACTIVE, res is %d", res);
+
+    LE_TEST_INFO("Test taf_mngd_audioHw_SetNodeMuteStatus");
+    res = taf_mngd_audioHw_SetNodeMuteState(0x1, true);
+    LE_TEST_OK(res == LE_OK, "Successfully set the audio device to mute state");
+
+    LE_TEST_INFO("Test taf_mngd_audioHw_GetNodeMuteStatus");
+    res = taf_mngd_audioHw_GetNodeMuteState(0x1, &muteState);
+    LE_TEST_OK(muteState, "Successfully got the audio device mute state as mute res is %d", res);
+
+    LE_TEST_INFO("Test taf_mngd_audioHw_SetNodeMuteStatus");
+    res = taf_mngd_audioHw_SetNodeMuteState(0x1, false);
+    LE_TEST_OK(res == LE_OK, "Successfully set the audio device to unmute state");
+
+    LE_TEST_INFO("Test taf_mngd_audioHw_GetNodeMuteStatus");
+    res = taf_mngd_audioHw_GetNodeMuteState(0x1, &muteState);
+    LE_TEST_OK(!muteState, "Successfully got the device mute state as unmute res is %d", res);
+
+    LE_TEST_INFO("Test taf_mngd_audioHw_AddNodeStateChangeHandler");
+    handlerRef = taf_mngd_audioHw_AddNodeStateChangeHandler(0x1, NodeStateChangeCallback, NULL);
+    LE_TEST_OK(handlerRef != NULL, "Successfully registered for node state change callback");
+
+    LE_TEST_INFO("Test taf_mngd_audioHw_RemoveNodeStateChangeHandler");
+    taf_mngd_audioHw_RemoveNodeStateChangeHandler(handlerRef);
+    LE_TEST_OK(true, "Successfully deregistered for node state change callback");
+}
+
 COMPONENT_INIT
 {
 
@@ -671,6 +750,8 @@ COMPONENT_INIT
     TEST_MNGD_AUDIO_PLAYBACK_FILE_LIST();
 
     TEST_MNGD_AUDIO_RECORD();
+
+    TEST_MNGD_AUDIO_VHAL_DEV_APIS();
 
     LE_TEST_EXIT;
 }

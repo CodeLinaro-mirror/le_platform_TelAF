@@ -37,4 +37,5 @@ sandboxed: false
 extern:
 {
     tafMngdAudioSvc.tafMngdAudioSvc.taf_mngd_audio
+    tafMngdAudioSvc.tafMngdAudioSvc.taf_mngd_audioHw
 }

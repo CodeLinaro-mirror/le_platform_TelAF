@@ -34,7 +34,7 @@ precheck_deps := \
     fi ; \
   else \
     echo "Not found file [$(deps_origin)]" ; \
-	echo "Touch it and clean all 3rd party deps, rebuilding all dpes ... " ; \
+    echo "Touch it and clean all 3rd party deps, rebuilding all dpes ... " ; \
     touch $(deps_origin) && rm -rf $(SIMULATION_DEPS_ROOTFS)/* $(SIMULATION_HOST_XTOOLS)/* ; \
   fi
 
@@ -199,7 +199,7 @@ openssl_:
 #-> 2. [download]
 	$Q echo "[$@] downloading from [$(OPENSSL_URL)]" \
 	  && git clone -q --depth 1 --branch ${OPENSSL_VERSION} --single-branch \
-	         ${OPENSSL_URL} $(SIMULATION_DEPS_SOURCE)/$@ > ./__download.log 2>&1
+	         ${OPENSSL_URL} $(SIMULATION_DEPS_SOURCE)/$@ > $(SIMULATION_DEPS_SOURCE)/__download.log 2>&1
 	$Q echo "[$@] just from git repo, no need to extract"
 #-> 3. [compile]
 	$Q cd $(SIMULATION_DEPS_SOURCE)/$@ \
@@ -233,7 +233,7 @@ curl_:
 #-> 2. [download]
 	$Q echo "[$@] downloading from [$(CURL_URL)]" \
 	  && git clone -q --depth 1 --branch ${CURL_VERSION} --single-branch \
-	         ${CURL_URL} $(SIMULATION_DEPS_SOURCE)/$@ > ./__download.log 2>&1
+	         ${CURL_URL} $(SIMULATION_DEPS_SOURCE)/$@ > $(SIMULATION_DEPS_SOURCE)/__download.log 2>&1
 	$Q echo "[$@] just from git repo, no need to extract"
 #-> 3. [compile]
 	$Q cd $(SIMULATION_DEPS_SOURCE)/$@ \
@@ -244,6 +244,157 @@ curl_:
 	    && make > ./__build.log 2>&1
 #-> 4. [install]
 	$Q cd $(SIMULATION_DEPS_SOURCE)/$@/build \
+	  && echo "[$@] installing ..." \
+	    && make install > ./__install.log 2>&1
+	$Q echo "[$@] Done"
+
+
+.PHONE: capi_core_rt_
+
+CAPI_CORE_RT_URL?=https://git.codelinaro.org/clo/la/platform/external/capicxx-core-runtime.git
+CAPI_CORE_RT_VERSION=capi_core_rt_3.2.0
+
+_capi_core_rt: $(SIMULATION_DEPS_ROOTFS)/lib/libCommonAPI.so
+	$Q echo "[$@] Already preparation"
+
+$(SIMULATION_DEPS_ROOTFS)/lib/libCommonAPI.so:
+	$Q $(MAKE) --no-print-directory simula-capi-core-rt
+
+simula-capi-core-rt: capi_core_rt_
+capi_core_rt_:
+#-> 1. [clean]
+	$Q echo "[$@] cleaning compression and directories" \
+	  && rm -rf $(SIMULATION_DEPS_SOURCE)/$@
+#-> 2. [download]
+	$Q echo "[$@] downloading from [$(CAPI_CORE_RT_URL)]" \
+	  && git clone -q --branch github/master \
+	         ${CAPI_CORE_RT_URL} $(SIMULATION_DEPS_SOURCE)/$@ > $(SIMULATION_DEPS_SOURCE)/__download.log 2>&1 \
+	  && cd $(SIMULATION_DEPS_SOURCE)/$@ \
+	    && git reset 89720d3c63bbd22cbccc80cdc92c2f2dd20193ba > /dev/null 2>&1
+	$Q echo "[$@] just from git repo, no need to extract"
+#-> 3. [compile]
+	$Q cd $(SIMULATION_DEPS_SOURCE)/$@ \
+	  && echo "[$@] configure firstly" \
+	    && sed -i 's/-Werror=extra-semi//g' CMakeLists.txt \
+	    && mkdir -p build && cd build \
+	    && cmake -DCMAKE_INSTALL_PREFIX=${SIMULATION_DEPS_ROOTFS} \
+	             -DCMAKE_PREFIX_PATH=${SIMULATION_DEPS_ROOTFS} .. > ./__config.log 2>&1 \
+	  && echo "[$@] compiling ..." \
+	    && make > ./__build.log 2>&1
+#-> 4. [install]
+	$Q cd $(SIMULATION_DEPS_SOURCE)/$@/build \
+	  && echo "[$@] installing ..." \
+	    && make install > ./__install.log 2>&1
+	$Q echo "[$@] Done"
+
+
+.PHONE: capi_someip_rt_
+
+CAPI_SOMEIP_RT_URL?=https://git.codelinaro.org/clo/la/platform/external/capicxx-someip-runtime.git
+CAPI_SOMEIP_RT_VERSION=capi_someip_rt_3.2.0
+
+_capi_someip_rt: _vsomeip $(SIMULATION_DEPS_ROOTFS)/lib/libCommonAPI-SomeIP.so
+	$Q echo "[$@] Already preparation"
+
+$(SIMULATION_DEPS_ROOTFS)/lib/libCommonAPI-SomeIP.so:
+	$Q $(MAKE) --no-print-directory simula-capi-someip-rt
+
+simula-capi-someip-rt: capi_someip_rt_
+capi_someip_rt_:
+#-> 1. [clean]
+	$Q echo "[$@] cleaning compression and directories" \
+	  && rm -rf $(SIMULATION_DEPS_SOURCE)/$@
+#-> 2. [download]
+	$Q echo "[$@] downloading from [$(CAPI_SOMEIP_RT_URL)]" \
+	  && git clone -q --branch github/master \
+	         ${CAPI_SOMEIP_RT_URL} $(SIMULATION_DEPS_SOURCE)/$@ > $(SIMULATION_DEPS_SOURCE)/__download.log 2>&1 \
+	  && cd $(SIMULATION_DEPS_SOURCE)/$@ \
+	    && git reset 0ad2bdc1807fc0f078b9f9368a47ff2f3366ed13 > /dev/null 2>&1
+	$Q echo "[$@] just from git repo, no need to extract"
+#-> 3. [compile]
+	$Q cd $(SIMULATION_DEPS_SOURCE)/$@ \
+	  && echo "[$@] configure firstly" \
+	    && mkdir -p build && cd build \
+	    && cmake -DCMAKE_INSTALL_PREFIX=${SIMULATION_DEPS_ROOTFS} \
+	             -DCMAKE_PREFIX_PATH=${SIMULATION_DEPS_ROOTFS} .. > ./__config.log 2>&1 \
+	  && echo "[$@] compiling ..." \
+	    && make > ./__build.log 2>&1
+#-> 4. [install]
+	$Q cd $(SIMULATION_DEPS_SOURCE)/$@/build \
+	  && echo "[$@] installing ..." \
+	    && make install > ./__install.log 2>&1
+	$Q echo "[$@] Done"
+
+
+# Common API tools
+CAPI_CORE_GENERATOR_URL?=https://github.com/GENIVI/capicxx-core-tools/releases/download/3.2.0.1/commonapi_core_generator.zip
+CAPI_SOMEIP_GENERATOR_URL?=https://github.com/GENIVI/capicxx-someip-tools/releases/download/3.2.0.1/commonapi_someip_generator.zip
+CAPI_CORE_GENERATOR_VERSION=capi_core_gen_3.2.0.1
+CAPI_SOMEIP_GENERATOR_VERSION=capi_someip_gen_3.2.0.1
+
+CAPI_CORE_TOOLS_URL?=https://github.com/GENIVI/capicxx-core-tools.git
+
+_capi_tools: $(SIMULATION_HOST_XTOOLS)/bin/commonapi_core_generator/commonapi-core-generator-linux-x86_64 \
+             $(SIMULATION_HOST_XTOOLS)/bin/commonapi_someip_generator/commonapi-someip-generator-linux-x86_64 \
+             $(SIMULATION_DEPS_ROOTFS)/bin/E01HelloWorldService
+	$Q echo "[$@] Already preparation"
+
+$(SIMULATION_HOST_XTOOLS)/bin/commonapi_core_generator/commonapi-core-generator-linux-x86_64:
+	$Q $(MAKE) --no-print-directory simula-capi-core-generator
+
+$(SIMULATION_HOST_XTOOLS)/bin/commonapi_someip_generator/commonapi-someip-generator-linux-x86_64:
+	$Q $(MAKE) --no-print-directory simula-capi-someip-generator
+
+$(SIMULATION_DEPS_ROOTFS)/bin/E01HelloWorldService:
+	$Q $(MAKE) --no-print-directory simula-capi-core-tools
+
+simula-capi-core-generator:
+	$Q echo "[capi_core_generator_] downloading binary tools from [$(CAPI_CORE_GENERATOR_URL)]" \
+	  && cd $(SIMULATION_DEPS_SOURCE) \
+	  && wget -q -O $(SIMULATION_DEPS_SOURCE)/$(CAPI_CORE_GENERATOR_VERSION).zip $(CAPI_CORE_GENERATOR_URL) > /dev/null \
+	&& echo "[capi_core_generator_] extract zip files" \
+	  && mkdir -p $(SIMULATION_HOST_XTOOLS)/bin/commonapi_core_generator \
+	  && unzip $(SIMULATION_DEPS_SOURCE)/$(CAPI_CORE_GENERATOR_VERSION).zip -d $(SIMULATION_HOST_XTOOLS)/bin/commonapi_core_generator > /dev/null
+
+simula-capi-someip-generator:
+	$Q echo "[capi_someip_generator_] downloading binary tools from [$(CAPI_SOMEIP_GENERATOR_URL)]" \
+	  && cd $(SIMULATION_DEPS_SOURCE) \
+	  && wget -q -O $(SIMULATION_DEPS_SOURCE)/$(CAPI_SOMEIP_GENERATOR_VERSION).zip $(CAPI_SOMEIP_GENERATOR_URL) > /dev/null \
+	&& echo "[capi_someip_generator_] extract zip files" \
+	  && mkdir -p $(SIMULATION_HOST_XTOOLS)/bin/commonapi_someip_generator \
+	  && unzip $(SIMULATION_DEPS_SOURCE)/$(CAPI_SOMEIP_GENERATOR_VERSION).zip -d $(SIMULATION_HOST_XTOOLS)/bin/commonapi_someip_generator > /dev/null
+
+simula-capi-core-tools: capi_core_tools_
+capi_core_tools_:
+#-> 1. [clean]
+	$Q echo "[$@] cleaning compression and directories" \
+	  && rm -rf $(SIMULATION_DEPS_SOURCE)/$@
+#-> 2. [download]
+	$Q echo "[$@] downloading from [$(CAPI_CORE_TOOLS_URL)]" \
+	  && git clone -q --branch master \
+	         ${CAPI_CORE_TOOLS_URL} $(SIMULATION_DEPS_SOURCE)/$@ > $(SIMULATION_DEPS_SOURCE)/__download.log 2>&1 \
+	  && cd $(SIMULATION_DEPS_SOURCE)/$@ \
+	    && git reset 5ed80df56a64fdd9bf22b2f240a608e77be8262c > /dev/null 2>&1
+	$Q echo "[$@] just from git repo, no need to extract"
+#-> 3. [compile]
+	$Q cd $(SIMULATION_DEPS_SOURCE)/$@ \
+	  && echo "[$@] patch the core tools for bypassing DBus" \
+	    && git am $(SIMULATION_HOME)/deps/patches/0001-telaf-Bypass-DBus-for-common-api-demo.patch > /dev/null 2>&1 \
+	  && echo "[$@] export generator tools" \
+	    && export PATH=$(SIMULATION_HOST_XTOOLS)/bin:$$PATH \
+	    && export PATH=$(SIMULATION_HOST_XTOOLS)/bin/commonapi_core_generator:$$PATH \
+	    && export PATH=$(SIMULATION_HOST_XTOOLS)/bin/commonapi_someip_generator:$$PATH \
+	  && echo "[$@] generate codes with x.fidl files" \
+	    && cd CommonAPI-Examples/E01HelloWorld \
+	    && commonapi-core-generator-linux-x86_64 -sk ./fidl/E01HelloWorld.fidl -d ./src-gen/core > __generate_idl_core.log 2>&1 \
+	    && commonapi-someip-generator-linux-x86_64 ./fidl/E01HelloWorld-SomeIP.fdepl -d ./src-gen/someip > __generate_idl_someip.log 2>&1 \
+	  && mkdir -p build && cd build \
+	    && cmake -DCMAKE_PREFIX_PATH=${SIMULATION_DEPS_ROOTFS} \
+	             -DINSTALL_DIR=${SIMULATION_DEPS_ROOTFS} .. > ./__config.log 2>&1 \
+	  && echo "[$@] compiling ..." \
+	    && make > ./__build.log 2>&1
+#-> 4. [install]
+	$Q cd $(SIMULATION_DEPS_SOURCE)/$@/CommonAPI-Examples/E01HelloWorld/build \
 	  && echo "[$@] installing ..." \
 	    && make install > ./__install.log 2>&1
 	$Q echo "[$@] Done"

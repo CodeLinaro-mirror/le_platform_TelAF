@@ -24,6 +24,7 @@ if [ -n "${within}" ]; then
         -e CPLUS_INCLUDE_PATH='/usr/include/python2.7/' \
         -v ${simulation_base}:/home/developer/simulation_ro:ro \
         -v ${project_root}:${project_root}:rw \
+        -v ${current_dir}/example.gitconfig:/home/developer/.gitconfig \
         ${IMG_NAME}:${IMG_VERSION} bash -c -- "'${within}'"
 
 else # only one parameter
@@ -48,6 +49,7 @@ else # only one parameter
             -e TELAF_DEV_IN_CONTAINER=${project_root} \
             -v ${simulation_base}:/home/developer/simulation_ro:ro \
             -v ${project_root}:${project_root}:rw \
+            -v ${current_dir}/example.gitconfig:/home/developer/.gitconfig \
             ${IMG_NAME}:${IMG_VERSION} "/bin/bash" > /dev/null && eval ${attach_container}
     fi
 

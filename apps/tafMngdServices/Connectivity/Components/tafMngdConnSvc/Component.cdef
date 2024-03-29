@@ -29,6 +29,9 @@ requires:
         taf_sim.api
         le_cfg.api
         le_appInfo.api
+#if ${LE_CONFIG_TARGET_SIMULATION} = ""
+        taf_net.api
+#endif
     }
 }
 

@@ -1321,7 +1321,18 @@ void tafMngdConnAdmin::EventDataConnected(uint8_t dataId)
     }
     LE_INFO("DNS addresses for DataID: %d are %s and %s", dataId, dataCtxPtr->dns1Addr,
             dataCtxPtr->dns2Addr);
-
+#ifndef LE_CONFIG_TARGET_SIMULATION
+    // Set the DNS for the interface. The Net service will do the heavy lifting.
+    result = taf_net_SetDNS (dataCtxPtr->intfName);
+    if(result != LE_OK)
+    {
+        LE_ERROR("Set DNS fialed for %d",dataCtxPtr->dataId);
+        return;
+    }
+    LE_INFO ("DNS set for dataID %d",dataCtxPtr->dataId);
+#else
+    LE_ERROR("DNS not set for Simulation target");
+#endif
     // Send an event to start DataStartConnectionTest
     LE_INFO("Sending event to start DataStartConnectionTest for ID: %d", dataId);
     dataCtxPtr->adminState = MCS_DATA_START_CONNECTIONTEST_START;
@@ -1420,6 +1431,9 @@ void* tafMngdConnAdmin::StateMachineEventThread(void* contextPtr)
     taf_radio_ConnectService();
     taf_dcs_ConnectService();
     taf_sim_ConnectService();
+#ifndef LE_CONFIG_TARGET_SIMULATION
+    taf_net_ConnectService();
+#endif
 
     // internal event handler
     mngdConnAdmin.StateMachineEventId = le_event_CreateId("Sm Event", sizeof(stateMachineEvent_t));

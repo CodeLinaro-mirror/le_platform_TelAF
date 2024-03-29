@@ -636,7 +636,6 @@
  * Include Managed Services common definitions.
  */
 //--------------------------------------------------------------------------------------------------
-USETYPES taf_mngd_Common.api;
 USETYPES taf_sim.api;
 USETYPES taf_radio.api;
 USETYPES taf_dcs.api;

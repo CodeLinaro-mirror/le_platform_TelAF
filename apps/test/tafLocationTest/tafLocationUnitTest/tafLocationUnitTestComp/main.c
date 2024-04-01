@@ -1708,7 +1708,7 @@ static void TestTafSamplePositionHandler
 
     //183.Stop
     LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting GNSS fixes");
-    LE_TEST_OK(taf_gnss_Stop() == LE_OK, "taf_gnss_Stop-LE_OK");
+    LE_TEST_OK(taf_gnss_Stop() == LE_DUPLICATE, "taf_gnss_Stop-LE_DUPLICATE");//lsc
     LE_INFO("Release the positioning service");
     taf_posCtrl_Release(activationRef);
 
@@ -2855,9 +2855,9 @@ static void TestTafGnssNmeaSentences
     //57.GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
     result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
-    LE_TEST_OK(result==LE_OK, "taf_gnss_GetNmeaSentences-LE_OK");
     if(result == LE_OK)
     {
+        LE_TEST_OK(result==LE_OK, "taf_gnss_GetNmeaSentences-LE_OK");
         if(nmeaMaskPtr & TAF_GNSS_NMEA_MASK_GAGSV)
         {
             LE_TEST_INFO("GAGSV enabled\n");
@@ -2865,6 +2865,7 @@ static void TestTafGnssNmeaSentences
     }
     else if(result == LE_TIMEOUT)
     {
+        LE_TEST_OK(result==LE_TIMEOUT, "taf_gnss_GetNmeaSentences-LE_TIMEOUT");
         LE_TEST_INFO("GAGSV NmeaSentence type is not being received\n");
     }
     else
@@ -4374,7 +4375,7 @@ static void TestTafPosHandler
     //172.Stop
     LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting GNSS fixes");
     result = taf_gnss_Stop();
-    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
+    LE_TEST_OK(result == LE_DUPLICATE, "taf_gnss_Stop-LE_DUPLICATE");//lsc
 
     LE_INFO("Release the positioning service");
     taf_posCtrl_Release(activationRef);

@@ -736,7 +736,7 @@ FUNCTION Data GetData
  * @return
  *   - LE_OK -- Succeeded.
  *   - LE_DUPLICATE -- The data connection is already started.
- *   - LE_IN_PROGRESS -- The data connection establishment is retried.
+ *   - LE_IN_PROGRESS -- The data connection establishment retry is in progress.
  *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------

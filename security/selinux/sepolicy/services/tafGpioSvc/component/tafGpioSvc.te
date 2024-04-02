@@ -46,6 +46,7 @@ gen_require(`
       type gpiochip_device_t;
     ')
     allow telaf_tafGpioSvc_t gpiochip_device_t:chr_file read_file_perms;
+    allow telaf_tafGpioSvc_t modules_object_t:file map;
 ')
 
 # use VHAL driver object

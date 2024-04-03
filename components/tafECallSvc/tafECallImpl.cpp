@@ -446,7 +446,7 @@ void taf_ecall::Init(void)
     }
 
     std::promise<telux::common::ServiceStatus> phoneMgrprom;
-    auto PhoneManager = PhoneFactory::getInstance().getPhoneManager([&] (telux::common::ServiceStatus status) {
+    PhoneManager = PhoneFactory::getInstance().getPhoneManager([&] (telux::common::ServiceStatus status) {
         LE_INFO("Getting status: %d from phone manager", (int)status);
         // If the status is SERVICE_UNAVAILABLE, the call manager will also update the status through initCB
         if (status != telux::common::ServiceStatus::SERVICE_UNAVAILABLE)

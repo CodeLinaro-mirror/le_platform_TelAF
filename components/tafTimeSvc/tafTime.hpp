@@ -215,20 +215,41 @@ typedef struct
 typedef struct
 {
     taf_time_TimeSources_t sourceId;               ///< Time source ID.
-    taf_time_TimeSourceRef_t ref;                  ///< own reference.
+    taf_time_TimeRef_t ref;                        ///< own reference.
     le_msg_SessionRef_t sessionRef;                ///< Client that connected to the service.
     taf_DateTimeInf_t dateTimeInf;                 ///< Date time information.
 
     taf_time_TimeValueChangeHandlerRef_t handlerRef; ///< Handler reference.
-    taf_time_TimeValueChangeHandlerFunc_t func;            ///< Handler function.
+    taf_time_TimeValueChangeHandlerFunc_t func;     ///< Handler function.
     void* context;                                 ///< Handler context.
-} taf_TimeSourceInf_t;
+} taf_TimeInf_t;
+
+typedef struct
+{
+    taf_time_TimeSources_t sourceId;         ///< Time source ID.
+    taf_time_TimeSources_t systemSourceId;   ///< System time source ID.
+    taf_time_SourceRef_t ref;                ///< own reference.
+    bool sourceValidity;                     ///< The validity for current time source.
+    int32_t failedLoops = -1;                ///< Number of loop failure for time source.
+    bool isAvailable;
+    taf_time_TimeSourceStatusHandlerRef_t handlerRef = NULL;      ///< Handler reference.
+    taf_time_TimeSourceStatusHandlerFunc_t handlerFunc = NULL;    ///< Handler function.
+    void* context;                                                ///< Handler context.
+} taf_SourceInf_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
  * The structure for event handler.
  */
 //--------------------------------------------------------------------------------------------------
+
+typedef struct
+{
+    taf_SourceInf_t* sourcePtr;
+    void* ref;
+    bool isAvailable;
+}SourceStatusChange_Event_t;
+
 typedef struct
 {
     taf_time_TimeSources_t sourceId;
@@ -255,18 +276,6 @@ typedef struct
     void* setRTCCtxPtr;
     taf_time_AsyncSetTimeReqHandlerFunc_t setRTCCallbackFunc;
 }taf_time_setRTCCb_t;
-
-//--------------------------------------------------------------------------------------------------
-/**
- * The structure for getting info about current sytem timesource info.
- */
- //--------------------------------------------------------------------------------------------------
-typedef struct
-{
-    taf_time_TimeSources_t source = TAF_TIME_SRC_NAME_UNKNOWN;
-    bool validity;
-    uint64_t loopCount;
-}taf_timeSource_Info;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -457,22 +466,22 @@ namespace telux
                 le_result_t GetNetworkTime(taf_time_TimeSpec_t* timeValPtr,
                                                               taf_time_TimeSources_t sourceId);
 
-                le_result_t UpdateRefTimeInfo(taf_TimeSourceInf_t* timeSrcRefPrt,
+                le_result_t UpdateRefTimeInfo(taf_TimeInf_t* timeSrcRefPrt,
                                                               taf_time_TimeSpec_t* timeValPtr);
-                le_result_t UpdateDateTimeInfo(taf_TimeSourceInf_t* timeSrcRefPrt,
+                le_result_t UpdateDateTimeInfo(taf_TimeInf_t* timeSrcRefPrt,
                                                               taf_time_TimeSpec_t* timeValPtr);
 
                 le_result_t CheckSourceTime(taf_time_TimeSpec_t* timePtr,
                                                            taf_time_TimeSources_t sourceIndex);
-                taf_time_TimeSourceRef_t GetTimeRef(taf_time_TimeSources_t sourceId);
-                le_result_t GetTime(taf_time_TimeSourceRef_t timeSrcRef,
+                taf_time_TimeRef_t GetTimeRef(taf_time_TimeSources_t sourceId);
+                le_result_t GetTime(taf_time_TimeRef_t timeSrcRef,
                                                               taf_time_TimeSpec_t* timeValPtr);
-                le_result_t GetRefSystemTime(taf_time_TimeSourceRef_t timeSrcRef,
+                le_result_t GetRefSystemTime(taf_time_TimeRef_t timeSrcRef,
                                                               taf_time_TimeSpec_t* timeValPtr);
-                le_result_t GetRefGptpTime(taf_time_TimeSourceRef_t timeSrcRef,
+                le_result_t GetRefGptpTime(taf_time_TimeRef_t timeSrcRef,
                                                               taf_time_TimeSpec_t* timeValPtr);
-                taf_TimeSourceInf_t* SearchSourceInfList(taf_time_TimeSources_t sourceId,
-                                             le_msg_SessionRef_t sessionRef, bool handlerFlag);
+                taf_TimeInf_t* SearchSourceInfList(taf_time_TimeSources_t sourceId,
+                    le_msg_SessionRef_t sessionRef, bool handlerFlag);
                 taf_TimeNetTimeInfo_t* SearchNetTimeInfList(taf_time_TimeSources_t sourceId);
 
                 bool IsThresholdSetTimeAllow(taf_time_TimeSpec_t timeVal,
@@ -527,7 +536,7 @@ namespace telux
                 le_result_t CreateRefTimeForHandler(TimeSourceRef_Event_t* tsrEventPrt,
                                    taf_time_TimeSpec_t timeVal, telux::tel::NetworkTimeInfo* info);
                 static void EventTimeValueChangeHandler(void* reportPtr);
-                le_result_t ReleaseTimeRef(taf_time_TimeSourceRef_t timeSrcRef);
+                le_result_t ReleaseTimeRef(taf_time_TimeRef_t timeSrcRef);
 
                 le_event_Id_t timeSourceChangeId;
 
@@ -543,8 +552,11 @@ namespace telux
                 le_mem_PoolRef_t GnssDeltaTimePool = NULL;
 
 
-                le_ref_MapRef_t SrcTimeRefMap;
-                le_mem_PoolRef_t SrcTimePool = NULL;
+                le_ref_MapRef_t TimeRefMap;
+                le_mem_PoolRef_t TimePool = NULL;
+
+                le_ref_MapRef_t SrcRefMap;
+                le_mem_PoolRef_t SrcPool = NULL;
 
                 le_mem_PoolRef_t NetworkDeltaTimePool = NULL;
                 le_mem_PoolRef_t NetworkDeltaTime2Pool = NULL;
@@ -581,6 +593,18 @@ namespace telux
                     void* contextPtr);
                 bool isNewTimeSrcSetTimeAllowed(taf_time_TimeSources_t newTimeSource);
 
+
+                le_event_Id_t timeSourceStatusEventId;
+                taf_time_TimeSourceStatusHandlerRef_t AddTimeSourceStatusHandler(
+                    taf_time_SourceRef_t SrcRef,taf_time_TimeSourceStatusHandlerFunc_t handlerPtr,
+                    void* contextPtr);
+                taf_time_SourceRef_t GetSourceRef(taf_time_TimeSources_t sourceId);
+                taf_SourceInf_t* SearchAvailableSourceInfList(taf_time_TimeSources_t sourceId);
+                void printSourceInfo(taf_time_TimeSources_t sourceId);
+                le_result_t GetFailedLoops(taf_time_SourceRef_t sourceRef, int32_t* failedLoops);
+                void CheckSourceAvailability(le_result_t result,taf_time_TimeSources_t sourceIndex);
+                le_result_t ReleaseSourceRef(taf_time_SourceRef_t SrcRef);
+
             private:
                 std::shared_ptr<ITimeListener> gnssTimeListener = nullptr;
                 std::shared_ptr<ITimeManager> timeManager;
@@ -589,6 +613,7 @@ namespace telux
                 struct SetTimeStatus* SetTimeSt = NULL;
                 int64_t AllowOverrideAfterFail = -1;
                 pthread_mutex_t ProtectlocalTime_mutex;
+                uint64_t PrevSrcAvailabiltyMap = 0x0;
         };
     }
 }

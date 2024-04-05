@@ -226,7 +226,7 @@ void taf_time_RemoveTimeSourceChangeHandler
  SIDE EFFECTS
 
 ======================================================================*/
-taf_time_TimeSourceRef_t taf_time_GetTimeRef
+taf_time_TimeRef_t taf_time_GetTimeRef
 (
     taf_time_TimeSources_t sourceId  ///< Time source ID.
 )
@@ -245,7 +245,7 @@ taf_time_TimeSourceRef_t taf_time_GetTimeRef
  DEPENDENCIES    Need to be called after the reference object was
                  Created.
 
- PARAMETERS      [IN] taf_time_TimeSourceRef_t * timeSrcRef: reference
+ PARAMETERS      [IN] taf_time_TimeRef_t * timeSrcRef: reference
                       for related time source object.
                  [OUT] taf_time_TimeSpec_t * timeVal: Time in
                        seconds and nanoseconds.
@@ -262,7 +262,7 @@ taf_time_TimeSourceRef_t taf_time_GetTimeRef
 ======================================================================*/
 le_result_t taf_time_GetTime
 (
-    taf_time_TimeSourceRef_t timeSrcRef,
+    taf_time_TimeRef_t timeSrcRef,
     taf_time_TimeSpec_t* timeValPtr
 )
 {
@@ -280,7 +280,7 @@ le_result_t taf_time_GetTime
  DEPENDENCIES    Need to be called after the reference object was
                  Created.
 
- PARAMETERS      [IN] taf_time_TimeSourceRef_t * timeSrcRef: reference
+ PARAMETERS      [IN] taf_time_TimeRef_t * timeSrcRef: reference
                       for related time source object.
                  [OUT] taf_time_TimeSpec_t * timeVal: Time in
                        seconds and nanoseconds.
@@ -297,7 +297,7 @@ le_result_t taf_time_GetTime
 ======================================================================*/
 le_result_t taf_time_GetRefSystemTime
 (
-    taf_time_TimeSourceRef_t timeSrcRef,
+    taf_time_TimeRef_t timeSrcRef,
     taf_time_TimeSpec_t* timeValPtr
 )
 {
@@ -315,7 +315,7 @@ le_result_t taf_time_GetRefSystemTime
  DEPENDENCIES    Need to be called after this API:
                  taf_time_GetTime().
 
- PARAMETERS      [IN] taf_time_TimeSourceRef_t * timeSrcRef: reference
+ PARAMETERS      [IN] taf_time_TimeRef_t * timeSrcRef: reference
                       for related time source object.
                  [OUT] taf_time_TimeSpec_t * timeVal: Time in
                        seconds and nanoseconds.
@@ -332,7 +332,7 @@ le_result_t taf_time_GetRefSystemTime
 ======================================================================*/
 le_result_t taf_time_GetRefGptpTime
 (
-    taf_time_TimeSourceRef_t timeSrcRef,
+    taf_time_TimeRef_t timeSrcRef,
     taf_time_TimeSpec_t* timeValPtr
 )
 {
@@ -351,7 +351,7 @@ le_result_t taf_time_GetRefGptpTime
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_time_ReleaseTimeRef
 (
-    taf_time_TimeSourceRef_t timeSrcRef
+    taf_time_TimeRef_t timeSrcRef
 )
 {
     auto &tafTime = taf_Time::GetInstance();
@@ -482,6 +482,78 @@ le_result_t taf_time_SetTimeToRtc
     return tafTime.SetTimeToRtc(time);
 }
 
+/*======================================================================
+
+ FUNCTION        taf_time_GetSourceRef
+
+ DESCRIPTION     Gets the reference object of a source.
+
+ DEPENDENCIES    Initialization of Time Service.
+
+ PARAMETERS      [IN] taf_time_TimeSources_t sourceId: Source ID
+
+ RETURN VALUE
+                - Reference to the time source instance.
+                - NULL if not available.
+
+ SIDE EFFECTS
+
+======================================================================*/
+taf_time_SourceRef_t taf_time_GetSourceRef
+(
+    taf_time_TimeSources_t sourceId  ///< Source ID.
+)
+{
+    auto& tafTime = taf_Time::GetInstance();
+    return tafTime.GetSourceRef(sourceId);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Release a source reference.
+ *
+ * @return
+ *     - LE_OK if successful.
+ *     - LE_FAULT if any error occurs.
+ */
+ //--------------------------------------------------------------------------------------------------
+le_result_t taf_time_ReleaseSourceRef
+(
+    taf_time_SourceRef_t SrcRef
+)
+{
+    auto& tafTime = taf_Time::GetInstance();
+    return tafTime.ReleaseSourceRef(SrcRef);
+}
+
+
+/*======================================================================
+
+ FUNCTION        taf_time_GetFailedLoops
+
+ DESCRIPTION     Gets the number of failed loops for a source..
+
+ DEPENDENCIES    Initialization of Time Service.
+
+ PARAMETERS      [IN] taf_time_TimeSources_t sourceId: Source ID
+
+ RETURN VALUE
+                - Reference to the time source instance.
+                - NULL if not available.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_time_GetFailedLoops
+(
+    taf_time_SourceRef_t sourceRef,
+    int32_t* failedLoops
+)
+{
+    auto& tafTime = taf_Time::GetInstance();
+    return tafTime.GetFailedLoops(sourceRef, failedLoops);
+}
+
 //-------------------------------------------------------------------------------------------------
 /**
  * Initialization for Time Service.
@@ -522,6 +594,38 @@ void taf_time_service_int(void)
     //-----------------------------------------------------------------------------
     LE_INFO("Time Service ready");
     return;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler for the time source and its reference object.
+ *
+ * @return
+ *  - taf_time_TimeSourceStatusHandlerRef_t Handler reference.
+ */
+ //--------------------------------------------------------------------------------------------------
+taf_time_TimeSourceStatusHandlerRef_t taf_time_AddTimeSourceStatusHandler
+(
+    taf_time_SourceRef_t srcRef,
+    taf_time_TimeSourceStatusHandlerFunc_t handlerPtr,
+    void* contextPtr
+)
+{
+    auto& time = taf_Time::GetInstance();
+    return time.AddTimeSourceStatusHandler(srcRef, handlerPtr, contextPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler for time source reference object.
+ */
+ //--------------------------------------------------------------------------------------------------
+void taf_time_RemoveTimeSourceStatusHandler
+(
+    taf_time_TimeSourceStatusHandlerRef_t handlerRef
+)
+{
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 }
 
 /**

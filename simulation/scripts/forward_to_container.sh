@@ -9,16 +9,31 @@
 project_top="$TELAF_DEV_IN_CONTAINER"
 telaf_root=$project_top/telaf
 
-cd $telaf_root
-echo -e "\n-- container information record begin --"
+if [ "${M_CHANGETO}" == "TRUE" ];then
+    cd $telaf_root
+fi
 
-cat /etc/os-release
+if [ "${V_VERBOSE}" == "TRUE" ];then
 
-echo -e "\nTelAF-Simulation Project : ${project_top}\n"
+    echo -e "\n-- container information record begin --"
 
-echo "Environment Variables [BEG]"
-env
-echo "Environment Variables [END]"
+    cat /etc/os-release
 
-echo -e "-- container information record done --\n"
-eval "$@"
+    echo -e "\nTelAF-Simulation Project : ${project_top}\n"
+
+    echo "Environment Variables [BEG]"
+    env
+    echo "Environment Variables [END]"
+
+    echo -e "-- container information record done --\n"
+fi
+
+if [ -n "${SHELL_ACTIONS}" ]; then
+    if [ -e "${SHELL_ACTIONS}" ]; then
+        bash ${SHELL_ACTIONS}
+    else
+        echo "SHELL_ACTIONS: [${SHELL_ACTIONS}], but not found."
+    fi
+else
+    echo "Nothing to do"
+fi

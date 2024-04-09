@@ -35,7 +35,7 @@ RUN apt-get -y --no-install-recommends install lsb-release
 RUN apt-get -y --no-install-recommends install libcap-dev
 RUN apt-get -y --no-install-recommends install libasound2-dev
 RUN apt-get -y --no-install-recommends install alsa alsa-utils alsa-tools
-RUN apt-get -y --no-install-recommends install pulseaudio pulseaudio-utils
+RUN DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install pulseaudio pulseaudio-utils
 
 RUN apt-get -y --no-install-recommends install python3-venv
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -47,9 +47,11 @@ RUN /usr/bin/python3.8 -m venv /venv
 ENV PATH=/venv/bin:$PATH
 RUN python3 -m pip install doipclient==1.1.1
 RUN python3 -m pip install udsoncan==1.17.1
-RUN python3 -m pip install pyyaml
-RUN python3 -m pip install supervisor
-RUN python3 -m pip install supervisor-stdout
+RUN python3 -m pip install pyyaml==6.0.1
+RUN python3 -m pip install supervisor==4.2.5
+RUN python3 -m pip install supervisor-stdout==0.1.1
+
+RUN apt-get -y --no-install-recommends install libsqlite3-dev
 
 # Make root password to: [simula]
 RUN echo 'root:simula' | chpasswd

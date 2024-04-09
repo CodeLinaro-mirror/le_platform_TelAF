@@ -1129,6 +1129,7 @@ ENUM Constellation
     SV_CONSTELLATION_GALILEO,          ///< Satellite Vehicle of GALILEO constellation.
     SV_CONSTELLATION_BEIDOU,           ///< Satellite Vehicle of BEIDOU constellation.
     SV_CONSTELLATION_QZSS,             ///< Satellite Vehicle of QZSS constellation.
+    SV_CONSTELLATION_NAVIC,            ///< Satellite Vehicle of NAVIC constellation.
     SV_CONSTELLATION_MAX               ///< Maximum value of constellation.
 };
 
@@ -3456,7 +3457,7 @@ FUNCTION le_result_t GetSatellitesInfoEx
  * @return
  *  - LE_OK             Succeeded.
  *  - LE_FAULT          Failed.
- *  - LE_NOT_PERMITTED  The GNSS device state is not ready.
+ *  - LE_NOT_PERMITTED  The Location service state is not ready.
  *
  */
 //------------------------------------------------------------------------------------------------
@@ -3480,7 +3481,7 @@ FUNCTION le_result_t SetMinGpsWeek
  *  - LE_OK             Succeeded.
  *  - LE_FAULT          Failed.
  *  - LE_NO_MEMORY      The minGpsWeekPtr is NULL.
- *  - LE_NOT_PERMITTED  The GNSS device state is not ready.
+ *  - LE_NOT_PERMITTED  The Location service state is not ready.
  *
  */
 //------------------------------------------------------------------------------------------------
@@ -3515,7 +3516,7 @@ FUNCTION le_result_t GetCapabilities
  *  - LE_OK             Succeeded.
  *  - LE_BAD_PARAMETER  the nmeaMask is zero.
  *  - LE_FAULT          Failed.
- *  - LE_NOT_PERMITTED  GNSS device is not ready.
+ *  - LE_NOT_PERMITTED  Location service is not ready.
  *
  * @warning This function may be subject to limitations depending on the platform.
  *
@@ -3541,7 +3542,7 @@ FUNCTION le_result_t SetNmeaConfiguration
  * @return
  *  - LE_OK             Succeeded.
  *  - LE_FAULT          Failed.
- *  - LE_NOT_PERMITTED  GNSS device is not ready.
+ *  - LE_NOT_PERMITTED  Location service is not ready.
  *
  */
 //------------------------------------------------------------------------------------------------

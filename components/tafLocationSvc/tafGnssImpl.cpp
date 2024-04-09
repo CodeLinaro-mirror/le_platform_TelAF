@@ -1544,6 +1544,7 @@ void tafLocationListener::onGnssSVInfo(const std::shared_ptr<telux::loc::IGnssSV
         int i = 0;
         clientRequestPtr->mSatParams.satsInViewCount = gnssSVInfo->getSVInfoList().size();
         clientRequestPtr->mTotalSVTracked = 0;
+        memset(&clientRequestPtr->mSatInfo, 0, sizeof(clientRequestPtr->mSatInfo));
         for(auto svInfo : gnssSVInfo->getSVInfoList()) {
 
             if(i >= TAF_GNSS_SV_INFO_MAX_LEN)
@@ -1570,6 +1571,9 @@ void tafLocationListener::onGnssSVInfo(const std::shared_ptr<telux::loc::IGnssSV
                     break;
                 case telux::loc::GnssConstellationType::QZSS:
                     clientRequestPtr->mSatInfo[i].satConst = TAF_GNSS_SV_CONSTELLATION_QZSS;
+                    break;
+                case telux::loc::GnssConstellationType::NAVIC:
+                    clientRequestPtr->mSatInfo[i].satConst = TAF_GNSS_SV_CONSTELLATION_NAVIC;
                     break;
                 default:
                     clientRequestPtr->mSatInfo[i].satConst = TAF_GNSS_SV_CONSTELLATION_UNDEFINED;
@@ -2218,7 +2222,7 @@ le_result_t taf_Gnss::SetConstellation
     {
         blackListInfo.constellation = telux::loc::GnssConstellationType::SBAS;
         svBlackList.push_back(blackListInfo);
-        LE_DEBUG("constellation type is GLONASS");
+        LE_DEBUG("constellation type is SBAS");
     }
     if( constellationMask & TAF_GNSS_CONSTELLATION_QZSS)
     {
@@ -6881,7 +6885,6 @@ le_result_t taf_Gnss::GetXtraStatus
                 {
                     LE_DEBUG("***Request xtra status Info ****");
                     LE_DEBUG("Xtra Feature Enabled: %d",xtraStatus.featureEnabled);
-                    //LE_INFO("Xtra data status: %d ",xtraStatus.xtraDataStatus);
                     LE_DEBUG("Xtra status valid for hours :%d",xtraStatus.xtraValidForHours);
                     gnss.mfeatureEnabled = xtraStatus.featureEnabled;
                     gnss.mXtraValidForHours = xtraStatus.xtraValidForHours;

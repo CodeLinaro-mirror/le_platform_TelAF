@@ -2035,7 +2035,7 @@ static void TestTafGnssStart
    //14.GetTtff
     LE_TEST_INFO("taf_gnss_GetTtff() API is called to get time to first fix");
     result = taf_gnss_GetTtff(&ttff);
-    LE_TEST_OK(result == LE_OK, "taf_gnss_Tfff-LE_OK");
+    LE_TEST_OK((result == LE_OK) || (result == LE_BUSY), "taf_gnss_Tfff-LE_OK");
     if(result == LE_OK)
     {
         LE_TEST_INFO("TTFF start = %d msec", ttff);
@@ -2053,7 +2053,7 @@ static void TestTafGnssStart
     //16.GetTtff
     LE_TEST_INFO("taf_gnss_GetTtff() API is called to get time to first fix");
     result = taf_gnss_GetTtff(&ttff);
-    LE_TEST_OK(result == LE_OK, "taf_gnss_Tfff-LE_OK");
+    LE_TEST_OK((result == LE_OK) || (result == LE_BUSY), "taf_gnss_Tfff-LE_OK");
     if(result == LE_OK)
     {
         LE_TEST_INFO("TTFF start = %d msec", ttff);

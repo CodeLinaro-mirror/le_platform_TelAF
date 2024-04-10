@@ -314,9 +314,8 @@ namespace tafsvc {
         taf_gnss_State_t GnssState;
         int mAcqRate;
         LocReqEngine mEngineType;
-        bool mTtffEnabled;
+        bool mFirstFix;
         std::chrono::time_point<std::chrono::system_clock> mStartTime;
-        std::chrono::time_point<std::chrono::system_clock> mEndTime;
         std::shared_ptr<ILocationManager> locationManager;
         bool mStarted;
         std::shared_ptr<tafLocationListener> posListener;
@@ -366,6 +365,7 @@ namespace tafsvc {
             static void GnssPositionHandler(void* reportPtr);
             static void CopyPositionData(taf_gnss_PositionSample_t* posSampleDataPtr,
                     taf_gnss_PositionSample_t* posDataPtr );
+            static void ConfigureAcqStartInfo(taf_gnss_Client_t* clientRequestPtr);
 
             taf_gnss_PositionHandlerRef_t AddPositionHandler(
                     taf_gnss_PositionHandlerFunc_t handlerPtr, void* contextPtr);

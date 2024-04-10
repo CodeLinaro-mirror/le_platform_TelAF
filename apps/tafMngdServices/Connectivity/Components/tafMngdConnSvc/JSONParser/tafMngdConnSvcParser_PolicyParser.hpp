@@ -64,30 +64,30 @@ namespace tafsvc {
 
     typedef struct
     {
-        taf_mngd_Yes_No_t Enable; //Yes=1, No=0
+        mcs_Yes_No_t Enable; //Yes=1, No=0
         uint8_t NumConnections;
     } taf_mngd_Conn_Policy_MultiDataSession_t;
 
     typedef struct
     {
-        taf_mngd_Conn_Policy_ConnRecoveryLevel_t Level; //L1=1, None=0
+        mcs_Policy_ConnRecoveryLevel_t Level; //L1=1, None=0
         uint8_t StartWaitTime;
     } taf_mngd_Conn_Policy_ConnectivityRecovery_t;
 
     typedef struct
     {
-        taf_mngd_Yes_No_t Fallback;  //Yes=1, No=0
+        mcs_Yes_No_t Fallback;  //Yes=1, No=0
         uint8_t dataConnectionCount; // Not part of the JSON. It is filled by the parser.
         taf_mngd_Conn_Policy_DataConnection_t \
-                            DataConnection[TAF_MNGD_CONN_MAX_DATA_CONNECION_OBJECT_COUNT];
+                            DataConnection[MCS_MAX_DATA_CONNECION_OBJECT_COUNT];
         taf_mngd_Conn_Policy_MultiDataSession_t MultiDataSession;
         taf_mngd_Conn_Policy_ConnectivityRecovery_t ConnectivityRecovery;
     } taf_mngd_Conn_Policy_DataSession_t;
 
     typedef struct
     {
-        taf_mngd_Conn_JSON_Version_t Version; // Not part of the JSON. It is filled by the parser.
-        char Name[TAF_MNGD_CONN_MAX_NAME_LEN];
+        mcs_JSON_Version_t Version; // Not part of the JSON. It is filled by the parser.
+        char Name[MCS_MAX_NAME_LEN];
         taf_mngd_Conn_Policy_DataSession_t DataSession;
     } taf_mngd_Conn_Policy_t;
 

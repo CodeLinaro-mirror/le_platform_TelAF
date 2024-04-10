@@ -67,8 +67,8 @@ void tafMngdConnData::SessionStateChangeHandler
     auto &mngdConnAdmin = tafMngdConnAdmin::GetInstance();
     uint32_t profileId;
     uint8_t phoneId;
-    stateMachineEvent_t stateMachineEvt = {TAF_MNGD_CONN_EVT_INIT,0};
-    taf_mngd_Conn_Ctx_t* connCtxPtr = NULL;
+    stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT,0};
+    mcs_DataCtx_t* dataCtxPtr = NULL;
     le_result_t result;
 
     profileId = taf_dcs_GetProfileIndex(profileRef);
@@ -91,9 +91,9 @@ void tafMngdConnData::SessionStateChangeHandler
     }
 
     LE_DEBUG ("Data Connection State: %d, phoneid: %d, profileId: %d", state, phoneId, profileId);
-    connCtxPtr = mngdConnAdmin.GetConnCtx(phoneId, profileId);
+    dataCtxPtr = mngdConnAdmin.GetDataCtx(phoneId, profileId);
     //The connection is not created by tafMngdConnSvc, don't report the event.
-    if(connCtxPtr == NULL)
+    if(dataCtxPtr == NULL)
     {
         LE_DEBUG("Can't find the context for phoneId(%d), profileId(%d)", phoneId, profileId);
         return;
@@ -101,14 +101,14 @@ void tafMngdConnData::SessionStateChangeHandler
     switch (state)
     {
         case TAF_DCS_DISCONNECTED:
-            LE_DEBUG ("Data Disconnected Event called for dataID  %d", connCtxPtr->dataId);
-            stateMachineEvt.event = TAF_MNGD_CONN_EVT_DATA_CONNECTION_DISCONNECTED;
-            stateMachineEvt.dataId = connCtxPtr->dataId;
+            LE_DEBUG ("Data Disconnected Event called for dataID  %d", dataCtxPtr->dataId);
+            stateMachineEvt.event = MCS_EVT_DATA_CONNECTION_DISCONNECTED;
+            stateMachineEvt.dataId = dataCtxPtr->dataId;
             break;
         case TAF_DCS_CONNECTED:
-            LE_DEBUG ("Data connected Event called for dataID  %d", connCtxPtr->dataId);
-            stateMachineEvt.event=TAF_MNGD_CONN_EVT_DATA_CONNECTION_CONNECTED;
-            stateMachineEvt.dataId = connCtxPtr->dataId;
+            LE_DEBUG ("Data connected Event called for dataID  %d", dataCtxPtr->dataId);
+            stateMachineEvt.event=MCS_EVT_DATA_CONNECTION_CONNECTED;
+            stateMachineEvt.dataId = dataCtxPtr->dataId;
             break;
         default:
             return;
@@ -226,19 +226,19 @@ le_result_t tafMngdConnData::Stopdata(uint8_t phoneId, uint32_t profileId)
  * Get connection information for specified connection context.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t tafMngdConnData::GetConnectionInfo(taf_mngd_Conn_Ctx_t* connCtxPtr)
+le_result_t tafMngdConnData::GetConnectionInfo(mcs_DataCtx_t* dataCtxPtr)
 {
     le_result_t result;
     taf_dcs_ProfileRef_t profileRef = NULL;
     bool isIpv4 = false, isIpv6 = false;
 
-    TAF_ERROR_IF_RET_VAL(connCtxPtr == NULL, LE_BAD_PARAMETER, "Null ptr(connCtxPtr)");
-    profileRef = taf_dcs_GetProfileEx (connCtxPtr->phoneId, connCtxPtr->profileNumber);
+    TAF_ERROR_IF_RET_VAL(dataCtxPtr == NULL, LE_BAD_PARAMETER, "Null ptr(dataCtxPtr)");
+    profileRef = taf_dcs_GetProfileEx (dataCtxPtr->phoneId, dataCtxPtr->profileNumber);
 
-    result = taf_dcs_GetInterfaceName(profileRef, connCtxPtr->intfName, TAF_DCS_NAME_MAX_LEN);
+    result = taf_dcs_GetInterfaceName(profileRef, dataCtxPtr->intfName, TAF_DCS_NAME_MAX_LEN);
     if(result != LE_OK)
     {
-        LE_ERROR("Getting interface name failed for dataID %d",connCtxPtr->dataId);
+        LE_ERROR("Getting interface name failed for dataID %d",dataCtxPtr->dataId);
         return result;
     }
 
@@ -247,48 +247,48 @@ le_result_t tafMngdConnData::GetConnectionInfo(taf_mngd_Conn_Ctx_t* connCtxPtr)
 
     if(isIpv4 && !isIpv6)         //Ipv4 only
     {
-        connCtxPtr->ipType = TAF_DCS_PDP_IPV4;
-        result=taf_dcs_GetIPv4Address(profileRef, connCtxPtr->ipv4Addr, TAF_DCS_IPV4_ADDR_MAX_LEN);
+        dataCtxPtr->ipType = TAF_DCS_PDP_IPV4;
+        result=taf_dcs_GetIPv4Address(profileRef, dataCtxPtr->ipv4Addr, TAF_DCS_IPV4_ADDR_MAX_LEN);
 
         if(result != LE_OK)
         {
-            LE_ERROR("Getting IPV4 address failed for dataID %d ",connCtxPtr->dataId);
+            LE_ERROR("Getting IPV4 address failed for dataID %d ",dataCtxPtr->dataId);
             return result;
         }
     }
     else if(!isIpv4 && isIpv6)    //Ipv6 only
     {
-        connCtxPtr->ipType = TAF_DCS_PDP_IPV6;
-        result=taf_dcs_GetIPv6Address(profileRef, connCtxPtr->ipv6Addr, TAF_DCS_IPV6_ADDR_MAX_LEN);
+        dataCtxPtr->ipType = TAF_DCS_PDP_IPV6;
+        result=taf_dcs_GetIPv6Address(profileRef, dataCtxPtr->ipv6Addr, TAF_DCS_IPV6_ADDR_MAX_LEN);
 
         if(result != LE_OK)
         {
-            LE_ERROR("Getting IPV6 address failed for dataID %d ",connCtxPtr->dataId);
+            LE_ERROR("Getting IPV6 address failed for dataID %d ",dataCtxPtr->dataId);
             return result;
         }
     }
     else if(isIpv4 && isIpv6)     //Ipv4v6
     {
-        connCtxPtr->ipType = TAF_DCS_PDP_IPV4V6;
-        result=taf_dcs_GetIPv4Address(profileRef, connCtxPtr->ipv4Addr, TAF_DCS_IPV4_ADDR_MAX_LEN);
+        dataCtxPtr->ipType = TAF_DCS_PDP_IPV4V6;
+        result=taf_dcs_GetIPv4Address(profileRef, dataCtxPtr->ipv4Addr, TAF_DCS_IPV4_ADDR_MAX_LEN);
 
         if(result != LE_OK)
         {
-            LE_ERROR("Getting IPV4 address failed for dataID %d ",connCtxPtr->dataId);
+            LE_ERROR("Getting IPV4 address failed for dataID %d ",dataCtxPtr->dataId);
             return result;
         }
 
-        result=taf_dcs_GetIPv6Address(profileRef, connCtxPtr->ipv6Addr, TAF_DCS_IPV6_ADDR_MAX_LEN);
+        result=taf_dcs_GetIPv6Address(profileRef, dataCtxPtr->ipv6Addr, TAF_DCS_IPV6_ADDR_MAX_LEN);
 
         if(result != LE_OK)
         {
-            LE_ERROR("Getting IPV6 address failed for dataID %d ",connCtxPtr->dataId);
+            LE_ERROR("Getting IPV6 address failed for dataID %d ",dataCtxPtr->dataId);
             return result;
         }
     }
     else
     {
-        connCtxPtr->ipType = TAF_DCS_PDP_UNKNOWN;
+        dataCtxPtr->ipType = TAF_DCS_PDP_UNKNOWN;
         result = LE_FAULT;
     }
 
@@ -304,7 +304,7 @@ le_result_t tafMngdConnData::GetAllConnectionInfo(profileInfo_t *profileNumberLi
 {
     bool isIpv4 = false, isIpv6 = false;
     taf_dcs_ProfileRef_t profileRef = NULL;
-    taf_mngd_Conn_Ctx_t* connCtxPtr = NULL;
+    mcs_DataCtx_t* dataCtxPtr = NULL;
     le_result_t result;
 
     auto &mngdConnAdmin = tafMngdConnAdmin::GetInstance();
@@ -314,18 +314,18 @@ le_result_t tafMngdConnData::GetAllConnectionInfo(profileInfo_t *profileNumberLi
 
     for(int i = 0; i < listSize; i++)
     {
-        connCtxPtr = mngdConnAdmin.GetConnCtx(profileNumberList[i].phoneId,
+        dataCtxPtr = mngdConnAdmin.GetDataCtx(profileNumberList[i].phoneId,
                                               profileNumberList[i].profileNumber);
 
-        if(connCtxPtr == NULL)
+        if(dataCtxPtr == NULL)
             continue;
 
-        if(connCtxPtr->dataState != TAF_MNGD_CONN_DATA_CONNECTED)
+        if(dataCtxPtr->dataState != TAF_MNGD_CONN_DATA_CONNECTED)
             continue;
 
-        profileRef = taf_dcs_GetProfileEx (connCtxPtr->phoneId, connCtxPtr->profileNumber);
+        profileRef = taf_dcs_GetProfileEx (dataCtxPtr->phoneId, dataCtxPtr->profileNumber);
 
-        result = taf_dcs_GetInterfaceName(profileRef, connCtxPtr->intfName, TAF_DCS_NAME_MAX_LEN);
+        result = taf_dcs_GetInterfaceName(profileRef, dataCtxPtr->intfName, TAF_DCS_NAME_MAX_LEN);
         if(result != LE_OK)
         {
             LE_ERROR("Getting interface name failed");
@@ -337,8 +337,8 @@ le_result_t tafMngdConnData::GetAllConnectionInfo(profileInfo_t *profileNumberLi
 
         if(isIpv4 && !isIpv6)
         {
-            connCtxPtr->ipType = TAF_DCS_PDP_IPV4;
-            result=taf_dcs_GetIPv4Address(profileRef, connCtxPtr->ipv4Addr,
+            dataCtxPtr->ipType = TAF_DCS_PDP_IPV4;
+            result=taf_dcs_GetIPv4Address(profileRef, dataCtxPtr->ipv4Addr,
                                           TAF_DCS_IPV4_ADDR_MAX_LEN);
 
             if(result != LE_OK)
@@ -349,8 +349,8 @@ le_result_t tafMngdConnData::GetAllConnectionInfo(profileInfo_t *profileNumberLi
         }
         else if(!isIpv4 && isIpv6)
         {
-            connCtxPtr->ipType = TAF_DCS_PDP_IPV6;
-            result=taf_dcs_GetIPv6Address(profileRef, connCtxPtr->ipv6Addr,
+            dataCtxPtr->ipType = TAF_DCS_PDP_IPV6;
+            result=taf_dcs_GetIPv6Address(profileRef, dataCtxPtr->ipv6Addr,
                                           TAF_DCS_IPV6_ADDR_MAX_LEN);
 
             if(result != LE_OK)
@@ -361,8 +361,8 @@ le_result_t tafMngdConnData::GetAllConnectionInfo(profileInfo_t *profileNumberLi
         }
         else if(isIpv4 && isIpv6)
         {
-            connCtxPtr->ipType = TAF_DCS_PDP_IPV4V6;
-            result=taf_dcs_GetIPv4Address(profileRef, connCtxPtr->ipv4Addr,
+            dataCtxPtr->ipType = TAF_DCS_PDP_IPV4V6;
+            result=taf_dcs_GetIPv4Address(profileRef, dataCtxPtr->ipv4Addr,
                                           TAF_DCS_IPV4_ADDR_MAX_LEN);
 
             if(result != LE_OK)
@@ -371,7 +371,7 @@ le_result_t tafMngdConnData::GetAllConnectionInfo(profileInfo_t *profileNumberLi
                 continue;
             }
 
-            result=taf_dcs_GetIPv6Address(profileRef, connCtxPtr->ipv6Addr,
+            result=taf_dcs_GetIPv6Address(profileRef, dataCtxPtr->ipv6Addr,
                                           TAF_DCS_IPV6_ADDR_MAX_LEN);
 
             if(result != LE_OK)
@@ -382,7 +382,7 @@ le_result_t tafMngdConnData::GetAllConnectionInfo(profileInfo_t *profileNumberLi
         }
         else
         {
-            connCtxPtr->ipType = TAF_DCS_PDP_UNKNOWN;
+            dataCtxPtr->ipType = TAF_DCS_PDP_UNKNOWN;
         }
     }
 

@@ -57,20 +57,20 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Name(
                                             int Index)
 {
     LE_DEBUG("%s", Value.c_str());
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
-    if (TAF_MNGD_JSON_DATA_TYPE_STRING != DataType)
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_STRING != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
     }
-    // Max string length should be TAF_MNGD_CONN_MAX_NAME_LEN
-    if (Value.size() > TAF_MNGD_CONN_MAX_NAME_LEN)
+    // Max string length should be MCS_MAX_NAME_LEN
+    if (Value.size() > MCS_MAX_NAME_LEN)
     {
         LE_WARN("Configuration Name is too long");
         return false;
     }
     // Valid value. Update Configuration.
-    le_utf8_Copy(Configuration.Name, Value.c_str(), TAF_MNGD_CONN_MAX_NAME_LEN,NULL);
+    le_utf8_Copy(Configuration.Name, Value.c_str(), MCS_MAX_NAME_LEN,NULL);
     return true;
 }
 
@@ -83,8 +83,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Sim_ID(
                                             int Index)
 {
     LE_DEBUG("%s", Value.c_str());
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
-    if (TAF_MNGD_JSON_DATA_TYPE_NUMBER != DataType)
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
@@ -113,8 +113,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Sim_Name(
                                             int Index)
 {
     LE_DEBUG("%s", Value.c_str());
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
-    if (TAF_MNGD_JSON_DATA_TYPE_STRING != DataType)
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_STRING != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
@@ -126,8 +126,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Sim_Name(
         return false;
     }
 
-    // Max Sim name should be TAF_MNGD_CONN_MAX_NAME_LEN
-    if (Value.size() > TAF_MNGD_CONN_MAX_NAME_LEN)
+    // Max Sim name should be MCS_MAX_NAME_LEN
+    if (Value.size() > MCS_MAX_NAME_LEN)
     {
         LE_WARN("Sim Name is too long");
         return false;
@@ -147,7 +147,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Sim_Name(
 
     // Valid String.
     // Since we have already validated string length above, we can ignore return value here
-    le_utf8_Copy(Configuration.Sim[Index].Name, Value.c_str(), TAF_MNGD_CONN_MAX_NAME_LEN,NULL);
+    le_utf8_Copy(Configuration.Sim[Index].Name, Value.c_str(), MCS_MAX_NAME_LEN,NULL);
 
     return true;
 }
@@ -161,8 +161,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Sim_SlotNumber(
                                             int Index)
 {
     LE_DEBUG("%s", Value.c_str());
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
-    if (TAF_MNGD_JSON_DATA_TYPE_NUMBER != DataType)
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
@@ -192,8 +192,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_ID(
                                             int Index)
 {
     LE_DEBUG("%s", Value.c_str());
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
-    if (TAF_MNGD_JSON_DATA_TYPE_NUMBER != DataType)
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
@@ -223,14 +223,14 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_Name(
                                             int Index)
 {
     LE_DEBUG("%s", Value.c_str());
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
     //Check the JSON version to be atleast 24.03.00
-    if(Configuration.Version != TAF_MNGD_CONN_JSON_Version_24_03_00)
+    if(Configuration.Version != MCS_JSON_VERSION_24_03_00)
     {
         LE_WARN("Invalid JSON version");
         return false;
     }
-    if (TAF_MNGD_JSON_DATA_TYPE_STRING != DataType)
+    if (MCS_JSON_DATA_TYPE_STRING != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
@@ -242,8 +242,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_Name(
         return false;
     }
 
-    // Max Network name should be TAF_MNGD_CONN_MAX_NAME_LEN
-    if (Value.size() > TAF_MNGD_CONN_MAX_NAME_LEN)
+    // Max Network name should be MCS_MAX_NAME_LEN
+    if (Value.size() > MCS_MAX_NAME_LEN)
     {
         LE_WARN("Network Name is too long");
         return false;
@@ -263,7 +263,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_Name(
 
     // Valid String.
     // Since we have already validated string length above, we can ignore return value here
-    le_utf8_Copy(Configuration.Network[Index].Name, Value.c_str(), TAF_MNGD_CONN_MAX_NAME_LEN,NULL);
+    le_utf8_Copy(Configuration.Network[Index].Name, Value.c_str(), MCS_MAX_NAME_LEN,NULL);
 
     return true;
 }
@@ -277,8 +277,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_Use_SIM_ID(
                                             int Index)
 {
     LE_DEBUG("%s", Value.c_str());
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
-    if (TAF_MNGD_JSON_DATA_TYPE_NUMBER != DataType)
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
@@ -308,8 +308,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_PhoneID(
                                             int Index)
 {
     LE_DEBUG("%s", Value.c_str());
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
-    if (TAF_MNGD_JSON_DATA_TYPE_NUMBER != DataType)
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
@@ -346,8 +346,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_Registration(
                                             int Index)
 {
     LE_DEBUG("%s", Value.c_str());
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
-    if (TAF_MNGD_JSON_DATA_TYPE_NW_REGISTRATION != DataType)
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NW_REGISTRATION != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
@@ -365,7 +365,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_Registration(
 
     // Valid value. Update Configuration.
     // Since we have already validated type above, we can ignore return value here
-    Configuration.Network[Index].Registration = tafMngd_Convert_to_NW_Registration_Type_enum(Value);
+    Configuration.Network[Index].Registration = mcs_Convert_to_NW_Registration_Type_enum(Value);
     return true;
 }
 
@@ -378,8 +378,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_ID(
                                             int Index)
 {
     LE_DEBUG("%s", Value.c_str());
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
-    if (TAF_MNGD_JSON_DATA_TYPE_NUMBER != DataType)
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
@@ -410,8 +410,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Use_Network_ID(
                                             int Index)
 {
     LE_DEBUG("%s", Value.c_str());
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
-    if (TAF_MNGD_JSON_DATA_TYPE_NUMBER != DataType)
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
@@ -441,8 +441,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Name(
                                             int Index)
 {
     LE_DEBUG("%s", Value.c_str());
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
-    if (TAF_MNGD_JSON_DATA_TYPE_STRING != DataType)
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_STRING != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
@@ -470,7 +470,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Name(
     // Since we have already validated string length above, we can ignore return value here
     le_utf8_Copy(Configuration.Data[Index].Profile.ProfileName,
                             Value.c_str(),
-                            TAF_MNGD_CONN_MAX_PROFILE_NAME_LEN,NULL);
+                            MCS_MAX_PROFILE_NAME_LEN,NULL);
     return true;
 }
 
@@ -483,8 +483,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Profile_Number(
                                             int Index)
 {
     LE_DEBUG("%s", Value.c_str());
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
-    if (TAF_MNGD_JSON_DATA_TYPE_NUMBER != DataType)
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
@@ -514,8 +514,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Profile_APN(
                                             int Index)
 {
     LE_DEBUG("%s", Value.c_str());
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
-    if (TAF_MNGD_JSON_DATA_TYPE_STRING != DataType && TAF_MNGD_JSON_DATA_TYPE_NULL != DataType)
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_STRING != DataType && MCS_JSON_DATA_TYPE_NULL != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
@@ -533,15 +533,15 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Profile_APN(
 
     // Valid value. Update Configuration.
     // Set to NULL or string
-    if (TAF_MNGD_JSON_DATA_TYPE_NULL == DataType)
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
     {
-        memset(Configuration.Data[Index].Profile.APN, 0, TAF_MNGD_CONN_MAX_APN_LEN);
+        memset(Configuration.Data[Index].Profile.APN, 0, MCS_MAX_APN_LEN);
         return true;
     }
     // Valid String.
     // Since we have already validated string length above, we can ignore return value here
     le_utf8_Copy(Configuration.Data[Index].Profile.APN, Value.c_str(),
-                                            TAF_MNGD_CONN_MAX_APN_LEN,NULL);
+                                            MCS_MAX_APN_LEN,NULL);
     return true;
 }
 
@@ -554,14 +554,14 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_AutoStart(
                                                     int Index)
 {
     LE_DEBUG("%s", Value.c_str());
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
-    if (TAF_MNGD_JSON_DATA_TYPE_YES_NO != DataType)
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_YES_NO != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
     }
     // Valid value. Update Configuration.
-    Configuration.Data[Index].AutoStart = tafMngd_Convert_to_Yes_No_enum(Value);
+    Configuration.Data[Index].AutoStart = mcs_Convert_to_Yes_No_enum(Value);
     return true;
 }
 
@@ -574,8 +574,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DataStartConnectionT
                                             int Index)
 {
     LE_DEBUG("%s", Value.c_str());
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
-    if (TAF_MNGD_JSON_DATA_TYPE_STRING != DataType && TAF_MNGD_JSON_DATA_TYPE_NULL != DataType)
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_STRING != DataType && MCS_JSON_DATA_TYPE_NULL != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
@@ -593,16 +593,16 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DataStartConnectionT
 
     // Valid value. Update Configuration.
     // Set to NULL or string
-    if (TAF_MNGD_JSON_DATA_TYPE_NULL == DataType)
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
     {
         memset(Configuration.Data[Index].DataStartConnectionTest.URL, 0,
-            TAF_MNGD_CONN_MAX_CONNECTION_URL_LEN);
+            MCS_MAX_CONNECTION_URL_LEN);
         return true;
     }
     // Valid String.
     // Since we have already validated string length above, we can ignore return value here
     le_utf8_Copy(Configuration.Data[Index].DataStartConnectionTest.URL, Value.c_str(),
-                                        TAF_MNGD_CONN_MAX_CONNECTION_URL_LEN,NULL);
+                                        MCS_MAX_CONNECTION_URL_LEN,NULL);
     return true;
 }
 
@@ -615,8 +615,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DataStartConnectionT
                                             int Index)
 {
     LE_DEBUG("%s", Value.c_str());
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
-    if (TAF_MNGD_JSON_DATA_TYPE_STRING != DataType && TAF_MNGD_JSON_DATA_TYPE_NULL != DataType)
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_STRING != DataType && MCS_JSON_DATA_TYPE_NULL != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
@@ -634,15 +634,15 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DataStartConnectionT
 
     // Valid value. Update Configuration.
     // Set to NULL or string
-    if (TAF_MNGD_JSON_DATA_TYPE_NULL == DataType)
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
     {
-        memset(Configuration.Data[Index].DataStartConnectionTest.IPv4,0,TAF_MNGD_CONN_MAX_IPV4_LEN);
+        memset(Configuration.Data[Index].DataStartConnectionTest.IPv4,0,MCS_MAX_IPV4_LEN);
         return true;
     }
     // Valid String.
     // Since we have already validated string length above, we can ignore return value here
     le_utf8_Copy(Configuration.Data[Index].DataStartConnectionTest.IPv4, Value.c_str(),
-                                                TAF_MNGD_CONN_MAX_IPV4_LEN,NULL);
+                                                MCS_MAX_IPV4_LEN,NULL);
 
     return true;
 }
@@ -656,8 +656,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DataStartConnectionT
                                             int Index)
 {
     LE_DEBUG("%s", Value.c_str());
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
-    if (TAF_MNGD_JSON_DATA_TYPE_STRING != DataType && TAF_MNGD_JSON_DATA_TYPE_NULL != DataType)
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_STRING != DataType && MCS_JSON_DATA_TYPE_NULL != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
@@ -675,15 +675,15 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DataStartConnectionT
 
     // Valid value. Update Configuration.
     // Set to NULL or string
-    if (TAF_MNGD_JSON_DATA_TYPE_NULL == DataType)
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
     {
-        memset(Configuration.Data[Index].DataStartConnectionTest.IPv6,0,TAF_MNGD_CONN_MAX_IPV6_LEN);
+        memset(Configuration.Data[Index].DataStartConnectionTest.IPv6,0,MCS_MAX_IPV6_LEN);
         return true;
     }
     // Valid String.
     // Since we have already validated string length above, we can ignore return value here
     le_utf8_Copy(Configuration.Data[Index].DataStartConnectionTest.IPv6, Value.c_str(),
-                                                TAF_MNGD_CONN_MAX_IPV6_LEN,NULL);
+                                                MCS_MAX_IPV6_LEN,NULL);
     return true;
 }
 
@@ -696,20 +696,20 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DSR_Enable(
                                                     int Index)
 {
     LE_DEBUG("%s", Value.c_str());
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
     //Check the JSON version to be atleast 24.03.00
-    if(Configuration.Version != TAF_MNGD_CONN_JSON_Version_24_03_00)
+    if(Configuration.Version != MCS_JSON_VERSION_24_03_00)
     {
         LE_WARN("Invalid JSON version");
         return false;
     }
-    if (TAF_MNGD_JSON_DATA_TYPE_YES_NO != DataType)
+    if (MCS_JSON_DATA_TYPE_YES_NO != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
     }
     // Valid value. Update Configuration.
-    Configuration.Data[Index].DataStartRetry.Enable = tafMngd_Convert_to_Yes_No_enum(Value);
+    Configuration.Data[Index].DataStartRetry.Enable = mcs_Convert_to_Yes_No_enum(Value);
     return true;
 }
 
@@ -723,20 +723,20 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DSR_RetryCount(
 {
     LE_DEBUG("%s", Value.c_str());
 
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
     //Check the JSON version to be atleast 24.03.00
-    if(Configuration.Version != TAF_MNGD_CONN_JSON_Version_24_03_00)
+    if(Configuration.Version != MCS_JSON_VERSION_24_03_00)
     {
         LE_WARN("Invalid JSON version");
         return false;
     }
-    if (TAF_MNGD_JSON_DATA_TYPE_NUMBER != DataType)
+    if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
     }
     // Value should be valid RetryCount
-    if (std::stoi(Value) < 0 || std::stoi(Value) > TAF_MNGD_CONN_MAX_RETRY_COUNT) {
+    if (std::stoi(Value) < 0 || std::stoi(Value) > MCS_MAX_RECOVERY_RETRY_COUNT) {
         LE_WARN("Invalid RetryCount");
         return false;
     }
@@ -754,14 +754,14 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PeriodicConnectivity
                                                     int Index)
 {
     LE_DEBUG("%s", Value.c_str());
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
     //Check the JSON version to be atleast 24.03.00
-    if(Configuration.Version != TAF_MNGD_CONN_JSON_Version_24_03_00)
+    if(Configuration.Version != MCS_JSON_VERSION_24_03_00)
     {
         LE_WARN("Invalid JSON version");
         return false;
     }
-    if (TAF_MNGD_JSON_DATA_TYPE_NUMBER != DataType)
+    if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
@@ -792,20 +792,20 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PeriodicConnectivity
 {
     LE_DEBUG("%s", Value.c_str());
 
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
     //Check the JSON version to be atleast 24.03.00
-    if(Configuration.Version != TAF_MNGD_CONN_JSON_Version_24_03_00)
+    if(Configuration.Version != MCS_JSON_VERSION_24_03_00)
     {
         LE_WARN("Invalid JSON version");
         return false;
     }
-    if (TAF_MNGD_JSON_DATA_TYPE_NUMBER != DataType)
+    if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
     }
     // Value should be valid RetryCount
-    if (std::stoi(Value) < 0 || std::stoi(Value) > TAF_MNGD_CONN_MAX_RETRY_COUNT) {
+    if (std::stoi(Value) < 0 || std::stoi(Value) > MCS_MAX_RECOVERY_RETRY_COUNT) {
         LE_WARN("Invalid RetryCount");
         return false;
     }
@@ -823,14 +823,14 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PeriodicConnectivity
                                             int Index)
 {
     LE_DEBUG("%s", Value.c_str());
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
     //Check the JSON version to be atleast 24.03.00
-    if(Configuration.Version != TAF_MNGD_CONN_JSON_Version_24_03_00)
+    if(Configuration.Version != MCS_JSON_VERSION_24_03_00)
     {
         LE_WARN("Invalid JSON version");
         return false;
     }
-    if (TAF_MNGD_JSON_DATA_TYPE_STRING != DataType && TAF_MNGD_JSON_DATA_TYPE_NULL != DataType)
+    if (MCS_JSON_DATA_TYPE_STRING != DataType && MCS_JSON_DATA_TYPE_NULL != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
@@ -848,16 +848,16 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PeriodicConnectivity
 
     // Valid value. Update Configuration.
     // Set to NULL or string
-    if (TAF_MNGD_JSON_DATA_TYPE_NULL == DataType)
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
     {
         memset(Configuration.Data[Index].PeriodicConnectivityCheck.URL,0,
-               TAF_MNGD_CONN_MAX_CONNECTION_URL_LEN);
+               MCS_MAX_CONNECTION_URL_LEN);
         return true;
     }
     // Valid String.
     // Since we have already validated string length above, we can ignore return value here
     le_utf8_Copy(Configuration.Data[Index].PeriodicConnectivityCheck.URL, Value.c_str(),
-                                        TAF_MNGD_CONN_MAX_CONNECTION_URL_LEN,NULL);
+                                        MCS_MAX_CONNECTION_URL_LEN,NULL);
     return true;
 }
 
@@ -929,7 +929,7 @@ bool tafMngdConnSvc_ConfigurationParser::ParseAndUpdateConfigurationJSON(
                             // Validate the value and update Configuration structure.
                             // Pass an invalid index as these are not arrays
                             if (!ValidateValue(Configuration, JSON_Property, JSON_Value,
-                                                                TAF_MNGD_CONN_INVALID_INDEX))
+                                                                MCS_INVALID_INDEX))
                             {
                                 LE_WARN("Invalid JSON_Property Value");
                                 LE_INFO("JSON_Property: %s, Value: %s", JSON_Property.c_str(),
@@ -1273,7 +1273,7 @@ void tafMngdConnSvc_ConfigurationParser::ResetConfigurationStructure (
     Configuration.Name[0] = '\0';
 
     Configuration.SimCount = 0;
-    for (unsigned int Index = 0; Index < TAF_MNGD_CONN_MAX_SIM_OBJECT_COUNT; Index++)
+    for (unsigned int Index = 0; Index < MCS_MAX_SIM_OBJECT_COUNT; Index++)
     {
         Configuration.Sim[Index].ID = 0;
         Configuration.Sim[Index].SlotNumber = 0;
@@ -1281,17 +1281,17 @@ void tafMngdConnSvc_ConfigurationParser::ResetConfigurationStructure (
     }
 
     Configuration.NetworkCount = 0;
-    for (unsigned int Index = 0; Index < TAF_MNGD_CONN_MAX_NETWORK_OBJECT_COUNT; Index++)
+    for (unsigned int Index = 0; Index < MCS_MAX_NETWORK_OBJECT_COUNT; Index++)
     {
         Configuration.Network[Index].ID = 0;
         Configuration.Network[Index].Name[0] = '\0';
         Configuration.Network[Index].Use_Sim_ID = 0;
         Configuration.Network[Index].PhoneID = 0;
-        Configuration.Network[Index].Registration = TAF_MNGD_CONN_NW_REGISTRATION_TYPE_AUTO;
+        Configuration.Network[Index].Registration = MCS_NW_REGISTRATION_TYPE_AUTO;
     }
 
     Configuration.DataCount = 0;
-    for (unsigned int Index = 0; Index < TAF_MNGD_CONN_MAX_DATA_OBJECT_COUNT; Index++)
+    for (unsigned int Index = 0; Index < MCS_MAX_DATA_OBJECT_COUNT; Index++)
     {
         Configuration.Data[Index].ID                     = 0;
         Configuration.Data[Index].Use_Network_ID         = 0;
@@ -1305,7 +1305,7 @@ void tafMngdConnSvc_ConfigurationParser::ResetConfigurationStructure (
         Configuration.Data[Index].PeriodicConnectivityCheck.RetryCount    = 0;
         Configuration.Data[Index].PeriodicConnectivityCheck.URL[0]        = '\0';
         Configuration.Data[Index].DataStartRetry.RetryCount = 0;
-        Configuration.Data[Index].DataStartRetry.Enable = tafMngd_Convert_to_Yes_No_enum("Yes");
+        Configuration.Data[Index].DataStartRetry.Enable = mcs_Convert_to_Yes_No_enum("Yes");
     }
 }
 

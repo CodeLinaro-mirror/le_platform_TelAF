@@ -145,7 +145,7 @@ taf_Time_SrcAttr_t;
 
 struct SetTimeStatus{
     bool externalSetTime;  ///< Indicate if the time set externally
-    taf_time_TimeSources_t preActiveTimeSource; ///< Previously active time source
+    bool asyncRtcSetTime;  ///< Indicate the status for async RTC set time
 };
 
 typedef struct
@@ -384,9 +384,6 @@ namespace telux
                 if (toleranceMillsec) {
                     LE_INFO("ToleranceMillsec: %ld\n", toleranceMillsec);
                 }
-                if (allowOverrideAfterFail) {
-                    LE_INFO("allowOverrideAfterFail: %ld\n", allowOverrideAfterFail);
-                }
                 LE_INFO("allowOverrideAfterFail: %ld\n", allowOverrideAfterFail);
                 LE_INFO("Time source size: %ld\n", source.size());
             }
@@ -454,6 +451,7 @@ namespace telux
                 le_result_t GetRtcTime(taf_time_TimeSpec_t* timeValPtr);
                 le_result_t GetGnssTime(taf_time_TimeSpec_t* timeValPtr);
                 le_result_t GetExSetTimeStatus(void);
+                le_result_t GetAsyncRtcSetTimeStatus(void);
                 le_result_t GetSystemTime(taf_time_TimeSpec_t* timeValPtr);
                 le_result_t GetInternalRtcTime(taf_time_TimeSpec_t* timeVal);
                 le_result_t GetNetworkTime(taf_time_TimeSpec_t* timeValPtr,
@@ -477,7 +475,7 @@ namespace telux
                                              le_msg_SessionRef_t sessionRef, bool handlerFlag);
                 taf_TimeNetTimeInfo_t* SearchNetTimeInfList(taf_time_TimeSources_t sourceId);
 
-                bool IsNecessaryUpdateSystemTime(taf_time_TimeSpec_t timeVal,
+                bool IsThresholdSetTimeAllow(taf_time_TimeSpec_t timeVal,
                                                                taf_time_TimeSpec_t systemTime);
                 le_result_t SetSystemTime(taf_time_TimeSpec_t timeVal,
                                            taf_time_TimeSources_t sourceName, bool ackTimeSvc);
@@ -489,7 +487,7 @@ namespace telux
                                              taf_time_TimeSources_t NewTimeSource);
 
                 le_result_t SetTimeBaseOnConfig(TimeSources serviceCfg,
-                                 taf_time_TimeSources_t* latestActiveTimePtr);
+                                 uint64_t* timeSrcStatusMap);
 
                 static void* SyncTimeTasks(void* contextPtr);
                 static void SyncTimeTimerHandler(le_timer_Ref_t timerRef);
@@ -589,7 +587,6 @@ namespace telux
                 TimeTypeMask SupportTimeMask;
 
                 struct SetTimeStatus* SetTimeSt = NULL;
-                uint64_t TimeSourceStatusMap = 0x0;
                 int64_t AllowOverrideAfterFail = -1;
                 pthread_mutex_t ProtectlocalTime_mutex;
         };

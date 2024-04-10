@@ -412,7 +412,7 @@ void taf_time_RemoveTimeValueChangeHandler
  RETURN VALUE    le_result_t
                  LE_FAULT:             Fail.
                  LE_OK:                Success.
-                 LE_NOT_IMPLEMENTED:   Not Implemented.
+                 LE_UNSUPPORTED:   Not supported.
 
  SIDE EFFECTS
 
@@ -421,16 +421,7 @@ le_result_t taf_time_GetRtcTimeReqAsync(taf_time_AsyncGetTimeReqHandlerFunc_t ha
         void* contextPtr)
 {
     auto& time = taf_Time::GetInstance();
-
-    if (time.isDrvPresent)
-    {
-        return time.GetRtcTimeReqAsync(handlerPtr, contextPtr);
-    }
-    else
-    {
-        LE_ERROR("Unsupported function called - %s\n", __func__);
-    }
-    return LE_NOT_IMPLEMENTED;
+    return time.GetRtcTimeReqAsync(handlerPtr, contextPtr);
 }
 
 /*-------------------------------------------------------------------------
@@ -449,7 +440,7 @@ le_result_t taf_time_GetRtcTimeReqAsync(taf_time_AsyncGetTimeReqHandlerFunc_t ha
  RETURN VALUE    le_result_t
                  LE_FAULT:             Fail.
                  LE_OK:                Success.
-                 LE_NOT_IMPLEMENTED:   Not Implemented.
+                 LE_UNSUPPORTED:   Not supported.
 
  SIDE EFFECTS
 ------------------------------------------------------------------------------*/
@@ -457,15 +448,7 @@ le_result_t taf_time_SetRtcTimeReqAsync(const taf_time_TimeSpec_t* timeValPtr,
         taf_time_AsyncSetTimeReqHandlerFunc_t handlerPtr, void* contextPtr)
 {
     auto& time = taf_Time::GetInstance();
-    if (time.isDrvPresent)
-    {
-        return time.SetRtcTimeReqAsync(timeValPtr, handlerPtr, contextPtr);
-    }
-    else
-    {
-        LE_ERROR("Unsupported function called - %s\n", __func__);
-    }
-    return LE_NOT_IMPLEMENTED;
+    return time.SetRtcTimeReqAsync(timeValPtr, handlerPtr, contextPtr);
 }
 
 /*-------------------------------------------------------------------------

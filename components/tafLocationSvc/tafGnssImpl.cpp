@@ -78,11 +78,14 @@ LE_MEM_DEFINE_STATIC_POOL(PositionSampleRequest, GNSS_POSITION_SAMPLE_MAX, sizeo
 LE_MEM_DEFINE_STATIC_POOL(Client, LE_CONFIG_POSITIONING_ACTIVATION_MAX, sizeof(taf_gnss_Client_t));
 LE_REF_DEFINE_STATIC_MAP(PositionSampleMap, GNSS_POSITION_SAMPLE_MAX);
 void bodyToSensorUtility(telux::loc::DREngineConfiguration& drConfig,
-        const taf_gnss_DrParams_t* drParamsPtr);
+        const taf_gnss_DrParams_t* drParamsPtr,taf_gnss_Client_t* clientRequestPtr,
+        le_result_t* sensor_Result);
 void speedScaleUtility(telux::loc::DREngineConfiguration& drConfig,
-        const taf_gnss_DrParams_t* drParamsPtr);
+        const taf_gnss_DrParams_t* drParamsPtr,taf_gnss_Client_t* clientRequestPtr,
+        le_result_t* speedScale_Result);
 void gyroScaleUtility(telux::loc::DREngineConfiguration& drConfig,
-        const taf_gnss_DrParams_t* drParamsPtr);
+        const taf_gnss_DrParams_t* drParamsPtr,taf_gnss_Client_t* clientRequestPtr,
+        le_result_t* gyroScale_Result);
 taf_Gnss &taf_Gnss::GetInstance()
 {
     static taf_Gnss instance;
@@ -2051,6 +2054,7 @@ void taf_Gnss::InitializeClient
     clientRequestPtr->mChangeEventTime = 0;
     clientRequestPtr->mLeapSeconds = 0;
     clientRequestPtr->mNextLeapSeconds = 0;
+    clientRequestPtr->drParamsMask = 0x1f;//by default enable all masks
     memset(&clientRequestPtr->mSatInfo, 0, sizeof(clientRequestPtr->mSatInfo));
     memset(&clientRequestPtr->mGnssData,0, sizeof(clientRequestPtr->mGnssData));
     clientRequestPtr->mGnssMutexRef = le_mutex_CreateRecursive("GnssMutexCl");
@@ -4938,6 +4942,9 @@ le_result_t taf_Gnss::GetSupportedNmeaSentences
 le_result_t taf_Gnss::SetDRConfig(const taf_gnss_DrParams_t* drParamsPtr)
 {
     le_result_t result = LE_NOT_PERMITTED;
+    le_result_t sensor_Result = LE_OK;
+    le_result_t speedScale_Result = LE_OK;
+    le_result_t gyroScale_Result = LE_OK;
     telux::loc::DREngineConfiguration drConfig;
     drConfig.validMask = static_cast<telux::loc::DRConfigValidity>(0);
     TAF_KILL_CLIENT_IF_RET_VAL( NULL == drParamsPtr, LE_FAULT, "drParamsPtr is NULL");
@@ -4951,11 +4958,22 @@ le_result_t taf_Gnss::SetDRConfig(const taf_gnss_DrParams_t* drParamsPtr)
     {
         case TAF_GNSS_STATE_READY:
         {
-                //Filling the DR parameters
-            bodyToSensorUtility(drConfig,drParamsPtr);
-            speedScaleUtility(drConfig,drParamsPtr);
-            gyroScaleUtility(drConfig,drParamsPtr);
-
+            //Filling the DR parameters
+            bodyToSensorUtility(drConfig,drParamsPtr,clientRequestPtr,&sensor_Result);
+            if(sensor_Result == LE_OUT_OF_RANGE)
+            {
+                return sensor_Result;
+            }
+            speedScaleUtility(drConfig,drParamsPtr,clientRequestPtr,&speedScale_Result);
+            if(speedScale_Result == LE_OUT_OF_RANGE)
+            {
+                return speedScale_Result;
+            }
+            gyroScaleUtility(drConfig,drParamsPtr,clientRequestPtr,&gyroScale_Result);
+            if(gyroScale_Result == LE_OUT_OF_RANGE)
+            {
+                return gyroScale_Result;
+            }
             std::promise<le_result_t> p;
             auto cb = [&p](telux::common::ErrorCode error) {
                 if(error == telux::common::ErrorCode::SUCCESS) {
@@ -5005,32 +5023,140 @@ le_result_t taf_Gnss::SetDRConfig(const taf_gnss_DrParams_t* drParamsPtr)
 }
 
 void bodyToSensorUtility(telux::loc::DREngineConfiguration& drConfig,
-        const taf_gnss_DrParams_t* drParamsPtr)
+        const taf_gnss_DrParams_t* drParamsPtr,taf_gnss_Client_t* clientRequestPtr,
+        le_result_t* sensor_Result)
 {
-    drConfig.validMask |= telux::loc::DRConfigValidityType::BODY_TO_SENSOR_MOUNT_PARAMS_VALID;
-    drConfig.mountParam.rollOffset =(float) drParamsPtr->rollOffset;
-    drConfig.mountParam.yawOffset = (float) drParamsPtr->yawOffset;
-    drConfig.mountParam.pitchOffset = (float) drParamsPtr->pitchOffset;
-    drConfig.mountParam.offsetUnc = (float) drParamsPtr->offsetUnc;
+    if(clientRequestPtr->drParamsMask & TAF_GNSS_BODY_TO_SENSOR_MOUNT_PARAMS_VALID)
+    {
+        LE_DEBUG("SetDRConfig validMask is BODY_TO_SENSOR_MOUNT_PARAMS_VALID");
+        drConfig.validMask |= telux::loc::DRConfigValidityType::BODY_TO_SENSOR_MOUNT_PARAMS_VALID;
+        if((float) (drParamsPtr->rollOffset >=-180.0) && (float) (drParamsPtr->rollOffset <=180.0))
+        {
+            drConfig.mountParam.rollOffset =(float) drParamsPtr->rollOffset;
+        }
+        else
+        {
+            *sensor_Result = LE_OUT_OF_RANGE;
+             LE_ERROR("SetDRConfig -> rollOffSet out of range");
+        }
+        if((float) (drParamsPtr->yawOffset >=-180.0) && (float) (drParamsPtr->yawOffset <=180.0))
+        {
+            drConfig.mountParam.yawOffset = (float) drParamsPtr->yawOffset;
+        }
+        else
+        {
+            *sensor_Result = LE_OUT_OF_RANGE;
+             LE_ERROR("SetDRConfig -> yawOffset out of range");
+        }
+        if((float) (drParamsPtr->pitchOffset >=-180.0) && (float) (drParamsPtr->pitchOffset <=180.0))
+        {
+            drConfig.mountParam.pitchOffset = (float) drParamsPtr->pitchOffset;
+        }
+        else
+        {
+            *sensor_Result = LE_OUT_OF_RANGE;
+             LE_ERROR("SetDRConfig -> pitchOffset out of range");
+        }
+        if((float) (drParamsPtr->offsetUnc >=-180.0) && (float) (drParamsPtr->offsetUnc <=180.0))
+        {
+            drConfig.mountParam.offsetUnc = (float) drParamsPtr->offsetUnc;
+        }
+        else
+        {
+            *sensor_Result = LE_OUT_OF_RANGE;
+             LE_ERROR("SetDRConfig -> offsetUnc out of range");
+        }
+    }
+    else
+    {
+        LE_ERROR("SetDRConfig invalidMask body to sensor mount params");
+    }
 }
 
 void speedScaleUtility(telux::loc::DREngineConfiguration& drConfig,
-        const taf_gnss_DrParams_t* drParamsPtr)
+        const taf_gnss_DrParams_t* drParamsPtr,taf_gnss_Client_t* clientRequestPtr,
+        le_result_t* speedScale_Result)
 {
-    drConfig.validMask |= telux::loc::DRConfigValidityType::VEHICLE_SPEED_SCALE_FACTOR_VALID;
-    drConfig.speedFactor = (float) drParamsPtr->speedFactor;
-    drConfig.validMask |= telux::loc::DRConfigValidityType::VEHICLE_SPEED_SCALE_FACTOR_UNC_VALID;
-    drConfig.speedFactorUnc = (float) drParamsPtr->speedFactorUnc;
+    if(clientRequestPtr->drParamsMask & TAF_GNSS_VEHICLE_SPEED_SCALE_FACTOR_VALID)
+    {
+        LE_DEBUG("SetDRConfig validMask is VEHICLE_SPEED_SCALE_FACTOR_VALID");
+        drConfig.validMask |= telux::loc::DRConfigValidityType::VEHICLE_SPEED_SCALE_FACTOR_VALID;
+        if((float)(drParamsPtr->speedFactor>=0.9) && (float)(drParamsPtr->speedFactor<=1.1))
+        {
+            drConfig.speedFactor = (float) drParamsPtr->speedFactor;
+        }
+        else
+        {
+            *speedScale_Result = LE_OUT_OF_RANGE;
+            LE_DEBUG("SetDRConfig -> speed scale factor out of range");
+        }
+    }
+    else
+    {
+        LE_DEBUG("SetDRConfig invalidMask vechile speed scale factor");
+    }
+    if(clientRequestPtr->drParamsMask & TAF_GNSS_VEHICLE_SPEED_SCALE_FACTOR_UNC_VALID)
+    {
+        LE_DEBUG("SetDRConfig validMask is VEHICLE_SPEED_SCALE_FACTOR_UNC_VALID");
+        drConfig.validMask |= telux::loc::DRConfigValidityType::VEHICLE_SPEED_SCALE_FACTOR_UNC_VALID;
+        if((float)(drParamsPtr->speedFactorUnc>=0.0) && (float)(drParamsPtr->speedFactorUnc<=0.1))
+        {
+            drConfig.speedFactorUnc = (float) drParamsPtr->speedFactorUnc;
+        }
+        else
+        {
+            *speedScale_Result = LE_OUT_OF_RANGE;
+            LE_DEBUG("SetDRConfig -> speed scale unc factor out of range");
+        }
+    }
+    else
+    {
+        LE_DEBUG("SetDRConfig invalidMask vechile speed scale unc factor");
+    }
 }
 
 void gyroScaleUtility(telux::loc::DREngineConfiguration& drConfig,
-        const taf_gnss_DrParams_t* drParamsPtr)
+        const taf_gnss_DrParams_t* drParamsPtr,taf_gnss_Client_t* clientRequestPtr,
+        le_result_t* gyroScale_Result)
 {
-    drConfig.validMask |= telux::loc::DRConfigValidityType::GYRO_SCALE_FACTOR_VALID;
-    drConfig.gyroFactor = (float) drParamsPtr->gyroFactor;
-    drConfig.validMask |= telux::loc::DRConfigValidityType::GYRO_SCALE_FACTOR_UNC_VALID;
-    drConfig.gyroFactorUnc = (float) drParamsPtr->gyroFactorUnc;
+    if(clientRequestPtr->drParamsMask & TAF_GNSS_GYRO_SCALE_FACTOR_VALID)
+    {
+        LE_DEBUG("SetDRConfig validMask is GYRO_SCALE_FACTOR_VALID");
+        drConfig.validMask |= telux::loc::DRConfigValidityType::GYRO_SCALE_FACTOR_VALID;
+        if((float)(drParamsPtr->gyroFactor>=0.9) && (float)(drParamsPtr->gyroFactor<=1.1))
+        {
+            drConfig.gyroFactor = (float) drParamsPtr->gyroFactor;
+        }
+        else
+        {
+            *gyroScale_Result = LE_OUT_OF_RANGE;
+            LE_DEBUG("SetDRConfig -> gyro factor out of range");
+        }
+    }
+    else
+    {
+         LE_DEBUG("SetDRConfig InvalidMask gyro scale factor");
+    }
+    if(clientRequestPtr->drParamsMask & TAF_GNSS_GYRO_SCALE_FACTOR_UNC_VALID)
+    {
+        LE_DEBUG("SetDRConfig validMask is GYRO_SCALE_FACTOR_UNC_VALID");
+        drConfig.validMask |= telux::loc::DRConfigValidityType::GYRO_SCALE_FACTOR_UNC_VALID;
+        if((float)(drParamsPtr->gyroFactorUnc>=0.0) && (float)(drParamsPtr->gyroFactorUnc<=0.1))
+        {
+            drConfig.gyroFactorUnc = (float) drParamsPtr->gyroFactorUnc;
+        }
+        else
+        {
+            *gyroScale_Result = LE_OUT_OF_RANGE;
+            LE_DEBUG("SetDRConfig -> gyro factor unc out of range");
+        }
+    }
+    else
+    {
+         LE_DEBUG("SetDRConfig InvalidMask gyro scale unc factor");
+    }
 }
+
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 le_result_t taf_Gnss::ConfigureEngineState
 (
@@ -7207,4 +7333,39 @@ void taf_Gnss::Init()
     le_msg_AddServiceCloseHandler(msgService, CloseEventHandler, NULL);
 
     return;
+}
+le_result_t taf_Gnss::SetDRConfigValidity(taf_gnss_DRConfigValidityType_t validMask)
+{
+    le_result_t result = LE_NOT_PERMITTED;
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+
+ // Check the GNSS device state
+    switch (clientRequestPtr->GnssState)
+    {
+        case TAF_GNSS_STATE_READY:
+        {
+            clientRequestPtr->drParamsMask = validMask;
+            LE_DEBUG("SetDRConfigValidity clientRequestPtr->drParamsMask:%d",clientRequestPtr->drParamsMask);
+            result = LE_OK;
+        }
+        break;
+        case TAF_GNSS_STATE_UNINITIALIZED:
+        case TAF_GNSS_STATE_ACTIVE:
+        case TAF_GNSS_STATE_DISABLED:
+        {
+            LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
+            result = LE_NOT_PERMITTED;
+        }
+        break;
+        default:
+        {
+            LE_ERROR("Unknown GNSS state %d", clientRequestPtr->GnssState);
+            result = LE_FAULT;
+        }
+        break;
+    }
+    return result;
 }

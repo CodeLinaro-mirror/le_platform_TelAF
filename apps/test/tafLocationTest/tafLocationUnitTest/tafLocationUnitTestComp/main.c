@@ -3584,6 +3584,16 @@ static void TestTafGnssEngines
     le_result_t result = LE_FAULT;
     int engineType;
     int engineState;
+    taf_gnss_DRConfigValidityType_t drParamsMask = 0;
+    drParamsMask |= TAF_GNSS_BODY_TO_SENSOR_MOUNT_PARAMS_VALID;
+    drParamsMask |= TAF_GNSS_VEHICLE_SPEED_SCALE_FACTOR_VALID;
+    drParamsMask |= TAF_GNSS_VEHICLE_SPEED_SCALE_FACTOR_UNC_VALID;
+    drParamsMask |= TAF_GNSS_GYRO_SCALE_FACTOR_VALID;
+    drParamsMask |= TAF_GNSS_GYRO_SCALE_FACTOR_UNC_VALID;
+    //SetDRConfigValidity -Success
+    result = taf_gnss_SetDRConfigValidity(drParamsMask);
+    LE_TEST_OK(result == LE_OK, "taf_gnss_SetDRConfigValidity-LE_OK");
+
     taf_gnss_DrParams_t *drParamsPtr;
     DrFramePool = le_mem_CreatePool("DrframePool", sizeof(taf_gnss_DrParams_t));
     drParamsPtr = (taf_gnss_DrParams_t*) le_mem_ForceAlloc(DrFramePool);
@@ -3602,10 +3612,26 @@ static void TestTafGnssEngines
     result = taf_gnss_SetDRConfig(drParamsPtr);
     LE_TEST_OK(result == LE_OK, "taf_gnss_SetDRConfig-LE_OK");
 
-    //94.SetDRConfig -Failure
+    //94.SetDRConfig -offset parameter Out of range
     drParamsPtr->offsetUnc = 180.1;
     result = taf_gnss_SetDRConfig(drParamsPtr);
-    LE_TEST_OK(result == LE_FAULT, "taf_gnss_SetDRConfig-LE_FAULT");
+    LE_TEST_OK(result == LE_OUT_OF_RANGE, "taf_gnss_SetDRConfig-LE_OUT_OF_RANGE");
+
+    //SetDRConfig -Speed factor parmaters Out of range
+    drParamsPtr->offsetUnc = 180.0;
+    drParamsPtr->speedFactor = 1.2;
+    drParamsPtr->speedFactorUnc = 0.2;
+    result = taf_gnss_SetDRConfig(drParamsPtr);
+    LE_TEST_OK(result == LE_OUT_OF_RANGE, "taf_gnss_SetDRConfig-LE_OUT_OF_RANGE");
+
+    //SetDRConfig -Gyro parmaters Out of range
+    drParamsPtr->offsetUnc = 180.0;
+    drParamsPtr->speedFactor = 1.0;
+    drParamsPtr->speedFactorUnc = 0.0;
+    drParamsPtr->gyroFactor = 1.2;
+    drParamsPtr->gyroFactorUnc = 0.2;
+    result = taf_gnss_SetDRConfig(drParamsPtr);
+    LE_TEST_OK(result == LE_OUT_OF_RANGE, "taf_gnss_SetDRConfig-LE_OUT_OF_RANGE");
 
     //95.Start
     LE_TEST_INFO("wait for 3 seconds");

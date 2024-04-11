@@ -344,6 +344,7 @@ namespace tafsvc {
         le_mutex_Ref_t mGnssMutexRef;
         bool mSvEnabled = false;
         bool mGnssSigEnabled = false;
+        taf_gnss_DRConfigValidityType_t drParamsMask;
         le_dls_Link_t               next;
     }
     taf_gnss_Client_t;
@@ -493,6 +494,7 @@ namespace tafsvc {
             le_result_t GetXtraStatus(taf_gnss_XtraStatusParams_t* xtraParams);
             le_result_t GetGnssData(taf_gnss_SampleRef_t positionSampleRef,taf_gnss_GnssData_t* gnssDataPtr,size_t* maxSignalTypes);
 
+            le_result_t SetDRConfigValidity(taf_gnss_DRConfigValidityType_t validMask);
             le_mem_PoolRef_t   PositionHandlerPoolRef;
             le_mem_PoolRef_t   PositionSampleRequestPoolRef;
             le_mem_PoolRef_t   PositionSamplePoolRef;

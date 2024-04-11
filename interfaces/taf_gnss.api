@@ -634,6 +634,7 @@
    }
    @endverbatim
  * - taf_gnss_SetDRConfig() -- Triggered to configure the dead reckoning parameters.
+ *                             By default all DRE parameters mask get enabled.
  * @verbatim
    taf_gnss_DrParams_t *drParamsPtr;
    static le_mem_PoolRef_t DrFramePool = NULL;
@@ -649,7 +650,7 @@
    drParamsPtr->gyroFactorUnc = 0.0;
    if(taf_gnss_SetDRConfig(drParamsPtr) == LE_OK)
    {
-     // Process after successfully configuring the dead reckoning parameters.
+     // Process after successfully configuring the dead reckoning parameters with the default mask enabled.
    }
    le_mem_Release(drParamsPtr);
  * - taf_gnss_SetLeverArmConfig() -- Triggered to configure the lever arm parameters.
@@ -973,6 +974,36 @@
    }
    @endverbatim
  *
+ *
+ * - taf_gnss_SetDRConfigValidity() -- Sets the dead reckoning parameters validity mask.
+ * @verbatim
+   taf_gnss_DRConfigValidityType_t drParamsMask;
+   taf_gnss_DrParams_t *drParamsPtr;
+   drParamsMask |= TAF_GNSS_BODY_TO_SENSOR_MOUNT_PARAMS_VALID;
+   drParamsMask |= TAF_GNSS_VEHICLE_SPEED_SCALE_FACTOR_VALID;
+   drParamsMask |= TAF_GNSS_VEHICLE_SPEED_SCALE_FACTOR_UNC_VALID;
+   drParamsMask |= TAF_GNSS_GYRO_SCALE_FACTOR_VALID;
+   drParamsMask |= TAF_GNSS_GYRO_SCALE_FACTOR_UNC_VALID;
+   static le_mem_PoolRef_t DrFramePool = NULL;
+   DrFramePool = le_mem_CreatePool("DrframePool", sizeof(taf_gnss_DrParams_t));
+   drParamsPtr = (taf_gnss_DrParams_t*) le_mem_ForceAlloc(DrFramePool);
+   drParamsPtr->rollOffset = 1.2;
+   drParamsPtr->yawOffset = 2.3;
+   drParamsPtr->pitchOffset = 3.4;
+   drParamsPtr->offsetUnc = 180.0;
+   drParamsPtr->speedFactor = 1.0;
+   drParamsPtr->speedFactorUnc = 0.0;
+   drParamsPtr->gyroFactor = 1.0;
+   drParamsPtr->gyroFactorUnc = 0.0;
+   if(taf_gnss_SetDRConfigValidity(drParamsMask) == LE_OK)
+   {
+     // Process after successfully setting the dead reckoning parameters validity mask.
+   }
+   if(taf_gnss_SetDRConfig(drParamsPtr) == LE_OK)
+   {
+     // Process after successfully configuring the dead reckoning parameters with the mask enabled.
+   }
+   le_mem_Release(drParamsPtr);
  *
  * @subsection taf_gnss_GetLeapSeconds Get leap seconds event information
  *
@@ -2207,6 +2238,20 @@ ENUM XtraDataStatus
                                 ///  and is currently valid.
 };
 
+//------------------------------------------------------------------------------------------------
+/**
+ * Specify the valid mask for the configuration parameters of dead reckoning position engine.
+ */
+//------------------------------------------------------------------------------------------------
+BITMASK DRConfigValidityType
+{
+    BODY_TO_SENSOR_MOUNT_PARAMS_VALID,    ///< Validity of body to sensor mount parameters.
+    VEHICLE_SPEED_SCALE_FACTOR_VALID,     ///< Validity of vehicle speed scale factor.
+    VEHICLE_SPEED_SCALE_FACTOR_UNC_VALID, ///< Validity of vehicle speed scale factor uncertainty.
+    GYRO_SCALE_FACTOR_VALID,              ///< Validity of gyro scale factor.
+    GYRO_SCALE_FACTOR_UNC_VALID           ///< Validity of gyro scale factor uncertainty.
+};
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Dead reckoning configuration parameters.
@@ -2837,13 +2882,15 @@ FUNCTION le_result_t GetNmeaSentences
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets the dead reckoning configuration parameters.
+ * Sets the dead reckoning configuration parameters with default mask enabled.
+ * By default all DRE parameters mask get enabled while triggering this API. To change the mask
+ * taf_gnss_SetDRConfigValidity() API can be called to set particular DRE parameter mask.
+ * The mask gets updated and this API can be called to configure the DRE parameters with the updated mask.
  *
  * @return
  *  - LE_OK             Succeeded.
  *  - LE_FAULT          Failed.
- *  - LE_BUSY           Service is busy.
- *  - LE_TIMEOUT        Timeout occurred.
+ *  - LE_OUT_OF_RANGE   Dead reckoning parameters out of range.
  *  - LE_NOT_PERMITTED  Location service is not ready.
  *
  * @note If the caller passes a null pointer to this function, it is a fatal error, the
@@ -3273,7 +3320,7 @@ FUNCTION le_result_t GetLocationOutputEngParams
 (
     Sample positionSampleRef IN,    ///< Position sample reference.
     uint16 engMaskPtr OUT,          ///< Engine type bit mask. @ref EngineMask
-    uint16 engTypePtr OUT           ///< Location engine type. @ref EngineType
+    uint16 engTypePtr OUT           ///< Location engine type. @ref LocationAggregationType
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -3575,4 +3622,20 @@ FUNCTION le_result_t GetGnssData
 (
     Sample positionSampleRef                         IN, ///< Position sample reference
     GnssData gnssDataPtr[NUMBER_OF_SIGNAL_TYPES_MAX] OUT ///< GNSS data in Jammer indication and AGC.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the dead reckoning parameters validity mask.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_NOT_PERMITTED  Location service is not ready.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetDRConfigValidity
+(
+    DRConfigValidityType validMask   IN ///< Validity mask for dead reckoning parameters.
 );

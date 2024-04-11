@@ -1,0 +1,20 @@
+sources:
+{
+    configuration.cpp
+}
+
+provides:
+{
+    headerDir:
+    {
+       $CURDIR
+    }
+}
+
+bundles:
+{
+    file:
+    {
+        [rw] ${CURDIR}/diag_template.yaml.json /diag_template.yaml.json
+    }
+}

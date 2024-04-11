@@ -4,14 +4,11 @@
 
 TARGETS += simulation menuconfig_simulation
 
-# For outputing the simulation related details, within 'Q=' in make command
-# BTW, for all details for TelAF & Legato, within 'Q= V=1' in make command
+# For outputing the simulation related details, along with 'Q=' in make command
+# BTW, for all details for TelAF & Legato, along with 'Q= V=1' in make command
 Q ?=@
 
 -include $(TELAF_ROOT)/simulation/.simulation.build
-
-# If you want make a compilation in your docker container, get along with below.
-export within ?=
 
 # Sometimes, due to docker's caching, it can lead docker image rebuilding failure.
 # So we need to add some options for building images, such as "--no-cache"
@@ -70,9 +67,7 @@ else
 endif
 
 MKTOOLS_FLAGS_SIMULATION_EX += --cxxflags=-I$(sdk_rootfs)/include \
-                               --cxxflags=-I$(SIMULATION_DEPS_ROOTFS)/include \
-                               --ldflags=-L$(sdk_rootfs)/lib \
-                               --ldflags=-L$(SIMULATION_DEPS_ROOTFS)/lib
+                               --ldflags=-L$(sdk_rootfs)/lib
 
 export TELAF_SIMULATION_ENABLE_SMS ?= n
 export TELAF_SIMULATION_ENABLE_DCS ?= n
@@ -91,7 +86,7 @@ endif
 
 export TELAF_SIMULATION_ENABLE_SOMEIP_GW ?= y
 export TELAF_SIMULATION_ENABLE_DIAG ?= n
-export TELAF_SIMULATION_ENABLE_CAPI ?= y
+export TELAF_SIMULATION_ENABLE_CAPI ?= n
 
 SIMULATION_SOMEIP_GW_DEPS_y := _vsomeip
 SIMULATION_COMMON_API_DEPS_y := _capi_core_rt _capi_someip_rt _capi_tools
@@ -114,27 +109,18 @@ export MKTOOLS_FLAGS_SIMULATION_EX
 
 .PHONY: simulation
 
-ifeq ($(within),)
+ifeq ($(XDEBUG),on)
+  export DEBUG=1
+  export STRIP_STAGING_TREE=0
+  XDEBUG_ACTION:=simula-clean-config
+endif
 
-  ifeq ($(XDEBUG),on)
-    export DEBUG=1
-    export STRIP_STAGING_TREE=0
-    simula simulac simula-c: simula-clean-config check-sys pre-simulation-build simulation post-simulation-build
-  else
-    simula simulac simula-c: check-sys pre-simulation-build simulation post-simulation-build
-  endif # end XDEBUG
+simula simulac simula-c: $(XDEBUG_ACTION) check-sys pre-simulation-build simulation post-simulation-build
+simulax simula-x simulacx simula-cx: clean_check_done_flag simula-up-develop-for-c
 
-else # below includes the appending 'within' option
-
-  ifeq ($(XDEBUG),on)
-    export DEBUG=1
-    export STRIP_STAGING_TREE=0
-    simula simulac simula-c: simula-clean-config simula-up-develop-for-c
-  else
-    simula simulac simula-c: simula-up-develop-for-c
-  endif # end XDEBUG
-
-endif # end within
+clean_check_done_flag:
+	$Q echo "In container for compilation, we are always check the system dependencies."
+	$Q rm -f $(SIMULATION_HOME)/workstation/.check_done
 
 check-sys:
 	$Q echo "TelAF Simulation pre-checking your system ..."
@@ -241,11 +227,11 @@ simula-help:
 	@echo
 	@echo "  Examples:"
 	@echo "    > make simula-list"
-	@echo "    > make simula within='make simula'"
+	@echo "    > make simula-build-runtime from=ubuntu:20.04"
 	@echo
 	@echo "  >> simula-action-args"
-	@echo "    - within='command'"
 	@echo "    - from='hub-address'"
+	@echo "    - sdk_rootfs='/absolute/path/to/sdk/rootfs'"
 	@echo
 	@echo "  >> simula-action supported list as follows"
 	@echo "    - List & Switch simulation container distro system versions (default Ubuntu18.04)"
@@ -254,14 +240,16 @@ simula-help:
 	@echo "      + simula-distro-2004             -- Switch the system distro version to Ubuntu20.04"
 	@echo
 	@echo "    - Compile your simulation project on your HOST or CONTAINER"
-	@echo "      + simula | simulac               -- Incrementally compile simulation open source code on HOST"
+	@echo "      + simula | simulac  | simula-c   -- Incrementally compile simulation open source code on HOST"
+	@echo "                                       -- (workstation/.simulation.build) if needed, create and add Makefile variables"
+	@echo "      + simulax| simulacx | simula-cx  -- Incrementally compile simulation open source code in CONTAINER"
+	@echo "                                       -- (workstation/.simula.dev.action.sh) if needed, create and add shell commands"
 	@echo "      + simula-clean                   -- Just deep clean your simulation project"
-	@echo "      + simula within='<command>'      -- Incrementally compile simulation open source code in CONTAINER"
 	@echo
 	@echo "    - Build your simulation docker containers cli, depends which system version you selected (see 'simula-list')"
 	@echo "      + simula-build-runtime           -- Build a runtime docker image for running TelAF Simulation"
 	@echo "      + simula-build-develop           -- Build a develop docker image for developing Simulation in it"
-	@echo "      + simula-build-all               -- Build all docker images along with [runtime, develop, oncecmd]"
+	@echo "      + simula-build-all               -- Build all docker images including [runtime, develop]"
 	@echo "      + simula-build-runtime from='hub-address'"
 	@echo "                                       -- Specify a hub address you want to get the ubuntu base image and build it"
 	@echo
@@ -293,10 +281,11 @@ simula-upx simula-upx-runtime:
 	$(call up_simulation_container,up_runtime_master.sh)
 
 simula-up-develop:
-	$(call up_simulation_container,up_develop.sh)
+	$Q /bin/bash $(CURDIR)/simulation/scripts/up_develop.sh -i $(get_which_one)
 
 simula-up-develop-for-c:
-	$(call up_simulation_container,up_develop.sh,$(within))
+	$Q /bin/bash $(CURDIR)/simulation/scripts/up_develop.sh -v -m $(get_which_one)
+	$Q echo "Compiled from --> [$@] [dversion: $(get_which_one)]"
 
 simula-list simula-list-distro:
 	$Q echo "TelAF Simulation support list:"
@@ -324,7 +313,7 @@ simula-listimg simula-list-all-docker-images:
 
 simula-rm-dangling simula-remove-docker-dangling-images:
 	$Q echo "[$@] Removing dangling images..."
-	$Q docker rmi $$(docker images -f "dangling=true" -q)
+	$Q docker images -f "dangling=true" -q | xargs -r docker rmi
 	$Q echo "[$@] remove dangling images done."
 
 simula-listv simula-list-simulation-volumes:
@@ -337,8 +326,12 @@ simula-listallv simula-list-all-volumes:
 
 simula-rmv simula-remove-simulation-volumes:
 	$Q echo "[$@] detele all telaf simulation volumes ..."
-	$Q docker volume rm $$(docker volume ls -qf "name=telaf")
+	$Q docker volume ls -qf "name=telaf" | xargs -r docker volume rm
 	$Q echo "[$@] detele all telaf simulation volumes done."
+
+simula-rm-app simula-remove-simulation-app-volume:
+	$Q docker volume ls --format '{{.Name}}' | grep -E '^telaf.*app$$' | xargs -r docker volume rm
+	$Q echo "[$@] detele app volume done."
 
 simula-remove-all-volumes:
 	$Q echo "[$@] detele all volumes ..."
@@ -354,7 +347,7 @@ simula-clean-system:
 	$Q rm -rf build/simulation/{_staging_system.simulation.update,system}
 
 simula-rm-network:
-	$Q docker network rm $$(docker network ls -q --filter="name=telaf_simulation_runtime") > /dev/null
+	$Q docker network ls -q --filter="name=telaf_simulation_runtime" | xargs -r docker network rm
 
 simula-build-config simula-bc:
 	$Q cat $(TELAF_ROOT)/simulation/.simulation.build

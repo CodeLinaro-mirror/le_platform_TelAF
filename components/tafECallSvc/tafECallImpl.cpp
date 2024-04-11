@@ -408,6 +408,8 @@ void taf_ecall::InitializeECallPtr()
 
     ECallObject.isPrieCallOngoing = false;
     ECallObject.type = TAF_ECALL_TYPE_UNKNOWN;
+
+    UpdateMsd();
 }
 
 void taf_ecall::Init(void)

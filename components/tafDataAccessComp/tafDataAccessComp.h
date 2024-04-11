@@ -1,0 +1,382 @@
+/*
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+#ifndef TAF_DATA_ACCESS_COMP_H
+#define TAF_DATA_ACCESS_COMP_H
+
+#include "legato.h"
+
+#ifdef  __cplusplus
+extern "C" {
+#endif
+
+typedef enum
+{
+    DTC_FORMAT_IDENTIFIER_SAE_J2012_00 = 0,
+    DTC_FORMAT_IDENTIFIER_ISO_14229,
+    DTC_FORMAT_IDENTIFIER_SAE_J1939,
+    DTC_FORMAT_IDENTIFIER_ISO_11992,
+    DTC_FORMAT_IDENTIFIER_SAE_J2012_04
+}taf_DataAccess_DTC_Format_t;
+
+typedef struct
+{
+    uint8_t     availableMask;  // User configuration mask
+    uint8_t     formatIdentifier;
+    uint16_t    dtcCnt;
+}taf_DataAccess_NumOfDTC_t;
+
+typedef struct
+{
+    uint32_t    dtc;
+    uint8_t     status;
+    le_dls_Link_t link;
+}taf_DataAccess_DTCStatus_t;
+
+typedef struct
+{
+    uint8_t     availableMask;  // User configuration mask
+    le_dls_List_t dtcStatusRecList;
+}taf_DataAccess_DTCStatusRec_t;
+
+typedef struct
+{
+    uint32_t    dtc;
+    uint8_t     recNumber;
+    le_dls_Link_t link;
+}taf_DataAccess_SnapshotInfo_t;
+
+typedef struct
+{
+    le_dls_List_t snapshotInfoList;
+}taf_DataAccess_SnapshotInfoRec_t;
+
+// Max number of DID in one freeze frame
+#define DATA_ACCESS_FF_DID_SIZE_MAX     10
+#define DATA_ACCESS_DID_DATA_SIZE_MAX    16
+typedef struct
+{
+    uint16_t    did;
+    uint8_t     didDataSize;
+    uint8_t     didData[DATA_ACCESS_DID_DATA_SIZE_MAX];
+}taf_DataAccess_FF_DID_t;
+
+typedef struct
+{
+    uint8_t     recNumber;
+    uint8_t     recDidSize;
+    taf_DataAccess_FF_DID_t didSet[DATA_ACCESS_FF_DID_SIZE_MAX];
+    le_dls_Link_t link;
+}taf_DataAccess_SnapshotData_t;
+
+typedef struct
+{
+    uint32_t    dtc;
+    uint8_t     status;
+    le_dls_List_t snapshotDataList;
+}taf_DataAccess_SnapshotDataRec_t;
+
+// Max number of bytes in one extended data record
+#define DATA_ACCESS_EXT_DATA_SIZE_MAX   16
+typedef struct
+{
+    uint8_t     recNumber;
+    uint16_t    extDataSize;
+    uint8_t     extData[DATA_ACCESS_EXT_DATA_SIZE_MAX];
+    le_dls_Link_t link;
+}taf_DataAccess_ExtData_t;
+
+typedef struct
+{
+    uint32_t    dtc;
+    uint8_t     status;
+    le_dls_List_t extDataList;
+}taf_DataAccess_ExtDataRec_t;
+
+typedef struct
+{
+    uint16_t    eventId;
+    uint32_t    dtc;
+    uint8_t     status;
+    le_dls_Link_t link;
+}taf_DataAccess_EventInfo_t;
+
+typedef struct
+{
+    le_dls_List_t   eventList;
+}taf_DataAccess_EventInfoRec_t;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Initialize Data Access component.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_BAD_PARAMETER  Invalid parameter.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_DataAccess_Init
+(
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get the number of DTCs by the input status mask.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_BAD_PARAMETER  Invalid parameter.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_DataAccess_GetNumOfDtcByStatusMask
+(
+    uint8_t statusMask,                     ///< [IN]
+    taf_DataAccess_NumOfDTC_t *numOfDtcPtr  ///< [Out]
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get the available DTC status mask.
+ *
+ * @return
+ *  - The available DTC status mask.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED uint8_t taf_DataAccess_GetAvailableStatusMask
+(
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get the DTC format identifier.
+ *
+ * @return
+ *  - DTC format identifier.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED uint8_t taf_DataAccess_GetDtcFormatId
+(
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get the DTCs by status mask.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_BAD_PARAMETER  Invalid parameter.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_DataAccess_GetDtcByStatusMask
+(
+    uint8_t statusMask,                         ///< [IN]
+    taf_DataAccess_DTCStatusRec_t *dtcStatusPtr ///< [Out]
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get the supported DTCs.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_BAD_PARAMETER  Invalid parameter.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_DataAccess_GetSupportedDtc
+(
+    taf_DataAccess_DTCStatusRec_t *dtcStatusPtr ///< [Out]
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get the freeze frame(snapshot) information.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_BAD_PARAMETER  Invalid parameter.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_DataAccess_GetSnapshotIdentification
+(
+    taf_DataAccess_SnapshotInfoRec_t *snapshotRecInfoPtr ///< [Out]
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get the freeze frame(snapshot) record based on DTC.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_BAD_PARAMETER  Invalid parameter.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_DataAccess_GetSnapshotRecByDtc
+(
+    uint32_t    dtc,    ///< [IN]
+    uint8_t     recNumber,  ///< [IN]
+    taf_DataAccess_SnapshotDataRec_t *snapshotDataRecPtr ///< [Out]
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get the extended data record based on DTC.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_BAD_PARAMETER  Invalid parameter.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_DataAccess_GetExtDataRecByDtc
+(
+    uint32_t    dtc,    ///< [IN]
+    uint8_t     recNumber,  ///< [IN]
+    taf_DataAccess_ExtDataRec_t *extDataRecPtr ///< [Out]
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Set event status and save it in storage media.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_IO_ERROR       IO operation failed.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_DataAccess_SetEventStatus
+(
+    uint16_t eventId,    ///< [IN]
+    uint8_t status       ///< [IN]
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get event status from storage media.
+ *
+ * @return
+ *  - The status of the event. If not exist, will return 0.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED uint8_t taf_DataAccess_GetEventStatus
+(
+    uint16_t eventId     ///< [IN]
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Set DTC status and save it in storage media.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_IO_ERROR       IO operation failed.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_DataAccess_SetDTCStatus
+(
+    uint32_t dtc,               ///< [IN]
+    uint8_t status,             ///< [IN]
+    uint8_t occurrenceCounter   ///< [IN]
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get DTC status from storage media.
+ *
+ * @return
+ *  - The status of the DTC. If not exist, will return 0.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED uint8_t taf_DataAccess_GetDTCStatus
+(
+    uint32_t dtc        ///< [IN]
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get DTC occurence counter from storage media.
+ *
+ * @return
+ *  - The occurence counter of the DTC. If not exist, will return 0.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED uint8_t taf_DataAccess_GetDTCOccurrenceCounter
+(
+    uint32_t dtc        ///< [IN]
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Set event test failed counter and save it in storage media.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_IO_ERROR       IO operation failed.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_DataAccess_SetEventFailedCounter
+(
+    uint16_t eventId,       ///< [IN]
+    uint8_t failedCounter   ///< [IN]
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Delete all DTC and Event data from storage media.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_IO_ERROR       IO operation failed.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_DataAccess_DeleteAllData
+(
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Delete the DTC data from storage media.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_IO_ERROR       IO operation failed.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_DataAccess_DeleteData
+(
+    uint32_t dtc
+);
+
+#ifdef  __cplusplus
+}
+#endif
+
+#endif  // TAF_DATA_ACCESS_COMP_H

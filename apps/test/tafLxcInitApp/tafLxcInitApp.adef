@@ -1,0 +1,18 @@
+sandboxed: false
+start: auto
+maxThreads: 300
+
+executables:
+{
+    tafLxcInitApp = ( tafLxcInitComp )
+}
+
+
+processes:
+{
+    run:
+    {
+        (tafLxcInitApp)
+    }
+    maxFileBytes: 262144K
+}

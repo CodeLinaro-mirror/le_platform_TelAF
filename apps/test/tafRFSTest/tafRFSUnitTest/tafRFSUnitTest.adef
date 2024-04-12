@@ -1,0 +1,17 @@
+start: manual
+sandboxed: false
+
+
+executables:
+{
+    tafRFSUnitTest = ( tafRFSUnitTest )
+}
+
+processes:
+{
+    run:
+    {
+        ( tafRFSUnitTest )
+    }
+}
+

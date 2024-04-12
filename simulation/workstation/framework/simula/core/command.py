@@ -58,7 +58,6 @@ def dispatch_subcmd_jobs(args):
                 args.rfile,args.from_pattern, args.to_pattern))
             t_replace.replace(args.rfile, args.from_pattern, args.to_pattern)
         if args.tools == "diag":
-            print(args)
             diag_client.to_do(args.cfile, args.s_ip, args.s_logaddr)
 
 

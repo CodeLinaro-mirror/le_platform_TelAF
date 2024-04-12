@@ -804,14 +804,6 @@ void taf_UpdateSvr::RxFileXferEventHandler
         goto errOut;
     }
 
-    if ((svcPtr->state == TAF_DIAG_UPDATE_EXIT)
-        && (msgPtr->operationType == TAF_DIAG_UPDATE_RESUME_FILE))
-    {
-        LE_DEBUG("The update state(0x%x) is incorrect", svcPtr->state);
-        nrc = TAF_DIAG_REQUEST_SEQUENCE_ERROR;  // requestSequenceError
-        goto errOut;
-    }
-
     if (svcPtr->fileXferRef == NULL)
     {
         LE_DEBUG("Did not register RequestFileTransfer handler for update service");
@@ -839,7 +831,8 @@ void taf_UpdateSvr::RxFileXferEventHandler
     if (msgPtr->operationType == TAF_DIAG_UPDATE_ADD_FILE
         || msgPtr->operationType == TAF_DIAG_UPDATE_REPLACE_FILE
         || msgPtr->operationType == TAF_DIAG_UPDATE_READ_FILE
-        || msgPtr->operationType == TAF_DIAG_UPDATE_READ_DIR)
+        || msgPtr->operationType == TAF_DIAG_UPDATE_READ_DIR
+        || msgPtr->operationType == TAF_DIAG_UPDATE_RESUME_FILE)
     {
         if (svcPtr->state != TAF_DIAG_UPDATE_TRANS)
         {
@@ -1143,6 +1136,99 @@ le_result_t taf_UpdateSvr::GetCompFileSize
     return LE_OK;
 }
 
+/*
+ * Converts a given number to big-endian format and stores it in a destination buffer.
+ */
+static void BigEndianNumberFormat(size_t number, uint8_t *buffer, size_t bufsiz)
+{
+    for (size_t i = 0; i < bufsiz; i++)
+    {
+        buffer[i] = (number >> (8 * (bufsiz - i - 1))) & 0xFF;
+    }
+}
+
+/*
+ * Calculating a number requires how many bytes to storage.
+ */
+static uint16_t HowManyChars(uint64_t bigNumber)
+{
+    uint16_t nbytes = 0;
+    while (bigNumber) {
+        bigNumber >>= 1;
+        nbytes++;
+    }
+
+    nbytes = (nbytes + 7) / 8;
+    return nbytes;
+}
+
+le_result_t taf_UpdateSvr::SetFilePosition(
+    taf_diagUpdate_RxFileXferMsgRef_t rxMsgRef,
+    uint64_t filePosition
+)
+{
+    TAF_ERROR_IF_RET_VAL(rxMsgRef == NULL, LE_BAD_PARAMETER, "Invalid rxMsgRef");
+
+    taf_FileXferRxMsg_t* msgPtr = (taf_FileXferRxMsg_t*)
+                                  le_ref_Lookup(RxFileXferMsgRefMap, rxMsgRef);
+    TAF_ERROR_IF_RET_VAL(msgPtr == NULL, LE_NOT_FOUND, "Cannot find the msg reference");
+    TAF_ERROR_IF_RET_VAL(msgPtr->operationType != TAF_DIAGUPDATE_RESUME_FILE,
+                         LE_BAD_PARAMETER, "Set filePosition in not RESULE_FILE context");
+
+    LE_DEBUG("File Position: %" PRIu64, filePosition);
+    BigEndianNumberFormat(filePosition, mFilePosition, TAF_DIAGUPDATE_FILE_POSITION_SIZE);
+
+    return LE_OK;
+}
+
+le_result_t taf_UpdateSvr::SetFileSizeOrDirInfoLength(
+    taf_diagUpdate_RxFileXferMsgRef_t rxMsgRef,
+    uint64_t fileSizeUncompressedOrDirInfoLength,
+    uint64_t fileSizeCompressed
+)
+{
+    TAF_ERROR_IF_RET_VAL(rxMsgRef == NULL, LE_BAD_PARAMETER, "Invalid rxMsgRef");
+
+    taf_FileXferRxMsg_t* msgPtr = (taf_FileXferRxMsg_t*)
+                                  le_ref_Lookup(RxFileXferMsgRefMap, rxMsgRef);
+    TAF_ERROR_IF_RET_VAL(msgPtr == NULL, LE_NOT_FOUND, "Cannot find the msg reference");
+
+    if (fileSizeUncompressedOrDirInfoLength > UINT32_MAX
+    ||  fileSizeCompressed > UINT32_MAX)
+    {
+        LE_ERROR("Too big file size more than 4G");
+        return LE_OVERFLOW;
+    }
+
+    if (msgPtr->operationType != TAF_DIAGUPDATE_READ_FILE
+    &&  msgPtr->operationType != TAF_DIAGUPDATE_READ_DIR)
+    {
+        LE_ERROR("Set fileSizeOrDirInfoLength in not READ_FILE or READ_DIR context");
+        return LE_BAD_PARAMETER;
+    }
+
+    nCharsToSave = HowManyChars(fileSizeUncompressedOrDirInfoLength);
+    nCharsToNotUsed = TAF_DIAGUPDATE_FILE_SIZE_OR_DIR_INFO_LEN - nCharsToSave;
+
+    BigEndianNumberFormat(fileSizeUncompressedOrDirInfoLength,
+                          mFileSizeUncompressedOrDirInfoLength,
+                          TAF_DIAGUPDATE_FILE_SIZE_OR_DIR_INFO_LEN);
+    LE_DEBUG("fileSizeUncompressedOrDirInfoLength: %" PRIu64, fileSizeUncompressedOrDirInfoLength);
+
+    if (msgPtr->operationType == TAF_DIAGUPDATE_READ_FILE)
+    {
+        BigEndianNumberFormat(fileSizeCompressed,
+                              mFileSizeCompressed,
+                              TAF_DIAGUPDATE_FILE_SIZE_OR_DIR_INFO_LEN);
+    }
+    LE_DEBUG("fileSizeCompressed: %" PRIu64, fileSizeCompressed);
+
+    BigEndianNumberFormat(nCharsToSave, mFileSizeOrDirInfoParameterLength, SIZE_OF_FSDIL);
+    LE_DEBUG("fileSizeOrDirInfoParameterLength = %d", nCharsToSave);
+
+    return LE_OK;
+}
+
 le_result_t taf_UpdateSvr::SendFileXferResp
 (
     taf_diagUpdate_RxFileXferMsgRef_t rxMsgRef,
@@ -1175,12 +1261,58 @@ le_result_t taf_UpdateSvr::SendFileXferResp
     addrInfo.taType = msgPtr->addrInfo.taType;
     if (errCode == TAF_DIAGUPDATE_FILE_XFER_NO_ERROR)
     {
-        ret = RspPositiveMsg(&addrInfo, msgPtr->serviceId, NULL, 0);
+        uint8_t *buffer = NULL ;
+        uint16_t bufsize = 0;
+
+        LE_INFO("MOOP = 0x%02X", (int)msgPtr->operationType);
+
+        if (msgPtr->operationType == TAF_DIAGUPDATE_RESUME_FILE)
+        {
+            buffer = mFilePosition;
+            bufsize = TAF_DIAGUPDATE_FILE_POSITION_SIZE;
+        }
+        else if (msgPtr->operationType == TAF_DIAGUPDATE_READ_DIR)
+        {
+            uint8_t d_buffer[SIZE_OF_FSDIL + TAF_DIAGUPDATE_FILE_SIZE_OR_DIR_INFO_LEN] = {0};
+            memcpy(d_buffer, mFileSizeOrDirInfoParameterLength, SIZE_OF_FSDIL);
+            memcpy(d_buffer + SIZE_OF_FSDIL,
+                   mFileSizeUncompressedOrDirInfoLength + nCharsToNotUsed,
+                   nCharsToSave);
+            buffer = d_buffer;
+            bufsize = SIZE_OF_FSDIL + nCharsToSave;
+        }
+        else if (msgPtr->operationType == TAF_DIAGUPDATE_READ_FILE)
+        {
+            LE_INFO("nCharsToSave = %d", nCharsToSave);
+            uint8_t f_buffer[SIZE_OF_FSDIL + TAF_DIAGUPDATE_FILE_SIZE_OR_DIR_INFO_LEN * 2] = {0};
+
+            memcpy(f_buffer, mFileSizeOrDirInfoParameterLength, SIZE_OF_FSDIL);
+            memcpy(f_buffer + SIZE_OF_FSDIL,
+                   mFileSizeUncompressedOrDirInfoLength + nCharsToNotUsed,
+                   nCharsToSave);
+            memcpy(f_buffer + SIZE_OF_FSDIL + nCharsToSave,
+                   mFileSizeCompressed + nCharsToNotUsed,
+                   nCharsToSave);
+            buffer = f_buffer;
+            bufsize = SIZE_OF_FSDIL + nCharsToSave * 2;
+        }
+
+        if (buffer != NULL)
+        {
+            ret = RspPositiveMsg(&addrInfo, msgPtr->serviceId, buffer, bufsize);
+        }
+        else
+        {
+            ret = RspPositiveMsg(&addrInfo, msgPtr->serviceId, NULL, 0);
+        }
+
         if (ret != LE_OK)
         {
             LE_ERROR("Failed to respond positive message for RequestFileTransfer(%d)", ret);
             return ret;
         }
+
+        LE_INFO("[RFT] P-ack for moop:[0x%02X]", msgPtr->operationType);
     }
     else
     {
@@ -1190,6 +1322,8 @@ le_result_t taf_UpdateSvr::SendFileXferResp
             LE_ERROR("Failed to respond negative message for RequestFileTransfer(%d)", ret);
             return ret;
         }
+
+        LE_INFO("[RFT] N-ack for moop:[0x%02X]", msgPtr->operationType);
     }
 
     // Remove the message from service message list.

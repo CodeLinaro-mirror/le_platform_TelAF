@@ -66,7 +66,7 @@ static uint8_t msdRawData[43] = {2, 41, 68, 6, 128, 227, 10, 81, 67, 158, 41, 85
         32, 19, 198, 68, 0, 0, 48, 20};
 static uint8_t msdLength = 43;
 
-static taf_pos_MovementHandlerRef_t  SamplePositionHandlerRef = NULL;
+static taf_gnss_PositionHandlerRef_t PositionHandlerRef;
 static int32_t latitude = INT32_MAX, longitude = INT32_MAX, hAccuracy = INT32_MAX;
 static uint32_t direction = UINT32_MAX, dirAccuracy = UINT32_MAX;
 
@@ -227,21 +227,28 @@ void report(le_result_t expected_result, le_result_t actual_result, string API_N
     TC_No += 1;
 }
 
-static void SamplePositionHandler
+static void PositionHandlerFunction
 (
-    taf_pos_SampleRef_t positionSampleRef,
+    taf_gnss_SampleRef_t positionSampleRef,
     void* contextPtr
 )
 {
     le_result_t result;
 
-    //Get Location
-    result = taf_pos_sample_Get2DLocation(positionSampleRef, &latitude, &longitude, &hAccuracy);
-    if(result == LE_OK)
+    //Get 2D location
+    result = taf_gnss_GetLocation(positionSampleRef,
+                                  &latitude,
+                                  &longitude,
+                                  &hAccuracy);
+
+    if (result == LE_OK)
     {
-        printf("Latitude(positive->north) : %.6f\n",(float)latitude/1e6);
-        printf("Longitude(positive->east) : %.6f\n",(float)longitude/1e6);
-        printf("hAccuracy                 : %.2fm\n",(float)hAccuracy);
+        printf("Latitude(positive->north) : %.6f\n"
+               "Longitude(positive->east) : %.6f\n"
+               "hAccuracy                 : %.2fm\n",
+                (float)latitude/1e6,
+                (float)longitude/1e6,
+                (float)hAccuracy/1e2);
     }
     else if(result == LE_OUT_OF_RANGE)
     {
@@ -252,15 +259,25 @@ static void SamplePositionHandler
         printf("Failed! to get 2D Location information\n");
     }
 
-    //Get Direction
-    result = taf_pos_sample_GetDirection(positionSampleRef, &direction, &dirAccuracy);
-    if(result == LE_OK)
+    //Get direction
+    result = taf_gnss_GetDirection(positionSampleRef,
+                                   &direction,
+                                   &dirAccuracy);
+
+    if (result == LE_OK)
     {
-        printf("GetDirection: direction: %u, accuracy: %u\n", direction, dirAccuracy);
+        printf("Direction(0 degree is True North) : %.1f degrees\n"
+               "Direction Accuracy                : %.1f degrees\n",
+               (float)direction/10.0,
+               (float)dirAccuracy/10.0);
+    }
+    else if(result == LE_OUT_OF_RANGE)
+    {
+        printf("Direction invalid [%u, %u]\n", direction, dirAccuracy);
     }
     else
     {
-        LE_TEST_INFO("Failed to get position sample direction information");
+        LE_TEST_INFO("Failed to get position direction information\n");
     }
 
 }
@@ -271,12 +288,16 @@ static void* SamplePositionThread
 )
 {
     //connect the position service to the current running thread
-    taf_pos_ConnectService();
+    taf_gnss_ConnectService();
 
-    //Sample Position Handler
-    SamplePositionHandlerRef = taf_pos_AddMovementHandler(0, 0, SamplePositionHandler, NULL);
-    if(SamplePositionHandlerRef != NULL) {
-        LE_INFO("Confirm sample position handler was added successfully");
+    le_result_t result = taf_gnss_Start();
+
+    LE_INFO("Result of gnss start: %d", (int)result);
+
+    //Position Handler
+    PositionHandlerRef = taf_gnss_AddPositionHandler(PositionHandlerFunction, NULL);
+    if(PositionHandlerRef != NULL) {
+        LE_INFO("Confirm position handler was added successfully");
     }
     le_event_RunLoop();
 
@@ -288,32 +309,25 @@ static void fetchLocationInfo
     void
 )
 {
-    taf_posCtrl_ActivationRef_t activationRef;
     le_thread_Ref_t positionThreadRef;
-
-    //taf_posCtrl_Request
-    activationRef = taf_posCtrl_Request();
 
     //create a thread
     positionThreadRef = le_thread_Create("PosThreadTest", SamplePositionThread,NULL);
     LE_INFO("fetchLocationInfo positionThreadRef :%p", positionThreadRef);
     le_thread_Start(positionThreadRef);
 
-    //Wait for 1 second to trigger SamplePositionHandler callback function
+    //Wait for 1 second to trigger PositionHandlerFunction callback
     LE_TEST_INFO("Wait for 1 second");
     le_thread_Sleep(1);
 
     //Remove the handler assigned
-    taf_pos_RemoveMovementHandler(SamplePositionHandlerRef);
+    taf_gnss_RemovePositionHandler(PositionHandlerRef);
 
     //cancel the running thread
     le_thread_Cancel(positionThreadRef);
 
     //Stop receiving GNSS reports
     taf_gnss_Stop();
-
-    //release the position control reference
-    taf_posCtrl_Release(activationRef);
 }
 
 static void* taf_ecall_endCall_test
@@ -1103,7 +1117,7 @@ static void* taf_ecall_setMsdPosition_tests()
     fetchLocationInfo();
     printf("Location fetched, updating MSD position now ...\n" );
 
-    if ((hAccuracy < 100) && (dirAccuracy < 360))
+    if ((hAccuracy/1e2 < 100) && (dirAccuracy/10 < 360))
     {
         isPosTrusted = true;
     }
@@ -1117,7 +1131,7 @@ static void* taf_ecall_setMsdPosition_tests()
     longitude = (int32_t)(longitude * MILLIARCSECONDS_IN_A_DEGREE);
 
     // Test Case
-    result = taf_ecall_SetMsdPosition(ECallRef, isPosTrusted, latitude, longitude, direction/2);
+    result = taf_ecall_SetMsdPosition(ECallRef, isPosTrusted, latitude, longitude, direction/20);
 
     LE_TEST_OK(result == LE_OK, "taf_ecall_SetMsdPosition - LE_OK");
     report(LE_OK,result,"taf_ecall_SetMsdPosition");

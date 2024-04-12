@@ -1372,12 +1372,32 @@ void taf_VoiceCall::Init(void)
     std::promise<telux::common::ServiceStatus> prom;
 
     CallMgr = phoneFactory.getCallManager([&](telux::common::ServiceStatus status) {
-        prom.set_value(status);
+        LE_INFO("Getting status: %d from call manager", (int)status);
+        // If the status is SERVICE_UNAVAILABLE, the call manager will also update the status through initCB
+        if (status != telux::common::ServiceStatus::SERVICE_UNAVAILABLE)
+        {
+            prom.set_value(status);
+        }
     });
+    if (!CallMgr)
+    {
+        LE_FATAL("Can't get call manager");
+    }
 
-    telux::common::ServiceStatus mgrStatus = prom.get_future().get();
-    if (mgrStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE) {
-        LE_FATAL("Cannot initialize all manager, ret: %d", (int)mgrStatus);
+    std::future<telux::common::ServiceStatus> initFuture = prom.get_future();
+    std::future_status waitStatus = initFuture.wait_for(std::chrono::seconds(MAX_INIT_TIMEOUT));
+    telux::common::ServiceStatus serviceStatus;
+    if (std::future_status::timeout == waitStatus)
+    {
+        LE_FATAL ("Timeout waiting for susbsytem");
+    }
+    else
+    {
+        serviceStatus = initFuture.get();
+        if (serviceStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE)
+        {
+            LE_FATAL(" *** ERROR - Unable to initialize call subsystem");
+        }
     }
 
     // TelAF side initializations

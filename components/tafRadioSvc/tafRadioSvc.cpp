@@ -444,7 +444,7 @@ le_result_t taf_radio_AddPreferredOperator
         preferedOp.ratMask.set(telux::tel::RatType::NR5G);
         preferedOp.ratMask.set(telux::tel::RatType::LTE);
         preferedOp.ratMask.set(telux::tel::RatType::UMTS);
-    } 
+    }
     else
     {
         if (ratMask & TAF_RADIO_RAT_BIT_MASK_GSM)
@@ -2284,7 +2284,7 @@ uint16_t taf_radio_GetServingCellScramblingCode(uint8_t phoneId)
 
  FUNCTION        taf_radio_GetCurrentNetworkName
 
- DESCRIPTION     Get current network name.
+ DESCRIPTION     Get current network's short name.
 
  DEPENDENCIES    Initialization of the radio service.
 
@@ -2296,19 +2296,75 @@ uint16_t taf_radio_GetServingCellScramblingCode(uint8_t phoneId)
                      LE_BAD_PARAMETER: Invalid parameters.
                      LE_FAULT:         Fail.
                      LE_OK:            Success.
+                     LE_TIMEOUT        Time out.
 
  SIDE EFFECTS
 
 ======================================================================*/
-le_result_t taf_radio_GetCurrentNetworkName(char* nameStr, size_t nameStrSize, uint8_t phoneId)
+le_result_t taf_radio_GetCurrentNetworkName
+(
+    char* shortNamePtr,      ///< [OUT] Short network name.
+    size_t shortNamePtrSize, 
+    uint8_t phoneId          ///< [IN] Phone id
+)
 {
-    TAF_ERROR_IF_RET_VAL(nameStr == nullptr, LE_BAD_PARAMETER,
-        "Null ptr(nameStr)");
+    
+    auto &tafRadio = taf_Radio::GetInstance();
 
-    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > TAF_RADIO_PHONE_NUM, LE_BAD_PARAMETER,
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), LE_BAD_PARAMETER,
         "Invalid para(phoneId:%d)", phoneId);
 
-    return taf_pa_radio_GetCurrentNetworkName(nameStr, nameStrSize, phoneId);
+    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, LE_BAD_PARAMETER,
+        "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+
+    TAF_ERROR_IF_RET_VAL(shortNamePtr == nullptr, LE_BAD_PARAMETER,
+        "Null ptr(statePtr)");
+
+    TAF_ERROR_IF_RET_VAL(shortNamePtrSize < TAF_RADIO_NETWORK_NAME_MAX_LEN,
+        LE_BAD_PARAMETER,
+        "Invalid para(shortNamePtrSize: %" PRIuS " < %d)", shortNamePtrSize,
+        TAF_RADIO_NETWORK_NAME_MAX_LEN);
+
+    auto opNameStatusCb = [&tafRadio](std::string operatorLongName,
+                                    std::string operatorShortName,
+                                      telux::common::ErrorCode error)
+    {
+        LE_DEBUG("<SDK Callback> lamda --> GetCurrentNetworkName");
+        if (error == telux::common::ErrorCode::SUCCESS)
+        {
+            tafRadio.opNameCb.shortOpNamePtr[0] = '\0';
+            if (operatorShortName.c_str() != NULL)
+            {
+                le_utf8_Copy(tafRadio.opNameCb.shortOpNamePtr, operatorShortName.c_str(),
+                TAF_RADIO_NETWORK_NAME_MAX_LEN, NULL);
+            }
+            tafRadio.opNameCb.result = LE_OK;
+        }
+        else
+        {
+            LE_ERROR("Error(%d)", (int)error);
+            tafRadio.opNameCb.result = LE_FAULT;
+        }
+
+        le_sem_Post(tafRadio.opNameCb.semaphore);
+    };
+
+    auto ret = tafRadio.phones[phoneId - 1]->requestOperatorName(opNameStatusCb);
+    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(tafRadio.opNameCb.semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.opNameCb.result != LE_OK,
+        tafRadio.opNameCb.result, "Fail to get short network name.");
+
+    le_utf8_Copy(shortNamePtr, tafRadio.opNameCb.shortOpNamePtr,
+        shortNamePtrSize, NULL);
+
+    return LE_OK;
 }
 
 
@@ -4690,3 +4746,391 @@ void taf_radio_RemoveImsStatusChangeHandler
 {
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 }
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the details of DCNR and ENDC mode
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetNrDualConnectivityStatus
+(
+    taf_radio_NREndcAvailability_t* statusEndcPtr, ///< [OUT] Endc status.
+    taf_radio_NRDcnrRestriction_t* statusDcnrPtr,  ///< [OUT] Dcnr status.
+    uint8_t phoneId                                ///< [IN] Phone id.
+)
+{
+    TAF_ERROR_IF_RET_VAL(statusEndcPtr == nullptr, LE_BAD_PARAMETER,
+        "Null ptr(statusEndcPtr)");
+    TAF_ERROR_IF_RET_VAL(statusDcnrPtr == nullptr, LE_BAD_PARAMETER,
+        "Null ptr(statusDcnrPtr)");
+
+   auto &tafRadio = taf_Radio::GetInstance();
+   TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(),
+        LE_BAD_PARAMETER,
+        "Invalid para(phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
+        "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+    taf_radio_NREndcAvailability_t endcAvail = TAF_RADIO_NR_ENDC_UNKNOWN;
+    taf_radio_NRDcnrRestriction_t dcNRRestrict = TAF_RADIO_NR_DCNR_UNKNOWN;
+
+    telux::tel::DcStatus dcStatus = { telux::tel::EndcAvailability::UNKNOWN,
+                                      telux::tel::DcnrRestriction::UNKNOWN};
+
+    dcStatus = tafRadio.servingSystemManagers[phoneId - 1]->getDcStatus();
+
+    // fill ENDC.
+    switch (dcStatus.endcAvailability)
+    {
+        case telux::tel::EndcAvailability::UNKNOWN:
+            endcAvail = TAF_RADIO_NR_ENDC_UNKNOWN;
+             break;
+        case telux::tel::EndcAvailability::AVAILABLE:
+            endcAvail = TAF_RADIO_NR_ENDC_AVAILABLE;
+             break;
+        case telux::tel::EndcAvailability::UNAVAILABLE:
+            endcAvail = TAF_RADIO_NR_ENDC_UNAVAILABLE;
+             break;
+        default:
+            endcAvail = TAF_RADIO_NR_ENDC_UNKNOWN;
+            break;
+    }
+
+    // fill DCNR.
+    switch (dcStatus.dcnrRestriction)
+    {
+        case telux::tel::DcnrRestriction::UNKNOWN:
+            dcNRRestrict = TAF_RADIO_NR_DCNR_UNKNOWN;
+             break;
+        case telux::tel::DcnrRestriction::RESTRICTED:
+            dcNRRestrict = TAF_RADIO_NR_DCNR_RESTRICTED;
+             break;
+        case telux::tel::DcnrRestriction::UNRESTRICTED:
+            dcNRRestrict = TAF_RADIO_NR_DCNR_UNRESTRICTED;
+             break;
+        default:
+            dcNRRestrict = TAF_RADIO_NR_DCNR_UNKNOWN;
+            break;
+    }
+
+    *statusEndcPtr = endcAvail;
+    *statusDcnrPtr = dcNRRestrict;
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Get Operator Name ( long and short )
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *  - LE_TIMEOUT -- Time out.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetCurrentNetworkLongName
+(
+    char* longNamePtr,              ///< [OUT] Long operator name.
+    size_t longNamePtrSize,
+    uint8_t phoneId                 ///< [IN] Phone id.
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), LE_BAD_PARAMETER,
+        "Invalid para(phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, LE_BAD_PARAMETER,
+        "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(longNamePtr == nullptr, LE_BAD_PARAMETER,
+        "Null ptr(statePtr)");
+    TAF_ERROR_IF_RET_VAL(longNamePtrSize < TAF_RADIO_NETWORK_NAME_MAX_LEN,
+        LE_BAD_PARAMETER,
+        "Invalid para(longNamePtrSize: %" PRIuS " < %d)", longNamePtrSize,
+        TAF_RADIO_NETWORK_NAME_MAX_LEN);
+
+    auto opNameStatusCb = [&tafRadio](std::string operatorLongName,
+                                    std::string operatorShortName,
+                                      telux::common::ErrorCode error)
+    {
+        LE_DEBUG("<SDK Callback> lamda --> GetCurrentNetworkLongName");
+        if (error == telux::common::ErrorCode::SUCCESS)
+        {
+            tafRadio.opNameCb.longOpNamePtr[0] = '\0';
+            if (operatorLongName.c_str() != NULL)
+            {
+                le_utf8_Copy(tafRadio.opNameCb.longOpNamePtr, operatorLongName.c_str(),
+                TAF_RADIO_NETWORK_NAME_MAX_LEN, NULL);
+            }
+
+            tafRadio.opNameCb.result = LE_OK;
+        }
+        else
+        {
+            LE_ERROR("Error(%d)", (int)error);
+            tafRadio.opNameCb.result = LE_FAULT;
+        }
+
+        le_sem_Post(tafRadio.opNameCb.semaphore);
+    };
+
+    auto ret = tafRadio.phones[phoneId - 1]->requestOperatorName(opNameStatusCb);
+    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(tafRadio.opNameCb.semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.opNameCb.result != LE_OK,
+        tafRadio.opNameCb.result, "Fail to get Operator name.");
+
+    le_utf8_Copy(longNamePtr, tafRadio.opNameCb.longOpNamePtr,
+        longNamePtrSize, NULL);
+
+
+    return LE_OK;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the details of the Total SIM count and Max Active SIM count
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *  - LE_TIMEOUT -- Time out.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetHardwareSimConfig
+(
+    uint8_t* totalSimCount, ///< [OUT] The max number of sims that can be supported simultaneously.
+    uint8_t* maxActiveSims  ///< [OUT] The max number of sims that can be simultaneously active.
+)
+{
+
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    auto ret = tafRadio.phoneManager->requestCellularCapabilityInfo(tafRadio.cellularCapsCb);
+     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(tafRadio.cellularCapsCb->semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.cellularCapsCb->result != LE_OK,
+        tafRadio.cellularCapsCb->result, "Fail to get cellular capability.");
+
+
+    TAF_ERROR_IF_RET_VAL(totalSimCount == nullptr, LE_BAD_PARAMETER,
+        "Null ptr(totalSimCount)");
+    TAF_ERROR_IF_RET_VAL(maxActiveSims == nullptr, LE_BAD_PARAMETER,
+        "Null ptr(maxActiveSims)");
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.cellularCapsCb == nullptr, LE_FAULT,
+        "Null ptr(GetHardwareSimConfig)");
+
+    *totalSimCount = tafRadio.cellularCapsCb->simCount;
+    *maxActiveSims = tafRadio.cellularCapsCb->maxActiveSIM;
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the rat capabilities supported by the hardware for the phone id
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *  - LE_TIMEOUT -- Time out.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetHardwareSimRatCapabilities
+(
+    taf_radio_RatBitMask_t* hwRatCapMask,  ///< [OUT] Hardware rat capability bitmask.
+    taf_radio_RatBitMask_t* simRatCapMask, ///< [OUT] Sim rat capability bitmask.
+    uint8_t phoneId                                  ///< [IN] Phone id.
+)
+{
+    TAF_ERROR_IF_RET_VAL(hwRatCapMask == nullptr, LE_BAD_PARAMETER,
+        "Null ptr(hwRatCapMask)");
+    TAF_ERROR_IF_RET_VAL(simRatCapMask == nullptr, LE_BAD_PARAMETER,
+        "Null ptr(simRatCapMask)");
+
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    auto ret = tafRadio.phoneManager->requestCellularCapabilityInfo(tafRadio.cellularCapsCb);
+     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(tafRadio.cellularCapsCb->semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.cellularCapsCb->result != LE_OK,
+        tafRadio.cellularCapsCb->result, "Fail to get cellular capability.");
+
+
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), LE_BAD_PARAMETER,
+        "Invalid para(phoneId:%d)", phoneId);
+
+    // Fetch device rat capability.
+
+    TAF_ERROR_IF_RET_VAL(true == tafRadio.cellularCapsCb->deviceRatCaps.empty(), LE_FAULT,
+        "taf_radio_GetHardwareSIMRatCapabilities function failed");
+
+    TAF_ERROR_IF_RET_VAL(phoneId > tafRadio.cellularCapsCb->deviceRatCaps.size(), LE_FAULT,
+        "taf_radio_GetHardwareSIMRatCapabilities invalid phoneId");
+
+    SlotId slotId = (SlotId)tafRadio.phoneManager->getSlotIdFromPhoneId(phoneId);
+
+
+    taf_radio_RatBitMask_t hwRatCapsMask = 0x0;
+    telux::tel::DeviceRatCapability devRatCaps;
+    for (auto deviceCaps : tafRadio.cellularCapsCb->deviceRatCaps)
+    {
+      if(deviceCaps.slotId == slotId)
+      {
+        devRatCaps = deviceCaps;
+        break;
+      }
+
+    }
+    telux::tel::RATCapabilitiesMask hwCaps = devRatCaps.capabilities;
+
+    if (
+        hwCaps[(uint16_t)telux::tel::RATCapability::CDMA] |
+        hwCaps[(uint16_t)telux::tel::RATCapability::HDR]
+       )
+    {
+        hwRatCapsMask |= TAF_RADIO_RAT_BIT_MASK_CDMA;
+    }
+
+    if(hwCaps[(uint16_t)telux::tel::RATCapability::TDS])
+    {
+        hwRatCapsMask |= TAF_RADIO_RAT_BIT_MASK_TDSCDMA;
+    }
+
+    if (hwCaps[(uint16_t)telux::tel::RATCapability::GSM])
+    {
+        hwRatCapsMask |= TAF_RADIO_RAT_BIT_MASK_GSM;
+    }
+
+    if (hwCaps[(uint16_t)telux::tel::RATCapability::WCDMA])
+    {
+        hwRatCapsMask |= TAF_RADIO_RAT_BIT_MASK_UMTS;
+    }
+
+    if (hwCaps[(uint16_t)telux::tel::RATCapability::LTE])
+    {
+        hwRatCapsMask |= TAF_RADIO_RAT_BIT_MASK_LTE;
+    }
+
+    if (
+        hwCaps[(uint16_t)telux::tel::RATCapability::NR5G] |
+        hwCaps[(uint16_t)telux::tel::RATCapability::NR5GSA]
+       )
+    {
+        hwRatCapsMask |= TAF_RADIO_RAT_BIT_MASK_NR5G;
+    }
+
+
+
+    if (hwRatCapsMask == (TAF_RADIO_RAT_BIT_MASK_CDMA | TAF_RADIO_RAT_BIT_MASK_GSM |
+        TAF_RADIO_RAT_BIT_MASK_UMTS | TAF_RADIO_RAT_BIT_MASK_LTE |
+        TAF_RADIO_RAT_BIT_MASK_NR5G | TAF_RADIO_RAT_BIT_MASK_TDSCDMA))
+    {
+        *hwRatCapMask = TAF_RADIO_RAT_BIT_MASK_ALL;
+    }
+    else
+    {
+        *hwRatCapMask = hwRatCapsMask;
+    }
+
+    // Fetch sim rat capability.
+
+    TAF_ERROR_IF_RET_VAL(true == tafRadio.cellularCapsCb->simRatCaps.empty(), LE_FAULT,
+        "taf_radio_GetHardwareSIMRatCapabilities function failed");
+
+    TAF_ERROR_IF_RET_VAL(phoneId > tafRadio.cellularCapsCb->simRatCaps.size(), LE_FAULT,
+        "taf_radio_GetHardwareSIMRatCapabilities invalid phoneId");
+
+
+    taf_radio_RatBitMask_t simRatCapsMask = 0x0;
+    telux::tel::DeviceRatCapability simRatCaps;
+    for (auto simCaps : tafRadio.cellularCapsCb->simRatCaps)
+    {
+      if(simCaps.slotId == slotId)
+      {
+        simRatCaps = simCaps;
+        break;
+      }
+
+    }
+    telux::tel::RATCapabilitiesMask simRatMask = simRatCaps.capabilities;
+
+
+    if (simRatMask[(uint16_t)telux::tel::RATCapability::CDMA] |
+        simRatMask[(uint16_t)telux::tel::RATCapability::HDR]
+        )
+    {
+        simRatCapsMask |= TAF_RADIO_RAT_BIT_MASK_CDMA;
+    }
+
+    if(simRatMask[(uint16_t)telux::tel::RATCapability::TDS])
+    {
+        simRatCapsMask |= TAF_RADIO_RAT_BIT_MASK_TDSCDMA;
+    }
+
+    if (simRatMask[(uint16_t)telux::tel::RATCapability::GSM])
+    {
+        simRatCapsMask |= TAF_RADIO_RAT_BIT_MASK_GSM;
+    }
+
+    if (simRatMask[(uint16_t)telux::tel::RATCapability::WCDMA])
+    {
+        simRatCapsMask |= TAF_RADIO_RAT_BIT_MASK_UMTS;
+    }
+
+    if (simRatMask[(uint16_t)telux::tel::RATCapability::LTE])
+    {
+        simRatCapsMask |= TAF_RADIO_RAT_BIT_MASK_LTE;
+    }
+
+    if (
+        simRatMask[(uint16_t)telux::tel::RATCapability::NR5G] |
+        simRatMask[(uint16_t)telux::tel::RATCapability::NR5GSA]
+       )
+    {
+        simRatCapsMask |= TAF_RADIO_RAT_BIT_MASK_NR5G;
+    }
+
+
+    if (simRatCapsMask == (TAF_RADIO_RAT_BIT_MASK_CDMA | TAF_RADIO_RAT_BIT_MASK_GSM |
+        TAF_RADIO_RAT_BIT_MASK_UMTS | TAF_RADIO_RAT_BIT_MASK_LTE |
+        TAF_RADIO_RAT_BIT_MASK_NR5G | TAF_RADIO_RAT_BIT_MASK_TDSCDMA))
+    {
+        *simRatCapMask = TAF_RADIO_RAT_BIT_MASK_ALL;
+    }
+    else
+    {
+        *simRatCapMask = simRatCapsMask;
+    }
+
+    return LE_OK;
+}
+

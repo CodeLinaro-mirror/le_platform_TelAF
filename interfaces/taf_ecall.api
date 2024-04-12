@@ -136,6 +136,7 @@
  * @section taf_ecall_session Session of eCall
  *
  * taf_ecall_Create() helps to create a new eCall object and returns a reference to the eCall session.
+ * taf_ecall_GetType() is used to query the current type of the eCall session.
  * At this point the eCall is not yet started, the eCall session must be started using one of the
  * following functions.
  * - taf_ecall_StartManual() -- Initiates a manual eCall session; triggered by a passenger
@@ -143,6 +144,8 @@
  *                                 by the IVS if there is an accident or emrgency.
  * - taf_ecall_StartTest() -- Initiates a test eCall session; mainly used to test the communication between
  *   the IVS and the PSAP
+ *
+ * - taf_ecall_StartPrivate() -- Initiates a private eCall session
  *
  * The eCall session can be ended by calling taf_ecall_End(). Note that sometimes, the ongoing eCall
  * session cannot be stopped until a specific eCall state is entered as in the following use cases.
@@ -178,7 +181,7 @@
  * A third-party eCall number can be set/got with:
  *  - taf_ecall_SetPsapNumber()
  *  - taf_ecall_GetPsapNumber()
- * These configurations take effect at the next test eCall.
+ * These configurations take effect at the next eCall.
  *
  * To request that the modem reads the number from FDN/SDN, call taf_ecall_UseUSimNumbers() before starting
  * an eCall.
@@ -207,13 +210,18 @@
  *
  * The taf_ecall_SetNadMinNetworkRegistrationTime() API is used to set the time value of a
  * <em>minimum network registration timer</em> which starts right after an eCall ends, so that the NAD shall remain
- * registered on the serving network after an eCall ends and automatically receive calls from the PSAP.
+ * registered on the serving network after an eCall ends and automatically receive calls from the PSAP,
  * and then automatically deregisters from the network upon expiration of the timer.
+ *
+ * @section taf_ecall_timer_state NAD eCall HLAP timer state
+ *
+ * The taf_ecall_GetHlapTimerState() API is used to get the timer status and elapsed time based on HLAP timer type.
  *
  * @section taf_ecall_concurrency Concurrency of eCall
  *
  * If another application wants to use the eCall service when a session is already active, the
- * taf_ecall_StartManual(), taf_ecall_StartAutomatic(), taf_ecall_StartTest() functions will return
+ * taf_ecall_StartManual(), taf_ecall_StartAutomatic(), taf_ecall_StartTest(), taf_ecall_StartPrivate()
+ * functions will return
  * @ref LE_BUSY error and the eCall session which is in progress will not be interrupted or disturbed.
  * The application may get the session progress 'state' using API like @ref taf_ecall_GetState() and
  * @ref taf_ecall_AddStateChangeHandler().
@@ -287,7 +295,7 @@
    taf_ecall_StateChangeHandlerRef = taf_ecall_AddStateChangeHandler((taf_ecall_StateChangeHandlerFunc_t) tafECallStateHandler, NULL);
    @endverbatim
  *
- * To stop an emergency call, an application can use taf_ecall_End().
+ * To end an emergency call, an application can use taf_ecall_End().
  *
  * Applications must use taf_ecall_Delete() to release @ref taf_ecall_CallRef_t emergency call
  * reference object when it is no longer used.
@@ -348,7 +356,9 @@ DEFINE MAX_VIN_LENGTH  =  (17);
 DEFINE MAX_VIN_BYTES  =  MAX_VIN_LENGTH + (1);
 DEFINE MAX_OID_LENGTH  =  (8);
 DEFINE MAX_DATA_LENGTH  =  (94);
-DEFINE MAX_MSD_LENGTH = (140);
+DEFINE MAX_MSD_LENGTH = (255);
+DEFINE CONTENT_TYPE_MAX_LENGTH = (128);
+DEFINE ACCEPT_INFO_MAX_LENGTH = (128);
 
 /**
  *  Operational modes.
@@ -439,7 +449,7 @@ ENUM State
     STATE_UNKNOWN,                            ///< Unknown eCall state.
     STATE_ALERTING,                           ///< Alerting call; MO call only.
     STATE_ACTIVE,                             ///< Active eCall.
-    STATE_IDLE,                               ///< Idle.
+    STATE_IDLE,                               ///< Not supported.
     STATE_WAITING_PSAP_START_IND,             ///< Not supported.
     STATE_PSAP_START_RECEIVED,                ///< Send MSD (start) is received and sync is locked during in-band MSD transmission.
     STATE_MSD_TRANSMISSION_STARTED,           ///< In-band MSD transmission started.
@@ -465,9 +475,21 @@ ENUM State
     STATE_NACK_OUT_OF_ORDER,                  ///< Out of order NACK message detected during in-band MSD transmission.
     STATE_ACK_OUT_OF_ORDER,                   ///< Out of order ACK message detected during in-band MSD transmission.
     STATE_OUTBAND_MSD_TRANSMISSION_STARTED,   ///< Out-band MSD transmission started in NG eCall.
-    STATE_OUTBAND_MSD_TRANSMISSION_SUCCESS,   ///< Out-band MSD transmission succeeded in NG eCall.
-    STATE_OUTBAND_MSD_TRANSMISSION_FAILURE,   ///< Out-band MSD transmission failed in NG eCall.
-    STATE_MSD_UPDATE_REQ                      ///< Notify request from PSAP for MSD update
+    STATE_OUTBAND_MSD_TRANSMISSION_SUCCESS,   ///< Out-band MSD transmission succeeded in NG eCall or private eCall.
+    STATE_OUTBAND_MSD_TRANSMISSION_FAILURE,   ///< Out-band MSD transmission failed in NG eCall or private eCall.
+    STATE_MSD_UPDATE_REQ,                     ///< Notify request from PSAP for MSD update.
+    STATE_T2_STARTED,                         ///< T2 Timer started.
+    STATE_T5_STARTED,                         ///< T5 Timer started.
+    STATE_T6_STARTED,                         ///< T6 Timer started.
+    STATE_T7_STARTED,                         ///< T7 Timer started.
+    STATE_T9_STARTED,                         ///< T9 Timer started.
+    STATE_T10_STARTED,                        ///< T10 Timer started.
+    STATE_T2_STOPPED,                         ///< T2 Timer stopped.
+    STATE_T5_STOPPED,                         ///< T5 Timer stopped.
+    STATE_T6_STOPPED,                         ///< T6 Timer stopped.
+    STATE_T7_STOPPED,                         ///< T7 Timer stopped.
+    STATE_T9_STOPPED,                         ///< T9 Timer stopped.
+    STATE_T10_STOPPED,                        ///< T10 Timer stopped.
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -544,6 +566,43 @@ ENUM TerminationReason
    REASON_CDMA_NOT_EMERGENCY = 1008,
    REASON_CDMA_ACCESS_BLOCKED = 1009,
    REASON_ERROR_UNSPECIFIED = 0xffff
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * eCall type
+ */
+//-------------------------------------------------------------------------------------------------
+ENUM Type
+{
+    TYPE_UNKNOWN,
+    TYPE_TEST,
+    TYPE_AUTO,
+    TYPE_MANUAL,
+    TYPE_PRIVATE
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * HLAP timer status
+ */
+//-------------------------------------------------------------------------------------------------
+ENUM HlapTimerStatus {
+    TIMER_STATUS_UNKNOWN,    ///< Unknown.
+    TIMER_STATUS_INACTIVE,   ///< eCall HLAP timer has not started or it has stopped/expired.
+    TIMER_STATUS_ACTIVE      ///< eCall HLAP timer has started but not yet stopped/expired.
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * HLAP timer type
+ */
+//-------------------------------------------------------------------------------------------------
+ENUM HlapTimerType {
+    TIMER_TYPE_UNKNOWN,      ///< Unknown timer
+    TIMER_TYPE_T2 = 2,       ///< T2 timer.
+    TIMER_TYPE_T9 = 9,       ///< T9 timer.
+    TIMER_TYPE_T10 = 10      ///< T10 timer.
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -812,8 +871,9 @@ FUNCTION le_result_t GetMsdTxMode
  *  Sets the latitude and longitude for MSD transmission.
  *
  * @return
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
  *      - LE_OK -- Succeeded.
- *      - LE_FAULT -- Failed.
+ *      - LE_DUPLICATE -- The MSD has already been imported.
  *
  */
 //-------------------------------------------------------------------------------------------------
@@ -1014,7 +1074,8 @@ FUNCTION le_result_t SetMsdEuroNCAPIIDeltaV
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Imports the PDU MSD according to the given eCall reference.
+ * Imports the PDU MSD according to the given eCall reference. The maximum MSD length
+ * is 255 bytes for private eCall and 140 bytes for other eCall.
  *
  * @return
  *      - LE_OK -- Succeeded.
@@ -1119,7 +1180,31 @@ FUNCTION le_result_t StartTest
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Stops the ongoing eCall session according to the given eCall reference.
+ * Initiates a private eCall.
+ *
+ * @return
+ *      - LE_OK -- Succeeded.
+ *      - LE_BUSY -- eCall session is already in progress.
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
+ *      - LE_FAULT -- Failed.
+ *
+ * @note Currently, only SA525M platform are supported.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t StartPrivate
+(
+    Call ecallRef IN,      ///< eCall reference.
+    string psap[taf_sim.PHONE_NUM_MAX_LEN] IN,         ///< Public Safely Answering Point number.
+    string contentType[CONTENT_TYPE_MAX_LENGTH] IN,    ///< Type of data being transmitted and
+                                                       ///  should be filled as per RFC 8147 i.e
+                                                       ///  MSD. The maximum length is 128 bytes.
+    string acceptInfo[ACCEPT_INFO_MAX_LENGTH]   IN     ///< SIP Accept header. The maximum length
+                                                       ///  is 128 bytes.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ *  Ends the ongoing eCall according to the given eCall reference.
  *
  * @return
  *      - LE_OK -- Succeeded.
@@ -1146,6 +1231,22 @@ FUNCTION le_result_t End
 FUNCTION State GetState
 (
     Call ecallRef IN      ///< eCall reference.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the current eCall type according to the given eCall reference.
+ *
+ * @return
+ *      - The current type of the given eCall.
+ *
+ * @note Passing a bad or null pointer to this function results in a fatal error and the function
+ *       may not return.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION  Type GetType
+(
+    Call ecallRef IN       ///< eCall reference.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -1183,8 +1284,8 @@ FUNCTION TerminationReason GetTerminationReason
 /**
  * Sets the public safely answering point (PSAP) phone number for eCall.
  *
- * @note The PSAP number is not applicable in manually or automatically dialed eCalls. It
- *       is only applicable to test eCalls that are dialed intentionally for testing, validating,
+ * @note The PSAP number is applicable in manually or automatically dialed eCalls. It is also
+ *       applicable to test eCalls that are dialed intentionally for testing, validating,
  *       or certifying.
  *
  * @warning This function doesn't modify the U/SIM content.
@@ -1206,8 +1307,8 @@ FUNCTION TerminationReason GetTerminationReason
 /**
  * Gets the PSAP number set with taf_ecall_SetPsapNumber().
  * 
- * @note The PSAP number is not applicable in manually or automatically dialed eCalls. It
- *       is only applicable to test eCalls that are dialed intentionally for testing, validating,
+ * @note The PSAP number is applicable in manually or automatically dialed eCalls. It is also
+ *       applicable to test eCalls that are dialed intentionally for testing, validating,
  *       or certifying.
  *
  * @warning This function doesn't read the U/SIM content.
@@ -1350,4 +1451,21 @@ FUNCTION le_result_t SetNadMinNetworkRegistrationTime
 FUNCTION le_result_t GetNadMinNetworkRegistrationTime
 (
     uint16 minNwRegTime OUT ///< The eCall minimum network registration time (in minutes).
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the eCall HLAP timer state of the NAD.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_FAULT -- Failed.
+ *  - LE_BAD_PARAMETER -- The HLAP timer type is out of range
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetHlapTimerState
+(
+    HlapTimerType timer IN,          ///<HLAP timer Type.
+    HlapTimerStatus timerStatus OUT, ///<The status of the HLAP timer.
+    uint16 elapsedTime OUT            ///<The elapsed time of the HLAP timer in unit of seconds.
 );

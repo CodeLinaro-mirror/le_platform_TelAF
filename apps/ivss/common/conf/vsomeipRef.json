@@ -1,5 +1,6 @@
 {
     "unicast" : "192.168.225.1",
+    "device" : "bridge0",
     "logging" :
     {
         "level" : "debug",
@@ -21,6 +22,10 @@
         {
             "name" : "ivssSim-service",
             "id" : "0x0301"
+        },
+        {
+            "name" : "ivssInfo-service",
+            "id" : "0x0401"
         }
     ],
     "services" :
@@ -36,9 +41,16 @@
             "instance" : "0x0001",
             "reliable" : { "port" : "30509", "enable-magic-cookies" : "false" },
             "unreliable" : "31000"
+        },
+        {
+            "service" : "0xED82",
+            "instance" : "0x0001",
+            "reliable" : { "port" : "30509", "enable-magic-cookies" : "false" },
+            "unreliable" : "31000"
         }
     ],
     "routing" : "tafSomeipGWSvc",
+    "network" : "tafSomeipGWSvc",
     "service-discovery" :
     {
         "enable" : "true",

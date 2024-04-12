@@ -41,9 +41,12 @@
  * <HR>
  *
  * The diag security service APIs are part of the diagnostic service. The diag security service
- * provides diag SecurityAccess(0x27) service. The purpose of this service is to provide a means
- * to access data and/or diagnostic services, which have restricted access for security, emissions,
- * or safety reasons.
+ * provides diag SessionControl(0x10) and SecurityAccess(0x27) service. The SessionControl service
+ * is used to enable different diagnostic sessions in the server. It enables a specific set of
+ * diagnostic services or functionality in the server. There shall always be exactly one diagnostic
+ * session active in a server. A server shall always start the default diagnostic session when
+ * powered up. The SecurityAccess service provides a means to access data and/or diagnostic
+ * services, which have restricted access for security, emissions, or safety reasons.
  *
  * @section taf_diagSecurity_binding IPC interfaces binding
  *
@@ -73,6 +76,83 @@
    LE_ASSERT(svcRef != NULL);
    @endcode
  *
+ * @section c_taf_diag_session_change SessionControl(0x10) service
+ *
+ * After getting the service reference, an application can call
+ * taf_diagSecurity_AddRxSesTypeCheckHandler() to register a message handler for
+ * SessionControl(0x10) service. Once a diag session control request message is received,
+ * the handler will be called with the message reference and received session type passed
+ * as input parameters. The application will check condition for the received session type and
+ * uses the message reference to send a response message using
+ * taf_diagSecurity_SendSesTypeCheckResp().
+ *
+ * @code
+   // Rx message handler function for SessionControl.
+   void RxSesTypeHandler
+   (
+        taf_diagSecurity_RxSesTypeCheckRef_t rxSesTypeRef,
+        taf_diagSecurity_SessionType_t sesCtrlType,
+        void* contextPtr
+   )
+   {
+        // Process after succesfully receiving message
+   }
+
+   // Register the message handler.
+   taf_diagSecurity_RxSesTypeCheckHandlerRef_t RxSesTypeCheckHandlerRef
+       taf_diagSecurity_AddRxSesTypeCheckHandler(SvcRef,
+            (taf_diagSecurity_RxSesTypeHandlerFunc_t)RxSesTypeHandler, NULL);
+   LE_ASSERT(RxSesTypeCheckHandlerRef != NULL);
+
+   // To remove the handler function.
+   taf_diagSecurity_RemoveRxSesTypeCheckHandler(RxSesTypeCheckHandlerRef);
+
+   // To send a response for condition check of requested session type.
+   le_result_t result = taf_diagSecurity_SendSesTypeCheckResp(rxSesTypeRef,
+           TAF_DIAGSECURITY_SES_CONTROL_NO_ERROR);
+   if (result != LE_OK)
+   {
+      LE_ERROR("Fail to send response.");
+      return result;
+   }
+   @endcode
+ *
+ * If the application sends a positive response with TAF_DIAGSECURITY_SES_CONTROL_NO_ERROR for the
+ * requested session type using taf_diagSecurity_SendSesTypeCheckResp(), then service will change
+ * the session type and maintain it. An application can call taf_diagSecurity_AddSesChangeHandler()
+ * to register a message handler for session type change. Once session type is changed in diag
+ * service, the handler will be called with message reference and receive the previous and current
+ * session type. An application can also get the current active session type using
+ * taf_diagSecurity_GetCurrentSesType().
+ *
+ * @code
+   // Rx message handler function for session type change.
+   void SesChangeHandler
+   (
+        taf_diagSecurity_SesChangeRef_t sesChangeRef,
+        taf_diagSecurity_SessionType_t previousType,
+        taf_diagSecurity_SessionType_t currentType,
+        void* contextPtr
+   )
+   {
+        // Process after succesfully session type change
+   }
+
+   // Register the message handler.
+   taf_diagSecurity_SesChangeHandlerRef_t SesChangeHandlerRef
+       taf_diagSecurity_AddSesChangeHandler(SvcRef,
+            (taf_diagSecurity_SesChangeHandlerFunc_t)SesChangeHandler, NULL);
+   LE_ASSERT(SesChangeHandlerRef != NULL);
+
+   // To remove the handler function.
+   taf_diagSecurity_RemoveSesChangeHandler(SesChangeHandlerRef);
+   @endcode
+ *
+ * The API of taf_diagSecurity_GetCurrentSesType() is provided to get the current active
+ * session type.
+ *
+ * Finally call taf_diagSecurity_RemoveSvc() to remove the created service.
+ *
  * @section c_taf_diag_security_access SecurityAccess(0x27) service
  *
  * After getting the service reference, an application can call
@@ -85,7 +165,7 @@
  * created service.
  *
  * @code
-   // Rx message handler function.
+   // Rx message handler function for SecurityAccess.
    void RxSecAccessMsgHandler
    (
         taf_diagSecurity_RxSecAccessMsgRef_t rxMsgRef,
@@ -157,6 +237,32 @@ DEFINE MAX_SEC_ACCESS_PAYLOAD_SIZE = 4093;
 
 //-------------------------------------------------------------------------------------------------
 /**
+ * Diagnostic SessionControl type.
+ */
+//-------------------------------------------------------------------------------------------------
+ENUM SessionType
+{
+    DEFAULT = 0x01,                       ///< Default session.
+    PROGRAMMING,                          ///< Programming session.
+    EXTENDED,                             ///< Extended diagnostic session.
+    VEHICLE_MANUFACTURER_SPECIFIC = 0x40, ///< Vehicle manufacture specific session.
+    FOTA = 0x42,                          ///< Fota session.
+    SYSTEM_SUPPLIER_SPECIFIC = 0x60       ///< System supplier specific session.
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Error code for SessionControl.
+ */
+//-------------------------------------------------------------------------------------------------
+ENUM SesControlErrorCode
+{
+    SES_CONTROL_NO_ERROR = 0,
+    SES_CONTROL_CONDITIONS_NOT_CORRECT = 0x22
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
  * Error code for SecurityAccess.
  */
 //-------------------------------------------------------------------------------------------------
@@ -173,6 +279,20 @@ ENUM SecAccessErrorCode
  */
 //-------------------------------------------------------------------------------------------------
 REFERENCE Service;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Reference to the SessionControl received request message.
+ */
+//-------------------------------------------------------------------------------------------------
+REFERENCE RxSesTypeCheck;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Reference to the Session change message.
+ */
+//-------------------------------------------------------------------------------------------------
+REFERENCE SesChange;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -195,6 +315,90 @@ REFERENCE RxSecAccessMsg;
 //-------------------------------------------------------------------------------------------------
 FUNCTION Service GetService
 (
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for a Rx session control type.
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER RxSesTypeHandler
+(
+    RxSesTypeCheck rxSesTypeRef  IN,    ///< Received session type reference.
+    SessionType sesCtrlType  IN         ///< Session control type.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This event provides information on Rx session control type.
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT RxSesTypeCheck
+(
+    Service svcRef IN,          ///< Service reference.
+    RxSesTypeHandler handler    ///< Received message handler.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sends a response message for the condition check of Rx session control type.
+ *
+ * @note This function must be called to send a response if receiving a message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_FAULT -- Failed.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SendSesTypeCheckResp
+(
+    RxSesTypeCheck rxSesTypeRef  IN,    ///< Received session type reference.
+    SesControlErrorCode errCode  IN     ///< Error code type.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Handler for a session control type change.
+ */
+//-------------------------------------------------------------------------------------------------
+HANDLER SesChangeHandler
+(
+    SesChange sesChangeRef  IN,      ///< Session change reference.
+    SessionType previousType  IN,    ///< Previous session control type.
+    SessionType currentType   IN     ///< Current session control type.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * This event provides information on session control type change.
+ */
+//-------------------------------------------------------------------------------------------------
+EVENT SesChange
+(
+    Service svcRef IN,          ///< Service reference.
+    SesChangeHandler handler    ///< Received message handler.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the current session control type.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetCurrentSesType
+(
+    Service svcRef IN,             ///< Service reference.
+    SessionType currentType OUT    ///< Current session control type.
 );
 
 //-------------------------------------------------------------------------------------------------

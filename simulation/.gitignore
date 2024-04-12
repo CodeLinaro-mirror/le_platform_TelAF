@@ -1,7 +1,10 @@
-deps/install/*
-!deps/install/.keep
+deps/host_xtools/*
+!deps/host_xtools/.keep
+deps/taf_rootfs/*
+!deps/taf_rootfs/.keep
 deps/source/*
 !deps/source/.keep
+deps/.deps.origin
 workstation/telaf_simulation.tar.gz
 workstation/local_dev_home
 workstation/.check_done
@@ -14,6 +17,8 @@ workstation/.simula.*
 !workstation/.simula.once.sh
 .simulation.build
 workstation/.ssh
+workstation/diag_client_default.ini
+workstation/diag_test_38_36_37.py
 *.log
 
 *.so

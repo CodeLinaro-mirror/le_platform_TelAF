@@ -5,6 +5,9 @@
 
 #include "legato.h"
 #include "interfaces.h"
+#include <sys/stat.h>
+
+#define GPIO_KO_MODULE "/usr/lib/modules/gpioWakeup.ko"
 
 taf_pm_WakeupSourceRef_t wsRef = NULL;
 taf_pm_StateChangeHandlerRef_t pmHandlerRef;
@@ -93,6 +96,12 @@ COMPONENT_INIT
             NULL);
     le_thread_Start(threadRef);
     WaitForSem_Timeout(semRef, 5);
+
+    struct stat buffer;
+    if (stat (GPIO_KO_MODULE, &buffer) == 0) {
+        wakeUpPin = 126;
+        LE_INFO("%s is availabel set wakeUpPin to %d", GPIO_KO_MODULE, wakeUpPin);
+    }
 
     // Register for GPIO trigger and acquire wakeup source on GPIO trigger to resume device
     AddGpioChangeCallback(wakeUpPin);

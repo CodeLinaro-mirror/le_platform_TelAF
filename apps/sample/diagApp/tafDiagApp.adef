@@ -1,3 +1,4 @@
+maxThreads: 600
 sandboxed: false
 executables:
 {
@@ -28,13 +29,17 @@ bindings:
     tafDiagApp.diagAppComp.taf_diagUpdate -> tafDiagSvc.taf_diagUpdate
     tafDiagApp.diagAppComp.taf_diagSecurity -> tafDiagSvc.taf_diagSecurity
     tafDiagApp.diagAppComp.taf_diagDataID -> tafDiagSvc.taf_diagDataID
+#if ${LE_CONFIG_TARGET_SIMULATION} = ""
     tafDiagApp.diagAppComp.taf_update -> tafUpdateSvc.taf_update
     tafDiagApp.diagAppComp.taf_appMgmt -> tafUpdateSvc.taf_appMgmt
     tafDiagApp.diagAppComp.taf_fwupdate -> tafUpdateSvc.taf_fwupdate
+#endif
 }
 
 // Add SELinux module
 components:
 {
+#if ${LE_CONFIG_TARGET_SIMULATION} = ""
     $TELAF_ROOT/security/selinux/sepolicy/sample/diagApp/component
+#endif
 }

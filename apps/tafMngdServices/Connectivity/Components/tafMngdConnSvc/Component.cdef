@@ -28,6 +28,7 @@ requires:
         taf_radio.api
         taf_sim.api
         le_cfg.api
+        le_appInfo.api
     }
 }
 
@@ -41,6 +42,7 @@ cxxflags:
     -I$TELAF_ROOT/apps/tafMngdServices/Connectivity/Components/tafMngdConnSvc/Sim
     -I$TELAF_ROOT/apps/tafMngdServices/Connectivity/Components/tafMngdConnSvc/JSONParser
     -I$TELAF_ROOT/apps/tafMngdServices/Connectivity/Components/tafMngdConnSvc
+    -I$LEGATO_ROOT/framework/liblegato
 }
 
 ldflags:

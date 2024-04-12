@@ -17,7 +17,7 @@ find_package(Legato REQUIRED)
 file(GLOB_RECURSE UNITTEST_ADEF_FILES ${TESTAPP_PATH}/*UnitTest.adef)
 foreach( unittestfile  ${UNITTEST_ADEF_FILES} )
     message(STATUS "adef file: ${unittestfile}")
-    mkapp( ${unittestfile} -i ${Interfaces})
+    mkapp( ${unittestfile} -i ${Interfaces} -i ${Interfaces}/staging)
 endforeach()
 
 # Build integration test apps
@@ -25,7 +25,7 @@ set(APP_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build/TestApps/Integration_testapp)
 file(GLOB_RECURSE UNITTEST_ADEF_FILES ${TESTAPP_PATH}/*Int*Test.adef)
 foreach( unittestfile  ${UNITTEST_ADEF_FILES} )
     message(STATUS "adef file: ${unittestfile}")
-    mkapp( ${unittestfile} -i ${Interfaces})
+    mkapp( ${unittestfile} -i ${Interfaces} -i ${Interfaces}/staging)
 endforeach()
 
 # Build console test apps
@@ -34,7 +34,7 @@ set(TESTAPP_PATH  $ENV{TELAF_ROOT}/apps/test/ConsoleApp)
 file(GLOB_RECURSE CONSOLEAPP_ADEF_FILES ${TESTAPP_PATH}/*.adef)
 foreach( consoleappfile  ${CONSOLEAPP_ADEF_FILES} )
     message(STATUS "adef file: ${consoleappfile}")
-    mkapp( ${consoleappfile} -i ${Interfaces})
+    mkapp( ${consoleappfile} -i ${Interfaces} -i ${Interfaces}/staging)
 endforeach()
 
 # Build sample test apps
@@ -44,10 +44,12 @@ file(GLOB_RECURSE CONSOLEAPP_ADEF_FILES ${TESTAPP_PATH}/*.adef)
 foreach( consoleappfile  ${CONSOLEAPP_ADEF_FILES} )
     if((${consoleappfile} MATCHES "tafRSPApp.adef$") OR
        (${consoleappfile} MATCHES "tafRSimApp.adef$") OR
+       (${consoleappfile} MATCHES "tafDiagApp.adef") OR
        (${consoleappfile} MATCHES "tafSAPProviderApp.adef$") OR
-       (${consoleappfile} MATCHES "tafECallApp.adef$"))
+       (${consoleappfile} MATCHES "tafECallApp.adef$") OR
+       (${consoleappfile} MATCHES "tafDiagEventApp.adef$"))
            message(STATUS "adef file: ${consoleappfile}")
-           mkapp( ${consoleappfile} -i ${Interfaces})
+           mkapp( ${consoleappfile} -i ${Interfaces} -i ${Interfaces}/staging)
     endif()
 endforeach()
 
@@ -67,12 +69,21 @@ set(TESTAPP_PATH  $ENV{TELAF_ROOT}/apps/tafMngdServices/tafMngdTest)
 file(GLOB_RECURSE MNGD_ADEF_FILES ${TESTAPP_PATH}/*UnitTest.adef )
 foreach( mngdappfile  ${MNGD_ADEF_FILES} )
 	 message(STATUS "adef file: ${mngdappfile}")
-	 mkapp( ${mngdappfile} -i ${Interfaces} -i ${MngInterfaces})
+	 mkapp( ${mngdappfile} -i ${Interfaces} -i ${MngInterfaces} -i ${MngInterfaces}/staging)
+endforeach()
+
+set(APP_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build/TestApps/Console_testapp)
+file(GLOB_RECURSE MNGD_ADEF_FILES ${TESTAPP_PATH}/*.adef )
+foreach( consoleappfile  ${MNGD_ADEF_FILES} )
+    if((${consoleappfile} MATCHES "tafMngdAudioConsoleApp.adef$") )
+           message(STATUS "adef file: ${consoleappfile}")
+           mkapp( ${consoleappfile} -i ${Interfaces} -i  ${MngInterfaces}/staging)
+    endif()
 endforeach()
 
 set(APP_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/build/TestApps/Integration_testapp)
 file(GLOB_RECURSE MNGD_ADEF_FILES ${TESTAPP_PATH}/*Int*Test.adef )
 foreach( mngdappfile  ${MNGD_ADEF_FILES} )
          message(STATUS "adef file: ${mngdappfile}")
-         mkapp( ${mngdappfile} -i ${Interfaces} -i ${MngInterfaces})
+         mkapp( ${mngdappfile} -i ${Interfaces} -i ${MngInterfaces}  -i ${MngInterfaces}/staging)
 endforeach()

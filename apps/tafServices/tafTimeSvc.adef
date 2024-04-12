@@ -1,4 +1,4 @@
-maxThreads: 300
+maxThreads: 600
 
 username: telaf
 
@@ -39,6 +39,11 @@ processes:
 }
 
 sandboxed: false
+
+bindings:
+{
+    tafTimeSvc.tafTimeSvc.taf_pm -> tafPMSvc.taf_pm
+}
 
 extern:
 {

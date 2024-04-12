@@ -1,0 +1,574 @@
+/*
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *
+ * @page c_tafTime Time Service
+ *
+ * @ref taf_time_interface.h "API Reference"
+ *
+ * <HR>
+ *
+ * The Time Service provides APIs that allow customer applications to set the system time
+ * and get the system, network, and GNSS time.
+ *
+ * @section taf_time_binding IPC interfaces binding
+ *
+ * The functions of this API are provided by the @b tafTimeSvc service.
+ *
+ * The following example illustrates how to bind to the Time service.
+ *
+ * @verbatim
+ *
+   bindings:
+   {
+       clientExe.clientComponent.taf_time -> tafTimeSvc.taf_time
+   }
+ * @endverbatim
+
+ * @section c_taf_time_Get Get the time
+ *
+ * To get the current local system time and GNSS time, the following APIs can be used.
+ *
+ *  - taf_time_GetSystemTime() -- Gets the local system time.
+ *
+ *  - taf_time_GetGnssTime() -- Gets the GNSS time maintained by the time service.
+ *
+ * The following examples illustrate how to use the APIs.
+ *
+ * @code
+
+   taf_time_TimeSpec_t systemTime;
+   if(taf_time_GetSystemTime(&systemTime)== LE_OK)
+   {
+        // Process received time.
+   }
+
+   taf_time_TimeSpec_t gnssTime;
+   if(taf_time_GetGnssTime(&gnssTime)== LE_OK)
+   {
+        // Process received time.
+   }
+
+ * @endcode
+ *
+ * When trying to get the time information of a given time source, the application shall first
+ * get the time reference by calling taf_time_GetTimeRef(), then call taf_time_GetTime()
+ * to fetch the related time information. With the reference object, taf_time_GetRefSystemTime()
+ * and taf_time_GetRefGptpTime() are two APIs to get the system time and GPTP time fetched
+ * from taf_time_GetTime(). When the reference is not needed, call taf_time_ReleaseTimeRef()
+ * to release the time reference.
+ *
+ * The following example illustrates how to get the time information.
+ *
+ * @code
+ *
+   le_result_t result;
+   taf_time_TimeSpec_t timeVal;
+   taf_time_TimeSourceRef_t timeSrcRef;
+
+   // Get the reference for a time source.
+   timeSrcRef = taf_time_GetTimeRef(TAF_TIME_SRC_NAME_NETWORK);
+   if (timeSrcRef == NULL);
+   {
+      return LE_FAULT;
+   }
+
+   // Get the network time with reference.
+   result = taf_time_GetTime(timeSrcRef, &timeVal);
+   if (result != LE_OK)
+   {
+      return result;
+   }
+   LE_INFO("Reference network time is %"PRIu64".%"PRIu64, time.sec, timeVal.nanosec);
+
+   // Get reference system time.
+   result = taf_time_GetRefSystemTime(timeSrcRef, &timeVal);
+   if (result == LE_OK)
+   {
+      LE_INFO("Reference system time is %"PRIu64".%"PRIu64, timeVal.sec, timeVal.nanosec);
+   }
+
+   // Get reference gptp time.
+   result = taf_time_GetRefGptpTime(timeSrcRef, &timeVal);
+   if (result == LE_OK)
+   {
+       LE_INFO("Reference gptp time is %"PRIu64".%"PRIu64, timeVal.sec, timeVal.nanosec);
+   }
+
+   // Release the memory for this reference.
+   result = taf_time_ReleaseTimeRef(timeSrcRef);
+   if (result == LE_OK)
+   {
+       LE_INFO("The reference was successfully removed\n");
+   }
+
+ *
+   @endcode
+ *
+ * @section c_taf_time_Set Set the system time
+ *
+ * - taf_time_SetSystemTime() -- Sets system time in the format of seconds and nanosconds.
+ *
+ * @code
+ *
+   static le_mem_PoolRef_t NewTimePool = NULL;
+   taf_time_TimeSpec_t *newTime;
+   NewTimePool = le_mem_CreatePool("NewTimePool", sizeof(taf_time_TimeSpec_t));
+   newTime = (taf_time_TimeSpec_t*) le_mem_ForceAlloc(NewTimePool);
+
+   newTime->sec = 1667788990;
+   newTime->nanosec = 10000;
+
+   if(taf_time_SetSystemTime((const taf_time_TimeSpec_t*)newTime, true)== LE_OK)
+   {
+        // Process received time.
+   }
+ *
+ * @endcode
+ *
+ * @section c_taf_time_TimeValueChangeHandler_API Time notification
+ *
+ * With the reference object, taf_time_AddTimeValueChangeHandler() is for the application to
+ * register an event handler for the time source. When the time source gets changed, the time
+ * service will notify the client through that registered event handler.
+ *
+ * When the notification is not needed, taf_time_RemoveTimeValueChangeHandler() is to de-register
+ * the event handler to release.
+ *
+ * The following example illustrates how to register and get the time information,
+ *
+ * @code
+   // Event handler for receiving notification from time service
+   void TimeValueChangeHandler
+   (
+       taf_time_TimeSourceRef_t timeSrcRef,
+       taf_time_TimeSpec_t* timeVal,
+       void* contextPtr
+   )
+   {
+       le_result_t result;
+       taf_time_TimeSpec_t sysTime;
+       taf_time_TimeSpec_t gptpTime;
+       LE_INFO("Received network time from notification is %"PRIu64".%"PRIu64,
+                                   timeSrcRef, timeVal->sec, timeVal->nanosec);
+
+       // Get reference system time information.
+       result = taf_time_GetRefSystemTime(timeSrcRef, &systemTime);
+       if (result == LE_OK)
+       {
+           LE_INFO("Reference system time is %"PRIu64".%"PRIu64, sysTime.sec, sysTime.nanosec);
+       }
+
+       // Get reference gptp time information.
+       result = taf_time_GetRefGptpTime(timeSrcRef, &gptpTime);
+       if (result == LE_OK)
+       {
+           LE_INFO("Reference gptp time is %"PRIu64".%"PRIu64, time.sec, time.nanosec);
+       }
+
+       // Release the memory for this reference.
+       result = taf_time_ReleaseTimeRef(timeSrcRef);
+       if (result == LE_OK)
+       {
+              LE_INFO("The reference was successfully removed\n");
+       }
+
+       return;
+   }
+
+   static taf_time_TimeValueChangeHandlerRef_t TimeValueChangeHandlerRef = NULL;
+   // Thread to register the handler
+   void* TimeValueChangeHandlerTestThread
+   (
+       void* contextPtr ///< [IN] Thread context.
+   )
+   {
+       // Connect to service.
+       taf_time_ConnectService();
+
+       // Register event handler
+       TimeValueChangeHandlerRef = taf_time_AddTimeValueChangeHandler(TAF_TIME_SRC_NAME_NETWORK,
+                 (taf_time_TimeValueChangeHandlerFunc_t)TimeValueChangeHandler, NULL);
+       if(TimeValueChangeHandlerRef != NULL)
+       {
+            LE_INFO("The event handler was successfully registered\n");
+       }
+
+       le_event_RunLoop();
+       return NULL;
+   }
+
+   //Creates a thread to register the handler and receive notification.
+   le_thread_Ref_t threadRef = le_thread_Create("TimeSrcChangeTh",
+                              TimeValueChangeHandlerTestThread, NULL);
+   // De-register the hanlder when not need.
+   taf_time_RemoveTimeValueChangeHandler(TimeValueChangeHandlerRef);
+
+ *
+   @endcode
+ *
+ * To receive the time source change notification, the following APIs should be used.
+ * - taf_time_AddTimeSourceChangeHandler() -- Adds the time source changed handler.
+ * - taf_time_RemoveTimeSourceChangeHandler() -- Removes the registered time source changed handler.
+ *
+ * @code
+ *
+   // Time source change indication handler.
+   void TimeSourceChangeHandler
+   (
+        taf_time_TimeSources_t PreTimeSource,
+        taf_time_TimeSources_t NewTimeSource
+   )
+   {
+        LE_INFO("Old time source: %d, New time source: %d\n",PreTimeSource, NewTimeSource);
+   }
+
+   // Add handler for time source change.
+   taf_time_TimeSourceChangeHandlerRef_t TimeSourceChangeHandlerRef =
+   taf_time_AddTimeSourceChangeHandler
+   (
+        (taf_time_TimeSourceChangeHandlerFunc_t)TimeSourceChangeHandler, NULL
+   );
+
+  // Time source change in some cases.
+
+ *
+ * @endcode
+ *
+ * <HR>
+ *
+*/
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Reference for a time source instance, time service uses it to maintain related information.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE TimeSource;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Time source list, which is maintaining by time service.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM TimeSources{
+    SRC_NAME_RTC,       ///< RTC time source
+    SRC_NAME_GNSS,      ///< GNSS time source
+    SRC_NAME_EX_APP,    ///< External time source
+    SRC_NAME_NETWORK,   ///< Network time source from phone1
+    SRC_NAME_NETWORK2,  ///< Network time source from phone2
+    SRC_NAME_UNKNOWN    ///< No active time source
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Time structure to store seconds and nanoseconds since epoch.
+ * - @b sec     -- Seconds since epoch
+ * - @b nanosec -- Nanoseconds
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+STRUCT TimeSpec
+{
+    uint64 sec;      ///< Seconds since epoch
+    uint64 nanosec;  ///< Nanoseconds
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets system time.
+ *
+ * It returns the system time in seconds/nanoseconds since epoch via output timeVal.
+ *
+ * @note The value of nanoseconds may not be in good accuracy when the system cannot
+ * reach to the accuracy.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_FAULT -- Internal error.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetSystemTime
+(
+    TimeSpec timeVal OUT ///< Time in seconds/nanoseconds
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets GNSS time.
+ *
+ * It returns the system time in seconds/nanoseconds since epoch via output timeVal.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_UNAVAILABLE -- The GNSS time is not available.
+ *  - LE_FAULT -- Internal error.
+ *
+ */
+
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetGnssTime
+(
+    TimeSpec timeVal OUT ///< Time in seconds/nanoseconds
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the RTC time.
+ *
+ * It returns the RTC time in seconds/nanoseconds since epoch via output timeVal.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_NOT_FOUND -- The RTC time is not available.
+ *  - LE_FAULT -- Internal error.
+ *
+ */
+
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetRtcTime
+(
+    TimeSpec timeVal OUT ///< Time in seconds/nanoseconds
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the system time.
+ *
+ * @return
+ * - LE_OK            Succeeded.
+ * - Appropriate error is returned on failure.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetSystemTime
+(
+    TimeSpec timeVal IN, ///< Time in seconds/nanoseconds
+    bool ackTimeSvc  IN  ///< True acknowledge time service, otherwise not
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for time soure change event.
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER TimeSourceChangeHandler
+(
+    TimeSources preSource IN, ///< Previous time source
+    TimeSources newSource IN  ///< Current time source
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Event to report the time source change or there is no available time source.
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT TimeSourceChange
+(
+    TimeSourceChangeHandler handler ///< Handler for time source change notification.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for time value change event.
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER TimeValueChangeHandler
+(
+    TimeSource  timeSrcRef  IN,    ///< Time source reference.
+    TimeSpec   timeVal      IN     ///< Time in seconds/nanoseconds
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This event provides information for registered time source.
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT TimeValueChange
+(
+    TimeSources sourceId IN,           ///< Time source ID
+    TimeValueChangeHandler    handler  ///< Handler for time source change notification.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the reference object for a time source.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_FAULT -- Something went wrong.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION TimeSource GetTimeRef
+(
+    TimeSources sourceId IN  ///< Time source ID
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the time source and added related time information to its reference object.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_FAULT -- Something went wrong.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetTime
+(
+    TimeSource timeSrcRef    IN,  ///< Time source reference
+    TimeSpec timeVal         OUT  ///< Time in seconds/nanoseconds
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the system time which was created together with a specified time source.
+ *
+ * - It returns the system time in seconds/nanoseconds since epoch via output 'timeVal'.
+ *
+ * @return
+ *  - LE_FAULT -- Something went wrong.
+ *  - LE_UNAVAILABLE -- This reference time is currently not unavailable.
+ *  - LE_UNSUPPORTED -- Not supported for current time source.
+ *  - LE_OK -- Succeeded.
+ *
+ * @note This function must be called after the reference object was created, and related time
+ * information has been saved to the structure for that reference object.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetRefSystemTime
+(
+    TimeSource  timeSrcRef IN,   ///< Time source reference
+    TimeSpec  timeVal      OUT   ///< Time in seconds/nanoseconds
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets GPTP time that created when related time source was created.
+ *
+ * - It returns the GPTP time in seconds/nanoseconds since epoch via output 'timeVal'.
+ *
+ * @return
+ *  - LE_FAULT -- Something went wrong.
+ *  - LE_UNAVAILABLE -- This reference time is currently not unavailable.
+ *  - LE_UNSUPPORTED -- Not supported for current time source.
+ *  - LE_OK -- Succeeded.
+ *
+ * @note This function must be called after the reference object was created, and related time
+ * information has been saved to the structure for that reference object.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetRefGptpTime
+(
+    TimeSource  timeSrcRef IN,   ///< Time source reference.
+    TimeSpec  timeVal      OUT   ///< Time in seconds/nanoseconds
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Releases a 'TimeSource' reference.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_FAULT -- Something went wrong.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ReleaseTimeRef
+(
+    TimeSource  timeSrcRef  IN  ///< Time source reference.
+);
+
+HANDLER AsyncGetTimeReqHandler
+(
+    TimeSpec    timeVal   IN,            ///< Time in seconds/nanoseconds.
+    le_result_t responseState IN    ///< Status response.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the RTC time asynchronously.
+ *
+ * It returns the RTC time in seconds/nanoseconds since epoch via output timeVal.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_UNAVAILABLE -- The RTC time is not available.
+ *  - LE_FAULT -- Internal error.
+ *  - LE_NOT_IMPLEMENTED -- Not implemented.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetRtcTimeReqAsync
+(
+    AsyncGetTimeReqHandler    handlerRef   IN    ///< Handler
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the time to RTC device.
+ *
+ * @return
+ * - LE_OK            Succeeded.
+ * - Appropriate error is returned on failure.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetTimeToRtc
+(
+    TimeSpec timeVal IN ///< Time in seconds/nanoseconds
+);
+
+
+HANDLER AsyncSetTimeReqHandler
+(
+    le_result_t responseState     IN    ///< Status response.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets RTC time asynchronously.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_UNAVAILABLE -- The rtc time is not available.
+ *  - LE_FAULT -- Internal error.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetRtcTimeReqAsync
+(
+    TimeSpec timeVal                      IN,        ///< Time in seconds/nanoseconds
+    AsyncSetTimeReqHandler handlerRef     IN         ///< Handler
+);
+

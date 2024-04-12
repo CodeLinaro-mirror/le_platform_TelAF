@@ -45,62 +45,87 @@ using namespace telux::tafsvc;
  * So we compare strings to get the specific data types. By default the function will return string.
  *
 */
-taf_mngd_JSON_Data_Types_t telux::tafsvc::tafMngd_GetDataType(std::string Value)
+mcs_JSON_Data_Types_t telux::tafsvc::mcs_GetDataType(std::string Value)
 {
     if (boost::iequals(Value, "null")) {
-        return TAF_MNGD_JSON_DATA_TYPE_NULL;
+        return MCS_JSON_DATA_TYPE_NULL;
     }
 
     if (boost::iequals(Value, "Yes")) {
-        return TAF_MNGD_JSON_DATA_TYPE_YES_NO;
+        return MCS_JSON_DATA_TYPE_YES_NO;
     }
 
     if (boost::iequals(Value, "No")) {
-        return TAF_MNGD_JSON_DATA_TYPE_YES_NO;
+        return MCS_JSON_DATA_TYPE_YES_NO;
     }
 
     if (boost::iequals(Value, "Auto")) {
-        return TAF_MNGD_JSON_DATA_TYPE_NW_REGISTRATION;
+        return MCS_JSON_DATA_TYPE_NW_REGISTRATION;
     }
 
     if (boost::iequals(Value, "Manual"))
     {
-        return TAF_MNGD_JSON_DATA_TYPE_NW_REGISTRATION;
+        return MCS_JSON_DATA_TYPE_NW_REGISTRATION;
+    }
+
+    if (boost::iequals(Value, "None")) {
+        return MCS_JSON_DATA_TYPE_NONE;
+    }
+
+    if (boost::iequals(Value, "L1"))
+    {
+        return MCS_JSON_DATA_TYPE_CONNRECOVERY_LEVEL;
     }
 
     // Only positive integers
     if (std::regex_match(Value, std::regex("[0-9]+"))){
-        return TAF_MNGD_JSON_DATA_TYPE_NUMBER;
+        return MCS_JSON_DATA_TYPE_NUMBER;
     }
 
-    return TAF_MNGD_JSON_DATA_TYPE_STRING;
+    return MCS_JSON_DATA_TYPE_STRING;
 }
 
-taf_mngd_Yes_No_t telux::tafsvc::tafMngd_Convert_to_Yes_No_enum(std::string Value)
+mcs_Yes_No_t telux::tafsvc::mcs_Convert_to_Yes_No_enum(std::string Value)
 {
     if (boost::iequals(Value, "yes"))
     {
-        return TAF_MNGD_CONN_YES;
+        return MCS_YES;
     }
 
     if (boost::iequals(Value, "no"))
     {
-        return TAF_MNGD_CONN_NO;
+        return MCS_NO;
     }
-    return (taf_mngd_Yes_No_t)TAF_MNGD_JSON_DATA_TYPE_UNKNOWN;
+    return (mcs_Yes_No_t)MCS_JSON_DATA_TYPE_UNKNOWN;
 }
 
-taf_mngd_NW_Registration_Type_t
-            telux::tafsvc::tafMngd_Convert_to_NW_Registration_Type_enum(std::string Value)
+mcs_NW_Registration_Type_t
+            telux::tafsvc::mcs_Convert_to_NW_Registration_Type_enum(std::string Value)
 {
     if (boost::iequals(Value, "Auto"))
     {
-        return TAF_MNGD_CONN_MAX_NW_REGISTRATION_TYPE_AUTO;
+        return MCS_NW_REGISTRATION_TYPE_AUTO;
     }
 
     if (boost::iequals(Value, "Manual"))
     {
-        return TAF_MNGD_CONN_MAX_NW_REGISTRATION_TYPE_MANUAL;
+        return MCS_NW_REGISTRATION_TYPE_MANUAL;
     }
-    return (taf_mngd_NW_Registration_Type_t)TAF_MNGD_JSON_DATA_TYPE_UNKNOWN;
+    return (mcs_NW_Registration_Type_t)MCS_JSON_DATA_TYPE_UNKNOWN;
+}
+
+mcs_Policy_ConnRecoveryLevel_t telux::tafsvc::
+                                                mcs_Convert_to_ConnRecovery_Level_Type_enum
+                                                (std::string Value)
+{
+    if (boost::iequals(Value, "None"))
+    {
+        return MCS_CONNECTIONRECOVERY_TYPE_NONE;
+    }
+
+    if (boost::iequals(Value, "L1"))
+    {
+        return MCS_CONNECTIONRECOVERY_TYPE_L1;
+    }
+    return (mcs_Policy_ConnRecoveryLevel_t)MCS_JSON_DATA_TYPE_UNKNOWN;
 }

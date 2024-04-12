@@ -53,8 +53,35 @@ void tafMngdPMGpio::GpioChangeCallback(uint8_t pinNum, bool state, void *ctx){
         if(gpioPtr->pinNum == pinNum && (gpioPtr-> value == state))
         {
             LE_INFO("Gpio %d matched for state registered for %s", gpioPtr->pinNum,
-                    tafMngdPMSvc::tafStateToString(gpioPtr->state));
+                    tafMngdPMSvc::TafStateToString(gpioPtr->state));
+
+            taf_mngd_pm_State_t requestedState;
+            switch((taf_pm_State_t)gpioPtr->state)
+            {
+                case TAF_PM_STATE_SUSPEND:
+                    requestedState = TAF_MNGD_PM_STATE_SUSPENDING;
+                    break;
+
+                case TAF_PM_STATE_SHUTDOWN:
+                    requestedState = TAF_MNGD_PM_STATE_SHUTTING_DOWN;
+                    break;
+
+                case TAF_PM_STATE_RESUME:
+                    requestedState = TAF_MNGD_PM_STATE_WAKING_UP;
+                    break;
+
+                default:
+                    break;
+            }
+
+            if(tafMngdPMSvc::RequestStateChange(requestedState) != LE_OK)
+            {
+                return;
+            }
+
             taf_pm_SetAllVMPowerState((taf_pm_State_t)gpioPtr->state);
+
+            tafMngdPMSvc::ProcessStateChange(requestedState);
         }
     }
 }

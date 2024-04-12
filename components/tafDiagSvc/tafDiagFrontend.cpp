@@ -40,6 +40,9 @@
 #include "tafUpdateSvr.hpp"
 #include "tafSecuritySvr.hpp"
 #include "tafDataIDSvr.hpp"
+#include "tafEventSvr.hpp"
+#include "configuration.hpp"
+#include "tafDTCInf.hpp"
 
 using namespace telux::tafsvc;
 
@@ -50,6 +53,15 @@ using namespace telux::tafsvc;
 //--------------------------------------------------------------------------------------------------
 COMPONENT_INIT
 {
+    try
+    {
+        cfg::diag_config_init("./diag_template.yaml.json");
+    }
+    catch (const std::exception& e)
+    {
+        LE_FATAL("json file is not present");
+    }
+
     LE_INFO("TelAF UDS Security service initialization start...");
     auto& tafSecurity = taf_SecuritySvr::GetInstance();
     tafSecurity.Init();
@@ -73,6 +85,16 @@ COMPONENT_INIT
     auto& did = taf_DataIDSvr::GetInstance();
     did.Init();
     LE_INFO("TelAF UDS DataID service initialization end...");
+
+    LE_INFO("TelAF Event Management service initialization start...");
+    auto& event = taf_EventSvr::GetInstance();
+    event.Init();
+    LE_INFO("TelAF Event Management service initialization end...");
+
+    LE_INFO("TelAF UDS DTC interface initialization start...");
+    auto& dtcInf = taf_DTCInf::GetInstance();
+    dtcInf.Init();
+    LE_INFO("TelAF UDS DTC interface initialization end...");
 
     LE_INFO("TelAF Diag Backend initialization start...");
     auto& tafBackend = taf_DiagBackend::GetInstance();

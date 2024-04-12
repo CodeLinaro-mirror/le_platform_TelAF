@@ -1,0 +1,31 @@
+maxThreads: 600
+sandboxed: true
+
+executables:
+{
+    wlanUnitTest = ( wlanUnitTestComponent )
+}
+
+start: manual
+
+processes:
+{
+    run:
+    {
+        (wlanUnitTest)
+    }
+
+    faultAction: stopApp
+
+    #if ${LE_CONFIG_SERVICES_WATCHDOG} = y
+        maxWatchdogTimeout: 100000
+    #else
+        watchdogTimeout: never
+    #endif
+}
+
+bindings:
+{
+    wlanUnitTest.wlanUnitTestComponent.taf_wlan -> tafWlanSvc.taf_wlan
+    wlanUnitTest.wlanUnitTestComponent.taf_wlanSta -> tafWlanSvc.taf_wlanSta
+}

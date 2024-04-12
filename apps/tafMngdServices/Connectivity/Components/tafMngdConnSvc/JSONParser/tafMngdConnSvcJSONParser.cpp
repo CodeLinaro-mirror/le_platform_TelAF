@@ -59,10 +59,11 @@ static std::map<std::string, ConnectivityValidationFunction_t> ConnectivityValid
  **/
 static const char *JSON_Version_23_07_00 = "23.07.00";
 static const char *JSON_Version_23_11_00 = "23.11.00";
+static const char *JSON_Version_24_03_00 = "24.03.00";
 
 /**
  * Validate ManagedConnectivityService:Version
- * Check for supported versions and set the Version to correct taf_mngd_Conn_JSON_Version_t value.
+ * Check for supported versions and set the Version to correct mcs_JSON_Version_t value.
  */
 static bool Validate_MCS_Version(taf_mngd_Conn_Policy_t &Policy,
                                                 taf_mngd_Conn_Configuration_t &Configuration,
@@ -70,10 +71,10 @@ static bool Validate_MCS_Version(taf_mngd_Conn_Policy_t &Policy,
                                                 int Index)
 {
     LE_DEBUG("%s", Value.c_str());
-    taf_mngd_JSON_Data_Types_t DataType = tafMngd_GetDataType(Value);
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
 
     // Value should be a string
-    if (TAF_MNGD_JSON_DATA_TYPE_STRING != DataType)
+    if (MCS_JSON_DATA_TYPE_STRING != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
@@ -83,15 +84,22 @@ static bool Validate_MCS_Version(taf_mngd_Conn_Policy_t &Policy,
     // Set the Policy and Configuration Version accordingly
     if (Value == JSON_Version_23_07_00)
     {
-        Policy.Version        = TAF_MNGD_CONN_JSON_VERSION_23_07_00;
-        Configuration.Version = TAF_MNGD_CONN_JSON_VERSION_23_07_00;
+        Policy.Version        = MCS_JSON_VERSION_23_07_00;
+        Configuration.Version = MCS_JSON_VERSION_23_07_00;
         LE_INFO("Valid JSON Version: %s", Value.c_str());
         return true;
     }
     else if (Value == JSON_Version_23_11_00)
     {
-        Policy.Version        = TAF_MNGD_CONN_JSON_VERSION_23_11_00;
-        Configuration.Version = TAF_MNGD_CONN_JSON_VERSION_23_11_00;
+        Policy.Version        = MCS_JSON_VERSION_23_11_00;
+        Configuration.Version = MCS_JSON_VERSION_23_11_00;
+        LE_INFO("Valid JSON Version: %s", Value.c_str());
+        return true;
+    }
+     else if (Value == JSON_Version_24_03_00)
+    {
+        Policy.Version        = MCS_JSON_VERSION_24_03_00;
+        Configuration.Version = MCS_JSON_VERSION_24_03_00;
         LE_INFO("Valid JSON Version: %s", Value.c_str());
         return true;
     }
@@ -133,7 +141,7 @@ bool telux::tafsvc::tafMngdConnSvc_GetPolicyAndConfiguration(
     // If path is not provided, add the default path
     if ('/' != newConfFileName[0])
     {
-        newConfFileName.insert (0, (TAF_MNGD_DefaultLocation_Configuration + "/"));
+        newConfFileName.insert (0, (MCS_DefaultLocation_Configuration + "/"));
     }
     // Update the properties and validation functions map
     UpdateValidConnectivityFuncMap();
@@ -176,7 +184,7 @@ bool telux::tafsvc::tafMngdConnSvc_GetPolicyAndConfiguration(
             LE_DEBUG ("%s", log.c_str() );
 
             // Get the value of "Product". This should be "TelAF"
-            if (element.second.get_value<std::string>() != TAF_MNGD_Default_Product_Value)
+            if (element.second.get_value<std::string>() != MCS_Default_Product_Value)
             {
                 LE_WARN("Invalid JSON Product Value.");
                 return false;
@@ -222,7 +230,7 @@ bool telux::tafsvc::tafMngdConnSvc_GetPolicyAndConfiguration(
                     if (!ValidateValue(PolicyStructRef,
                                     ConfigurationStructRef,
                                     JSON_Property, JSON_Value,
-                                    TAF_MNGD_CONN_INVALID_INDEX))
+                                    MCS_INVALID_INDEX))
                     {
                         LE_WARN("Invalid JSON_Property Value");
                         LE_INFO("JSON_Property: %s, Value: %s", JSON_Property.c_str(),

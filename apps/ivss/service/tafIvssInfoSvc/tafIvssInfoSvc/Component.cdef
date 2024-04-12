@@ -1,0 +1,48 @@
+requires:
+{
+    component:
+    {
+        $CURDIR/../tafIvssInfoIdl
+    }
+
+    api:
+    {
+        $TELAF_ROOT/interfaces/taf_info.api
+    }
+}
+
+sources:
+{
+    tafIvssInfoSvc.cpp
+    tafIvssInfoSvcImpl.cpp
+}
+
+cxxflags:
+{
+    -I$LEGATO_SYSROOT/usr/include/CommonAPI-3.2
+    -I$TELAF_ROOT/include
+    -I$TELAF_ROOT/apps/ivss/common/include
+}
+
+ldflags:
+{
+    -lvsomeip3
+    -lCommonAPI
+    -lCommonAPI-SomeIP
+}
+
+bundles:
+{
+    file:
+    {
+        // Include a default vsomeip JSON config file that contains
+        // the minimal configurations that vsomeip requires. Shall
+        // be modified accordingly based on target device's unicast
+        // and multicast addresses.
+        [rw] $TELAF_ROOT/apps/ivss/common/conf/vsomeipRef.json   /
+
+        // Include a CommonAPI ini config file that contains 4
+        // optional sections: logging, bindings, proxy and stub.
+        [rw] $TELAF_ROOT/apps/ivss/common/conf/commonapiRef.ini   /
+    }
+}

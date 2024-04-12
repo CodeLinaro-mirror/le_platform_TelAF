@@ -1,29 +1,40 @@
 {
-    "TimeService": {
-        "@version": "1.0",
-        "__comment__": [
-              "PollingInterval:",
-              "Time interval for looping the configured time sources.",
-              "",
-              "ToleranceMillsec:",
-              "The new time value will be set to the system only when the time",
-              "delta between the current system time and the new value is greater",
-              "than this value.",
-              ""
-        ],
-        "Sources": [
-            {
-                "Source": "ExAPP",
-                "SetTime":"true",
-                "Priority":"1"
-            },
-            {
-                "Source": "GNSS",
-                "SetTime":"true",
-                "Priority":"2"
-            }
-        ],
-        "PollingInterval": "63",
-        "ToleranceMillsec": "100"
-    }
+  "TimeService": {
+    "@version": "1.0",
+    "__comment__": [
+      "PollingInterval:",
+      "Time interval for looping the configured time sources.",
+      "",
+      "ToleranceMillsec:",
+      "The new time value will be set to the system only when the time",
+      "delta between the current system time and the new value is greater",
+      "than this value.",
+      ""
+    ],
+    "Sources": [
+      {
+        "Source": "ExAPP",
+        "SetTime": "true",
+        "Priority": "1"
+      },
+      {
+        "Source": "GNSS",
+        "SetTime": "true",
+        "Priority": "2"
+      },
+      {
+        "Source": "NETWORK",
+        "SetTime": "true",
+        "Priority": "3"
+      },
+      {
+        "Source": "RTC",
+        "SetTime": "true",
+        "Priority": "4"
+      }
+    ],
+    "PollingInterval": "64",
+    "ToleranceMillsec": "200",
+    "AllowOverrideAfterFail": "-1"
+  }
 }

@@ -32,6 +32,8 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+maxThreads: 600
+
 executables:
 {
     tafSmsConsoleApp = ( Component )

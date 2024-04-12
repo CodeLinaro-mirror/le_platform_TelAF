@@ -5,7 +5,7 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-SDK_BIN_HOME=PATH=/legato/systems/current/sdk_rootfs/bin
+SDK_BIN_HOME=/legato/systems/current/sdk_rootfs/bin
 export PATH=$SDK_BIN_HOME:$SCRIPT_DIR:$PATH
 
 alias simula="python3 $SCRIPT_DIR/main.py"

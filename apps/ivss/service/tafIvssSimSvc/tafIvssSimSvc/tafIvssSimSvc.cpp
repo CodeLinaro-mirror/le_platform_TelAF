@@ -3,10 +3,7 @@
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
-#include <iostream>
-#include <thread>
-#include <CommonAPI/CommonAPI.hpp>
-#include "tafIvssSimSvcImpl.hpp"
+#include "tafIvssSimSvc.hpp"
 
 std::shared_ptr<tafIvssSimSvcImpl> ivssSimSvc;
 using namespace std;

@@ -1,12 +1,23 @@
-maxThreads: 300
+maxThreads: 600
 
 username: telaf
 
 capability:
 {
+        CAP_SYS_BOOT
         CAP_WAKE_ALARM
         CAP_NET_ADMIN
         CAP_BLOCK_SUSPEND
+}
+
+groups:
+{
+        system
+        diag
+        radio
+        inet
+        locclient
+        shutdown
 }
 
 executables:

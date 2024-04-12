@@ -3,6 +3,7 @@ sources:
     gpio/tafMngdPMGpio.cpp
     can/tafMngdPMCan.cpp
     sms/tafMngdPMSms.cpp
+    tafMngdPMImpl.cpp
     tafMngdPMSvc.cpp
 }
 
@@ -10,7 +11,7 @@ provides:
 {
     api:
     {
-        $TELAF_ROOT/apps/tafMngdServices/interfaces/taf_mngd_pm.api
+        $TELAF_ROOT/apps/tafMngdServices/interfaces/staging/taf_mngd_pm.api
     }
 }
 

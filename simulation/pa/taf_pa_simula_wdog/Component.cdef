@@ -1,9 +1,0 @@
-sources :
-{
-    taf_pa_simula_wdog.c
-}
-
-cflags:
-{
-    -I$LEGATO_ROOT/framework/daemons/linux/watchdog/inc
-}

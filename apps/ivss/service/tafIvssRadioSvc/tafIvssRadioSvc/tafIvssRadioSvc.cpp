@@ -3,10 +3,7 @@
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
-#include <iostream>
-#include <thread>
-#include <CommonAPI/CommonAPI.hpp>
-#include "tafIvssRadioSvcImpl.hpp"
+#include "tafIvssRadioSvc.hpp"
 
 std::shared_ptr<tafIvssRadioSvcStubImpl> ivssRadioSvc;
 using namespace std;

@@ -346,12 +346,7 @@ COMPONENT_INIT
 
         case DEV_MANAGER_TOOL_LIST_DRIVERS:
 
-            // This one has no arguments.
-            // Simply list the driver for tests. Check the cfgTree later
-            if(system("ls -l  /data/persist/devManager/drivers/ | /usr/bin/awk 'NR>1 {print $3,$4,\"  \",$6,$7,$8,$9}'") == 0)
-            {
-                LE_INFO("listing success");
-            }
+            AppendToCommand(msgRef, "");
             break;
 
         default:

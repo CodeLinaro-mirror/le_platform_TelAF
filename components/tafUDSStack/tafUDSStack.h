@@ -57,15 +57,19 @@ typedef struct taf_uds_DiagIndicationHandlerRef* taf_uds_DiagIndicationHandlerRe
  * Enumeration of supported UDS service IDs.
  */
 //-------------------------------------------------------------------------------------------------
-typedef enum {
+typedef enum
+{
     SID_DIAGNOSTIC_SESSION_CONTROL = 0x10,
+    SID_CLEAR_DIAGNOSTIC_INFO = 0x14,
+    SID_READ_DTC_INFO = 0x19,
     SID_READ_DATA_BY_IDENTIFIER = 0x22,
     SID_SECURITY_ACCESS = 0x27,
     SID_WRITE_DATA_BY_IDENTIFIER = 0x2E,
     SID_ROUTINE_CONTROL = 0x31,
     SID_TRANSFER_DATA = 0x36,
     SID_REQUEST_TRANSFER_EXIT = 0x37,
-    SID_REQUEST_FILE_TRANSFER = 0x38
+    SID_REQUEST_FILE_TRANSFER = 0x38,
+    SID_CONTROL_DTC_SETTING = 0x85
 }taf_uds_ServiceId_t;
 
 //-------------------------------------------------------------------------------------------------

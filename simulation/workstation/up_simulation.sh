@@ -121,6 +121,7 @@ if [ -n "${TELAF_IN_CONTAINER}" ]; then # [Docker-Container-Env]
     # Create some default users
     useradd -M --no-log-init --shell /bin/bash telaf
     useradd -M --no-log-init --shell /bin/bash appdefault
+    useradd -M --no-log-init --gid root --shell /bin/bash securityunpack
 
     echo "/mnt/legato/system/lib" > /tmp/ld.so.conf
 
@@ -179,23 +180,11 @@ if [ -n "${TELAF_IN_CONTAINER}" ]; then # [Docker-Container-Env]
     if [ -f $SML_RO_TARBALL ]; then
 
         # extract the tarball to /mnt/legato without the 'install/' directory
-        tar zxf $SML_RO_TARBALL --no-same-owner --overwrite -C $MOUNTPOINT_TELAF --exclude up_simulation.sh --exclude install
+        tar zxf $SML_RO_TARBALL --no-same-owner --overwrite -C $MOUNTPOINT_TELAF --exclude up_simulation.sh
 
-<<<<<<< HEAD   (23bddc version: Update VERSION to telaf.lnx.1.1-231202)
-        if tar tzvf $SML_RO_TARBALL | grep 'install/.keep' > /dev/null 2>&1 ; then
-            # extract the 'install/' directory to /usr/lib only, cut down 3-level parent-dirs
-            tar zxf $SML_RO_TARBALL --no-same-owner --overwrite --strip-components=3 -C /usr/lib/ install
-        fi
-
-        SDK_ROOTFS=/legato/systems/current/sdk_rootfs
-=======
         # If we have SDK simulation dependencies, deploy the stuff into our system
         SDK_ROOTFS=/legato/sdk_rootfs
->>>>>>> CHANGE (ea2856 simulation: Fix the issues of system library dependencies an)
         if [ -d ${SDK_ROOTFS} ]; then
-<<<<<<< HEAD   (23bddc version: Update VERSION to telaf.lnx.1.1-231202)
-            cp -a -r -d ${SDK_ROOTFS}/* /
-=======
             # Follow SDK Dockerfile configuration
             cp -a -r -d ${SDK_ROOTFS}/bin/* /usr/bin/
             cp -a -r -d ${SDK_ROOTFS}/lib/* /usr/lib/
@@ -206,20 +195,31 @@ if [ -n "${TELAF_IN_CONTAINER}" ]; then # [Docker-Container-Env]
 
             # Change the dirs' mode for others access
             chmod 0755 /etc/telux
->>>>>>> CHANGE (ea2856 simulation: Fix the issues of system library dependencies an)
             chmod 0766 /etc/telux/*
             chmod -R 0777 /data/telux
-            ln -s /bin/telsdk_simulation_server /usr/bin/telsdk_simulation_server
+
+            # Use supervisord to start and monitor telsdk_simulation_server
             supervisord -c /etc/supervisord.conf
         fi
 
-        chmod 755 $MOUNTPOINT_TELAF/systems/current/bin/*
-
-        from_version=`cat $MOUNTPOINT_TELAF/.check_done`
+        CONTAINER_DISTRO_VERSION=$(grep -oP 'VERSION_ID="\K[^"]+' /etc/os-release)
 
         if [ -e $MOUNTPOINT_TELAF/.check_done ] ; then
-            if [ "$from_version" != "from 18.04" ] && [ "$from_version" != "from 20.04" ]; then
-                echo "Exist .check_done, but [$from_version], not in [18.04, 20.04], please rebuild your tarball."
+
+            FROM_VERSION_STR=`cat $MOUNTPOINT_TELAF/.check_done`
+
+            if [ "$FROM_VERSION_STR" != "from 18.04" ] \
+            && [ "$FROM_VERSION_STR" != "from 20.04" ]; then
+                echo "Exist .check_done, but [$FROM_VERSION_STR], not in [18.04, 20.04], please rebuild your tarball."
+                exit 1
+            fi
+
+            FROM_VERSION=`echo ${FROM_VERSION_STR} | cut -d ' ' -f 2`
+            if [ "$FROM_VERSION" != "$CONTAINER_DISTRO_VERSION" ];then
+                echo "Mismatch [${SIMULATION_TARBALL_NAME}] tarball !"
+                echo "Build from: [ubuntu-${FROM_VERSION}]"
+                echo "Deploy to : [ubuntu-${CONTAINER_DISTRO_VERSION}]"
+                echo -e "\nPlease re-build your project in corresponding ubuntu system.\n"
                 exit 1
             fi
 

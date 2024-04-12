@@ -491,14 +491,18 @@ void TestTafRadioPower
     result = taf_radio_SetRadioPower(LE_ON, DEFAULT_PHONE_ID);
     LE_TEST_OK(result == LE_OK, "taf_radio_SetRadioPower - LE_OK");
 
-    result = taf_radio_GetRadioPower(&power, DEFAULT_PHONE_ID);
-    LE_TEST_OK(result == LE_OK, "taf_radio_GetRadioPower - LE_OK");
-
-
     taf_radio_RemoveOpModeChangeHandler(opModeChangeHandlerRef);
     LE_TEST_OK(true, "taf_radio_RemoveOpModeChangeHandler - OK");
     // wait for network reconnection.
     le_thread_Sleep(5);
+
+    result = taf_radio_GetRadioPower(&power, DEFAULT_PHONE_ID);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetRadioPower - LE_OK");
+    if (power != LE_ON)
+    {
+        LE_ERROR("Radio is not powered on.");
+        exit(0);
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -727,7 +731,8 @@ void TestTafRadioServingStatus
     le_result_t result;
     char mccStr[TAF_RADIO_MCC_BYTES] = {0};
     char mncStr[TAF_RADIO_MNC_BYTES] = {0};
-    char name[TAF_RADIO_NETWORK_NAME_MAX_LEN] = {0};
+    char longOperatorStr[TAF_RADIO_NETWORK_NAME_MAX_LEN] = {0};
+    char shortOperatorStr[TAF_RADIO_NETWORK_NAME_MAX_LEN] = {0};
 
     taf_radio_Rat_t rat;
     result = taf_radio_GetRadioAccessTechInUse(&rat, DEFAULT_PHONE_ID);
@@ -807,13 +812,23 @@ void TestTafRadioServingStatus
             break;
     }
 
-    result = taf_radio_GetCurrentNetworkName(name, TAF_RADIO_NETWORK_NAME_MAX_LEN,
+    result = taf_radio_GetCurrentNetworkName(shortOperatorStr, TAF_RADIO_NETWORK_NAME_MAX_LEN,
         DEFAULT_PHONE_ID);
-    LE_TEST_OK(result == LE_OK, "taf_radio_GetCurrentNetworkName - LE_OK");
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetCurrentNetworkName short - LE_OK");
+
+    result = taf_radio_GetCurrentNetworkLongName(longOperatorStr, TAF_RADIO_NETWORK_NAME_MAX_LEN,
+        DEFAULT_PHONE_ID);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetCurrentNetworkLongName long - LE_OK");
 
     result = taf_radio_GetCurrentNetworkMccMnc(mccStr, TAF_RADIO_MCC_BYTES, mncStr,
         TAF_RADIO_MNC_BYTES, DEFAULT_PHONE_ID);
     LE_TEST_OK(result == LE_OK, "taf_radio_GetCurrentNetworkMccMnc - LE_OK");
+
+    taf_radio_NREndcAvailability_t endcStatus;
+    taf_radio_NRDcnrRestriction_t dcnrStatus;
+    result = taf_radio_GetNrDualConnectivityStatus(&endcStatus,&dcnrStatus,
+            DEFAULT_PHONE_ID);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetNrDualConnectivityStatus - LE_OK");
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1269,6 +1284,31 @@ void TestTafRadioIms
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Test signal strength, including handlers for signal changes, setting thresolds/delta/hysterisis
+ * for signal indications and getting signal metrics.
+ */
+//--------------------------------------------------------------------------------------------------
+void TestTafRadioCellularCaps
+(
+    void
+)
+{
+
+    uint8_t totalSimCount = 0;
+    uint8_t maxActiveSims = 0;
+    le_result_t result;
+    result = taf_radio_GetHardwareSimConfig(&totalSimCount,&maxActiveSims);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetHardwareSimConfig - LE_OK");
+
+    taf_radio_RatBitMask_t deviceRatCapMask;
+    taf_radio_RatBitMask_t simRatCapMask;
+    result = taf_radio_GetHardwareSimRatCapabilities(&deviceRatCapMask,&simRatCapMask,
+             DEFAULT_PHONE_ID);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetHardwareSIMRatCapabilities - LE_OK");
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Component initialization.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1295,6 +1335,8 @@ COMPONENT_INIT
     TestTafRadioNetworkScan();
     LE_TEST_INFO("======== Radio IMS Test ========");
     TestTafRadioIms();
+    LE_TEST_INFO("======== Radio Cellular Caps Test ========");
+    TestTafRadioCellularCaps();
 
     LE_TEST_EXIT;
 }

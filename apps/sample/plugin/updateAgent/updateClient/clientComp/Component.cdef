@@ -1,0 +1,20 @@
+requires:
+{
+    api:
+    {
+        taf_update.api
+    }
+}
+
+provides:
+{
+    api:
+    {
+        ctrlUpdate.api
+    }
+}
+
+sources:
+{
+    client.c
+}

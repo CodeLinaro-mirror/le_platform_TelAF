@@ -61,7 +61,7 @@ void tafMngdConnRadio::GsmSsChangeHandler
     void* contextPtr
 )
 {
-    LE_INFO("Phone ID %d GSM rssi : %d dBm", phoneId, ss);
+    LE_DEBUG("Phone ID %d GSM rssi : %d dBm", phoneId, ss);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -77,7 +77,7 @@ void tafMngdConnRadio::UmtsSsChangeHandler
     void* contextPtr
 )
 {
-    LE_INFO("Phone ID %d UMTS rssi : %d dBm", phoneId, ss);
+    LE_DEBUG("Phone ID %d UMTS rssi : %d dBm", phoneId, ss);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -93,7 +93,7 @@ void tafMngdConnRadio::CdmaSsChangeHandler
     void* contextPtr
 )
 {
-    LE_INFO("Phone ID %d CDMA rssi : %d dBm", phoneId, ss);
+    LE_DEBUG("Phone ID %d CDMA rssi : %d dBm", phoneId, ss);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -109,7 +109,7 @@ void tafMngdConnRadio::TdscdmaSsChangeHandler
     void* contextPtr
 )
 {
-    LE_INFO("Phone ID %d TDSCDMA rssi : %d dBm", phoneId, ss);
+    LE_DEBUG("Phone ID %d TDSCDMA rssi : %d dBm", phoneId, ss);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -125,7 +125,7 @@ void tafMngdConnRadio::LteSsChangeHandler
     void* contextPtr
 )
 {
-    LE_INFO("Phone %d LTE rssi : %d dBm", phoneId, ss);
+    LE_DEBUG("Phone %d LTE rssi : %d dBm", phoneId, ss);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -141,7 +141,7 @@ void tafMngdConnRadio::Nr5gSsChangeHandler
     void* contextPtr
 )
 {
-    LE_INFO("Phone %d NR5G rssi : %d dBm", phoneId, ss);
+    LE_DEBUG("Phone %d NR5G rssi : %d dBm", phoneId, ss);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -162,16 +162,16 @@ void tafMngdConnRadio::PackSwStateHandler
         packSwStateIndPtr->state);
     auto &mngdConnAdmin = tafMngdConnAdmin::GetInstance();
 
-    stateMachineEvent_t stateMachineEvt = {TAF_MNGD_CONN_EVT_INIT, 0};
+    stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
 
     if(packSwStateIndPtr->state == TAF_RADIO_NET_REG_STATE_HOME ||
        packSwStateIndPtr->state == TAF_RADIO_NET_REG_STATE_ROAMING)
     {
-        stateMachineEvt.event=TAF_MNGD_CONN_EVT_NETWORK_REG_STATE;
+        stateMachineEvt.event=MCS_EVT_NETWORK_REG_STATE;
     }
     else
     {
-        stateMachineEvt.event=TAF_MNGD_CONN_EVT_NETWORK_UNREG_STATE;
+        stateMachineEvt.event=MCS_EVT_NETWORK_UNREG_STATE;
     }
 
     stateMachineEvt.phoneId = packSwStateIndPtr->phoneId;
@@ -188,7 +188,7 @@ void tafMngdConnRadio::PackSwStateHandler
 void tafMngdConnRadio::RegisterEvents()
 {
     taf_radio_ConnectService();
-
+/*
     gsmSsChangeHandlerRef = taf_radio_AddSignalStrengthChangeHandler(TAF_RADIO_RAT_GSM,
                             (taf_radio_SignalStrengthChangeHandlerFunc_t)GsmSsChangeHandler, NULL);
 
@@ -224,7 +224,7 @@ void tafMngdConnRadio::RegisterEvents()
 
     if(nr5gSsChangeHandlerRef == NULL)
         LE_ERROR("Adding NR5G signal strength change handler failed");
-
+*/
     packSwStateHandlerRef = taf_radio_AddPacketSwitchedChangeHandler(
                             (taf_radio_PacketSwitchedChangeHandlerFunc_t)PackSwStateHandler, NULL);
 
@@ -272,9 +272,21 @@ le_result_t tafMngdConnRadio::StartUp(uint8_t phoneId)
 //--------------------------------------------------------------------------------------------------
 le_result_t tafMngdConnRadio::PowerOn(uint8_t phoneId)
 {
-    LE_INFO("Set radio poweron");
+    LE_INFO("Set radio power on");
 
     return taf_radio_SetRadioPower(LE_ON, phoneId);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Power off the radio.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t tafMngdConnRadio::PowerOff(uint8_t phoneId)
+{
+    LE_INFO("Set radio power off");
+
+    return taf_radio_SetRadioPower(LE_OFF, phoneId);
 }
 
 //--------------------------------------------------------------------------------------------------

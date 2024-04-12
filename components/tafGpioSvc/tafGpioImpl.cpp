@@ -35,9 +35,9 @@
 #include "legato.h"
 #include "interfaces.h"
 #include "tafGpio.hpp"
+#include <sys/stat.h>
 
 #define wakeupPinConfFile "/legato/systems/current/appsWriteable/tafGpioSvc/gpioWakeupPin.conf"
-#define KO_MODULE "/usr/lib/modules/4.14.206/extra/gpioWakeup.ko"
 #define COMPONENT_NAME "tafGpioSvc"
 
 static le_json_ParsingSessionRef_t JsonParsingSessionRef = nullptr;
@@ -1353,13 +1353,64 @@ void taf_Gpio::JsonEventHandler(le_json_Event_t event)
                     LE_ERROR("Read invalid gpio pin %d from conf file", gpioPin);
                     break;
                 }
-                char cmd[120];
-                snprintf(cmd, sizeof(cmd), "/sbin/insmod %s gpioChipName=\"f100000.pinctrl\""
-                        " gpioOffset=%d", KO_MODULE, gpioPin);
-                popen_call(cmd);
-                snprintf(cmd, sizeof(cmd), "/sbin/rmmod %s", KO_MODULE);
-                popen_call(cmd);
-                LE_INFO("Loaded gpio kernel module to set IRQ for pin %d", gpioPin);
+                char cmd[1024];
+                char path[512];
+                DIR *dir;
+                struct dirent *entry;
+
+                dir = opendir("/usr/lib/modules/");
+                if (dir == NULL) {
+                    perror("opendir");
+                    return;
+                }
+
+                while ((entry = readdir(dir)) != NULL) {
+                    if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+                        continue;
+                    }
+                    snprintf(path, sizeof(path), "/usr/lib/modules/%s", entry->d_name);
+                    LE_INFO("path is %s", path);
+                    if (strcmp(entry->d_name, "gpioWakeup.ko") == 0) {
+                     LE_INFO("KO module is available");
+                        snprintf(cmd, sizeof(cmd),
+                                "/sbin/insmod %s gpioChipName=\"f000000.pinctrl\""
+                                " gpioOffset=%d", path, gpioPin);
+                        popen_call(cmd);
+                        snprintf(cmd, sizeof(cmd), "/sbin/rmmod %s", path);
+                        popen_call(cmd);
+                        closedir(dir);
+                        return;
+                    }
+                }
+
+                closedir(dir);
+                dir = opendir("/usr/lib/modules/4.14.206/extra/");
+                if (dir == NULL) {
+                    perror("opendir");
+                    return;
+                }
+
+                while ((entry = readdir(dir)) != NULL) {
+                    if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+                        continue;
+                    }
+
+                    snprintf(path, sizeof(path), "/usr/lib/modules/4.14.206/extra/%s", entry->d_name);
+                    if (strcmp(entry->d_name, "gpioWakeup.ko") == 0) {
+                     LE_INFO("KO module is avaialble");
+                        snprintf(cmd, sizeof(cmd),
+                                "/sbin/insmod %s gpioChipName=\"f100000.pinctrl\""
+                                " gpioOffset=%d", path, gpioPin);
+                        popen_call(cmd);
+                        snprintf(cmd, sizeof(cmd), "/sbin/rmmod %s", path);
+                        popen_call(cmd);
+                        closedir(dir);
+                        return;
+                    }
+                }
+                closedir(dir);
+                LE_ERROR("gpioWakeup.ko not found.\n");
+                return;
             }
             break;
         case LE_JSON_TRUE:

@@ -366,3 +366,28 @@ interface(`telaf_load_vhal_modules',`
     allow $1 telaf_devmgr_data_t:file { map };
     ')
 ')
+
+########################################
+## <summary>
+##              Allow to use RFS component
+## </summary>
+## <param name="service_domain">
+##              <summary>
+##              The domain who need to use RFS component
+##              </summary>
+## </param>
+#
+interface(`telaf_load_rfs_component',`
+    gen_require(`
+            type persist_t;
+            type cert_t;
+            type proc_t;
+    ')
+
+    allow $1 persist_t:file { manage_file_perms relabel_file_perms };
+    allow $1 persist_t:dir { remove_name create_dir_perms rw_dir_perms };
+    allow $1 cert_t:dir { search };
+    allow $1 cert_t:file { read_file_perms };
+    allow $1 proc_t:file { read_file_perms };
+
+')

@@ -454,6 +454,23 @@ static void RpcClientNodeEventHandler
     }
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * App install/uninstall callback handler.
+ */
+//--------------------------------------------------------------------------------------------------
+static void AppUpdateHandler
+(
+    const char* appNamePtr,  ///< Name of the new application.
+    void* contextPtr         ///< Registered context for this callback.
+)
+{
+    if (appNamePtr != NULL)
+    {
+        rpcProxy_CreateAllProxyBindings();
+    }
+}
+
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -488,6 +505,11 @@ static void DataInit
     RpcClientNodeEventHandlerRef = le_event_AddHandler("RpcClientNodeEvent Handler",
                                                        RpcClientNodeEvent,
                                                        RpcClientNodeEventHandler);
+
+    // Register handlers for app installation/un-installiation events to
+    // recreate the proxy node bindings.
+    le_instStat_AddAppInstallEventHandler(AppUpdateHandler, NULL);
+    le_instStat_AddAppUninstallEventHandler(AppUpdateHandler, NULL);
 }
 
 
@@ -970,6 +992,58 @@ static bool IsRxMessageValid
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * IPC session closed handler for IPC client proxy session.
+ */
+//--------------------------------------------------------------------------------------------------
+static void ProxySessionCloseHandler
+(
+    le_msg_SessionRef_t sessionRef, ///< [IN] Session reference
+    void*               contextPtr ///< [IN] Context pointer
+)
+{
+    ClientProxySession_t* clientProxySessionPtr = contextPtr;
+    LE_ASSERT((clientProxySessionPtr != NULL) &&
+              (clientProxySessionPtr->rpcClientNodePtr != NULL) &&
+              (clientProxySessionPtr->rpcClientNodePtr->rpcClientPtr != NULL) &&
+              (clientProxySessionPtr->sessionRef == sessionRef));
+
+    RpcClientProxyNode_t* rpcClientNodePtr = clientProxySessionPtr->rpcClientNodePtr;
+    taf_someipSvr_ServiceRef_t serviceRef =
+        clientProxySessionPtr->rpcClientNodePtr->rpcClientPtr->someipServer.serviceRef;
+    uint16_t eventId = rpcClientNodePtr->sysEventId;
+    uint32_t rpcSessionId = clientProxySessionPtr->rpcSessionId;
+
+    // Remove the proxy session from the list.
+    le_dls_Remove(&rpcClientNodePtr->proxySessionList, &clientProxySessionPtr->link);
+
+    // Delete the IPC session associated.
+    le_msg_DeleteSession(clientProxySessionPtr->sessionRef);
+    clientProxySessionPtr->sessionRef = NULL;
+
+    // Notify peer system that this client proxy session is closed.
+    if (rpcClientNodePtr->state == RPC_NODE_CONNECTED)
+    {
+        rpcProxyMessage_NotifyDeleteSession(serviceRef, eventId, rpcSessionId);
+    }
+    else
+    {
+        LE_ERROR("Error state(%d) for events.", rpcClientNodePtr->state);
+    }
+
+    // Free the proxy session if no ongoing proxy messages associated.
+    if (le_dls_IsEmpty(&clientProxySessionPtr->msgList))
+    {
+        le_mem_Release(clientProxySessionPtr);
+        LE_INFO("Deleted proxy session(ID=0x%x) for interface '%s'.",
+                rpcSessionId, rpcClientNodePtr->bindingInterface);
+    }
+
+    return;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
  * IPC event message handler for IPC client proxy session.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1181,6 +1255,10 @@ static void RpcRxMessageHandler
             // Register the IPC event handler for this proxy session.
             le_msg_SetSessionRecvHandler(sessionRef, ProxySessionEventMsgHandler,
                                          (void*)clientProxySessionPtr);
+
+            // Register the IPC session close handler for this proxy session.
+            le_msg_SetSessionCloseHandler(sessionRef, ProxySessionCloseHandler,
+                                          (void*)clientProxySessionPtr);
 
             // Send RPC createSession response.
             rpcProxyMessage_ResponseSession(rpcMsgRef, clientProxySessionPtr->rpcSessionId);
@@ -1426,27 +1504,11 @@ static le_result_t EnableProxyNode
         return LE_FAULT;
     }
 
-    // Get the user ID of the user name.
-    uid_t serverUid;
-    if (user_GetUid(rpcClientPtr->serviceCfg.user, &serverUid) != LE_OK)
-    {
-        LE_ERROR("Failed to get the uid of user '%s'.", rpcClientPtr->serviceCfg.user);
-        return LE_FAULT;
-    }
-
-    // Create a binding entry for this remote system.
-    uid_t myUid = getuid();
-    if (LE_OK != SdirCreateBindingEntry(myUid, nodePtr->bindingInterface,
-                                        serverUid, rpcClientPtr->serviceCfg.name))
-    {
-        LE_ERROR("Failed to create binding for remote system (id=0x%x) for service(0x%x/0x%x).",
-                 systemId, serviceId, instanceId);
-        return LE_FAULT;
-    }
-
     // Finally enable this remote system.
     nodePtr->subsHandlerRef = handlerRef;
     nodePtr->enabled = true;
+
+    rpcClientProxy_CreateBinding(nodePtr);
 
     return LE_OK;
 }
@@ -1756,4 +1818,42 @@ le_result_t rpcClientProxy_Start
     LE_INFO("Enabled remote system (id=0x%x) for service(0x%x/0x%x).",
             systemId, serviceId, instanceId);
     return LE_OK;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Create the binding for a RPC client proxy node.
+ */
+//--------------------------------------------------------------------------------------------------
+void rpcClientProxy_CreateBinding
+(
+    RpcClientProxyNode_Ref_t nodeRef                  ///< [IN] RPC client proxy node reference.
+)
+{
+    if (nodeRef != NULL)
+    {
+        RpcClientProxyNode_t* nodePtr = nodeRef;
+        RpcClientProxy_t* rpcClientPtr = nodePtr->rpcClientPtr;
+        if (nodePtr->enabled && (rpcClientPtr != NULL))
+        {
+            // Get the user ID of the user name.
+            uid_t serverUid;
+            if (user_GetUid(rpcClientPtr->serviceCfg.user, &serverUid) != LE_OK)
+            {
+                LE_ERROR("Failed to get the uid of user '%s'.", rpcClientPtr->serviceCfg.user);
+                return;
+            }
+
+            // Create a binding entry for this node.
+            uid_t myUid = getuid();
+            if (LE_OK == SdirCreateBindingEntry(myUid, nodePtr->bindingInterface,
+                                        serverUid, rpcClientPtr->serviceCfg.name))
+            {
+                LE_INFO("Created binding entries for RPC proxy interface(%s) to service(<%s>.%s).",
+                         nodePtr->bindingInterface, rpcClientPtr->serviceCfg.user,
+                         rpcClientPtr->serviceCfg.name);
+            }
+        }
+    }
 }

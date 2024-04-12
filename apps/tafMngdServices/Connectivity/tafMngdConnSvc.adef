@@ -1,21 +1,21 @@
-maxThreads: 300
+maxThreads: 600
 
 username: telaf
 
 capability:
 {
-        CAP_WAKE_ALARM
-        CAP_NET_ADMIN
-        CAP_BLOCK_SUSPEND
+    CAP_WAKE_ALARM
+    CAP_NET_ADMIN
+    CAP_BLOCK_SUSPEND
 }
 
 groups:
 {
-        system
-        diag
-        radio
-        inet
-        locclient
+    system
+    diag
+    radio
+    inet
+    locclient
 }
 
 requires:
@@ -28,20 +28,20 @@ requires:
 
 executables:
 {
-        tafMngdConnSvc = ( $TELAF_ROOT/apps/tafMngdServices/Connectivity/Components/tafMngdConnSvc )
+    tafMngdConnSvc = ( $TELAF_ROOT/apps/tafMngdServices/Connectivity/Components/tafMngdConnSvc )
 }
 
 start: manual
 
 processes:
 {
-        run:
-        {
-                (tafMngdConnSvc)
-        }
+    run:
+    {
+        (tafMngdConnSvc)
+    }
 
-        maxFileBytes: 8192K
-        faultAction: stopApp
+    maxFileBytes: 8192K
+    faultAction: stopApp
 }
 
 sandboxed: false
@@ -51,6 +51,7 @@ bindings:
     tafMngdConnSvc.tafMngdConnSvc.taf_dcs -> tafDataCallSvc.taf_dcs
     tafMngdConnSvc.tafMngdConnSvc.taf_radio -> tafRadioSvc.taf_radio
     tafMngdConnSvc.tafMngdConnSvc.taf_sim -> tafSimCardSvc.taf_sim
+    tafMngdConnSvc.tafMngdConnSvc.le_appInfo -> <root>.le_appInfo
 }
 
 extern:

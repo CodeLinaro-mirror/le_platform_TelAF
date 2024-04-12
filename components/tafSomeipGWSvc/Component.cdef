@@ -8,6 +8,7 @@ sources:
 cxxflags:
 {
     -I$TELAF_ROOT/include
+    -I${LEGATO_BUILD}/framework/libjansson/include
     -Wno-error=deprecated-declarations
     -Wno-deprecated-declarations
 }
@@ -27,6 +28,7 @@ provides:
 
 ldflags:
 {
+    -ljansson
     -lvsomeip3
     -lboost_thread
     -lboost_regex

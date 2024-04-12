@@ -91,6 +91,7 @@ using namespace telux::common;
 #define SLOT_ID_2 2
 
 #define SESSION_TIMEOUT 60
+#define DATA_SUBSYSTEM_INIT_TIMEOUT 5
 
 namespace telux {
 namespace tafsvc {

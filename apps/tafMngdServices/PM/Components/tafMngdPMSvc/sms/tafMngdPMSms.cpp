@@ -55,8 +55,35 @@ void tafMngdPMSms::SmsRxHandler(taf_sms_MsgRef_t msgRef, void* context){
         if(strncmp(text, smsPtr->text, sizeof(text)) == 0)
         {
             LE_DEBUG("SMS matched with SMS registetred for %s state",
-                    tafMngdPMSvc::tafStateToString(smsPtr->state));
+                    tafMngdPMSvc::TafStateToString(smsPtr->state));
+
+            taf_mngd_pm_State_t requestedState;
+            switch((taf_pm_State_t)smsPtr->state)
+            {
+                case TAF_PM_STATE_SUSPEND:
+                    requestedState = TAF_MNGD_PM_STATE_SUSPENDING;
+                    break;
+
+                case TAF_PM_STATE_SHUTDOWN:
+                    requestedState = TAF_MNGD_PM_STATE_SHUTTING_DOWN;
+                    break;
+
+                case TAF_PM_STATE_RESUME:
+                    requestedState = TAF_MNGD_PM_STATE_WAKING_UP;
+                    break;
+
+                default:
+                    break;
+            }
+
+            if(tafMngdPMSvc::RequestStateChange(requestedState) != LE_OK)
+            {
+                return;
+            }
+
             taf_pm_SetAllVMPowerState((taf_pm_State_t)smsPtr->state);
+
+            tafMngdPMSvc::ProcessStateChange(requestedState);
         }
     }
 }
@@ -76,7 +103,7 @@ void tafMngdPMSms::RegisterSms(const char* text, taf_mngd_pm_State_t state)
                 le_hashmap_HashString, le_hashmap_EqualsString);
     }
     char stateName[32];
-    le_utf8_Copy(stateName, tafMngdPMSvc::tafStateToString(state), 32, NULL);
+    le_utf8_Copy(stateName, tafMngdPMSvc::TafStateToString(state), 32, NULL);
     LE_INFO("Register SMS for %s state", stateName);
     le_hashmap_Put(smsPMMap, stateName, smsPMPtr);
 
@@ -103,7 +130,7 @@ void tafMngdPMSms::DeregisterSms()
     {
         taf_MngdPM_Sms_t *smsPtr = (taf_MngdPM_Sms_t*)le_hashmap_GetValue(iter);
         TAF_ERROR_IF_RET_NIL(smsPtr == nullptr, "Invalid hashmap reference");
-        LE_DEBUG("Remove %s state from hashmap", tafMngdPMSvc::tafStateToString(smsPtr->state));
+        LE_DEBUG("Remove %s state from hashmap", tafMngdPMSvc::TafStateToString(smsPtr->state));
         le_hashmap_Remove(smsPMMap, smsPtr);
         le_mem_Release(smsPtr);
     }

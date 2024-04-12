@@ -57,16 +57,29 @@ namespace telux {
 namespace tafsvc {
     typedef struct
     {
-        char URL[TAF_MNGD_CONN_MAX_CONNECTION_URL_LEN];
-        char IPv4[TAF_MNGD_CONN_MAX_IPV4_LEN];
-        char IPv6[TAF_MNGD_CONN_MAX_IPV6_LEN];
-    } taf_mngd_Conn_Configuration_Data_ConnectionTest_t;
+        mcs_Yes_No_t Enable; //Yes=1, No=0
+        uint8_t RetryCount;
+    } taf_mngd_Conn_Policy_DataStartRetry_t;
+
+    typedef struct
+    {
+        char URL[MCS_MAX_CONNECTION_URL_LEN];
+        char IPv4[MCS_MAX_IPV4_LEN];
+        char IPv6[MCS_MAX_IPV6_LEN];
+    } taf_mngd_Conn_Configuration_Data_DataStartConnectionTest_t;
+
+    typedef struct
+    {
+        uint8_t Interval;
+        uint8_t RetryCount;
+        char URL[MCS_MAX_CONNECTION_URL_LEN];
+    } taf_mngd_Conn_Configuration_Data_PeriodicConnectivityCheck_t;
 
     typedef struct
     {
         uint8_t ProfileNumber;
-        char ProfileName[TAF_MNGD_CONN_MAX_PROFILE_NAME_LEN];
-        char APN[TAF_MNGD_CONN_MAX_APN_LEN];
+        char ProfileName[MCS_MAX_PROFILE_NAME_LEN];
+        char APN[MCS_MAX_APN_LEN];
     } taf_mngd_Conn_Configuration_Data_Profile_t;
 
     typedef struct
@@ -74,35 +87,38 @@ namespace tafsvc {
         uint8_t ID;
         uint8_t Use_Network_ID;
         taf_mngd_Conn_Configuration_Data_Profile_t Profile;
-        taf_mngd_Yes_No_t AutoStart; //Yes=1, No=0
-        taf_mngd_Conn_Configuration_Data_ConnectionTest_t ConnectionTest;
+        mcs_Yes_No_t AutoStart; //Yes=1, No=0
+        taf_mngd_Conn_Policy_DataStartRetry_t DataStartRetry;
+        taf_mngd_Conn_Configuration_Data_DataStartConnectionTest_t DataStartConnectionTest;
+        taf_mngd_Conn_Configuration_Data_PeriodicConnectivityCheck_t PeriodicConnectivityCheck;
     } taf_mngd_Conn_Configuration_Data_t;
 
     typedef struct
     {
         uint8_t ID;
+        char Name[MCS_MAX_NAME_LEN];
         uint8_t Use_Sim_ID;
         uint8_t PhoneID;
-        taf_mngd_NW_Registration_Type_t Registration;
+        mcs_NW_Registration_Type_t Registration;
     } taf_mngd_Conn_Configuration_Network_t;
 
     typedef struct
     {
         uint8_t ID;
         uint8_t SlotNumber;
-        char Name[TAF_MNGD_CONN_MAX_NAME_LEN];
+        char Name[MCS_MAX_NAME_LEN];
     } taf_mngd_Conn_Configuration_Sim_t;
 
     typedef struct
     {
-        taf_mngd_Conn_JSON_Version_t Version;
-        char Name[TAF_MNGD_CONN_MAX_NAME_LEN];
+        mcs_JSON_Version_t Version;
+        char Name[MCS_MAX_NAME_LEN];
         uint8_t SimCount;
-        taf_mngd_Conn_Configuration_Sim_t Sim[TAF_MNGD_CONN_MAX_SIM_OBJECT_COUNT];
+        taf_mngd_Conn_Configuration_Sim_t Sim[MCS_MAX_SIM_OBJECT_COUNT];
         uint8_t NetworkCount;
-        taf_mngd_Conn_Configuration_Network_t Network[TAF_MNGD_CONN_MAX_NETWORK_OBJECT_COUNT];
+        taf_mngd_Conn_Configuration_Network_t Network[MCS_MAX_NETWORK_OBJECT_COUNT];
         uint8_t DataCount;
-        taf_mngd_Conn_Configuration_Data_t Data[TAF_MNGD_CONN_MAX_DATA_OBJECT_COUNT];
+        taf_mngd_Conn_Configuration_Data_t Data[MCS_MAX_DATA_OBJECT_COUNT];
     } taf_mngd_Conn_Configuration_t;
 
     // Class is declared here and defined later
@@ -141,6 +157,9 @@ private:
                                    std::string Value,
                                    int Index);
     // Network
+    static bool Validate_MCSC_Network_Name(taf_mngd_Conn_Configuration_t &Configuration,
+                                   std::string Value,
+                                   int Index);
     static bool Validate_MCSC_Network_ID(taf_mngd_Conn_Configuration_t &Configuration,
                                    std::string Value,
                                    int Index);
@@ -173,15 +192,38 @@ private:
     static bool Validate_MCSC_Data_AutoStart(taf_mngd_Conn_Configuration_t &Configuration,
                                                std::string Value,
                                                int Index);
-    static bool Validate_MCSC_Data_ConnectionTest_URL(taf_mngd_Conn_Configuration_t &Configuration,
+    static bool Validate_MCSC_Data_DataStartConnectionTest_URL(
+                                    taf_mngd_Conn_Configuration_t &Configuration,
                                     std::string Value,
                                     int Index);
-    static bool Validate_MCSC_Data_ConnectionTest_IPv4(taf_mngd_Conn_Configuration_t &Configuration,
-                                                std::string Value,
-                                                int Index);
-    static bool Validate_MCSC_Data_ConnectionTest_IPv6(taf_mngd_Conn_Configuration_t &Configuration,
-                                                std::string Value,
-                                                int Index);
+    static bool Validate_MCSC_Data_DataStartConnectionTest_IPv4(
+                                    taf_mngd_Conn_Configuration_t &Configuration,
+                                    std::string Value,
+                                    int Index);
+    static bool Validate_MCSC_Data_DataStartConnectionTest_IPv6(
+                                    taf_mngd_Conn_Configuration_t &Configuration,
+                                    std::string Value,
+                                    int Index);
+    // DSR = DataStartRetry
+    static bool Validate_MCSC_Data_DSR_Enable (taf_mngd_Conn_Configuration_t &Policy,
+                                                        std::string Value,
+                                                        int Index);
+    static bool Validate_MCSC_Data_DSR_RetryCount (taf_mngd_Conn_Configuration_t &Policy,
+                                                        std::string Value,
+                                                        int Index);
+    static bool Validate_MCSC_Data_PeriodicConnectivityCheck_Interval(
+                                    taf_mngd_Conn_Configuration_t &Configuration,
+                                    std::string Value,
+                                    int Index);
+    static bool Validate_MCSC_Data_PeriodicConnectivityCheck_URL(
+                                    taf_mngd_Conn_Configuration_t &Configuration,
+                                    std::string Value,
+                                    int Index);
+
+    static bool Validate_MCSC_Data_PeriodicConnectivityCheck_RetryCount(
+                                    taf_mngd_Conn_Configuration_t &Configuration,
+                                    std::string Value,
+                                    int Index);
 
     bool ValidateValue(taf_mngd_Conn_Configuration_t &Configuration,
                        std::string property,
@@ -194,7 +236,8 @@ private:
 public:
     // Delete copy constructor.
     tafMngdConnSvc_ConfigurationParser(tafMngdConnSvc_ConfigurationParser const &) = delete;
-    tafMngdConnSvc_ConfigurationParser &operator=(tafMngdConnSvc_ConfigurationParser const &) = delete;
+    tafMngdConnSvc_ConfigurationParser &operator=(tafMngdConnSvc_ConfigurationParser const &)
+                                                = delete;
 
     static tafMngdConnSvc_ConfigurationParser &getInstance();
 

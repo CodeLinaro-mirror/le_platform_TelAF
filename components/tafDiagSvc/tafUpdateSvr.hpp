@@ -210,6 +210,10 @@ namespace tafsvc
                 uint32_t* unCompFileSizePtr);
             le_result_t GetCompFileSize(taf_diagUpdate_RxFileXferMsgRef_t rxMsgRef,
                 uint32_t* compFileSizePtr);
+            le_result_t SetFilePosition(taf_diagUpdate_RxFileXferMsgRef_t rxMsgRef,
+                uint64_t filePosition);
+            le_result_t SetFileSizeOrDirInfoLength(taf_diagUpdate_RxFileXferMsgRef_t rxMsgRef,
+                uint64_t fileSizeUncompressedOrDirInfoLength, uint64_t fileSizeCompressed);
             le_result_t SendFileXferResp(taf_diagUpdate_RxFileXferMsgRef_t rxMsgRef,
                 taf_diagUpdate_FileXferErrorCode_t errCode);
             le_result_t ReleaseRxFileXferMsg(taf_diagUpdate_RxFileXferMsgRef_t rxMsgRef);
@@ -286,6 +290,14 @@ namespace tafsvc
             le_event_HandlerRef_t XferDataEventHandlerRef;
             le_event_Id_t XferExitEvent;
             le_event_HandlerRef_t XferExitEventHandlerRef;
+
+            uint8_t mFilePosition[TAF_DIAGUPDATE_FILE_POSITION_SIZE] = {0};
+            uint16_t nCharsToSave = 0;
+            uint16_t nCharsToNotUsed = 0;
+            uint8_t mFileSizeUncompressedOrDirInfoLength[TAF_DIAGUPDATE_FILE_SIZE_OR_DIR_INFO_LEN] = {0};
+            uint8_t mFileSizeCompressed[TAF_DIAGUPDATE_FILE_SIZE_OR_DIR_INFO_LEN] = {0};
+            #define SIZE_OF_FSDIL 2
+            uint8_t mFileSizeOrDirInfoParameterLength[SIZE_OF_FSDIL] = {0};
     };
 }
 }

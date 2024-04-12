@@ -61,7 +61,7 @@ class tafMngdPMCan: public ITafSvc
         static void CanEventCallback(taf_can_CanInterfaceRef_t canInfRef, bool isCanFdFrame,
                 uint32_t frameId, const uint8_t* dataPtr, size_t size, void* contextPtr);
         static void* RegisterCanHandler(void* canFramePtr);
-        uint32_t frIdMask = 0x7ff;
+        uint32_t frIdMask = 0x1FFFFFFF;
         le_mem_PoolRef_t canMapPool;
 };
 }

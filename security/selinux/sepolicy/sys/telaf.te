@@ -257,11 +257,12 @@ allow telaf_devmgr_t data_t:dir { relabelfrom relabelto search getattr };
 allow telaf_devmgr_t data_t:file { relabel_file_perms };
 allow telaf_devmgr_t telaf_devmgr_data_t:dir { relabel_dir_perms manage_dir_perms };
 allow telaf_devmgr_t telaf_devmgr_data_t:file { relabel_file_perms manage_file_perms mmap_file_perms  };
+
 allow telaf_devmgr_data_t fs_t:filesystem { associate };
+
 ifdef(`sa525m',`
     allow telaf_devmgr_t data_t:file { map };
 ')
-
 
 # Update daemon need to remove files during app uninstallation (telaf_admin_t also needs these permission)
 allow telaf_admin_domain cgroup_t:dir { manage_dir_perms };
@@ -477,7 +478,7 @@ allow telaf_app_domain syslogd_t:shm { read unix_read associate };
 
 # Define core domain
 allow telaf_core_domain telaf_fw_t : dir { manage_dir_perms };
-allow telaf_core_domain telaf_lib_t : { file dir } { read execute getattr };
+allow telaf_core_domain telaf_lib_t : { file dir lnk_file } { read execute getattr };
 allow telaf_core_domain telaf_app_rw_t : { file dir unix_dgram_socket socket sock_file } *;
 allow telaf_core_domain telaf_app_ro_t : { file dir } ~{ write };
 allow telaf_core_domain telaf_sys_t : { file dir lnk_file } *;
@@ -668,9 +669,4 @@ if (telaf_external_dependencies) {
     #============ To support telaf restart ===================
     allow telaf_sdir_t telaf_apptmp_rw_t:dir { remove_name };
     allow telaf_sdir_t telaf_apptmp_rw_t:sock_file { unlink };
-
-
-    #Ping Command
-    allow telaf_admin_t ping_exec_t:file { execute execute_no_trans open read };
-    allow telaf_admin_t self:icmp_socket { create getopt read setopt write };
 }

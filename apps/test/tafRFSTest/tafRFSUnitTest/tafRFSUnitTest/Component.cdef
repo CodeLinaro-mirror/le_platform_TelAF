@@ -1,0 +1,19 @@
+sources:
+{
+    tafRFSUnitTest.c
+}
+
+requires:
+{
+    component:
+    {
+        $TELAF_ROOT/components/tafRFSLib
+    }
+}
+
+cflags:
+{
+    -I${LEGATO_ROOT}/framework/liblegato
+    -I $TELAF_ROOT/include
+    -I $TELAF_ROOT/include/staging
+}

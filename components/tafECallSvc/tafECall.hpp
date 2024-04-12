@@ -49,6 +49,7 @@ using namespace std;
 #define CFG_NODE_MSDVEHTYPE "msdVehicleType"
 #define CFG_NODE_MSDVIN "msdVehIdentNum"
 #define CFG_NODE_OPMODE "operatingMode"
+#define CFG_NODE_NUMTYPE "setPsapnumType"
 #define CFG_ECALL_PROPULSIONTYPE_PATH "tafeCallSvc:/eCall/msdPropulsionType"
 #define CFG_NODE_PROPULSION_GASOLINE "Gasoline"
 #define CFG_NODE_PROPULSION_DIESEL "Diesel"
@@ -67,6 +68,10 @@ using namespace std;
 #define ISOVIS_SEQ_PLANT_LENGTH 7
 #define MSD_VERSION_TWO 2
 #define MSD_VERSION_THREE 3
+#define SET_PSAP_NUM_TYPE_DEFFAULT 0
+#define SET_PSAP_NUM_TYPE_OVERRIDDEN 1
+#define MAX_EU_MSD_LENGTH 140
+#define MAX_INIT_TIMEOUT 5
 
 namespace telux {
     namespace tafsvc {
@@ -109,6 +114,8 @@ namespace telux {
             taf_EuroNCAPData_t                  euroNCAPData;
             uint8_t                             oadData[TAF_ECALL_MAX_DATA_LENGTH];
             size_t                              oadDataSize;
+            bool                                isPrieCallOngoing;
+            taf_ecall_Type_t                    type;
         }
         taf_ECall_t;
 
@@ -129,6 +136,12 @@ namespace telux {
             public:
                 void makeCallResponse(telux::common::ErrorCode errorCode,
                                                     std::shared_ptr<telux::tel::ICall> call)override;
+                static void makeECallResponse(telux::common::ErrorCode errorCode,
+                                                    std::shared_ptr<telux::tel::ICall> call);
+        };
+
+        class tafPrieCallCommandCallback : public telux::tel::IMakeCallCallback {
+            public:
                 static void makeECallResponse(telux::common::ErrorCode errorCode,
                                                     std::shared_ptr<telux::tel::ICall> call);
         };
@@ -169,6 +182,7 @@ namespace telux {
                 le_result_t SetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t ecallMode);
                 le_result_t GetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t *opMode);
                 le_result_t StartECall(ECallCategory emergencyCategory, ECallVariant eCallvariant, taf_ecall_CallRef_t ecallRef);
+                le_result_t StartPrivate(taf_ecall_CallRef_t ecallRef, const char * psapNumber, const char * contentType, const char * acceptInfo);
                 le_result_t StopECall(taf_ecall_CallRef_t ecallRef);
                 le_result_t SetMsdPosition (taf_ecall_CallRef_t ecallRef, bool isTrusted, int32_t latitude,
                     int32_t longitude, int32_t direction);
@@ -199,6 +213,11 @@ namespace telux {
                 le_result_t GetNadMinNetworkRegistrationTime(uint16_t* minNwRegTime);
                 taf_ecall_State_t GetState ( taf_ecall_CallRef_t ecallRef);
                 taf_ecall_TerminationReason_t GetTerminationReason ( taf_ecall_CallRef_t ecallRef);
+                taf_ecall_Type_t GetType ( taf_ecall_CallRef_t ecallRef);
+                le_result_t GetHlapTimerState(taf_ecall_HlapTimerType_t timerType, taf_ecall_HlapTimerStatus_t* timerStatus, uint16_t* elapsedTime);
+                taf_ecall_HlapTimerStatus_t GetHlapTimerStatus(taf_ecall_HlapTimerType_t timerType);
+                taf_ecall_HlapTimerStatus_t ConvertHlapTimerStatus(telux::tel::HlapTimerStatus status);
+                uint16_t ConvertElapsedTime(std::chrono::time_point<std::chrono::system_clock> startTime);
                 taf_ecall_StateChangeHandlerRef_t AddStateChangeHandler (taf_ecall_StateChangeHandlerFunc_t handlerPtr,
                                                                                         void* contextPtr);
                 void RemoveStateChangeHandler (taf_ecall_StateChangeHandlerRef_t handlerRef);
@@ -221,7 +240,15 @@ namespace telux {
                 std::promise<telux::common::ErrorCode> setOpModeProm;
                 std::promise<telux::common::ErrorCode> updateMsdProm;
                 std::promise<telux::common::ErrorCode> makeEcallProm;
+                std::promise<telux::common::ErrorCode> makePrieCallProm;
                 CallEndCause CallEndError = telux::tel::CallEndCause::NORMAL;
+
+                std::chrono::time_point<std::chrono::system_clock> t2StartTime;
+                std::chrono::time_point<std::chrono::system_clock> t9StartTime;
+                std::chrono::time_point<std::chrono::system_clock> t10StartTime;
+                bool t2StartTimeSet = false;
+                bool t9StartTimeSet = false;
+                bool t10StartTimeSet = false;
 
             private:
                 std::shared_ptr<telux::tel::IPhoneManager> PhoneManager;
@@ -235,6 +262,7 @@ namespace telux {
                 taf_ECall_t ECallObject;
                 le_ref_MapRef_t ECallPtrRefMap = NULL;
                 void InitializeECallPtr();
+                bool isUseUSimNum = true;
 
         };
     }

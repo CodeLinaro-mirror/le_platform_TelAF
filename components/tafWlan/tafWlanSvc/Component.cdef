@@ -1,0 +1,58 @@
+provides:
+{
+    api:
+    {
+        taf_wlan.api
+        taf_wlanAp.api
+        taf_wlanSta.api
+    }
+}
+
+requires:
+{
+    lib:
+    {
+        lib/libtelux_wlan.so
+        lib/libtelux_common.so
+    }
+}
+
+cxxflags:
+{
+    -I$TELAF_ROOT/include
+    -ltelux_wlan
+    -ltelux_common
+    -D CONFIG_CTRL_IFACE
+    -D CONFIG_CTRL_IFACE_UNIX
+    -I$TELAF_ROOT/../external/wpa_supplicant_8/src/common
+    -I$TELAF_ROOT/../external/wpa_supplicant_8/src/utils
+}
+
+ldflags:
+{
+
+}
+
+cflags:
+{
+    -D CONFIG_CTRL_IFACE
+    -D CONFIG_CTRL_IFACE_UNIX
+    -I$TELAF_ROOT/../external/wpa_supplicant_8/src/common
+    -I$TELAF_ROOT/../external/wpa_supplicant_8/src/utils
+}
+
+sources:
+{
+    tafWlanSvc.cpp
+    tafWlanSvcImpl.cpp
+    tafWlanListener.cpp
+    tafWlanAPSvc.cpp
+    tafWlanAPSvcImpl.cpp
+    tafWlanAPListener.cpp
+    tafWlanSTASvc.cpp
+    tafWlanSTASvcImpl.cpp
+    tafWlanSTAListener.cpp
+    taf_WlanHelper.cpp
+    $TELAF_ROOT/../external/wpa_supplicant_8/src/common/wpa_ctrl.c
+    $TELAF_ROOT/../external/wpa_supplicant_8/src/utils/os_unix.c
+}

@@ -59,14 +59,7 @@ namespace telux
          * ConfigTree Node for Configuration File Name. It will contain a string.
          *
          */
-        const std::string TAF_MNGD_ct_node_ConfigurationFileName = "ConfigurationFileName";
-
-        /**
-         *
-         * ConfigTree Node for Policy File Name. It will contain a string.
-         *
-         */
-        const std::string TAF_MNGD_ct_node_PolicyFileName = "PolicyFileName";
+        const std::string MCS_ct_node_ConfigurationFileName = "ConfigurationFileName";
 
         /**
          *
@@ -75,7 +68,7 @@ namespace telux
          * It will contain a string.
          *
          */
-        const std::string TAF_MNGD_ct_node_ConfigurationFileNameOverride =
+        const std::string MCS_ct_node_ConfigurationFileNameOverride =
                                                     "ConfigurationFileNameOverride";
         /*
          * Read from ConfigTree

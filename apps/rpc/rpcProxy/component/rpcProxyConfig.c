@@ -79,6 +79,18 @@ typedef struct OfferSystemId
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Baned service data struct.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct BanedService
+{
+    char user[LIMIT_MAX_USER_NAME_BYTES];           ///< User name
+    char name[LIMIT_MAX_IPC_INTERFACE_NAME_BYTES];  ///< Interface name
+}BanedService_t;
+
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Memory pool to store the system link info in JSON config file
  */
 //--------------------------------------------------------------------------------------------------
@@ -154,6 +166,47 @@ static uint16_t BasePortNumber = TAF_RPC_DEFAULT_BASE_PORT_NUMBER;
  */
 //--------------------------------------------------------------------------------------------------
 static RpcConfigData_t MyConfiguration;
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Black services list which are not allowed to declare as RPC services.
+ */
+//--------------------------------------------------------------------------------------------------
+static const BanedService_t BanedServiceList[] =
+{
+    // Core service APIs.
+    {"root", "sdirTool"},
+    {"root", "logFd"},
+    {"root", "logDaemonWdog"},
+    {"root", "LogClient"},
+    {"root", "LogControl"},
+    {"root", "le_cfg"},
+    {"root", "le_cfgAdmin"},
+    {"root", "configTreeWdog"},
+    {"root", "le_update"},
+    {"root", "le_appRemove"},
+    {"root", "le_instStat"},
+    {"root", "le_updateCtrl"},
+    {"root", "updateDaemonWdog"},
+    {"root", "DeviceManager"},
+    {"root", "DeviceManagerTool"},
+    {"root", "le_appCtrl"},
+    {"root", "le_framework"},
+    {"root", "wdog"},
+    {"root", "supervisorWdog"},
+    {"root", "le_appInfo"},
+    {"root", "le_appProc"},
+    {"root", "le_ima"},
+    {"root", "le_kernelModule"},
+    {"root", "le_wdog"},
+
+    // Platform service APIs.
+    {"telaf", "taf_someipSvr"},
+    {"telaf", "taf_someipClnt"},
+    {"telaf", "taf_ks"},
+    {"telaf", "taf_fsc"}
+};
 
 
 //--------------------------------------------------------------------------------------------------
@@ -719,6 +772,21 @@ static le_result_t ValidateServiceLinkInfo
     {
         LE_ERROR("Invalid service version size.");
         return LE_OVERFLOW;
+    }
+
+    // Check if the service is a baned service.
+    const BanedService_t* servicePtr = BanedServiceList;
+    uint32_t count = NUM_ARRAY_MEMBERS(BanedServiceList);
+    while(count--)
+    {
+        if ((strcmp(userStr, servicePtr->user) == 0) &&
+            (strcmp(nameStr, servicePtr->name) == 0))
+        {
+            LE_ERROR("Baned service(<%s>.%s) found.", userStr, nameStr);
+            return LE_NOT_PERMITTED;
+        }
+
+        servicePtr++;
     }
 
     return LE_OK;

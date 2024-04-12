@@ -1,0 +1,470 @@
+/*
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+#include "tafMngdAudio.hpp"
+#include "tafMngdAudioVhal.hpp"
+
+using namespace telux::tafsvc;
+using namespace taf::audioVhal;
+
+/**
+* FUNCTION     : CreateConnector
+* DESCRIPTION  : Creates the connector for given I/O
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: Connector reference
+*/
+taf_mngd_audio_ConnectorRef_t taf_mngd_audio_CreateConnector
+(
+    void
+)
+{
+    auto &mngdAudio = taf_MngdAudio::GetInstance();
+    return mngdAudio.CreateConnector();
+}
+
+/**
+* FUNCTION     : DeleteConnector
+* DESCRIPTION  : Deletes the connctor path
+* DEPENDECY    :
+* PARAMETERS   : Connector reference
+* RETURN VALUES:
+*/
+void taf_mngd_audio_DeleteConnector
+(
+ taf_mngd_audio_ConnectorRef_t connectorRef
+)
+{
+    auto &mngdAudio = taf_MngdAudio::GetInstance();
+    return mngdAudio.DeleteConnector(connectorRef);
+}
+
+/**
+* FUNCTION     : Connect
+* DESCRIPTION  : Connect the stream and Connector
+* DEPENDECY    :
+* PARAMETERS   : Connector and Stream
+* RETURN VALUES: LE_OK on success, LE_FAULT for all errors
+*/
+le_result_t taf_mngd_audio_Connect
+(
+ taf_mngd_audio_ConnectorRef_t connectorRef,
+ taf_mngd_audio_StreamRef_t    streamRef
+)
+{
+    auto &mngdAudio = taf_MngdAudio::GetInstance();
+    return mngdAudio.Connect(connectorRef, streamRef);
+}
+
+/**
+* FUNCTION     : Disconnect
+* DESCRIPTION  : Disconnects the connector and stream
+* DEPENDECY    :
+* PARAMETERS   : Connector and Stream
+* RETURN VALUES: LE_OK on success, LE_FAULT for all errors
+*/
+void taf_mngd_audio_Disconnect
+(
+ taf_mngd_audio_ConnectorRef_t connectorRef,
+ taf_mngd_audio_StreamRef_t    streamRef
+)
+{
+    auto &mngdAudio = taf_MngdAudio::GetInstance();
+    mngdAudio.Disconnect(connectorRef, streamRef);
+}
+
+/**
+* FUNCTION     : Close
+* DESCRIPTION  : Close stream reference
+* DEPENDECY    :
+* PARAMETERS   : Audio stream
+* RETURN VALUES:
+*/
+void taf_mngd_audio_Close
+(
+ taf_mngd_audio_StreamRef_t    streamRef
+)
+{
+    auto &mngdAudio = taf_MngdAudio::GetInstance();
+    mngdAudio.Close(streamRef);
+}
+
+/**
+* FUNCTION     : OpenModemVoiceRx
+* DESCRIPTION  : Gets the reference of outStream
+* DEPENDECY    :
+* PARAMETERS   : SlotId
+* RETURN VALUES: Reference of OutStream, NULL on error
+*/
+taf_mngd_audio_StreamRef_t taf_mngd_audio_OpenModemVoiceRx
+(
+    uint32_t slotId
+)
+{
+    auto &mngdAudio = taf_MngdAudio::GetInstance();
+    return mngdAudio.OpenModemVoiceRx(slotId);
+}
+
+/**
+* FUNCTION     : OpenModemVoiceTx
+* DESCRIPTION  : Gets the reference of VoiceTx Path
+* DEPENDECY    :
+* PARAMETERS   : SlotId, ECNR configuration
+* RETURN VALUES: Reference of a Stream, NULL on error
+*/
+taf_mngd_audio_StreamRef_t taf_mngd_audio_OpenModemVoiceTx
+(
+    uint32_t slotId, bool enableEcnr
+)
+{
+    auto &mngdAudio = taf_MngdAudio::GetInstance();
+    return mngdAudio.OpenModemVoiceTx(slotId, enableEcnr);
+}
+
+/**
+* FUNCTION     : OpenRoute
+* DESCRIPTION  : Opens the audio route
+* DEPENDECY    :
+* PARAMETERS   : route, mode, sinkRef, sourceRef
+* RETURN VALUES: LE_OK on success, LE_BUSY if another route is opened,
+*                LE_BAD_PARAMETER on bad params, LE_FAULT on error.
+*/
+taf_mngd_audio_RouteRef_t taf_mngd_audio_OpenRoute
+(
+    taf_mngd_audio_RouteId_t route,
+    taf_mngd_audio_Mode_t mode,
+    taf_mngd_audio_StreamRef_t *sinkRef,
+    taf_mngd_audio_StreamRef_t *sourceRef
+)
+{
+    auto &mngdAudio = taf_MngdAudio::GetInstance();
+    return mngdAudio.OpenRoute(route, mode, sinkRef, sourceRef);
+}
+
+/**
+* FUNCTION     : CloseRoute
+* DESCRIPTION  : Closes the audio route
+* DEPENDECY    :
+* PARAMETERS   : Route reference created on OpenRoute
+* RETURN VALUES: LE_OK on success, LE_BAD_PARAMETER if route is not opened, LE_FAULT on error.
+*/
+le_result_t taf_mngd_audio_CloseRoute
+(
+    taf_mngd_audio_RouteRef_t routeRef
+)
+{
+    auto &mngdAudio = taf_MngdAudio::GetInstance();
+    return mngdAudio.CloseRoute(routeRef);
+}
+
+/**
+* FUNCTION     : OpenPlayer
+* DESCRIPTION  : Opens the stream for player
+* DEPENDECY    :
+* PARAMETERS   : direction
+* RETURN VALUES: Stream reference on success and null on failure.
+*/
+taf_mngd_audio_StreamRef_t taf_mngd_audio_OpenPlayer
+(
+    taf_mngd_audio_Direction_t direction
+)
+{
+    auto &mngdAudio = taf_MngdAudio::GetInstance();
+    return mngdAudio.OpenPlayer(direction);
+}
+
+/**
+* FUNCTION     : PlayFile
+* DESCRIPTION  : Plays the audio file
+* DEPENDECY    :
+* PARAMETERS   : Player stream reference and audio file path
+* RETURN VALUES: LE_OK on success and LE_FAULT on failure.
+*/
+le_result_t taf_mngd_audio_PlayFile
+(
+    taf_mngd_audio_StreamRef_t streamRef,
+    const char *srcPath
+)
+{
+    auto &mngdAudio = taf_MngdAudio::GetInstance();
+    return mngdAudio.PlayFile(streamRef, srcPath);
+}
+
+/**
+* FUNCTION     : OpenRecorder
+* DESCRIPTION  : Opens the stream for recorder
+* DEPENDECY    :
+* PARAMETERS   : direction
+* RETURN VALUES: Stream reference on success and null on failure.
+*/
+taf_mngd_audio_StreamRef_t taf_mngd_audio_OpenRecorder
+(
+    taf_mngd_audio_Direction_t direction
+)
+{
+    auto &mngdAudio = taf_MngdAudio::GetInstance();
+    return mngdAudio.OpenRecorder(direction);
+}
+
+/**
+* FUNCTION     : RecordFile
+* DESCRIPTION  : Records the audio file
+* DEPENDECY    :
+* PARAMETERS   : Recorder stream reference and audio file path
+* RETURN VALUES: LE_OK on success and LE_FAULT on failure.
+*/
+le_result_t taf_mngd_audio_RecordFile
+(
+    taf_mngd_audio_StreamRef_t streamRef,
+    const char *srcPath
+)
+{
+    auto &mngdAudio = taf_MngdAudio::GetInstance();
+    return mngdAudio.RecordFile(streamRef, srcPath);
+}
+
+/**
+* FUNCTION     : Stop
+* DESCRIPTION  : Stops the active playback/record
+* DEPENDECY    :
+* PARAMETERS   : Player/recorder stream reference
+* RETURN VALUES: LE_OK on success and LE_FAULT on failure.
+*/
+le_result_t taf_mngd_audio_Stop
+(
+    taf_mngd_audio_StreamRef_t streamRef
+)
+{
+    auto &mngdAudio = taf_MngdAudio::GetInstance();
+    return mngdAudio.Stop(streamRef);
+}
+
+taf_mngd_audio_MediaHandlerRef_t taf_mngd_audio_AddMediaHandler
+(
+   taf_mngd_audio_StreamRef_t streamRef,
+   taf_mngd_audio_MediaHandlerFunc_t handlerPtr,
+   void* contextPtr
+)
+{
+    auto &mngdAudio = taf_MngdAudio::GetInstance();
+    return mngdAudio.AddMediaHandler(streamRef, handlerPtr, contextPtr);
+}
+
+void taf_mngd_audio_RemoveMediaHandler
+(
+   taf_mngd_audio_MediaHandlerRef_t handlerRef
+)
+{
+    auto &mngdAudio = taf_MngdAudio::GetInstance();
+    return mngdAudio.RemoveMediaHandler(handlerRef);
+}
+
+/**
+* FUNCTION     : CreatePlayList
+* DESCRIPTION  : Creates an audio playList reference.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: PlayList reference.
+*/
+taf_mngd_audio_PlayListRef_t taf_mngd_audio_CreatePlayList
+(
+)
+{
+    auto &audio = taf_MngdAudio::GetInstance();
+    return audio.CreatePlayList();
+}
+
+/**
+* FUNCTION     : AddPlayListEntry
+* DESCRIPTION  : Adds an audio file to playList reference.
+* DEPENDECY    :
+* PARAMETERS   : PlayList reference, file source path, repeat count.
+* RETURN VALUES: LE_OK on success and LE_FAULT on failure.
+*/
+le_result_t taf_mngd_audio_AddPlayListEntry
+(
+ taf_mngd_audio_PlayListRef_t playListRef,
+ const char *scrPath,
+ int32_t repeat
+)
+{
+    auto &audio = taf_MngdAudio::GetInstance();
+    return audio.AddPlayListEntry(playListRef, scrPath, repeat);
+}
+
+/**
+* FUNCTION     : DeletePlayList
+* DESCRIPTION  : Deletes playList reference.
+* DEPENDECY    :
+* PARAMETERS   : PlayList reference.
+* RETURN VALUES: LE_OK on success and LE_FAULT on failure.
+*/
+le_result_t taf_mngd_audio_DeletePlayList
+(
+ taf_mngd_audio_PlayListRef_t playListRef
+)
+{
+    auto &audio = taf_MngdAudio::GetInstance();
+    return audio.DeletePlayList(playListRef);
+}
+
+/**
+* FUNCTION     : PlayFile
+* DESCRIPTION  : Plays the audio file list.
+* DEPENDECY    :
+* PARAMETERS   : Player stream reference and playList reference
+* RETURN VALUES: LE_OK on success and LE_FAULT on failure.
+*/
+le_result_t taf_mngd_audio_PlayFileList
+(
+ taf_mngd_audio_StreamRef_t streamRef, taf_mngd_audio_PlayListRef_t playListRef
+)
+{
+    auto &audio = taf_MngdAudio::GetInstance();
+    return audio.PlayFileList(streamRef, playListRef);
+}
+
+taf_mngd_audioHw_NodeType_t taf_mngd_audioHw_GetNodeType
+(
+    uint8_t audioNodeId
+)
+{
+    auto &mngdAudioVhal = taf_MngdAudioVhal::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!mngdAudioVhal.isAudioDrvAvailable(), TAF_MNGD_AUDIOHW_INVALID,
+            "Audio drive is not available!");
+    return mngdAudioVhal.GetNodeType(audioNodeId);
+}
+
+le_result_t taf_mngd_audioHw_SendNodeVendorConfig
+(
+    uint8_t audioNodeId,
+    const char* configPath
+)
+{
+    auto &mngdAudioVhal = taf_MngdAudioVhal::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!mngdAudioVhal.isAudioDrvAvailable(), LE_UNSUPPORTED,
+            "Audio drive is not available!");
+    return mngdAudioVhal.SendNodeVendorConfig(audioNodeId, configPath);
+}
+
+le_result_t taf_mngd_audioHw_SendVendorConfig
+(
+    const char* configPath
+)
+{
+    auto &mngdAudioVhal = taf_MngdAudioVhal::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!mngdAudioVhal.isAudioDrvAvailable(), LE_UNSUPPORTED,
+            "Audio drive is not available!");
+    return mngdAudioVhal.SendVendorConfig(configPath);
+}
+
+le_result_t taf_mngd_audioHw_SetNodePowerState
+(
+    uint8_t audioNodeId,
+    taf_mngd_audioHw_NodePowerState_t state
+)
+{
+    auto &mngdAudioVhal = taf_MngdAudioVhal::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!mngdAudioVhal.isAudioDrvAvailable(), LE_UNSUPPORTED,
+            "Audio drive is not available!");
+    return mngdAudioVhal.SetNodePowerState(audioNodeId, state);
+}
+
+le_result_t taf_mngd_audioHw_GetNodePowerState
+(
+    uint8_t audioNodeId,
+    taf_mngd_audioHw_NodePowerState_t *state
+)
+{
+    auto &mngdAudioVhal = taf_MngdAudioVhal::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!mngdAudioVhal.isAudioDrvAvailable(), LE_UNSUPPORTED,
+            "Audio drive is not available!");
+    return mngdAudioVhal.GetNodePowerState(audioNodeId, state);
+}
+
+le_result_t taf_mngd_audioHw_SetNodeMuteState
+(
+    uint8_t audioNodeId,
+    bool mute
+)
+{
+    auto &mngdAudioVhal = taf_MngdAudioVhal::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!mngdAudioVhal.isAudioDrvAvailable(), LE_UNSUPPORTED,
+            "Audio drive is not available!");
+    return mngdAudioVhal.SetNodeMuteState(audioNodeId, mute);
+}
+
+le_result_t taf_mngd_audioHw_GetNodeMuteState
+(
+    uint8_t audioNodeId,
+    bool *isMuted
+)
+{
+    auto &mngdAudioVhal = taf_MngdAudioVhal::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!mngdAudioVhal.isAudioDrvAvailable(), LE_UNSUPPORTED,
+            "Audio drive is not available!");
+    return mngdAudioVhal.GetNodeMuteState(audioNodeId, isMuted);
+}
+
+taf_mngd_audioHw_NodeStateChangeHandlerRef_t taf_mngd_audioHw_AddNodeStateChangeHandler
+(
+    uint8_t audioNodeId,
+    taf_mngd_audioHw_NodeStateHandlerFunc_t handlerPtr,
+    void* contextPtr
+)
+{
+    auto &mngdAudioVhal = taf_MngdAudioVhal::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!mngdAudioVhal.isAudioDrvAvailable(), NULL,
+            "Audio drive is not available!");
+    return mngdAudioVhal.AddNodeStateChangeHandler(audioNodeId, handlerPtr, contextPtr);
+}
+
+void taf_mngd_audioHw_RemoveNodeStateChangeHandler
+(
+    taf_mngd_audioHw_NodeStateChangeHandlerRef_t handlerRef
+)
+{
+    auto &mngdAudioVhal = taf_MngdAudioVhal::GetInstance();
+    TAF_ERROR_IF_RET_NIL(!mngdAudioVhal.isAudioDrvAvailable(), "Audio drive is not available!");
+    mngdAudioVhal.RemoveNodeStateChangeHandler(handlerRef);
+}
+
+COMPONENT_INIT
+{
+    LE_INFO("tafMngdAudioSvc COMPONENT init...");
+
+    auto &mngdAudio = taf_MngdAudio::GetInstance();
+    mngdAudio.Init();
+
+    LE_INFO("COMPONENT end init");
+}

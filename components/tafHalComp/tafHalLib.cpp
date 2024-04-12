@@ -62,8 +62,8 @@ static void MsgReceiveHandler(
 
     responsePtr = (const char*)le_msg_GetPayloadPtr(msgRef);
 
-    // Print out whatever the Log Control Daemon sent us.
-    printf("%s\n", responsePtr);
+    // Print out whatever the deviceManager sent us.
+    LE_INFO("%s", responsePtr);
 
     // If the first character of the response is a '*', then there has been an error.
     if (responsePtr[0] == '*')
@@ -85,7 +85,7 @@ static void AppendToCommand(
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Handles the Log Control Daemon closing the IPC session.
+ * Handles the deviceManager closing the IPC session.
  **/
 //--------------------------------------------------------------------------------------------------
 static void SessionCloseHandler(
@@ -99,6 +99,7 @@ static void SessionCloseHandler(
     }
     else
     {
+        isReady = false;
         LE_INFO("Close the session from Device manager");
     }
 
@@ -107,15 +108,32 @@ static void SessionCloseHandler(
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Opens an IPC session to device manager.
- *
- * @return  A reference to the IPC message session.
+ * Creates an IPC session to device manager.
  */
 //--------------------------------------------------------------------------------------------------
-static le_result_t ConnectToDeviceManager(
-    void)
-
+static void CreateSessionToDeviceManager()
 {
+    // do something before loading if needed
+    le_msg_ProtocolRef_t protocolRef;
+
+    protocolRef = le_msg_GetProtocolRef(DEV_MANAGER_PROTOCOL_ID, DEV_MANAGER_MAX_CMD_PACKET_BYTES);
+    ipcSessionRef = le_msg_CreateSession(protocolRef, DEV_MANAGER_SERVICE_NAME);
+
+    le_msg_SetSessionRecvHandler(ipcSessionRef, MsgReceiveHandler, nullptr);
+    le_msg_SetSessionCloseHandler(ipcSessionRef, SessionCloseHandler, nullptr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Opens an IPC session to device manager.
+ */
+//--------------------------------------------------------------------------------------------------
+static le_result_t ConnectToDeviceManager()
+{
+    if(isReady == false)
+    {
+        CreateSessionToDeviceManager();
+    }
 
     le_result_t result = le_msg_TryOpenSessionSync(ipcSessionRef);
 
@@ -152,14 +170,7 @@ static le_result_t ConnectToDeviceManager(
 
 COMPONENT_INIT_ONCE
 {
-    // do something before loading if needed
-    le_msg_ProtocolRef_t protocolRef;
-
-    protocolRef = le_msg_GetProtocolRef(DEV_MANAGER_PROTOCOL_ID, DEV_MANAGER_MAX_CMD_PACKET_BYTES);
-    ipcSessionRef = le_msg_CreateSession(protocolRef, DEV_MANAGER_SERVICE_NAME);
-
-    le_msg_SetSessionRecvHandler(ipcSessionRef, MsgReceiveHandler, nullptr);
-    le_msg_SetSessionCloseHandler(ipcSessionRef, SessionCloseHandler, nullptr);
+    CreateSessionToDeviceManager();
 }
 
 __attribute__((destructor)) void _telaf_unInitHal(
@@ -230,7 +241,6 @@ extern "C" LE_SHARED void* taf_devMgr_LoadDrv(const char* drvName, const char* d
     // send the request, as we do not maintain a session between client and server
     responseMsgRef = le_msg_RequestSyncResponse(msgRef);
 
-    // session will be closed,
     isReady = false;
 
     if (responseMsgRef == nullptr) // Fatal error, no valid response
@@ -238,19 +248,19 @@ extern "C" LE_SHARED void* taf_devMgr_LoadDrv(const char* drvName, const char* d
         LE_ERROR("No valid response from device manager");
 
         // the session will be closed, but the app will exit
-        le_msg_ReleaseMsg(responseMsgRef);
         return nullptr;
     }
 
     // Get the reponse payload, the full path of the driver
     payloadPtr = (char*)le_msg_GetPayloadPtr(responseMsgRef);
 
+    le_msg_ReleaseMsg(responseMsgRef);
+
     le_utf8_Copy(drvFile, payloadPtr, sizeof(drvFile), &numBytes);
 
     if ((numBytes == 0) || (drvFile[0] == '*')) // * means error from device manager
     {
         LE_ERROR("No valid driver was found");
-        le_msg_ReleaseMsg(responseMsgRef);
         return nullptr;
     }
 
@@ -394,7 +404,6 @@ extern "C" LE_SHARED bool taf_devMgr_UnloadDrv(void* handle)
             // tell the device manager
             responseMsgRef = le_msg_RequestSyncResponse(msgRef);
 
-            // will be closed soon
             isReady = false;
 
             if (responseMsgRef == nullptr) // Fatal error, no valid response
@@ -402,12 +411,12 @@ extern "C" LE_SHARED bool taf_devMgr_UnloadDrv(void* handle)
                 LE_ERROR("No valid response from device manager");
 
                 // the session will be closed, but the app will exit
-                le_msg_ReleaseMsg(responseMsgRef);
                 ret = false;
             }
             else
             {
                 char* payloadPtr = (char*)le_msg_GetPayloadPtr(responseMsgRef);
+                le_msg_ReleaseMsg(responseMsgRef);
 
                 // device manager return error
                 if ((*payloadPtr) == '*')

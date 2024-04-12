@@ -43,7 +43,7 @@
  * The diag DataID service APIs are part of the diagnostic service. The DataID service
  * provides ReadDataByIdentifier(0x22) and WriteDataByIdentifier(0x2E) service. The
  * ReadDataByIdentifier(0x22) service allows the client to request data record values from the
- * server identified by one or more dataIdentifiers, and the WriteDataByIdentifier(0x2E) service
+ * server identified by one or more data identifiers, and the WriteDataByIdentifier(0x2E) service
  * allows the client to write information into the server at an internal location specified by the
  * provided data identifier.
  *

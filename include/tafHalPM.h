@@ -107,6 +107,16 @@ typedef enum
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * PM suspend mode for request from service
+ */
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    PM_HAL_SUSPEND_MODE_FULL
+} taf_hal_pm_SuspendMode;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * PM reason for response to service
  */
 //--------------------------------------------------------------------------------------------------
@@ -129,6 +139,17 @@ typedef enum
     PM_HAL_NODE_STATE_SHUTDOWN,
     PM_HAL_NODE_STATE_RESTART
 } taf_hal_pm_NodeState;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * PM node info for notification from service
+ */
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    PM_HAL_NODE_INFO_LOCK_ACQUIRED,
+    PM_HAL_NODE_INFO_LOCK_RELEASED
+} taf_hal_pm_NodeInfo;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -219,6 +240,39 @@ typedef le_result_t (*TAF_HAL_PM_RESTARTREQASYNC)
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Suspend response callback function.
+ * @param
+ *      mode    - corresonding suspend mode to respond
+ *      reason  - response to the request
+ *
+ * @return void
+ */
+//--------------------------------------------------------------------------------------------------
+typedef void (*TAF_HAL_PM_SUSPENDRSPCALLBACK)
+(
+    taf_hal_pm_SuspendMode mode,
+    taf_hal_pm_RspReason reason
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Suspend request to the VHAL hardware component asynchronously.
+ * @param
+ *      mode        - suspend mode request to the VHAL compoment
+ *      callback    - the callback function to response the request
+ *
+ * @return
+ *      result for sending the request
+ */
+//--------------------------------------------------------------------------------------------------
+typedef le_result_t (*TAF_HAL_PM_SUSPENDREQASYNC)
+(
+    taf_hal_pm_SuspendMode mode,
+    TAF_HAL_PM_SUSPENDRSPCALLBACK  callback
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Node state change notification callback function.
  * @param
  *      pm_node_id    - corresonding node to respond
@@ -242,8 +296,7 @@ typedef void (*TAF_HAL_PM_NODESTATECHANGENOTIFICATIONCONFIRMCALLBACK)
  *      state         - the state that the node is going to be
  *      callback      - the callback function to respond the request
  *
- * @return
- *      result for sending the notification
+ * @return void
  */
 //--------------------------------------------------------------------------------------------------
 typedef void (*TAF_HAL_PM_NODE_STATECHANGE_NOTIFICATION)
@@ -251,6 +304,57 @@ typedef void (*TAF_HAL_PM_NODE_STATECHANGE_NOTIFICATION)
     uint8_t pm_node_id,
     taf_hal_pm_NodeState state,
     TAF_HAL_PM_NODESTATECHANGENOTIFICATIONCONFIRMCALLBACK callback
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Node information notification to the VHAL hardware component.
+ * @param
+ *      pm_node_id    - the notification is from which node
+ *      info          - the information that the node is sending to the VHAL compoment
+ *      callback      - the callback function to respond the request
+ *
+ * @return
+ *      result for sending the notification
+ */
+//--------------------------------------------------------------------------------------------------
+typedef void (*TAF_HAL_PM_NODEINFO_NOTIFICATION)
+(
+    uint8_t pm_node_id,
+    taf_hal_pm_NodeInfo info,
+    const char* vhalTag
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Node event callback function.
+ * @param
+ *      pm_node_id          - corresonding node to respond
+ *      pm_node_event_info  - corresonding node info to respond
+ * @return void
+ */
+//--------------------------------------------------------------------------------------------------
+typedef void (*TAF_HAL_PM_NODEEVENTCALLBACK)
+(
+    uint8_t pm_node_id,
+    const char* pm_node_event_info
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add node event handler to VHAL component.
+ * @param
+ *      pm_node_id    - corresonding node to respond
+ *      state         - corresonding node state to respond
+ *      status        - confirm status for the notification
+ * @return
+ *      result for adding the handler
+ */
+//--------------------------------------------------------------------------------------------------
+typedef le_result_t (*TAF_HAL_PM_ADDNODEEVENTHANDLER)
+(
+    uint8_t pm_node_id,
+    TAF_HAL_PM_NODEEVENTCALLBACK callback
 );
 
 typedef struct
@@ -261,7 +365,13 @@ typedef struct
 
     TAF_HAL_PM_RESTARTREQASYNC restartReqAsync;
 
+    TAF_HAL_PM_SUSPENDREQASYNC suspendReqAsync;
+
     TAF_HAL_PM_NODE_STATECHANGE_NOTIFICATION nodeStateChangeNotification;
+
+    TAF_HAL_PM_NODEINFO_NOTIFICATION nodeInfoNotification;
+
+    TAF_HAL_PM_ADDNODEEVENTHANDLER addNodeEventHandler;
 
 } pm_Inf_t;
 

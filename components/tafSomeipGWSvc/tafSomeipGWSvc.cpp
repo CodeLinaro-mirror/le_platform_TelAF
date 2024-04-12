@@ -5,24 +5,39 @@
 
 #include "legato.h"
 #include "interfaces.h"
+#include "tafSomeipGWSvc.hpp"
 #include "tafSomeipSvr.hpp"
 #include "tafSomeipClnt.hpp"
 #include "tafSvcIF.hpp"
+#include "jansson.h"
 
+#define VSOMEIP_APP_MAX_CNT 8
 #define VSOMEIP_APP_NAME "tafSomeipGWSvc"
+#define ROUTING_INTF_NAME_SIZE 32
+#define ROUTING_IP_ADDR_SIZE 48
 using namespace telux::tafsvc;
 
 class taf_vsomeipApp
 {
     public:
-        taf_vsomeipApp() {};
-        ~taf_vsomeipApp() {};
+        taf_vsomeipApp(const uint8_t idx, const std::string appName, const std::string devName,
+                            const std::string uniAddr, const std::string multiAddr):
+            app(vsomeip::runtime::get()->create_application(appName)),
+            routingId(idx),
+            routingName(appName),
+            deviceName(devName),
+            unicastAddr(uniAddr),
+            multicastAddr(multiAddr)
+        {
+        };
+        ~taf_vsomeipApp()
+        {
+        };
         bool init()
         {
-            app = vsomeip::runtime::get()->create_application(VSOMEIP_APP_NAME);
             if (!app->init())
             {
-                LE_ERROR("Couldn't initialize VSOMEIP application '%s'.", VSOMEIP_APP_NAME);
+                LE_ERROR("Couldn't initialize routing manager '%s'.", routingName.c_str());
                 return false;
             }
             app->register_state_handler(std::bind(&taf_vsomeipApp::onState,
@@ -33,7 +48,13 @@ class taf_vsomeipApp
                                           std::bind(&taf_vsomeipApp::onMessage,
                                           this, std::placeholders::_1));
 
-            LE_INFO("VSOMEIP application '%s' is initialized.", VSOMEIP_APP_NAME);
+            vsClientId = app->get_client();
+
+            LE_INFO("vsomeip routing manager '%s'" \
+                    "(idx=%d, clientID=0x%x, unicast='%s', multicast='%s', intf='%s') initialized.",
+                    routingName.c_str(), routingId, vsClientId, unicastAddr.c_str(),
+                    multicastAddr.c_str(), deviceName.c_str());
+
             return true;
         }
         void start()
@@ -49,15 +70,31 @@ class taf_vsomeipApp
         {
             return app;
         }
+        const std::string& getIntfName() const
+        {
+            return deviceName;
+        }
+        const std::string& getRoutingName() const
+        {
+            return routingName;
+        }
+        uint8_t getRoutingId() const
+        {
+            return routingId;
+        }
+        uint16_t getClientId() const
+        {
+            return vsClientId;
+        }
         void onState(vsomeip::state_type_e state)
         {
             if (state == vsomeip::state_type_e::ST_REGISTERED)
             {
-                LE_INFO("VSOMEIP application '%s' is registered.", VSOMEIP_APP_NAME);
+                LE_INFO("Routing manager '%s' is registered.", routingName.c_str());
             }
             else if (state == vsomeip::state_type_e::ST_DEREGISTERED)
             {
-                LE_INFO("VSOMEIP application '%s' is de-registered.", VSOMEIP_APP_NAME);
+                LE_INFO("Routing manager '%s' is de-registered.", routingName.c_str());
             }
         }
         void onMessage(const std::shared_ptr<vsomeip::message> &msg)
@@ -65,14 +102,14 @@ class taf_vsomeipApp
             vsomeip::message_type_e msgType = msg->get_message_type();
             vsomeip::length_t msgLen = msg->get_payload()->get_length();
             vsomeip::method_t methodId = msg->get_method();
-
+#if 0
             LE_DEBUG("VSOMEIP message(len=%" PRIu32 ")with Client/Session/Type[0x%x/0x%x/0x%x].",
                      msgLen, msg->get_client(), msg->get_session(), (uint32_t)msgType);
-
+#endif
             // Sanity check for the payload size.
             if (msgLen > TAF_SOMEIPDEF_MAX_PAYLOAD_SIZE)
             {
-                LE_WARN("Payload size overflows, dropped it.");
+                LE_WARN("VSOMEIP message size is too long, dropped it.");
                 return;
             }
             // Sanity check for request message for server instance.
@@ -81,7 +118,7 @@ class taf_vsomeipApp
                 !(methodId & TAF_SOMEIPDEF_EVENT_MASK))
             {
                 taf_SomeipSvr& mySomeipSvr = taf_SomeipSvr::GetInstance();
-                mySomeipSvr.VSOMEIPHandler(msg);
+                mySomeipSvr.VSOMEIPHandler(routingId, msg);
                 return;
             }
             // Sanity check for a response for client instance.
@@ -90,7 +127,7 @@ class taf_vsomeipApp
                 !(methodId & TAF_SOMEIPDEF_EVENT_MASK))
             {
                 taf_SomeipClient& mySomeipClient = taf_SomeipClient::GetInstance();
-                mySomeipClient.VSOMEIPRespHandler(msg);
+                mySomeipClient.VSOMEIPRespHandler(routingId, msg);
                 return;
             }
             // Sanity check for an event for client instance.
@@ -98,14 +135,359 @@ class taf_vsomeipApp
                      (methodId & TAF_SOMEIPDEF_EVENT_MASK))
             {
                 taf_SomeipClient& mySomeipClient = taf_SomeipClient::GetInstance();
-                mySomeipClient.VSOMEIPEventHandler(msg);
+                mySomeipClient.VSOMEIPEventHandler(routingId, msg);
                 return;
             }
         }
 
-        private:
-            std::shared_ptr<vsomeip::application> app;
+        le_thread_Ref_t someipThreadRef;
+
+    private:
+        std::shared_ptr<vsomeip::application> app;
+        uint16_t vsClientId;
+        uint8_t routingId;
+        std::string routingName;
+        std::string deviceName;
+        std::string unicastAddr;
+        std::string multicastAddr;
 };
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Routing Configuration entry data struct.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    char intfName[ROUTING_INTF_NAME_SIZE];
+    char unicastAddr[ROUTING_IP_ADDR_SIZE];
+    char multicastAddr[ROUTING_IP_ADDR_SIZE];
+}RoutingConfig_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Routing Manager Tables
+ */
+//--------------------------------------------------------------------------------------------------
+static taf_vsomeipApp* RoutingManagerTable[VSOMEIP_APP_MAX_CNT] = { NULL };
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the vsomeip routing manager instance by routing ID.
+ */
+//--------------------------------------------------------------------------------------------------
+std::shared_ptr<vsomeip::application>& someip_GetRoutingManager
+(
+    uint8_t id
+)
+{
+    // Sanity check for the ID range.
+    LE_ASSERT((id < VSOMEIP_APP_MAX_CNT) && (RoutingManagerTable[id] != NULL));
+
+    return RoutingManagerTable[id]->getApp();
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the vsomeip client ID by routing ID.
+ */
+//--------------------------------------------------------------------------------------------------
+uint16_t someip_GetClientId
+(
+    uint8_t id
+)
+{
+    // Sanity check for the ID range.
+    LE_ASSERT((id < VSOMEIP_APP_MAX_CNT) && (RoutingManagerTable[id] != NULL));
+
+    return RoutingManagerTable[id]->getClientId();
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get routing ID by interface name.
+ */
+//--------------------------------------------------------------------------------------------------
+static le_result_t GetRoutingIdByIntfName
+(
+    const char* intfName,
+    uint8_t* idPtr
+)
+{
+    if ((intfName == NULL) || (idPtr == NULL))
+    {
+        return LE_BAD_PARAMETER;
+    }
+
+    for (uint8_t id = 0; id < VSOMEIP_APP_MAX_CNT; id++)
+    {
+        if ((RoutingManagerTable[id] != NULL) &&
+            (strcmp(RoutingManagerTable[id]->getIntfName().c_str(), intfName) == 0))
+        {
+            *idPtr = RoutingManagerTable[id]->getRoutingId();
+            return LE_OK;
+        }
+    }
+
+    return LE_NOT_FOUND;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Validate routing info in JSON file.
+ */
+//--------------------------------------------------------------------------------------------------
+static le_result_t ValidateRoutingInfo
+(
+    const json_t* root,
+    const char* appNamePtr
+)
+{
+    json_t *js_applications = NULL;
+    json_t *js_application = NULL;
+    json_t *js_appId = NULL;
+    json_t *js_appName = NULL;
+    json_t *js_routing = NULL;
+    json_t *js_network = NULL;
+
+    size_t index = 0;
+    bool isRoutingFound = false;
+
+    if ((root == NULL) || (appNamePtr == NULL))
+    {
+        LE_ERROR("Bad parameters.");
+        return LE_BAD_PARAMETER;
+    }
+
+    // Load the 'applications' array.
+    js_applications = json_object_get(root, "applications");
+    if ((!json_is_array(js_applications)) || (json_array_size(js_applications) == 0))
+    {
+        LE_ERROR("applications array is not set in JSON file of routing manager %s.", appNamePtr);
+        return LE_FAULT;
+    }
+
+    // Get each application entry in the array.
+    json_array_foreach(js_applications, index, js_application)
+    {
+        // Get "id", "name" for each application entry.
+        js_appId = json_object_get(js_application, "id");
+        js_appName = json_object_get(js_application, "name");
+        if (json_is_string(js_appId) && json_is_string(js_appName))
+        {
+            // Validate the app name.
+            if (strcmp(json_string_value(js_appName), appNamePtr) == 0)
+            {
+                isRoutingFound = true;
+                break;
+            }
+        }
+    }
+
+    if (!isRoutingFound)
+    {
+        LE_ERROR("application name is not set in JSON file of routing manager %s.", appNamePtr);
+        return LE_FAULT;
+    }
+
+    // Load 'network' and 'routing'.
+    js_network = json_object_get(root, "network");
+    js_routing = json_object_get(root, "routing");
+    if (json_is_string(js_network) && json_is_string(js_routing))
+    {
+        // Validate the network and routing.
+        if ((strcmp(json_string_value(js_network), appNamePtr) == 0)&&
+            (strcmp(json_string_value(js_routing), appNamePtr) == 0))
+        {
+            return LE_OK;
+        }
+    }
+
+    LE_ERROR("network or routing is not set in JSON file of routing manager %s.", appNamePtr);
+    return LE_FAULT;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Load JSON file and Parse routing information.
+ */
+//--------------------------------------------------------------------------------------------------
+static le_result_t LoadRoutingConfigFile
+(
+    const char* appNamePtr,
+    RoutingConfig_t* configInfoPtr
+)
+{
+    json_t *root;
+    json_error_t error;
+    char fileName[64] = "";
+
+    if ((appNamePtr == NULL) || (configInfoPtr == NULL))
+    {
+        LE_ERROR("Bad parameters.");
+        return LE_BAD_PARAMETER;
+    }
+
+    // Validate file name size.
+    if (snprintf(fileName, sizeof(fileName), "%s.json", appNamePtr) >= (int)sizeof(fileName))
+    {
+        LE_ERROR("routing manager name '%s' is too long.", appNamePtr);
+        return LE_BAD_PARAMETER;
+    }
+
+    // Check if file exists.
+    struct stat fileStatus;
+    if ((stat(fileName, &fileStatus) != 0) || (!S_ISREG(fileStatus.st_mode)))
+    {
+        return LE_NOT_FOUND;
+    }
+
+    // Load entire JSON file.
+    root = json_load_file(fileName, 0, &error);
+    if (root == NULL)
+    {
+        LE_ERROR("JSON file error: line: %d, column: %d, position: %d, source: '%s', error: %s",
+                 error.line, error.column, error.position, error.source, error.text);
+        return LE_NOT_FOUND;
+    }
+
+    // Check if "root" is an object.
+    if (!json_is_object(root))
+    {
+        LE_ERROR("root is not an object.");
+        json_decref(root);
+        return LE_FAULT;
+    }
+
+    // Validate Routing info.
+    if (LE_OK != ValidateRoutingInfo(root, appNamePtr))
+    {
+        json_decref(root);
+        return LE_FAULT;
+    }
+
+    // Get the 'unicast' 'multicast' and 'device'.
+    memset(configInfoPtr, 0, sizeof(RoutingConfig_t));
+    json_t* js_unicast;
+    json_t* js_device;
+    json_t* js_multicast;
+
+    js_unicast = json_object_get(root, "unicast");
+    js_device = json_object_get(root, "device");
+    js_multicast = json_object_get(json_object_get(root, "service-discovery"), "multicast");
+    if ((!json_is_string(js_unicast)) || (!json_is_string(js_device)) ||
+        (!json_is_string(js_multicast)))
+    {
+        LE_ERROR("unicast/device/multicast is not set in JSON file of routing manager %s",
+                 appNamePtr);
+        json_decref(root);
+        return LE_FAULT;
+    }
+
+    le_utf8_Copy(configInfoPtr->unicastAddr, json_string_value(js_unicast),
+                 ROUTING_IP_ADDR_SIZE, NULL);
+    le_utf8_Copy(configInfoPtr->intfName, json_string_value(js_device),
+                 ROUTING_INTF_NAME_SIZE, NULL);
+    le_utf8_Copy(configInfoPtr->multicastAddr, json_string_value(js_multicast),
+                 ROUTING_IP_ADDR_SIZE, NULL);
+
+    json_decref(root);
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * VSOMEIP dedicated entry thread.
+ */
+//--------------------------------------------------------------------------------------------------
+static void* VSOMEIPThread
+(
+    void* contextPtr
+)
+{
+    taf_vsomeipApp* myRoutingMgrPtr = (taf_vsomeipApp*)contextPtr;
+    LE_ASSERT(myRoutingMgrPtr != NULL);
+
+    LE_INFO("vsomeip routing manager '%s' started.", myRoutingMgrPtr->getRoutingName().c_str());
+
+    myRoutingMgrPtr->start();
+
+    LE_WARN("vsomeip routing manager '%s' exited.", myRoutingMgrPtr->getRoutingName().c_str());
+
+    return NULL;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Create and start default routing manager.
+ */
+//--------------------------------------------------------------------------------------------------
+static le_result_t StartDefaultRoutingManager
+(
+    void
+)
+{
+    taf_vsomeipApp* routePtr = NULL;
+    RoutingConfig_t routingInfo;
+
+    // Load default routing manager config file.
+    memset(&routingInfo, 0, sizeof(RoutingConfig_t));
+    if (LE_OK == LoadRoutingConfigFile(VSOMEIP_APP_NAME, &routingInfo))
+    {
+        // Create and start default routing manager.
+        routePtr = new taf_vsomeipApp(0, VSOMEIP_APP_NAME, routingInfo.intfName,
+                                      routingInfo.unicastAddr, routingInfo.multicastAddr);
+        if ((routePtr != NULL) && routePtr->init())
+        {
+            RoutingManagerTable[0] = routePtr;
+            routePtr->someipThreadRef =
+                le_thread_Create(VSOMEIP_APP_NAME, VSOMEIPThread, (void*)routePtr);
+            le_thread_Start(routePtr->someipThreadRef);
+
+            return LE_OK;
+        }
+    }
+
+    return LE_FAULT;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Create and start additional routing managers.
+ */
+//--------------------------------------------------------------------------------------------------
+static void StartAdditionalRoutingManagers
+(
+    void
+)
+{
+    uint8_t idx;
+    taf_vsomeipApp* routePtr = NULL;
+    RoutingConfig_t routingInfo;
+    char appName[32] = "";
+
+    for (idx = 1; idx < VSOMEIP_APP_MAX_CNT; idx++)
+    {
+        // Load additional routing manager config file.
+        memset(&routingInfo, 0, sizeof(RoutingConfig_t));
+        snprintf(appName, sizeof(appName), "%s_%u", VSOMEIP_APP_NAME, idx);
+        if (LE_OK != LoadRoutingConfigFile(appName, &routingInfo))
+        {
+            continue;
+        }
+
+        // Create and start additional routing manager.
+        routePtr = new taf_vsomeipApp(idx, appName, routingInfo.intfName,
+                                  routingInfo.unicastAddr, routingInfo.multicastAddr);
+        if ((routePtr != NULL) && routePtr->init())
+        {
+            RoutingManagerTable[idx] = routePtr;
+            routePtr->someipThreadRef =
+                le_thread_Create(appName, VSOMEIPThread, (void*)routePtr);
+            le_thread_Start(routePtr->someipThreadRef);
+        }
+    }
+}
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -160,59 +542,32 @@ __attribute__((unused)) static void AddRoutingForMulticast
 
 //--------------------------------------------------------------------------------------------------
 /**
- * VSOMEIP dedicated entry thread.
- */
-//--------------------------------------------------------------------------------------------------
-static void* VSOMEIPThread
-(
-    void* contextPtr
-)
-{
-    taf_vsomeipApp vsomeip;
-    if (vsomeip.init())
-    {
-        LE_INFO("VSOMEIP thread started.");
-        taf_SomeipSvr& mySomeipSvr = taf_SomeipSvr::GetInstance();
-        taf_SomeipClient& mySomeipClient = taf_SomeipClient::GetInstance();
-        mySomeipSvr.VSOMEIPInit(vsomeip.getApp());
-        mySomeipClient.VSOMEIPInit(vsomeip.getApp());
-        // Notifies the main thread that the VSOMEIP stack is ready.
-        le_sem_Post(mySomeipSvr.InitSem);
-        le_sem_Post(mySomeipClient.InitSem);
-        vsomeip.start();
-    }
-
-    LE_INFO("VSOMEIP thread exited.");
-    return NULL;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
  * The initialization of TelAF SOME/IP GW service component.
  */
 //--------------------------------------------------------------------------------------------------
 COMPONENT_INIT
 {
+    // Create and start TelAF SOME/IP client and server proxies.
     taf_SomeipSvr& mySomeipSvr = taf_SomeipSvr::GetInstance();
     taf_SomeipClient& mySomeipClient = taf_SomeipClient::GetInstance();
     mySomeipSvr.Init();
     mySomeipClient.Init();
 
-    le_thread_Ref_t vsomeipThreadRef = le_thread_Create("vsomeip", VSOMEIPThread, NULL);
-    le_thread_Start(vsomeipThreadRef);
-    le_clk_Time_t timeToWait = {10, 0};
-    if ((LE_OK != le_sem_WaitWithTimeOut(mySomeipSvr.InitSem, timeToWait)) ||
-        (LE_OK != le_sem_WaitWithTimeOut(mySomeipClient.InitSem, timeToWait)))
+    memset(RoutingManagerTable, 0, sizeof(RoutingManagerTable));
+
+    if (LE_OK != StartDefaultRoutingManager())
     {
-        LE_FATAL("Failed to initialize TelAF SOME/IP Gateway Service.");
+        LE_FATAL("Failed to start default routing manager.");
     }
+
+    StartAdditionalRoutingManagers();
 
     LE_INFO("TelAF SOME/IP GateWay Service initialized.");
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get the reference to a server service instance.
+ * Gets the reference to a server-service-instance on default network interface.
  *
  * @return
  *     - Reference to the service instance.
@@ -228,7 +583,38 @@ taf_someipSvr_ServiceRef_t taf_someipSvr_GetService
 )
 {
     taf_SomeipSvr& mySomeipSvr = taf_SomeipSvr::GetInstance();
-    return mySomeipSvr.GetServiceRef(serviceId, instanceId);
+    return mySomeipSvr.GetServiceRef(0, serviceId, instanceId);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the reference to a server-service-instance on a dedicated network interface. The ifName must
+ * be the device specified in one of the JSON files.
+ *
+ * @return
+ *     - Reference to the service instance.
+ *     - NULL if not allowed to represent the service.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_someipSvr_ServiceRef_t taf_someipSvr_GetServiceEx
+(
+    uint16_t serviceId,
+        ///< [IN] Service ID.
+    uint16_t instanceId,
+        ///< [IN] Instance ID.
+    const char* LE_NONNULL ifName
+        ///< [IN] Network interface name.
+)
+{
+    uint8_t routingId;
+
+    if (GetRoutingIdByIntfName(ifName, &routingId) != LE_OK)
+    {
+        return NULL;
+    }
+
+    taf_SomeipSvr& mySomeipSvr = taf_SomeipSvr::GetInstance();
+    return mySomeipSvr.GetServiceRef(routingId, serviceId, instanceId);    
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -753,7 +1139,7 @@ le_result_t taf_someipSvr_ReleaseRxMsg
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the SOME/IP client ID.
+ * Gets the SOME/IP client ID of client-service-instance on default network interface.
  */
 //--------------------------------------------------------------------------------------------------
 uint16_t taf_someipClnt_GetClientId
@@ -761,13 +1147,48 @@ uint16_t taf_someipClnt_GetClientId
     void
 )
 {
-    taf_SomeipClient& mySomeipClient = taf_SomeipClient::GetInstance();
-    return mySomeipClient.GetClientId();
+    // Get the vsomeip client ID of default routing manager.
+    return someip_GetClientId(0);
 }
+
 //--------------------------------------------------------------------------------------------------
 /**
- * Requests a client-service-instance to connect the service, and return the reference to the client
- * -service-instance.
+ * Gets the SOME/IP client ID of client-service-instance on a dedicated network interface.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid parameters.
+ *     - LE_NOT_FOUND -- Client ID is not found.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_someipClnt_GetClientIdEx
+(
+    const char* LE_NONNULL ifName,
+        ///< [IN] Network interface name.
+    uint16_t* clientIdPtr
+        ///< [OUT] SOME/IP Client ID.
+)
+{
+    uint8_t routingId;
+
+    if (clientIdPtr == NULL)
+    {
+        return LE_BAD_PARAMETER;
+    }
+
+    if (GetRoutingIdByIntfName(ifName, &routingId) != LE_OK)
+    {
+        return LE_NOT_FOUND;
+    }
+
+    *clientIdPtr = someip_GetClientId(routingId);
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Requests a client-service-instance on default network interface and returns the reference to the
+ * client-service-instance.
  *
  * @return
  *     - Reference to the client-service-instance.
@@ -783,8 +1204,40 @@ taf_someipClnt_ServiceRef_t taf_someipClnt_RequestService
 )
 {
     taf_SomeipClient& mySomeipClient = taf_SomeipClient::GetInstance();
-    return mySomeipClient.RequestService(serviceId, instanceId);
+    return mySomeipClient.RequestService(0, serviceId, instanceId);
 }
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Requests a client-service-instance on a dedicated network interface and returns the reference to
+ * the client-service-instance. The ifName must be the device specified in one of the JSON files.
+ *
+ * @return
+ *     - Reference to the client-service-instance.
+ *     - NULL if invalid parameters.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_someipClnt_ServiceRef_t taf_someipClnt_RequestServiceEx
+(
+    uint16_t serviceId,
+        ///< [IN] Service ID.
+    uint16_t instanceId,
+        ///< [IN] Instance ID.
+    const char* LE_NONNULL ifName
+        ///< [IN] Network interface name.
+)
+{
+    uint8_t routingId;
+
+    if (GetRoutingIdByIntfName(ifName, &routingId) != LE_OK)
+    {
+        return NULL;
+    }
+
+    taf_SomeipClient& mySomeipClient = taf_SomeipClient::GetInstance();
+    return mySomeipClient.RequestService(routingId, serviceId, instanceId);    
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Releases a client-service-instance to disconnect the service. This also clears all pending
@@ -804,6 +1257,7 @@ le_result_t taf_someipClnt_ReleaseService
     taf_SomeipClient& mySomeipClient = taf_SomeipClient::GetInstance();
     return mySomeipClient.ReleaseService(serviceRef);
 }
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets the service state.

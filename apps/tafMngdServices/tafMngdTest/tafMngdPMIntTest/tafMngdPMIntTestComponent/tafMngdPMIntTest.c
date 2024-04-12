@@ -43,7 +43,9 @@ taf_pm_WakeupSourceRef_t ws = NULL;
 static le_sem_Ref_t tafMpmAppSem;
 le_clk_Time_t Timeout = { 5 , 0 };
 #define WAKELOCK_WITHOUT_REF 0
+#define NODE_ID 0
 int status = EXIT_SUCCESS;
+const char* vHalTag = "vehichle_on";
 
 static void PrintUsage ()
 {
@@ -59,7 +61,35 @@ static void PrintUsage ()
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- GracefulSysShutdownWakeLock\n"
         "--------To trigger the Graceful shutdown without wake lock acquired--------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- GracefulSysShutdown\n"
-        "\n");
+        "------------To set the modem wakeuptypes-----------\n"
+        "--------1 -> For SMS wakeuptype------------\n"
+        "--------2 -> For VOICE_CALL wakeuptype------------\n"
+        "--------3 -> For SMS and VOICE_CALL wakeuptype------\n"
+        "--------4 -> For MCU_VHAL wakeuptype------------\n"
+        "--------5 -> For SMS and MCU_VHAL wakeuptype------\n"
+        "--------6 -> For VOICE_CALL and MCU_VHAL wakeuptype------\n"
+        "--------7 -> For SMS, VOICE_CALL and MCU_VHAL wakeuptype------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- SetModemWakeupSource <wakeuptype>\n"
+        "------------To suspend the system with wakeuptypes-----------\n"
+        "--------0 -> For APP_STAYAWAKE wakeuptype------------\n"
+        "--------1 -> For SMS wakeuptype------------\n"
+        "--------2 -> For VOICE_CALL wakeuptype------------\n"
+        "--------3 -> For MCU_VHAL wakeuptype------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- SuspendSystem <wakeuptype>\n"
+        "------------To resume the system with wakeuptypes-----------\n"
+        "--------0 -> For APP_STAYAWAKE wakeuptype------------\n"
+        "--------1 -> For SMS wakeuptype------------\n"
+        "--------2 -> For VOICE_CALL wakeuptype------------\n"
+        "--------3 -> For MCU_VHAL wakeuptype------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ResumeSystem <wakeuptype>\n"
+        "\n"
+        "------------To restart the particular node with node ID-----------\n"
+        "--------0 -> For NAD ------------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- RestartNode <NODE_ID>\n"
+        "\n"
+        "------------To Shutdown the particular node with node ID-----------\n"
+        "--------0 -> For NAD ------------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ShutdownNode <NODE_ID>\n");
 }
 
 void RestartCallback(taf_mngd_pm_RestartMode_t mode, taf_mngd_pm_ResponseMode_t rspmode ,
@@ -99,7 +129,6 @@ void ForcedSystemShutdownCallBack(taf_mngd_pm_ShutdownMode_t mode,
 static void ForcedSystemShutdown()
 {
     LE_INFO("----ForcedSystemShutdown test----");
-
     le_result_t result;
     result = taf_mngd_pm_ShutdownReqAsync(TAF_MNGD_PM_SYSTEM_FORCEFUL_SHUTDOWN,
             ForcedSystemShutdownCallBack, NULL);
@@ -188,10 +217,181 @@ static int GracefulSysShutdown()
     return EXIT_SUCCESS;
 }
 
+static int SetModemWakeupSource(const char* wakeupSource)
+{
+
+    // Convert string to uint32_t
+    uint32_t uintResult = (uint32_t)strtoul(wakeupSource, NULL, 10);
+    // Check for conversion errors
+    if (uintResult > UINT32_MAX) {
+        fprintf(stderr, "Value out of range.\n");
+        exit(EXIT_FAILURE);
+    }
+    // Print the result
+    printf("String: %s\nConverted to uint32_t: %u\n", wakeupSource, uintResult);
+
+    le_result_t res = LE_FAULT;
+    res = taf_mngd_pm_SetModemWakeupSource(uintResult);
+    if(res == LE_OK) {
+        return EXIT_SUCCESS;
+    }
+    else
+    {
+        LE_ERROR("SetModemWakeupSource request failed");
+        return EXIT_FAILURE;
+    }
+}
+
+static int SuspendSystem(const char* wakeuptype)
+{
+    le_result_t res = LE_FAULT;
+    taf_mngd_pm_wsRef_t wsRef = NULL;
+    if(strcmp(wakeuptype, "0") == 0) {
+        LE_INFO("NewNodeWakeupSource wakeuptype is APP_STAYAWAKE");
+        wsRef = taf_mngd_pm_NewNodeWakeupSource(NODE_ID, TAF_MNGD_PM_APP_STAYAWAKE, vHalTag);
+        if(wsRef != NULL) {
+            LE_INFO("NewNodeWakeupSource ref is created for APP_STAYAWAKE");
+            res = taf_mngd_pm_RelaxNode(wsRef);
+            if(res == LE_OK)
+                LE_INFO("suspended sysytem with wakeuptype APP_STAYAWAKE");
+        }
+    }
+    else if(strcmp(wakeuptype, "1") == 0) {
+        LE_INFO("NewNodeWakeupSource wakeuptype is SMS");
+        wsRef = taf_mngd_pm_NewNodeWakeupSource(NODE_ID, TAF_MNGD_PM_SMS, vHalTag);
+        if(wsRef != NULL) {
+            LE_INFO("NewNodeWakeupSource ref is created for SMS");
+            res = taf_mngd_pm_RelaxNode(wsRef);
+            if(res == LE_OK)
+                LE_INFO("suspended sysytem with wakeuptype SMS");
+        }
+    }
+    else if(strcmp(wakeuptype, "2") == 0) {
+        LE_INFO("NewNodeWakeupSource wakeuptype is VOICE_CALL");
+        wsRef = taf_mngd_pm_NewNodeWakeupSource(NODE_ID, TAF_MNGD_PM_VOICE_CALL, vHalTag);
+        if(wsRef != NULL) {
+            LE_INFO("NewNodeWakeupSource ref is created for VOICE_CALL");
+            res = taf_mngd_pm_RelaxNode(wsRef);
+            if(res == LE_OK)
+                LE_INFO("suspended sysytem with wakeuptype VOICE_CALL");
+        }
+    }
+    else if(strcmp(wakeuptype, "3") == 0) {
+        LE_INFO("NewNodeWakeupSource wakeuptype is SMS");
+        wsRef = taf_mngd_pm_NewNodeWakeupSource(NODE_ID, TAF_MNGD_PM_MCU_VHAL, vHalTag);
+        if(wsRef != NULL) {
+            LE_INFO("NewNodeWakeupSource ref is created for MCU_VHAL");
+            res = taf_mngd_pm_RelaxNode(wsRef);
+            if(res == LE_OK)
+                LE_INFO("suspended sysytem with wakeuptype MCU_VHAL");
+        }
+    }
+    else {
+        LE_ERROR("SuspendSystem failed");
+        return EXIT_FAILURE;
+    }
+    return res;
+}
+
+static int ResumeSystem(const char* wakeuptype)
+{
+    le_result_t res = LE_FAULT;
+    taf_mngd_pm_wsRef_t wsRef = NULL;
+    if(strcmp(wakeuptype, "0") == 0) {
+        LE_INFO("NewNodeWakeupSource wakeuptype is APP_STAYAWAKE");
+        wsRef = taf_mngd_pm_NewNodeWakeupSource(NODE_ID, TAF_MNGD_PM_APP_STAYAWAKE, vHalTag);
+        if(wsRef != NULL) {
+            LE_INFO("NewNodeWakeupSource ref is created for APP_STAYAWAKE");
+            res = taf_mngd_pm_StayAwakeNode(wsRef);
+            if(res == LE_OK) {
+                LE_INFO("Resumed sysytem with wakeuptype APP_STAYAWAKE");
+                return EXIT_SUCCESS;
+             }
+        }
+    }
+    else if(strcmp(wakeuptype, "1") == 0) {
+        LE_INFO("NewNodeWakeupSource wakeuptype is SMS");
+        wsRef = taf_mngd_pm_NewNodeWakeupSource(NODE_ID, TAF_MNGD_PM_SMS, vHalTag);
+        if(wsRef != NULL) {
+            LE_INFO("NewNodeWakeupSource ref is created for SMS");
+            res = taf_mngd_pm_StayAwakeNode(wsRef);
+            if(res == LE_OK) {
+                LE_INFO("Resumed sysytem with wakeuptype SMS");
+                return EXIT_SUCCESS;
+             }
+        }
+    }
+    else if(strcmp(wakeuptype, "2") == 0) {
+        LE_INFO("NewNodeWakeupSource wakeuptype is VOICE_CALL");
+        wsRef = taf_mngd_pm_NewNodeWakeupSource(NODE_ID, TAF_MNGD_PM_VOICE_CALL, vHalTag);
+        if(wsRef != NULL) {
+            LE_INFO("NewNodeWakeupSource ref is created for VOICE_CALL");
+            res = taf_mngd_pm_StayAwakeNode(wsRef);
+            if(res == LE_OK) {
+                LE_INFO("Resumed sysytem with wakeuptype VOICE_CALL");
+                return EXIT_SUCCESS;
+             }
+        }
+    }
+    else if(strcmp(wakeuptype, "3") == 0) {
+        LE_INFO("NewNodeWakeupSource wakeuptype is SMS");
+        wsRef = taf_mngd_pm_NewNodeWakeupSource(NODE_ID, TAF_MNGD_PM_MCU_VHAL, vHalTag);
+        if(wsRef != NULL) {
+            LE_INFO("NewNodeWakeupSource ref is created for MCU_VHAL");
+            res = taf_mngd_pm_StayAwakeNode(wsRef);
+            if(res == LE_OK) {
+                LE_INFO("Resumed sysytem with wakeuptype MCU_VHAL");
+                return EXIT_SUCCESS;
+             }
+        }
+    }
+    else {
+        LE_ERROR("ResumeSystem failed");
+        return EXIT_FAILURE;
+   }
+   return res;
+}
+
+static int RestartNode(const char* node_id)
+{
+    LE_INFO("RestartNode");
+    le_result_t res = LE_FAULT;
+    uint8_t Node = atoi(node_id);
+    LE_INFO("RestartNode for %d", Node);
+    res = taf_mngd_pm_RestartNode(Node);
+    if(res == LE_OK)
+    {
+        LE_INFO("restarted the node");
+        return EXIT_SUCCESS;
+    }
+    else {
+        LE_ERROR("RestartNode failed");
+        return EXIT_FAILURE;
+    }
+}
+
+static int ShutdownNode(const char* node_id)
+{
+    LE_INFO("ShutdownNode");
+    le_result_t res = LE_FAULT;
+    uint8_t Node = atoi(node_id);
+    LE_INFO("ShutdownNode for NAD %d", Node);
+    res = taf_mngd_pm_ShutdownNode(Node);
+    if(res == LE_OK)
+    {
+        LE_INFO("ShutdownNode is successfull");
+        return EXIT_SUCCESS;
+    }
+    else {
+        LE_ERROR("ShutdownNode failed");
+        return EXIT_FAILURE;
+    }
+}
+
 COMPONENT_INIT
 {
     const char* testType = "";
-
+    const char* testPar = "";
     if (le_arg_NumArgs() == 0 )
     {
         PrintUsage();
@@ -204,7 +404,11 @@ COMPONENT_INIT
             LE_ERROR("testType is NULL");
             exit(EXIT_FAILURE);
         }
-
+        testPar = le_arg_GetArg(1);
+        LE_INFO("arg1=%s ",testPar);
+        if (NULL == testPar) {
+            LE_ERROR("testPar is 0");
+        }
         if (testType!= NULL && strncmp(testType,"help", 4) == 0)
         {
             PrintUsage();
@@ -227,11 +431,35 @@ COMPONENT_INIT
             status = GracefulSysShutdown();
             exit(status);
         }
+        else if(strcmp(testType, "SetModemWakeupSource") == 0)
+        {
+            status = SetModemWakeupSource(testPar);
+            exit(status);
+        }
+        else if(strcmp(testType, "SuspendSystem") == 0)
+        {
+            status = SuspendSystem(testPar);
+            exit(status);
+        }
+        else if(strcmp(testType, "ResumeSystem") == 0)
+        {
+            status = ResumeSystem(testPar);
+            exit(status);
+        }
+        else if(strcmp(testType, "RestartNode") == 0)
+        {
+            status = RestartNode(testPar);
+            exit(status);
+        }
+        else if(strcmp(testType, "ShutdownNode") == 0)
+        {
+            status = ShutdownNode(testPar);
+            exit(status);
+        }
         else
         {
             LE_ERROR("Error command");
             exit(EXIT_FAILURE);
         }
-
     }
 }

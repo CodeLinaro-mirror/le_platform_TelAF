@@ -943,6 +943,7 @@ LE_SHARED gpio_InfoTab_t TAF_HAL_INFO_TAB = {
         .majorVer = 1,
         .minorVer = 0,
         .vendor = "QCT",
+        .moduleType = TAF_MODULETYPE_HAL,
         .hwInitInf = taf_hal_HwInit,
         .powerOffInf = taf_hal_PowerOff,
         .powerOnInf = taf_hal_PowerOn,

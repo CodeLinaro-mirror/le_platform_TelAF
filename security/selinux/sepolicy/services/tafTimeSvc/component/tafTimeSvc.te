@@ -1,4 +1,4 @@
-# Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause-Clear
 
 policy_module(tafTimeSvc, 1.0)
@@ -14,6 +14,9 @@ files_type(telaf_tafTimeSvc_data_t);
 
 init_telaf_app_domain(telaf_tafTimeSvc_t,telaf_tafTimeSvc_exec_t)
 
+# use VHAL driver object
+telaf_load_vhal_modules(telaf_tafTimeSvc_t)
+
 # Allow update daemon to install/uninstall this service
 telaf_admin_manage_all_files_perms(telaf_tafTimeSvc_data_t)
 telaf_admin_manage_all_files_perms(telaf_tafTimeSvc_exec_t)
@@ -24,3 +27,21 @@ allow telaf_tafTimeSvc_t self:capability { sys_time sys_admin };
 # Allow time service to register the time manager in telSDK
 telux_allow_loc(telaf_tafTimeSvc_t)
 
+# Telsdk network time
+telux_allow_tel_srv_system_read(telaf_tafTimeSvc_t)
+
+# For accessing gptp device
+gptp_rw_qgptp_device(telaf_tafTimeSvc_t)
+
+# For RTC device and VHAL driver
+gen_require(`
+  type telaf_devmgr_data_t;
+  type clock_device_t;
+')
+allow telaf_tafTimeSvc_t telaf_devmgr_data_t:dir { search };
+allow telaf_tafTimeSvc_t telaf_devmgr_data_t:file { open read getattr execute };
+ifdef(`sa525m',`
+    allow telaf_tafTimeSvc_t telaf_devmgr_data_t:file { map };
+')
+telux_allow_loc(telaf_tafTimeSvc_t)
+allow telaf_tafTimeSvc_t clock_device_t:chr_file { read write open ioctl };

@@ -9,6 +9,8 @@ services:
       context: .
       dockerfile: Dockerfile.2004.develop
       args:
+        - DEVELOPER_UID=$DEVELOPER_UID
+        - DEVELOPER_GID=$DEVELOPER_GID
         - UBUNTU_DISTRO_ORIGIN=$UBUNTU_DISTRO_ORIGIN
     image: telaf_simulation_develop_2004:1.0.0
 

@@ -780,8 +780,8 @@ le_result_t taf_ecall_GetPropulsionType
 
  RETURN VALUE    le_result_t
                      LE_BAD_PARAMETER:     Invalid parameters.
-                     LE_FAULT:             Fail.
                      LE_OK:                Success.
+                     LE_DUPLICATE:         The MSD has already been imported.
 
  SIDE EFFECTS
 
@@ -796,9 +796,7 @@ le_result_t taf_ecall_SetMsdPosition
 )
 {
     auto &ecall = taf_ecall::GetInstance();
-    ecall.SetMsdPosition(ecallRef, isTrusted,  latitude, longitude, direction);
-
-    return LE_OK;
+    return ecall.SetMsdPosition(ecallRef, isTrusted,  latitude, longitude, direction);
 }
 
 /*======================================================================
@@ -864,6 +862,7 @@ le_result_t taf_ecall_SetMsdPositionN1
                     LE_FAULT:             Failed.
                     LE_OK:                Succeeded.
                     LE_DUPLICATE:         The MSD has already been imported.
+
  NOTE           The process exits when an invalid eCall reference is given.
 
  SIDE EFFECTS
@@ -1259,12 +1258,42 @@ le_result_t taf_ecall_StartAutomatic
                             ECallVariant::ECALL_EMERGENCY, ecallRef);
 }
 
+/*======================================================================
+
+ FUNCTION        taf_ecall_StartPrivate
+
+ DESCRIPTION    Initiate a private eCall
+
+ DEPENDENCIESA   Initialization of ECall service
+
+ PARAMETERS      [IN] ecallRef: ecall Reference
+
+ RETURN VALUE    le_result_t
+                     LE_BAD_PARAMETER:     Invalid parameters.
+                     LE_FAULT:             Fail.
+                     LE_OK:                Success.
+                     LE_BUSY:              eCall session is already in progress.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_ecall_StartPrivate
+(
+    taf_ecall_CallRef_t ecallRef,
+    const char * psapNumber,
+    const char * contentType,
+    const char * acceptInfo
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.StartPrivate(ecallRef, psapNumber, contentType, acceptInfo);
+}
 
 /*======================================================================
 
  FUNCTION        taf_ecall_End
 
- DESCRIPTION     Stop the ongoing ecall session.
+ DESCRIPTION     End the ongoing ecall.
 
  DEPENDENCIES   Initialization of ECall service
 
@@ -1434,7 +1463,6 @@ taf_ecall_State_t taf_ecall_GetState
 
 ======================================================================*/
 taf_ecall_TerminationReason_t taf_ecall_GetTerminationReason
-
 (
     taf_ecall_CallRef_t    ecallRef
 )
@@ -1445,12 +1473,37 @@ taf_ecall_TerminationReason_t taf_ecall_GetTerminationReason
 
 /*======================================================================
 
+ FUNCTION       taf_eCall_GetType
+
+ DESCRIPTION    Get the current type of the given eCall
+
+ DEPENDENCIES   Initialization of ECall service
+
+ PARAMETERS     [IN] ecallRef: ecall reference
+
+ RETURN VALUE   The current type of the given eCall
+
+ SIDE EFFECTS
+
+======================================================================*/
+
+taf_ecall_Type_t taf_ecall_GetType
+(
+    taf_ecall_CallRef_t    ecallRef
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.GetType(ecallRef);
+}
+
+/*======================================================================
+
  FUNCTION        taf_ecall_SetPsapNumber
 
  DESCRIPTION     Set the Public Safely Answering Point telephone number.
 
- @note That PSAP number is not applied to Manually or Automatically initiated eCall. For those
-   modes, an emergency call is launched.
+ @note The PSAP number is applicable in manually or automatically dialed eCalls. It is also
+   applicable to test eCalls that are dialed intentionally for testing, validating, or certifying.
 
  @warning This function doesn't modify the U/SIM content.
 
@@ -1484,8 +1537,8 @@ le_result_t taf_ecall_SetPsapNumber
  DESCRIPTION     Get the Public Safely Answering Point telephone number set with
    taf_ecall_SetPsapNumber() function.
 
- @note That PSAP number is not applied to Manually or Automatically initiated eCall. For those
-   modes, an emergency call is launched.
+ @note The PSAP number is applicable in manually or automatically dialed eCalls. It is also
+   applicable to test eCalls that are dialed intentionally for testing, validating, or certifying.
 
  @warning This function doesn't read the U/SIM content.
 
@@ -1714,3 +1767,31 @@ le_result_t taf_ecall_GetNadMinNetworkRegistrationTime
     return ecall.GetNadMinNetworkRegistrationTime(minNwRegTime);
 }
 
+/*======================================================================
+
+ FUNCTION        taf_ecall_GetHlapTimerState
+
+ DESCRIPTION     Get eCall hlap timer state
+
+ DEPENDENCIES    Initialization of ECall service
+
+ PARAMETERS      [IN] ecallRef: ecall reference
+
+ RETURN VALUE    le_result_t
+                     LE_BAD_PARAMETER:     Invalid parameters.
+                     LE_FAULT:             Fail.
+                     LE_OK:                Success.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_ecall_GetHlapTimerState
+(
+    taf_ecall_HlapTimerType_t timerType, //Hlap timer type
+    taf_ecall_HlapTimerStatus_t* timerStatus, //The status of hlap timer
+    uint16_t* elapsedTime //The elapsed time of hlap timer
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.GetHlapTimerState(timerType, timerStatus, elapsedTime);
+}

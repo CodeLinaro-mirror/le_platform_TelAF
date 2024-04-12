@@ -62,4 +62,15 @@ le_result_t rpcClientProxy_Start
 );
 
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Create the binding for a RPC client proxy node.
+ */
+//--------------------------------------------------------------------------------------------------
+void rpcClientProxy_CreateBinding
+(
+    RpcClientProxyNode_Ref_t nodeRef                  ///< [IN] RPC client proxy node reference.
+);
+
+
 #endif /* TAF_RPC_CLIENT_PROXY_H_INCLUDE_GUARD */

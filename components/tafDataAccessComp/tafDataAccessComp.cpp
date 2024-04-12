@@ -1,0 +1,426 @@
+/*
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+#include "legato.h"
+#include "interfaces.h"
+#include "tafDataAccessComp.h"
+#include "tafIOFactory.hpp"
+#include "tafDataAccessCompImpl.hpp"
+
+using namespace taf::dataAccess;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Component once initializer.
+ */
+//--------------------------------------------------------------------------------------------------
+COMPONENT_INIT_ONCE
+{
+    LE_INFO("tafDataAccessComp Init...");
+
+    auto &factory = IOFactory::GetInstance();
+    factory.Init();
+
+    auto &demHandler = DemDataHandler::GetInstance();
+    demHandler.Init();
+
+    LE_INFO("tafDataAccessComp Ready...");
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Component initialization function
+ */
+//--------------------------------------------------------------------------------------------------
+COMPONENT_INIT
+{
+    LE_DEBUG("DataAccess component initializing");
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Initialize Data Access component.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_BAD_PARAMETER  Invalid parameter.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_DataAccess_Init
+(
+)
+{
+    return LE_OK;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get the number of DTCs by the input status mask.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_BAD_PARAMETER  Invalid parameter.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_DataAccess_GetNumOfDtcByStatusMask
+(
+    uint8_t statusMask,                     ///< [IN]
+    taf_DataAccess_NumOfDTC_t *numOfDtcPtr  ///< [Out]
+)
+{
+    if (numOfDtcPtr == nullptr)
+    {
+        LE_ERROR("GetNumOfDtcByStatusMask error: Bad parameter.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto &demHandler = DemDataHandler::GetInstance();
+
+    return demHandler.GetNumOfDtcByStatusMask(statusMask, numOfDtcPtr);
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get the available DTC status mask.
+ *
+ * @return
+ *  - The available DTC status mask.
+ */
+//-------------------------------------------------------------------------------------------------
+uint8_t taf_DataAccess_GetAvailableStatusMask
+(
+)
+{
+    auto &demHandler = DemDataHandler::GetInstance();
+
+    return demHandler.GetAvailableStatusMask();
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get the DTC format identifier.
+ *
+ * @return
+ *  - DTC format identifier.
+ */
+//-------------------------------------------------------------------------------------------------
+uint8_t taf_DataAccess_GetDtcFormatId
+(
+)
+{
+    auto &demHandler = DemDataHandler::GetInstance();
+
+    return demHandler.GetDtcFormatId();
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get the DTCs by status mask.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_BAD_PARAMETER  Invalid parameter.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_DataAccess_GetDtcByStatusMask
+(
+    uint8_t statusMask,                         ///< [IN]
+    taf_DataAccess_DTCStatusRec_t *dtcStatusPtr ///< [Out]
+)
+{
+    if (dtcStatusPtr == nullptr)
+    {
+        LE_ERROR("GetDtcByStatusMask error: Bad parameter.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto &demHandler = DemDataHandler::GetInstance();
+
+    return demHandler.GetDtcByStatusMask(statusMask, dtcStatusPtr);
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get the supported DTCs.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_BAD_PARAMETER  Invalid parameter.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_DataAccess_GetSupportedDtc
+(
+    taf_DataAccess_DTCStatusRec_t *dtcStatusPtr ///< [Out]
+)
+{
+    if (dtcStatusPtr == nullptr)
+    {
+        LE_ERROR("GetSupportedDtc error: Bad parameter.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto &demHandler = DemDataHandler::GetInstance();
+
+    return demHandler.GetSupportedDtc(dtcStatusPtr);
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get the freeze frame(snapshot) information.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_BAD_PARAMETER  Invalid parameter.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_DataAccess_GetSnapshotIdentification
+(
+    taf_DataAccess_SnapshotInfoRec_t *snapshotRecInfoPtr ///< [Out]
+)
+{
+    if (snapshotRecInfoPtr == nullptr)
+    {
+        LE_ERROR("GetSnapshotIdentification error: Bad parameter.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto &demHandler = DemDataHandler::GetInstance();
+
+    return demHandler.GetSnapshotIdentification(snapshotRecInfoPtr);
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get the freeze frame(snapshot) record based on DTC.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_BAD_PARAMETER  Invalid parameter.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_DataAccess_GetSnapshotRecByDtc
+(
+    uint32_t    dtc,    ///< [IN]
+    uint8_t     recNumber,  ///< [IN]
+    taf_DataAccess_SnapshotDataRec_t *snapshotDataRecPtr ///< [Out]
+)
+{
+    if (snapshotDataRecPtr == nullptr)
+    {
+        LE_ERROR("GetSnapshotRecByDtc error: Bad parameter.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto &demHandler = DemDataHandler::GetInstance();
+
+    return demHandler.GetSnapshotRecByDtc(dtc, recNumber, snapshotDataRecPtr);
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get the extended data record based on DTC.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_BAD_PARAMETER  Invalid parameter.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_DataAccess_GetExtDataRecByDtc
+(
+    uint32_t    dtc,    ///< [IN]
+    uint8_t     recNumber,  ///< [IN]
+    taf_DataAccess_ExtDataRec_t *extDataRecPtr ///< [Out]
+)
+{
+    if (extDataRecPtr == nullptr)
+    {
+        LE_ERROR("GetExtDataRecByDtc error: Bad parameter.");
+        return LE_BAD_PARAMETER;
+    }
+
+    auto &demHandler = DemDataHandler::GetInstance();
+
+    return demHandler.GetExtDataRecByDtc(dtc, recNumber, extDataRecPtr);
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Set event status and save it in storage.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_BAD_PARAMETER  Invalid parameter.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_DataAccess_SetEventStatus
+(
+    uint16_t eventId,    ///< [IN]
+    uint8_t status       ///< [IN]
+)
+{
+    auto &demHandler = DemDataHandler::GetInstance();
+
+    return demHandler.SetEventStatus(eventId, status);
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get event status from storage media.
+ *
+ * @return
+ *  - The status of the event. If not exist, will return 0.
+ */
+//-------------------------------------------------------------------------------------------------
+uint8_t taf_DataAccess_GetEventStatus
+(
+    uint16_t eventId     ///< [IN]
+)
+{
+    auto &demHandler = DemDataHandler::GetInstance();
+
+    return demHandler.GetEventStatus(eventId);
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Set DTC status and save it in storage media.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_IO_ERROR       IO operation failed.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_DataAccess_SetDTCStatus
+(
+    uint32_t dtc,               ///< [IN]
+    uint8_t status,             ///< [IN]
+    uint8_t occurrenceCounter   ///< [IN]
+)
+{
+    auto &demHandler = DemDataHandler::GetInstance();
+
+    return demHandler.SetDTCStatus(dtc, status, occurrenceCounter);
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get DTC status from storage media.
+ *
+ * @return
+ *  - The status of the DTC. If not exist, will return 0.
+ */
+//-------------------------------------------------------------------------------------------------
+uint8_t taf_DataAccess_GetDTCStatus
+(
+    uint32_t dtc        ///< [IN]
+)
+{
+    auto &demHandler = DemDataHandler::GetInstance();
+
+    return demHandler.GetDTCStatus(dtc);
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get DTC occurence counter from storage media.
+ *
+ * @return
+ *  - The occurence counter of the DTC. If not exist, will return 0.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED uint8_t taf_DataAccess_GetDTCOccurrenceCounter
+(
+    uint32_t dtc        ///< [IN]
+)
+{
+    auto &demHandler = DemDataHandler::GetInstance();
+
+    return demHandler.GetDTCOccurrenceCounter(dtc);
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Set event test failed counter and save it in storage media.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_IO_ERROR       IO operation failed.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_DataAccess_SetEventFailedCounter
+(
+    uint16_t eventId,       ///< [IN]
+    uint8_t failedCounter   ///< [IN]
+)
+{
+    auto &demHandler = DemDataHandler::GetInstance();
+
+    return demHandler.SetEventFailedCounter(eventId, failedCounter);
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Delete all DTC and Event data from storage media.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_IO_ERROR       IO operation failed.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_DataAccess_DeleteAllData
+(
+)
+{
+    auto &demHandler = DemDataHandler::GetInstance();
+
+    return demHandler.DeleteAllData();
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Delete the DTC data from storage media.
+ *
+ * @return
+ *  - LE_OK             Funtion success.
+ *  - LE_IO_ERROR       IO operation failed.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_DataAccess_DeleteData
+(
+    uint32_t dtc
+)
+{
+    auto &demHandler = DemDataHandler::GetInstance();
+
+    return demHandler.DeleteData(dtc);
+}

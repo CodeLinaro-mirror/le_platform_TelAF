@@ -54,7 +54,7 @@ namespace tafsvc {
      * \brief Invalid index
      *
      */
-    const signed int TAF_MNGD_CONN_INVALID_INDEX = -1;
+    const signed int MCS_INVALID_INDEX = -1;
 
     /**
      * \brief Maximum string length for APN.
@@ -62,7 +62,7 @@ namespace tafsvc {
      * Max APN length is 64 characters, including null terminator.
      *
      */
-    const unsigned int TAF_MNGD_CONN_MAX_APN_LEN = 64;
+    const unsigned int MCS_MAX_APN_LEN = 64;
 
     /**
      * \brief Maximum supported Data objects
@@ -70,15 +70,16 @@ namespace tafsvc {
      * Number of Data objects in the Configuration JSON that the Connectivity service can manage.
      *
      */
-    const unsigned int TAF_MNGD_CONN_MAX_DATA_OBJECT_COUNT = 2;
+    const unsigned int MCS_MAX_DATA_OBJECT_COUNT = 2;
 
     /**
      * \brief Maximum supported Data Connection objects
      *
-     * Number of Data Connection objects in the Policy JSON that the Connectivity service can manage.
+     * Number of Data Connection objects in the Policy JSON that the Connectivity
+     * service can manage.
      *
      */
-    const unsigned int TAF_MNGD_CONN_MAX_DATA_CONNECION_OBJECT_COUNT = 2;
+    const unsigned int MCS_MAX_DATA_CONNECION_OBJECT_COUNT = 2;
 
     /**
      * \brief Maximum string length for file names, including path.
@@ -86,7 +87,7 @@ namespace tafsvc {
      * Max length is 256 characters, including null terminator.
      *
      */
-    const unsigned int TAF_MNGD_CONN_MAX_FILE_NAME_LEN = 256;
+    const unsigned int MCS_MAX_FILE_NAME_LEN = 256;
 
     /**
      * \brief Maximum string length for IPv4 address.
@@ -94,7 +95,7 @@ namespace tafsvc {
      * Max length is 16 characters, including null terminator.
      * 111.222.333.444
      */
-    const unsigned int TAF_MNGD_CONN_MAX_IPV4_LEN = 16;
+    const unsigned int MCS_MAX_IPV4_LEN = 16;
 
     /**
      * \brief Maximum string length for IPv6 address.
@@ -104,7 +105,7 @@ namespace tafsvc {
      * 8*4+7+1 = 40
      *
      */
-    const unsigned int TAF_MNGD_CONN_MAX_IPV6_LEN = 40;
+    const unsigned int MCS_MAX_IPV6_LEN = 40;
 
     /**
      * \brief Maximum string length for names, including file names.
@@ -112,7 +113,7 @@ namespace tafsvc {
      * Max name length is 32 characters, including null terminator.
      *
      */
-    const unsigned int TAF_MNGD_CONN_MAX_NAME_LEN = 32;
+    const unsigned int MCS_MAX_NAME_LEN = 32;
 
     /**
      * \brief Maximum string length for Configuration JSON network registartion data type.
@@ -120,7 +121,7 @@ namespace tafsvc {
      * Max name length is 8 characters, including null terminator.
      *
      */
-    const unsigned int TAF_MNGD_CONN_MAX_NW_REGISTRATION_TYPE_LEN = 8;
+    const unsigned int MCS_MAX_NW_REGISTRATION_TYPE_LEN = 8;
 
     /**
      * \brief Maximum string length for URL for connection test.
@@ -128,7 +129,7 @@ namespace tafsvc {
      * Max URL length is 256 characters, including null terminator.
      *
      */
-    const unsigned int TAF_MNGD_CONN_MAX_CONNECTION_URL_LEN = 256;
+    const unsigned int MCS_MAX_CONNECTION_URL_LEN = 256;
 
     /**
      * \brief Maximum string length for profile names.
@@ -136,7 +137,7 @@ namespace tafsvc {
      * Max profile name length is 16 characters, including null terminator.
      *
      */
-    const unsigned int TAF_MNGD_CONN_MAX_PROFILE_NAME_LEN = 16;
+    const unsigned int MCS_MAX_PROFILE_NAME_LEN = 16;
 
     /**
      * \brief Maximum supported Nework objects
@@ -144,7 +145,7 @@ namespace tafsvc {
      * Number of Network objects in the Configuration JSON that the Connectivity service can manage.
      *
      */
-    const unsigned int TAF_MNGD_CONN_MAX_NETWORK_OBJECT_COUNT = 2;
+    const unsigned int MCS_MAX_NETWORK_OBJECT_COUNT = 2;
 
     /**
      * \brief Maximum string length for Registration values. The valid values are:
@@ -154,7 +155,7 @@ namespace tafsvc {
      * Max name length is 8 characters, including null terminator.
      *
      */
-    const unsigned int TAF_MNGD_CONN_MAX_REGISTRATION_STRING_LEN = 8;
+    const unsigned int MCS_MAX_REGISTRATION_STRING_LEN = 8;
 
     /**
      * \brief Maximum supported Sim objects
@@ -162,7 +163,7 @@ namespace tafsvc {
      * Number of SIM objects in the Configuration JSON that the Connectivity service can manage.
      *
      */
-    const unsigned int TAF_MNGD_CONN_MAX_SIM_OBJECT_COUNT = 2;
+    const unsigned int MCS_MAX_SIM_OBJECT_COUNT = 2;
 
     /**
      * \brief Maximum supported simultaneous data sessions.
@@ -170,7 +171,7 @@ namespace tafsvc {
      * Maximum supported simultaneous data sessions. It is 1 for Alpha 1 release.
      *
      */
-    const unsigned int TAF_MNGD_CONN_MAX_SIMULTANEOUS_DATA_SESSION_COUNT = 1;
+    const unsigned int MCS_MAX_SIMULTANEOUS_DATA_SESSION_COUNT = 1;
 
     /**
      * \brief Maximum string length of Yes/No values
@@ -178,19 +179,25 @@ namespace tafsvc {
      * Yes/No string is 4 characters in length, including null terminator.
      *
      */
-    const unsigned int TAF_MNGD_CONN_MAX_YES_NO_LEN = 4;
+    const unsigned int MCS_MAX_YES_NO_LEN = 4;
 
     typedef enum
     {
-        TAF_MNGD_CONN_NO = 0, /**<  Value of No. 0 */
-        TAF_MNGD_CONN_YES = 1 /**<  Value of Yes. 1 */
-    } taf_mngd_Yes_No_t;
+        MCS_NO = 0, /**<  Value of No. 0 */
+        MCS_YES = 1 /**<  Value of Yes. 1 */
+    } mcs_Yes_No_t;
 
     typedef enum
     {
-        TAF_MNGD_CONN_MAX_NW_REGISTRATION_TYPE_AUTO   = 0, /**<  Auto value. 0 */
-        TAF_MNGD_CONN_MAX_NW_REGISTRATION_TYPE_MANUAL = 1  /**<  Manual Value. 1 */
-    } taf_mngd_NW_Registration_Type_t;
+        MCS_NW_REGISTRATION_TYPE_AUTO   = 0, /**<  Auto value. 0 */
+        MCS_NW_REGISTRATION_TYPE_MANUAL = 1  /**<  Manual Value. 1 */
+    } mcs_NW_Registration_Type_t;
+
+    typedef enum
+    {
+        MCS_CONNECTIONRECOVERY_TYPE_NONE = 0, /**<  DISABLED value. 0 */
+        MCS_CONNECTIONRECOVERY_TYPE_L1 = 1  /**<  L1 Value. 1 */
+    } mcs_Policy_ConnRecoveryLevel_t;
 
     /**
      * \brief Enumeration for valid JSON versions
@@ -206,9 +213,10 @@ namespace tafsvc {
      */
     typedef enum
     {
-        TAF_MNGD_CONN_JSON_VERSION_23_07_00 = 230700, //"TAF_23.07.00"
-        TAF_MNGD_CONN_JSON_VERSION_23_11_00 = 231100 //"TAF_23.11.00"
-    } taf_mngd_Conn_JSON_Version_t;
+        MCS_JSON_VERSION_23_07_00 = 230700, //"TAF_23.07.00"
+        MCS_JSON_VERSION_23_11_00 = 231100, //"TAF_23.11.00"
+        MCS_JSON_VERSION_24_03_00 = 240300  //"TAF_24.03.00"
+    } mcs_JSON_Version_t;
 
     // Constant Strings
 
@@ -216,13 +224,13 @@ namespace tafsvc {
      * \brief Default Location for Configuration JSONs
      *
      */
-    const std::string TAF_MNGD_DefaultLocation_Configuration("/data/ManagedServices");
+    const std::string MCS_DefaultLocation_Configuration("/data/ManagedServices");
 
     /**
      * \brief Value for Product in mngdConnectivity.json should be TelAF
      *
      */
-    const std::string TAF_MNGD_Default_Product_Value("TelAF");
+    const std::string MCS_Default_Product_Value("TelAF");
 
     /**
      * \brief Maximum level of supported RecoveryLevel
@@ -230,7 +238,7 @@ namespace tafsvc {
      * Maximum RecoveryLevel is 4 for Alpha2 Release
      *
      */
-    const int TAF_MNGD_CONN_MAX_RECOVERY_LEVEL = 4;
+    const int MCS_MAX_RECOVERY_LEVEL = 4;
 
         /**
      * \brief Maximum level of supported RetryCount
@@ -238,7 +246,7 @@ namespace tafsvc {
      * Maximum RetryCount is 255 for Alpha2 Release
      *
      */
-    const int TAF_MNGD_CONN_MAX_RETRY_COUNT = 255;
+    const int MCS_MAX_RECOVERY_RETRY_COUNT = 255;
 
 }
 }

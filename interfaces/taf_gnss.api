@@ -28,7 +28,7 @@
 
  * Changes from Qualcomm Innovation Center are provided under the following license:
 
- * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2024 Qualcomm Innovation Center, Inc. All rights reserved.
 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -86,6 +86,17 @@
        clientExe.clientComponent.taf_gnss -> tafLocationSvc.taf_gnss
    }
    @endverbatim
+ *
+ * The location service provides multi-client safe APIs. An API call from a client thread
+ * (main or sub thread) will be treated a new session in location service. The client needs
+ * to connect the location service by API taf_gnss_ConnectService(), setting specific settings
+ * if required (else default settings will be applied), starting the engine report by the API
+ * taf_gnss_Start(), and adding handler by taf_gnss_AddPositionHandler(). Then client can get the
+ * GNSS data/information and the engine reports in the same thread until the client disconnects
+ * from the location service. The previous settings and data shall not persist for next
+ * run/iteration if the client thread exits. Note that each time a client creates a new thread, it
+ * needs to connect, call, and set APIs, taf_gnss_Start(), taf_gnss_AddPositionHandler() for the
+ * new session to set up.
  *
  * @section taf_gnss_ControlApi GNSS Control APIs
  *
@@ -244,9 +255,9 @@
  * @verbatim
    taf_gnss_ConstellationBitMask_t constellationMask;
    constellationMask = TAF_GNSS_CONSTELLATION_GPS;
-   if(taf_gnss_SetConstellation(constellationMask)== LE_OK)
+   if(taf_gnss_SetConstellation(constellationMask)== LE_FAULT)
    {
-     // Process after successfully blacklisting GPS.
+     // GPS constellation and SVs cannot be blacklisted.
    }
 
    constellationMask = TAF_GNSS_CONSTELLATION_SBAS | TAF_GNSS_CONSTELLATION_BEIDOU;
@@ -259,12 +270,12 @@
  *
  * @warning Some constellation types are unsupported depending on the platform.
  *
- * The taf_gnss_GetConstellation() function gets the enabled GNSS constellation(s).
+ * The taf_gnss_GetConstellation() function gets the blacklisted GNSS constellation(s).
  * @verbatim
    taf_gnss_ConstellationBitMask_t constellationMask;
    if(taf_gnss_GetConstellation(&constellationMask)== LE_OK)
    {
-     // Process after successfully getting the constellation type.
+     // Process after successfully getting the blacklisted constellation type.
    }
    @endverbatim
  *
@@ -931,6 +942,37 @@
  * @note This API call is not incremental and the new NMEA configuration will completely overwrite
  *       the previous call to this API.
  *
+ * - taf_gnss_GetXtraStatus() -- Gets whether the XTRA feature is enabled or not,
+ * XTRA data status, and the valid time in hours.
+ *
+ * @verbatim
+   taf_gnss_XtraStatusParams_t *XtraParamsPtr;
+   le_result_t result = LE_FAULT;
+   le_mem_PoolRef_t XtraFramePool = NULL;
+   XtraFramePool = le_mem_CreatePool("XtraFramePool", sizeof(taf_gnss_XtraStatusParams_t));
+   XtraParamsPtr = (taf_gnss_XtraStatusParams_t*) le_mem_ForceAlloc(XtraFramePool);
+   if(XtraParamsPtr != NULL)
+   {
+       if(taf_gnss_GetXtraStatus(XtraParamsPtr) == LE_OK)
+       {
+         // Process after successfully getting the XTRA data parameters.
+       }
+   }
+   le_mem_Release(XtraParamsPtr);
+   @endverbatim
+ *
+ * - taf_gnss_GetGnssData() -- Gets GNSS data for data mask, jammer indication, and
+ *   Automatic Gain Control (AGC) information.
+ *
+ * @verbatim
+   size_t maxSigTypes = TAF_GNSS_NUMBER_OF_SIGNAL_TYPES_MAX;
+   taf_gnss_GnssData_t gnssDataPtr[TAF_GNSS_NUMBER_OF_SIGNAL_TYPES_MAX];
+   if(taf_gnss_GetGnssData(positionSampleRef, gnssDataPtr, &maxSigTypes))
+   {
+     // Process after successfully getting data mask, jammer, and AGC information.
+   }
+   @endverbatim
+ *
  *
  * @subsection taf_gnss_GetLeapSeconds Get leap seconds event information
  *
@@ -1040,6 +1082,27 @@ DEFINE NMEA_STRING_MAX = 150;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Define the maximum number of charaters for CA path.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE CA_PATH_MAX = 128;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Define the maximum number of charaters for URL path.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE URL_PATH_MAX = 128;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Defines the maximum number of GNSS data signal types.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE NUMBER_OF_SIGNAL_TYPES_MAX = 20;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Location service states.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1066,6 +1129,7 @@ ENUM Constellation
     SV_CONSTELLATION_GALILEO,          ///< Satellite Vehicle of GALILEO constellation.
     SV_CONSTELLATION_BEIDOU,           ///< Satellite Vehicle of BEIDOU constellation.
     SV_CONSTELLATION_QZSS,             ///< Satellite Vehicle of QZSS constellation.
+    SV_CONSTELLATION_NAVIC,            ///< Satellite Vehicle of NAVIC constellation.
     SV_CONSTELLATION_MAX               ///< Maximum value of constellation.
 };
 
@@ -1294,19 +1358,6 @@ FUNCTION ReleaseSampleRef
 (
     Sample positionSampleRef IN        ///< Position sample reference.
 );
-
-//--------------------------------------------------------------------------------------------------
-/**
-*  Data types.
-*/
-//--------------------------------------------------------------------------------------------------
-ENUM DataType
-{
-    DATA_VACCURACY,         ///< Vertical accuracy data.
-    DATA_VSPEEDACCURACY,    ///< Vertical speed accuracy data.
-    DATA_HSPEEDACCURACY,    ///< Horizontal speed accuracy data.
-    DATA_UNKNOWN            ///< Unknown data type.
-};
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1628,7 +1679,7 @@ FUNCTION le_result_t Stop
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets the GNSS constellation bitmask which needs to be blacklisted.
+ * Sets the GNSS constellation bitmask that needs to be blacklisted.
  *
  * @return
  *  - LE_FAULT         Failed.
@@ -1639,6 +1690,8 @@ FUNCTION le_result_t Stop
  * @warning Some constellation types are unsupported depending on the platform.
  *
  * @warning The settings are platform dependent.
+ *
+ * @note GPS constellation and SVs cannot be blacklisted.
 */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t SetConstellation
@@ -1714,19 +1767,28 @@ ENUM EngineType
 //--------------------------------------------------------------------------------------------------
 BITMASK NmeaBitMask
 {
-    NMEA_MASK_GPGGA,    ///< GPGGA type enabled -- GPS fix data.
+    NMEA_MASK_GPGGA,    ///< GPGGA type enabled -- GPS fix data.Deprecate, use NMEA_MASK_GGA.
+                        ///  instead.This is internally mapped to NMEA_MASK_GGA.
     NMEA_MASK_GPRMC,    ///< GPRMC type enabled -- GPS recommended minimum data.
+                        ///  Deprecate, use NMEA_MASK_RMC instead.This is internally mapped to
+                        ///  NMEA_MASK_RMC.
     NMEA_MASK_GNGSA,    ///< GNGSA type enabled -- GNSS DOP and active satellites.
+                        ///  Deprecate, use NMEA_MASK_GSA instead.This is internally mapped to
+                        ///  NMEA_MASK_GSA.
     NMEA_MASK_GPVTG,    ///< GPVTG type enabled -- GPS vector track and speed over the ground.
-    NMEA_MASK_GPGNS,    ///< GPGNS type enabled -- Fix data for GPS.
+                        ///  Deprecate, use NMEA_MASK_VTG instead.This is internally mapped to
+                        ///  NMEA_MASK_VTG
+    NMEA_MASK_GPGNS,    ///< GPGNS type enabled -- Fix data for GPS.Deprecate, use NMEA_MASK_GNS.
+                        ///  This is internally mapped to NMEA_MASK_GNS.
     NMEA_MASK_GPDTM,    ///< GPDTM type enabled -- Local geodetic datum and datum offset from a
-                        ///  reference.
+                        ///  reference.Deprecate, use NMEA_MASK_DTM instead.This is internally
+                        ///  mapped to NMEA_MASK_DTM.
     NMEA_MASK_GPGSV,    ///< GPGSV type enabled --  GPS satellites in view.
     NMEA_MASK_GLGSV,    ///< GLGSV type enabled --  GLONASS satellites in view.
     NMEA_MASK_GAGSV,    ///< GAGSV type enabled --  Galileo satellites in view.
-    NMEA_MASK_GQGSV,    ///< GQGSV type enabled.
-    NMEA_MASK_GBGSV,    ///< GBGSV type enabled.
-    NMEA_MASK_GIGSV,    ///< GIGSV type enabled.
+    NMEA_MASK_GQGSV,    ///< GQGSV type enabled --  NMEA sentence for SVs from QZSS constellation.
+    NMEA_MASK_GBGSV,    ///< GBGSV type enabled --  NMEA sentence for SVs from BEIDOU constellation
+    NMEA_MASK_GIGSV,    ///< GIGSV type enabled --  NMEA sentence for SVs from NAVIC constellation.
     NMEA_MASK_GPGSA,    ///< Not supported.
     NMEA_MASK_GAGGA,    ///< Not supported.
     NMEA_MASK_GAGSA,    ///< Not supported.
@@ -1741,7 +1803,14 @@ BITMASK NmeaBitMask
     NMEA_MASK_GAGNS,    ///< Not supported.
     NMEA_MASK_GNGNS,    ///< Not supported.
     NMEA_MASK_GPGST,    ///< Not supported.
-    NMEA_MASK_GPZDA     ///< Not supported.
+    NMEA_MASK_GPZDA,    ///< Not supported.
+    NMEA_MASK_GGA,      ///< GGA type enabled -- GNSS fix data.
+    NMEA_MASK_RMC,      ///< RMC type enabled -- GNSS recommended minimum data.
+    NMEA_MASK_GSA,      ///< GSA type enabled -- GNSS DOP and active satellites.
+    NMEA_MASK_VTG,      ///< VTG type enabled -- GNSS vector track and speed over the ground.
+    NMEA_MASK_GNS,      ///< GNS type enabled -- Fix data for GNSS.
+    NMEA_MASK_DTM       ///< DTM type enabled -- Local geodetic datum and datum offset from a
+                        ///  reference.
 };
 
 //------------------------------------------------------------------------------------------------
@@ -2045,6 +2114,17 @@ BITMASK LocationTechnologyType
 
 //------------------------------------------------------------------------------------------------
 /**
+ * Specify the GnssDataValidityType mask.
+ */
+//------------------------------------------------------------------------------------------------
+BITMASK GnssDataValidityType
+{
+    HAS_JAMMER,   ///< Jammer Indicator is available.
+    HAS_AGC       ///< AGC is available.
+};
+
+//------------------------------------------------------------------------------------------------
+/**
  * Specify the different types of constellation supported.
  */
 //------------------------------------------------------------------------------------------------
@@ -2107,6 +2187,24 @@ ENUM ReportStatus {
     REPORT_STATUS_FAILURE = 2        ///< Report status has failed. The engine is not able to calculate the fix.
                                      ///  Most of the fields in position sample
                                      ///  will be invalid.
+};
+
+//------------------------------------------------------------------------------------------------
+/**
+ * Specify the status of the previously downloaded XTRA data.
+ */
+//------------------------------------------------------------------------------------------------
+ENUM XtraDataStatus
+{
+    XTRA_DATA_STATUS_UNKNOWN,   ///< If XTRA feature is disabled or if XTRA feature is enabled,
+                                ///  but XTRA daemon has not yet retrieved the assistance data status
+                                ///  from modem on early stage of device bootup, XTRA data status
+                                ///  will be unknown.
+    XTRA_DATA_STATUS_NOT_AVAIL, ///< If XTRA feature is enabled, but XTRA data is not present
+                                ///  on the device.
+    XTRA_DATA_STATUS_NOT_VALID, ///< If XTRA feature is enabled, but XTRA data is not valid.
+    XTRA_DATA_STATUS_VALID      ///< If XTRA feature is enabled, XTRA data has been downloaded,
+                                ///  and is currently valid.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -2238,6 +2336,33 @@ STRUCT GnssMeasurementInfo {
 
   uint16 gnssSvId;              ///< GNSS SV ID
                                 /// For SV ID information, refer to @SvUsedInPosition.
+};
+
+//------------------------------------------------------------------------------------------------
+/**
+ * Jammer and AGC GNSS Data parameters.
+ */
+//------------------------------------------------------------------------------------------------
+STRUCT GnssData
+{
+  uint32 gnssDataMask; ///< bitwise OR of GnssDataValidityType
+  double jammerInd;    ///< Each index represents the signal type in GnssDataSignalTypes.
+  double agc;          ///< Automatic gain control for each signal type. Each index
+                       ///  corresponds to the signal type in GnssDataSignalTypes.
+};
+
+
+STRUCT XtraStatusParams
+{
+    uint8 featureEnabled;     ///< XTRA assistance data and NTP time
+                              ///  download is enabled or disabled.
+    uint32 xtraDataStatus;    ///< XTRA assistance data status.
+                              ///  If XTRA assistance data download is not enabled,
+                              ///  this field will be set to TAF_GNSS_XTRA_DATA_STATUS_UNKNOWN.
+    uint32 xtraValidForHours; ///< Number of hours that XTRA assistance data will
+                              ///  remain valid. This field will be valid when xtraDataStatus
+                              ///  is set to TAF_GNSS_XTRA_DATA_STATUS_VALID. For all other
+                              ///  XtraDataStatus, this field will be set to 0.
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -2389,7 +2514,7 @@ FUNCTION le_result_t GetSatellitesInfo
 FUNCTION le_result_t GetTimeAccuracy
 (
     Sample positionSampleRef  IN,       ///< Position sample reference.
-    uint32 timeAccuracy OUT             ///< Time accuracy in milliseconds. For PVT report from SPE
+    uint32 timeAccuracy OUT             ///< Time accuracy in nanoseconds. For PVT report from SPE
                                         ///  engine, confidence level is at 99%.
 );
 
@@ -2464,8 +2589,6 @@ FUNCTION le_result_t GetDilutionOfPrecision
  * @return
  *  - LE_OK            Succeeded.
  *  - LE_FAULT         Failed to get the data.
- *  - LE_TIMEOUT       Timeout occured.
- *  - LE_UNSUPPORTED   Not supported on this platform.
  *
  * @note Insertion of each UTC leap second is usually decided about six months in advance by the
  *       International Earth Rotation and Reference Systems Service (IERS).
@@ -2665,14 +2788,13 @@ FUNCTION le_result_t GetMinElevation
  *  - LE_OK             Succeeded.
  *  - LE_BAD_PARAMETER  Bitmask exceeds the maximal value.
  *  - LE_FAULT          Failed.
- *  - LE_BUSY           Service is busy.
- *  - LE_TIMEOUT        Timeout occurred.
  *  - LE_NOT_PERMITTED  Location service is not ready.
  *
  * @warning This function may be subject to limitations depending on the platform.
  *
  * @note Some NMEA sentences are unsupported depending on the platform.
- *       Setting an unsuported NMEA sentence will report an error.
+ *       Setting an unsuported NMEA sentence will not report an error but
+ *       we cannot receive the NMEA callback function to fetch the same.
  *
  *
  */
@@ -2690,13 +2812,14 @@ FUNCTION le_result_t SetNmeaSentences
  *  - LE_OK             Succeeded.
  *  - LE_FAULT          Failed.
  *  - LE_TIMEOUT        Timeout occurred.
- *  - LE_NOT_PERMITTED  Location service is not ready. 
+ *  - LE_NOT_PERMITTED  Location service is not active.
  *
  * @note If the caller passes a null pointer to this function, it is a fatal error and the
  *       client will be killed.
  *
  * @note Some NMEA sentences are unsupported depending on the platform.
- *       The bitmask for an unset or unsupported NMEA sentence is zero.
+ *       We cannot receive the NMEA callback function to fetch the unsupported
+ *       NMEA sentences.So the bitmask won't get for those NMEA sentences.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetNmeaSentences
@@ -2730,7 +2853,8 @@ FUNCTION le_result_t SetDRConfig
  *
  * @return 
  * - LE_OK               Succeeded.
- * - LE_UNSUPPORTED      Not supported on this platform.
+ * - LE_NOT_PERMITTED    Location service is not ready.
+ * - LE_FAULT            Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetSupportedNmeaSentences
@@ -2890,13 +3014,13 @@ FUNCTION le_result_t GetMagneticDeviation
 FUNCTION le_result_t GetEllipticalUncertainty
 (
     Sample positionSampleRef          IN, ///< Position sample reference.
-    uint32 horUncEllipseSemiMajorPtr OUT, ///< Horizontal semi-major elliptical uncertainty. It's
+    uint32 horUncEllipseSemiMajorPtr OUT, ///< Horizontal semi-major elliptical uncertainty. It is
                                           ///  semi-major axis of horizontal elliptical uncertainty.
                                           ///  Units: Meters Uncertainty is defined with 39% confidence level.
-    uint32 horUncEllipseSemiMinorPtr OUT, ///< Horizontal semi-minor elliptical uncertainty. It's
+    uint32 horUncEllipseSemiMinorPtr OUT, ///< Horizontal semi-minor elliptical uncertainty. It is
                                           ///  semi-minor axis of horizontal elliptical uncertainty.
                                           ///  Units: Meters Uncertainty is defined with 39% confidence level.
-    uint8  horConfidencePtr          OUT  ///< Horizontal confidence level. It's defined with 39% confidence level.
+    uint8  horConfidencePtr          OUT  ///< Horizontal confidence level. It is defined with 39% confidence level.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -3333,7 +3457,7 @@ FUNCTION le_result_t GetSatellitesInfoEx
  * @return
  *  - LE_OK             Succeeded.
  *  - LE_FAULT          Failed.
- *  - LE_NOT_PERMITTED  The GNSS device state is not ready.
+ *  - LE_NOT_PERMITTED  The Location service state is not ready.
  *
  */
 //------------------------------------------------------------------------------------------------
@@ -3357,7 +3481,7 @@ FUNCTION le_result_t SetMinGpsWeek
  *  - LE_OK             Succeeded.
  *  - LE_FAULT          Failed.
  *  - LE_NO_MEMORY      The minGpsWeekPtr is NULL.
- *  - LE_NOT_PERMITTED  The GNSS device state is not ready.
+ *  - LE_NOT_PERMITTED  The Location service state is not ready.
  *
  */
 //------------------------------------------------------------------------------------------------
@@ -3392,7 +3516,7 @@ FUNCTION le_result_t GetCapabilities
  *  - LE_OK             Succeeded.
  *  - LE_BAD_PARAMETER  the nmeaMask is zero.
  *  - LE_FAULT          Failed.
- *  - LE_NOT_PERMITTED  GNSS device is not ready.
+ *  - LE_NOT_PERMITTED  Location service is not ready.
  *
  * @warning This function may be subject to limitations depending on the platform.
  *
@@ -3409,4 +3533,38 @@ FUNCTION le_result_t SetNmeaConfiguration
     GeodeticDatumType datumType   IN,  ///< Specify the datum type to be configured.
     LocEngineType engineType      IN   ///< Specify the Engine type for which Nmea sentences
                                        ///  should be generated. Also refer to @ref LocEngineType
+);
+
+//------------------------------------------------------------------------------------------------
+/**
+ * Gets the XTRA status.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_NOT_PERMITTED  Location service is not ready.
+ *
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetXtraStatus
+(
+    XtraStatusParams xtraParams OUT ///< Specify XTRA assistant data's current status,
+                                    ///  validity, and whether it is enabled.
+);
+
+//------------------------------------------------------------------------------------------------
+/**
+ * Gets GNSS data for data mask, jammer indication, and automatic gain control.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_NO_MEMORY      The gnssDataPtr is NULL.
+ *
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetGnssData
+(
+    Sample positionSampleRef                         IN, ///< Position sample reference
+    GnssData gnssDataPtr[NUMBER_OF_SIGNAL_TYPES_MAX] OUT ///< GNSS data in Jammer indication and AGC.
 );

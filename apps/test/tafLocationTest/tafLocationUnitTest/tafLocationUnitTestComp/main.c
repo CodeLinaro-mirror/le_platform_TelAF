@@ -1454,6 +1454,40 @@ static void PositionHandlerFunction
         LE_TEST_INFO(" %d", svIds[i]);
     }
 
+    //Get Jammer and Automatic Gain Control information
+    size_t maxSigTypes = TAF_GNSS_NUMBER_OF_SIGNAL_TYPES_MAX;
+    taf_gnss_GnssData_t gnssDataPtr[TAF_GNSS_NUMBER_OF_SIGNAL_TYPES_MAX];
+    LE_TEST_INFO("taf_gnss_GetGnssData is triggered\n");
+    result = taf_gnss_GetGnssData(positionSampleRef, gnssDataPtr, &maxSigTypes);
+
+    LE_TEST_OK(result == LE_OK, "taf_gnss_GetGnssData-LE_OK");
+
+    for(uint8_t i = 0; i < maxSigTypes; i++)
+    {
+        LE_TEST_INFO("GetGnssData type :%d", i);
+        LE_TEST_INFO("gnssDataMask:%d", gnssDataPtr[i].gnssDataMask);
+        if(gnssDataPtr[i].gnssDataMask & TAF_GNSS_HAS_JAMMER)
+        {
+            LE_TEST_INFO("jammerInd is present");
+            LE_TEST_INFO("jammerInd: %lf",gnssDataPtr[i].jammerInd);
+        }
+        else
+        {
+            LE_TEST_INFO("jammerInd is not present");
+        }
+        if(gnssDataPtr[i].gnssDataMask & TAF_GNSS_HAS_AGC)
+        {
+            LE_TEST_INFO("Automatic Gain Control is present");
+            LE_TEST_INFO("AGC: %lf",gnssDataPtr[i].agc);
+        }
+        else
+        {
+            LE_TEST_INFO("Automatic Gain Control is not present");
+        }
+        LE_TEST_INFO("\n");
+    }
+
+
     LE_TEST_INFO("taf_gnss_ReleaseSampleRef is triggered");
     taf_gnss_ReleaseSampleRef(positionSampleRef);
     le_sem_Post(PositionHandlerSem);
@@ -1610,6 +1644,11 @@ static void* PositionThread
 {
     LE_TEST_INFO("======== Position Handler thread  ========");
     taf_gnss_ConnectService();
+
+    le_result_t result = taf_gnss_Start();
+
+    LE_INFO("Result of gnss start: %d", (int)result);
+
     PositionHandlerRef = taf_gnss_AddPositionHandler(PositionHandlerFunction, NULL);
 
     //137.Position Handler
@@ -1669,7 +1708,7 @@ static void TestTafSamplePositionHandler
 
     //183.Stop
     LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting GNSS fixes");
-    LE_TEST_OK(taf_gnss_Stop() == LE_OK, "taf_gnss_Stop-LE_OK");
+    LE_TEST_OK(taf_gnss_Stop() == LE_DUPLICATE, "taf_gnss_Stop-LE_DUPLICATE");//lsc
     LE_INFO("Release the positioning service");
     taf_posCtrl_Release(activationRef);
 
@@ -1737,6 +1776,11 @@ static void* NmeaThread
 {
     LE_TEST_INFO("======== Nmea Handler thread  ========");
     taf_gnss_ConnectService();
+
+    le_result_t result = taf_gnss_Start();
+
+    LE_INFO("Result of gnss start: %d", (int)result);
+
     NmeaHandlerRef = taf_gnss_AddNmeaHandler(NmeaHandlerFunction, NULL);
 
     //137.Nmea Handler
@@ -1863,6 +1907,11 @@ static void* CapabilityChangeThread
 {
     LE_TEST_INFO("======== CapabilityChange Handler thread  ========");
     taf_gnss_ConnectService();
+
+    le_result_t result = taf_gnss_Start();
+
+    LE_INFO("Result of gnss start: %d", (int)result);
+
     CapabilityChangeHandlerRef = taf_gnss_AddCapabilityChangeHandler(CapabilityHandlerFunction, NULL);
 
     //137.CapabilityChange Handler
@@ -2547,7 +2596,7 @@ static void TestTafGnssNmeaSentences
     LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
 
     //Start
-    LE_TEST_INFO("taf_gnss_Start() API is called to stop reporting");
+    LE_TEST_INFO("taf_gnss_Start() API is called to start reporting");
     result = taf_gnss_Start();
     LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
 
@@ -2806,9 +2855,9 @@ static void TestTafGnssNmeaSentences
     //57.GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
     result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
-    LE_TEST_OK(result==LE_OK, "taf_gnss_GetNmeaSentences-LE_OK");
     if(result == LE_OK)
     {
+        LE_TEST_OK(result==LE_OK, "taf_gnss_GetNmeaSentences-LE_OK");
         if(nmeaMaskPtr & TAF_GNSS_NMEA_MASK_GAGSV)
         {
             LE_TEST_INFO("GAGSV enabled\n");
@@ -2816,6 +2865,7 @@ static void TestTafGnssNmeaSentences
     }
     else if(result == LE_TIMEOUT)
     {
+        LE_TEST_OK(result==LE_TIMEOUT, "taf_gnss_GetNmeaSentences-LE_TIMEOUT");
         LE_TEST_INFO("GAGSV NmeaSentence type is not being received\n");
     }
     else
@@ -3001,7 +3051,7 @@ static void TestTafGnssNmeaSentences
     if(result == LE_OK)
     {
 
-       LE_TEST_INFO("nmeaMaskPtr: %0x\n",nmeaMaskPtr);
+       LE_TEST_INFO("nmeaMaskPtr: %"PRIu64"\n",nmeaMaskPtr);
 
     }
     else
@@ -3038,6 +3088,205 @@ static void TestTafGnssNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
     result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
     LE_TEST_OK(result==LE_TIMEOUT, "taf_gnss_GetNmeaSentences-LE_TIMEOUT");
+
+    //Stop
+    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
+    result = taf_gnss_Stop();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
+
+    //SetNmeaSentence ->0x8000000
+    LE_TEST_INFO("SetNmeaSentences() API is called to set 0x8000000 NMEA sentence type");
+    nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GGA;
+    result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
+    LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
+
+    //Start
+    LE_TEST_INFO("taf_gnss_Start() API is called to stop reporting");
+    result = taf_gnss_Start();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
+    le_thread_Sleep(2);
+    LE_TEST_INFO("wait for 2 seconds");
+
+    //GetNmeaSentences
+    LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
+    result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
+    LE_TEST_OK(result==LE_OK, "taf_gnss_GetNmeaSentences-LE_OK");
+    if(result == LE_OK)
+    {
+
+       LE_TEST_INFO("nmeaMaskPtr: %"PRIu64"\n",nmeaMaskPtr);
+
+    }
+    else
+    {
+        LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
+    }
+
+    //Stop
+    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
+    result = taf_gnss_Stop();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
+
+    //SetNmeaSentence ->0x10000000
+    LE_TEST_INFO("SetNmeaSentences() API is called to set 0x10000000 NMEA sentence type");
+    nmeaMaskPtr = TAF_GNSS_NMEA_MASK_RMC;
+    result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
+    LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
+
+    //Start
+    LE_TEST_INFO("taf_gnss_Start() API is called to stop reporting");
+    result = taf_gnss_Start();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
+    le_thread_Sleep(2);
+    LE_TEST_INFO("wait for 2 seconds");
+
+    //GetNmeaSentences
+    LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
+    result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
+    LE_TEST_OK(result==LE_OK, "taf_gnss_GetNmeaSentences-LE_OK");
+    if(result == LE_OK)
+    {
+
+       LE_TEST_INFO("nmeaMaskPtr: %"PRIu64"\n",nmeaMaskPtr);
+
+    }
+    else
+    {
+        LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
+    }
+
+
+    //Stop
+    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
+    result = taf_gnss_Stop();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
+
+    //SetNmeaSentence ->0x20000000
+    LE_TEST_INFO("SetNmeaSentences() API is called to set 0x20000000 NMEA sentence type");
+    nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GSA;
+    result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
+    LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
+
+    //Start
+    LE_TEST_INFO("taf_gnss_Start() API is called to stop reporting");
+    result = taf_gnss_Start();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
+    le_thread_Sleep(2);
+    LE_TEST_INFO("wait for 2 seconds");
+
+    //GetNmeaSentences
+    LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
+    result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
+    LE_TEST_OK(result==LE_OK, "taf_gnss_GetNmeaSentences-LE_OK");
+    if(result == LE_OK)
+    {
+
+       LE_TEST_INFO("nmeaMaskPtr: %"PRIu64"\n",nmeaMaskPtr);
+
+    }
+    else
+    {
+        LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
+    }
+
+    //Stop
+    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
+    result = taf_gnss_Stop();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
+
+    //SetNmeaSentence ->0x40000000
+    LE_TEST_INFO("SetNmeaSentences() API is called to set 0x40000000 NMEA sentence type");
+    nmeaMaskPtr = TAF_GNSS_NMEA_MASK_VTG;
+    result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
+    LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
+
+    //Start
+    LE_TEST_INFO("taf_gnss_Start() API is called to stop reporting");
+    result = taf_gnss_Start();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
+    le_thread_Sleep(2);
+    LE_TEST_INFO("wait for 2 seconds");
+
+    //GetNmeaSentences
+    LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
+    result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
+    LE_TEST_OK(result==LE_OK, "taf_gnss_GetNmeaSentences-LE_OK");
+    if(result == LE_OK)
+    {
+
+       LE_TEST_INFO("nmeaMaskPtr: %"PRIu64"\n",nmeaMaskPtr);
+
+    }
+    else
+    {
+        LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
+    }
+
+    //Stop
+    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
+    result = taf_gnss_Stop();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
+
+    //SetNmeaSentence ->0x80000000
+    LE_TEST_INFO("SetNmeaSentences() API is called to set 0x80000000 NMEA sentence type");
+    nmeaMaskPtr = TAF_GNSS_NMEA_MASK_GNS;
+    result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
+    LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
+
+    //Start
+    LE_TEST_INFO("taf_gnss_Start() API is called to stop reporting");
+    result = taf_gnss_Start();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
+    le_thread_Sleep(2);
+    LE_TEST_INFO("wait for 2 seconds");
+
+    //GetNmeaSentences
+    LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
+    result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
+    LE_TEST_OK(result==LE_OK, "taf_gnss_GetNmeaSentences-LE_OK");
+    if(result == LE_OK)
+    {
+
+       LE_TEST_INFO("nmeaMaskPtr: %"PRIu64"\n",nmeaMaskPtr);
+
+    }
+    else
+    {
+        LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
+    }
+
+    //Stop
+    LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
+    result = taf_gnss_Stop();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
+
+    //SetNmeaSentence ->0x100000000
+    LE_TEST_INFO("SetNmeaSentences() API is called to set 0x100000000 NMEA sentence type");
+    nmeaMaskPtr = TAF_GNSS_NMEA_MASK_DTM;
+    result = taf_gnss_SetNmeaSentences(nmeaMaskPtr);
+    LE_TEST_OK(result==LE_OK, "taf_gnss_SetNmeaSentences-LE_OK");
+
+    //Start
+    LE_TEST_INFO("taf_gnss_Start() API is called to stop reporting");
+    result = taf_gnss_Start();
+    LE_TEST_OK(result == LE_OK, "taf_gnss_Start-LE_OK");
+    le_thread_Sleep(2);
+    LE_TEST_INFO("wait for 2 seconds");
+
+    //GetNmeaSentences
+    LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
+    result = taf_gnss_GetNmeaSentences(&nmeaMaskPtr);
+    LE_TEST_OK(result==LE_OK, "taf_gnss_GetNmeaSentences-LE_OK");
+    if(result == LE_OK)
+    {
+
+       LE_TEST_INFO("nmeaMaskPtr: %"PRIu64"\n",nmeaMaskPtr);
+
+    }
+    else
+    {
+        LE_TEST_INFO("Failed to Get an NMEA Sentence\n");
+    }
 
     //Stop
     LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
@@ -4126,7 +4375,7 @@ static void TestTafPosHandler
     //172.Stop
     LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting GNSS fixes");
     result = taf_gnss_Stop();
-    LE_TEST_OK(result == LE_OK, "taf_gnss_Stop-LE_OK");
+    LE_TEST_OK(result == LE_DUPLICATE, "taf_gnss_Stop-LE_DUPLICATE");//lsc
 
     LE_INFO("Release the positioning service");
     taf_posCtrl_Release(activationRef);
@@ -4262,6 +4511,58 @@ static void TestTafGnssStartMode
 
 }
 
+static void TestTafGnssXtraInformation
+(
+    void
+)
+{
+    taf_gnss_XtraStatusParams_t *XtraParamsPtr;
+    le_result_t result = LE_FAULT;
+    le_mem_PoolRef_t XtraFramePool = NULL;
+    XtraFramePool = le_mem_CreatePool("XtraFramePool", sizeof(taf_gnss_XtraStatusParams_t));
+    XtraParamsPtr = (taf_gnss_XtraStatusParams_t*) le_mem_ForceAlloc(XtraFramePool);
+
+    if(XtraParamsPtr != NULL)
+    {
+        LE_TEST_INFO("taf_gnss_GetXtraStatus API is called to get xtra information");
+        result = taf_gnss_GetXtraStatus(XtraParamsPtr);
+    }
+    else
+    {
+        LE_TEST_INFO("XtraParamPtr is NULL pointer");
+    }
+    LE_TEST_OK(result == LE_OK, "taf_gnss_GetXtraStatus-LE_OK");
+    if(result == LE_OK)
+    {
+        LE_TEST_INFO("**** Request Xtra Status Info ****\n");
+        LE_TEST_INFO("GetXtraStatus featureEnabled:%d",XtraParamsPtr->featureEnabled);
+        if(XtraParamsPtr->xtraDataStatus == TAF_GNSS_XTRA_DATA_STATUS_UNKNOWN)
+        {
+            LE_TEST_INFO("GetXtraStatus xtraDataStatus:Unknown");
+        }
+        else if(XtraParamsPtr->xtraDataStatus == TAF_GNSS_XTRA_DATA_STATUS_NOT_AVAIL)
+        {
+            LE_TEST_INFO("GetXtraStatus xtraDataStatus:Not available");
+        }
+        else if(XtraParamsPtr->xtraDataStatus == TAF_GNSS_XTRA_DATA_STATUS_NOT_VALID)
+        {
+            LE_TEST_INFO("GetXtraStatus xtraDataStatus:Not valid");
+        }
+        else if(XtraParamsPtr->xtraDataStatus == TAF_GNSS_XTRA_DATA_STATUS_VALID)
+        {
+            LE_TEST_INFO("GetXtraStatus xtraDataStatus:Valid");
+        }
+    }
+    else
+    {
+        LE_TEST_INFO("taf_gnss_GetXtraStatus failed to get xtra status");
+    }
+    LE_TEST_INFO("GetXtraStatus xtraValidForHours:%d\n",XtraParamsPtr->xtraValidForHours);
+
+    //release the memory
+    le_mem_Release(XtraParamsPtr);
+}
+
 static void TestTafGnssRestart
 (
     void
@@ -4341,6 +4642,22 @@ static void TestTafGnssRestart
         LE_TEST_INFO("TTFF start not available");
     }
 
+    //Get Leap Seconds-LE_OK
+    LE_TEST_INFO("taf_gnss_GetLeapSeconds() API is triggerred to get Leap Seconds");
+    result =taf_gnss_GetLeapSeconds(&gpsTime,&currentLeapSeconds,&changeEventTime,&nextLeapSeconds);
+    LE_TEST_OK(result == LE_OK, "taf_gnss_GetLeapSeconds-LE_OK");
+    if(result == LE_OK)
+    {
+        LE_TEST_INFO("taf_gnss_GetLeapSeconds gpsTime = %" PRIu64 " msec", gpsTime);
+        LE_TEST_INFO("taf_gnss_GetLeapSeconds currentLeapSeconds = %d msec", currentLeapSeconds);
+        LE_TEST_INFO("taf_gnss_GetLeapSeconds changeEventTime = %" PRIu64 " msec", changeEventTime);
+        LE_TEST_INFO("taf_gnss_GetLeapSeconds nextLeapSeconds = %d msec", nextLeapSeconds);
+    }
+    else
+    {
+        LE_TEST_INFO("taf_gnss_GetLeapSeconds is failed");
+    }
+
    //207.Stop
     LE_TEST_INFO("taf_gnss_Stop() API is called to stop reporting");
     result = taf_gnss_Stop();
@@ -4370,10 +4687,21 @@ static void TestTafGnssRestart
     result = taf_gnss_ForceFactoryRestart();
     LE_TEST_OK(result == LE_UNSUPPORTED, "taf_gnss_ForceFactoryRestart-LE_UNSUPPORTED");
 
-    //212. Get Leap Seconds-NOT SUPPORTED
-    LE_TEST_INFO("taf_gnss_GetLeapSeconds() API is triggerred to get Gps Leap Seconds");
+    //212. Get Leap Seconds-LE_OK
+    LE_TEST_INFO("taf_gnss_GetLeapSeconds() API is triggerred to get Leap Seconds");
     result =taf_gnss_GetLeapSeconds(&gpsTime,&currentLeapSeconds,&changeEventTime,&nextLeapSeconds);
-    LE_TEST_OK(result == LE_UNSUPPORTED, "taf_gnss_GetLeapSeconds-LE_UNSUPPORTED");
+    LE_TEST_OK(result == LE_OK, "taf_gnss_GetLeapSeconds-LE_OK");
+    if(result == LE_OK)
+    {
+        LE_TEST_INFO("taf_gnss_GetLeapSeconds gpsTime = %" PRIu64 " msec", gpsTime);
+        LE_TEST_INFO("taf_gnss_GetLeapSeconds currentLeapSeconds = %d msec", currentLeapSeconds);
+        LE_TEST_INFO("taf_gnss_GetLeapSeconds changeEventTime = %" PRIu64 " msec", changeEventTime);
+        LE_TEST_INFO("taf_gnss_GetLeapSeconds nextLeapSeconds = %d msec", nextLeapSeconds);
+    }
+    else
+    {
+        LE_TEST_INFO("taf_gnss_GetLeapSeconds is failed");
+    }
 
 
 }
@@ -4447,6 +4775,9 @@ COMPONENT_INIT
 
    LE_TEST_INFO("====TestTafGnssStartMode APIs Test====");
    TestTafGnssStartMode();
+
+   LE_TEST_INFO("======== TestTafGnssXtraInformation ======");
+   TestTafGnssXtraInformation();
 
    LE_TEST_INFO("======== TestTafGnssRestart ======");
    TestTafGnssRestart();

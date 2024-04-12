@@ -1,0 +1,253 @@
+/**
+* Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* SPDX-License-Identifier: BSD-3-Clause-Clear
+**/
+//------------------------------------------------------------------------------------------------
+/**
+* @page c_tafwlanap Wireless LAN Access Point Management Service
+*
+* @ref taf_wlan_ap_interface.h "API Reference"
+*
+* <HR>
+*
+* Wireless LAN(WLAN) Access Point(AP) Management Service provides APIs for applications to manage
+* Access Points that allow clients to connect to the WLAN and access the internet. Before a WLAN
+* AP can be started, the WLAN device should be properly configured using the WLAN Management
+* Service's APIs.
+*
+* @section taf_wlan_ap_binding IPC interfaces binding
+*
+* The functions of this service are provided by the @b tafWlanAPSvc application service.
+*
+ * The following example illustrates how to bind to the WLAN Access Point service.
+ * @verbatim
+   bindings:
+   {
+       clientExe.clientComponent.taf_wlanAp -> tafWlanSvc.taf_wlanAp
+   }
+   @endverbatim
+ *
+*/
+//--------------------------------------------------------------------------------------------------
+USETYPES taf_wlan.api;
+USETYPES taf_net.api;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Maximum number of devices connected to the Access Point.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_CONNECTED_DEVICES  = 64;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * WLAN AP reference to be used with WLAN AP service functions.
+ */
+//--------------------------------------------------------------------------------------------------
+REFERENCE WlanAP;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * WLAN AP configuration structure.
+ */
+//--------------------------------------------------------------------------------------------------
+STRUCT WlanAPConfig
+{
+    string  SSID[taf_wlan.MAX_SSID_LENGTH];              ///< AP SSID.
+    bool    bSSIDVisible;                                ///< AP broadcast SSID.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * WLAN AP security configuration structure.
+ */
+//--------------------------------------------------------------------------------------------------
+STRUCT WlanAPSecurityConfig
+{
+    taf_wlan.SecurityMode SecMode;                       ///< AP security mode.
+    taf_wlan.SecurityAuthMethod SecAuthMethod;           ///< AP security auth method.
+    taf_wlan.SecurityEncryptionMethod SecEncryptMethod;  ///< AP security encryption method.
+    string  PassPhrase[taf_wlan.MAX_PASSPHRASE_LENGTH];  ///< AP Passphrase.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * WLAN AP Status structure.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+STRUCT WlanAPStatus
+{
+    bool   bEnabled;                                 ///< AP status.
+    string IntfName[taf_net.INTERFACE_NAME_MAX_LEN]; ///< Associated host interface name.
+    string IPv4Address[taf_net.IPV4_ADDR_MAX_LEN];   ///< Associated IPv4 address.
+    string IPv6Address[taf_net.IPV6_ADDR_MAX_LEN];   ///< Associated IPv6 address.
+    string MACAddress[taf_net.MAC_ADDR_MAX_LEN];     ///< Associated MAC address.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * WLAN connected device information.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+STRUCT WlanAPConnectedDeviceInfo
+{
+    string Name[taf_wlan.MAX_DEVICE_NAME_LENGTH];       ///< User defined device name.
+    string MACAddress[taf_net.MAC_ADDR_MAX_LEN];        ///< MAC address of the connected device.
+    string IPv4Address[taf_net.IPV4_ADDR_MAX_LEN];      ///< IPv4 address.
+};
+
+//-------------------------------------------------------------------------------------------------
+/*
+ * APIs avaiable in WLAN Access Point Management service.
+ */
+//--------------------------------------------------------------------------------------------------
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Returns the WLAN AP reference.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION WlanAP GetWlanAP(
+    taf_wlan.APid APid IN,                                  ///< AP identifier
+    string APIntfName[taf_net.INTERFACE_NAME_MAX_LEN]  IN   ///< AP assocaited host interface name.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Starts the specified Access Point.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t Start
+(
+    WlanAP wlanAPRef   IN     ///< The WLAN AP reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Stops the specified Access Point.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t Stop
+(
+    WlanAP wlanAPRef   IN     ///< The WLAN AP reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Restarts the specified Access Point.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t Restart
+(
+    WlanAP wlanAPRef   IN     ///< The WLAN AP reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the configuration for the specified Access Point.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetConfig
+(
+    WlanAP       wlanAPRef   IN,     ///< The WLAN AP reference.
+    WlanAPConfig Config      IN      ///< The WLAN AP configuration.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the configuration for the specified Access Point.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetConfig
+(
+    WlanAP       wlanAPRef  IN,     ///< The WLAN AP reference.
+    WlanAPConfig Config     OUT     ///< The WLAN AP configuration.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the security configuration for the specified Access Point.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetSecurityConfig
+(
+    WlanAP               wlanAPRef       IN,     ///< The WLAN AP reference.
+    WlanAPSecurityConfig SecurityConfig  IN      ///< The WLAN AP security configuration.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the security configuration for the specified Access Point.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetSecurityConfig
+(
+    WlanAP               wlanAPRef       IN,     ///< The WLAN AP reference.
+    WlanAPSecurityConfig SecurityConfig  OUT     ///< The WLAN AP security configuration.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the status of the specified Access Point.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetStatus
+(
+    WlanAP       wlanAPRef  IN,     ///< The WLAN AP reference.
+    WlanAPStatus Status     OUT     ///< The WLAN AP status.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the list of devices connected to the AP
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - Others -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetConnectedDevices
+(
+    WlanAP  wlanAPRef  IN,      ///< The WLAN AP reference.
+    uint16   numDevices OUT,     ///< Number of devices connected to the AP.
+    WlanAPConnectedDeviceInfo DevInfo[MAX_CONNECTED_DEVICES] OUT
+                                ///< Connected device information.
+);

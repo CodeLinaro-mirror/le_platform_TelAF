@@ -2,7 +2,7 @@ sandboxed: false
 
 start: auto
 
-maxThreads: 300
+maxThreads: 600
 
 username: telaf
 
@@ -33,7 +33,14 @@ processes:
 {
     envVars:
     {
-        VSOMEIP_CONFIGURATION = tafSomeipGWSvc.json
+        VSOMEIP_CONFIGURATION_tafSomeipGWSvc = tafSomeipGWSvc.json
+        VSOMEIP_CONFIGURATION_tafSomeipGWSvc_1 = tafSomeipGWSvc_1.json
+        VSOMEIP_CONFIGURATION_tafSomeipGWSvc_2 = tafSomeipGWSvc_2.json
+        VSOMEIP_CONFIGURATION_tafSomeipGWSvc_3 = tafSomeipGWSvc_3.json
+        VSOMEIP_CONFIGURATION_tafSomeipGWSvc_4 = tafSomeipGWSvc_4.json
+        VSOMEIP_CONFIGURATION_tafSomeipGWSvc_5 = tafSomeipGWSvc_5.json
+        VSOMEIP_CONFIGURATION_tafSomeipGWSvc_6 = tafSomeipGWSvc_6.json
+        VSOMEIP_CONFIGURATION_tafSomeipGWSvc_7 = tafSomeipGWSvc_7.json
     }
 
     run:

@@ -1,0 +1,37 @@
+# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+policy_module(tafDevInfoSvc, 1.0)
+
+# Framework definition for telaf
+type telaf_tafDevInfoSvc_exec_t;
+files_type(telaf_tafDevInfoSvc_exec_t);
+
+type telaf_tafDevInfoSvc_t;
+gen_require(`
+    type net_conf_t;
+    type firmware_t;
+    type proc_t;
+    type etc_t;
+    type telaf_sys_t;
+')
+
+type telaf_tafDevInfoSvc_data_t;
+files_type(telaf_tafDevInfoSvc_data_t);
+
+telaf_tafKeyStoreSvc_getKeyId(telaf_tafDevInfoSvc_t)
+
+init_telaf_app_domain(telaf_tafDevInfoSvc_t,telaf_tafDevInfoSvc_exec_t)
+
+# Allow update daemon to install/uninstall this service
+telaf_admin_manage_all_files_perms(telaf_tafDevInfoSvc_data_t)
+telaf_admin_manage_all_files_perms(telaf_tafDevInfoSvc_exec_t)
+allow telaf_tafDevInfoSvc_t net_conf_t:file { read_file_perms };
+allow telaf_tafDevInfoSvc_t firmware_t:file { read_file_perms };
+allow telaf_tafDevInfoSvc_t firmware_t:dir { search_dir_perms };
+allow telaf_tafDevInfoSvc_t proc_t:file { read_file_perms };
+allow telaf_tafDevInfoSvc_t proc_t:dir { search_dir_perms };
+allow telaf_tafDevInfoSvc_t etc_t:file { read_file_perms };
+allow telaf_tafDevInfoSvc_t etc_t:dir { search_dir_perms };
+allow telaf_tafDevInfoSvc_t telaf_sys_t:file { read_file_perms };
+allow telaf_tafDevInfoSvc_t telaf_sys_t:dir { search_dir_perms };

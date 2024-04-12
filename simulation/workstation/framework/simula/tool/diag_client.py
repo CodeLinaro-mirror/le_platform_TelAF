@@ -6,6 +6,7 @@
 
 import configparser
 import os, sys, re
+import importlib.machinery as LibLoad
 
 import doipclient
 import udsoncan
@@ -34,7 +35,7 @@ class DiagClient():
 
     def __init__(self, conf_file= None,
                  server_ip_address = None,
-                 server_logical_address = None):
+                 server_physical_address = None):
 
         self.conf = configparser.ConfigParser()
 
@@ -56,15 +57,15 @@ class DiagClient():
             else:
                 self.s_ip = server_ip_address
 
-        if server_logical_address is None:
-            self.s_logaddr = int(self.conf["client.uds"]["server-logical-address"], 16)
+        if server_physical_address is None:
+            self.s_logaddr = int(self.conf["client.uds"]["server-physical-address"], 16)
         else:
-            if not is_valid_hex(server_logical_address):
-                print("Bad format for server logical address, should HEX, such as: 0x0E00, not [{}]"
-                    .format(server_logical_address))
+            if not is_valid_hex(server_physical_address):
+                print("Bad format for server physical address, should HEX, such as: 0x0E00, not [{}]"
+                    .format(server_physical_address))
                 sys.exit(-1)
             else:
-                self.s_logaddr = int(server_logical_address, 16)
+                self.s_logaddr = int(server_physical_address, 16)
 
     def do_connect(self):
         self.doip_client = doipclient.DoIPClient(self.s_ip, self.s_logaddr)
@@ -90,11 +91,18 @@ class DiagClient():
     def uds_change_to_programming_session(self):
         return self._uds_change_session(DiagnosticSessionControl.Session.programmingSession)
 
-
-def to_do(cfile, s_ip, s_logaddr):
+def minimum_test():
     diag = DiagClient(cfile, s_ip, s_logaddr)
     diag.do_connect()
-
-    print(diag.doip_request_diagnostic_power_mode())
     print(diag.doip_request_alive_check())
     print(diag.uds_change_to_default_session())
+
+def to_do(cfile, s_ip, s_logaddr):
+
+    path_to_testcase = os.path.join("/root/simulation/diag_test_38_36_37.py")
+    if os.path.exists(path_to_testcase):
+        loader = LibLoad.SourceFileLoader("diag_testcase", path_to_testcase)
+        module = loader.load_module()
+        module.testcases(cfile, s_ip, s_logaddr)
+    else:
+        minimum_test(cfile, s_ip, s_logaddr)

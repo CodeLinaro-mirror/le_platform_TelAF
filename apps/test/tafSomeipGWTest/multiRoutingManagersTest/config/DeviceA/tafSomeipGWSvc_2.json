@@ -1,0 +1,35 @@
+{
+    "unicast" : "10.10.2.1",
+    "device" : "eth0.2",
+    "logging" :
+    {
+        "level" : "error",
+        "console" : "true",
+        "file" : { "enable" : "false", "path" : "/tmp/vsomeip.log" },
+        "version" : { "enable" : "false", "interval" : "10" },
+        "dlt" : "false"
+    },
+    "applications" :
+    [
+        {
+            "name" : "tafSomeipGWSvc_2",
+            "id" : "0x0301"
+        }
+    ],
+    "routing" : "tafSomeipGWSvc_2",
+    "network" : "tafSomeipGWSvc_2",
+    "service-discovery" :
+    {
+        "enable" : "true",
+        "multicast" : "226.0.0.1",
+        "port" : "30490",
+        "protocol" : "udp",
+        "initial_delay_min" : "10",
+        "initial_delay_max" : "100",
+        "repetitions_base_delay" : "200",
+        "repetitions_max" : "3",
+        "ttl" : "3",
+        "cyclic_offer_delay" : "2000",
+        "request_response_delay" : "1500"
+    }
+}

@@ -586,7 +586,8 @@ FUNCTION le_result_t SetKeyUsageExpireDateTime
 FUNCTION le_result_t ProvisionRsaEncKeyValue
 (
     Key              keyRef                   IN, ///< Key reference.
-    RsaKeySize       keySize                  IN, ///< Key size, set to 0 if impData is provided.
+    RsaKeySize       keySize                  IN, ///< Key size. Shall match the import key size if
+                                                  ///< impData is provided.
     RsaEncPadding    padding                  IN, ///< Padding type of RSA encryption key.
     uint8            impData[MAX_PACKET_SIZE] IN  ///< Imported key data.
 );
@@ -609,7 +610,8 @@ FUNCTION le_result_t ProvisionRsaEncKeyValue
 FUNCTION le_result_t ProvisionRsaSigKeyValue
 (
     Key              keyRef                   IN, ///< Key reference.
-    RsaKeySize       keySize                  IN, ///< Key Size, set 0 if impData is provided.
+    RsaKeySize       keySize                  IN, ///< Key size. Shall match the import key size if
+                                                  ///< impData is provided.
     RsaSigPadding    padding                  IN, ///< Padding type of RSA signing key.
     uint8            impData[MAX_PACKET_SIZE] IN  ///< Imported key data.
 );
@@ -632,7 +634,8 @@ FUNCTION le_result_t ProvisionRsaSigKeyValue
 FUNCTION le_result_t ProvisionEcdsaKeyValue
 (
     Key              keyRef                   IN, ///< Key reference.
-    EccKeySize       keySize                  IN, ///< ECC curve, set 0 if impData is provided.
+    EccKeySize       keySize                  IN, ///< Key size. Shall match the import key size if
+                                                  ///< impData is provided.
     Digest           digest                   IN, ///< Digest.
     uint8            impData[MAX_PACKET_SIZE] IN  ///< Imported key data.
 );
@@ -655,7 +658,8 @@ FUNCTION le_result_t ProvisionEcdsaKeyValue
 FUNCTION le_result_t ProvisionAesKeyValue
 (
     Key              keyRef                   IN, ///< Key reference.
-    AesKeySize       keySize                  IN, ///< AES key size, set 0 if impData is provided.
+    AesKeySize       keySize                  IN, ///< Key size. Shall match the import key size if
+                                                  ///< impData is provided.
     AesBlockMode     mode                     IN, ///< AES block mode.
     uint8            impData[MAX_PACKET_SIZE] IN  ///< Imported key data.
 );
@@ -678,7 +682,8 @@ FUNCTION le_result_t ProvisionAesKeyValue
 FUNCTION le_result_t ProvisionHmacKeyValue
 (
     Key              keyRef                   IN, ///< Key reference.
-    uint32           keySize                  IN, ///< HMAC Key Size, set 0 if impData is provided.
+    uint32           keySize                  IN, ///< Key size. Shall match the import key size if
+                                                  ///< impData is provided.
     Digest           digest                   IN, ///< Digest.
     uint8            impData[MAX_PACKET_SIZE] IN  ///< Imported key data.
 );

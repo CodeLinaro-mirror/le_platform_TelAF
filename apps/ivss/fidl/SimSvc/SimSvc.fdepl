@@ -30,13 +30,11 @@ define org.genivi.commonapi.someip.deployment for interface com.qualcomm.qti.mod
     method GetImsi
     {
         SomeIpMethodID = 30010
-        SomeIpReliable = true
     }
 
     method GetState
     {
         SomeIpMethodID = 30020
-        SomeIpReliable = true
     }
 
     broadcast SimState

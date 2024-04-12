@@ -49,7 +49,7 @@ static taf_audio_StreamRef_t SpeakerAudioRef;
 static taf_audio_ConnectorRef_t  AudioOutConnectorRef;
 
 static taf_gpio_ChangeEventHandlerRef_t GpioHandlerRef;
-static taf_pos_MovementHandlerRef_t  SamplePositionHandlerRef = NULL;
+static taf_gnss_PositionHandlerRef_t PositionHandlerRef;
 static int32_t latitude = INT32_MAX, longitude = INT32_MAX, hAccuracy = INT32_MAX;
 static uint32_t direction = UINT32_MAX, dirAccuracy = UINT32_MAX;
 static bool exitApp = true;
@@ -131,20 +131,28 @@ Number of passenger:2
 
 static uint8_t msdLength = 39;
 
-static void SamplePositionHandler
+static void PositionHandlerFunction
 (
-    taf_pos_SampleRef_t positionSampleRef,
+    taf_gnss_SampleRef_t positionSampleRef,
     void* contextPtr
 )
 {
     le_result_t result;
 
-    result = taf_pos_sample_Get2DLocation(positionSampleRef, &latitude, &longitude, &hAccuracy);
-    if(result == LE_OK)
+    //Get 2D location
+    result = taf_gnss_GetLocation(positionSampleRef,
+                                  &latitude,
+                                  &longitude,
+                                  &hAccuracy);
+
+    if (result == LE_OK)
     {
-        printf("Latitude(positive->north) : %.6f\n",(float)latitude/1e6);
-        printf("Longitude(positive->east) : %.6f\n",(float)longitude/1e6);
-        printf("hAccuracy                 : %.2fm\n",(float)hAccuracy);
+        printf("Latitude(positive->north) : %.6f\n"
+               "Longitude(positive->east) : %.6f\n"
+               "hAccuracy                 : %.2fm\n",
+                (float)latitude/1e6,
+                (float)longitude/1e6,
+                (float)hAccuracy/1e2);
     }
     else if(result == LE_OUT_OF_RANGE)
     {
@@ -156,14 +164,24 @@ static void SamplePositionHandler
     }
 
     //Get direction
-    result = taf_pos_sample_GetDirection(positionSampleRef, &direction, &dirAccuracy);
-    if(result == LE_OK)
+    result = taf_gnss_GetDirection(positionSampleRef,
+                                   &direction,
+                                   &dirAccuracy);
+
+    if (result == LE_OK)
     {
-        printf("GetDirection: direction: %u, accuracy: %u\n", direction, dirAccuracy);
+        printf("Direction(0 degree is True North) : %.1f degrees\n"
+               "Direction Accuracy                : %.1f degrees\n",
+               (float)direction/10.0,
+               (float)dirAccuracy/10.0);
+    }
+    else if(result == LE_OUT_OF_RANGE)
+    {
+        printf("Direction invalid [%u, %u]\n", direction, dirAccuracy);
     }
     else
     {
-        LE_TEST_INFO("Failed to get position sample direction information");
+        LE_TEST_INFO("Failed to get position direction information\n");
     }
 
 }
@@ -174,12 +192,16 @@ static void* SamplePositionThread
 )
 {
     //connect the position service to the current running thread
-    taf_pos_ConnectService();
+    taf_gnss_ConnectService();
 
-    //Sample Position Handler
-    SamplePositionHandlerRef = taf_pos_AddMovementHandler(0, 0, SamplePositionHandler, NULL);
-    if(SamplePositionHandlerRef != NULL) {
-        LE_INFO("Confirm sample position handler was added successfully");
+    le_result_t result = taf_gnss_Start();
+
+    LE_INFO("Result of gnss start: %d", (int)result);
+
+    //Position Handler
+    PositionHandlerRef = taf_gnss_AddPositionHandler(PositionHandlerFunction, NULL);
+    if(PositionHandlerRef != NULL) {
+        LE_INFO("Confirm position handler was added successfully");
     }
     le_event_RunLoop();
 
@@ -191,31 +213,25 @@ static void fetchLocationInfo
     void
 )
 {
-    taf_posCtrl_ActivationRef_t activationRef;
     le_thread_Ref_t positionThreadRef;
-
-    activationRef = taf_posCtrl_Request();
 
     //create a thread
     positionThreadRef = le_thread_Create("PosThreadTest", SamplePositionThread,NULL);
     LE_INFO("fetchLocationInfo positionThreadRef :%p", positionThreadRef);
     le_thread_Start(positionThreadRef);
 
-    //Wait for 1 second to trigger SamplePositionHandler callback function
+    //Wait for 1 second to trigger PositionHandlerFunction callback
     LE_TEST_INFO("Wait for 1 second");
     le_thread_Sleep(1);
 
     //Remove the handler assigned
-    taf_pos_RemoveMovementHandler(SamplePositionHandlerRef);
+    taf_gnss_RemovePositionHandler(PositionHandlerRef);
 
     //cancel the running thread
     le_thread_Cancel(positionThreadRef);
 
     //Stop receiving GNSS reports
     taf_gnss_Stop();
-
-    //release the position control reference
-    taf_posCtrl_Release(activationRef);
 }
 
 char* getCurrentTime() {
@@ -319,6 +335,8 @@ static void* CommandInput(void* contextPtr)
             printf("-------------------------------------------------\n");
             printf("\th - Hangup the eCall\n");
             printf("\tt - Terminate registration\n");
+            printf("\ts - Import and send MSD\n");
+            printf("\tg - Get hlap timer state\n");
             printf("\tq - Quit test\n");
             printf("-------------------------------------------------\n");
         }
@@ -335,7 +353,68 @@ static void* CommandInput(void* contextPtr)
             printf("User input: %c, so terminate registration...\n", input_str[0]);
             int res = terminateRegistration();
             LE_INFO("CommandInput: terminate registration, res: %d\n", res);
-        } else if (p != NULL && input_str[0]=='q') {
+        } else if (p != NULL && input_str[0]=='s') {
+            printf("User input: %c, so import MSD eg:02251C0680E30A51439E2955D43800800837F80C9FD707F09A94BDD30E55E080000001FFFFE040\n", input_str[0]);
+            char msd[2*TAF_ECALL_MAX_MSD_LENGTH+1];
+            char *msdData = fgets(msd,sizeof(msd),stdin);
+            if (msdData != NULL)
+            {
+                uint8_t msdPdu[TAF_ECALL_MAX_MSD_LENGTH];
+                int byte = 0;
+                int res = 0;
+                for (int k =0; k < TAF_ECALL_MAX_MSD_LENGTH; k++)
+                {
+                    msdPdu[k] = 0;
+                }
+
+                for (int i = 0, j = 0; i < strlen(msd)/2; i++)
+                {
+                    for (; j < (2*i+2); j++)
+                    {
+                        if (msd[j] >= '0' && msd[j] <= '9'){
+                            byte = msd[j] - '0';
+                        } else if (msd[j] >= 'a' && msd[j] <= 'f'){
+                            byte = msd[j] - 'a' + 10;
+                        } else if (msd[j] >= 'A' && msd[j] <= 'F'){
+                            byte = msd[j] - 'A' + 10;
+                        }
+                        else {
+                            printf("User input wrong\n");
+                            res = -1;
+                            break;
+                        }
+                        msdPdu[i] = msdPdu[i] * 16 + byte;
+                     }
+                }
+
+                if (res == 0)
+                {
+                    res = taf_ecall_ImportMsd(ECallRef, msdPdu, strlen(msd)/2);
+                    LE_INFO("CommandInput: import MSD, res: %d\n", res);
+                    res = taf_ecall_SendMsd(ECallRef);
+                    LE_INFO("CommandInput: send MSD, res: %d\n", res);
+                }
+            }
+        } else if (p != NULL && input_str[0]=='g') {
+            printf("User input: %c, so enter the hlap timer type eg: 2...\n", input_str[0]);
+            p = fgets(input_str,sizeof(input_str),stdin);
+            taf_ecall_HlapTimerType_t timerType;
+            taf_ecall_HlapTimerStatus_t timerStatus;
+            uint16_t remainTime;
+            if (p != NULL && input_str[0]=='2')
+            {
+               timerType = TAF_ECALL_TIMER_TYPE_T2;
+            } else if (p != NULL && input_str[0]=='9') {
+               timerType = TAF_ECALL_TIMER_TYPE_T9;
+            } else if (p != NULL && input_str[0]=='1' && input_str[1]=='0'){
+               timerType = TAF_ECALL_TIMER_TYPE_T10;
+            } else {
+               timerType = TAF_ECALL_TIMER_TYPE_UNKNOWN;
+            }
+            le_result_t result = taf_ecall_GetHlapTimerState(timerType, &timerStatus, &remainTime);
+            printf("Get hlap timer state %s\n", result == LE_OK ? "success." : "failed!!"); 
+            printf("Hlap timer status is %d and the remaining time is %d\n", timerStatus, remainTime);
+        }else if (p != NULL && input_str[0]=='q') {
             exitApp = true;
             le_thread_Cancel(ECallCmdThreadRef);
             ECallCmdThreadRef = NULL;
@@ -451,8 +530,6 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         case TAF_ECALL_STATE_MSD_UPDATE_REQ:
         {
             printf("TAF_ECALL_STATE_MSD_UPDATE_REQ");
-            taf_ecall_ImportMsd(eCallReference, msdRawData, msdLength);
-            taf_ecall_SendMsd(eCallReference);
             break;
         }
         case TAF_ECALL_STATE_ENDED:
@@ -553,6 +630,66 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
             printf("TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_FAILURE");
             break;
         }
+        case TAF_ECALL_STATE_T2_STARTED:
+        {
+            printf("TAF_ECALL_STATE_T2_STARTED");
+            break;
+        }
+        case TAF_ECALL_STATE_T5_STARTED:
+        {
+            printf("TAF_ECALL_STATE_T5_STARTED");
+            break;
+        }
+        case TAF_ECALL_STATE_T6_STARTED:
+        {
+            printf("TAF_ECALL_STATE_T6_STARTED");
+            break;
+        }
+        case TAF_ECALL_STATE_T7_STARTED:
+        {
+            printf("TAF_ECALL_STATE_T7_STARTED");
+            break;
+        }
+        case TAF_ECALL_STATE_T9_STARTED:
+        {
+            printf("TAF_ECALL_STATE_T9_STARTED");
+            break;
+        }
+        case TAF_ECALL_STATE_T10_STARTED:
+        {
+            printf("TAF_ECALL_STATE_T10_STARTED");
+            break;
+        }
+        case TAF_ECALL_STATE_T2_STOPPED:
+        {
+            printf("TAF_ECALL_STATE_T2_STOPPED");
+            break;
+        }
+        case TAF_ECALL_STATE_T5_STOPPED:
+        {
+            printf("TAF_ECALL_STATE_T5_STOPPED");
+            break;
+        }
+        case TAF_ECALL_STATE_T6_STOPPED:
+        {
+            printf("TAF_ECALL_STATE_T6_STOPPED");
+            break;
+        }
+        case TAF_ECALL_STATE_T7_STOPPED:
+        {
+            printf("TAF_ECALL_STATE_T7_STOPPED");
+            break;
+        }
+        case TAF_ECALL_STATE_T9_STOPPED:
+        {
+            printf("TAF_ECALL_STATE_T9_STOPPED");
+            break;
+        }
+        case TAF_ECALL_STATE_T10_STOPPED:
+        {
+            printf("TAF_ECALL_STATE_T10_STOPPED");
+            break;
+        }
         default:
         {
             printf("Unknown state");
@@ -591,9 +728,11 @@ static void PrintUsage ()
             "tafECallApp -- setNadMinNetworkRegistrationTime <time in minutes>\n"
             "tafECallApp -- getNadMinNetworkRegistrationTime\n"
             "tafECallApp -- start <AUTO/MANUAL/TEST>\n"
+            "tafECallApp -- start <PRIVATE> <NUMBER> [contentType] [acceptInfo]\n"
             "tafECallApp -- end\n"
             "tafECallApp -- terminateReg\n"
-            "tafECallApp -- gpio <PIN>"
+            "tafECallApp -- gpio <PIN>\n"
+            "tafECallApp -- getHlapTimerState <hlap timer type>\n"
             "\n");
 }
 
@@ -679,47 +818,20 @@ static int importMsd()
         printf("Result of importMsd is %s\n", result == LE_OK ? "Success." : "Failed!!");
         return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
     }
-
-    if (count < 6) {
-        printf("Too few MSD input! Input minimum 4 bytes of MSD array.\n");
-        printf("Failed!! try again...\n");
-        return EXIT_FAILURE;
-    }
-
     uint8_t msdPdu[TAF_ECALL_MAX_MSD_LENGTH];
-    const char* inputMsdLengthPtr = le_arg_GetArg(3);
-
-    if (inputMsdLengthPtr == NULL)
+    for (int k = 0; k < TAF_ECALL_MAX_MSD_LENGTH; k++)
     {
-        printf("Input MSD length is not vaild!\n");
-        printf("Failed!! try again...\n");
-        return EXIT_FAILURE;
+        msdPdu[k] = 0;
     }
 
-    int inputMsdLength = atoi(inputMsdLengthPtr);
-
-    if (inputMsdLength > TAF_ECALL_MAX_MSD_LENGTH - 2) {
-        printf("Input MSD length %d is not vaild!\n", inputMsdLength);
-        printf("Failed!! try again...\n");
-        return EXIT_FAILURE;
-    }
-
-    size_t msdPduLength = (count - 2) < TAF_ECALL_MAX_MSD_LENGTH ? (count - 2) : TAF_ECALL_MAX_MSD_LENGTH;
-    msdPduLength = inputMsdLength < msdPduLength ?  inputMsdLength : msdPduLength;
-
-    if ((count - 4) > inputMsdLength) {
-        printf("OVERFLOW: Input beyond %d bytes of MSD shall be ignore.\n", (int)msdPduLength+2);
-    } else if (inputMsdLength > count-4) {
-        printf("Too few MSD input! Input %d bytes of MSD elements.\n", inputMsdLength+2);
+    if ((count-2) > TAF_ECALL_MAX_MSD_LENGTH)
+    {
+        printf("OVERFLOW: Input beyond 255 bytes of MSD shall be ignore.\n");
         printf("Failed!! try again...\n");;
         return EXIT_FAILURE;
     }
 
-    memset(msdPdu, 0, TAF_ECALL_MAX_MSD_LENGTH);
-
-    LE_INFO("ImportMsd NumArgs = %d, msdPduLength: %d ", count, (int)msdPduLength);
-
-    for (int i = 0; i < msdPduLength+2; i++) {
+    for (int i = 0; i < (count-2); i++) {
         const char* bytePtr = le_arg_GetArg(i+2);
 
         if (bytePtr == NULL)
@@ -741,7 +853,7 @@ static int importMsd()
     }
 
     ECallRef = taf_ecall_Create();
-    result = taf_ecall_ImportMsd(ECallRef, msdPdu, msdPduLength+2);
+    result = taf_ecall_ImportMsd(ECallRef, msdPdu, count-2);
     LE_TEST_OK(result == LE_OK, "importMsd - LE_OK");
     printf("Result of importMsd is %s\n", result == LE_OK ? "Success." : "Failed!!");
 
@@ -1019,7 +1131,7 @@ static void updateLocationInformation(taf_ecall_CallRef_t eCallRef)
 
     printf("Location fetched, dialing eCall now ...\n" );
 
-    if ((hAccuracy < 100) && (dirAccuracy < 360))
+    if ((hAccuracy/1e2 < 100) && (dirAccuracy/10 < 360))
     {
         isPosTrusted = true;
     }
@@ -1042,7 +1154,7 @@ static void updateLocationInformation(taf_ecall_CallRef_t eCallRef)
 
     le_result_t result = taf_ecall_SetMsdPosition(eCallRef, isPosTrusted,
                                                          latitude,
-                                                         longitude, direction/2 );
+                                                         longitude, direction/20);
     if (result != LE_OK)
     {
         LE_ERROR("Unable to set location information");
@@ -1084,7 +1196,6 @@ static int startECall()
     {
         taf_ecall_SetMsdEuroNCAPLocationOfImpact(ECallRef, TAF_ECALL_LOI_FRONT);
         taf_ecall_SetMsdEuroNCAPIIDeltaV(ECallRef, 125, -45, 10);
-
         taf_ecall_StartAutomatic(ECallRef);
     }
     else if (strcmp(eCallType, "MANUAL") == 0)
@@ -1096,11 +1207,56 @@ static int startECall()
     {
         taf_ecall_StartTest(ECallRef);
     }
+    else if (strcmp(eCallType, "PRIVATE") == 0)
+    {
+        const char* psapNumber = "";
+        const char* contentType = "application/EmergencyCallData.eCall.MSD";
+        const char* acceptInfo = "";
+        if (le_arg_NumArgs() >= 4)
+        {
+            psapNumber = le_arg_GetArg(3);
+            if (psapNumber == NULL)
+            {
+                printf("Input psap number is not vaild!\n");
+                printf("Failed!! try again...\n");
+                return EXIT_FAILURE;
+            }
+
+            if (le_arg_NumArgs() >= 5)
+            {
+                contentType = le_arg_GetArg(4);
+                if (contentType == NULL)
+                {
+                    printf("Input content type is not vaild!\n");
+                    printf("Failed!! try again...\n");
+                    return EXIT_FAILURE;
+                }
+            }
+            if (le_arg_NumArgs() == 6)
+            {
+                acceptInfo = le_arg_GetArg(5);
+                if (acceptInfo == NULL)
+                {
+                    printf("Input accept info is not vaild!\n");
+                    printf("Failed!! try again...\n");
+                    return EXIT_FAILURE;
+                }
+            }
+        } else {
+            PrintUsage();
+            return EXIT_FAILURE;
+        }
+        taf_ecall_StartPrivate(ECallRef, psapNumber, contentType, acceptInfo);
+    }
     else
     {
         PrintUsage();
         return EXIT_FAILURE;
     }
+
+    taf_ecall_Type_t type = taf_ecall_GetType(ECallRef);
+    printf("eCall type = %d!\n", (int)type);
+
     return EXIT_SUCCESS;
 }
 
@@ -1144,6 +1300,24 @@ static int addGPIOHandler()
                                             false, GpioChangeCallback, NULL);
 
     return EXIT_SUCCESS;
+}
+
+static int getHlapTimerState()
+{
+    if (le_arg_NumArgs() < 3)
+    {
+        PrintUsage();
+        return EXIT_FAILURE;
+    }
+
+    taf_ecall_HlapTimerType_t hlapTimerType = atoi(le_arg_GetArg(2));
+    taf_ecall_HlapTimerStatus_t timerStatus;
+    uint16_t elapsedTime;
+    le_result_t result = taf_ecall_GetHlapTimerState(hlapTimerType, &timerStatus, &elapsedTime);
+    LE_TEST_OK(result == LE_OK, "getHlapTimerState - LE_OK");
+    printf("Get eCall hlap timer status as: %d, elapsedTime as: %d\n", timerStatus, elapsedTime);
+
+    return result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
 COMPONENT_INIT
@@ -1256,6 +1430,10 @@ COMPONENT_INIT
     {
         status = addGPIOHandler();
         exitApp = false;
+    }
+    else if (strcmp(command, "getHlapTimerState") == 0)
+    {
+        status = getHlapTimerState();
     } else {
         PrintUsage();
     }

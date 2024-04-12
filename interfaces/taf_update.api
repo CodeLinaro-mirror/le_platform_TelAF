@@ -248,6 +248,7 @@ ENUM PackageType
     PACKAGE_TYPE_QOTA_PACKAGE, ///< Package with QOTA header.
     PACKAGE_TYPE_NAD_ZIP,      ///< Zip file for NAD update.
     PACKAGE_TYPE_TELAF_APP,    ///< TelAF app bundle.
+    PACKAGE_TYPE_UAPI_PACKAGE, ///< Package for UA Plug-In update.
     PACKAGE_TYPE_UNKNOWN       ///< Unknown package.
 };
 

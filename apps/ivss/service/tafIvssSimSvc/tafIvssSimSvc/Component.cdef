@@ -20,6 +20,7 @@ sources:
 cxxflags:
 {
     -I$LEGATO_SYSROOT/usr/include/CommonAPI-3.2
+    -I$TELAF_ROOT/include
     -I$TELAF_ROOT/apps/ivss/common/include
 }
 

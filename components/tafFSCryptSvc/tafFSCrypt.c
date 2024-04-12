@@ -636,7 +636,7 @@ static le_result_t FindAppStorageRef
 //--------------------------------------------------------------------------------------------------
 taf_fsc_StorageRef_t taf_fsc_GetStorageRef
 (
-    const char  dirPath[TAF_FSC_MAX_STORAGE_NAME_SIZE],  ///< Storage name.
+    const char  *dirPath,                                ///< Storage name.
     le_result_t *result                                  ///< error status.
 )
 {

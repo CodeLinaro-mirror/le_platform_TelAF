@@ -1,8 +1,12 @@
 cxxflags:
 {
     -I$TELAF_ROOT/include
+    -I$LEGATO_ROOT/components/watchdogChain
     -I$LEGATO_BUILD/framework/libjansson/include
+    -I$TELAF_ROOT/components/tafHalComp
     -ltelux_common
+    -ltelux_tel
+    -I$TELAF_ROOT/components/tafGptpLibrary
     -O
     -Wno-error
 }
@@ -11,11 +15,25 @@ sources:
     tafTimeSvc.cpp
     tafTimeImpl.cpp
 }
+
 requires:
 {
+    component:
+    {
+        $TELAF_ROOT/components/tafHalComp
+        $LEGATO_ROOT/components/watchdogChain
+        $TELAF_ROOT/components/tafGptpLibrary
+    }
+
+    api:
+    {
+        taf_pm.api
+    }
+
     lib:
     {
         lib/libtelux_platform.so
+        lib/libtelux_tel.so
     }
 }
 provides:

@@ -1,0 +1,18 @@
+sources:
+{
+    tafMngdAudioConsoleApp.cpp
+}
+
+requires:
+{
+    api:
+    {
+        taf_mngd_audio.api
+        taf_mngd_audioHw.api
+    }
+}
+
+cxxflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+}

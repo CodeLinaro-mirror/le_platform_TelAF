@@ -1,0 +1,22 @@
+maxThreads: 600
+start: manual
+sandboxed: false
+
+executables:
+{
+    multiRoutMgrsTestAppB = ( CompB )
+}
+
+processes:
+{
+    run:
+    {
+        ( multiRoutMgrsTestAppB )
+    }
+}
+
+bindings:
+{
+    multiRoutMgrsTestAppB.CompB.taf_someipSvr -> tafSomeipGWSvc.taf_someipSvr
+    multiRoutMgrsTestAppB.CompB.taf_someipClnt -> tafSomeipGWSvc.taf_someipClnt
+}

@@ -34,7 +34,7 @@ set(TESTAPP_PATH  $ENV{TELAF_ROOT}/apps/test/ConsoleApp)
 file(GLOB_RECURSE CONSOLEAPP_ADEF_FILES ${TESTAPP_PATH}/*.adef)
 foreach( consoleappfile  ${CONSOLEAPP_ADEF_FILES} )
     message(STATUS "adef file: ${consoleappfile}")
-    mkapp( ${consoleappfile} -i ${Interfaces})
+    mkapp( ${consoleappfile} -i ${Interfaces} -i ${Interfaces}/staging)
 endforeach()
 
 # Build sample test apps
@@ -46,9 +46,10 @@ foreach( consoleappfile  ${CONSOLEAPP_ADEF_FILES} )
        (${consoleappfile} MATCHES "tafRSimApp.adef$") OR
        (${consoleappfile} MATCHES "tafDiagApp.adef") OR
        (${consoleappfile} MATCHES "tafSAPProviderApp.adef$") OR
-       (${consoleappfile} MATCHES "tafECallApp.adef$"))
+       (${consoleappfile} MATCHES "tafECallApp.adef$") OR
+       (${consoleappfile} MATCHES "tafDiagEventApp.adef$"))
            message(STATUS "adef file: ${consoleappfile}")
-           mkapp( ${consoleappfile} -i ${Interfaces})
+           mkapp( ${consoleappfile} -i ${Interfaces} -i ${Interfaces}/staging)
     endif()
 endforeach()
 

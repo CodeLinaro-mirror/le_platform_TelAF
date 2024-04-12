@@ -186,14 +186,16 @@ typedef le_result_t (*TAF_HAL_AUDIO_SENDVENDORCONFIG)
 /** Gets audio device type of the requested audio node.
  * @param
  *      nodeId      - Audio device node ID
+ *      nodeType    - Node type
  *
  * @return
  *      Type of audio device.
  */
 //--------------------------------------------------------------------------------------------------
-typedef taf_hal_audio_NodeType (*TAF_HAL_AUDIO_GETNODETYPE)
+typedef le_result_t (*TAF_HAL_AUDIO_GETNODETYPE)
 (
-    uint8_t nodeId
+    uint8_t nodeId,
+    taf_hal_audio_NodeType *nodeType
 );
 
 //--------------------------------------------------------------------------------------------------

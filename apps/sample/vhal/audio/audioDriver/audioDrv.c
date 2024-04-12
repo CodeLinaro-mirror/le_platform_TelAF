@@ -47,14 +47,16 @@ static le_result_t taf_hal_SendVendorConfig
     return LE_OK;
 }
 
-static taf_hal_audio_NodeType taf_hal_GetNodeType
+static le_result_t taf_hal_GetNodeType
 (
-    uint8_t nodeId
+    uint8_t nodeId,
+    taf_hal_audio_NodeType *nodeType
 )
 {
     LE_DEBUG("AudioTestDrv: %s", __FUNCTION__);
     LE_DEBUG("nodeId %d ",nodeId);
-    return AUDIO_HAL_NODE_CODEC;
+    *nodeType = AUDIO_HAL_NODE_CODEC;
+    return LE_OK;
 }
 
 static le_result_t taf_hal_SendNodeVendorConfig

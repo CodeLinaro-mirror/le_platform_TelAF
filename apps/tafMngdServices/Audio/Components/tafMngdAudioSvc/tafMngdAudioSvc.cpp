@@ -354,15 +354,16 @@ le_result_t taf_mngd_audio_PlayFileList
     return audio.PlayFileList(streamRef, playListRef);
 }
 
-taf_mngd_audioHw_NodeType_t taf_mngd_audioHw_GetNodeType
+le_result_t taf_mngd_audioHw_GetNodeType
 (
-    uint8_t audioNodeId
+    uint8_t audioNodeId,
+    taf_mngd_audioHw_NodeType_t *nodeType
 )
 {
     auto &mngdAudioVhal = taf_MngdAudioVhal::GetInstance();
-    TAF_ERROR_IF_RET_VAL(!mngdAudioVhal.isAudioDrvAvailable(), TAF_MNGD_AUDIOHW_INVALID,
+    TAF_ERROR_IF_RET_VAL(!mngdAudioVhal.isAudioDrvAvailable(), LE_UNSUPPORTED,
             "Audio drive is not available!");
-    return mngdAudioVhal.GetNodeType(audioNodeId);
+    return mngdAudioVhal.GetNodeType(audioNodeId, nodeType);
 }
 
 le_result_t taf_mngd_audioHw_SendNodeVendorConfig

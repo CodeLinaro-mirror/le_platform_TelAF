@@ -673,7 +673,8 @@ void TEST_MNGD_AUDIO_VHAL_DEV_APIS()
     taf_mngd_audioHw_NodeStateChangeHandlerRef_t handlerRef;
 
     LE_TEST_INFO("Test taf_mngd_audioHw_GetNodeType");
-    taf_mngd_audioHw_NodeType_t nodeType = taf_mngd_audioHw_GetNodeType(0x1);
+    taf_mngd_audioHw_NodeType_t nodeType;
+    res = taf_mngd_audioHw_GetNodeType(0x1, &nodeType);
     LE_TEST_OK(nodeType != TAF_MNGD_AUDIOHW_INVALID, "Successfully got the audio device type");
 
     LE_TEST_INFO("Test taf_mngd_audioHw_SendNodeConfigure");

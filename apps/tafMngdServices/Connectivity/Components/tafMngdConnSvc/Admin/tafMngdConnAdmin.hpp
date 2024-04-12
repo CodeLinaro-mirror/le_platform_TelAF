@@ -139,14 +139,14 @@ namespace tafsvc {
     /* Internal structure to report Data State */
     typedef struct
     {
-        taf_mngd_Conn_DataRef_t                 dataRef;
-        taf_mngd_Conn_DataState_t               dataState;
+        taf_mngdConn_DataRef_t                 dataRef;
+        taf_mngdConn_DataState_t               dataState;
     } DataState_t;
 
     /* Internal structure to report Recovery State */
     typedef struct
     {
-        taf_mngd_Conn_RecoveryState_t recoveryState;
+        taf_mngdConn_RecoveryState_t recoveryState;
         uint8_t                       dataId;
     } RecoveryState_t;
 
@@ -154,7 +154,7 @@ namespace tafsvc {
     {
         uint8_t                                 phoneId;
         uint32_t                                profileNumber;
-        taf_mngd_Conn_DataState_t               dataState;
+        taf_mngdConn_DataState_t               dataState;
     } profileInfo_t;
 
     typedef struct
@@ -187,14 +187,14 @@ namespace tafsvc {
         char                          dns2Addr[MCS_MAX_IPV4_LEN]; // Second dns Address
         le_dls_Link_t                 link;                   // Link to data list
         mcs_Admin_State_t   adminState;               // Internal MCS state
-        taf_mngd_Conn_DataState_t     dataState;              // The data state for notification
+        taf_mngdConn_DataState_t     dataState;              // The data state for notification
         le_timer_Ref_t                dataStartRetryTimerRef; // Data start retry timer reference
         le_timer_Ref_t                recoveryScheduleTimerRef; // Recovery schedule timer reference
         le_timer_Ref_t                periodicConnectivityTestTimerRef;
                                                    // periodicConnectivityTestTimerRef timer reference
         le_event_Id_t                 dataStateEvent;         //Data state event
         taf_dcs_Pdp_t                 ipType;                 // Ip type
-        taf_mngd_Conn_DataRef_t       dataRef;
+        taf_mngdConn_DataRef_t       dataRef;
         taf_dcs_ConState_t            dcsConState;            // DCS Data State
         char                          conn_test_url[MCS_MAX_CONNECTION_URL_LEN];
                                       //URL to be used for DataStartConnectionTest
@@ -226,23 +226,23 @@ namespace tafsvc {
 
             void Init(void);
             static tafMngdConnAdmin &GetInstance();
-            taf_mngd_Conn_DataRef_t GetRefByDataId(uint8_t dataId);
-            le_result_t Startdata(taf_mngd_Conn_DataRef_t dataRef);
-            le_result_t Stopdata(taf_mngd_Conn_DataRef_t dataRef);
-            le_result_t GetConnectionState(taf_mngd_Conn_DataRef_t dataRef,
+            taf_mngdConn_DataRef_t GetRefByDataId(uint8_t dataId);
+            le_result_t Startdata(taf_mngdConn_DataRef_t dataRef);
+            le_result_t Stopdata(taf_mngdConn_DataRef_t dataRef);
+            le_result_t GetConnectionState(taf_mngdConn_DataRef_t dataRef,
                                            uint8_t* dataIdPtr,
-                                           taf_mngd_Conn_DataState_t *statePtr);
-            le_result_t GetConnectionIPAddresses( taf_mngd_Conn_DataRef_t dataRef,
+                                           taf_mngdConn_DataState_t *statePtr);
+            le_result_t GetConnectionIPAddresses( taf_mngdConn_DataRef_t dataRef,
                                                   char *ipv4AddrPtr, size_t ipv4AddrSize,
                                                   char *ipv6AddrPtr, size_t ipv6AddrSize);
 
             mcs_DataCtx_t* GetDataCtx(uint8_t phoneId, uint32_t profileNumber);
-            taf_mngd_Conn_DataStateHandlerRef_t AddDataStateHandler(
-                taf_mngd_Conn_DataRef_t dataRef,
-                taf_mngd_Conn_DataStateHandlerFunc_t handlerPtr,
+            taf_mngdConn_DataStateHandlerRef_t AddDataStateHandler(
+                taf_mngdConn_DataRef_t dataRef,
+                taf_mngdConn_DataStateHandlerFunc_t handlerPtr,
                 void *contextPtr);
-            taf_mngd_Conn_RecoveryStateHandlerRef_t AddRecoveryStateHandler(
-                taf_mngd_Conn_RecoveryStateHandlerFunc_t handlerPtr,
+            taf_mngdConn_RecoveryStateHandlerRef_t AddRecoveryStateHandler(
+                taf_mngdConn_RecoveryStateHandlerFunc_t handlerPtr,
                 void *contextPtr);
 
             le_event_Id_t StateMachineEventId;
@@ -263,7 +263,7 @@ namespace tafsvc {
             le_result_t EventNetworkUnregState(uint8_t phoneId);
             le_result_t SetPolicyConfigurationJSONs(const char *ConfigFileNamePtr);
 
-            le_event_Id_t GetDataStateEvent(taf_mngd_Conn_DataRef_t dataRef);
+            le_event_Id_t GetDataStateEvent(taf_mngdConn_DataRef_t dataRef);
 
             void EventDataConnected(uint8_t dataId);
             void EventDataConnectedActive(uint8_t dataId);
@@ -281,8 +281,8 @@ namespace tafsvc {
             static void StateMachineHandler(void *reqPtr);
 
             void ReportAndUpdateDataState(mcs_DataCtx_t *dataCtxPtr,
-                                          taf_mngd_Conn_DataState_t newstate);
-            void ReportRecoveryStateEvent(taf_mngd_Conn_RecoveryState_t recoveryState,
+                                          taf_mngdConn_DataState_t newstate);
+            void ReportRecoveryStateEvent(taf_mngdConn_RecoveryState_t recoveryState,
                                           uint8_t dataId);
             le_result_t InitializeStates();
 
@@ -324,8 +324,8 @@ namespace tafsvc {
             void EventL1ConnRecoveryStart(uint8_t dataId);
 
             // Policy and Configuration to use
-            taf_mngd_Conn_Policy_t Policy;
-            taf_mngd_Conn_Configuration_t Configuration;
+            taf_mngdConn_Policy_t Policy;
+            taf_mngdConn_Configuration_t Configuration;
 
             //Config file name
             char ConfigFileName[MCS_MAX_FILE_PATH_LEN];

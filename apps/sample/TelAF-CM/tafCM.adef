@@ -25,7 +25,7 @@ processes:
 // TelAF Service bindings
 bindings:
 {
-    tafCM.tafCMComponent.taf_mngd_Conn -> tafMngdConnSvc.taf_mngd_Conn
+    tafCM.tafCMComponent.taf_mngdConn -> tafMngdConnSvc.taf_mngdConn
 }
 
 // Bundle default Configuration and Policy JSONs

@@ -59,15 +59,15 @@ namespace pt = boost::property_tree;
 /**
  * Connectivity recovery state returned by Managed Connectivity Service
  **/
-static void RecoveryStateHandler(taf_mngd_Conn_RecoveryState_t state,
+static void RecoveryStateHandler(taf_mngdConn_RecoveryState_t state,
                                  uint8_t dataId, void *contextPtr)
 {
     LE_INFO("Recovery event for Data Id: %d", dataId);
-    if (TAF_MNGD_CONN_RECOVERY_L1_SCHEDULED == state)
+    if (TAF_MNGDCONN_RECOVERY_L1_SCHEDULED == state)
     {
         LE_INFO("Recovery State: RECOVERY_L1_SCHEDULED");
     }
-    else if (TAF_MNGD_CONN_RECOVERY_L1_STARTED == state)
+    else if (TAF_MNGDCONN_RECOVERY_L1_STARTED == state)
     {
         LE_INFO("Recovery State: RECOVERY_L1_STARTED");
     }
@@ -79,15 +79,15 @@ static void RecoveryStateHandler(taf_mngd_Conn_RecoveryState_t state,
 /**
  * Return Connection information
 */
-static int getConnectionInfo(taf_mngd_Conn_DataRef_t dataRef)
+static int getConnectionInfo(taf_mngdConn_DataRef_t dataRef)
 {
     le_result_t result;
     uint8_t dataID;
-    taf_mngd_Conn_DataState_t state;
+    taf_mngdConn_DataState_t state;
     char ipv4Addr[TAF_DCS_IPV4_ADDR_MAX_LEN] = {0};
     char ipv6Addr[TAF_DCS_IPV6_ADDR_MAX_LEN] = {0};
 
-    result = taf_mngd_Conn_DataGetConnectionState(dataRef, &dataID, &state);
+    result = taf_mngdConn_DataGetConnectionState(dataRef, &dataID, &state);
     if (LE_OK != result){
         LE_WARN("DataGetConnectionState failed: %d", result);
         return result;
@@ -95,7 +95,7 @@ static int getConnectionInfo(taf_mngd_Conn_DataRef_t dataRef)
     LE_INFO("Data ID  = %d ", dataID);
 
     // Data is connected. Get IP addresses
-    result = taf_mngd_Conn_DataGetConnectionIPAddresses(dataRef,
+    result = taf_mngdConn_DataGetConnectionIPAddresses(dataRef,
                                                         ipv4Addr, TAF_DCS_IPV4_ADDR_MAX_LEN,
                                                         ipv6Addr, TAF_DCS_IPV6_ADDR_MAX_LEN);
     if (LE_OK == result)
@@ -114,25 +114,25 @@ static int getConnectionInfo(taf_mngd_Conn_DataRef_t dataRef)
 /**
  * Data state returned by Managed Connectivity Service
  **/
-static void ConnectionStateHandler(taf_mngd_Conn_DataRef_t dataRef,
-                                   taf_mngd_Conn_DataState_t dataState,
+static void ConnectionStateHandler(taf_mngdConn_DataRef_t dataRef,
+                                   taf_mngdConn_DataState_t dataState,
                                    void *contextPtr)
 {
     // Handle event
-    if (TAF_MNGD_CONN_DATA_CONNECTED == dataState)
+    if (TAF_MNGDCONN_DATA_CONNECTED == dataState)
     {
         LE_INFO("Data Connected");
         getConnectionInfo(dataRef);
     }
-    else if (TAF_MNGD_CONN_DATA_DISCONNECTED == dataState)
+    else if (TAF_MNGDCONN_DATA_DISCONNECTED == dataState)
     {
         LE_INFO("Data Disconnected");
     }
-    else if (TAF_MNGD_CONN_DATA_CONNECTION_FAILED == dataState)
+    else if (TAF_MNGDCONN_DATA_CONNECTION_FAILED == dataState)
     {
         LE_INFO("Data Connection failed");
     }
-    else if (TAF_MNGD_CONN_DATA_CONNECTION_STALLED == dataState)
+    else if (TAF_MNGDCONN_DATA_CONNECTION_STALLED == dataState)
     {
         LE_INFO("Data Connection stalled");
     }
@@ -223,21 +223,21 @@ COMPONENT_INIT
     }
 
     // Register recovery state handler
-    taf_mngd_Conn_AddRecoveryStateHandler(RecoveryStateHandler, NULL);
+    taf_mngdConn_AddRecoveryStateHandler(RecoveryStateHandler, NULL);
 
     // Create tafMngdConn Data references for the Data IDs.
     // Once the references are created, register for data session notifications.
-    taf_mngd_Conn_DataRef_t tmpRef = NULL;
-    std::map<int, taf_mngd_Conn_DataRef_t> dataID_dataRef;
+    taf_mngdConn_DataRef_t tmpRef = NULL;
+    std::map<int, taf_mngdConn_DataRef_t> dataID_dataRef;
     for (auto &id : dataID_AutoStart)
     {
         tmpRef = NULL;
-        tmpRef = taf_mngd_Conn_GetData(id.first);
+        tmpRef = taf_mngdConn_GetData(id.first);
         if (NULL == tmpRef) {
             LE_WARN ("Error in getting data reference for Data ID: %d", id.first);
             return;
         }
-        taf_mngd_Conn_AddDataStateHandler(tmpRef, ConnectionStateHandler, NULL);
+        taf_mngdConn_AddDataStateHandler(tmpRef, ConnectionStateHandler, NULL);
         dataID_dataRef.emplace(id.first, tmpRef);
     }
 
@@ -254,7 +254,7 @@ COMPONENT_INIT
             // AutoStart: No, start the data session
             LE_INFO("Data ID: %d, AutoStart: No", id.first);
             LE_INFO("Start Data for ID %d", id.first);
-            leResult = taf_mngd_Conn_DataStart(tmpRef);
+            leResult = taf_mngdConn_DataStart(tmpRef);
             if ( LE_OK == leResult)
             {
                 LE_INFO ("Data Session Started");

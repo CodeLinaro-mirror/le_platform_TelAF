@@ -56,5 +56,5 @@ bindings:
 
 extern:
 {
-    tafMngdConnSvc.tafMngdConnSvc.taf_mngd_Conn
+    tafMngdConnSvc.tafMngdConnSvc.taf_mngdConn
 }

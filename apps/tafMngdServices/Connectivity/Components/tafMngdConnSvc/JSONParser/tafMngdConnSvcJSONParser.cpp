@@ -65,8 +65,8 @@ static const char *JSON_Version_24_03_00 = "24.03.00";
  * Validate ManagedConnectivityService:Version
  * Check for supported versions and set the Version to correct mcs_JSON_Version_t value.
  */
-static bool Validate_MCS_Version(taf_mngd_Conn_Policy_t &Policy,
-                                                taf_mngd_Conn_Configuration_t &Configuration,
+static bool Validate_MCS_Version(taf_mngdConn_Policy_t &Policy,
+                                                taf_mngdConn_Configuration_t &Configuration,
                                                 std::string Value,
                                                 int Index)
 {
@@ -108,8 +108,8 @@ static bool Validate_MCS_Version(taf_mngd_Conn_Policy_t &Policy,
     return false;
 }
 
-static bool ValidateValue(taf_mngd_Conn_Policy_t& Policy,
-                                taf_mngd_Conn_Configuration_t &Configuration,
+static bool ValidateValue(taf_mngdConn_Policy_t& Policy,
+                                taf_mngdConn_Configuration_t &Configuration,
                                 std::string property,
                                 std::string Value,
                                 int Index)
@@ -127,8 +127,8 @@ static bool ValidateValue(taf_mngd_Conn_Policy_t& Policy,
 }
 
 bool telux::tafsvc::tafMngdConnSvc_GetPolicyAndConfiguration(
-    taf_mngd_Conn_Policy_t &PolicyStructRef,
-    taf_mngd_Conn_Configuration_t &ConfigurationStructRef,
+    taf_mngdConn_Policy_t &PolicyStructRef,
+    taf_mngdConn_Configuration_t &ConfigurationStructRef,
     std::string ConfigurationFileName)
 {
     std::string newConfFileName;

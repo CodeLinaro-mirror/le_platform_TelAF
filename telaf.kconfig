@@ -15,6 +15,9 @@ config TELAF_VERSION
   default "$(TELAF_VERSION)" if !$(empty,$(TELAF_VERSION))
   default "telaf.lnx.1.1-xxxxxx"
 
+config AUDIO_MULTI_FORMAT_PB_SUPPORTED
+  bool "TelAF multi format playback supported"
+  default $(b2k,$(def,$(TELUX_AUDIO_MULTI_FORMAT_PB_SUPPORTED),y))
 
 menu "apps"
 rsource "apps/KConfig"

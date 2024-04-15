@@ -1931,6 +1931,19 @@ le_result_t taf_MngdAudio::PlayFile
                 }
             }
             telux::common::ErrorCode ec;
+            repeatedPlayerStatusListener = std::make_shared<tafPromptsStatusListener>();
+#if defined(LE_CONFIG_AUDIO_MULTI_FORMAT_PB_SUPPORTED)
+            telux::audio::PlaybackConfig pbConfig1{};
+            std::vector<telux::audio::PlaybackConfig> filesToPlay;
+
+            pbConfig1.absoluteFilePath = srcPath;
+            pbConfig1.repeatInfo.type = telux::audio::RepeatType::COUNT;
+            pbConfig1.repeatInfo.count = 1;
+            pbConfig1.streamConfig = config;
+            filesToPlay.push_back(pbConfig1);
+
+            ec = mAudioPlayer->startPlayback(filesToPlay, repeatedPlayerStatusListener);
+#else
             telux::audio::PlaybackFile pbFiles1{};
             std::vector<telux::audio::PlaybackFile> filesToPlay;
 
@@ -1939,8 +1952,8 @@ le_result_t taf_MngdAudio::PlayFile
             pbFiles1.repeatInfo.count = 1;
             filesToPlay.push_back(pbFiles1);
 
-            repeatedPlayerStatusListener = std::make_shared<tafPromptsStatusListener>();
             ec = mAudioPlayer->startPlayback(config, filesToPlay, repeatedPlayerStatusListener);
+#endif
             if (ec != telux::common::ErrorCode::SUCCESS) {
                 LE_ERROR("failed start, err %d", static_cast<int>(ec));
                 return LE_FAULT;
@@ -2029,6 +2042,19 @@ le_result_t taf_MngdAudio::PlayWave
     mFileFormat = config.format;
 
     telux::common::ErrorCode ec;
+    repeatedPlayerStatusListener = std::make_shared<tafPromptsStatusListener>();
+#if defined(LE_CONFIG_AUDIO_MULTI_FORMAT_PB_SUPPORTED)
+    telux::audio::PlaybackConfig pbConfig1{};
+    std::vector<telux::audio::PlaybackConfig> filesToPlay;
+
+    pbConfig1.absoluteFilePath = srcPath;
+    pbConfig1.repeatInfo.type = telux::audio::RepeatType::COUNT;
+    pbConfig1.repeatInfo.count = 1;
+    pbConfig1.streamConfig = config;
+    filesToPlay.push_back(pbConfig1);
+
+    ec = mAudioPlayer->startPlayback(filesToPlay, repeatedPlayerStatusListener);
+#else
     telux::audio::PlaybackFile pbFiles1{};
     std::vector<telux::audio::PlaybackFile> filesToPlay;
 
@@ -2037,8 +2063,8 @@ le_result_t taf_MngdAudio::PlayWave
     pbFiles1.repeatInfo.count = 1;
     filesToPlay.push_back(pbFiles1);
 
-    repeatedPlayerStatusListener = std::make_shared<tafPromptsStatusListener>();
     ec = mAudioPlayer->startPlayback(config, filesToPlay, repeatedPlayerStatusListener);
+#endif
     if (ec != telux::common::ErrorCode::SUCCESS) {
         LE_ERROR("failed start, err %d", static_cast<int>(ec));
         return LE_FAULT;
@@ -2209,6 +2235,19 @@ le_result_t taf_MngdAudio::PlayAmr
         }
         mFileFormat = config.format;
         telux::common::ErrorCode ec;
+        repeatedPlayerStatusListener = std::make_shared<tafPromptsStatusListener>();
+#if defined(LE_CONFIG_AUDIO_MULTI_FORMAT_PB_SUPPORTED)
+        telux::audio::PlaybackConfig pbConfig1{};
+        std::vector<telux::audio::PlaybackConfig> filesToPlay;
+
+        pbConfig1.absoluteFilePath = srcPath;
+        pbConfig1.repeatInfo.type = telux::audio::RepeatType::COUNT;
+        pbConfig1.repeatInfo.count = 1;
+        pbConfig1.streamConfig = config;
+        filesToPlay.push_back(pbConfig1);
+
+        ec = mAudioPlayer->startPlayback(filesToPlay, repeatedPlayerStatusListener);
+#else
         telux::audio::PlaybackFile pbFiles1{};
         std::vector<telux::audio::PlaybackFile> filesToPlay;
 
@@ -2217,8 +2256,8 @@ le_result_t taf_MngdAudio::PlayAmr
         pbFiles1.repeatInfo.count = 1;
         filesToPlay.push_back(pbFiles1);
 
-        repeatedPlayerStatusListener = std::make_shared<tafPromptsStatusListener>();
         ec = mAudioPlayer->startPlayback(config, filesToPlay, repeatedPlayerStatusListener);
+#endif
         if (ec != telux::common::ErrorCode::SUCCESS) {
             LE_ERROR("failed start, err %d", static_cast<int>(ec));
             return LE_FAULT;
@@ -2246,6 +2285,7 @@ le_result_t taf_MngdAudio::ReadAmrHeader
     telux::audio::AmrwbpParams amrParams{};
     config.type = StreamType::PLAY;
     amrParams.bitWidth = 16;
+    amrParams.frameFormat = telux::audio::AmrwbpFrameFormat::FILE_STORAGE_FORMAT;
     config.formatParams = &amrParams;
     char header[10] = {0};
 
@@ -2682,6 +2722,54 @@ le_result_t taf_MngdAudio::PlayFileList
             playListRef);
     TAF_ERROR_IF_RET_VAL( playListptr == NULL, LE_BAD_PARAMETER, "playListptr is invalid!");
 
+    playerStreamPtr = streamPtr;
+
+    telux::common::ErrorCode ec;
+    repeatedPlayerStatusListener = std::make_shared<tafPromptsStatusListener>();
+#if defined(LE_CONFIG_AUDIO_MULTI_FORMAT_PB_SUPPORTED)
+    std::vector<telux::audio::PlaybackConfig> filesToPlay;
+
+    for(uint32_t i = 0; i<playListptr->numOfFilesToPlay; i++) {
+        int AudioFileFd;
+        telux::audio::PlaybackConfig pbConfig = {};
+        StreamConfig config = {};
+
+        pbConfig.absoluteFilePath = playListptr->filesToPlay[i].absoluteFilePath;
+        if((AudioFileFd=open(pbConfig.absoluteFilePath.c_str(), O_RDONLY)) == -1)
+        {
+            LE_ERROR("File might not exist or failed to open the file %s", pbConfig.absoluteFilePath.c_str());
+            return LE_FAULT;
+        } else
+        {
+            LE_INFO("Successfully opened file %s", pbConfig.absoluteFilePath.c_str());
+            streamPtr->fd = AudioFileFd;
+        }
+
+        res = ReadPcmHeader(streamPtr, pbConfig.absoluteFilePath.c_str() , config);
+
+        if (res != LE_OK)
+        {
+            res = ReadAmrHeader(streamPtr, pbConfig.absoluteFilePath.c_str() , config);
+
+            if (res != LE_OK) {
+                LE_ERROR( " Unknown audio format");
+                playerStreamPtr = nullptr;
+                return LE_FAULT;
+            }
+        }
+        pbConfig.streamConfig = config;
+        if(playListptr->filesToPlay[i].repeat == -1){
+            pbConfig.repeatInfo.type = telux::audio::RepeatType::INDEFINITELY;
+        } else{
+            pbConfig.repeatInfo.type = telux::audio::RepeatType::COUNT;
+            pbConfig.repeatInfo.count = playListptr->filesToPlay[i].repeat + 1;
+        }
+
+        filesToPlay.push_back(pbConfig);
+    }
+
+    ec = mAudioPlayer->startPlayback(filesToPlay, repeatedPlayerStatusListener);
+#else
     char const* srcPath = playListptr->filesToPlay[0].absoluteFilePath.c_str();
 
     int AudioFileFd;
@@ -2695,7 +2783,6 @@ le_result_t taf_MngdAudio::PlayFileList
         streamPtr->fd = AudioFileFd;
     }
 
-    playerStreamPtr = streamPtr;
     StreamConfig config = {};
 
     res = ReadPcmHeader(streamPtr, srcPath, config);
@@ -2711,7 +2798,6 @@ le_result_t taf_MngdAudio::PlayFileList
         }
     }
 
-    telux::common::ErrorCode ec;
     std::vector<telux::audio::PlaybackFile> filesToPlay;
 
     for(uint32_t i = 0; i<playListptr->numOfFilesToPlay; i++) {
@@ -2728,8 +2814,8 @@ le_result_t taf_MngdAudio::PlayFileList
         filesToPlay.push_back(pbFile);
     }
 
-    repeatedPlayerStatusListener = std::make_shared<tafPromptsStatusListener>();
     ec = mAudioPlayer->startPlayback(config, filesToPlay, repeatedPlayerStatusListener);
+#endif
     if (ec != telux::common::ErrorCode::SUCCESS) {
         LE_ERROR("failed start, err %d", static_cast<int>(ec));
         return LE_FAULT;

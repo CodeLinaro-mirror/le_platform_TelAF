@@ -14,6 +14,8 @@ type system_data_t;
 type wifi_system_data_t;
 type usb_dev_t;
 type unlabeled_t;
+type unconfined_t;
+type lxcrootfs_t;
 ')
 
 type telaf_tafLxcInitApp_exec_t;
@@ -48,3 +50,5 @@ allow telaf_tafLxcInitApp_t system_data_t:dir mounton;
 allow telaf_tafLxcInitApp_t usb_dev_t:dir search;
 allow telaf_tafLxcInitApp_t wifi_system_data_t:dir search;
 allow telaf_tafLxcInitApp_t wifi_system_data_t:file mounton;
+allow unconfined_t telaf_tafLxcInitApp_t:process transition;
+allow telaf_tafLxcInitApp_t lxcrootfs_t:file entrypoint;

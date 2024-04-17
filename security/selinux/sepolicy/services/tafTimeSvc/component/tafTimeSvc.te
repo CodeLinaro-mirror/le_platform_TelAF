@@ -42,6 +42,7 @@ allow telaf_tafTimeSvc_t telaf_devmgr_data_t:dir { search };
 allow telaf_tafTimeSvc_t telaf_devmgr_data_t:file { open read getattr execute };
 ifdef(`sa525m',`
     allow telaf_tafTimeSvc_t telaf_devmgr_data_t:file { map };
+    telux_allow_tel_private_info_read(telaf_tafTimeSvc_t)
 ')
 telux_allow_loc(telaf_tafTimeSvc_t)
 allow telaf_tafTimeSvc_t clock_device_t:chr_file { read write open ioctl };

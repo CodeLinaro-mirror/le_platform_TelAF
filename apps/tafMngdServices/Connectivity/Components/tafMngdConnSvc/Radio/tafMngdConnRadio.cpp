@@ -160,7 +160,6 @@ void tafMngdConnRadio::PackSwStateHandler
 
     LE_INFO("phone: %d packet switch state: %d", packSwStateIndPtr->phoneId,
         packSwStateIndPtr->state);
-    auto &mngdConnAdmin = tafMngdConnAdmin::GetInstance();
 
     stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
 
@@ -176,8 +175,9 @@ void tafMngdConnRadio::PackSwStateHandler
 
     stateMachineEvt.phoneId = packSwStateIndPtr->phoneId;
 
-    le_event_Report(mngdConnAdmin.StateMachineEventId, &stateMachineEvt,
-                                                    sizeof(stateMachineEvent_t));
+    auto &mcsAdmin = tafMngdConnAdmin::GetInstance();
+    le_event_Report(mcsAdmin.GetStateMachineEventId(), &stateMachineEvt,
+                    sizeof(stateMachineEvent_t));
 }
 
 //--------------------------------------------------------------------------------------------------

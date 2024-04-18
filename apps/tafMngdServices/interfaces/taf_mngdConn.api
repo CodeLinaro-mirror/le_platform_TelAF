@@ -642,6 +642,13 @@ USETYPES taf_dcs.api;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * The maximum length of data object's name.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_DATA_NAME_LEN = 32;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Reference to data.
  */
 //--------------------------------------------------------------------------------------------------
@@ -688,7 +695,7 @@ EVENT DataState
 //--------------------------------------------------------------------------------------------------
 ENUM RecoveryState{
     RECOVERY_L1_SCHEDULED, ///< L1 recovery is scheduled to start.
-    RECOVERY_L1_STARTED    ///< L1 recovery is started.
+    RECOVERY_L1_STARTED
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -698,7 +705,7 @@ ENUM RecoveryState{
 //--------------------------------------------------------------------------------------------------
 HANDLER RecoveryStateHandler(
     RecoveryState state IN, ///< The recovery state.
-    uint8 dataId IN         ///< The data ID that triggered the recovery.
+    Data dataRef        IN  ///< Data reference that triggered the recovery.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -727,6 +734,21 @@ FUNCTION Data GetData
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Gets the data object ID (as provided in configuration json) for the given data reference.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- Data reference not found.
+ *   - Appropriate error is returned on failure.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DataGetId(
+    Data dataRef IN, ///< The data reference.
+    uint8 dataId OUT ///< The data object ID from configuration json.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Starts a data session for the given data reference. This API should be used when the value of
  * "AutoStart" is "No" in the configuration file.
  *
@@ -737,7 +759,7 @@ FUNCTION Data GetData
  *   - LE_OK -- Succeeded.
  *   - LE_DUPLICATE -- The data connection is already started.
  *   - LE_IN_PROGRESS -- The data connection establishment retry is in progress.
- *   - LE_FAULT -- Failed.
+ *   - Appropriate error is returned on failure.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DataStart
@@ -754,8 +776,8 @@ FUNCTION le_result_t DataStart
  *
  * @return
  *   - LE_OK -- Succeeded.
- *   - LE_FAULT -- Failed.
  *   - LE_NOT_PERMITTED -- If data is auto started by the service, application cannot stop data.
+ *   - Appropriate error is returned on failure.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DataStop
@@ -770,7 +792,7 @@ FUNCTION le_result_t DataStop
  * @return
  *   - LE_OK -- Succeeded.
  *   - LE_BAD_PARAMETER -- Bad parameter.
- *   - LE_FAULT -- Failed.
+ *   - Appropriate error is returned on failure.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DataGetConnectionState
@@ -787,7 +809,7 @@ FUNCTION le_result_t DataGetConnectionState
  * @return
  *   - LE_OK -- Succeeded.
  *   - LE_BAD_PARAMETER -- Bad parameter.
- *   - LE_FAULT -- Failed.
+ *   - Appropriate error is returned on failure.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t DataGetConnectionIPAddresses

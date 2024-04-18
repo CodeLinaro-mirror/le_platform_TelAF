@@ -60,9 +60,16 @@ namespace pt = boost::property_tree;
  * Connectivity recovery state returned by Managed Connectivity Service
  **/
 static void RecoveryStateHandler(taf_mngdConn_RecoveryState_t state,
-                                 uint8_t dataId, void *contextPtr)
+                                 taf_mngdConn_DataRef_t dataRef,
+                                 void *contextPtr)
 {
-    LE_INFO("Recovery event for Data Id: %d", dataId);
+    uint8_t dataId=0;
+    le_result_t result = taf_mngdConn_DataGetId(dataRef, &dataId);
+    if (LE_OK != result)
+    {
+        LE_ERROR("Failed to get Data ID");
+    }
+    LE_INFO("Event recevied for Data Id: %d", dataId);
     if (TAF_MNGDCONN_RECOVERY_L1_SCHEDULED == state)
     {
         LE_INFO("Recovery State: RECOVERY_L1_SCHEDULED");
@@ -114,10 +121,17 @@ static int getConnectionInfo(taf_mngdConn_DataRef_t dataRef)
 /**
  * Data state returned by Managed Connectivity Service
  **/
-static void ConnectionStateHandler(taf_mngdConn_DataRef_t dataRef,
-                                   taf_mngdConn_DataState_t dataState,
-                                   void *contextPtr)
+static void DataStateHandler(taf_mngdConn_DataRef_t dataRef,
+                             taf_mngdConn_DataState_t dataState,
+                             void *contextPtr)
 {
+    uint8_t dataId = 0;
+    le_result_t result = taf_mngdConn_DataGetId(dataRef, &dataId);
+    if (LE_OK != result)
+    {
+        LE_ERROR("Failed to get Data ID");
+    }
+    LE_INFO("Event recevied for Data Id: %d", dataId);
     // Handle event
     if (TAF_MNGDCONN_DATA_CONNECTED == dataState)
     {
@@ -237,7 +251,7 @@ COMPONENT_INIT
             LE_WARN ("Error in getting data reference for Data ID: %d", id.first);
             return;
         }
-        taf_mngdConn_AddDataStateHandler(tmpRef, ConnectionStateHandler, NULL);
+        taf_mngdConn_AddDataStateHandler(tmpRef, DataStateHandler, NULL);
         dataID_dataRef.emplace(id.first, tmpRef);
     }
 

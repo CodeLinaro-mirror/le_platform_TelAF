@@ -114,9 +114,9 @@ void tafMngdConnData::SessionStateChangeHandler
             return;
     }
 
-    le_event_Report(mngdConnAdmin.StateMachineEventId, &stateMachineEvt,
+    auto &mcsAdmin = tafMngdConnAdmin::GetInstance();
+    le_event_Report(mcsAdmin.GetStateMachineEventId(), &stateMachineEvt,
                     sizeof(stateMachineEvent_t));
-
 }
 
 //--------------------------------------------------------------------------------------------------

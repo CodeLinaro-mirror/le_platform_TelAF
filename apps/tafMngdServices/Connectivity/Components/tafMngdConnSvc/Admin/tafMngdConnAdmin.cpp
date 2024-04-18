@@ -428,6 +428,27 @@ taf_mngdConn_DataRef_t tafMngdConnAdmin::GetRefByDataId(uint8_t dataId)
 
 //--------------------------------------------------------------------------------------------------
 /**
+ *  Gets the data id for the given data reference.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t tafMngdConnAdmin::DataGetId (taf_mngdConn_DataRef_t dataRef, uint8_t *dataIdPtr)
+{
+    TAF_ERROR_IF_RET_VAL(dataRef == NULL, LE_BAD_PARAMETER, "Null ptr(dataRef)");
+    TAF_ERROR_IF_RET_VAL(dataIdPtr == NULL, LE_BAD_PARAMETER, "Null ptr(dataIdPtr)");
+    mcs_DataCtx_t *dataCtxPtr = (mcs_DataCtx_t *)le_ref_Lookup(DataRefMap, (void *)dataRef);
+    if (dataCtxPtr == NULL)
+    {
+        LE_ERROR("Data reference not found");
+        *dataIdPtr = 0;
+        return LE_NOT_FOUND;
+    }
+    *dataIdPtr = dataCtxPtr->dataId;
+    LE_INFO("Data Id: %d", *dataIdPtr);
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Add data state handler.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1689,19 +1710,29 @@ mcs_DataCtx_t* tafMngdConnAdmin::GetDataCtx(uint8_t phoneId, uint32_t profileNum
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Get MCS state machine event ID for use by other objects.
+ */
+//--------------------------------------------------------------------------------------------------
+le_event_Id_t tafMngdConnAdmin::GetStateMachineEventId()
+{
+    // return the state machine event id
+    return StateMachineEventId;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Create connectivity context.
  */
 //--------------------------------------------------------------------------------------------------
-mcs_DataCtx_t* tafMngdConnAdmin::CreateDataCtx
-(
+mcs_DataCtx_t *
+tafMngdConnAdmin::CreateDataCtx(
     uint8_t dataId,
     uint8_t slotId,
     uint8_t phoneId,
     uint32_t profileNumber,
     bool autoStart,
-    char* conn_test_url,
-    char* conn_test_ipv4Addr
-)
+    char *conn_test_url,
+    char *conn_test_ipv4Addr)
 {
     char timerName[32] = {0};
     char eventName[32] = {0};
@@ -1963,7 +1994,7 @@ void tafMngdConnAdmin::FirstLayerRecoveryStateHandler(void *reportPtr, void *sec
     taf_mngdConn_RecoveryStateHandlerFunc_t handlerFunc =
         (taf_mngdConn_RecoveryStateHandlerFunc_t)secondLayerHandlerFunc;
     handlerFunc(recoveryStatePtr->recoveryState,
-                recoveryStatePtr->dataId,
+                recoveryStatePtr->dataRef,
                 le_event_GetContextPtr());
 
     le_mem_Release(reportPtr);
@@ -1976,7 +2007,7 @@ void tafMngdConnAdmin::FirstLayerRecoveryStateHandler(void *reportPtr, void *sec
 //--------------------------------------------------------------------------------------------------
 void tafMngdConnAdmin::ReportRecoveryStateEvent(
     taf_mngdConn_RecoveryState_t recoveryState,
-    uint8_t dataId
+    mcs_DataCtx_t *dataCtxPtr
 )
 {
     auto &admin = tafMngdConnAdmin::GetInstance();
@@ -1985,7 +2016,7 @@ void tafMngdConnAdmin::ReportRecoveryStateEvent(
                                     (RecoveryState_t *)le_mem_ForceAlloc(admin.recoveryStatePool);
     TAF_ERROR_IF_RET_NIL(recoveryStateIndPtr == NULL, "Unable to alloc recoveryStateIndPtr");
     recoveryStateIndPtr->recoveryState = recoveryState;
-    recoveryStateIndPtr->dataId = dataId;
+    recoveryStateIndPtr->dataRef = dataCtxPtr->dataRef;
     le_event_ReportWithRefCounting(admin.recoveryStateEvent, (void *)recoveryStateIndPtr);
 }
 
@@ -2549,7 +2580,7 @@ void tafMngdConnAdmin::EventConnRecoverySchedule (uint8_t dataId)
     }
 
     // Report recovery state to all clients
-    ReportRecoveryStateEvent(TAF_MNGDCONN_RECOVERY_L1_SCHEDULED, dataCtxPtr->dataId);
+    ReportRecoveryStateEvent(TAF_MNGDCONN_RECOVERY_L1_SCHEDULED, dataCtxPtr);
 
     // Start the recovery schedule timer
     le_timer_Start(dataCtxPtr->recoveryScheduleTimerRef);
@@ -2607,7 +2638,7 @@ void tafMngdConnAdmin::EventL1ConnRecoveryStart(uint8_t dataId)
     // Set the reconnected needed flag to TRUE
     dataCtxPtr->needReConn = true;
 
-    ReportRecoveryStateEvent(TAF_MNGDCONN_RECOVERY_L1_STARTED, dataCtxPtr->dataId);
+    ReportRecoveryStateEvent(TAF_MNGDCONN_RECOVERY_L1_STARTED, dataCtxPtr);
 
     // Stop all active data sessions
     le_mutex_Lock(DataCtxMutex);

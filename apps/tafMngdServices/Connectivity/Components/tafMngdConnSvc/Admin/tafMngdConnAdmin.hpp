@@ -147,7 +147,7 @@ namespace tafsvc {
     typedef struct
     {
         taf_mngdConn_RecoveryState_t recoveryState;
-        uint8_t                       dataId;
+        taf_mngdConn_DataRef_t       dataRef;
     } RecoveryState_t;
 
     typedef struct
@@ -227,6 +227,7 @@ namespace tafsvc {
             void Init(void);
             static tafMngdConnAdmin &GetInstance();
             taf_mngdConn_DataRef_t GetRefByDataId(uint8_t dataId);
+            le_result_t DataGetId(taf_mngdConn_DataRef_t dataRef, uint8_t* dataIdPtr);
             le_result_t Startdata(taf_mngdConn_DataRef_t dataRef);
             le_result_t Stopdata(taf_mngdConn_DataRef_t dataRef);
             le_result_t GetConnectionState(taf_mngdConn_DataRef_t dataRef,
@@ -236,7 +237,6 @@ namespace tafsvc {
                                                   char *ipv4AddrPtr, size_t ipv4AddrSize,
                                                   char *ipv6AddrPtr, size_t ipv6AddrSize);
 
-            mcs_DataCtx_t* GetDataCtx(uint8_t phoneId, uint32_t profileNumber);
             taf_mngdConn_DataStateHandlerRef_t AddDataStateHandler(
                 taf_mngdConn_DataRef_t dataRef,
                 taf_mngdConn_DataStateHandlerFunc_t handlerPtr,
@@ -245,9 +245,14 @@ namespace tafsvc {
                 taf_mngdConn_RecoveryStateHandlerFunc_t handlerPtr,
                 void *contextPtr);
 
-            le_event_Id_t StateMachineEventId;
+            // Accessor functions
+            mcs_DataCtx_t *GetDataCtx(uint8_t phoneId, uint32_t profileNumber);
+            le_event_Id_t  GetStateMachineEventId();
 
         private:
+
+            le_event_Id_t StateMachineEventId;
+
             le_thread_Ref_t tafMngd_event_thread=NULL;
             le_thread_Ref_t StateMachineEventThreadRef = NULL;
             void EventInit();
@@ -283,7 +288,7 @@ namespace tafsvc {
             void ReportAndUpdateDataState(mcs_DataCtx_t *dataCtxPtr,
                                           taf_mngdConn_DataState_t newstate);
             void ReportRecoveryStateEvent(taf_mngdConn_RecoveryState_t recoveryState,
-                                          uint8_t dataId);
+                                          mcs_DataCtx_t *dataCtxPtr);
             le_result_t InitializeStates();
 
 

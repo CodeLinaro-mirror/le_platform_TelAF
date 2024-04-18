@@ -62,6 +62,28 @@ taf_mngdConn_DataRef_t taf_mngdConn_GetData( uint8_t dataId )
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Gets the data object id (from configuration file) for the given data reference.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- Data reference not found.
+ *   - Appropriate error is returned on failure.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_mngdConn_DataGetId
+(
+    taf_mngdConn_DataRef_t dataRef,
+        ///< [IN] The data reference.
+    uint8_t* dataIdPtr
+        ///< [OUT] The data object id from configuration json.
+)
+{
+    auto &admin = tafMngdConnAdmin::GetInstance();
+    return admin.DataGetId(dataRef, dataIdPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Starts a data cellular session for the given dataRef.
  *
  * @return

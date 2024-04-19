@@ -96,6 +96,10 @@ interface(`init_telaf_app_domain',`
         mls_file_write_to_clearance($1)
         mls_socket_read_to_clearance($1)
         mls_socket_write_to_clearance($1)
+
+        # Allow the specified domain to connect to the system log service (syslog)
+        logging_send_syslog_msg($1)
+
         # Allow printing output to the serial console
         getty_use_fds($1)
         allow $1 { tty_device_t user_tty_device_t }:chr_file { read write getattr ioctl };
@@ -146,10 +150,27 @@ interface(`init_telaf_core_domain',`
         mls_file_write_to_clearance($1)
         mls_socket_read_to_clearance($1)
         mls_socket_write_to_clearance($1)
+
+        # Search init runtime directories, e.g. /run/systemd
+        ifdef(`kirkstone',`
+            gen_require(`
+                type unconfined_t;
+            ')
+            init_search_runtime($1)
+            # use /tmp/sdOutput for sdir command
+            allow $1 unconfined_t:fd { use };
+        ')
+
+        # Allow the specified domain to connect to the system log service (syslog)
+        logging_send_syslog_msg($1)
+
+        # Get proc file attributes
+        kernel_getattr_proc($1)
+        kernel_getattr_proc_files($1)
+
         # Allow printing output to the serial console
         getty_use_fds($1)
         allow $1 { tty_device_t user_tty_device_t }:chr_file { read write getattr ioctl };
-
 ')
 
 ########################################
@@ -197,6 +218,14 @@ interface(`init_telaf_admin_domain',`
         mls_file_write_to_clearance($1)
         mls_socket_read_to_clearance($1)
         mls_socket_write_to_clearance($1)
+
+        # Get proc file attributes
+        kernel_getattr_proc($1)
+        kernel_getattr_proc_files($1)
+
+        # Allow the specified domain to connect to the system log service (syslog)
+        logging_send_syslog_msg($1)
+
         # Allow printing output to the serial console
         getty_use_fds($1)
         allow $1 { tty_device_t user_tty_device_t }:chr_file { read write getattr ioctl };

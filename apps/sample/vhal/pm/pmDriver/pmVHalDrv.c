@@ -101,6 +101,7 @@ static TAF_HAL_PM_RESTARTRSPCALLBACK restartCallbackFunc = NULL;
 static TAF_HAL_PM_SUSPENDRSPCALLBACK suspendCallbackFunc = NULL;
 static TAF_HAL_PM_NODESTATECHANGENOTIFICATIONCONFIRMCALLBACK nodeStateChangeCallbackFunc = NULL;
 static TAF_HAL_PM_NODEEVENTCALLBACK nodeEventCallback = NULL;
+static TAF_HAL_PM_WAKEUPVEHICLERSPCALLBACK wakeupVehichleRspCallBack = NULL;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -421,6 +422,18 @@ static le_result_t taf_hal_RestartReqAsync
     return LE_OK;
 }
 
+static le_result_t taf_hal_WakeupVehicleReqAsync
+(
+    int32_t reason,
+    TAF_HAL_PM_WAKEUPVEHICLERSPCALLBACK  callback
+)
+{
+    LE_INFO("PM_VHAL: %s", __FUNCTION__);
+    wakeupVehichleRspCallBack = callback;
+    callback(reason,HAL_PM_VEHICHLE_WAKEUP_STATUS_AWAKE);
+    return LE_OK;
+}
+
 static le_result_t taf_hal_SuspendReqAsync
 (
     taf_hal_pm_SuspendMode mode,
@@ -569,6 +582,7 @@ LE_SHARED pm_InfoTab_t TAF_HAL_INFO_TAB = {
         .nodeStateChangeNotification = taf_hal_NodeStateChangeNotification,
         .nodeInfoNotification = taf_hal_nodeInfoNotification,
         .addNodeEventHandler = taf_hal_addNodeEventHanlder,
+        .wakeupVehicleReqAsync = taf_hal_WakeupVehicleReqAsync
     }
 };
 

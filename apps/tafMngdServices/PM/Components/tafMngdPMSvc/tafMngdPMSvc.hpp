@@ -40,10 +40,17 @@
 #include <vector>
 #include <sys/reboot.h>
 
+#define VEHICHLE_WAKEUP_REASON_DEFAULT 0
+
+#define VEHICHLE_WAKEUP_STATUS_AWAKE  0
+#define VEHICHLE_WAKEUP_STATUS_INVALID_REQ 1
+#define VEHICHLE_WAKEUP_STATUS_UNKNOWN 2
+
 #define TAF_MNGD_PM_VM_HASH_SIZE 10
 #define NODE_PRIMARY_NAD 0
 #define VHAL_ACK_TIMEOUT 10000
 #define VHAL_WAKESOURCE_TIMEOUT 10000
+#define VEHICHLE_WAKEUP_TIMEOUT 10000
 #define NODE_ID 0
 #define WAKELOCK_WITHOUT_REF 0
 #define MAX_SESSION 5
@@ -74,6 +81,18 @@ typedef struct
     void* restartCBCtxPtr;
     taf_mngd_pm_AsyncRestartReqHandlerFunc_t restartCallbackFunc;
 }taf_mngdPm_RestartCb_t;
+
+typedef struct
+{
+    le_msg_SessionRef_t sessionRef;
+    void* wakeupVehicleCBCtxPtr;
+    taf_mngd_pm_AsyncWakeupVehicleReqHandlerFunc_t wakeupVehicleCallbackFunc;
+}taf_mngdPm_WakeupVehicleCb_t;
+
+typedef enum
+{
+    WAKEUP_VEHICHLE_REQ_DEFAULT
+}taf_mngdPm_RequestedWakeupVehicle_t;
 
 typedef enum
 {
@@ -138,6 +157,7 @@ class tafMngdPMSvc: public ITafSvc
         static void VhalAckTimerHandler(le_timer_Ref_t timerRef);
         static void WakeSourceTimerHandler(le_timer_Ref_t timerRef);
         static void WaitWakeSourceTimer();
+        static void VehichleWakeupTimerHandler(le_timer_Ref_t timerRef);
 
         static le_result_t ShutdownNAD();
         static le_result_t SuspendNAD();
@@ -145,6 +165,8 @@ class tafMngdPMSvc: public ITafSvc
         static void ShutdownCmdCB(taf_hal_pm_ShutdownMode mode, taf_hal_pm_RspReason reason);
         static void SuspendRespCB(taf_hal_pm_SuspendMode mode, taf_hal_pm_RspReason reason);
         static void RestartRespCB(taf_hal_pm_RestartMode mode, taf_hal_pm_RspReason reason);
+        static void WakeupVehicleCB(int32_t reason, int32_t response);
+
         static void NodeStateChangeNotificationCB(uint8_t pm_node_id,
                                             taf_hal_pm_NodeState state,
                                             taf_hal_pm_ConfirmStatus status);
@@ -192,6 +214,8 @@ class tafMngdPMSvc: public ITafSvc
 
         // resources to manamge state change handler
         static le_event_Id_t stateChange;
+        static taf_mngdPm_WakeupVehicleCb_t wakeupVehicleCB;
+        static le_timer_Ref_t wakeupVehicleTimerRef;
 };
 }
 }

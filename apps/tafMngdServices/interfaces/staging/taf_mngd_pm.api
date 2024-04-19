@@ -187,6 +187,28 @@
     }
    @endverbatim
  *
+  * @section taf_mngd_pm_WakeupVehicleReqAsync requests VHAL to wake up the vehichle.
+ *
+ * TelAF Managed Power Management Service's client calls WakeupVehicleReqAsync() to request
+ * MPMS to wake up the vehichle.
+ * This function returns le_result_t.
+ * @verbatim
+ void wakeupVehicleCB(taf_mngd_pm_RestartMode_t mode, taf_mngd_pm_ResponseMode_t rspmode,
+            void* contextPtr)
+    {
+        LE_INFO(" wakeupVehicleCB ");
+    }
+
+    void WakeupVehicleReqAsync()
+    {
+        le_result_t result = = taf_mngd_pm_WakeupVehicleReqAsync(VEHICHLE_WAKEUP_REASON_DEFAULT,
+                 wakeupVehicleCB,NULL);
+        if(result == LE_OK) {
+            LE_INFO("WakeupVehicleReqAsync request sent successfully");
+        }
+    }
+   @endverbatim
+ *
  *<HR>
  *
  */
@@ -290,6 +312,14 @@ HANDLER AsyncRestartReqHandler
     ResponseMode responseMode IN     ///< Request response.
 );
 
+/**
+ * Handler for async Wake up Vehicle request.
+ */
+HANDLER AsyncWakeupVehicleReqHandler
+(
+    int32 reason IN,    ///< WakeupVehicleReason reason.
+    int32 status IN     ///< Response status.
+);
 
 /**
  * State indication structure.
@@ -363,6 +393,21 @@ FUNCTION le_result_t RestartReqAsync
     AsyncRestartReqHandler  handlerRef   IN    ///< Handler reference.
 );
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Request for the vehichle wakeup with wake up reason.
+ *
+ * @return
+ *     - LE_OK             Successfully sent the request.
+ *     - LE_BAD_PARAMETER  Invalid requested mode or handler reference.
+ *     - LE_FAULT          Failed to send the request.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t WakeupVehicleReqAsync
+(
+    int32           reason  IN,   ///< WakeupVehicle Reason.
+    AsyncWakeupVehicleReqHandler  handlerRef   IN    ///< AsyncWakeupVehicleReq Handler reference.
+);
 
 //--------------------------------------------------------------------------------------------------
 /**

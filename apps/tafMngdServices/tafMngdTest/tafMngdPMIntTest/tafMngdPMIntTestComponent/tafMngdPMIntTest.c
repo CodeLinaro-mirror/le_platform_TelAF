@@ -46,6 +46,7 @@ le_clk_Time_t Timeout = { 5 , 0 };
 #define NODE_ID 0
 int status = EXIT_SUCCESS;
 const char* vHalTag = "vehichle_on";
+#define VEHICHLE_WAKEUP_REASON_DEFAULT 0
 
 static void PrintUsage ()
 {
@@ -89,7 +90,9 @@ static void PrintUsage ()
         "\n"
         "------------To Shutdown the particular node with node ID-----------\n"
         "--------0 -> For NAD ------------\n"
-        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ShutdownNode <NODE_ID>\n");
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ShutdownNode <NODE_ID>\n"
+        "------------To WakeupVehicle-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- WakeupVehicle\n");
 }
 
 void RestartCallback(taf_mngd_pm_RestartMode_t mode, taf_mngd_pm_ResponseMode_t rspmode ,
@@ -388,6 +391,31 @@ static int ShutdownNode(const char* node_id)
     }
 }
 
+void WakeupVehicleback(int32_t reason, int32_t rspmode ,
+        void* contextPtr)
+{
+    LE_INFO("WakeupVehicleback response is %d", rspmode);
+    exit(status);
+}
+
+static int WakeupVehicle()
+{
+    LE_INFO("WakeupVehicle");
+    le_result_t res = taf_mngd_pm_WakeupVehicleReqAsync(VEHICHLE_WAKEUP_REASON_DEFAULT,
+            WakeupVehicleback, NULL);
+
+    if(res == LE_OK)
+    {
+        LE_INFO("----WakeupVehicle success----");
+        status = EXIT_SUCCESS;
+    }
+    else
+    {
+        LE_ERROR("WakeupVehicle request failed");
+        status = EXIT_FAILURE;
+    }
+    return status;
+}
 COMPONENT_INIT
 {
     const char* testType = "";
@@ -454,6 +482,11 @@ COMPONENT_INIT
         else if(strcmp(testType, "ShutdownNode") == 0)
         {
             status = ShutdownNode(testPar);
+            exit(status);
+        }
+        else if(strcmp(testType, "WakeupVehicle") == 0)
+        {
+            status = WakeupVehicle();
             exit(status);
         }
         else

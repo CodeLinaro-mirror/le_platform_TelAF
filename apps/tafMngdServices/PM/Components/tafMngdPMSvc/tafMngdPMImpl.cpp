@@ -454,6 +454,42 @@ void tafMngdPMSvc::RestartRespCB
 }
 
 /**
+ * WakeupVehicle response callback function for VHAL module
+ */
+void tafMngdPMSvc::WakeupVehicleCB
+(
+    int32_t reason,
+    int32_t response
+)
+{
+    LE_INFO("***** %s *****", __FUNCTION__);
+    LE_INFO("taf_hal_pm_WakeupVehicleReason: %d", reason);
+    LE_INFO("taf_hal_pm_RspReason: %d", response);
+    if(le_timer_IsRunning(wakeupVehicleTimerRef))
+    {
+        LE_INFO("wakeupVehicleTimerRef");
+        LE_DEBUG("Stop the timer");
+        le_timer_Stop(wakeupVehicleTimerRef);
+    }
+    if (reason == VEHICHLE_WAKEUP_REASON_DEFAULT && response == HAL_PM_VEHICHLE_WAKEUP_STATUS_AWAKE)
+    {
+        if(wakeupVehicleCB.wakeupVehicleCallbackFunc)
+        {
+            wakeupVehicleCB.wakeupVehicleCallbackFunc(VEHICHLE_WAKEUP_REASON_DEFAULT, VEHICHLE_WAKEUP_STATUS_AWAKE,
+                    wakeupVehicleCB.wakeupVehicleCBCtxPtr);
+        }
+    }
+    else if (reason == VEHICHLE_WAKEUP_REASON_DEFAULT && response == HAL_PM_VEHICHLE_WAKEUP_STATUS_INVALID_REQ)
+    {
+        if(wakeupVehicleCB.wakeupVehicleCallbackFunc)
+        {
+            wakeupVehicleCB.wakeupVehicleCallbackFunc(VEHICHLE_WAKEUP_REASON_DEFAULT, VEHICHLE_WAKEUP_STATUS_INVALID_REQ,
+                    wakeupVehicleCB.wakeupVehicleCBCtxPtr);
+        }
+    }
+    wakeupVehicleCB.wakeupVehicleCallbackFunc = nullptr;
+}
+/**
  * Node state change callback function for VHAL module
  */
 void tafMngdPMSvc::NodeStateChangeNotificationCB
@@ -782,7 +818,6 @@ void tafMngdPMSvc::VhalAckTimerHandler(le_timer_Ref_t timerRef)
     taf_mngdPm_RequestedState_t* state =
       (taf_mngdPm_RequestedState_t*)le_timer_GetContextPtr(timerRef);
     LE_INFO("Timer Expired state is %d", *(state));
-
     if(*(state) == SYSTEM_FORCEFUL_SHUTDOWN)
     {
         LE_INFO("Timer expire for SYSTEM_FORCEFUL_SHUTDOWN");
@@ -802,7 +837,26 @@ void tafMngdPMSvc::VhalAckTimerHandler(le_timer_Ref_t timerRef)
         }
     }
 }
-
+/**
+ * VHAL ack timer handler
+ */
+void tafMngdPMSvc::VehichleWakeupTimerHandler(le_timer_Ref_t timerRef)
+{
+    taf_mngdPm_RequestedState_t* state =
+      (taf_mngdPm_RequestedState_t*)le_timer_GetContextPtr(timerRef);
+    LE_INFO("Timer Expired state is %d", *(state));
+    taf_mngdPm_RequestedWakeupVehicle_t* mode = (taf_mngdPm_RequestedWakeupVehicle_t*)le_timer_GetContextPtr(timerRef);
+    if(*(mode) == WAKEUP_VEHICHLE_REQ_DEFAULT)
+    {
+        LE_INFO("Timer expire for WAKEUP_VEHICHLE_REQ_DEFAULT");
+        if(wakeupVehicleCB.wakeupVehicleCallbackFunc)
+        {
+            wakeupVehicleCB.wakeupVehicleCallbackFunc(WAKEUP_VEHICHLE_REQ_DEFAULT, TAF_MNGD_PM_TIMEOUT,
+                    wakeupVehicleCB.wakeupVehicleCBCtxPtr);
+        }
+        wakeupVehicleCB.wakeupVehicleCallbackFunc = nullptr;
+    }
+}
 /**
  * Timer to wait wakesource request from apps
  */
@@ -862,6 +916,10 @@ le_result_t tafMngdPMSvc::InitVHalModule()
         vhalAckTimerRef = le_timer_Create("VHAL ACK timer");
         le_timer_SetMsInterval(vhalAckTimerRef, VHAL_ACK_TIMEOUT);
         le_timer_SetHandler(vhalAckTimerRef, VhalAckTimerHandler);
+        //creating the timer for vehichle wakeup
+        wakeupVehicleTimerRef = le_timer_Create("VEHICHLE WAKEUP timer");
+        le_timer_SetMsInterval(wakeupVehicleTimerRef, VEHICHLE_WAKEUP_TIMEOUT);
+        le_timer_SetHandler(wakeupVehicleTimerRef, VehichleWakeupTimerHandler);
     }
 
     return LE_OK;
@@ -1098,10 +1156,11 @@ taf_stateMachine_t tafMngdPMSvc::stateMachine{};
 pm_Inf_t* tafMngdPMSvc::pmInf = nullptr;
 le_timer_Ref_t tafMngdPMSvc::vhalAckTimerRef = nullptr;
 le_timer_Ref_t tafMngdPMSvc::wakeSourceTimerRef = nullptr;
+le_timer_Ref_t tafMngdPMSvc::wakeupVehicleTimerRef = nullptr;
 
 taf_mngdPm_RequestedState_t tafMngdPMSvc::statePtr;
-
 taf_mngdPm_Client_t tafMngdPMSvc::mngdPmClientInfo;
 const char* tafMngdPMSvc::clientWhiteList[] = {"tafMngdPMIntTest","tafMngdPMUnitTest"};
 
 le_event_Id_t tafMngdPMSvc::stateChange;
+taf_mngdPm_WakeupVehicleCb_t tafMngdPMSvc::wakeupVehicleCB;

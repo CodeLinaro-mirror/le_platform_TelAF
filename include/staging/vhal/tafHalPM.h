@@ -84,6 +84,13 @@
 // Define the name or ID for HAL module
 #define TAF_PM_MODULE_NAME "TafHalPowerManagement"
 
+//Define the vehichle wakeup reason
+#define HAL_PM_VEHICHLE_WAKEUP_REASON_DEFAULT 0
+
+//Define the vehichle wake up 
+#define HAL_PM_VEHICHLE_WAKEUP_STATUS_AWAKE 0
+#define HAL_PM_VEHICHLE_WAKEUP_STATUS_INVALID_REQ 1
+#define HAL_PM_VEHICHLE_WAKEUP_STATUS_UNKNOWN 2
 //--------------------------------------------------------------------------------------------------
 /**
  * PM shutdown mode for request from service
@@ -122,8 +129,10 @@ typedef enum
 //--------------------------------------------------------------------------------------------------
 typedef enum
 {
-    PM_HAL_RSP_READY,    /**<Ready */
-    PM_HAL_RSP_NOT_READY /**<Not ready */
+    PM_HAL_RSP_READY,             /**<Ready */
+    PM_HAL_RSP_NOT_READY,         /**<Not ready */
+    PM_HAL_RSP_TIMEOUT,           /**Timeout */
+    PM_HAL_RSP_INVALID_REQUEST    /** Invalid Request */
 } taf_hal_pm_RspReason;
 
 //--------------------------------------------------------------------------------------------------
@@ -256,6 +265,22 @@ typedef void (*TAF_HAL_PM_SUSPENDRSPCALLBACK)
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Suspend response callback function.
+ * @param
+ *      mode    - corresonding suspend mode to respond
+ *      reason  - response to the request
+ *
+ * @return void
+ */
+//--------------------------------------------------------------------------------------------------
+typedef void (*TAF_HAL_PM_WAKEUPVEHICLERSPCALLBACK)
+(
+    int32_t reason,
+    int32_t response
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Suspend request to the VHAL hardware component asynchronously.
  * @param
  *      mode        - suspend mode request to the VHAL compoment
@@ -269,6 +294,23 @@ typedef le_result_t (*TAF_HAL_PM_SUSPENDREQASYNC)
 (
     taf_hal_pm_SuspendMode mode,
     TAF_HAL_PM_SUSPENDRSPCALLBACK  callback
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Suspend request to the VHAL hardware component asynchronously.
+ * @param
+ *      mode        - suspend mode request to the VHAL compoment
+ *      callback    - the callback function to response the request
+ *
+ * @return
+ *      result for sending the request
+ */
+//--------------------------------------------------------------------------------------------------
+typedef le_result_t (*TAF_HAL_PM_WAKEUPVEHICLEREQASYNC)
+(
+    int32_t reason,
+    TAF_HAL_PM_WAKEUPVEHICLERSPCALLBACK  callback
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -372,6 +414,8 @@ typedef struct
     TAF_HAL_PM_NODEINFO_NOTIFICATION nodeInfoNotification;
 
     TAF_HAL_PM_ADDNODEEVENTHANDLER addNodeEventHandler;
+
+    TAF_HAL_PM_WAKEUPVEHICLEREQASYNC wakeupVehicleReqAsync;
 
 } pm_Inf_t;
 

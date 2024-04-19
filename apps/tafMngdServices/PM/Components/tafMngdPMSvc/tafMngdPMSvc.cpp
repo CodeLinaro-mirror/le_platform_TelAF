@@ -174,6 +174,52 @@ le_result_t taf_mngd_pm_RestartReqAsync(taf_mngd_pm_RestartMode_t mode,
 }
 
 /**
+ * WakeupVehicleReq with requested reason.
+ */
+le_result_t taf_mngd_pm_WakeupVehicleReqAsync(int32_t reason,
+    taf_mngd_pm_AsyncWakeupVehicleReqHandlerFunc_t handlerPtr, void* contextPtr)
+{
+    auto &mpms = tafMngdPMSvc::GetInstance();
+
+    if(tafMngdPMSvc::IsClientValid() == false)
+    {
+        return LE_UNSUPPORTED;
+    }
+    TAF_ERROR_IF_RET_VAL(mpms.handlerRef == nullptr, LE_BAD_PARAMETER, "invalid handlerRef");
+
+    if(reason == VEHICHLE_WAKEUP_REASON_DEFAULT)
+    {
+        if(mpms.pmInf)
+        {
+            LE_INFO("Send wakeupVehicleReqAsync %d", HAL_PM_VEHICHLE_WAKEUP_STATUS_AWAKE);
+            if(mpms.stateMachine.currentState != TAF_MNGD_PM_STATE_RESUME)
+            {
+                LE_INFO("Current state is not resume to trigger WakeupVehicleReqAsync");
+                handlerPtr = nullptr;
+                return LE_UNSUPPORTED;
+            }
+            taf_mngdPm_RequestedWakeupVehicle_t wakeupMode = WAKEUP_VEHICHLE_REQ_DEFAULT;
+            le_timer_SetContextPtr(mpms.wakeupVehicleTimerRef, &(wakeupMode));
+            le_timer_Start(mpms.wakeupVehicleTimerRef);
+            LE_INFO("Timer has started");
+            mpms.wakeupVehicleCB.wakeupVehicleCallbackFunc = handlerPtr;
+            mpms.wakeupVehicleCB.wakeupVehicleCBCtxPtr = contextPtr;
+            mpms.wakeupVehicleCB.sessionRef = taf_mngd_pm_GetClientSessionRef();
+            (*(mpms.pmInf->wakeupVehicleReqAsync))(HAL_PM_VEHICHLE_WAKEUP_STATUS_AWAKE, tafMngdPMSvc::WakeupVehicleCB);
+        }
+        else
+        {
+            LE_INFO("Returning unsupported if drive is not available");
+            handlerPtr = nullptr;
+            // Send ready incase of driver not available.
+            return LE_UNSUPPORTED;
+        }
+    }
+
+    return LE_OK;
+}
+
+/**
  * Sets the Modem wakeupSource type.
  */
 le_result_t taf_mngd_pm_SetModemWakeupSource (

@@ -1,0 +1,138 @@
+/*
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+USETYPES taf_types.api;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * The maximum size of the payload data in bytes.
+ */
+//-------------------------------------------------------------------------------------------------
+DEFINE MAX_PAYLOAD_SIZE = 4095;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Diagnostic SessionControl type.
+ */
+//-------------------------------------------------------------------------------------------------
+ENUM SessionType
+{
+    DEFAULT = 0x01,                       ///< Default session.
+    PROGRAMMING,                          ///< Programming session.
+    EXTENDED,                             ///< Extended diagnostic session.
+    VEHICLE_MANUFACTURER_SPECIFIC = 0x40, ///< Vehicle manufacture specific session.
+    FOTA = 0x42,                          ///< FOTA session.
+    SYSTEM_SUPPLIER_SPECIFIC = 0x60       ///< System supplier specific session.
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Error code for SessionControl.
+ */
+//-------------------------------------------------------------------------------------------------
+ENUM SesControlErrorCode
+{
+    SES_CONTROL_NO_ERROR = 0,
+    SES_CONTROL_CONDITIONS_NOT_CORRECT = 0x22
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Reference to the SessionControl request message.
+ */
+//-------------------------------------------------------------------------------------------------
+REFERENCE SesTypeCheck;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for a session control type.
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER SesTypeHandler
+(
+    SesTypeCheck sesTypeRef  IN,    ///< Session type reference.
+    SessionType sesCtrlType  IN     ///< Session control type.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This event provides information on Rx session control type.
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT SesTypeCheck
+(
+    SesTypeHandler handler    ///< Received message handler.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sends a response message for the condition check of session control type.
+ *
+ * @note This function must be called to send a response if receiving a message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_FAULT -- Failed.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SendSesTypeCheckResp
+(
+    SesTypeCheck sesTypeRef  IN,        ///< Session type reference.
+    SesControlErrorCode errCode  IN     ///< Error code type.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Handler for a session control type change.
+ */
+//-------------------------------------------------------------------------------------------------
+HANDLER SesChangeHandler
+(
+    SessionType previousType  IN,    ///< Previous session control type.
+    SessionType currentType   IN     ///< Current session control type.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * This event provides information on session control type change.
+ */
+//-------------------------------------------------------------------------------------------------
+EVENT SesChange
+(
+    SesChangeHandler handler    ///< Received message handler.
+);

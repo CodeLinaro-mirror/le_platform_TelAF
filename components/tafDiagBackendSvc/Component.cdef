@@ -1,0 +1,44 @@
+provides:
+{
+    api:
+    {
+        taf_diagDIDBackend.api
+        taf_diagSecBackend.api
+    }
+}
+
+requires:
+{
+    lib:
+    {
+        stdc++
+        libPortingLayer.so
+        libDK.a
+    }
+}
+
+cxxflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+    -I$TELAF_ROOT/include
+    -linclude
+    -llib
+}
+
+cflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+    -I$TELAF_ROOT/include
+    -linclude
+    -llib
+}
+
+sources:
+{
+        tafDiagStackInf.cpp
+        tafDIDBackendSvc.cpp
+        tafDIDBackendSvrImpl.cpp
+        tafSecBackendSvc.cpp
+        tafSecBackendSvrImpl.cpp
+        tafDiagMain.cpp
+}

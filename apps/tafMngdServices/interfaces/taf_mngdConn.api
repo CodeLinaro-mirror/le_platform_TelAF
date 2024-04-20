@@ -695,7 +695,8 @@ EVENT DataState
 //--------------------------------------------------------------------------------------------------
 ENUM RecoveryState{
     RECOVERY_L1_SCHEDULED, ///< L1 recovery is scheduled to start.
-    RECOVERY_L1_STARTED
+    RECOVERY_L1_STARTED,   ///< L1 recovery is started.
+    RECOVERY_L1_CANCELED   ///< A scheduled L1 recovery is canceled.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -705,7 +706,7 @@ ENUM RecoveryState{
 //--------------------------------------------------------------------------------------------------
 HANDLER RecoveryStateHandler(
     RecoveryState state IN, ///< The recovery state.
-    Data dataRef        IN  ///< Data reference that triggered the recovery.
+    Data dataRef        IN  ///< Data reference that triggered this event.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -817,4 +818,21 @@ FUNCTION le_result_t DataGetConnectionIPAddresses
     Data dataRef                                          IN,  ///< The data reference.
     string IPv4Addr[taf_dcs.IPV4_ADDR_MAX_LEN]            OUT, ///< IPv4 Address.
     string IPv6Addr[taf_dcs.IPV6_ADDR_MAX_LEN]            OUT  ///< IPv6 Address.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Cancels a scheduled L1 recovery process. A L1 recovery could be scheduled for one or more data
+ * connetions. For a scheduled L1 recovery process to be canceled, this API should be called for all
+ * data references for which L1 recovery has been scheduled.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_POSSIBLE -- A L1 recovery process has not been scheduled.
+ *   - LE_NOT_PERMITTED -- A L1 recovery process has already started.
+ *   - Appropriate error is returned on failure.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t CancelL1Recovery(
+    Data dataRef IN ///< The data reference.
 );

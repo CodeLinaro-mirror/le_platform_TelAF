@@ -169,6 +169,24 @@ le_result_t taf_mngdConn_DataGetConnectionIPAddresses
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Cancels a scheduled L1 recovery process. This API should be called for all data references that
+ * scheduled a L1 recovery.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_POSSIBLE -- A L1 recovery process has not been scheduled.
+ *   - LE_NOT_PERMITTED -- A L1 recovery process has already started.
+ *   - Appropriate error is returned on failure.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_mngdConn_CancelL1Recovery(taf_mngdConn_DataRef_t dataRef)
+{
+    auto &admin = tafMngdConnAdmin::GetInstance();
+    return admin.CancelL1Recovery(dataRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Adds state change handler to monitor the connectivity state.
  */
 //--------------------------------------------------------------------------------------------------

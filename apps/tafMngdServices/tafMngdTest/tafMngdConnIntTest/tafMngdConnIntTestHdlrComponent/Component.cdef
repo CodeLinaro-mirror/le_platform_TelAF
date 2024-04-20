@@ -1,0 +1,12 @@
+sources:
+{
+    tafMngdConnIntTestHdlr.c
+}
+
+requires:
+{
+    api:
+    {
+       taf_mngdConn.api
+    }
+}

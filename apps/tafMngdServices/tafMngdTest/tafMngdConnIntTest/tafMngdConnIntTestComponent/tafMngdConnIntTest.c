@@ -48,24 +48,26 @@ taf_mngdConn_DataStateHandlerRef_t statHandlerRef = NULL;
 static void PrintUsage ()
 {
     puts("\n"
-        "app start tafMngdConnIntTest\n"
-        "app runProc tafMngdConnIntTest --exe=tafMngdConnIntTest -- startdata <id>\n"
-        "app runProc tafMngdConnIntTest --exe=tafMngdConnIntTest -- stopdata <id>\n"
-        "app runProc tafMngdConnIntTest --exe=tafMngdConnIntTest -- getconnstate <id>\n"
-        "app runProc tafMngdConnIntTest --exe=tafMngdConnIntTest -- getipaddr <id>\n"
-        "app runProc tafMngdConnIntTest --exe=tafMngdConnIntTest -- monitor <id>\n"
-        "\n");
+         "app runProc tafMngdConnIntTest --exe=tafMngdConnIntTest -- StartData <id>\n"
+         "app runProc tafMngdConnIntTest --exe=tafMngdConnIntTest -- StopData <id>\n"
+         "app runProc tafMngdConnIntTest --exe=tafMngdConnIntTest -- GetConnState <id>\n"
+         "app runProc tafMngdConnIntTest --exe=tafMngdConnIntTest -- GetIpAddr <id>\n"
+         "app runProc tafMngdConnIntTest --exe=tafMngdConnIntTest -- CancelL1Recovery <id>\n"
+         "app runProc tafMngdConnIntTest --exe=tafMngdConnIntTestHdlr -- Monitor <id>\n\n"
+         "For testing multi client, set AutoStart:No and use TelAF-CM as the second client.\n"
+         "For testing handlers, run test from a separate shell or put test in background.\n"
+         "\n");
 }
 
-static int startData()
+static le_result_t startData()
 {
-    LE_INFO("----startData test " );
-    le_result_t result;
+    LE_TEST_INFO("----StartData test ");
+    le_result_t result = LE_FAULT;
 
     if (le_arg_NumArgs() != 2)
     {
         PrintUsage();
-        return EXIT_FAILURE;
+        return result;
     }
 
     uint32_t dataId = strtol(le_arg_GetArg(1), NULL, 0);
@@ -74,29 +76,27 @@ static int startData()
 
     if(dataRef == NULL)
     {
-        LE_ERROR("Not initialized for data ID %d", dataId);
-        return EXIT_FAILURE;
+        LE_TEST_INFO("Unable to get data ref for data ID %d", dataId);
+        return result;
     }
 
     result=taf_mngdConn_DataStart(dataRef);
-
-    LE_INFO("----result=%d " ,result);
-
     if(result !=LE_OK)
-        return EXIT_FAILURE;
-
-    return EXIT_SUCCESS;
+    {
+        LE_TEST_INFO("taf_mngdConn_DataStart failed: %d ", result);
+    }
+    return result;
 }
 
-static int stopData()
+static le_result_t stopData()
 {
-    LE_INFO("----stopData test " );
-    le_result_t result;
+    LE_TEST_INFO("----StopData test ");
+    le_result_t result = LE_FAULT;
 
     if (le_arg_NumArgs() != 2)
     {
         PrintUsage();
-        return EXIT_FAILURE;
+        return result;
     }
 
     uint32_t dataId = strtol(le_arg_GetArg(1), NULL, 0);
@@ -105,39 +105,69 @@ static int stopData()
 
     if(dataRef == NULL)
     {
-        LE_ERROR("Not initialized for data ID %d", dataId);
-        return EXIT_FAILURE;
+        LE_TEST_INFO("Unable to get data ref for data ID %d", dataId);
+        return result;
     }
 
     result=taf_mngdConn_DataStop(dataRef);
-
-    LE_INFO("----result=%d " ,result);
-
     if(result !=LE_OK)
-        return EXIT_FAILURE;
+    {
+        LE_TEST_INFO("taf_mngdConn_DataStop failed: %d ", result);
+    }
+    return result;
+}
 
-    return EXIT_SUCCESS;
+static le_result_t cancelL1Recovery()
+{
+    LE_TEST_INFO("----CancelL1Recovery test ");
+    le_result_t result = LE_FAULT;
+
+    if (le_arg_NumArgs() != 2)
+    {
+        PrintUsage();
+        return result;
+    }
+
+    uint32_t dataId = strtol(le_arg_GetArg(1), NULL, 0);
+
+    taf_mngdConn_DataRef_t dataRef = taf_mngdConn_GetData(dataId);
+
+    if (dataRef == NULL)
+    {
+        LE_TEST_INFO("Unable to get data ref for data ID %d", dataId);
+        return result;
+    }
+
+    result = taf_mngdConn_CancelL1Recovery(dataRef);
+    if (result != LE_OK)
+    {
+        LE_TEST_INFO("taf_mngdConn_CancelL1Recovery failed: %d ", result);
+    }
+    return result;
 }
 
 static char* StateToString(taf_mngdConn_DataState_t state)
 {
     switch (state)
     {
-        case TAF_MNGDCONN_DATA_CONNECTED:
-            return "TAF_MNGDCONN_DATA_CONNECTED";
         case TAF_MNGDCONN_DATA_DISCONNECTED:
             return "TAF_MNGDCONN_DATA_DISCONNECTED";
-        default:
-            LE_ERROR("unknown status: %d", (int)state);
-            return "unknow status";
+        case TAF_MNGDCONN_DATA_CONNECTED:
+            return "TAF_MNGDCONN_DATA_CONNECTED";
+        case TAF_MNGDCONN_DATA_CONNECTION_STALLED:
+            return "TAF_MNGDCONN_DATA_CONNECTION_STALLED";
+        case TAF_MNGDCONN_DATA_CONNECTION_FAILED:
+            return "TAF_MNGDCONN_DATA_CONNECTION_FAILED";
+    default:
+        LE_TEST_INFO("unknown status: %d", (int)state);
     }
     return "unknow status";
 }
 
 static int getConnState()
 {
-    LE_INFO("----getConnState test " );
-    le_result_t result;
+    LE_TEST_INFO("----GetConnState test " );
+    le_result_t result = LE_FAULT;
     uint8_t retDataId;
     taf_mngdConn_DataState_t state;
 
@@ -145,132 +175,70 @@ static int getConnState()
     if (le_arg_NumArgs() != 2)
     {
         PrintUsage();
-        return EXIT_FAILURE;
+        return result;
     }
 
     uint8_t dataId = strtol(le_arg_GetArg(1), NULL, 0);
-    LE_INFO("dataId = %d", dataId);
+    LE_TEST_INFO("dataId = %d", dataId);
 
     taf_mngdConn_DataRef_t dataRef = taf_mngdConn_GetData(dataId);
 
     if(dataRef == NULL)
     {
-        LE_ERROR("Not initialized for data ID %d", dataId);
-        return EXIT_FAILURE;
+        LE_TEST_INFO("Unable to get data ref for data ID %d", dataId);
+        return result;
     }
 
     result=taf_mngdConn_DataGetConnectionState(dataRef, &retDataId, &state);
-
-    LE_INFO("----result=%d" , result);
-
     if(result !=LE_OK)
-        return EXIT_FAILURE;
+    {
+        LE_TEST_INFO("taf_mngdConn_DataGetConnectionState failed: %d", result);
+        return result;
+    }
+    LE_TEST_INFO("----dataId=%d ", retDataId);
+    LE_TEST_INFO("----state=%s ", StateToString(state));
 
-    LE_INFO("----dataId=%d ", retDataId);
-    LE_INFO("----state=%s ", StateToString(state));
-
-    return EXIT_SUCCESS;
+    return result;
 }
 
 static int getConnIpAddr()
 {
-    LE_INFO("----getConnState test " );
-    le_result_t result;
+    LE_TEST_INFO("----GetConnIpAddr test ");
+    le_result_t result = LE_FAULT;
     char ipv4Addr[TAF_DCS_IPV4_ADDR_MAX_LEN];
     char ipv6Addr[TAF_DCS_IPV6_ADDR_MAX_LEN];
 
     if (le_arg_NumArgs() != 2)
     {
         PrintUsage();
-        return EXIT_FAILURE;
+        return result;
     }
 
     uint8_t dataId = strtol(le_arg_GetArg(1), NULL, 0);
-    LE_INFO("dataId = %d", dataId);
+    LE_TEST_INFO("dataId = %d", dataId);
 
     taf_mngdConn_DataRef_t dataRef = taf_mngdConn_GetData(dataId);
 
-    if(dataRef == NULL)
+    if (dataRef == NULL)
     {
-        LE_ERROR("Not initialized for data ID %d", dataId);
-        return EXIT_FAILURE;
+        LE_TEST_INFO("Unable to get data ref for data ID %d", dataId);
+        return result;
     }
 
     result=taf_mngdConn_DataGetConnectionIPAddresses(dataRef,
                                                       ipv4Addr, TAF_DCS_IPV4_ADDR_MAX_LEN,
                                                       ipv6Addr, TAF_DCS_IPV6_ADDR_MAX_LEN);
-
-    LE_INFO("----result=%d" , result);
-
-    if(result !=LE_OK)
-        return EXIT_FAILURE;
-
-    LE_INFO("----dataId=%d ", dataId);
-    LE_INFO("----IPv4Addr=%s", ipv4Addr);
-    LE_INFO("----IPv6Addr=%s", ipv6Addr);
-
-    return EXIT_SUCCESS;
-}
-
-static void ConnectionStateHandler
-(
-    taf_mngdConn_DataRef_t dataRef,
-    taf_mngdConn_DataState_t dataState,
-    void*  contextPtr
-)
-{
-    taf_mngdConn_DataState_t state;
-    uint8_t dataId;
-    le_result_t result;
-
-    LE_INFO("---data ref : %p, Connection State : %s", dataRef, StateToString(dataState));
-
-    result=taf_mngdConn_DataGetConnectionState(dataRef, &dataId, &state);
-
-    if(result == LE_OK)
-        LE_INFO("---dataId=%d", dataId);
-
-}
-
-static void* HandlerThread(void* contextPtr)
-{
-    //  connect service in thread.
-    taf_mngdConn_DataRef_t dataRef = (taf_mngdConn_DataRef_t)contextPtr;
-    taf_mngdConn_ConnectService();
-
-    statHandlerRef = taf_mngdConn_AddDataStateHandler(dataRef,
-                        (taf_mngdConn_DataStateHandlerFunc_t)ConnectionStateHandler, NULL);
-
-    le_event_RunLoop();
-    return NULL;
-}
-
-static int monitorState()
-{
-    LE_INFO("----monitorState ");
-
-    char threadName[32];
-
-    if (le_arg_NumArgs() != 2)
+    if (result != LE_OK)
     {
-        return EXIT_FAILURE;
+        LE_TEST_INFO("taf_mngdConn_DataGetConnectionIPAddresses failed: %d", result);
+        return result;
     }
 
-    uint32_t dataId = strtol(le_arg_GetArg(1), NULL, 0);
+    LE_TEST_INFO("----dataId=%d ", dataId);
+    LE_TEST_INFO("----IPv4Addr=%s", ipv4Addr);
+    LE_TEST_INFO("----IPv6Addr=%s", ipv6Addr);
 
-    taf_mngdConn_DataRef_t dataRef = taf_mngdConn_GetData(dataId);
-
-    if(dataRef == NULL)
-    {
-        LE_ERROR("Not initialized for data ID %d", dataId);
-        return EXIT_FAILURE;
-    }
-
-    snprintf(threadName, sizeof(threadName)-1, "dataThread%d", dataId);
-
-    le_thread_Start(le_thread_Create(threadName, HandlerThread, (void*)dataRef));
-
-    return EXIT_SUCCESS;
+    return result;
 }
 
 COMPONENT_INIT
@@ -280,51 +248,50 @@ COMPONENT_INIT
     if (le_arg_NumArgs() == 0 )
     {
         PrintUsage();
-
     }
     if (le_arg_NumArgs() >= 1)
     {
         testType = le_arg_GetArg(0);
-        LE_INFO("arg0=%s ",testType);
+        LE_TEST_INFO("arg0=%s ",testType);
         if (NULL == testType) {
-            LE_ERROR("testType is NULL");
-            exit(EXIT_FAILURE);
+            LE_TEST_FATAL("testType is NULL");
         }
 
-        if(strcmp(testType, "startdata") == 0)
+        if (strncasecmp(testType, "StartData", strlen("StartData")) == 0)
         {
             status=startData();
-            exit(status);
+            LE_TEST_OK(LE_OK == status, "MCS Test: StartData");
         }
-        else if(strcmp(testType, "stopdata") == 0)
+        else if (strncasecmp(testType, "StopData", strlen("StopData")) == 0)
         {
             status=stopData();
-            exit(status);
+            LE_TEST_OK(LE_OK == status, "MCS Test: StopData");
         }
-        else if(strcmp(testType, "getconnstate") == 0)
+        else if (strncasecmp(testType, "GetConnState", strlen("GetConnState")) == 0)
         {
             status=getConnState();
-            exit(status);
-        }else if(strcmp(testType, "getipaddr") == 0)
+            LE_TEST_OK(LE_OK == status, "MCS Test: GetConnState");
+        }
+        else if (strncasecmp(testType, "GetIpAddr", strlen("GetIpAddr")) == 0)
         {
             status=getConnIpAddr();
-            exit(status);
+            LE_TEST_OK(LE_OK == status, "MCS Test: GetIpAddr");
         }
-        else if(strcmp(testType, "monitor") == 0)
+        else if (strncasecmp(testType, "CancelL1Recovery", strlen("CancelL1Recovery")) == 0)
         {
-            status=monitorState();
-
-            if(status == EXIT_FAILURE)
-            {
-                LE_ERROR("Failed to monitor state");
-                exit(status);
-            }
+            status = cancelL1Recovery();
+            LE_TEST_OK(LE_OK == status, "MCS Test: CancelL1Recovery");
+        }
+        else if (strncasecmp(testType, "Monitor", strlen("Monitor")) == 0)
+        {
+            puts("\nMonitor not supported with this exe.\n");
+            LE_TEST_INFO("----Monitor not supported with this exe.");
+            PrintUsage();
         }
         else
         {
-            LE_ERROR("Error command");
-            exit(EXIT_FAILURE);
+            LE_TEST_FATAL("Unknown command");
         }
-
     }
+    LE_TEST_EXIT;
 }

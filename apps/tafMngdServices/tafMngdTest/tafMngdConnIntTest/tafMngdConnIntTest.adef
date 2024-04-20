@@ -5,6 +5,8 @@ executables:
 {
     tafMngdConnIntTest = (
       $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdConnIntTest/tafMngdConnIntTestComponent )
+  tafMngdConnIntTestHdlr =
+   ($TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdConnIntTest/tafMngdConnIntTestHdlrComponent)
 }
 
 start: manual
@@ -13,7 +15,7 @@ processes:
 {
     run:
     {
-        (tafMngdConnIntTest)
+        (tafMngdConnIntTest tafMngdConnIntTestHdlr)
     }
 
     faultAction: stopApp
@@ -27,5 +29,6 @@ processes:
 
 bindings:
 {
-    tafMngdConnIntTest.tafMngdConnIntTestComponent.taf_mngdConn -> tafMngdConnSvc.taf_mngdConn
+  tafMngdConnIntTest.tafMngdConnIntTestComponent.taf_mngdConn -> tafMngdConnSvc.taf_mngdConn
+  tafMngdConnIntTestHdlr.tafMngdConnIntTestHdlrComponent.taf_mngdConn -> tafMngdConnSvc.taf_mngdConn
 }

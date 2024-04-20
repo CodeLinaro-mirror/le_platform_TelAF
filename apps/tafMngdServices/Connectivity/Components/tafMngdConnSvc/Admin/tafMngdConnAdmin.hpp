@@ -108,8 +108,8 @@ namespace tafsvc {
         MCS_EVT_GET_CONNECTION_INFO_SYNC,
         MCS_EVT_DATA_START_CONNECTIONTEST,
         MCS_EVT_DATA_PERIODIC_CONNECTIONTEST,
-        MCS_EVT_CONN_RECOVERY_SCHEDULE, // Schedule connectivity recovery
-        MCS_EVT_CONN_RECOVERY_CANCEL,
+        MCS_EVT_CONN_RECOVERY_SCHEDULE_L1, // Schedule L1 connectivity recovery
+        MCS_EVT_CONN_RECOVERY_CANCEL_L1,
         MCS_EVT_CONN_RECOVERY_START_L1
     } mcs_EventType_t;
 
@@ -186,15 +186,15 @@ namespace tafsvc {
         char                          dns1Addr[MCS_MAX_IPV4_LEN]; // First dns Address
         char                          dns2Addr[MCS_MAX_IPV4_LEN]; // Second dns Address
         le_dls_Link_t                 link;                   // Link to data list
-        mcs_Admin_State_t   adminState;               // Internal MCS state
-        taf_mngdConn_DataState_t     dataState;              // The data state for notification
+        mcs_Admin_State_t             adminState;               // Internal MCS state
+        taf_mngdConn_DataState_t      dataState;              // The data state for notification
         le_timer_Ref_t                dataStartRetryTimerRef; // Data start retry timer reference
         le_timer_Ref_t                recoveryScheduleTimerRef; // Recovery schedule timer reference
         le_timer_Ref_t                periodicConnectivityTestTimerRef;
-                                                   // periodicConnectivityTestTimerRef timer reference
+                                                 // periodicConnectivityTestTimerRef timer reference
         le_event_Id_t                 dataStateEvent;         //Data state event
         taf_dcs_Pdp_t                 ipType;                 // Ip type
-        taf_mngdConn_DataRef_t       dataRef;
+        taf_mngdConn_DataRef_t        dataRef;
         taf_dcs_ConState_t            dcsConState;            // DCS Data State
         char                          conn_test_url[MCS_MAX_CONNECTION_URL_LEN];
                                       //URL to be used for DataStartConnectionTest
@@ -236,6 +236,7 @@ namespace tafsvc {
             le_result_t GetConnectionIPAddresses( taf_mngdConn_DataRef_t dataRef,
                                                   char *ipv4AddrPtr, size_t ipv4AddrSize,
                                                   char *ipv6AddrPtr, size_t ipv6AddrSize);
+            le_result_t CancelL1Recovery( taf_mngdConn_DataRef_t dataRef);
 
             taf_mngdConn_DataStateHandlerRef_t AddDataStateHandler(
                 taf_mngdConn_DataRef_t dataRef,
@@ -314,8 +315,8 @@ namespace tafsvc {
             le_result_t getProfileList( profileInfo_t *profileNumberList, int *listSize);
             bool IsStateConnected();
 
-            void ResetDataRetryValues();
-            void ResetDataRetryValues(uint8_t dataId);
+            void ResetDataRetryPeriodicConnCheckValues();
+            void ResetDataRetryPeriodicConnCheckValues(uint8_t dataId);
 
             //Connectiontest
             void EventDataStartConnectionTest(uint8_t dataId);
@@ -324,8 +325,8 @@ namespace tafsvc {
             bool DataStartConnectionTest_IPv4(std::string ipv4, std::string interfaceName);
 
             // Connectivity Recovery
-            void EventConnRecoverySchedule(uint8_t dataId);
-            void EventConnRecoveryCancel(uint8_t dataId);
+            void EventL1ConnRecoverySchedule(uint8_t dataId);
+            void EventL1ConnRecoveryCancel(uint8_t dataId);
             void EventL1ConnRecoveryStart(uint8_t dataId);
 
             // Policy and Configuration to use
@@ -339,6 +340,7 @@ namespace tafsvc {
 
             const char * EventToString(mcs_EventType_t event);
             const char * StateToString(mcs_Admin_State_t state);
+            const char *DataStateToString(taf_mngdConn_DataState_t state);
             bool IsJsonValid = false;
     };
 }

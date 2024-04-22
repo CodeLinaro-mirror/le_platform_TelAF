@@ -15,6 +15,7 @@ requires:
     component:
     {
         $LEGATO_ROOT/components/watchdogChain
+        $TELAF_ROOT/components/tafHalComp
     }
 
     lib:
@@ -29,7 +30,9 @@ cxxflags:
 {
     -I$LEGATO_ROOT/components/watchdogChain
     -I$LEGATO_ROOT/components/cfgEntries
+    -I$TELAF_ROOT/components/tafHalComp
     -I$TELAF_ROOT/include
+    -I$TELAF_ROOT/include/staging/plugin
     -ltelux_tel
 }
 

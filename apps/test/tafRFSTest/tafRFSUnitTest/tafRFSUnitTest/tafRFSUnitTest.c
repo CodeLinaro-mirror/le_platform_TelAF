@@ -17,8 +17,11 @@
 #include "tafRFSLib.h"
 
 #define TEST_FILE_PATH "/data/testRFS_File.txt"
+#define TEST_APP_DEFAULT_STORAGE "/persist/rfs/backup/"
 #define TEST_DATA_SIZE (1024 * 10)
 #define TIMEOUT_ITEM_TEST 5
+#define TEST_MAX_FILE_SIZE  10240
+#define TEST_MAX_FILE_COUNT 10
 
 #define OP_READ    "read"
 #define OP_WRITE   "write"
@@ -93,6 +96,23 @@ __attribute__((unused)) static void Test_Init()
     le_result_t res = taf_rfs_Init(true, ErrCallback);
 
     LE_TEST_ASSERT(res == LE_OK, "Test taf_rfs_Init");
+}
+
+__attribute__((unused)) static void Test_SetAppBackupStorage()
+{
+    le_result_t res = taf_rfs_SetBackupStorage(NULL, TEST_MAX_FILE_SIZE, TEST_MAX_FILE_COUNT);
+
+    LE_TEST_ASSERT(res == LE_NOT_FOUND, "Test taf_rfs_SetBackupStorage");
+
+    res = taf_rfs_SetBackupStorage(TEST_APP_DEFAULT_STORAGE, 0, 0);
+
+    LE_TEST_ASSERT(res == LE_BAD_PARAMETER, "Test taf_rfs_SetBackupStorage");
+
+    res = taf_rfs_SetBackupStorage(TEST_APP_DEFAULT_STORAGE,
+                                    TEST_MAX_FILE_SIZE,
+                                    TEST_MAX_FILE_COUNT);
+
+    LE_TEST_ASSERT(res == LE_OK, "Test taf_rfs_SetBackupStorage");
 }
 
 __attribute__((unused)) static void Test_Write()
@@ -229,7 +249,7 @@ COMPONENT_INIT
 
     le_thread_Start(TestThreadRef);
 
-    LE_TEST_INFO("=== Test provision ===");
+    LE_TEST_INFO("=== Test Init ===");
     Test_Init();
 
     if (le_arg_NumArgs() > 0)
@@ -264,12 +284,30 @@ COMPONENT_INIT
             LE_ERROR("Invalid operation");
         }
 
+        if (le_arg_NumArgs() > 1)
+        {
+            const char* path = le_arg_GetArg(1);
+
+            if(strlen(path) > 0)
+            {
+                le_result_t res = taf_rfs_SetBackupStorage(path,
+                                                        TEST_MAX_FILE_SIZE,
+                                                        TEST_MAX_FILE_COUNT);
+
+                LE_TEST_ASSERT(res == LE_OK, "Test taf_rfs_SetBackupStorage");
+            }
+        }
+
         le_event_QueueFunctionToThread(TestThreadRef, ProcessTest, requestPtr, NULL);
 
         LE_ASSERT_OK(WaitForSem_Timeout(sem_TestItem, TIMEOUT_ITEM_TEST));
     }
     else
     {
+        LE_TEST_INFO("=== Test set storage ===");
+
+        Test_SetAppBackupStorage();
+
         LE_INFO("Starting file function tests with parameterized data size...");
 
         for(uint i = 0; i < (sizeof(testSequence)/sizeof(testSequence[0])); i++)

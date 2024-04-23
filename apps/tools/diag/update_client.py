@@ -1,34 +1,5 @@
- # Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
- #
- # Redistribution and use in source and binary forms, with or without
- # modification, are permitted (subject to the limitations in the
- # disclaimer below) provided that the following conditions are met:
- #
- #     * Redistributions of source code must retain the above copyright
- #       notice, this list of conditions and the following disclaimer.
- #
- #     * Redistributions in binary form must reproduce the above
- #       copyright notice, this list of conditions and the following
- #       disclaimer in the documentation and/or other materials provided
- #       with the distribution.
- #
- #     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- #       contributors may be used to endorse or promote products derived
- #       from this software without specific prior written permission.
- #
- # NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- # GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- # HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- # WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- # MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- # IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- # ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- # DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- # GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- # INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- # IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- # OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- # IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+# Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
 
 from doipclient import DoIPClient
 from doipclient.connectors import DoIPClientUDSConnector
@@ -117,90 +88,101 @@ def update_workflow():
             response = uds_client.change_session(DiagnosticSessionControl.Session.extendedDiagnosticSession)
             print(response)
 
-            # Step2: Read data(ReadDataByIdentifier). 22 F0 11 A5 A5
-            response = uds_client.read_data_by_identifier(didlist=[0xF011,0xa5a5])
-            values = response.service_data.values
-            print(values)
-
-            # Step3: Entering programming session(DiagnosticSessionControl). 10 02
-            response = uds_client.change_session(DiagnosticSessionControl.Session.programmingSession)
-            print(response)
-
-            # Step4.1: Read DTC(reportNumberOfDTCByStatusMask). 19 01
-            response = uds_client.get_number_of_dtc_by_status_mask(status_mask)
-            print(response)
-
-            # Step4.2: Read DTC(reportDTCByStatusMask). 19 02
-            response = uds_client.get_dtc_by_status_mask(status_mask)
-            print(response)
-
-            # Step4.3: Read DTC(reportDTCSnapshotIdentification). 19 03
-            response = uds_client.get_dtc_snapshot_identification()
-            print(response)
-
-            # Step4.4: Read DTC(reportDTCSnapshotRecordByDTCNumber). 19 04
-            response = uds_client.get_dtc_snapshot_by_dtc_number(dtc_mask, rcd_num)
-            print(response)
-
-            # Step4.5: Read DTC(reportDTCExtDataRecordByDTCNumber). 19 06
-            response = uds_client.get_dtc_extended_data_by_dtc_number(dtc_mask, rcd_num, data_size)
-            print(response)
-
-            # Step4.4: Read DTC(reportSupportedDTC). 19 0A
-            response = uds_client.get_supported_dtc()
-            print(response)
-
-            # Step4.5: Read DTC(reportDTCFaultDetectionCounter). 19 14
-            response = uds_client.get_dtc_fault_counter()
-            print(response)
-
-            # Step5: ClearDiagnosticInformation. 14
-            response = uds_client.clear_dtc(grp_of_dtc)
-            print(response)
-
-            # Step6: Read data by Id(ReadDataByIdentifier). 22 A5 A5
-            response = uds_client.read_data_by_identifier(didlist=digest_did) # Only one
-            print(response)
-
-            # Step7: Read public data(ReadDataByIdentifier). 22 F0 11
-            response = uds_client.read_data_by_identifier(didlist=0xF011)
-            values = response.service_data.values
-            print(values)
-
-            # Step8: Security access #1-Request seed(SecurityAccess). 27 01
+            # Step2: Security access #1-Request seed(SecurityAccess). 27 01
             response = uds_client.request_seed(0x01)
             seed = response.service_data.seed
 
             # Calculate key via seed.
             key = dummy_send2key(level=0x01, seed=seed)
 
-            # Step9: Security access #2-Send key(SecurityAccess). 27 02
+            # Step3: Security access #2-Send key(SecurityAccess). 27 02
             response = uds_client.send_key(0x02, key)
             print(response)
 
-            # Step10: InputOutputControl--Short Term Adjustment: 2F 90 06 03 xx xx
+            # Step4: Read data(ReadDataByIdentifier). 22 F0 11 A5 A5
+            response = uds_client.read_data_by_identifier(didlist=[0xF011,0xa5a5])
+            values = response.service_data.values
+            print(values)
+
+            # Step5: Read data by Id(ReadDataByIdentifier). 22 A5 A5
+            response = uds_client.read_data_by_identifier(didlist=digest_did) # Only one
+            print(response)
+
+            # Step6: Read public data(ReadDataByIdentifier). 22 F0 11
+            response = uds_client.read_data_by_identifier(didlist=0xF011)
+            values = response.service_data.values
+            print(values)
+
+            # Step7: InputOutputControl--Short Term Adjustment: 2F 90 06 03 xx xx
             ioctrlvalues = {'Led_Ecall': 0x3C}
             response = uds_client.io_control(control_param=3, did=0x9006, values=ioctrlvalues)
             print('dataId:%#x'%response.service_data.did_echo)
 
-            # Step11. InputOutputControl--returnControlToECU: 2F 90 06 00
+            # Step8. InputOutputControl--returnControlToECU: 2F 90 06 00
             response = uds_client.io_control(control_param=0, did=0x9006)
             print(response)
 
-            # Step12: Write digest(WriteDataByIdentifier): 2E xx xx
+            # Step9: Write digest(WriteDataByIdentifier): 2E xx xx
             response = uds_client.write_data_by_identifier(did=digest_did2, value=digest_data)
             print(response)
 
-            # Step13: Read data(ReadDataByIdentifier): 22 xx xx
+            # Step10: Read data(ReadDataByIdentifier): 22 xx xx
             response = uds_client.read_data_by_identifier(didlist=digest_did2)
             values = response.service_data.values
+
+            # Step11: Entering programming session(DiagnosticSessionControl). 10 02
+            response = uds_client.change_session(DiagnosticSessionControl.Session.programmingSession)
+            print(response)
+
+            # Step12.1: Read DTC(reportNumberOfDTCByStatusMask). 19 01
+            response = uds_client.get_number_of_dtc_by_status_mask(status_mask)
+            print(response)
+
+            # Step12.2: Read DTC(reportDTCByStatusMask). 19 02
+            response = uds_client.get_dtc_by_status_mask(status_mask)
+            print(response)
+
+            # Step12.3: Read DTC(reportDTCSnapshotIdentification). 19 03
+            response = uds_client.get_dtc_snapshot_identification()
+            print(response)
+
+            # Step12.4: Read DTC(reportDTCSnapshotRecordByDTCNumber). 19 04
+            response = uds_client.get_dtc_snapshot_by_dtc_number(dtc_mask, rcd_num)
+            print(response)
+
+            # Step12.5: Read DTC(reportDTCExtDataRecordByDTCNumber). 19 06
+            response = uds_client.get_dtc_extended_data_by_dtc_number(dtc_mask, rcd_num, data_size)
+            print(response)
+
+            # Step12.4: Read DTC(reportSupportedDTC). 19 0A
+            response = uds_client.get_supported_dtc()
+            print(response)
+
+            # Step12.5: Read DTC(reportDTCFaultDetectionCounter). 19 14
+            response = uds_client.get_dtc_fault_counter()
+            print(response)
+
+            # Step13: ClearDiagnosticInformation. 14
+            response = uds_client.clear_dtc(grp_of_dtc)
+            print(response)
+
+            # Step14: Security access #1-Request seed(SecurityAccess). 27 01
+            response = uds_client.request_seed(0x01)
+            seed = response.service_data.seed
+
+            # Calculate key via seed.
+            key = dummy_send2key(level=0x01, seed=seed)
+
+            # Step15: Security access #2-Send key(SecurityAccess). 27 02
+            response = uds_client.send_key(0x02, key)
+            print(response)
 
             with open(update_file, "rb") as f:
                 f.seek(0, 2)    # Move to end of file
                 eof = f.tell()
 
                 print(eof)
-                # Step14.1: RequestFileTransfer(0x38)
+                # Step16.1: RequestFileTransfer(0x38)
                 response = uds_client.request_file_transfer(moop=1, path = restore_file, filesize=eof)
                 print(response)
                 print("Max length: %d" % response.service_data.max_length)
@@ -210,7 +192,7 @@ def update_workflow():
                 print("bytes_per_pack=%d" % bytes_per_pack)
                 f.seek(0, 0)
                 sq = 1
-                # Step14.2: Transfer Data(TransferData). 36
+                # Step16.2: Transfer Data(TransferData). 36
                 while f.tell() < eof:
                     bs = f.read(bytes_per_pack)
                     #response = uds_client.transfer_data(sq, bs)
@@ -221,11 +203,11 @@ def update_workflow():
                         sq = 0
                 f.close()
 
-            # Step14.3: Transter Exit(RequestTransferExit). 37
+            # Step16.3: Transter Exit(RequestTransferExit). 37
             response = uds_client.request_transfer_exit()
             print(response)
 
-            # Step15: Switch to extended session(Perform ECU Reset). 10 03
+            # Step17: Switch to extended session(Perform ECU Reset). 10 03
             response = uds_client.change_session(DiagnosticSessionControl.Session.extendedDiagnosticSession)
             print(response)
 
@@ -240,11 +222,11 @@ def update_workflow():
             response = uds_client.send_key(0x02, key)
             print(response)
 
-            # Step16: Routine Control RUNDTCTEST(RoutineControl). 31 01 02 47 start to update
+            # Step18: Routine Control RUNDTCTEST(RoutineControl). 31 01 02 47 start to update
             response = uds_client.routine_control(routine_id=0x0247, control_type=0x01)
             print(response)
 
-            # Step17: Routine Control RUNDTCTEST(RoutineControl). 31 03 02 47 request update status
+            # Step19: Routine Control RUNDTCTEST(RoutineControl). 31 03 02 47 request update status
             for i in range(100):
                 time.sleep(3)
                 response = uds_client.routine_control(routine_id=0x0247, control_type=0x03)
@@ -257,7 +239,7 @@ def update_workflow():
 
             print(update_state)
 
-            # Step18: Send tester present to maintain the current session. 3E 00
+            # Step20: Send tester present to maintain the current session. 3E 00
             def sendPresent():
                 uds_client.tester_present()
                 print(response)

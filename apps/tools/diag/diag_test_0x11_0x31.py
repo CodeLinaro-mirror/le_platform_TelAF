@@ -111,7 +111,7 @@ class TestRoutineControl(unittest.TestCase):
         self.assertTrue(issubclass(response.service, services.RoutineControl))
         self.assertEqual(response.code, 0x12)
 
-    def test_condition_not_correct(self):
+    def test_request_out_of_range(self):
         uds_client.change_session(DiagnosticSessionControl.Session.programmingSession)
 
         # Session change, do security access again #1-Request seed(SecurityAccess). 27 01
@@ -128,7 +128,7 @@ class TestRoutineControl(unittest.TestCase):
         self.assertTrue(response.valid)
         self.assertFalse(response.positive)
         self.assertTrue(issubclass(response.service, services.RoutineControl))
-        self.assertEqual(response.code, 0x22)
+        self.assertEqual(response.code, 0x31)
 
     def test_security_access_deny(self):
         uds_client.change_session(DiagnosticSessionControl.Session.defaultSession)
@@ -180,7 +180,7 @@ class TestECUReset(unittest.TestCase):
 
         # Session change, do security access again #1-Request seed(SecurityAccess). 27 01
         response = uds_client.request_seed(0x01)
-    
+
     '''
     # Hard reset depends on update service. the testcase may fail
     def test_ecu_hard_reset(self):
@@ -200,7 +200,7 @@ class TestECUReset(unittest.TestCase):
         self.assertTrue(issubclass(response.service, services.ECUReset))
         self.assertEqual(response.code, 0x12)
 
-    def test_condition_not_correct(self):
+    def test_subfunction_not_supported_in_active_session(self):
         uds_client.change_session(DiagnosticSessionControl.Session.programmingSession)
 
         # Session change, do security access again #1-Request seed(SecurityAccess). 27 01
@@ -217,7 +217,7 @@ class TestECUReset(unittest.TestCase):
         self.assertTrue(response.valid)
         self.assertFalse(response.positive)
         self.assertTrue(issubclass(response.service, services.ECUReset))
-        self.assertEqual(response.code, 0x22)
+        self.assertEqual(response.code, 0x7E)
 
     def test_security_access_deny(self):
         uds_client.change_session(DiagnosticSessionControl.Session.defaultSession)
@@ -238,5 +238,5 @@ class TestECUReset(unittest.TestCase):
         self.assertEqual(response.service_data.reset_type_echo, 0x2)
 
 if __name__ == "__main__":
-    # Run the testcast class methons
+    # Run the testcase class methots
     unittest.main()

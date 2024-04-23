@@ -229,8 +229,12 @@ le_result_t taf_diagDataID_SendWriteDIDResp
 )
 {
     LE_DEBUG("taf_diagDataID_SendWriteDIDResp");
+#ifndef LE_CONFIG_DIAG_VSTACK
     auto &did = taf_DataIDSvr::GetInstance();
     return did.SendWriteDIDResp(rxMsgRef, errCode, dataId);
+#else
+    return LE_UNSUPPORTED;
+#endif
 }
 
 //--------------------------------------------------------------------------------------------------

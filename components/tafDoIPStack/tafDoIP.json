@@ -4,7 +4,8 @@
         "VIN": "00000000000000000",
         "EID": "a2:8c:ed:3e:38:14",
         "GID": "a2:8c:ed:3e:38:14",
-        "source_address": "0x0201"
+        "source_address": "0x0201",
+        "Function_group": ["0x0200", "0xE000"]
     },
     "parameters":
     {

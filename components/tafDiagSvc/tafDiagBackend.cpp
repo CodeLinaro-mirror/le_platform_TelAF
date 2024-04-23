@@ -62,7 +62,7 @@ void taf_DiagBackend::UdsIndicationHanler
     void* userPtr
 )
 {
-    uint8_t sid;
+    uint8_t sid = 0;
     taf_uds_AddrInfo_t addrInfo;
     taf_DiagBackend& backend = taf_DiagBackend::GetInstance();
 

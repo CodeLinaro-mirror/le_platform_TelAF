@@ -60,7 +60,7 @@ using namespace telux::tafsvc;
 //--------------------------------------------------------------------------------------------------
 taf_diagReset_ServiceRef_t taf_diagReset_GetService
 (
-    taf_diagReset_Type_t resetType
+    uint8_t resetType
 )
 {
     LE_DEBUG("taf_diagReset_GetService");

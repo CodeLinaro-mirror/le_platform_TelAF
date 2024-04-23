@@ -189,7 +189,7 @@ le_result_t taf_diagSecurity_GetCurrentSesType
 (
     taf_diagSecurity_ServiceRef_t svcRef,
         ///< [IN] Service reference.
-    taf_diagSecurity_SessionType_t* currentTypePtr
+    uint8_t* currentTypePtr
         ///< [OUT] current session type.
 )
 {

@@ -31,7 +31,6 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
 #ifndef TAFUDS_COMMUNICATION_MGR_HPP
 #define TAFUDS_COMMUNICATION_MGR_HPP
 
@@ -53,6 +52,7 @@ namespace uds{
     #define UDS_P2_STAR_SERVER_CNT 120
     #define UDS_S3_SERVER 5000
     #define TAF_UDS_HANDLER_REF_CNT 1
+    #define SHORT_TERM_ADJUSTMENT 3
 
     // DID Config tree definition
     #define DID_NODE_LEN                 100
@@ -229,7 +229,9 @@ namespace uds{
         INVALID_KEY = 0x35,
         UPLOAD_DOWNLOAD_NOT_ACCEPTED = 0x70,
         GENERAL_PROGRAMMING_FAILURE = 0x72,
-        REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING = 0x78
+        REQUEST_CORRECTLY_RECEIVED_RESPONSE_PENDING = 0x78,
+        SUBFUNCTION_NOT_SUPPORTED_IN_ACTIVE_SESSION = 0x7E,
+        SERVICE_NOT_SUPPORTED_IN_ACTIVE_SESSION = 0x7F
     }taf_UDSErrorCode_t;
 
     typedef struct
@@ -318,11 +320,7 @@ namespace uds{
                     bool* isInternalHandle);    // ReadDTCInfo service (0x19)
 
             // Internally check and Respond UDS message to uds client (through DoIP stack).
-            le_result_t ReadDTCInfoResp(taf_doip_AddrInfo_t* addrInfoPtr);    // (0x19).
             le_result_t TesterPresentResp(taf_doip_AddrInfo_t*  addrInfoPtr);    // (0x3E)
-
-            // To read DTC from ConfigTree.
-            uint8_t readDTCByStatusMask(uint8_t statusMask);
 
             // Send UDS response message from Diag service.
             le_result_t SessionCtrlResp(uint8_t serviceId, uint8_t err);
@@ -351,6 +349,7 @@ namespace uds{
             static void* UdsTimerThread(void* ctxPtr);
             static void UdsTimerHandler(void* reqPtr);
             void UdsTimerEventReport(taf_UDSTimer_EventType_t timerEvent, uint32_t interval);
+            void CheckAndRestartS3Timer(uint8_t serviceId);
             bool IsSessTypeMatched(cfg::Node& node);
             bool IsSecurityAccessMatched(cfg::Node& node);
             bool IsRequestSubFuncSupported(cfg::Node& node, uint8_t subFunc);

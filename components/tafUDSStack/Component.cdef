@@ -22,10 +22,6 @@ cxxflags:
 
 requires:
 {
-    api:
-    {
-         le_cfg.api
-    }
 
     component:
     {

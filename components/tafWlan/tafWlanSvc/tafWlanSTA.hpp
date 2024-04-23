@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -12,9 +12,15 @@
  */
 #pragma once
 #include "tafWlan.hpp"
+#include <wpa_ctrl.h>
 
 #define WLANSTA_MAX_WPA_EVENT_LEN 64
 
+#define WPA_STA_NET_NOT_ADDED "NOT_ADDED"
+
+#define WPA_STA_MAX_NETID 1024
+
+#define WPA_CTRL_RSP_BUF_LEN 2048
 
 #define WPA_SUPPLICANT_LOCATION_PATH "/var/run/wpa_supplicant/"
 
@@ -36,6 +42,7 @@ namespace telux
             char IntfName[TAF_NET_INTERFACE_NAME_MAX_LEN+1];
             uint16_t numScannedAPs;             // Number of available APs
             taf_wlanSta_APInfo_t ApInfo[TAF_WLANSTA_MAX_APSCAN_RESULT_NUM];
+            taf_wlanSta_APInfo_t ApInfoConnect;
         } StaCtx_t;
 
         //------------------------------------------------------------------------------------------
@@ -45,7 +52,9 @@ namespace telux
         //------------------------------------------------------------------------------------------
         typedef enum
         {
-            EVT_WPA_DO_SCAN = 0   // Perform AP scan
+            EVT_WPA_DO_SCAN,            // Perform AP scan
+            EVT_WPA_DO_AP_CONNECT,      // Perform AP connect
+            EVT_WPA_DO_AP_DISCONNECT    // Perform AP disconnect
         } StaCmd_e;
 
         //------------------------------------------------------------------------------------------
@@ -57,6 +66,10 @@ namespace telux
         {
             EVT_WPA_ERROR,
             EVT_WPA_AP_SCAN_DONE,
+            EVT_WPA_AP_CONNECTING,
+            EVT_WPA_AP_CONNECTED,
+            EVT_WPA_AP_TEMP_DISABLED,
+            EVT_WPA_AP_DISCONNECTED
         } StaWpaEvt_e;
 
         //------------------------------------------------------------------------------------------
@@ -67,7 +80,7 @@ namespace telux
         typedef struct
         {
             char IntfName[TAF_NET_INTERFACE_NAME_MAX_LEN + 1];
-            char EventToMonitor[WLANSTA_MAX_WPA_EVENT_LEN];
+            std::vector<std::string> EventsToMonitor;
         } SuppThreadCtx_t;
 
         //------------------------------------------------------------------------------------------
@@ -144,19 +157,36 @@ namespace telux
                                   size_t IPv6AddressSize,
                                   char *MACAddress,
                                   size_t MACAddressSize);
+            le_result_t APConnect(taf_wlanSta_WlanSTARef_t staRef,
+                                  const taf_wlanSta_APInfo_t* LE_NONNULL ApInfo);
+            le_result_t APDisconnect(taf_wlanSta_WlanSTARef_t staRef,
+                                     const taf_wlanSta_APInfo_t* LE_NONNULL ApInfo);
             le_result_t DoAPScan(taf_wlanSta_WlanSTARef_t staRef);
             le_result_t GetAPScanResults(taf_wlanSta_WlanSTARef_t staRef,
                                          uint16_t *numAPPtr,
                                          taf_wlanSta_APInfo_t *ApInfoPtr,
                                          size_t *ApInfoSizePtr);
+            le_result_t SetWpa2Psk(taf_wlanSta_WlanSTARef_t staRef,
+                                    const taf_wlanSta_APInfo_t* LE_NONNULL ApInfo,
+                                    const char* LE_NONNULL psk);
+            le_result_t Connect(StaCtx_t *CtxPtr,
+                                const taf_wlanSta_APInfo_t* LE_NONNULL ApInfo);
+            le_result_t Disconnect(StaCtx_t *CtxPtr,
+                                   const taf_wlanSta_APInfo_t* LE_NONNULL ApInfo);
             taf_wlanSta_EventHandlerRef_t AddEventHandler(taf_wlanSta_WlanSTARef_t staRef,
                                                           taf_wlanSta_HandlerFunc_t handlerPtr,
                                                           void *contextPtr);
             void RemoveEventHandler(taf_wlanSta_EventHandlerRef_t handlerRef);
 
         private:
+            friend class taf_WlanSTAListener;
+            std::string mNetID;
+
             // Promise/Future to synchronize WPA indications
             std::promise<StaWpaEvt_e> PromiseWPA;
+
+            // Promise/Future to check for AP connection status
+            std::promise<StaWpaEvt_e> PromiseConn;
 
             // Functions
             StaCtx_t *GetStaCtx(taf_wlan_STAid_t staId);
@@ -168,6 +198,11 @@ namespace telux
             void PerformScan(StaCtx_t *CtxPtr);
             void PopulateScanResults(StaCtx_t *CtxPtr, const char *ScanResultsPtr);
             void ParseScanResultsFlags(StaCtx_t *CtxPtr, int Index, std::string FlagsStr);
+            le_result_t runWPACommand(StaCtx_t *CtxPtr, const char *cmd, char *response,
+                                      const size_t responseSize);
+            bool CheckCommunication(StaCtx_t *CtxPtr, struct wpa_ctrl *ctrl);
+            std::string CheckNetworkAdded(StaCtx_t *CtxPtr,
+                                          const taf_wlanSta_APInfo_t* LE_NONNULL ApInfo);
 
             // The WLAN STA Manager
             std::shared_ptr<telux::wlan::IStaInterfaceManager> wlanSTAMgr;

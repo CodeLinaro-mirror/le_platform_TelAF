@@ -26,5 +26,6 @@ processes:
 
 bindings:
 {
+    wlanSTATest.wlanSTAIntTestComponent.taf_wlan -> tafWlanSvc.taf_wlan
     wlanSTATest.wlanSTAIntTestComponent.taf_wlanSta -> tafWlanSvc.taf_wlanSta
 }

@@ -54,7 +54,7 @@ void Admin_init()
  **  - Others -- The data reference.
  */
 //--------------------------------------------------------------------------------------------------
-taf_mngd_Conn_DataRef_t taf_mngd_Conn_GetData( uint8_t dataId )
+taf_mngdConn_DataRef_t taf_mngdConn_GetData( uint8_t dataId )
 {
     auto &admin = tafMngdConnAdmin::GetInstance();
     return admin.GetRefByDataId(dataId);
@@ -71,9 +71,9 @@ taf_mngd_Conn_DataRef_t taf_mngd_Conn_GetData( uint8_t dataId )
  *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_mngd_Conn_DataStart
+le_result_t taf_mngdConn_DataStart
 (
-    taf_mngd_Conn_DataRef_t dataRef
+    taf_mngdConn_DataRef_t dataRef
 )
 {
     auto &admin = tafMngdConnAdmin::GetInstance();
@@ -89,9 +89,9 @@ le_result_t taf_mngd_Conn_DataStart
  *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_mngd_Conn_DataStop
+le_result_t taf_mngdConn_DataStop
 (
-    taf_mngd_Conn_DataRef_t dataRef
+    taf_mngdConn_DataRef_t dataRef
 )
 {
     auto &admin = tafMngdConnAdmin::GetInstance();
@@ -108,11 +108,11 @@ le_result_t taf_mngd_Conn_DataStop
  *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_mngd_Conn_DataGetConnectionState
+le_result_t taf_mngdConn_DataGetConnectionState
 (
-    taf_mngd_Conn_DataRef_t dataRef,
+    taf_mngdConn_DataRef_t dataRef,
     uint8_t* dataIdPtr,
-    taf_mngd_Conn_DataState_t* statePtr
+    taf_mngdConn_DataState_t* statePtr
 )
 {
     auto &admin = tafMngdConnAdmin::GetInstance();
@@ -130,9 +130,9 @@ le_result_t taf_mngd_Conn_DataGetConnectionState
  *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_mngd_Conn_DataGetConnectionIPAddresses
+le_result_t taf_mngdConn_DataGetConnectionIPAddresses
 (
-    taf_mngd_Conn_DataRef_t dataRef,
+    taf_mngdConn_DataRef_t dataRef,
     char *ipv4AddrPtr,
     size_t ipv4AddrSize,
     char *ipv6AddrPtr,
@@ -150,10 +150,10 @@ le_result_t taf_mngd_Conn_DataGetConnectionIPAddresses
  * Adds state change handler to monitor the connectivity state.
  */
 //--------------------------------------------------------------------------------------------------
-taf_mngd_Conn_DataStateHandlerRef_t taf_mngd_Conn_AddDataStateHandler
+taf_mngdConn_DataStateHandlerRef_t taf_mngdConn_AddDataStateHandler
 (
-    taf_mngd_Conn_DataRef_t dataRef,
-    taf_mngd_Conn_DataStateHandlerFunc_t handlerPtr,
+    taf_mngdConn_DataRef_t dataRef,
+    taf_mngdConn_DataStateHandlerFunc_t handlerPtr,
     void* contextPtr
 )
 {
@@ -165,10 +165,10 @@ taf_mngd_Conn_DataStateHandlerRef_t taf_mngd_Conn_AddDataStateHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Remove handler function for EVENT 'taf_mngd_Conn_DataState'
+ * Remove handler function for EVENT 'taf_mngdConn_DataState'
  */
 //--------------------------------------------------------------------------------------------------
-void taf_mngd_Conn_RemoveDataStateHandler(taf_mngd_Conn_DataStateHandlerRef_t handlerRef)
+void taf_mngdConn_RemoveDataStateHandler(taf_mngdConn_DataStateHandlerRef_t handlerRef)
 {
 
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
@@ -176,13 +176,13 @@ void taf_mngd_Conn_RemoveDataStateHandler(taf_mngd_Conn_DataStateHandlerRef_t ha
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Add handler function for EVENT 'taf_mngd_Conn_RecoveryState'
+ * Add handler function for EVENT 'taf_mngdConn_RecoveryState'
  *
  * Events to report recovery state.
  */
 //--------------------------------------------------------------------------------------------------
-taf_mngd_Conn_RecoveryStateHandlerRef_t taf_mngd_Conn_AddRecoveryStateHandler(
-    taf_mngd_Conn_RecoveryStateHandlerFunc_t handlerPtr,
+taf_mngdConn_RecoveryStateHandlerRef_t taf_mngdConn_AddRecoveryStateHandler(
+    taf_mngdConn_RecoveryStateHandlerFunc_t handlerPtr,
     ///< [IN] The event handler reference.
     void *contextPtr
     ///< [IN]
@@ -195,11 +195,11 @@ taf_mngd_Conn_RecoveryStateHandlerRef_t taf_mngd_Conn_AddRecoveryStateHandler(
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Remove handler function for EVENT 'taf_mngd_Conn_RecoveryState'
+ * Remove handler function for EVENT 'taf_mngdConn_RecoveryState'
  */
 //--------------------------------------------------------------------------------------------------
-void taf_mngd_Conn_RemoveRecoveryStateHandler(
-    taf_mngd_Conn_RecoveryStateHandlerRef_t handlerRef
+void taf_mngdConn_RemoveRecoveryStateHandler(
+    taf_mngdConn_RecoveryStateHandlerRef_t handlerRef
     ///< [IN]
 )
 {

@@ -34,26 +34,26 @@
 
 //--------------------------------------------------------------------------------------------------
 /**
- * @page c_taf_mngd_Conn Managed Connectivity Service
+ * @page c_taf_mngdConn Managed Connectivity Service
  *
- * @ref taf_mngd_Conn_interface.h "API Reference"
+ * @ref taf_mngdConn_interface.h "API Reference"
  *
  * <HR>
  *
  * The Managed Connectivity service APIs help to manage Connectivity on the NAD/TCU.
  *
- * @section taf_mngd_Conn_binding IPC interfaces binding
+ * @section taf_mngdConn_binding IPC interfaces binding
  *
  *
  * The following example illustrates how to bind to the Managed Connectivity service.
  * @verbatim
    bindings:
    {
-       clientExe.clientComponent.taf_mngd_Conn -> tafMngdConnSvc.taf_mngd_Conn
+       clientExe.clientComponent.taf_mngdConn -> tafMngdConnSvc.taf_mngdConn
    }
    @endverbatim
  *
- * @section taf_mngd_Conn_Connectivity Managed Connectivity
+ * @section taf_mngdConn_Connectivity Managed Connectivity
  *
  * Before starting the service, the user should place a JSON file named
  * mngdConnectivity.json into /data/ManagedServices directory. This JSON file contains a
@@ -557,7 +557,7 @@
  *
  * @note The Managed Connectivity Service will stop if the JSON is invalid or inaccessible.
  *
- * @section taf_mngd_Conn_usage_flow Typical application call flow
+ * @section taf_mngdConn_usage_flow Typical application call flow
  *
  * - Automatic Data Connection Establishment
  *

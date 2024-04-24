@@ -43,7 +43,7 @@
 #define MAX_DATA_ID 32
 #define MAX_PATH_LEN 256
 
-taf_mngd_Conn_DataStateHandlerRef_t statHandlerRef = NULL;
+taf_mngdConn_DataStateHandlerRef_t statHandlerRef = NULL;
 
 static void PrintUsage ()
 {
@@ -70,7 +70,7 @@ static int startData()
 
     uint32_t dataId = strtol(le_arg_GetArg(1), NULL, 0);
 
-    taf_mngd_Conn_DataRef_t dataRef = taf_mngd_Conn_GetData(dataId);
+    taf_mngdConn_DataRef_t dataRef = taf_mngdConn_GetData(dataId);
 
     if(dataRef == NULL)
     {
@@ -78,7 +78,7 @@ static int startData()
         return EXIT_FAILURE;
     }
 
-    result=taf_mngd_Conn_DataStart(dataRef);
+    result=taf_mngdConn_DataStart(dataRef);
 
     LE_INFO("----result=%d " ,result);
 
@@ -101,7 +101,7 @@ static int stopData()
 
     uint32_t dataId = strtol(le_arg_GetArg(1), NULL, 0);
 
-    taf_mngd_Conn_DataRef_t dataRef = taf_mngd_Conn_GetData(dataId);
+    taf_mngdConn_DataRef_t dataRef = taf_mngdConn_GetData(dataId);
 
     if(dataRef == NULL)
     {
@@ -109,7 +109,7 @@ static int stopData()
         return EXIT_FAILURE;
     }
 
-    result=taf_mngd_Conn_DataStop(dataRef);
+    result=taf_mngdConn_DataStop(dataRef);
 
     LE_INFO("----result=%d " ,result);
 
@@ -119,14 +119,14 @@ static int stopData()
     return EXIT_SUCCESS;
 }
 
-static char* StateToString(taf_mngd_Conn_DataState_t state)
+static char* StateToString(taf_mngdConn_DataState_t state)
 {
     switch (state)
     {
-        case TAF_MNGD_CONN_DATA_CONNECTED:
-            return "TAF_MNGD_CONN_DATA_CONNECTED";
-        case TAF_MNGD_CONN_DATA_DISCONNECTED:
-            return "TAF_MNGD_CONN_DATA_DISCONNECTED";
+        case TAF_MNGDCONN_DATA_CONNECTED:
+            return "TAF_MNGDCONN_DATA_CONNECTED";
+        case TAF_MNGDCONN_DATA_DISCONNECTED:
+            return "TAF_MNGDCONN_DATA_DISCONNECTED";
         default:
             LE_ERROR("unknown status: %d", (int)state);
             return "unknow status";
@@ -139,7 +139,7 @@ static int getConnState()
     LE_INFO("----getConnState test " );
     le_result_t result;
     uint8_t retDataId;
-    taf_mngd_Conn_DataState_t state;
+    taf_mngdConn_DataState_t state;
 
 
     if (le_arg_NumArgs() != 2)
@@ -151,7 +151,7 @@ static int getConnState()
     uint8_t dataId = strtol(le_arg_GetArg(1), NULL, 0);
     LE_INFO("dataId = %d", dataId);
 
-    taf_mngd_Conn_DataRef_t dataRef = taf_mngd_Conn_GetData(dataId);
+    taf_mngdConn_DataRef_t dataRef = taf_mngdConn_GetData(dataId);
 
     if(dataRef == NULL)
     {
@@ -159,7 +159,7 @@ static int getConnState()
         return EXIT_FAILURE;
     }
 
-    result=taf_mngd_Conn_DataGetConnectionState(dataRef, &retDataId, &state);
+    result=taf_mngdConn_DataGetConnectionState(dataRef, &retDataId, &state);
 
     LE_INFO("----result=%d" , result);
 
@@ -188,7 +188,7 @@ static int getConnIpAddr()
     uint8_t dataId = strtol(le_arg_GetArg(1), NULL, 0);
     LE_INFO("dataId = %d", dataId);
 
-    taf_mngd_Conn_DataRef_t dataRef = taf_mngd_Conn_GetData(dataId);
+    taf_mngdConn_DataRef_t dataRef = taf_mngdConn_GetData(dataId);
 
     if(dataRef == NULL)
     {
@@ -196,7 +196,7 @@ static int getConnIpAddr()
         return EXIT_FAILURE;
     }
 
-    result=taf_mngd_Conn_DataGetConnectionIPAddresses(dataRef,
+    result=taf_mngdConn_DataGetConnectionIPAddresses(dataRef,
                                                       ipv4Addr, TAF_DCS_IPV4_ADDR_MAX_LEN,
                                                       ipv6Addr, TAF_DCS_IPV6_ADDR_MAX_LEN);
 
@@ -214,18 +214,18 @@ static int getConnIpAddr()
 
 static void ConnectionStateHandler
 (
-    taf_mngd_Conn_DataRef_t dataRef,
-    taf_mngd_Conn_DataState_t dataState,
+    taf_mngdConn_DataRef_t dataRef,
+    taf_mngdConn_DataState_t dataState,
     void*  contextPtr
 )
 {
-    taf_mngd_Conn_DataState_t state;
+    taf_mngdConn_DataState_t state;
     uint8_t dataId;
     le_result_t result;
 
     LE_INFO("---data ref : %p, Connection State : %s", dataRef, StateToString(dataState));
 
-    result=taf_mngd_Conn_DataGetConnectionState(dataRef, &dataId, &state);
+    result=taf_mngdConn_DataGetConnectionState(dataRef, &dataId, &state);
 
     if(result == LE_OK)
         LE_INFO("---dataId=%d", dataId);
@@ -235,11 +235,11 @@ static void ConnectionStateHandler
 static void* HandlerThread(void* contextPtr)
 {
     //  connect service in thread.
-    taf_mngd_Conn_DataRef_t dataRef = (taf_mngd_Conn_DataRef_t)contextPtr;
-    taf_mngd_Conn_ConnectService();
+    taf_mngdConn_DataRef_t dataRef = (taf_mngdConn_DataRef_t)contextPtr;
+    taf_mngdConn_ConnectService();
 
-    statHandlerRef = taf_mngd_Conn_AddDataStateHandler(dataRef,
-                        (taf_mngd_Conn_DataStateHandlerFunc_t)ConnectionStateHandler, NULL);
+    statHandlerRef = taf_mngdConn_AddDataStateHandler(dataRef,
+                        (taf_mngdConn_DataStateHandlerFunc_t)ConnectionStateHandler, NULL);
 
     le_event_RunLoop();
     return NULL;
@@ -258,7 +258,7 @@ static int monitorState()
 
     uint32_t dataId = strtol(le_arg_GetArg(1), NULL, 0);
 
-    taf_mngd_Conn_DataRef_t dataRef = taf_mngd_Conn_GetData(dataId);
+    taf_mngdConn_DataRef_t dataRef = taf_mngdConn_GetData(dataId);
 
     if(dataRef == NULL)
     {

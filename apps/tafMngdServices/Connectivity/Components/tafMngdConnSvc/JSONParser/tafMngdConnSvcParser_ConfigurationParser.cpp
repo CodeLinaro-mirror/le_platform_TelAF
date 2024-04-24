@@ -52,7 +52,7 @@ using telux::tafsvc::tafMngdConnSvc_ConfigurationParser;
  * Name of the configuration should be a string
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Name(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -78,7 +78,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Name(
  * SIM ID should be a number.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Sim_ID(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -108,7 +108,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Sim_ID(
  * Sim Name should be a string.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Sim_Name(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -156,7 +156,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Sim_Name(
  * Sim slot number should be a number.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Sim_SlotNumber(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -187,7 +187,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Sim_SlotNumber(
  * Network ID should be a number.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_ID(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -218,7 +218,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_ID(
  * Network Name should be a string.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_Name(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -272,7 +272,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_Name(
  * Network Use_Sim_ID should be a number.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_Use_SIM_ID(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -303,7 +303,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_Use_SIM_ID(
  *  Network Phone ID should be a number.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_PhoneID(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -341,7 +341,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_PhoneID(
  * Network Registration should be Auto or Manual.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_Registration(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -373,7 +373,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_Registration(
  * Data ID should be a number.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_ID(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -405,7 +405,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_ID(
  * Data Use_Network_ID should be a number.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Use_Network_ID(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -436,7 +436,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Use_Network_ID(
  * Data Profile Name should be a string.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Name(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -478,7 +478,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Name(
  * Data Profile Number should be a number.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Profile_Number(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -509,7 +509,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Profile_Number(
  * Data Profile APN can be a string or NULL.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Profile_APN(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -549,7 +549,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Profile_APN(
  * Validate Data:AutoStart
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_AutoStart(
-                                                    taf_mngd_Conn_Configuration_t &Configuration,
+                                                    taf_mngdConn_Configuration_t &Configuration,
                                                     std::string Value,
                                                     int Index)
 {
@@ -569,7 +569,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_AutoStart(
  * Data Connection Test URL can be a string or NULL.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DataStartConnectionTest_URL(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -610,7 +610,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DataStartConnectionT
  * Data Connection Test IPv4 can be a string or NULL.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DataStartConnectionTest_IPv4(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -651,7 +651,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DataStartConnectionT
  * Data Connection Test IPv6 can be a string or NULL.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DataStartConnectionTest_IPv6(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -691,7 +691,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DataStartConnectionT
  * Validate DataStartRetry:Enable
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DSR_Enable(
-                                                    taf_mngd_Conn_Configuration_t &Configuration,
+                                                    taf_mngdConn_Configuration_t &Configuration,
                                                     std::string Value,
                                                     int Index)
 {
@@ -717,7 +717,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DSR_Enable(
  * Validate DataStartRetry:RetryCount
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DSR_RetryCount(
-                                                    taf_mngd_Conn_Configuration_t &Configuration,
+                                                    taf_mngdConn_Configuration_t &Configuration,
                                                     std::string Value,
                                                     int Index)
 {
@@ -749,7 +749,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DSR_RetryCount(
  * PeriodicConnectivityCheck Interval should be a number
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PeriodicConnectivityCheck_Interval(
-                                                    taf_mngd_Conn_Configuration_t &Configuration,
+                                                    taf_mngdConn_Configuration_t &Configuration,
                                                     std::string Value,
                                                     int Index)
 {
@@ -786,7 +786,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PeriodicConnectivity
  * Validate PeriodicConnectivityCheck:RetryCount
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PeriodicConnectivityCheck_RetryCount(
-                                                    taf_mngd_Conn_Configuration_t &Configuration,
+                                                    taf_mngdConn_Configuration_t &Configuration,
                                                     std::string Value,
                                                     int Index)
 {
@@ -818,7 +818,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PeriodicConnectivity
  * PeriodicConnectivityCheck URL can be a string or NULL.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PeriodicConnectivityCheck_URL(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -862,7 +862,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PeriodicConnectivity
 }
 
 bool tafMngdConnSvc_ConfigurationParser::ValidateValue(
-                                                 taf_mngd_Conn_Configuration_t &Configuration,
+                                                 taf_mngdConn_Configuration_t &Configuration,
                                                  std::string property,
                                                  std::string Value,
                                                  int Index)
@@ -880,7 +880,7 @@ bool tafMngdConnSvc_ConfigurationParser::ValidateValue(
 }
 
 bool tafMngdConnSvc_ConfigurationParser::ParseAndUpdateConfigurationJSON(
-                                                taf_mngd_Conn_Configuration_t &Configuration,
+                                                taf_mngdConn_Configuration_t &Configuration,
                                                 std::string filename)
 {
     LE_DEBUG ("Parse Configuration Function");
@@ -1268,7 +1268,7 @@ void tafMngdConnSvc_ConfigurationParser::UpdateValidConfigurationFuncMap(void)
 }
 
 void tafMngdConnSvc_ConfigurationParser::ResetConfigurationStructure (
-                                            taf_mngd_Conn_Configuration_t &Configuration)
+                                            taf_mngdConn_Configuration_t &Configuration)
 {
     Configuration.Name[0] = '\0';
 
@@ -1310,7 +1310,7 @@ void tafMngdConnSvc_ConfigurationParser::ResetConfigurationStructure (
 }
 
 bool tafMngdConnSvc_ConfigurationParser::GetConfiguration(
-                                                taf_mngd_Conn_Configuration_t &Configuration,
+                                                taf_mngdConn_Configuration_t &Configuration,
                                                 std::string ConfigurationFileName)
 {
     ResetConfigurationStructure(Configuration);

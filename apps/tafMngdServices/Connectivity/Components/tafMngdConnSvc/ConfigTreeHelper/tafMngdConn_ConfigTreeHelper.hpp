@@ -64,7 +64,7 @@ namespace telux
         /**
          *
          * ConfigTree Node to capture if the Configuration file name in the Policy was overridden
-         * by the Configuration filename provided via taf_mngd_Conn_SetPolicyConfigurationJSONs API.
+         * by the Configuration filename provided via taf_mngdConn_SetPolicyConfigurationJSONs API.
          * It will contain a string.
          *
          */

@@ -51,7 +51,7 @@ using telux::tafsvc::tafMngdConnSvc_PolicyParser;
 /**
  * Validate DataSession:DataConnection:Use_Data_ID
  */
-bool tafMngdConnSvc_PolicyParser::Validate_DS_DC_Use_Data_ID(taf_mngd_Conn_Policy_t &Policy,
+bool tafMngdConnSvc_PolicyParser::Validate_DS_DC_Use_Data_ID(taf_mngdConn_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index)
 {
@@ -81,7 +81,7 @@ bool tafMngdConnSvc_PolicyParser::Validate_DS_DC_Use_Data_ID(taf_mngd_Conn_Polic
 /**
  * Validate DataSession:DataConnection:Priority
  */
-bool tafMngdConnSvc_PolicyParser::Validate_DS_DC_Priority(taf_mngd_Conn_Policy_t &Policy,
+bool tafMngdConnSvc_PolicyParser::Validate_DS_DC_Priority(taf_mngdConn_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index)
 {
@@ -109,7 +109,7 @@ bool tafMngdConnSvc_PolicyParser::Validate_DS_DC_Priority(taf_mngd_Conn_Policy_t
 /**
  * Validate DataSession:Fallback
  */
-bool tafMngdConnSvc_PolicyParser::Validate_DS_Fallback(taf_mngd_Conn_Policy_t &Policy,
+bool tafMngdConnSvc_PolicyParser::Validate_DS_Fallback(taf_mngdConn_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index)
 {
@@ -128,7 +128,7 @@ bool tafMngdConnSvc_PolicyParser::Validate_DS_Fallback(taf_mngd_Conn_Policy_t &P
 /**
  * Validate ManagedConnectivityServicePolicy:Name
  */
-bool tafMngdConnSvc_PolicyParser::Validate_MCSP_Name(taf_mngd_Conn_Policy_t &Policy,
+bool tafMngdConnSvc_PolicyParser::Validate_MCSP_Name(taf_mngdConn_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index)
 {
@@ -155,7 +155,7 @@ bool tafMngdConnSvc_PolicyParser::Validate_MCSP_Name(taf_mngd_Conn_Policy_t &Pol
 /**
  * Validate DataSession:MultiDataSession:Enable
  */
-bool tafMngdConnSvc_PolicyParser::Validate_DS_MDS_Enable(taf_mngd_Conn_Policy_t &Policy,
+bool tafMngdConnSvc_PolicyParser::Validate_DS_MDS_Enable(taf_mngdConn_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index)
 {
@@ -174,7 +174,7 @@ bool tafMngdConnSvc_PolicyParser::Validate_DS_MDS_Enable(taf_mngd_Conn_Policy_t 
 /**
  * Validate DataSession:MultiDataSession:NumConnections
  */
-bool tafMngdConnSvc_PolicyParser::Validate_DS_MDS_NumConnections(taf_mngd_Conn_Policy_t &Policy,
+bool tafMngdConnSvc_PolicyParser::Validate_DS_MDS_NumConnections(taf_mngdConn_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index)
 {
@@ -194,7 +194,7 @@ bool tafMngdConnSvc_PolicyParser::Validate_DS_MDS_NumConnections(taf_mngd_Conn_P
 /**
  * Validate ConnectivityRecovery Level
  */
-bool tafMngdConnSvc_PolicyParser::Validate_DS_CR_Level(taf_mngd_Conn_Policy_t &Policy,
+bool tafMngdConnSvc_PolicyParser::Validate_DS_CR_Level(taf_mngdConn_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index)
 {
@@ -232,7 +232,7 @@ bool tafMngdConnSvc_PolicyParser::Validate_DS_CR_Level(taf_mngd_Conn_Policy_t &P
 /**
  * Validate ConnectivityRecovery StartWaitTime
  */
-bool tafMngdConnSvc_PolicyParser::Validate_DS_CR_StartWaitTime(taf_mngd_Conn_Policy_t &Policy,
+bool tafMngdConnSvc_PolicyParser::Validate_DS_CR_StartWaitTime(taf_mngdConn_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index)
 {
@@ -263,7 +263,7 @@ bool tafMngdConnSvc_PolicyParser::Validate_DS_CR_StartWaitTime(taf_mngd_Conn_Pol
  * The function to validate each value will be called. The respective function will update the
  * Policy structure if the value is valid.
  */
-bool tafMngdConnSvc_PolicyParser::ValidateValue(taf_mngd_Conn_Policy_t &Policy,
+bool tafMngdConnSvc_PolicyParser::ValidateValue(taf_mngdConn_Policy_t &Policy,
                                           std::string property,
                                           std::string Value,
                                           int Index)
@@ -287,7 +287,7 @@ bool tafMngdConnSvc_PolicyParser::ValidateValue(taf_mngd_Conn_Policy_t &Policy,
  * will set the index to -1 (MCS_INVALID_INDEX)
  *
  */
-bool tafMngdConnSvc_PolicyParser::ParseAndUpdatePolicyJSON(taf_mngd_Conn_Policy_t &Policy,
+bool tafMngdConnSvc_PolicyParser::ParseAndUpdatePolicyJSON(taf_mngdConn_Policy_t &Policy,
                                                                     std::string filename)
 {
     // Try opening an input file stream
@@ -468,7 +468,7 @@ bool tafMngdConnSvc_PolicyParser::ParseAndUpdatePolicyJSON(taf_mngd_Conn_Policy_
     return true;
 }
 
-void tafMngdConnSvc_PolicyParser::ResetPolicyStructure(taf_mngd_Conn_Policy_t &Policy)
+void tafMngdConnSvc_PolicyParser::ResetPolicyStructure(taf_mngdConn_Policy_t &Policy)
 {
     Policy.Name[0] = '\0';
     Policy.DataSession.dataConnectionCount = 0;
@@ -477,13 +477,13 @@ void tafMngdConnSvc_PolicyParser::ResetPolicyStructure(taf_mngd_Conn_Policy_t &P
 /**
  * Comparator function
  */
-static bool compareDataConn ( taf_mngd_Conn_Policy_DataConnection_t DataConn_a,
-                              taf_mngd_Conn_Policy_DataConnection_t DataConn_b)
+static bool compareDataConn ( taf_mngdConn_Policy_DataConnection_t DataConn_a,
+                              taf_mngdConn_Policy_DataConnection_t DataConn_b)
 {
     return (DataConn_a.Priority < DataConn_b.Priority);
 }
 
-bool tafMngdConnSvc_PolicyParser::GetPolicy ( taf_mngd_Conn_Policy_t &Policy,
+bool tafMngdConnSvc_PolicyParser::GetPolicy ( taf_mngdConn_Policy_t &Policy,
                                                       std::string ConfigurationFileName )
 {
     ResetPolicyStructure(Policy);

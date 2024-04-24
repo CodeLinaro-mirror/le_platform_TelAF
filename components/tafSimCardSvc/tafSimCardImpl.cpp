@@ -995,7 +995,7 @@ le_result_t taf_sim::GetRemainingPukTries(taf_sim_Id_t simId, uint32_t* remainin
         return LE_BAD_PARAMETER;
     }
     simPtr = GetSimContext(simId);
-    remainingPukTriesPtr = &simPtr->pukTryCount;
+    *remainingPukTriesPtr = simPtr->pukTryCount;
     return LE_OK;
 }
 

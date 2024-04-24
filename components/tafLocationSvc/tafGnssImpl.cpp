@@ -551,10 +551,23 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
         return;
     }
 
-    if (clientRequestPtr->mTtffEnabled)
-    {
-        clientRequestPtr->mEndTime = std::chrono::system_clock::now();
-        clientRequestPtr->mTtffEnabled = false;
+    for (auto locationInfo : locationEngineInfo) {
+        if ((clientRequestPtr->mFirstFix) &&
+            (locationInfo->getReportStatus() == telux::loc::ReportStatus::SUCCESS) &&
+            (locationInfo->getLatitude() != NAN) &&
+            (locationInfo->getLongitude() != NAN))
+        {
+            std::chrono::time_point<std::chrono::system_clock> mEndTime = std::chrono::system_clock::now();
+            std::chrono::duration<double> elapsedTime = mEndTime - clientRequestPtr->mStartTime;
+            clientRequestPtr->mTtffPtr = elapsedTime.count() * 1e+3;
+
+            if ((int)clientRequestPtr->mTtffPtr >= clientRequestPtr->mAcqRate)
+            {
+                clientRequestPtr->mFirstFix = false;
+            } else{
+                clientRequestPtr->mTtffPtr=  0;
+            }
+        }
     }
     le_mutex_Lock(clientRequestPtr->mGnssMutexRef);
     if(gnss.NumOfPositionHandlers )
@@ -2029,7 +2042,7 @@ void taf_Gnss::InitializeClient
     clientRequestPtr->hSpeedAccuracyResolution = TAF_GNSS_RES_ONE_DECIMAL;
     clientRequestPtr->GnssState = TAF_GNSS_STATE_READY;
     clientRequestPtr->mStarted = false;
-    clientRequestPtr->mTtffEnabled = false;
+    clientRequestPtr->mFirstFix = false;
     clientRequestPtr->mEngineType = 0; //By default set to FUSED mode
     clientRequestPtr->mTtffPtr = 0;
     clientRequestPtr->mAcqRate = 0;
@@ -2116,6 +2129,14 @@ uint32_t taf_Gnss::TranslateDop
 
     LE_DEBUG("resolution %d, dopValue %" PRIu32 ", new dopValue %" PRIu16, (int)resolution, dopValue, retVal);
     return retVal;
+}
+
+void taf_Gnss::ConfigureAcqStartInfo(taf_gnss_Client_t* clientRequestPtr) {
+    clientRequestPtr->mStarted = true;
+    clientRequestPtr->GnssState = TAF_GNSS_STATE_ACTIVE;
+    clientRequestPtr->mTtffPtr = 0;
+    clientRequestPtr->mStartTime = std::chrono::system_clock::now();
+    clientRequestPtr->mFirstFix = true;
 }
 
 taf_gnss_State_t taf_Gnss::GetState
@@ -2353,12 +2374,9 @@ le_result_t taf_Gnss::Start
                 {
                     if(p.get_future().get() == LE_OK)
                     {
-                        clientRequestPtr->mStarted = true;
-                        clientRequestPtr->GnssState = TAF_GNSS_STATE_ACTIVE;
+                        ConfigureAcqStartInfo(clientRequestPtr);
                         result = LE_OK;
                         LE_DEBUG("Start() is success");
-                        clientRequestPtr->mStartTime = std::chrono::system_clock::now();
-                        clientRequestPtr->mTtffEnabled = true;
                     }
                     else
                     {
@@ -2679,19 +2697,16 @@ le_result_t taf_Gnss::GetTtff
         case TAF_GNSS_STATE_READY:
         case TAF_GNSS_STATE_ACTIVE:
         {
-// Start Detailed Engine Reports, if not already started
-
-            if(!clientRequestPtr->mTtffPtr && !clientRequestPtr->mTtffEnabled) //calculate ttff on device boot up & cold/warm/hot restart procedure
+            if(!clientRequestPtr->mTtffPtr) //calculate ttff on device boot up & cold/warm/hot restart procedure
             {
-                std::chrono::duration<double> elapsedTime = clientRequestPtr->mEndTime - clientRequestPtr->mStartTime;
-                *ttffPtr = elapsedTime.count() * 1e+3;
-                clientRequestPtr->mTtffPtr = *ttffPtr ;
+                *ttffPtr = 0;
+                return LE_BUSY;
             }
             else //fetch the first TTFF value & return back
             {
                 *ttffPtr = clientRequestPtr->mTtffPtr;
-            }
-            result = LE_OK;
+                return LE_OK;
+             }
         }
         break;
         default:
@@ -3890,12 +3905,8 @@ le_result_t taf_Gnss::ForceColdRestart
                             std::future<le_result_t> futResult = p.get_future();
                             if(futResult.get() == LE_OK)
                             {
-                                clientRequestPtr->mStarted = true;
-                                clientRequestPtr->GnssState = TAF_GNSS_STATE_ACTIVE;
+                                ConfigureAcqStartInfo(clientRequestPtr);
                                 LE_DEBUG("ForceColdRestart->Start() is success");
-                                clientRequestPtr->mTtffPtr = 0; //reset TTFF value
-                                clientRequestPtr->mStartTime = std::chrono::system_clock::now();
-                                clientRequestPtr->mTtffEnabled = true;
                             }
                             else
                             {
@@ -4054,12 +4065,8 @@ le_result_t taf_Gnss::ForceWarmRestart
                             std::future<le_result_t> futResult = p.get_future();
                             if(futResult.get() == LE_OK)
                             {
-                                clientRequestPtr->mStarted = true;
-                                clientRequestPtr->GnssState = TAF_GNSS_STATE_ACTIVE;
+                                ConfigureAcqStartInfo(clientRequestPtr);
                                 LE_DEBUG("ForceWarmRestart->Start() is success");
-                                clientRequestPtr->mTtffPtr = 0; //reset TTFF value
-                                clientRequestPtr->mStartTime = std::chrono::system_clock::now();
-                                clientRequestPtr->mTtffEnabled = true;
                             }
                             else
                             {
@@ -4176,11 +4183,7 @@ le_result_t taf_Gnss::ForceHotRestart
                         std::future<le_result_t> futResult = p.get_future();
                         if(futResult.get() == LE_OK)
                         {
-                            clientRequestPtr->mStarted = true;
-                            clientRequestPtr->GnssState = TAF_GNSS_STATE_ACTIVE;
-                            clientRequestPtr->mTtffPtr = 0; //reset TTFF value
-                            clientRequestPtr->mStartTime = std::chrono::system_clock::now();
-                            clientRequestPtr->mTtffEnabled = true;
+                            ConfigureAcqStartInfo(clientRequestPtr);
                             LE_DEBUG("ForceHotRestart->Start() is success");
                         }
                         else
@@ -4457,16 +4460,11 @@ le_result_t taf_Gnss::StartMode
                     }
                     else
                     {
-                        clientRequestPtr->mStartTime = std::chrono::system_clock::now();
                         std::future<le_result_t> futResult = p.get_future();
                         if(futResult.get() == LE_OK)
                         {
-                            clientRequestPtr->mStarted = true;
-                            clientRequestPtr->GnssState = TAF_GNSS_STATE_ACTIVE;
+                            ConfigureAcqStartInfo(clientRequestPtr);
                             LE_DEBUG("StartMode->Start() is success");
-                            clientRequestPtr->mTtffEnabled = true;
-                            clientRequestPtr->mTtffPtr = 0; //reset ttff value
-                            clientRequestPtr->mStartTime = std::chrono::system_clock::now();
                         }
                         else
                         {

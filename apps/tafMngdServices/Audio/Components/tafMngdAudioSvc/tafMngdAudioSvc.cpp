@@ -460,6 +460,44 @@ void taf_mngd_audioHw_RemoveNodeStateChangeHandler
     mngdAudioVhal.RemoveNodeStateChangeHandler(handlerRef);
 }
 
+/**
+* FUNCTION     : SetMute
+* DESCRIPTION  : Sets the mute status of modem RX/TX, player, recorder streams.
+* DEPENDECY    :
+* PARAMETERS   : Player stream reference and mute status
+* RETURN VALUES: LE_OK on success, LE_BAD_PARAMETER on invalid stream reference
+*                and LE_FAULT on failure.
+*/
+le_result_t taf_mngd_audio_SetMute
+(
+    taf_mngd_audio_StreamRef_t streamRef,
+    bool isMute
+)
+{
+    LE_DEBUG("taf_mngd_audio_SetMute : %s", isMute ? "true" : "false");
+    auto &mngdAudio = taf_MngdAudio::GetInstance();
+    return mngdAudio.SetMute(streamRef, isMute);
+}
+
+/**
+* FUNCTION     : GetMute
+* DESCRIPTION  : Gets the mute status of modem RX/TX, player, recorder streams.
+* DEPENDECY    :
+* PARAMETERS   : Player stream reference and address of bool
+* RETURN VALUES: LE_OK on success, LE_BAD_PARAMETER on invalid stream reference
+*                and LE_FAULT on failure.
+*/
+le_result_t taf_mngd_audio_GetMute
+(
+    taf_mngd_audio_StreamRef_t streamRef,
+    bool *isMute
+)
+{
+    LE_DEBUG("taf_mngd_audio_GetMute");
+    auto &mngdAudio = taf_MngdAudio::GetInstance();
+    return mngdAudio.GetMute(streamRef, isMute);
+}
+
 COMPONENT_INIT
 {
     LE_INFO("tafMngdAudioSvc COMPONENT init...");

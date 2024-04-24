@@ -40,6 +40,11 @@
 
 using namespace std;
 
+const char* arg1;
+const char* arg2;
+const char* arg3;
+const char* arg4;
+
 static le_sem_Ref_t tafAudioAppSem;
 static taf_mngd_audio_MediaHandlerRef_t MediaHandlerRef = NULL;
 taf_mngd_audio_StreamRef_t sinkRef = NULL, recorderRef = NULL, playerRef = NULL;
@@ -144,7 +149,7 @@ void Test_Mngd_Audio_Playback(const char* filePath)
     res = taf_mngd_audio_Connect(playerConnRef, playerRef);
     LE_TEST_OK(res == LE_OK, "Successfully connected recorderRef to ConnectorRef");
 
-    LE_TEST_INFO("Test taf_mngd_audio_RecordFile to record a file");
+    LE_TEST_INFO("Test taf_mngd_audio_PlayFile to play a file");
     res = taf_mngd_audio_PlayFile(playerRef, filePath);
     LE_TEST_OK(res == LE_OK, "Successfully started the file playback");
 
@@ -152,6 +157,37 @@ void Test_Mngd_Audio_Playback(const char* filePath)
     {
         std::cout<<"****Failed to start playback***"<<endl;
         exit(0);
+    }
+    if(arg4 && strcmp(arg4, "mute") == 0)
+    {
+        sleep(2);
+        LE_TEST_INFO("Test taf_mngd_audio_SetMute to mute playerRef");
+        res = taf_mngd_audio_SetMute(playerRef, true);
+        LE_TEST_OK(res == LE_OK, "Successfully playerRef is muted");
+
+        LE_TEST_INFO("Test taf_mngd_audio_GetMute to get mute status of playerRef");
+        bool isMute;
+        res = taf_mngd_audio_GetMute(playerRef, &isMute);
+        LE_TEST_OK(isMute, "Successfully get the mute status as true");
+    }  else if( arg4 && strcmp(arg4, "unmute") == 0)
+    {
+        sleep(2);
+        LE_TEST_INFO("Test taf_mngd_audio_SetMute to mute playerRef");
+        res = taf_mngd_audio_SetMute(playerRef, true);
+        LE_TEST_OK(res == LE_OK, "Successfully playerRef is muted");
+
+        LE_TEST_INFO("Test taf_mngd_audio_GetMute to get mute status of playerRef");
+        bool isMute;
+        res = taf_mngd_audio_GetMute(playerRef, &isMute);
+        LE_TEST_OK(isMute, "Successfully get the mute status as true");
+
+        LE_TEST_INFO("Test taf_mngd_audio_SetMute to unmute playerRef");
+        res = taf_mngd_audio_SetMute(playerRef, false);
+        LE_TEST_OK(res == LE_OK, "Successfully playerRef is unmuted");
+
+        LE_TEST_INFO("Test taf_mngd_audio_GetMute to get mute status of playerRef");
+        res = taf_mngd_audio_GetMute(playerRef, &isMute);
+        LE_TEST_OK(!isMute, "Successfully get the mute status as false");
     }
 }
 
@@ -240,6 +276,37 @@ void Test_Mngd_Audio_Record(const char* filePath)
         std::cout<<"****Failed to start recording***"<<endl;
         exit(0);
     }
+    if(arg4 && strcmp(arg4, "mute") == 0)
+    {
+        sleep(1);
+        LE_TEST_INFO("Test taf_mngd_audio_SetMute to mute recorderRef");
+        res = taf_mngd_audio_SetMute(recorderRef, true);
+        LE_TEST_OK(res == LE_OK, "Successfully recorderRef is muted");
+
+        LE_TEST_INFO("Test taf_mngd_audio_GetMute to get mute status of recorderRef");
+        bool isMute;
+        res = taf_mngd_audio_GetMute(recorderRef, &isMute);
+        LE_TEST_OK(isMute, "Successfully get the mute status as true");
+    } else if( arg4 && strcmp(arg4, "unmute") == 0)
+    {
+        sleep(1);
+        LE_TEST_INFO("Test taf_mngd_audio_SetMute to mute recorderRef");
+        res = taf_mngd_audio_SetMute(recorderRef, true);
+        LE_TEST_OK(res == LE_OK, "Successfully recorderRef is muted");
+
+        LE_TEST_INFO("Test taf_mngd_audio_GetMute to get mute status of recorderRef");
+        bool isMute;
+        res = taf_mngd_audio_GetMute(recorderRef, &isMute);
+        LE_TEST_OK(isMute, "Successfully get the mute status as true");
+
+        LE_TEST_INFO("Test taf_mngd_audio_SetMute to unmute recorderRef");
+        res = taf_mngd_audio_SetMute(recorderRef, false);
+        LE_TEST_OK(res == LE_OK, "Successfully recorderRef is unmuted");
+
+        LE_TEST_INFO("Test taf_mngd_audio_GetMute to get mute status of recorderRef");
+        res = taf_mngd_audio_GetMute(recorderRef, &isMute);
+        LE_TEST_OK(!isMute, "Successfully get the mute status as false");
+    }
 }
 
 void Test_Mngd_Audio_Playback_Stop()
@@ -274,7 +341,7 @@ void Test_Mngd_Audio_Record_Stop()
 
 void Test_Mngd_Audio_VoiceCall()
 {
-    if(le_arg_GetArg(2) != NULL && (strcmp(le_arg_GetArg(2), "force") == 0))
+    if( arg3 && strcmp(arg3, "force") == 0)
     {
         LE_TEST_INFO("Test taf_mngd_audio_OpenRoute API ROUTE_0 force open");
         routeRef = taf_mngd_audio_OpenRoute( routeId, TAF_MNGD_AUDIO_VOICE_CALL_FORCE_OPEN,
@@ -357,15 +424,106 @@ void Test_Mngd_Audio_VoiceCall_Stop()
     LE_TEST_OK(res == LE_OK, "Successfully closed the route");
 }
 
+void Test_Mngd_Audio_Mute()
+{
+    bool isMute;
+    if( arg4 && strcmp(arg4, "RX") == 0 )
+    {
+        LE_TEST_INFO("Test taf_mngd_audio_SetMute to mute modem voice RX");
+        res = taf_mngd_audio_SetMute(rxStreamRef, true);
+        LE_TEST_OK(res == LE_OK, "Successfully rxStreamRef is muted");
+
+        LE_TEST_INFO("Test taf_mngd_audio_GetMute to get mute status of modem voice RX");
+        res = taf_mngd_audio_GetMute(rxStreamRef, &isMute);
+        LE_TEST_OK(isMute, "Successfully get the mute status as true"); 
+    } else if ( arg4 && strcmp(arg4, "TX") == 0 )
+    {
+        LE_TEST_INFO("Test taf_mngd_audio_SetMute to mute modem voice TX");
+        res = taf_mngd_audio_SetMute(txStreamRef, true);
+        LE_TEST_OK(res == LE_OK, "Successfully txStreamRef is muted");
+
+        LE_TEST_INFO("Test taf_mngd_audio_GetMute to get mute status of modem voice TX");
+        res = taf_mngd_audio_GetMute(txStreamRef, &isMute);
+        LE_TEST_OK(isMute, "Successfully get the mute status as true");
+    } else if ( arg4 && strcmp(arg4, "RX/TX") == 0 )
+    {
+        LE_TEST_INFO("Test taf_mngd_audio_SetMute to mute modem voice RX");
+        res = taf_mngd_audio_SetMute(rxStreamRef, true);
+        LE_TEST_OK(res == LE_OK, "Successfully rxStreamRef is muted");
+
+        LE_TEST_INFO("Test taf_mngd_audio_GetMute to get mute status of modem voice RX");
+        res = taf_mngd_audio_GetMute(rxStreamRef, &isMute);
+        LE_TEST_OK(isMute, "Successfully get the mute status as true");
+
+        LE_TEST_INFO("Test taf_mngd_audio_SetMute to mute modem voice TX");
+        res = taf_mngd_audio_SetMute(txStreamRef, true);
+        LE_TEST_OK(res == LE_OK, "Successfully txStreamRef is muted");
+
+        LE_TEST_INFO("Test taf_mngd_audio_GetMute to get mute status of modem voice TX");
+        res = taf_mngd_audio_GetMute(txStreamRef, &isMute);
+        LE_TEST_OK(isMute, "Successfully get the mute status as true");
+    }
+}
+
+void Test_Mngd_Audio_Unmute()
+{
+    bool isMute;
+    if( arg4 && strcmp(arg4, "RX") == 0 )
+    {
+        LE_TEST_INFO("Test taf_mngd_audio_SetMute to unmute modem voice RX");
+        res = taf_mngd_audio_SetMute(rxStreamRef, false);
+        LE_TEST_OK(res == LE_OK, "Successfully rxStreamRef is unmuted");
+
+        LE_TEST_INFO("Test taf_mngd_audio_GetMute to get mute status of modem voice RX");
+        res = taf_mngd_audio_GetMute(rxStreamRef, &isMute);
+        LE_TEST_OK(!isMute, "Successfully get the mute status as false");
+    } else if ( arg4 && strcmp(arg4, "TX") == 0 ) {
+        LE_TEST_INFO("Test taf_mngd_audio_SetMute to unmute modem voice TX");
+        res = taf_mngd_audio_SetMute(txStreamRef, false);
+        LE_TEST_OK(res == LE_OK, "Successfully txStreamRef is unmuted");
+
+        LE_TEST_INFO("Test taf_mngd_audio_GetMute to get mute status of modem voice TX");
+        res = taf_mngd_audio_GetMute(txStreamRef, &isMute);
+        LE_TEST_OK(!isMute, "Successfully get the mute status as false");
+    } else if ( arg4 && strcmp(arg4, "RX/TX") == 0 )
+    {
+        LE_TEST_INFO("Test taf_mngd_audio_SetMute to mute modem voice RX");
+        res = taf_mngd_audio_SetMute(rxStreamRef, false);
+        LE_TEST_OK(res == LE_OK, "Successfully rxStreamRef is unmuted");
+
+        LE_TEST_INFO("Test taf_mngd_audio_GetMute to get mute status of modem voice RX");
+        res = taf_mngd_audio_GetMute(rxStreamRef, &isMute);
+        LE_TEST_OK(!isMute, "Successfully get the mute status as false");
+
+        LE_TEST_INFO("Test taf_mngd_audio_SetMute to mute modem voice TX");
+        res = taf_mngd_audio_SetMute(txStreamRef, false);
+        LE_TEST_OK(res == LE_OK, "Successfully txStreamRef is unmuted");
+
+        LE_TEST_INFO("Test taf_mngd_audio_GetMute to get mute status of modem voice TX");
+        res = taf_mngd_audio_GetMute(txStreamRef, &isMute);
+        LE_TEST_OK(!isMute, "Successfully get the mute status as false");
+    }
+}
+
 void PrintHelp()
 {
     std::cout<<endl<<"Usage details:"<<endl;
     std::cout<<"**************"<<endl;
     std::cout<<"app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- <route_id> playback/record <File Name>"<<endl;
     std::cout<<"app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- route0 voicecall"<<endl;
+    std::cout<<"app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- route0 voicecall mute RX"<<endl;
+    std::cout<<"app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- route0 voicecall unmute RX"<<endl;
+    std::cout<<"app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- route0 voicecall mute TX"<<endl;
+    std::cout<<"app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- route0 voicecall unmute TX"<<endl;
+    std::cout<<"app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- route0 voicecall mute RX/TX"<<endl;
+    std::cout<<"app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- route0 voicecall unmute RX/TX"<<endl;
     std::cout<<"app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- route0 voicecall force"<<endl;
     std::cout<<"Ex: app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- route0 playback /data/test.wav"<<endl;
+    std::cout<<"Ex: app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- route0 playback /data/test.wav mute"<<endl;
+    std::cout<<"Ex: app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- route0 playback /data/test.wav unmute"<<endl;
     std::cout<<"Ex: app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- route0 record /data/record.wav"<<endl;
+    std::cout<<"Ex: app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- route0 record /data/record.wav mute"<<endl;
+    std::cout<<"Ex: app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- route0 record /data/record.wav unmute"<<endl;
     std::cout<<"Ex: app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- route0 repeated_playback"<<endl;
     std::cout<<"Ex: app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- node <node_id> getNodeType"<<endl;
     std::cout<<"Ex: app runProc tafMngdAudioConsoleApp tafMngdAudioConsoleApp -- node 1 getNodeType"<<endl;
@@ -411,7 +569,8 @@ static void NodeEventCallback(uint8_t nodeId, taf_mngd_audioHw_Event_t event, vo
     } else if ( event == TAF_MNGD_AUDIOHW_UNMUTE)
     {
         nodeEvent = "unmute";
-    }
+    } else
+        nodeEvent = "undefined";
     printf("Node event for node %s\n", nodeEvent);
 }
 
@@ -420,34 +579,61 @@ COMPONENT_INIT
 
     int NumberOfArgs = le_arg_NumArgs();
     tafAudioAppSem = le_sem_Create("tafAudioAppSem", 0);
+
     LE_INFO("Total NumberOfArgs: %d", NumberOfArgs);
     if (NumberOfArgs >= 1) {
-        if(strcmp(le_arg_GetArg(0), "help") == 0)
+        arg1 = le_arg_GetArg(0);
+        if (NULL == arg1) {
+            LE_ERROR("arg1 is NULL");
+            exit(EXIT_FAILURE);
+        }
+        if (NumberOfArgs >= 2) {
+            arg2 = le_arg_GetArg(1);
+            if (NULL == arg2) {
+                LE_ERROR("arg2 is NULL");
+                exit(EXIT_FAILURE);
+            }
+        }
+        if (NumberOfArgs >= 3) {
+            arg3 = le_arg_GetArg(2);
+            if (NULL == arg3) {
+                LE_ERROR("arg3 is NULL");
+                exit(EXIT_FAILURE);
+            }
+        }
+        if (NumberOfArgs >= 4) {
+            arg4 = le_arg_GetArg(3);
+            if (NULL == arg4) {
+                LE_ERROR("arg4 is NULL");
+                exit(EXIT_FAILURE);
+            }
+        }
+        if(arg1 && strcmp(arg1, "help") == 0)
         {
             PrintHelp();
             exit(EXIT_SUCCESS);
         }
         else
         {
-            if(strcmp(le_arg_GetArg(0),"route0") == 0)
+            if(arg1 && strcmp(arg1,"route0") == 0)
             {
                 routeId = TAF_MNGD_AUDIO_ROUTE_0;
-            } else if(strcmp(le_arg_GetArg(0),"route1") == 0)
+            } else if(arg1 && strcmp(arg1,"route1") == 0)
             {
                 routeId = TAF_MNGD_AUDIO_ROUTE_1;
-            } else if(strcmp(le_arg_GetArg(0),"route2") == 0)
+            } else if(arg1 && strcmp(arg1,"route2") == 0)
             {
                 routeId = TAF_MNGD_AUDIO_ROUTE_2;
-            } else if(strcmp(le_arg_GetArg(0),"route3") == 0)
+            } else if(arg1 && strcmp(arg1,"route3") == 0)
             {
                 routeId = TAF_MNGD_AUDIO_ROUTE_3;
-            } else if(strcmp(le_arg_GetArg(0),"route4") == 0)
+            } else if(arg1 && strcmp(arg1,"route4") == 0)
             {
                 routeId = TAF_MNGD_AUDIO_ROUTE_4;
             }
-            if( strcmp(le_arg_GetArg(1),"playback") == 0)
+            if( arg2 && strcmp(arg2,"playback") == 0)
             {
-                Test_Mngd_Audio_Playback(le_arg_GetArg(2));
+                Test_Mngd_Audio_Playback(arg3);
                 std::cout<<"Press s to stop Audio Playback"<<endl;
                 char input_str[5];
                 while(le_sem_TryWait(tafAudioAppSem)!=LE_OK)
@@ -464,13 +650,13 @@ COMPONENT_INIT
                         break;
                     }
                 }
-            } else if( strcmp(le_arg_GetArg(1),"repeated_playback") == 0)
+            } else if( arg2 && strcmp(arg2,"repeated_playback") == 0)
             {
                 int repeat = 0;
                 int numFiles = 0;
                 std::string fileName = "";
 
-                Test_Mngd_Audio_PlayList_Setup(le_arg_GetArg(2));
+                Test_Mngd_Audio_PlayList_Setup(arg3);
 
                 cout << "Enter the number of files: ";
                 cin >> numFiles;
@@ -501,9 +687,9 @@ COMPONENT_INIT
                     }
                 }
                 Test_Mngd_Audio_Delete_PlayList();
-            } else if(strcmp(le_arg_GetArg(1),"record") == 0)
+            } else if( arg2 && strcmp(arg2,"record") == 0)
             {
-                Test_Mngd_Audio_Record(le_arg_GetArg(2));
+                Test_Mngd_Audio_Record(arg3);
                 std::cout<<"Press s to stop Audio Recording"<<endl;
                 char input_str[5];
                 while(le_sem_TryWait(tafAudioAppSem)!=LE_OK)
@@ -520,11 +706,17 @@ COMPONENT_INIT
                         break;
                     }
                 }
-            } else if(strcmp(le_arg_GetArg(1),"voicecall") == 0)
+            } else if(arg2 && strcmp(arg2,"voicecall") == 0)
             {
                 Test_Mngd_Audio_VoiceCall();
                 std::cout<<"Press s to disconnect voice call audio"<<endl;
                 char input_str[5];
+                if( arg3 && strcmp(arg3, "mute") == 0) {
+                    Test_Mngd_Audio_Mute();
+                } else if (arg3 && strcmp(arg3, "unmute") == 0) {
+                    Test_Mngd_Audio_Mute();
+                    Test_Mngd_Audio_Unmute();
+                }
                 while(le_sem_TryWait(tafAudioAppSem)!=LE_OK)
                 {
                     if( fgets(input_str,sizeof(input_str),stdin) == NULL )
@@ -539,21 +731,14 @@ COMPONENT_INIT
                         break;
                     }
                 }
-            }  else if (strcmp(le_arg_GetArg(0),"node") == 0)
+            }  else if (arg1 && strcmp(arg1,"node") == 0)
             {
                 uint8_t nodeId;
-                const char* arg1 = le_arg_GetArg(1);
                 le_result_t res;
                 if ( arg1 != NULL )
                 {
-                    nodeId = atoi(arg1);
-                    const char* arg2 = le_arg_GetArg(2);
-                    if (arg2 == NULL)
-                    {
-                        LE_ERROR("invalid argument!");
-                        exit(EXIT_SUCCESS);
-                    }
-                    if (strcmp(arg2, "getNodeType") == 0)
+                    nodeId = atoi(arg2);
+                    if (arg3 && strcmp(arg3, "getNodeType") == 0)
                     {
                         LE_INFO("Test taf_mngd_audioHw_GetNodeType");
                         taf_mngd_audioHw_NodeType_t nodeType;
@@ -571,16 +756,10 @@ COMPONENT_INIT
                             printf("Audio device type is not defined\n");
                         }
                         exit(EXIT_SUCCESS);
-                    } else if ( strcmp(arg2, "setNodeVendorConfig") == 0)
+                    } else if ( arg3 && strcmp(arg3, "setNodeVendorConfig") == 0)
                     {
-                        const char* configPath = le_arg_GetArg(3);
-                        if( configPath == NULL )
-                        {
-                            LE_ERROR("Invalid configPath!");
-                            exit(EXIT_SUCCESS);
-                        }
                         LE_INFO("Test taf_mngd_audioHw_SendNodeConfigure");
-                        res = taf_mngd_audioHw_SendNodeVendorConfig(nodeId, configPath);
+                        res = taf_mngd_audioHw_SendNodeVendorConfig(nodeId, arg4);
                         if ( res == LE_OK )
                         {
                             printf("Successfully sent the audio device configuration to VHAL\n");
@@ -590,15 +769,9 @@ COMPONENT_INIT
                             printf("Failed to send the configuration to VHAL\n");
                         }
                         exit(EXIT_SUCCESS);
-                    } else if ( strcmp(arg2, "setPowerState") == 0)
+                    } else if ( arg3 && strcmp(arg3, "setPowerState") == 0)
                     {
-                        const char* state = le_arg_GetArg(3);
-                        if( state == NULL )
-                        {
-                            LE_ERROR("Invalid state!");
-                            exit(EXIT_SUCCESS);
-                        }
-                        if ( strcmp(state, "ACTIVE") == 0 )
+                        if ( arg4 && strcmp(arg4, "ACTIVE") == 0 )
                         {
                             LE_INFO("Set power state to ACTIVE for node %d", nodeId);
                             res = taf_mngd_audioHw_SetNodePowerState(nodeId,
@@ -611,7 +784,7 @@ COMPONENT_INIT
                             {
                                 printf("Failed to set the device power state to ACTIVE\n");
                             }
-                        } else if ( strcmp(state, "SUSPEND") == 0)
+                        } else if ( arg4 && strcmp(arg4, "SUSPEND") == 0)
                         {
                             LE_INFO("Set power state to SUSPEND for node %d", nodeId);
                             res = taf_mngd_audioHw_SetNodePowerState(nodeId,
@@ -624,7 +797,7 @@ COMPONENT_INIT
                             {
                                 printf("Failed to set the device power state to SUSPEND\n");
                             }
-                        } else if ( strcmp(state, "POWER_OFF") == 0)
+                        } else if ( arg4 && strcmp(arg4, "POWER_OFF") == 0)
                         {
                             LE_INFO("Set power state to POWER_OFF for node %d", nodeId);
                             res = taf_mngd_audioHw_SetNodePowerState(nodeId,
@@ -640,7 +813,7 @@ COMPONENT_INIT
                         } else
                             printf("Invalid state");
                         exit(EXIT_SUCCESS);
-                    }  else if ( strcmp(arg2, "getPowerState") == 0)
+                    }  else if ( arg3 && strcmp(arg3, "getPowerState") == 0)
                     {
                         taf_mngd_audioHw_NodePowerState_t state;
                         LE_INFO("Get power state of node %d", nodeId);
@@ -668,15 +841,9 @@ COMPONENT_INIT
                             printf("Failed to get the power state\n");
                         }
                         exit(EXIT_SUCCESS);
-                    }  else if ( strcmp(arg2, "setMuteState") == 0)
+                    }  else if (arg3 && strcmp(arg3, "setMuteState") == 0)
                     {
-                        const char* isMute = le_arg_GetArg(3);
-                        if( isMute == NULL )
-                        {
-                            LE_ERROR("Invalid configPath!");
-                            exit(EXIT_SUCCESS);
-                        }
-                        if ( strcmp(isMute, "true") == 0 )
+                        if ( arg4 && strcmp(arg4, "true") == 0 )
                         {
                             LE_INFO("Set mute to %d node device", nodeId);
                             res = taf_mngd_audioHw_SetNodeMuteState( nodeId, true );
@@ -698,7 +865,7 @@ COMPONENT_INIT
                             }
                             exit(EXIT_SUCCESS);
                         }
-                    }   else if ( strcmp(arg2, "getMuteState") == 0)
+                    }   else if ( arg3 && strcmp(arg3, "getMuteState") == 0)
                     {
                         bool isMute;
                         LE_INFO("Get mute state of node %d", nodeId);
@@ -714,7 +881,7 @@ COMPONENT_INIT
                             printf("Failed to get the mute state\n");
                         }
                         exit(EXIT_SUCCESS);
-                    } else if ( strcmp(arg2, "regsiterNodeEvent") == 0)
+                    } else if ( arg3 && strcmp(arg3, "regsiterNodeEvent") == 0)
                     {
                         taf_mngd_audioHw_NodeStateChangeHandlerRef_t handlerRef;
                         handlerRef = taf_mngd_audioHw_AddNodeStateChangeHandler(nodeId,
@@ -731,14 +898,9 @@ COMPONENT_INIT
                         return;
                     }
                 }
-            } else if (strcmp(le_arg_GetArg(0), "setVendorConfig") == 0)
+            } else if (arg1 && strcmp(arg1, "setVendorConfig") == 0)
             {
-                const char* configPath = le_arg_GetArg(1);
-                if (configPath == NULL)
-                {
-                    LE_ERROR("Invalid configPath");
-                }
-                res = taf_mngd_audioHw_SendVendorConfig(configPath);
+                res = taf_mngd_audioHw_SendVendorConfig(arg2);
                 if ( res == LE_OK )
                 {
                     printf("Successfully sent the vendor configuration\n");

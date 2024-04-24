@@ -439,6 +439,88 @@
     }
 
    @endverbatim
+ *
+ * @section c_taf_mngd_audio_set_get_mute Manage the mute status
+ * TelAF Managed Audio Service helps to set/get mute status for modem RX/TX, player and recorder.
+ * Set/get mute works after connecting all the streams for voice call, after starting playback for
+ * player and after starting the recording for recorder.
+ *
+ * @subsection c_set_get_mute_voice_call Set/get the mute status of Modem RX/TX during voice call
+ *
+ * @verbatim
+
+    taf_mngd_audio_StreamRef_t rxStreamRef = NULL, txStreamRef = NULL;
+    bool isMute;
+    le_result_t res;
+
+    rxStreamRef = taf_mngd_audio_OpenModemVoiceRx(1);
+
+    txStreamRef = taf_mngd_audio_OpenModemVoiceTx(1, true);
+
+    res = taf_mngd_audio_SetMute(rxStreamRef, true);
+    if (res == LE_OK) {
+        LE_INFO("Successfully muted modem RX");
+    }
+
+    res = taf_mngd_audio_GetMute(rxStreamRef, &isMute);
+    if (res == LE_OK) {
+        LE_INFO("Successfully get the mute status of modem RX as %s", isMute ? false : true);
+    }
+
+    res = taf_mngd_audio_SetMute(txStreamRef, true);
+    if (res == LE_OK) {
+        LE_INFO("Successfully muted modem TX");
+    }
+
+    res = taf_mngd_audio_GetMute(txStreamRef, &isMute);
+    if (res == LE_OK) {
+        LE_INFO("Successfully get the mute status of modem TX as %s", isMute ? false : true);
+    }
+   @endverbatim
+ *
+ * @subsection c_set_get_mute_player Set/get the mute status of player
+ *
+ * @verbatim
+
+    taf_mngd_audio_StreamRef_t  = playerRef;
+    bool isMute;
+    le_result_t res;
+
+    playerRef = taf_mngd_audio_OpenPlayer(TAF_MNGD_AUDIO_RX);
+
+    res = taf_mngd_audio_SetMute(playerRef, true);
+    if (res == LE_OK) {
+        LE_INFO("Successfully playerRef is muted");
+    }
+
+    res = taf_mngd_audio_GetMute(playerRef, &isMute);
+    if (res == LE_OK) {
+        LE_INFO("Successfully get the mute status of player as %s", isMute ? false : true);
+    }
+
+   @endverbatim
+ *
+ * @subsection c_set_get_mute_player Set/get the mute status of recorder
+ *
+ * @verbatim
+
+    taf_mngd_audio_StreamRef_t  = recorderRef;
+    bool isMute;
+    le_result_t res;
+
+    recorderRef = taf_mngd_audio_OpenRecorder(TAF_MNGD_AUDIO_TX);
+
+    res = taf_mngd_audio_SetMute(recorderRef, true);
+    if (res == LE_OK) {
+        LE_INFO("Successfully recorderRef is muted");
+    }
+
+    res = taf_mngd_audio_GetMute(recorderRef, &isMute);
+    if (res == LE_OK) {
+        LE_INFO("Successfully get the mute status of recorder as %s", isMute ? false : true);
+    }
+
+   @endverbatim
  */
 //--------------------------------------------------------------------------------------------------
 
@@ -770,7 +852,7 @@ FUNCTION le_result_t AddPlayListEntry
  */
 FUNCTION le_result_t DeletePlayList
 (
-    PlayList playListRef
+    PlayList playListRef     ///< Play list reference.
 );
 
 /**
@@ -784,6 +866,34 @@ FUNCTION le_result_t DeletePlayList
  */
 FUNCTION le_result_t PlayFileList
 (
-    Stream   streamRef  IN,
-    PlayList playListRef
+    Stream   streamRef  IN,    ///< Audio stream reference.
+    PlayList playListRef       ///< Play list reference to be played.
+);
+
+/**
+ * Sets the mute status to the stream reference.
+ *
+ * @return
+ *     - LE_OK                 Success.
+ *     - LE_BAD_PARAMETER      Invalid stream reference.
+ *     - LE_FAULT              Failure.
+ */
+FUNCTION le_result_t SetMute
+(
+    Stream streamRef IN,      ///< Audio stream reference.
+    bool isMute               ///< True to mute, false to unmute.
+);
+
+/**
+ * Gets the mute status of the stream reference.
+ *
+ * @return
+ *     - LE_OK                 Success.
+ *     - LE_BAD_PARAMETER      Invalid stream reference.
+ *     - LE_FAULT              Failure.
+ */
+FUNCTION le_result_t GetMute
+(
+    Stream streamRef IN,      ///< Audio stream reference.
+    bool isMute      OUT      ///< Mute status.
 );

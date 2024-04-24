@@ -309,6 +309,8 @@ class taf_MngdAudio : public ITafSvc
         le_result_t DeletePlayList(taf_mngd_audio_PlayListRef_t playListRef);
         le_result_t PlayFileList ( taf_mngd_audio_StreamRef_t streamRef,
                 taf_mngd_audio_PlayListRef_t playListRef);
+        le_result_t SetMute( taf_mngd_audio_StreamRef_t streamRef, bool isMute);
+        le_result_t GetMute( taf_mngd_audio_StreamRef_t streamRef, bool *isMute);
 
         private:
 
@@ -395,6 +397,7 @@ class taf_MngdAudio : public ITafSvc
         static void* Record( void* ctxPtr);
         static void ReadCallback(std::shared_ptr<telux::audio::IStreamBuffer> buffer,
                     telux::common::ErrorCode error);
+        static void StreamMuteUnmuteCallback(ErrorCode error);
 
 };
 }

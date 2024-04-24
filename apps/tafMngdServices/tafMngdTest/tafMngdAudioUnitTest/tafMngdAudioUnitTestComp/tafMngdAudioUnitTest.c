@@ -107,18 +107,18 @@ void TEST_OPEN_ROUTE()
             "Successfully opened the player stream with RX with active voice call route");
 
     LE_TEST_INFO("Test taf_mngd_audio_OpenPlayer(TX) with active voice call route");
-    playerRef = taf_mngd_audio_OpenPlayer(TAF_MNGD_AUDIO_TX);
-    LE_TEST_OK(playerRef != NULL,
+    playerRef1 = taf_mngd_audio_OpenPlayer(TAF_MNGD_AUDIO_TX);
+    LE_TEST_OK(playerRef1 != NULL,
             "Successfully opened the player stream with TX with active voice call route");
 
     LE_TEST_INFO("Test taf_mngd_audio_OpenRecorder(RX) with active voice call route");
-    playerRef = taf_mngd_audio_OpenRecorder(TAF_MNGD_AUDIO_RX);
-    LE_TEST_OK(playerRef != NULL,
+    recorderRef = taf_mngd_audio_OpenRecorder(TAF_MNGD_AUDIO_RX);
+    LE_TEST_OK(recorderRef != NULL,
             "Successfully opened the recorder stream with RX with active voice call route");
 
     LE_TEST_INFO("Test taf_mngd_audio_OpenRecorder(TX) with active voice call route");
-    playerRef = taf_mngd_audio_OpenRecorder(TAF_MNGD_AUDIO_TX);
-    LE_TEST_OK(playerRef != NULL,
+    recorderRef1 = taf_mngd_audio_OpenRecorder(TAF_MNGD_AUDIO_TX);
+    LE_TEST_OK(recorderRef1 != NULL,
             "Successfully opened the recorder stream with TX with active voice call route");
 
     LE_TEST_INFO("Test taf_mngd_audio_CloseRoute ROUTE_0 voice call");
@@ -281,11 +281,38 @@ void TEST_MNGD_AUDIO_PLAYBACK()
     res = taf_mngd_audio_Stop(playerRef);
     LE_TEST_OK(res == LE_OK, "Successfully stopped the file playback");
 
-    le_sem_Wait(tafAudioAppSem);
+    le_sem_WaitWithTimeOut(tafAudioAppSem, Timeout);
 
     LE_TEST_INFO("Test taf_mngd_audio_PlayFile to play a file");
     res = taf_mngd_audio_PlayFile(playerRef, wavfilePath);
     LE_TEST_OK(res == LE_OK, "Successfully started the file playback");
+
+    le_sem_WaitWithTimeOut(tafAudioAppSem ,Timeout);
+
+    LE_TEST_INFO("Test taf_mngd_audio_SetMute to mute playerRef");
+    res = taf_mngd_audio_SetMute(playerRef, true);
+    LE_TEST_OK(res == LE_OK, "Successfully playerRef is muted");
+
+    LE_TEST_INFO("Test taf_mngd_audio_GetMute to get mute status of playerRef");
+    bool isMute;
+    res = taf_mngd_audio_GetMute(playerRef, &isMute);
+    LE_TEST_OK(isMute, "Successfully get the mute status as true");
+
+    LE_TEST_INFO("Test taf_mngd_audio_SetMute to unmute playerRef");
+    res = taf_mngd_audio_SetMute(playerRef, false);
+    LE_TEST_OK(res == LE_OK, "Successfully playerRef is unmuted");
+
+    LE_TEST_INFO("Test taf_mngd_audio_GetMute to get mute status of playerRef");
+    res = taf_mngd_audio_GetMute(playerRef, &isMute);
+    LE_TEST_OK(!isMute, "Successfully get the mute status as false");
+
+    LE_TEST_INFO("Test taf_mngd_audio_SetMute to mute playerRef");
+    res = taf_mngd_audio_SetMute(playerRef, true);
+    LE_TEST_OK(res == LE_OK, "Successfully playerRef is muted");
+
+    LE_TEST_INFO("Test taf_mngd_audio_GetMute to get mute status of playerRef");
+    res = taf_mngd_audio_GetMute(playerRef, &isMute);
+    LE_TEST_OK(isMute, "Successfully get the mute status as true");
 
     le_sem_Wait(tafAudioAppSem);
 
@@ -300,6 +327,10 @@ void TEST_MNGD_AUDIO_PLAYBACK()
     LE_TEST_INFO("Test taf_mngd_audio_CloseRoute");
     res = taf_mngd_audio_CloseRoute(routeRef);
     LE_TEST_OK(res == LE_OK, "Successfully closed the LOACL_PLAYBACK route");
+
+    LE_TEST_INFO("Test taf_mngd_audio_RemoveMediaHandler");
+    taf_mngd_audio_RemoveMediaHandler(MediaHandlerRef);
+    LE_TEST_OK(true, "Successfully deregistered for the media callback");
 
 }
 
@@ -375,7 +406,7 @@ void TEST_MNGD_AUDIO_PLAYBACK_FILE_LIST()
     res = taf_mngd_audio_Stop(playerRef);
     LE_TEST_OK(res == LE_OK, "Successfully stopped the file playback");
 
-    le_sem_Wait(tafAudioAppSem);
+    le_sem_WaitWithTimeOut(tafAudioAppSem, Timeout);
 
     LE_TEST_INFO("Test taf_mngd_audio_DeletePlayList to delete playerListRef");
     res = taf_mngd_audio_DeletePlayList(playListRef);
@@ -393,6 +424,9 @@ void TEST_MNGD_AUDIO_PLAYBACK_FILE_LIST()
     res = taf_mngd_audio_CloseRoute(routeRef);
     LE_TEST_OK(res == LE_OK, "Successfully closed the LOACL_PLAYBACK route");
 
+    LE_TEST_INFO("Test taf_mngd_audio_RemoveMediaHandler");
+    taf_mngd_audio_RemoveMediaHandler(MediaHandlerRef);
+    LE_TEST_OK(true, "Successfully deregistered for the media callback");
 }
 
 void TEST_MNGD_AUDIO_RECORD()
@@ -441,13 +475,40 @@ void TEST_MNGD_AUDIO_RECORD()
     res = taf_mngd_audio_RecordFile(recorderRef, recordfilePath);
     LE_TEST_OK(res == LE_OK, "Successfully started the file recording");
 
+    le_sem_WaitWithTimeOut(tafAudioAppSem, Timeout);
+
+    LE_TEST_INFO("Test taf_mngd_audio_SetMute to mute recorderRef");
+    res = taf_mngd_audio_SetMute(recorderRef, true);
+    LE_TEST_OK(res == LE_OK, "Successfully recorderRef is muted");
+
+    LE_TEST_INFO("Test taf_mngd_audio_GetMute to get mute status of recorderRef");
+    bool isMute;
+    res = taf_mngd_audio_GetMute(recorderRef, &isMute);
+    LE_TEST_OK(isMute, "Successfully get the mute status as true");
+
+    LE_TEST_INFO("Test taf_mngd_audio_SetMute to unmute recorderRef");
+    res = taf_mngd_audio_SetMute(recorderRef, false);
+    LE_TEST_OK(res == LE_OK, "Successfully recorderRef is unmuted");
+
+    LE_TEST_INFO("Test taf_mngd_audio_GetMute to get mute status of recorderRef");
+    res = taf_mngd_audio_GetMute(recorderRef, &isMute);
+    LE_TEST_OK(!isMute, "Successfully get the mute status as false");
+
+    LE_TEST_INFO("Test taf_mngd_audio_SetMute to mute recorderRef");
+    res = taf_mngd_audio_SetMute(recorderRef, true);
+    LE_TEST_OK(res == LE_OK, "Successfully recorderRef is muted");
+
+    LE_TEST_INFO("Test taf_mngd_audio_GetMute to get mute status of recorderRef");
+    res = taf_mngd_audio_GetMute(recorderRef, &isMute);
+    LE_TEST_OK(isMute, "Successfully get the mute status as true");
+
     le_sem_WaitWithTimeOut(tafAudioAppSem ,Timeout);
 
     LE_TEST_INFO("Test taf_mngd_audio_Stop recording");
     res = taf_mngd_audio_Stop(recorderRef);
     LE_TEST_OK(res == LE_OK, "Successfully stopped the file recording");
 
-    le_sem_Wait(tafAudioAppSem);
+    le_sem_WaitWithTimeOut(tafAudioAppSem, Timeout);
 
     LE_TEST_INFO("Test taf_mngd_audio_Disconnect to disconnect recorderRef from connRef");
     taf_mngd_audio_Disconnect(connRef, recorderRef);
@@ -460,6 +521,10 @@ void TEST_MNGD_AUDIO_RECORD()
     LE_TEST_INFO("Test taf_mngd_audio_CloseRoute");
     res = taf_mngd_audio_CloseRoute(routeRef);
     LE_TEST_OK(res == LE_OK, "Successfully closed the LOACL_RECORDING route");
+
+    LE_TEST_INFO("Test taf_mngd_audio_RemoveMediaHandler");
+    taf_mngd_audio_RemoveMediaHandler(MediaHandlerRef);
+    LE_TEST_OK(true, "Successfully deregistered for the media callback");
 }
 
 void TEST_MNGD_AUDIO_VOICE_CONNECTION()
@@ -526,6 +591,39 @@ void TEST_MNGD_AUDIO_VOICE_CONNECTION()
     LE_TEST_OK(res == LE_OK, "Successfully txStreamRef connected to txConn");
 
     le_sem_WaitWithTimeOut(tafAudioAppSem, Timeout);
+
+    LE_TEST_INFO("Test taf_mngd_audio_SetMute to mute modem voice TX");
+    res = taf_mngd_audio_SetMute(txStreamRef, true);
+    LE_TEST_OK(res == LE_OK, "Successfully txStreamRef is muted");
+
+    LE_TEST_INFO("Test taf_mngd_audio_GetMute to get mute status of modem voice TX");
+    bool isMute;
+    res = taf_mngd_audio_GetMute(txStreamRef, &isMute);
+    LE_TEST_OK(isMute, "Successfully get the mute status as true");
+
+    LE_TEST_INFO("Test taf_mngd_audio_SetMute to unmute modem voice TX");
+    res = taf_mngd_audio_SetMute(txStreamRef, false);
+    LE_TEST_OK(res == LE_OK, "Successfully txStreamRef is unmuted");
+
+    LE_TEST_INFO("Test taf_mngd_audio_GetMute to get mute status of modem voice TX");
+    res = taf_mngd_audio_GetMute(txStreamRef, &isMute);
+    LE_TEST_OK(!isMute, "Successfully get the mute status as false");
+
+    LE_TEST_INFO("Test taf_mngd_audio_SetMute to mute modem voice RX");
+    res = taf_mngd_audio_SetMute(rxStreamRef, true);
+    LE_TEST_OK(res == LE_OK, "Successfully rxStreamRef is muted");
+
+    LE_TEST_INFO("Test taf_mngd_audio_GetMute to get mute status of modem voice RX");
+    res = taf_mngd_audio_GetMute(rxStreamRef, &isMute);
+    LE_TEST_OK(isMute, "Successfully get the mute status as true");
+
+    LE_TEST_INFO("Test taf_mngd_audio_SetMute to unmute modem voice RX");
+    res = taf_mngd_audio_SetMute(rxStreamRef, false);
+    LE_TEST_OK(res == LE_OK, "Successfully rxStreamRef is unmuted");
+
+    LE_TEST_INFO("Test taf_mngd_audio_GetMute to get mute status of modem voice RX");
+    res = taf_mngd_audio_GetMute(rxStreamRef, &isMute);
+    LE_TEST_OK(!isMute, "Successfully get the mute status as false");
 
     LE_TEST_INFO("Test taf_mngd_audio_Disconnect to disconnect txConn and txStreamRef");
     taf_mngd_audio_Disconnect(txConn, txStreamRef);

@@ -619,6 +619,7 @@ le_result_t taf_ecall::SetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t
     if (Phones.size() >= phoneId) {
         auto phone = Phones[phoneId - 1];
         if(phone) {
+            setOpModeProm = std::promise<telux::common::ErrorCode>();
             if(eCallMode == TAF_ECALL_MODE_NORMAL  || eCallMode == TAF_ECALL_MODE_ECALL) {
                 auto ret = phone->setECallOperatingMode(
                         static_cast<telux::tel::ECallMode>(eCallMode),
@@ -626,7 +627,6 @@ le_result_t taf_ecall::SetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t
                 if(ret == telux::common::Status::SUCCESS) {
                     LE_INFO("Set eCall operating mode %d request sent successfully in phoneId: %d\n",
                             (int) eCallMode, phoneId);
-                    setOpModeProm = std::promise<telux::common::ErrorCode>();
                     telux::common::ErrorCode error = setOpModeProm.get_future().get();
                     if (error == telux::common::ErrorCode::SUCCESS)
                     {

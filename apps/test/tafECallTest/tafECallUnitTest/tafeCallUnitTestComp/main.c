@@ -342,13 +342,11 @@ static void Test_ECall_OperatingMode()
     LE_INFO("Get Operating mode = %d and res: %d", opMode, (int) result);
     LE_TEST_OK(testToBeCounted, "Test_ECall_OperatingMode done");
     LE_INFO("Operating mode = %d", opMode);
-    le_thread_Sleep(2);
     result = taf_ecall_ForcePersistentOnlyMode(1);
     LE_TEST_OK(testToBeCounted, "taf_ecall_ForcePersistentOnlyMode done");
     result = taf_ecall_GetConfiguredOperationMode(1, &opMode);
     LE_TEST_OK(testToBeCounted, "taf_ecall_GetConfiguredOperationMode done");
     LE_INFO("Operating mode = %d and res: %d", opMode, (int) result);
-    le_thread_Sleep(2);
     result = taf_ecall_ExitOnlyMode(1);
     LE_TEST_OK(testToBeCounted, "taf_ecall_ExitOnlyMode done");
     LE_INFO("Operating mode = %d and res: %d", opMode, (int) result);

@@ -356,7 +356,7 @@ void tafSimUnitTest_sim_access
     // Close the logical channel
     LE_TEST_OK(LE_OK == taf_sim_CloseLogicalChannel(simId,channel), "taf_sim_CloseLogicalChannel");
     le_result_t reqStatus;
-    taf_sim_Command_t command = (taf_sim_Command_t)0xc0;
+    taf_sim_Command_t command = TAF_SIM_GET_RESPONSE;
     char fileIdentifier[5]={'2', 'f', 'e', '2', '\0'};
     uint8_t p1 = 0;
     uint8_t p2 = 0;

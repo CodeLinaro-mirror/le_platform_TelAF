@@ -166,12 +166,15 @@ ENUM NodePowerState
  * Gets audio device node type.
  *
  * @return
- *    - Type of the audio device connected to the node ID.
+ *     - LE_OK                 Success.
+ *     - LE_BAD_PARAMETER      Node id is not valid.
+ *     - LE_FAULT              Failure.
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION NodeType GetNodeType
+FUNCTION le_result_t GetNodeType
 (
-    uint8 nodeId  IN   ///< The audio node ID.
+    uint8    nodeId   IN,   ///< The audio node ID.
+    NodeType nodeType OUT   ///< The node type.
 );
 
 //--------------------------------------------------------------------------------------------------

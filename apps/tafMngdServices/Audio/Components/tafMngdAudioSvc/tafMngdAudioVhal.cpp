@@ -85,10 +85,24 @@ le_result_t taf_MngdAudioVhal::OpenRoute(bool status, taf_mngd_audio_RouteId_t r
     return audioInf->CtlSetAudioStatus(status, (uint32_t)routeId, (taf_hal_audio_Mode)mode);
 }
 
-taf_mngd_audioHw_NodeType_t taf_MngdAudioVhal::GetNodeType( uint8_t audioNodeId )
+le_result_t taf_MngdAudioVhal::GetNodeType( uint8_t audioNodeId,
+        taf_mngd_audioHw_NodeType_t *nodeType )
 {
     LE_DEBUG("GetNodeType %d", audioNodeId);
-    return (taf_mngd_audioHw_NodeType_t)audioInf->GetNodeType(audioNodeId);
+    taf_hal_audio_NodeType halNodeType;
+    le_result_t res = audioInf->GetNodeType(audioNodeId, &halNodeType);
+    if(res == LE_OK)
+    {
+        if(halNodeType == AUDIO_HAL_NODE_CODEC)
+            *nodeType = TAF_MNGD_AUDIOHW_AUDIO_CODEC;
+        else if(halNodeType == AUDIO_HAL_NODE_PA)
+            *nodeType = TAF_MNGD_AUDIOHW_AUDIO_PA;
+        else if(halNodeType == AUDIO_HAL_NODE_A2B)
+            *nodeType = TAF_MNGD_AUDIOHW_AUDIO_A2B;
+        else
+            *nodeType = TAF_MNGD_AUDIOHW_INVALID;
+    }
+    return res;
 }
 
 le_result_t taf_MngdAudioVhal::SendNodeVendorConfig(uint8_t audioNodeId, const char* configPath)

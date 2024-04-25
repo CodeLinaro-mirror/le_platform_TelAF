@@ -556,8 +556,8 @@ COMPONENT_INIT
                     if (strcmp(arg2, "getNodeType") == 0)
                     {
                         LE_INFO("Test taf_mngd_audioHw_GetNodeType");
-                        taf_mngd_audioHw_NodeType_t nodeType =
-                                taf_mngd_audioHw_GetNodeType(nodeId);
+                        taf_mngd_audioHw_NodeType_t nodeType;
+                        res = taf_mngd_audioHw_GetNodeType(nodeId, &nodeType);
                         if ( nodeType == TAF_MNGD_AUDIOHW_AUDIO_CODEC )
                         {
                             printf("Audio device type is CODEC\n");

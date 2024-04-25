@@ -80,7 +80,7 @@ class taf_MngdAudioVhal
         bool isAudioDrvAvailable();
         le_result_t OpenRoute(bool status, taf_mngd_audio_RouteId_t route,
                 taf_mngd_audio_Mode_t mode);
-        taf_mngd_audioHw_NodeType_t GetNodeType(uint8_t audioNodeId);
+        le_result_t GetNodeType(uint8_t audioNodeId, taf_mngd_audioHw_NodeType_t *nodeType);
         le_result_t SendNodeVendorConfig(uint8_t audioNodeId, const char* configPath);
         le_result_t SendVendorConfig(const char* configPath);
         le_result_t SetNodePowerState(uint8_t audioNodeId, taf_mngd_audioHw_NodePowerState_t state);

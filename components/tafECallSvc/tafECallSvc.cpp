@@ -55,6 +55,26 @@ COMPONENT_INIT
         LE_ERROR("%s does not exist", kpi_file);
         return;
     }
+
+    ecall.eCallInf = (eCall_Inf_t *)taf_devMgr_LoadDrv(TAF_ECALL_MODULE_NAME, nullptr);
+    if(ecall.eCallInf == nullptr)
+    {
+        LE_ERROR("Can not load the driver %s", TAF_ECALL_MODULE_NAME);
+        ecall.isDrvPresent = false;
+    }
+    else // successfully loaded
+    {
+        LE_INFO("Driver loaded successfully....");
+        ecall.isDrvPresent = true;
+        // init VHAL module first
+        (*(ecall.eCallInf->InitHAL))();
+    }
+
+    if (LE_OK != ecall.UpdateMsdVehicleInfo())
+    {
+        LE_ERROR("Unable to update verhicle info via VHAL");
+    }
+
     if (fwrite(kpi_marker, sizeof(char), strlen(kpi_marker), file) != strlen(kpi_marker))
     {
         LE_ERROR("failed to write %s to %s", kpi_marker, kpi_file);
@@ -384,14 +404,21 @@ le_result_t taf_ecall_GetMsdVersion
  PARAMETERS      [IN] vehicleType: vehicle type
 
  RETURN VALUE    le_result_t
-                     LE_FAULT:             Fail.
-                     LE_OK:                Success.
+                     LE_FAULT:             Failed.
+                     LE_OK:                Successed.
 
  SIDE EFFECTS
 
 ======================================================================*/
 le_result_t taf_ecall_SetVehicleType (taf_ecall_MsdVehicleType_t vehicleType)
 {
+    auto &ecall = taf_ecall::GetInstance();
+    if (ecall.isDrvPresent == true)
+    {
+        LE_ERROR("Unable to set as eCall VHAL is running");
+        return LE_FAULT;
+    }
+
     if ((vehicleType < TAF_ECALL_PASSENGER_VEHICLE_CLASS_M1) ||
         (vehicleType > TAF_ECALL_OTHER_VEHICLE_CLASS))
     {
@@ -420,8 +447,8 @@ le_result_t taf_ecall_SetVehicleType (taf_ecall_MsdVehicleType_t vehicleType)
 
  RETURN VALUE    le_result_t
                      LE_BAD_PARAMETER:     Invalid parameters.
-                     LE_FAULT:             Fail.
-                     LE_OK:                Success.
+                     LE_FAULT:             Failed.
+                     LE_OK:                Successed.
 
  SIDE EFFECTS
 
@@ -431,6 +458,13 @@ le_result_t taf_ecall_GetVehicleType
     taf_ecall_MsdVehicleType_t* vehicleTypePtr
 )
 {
+    auto &ecall = taf_ecall::GetInstance();
+    if (ecall.isDrvPresent == true)
+    {
+        LE_ERROR("Unable to set as eCall VHAL is running");
+        return LE_FAULT;
+    }
+
     TAF_ERROR_IF_RET_VAL(vehicleTypePtr == NULL, LE_BAD_PARAMETER,
             "vehicleTypePtr pointer is NULL");
 
@@ -447,41 +481,6 @@ le_result_t taf_ecall_GetVehicleType
     return LE_FAULT;
 }
 
-//--------------------------------------------------------------------------------------------------
-/**
- * The Vehicle Identification Number is defined by iso 3833 as a 17 character
- * alphanumeric code, which includes the letters (F"A".."H"|"J".."N"|"P"|"R".."Z")
- * and the digit ("0".."9")
- */
-//--------------------------------------------------------------------------------------------------
-static int CheckVIN
-(
-    char *vin
-)
-{
-    int ret = 0;
-    char c;
-
-    while ( (*vin) && (!ret) )
-    {
-        c= (char)(*vin);
-        if (( (c >= 'A') && (c <= 'H') ) ||
-            ( (c >= 'J') && (c <= 'N') ) ||
-            ( c == 'P' ) ||
-            ( (c >= 'R') && (c <= 'Z') ) ||
-            ( (c >= '0') && (c <= '9') ) )
-        {
-            vin++;
-        }
-        else
-        {
-            ret = -1;
-            LE_ERROR("%c is not allowed", *vin);
-        }
-    }
-
-    return ret;
-}
 
 /*======================================================================
 
@@ -495,8 +494,8 @@ static int CheckVIN
 
  RETURN VALUE    le_result_t
                      LE_BAD_PARAMETER:     Invalid parameters.
-                     LE_FAULT:             Fail.
-                     LE_OK:                Success.
+                     LE_FAULT:             Failed.
+                     LE_OK:                Successed.
 
  SIDE EFFECTS
 
@@ -506,10 +505,17 @@ le_result_t taf_ecall_SetVIN
     const char* vin
 )
 {
+    auto &ecall = taf_ecall::GetInstance();
+    if (ecall.isDrvPresent == true)
+    {
+        LE_ERROR("Unable to set as eCall VHAL is running");
+        return LE_FAULT;
+    }
+
     TAF_ERROR_IF_RET_VAL(strlen(vin) != TAF_ECALL_MAX_VIN_LENGTH, LE_FAULT,
             "VIN length is wrong");
 
-    if (CheckVIN((char *)vin))
+    if (ecall.CheckVIN((char *)vin))
     {
         return LE_BAD_PARAMETER;
     }
@@ -537,8 +543,8 @@ le_result_t taf_ecall_SetVIN
 
  RETURN VALUE    le_result_t
                      LE_BAD_PARAMETER:     Invalid parameters.
-                     LE_FAULT:             Fail.
-                     LE_OK:                Success.
+                     LE_FAULT:             Failed.
+                     LE_OK:                Succeeded.
 
  SIDE EFFECTS
 
@@ -549,6 +555,13 @@ le_result_t taf_ecall_GetVIN
     size_t vinNumElements
 )
 {
+    auto &ecall = taf_ecall::GetInstance();
+    if (ecall.isDrvPresent == true)
+    {
+        LE_ERROR("Unable to set as eCall VHAL is running");
+        return LE_FAULT;
+    }
+
     TAF_ERROR_IF_RET_VAL(vin == NULL, LE_BAD_PARAMETER, "vin pointer is NULL");
 
     TAF_ERROR_IF_RET_VAL(vinNumElements != TAF_ECALL_MAX_VIN_BYTES,
@@ -584,7 +597,8 @@ le_result_t taf_ecall_GetVIN
  PARAMETERS      [IN] propulsionType: propulsion storage type
 
  RETURN VALUE    le_result_t
-                     LE_OK:                Success.
+                     LE_FAULT:             Failed.
+                     LE_OK:                Succeeded.
 
  SIDE EFFECTS
 
@@ -594,6 +608,12 @@ le_result_t taf_ecall_SetPropulsionType
         taf_ecall_PropulsionStorageType_t propulsionType
 )
 {
+    auto &ecall = taf_ecall::GetInstance();
+    if (ecall.isDrvPresent == true)
+    {
+        LE_ERROR("Unable to set as eCall VHAL is running");
+        return LE_FAULT;
+    }
 
     le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn(CFG_ECALL_PROPULSIONTYPE_PATH);
 
@@ -675,8 +695,8 @@ le_result_t taf_ecall_SetPropulsionType
  PARAMETERS      [OUT]propulsionStorageType vehicle propulsion storage type
 
  RETURN VALUE    le_result_t
-                     LE_FAULT:             Fail.
-                     LE_OK:                Success.
+                     LE_FAULT:             Failed.
+                     LE_OK:                Succeeded.
 
  SIDE EFFECTS
 
@@ -686,6 +706,13 @@ le_result_t taf_ecall_GetPropulsionType
     taf_ecall_PropulsionStorageType_t* propulsionStorageType
 )
 {
+    auto &ecall = taf_ecall::GetInstance();
+    if (ecall.isDrvPresent == true)
+    {
+        LE_ERROR("Unable to set as eCall VHAL is running");
+        return LE_FAULT;
+    }
+
     if (propulsionStorageType == NULL) {
         LE_ERROR("propulsionStorageType is null.");
         return LE_FAULT;
@@ -780,7 +807,8 @@ le_result_t taf_ecall_GetPropulsionType
 
  RETURN VALUE    le_result_t
                      LE_BAD_PARAMETER:     Invalid parameters.
-                     LE_OK:                Success.
+                     LE_FAULT:             Failed.
+                     LE_OK:                Succeeded.
                      LE_DUPLICATE:         The MSD has already been imported.
 
  SIDE EFFECTS
@@ -891,9 +919,10 @@ le_result_t taf_ecall_SetMsdPositionN2
                  [IN] passengerCount: number of passenger
 
  RETURN VALUE    le_result_t
-                    LE_BAD_PARAMETER:     Bad eCall reference.
-                    LE_OK:                Succeeded.
-                    LE_DUPLICATE:         The MSD has already been imported.
+                     LE_BAD_PARAMETER:     Bad eCall reference.
+                     LE_FAULT:             Failed.
+                     LE_OK:                Succeeded.
+                     LE_DUPLICATE:         The MSD has already been imported.
 
  NOTE           The process exits when an invalid eCall reference is given.
 
@@ -907,6 +936,13 @@ le_result_t taf_ecall_SetMsdPassengersCount
 )
 {
     auto &ecall = taf_ecall::GetInstance();
+
+    if (ecall.isDrvPresent == true)
+    {
+        LE_ERROR("Unable to set as eCall VHAL is running");
+        return LE_FAULT;
+    }
+
     return ecall.SetMsdPassengersCount(ecallRef, passengerCount);
 }
 
@@ -1011,6 +1047,13 @@ le_result_t taf_ecall_SetMsdAdditionalData
     TAF_ERROR_IF_RET_VAL(dataLength > TAF_ECALL_MAX_DATA_LENGTH,
                     LE_FAULT, "optional data length exceeds max length")
     auto &ecall = taf_ecall::GetInstance();
+
+    if (ecall.isDrvPresent == true)
+    {
+        LE_ERROR("Unable to set as eCall VHAL is running");
+        return LE_FAULT;
+    }
+
     return ecall.SetMsdAdditionalData(ecallRef, oid, data, dataLength);
 }
 
@@ -1026,6 +1069,7 @@ le_result_t taf_ecall_SetMsdAdditionalData
 
  RETURN VALUE   le_result_t
                     LE_BAD_PARAMETER:     Bad eCall reference.
+                    LE_FAULT:             Failed.
                     LE_OK:                Succeeded.
                     LE_DUPLICATE:         The MSD has already been imported.
  NOTE           The process exits when an invalid eCall reference is given.
@@ -1039,6 +1083,13 @@ le_result_t taf_ecall_ResetMsdAdditionalData
 )
 {
     auto &ecall = taf_ecall::GetInstance();
+
+    if (ecall.isDrvPresent == true)
+    {
+        LE_ERROR("Unable to set as eCall VHAL is running");
+        return LE_FAULT;
+    }
+
     return ecall.ResetMsdAdditionalData(ecallRef);
 }
 
@@ -1071,6 +1122,13 @@ le_result_t taf_ecall_SetMsdEuroNCAPLocationOfImpact
 )
 {
     auto &ecall = taf_ecall::GetInstance();
+
+    if (ecall.isDrvPresent == true)
+    {
+        LE_ERROR("Unable to set as eCall VHAL is running");
+        return LE_FAULT;
+    }
+
     return ecall.SetMsdEuroNCAPLocationOfImpact(ecallRef, iiLocations);
 }
 
@@ -1087,6 +1145,7 @@ le_result_t taf_ecall_SetMsdEuroNCAPLocationOfImpact
 
  RETURN VALUE   le_result_t
                     LE_BAD_PARAMETER:     Bad eCall reference.
+                    LE_FAULT:             Failed.
                     LE_OK:                Succeeded.
                     LE_DUPLICATE:         The MSD has already been imported.
  NOTE           The process exits when an invalid eCall reference is given.
@@ -1102,6 +1161,13 @@ le_result_t taf_ecall_SetMsdEuroNCAPRolloverDetected
 )
 {
     auto &ecall = taf_ecall::GetInstance();
+
+    if (ecall.isDrvPresent == true)
+    {
+        LE_ERROR("Unable to set as eCall VHAL is running");
+        return LE_FAULT;
+    }
+
     return ecall.SetMsdEuroNCAPRolloverDetected(ecallRef, rolloverDetected);
 }
 /*======================================================================
@@ -1116,6 +1182,7 @@ le_result_t taf_ecall_SetMsdEuroNCAPRolloverDetected
 
  RETURN VALUE   le_result_t
                     LE_BAD_PARAMETER:     Bad eCall reference.
+                    LE_FAULT:             Failed.
                     LE_OK:                Succeeded.
                     LE_DUPLICATE:         The MSD has already been imported.
  NOTE           The process exits when an invalid eCall reference is given.
@@ -1129,6 +1196,13 @@ le_result_t taf_ecall_ResetMsdEuroNCAPRolloverDetected
 )
 {
     auto &ecall = taf_ecall::GetInstance();
+
+    if (ecall.isDrvPresent == true)
+    {
+        LE_ERROR("Unable to set as eCall VHAL is running");
+        return LE_FAULT;
+    }
+
     return ecall.ResetMsdEuroNCAPRolloverDetected(ecallRef);
 }
 
@@ -1167,6 +1241,13 @@ le_result_t taf_ecall_SetMsdEuroNCAPIIDeltaV
 )
 {
     auto &ecall = taf_ecall::GetInstance();
+
+    if (ecall.isDrvPresent == true)
+    {
+        LE_ERROR("Unable to set as eCall VHAL is running");
+        return LE_FAULT;
+    }
+
     return ecall.SetMsdEuroNCAPIIDeltaV(ecallRef, rangeLimit, deltaVX, deltaVY);
 }
 

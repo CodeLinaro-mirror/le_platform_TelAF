@@ -27,3 +27,6 @@ ifdef(`sa525m',`
     telux_allow_tel_emergency_ops(telaf_tafECallSvc_t)
     telux_allow_tel_private_info_read(telaf_tafECallSvc_t)
 ')
+
+# use VHAL driver object
+telaf_load_vhal_modules(telaf_tafECallSvc_t)

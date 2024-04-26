@@ -91,8 +91,8 @@
 //--------------------------------------------------------------------------------------------------
 typedef enum
 {
-    PM_HAL_SHUTDOWN_MODE_FORCEFUL,
-    PM_HAL_SHUTDOWN_MODE_GRACEFUL
+    PM_HAL_SHUTDOWN_MODE_FORCEFUL, /**<Forceful shutdown */
+    PM_HAL_SHUTDOWN_MODE_GRACEFUL  /**<Graceful shutdown */
 } taf_hal_pm_ShutdownMode;
 
 //--------------------------------------------------------------------------------------------------
@@ -102,7 +102,7 @@ typedef enum
 //--------------------------------------------------------------------------------------------------
 typedef enum
 {
-    PM_HAL_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF
+    PM_HAL_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF /**<NAD shutdown for system restart */
 } taf_hal_pm_RestartMode;
 
 //--------------------------------------------------------------------------------------------------
@@ -112,7 +112,7 @@ typedef enum
 //--------------------------------------------------------------------------------------------------
 typedef enum
 {
-    PM_HAL_SUSPEND_MODE_FULL
+    PM_HAL_SUSPEND_MODE_FULL /**<Full suspend */
 } taf_hal_pm_SuspendMode;
 
 //--------------------------------------------------------------------------------------------------
@@ -122,8 +122,8 @@ typedef enum
 //--------------------------------------------------------------------------------------------------
 typedef enum
 {
-    PM_HAL_RSP_READY,
-    PM_HAL_RSP_NOT_READY
+    PM_HAL_RSP_READY,    /**<Ready */
+    PM_HAL_RSP_NOT_READY /**<Not ready */
 } taf_hal_pm_RspReason;
 
 //--------------------------------------------------------------------------------------------------
@@ -133,11 +133,11 @@ typedef enum
 //--------------------------------------------------------------------------------------------------
 typedef enum
 {
-    PM_HAL_NODE_STATE_UNKNOWN,
-    PM_HAL_NODE_STATE_RESUME,
-    PM_HAL_NODE_STATE_SUSPEND,
-    PM_HAL_NODE_STATE_SHUTDOWN,
-    PM_HAL_NODE_STATE_RESTART
+    PM_HAL_NODE_STATE_UNKNOWN, /**<Unknown state */
+    PM_HAL_NODE_STATE_RESUME,  /**<Resume */
+    PM_HAL_NODE_STATE_SUSPEND, /**<Suspend */
+    PM_HAL_NODE_STATE_SHUTDOWN,/**<Shutdown */
+    PM_HAL_NODE_STATE_RESTART  /**<Restart */
 } taf_hal_pm_NodeState;
 
 //--------------------------------------------------------------------------------------------------
@@ -147,8 +147,8 @@ typedef enum
 //--------------------------------------------------------------------------------------------------
 typedef enum
 {
-    PM_HAL_NODE_INFO_LOCK_ACQUIRED,
-    PM_HAL_NODE_INFO_LOCK_RELEASED
+    PM_HAL_NODE_INFO_LOCK_ACQUIRED, /**<Wake source acquired */
+    PM_HAL_NODE_INFO_LOCK_RELEASED  /**<Wake source released */
 } taf_hal_pm_NodeInfo;
 
 //--------------------------------------------------------------------------------------------------
@@ -158,8 +158,8 @@ typedef enum
 //--------------------------------------------------------------------------------------------------
 typedef enum
 {
-    PM_HAL_NODE_STATUS_READY,
-    PM_HAL_NODE_STATUS_NOT_READY
+    PM_HAL_NODE_STATUS_READY,    /**<Ready */
+    PM_HAL_NODE_STATUS_NOT_READY /**<Not ready */
 } taf_hal_pm_ConfirmStatus;
 
 //--------------------------------------------------------------------------------------------------

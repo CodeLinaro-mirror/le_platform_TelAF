@@ -97,11 +97,11 @@
 //--------------------------------------------------------------------------------------------------
 typedef enum
 {
-    AUDIO_HAL_MODE_VOICE_CALL,
-    AUDIO_HAL_MODE_RESERVED,
-    AUDIO_HAL_MODE_PLAYBACK,
-    AUDIO_HAL_MODE_RECORDING,
-    AUDIO_HAL_MODE_LOOPBACK
+    AUDIO_HAL_MODE_VOICE_CALL, /**<Voice call */
+    AUDIO_HAL_MODE_RESERVED,   /**<Reserved */
+    AUDIO_HAL_MODE_PLAYBACK,   /**<Playback */
+    AUDIO_HAL_MODE_RECORDING,  /**<Recording */
+    AUDIO_HAL_MODE_LOOPBACK    /**<Loopback */
 } taf_hal_audio_Mode;
 
 //--------------------------------------------------------------------------------------------------
@@ -111,11 +111,11 @@ typedef enum
 //--------------------------------------------------------------------------------------------------
 typedef enum
 {
-    AUDIO_HAL_NODE_INVALID = -1,
-    AUDIO_HAL_NODE_CODEC,
-    AUDIO_HAL_NODE_PA,
-    AUDIO_HAL_NODE_A2B,
-    AUDIO_HAL_NODE_MAX
+    AUDIO_HAL_NODE_INVALID = -1, /**<Invalid */
+    AUDIO_HAL_NODE_CODEC,        /**<Codec */
+    AUDIO_HAL_NODE_PA,           /**<PA */
+    AUDIO_HAL_NODE_A2B,          /**<A2B */
+    AUDIO_HAL_NODE_MAX           /**<MAX */
 } taf_hal_audio_NodeType;
 
 //--------------------------------------------------------------------------------------------------
@@ -125,8 +125,8 @@ typedef enum
 //--------------------------------------------------------------------------------------------------
 typedef enum
 {
-    AUDIO_HAL_MUTE,
-    AUDIO_HAL_UNMUTE
+    AUDIO_HAL_MUTE,   /**<Mute */
+    AUDIO_HAL_UNMUTE  /**<Unmute */
 } taf_hal_audio_DevEvent;
 
 //--------------------------------------------------------------------------------------------------
@@ -136,9 +136,9 @@ typedef enum
 //--------------------------------------------------------------------------------------------------
 typedef enum
 {
-    POWER_OFF,
-    SUSPEND,
-    ACTIVE
+    POWER_OFF,  /**<Power off */
+    SUSPEND,    /**<Suspend */
+    ACTIVE      /**<Active */
 } taf_hal_audio_Powerstate;
 
 //--------------------------------------------------------------------------------------------------

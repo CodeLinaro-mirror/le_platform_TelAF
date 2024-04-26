@@ -1,0 +1,23 @@
+externalBuild:
+{
+    "capicxx-core-gen -sk $TELAF_ROOT/apps/ivss/fidl/MngdSvc/MngdSvc.fidl"
+    "capicxx-core-gen -sk $TELAF_ROOT/apps/ivss/fidl/MngdSvc/MngdSvc.fdepl"
+    "capicxx-someip-gen $TELAF_ROOT/apps/ivss/fidl/MngdSvc/MngdSvc.fdepl"
+    "bash $TELAF_ROOT/apps/ivss/common/make.sh DataSvc"
+}
+
+bundles:
+{
+    file:
+    {
+        $BUILDDIR/build/libDataSvc-someip.so   /lib/
+    }
+}
+
+provides:
+{
+    headerDir:
+    {
+        $BUILDDIR/src-gen
+    }
+}

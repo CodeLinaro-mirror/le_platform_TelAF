@@ -3,7 +3,7 @@
     "device" : "bridge0",
     "logging" :
     {
-        "level" : "debug",
+        "level" : "error",
         "console" : "true",
         "file" : { "enable" : "false", "path" : "/tmp/vsomeip.log" },
         "version" : { "enable" : "false", "interval" : "10" },
@@ -16,16 +16,20 @@
             "id" : "0x0101"
         },
         {
-            "name" : "ivssRadio-service",
+            "name" : "ivssRadioSvc",
             "id" : "0x0201"
         },
         {
-            "name" : "ivssSim-service",
+            "name" : "ivssSimSvc",
             "id" : "0x0301"
         },
         {
-            "name" : "ivssInfo-service",
+            "name" : "ivssInfoSvc",
             "id" : "0x0401"
+        },
+        {
+            "name" : "ivssMngdSvc",
+            "id" : "0x0501"
         }
     ],
     "services" :
@@ -44,6 +48,12 @@
         },
         {
             "service" : "0xED82",
+            "instance" : "0x0001",
+            "reliable" : { "port" : "30509", "enable-magic-cookies" : "false" },
+            "unreliable" : "31000"
+        },
+        {
+            "service" : "0xED83",
             "instance" : "0x0001",
             "reliable" : { "port" : "30509", "enable-magic-cookies" : "false" },
             "unreliable" : "31000"

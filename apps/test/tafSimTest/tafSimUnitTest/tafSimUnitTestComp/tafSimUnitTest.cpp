@@ -659,6 +659,8 @@ COMPONENT_INIT
 
         tafSimUnitTest_selection(simId);
 
+        tafSimUnitTest_fplmnList_test(simId, mcc, mnc);
+
         tafSimUnitTest_enterPin(simId,lockType,pinPtr);
 
         tafSimUnitTest_Change_pin(simId, lockType, pinPtr, newPinPtr);
@@ -680,8 +682,6 @@ COMPONENT_INIT
         LE_TEST_OK(LE_OK == taf_sim_Reset(simId), "taf_sim_Reset");
 
         tafSimUnitTest_sim_isEmergency(simId);
-
-        tafSimUnitTest_fplmnList_test(simId, mcc, mnc);
     }
     taf_sim_RemoveAuthenticationResponseHandler(AuthResponseHandlerRef);
 

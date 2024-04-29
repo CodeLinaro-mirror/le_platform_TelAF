@@ -282,6 +282,7 @@ void TestThermalZoneByName(void)
 {
     LE_TEST_INFO("===== Get Thermal Zone By Name =====");
     le_result_t result;
+    taf_therm_ThermalZoneRef_t thermalZone;
 
     const char* thermalZoneName[36] = { "sdr0_pa","sdr0","mmw0","mmw1","mmw2","mmw3","mmw_ific0",
         "epm0","epm1","epm2","epm3","epm4","epm5","epm6","epm7","aoss-0","cpuss-0",
@@ -293,7 +294,7 @@ void TestThermalZoneByName(void)
     {
         LE_TEST_INFO("Testing TelAF getting thermal zone by name with -"
                 "taf_therm_GetThermalZoneByName");
-        taf_therm_ThermalZoneRef_t thermalZone =taf_therm_GetThermalZoneByName(thermalZoneName[i]);
+        thermalZone =taf_therm_GetThermalZoneByName(thermalZoneName[i]);
         LE_TEST_OK((thermalZone != NULL), "taf_therm_GetThermalZoneByName - LE_OK");
 
         if (thermalZone != NULL)
@@ -314,9 +315,10 @@ void TestThermalZoneByName(void)
                 TestBoundCoolingDevicesInformation(thermalZone);
             }
         }
+        taf_therm_ReleaseThermalZoneRef(thermalZone);
     }
     LE_TEST_INFO("Testing for unavailable thermal zone");
-    taf_therm_ThermalZoneRef_t thermalZone =
+    thermalZone =
         taf_therm_GetThermalZoneByName("UnavailableThermalZone");
     LE_TEST_OK((thermalZone == NULL), "Negative assertion taf_therm_GetThermalZoneByName - LE_OK");
 
@@ -338,6 +340,7 @@ void TestThermalZoneByName(void)
             TestBoundCoolingDevicesInformation(thermalZone);
         }
     }
+    taf_therm_ReleaseThermalZoneRef(thermalZone);
     LE_INFO("===== UnitTest Completed for getting thermal zone by name =====");
 }
 
@@ -345,6 +348,7 @@ void TestCoolingDeviceByName()
 {
     LE_TEST_INFO("===== Get Cooling Device By Name =====");
     le_result_t result;
+    taf_therm_CoolingDeviceRef_t cDev;
     const char* coolingDevice[28] = { "cpu-hotplug1","cpu-hotplug2","cpu-hotplug3",
         "cpufreq-cpu0","modem_vdd","modem_lte_dsc","modem_lte_sub1_dsc",
         "modem_nr_dsc","modem_nr_sub1_dsc","modem_nr_scg_dsc","modem_nr_scg_sub1_dsc",
@@ -357,7 +361,7 @@ void TestCoolingDeviceByName()
     {
         LE_TEST_INFO("Testing TelAF getting cooling device by name with -"
                 "taf_therm_GetCoolingDeviceByName");
-        taf_therm_CoolingDeviceRef_t cDev = taf_therm_GetCoolingDeviceByName(coolingDevice[i]);
+        cDev = taf_therm_GetCoolingDeviceByName(coolingDevice[i]);
         LE_TEST_OK((cDev != NULL), "taf_therm_GetCoolingDeviceByName - LE_OK");
 
         if (cDev != NULL)
@@ -386,12 +390,14 @@ void TestCoolingDeviceByName()
             LE_TEST_OK(result == LE_OK, "taf_therm_GetCDevCurrentCoolingLevel - LE_OK.Returned %d",
                     currCooling);
         }
+        taf_therm_ReleaseCoolingDeviceRef(cDev);
     }
     LE_TEST_INFO("Testing for unavailable cooling device");
-    taf_therm_CoolingDeviceRef_t cDev = taf_therm_GetCoolingDeviceByName("UnavailableCoolingDev");
+    cDev = taf_therm_GetCoolingDeviceByName("UnavailableCoolingDev");
     LE_TEST_OK((cDev == NULL), "Negative assertion taf_therm_GetCoolingDeviceByName - LE_OK");
     LE_TEST_OK((cDev == nullptr), "Negative assertion taf_therm_GetCoolingDeviceByName - LE_OK");
     LE_TEST_OK(!cDev, "Negative assertion taf_therm_GetCoolingDeviceByName - LE_OK");
+    taf_therm_ReleaseCoolingDeviceRef(cDev);
     LE_INFO("===== UnitTest Completed for getting cooling device by name =====");
 }
 
@@ -551,7 +557,6 @@ void RemoveTestHandler() {
 
 COMPONENT_INIT
 {
-    //long time = 20;
     int args = le_arg_NumArgs();
     int time;
     const char* arg1;
@@ -564,6 +569,7 @@ COMPONENT_INIT
         arg1 = "20";
     }
     time = atoi(arg1);
+
     CreateHandlerTestThread();
 
     le_thread_Sleep(time);
@@ -573,7 +579,8 @@ COMPONENT_INIT
     TestThermalZoneInformation();
     TestCoolingDeviceInformation();
     TestThermalZoneByName();
-    TestCoolingDeviceByName();  
+    TestCoolingDeviceByName();
+
 
     exit(EXIT_SUCCESS);
 }

@@ -1,0 +1,18 @@
+sandboxed: false
+executables:
+{
+   tafSensorUnitTest = ( tafSensorUnitTestComp )
+}
+processes:
+{
+    run:
+    {
+        ( tafSensorUnitTest )
+    }
+    faultAction: stopApp
+}
+start: manual
+bindings:
+{
+   tafSensorUnitTest.tafSensorUnitTestComp.taf_sensor -> tafSensorSvc.taf_sensor
+}

@@ -1,0 +1,338 @@
+/*
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * @page c_tafsensor Sensor Management Service
+ *
+ * @ref taf_sensor_interface.h "API Reference"
+ *
+ * <HR>
+ *
+ * Components need access to the TelAF Sensor Manager to get information about available sensors
+ * and acquire data from these sensors.
+ *
+ * @section taf_sensor_binding IPC interfaces binding
+ *
+ * The functions of this API are provided by the @b tafSensorSvc application service.
+ *
+ * The following example illustrates how to bind to Sensor services.
+ *
+ * @verbatim
+   bindings:
+   {
+       clientExe.clientComponent.taf_sensor -> tafSensorSvc.taf_sensor
+   }
+   @endverbatim
+ *
+ * @section taf_sensor_GetSensorList  Get the available sensors
+ *
+ * TelAF Sensor Manager Service provides APIs to get the available sensors
+ * on the device.
+ * TelAF Sensor Manager's client calls taf_sensor_GetSensorList() to get the reference of
+ * the available sensors.
+ * This function returns a @ref taf_sensor_SensorListRef_t that can be later used to get
+ * the information of each sensor and also to delete the list reference using
+ * taf_sensor_DeleteSensorList().
+ *
+ * @note
+ * If the sensor type is ACCELEROMETER, the resolution value should be in meter per second
+ * per second and if sensor type is GYROSCOPE then values should be in radians per second.
+ *
+ * @verbatim
+    le_result_t result;
+    taf_sensor_SensorListRef_t listRef = taf_sensor_GetSensorList();
+    taf_sensor_SensorListRef_t headTSensorListRef = listRef;
+    taf_sensor_SensorRef_t sensorRef = taf_sensor_GetFirstSensor(listRef);
+    while(sensorRef != NULL)
+    {
+        uint32_t id;
+        char sensorName[50];
+        char sensorVendorName[50];
+        taf_sensor_SensorType_t sensorType;
+        char version[10];
+        result = taf_sensor_GetId(sensorRef,&id);
+        result = taf_sensor_GetName(sensorRef,sensorName,sizeof(sensorName));
+        result = taf_sensor_GetVendorName(sensorRef,sensorVendorName,sizeof(sensorVendorName));
+        result = taf_sensor_GetType(sensorRef,&sensorType);
+        result = taf_sensor_GetVersion(sensorRef,version,sizeof(version));
+
+        double sampleRateList[TAF_SENSOR_MAX_NUM_SUPPORTED_SAMPLE_RATE];
+        size_t size = sizeof(sampleRateList)/sizeof(double);
+        result = taf_sensor_GetSamplingRateInfo(sensorRef,sampleRateList,&size);
+
+        uint32_t maxBatchCount;
+        uint32_t minBatchCount;
+        result = taf_sensor_GetBatchingInfo(sensorRef,&maxBatchCount,&minBatchCount);
+
+        double range;
+        result = taf_sensor_GetRange(sensorRef,&range);
+
+        double resolution;
+        result = taf_sensor_GetResolution(sensorRef,&resolution);
+
+        sensorRef = taf_sensor_GetNextSensor(listRef);
+
+    }
+    result = taf_sensor_DeleteSensorList(headTSensorListRef)
+  @endverbatim
+ *
+ * <HR>
+ *
+ */
+//------------------------------------------------------------------------------------------------
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The maximum size for the sensor Name and sensor vendor.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE NAME_MAX_SIZE = 50;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The maximum size for the list of sampling rates the sensor supports.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_NUM_SUPPORTED_SAMPLE_RATE = 10;
+
+/**
+ * Reference type for list of available sensors.
+ */
+REFERENCE SensorList;
+
+/**
+ * Reference type for details of one Sensor.
+ */
+REFERENCE Sensor;
+
+/**
+ * Types of sensor.
+ */
+
+ENUM SensorType
+{
+    ACCELEROMETER = 1,  ///< ID for the accelerometer sensor.
+
+    GYROSCOPE = 2,  ///< ID for the gyroscope sensor.
+
+    INVALID = 0xFF  ///< Denotes that the sensor type is either unknown or invalid.
+};
+
+/**
+ * Gets the list of available sensors.
+ *
+ * @return
+ *  - NULL                            No sensor information available.
+ *  - taf_sensor_SensorListRef        Sensor list object reference.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION SensorList GetSensorList
+(
+);
+
+//------------------------------------------------------------------------------------------------
+
+/**
+ * Gets the first sensor object reference in the list of the
+ * sensors retrieved with taf_sensor_GetAvailableSensors().
+ *
+ * @return
+ *  - NULL                          No sensor information available.
+ *  - taf_sensor_SensorRef          The sensor object reference.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION Sensor GetFirstSensor
+(
+    SensorList sensorListRef        IN        ///< Sensor list reference.
+);
+
+//------------------------------------------------------------------------------------------------
+
+/**
+ * Gets the next sensor object reference in the list of the
+ * sensors retrieved with taf_sensor_GetAvailableSensors().
+ *
+ * @return
+ *  - NULL                          No sensor information available.
+ *  - taf_sensor_SensorRef          The sensor object reference.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION Sensor GetNextSensor
+(
+    SensorList sensorListRef        IN        ///< Sensor list reference.
+);
+
+//------------------------------------------------------------------------------------------------
+
+/**
+ *  Retrieves the ID for the given sensor reference.
+ *
+ * @return
+ * - LE_FAULT         Failed.
+ * - LE_OK            Succeeded.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetId
+(
+    Sensor sensorRef                                IN,   ///< Sensor reference.
+    uint32 sensorId                                 OUT   ///< Unique identifier for the sensor.
+);
+
+//------------------------------------------------------------------------------------------------
+
+/**
+ *  Retrieves the name of the given sensor reference.
+ *
+ * @return
+ * - LE_FAULT         Failed.
+ * - LE_OK            Succeeded.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetName
+(
+    Sensor sensorRef                                IN,   ///< Sensor reference.
+    string sensorName[NAME_MAX_SIZE]                OUT   ///< The name of the sensor.This name is
+                                                          ///  used to activate sensor.
+);
+
+//------------------------------------------------------------------------------------------------
+
+/**
+ *  Retrieves the vendor name for the given sensor reference.
+ *
+ * @return
+ * - LE_FAULT         Failed.
+ * - LE_OK            Succeeded.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetVendorName
+(
+    Sensor sensorRef                                IN,   ///< Sensor reference.
+    string sensorVendorName[NAME_MAX_SIZE]          OUT   ///< The name of the vendor.
+);
+
+//------------------------------------------------------------------------------------------------
+
+/**
+ *  Retrieves the version for the given sensor reference.
+ *
+ * @return
+ * - LE_FAULT         Failed.
+ * - LE_OK            Succeeded.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetVersion
+(
+    Sensor sensorRef                                IN,   ///< Sensor reference.
+    string version[NAME_MAX_SIZE]                   OUT   ///< The version of the sensor considering
+                                                          ///  the hardware part and the driver.
+);
+
+//------------------------------------------------------------------------------------------------
+
+/**
+ *  Retrieves the type for the given sensor reference.
+ *
+ * @return
+ * - LE_FAULT         Failed.
+ * - LE_OK            Succeeded.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetType
+(
+    Sensor sensorRef                                IN,   ///< Sensor reference.
+    SensorType sensorType                           OUT   ///< The type of sensor.
+                                                          ///  @ref taf_sensor_SensorType_t.
+);
+
+//------------------------------------------------------------------------------------------------
+
+/**
+ *  Retrieves the sensor sampling rates information like maximum sampling rate,
+ *  supported sampling rates for the given sensor reference.
+ *
+ * @return
+ * - LE_FAULT         Failed.
+ * - LE_OK            Succeeded.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetSamplingRateInfo
+(
+    Sensor sensorRef                                         IN,  ///< Sensor reference.
+    double samplingRatesList[MAX_NUM_SUPPORTED_SAMPLE_RATE]  OUT  ///< Supported sampling rates.
+);
+
+//------------------------------------------------------------------------------------------------
+
+/**
+ *  Retrieves the sensor batch information like maximum and minimum batch count supported
+ *  for the given sensor reference.
+ *
+ * @return
+ * - LE_FAULT         Failed.
+ * - LE_OK            Succeeded.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetBatchingInfo
+(
+    Sensor sensorRef                        IN,        ///< Sensor reference.
+    uint32 maxBatchCountSupported           OUT,       ///< Maximum batch count supported by sensor.
+    uint32 minBatchCountSupported           OUT        ///< Minimum batch count supported by sensor.
+);
+
+//------------------------------------------------------------------------------------------------
+
+/**
+ *  Retrieves the sensor range supported for the given sensor reference.
+ *
+ * @return
+ * - LE_FAULT         Failed.
+ * - LE_OK            Succeeded.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetRange
+(
+    Sensor sensorRef    IN,     ///< Sensor reference.
+    double range        OUT     ///< The range offered by the sensor. For accelerometers, this is
+                                ///  the number of Gs in either direction (+/-) on each axis and for
+                                ///  gyroscopes, this is the number of degrees per second (dps) in
+                                ///  either direction (+/-) along each axis.
+);
+
+//------------------------------------------------------------------------------------------------
+
+/**
+ *  Retrieves the sensor resolution for the given sensor reference.
+ *
+ * @return
+ * - LE_FAULT         Failed.
+ * - LE_OK            Succeeded.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetResolution
+(
+    Sensor sensorRef       IN,      ///< Sensor reference.
+    double resolution      OUT      ///< This is the smallest difference between two values reported
+                                    ///  by this sensor, in meter per second per second for
+                                    ///  accelerometers and radians per second for gyroscopes.
+);
+
+//------------------------------------------------------------------------------------------------
+
+/**
+ * Deletes the list of the available sensors.
+ *
+ * @return
+ * - LE_BAD_PARAMETER  Bad parameters.
+ * - LE_OK             Succeeded.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DeleteSensorList
+(
+    SensorList  sensorListRef        IN        ///< Sensor list reference.
+);
+
+//-----------------------------------------------------------------------------------------------

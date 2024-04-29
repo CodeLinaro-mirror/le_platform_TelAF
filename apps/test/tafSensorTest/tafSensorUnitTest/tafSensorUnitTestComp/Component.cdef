@@ -1,0 +1,16 @@
+sources:
+{
+    tafSensorUnitTest.c
+}
+requires:
+{
+    api:
+    {
+        taf_sensor.api
+    }
+
+}
+cxxflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+}

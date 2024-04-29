@@ -16,7 +16,7 @@ cxxflags:
     -I$LEGATO_ROOT/framework/liblegato/linux
     -I$TELAF_ROOT/include
     -I$TELAF_ROOT/components/tafHalComp
-
+    -I$TELAF_ROOT/include/staging/vhal
 }
 
 sources:

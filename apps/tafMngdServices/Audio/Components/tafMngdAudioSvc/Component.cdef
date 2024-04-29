@@ -36,4 +36,5 @@ cxxflags:
     -ltelux_common
     -ltelux_audio
     -I$TELAF_ROOT/components/tafHalComp
+    -I$TELAF_ROOT/include/staging/vhal
 }

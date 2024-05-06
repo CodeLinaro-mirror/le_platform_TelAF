@@ -6,6 +6,15 @@
 #include "legato.h"
 #include "interfaces.h"
 
+void TestSetEulerAngle(){
+    le_result_t result;
+    double pitch = 90, roll = 90, yaw = 90;
+    LE_TEST_INFO("Testing Setting euler angle for Sensor with -taf_sensor_SetEulerAngle");
+    result = taf_sensor_SetEulerAngle(NULL,pitch, roll, yaw);
+    LE_TEST_OK(result == LE_OK, "taf_sensor_SetEulerAngle - LE_OK");
+    LE_INFO("===== UnitTest Completed for setting euler angle =====");
+}
+
 void TestAvailableSensor()
 {
     le_result_t result;
@@ -71,11 +80,14 @@ void TestAvailableSensor()
     }
     LE_TEST_INFO("Testing TelAF deleting Sensor list with -taf_sensor_DeleteSensorList");
     result = taf_sensor_DeleteSensorList(headTSensorListRef);
-    LE_TEST_OK(result == LE_OK, "taf_therm_DeleteSensorList - LE_OK");
+    LE_TEST_OK(result == LE_OK, "taf_sensor_DeleteSensorList - LE_OK");
     LE_INFO("===== UnitTest Completed for retrieving information about Sensors =====");
+    TestSetEulerAngle();
 }
 
+
 COMPONENT_INIT{
+    taf_sensor_ConnectService();
     TestAvailableSensor();
     exit(EXIT_SUCCESS);
 }

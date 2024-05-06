@@ -364,9 +364,9 @@ le_result_t taf_sensor_GetRange
 
  FUNCTION       taf_sensor_GetSensorResolution
 
- DESCRIPTION    Gets Info of Sensor Resolution .
+ DESCRIPTION    Gets info of sensor resolution.
 
- DEPENDENCIES   Initialization of SensorList
+ DEPENDENCIES   Initialization of sensor list.
 
  PARAMETERS      [IN] taf_sensor_SensorRef_t sensorRef: reference to Sensor.
 
@@ -386,4 +386,34 @@ le_result_t taf_sensor_GetResolution
 {
     auto& sensorMngr = taf_Sensor::GetInstance();
     return sensorMngr.GetSensorResolution(sensorRef,resolutionPtr);
+}
+
+/*======================================================================
+
+ FUNCTION       taf_sensor_SetEulerAngle
+
+ DESCRIPTION    Sets the euler angle to get rotated sensor data.
+
+ DEPENDENCIES   Initialization of sensor service.
+
+ PARAMETERS
+
+ RETURN VALUE   le_result_t
+                LE_FAULT: Fail
+                LE_OK:    Success
+
+ SIDE EFFECTS
+
+======================================================================*/
+
+le_result_t taf_sensor_SetEulerAngle
+(
+    taf_sensor_SensorRef_t sensorRef,
+    double pitch,
+    double roll,
+    double yaw
+)
+{
+    auto& sensorMngr = taf_Sensor::GetInstance();
+    return sensorMngr.SetEulerAngle(pitch,roll,yaw);
 }

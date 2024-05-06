@@ -27,6 +27,11 @@
    }
    @endverbatim
  *
+ * The sensor service provides multi-client safe APIs. An API call from a client thread
+ * (main or sub thread) will be treated as a new session in sensor service. The client needs
+ * to connect the sensor service by API taf_sensor_ConnectService(), setting specific settings
+ * if required (else default settings will be applied).
+ *
  * @section taf_sensor_GetSensorList  Get the available sensors
  *
  * TelAF Sensor Manager Service provides APIs to get the available sensors
@@ -78,6 +83,22 @@
     }
     result = taf_sensor_DeleteSensorList(headTSensorListRef)
   @endverbatim
+ *
+ * @section taf_sensor_SetEulerAngle  Set the euler angle
+ *
+ * TelAF Sensor Manager Service provides APIs to set the euler angle to get rotated sensor data.
+ * TelAF Sensor Manager's client calls taf_sensor_SetEulerAngle() to set the euler angle.
+ * This function takes Four input parameters. The First is sensor reference, as we are not
+ * supporting setting euler angle for each sensor individual this value can be passed as NULL.
+ * The second is pitch, which is rotation around the x axis.The third is roll, which is rotation
+ * around the y axis. The fourth is yaw, which is rotation around the z axis. The values of pitch,
+ * roll, and yaw should be in the range of [0,360] degrees.
+ *
+ * @verbatim
+    le_result_t result;
+    double pitch = 90, roll = 90, yaw = 90;
+    result = taf_sensor_SetEulerAngle(NULL,pitch, roll, yaw);
+   @endverbatim
  *
  * <HR>
  *
@@ -336,3 +357,22 @@ FUNCTION le_result_t DeleteSensorList
 );
 
 //-----------------------------------------------------------------------------------------------
+
+/**
+ * Sets the euler angles for the sensor to get rotated sensor data. It is advised to use this api
+ * before activating the sensor. The angle values should be in range of [0 , 360] degrees.
+ *
+ * @return
+ * - LE_FAULT         Failed.
+ * - LE_OK            Succeeded.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetEulerAngle
+(
+    Sensor sensorRef  IN,      ///< Sensor reference.
+    double pitch      IN,      ///< Rotation around X [0 , 360] degrees, Positive counter-clockwise.
+    double roll       IN,      ///< Rotation around Y [0 , 360] degrees, Positive counter-clockwise.
+    double yaw        IN       ///< Rotation around Z [0 , 360] degrees, Positive counter-clockwise.
+);
+
+//------------------------------------------------------------------------------------------------

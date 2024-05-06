@@ -13,6 +13,7 @@
 #include "telux/sensor/SensorClient.hpp"
 #include "tafSvcIF.hpp"
 
+#define TAF_SENSOR_CLIENT_ACTIVATION_MAX 10
 #define TAF_SENSOR_LIST_POOL_SIZE 20
 #define TAF_SENSOR_POOL_SIZE 10
 #define NAME_MAX_SIZE 50
@@ -45,8 +46,16 @@ typedef struct
     uint32_t sensorListSize;
     le_sls_List_t SensorsList;
     le_sls_Link_t* currPtr;
+    le_msg_SessionRef_t sessionRef;
     taf_sensor_SensorListRef_t ref;
 }taf_SensorInfoList_t;
+
+typedef struct
+{
+    void* clientRefPtr;
+    le_msg_SessionRef_t sessionRef;
+    std::shared_ptr<ISensorManager> mSensorManager;
+}taf_SensorClient_t;
 
 namespace telux {
 namespace tafsvc {
@@ -56,12 +65,19 @@ namespace tafsvc {
             taf_Sensor() {};
             ~taf_Sensor();
             void Init();
+            int32_t mClientRefCount;
             le_mem_PoolRef_t tSensorListPool;
             le_mem_PoolRef_t tSensorInfoPool;
             le_ref_MapRef_t tSensorListMap;
             le_ref_MapRef_t tSensorInfoMap;
             static taf_Sensor &GetInstance();
-            telux::common::ServiceStatus SensorManagerInit();
+            le_result_t SetEulerAngle(double,double,double);
+            static void InitializeClient(taf_SensorClient_t* clientRequestPtr);
+            static taf_SensorClient_t* DiscoverSessionRef(le_msg_SessionRef_t sessionRef);
+            static taf_SensorClient_t* AcquireSessionRef(void);
+            void ReleaseClientRef(void* RefPtr);
+            static void CloseEventHandler(le_msg_SessionRef_t sessionRef, void* contextPtr);
+            static void OpenEventHandler(le_msg_SessionRef_t sessionRef, void* contextPtr);
             taf_sensor_SensorRef_t GetFirstSensor(taf_sensor_SensorListRef_t SensorListRef);
             taf_sensor_SensorRef_t GetNextSensor(taf_sensor_SensorListRef_t SensorListRef);
             le_result_t DeleteSensorList(taf_sensor_SensorListRef_t SensorListRef);
@@ -75,7 +91,11 @@ namespace tafsvc {
             le_result_t GetSensorRangeInfo(taf_sensor_SensorRef_t,double*);
             le_result_t GetSensorResolution(taf_sensor_SensorRef_t,double*);
             taf_sensor_SensorListRef_t GetAvailableSensors();
-            std::shared_ptr<ISensorManager> mSensorManager;
+
+        private:
+            le_mem_PoolRef_t ClientPoolRef;
+            le_ref_MapRef_t ClientRequestRefMap;
+            telux::common::ServiceStatus SensorManagerInit(taf_SensorClient_t* clientRequestPtr);
     };
 }
 }

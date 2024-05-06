@@ -21,4 +21,5 @@ telaf_admin_manage_all_files_perms(telaf_tafSensorSvc_exec_t)
 ifdef(`sa525m',`
 telux_allow_sensor(telaf_tafSensorSvc_t)
 telux_allow_sensor_data_read(telaf_tafSensorSvc_t)
+telux_allow_sensor_privileged_ops(telaf_tafSensorSvc_t)
 ')

@@ -185,7 +185,7 @@ void tafMngdConnAdmin::Init(void)
     }
     else
     {
-        LE_FATAL("Correct JSON files are needed.");
+        LE_FATAL("Stopping service. Valid configuration JSON file is needed.");
     }
 
     // Create client connect/disconnect handlers
@@ -765,29 +765,48 @@ le_result_t tafMngdConnAdmin::CancelL1Recovery(taf_mngdConn_DataRef_t dataRef)
         return LE_NOT_PERMITTED;
     }
 
-    // Inform admin state machine
-    stateMachineEvent_t stateMachineEvt = {MCS_EVT_CONN_RECOVERY_CANCEL_L1, dataCtxPtr->dataId};
+    stateMachineEvent_t stateMachineEvt;
+    // Send event to admin to cancel L1 recovery
+    stateMachineEvt.event = MCS_EVT_CONN_RECOVERY_CANCEL_L1_SYNC;
+    stateMachineEvt.dataId = dataCtxPtr->dataId;
+    // initialize the synchronous promise
+    CmdSynchronousPromise = std::promise<le_result_t>();
+    // Send request to admin
     le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
 
-    // Return OK to the application
-    return LE_OK;
+    // wait for result from admin
+    std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
+    le_result_t result = futResult.get();
+    if (LE_OK != result)
+    {
+        LE_WARN("Cancel L1 for Data Id(%d) failed: %d", dataCtxPtr->dataId, result);
+    }
+
+    // Inform the admin that it needs to send L1 canceled indication to clients. This shoud be sent
+    // from the main thread so that apps will recieve result first followed by RecoveryStateHandler.
+    stateMachineEvt.event = MCS_EVT_CONN_RECOVERY_CANCEL_L1_SEND_IND;
+    stateMachineEvt.dataId = dataCtxPtr->dataId;
+    le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
+
+    // Return result to the application
+    return result;
 }
 
 /*=====================================Event handle functions.===================================*/
-//--------------------------------------------------------------------------------------------------
-/**
- * Handle the event MCS_EVT_INIT which is sent when system startup.
- */
-//--------------------------------------------------------------------------------------------------
-void tafMngdConnAdmin::EventInit()
-{
-    // Initialize states for each data object
-    le_result_t result = InitializeStates();
-    if (LE_OK != result)
+    //--------------------------------------------------------------------------------------------------
+    /**
+     * Handle the event MCS_EVT_INIT which is sent when system startup.
+     */
+    //--------------------------------------------------------------------------------------------------
+    void tafMngdConnAdmin::EventInit()
     {
-        // Initialization did not complete. Wait for SIM/Radio events and act on them
-        LE_INFO("Initialization not complete. Wait for further events");
-    }
+        // Initialize states for each data object
+        le_result_t result = InitializeStates();
+        if (LE_OK != result)
+        {
+            // Initialization did not complete. Wait for SIM/Radio events and act on them
+            LE_INFO("Initialization not complete. Wait for further events");
+        }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1741,9 +1760,19 @@ void tafMngdConnAdmin::StateMachineHandler(void* reqPtr)
             mngdConnAdmin.EventL1ConnRecoveryCancel(eventReq->dataId);
             break;
 
+        case MCS_EVT_CONN_RECOVERY_CANCEL_L1_SYNC:
+            LE_DEBUG("L1 Connectivity Recovery Cancel SYNC event");
+            mngdConnAdmin.EventL1ConnRecoveryCancelSync(eventReq->dataId);
+            break;
+
+        case MCS_EVT_CONN_RECOVERY_CANCEL_L1_SEND_IND:
+            LE_DEBUG("L1 Connectivity Recovery send indication");
+            mngdConnAdmin.EventL1ConnRecoveryCancelSendInd(eventReq->dataId);
+            break;
+
         case MCS_EVT_CONN_RECOVERY_START_L1:
-        LE_DEBUG("L1 Connectivity Recovery Start event");
-        mngdConnAdmin.EventL1ConnRecoveryStart(eventReq->dataId);
+            LE_DEBUG("L1 Connectivity Recovery Start event");
+            mngdConnAdmin.EventL1ConnRecoveryStart(eventReq->dataId);
         break;
 
         default:
@@ -2754,6 +2783,63 @@ void tafMngdConnAdmin::EventL1ConnRecoveryCancel(uint8_t dataId)
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * MCS_EVT_CONN_RECOVERY_CANCEL_L1_SYNC event handler
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::EventL1ConnRecoveryCancelSync(uint8_t dataId)
+{
+    LE_INFO("Cancel a scheduled recovery synchronously");
+    auto &mngdConnAdmin = tafMngdConnAdmin::GetInstance();
+    le_result_t result = LE_NOT_FOUND;
+
+    mcs_DataCtx_t *dataCtxPtr = GetDataCtx(dataId);
+    if (nullptr == dataCtxPtr)
+    {
+        LE_ERROR("Unable to find reference for data id: %d", dataId);
+        mngdConnAdmin.CmdSynchronousPromise.set_value(result);
+        return;
+    }
+    // Stop recovery timer if it is running
+    if (le_timer_IsRunning(dataCtxPtr->recoveryScheduleTimerRef))
+    {
+        result = le_timer_Stop(dataCtxPtr->recoveryScheduleTimerRef);
+        if (LE_OK != result)
+        {
+            LE_DEBUG("Stopping L1 timer failed: %d", result);
+        }
+    }
+    // No recovery is scheduled
+    dataCtxPtr->isConnectivityRecoveryScheduled = false;
+
+    // Set the internal state to data recovery failed
+    dataCtxPtr->adminState = MCS_RECOVERY_FAILED_L1;
+
+    // Unblock the waiting API
+    mngdConnAdmin.CmdSynchronousPromise.set_value(result);
+
+    return;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * MCS_EVT_CONN_RECOVERY_CANCEL_L1_SEND_IND event handler
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::EventL1ConnRecoveryCancelSendInd(uint8_t dataId)
+{
+    mcs_DataCtx_t *dataCtxPtr = GetDataCtx(dataId);
+    if (nullptr == dataCtxPtr)
+    {
+        LE_ERROR("Unable to find reference for data id: %d", dataId);
+        return;
+    }
+
+    // send L1 canceled event to clients
+    ReportRecoveryStateEvent(TAF_MNGDCONN_RECOVERY_L1_CANCELED, dataCtxPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * MCS_EVT_CONN_RECOVERY_START_L1 event handler.
  * - Send CONN_RECOVERY_L1_STARTED notification to applications
  * - Stop all active data sessions
@@ -2877,6 +2963,10 @@ const char * tafMngdConnAdmin::EventToString(mcs_EventType_t event)
             return "MCS_EVT_CONN_RECOVERY_SCHEDULE_L1";
         case MCS_EVT_CONN_RECOVERY_CANCEL_L1:
             return "MCS_EVT_CONN_RECOVERY_CANCEL_L1";
+        case MCS_EVT_CONN_RECOVERY_CANCEL_L1_SYNC:
+            return "MCS_EVT_CONN_RECOVERY_CANCEL_L1_SYNC";
+        case MCS_EVT_CONN_RECOVERY_CANCEL_L1_SEND_IND:
+            return "MCS_EVT_CONN_RECOVERY_CANCEL_L1_SEND_IND";
         case MCS_EVT_CONN_RECOVERY_START_L1:
             return "MCS_EVT_CONN_RECOVERY_START_L1";
         default:

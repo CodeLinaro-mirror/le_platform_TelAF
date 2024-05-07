@@ -110,6 +110,8 @@ namespace tafsvc {
         MCS_EVT_DATA_PERIODIC_CONNECTIONTEST,
         MCS_EVT_CONN_RECOVERY_SCHEDULE_L1, // Schedule L1 connectivity recovery
         MCS_EVT_CONN_RECOVERY_CANCEL_L1,
+        MCS_EVT_CONN_RECOVERY_CANCEL_L1_SYNC,
+        MCS_EVT_CONN_RECOVERY_CANCEL_L1_SEND_IND,
         MCS_EVT_CONN_RECOVERY_START_L1
     } mcs_EventType_t;
 
@@ -333,6 +335,8 @@ namespace tafsvc {
             // Connectivity Recovery
             void EventL1ConnRecoverySchedule(uint8_t dataId);
             void EventL1ConnRecoveryCancel(uint8_t dataId);
+            void EventL1ConnRecoveryCancelSync(uint8_t dataId);
+            void EventL1ConnRecoveryCancelSendInd(uint8_t dataId);
             void EventL1ConnRecoveryStart(uint8_t dataId);
 
             // Policy and Configuration to use

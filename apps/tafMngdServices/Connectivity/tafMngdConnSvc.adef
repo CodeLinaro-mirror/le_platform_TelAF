@@ -40,7 +40,7 @@ processes:
         (tafMngdConnSvc)
     }
     maxFileBytes: 8192K
-    faultAction: stopApp
+    faultAction: restart
 }
 
 sandboxed: false

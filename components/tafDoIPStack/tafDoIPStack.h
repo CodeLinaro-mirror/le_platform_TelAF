@@ -81,6 +81,17 @@ typedef enum
 
 //-------------------------------------------------------------------------------------------------
 /**
+ * Enumeration of diagnostic over IP(DoIP) event type.
+ */
+//-------------------------------------------------------------------------------------------------
+typedef enum
+{
+    TAF_DOIP_EVENT_CONNECTION  = 0,            ///< Connection.
+    TAF_DOIP_EVENT_DISCONNECTION               ///< Disconnection.
+}taf_doip_Event_t;
+
+//-------------------------------------------------------------------------------------------------
+/**
  * Enumeration of supported logical target address types.
  */
 //-------------------------------------------------------------------------------------------------
@@ -153,6 +164,13 @@ typedef struct taf_doip_DiagIndicationHandlerRef* taf_doip_DiagIndicationHandler
 //-------------------------------------------------------------------------------------------------
 typedef struct taf_doip_DiagConfirmHandlerRef* taf_doip_DiagConfirmHandlerRef_t;
 
+//-------------------------------------------------------------------------------------------------
+/**
+ * Reference type for DoIP event handler.
+ */
+//-------------------------------------------------------------------------------------------------
+typedef struct taf_doip_EventHandlerRef* taf_doip_EventHandlerRef_t;
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Callback to query power mode when diagnostic power mode information request reception.
@@ -193,6 +211,19 @@ typedef void (*taf_doip_DiagConfirmHandlerFunc_t)
     void*                       userPtr      ///< [IN] User-defined pointer
 );
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Callback to DoIP event.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef void (*taf_doip_EventHandlerFunc_t)
+(
+    taf_doip_Ref_t              doipRef,     ///< [IN] DoIP entity reference.
+    taf_doip_Event_t            event,       ///< [IN] Result of the event.
+    uint16_t                    remoteAddr,  ///< [IN] Remote logical address.
+    void*                       userPtr      ///< [IN] User-defined pointer
+);
+
 //-------------------------------------------------------------------------------------------------
 // Public functions
 //-------------------------------------------------------------------------------------------------
@@ -208,6 +239,19 @@ typedef void (*taf_doip_DiagConfirmHandlerFunc_t)
 LE_SHARED taf_doip_Ref_t taf_doip_Create
 (
     const char* configPathPtr   ///< [IN] DoIP configuration path pointer.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get a DoIP entity reference with the source address.
+ *
+ * @return
+ *  - Reference to the DoIP entity.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED taf_doip_Ref_t taf_doip_Get
+(
+    uint16_t sa     ///< [IN] DoIP entity source address.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -270,8 +314,26 @@ LE_SHARED le_result_t taf_doip_Stop
 //-------------------------------------------------------------------------------------------------
 LE_SHARED le_result_t taf_doip_SetVin
 (
-    taf_doip_Ref_t  doipRef,    ///< [IN] DoIP entity reference.
-    const char*     vinPtr      ///< [IN] Vehicle identification number pointer.
+    const char*     vinPtr      ///< [IN] Vehicle identification number pointer.17bytes length.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the vehicle vehicle identification number(VIN).
+ *
+ * @note VIN buffer size must be more than 17bytes.
+ *
+ * @return
+ *  - LE_OK             Function success.
+ *  - LE_BAD_PARAMETER  Invalid parameter.
+ *  - LE_NOT_FOUND      Invalid reference.
+ *  - LE_FAULT          Internal error.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_doip_GetVin
+(
+    char*     vinPtr,      ///< [OUT] Vehicle identification number pointer.
+    size_t    vinSize      ///< [IN] vinPtr buffer size.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -291,8 +353,26 @@ LE_SHARED le_result_t taf_doip_SetVin
 //-------------------------------------------------------------------------------------------------
 LE_SHARED le_result_t taf_doip_SetGid
 (
-    taf_doip_Ref_t  doipRef,    ///< [IN] DoIP entity reference.
-    const char*     gidPtr      ///< [IN] Group identification pointer.
+    const char*     gidPtr      ///< [IN] Group identification pointer. 12bytes length.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the vehicle group identification(GID).
+ *
+ * @note GID buffer size must be more than 12bytes.
+ *
+ * @return
+ *  - LE_OK             Function success.
+ *  - LE_BAD_PARAMETER  Invalid parameter.
+ *  - LE_NOT_FOUND      Invalid reference.
+ *  - LE_FAULT          Internal error.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_doip_GetGid
+(
+    char*     gidPtr,      ///< [OUT] Group identification pointer.
+    size_t    gidSize      ///< [IN] gidPtr buffer size.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -312,8 +392,26 @@ LE_SHARED le_result_t taf_doip_SetGid
 //-------------------------------------------------------------------------------------------------
 LE_SHARED le_result_t taf_doip_SetEid
 (
-    taf_doip_Ref_t  doipRef,    ///< [IN] DoIP entity reference.
-    const char*     eidPtr      ///< [IN] Entity identification pointer.
+    const char*     eidPtr      ///< [IN] Entity identification pointer.12bytes length.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the vehicle entity identification(EID).
+ *
+ * @note EID buffer size must be more than 12bytes.
+ *
+ * @return
+ *  - LE_OK             Function success.
+ *  - LE_BAD_PARAMETER  Invalid parameter.
+ *  - LE_NOT_FOUND      Invalid reference.
+ *  - LE_FAULT          Internal error.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_doip_GetEid
+(
+    char*     eidPtr,      ///< [OUT] Entity identification pointer.
+    size_t    eidSize      ///< [IN] eidPtr buffer size.
 );
 
 //-------------------------------------------------------------------------------------------------
@@ -440,6 +538,36 @@ LE_SHARED le_result_t taf_doip_DiagRequest
 (
     const taf_doip_AddrInfo_t*  addrInfoPtr,    ///< [IN] Logical address information pointer.
     const taf_doip_DiagMsg_t*   diagMsgPtr      ///< [IN] Diagnostic message pointer.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Adds a handler to notify DoIP event.
+ *
+ * @return
+ *  - A handler reference   success.
+ *  - NULL                  FAILURE.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED taf_doip_EventHandlerRef_t taf_doip_AddEventHandler
+(
+    taf_doip_Ref_t                    doipRef,              ///< [IN] DoIP entity reference.
+    taf_doip_EventHandlerFunc_t       handlerPtr,           ///< [IN] Hander function.
+    void*                             userPtr               ///< [IN] User-defined pointer.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Removes the DoIP event handler.
+ *
+ * @return
+ *  - A handler reference   success.
+ *  - NULL                  FAILURE.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED void taf_doip_RemoveEventHandler
+(
+    taf_doip_EventHandlerRef_t eventHandlerRef  ///< [IN] DoIP event handler reference.
 );
 
 #ifdef  __cplusplus

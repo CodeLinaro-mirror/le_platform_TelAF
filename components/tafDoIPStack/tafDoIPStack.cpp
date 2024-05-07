@@ -83,6 +83,7 @@ taf_doip_Ref_t taf_doip_Create
     uint16_t            logicalSrcAddr;
     taf_doipSession_t*  doipSessionPtr;
     taf_doip_Ref_t      doipSessionRef;
+    char eventName[32] = {0};
 
     auto& vehicleMgr = VehicleManager::GetInstance();
     auto& cmMgr = CommunicationMgr::GetInstance();
@@ -116,9 +117,38 @@ taf_doip_Ref_t taf_doip_Create
     doipSessionPtr->diagIndicationHandler.mutexRef = le_mutex_CreateNonRecursive("indication");
     doipSessionPtr->diagConfirmHandler.mutexRef = le_mutex_CreateNonRecursive("confirm");
 
+    snprintf(eventName, sizeof(eventName)-1, "StatusEvent-%x", logicalSrcAddr);
+    doipSessionPtr->statusEvtId = le_event_CreateId("DoIPStatusEvent", sizeof(taf_doip_Status_t));
+
     cmMgr.SessionInit();
 
     return doipSessionRef;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get a DoIP entity reference with the source address.
+ *
+ * @return
+ *  - Reference to the DoIP entity.
+ */
+//-------------------------------------------------------------------------------------------------
+taf_doip_Ref_t taf_doip_Get
+(
+    uint16_t sa     ///< [IN] DoIP entity source address.
+)
+{
+    taf_doipSession_t*  doipSessionPtr;
+    auto& cmMgr = CommunicationMgr::GetInstance();
+
+    doipSessionPtr = cmMgr.FindDoipSession(sa);
+    if (doipSessionPtr == NULL)
+    {
+        LE_ERROR("Failed to get entity reference with source address0x%x.", sa);
+        return NULL;
+    }
+
+    return doipSessionPtr->doipRef;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -304,7 +334,6 @@ le_result_t taf_doip_Stop
 //-------------------------------------------------------------------------------------------------
 le_result_t taf_doip_SetVin
 (
-    taf_doip_Ref_t  doipRef,    ///< [IN] DoIP entity reference.
     const char*     vinPtr      ///< [IN] Vehicle identification number pointer.
 )
 {
@@ -318,6 +347,42 @@ le_result_t taf_doip_SetVin
     }
 
     ret = vehicleMgr.SetVin(vinPtr);
+    if (ret != TAF_DOIP_RESULT_OK)
+    {
+        LE_ERROR("Failed to set VIN, return:%d", ret);
+        return LE_FAULT;
+    }
+
+    return LE_OK;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the vehicle vehicle identification number(VIN).
+ *
+ * @return
+ *  - LE_OK             Function success.
+ *  - LE_BAD_PARAMETER  Invalid parameter.
+ *  - LE_NOT_FOUND      Invalid reference.
+ *  - LE_FAULT          Internal error.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_doip_GetVin
+(
+    char*     vinPtr,      ///< [IN] Vehicle identification number pointer.
+    size_t    vinSize      ///< [IN] vinPtr buffer size.
+)
+{
+    taf_doip_Result_t   ret;
+    auto& vehicleMgr = VehicleManager::GetInstance();
+
+    if (vinPtr == NULL || vinSize <= TAF_DOIP_VIN_SIZE)
+    {
+        LE_ERROR("Invalid Vin");
+        return LE_BAD_PARAMETER;
+    }
+
+    ret = vehicleMgr.GetVin(vinPtr);
     if (ret != TAF_DOIP_RESULT_OK)
     {
         LE_ERROR("Failed to set VIN, return:%d", ret);
@@ -344,7 +409,6 @@ le_result_t taf_doip_SetVin
 //-------------------------------------------------------------------------------------------------
 le_result_t taf_doip_SetGid
 (
-    taf_doip_Ref_t  doipRef,    ///< [IN] DoIP entity reference.
     const char*     gidPtr      ///< [IN] Group identification pointer.
 )
 {
@@ -369,6 +433,46 @@ le_result_t taf_doip_SetGid
 
 //-------------------------------------------------------------------------------------------------
 /**
+ * Gets the vehicle group identification(GID).
+ *
+ * @return
+ *  - LE_OK             Function success.
+ *  - LE_BAD_PARAMETER  Invalid parameter.
+ *  - LE_NOT_FOUND      Invalid reference.
+ *  - LE_FAULT          Internal error.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_doip_GetGid
+(
+    char*     gidPtr,      ///< [OUT] Group identification pointer.
+    size_t    gidSize      ///< [IN] gidPtr buffer size.
+)
+{
+    taf_doip_Result_t   ret;
+    char gidBin[TAF_DOIP_GID_SIZE];
+
+    auto& vehicleMgr = VehicleManager::GetInstance();
+
+    if (gidPtr == NULL || gidSize <= (TAF_DOIP_GID_SIZE*2))
+    {
+        LE_ERROR("Invalid Vin");
+        return LE_BAD_PARAMETER;
+    }
+
+    ret = vehicleMgr.GetGid(gidBin);
+    if (ret != TAF_DOIP_RESULT_OK)
+    {
+        LE_ERROR("Failed to set GID, return:%d", ret);
+        return LE_FAULT;
+    }
+
+    le_hex_BinaryToString((const uint8_t*)gidBin, TAF_DOIP_GID_SIZE, gidPtr, gidSize);
+
+    return LE_OK;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
  * Sets the vehicle entity identification(EID).
  *
  * @note This function must be called before taf_doip_Start().
@@ -384,7 +488,6 @@ le_result_t taf_doip_SetGid
 //-------------------------------------------------------------------------------------------------
 LE_SHARED le_result_t taf_doip_SetEid
 (
-    taf_doip_Ref_t  doipRef,    ///< [IN] DoIP entity reference.
     const char*     eidPtr      ///< [IN] Entity identification pointer.
 )
 {
@@ -397,12 +500,52 @@ LE_SHARED le_result_t taf_doip_SetEid
         return LE_BAD_PARAMETER;
     }
 
-    ret = vehicleMgr.SetEid(eidPtr);
+    ret = vehicleMgr.SetEid((char*)eidPtr);
     if (ret != TAF_DOIP_RESULT_OK)
     {
         LE_ERROR("Failed to set EID, return:%d", ret);
         return LE_FAULT;
     }
+
+    return LE_OK;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the vehicle entity identification(EID).
+ *
+ * @return
+ *  - LE_OK             Function success.
+ *  - LE_BAD_PARAMETER  Invalid parameter.
+ *  - LE_NOT_FOUND      Invalid reference.
+ *  - LE_FAULT          Internal error.
+ */
+//-------------------------------------------------------------------------------------------------
+le_result_t taf_doip_GetEid
+(
+    char*     eidPtr,      ///< [IN] Entity identification pointer.
+    size_t    eidSize      ///< [IN] eidPtr buffer size.
+)
+{
+    taf_doip_Result_t   ret;
+    char eidBin[TAF_DOIP_EID_SIZE];
+
+    auto& vehicleMgr = VehicleManager::GetInstance();
+
+    if (eidPtr == NULL || eidSize <= (TAF_DOIP_EID_SIZE*2))
+    {
+        LE_ERROR("Invalid Vin");
+        return LE_BAD_PARAMETER;
+    }
+
+    ret = vehicleMgr.GetEid(eidBin);
+    if (ret != TAF_DOIP_RESULT_OK)
+    {
+        LE_ERROR("Failed to set GID, return:%d", ret);
+        return LE_FAULT;
+    }
+
+    le_hex_BinaryToString((const uint8_t*)eidBin, TAF_DOIP_EID_SIZE, eidPtr, eidSize);
 
     return LE_OK;
 }
@@ -800,4 +943,123 @@ le_result_t taf_doip_DiagRequest
     }
 
     return LE_OK;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Get DoIP component status event.
+ *
+ * @return
+ *  - event id.
+ */
+//-------------------------------------------------------------------------------------------------
+le_event_Id_t taf_doip_GetStatusEvent
+(
+    uint16_t sa
+)
+{
+    taf_doipSession_t*  doipSessionPtr;
+    auto& cmMgr = CommunicationMgr::GetInstance();
+    doipSessionPtr = cmMgr.FindDoipSession(sa);
+
+    return doipSessionPtr->statusEvtId;
+}
+
+static void FirstDoIPEventHandler
+(
+    void* reportPtr,
+    void* secondLayerHandlerFunc
+)
+{
+    taf_doip_Status_t *statusPtr = (taf_doip_Status_t*)reportPtr;
+    if (statusPtr == NULL || secondLayerHandlerFunc == NULL)
+    {
+        LE_ERROR("Report message error");
+        return;
+    }
+
+    taf_doip_EventHandlerFunc_t handlerPtr =
+        (taf_doip_EventHandlerFunc_t)secondLayerHandlerFunc;
+
+    taf_doipSession_t*  doipSessionPtr;
+    auto& cmMgr = CommunicationMgr::GetInstance();
+
+    doipSessionPtr = cmMgr.FindDoipSession(statusPtr->entityAddr);
+    if (doipSessionPtr == NULL)
+    {
+        LE_ERROR("Failed to get entity reference with source address0x%x.",
+            statusPtr->entityAddr);
+        return;
+    }
+
+    taf_doip_Event_t event;
+    if (statusPtr->eventStatus == TAF_DOIP_RESULT_SA_REGISTERED)
+    {
+        event = TAF_DOIP_EVENT_CONNECTION;
+    }
+    else if (statusPtr->eventStatus == TAF_DOIP_RESULT_SA_DEREGISTERED)
+    {
+        event = TAF_DOIP_EVENT_DISCONNECTION;
+    }
+    else
+    {
+        // No need to report other events.
+        return;
+    }
+
+    handlerPtr(doipSessionPtr->doipRef, event, statusPtr->clientAddr, le_event_GetContextPtr());
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Adds a handler to notify DoIP event.
+ *
+ * @return
+ *  - A handler reference   success.
+ *  - NULL                  FAILURE.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED taf_doip_EventHandlerRef_t taf_doip_AddEventHandler
+(
+    taf_doip_Ref_t                    doipRef,              ///< [IN] DoIP entity reference.
+    taf_doip_EventHandlerFunc_t       handlerPtr,           ///< [IN] Hander function.
+    void*                             userPtr               ///< [IN] User-defined pointer.
+)
+{
+    taf_doipSession_t*  doipSessionPtr;
+    auto& cmMgr = CommunicationMgr::GetInstance();
+
+    doipSessionPtr = (taf_doipSession_t*)le_ref_Lookup(cmMgr.doipSessionRefMap, doipRef);
+    if (doipSessionPtr == NULL)
+    {
+        LE_ERROR("Invalid reference!!");
+        return NULL;
+    }
+
+    le_event_Id_t eventId = doipSessionPtr->statusEvtId;
+
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("DoIPEventHandler",
+        eventId, FirstDoIPEventHandler, (void*)handlerPtr);
+    le_event_SetContextPtr(handlerRef, userPtr);
+
+    LE_INFO("Registered event handler to DoIP stack");
+
+    return (taf_doip_EventHandlerRef_t)handlerRef;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Removes the DoIP event handler.
+ *
+ * @return
+ *  - A handler reference   success.
+ *  - NULL                  FAILURE.
+ */
+//-------------------------------------------------------------------------------------------------
+LE_SHARED void taf_doip_RemoveEventHandler
+(
+    taf_doip_EventHandlerRef_t eventHandlerRef  ///< [IN] DoIP event handler reference.
+)
+{
+    le_event_RemoveHandler((le_event_HandlerRef_t)eventHandlerRef);
 }

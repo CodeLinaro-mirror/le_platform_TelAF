@@ -418,6 +418,12 @@ taf_doip_Result_t CommunicationMgr::SessionStart
        return TAF_DOIP_RESULT_ERROR;
     }
 
+    if (LE_OK != le_socket_SetMonitoring(udpEquipSockRef, true))
+    {
+       LE_ERROR("Failed to enable udp discovery socket monitor.");
+       return TAF_DOIP_RESULT_ERROR;
+    }
+
     state = TAF_DOIP_STATE_RUNNING;
     LE_INFO("DoIP session start success.!");
 
@@ -454,6 +460,8 @@ taf_doip_Result_t CommunicationMgr::SessionStop
     LE_DEBUG("tcpDataSockRef=%p\n", tcpDataSockRef);
     le_socket_SetMonitoring(udpDiscoverSockRef, false);
     LE_DEBUG("udpDiscoverSockRef=%p\n", udpDiscoverSockRef);
+    le_socket_SetMonitoring(udpEquipSockRef, false);
+    LE_DEBUG("udpEquipSockRef=%p\n", udpEquipSockRef);
 
     state = TAF_DOIP_STATE_STOP;
     LE_DEBUG("DoIP session stop success.!");
@@ -668,7 +676,10 @@ taf_doip_Result_t CommunicationMgr::SendUDPData
     if (!strncasecmp(netType, "IPv4", 4))
     {
         // [DoIP-125]: Set target IPv4 address to limited broadcast address.
-        if (le_socket_SendTo(udpDiscoverSockRef, messagePtr, len,
+        // The udpDiscoverSockRef bind INADDR_ANY to receive client's limited broadcast.
+        // If here use it to send the limited broadcast and the system didn't set default
+        // gateway or route, it will return network unreachable.
+        if (le_socket_SendTo(udpEquipSockRef, messagePtr, len,
             (char*)TAF_DOIP_UDP_BROADCAST_IP, udpDiscoveryPort) != LE_OK)
         {
             LE_ERROR("Unable to transmit multicast packet.");
@@ -1171,14 +1182,14 @@ void CommunicationMgr::PowerModeReqHandler
 }
 
 /*=================================================================================================
- FUNCTION        CommunicationMgr::UdpDiscoverSocketEventCallback
- DESCRIPTION     process the async events on TCP_DATA socket.
+ FUNCTION        CommunicationMgr::UdpSocketEventCallback
+ DESCRIPTION     process the async events on UDP sockets.
  PARAMETERS      [IN] sockRef: Socket context reference.
                  [IN] events: Bitmap of events that occurred.
                  [IN] userPtr: User data pointer
  RETURN VALUE    void
 =================================================================================================*/
-void CommunicationMgr::UdpDiscoverSocketEventCallback
+void CommunicationMgr::UdpSocketEventCallback
 (
     le_socket_Ref_t sockRef,
     short           events,
@@ -1352,6 +1363,20 @@ void CommunicationMgr::ReportConnectionEvent
                                    CommunicationMgr::IndicateConnectionEvent,
                                    diagInfoPtr,
                                    (void*)rgistResult);
+
+    // Report the connection event to upper layer.
+    // If upper layer registered event handler, it will receive the event.
+    taf_doip_Status_t status;
+    taf_doipSession_t*  sessPtr = FindDoipSession(ta);
+    if (sessPtr == NULL)
+    {
+        return;
+    }
+
+    status.clientAddr   = sa;
+    status.entityAddr   = ta;
+    status.eventStatus  = rgistResult;
+    le_event_Report(sessPtr->statusEvtId, (void*)&status, sizeof(status));
 
     return;
 }
@@ -1530,7 +1555,8 @@ taf_doip_Result_t CommunicationMgr::SessionInit
             return TAF_DOIP_RESULT_NETWORK_ERROR;
         }
 
-        udpDiscoverSockRef = le_socket_Create(NULL, udpDiscoveryPort, localIp, UDP_TYPE);
+        udpDiscoverSockRef = le_socket_Create(NULL, udpDiscoveryPort,
+            (char*)TAF_DOIP_IPv4_ADDRESS_ANY, UDP_TYPE);
         if (udpDiscoverSockRef == NULL)
         {
             LE_ERROR("Failed to create udp socket reference.\n");
@@ -1544,6 +1570,23 @@ taf_doip_Result_t CommunicationMgr::SessionInit
             result = TAF_DOIP_RESULT_NETWORK_ERROR;
             goto errOut;
         }
+
+        udpEquipSockRef = le_socket_Create(NULL, udpDiscoveryPort, localIp, UDP_TYPE);
+        if (udpEquipSockRef == NULL)
+        {
+            LE_ERROR("Failed to create udp socket reference.\n");
+            result = TAF_DOIP_RESULT_NETWORK_ERROR;
+            goto errOut;
+        }
+
+        if (le_socket_Bind(udpEquipSockRef) != LE_OK)
+        {
+            LE_ERROR("Failed to bind with port%d", udpDiscoveryPort);
+            result = TAF_DOIP_RESULT_NETWORK_ERROR;
+            goto errOut;
+        }
+        le_socket_SetTimeout(udpEquipSockRef, SOCKET_TIMEOUT_MS);
+        le_socket_AddEventHandler(udpEquipSockRef, UdpSocketEventCallback, NULL);
     }
     else
     {
@@ -1564,7 +1607,8 @@ taf_doip_Result_t CommunicationMgr::SessionInit
             goto errOut;
         }
 
-        udpDiscoverSockRef = le_socket_Create(NULL, udpDiscoveryPort, localIp, UDP_TYPE);
+        udpDiscoverSockRef = le_socket_Create(NULL, udpDiscoveryPort,
+            (char*)TAF_DOIP_UDP6_BROADCAST_IP, UDP_TYPE);
         if (udpDiscoverSockRef == NULL)
         {
             LE_ERROR("Failed to create udp socket reference.\n");
@@ -1602,7 +1646,7 @@ taf_doip_Result_t CommunicationMgr::SessionInit
     le_socket_SetTimeout(udpDiscoverSockRef, SOCKET_TIMEOUT_MS);
 
     // Set the socket event callback for discovery fd monitor.
-    le_socket_AddEventHandler(udpDiscoverSockRef, UdpDiscoverSocketEventCallback, NULL);
+    le_socket_AddEventHandler(udpDiscoverSockRef, UdpSocketEventCallback, NULL);
 
     // Initialize TCP connection manager.
     connectionMgrPtr->Init();
@@ -1627,6 +1671,12 @@ errOut:
         udpDiscoverSockRef = NULL;
     }
 
+    if (udpEquipSockRef != NULL)
+    {
+        le_socket_Delete(udpEquipSockRef);
+        udpEquipSockRef = NULL;
+    }
+
     return result;
 }
 
@@ -1648,6 +1698,12 @@ taf_doip_Result_t CommunicationMgr::SessionDeInit()
     tcpDataSockRef = NULL;
     le_socket_Delete(udpDiscoverSockRef);
     udpDiscoverSockRef = NULL;
+
+    if (udpEquipSockRef != NULL)
+    {
+        le_socket_Delete(udpEquipSockRef);
+        udpEquipSockRef = NULL;
+    }
 
     return TAF_DOIP_RESULT_OK;
 }

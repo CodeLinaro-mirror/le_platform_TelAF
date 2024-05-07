@@ -360,7 +360,7 @@ static le_result_t DoipEntityStart
         return LE_FAULT;
     }
 
-    ret = taf_doip_SetVin(DoipEntityRef, DOIP_TEST_VIN);
+    ret = taf_doip_SetVin(DOIP_TEST_VIN);
     if (ret != LE_OK)
     {
         LE_ERROR("Failed to set VIN");
@@ -368,7 +368,7 @@ static le_result_t DoipEntityStart
         return LE_FAULT;
     }
 
-    ret = taf_doip_SetGid(DoipEntityRef, DOIP_TEST_GID);
+    ret = taf_doip_SetGid(DOIP_TEST_GID);
     if (ret != LE_OK)
     {
         LE_ERROR("Failed to set GID");

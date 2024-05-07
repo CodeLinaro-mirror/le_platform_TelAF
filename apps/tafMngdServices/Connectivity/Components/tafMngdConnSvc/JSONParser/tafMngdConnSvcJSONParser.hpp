@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -48,6 +48,7 @@
 #pragma once
 
 #include "legato.h"
+#include "interfaces.h"
 #include "tafMngdConnSvcParser_PolicyParser.hpp"
 #include "tafMngdConnSvcParser_ConfigurationParser.hpp"
 #include "tafMngdSvcJSONParser_Helper.hpp"

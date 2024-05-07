@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -428,10 +428,29 @@ taf_mngdConn_DataRef_t tafMngdConnAdmin::GetRefByDataId(uint8_t dataId)
 
 //--------------------------------------------------------------------------------------------------
 /**
+ *  Gets the data reference for the given Data Name.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_mngdConn_DataRef_t tafMngdConnAdmin::GetRefByName(const char *dataName)
+{
+
+    mcs_DataCtx_t* dataCtxPtr = GetDataCtx(dataName);
+
+    if(dataCtxPtr == NULL)
+    {
+        LE_ERROR("Json is needed");
+        return NULL;
+    }
+
+    return dataCtxPtr->dataRef;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  *  Gets the data id for the given data reference.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t tafMngdConnAdmin::DataGetId (taf_mngdConn_DataRef_t dataRef, uint8_t *dataIdPtr)
+le_result_t tafMngdConnAdmin::GetDataIdByRef (taf_mngdConn_DataRef_t dataRef, uint8_t *dataIdPtr)
 {
     TAF_ERROR_IF_RET_VAL(dataRef == NULL, LE_BAD_PARAMETER, "Null ptr(dataRef)");
     TAF_ERROR_IF_RET_VAL(dataIdPtr == NULL, LE_BAD_PARAMETER, "Null ptr(dataIdPtr)");
@@ -444,6 +463,33 @@ le_result_t tafMngdConnAdmin::DataGetId (taf_mngdConn_DataRef_t dataRef, uint8_t
     }
     *dataIdPtr = dataCtxPtr->dataId;
     LE_INFO("Data Id: %d", *dataIdPtr);
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the data name for the given data reference.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t tafMngdConnAdmin::GetDataNameByRef(taf_mngdConn_DataRef_t dataRef,
+                                           char* dataName, size_t dataNameSize)
+{
+    TAF_ERROR_IF_RET_VAL(dataRef == NULL, LE_BAD_PARAMETER, "Null ptr(dataRef)");
+    TAF_ERROR_IF_RET_VAL(dataName == NULL, LE_BAD_PARAMETER, "Null ptr(dataName)");
+    TAF_ERROR_IF_RET_VAL(dataNameSize <= 0, LE_BAD_PARAMETER, "dataNameSize invalid value");
+    mcs_DataCtx_t *dataCtxPtr = (mcs_DataCtx_t *)le_ref_Lookup(DataRefMap, (void *)dataRef);
+    if (dataCtxPtr == NULL)
+    {
+        LE_ERROR("Data reference not found");
+        *dataName = 0;
+        return LE_NOT_FOUND;
+    }
+
+    le_utf8_Copy(dataName, dataCtxPtr->dataName,
+                 // Use dataNameSize if it's smaller than MCS_MAX_NAME_LEN, else MCS_MAX_NAME_LEN
+                 dataNameSize < MCS_MAX_NAME_LEN ? dataNameSize : MCS_MAX_NAME_LEN,
+                 NULL);
+    LE_INFO("Data Name: %s", dataName);
     return LE_OK;
 }
 
@@ -587,14 +633,12 @@ le_result_t tafMngdConnAdmin::Stopdata(taf_mngdConn_DataRef_t dataRef)
 le_result_t tafMngdConnAdmin::GetConnectionState
 (
     taf_mngdConn_DataRef_t dataRef,
-    uint8_t* dataIdPtr,
     taf_mngdConn_DataState_t *statePtr
 )
 {
     mcs_DataCtx_t* dataCtxPtr = NULL;
 
     TAF_ERROR_IF_RET_VAL(dataRef == NULL, LE_BAD_PARAMETER, "Null ptr(dataRef)");
-    TAF_ERROR_IF_RET_VAL(dataIdPtr == NULL, LE_BAD_PARAMETER, "Null ptr(dataIdPtr)");
     TAF_ERROR_IF_RET_VAL(statePtr == NULL, LE_BAD_PARAMETER, "Null ptr(statePtr)");
 
     dataCtxPtr = (mcs_DataCtx_t* )le_ref_Lookup(DataRefMap, (void*)dataRef);
@@ -609,7 +653,6 @@ le_result_t tafMngdConnAdmin::GetConnectionState
     LE_INFO("MCS  State: %s", StateToString(dataCtxPtr->adminState));
     LE_INFO("Data State: %s", DataStateToString(dataCtxPtr->dataState));
 
-    *dataIdPtr = dataCtxPtr->dataId;
     *statePtr = dataCtxPtr->dataState;
 
     return LE_OK;
@@ -1036,7 +1079,7 @@ le_result_t tafMngdConnAdmin::EventStopData(uint8_t dataId)
     // If true, return LE_NOT_PERMITTED
     // If false, allow DataStop to proceed.
     if (true == dataCtxPtr->autoStart &&
-        dataCtxPtr->adminState!=MCS_DATA_CONNECTED_INACTIVE_RETRYING)
+        dataCtxPtr->adminState != MCS_DATA_CONNECTED_INACTIVE_RETRYING)
     {
         LE_INFO("%s",StateToString(dataCtxPtr->adminState));
         LE_WARN("Stopping auto started(Autostart: Yes) data session is not allowed");
@@ -1732,6 +1775,35 @@ mcs_DataCtx_t* tafMngdConnAdmin::GetDataCtx(uint8_t dataId)
     }
 
     le_mutex_Unlock(DataCtxMutex);
+    LE_WARN ("Data context not found for id: %d", dataId);
+    return NULL;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get connectivity context by data name.
+ */
+//--------------------------------------------------------------------------------------------------
+mcs_DataCtx_t* tafMngdConnAdmin::GetDataCtx(const char *dataName)
+{
+    LE_DEBUG("Enter GetDataCtx: DataName %s ", dataName);
+    le_dls_Link_t* linkPtr = NULL;
+
+    le_mutex_Lock(DataCtxMutex);
+    linkPtr = le_dls_Peek(&DataCtxList);
+    while (linkPtr)
+    {
+        mcs_DataCtx_t* dataCtxPtr = CONTAINER_OF(linkPtr, mcs_DataCtx_t, link);
+        linkPtr = le_dls_PeekNext(&DataCtxList, linkPtr);
+        if (strcmp(dataCtxPtr->dataName,dataName) == 0)
+        {
+            le_mutex_Unlock(DataCtxMutex);
+            return dataCtxPtr;
+        }
+    }
+
+    le_mutex_Unlock(DataCtxMutex);
+    LE_WARN ("Data context not found for name: %s", dataName);
     return NULL;
 }
 
@@ -1757,6 +1829,7 @@ mcs_DataCtx_t* tafMngdConnAdmin::GetDataCtx(uint8_t phoneId, uint32_t profileNum
     }
 
     le_mutex_Unlock(DataCtxMutex);
+    LE_WARN ("Data context not found for phoneId: %d and profileNumber %d", phoneId, profileNumber);
     return NULL;
 }
 
@@ -1782,6 +1855,7 @@ tafMngdConnAdmin::CreateDataCtx(
     uint8_t slotId,
     uint8_t phoneId,
     uint32_t profileNumber,
+    char dataName[MCS_MAX_NAME_LEN],
     bool autoStart,
     char *conn_test_url,
     char *conn_test_ipv4Addr)
@@ -1798,6 +1872,8 @@ tafMngdConnAdmin::CreateDataCtx(
     dataCtxPtr->dataStartRetryCount = 0;
     dataCtxPtr->conn_periodic_test_retryCount = 1;
     dataCtxPtr->profileNumber = profileNumber;
+    le_utf8_Copy(dataCtxPtr->dataName,dataName,
+                             MCS_MAX_NAME_LEN,NULL);
     dataCtxPtr->autoStart = autoStart;
     dataCtxPtr->needReConn = false;
     dataCtxPtr->adminState = MCS_ADMIN_INIT;
@@ -1807,12 +1883,12 @@ tafMngdConnAdmin::CreateDataCtx(
     dataCtxPtr->isConnectivityRecoveryScheduled = false;
     dataCtxPtr->wasConnectivityRecoveryDone = false;
 
-    if(conn_test_url!=NULL)
+    if(conn_test_url != NULL)
     {
         le_utf8_Copy(dataCtxPtr->conn_test_url, conn_test_url,
                     MCS_MAX_CONNECTION_URL_LEN,NULL);
     }
-    if(conn_test_ipv4Addr!=NULL)
+    if(conn_test_ipv4Addr != NULL)
     {
         le_utf8_Copy(dataCtxPtr->conn_test_ipv4Addr, conn_test_ipv4Addr,
                     MCS_MAX_IPV4_LEN,NULL);
@@ -2004,7 +2080,7 @@ void tafMngdConnAdmin::ReportAndUpdateDataState
      * LE_MNGD_CONN_DATA_CONNECTION_FAILED event, then connectivity recovery should be triggered.
      */
     if (MCS_DATA_NOT_CONNECTED_FAILED == dataCtxPtr->adminState &&
-        TAF_MNGDCONN_DATA_CONNECTION_FAILED    == dataCtxPtr->dataState)
+        TAF_MNGDCONN_DATA_CONNECTION_FAILED == dataCtxPtr->dataState)
     {
         LE_INFO("Data (%d) not connected failed. Scheduling connectivity recovery.",
                                                                         dataCtxPtr->dataId);
@@ -2086,6 +2162,7 @@ le_result_t tafMngdConnAdmin::InitializeStates()
     bool autoStart = false;
     char conn_test_url [MCS_MAX_CONNECTION_URL_LEN];
     char conn_test_ipv4Addr [MCS_MAX_IPV4_LEN];
+    char dataName [MCS_MAX_NAME_LEN];
     le_result_t result;
     mcs_DataCtx_t* dataCtxPtr = NULL;
     auto &radio = tafMngdConnRadio::GetInstance();
@@ -2114,14 +2191,20 @@ le_result_t tafMngdConnAdmin::InitializeStates()
             dataId = Configuration.Data[dataIdx].ID;
             autoStart = Configuration.Data[dataIdx].AutoStart;
             profileNumber = Configuration.Data[dataIdx].Profile.ProfileNumber;
-            if(Configuration.Data[dataIdx].DataStartConnectionTest.URL!=NULL)
+            if(Configuration.Data[dataIdx].DataName != NULL)
+            {
+                LE_DEBUG("The data name is %s", Configuration.Data[dataIdx].DataName);
+                le_utf8_Copy(dataName,Configuration.Data[dataIdx].DataName,
+                             MCS_MAX_NAME_LEN,NULL);
+            }
+            if(Configuration.Data[dataIdx].DataStartConnectionTest.URL != NULL)
             {
                 LE_INFO("Setting the url for testing");
                 le_utf8_Copy(conn_test_url,Configuration.Data[dataIdx].DataStartConnectionTest.URL,
                     MCS_MAX_CONNECTION_URL_LEN,NULL);
             }
 
-            if(Configuration.Data[dataIdx].DataStartConnectionTest.IPv4[0]!='\0')
+            if(Configuration.Data[dataIdx].DataStartConnectionTest.IPv4[0] != '\0')
             {
                 LE_INFO("Setting the ipv4 for testing");
                 le_utf8_Copy(conn_test_ipv4Addr,
@@ -2164,7 +2247,7 @@ le_result_t tafMngdConnAdmin::InitializeStates()
             }
             profileRef = taf_dcs_GetProfileEx (phoneId, profileNumber);
             //If APN is not NULL
-            if(strlen(Configuration.Data[dataIdx].Profile.APN)!=0){
+            if(strlen(Configuration.Data[dataIdx].Profile.APN) != 0){
                 LE_INFO("apn=%s",Configuration.Data[dataIdx].Profile.APN);
                 const char *setapnPtr = Configuration.Data[dataIdx].Profile.APN;
                 //Set APN if different
@@ -2205,8 +2288,8 @@ le_result_t tafMngdConnAdmin::InitializeStates()
             dataCtxPtr = GetDataCtx(dataId);
             if(dataCtxPtr == NULL)
             {
-                dataCtxPtr = CreateDataCtx(dataId, slotNumber, phoneId, profileNumber, autoStart
-                                          ,conn_test_url, conn_test_ipv4Addr);
+                dataCtxPtr = CreateDataCtx(dataId, slotNumber, phoneId, profileNumber, dataName,
+                                         autoStart, conn_test_url, conn_test_ipv4Addr);
                 if(dataCtxPtr == NULL)
                 {
                     LE_ERROR("Creating connection context failed");
@@ -2482,7 +2565,7 @@ void tafMngdConnAdmin::EventDataPeriodicConnectivityTest(uint8_t dataId)
                 // PeriodicConnectivitytest failed for this iteration.
                 LE_INFO("PeriodicConnectivitytest failed for dataID: %d", dataId);
                 //Report and update the state (only once)
-                if(dataCtxPtr->dataState!=TAF_MNGDCONN_DATA_CONNECTION_STALLED)
+                if(dataCtxPtr->dataState != TAF_MNGDCONN_DATA_CONNECTION_STALLED)
                 {
                     ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_CONNECTION_STALLED);
                 }
@@ -2518,7 +2601,7 @@ void tafMngdConnAdmin::EventDataPeriodicConnectivityTest(uint8_t dataId)
                 le_timer_Start(dataCtxPtr->periodicConnectivityTestTimerRef);
 
                 //Change the State back to connected
-                if(dataCtxPtr->dataState==TAF_MNGDCONN_DATA_CONNECTION_STALLED)
+                if(dataCtxPtr->dataState == TAF_MNGDCONN_DATA_CONNECTION_STALLED)
                 {
                     dataCtxPtr->adminState = MCS_DATA_CONNECTED_ACTIVE;
                     ReportAndUpdateDataState(dataCtxPtr, TAF_MNGDCONN_DATA_CONNECTED);
@@ -2544,7 +2627,7 @@ bool tafMngdConnAdmin::DataStartConnectionTest_URL(std::string url, std::string 
     #endif
 
     int result = system(curlCommand.c_str());
-    if(result==0)
+    if(result == 0)
     {
         //connection is created.
         LE_INFO("DataStartConnectionTest_URL passed for interface %s",interfaceName.c_str());
@@ -2567,7 +2650,7 @@ bool tafMngdConnAdmin::DataStartConnectionTest_IPv4(std::string ipv4, std::strin
     #endif
     int result = system(pingCommand.c_str());
 
-    if(result==0)
+    if(result == 0)
     {
         //connection is created.
         LE_INFO("DataStartConnectionTest_IPv4 passed for interface %s",interfaceName.c_str());

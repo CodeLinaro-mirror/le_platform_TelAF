@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -41,7 +41,9 @@
 #include "interfaces.h"
 
 #define MAX_DATA_ID 32
+#define MCS_MAX_NAME_LEN 32
 #define DEFAULT_DATA_ID 1
+#define DEFAULT_DATA_NAME "Data1"
 
 taf_mngdConn_DataStateHandlerRef_t statHandlerRef = NULL;
 static le_sem_Ref_t TestSemRef = NULL;
@@ -93,6 +95,8 @@ static void* UnitTestThread(void* contextPtr)
     le_result_t result;
     taf_mngdConn_DataState_t state;
     uint8_t dataId;
+    char dataName[MCS_MAX_NAME_LEN];
+    size_t dataNameSize = MCS_MAX_NAME_LEN;
     taf_mngdConn_DataRef_t dataRef = NULL;
     char ipv4Addr[TAF_DCS_IPV4_ADDR_MAX_LEN];
     char ipv6Addr[TAF_DCS_IPV6_ADDR_MAX_LEN];
@@ -100,6 +104,17 @@ static void* UnitTestThread(void* contextPtr)
     TestSemRef = le_sem_Create("testSem", 0);
 
     dataRef = taf_mngdConn_GetData(DEFAULT_DATA_ID);
+
+    result = taf_mngdConn_GetDataIdByRef(dataRef, &dataId);
+    LE_TEST_OK(result == LE_OK && dataId == DEFAULT_DATA_ID, "Data_Get_ID");
+
+
+    dataRef = taf_mngdConn_GetDataByName(DEFAULT_DATA_NAME);
+
+    result = taf_mngdConn_GetDataNameByRef(dataRef, dataName, dataNameSize);
+    LE_TEST_OK(result == LE_OK && strcmp(dataName,DEFAULT_DATA_NAME) == 0, "Data_Get_Name");
+    LE_TEST_INFO("Data_Get_Name Result: %d Data Name: %s", result, dataName);
+
 
     LE_TEST_INIT;
 
@@ -113,23 +128,30 @@ static void* UnitTestThread(void* contextPtr)
     le_sem_Wait(TestSemRef);
 
 
-    result = taf_mngdConn_DataStart(dataRef);
+    result = taf_mngdConn_StartData(dataRef);
     LE_TEST_OK(result == LE_OK, "Data_Start");
     LE_TEST_INFO("Data_Start Result: %d", result);
 
-    result=taf_mngdConn_DataGetConnectionState(dataRef, &dataId, &state);
-    LE_TEST_OK(result == LE_OK, "ConnectionState");
+    sleep(3);
+
+    result=taf_mngdConn_GetDataConnectionState(dataRef, &state);
+    LE_TEST_OK(result == LE_OK && state == TAF_MNGDCONN_DATA_CONNECTED, "ConnectionState");
     LE_TEST_INFO("ConnectionState Result: %d", result);
 
-    result=taf_mngdConn_DataGetConnectionIPAddresses(dataRef,
+    result=taf_mngdConn_GetDataConnectionIPAddresses(dataRef,
                                                       ipv4Addr, TAF_DCS_IPV4_ADDR_MAX_LEN,
                                                       ipv6Addr, TAF_DCS_IPV6_ADDR_MAX_LEN);
     LE_TEST_OK(result == LE_OK, "ConnectionIPAddresses");
     LE_TEST_INFO("ConnectionIPAddresses Result: %d", result);
+    if(result == LE_OK)
+    {
+        LE_TEST_INFO("ConnectionIPAddresses  ---IPv4Addr=%s", ipv4Addr);
+        LE_TEST_INFO("ConnectionIPAddresses  ---IPv6Addr=%s", ipv6Addr);
+    }
 
     sleep(3);
 
-    result=taf_mngdConn_DataStop(dataRef);
+    result=taf_mngdConn_StopData(dataRef);
     LE_TEST_OK(result == LE_OK, "Data_Stop");
     LE_TEST_INFO("Data_Stop Result: %d", result);
 

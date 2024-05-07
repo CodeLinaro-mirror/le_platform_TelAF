@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -180,6 +180,7 @@ namespace tafsvc {
         uint8_t                       dataConnTestFailedRetryCount; // ConnTest failed retry count
         bool                          dataRetry;              // DataRetry enabled/disabled
         uint32_t                      profileNumber;          // Profile number
+        char                          dataName[MCS_MAX_NAME_LEN]; //DataName
         bool                          autoStart;              // Auto start or not
         bool                          needReConn;             //Need to reconnect for manualStart
         char                          intfName[TAF_DCS_NAME_MAX_LEN]; // Interface name
@@ -227,11 +228,13 @@ namespace tafsvc {
             void Init(void);
             static tafMngdConnAdmin &GetInstance();
             taf_mngdConn_DataRef_t GetRefByDataId(uint8_t dataId);
-            le_result_t DataGetId(taf_mngdConn_DataRef_t dataRef, uint8_t* dataIdPtr);
+            taf_mngdConn_DataRef_t GetRefByName(const char *dataName);
+            le_result_t GetDataIdByRef(taf_mngdConn_DataRef_t dataRef, uint8_t* dataIdPtr);
+            le_result_t GetDataNameByRef(taf_mngdConn_DataRef_t dataRef,
+                                    char *dataName, size_t dataNameSize);
             le_result_t Startdata(taf_mngdConn_DataRef_t dataRef);
             le_result_t Stopdata(taf_mngdConn_DataRef_t dataRef);
             le_result_t GetConnectionState(taf_mngdConn_DataRef_t dataRef,
-                                           uint8_t* dataIdPtr,
                                            taf_mngdConn_DataState_t *statePtr);
             le_result_t GetConnectionIPAddresses( taf_mngdConn_DataRef_t dataRef,
                                                   char *ipv4AddrPtr, size_t ipv4AddrSize,
@@ -308,8 +311,11 @@ namespace tafsvc {
             static mcs_Clients_t ConnectedClients;
 
             mcs_DataCtx_t* GetDataCtx(uint8_t dataId);
+            mcs_DataCtx_t *GetDataCtx(const char *dataName);
             mcs_DataCtx_t* CreateDataCtx(uint8_t dataId, uint8_t slotId, uint8_t phoneId,
-                                               uint32_t profileId, bool autoStart,
+                                               uint32_t profileId,
+                                               char dataName[MCS_MAX_NAME_LEN],
+                                               bool autoStart,
                                                char* conn_test_url,
                                                char* conn_test_ipv4Addr);
             le_result_t getProfileList( profileInfo_t *profileNumberList, int *listSize);

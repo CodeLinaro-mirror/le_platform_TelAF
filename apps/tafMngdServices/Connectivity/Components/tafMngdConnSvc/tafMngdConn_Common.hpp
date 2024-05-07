@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -113,7 +113,7 @@ namespace tafsvc {
      * Max name length is 32 characters, including null terminator.
      *
      */
-    const unsigned int MCS_MAX_NAME_LEN = 32;
+    const unsigned int MCS_MAX_NAME_LEN = TAF_MNGDCONN_MAX_NAME_LEN;
 
     /**
      * \brief Maximum string length for Configuration JSON network registartion data type.
@@ -130,14 +130,6 @@ namespace tafsvc {
      *
      */
     const unsigned int MCS_MAX_CONNECTION_URL_LEN = 256;
-
-    /**
-     * \brief Maximum string length for profile names.
-     *
-     * Max profile name length is 16 characters, including null terminator.
-     *
-     */
-    const unsigned int MCS_MAX_PROFILE_NAME_LEN = 16;
 
     /**
      * \brief Maximum supported Nework objects

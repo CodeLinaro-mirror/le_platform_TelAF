@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -62,6 +62,21 @@ taf_mngdConn_DataRef_t taf_mngdConn_GetData( uint8_t dataId )
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Gets the data reference for the given data name(as provided in configuration json).
+ *
+ * @return
+ *  - NULL -- Error.
+ *  - Others -- The data reference.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_mngdConn_DataRef_t taf_mngdConn_GetDataByName(const char* LE_NONNULL dataName)
+{
+    auto &admin = tafMngdConnAdmin::GetInstance();
+    return admin.GetRefByName(dataName);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Gets the data object id (from configuration file) for the given data reference.
  *
  * @return
@@ -70,7 +85,7 @@ taf_mngdConn_DataRef_t taf_mngdConn_GetData( uint8_t dataId )
  *   - Appropriate error is returned on failure.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_mngdConn_DataGetId
+le_result_t taf_mngdConn_GetDataIdByRef
 (
     taf_mngdConn_DataRef_t dataRef,
         ///< [IN] The data reference.
@@ -79,7 +94,24 @@ le_result_t taf_mngdConn_DataGetId
 )
 {
     auto &admin = tafMngdConnAdmin::GetInstance();
-    return admin.DataGetId(dataRef, dataIdPtr);
+    return admin.GetDataIdByRef(dataRef, dataIdPtr);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the data object name (as provided in configuration json) for the given data reference.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- Data reference not found.
+ *   - Appropriate error is returned on failure.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_mngdConn_GetDataNameByRef( taf_mngdConn_DataRef_t dataRef,
+                                            char* dataName, size_t dataNameSize )
+{
+    auto &admin = tafMngdConnAdmin::GetInstance();
+    return admin.GetDataNameByRef(dataRef, dataName, dataNameSize);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -93,7 +125,7 @@ le_result_t taf_mngdConn_DataGetId
  *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_mngdConn_DataStart
+le_result_t taf_mngdConn_StartData
 (
     taf_mngdConn_DataRef_t dataRef
 )
@@ -111,7 +143,7 @@ le_result_t taf_mngdConn_DataStart
  *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_mngdConn_DataStop
+le_result_t taf_mngdConn_StopData
 (
     taf_mngdConn_DataRef_t dataRef
 )
@@ -130,16 +162,15 @@ le_result_t taf_mngdConn_DataStop
  *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_mngdConn_DataGetConnectionState
+le_result_t taf_mngdConn_GetDataConnectionState
 (
     taf_mngdConn_DataRef_t dataRef,
-    uint8_t* dataIdPtr,
     taf_mngdConn_DataState_t* statePtr
 )
 {
     auto &admin = tafMngdConnAdmin::GetInstance();
 
-    return admin.GetConnectionState(dataRef, dataIdPtr, statePtr);
+    return admin.GetConnectionState(dataRef, statePtr);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -152,7 +183,7 @@ le_result_t taf_mngdConn_DataGetConnectionState
  *   - LE_FAULT -- Failed.
  */
 //--------------------------------------------------------------------------------------------------
-le_result_t taf_mngdConn_DataGetConnectionIPAddresses
+le_result_t taf_mngdConn_GetDataConnectionIPAddresses
 (
     taf_mngdConn_DataRef_t dataRef,
     char *ipv4AddrPtr,

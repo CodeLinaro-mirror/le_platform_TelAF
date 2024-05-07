@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -49,6 +49,7 @@
 
 #include <stdint.h>
 #include "legato.h"
+#include "interfaces.h"
 #include "tafMngdConn_Common.hpp"
 #include "tafMngdSvcJSONParser_Helper.hpp"
 #include <map>
@@ -78,7 +79,6 @@ namespace tafsvc {
     typedef struct
     {
         uint8_t ProfileNumber;
-        char ProfileName[MCS_MAX_PROFILE_NAME_LEN];
         char APN[MCS_MAX_APN_LEN];
     } taf_mngdConn_Configuration_Data_Profile_t;
 
@@ -86,6 +86,7 @@ namespace tafsvc {
     {
         uint8_t ID;
         uint8_t Use_Network_ID;
+        char DataName[MCS_MAX_NAME_LEN];
         taf_mngdConn_Configuration_Data_Profile_t Profile;
         mcs_Yes_No_t AutoStart; //Yes=1, No=0
         taf_mngdConn_Policy_DataStartRetry_t DataStartRetry;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -453,10 +453,16 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Name(
         LE_WARN("Invalid Array Index");
         return false;
     }
+    //Check for max data name length
+    if(Value.size() > MCS_MAX_NAME_LEN)
+    {
+        LE_WARN("Data Name exceeded maximum length");
+        return false;
+    }
 
     //Check for Duplicates
     for (int i = 0; i <= Configuration.DataCount; i++) {
-            if (Value == Configuration.Data[i].Profile.ProfileName) {
+            if (Value == Configuration.Data[i].DataName) {
                 LE_WARN("Duplicate Data Name");
                 return false;
             }
@@ -468,9 +474,9 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Name(
 
     // Valid String.
     // Since we have already validated string length above, we can ignore return value here
-    le_utf8_Copy(Configuration.Data[Index].Profile.ProfileName,
+    le_utf8_Copy(Configuration.Data[Index].DataName,
                             Value.c_str(),
-                            MCS_MAX_PROFILE_NAME_LEN,NULL);
+                            MCS_MAX_NAME_LEN,NULL);
     return true;
 }
 
@@ -1296,7 +1302,7 @@ void tafMngdConnSvc_ConfigurationParser::ResetConfigurationStructure (
         Configuration.Data[Index].ID                     = 0;
         Configuration.Data[Index].Use_Network_ID         = 0;
         Configuration.Data[Index].Profile.ProfileNumber  = 0;
-        Configuration.Data[Index].Profile.ProfileName[0] = '\0';
+        Configuration.Data[Index].DataName[0] = '\0';
         Configuration.Data[Index].Profile.APN[0]         = '\0';
         Configuration.Data[Index].DataStartConnectionTest.URL[0]        = '\0';
         Configuration.Data[Index].DataStartConnectionTest.IPv4[0]       = '\0';

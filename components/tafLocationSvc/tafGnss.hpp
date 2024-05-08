@@ -237,6 +237,10 @@ namespace tafsvc {
         taf_gnss_GnssData_t gnssData[TAF_GNSS_NUMBER_OF_SIGNAL_TYPES_MAX];
         bool  gnssDataValid;
         le_msg_SessionRef_t*         clientSessionRefPtr;
+        bool gPtpTimeValid;
+        uint64_t gPtpTime;
+        bool gPtpTimeUncValid;
+        uint64_t gPtpTimeUnc;
         le_dls_Link_t   next;
     }
     taf_gnss_PositionSample_t;
@@ -495,6 +499,7 @@ namespace tafsvc {
             le_result_t GetGnssData(taf_gnss_SampleRef_t positionSampleRef,taf_gnss_GnssData_t* gnssDataPtr,size_t* maxSignalTypes);
 
             le_result_t SetDRConfigValidity(taf_gnss_DRConfigValidityType_t validMask);
+            le_result_t GetGptpTime(taf_gnss_SampleRef_t positionSampleRef,uint64_t* gPtpTime,uint64_t* gPtpTimeUnc);
             le_mem_PoolRef_t   PositionHandlerPoolRef;
             le_mem_PoolRef_t   PositionSampleRequestPoolRef;
             le_mem_PoolRef_t   PositionSamplePoolRef;

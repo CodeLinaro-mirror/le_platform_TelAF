@@ -1067,6 +1067,14 @@ static void PositionHandlerFunction
         {
             LE_TEST_INFO("valid elapsed real time Uncertainity\n");
         }
+        if(validityMask & TAF_GNSS_HAS_GPTP_TIME_BIT)
+        {
+            printf("valid gptp time\n");
+        }
+        if(validityMask & TAF_GNSS_HAS_GPTP_TIME_UNC_BIT)
+        {
+            printf("valid gptp time Uncertainity\n");
+        }
         if(validityMask == 0)
         {
             LE_TEST_INFO("no Valid Mask\n");
@@ -1487,6 +1495,17 @@ static void PositionHandlerFunction
         LE_TEST_INFO("\n");
     }
 
+    uint64_t gPtpTime;
+    uint64_t gPtpTimeUnc;
+
+    LE_TEST_INFO("taf_gnss_GetGptpTime is triggered\n");
+    result = taf_gnss_GetGptpTime(positionSampleRef,&gPtpTime,&gPtpTimeUnc);
+    LE_TEST_OK(result == LE_OK, "taf_gnss_GetGptpTime-LE_OK");
+    if (result == LE_OK)
+    {
+        LE_TEST_INFO("Gptp Time(in ns) :%"PRIu64"\n",gPtpTime);
+        LE_TEST_INFO("Gptp Time Uncertainity(in ns) :%"PRIu64"\n",gPtpTimeUnc);
+    }
 
     LE_TEST_INFO("taf_gnss_ReleaseSampleRef is triggered");
     taf_gnss_ReleaseSampleRef(positionSampleRef);

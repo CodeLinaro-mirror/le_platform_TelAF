@@ -1941,3 +1941,20 @@ le_result_t taf_gnss_SetDRConfigValidity
     auto &gnss = taf_Gnss::GetInstance();
     return gnss.SetDRConfigValidity(validMask);
 }
+/**
+* FUNCTION     : GetGptpTime
+* DESCRIPTION  : Gets Gptp time and its uncertainity.
+* DEPENDECY    :
+* PARAMETERS   :
+* RETURN VALUES: LE_OK on success, LE_FAULT on failed
+*/
+le_result_t taf_gnss_GetGptpTime
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    uint64_t* gPtpTime,
+    uint64_t* gPtpTimeUnc
+)
+{
+    auto &gnss = taf_Gnss::GetInstance();
+    return gnss.GetGptpTime(positionSampleRef,gPtpTime,gPtpTimeUnc);
+}

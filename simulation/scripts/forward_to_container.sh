@@ -35,5 +35,9 @@ if [ -n "${SHELL_ACTIONS}" ]; then
         echo "SHELL_ACTIONS: [${SHELL_ACTIONS}], but not found."
     fi
 else
-    echo "Nothing to do"
+    if [ -n "${I_SHELL}" ] && [ "${I_SHELL}" == "TRUE" ] ; then
+        /bin/bash
+    else
+        echo "Nothing to do"
+    fi
 fi

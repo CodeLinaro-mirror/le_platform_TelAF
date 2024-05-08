@@ -1,0 +1,22 @@
+{
+    "telaf" : {
+        "Commit-ID": "7984597152840e7ec9d8f1e3510873a4936a525a",
+        "Patch-Cmd-List": []
+    },
+    "legato/legato-af" : {
+        "Commit-ID": "3ff91b6a84ae9e1ee5c4ea43694f2d917acc27aa",
+        "Patch-Cmd-List": []
+    },
+    "legato/3rdParty/jansson/" : {
+        "Commit-ID": "cfed4c57d3deffab23e2e368d264a4087afc46ab",
+        "Patch-Cmd-List": []
+    },
+    "legato/3rdParty/Kconfiglib/" : {
+        "Commit-ID": "ae147b3d2727b222653183b5abf77e38c052b595",
+        "Patch-Cmd-List": []
+    },
+    "sdk" : {
+        "Commit-ID": "LE.UM.7.4.1.r1-14600-sa525m-tele",
+        "Patch-Cmd-List": []
+    }
+}

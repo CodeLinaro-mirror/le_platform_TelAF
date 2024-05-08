@@ -57,11 +57,11 @@ if [ "$i_shell" == "TRUE" ]; then
             ${CONTAINER_OPTIONS} -u $(id -u):$(id -g) \
             -e TELAF_DEV_IN_CONTAINER=${project_root} \
             -e CPLUS_INCLUDE_PATH='/usr/include/python2.7/' \
-            -e M_CHANGETO=${m_changeto} -e V_VERBOSE=${v_verbose} \
+            -e M_CHANGETO=${m_changeto} -e V_VERBOSE=${v_verbose} -e I_SHELL=${i_shell} \
             -v ${simulation_base}:/home/developer/simulation_ro:ro \
             -v ${project_root}:${project_root}:rw \
             -v ${current_dir}/example.gitconfig:/home/developer/.gitconfig \
-            ${IMG_NAME}:${IMG_VERSION} "/bin/bash" > /dev/null && eval ${attach_container}
+            ${IMG_NAME}:${IMG_VERSION} && eval ${attach_container}
     fi
 
     exit 0

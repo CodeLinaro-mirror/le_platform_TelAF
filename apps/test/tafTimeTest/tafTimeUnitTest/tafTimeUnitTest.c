@@ -427,6 +427,40 @@ void TestRtcVhalAsyncGetTime
     le_sem_Delete(semAGetRtcVhal);
 }
 
+const char* SourceNameIndexToStr
+(
+    taf_time_TimeSources_t sourceName
+)
+{
+    switch (sourceName)
+    {
+        case TAF_TIME_SRC_NAME_RTC:
+            return "RTC";
+
+        case TAF_TIME_SRC_NAME_GNSS:
+            return "GNSS";
+
+        case TAF_TIME_SRC_NAME_EX_APP:
+            return "ExAPP";
+
+        case TAF_TIME_SRC_NAME_NETWORK:
+            return "NETWORK";
+
+        case TAF_TIME_SRC_NAME_NETWORK2:
+            return "NETWORK2";
+
+        /* Add new time source here */
+
+        case TAF_TIME_SRC_NAME_UNKNOWN:
+            return "UNKNOWN";
+
+        case TAF_TIME_SRC_NAME_SYSTEM:
+            return "SYSTEM";
+
+    }
+    return "unknown";
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Test RTC Async set time API.
@@ -492,24 +526,90 @@ void TestGetSourceRef
 
     srcRef = taf_time_GetSourceRef(sourceId);
     LE_TEST_ASSERT(srcRef != NULL, "taf_time_GetSourceRef() API - OK.");
-    int32_t failedLoops = 0;
-    le_result_t res = taf_time_GetFailedLoops(srcRef, &failedLoops);
-    LE_TEST_ASSERT(res == LE_OK, "taf_time_GetFailedLoops() - OK");
-    if (res == LE_OK)
-    {
-        LE_INFO("The number of failed loops are %d", failedLoops);
-    }
+
+    // Release the memory for this reference.
+    le_result_t res = taf_time_ReleaseSourceRef(srcRef);
+    LE_ASSERT(res == LE_OK);
+}
+
+void TestGetSystemTimeSourceID()
+{
+    taf_time_TimeSources_t systemTimeSrc;
+    le_result_t res = taf_time_GetSystemTimeSourceID(&systemTimeSrc);
+    LE_ASSERT(res == LE_OK);
+    LE_INFO("The lastest system time is set by %s", SourceNameIndexToStr(systemTimeSrc));
+}
+
+void TestGetTimeZone()
+{
+    uint8_t sourceId = 3;
+    taf_time_SourceRef_t srcRef;
+
+    srcRef = taf_time_GetSourceRef(sourceId);
+    LE_ASSERT(srcRef != NULL);
+    int8_t timeZone = 0;
+    le_result_t res = taf_time_GetTimeZone(srcRef, &timeZone);
+    LE_TEST_ASSERT(res == LE_OK, "taf_time_GetTimeZone - OK. TimeZone is %d", timeZone);
 
     // Release the memory for this reference.
     res = taf_time_ReleaseSourceRef(srcRef);
-    if (res == LE_OK)
+    LE_ASSERT(res == LE_OK);
+}
+
+void TestGetDayAdj()
+{
+    uint8_t sourceId = 3;
+    taf_time_SourceRef_t srcRef;
+
+    srcRef = taf_time_GetSourceRef(sourceId);
+    LE_ASSERT(srcRef != NULL);
+    uint8_t dayltSavAdj;
+    le_result_t res = taf_time_GetTimeDayAdj(srcRef, &dayltSavAdj);
+    LE_TEST_ASSERT(res == LE_OK, "taf_time_GetTimeDayAdj - OK. Day Light Saving is %d", dayltSavAdj);
+
+    // Release the memory for this reference.
+    res = taf_time_ReleaseSourceRef(srcRef);
+    LE_ASSERT(res == LE_OK);
+}
+
+void TestFailedLoops()
+{
+    uint8_t sourceId = 0;
+    taf_time_SourceRef_t srcRef;
+    int32_t failedLoops =0;
+    int64_t loopIntervalSec = 0;
+    srcRef = taf_time_GetSourceRef(sourceId);
+    LE_ASSERT(srcRef != NULL);
+    le_result_t res = taf_time_GetFailedLoops(srcRef, &failedLoops, &loopIntervalSec);
+    LE_ASSERT(res == LE_OK);
+    LE_INFO("The number of failed loops are %d. Loop interval is %ld",
+    failedLoops, loopIntervalSec);
+
+    // Release the memory for this reference.
+    res = taf_time_ReleaseSourceRef(srcRef);
+    LE_ASSERT(res == LE_OK);
+}
+
+void TestGetSourceAvailability()
+{
+    uint8_t sourceId = 3;
+    taf_time_SourceRef_t srcRef;
+    bool isAvailable;
+    srcRef = taf_time_GetSourceRef(sourceId);
+    LE_ASSERT(srcRef != NULL);
+    isAvailable = taf_time_IsAvailable(srcRef);
+    if (isAvailable)
     {
-        LE_INFO("The source reference was successfully removed\n");
+        LE_INFO("Time source is Available!");
     }
     else
     {
-        LE_INFO("Not able to remove the reference\n");
+        LE_INFO("Time source is NOT Available!");
     }
+
+    // Release the memory for this reference.
+    le_result_t res = taf_time_ReleaseSourceRef(srcRef);
+    LE_ASSERT(res == LE_OK);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -534,6 +634,12 @@ COMPONENT_INIT
 
     TestGetTimeRef();
     TestGetSourceRef();
+    TestGetSystemTimeSourceID();
+    TestGetTimeZone();
+    TestGetDayAdj();
+    TestFailedLoops();
+    TestGetSourceAvailability();
+
     TestRtcVhalAsyncSetTime();
     TestRtcVhalAsyncGetTime();
 

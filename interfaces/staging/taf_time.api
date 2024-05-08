@@ -222,12 +222,11 @@
  *
  *  - taf_time_GetSourceRef() -- Gets the source reference.
  *
- * When trying to get the information of a given time source, the application shall first
- * get the source reference by calling taf_time_GetSourceRef(), then call taf_time_GetFailedLoops()
- * to fetch the number of failed loops for a the source. When the reference is not needed,
- * call taf_time_ReleaseSourceRef() to release the source reference.
+ * When trying to get the reference for a source, the application shall call 
+ * taf_time_GetSourceRef(). When reference is not needed, call taf_time_ReleaseSourceRef()
+ * to release the source reference.
  *
- * The following example illustrates how to get the source information.
+ * The following example illustrates how to get the source reference.
  *
  * @code
  *
@@ -236,14 +235,143 @@
 
     srcRef = taf_time_GetSourceRef(sourceId);
     LE_ASSERT(srcRef != NULL);
-    int32_t failedLoops =0;
-    le_result_t res = taf_time_GetFailedLoops(srcRef, &failedLoops);
-    LE_ASSERT(res == LE_OK);
-    LE_INFO("The number of failed loops are %d", failedLoops);
 
     // Release the memory for this reference.
     res = taf_time_ReleaseSourceRef(srcRef);
     LE_ASSERT(res == LE_OK);
+ *
+ * @endcode
+ *
+* @section taf_time_GetTimeZone Get the Offset from Universal time
+ *
+ * When trying to get the time zone information of a given time source, the application shall
+ * first get the source reference by calling taf_time_GetSourceRef(), then call
+ * taf_time_GetTimeZone() to fetch the Offset from Universal time i.e. the difference between
+ * local time and Universal time, in increments of 15 minutes (signed value). When the reference
+ * is not needed, call taf_time_ReleaseSourceRef() to release the source reference.
+ *
+ * The following example illustrates how to get the source information.
+ *
+ * @code
+ *
+    uint8_t sourceId = TAF_TIME_SRC_NAME_NETWORK;
+    taf_time_SourceRef_t srcRef;
+
+    srcRef = taf_time_GetSourceRef(sourceId);
+    LE_ASSERT(srcRef != NULL);
+    int8_t timeZone = 0;
+    le_result_t res = taf_time_GetTimeZone(srcRef, &timeZone);
+    LE_ASSERT(res == LE_OK);
+    LE_INFO("Time zone is:  %d", timeZone);
+
+    // Release the memory for this reference.
+    res = taf_time_ReleaseSourceRef(srcRef);
+    LE_ASSERT(res == LE_OK);
+ *
+ * @endcode
+ *
+ * @section taf_time_GetTimeDayAdj Get the daylight saving adjustment
+ *
+ * When trying to get the daylight saving adjustment for a given time source, the application
+ * shall first get the source reference by calling taf_time_GetSourceRef(), then call
+ * taf_time_GetTimeDayAdj() to fetch the daylight saving adjustment in hours. When the reference
+ * is not needed, call taf_time_ReleaseSourceRef() to release the source reference.
+ *
+ * The following example illustrates how to get the source information.
+ *
+ * @code
+ *
+    uint8_t sourceId = TAF_TIME_SRC_NAME_NETWORK;
+    taf_time_SourceRef_t srcRef;
+
+    srcRef = taf_time_GetSourceRef(sourceId);
+    LE_ASSERT(srcRef != NULL);
+    uint8_t dayltSavAdj;
+    le_result_t res = taf_time_GetTimeDayAdj(srcRef, &dayltSavAdj);
+    LE_ASSERT(res == LE_OK);
+    LE_INFO("Day Light Saving is: %d", dayltSavAdj);
+
+    // Release the memory for this reference.
+    res = taf_time_ReleaseSourceRef(srcRef);
+    LE_ASSERT(res == LE_OK);
+ *
+ * @endcode
+ *
+ * @section taf_time_GetFailedLoops Get the number of failed loops and the polling interval
+ * time for a source
+ *
+ * When trying to get the number of failed loops and the polling interval time for a source,
+ * the application shall first get the source reference by calling taf_time_GetSourceRef(),
+ * then call taf_time_GetFailedLoops() to fetch the details. When the reference is not needed,
+ * call taf_time_ReleaseSourceRef() to release the source reference.
+ *
+ * The following example illustrates how to get the source information.
+ *
+ * @code
+ *
+    uint8_t sourceId = TAF_TIME_SRC_NAME_RTC;
+    taf_time_SourceRef_t srcRef;
+    int32_t failedLoops =0;
+    int64_t loopIntervalSec = 0;
+    srcRef = taf_time_GetSourceRef(sourceId);
+    LE_ASSERT(srcRef != NULL);
+    le_result_t res = taf_time_GetFailedLoops(srcRef, &failedLoops, &loopIntervalSec);
+    LE_ASSERT(res == LE_OK);
+    LE_INFO("The number of failed loops are %d. Loop interval is %ld",
+    failedLoops, loopIntervalSec);
+
+    // Release the memory for this reference.
+    res = taf_time_ReleaseSourceRef(srcRef);
+    LE_ASSERT(res == LE_OK);
+ *
+ * @endcode
+ *
+ * @section taf_time_IsAvailable Get the availability of a source
+ *
+ * When trying to get the availability of a source, the application shall first get
+ * the source reference by calling taf_time_GetSourceRef(), then call taf_time_IsAvailable()
+ * to fetch the availability. When the reference is not needed, call taf_time_ReleaseSourceRef()
+ * to release the source reference.
+ *
+ * The following example illustrates how to get the source information.
+ *
+ * @code
+ *
+    uint8_t sourceId = TAF_TIME_SRC_NAME_RTC;
+    taf_time_SourceRef_t srcRef;
+    bool isAvailable;
+    srcRef = taf_time_GetSourceRef(sourceId);
+    LE_ASSERT(srcRef != NULL);
+    isAvailable = taf_time_IsAvailable(srcRef);
+    if (isAvailable)
+    {
+        LE_INFO("Time source is Available!");
+    }
+    else
+    {
+        LE_INFO("Time source is NOT Available!");
+    }
+
+    // Release the memory for this reference.
+    res = taf_time_ReleaseSourceRef(srcRef);
+    LE_ASSERT(res == LE_OK);
+ *
+ * @endcode
+ *
+ * @section taf_time_GetSystemTimeSourceID Get the source ID of time source to which system
+ * time is synced
+ *
+ * When trying to get the latest time source to which system is synced, call
+ * taf_time_GetSystemTimeSourceID() to fetch the source ID.
+ *
+ * The following example illustrates how to get the source information.
+ *
+ * @code
+ *
+    taf_time_TimeSources_t systemTimeSrc;
+    le_result_t res = taf_time_GetSystemTimeSourceID(&systemTimeSrc);
+    LE_ASSERT(res == LE_OK);
+    LE_INFO("The lastest system time is set by %s", SourceNameIndexToStr(systemTimeSrc));
  *
  * @endcode
  *
@@ -550,7 +678,7 @@ FUNCTION le_result_t SetSystemTime
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Handler for time soure change event.
+ * Handler for source change event for the time source that system time is sycned to.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER TimeSourceChangeHandler
@@ -561,7 +689,7 @@ HANDLER TimeSourceChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Event to report the time source change or there is no available time source.
+ * Event to report the new time source that system time is synced to.
  */
 //--------------------------------------------------------------------------------------------------
 EVENT TimeSourceChange
@@ -750,7 +878,7 @@ FUNCTION le_result_t SetRtcTimeReqAsync
 //--------------------------------------------------------------------------------------------------
 FUNCTION Source GetSourceRef
 (
-    TimeSources sourceId IN  ///< Source ID
+    TimeSources sourceId IN    ///< Source ID.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -764,7 +892,7 @@ FUNCTION Source GetSourceRef
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ReleaseSourceRef
 (
-    Source  SrcRef  IN  ///< Source reference.
+    Source  SrcRef  IN    ///< Source reference.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -778,8 +906,37 @@ FUNCTION le_result_t ReleaseSourceRef
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetFailedLoops
 (
-    Source sourceRef     IN,  ///< Source ID
-    int32 faileLoops    OUT ///< Number of failed loops
+    Source sourceRef       IN,    ///< Source reference.
+    int32 faileLoops       OUT,   ///< Number of failed loops.
+    int64 LoopIntervalSec  OUT    ///< Seconds per loop.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the availability of a source.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_FAULT -- Something went wrong.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION bool IsAvailable
+(
+    Source sourceRef     IN    ///< Source reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the name of latest time source to which system time is synced.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_FAULT -- Something went wrong.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetSystemTimeSourceID
+(
+    TimeSources timeSource    OUT   ///< Time Source.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -789,7 +946,8 @@ FUNCTION le_result_t GetFailedLoops
 //--------------------------------------------------------------------------------------------------
 HANDLER TimeSourceStatusHandler
 (
-    bool isAvailable     IN
+    Source sourceRef     IN,  ///< Source reference.
+    bool isAvailable     IN   /// Time source availability.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -799,6 +957,47 @@ HANDLER TimeSourceStatusHandler
 //--------------------------------------------------------------------------------------------------
 EVENT TimeSourceStatus
 (
-    Source sourceRef     IN,
+    Source sourceRef        IN,
     TimeSourceStatusHandler handler
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the Offset from Universal time i.e. the difference between local time and Universal time,
+ * in increments of 15 minutes (signed value). The time zone offset range is [-48, 48], so the
+ * range of minutes is [-720, 720].
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_FAULT -- Something went wrong.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetTimeZone
+(
+   Source sourceRef  IN,   ///< Source reference.
+   int8 timeZone     OUT   ///< Time zone.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the daylight saving adjustment in hours. Possible values for the output are 0, 1, and 2
+ * indicating following:
+ *
+ * 0: No adjustment for daylight saving.
+ *
+ * 1: +1 adjustment for daylight saving.
+ *
+ * 2: +2 adjustment for daylight saving.
+ *
+ * 3: reserved.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_FAULT -- Something went wrong.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetTimeDayAdj
+(
+   Source sourceRef        IN,    ///< Source reference.
+   uint8 dayltSavAdj       OUT    ///< Daylight saving adjustment.
 );

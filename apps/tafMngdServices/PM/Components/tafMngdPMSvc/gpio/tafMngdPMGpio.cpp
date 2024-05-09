@@ -55,19 +55,19 @@ void tafMngdPMGpio::GpioChangeCallback(uint8_t pinNum, bool state, void *ctx){
             LE_INFO("Gpio %d matched for state registered for %s", gpioPtr->pinNum,
                     tafMngdPMSvc::TafStateToString(gpioPtr->state));
 
-            taf_mngd_pm_State_t requestedState;
+            taf_mngdPm_State_t requestedState;
             switch((taf_pm_State_t)gpioPtr->state)
             {
                 case TAF_PM_STATE_SUSPEND:
-                    requestedState = TAF_MNGD_PM_STATE_SUSPENDING;
+                    requestedState = TAF_MNGDPM_STATE_SUSPENDING;
                     break;
 
                 case TAF_PM_STATE_SHUTDOWN:
-                    requestedState = TAF_MNGD_PM_STATE_SHUTTING_DOWN;
+                    requestedState = TAF_MNGDPM_STATE_SHUTTING_DOWN;
                     break;
 
                 case TAF_PM_STATE_RESUME:
-                    requestedState = TAF_MNGD_PM_STATE_WAKING_UP;
+                    requestedState = TAF_MNGDPM_STATE_WAKING_UP;
                     break;
 
                 default:
@@ -85,7 +85,7 @@ void tafMngdPMGpio::GpioChangeCallback(uint8_t pinNum, bool state, void *ctx){
         }
     }
 }
-void tafMngdPMGpio::RegisterGpioChangeCallback(uint8_t pinNum, bool value, taf_mngd_pm_State_t state) {
+void tafMngdPMGpio::RegisterGpioChangeCallback(uint8_t pinNum, bool value, taf_mngdPm_State_t state) {
     LE_INFO("registerChangeCallback for PIN %d gpioMapPool is %p", pinNum, gpioMapPool);
     if(gpioMapPool == NULL) {
         gpioMapPool = le_mem_CreatePool("tafMngdPMGpioMapPool", sizeof(taf_MngdPM_Gpio_t));
@@ -96,7 +96,7 @@ void tafMngdPMGpio::RegisterGpioChangeCallback(uint8_t pinNum, bool value, taf_m
     gpioPMPtr->value = value;
     gpioPMPtr->state = state;
     if(gpioPMMap == nullptr) {
-        gpioPMMap =  le_hashmap_Create("tafMngdPMGpioMap", TAF_MNGD_PM_MAX_TRIGGER_REGISTERS,
+        gpioPMMap =  le_hashmap_Create("tafMngdPMGpioMap", TAF_MNGDPM_MAX_TRIGGER_REGISTERS,
                 le_hashmap_HashVoidPointer, le_hashmap_EqualsVoidPointer);
     }
     gpioPMPtr->handlerRef = taf_gpio_AddChangeEventHandler(pinNum, TAF_GPIO_EDGE_BOTH, false,

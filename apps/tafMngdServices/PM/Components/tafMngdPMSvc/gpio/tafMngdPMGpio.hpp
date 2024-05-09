@@ -40,7 +40,7 @@ typedef struct
 {
     uint8_t pinNum;
     bool value;
-    taf_mngd_pm_State_t state;
+    taf_mngdPm_State_t state;
     taf_gpio_ChangeEventHandlerRef_t handlerRef;
 }taf_MngdPM_Gpio_t;
 
@@ -55,7 +55,7 @@ class tafMngdPMGpio: public ITafSvc
 
         void Init(void) {};
         static tafMngdPMGpio &GetInstance();
-        void RegisterGpioChangeCallback(uint8_t pinNum, bool value, taf_mngd_pm_State_t state);
+        void RegisterGpioChangeCallback(uint8_t pinNum, bool value, taf_mngdPm_State_t state);
         void DeregisterGpioChangeCallback();
         static void GpioChangeCallback(uint8_t pinNum, bool state, void *ctx);
 

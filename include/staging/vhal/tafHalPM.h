@@ -63,7 +63,7 @@
 
     .pmInf = {
         .InitHAL = Init,
-        .shutdownReqAsync = taf_hal_ShutdownReqAsync,
+        .shutdownReqAsync = taf_hal_ShutDownReqAsync,
         .restartReqAsync = taf_hal_RestartReqAsync,
         .nodeStateChangeNotification = taf_hal_NodeStateChangeNotification,
     }
@@ -98,9 +98,9 @@
 //--------------------------------------------------------------------------------------------------
 typedef enum
 {
-    PM_HAL_SHUTDOWN_MODE_FORCEFUL, /**<Forceful shutdown */
-    PM_HAL_SHUTDOWN_MODE_GRACEFUL  /**<Graceful shutdown */
-} taf_hal_pm_ShutdownMode;
+    HAL_PM_SHUTDOWN_MODE_FORCEFUL, /**<Forceful shutdown */
+    HAL_PM_SHUTDOWN_MODE_GRACEFUL  /**<Graceful shutdown */
+} hal_pm_ShutdownMode_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -109,8 +109,8 @@ typedef enum
 //--------------------------------------------------------------------------------------------------
 typedef enum
 {
-    PM_HAL_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF /**<NAD shutdown for system restart */
-} taf_hal_pm_RestartMode;
+    HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF /**<NAD shutdown for system restart */
+} hal_pm_RestartMode_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -119,8 +119,8 @@ typedef enum
 //--------------------------------------------------------------------------------------------------
 typedef enum
 {
-    PM_HAL_SUSPEND_MODE_FULL /**<Full suspend */
-} taf_hal_pm_SuspendMode;
+    HAL_PM_SUSPEND_MODE_FULL /**<Full suspend */
+} hal_pm_SuspendMode_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -129,11 +129,11 @@ typedef enum
 //--------------------------------------------------------------------------------------------------
 typedef enum
 {
-    PM_HAL_RSP_READY,             /**<Ready */
-    PM_HAL_RSP_NOT_READY,         /**<Not ready */
-    PM_HAL_RSP_TIMEOUT,           /**Timeout */
-    PM_HAL_RSP_INVALID_REQUEST    /** Invalid Request */
-} taf_hal_pm_RspReason;
+    HAL_PM_RSP_READY,             /**<Ready */
+    HAL_PM_RSP_NOT_READY,         /**<Not ready */
+    HAL_PM_RSP_TIMEOUT,           /**Timeout */
+    HAL_PM_RSP_INVALID_REQUEST    /** Invalid Request */
+} hal_pm_RspReason_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -142,12 +142,12 @@ typedef enum
 //--------------------------------------------------------------------------------------------------
 typedef enum
 {
-    PM_HAL_NODE_STATE_UNKNOWN, /**<Unknown state */
-    PM_HAL_NODE_STATE_RESUME,  /**<Resume */
-    PM_HAL_NODE_STATE_SUSPEND, /**<Suspend */
-    PM_HAL_NODE_STATE_SHUTDOWN,/**<Shutdown */
-    PM_HAL_NODE_STATE_RESTART  /**<Restart */
-} taf_hal_pm_NodeState;
+    HAL_PM_NODE_STATE_UNKNOWN, /**<Unknown state */
+    HAL_PM_NODE_STATE_RESUME,  /**<Resume */
+    HAL_PM_NODE_STATE_SUSPEND, /**<Suspend */
+    HAL_PM_NODE_STATE_SHUTDOWN,/**<Shutdown */
+    HAL_PM_NODE_STATE_RESTART  /**<Restart */
+} hal_pm_NodeState_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -156,9 +156,9 @@ typedef enum
 //--------------------------------------------------------------------------------------------------
 typedef enum
 {
-    PM_HAL_NODE_INFO_LOCK_ACQUIRED, /**<Wake source acquired */
-    PM_HAL_NODE_INFO_LOCK_RELEASED  /**<Wake source released */
-} taf_hal_pm_NodeInfo;
+    HAL_PM_NODE_INFO_LOCK_ACQUIRED, /**<Wake source acquired */
+    HAL_PM_NODE_INFO_LOCK_RELEASED  /**<Wake source released */
+} hal_pm_NodeInfo_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -167,9 +167,9 @@ typedef enum
 //--------------------------------------------------------------------------------------------------
 typedef enum
 {
-    PM_HAL_NODE_STATUS_READY,    /**<Ready */
-    PM_HAL_NODE_STATUS_NOT_READY /**<Not ready */
-} taf_hal_pm_ConfirmStatus;
+    HAL_PM_NODE_STATUS_READY,    /**<Ready */
+    HAL_PM_NODE_STATUS_NOT_READY /**<Not ready */
+} hal_pm_ConfirmStatus_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -191,10 +191,10 @@ typedef void (*INIT)(void);
  * @return
  */
 //--------------------------------------------------------------------------------------------------
-typedef void (*TAF_HAL_PM_SHUTDOWNRSPCALLBACK)
+typedef void (*hal_pm_ShutDownRspCallbackFunc_t)
 (
-    taf_hal_pm_ShutdownMode mode,
-    taf_hal_pm_RspReason reason
+    hal_pm_ShutdownMode_t mode,
+    hal_pm_RspReason_t reason
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -208,10 +208,10 @@ typedef void (*TAF_HAL_PM_SHUTDOWNRSPCALLBACK)
  *      result for sending the request
  */
 //--------------------------------------------------------------------------------------------------
-typedef le_result_t (*TAF_HAL_PM_SHUTDOWNREQASYNC)
+typedef le_result_t (*hal_pm_ShutDownReqAsyncFunc_t)
 (
-    taf_hal_pm_ShutdownMode mode,
-    TAF_HAL_PM_SHUTDOWNRSPCALLBACK callback
+    hal_pm_ShutdownMode_t mode,
+    hal_pm_ShutDownRspCallbackFunc_t callback
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -224,10 +224,10 @@ typedef le_result_t (*TAF_HAL_PM_SHUTDOWNREQASYNC)
  * @return void
  */
 //--------------------------------------------------------------------------------------------------
-typedef void (*TAF_HAL_PM_RESTARTRSPCALLBACK)
+typedef void (*hal_pm_RestartRspCallbackFunc_t)
 (
-    taf_hal_pm_RestartMode mode,
-    taf_hal_pm_RspReason reason
+    hal_pm_RestartMode_t mode,
+    hal_pm_RspReason_t reason
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -241,10 +241,10 @@ typedef void (*TAF_HAL_PM_RESTARTRSPCALLBACK)
  *      result for sending the request
  */
 //--------------------------------------------------------------------------------------------------
-typedef le_result_t (*TAF_HAL_PM_RESTARTREQASYNC)
+typedef le_result_t (*hal_pm_RestartReqAsyncFunc_t)
 (
-    taf_hal_pm_RestartMode mode,
-    TAF_HAL_PM_RESTARTRSPCALLBACK callback
+    hal_pm_RestartMode_t mode,
+    hal_pm_RestartRspCallbackFunc_t callback
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -257,10 +257,10 @@ typedef le_result_t (*TAF_HAL_PM_RESTARTREQASYNC)
  * @return void
  */
 //--------------------------------------------------------------------------------------------------
-typedef void (*TAF_HAL_PM_SUSPENDRSPCALLBACK)
+typedef void (*hal_pm_SuspendRspCallbackFunc_t)
 (
-    taf_hal_pm_SuspendMode mode,
-    taf_hal_pm_RspReason reason
+    hal_pm_SuspendMode_t mode,
+    hal_pm_RspReason_t reason
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -273,7 +273,7 @@ typedef void (*TAF_HAL_PM_SUSPENDRSPCALLBACK)
  * @return void
  */
 //--------------------------------------------------------------------------------------------------
-typedef void (*TAF_HAL_PM_WAKEUPVEHICLERSPCALLBACK)
+typedef void (*hal_pm_WakeupVehicleRspCallbackFunc_t)
 (
     int32_t reason,
     int32_t response
@@ -290,10 +290,10 @@ typedef void (*TAF_HAL_PM_WAKEUPVEHICLERSPCALLBACK)
  *      result for sending the request
  */
 //--------------------------------------------------------------------------------------------------
-typedef le_result_t (*TAF_HAL_PM_SUSPENDREQASYNC)
+typedef le_result_t (*hal_pm_SuspendReqAsyncFunc_t)
 (
-    taf_hal_pm_SuspendMode mode,
-    TAF_HAL_PM_SUSPENDRSPCALLBACK  callback
+    hal_pm_SuspendMode_t mode,
+    hal_pm_SuspendRspCallbackFunc_t  callback
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -307,10 +307,10 @@ typedef le_result_t (*TAF_HAL_PM_SUSPENDREQASYNC)
  *      result for sending the request
  */
 //--------------------------------------------------------------------------------------------------
-typedef le_result_t (*TAF_HAL_PM_WAKEUPVEHICLEREQASYNC)
+typedef le_result_t (*hal_pm_WakeupVehicleReqAsyncFunc_t)
 (
     int32_t reason,
-    TAF_HAL_PM_WAKEUPVEHICLERSPCALLBACK  callback
+    hal_pm_WakeupVehicleRspCallbackFunc_t  callback
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -323,11 +323,11 @@ typedef le_result_t (*TAF_HAL_PM_WAKEUPVEHICLEREQASYNC)
  * @return void
  */
 //--------------------------------------------------------------------------------------------------
-typedef void (*TAF_HAL_PM_NODESTATECHANGENOTIFICATIONCONFIRMCALLBACK)
+typedef void (*hal_pm_NodeStateChangeNotificationConfirmCallbackFunc_t)
 (
     uint8_t pm_node_id,
-    taf_hal_pm_NodeState state,
-    taf_hal_pm_ConfirmStatus status
+    hal_pm_NodeState_t state,
+    hal_pm_ConfirmStatus_t status
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -341,11 +341,11 @@ typedef void (*TAF_HAL_PM_NODESTATECHANGENOTIFICATIONCONFIRMCALLBACK)
  * @return void
  */
 //--------------------------------------------------------------------------------------------------
-typedef void (*TAF_HAL_PM_NODE_STATECHANGE_NOTIFICATION)
+typedef void (*hal_pm_NodeStateChangeNotificationFunc_t)
 (
     uint8_t pm_node_id,
-    taf_hal_pm_NodeState state,
-    TAF_HAL_PM_NODESTATECHANGENOTIFICATIONCONFIRMCALLBACK callback
+    hal_pm_NodeState_t state,
+    hal_pm_NodeStateChangeNotificationConfirmCallbackFunc_t callback
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -360,10 +360,10 @@ typedef void (*TAF_HAL_PM_NODE_STATECHANGE_NOTIFICATION)
  *      result for sending the notification
  */
 //--------------------------------------------------------------------------------------------------
-typedef void (*TAF_HAL_PM_NODEINFO_NOTIFICATION)
+typedef void (*hal_pm_NodeInfoNotificationFunc_t)
 (
     uint8_t pm_node_id,
-    taf_hal_pm_NodeInfo info,
+    hal_pm_NodeInfo_t info,
     const char* vhalTag
 );
 
@@ -376,7 +376,7 @@ typedef void (*TAF_HAL_PM_NODEINFO_NOTIFICATION)
  * @return void
  */
 //--------------------------------------------------------------------------------------------------
-typedef void (*TAF_HAL_PM_NODEEVENTCALLBACK)
+typedef void (*hal_pm_NodeEventCallbackFunc_t)
 (
     uint8_t pm_node_id,
     const char* pm_node_event_info
@@ -393,39 +393,39 @@ typedef void (*TAF_HAL_PM_NODEEVENTCALLBACK)
  *      result for adding the handler
  */
 //--------------------------------------------------------------------------------------------------
-typedef le_result_t (*TAF_HAL_PM_ADDNODEEVENTHANDLER)
+typedef le_result_t (*hal_pm_AddNodeEventHandlerFunc_t)
 (
     uint8_t pm_node_id,
-    TAF_HAL_PM_NODEEVENTCALLBACK callback
+    hal_pm_NodeEventCallbackFunc_t callback
 );
 
 typedef struct
 {
     INIT InitHAL;
 
-    TAF_HAL_PM_SHUTDOWNREQASYNC shutdownReqAsync;
+    hal_pm_ShutDownReqAsyncFunc_t shutdownReqAsync;
 
-    TAF_HAL_PM_RESTARTREQASYNC restartReqAsync;
+    hal_pm_RestartReqAsyncFunc_t restartReqAsync;
 
-    TAF_HAL_PM_SUSPENDREQASYNC suspendReqAsync;
+    hal_pm_SuspendReqAsyncFunc_t suspendReqAsync;
 
-    TAF_HAL_PM_NODE_STATECHANGE_NOTIFICATION nodeStateChangeNotification;
+    hal_pm_NodeStateChangeNotificationFunc_t nodeStateChangeNotification;
 
-    TAF_HAL_PM_NODEINFO_NOTIFICATION nodeInfoNotification;
+    hal_pm_NodeInfoNotificationFunc_t nodeInfoNotification;
 
-    TAF_HAL_PM_ADDNODEEVENTHANDLER addNodeEventHandler;
+    hal_pm_AddNodeEventHandlerFunc_t addNodeEventHandler;
 
-    TAF_HAL_PM_WAKEUPVEHICLEREQASYNC wakeupVehicleReqAsync;
+    hal_pm_WakeupVehicleReqAsyncFunc_t wakeupVehicleReqAsync;
 
-} pm_Inf_t;
+} hal_pm_Inf_t;
 
 typedef struct
 {
     TAF_HAL_MGR_INF_t mgrInf;   // management interface for device manager
-    pm_Inf_t pmInf;             // module interface for application/service
+    hal_pm_Inf_t pmInf;             // module interface for application/service
 
-} pm_InfoTab_t;
+} hal_pm_InfoTab_t;
 
-extern pm_InfoTab_t TAF_HAL_INFO_TAB;
+extern hal_pm_InfoTab_t TAF_HAL_INFO_TAB;
 
 #endif

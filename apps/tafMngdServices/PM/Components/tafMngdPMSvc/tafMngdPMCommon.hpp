@@ -37,9 +37,9 @@
 namespace telux {
 namespace tafsvc {
 
-    const signed int TAF_MNGD_PM_MAX_TRIGGER_REGISTERS = 20;
+    const signed int TAF_MNGDPM_MAX_TRIGGER_REGISTERS = 20;
 
-    const std::string TAF_MNGD_PM_CONFIG_PATH
+    const std::string TAF_MNGDPM_CONFIG_PATH
             ("/data/ManagedServices/tafMngdPMConfig.json");
 }
 }

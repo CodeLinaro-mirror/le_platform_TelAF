@@ -7,7 +7,7 @@ requires:
 {
     api:
     {
-        taf_mngd_pm.api
+        taf_mngdPm.api
         taf_pm.api
     }
 }

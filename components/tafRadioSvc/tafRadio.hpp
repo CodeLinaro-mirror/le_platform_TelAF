@@ -388,6 +388,17 @@ typedef struct
     int32_t rsrp;
 } taf_RadioSsInd_t;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Cell info change structure.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint8_t phoneId;
+    taf_radio_CellInfoStatus_t cellInfoStatus;
+} taf_RadioCellInfoInd_t;
+
 namespace telux {
 namespace tafsvc {
     /*
@@ -424,6 +435,8 @@ namespace tafsvc {
             void onOperatingModeChanged(telux::tel::OperatingMode mode) override;
             void onSignalStrengthChanged(int phoneId,
                 std::shared_ptr<telux::tel::SignalStrength> signalStrength) override;
+            void onCellInfoListChanged(int phoneId,
+                std::vector<std::shared_ptr<telux::tel::CellInfo>> cellInfoList) override;
     };
 
     class taf_RadioDataServSysListener : public telux::data::IServingSystemListener
@@ -689,6 +702,7 @@ namespace tafsvc {
         static void taf_radio_LayerNetRegStateHandler(void* reportPtr, void* layerHandlerFunc);
         static void taf_radio_LayerImsStateHandler(void* reportPtr, void* layerHandlerFunc);
         static void taf_radio_LayerSsHandler(void* reportPtr, void* layerHandlerFunc);
+        static void taf_radio_LayerCellInfoHandler(void* reportPtr, void* layerHandlerFunc);
 
         /*
          * Command thread in radio service.
@@ -729,6 +743,7 @@ namespace tafsvc {
         le_mem_PoolRef_t netRegStatePool;
         le_mem_PoolRef_t packSwStatePool;
         le_mem_PoolRef_t ssChangePool;
+        le_mem_PoolRef_t cellInfoChangePool;
 
         le_ref_MapRef_t prefOpListRefMap;
         le_ref_MapRef_t prefOpSafeRefMap;
@@ -750,6 +765,7 @@ namespace tafsvc {
         le_event_Id_t cdmaSsChangeEvId;
         le_event_Id_t lteSsChangeEvId;
         le_event_Id_t nr5gSsChangeEvId;
+        le_event_Id_t cellInfoChangeEvId;
         static le_event_Id_t radioCmdEvId;
 
         bool subSystemStatusUpdated = false;

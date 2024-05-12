@@ -307,6 +307,55 @@ void taf_RadioPhoneListener::onSignalStrengthChanged
     }
 }
 
+void taf_RadioPhoneListener::onCellInfoListChanged
+(
+    int phoneId,                                                      ///< [IN] Phone ID.
+    std::vector<std::shared_ptr<telux::tel::CellInfo>> cellInfoList   ///< [IN] Cell change info.
+)
+{
+    LE_DEBUG("<SDK Listener> taf_RadioPhoneListener --> onCellInfoListChanged");
+
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    TAF_ERROR_IF_RET_NIL(tafRadio.phones[phoneId - 1] == NULL,
+        "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_NIL(cellInfoList.size() == 0,
+        "Invalid para(celllist size NULL, phoneId:%d)", phoneId);
+
+    taf_RadioCellInfoInd_t* cellInfoPtr = (taf_RadioCellInfoInd_t*)le_mem_ForceAlloc(
+                                                                   tafRadio.cellInfoChangePool);
+
+    cellInfoPtr->phoneId = phoneId;
+    bool registered = false;
+    bool neighbor = false;
+    for (auto cellInfo : cellInfoList)
+    {
+        if (cellInfo == NULL)
+        {
+            LE_ERROR("Cell information pointer is NULL.");
+            break;
+        }
+        if(cellInfo->isRegistered())
+        {
+           registered = true;
+           cellInfoPtr->cellInfoStatus = TAF_RADIO_CELL_SERVING_CHANGED;
+        }
+        else
+        {
+            neighbor = true;
+            cellInfoPtr->cellInfoStatus = TAF_RADIO_CELL_NEIGHBOR_CHANGED;
+        }
+    }
+
+    if(registered && neighbor)
+    {
+      cellInfoPtr->cellInfoStatus = TAF_RADIO_CELL_SERVING_AND_NEIGHBOR_CHANGED;
+    }
+
+    le_event_ReportWithRefCounting(tafRadio.cellInfoChangeEvId, (void*)cellInfoPtr);
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Initiate listener for Data serving system.
@@ -1607,6 +1656,30 @@ void taf_Radio::taf_radio_LayerSsHandler
     le_mem_Release(reportPtr);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Layered handler for IMS registration state.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_Radio::taf_radio_LayerCellInfoHandler
+(
+    void* reportPtr,       ///< [IN] Report pointer.
+    void* layerHandlerFunc ///< [IN] Layered function.
+)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
+
+    taf_radio_CellInfoChangeHandlerFunc_t handlerFunc =
+        (taf_radio_CellInfoChangeHandlerFunc_t)layerHandlerFunc;
+    if (handlerFunc)
+    {
+        taf_RadioCellInfoInd_t* cellInfoPtr = (taf_RadioCellInfoInd_t*)reportPtr;
+        handlerFunc(cellInfoPtr->cellInfoStatus, cellInfoPtr->phoneId, le_event_GetContextPtr());
+    }
+
+    le_mem_Release(reportPtr);
+}
+
 /*======================================================================
 
  FUNCTION        taf_Radio::GetInstance
@@ -1989,6 +2062,7 @@ void taf_Radio::Init(void)
     cdmaSsChangeEvId = le_event_CreateIdWithRefCounting("CdmaSsChange");
     lteSsChangeEvId = le_event_CreateIdWithRefCounting("LteSsChange");
     nr5gSsChangeEvId = le_event_CreateIdWithRefCounting("Nr5gSsChange");
+    cellInfoChangeEvId = le_event_CreateIdWithRefCounting("CellInfoChange");
 
     // 2. Initiate the memory pool
     prefOpsListPool = le_mem_InitStaticPool(prefOpsListPool,
@@ -2018,6 +2092,7 @@ void taf_Radio::Init(void)
     packSwStatePool = le_mem_CreatePool("packSwStatePool", sizeof(taf_radio_NetRegStateInd_t));
     imsStatusChangePool = le_mem_CreatePool("imsStatusChangePool", sizeof(taf_RadioImsStatus_t));
     ssChangePool = le_mem_CreatePool("ssChangePool", sizeof(taf_RadioSsInd_t));
+    cellInfoChangePool = le_mem_CreatePool("cellInfoPool", sizeof(taf_radio_NetRegStateInd_t));
 
 
     // 3. Initiate the reference map.

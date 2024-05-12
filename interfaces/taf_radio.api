@@ -272,8 +272,9 @@
  *  - taf_radio_GetGsmSignalMetrics() / taf_radio_GetUmtsSignalMetrics() / taf_radio_GetLteSignalMetrics() /
  *    taf_radio_GetCdmaSignalMetrics() -- Gets GSM/UMTS/LTE/CDMA signal metrics.
  *
- *  - taf_radio_AddSignalStrengthChangeHandler() / taf_radio_RemoveSignalStrengthChangeHandler() -- Adds/removes
- *    signal strength change handler.
+ *  - taf_radio_AddSignalStrengthChangeHandler() / taf_radio_RemoveSignalStrengthChangeHandler() --
+ *    Adds/removes signal strength change handler.
+ *
  *
  * The following example illustrates getting LTE signal metrics.
  *
@@ -851,6 +852,18 @@ ENUM NRDcnrRestriction
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Cell Info change status
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM CellInfoStatus
+{
+    CELL_SERVING_CHANGED,                      ///< Serving Cell info changed.
+    CELL_NEIGHBOR_CHANGED,                     ///< NeighborCells info changed.
+    CELL_SERVING_AND_NEIGHBOR_CHANGED          ///< Serving and neighbor changed.
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
  * RAT bitmask.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1127,6 +1140,17 @@ HANDLER ImsStatusChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Handler for cell info change.
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER CellInfoChangeHandler
+(
+    CellInfoStatus cellStatus IN,  ///< Cell change enum for serving / neighbor / both.
+    uint8 phoneId IN               ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Event to report network registration rejection.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1214,6 +1238,16 @@ EVENT NetStatusChange
 EVENT ImsStatusChange
 (
     ImsStatusChangeHandler handler ///< Handler for IMS status change.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Event to report cell info change.
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT CellInfoChange
+(
+    CellInfoChangeHandler handler ///< Handler for registered cell info change.
 );
 
 //--------------------------------------------------------------------------------------------------

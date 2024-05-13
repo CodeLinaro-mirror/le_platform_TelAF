@@ -20,3 +20,8 @@ processes:
     maxFileBytes: 1048576K
     maxFileDescriptors: 512
 }
+
+bindings:
+{
+    tafFlashIntTest.tafFlashIntTest.taf_flash -> tafUpdateSvc.taf_flash
+}

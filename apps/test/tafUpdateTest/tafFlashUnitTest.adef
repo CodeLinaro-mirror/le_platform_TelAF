@@ -19,3 +19,8 @@ processes:
 
     maxFileBytes: 1048576K
 }
+
+bindings:
+{
+    tafFlashUnitTest.tafFlashUnitTest.taf_flash -> tafUpdateSvc.taf_flash
+}

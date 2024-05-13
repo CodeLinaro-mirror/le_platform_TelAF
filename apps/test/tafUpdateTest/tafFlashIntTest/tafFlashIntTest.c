@@ -32,14 +32,8 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/*
- * @file       tafFlashIntTest.c
- * @brief      This file implements integration test for Flash Access.
- */
-
 #include "legato.h"
-
-#include "taf_lib_flash.h"
+#include "interfaces.h"
 
 #define FLASH_FILE_NAME_BYTES 256
 
@@ -55,8 +49,8 @@ void PrintHelpMenu()
     LE_INFO("Description:");
     LE_INFO("help                   : Print help menu.");
     LE_INFO("mtd info [partittion]  : Show MTD partition information.");
-    LE_INFO("mtd read [partittion]  : Read MTD partition and write to .bdat file.");
-    LE_INFO("mtd write [partittion] : Write MTD partition with .bdat file.");
+    LE_INFO("mtd read [partittion]  : Read MTD partition and write to .mtd_data file.");
+    LE_INFO("mtd write [partittion] : Write MTD partition with .mtd_data file.");
     LE_INFO("mtd erase [partittion] : Erase MTD partition blocks.");
     LE_INFO("ubi info [volume]      : Show UBI volume information.");
     LE_INFO("ubi read [volume]      : Read UBI volume and write to .bdat file.");
@@ -95,22 +89,23 @@ void GetMtdInfo(const char* partition)
     LE_TEST_OK((result == LE_OK), "taf_flash_MtdClose - LE_OK");
 }
 
-/*======================================================================
- FUNCTION        ReadMtdBlock
- DESCRIPTION     Read MTD block
- PARAMETERS      partition : Partition name
- RETURN VALUE    void
-======================================================================*/
-void ReadMtdBlock(const char* partition)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Read MTD page.
+ */
+//--------------------------------------------------------------------------------------------------
+void ReadMtdPage
+(
+    const char* partition ///< [IN] MTD partition name.
+)
 {
     taf_flash_PartitionRef_t partitionRef;
     uint32_t blocksNumber = 0, badBlocksNumber = 0, blockSize = 0, pageSize = 0;
-    size_t bSize = 0;
-    uint8_t block[TAF_FLASH_MTD_BLOCK_MAX_READ_SIZE] = { 0 };
+    size_t pSize = TAF_FLASH_MTD_PAGE_MAX_READ_SIZE;
+    uint8_t page[TAF_FLASH_MTD_PAGE_MAX_READ_SIZE] = { 0 };
     char file[FLASH_FILE_NAME_BYTES] = { 0 };
     le_fs_FileRef_t fileRef;
     uint32_t i;
-    bool isGoodBlock;
     le_result_t result;
 
     // Open MTD Test
@@ -122,35 +117,30 @@ void ReadMtdBlock(const char* partition)
         partitionRef, &blocksNumber, &badBlocksNumber, &blockSize, &pageSize);
     LE_TEST_OK((result == LE_OK), "taf_flash_MtdInformation - LE_OK");
 
-    // Read MTD Block Test
-    for (i = 0; i < blocksNumber; i++)
+    snprintf(file, sizeof(file), "/%s.mtd_data", partition);
+    result = le_fs_Open(file, LE_FS_CREAT | LE_FS_WRONLY, &fileRef);
+    if (result != LE_OK)
     {
-        isGoodBlock = taf_flash_MtdIsBlockGood(partitionRef, i);
-        LE_TEST_OK(true, "taf_flash_MtdIsBlockGood - %d", isGoodBlock);
-        if (isGoodBlock)
+        LE_ERROR("Fail to open file %s.", file);
+    }
+
+    // Read MTD Page Test
+    for (i = 0; i < blockSize / pageSize * blocksNumber; i++)
+    {
+        result = taf_flash_MtdReadPage(partitionRef, i, page, &pSize);
+        LE_TEST_OK((result == LE_OK), "taf_flash_MtdReadPage - LE_OK");
+
+        result = le_fs_Write(fileRef, page, pSize);
+        if (result != LE_OK)
         {
-            result = taf_flash_MtdReadBlock(partitionRef, i, block, &bSize);
-            LE_TEST_OK((result == LE_OK), "taf_flash_MtdReadBlock - LE_OK");
-
-            snprintf(file, sizeof(file), "/%s_%d.bdat", partition, i);
-
-            result = le_fs_Open(file, LE_FS_CREAT | LE_FS_WRONLY, &fileRef);
-            if (result != LE_OK)
-            {
-                LE_ERROR("Fail to open file %s.", file);
-            }
-
-            result = le_fs_Write(fileRef, block, bSize);
-            if (result != LE_OK)
-            {
-                LE_ERROR("Fail to write file %s.", file);
-            }
-            LE_INFO("Read block %d and write to %s with size %" PRIuS, i, file, bSize);
+            LE_ERROR("Fail to write file %s.", file);
         }
-        else
-        {
-            LE_INFO("Bad block %d detected.", i);
-        }
+    }
+
+    result = le_fs_Close(fileRef);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Fail to close file %s.", file);
     }
 
     // Close MTD Test
@@ -158,22 +148,23 @@ void ReadMtdBlock(const char* partition)
     LE_TEST_OK((result == LE_OK), "taf_flash_MtdClose - LE_OK");
 }
 
-/*======================================================================
- FUNCTION        WriteMtdBlock
- DESCRIPTION     Write MTD block
- PARAMETERS      partition : Partition name
- RETURN VALUE    void
-======================================================================*/
-void WriteMtdBlock(const char* partition)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Write MTD page.
+ */
+//--------------------------------------------------------------------------------------------------
+void WriteMtdPage
+(
+    const char* partition ///< [IN] MTD partition name.
+)
 {
     taf_flash_PartitionRef_t partitionRef;
     uint32_t blocksNumber = 0, badBlocksNumber = 0, blockSize = 0, pageSize = 0;
-    uint8_t block[TAF_FLASH_MTD_BLOCK_MAX_WRITE_SIZE] = { 0 };
-    size_t bSize = 0;
+    size_t pSize = TAF_FLASH_MTD_PAGE_MAX_WRITE_SIZE;
+    uint8_t page[TAF_FLASH_MTD_PAGE_MAX_WRITE_SIZE] = { 0 };
     char file[FLASH_FILE_NAME_BYTES] = { 0 };
     le_fs_FileRef_t fileRef;
     uint32_t i;
-    bool isGoodBlock;
     le_result_t result;
 
     // Open MTD Test
@@ -185,36 +176,31 @@ void WriteMtdBlock(const char* partition)
         partitionRef, &blocksNumber, &badBlocksNumber, &blockSize, &pageSize);
     LE_TEST_OK((result == LE_OK), "taf_flash_MtdInformation - LE_OK");
 
-    // Write MTD Block Test
-    for (i = 0; i < blocksNumber; i++)
+    snprintf(file, sizeof(file), "/%s.mtd_data", partition);
+
+    result = le_fs_Open(file, LE_FS_RDONLY, &fileRef);
+    if (result != LE_OK)
     {
-        isGoodBlock = taf_flash_MtdIsBlockGood(partitionRef, i);
-        LE_TEST_OK(true, "taf_flash_MtdIsBlockGood - %d", isGoodBlock);
-        if (isGoodBlock)
+        LE_ERROR("Fail to open file %s.", file);
+    }
+
+    // Write MTD Page Test
+    for (i = 0; i < blockSize / pageSize * blocksNumber; i++)
+    {
+        result = le_fs_Read(fileRef, page, &pSize);
+        if (result != LE_OK)
         {
-            snprintf(file, sizeof(file), "/%s_%d.bdat", partition, i);
-
-            result = le_fs_Open(file, LE_FS_RDONLY, &fileRef);
-            if (result != LE_OK)
-            {
-                LE_ERROR("Fail to open file %s.", file);
-            }
-
-            result = le_fs_Read(fileRef, block, &bSize);
-            if (result != LE_OK)
-            {
-                LE_ERROR("Fail to read file %s.", file);
-            }
-
-            result = taf_flash_MtdWriteBlock(partitionRef, i, block, bSize);
-            LE_TEST_OK((result == LE_OK), "taf_flash_MtdWriteBlock - LE_OK");
-
-            LE_INFO("Read %s and write to block %d with size %" PRIuS, file, i, bSize);
+            LE_ERROR("Fail to read file %s.", file);
         }
-        else
-        {
-            LE_INFO("Bad block %d detected.", i);
-        }
+
+        result = taf_flash_MtdWritePage(partitionRef, i, page, pSize);
+        LE_TEST_OK((result == LE_OK), "taf_flash_MtdWritePage - LE_OK");
+    }
+
+    result = le_fs_Close(fileRef);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Fail to close file %s.", file);
     }
 
     // Close MTD Test
@@ -439,12 +425,12 @@ COMPONENT_INIT
             else if (strncmp(cmd, "read", strlen("read")) == 0)
             {
                 LE_TEST_INFO("======== MTD Read Test ========");
-                ReadMtdBlock(partition);
+                ReadMtdPage(partition);
             }
             else if (strncmp(cmd, "write", strlen("write")) == 0)
             {
                 LE_TEST_INFO("======== MTD Write Test ========");
-                WriteMtdBlock(partition);
+                WriteMtdPage(partition);
             }
             else if (strncmp(cmd, "erase", strlen("erase")) == 0)
             {

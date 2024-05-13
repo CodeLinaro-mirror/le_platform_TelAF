@@ -1,0 +1,18 @@
+provides:
+{
+    api:
+    {
+        taf_flash.api
+    }
+}
+
+cxxflags:
+{
+    -I$TELAF_ROOT/include
+}
+
+sources:
+{
+    tafFlashAccess.cpp
+    tafFlashImpl.cpp
+}

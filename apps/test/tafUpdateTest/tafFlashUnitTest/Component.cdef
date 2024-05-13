@@ -5,13 +5,8 @@ sources:
 
 requires:
 {
-    component:
+    api:
     {
-        $TELAF_ROOT/components/stub/taf_lib_flash
+        taf_flash.api
     }
-}
-
-cflags:
-{
-    -I$TELAF_ROOT/components/stub/taf_lib_flash
 }

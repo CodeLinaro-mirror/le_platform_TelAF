@@ -73,10 +73,6 @@
  *
  * - taf_flash_MtdEraseBlock() -- Erases an MTD block.
  *
- * - taf_flash_MtdReadBlock() -- Reads data from an MTD block.
- *
- * - taf_flash_MtdWriteBlock() -- Writes the date to an MTD block.
- *
  * - taf_flash_MtdReadPage() -- Reads data from an MTD page.
  *
  * - taf_flash_MtdWritePage() -- Writes the date to an MTD page.
@@ -141,20 +137,6 @@ DEFINE PARTITION_NAME_MAX_BYTES = 128;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Maximum byte size for buffer to write data to an MTD block.
- */
-//--------------------------------------------------------------------------------------------------
-DEFINE MTD_BLOCK_MAX_WRITE_SIZE = 256 * 1024;
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Maximum byte size for buffer to read data from an MTD block.
- */
-//--------------------------------------------------------------------------------------------------
-DEFINE MTD_BLOCK_MAX_READ_SIZE = 256 * 1024;
-
-//--------------------------------------------------------------------------------------------------
-/**
  * Maximum byte size for buffer to write data to an MTD page.
  */
 //--------------------------------------------------------------------------------------------------
@@ -186,14 +168,14 @@ DEFINE VOLUME_TYPE_MAX_BYTES = 128;
  * Maximum byte size for buffer to read data from UBI volume.
  */
 //--------------------------------------------------------------------------------------------------
-DEFINE UBI_MAX_READ_SIZE = 248 * 1024;
+DEFINE UBI_MAX_READ_SIZE = 4 * 1024;
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Maximum byte size for buffer to write data to UBI volume.
  */
 //--------------------------------------------------------------------------------------------------
-DEFINE UBI_MAX_WRITE_SIZE = 248 * 1024;
+DEFINE UBI_MAX_WRITE_SIZE = 4 * 1024;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -302,40 +284,6 @@ FUNCTION le_result_t MtdEraseBlock
 (
     Partition partitionRef IN, ///< The MTD partition reference.
     uint32 blockIndex IN       ///< Logical block index.
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Reads an MTD block.
- *
- * @return
- *  - LE_FAULT -- Failed.
- *  - LE_OK -- Succeeded.
- *
- */
-//--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t MtdReadBlock
-(
-    Partition partitionRef IN,                  ///< The MTD partition reference.
-    uint32 blockIndex IN,                       ///< Logical block index.
-    uint8 readData[MTD_BLOCK_MAX_READ_SIZE] OUT ///< Buffer read from the MTD block.
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Writes an MTD block.
- *
- * @return
- *  - LE_FAULT -- Failed.
- *  - LE_OK -- Succeeded.
- *
- */
-//--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t MtdWriteBlock
-(
-    Partition partitionRef IN,                   ///< The MTD partition reference.
-    uint32 blockIndex IN,                        ///< Logical block index.
-    uint8 writeData[MTD_BLOCK_MAX_WRITE_SIZE] IN ///< Buffer to be written to the MTD block.
 );
 
 //--------------------------------------------------------------------------------------------------

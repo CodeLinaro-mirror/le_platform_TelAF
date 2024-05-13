@@ -48,7 +48,6 @@ install -d "${D}/telaf"
 install -d "${D}/telaf/telaf"
 install -d "${D}/telaf/telaf/components"
 install -d "${D}/telaf/telaf/components/stub"
-install -d "${D}/telaf/telaf/components/stub/taf_lib_flash"
 install -d "${D}/telaf/telaf/bin"
 install -d "${TELAF_INTERFACES}"
 install -d "${TELAF_INTERFACES}/tafVNW"
@@ -59,7 +58,6 @@ install ${S}/telaf/VERSION ${TELAF_ROOT}/
 install ${S}/telaf/interfaces/*.api ${TELAF_INTERFACES}/
 install ${S}/telaf/interfaces/tafVNW/*.api ${TELAF_INTERFACES}/tafVNW/
 install ${S}/telaf/interfaces/someipGW/*.api ${TELAF_INTERFACES}/someipGW/
-install ${S}/telaf/components/stub/taf_lib_flash/* ${TELAF_ROOT}/components/stub/taf_lib_flash/
 install ${S}/telaf/bin/legs -D ${D}/telaf/telaf/bin/
 
 install -d "${LEGATO_ROOT}"

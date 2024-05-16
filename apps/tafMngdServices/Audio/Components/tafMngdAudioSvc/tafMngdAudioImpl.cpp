@@ -1109,6 +1109,8 @@ taf_mngd_audio_RouteRef_t taf_MngdAudio::OpenRoute( taf_mngd_audio_RouteId_t rou
 
         routePtr->sinkRef = *sinkRef;
         routePtr->sourceRef = *sourceRef;
+        voiceStreamConfig.deviceTypes.clear();
+        voiceStreamConfig = {};
     } else if (mode == TAF_MNGD_AUDIO_LOCAL_RECORDING)
     {
         // Create Source Ref

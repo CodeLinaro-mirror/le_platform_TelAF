@@ -413,7 +413,7 @@ static void* CommandInput(void* contextPtr)
             p = fgets(input_str,sizeof(input_str),stdin);
             taf_ecall_HlapTimerType_t timerType;
             taf_ecall_HlapTimerStatus_t timerStatus;
-            uint16_t remainTime;
+            uint16_t elapsedTime;
             if (p != NULL && input_str[0]=='2')
             {
                timerType = TAF_ECALL_TIMER_TYPE_T2;
@@ -424,9 +424,9 @@ static void* CommandInput(void* contextPtr)
             } else {
                timerType = TAF_ECALL_TIMER_TYPE_UNKNOWN;
             }
-            le_result_t result = taf_ecall_GetHlapTimerState(timerType, &timerStatus, &remainTime);
-            printf("Get hlap timer state %s\n", result == LE_OK ? "success." : "failed!!"); 
-            printf("Hlap timer status is %d and the remaining time is %d\n", timerStatus, remainTime);
+            le_result_t result = taf_ecall_GetHlapTimerState(timerType, &timerStatus, &elapsedTime);
+            printf("Get hlap timer state %s\n", result == LE_OK ? "success." : "failed!!");
+            printf("Hlap timer status is %d and the elapsed time is %d\n", timerStatus, elapsedTime);
         }else if (p != NULL && input_str[0]=='q') {
             exitApp = true;
             le_thread_Cancel(ECallCmdThreadRef);

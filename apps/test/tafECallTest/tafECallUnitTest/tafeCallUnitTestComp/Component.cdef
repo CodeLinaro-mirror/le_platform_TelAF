@@ -8,6 +8,7 @@ requires:
     api:
     {
         taf_ecall.api
+        taf_radio.api
     }
 }
 

@@ -362,7 +362,6 @@ le_result_t taf_ecall_SetMsdVersion
 
  RETURN VALUE    le_result_t
                      LE_BAD_PARAMETER:     Invalid parameters.
-                     LE_FAULT:             Fail.
                      LE_OK:                Success.
 
  SIDE EFFECTS
@@ -381,12 +380,13 @@ le_result_t taf_ecall_GetMsdVersion
     {
         *msdVersion = le_cfg_GetInt(iteratorRef, CFG_NODE_MSDVERSION, 0);
         LE_DEBUG("MSD version is %d", *msdVersion);
-        le_cfg_CancelTxn(iteratorRef);
-        return LE_OK;
+    } else {
+        *msdVersion = 2;
+        LE_WARN("Unable to get the MSD version from config tree and use the default value %d", *msdVersion);
     }
 
     le_cfg_CancelTxn(iteratorRef);
-    return LE_FAULT;
+    return LE_OK;
 #else
     *msdVersion = 2; //Currently we support only msdVersion 2.
     return LE_OK;
@@ -476,7 +476,10 @@ le_result_t taf_ecall_GetVehicleType
         LE_DEBUG(" vehicleType =  %d", *vehicleTypePtr);
         le_cfg_CancelTxn(iteratorRef);
         return LE_OK;
+    } else {
+        LE_WARN("Unable to get the vehicle Type from config tree");
     }
+
     le_cfg_CancelTxn(iteratorRef);
     return LE_FAULT;
 }
@@ -580,6 +583,8 @@ le_result_t taf_ecall_GetVIN
         le_cfg_CancelTxn(iteratorRef);
 
         return LE_OK;
+    } else {
+        LE_WARN("Unable to get the vin from config tree");
     }
 
     le_cfg_CancelTxn(iteratorRef);

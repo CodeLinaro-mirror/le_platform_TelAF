@@ -497,7 +497,6 @@ void taf_ecall::Init(void)
     InitializeECallPtr();
     le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateReadTxn( CFG_MODEMSERVICE_ECALL_PATH );
     int opMode = le_cfg_GetInt(iteratorRef, CFG_NODE_OPMODE, 0);
-    int numType = le_cfg_GetInt(iteratorRef, CFG_NODE_NUMTYPE, 0);
     le_cfg_CancelTxn(iteratorRef);
 
     if (opMode == TAF_ECALL_FORCED_PERSISTENT_ONLY_MODE) {
@@ -511,16 +510,6 @@ void taf_ecall::Init(void)
     if(ret!= Status::SUCCESS)
     {
         LE_CRIT("Cannot register Listern for ecall event!\n");
-    }
-
-    EcallConfig eCallConfig = {};
-    ret = CallManager->getECallConfig(eCallConfig);
-    if (ret == Status::SUCCESS) {
-        LE_INFO("Get eCall configuration successfully when init.");
-        if ((eCallConfig.numType == ECallNumType::OVERRIDDEN) || 
-            (numType == SET_PSAP_NUM_TYPE_OVERRIDDEN)) {
-            isUseUSimNum = false;
-        }
     }
 
     CallCommandCb = std::make_shared<tafCallCommandCallback>();
@@ -577,8 +566,9 @@ le_result_t taf_ecall::SetPsapNumber(const char* psapNumber)
     EcallConfig eCallConfig;
     eCallConfig.configValidityMask.set(ECALL_CONFIG_OVERRIDDEN_NUM);
     eCallConfig.overriddenNum = psapNumber;
+    eCallConfig.configValidityMask.set(ECALL_CONFIG_NUM_TYPE);
+    eCallConfig.numType = ECallNumType::OVERRIDDEN;
     Status status = CallManager->setECallConfig(eCallConfig);
-    isUseUSimNum = false;
 
     return Status::SUCCESS == status ? LE_OK : LE_FAULT;
 }
@@ -700,61 +690,37 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
     {
         ECallObject.msd.control.automaticActivation = false;
         ECallObject.msd.control.testCall = true;
-        if (isUseUSimNum == false)
-        {
-            if (eCallConfig.numType != ECallNumType::OVERRIDDEN)
-            {
-                eCallConfig.configValidityMask.set(ECALL_CONFIG_NUM_TYPE);
-                eCallConfig.numType = ECallNumType::OVERRIDDEN;
-                ret = CallManager->setECallConfig(eCallConfig);
-                if (ret == Status::SUCCESS)
-                {
-                    LE_INFO("Set eCall configuration with overridden number type successfully");
-                }
-            }
-        }
-    }
+    } 
     else if (( emergencyCategory == ECallCategory::VOICE_EMER_CAT_AUTO_ECALL) ||
-             ( emergencyCategory == ECallCategory::VOICE_EMER_CAT_MANUAL))
+             ( emergencyCategory == ECallCategory::VOICE_EMER_CAT_MANUAL)) 
     {
-        if (eCallConfig.numType != ECallNumType::DEFAULT)
+        ECallObject.msd.control.testCall = false;
+        if (eCallConfig.overriddenNum.empty())
         {
-            eCallConfig.configValidityMask.set(ECALL_CONFIG_NUM_TYPE);
-            eCallConfig.numType = ECallNumType::DEFAULT;
-            ret = CallManager->setECallConfig(eCallConfig);
-            if (ret == Status::SUCCESS)
-            {
-                LE_INFO("Set eCall configuration with default number type successfully");
-            }
-
-            if (isUseUSimNum == false)
-            {
-                le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn( CFG_MODEMSERVICE_ECALL_PATH );
-                le_cfg_SetInt(iteratorRef, CFG_NODE_NUMTYPE, (int) SET_PSAP_NUM_TYPE_OVERRIDDEN);
-                le_cfg_CommitTxn(iteratorRef);
-            }
-        }
-
-        if ((0 == strncmp(eCallConfig.overriddenNum.c_str(), "112", 3)) ||
-            (0 == strncmp(eCallConfig.overriddenNum.c_str(), "911", 3)) ||
-            (0 == strncmp(eCallConfig.overriddenNum.c_str(), "999", 3)))
-        {
-            ECallObject.msd.control.testCall = false;
-        }
-        else if (eCallConfig.overriddenNum.empty())
-        {
-            ECallObject.msd.control.testCall = false;
             eCallConfig.configValidityMask.set(ECALL_CONFIG_OVERRIDDEN_NUM);
             eCallConfig.overriddenNum = "112";
+            eCallConfig.configValidityMask.set(ECALL_CONFIG_NUM_TYPE);
+            eCallConfig.numType = ECallNumType::DEFAULT;
             ret = CallManager->setECallConfig(eCallConfig);
             if (ret == Status::SUCCESS)
             {
                 LE_INFO("Set eCall configuration with number 112 successfully");
             }
         }
-        else
+        else if ((0 == strncmp(eCallConfig.overriddenNum.c_str(), "112", 3)) ||
+                 (0 == strncmp(eCallConfig.overriddenNum.c_str(), "911", 3)) ||
+                 (0 == strncmp(eCallConfig.overriddenNum.c_str(), "999", 3)))
         {
-            ECallObject.msd.control.testCall = true;
+            if (eCallConfig.numType != ECallNumType::DEFAULT)
+            {
+                eCallConfig.configValidityMask.set(ECALL_CONFIG_NUM_TYPE);
+                eCallConfig.numType = ECallNumType::DEFAULT;
+                ret = CallManager->setECallConfig(eCallConfig);
+                if (ret == Status::SUCCESS)
+                {
+                    LE_INFO("Set eCall configuration with default number type successfully");
+                }
+            }
         }
 
         if ( emergencyCategory == ECallCategory::VOICE_EMER_CAT_AUTO_ECALL)
@@ -779,14 +745,9 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
         {
             eCallMsdData.push_back(eCallPtr->msdPdu[i]);
         }
-        if (eCallVariant == ECallVariant::ECALL_TEST
-                && eCallConfig.numType == ECallNumType::OVERRIDDEN) {
-            ret = CallManager->makeECall(phoneId, eCallConfig.overriddenNum, eCallMsdData,
-                    (int)emergencyCategory, tafCallCommandCallback::makeECallResponse);
-        } else {
-            ret = CallManager->makeECall(phoneId, eCallMsdData, (int)emergencyCategory,
-                    (int)eCallVariant, tafCallCommandCallback::makeECallResponse);
-        }
+
+        ret = CallManager->makeECall(phoneId, eCallMsdData, (int)emergencyCategory,
+                (int)eCallVariant, tafCallCommandCallback::makeECallResponse);
     }
     else
     {
@@ -797,14 +758,9 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
         eCallPtr->msd.messageIdentifier = 1;
         ECallMsdData eCallMsdData = (ECallMsdData) eCallPtr->msd;
 
-        if (eCallVariant == ECallVariant::ECALL_TEST
-                && eCallConfig.numType == ECallNumType::OVERRIDDEN) {
-            ret = CallManager->makeECall(phoneId, eCallConfig.overriddenNum, eCallMsdData,
-                    (int)emergencyCategory, CallCommandCb);
-        } else {
-            ret = CallManager->makeECall(phoneId, eCallMsdData, (int)emergencyCategory,
-                    (int)eCallVariant, CallCommandCb);
-        }
+
+        ret = CallManager->makeECall(phoneId, eCallMsdData, (int)emergencyCategory,
+                (int)eCallVariant, CallCommandCb);
     }
 
     if(ret == Status::SUCCESS)
@@ -1566,10 +1522,6 @@ le_result_t taf_ecall::UseUSimNumbers()
     eCallConfig.numType = ECallNumType::DEFAULT;
     Status status = CallManager->setECallConfig(eCallConfig);
     LE_INFO("UseUSimNumbers: status %d", (int) status);
-    isUseUSimNum = true;
-    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn( CFG_MODEMSERVICE_ECALL_PATH );
-    le_cfg_SetInt(iteratorRef, CFG_NODE_NUMTYPE, (int) SET_PSAP_NUM_TYPE_DEFFAULT);
-    le_cfg_CommitTxn(iteratorRef);
 
     return Status::SUCCESS == status ? LE_OK : LE_FAULT;
 }
@@ -1900,6 +1852,11 @@ le_result_t taf_ecall::GetHlapTimerState(taf_ecall_HlapTimerType_t timerType, ta
                 LE_ERROR("Wrong hlap timer type.");
                 return LE_BAD_PARAMETER;
             }
+    }
+    else if (*timerStatus == TAF_ECALL_TIMER_STATUS_UNKNOWN)
+    {
+       LE_ERROR("Wrong hlap timer type or unable to get the timer status.");
+       return LE_FAULT;
     }
     else
     {

@@ -151,7 +151,7 @@ le_result_t taf_sim_GetHomeNetworkMccMnc( taf_sim_Id_t slotId,char * mccPtr,
 le_result_t taf_sim_SelectCard( taf_sim_Id_t slotId) {
     auto &sim = taf_sim::GetInstance();
     // Select the SIM card
-    if (sim.selectSimSlot(slotId) != LE_OK) {
+    if (sim.selectSimSlot(slotId, true) != LE_OK) {
         LE_ERROR("Unable to select Sim Card slot %d !", slotId);
         return LE_FAULT;
     }

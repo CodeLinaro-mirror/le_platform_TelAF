@@ -399,6 +399,18 @@ typedef struct
     taf_radio_CellInfoStatus_t cellInfoStatus;
 } taf_RadioCellInfoInd_t;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Hysteresis structure.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint8_t phoneId;
+    taf_radio_SigType_t sigType;
+    uint16_t hysteresisdB;
+} taf_RadioHysteresisConfig_t;
+
 namespace telux {
 namespace tafsvc {
     /*
@@ -792,6 +804,8 @@ namespace tafsvc {
         taf_radio_ImsRef_t imsRefs[TAF_RADIO_PHONE_NUM];
         taf_radio_NetStatusRef_t netStatusRefs[TAF_RADIO_PHONE_NUM];
         std::shared_ptr<taf_RadioPhoneListener> phoneListener;
+        uint16_t hysteresisTimer[TAF_RADIO_PHONE_NUM] = {0,0};
+        std::vector<taf_RadioHysteresisConfig_t> hysteresisConfigs;
     };
 }
 }

@@ -77,7 +77,6 @@ namespace tafsvc {
 
     typedef struct
     {
-        mcs_Yes_No_t Fallback;  //Yes=1, No=0
         uint8_t dataConnectionCount; // Not part of the JSON. It is filled by the parser.
         taf_mngdConn_Policy_DataConnection_t \
                             DataConnection[MCS_MAX_DATA_CONNECION_OBJECT_COUNT];
@@ -120,10 +119,6 @@ private:
                                                         std::string Value,
                                                         int Index);
 
-    // DS = DataSession
-    static bool Validate_DS_Fallback (taf_mngdConn_Policy_t &Policy,
-                                                        std::string Value,
-                                                        int Index);
     // DS_DC = DataSession/DataConnection
     static bool Validate_DS_DC_Priority (taf_mngdConn_Policy_t &Policy,
                                                         std::string Value,
@@ -131,7 +126,7 @@ private:
     static bool Validate_DS_DC_Use_Data_ID (taf_mngdConn_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index);
-    //DS_MDS = MultiDataSession
+    //DS_MDS = DataSession/MultiDataSession
     static bool Validate_DS_MDS_Enable (taf_mngdConn_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index);

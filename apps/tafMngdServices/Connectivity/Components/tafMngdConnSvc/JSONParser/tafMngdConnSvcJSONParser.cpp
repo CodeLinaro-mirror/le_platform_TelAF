@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -72,6 +72,12 @@ static bool Validate_MCS_Version(taf_mngdConn_Policy_t &Policy,
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
 
     // Value should be a string
     if (MCS_JSON_DATA_TYPE_STRING != DataType)
@@ -191,7 +197,7 @@ bool telux::tafsvc::tafMngdConnSvc_GetPolicyAndConfiguration(
             }
         }
 
-          //Name
+        //Name
         if ("Name" == element.first ) {
             // Mark presence of Name
             bNameAvailable = true;

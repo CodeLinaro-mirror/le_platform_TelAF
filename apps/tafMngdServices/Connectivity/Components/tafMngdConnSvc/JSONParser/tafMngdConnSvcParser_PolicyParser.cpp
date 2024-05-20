@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -58,6 +58,11 @@ bool tafMngdConnSvc_PolicyParser::Validate_DS_DC_Use_Data_ID(taf_mngdConn_Policy
     LE_DEBUG("%s", Value.c_str());
 
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
@@ -69,8 +74,18 @@ bool tafMngdConnSvc_PolicyParser::Validate_DS_DC_Use_Data_ID(taf_mngdConn_Policy
         LE_WARN("Invalid Array Index");
         return false;
     }
+
+    //Check for Duplicates
+    for (int i = 0; i <= Policy.DataSession.dataConnectionCount; i++) {
+            if (std::stoi(Value) == Policy.DataSession.DataConnection[i].Use_Data_ID) {
+                LE_WARN("Duplicate Data Id");
+                return false;
+            }
+    }
+
     // Valid value. Update Policy.
     Policy.DataSession.DataConnection[Index].Use_Data_ID = std::stoi(Value);
+
 
     // Update the Data Connection Count.
     //Index will be 0. So count will be Index + 1
@@ -87,6 +102,11 @@ bool tafMngdConnSvc_PolicyParser::Validate_DS_DC_Priority(taf_mngdConn_Policy_t 
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
@@ -97,31 +117,21 @@ bool tafMngdConnSvc_PolicyParser::Validate_DS_DC_Priority(taf_mngdConn_Policy_t 
         LE_WARN("Invalid Array Index");
         return false;
     }
+
+    //Check for Duplicates
+    for (int i = 0; i <= Policy.DataSession.dataConnectionCount; i++) {
+            if (std::stoi(Value) == Policy.DataSession.DataConnection[i].Priority) {
+                LE_WARN("Duplicate Priority");
+                return false;
+            }
+    }
+
     // Valid value. Update Policy.
     Policy.DataSession.DataConnection[Index].Priority = std::stoi(Value);
 
     // Update the Data Connection Count.
     // Index will be 0. So count will be Index + 1
     Policy.DataSession.dataConnectionCount = Index + 1;
-    return true;
-}
-
-/**
- * Validate DataSession:Fallback
- */
-bool tafMngdConnSvc_PolicyParser::Validate_DS_Fallback(taf_mngdConn_Policy_t &Policy,
-                                                        std::string Value,
-                                                        int Index)
-{
-    LE_DEBUG("%s", Value.c_str());
-    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
-    if (MCS_JSON_DATA_TYPE_YES_NO != DataType)
-    {
-        LE_WARN("Incorrect data type");
-        return false;
-    }
-    // Valid value. Update Policy.
-    Policy.DataSession.Fallback = mcs_Convert_to_Yes_No_enum(Value);
     return true;
 }
 
@@ -161,6 +171,11 @@ bool tafMngdConnSvc_PolicyParser::Validate_DS_MDS_Enable(taf_mngdConn_Policy_t &
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     if (MCS_JSON_DATA_TYPE_YES_NO != DataType)
     {
         LE_WARN("Incorrect data type");
@@ -181,11 +196,17 @@ bool tafMngdConnSvc_PolicyParser::Validate_DS_MDS_NumConnections(taf_mngdConn_Po
     LE_DEBUG("%s", Value.c_str());
 
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
         return false;
     }
+
     // Valid value. Update Policy.
     Policy.DataSession.MultiDataSession.NumConnections = std::stoi(Value);
     return true;
@@ -269,6 +290,11 @@ bool tafMngdConnSvc_PolicyParser::ValidateValue(taf_mngdConn_Policy_t &Policy,
                                           int Index)
 {
     LE_DEBUG("JSON_Property: %s, Value: %s", property.c_str(), Value.c_str());
+    if(Policy.DataSession.dataConnectionCount > MCS_MAX_DATA_OBJECT_COUNT)
+    {
+        LE_ERROR("DataConnection Count exceeded");
+        return false;
+    }
     auto iterator = PolicyValidationFuncMap.find(property);
     if (iterator != PolicyValidationFuncMap.end() )
     {
@@ -308,6 +334,11 @@ bool tafMngdConnSvc_PolicyParser::ParseAndUpdatePolicyJSON(taf_mngdConn_Policy_t
     }
 
     std::string log, JSON_Property, JSON_Value;
+
+    //  Keep track of mandatory objets. If they are absent return an error.
+    bool bDataConnectionAvailable            = false;
+    bool bMultiDataSessionAvailable          = false;
+    bool bConnectivityRecoveryAvailable      = false;
     for (auto & element: tree) {
 
        if ("ManagedConnectivityService" == element.first ) {
@@ -342,31 +373,11 @@ bool tafMngdConnSvc_PolicyParser::ParseAndUpdatePolicyJSON(taf_mngdConn_Policy_t
 
                         // Get the elements within "DataSession"
                         if ( "DataSession" == parent.first ) {
+                            bDataConnectionAvailable = true;
                             log.clear();
                             log.append("Section: " + parent.first);
                             LE_DEBUG ("%s", log.c_str() );
                             for (auto & child: parent.second) {
-                                if ("Fallback" == child.first){
-                                    log.clear();
-                                    log.append ("Key: " + child.first + ", Value: " +
-                                                 child.second.get_value < std::string > () );
-                                    LE_DEBUG ("%s", log.c_str() );
-                                    JSON_Property.clear();
-                                    JSON_Property.append(parent.first + ":" + child.first);
-                                    JSON_Value.clear();
-                                    JSON_Value.append(child.second.get_value<std::string>());
-                                    // Validate values. Index is set to invald.
-                                    if (!ValidateValue(Policy, JSON_Property, JSON_Value,
-                                                                MCS_INVALID_INDEX))
-                                    {
-                                        LE_WARN("Invalid JSON_Property Value");
-                                        LE_INFO("JSON_Property: %s, Value: %s",
-                                        JSON_Property.c_str(),
-                                        JSON_Value.c_str());
-                                        return false;
-                                    }
-                                }
-
                                 if ("DataConnection" == child.first) {
                                     int ElementCount = 0;
                                     // Use an iterator to get into the DataConnection array
@@ -405,6 +416,7 @@ bool tafMngdConnSvc_PolicyParser::ParseAndUpdatePolicyJSON(taf_mngdConn_Policy_t
                                     }
                                 }
                                 if ("MultiDataSession" == child.first) {
+                                    bMultiDataSessionAvailable = true;
                                     // Use an iterator to go through  the MultiDataSession elements
                                     for (auto &it: child.second) {
                                             log.clear();
@@ -432,6 +444,7 @@ bool tafMngdConnSvc_PolicyParser::ParseAndUpdatePolicyJSON(taf_mngdConn_Policy_t
                                         }
                                 }
                                 if ("ConnectivityRecovery" == child.first) {
+                                    bConnectivityRecoveryAvailable = true;
                                  // Use an iterator to go through  the ConnectivityRecovery elements
                                     for (auto &it: child.second) {
                                             log.clear();
@@ -464,6 +477,24 @@ bool tafMngdConnSvc_PolicyParser::ParseAndUpdatePolicyJSON(taf_mngdConn_Policy_t
                 }
             }
         }
+    }
+
+    // Validate presence of mandatory objects
+    // The checking is done separately to return specific error logs.
+    if (!bDataConnectionAvailable)
+    {
+        LE_ERROR("DataConnection object is missing");
+        return false;
+    }
+    if (!bMultiDataSessionAvailable)
+    {
+        LE_ERROR("MultiDataSession object is missing");
+        return false;
+    }
+    if (!bConnectivityRecoveryAvailable)
+    {
+        LE_ERROR("ConnectivityRecovery object is missing");
+        return false;
     }
     return true;
 }
@@ -531,7 +562,6 @@ bool tafMngdConnSvc_PolicyParser::GetPolicy ( taf_mngdConn_Policy_t &Policy,
 void tafMngdConnSvc_PolicyParser::UpdateValidPolicyFuncMap(void)
 {
     PolicyValidationFuncMap["Policy:Name"] = &Validate_MCSP_Name;
-    PolicyValidationFuncMap["DataSession:Fallback"] = &Validate_DS_Fallback;
     PolicyValidationFuncMap["DataSession:DataConnection:Priority"] = &Validate_DS_DC_Priority;
     PolicyValidationFuncMap["DataSession:DataConnection:Use_Data_ID"] = &Validate_DS_DC_Use_Data_ID;
     PolicyValidationFuncMap["DataSession:MultiDataSession:Enable"] = &Validate_DS_MDS_Enable;

@@ -58,6 +58,11 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Name(
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     if (MCS_JSON_DATA_TYPE_STRING != DataType)
     {
         LE_WARN("Incorrect data type");
@@ -84,6 +89,11 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Sim_ID(
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
@@ -114,6 +124,11 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Sim_Name(
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     if (MCS_JSON_DATA_TYPE_STRING != DataType)
     {
         LE_WARN("Incorrect data type");
@@ -162,6 +177,11 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Sim_SlotNumber(
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
@@ -193,6 +213,11 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_ID(
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
@@ -224,6 +249,11 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_Name(
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     //Check the JSON version to be atleast 24.03.00
     if(Configuration.Version != MCS_JSON_VERSION_24_03_00)
     {
@@ -278,6 +308,11 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_Use_SIM_ID(
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
@@ -309,6 +344,11 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_PhoneID(
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
@@ -347,6 +387,11 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_Registration(
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     if (MCS_JSON_DATA_TYPE_NW_REGISTRATION != DataType)
     {
         LE_WARN("Incorrect data type");
@@ -411,6 +456,11 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Use_Network_ID(
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
@@ -442,6 +492,11 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Name(
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     if (MCS_JSON_DATA_TYPE_STRING != DataType)
     {
         LE_WARN("Incorrect data type");
@@ -490,6 +545,11 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Profile_Number(
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
@@ -561,6 +621,11 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_AutoStart(
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     if (MCS_JSON_DATA_TYPE_YES_NO != DataType)
     {
         LE_WARN("Incorrect data type");
@@ -703,6 +768,11 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DSR_Enable(
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     //Check the JSON version to be atleast 24.03.00
     if(Configuration.Version != MCS_JSON_VERSION_24_03_00)
     {
@@ -730,6 +800,11 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DSR_RetryCount(
     LE_DEBUG("%s", Value.c_str());
 
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     //Check the JSON version to be atleast 24.03.00
     if(Configuration.Version != MCS_JSON_VERSION_24_03_00)
     {
@@ -761,6 +836,11 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PeriodicConnectivity
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     //Check the JSON version to be atleast 24.03.00
     if(Configuration.Version != MCS_JSON_VERSION_24_03_00)
     {
@@ -799,6 +879,11 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PeriodicConnectivity
     LE_DEBUG("%s", Value.c_str());
 
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     //Check the JSON version to be atleast 24.03.00
     if(Configuration.Version != MCS_JSON_VERSION_24_03_00)
     {
@@ -874,6 +959,11 @@ bool tafMngdConnSvc_ConfigurationParser::ValidateValue(
                                                  int Index)
 {
     LE_DEBUG("Property: %s, Value: %s", property.c_str(), Value.c_str());
+    if(Configuration.DataCount > MCS_MAX_DATA_OBJECT_COUNT)
+    {
+        LE_ERROR("Data Count exceeded");
+        return false;
+    }
     auto iterator = ConfigurationValidationFuncMap.find(property);
     if (iterator != ConfigurationValidationFuncMap.end())
     {
@@ -911,6 +1001,16 @@ bool tafMngdConnSvc_ConfigurationParser::ParseAndUpdateConfigurationJSON(
     }
 
     std::string log, JSON_Property, JSON_Value;
+
+    //  Keep track of mandatory objets. If they are absent return an error.
+    bool bSimAvailable              = false;
+    bool bNetworkAvailable          = false;
+    bool bDataIdAvailable           = false;
+    bool bDataNameAvailable         = false;
+    bool bAutoStartAvailable        = false;
+    bool bProfileAvailable          = false;
+    bool bDataStartRetryAvailable   = false;
+
     for (auto & element: tree) {
 
 
@@ -920,7 +1020,6 @@ bool tafMngdConnSvc_ConfigurationParser::ParseAndUpdateConfigurationJSON(
             LE_DEBUG ("%s", log.c_str() );
 
             for (auto & property: element.second) {
-
                 if ("Configuration" == property.first){
                     for (auto & parent: property.second) {
                         if ("Name" == parent.first){
@@ -947,12 +1046,11 @@ bool tafMngdConnSvc_ConfigurationParser::ParseAndUpdateConfigurationJSON(
                         // Sim Object
                         // Array object with the following properties
                         // ID, Name, SlotNumber
-                        if ( "Sim" == parent.first ) {
+                        else if ( "Sim" == parent.first ) {
+                            bSimAvailable = true;
                             log.clear();
                             log = "Top Element: " + parent.first;
                             LE_DEBUG ("%s", log.c_str() );
-
-
                             int ElementCount = 0;
                             // Iterate through the Array elements
                             for (auto &array_element: parent.second)
@@ -989,7 +1087,8 @@ bool tafMngdConnSvc_ConfigurationParser::ParseAndUpdateConfigurationJSON(
                         }
 
                         // Network object
-                        if ( "Network" == parent.first ) {
+                        else if ( "Network" == parent.first ) {
+                            bNetworkAvailable = true;
                             log.clear();
                             log = "Top Element: " + parent.first;
                             LE_DEBUG ("%s", log.c_str() );
@@ -1030,7 +1129,7 @@ bool tafMngdConnSvc_ConfigurationParser::ParseAndUpdateConfigurationJSON(
                         }
 
                         // Data Object
-                        if ( "Data" == parent.first ) {
+                        else if ( "Data" == parent.first ) {
                             log.clear();
                             log = "Top Element: " + parent.first;
                             LE_DEBUG ("%s", log.c_str() );
@@ -1045,11 +1144,58 @@ bool tafMngdConnSvc_ConfigurationParser::ParseAndUpdateConfigurationJSON(
                                 // Iterate through elements in each array element
                                 for (auto &iter: array_element.second)
                                 {
-                                    if ( "ID" == iter.first ||
-                                        "Name" == iter.first ||
-                                        "Use_Network_ID" == iter.first ||
+                                    if ( "ID" == iter.first )
+                                    {
+                                        bDataIdAvailable = true;
+                                        log.clear();
+                                        log = "\t\tKey: " + iter.first +
+                                        ", Value: " + iter.second.data();
+                                        LE_DEBUG("%s", log.c_str());
+
+                                        JSON_Property.clear();
+                                        JSON_Property.append (parent.first + ":" + iter.first);
+                                        JSON_Value.clear();
+                                        JSON_Value = iter.second.data();
+                                        // Validate the value and update Configuration structure.
+                                        // Data is an array, so pass element count.
+                                        if (!ValidateValue(Configuration, JSON_Property, JSON_Value,
+                                        ElementCount))
+                                        {
+                                            LE_WARN("Invalid JSON_Property Value");
+                                            LE_INFO("JSON_Property: %s, Value: %s",
+                                                JSON_Property.c_str(),
+                                                JSON_Value.c_str());
+                                            return false;
+                                        }
+                                    }
+                                    if ("Name" == iter.first)
+                                    {
+                                        bDataNameAvailable = true;
+                                        log.clear();
+                                        log = "\t\tKey: " + iter.first +
+                                        ", Value: " + iter.second.data();
+                                        LE_DEBUG("%s", log.c_str());
+
+                                        JSON_Property.clear();
+                                        JSON_Property.append (parent.first + ":" + iter.first);
+                                        JSON_Value.clear();
+                                        JSON_Value = iter.second.data();
+                                        // Validate the value and update Configuration structure.
+                                        // Data is an array, so pass element count.
+                                        if (!ValidateValue(Configuration, JSON_Property, JSON_Value,
+                                        ElementCount))
+                                        {
+                                            LE_WARN("Invalid JSON_Property Value");
+                                            LE_INFO("JSON_Property: %s, Value: %s",
+                                                JSON_Property.c_str(),
+                                                JSON_Value.c_str());
+                                            return false;
+                                        }
+                                    }
+                                    if ("Use_Network_ID" == iter.first ||
                                         "AutoStart" == iter.first )
                                     {
+                                        bAutoStartAvailable = true;
                                         log.clear();
                                         log = "\t\tKey: " + iter.first +
                                         ", Value: " + iter.second.data();
@@ -1074,6 +1220,7 @@ bool tafMngdConnSvc_ConfigurationParser::ParseAndUpdateConfigurationJSON(
                                     // Iterate through Profile object
                                     else if ("Profile" == iter.first)
                                     {
+                                        bProfileAvailable = true;
                                         log.clear();
                                         log.append("\t\t").append("Profile Node");
                                         LE_DEBUG("%s", log.c_str());
@@ -1139,6 +1286,7 @@ bool tafMngdConnSvc_ConfigurationParser::ParseAndUpdateConfigurationJSON(
                                     }
                                     else if ("DataStartRetry" == iter.first)
                                     {
+                                        bDataStartRetryAvailable   = true;
                                         log.clear();
                                         log.append("\t\t").append("DataStartRetry Node");
                                         LE_DEBUG ("%s", log.c_str() );
@@ -1214,11 +1362,50 @@ bool tafMngdConnSvc_ConfigurationParser::ParseAndUpdateConfigurationJSON(
                             }
                         }
                     }
+
                 }
             }
             LE_DEBUG ("%s", log.c_str() ); log.clear();
         }
     }
+    // Validate presence of mandatory objects
+    // The checking is done separately to return specific error logs.
+    if (!bSimAvailable)
+    {
+        LE_ERROR("Sim object is missing");
+        return false;
+    }
+    if (!bNetworkAvailable)
+    {
+        LE_ERROR("Network object is missing");
+        return false;
+    }
+    if (!bDataIdAvailable)
+    {
+        LE_ERROR("DataId object is missing");
+        return false;
+    }
+    if (!bDataNameAvailable)
+    {
+        LE_ERROR("DataName object is missing");
+        return false;
+    }
+    if (!bAutoStartAvailable)
+    {
+        LE_ERROR("AutoStart object is missing");
+        return false;
+    }
+    if (!bProfileAvailable)
+    {
+        LE_ERROR("Profile object is missing");
+        return false;
+    }
+    if (!bDataStartRetryAvailable)
+    {
+        LE_ERROR("DataStartRetry object is missing");
+        return false;
+    }
+
     return true;
 }
 

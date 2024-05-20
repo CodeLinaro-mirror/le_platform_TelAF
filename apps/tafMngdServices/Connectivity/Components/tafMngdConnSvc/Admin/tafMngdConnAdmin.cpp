@@ -837,7 +837,6 @@ le_result_t tafMngdConnAdmin::EventSetPolicyConfigJSONs
         LE_DEBUG("JSONs parsed and validated");
         LE_DEBUG("Version          : %d", Policy.Version);
         LE_DEBUG("Name             : %s", Policy.Name);
-        LE_DEBUG("\tFallback  : %d", Policy.DataSession.Fallback);
         LE_DEBUG("\t\tData Connection Count : %d", Policy.DataSession.dataConnectionCount);
 
         for (int Index = 0; Index < Policy.DataSession.dataConnectionCount; Index++)

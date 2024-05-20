@@ -70,7 +70,7 @@ namespace tafsvc {
      * Number of Data objects in the Configuration JSON that the Connectivity service can manage.
      *
      */
-    const unsigned int MCS_MAX_DATA_OBJECT_COUNT = 2;
+    const unsigned int MCS_MAX_DATA_OBJECT_COUNT = 4;
 
     /**
      * \brief Maximum supported Data Connection objects

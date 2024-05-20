@@ -133,7 +133,7 @@ static void ForcedSystemShutdown()
 {
     LE_INFO("----ForcedSystemShutdown test----");
     le_result_t result;
-    result = taf_mngdPm_ShutdownReqAsync(TAF_MNGDPM_SYSTEM_FORCEFUL_SHUTDOWN,
+    result = taf_mngdPm_ShutdownReqAsync(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL,
             ForcedSystemShutdownCallBack, NULL);
 
     if(result == LE_OK)

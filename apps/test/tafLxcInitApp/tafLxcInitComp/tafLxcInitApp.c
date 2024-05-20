@@ -98,8 +98,7 @@ COMPONENT_INIT
     LE_INFO("tafLxcInit starting");
     int status = -1;
     char *filename = "/proc/mtd";
-    char *searchString;
-    searchString = "lxcrootfs";
+    char *searchString = "lxcrootfs";
 
     LE_INFO("Checking for LXC flavour");
     status = isLxcFlavour(filename, searchString);

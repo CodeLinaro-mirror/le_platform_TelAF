@@ -36,6 +36,7 @@
 #include "interfaces.h"
 
 #define NODE_ID 0
+#define VEHICHLE_WAKEUP_REASON_DEFAULT 0
 
 const char* wakeuptype = "";
 static le_sem_Ref_t semRef = NULL, queueSemRef = NULL;
@@ -449,7 +450,7 @@ static int ForcedSystemShutdown()
     LE_TEST_INFO("To test ForcedSystemShutdown!");
     le_result_t result;
 
-    result = taf_mngdPm_ShutdownReqAsync(TAF_MNGDPM_SYSTEM_FORCEFUL_SHUTDOWN,
+    result = taf_mngdPm_ShutdownReqAsync(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL,
             ForcedSystemShutdownCallBack, NULL);
     if(result != LE_OK)
     {
@@ -491,6 +492,31 @@ static int RestartNode()
     return EXIT_SUCCESS;
 }
 
+void WakeupVehicleback(int32_t reason, int32_t rspmode ,
+        void* contextPtr)
+{
+    LE_INFO("WakeupVehicleback response is %d", rspmode);
+    exit(status);
+}
+
+static int WakeupVehicle()
+{
+    LE_INFO("WakeupVehicle");
+    le_result_t res = taf_mngdPm_WakeupVehicleReqAsync(VEHICHLE_WAKEUP_REASON_DEFAULT,
+            WakeupVehicleback, NULL);
+
+    if(res == LE_OK)
+    {
+        LE_INFO("----WakeupVehicle success----");
+        status = EXIT_SUCCESS;
+    }
+    else
+    {
+        LE_ERROR("WakeupVehicle request failed");
+        status = EXIT_FAILURE;
+    }
+    return status;
+}
 static int TestMngdPMUnitTest()
 {
     LE_INFO("TestMngdPMUnitTest start");
@@ -568,6 +594,11 @@ COMPONENT_INIT
     else if (arg!= NULL && strncmp(arg, "RestartNode", 11) == 0)
     {
         status = RestartNode();
+        exit(status);
+    }
+    else if (arg!= NULL && strncmp(arg, "WakeupVehicle", 13) == 0)
+    {
+        status = WakeupVehicle();
         exit(status);
     }
 }

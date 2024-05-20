@@ -83,6 +83,8 @@ interface(`init_telaf_app_domain',`
         write_telux_log_file($1)
         telux_allow_tel($1)
 
+        dlt_allow_user_logging($1)
+
         allow telaf_admin_domain $1:fd { use };
         allow telaf_admin_domain { $1 $2 }:file { all_file_perms };
         allow telaf_admin_domain { $1 $2 }:dir { all_dir_perms };
@@ -143,6 +145,8 @@ interface(`init_telaf_core_domain',`
 
         manage_user_data_files($1, data_t)
 
+        dlt_allow_user_logging($1)
+
         # Support mls
         mls_file_read_to_clearance($1)
         mls_file_write_to_clearance($1)
@@ -193,6 +197,8 @@ interface(`init_telaf_admin_domain',`
         manage_user_data_files($1, data_t)
         write_telux_log_file($1)
         telux_allow_tel($1)
+
+        dlt_allow_user_logging($1)
 
         # Support mls
         mls_file_read_to_clearance($1)

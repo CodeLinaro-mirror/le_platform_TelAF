@@ -145,6 +145,7 @@ gen_require(`
   type home_root_t;
   type user_home_dir_t;
   type ping_exec_t;
+  type dlt_t;
 ')
 
 ## telaf framework policies and definitions
@@ -368,6 +369,10 @@ files_read_etc_files(telaf_admin_domain)
 
 # allow logging to syslog
 logging_send_syslog_msg(telaf_admin_domain)
+
+# allow logging to dlt-daemon
+mls_socket_read_to_clearance(dlt_t)
+mls_socket_write_to_clearance(dlt_t)
 
 # allow supervisor to send signal to telaf app
 allow telaf_admin_domain telaf_app_domain:process signal;

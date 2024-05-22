@@ -84,9 +84,13 @@ endif
 
 endif
 
-export TELAF_SIMULATION_ENABLE_SOMEIP_GW ?= y
+export TELAF_SIMULATION_ENABLE_SOMEIP_GW ?= n
 export TELAF_SIMULATION_ENABLE_DIAG ?= n
 export TELAF_SIMULATION_ENABLE_CAPI ?= n
+
+ifneq ($(TELAF_SIMULATION_ENABLE_DIAG),n)
+export TELAF_SIMULATION_DIAG_SINC ?= $(TELAF_ROOT)/simulation/diag.sinc
+endif
 
 SIMULATION_SOMEIP_GW_DEPS_y := _vsomeip
 SIMULATION_COMMON_API_DEPS_y := _capi_core_rt _capi_someip_rt _capi_tools
@@ -244,7 +248,8 @@ simula-help:
 	@echo "                                       -- (workstation/.simulation.build) if needed, create and add Makefile variables"
 	@echo "      + simulax| simulacx | simula-cx  -- Incrementally compile simulation open source code in CONTAINER"
 	@echo "                                       -- (workstation/.simula.dev.action.sh) if needed, create and add shell commands"
-	@echo "      + simula-clean                   -- Just deep clean your simulation project"
+	@echo "      + simula-clean                   -- Just clean your simulation project"
+	@echo "      + simula-distclean               -- Deep clean all telaf project stuff"
 	@echo
 	@echo "    - Build your simulation docker containers cli, depends which system version you selected (see 'simula-list')"
 	@echo "      + simula-build-runtime           -- Build a runtime docker image for running TelAF Simulation"
@@ -262,6 +267,7 @@ simula-help:
 	@echo "      + simula-listimg                 -- List all docker images on your host"
 	@echo "      + simula-listv                   -- List all volumes named along with 'telaf'"
 	@echo "      + simula-rmv                     -- Delete all volumes named along with 'telaf'"
+	@echo "      + simula-rm-app                  -- Delete the app volume"
 
 
 simula-buildall simula-build-all simula-build-all-docker-images: simula-build-runtime simula-build-develop
@@ -338,7 +344,32 @@ simula-remove-all-volumes:
 	$Q volumes=$$(docker volume ls -q) && { for volume in $$volumes ; do docker volume rm $$volume ; done }
 	$Q echo "[$@] detele all volumes done."
 
-simula-clean: distclean
+simula-clean: simula-clean-config
+	$Q rm -rf $(TELAF_ROOT)/build/simulation
+
+simula-distclean: distclean
+
+simula-show-deps-path:
+	$Q realpath $(SIMULATION_HOME)/deps/
+
+simula-reuse-deps:
+	$Q if [ -n "$(SIMULATION_REUSE_DEPS)" ]; then \
+	     if [ -e "$(SIMULATION_REUSE_DEPS)" ]; then \
+	       echo "Copy deps from $(SIMULATION_REUSE_DEPS) to $(SIMULATION_HOME)/deps/ ..." ; \
+	       cp -ar $(SIMULATION_REUSE_DEPS)/.deps.origin $(SIMULATION_HOME)/deps/ ; \
+	       cp -ar $(SIMULATION_REUSE_DEPS)/host_xtools $(SIMULATION_HOME)/deps/ ; \
+	       cp -ar $(SIMULATION_REUSE_DEPS)/taf_rootfs $(SIMULATION_HOME)/deps/ ; \
+	       echo "Ready to reuse deps in your current project."; \
+	     else \
+	       echo "Invalid [SIMULATION_REUSE_DEPS=$(SIMULATION_REUSE_DEPS)] that you set, please check." ; \
+	     fi \
+	   else \
+	     echo "Please set [SIMULATION_REUSE_DEPS=/path/to/another/telaf/simulatoin/deps] to reuse simulation deps."; \
+	   fi
+
+simula-clean-deps:
+	$Q rm -f $(SIMULATION_HOME)/deps/.deps.origin
+	$Q echo "Remove $(SIMULATION_HOME)/deps/.deps.origin [Done]"
 
 simula-clean-config:
 	$Q rm -f $(LEGATO_ROOT)/.config.simulation

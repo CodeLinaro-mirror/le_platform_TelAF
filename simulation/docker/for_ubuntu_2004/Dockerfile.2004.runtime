@@ -48,6 +48,7 @@ RUN python3 -m pip install supervisor==4.2.5
 RUN python3 -m pip install supervisor-stdout==0.1.1
 
 RUN apt-get -y --no-install-recommends install libsqlite3-dev
+RUN apt-get -y --no-install-recommends install nano
 
 # Make root password to: [simula]
 RUN echo 'root:simula' | chpasswd

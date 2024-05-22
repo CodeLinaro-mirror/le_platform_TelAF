@@ -34,7 +34,7 @@ precheck_deps := \
     fi ; \
   else \
     echo "Not found file [$(deps_origin)]" ; \
-    echo "Touch it and clean all 3rd party deps, rebuilding all dpes ... " ; \
+    echo "Touch it and clean all 3rd party deps, rebuilding all ... " ; \
     touch $(deps_origin) && rm -rf $(SIMULATION_DEPS_ROOTFS)/* $(SIMULATION_HOST_XTOOLS)/* ; \
   fi
 
@@ -270,7 +270,7 @@ capi_core_rt_:
 	  && git clone -q --branch github/master \
 	         ${CAPI_CORE_RT_URL} $(SIMULATION_DEPS_SOURCE)/$@ > $(SIMULATION_DEPS_SOURCE)/__download.log 2>&1 \
 	  && cd $(SIMULATION_DEPS_SOURCE)/$@ \
-	    && git reset 89720d3c63bbd22cbccc80cdc92c2f2dd20193ba > /dev/null 2>&1
+	    && git checkout 89720d3c63bbd22cbccc80cdc92c2f2dd20193ba > /dev/null 2>&1
 	$Q echo "[$@] just from git repo, no need to extract"
 #-> 3. [compile]
 	$Q cd $(SIMULATION_DEPS_SOURCE)/$@ \
@@ -309,7 +309,7 @@ capi_someip_rt_:
 	  && git clone -q --branch github/master \
 	         ${CAPI_SOMEIP_RT_URL} $(SIMULATION_DEPS_SOURCE)/$@ > $(SIMULATION_DEPS_SOURCE)/__download.log 2>&1 \
 	  && cd $(SIMULATION_DEPS_SOURCE)/$@ \
-	    && git reset 0ad2bdc1807fc0f078b9f9368a47ff2f3366ed13 > /dev/null 2>&1
+	    && git checkout 0ad2bdc1807fc0f078b9f9368a47ff2f3366ed13 > /dev/null 2>&1
 	$Q echo "[$@] just from git repo, no need to extract"
 #-> 3. [compile]
 	$Q cd $(SIMULATION_DEPS_SOURCE)/$@ \
@@ -374,7 +374,7 @@ capi_core_tools_:
 	  && git clone -q --branch master \
 	         ${CAPI_CORE_TOOLS_URL} $(SIMULATION_DEPS_SOURCE)/$@ > $(SIMULATION_DEPS_SOURCE)/__download.log 2>&1 \
 	  && cd $(SIMULATION_DEPS_SOURCE)/$@ \
-	    && git reset 5ed80df56a64fdd9bf22b2f240a608e77be8262c > /dev/null 2>&1
+	    && git checkout 5ed80df56a64fdd9bf22b2f240a608e77be8262c > /dev/null 2>&1
 	$Q echo "[$@] just from git repo, no need to extract"
 #-> 3. [compile]
 	$Q cd $(SIMULATION_DEPS_SOURCE)/$@ \

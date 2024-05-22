@@ -30,11 +30,6 @@ apps:
     $TELAF_ROOT/apps/test/tafDataCallTest/tafDataCallUnitTest/tafDataCallUnitTest
 #endif
 
-#if ${TELAF_SIMULATION_ENABLE_DIAG} = y
-    $TELAF_ROOT/apps/tafServices/tafDiagSvc
-    $TELAF_ROOT/apps/sample/diagApp/tafDiagApp
-#endif
-
 #if ${TELAF_SIMULATION_ENABLE_SIM} = y
     // from --> $TELAF_ROOT/apps/tafServices/tafSimCardSvc
     $TELAF_ROOT/simulation/bypass/telsdk/tafSimCardSvc
@@ -60,6 +55,15 @@ apps:
 
 }
 
+#if ${TELAF_SIMULATION_ENABLE_DIAG} = y
+#if file_exists(${TELAF_SIMULATION_DIAG_SINC})
+#include "${TELAF_SIMULATION_DIAG_SINC}"
+#else
+// You enable diag feature, but not specify the diag.sinc file.
+apps: { NOT.FOUND.DIAG.FEATURE }
+#endif
+#endif
+
 commands:
 {
 #if ${TELAF_SIMULATION_ENABLE_LOC} = y
@@ -79,6 +83,7 @@ bindings:
 interfaceSearch:
 {
     $TELAF_ROOT/interfaces
+    $TELAF_ROOT/interfaces/staging
     $TELAF_ROOT/interfaces/tafVNW
     $LEGATO_ROOT/apps/sample/helloIpc
     $TELAF_ROOT/interfaces/someipGW

@@ -651,6 +651,28 @@ void taf_MngdAudio::Disconnect
         mTxSlotId = INVALID_SLOT_ID;
     }
 
+    le_ref_IterRef_t iteratorRef = le_ref_GetIterator(RouteRefMap);
+    while (le_ref_NextNode(iteratorRef) == LE_OK)
+    {
+        taf_mngd_audio_Route_t* routePtr =
+                (taf_mngd_audio_Route_t*) le_ref_GetValue(iteratorRef);
+        if ( routePtr && routePtr->sessionRef == taf_mngd_audio_GetClientSessionRef()
+                && routePtr->mode == TAF_MNGD_AUDIO_VOICE_CALL)
+        {
+            if (streamPtr == routePtr->modemRxPtr)
+            {
+                LE_DEBUG("Disconnect for modemRx stream");
+                routePtr->modemRxPtr = nullptr;
+                break;
+            } else if (streamPtr == routePtr->modemTxPtr)
+            {
+                LE_DEBUG("Disconnect for modemTx stream");
+                routePtr->modemTxPtr = nullptr;
+                break;
+            }
+        }
+    }
+
     if (streamPtr->device)
     {
         if (le_hashmap_ContainsKey(connPtr->audioInList, streamPtr))
@@ -850,6 +872,13 @@ taf_mngd_audio_StreamRef_t taf_MngdAudio::CreateStream
             case TAF_MNGD_AUDIO_IF_DSP_FRONTEND_FILE_PLAY:
                 streamPtr->eventId = CreateEventId();
                 streamPtr->direction = streamConfPtr->direction;
+                streamPtr->volLevel = 0.000000;
+                streamPtr->isMute = false;
+                break;
+            case TAF_MNGD_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX:
+                streamPtr->volLevel = 0.000000;
+            case TAF_MNGD_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_TX:
+                streamPtr->isMute = false;
                 break;
             default:
                 break;
@@ -1213,52 +1242,102 @@ le_result_t taf_MngdAudio::ConnectStreamPaths( taf_mngd_audio_Stream_t* streamPt
             outputPtr = streamPtr;
         }
 
+        le_ref_IterRef_t iteratorRef = le_ref_GetIterator(RouteRefMap);
+        while (le_ref_NextNode(iteratorRef) == LE_OK)
+        {
+            taf_mngd_audio_Route_t* routePtr =
+                    (taf_mngd_audio_Route_t*) le_ref_GetValue(iteratorRef);
+            if ( routePtr && routePtr->sessionRef == taf_mngd_audio_GetClientSessionRef()
+                    && routePtr->mode == TAF_MNGD_AUDIO_VOICE_CALL)
+            {
+                taf_mngd_audio_Stream_t* sinkPtr =
+                        (taf_mngd_audio_Stream_t*)le_ref_Lookup(StreamRefMap, routePtr->sinkRef);
+                if(le_hashmap_ContainsKey(streamListPtr, sinkPtr))
+                {
+                    if (inputPtr->interface == TAF_MNGD_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX)
+                    {
+                        LE_DEBUG("Assign modem Rx to route ptr");
+                        routePtr->modemRxPtr = inputPtr;
+                        break;
+                    }
+                }
+                taf_mngd_audio_Stream_t* sourcePtr =
+                        (taf_mngd_audio_Stream_t*)le_ref_Lookup(StreamRefMap, routePtr->sourceRef);
+                if(le_hashmap_ContainsKey(streamListPtr, sourcePtr))
+                {
+                    if (outputPtr->interface == TAF_MNGD_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_TX)
+                    {
+                        LE_DEBUG("Assign modem Tx to route ptr");
+                        routePtr->modemTxPtr = outputPtr;
+                        break;
+                    }
+                }
+            }
+        }
+
         LE_DEBUG("Input [%d] and Output [%d] are tied together.",
                 inputPtr->interface,
                 outputPtr->interface);
 
+        DeviceType outDevice = (DeviceType)-1, inDevice = (DeviceType)-1;
         // Set the config device type based on output device
         if (outputPtr->interface == TAF_MNGD_AUDIO_IF_CODEC_SPEAKER_0) {
-            voiceStreamConfig.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SINK_0);
-            LE_DEBUG("set config with device type speaker %d", DEVICE_TYPE_SINK_0);
+            outDevice = (DeviceType)DEVICE_TYPE_SINK_0;
         }
         else if (outputPtr->interface == TAF_MNGD_AUDIO_IF_CODEC_SPEAKER_1) {
-            voiceStreamConfig.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SINK_1);
-            LE_DEBUG("set config with device type speaker %d", DEVICE_TYPE_SINK_1);
+            outDevice = (DeviceType)DEVICE_TYPE_SINK_1;
         }
         else if (outputPtr->interface == TAF_MNGD_AUDIO_IF_CODEC_SPEAKER_2) {
-            voiceStreamConfig.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SINK_2);
-            LE_DEBUG("set config with device type speaker %d", DEVICE_TYPE_SINK_2);
+            outDevice = (DeviceType)DEVICE_TYPE_SINK_2;
         }
         else if (outputPtr->interface == TAF_MNGD_AUDIO_IF_CODEC_SPEAKER_3) {
-            voiceStreamConfig.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SINK_3);
-            LE_DEBUG("set config with device type speaker %d", DEVICE_TYPE_SINK_3);
+            outDevice = (DeviceType)DEVICE_TYPE_SINK_3;
         }
         else if (outputPtr->interface == TAF_MNGD_AUDIO_IF_CODEC_SPEAKER_4) {
-            voiceStreamConfig.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SINK_4);
-            LE_DEBUG("set config with device type speaker %d", DEVICE_TYPE_SINK_4);
+            outDevice = (DeviceType)DEVICE_TYPE_SINK_4;
+        }
+        if(outDevice != -1) {
+            bool isAvailable = false;
+            for(DeviceType dev : voiceStreamConfig.deviceTypes) {
+                if(dev == outDevice) {
+                    isAvailable = true;
+                    break;
+                }
+            }
+            if(!isAvailable) {
+                voiceStreamConfig.deviceTypes.emplace_back(outDevice);
+                LE_DEBUG("set config with device type speaker %d", outDevice);
+            }
         }
 
         // Set the config device type based on input device
         if (inputPtr->interface == TAF_MNGD_AUDIO_IF_CODEC_MIC_0) {
-            voiceStreamConfig.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SOURCE_0);
-            LE_DEBUG("set config with device type mic %d", DEVICE_TYPE_SOURCE_0);
+            inDevice = (DeviceType)DEVICE_TYPE_SOURCE_0;
         }
         else if (inputPtr->interface == TAF_MNGD_AUDIO_IF_CODEC_MIC_1) {
-            voiceStreamConfig.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SOURCE_1);
-            LE_DEBUG("set config with device type mic %d", DEVICE_TYPE_SOURCE_1);
+            inDevice = (DeviceType)DEVICE_TYPE_SOURCE_1;
         }
         else if (inputPtr->interface == TAF_MNGD_AUDIO_IF_CODEC_MIC_2) {
-            voiceStreamConfig.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SOURCE_2);
-            LE_DEBUG("set config with device type mic %d", DEVICE_TYPE_SOURCE_2);
+            inDevice = (DeviceType)DEVICE_TYPE_SOURCE_2;
         }
         else if (inputPtr->interface == TAF_MNGD_AUDIO_IF_CODEC_MIC_3) {
-            voiceStreamConfig.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SOURCE_3);
-            LE_DEBUG("set config with device type mic %d", DEVICE_TYPE_SOURCE_3);
+            inDevice = (DeviceType)DEVICE_TYPE_SOURCE_3;
         }
         else if (inputPtr->interface == TAF_MNGD_AUDIO_IF_CODEC_MIC_4) {
-            voiceStreamConfig.deviceTypes.emplace_back((DeviceType)DEVICE_TYPE_SOURCE_4);
-            LE_DEBUG("set config with device type mic %d", DEVICE_TYPE_SOURCE_4);
+            inDevice = (DeviceType)DEVICE_TYPE_SOURCE_4;
+        }
+        if(inDevice != -1) {
+            bool isAvailable = false;
+            for(DeviceType dev : voiceStreamConfig.deviceTypes) {
+                if(dev == inDevice) {
+                    isAvailable = true;
+                    break;
+                }
+            }
+            if(!isAvailable) {
+                voiceStreamConfig.deviceTypes.emplace_back(inDevice);
+                LE_DEBUG("set config with device type speaker %d", inDevice);
+            }
         }
 
         if (mModemRx && mModemTx && mSpeaker && mMic && !mCallStarted)
@@ -1283,6 +1362,21 @@ le_result_t taf_MngdAudio::ConnectStreamPaths( taf_mngd_audio_Stream_t* streamPt
                     LE_INFO("setting default sampling rate as 16000");
                 }
                 res = StartAudio(voiceStreamConfig);
+                le_ref_IterRef_t iteratorRef = le_ref_GetIterator(RouteRefMap);
+                while (le_ref_NextNode(iteratorRef) == LE_OK)
+                {
+                    taf_mngd_audio_Route_t* routePtr =
+                            (taf_mngd_audio_Route_t*) le_ref_GetValue(iteratorRef);
+                    if ( routePtr && routePtr->sessionRef == taf_mngd_audio_GetClientSessionRef()
+                            && routePtr->mode == TAF_MNGD_AUDIO_VOICE_CALL)
+                    {
+                        SetVolume(routePtr->modemRxPtr->streamRef, routePtr->modemRxPtr->volLevel);
+                        if(routePtr->modemRxPtr->isMute)
+                            SetMute(routePtr->modemRxPtr->streamRef, true);
+                        if(routePtr->modemTxPtr->isMute)
+                            SetMute(routePtr->modemTxPtr->streamRef, true);
+                    }
+                }
             }
             else {
                 res = LE_OK;
@@ -1380,7 +1474,7 @@ le_result_t taf_MngdAudio::StartAudio
                     LE_DEBUG("Request to start voice stream sent");
                     ErrorCode error = gCallbackPromise.get_future().get();
                     if (ErrorCode::SUCCESS != error) {
-                        LE_ERROR("Request to start failed");
+                        LE_ERROR("Request to start failed error : %d", (int)error);
                         return LE_FAULT;
                     }
                     mCallStarted = true;
@@ -1673,7 +1767,30 @@ le_result_t taf_MngdAudio::RecordFile
         if(mFile) {
             fseek(mFile, 0, SEEK_SET);
             if(setWavHeader(mFile, streamPtr) == LE_OK)
+            {
+                le_result_t res = SetVolume(streamRef, streamPtr->volLevel);
+                if (res == LE_OK)
+                {
+                    LE_INFO("Successfully set the vol level to recorder stream");
+                }
+                else
+                {
+                    LE_INFO("Failed to set the vol level to recorder stream");
+                }
+                if (streamPtr->isMute)
+                {
+                    res = SetMute(streamRef, streamPtr->isMute);
+                    if (res == LE_OK)
+                    {
+                        LE_INFO("Successfully set the mute status to recorder stream");
+                    }
+                    else
+                    {
+                        LE_INFO("Failed to set the mute status to recorder stream");
+                    }
+                }
                 le_thread_Start(le_thread_Create("RecordThread", Record, streamPtr));
+            }
             else
                 return LE_FAULT;
         } else {
@@ -1790,7 +1907,7 @@ void* taf_MngdAudio::Record( void* ctxPtr) {
         }
         mngdAudio.mFileFormat = AudioFormat::UNKNOWN;
 
-        // Update recorded buffer size to the header after completing teh recording.
+        // Update recorded buffer size to the header after completing the recording.
         WavHeader_t hdr;
         fseek(mngdAudio.mFile, ((uint8_t*)&hdr.chunkDataSize - (uint8_t*)&hdr), SEEK_SET);
 
@@ -1972,6 +2089,28 @@ le_result_t taf_MngdAudio::PlayFile
     } else {
         auto &mngdAudio = taf_MngdAudio::GetInstance();
         mngdAudio.setVhalRouteStatus(TAF_MNGD_AUDIO_LOCAL_PLAYBACK, true);
+        sleep(1);
+        le_result_t setVolRes = SetVolume(streamRef, streamPtr->volLevel);
+        if (setVolRes == LE_OK)
+        {
+            LE_INFO("Successfully set the vol level to player stream");
+        }
+        else
+        {
+            LE_INFO("Failed to set the vol level to player stream");
+        }
+        if(streamPtr->isMute)
+        {
+            setVolRes = SetMute(streamRef, streamPtr->isMute);
+            if (setVolRes == LE_OK)
+            {
+                LE_INFO("Successfully set the mute status to player stream");
+            }
+            else
+            {
+                LE_INFO("Failed to set mute status to player stream");
+            }
+        }
     }
 
     return res;
@@ -2855,6 +2994,30 @@ le_result_t taf_MngdAudio::PlayFileList
 #if !defined(LE_CONFIG_AUDIO_MULTI_FORMAT_PB_SUPPORTED)
         config.formatParams = nullptr;
 #endif
+        auto &mngdAudio = taf_MngdAudio::GetInstance();
+        mngdAudio.setVhalRouteStatus(TAF_MNGD_AUDIO_LOCAL_PLAYBACK, true);
+        sleep(1); // Added to make setVolume work.
+        le_result_t setVolRes = SetVolume(streamRef, streamPtr->volLevel);
+        if (setVolRes == LE_OK)
+        {
+            LE_INFO("Successfully set the vol level to player stream");
+        }
+        else
+        {
+            LE_INFO("Failed to set the vol level to player stream");
+        }
+        if(streamPtr->isMute)
+        {
+            setVolRes = SetMute(streamRef, streamPtr->isMute);
+            if (setVolRes == LE_OK)
+            {
+                LE_INFO("Successfully set the mute status to player stream");
+            }
+            else
+            {
+                LE_INFO("Failed to set the mute status to player stream");
+            }
+        }
     currPlayListRef = playListptr->playListRef;
     playListptr->isPlaybackInProgress = true;
     close(streamPtr->fd);
@@ -2879,9 +3042,14 @@ le_result_t taf_MngdAudio::SetMute
     StreamMute muteObj = {};
     muteObj.enable = isMute;
     if(streamPtr->interface == TAF_MNGD_AUDIO_IF_DSP_FRONTEND_FILE_PLAY
-            && streamPtr->direction == TAF_MNGD_AUDIO_RX && mAudioPlayer)
+            && streamPtr->direction == TAF_MNGD_AUDIO_RX)
     {
         LE_DEBUG("Set the mute status to player stream reference");
+        if(!mIsPlaying) {
+            LE_DEBUG("Stream is not active, update the mute status to stream reference");
+            streamPtr->isMute = isMute;
+            return LE_OK;
+        }
 #if defined(LE_CONFIG_AUDIO_MULTI_FORMAT_PB_SUPPORTED)
         StreamVolume streamVol;
         ChannelVolume leftChannelVol, rightChannelVol;
@@ -2890,8 +3058,8 @@ le_result_t taf_MngdAudio::SetMute
             leftChannelVol.vol = 0;
             rightChannelVol.vol = 0;
         } else {
-            leftChannelVol.vol = 0.5;
-            rightChannelVol.vol = 0.5;
+            leftChannelVol.vol = streamPtr->volLevel;
+            rightChannelVol.vol = streamPtr->volLevel;
         }
         leftChannelVol.channelType = ChannelType::LEFT;
         rightChannelVol.channelType = ChannelType::RIGHT;
@@ -2903,31 +3071,45 @@ le_result_t taf_MngdAudio::SetMute
             if (isMute) {
                 LE_ERROR("Request to Mute failed err: %d", int (err));
             } else {
-                LE_ERROR("Request to UnMute failed");
+                LE_ERROR("Request to UnMute failed error: %d", int(err));
             }
             return LE_FAULT;
         } else {
+            streamPtr->isMute = isMute;
             return LE_OK;
         }
 #else
         return LE_UNSUPPORTED;
 #endif
     } else if (streamPtr->interface == TAF_MNGD_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE
-            && streamPtr->direction == TAF_MNGD_AUDIO_TX && mAudioCaptureStream)
+            && streamPtr->direction == TAF_MNGD_AUDIO_TX)
     {
         LE_DEBUG("Set the mute status to recorder stream reference");
+        if(!mAudioCaptureStream) {
+            LE_DEBUG("Stream is not active, update the mute status to stream reference");
+            streamPtr->isMute = isMute;
+            return LE_OK;
+        }
         muteObj.dir = StreamDirection::TX;
         status = mAudioCaptureStream->setMute(muteObj, StreamMuteUnmuteCallback);
-    } else if (streamPtr->interface == TAF_MNGD_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX
-            && mAudioVoiceStream)
+    } else if (streamPtr->interface == TAF_MNGD_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX)
     {
         LE_DEBUG("Set the mute status to voice RX stream reference");
+        if(!mAudioVoiceStream) {
+            LE_DEBUG("Stream is not active, update the mute status to stream reference");
+            streamPtr->isMute = isMute;
+            return LE_OK;
+        }
         muteObj.dir = StreamDirection::RX;
         status = mAudioVoiceStream->setMute(muteObj, StreamMuteUnmuteCallback);
-    } else if (streamPtr->interface == TAF_MNGD_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_TX
-            && mAudioVoiceStream)
+    } else if (streamPtr->interface == TAF_MNGD_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_TX)
     {
         LE_DEBUG("Set the mute status to voice TX stream reference");
+        if(!mAudioVoiceStream) {
+            LE_DEBUG("Stream is not active, update the mute status to stream reference");
+            streamPtr->isMute = isMute;
+            return LE_OK;
+        }
         muteObj.dir = StreamDirection::TX;
         status = mAudioVoiceStream->setMute(muteObj, StreamMuteUnmuteCallback);
     } else
@@ -2946,6 +3128,7 @@ le_result_t taf_MngdAudio::SetMute
             }
             return LE_FAULT;
         }
+        streamPtr->isMute = isMute;
         res = LE_OK;
     } else {
         if (muteObj.enable) {
@@ -2975,9 +3158,14 @@ le_result_t taf_MngdAudio::GetMute
     StreamMute muteObj = {};
 
     if(streamPtr->interface == TAF_MNGD_AUDIO_IF_DSP_FRONTEND_FILE_PLAY
-            && streamPtr->direction == TAF_MNGD_AUDIO_RX && mAudioPlayer)
+            && streamPtr->direction == TAF_MNGD_AUDIO_RX)
     {
         LE_DEBUG("Get mute status of player stream reference");
+        if(!mIsPlaying) {
+            LE_DEBUG("Stream is not active, update the mute status of stream reference");
+            *isMute = streamPtr->isMute;
+            return LE_OK;
+        }
 #if defined(LE_CONFIG_AUDIO_MULTI_FORMAT_PB_SUPPORTED)
         StreamVolume streamVol;
 
@@ -2996,9 +3184,14 @@ le_result_t taf_MngdAudio::GetMute
         return LE_UNSUPPORTED;
 #endif
     } else if (streamPtr->interface == TAF_MNGD_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE
-            && streamPtr->direction == TAF_MNGD_AUDIO_TX && mAudioCaptureStream)
+            && streamPtr->direction == TAF_MNGD_AUDIO_TX)
     {
         LE_DEBUG("Get mute status of recorder stream reference");
+        if(!mAudioCaptureStream) {
+            LE_DEBUG("Stream is not active, update the mute status of stream reference");
+            *isMute = streamPtr->isMute;
+            return LE_OK;
+        }
         status = mAudioCaptureStream->getMute(StreamDirection::TX,
                 [&p, &responseStatus, &muteObj, this](StreamMute mute, ErrorCode error) {
             if (error == ErrorCode::SUCCESS) {
@@ -3006,14 +3199,19 @@ le_result_t taf_MngdAudio::GetMute
                 muteObj = mute;
                 p.set_value(true);
             } else {
+                LE_ERROR("Failed to get mute status, error : %d", (int)error);
                 responseStatus = telux::common::Status::FAILED;
                 p.set_value(false);
             }
         });
-    } else if (streamPtr->interface == TAF_MNGD_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX
-            && mAudioVoiceStream)
+    } else if (streamPtr->interface == TAF_MNGD_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX)
     {
         LE_DEBUG("Get mute status of voice RX stream reference");
+        if(!mAudioVoiceStream) {
+            LE_DEBUG("Stream is not active, update the mute status of stream reference");
+            *isMute = streamPtr->isMute;
+            return LE_OK;
+        }
         status = mAudioVoiceStream->getMute(StreamDirection::RX,
                 [&p, &responseStatus, &muteObj, this](StreamMute mute, ErrorCode error) {
             if (error == ErrorCode::SUCCESS) {
@@ -3021,14 +3219,19 @@ le_result_t taf_MngdAudio::GetMute
                 muteObj = mute;
                 p.set_value(true);
             } else {
+                LE_ERROR("Failed to get mute status, error : %d", (int)error);
                 responseStatus = telux::common::Status::FAILED;
                 p.set_value(false);
             }
         });
-    } else if (streamPtr->interface == TAF_MNGD_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_TX
-            && mAudioVoiceStream)
+    } else if (streamPtr->interface == TAF_MNGD_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_TX)
     {
-        LE_DEBUG("Get mute statsu of voice TX stream reference");
+        LE_DEBUG("Get mute status of voice TX stream reference");
+        if(!mAudioVoiceStream) {
+            LE_DEBUG("Stream is not active, update the mute status of stream reference");
+            *isMute = streamPtr->isMute;
+            return LE_OK;
+        }
         status = mAudioVoiceStream->getMute(StreamDirection::TX,
                 [&p, &responseStatus, &muteObj, this](StreamMute mute, ErrorCode error) {
             if (error == ErrorCode::SUCCESS) {
@@ -3036,6 +3239,7 @@ le_result_t taf_MngdAudio::GetMute
                 muteObj = mute;
                 p.set_value(true);
             } else {
+                LE_ERROR("Failed to get mute status, error : %d", (int)error);
                 responseStatus = telux::common::Status::FAILED;
                 p.set_value(false);
             }
@@ -3049,6 +3253,204 @@ le_result_t taf_MngdAudio::GetMute
         p.get_future().wait();
         LE_INFO("Successfully got the mute status %s", muteObj.enable ? "true" : "false");
         *isMute = muteObj.enable;
+        return LE_OK;
+    }
+    return LE_FAULT;
+}
+
+le_result_t taf_MngdAudio::SetVolume
+(
+    taf_mngd_audio_StreamRef_t streamRef,
+    double volLevel
+)
+{
+    taf_mngd_audio_Stream_t* streamPtr = (taf_mngd_audio_Stream_t*)le_ref_Lookup(StreamRefMap,
+            streamRef);
+    TAF_ERROR_IF_RET_VAL((streamPtr == NULL), LE_FAULT, "Invalid reference");
+    TAF_ERROR_IF_RET_VAL( volLevel < 0 || volLevel > 1, LE_BAD_PARAMETER, "Invalid volume level");
+
+    auto status = Status::FAILED;
+    std::promise<bool> p;
+
+    telux::audio::StreamVolume streamVol;
+    ChannelVolume leftChannelVol, rightChannelVol;
+    leftChannelVol.vol = volLevel;
+    rightChannelVol.vol = volLevel;
+
+    leftChannelVol.channelType = ChannelType::LEFT;
+    rightChannelVol.channelType = ChannelType::RIGHT;
+    streamVol.volume.emplace_back(leftChannelVol);
+    streamVol.volume.emplace_back(rightChannelVol);
+
+    if(streamPtr->interface == TAF_MNGD_AUDIO_IF_DSP_FRONTEND_FILE_PLAY
+            && streamPtr->direction == TAF_MNGD_AUDIO_RX)
+    {
+        LE_DEBUG("Set volume to player stream reference");
+        if(!mIsPlaying) {
+            LE_DEBUG("Stream is not active, update the volume level to stream reference");
+            streamPtr->volLevel = volLevel;
+            return LE_OK;
+        }
+#if defined(LE_CONFIG_AUDIO_MULTI_FORMAT_PB_SUPPORTED)
+        ErrorCode err = mAudioPlayer->setVolume(streamVol);
+        if (ErrorCode::SUCCESS != err) {
+            LE_ERROR("Request to set volume failed err: %d", int (err));
+            return LE_FAULT;
+        } else {
+            streamPtr->volLevel = volLevel;
+            return LE_OK;
+        }
+#else
+        return LE_UNSUPPORTED;
+#endif
+    } else if (streamPtr->interface == TAF_MNGD_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE
+            && streamPtr->direction == TAF_MNGD_AUDIO_TX)
+    {
+        LE_DEBUG("Set volume to recorder stream reference");
+        if(!mAudioCaptureStream) {
+            LE_DEBUG("Stream is not active, update the volume level to stream reference");
+            streamPtr->volLevel = volLevel;
+            return LE_OK;
+        }
+        streamVol.dir = StreamDirection::TX;
+        status = mAudioCaptureStream->setVolume(streamVol,
+                [&p, this](ErrorCode error) {
+            if (error == ErrorCode::SUCCESS) {
+                p.set_value(true);
+            } else {
+                LE_ERROR("Failed to set volume, error : %d", (int)error);
+                p.set_value(false);
+            }
+        });
+    } else if (streamPtr->interface == TAF_MNGD_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX)
+    {
+        LE_DEBUG("Set volume to modem RX stream reference");
+        if(!mAudioVoiceStream) {
+            LE_DEBUG("Stream is not active, update the volume level to stream reference");
+            streamPtr->volLevel = volLevel;
+            return LE_OK;
+        }
+        streamVol.dir = StreamDirection::RX;
+        status = mAudioVoiceStream->setVolume(streamVol,
+                [&p, this](ErrorCode error) {
+            if (error == ErrorCode::SUCCESS) {
+                p.set_value(true);
+            } else {
+                LE_ERROR("Failed to set volume, error : %d", (int)error);
+                p.set_value(false);
+            }
+        });
+    } else
+    {
+        LE_ERROR("Invalid stream reference");
+        return LE_BAD_PARAMETER;
+    }
+    if(status == telux::common::Status::SUCCESS) {
+        LE_INFO("Request to set volume sent");
+    } else {
+        LE_ERROR("Request to set volume failed");
+        return LE_FAULT;
+    }
+    if (p.get_future().get()) {
+        LE_INFO("setVolume successful.");
+        streamPtr->volLevel = volLevel;
+    }
+    return LE_OK;
+}
+
+le_result_t taf_MngdAudio::GetVolume
+(
+    taf_mngd_audio_StreamRef_t streamRef,
+    double *volLevel
+)
+{
+    taf_mngd_audio_Stream_t* streamPtr = (taf_mngd_audio_Stream_t*)le_ref_Lookup(StreamRefMap,
+            streamRef);
+    TAF_ERROR_IF_RET_VAL((streamPtr == NULL), LE_FAULT, "Invalid reference");
+
+    auto status = Status::FAILED;
+    std::promise<bool> p;
+    telux::audio::StreamVolume streamVol;
+
+    if(streamPtr->interface == TAF_MNGD_AUDIO_IF_DSP_FRONTEND_FILE_PLAY
+            && streamPtr->direction == TAF_MNGD_AUDIO_RX)
+    {
+        LE_DEBUG("Get volume to player stream reference");
+        if(!mIsPlaying) {
+            LE_DEBUG("Stream is not active,  share local stream reference volume");
+            *volLevel = streamPtr->volLevel;
+            return LE_OK;
+        }
+#if defined(LE_CONFIG_AUDIO_MULTI_FORMAT_PB_SUPPORTED)
+
+        ErrorCode err = mAudioPlayer->getVolume(streamVol);
+        if (ErrorCode::SUCCESS != err) {
+            LE_ERROR("Request to get Mute status failed err: %d", int (err));
+            return LE_FAULT;
+        } else {
+            for (auto channelVolume : streamVol.volume) {
+                LE_INFO("vol is %f", channelVolume.vol);
+                *volLevel  = channelVolume.vol;
+            }
+            return LE_OK;
+        }
+#else
+        return LE_UNSUPPORTED;
+#endif
+    } else if (streamPtr->interface == TAF_MNGD_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE
+            && streamPtr->direction == TAF_MNGD_AUDIO_TX)
+    {
+        LE_DEBUG("Get volume to recorder stream reference");
+        if(!mAudioCaptureStream) {
+            LE_DEBUG("Stream is not active,  share local stream reference volume");
+            *volLevel = streamPtr->volLevel;
+            return LE_OK;
+        }
+        status = mAudioCaptureStream->getVolume(StreamDirection::TX,
+                [&p, &streamVol, this](telux::audio::StreamVolume volume, ErrorCode error) {
+            if (error == ErrorCode::SUCCESS) {
+                streamVol = volume;
+                p.set_value(true);
+            } else {
+                LE_ERROR("Failed to get volume, error : %d", (int)error);
+                p.set_value(false);
+            }
+        });
+    } else if (streamPtr->interface == TAF_MNGD_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX)
+    {
+        LE_DEBUG("Get volume to modem RX stream reference");
+        if(!mAudioVoiceStream) {
+            LE_DEBUG("Stream is not active,  share local stream reference volume");
+            *volLevel = streamPtr->volLevel;
+            return LE_OK;
+        }
+        status = mAudioVoiceStream->getVolume(StreamDirection::RX,
+                [&p, &streamVol, this](telux::audio::StreamVolume volume, ErrorCode error) {
+            if (error == ErrorCode::SUCCESS) {
+                streamVol = volume;
+                p.set_value(true);
+            } else {
+                LE_ERROR("Failed to get volume, error : %d", (int)error);
+                p.set_value(false);
+            }
+        });
+    } else
+    {
+        LE_ERROR("Invalid stream reference");
+        return LE_BAD_PARAMETER;
+    }
+    if(status == telux::common::Status::SUCCESS) {
+        LE_INFO("Request to get volume sent");
+    } else {
+        LE_ERROR("Request to get volume failed");
+        return LE_FAULT;
+    }
+    if (p.get_future().get()) {
+        LE_INFO("getVolume successful.");
+        for (auto channelVolume : streamVol.volume) {
+            LE_INFO("vol is %f", channelVolume.vol);
+            *volLevel  = channelVolume.vol;
+        }
         return LE_OK;
     }
     return LE_FAULT;

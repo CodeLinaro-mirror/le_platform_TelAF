@@ -124,9 +124,10 @@ typedef struct taf_mngd_audio_Stream {
     bool             device;
     bool             playFile;
     bool echoCancellerEnabled;
-    uint32_t         gain;
     int32_t          fd;
     uint32_t         timeSlot;
+    double           volLevel;
+    bool             isMute;
     taf_mngd_audio_If_t interface;
     le_hashmap_Ref_t connList;
     taf_mngd_audio_Direction_t direction;
@@ -158,6 +159,8 @@ typedef struct
     taf_mngd_audio_Mode_t mode;
     taf_mngd_audio_StreamRef_t sinkRef;
     taf_mngd_audio_StreamRef_t sourceRef;
+    taf_mngd_audio_Stream* modemRxPtr;
+    taf_mngd_audio_Stream* modemTxPtr;
     le_msg_SessionRef_t sessionRef;
     taf_mngd_audio_RouteRef_t routeRef;
 }
@@ -311,6 +314,8 @@ class taf_MngdAudio : public ITafSvc
                 taf_mngd_audio_PlayListRef_t playListRef);
         le_result_t SetMute( taf_mngd_audio_StreamRef_t streamRef, bool isMute);
         le_result_t GetMute( taf_mngd_audio_StreamRef_t streamRef, bool *isMute);
+        le_result_t SetVolume( taf_mngd_audio_StreamRef_t streamRef, double volLevel);
+        le_result_t GetVolume( taf_mngd_audio_StreamRef_t streamRef, double *volLevel);
 
         private:
 

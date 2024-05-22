@@ -275,6 +275,31 @@ void TEST_MNGD_AUDIO_PLAYBACK()
     res = taf_mngd_audio_PlayFile(playerRef, amrfilePath);
     LE_TEST_OK(res == LE_OK, "Successfully started the file playback");
 
+    double volLevel = 1.0;
+    LE_TEST_INFO("Test taf_mngd_audio_SetVolume on playerRef");
+    res = taf_mngd_audio_SetVolume(playerRef, volLevel);
+    LE_TEST_OK(res == LE_OK, "Successfully set volume to playerRef");
+
+    LE_TEST_INFO("Test taf_mngd_audio_GetVolume to get volume of playerRef");
+    res = taf_mngd_audio_GetVolume(playerRef, &volLevel);
+    LE_TEST_OK(volLevel == 1.0, "Successfully get the volume level of player %f", volLevel);
+
+    le_sem_WaitWithTimeOut(tafAudioAppSem ,Timeout);
+
+    LE_TEST_INFO("Test taf_mngd_audio_Stop playback");
+    res = taf_mngd_audio_Stop(playerRef);
+    LE_TEST_OK(res == LE_OK, "Successfully stopped the file playback");
+
+    le_sem_Wait(tafAudioAppSem);
+
+    LE_TEST_INFO("Test taf_mngd_audio_GetVolume to get volume of playerRef");
+    res = taf_mngd_audio_GetVolume(playerRef, &volLevel);
+    LE_TEST_OK(volLevel == 1.0, "Successfully get the volume level of player %f", volLevel);
+
+    LE_TEST_INFO("Test taf_mngd_audio_PlayFile to play a file");
+    res = taf_mngd_audio_PlayFile(playerRef, wavfilePath);
+    LE_TEST_OK(res == LE_OK, "Successfully started the file playback");
+
     le_sem_WaitWithTimeOut(tafAudioAppSem ,Timeout);
 
     LE_TEST_INFO("Test taf_mngd_audio_Stop playback");
@@ -286,6 +311,10 @@ void TEST_MNGD_AUDIO_PLAYBACK()
     LE_TEST_INFO("Test taf_mngd_audio_PlayFile to play a file");
     res = taf_mngd_audio_PlayFile(playerRef, wavfilePath);
     LE_TEST_OK(res == LE_OK, "Successfully started the file playback");
+
+    LE_TEST_INFO("Test taf_mngd_audio_GetVolume to get volume of playerRef");
+    res = taf_mngd_audio_GetVolume(playerRef, &volLevel);
+    LE_TEST_OK(volLevel == 1.0, "Successfully get the volume level of player %f", volLevel);
 
     le_sem_WaitWithTimeOut(tafAudioAppSem ,Timeout);
 
@@ -326,7 +355,7 @@ void TEST_MNGD_AUDIO_PLAYBACK()
 
     LE_TEST_INFO("Test taf_mngd_audio_CloseRoute");
     res = taf_mngd_audio_CloseRoute(routeRef);
-    LE_TEST_OK(res == LE_OK, "Successfully closed the LOACL_PLAYBACK route");
+    LE_TEST_OK(res == LE_OK, "Successfully closed the LOCAL_PLAYBACK route");
 
     LE_TEST_INFO("Test taf_mngd_audio_RemoveMediaHandler");
     taf_mngd_audio_RemoveMediaHandler(MediaHandlerRef);
@@ -422,7 +451,7 @@ void TEST_MNGD_AUDIO_PLAYBACK_FILE_LIST()
 
     LE_TEST_INFO("Test taf_mngd_audio_CloseRoute");
     res = taf_mngd_audio_CloseRoute(routeRef);
-    LE_TEST_OK(res == LE_OK, "Successfully closed the LOACL_PLAYBACK route");
+    LE_TEST_OK(res == LE_OK, "Successfully closed the LOCAL_PLAYBACK route");
 
     LE_TEST_INFO("Test taf_mngd_audio_RemoveMediaHandler");
     taf_mngd_audio_RemoveMediaHandler(MediaHandlerRef);
@@ -494,13 +523,58 @@ void TEST_MNGD_AUDIO_RECORD()
     res = taf_mngd_audio_GetMute(recorderRef, &isMute);
     LE_TEST_OK(!isMute, "Successfully get the mute status as false");
 
-    LE_TEST_INFO("Test taf_mngd_audio_SetMute to mute recorderRef");
-    res = taf_mngd_audio_SetMute(recorderRef, true);
-    LE_TEST_OK(res == LE_OK, "Successfully recorderRef is muted");
+    LE_TEST_INFO("Test taf_mngd_audio_SetMute to mute sinkRef");
+    res = taf_mngd_audio_SetMute(sinkRef, true);
+    LE_TEST_OK(res == LE_FAULT, "Successfully failed to mute NULL reference");
+
+    LE_TEST_INFO("Test taf_mngd_audio_SetMute to mute sourceRef");
+    res = taf_mngd_audio_SetMute(sourceRef, true);
+    LE_TEST_OK(res == LE_BAD_PARAMETER, "Successfully failed to mute sourceRef");
 
     LE_TEST_INFO("Test taf_mngd_audio_GetMute to get mute status of recorderRef");
-    res = taf_mngd_audio_GetMute(recorderRef, &isMute);
-    LE_TEST_OK(isMute, "Successfully get the mute status as true");
+    res = taf_mngd_audio_GetMute(sourceRef, &isMute);
+    LE_TEST_OK(res == LE_BAD_PARAMETER, "Successfully failed to get the mute status of sourceRef");
+
+    double volLevel = 1.0;
+    LE_TEST_INFO("Test taf_mngd_audio_SetVolume on recorderRef");
+    res = taf_mngd_audio_SetVolume(recorderRef, volLevel);
+    LE_TEST_OK(res == LE_OK, "Successfully set volume to recorderRef");
+
+    LE_TEST_INFO("Test taf_mngd_audio_GetVolume to get volume of recorderRef");
+    res = taf_mngd_audio_GetVolume(recorderRef, &volLevel);
+    LE_TEST_OK(volLevel == 1.0, "Successfully get the volume level of recorder %f", volLevel);
+
+    LE_TEST_INFO("Test taf_mngd_audio_SetVolume of sinkRef");
+    res = taf_mngd_audio_SetVolume(sinkRef, volLevel);
+    LE_TEST_OK(res == LE_FAULT, "Successfully failed to set volume to NULL reference");
+
+    le_sem_WaitWithTimeOut(tafAudioAppSem ,Timeout);
+
+    LE_TEST_INFO("Test taf_mngd_audio_Stop recording");
+    res = taf_mngd_audio_Stop(recorderRef);
+    LE_TEST_OK(res == LE_OK, "Successfully stopped the file recording");
+
+    le_sem_WaitWithTimeOut(tafAudioAppSem, Timeout);
+
+    LE_TEST_INFO("Test taf_mngd_audio_GetVolume to get volume of recorderRef");
+    res = taf_mngd_audio_GetVolume(recorderRef, &volLevel);
+    LE_TEST_OK(volLevel == 1.0, "Successfully get the volume level of recorder %f", volLevel);
+
+    LE_TEST_INFO("Test taf_mngd_audio_RecordFile to record a file");
+    res = taf_mngd_audio_RecordFile(recorderRef, recordfilePath);
+    LE_TEST_OK(res == LE_OK, "Successfully started the file recording");
+
+    LE_TEST_INFO("Test taf_mngd_audio_GetVolume to get volume of recorderRef");
+    res = taf_mngd_audio_GetVolume(recorderRef, &volLevel);
+    LE_TEST_OK(volLevel == 1.0, "Successfully get the volume level of recorder %f", volLevel);
+
+    LE_TEST_INFO("Test taf_mngd_audio_SetVolume on sourceRef");
+    res = taf_mngd_audio_SetVolume(sourceRef, volLevel);
+    LE_TEST_OK(res == LE_BAD_PARAMETER, "Successfully failed to set volume to sourceRef");
+
+    LE_TEST_INFO("Test taf_mngd_audio_GetVolume to get volume of sourceRef");
+    res = taf_mngd_audio_GetVolume(sourceRef, &volLevel);
+    LE_TEST_OK(res == LE_BAD_PARAMETER, "Sucessfully failed to get the volume level of sourceRef");
 
     le_sem_WaitWithTimeOut(tafAudioAppSem ,Timeout);
 
@@ -520,7 +594,7 @@ void TEST_MNGD_AUDIO_RECORD()
 
     LE_TEST_INFO("Test taf_mngd_audio_CloseRoute");
     res = taf_mngd_audio_CloseRoute(routeRef);
-    LE_TEST_OK(res == LE_OK, "Successfully closed the LOACL_RECORDING route");
+    LE_TEST_OK(res == LE_OK, "Successfully closed the LOCAL_RECORDING route");
 
     LE_TEST_INFO("Test taf_mngd_audio_RemoveMediaHandler");
     taf_mngd_audio_RemoveMediaHandler(MediaHandlerRef);
@@ -589,6 +663,17 @@ void TEST_MNGD_AUDIO_VOICE_CONNECTION()
     LE_TEST_INFO("Test taf_mngd_audio_Connect to connect txConn and txStreamRef");
     res = taf_mngd_audio_Connect(txConn, txStreamRef);
     LE_TEST_OK(res == LE_OK, "Successfully txStreamRef connected to txConn");
+
+    le_sem_WaitWithTimeOut(tafAudioAppSem, Timeout);
+
+    double volLevel = 1.0;
+    LE_TEST_INFO("Test taf_mngd_audio_SetVolume on rxStreamRef");
+    res = taf_mngd_audio_SetVolume(rxStreamRef, volLevel);
+    LE_TEST_OK(res == LE_OK, "Successfully set volume to rxStreamRef");
+
+    LE_TEST_INFO("Test taf_mngd_audio_GetVolume to get volume of rxStreamRef");
+    res = taf_mngd_audio_GetVolume(rxStreamRef, &volLevel);
+    LE_TEST_OK(volLevel == 1.0, "Successfully get the volume level of rxStreamRef %f", volLevel);
 
     le_sem_WaitWithTimeOut(tafAudioAppSem, Timeout);
 

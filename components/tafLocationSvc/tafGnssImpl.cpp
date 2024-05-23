@@ -549,12 +549,10 @@ void taf_Gnss::GnssPositionHandler
 void tafLocationListener::onDetailedEngineLocationUpdate(
       const std::vector<std::shared_ptr<telux::loc::ILocationInfoEx> > &locationEngineInfo) {
     auto &gnss = taf_Gnss::GetInstance();
-    LE_DEBUG("onDetailedEngineUpdate *sessionRef: %p", *clientSessionRef);
     taf_gnss_Client_t* clientRequestPtr = NULL;
     clientRequestPtr = gnss.DiscoverSessionRef(*clientSessionRef);
 
     if (NULL == clientRequestPtr) {
-        LE_DEBUG("onDetailedEngineUpdate did not find sessionRef: %p", *clientSessionRef);
         return;
     }
 
@@ -2025,12 +2023,8 @@ taf_gnss_Client_t* taf_Gnss::DiscoverSessionRef
             return NULL;
         }
 
-        LE_DEBUG("gnssPtr %p, gnssPtr->sessionRef %p, sessionRef %p",
-                 gnssPtr, gnssPtr->sessionRef, sessionRef);
-
         if (sessionRef == gnssPtr->sessionRef)
         {
-             LE_DEBUG("sessionRef %p found in Client session", sessionRef);
              return gnssPtr;
         }
         result = le_ref_NextNode(iterRef);

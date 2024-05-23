@@ -437,7 +437,7 @@ static void Remove_Voicecall_StateHandler()
 COMPONENT_INIT
 {
     int index;
-    char input_str[5];
+    char input_str[5] = {'\0'};
     char *unused __attribute__((unused));
 
     register_call_handler();
@@ -456,7 +456,7 @@ COMPONENT_INIT
     std::cout << "TelAF > ";
     unused = fgets(input_str,sizeof(input_str),stdin);
 
-    while(input_str[0]!='0')
+    while(input_str[0]!='0' && input_str[0]!='\0')
     {
         if((input_str[0]=='1')&&(input_str[1]=='\n'))
         {

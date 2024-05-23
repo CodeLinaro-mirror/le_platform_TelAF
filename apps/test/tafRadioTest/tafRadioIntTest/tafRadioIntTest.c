@@ -50,6 +50,7 @@ taf_radio_ImsRegStatusChangeHandlerRef_t imsRegStatusChangeHandlerRef;
 taf_radio_OpModeChangeHandlerRef_t opModeChangeHandlerRef;
 taf_radio_NetStatusChangeHandlerRef_t netStatusChangeHandlerRef;
 taf_radio_ImsStatusChangeHandlerRef_t imsStatusChangeHandlerRef;
+taf_radio_CellInfoChangeHandlerRef_t cellInfoChangeHandlerRef;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -1138,6 +1139,37 @@ void GsmSsChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Handler for CellInfo change status.
+ */
+//--------------------------------------------------------------------------------------------------
+void CellInfoChangeHandler
+(
+    taf_radio_CellInfoStatus_t cellStatus,
+    uint8_t phoneId, ///< [IN] Phone ID.
+    void* contextPtr ///< [IN] Handler context.
+)
+{
+    LE_INFO("Phone %d CellInfo status : %d", phoneId, cellStatus);
+
+    switch (cellStatus)
+    {
+        case TAF_RADIO_CELL_SERVING_CHANGED:
+            LE_INFO("Serving cell changed.");
+            break;
+        case TAF_RADIO_CELL_NEIGHBOR_CHANGED:
+            LE_INFO("Neighbor cell changed.");
+            break;
+        case TAF_RADIO_CELL_SERVING_AND_NEIGHBOR_CHANGED:
+            LE_INFO("Serving and neighbor changed.");
+            break;
+        default:
+            LE_INFO("CellInfo : Unknown");
+            break;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Handler for UMTS signal strength changes.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1627,6 +1659,10 @@ void* SignalTestThread
        (taf_radio_SignalStrengthChangeHandlerFunc_t)Nr5gSsChangeHandler, NULL);
     LE_TEST_OK(nr5gSsChangeHandlerRef != NULL, "taf_radio_AddSignalStrengthChangeHandler - OK");
 
+    cellInfoChangeHandlerRef = taf_radio_AddCellInfoChangeHandler(
+       (taf_radio_CellInfoChangeHandlerFunc_t)CellInfoChangeHandler, NULL);
+    LE_TEST_OK(cellInfoChangeHandlerRef != NULL, "taf_radio_AddCellInfoChangeHandler - OK");
+
     le_sem_Post((le_sem_Ref_t)contextPtr);
     le_event_RunLoop();
 
@@ -1676,6 +1712,10 @@ void RemoveSignalTestHandler
 
     taf_radio_RemoveSignalStrengthChangeHandler(nr5gSsChangeHandlerRef);
     LE_TEST_OK(true, "taf_radio_RemoveSignalStrengthChangeHandler - OK");
+
+    taf_radio_RemoveCellInfoChangeHandler(cellInfoChangeHandlerRef);
+    LE_TEST_OK(true, "taf_radio_RemoveCellInfoChangeHandler - OK");
+
 }
 
 //--------------------------------------------------------------------------------------------------

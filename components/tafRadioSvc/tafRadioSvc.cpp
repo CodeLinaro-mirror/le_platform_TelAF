@@ -1904,16 +1904,17 @@ uint32_t taf_radio_GetServingCellId(uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, UINT32_MAX,
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
-    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(taf_RadioCellInfoCallback::cellInfoListResponse);
+    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
+        taf_RadioCellInfoCallback::cellInfoListResponse);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, UINT32_MAX,
-        "Call sdk function failed");
+            "Call sdk function failed");
 
     le_clk_Time_t timeToWait = {1, 0};
     le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
     TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT32_MAX, "Wait semaphore timeout");
 
     TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::result != LE_OK,
-        UINT32_MAX, "Fail to get cell information.");
+            UINT32_MAX, "Fail to get cell information.");
 
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT32_MAX,
         "No serving cell.");
@@ -1961,19 +1962,21 @@ uint32_t taf_radio_GetServingCellLocAreaCode(uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, UINT32_MAX,
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
-    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(taf_RadioCellInfoCallback::cellInfoListResponse);
+    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
+        taf_RadioCellInfoCallback::cellInfoListResponse);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, UINT32_MAX,
-        "Call sdk function failed");
+            "Call sdk function failed");
 
     le_clk_Time_t timeToWait = {1, 0};
     le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
     TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT32_MAX, "Wait semaphore timeout");
 
     TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::result != LE_OK,
-        UINT32_MAX, "Fail to get cell information.");
+            UINT32_MAX, "Fail to get cell information.");
 
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT32_MAX,
-        "No serving cell.");
+           "No serving cell.");
+
 
     switch (taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat)
     {
@@ -2016,16 +2019,18 @@ uint16_t taf_radio_GetServingCellLteTracAreaCode(uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, UINT16_MAX,
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
-    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(taf_RadioCellInfoCallback::cellInfoListResponse);
+    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
+        taf_RadioCellInfoCallback::cellInfoListResponse);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, UINT16_MAX,
-        "Call sdk function failed");
+            "Call sdk function failed");
 
     le_clk_Time_t timeToWait = {1, 0};
     le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
     TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT16_MAX, "Wait semaphore timeout");
 
     TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::result != LE_OK,
-        UINT16_MAX, "Fail to get cell information.");
+            UINT16_MAX, "Fail to get cell information.");
+
 
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT16_MAX,
         "No serving cell.");
@@ -2062,16 +2067,18 @@ uint32_t taf_radio_GetServingCellEarfcn(uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, UINT32_MAX,
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
-    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(taf_RadioCellInfoCallback::cellInfoListResponse);
+    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
+        taf_RadioCellInfoCallback::cellInfoListResponse);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, UINT32_MAX,
-        "Call sdk function failed");
+            "Call sdk function failed");
 
     le_clk_Time_t timeToWait = {1, 0};
     le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
     TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT32_MAX, "Wait semaphore timeout");
 
     TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::result != LE_OK,
-        UINT32_MAX, "Fail to get cell information.");
+            UINT32_MAX, "Fail to get cell information.");
+
 
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT32_MAX,
         "No serving cell.");
@@ -2108,16 +2115,18 @@ uint32_t taf_radio_GetServingCellTimingAdvance(uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, UINT32_MAX,
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
-    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(taf_RadioCellInfoCallback::cellInfoListResponse);
+    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
+        taf_RadioCellInfoCallback::cellInfoListResponse);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, UINT32_MAX,
-        "Call sdk function failed");
+            "Call sdk function failed");
 
     le_clk_Time_t timeToWait = {1, 0};
     le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT32_MAX, "Wait semaphore timeout");
+        TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT32_MAX, "Wait semaphore timeout");
 
     TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::result != LE_OK,
-        UINT32_MAX, "Fail to get cell information.");
+            UINT32_MAX, "Fail to get cell information.");
+
 
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT32_MAX,
         "No serving cell.");
@@ -2161,16 +2170,18 @@ uint16_t taf_radio_GetPhysicalServingLteCellId(uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, UINT16_MAX,
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
-    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(taf_RadioCellInfoCallback::cellInfoListResponse);
+    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
+        taf_RadioCellInfoCallback::cellInfoListResponse);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, UINT16_MAX,
-        "Call sdk function failed");
+            "Call sdk function failed");
 
     le_clk_Time_t timeToWait = {1, 0};
     le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT16_MAX, "Wait semaphore timeout");
+        TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT16_MAX, "Wait semaphore timeout");
 
     TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::result != LE_OK,
-        UINT16_MAX, "Fail to get cell information.");
+            UINT16_MAX, "Fail to get cell information.");
+
 
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT16_MAX,
         "No serving cell.");
@@ -2212,16 +2223,18 @@ le_result_t taf_radio_GetServingCellGsmBsic(uint8_t* bsicPtr, uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, LE_FAULT,
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
-    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(taf_RadioCellInfoCallback::cellInfoListResponse);
+    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
+        taf_RadioCellInfoCallback::cellInfoListResponse);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
+            "Call sdk function failed");
 
     le_clk_Time_t timeToWait = {1, 0};
     le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
+        TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
 
     TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::result != LE_OK,
-        taf_RadioCellInfoCallback::result, "Fail to get cell information.");
+            taf_RadioCellInfoCallback::result, "Fail to get cell information.");
+
 
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), LE_FAULT,
         "No serving cell.");
@@ -2260,16 +2273,18 @@ uint16_t taf_radio_GetServingCellScramblingCode(uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, UINT16_MAX,
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
-    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(taf_RadioCellInfoCallback::cellInfoListResponse);
+    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
+        taf_RadioCellInfoCallback::cellInfoListResponse);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, UINT16_MAX,
-        "Call sdk function failed");
+            "Call sdk function failed");
 
     le_clk_Time_t timeToWait = {1, 0};
     le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT16_MAX, "Wait semaphore timeout");
+        TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT16_MAX, "Wait semaphore timeout");
 
     TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::result != LE_OK,
-        UINT16_MAX, "Fail to get cell information.");
+            UINT16_MAX, "Fail to get cell information.");
+
 
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT16_MAX,
         "No serving cell.");
@@ -3089,13 +3104,13 @@ uint64_t taf_radio_GetServingNrCellId
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
     auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
-        taf_RadioCellInfoCallback::cellInfoListResponse);
+            taf_RadioCellInfoCallback::cellInfoListResponse);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, UINT64_MAX,
-        "Call sdk function failed");
+            "Call sdk function failed");
 
     le_clk_Time_t timeToWait = {1, 0};
     le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT64_MAX, "Wait semaphore timeout");
+        TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT64_MAX, "Wait semaphore timeout");
 
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT64_MAX,
         "No serving cell.");
@@ -3128,13 +3143,14 @@ int32_t taf_radio_GetServingCellNrTracAreaCode
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
     auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
-        taf_RadioCellInfoCallback::cellInfoListResponse);
+           taf_RadioCellInfoCallback::cellInfoListResponse);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, INT32_MAX,
-        "Call sdk function failed");
+            "Call sdk function failed");
 
     le_clk_Time_t timeToWait = {1, 0};
     le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
     TAF_ERROR_IF_RET_VAL(res != LE_OK, INT32_MAX, "Wait semaphore timeout");
+
 
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), INT32_MAX,
         "No serving cell.");
@@ -3168,13 +3184,14 @@ int32_t taf_radio_GetServingCellNrArfcn
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
     auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
-        taf_RadioCellInfoCallback::cellInfoListResponse);
+            taf_RadioCellInfoCallback::cellInfoListResponse);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, INT32_MAX,
-        "Call sdk function failed");
+            "Call sdk function failed");
 
     le_clk_Time_t timeToWait = {1, 0};
     le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
     TAF_ERROR_IF_RET_VAL(res != LE_OK, INT32_MAX, "Wait semaphore timeout");
+
 
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), INT32_MAX,
         "No serving cell.");
@@ -3210,9 +3227,9 @@ uint32_t taf_radio_GetPhysicalServingNrCellId
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
     auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
-        taf_RadioCellInfoCallback::cellInfoListResponse);
+            taf_RadioCellInfoCallback::cellInfoListResponse);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, UINT32_MAX,
-        "Call sdk function failed");
+            "Call sdk function failed");
 
     le_clk_Time_t timeToWait = {1, 0};
     le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
@@ -3287,9 +3304,9 @@ taf_radio_NeighborCellsRef_t taf_radio_GetNeighborCellsInfo
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
     auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
-        taf_RadioCellInfoCallback::cellInfoListResponse);
+            taf_RadioCellInfoCallback::cellInfoListResponse);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, NULL,
-        "Call sdk function failed");
+            "Call sdk function failed");
 
     le_clk_Time_t timeToWait = {1, 0};
     le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
@@ -5132,5 +5149,45 @@ le_result_t taf_radio_GetHardwareSimRatCapabilities
     }
 
     return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler for CellInfo changes.
+ *
+ * @return
+ *  - taf_radio_CellInfoChangeHandlerRef_t Handler reference.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_CellInfoChangeHandlerRef_t taf_radio_AddCellInfoChangeHandler
+(
+    taf_radio_CellInfoChangeHandlerFunc_t handlerPtr,
+        ///< [IN] Handler function for Cell Info changes.
+    void* contextPtr
+        ///< [IN] Handler context.
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("CellInfoChangeHandler",
+        tafRadio.cellInfoChangeEvId, taf_Radio::taf_radio_LayerCellInfoHandler,
+        (void*)handlerPtr);
+
+    le_event_SetContextPtr(handlerRef, contextPtr);
+
+    return (taf_radio_CellInfoChangeHandlerRef_t)(handlerRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler for cell info changes.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_radio_RemoveCellInfoChangeHandler
+(
+    taf_radio_CellInfoChangeHandlerRef_t handlerRef ///< [IN] Handler reference.
+)
+{
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 }
 

@@ -1509,7 +1509,7 @@ le_result_t taf_sms_GetSmsCenterAddress
       }
       else
       {
-         TAF_KILL_CLIENT_IF_RET_VAL(strlen(addr) > (len - 1), LE_OVERFLOW, "address length overflow");
+         TAF_KILL_CLIENT_IF_RET_VAL(strlen(addr) > len, LE_OVERFLOW, "address length overflow");
 
          TAF_KILL_CLIENT_IF_RET_VAL(len > TAF_SMS_SMSC_ADDR_BYTES - 1, LE_OVERFLOW, "len is greater than TAF_SMS_SMSC_ADDR_LEN");
 

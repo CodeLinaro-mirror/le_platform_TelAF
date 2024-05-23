@@ -952,6 +952,7 @@ FUNCTION le_result_t LocalSwapToCommercialSubscription
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_FAULT -- Failed.
+ *     - LE_NOT_FOUND  -- Failed to select the SIM card.
  *     - LE_BAD_PARAMETER -- Incorrect parameter(s).
  *
  * @note For SIM power cycle operation, it must wait until the SIM state is LE_OFF

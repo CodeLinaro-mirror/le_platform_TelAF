@@ -529,7 +529,7 @@ void taf_Gnss::GnssPositionHandler
         posSampleReqPtr->sessionRef = posHandlerPtr->sessionRef;
 
         if (posSampleReqPtr->sessionRef != *currentPosPtr->clientSessionRefPtr) {
-            LE_ERROR("GnssPositionHandler session ref does not match! ReqPtr.sessionRef: %p, Sample.sessionRef: %p", posSampleReqPtr->sessionRef, *currentPosPtr->clientSessionRefPtr);
+            LE_DEBUG("GnssPositionHandler session ref does not match! ReqPtr.sessionRef: %p, Sample.sessionRef: %p", posSampleReqPtr->sessionRef, *currentPosPtr->clientSessionRefPtr);
             return;
         }
         posSampleReqPtr->positionSampleRef =

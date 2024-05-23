@@ -471,6 +471,10 @@ void taf_Gnss::CopyPositionData
         LastDataPtr->gnssData[i].agc = CurrentDataPtr->gnssData[i].agc;
     }
     LastDataPtr->gnssDataValid = CurrentDataPtr->gnssDataValid;
+    LastDataPtr->gPtpTimeValid = CurrentDataPtr->gPtpTimeValid;
+    LastDataPtr->gPtpTime = CurrentDataPtr->gPtpTime;
+    LastDataPtr->gPtpTimeUncValid = CurrentDataPtr->gPtpTimeUncValid;
+    LastDataPtr->gPtpTimeUnc = CurrentDataPtr->gPtpTimeUnc;
     LastDataPtr->next = LE_DLS_LINK_INIT;
 
     return;
@@ -640,6 +644,8 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 LocationData->realTimeUncValid = true;
                 LocationData->techMaskValid = true;
                 LocationData->gnssDataValid = true;
+                LocationData->gPtpTimeValid = true;
+                LocationData->gPtpTimeUncValid = true;
                 if(locationInfo->getAltitudeType() == telux::loc::AltitudeType::CALCULATED)
                 {
                     clientRequestPtr->mAltType = TAF_GNSS_ALT_TYPE_CALCULATED;
@@ -1122,6 +1128,16 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                     LocationData->validityMask |= TAF_GNSS_HAS_ELAPSED_REAL_TIME_UNC_BIT;
                     LE_DEBUG("valid elapsed real time Uncertainity");
                 }
+                if((validityMask & telux::loc::HAS_GPTP_TIME_BIT))
+                {
+                    LocationData->validityMask |= TAF_GNSS_HAS_GPTP_TIME_BIT;
+                    LE_DEBUG("valid Gptp time");
+                }
+                if((validityMask & telux::loc::HAS_GPTP_TIME_UNC_BIT))
+                {
+                    LocationData->validityMask |= TAF_GNSS_HAS_GPTP_TIME_UNC_BIT;
+                    LE_DEBUG("valid Gptp time Uncertainity");
+                }
                 telux::loc::LocationInfoExValidity validityExMask =
                                                    locationInfo->getLocationInfoExValidity();
                 LE_DEBUG("LocationInfoExValidity->validityExMask: %" PRIu64 "", validityExMask);
@@ -1502,6 +1518,8 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                     LocationData->gnssData[i].jammerInd = clientRequestPtr->mGnssData[i].jammerInd;
                     LocationData->gnssData[i].agc = clientRequestPtr->mGnssData[i].agc;
                 }
+                LocationData->gPtpTime = locationInfo->getElapsedGptpTime();
+                LocationData->gPtpTimeUnc = locationInfo->getElapsedGptpTimeUnc();
                 LocationData->next = LE_DLS_LINK_INIT;
 
                 le_event_ReportWithRefCounting(clientRequestPtr->positionEventId, LocationData);
@@ -7108,6 +7126,42 @@ le_result_t taf_Gnss::GetGnssData
     return result;
 }
 
+le_result_t taf_Gnss::GetGptpTime
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    uint64_t* gPtpTime,
+    uint64_t* gPtpTimeUnc
+)
+{
+    le_result_t result = LE_OK;
+    TAF_KILL_CLIENT_IF_RET_VAL(((NULL == gPtpTime) || (NULL == gPtpTimeUnc)), LE_FAULT, "Invalid reference");
+    taf_gnss_PositionSampleRequest_t* posSampleReqPtr
+                                            = (taf_gnss_PositionSampleRequest_t*)le_ref_Lookup(PositionSampleMap,positionSampleRef);
+
+    result = CheckValidatePosition(posSampleReqPtr);
+    if (LE_OK != result)
+    {
+        return result;
+    }
+
+    if (posSampleReqPtr->positionSampleNodePtr->gPtpTimeValid)
+    {
+        *gPtpTime = posSampleReqPtr->positionSampleNodePtr->gPtpTime;
+    }
+    else
+    {
+        LE_ERROR("taf_gnss_GetGptpTime time is invalid");
+    }
+    if (posSampleReqPtr->positionSampleNodePtr->gPtpTimeUncValid)
+    {
+        *gPtpTimeUnc = posSampleReqPtr->positionSampleNodePtr->gPtpTimeUnc;
+    }
+    else
+    {
+        LE_ERROR("taf_gnss_GetGptpTime timeUnc is invalid");
+    }
+    return result;
+}
 void taf_Gnss::RemovePositionHandler
 (
     taf_gnss_PositionHandlerRef_t handlerRef

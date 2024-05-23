@@ -1052,6 +1052,17 @@
    le_mem_Release(drParamsPtr);
    @endverbatim
  *
+ * - taf_gnss_GetGptpTime() -- Gets Gptp time and its uncertainty
+ *
+ * @verbatim
+   uint64_t gPtpTime;
+   uint64_t gPtpTimeUnc;
+   if(taf_gnss_GetGptpTime(positionSampleRef,&gPtpTime,&gPtpTimeUnc))
+   {
+     // Process after successfully getting Gptp time information.
+   }
+   @endverbatim
+ *
  * @subsection taf_gnss_GetLeapSeconds Get leap seconds event information
  *
  * The leap seconds event information is retrieved by calling taf_gnss_GetLeapSeconds() API.
@@ -2039,8 +2050,10 @@ BITMASK LocationInfoValidity
     HAS_HEADING_ACCURACY_BIT,     ///< Valid heading accuracy via @ref taf_gnss_GetDirection
     HAS_TIMESTAMP_BIT,            ///< Valid timestamp  via @ref taf_gnss_GetEpochTime
     HAS_ELAPSED_REAL_TIME_BIT,    ///< Valid elapsed real time via @ref taf_gnss_GetRealTimeInformation
-    HAS_ELAPSED_REAL_TIME_UNC_BIT ///< Valid elapsed real time uncertainty via
+    HAS_ELAPSED_REAL_TIME_UNC_BIT,///< Valid elapsed real time uncertainty via
                                   ///  @ref taf_gnss_GetRealTimeInformation
+    HAS_GPTP_TIME_BIT,            ///< Valid gptp time via @ref taf_gnss_GetGptpTime
+    HAS_GPTP_TIME_UNC_BIT         ///< Valid gptp time uncertainity via @ref taf_gnss_GetGptpTime
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -3685,4 +3698,24 @@ FUNCTION le_result_t GetGnssData
 FUNCTION le_result_t SetDRConfigValidity
 (
     DRConfigValidityType validMask   IN ///< Validity mask for dead reckoning parameters.
+);
+
+//------------------------------------------------------------------------------------------------
+/**
+ * Gets Gptp time and its uncertainty.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ * and the client will be killed.
+ */
+
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetGptpTime
+(
+    Sample positionSampleRef IN, ///< Position sample reference.
+    uint64 gPtpTime OUT,         ///< Gptp time stamp in nanoseconds.
+    uint64 gPtpTimeUnc OUT       ///< Gptp time stamp uncertainty in nanoseconds.
 );

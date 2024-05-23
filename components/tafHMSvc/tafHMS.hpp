@@ -182,7 +182,7 @@ class taf_Hms: public ITafSvc
             le_result_t GetRamMemInfo(uint32_t* ramTotalMemPtr, uint32_t* ramUsedMemPtr,
                 uint32_t* ramFreeMemPtr);
             taf_hms_UbiDevInfoListRef_t GetUbiDevInfoList();
-			le_result_t DeleteUbiDevInfoList(taf_hms_UbiDevInfoListRef_t ubiDevInfoListRef);
+            le_result_t DeleteUbiDevInfoList(taf_hms_UbiDevInfoListRef_t ubiDevInfoListRef);
             taf_hms_UbiDevInfoRef_t GetFirstUbiDevInfo(
                 taf_hms_UbiDevInfoListRef_t ubiDevInfoListRef);
             taf_hms_UbiDevInfoRef_t GetNextUbiDevInfo(
@@ -206,7 +206,7 @@ class taf_Hms: public ITafSvc
             le_result_t GetUbiVolNum(taf_hms_UbiVolInfoRef_t ubiVolInfoRef,
                 uint32_t* ubiVolMajNumPtr, uint32_t* ubiVolMinNumPtr);
             taf_hms_MtdDevInfoListRef_t GetMtdDevInfoList();
-			le_result_t DeleteMtdDevInfoList(taf_hms_MtdDevInfoListRef_t mtdDevInfoListRef);
+            le_result_t DeleteMtdDevInfoList(taf_hms_MtdDevInfoListRef_t mtdDevInfoListRef);
             taf_hms_MtdDevInfoRef_t GetFirstMtdDevInfo(taf_hms_MtdDevInfoListRef_t mtdDevInfoListRef);
             taf_hms_MtdDevInfoRef_t GetNextMtdDevInfo(taf_hms_MtdDevInfoListRef_t mtdDevInfoListRef);
             le_result_t GetMtdDevName(taf_hms_MtdDevInfoRef_t mtdDevInfoRef,char* mtdName,

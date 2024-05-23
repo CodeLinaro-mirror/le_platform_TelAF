@@ -8,8 +8,6 @@
 
 #define NAME_SIZE 32
 
-#define UBI_DEV 1
-#define MTD_DEV 65
 /*======================================================================
  FUNCTION        TestGetCPULoad
  DESCRIPTION     Get current CPU Load API test
@@ -114,24 +112,25 @@ void Test_taf_Hms_UbiDevInfo()
 
     LE_TEST_OK((ubiDevListRef != NULL), "taf_hms_GetUbiDevInfoList - LE_OK");
 
-    uint32_t ubiDeviceListSize = UBI_DEV;
-    taf_hms_UbiDevInfoRef_t ubiDevInfo = taf_hms_GetFirstUbiDevInfo(ubiDevListRef);
-    LE_TEST_OK((ubiDevInfo != NULL), "taf_hms_GetFirstUbiDevInfo - LE_OK");
-
-    while (ubiDevInfo != NULL and ubiDeviceListSize--)
+    if(ubiDevListRef != NULL)
     {
-        LE_TEST_INFO("Test get UBI device bad block count");
-        uint32_t ubiBadblock;
-        result = taf_hms_GetUbiDevBadBlkCnt(ubiDevInfo, &ubiBadblock);
-        LE_TEST_OK(result == LE_OK, "taf_hms_GetUbiDevBadBlkCnt - LE_OK. Returned %d",
-                    ubiBadblock);
-        LE_TEST_INFO("Test get UBI device erase count");
-        uint32_t ubiEraseCount;
-        result = taf_hms_GetUbiDevMaxEraseCnt(ubiDevInfo, &ubiEraseCount);
-        LE_TEST_OK(result == LE_OK, "taf_hms_GetUbiDevMaxEraseCnt - LE_OK. Returned %d", ubiEraseCount);
+        taf_hms_UbiDevInfoRef_t ubiDevInfo = taf_hms_GetFirstUbiDevInfo(ubiDevListRef);
+        LE_TEST_OK((ubiDevInfo != NULL), "taf_hms_GetFirstUbiDevInfo - LE_OK");
 
+        while (ubiDevInfo != NULL)
+        {
+            LE_TEST_INFO("Test get UBI device bad block count");
+            uint32_t ubiBadblock;
+            result = taf_hms_GetUbiDevBadBlkCnt(ubiDevInfo, &ubiBadblock);
+            LE_TEST_OK(result == LE_OK, "taf_hms_GetUbiDevBadBlkCnt - LE_OK. Returned %d",
+                        ubiBadblock);
+            LE_TEST_INFO("Test get UBI device erase count");
+            uint32_t ubiEraseCount;
+            result = taf_hms_GetUbiDevMaxEraseCnt(ubiDevInfo, &ubiEraseCount);
+            LE_TEST_OK(result == LE_OK, "taf_hms_GetUbiDevMaxEraseCnt - LE_OK. Returned %d", ubiEraseCount);
+            ubiDevInfo = taf_hms_GetNextUbiDevInfo(ubiDevListRef);
+        }
     }
-
     LE_INFO("===== UnitTest Completed for UBI device information =====");
 }
 
@@ -150,25 +149,27 @@ void Test_taf_Hms_MtdDevInfo()
 
     LE_TEST_OK((mtdListRef != NULL), "taf_hms_GetMtdDevInfoList - LE_OK");
 
-    taf_hms_MtdDevInfoRef_t mtdInfo = taf_hms_GetFirstMtdDevInfo(mtdListRef);
-    LE_TEST_OK((mtdInfo != NULL), "taf_hms_GetFirstMtdDevInfo - LE_OK");
-    uint32_t mtdDevListSize = MTD_DEV;
-    while (mtdInfo != NULL and mtdDevListSize--)
+    if(mtdListRef != NULL)
     {
-        LE_TEST_INFO("Test get MTD device name");
-        char MtdDevName[NAME_SIZE];
-        memset(MtdDevName, 0, NAME_SIZE);
-        result = taf_hms_GetMtdDevName(mtdInfo, MtdDevName, sizeof(MtdDevName));
-        LE_TEST_OK(result == LE_OK, "taf_hms_GetUbiVolName - LE_OK. Returned %s", MtdDevName);
+        taf_hms_MtdDevInfoRef_t mtdInfo = taf_hms_GetFirstMtdDevInfo(mtdListRef);
+        LE_TEST_OK((mtdInfo != NULL), "taf_hms_GetFirstMtdDevInfo - LE_OK");
 
-        LE_TEST_INFO("Test get MTD device block size");
-        uint32_t mtdblockSize;
-        result = taf_hms_GetMtdDevBlkSize(mtdInfo, &mtdblockSize);
-        LE_TEST_OK(result == LE_OK, "taf_hms_GetMtdDevBlkSize - LE_OK. Returned %d",
-                mtdblockSize);
+        while (mtdInfo != NULL)
+        {
+            LE_TEST_INFO("Test get MTD device name");
+            char MtdDevName[NAME_SIZE];
+            memset(MtdDevName, 0, NAME_SIZE);
+            result = taf_hms_GetMtdDevName(mtdInfo, MtdDevName, sizeof(MtdDevName));
+            LE_TEST_OK(result == LE_OK, "taf_hms_GetMtdVolName - LE_OK. Returned %s", MtdDevName);
 
+            LE_TEST_INFO("Test get MTD device block size");
+            uint32_t mtdblockSize;
+            result = taf_hms_GetMtdDevBlkSize(mtdInfo, &mtdblockSize);
+            LE_TEST_OK(result == LE_OK, "taf_hms_GetMtdDevBlkSize - LE_OK. Returned %d",
+                    mtdblockSize);
+            mtdInfo = taf_hms_GetNextMtdDevInfo(mtdListRef);
+        }
     }
-
     LE_INFO("===== UnitTest Completed for MTD device information =====");
 }
 

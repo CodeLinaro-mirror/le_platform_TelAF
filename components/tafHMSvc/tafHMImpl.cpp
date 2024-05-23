@@ -24,15 +24,6 @@
 using namespace std;
 using namespace telux::tafsvc;
 
-//Default Threshold values
-/*double CPU_MID_THRESHOLD = 50.0; // Mid threshold in percentage
-double CPU_CRITICAL_THRESHOLD = 90.0; // Critical threshold in percentage
-const uint32_t CPU_DEBOUNCE_VALUE = 3; // Debounce value in percentage
-const uint32_t MEM_MID_THRESHOLD = 30; // Mid threshold in KB
-const uint32_t MEM_CRITICAL_THRESHOLD = 10; // Critical threshold in KB
-const uint32_t MEM_DEBOUNCE_VALUE = 5; // Debounce value in KB
-*/
-
 LE_MEM_DEFINE_STATIC_POOL(ubiDevListPool, TAF_HMS_MAX_LIST_POOL_SIZE, sizeof(taf_hms_ubiDevInfoList_t));
 LE_MEM_DEFINE_STATIC_POOL(ubiDevInfoPool, TAF_HMS_MAX_LIST_POOL_SIZE, sizeof(taf_hms_ubiDevInfo_t));
 LE_MEM_DEFINE_STATIC_POOL(ubiVolListPool, TAF_HMS_MAX_LIST_POOL_SIZE, sizeof(taf_hms_ubiVolInfoList_t));
@@ -331,7 +322,6 @@ uint32_t read_sysfs_file(const char *path)
 uint32_t read_sysfs_string_file(const char *path, char *buffer, size_t length)
 {
     FILE *file = fopen(path, "r");
-    LE_INFO("Reading from path %s", path);
     if (file == NULL)
     {
         LE_ERROR("Failed to open file");
@@ -374,6 +364,7 @@ uint32_t get_ubi_device_count
     }
 
     closedir(dir);
+    LE_INFO("UBI device count: %d", count);
     return count;
 }
 
@@ -419,7 +410,6 @@ taf_hms_UbiDevInfoListRef_t taf_Hms::GetUbiDevInfoList
 
     uint32_t count = get_ubi_device_count();
     char path[MAX_PATH_LENGTH];
-    ubiDevList->ubiDevInfoListSize = count;
     if (count >= 0)
     {
         for(uint32_t i = 0; i <= count; i++)
@@ -428,17 +418,17 @@ taf_hms_UbiDevInfoListRef_t taf_Hms::GetUbiDevInfoList
             memset(ubiDevInfoPtr, 0, sizeof(taf_hms_ubiDevInfo_t));
 
             // Get bad block count
-           snprintf(path, sizeof(path), UBI_DEV_BB_COUNT_PATH, i);
-           ubiDevInfoPtr->badBlockCnt = read_sysfs_file(path);
+            snprintf(path, sizeof(path), UBI_DEV_BB_COUNT_PATH, i);
+            ubiDevInfoPtr->badBlockCnt = read_sysfs_file(path);
 
-           // Get max erase count
-           snprintf(path, sizeof(path), UBI_DEV_E_COUNT_PATH, i);
-           ubiDevInfoPtr->eraseCnt = read_sysfs_file(path);
+            // Get max erase count
+            snprintf(path, sizeof(path), UBI_DEV_E_COUNT_PATH, i);
+            ubiDevInfoPtr->eraseCnt = read_sysfs_file(path);
 
-           ubiDevInfoPtr->link = LE_SLS_LINK_INIT;
-           le_sls_Queue(&(ubiDevList->ubiDevInfoList), &(ubiDevInfoPtr->link));
-           ubiDevInfoPtr->ref =
-                (taf_hms_UbiDevInfoRef_t)le_ref_CreateRef(ubiDevRefMap, (void*)ubiDevInfoPtr);
+            ubiDevInfoPtr->link = LE_SLS_LINK_INIT;
+            le_sls_Queue(&(ubiDevList->ubiDevInfoList), &(ubiDevInfoPtr->link));
+            ubiDevInfoPtr->ref =
+                 (taf_hms_UbiDevInfoRef_t)le_ref_CreateRef(ubiDevRefMap, (void*)ubiDevInfoPtr);
         }
         ubiDevList->ref =
             (taf_hms_UbiDevInfoListRef_t)le_ref_CreateRef(ubiDevListRefMap, ubiDevList);
@@ -787,8 +777,8 @@ uint32_t get_mtd_count()
     }
 
     closedir(dir);
-    LE_INFO("MTD device count: %d", mtd_count);
     mtd_count = mtd_count / 2;
+    LE_INFO("MTD device count: %d", mtd_count);
     return mtd_count;
 }
 
@@ -816,13 +806,13 @@ taf_hms_MtdDevInfoListRef_t taf_Hms::GetMtdDevInfoList
     uint32_t count = get_mtd_count();
     char path[MAX_PATH_LENGTH];
     char buffer[BUFFER_SIZE];
-    mtdDevList->mtdInfoListSize = count;
     if (count >= 0)
     {
         for(uint32_t i = 0; i < count; i++)
         {
             mtdInfoPtr = (taf_hms_mtdInfo_t*)le_mem_ForceAlloc(mtdInfoPool);
             memset(mtdInfoPtr, 0, sizeof(taf_hms_mtdInfo_t));
+            mtdInfoPtr->mtdBlockCnt = count;
 
             // Get mtd block size
             snprintf(path, sizeof(path), MTD_DEV_SIZE_PATH, i);
@@ -833,9 +823,7 @@ taf_hms_MtdDevInfoListRef_t taf_Hms::GetMtdDevInfoList
             uint8_t result = read_sysfs_string_file(path, buffer, sizeof(buffer));
             if (result == LE_OK)
             {
-                char* mtddata = buffer;
-                snprintf(mtddata, sizeof(mtdInfoPtr->mtdDevName), "%s",
-                        mtdInfoPtr->mtdDevName);
+                le_utf8_Copy(mtdInfoPtr->mtdDevName, buffer, BUFFER_SIZE, NULL);
             }
             else
             {
@@ -1003,7 +991,7 @@ le_result_t taf_Hms::GetMtdDevBlkSize
 }
 //--------------------------------------------------------------------------------------------------
 /**
- ** Gets MTD information for block size.
+ ** Gets MTD information for device ID.
  **
  ** @return
  ** - LE_FAULT         Failed.
@@ -1028,7 +1016,7 @@ le_result_t taf_Hms::GetMtdDevId
 }
 //--------------------------------------------------------------------------------------------------
 /**
- ** Gets MTD information for block size.
+ ** Gets MTD information for block count.
  **
  ** @return
  ** - LE_FAULT         Failed.

@@ -2295,35 +2295,24 @@ uint16_t taf_radio_GetServingCellScramblingCode(uint8_t phoneId)
     return (uint16_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->umts.psc;
 }
 
-/*======================================================================
-
- FUNCTION        taf_radio_GetCurrentNetworkName
-
- DESCRIPTION     Get current network's short name.
-
- DEPENDENCIES    Initialization of the radio service.
-
- PARAMETERS      [OUT] char* nameStr:     Current network name.
-                 [IN] size_t nameStrSize: The network name length.
-                 [IN] uint8_t phoneId:    The phone id.
-
- RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER: Invalid parameters.
-                     LE_FAULT:         Fail.
-                     LE_OK:            Success.
-                     LE_TIMEOUT        Time out.
-
- SIDE EFFECTS
-
-======================================================================*/
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Get current network name.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *  - LE_TIMEOUT -- Time out.
+ */
+//--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetCurrentNetworkName
 (
     char* shortNamePtr,      ///< [OUT] Short network name.
-    size_t shortNamePtrSize, 
-    uint8_t phoneId          ///< [IN] Phone id
+    size_t shortNamePtrSize, ///< [IN] The size of short network name.
+    uint8_t phoneId          ///< [IN] Phone id.
 )
 {
-    
     auto &tafRadio = taf_Radio::GetInstance();
 
     TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), LE_BAD_PARAMETER,
@@ -2335,11 +2324,6 @@ le_result_t taf_radio_GetCurrentNetworkName
 
     TAF_ERROR_IF_RET_VAL(shortNamePtr == nullptr, LE_BAD_PARAMETER,
         "Null ptr(statePtr)");
-
-    TAF_ERROR_IF_RET_VAL(shortNamePtrSize < TAF_RADIO_NETWORK_NAME_MAX_LEN,
-        LE_BAD_PARAMETER,
-        "Invalid para(shortNamePtrSize: %" PRIuS " < %d)", shortNamePtrSize,
-        TAF_RADIO_NETWORK_NAME_MAX_LEN);
 
     auto opNameStatusCb = [&tafRadio](std::string operatorLongName,
                                     std::string operatorShortName,
@@ -2375,6 +2359,14 @@ le_result_t taf_radio_GetCurrentNetworkName
 
     TAF_ERROR_IF_RET_VAL(tafRadio.opNameCb.result != LE_OK,
         tafRadio.opNameCb.result, "Fail to get short network name.");
+
+    if (shortNamePtrSize > TAF_RADIO_NETWORK_NAME_MAX_LEN)
+    {
+        shortNamePtrSize = TAF_RADIO_NETWORK_NAME_MAX_LEN;
+    }
+    size_t opNameSize = strlen(tafRadio.opNameCb.shortOpNamePtr);
+    TAF_ERROR_IF_RET_VAL(opNameSize >= shortNamePtrSize, LE_BAD_PARAMETER,
+        "No enough memory to store the network name.");
 
     le_utf8_Copy(shortNamePtr, tafRadio.opNameCb.shortOpNamePtr,
         shortNamePtrSize, NULL);
@@ -4856,7 +4848,7 @@ le_result_t taf_radio_GetNrDualConnectivityStatus
 le_result_t taf_radio_GetCurrentNetworkLongName
 (
     char* longNamePtr,              ///< [OUT] Long operator name.
-    size_t longNamePtrSize,
+    size_t longNamePtrSize,         ///< [IN] The size of long operator name.
     uint8_t phoneId                 ///< [IN] Phone id.
 )
 {
@@ -4870,10 +4862,6 @@ le_result_t taf_radio_GetCurrentNetworkLongName
 
     TAF_ERROR_IF_RET_VAL(longNamePtr == nullptr, LE_BAD_PARAMETER,
         "Null ptr(statePtr)");
-    TAF_ERROR_IF_RET_VAL(longNamePtrSize < TAF_RADIO_NETWORK_NAME_MAX_LEN,
-        LE_BAD_PARAMETER,
-        "Invalid para(longNamePtrSize: %" PRIuS " < %d)", longNamePtrSize,
-        TAF_RADIO_NETWORK_NAME_MAX_LEN);
 
     auto opNameStatusCb = [&tafRadio](std::string operatorLongName,
                                     std::string operatorShortName,
@@ -4911,9 +4899,16 @@ le_result_t taf_radio_GetCurrentNetworkLongName
     TAF_ERROR_IF_RET_VAL(tafRadio.opNameCb.result != LE_OK,
         tafRadio.opNameCb.result, "Fail to get Operator name.");
 
+    if (longNamePtrSize > TAF_RADIO_NETWORK_NAME_MAX_LEN)
+    {
+        longNamePtrSize = TAF_RADIO_NETWORK_NAME_MAX_LEN;
+    }
+    size_t opNameSize = strlen(tafRadio.opNameCb.longOpNamePtr);
+    TAF_ERROR_IF_RET_VAL(opNameSize >= longNamePtrSize, LE_BAD_PARAMETER,
+        "No enough memory to store the network name.");
+
     le_utf8_Copy(longNamePtr, tafRadio.opNameCb.longOpNamePtr,
         longNamePtrSize, NULL);
-
 
     return LE_OK;
 }

@@ -14,6 +14,6 @@ requires:
 cflags:
 {
     -I${LEGATO_ROOT}/framework/liblegato
-    -I $TELAF_ROOT/include
-    -I $TELAF_ROOT/include/staging
+    -I$TELAF_ROOT/include
+    -I$TELAF_ROOT/include/staging
 }

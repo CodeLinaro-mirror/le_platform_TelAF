@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <dirent.h>
 #include <sys/stat.h>
 #include <errno.h>
 #include <selinux/selinux.h>
@@ -21,6 +22,16 @@
 #include <openssl/sha.h>
 #include <openssl/md5.h>
 #include <openssl/evp.h>
+
+// Defines RFS backup file size
+#ifndef RFS_MAX_BACKUP_FILE_SIZE
+#define RFS_MAX_BACKUP_FILE_SIZE 10240
+#endif
+
+// Defines RFS backup file number
+#ifndef RFS_MAX_BACKUP_FILE_COUNT
+#define RFS_MAX_BACKUP_FILE_COUNT 100
+#endif
 
 // RFS file backup storage
 #define RFS_STORAGE "/persist/rfs/"
@@ -51,6 +62,57 @@ typedef struct
     char filePath[LIMIT_MAX_PATH_BYTES];
 }
 RFS_ErrorMsg_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Error message structure.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint32_t maxFileSize;
+    uint16_t maxFileCount;
+}
+RFS_BackupStorageLimit_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Event ID for RFS events
+ */
+//--------------------------------------------------------------------------------------------------
+static RFS_BackupStorageLimit_t BackupStorageCheck;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Count files in the backup folder
+ */
+//--------------------------------------------------------------------------------------------------
+
+uint16_t CountFiles(const char *path)
+{
+    int32_t file_count = 0;
+    struct dirent *entry;
+    DIR *dp;
+
+    dp = opendir(path);
+    if (dp == NULL)
+    {
+        LE_ERROR("Failed to open directory \"%s\": %s\n", path, strerror(errno));
+        return 0;
+    }
+
+    while ((entry = readdir(dp)) != NULL)
+    {
+        // check if it is a file
+        if (entry->d_type == DT_REG)
+        {
+            file_count++;
+        }
+    }
+
+    closedir(dp);
+    return file_count;
+}
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -165,32 +227,6 @@ static void CalculateFilePathSHA1(const char* filePath, char* outputHash)
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Checks if the backup is already in app storage
- */
-//--------------------------------------------------------------------------------------------------
-static bool IsBackupInAppStorage(const char* filePath)
-{
-    if(strlen(appBackupStorage) > 0)
-    {
-        char sha1Hash[SHA_DIGEST_LENGTH * 2 + 1];
-        CalculateFilePathSHA1(filePath, sha1Hash);
-
-        char backupPath[RFS_MAX_BACKUP_FILENAME];
-        snprintf(backupPath, sizeof(backupPath), "%s%s", appBackupStorage, sha1Hash);
-
-        struct stat st;
-        if (stat(backupPath, &st) == 0)
-        {
-            LE_INFO("%s backup is in app storage", filePath);
-            return true;
-        }
-    }
-
-    return false;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
  * Restores file from backup storage
  */
 //--------------------------------------------------------------------------------------------------
@@ -203,7 +239,7 @@ static le_result_t ReplaceFileWithBackup(const char* filePath)
 
     char backupPath[RFS_MAX_BACKUP_FILENAME];
 
-    if(IsBackupInAppStorage(filePath))
+    if(strlen(appBackupStorage) > 0)
     {
         snprintf(backupPath, sizeof(backupPath), "%s%s", appBackupStorage, sha1Hash);
     }
@@ -298,6 +334,19 @@ static le_result_t BackUpFileAndSELinuxContext(const char* sourcePath, const cha
         return LE_FAULT;
     }
 
+    if (stat_buf.st_size > BackupStorageCheck.maxFileSize)
+    {
+        LE_ERROR("Failed to get file size for copying");
+        close(inputFd);
+
+        RFS_ErrorMsg_t errMsg;
+        errMsg.error = RFS_ERR_FILE_TOO_LARGE;
+        snprintf(errMsg.filePath, sizeof(errMsg.filePath), "%s", sourcePath);
+        le_event_Report(ErrorEventId, (void*)&errMsg, sizeof(RFS_ErrorMsg_t));
+
+        return LE_OUT_OF_RANGE;
+    }
+
     outputFd = open(targetPath, O_WRONLY | O_CREAT | O_TRUNC, stat_buf.st_mode);
     if (outputFd < 0)
     {
@@ -337,14 +386,37 @@ static le_result_t BackUpFileAndSELinuxContext(const char* sourcePath, const cha
 //--------------------------------------------------------------------------------------------------
 static le_result_t BackupFileToStorage
 (
-    const char* filePath,
-    const char* backupDir
+    const char* filePath
 )
 {
     LE_INFO("----- %s -----", __FUNCTION__);
+
+    char backupDir[RFS_MAX_BACKUP_FILENAME - (SHA_DIGEST_LENGTH * 2 + 1)];
+
+    if(strlen(appBackupStorage) > 0)
+    {
+        snprintf(backupDir, sizeof(backupDir), "%s", appBackupStorage);
+    }
+    else
+    {
+        snprintf(backupDir, sizeof(backupDir), "%s", RFS_BACKUP_STORAGE);
+    }
+
+    if(CountFiles(backupDir) > BackupStorageCheck.maxFileCount)
+    {
+        RFS_ErrorMsg_t errMsg;
+        errMsg.error = RFS_ERR_NO_MEMORY;
+        snprintf(errMsg.filePath, sizeof(errMsg.filePath), "%s", filePath);
+
+        le_event_Report(ErrorEventId, (void*)&errMsg, sizeof(RFS_ErrorMsg_t));
+
+        return LE_NO_MEMORY;
+    }
+
     // Calculate SHA1 as the backup file name
     char sha1Hash[SHA_DIGEST_LENGTH * 2 + 1];
     CalculateFilePathSHA1(filePath, sha1Hash);
+
     char backupPath[RFS_MAX_BACKUP_FILENAME];
     snprintf(backupPath, sizeof(backupPath), "%s%s", backupDir, sha1Hash);
 
@@ -380,7 +452,7 @@ static void DeleteBackup
     CalculateFilePathSHA1(filePath, sha1Hash);
     char backupPath[RFS_MAX_BACKUP_FILENAME];
 
-    if(IsBackupInAppStorage(filePath))
+    if(strlen(appBackupStorage) > 0)
     {
         snprintf(backupPath, sizeof(backupPath), "%s%s", appBackupStorage, sha1Hash);
     }
@@ -439,6 +511,73 @@ extern "C" LE_SHARED le_result_t taf_rfs_Init
        return LE_OK;
 }
 
+extern "C" LE_SHARED le_result_t taf_rfs_SetBackupStorage
+(
+    const char *filePathPtr,
+    uint32_t maxFileSize,
+    uint16_t maxFileCount
+)
+{
+    LE_INFO("%s: %s", __FUNCTION__, filePathPtr);
+
+    if(filePathPtr == NULL || strlen(filePathPtr) == 0)
+    {
+        return LE_NOT_FOUND;
+    }
+
+    struct stat statbuf;
+    if(stat(filePathPtr, &statbuf) != 0)
+    {
+        LE_ERROR("storage: %s doesn't exist", filePathPtr);
+        return LE_BAD_PARAMETER;
+    }
+
+    if(S_ISDIR(statbuf.st_mode & S_IFMT) == false)
+    {
+        LE_ERROR("%s already exists but it's not a folder", filePathPtr);
+        return LE_BUSY;
+    }
+
+    if((strlen(filePathPtr) + 1) > sizeof(appBackupStorage))
+    {
+        return LE_OVERFLOW;
+    }
+
+    if(maxFileSize == 0)
+    {
+        LE_ERROR("maxFileSize is 0");
+        return LE_BAD_PARAMETER;
+    }
+
+    if(maxFileCount == 0)
+    {
+        LE_ERROR("maxFileCount is 0");
+        return LE_BAD_PARAMETER;
+    }
+
+    snprintf(appBackupStorage, sizeof(appBackupStorage), "%s", filePathPtr);
+
+    size_t len = strlen(appBackupStorage);
+
+    // check if the string includes '/'
+    if(appBackupStorage[len - 1] != '/')
+    {
+        // check if the string size is enough for adding '/'
+        if((len + 2) > sizeof(appBackupStorage))
+        {
+            return LE_OVERFLOW;
+        }
+        snprintf(appBackupStorage + len, sizeof(appBackupStorage), "/");
+    }
+
+    BackupStorageCheck.maxFileSize = maxFileSize;
+    BackupStorageCheck.maxFileCount = maxFileCount;
+
+    LE_INFO("maxFileSize is %u, maxFileCount is %u", maxFileSize, maxFileCount);
+
+    return LE_OK;
+}
+
 extern "C" LE_SHARED int taf_rfs_Open
 (
     const char *filePathPtr,
@@ -455,6 +594,8 @@ extern "C" LE_SHARED int taf_rfs_Open
     }
 
     struct stat st;
+    bool needRestore = false;
+
     if (stat(filePathPtr, &st) == 0)
     {
         // file exists
@@ -470,15 +611,14 @@ extern "C" LE_SHARED int taf_rfs_Open
             if (strncmp(storedMd5Str, md5Str, MD5_DIGEST_LENGTH * 2) != 0)
             {
                 // MD5 is not matched, restore the file from backup storage
-                if (ReplaceFileWithBackup(filePathPtr) != 0)
-                {
-                    LE_ERROR("Failed to replace file with backup");
-                    return -1;
-                }
+                LE_INFO("MD5 is not mathced, will restore the file");
+                needRestore = true;
             }
         }
         else
         {
+            needRestore = true;
+
             LE_ERROR("Failed to get MD5 from extended attribute: %s", strerror(errno));
 
             RFS_ErrorMsg_t errMsg;
@@ -491,6 +631,20 @@ extern "C" LE_SHARED int taf_rfs_Open
     {
         LE_ERROR("File does not exist and O_CREAT not specified");
         return -1;
+    }
+
+    if (needRestore == true)
+    {
+        // MD5 is not matched, restore the file from backup storage
+        if (ReplaceFileWithBackup(filePathPtr) != LE_OK)
+        {
+            LE_ERROR("Failed to replace file with backup, pleae check the file integrity");
+
+            RFS_ErrorMsg_t errMsg;
+            errMsg.error = RFS_ERR_RESTORE;
+            snprintf(errMsg.filePath, sizeof(errMsg.filePath), "%s", filePathPtr);
+            le_event_Report(ErrorEventId, (void*)&errMsg, sizeof(RFS_ErrorMsg_t));
+        }
     }
 
     int fd = open(filePathPtr, flags, mode);
@@ -541,7 +695,7 @@ extern "C" LE_SHARED int taf_rfs_Close
 
     SetFileMD5ToExtendedAttr(actualPath);
 
-    BackupFileToStorage(actualPath, RFS_BACKUP_STORAGE);
+    BackupFileToStorage(actualPath);
 
     return close(fd);
 }
@@ -646,4 +800,8 @@ COMPONENT_INIT
     le_event_AddHandler("ProcessBackupErrHandler",
                             ErrorEventId,
                             ProcessErrorHandler);
+
+    BackupStorageCheck.maxFileSize = RFS_MAX_BACKUP_FILE_SIZE;
+    BackupStorageCheck.maxFileCount = RFS_MAX_BACKUP_FILE_COUNT;
+
 }

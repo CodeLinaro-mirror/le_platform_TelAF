@@ -265,11 +265,12 @@ void tafSimTest_allInfo
         memset(mcc, 0, 4);
         memset(mnc, 0, 4);
 
-        LE_INFO("SimId %d, res: %d", simId, (int) res);
+        LE_INFO("SimId %d", simId);
 
         printf("Type: %s\n", simId == TAF_SIM_EXTERNAL_SLOT_1 ? "TAF_SIM_EXTERNAL_SLOT_1": "TAF_SIM_EXTERNAL_SLOT_2");
-
-        printf("Default SIM: %s\n", i == 0 ? "Yes": "No");
+        if (simCount > 1) {
+            printf("Default SIM: %s\n", i == 0 ? "Yes": "No");
+        }
 
         bool isSimPreent = taf_sim_IsPresent(simId);
         printf("SIM Availability: %s\n", isSimPreent ? "Yes": "No");
@@ -449,11 +450,9 @@ void tafSimTest_SetPowerCheck
     if(r != LE_OK)
     {
         LE_INFO("SetPower : failed to change to %d , SetPower returned \'%d\'",powerStatus, r);
-        printf("Turn %s SIM power in slot%d is failed! (Error: %d)\n", powerStatus == LE_ON ? "ON" : "OFF", (int) simId, (int) r);
         return;
     }
     LE_INFO("SetPower API working fine");
-    printf("Turn %s SIM power in slot%d is success.\n", powerStatus == LE_ON ? "ON" : "OFF", (int) simId);
 }
 
 void tafSimTest_sim_isEmergency

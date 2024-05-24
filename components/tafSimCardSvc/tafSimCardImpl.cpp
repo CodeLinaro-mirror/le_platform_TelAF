@@ -103,7 +103,6 @@ void tafMultiSimListener:: onSlotStatusChanged(std::map<SlotId, telux::tel::Slot
             LE_INFO("Find card for single active in slot: %d", slotId);
             auto card = sim.cardManager->getCard(DEFAULT_SLOT_ID, &status);
             sim.cards[slotId] = card;
-            sim.slot = slotId;
             sim.isSingleActive = true;
         } else if((slotStatus.slotState == telux::tel::SlotState::ACTIVE)
                 && (activeSlotCount == 2)){
@@ -419,7 +418,7 @@ taf_sim &taf_sim::GetInstance()
 }
 
 taf_sim_States_t taf_sim::getState(taf_sim_Id_t simId) {
-    LE_INFO("Input sim Id: %d, isSingleActive: %d, cards size: %" PRIuS, (int)simId, (int)isSingleActive, cards.size());
+    LE_INFO("Input sim Id: %d, cards size: %" PRIuS, (int)simId, cards.size());
 
     if (simId >= TAF_SIM_ID_MAX || simId <= 0) {
         LE_INFO("Invalid sim Id");
@@ -427,33 +426,11 @@ taf_sim_States_t taf_sim::getState(taf_sim_Id_t simId) {
     }
 
     if (simId != TAF_SIM_UNSPECIFIED) {
-        if (simId > cards.size()) {
+        if (simId > slotCount) {
             return TAF_SIM_STATE_UNKNOWN;
         }
     }
     auto card = cards[simId];
-
-    if(isSingleActive && !card) {
-        LE_INFO("Card with SIM %d is invalid in single active sim use default sim", (int)simId);
-        card = cards[DEFAULT_SLOT_ID];
-    }
-
-    if(!card && ((int)simId > DEFAULT_SLOT_ID)) {
-        LE_INFO("getState: Card not found, try to retrieve it from cardManager with given simId");
-        telux::common::Status status;
-        card = cardManager->getCard(simId, &status);
-        if (card) {
-            cards[slot] = card;
-        }
-        if (!card && isSingleActive) {
-            LE_INFO("Card not found, try to retrieve it from cardManager with DEFAULT_SLOT_ID");
-            card = cardManager->getCard(DEFAULT_SLOT_ID, &status);
-            if (card) {
-                cards[slot] = card;
-            }
-        }
-    }
-
     telux::tel::CardState cardState = telux::tel::CardState::CARDSTATE_UNKNOWN;
     if(card != nullptr) {
         card->getState(cardState);
@@ -648,26 +625,20 @@ taf_sim_info_t* taf_sim::GetSimContext(taf_sim_Id_t simId) {
 
 bool taf_sim::isValidSimId(taf_sim_Id_t simId) {
     LE_INFO("isValidSimId: slot count: %d, input simId: %d", slotCount, (int)simId);
-    if ((simId > 0 && simId <= cards.size()) || simId == TAF_SIM_UNSPECIFIED ) {
+    if ((simId > 0 && simId <= slotCount) || simId == TAF_SIM_UNSPECIFIED ) {
         return true;
     }
     return false;
 }
 
-le_result_t taf_sim::selectSimSlot(taf_sim_Id_t simId, bool force) {
+le_result_t taf_sim::selectSimSlot(taf_sim_Id_t simId) {
     auto ret = LE_OK;
     auto isInputValid = isValidSimId(simId);
-
-    LE_INFO("Switch slot to %d, current slot: %d, is force: %d, isSingleActive: %d",
-            (int)simId, (int)slot, (int)force, (int) isSingleActive);
-    if (isSingleActive && simId != slot && !force) {
-        ret = LE_FAULT;
-    }
-
+    LE_INFO("Switch slot to %d, current slot: %d", (int)simId, (int)slot);
     if (isInputValid
                 && (slot != simId)
                 && (simId != TAF_SIM_UNSPECIFIED)
-                && (!isSingleActive || force)) {
+                && isSingleActive) {
         auto cbPromise = std::promise<telux::common::ErrorCode>();
         multiSimMgr->switchActiveSlot(SlotId((int)simId), [&](telux::common::ErrorCode error){
             cbPromise.set_value(error);
@@ -682,22 +653,6 @@ le_result_t taf_sim::selectSimSlot(taf_sim_Id_t simId, bool force) {
             ret = LE_FAULT;
         }
     }
-
-    auto card = cards[slot];
-    if(!card && ((int)simId > DEFAULT_SLOT_ID)) {
-        LE_INFO("Card not found, try to retrieve it from cardManager with given simId");
-        telux::common::Status status;
-        card = cardManager->getCard(slot, &status);
-        if (card) {
-            cards[slot] = card;
-        }
-        if (isSingleActive && !card) {
-            LE_INFO("Card not found, get it from cardManager with DEFAULT_SLOT_ID");
-            card = cardManager->getCard(DEFAULT_SLOT_ID, &status);
-            cards[slot] = card;
-        }
-    }
-
     if (isInputValid
                 && (slot != simId)
                 && (simId != TAF_SIM_UNSPECIFIED)
@@ -733,21 +688,18 @@ void taf_sim::InitializeSimInfo(std::shared_ptr<telux::tel::ISubscription> subsc
 
 std::shared_ptr<telux::tel::ISubscription> taf_sim::getSubscription(taf_sim_Id_t simId){
     telux::common::Status status;
-    if(isSingleActive && ((int)simId == DEFAULT_SLOT_ID) && cards[(int)simId] == nullptr) {
-        //slot# 2 is active sub in single active but here query on sub# 1 so return nullptr.
-        return nullptr;
-    }
-
-    auto subscription = subMgr->getSubscription((int)simId, &status);
-    if (isSingleActive && (cards[(int)simId] != nullptr || subscription == nullptr)
-            && ((int)simId > DEFAULT_SLOT_ID)) {
-        LE_INFO("Single active, card not found for simId: %d or subscription is invalid", (int)simId);
+    if(isSingleActive && cards[(int)simId] != nullptr){
+        LE_INFO("Single active, card found for simId: %d", (int)simId);
         // In the case of single active sim slot, the logical slot Id for querying subscription is always DEFAULT_SLOT_ID
-        subscription = subMgr->getSubscription(DEFAULT_SLOT_ID, &status);
+        auto subscription = subMgr->getSubscription(DEFAULT_SLOT_ID, &status);
+        return subscription;
+    }
+    if(!isSingleActive && cards[simId] != nullptr){
+        auto subscription = subMgr->getSubscription((int)simId, &status);
         return subscription;
     }
 
-    return subscription;
+    return nullptr;
 }
 
 le_result_t taf_sim::getICCID(taf_sim_Id_t simId, char *iccid, int length ) {
@@ -1218,12 +1170,6 @@ le_result_t taf_sim::SendApduOnChannel( taf_sim_Id_t simId, uint8_t channel,
     }
     LE_DEBUG("SendApduOnChannel: channel id: %d", channel);
     auto card = cards[slot];
-
-    if(!card) {
-        LE_ERROR("ERROR: Unable to get card instance.");
-        return LE_NOT_FOUND;
-    }
-
     auto ret = card->transmitApduLogicalChannel(channel, cla, instruction,
                                                    p1, p2, p3, data,
                                                        tafTransmitApduCb);
@@ -1266,12 +1212,6 @@ le_result_t taf_sim::SendApdu( taf_sim_Id_t simId,const uint8_t* commandApduPtr,
         return LE_BAD_PARAMETER;
     }
     auto card = cards[slot];
-
-    if(!card) {
-        LE_ERROR("ERROR: Unable to get card instance.");
-        return LE_NOT_FOUND;
-    }
-
     auto ret = card->transmitApduBasicChannel(cla, instruction,
                                                    p1, p2, p3, data,
                                                        tafTransmitApduCb);
@@ -1305,11 +1245,6 @@ le_result_t taf_sim::SendCommand(
         return LE_BAD_PARAMETER;
     }
     auto card = cards[slot];
-
-    if(!card) {
-        LE_ERROR("ERROR: Unable to get card instance.");
-        return LE_NOT_FOUND;
-    }
     string filePath = std::string(pathPtr, 5);
     std::vector<uint8_t> data(dataPtr, dataPtr+dataNumElements);
     auto tafTransmitApduCb = std::make_shared<tafTransmitApduResponseCallback>();
@@ -1355,13 +1290,6 @@ le_result_t taf_sim::SetPower(taf_sim_Id_t simId, le_onoff_t powerState)
     telux::common::Status status;
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     auto ICard = cardManager->getCard(simId, &status);
-    LE_INFO("Result of get card[slot%d]: %d, isSingleActive: %d, is ICard empty: %s",
-            (int) simId, (int) status, (int) isSingleActive, ICard == nullptr ? "Yes" : "No");
-
-    if (isSingleActive && (ICard == nullptr || status != Status::SUCCESS)) {
-        //Single active sim slot so try to get card using DEFAULT_SLOT_ID.
-        ICard = cardManager->getCard(DEFAULT_SLOT_ID, &status);
-    }
 
     if (ICard == nullptr) {
         LE_ERROR("Card not found so set power failed!");

@@ -199,7 +199,7 @@ namespace telux {
                 taf_sim_NewStateHandlerRef_t AddStateHandler(taf_sim_NewStateHandlerFunc_t handlerPtr,
                         void* contextPtr);
                 bool isValidSimId(taf_sim_Id_t simId);
-                le_result_t selectSimSlot(taf_sim_Id_t simId, bool force = false);
+                le_result_t selectSimSlot(taf_sim_Id_t simId);
                 taf_sim_info_t* GetSimContext(taf_sim_Id_t simId);
                 void InitializeSimInfo(std::shared_ptr<telux::tel::ISubscription> subscription, taf_sim_Id_t simId);
                 std::shared_ptr<telux::tel::ISubscription> getSubscription(taf_sim_Id_t simId);

@@ -23,5 +23,6 @@ start: manual
 bindings:
 {
     tafeCallTest.tafeCallUnitTestComp.taf_ecall -> tafECallSvc.taf_ecall
+    tafeCallTest.tafeCallUnitTestComp.taf_radio -> tafRadioSvc.taf_radio
 }
 

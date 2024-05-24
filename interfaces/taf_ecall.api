@@ -733,7 +733,6 @@ FUNCTION le_result_t SetMsdVersion
  *
  * @return
  *      - LE_OK -- Succeeded.
- *      - LE_FAULT -- Failed.
  *      - LE_BAD_PARAMETER -- Invalid parameters.
  *
  * @note Currently, only MSD version 2 and 3 are supported.
@@ -1134,7 +1133,9 @@ FUNCTION le_result_t SendMsd
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Starts an automatic emergency call according to the given eCall reference.
+ * Starts an automatic emergency call with a standard PAN European/KSA/UAE PSAP number(112/911/999)
+ * or a voice call with the long PSAP number by taf_ecall_SetPsapNumber() according to the given
+ * eCall reference.
  *
  * @return
  *      - LE_OK -- Succeeded.
@@ -1151,7 +1152,9 @@ FUNCTION le_result_t StartAutomatic
 
 //-------------------------------------------------------------------------------------------------
 /**
- *  Starts a manual eCall according to the given eCall reference.
+ * Starts a manual emergency call with a standard PAN European/KSA/UAE PSAP number(112/911/999) or
+ * a voice call with the long PSAP number by taf_ecall_SetPsapNumber() according to the given
+ * eCall reference.
  *
  * @return
  *      - LE_OK -- Succeeded.
@@ -1168,8 +1171,8 @@ FUNCTION le_result_t StartManual
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Initiates a test voice eCall with a configured telephone
- * number stored in the USIM.
+ * Starts a test eCall with a configured telephone number stored in the USIM or a long PSAP number
+ * set by taf_ecall_SetPsapNumber().
  *
  * @return
  *      - LE_OK -- Succeeded.

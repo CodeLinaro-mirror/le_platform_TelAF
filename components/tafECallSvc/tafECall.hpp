@@ -53,7 +53,6 @@ using namespace std;
 #define CFG_NODE_MSDVEHTYPE "msdVehicleType"
 #define CFG_NODE_MSDVIN "msdVehIdentNum"
 #define CFG_NODE_OPMODE "operatingMode"
-#define CFG_NODE_NUMTYPE "setPsapnumType"
 #define CFG_ECALL_PROPULSIONTYPE_PATH "tafeCallSvc:/eCall/msdPropulsionType"
 #define CFG_NODE_PROPULSION_GASOLINE "Gasoline"
 #define CFG_NODE_PROPULSION_DIESEL "Diesel"
@@ -272,7 +271,6 @@ namespace telux {
                 taf_ECall_t ECallObject;
                 le_ref_MapRef_t ECallPtrRefMap = NULL;
                 void InitializeECallPtr();
-                bool isUseUSimNum = true;
 
         };
     }

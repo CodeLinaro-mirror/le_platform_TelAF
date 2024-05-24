@@ -40,6 +40,17 @@ typedef struct
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Retrieves the SIM's ICCID structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_sim_Id_t slotId;                ///< [IN] Slot ID
+    char iccid[TAF_SIM_ICCID_BYTES];              ///< [OUT] ICC ID as output.
+}taf_IvssSim_GetICCID_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Ivss sim method indication structure
  */
 //--------------------------------------------------------------------------------------------------
@@ -51,6 +62,7 @@ typedef struct
     {
         taf_IvssSim_GetImsi_t getImsi;
         taf_IvssSim_GetState_t getState;
+        taf_IvssSim_GetICCID_t getICCID;
     };
 }taf_IvssSim_Ind_t;
 
@@ -190,10 +202,13 @@ public:
         CommonTypes::PhoneId _phoneId, GetImsiReply_t _reply);
     virtual void GetState(const std::shared_ptr<CommonAPI::ClientId> _client,
         CommonTypes::PhoneId _phoneId, GetStateReply_t _reply);
+    virtual void GetICCID(const std::shared_ptr<CommonAPI::ClientId> _client,
+        CommonTypes::PhoneId _phoneId, GetICCIDReply_t _reply);
 
     // ivss method function handler.
     static void GetImsiHandler(void* reportPtr);
     static void GetStateHandler(void* reportPtr);
+    static void GetICCIDHandler(void* reportPtr);
 
     // ivss event function handler.
     static void taf_Ivss_Sim_NewStateHandler(taf_sim_Id_t slotId,
@@ -205,9 +220,11 @@ public:
     // ivss method ref.
     le_event_Id_t GetImsiEvent = NULL;
     le_event_Id_t GetStateEvent = NULL;
+    le_event_Id_t GetICCIDEvent = NULL;
 
     le_event_HandlerRef_t GetImsiEventHandlerRef;
     le_event_HandlerRef_t GetStateEventHandlerRef;
+    le_event_HandlerRef_t GetICCIDEventHandlerRef;
 
     // ivss event ref.
     taf_sim_NewStateHandlerRef_t NewStateHandlerRef;

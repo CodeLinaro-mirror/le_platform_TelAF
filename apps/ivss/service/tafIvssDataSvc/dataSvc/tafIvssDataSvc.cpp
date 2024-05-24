@@ -3,7 +3,7 @@
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
-#include "tafIvssMngdSvc.hpp"
+#include "tafIvssMngdConnSvc.hpp"
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -14,14 +14,15 @@ COMPONENT_INIT
 {
     LE_INFO("Start tafIvssDataSvc Registered!");
 
-    // Initialize the ivss mngd service.
-    std::shared_ptr<CommonAPI::Runtime> mngdRuntime = CommonAPI::Runtime::get();
-    auto ivssMngd = tafIvssMngdSvc::GetInstance();
-    if (true != mngdRuntime->registerService("local", "modem.MngdSvc", ivssMngd, "ivssMngdSvc"))
+    // Initialize the ivss MngdConn service.
+    std::shared_ptr<CommonAPI::Runtime> mngdConnRuntime = CommonAPI::Runtime::get();
+    auto ivssMngdConn = tafIvssMngdConnSvc::GetInstance();
+    if (true != mngdConnRuntime->registerService("local", "modem.MngdConnSvc", ivssMngdConn,
+        "ivssMngdConnSvc"))
     {
-        LE_FATAL("tafIvssMngdSvc Register Service failed.");
+        LE_FATAL("tafIvssMngdConnSvc Register Service failed.");
     }
-    ivssMngd->Init();
+    ivssMngdConn->Init();
 
 
     LE_INFO("Start tafIvssDataSvc successfully! ");

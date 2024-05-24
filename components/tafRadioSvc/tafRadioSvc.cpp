@@ -2958,33 +2958,54 @@ le_result_t taf_radio_SetSignalStrengthIndThresholds
     TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, LE_BAD_PARAMETER,
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
-    std::vector<telux::tel::SignalStrengthConfig> sigStrengthConfigList = {};
+    std::vector<telux::tel::SignalStrengthConfigEx> sigStrengthConfigList = {};
+    std::vector<telux::tel::SignalStrengthConfigData> sigConfigDataList = {};
+    std::vector<int32_t> thresholdList = {};
 
-    telux::tel::SignalStrengthConfig sigStrengthConfig = {};
-    sigStrengthConfig.configType = telux::tel::SignalStrengthConfigType::THRESHOLD;
+    telux::tel::SignalStrengthConfigEx sigStrengthConfig = {};
+    telux::tel::SignalStrengthConfigData sigConfigData = {};
+    sigStrengthConfig.configTypeMask.set(telux::tel::SignalStrengthConfigExType::THRESHOLD);
+    for (auto hys : tafRadio.hysteresisConfigs)
+    {
+        if(hys.sigType == sigType && hys.phoneId == phoneId)
+        {
+            sigStrengthConfig.configTypeMask.set(
+                   telux::tel::SignalStrengthConfigExType::HYSTERESIS_DB);
+            sigConfigData.hysteresisDb = hys.hysteresisdB;
+            LE_DEBUG("SigType is %d hysteresisdB is %d", hys.sigType,hys.hysteresisdB);
+            break;
+        }
+    }
     switch (sigType)
     {
         case TAF_RADIO_SIG_TYPE_GSM_RSSI:
-            sigStrengthConfig.ratSigType = telux::tel::RadioSignalStrengthType::GSM_RSSI;
+            sigStrengthConfig.radioTech  = telux::tel::RadioTechnology::RADIO_TECH_GSM;
+            sigConfigData.sigMeasType = telux::tel::SignalStrengthMeasurementType::RSSI;
             break;
         case TAF_RADIO_SIG_TYPE_UMTS_RSSI:
-            sigStrengthConfig.ratSigType = telux::tel::RadioSignalStrengthType::WCDMA_RSSI;
+            sigStrengthConfig.radioTech  = telux::tel::RadioTechnology::RADIO_TECH_UMTS;
+            sigConfigData.sigMeasType = telux::tel::SignalStrengthMeasurementType::RSSI;
             break;
         case TAF_RADIO_SIG_TYPE_LTE_RSRP:
-            sigStrengthConfig.ratSigType = telux::tel::RadioSignalStrengthType::LTE_RSRP;
+            sigStrengthConfig.radioTech  = telux::tel::RadioTechnology::RADIO_TECH_LTE;
+            sigConfigData.sigMeasType = telux::tel::SignalStrengthMeasurementType::RSRP;
             break;
         case TAF_RADIO_SIG_TYPE_NR5G_RSRP:
-            sigStrengthConfig.ratSigType = telux::tel::RadioSignalStrengthType::NR5G_RSRP;
+            sigStrengthConfig.radioTech  = telux::tel::RadioTechnology::RADIO_TECH_NR5G;
+            sigConfigData.sigMeasType = telux::tel::SignalStrengthMeasurementType::RSRP;
             break;
         default:
             LE_ERROR("Unsupported signal type : %d.", sigType);
             return LE_UNSUPPORTED;
     }
-    sigStrengthConfig.threshold.lowerRangeThreshold = lowerRangeThreshold;
-    sigStrengthConfig.threshold.upperRangeThreshold = upperRangeThreshold;
+    sigConfigData.thresholdList[0] = lowerRangeThreshold;
+    sigConfigData.thresholdList[1] = upperRangeThreshold;
 
+    sigConfigDataList.emplace_back(sigConfigData);
+    sigStrengthConfig.sigConfigData = sigConfigDataList;
     sigStrengthConfigList.emplace_back(sigStrengthConfig);
     auto ret = tafRadio.phones[phoneId - 1]->configureSignalStrength(sigStrengthConfigList,
+        tafRadio.hysteresisTimer[phoneId - 1],
         taf_RadioConfigureSignalStrengthCallback::configureSignalStrengthResponse);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
         "Call sdk function failed");
@@ -3030,32 +3051,42 @@ le_result_t taf_radio_SetSignalStrengthIndDelta
     TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, LE_BAD_PARAMETER,
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
-    std::vector<telux::tel::SignalStrengthConfig> sigStrengthConfigList = {};
+    std::vector<telux::tel::SignalStrengthConfigEx> sigStrengthConfigList = {};
+    std::vector<telux::tel::SignalStrengthConfigData> sigConfigDataList = {};
 
-    telux::tel::SignalStrengthConfig sigStrengthConfig = {};
-    sigStrengthConfig.configType = telux::tel::SignalStrengthConfigType::DELTA;
+    telux::tel::SignalStrengthConfigEx sigStrengthConfig = {};
+    telux::tel::SignalStrengthConfigData sigConfigData = {};
+
+    sigStrengthConfig.configTypeMask.set(telux::tel::SignalStrengthConfigExType::DELTA);
     switch (sigType)
     {
         case TAF_RADIO_SIG_TYPE_GSM_RSSI:
-            sigStrengthConfig.ratSigType = telux::tel::RadioSignalStrengthType::GSM_RSSI;
+            sigStrengthConfig.radioTech  = telux::tel::RadioTechnology::RADIO_TECH_GSM;
+            sigConfigData.sigMeasType = telux::tel::SignalStrengthMeasurementType::RSSI;
             break;
         case TAF_RADIO_SIG_TYPE_UMTS_RSSI:
-            sigStrengthConfig.ratSigType = telux::tel::RadioSignalStrengthType::WCDMA_RSSI;
+            sigStrengthConfig.radioTech  = telux::tel::RadioTechnology::RADIO_TECH_UMTS;
+            sigConfigData.sigMeasType = telux::tel::SignalStrengthMeasurementType::RSSI;
             break;
         case TAF_RADIO_SIG_TYPE_LTE_RSRP:
-            sigStrengthConfig.ratSigType = telux::tel::RadioSignalStrengthType::LTE_RSRP;
+            sigStrengthConfig.radioTech  = telux::tel::RadioTechnology::RADIO_TECH_LTE;
+            sigConfigData.sigMeasType = telux::tel::SignalStrengthMeasurementType::RSRP;
             break;
         case TAF_RADIO_SIG_TYPE_NR5G_RSRP:
-            sigStrengthConfig.ratSigType = telux::tel::RadioSignalStrengthType::NR5G_RSRP;
+            sigStrengthConfig.radioTech  = telux::tel::RadioTechnology::RADIO_TECH_NR5G;
+            sigConfigData.sigMeasType = telux::tel::SignalStrengthMeasurementType::RSRP;
             break;
         default:
             LE_ERROR("Unsupported signal type : %d.", sigType);
             return LE_UNSUPPORTED;
     }
-    sigStrengthConfig.delta = delta;
+    sigConfigData.delta = delta;
 
+    sigConfigDataList.emplace_back(sigConfigData);
+    sigStrengthConfig.sigConfigData = sigConfigDataList;
     sigStrengthConfigList.emplace_back(sigStrengthConfig);
     auto ret = tafRadio.phones[phoneId - 1]->configureSignalStrength(sigStrengthConfigList,
+        tafRadio.hysteresisTimer[phoneId - 1],
         taf_RadioConfigureSignalStrengthCallback::configureSignalStrengthResponse);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
         "Call sdk function failed");
@@ -5185,4 +5216,72 @@ void taf_radio_RemoveCellInfoChangeHandler
 {
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 }
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Sets the hysteresis db for signal strength criteria.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_OK -- Succeeded.
+  */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_SetSignalStrengthIndHysteresis
+(
+    taf_radio_SigType_t sigType,    ///< Signal type.
+    uint16_t hysteresisdB,          ///< Hysteresis dBm in units of 0.1 dBm.
+    uint8_t phoneId                 ///< Phone ID.
+)
+{
+   auto &tafRadio = taf_Radio::GetInstance();
+
+   TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), LE_BAD_PARAMETER,
+        "Invalid para(phoneId:%d)", phoneId);
+
+   for (auto& hys : tafRadio.hysteresisConfigs)
+    {
+        if((hys.sigType == sigType) && (hys.phoneId == phoneId))
+        {
+            hys.hysteresisdB = hysteresisdB;
+            //TBD optimize this to use optimal hysteresis value.
+            return LE_OK;
+        }
+    }
+
+    //Add a new element.
+    taf_RadioHysteresisConfig_t hysteresisNew;
+    hysteresisNew.sigType = sigType;
+    hysteresisNew.phoneId = phoneId;
+    hysteresisNew.hysteresisdB = hysteresisdB;
+    tafRadio.hysteresisConfigs.emplace_back(hysteresisNew);
+    LE_DEBUG("SigType is %d hysteresisdB is %d", sigType,hysteresisdB);
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Sets the hysteresis time for signal strength criteria.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_OK -- Succeeded.
+  */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_SetSignalStrengthIndHysteresisTimer
+(
+    uint16_t hysteresisTimer,     ///< Hysteresis time in milliseconds.
+    uint8_t phoneId               ///< Phone ID.
+)
+{
+   auto &tafRadio = taf_Radio::GetInstance();
+
+   TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), LE_BAD_PARAMETER,
+        "Invalid para(phoneId:%d)", phoneId);
+
+   tafRadio.hysteresisTimer[phoneId - 1] =  hysteresisTimer;
+   LE_DEBUG("Hysteresis timer %d phoneId %d", hysteresisTimer,phoneId);
+   return LE_OK;
+}
+
 

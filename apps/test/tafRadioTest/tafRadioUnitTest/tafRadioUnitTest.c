@@ -256,7 +256,13 @@ void GsmSignalConfiguration
     long phoneId ///< [IN] Phone ID.
 )
 {
-    le_result_t result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_GSM_RSSI,
+    le_result_t result = taf_radio_SetSignalStrengthIndHysteresisTimer(5000,phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndHysteresisTimer - OK");
+
+    result = taf_radio_SetSignalStrengthIndHysteresis(TAF_RADIO_SIG_TYPE_GSM_RSSI,100,phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndHysteresis - OK");
+
+    result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_GSM_RSSI,
         -1110, -510, phoneId);
     if (result != LE_UNSUPPORTED)
     {
@@ -280,7 +286,13 @@ void UmtsSignalConfiguration
     long phoneId ///< [IN] Phone ID.
 )
 {
-    le_result_t result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_UMTS_RSSI,
+    le_result_t result = taf_radio_SetSignalStrengthIndHysteresisTimer(5000,phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndHysteresisTimer - OK");
+
+    result = taf_radio_SetSignalStrengthIndHysteresis(TAF_RADIO_SIG_TYPE_UMTS_RSSI,100,phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndHysteresis - OK");
+
+    result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_UMTS_RSSI,
         -1130, -510, phoneId);
     if (result != LE_UNSUPPORTED)
     {
@@ -304,7 +316,13 @@ void LteSignalConfiguration
     long phoneId ///< [IN] Phone ID.
 )
 {
-    le_result_t result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_LTE_RSRP,
+    le_result_t result = taf_radio_SetSignalStrengthIndHysteresisTimer(5000,phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndHysteresisTimer - OK");
+
+    result = taf_radio_SetSignalStrengthIndHysteresis(TAF_RADIO_SIG_TYPE_LTE_RSRP,100,phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndHysteresis - OK");
+
+    result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_LTE_RSRP,
         -1400, -440, phoneId);
     if (result != LE_UNSUPPORTED)
     {
@@ -328,7 +346,13 @@ void Nr5gSignalConfiguration
     long phoneId ///< [IN] Phone ID.
 )
 {
-    le_result_t result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_NR5G_RSRP,
+    le_result_t result = taf_radio_SetSignalStrengthIndHysteresisTimer(5000,phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndHysteresisTimer - OK");
+
+    result = taf_radio_SetSignalStrengthIndHysteresis(TAF_RADIO_SIG_TYPE_NR5G_RSRP,100,phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndHysteresis - OK");
+
+    result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_NR5G_RSRP,
         -1400, -440, phoneId);
     if (result != LE_UNSUPPORTED)
     {

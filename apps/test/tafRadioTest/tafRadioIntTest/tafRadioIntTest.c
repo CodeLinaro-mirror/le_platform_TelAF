@@ -76,7 +76,7 @@ void PrintHelpMenu
         "    app runProc tafRadioIntTest tafRadioIntTest -- "
         "operator <phone> <add|remove|list> [<mcc>] [<mnc>] [<rat_bitmask>]\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- "
-        "signal <phone> <monitor|metrics|delta> [<time|rat>] [<signal_delta>]\n"
+        "signal <phone> <monitor|metrics|delta> [<time|rat>] [<signal_delta>] [<hysdB>]\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- serving <phone>\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- neighbor <phone>\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- scan <phone> <mode> [<rat_bitmask>]\n"
@@ -965,10 +965,18 @@ void PrintOperatingMode
 void GsmSignalConfiguration
 (
     long phoneId,  ///< [IN] Phone ID.
-    long rssiDelta ///< [IN] RSSI delta.
+    long rssiDelta, ///< [IN] RSSI delta.
+    long hysteresisDb
 )
 {
-    le_result_t result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_GSM_RSSI,
+    le_result_t result = taf_radio_SetSignalStrengthIndHysteresisTimer(5000,phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndHysteresisTimer - OK");
+
+    result = taf_radio_SetSignalStrengthIndHysteresis(TAF_RADIO_SIG_TYPE_GSM_RSSI,hysteresisDb,
+                                                      phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndHysteresis - OK");
+
+    result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_GSM_RSSI,
         -1110, -510, phoneId);
     if (result != LE_UNSUPPORTED)
     {
@@ -990,11 +998,19 @@ void GsmSignalConfiguration
 //--------------------------------------------------------------------------------------------------
 void UmtsSignalConfiguration
 (
-    long phoneId,  ///< [IN] Phone ID.
-    long rssiDelta ///< [IN] RSSI delta.
+    long phoneId,   ///< [IN] Phone ID.
+    long rssiDelta, ///< [IN] RSSI delta.
+    long hysteresisDb
 )
 {
-    le_result_t result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_UMTS_RSSI,
+    le_result_t result = taf_radio_SetSignalStrengthIndHysteresisTimer(5000,phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndHysteresisTimer - OK");
+
+    result = taf_radio_SetSignalStrengthIndHysteresis(TAF_RADIO_SIG_TYPE_UMTS_RSSI,hysteresisDb,
+                                                     phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndHysteresis - OK");
+
+    result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_UMTS_RSSI,
         -1130, -510, phoneId);
     if (result != LE_UNSUPPORTED)
     {
@@ -1015,11 +1031,19 @@ void UmtsSignalConfiguration
 //--------------------------------------------------------------------------------------------------
 void LteSignalConfiguration
 (
-    long phoneId,   ///< [IN] Phone ID.
-    long rsrpDelta  ///< [IN] RSRP delta.
+    long phoneId,    ///< [IN] Phone ID.
+    long rsrpDelta,  ///< [IN] RSRP delta.
+    long hysteresisDb
 )
 {
-    le_result_t result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_LTE_RSRP,
+    le_result_t result = taf_radio_SetSignalStrengthIndHysteresisTimer(5000,phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndHysteresisTimer - OK");
+
+    result = taf_radio_SetSignalStrengthIndHysteresis(TAF_RADIO_SIG_TYPE_LTE_RSRP,hysteresisDb,
+                                                      phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndHysteresis - OK");
+
+    result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_LTE_RSRP,
         -1400, -440, phoneId);
     if (result != LE_UNSUPPORTED)
     {
@@ -1040,11 +1064,19 @@ void LteSignalConfiguration
 //--------------------------------------------------------------------------------------------------
 void Nr5gSignalConfiguration
 (
-    long phoneId,  ///< [IN] Phone ID.
-    long rsrpDelta ///< [IN] RSRP delta.
+    long phoneId,   ///< [IN] Phone ID.
+    long rsrpDelta, ///< [IN] RSRP delta.
+    long hysteresisDb
 )
 {
-    le_result_t result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_NR5G_RSRP,
+    le_result_t result = taf_radio_SetSignalStrengthIndHysteresisTimer(5000,phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndHysteresisTimer - OK");
+
+    result = taf_radio_SetSignalStrengthIndHysteresis(TAF_RADIO_SIG_TYPE_NR5G_RSRP,hysteresisDb,
+                                                      phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndHysteresis - OK");
+
+    result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_NR5G_RSRP,
         -1400, -440, phoneId);
     if (result != LE_UNSUPPORTED)
     {
@@ -2157,31 +2189,32 @@ COMPONENT_INIT
         }
         else if (strncmp(op, "delta", strlen("delta")) == 0)
         {
-            CheckArgs(5);
+            CheckArgs(6);
             const char* rat = le_arg_GetArg(3);
             if (rat == NULL)
             {
                 PrintHelpMenu();
             }
+            long hysdB = strtol(le_arg_GetArg(5), NULL, 10);
             if (strncmp(rat, "gsm", strlen("gsm")) == 0)
             {
                 long rssiDelta = strtol(le_arg_GetArg(4), NULL, 10);
-                GsmSignalConfiguration(phoneId, rssiDelta);
+                GsmSignalConfiguration(phoneId, rssiDelta, hysdB);
             }
             else if (strncmp(rat, "umts", strlen("umts")) == 0)
             {
                 long rssiDelta = strtol(le_arg_GetArg(4), NULL, 10);
-                UmtsSignalConfiguration(phoneId, rssiDelta);
+                UmtsSignalConfiguration(phoneId, rssiDelta, hysdB);
             }
             else if (strncmp(rat, "lte", strlen("lte")) == 0)
             {
                 long rsrpDelta = strtol(le_arg_GetArg(4), NULL, 10);
-                LteSignalConfiguration(phoneId, rsrpDelta);
+                LteSignalConfiguration(phoneId, rsrpDelta, hysdB);
             }
             else if (strncmp(rat, "nr5g", strlen("nrg5")) == 0)
             {
                 long rsrpDelta = strtol(le_arg_GetArg(4), NULL, 10);
-                Nr5gSignalConfiguration(phoneId, rsrpDelta);
+                Nr5gSignalConfiguration(phoneId, rsrpDelta, hysdB);
             }
             else
             {

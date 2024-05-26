@@ -90,6 +90,8 @@ interface(`init_telaf_app_domain',`
         allow telaf_admin_domain { $1 }:process { setsched setrlimit sigkill signal getattr };
         allow $1 { telaf_admin_domain }:process { setsched setrlimit sigkill signal getattr };
 
+        allow telaf_admin_domain { $1 }:process2 nosuid_transition;
+
         allow telaf_app_domain $1:file { read_file_perms };
         allow telaf_app_domain $1:dir { search_dir_perms };
 

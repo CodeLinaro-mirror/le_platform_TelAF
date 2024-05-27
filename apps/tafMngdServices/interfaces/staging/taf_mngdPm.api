@@ -279,6 +279,29 @@ ENUM WakeupType
     VOICE_CALL,     ///< The wakeup type is VOICE_CALL for system wakeup.
     MCU_VHAL        ///< The wakeup type is  MCU / VHAL for system wakeup.
 };
+/**
+ * Information data report ID.
+ */
+ENUM InfoDataId
+{
+    INFO_REPORT_BUB    ///< Info report for BUB.
+};
+/**
+ * Bit Mask for the information data report.
+ */
+BITMASK InfoReportBitMask
+{
+    INFO_REPORT_BIT_MASK_BUB_STATUS
+};
+/**
+ * Bub Status for INFO_REPORT_BUB_STATUS InfoDataId.
+ */
+ENUM BubStatus
+{
+    BUB_STATUS_UNKNOWN =  -1,
+    BUB_STATUS_NOT_IN_USE,
+    BUB_STATUS_IN_USE
+};
 DEFINE WSREF_MAXLEN   = (32);
 
 /**
@@ -345,6 +368,22 @@ EVENT StateChange
     StateChangeHandler handler  ///< The state change handler.
 );
 
+/**
+ * Handler for information report.
+ */
+HANDLER InfoReportHandler
+(
+    int32 report     IN  ///< The status report.
+);
+
+/**
+ * Information data report event.
+ */
+EVENT InfoReport
+(
+    InfoReportBitMask infoReportMask,  ///< Bit mask for the data report.
+    InfoReportHandler handler    ///< The data report handler.
+);
 //--------------------------------------------------------------------------------------------------
 /**
  * Sets the targeted power mode for the node.
@@ -494,4 +533,19 @@ FUNCTION le_result_t ShutdownNode
 FUNCTION le_result_t RestartNode
 (
     uint8 pmNodeId IN   ///< The Node ID given.
+);
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the status information report based on the given report ID.
+ *
+ * @return
+ *     - LE_OK             Succeed.
+ *     - LE_BAD_PARAMETER  Invalid report ID.
+ *     - LE_FAULT          No VHAL module detected.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetInfoReport
+(
+    InfoDataId reportId IN,  ///< The status report ID.
+    int32 report  OUT      ///< The status report.
 );

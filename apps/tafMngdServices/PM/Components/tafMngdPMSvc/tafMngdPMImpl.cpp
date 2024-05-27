@@ -1204,6 +1204,38 @@ void tafMngdPMSvc::StateLayeredHandler(void* reportPtr, void* layerHandlerFunc)
 }
 
 /**
+ * Call Clients for Bub Status Event notification
+ */
+void tafMngdPMSvc::InfoReportCB(void* reportPtr)
+{
+    LE_INFO("InfoReportCB");
+    bubStatusEvent_t* stateEvent = (bubStatusEvent_t*)reportPtr;
+    le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&infoReportHandlerList);
+    while (linkHandlerPtr)
+    {
+        taf_mngdPm_InfoReportCb_t * handlerCtxPtr =
+                CONTAINER_OF(linkHandlerPtr, taf_mngdPm_InfoReportCb_t, link);
+        linkHandlerPtr = le_dls_PeekPrev(&infoReportHandlerList, linkHandlerPtr);
+        if (handlerCtxPtr->handlerPtr)
+        {
+            LE_INFO("Notifying to clients");
+            handlerCtxPtr->handlerPtr(stateEvent->status, handlerCtxPtr->infoReportHandlerCtxPtr);
+        }
+    }
+}
+
+/**
+ * VHAL callback for Bub Status Event notification
+ */
+void tafMngdPMSvc::InfoReportVhalCB(int32_t* reportPtr)
+{
+    LE_INFO("InfoReportVhalCB");
+    bubStatusEvent_t bubStatusEvent;
+    int32_t bubStatus = *reportPtr;
+    bubStatusEvent.status = (taf_mngdPm_BubStatus_t)bubStatus;
+    le_event_Report(infoReport, &bubStatusEvent, sizeof(bubStatusEvent_t));
+}
+/**
  * Get MPMS instance
  */
 tafMngdPMSvc &tafMngdPMSvc::GetInstance()
@@ -1253,3 +1285,8 @@ const char* tafMngdPMSvc::clientWhiteList[] = {"tafMngdPMIntTest","tafMngdPMUnit
 
 le_event_Id_t tafMngdPMSvc::stateChange;
 taf_mngdPm_WakeupVehicleCb_t tafMngdPMSvc::wakeupVehicleCB;
+
+ le_mem_PoolRef_t tafMngdPMSvc::infoReportHandlerPool;
+ le_dls_List_t tafMngdPMSvc::infoReportHandlerList;
+ le_ref_MapRef_t tafMngdPMSvc::infoReportHandlerRefMap;
+ le_event_Id_t tafMngdPMSvc::infoReport;

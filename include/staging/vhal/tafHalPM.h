@@ -87,10 +87,15 @@
 //Define the vehichle wakeup reason
 #define HAL_PM_VEHICHLE_WAKEUP_REASON_DEFAULT 0
 
-//Define the vehichle wake up 
+//Define the vehichle wakeup status
 #define HAL_PM_VEHICHLE_WAKEUP_STATUS_AWAKE 0
 #define HAL_PM_VEHICHLE_WAKEUP_STATUS_INVALID_REQ 1
 #define HAL_PM_VEHICHLE_WAKEUP_STATUS_UNKNOWN 2
+
+//Define the Bub status
+#define HAL_PM_BUB_STATUS_UNKNOWN -1
+#define HAL_PM_BUB_STATUS_NOT_IN_USE 0
+#define HAL_PM_BUB_STATUS_IN_USE 1
 //--------------------------------------------------------------------------------------------------
 /**
  * PM shutdown mode for request from service
@@ -476,7 +481,45 @@ typedef le_result_t (*hal_pm_AddNodeEventHandlerFunc_t)
     uint8_t pm_node_id,
     hal_pm_NodeEventCallbackFunc_t callback
 );
-
+//--------------------------------------------------------------------------------------------------
+/**
+ * Bub status callback function.
+ * @param
+ *      status    - Bub status pointer
+ * @return void
+ */
+//--------------------------------------------------------------------------------------------------
+typedef void (*hal_pm_AddBubStatusCallbackFunc_t)
+(  
+   int32_t *status
+);
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add Bub status handler to VHAL component.
+ * @param
+ *      handlerRef      - Bub status handler callback function
+ * @return
+ *      result for adding the handler
+ */
+//--------------------------------------------------------------------------------------------------
+typedef le_result_t (*hal_pm_AddBubStatusHandlerFunc_t)
+(
+    hal_pm_AddBubStatusCallbackFunc_t handler
+);
+//--------------------------------------------------------------------------------------------------
+/**
+ * BuB status query to the VHAL hardware component.
+ * @param
+ *      status    - Bub status pointer
+ *
+ * @return
+ *      result for sending the notification
+ */
+//--------------------------------------------------------------------------------------------------
+typedef le_result_t (*hal_pm_GetBubStatusFunc_t)
+(
+    int32_t *status
+);
 
 typedef struct
 {
@@ -499,6 +542,10 @@ typedef struct
     hal_pm_NodeStateChangePrepareAsync nodeStateChangePrepareAsync;
 
     hal_pm_NodeStateChangeReqAsync nodeStateChangeReqAsync;
+
+    hal_pm_AddBubStatusHandlerFunc_t addBubStatusHandler;
+
+    hal_pm_GetBubStatusFunc_t getBubStatus;
 
 } hal_pm_Inf_t;
 

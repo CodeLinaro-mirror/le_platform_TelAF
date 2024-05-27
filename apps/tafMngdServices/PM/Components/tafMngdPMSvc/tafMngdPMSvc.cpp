@@ -105,7 +105,8 @@ le_result_t taf_mngdPm_ShutdownReqAsync(taf_mngdPm_ShutdownMode_t mode,
     if(mpms.pmInf)
     {
         LE_INFO("Send shutdownReqAsync %d", HAL_PM_SHUTDOWN_MODE_NORMAL);
-        (*(mpms.pmInf->nodeStateChangePrepareAsync))(NODE_ID, HAL_PM_NODE_STATE_SHUTDOWN, HAL_PM_SHUTDOWN_MODE_NORMAL, tafMngdPMSvc::ShutdownPrepareRespCB);
+        (*(mpms.pmInf->nodeStateChangePrepareAsync))(NODE_ID, HAL_PM_NODE_STATE_SHUTDOWN,
+                HAL_PM_SHUTDOWN_MODE_NORMAL, tafMngdPMSvc::ShutdownPrepareRespCB);
         taf_mngdPm_RequestedState_t statePtr = SYSTEM_NORMAL_SHUTDOWN;
         le_timer_SetContextPtr(mpms.vhalAckTimerRef, &statePtr);
         le_timer_Start(mpms.vhalAckTimerRef);
@@ -482,6 +483,87 @@ void taf_mngdPm_RemoveStateChangeHandler(taf_mngdPm_StateChangeHandlerRef_t hand
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 }
 
+/**
+ * Adds the client to Info Report Handler.
+ */
+taf_mngdPm_InfoReportHandlerRef_t taf_mngdPm_AddInfoReportHandler(taf_mngdPm_InfoReportBitMask_t infoReportMask,
+        taf_mngdPm_InfoReportHandlerFunc_t handlerPtr, void* contextPtr)
+{
+    LE_DEBUG("AddInfoReportHandler");
+    auto &mpms = tafMngdPMSvc::GetInstance();
+    if(!mpms.pmInf)
+    {
+        LE_INFO("Ignore the AddInfoReportHandler when no VHAL present");
+        return NULL;
+    }
+    else if((infoReportMask & (INFO_REPORT_MASK_BUB)) == 0)     //Need to store the bitmask of each client in future
+    {
+        LE_INFO("Ignore the AddInfoReportHandler for invalid bitmask");
+        return NULL;
+    }
+    TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, NULL, "INVALID handler reference.");
+    taf_mngdPm_InfoReportCb_t * handlerCtxPtr =
+            (taf_mngdPm_InfoReportCb_t *)le_mem_ForceAlloc(mpms.infoReportHandlerPool);
+    handlerCtxPtr->handlerPtr = handlerPtr;
+    handlerCtxPtr->handlerRef = (taf_mngdPm_InfoReportHandlerRef_t)le_ref_CreateRef(
+            mpms.infoReportHandlerRefMap, handlerCtxPtr);
+    handlerCtxPtr->link = LE_DLS_LINK_INIT;
+    handlerCtxPtr->infoReportHandlerCtxPtr = contextPtr;
+    le_dls_Queue((&(mpms.infoReportHandlerList)), &handlerCtxPtr->link);
+    if(mpms.pmInf)
+    {
+        LE_INFO("Send addBubStatusHandler request to VHAL");
+        (*(mpms.pmInf->addBubStatusHandler))(mpms.InfoReportVhalCB);
+    }
+    return handlerCtxPtr->handlerRef;
+}
+
+/**
+ * Removes Info Report handler
+ */
+void taf_mngdPm_RemoveInfoReportHandler(taf_mngdPm_InfoReportHandlerRef_t handlerRef)
+{
+    LE_INFO("RemoveInfoReportHandler");
+    auto &mpms = tafMngdPMSvc::GetInstance();
+    le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(mpms.infoReportHandlerList));
+    while (linkHandlerPtr)
+    {
+        taf_mngdPm_InfoReportCb_t * handlerCtxPtr =
+                CONTAINER_OF(linkHandlerPtr, taf_mngdPm_InfoReportCb_t, link);
+        linkHandlerPtr = le_dls_PeekPrev(&(mpms.infoReportHandlerList), linkHandlerPtr);
+        if (handlerCtxPtr && handlerCtxPtr->handlerRef == handlerRef)
+        {
+            le_ref_DeleteRef(mpms.infoReportHandlerRefMap, handlerRef);
+            le_dls_Remove(&(mpms.infoReportHandlerList), &handlerCtxPtr->link);
+            le_mem_Release((void*)handlerCtxPtr);
+        }
+    }
+}
+/**
+ * Gets the Info Report.
+ */
+le_result_t taf_mngdPm_GetInfoReport(taf_mngdPm_InfoDataId_t infoReportId, int32_t* report)
+{
+    LE_INFO("taf_mngdPm_GetInfoReport");
+    le_result_t res = LE_FAULT ;
+    auto &mpms = tafMngdPMSvc::GetInstance();
+    if(!mpms.pmInf)
+    {
+        LE_INFO("Ignore the GetInfoReport when no VHAL present");
+        return LE_FAULT;
+    }
+    if(infoReportId == TAF_MNGDPM_INFO_REPORT_BUB)
+    {
+        LE_INFO("Send getBubStatus request to VHAL");
+        res = (*(mpms.pmInf->getBubStatus))(report);
+    }
+    else
+    {
+        return LE_BAD_PARAMETER;
+    }
+    return res;
+}
+
 COMPONENT_INIT
 {
     LE_INFO("tafMngdPMSvc COMPONENT init...");
@@ -530,7 +612,7 @@ COMPONENT_INIT
     }
     mpms.wsRefPool = le_mem_CreatePool("tafwsRefList", sizeof(taf_wsRefCtx_t));
     mpms.wsRefList = LE_DLS_LIST_INIT;
-    mpms.wsRefMap = le_ref_CreateMap("tafwsRef", TAF_WAKE_SOURCE_REF_POOL_SIZE);
+    mpms.wsRefMap = le_ref_CreateMap("tafwsRef", TAF_REF_POOL_SIZE);
     mpms.vmStatePool = le_mem_CreatePool("VMStatePool", sizeof(taf_mngdPm_vmState_t));
     mpms.vmStateHashmap = le_hashmap_Create("VMStateHashMap", TAF_MNGDPM_VM_HASH_SIZE,
             le_hashmap_HashString, le_hashmap_EqualsString);
@@ -571,5 +653,10 @@ COMPONENT_INIT
         LE_INFO("Register Extended state change handler is successfull");
 
     mpms.WaitWakeSourceTimer();
+    mpms.infoReportHandlerPool = le_mem_CreatePool("infoReportHandlerList", sizeof(taf_mngdPm_InfoReportCb_t));
+    mpms.infoReportHandlerList = LE_DLS_LIST_INIT;
+    mpms.infoReportHandlerRefMap = le_ref_CreateMap("infoReportHandlerRef", TAF_REF_POOL_SIZE);
+    mpms.infoReport = le_event_CreateId("tafInfoReportCbEvent", sizeof(bubStatusEvent_t));
+    le_event_AddHandler("tafPMInfoReporCbtevent", mpms.infoReport, mpms.InfoReportCB);
     LE_INFO("COMPONENT end init");
 }

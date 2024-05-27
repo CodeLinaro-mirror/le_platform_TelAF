@@ -544,6 +544,28 @@ static le_result_t taf_hal_addNodeEventHanlder
     return LE_OK;
 }
 
+static le_result_t taf_hal_AddBubStatusHandler
+(
+    hal_pm_AddBubStatusCallbackFunc_t callback
+)
+{
+    LE_INFO("PM_VHAL: %s", __FUNCTION__);
+     int32_t status = HAL_PM_BUB_STATUS_IN_USE;
+     int32_t *reportptr = &status;
+    callback(reportptr);
+    return LE_OK;
+}
+
+static le_result_t taf_hal_GetBubStatus
+(
+    int32_t *status
+)
+{
+    LE_INFO("PM_VHAL: %s", __FUNCTION__);
+    *status = HAL_PM_BUB_STATUS_IN_USE;
+    LE_INFO("status %d", *status);
+    return LE_OK;
+}
 // Initialization function
 static void Init(void)
 {
@@ -623,7 +645,9 @@ LE_SHARED hal_pm_InfoTab_t TAF_HAL_INFO_TAB = {
         .addNodeEventHandler = taf_hal_addNodeEventHanlder,
         .wakeupVehicleReqAsync = taf_hal_WakeupVehicleReqAsync,
         .nodeStateChangePrepareAsync = taf_hal_NodeStateChangePrepareAsync,
-        .nodeStateChangeReqAsync = taf_hal_NodeStateChangeReqAsync
+        .nodeStateChangeReqAsync = taf_hal_NodeStateChangeReqAsync,
+        .addBubStatusHandler = taf_hal_AddBubStatusHandler,
+        .getBubStatus = taf_hal_GetBubStatus
     }
 };
 

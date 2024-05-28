@@ -98,7 +98,7 @@
 //--------------------------------------------------------------------------------------------------
 typedef enum
 {
-    HAL_PM_SHUTDOWN_MODE_FORCEFUL, /**<Forceful shutdown */
+    HAL_PM_SHUTDOWN_MODE_NORMAL, /**<Normal shutdown */
     HAL_PM_SHUTDOWN_MODE_GRACEFUL  /**<Graceful shutdown */
 } hal_pm_ShutdownMode_t;
 
@@ -213,7 +213,85 @@ typedef le_result_t (*hal_pm_ShutDownReqAsyncFunc_t)
     hal_pm_ShutdownMode_t mode,
     hal_pm_ShutDownRspCallbackFunc_t callback
 );
+//--------------------------------------------------------------------------------------------------
+/**
+ * Callback for response of NodeStateChangePrepare request.
+ * @param
+ *      pmNodeId    - nodeid for a given node
+ *      state       - state of the given node
+ *      mode    - corresonding shutdown mode to respond
+ *      reason  - response to the request
+ *
+ * @return
+ */
+//--------------------------------------------------------------------------------------------------
+typedef void (*hal_pm_NodeStateChangePrepareCallbackFunc_t)
+(
+uint8_t pmNodeId,
+hal_pm_NodeState_t state,
+hal_pm_ShutdownMode_t mode,
+hal_pm_RspReason_t reason
+);
+//--------------------------------------------------------------------------------------------------
+/**
+ * NodeStateChangePrepare request to the VHAL hardware component.
+ * @param
+ *      pmNodeId    - nodeid for a given node
+ *      state       - state of the given node
+ *      mode        - shutdown mode request to the VHAL compoment
+ *      callback    - the callback function to response the request
+ *
+ * @return
+ *      result for sending the request
+ */
+//--------------------------------------------------------------------------------------------------
+typedef le_result_t (*hal_pm_NodeStateChangePrepareAsync)(
+   uint8_t pmNodeId,
+   hal_pm_NodeState_t state,
+   hal_pm_ShutdownMode_t mode,
+   hal_pm_NodeStateChangePrepareCallbackFunc_t callback
+);
+//--------------------------------------------------------------------------------------------------
+/**
+ * Callback for response of NodeStateChange request.
+ * @param
+ *      pmNodeId    - nodeid for a given node
+ *      state       - state of the given node
+ *      mode    - corresonding shutdown mode to respond
+ *
+ * @return
+ */
+//--------------------------------------------------------------------------------------------------
+typedef void (*hal_pm_NodeStateChangeReqCallbackFunc_t)
+(
+uint8_t pmNodeId,
+hal_pm_NodeState_t state,
+hal_pm_ShutdownMode_t mode
+);
+//--------------------------------------------------------------------------------------------------
+/**
+ * NodeStateChange request to the VHAL hardware component.
+ * @param
+ *      pmNodeId    - nodeid for a given node
+ *      state       - state of the given node
+ *      mode        - shutdown mode request to the VHAL compoment
+ *      callback    - the callback function to response the request
+ *
+ * @return
+ *      result for sending the request
+ */
+//--------------------------------------------------------------------------------------------------
+typedef le_result_t (*hal_pm_NodeStateChangeReqAsync)(
 
+   uint8_t pmNodeId,
+
+   hal_pm_NodeState_t state,
+
+   hal_pm_ShutdownMode_t mode,
+
+   hal_pm_NodeStateChangeReqCallbackFunc_t callback
+
+);
 //--------------------------------------------------------------------------------------------------
 /**
  * Restart response callback function.
@@ -399,6 +477,7 @@ typedef le_result_t (*hal_pm_AddNodeEventHandlerFunc_t)
     hal_pm_NodeEventCallbackFunc_t callback
 );
 
+
 typedef struct
 {
     INIT InitHAL;
@@ -416,6 +495,10 @@ typedef struct
     hal_pm_AddNodeEventHandlerFunc_t addNodeEventHandler;
 
     hal_pm_WakeupVehicleReqAsyncFunc_t wakeupVehicleReqAsync;
+
+    hal_pm_NodeStateChangePrepareAsync nodeStateChangePrepareAsync;
+
+    hal_pm_NodeStateChangeReqAsync nodeStateChangeReqAsync;
 
 } hal_pm_Inf_t;
 

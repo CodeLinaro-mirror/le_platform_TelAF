@@ -266,7 +266,7 @@ ENUM ResponseMode
  */
 ENUM ShutdownMode
 {
-    SYSTEM_FORCEFUL_SHUTDOWN     ///< System forceful shutdown.
+    SHUTDOWN_MODE_NORMAL     ///< System forceful shutdown.
 };
 
 /**

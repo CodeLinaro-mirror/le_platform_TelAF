@@ -443,6 +443,36 @@ static le_result_t taf_hal_WakeupVehicleReqAsync
     }
 }
 
+static le_result_t taf_hal_NodeStateChangePrepareAsync
+(
+   uint8_t pmNodeId,
+   hal_pm_NodeState_t state,
+   hal_pm_ShutdownMode_t mode,
+   hal_pm_NodeStateChangePrepareCallbackFunc_t callback
+)
+{
+    LE_INFO("PM_VHAL: %s", __FUNCTION__);
+
+    callback(pmNodeId, state, mode, HAL_PM_RSP_READY);
+
+    return LE_OK;
+}
+
+static le_result_t taf_hal_NodeStateChangeReqAsync
+(
+   uint8_t pmNodeId,
+   hal_pm_NodeState_t state,
+   hal_pm_ShutdownMode_t mode,
+   hal_pm_NodeStateChangeReqCallbackFunc_t callback
+)
+{
+    LE_INFO("PM_VHAL: %s", __FUNCTION__);
+
+    callback(pmNodeId, state, mode);
+
+    return LE_OK;
+}
+
 static le_result_t taf_hal_SuspendReqAsync
 (
     hal_pm_SuspendMode_t mode,
@@ -591,7 +621,9 @@ LE_SHARED hal_pm_InfoTab_t TAF_HAL_INFO_TAB = {
         .nodeStateChangeNotification = taf_hal_NodeStateChangeNotification,
         .nodeInfoNotification = taf_hal_nodeInfoNotification,
         .addNodeEventHandler = taf_hal_addNodeEventHanlder,
-        .wakeupVehicleReqAsync = taf_hal_WakeupVehicleReqAsync
+        .wakeupVehicleReqAsync = taf_hal_WakeupVehicleReqAsync,
+        .nodeStateChangePrepareAsync = taf_hal_NodeStateChangePrepareAsync,
+        .nodeStateChangeReqAsync = taf_hal_NodeStateChangeReqAsync
     }
 };
 

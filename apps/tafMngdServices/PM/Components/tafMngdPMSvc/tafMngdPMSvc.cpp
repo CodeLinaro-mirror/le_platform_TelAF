@@ -104,9 +104,9 @@ le_result_t taf_mngdPm_ShutdownReqAsync(taf_mngdPm_ShutdownMode_t mode,
     auto &mpms = tafMngdPMSvc::GetInstance();
     if(mpms.pmInf)
     {
-        LE_INFO("Send shutdownReqAsync %d", HAL_PM_SHUTDOWN_MODE_FORCEFUL);
-        (*(mpms.pmInf->shutdownReqAsync))(HAL_PM_SHUTDOWN_MODE_FORCEFUL, tafMngdPMSvc::ShutdownRespCB);
-        taf_mngdPm_RequestedState_t statePtr = SYSTEM_FORCEFUL_SHUTDOWN;
+        LE_INFO("Send shutdownReqAsync %d", HAL_PM_SHUTDOWN_MODE_NORMAL);
+        (*(mpms.pmInf->nodeStateChangePrepareAsync))(NODE_ID, HAL_PM_NODE_STATE_SHUTDOWN, HAL_PM_SHUTDOWN_MODE_NORMAL, tafMngdPMSvc::ShutdownPrepareRespCB);
+        taf_mngdPm_RequestedState_t statePtr = SYSTEM_NORMAL_SHUTDOWN;
         le_timer_SetContextPtr(mpms.vhalAckTimerRef, &statePtr);
         le_timer_Start(mpms.vhalAckTimerRef);
         mpms.shutdownCB.shutdownCallbackFunc = handlerPtr;

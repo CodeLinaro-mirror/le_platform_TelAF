@@ -95,7 +95,7 @@ typedef enum
 
 typedef enum
 {
-    SYSTEM_FORCEFUL_SHUTDOWN,
+    SYSTEM_NORMAL_SHUTDOWN,
     RESTART_WITH_NAD_POWER_OFF_ON
 }taf_mngdPm_RequestedState_t;
 
@@ -160,7 +160,12 @@ class tafMngdPMSvc: public ITafSvc
 
         static le_result_t ShutdownNAD();
         static le_result_t SuspendNAD();
+        static void ShutdownPrepareRespCB(uint8_t pmNodeId, hal_pm_NodeState_t state,
+                hal_pm_ShutdownMode_t mode, hal_pm_RspReason_t reason);
+        static void ShutdownChangeReqRespCB(uint8_t pmNodeId, hal_pm_NodeState_t state,
+                hal_pm_ShutdownMode_t mode);
         static void ShutdownRespCB(hal_pm_ShutdownMode_t mode, hal_pm_RspReason_t reason);
+
         static void ShutdownCmdCB(hal_pm_ShutdownMode_t mode, hal_pm_RspReason_t reason);
         static void SuspendRespCB(hal_pm_SuspendMode_t mode, hal_pm_RspReason_t reason);
         static void RestartRespCB(hal_pm_RestartMode_t mode, hal_pm_RspReason_t reason);

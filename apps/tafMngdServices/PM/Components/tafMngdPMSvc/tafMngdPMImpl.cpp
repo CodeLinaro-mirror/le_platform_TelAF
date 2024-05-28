@@ -320,7 +320,7 @@ void tafMngdPMSvc::ShutdownRespCB
         taf_pm_SendStateChangeAck(powerStateRef, TAF_PM_STATE_ALL_ACKED, TAF_PM_PVM,
                 TAF_PM_NOT_READY);
     }
-    else if (mode == HAL_PM_SHUTDOWN_MODE_FORCEFUL && reason == HAL_PM_RSP_READY)
+    else if (mode == HAL_PM_SHUTDOWN_MODE_NORMAL && reason == HAL_PM_RSP_READY)
     {
         if(RequestStateChange(TAF_MNGDPM_STATE_SHUTTING_DOWN) != LE_OK)
         {
@@ -329,7 +329,7 @@ void tafMngdPMSvc::ShutdownRespCB
 
         if(shutdownCB.shutdownCallbackFunc)
         {
-            shutdownCB.shutdownCallbackFunc(TAF_MNGDPM_SYSTEM_FORCEFUL_SHUTDOWN, TAF_MNGDPM_READY,
+            shutdownCB.shutdownCallbackFunc(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL, TAF_MNGDPM_READY,
                     shutdownCB.shutdownCBCtxPtr);
         }
         le_result_t res = ShutdownNAD();
@@ -338,12 +338,90 @@ void tafMngdPMSvc::ShutdownRespCB
             powerMode.isGraceful = false;
         }
     }
-    else if (mode == HAL_PM_SHUTDOWN_MODE_FORCEFUL && reason == HAL_PM_RSP_NOT_READY)
+    else if (mode == HAL_PM_SHUTDOWN_MODE_NORMAL && reason == HAL_PM_RSP_NOT_READY)
     {
         if(shutdownCB.shutdownCallbackFunc)
         {
             shutdownCB.shutdownCallbackFunc(
-                TAF_MNGDPM_SYSTEM_FORCEFUL_SHUTDOWN,
+                TAF_MNGDPM_SHUTDOWN_MODE_NORMAL,
+                TAF_MNGDPM_NOT_READY,
+                shutdownCB.shutdownCBCtxPtr);
+        }
+    }
+    shutdownCB.shutdownCallbackFunc = nullptr;
+}
+
+/**
+ * Shutdown request callback function for VHAL module
+ */
+void tafMngdPMSvc::ShutdownChangeReqRespCB
+(
+    uint8_t pmNodeId,
+    hal_pm_NodeState_t state,
+    hal_pm_ShutdownMode_t mode
+)
+{
+    LE_INFO("***** %s *****", __FUNCTION__);
+    LE_INFO("pmNodeId: %d", pmNodeId);
+    LE_INFO("hal_pm_NodeState_t: %d", state);
+    LE_INFO("hal_pm_ShutdownMode_t: %d", mode);
+    taf_pm_SendStateChangeAck(powerStateRef, TAF_PM_STATE_ALL_ACKED, TAF_PM_PVM,
+            TAF_PM_READY);
+}
+
+/**
+ * Shutdown response callback function for VHAL module
+ */
+void tafMngdPMSvc::ShutdownPrepareRespCB
+(
+    uint8_t pmNodeId,
+    hal_pm_NodeState_t state,
+    hal_pm_ShutdownMode_t mode,
+    hal_pm_RspReason_t reason
+)
+{
+    LE_INFO("***** %s *****", __FUNCTION__);
+    LE_INFO("pmNodeId: %d", pmNodeId);
+    LE_INFO("hal_pm_NodeState_t: %d", state);
+    LE_INFO("hal_pm_ShutdownMode_t: %d", mode);
+    LE_INFO("hal_pm_RspReason_t: %d", reason);
+    if(le_timer_IsRunning(vhalAckTimerRef))
+    {
+        LE_DEBUG("Stop the timer");
+        le_timer_Stop(vhalAckTimerRef);
+    }
+    if (mode == HAL_PM_SHUTDOWN_MODE_NORMAL && reason == HAL_PM_RSP_READY)
+    {
+        if(RequestStateChange(TAF_MNGDPM_STATE_SHUTTING_DOWN) != LE_OK)
+        {
+            if(shutdownCB.shutdownCallbackFunc)
+            {
+                shutdownCB.shutdownCallbackFunc(
+                    TAF_MNGDPM_SHUTDOWN_MODE_NORMAL,
+                    TAF_MNGDPM_NOT_READY,
+                    shutdownCB.shutdownCBCtxPtr);
+            }
+            shutdownCB.shutdownCallbackFunc = nullptr;
+            return;
+        }
+
+        if(shutdownCB.shutdownCallbackFunc)
+        {
+            shutdownCB.shutdownCallbackFunc(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL, TAF_MNGDPM_READY,
+                    shutdownCB.shutdownCBCtxPtr);
+        }
+        le_result_t res = ShutdownNAD();
+        if(res == LE_OK)
+        {
+            powerMode.isGraceful = false;
+        }
+    }
+    else if (mode == HAL_PM_SHUTDOWN_MODE_NORMAL && reason == HAL_PM_RSP_NOT_READY)
+    {
+        if(shutdownCB.shutdownCallbackFunc)
+        {
+            shutdownCB.shutdownCallbackFunc(
+                TAF_MNGDPM_SHUTDOWN_MODE_NORMAL,
                 TAF_MNGDPM_NOT_READY,
                 shutdownCB.shutdownCBCtxPtr);
         }
@@ -364,12 +442,12 @@ void tafMngdPMSvc::ShutdownCmdCB
     LE_INFO("hal_pm_ShutdownMode_t: %d", mode);
     LE_INFO("hal_pm_RspReason_t: %d", reason);
     powerMode.isRestart = false;
-    if (mode == HAL_PM_SHUTDOWN_MODE_FORCEFUL && reason == HAL_PM_RSP_READY)
+    if (mode == HAL_PM_SHUTDOWN_MODE_NORMAL && reason == HAL_PM_RSP_READY)
     {
         taf_pm_SendStateChangeAck(powerStateRef, TAF_PM_STATE_ALL_ACKED, TAF_PM_PVM,
                 TAF_PM_READY);
     }
-    else if (mode == HAL_PM_SHUTDOWN_MODE_FORCEFUL && reason == HAL_PM_RSP_NOT_READY)
+    else if (mode == HAL_PM_SHUTDOWN_MODE_NORMAL && reason == HAL_PM_RSP_NOT_READY)
     {
         taf_pm_SendStateChangeAck(powerStateRef, TAF_PM_STATE_ALL_ACKED, TAF_PM_PVM,
                 TAF_PM_NOT_READY);
@@ -781,8 +859,8 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
         }
         else if(powerMode.isRestart)
         {
-            LE_DEBUG("Send shutdownReqAsync %d", HAL_PM_SHUTDOWN_MODE_FORCEFUL);
-            (*(pmInf->shutdownReqAsync))(HAL_PM_SHUTDOWN_MODE_FORCEFUL, ShutdownCmdCB);
+            LE_DEBUG("Send shutdownReqAsync %d", HAL_PM_SHUTDOWN_MODE_NORMAL);
+            (*(pmInf->shutdownReqAsync))(HAL_PM_SHUTDOWN_MODE_NORMAL, ShutdownCmdCB);
         }
         else if(powerMode.isSuspend)
         {
@@ -791,8 +869,8 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
         }
         else
         {
-            taf_pm_SendStateChangeAck(powerStateRef, TAF_PM_STATE_ALL_ACKED, TAF_PM_PVM,
-                    TAF_PM_READY);
+            LE_INFO("nodeStateChangeReqAsync triggered to VHAL on forceful shutdown");
+            (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_SHUTDOWN, HAL_PM_SHUTDOWN_MODE_NORMAL, tafMngdPMSvc::ShutdownChangeReqRespCB);
         }
     }
     else if(state == TAF_PM_STATE_SUSPEND)
@@ -829,12 +907,12 @@ void tafMngdPMSvc::VhalAckTimerHandler(le_timer_Ref_t timerRef)
     taf_mngdPm_RequestedState_t* state =
       (taf_mngdPm_RequestedState_t*)le_timer_GetContextPtr(timerRef);
     LE_INFO("Timer Expired state is %d", *(state));
-    if(*(state) == SYSTEM_FORCEFUL_SHUTDOWN)
+    if(*(state) == SYSTEM_NORMAL_SHUTDOWN)
     {
         LE_INFO("Timer expire for SYSTEM_FORCEFUL_SHUTDOWN");
         if(shutdownCB.shutdownCallbackFunc)
         {
-            shutdownCB.shutdownCallbackFunc(TAF_MNGDPM_SYSTEM_FORCEFUL_SHUTDOWN, TAF_MNGDPM_TIMEOUT,
+            shutdownCB.shutdownCallbackFunc(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL, TAF_MNGDPM_TIMEOUT,
                     shutdownCB.shutdownCBCtxPtr);
         }
     }

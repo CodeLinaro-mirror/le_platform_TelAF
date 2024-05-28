@@ -19,7 +19,8 @@ using namespace telux::tafsvc;
 
 LE_MEM_DEFINE_STATIC_POOL(tSensorInfoPool, TAF_SENSOR_POOL_SIZE, sizeof(taf_SensorInfo_t));
 LE_MEM_DEFINE_STATIC_POOL(tSensorListPool, TAF_SENSOR_LIST_POOL_SIZE, sizeof(taf_SensorInfoList_t));
-
+LE_MEM_DEFINE_STATIC_POOL(ClientPoolRef,
+    TAF_SENSOR_CLIENT_ACTIVATION_MAX,sizeof(taf_SensorClient_t));
 LE_REF_DEFINE_STATIC_MAP(tSensorInfoMap, TAF_SENSOR_POOL_SIZE);
 LE_REF_DEFINE_STATIC_MAP(tSensorListMap, TAF_SENSOR_LIST_POOL_SIZE);
 
@@ -55,23 +56,24 @@ void ConvertSensorType(taf_SensorInfo_t* sensorInfoPtr,SensorInfo info)
     }
 }
 
-telux::common::ServiceStatus taf_Sensor::SensorManagerInit()
+telux::common::ServiceStatus taf_Sensor::SensorManagerInit(taf_SensorClient_t* clientRequestPtr)
 {
     LE_DEBUG("** SensorManagerInit **");
+    if(clientRequestPtr->mSensorManager == nullptr){
     std::chrono::time_point<std::chrono::system_clock> startTime, endTime;
     startTime = std::chrono::system_clock::now();
     std::promise<ServiceStatus> prom;
     //  Get the SensorFactory and SensorManager instances.
     auto &sensorFactory = telux::sensor::SensorFactory::getInstance();
-    mSensorManager = sensorFactory.getSensorManager(
+    clientRequestPtr->mSensorManager = sensorFactory.getSensorManager(
         [&prom](telux::common::ServiceStatus status) { prom.set_value(status); });
-    if (!mSensorManager) {
-        LE_INFO("Failed to get SensorManager");
+    if (!clientRequestPtr->mSensorManager) {
+        LE_FATAL("Failed to get SensorManager");
         return telux::common::ServiceStatus::SERVICE_FAILED;
     }
     //  Check if sensor subsystem is ready
     //  If sensor subsystem is not ready, wait for it to be ready
-    ServiceStatus managerStatus = mSensorManager->getServiceStatus();
+    ServiceStatus managerStatus = clientRequestPtr->mSensorManager->getServiceStatus();
     if (managerStatus != telux::common::ServiceStatus::SERVICE_AVAILABLE) {
         LE_INFO("Sensor subsystem is not ready, Please wait ...");
     }
@@ -82,30 +84,61 @@ telux::common::ServiceStatus taf_Sensor::SensorManagerInit()
         std::chrono::duration<double> elapsedTime = endTime - startTime;
         LE_INFO("Elapsed Time for Sensor Subsystems to ready : %lf",elapsedTime.count());
     } else {
-        LE_INFO("ERROR - Unable to initialize sensor subsystem");
+        LE_FATAL("ERROR - Unable to initialize sensor subsystem");
         return telux::common::ServiceStatus::SERVICE_FAILED;
     }
-    tSensorInfoPool = le_mem_InitStaticPool(tSensorInfoPool, TAF_SENSOR_POOL_SIZE,
-        sizeof(taf_SensorInfo_t));
-    tSensorListPool = le_mem_InitStaticPool(tSensorListPool, TAF_SENSOR_LIST_POOL_SIZE,
-        sizeof(taf_SensorInfoList_t));
-    tSensorInfoMap = le_ref_InitStaticMap(tSensorInfoMap, TAF_SENSOR_POOL_SIZE);
-    tSensorListMap = le_ref_InitStaticMap(tSensorListMap, TAF_SENSOR_LIST_POOL_SIZE);
+    LE_INFO("SensorManagerInit for sessionRef: %p",  clientRequestPtr->sessionRef);
+    }
+    else{
+        LE_INFO("Sensor manager already initialized");
+    }
     return telux::common::ServiceStatus::SERVICE_AVAILABLE;
+}
+
+le_result_t taf_Sensor::SetEulerAngle(double pitch ,double roll , double yaw)
+{
+    taf_SensorClient_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+
+    LE_INFO("Start: sensorClientPtr %p, sensorClientPtr->sessionRef %p, num of active client %d",
+            clientRequestPtr, clientRequestPtr->sessionRef, mClientRefCount);
+    Status status = telux::common::Status::FAILED;
+    EulerAngleConfig eulerAngleConfig;
+    eulerAngleConfig.pitch = pitch;
+    eulerAngleConfig.roll = roll;
+    eulerAngleConfig.yaw = yaw;
+    status =  clientRequestPtr->mSensorManager->setEulerAngleConfig(eulerAngleConfig);
+    if(status != telux::common::Status::SUCCESS){
+        LE_INFO("Not able to set euler angle for client");
+        return LE_FAULT;
+    }
+    return LE_OK;
 }
 
 taf_sensor_SensorListRef_t taf_Sensor::GetAvailableSensors()
 {
+    taf_SensorClient_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, NULL, "clientRequestPtr is NULL");
+
+    LE_INFO("Start: sensorClientPtr %p, sensorClientPtr->sessionRef %p, num of active client %d",
+            clientRequestPtr, clientRequestPtr->sessionRef, mClientRefCount);
+
     auto& sensorMngr = taf_Sensor::GetInstance();
-    taf_SensorInfoList_t* sensorListPtr =
+      taf_SensorInfoList_t* sensorListPtr =
         (taf_SensorInfoList_t*)le_mem_ForceAlloc(sensorMngr.tSensorListPool);
     memset(sensorListPtr,0,sizeof(taf_SensorInfoList_t));
     sensorListPtr->SensorsList = LE_SLS_LIST_INIT;
     sensorListPtr->currPtr = NULL;
+    sensorListPtr->sessionRef  = taf_sensor_GetClientSessionRef();
     std::vector<SensorInfo> info;
-    telux::common::Status status = sensorMngr.mSensorManager->getAvailableSensorInfo(info);
+    telux::common::Status status = clientRequestPtr->mSensorManager->getAvailableSensorInfo(info);
     if(status != telux::common::Status::SUCCESS){
         LE_INFO("Not able to get Available Sensor List");
+        return NULL;
     }
     sensorListPtr->sensorListSize = info.size();
     if(info.size()>0){
@@ -137,7 +170,7 @@ taf_sensor_SensorListRef_t taf_Sensor::GetAvailableSensors()
                 (taf_sensor_SensorRef_t)le_ref_CreateRef(sensorMngr.tSensorInfoMap, sensorInfoPtr);
         }
         sensorListPtr->ref = (taf_sensor_SensorListRef_t)
-                            le_ref_CreateRef(sensorMngr.tSensorListMap,sensorListPtr);
+                        le_ref_CreateRef(sensorMngr.tSensorListMap,sensorListPtr);
         return sensorListPtr->ref;
     }
     return NULL;
@@ -326,20 +359,157 @@ le_result_t taf_Sensor::GetSensorResolution(taf_sensor_SensorRef_t sensorRef,
     return LE_OK;
 }
 
+void taf_Sensor::InitializeClient(taf_SensorClient_t* clientRequestPtr)
+{
+    auto &sensorMngr = taf_Sensor::GetInstance();
+    telux::common::ServiceStatus status = telux::common::ServiceStatus::SERVICE_FAILED;
+    status = sensorMngr.SensorManagerInit(clientRequestPtr);
+    if(status == telux::common::ServiceStatus::SERVICE_FAILED){
+        LE_ERROR("SensorManager not available");
+    }
+}
+
+taf_SensorClient_t* taf_Sensor::DiscoverSessionRef(le_msg_SessionRef_t sessionRef)
+{
+    auto &sensorMngr = taf_Sensor::GetInstance();
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(sensorMngr.ClientRequestRefMap);
+    le_result_t result = le_ref_NextNode(iterRef);
+
+    while (LE_OK == result)
+    {
+        taf_SensorClient_t* clientPtr = (taf_SensorClient_t*) le_ref_GetValue(iterRef);
+        if(clientPtr == NULL) {
+            return NULL;
+        }
+
+        LE_DEBUG("clientPtr %p, clientPtr->sessionRef %p, sessionRef %p",
+                 clientPtr, clientPtr->sessionRef, sessionRef);
+
+        if (sessionRef == clientPtr->sessionRef)
+        {
+             LE_DEBUG("sessionRef %p found in Client session", sessionRef);
+             return clientPtr;
+        }
+        result = le_ref_NextNode(iterRef);
+    }
+    return NULL;
+}
+
+taf_SensorClient_t* taf_Sensor::AcquireSessionRef(void)
+{
+    auto &sensorMngr = taf_Sensor::GetInstance();
+    taf_SensorClient_t* clientRequestPtr = NULL;
+    le_msg_SessionRef_t sessionRef = taf_sensor_GetClientSessionRef();
+    clientRequestPtr = DiscoverSessionRef(sessionRef);
+    if (clientRequestPtr == NULL)
+    {
+        clientRequestPtr = (taf_SensorClient_t*)le_mem_ForceAlloc(sensorMngr.ClientPoolRef);
+        clientRequestPtr->sessionRef = sessionRef;
+        InitializeClient(clientRequestPtr);
+        void* reqRefPtr = le_ref_CreateRef(sensorMngr.ClientRequestRefMap, clientRequestPtr);
+        if (sessionRef!=nullptr) {
+            //External client increase Client ref count
+            sensorMngr.mClientRefCount++;
+        }
+        LE_INFO("SessionRef %p was not found, Create Client session, total count %d",
+            sessionRef, sensorMngr.mClientRefCount);
+        LE_DEBUG("reqRefPtr %p, clientRequestPtr %p", reqRefPtr, clientRequestPtr);
+        clientRequestPtr->clientRefPtr = reqRefPtr;
+    }
+    return clientRequestPtr;
+}
+
+void taf_Sensor::ReleaseClientRef(void* RefPtr)
+{
+    auto &sensorMngr = taf_Sensor::GetInstance();
+    void* clientPtr = le_ref_Lookup(sensorMngr.ClientRequestRefMap, RefPtr);
+    if (NULL == clientPtr)
+    {
+        LE_ERROR("Invalid sensor service activation reference %p", RefPtr);
+    }
+    else
+    {
+        le_ref_DeleteRef(sensorMngr.ClientRequestRefMap, RefPtr);
+        LE_DEBUG("Remove Client Ctrl (%p)",RefPtr);
+        le_mem_Release(clientPtr);
+    }
+}
+
+void taf_Sensor::CloseEventHandler(le_msg_SessionRef_t sessionRef, void* contextPtr)
+{
+    auto& sensorMngr = taf_Sensor::GetInstance();
+    if (sessionRef!=nullptr && sensorMngr.mClientRefCount > 0){
+        //External Client release, decrement client ref count
+        sensorMngr.mClientRefCount--;
+    }
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(sensorMngr.tSensorListMap);
+    while (le_ref_NextNode(iterRef) == LE_OK)
+    {
+        taf_SensorInfoList_t* listPtr =
+                (taf_SensorInfoList_t*)le_ref_GetValue(iterRef);
+        if (listPtr && listPtr->sessionRef == sessionRef)
+        {
+            taf_sensor_DeleteSensorList(listPtr->ref);
+        }
+    }
+
+    iterRef = le_ref_GetIterator(sensorMngr.ClientRequestRefMap);
+    while (le_ref_NextNode(iterRef) == LE_OK)
+    {
+        taf_SensorClient_t* sensorClientPtr = (taf_SensorClient_t*) le_ref_GetValue(iterRef);
+        if (sensorClientPtr && sessionRef == sensorClientPtr->sessionRef)
+        {
+            void* safeRefPtr = (void*)le_ref_GetSafeRef(iterRef);
+            LE_DEBUG("Release taf_gnss_ReleaseClientRef 0x%p, Session 0x%p",
+                     safeRefPtr, sensorClientPtr->sessionRef);
+
+            sensorMngr.ReleaseClientRef(safeRefPtr);
+        }
+    }
+}
+
+void taf_Sensor::OpenEventHandler(le_msg_SessionRef_t sessionRef, void* contextPtr)
+{
+    LE_INFO("OnClientConnection sessionRef: %p", sessionRef);
+    taf_SensorClient_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+    TAF_ERROR_IF_RET_NIL(NULL == clientRequestPtr, "OnClientConnection clientRequestPtr is NULL");
+    return;
+}
+
 taf_Sensor::~taf_Sensor()
 {
-    if(mSensorManager)
+    auto &sensorMngr = taf_Sensor::GetInstance();
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(sensorMngr.ClientRequestRefMap);
+    le_result_t result = le_ref_NextNode(iterRef);
+    while (LE_OK == result)
     {
-        mSensorManager = nullptr;
+        taf_SensorClient_t* clientPtr = (taf_SensorClient_t*) le_ref_GetValue(iterRef);
+        if(clientPtr == NULL) {
+            return;
+        }
+        if(clientPtr->mSensorManager){
+            clientPtr->mSensorManager = nullptr;
+        }
     }
+    result = le_ref_NextNode(iterRef);
 }
 
 void taf_Sensor::Init()
 {
     LE_INFO("** Init Started **");
-    telux::common::ServiceStatus status = telux::common::ServiceStatus::SERVICE_FAILED;
-    status = SensorManagerInit();
-    if(status == telux::common::ServiceStatus::SERVICE_FAILED){
-        LE_ERROR("SensorManager not available");
-    }
+    mClientRefCount = 0;
+    tSensorInfoPool = le_mem_InitStaticPool(tSensorInfoPool, TAF_SENSOR_POOL_SIZE,
+        sizeof(taf_SensorInfo_t));
+    tSensorListPool = le_mem_InitStaticPool(tSensorListPool, TAF_SENSOR_LIST_POOL_SIZE,
+        sizeof(taf_SensorInfoList_t));
+    tSensorInfoMap = le_ref_InitStaticMap(tSensorInfoMap, TAF_SENSOR_POOL_SIZE);
+    tSensorListMap = le_ref_InitStaticMap(tSensorListMap, TAF_SENSOR_LIST_POOL_SIZE);
+    ClientRequestRefMap = le_ref_CreateMap("ClientRequestRefMap",
+        TAF_SENSOR_CLIENT_ACTIVATION_MAX);
+    ClientPoolRef = le_mem_InitStaticPool(ClientPoolRef,
+        TAF_SENSOR_CLIENT_ACTIVATION_MAX, sizeof(taf_SensorClient_t));
+    le_msg_ServiceRef_t msgService = taf_sensor_GetServiceRef();
+    le_msg_AddServiceOpenHandler(msgService, OpenEventHandler, NULL);
+    le_msg_AddServiceCloseHandler(msgService, CloseEventHandler, NULL);
 }

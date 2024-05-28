@@ -142,6 +142,7 @@ namespace doip{
     typedef struct
     {
         uint16_t                        logicalSrcAddr;
+        le_event_Id_t statusEvtId;
 
         // Upper layer registered this callback.
         taf_doipIndicationHandler_t   diagIndicationHandler;
@@ -152,6 +153,13 @@ namespace doip{
 
         taf_doip_Ref_t                doipRef;
     }taf_doipSession_t;
+
+    typedef struct
+    {
+        taf_doip_Result_t   eventStatus;
+        uint16_t            clientAddr;             // Remote client source address.
+        uint16_t            entityAddr;             // Entity source address.
+    }taf_doip_Status_t;
 
     class CommunicationMgr {
         public:
@@ -171,7 +179,7 @@ namespace doip{
                 void* userPtr);
 
             // Receive UDP messages.
-            static void UdpDiscoverSocketEventCallback(le_socket_Ref_t sockRef, short events,
+            static void UdpSocketEventCallback(le_socket_Ref_t sockRef, short events,
                 void* userPtr);
 
             // For unicast.
@@ -205,8 +213,11 @@ namespace doip{
             // Lister and accept client connect via this socket reference.
             le_socket_Ref_t tcpDataSockRef;
 
-            // Send and receive UDP massage(Vehicle discovery) via this socket reference.
+            // Send and receive UDP massage(Vehicle discovery) via these two socket references.
+            // Notice: In some systems, Not default gw or route, so need to add a socket which was
+            // bound with a local interface for IPv4 limited broadcast sending and UDP reception.
             le_socket_Ref_t udpDiscoverSockRef;
+            le_socket_Ref_t udpEquipSockRef = NULL;
 
             // For upper layer create doip and register handler.
             le_mem_PoolRef_t doipSessionPool;

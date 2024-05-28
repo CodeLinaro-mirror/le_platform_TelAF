@@ -234,6 +234,8 @@
 #define TAF_DOIP_UDP_BROADCAST_IP           "255.255.255.255"
 #define TAF_DOIP_UDP6_BROADCAST_IP          "FF02::1"
 
+#define TAF_DOIP_IPv4_ADDRESS_ANY           "0.0.0.0"
+
 #define TAF_DOIP_UDP_DISCOVERY_DEFAULT      13400
 #define TAF_DOIP_TCP_DATA_DEFAULT           13400
 

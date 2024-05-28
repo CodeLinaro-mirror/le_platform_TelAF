@@ -1018,7 +1018,7 @@ le_result_t taf_therm_ReleaseTripEventRef(taf_therm_TripPointRef_t tripEventRef)
 
 /**
 * FUNCTION     : taf_therm_ReleaseCoolingDeviceRef
-* DESCRIPTION  : Remove cooling level change reference for the given cooling device
+* DESCRIPTION  : Remove cooling device reference for the given cooling device
 * DEPENDECY    :
 * PARAMETERS   : Cooling device reference
 * RETURN VALUES: LE_OK on success, LE_BAD_PARAMETER on invalid reference
@@ -1028,4 +1028,19 @@ le_result_t taf_therm_ReleaseCoolingDeviceRef(taf_therm_CoolingDeviceRef_t cDevR
     LE_DEBUG("taf_therm_ReleaseCoolingDeviceRef");
     auto& tafTherm = taf_Therm::GetInstance();
     return tafTherm.ReleaseCoolingDeviceRef(cDevRef);
+}
+
+
+/**
+* FUNCTION     : taf_therm_ReleaseThermalZoneRef
+* DESCRIPTION  : Remove thermal zone reference
+* DEPENDECY    :
+* PARAMETERS   : Thermal zone reference
+* RETURN VALUES: LE_OK on success, LE_BAD_PARAMETER on invalid reference
+*/
+
+le_result_t taf_therm_ReleaseThermalZoneRef(taf_therm_ThermalZoneRef_t thermalZoneRef) {
+    LE_DEBUG("taf_therm_ReleaseThermalZoneRef");
+    auto& tafTherm = taf_Therm::GetInstance();
+    return tafTherm.ReleaseThermalZoneRef(thermalZoneRef);
 }

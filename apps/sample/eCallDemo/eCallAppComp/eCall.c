@@ -184,6 +184,11 @@ static void PositionHandlerFunction
         LE_TEST_INFO("Failed to get position direction information\n");
     }
 
+    //Remove the handler assigned
+    taf_gnss_RemovePositionHandler(PositionHandlerRef);
+
+    //Stop receiving GNSS reports
+    taf_gnss_Stop();
 }
 
 static void* SamplePositionThread
@@ -220,18 +225,12 @@ static void fetchLocationInfo
     LE_INFO("fetchLocationInfo positionThreadRef :%p", positionThreadRef);
     le_thread_Start(positionThreadRef);
 
-    //Wait for 1 second to trigger PositionHandlerFunction callback
-    LE_TEST_INFO("Wait for 1 second");
-    le_thread_Sleep(1);
-
-    //Remove the handler assigned
-    taf_gnss_RemovePositionHandler(PositionHandlerRef);
+    //Wait for 2 seconds to init client session and trigger PositionHandlerFunction callback
+    LE_TEST_INFO("Wait for 2 seconds");
+    le_thread_Sleep(2);
 
     //cancel the running thread
     le_thread_Cancel(positionThreadRef);
-
-    //Stop receiving GNSS reports
-    taf_gnss_Stop();
 }
 
 char* getCurrentTime() {

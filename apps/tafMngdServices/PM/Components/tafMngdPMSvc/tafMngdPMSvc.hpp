@@ -40,13 +40,12 @@
 #include <vector>
 #include <sys/reboot.h>
 
-#define VEHICHLE_WAKEUP_REASON_DEFAULT 0
 
+#define VEHICHLE_WAKEUP_REASON_DEFAULT 0
 #define VEHICHLE_WAKEUP_STATUS_AWAKE  0
 #define VEHICHLE_WAKEUP_STATUS_INVALID_REQ 1
 #define VEHICHLE_WAKEUP_STATUS_UNKNOWN 2
-
-#define TAF_MNGD_PM_VM_HASH_SIZE 10
+#define TAF_MNGDPM_VM_HASH_SIZE 10
 #define NODE_PRIMARY_NAD 0
 #define VHAL_ACK_TIMEOUT 10000
 #define VHAL_WAKESOURCE_TIMEOUT 10000
@@ -63,30 +62,30 @@ namespace tafsvc {
 
 typedef struct
 {
-    taf_mngd_pm_Nad_t nad;
-    char vmName[TAF_MNGD_PM_MACHINE_NAME_LEN];
-    taf_mngd_pm_State_t state;
-}taf_mngdPm_State_t;
+    taf_mngdPm_Nad_t nad;
+    char vmName[TAF_MNGDPM_MACHINE_NAME_LEN];
+    taf_mngdPm_State_t state;
+}taf_mngdPm_vmState_t;
 
 typedef struct
 {
     le_msg_SessionRef_t sessionRef;
     void* shutdownCBCtxPtr;
-    taf_mngd_pm_AsyncShutdownReqHandlerFunc_t shutdownCallbackFunc;
+    taf_mngdPm_AsyncShutdownReqHandlerFunc_t shutdownCallbackFunc;
 }taf_mngdPm_ShutdownCb_t;
 
 typedef struct
 {
     le_msg_SessionRef_t sessionRef;
     void* restartCBCtxPtr;
-    taf_mngd_pm_AsyncRestartReqHandlerFunc_t restartCallbackFunc;
+    taf_mngdPm_AsyncRestartReqHandlerFunc_t restartCallbackFunc;
 }taf_mngdPm_RestartCb_t;
 
 typedef struct
 {
     le_msg_SessionRef_t sessionRef;
     void* wakeupVehicleCBCtxPtr;
-    taf_mngd_pm_AsyncWakeupVehicleReqHandlerFunc_t wakeupVehicleCallbackFunc;
+    taf_mngdPm_AsyncWakeupVehicleReqHandlerFunc_t wakeupVehicleCallbackFunc;
 }taf_mngdPm_WakeupVehicleCb_t;
 
 typedef enum
@@ -117,9 +116,9 @@ taf_mngdPm_Client_t;
 typedef struct
 {
     const char* vhalTag;                    // VhalTag to be sent to VHAL
-    taf_mngd_pm_wsRef_t wsRef;              // New wakeup source reference
+    taf_mngdPm_wsRef_t wsRef;              // New wakeup source reference
     uint8_t pmNodeId;                       // NodeId given
-    taf_mngd_pm_WakeupType_t wakeupType;    // WakeupType for the wake source
+    taf_mngdPm_WakeupType_t wakeupType;    // WakeupType for the wake source
     le_dls_Link_t link;                     // Link to handler list
 } taf_wsRefCtx_t;
 
@@ -133,7 +132,7 @@ typedef struct
 
 typedef struct
 {
-    taf_mngd_pm_State_t currentState;
+    taf_mngdPm_State_t currentState;
 
 }taf_stateMachine_t;
 
@@ -146,7 +145,7 @@ class tafMngdPMSvc: public ITafSvc
         void Init(void);
         static tafMngdPMSvc &GetInstance();
         static le_result_t ParseJsonConfig(std::string configPath);
-        static const char* TafStateToString(taf_mngd_pm_State_t tafState);
+        static const char* TafStateToString(taf_mngdPm_State_t tafState);
         static void OnClientConnection(le_msg_SessionRef_t sessionRef, void *ctxPtr);
         static void OnClientDisconnection(le_msg_SessionRef_t sessionRef, void *ctxPtr);
         static bool IsClientValid();
@@ -161,23 +160,23 @@ class tafMngdPMSvc: public ITafSvc
 
         static le_result_t ShutdownNAD();
         static le_result_t SuspendNAD();
-        static void ShutdownRespCB(taf_hal_pm_ShutdownMode mode, taf_hal_pm_RspReason reason);
-        static void ShutdownCmdCB(taf_hal_pm_ShutdownMode mode, taf_hal_pm_RspReason reason);
-        static void SuspendRespCB(taf_hal_pm_SuspendMode mode, taf_hal_pm_RspReason reason);
-        static void RestartRespCB(taf_hal_pm_RestartMode mode, taf_hal_pm_RspReason reason);
+        static void ShutdownRespCB(hal_pm_ShutdownMode_t mode, hal_pm_RspReason_t reason);
+        static void ShutdownCmdCB(hal_pm_ShutdownMode_t mode, hal_pm_RspReason_t reason);
+        static void SuspendRespCB(hal_pm_SuspendMode_t mode, hal_pm_RspReason_t reason);
+        static void RestartRespCB(hal_pm_RestartMode_t mode, hal_pm_RspReason_t reason);
         static void WakeupVehicleCB(int32_t reason, int32_t response);
 
         static void NodeStateChangeNotificationCB(uint8_t pm_node_id,
-                                            taf_hal_pm_NodeState state,
-                                            taf_hal_pm_ConfirmStatus status);
+                                            hal_pm_NodeState_t state,
+                                            hal_pm_ConfirmStatus_t status);
         static void NodeEventCB(uint8_t pm_node_id, const char* pm_node_event_info);
 
         static le_result_t AcquireWakeLock();
         static le_result_t ReleaseWakeLock();
-        static void SetModemWakeupSource(taf_mngd_pm_WakeupType_t wakeupType);
+        static void SetModemWakeupSource(taf_mngdPm_WakeupType_t wakeupType);
 
-        static le_result_t RequestStateChange(taf_mngd_pm_State_t requestedState);
-        static void ProcessStateChange(taf_mngd_pm_State_t toState);
+        static le_result_t RequestStateChange(taf_mngdPm_State_t requestedState);
+        static void ProcessStateChange(taf_mngdPm_State_t toState);
 
         static void StateLayeredHandler(void* reportPtr, void* layerHandlerFunc);
 
@@ -194,17 +193,17 @@ class tafMngdPMSvc: public ITafSvc
         static taf_pm_WakeupSourceRef_t ws;
 
         // resources to manage power state change requests
-        static taf_mngd_pm_TargetedPowerMode_t targetedPowerMode;
+        static taf_mngdPm_TargetedPowerMode_t targetedPowerMode;
         static taf_mngdPm_RestartCb_t restartCB;
         static taf_mngdPm_ShutdownCb_t shutdownCB;
-        static std::vector<taf_mngd_pm_WakeupType_t> wsWhiteList;
+        static std::vector<taf_mngdPm_WakeupType_t> wsWhiteList;
         static uint8_t wsCount;
         static taf_powerMode_t powerMode;
         static taf_stateMachine_t stateMachine;
 
         // resource to call VHAL module
         static le_timer_Ref_t vhalAckTimerRef;
-        static pm_Inf_t *pmInf;
+        static hal_pm_Inf_t *pmInf;
         static taf_mngdPm_RequestedState_t statePtr;
         static le_timer_Ref_t wakeSourceTimerRef;
     

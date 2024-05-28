@@ -34,26 +34,26 @@
 
 //--------------------------------------------------------------------------------------------------
 /**
- * @page c_taf_mngd_pm Managed Power Management Service
+ * @page c_taf_mngdPm Managed Power Management Service
  *
- * @ref taf_mngd_pm_interface.h "API Reference"
+ * @ref taf_mngdPm_interface.h "API Reference"
  *
  * <HR>
  *
  * The Managed Power Management service APIs help to manage power on the NAD/TCU.
  *
- * @section taf_mngd_pm_binding IPC interfaces binding
+ * @section taf_mngdPm_binding IPC interfaces binding
  *
  *
  * The following example illustrates how to bind to the Managed Power Management service.
  * @verbatim
    bindings:
    {
-       clientExe.clientComponent.taf_mngd_pm -> tafMngdPMSvc.taf_mngd_pm
+       clientExe.clientComponent.taf_mngdPm -> tafMngdPMSvc.taf_mngdPm
    }
    @endverbatim
  *
- * @section taf_mngd_pm Configuration
+ * @section taf_mngdPm Configuration
  *
  * Before starting the service, the user should place a JSON file named
  * tafMngdPMConfig.json into /data/ManagedServices directory. This JSON file contains the
@@ -62,23 +62,23 @@
  * The default configuration file is available at
  * /legato/systems/current/appsWriteable/tafMngdPMSvc/tafMngdPMConfig.json
  *
- * @section taf_mngd_pm_shutdown Shutdown the system forcefully
+ * @section taf_mngdPm_shutdown Shutdown the system forcefully
  *
- * TelAF Power Management Service's client calls taf_mngd_pm_ShutdownReqAsync() to shut down the
+ * TelAF Power Management Service's client calls taf_mngdPm_ShutdownReqAsync() to shut down the
  * system forcefully.
  * This function returns le_result_t and updates the results through callback function reference
  * provided in the function call. This API will collaborate with the PM VHAL.
  * @verbatim
 
-    void ForcedSystemShutdownCallBack(taf_mngd_pm_ShutdownMode_t mode,
-        taf_mngd_pm_ResponseMode_t ResponseMode, void* contextPtr)
+    void ForcedSystemShutdownCallBack(taf_mngdPm_ShutdownMode_t mode,
+        taf_mngdPm_ResponseMode_t ResponseMode, void* contextPtr)
     {
         LE_INFO("ForcedSystemShutdownCallBack ");
     }
 
     void ForcedSystemShutdown()
     {
-        le_result_t result = taf_mngd_pm_ShutdownReqAsync(TAF_MNGD_PM_SYSTEM_FORCEFUL_SHUTDOWN,
+        le_result_t result = taf_mngdPm_ShutdownReqAsync(TAF_MNGDPM_SYSTEM_FORCEFUL_SHUTDOWN,
                 ForcedSystemShutdownCallBack, NULL);
 
         if(result == LE_OK) {
@@ -88,9 +88,9 @@
 
    @endverbatim
  *
- * @section taf_mngd_pm_restart Restart the system forcefully
+ * @section taf_mngdPm_restart Restart the system forcefully
  *
- * TelAF Power Management Service's client calls taf_mngd_pm_RestartReqAsync() to restart the
+ * TelAF Power Management Service's client calls taf_mngdPm_RestartReqAsync() to restart the
  * system forcefully.
  * This function returns le_result_t and updates the results through callback function reference
  * provided in the function call. This function also provides the ability to shut down the NAD on
@@ -98,7 +98,7 @@
  * API will collaborate with the PM VHAL.
  * @verbatim
 
-    void RestartCallback(taf_mngd_pm_RestartMode_t mode, taf_mngd_pm_ResponseMode_t rspmode,
+    void RestartCallback(taf_mngdPm_RestartMode_t mode, taf_mngdPm_ResponseMode_t rspmode,
             void* contextPtr)
     {
         LE_INFO(" RestartCallback ");
@@ -106,16 +106,16 @@
 
     void RestartSystem()
     {
-        le_result_t res = taf_mngd_pm_RestartReqAsync(TAF_MNGD_PM_RESTART_SYSTEM_OFF_ON,
+        le_result_t res = taf_mngdPm_RestartReqAsync(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON,
                 RestartCallback, NULL);
         if(result == LE_OK) {
             LE_INFO("Forcefull restart request sent successfully");
         }
     }
    @endverbatim
- * @section taf_mngd_pm_setTargetedMode Set the targeted power mode to the node
+ * @section taf_mngdPm_setTargetedMode Set the targeted power mode to the node
  *
- * TelAF Power Management Service's client calls taf_mngd_pm_SetNodeTargetedPowerMode() to set the
+ * TelAF Power Management Service's client calls taf_mngdPm_SetNodeTargetedPowerMode() to set the
  * power mode of the node.
  * This function returns le_result_t and sets the targeted power mode of the node requested once
  * all the wake sources are released. This API will collaborate with the PM VHAL.
@@ -124,15 +124,15 @@
     // To set the targeted power mode of NAD to SHUT DOWN.
     void SetTargetedPowerMode()
     {
-        result = taf_mngd_pm_SetNodeTargetedPowerMode(0,TAF_MNGD_PM_SHUTDOWN);
+        result = taf_mngdPm_SetNodeTargetedPowerMode(0,TAF_MNGDPM_SHUTDOWN);
         if(result == LE_OK)
-            LE_INFO("taf_mngd_pm_GracefulSysShutdownWakeLock triggered successfully");
+            LE_INFO("taf_mngdPm_GracefulSysShutdownWakeLock triggered successfully");
     }
    @endverbatim
  *
- * @section taf_mngd_pm_SetModemWakeupSource Configure the allowed Modem wakeup source type
+ * @section taf_mngdPm_SetModemWakeupSource Configure the allowed Modem wakeup source type
  *
- * The API of taf_mngd_pm_SetModemWakeupSource() is used to configure the allowed Modem wakeup source type.
+ * The API of taf_mngdPm_SetModemWakeupSource() is used to configure the allowed Modem wakeup source type.
  * The input parameter is taken as the bitmap to set to the service.
  * The service takes the union of multiple API calls to set the allowed wakeup sources.
  * Bit 0 is for SMS, bit 1 is for incoming call, bit 2 is for MCU_VHAL.
@@ -140,19 +140,19 @@
 
     void SetModemWakeupSource()
     {
-        le_result_t result = taf_mngd_pm_SetModemWakeupSource(uint32_t wakeupSource);
+        le_result_t result = taf_mngdPm_SetModemWakeupSource(uint32_t wakeupSource);
         if(result == LE_OK)
-            LE_INFO("taf_mngd_pm_SetModemWakeupSource set successfully");
+            LE_INFO("taf_mngdPm_SetModemWakeupSource set successfully");
     }
    @endverbatim
  *
- * @section taf_mngd_pm_NewNodeWakeupSource and taf_mngd_pm_StayAwakeNode acquire a wake source
+ * @section taf_mngdPm_NewNodeWakeupSource Acquire a wake source
  *
- * TelAF Managed Power Management Service's client calls taf_mngd_pm_NewNodeWakeupSource() and 
- * taf_mngd_pm_StayAwakeNode() to acquire a wake source to keep the system awake.
- * The vhalTag parameter in taf_mngd_pm_NewNodeWakeupSource() is used as an indication for the service to decide
- * whether a notification is needed to be sent to the VHAL for the actions of taf_mngd_pm_StayAwakeNode() and
- * taf_mngd_pm_RelaxNode().
+ * TelAF Managed Power Management Service's client calls taf_mngdPm_NewNodeWakeupSource() and 
+ * taf_mngdPm_StayAwakeNode() to acquire a wake source to keep the system awake.
+ * The vhalTag parameter in taf_mngdPm_NewNodeWakeupSource() is used as an indication for the service to decide
+ * whether a notification is needed to be sent to the VHAL for the actions of taf_mngdPm_StayAwakeNode() and
+ * taf_mngdPm_RelaxNode().
  * If the vhalTag is null, no notification will be sent to VHAL. Otherwise, the corresponding notification will be sent
  * to the VHAL with the tag.
  * @verbatim
@@ -161,39 +161,39 @@
     {
         const char* vHalTag = "vehichle_on";
         uint8_t pmNodeId = 0;
-        taf_mngd_pm_wsRef_t ref = taf_mngd_pm_NewNodeWakeupSource(pmNodeId, TAF_MNGD_PM_SMS, vHalTag);
+        taf_mngdPm_wsRef_t ref = taf_mngdPm_NewNodeWakeupSource(pmNodeId, TAF_MNGDPM_SMS, vHalTag);
         if(ref != NULL)
-            LE_INFO("taf_mngd_pm_NewNodeWakeupSource acquired a wake source successfully");
+            LE_INFO("taf_mngdPm_NewNodeWakeupSource acquired a wake source successfully");
     }
     void StayAwakeNode()
     {
-        le_result_t result = = taf_mngd_pm_StayAwakeNode(ref);
+        le_result_t result = = taf_mngdPm_StayAwakeNode(ref);
         if(result == LE_OK)
-            LE_INFO("taf_mngd_pm_StayAwakeNode successfully acquire a wake source to keep the system awake");
+            LE_INFO("taf_mngdPm_StayAwakeNode successfully acquire a wake source to keep the system awake");
     }
    @endverbatim
  *
- * @section taf_mngd_pm_RelaxNode Release an acquired wake source
+ * @section taf_mngdPm_RelaxNode Release an acquired wake source
  *
- * TelAF Managed Power Management Service's client calls taf_mngd_pm_RelaxNode() to request
+ * TelAF Managed Power Management Service's client calls taf_mngdPm_RelaxNode() to request
  * MPMS to release the acquired wake lock.
  * This function returns le_result_t.
  * @verbatim
     void RelaxNode()
     {
-        le_result_t result = = taf_mngd_pm_RelaxNode(ref);
+        le_result_t result = = taf_mngdPm_RelaxNode(ref);
         if(result == LE_OK)
-            LE_INFO("taf_mngd_pm_RelaxNode successfully released a acquired wake lock");
+            LE_INFO("taf_mngdPm_RelaxNode successfully released a acquired wake lock");
     }
    @endverbatim
  *
-  * @section taf_mngd_pm_WakeupVehicleReqAsync requests VHAL to wake up the vehichle.
+  * @section taf_mngdPm_WakeupVehicleReqAsync Wake up the vehichle
  *
  * TelAF Managed Power Management Service's client calls WakeupVehicleReqAsync() to request
  * MPMS to wake up the vehichle.
  * This function returns le_result_t.
  * @verbatim
- void wakeupVehicleCB(taf_mngd_pm_RestartMode_t mode, taf_mngd_pm_ResponseMode_t rspmode,
+ void wakeupVehicleCB(taf_mngdPm_RestartMode_t mode, taf_mngdPm_ResponseMode_t rspmode,
             void* contextPtr)
     {
         LE_INFO(" wakeupVehicleCB ");
@@ -201,7 +201,7 @@
 
     void WakeupVehicleReqAsync()
     {
-        le_result_t result = = taf_mngd_pm_WakeupVehicleReqAsync(VEHICHLE_WAKEUP_REASON_DEFAULT,
+        le_result_t result = = taf_mngdPm_WakeupVehicleReqAsync(VEHICHLE_WAKEUP_REASON_DEFAULT,
                  wakeupVehicleCB,NULL);
         if(result == LE_OK) {
             LE_INFO("WakeupVehicleReqAsync request sent successfully");

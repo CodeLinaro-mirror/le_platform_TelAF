@@ -57,19 +57,19 @@ void tafMngdPMSms::SmsRxHandler(taf_sms_MsgRef_t msgRef, void* context){
             LE_DEBUG("SMS matched with SMS registetred for %s state",
                     tafMngdPMSvc::TafStateToString(smsPtr->state));
 
-            taf_mngd_pm_State_t requestedState;
+            taf_mngdPm_State_t requestedState;
             switch((taf_pm_State_t)smsPtr->state)
             {
                 case TAF_PM_STATE_SUSPEND:
-                    requestedState = TAF_MNGD_PM_STATE_SUSPENDING;
+                    requestedState = TAF_MNGDPM_STATE_SUSPENDING;
                     break;
 
                 case TAF_PM_STATE_SHUTDOWN:
-                    requestedState = TAF_MNGD_PM_STATE_SHUTTING_DOWN;
+                    requestedState = TAF_MNGDPM_STATE_SHUTTING_DOWN;
                     break;
 
                 case TAF_PM_STATE_RESUME:
-                    requestedState = TAF_MNGD_PM_STATE_WAKING_UP;
+                    requestedState = TAF_MNGDPM_STATE_WAKING_UP;
                     break;
 
                 default:
@@ -88,7 +88,7 @@ void tafMngdPMSms::SmsRxHandler(taf_sms_MsgRef_t msgRef, void* context){
     }
 }
 
-void tafMngdPMSms::RegisterSms(const char* text, taf_mngd_pm_State_t state)
+void tafMngdPMSms::RegisterSms(const char* text, taf_mngdPm_State_t state)
 {
     if(smsMapPool == NULL) {
         smsMapPool = le_mem_CreatePool("tafMngdPMSmsMapPool", sizeof(taf_MngdPM_Sms_t));
@@ -99,7 +99,7 @@ void tafMngdPMSms::RegisterSms(const char* text, taf_mngd_pm_State_t state)
     smsPMPtr->state = state;
 
     if(smsPMMap == NULL) {
-        smsPMMap =  le_hashmap_Create("tafMngdPMSmsMap", TAF_MNGD_PM_MAX_TRIGGER_REGISTERS,
+        smsPMMap =  le_hashmap_Create("tafMngdPMSmsMap", TAF_MNGDPM_MAX_TRIGGER_REGISTERS,
                 le_hashmap_HashString, le_hashmap_EqualsString);
     }
     char stateName[32];

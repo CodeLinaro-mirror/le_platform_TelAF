@@ -2,57 +2,74 @@ provides:
 {
     api:
     {
+        taf_diagDataID.api
+        taf_diagSecurity.api
+#if ${LE_CONFIG_DIAG_VSTACK} = ""
         taf_diagRoutineCtrl.api
         taf_diagUpdate.api
         taf_diagReset.api
-        taf_diagSecurity.api
-        taf_diagDataID.api
         taf_diagEvent.api
+#endif
     }
 }
 
 requires:
 {
+#if ${LE_CONFIG_DIAG_VSTACK} = ""
     component:
     {
         $TELAF_ROOT/components/tafDiagSvc/tafDiagCfg
         $TELAF_ROOT/components/tafUDSStack
         $TELAF_ROOT/components/tafDataAccessComp
     }
+#endif
+#if ${LE_CONFIG_DIAG_VSTACK} = y
+    api:
+    {
+        taf_diagDIDBackend.api
+        taf_diagSecBackend.api
+    }
+#endif
 }
 
 cxxflags:
 {
     -I$LEGATO_ROOT/components/watchdogChain
     -I$TELAF_ROOT/include
+#if ${LE_CONFIG_DIAG_VSTACK} = ""
     -I$TELAF_ROOT/components/tafUDSStack
     -I$TELAF_ROOT/components/tafDataAccessComp
     -I$TELAF_ROOT/components/tafDiagSvc/tafDiagCfg
+#endif
 }
 
 cflags:
 {
     -I$LEGATO_ROOT/components/watchdogChain
     -I$TELAF_ROOT/include
+#if ${LE_CONFIG_DIAG_VSTACK} = ""
     -I$TELAF_ROOT/components/tafUDSStack
     -I$TELAF_ROOT/components/tafDataAccessComp
+#endif
 }
 
 sources:
 {
+        tafDataIDSvc.cpp
+        tafDataIDSvrImpl.cpp
+        tafSecuritySvc.cpp
+        tafSecuritySvrImpl.cpp
+        tafDiagFrontend.cpp
+#if ${LE_CONFIG_DIAG_VSTACK} = ""
         tafRoutineCtrlSvc.cpp
         tafRoutineCtrlSvrImpl.cpp
         tafUpdateSvc.cpp
         tafUpdateSvrImpl.cpp
         tafResetSvc.cpp
         tafResetSvrImpl.cpp
-        tafSecuritySvc.cpp
-        tafSecuritySvrImpl.cpp
-        tafDataIDSvc.cpp
-        tafDataIDSvrImpl.cpp
         tafEventSvc.cpp
         tafEventSvrImpl.cpp
         tafDTCInfImpl.cpp
-        tafDiagFrontend.cpp
         tafDiagBackend.cpp
+#endif
 }

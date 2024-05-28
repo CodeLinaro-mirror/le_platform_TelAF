@@ -36,14 +36,20 @@ processes:
 
 bindings:
 {
+#if ${LE_CONFIG_DIAG_VSTACK} = y
+    tafDiagSvc.tafDiagSvc.taf_diagDIDBackend -> tafDiagBackendSvc.taf_diagDIDBackend
+    tafDiagSvc.tafDiagSvc.taf_diagSecBackend -> tafDiagBackendSvc.taf_diagSecBackend
+#endif
 }
 
 extern:
 {
+    tafDiagSvc.tafDiagSvc.taf_diagDataID
+    tafDiagSvc.tafDiagSvc.taf_diagSecurity
+#if ${LE_CONFIG_DIAG_VSTACK} = ""
     tafDiagSvc.tafDiagSvc.taf_diagReset
     tafDiagSvc.tafDiagSvc.taf_diagRoutineCtrl
     tafDiagSvc.tafDiagSvc.taf_diagUpdate
-    tafDiagSvc.tafDiagSvc.taf_diagSecurity
-    tafDiagSvc.tafDiagSvc.taf_diagDataID
     tafDiagSvc.tafDiagSvc.taf_diagEvent
+#endif
 }

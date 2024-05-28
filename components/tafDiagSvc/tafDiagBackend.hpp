@@ -37,7 +37,9 @@
 #include "legato.h"
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
+#ifndef LE_CONFIG_DIAG_VSTACK
 #include "tafUDSStack.h"
+#endif
 
 #include <map>
 

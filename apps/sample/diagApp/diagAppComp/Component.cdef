@@ -4,9 +4,11 @@ sources:
     diagSecurityAccess.c
     diagReadWriteDid.c
     diagRequestFileTransfer.c
+#if ${LE_CONFIG_DIAG_VSTACK} = ""
 #if ${LE_CONFIG_TARGET_SIMULATION} = ""
     diagReset.c
     diagRoutineControl.c
+#endif
 #endif
 }
 
@@ -15,16 +17,19 @@ requires:
     api:
     {
         le_cfg.api
+        taf_diagDataID.api
+        taf_diagSecurity.api
+
+#if ${LE_CONFIG_DIAG_VSTACK} = ""
         taf_diagReset.api
         taf_diagRoutineCtrl.api
         taf_diagUpdate.api
-        taf_diagSecurity.api
-        taf_diagDataID.api
     #if ${LE_CONFIG_TARGET_SIMULATION} = ""
         taf_update.api
         taf_appMgmt.api
         taf_fwupdate.api
     #endif
+#endif
     }
 }
 

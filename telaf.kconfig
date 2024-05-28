@@ -19,6 +19,14 @@ config AUDIO_MULTI_FORMAT_PB_SUPPORTED
   bool "TelAF multi format playback supported"
   default $(b2k,$(def,$(TELUX_AUDIO_MULTI_FORMAT_PB_SUPPORTED),y))
 
+# For Vendor Stack
+config DIAG_VSTACK
+  bool "QC or VStack"
+  default "$(b2k,$(VSTACK))" if !$(empty,$(VSTACK))
+  default n
+  ---help---
+  Build with QC STACK or Vendor STACK
+
 menu "apps"
 rsource "apps/KConfig"
 endmenu # end "apps"

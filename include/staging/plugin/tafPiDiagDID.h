@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -9,8 +9,8 @@
 
 #include "tafHalIF.hpp"
 
-// Define the name or ID for HAL module
-#define TAF_DIAGDID_MODULE_NAME "TafHalDiagDID"
+// Diag DID module name
+#define TAF_DIAGDID_MODULE_NAME "TafPiDiagDID"
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -27,7 +27,7 @@ typedef void (*INIT)(void);
 /**
  * Handler to return the value of getting DID request.
  * @param
- *      dataID     - DID
+ *      dataID      - DID
  *      value       - the value of the DID
  *      len         - the length of the DID value
  *
@@ -35,7 +35,7 @@ typedef void (*INIT)(void);
  *
  */
 //--------------------------------------------------------------------------------------------------
-typedef void (*TAF_HAL_DIAGDID_GETHANDLER)
+typedef void (*TAF_PI_DIAGDID_GETHANDLER)
 (
     uint16_t dataID,
     uint8_t *value,
@@ -46,31 +46,31 @@ typedef void (*TAF_HAL_DIAGDID_GETHANDLER)
 /**
  * Gets DID value asynchronously.
  * @param
- *      dataID     - DID
+ *      dataID      - DID
  *      handler     - callback handler
  *
  * @return
  *      result of registering call back
  */
 //--------------------------------------------------------------------------------------------------
-typedef le_result_t (*TAF_HAL_DIAGDID_GETASYNC)
+typedef le_result_t (*TAF_PI_DIAGDID_GETASYNC)
 (
     uint16_t dataID,
-    TAF_HAL_DIAGDID_GETHANDLER handler
+    TAF_PI_DIAGDID_GETHANDLER handler
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Hander to return the result of setting DID request.
  * @param
- *      dataID    - DID
+ *      dataID     - DID
  *      result     - result of setting DID value
  *
  * @return void
  *
  */
 //--------------------------------------------------------------------------------------------------
-typedef void (*TAF_HAL_DIAGDID_SETHANDLER)
+typedef void (*TAF_PI_DIAGDID_SETHANDLER)
 (
     uint16_t dataID,
     le_result_t result
@@ -88,21 +88,57 @@ typedef void (*TAF_HAL_DIAGDID_SETHANDLER)
  *      result of registering call back
  */
 //--------------------------------------------------------------------------------------------------
-typedef le_result_t (*TAF_HAL_DIAGDID_SETASYNC)
+typedef le_result_t (*TAF_PI_DIAGDID_SETASYNC)
 (
     uint16_t dataID,
     uint8_t *value,
     size_t len,
-    TAF_HAL_DIAGDID_SETHANDLER handler
+    TAF_PI_DIAGDID_SETHANDLER handler
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler to notify the changed DID and its value.
+ * @param
+ *      dataID      - the changed DID
+ *      value       - the value of the DID
+ *      len         - the length of the DID value
+ *
+ * @return void
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+typedef void (*TAF_PI_DIAGDID_DATACHANGECALLBACK)
+(
+    uint16_t dataID,
+    uint8_t *value,
+    size_t len
+);
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add data change handler to hal module.
+ * @param
+ *      callback    - callback function pointer for notification
+ * @return
+ *      result for adding the handler
+ */
+//--------------------------------------------------------------------------------------------------
+typedef le_result_t (*TAF_PI_DIAGDID_ADDDATACHANGEHANDLER)
+(
+    TAF_PI_DIAGDID_DATACHANGECALLBACK callback
 );
 
 typedef struct
 {
-    INIT initHAL;
+    INIT init;
 
-    TAF_HAL_DIAGDID_GETASYNC diagDIDGetAsync;
+    TAF_PI_DIAGDID_GETASYNC diagDIDGetAsync;
 
-    TAF_HAL_DIAGDID_SETASYNC diagDIDSetAsync;
+    TAF_PI_DIAGDID_SETASYNC diagDIDSetAsync;
+
+    TAF_PI_DIAGDID_ADDDATACHANGEHANDLER addDataChangeHandler;
 
 } diagDID_Inf_t;
 

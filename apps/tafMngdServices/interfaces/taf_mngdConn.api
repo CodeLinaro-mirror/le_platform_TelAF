@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -72,14 +72,16 @@
             "Sim":[
                 {
                     "ID": 1,               ///< Sim ID corresponding to the Use_Sim_ID in "Network".
-                    "Name": "AT&T",
+                    "Name": "Sim1",        ///< Sim object name. Name should be unique among sim
+                                           ///  objects.
                     "SlotNumber": 1        ///< Slot ID.
                 }
             ],
             "Network":[
                 {
                     "ID": 1,          ///< Network ID corresponding to the Use_Network_ID in "Data".
-                    "Name": "Network1",
+                    "Name": "Network1",     ///< Network object name. Name should be unique among
+                                            ///  network objects.
                     "Use_Sim_ID": 1,        ///< SIM ID which is used for this network.
                     "PhoneID": 1,           ///< Phone ID.
                     "Registration": "Auto"  ///< Is automatically registered or not.
@@ -88,14 +90,15 @@
             "Data":[                   ///< Support for multiple data sessions
                 {
                     "ID": 1,           ///< Data ID corresponding to the Use_Data_ID in policy file.
-                    "Name": "Profile1",   ///< Profile Name.
+                    "Name": "Data1",     ///< Data object name. Name should be unique among data
+                                            ///  objects.
                     "Use_Network_ID": 1,    ///< Network ID which is used for this data connection.
                     "Profile":{
                         "Number": 1,        ///< Profile number.
-                        "APN": "apn1"       ///< Profile APN. If APN is valid, profile will be
-                                            ///< updated with the provided APN. The service will not
-                                            ///< validate the correctness of the APN. If update
-                                            ///< fails,the service will log an error and stop.
+                        "APN": null         ///< Profile APN. If APN is valid, profile will be
+                                            ///  updated with the provided APN. The service will not
+                                            ///  validate the correctness of the APN. If update
+                                            ///  fails,the service will log an error and stop.
                     },
                     "AutoStart":"Yes",      ///< Data session is automatically started or not.
                     "DataStartRetry": {
@@ -121,14 +124,14 @@
                                                    ///  periodic connectivity test will not be
                                                    ///  performed.
                     }
-                }
+                },
                 {
                     "ID": 2,
-                    "Name": "Profile2",
+                    "Name": "Data2",
                     "Use_Network_ID": 1,
                     "Profile":{
                         "Number": 2,
-                        "APN": "apn2"
+                        "APN": null
                     },
                     "AutoStart":"No",
                     "DataStartRetry": {
@@ -246,10 +249,10 @@
 *     <td rowspan="3">Name</td>
 *     <td rowspan="3">char</td>
 *     <td rowspan="3">"SIM1"</td>
-*     <td rowspan="3">User provided name for the SIM object.
+*     <td rowspan="3">User provided name for the Sim object.
 *                     This is used by the service and should be a valid string.
-*                     <br> Note: In case of multiple SIM objects,
-*                     user should ensure Name is unique. JSON will be marked as
+*                     <br> Note: In case of multiple Sim objects,
+*                     user should ensure name is unique among Sim objects. JSON will be marked as
 *                     invalid otherwise.</td>
 *   </tr>
 *   <tr>
@@ -275,8 +278,8 @@
 *     <td rowspan="3">"Network1"</td>
 *     <td rowspan="3">User provided name for the Network object.
 *                     This is used by the service and should be a valid string.
-*                     <br> Note: In case of multiple Network objects, user should ensure
-*                     Name is unique. JSON will be marked as invalid otherwise.
+*                     <br> Note: In case of multiple Network objects, user should ensure name
+*                     is unique among Network objects. JSON will be marked as invalid otherwise.
 *     </td>
 *   </tr>
 *   <tr>
@@ -321,8 +324,8 @@
 *     <td rowspan="3">"Data1"</td>
 *     <td rowspan="3">User provided name for the Data object. This is used by the
 *                     service and should be a valid string.
-*                     <br> Note: In case of multiple Network objects, user should ensure Name
-*                     is unique. JSON will be marked as invalid otherwise.
+*                     <br> Note: In case of multiple Data objects, user should ensure name
+*                     is unique among Data objects. JSON will be marked as invalid otherwise.
 *     </td>
 *   </tr>
 *   <tr>
@@ -642,10 +645,10 @@ USETYPES taf_dcs.api;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * The maximum length of data object's name.
+ * The maximum length of an object's name in the configuration JSON.
  */
 //--------------------------------------------------------------------------------------------------
-DEFINE MAX_DATA_NAME_LEN = 32;
+DEFINE MAX_NAME_LEN = 32;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -704,7 +707,8 @@ ENUM RecoveryState{
  * Handler for recovery state.
  */
 //--------------------------------------------------------------------------------------------------
-HANDLER RecoveryStateHandler(
+HANDLER RecoveryStateHandler
+(
     RecoveryState state IN, ///< The recovery state.
     Data dataRef        IN  ///< Data reference that triggered this event.
 );
@@ -721,12 +725,12 @@ EVENT RecoveryState
 
 //--------------------------------------------------------------------------------------------------
 /**
-* Gets the data reference for the given data ID.
-*
-* @return
-*  - NULL -- Error.
-*  - Others -- The data reference.
-*/
+ * Gets the data reference for the given data ID(as provided in the configuration JSON).
+ *
+ * @return
+ *  - NULL -- Error.
+ *  - Others -- The data reference.
+ */
 //--------------------------------------------------------------------------------------------------
 FUNCTION Data GetData
 (
@@ -735,7 +739,21 @@ FUNCTION Data GetData
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the data object ID (as provided in configuration json) for the given data reference.
+ * Gets the data reference for the given data name(as provided in the configuration JSON).
+ *
+ * @return
+ *  - NULL -- Error.
+ *  - Others -- The data reference.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Data GetDataByName
+(
+    string dataName[MAX_NAME_LEN]                        IN ///< The data name to use.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the data object ID (as provided in the configuration JSON) for the given data reference.
  *
  * @return
  *   - LE_OK -- Succeeded.
@@ -743,9 +761,25 @@ FUNCTION Data GetData
  *   - Appropriate error is returned on failure.
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t DataGetId(
+FUNCTION le_result_t GetDataIdByRef
+(
     Data dataRef IN, ///< The data reference.
-    uint8 dataId OUT ///< The data object ID from configuration json.
+    uint8 dataId OUT ///< The data object ID from the configuration JSON.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the data object name (as provided in the configuration JSON) for the given data reference.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_FOUND -- Data reference not found.
+ *   - Appropriate error is returned on failure.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetDataNameByRef(
+    Data dataRef IN,                  ///< The data reference.
+    string dataName[MAX_NAME_LEN] OUT ///< The data object name from the configuration JSON.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -753,8 +787,8 @@ FUNCTION le_result_t DataGetId(
  * Starts a data session for the given data reference. This API should be used when the value of
  * "AutoStart" is "No" in the configuration file.
  *
- * The service tracks clients that call DataStart for Data objects with AutoStart:No and is used
- * to manage DataStop behavior.
+ * The service tracks clients that call StartData for Data objects with AutoStart:No and is used
+ * to manage StopData behavior.
  *
  * @return
  *   - LE_OK -- Succeeded.
@@ -763,7 +797,7 @@ FUNCTION le_result_t DataGetId(
  *   - Appropriate error is returned on failure.
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t DataStart
+FUNCTION le_result_t StartData
 (
     Data dataRef                                          IN ///< The data reference.
 );
@@ -772,7 +806,7 @@ FUNCTION le_result_t DataStart
 /**
  * Stops a data cellular session for the given data reference.
  *
- * Data will be stopped only when all clients that have called DataStart for data objects with
+ * Data will be stopped only when all clients that have called StartData for data objects with
  * AutoStart:No either stop data or exit.
  *
  * @return
@@ -781,7 +815,7 @@ FUNCTION le_result_t DataStart
  *   - Appropriate error is returned on failure.
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t DataStop
+FUNCTION le_result_t StopData
 (
     Data dataRef                                          IN ///< The data reference.
 );
@@ -796,16 +830,16 @@ FUNCTION le_result_t DataStop
  *   - Appropriate error is returned on failure.
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t DataGetConnectionState
+FUNCTION le_result_t GetDataConnectionState
 (
     Data dataRef                                          IN,  ///< The data reference.
-    uint8 dataId                                          OUT, ///< The data ID.
     DataState state                                       OUT ///< The data state.
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the data connection IP addresses for the given data reference.
+ * Gets the data connection IP addresses for the given data reference. An empty string is returned
+ * if either IP address is not available.
  *
  * @return
  *   - LE_OK -- Succeeded.
@@ -813,11 +847,11 @@ FUNCTION le_result_t DataGetConnectionState
  *   - Appropriate error is returned on failure.
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t DataGetConnectionIPAddresses
+FUNCTION le_result_t GetDataConnectionIPAddresses
 (
-    Data dataRef                                          IN,  ///< The data reference.
-    string IPv4Addr[taf_dcs.IPV4_ADDR_MAX_LEN]            OUT, ///< IPv4 Address.
-    string IPv6Addr[taf_dcs.IPV6_ADDR_MAX_LEN]            OUT  ///< IPv6 Address.
+    Data dataRef IN,                                ///< The data reference.
+    string IPv4Addr[taf_dcs.IPV4_ADDR_MAX_LEN] OUT, ///< IPv4 Address.
+    string IPv6Addr[taf_dcs.IPV6_ADDR_MAX_LEN] OUT  ///< IPv6 Address.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -833,6 +867,7 @@ FUNCTION le_result_t DataGetConnectionIPAddresses
  *   - Appropriate error is returned on failure.
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t CancelL1Recovery(
+FUNCTION le_result_t CancelL1Recovery
+(
     Data dataRef IN ///< The data reference.
 );

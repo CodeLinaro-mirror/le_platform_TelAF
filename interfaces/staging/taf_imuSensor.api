@@ -1,0 +1,547 @@
+/*
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * @page c_tafsensor Sensor Management Service
+ *
+ * @ref taf_imuSensor_interface.h "API Reference"
+ *
+ * <HR>
+ *
+ * Components need access to the TelAF Sensor Management Service to get information about available
+ * sensors and acquire data from these sensors.
+ *
+ * @section taf_imuSensor_binding IPC interfaces binding
+ *
+ * The functions of this API are provided by the @b tafImuSensorSvc application service.
+ *
+ * The following example illustrates how to bind to Sensor services.
+ *
+ * @verbatim
+   bindings:
+   {
+       clientExe.clientComponent.taf_imuSensor -> tafImuSensorSvc.taf_imuSensor
+   }
+   @endverbatim
+ *
+ * The Sensor Management Service provides multi-client safe APIs. An API call from a client thread
+ * (main or sub thread) will be treated as a new session in sensor service. The client needs
+ * to connect the sensor service by API taf_imuSensor_ConnectService(), setting specific settings
+ * if required (else default settings will be applied), activating the sensor by API
+ * taf_imuSensor_Activate() and adding handler taf_imuSensor_AddDataHandler().
+ * The taf_imuSensor_AddDataHandler() is used by the client to register a handler to be triggered
+ * from the service when there's the sensor data calculated. The client can get sensor
+ * data/information in the same thread until the client disconnects from
+ * sensor service. The previous data and setting shall not presist for next run/iteration if client
+ * thread exits.
+ *
+ * @note
+ * Each time client creates a new thread, it needs to connect,
+ * call,taf_imuSensor_AddDataHandler(), taf_imuSensor_Activate() for the new session to setup.
+ *
+ * @section taf_imuSensor_GetSensorList  Get the available sensors
+ *
+ * TelAF Sensor Management Service provides APIs to get the available sensors on the device.
+ * The client calls taf_imuSensor_GetSensorList() to get the reference of the available sensors.
+ * This function returns a @ref taf_imuSensor_SensorListRef_t that can be later used to get
+ * the information of each sensor and also to delete the list using
+ * taf_imuSensor_DeleteSensorList().
+ *
+ * @note
+ * If the sensor type is ACCELEROMETER, the resolution value should be in meter per second
+ * per second and if sensor type is GYROSCOPE then values should be in radians per second.
+ *
+ * @verbatim
+    le_result_t result;
+    taf_sensor_SensorListRef_t listRef = taf_imuSensor_GetSensorList();
+    taf_sensor_SensorListRef_t headTSensorListRef = listRef;
+    taf_sensor_SensorRef_t sensorRef = taf_imuSensor_GetFirstSensor(listRef);
+    while(sensorRef != NULL)
+    {
+        uint32_t id;
+        char sensorName[50];
+        char sensorVendorName[50];
+        taf_sensor_SensorType_t sensorType;
+        char version[10];
+        result = taf_imuSensor_GetId(sensorRef,&id);
+        result = taf_imuSensor_GetName(sensorRef,sensorName,sizeof(sensorName));
+        result = taf_imuSensor_GetVendorName(sensorRef,sensorVendorName,sizeof(sensorVendorName));
+        result = taf_imuSensor_GetType(sensorRef,&sensorType);
+        result = taf_imuSensor_GetVersion(sensorRef,version,sizeof(version));
+
+        double sampleRateList[TAF_SENSOR_MAX_NUM_SUPPORTED_SAMPLE_RATE];
+        size_t size = sizeof(sampleRateList)/sizeof(double);
+        result = taf_imuSensor_GetSupportedSamplingRate(sensorRef,sampleRateList,&size);
+
+        uint32_t maxBatchCount;
+        uint32_t minBatchCount;
+        result = taf_imuSensor_GetSupportedBatchCount(sensorRef,&maxBatchCount,&minBatchCount);
+
+        double range;
+        result = taf_imuSensor_GetRange(sensorRef,&range);
+
+        double resolution;
+        result = taf_imuSensor_GetResolution(sensorRef,&resolution);
+
+        sensorRef = taf_imuSensor_GetNextSensor(listRef);
+
+    }
+    result = taf_imuSensor_DeleteSensorList(headTSensorListRef)
+  @endverbatim
+ *
+ * @section taf_imuSensor_SetRefCoordinateByEulerAngle  Set the reference coordinate system by
+ * euler angle
+ *
+ * TelAF Sensor Management Service provides APIs to set the reference coordinate system by
+ * euler angle to get rotated sensor data. The client calls
+ * taf_imuSensor_SetRefCoordinateByEulerAngle() to set the euler angle for new reference coordinate
+ * system of the whole IMU. This function takes four input parameters. The First is the sensor
+ * reference, due to the underlying layer constrains, the setting for individual sensor is not
+ * supported, this parameter is ignored currently. The second is pitch, which is rotation around
+ * the x axis.The third is roll, which is rotation around the y axis. The fourth is yaw, which is
+ * rotation around the z axis. The values of pitch, roll, and yaw should be in the range of [0,360]
+ * degrees.
+ *
+ * @verbatim
+    le_result_t result;
+    double pitch = 90, roll = 90, yaw = 90;
+    result = taf_imuSensor_SetRefCoordinateByEulerAngle(NULL,pitch, roll, yaw);
+   @endverbatim
+ *
+ * @section taf_imuSensor_Activate  Set the configuration and activate the sensor
+ *
+ * TelAF Sensor Management Service provides APIs to set configuration of sensor and activate the
+ * sensor to get sensor data. The client calls taf_imuSensor_Activate() to
+ * configure and activate the sensor. This function takes four input parameters.
+ * The first is sensor reference. The second is the sampling rate which should be one of the
+ * supported sampling rates coming from taf_imuSensor_GetSupportedSamplingRate().The third is the
+ * batch count which should be between the maximum and minimum batch count getting from
+ * taf_imuSensor_GetSupportedBatchCount().
+ *
+ * @verbatim
+    le_result_t result;
+    double samplingRate = 104.00;
+    uint32 batchCount = 50;
+    le_result_t result  =  taf_imuSensor_Activate(sensorRef,samplingRate,batchCount);
+   @endverbatim
+ *
+ * taf_imuSensor_AddDataHandler and taf_imuSensor_RemoveDataHandler are used for the client
+ * application to register or unregister the handler to subscribe or unsubscribe the notification
+ * when there is a sensor data calculated.
+ *
+ * @verbatim
+
+    void TestSensorOnEventFunc(taf_imuSensor_SensorRef_t sensorRef,taf_imuSensor_SampleRef_t ref,
+        void* contextPtr){
+        taf_imuSensor_DataValue_t rawData[TAF_SENSOR_MAX_SUPPORTED_BATCH_COUNT];
+        taf_imuSensor_DataValue_t biasData[TAF_SENSOR_MAX_SUPPORTED_BATCH_COUNT];
+        size_t  size = sizeof(rawData)/sizeof(taf_imuSensor_EventData_t);
+        le_result_t result = taf_imuSensor_GetRotatedData(ref,rawData,&size,biasData,&size);
+        result = taf_imuSensor_DeleteData(ref);
+    }
+
+    taf_sensor_DataHandlerRef_t eventHandlerRef;
+    eventHandlerRef = taf_imuSensor_AddDatatHandler(sensorRef,TestSensorOnEventFunc, NULL);
+    taf_imuSensor_RemoveDataHandler(eventHandlerRef);
+   @endverbatim
+ *
+ * The application has to release each sensor sample list received by the handler,
+ * using the taf_imuSensor_DeleteData() triggered inside the TestSensorOnEventFunc() function.
+ *
+ * <HR>
+ *
+ */
+//------------------------------------------------------------------------------------------------
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The maximum size for the sensor Name and sensor vendor.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE NAME_MAX_SIZE = 50;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The maximum size for the list of sampling rates the sensor supports.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_NUM_SUPPORTED_SAMPLE_RATE = 10;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The maximum batch count supported for sensor event.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MAX_SUPPORTED_BATCH_COUNT = 50;
+
+/**
+ * Reference type for list of available sensors.
+ */
+REFERENCE SensorList;
+
+/**
+ * Reference type for details of one Sensor.
+ */
+REFERENCE Sensor;
+
+/**
+ * Reference type for sensor data.
+ */
+REFERENCE Sample;
+
+/**
+ * Types of sensor.
+ */
+
+ENUM SensorType
+{
+    ACCELEROMETER = 1,  ///< ID for the accelerometer sensor.
+
+    GYROSCOPE = 2,  ///< ID for the gyroscope sensor.
+
+    INVALID = 0xFF  ///< Denotes that the sensor type is either unknown or invalid.
+};
+
+/**
+ * The sensor data value.
+ */
+
+STRUCT DataValue
+{
+    uint64 timestamp;      ///< Timestamp when the event was generated on the hardware,
+                           ///  nanosecond since boot-up
+    double x;              ///< x-axis data, meter per second per second for accelerometer, radians
+                           /// per second for gyroscope.
+    double y;              ///< y-axis data, meter per second per second for accelerometer, radians
+                           /// per second for gyroscope.
+    double z;              ///< z-axis data, meter per second per second for accelerometer, radians
+                           /// per second for gyroscope.
+};
+
+
+/**
+ * Gets the list of available sensors.
+ *
+ * @return
+ *  - NULL                            No sensor information available.
+ *  - taf_imuSensor_SensorListRef     Sensor list object reference.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION SensorList GetSensorList
+(
+);
+
+//------------------------------------------------------------------------------------------------
+
+/**
+ * Gets the first sensor object reference in the list of the
+ * sensors retrieved with taf_imuSensor_GetAvailableSensors().
+ *
+ * @return
+ *  - NULL                          No sensor information available.
+ *  - taf_imuSensor_SensorRef       The sensor object reference.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION Sensor GetFirstSensor
+(
+    SensorList sensorListRef        IN        ///< Sensor list reference.
+);
+
+//------------------------------------------------------------------------------------------------
+
+/**
+ * Gets the next sensor object reference in the list of the
+ * sensors retrieved with taf_imuSensor_GetAvailableSensors().
+ *
+ * @return
+ *  - NULL                          No sensor information available.
+ *  - taf_imuSensor_SensorRef       The sensor object reference.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION Sensor GetNextSensor
+(
+    SensorList sensorListRef        IN        ///< Sensor list reference.
+);
+
+//------------------------------------------------------------------------------------------------
+
+/**
+ *  Retrieves the ID for the given sensor reference.
+ *
+ * @return
+ * - LE_FAULT         Failed.
+ * - LE_OK            Succeeded.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetId
+(
+    Sensor sensorRef                                IN,   ///< Sensor reference.
+    uint32 sensorId                                 OUT   ///< Unique identifier for the sensor.
+);
+
+//------------------------------------------------------------------------------------------------
+
+/**
+ *  Retrieves the name of the given sensor reference.
+ *
+ * @return
+ * - LE_FAULT         Failed.
+ * - LE_OK            Succeeded.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetName
+(
+    Sensor sensorRef                                IN,   ///< Sensor reference.
+    string sensorName[NAME_MAX_SIZE]                OUT   ///< The name of the sensor.This name is
+                                                          ///  used to activate sensor.
+);
+
+//------------------------------------------------------------------------------------------------
+
+/**
+ *  Retrieves the vendor name for the given sensor reference.
+ *
+ * @return
+ * - LE_FAULT         Failed.
+ * - LE_OK            Succeeded.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetVendorName
+(
+    Sensor sensorRef                                IN,   ///< Sensor reference.
+    string sensorVendorName[NAME_MAX_SIZE]          OUT   ///< The name of the vendor.
+);
+
+//------------------------------------------------------------------------------------------------
+
+/**
+ *  Retrieves the version for the given sensor reference.
+ *
+ * @return
+ * - LE_FAULT         Failed.
+ * - LE_OK            Succeeded.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetVersion
+(
+    Sensor sensorRef                                IN,   ///< Sensor reference.
+    string version[NAME_MAX_SIZE]                   OUT   ///< The version of the sensor considering
+                                                          ///  the hardware part and the driver.
+);
+
+//------------------------------------------------------------------------------------------------
+
+/**
+ *  Retrieves the type for the given sensor reference.
+ *
+ * @return
+ * - LE_FAULT         Failed.
+ * - LE_OK            Succeeded.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetType
+(
+    Sensor sensorRef                                IN,   ///< Sensor reference.
+    SensorType sensorType                           OUT   ///< The type of sensor.
+                                                          ///  @ref taf_imuSensor_SensorType_t.
+);
+
+//------------------------------------------------------------------------------------------------
+
+/**
+ *  Retrieves the supported sensor sampling rates information for the given sensor reference.
+ *
+ * @return
+ * - LE_FAULT         Failed.
+ * - LE_OK            Succeeded.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetSupportedSamplingRate
+(
+    Sensor sensorRef                                         IN,  ///< Sensor reference.
+    double samplingRatesList[MAX_NUM_SUPPORTED_SAMPLE_RATE]  OUT  ///< Supported sampling rates.
+);
+
+//------------------------------------------------------------------------------------------------
+
+/**
+ *  Retrieves the sensor batch information like maximum and minimum batch count supported
+ *  for the given sensor reference.
+ *
+ * @return
+ * - LE_FAULT         Failed.
+ * - LE_OK            Succeeded.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetSupportedBatchCount
+(
+    Sensor sensorRef                        IN,        ///< Sensor reference.
+    uint32 maxBatchCountSupported           OUT,       ///< Maximum batch count supported by sensor.
+    uint32 minBatchCountSupported           OUT        ///< Minimum batch count supported by sensor.
+);
+
+//------------------------------------------------------------------------------------------------
+
+/**
+ *  Retrieves the sensor range supported for the given sensor reference.
+ *
+ * @return
+ * - LE_FAULT         Failed.
+ * - LE_OK            Succeeded.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetRange
+(
+    Sensor sensorRef    IN,     ///< Sensor reference.
+    double range        OUT     ///< The range offered by the sensor. For accelerometers, this is
+                                ///  the number of Gs in either direction (+/-) on each axis and for
+                                ///  gyroscopes, this is the number of degrees per second (dps) in
+                                ///  either direction (+/-) along each axis.
+);
+
+//------------------------------------------------------------------------------------------------
+
+/**
+ *  Retrieves the sensor resolution for the given sensor reference.
+ *
+ * @return
+ * - LE_FAULT         Failed.
+ * - LE_OK            Succeeded.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetResolution
+(
+    Sensor sensorRef       IN,      ///< Sensor reference.
+    double resolution      OUT      ///< This is the smallest difference between two values reported
+                                    ///  by this sensor, in meter per second per second for
+                                    ///  accelerometers and radians per second for gyroscopes.
+);
+
+//------------------------------------------------------------------------------------------------
+
+/**
+ * Deletes the list of the available sensors.
+ *
+ * @return
+ * - LE_BAD_PARAMETER  Bad parameters.
+ * - LE_OK             Succeeded.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DeleteSensorList
+(
+    SensorList  sensorListRef        IN        ///< Sensor list reference.
+);
+
+//-----------------------------------------------------------------------------------------------
+
+/**
+ * Sets the euler angles for new reference coordinate system to get rotated sensor data. It is
+ * advised to use this api before activating the sensor. The angle values should be in
+ * range of [0 , 360] degrees.
+ *
+ * @return
+ * - LE_FAULT         Failed.
+ * - LE_OK            Succeeded.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetRefCoordinateByEulerAngle
+(
+    Sensor sensorRef  IN,      ///< Sensor reference.
+    double pitch      IN,      ///< Rotation around X [0 , 360] degrees, Positive counter-clockwise.
+    double roll       IN,      ///< Rotation around Y [0 , 360] degrees, Positive counter-clockwise.
+    double yaw        IN       ///< Rotation around Z [0 , 360] degrees, Positive counter-clockwise.
+);
+
+//------------------------------------------------------------------------------------------------
+
+/**
+ *  Sets the configuration and activate the sensor.
+ *
+ * @return
+ * - LE_UNSUPPORTED   Sampling rate or batch count not supported.
+ * - LE_UNAVAILABLE   If sensor is activated.
+ * - LE_FAULT         Failed.
+ * - LE_OK            Succeeded.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t Activate
+(
+    Sensor sensorRef                       IN,   ///< Sensor reference.
+    double samplingRate                    IN,   ///< The sampling rate for the sensor,
+                                                 ///  number of samples per second (Hz).
+    uint32 batchCount                      IN    ///< The batch count of sensor.
+);
+
+//------------------------------------------------------------------------------------------------
+
+/**
+ *  Deactivates the sensor.
+ *
+ * @return
+ * - LE_FAULT         Failed.
+ * - LE_OK            Succeeded.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t Deactivate
+(
+   Sensor sensorRef                       IN   ///< Sensor reference.
+);
+
+//------------------------------------------------------------------------------------------------
+
+/**
+ * Handler for sensor data.
+ */
+//------------------------------------------------------------------------------------------------
+HANDLER DataHandler
+(
+    Sensor sensorRef                                   IN,   ///< Sensor reference
+    Sample sampleRef                                   IN   ///< Reference for sensor sample.
+);
+
+//------------------------------------------------------------------------------------------------
+
+/**
+ * The sensor data event.
+ */
+//------------------------------------------------------------------------------------------------
+EVENT Data
+(
+    Sensor sensorRef,     ///< Sensor Reference
+    DataHandler handler   ///< The sensor event handler type.
+);
+
+//------------------------------------------------------------------------------------------------
+
+/**
+ *  Gets the rotated raw data and bias of sensor.
+ *
+ * @return
+ * - LE_FAULT         Failed.
+ * - LE_OK            Succeeded.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetRotatedData
+(
+    Sample           sampleRef                               IN,   ///< Sensor sample reference.
+    DataValue        RawData[MAX_SUPPORTED_BATCH_COUNT]     OUT,   ///< The data of the events.
+    DataValue        BiasData[MAX_SUPPORTED_BATCH_COUNT]    OUT    ///< The data of the events.
+);
+
+//-----------------------------------------------------------------------------------------------
+
+/**
+ * Deletes the sample reference of sensor data.
+ *
+ * @return
+ * - LE_BAD_PARAMETER  Bad parameters.
+ * - LE_OK             Succeeded.
+ */
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DeleteData
+(
+    Sample  sampleRef                               IN   ///< Sensor sample reference.
+);

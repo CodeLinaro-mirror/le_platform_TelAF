@@ -26,7 +26,7 @@ groups:
 
 executables:
 {
-    tafSensorSvc = ( $TELAF_ROOT/components/tafSensorSvc )
+    tafImuSensorSvc = ( $TELAF_ROOT/components/tafImuSensorSvc )
 }
 
 start: auto
@@ -35,7 +35,7 @@ processes:
 {
     run:
     {
-        (tafSensorSvc)
+        (tafImuSensorSvc)
     }
 
     maxFileBytes: 8192K
@@ -49,5 +49,5 @@ bindings:
 }
 extern:
 {
-    tafSensorSvc.tafSensorSvc.taf_sensor
+    tafImuSensorSvc.tafImuSensorSvc.taf_imuSensor
 }

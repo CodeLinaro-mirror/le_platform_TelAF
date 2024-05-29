@@ -8,6 +8,6 @@ bundles:
 {
     file:
     {
-        [r] ${CURDIR}/tafSensorSvc.pp /
+        [r] ${CURDIR}/tafImuSensorSvc.pp /
     }
 }

@@ -1,0 +1,25 @@
+# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+policy_module(tafImuSensorSvc, 1.0)
+
+# Framework definition for telaf
+type telaf_tafImuSensorSvc_exec_t;
+files_type(telaf_tafImuSensorSvc_exec_t);
+
+type telaf_tafImuSensorSvc_t;
+
+type telaf_tafImuSensorSvc_data_t;
+files_type(telaf_tafImuSensorSvc_data_t);
+
+init_telaf_app_domain(telaf_tafImuSensorSvc_t,telaf_tafImuSensorSvc_exec_t)
+
+# Allow update daemon to install/uninstall this service
+telaf_admin_manage_all_files_perms(telaf_tafImuSensorSvc_data_t)
+telaf_admin_manage_all_files_perms(telaf_tafImuSensorSvc_exec_t)
+
+ifdef(`sa525m',`
+telux_allow_sensor(telaf_tafImuSensorSvc_t)
+telux_allow_sensor_data_read(telaf_tafImuSensorSvc_t)
+telux_allow_sensor_privileged_ops(telaf_tafImuSensorSvc_t)
+')

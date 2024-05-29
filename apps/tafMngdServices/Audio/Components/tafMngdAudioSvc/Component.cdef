@@ -16,6 +16,11 @@ provides:
 
 requires:
 {
+    api:
+    {
+        le_cfg.api
+    }
+
     component:
     {
         $LEGATO_ROOT/components/watchdogChain
@@ -37,4 +42,5 @@ cxxflags:
     -ltelux_audio
     -I$TELAF_ROOT/components/tafHalComp
     -I$TELAF_ROOT/include/staging/vhal
+    -I$LEGATO_ROOT/components/cfgEntries
 }

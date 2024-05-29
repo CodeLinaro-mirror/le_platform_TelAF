@@ -142,6 +142,30 @@ void taf_MngdAudio::Init(void)
     le_msg_AddServiceCloseHandler( taf_mngd_audio_GetServiceRef(),
                                    ClientSessionCloseEventHandler,
                                    NULL );
+
+    le_cfg_IteratorRef_t procCfg;
+    procCfg = le_cfg_CreateReadTxn(MNGD_AUDIO_SVC_PROC_CONFIG_PATH);
+    if(procCfg != NULL) {
+        maxFileBytes = le_cfg_GetInt(procCfg, MAX_FILE_BYTES_NODE_NAME, DEFAULT_MAX_FILE_BYTES);
+        if (!le_cfg_NodeExists(procCfg, MAX_FILE_BYTES_NODE_NAME))
+        {
+            LE_INFO("Configured resource limit maxFileBytes is not available.");
+        }
+
+        if (le_cfg_IsEmpty(procCfg, MAX_FILE_BYTES_NODE_NAME))
+        {
+            LE_WARN("Configured resource limit maxFileBytes is empty");
+        }
+
+        if (le_cfg_GetNodeType(procCfg, MAX_FILE_BYTES_NODE_NAME) != LE_CFG_TYPE_INT)
+        {
+            LE_ERROR("Configured resource limit is the wrong type");
+        }
+        le_cfg_CancelTxn(procCfg);
+    } else {
+        LE_ERROR("Failed to get the proc config for tafMngdAudioSvc");
+    }
+    LE_DEBUG("maxFileBytes is %d", maxFileBytes);
 }
 
 void taf_MngdAudio::ClientSessionCloseEventHandler
@@ -1768,6 +1792,14 @@ void* taf_MngdAudio::Record( void* ctxPtr) {
         LE_INFO( "Audio recording started" );
         while (mngdAudio.mIsRecording)
         {
+            // Stop recording when recorded buffer reaches maxFileBytes defined.
+            if((mngdAudio.mBufferRecordedTillNow + (uint32_t)sizeof(WavHeader_t) + (2 * size)) >= mngdAudio.maxFileBytes) {
+                LE_ERROR("Stoping recording as file size reached maxFileBytes");
+                mngdAudio.mIsRecording = false;
+                mngdAudio.StopAudio(streamPtr);
+                break;
+            }
+
             if(!mngdAudio.mFreeBuffers.empty()) {
                 mngdAudio.mStreamBuffer = mngdAudio.mFreeBuffers.front();
                 mngdAudio.mFreeBuffers.pop();

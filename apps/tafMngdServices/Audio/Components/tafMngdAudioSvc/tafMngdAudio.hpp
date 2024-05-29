@@ -73,6 +73,10 @@ using namespace telux::audio;
         (interface == TAF_MNGD_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE) \
         )
 
+#define MNGD_AUDIO_SVC_PROC_CONFIG_PATH "system:/apps/tafMngdAudioSvc/procs/tafMngdAudioSvc"
+#define DEFAULT_MAX_FILE_BYTES 90112
+#define MAX_FILE_BYTES_NODE_NAME "maxFileBytes"
+
 /**
  * Symbols used to populate wave header file.
  */
@@ -334,6 +338,7 @@ class taf_MngdAudio : public ITafSvc
         bool mIsRecording = false;
         bool mEmptyPipeline = false;
         uint32_t mBufferRecordedTillNow;
+        uint32_t maxFileBytes;
         FILE *mFile;
         le_sem_Ref_t mSemRef;
         SlotId mRxSlotId = INVALID_SLOT_ID , mTxSlotId = INVALID_SLOT_ID;

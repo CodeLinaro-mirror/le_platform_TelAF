@@ -58,7 +58,6 @@
  * TelAF Managed Audio Service helps the user to open the audio connection for the requested route
  * type like ecall, non-ecall or playback/capture or playback of a playlist of audio files and
  * mode type as voice call, force open for voice call, playback, record.
- * For playback of a playlist, only similar format audio files are expected in the playlist.
  *
  * Once route is opened, connect the sink reference and source reference to the
  * respective Rx/Tx connectors in case of voice call.
@@ -442,8 +441,6 @@
  *
  * @section c_taf_mngd_audio_set_get_mute Manage the mute status
  * TelAF Managed Audio Service helps to set/get mute status for modem RX/TX, player and recorder.
- * Set/get mute works after connecting all the streams for voice call, after starting playback for
- * player and after starting the recording for recorder.
  *
  * @subsection c_set_get_mute_voice_call Set/get the mute status of Modem RX/TX during voice call
  *
@@ -500,7 +497,7 @@
 
    @endverbatim
  *
- * @subsection c_set_get_mute_player Set/get the mute status of recorder
+ * @subsection c_set_get_mute_recorder Set/get the mute status of recorder
  *
  * @verbatim
 
@@ -518,6 +515,81 @@
     res = taf_mngd_audio_GetMute(recorderRef, &isMute);
     if (res == LE_OK) {
         LE_INFO("Successfully get the mute status of recorder as %s", isMute ? false : true);
+    }
+
+   @endverbatim
+ *
+ * @section c_taf_mngd_audio_set_get_volume Manage the volume levels
+ * TelAF Managed Audio Service helps to set/get volume level for modem RX, player and recorder.
+ * Default volume levels for all the streams will be 0, and the application needs to set the
+ * required volume using SetVolume.
+ *
+ * @subsection c_set_get_vol_voice_call Set/get the volume level of Modem RX
+ *
+ * @verbatim
+
+    taf_mngd_audio_StreamRef_t rxStreamRef = NULL, txStreamRef = NULL;
+    le_result_t res;
+    double volLevel = 0.5;
+    double getVolLevel;
+    rxStreamRef = taf_mngd_audio_OpenModemVoiceRx(1);
+
+    txStreamRef = taf_mngd_audio_OpenModemVoiceTx(1, true);
+
+    res = taf_mngd_audio_SetVolume(rxStreamRef, volLevel);
+    if (res == LE_OK) {
+        LE_INFO("Successfully set the volume for modem RX");
+    }
+
+    res = taf_mngd_audio_GetVolume(rxStreamRef, &getVolLevel);
+    if (res == LE_OK) {
+        LE_INFO("Successfully get the volume level of modem RX as %f", getVolLevel);
+    }
+
+   @endverbatim
+ *
+ * @subsection c_set_get_vol_player Set/get the volume level of player
+ *
+ * @verbatim
+
+    taf_mngd_audio_StreamRef_t  = playerRef;
+    double volLevel = 0.5;
+    double getVolLevel;
+    le_result_t res;
+
+    playerRef = taf_mngd_audio_OpenPlayer(TAF_MNGD_AUDIO_RX);
+
+    res = taf_mngd_audio_SetVolume(playerRef, volLevel);
+    if (res == LE_OK) {
+        LE_INFO("Successfully set the volume level to playerRef");
+    }
+
+    res = taf_mngd_audio_GetVolume(playerRef, &getVolLevel);
+    if (res == LE_OK) {
+        LE_INFO("Successfully get the volume level of player as %f", getVolLevel);
+    }
+
+   @endverbatim
+ *
+ * @subsection c_set_get_vol_recorder Set/get the volume level of recorder
+ *
+ * @verbatim
+
+    taf_mngd_audio_StreamRef_t  = recorderRef;
+    double volLevel = 0.5;
+    double getVolLevel;
+    le_result_t res;
+
+    recorderRef = taf_mngd_audio_OpenRecorder(TAF_MNGD_AUDIO_TX);
+
+    res = taf_mngd_audio_SetVolume(recorderRef, volLevel);
+    if (res == LE_OK) {
+        LE_INFO("Successfully set the volume level to recorderRef");
+    }
+
+    res = taf_mngd_audio_GetVolume(recorderRef, &getVolLevel);
+    if (res == LE_OK) {
+        LE_INFO("Successfully get the volume level of recorder as %f", getVolLevel);
     }
 
    @endverbatim
@@ -871,7 +943,7 @@ FUNCTION le_result_t PlayFileList
 );
 
 /**
- * Sets the mute status to the stream reference.
+ * Sets the mute status to the modem Rx/Tx, player and recorder stream reference.
  *
  * @return
  *     - LE_OK                 Success.
@@ -885,7 +957,7 @@ FUNCTION le_result_t SetMute
 );
 
 /**
- * Gets the mute status of the stream reference.
+ * Gets the mute status of modem Rx/Tx, player and recorder stream reference.
  *
  * @return
  *     - LE_OK                 Success.
@@ -896,4 +968,32 @@ FUNCTION le_result_t GetMute
 (
     Stream streamRef IN,      ///< Audio stream reference.
     bool isMute      OUT      ///< Mute status.
+);
+
+/**
+ * Sets the volume to the modem Rx, player and recorder stream reference.
+ *
+ * @return
+ *     - LE_OK                 Success.
+ *     - LE_BAD_PARAMETER      Invalid stream reference.
+ *     - LE_FAULT              Failure.
+ */
+FUNCTION le_result_t SetVolume
+(
+    Stream streamRef     IN,      ///< Audio stream reference.
+    double  volumeLevel  IN       ///< Volume level.
+);
+
+/**
+ * Gets the volume of modem Rx, player and recorder stream reference.
+ *
+ * @return
+ *     - LE_OK                 Success.
+ *     - LE_BAD_PARAMETER      Invalid stream reference.
+ *     - LE_FAULT              Failure.
+ */
+FUNCTION le_result_t GetVolume
+(
+    Stream streamRef      IN,      ///< Audio stream reference.
+    double  volumeLevel   OUT      ///< Volume level.
 );

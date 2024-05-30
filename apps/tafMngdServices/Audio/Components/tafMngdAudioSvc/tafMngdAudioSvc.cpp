@@ -498,6 +498,44 @@ le_result_t taf_mngd_audio_GetMute
     return mngdAudio.GetMute(streamRef, isMute);
 }
 
+/**
+* FUNCTION     : SetVolume
+* DESCRIPTION  : Sets the volume level of modem RX, player, recorder streams.
+* DEPENDECY    :
+* PARAMETERS   : Player stream reference and volume level
+* RETURN VALUES: LE_OK on success, LE_BAD_PARAMETER on invalid stream reference
+*                and LE_FAULT on failure.
+*/
+le_result_t taf_mngd_audio_SetVolume
+(
+    taf_mngd_audio_StreamRef_t streamRef,
+    double volumeLevel
+)
+{
+    LE_DEBUG("taf_mngd_audio_SetVolume: %f", volumeLevel);
+    auto &mngdAudio = taf_MngdAudio::GetInstance();
+    return mngdAudio.SetVolume(streamRef, volumeLevel);
+}
+
+/**
+* FUNCTION     : GetVolume
+* DESCRIPTION  : Gets the volume level of modem RX, player, recorder streams.
+* DEPENDECY    :
+* PARAMETERS   : Player stream reference and address of double
+* RETURN VALUES: LE_OK on success, LE_BAD_PARAMETER on invalid stream reference
+*                and LE_FAULT on failure.
+*/
+le_result_t taf_mngd_audio_GetVolume
+(
+    taf_mngd_audio_StreamRef_t streamRef,
+    double *volumeLevel
+)
+{
+    LE_DEBUG("taf_mngd_audio_GetVolume");
+    auto &mngdAudio = taf_MngdAudio::GetInstance();
+    return mngdAudio.GetVolume(streamRef, volumeLevel);
+}
+
 COMPONENT_INIT
 {
     LE_INFO("tafMngdAudioSvc COMPONENT init...");

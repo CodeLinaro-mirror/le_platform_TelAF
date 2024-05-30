@@ -15,6 +15,8 @@
 #include "interfaces.h"
 #include "legato.h"
 #include "tafSvcIF.hpp"
+#include "tafHalLib.hpp"
+#include "tafPiVersion.h"
 #include <future>
 #include <telux/platform/PlatformFactory.hpp>
 
@@ -37,12 +39,15 @@ namespace tafsvc {
         static taf_info& GetInstance();
         void Init();
 
+        le_result_t GetVersionFromPlugIn(taf_pi_version_Comp_t component, char* versionPtr,
+            size_t versionSize);
         le_result_t GetDeviceModel(char* modelPtr, size_t numElements);
         le_result_t GetKernelVersion(char* versionPtr, size_t numElements);
         le_result_t GetModemVersion(char* modemPtr, size_t numElements);
         le_result_t GetTzVersion(char* tzPtr, size_t numElements);
         le_result_t GetTelafVersion(char* telafVersionPtr, size_t numElements);
         le_result_t GetRootfsVersion(char* rootfsVersionPtr, size_t numElements);
+        version_Inf_t* versionInfPtr;
 #ifdef LE_CONFIG_GET_IMEI_SUPPORT
         le_result_t GetIMEI(char* imeiPtr, size_t numElements);
         std::shared_ptr<telux::platform::IDeviceInfoListener> devinfoServiceStatusListener

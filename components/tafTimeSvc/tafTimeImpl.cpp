@@ -46,6 +46,7 @@ using namespace std;
 #define TAF_TIME_MAX_SOURCE_NUMBER (TAF_TIME_SRC_NAME_UNKNOWN*3)
 TimeSources TimeSourceConf(TAF_TIME_MAX_SOURCE_NUMBER);
 taf_SourceInf_t *LatestTimeSourceInfo;
+bool GnssStatusUpdateFlag = true;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -110,6 +111,7 @@ void taf_TimeServingSystemListener::onNetworkTimeChanged
  * GNSS UTC time notification for local GNSS time update.
  */
 //--------------------------------------------------------------------------------------------------
+
 void taf_TimeGnssListener::onGnssUtcTimeUpdate
 (
     const uint64_t utc
@@ -117,21 +119,36 @@ void taf_TimeGnssListener::onGnssUtcTimeUpdate
 {
     taf_time_TimeSpec_t timeVal;
     auto &tafTime = taf_Time::GetInstance();
+    taf_time_TimeSources_t sourceId = TAF_TIME_SRC_NAME_GNSS;
 
-    if (utc == 0) {
+    if (utc == 0 ) {
+        if(GnssStatusUpdateFlag == true)
+        {
+            GnssStatusUpdateFlag = false;
+            tafTime.SourceAvailabilityUpdate(LE_FAULT, sourceId);
+            tafTime.PrevSrcAvailabiltyMap = tafTime.PrevSrcAvailabiltyMap & (~(1 << sourceId));
+        }
         return;
     }
+    GnssStatusUpdateFlag = true;
 
-    if ( utc % 1000 == 0)
-     {
-        timeVal.sec = (utc / 1000);
-        timeVal.nanosec = (utc % 1000)*1000*1000;
+    taf_SourceInf_t* srcTimePtr =
+        (taf_SourceInf_t*)tafTime.SearchAvailableSourceInfList(sourceId);
 
-        LE_DEBUG("Received gnss UTC time: %" PRIu64 "\n", timeVal.sec);
-        tafTime.UpdateLocalTimeCache(timeVal, TAF_TIME_SRC_NAME_GNSS, tafTime.GnssDeltaTime);
-        tafTime.ReportTimeValueChange(TAF_TIME_SRC_NAME_GNSS, timeVal, NULL);
-        tafTime.DeregGnssTimeListener();
-    }
+    TAF_ERROR_IF_RET_NIL(srcTimePtr == NULL,"Source Reference is not found!");
+
+    tafTime.SetTimeSt->gnssSetTime = true;
+    srcTimePtr->failedLoops = 0;
+    tafTime.SourceAvailabilityUpdate(LE_OK, sourceId);
+    tafTime.PrevSrcAvailabiltyMap = tafTime.PrevSrcAvailabiltyMap | (1 << sourceId);
+
+    timeVal.sec = (utc / 1000);
+    timeVal.nanosec = (utc % 1000)*1000*1000;
+    
+    LE_DEBUG("Received gnss UTC time: %" PRIu64 "\n", timeVal.sec);
+    tafTime.UpdateLocalTimeCache(timeVal, TAF_TIME_SRC_NAME_GNSS, tafTime.GnssDeltaTime);
+    tafTime.ReportTimeValueChange(TAF_TIME_SRC_NAME_GNSS, timeVal, NULL);
+    tafTime.DeregGnssTimeListener();
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -176,7 +193,7 @@ const char* taf_Time::SourceNameIndexToStr
         /* Add new time source here */
 
         case TAF_TIME_SRC_NAME_UNKNOWN:
-            return "unknown";
+            return "UNKNOWN";
 
         case TAF_TIME_SRC_NAME_SYSTEM:
             return "SYSTEM";
@@ -811,6 +828,7 @@ le_result_t taf_Time::GetGnssTime
 )
 {
     return GetTimeFromLocalCache(timeValPtr, GnssDeltaTime, TAF_TIME_SRC_NAME_GNSS);
+
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1043,7 +1061,7 @@ le_result_t taf_Time::UpdateDateTimeInfo
 
     timeSrcRefPrt->dateTimeInf.timeZone = netInfoPtr->timeInfo.timeZone;
     timeSrcRefPrt->dateTimeInf.dstAdj = netInfoPtr->timeInfo.dstAdj;
-    timeSrcRefPrt->dateTimeInf.dstAdj = netInfoPtr->timeInfo.dayOfWeek;
+    timeSrcRefPrt->dateTimeInf.dayOfWeek = netInfoPtr->timeInfo.dayOfWeek;
     nitzTimeStr = std::string(netInfoPtr->timeInfo.nitzTime);
 
     size_t first_colon_pos = nitzTimeStr.find(":");
@@ -1678,12 +1696,13 @@ le_result_t taf_Time::SetSystemTime
 
     }
 
-    if (LatestTimeSourceInfo->sourceId != timeSource)
+    if (LatestTimeSourceInfo->systemSourceId != timeSource)
     {
         LE_INFO("Switching time source from %s to %s",
-            SourceNameIndexToStr(LatestTimeSourceInfo->sourceId), SourceNameIndexToStr(timeSource));
-        TimeSourceChangeNotify(LatestTimeSourceInfo->sourceId, timeSource);
-        LatestTimeSourceInfo->sourceId = timeSource;
+        SourceNameIndexToStr(LatestTimeSourceInfo->systemSourceId), SourceNameIndexToStr(timeSource));
+
+        TimeSourceChangeNotify(LatestTimeSourceInfo->systemSourceId, timeSource);
+        LatestTimeSourceInfo->systemSourceId = timeSource;
         LatestTimeSourceInfo->failedLoops = 0;
         AllowOverrideAfterFail = TimeSourceConf.allowOverrideAfterFail;
     }
@@ -1696,6 +1715,7 @@ le_result_t taf_Time::SetSystemTime
         SetTimeSt->asyncRtcSetTime = true;
     }
 
+    LatestTimeSourceInfo->isAvailable = true;
     return LE_OK;
 }
 
@@ -1778,50 +1798,112 @@ void taf_Time::TimeSourceChangeNotify
     le_event_ReportWithRefCounting(timeSourceChangeId, (void*)statusPtr);
 }
 
-void taf_Time::CheckSourceAvailability(le_result_t result, taf_time_TimeSources_t sourceIndex)
+void taf_Time::SourceAvailabilityUpdate(le_result_t result, taf_time_TimeSources_t sourceIndex)
 {
     taf_Time& tafTime = taf_Time::GetInstance();
-    bool previousAvailablility = tafTime.PrevSrcAvailabiltyMap & (1 << sourceIndex);
-    bool currentAvailability = false;
+    bool previousAvailablility = (tafTime.PrevSrcAvailabiltyMap >> sourceIndex) & 1;
     taf_SourceInf_t* sourcePtr = tafTime.SearchAvailableSourceInfList(sourceIndex);
 
-    //Update the value of failed Loops if the user has registered for the time source
     if (sourcePtr != NULL)
     {
         if (result == LE_OK)
         {
-            sourcePtr->failedLoops = 0;
             sourcePtr->isAvailable = true;
-            currentAvailability = true;
         }
         else
         {
             sourcePtr->isAvailable = false;
-            if (sourcePtr->failedLoops == -1)
-            {
-                sourcePtr->failedLoops = 1;
-            }
-            else
-            {
-                sourcePtr->failedLoops++;
-            }
         }
 
         LE_DEBUG("For source %s: previousAvailablility %d and currentAvailability %d ",
-            SourceNameIndexToStr(sourceIndex), previousAvailablility, currentAvailability);
+            SourceNameIndexToStr(sourceIndex), previousAvailablility, sourcePtr->isAvailable);
 
         // Check if time source status is changed or not
-        if (previousAvailablility != currentAvailability)
+        if (previousAvailablility != sourcePtr->isAvailable)
         {
             // Check if a handler is registered for the time source by user
             if (sourcePtr->handlerFunc != NULL)
             {
                 SourceStatusChange_Event_t evt;
                 evt.sourcePtr = sourcePtr;
-                evt.isAvailable = currentAvailability;
+                evt.isAvailable = sourcePtr->isAvailable;
                 le_event_Report(timeSourceStatusEventId, &evt, sizeof(evt));
             }
         }
+    }
+}
+
+void taf_Time::UpdateFailedLoops(taf_time_TimeSources_t sourceIndex)
+{
+    taf_Time& tafTime = taf_Time::GetInstance();
+    taf_SourceInf_t* sourcePtr = tafTime.SearchAvailableSourceInfList(sourceIndex);
+
+    TAF_ERROR_IF_RET_NIL(sourcePtr == NULL, "Source Reference is not found!");
+
+    switch (sourceIndex)
+    {
+        case TAF_TIME_SRC_NAME_RTC:
+            if (SetTimeSt->asyncRtcSetTime)
+            {
+                SetTimeSt->asyncRtcSetTime = false;
+            }
+            else
+            {
+                if (sourcePtr->failedLoops == -1) sourcePtr->failedLoops = 0;
+                sourcePtr->failedLoops++;
+            }
+            break;
+
+        case TAF_TIME_SRC_NAME_GNSS:
+            if (SetTimeSt->gnssSetTime)
+            {
+                SetTimeSt->gnssSetTime = false;
+            }
+            else
+            {
+                if (sourcePtr->failedLoops == -1) sourcePtr->failedLoops = 0;
+                sourcePtr->failedLoops++;
+            }
+            break;
+
+        case TAF_TIME_SRC_NAME_EX_APP:
+            if (SetTimeSt->externalSetTime)
+            {
+                SetTimeSt->externalSetTime = false;
+            }
+            else
+            {
+                if (sourcePtr->failedLoops == -1) sourcePtr->failedLoops = 0;
+                sourcePtr->failedLoops++;
+            }
+            break;
+
+        case TAF_TIME_SRC_NAME_NETWORK:
+            if (SetTimeSt->networkSetTime)
+            {
+                SetTimeSt->networkSetTime = false;
+            }
+            else
+            {
+                if (sourcePtr->failedLoops == -1) sourcePtr->failedLoops = 0;
+                sourcePtr->failedLoops++;
+            }
+            break;
+
+        case TAF_TIME_SRC_NAME_NETWORK2:
+            if (SetTimeSt->network2SetTime)
+            {
+                SetTimeSt->network2SetTime = false;
+            }
+            else
+            {
+                if (sourcePtr->failedLoops == -1) sourcePtr->failedLoops = 0;
+                sourcePtr->failedLoops++;
+            }
+            break;
+
+        default:
+            break;
     }
 }
 
@@ -1844,7 +1926,6 @@ le_result_t taf_Time::SetTimeBaseOnConfig
     uint64_t* timeSrcStatusMap
 )
 {
-    taf_Time& tafTime = taf_Time::GetInstance();
     le_result_t result = LE_UNAVAILABLE;
     uint64_t TimeSourceStatusMap = 0x0;
     taf_time_TimeSources_t sourceIndex;
@@ -1865,8 +1946,10 @@ le_result_t taf_Time::SetTimeBaseOnConfig
     for (i = 0; i < (int)serviceCfg.source.size(); i++)
     {
         sourceIndex = SourceNameStrToIndex(serviceCfg.source[i].sourceName.c_str());
+
+        UpdateFailedLoops(sourceIndex);
+
         result = CheckSourceTime(&time, sourceIndex);
-        CheckSourceAvailability(result, sourceIndex);
 
         if (result != LE_OK)
         {
@@ -1894,13 +1977,12 @@ le_result_t taf_Time::SetTimeBaseOnConfig
 
         LE_DEBUG("Tatol: %ld, latest: %s, current: %s, priority: %d,"
             " set allow: %d, status: %d, result: %d\n",
-            serviceCfg.source.size(), SourceNameIndexToStr(LatestTimeSourceInfo->sourceId),
+            serviceCfg.source.size(), SourceNameIndexToStr(LatestTimeSourceInfo->systemSourceId),
             serviceCfg.source[i].sourceName.c_str(), i,
             serviceCfg.source[i].setSystemTime, setStatus, result);
     }
 
     *timeSrcStatusMap = TimeSourceStatusMap;
-    tafTime.PrevSrcAvailabiltyMap = TimeSourceStatusMap;
 
     if (setStatus)
     {
@@ -1911,6 +1993,7 @@ le_result_t taf_Time::SetTimeBaseOnConfig
     {
         AllowOverrideAfterFail--;
     }
+    LatestTimeSourceInfo->failedLoops++;
     return result;
 }
 //--------------------------------------------------------------------------------------------------
@@ -1953,6 +2036,21 @@ void taf_Time::SystemTimeUpdateTimerHandler
     }
 }
 
+void taf_Time::InitializeSystemTimeAttr()
+{
+    taf_Time& tafTime = taf_Time::GetInstance();
+    LatestTimeSourceInfo = (taf_SourceInf_t*)le_mem_ForceAlloc(tafTime.SrcPool);
+    LatestTimeSourceInfo->failedLoops = -1;
+    LatestTimeSourceInfo->sourceId = TAF_TIME_SRC_NAME_SYSTEM;
+    LatestTimeSourceInfo->systemSourceId = TAF_TIME_SRC_NAME_UNKNOWN;
+    LatestTimeSourceInfo->isAvailable = false;
+    LatestTimeSourceInfo->handlerRef = NULL;
+    LatestTimeSourceInfo->handlerFunc = NULL;
+    LatestTimeSourceInfo->sessionRef = taf_time_GetClientSessionRef();
+    LatestTimeSourceInfo->ref = (taf_time_SourceRef_t)le_ref_CreateRef(tafTime.SrcRefMap, LatestTimeSourceInfo);
+    return;
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Active time related tasks according to the JSON configuration.
@@ -1973,8 +2071,9 @@ void *taf_Time::SyncTimeTasks(void* contextPtr)
     tafTime.TimePool = le_mem_CreatePool("Time Pool", sizeof(taf_TimeInf_t));
     tafTime.SrcRefMap = le_ref_CreateMap("SrcRefMap", TAF_TIME_SRC_NAME_UNKNOWN + 1);
     tafTime.SrcPool = le_mem_CreatePool("Available Source Pool", sizeof(taf_SourceInf_t));
-    LatestTimeSourceInfo = (taf_SourceInf_t*)le_mem_ForceAlloc(tafTime.SrcPool);
-    LatestTimeSourceInfo->failedLoops = -1;
+
+    //Initialise system time structure and register in the SrcRefMap
+    tafTime.InitializeSystemTimeAttr();
 
     // Check if the network time source is required
     if (TimeSourceConf.IsSourceExist(tafTime.SourceNameIndexToStr(TAF_TIME_SRC_NAME_NETWORK)))
@@ -2049,6 +2148,26 @@ void *taf_Time::SyncTimeTasks(void* contextPtr)
     {
         LE_WARN("No time source found\n");
     }
+    //6. Populate the available source information
+    if (TimeSourceConf.source.size() > 0)
+    {
+        std::vector<Source> SourceList = TimeSourceConf.source;
+
+        for (auto item : SourceList)
+        {
+            taf_SourceInf_t* src = (taf_SourceInf_t*)le_mem_ForceAlloc(tafTime.SrcPool);
+            src->sourceId = tafTime.SourceNameStrToIndex(item.sourceName.c_str());
+            src->failedLoops = -1;
+            src->systemSourceId = TAF_TIME_SRC_NAME_UNKNOWN;
+            src->isAvailable = false;
+            src->handlerRef = NULL;
+            src->handlerFunc = NULL;
+            src->sessionRef = taf_time_GetClientSessionRef();
+            src->ref = (taf_time_SourceRef_t)le_ref_CreateRef(tafTime.SrcRefMap, src);
+        }
+    }
+    tafTime.printSourceInfo();
+
     le_event_RunLoop();
 
     LE_WARN("Warning: SyncTimeTasks exit!\n");
@@ -2124,16 +2243,13 @@ void taf_Time::DeregGnssTimeListener(void)
 void taf_Time::SyncTimeTimerHandler(le_timer_Ref_t timerRef)
 {
     auto &tafTime = taf_Time::GetInstance();
-    uint32_t time = le_timer_GetExpiryCount(timerRef);
 
     if (tafTime.InitGnssTimeStatus == LE_OK)
     {
         tafTime.RegGnssTimeListener();
     }
 
-    if ((tafTime.InitNetworkTimeStatus == LE_OK)
-        && (time % 5 == 1) /* Not to update network (not accuracy) time so frequently */
-    )
+    if (tafTime.InitNetworkTimeStatus == LE_OK)
     {
         tafTime.RequestNetworkTime();
     }
@@ -2256,29 +2372,43 @@ void taf_Time::NetworkTimeResponseUpdate
     le_result_t result;
     static bool initFlag = true;
     auto &tafTime = taf_Time::GetInstance();
-
-    if (error != telux::common::ErrorCode::SUCCESS)
+    if(phoneId == 1)
     {
-        LE_DEBUG("Register network time for phone %d, Error(%d)", phoneId, (int)error);
-        return;
-    }
-
-    result = ConvertNetworkTimeToSec(info, &timeVal);
-    if (phoneId == 1)
-    {
-        sourceId = TAF_TIME_SRC_NAME_NETWORK;
-        if (LE_OK == result)
-        {
-            UpdateLocalTimeCache(timeVal, sourceId, NetworkDeltaTime);
-        }
+        sourceId = TAF_TIME_SRC_NAME_NETWORK;    
     }
     else
     {
         sourceId = TAF_TIME_SRC_NAME_NETWORK2;
-        if (LE_OK == result)
+    }
+
+    if (error != telux::common::ErrorCode::SUCCESS)
+    {
+        LE_DEBUG("Register network time for phone %d, Error(%d)", phoneId, (int)error);
+        SourceAvailabilityUpdate(LE_FAULT, sourceId);
+        tafTime.PrevSrcAvailabiltyMap = tafTime.PrevSrcAvailabiltyMap & (~(1 << sourceId));
+        return;
+    }
+
+    result = ConvertNetworkTimeToSec(info, &timeVal);
+    if (LE_OK == result)
+    {
+        if(sourceId == TAF_TIME_SRC_NAME_NETWORK)
         {
-            UpdateLocalTimeCache(timeVal, sourceId, NetworkDeltaTime2);
+            SetTimeSt->networkSetTime = true;    
         }
+        else
+        {
+            SetTimeSt->network2SetTime = true;
+        }
+
+        taf_SourceInf_t* srcTimePtr = (taf_SourceInf_t*)SearchAvailableSourceInfList(sourceId);
+
+        TAF_ERROR_IF_RET_NIL(srcTimePtr == NULL,"Source Reference is not found!");
+
+        srcTimePtr->failedLoops = 0;
+        UpdateLocalTimeCache(timeVal, sourceId, NetworkDeltaTime);
+        SourceAvailabilityUpdate(result, sourceId);
+        tafTime.PrevSrcAvailabiltyMap = tafTime.PrevSrcAvailabiltyMap | (1 << sourceId);
     }
 
     StoreDateTimeInfo(info, sourceId);
@@ -2289,6 +2419,20 @@ void taf_Time::NetworkTimeResponseUpdate
         initFlag = false;
         tafTime.ReportTimeValueChange(sourceId, timeVal, &info);
     }
+}
+le_result_t taf_Time::UpdateNetworkTimeZoneInfo
+(
+    telux::tel::NetworkTimeInfo info,
+    taf_time_TimeSources_t sourceIndex
+)
+{
+    taf_SourceInf_t* srcTimePtr = (taf_SourceInf_t*)SearchAvailableSourceInfList(sourceIndex);
+
+    TAF_ERROR_IF_RET_VAL(srcTimePtr == NULL, LE_FAULT, "Source Reference is not found!");
+
+    srcTimePtr->timeZone = info.timeZone;
+    srcTimePtr->dstAdj = info.dstAdj;
+    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2304,6 +2448,11 @@ void taf_Time::SyncNetworkTimeResponse
 {
     auto &tafTime = taf_Time::GetInstance();
     tafTime.NetworkTimeResponseUpdate(1, info, error);
+    le_result_t result = tafTime.UpdateNetworkTimeZoneInfo(info, TAF_TIME_SRC_NAME_NETWORK);
+    if(result != LE_OK)
+    {
+        LE_ERROR("Failed to update network source details!");
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2319,6 +2468,11 @@ void taf_Time::SyncNetworkTimeResponse2
 {
     auto &tafTime = taf_Time::GetInstance();
     tafTime.NetworkTimeResponseUpdate(2, info, error);
+    le_result_t result = tafTime.UpdateNetworkTimeZoneInfo(info, TAF_TIME_SRC_NAME_NETWORK2);
+    if(result != LE_OK)
+    {
+        LE_ERROR("Failed to update network source details!");
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2634,7 +2788,7 @@ void PowerStateChangeHandler
 
 bool taf_Time::isNewTimeSrcSetTimeAllowed(taf_time_TimeSources_t newTimeSource)
 {
-    if (LatestTimeSourceInfo->sourceId == TAF_TIME_SRC_NAME_UNKNOWN)
+    if (LatestTimeSourceInfo->systemSourceId == TAF_TIME_SRC_NAME_UNKNOWN)
     {
         //1. Current system time was not sync by any of the time source, need to be sync
         return true;
@@ -2655,10 +2809,10 @@ bool taf_Time::isNewTimeSrcSetTimeAllowed(taf_time_TimeSources_t newTimeSource)
     int newPriorityNum = TimeSourceConf.source[position].priority;
 
     position =
-        TimeSourceConf.findSourcePosition(SourceNameIndexToStr(LatestTimeSourceInfo->sourceId));
+        TimeSourceConf.findSourcePosition(SourceNameIndexToStr(LatestTimeSourceInfo->systemSourceId));
     if (position < 0)
     {
-        LE_ERROR("%s is not found\n", SourceNameIndexToStr(LatestTimeSourceInfo->sourceId));
+        LE_ERROR("%s is not found\n", SourceNameIndexToStr(LatestTimeSourceInfo->systemSourceId));
         return false;
     }
     int currPriorityNum = TimeSourceConf.source[position].priority;
@@ -2687,8 +2841,10 @@ bool taf_Time::isNewTimeSrcSetTimeAllowed(taf_time_TimeSources_t newTimeSource)
 void taf_Time::getRTCRespCB(struct TimeSpec timeVal, le_result_t response)
 {
     auto& time = taf_Time::GetInstance();
+
     taf_time_TimeSpec_t timeSpec = { 0 };
     le_result_t result = LE_TERMINATED;
+    taf_time_TimeSources_t sourceId = TAF_TIME_SRC_NAME_RTC;
 
     timeSpec.sec = timeVal.sec;
     timeSpec.nanosec = timeVal.nanosec;
@@ -2697,21 +2853,36 @@ void taf_Time::getRTCRespCB(struct TimeSpec timeVal, le_result_t response)
     {
         getRTCCB.getRTCCallbackFunc(&timeSpec, response, getRTCCB.getRTCCtxPtr);
     }
-    else// Time service internally get RTC time from VHAL does not need callback function
+
+    if (response != LE_OK || timeSpec.sec == 0)
     {
-        if (response != LE_OK)
+        LE_ERROR("Response for getting RTC time is NOT OK %d, time is: %" PRIu64 "\n",
+        response, timeSpec.sec);
+        time.SetTimeSt->asyncRtcSetTime = false;
+        time.SourceAvailabilityUpdate(LE_FAULT, sourceId);
+        time.PrevSrcAvailabiltyMap = time.PrevSrcAvailabiltyMap & (~(1 << sourceId));
+        return;
+    }
+    else
+    {
+        taf_SourceInf_t* srcTimePtr =
+                (taf_SourceInf_t*)time.SearchAvailableSourceInfList(TAF_TIME_SRC_NAME_RTC);
+
+        TAF_ERROR_IF_RET_NIL(srcTimePtr == NULL,"Source Reference is not found!");
+
+        time.SetTimeSt->asyncRtcSetTime = true;
+        srcTimePtr->failedLoops = 0;
+        time.SourceAvailabilityUpdate(response, sourceId);
+        time.PrevSrcAvailabiltyMap = time.PrevSrcAvailabiltyMap | (1 << sourceId);
+    }
+
+    if (time.isNewTimeSrcSetTimeAllowed(TAF_TIME_SRC_NAME_RTC))
+    {
+        result = time.SetSystemTime(timeSpec, TAF_TIME_SRC_NAME_RTC, false);
+        if (result != LE_OK)
         {
-            LE_ERROR("Response for getting RTC time is not ok %d\n", response);
+            LE_DEBUG("Set RTC to system failed %d\n", result);
             return;
-        }
-        if (time.isNewTimeSrcSetTimeAllowed(TAF_TIME_SRC_NAME_RTC))
-        {
-            result = time.SetSystemTime(timeSpec, TAF_TIME_SRC_NAME_RTC, false);
-            if (result != LE_OK)
-            {
-                LE_DEBUG("Set RTC to system failed %d\n", result);
-                return;
-            }
         }
     }
 
@@ -2888,15 +3059,25 @@ le_result_t taf_Time::SetRtcTimeReqAsync(const taf_time_TimeSpec_t* timeValPtr,
     return result;
 }
 
-void taf_Time::printSourceInfo(taf_time_TimeSources_t sourceId)
+void taf_Time::printSourceInfo()
 {
     auto& time = taf_Time::GetInstance();
-    taf_SourceInf_t* sourcePtr = (taf_SourceInf_t*)time.SearchAvailableSourceInfList(sourceId);
-    if (sourcePtr != NULL)
+    le_ref_IterRef_t iterRef = le_ref_GetIterator(time.SrcRefMap);
+    while (le_ref_NextNode(iterRef) == LE_OK)
     {
+        taf_SourceInf_t* sourcePtr = (taf_SourceInf_t*)le_ref_GetValue(iterRef);
         LE_INFO("Source ID: %s", time.SourceNameIndexToStr(sourcePtr->sourceId));
+        LE_INFO("Failed Loop: %d", sourcePtr->failedLoops);
+
         LE_INFO("Reference is: %p", sourcePtr->ref);
-        LE_INFO("Failed loops: %d", sourcePtr->failedLoops);
+        if (sourcePtr->isAvailable == true)
+        {
+            LE_INFO("Source is available");
+        }
+        else
+        {
+            LE_INFO("Source is NOT available");
+        }
         if (sourcePtr->handlerRef != NULL)
         {
             LE_INFO("Handler Reference is: %p", sourcePtr->handlerRef);
@@ -2913,10 +3094,7 @@ void taf_Time::printSourceInfo(taf_time_TimeSources_t sourceId)
         {
             LE_INFO("Function does not exit");
         }
-    }
-    else
-    {
-        LE_ERROR("Source does not exist!");
+
     }
 }
 
@@ -2942,52 +3120,53 @@ taf_time_SourceRef_t taf_Time::GetSourceRef
 {
     taf_SourceInf_t* srcTimePtr = (taf_SourceInf_t*)SearchAvailableSourceInfList(sourceId);
 
-    if (srcTimePtr != NULL)
-    {
-        // Update system info
-        if (sourceId == TAF_TIME_SRC_NAME_SYSTEM)
-        {
-            srcTimePtr->systemSourceId = LatestTimeSourceInfo->sourceId;
-        }
+    TAF_ERROR_IF_RET_VAL(srcTimePtr == NULL, NULL, "Source Reference is not found!");
 
-        LE_DEBUG("Reference %p found for time Source %s", srcTimePtr->ref,
-            SourceNameIndexToStr(sourceId));
+    LE_INFO("Source Ref %p for client, sourceId (0x%x).",
+        srcTimePtr->ref, sourceId);
 
-        return srcTimePtr->ref;
-    }
+    return srcTimePtr->ref;
+}
 
-    else if (
-        srcTimePtr == NULL &&
-        sourceId != TAF_TIME_SRC_NAME_UNKNOWN &&
-        (sourceId < TimeSourceConf.source.size() ||
-         sourceId == TAF_TIME_SRC_NAME_SYSTEM)
-        )
-    {
-        srcTimePtr = (taf_SourceInf_t*)le_mem_ForceAlloc(SrcPool);
-        if (sourceId == TAF_TIME_SRC_NAME_SYSTEM)
-        {
-            srcTimePtr->systemSourceId = LatestTimeSourceInfo->sourceId;
-        }
-        else
-        {
-            srcTimePtr->systemSourceId = TAF_TIME_SRC_NAME_UNKNOWN;
-        }
-        srcTimePtr->sourceId = sourceId;
-        srcTimePtr->failedLoops = -1;
-        srcTimePtr->handlerRef = NULL;
-        srcTimePtr->handlerFunc = NULL;
-        srcTimePtr->ref = (taf_time_SourceRef_t)le_ref_CreateRef(SrcRefMap, srcTimePtr);
+le_result_t taf_Time::GetFailedLoops
+(
+    taf_time_SourceRef_t sourceRef,
+    int32_t* failedLoops,
+    int64_t* loopIntervalSec
+)
+{
+    TAF_ERROR_IF_RET_VAL(sourceRef == NULL, LE_FAULT, "Source Reference is NULL.");
+    taf_SourceInf_t* sourcePtr = (taf_SourceInf_t*)le_ref_Lookup(SrcRefMap, sourceRef);
+    TAF_ERROR_IF_RET_VAL(sourcePtr == NULL, LE_FAULT, "Source Reference is not registered.");
+    *failedLoops = sourcePtr->failedLoops;
+    *loopIntervalSec = TimeSourceConf.pollingInterval;
+    return LE_OK;
+}
 
-        LE_DEBUG("Creating new reference %p for time Source %s", srcTimePtr->ref,
-            SourceNameIndexToStr(sourceId));
+bool taf_Time::IsAvailable
+(
+    taf_time_SourceRef_t sourceRef
+)
+{
+    TAF_ERROR_IF_RET_VAL(sourceRef == NULL, false, "Source Reference is NULL.");
+    taf_SourceInf_t* sourcePtr = (taf_SourceInf_t*)le_ref_Lookup(SrcRefMap, sourceRef);
+    TAF_ERROR_IF_RET_VAL(sourcePtr == NULL, false, "Source Reference is not registered.");
+    return sourcePtr->isAvailable;
+}
 
-        return srcTimePtr->ref;
-    }
-    else
-    {
-        LE_ERROR("Source is not supported!");
-    }
-    return NULL;
+le_result_t taf_Time::GetSystemTimeSourceID
+(
+    taf_time_TimeSources_t* timeSource
+)
+{
+    TAF_ERROR_IF_RET_VAL(timeSource == NULL, LE_FAULT, "Time Source is NULL.");
+
+    taf_SourceInf_t* sourcePtr = (taf_SourceInf_t*)SearchAvailableSourceInfList(TAF_TIME_SRC_NAME_SYSTEM);
+
+    TAF_ERROR_IF_RET_VAL(sourcePtr == NULL, LE_FAULT, "Time Source is not registered.");
+
+    *timeSource = sourcePtr->systemSourceId;
+    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -3007,12 +3186,8 @@ le_result_t taf_Time::ReleaseSourceRef
         LE_ERROR("srcTimePtr is NULL.");
         return LE_BAD_PARAMETER;
     }
-
-    LE_INFO("Removed SrcRef(%p).", SrcRef);
-
-    le_ref_DeleteRef(SrcRefMap, SrcRef);
-    le_mem_Release(srcTimePtr);
-
+    srcTimePtr->handlerRef = NULL;
+    srcTimePtr->handlerFunc = NULL;
     return LE_OK;
 }
 
@@ -3037,7 +3212,7 @@ void timeSourceStatusHandler(void* reportPtr)
             LE_DEBUG("Time source %s is NOT Available!",
                 time.SourceNameIndexToStr(sourcePtr->sourceId));
         }
-        sourcePtr->handlerFunc(isAvailable, sourcePtr->context);
+        sourcePtr->handlerFunc(sourcePtr->ref, isAvailable, sourcePtr->context);
     }
     return;
 }
@@ -3058,30 +3233,127 @@ taf_time_TimeSourceStatusHandlerRef_t taf_Time::AddTimeSourceStatusHandler
     TAF_ERROR_IF_RET_VAL(srcTimePtr->sourceId == TAF_TIME_SRC_NAME_SYSTEM, NULL,
         "Cannot register handler for source(0x%x). Not Supported", srcTimePtr->sourceId);
 
-    TAF_ERROR_IF_RET_VAL(srcTimePtr->handlerFunc != NULL, NULL,
-        "Handler for source(0x%x) is already registered.", srcTimePtr->sourceId);
+    //TAF_ERROR_IF_RET_VAL(srcTimePtr->handlerFunc != NULL, NULL,
+    //    "Handler for source(0x%x) is already registered.", srcTimePtr->sourceId);
+    if(srcTimePtr->handlerFunc != NULL)
+    {
+        return srcTimePtr->handlerRef;
+    }
 
     srcTimePtr->handlerFunc = handlerFuncPtr;
     srcTimePtr->context = contextPtr;
     srcTimePtr->handlerRef =
         (taf_time_TimeSourceStatusHandlerRef_t)le_ref_CreateRef(SrcRefMap, srcTimePtr);
+
     LE_INFO("Registering handler reference %p for %s", srcTimePtr->handlerRef,
         SourceNameIndexToStr(srcTimePtr->sourceId));
     return srcTimePtr->handlerRef;
 }
 
-le_result_t taf_Time::GetFailedLoops
+void taf_Time::RemoveTimeSourceStatusHandler
+(
+    taf_time_TimeSourceStatusHandlerRef_t handlerRef
+)
+{
+    taf_SourceInf_t* srcStatusFuncPtr =
+        (taf_SourceInf_t*)le_ref_Lookup(SrcRefMap, handlerRef);
+
+    if (srcStatusFuncPtr != NULL)
+    {
+        // Do sanity check.
+        LE_ASSERT(srcStatusFuncPtr->handlerRef == handlerRef);
+
+        taf_SourceInf_t* srcTimePtr =
+            (taf_SourceInf_t*)le_ref_Lookup(SrcRefMap, srcStatusFuncPtr->handlerRef);
+
+        if (srcTimePtr != NULL)
+        {
+            srcTimePtr->handlerRef = NULL;
+            srcTimePtr->handlerFunc = NULL;
+        }
+
+        LE_INFO("Removed srcStatusFuncRef(%p).", handlerRef);
+
+        // Free the handler.
+        le_ref_DeleteRef(SrcRefMap, handlerRef);
+    }
+    else
+    {
+        LE_ERROR("Invalid tsrHandlerRef(%p).", handlerRef);
+    }
+
+    return;
+}
+
+le_result_t taf_Time::GetTimeZone
 (
     taf_time_SourceRef_t sourceRef,
-    int32_t* failedLoops
+    int8_t* timeZone
 )
 {
     TAF_ERROR_IF_RET_VAL(sourceRef == NULL, LE_FAULT, "Source Reference is NULL.");
+
     taf_SourceInf_t* sourcePtr = (taf_SourceInf_t*)le_ref_Lookup(SrcRefMap, sourceRef);
+
     TAF_ERROR_IF_RET_VAL(sourcePtr == NULL, LE_FAULT, "Source Reference is not registered.");
-    *failedLoops = sourcePtr->failedLoops;
-    return LE_OK;
+
+    if
+    (
+        sourcePtr->sourceId != TAF_TIME_SRC_NAME_NETWORK &&
+        sourcePtr->sourceId != TAF_TIME_SRC_NAME_NETWORK2
+    )
+    {
+        LE_ERROR("TimeZone is not supported for the given source reference!");
+        return LE_BAD_PARAMETER;
+    }
+
+    // Is there a need to double check the return value?
+
+    if(-48 <= sourcePtr->timeZone && sourcePtr->timeZone <= 48
+    && sourcePtr->isAvailable == true)
+    {
+        LE_INFO("Network unavailable. Unable to get timezone!");
+        *timeZone = sourcePtr->timeZone;
+        return LE_OK;
+    }
+    else
+    {
+        *timeZone = 0;
+        return LE_FAULT;
+    }
+    
+    return LE_FAULT;
 }
+
+le_result_t taf_Time::GetTimeDayAdj
+(
+    taf_time_SourceRef_t sourceRef,
+    uint8_t* dayltSavAdj
+)
+{
+    TAF_ERROR_IF_RET_VAL(sourceRef == NULL, LE_FAULT, "Source Reference is NULL.");
+
+    taf_SourceInf_t* sourcePtr = (taf_SourceInf_t*)le_ref_Lookup(SrcRefMap, sourceRef);
+
+    TAF_ERROR_IF_RET_VAL(sourcePtr == NULL, LE_FAULT, "Source Reference is not registered.");
+
+    if
+    (
+        sourcePtr->sourceId != TAF_TIME_SRC_NAME_NETWORK &&
+        sourcePtr->sourceId != TAF_TIME_SRC_NAME_NETWORK2
+    )
+    {
+        LE_ERROR("TimeZone is not supported for the given source reference!");
+        return LE_BAD_PARAMETER;
+    }
+    if(sourcePtr->isAvailable == true)
+    {
+        *dayltSavAdj = sourcePtr->dstAdj;
+        return LE_OK;
+    }
+    return LE_FAULT;
+}
+
 /*======================================================================
 
  FUNCTION        taf_Time::Init

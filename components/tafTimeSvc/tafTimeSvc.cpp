@@ -531,15 +531,17 @@ le_result_t taf_time_ReleaseSourceRef
 
  FUNCTION        taf_time_GetFailedLoops
 
- DESCRIPTION     Gets the number of failed loops for a source..
+ DESCRIPTION     Gets the number of failed loops for a source.
 
  DEPENDENCIES    Initialization of Time Service.
 
- PARAMETERS      [IN] taf_time_TimeSources_t sourceId: Source ID
+ PARAMETERS      [IN] taf_time_SourceRef_t sourceRef: Source ref
+                 [OUT] Number of failed loops for given source
+                 [OUT] Loop interval time in seconds
 
  RETURN VALUE
-                - Reference to the time source instance.
-                - NULL if not available.
+                - LE_OK if successful.
+                - LE_FAULT if any error occurs.
 
  SIDE EFFECTS
 
@@ -547,11 +549,129 @@ le_result_t taf_time_ReleaseSourceRef
 le_result_t taf_time_GetFailedLoops
 (
     taf_time_SourceRef_t sourceRef,
-    int32_t* failedLoops
+    int32_t* failedLoops,
+    int64_t* loopIntervalSec
 )
 {
     auto& tafTime = taf_Time::GetInstance();
-    return tafTime.GetFailedLoops(sourceRef, failedLoops);
+    return tafTime.GetFailedLoops(sourceRef, failedLoops, loopIntervalSec);
+}
+
+
+/*======================================================================
+
+ FUNCTION        taf_time_IsAvailable
+
+ DESCRIPTION     Gets the availability of a source.
+
+ DEPENDENCIES    Initialization of Time Service.
+
+ PARAMETERS      [IN] taf_time_SourceRef_t sourceRef: Source ref
+                 [OUT] Availability of given source
+
+
+ RETURN VALUE
+                - LE_OK if successful.
+                - LE_FAULT if any error occurs.
+
+ SIDE EFFECTS
+
+======================================================================*/
+bool taf_time_IsAvailable
+(
+    taf_time_SourceRef_t sourceRef
+)
+{
+    auto& tafTime = taf_Time::GetInstance();
+    return tafTime.IsAvailable(sourceRef);
+}
+
+
+/*======================================================================
+
+ FUNCTION        taf_time_GetSystemTimeSourceID
+
+ DESCRIPTION     Gets the name of the time source that has set the
+                 system time
+
+ DEPENDENCIES    Initialization of Time Service.
+
+ PARAMETERS      [OUT] taf_time_TimeSources_t sourceId: Source ID
+
+ RETURN VALUE
+                - LE_OK if successful.
+                - LE_FAULT if any error occurs.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_time_GetSystemTimeSourceID
+(
+   taf_time_TimeSources_t *sourceId
+)
+{
+    auto& tafTime = taf_Time::GetInstance();
+    return tafTime.GetSystemTimeSourceID(sourceId);
+}
+
+/*======================================================================
+
+ FUNCTION        taf_time_GetTimeZone
+
+ DESCRIPTION     Gets the Offset from Universal time i.e. the difference
+                 between local time and Universal time, in increments of
+                 15 minutes (signed value). The time zone range is [-48, 48],
+                 so the range of minutes is [-720, 720].
+
+ DEPENDENCIES    Initialization of Time Service.
+
+ PARAMETERS      [IN] taf_time_SourceRef_t sourceRef
+                 [OUT] int8_t* timeZone
+
+ RETURN VALUE
+                - LE_OK if successful.
+                - LE_FAULT if any error occurs.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_time_GetTimeZone
+(
+   taf_time_SourceRef_t sourceRef,
+   int8_t* timeZone
+)
+{
+    auto& tafTime = taf_Time::GetInstance();
+    return tafTime.GetTimeZone(sourceRef, timeZone);
+}
+
+/*======================================================================
+
+ FUNCTION        taf_time_GetTimeDayAdj
+
+ DESCRIPTION     Gets the daylight saving adjustment in hours. Possible
+                 values for the output are 0, 1, and 2.
+
+ DEPENDENCIES    Initialization of Time Service.
+
+ PARAMETERS      [IN] taf_time_SourceRef_t sourceRef
+                 [OUT] int8_t* dayltSavAdj
+
+ RETURN VALUE
+                - LE_OK if successful.
+                - LE_FAULT if any error occurs.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_time_GetTimeDayAdj
+(
+   taf_time_SourceRef_t sourceRef,
+   uint8_t* dayltSavAdj
+)
+{
+    auto& tafTime = taf_Time::GetInstance();
+    return tafTime.GetTimeDayAdj(sourceRef, dayltSavAdj);
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -625,7 +745,8 @@ void taf_time_RemoveTimeSourceStatusHandler
     taf_time_TimeSourceStatusHandlerRef_t handlerRef
 )
 {
-    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
+    auto& time = taf_Time::GetInstance();
+    return time.RemoveTimeSourceStatusHandler(handlerRef);
 }
 
 /**

@@ -30,6 +30,7 @@ typedef void (*INIT)(void);
  *      dataID      - DID
  *      value       - the value of the DID
  *      len         - the length of the DID value
+ *      result      - the returned error code of getting DID value
  *
  * @return void
  *
@@ -39,7 +40,8 @@ typedef void (*TAF_PI_DIAGDID_GETHANDLER)
 (
     uint16_t dataID,
     uint8_t *value,
-    size_t len
+    size_t len,
+    uint8_t result
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -64,7 +66,7 @@ typedef le_result_t (*TAF_PI_DIAGDID_GETASYNC)
  * Hander to return the result of setting DID request.
  * @param
  *      dataID     - DID
- *      result     - result of setting DID value
+ *      result     - the returned error code of setting DID value
  *
  * @return void
  *
@@ -73,7 +75,7 @@ typedef le_result_t (*TAF_PI_DIAGDID_GETASYNC)
 typedef void (*TAF_PI_DIAGDID_SETHANDLER)
 (
     uint16_t dataID,
-    le_result_t result
+    uint8_t result
 );
 
 //--------------------------------------------------------------------------------------------------

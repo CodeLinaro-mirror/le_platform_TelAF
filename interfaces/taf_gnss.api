@@ -3380,6 +3380,8 @@ FUNCTION le_result_t GetLocationOutputEngParams
 (
     Sample positionSampleRef IN,    ///< Position sample reference.
     uint16 engMaskPtr OUT,          ///< Engine type bit mask. @ref EngineMask
+                                    ///  This parameter is valid only when engine
+                                    ///  type is TAF_GNSS_LOC_OUTPUT_ENGINE_FUSED.
     uint16 engTypePtr OUT           ///< Location engine type. @ref LocationAggregationType
 );
 

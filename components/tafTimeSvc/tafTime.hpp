@@ -143,12 +143,21 @@ typedef enum
 }
 taf_Time_SrcAttr_t;
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Identifies the type of fail loops increase or clean.
+ */
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    FAIL_LOOP_NUM_INCREASE,        ///< Increase the fail loops number
+    FAIL_LOOP_NUM_CLEAN            ///< Reset the fail loops number
+}
+taf_TimeFailLoopAction_t;
+
 struct SetTimeStatus{
     bool externalSetTime;  ///< Indicate if the time set externally
     bool asyncRtcSetTime;  ///< Indicate the status for async RTC set time
-    bool networkSetTime;   ///< Indicate the status for async NETWORK set time
-    bool network2SetTime;  ///< Indicate the status for async NETWORK set time
-    bool gnssSetTime;      ///< Indicate the status for async RTC set time
 };
 
 typedef struct
@@ -623,7 +632,8 @@ namespace telux
                 le_result_t GetTimeDayAdj(taf_time_SourceRef_t sourceRef, uint8_t* dayltSavAdj);
                 le_result_t UpdateNetworkTimeZoneInfo(telux::tel::NetworkTimeInfo info,
                     taf_time_TimeSources_t sourceIndex);
-                void UpdateFailedLoops(taf_time_TimeSources_t sourceIndex);
+                void UpdateFailedLoops(taf_time_TimeSources_t sourceIndex,
+                    taf_TimeFailLoopAction_t action);
                 void InitializeSystemTimeAttr();
                 uint64_t PrevSrcAvailabiltyMap = 0x0;
                 struct SetTimeStatus* SetTimeSt = NULL;

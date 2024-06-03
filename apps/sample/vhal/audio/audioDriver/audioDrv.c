@@ -183,6 +183,13 @@ static le_result_t taf_hal_AddNodeStateChangeHandler
     return LE_OK;
 }
 
+static le_result_t taf_hal_CtlReportBubStatus(hal_audio_bubStatus_t bubStatus)
+{
+    LE_DEBUG("AudioTestDrv: %s", __FUNCTION__);
+    LE_DEBUG("status : %d", bubStatus );
+    return LE_OK;
+}
+
 static void taf_hal_PowerOn()
 {
     LE_INFO("TestDrv: %s", __FUNCTION__);
@@ -241,6 +248,7 @@ LE_SHARED audio_InfoTab_t TAF_HAL_INFO_TAB = {
         .InitHAL = Init,
         .CtlSetAudioStatus = taf_hal_CtlSetAudioStatus,
         .SendVendorConfig = taf_hal_SendVendorConfig,
+        .CtlSetBubStatus = taf_hal_CtlReportBubStatus,
         .GetNodeType = taf_hal_GetNodeType,
         .SendNodeVendorConfig = taf_hal_SendNodeVendorConfig,
         .SetNodePowerState = taf_hal_SetNodePowerState,

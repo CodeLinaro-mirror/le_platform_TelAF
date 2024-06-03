@@ -246,3 +246,9 @@ le_result_t taf_MngdAudioVhal::SendVendorConfig(const char* configPath)
     LE_DEBUG("SendVendorConfig %s", configPath);
     return audioInf->SendVendorConfig(configPath);
 }
+
+le_result_t taf_MngdAudioVhal::CtlReportBubStatus(hal_audio_bubStatus_t bubStatus)
+{
+    LE_DEBUG("CtlReportBubStatus %d", bubStatus);
+    return audioInf->CtlReportBubStatus(bubStatus);
+}

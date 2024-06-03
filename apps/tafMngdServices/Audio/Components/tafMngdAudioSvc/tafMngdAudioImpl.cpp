@@ -65,6 +65,25 @@ taf_MngdAudio &taf_MngdAudio::GetInstance()
     return instance;
 }
 
+void taf_MngdAudio::BuBStatusCB(int32_t status, void *contextptr)
+{
+    LE_INFO("BuBStatusCB %d", status);
+    auto &mngdAudio = taf_MngdAudio::GetInstance();
+    auto &audioVhal = taf_MngdAudioVhal::GetInstance();
+    TAF_ERROR_IF_RET_NIL(!audioVhal.isAudioDrvAvailable(), "Audio driver is not installed!");
+    hal_audio_bubStatus_t bubStatus = HAL_AUDIO_BUB_STATUS_NOT_IN_USE;
+    if(status == TAF_MNGDPM_BUB_STATUS_IN_USE)
+    {
+        bubStatus = HAL_AUDIO_BUB_STATUS_IN_USE;
+    }
+    // Send Bub status to VHAL if any route is active
+    if(mngdAudio.mIsPlaying || mngdAudio.mIsRecording || mngdAudio.mCallStarted)
+    {
+        audioVhal.CtlReportBubStatus(bubStatus);
+        LE_INFO("CtlReportBubStatus bubStatus %d", bubStatus);
+    }
+}
+
 void taf_MngdAudio::Init(void)
 {
     LE_INFO("taf_MngdAudio: Init");
@@ -166,6 +185,13 @@ void taf_MngdAudio::Init(void)
         LE_ERROR("Failed to get the proc config for tafMngdAudioSvc");
     }
     LE_DEBUG("maxFileBytes is %d", maxFileBytes);
+
+    bubHandlerRef = taf_mngdPm_AddInfoReportHandler(TAF_MNGDPM_INFO_REPORT_BIT_MASK_BUB_STATUS,
+            BuBStatusCB, NULL);
+    if(bubHandlerRef == NULL)
+    {
+        LE_ERROR("Failed to register for BuB status");
+    }
 }
 
 void taf_MngdAudio::ClientSessionCloseEventHandler
@@ -2730,6 +2756,7 @@ void taf_MngdAudio::StreamMuteUnmuteCallback(ErrorCode error)
 
 le_result_t taf_MngdAudio::setVhalRouteStatus(taf_mngd_audio_Mode_t mode, bool status)
 {
+    le_result_t res = LE_FAULT;
     auto &audioVhal = taf_MngdAudioVhal::GetInstance();
     if(audioVhal.isAudioDrvAvailable())
     {
@@ -2742,11 +2769,30 @@ le_result_t taf_MngdAudio::setVhalRouteStatus(taf_mngd_audio_Mode_t mode, bool s
             if ( routePtr && routePtr->mode == mode )
             {
                 LE_INFO("set VHAL status mode : %d status : %s", mode, status ? "true" : "false");
-                return audioVhal.OpenRoute(status, routePtr->routeId, routePtr->mode);
+                res = audioVhal.OpenRoute(status, routePtr->routeId, routePtr->mode);
+                break;
             }
         }
     }
-    return LE_FAULT;
+    // Set VHAL BuB status after opening the route,
+    // not required to set BuB status after closing the route as driver will be turned off.
+    if( res == LE_OK && status )
+    {
+        int32_t status;
+        le_result_t res = taf_mngdPm_GetInfoReport(TAF_MNGDPM_INFO_REPORT_BUB, &status);
+        if ( res == LE_OK )
+        {
+            if( status ==  TAF_MNGDPM_BUB_STATUS_NOT_IN_USE)
+            {
+                audioVhal.CtlReportBubStatus(HAL_AUDIO_BUB_STATUS_NOT_IN_USE);
+            }
+            else if ( status == TAF_MNGDPM_BUB_STATUS_IN_USE )
+            {
+                audioVhal.CtlReportBubStatus(HAL_AUDIO_BUB_STATUS_IN_USE);
+            }
+        }
+    }
+    return res;
 }
 
 void tafPromptsStatusListener::onPlaybackStarted() {

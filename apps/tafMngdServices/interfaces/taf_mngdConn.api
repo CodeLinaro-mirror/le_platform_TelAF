@@ -66,7 +66,7 @@
     "Product": "TelAF",
     "Name": "Managed Connectivity Service",
     "ManagedConnectivityService": {
-        "Version": "24.03.00",
+        "Version": "24.06.00",
         "Configuration": {                 ///< Configuration Object.
             "Name": "Default",
             "Sim":[
@@ -79,7 +79,8 @@
             ],
             "Network":[
                 {
-                    "ID": 1,          ///< Network ID corresponding to the Use_Network_ID in "Data".
+                    "ID": 1,                ///< Network ID corresponding to the Use_Network_ID in
+                                            ///  "Data".
                     "Name": "Network1",     ///< Network object name. Name should be unique among
                                             ///  network objects.
                     "Use_Sim_ID": 1,        ///< SIM ID which is used for this network.
@@ -87,10 +88,11 @@
                     "Registration": "Auto"  ///< Is automatically registered or not.
                 }
             ],
-            "Data":[                   ///< Support for multiple data sessions
+            "Data":[                        ///< Support for multiple data sessions
                 {
-                    "ID": 1,           ///< Data ID corresponding to the Use_Data_ID in policy file.
-                    "Name": "Data1",     ///< Data object name. Name should be unique among data
+                    "ID": 1,                ///< Data ID corresponding to the Use_Data_ID in policy
+                                            ///  file.
+                    "Name": "Data1",        ///< Data object name. Name should be unique among data
                                             ///  objects.
                     "Use_Network_ID": 1,    ///< Network ID which is used for this data connection.
                     "Profile":{
@@ -102,18 +104,19 @@
                     },
                     "AutoStart":"Yes",      ///< Data session is automatically started or not.
                     "DataStartRetry": {
-                     "Enable": "Yes",  ///< Yes means there is an issue that makes the ongoing
-                                       ///  data connection unavailable. The service will start
-                                       ///  retrying on data start failure.
-                                       ///  No means data connection establishment retry will not
-                                       ///  be performed on failure.
-                     "RetryCount": 1   ///< Maximum number of data connection establishment retries.
+                     "Enable": "Yes",       ///< Yes means there is an issue that makes the ongoing
+                                            ///  data connection unavailable. The service will start
+                                            ///  retrying on data start failure.
+                                            ///  No means data connection establishment retry will
+                                            ///  not be performed on failure.
+                     "RetryCount": 1        ///< Maximum number of data connection establishment
+                                            ///  retries.
                     },
-                    "DataStartConnectionTest":{  ///< URL or IP to perform ConnectionTest in order
-                                                 ///  of preference.
-                        "URL": null,             ///< Valid URL to work with.
-                        "IPv4": null,            ///< Valid quad-dotted IP address.
-                        "IPv6": null             ///< Not supported.
+                    "DataStartConnectionTest":{    ///< URL or IP to perform ConnectionTest in order
+                                                   ///  of preference.
+                        "URL": null,               ///< Valid URL to work with.
+                        "IPv4": null,              ///< Valid quad-dotted IP address.
+                        "IPv6": null               ///< Not supported.
                     },
                     "PeriodicConnectivityCheck":{  ///< At preconfigured intervals, health of the
                                                    ///  data connection(s) will be checked.
@@ -155,10 +158,10 @@
             "Name": "Default",
             "DataSession":{
                 "DataConnection":[          ///< Connections will be started based on the respective
-                                            ///<  priority of the data ID.
+                                            ///  priority of the data ID.
                     {
                         "Priority": "1",    ///< User defined priority. 1 is the highest priority.
-                                            ///< Duplication is not allowed.
+                                            ///  Duplication is not allowed.
                         "Use_Data_ID": "1"  ///< Data ID which is used for the data connection.
                     },
                     {
@@ -168,16 +171,19 @@
                 ],
 
                 "MultiDataSession": {
-                    "Enable": "Yes",        ///< Yes for enabling multiple data session support,
-                                            ///< no for disabling multiple data session support.
-                    "NumConnections": 2     ///< The maximum number of concurrent data sessions.
+                    "Enable": "Yes",         ///< Yes for enabling multiple data session support.
+                                             ///  No for disabling multiple data session support.
+                    "NumConnections": 2      ///< The maximum number of concurrent data sessions.
                 },
-                "ConnectivityRecovery": {   ///< Recovery mechanism that will kick in after
-                                            ///  DataStartRetry fails.
-                    "Level": "None",        ///< Level of recovery.
-                    "StartWaitTime": 30     ///< Time in seconds the service will wait between
-                                            ///  connectivity recovery scheduled and triggered
-                                            ///  events.
+                "ConnectivityRecovery": {    ///< Recovery mechanism that will kick in after
+                                             ///  DataStartRetry fails.
+                    "Level": "None",         ///< Level of recovery.
+                    "StartWaitTime": 30,     ///< Time in seconds the service will wait between
+                                             ///  connectivity recovery scheduled and started
+                                             ///  events.
+                    "RetryWaitTime" : 300    ///< Time in seconds the service will wait before
+                                             ///  retrying a recovery process that was canceled or
+                                             ///  failed.
                 }
             }
         }
@@ -214,7 +220,7 @@
 *     <td>Optional and not used by the service.</td>
 *   </tr>
 *   <tr>
-*     <td rowspan="58">ManagedConnectivityService</td>
+*     <td rowspan="59">ManagedConnectivityService</td>
 *     <td colspan="3" rowspan="3">Version</td>
 *     <td rowspan="3">Version</td>
 *     <td rowspan="3">char</td>
@@ -458,7 +464,7 @@
 *     <td>URL to use for periodic connectivity test.</td>
 *   </tr>
 *   <tr>
-*     <td rowspan="12">Policy</td>
+*     <td rowspan="13">Policy</td>
 *     <td colspan="2">Name</td>
 *     <td>Name</td>
 *     <td>char</td>
@@ -466,7 +472,7 @@
 *     <td>Optional and not used by the service.</td>
 *   </tr>
 *   <tr>
-*     <td rowspan="11">DataSession</td>
+*     <td rowspan="12">DataSession</td>
 *     <td rowspan="4">DataConnection</td>
 *     <td>Priority</td>
 *     <td>uint8_t</td>
@@ -511,26 +517,43 @@
 *         session should be started.</td>
 *   </tr>
 *   <tr>
-*     <td rowspan="2">ConnectivityRecovery</td>
+*     <td rowspan="3">ConnectivityRecovery</td>
 *     <td>Level</td>
 *     <td>char</td>
 *     <td>None</td>
-*     <td>This recovery mechanism will kick in after DataStartRetry fails. If a
-*         recovery is triggered:<br> All timers will be disabled.
-*         <br>     All states will be reset to initial state.
-*         <br>     All data sessions will be disconnected.
-*         <br>     None → Recovery is disabled. Default value.
-*         <br>     L1 → Level 1 connectivity recovery. Turn Radio off/on.
+*     <td>This recovery mechanism will kick in after DataStartRetry fails.
+*         <br> If a recovery is started, all data sessions will be disconnected, all timers will be
+*              stopped and all states will be reset to initial state.
+*         <br> If L1 or L2 recovery is canceled or if it fails, the service will retry the process
+*              after RetryWaitTime seconds, if enabled.
+*         <br> Supported values:
+*         <br> None → Recovery is disabled. Default value.
+*         <br> L1 → Level 1 connectivity recovery. Turn Radio off/on.
 *         Between radio off and radio on, there will be a 5s delay.
-*         </td>
+*         <br> L2 → Level 2 connectivity recovery. Request NAD reboot.
+*         NAD reboot will be managed by Manged Power Management service.
+*         <br> Enabling L2 also enables L1 recovery. The service will try L1 recovery followed by L2
+               recovery.
+*     </td>
 *   </tr>
 *   <tr>
 *     <td>StartWaitTime</td>
 *     <td>uint8_t</td>
 *     <td>30</td>
 *     <td>Time in seconds the service will wait between connectivity recovery
-*         scheduled and triggered events. Applications will be able to cancel
-*         the connectivity recovery process within this time. </td>
+*         scheduled and started events. Applications will be able to cancel
+*         the connectivity recovery process within this time.
+*     </td>
+*   </tr>
+*   <tr>
+*     <td>RetryWaitTime</td>
+*     <td>uint16_t</td>
+*     <td>300</td>
+*     <td>Time in seconds the service will wait before retrying a recovery process that was
+*         canceled or failed.
+*         <br> If set to 0, then retry will not be attempted by the service.The service should be
+*          restarted externally.
+*     </td>
 *   </tr>
 * </tbody>
 * </table>
@@ -542,6 +565,7 @@
  *      -- 23.07.00
  *      -- 23.11.00
  *      -- 24.03.00
+ *      -- 24.06.00
  * @endverbatim
  * @par Multiple Data Sessions:
  *      For multiple data sessions, add Data object(s) and matching DataConnection object(s).
@@ -558,7 +582,8 @@
  *
  *
  *
- * @note The Managed Connectivity Service will stop if the JSON is invalid or inaccessible.
+ * @note The Managed Connectivity Service will stop if the JSON is invalid, inaccessible or contains
+ *       invalid values.
  *
  * @section taf_mngdConn_usage_flow Typical application call flow
  *
@@ -699,7 +724,10 @@ EVENT DataState
 ENUM RecoveryState{
     RECOVERY_L1_SCHEDULED, ///< L1 recovery is scheduled to start.
     RECOVERY_L1_STARTED,   ///< L1 recovery is started.
-    RECOVERY_L1_CANCELED   ///< A scheduled L1 recovery is canceled.
+    RECOVERY_L1_CANCELED,  ///< A scheduled L1 recovery is canceled.
+    RECOVERY_L2_SCHEDULED, ///< L2 recovery is scheduled to start.
+    RECOVERY_L2_STARTED,   ///< L2 recovery is started.
+    RECOVERY_L2_CANCELED   ///< A scheduled L2 recovery is canceled.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -856,6 +884,23 @@ FUNCTION le_result_t GetDataConnectionIPAddresses
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Starts the data retry mechanism. If data session is connected, the data session will be
+ * disconnected before data retry mechanism is started. This function is asynchronous and
+ * applications should monitor ::taf_mngdConn_DataState_t events.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - Appropriate error is returned on failure.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t StartDataRetry
+(
+    Data dataRef IN                                ///< The data reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Cancels a scheduled L1 recovery process. A L1 recovery could be scheduled for one or more data
  * connetions. For a scheduled L1 recovery process to be canceled, this API should be called for all
  * data references for which L1 recovery has been scheduled.
@@ -868,6 +913,24 @@ FUNCTION le_result_t GetDataConnectionIPAddresses
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t CancelL1Recovery
+(
+    Data dataRef IN ///< The data reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Cancels a scheduled L2 recovery process. A L2 recovery could be scheduled for one or more data
+ * connetions. For a scheduled L2 recovery process to be canceled, this API should be called for all
+ * data references for which L2 recovery has been scheduled.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_POSSIBLE -- A L2 recovery process has not been scheduled.
+ *   - LE_NOT_PERMITTED -- A L2 recovery process has already started.
+ *   - Appropriate error is returned on failure.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t CancelL2Recovery
 (
     Data dataRef IN ///< The data reference.
 );

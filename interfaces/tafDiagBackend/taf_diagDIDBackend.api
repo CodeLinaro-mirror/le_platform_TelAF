@@ -1,0 +1,181 @@
+/*
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * The maximum size of the ReadDID payload in bytes.
+ */
+//-------------------------------------------------------------------------------------------------
+DEFINE READ_DID_PAYLOAD_SIZE = 4094;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * The maximum size of the ReadDID request data identifier in bytes.
+ */
+//-------------------------------------------------------------------------------------------------
+DEFINE READ_DID_SIZE = 2046;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * The maximum size of the WriteDID request data record in bytes.
+ */
+//-------------------------------------------------------------------------------------------------
+DEFINE WRITE_DID_DATA_RECORD_SIZE = 4092;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Error code for ReadDID.
+ */
+//-------------------------------------------------------------------------------------------------
+ENUM ReadDIDErrorCode
+{
+    READ_DID_NO_ERROR = 0,
+    READ_DID_RESPONSE_TOO_LONG = 0x14,
+    READ_DID_CONDITIONS_NOT_CORRECT = 0x22,
+    READ_DID_REQUEST_OUT_OF_RANGE = 0x31
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Error code for WriteDID.
+ */
+//-------------------------------------------------------------------------------------------------
+ENUM WriteDIDErrorCode
+{
+    WRITE_DID_NO_ERROR = 0,
+    WRITE_DID_CONDITIONS_NOT_CORRECT = 0x22,
+    WRITE_DID_REQUEST_OUT_OF_RANGE = 0x31,
+    WRITE_DID_GENERAL_PROGRAMMING_FAILURE = 0x72
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Reference to the ReadDID request message.
+ */
+//-------------------------------------------------------------------------------------------------
+REFERENCE ReadDID;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Reference to the WriteDID request message.
+ */
+//-------------------------------------------------------------------------------------------------
+REFERENCE WriteDID;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Handler for a received ReadDID message.
+ */
+//-------------------------------------------------------------------------------------------------
+HANDLER ReadDIDHandler
+(
+    ReadDID readDIDRef  IN,               ///< ReadDID message reference.
+    uint16 dataId  IN                     ///< Data identifier.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * This event provides information about the received ReadDID message.
+*/
+//-------------------------------------------------------------------------------------------------
+EVENT ReadDID
+(
+    ReadDIDHandler handler    ///< ReadDID message handler.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Sends a response message for the received ReadDID message.
+ *
+ * @note This function must be called to send a response if receiving a message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_FAULT -- Failed.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SendReadDIDResp
+(
+    ReadDID readDIDRef  IN,                  ///< ReadDID message reference.
+    ReadDIDErrorCode errCode  IN,            ///< Error code type.
+    uint8 data[READ_DID_PAYLOAD_SIZE]  IN    ///< Data payload.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Handler for a WriteDID message.
+ */
+//-------------------------------------------------------------------------------------------------
+HANDLER WriteDIDHandler
+(
+    WriteDID rxMsgRef  IN,                         ///< Received message reference.
+    uint16 dataId  IN,                             ///< Data identifier.
+    uint8 dataRecord[WRITE_DID_DATA_RECORD_SIZE]   ///< Data record.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * This event provides information about the received ReadDID message.
+ */
+//-------------------------------------------------------------------------------------------------
+EVENT WriteDID
+(
+    WriteDIDHandler handler    ///< Received message handler.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Sends a response message for the WriteDID message.
+ *
+ * @note This function must be called to send a response if receiving a message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_FAULT -- Failed.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SendWriteDIDResp
+(
+    WriteDID rxMsgRef  IN,            ///< Received message reference.
+    WriteDIDErrorCode errCode  IN,    ///< Error code type.
+    uint16 dataId  IN                 ///< data identifier.
+);

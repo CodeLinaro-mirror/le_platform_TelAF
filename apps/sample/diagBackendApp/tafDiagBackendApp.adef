@@ -1,0 +1,29 @@
+maxThreads: 600
+sandboxed: false
+executables:
+{
+    tafDiagBackendApp = ( diagBackendAppComp )
+}
+
+
+processes:
+{
+    run:
+    {
+        (tafDiagBackendApp)
+    }
+    envVars:
+    {
+        LE_LOG_LEVEL = DEBUG
+    }
+
+    maxFileBytes: 1048576K
+}
+
+start: manual
+
+bindings:
+{
+    tafDiagBackendApp.diagBackendAppComp.taf_diagDIDBackend -> tafDiagBackendSvc.taf_diagDIDBackend
+    tafDiagBackendApp.diagBackendAppComp.taf_diagSecBackend -> tafDiagBackendSvc.taf_diagSecBackend
+}

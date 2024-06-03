@@ -37,6 +37,7 @@ apps:
     $TELAF_ROOT/apps/tafServices/tafTimeSvc
     $TELAF_ROOT/apps/tafServices/tafHMSvc
     // $TELAF_ROOT/apps/tafServices/tafWlanSvc
+    $TELAF_ROOT/apps/tafServices/tafDiagBackendSvc
 
     // IVSS services.
     $TELAF_ROOT/apps/ivss/service/tafIvssRadioSvc/tafIvssRadioSvc
@@ -133,6 +134,7 @@ interfaceSearch:
     $TELAF_ROOT/interfaces/staging
     $TELAF_ROOT/apps/tafMngdServices/interfaces
     $TELAF_ROOT/apps/tafMngdServices/interfaces/staging
+    $TELAF_ROOT/interfaces/tafDiagBackend
     interfaces/positioning
     $LEGATO_ROOT/apps/sample/voiceCallApp
     // $TELAF_ROOT/apps/test/tafPMTest/tafPMIntgTest

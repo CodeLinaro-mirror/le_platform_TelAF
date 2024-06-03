@@ -124,6 +124,7 @@ bindings:
     <telaf>.DeviceManager -> <root>.DeviceManager
     <root>.DeviceManagerTool -> <root>.DeviceManagerTool
     <telaf>.sdirTool -> <root>.sdirTool
+    <system>.taf_flash -> <telaf>.taf_flash
 }
 
 interfaceSearch:

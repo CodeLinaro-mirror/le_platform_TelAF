@@ -1164,10 +1164,11 @@ void tafMngdPMSvc::ProcessStateChange(taf_mngdPm_State_t toState)
     switch(toState)
     {
         case TAF_MNGDPM_STATE_WAKING_UP:
-            if(stateMachine.currentState == TAF_MNGDPM_STATE_RESUME)
+            if(stateMachine.currentState == TAF_MNGDPM_STATE_RESUME
+               || stateMachine.currentState == TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE)
             {
-                // No need to change state from RESUME to WAKING_UP
-                toState = TAF_MNGDPM_STATE_RESUME;
+                // No need to change state from RESUME and RELEASING_WAKE_SOURCE to WAKING_UP
+                toState = stateMachine.currentState;
             }
             break;
 

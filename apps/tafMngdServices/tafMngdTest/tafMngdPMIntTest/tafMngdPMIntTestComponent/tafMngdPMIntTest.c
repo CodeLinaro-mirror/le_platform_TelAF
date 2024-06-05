@@ -474,6 +474,49 @@ static int AddInfoReportHandler()
     }
     return EXIT_FAILURE;
 }
+
+static int KeepAwakeThenRestartSystem()
+{
+    LE_INFO("KeepAwakeThenRestartSystem");
+    le_result_t res = LE_FAULT;
+    taf_mngdPm_wsRef_t wsRef = NULL;
+    LE_INFO("NewNodeWakeupSource wakeuptype is APP_STAYAWAKE");
+    wsRef = taf_mngdPm_NewNodeWakeupSource(NODE_ID, TAF_MNGDPM_APP_STAYAWAKE, vHalTag);
+    if(wsRef != NULL) {
+        LE_INFO("NewNodeWakeupSource ref is created for APP_STAYAWAKE");
+        res = taf_mngdPm_StayAwakeNode(wsRef);
+        if(res == LE_OK) {
+            LE_INFO("Wake up sysytem with wakeuptype APP_STAYAWAKE");
+        }
+    }
+
+    taf_mngdPm_wsRef_t wsRefSms0 = taf_mngdPm_NewNodeWakeupSource(NODE_ID, TAF_MNGDPM_SMS, vHalTag);
+    if (wsRefSms0 != NULL)
+    {
+        LE_INFO("NewNodeWakeupSource ref is created for SMS 0");
+        res = taf_mngdPm_StayAwakeNode(wsRefSms0);
+        if(res == LE_OK) {
+            LE_INFO("Wake up sysytem with wakeuptype SMS 0");
+        }
+        res = taf_mngdPm_RelaxNode(wsRefSms0);
+        if(res == LE_OK) {
+            LE_INFO("Relax sysytem with wakeuptype SMS 0");
+        }
+    }
+    taf_mngdPm_wsRef_t wsRefSms1 = taf_mngdPm_NewNodeWakeupSource(NODE_ID, TAF_MNGDPM_SMS, vHalTag);
+    if (wsRefSms1 != NULL)
+    {
+        LE_INFO("NewNodeWakeupSource ref is created for SMS 1");
+        res = taf_mngdPm_StayAwakeNode(wsRefSms1);
+        if(res == LE_OK) {
+            LE_INFO("Wake up sysytem with wakeuptype SMS 1");
+        }
+    }
+
+    RestartSystem();
+    return EXIT_SUCCESS;
+}
+
 COMPONENT_INIT
 {
     const char* testType = "";
@@ -503,6 +546,12 @@ COMPONENT_INIT
         else if(strcmp(testType, "RestartSystem") == 0)
         {
             RestartSystem();
+        }
+        else if(strcmp(testType, "KeepAwakeThenRestartSystem") == 0)
+        {
+            status = SetModemWakeupSource("1"); // whitelist SMS wakeup type
+            status = KeepAwakeThenRestartSystem();
+            exit(status);
         }
         else if(strcmp(testType, "ForcedSystemShutdown") == 0)
         {

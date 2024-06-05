@@ -46,12 +46,12 @@ using std::to_string;
 
 namespace pt = boost::property_tree;
 using namespace telux::tafsvc;
-using telux::tafsvc::tafMngdConnSvc_PolicyParser;
+using telux::tafsvc::mcs_PolicyParser;
 
 /**
  * Validate DataSession:DataConnection:Use_Data_ID
  */
-bool tafMngdConnSvc_PolicyParser::Validate_DS_DC_Use_Data_ID(taf_mngdConn_Policy_t &Policy,
+bool mcs_PolicyParser::Validate_DS_DC_Use_Data_ID(mcs_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index)
 {
@@ -96,7 +96,7 @@ bool tafMngdConnSvc_PolicyParser::Validate_DS_DC_Use_Data_ID(taf_mngdConn_Policy
 /**
  * Validate DataSession:DataConnection:Priority
  */
-bool tafMngdConnSvc_PolicyParser::Validate_DS_DC_Priority(taf_mngdConn_Policy_t &Policy,
+bool mcs_PolicyParser::Validate_DS_DC_Priority(mcs_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index)
 {
@@ -138,7 +138,7 @@ bool tafMngdConnSvc_PolicyParser::Validate_DS_DC_Priority(taf_mngdConn_Policy_t 
 /**
  * Validate ManagedConnectivityServicePolicy:Name
  */
-bool tafMngdConnSvc_PolicyParser::Validate_MCSP_Name(taf_mngdConn_Policy_t &Policy,
+bool mcs_PolicyParser::Validate_MCSP_Name(mcs_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index)
 {
@@ -165,7 +165,7 @@ bool tafMngdConnSvc_PolicyParser::Validate_MCSP_Name(taf_mngdConn_Policy_t &Poli
 /**
  * Validate DataSession:MultiDataSession:Enable
  */
-bool tafMngdConnSvc_PolicyParser::Validate_DS_MDS_Enable(taf_mngdConn_Policy_t &Policy,
+bool mcs_PolicyParser::Validate_DS_MDS_Enable(mcs_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index)
 {
@@ -189,12 +189,12 @@ bool tafMngdConnSvc_PolicyParser::Validate_DS_MDS_Enable(taf_mngdConn_Policy_t &
 /**
  * Validate DataSession:MultiDataSession:NumConnections
  */
-bool tafMngdConnSvc_PolicyParser::Validate_DS_MDS_NumConnections(taf_mngdConn_Policy_t &Policy,
+bool mcs_PolicyParser::Validate_DS_MDS_NumConnections(mcs_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index)
 {
     LE_DEBUG("%s", Value.c_str());
-
+    int localInt = 0;
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
     if (MCS_JSON_DATA_TYPE_NULL == DataType)
     {
@@ -206,22 +206,28 @@ bool tafMngdConnSvc_PolicyParser::Validate_DS_MDS_NumConnections(taf_mngdConn_Po
         LE_WARN("Incorrect data type");
         return false;
     }
-
+    // Ensure the value is within the range [0, UINT8_MAX]
+    localInt = std::stoi(Value);
+    if (localInt < 0 || localInt > UINT8_MAX)
+    {
+        LE_WARN("Value out of range: %d", localInt);
+        return false;
+    }
     // Valid value. Update Policy.
-    Policy.DataSession.MultiDataSession.NumConnections = std::stoi(Value);
+    Policy.DataSession.MultiDataSession.NumConnections = static_cast<uint8_t>(localInt);
     return true;
 }
 
 /**
  * Validate ConnectivityRecovery Level
  */
-bool tafMngdConnSvc_PolicyParser::Validate_DS_CR_Level(taf_mngdConn_Policy_t &Policy,
+bool mcs_PolicyParser::Validate_DS_CR_Level(mcs_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index)
 {
     LE_DEBUG("%s", Value.c_str());
     //Check the JSON version to be atleast 24.03.00
-    if(Policy.Version != MCS_JSON_VERSION_24_03_00)
+    if(Policy.Version < MCS_JSON_VERSION_24_03_00)
     {
         LE_WARN("Invalid JSON version");
         return false;
@@ -253,12 +259,12 @@ bool tafMngdConnSvc_PolicyParser::Validate_DS_CR_Level(taf_mngdConn_Policy_t &Po
 /**
  * Validate ConnectivityRecovery StartWaitTime
  */
-bool tafMngdConnSvc_PolicyParser::Validate_DS_CR_StartWaitTime(taf_mngdConn_Policy_t &Policy,
+bool mcs_PolicyParser::Validate_DS_CR_StartWaitTime(mcs_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index)
 {
     LE_DEBUG("%s", Value.c_str());
-
+    int localInt = 0;
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
     if (MCS_JSON_DATA_TYPE_NUMBER != DataType&&
         MCS_JSON_DATA_TYPE_NULL != DataType)
@@ -267,15 +273,49 @@ bool tafMngdConnSvc_PolicyParser::Validate_DS_CR_StartWaitTime(taf_mngdConn_Poli
         return false;
     }
     // Ensure the value is within the range [0, 255]
-    if (std::stoi(Value) < 0) {
-        LE_WARN("Value out of range");
-        return false;
-    } else if (std::stoi(Value) > 255) {
-        LE_WARN("Value out of range");
+    localInt = std::stoi(Value);
+    if (localInt < 0 || localInt > 255)
+    {
+        LE_WARN("Value out of range: %d", localInt);
         return false;
     }
     // Valid value. Update Policy.
-    Policy.DataSession.ConnectivityRecovery.StartWaitTime = std::stoi(Value);
+    Policy.DataSession.ConnectivityRecovery.StartWaitTime = static_cast<uint8_t>(localInt);
+    return true;
+}
+
+/**
+ * Validate ConnectivityRecovery RetryWaitTime
+ */
+bool mcs_PolicyParser::Validate_DS_CR_RetryWaitTime(mcs_Policy_t &Policy,
+                                                    std::string Value,
+                                                    int Index)
+{
+    LE_DEBUG("%s", Value.c_str());
+    int localInt = 0;
+    // Check the JSON version to be atleast 24.03.00
+    if (Policy.Version < MCS_JSON_VERSION_24_06_00)
+    {
+        LE_WARN("Invalid JSON version");
+        return false;
+    }
+
+    mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NUMBER != DataType &&
+        MCS_JSON_DATA_TYPE_NULL != DataType)
+    {
+        LE_WARN("Incorrect data type");
+        return false;
+    }
+    // Ensure the value is within the range [0, UINT16_MAX]
+    localInt = std::stoi(Value);
+    if (localInt < 0 || localInt > UINT16_MAX)
+    {
+        LE_WARN("Value out of range: %d", localInt);
+        return false;
+    }
+    // Valid value. Update Policy.
+    Policy.DataSession.ConnectivityRecovery.RetryWaitTime = static_cast<uint16_t>(localInt);
     return true;
 }
 
@@ -284,7 +324,7 @@ bool tafMngdConnSvc_PolicyParser::Validate_DS_CR_StartWaitTime(taf_mngdConn_Poli
  * The function to validate each value will be called. The respective function will update the
  * Policy structure if the value is valid.
  */
-bool tafMngdConnSvc_PolicyParser::ValidateValue(taf_mngdConn_Policy_t &Policy,
+bool mcs_PolicyParser::ValidateValue(mcs_Policy_t &Policy,
                                           std::string property,
                                           std::string Value,
                                           int Index)
@@ -313,7 +353,7 @@ bool tafMngdConnSvc_PolicyParser::ValidateValue(taf_mngdConn_Policy_t &Policy,
  * will set the index to -1 (MCS_INVALID_INDEX)
  *
  */
-bool tafMngdConnSvc_PolicyParser::ParseAndUpdatePolicyJSON(taf_mngdConn_Policy_t &Policy,
+bool mcs_PolicyParser::ParseAndUpdatePolicyJSON(mcs_Policy_t &Policy,
                                                                     std::string filename)
 {
     // Try opening an input file stream
@@ -499,7 +539,7 @@ bool tafMngdConnSvc_PolicyParser::ParseAndUpdatePolicyJSON(taf_mngdConn_Policy_t
     return true;
 }
 
-void tafMngdConnSvc_PolicyParser::ResetPolicyStructure(taf_mngdConn_Policy_t &Policy)
+void mcs_PolicyParser::ResetPolicyStructure(mcs_Policy_t &Policy)
 {
     Policy.Name[0] = '\0';
     Policy.DataSession.dataConnectionCount = 0;
@@ -508,13 +548,13 @@ void tafMngdConnSvc_PolicyParser::ResetPolicyStructure(taf_mngdConn_Policy_t &Po
 /**
  * Comparator function
  */
-static bool compareDataConn ( taf_mngdConn_Policy_DataConnection_t DataConn_a,
-                              taf_mngdConn_Policy_DataConnection_t DataConn_b)
+static bool compareDataConn ( mcs_Policy_DataConnection_t DataConn_a,
+                              mcs_Policy_DataConnection_t DataConn_b)
 {
     return (DataConn_a.Priority < DataConn_b.Priority);
 }
 
-bool tafMngdConnSvc_PolicyParser::GetPolicy ( taf_mngdConn_Policy_t &Policy,
+bool mcs_PolicyParser::GetPolicy ( mcs_Policy_t &Policy,
                                                       std::string ConfigurationFileName )
 {
     ResetPolicyStructure(Policy);
@@ -559,7 +599,7 @@ bool tafMngdConnSvc_PolicyParser::GetPolicy ( taf_mngdConn_Policy_t &Policy,
 /**
  * Match the JSON element with the validation function.
  */
-void tafMngdConnSvc_PolicyParser::UpdateValidPolicyFuncMap(void)
+void mcs_PolicyParser::UpdateValidPolicyFuncMap(void)
 {
     PolicyValidationFuncMap["Policy:Name"] = &Validate_MCSP_Name;
     PolicyValidationFuncMap["DataSession:DataConnection:Priority"] = &Validate_DS_DC_Priority;
@@ -570,14 +610,16 @@ void tafMngdConnSvc_PolicyParser::UpdateValidPolicyFuncMap(void)
     PolicyValidationFuncMap["DataSession:ConnectivityRecovery:Level"] = &Validate_DS_CR_Level;
     PolicyValidationFuncMap["DataSession:ConnectivityRecovery:StartWaitTime"] =
                                                             &Validate_DS_CR_StartWaitTime;
+    PolicyValidationFuncMap["DataSession:ConnectivityRecovery:RetryWaitTime"] =
+                                                         &Validate_DS_CR_RetryWaitTime;
 }
 
 /**
  * Provide the single instance of the Policy object
  */
-tafMngdConnSvc_PolicyParser& tafMngdConnSvc_PolicyParser::getInstance()
+mcs_PolicyParser& mcs_PolicyParser::getInstance()
 {
-    static tafMngdConnSvc_PolicyParser instance;
+    static mcs_PolicyParser instance;
 
     // Update the properties and validation functions map
     instance.UpdateValidPolicyFuncMap();

@@ -200,6 +200,27 @@ le_result_t taf_mngdConn_GetDataConnectionIPAddresses
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Starts the data retry mechanism. If data session is connected, the data session will be
+ * disconnected before data retry mechanism is started. This functions is asynchronous and
+ * applications should monitor data events via DataState handler.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - Appropriate error is returned on failure.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_mngdConn_StartDataRetry(
+    taf_mngdConn_DataRef_t dataRef
+    ///< [IN] The data reference.
+)
+{
+    auto &admin = tafMngdConnAdmin::GetInstance();
+    return admin.StartDataRetry(dataRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Cancels a scheduled L1 recovery process. This API should be called for all data references that
  * scheduled a L1 recovery.
  *
@@ -214,6 +235,28 @@ le_result_t taf_mngdConn_CancelL1Recovery(taf_mngdConn_DataRef_t dataRef)
 {
     auto &admin = tafMngdConnAdmin::GetInstance();
     return admin.CancelL1Recovery(dataRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Cancels a scheduled L2 recovery process. A L2 recovery could be scheduled for one or more data
+ * connetions. For a scheduled L2 recovery process to be canceled, this API should be called for all
+ * data references for which L2 recovery has been scheduled.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_POSSIBLE -- A L2 recovery process has not been scheduled.
+ *   - LE_NOT_PERMITTED -- A L2 recovery process has already started.
+ *   - Appropriate error is returned on failure.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_mngdConn_CancelL2Recovery(
+    taf_mngdConn_DataRef_t dataRef
+    ///< [IN] The data reference.
+)
+{
+    auto &admin = tafMngdConnAdmin::GetInstance();
+    return admin.CancelL2Recovery(dataRef);
 }
 
 //--------------------------------------------------------------------------------------------------

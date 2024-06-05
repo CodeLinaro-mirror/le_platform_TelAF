@@ -100,6 +100,7 @@ namespace tafsvc {
         MCS_EVT_DATA_START,
         MCS_EVT_DATA_START_SYNC,
         MCS_EVT_DATA_START_RETRY,
+        MCS_EVT_DATA_START_RETRY_APP_REQ,
         MCS_EVT_DATA_STOP_SYNC,
         MCS_EVT_DATA_STOP,
         MCS_EVT_DATA_CONNECTION_CONNECTED,
@@ -112,7 +113,13 @@ namespace tafsvc {
         MCS_EVT_CONN_RECOVERY_CANCEL_L1,
         MCS_EVT_CONN_RECOVERY_CANCEL_L1_SYNC,
         MCS_EVT_CONN_RECOVERY_CANCEL_L1_SEND_IND,
-        MCS_EVT_CONN_RECOVERY_START_L1
+        MCS_EVT_CONN_RECOVERY_START_L1,
+        MCS_EVT_CONN_RECOVERY_SCHEDULE_L2, // Schedule L2 connectivity recovery
+        MCS_EVT_CONN_RECOVERY_CANCEL_L2,
+        MCS_EVT_CONN_RECOVERY_CANCEL_L2_SYNC,
+        MCS_EVT_CONN_RECOVERY_CANCEL_L2_SEND_IND,
+        MCS_EVT_CONN_RECOVERY_START_L2
+
     } mcs_EventType_t;
 
     /**
@@ -241,7 +248,9 @@ namespace tafsvc {
             le_result_t GetConnectionIPAddresses( taf_mngdConn_DataRef_t dataRef,
                                                   char *ipv4AddrPtr, size_t ipv4AddrSize,
                                                   char *ipv6AddrPtr, size_t ipv6AddrSize);
-            le_result_t CancelL1Recovery( taf_mngdConn_DataRef_t dataRef);
+            le_result_t StartDataRetry(taf_mngdConn_DataRef_t dataRef);
+            le_result_t CancelL1Recovery(taf_mngdConn_DataRef_t dataRef);
+            le_result_t CancelL2Recovery(taf_mngdConn_DataRef_t dataRef);
 
             taf_mngdConn_DataStateHandlerRef_t AddDataStateHandler(
                 taf_mngdConn_DataRef_t dataRef,
@@ -266,6 +275,7 @@ namespace tafsvc {
             void EventSetRadioPowerOn();
             le_result_t EventStartData(uint8_t dataId);
             le_result_t EventStartDataRetry(uint8_t dataId);
+            le_result_t EventStartDataRetryAppReq(uint8_t dataId);
             le_result_t EventStopData(uint8_t dataId);
             le_result_t EventGetConnectionInfo(uint8_t dataId);
             le_result_t EventSimReadyState(uint8_t slotId);
@@ -329,19 +339,26 @@ namespace tafsvc {
             //Connectiontest
             void EventDataStartConnectionTest(uint8_t dataId);
             void EventDataPeriodicConnectivityTest(uint8_t dataId);
-            bool DataStartConnectionTest_URL(std::string url, std::string interfaceName);
-            bool DataStartConnectionTest_IPv4(std::string ipv4, std::string interfaceName);
+            bool DataConnectivityTest_URL(std::string url, std::string interfaceName);
+            bool DataConnectivityTest_IPv4(std::string ipv4, std::string interfaceName);
 
-            // Connectivity Recovery
+            // L1 Connectivity Recovery
             void EventL1ConnRecoverySchedule(uint8_t dataId);
             void EventL1ConnRecoveryCancel(uint8_t dataId);
             void EventL1ConnRecoveryCancelSync(uint8_t dataId);
             void EventL1ConnRecoveryCancelSendInd(uint8_t dataId);
             void EventL1ConnRecoveryStart(uint8_t dataId);
 
+            // L2 Connectivity Recovery
+            void EventL2ConnRecoverySchedule(uint8_t dataId);
+            void EventL2ConnRecoveryCancel(uint8_t dataId);
+            void EventL2ConnRecoveryCancelSync(uint8_t dataId);
+            void EventL2ConnRecoveryCancelSendInd(uint8_t dataId);
+            void EventL2ConnRecoveryStart(uint8_t dataId);
+
             // Policy and Configuration to use
-            taf_mngdConn_Policy_t Policy;
-            taf_mngdConn_Configuration_t Configuration;
+            mcs_Policy_t Policy;
+            mcs_Configuration_t Configuration;
 
             //Config file name
             char ConfigFileName[MCS_MAX_FILE_PATH_LEN];

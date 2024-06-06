@@ -39,6 +39,7 @@
 #include "interfaces.h"
 
 #include "tafSvcIF.hpp"
+#include "tafFlashAccess.hpp"
 
 #define TAF_FWUPDATE_INSTALL_CMD_LEN 256
 #define TAF_FWUPDATE_CMD_RESULT_LEN 32

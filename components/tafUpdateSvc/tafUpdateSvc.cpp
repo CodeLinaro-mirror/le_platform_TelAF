@@ -33,6 +33,7 @@
  */
 
 #include "tafUpdate.hpp"
+#include "tafFlash.hpp"
 #include "tafFwUpdate.hpp"
 #include "tafAppMgmt.hpp"
 
@@ -51,6 +52,10 @@ COMPONENT_INIT
     auto &tafUpdate = taf_Update::GetInstance();
     tafUpdate.Init();
     LE_INFO("tafUpdate Component Ready...\n");
+    LE_INFO("tafFlashAccess Component Init...\n");
+    auto &tafFlashAccess = taf_FlashAccess::GetInstance();
+    tafFlashAccess.Init();
+    LE_INFO("tafFlashAccess Component Ready...\n");
     LE_INFO("tafAppMgmt Component Init...\n");
     auto &tafAppMgmt = taf_AppMgmt::GetInstance();
     tafAppMgmt.Init();

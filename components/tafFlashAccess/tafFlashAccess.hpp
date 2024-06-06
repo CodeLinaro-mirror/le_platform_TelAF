@@ -6,160 +6,325 @@
 #ifndef TAF_FLASH_ACCESS_HPP
 #define TAF_FLASH_ACCESS_HPP
 
-#include <string>
-#include <map>
-#include <mtd/mtd-user.h>
-
 #include "legato.h"
-#include "interfaces.h"
 
-#include "tafSvcIF.hpp"
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Maximum number of MTD partitions.
- */
-//--------------------------------------------------------------------------------------------------
-#define TAF_FLASH_MTD_PARTITION_MAX_NUM 64
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Maximum number of UBI volumes.
+ * Maximum line length.
  */
 //--------------------------------------------------------------------------------------------------
-#define TAF_FLASH_UBI_VOLUME_MAX_NUM 32
+#define TAF_LIB_FLASH_MAX_LINE_LEN 64
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Path length for device.
  */
 //--------------------------------------------------------------------------------------------------
-#define TAF_FLASH_DEV_PATH_LEN 16
+#define TAF_LIB_FLASH_DEV_PATH_LEN 16
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Path length for UBI volume directory.
+ * Path length for ubi device info.
  */
 //--------------------------------------------------------------------------------------------------
-#define TAF_FLASH_UBI_VOL_DIR_PATH_LEN 32
+#define TAF_LIB_FLASH_UBI_DEV_INFO_PATH_LEN 64
 
 //--------------------------------------------------------------------------------------------------
 /**
- * MTD partition information under /proc.
+ * Maximum number of partitions.
  */
 //--------------------------------------------------------------------------------------------------
-#define TAF_FLASH_PROC_MTD "/proc/mtd"
+#define TAF_LIB_FLASH_PARTITION_MAX_NUM 80
 
 //--------------------------------------------------------------------------------------------------
 /**
- * UBI directory.
+ * Maximum name length of partitions.
  */
 //--------------------------------------------------------------------------------------------------
-#define TAF_FLASH_SYS_CLASS_UBI "/sys/devices/virtual/ubi"
+#define TAF_LIB_FLASH_PARTITION_NAME_MAX_LEN 32
 
 //--------------------------------------------------------------------------------------------------
 /**
- * File to get UBI volume size.
+ * MTD block size.
  */
 //--------------------------------------------------------------------------------------------------
-#define TAF_FLASH_SYS_CLASS_UBI_VOL_SIZE "/sys/class/ubi/ubi%d_%d/data_bytes"
+#define TAF_LIB_FLASH_MTD_BLOCK_SIZE 0x40000
 
 //--------------------------------------------------------------------------------------------------
 /**
- * File to get UBI volume erase block numbers.
+ * Bank enum.
  */
 //--------------------------------------------------------------------------------------------------
-#define TAF_FLASH_SYS_CLASS_UBI_LEB_NUM "/sys/class/ubi/ubi%d_%d/reserved_ebs"
+typedef enum
+{
+    NOT_DUAL_BANK,
+    DUAL_BANK_A,
+    DUAL_BANK_B
+} taf_lib_flash_Bank_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * File to get UBI volume free erasable block numbers.
- */
-//--------------------------------------------------------------------------------------------------
-#define TAF_FLASH_SYS_CLASS_UBI_FREE_LEB_NUM "/sys/class/ubi/ubi%d_%d/device/avail_eraseblocks"
-
-//--------------------------------------------------------------------------------------------------
-/**
- * MTD device information structure.
+ * Partition structure.
  */
 //--------------------------------------------------------------------------------------------------
 typedef struct
 {
-    char devPath[TAF_FLASH_DEV_PATH_LEN];
-    uint32_t mtdSize;
-    uint32_t mtdEraseSize;
-} taf_FlashMtdDevInfo_t;
+    uint32_t index;                                  ///< Partition index.
+    char name[TAF_LIB_FLASH_PARTITION_NAME_MAX_LEN]; ///< Partition name.
+    char devPath[TAF_LIB_FLASH_DEV_PATH_LEN];        ///< Device path.
+    int fd;                                          ///< File descriptor.
+    taf_lib_flash_Bank_t bank;                       ///< The bank of partition.
+    uint32_t mirrorIndex;                            ///< Mirror partition index, valid for
+                                                     ///  dual bank.
+    uint32_t size;                                   ///< Total size of the partition.
+    uint32_t eraseSize;                              ///< Erase block size of the partition.
+} taf_lib_flash_Partition_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * UBI device information structure.
+ * Structure of partition list.
  */
 //--------------------------------------------------------------------------------------------------
 typedef struct
 {
-    char devPath[TAF_FLASH_DEV_PATH_LEN];
-    uint32_t deviceID;
-    uint32_t volumeID;
-    uint32_t lebNum;
-    uint32_t freeLebNum;
-    uint32_t volSize;
-} taf_FlashUbiDevInfo_t;
+    uint32_t number;                                                      ///< Partition number.
+    taf_lib_flash_Partition_t partition[TAF_LIB_FLASH_PARTITION_MAX_NUM]; ///< Partition.
+} taf_lib_flash_PartitionList_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * MTD information structure.
+ * Get partition list.
+ *
+ * @return
+ *      - LE_OK            On success.
+ *      - LE_BAD_PARAMETER If the list is NULL.
+ *      - LE_FAULT         On failure.
  */
 //--------------------------------------------------------------------------------------------------
-typedef struct
-{
-    int fd;
-    mtd_info_t info;
-} taf_FlashMtdInfo_t;
+le_result_t taf_lib_flash_GetPartitionList
+(
+    taf_lib_flash_PartitionList_t *listPtr ///< [OUT] Partition list.
+);
 
 //--------------------------------------------------------------------------------------------------
 /**
- * UBI information structure.
+ * Open a partition.
+ *
+ * @return
+ *      - LE_OK            On success.
+ *      - LE_BAD_PARAMETER If partition is NULL.
+ *      - LE_FAULT         On failure.
  */
 //--------------------------------------------------------------------------------------------------
-typedef struct
-{
-    int fd;
-    taf_FlashUbiDevInfo_t info;
-} taf_FlashUbiInfo_t;
+le_result_t taf_lib_flash_OpenPartition
+(
+    taf_lib_flash_Partition_t *partitionPtr, ///< [INOUT] Partition.
+    mode_t mode                              ///< [IN] Open mode.
+);
 
-namespace telux
-{
-    namespace tafsvc
-    {
-        class taf_FlashAccess : public ITafSvc
-        {
-            public:
-                taf_FlashAccess() {};
-                ~taf_FlashAccess() {};
+//--------------------------------------------------------------------------------------------------
+/**
+ * Close a partition.
+ *
+ * @return
+ *      - LE_OK            On success.
+ *      - LE_BAD_PARAMETER If partition is NULL.
+ *      - LE_FAULT         On failure.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_lib_flash_ClosePartition
+(
+    taf_lib_flash_Partition_t *partitionPtr ///< [IN] Partition.
+);
 
-                static taf_FlashAccess &GetInstance();
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get MTD partition write size.
+ *
+ * @return
+ *      - LE_OK            On success.
+ *      - LE_BAD_PARAMETER If partition is NULL.
+ *      - LE_FAULT         On failure.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_lib_flash_GetMtdWriteSize
+(
+    taf_lib_flash_Partition_t *partitionPtr, ///< [IN] Partition.
+    uint32_t *sizePtr                        ///< [OUT] Minimal writable flash unit size.
+);
 
-                void Init();
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get MTD partition erase size.
+ *
+ * @return
+ *      - LE_OK            On success.
+ *      - LE_BAD_PARAMETER If partition is NULL.
+ *      - LE_FAULT         On failure.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_lib_flash_GetMtdEraseSize
+(
+    taf_lib_flash_Partition_t *partitionPtr, ///< [IN] Partition.
+    uint32_t *sizePtr                        ///< [OUT] Erase block size of the partition.
+);
 
-                void InitMtdPartitions();
-                void InitUbiVolumes();
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get MTD partition size.
+ *
+ * @return
+ *      - LE_OK            On success.
+ *      - LE_BAD_PARAMETER If partition is NULL.
+ *      - LE_FAULT         On failure.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_lib_flash_GetMtdSize
+(
+    taf_lib_flash_Partition_t *partitionPtr, ///< [IN] Partition.
+    uint32_t *sizePtr                        ///< [OUT] Partition size.
+);
 
-                void GetNumFromFile(const char* filePath, uint32_t* number);
-                void GetUbiID(const char* devPath, uint32_t* deviceID, uint32_t* volumeID);
+//--------------------------------------------------------------------------------------------------
+/**
+ * Check if a block is bad block in MTD partition..
+ *
+ * @return
+ *      - LE_OK            On success.
+ *      - LE_BAD_PARAMETER If partition is NULL.
+ *      - LE_FAULT         On failure.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_lib_flash_IsMtdBadBlock
+(
+    taf_lib_flash_Partition_t *partitionPtr, ///< [IN] Partition.
+    uint32_t blockIndex,                     ///< [IN] Block index.
+    bool* isBadBlock                         ///< [OUT] True if bad block, false if good block.
+);
 
-                le_result_t IsMtdBadBlock(taf_FlashMtdInfo_t* mtdInfo, uint32_t blockIndex,
-                    bool* isBad);
+//--------------------------------------------------------------------------------------------------
+/**
+ * Erase a block in MTD partition.
+ *
+ * @return
+ *      - LE_OK            On success.
+ *      - LE_BAD_PARAMETER If partition is NULL.
+ *      - LE_FAULT         On failure.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_lib_flash_EraseMtdBlock
+(
+    taf_lib_flash_Partition_t *partitionPtr, ///< [IN] Partition.
+    uint32_t blockIndex                      ///< [IN] Block index.
+);
 
-                le_mem_PoolRef_t mtdPool;
-                le_mem_PoolRef_t ubiPool;
+//--------------------------------------------------------------------------------------------------
+/**
+ * Read partition.
+ *
+ * @return
+ *      - LE_OK            On success.
+ *      - LE_BAD_PARAMETER If partition is NULL.
+ *      - LE_FAULT         On failure.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_lib_flash_ReadPartition
+(
+    taf_lib_flash_Partition_t *partitionPtr, ///< [IN] Partition.
+    uint32_t offset,                         ///< [IN] Partition offset.
+    uint8_t *dataPtr,                        ///< [OUT] Buffer read from partition.
+    size_t *sizePtr                          ///< [INOUT] Buffer size.
+);
 
-                le_ref_MapRef_t mtdRefMap;
-                le_ref_MapRef_t ubiRefMap;
+//--------------------------------------------------------------------------------------------------
+/**
+ * Write partition.
+ *
+ * @return
+ *      - LE_OK            On success.
+ *      - LE_BAD_PARAMETER If partition is NULL.
+ *      - LE_FAULT         On failure.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_lib_flash_WritePartition
+(
+    taf_lib_flash_Partition_t *partitionPtr, ///< [IN] Partition.
+    uint32_t offset,                         ///< [IN] Partition offset.
+    const uint8_t *dataPtr,                  ///< [OUT] Buffer to be written on partition.
+    size_t size                              ///< [IN] Buffer size.
+);
 
-                std::map<std::string, taf_FlashMtdDevInfo_t> mtdDevMap;
-                std::map<std::string, taf_FlashUbiDevInfo_t> ubiDevMap;
-        };
-    }
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get UBI volume size.
+ *
+ * @return
+ *      - LE_OK            On success.
+ *      - LE_BAD_PARAMETER If partition is NULL.
+ *      - LE_FAULT         On failure.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_lib_flash_GetUbiVolSize
+(
+    taf_lib_flash_Partition_t *partitionPtr, ///< [IN] Volume.
+    uint32_t *sizePtr                        ///< [OUT] Volume size.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get UBI reserved LEB number.
+ *
+ * @return
+ *      - LE_OK            On success.
+ *      - LE_BAD_PARAMETER If partition is NULL.
+ *      - LE_FAULT         On failure.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_lib_flash_GetUbiVolResvLebNum
+(
+    taf_lib_flash_Partition_t *partitionPtr, ///< [IN] Volume.
+    uint32_t *numPtr                         ///< [OUT] Reserved LEB number.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get UBI available LEB number.
+ *
+ * @return
+ *      - LE_OK            On success.
+ *      - LE_BAD_PARAMETER If partition is NULL.
+ *      - LE_FAULT         On failure.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_lib_flash_GetUbiAvailLebNum
+(
+    taf_lib_flash_Partition_t *partitionPtr, ///< [IN] Volume.
+    uint32_t *numPtr                         ///< [OUT] Available LEB number.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set UBI volume update size.
+ *
+ * @return
+ *      - LE_OK            On success.
+ *      - LE_BAD_PARAMETER If partition is NULL.
+ *      - LE_FAULT         On failure.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_lib_flash_SetUbiVolUpSize
+(
+    taf_lib_flash_Partition_t *partitionPtr, ///< [INOUT] Volume.
+    int64_t size                             ///< [IN] Volume update size.
+);
+
+#ifdef __cplusplus
 }
+#endif
 
 #endif

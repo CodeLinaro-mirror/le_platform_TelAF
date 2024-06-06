@@ -1,0 +1,30 @@
+sandboxed: false
+start: manual
+executables:
+{
+    client = (clientComp)
+    flash = (ctrlComp)
+}
+
+maxMemoryBytes: 60000K
+
+processes:
+{
+    run:
+    {
+        (client)
+    }
+
+    maxFileBytes: 1048576K
+}
+
+extern:
+{
+    rpc_taf_flash = client.clientComp.rpc_taf_flash
+}
+
+bindings:
+{
+    client.clientComp.taf_someipClnt -> tafSomeipGWSvc.taf_someipClnt
+    flash.ctrlComp.ctrlFlash -> client.clientComp.ctrlFlash
+}

@@ -5,6 +5,7 @@ provides:
         taf_update.api
         taf_appMgmt.api
         taf_fwupdate.api
+        taf_flash.api
     }
 }
 
@@ -27,6 +28,7 @@ requires:
     {
         $LEGATO_ROOT/components/watchdogChain
         $TELAF_ROOT/components/tafHalComp
+        $TELAF_ROOT/components/tafFlashAccess
     }
 }
 
@@ -51,6 +53,7 @@ sources:
     tafAppMgmtImpl.cpp
     tafFwUpdateSvc.cpp
     tafFwUpdateImpl.cpp
+    tafFlashSvc.cpp
 }
 
 bundles:

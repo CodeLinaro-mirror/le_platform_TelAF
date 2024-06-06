@@ -36,8 +36,7 @@ maxMemoryBytes: 60000K
 
 executables:
 {
-    tafUpdateSvc = ( $TELAF_ROOT/components/tafUpdateSvc
-                     $TELAF_ROOT/components/tafFlashAccess )
+    tafUpdateSvc = ( $TELAF_ROOT/components/tafUpdateSvc )
 }
 
 start: auto
@@ -76,5 +75,5 @@ extern:
     tafUpdateSvc.tafUpdateSvc.taf_update
     tafUpdateSvc.tafUpdateSvc.taf_appMgmt
     tafUpdateSvc.tafUpdateSvc.taf_fwupdate
-    tafUpdateSvc.tafFlashAccess.taf_flash
+    tafUpdateSvc.tafUpdateSvc.taf_flash
 }

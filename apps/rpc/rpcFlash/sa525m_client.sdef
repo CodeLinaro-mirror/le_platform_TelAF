@@ -1,0 +1,20 @@
+#include "$TELAF_ROOT/modules/TelSdk/sa525m.sdef"
+
+apps:
+{
+    $TELAF_ROOT/apps/rpc/rpcFlash/flashClient/flashClient.adef
+}
+
+// The RPC system ID of my system is 0x102, the peer system ID is 0x101
+// So here we shall bind to peer system for RPC test.
+bindings:
+{
+    flashClient.rpc_taf_flash -> <telaf>.rpcServer_101_telaf_taf_flash
+}
+
+interfaceSearch:
+{
+    $TELAF_ROOT/interfaces/someipGW
+    $TELAF_ROOT/interfaces
+    $TELAF_ROOT/apps/rpc/rpcFlash/flashClient
+}

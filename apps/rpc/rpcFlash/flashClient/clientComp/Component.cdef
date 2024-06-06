@@ -1,0 +1,21 @@
+sources:
+{
+    client.c
+}
+
+provides:
+{
+    api:
+    {
+        ctrlFlash.api
+    }
+}
+
+requires:
+{
+    api:
+    {
+        taf_someipClnt.api
+        rpc_taf_flash = taf_flash.api
+    }
+}

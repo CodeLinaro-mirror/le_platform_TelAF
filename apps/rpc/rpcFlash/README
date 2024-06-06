@@ -1,0 +1,26 @@
+# NOTE: The TelAF RPC flash can performed from "SA525M_2" (client) to "SA525M_1" (server).
+
+# The RPC system name/ID assigned for each system are as below:
+
+"SA525M_1" -> "0x101"
+"SA525M_2" -> "0x102"
+
+# Modify the RPC system ID as required above before test. The RPC system ID is configured in
+# "/legato/systems/current/appsWriteable/tafSomeipGWSvc/tafSomeipGWSvc.json".
+
+# The RPC system "SA525M_1" and "SA525M_2" shall use same RPC JSON file "taf_rpc_sample.json"
+# Rename JSON file "taf_rpc_sample.json" to "taf_rpc.json" under
+# "/legato/systems/current/appsWriteable/tafRpcProxy"
+
+# Once System ID and JSON file are set correctly, run "telaf restart" or "reboot" to take effect.
+
+# To build telaf image of RPC system "SA525M_1", run:
+
+source set_af_env.sh sa525m
+build-distclean-af; build-sa525m-af
+
+# To build telaf image of RPC system "SA525M_2", run:
+
+source set_af_env.sh sa525m
+export SDEF_TO_USE=${TELAF_ROOT}/apps/rpc/rpcFlash/sa525m_client.sdef
+build-distclean-af; build-sa525m-af

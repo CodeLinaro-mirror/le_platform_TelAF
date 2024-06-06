@@ -316,6 +316,11 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
             LE_INFO("TAF_ECALL_STATE_T10_STOPPED");
             break;
         }
+        case TAF_ECALL_STATE_INCOMING:
+        {
+            LE_INFO("TAF_ECALL_STATE_INCOMING");
+            break;
+        }
         default:
         {
             LE_INFO("Unknown state");
@@ -337,7 +342,7 @@ static void Test_ECall_OperationMode()
     res = taf_ecall_ForcePersistentOnlyMode(DEFAULT_PHONE_ID);
     LE_TEST_OK(LE_OK == res, "taf_ecall_ForcePersistentOnlyMode done");
     res = taf_ecall_GetConfiguredOperationMode(DEFAULT_PHONE_ID, &opMode);
-    LE_TEST_OK(opMode == TAF_ECALL_MODE_ECALL, "taf_ecall_GetConfiguredOperationMode done");
+    LE_TEST_OK(opMode == TAF_ECALL_MODE_FORCED_PERSISTENT_ONLY, "taf_ecall_GetConfiguredOperationMode done");
 
     res = taf_ecall_ExitOnlyMode(DEFAULT_PHONE_ID);
     LE_TEST_OK(res == LE_OK, "taf_ecall_ExitOnlyMode done");

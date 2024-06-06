@@ -334,6 +334,7 @@ static void* CommandInput(void* contextPtr)
             printf("-------------------------------------------------\n");
             printf("\th - Hangup the eCall\n");
             printf("\tt - Terminate registration\n");
+            printf("\ta - Answer the eCall\n");
             printf("\ts - Import and send MSD\n");
             printf("\tu - Send MSD\n");
             printf("\tg - Get hlap timer state\n");
@@ -353,6 +354,11 @@ static void* CommandInput(void* contextPtr)
             printf("User input: %c, so terminate registration...\n", input_str[0]);
             int res = terminateRegistration();
             LE_INFO("CommandInput: terminate registration, res: %d\n", res);
+        } else if (p != NULL && input_str[0]=='a') {
+            printf("User input: %c, so answer the call...\n", input_str[0]);
+            le_result_t result =  ECallRef != NULL ? taf_ecall_Answer(ECallRef) : LE_FAULT;
+            printf("Answer %s\n", result == LE_OK ? "success." : "failed!!");
+            LE_INFO("CommandInput: answering the call, result %d\n", (int) result);
         } else if (p != NULL && input_str[0]=='s') {
             printf("User input: %c, so import MSD eg:02251C0680E30A51439E2955D43800800837F80C9FD707F09A94BDD30E55E080000001FFFFE040\n", input_str[0]);
             char msd[2*TAF_ECALL_MAX_MSD_LENGTH+1];
@@ -426,7 +432,7 @@ static void* CommandInput(void* contextPtr)
             le_result_t result = taf_ecall_GetHlapTimerState(timerType, &timerStatus, &elapsedTime);
             printf("Get hlap timer state %s\n", result == LE_OK ? "success." : "failed!!");
             printf("Hlap timer status is %d and the elapsed time is %d\n", timerStatus, elapsedTime);
-        }else if (p != NULL && input_str[0]=='q') {
+        } else if (p != NULL && input_str[0]=='q') {
             exitApp = true;
             le_thread_Cancel(ECallCmdThreadRef);
             ECallCmdThreadRef = NULL;
@@ -702,6 +708,11 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
             printf("TAF_ECALL_STATE_T10_STOPPED");
             break;
         }
+        case TAF_ECALL_STATE_INCOMING:
+        {
+            printf("TAF_ECALL_STATE_INCOMING");
+            break;
+        }
         default:
         {
             printf("Unknown state");
@@ -723,7 +734,7 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
 static void PrintUsage ()
 {
     puts("\n"
-            "tafECallApp -- setOpMode <NORMAL/ECALL_ONLY> <SLOT1/SLOT2>\n"
+            "tafECallApp -- setOpMode <NORMAL/ECALL_ONLY/PERSISTENT_ECALL_ONLY> <SLOT1/SLOT2>\n"
             "tafECallApp -- getOpMode <SLOT1/SLOT2>\n"
             "tafECallApp -- setPsapNumber <NUMBER>\n"
             "tafECallApp -- getPsapNumber\n"
@@ -742,6 +753,7 @@ static void PrintUsage ()
             "tafECallApp -- start <AUTO/MANUAL/TEST>\n"
             "tafECallApp -- start <PRIVATE> <NUMBER> [contentType] [acceptInfo]\n"
             "tafECallApp -- end\n"
+            "tafECallApp -- answer\n"
             "tafECallApp -- terminateReg\n"
             "tafECallApp -- gpio <PIN>\n"
             "tafECallApp -- getHlapTimerState <hlap timer type>\n"
@@ -1002,6 +1014,10 @@ static int setOpMode()
     }
     else if (strcmp(opMode, "ECALL_ONLY") == 0)
     {
+        result = taf_ecall_ForceOnlyMode(phoneId);
+    }
+    else if (strcmp(opMode, "PERSISTENT_ECALL_ONLY") == 0)
+    {
         result = taf_ecall_ForcePersistentOnlyMode(phoneId);
     }
     else
@@ -1054,8 +1070,8 @@ static int getOpMode()
             case TAF_ECALL_MODE_ECALL:
                 printf("TAF_ECALL_MODE_ECALL\n");
                 break;
-            case TAF_ECALL_NONE:
-                printf("TAF_ECALL_MODE_NONE\n");
+            case TAF_ECALL_MODE_FORCED_PERSISTENT_ONLY:
+                printf("TAF_ECALL_MODE_FORCED_PERSISTENT_ONLY\n");
                 break;
             default:
                 printf("Unknown mode\n");
@@ -1428,6 +1444,17 @@ COMPONENT_INIT
             result = taf_ecall_End(ECallRef);
         }
         printf("Hangup %s\n", result == LE_OK ? "success." : "failed!!" );
+        isMsgPrinted = true;
+        status = result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+        exitApp = result == LE_OK ? false : true;
+    }
+    else if (strcmp(command, "answer") == 0)
+    {
+        ECallRef = taf_ecall_Create();
+        if (ECallRef) {
+            result = taf_ecall_Answer(ECallRef);
+        }
+        printf("Answer %s\n", result == LE_OK ? "success." : "failed!!" );
         isMsgPrinted = true;
         status = result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
         exitApp = result == LE_OK ? false : true;

@@ -108,7 +108,7 @@
  * - taf_ecall_ForceOnlyMode() -- This API makes the eCall operating mode eCall only. Only emergency
  *   numbers should be used to start eCall sessions in this mode. The modem may not try to register
  *   with the cellular network. The modem is forced to behave as only eCalls are allowed regardless
- *   of the the U/SIM operation mode. The change persists if the device is rebooted.
+ *   of the the U/SIM operation mode.
  *
  * - taf_ecall_ForcePersistentOnlyMode() -- Same as taf_ecall_ForceOnlyMode(), but this change persists
  *   through device reboot, i.e., power cycles.
@@ -124,7 +124,7 @@
  *   - @ref TAF_ECALL_MODE_NORMAL -- The modem acts as the U/SIM eCall operation mode.
  *   - @ref TAF_ECALL_MODE_ECALL -- eCall only mode as per U/SIM operation mode or forced by
  *                                  the application through the taf_ecall_ForceOnlyMode() API.
- *   - @ref TAF_ECALL_FORCED_PERSISTENT_ONLY_MODE -- eCall only that persists over power cycles.
+ *   - @ref TAF_ECALL_MODE_FORCED_PERSISTENT_ONLY -- eCall only that persists over power cycles.
  *
  *@section taf_ecall_MsdVersion eCall MSD version
  *
@@ -154,6 +154,9 @@
  *   until @ref TAF_ECALL_STATE_ENDED event is reached.
  * - For a manual eCall session, it is allowed to end the ongoing session if eCall is not connected/active
  *   (@ref TAF_ECALL_STATE_ACTIVE not yet come) and after the @ref TAF_ECALL_STATE_ENDED event is received.
+ *
+ * taf_ecall_Answer() is used to answer an incoming eCall when the minimum network registration
+ * timer is active.
  *
  * @warning An application should wait for end of the existing eCall before dialing another
  * with the @c taf_ecall_StartXxx() APIs. An eCall is stopped when any of the following occurs.
@@ -347,12 +350,8 @@ REFERENCE Call;
 /**
  * Support for legacy operational modes.
  */
-DEFINE NORMAL_MODE = 0;
-DEFINE FORCED_PERSISTENT_ONLY_MODE = 1;
-DEFINE ONLY_MODE = 3;
 DEFINE TX_MODE_PULL = 0;
 DEFINE TX_MODE_PUSH = 1;
-
 DEFINE MAX_VIN_LENGTH  =  (17);
 DEFINE MAX_VIN_BYTES  =  MAX_VIN_LENGTH + (1);
 DEFINE MAX_OID_LENGTH  =  (8);
@@ -366,9 +365,10 @@ DEFINE ACCEPT_INFO_MAX_LENGTH = (128);
  */
 ENUM OpMode
 {
-    MODE_NORMAL,           ///< eCall normal mode.
-    MODE_ECALL,            ///< eCall only mode according to U/SIM operation mode.
-    NONE                   ///< Invalid mode.
+    MODE_NORMAL,                   ///< eCall normal mode.
+    MODE_ECALL,                    ///< eCall only mode according to U/SIM operation mode.
+    MODE_FORCED_PERSISTENT_ONLY,   ///< Persistent eCall only mode.
+    NONE                           ///< Invalid mode.
 };
 
 /**
@@ -491,6 +491,7 @@ ENUM State
     STATE_T7_STOPPED,                         ///< T7 Timer stopped.
     STATE_T9_STOPPED,                         ///< T9 Timer stopped.
     STATE_T10_STOPPED,                        ///< T10 Timer stopped.
+    STATE_INCOMING                            ///< Incoming eCall.
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -1229,6 +1230,22 @@ FUNCTION le_result_t End
 
 //-------------------------------------------------------------------------------------------------
 /**
+ *  Answers the incoming eCall according to the given eCall reference.
+ *
+ * @return
+ *      - LE_OK -- Succeeded.
+ *      - LE_FAULT -- Failed.
+ *      - LE_BAD_PARAMETER -- Bad eCall reference.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t Answer
+(
+    Call ecallRef IN      ///< eCall reference.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
  *  Gets the currrent eCall state according to the given eCall reference.
  *
  * @return
@@ -1337,7 +1354,7 @@ FUNCTION le_result_t GetPsapNumber
 //--------------------------------------------------------------------------------------------------
 /**
  * Reads the FDN/SDN numbers from U/SIM to dial a test eCall when the modem is in
- * TAF_ECALL_FORCED_PERSISTENT_ONLY_MODE or TAF_ECALL_ONLY_MODE.
+ * TAF_ECALL_MODE_FORCED_PERSISTENT_ONLY or TAF_ECALL_MODE_ECALL.
  *
  * @note If the FDN number is updated with a new number, ensure that the SIM card is refreshed.
  *

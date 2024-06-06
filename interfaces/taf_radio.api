@@ -127,7 +127,7 @@
  *  - taf_radio_AddNetRegRejectHandler() / taf_radio_RemoveNetRegRejectHandler() -- Adds/removes
  *    handler for network registration rejection.
  *
- *  - taf_radio_GetPlatformSpecificRegistrationErrorCode() -- Gets the network registration error code. 
+ *  - taf_radio_GetPlatformSpecificRegistrationErrorCode() -- Gets the network registration error code.
  *
  * The following example illustrates network registration.
  *
@@ -473,7 +473,7 @@
  *    less than the maximum number, any combination of the SIMs can be active and the remaining
  *    can be in standby.
  *
- *  - taf_radio_GetHardwareSIMRatCapabilities() --
+ *  - taf_radio_GetHardwareSimRatCapabilities() --
  *    simRatCapMask - Gets the supported SIM RAT capabilities which intersects with the device
  *    supported RAT capabilities and the device supported RAT capabilities in given slot.
  *    deviceRatCapMask - Gets the supported device RAT capabilities supported in given slot.
@@ -491,7 +491,7 @@
    // Gets RAT Capabilities
    taf_radio_RatBitMask_t deviceRatCapMask;
    taf_radio_RatBitMask_t simRatCapMask;
-   result = taf_radio_GetHardwareSIMRatCapabilities(&deviceRatCapMask,&simRatCapMask,phoneId);
+   result = taf_radio_GetHardwareSimRatCapabilities(&deviceRatCapMask,&simRatCapMask,phoneId);
  *
    @endcode
  * <HR>

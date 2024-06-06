@@ -168,7 +168,9 @@ ENUM State
     STATE_SUSPEND,                ///< System state is suspend.
     STATE_SHUTDOWN,               ///< System state is shutdown.
     STATE_ALL_ACKED,              ///< State all clients ACKed.
+                                  ///  @note This is an internal state between MPMS and PMS.
     STATE_ALL_WAKELOCKS_RELEASED  ///< State all wakelocks released.
+                                  ///  @note This is an internal state between MPMS and PMS.
 };
 
 /**
@@ -300,7 +302,7 @@ FUNCTION le_result_t Relax
 /**
  * Gets the current system state of the local process.
  *
- * @return 
+ * @return
  * State of the system.
  */
 //--------------------------------------------------------------------------------------------------

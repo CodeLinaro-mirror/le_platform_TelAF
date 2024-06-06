@@ -148,7 +148,7 @@
  *
  * @section taf_mngdPm_NewNodeWakeupSource Acquire a wake source
  *
- * TelAF Managed Power Management Service's client calls taf_mngdPm_NewNodeWakeupSource() and 
+ * TelAF Managed Power Management Service's client calls taf_mngdPm_NewNodeWakeupSource() and
  * taf_mngdPm_StayAwakeNode() to acquire a wake source to keep the system awake.
  * The vhalTag parameter in taf_mngdPm_NewNodeWakeupSource() is used as an indication for the service to decide
  * whether a notification is needed to be sent to the VHAL for the actions of taf_mngdPm_StayAwakeNode() and
@@ -256,9 +256,9 @@ ENUM TargetedPowerMode
  */
 ENUM ResponseMode
 {
-    READY,           ///< Response is ready.
-    NOT_READY,       ///< Response is not ready.
-    TIMEOUT          ///< Response is timeout.
+    READY,           ///< The request is accepted.
+    NOT_READY,       ///< The request is rejected.
+    TIMEOUT          ///< The request to get the response is timed out.
 };
 
 /**

@@ -316,7 +316,7 @@
   @endverbatim
 
  * An application may register and deregister a trip event handler to be notified when the trip
- * points trip with taf_therm_AddTripEventChangeHandler() and taf_therm_RemoveTripEventHandler().
+ * points trip with taf_therm_AddTripEventHandler() and taf_therm_RemoveTripEventHandler().
  * When a trip event is triggered, the handler is called.
  * @verbatim
 
@@ -339,7 +339,7 @@
      taf_therm_ReleaseTripEventRef(tripPoint);
  }
 
- handlerRef = taf_therm_AddTripEventChangeHandler
+ handlerRef = taf_therm_AddTripEventHandler
  ((taf_therm_TripEventHandlerFunc_t) TripEventHandler, NULL);
  LE_ASSERT(handlerRef != NULL);
  taf_therm_RemoveTripEventHandler(handlerRef);
@@ -1077,7 +1077,7 @@ FUNCTION le_result_t GetCDevID
 FUNCTION le_result_t GetCDevDescription
 (
     CoolingDevice CDevListRef               IN,   ///< Cooling device reference
-    string Description[TYPE_MAX_SIZE]       OUT   ///< The cooling device description associated 
+    string Description[TYPE_MAX_SIZE]       OUT   ///< The cooling device description associated
                                                  /// with input cooling device object reference
 );
 

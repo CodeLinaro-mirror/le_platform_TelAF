@@ -76,7 +76,7 @@
  *
  * <HR>
  *
- * eCall is a technology initiative intended to bring rapid assistance to automotive accidents 
+ * eCall is a technology initiative intended to bring rapid assistance to automotive accidents
  * anywhere. When a serious vehicle accident occurs, sensors automatically trigger an eCall.
  * When activated, the in-vehicle system (IVS) establishes a voice connection to a Public Safety
  * Answering Point (PSAP). At the same time, a digital minimum set of data (MSD) message is sent
@@ -89,7 +89,7 @@
  * @section taf_ecall_binding IPC interfaces binding
  *
  * All functions of the eCall API are provided by the @b tafECallSvc application service.
- * TafECallSvc allows users to start an eCall, talk/converse through an eCall, send MSD 
+ * TafECallSvc allows users to start an eCall, talk/converse through an eCall, send MSD
  * information, and send location info to PSAPs.
  *
  * The following example illustrates how to bind to eCall services.
@@ -104,8 +104,8 @@
  * @section taf_ecall_operation Operation modes of eCall
  *
  * The modem can operate in three different eCall modes.
- * 
- * - taf_ecall_ForceOnlyMode() -- This API makes the eCall operating mode eCall only. Only emergency 
+ *
+ * - taf_ecall_ForceOnlyMode() -- This API makes the eCall operating mode eCall only. Only emergency
  *   numbers should be used to start eCall sessions in this mode. The modem may not try to register
  *   with the cellular network. The modem is forced to behave as only eCalls are allowed regardless
  *   of the the U/SIM operation mode. The change persists if the device is rebooted.
@@ -113,8 +113,8 @@
  * - taf_ecall_ForcePersistentOnlyMode() -- Same as taf_ecall_ForceOnlyMode(), but this change persists
  *   through device reboot, i.e., power cycles.
  *
- * - taf_ecall_ExitOnlyMode() -- This function causes the device to exit eCall Only mode. It changes the 
- *   eCall operation mode to Normal. Generally the modem applies the default operation mode at boot up 
+ * - taf_ecall_ExitOnlyMode() -- This function causes the device to exit eCall Only mode. It changes the
+ *   eCall operation mode to Normal. Generally the modem applies the default operation mode at boot up
  *   (and after U/SIM hotswap). The modem acts following the U/SIM eCall operation mode. For example the
  *   U/SIM can be setup only for eCall or a combination of eCall and normal commercial service provision.
  *
@@ -131,6 +131,7 @@
  * MSD version can be set/got with:
  *  - taf_ecall_SetMsdVersion()
  *  - taf_ecall_GetMsdVersion()
+ *
  * These configurations take effect at the next test eCall and currently only MSD version 2 and 3 are supported.
  *
  * @section taf_ecall_session Session of eCall
@@ -175,7 +176,7 @@
  *
  * @section taf_ecall_PsapNumber eCall number
  *
- * Depending on the operating mode, the standard eCall number is defined by the modem or read from 
+ * Depending on the operating mode, the standard eCall number is defined by the modem or read from
  * the USIM fixed dialing numbers/service dialing numbers (FDN/SDN).
  *
  * A third-party eCall number can be set/got with:
@@ -1314,7 +1315,7 @@ FUNCTION TerminationReason GetTerminationReason
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets the PSAP number set with taf_ecall_SetPsapNumber().
- * 
+ *
  * @note The PSAP number is applicable in manually or automatically dialed eCalls. It is also
  *       applicable to test eCalls that are dialed intentionally for testing, validating,
  *       or certifying.
@@ -1335,7 +1336,7 @@ FUNCTION le_result_t GetPsapNumber
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Reads the FDN/SDN numbers from U/SIM to dial a test eCall when the modem is in 
+ * Reads the FDN/SDN numbers from U/SIM to dial a test eCall when the modem is in
  * TAF_ECALL_FORCED_PERSISTENT_ONLY_MODE or TAF_ECALL_ONLY_MODE.
  *
  * @note If the FDN number is updated with a new number, ensure that the SIM card is refreshed.
@@ -1384,7 +1385,7 @@ FUNCTION le_result_t GetNadDeregistrationTime
 //--------------------------------------------------------------------------------------------------
 /**
  * Disconnects the NAD from the eCall network. After an emergency call ends
- * the in-vehicle system stays registered with the network for a period of time to facilate 
+ * the in-vehicle system stays registered with the network for a period of time to facilate
  * callback from the PSAP, but when NAD requires to deregister from
  * the network this API can be used.
  *

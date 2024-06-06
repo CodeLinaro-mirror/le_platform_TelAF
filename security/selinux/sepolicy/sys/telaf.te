@@ -256,7 +256,7 @@ allow telaf_devmgr_t proc_t:file { open read getattr };
 allow telaf_devmgr_t data_t:dir { relabelfrom relabelto search getattr };
 allow telaf_devmgr_t data_t:file { relabel_file_perms };
 allow telaf_devmgr_t telaf_devmgr_data_t:dir { relabel_dir_perms manage_dir_perms };
-allow telaf_devmgr_t telaf_devmgr_data_t:file { relabel_file_perms manage_file_perms mmap_file_perms  };
+allow telaf_devmgr_t telaf_devmgr_data_t:file { relabel_file_perms manage_file_perms mmap_rw_file_perms mmap_exec_file_perms };
 
 allow telaf_devmgr_data_t fs_t:filesystem { associate };
 
@@ -379,6 +379,8 @@ term_getattr_pty_fs(telaf_admin_domain)
 files_rw_etc_files(telaf_admin_domain)
 allow telaf_admin_domain tracefs_t:filesystem getattr;
 allow telaf_admin_domain fs_t:filesystem { getattr mount };
+allow telaf_admin_domain proc_t:filesystem { getattr };
+
 
 # should have the permission of tmpfs
 files_mounton_non_security(telaf_admin_domain)
@@ -490,7 +492,7 @@ allow telaf_core_domain telaf_admin_domain:{ file dir unix_dgram_socket unix_str
 allow telaf_core_domain telaf_app_domain:{ file dir unix_dgram_socket unix_stream_socket socket sock_file } *;
 allow telaf_core_domain telaf_admin_t:fifo_file { read write };
 allow telaf_core_domain telaf_lib_t:dir { search };
-allow telaf_core_domain telaf_lib_t:file { read_file_perms mmap_file_perms };
+allow telaf_core_domain telaf_lib_t:file { read_file_perms mmap_rw_file_perms mmap_exec_file_perms };
 allow telaf_core_domain devlog_t:sock_file write;
 allow telaf_core_domain etc_t:file { read open lock getattr };
 allow telaf_core_domain tmp_t:dir { search_dir_perms };
@@ -505,6 +507,18 @@ allow telaf_core_domain self:capability2 { block_suspend wake_alarm };
 allow telaf_core_domain telaf_core_domain:unix_stream_socket *;
 allow telaf_core_domain telaf_core_domain:dir { search_dir_perms };
 allow telaf_core_domain telaf_core_domain:file { read_file_perms };
+
+# Support Kirkstone Yocto rules
+ifdef(`kirkstone',`
+    gen_require(`
+        type syslogd_runtime_t;
+        type init_runtime_t;
+    ')
+    allow telaf_app_domain syslogd_runtime_t:dir { search_dir_perms };
+    allow telaf_app_domain init_runtime_t:dir { search_dir_perms };
+    allow telaf_core_domain syslogd_runtime_t:dir { search_dir_perms };
+    allow telaf_core_domain init_runtime_t:dir { search_dir_perms };
+')
 
 # Local rules
 ########################################

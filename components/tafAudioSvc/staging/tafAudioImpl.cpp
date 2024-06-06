@@ -2910,7 +2910,11 @@ taf_audio_PlayListRef_t taf_Audio::CreatePlayList
     TAF_ERROR_IF_RET_VAL( playListptr == NULL, NULL, "playListptr is nullptr!");
 
     playListptr->isPlaybackInProgress = false;
-    memset(playListptr->filesToPlay, 0, MAX_NUM_OF_PLAYBACK_FILES * sizeof(taf_PlaybackFile_t));
+    //memset(playListptr->filesToPlay, 0, MAX_NUM_OF_PLAYBACK_FILES * sizeof(taf_PlaybackFile_t));
+    for (size_t i = 0; i < MAX_NUM_OF_PLAYBACK_FILES; ++i) {
+        playListptr->filesToPlay[i] = taf_PlaybackFile_t{};
+    }
+
     playListptr->numOfFilesToPlay = 0;
 
     playListptr->playListRef = (taf_audio_PlayListRef_t)le_ref_CreateRef(PlaybackListRefMap,

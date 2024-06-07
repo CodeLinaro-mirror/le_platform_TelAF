@@ -295,76 +295,19 @@ le_result_t tafMngdPMSvc::SuspendNAD()
 }
 
 /**
- * Shutdown response callback function for VHAL module
+ * NodeStateChange request callback function for VHAL module
  */
-void tafMngdPMSvc::ShutdownRespCB
-(
-    hal_pm_ShutdownMode_t mode,
-    hal_pm_RspReason_t reason
-)
-{
-    LE_INFO("***** %s *****", __FUNCTION__);
-    LE_INFO("hal_pm_ShutdownMode_t: %d", mode);
-    LE_INFO("hal_pm_RspReason_t: %d", reason);
-    if(le_timer_IsRunning(vhalAckTimerRef))
-    {
-        LE_DEBUG("Stop the timer");
-        le_timer_Stop(vhalAckTimerRef);
-    }
-    if (mode == HAL_PM_SHUTDOWN_MODE_GRACEFUL && reason == HAL_PM_RSP_READY)
-    {
-        taf_pm_SendStateChangeAck(powerStateRef, TAF_PM_STATE_ALL_ACKED, TAF_PM_PVM, TAF_PM_READY);
-    }
-    else if (mode == HAL_PM_SHUTDOWN_MODE_GRACEFUL && reason == HAL_PM_RSP_NOT_READY)
-    {
-        taf_pm_SendStateChangeAck(powerStateRef, TAF_PM_STATE_ALL_ACKED, TAF_PM_PVM,
-                TAF_PM_NOT_READY);
-    }
-    else if (mode == HAL_PM_SHUTDOWN_MODE_NORMAL && reason == HAL_PM_RSP_READY)
-    {
-        if(RequestStateChange(TAF_MNGDPM_STATE_SHUTTING_DOWN) != LE_OK)
-        {
-            return;
-        }
-
-        if(shutdownCB.shutdownCallbackFunc)
-        {
-            shutdownCB.shutdownCallbackFunc(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL, TAF_MNGDPM_READY,
-                    shutdownCB.shutdownCBCtxPtr);
-        }
-        le_result_t res = ShutdownNAD();
-        if(res == LE_OK)
-        {
-            powerMode.isGraceful = false;
-        }
-    }
-    else if (mode == HAL_PM_SHUTDOWN_MODE_NORMAL && reason == HAL_PM_RSP_NOT_READY)
-    {
-        if(shutdownCB.shutdownCallbackFunc)
-        {
-            shutdownCB.shutdownCallbackFunc(
-                TAF_MNGDPM_SHUTDOWN_MODE_NORMAL,
-                TAF_MNGDPM_NOT_READY,
-                shutdownCB.shutdownCBCtxPtr);
-        }
-    }
-    shutdownCB.shutdownCallbackFunc = nullptr;
-}
-
-/**
- * Shutdown request callback function for VHAL module
- */
-void tafMngdPMSvc::ShutdownChangeReqRespCB
+void tafMngdPMSvc::NodeStateChangeReqRespCB
 (
     uint8_t pmNodeId,
     hal_pm_NodeState_t state,
-    hal_pm_ShutdownMode_t mode
+    hal_pm_PowerMode_t mode
 )
 {
     LE_INFO("***** %s *****", __FUNCTION__);
     LE_INFO("pmNodeId: %d", pmNodeId);
     LE_INFO("hal_pm_NodeState_t: %d", state);
-    LE_INFO("hal_pm_ShutdownMode_t: %d", mode);
+    LE_INFO("hal_pm_PowerMode_t: %d", mode);
     taf_pm_SendStateChangeAck(powerStateRef, TAF_PM_STATE_ALL_ACKED, TAF_PM_PVM,
             TAF_PM_READY);
 }
@@ -376,14 +319,14 @@ void tafMngdPMSvc::ShutdownPrepareRespCB
 (
     uint8_t pmNodeId,
     hal_pm_NodeState_t state,
-    hal_pm_ShutdownMode_t mode,
+    hal_pm_PowerMode_t mode,
     hal_pm_RspReason_t reason
 )
 {
     LE_INFO("***** %s *****", __FUNCTION__);
     LE_INFO("pmNodeId: %d", pmNodeId);
     LE_INFO("hal_pm_NodeState_t: %d", state);
-    LE_INFO("hal_pm_ShutdownMode_t: %d", mode);
+    LE_INFO("hal_pm_PowerMode_t: %d", mode);
     LE_INFO("hal_pm_RspReason_t: %d", reason);
     if(le_timer_IsRunning(vhalAckTimerRef))
     {
@@ -430,66 +373,20 @@ void tafMngdPMSvc::ShutdownPrepareRespCB
 }
 
 /**
- * Shutdown last response callback function from VHAL
- */
-void tafMngdPMSvc::ShutdownCmdCB
-(
-    hal_pm_ShutdownMode_t mode,
-    hal_pm_RspReason_t reason
-)
-{
-    LE_INFO("***** %s *****", __FUNCTION__);
-    LE_INFO("hal_pm_ShutdownMode_t: %d", mode);
-    LE_INFO("hal_pm_RspReason_t: %d", reason);
-    powerMode.isRestart = false;
-    if (mode == HAL_PM_SHUTDOWN_MODE_NORMAL && reason == HAL_PM_RSP_READY)
-    {
-        taf_pm_SendStateChangeAck(powerStateRef, TAF_PM_STATE_ALL_ACKED, TAF_PM_PVM,
-                TAF_PM_READY);
-    }
-    else if (mode == HAL_PM_SHUTDOWN_MODE_NORMAL && reason == HAL_PM_RSP_NOT_READY)
-    {
-        taf_pm_SendStateChangeAck(powerStateRef, TAF_PM_STATE_ALL_ACKED, TAF_PM_PVM,
-                TAF_PM_NOT_READY);
-    }
-}
-
-/**
- * Suspend response callback function for VHAL module
- */
-void tafMngdPMSvc::SuspendRespCB
-(
-    hal_pm_SuspendMode_t mode,
-    hal_pm_RspReason_t reason
-)
-{
-    LE_INFO("***** %s *****", __FUNCTION__);
-    LE_INFO("hal_pm_SuspendMode_t: %d", mode);
-    LE_INFO("hal_pm_RspReason_t: %d", reason);
-    powerMode.isSuspend = false;
-    if (mode == HAL_PM_SUSPEND_MODE_FULL && reason == HAL_PM_RSP_READY)
-    {
-        taf_pm_SendStateChangeAck(powerStateRef, TAF_PM_STATE_ALL_ACKED, TAF_PM_PVM,
-                TAF_PM_READY);
-    }
-    else if (mode == HAL_PM_SUSPEND_MODE_FULL && reason == HAL_PM_RSP_NOT_READY)
-    {
-        taf_pm_SendStateChangeAck(powerStateRef, TAF_PM_STATE_ALL_ACKED, TAF_PM_PVM,
-                TAF_PM_NOT_READY);
-    }
-}
-
-/**
  * Restart response callback function for VHAL module
  */
-void tafMngdPMSvc::RestartRespCB
+void tafMngdPMSvc::RestartPrepareRespCB
 (
-    hal_pm_RestartMode_t mode,
+    uint8_t pmNodeId,
+    hal_pm_NodeState_t state,
+    hal_pm_PowerMode_t mode,
     hal_pm_RspReason_t reason
 )
 {
     LE_INFO("***** %s *****", __FUNCTION__);
-    LE_INFO("hal_pm_RestartMode_t: %d", mode);
+    LE_INFO("pmNodeId: %d", pmNodeId);
+    LE_INFO("hal_pm_NodeState_t: %d", state);
+    LE_INFO("hal_pm_PowerMode_t: %d", mode);
     LE_INFO("hal_pm_RspReason_t: %d", reason);
     if(le_timer_IsRunning(vhalAckTimerRef))
     {
@@ -855,22 +752,22 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
         if(powerMode.isGraceful)
         {
             LE_DEBUG("Send shutdownReqAsync %d", HAL_PM_SHUTDOWN_MODE_GRACEFUL);
-            (*(pmInf->shutdownReqAsync))(HAL_PM_SHUTDOWN_MODE_GRACEFUL, ShutdownRespCB);
+            (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_SHUTDOWN, HAL_PM_SHUTDOWN_MODE_GRACEFUL, tafMngdPMSvc::NodeStateChangeReqRespCB);
         }
         else if(powerMode.isRestart)
         {
-            LE_DEBUG("Send shutdownReqAsync %d", HAL_PM_SHUTDOWN_MODE_NORMAL);
-            (*(pmInf->shutdownReqAsync))(HAL_PM_SHUTDOWN_MODE_NORMAL, ShutdownCmdCB);
+            LE_DEBUG("Send shutdownReqAsync %d", HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF);
+            (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_RESTART, HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF, tafMngdPMSvc::NodeStateChangeReqRespCB);
         }
         else if(powerMode.isSuspend)
         {
             LE_DEBUG("Send SuspendReqAsync %d", HAL_PM_SUSPEND_MODE_FULL);
-            (*(pmInf->suspendReqAsync))(HAL_PM_SUSPEND_MODE_FULL, SuspendRespCB);
+            (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_SUSPEND, HAL_PM_SUSPEND_MODE_FULL, tafMngdPMSvc::NodeStateChangeReqRespCB);
         }
         else
         {
             LE_INFO("nodeStateChangeReqAsync triggered to VHAL on forceful shutdown");
-            (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_SHUTDOWN, HAL_PM_SHUTDOWN_MODE_NORMAL, tafMngdPMSvc::ShutdownChangeReqRespCB);
+            (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_SHUTDOWN, HAL_PM_SHUTDOWN_MODE_NORMAL, tafMngdPMSvc::NodeStateChangeReqRespCB);
         }
     }
     else if(state == TAF_PM_STATE_SUSPEND)

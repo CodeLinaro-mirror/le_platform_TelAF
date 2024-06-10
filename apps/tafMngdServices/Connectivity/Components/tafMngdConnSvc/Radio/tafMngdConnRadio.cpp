@@ -155,8 +155,11 @@ void tafMngdConnRadio::PackSwStateHandler
     void* contextPtr                               ///< [IN] Handler context.
 )
 {
-    if(packSwStateIndPtr == NULL)
+    if (nullptr == packSwStateIndPtr)
+    {
+        LE_ERROR("packSwStateIndPtr is NULL");
         return;
+    }
 
     LE_INFO("phone: %d packet switch state: %d", packSwStateIndPtr->phoneId,
         packSwStateIndPtr->state);
@@ -418,7 +421,7 @@ bool tafMngdConnRadio::IsNetworkRegistered(uint8_t phoneId)
     result = taf_radio_GetPacketSwitchedState(&state, phoneId);
     if(result != LE_OK)
     {
-        LE_ERROR("Get network reg info failed");
+        LE_ERROR("Get network reg info failed: %d", result);
         return false;
     }
 

@@ -187,9 +187,9 @@ namespace tafsvc {
 
     typedef enum
     {
-        MCS_CONNECTIONRECOVERY_TYPE_NONE = 0, /**<  DISABLED value. 0 */
-        MCS_CONNECTIONRECOVERY_TYPE_L1 = 1,   /**<  L1 Value. 1 */
-        MCS_CONNECTIONRECOVERY_TYPE_L2 = 2    /**<  L2 Value. 2 */
+        MCS_CONNECTIONRECOVERY_LEVEL_NONE = 0, /**<  DISABLED value. 0 */
+        MCS_CONNECTIONRECOVERY_LEVEL_L1 = 1,   /**<  L1 Value. 1 */
+        MCS_CONNECTIONRECOVERY_LEVEL_L2 = 2    /**<  L2 Value. 2 */
     } mcs_Policy_ConnRecoveryLevel_t;
 
     /**

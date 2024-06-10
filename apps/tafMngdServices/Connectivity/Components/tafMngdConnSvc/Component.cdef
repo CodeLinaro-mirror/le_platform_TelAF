@@ -31,6 +31,7 @@ requires:
         le_appInfo.api
 #if ${LE_CONFIG_TARGET_SIMULATION} = ""
         taf_net.api
+        $TELAF_ROOT/apps/tafMngdServices/interfaces/staging/taf_mngdPm.api
 #endif
     }
 }

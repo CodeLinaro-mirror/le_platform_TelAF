@@ -45,8 +45,13 @@
 #define MAX_PATH_LEN 256
 #define MCS_MAX_NAME_LEN 32
 
-taf_mngdConn_DataStateHandlerRef_t statHandlerRef = NULL;
-
+/**
+ * To run unit test, use the "app" command
+ * Synopsis: app runProc <appName> [<procName>]
+ * Example:  app runProc tafMngdConnIntTest tafMngdConnIntTest
+ *
+ * For multi client tests, set AutoStart:No and start the app with different procName(s)
+ */
 static void PrintUsage ()
 {
     std::cout << "0 -> Exit  " << std::endl
@@ -56,7 +61,8 @@ static void PrintUsage ()
               << "4 -> GetIpAddr  " << std::endl
               << "5 -> StartDataRetry  " << std::endl
               << "6 -> CancelL1Recovery " << std::endl
-              << "7 -> Monitor " << std::endl
+              << "7 -> CancelL2Recovery " << std::endl
+              << "8 -> Monitor " << std::endl
               << std::endl;
 }
 
@@ -88,6 +94,12 @@ static std::string RecoveryStateToString(taf_mngdConn_RecoveryState_t state)
         return "TAF_MNGDCONN_RECOVERY_L1_STARTED";
     case TAF_MNGDCONN_RECOVERY_L1_CANCELED:
         return "TAF_MNGDCONN_RECOVERY_L1_CANCELED";
+    case TAF_MNGDCONN_RECOVERY_L2_SCHEDULED:
+        return "TAF_MNGDCONN_RECOVERY_L2_SCHEDULED";
+    case TAF_MNGDCONN_RECOVERY_L2_STARTED:
+        return "TAF_MNGDCONN_RECOVERY_L2_STARTED";
+    case TAF_MNGDCONN_RECOVERY_L2_CANCELED:
+        return "TAF_MNGDCONN_RECOVERY_L2_CANCELED";
     default:
         LE_TEST_INFO("unknown recovery state: %d", static_cast<int>(state));
     }
@@ -131,7 +143,17 @@ static le_result_t cancelL1Recovery(taf_mngdConn_DataRef_t dataRef)
     return result;
 }
 
-
+static le_result_t cancelL2Recovery(taf_mngdConn_DataRef_t dataRef)
+{
+    LE_TEST_INFO("----CancelL2Recovery test ");
+    le_result_t result = LE_FAULT;
+    result = taf_mngdConn_CancelL2Recovery(dataRef);
+    if (result != LE_OK)
+    {
+        LE_TEST_INFO("taf_mngdConn_CancelL2Recovery failed: %d ", result);
+    }
+    return result;
+}
 
 static le_result_t getConnState(taf_mngdConn_DataRef_t dataRef)
 {
@@ -208,7 +230,7 @@ static void RecoveryStateHandler(taf_mngdConn_RecoveryState_t recoveryState,
     return;
 }
 
-static void ConnectionStateHandler
+static void DataStateHandler
 (
     taf_mngdConn_DataRef_t dataRef,
     taf_mngdConn_DataState_t dataState,
@@ -237,15 +259,30 @@ static void ConnectionStateHandler
 
 static void* HandlerThread(void* contextPtr)
 {
-    //  connect service in thread.
+
+    taf_mngdConn_DataStateHandlerRef_t     stateHandlerRef    = nullptr;
+    taf_mngdConn_RecoveryStateHandlerRef_t recoveryHandlerRef = nullptr;
+
     taf_mngdConn_DataRef_t dataRef = (taf_mngdConn_DataRef_t)contextPtr;
+
+    //  connect service in thread.
+
     taf_mngdConn_ConnectService();
 
-    statHandlerRef = taf_mngdConn_AddDataStateHandler(dataRef,
-                        (taf_mngdConn_DataStateHandlerFunc_t)ConnectionStateHandler, NULL);
+    // Register data state handler
+    stateHandlerRef =  taf_mngdConn_AddDataStateHandler(dataRef,
+                                   (taf_mngdConn_DataStateHandlerFunc_t)DataStateHandler, NULL);
+    if (nullptr == stateHandlerRef)
+    {
+        LE_TEST_FATAL("Unable to register for data state events");
+    }
 
     // Register recovery state handler
-    taf_mngdConn_AddRecoveryStateHandler(RecoveryStateHandler, NULL);
+    recoveryHandlerRef = taf_mngdConn_AddRecoveryStateHandler(RecoveryStateHandler, NULL);
+    if (nullptr == recoveryHandlerRef)
+    {
+        LE_TEST_FATAL("Unable to register for recovery state events");
+    }
 
     le_event_RunLoop();
     return NULL;
@@ -314,6 +351,7 @@ COMPONENT_INIT
     le_result_t status = LE_OK;
     int option = 0;
     LE_TEST_INIT;
+
     std::cout << "For testing multi client, set AutoStart:No and start the app" << std::endl
               << "with a different ProcessName"
               << std::endl;
@@ -364,6 +402,12 @@ COMPONENT_INIT
             }
             break;
             case 7 :
+            {
+                status = cancelL2Recovery(getDataRef());
+                LE_TEST_OK(LE_OK == status, "cancelL2Recovery");
+            }
+            break;
+            case 8 :
             {
                 status = monitorState(getDataRef());
                 LE_TEST_OK(LE_OK == status, "MCS Test: Monitor");

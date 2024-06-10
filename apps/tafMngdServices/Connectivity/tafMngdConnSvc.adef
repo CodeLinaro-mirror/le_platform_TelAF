@@ -53,6 +53,7 @@ bindings:
     tafMngdConnSvc.tafMngdConnSvc.le_appInfo -> <root>.le_appInfo
 #if ${LE_CONFIG_TARGET_SIMULATION} = ""
     tafMngdConnSvc.tafMngdConnSvc.taf_net -> tafNetSvc.taf_net
+    tafMngdConnSvc.tafMngdConnSvc.taf_mngdPm -> tafMngdPMSvc.taf_mngdPm
 #endif
 }
 

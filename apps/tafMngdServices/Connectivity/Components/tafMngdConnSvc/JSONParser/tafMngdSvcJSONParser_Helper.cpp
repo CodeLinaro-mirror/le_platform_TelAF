@@ -72,7 +72,7 @@ mcs_JSON_Data_Types_t telux::tafsvc::mcs_GetDataType(std::string Value)
         return MCS_JSON_DATA_TYPE_NONE;
     }
 
-    if (boost::iequals(Value, "L1"))
+    if (boost::iequals(Value, "L1") || boost::iequals(Value, "L2"))
     {
         return MCS_JSON_DATA_TYPE_CONNRECOVERY_LEVEL;
     }
@@ -120,16 +120,16 @@ mcs_Policy_ConnRecoveryLevel_t telux::tafsvc::
 {
     if (boost::iequals(Value, "None"))
     {
-        return MCS_CONNECTIONRECOVERY_TYPE_NONE;
+        return MCS_CONNECTIONRECOVERY_LEVEL_NONE;
     }
 
     if (boost::iequals(Value, "L1"))
     {
-        return MCS_CONNECTIONRECOVERY_TYPE_L1;
+        return MCS_CONNECTIONRECOVERY_LEVEL_L1;
     }
     if (boost::iequals(Value, "L2"))
     {
-        return MCS_CONNECTIONRECOVERY_TYPE_L2;
+        return MCS_CONNECTIONRECOVERY_LEVEL_L2;
     }
     return (mcs_Policy_ConnRecoveryLevel_t)MCS_JSON_DATA_TYPE_UNKNOWN;
 }

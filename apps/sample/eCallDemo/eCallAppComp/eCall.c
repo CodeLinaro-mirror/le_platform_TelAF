@@ -49,7 +49,7 @@ static taf_audio_StreamRef_t SpeakerAudioRef;
 static taf_audio_ConnectorRef_t  AudioOutConnectorRef;
 
 static taf_gpio_ChangeEventHandlerRef_t GpioHandlerRef;
-static taf_gnss_PositionHandlerRef_t PositionHandlerRef;
+static taf_locGnss_PositionHandlerRef_t PositionHandlerRef;
 static int32_t latitude = INT32_MAX, longitude = INT32_MAX, hAccuracy = INT32_MAX;
 static uint32_t direction = UINT32_MAX, dirAccuracy = UINT32_MAX;
 static bool exitApp = true;
@@ -133,14 +133,14 @@ static uint8_t msdLength = 39;
 
 static void PositionHandlerFunction
 (
-    taf_gnss_SampleRef_t positionSampleRef,
+    taf_locGnss_SampleRef_t positionSampleRef,
     void* contextPtr
 )
 {
     le_result_t result;
 
     //Get 2D location
-    result = taf_gnss_GetLocation(positionSampleRef,
+    result = taf_locGnss_GetLocation(positionSampleRef,
                                   &latitude,
                                   &longitude,
                                   &hAccuracy);
@@ -164,7 +164,7 @@ static void PositionHandlerFunction
     }
 
     //Get direction
-    result = taf_gnss_GetDirection(positionSampleRef,
+    result = taf_locGnss_GetDirection(positionSampleRef,
                                    &direction,
                                    &dirAccuracy);
 
@@ -185,10 +185,10 @@ static void PositionHandlerFunction
     }
 
     //Remove the handler assigned
-    taf_gnss_RemovePositionHandler(PositionHandlerRef);
+    taf_locGnss_RemovePositionHandler(PositionHandlerRef);
 
     //Stop receiving GNSS reports
-    taf_gnss_Stop();
+    taf_locGnss_Stop();
 }
 
 static void* SamplePositionThread
@@ -197,14 +197,14 @@ static void* SamplePositionThread
 )
 {
     //connect the position service to the current running thread
-    taf_gnss_ConnectService();
+    taf_locGnss_ConnectService();
 
-    le_result_t result = taf_gnss_Start();
+    le_result_t result = taf_locGnss_Start();
 
     LE_INFO("Result of gnss start: %d", (int)result);
 
     //Position Handler
-    PositionHandlerRef = taf_gnss_AddPositionHandler(PositionHandlerFunction, NULL);
+    PositionHandlerRef = taf_locGnss_AddPositionHandler(PositionHandlerFunction, NULL);
     if(PositionHandlerRef != NULL) {
         LE_INFO("Confirm position handler was added successfully");
     }
@@ -454,7 +454,7 @@ static void SignalHandler (int sigNum)
         taf_gpio_RemoveChangeEventHandler(GpioHandlerRef);
     }
 
-    taf_gnss_Stop();
+    taf_locGnss_Stop();
     exit(EXIT_SUCCESS);
 }
 

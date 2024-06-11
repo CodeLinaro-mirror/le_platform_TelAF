@@ -8,11 +8,11 @@ requires:
     api:
     {
         taf_ecall.api
-        taf_pos.api
-        taf_posCtrl.api
+        taf_locPos.api
+        taf_locPosCtrl.api
         taf_gpio.api
         taf_audio.api
-        taf_gnss.api
+        taf_locGnss.api
     }
 }
 

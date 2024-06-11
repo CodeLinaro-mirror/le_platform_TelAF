@@ -22,7 +22,7 @@ start: manual
 
 bindings:
 {
-    tafLocationUnitTest.tafLocationUnitTestComp.taf_gnss -> tafLocationSvc.taf_gnss
-    tafLocationUnitTest.tafLocationUnitTestComp.taf_pos -> tafLocationSvc.taf_pos
-    tafLocationUnitTest.tafLocationUnitTestComp.taf_posCtrl -> tafLocationSvc.taf_posCtrl
+    tafLocationUnitTest.tafLocationUnitTestComp.taf_locGnss -> tafLocationSvc.taf_locGnss
+    tafLocationUnitTest.tafLocationUnitTestComp.taf_locPos -> tafLocationSvc.taf_locPos
+    tafLocationUnitTest.tafLocationUnitTestComp.taf_locPosCtrl -> tafLocationSvc.taf_locPosCtrl
 }

@@ -23,8 +23,8 @@ start: manual
 bindings:
 {
     tafECallIntTest.tafECallIntTestComponent.taf_ecall -> tafECallSvc.taf_ecall
-    tafECallIntTest.tafECallIntTestComponent.taf_gnss -> tafLocationSvc.taf_gnss
-    tafECallIntTest.tafECallIntTestComponent.taf_pos -> tafLocationSvc.taf_pos
-    tafECallIntTest.tafECallIntTestComponent.taf_posCtrl -> tafLocationSvc.taf_posCtrl
+    tafECallIntTest.tafECallIntTestComponent.taf_locGnss -> tafLocationSvc.taf_locGnss
+    tafECallIntTest.tafECallIntTestComponent.taf_locPos -> tafLocationSvc.taf_locPos
+    tafECallIntTest.tafECallIntTestComponent.taf_locPosCtrl -> tafLocationSvc.taf_locPosCtrl
 }
 

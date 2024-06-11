@@ -23,9 +23,9 @@ start: manual
 bindings:
 {
     tafECallApp.eCallAppComp.taf_ecall -> tafECallSvc.taf_ecall
-    tafECallApp.eCallAppComp.taf_gnss -> tafLocationSvc.taf_gnss
-    tafECallApp.eCallAppComp.taf_pos -> tafLocationSvc.taf_pos
-    tafECallApp.eCallAppComp.taf_posCtrl -> tafLocationSvc.taf_posCtrl
+    tafECallApp.eCallAppComp.taf_locGnss -> tafLocationSvc.taf_locGnss
+    tafECallApp.eCallAppComp.taf_locPos -> tafLocationSvc.taf_locPos
+    tafECallApp.eCallAppComp.taf_locPosCtrl -> tafLocationSvc.taf_locPosCtrl
     tafECallApp.eCallAppComp.taf_gpio -> tafGpioSvc.taf_gpio
     tafECallApp.eCallAppComp.taf_audio -> tafAudioSvc.taf_audio
 }

@@ -35,18 +35,18 @@
 
 //--------------------------------------------------------------------------------------------------
 /**
- * @page c_tafpos Positioning
+ * @page c_taflocPos Positioning
  *
- * @ref taf_pos_interface.h "API Reference" <br>
+ * @ref taf_locPos_interface.h "API Reference" <br>
  *
  * <HR>
  *
  * This API provides access to the device's physical position and movement information.
  *
  * @note    Enabling and disabling the positioning system can be performed
- *          only through the @ref c_tafposCtrl.
+ *          only through the @ref c_taflocPosCtrl.
  *
- * @section taf_pos_binding IPC interfaces binding
+ * @section taf_locPos_binding IPC interfaces binding
  *
  * The functions of this API are provided by the @b tafLocationSvc application service.
  *
@@ -54,11 +54,11 @@
  * @verbatim
    bindings:
    {
-      clientExe.clientComponent.taf_pos -> positioningService.taf_pos
+      clientExe.clientComponent.taf_locPos -> tafLocationSvc.taf_locPos
    }
    @endverbatim
  *
- * The @c taf_pos_Get2DLocation() function gets the last updated latitude, longitude,
+ * The @c taf_locPos_Get2DLocation() function gets the last updated latitude, longitude,
  * and the horizontal accuracy values:
  *
  * - Latitude is in degrees, positive North.
@@ -69,7 +69,7 @@
    int32_t latitude;
    int32_t longitude;
    int32_t hAccuracy;
-   if (taf_pos_Get2DLocation(&latitude, &longitude, &hAccuracy) == LE_OK)
+   if (taf_locPos_Get2DLocation(&latitude, &longitude, &hAccuracy) == LE_OK)
    {
      // Process after succesfully getting the 2 dimension location information.
    }
@@ -79,7 +79,7 @@
  * - Latitude +48858300 = 48.858300 degrees North
  * - Longitude +2294400 = 2.294400 degrees East
  *
- * The @c taf_pos_Get3DLocation() function gets the last updated latitude, longitude,
+ * The @c taf_locPos_Get3DLocation() function gets the last updated latitude, longitude,
  * altitude, and their associated accuracy values.
  *
  * - Altitude is in meters by default, above mean sea level, with 3 decimal places,
@@ -92,13 +92,13 @@
    int32_t hAccuracy;
    int32_t altitude;
    int32_t vAccuracy;
-   if (taf_pos_Get3DLocation(&latitude, &longitude, &hAccuracy,&altitude, &vAccuracy) == LE_OK)
+   if (taf_locPos_Get3DLocation(&latitude, &longitude, &hAccuracy,&altitude, &vAccuracy) == LE_OK)
    {
      // Process after succesfully getting the 3 dimensional location information.
    }
    @endverbatim
  *
- * The @c taf_pos_GetTime() function gets the time of last updated position.
+ * The @c taf_locPos_GetTime() function gets the time of last updated position.
  *
  * - Hours into the day; range is 0 to 23.
  * - Minutes into the hour; range is 0 to 59.
@@ -110,13 +110,13 @@
    uint16_t minPtr;
    uint16_t secPtr;
    uint16_t msecondsPtr;
-   if (taf_pos_GetTime(&hrsPtr, &minPtr, &secPtr,&msecondsPtr) == LE_OK)
+   if (taf_locPos_GetTime(&hrsPtr, &minPtr, &secPtr,&msecondsPtr) == LE_OK)
    {
      // Process after succesfully getting the time information.
    }
    @endverbatim
  *
- * The @c taf_pos_GetDate() function gets the date of last updated position.
+ * The @c taf_locPos_GetDate() function gets the date of last updated position.
  *
  * - Year A.D.; e.g. 2014.
  * - Month into the year; range is 1 to 12.
@@ -126,13 +126,13 @@
    uint16_t yearPtr;
    uint16_t monthPtr;
    uint16_t dayPtr;
-   if (taf_pos_GetDate(&yearPtr, &monthPtr, &dayPtr) == LE_OK)
+   if (taf_locPos_GetDate(&yearPtr, &monthPtr, &dayPtr) == LE_OK)
    {
      // Process after succesfully getting the date information.
    }
    @endverbatim
  *
- * The @c taf_pos_GetDirection() function gets the last updated direction value in degrees and
+ * The @c taf_locPos_GetDirection() function gets the last updated direction value in degrees and
  * its associated accuracy value.
  *
  * - Direction in degrees; range is 0 to 359 with 0 being true North.
@@ -141,65 +141,65 @@
  * @verbatim
    uint32_t direction;
    uint32_t directionAccuracy;
-   if (taf_pos_GetDirection(&direction, &directionAccuracy) == LE_OK)
+   if (taf_locPos_GetDirection(&direction, &directionAccuracy) == LE_OK)
    {
      // Process after succesfully getting the direction information.
    }
    @endverbatim
  *
- * The @c taf_pos_GetMotion() function gets motion's data (horizontal speed and accuracy;
+ * The @c taf_locPos_GetMotion() function gets motion's data (horizontal speed and accuracy;
  * verticial speed and accuracy).
  * @verbatim
    uint32_t hSpeed, hAccuracy;
    int32_t vSpeed, vAccuracy;
-   if (taf_pos_GetMotion(&hSpeed, &hAccuracy, &vSpeed, &vAccuracy)) == LE_OK)
+   if (taf_locPos_GetMotion(&hSpeed, &hAccuracy, &vSpeed, &vAccuracy)) == LE_OK)
    {
      // Process after succesfully getting the Motion data.
    }
    @endverbatim
  *
- * The @c taf_pos_GetFixState() function gets the position fix state. The fix state allows the user
+ * The @c taf_locPos_GetFixState() function gets the position fix state. The fix state allows the user
  * to determine if it is a 2-dimensional or a 3-dimensional position fix.
  *
  * @verbatim
-   taf_pos_FixState_t fixState;
-   if(taf_pos_GetFixState(&fixState)== LE_OK)
+   taf_locPos_FixState_t fixState;
+   if(taf_locPos_GetFixState(&fixState)== LE_OK)
    {
      // Process after succesfully getting the fix state.
    }
    @endverbatim
  *
- * The @c taf_pos_SetDistanceResolution() function sets the resolution for the positioning distance
+ * The @c taf_locPos_SetDistanceResolution() function sets the resolution for the positioning distance
  * values.
  *
  * @verbatim
-   if(taf_pos_SetDistanceResolution(RES_DECIMETER) == LE_OK))
+   if(taf_locPos_SetDistanceResolution(RES_DECIMETER) == LE_OK))
    {
      // Process after succesfully setting the distance resolution.
    }
    @endverbatim
  *
  * To be notified when the device is in motion, you must register a handler function
- * to get the new position data. The @c taf_pos_AddMovementHandler() API registers
+ * to get the new position data. The @c taf_locPos_AddMovementHandler() API registers
  * that handler. The horizontal and vertical change is measured in meters so only movement over
  * the threshhold triggers notification (0 means not to notify about changes).
  *
  * @verbatim
     static void NavigationHandler
     (
-       taf_pos_SampleRef_t positionSampleRef,
+       taf_locPos_SampleRef_t positionSampleRef,
        void* contextPtr
     )
     {
       int32_t latitude, longitude, horizontalAccuracy;
-      LE_ASSERT_OK(taf_pos_sample_Get2DLocation(positionSampleRef, &latitude,
+      LE_ASSERT_OK(taf_locPos_sample_Get2DLocation(positionSampleRef, &latitude,
                                              &longitude, &horizontalAccuracy));
-      taf_pos_sample_Release(positionSampleRef);
+      taf_locPos_sample_Release(positionSampleRef);
     }
-    static taf_pos_MovementHandlerRef_t  navigationHandlerRef;
-    navigationHandlerRef = taf_pos_AddMovementHandler(0, 0, NavigationHandler, NULL);
+    static taf_locPos_MovementHandlerRef_t  navigationHandlerRef;
+    navigationHandlerRef = taf_locPos_AddMovementHandler(0, 0, NavigationHandler, NULL);
     LE_ASSERT(NULL != navigationHandlerRef);
-    taf_pos_RemoveMovementHandler(navigationHandlerRef);
+    taf_locPos_RemoveMovementHandler(navigationHandlerRef);
    @endverbatim
  *
  * The handler gives a reference to the position sample object that triggered the
@@ -207,125 +207,125 @@
  * the object when done with it.
  *
  * The accessor functions are:
- * - taf_pos_sample_Get2DLocation() -- Triggered inside NavigationHandler() function to get
+ * - taf_locPos_sample_Get2DLocation -- Triggered inside NavigationHandler() function to get 
  *   positionSampleRef.
  *
  * @verbatim
    int32_t  longi, lat, haccuracy;
-   if(taf_pos_sample_Get2DLocation(positionSampleRef, &longi, &lat, &haccuracy) == LE_OK)
+   if(taf_locPos_sample_Get2DLocation(positionSampleRef, &longi, &lat, &haccuracy) == LE_OK)
    {
      // Process after succesfully getting the 2 dimensional location information.
    }
    @endverbatim
  *
- * - taf_pos_sample_GetTime() -- Triggered inside NavigationHandler() function to get
+ * - taf_locPos_sample_GetTime() -- Triggered inside NavigationHandler() function to get 
  *   positionSampleRef.
  *
  * @verbatim
    int32_t  hours, min, sec;
-   if(taf_pos_sample_GetTime(positionSampleRef, &hours, &min, &sec) == LE_OK)
+   if(taf_locPos_sample_GetTime(positionSampleRef, &hours, &min, &sec) == LE_OK)
    {
      // Process after succesfully getting the time information.
    }
    @endverbatim
  *
- * - taf_pos_sample_GetDate() -- Triggered inside NavigationHandler() function to get
+ * - taf_locPos_sample_GetDate() -- Triggered inside NavigationHandler() function to get 
  *   positionSampleRef.
  *
  * @verbatim
    int32_t  year, month, day;
-   if(taf_pos_sample_GetDate(positionSampleRef, &year, &month, &day) == LE_OK)
+   if(taf_locPos_sample_GetDate(positionSampleRef, &year, &month, &day) == LE_OK)
    {
      // Process after succesfully getting the time information.
    }
    @endverbatim
  *
- * - taf_pos_sample_GetAltitude() -- Triggered inside NavigationHandler() function to get
+ * - taf_locPos_sample_GetAltitude() -- Triggered inside NavigationHandler() function to get
  *   positionSampleRef.
  *
  * @verbatim
    int32_t  altitude,altitudeAccuracy,
-   if(taf_pos_sample_GetAltitude(positionSampleRef, &altitude, &altitudeAccuracy) == LE_OK)
+   if(taf_locPos_sample_GetAltitude(positionSampleRef, &altitude, &altitudeAccuracy) == LE_OK)
    {
      // Process after succesfully getting the altitude information.
    }
    @endverbatim
  *
- * - taf_pos_sample_GetHorizontalSpeed() -- Triggered inside NavigationHandler() function to get
+ * - taf_locPos_sample_GetHorizontalSpeed() -- Triggered inside NavigationHandler() function to get 
  *   positionSampleRef.
  *
  * @verbatim
    int32_t  hSpeed,hSpeedAccuracy,
-   if(taf_pos_sample_GetHorizontalSpeed(positionSampleRef, &hSpeed, &hSpeedAccuracy) == LE_OK)
+   if(taf_locPos_sample_GetHorizontalSpeed(positionSampleRef, &hSpeed, &hSpeedAccuracy) == LE_OK)
    {
      // Process after succesfully getting the horizontal speed information.
    }
    @endverbatim
  *
- * - taf_pos_sample_GetVerticalSpeed() -- Triggered inside NavigationHandler() function to get
+ * - taf_locPos_sample_GetVerticalSpeed() -- Triggered inside NavigationHandler() function to get 
  *   positionSampleRef.
  *
  * @verbatim
    int32_t  vSpeed,vSpeedAccuracy,
-   if(taf_pos_sample_GetVerticalSpeed(positionSampleRef, &vSpeed, &vSpeedAccuracy) == LE_OK)
+   if(taf_locPos_sample_GetVerticalSpeed(positionSampleRef, &vSpeed, &vSpeedAccuracy) == LE_OK)
    {
      // Process after succesfully getting the vertifical speed information.
    }
    @endverbatim
  *
- * - taf_pos_sample_GetDirection() -- Triggered inside NavigationHandler() function to get
+ * - taf_locPos_sample_GetDirection() -- Triggered inside NavigationHandler() function to get 
  *   positionSampleRef.
  *
  * @verbatim
    int32_t  direction,directionAccuracy,
-   if(taf_pos_sample_GetDirection(positionSampleRef, &direction, &directionAccuracy) == LE_OK)
+   if(taf_locPos_sample_GetDirection(positionSampleRef, &direction, &directionAccuracy) == LE_OK)
    {
      // Process after succesfully getting the direction information.
    }
    @endverbatim
  *
- * - taf_pos_sample_GetFixState()
+ * - taf_locPos_sample_GetFixState()
  *
  * @verbatim
-   taf_pos_FixState_t fixState;
-   if(taf_pos_sample_GetFixState(&fixState)== LE_OK)
+   taf_locPos_FixState_t fixState;
+   if(taf_locPos_sample_GetFixState(&fixState)== LE_OK)
    {
      // Process after succesfully getting the fix state.
    }
    @endverbatim
  *
- * @c taf_pos_sample_Release() releases the object.
+ * @c taf_locPos_sample_Release() releases the object.
  *
- * You can remove the handler function by calling the taf_pos_RemoveMovementHandler() API.
- * @note The taf_pos_RemoveMovementHandler() API does not delete the position object. The caller has
- *       to delete it by calling the taf_pos_sample_Release() function.
+ * You can remove the handler function by calling the taf_locPos_RemoveMovementHandler() API.
+ * @note The taf_locPos_RemoveMovementHandler() API does not delete the position object. The caller has
+ *       to delete it by calling the taf_locPos_sample_Release() function.
  *
- * @section taf_pos_acquisitionRate Positioning acquisition rate
+ * @section taf_locPos_acquisitionRate Positioning acquisition rate
  *
- * The acquisition rate value can be set or with taf_pos_SetAcquisitionRate() and retrieved with
- * taf_pos_GetAcquisitionRate().
- * It is also set when calling taf_pos_AddMovementHandler(). The acquisition rate is calculated
+ * The acquisition rate value can be set or with taf_locPos_SetAcquisitionRate() and retrieved with
+ * taf_locPos_GetAcquisitionRate().
+ * It is also set when calling taf_locPos_AddMovementHandler(). The acquisition rate is calculated
  * from the horizontal and vertical magnitude parameters set in this function.
- * This calculated acquisition rate can be retrieved by calling taf_pos_GetAcquisitionRate().
+ * This calculated acquisition rate can be retrieved by calling taf_locPos_GetAcquisitionRate().
  * @verbatim
-   if(taf_pos_SetAcquisitionRate(3000) == LE_OK)
+   if(taf_locPos_SetAcquisitionRate(3000) == LE_OK)
    {
      // Process after succesfully setting the acquisition rate.
    }
    @endverbatim
  * @verbatim
    uint32_t acquisitionRate=0;
-   if(taf_pos_GetAcquisitionRate(&fixState)== LE_OK)
+   if(taf_locPos_GetAcquisitionRate(&fixState)== LE_OK)
    {
      // Process after succesfully getting the acquisition rate.
    }
    @endverbatim
  * @note
  * The acquisition rate set will take effect once a request of activation of the positioning service
- * by taf_posCtrl_Request() is done.
+ * by taf_locPosCtrl_Request() is done.
  * @note
  * If the acquisition rate was not previously configured, it will be set to a default value
- * of one second once taf_posCtrl_Request() is called.
+ * of one second once taf_locPosCtrl_Request() is called.
  *
  * <HR>
  *
@@ -340,9 +340,9 @@
 REFERENCE Sample;
 
 //--------------------------------------------------------------------------------------------------
-USETYPES taf_gnss.api;
+USETYPES taf_locGnss.api;
 
-DEFINE TAF_POS_MAX_OBJ = 1;
+DEFINE TAF_LOCPOS_MAX_OBJ = 1;
 
 //--------------------------------------------------------------------------------------------------
 
@@ -422,7 +422,7 @@ FUNCTION le_result_t GetDate
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetFixState
 (
- taf_gnss.FixState state OUT              ///< Position fix state.
+ taf_locGnss.FixState state OUT              ///< Position fix state.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -733,7 +733,7 @@ FUNCTION le_result_t SetDistanceResolution
 FUNCTION le_result_t sample_GetFixState
 (
     Sample positionSampleRef,           ///< Position sample reference.
-    taf_gnss.FixState state OUT         ///< Position fix state.
+    taf_locGnss.FixState state OUT         ///< Position fix state.
 );
 
 //--------------------------------------------------------------------------------------------------

@@ -79,31 +79,31 @@ using namespace telux::common;
 using namespace telux::tafsvc;
 using namespace std;
 
-LE_MEM_DEFINE_STATIC_POOL(PosSample, TAF_POS_MAX_OBJ, sizeof(taf_pos_Sample_t));
-LE_MEM_DEFINE_STATIC_POOL(PosSampleRequest, TAF_POS_MAX_OBJ, sizeof(PosSampleRequest_t));
-LE_MEM_DEFINE_STATIC_POOL(PosHandler, HIGH_POS_HANDLER_COUNT, sizeof(taf_pos_SampleHandler_t));
+LE_MEM_DEFINE_STATIC_POOL(PosSample, TAF_LOCPOS_MAX_OBJ, sizeof(taf_locPos_Sample_t));
+LE_MEM_DEFINE_STATIC_POOL(PosSampleRequest, TAF_LOCPOS_MAX_OBJ, sizeof(PosSampleRequest_t));
+LE_MEM_DEFINE_STATIC_POOL(PosHandler, HIGH_POS_HANDLER_COUNT, sizeof(taf_locPos_SampleHandler_t));
 LE_REF_DEFINE_STATIC_MAP(PosSampleMap, POSITIONING_SAMPLE_MAX);
 LE_REF_DEFINE_STATIC_MAP(PositioningClient, TAF_CONFIG_POSITIONING_ACTIVATION_MAX);
 LE_MEM_DEFINE_STATIC_POOL(PosCtrlHandler, TAF_CONFIG_POSITIONING_ACTIVATION_MAX, sizeof(ClientRequest_t));
 
-taf_Pos &taf_Pos::GetInstance()
+taf_locPos &taf_locPos::GetInstance()
 {
-    static taf_Pos instance;
+    static taf_locPos instance;
     return instance;
 }
 
-uint32_t taf_Pos::ComputeCommonSmallestRate
+uint32_t taf_locPos::ComputeCommonSmallestRate
 (
  uint32_t rate
 )
 {
-    taf_pos_SampleHandler_t *posHandlerNodePtr;
+    taf_locPos_SampleHandler_t *posHandlerNodePtr;
 
     le_ref_IterRef_t iterRef = le_ref_GetIterator(MovementHandlerRefMap);
 
     while(le_ref_NextNode(iterRef) == LE_OK)
     {
-        posHandlerNodePtr = (taf_pos_SampleHandler_t*)le_ref_GetValue(iterRef);
+        posHandlerNodePtr = (taf_locPos_SampleHandler_t*)le_ref_GetValue(iterRef);
         LE_ASSERT(posHandlerNodePtr != NULL);
         if (posHandlerNodePtr->acquisitionRate < rate)
         {
@@ -115,7 +115,7 @@ uint32_t taf_Pos::ComputeCommonSmallestRate
     return rate;
 }
 
-uint32_t taf_Pos::CalculateAcquisitionRate
+uint32_t taf_locPos::CalculateAcquisitionRate
 (
  uint32_t avgSpeed,
  uint32_t hMagnitude,
@@ -145,41 +145,41 @@ uint32_t taf_Pos::CalculateAcquisitionRate
     return rate + 2;
 }
 
-int32_t taf_Pos::TransformDistance
+int32_t taf_locPos::TransformDistance
 (
     int32_t val,
-    taf_pos_DistanceValueType_t type
+    taf_locPos_DistanceValueType_t type
 )
 {
-    auto &pos = taf_Pos::GetInstance();
+    auto &pos = taf_locPos::GetInstance();
     int32_t resVal = 0;
 
     if ( ALTITUDE == type) {
-        if ( TAF_POS_RES_DECIMETER == pos.DistanceResolution ) {
+        if ( TAF_LOCPOS_RES_DECIMETER == pos.DistanceResolution ) {
             resVal = val / 1e+2;
-        } else if ( TAF_POS_RES_CENTIMETER == pos.DistanceResolution ) {
+        } else if ( TAF_LOCPOS_RES_CENTIMETER == pos.DistanceResolution ) {
             resVal = val / 10;
-        } else if ( TAF_POS_RES_MILLIMETER == pos.DistanceResolution ) {
+        } else if ( TAF_LOCPOS_RES_MILLIMETER == pos.DistanceResolution ) {
             resVal = val;
         } else {
             resVal = val / 1e+3;
         }
     } else if ( H_ACCURACY == type ) {
-        if ( TAF_POS_RES_DECIMETER == pos.DistanceResolution ) {
+        if ( TAF_LOCPOS_RES_DECIMETER == pos.DistanceResolution ) {
             resVal = val / 10;
-        } else if ( TAF_POS_RES_CENTIMETER == pos.DistanceResolution ) {
+        } else if ( TAF_LOCPOS_RES_CENTIMETER == pos.DistanceResolution ) {
             resVal = val;
-        } else if ( TAF_POS_RES_MILLIMETER == pos.DistanceResolution ) {
+        } else if ( TAF_LOCPOS_RES_MILLIMETER == pos.DistanceResolution ) {
             resVal = val * 10;
         } else {
             resVal = val / 1e+2;
         }
     } else if ( V_ACCURACY == type) {
-        if ( TAF_POS_RES_DECIMETER == pos.DistanceResolution ) {
+        if ( TAF_LOCPOS_RES_DECIMETER == pos.DistanceResolution ) {
             resVal = val;
-        } else if ( TAF_POS_RES_CENTIMETER == pos.DistanceResolution ) {
+        } else if ( TAF_LOCPOS_RES_CENTIMETER == pos.DistanceResolution ) {
             resVal = val * 10;
-        } else if ( TAF_POS_RES_MILLIMETER == pos.DistanceResolution ) {
+        } else if ( TAF_LOCPOS_RES_MILLIMETER == pos.DistanceResolution ) {
             resVal = val * 1e+2;
         } else {
             resVal = val / 10;
@@ -190,7 +190,7 @@ int32_t taf_Pos::TransformDistance
     return resVal;
 }
 
-uint32_t taf_Pos::CalculateDistance
+uint32_t taf_locPos::CalculateDistance
 (
     uint32_t lat1,
     uint32_t long1,
@@ -216,7 +216,7 @@ uint32_t taf_Pos::CalculateDistance
     return (uint32_t)(radius * c * 1000);
 }
 
-bool taf_Pos::IsBeyondMagnitude
+bool taf_locPos::IsBeyondMagnitude
 (
  uint32_t posMagnitude,
  uint32_t posMove,
@@ -236,7 +236,7 @@ bool taf_Pos::IsBeyondMagnitude
     }
 }
 
-le_result_t taf_Pos::GetDirection
+le_result_t taf_locPos::GetDirection
 (
  uint32_t* dirPtr,
  uint32_t* dirAccuracyPtr
@@ -248,9 +248,9 @@ le_result_t taf_Pos::GetDirection
     le_result_t resPos = LE_OK;
     uint32_t dir;
     uint32_t dirAccuracy;
-    taf_gnss_SampleRef_t positionSampleRef = taf_gnss_GetLastSampleRef();
+    taf_locGnss_SampleRef_t positionSampleRef = taf_locGnss_GetLastSampleRef();
 
-    resGnss = taf_gnss_GetDirection(positionSampleRef, &dir, &dirAccuracy);
+    resGnss = taf_locGnss_GetDirection(positionSampleRef, &dir, &dirAccuracy);
 
     if ((resGnss == LE_OK)||(resGnss == LE_OUT_OF_RANGE))
     {
@@ -284,11 +284,11 @@ le_result_t taf_Pos::GetDirection
         resPos = LE_FAULT;
     }
 
-    taf_gnss_ReleaseSampleRef(positionSampleRef);
+    taf_locGnss_ReleaseSampleRef(positionSampleRef);
 
     return resPos;
 }
-le_result_t taf_Pos::GetMotion
+le_result_t taf_locPos::GetMotion
 (
     uint32_t*   horiSpeedPtr,
     uint32_t*   horiSpeedAccuracyPtr,
@@ -311,10 +311,10 @@ le_result_t taf_Pos::GetMotion
     int32_t vertSpeedAccuracy;
     le_result_t Result = LE_OK;
     le_result_t posResult = LE_OK;
-    taf_gnss_SampleRef_t positionSampleRef = taf_gnss_GetLastSampleRef();
+    taf_locGnss_SampleRef_t positionSampleRef = taf_locGnss_GetLastSampleRef();
 
     // Get horizontal speed
-    Result = taf_gnss_GetHorizontalSpeed(positionSampleRef, &horiSpeed, &horiSpeedAccuracy);
+    Result = taf_locGnss_GetHorizontalSpeed(positionSampleRef, &horiSpeed, &horiSpeedAccuracy);
     if ((Result == LE_OK)||(Result == LE_OUT_OF_RANGE))
     {
         if (horiSpeedPtr)
@@ -348,7 +348,7 @@ le_result_t taf_Pos::GetMotion
     }
 
     // Get vertical speed
-    Result = taf_gnss_GetVerticalSpeed(positionSampleRef, &vertSpeed, &vertSpeedAccuracy);
+    Result = taf_locGnss_GetVerticalSpeed(positionSampleRef, &vertSpeed, &vertSpeedAccuracy);
 
     if (((Result == LE_OK)||(Result == LE_OUT_OF_RANGE))
         &&(posResult != LE_FAULT))
@@ -383,13 +383,13 @@ le_result_t taf_Pos::GetMotion
         posResult = LE_FAULT;
     }
 
-    taf_gnss_ReleaseSampleRef(positionSampleRef);
+    taf_locGnss_ReleaseSampleRef(positionSampleRef);
 
     return posResult;
 }
-le_result_t taf_Pos::CalculateMove
+le_result_t taf_locPos::CalculateMove
 (
-  taf_pos_SampleHandler_t *posHandlerNodePtr,
+  taf_locPos_SampleHandler_t *posHandlerNodePtr,
   const PositionParam_t  *posParamPtr,
   bool  *hflagPtr,
   bool  *vflagPtr
@@ -451,25 +451,25 @@ le_result_t taf_Pos::CalculateMove
     return LE_OK;
 }
 
-taf_posCtrl_ActivationRef_t taf_Pos::posCtrl_Request
+taf_locPosCtrl_ActivationRef_t taf_locPos::locPosCtrl_Request
 (
     void
 )
 {
-    auto &pos = taf_Pos::GetInstance();
+    auto &pos = taf_locPos::GetInstance();
     ClientRequest_t * clientRequestPtr = (ClientRequest_t *)le_mem_ForceAlloc(PosCtrlHandlerPoolRef);
 
-    taf_posCtrl_ActivationRef_t reqRef =
-                    (taf_posCtrl_ActivationRef_t)le_ref_CreateRef(ActivationRequestRefMap, clientRequestPtr);
+    taf_locPosCtrl_ActivationRef_t reqRef =
+                    (taf_locPosCtrl_ActivationRef_t)le_ref_CreateRef(ActivationRequestRefMap, clientRequestPtr);
 
     if (pos.CurrentActivationsCount == 0)
     {
-        /*if (taf_gnss_SetAcquisitionRate(AcqRate) != LE_OK)
+        /*if (taf_locGnss_SetAcquisitionRate(AcqRate) != LE_OK)
         {
             LE_WARN("Failed to set GNSS's acquisition rate (%" PRIu32 ")", AcqRate);
         }*/
 
-        if (taf_gnss_Start() != LE_OK)
+        if (taf_locGnss_Start() != LE_OK)
         {
             le_ref_DeleteRef(ActivationRequestRefMap, reqRef);
             le_mem_Release(clientRequestPtr);
@@ -478,23 +478,23 @@ taf_posCtrl_ActivationRef_t taf_Pos::posCtrl_Request
     }
     pos.CurrentActivationsCount++;
 
-    le_msg_SessionRef_t msgSession = taf_posCtrl_GetClientSessionRef();
+    le_msg_SessionRef_t msgSession = taf_locPosCtrl_GetClientSessionRef();
     clientRequestPtr->sessionRef = msgSession;
     clientRequestPtr->posCtrlActivationRef = reqRef;
 
-    LE_DEBUG("taf_posCtrl_Request ref (%p), SessionRef (%p)", reqRef, msgSession);
+    LE_DEBUG("taf_locPosCtrl_Request ref (%p), SessionRef (%p)", reqRef, msgSession);
 
     return reqRef;
 }
 
 
-void taf_Pos::PositionHandler
+void taf_locPos::PositionHandler
 (
- taf_gnss_SampleRef_t positionRef,
+ taf_locGnss_SampleRef_t positionRef,
  void* contextPtr
 )
 {
-    auto &pos = taf_Pos::GetInstance();
+    auto &pos = taf_locPos::GetInstance();
     le_result_t result;
     bool        locationValid = false;
     bool        altitudeValid = false;
@@ -518,9 +518,9 @@ void taf_Pos::PositionHandler
     uint16_t year;
     uint8_t leapSeconds;
     PositionParam_t posObj;
-    taf_gnss_FixState_t gnssState;
+    taf_locGnss_FixState_t gnssState;
 
-    taf_pos_SampleHandler_t* posHandlerNodePtr;
+    taf_locPos_SampleHandler_t* posHandlerNodePtr;
     PosSampleRequest_t*     posRequestPtr = NULL;
 
     TAF_ERROR_IF_RET_NIL( positionRef == NULL, "positionRef is Null");
@@ -528,13 +528,13 @@ void taf_Pos::PositionHandler
     if (!pos.NumOfHandlers)
     {
         LE_DEBUG("Release Handler,No positioning Sample handler");
-        taf_gnss_ReleaseSampleRef(positionRef);
+        taf_locGnss_ReleaseSampleRef(positionRef);
         return;
     }
 
     LE_DEBUG("Handler Function called %p", positionRef);
 
-    result = taf_gnss_GetLocation(positionRef, &latitude, &longitude, &hAccuracy);
+    result = taf_locGnss_GetLocation(positionRef, &latitude, &longitude, &hAccuracy);
     if ((LE_OK == result) ||
         ((LE_OUT_OF_RANGE == result) && (INT32_MAX != latitude) && (INT32_MAX != longitude)))
     {
@@ -548,7 +548,7 @@ void taf_Pos::PositionHandler
         locationValid = false;
     }
 
-    result = taf_gnss_GetAltitude(positionRef, &altitude, &vAccuracy);
+    result = taf_locGnss_GetAltitude(positionRef, &altitude, &vAccuracy);
 
     if ((LE_OK == result) ||
         ((LE_OUT_OF_RANGE != result) && (INT32_MAX != altitude)))
@@ -575,12 +575,12 @@ void taf_Pos::PositionHandler
     while(le_ref_NextNode(iterRef) == LE_OK)
     {
         bool horizontalFlag, verticalFlag;
-        posHandlerNodePtr = (taf_pos_SampleHandler_t*)le_ref_GetValue(iterRef);
+        posHandlerNodePtr = (taf_locPos_SampleHandler_t*)le_ref_GetValue(iterRef);
         LE_ASSERT(posHandlerNodePtr != NULL);
 
         if (LE_FAULT == CalculateMove(posHandlerNodePtr, &posObj, &horizontalFlag, &verticalFlag))
         {
-            taf_gnss_ReleaseSampleRef(positionRef);
+            taf_locGnss_ReleaseSampleRef(positionRef);
             return;
         }
 
@@ -591,8 +591,8 @@ void taf_Pos::PositionHandler
         {
             posRequestPtr = (PosSampleRequest_t*)le_mem_ForceAlloc(pos.PosRequestPoolRef);
             memset(posRequestPtr,0,sizeof(PosSampleRequest_t));
-            posRequestPtr->posSampleNodePtr = (taf_pos_Sample_t*)le_mem_ForceAlloc(pos.PosPoolRef);
-            memset(posRequestPtr->posSampleNodePtr,0,sizeof(taf_pos_Sample_t));
+            posRequestPtr->posSampleNodePtr = (taf_locPos_Sample_t*)le_mem_ForceAlloc(pos.PosPoolRef);
+            memset(posRequestPtr->posSampleNodePtr,0,sizeof(taf_locPos_Sample_t));
             posRequestPtr->posSampleNodePtr->latitudeValid = CHECK_VALIDITY(latitude,INT32_MAX);
             posRequestPtr->posSampleNodePtr->latitude = latitude;
 
@@ -608,13 +608,13 @@ void taf_Pos::PositionHandler
             posRequestPtr->posSampleNodePtr->vAccuracyValid = CHECK_VALIDITY(vAccuracy,INT32_MAX);
             posRequestPtr->posSampleNodePtr->vAccuracy = vAccuracy;
 
-            taf_gnss_GetHorizontalSpeed(positionRef, &hSpeed, &hSpeedAccuracy);
+            taf_locGnss_GetHorizontalSpeed(positionRef, &hSpeed, &hSpeedAccuracy);
             posRequestPtr->posSampleNodePtr->hSpeedValid = CHECK_VALIDITY(hSpeed,UINT32_MAX);
             posRequestPtr->posSampleNodePtr->hSpeed = hSpeed;
             posRequestPtr->posSampleNodePtr->hSpeedAccuracyValid = CHECK_VALIDITY(hSpeedAccuracy,UINT32_MAX);
             posRequestPtr->posSampleNodePtr->hSpeedAccuracy = hSpeedAccuracy;
 
-            taf_gnss_GetVerticalSpeed(positionRef, &vSpeed, &vSpeedAccuracy);
+            taf_locGnss_GetVerticalSpeed(positionRef, &vSpeed, &vSpeedAccuracy);
             posRequestPtr->posSampleNodePtr->vSpeedValid = CHECK_VALIDITY(vSpeed,INT32_MAX);
             posRequestPtr->posSampleNodePtr->vSpeed = vSpeed;
             posRequestPtr->posSampleNodePtr->vSpeedAccuracyValid = CHECK_VALIDITY(vSpeedAccuracy,INT32_MAX);
@@ -625,14 +625,14 @@ void taf_Pos::PositionHandler
             posRequestPtr->posSampleNodePtr->headingValid = false;
             posRequestPtr->posSampleNodePtr->heading = UINT32_MAX;
 
-            taf_gnss_GetDirection(positionRef, &direction, &directionAccuracy);
+            taf_locGnss_GetDirection(positionRef, &direction, &directionAccuracy);
 
             posRequestPtr->posSampleNodePtr->directionAccuracyValid = CHECK_VALIDITY(directionAccuracy,UINT32_MAX);
             posRequestPtr->posSampleNodePtr->directionAccuracy = directionAccuracy;
             posRequestPtr->posSampleNodePtr->directionValid = CHECK_VALIDITY(direction,UINT32_MAX);
             posRequestPtr->posSampleNodePtr->direction = direction;
 
-            if (LE_OK == taf_gnss_GetDate(positionRef, &year, &month, &day))
+            if (LE_OK == taf_locGnss_GetDate(positionRef, &year, &month, &day))
             {
                 posRequestPtr->posSampleNodePtr->dateValid = true;
             }
@@ -644,7 +644,7 @@ void taf_Pos::PositionHandler
             posRequestPtr->posSampleNodePtr->month = month;
             posRequestPtr->posSampleNodePtr->year = year;
 
-            if (LE_OK == taf_gnss_GetTime(positionRef, &hours, &minutes, &seconds, &milliseconds))
+            if (LE_OK == taf_locGnss_GetTime(positionRef, &hours, &minutes, &seconds, &milliseconds))
             {
                 posRequestPtr->posSampleNodePtr->timeValid = true;
             }
@@ -657,7 +657,7 @@ void taf_Pos::PositionHandler
             posRequestPtr->posSampleNodePtr->minutes = minutes;
             posRequestPtr->posSampleNodePtr->hours = hours;
 
-            if (LE_OK == taf_gnss_GetGpsLeapSeconds(positionRef, &leapSeconds))
+            if (LE_OK == taf_locGnss_GetGpsLeapSeconds(positionRef, &leapSeconds))
             {
                posRequestPtr->posSampleNodePtr->leapSecondsValid = true;
             }
@@ -667,14 +667,14 @@ void taf_Pos::PositionHandler
             }
             posRequestPtr->posSampleNodePtr->leapSeconds = leapSeconds;
 
-            if (LE_OK != taf_gnss_GetPositionState(positionRef, &gnssState))
+            if (LE_OK != taf_locGnss_GetPositionState(positionRef, &gnssState))
             {
-                posRequestPtr->posSampleNodePtr->fixState = TAF_GNSS_STATE_FIX_NO_POS;
+                posRequestPtr->posSampleNodePtr->fixState = TAF_LOCGNSS_STATE_FIX_NO_POS;
                 LE_ERROR("Failed to get a position fix");
             }
             else
             {
-                posRequestPtr->posSampleNodePtr->fixState = (taf_gnss_FixState_t)gnssState;
+                posRequestPtr->posSampleNodePtr->fixState = (taf_locGnss_FixState_t)gnssState;
             }
 
             posHandlerNodePtr->lastLat = latitude;
@@ -684,7 +684,7 @@ void taf_Pos::PositionHandler
             LE_DEBUG("Report sampleRef %p to the corresponding handler (handlerPtr %p)",
                      posRequestPtr->posSampleNodePtr, posHandlerNodePtr->handlerFuncPtr);
 
-            taf_pos_SampleRef_t reqRef = (taf_pos_SampleRef_t)le_ref_CreateRef(pos.PosSampleMap, posRequestPtr);
+            taf_locPos_SampleRef_t reqRef = (taf_locPos_SampleRef_t)le_ref_CreateRef(pos.PosSampleMap, posRequestPtr);
 
             posRequestPtr->sessionRef = posHandlerNodePtr->sessionRef;
 
@@ -695,30 +695,30 @@ void taf_Pos::PositionHandler
 
     }
 
-    taf_gnss_ReleaseSampleRef(positionRef);
+    taf_locGnss_ReleaseSampleRef(positionRef);
 }
 
-taf_pos_MovementHandlerRef_t taf_Pos::AddMovementHandler
+taf_locPos_MovementHandlerRef_t taf_locPos::AddMovementHandler
 (
  uint32_t horizontalMagnitude,
  uint32_t verticalMagnitude,
- taf_pos_MovementHandlerFunc_t handlerPtr,
+ taf_locPos_MovementHandlerFunc_t handlerPtr,
  void* contextPtr
  )
 {
-    taf_pos_SampleHandler_t*  posHandlerNodePtr = NULL;
+    taf_locPos_SampleHandler_t*  posHandlerNodePtr = NULL;
     TAF_KILL_CLIENT_IF_RET_VAL((handlerPtr == NULL), NULL, "handlerPtr pointer is NULL");
 
-    posHandlerNodePtr = (taf_pos_SampleHandler_t*)le_mem_ForceAlloc(PosHandlerPoolRef);
-    memset(posHandlerNodePtr, 0, sizeof(taf_pos_SampleHandler_t));
+    posHandlerNodePtr = (taf_locPos_SampleHandler_t*)le_mem_ForceAlloc(PosHandlerPoolRef);
+    memset(posHandlerNodePtr, 0, sizeof(taf_locPos_SampleHandler_t));
     posHandlerNodePtr->next = LE_DLS_LINK_INIT;
     posHandlerNodePtr->handlerFuncPtr = handlerPtr;
     posHandlerNodePtr->handlerContextPtr = contextPtr;
     posHandlerNodePtr->acquisitionRate = CalculateAcquisitionRate(SUPPOSED_AVERAGE_SPEED,
                                                   horizontalMagnitude, verticalMagnitude) * SEC_TO_MSEC;
-    posHandlerNodePtr->sessionRef = taf_pos_GetClientSessionRef();
+    posHandlerNodePtr->sessionRef = taf_locPos_GetClientSessionRef();
     posHandlerNodePtr->handlerRef =
-        (taf_pos_MovementHandlerRef_t)le_ref_CreateRef(MovementHandlerRefMap, posHandlerNodePtr);
+        (taf_locPos_MovementHandlerRef_t)le_ref_CreateRef(MovementHandlerRefMap, posHandlerNodePtr);
     AcqRate = ComputeCommonSmallestRate(posHandlerNodePtr->acquisitionRate);
 
     LE_DEBUG("Calculated acquisition rate %" PRIu32 " msec for an average speed of %d km/h",
@@ -742,7 +742,7 @@ taf_pos_MovementHandlerRef_t taf_Pos::AddMovementHandler
 
     if (0 == NumOfHandlers)
     {
-        if (NULL == (GnssHandlerRef=taf_gnss_AddPositionHandler(PositionHandler, NULL)))
+        if (NULL == (GnssHandlerRef=taf_locGnss_AddPositionHandler(PositionHandler, NULL)))
         {
             LE_ERROR("Failed to add GNSS's handler!");
             le_mem_Release(posHandlerNodePtr);
@@ -754,7 +754,7 @@ taf_pos_MovementHandlerRef_t taf_Pos::AddMovementHandler
     return posHandlerNodePtr->handlerRef;
 }
 
-le_result_t taf_Pos::SetAcquisitionRate
+le_result_t taf_locPos::SetAcquisitionRate
 (
  uint32_t  acqRate
 )
@@ -776,7 +776,7 @@ le_result_t taf_Pos::SetAcquisitionRate
 #endif
 }
 
-le_result_t taf_Pos::Get2DLocation
+le_result_t taf_locPos::Get2DLocation
 (
     int32_t* latPtr,
     int32_t* longPtr,
@@ -791,9 +791,9 @@ le_result_t taf_Pos::Get2DLocation
     int32_t     latitude;
     int32_t     longitude;
     int32_t     hAccuracy;
-    taf_gnss_SampleRef_t positionSampleRef = taf_gnss_GetLastSampleRef();
+    taf_locGnss_SampleRef_t positionSampleRef = taf_locGnss_GetLastSampleRef();
 
-    resGnss = taf_gnss_GetLocation(positionSampleRef, &latitude, &longitude, &hAccuracy);
+    resGnss = taf_locGnss_GetLocation(positionSampleRef, &latitude, &longitude, &hAccuracy);
     if ((resGnss == LE_OK)||(resGnss == LE_OUT_OF_RANGE))
     {
         if (latPtr)
@@ -830,12 +830,12 @@ le_result_t taf_Pos::Get2DLocation
         resPos = LE_FAULT;
     }
 
-    taf_gnss_ReleaseSampleRef(positionSampleRef);
+    taf_locGnss_ReleaseSampleRef(positionSampleRef);
 
     return resPos;
 }
 
-uint32_t taf_Pos::GetAcquisitionRate
+uint32_t taf_locPos::GetAcquisitionRate
 (
  void
 )
@@ -853,31 +853,31 @@ uint32_t taf_Pos::GetAcquisitionRate
     return acqRate;
 }
 
-le_result_t taf_Pos::GetFixState
+le_result_t taf_locPos::GetFixState
 (
- taf_gnss_FixState_t* statePtr
+ taf_locGnss_FixState_t* statePtr
 )
 {
-    taf_gnss_FixState_t gnssState;
-    taf_gnss_SampleRef_t positionSampleRef = taf_gnss_GetLastSampleRef();
+    taf_locGnss_FixState_t gnssState;
+    taf_locGnss_SampleRef_t positionSampleRef = taf_locGnss_GetLastSampleRef();
 
     TAF_KILL_CLIENT_IF_RET_VAL((statePtr == NULL) || (positionSampleRef == NULL), LE_FAULT, "state pointer is NULL / Invalid reference");
 
-    if (LE_OK != taf_gnss_GetPositionState(positionSampleRef, &gnssState))
+    if (LE_OK != taf_locGnss_GetPositionState(positionSampleRef, &gnssState))
     {
-        *statePtr = TAF_GNSS_STATE_FIX_NO_POS;
+        *statePtr = TAF_LOCGNSS_STATE_FIX_NO_POS;
         LE_ERROR("Failed to get the position fix state");
     }
     else
     {
-        *statePtr = (taf_gnss_FixState_t)gnssState;
+        *statePtr = (taf_locGnss_FixState_t)gnssState;
     }
 
-    taf_gnss_ReleaseSampleRef(positionSampleRef);
+    taf_locGnss_ReleaseSampleRef(positionSampleRef);
     return LE_OK;
 }
 
-le_result_t taf_Pos::GetTime
+le_result_t taf_locPos::GetTime
 (
  uint16_t* hrsPtr,
  uint16_t* minPtr,
@@ -887,16 +887,16 @@ le_result_t taf_Pos::GetTime
 {
     TAF_KILL_CLIENT_IF_RET_VAL((hrsPtr == NULL) || (minPtr == NULL) || (secPtr == NULL) || (msecondsPtr == NULL), LE_FAULT, "Invalid input parameters");
     le_result_t resPos = LE_OK;
-    taf_gnss_SampleRef_t positionSampleRef = taf_gnss_GetLastSampleRef();
+    taf_locGnss_SampleRef_t positionSampleRef = taf_locGnss_GetLastSampleRef();
 
-    resPos = taf_gnss_GetTime(positionSampleRef, hrsPtr, minPtr, secPtr, msecondsPtr);
+    resPos = taf_locGnss_GetTime(positionSampleRef, hrsPtr, minPtr, secPtr, msecondsPtr);
 
-    taf_gnss_ReleaseSampleRef(positionSampleRef);
+    taf_locGnss_ReleaseSampleRef(positionSampleRef);
 
     return resPos;
 }
 
-le_result_t taf_Pos::GetDate
+le_result_t taf_locPos::GetDate
 (
     uint16_t* yearPtr,
     uint16_t* monthPtr,
@@ -906,16 +906,16 @@ le_result_t taf_Pos::GetDate
     TAF_KILL_CLIENT_IF_RET_VAL((yearPtr == NULL) || (monthPtr == NULL) || (dayPtr == NULL),
             LE_FAULT, "Invalid input parameters");
     le_result_t posResult = LE_OK;
-    taf_gnss_SampleRef_t positionSampleRef = taf_gnss_GetLastSampleRef();
+    taf_locGnss_SampleRef_t positionSampleRef = taf_locGnss_GetLastSampleRef();
 
-    posResult = taf_gnss_GetDate(positionSampleRef, yearPtr, monthPtr, dayPtr);
+    posResult = taf_locGnss_GetDate(positionSampleRef, yearPtr, monthPtr, dayPtr);
 
-    taf_gnss_ReleaseSampleRef(positionSampleRef);
+    taf_locGnss_ReleaseSampleRef(positionSampleRef);
 
     return posResult;
 }
 
-le_result_t taf_Pos::Get3DLocation
+le_result_t taf_locPos::Get3DLocation
 (
     int32_t* latPtr, int32_t* longPtr,
     int32_t* hAccuracyPtr, int32_t* altitudePtr,
@@ -933,9 +933,9 @@ le_result_t taf_Pos::Get3DLocation
     int32_t     altitude;
     int32_t     hAccuracy;
     int32_t     vAccuracy;
-    taf_gnss_SampleRef_t positionSampleRef = taf_gnss_GetLastSampleRef();
+    taf_locGnss_SampleRef_t positionSampleRef = taf_locGnss_GetLastSampleRef();
 
-    resGnss = taf_gnss_GetLocation(positionSampleRef, &latitude, &longitude, &hAccuracy);
+    resGnss = taf_locGnss_GetLocation(positionSampleRef, &latitude, &longitude, &hAccuracy);
     if ((resGnss == LE_OK)||(resGnss == LE_OUT_OF_RANGE))
     {
         if (longPtr)
@@ -972,7 +972,7 @@ le_result_t taf_Pos::Get3DLocation
         resPos = LE_FAULT;
     }
 
-    resGnss = taf_gnss_GetAltitude(positionSampleRef, &altitude, &vAccuracy);
+    resGnss = taf_locGnss_GetAltitude(positionSampleRef, &altitude, &vAccuracy);
 
     if (((resGnss == LE_OK)||(resGnss == LE_OUT_OF_RANGE))
         &&(resPos != LE_FAULT))
@@ -1007,15 +1007,15 @@ le_result_t taf_Pos::Get3DLocation
         resPos = LE_FAULT;
     }
 
-    taf_gnss_ReleaseSampleRef(positionSampleRef);
+    taf_locGnss_ReleaseSampleRef(positionSampleRef);
 
     return resPos;
 }
 
 
-le_result_t taf_Pos::sample_Get2DLocation
+le_result_t taf_locPos::sample_Get2DLocation
 (
-    taf_pos_SampleRef_t positionSampleRef,
+    taf_locPos_SampleRef_t positionSampleRef,
     int32_t* latPtr, int32_t* longPtr,
     int32_t* hAccuracyPtr
 )
@@ -1068,9 +1068,9 @@ le_result_t taf_Pos::sample_Get2DLocation
     return result;
 }
 
-le_result_t taf_Pos::sample_GetAltitude
+le_result_t taf_locPos::sample_GetAltitude
 (
-    taf_pos_SampleRef_t positionSampleRef,
+    taf_locPos_SampleRef_t positionSampleRef,
     int32_t* altitudePtr, int32_t* altitudeAccuracyPtr
 )
 {
@@ -1108,9 +1108,9 @@ le_result_t taf_Pos::sample_GetAltitude
     return result;
 }
 
-le_result_t taf_Pos::sample_GetTime
+le_result_t taf_locPos::sample_GetTime
 (
-    taf_pos_SampleRef_t  positionSampleRef,
+    taf_locPos_SampleRef_t  positionSampleRef,
     uint16_t* hoursPtr, uint16_t* minutesPtr,
     uint16_t* secondsPtr, uint16_t* millisecondsPtr
 )
@@ -1166,9 +1166,9 @@ le_result_t taf_Pos::sample_GetTime
     return result;
 }
 
-le_result_t taf_Pos::sample_GetDate
+le_result_t taf_locPos::sample_GetDate
 (
-    taf_pos_SampleRef_t positionSampleRef,
+    taf_locPos_SampleRef_t positionSampleRef,
     uint16_t* yearPtr,
     uint16_t* monthPtr,
     uint16_t* dayPtr
@@ -1220,9 +1220,9 @@ le_result_t taf_Pos::sample_GetDate
 
     return result;
 }
-le_result_t taf_Pos::sample_GetHorizontalSpeed
+le_result_t taf_locPos::sample_GetHorizontalSpeed
 (
-    taf_pos_SampleRef_t positionSampleRef,
+    taf_locPos_SampleRef_t positionSampleRef,
     uint32_t* horizontalSpeedPtr,
     uint32_t* horizontalSpeedAccuracyPtr
 )
@@ -1260,9 +1260,9 @@ le_result_t taf_Pos::sample_GetHorizontalSpeed
     return result;
 }
 
-le_result_t taf_Pos::sample_GetDirection
+le_result_t taf_locPos::sample_GetDirection
 (
-    taf_pos_SampleRef_t  positionSampleRef,
+    taf_locPos_SampleRef_t  positionSampleRef,
     uint32_t* dirPtr, uint32_t* dirAccuracyPtr
 )
 {
@@ -1300,9 +1300,9 @@ le_result_t taf_Pos::sample_GetDirection
     return result;
 }
 
-le_result_t taf_Pos::sample_GetVerticalSpeed
+le_result_t taf_locPos::sample_GetVerticalSpeed
 (
-    taf_pos_SampleRef_t  positionSampleRef,
+    taf_locPos_SampleRef_t  positionSampleRef,
     int32_t* verticalSpeedPtr, int32_t* verticalSpeedAccuracyPtr
 )
 {
@@ -1340,12 +1340,12 @@ le_result_t taf_Pos::sample_GetVerticalSpeed
     return result;
 }
 
-le_result_t taf_Pos::SetDistanceResolution
+le_result_t taf_locPos::SetDistanceResolution
 (
-    taf_pos_Resolution_t resolution
+    taf_locPos_Resolution_t resolution
 )
 {
-    if (resolution >= TAF_POS_RES_UNKNOWN)
+    if (resolution >= TAF_LOCPOS_RES_UNKNOWN)
     {
         LE_ERROR("Invalid resolution (%d)", resolution);
         return LE_BAD_PARAMETER;
@@ -1357,10 +1357,10 @@ le_result_t taf_Pos::SetDistanceResolution
     return LE_OK;
 }
 
-le_result_t taf_Pos::sample_GetFixState
+le_result_t taf_locPos::sample_GetFixState
 (
-    taf_pos_SampleRef_t  positionSampleRef,
-    taf_gnss_FixState_t*  statePtr
+    taf_locPos_SampleRef_t  positionSampleRef,
+    taf_locGnss_FixState_t*  statePtr
 )
 {
     PosSampleRequest_t* posSampleRequestPtr = (PosSampleRequest_t*)le_ref_Lookup(PosSampleMap, positionSampleRef);
@@ -1377,13 +1377,13 @@ le_result_t taf_Pos::sample_GetFixState
     return LE_OK;
 }
 
-void taf_Pos::RemoveMovementHandler
+void taf_locPos::RemoveMovementHandler
 (
- taf_pos_MovementHandlerRef_t handlerRef
+ taf_locPos_MovementHandlerRef_t handlerRef
 )
 {
-    taf_pos_SampleHandler_t* posHandlerNodePtr =
-        (taf_pos_SampleHandler_t*)le_ref_Lookup(MovementHandlerRefMap, handlerRef);
+    taf_locPos_SampleHandler_t* posHandlerNodePtr =
+        (taf_locPos_SampleHandler_t*)le_ref_Lookup(MovementHandlerRefMap, handlerRef);
 
     if (posHandlerNodePtr != NULL)
     {
@@ -1401,19 +1401,19 @@ void taf_Pos::RemoveMovementHandler
 
     if (NumOfHandlers == 0)
     {
-        taf_gnss_RemovePositionHandler(GnssHandlerRef);
+        taf_locGnss_RemovePositionHandler(GnssHandlerRef);
         GnssHandlerRef = NULL;
     }
 }
 
 
-void taf_Pos::PosCtrlCloseSessionEventHandler
+void taf_locPos::PosCtrlCloseSessionEventHandler
 (
     le_msg_SessionRef_t sessionRef,
     void* contextPtr
 )
 {
-    auto &pos = taf_Pos::GetInstance();
+    auto &pos = taf_locPos::GetInstance();
     LE_DEBUG("SessionRef (%p) has been closed", sessionRef);
 
     if (!sessionRef)
@@ -1432,19 +1432,19 @@ void taf_Pos::PosCtrlCloseSessionEventHandler
 
         if (posCtrlHandlerPtr->sessionRef == sessionRef)
         {
-            taf_posCtrl_ActivationRef_t saferef = (taf_posCtrl_ActivationRef_t) le_ref_GetSafeRef(iterRef);
-            LE_DEBUG("Release taf_posCtrl_Release 0x%p, Session 0x%p", saferef, sessionRef);
+            taf_locPosCtrl_ActivationRef_t saferef = (taf_locPosCtrl_ActivationRef_t) le_ref_GetSafeRef(iterRef);
+            LE_DEBUG("Release taf_locPosCtrl_Release 0x%p, Session 0x%p", saferef, sessionRef);
 
-            taf_posCtrl_Release(saferef);
+            taf_locPosCtrl_Release(saferef);
         }
         result = le_ref_NextNode(iterRef);
     }
 }
 
 
-void taf_Pos::posCtrl_Release
+void taf_locPos::locPosCtrl_Release
 (
-    taf_posCtrl_ActivationRef_t ref
+    taf_locPosCtrl_ActivationRef_t ref
 )
 {
     void* posPtr = le_ref_Lookup(ActivationRequestRefMap, ref);
@@ -1455,7 +1455,7 @@ void taf_Pos::posCtrl_Release
         CurrentActivationsCount--;
         if (CurrentActivationsCount == 0)
         {
-            taf_gnss_Stop();
+            taf_locGnss_Stop();
         }
     }
     le_ref_DeleteRef(ActivationRequestRefMap, ref);
@@ -1463,9 +1463,9 @@ void taf_Pos::posCtrl_Release
     le_mem_Release(posPtr);
 }
 
-void taf_Pos::Release
+void taf_locPos::Release
 (
- taf_pos_SampleRef_t positionSampleRef
+ taf_locPos_SampleRef_t positionSampleRef
 )
 {
     TAF_KILL_CLIENT_IF_RET_NIL((positionSampleRef == NULL),  "Invalid reference");
@@ -1479,13 +1479,13 @@ void taf_Pos::Release
     le_mem_Release(posRequestPtr);
 }
 
-void taf_Pos::PosCloseSessionEventHandler
+void taf_locPos::PosCloseSessionEventHandler
 (
     le_msg_SessionRef_t sessionRef,
     void* contextPtr
 )
 {
-    auto &pos = taf_Pos::GetInstance();
+    auto &pos = taf_locPos::GetInstance();
     LE_DEBUG("SessionRef (%p) has been closed", sessionRef);
 
     if (!sessionRef)
@@ -1503,8 +1503,8 @@ void taf_Pos::PosCloseSessionEventHandler
 
         if (posRequestPtr->sessionRef == sessionRef)
         {
-            taf_pos_SampleRef_t safeRef = (taf_pos_SampleRef_t) le_ref_GetSafeRef(iterRef);
-            LE_DEBUG("Release taf_pos_sample_Release 0x%p, Session 0x%p\n", safeRef, sessionRef);
+            taf_locPos_SampleRef_t safeRef = (taf_locPos_SampleRef_t) le_ref_GetSafeRef(iterRef);
+            LE_DEBUG("Release taf_locPos_sample_Release 0x%p, Session 0x%p\n", safeRef, sessionRef);
 
             pos.Release(safeRef);
         }
@@ -1513,23 +1513,23 @@ void taf_Pos::PosCloseSessionEventHandler
     }
 }
 
-void taf_Pos::Init()
+void taf_locPos::Init()
 {
-   PosPoolRef = le_mem_InitStaticPool(PosSample, TAF_POS_MAX_OBJ, sizeof(taf_pos_Sample_t));
-   PosRequestPoolRef = le_mem_InitStaticPool(PosSampleRequest, TAF_POS_MAX_OBJ, sizeof(PosSampleRequest_t));
+   PosPoolRef = le_mem_InitStaticPool(PosSample, TAF_LOCPOS_MAX_OBJ, sizeof(taf_locPos_Sample_t));
+   PosRequestPoolRef = le_mem_InitStaticPool(PosSampleRequest, TAF_LOCPOS_MAX_OBJ, sizeof(PosSampleRequest_t));
 
-   posMsgService = taf_pos_GetServiceRef();
+   posMsgService = taf_locPos_GetServiceRef();
    le_msg_AddServiceCloseHandler(posMsgService, PosCloseSessionEventHandler, NULL);
 
-   posCtrlMsgService = taf_posCtrl_GetServiceRef();
+   posCtrlMsgService = taf_locPosCtrl_GetServiceRef();
    le_msg_AddServiceCloseHandler(posCtrlMsgService, PosCtrlCloseSessionEventHandler, NULL);
-   PosHandlerPoolRef = le_mem_InitStaticPool(PosHandler, HIGH_POS_HANDLER_COUNT, sizeof(taf_pos_SampleHandler_t));
+   PosHandlerPoolRef = le_mem_InitStaticPool(PosHandler, HIGH_POS_HANDLER_COUNT, sizeof(taf_locPos_SampleHandler_t));
    PosSampleMap = le_ref_InitStaticMap(PosSampleMap, POSITIONING_SAMPLE_MAX);
    ActivationRequestRefMap = le_ref_InitStaticMap(PositioningClient, TAF_CONFIG_POSITIONING_ACTIVATION_MAX);
    PosCtrlHandlerPoolRef = le_mem_InitStaticPool(PosCtrlHandler, TAF_CONFIG_POSITIONING_ACTIVATION_MAX,
            sizeof(ClientRequest_t));
    MovementHandlerRefMap = le_ref_CreateMap("MovementHandlerRefMap", 16);
-   DistanceResolution = TAF_POS_RES_METER;
+   DistanceResolution = TAF_LOCPOS_RES_METER;
    AcqRate = DEFAULT_ACQUISITION_RATE;
    CurrentActivationsCount = 0;
    NumOfHandlers = 0;

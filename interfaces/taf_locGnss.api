@@ -63,9 +63,9 @@
 
 //--------------------------------------------------------------------------------------------------
 /**
- * @page c_tafgnss Location Service
+ * @page c_taflocGnss Location Service
  *
- * @ref taf_gnss_interface.h "API Reference"
+ * @ref taf_locGnss_interface.h "API Reference"
  *
  * <HR>
  *
@@ -75,7 +75,7 @@
  *
  * This API provides function to configure the Location service and retrieve position information.
  *
- * @section taf_gnss_binding IPC interfaces binding
+ * @section taf_locGnss_binding IPC interfaces binding
  *
  * The functions of this API are provided by the @b tafLocationSvc application service.
  *
@@ -83,186 +83,186 @@
  * @verbatim
    bindings:
    {
-       clientExe.clientComponent.taf_gnss -> tafLocationSvc.taf_gnss
+       clientExe.clientComponent.taf_locGnss -> tafLocationSvc.taf_locGnss
    }
    @endverbatim
  *
  * The location service provides multi-client safe APIs. An API call from a client thread
  * (main or sub thread) will be treated a new session in location service. The client needs
- * to connect the location service by API taf_gnss_ConnectService(), setting specific settings
+ * to connect the location service by API taf_locGnss_ConnectService(), setting specific settings
  * if required (else default settings will be applied), starting the engine report by the API
- * taf_gnss_Start(), and adding handler by taf_gnss_AddPositionHandler(). Then client can get the
+ * taf_locGnss_Start(), and adding handler by taf_locGnss_AddPositionHandler(). Then client can get the
  * GNSS data/information and the engine reports in the same thread until the client disconnects
  * from the location service. The previous settings and data shall not persist for next
  * run/iteration if the client thread exits. Note that each time a client creates a new thread, it
- * needs to connect, call, and set APIs, taf_gnss_Start(), taf_gnss_AddPositionHandler() for the
+ * needs to connect, call, and set APIs, taf_locGnss_Start(), taf_locGnss_AddPositionHandler() for the
  * new session to set up.
  *
- * @section taf_gnss_ControlApi GNSS Control APIs
+ * @section taf_locGnss_ControlApi GNSS Control APIs
  *
- * @subsection taf_gnss_EnableDisable Enable or Disable Location service
+ * @subsection taf_locGnss_EnableDisable Enable or Disable Location service
  *
- * The taf_gnss_Enable API initializes the Location Service and prepares the TelAF
+ * The taf_locGnss_Enable API initializes the Location Service and prepares the TelAF
  * location service to serve further requests after setting up internal states.
  *
- * Through the taf_gnss_Disable API, the Location Service is de-initialized and location
- * service disallows any further requests until it is enabled again via taf_gnss_Enable.
+ * Through the taf_locGnss_Disable API, the Location Service is de-initialized and location
+ * service disallows any further requests until it is enabled again via taf_locGnss_Enable.
  *
  * By default, when the service starts up, the Location Service is initialized
  * and is ready to serve incoming requests.
  * @verbatim
-   if(taf_gnss_Enable() == LE_OK)
+   if(taf_locGnss_Enable() == LE_OK)
    {
      // Process after successfully initializing the location service.
    }
    @endverbatim
  * @verbatim
-   if(taf_gnss_Disable() == LE_OK)
+   if(taf_locGnss_Disable() == LE_OK)
    {
      // Process after successfully de-initializing the location service.
    }
    @endverbatim
  *
- * @subsection taf_gnss_StartStop  Start or Stop Location service
+ * @subsection taf_locGnss_StartStop  Start or Stop Location service
  *
- * taf_gnss_Start and taf_gnss_Stop can be used to control the location service.
+ * taf_locGnss_Start and taf_locGnss_Stop can be used to control the location service.
  * @verbatim
-   if(taf_gnss_Start() == LE_OK)
+   if(taf_locGnss_Start() == LE_OK)
    {
      // Process after successfully starting the Location session
    }
    @endverbatim
  * @verbatim
-   if(taf_gnss_Stop() == LE_OK)
+   if(taf_locGnss_Stop() == LE_OK)
    {
      // Process after successfully stopping the Location session
    }
    @endverbatim
  *
- * The handler can be managed using taf_gnss_AddPositionHandler()
- * and taf_gnss_RemovePositionHandler().
+ * The handler can be managed using taf_locGnss_AddPositionHandler()
+ * and taf_locGnss_RemovePositionHandler().
  * When a position is computed, the handler is called.
  *
  * @verbatim
    static void PositionHandlerFunction
    (
-      taf_gnss_SampleRef_t positionSampleRef,
+      taf_locGnss_SampleRef_t positionSampleRef,
       void* contextPtr
    )
    {
       int32_t latitude, longitude, horizontalAccuracy;
-      LE_ASSERT_OK(taf_gnss_GetLocation(positionSampleRef, &latitude,
+      LE_ASSERT_OK(taf_locGnss_GetLocation(positionSampleRef, &latitude,
                                              &longitude, &horizontalAccuracy));
-      taf_gnss_ReleaseSampleRef(positionSampleRef);
+      taf_locGnss_ReleaseSampleRef(positionSampleRef);
    }
-   static taf_gnss_PositionHandlerRef_t positionHandlerRef = NULL;
-   positionHandlerRef = taf_gnss_AddPositionHandler(PositionHandlerFunction, NULL);
+   static taf_locGnss_PositionHandlerRef_t positionHandlerRef = NULL;
+   positionHandlerRef = taf_locGnss_AddPositionHandler(PositionHandlerFunction, NULL);
    LE_ASSERT(NULL != positionHandlerRef);
-   taf_gnss_RemovePositionHandler(positionHandlerRef);
+   taf_locGnss_RemovePositionHandler(positionHandlerRef);
    @endverbatim
  *
  * The application has to release each position sample object received by the handler,
- * using the taf_gnss_ReleaseSampleRef() triggered inside the PositionHandlerFunction() function.
+ * using the taf_locGnss_ReleaseSampleRef() triggered inside the PositionHandlerFunction() function.
  * @verbatim
-   taf_gnss_ReleaseSampleRef(positionSampleRef);
+   taf_locGnss_ReleaseSampleRef(positionSampleRef);
    @endverbatim
  *
- * @subsubsection taf_gnss_startMode Start location data session in the specified starting mode
+ * @subsubsection taf_locGnss_startMode Start location data session in the specified starting mode
  *
  * In HOT mode, no data is cleared and the location session is started with its available data.
  * In WARM mode, location session is started after the ephemeris is cleared.
  * In COLD and FACTORY mode, location session is started after all data is cleared except almanac.
  *
- * @subsubsection taf_gnss_ForceHotRestart Restart location session
+ * @subsubsection taf_locGnss_ForceHotRestart Restart location session
  *
- * The taf_gnss_ForceHotRestart() function performs a "HOT" restart of the location session.
+ * The taf_locGnss_ForceHotRestart() function performs a "HOT" restart of the location session.
  * The current GNSS session is restarted.
  * @verbatim
-   if(taf_gnss_ForceHotRestart() == LE_OK)
+   if(taf_locGnss_ForceHotRestart() == LE_OK)
    {
      // Process after successfully restarting the location session.
    }
    @endverbatim
  *
- * @subsubsection taf_gnss_ForceWarmRestart Restart location session in WARM mode
+ * @subsubsection taf_locGnss_ForceWarmRestart Restart location session in WARM mode
  *
- * The taf_gnss_ForceWarmRestart() function performs a "WARM" restart of the location session.
+ * The taf_locGnss_ForceWarmRestart() function performs a "WARM" restart of the location session.
  * @verbatim
-   if(taf_gnss_ForceWarmRestart() == LE_OK)
+   if(taf_locGnss_ForceWarmRestart() == LE_OK)
    {
      // Process after successfully restarting location session in "WARM" mode.
    }
    @endverbatim
  *
- * @subsubsection taf_gnss_ForceColdRestart Restart the Location service in COLD mode
+ * @subsubsection taf_locGnss_ForceColdRestart Restart the Location service in COLD mode
  *
- * The taf_gnss_ForceColdRestart() function performs a "COLD" restart of the Location session.
+ * The taf_locGnss_ForceColdRestart() function performs a "COLD" restart of the Location session.
  * The current GNSS session is stopped and then started with GNSS data is cleared.
  * @verbatim
-   if(taf_gnss_ForceColdRestart() == LE_OK)
+   if(taf_locGnss_ForceColdRestart() == LE_OK)
    {
      // Process after successfully deleting the aiding data and restarting the location session.
    }
    @endverbatim
  *
- * @subsubsection taf_gnss_TTFF Obtain Time To First Fix (TTFF)
+ * @subsubsection taf_locGnss_TTFF Obtain Time To First Fix (TTFF)
  *
- * The taf_gnss_GetTtff() function provides the TTFF
+ * The taf_locGnss_GetTtff() function provides the TTFF
  * @verbatim
    uint32_t ttff = 0;
-   if(taf_gnss_GetTtff(&ttff) == LE_OK)
+   if(taf_locGnss_GetTtff(&ttff) == LE_OK)
    {
      // Process after successfully getting the time of computing the first GNSS fix
    }
    @endverbatim
  *
  * The GNSS fix position is calculated by the GNSS engine. Its state can be retrieved with the
- * taf_gnss_GetPositionState() function. The GNSS fix position states are given by the taf_gnss_FixState_t
+ * taf_locGnss_GetPositionState() function. The GNSS fix position states are given by the taf_locGnss_FixState_t
  * enum. The API is triggered inside the PositionHandlerFunction() function to get fix state
  * from the position sample reference.
  * @verbatim
-   taf_gnss_FixState_t fixState;
-   if(taf_gnss_GetPositionState(positionSampleRef,&fixState)== LE_OK)
+   taf_locGnss_FixState_t fixState;
+   if(taf_locGnss_GetPositionState(positionSampleRef,&fixState)== LE_OK)
    {
      // Process after successfully getting the position state.
    }
    @endverbatim
  *
- * @subsection taf_gnss_AcquisitionRate Set/Get location acquisition rate
+ * @subsection taf_locGnss_AcquisitionRate Set/Get location acquisition rate
  *
  * The acquisition rate defines the time interval that must elapse between
  * two location reports.
  * The default aquisition rate is 1 sec.
  * The application can configure or retreive the Location service acquisition rate with the
- * taf_gnss_SetAcquisitionRate() or taf_gnss_GetAcquisitionRate() functions.
+ * taf_locGnss_SetAcquisitionRate() or taf_locGnss_GetAcquisitionRate() functions.
  * @verbatim
-   if(taf_gnss_SetAcquisitionRate(3000)== LE_OK)
+   if(taf_locGnss_SetAcquisitionRate(3000)== LE_OK)
    {
      // Process after successfully setting the acquisition rate to 3 seconds.
    }
    @endverbatim
  * @verbatim
    uint32_t acqRate = 0;
-   if(taf_gnss_GetAcquisitionRate(&acqRate)== LE_OK)
+   if(taf_locGnss_GetAcquisitionRate(&acqRate)== LE_OK)
    {
      // Process after successfully getting the acquisition rate
    }
    @endverbatim
  *
- * @subsection taf_gnss_SetGetConstellation Control GNSS constellation blacklisting
+ * @subsection taf_locGnss_SetGetConstellation Control GNSS constellation blacklisting
  *
- * The taf_gnss_SetConstellation() function blacklists some constellations or subset of SVs from
+ * The taf_locGnss_SetConstellation() function blacklists some constellations or subset of SVs from
  * the constellation from being used by the GNSS standard position engine (SPE).
  * @verbatim
-   taf_gnss_ConstellationBitMask_t constellationMask;
-   constellationMask = TAF_GNSS_CONSTELLATION_GPS;
-   if(taf_gnss_SetConstellation(constellationMask)== LE_FAULT)
+   taf_locGnss_ConstellationBitMask_t constellationMask;
+   constellationMask = TAF_LOCGNSS_CONSTELLATION_GPS;
+   if(taf_locGnss_SetConstellation(constellationMask)== LE_FAULT)
    {
      // GPS constellation and SVs cannot be blacklisted.
    }
 
-   constellationMask = TAF_GNSS_CONSTELLATION_SBAS | TAF_GNSS_CONSTELLATION_BEIDOU;
-   if(taf_gnss_SetConstellation(constellationMask)== LE_OK)
+   constellationMask = TAF_LOCGNSS_CONSTELLATION_SBAS | taf_locGnss_CONSTELLATION_BEIDOU;
+   if(taf_locGnss_SetConstellation(constellationMask)== LE_OK)
    {
      // Process after successfully blacklisting SBAS and BEIDOU.
    }
@@ -271,50 +271,50 @@
  *
  * @warning Some constellation types are unsupported depending on the platform.
  *
- * The taf_gnss_GetConstellation() function gets the blacklisted GNSS constellation(s).
+ * The taf_locGnss_GetConstellation() function gets the blacklisted GNSS constellation(s).
  * @verbatim
-   taf_gnss_ConstellationBitMask_t constellationMask;
-   if(taf_gnss_GetConstellation(&constellationMask)== LE_OK)
+   taf_locGnss_ConstellationBitMask_t constellationMask;
+   if(taf_locGnss_GetConstellation(&constellationMask)== LE_OK)
    {
      // Process after successfully getting the blacklisted constellation type.
    }
    @endverbatim
  *
- * The taf_gnss_GetSupportedConstellations() function gets a bitmask of the constellations
+ * The taf_locGnss_GetSupportedConstellations() function gets a bitmask of the constellations
  * supported on the platform.
  * @verbatim
-   taf_gnss_ConstellationBitMask_t supportedConstellations;
-   if(taf_gnss_GetSupportedConstellations(&supportedConstellations)== LE_OK)
+   taf_locGnss_ConstellationBitMask_t supportedConstellations;
+   if(taf_locGnss_GetSupportedConstellations(&supportedConstellations)== LE_OK)
    {
      // Process after successfully getting the list of supported constellations.
    }
    @endverbatim
  *
- * @subsection taf_gnss_SetGetMinElevation GNSS minimum elevation selection
+ * @subsection taf_locGnss_SetGetMinElevation GNSS minimum elevation selection
  *
- * The taf_gnss_SetMinElevation() function sets the GNSS minimum elevation.
+ * The taf_locGnss_SetMinElevation() function sets the GNSS minimum elevation.
  * Satellites with elevation lower than the minimum elevation will will not be used in computation of position.
  * @verbatim
    uint8_t  minElevation;
    minElevation = 40;
-   if(taf_gnss_SetMinElevation(minElevation)== LE_OK)
+   if(taf_locGnss_SetMinElevation(minElevation)== LE_OK)
    {
      // Process after successfully setting the minimum elevation.
    }
    @endverbatim
  *
- * The taf_gnss_GetMinElevation() function gets the GNSS minimum elevation.
+ * The taf_locGnss_GetMinElevation() function gets the GNSS minimum elevation.
  * @verbatim
    uint8_t  minElevation;
-   if(taf_gnss_GetMinElevation(&minElevation)== LE_OK)
+   if(taf_locGnss_GetMinElevation(&minElevation)== LE_OK)
    {
      // Process after successfully getting the minimum elevation.
    }
    @endverbatim
  *
- * @subsection taf_gnss_NmeaSentences APIs to control NMEA sentences
+ * @subsection taf_locGnss_NmeaSentences APIs to control NMEA sentences
  * A handler function should be registered for NMEA sentences notifications.
- * @ref taf_gnss_AddNmeaHandler() allows users to register a NMEA handler.
+ * @ref taf_locGnss_AddNmeaHandler() allows users to register a NMEA handler.
  *
  * The handler function is invoked whenever new NMEA sentences are available.
  *
@@ -324,7 +324,7 @@
    static void NmeaHandlerFunction
    (
        uint64_t timestamp,
-       char nmeaInfo[TAF_GNSS_NMEA_STRING_MAX],
+       char nmeaInfo[TAF_LOCGNSS_NMEA_STRING_MAX],
        void* contextPtr
    )
    {
@@ -335,19 +335,19 @@
  * @note If many applications register handlers for NMEA notifications, they
  *       will all receive it.
  *
- * An application may unregister a NMEA handler by calling @ref taf_gnss_RemoveNmeaHandler().
+ * An application may unregister a NMEA handler by calling @ref taf_locGnss_RemoveNmeaHandler().
  *
  * The National Marine Electronics Association (NMEA) standard defines an electrical interface
  * and data protocol for communications between marine instrumentation.
  * $GP (Global Positioning System),
  * $GL (GLONASS)
  * and $GN (combination of navigation systems).
- * The taf_gnss_SetNmeaSentences() function selects the enabled NMEA sentences
- * with a bitmask. The supported values are listed in @ref taf_gnss_NmeaBitMask_t.
+ * The taf_locGnss_SetNmeaSentences() function selects the enabled NMEA sentences
+ * with a bitmask. The supported values are listed in @ref taf_locGnss_NmeaBitMask_t.
  * @verbatim
-   taf_gnss_NmeaBitMask_t nmeaMask;
-   nmeaMask = TAF_GNSS_NMEA_MASK_GPGGA;
-   if(taf_gnss_SetNmeaSentences(nmeaMask)== LE_OK)
+   taf_locGnss_NmeaBitMask_t nmeaMask;
+   nmeaMask = TAF_LOCGNSS_NMEA_MASK_GPGGA;
+   if(taf_locGnss_SetNmeaSentences(nmeaMask)== LE_OK)
    {
      // Process after successfully setting a NMEA sentence type.
    }
@@ -360,191 +360,191 @@
  *
  * @note All supported NMEA sentences are enabled by default.
  *
- * The taf_gnss_GetNmeaSentences() function gets the bitmask of the enabled NMEA sentences.
+ * The taf_locGnss_GetNmeaSentences() function gets the bitmask of the enabled NMEA sentences.
  * @verbatim
-   taf_gnss_NmeaBitMask_t nmeaMask;
-   if(taf_gnss_GetNmeaSentences(&nmeaMask)== LE_OK)
+   taf_locGnss_NmeaBitMask_t nmeaMask;
+   if(taf_locGnss_GetNmeaSentences(&nmeaMask)== LE_OK)
    {
      // Process after successfully getting a NMEA sentence type.
    }
    @endverbatim
  *
- * The taf_gnss_GetSupportedNmeaSentences() function gets a bitmask of the NMEA sentences supported
+ * The taf_locGnss_GetSupportedNmeaSentences() function gets a bitmask of the NMEA sentences supported
  * on the platform.
  * @verbatim
-   taf_gnss_NmeaBitMask_t supportedNmeaSentences;
-   if(taf_gnss_GetSupportedNmeaSentences(&supportedNmeaSentences)== LE_OK)
+   taf_locGnss_NmeaBitMask_t supportedNmeaSentences;
+   if(taf_locGnss_GetSupportedNmeaSentences(&supportedNmeaSentences)== LE_OK)
    {
      // Process after successfully getting a list of supported NMEA sentence types.
    }
    @endverbatim
  *
- * @subsection taf_gnss_GetInfo Get position information
+ * @subsection taf_locGnss_GetInfo Get position information
  *
  * The position information is referenced to a position sample object.
  *
  * An application can register a handler to be notified of the
- * updated position at a rate configured using @ref taf_gnss_AcquisitionRate, returning a position sample object.
+ * updated position at a rate configured using @ref taf_locGnss_AcquisitionRate, returning a position sample object.
  *
  * The GNSS information commonly used, such as
  * state, position, time and date, satellite information and accuracy
  * can be queried using the following functions.
- * - taf_gnss_GetState()
+ * - taf_locGnss_GetState()
  * @verbatim
-   if(taf_gnss_GetState()== TAF_GNSS_STATE_READY)
+   if(taf_locGnss_GetState()== TAF_LOCGNSS_STATE_READY)
    {
      // Process after successfully getting the status.
    }
    @endverbatim
  *
- * - taf_gnss_GetPositionState() -- Triggered inside PositionHandlerFunction() function
+ * - taf_locGnss_GetPositionState() -- Triggered inside PositionHandlerFunction() function
  *   to get fix state from the position sample reference.
  * @verbatim
-   taf_gnss_FixState_t state;
-   if(taf_gnss_GetPositionState(positionSampleRef,&state)
+   taf_locGnss_FixState_t state;
+   if(taf_locGnss_GetPositionState(positionSampleRef,&state)
    {
      // Process after successfully getting fix state.
    }
    @endverbatim
  *
- * - taf_gnss_GetLocation() -- Triggered inside PositionHandlerFunction() function
+ * - taf_locGnss_GetLocation() -- Triggered inside PositionHandlerFunction() function
  *   to get longitude, latitude, and horizontal accuracy from the position sample reference.
  * @verbatim
    int32_t     latitude;
    int32_t     longitude;
    int32_t     hAccuracy;
-   if(taf_gnss_GetLocation(positionSampleRef,&latitude,&longitude,&hAccuracy) == LE_OK)
+   if(taf_locGnss_GetLocation(positionSampleRef,&latitude,&longitude,&hAccuracy) == LE_OK)
    {
      // Process after successfully getting the location information.
    }
    @endverbatim
  *
- * - taf_gnss_GetAltitude() -- Triggered inside PositionHandlerFunction() function
+ * - taf_locGnss_GetAltitude() -- Triggered inside PositionHandlerFunction() function
  *   to get altitude and vertical accuracy from the position sample reference.
  * @verbatim
    int32_t     altitude;
    int32_t     vAccuracy;
-   if(taf_gnss_GetAltitude(positionSampleRef,&altitude,&vAccuracy) == LE_OK)
+   if(taf_locGnss_GetAltitude(positionSampleRef,&altitude,&vAccuracy) == LE_OK)
    {
      // Process after successfully getting the altitude.
    }
    @endverbatim
  *
- * - taf_gnss_GetDate() -- Triggered inside PositionHandlerFunction() function
+ * - taf_locGnss_GetDate() -- Triggered inside PositionHandlerFunction() function
  *   to get date information from the position sample reference.
  * @verbatim
    uint16_t year;
    uint16_t month;
    uint16_t day;
-   if(taf_gnss_GetDate(positionSampleRef,&year,&month, &day) == LE_OK)
+   if(taf_locGnss_GetDate(positionSampleRef,&year,&month, &day) == LE_OK)
    {
      // Process after successfully getting the date information.
    }
    @endverbatim
  *
- * - taf_gnss_GetTime() -- Triggered inside PositionHandlerFunction() function
+ * - taf_locGnss_GetTime() -- Triggered inside PositionHandlerFunction() function
  *   to get time information from the position sample reference.
  * @verbatim
    uint16_t hours;
    uint16_t minutes;
    uint16_t seconds;
    uint16_t milliseconds;
-   if(taf_gnss_GetTime(positionSampleRef,&hours,&minutes, &seconds, &milliseconds) == LE_OK)
+   if(taf_locGnss_GetTime(positionSampleRef,&hours,&minutes, &seconds, &milliseconds) == LE_OK)
    {
      // Process after successfully getting the time information.
    }
    @endverbatim
  *
- * - taf_gnss_GetGpsTime() -- Triggered inside PositionHandlerFunction() function
+ * - taf_locGnss_GetGpsTime() -- Triggered inside PositionHandlerFunction() function
  *   to get GPS time from the position sample reference.
  * @verbatim
    uint32_t gpsWeek;
    uint32_t gpsTimeOfWeek;
-   if(taf_gnss_GetGpsTime(positionSampleRef,&gpsWeek,&gpsTimeOfWeek) == LE_OK)
+   if(taf_locGnss_GetGpsTime(positionSampleRef,&gpsWeek,&gpsTimeOfWeek) == LE_OK)
    {
      // Process after successfully getting the GPS time information.
    }
    @endverbatim
  *
- * - taf_gnss_GetGpsLeapSeconds() -- Triggered inside PositionHandlerFunction() function
+ * - taf_locGnss_GetGpsLeapSeconds() -- Triggered inside PositionHandlerFunction() function
  *   to get GPS leap seconds from the position sample reference.
  * @verbatim
    uint8_t leapSeconds = 0;
-   if(taf_gnss_GetGpsLeapSeconds(positionSampleRef,&leapSeconds) == LE_OK)
+   if(taf_locGnss_GetGpsLeapSeconds(positionSampleRef,&leapSeconds) == LE_OK)
    {
      // Process after successfully getting the GPS leap second information
    }
    @endverbatim
  *
- * - taf_gnss_GetEpochTime() -- Triggered inside PositionHandlerFunction() function
+ * - taf_locGnss_GetEpochTime() -- Triggered inside PositionHandlerFunction() function
  *   to get epoch time from the position sample reference.
  * @verbatim
    uint64_t epochTime;
-   if(taf_gnss_GetEpochTime(positionSampleRef,&epochTime) == LE_OK)
+   if(taf_locGnss_GetEpochTime(positionSampleRef,&epochTime) == LE_OK)
    {
      // Process after successfully getting the Epoch time.
    }
    @endverbatim
  *
- * - taf_gnss_GetTimeAccuracy() -- Triggered inside PositionHandlerFunction() function
+ * - taf_locGnss_GetTimeAccuracy() -- Triggered inside PositionHandlerFunction() function
  *   to get time accuracy from the position sample reference.
  * @verbatim
    uint32_t TimeAccuracy=0;
-   if(taf_gnss_GetTimeAccuracy(positionSampleRef,&TimeAccuracy) == LE_OK)
+   if(taf_locGnss_GetTimeAccuracy(positionSampleRef,&TimeAccuracy) == LE_OK)
    {
      // Process after successfully getting the time accuracy.
    }
    @endverbatim
  *
- * - taf_gnss_GetHorizontalSpeed() -- Triggered inside PositionHandlerFunction() function
+ * - taf_locGnss_GetHorizontalSpeed() -- Triggered inside PositionHandlerFunction() function
  *   to get horizontal speed and its accuracy from the position sample reference.
  * @verbatim
    uint32_t hSpeed;
    uint32_t hSpeedAccuracy;
-   if(taf_gnss_GetHorizontalSpeed(positionSampleRef,&hSpeed,&hSpeedAccuracy) == LE_OK)
+   if(taf_locGnss_GetHorizontalSpeed(positionSampleRef,&hSpeed,&hSpeedAccuracy) == LE_OK)
    {
      // Process after successfully getting the horizontal speed
    }
    @endverbatim
  *
- * - taf_gnss_GetVerticalSpeed() -- Triggered inside PositionHandlerFunction() function
+ * - taf_locGnss_GetVerticalSpeed() -- Triggered inside PositionHandlerFunction() function
  *   to get vertical speed and its accuracy from the position sample reference.
  * @verbatim
    int32_t vSpeed = 0;
    int32_t vSpeedAccuracy = 0;
-   if(taf_gnss_GetVerticalSpeed(positionSampleRef,&vSpeed,&vSpeedAccuracy) == LE_OK)
+   if(taf_locGnss_GetVerticalSpeed(positionSampleRef,&vSpeed,&vSpeedAccuracy) == LE_OK)
    {
      // Process after successfully getting the vertical speed.
    }
    @endverbatim
  *
- * - taf_gnss_GetDirection() -- Triggered inside PositionHandlerFunction() function
+ * - taf_locGnss_GetDirection() -- Triggered inside PositionHandlerFunction() function
  *   to get direction and its accuracy from the position sample reference.
  * @verbatim
    uint32_t direction = 0;
    uint32_t directionAccuracy = 0;
-   if(taf_gnss_GetDirection(positionSampleRef,&direction,&directionAccuracy) == LE_OK)
+   if(taf_locGnss_GetDirection(positionSampleRef,&direction,&directionAccuracy) == LE_OK)
    {
      // Process after successfully getting the direction information.
    }
    @endverbatim
  *
- * - taf_gnss_GetSatellitesInfo() -- Triggered inside PositionHandlerFunction() function
+ * - taf_locGnss_GetSatellitesInfo() -- Triggered inside PositionHandlerFunction() function
  *   to get satellites information from the position sample reference.
  * @verbatim
-   uint16_t satIdPtr[TAF_GNSS_SV_INFO_MAX_LEN];
+   uint16_t satIdPtr[TAF_LOCGNSS_SV_INFO_MAX_LEN];
    size_t satIdNumElements = NUM_ARRAY_MEMBERS(satIdPtr);
-   taf_gnss_Constellation_t satConstPtr[TAF_GNSS_SV_INFO_MAX_LEN];
+   taf_locGnss_Constellation_t satConstPtr[TAF_LOCGNSS_SV_INFO_MAX_LEN];
    size_t satConstNumElements = NUM_ARRAY_MEMBERS(satConstPtr);
-   bool satUsedPtr[TAF_GNSS_SV_INFO_MAX_LEN];
+   bool satUsedPtr[TAF_LOCGNSS_SV_INFO_MAX_LEN];
    size_t satUsedNumElements = NUM_ARRAY_MEMBERS(satUsedPtr);
-   uint8_t satSnrPtr[TAF_GNSS_SV_INFO_MAX_LEN];
+   uint8_t satSnrPtr[TAF_LOCGNSS_SV_INFO_MAX_LEN];
    size_t satSnrNumElements = NUM_ARRAY_MEMBERS(satSnrPtr);
-   uint16_t satAzimPtr[TAF_GNSS_SV_INFO_MAX_LEN];
+   uint16_t satAzimPtr[TAF_LOCGNSS_SV_INFO_MAX_LEN];
    size_t satAzimNumElements = NUM_ARRAY_MEMBERS(satAzimPtr);
-   uint8_t satElevPtr[TAF_GNSS_SV_INFO_MAX_LEN];
+   uint8_t satElevPtr[TAF_LOCGNSS_SV_INFO_MAX_LEN];
    size_t satElevNumElements = NUM_ARRAY_MEMBERS(satElevPtr);
-   if(taf_gnss_GetSatellitesInfo(positionSampleRef,satIdPtr,&satIdNumElements
+   if(taf_locGnss_GetSatellitesInfo(positionSampleRef,satIdPtr,&satIdNumElements
                                                   ,satConstPtr,&satConstNumElements
                                                   ,satUsedPtr,&satUsedNumElements
                                                   ,satSnrPtr,&satSnrNumElements
@@ -555,113 +555,113 @@
    }
    @endverbatim
  *
- * - taf_gnss_GetSatellitesStatus() -- Triggered inside PositionHandlerFunction() function
+ * - taf_locGnss_GetSatellitesStatus() -- Triggered inside PositionHandlerFunction() function
  *   to get satellites status from the position sample reference.
  * @verbatim
    uint8_t satsInViewCount;
    uint8_t satsTrackingCount;
    uint8_t satsUsedCount;
-   if(taf_gnss_GetSatellitesStatus(positionSampleRef,&satsInViewCount,&satsTrackingCount,&satsUsedCount) == LE_OK)
+   if(taf_locGnss_GetSatellitesStatus(positionSampleRef,&satsInViewCount,&satsTrackingCount,&satsUsedCount) == LE_OK)
    {
      // Process after successfully getting the satellite status information.
    }
    @endverbatim
  *
- * - taf_gnss_ConfigureEngineState() -- Triggered to set the engine state for the given engine type.
+ * - taf_locGnss_ConfigureEngineState() -- Triggered to set the engine state for the given engine type.
  * @verbatim
-   if(taf_gnss_ConfigureEngineState(TAF_GNSS_ENGINE_TYPE_SPE,TAF_GNSS_ENGINE_STATE_SUSPENDED) == LE_OK)
+   if(taf_locGnss_ConfigureEngineState(TAF_LOCGNSS_ENGINE_TYPE_SPE,TAF_LOCGNSS_ENGINE_STATE_SUSPENDED) == LE_OK)
    {
      // Process after successfully configuring Engine state for the given Engine type
    }
    @endverbatim
  *
- * - taf_gnss_ConfigureRobustLocation() -- Triggered to enable or disable robust location while device is on E911.
+ * - taf_locGnss_ConfigureRobustLocation() -- Triggered to enable or disable robust location while device is on E911.
  * @verbatim
-   int enable = (1<<(TAF_GNSS_SB_CONSTELLATION_GPS-1));
+   int enable = (1<<(TAF_LOCGNSS_SB_CONSTELLATION_GPS-1));
    int enabled911 =1;
-   if(taf_gnss_ConfigureRobustLocation(enable,enabled911) == LE_OK)
+   if(taf_locGnss_ConfigureRobustLocation(enable,enabled911) == LE_OK)
    {
      // Process after successfully configuring configuring robust location.
    }
    @endverbatim
  *
- * - taf_gnss_RobustLocationInformation() -- Get robust location status and version.
+ * - taf_locGnss_RobustLocationInformation() -- Get robust location status and version.
  * @verbatim
    uint8_t enable;
    uint8_t enabled911;
    uint8_t majorVersion;
    uint8_t minorVersion;
-   if(taf_gnss_RobustLocationInformation(&enable,&enabled911, &majorVersion,&minorVersion) == LE_OK)
+   if(taf_locGnss_RobustLocationInformation(&enable,&enabled911, &majorVersion,&minorVersion) == LE_OK)
    {
      // Process after successfully getting Robust location information for Enable/Disable, 911 enable or disable, major and minor version numbers
    }
    @endverbatim
  *
- * - taf_gnss_DefaultSecondaryBandConstellations() -- Triggered to set the default secondary band constellations.
+ * - taf_locGnss_DefaultSecondaryBandConstellations() -- Triggered to set the default secondary band constellations.
  * @verbatim
-   if(taf_gnss_DefaultSecondaryBandConstellations() == LE_OK)
+   if(taf_locGnss_DefaultSecondaryBandConstellations() == LE_OK)
    {
      // Process after successfully setting default secondary Band constellations
    }
    @endverbatim
  *
- * - taf_gnss_RequestSecondaryBandConstellations() -- Triggered to get the secondary band constellations set.
+ * - taf_locGnss_RequestSecondaryBandConstellations() -- Triggered to get the secondary band constellations set.
  * @verbatim
    int32_t constellationSb=0;
-   if(taf_gnss_RequestSecondaryBandConstellations(&constellationSb)==LE_OK)
+   if(taf_locGnss_RequestSecondaryBandConstellations(&constellationSb)==LE_OK)
    {
      // Process after successfully getting secondary band constellations set
    }
    @endverbatim
  *
- * - taf_gnss_ConfigureSecondaryBandConstellations() -- Triggered to set the secondary band constellation using a bitmask.
+ * - taf_locGnss_ConfigureSecondaryBandConstellations() -- Triggered to set the secondary band constellation using a bitmask.
  * @verbatim
    uint32_t constellationSb = 1;
-   if(taf_gnss_ConfigureSecondaryBandConstellations(constellationSb)==LE_OK)
+   if(taf_locGnss_ConfigureSecondaryBandConstellations(constellationSb)==LE_OK)
    {
      // Process after successfully configuring secondary Band constellations
    }
    @endverbatim
  *
- * - taf_gnss_GetDilutionOfPrecision() -- Triggered inside PositionHandlerFunction() function
+ * - taf_locGnss_GetDilutionOfPrecision() -- Triggered inside PositionHandlerFunction() function
  *   to get DOP from the position sample reference.
  * @verbatim
    uint16_t dop;
-   taf_gnss_DopType_t dopType = TAF_GNSS_PDOP;
-   if(taf_gnss_GetDilutionOfPrecision(positionSampleRef,dopType,&dop) == LE_OK)
+   taf_locGnss_DopType_t dopType = TAF_LOCGNSS_PDOP;
+   if(taf_locGnss_GetDilutionOfPrecision(positionSampleRef,dopType,&dop) == LE_OK)
    {
      // Process after successfully getting the dilute of precision for dilute of precision type.
    }
    @endverbatim
  *
- * - taf_gnss_GetMagneticDeviation() -- Triggered inside the PositionHandlerFunction() function to
+ * - taf_locGnss_GetMagneticDeviation() -- Triggered inside the PositionHandlerFunction() function to
  *                                       get magnetic deviation from the position sample reference.
  * @verbatim
    int32_t magneticDeviation;
-   if(taf_gnss_GetMagneticDeviation(positionSampleRef,&magneticDeviation) == LE_OK)
+   if(taf_locGnss_GetMagneticDeviation(positionSampleRef,&magneticDeviation) == LE_OK)
    {
      // Process after successfully getting the magnetic deviation.
    }
    @endverbatim
  *
- * - taf_gnss_GetEllipticalUncertainty() -- Triggered inside the PositionHandlerFunction()
+ * - taf_locGnss_GetEllipticalUncertainty() -- Triggered inside the PositionHandlerFunction()
  *                                          function to get semi major and semi minor from positionSampleRef.
  * @verbatim
    uint32_t SemiMajor;
    uint32_t SemiMinor;
-   if(taf_gnss_GetEllipticalUncertainty(positionSampleRef,&SemiMajor, &SemiMinor) == LE_OK)
+   if(taf_locGnss_GetEllipticalUncertainty(positionSampleRef,&SemiMajor, &SemiMinor) == LE_OK)
    {
      // Process after successfully getting the elliptical uncertainty values.
    }
    @endverbatim
  *
- * - taf_gnss_SetDRConfig() -- Triggered to configure the dead reckoning parameters.
+ * - taf_locGnss_SetDRConfig() -- Triggered to configure the dead reckoning parameters.
  *                             By default all DRE parameters mask get enabled.
  * @verbatim
-   taf_gnss_DrParams_t *drParamsPtr;
+   taf_locGnss_DrParams_t *drParamsPtr;
    static le_mem_PoolRef_t DrFramePool = NULL;
-   DrFramePool = le_mem_CreatePool("DrframePool", sizeof(taf_gnss_DrParams_t));
-   drParamsPtr = (taf_gnss_DrParams_t*) le_mem_ForceAlloc(DrFramePool);
+   DrFramePool = le_mem_CreatePool("DrframePool", sizeof(taf_locGnss_DrParams_t));
+   drParamsPtr = (taf_locGnss_DrParams_t*) le_mem_ForceAlloc(DrFramePool);
    drParamsPtr->rollOffset = 1.2;
    drParamsPtr->yawOffset = 2.3;
    drParamsPtr->pitchOffset = 3.4;
@@ -670,274 +670,274 @@
    drParamsPtr->speedFactorUnc = 0.0;
    drParamsPtr->gyroFactor = 1.0;
    drParamsPtr->gyroFactorUnc = 0.0;
-   if(taf_gnss_SetDRConfig(drParamsPtr) == LE_OK)
+   if(taf_locGnss_SetDRConfig(drParamsPtr) == LE_OK)
    {
      // Process after successfully configuring the dead reckoning parameters with the default mask enabled.
    }
    le_mem_Release(drParamsPtr);
    @endverbatim
  *
- * - taf_gnss_SetLeverArmConfig() -- Triggered to configure the lever arm parameters.
+ * - taf_locGnss_SetLeverArmConfig() -- Triggered to configure the lever arm parameters.
  * @verbatim
-   taf_gnss_LeverArmParams_t *leverArmParamsPtr;
+   taf_locGnss_LeverArmParams_t *leverArmParamsPtr;
    static le_mem_PoolRef_t LevArmFramePool = NULL;
-   LevArmFramePool = le_mem_CreatePool("LevArmFramePool", sizeof(taf_gnss_LeverArmParams_t));
-   leverArmParamsPtr = (taf_gnss_LeverArmParams_t*) le_mem_ForceAlloc(LevArmFramePool);
+   LevArmFramePool = le_mem_CreatePool("LevArmFramePool", sizeof(taf_locGnss_LeverArmParams_t));
+   leverArmParamsPtr = (taf_locGnss_LeverArmParams_t*) le_mem_ForceAlloc(LevArmFramePool);
    leverArmParamsPtr->forwardOffsetMeters = 5.5;
    leverArmParamsPtr->sidewaysOffsetMeters = 1.2;
    leverArmParamsPtr->upOffsetMeters = 1.0;
-   leverArmParamsPtr->levArmType = TAF_GNSS_LEVER_ARM_TYPE_GNSS_TO_VRP;
-   if(taf_gnss_SetLeverArmConfig(leverArmParamsPtr) == LE_OK)
+   leverArmParamsPtr->levArmType = TAF_LOCGNSS_LEVER_ARM_TYPE_GNSS_TO_VRP;
+   if(taf_locGnss_SetLeverArmConfig(leverArmParamsPtr) == LE_OK)
    {
      // Process after successfully configuring the lever arm parameters.
    }
    le_mem_Release(leverArmParamsPtr);
    @endverbatim
  *
- * - taf_gnss_SetEngineType() -- Triggered to set an engine type.
+ * - taf_locGnss_SetEngineType() -- Triggered to set an engine type.
  * @verbatim
-   taf_gnss_EngineReportsType_t EngineType;
-   EngineType = TAF_GNSS_ENGINE_REPORT_TYPE_FUSED;
-   if(taf_gnss_SetEngineType(EngineType) == LE_OK)
+   taf_locGnss_EngineReportsType_t EngineType;
+   EngineType = TAF_LOCGNSS_ENGINE_REPORT_TYPE_FUSED;
+   if(taf_locGnss_SetEngineType(EngineType) == LE_OK)
    {
      // Process after successfully setting an engine type.
    }
    @endverbatim
  *
- * - taf_gnss_GetConformityIndex() -- Triggered inside the PositionHandlerFunction()
+ * - taf_locGnss_GetConformityIndex() -- Triggered inside the PositionHandlerFunction()
  *                                    function to get conformity index from the position sample reference.
  * @verbatim
    double indexPtr;
-   if(taf_gnss_GetConformityIndex(positionSampleRef,&indexPtr) == LE_OK)
+   if(taf_locGnss_GetConformityIndex(positionSampleRef,&indexPtr) == LE_OK)
    {
      // Process after successfully getting the conformity index.
    }
    @endverbatim
  *
- * - taf_gnss_GetCalibrationData() -- Triggered inside the PositionHandlerFunction()
+ * - taf_locGnss_GetCalibrationData() -- Triggered inside the PositionHandlerFunction()
  *                                    function to get calibration data from the position sample reference.
  * @verbatim
    uint32 calibPtr;
    uint8_t percentPtr;
-   if(taf_gnss_GetCalibrationData(positionSampleRef,&calibPtr,&percentPtr) == LE_OK)
+   if(taf_locGnss_GetCalibrationData(positionSampleRef,&calibPtr,&percentPtr) == LE_OK)
    {
      // Process after successfully getting the calibration status and confidence percentage.
    }
    @endverbatim
  *
- * - taf_gnss_GetBodyFrameData() -- Triggered inside the PositionHandlerFunction()
+ * - taf_locGnss_GetBodyFrameData() -- Triggered inside the PositionHandlerFunction()
  *                                  function to get body frame data from the positionSampleRef.
  * @verbatim
-   taf_gnss_KinematicsData_t *bodyFrameData;
+   taf_locGnss_KinematicsData_t *bodyFrameData;
    le_mem_PoolRef_t bodyFramePool = NULL;
-   bodyFramePool = le_mem_CreatePool("bodyFramePool", sizeof(taf_gnss_KinematicsData_t));
-   bodyFrameData = (taf_gnss_KinematicsData_t*) le_mem_ForceAlloc(bodyFramePool);
-   if(taf_gnss_GetBodyFrameData(positionSampleRef,bodyFrameData) == LE_OK)
+   bodyFramePool = le_mem_CreatePool("bodyFramePool", sizeof(taf_locGnss_KinematicsData_t));
+   bodyFrameData = (taf_locGnss_KinematicsData_t*) le_mem_ForceAlloc(bodyFramePool);
+   if(taf_locGnss_GetBodyFrameData(positionSampleRef,bodyFrameData) == LE_OK)
    {
      // Process after successfully getting the body frame parameters.
    }
    @endverbatim
  *
- * - taf_gnss_GetVRPBasedLLA() -- Triggered inside the PositionHandlerFunction()
+ * - taf_locGnss_GetVRPBasedLLA() -- Triggered inside the PositionHandlerFunction()
  *                                function to get VRP based LLA from the position sample reference.
  * @verbatim
    double vrpLatitude;
    double vrpLongitude;
    double vrpAltitude;
-   if(taf_gnss_GetVRPBasedLLA(positionSampleRef, &vrpLatitude,&vrpLongitude,&vrpAltitude) == LE_OK)
+   if(taf_locGnss_GetVRPBasedLLA(positionSampleRef, &vrpLatitude,&vrpLongitude,&vrpAltitude) == LE_OK)
    {
      // Process after successfully getting VRP based latitude, longitude, and altitude information.
    }
    @endverbatim
  *
- * - taf_gnss_GetVRPBasedVelocity() -- Triggered inside the PositionHandlerFunction()
+ * - taf_locGnss_GetVRPBasedVelocity() -- Triggered inside the PositionHandlerFunction()
  *                                     function to get VRP based velocity from the position sample reference.
  * @verbatim
    double eastVel;
    double northVel;
    double upVel;
-   if(taf_gnss_GetVRPBasedVelocity(positionSampleRef, &eastVel,&northVel,&upVel) == LE_OK)
+   if(taf_locGnss_GetVRPBasedVelocity(positionSampleRef, &eastVel,&northVel,&upVel) == LE_OK)
    {
      // Process after successfully getting VRP based east, north, and up velocity information.
    }
    @endverbatim
  *
- * - taf_gnss_GetSvUsedInPosition() -- Triggered inside the PositionHandlerFunction()
+ * - taf_locGnss_GetSvUsedInPosition() -- Triggered inside the PositionHandlerFunction()
  *                                     function to get SV used in position from the position sample reference.
  * @verbatim
-   taf_gnss_SvUsedInPosition_t *svData;
+   taf_locGnss_SvUsedInPosition_t *svData;
    le_mem_PoolRef_t svFramePool = NULL;
-   svFramePool = le_mem_CreatePool("svFramePool", sizeof(taf_gnss_SvUsedInPosition_t));
-   svData = (taf_gnss_SvUsedInPosition_t*) le_mem_ForceAlloc(svFramePool);
-   if(taf_gnss_GetSvUsedInPosition(positionSampleRef, svData) == LE_OK)
+   svFramePool = le_mem_CreatePool("svFramePool", sizeof(taf_locGnss_SvUsedInPosition_t));
+   svData = (taf_locGnss_SvUsedInPosition_t*) le_mem_ForceAlloc(svFramePool);
+   if(taf_locGnss_GetSvUsedInPosition(positionSampleRef, svData) == LE_OK)
    {
      // Process after successfully getting set of SVs that are used to calculate position.
    }
    @endverbatim
  *
- * - taf_gnss_GetSbasCorrection() -- Triggered inside the PositionHandlerFunction()
+ * - taf_locGnss_GetSbasCorrection() -- Triggered inside the PositionHandlerFunction()
  *                                   function to get SBAS correction from the position sample reference.
  * @verbatim
    uint32_t sbasMask;
-   if(taf_gnss_GetSbasCorrection(positionSampleRef, &sbasMask) == LE_OK)
+   if(taf_locGnss_GetSbasCorrection(positionSampleRef, &sbasMask) == LE_OK)
    {
      // Process after successfully getting the mask used to indicate SBAS corrections.
    }
    @endverbatim
  *
- * - taf_gnss_GetPositionTechnology() -- Triggered inside the PositionHandlerFunction()
+ * - taf_locGnss_GetPositionTechnology() -- Triggered inside the PositionHandlerFunction()
  *                                       function to get position technology from the position sample reference.
  * @verbatim
    uint32_t techMask;
-   if(taf_gnss_GetPositionTechnology(positionSampleRef,&techMask) == LE_OK)
+   if(taf_locGnss_GetPositionTechnology(positionSampleRef,&techMask) == LE_OK)
    {
      // Process after successfully getting position tech mask
    }
    @endverbatim
  *
- * - taf_gnss_GetLocationInfoValidity() -- Triggered inside the PositionHandlerFunction()
+ * - taf_locGnss_GetLocationInfoValidity() -- Triggered inside the PositionHandlerFunction()
  *                                         function to get location information validity from the position sample reference.
  * @verbatim
    uint32_t validityMask;
    uint64_t validityExMask;
-   if(taf_gnss_GetLocationInfoValidity(positionSampleRef, &validityMask,&validityExMask) == LE_OK)
+   if(taf_locGnss_GetLocationInfoValidity(positionSampleRef, &validityMask,&validityExMask) == LE_OK)
    {
      // Process after successfully getting the validity information
    }
    @endverbatim
  *
- * - taf_gnss_GetLocationOutputEngParams() -- Triggered inside the PositionHandlerFunction()
+ * - taf_locGnss_GetLocationOutputEngParams() -- Triggered inside the PositionHandlerFunction()
  *                                           function to get engine output parameters from the position sample reference.
  * @verbatim
    uint16_t engMask;
    uint16_t locationEngType;
-   if(taf_gnss_GetLocationOutputEngParams(positionSampleRef, &engMask,&locationEngType) == LE_OK)
+   if(taf_locGnss_GetLocationOutputEngParams(positionSampleRef, &engMask,&locationEngType) == LE_OK)
    {
      // Process after successfully getting the location engine mask and engine type parameters.
    }
    @endverbatim
  *
- * - taf_gnss_GetReliabilityInformation() -- Triggered inside the PositionHandlerFunction()
+ * - taf_locGnss_GetReliabilityInformation() -- Triggered inside the PositionHandlerFunction()
  *                                           function to get reliablity information from the position sample reference.
  * @verbatim
    uint16_t horireliability;
    uint16_t vertreliability;
-   if(taf_gnss_GetReliabilityInformation(positionSampleRef, &horireliability,&vertreliability) == LE_OK)
+   if(taf_locGnss_GetReliabilityInformation(positionSampleRef, &horireliability,&vertreliability) == LE_OK)
    {
      // Process after successfully getting the horizontal and vertical reliability information.
    }
    @endverbatim
  *
- * - taf_gnss_GetStdDeviationAzimuthInfo() -- Triggered inside the PositionHandlerFunction()
+ * - taf_locGnss_GetStdDeviationAzimuthInfo() -- Triggered inside the PositionHandlerFunction()
  *                                            function to get standard deviation and azimuth information
  *                                            from the position sample reference.
  * @verbatim
    double azimuth;
    double eastDev;
    double northDev;
-   if(taf_gnss_GetStdDeviationAzimuthInfo(positionSampleRef, &azimuth,&eastDev,&northDev) == LE_OK)
+   if(taf_locGnss_GetStdDeviationAzimuthInfo(positionSampleRef, &azimuth,&eastDev,&northDev) == LE_OK)
    {
      // Process after successfully getting the azimuth, east, and north deviation information.
    }
    @endverbatim
  *
- * - taf_gnss_GetRealTimeInformation() -- Triggered inside the PositionHandlerFunction()
+ * - taf_locGnss_GetRealTimeInformation() -- Triggered inside the PositionHandlerFunction()
  *                                        function to get real time information from the position sample reference.
  * @verbatim
    uint64_t realTime;
    uint64_t realTimeUnc;
-   if(taf_gnss_GetRealTimeInformation(positionSampleRef, &realTime,&realTimeUnc) == LE_OK)
+   if(taf_locGnss_GetRealTimeInformation(positionSampleRef, &realTime,&realTimeUnc) == LE_OK)
    {
      // Process after successfully getting elapsed real time and its uncertainity.
    }
    @endverbatim
  *
- * - taf_gnss_GetMeasurementUsageInfo() -- Triggered inside the PositionHandlerFunction()
+ * - taf_locGnss_GetMeasurementUsageInfo() -- Triggered inside the PositionHandlerFunction()
  *                                         function to get GNSS measurement usage information
  *                                         from the position sample reference.
  * @verbatim
-   taf_gnss_GnssMeasurementInfo_t measInfo[TAF_GNSS_MEASUREMENT_INFO_MAX];
-   size_t gnssMeasLen = TAF_GNSS_MEASUREMENT_INFO_MAX;
-   if(taf_gnss_GetMeasurementUsageInfo(positionSampleRef, measInfo, &gnssMeasLen) == LE_OK)
+   taf_locGnss_GnssMeasurementInfo_t measInfo[TAF_LOCGNSS_MEASUREMENT_INFO_MAX];
+   size_t gnssMeasLen = TAF_LOCGNSS_MEASUREMENT_INFO_MAX;
+   if(taf_locGnss_GetMeasurementUsageInfo(positionSampleRef, measInfo, &gnssMeasLen) == LE_OK)
    {
      // Process after successfully getting GNSS measurement information.
    }
    @endverbatim
  *
- * - taf_gnss_GetReportStatus() -- Triggered inside the PositionHandlerFunction()
+ * - taf_locGnss_GetReportStatus() -- Triggered inside the PositionHandlerFunction()
  *                                 function to get status of report in terms of how optimally
  *                                 the report was calculated by the engine from the position sample reference.
  * @verbatim
    int32_t reportStatus = -1;
-   if(taf_gnss_GetReportStatus(positionSampleRef, &reportStatus) == LE_OK)
+   if(taf_locGnss_GetReportStatus(positionSampleRef, &reportStatus) == LE_OK)
    {
      // Process after successfully getting the report status.
    }
    @endverbatim
  *
- * - taf_gnss_GetAltitudeMeanSeaLevel() -- Triggered inside the PositionHandlerFunction() function
+ * - taf_locGnss_GetAltitudeMeanSeaLevel() -- Triggered inside the PositionHandlerFunction() function
  *                                         to get altitude with respect to mean sea level in meters
  *                                         from the position sample reference.
  * @verbatim
    double altMSeaLevel;
-   if(taf_gnss_GetAltitudeMeanSeaLevel(positionSampleRef, &altMSeaLevel) == LE_OK)
+   if(taf_locGnss_GetAltitudeMeanSeaLevel(positionSampleRef, &altMSeaLevel) == LE_OK)
    {
      // Process after successfully getting the mean sea level.
    }
    @endverbatim
  *
- * - taf_gnss_GetSVIds() -- Triggered inside the PositionHandlerFunction() function
+ * - taf_locGnss_GetSVIds() -- Triggered inside the PositionHandlerFunction() function
  *                          to get GNSS Satellite Vehicles used in position data from the position sample reference.
  * @verbatim
-   uint16_t svIds[TAF_GNSS_MEASUREMENT_INFO_MAX];
-   size_t svIdsLen = TAF_GNSS_MEASUREMENT_INFO_MAX;
-   if(taf_gnss_GetSVIds(positionSampleRef, svIds, &svIdsLen) == LE_OK)
+   uint16_t svIds[TAF_LOCGNSS_MEASUREMENT_INFO_MAX];
+   size_t svIdsLen = TAF_LOCGNSS_MEASUREMENT_INFO_MAX;
+   if(taf_locGnss_GetSVIds(positionSampleRef, svIds, &svIdsLen) == LE_OK)
    {
      // Process after successfully getting the GNSS Satellite Vehicles used in position data.
    }
    @endverbatim
  *
- * - taf_gnss_GetDilutionOfPrecision() -- Gets the Dilution of Precision (DOP) paramters with a
+ * - taf_locGnss_GetDilutionOfPrecision() -- Gets the Dilution of Precision (DOP) paramters with a
  * resolution of 3 decimal places by default. This resolution can be modified by calling the
- * @c taf_gnss_SetDopResolution() function first.
+ * @c taf_locGnss_SetDopResolution() function first.
  *
- * - taf_gnss_SetDopResolution() -- Sets the resolution per client session.
+ * - taf_locGnss_SetDopResolution() -- Sets the resolution per client session.
  * @verbatim
-   static taf_gnss_Resolution_t DopRes = TAF_GNSS_RES_ONE_DECIMAL;
-   if(taf_gnss_SetDopResolution(DopRes) == LE_OK)
+   static taf_locGnss_Resolution_t DopRes = TAF_LOCGNSS_RES_ONE_DECIMAL;
+   if(taf_locGnss_SetDopResolution(DopRes) == LE_OK)
    {
      // Process after successfully setting the dilute of precision resolution
    }
    @endverbatim
  *
- * taf_gnss_SetDopResolution() and @c taf_gnss_GetDilutionOfPrecision() functions should be called
+ * taf_locGnss_SetDopResolution() and @c taf_locGnss_GetDilutionOfPrecision() functions should be called
  * in the same thread or client session.
  *
- * - taf_gnss_SetMinGpsWeek() -- Sets the minimum GPS week used by the modem GNSS standard
+ * - taf_locGnss_SetMinGpsWeek() -- Sets the minimum GPS week used by the modem GNSS standard
  * position engine (SPE). This API shall not be called when GNSS state is ACTIVE.
  * Behavior is not defined if client issues a second request of SetMinGpsWeek without waiting
  * for the previous SetMinGpsWeek to finish. Additionally minimum GPS week number shall NEVER
  * be in the future of the current GPS Week.
  * @verbatim
    uint16        minGpsWeek = 1;
-   if(taf_gnss_SetMinGpsWeek(minGpsWeek) == LE_OK)
+   if(taf_locGnss_SetMinGpsWeek(minGpsWeek) == LE_OK)
    {
      // Process after succesfully setting the minimum GPS week.
    }
    @endverbatim
  *
- * - taf_gnss_GetMinGpsWeek() -- Gets the minimum GPS week used by the modem GNSS standard
+ * - taf_locGnss_GetMinGpsWeek() -- Gets the minimum GPS week used by the modem GNSS standard
  * position engine (SPE).
  * @verbatim
    uint16        minGpsWeek;
-   if(taf_gnss_GetMinGpsWeek(&minGpsWeek) == LE_OK)
+   if(taf_locGnss_GetMinGpsWeek(&minGpsWeek) == LE_OK)
    {
      // Process after succesfully getting the minimum GPS week.
    }
    @endverbatim
  *
  * A handler function should be registered for location capability notification.
- * @ref taf_gnss_AddCapabilityChangeHandler() allows users to register a location capability handler.
+ * @ref taf_locGnss_AddCapabilityChangeHandler() allows users to register a location capability handler.
  *
  * When the capability of the GNSS stack changes, the handler is invoked to notify
  * the client about the update.
@@ -947,7 +947,7 @@
  * @verbatim
    static void CapabilityHandlerFunction
    (
-       taf_gnss_LocCapabilityType_t locCapability,
+       taf_locGnss_LocCapabilityType_t locCapability,
        void* contextPtr
    )
    {
@@ -958,18 +958,18 @@
  * @note If many applications register handlers for capability notifications, they
  *       will all receive it.
  *
- * An application may unregister a capability handler by calling @ref taf_gnss_RemoveCapabilityChangeHandler().
+ * An application may unregister a capability handler by calling @ref taf_locGnss_RemoveCapabilityChangeHandler().
  *
- * - taf_gnss_GetCapabilities() -- Gets the GNSS capability information.
+ * - taf_locGnss_GetCapabilities() -- Gets the GNSS capability information.
  * @verbatim
    uint64  locCapability;
-   if(taf_gnss_GetCapabilities(&locCapability) == LE_OK)
+   if(taf_locGnss_GetCapabilities(&locCapability) == LE_OK)
    {
      // Process after succesfully getting the GNSS capability information.
    }
    @endverbatim
  *
- * - taf_gnss_SetNmeaConfiguration() -- Sets the configuration for NMEA sentences that will be
+ * - taf_locGnss_SetNmeaConfiguration() -- Sets the configuration for NMEA sentences that will be
  * received by the clients via @ref NmeaHandler.
  *
  * Without prior invocation to this API, all NMEA sentences supported in the system will get generated and delivered to all the
@@ -977,10 +977,10 @@
  * across all clients and updating it will affect all clients.
  *
  * @verbatim
-   taf_gnss_NmeaBitMask_t nmeaMask = TAF_GNSS_NMEA_MASK_GPGGA | TAF_GNSS_NMEA_MASK_GPGNS;
-   taf_gnss_GeodeticDatumType_t datumType = TAF_GNSS_GEODETIC_TYPE_WGS_84;
-   taf_gnss_LocEngineType engineType = TAF_GNSS_LOC_REQ_ENGINE_FUSED_BIT
-   if(taf_gnss_SetNmeaConfiguration(nmeaMask, datumType, engineType) == LE_OK)
+   taf_locGnss_NmeaBitMask_t nmeaMask = TAF_LOCGNSS_NMEA_MASK_GPGGA | TAF_LOCGNSS_NMEA_MASK_GPGNS;
+   taf_locGnss_GeodeticDatumType_t datumType = TAF_LOCGNSS_GEODETIC_TYPE_WGS_84;
+   taf_locGnss_LocEngineType engineType = TAF_LOCGNSS_LOC_REQ_ENGINE_FUSED_BIT
+   if(taf_locGnss_SetNmeaConfiguration(nmeaMask, datumType, engineType) == LE_OK)
    {
      // Process after succesfully getting the the NMEA sentences.
    }
@@ -989,18 +989,18 @@
  * @note This API call is not incremental and the new NMEA configuration will completely overwrite
  *       the previous call to this API.
  *
- * - taf_gnss_GetXtraStatus() -- Gets whether the XTRA feature is enabled or not,
+ * - taf_locGnss_GetXtraStatus() -- Gets whether the XTRA feature is enabled or not,
  * XTRA data status, and the valid time in hours.
  *
  * @verbatim
-   taf_gnss_XtraStatusParams_t *XtraParamsPtr;
+   taf_locGnss_XtraStatusParams_t *XtraParamsPtr;
    le_result_t result = LE_FAULT;
    le_mem_PoolRef_t XtraFramePool = NULL;
-   XtraFramePool = le_mem_CreatePool("XtraFramePool", sizeof(taf_gnss_XtraStatusParams_t));
-   XtraParamsPtr = (taf_gnss_XtraStatusParams_t*) le_mem_ForceAlloc(XtraFramePool);
+   XtraFramePool = le_mem_CreatePool("XtraFramePool", sizeof(taf_locGnss_XtraStatusParams_t));
+   XtraParamsPtr = (taf_locGnss_XtraStatusParams_t*) le_mem_ForceAlloc(XtraFramePool);
    if(XtraParamsPtr != NULL)
    {
-       if(taf_gnss_GetXtraStatus(XtraParamsPtr) == LE_OK)
+       if(taf_locGnss_GetXtraStatus(XtraParamsPtr) == LE_OK)
        {
          // Process after successfully getting the XTRA data parameters.
        }
@@ -1008,31 +1008,31 @@
    le_mem_Release(XtraParamsPtr);
    @endverbatim
  *
- * - taf_gnss_GetGnssData() -- Gets GNSS data for data mask, jammer indication, and
+ * - taf_locGnss_GetGnssData() -- Gets GNSS data for data mask, jammer indication, and
  *   Automatic Gain Control (AGC) information.
  *
  * @verbatim
-   size_t maxSigTypes = TAF_GNSS_NUMBER_OF_SIGNAL_TYPES_MAX;
-   taf_gnss_GnssData_t gnssDataPtr[TAF_GNSS_NUMBER_OF_SIGNAL_TYPES_MAX];
-   if(taf_gnss_GetGnssData(positionSampleRef, gnssDataPtr, &maxSigTypes))
+   size_t maxSigTypes = TAF_LOCGNSS_NUMBER_OF_SIGNAL_TYPES_MAX;
+   taf_locGnss_GnssData_t gnssDataPtr[TAF_LOCGNSS_NUMBER_OF_SIGNAL_TYPES_MAX];
+   if(taf_locGnss_GetGnssData(positionSampleRef, gnssDataPtr, &maxSigTypes))
    {
      // Process after successfully getting data mask, jammer, and AGC information.
    }
    @endverbatim
  *
  *
- * - taf_gnss_SetDRConfigValidity() -- Sets the dead reckoning parameters validity mask.
+ * - taf_locGnss_SetDRConfigValidity() -- Sets the dead reckoning parameters validity mask.
  * @verbatim
-   taf_gnss_DRConfigValidityType_t drParamsMask;
-   taf_gnss_DrParams_t *drParamsPtr;
-   drParamsMask |= TAF_GNSS_BODY_TO_SENSOR_MOUNT_PARAMS_VALID;
-   drParamsMask |= TAF_GNSS_VEHICLE_SPEED_SCALE_FACTOR_VALID;
-   drParamsMask |= TAF_GNSS_VEHICLE_SPEED_SCALE_FACTOR_UNC_VALID;
-   drParamsMask |= TAF_GNSS_GYRO_SCALE_FACTOR_VALID;
-   drParamsMask |= TAF_GNSS_GYRO_SCALE_FACTOR_UNC_VALID;
+   taf_locGnss_DRConfigValidityType_t drParamsMask;
+   taf_locGnss_DrParams_t *drParamsPtr;
+   drParamsMask |= TAF_LOCGNSS_BODY_TO_SENSOR_MOUNT_PARAMS_VALID;
+   drParamsMask |= TAF_LOCGNSS_VEHICLE_SPEED_SCALE_FACTOR_VALID;
+   drParamsMask |= TAF_LOCGNSS_VEHICLE_SPEED_SCALE_FACTOR_UNC_VALID;
+   drParamsMask |= TAF_LOCGNSS_GYRO_SCALE_FACTOR_VALID;
+   drParamsMask |= TAF_LOCGNSS_GYRO_SCALE_FACTOR_UNC_VALID;
    static le_mem_PoolRef_t DrFramePool = NULL;
-   DrFramePool = le_mem_CreatePool("DrframePool", sizeof(taf_gnss_DrParams_t));
-   drParamsPtr = (taf_gnss_DrParams_t*) le_mem_ForceAlloc(DrFramePool);
+   DrFramePool = le_mem_CreatePool("DrframePool", sizeof(taf_locGnss_DrParams_t));
+   drParamsPtr = (taf_locGnss_DrParams_t*) le_mem_ForceAlloc(DrFramePool);
    drParamsPtr->rollOffset = 1.2;
    drParamsPtr->yawOffset = 2.3;
    drParamsPtr->pitchOffset = 3.4;
@@ -1041,37 +1041,37 @@
    drParamsPtr->speedFactorUnc = 0.0;
    drParamsPtr->gyroFactor = 1.0;
    drParamsPtr->gyroFactorUnc = 0.0;
-   if(taf_gnss_SetDRConfigValidity(drParamsMask) == LE_OK)
+   if(taf_locGnss_SetDRConfigValidity(drParamsMask) == LE_OK)
    {
      // Process after successfully setting the dead reckoning parameters validity mask.
    }
-   if(taf_gnss_SetDRConfig(drParamsPtr) == LE_OK)
+   if(taf_locGnss_SetDRConfig(drParamsPtr) == LE_OK)
    {
      // Process after successfully configuring the dead reckoning parameters with the mask enabled.
    }
    le_mem_Release(drParamsPtr);
    @endverbatim
  *
- * - taf_gnss_GetGptpTime() -- Gets Gptp time and its uncertainty
+ * - taf_locGnss_GetGptpTime() -- Gets Gptp time and its uncertainty
  *
  * @verbatim
    uint64_t gPtpTime;
    uint64_t gPtpTimeUnc;
-   if(taf_gnss_GetGptpTime(positionSampleRef,&gPtpTime,&gPtpTimeUnc))
+   if(taf_locGnss_GetGptpTime(positionSampleRef,&gPtpTime,&gPtpTimeUnc))
    {
      // Process after successfully getting Gptp time information.
    }
    @endverbatim
  *
- * @subsection taf_gnss_GetLeapSeconds Get leap seconds event information
+ * @subsection taf_locGnss_GetLeapSeconds Get leap seconds event information
  *
- * The leap seconds event information is retrieved by calling taf_gnss_GetLeapSeconds() API.
+ * The leap seconds event information is retrieved by calling taf_locGnss_GetLeapSeconds() API.
  * The result includes the current GPS time, current leap seconds, next leap second event time,
  * and next leap seconds.
  * Insertion of each UTC leap second is usually decided about six months in advance by the
  * International Earth Rotation and Reference Systems Service (IERS).
  *
- * @section taf_gnss_usage_flow Typical application call flow
+ * @section taf_locGnss_usage_flow Typical application call flow
  *
  * @image html location_usage_flow.jpg
  *
@@ -1141,7 +1141,7 @@ DEFINE NMEA_SENTENCES_MAX = 0xFFFFFFFF;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * TAF_GNSS_NMEA_MASK_PQXFI is deprecated.
+ * TAF_LOCGNSS_NMEA_MASK_PQXFI is deprecated.
  *
  */
 //--------------------------------------------------------------------------------------------------
@@ -1150,7 +1150,7 @@ DEFINE NMEA_MASK_PQXFI        = 0x4000;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Maximum value allowed for @ref taf_gnss_SetMinElevation
+ * Maximum value allowed for @ref taf_locGnss_SetMinElevation
  */
 //--------------------------------------------------------------------------------------------------
 DEFINE MIN_ELEVATION_MAX_DEGREE = 90;
@@ -1772,7 +1772,6 @@ FUNCTION le_result_t Stop
  *
  * @return
  *  - LE_FAULT         Failed.
- *  - LE_UNSUPPORTED   Not supported.
  *  - LE_NOT_PERMITTED The Location service state is not initialized, disabled, or active.
  *  - LE_OK            Succeeded.
  *
@@ -1851,7 +1850,7 @@ ENUM EngineType
  *
  * The supported NMEA sentence types depend on the platform.
  *
- * The bitmask values should be coherent with @ref TAF_GNSS_NMEA_SENTENCES_MAX
+ * The bitmask values should be coherent with @ref TAF_LOCGNSS_NMEA_SENTENCES_MAX
  */
 //--------------------------------------------------------------------------------------------------
 BITMASK NmeaBitMask
@@ -2040,20 +2039,20 @@ ENUM SbasBitMask {
 //--------------------------------------------------------------------------------------------------
 BITMASK LocationInfoValidity
 {
-    HAS_LAT_LONG_BIT,             ///< Valid latitude and longitude via @ref taf_gnss_GetLocation.
-    HAS_ALTITUDE_BIT,             ///< Valid altitude via @ref taf_gnss_GetAltitude.
-    HAS_SPEED_BIT,                ///< Valid speed  via @ref taf_gnss_GetHorizontalSpeed
-    HAS_HEADING_BIT,              ///< Valid heading via @ref taf_gnss_GetDirection
-    HAS_HORIZONTAL_ACCURACY_BIT,  ///< Valid horizontal accuracy via @ref taf_gnss_GetLocation
-    HAS_VERTICAL_ACCURACY_BIT,    ///< Valid vertical accuracy via @ref taf_gnss_GetAltitude
-    HAS_SPEED_ACCURACY_BIT,       ///< Valid speed accuracy via @ref taf_gnss_GetHorizontalSpeed
-    HAS_HEADING_ACCURACY_BIT,     ///< Valid heading accuracy via @ref taf_gnss_GetDirection
-    HAS_TIMESTAMP_BIT,            ///< Valid timestamp  via @ref taf_gnss_GetEpochTime
-    HAS_ELAPSED_REAL_TIME_BIT,    ///< Valid elapsed real time via @ref taf_gnss_GetRealTimeInformation
+    HAS_LAT_LONG_BIT,             ///< Valid latitude and longitude via @ref taf_locGnss_GetLocation.
+    HAS_ALTITUDE_BIT,             ///< Valid altitude via @ref taf_locGnss_GetAltitude.
+    HAS_SPEED_BIT,                ///< Valid speed  via @ref taf_locGnss_GetHorizontalSpeed
+    HAS_HEADING_BIT,              ///< Valid heading via @ref taf_locGnss_GetDirection
+    HAS_HORIZONTAL_ACCURACY_BIT,  ///< Valid horizontal accuracy via @ref taf_locGnss_GetLocation
+    HAS_VERTICAL_ACCURACY_BIT,    ///< Valid vertical accuracy via @ref taf_locGnss_GetAltitude
+    HAS_SPEED_ACCURACY_BIT,       ///< Valid speed accuracy via @ref taf_locGnss_GetHorizontalSpeed
+    HAS_HEADING_ACCURACY_BIT,     ///< Valid heading accuracy via @ref taf_locGnss_GetDirection
+    HAS_TIMESTAMP_BIT,            ///< Valid timestamp  via @ref taf_locGnss_GetEpochTime
+    HAS_ELAPSED_REAL_TIME_BIT,    ///< Valid elapsed real time via @ref taf_locGnss_GetRealTimeInformation
     HAS_ELAPSED_REAL_TIME_UNC_BIT,///< Valid elapsed real time uncertainty via
-                                  ///  @ref taf_gnss_GetRealTimeInformation
-    HAS_GPTP_TIME_BIT,            ///< Valid gptp time via @ref taf_gnss_GetGptpTime
-    HAS_GPTP_TIME_UNC_BIT         ///< Valid gptp time uncertainity via @ref taf_gnss_GetGptpTime
+                                  ///  @ref taf_locGnss_GetRealTimeInformation
+    HAS_GPTP_TIME_BIT,            ///< Valid gptp time via @ref taf_locGnss_GetGptpTime
+    HAS_GPTP_TIME_UNC_BIT         ///< Valid gptp time uncertainity via @ref taf_locGnss_GetGptpTime
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -2064,67 +2063,67 @@ BITMASK LocationInfoValidity
 ENUM LocationInfoExValidity
 {
     HAS_ALTITUDE_MEAN_SEA_LEVEL,       ///< Valid altitude mean sea level.
-                                       ///  via @ref taf_gnss_GetAltitudeMeanSeaLevel
+                                       ///  via @ref taf_locGnss_GetAltitudeMeanSeaLevel
     HAS_DOP,                           ///< Valid PDOP, HDOP, and VDOP.
-                                       ///  via @ref taf_gnss_GetDilutionOfPrecision
+                                       ///  via @ref taf_locGnss_GetDilutionOfPrecision
     HAS_MAGNETIC_DEVIATION,            ///< Valid magnetic deviation.
-                                       ///  via @ref taf_gnss_GetMagneticDeviation.
+                                       ///  via @ref taf_locGnss_GetMagneticDeviation.
     HAS_HOR_RELIABILITY,               ///< Valid horizontal reliability.
-                                       ///  via @ref taf_gnss_GetReliabilityInformation
+                                       ///  via @ref taf_locGnss_GetReliabilityInformation
     HAS_VER_RELIABILITY,               ///< Valid vertical reliability.
-                                       ///  via @ref taf_gnss_GetReliabilityInformation
+                                       ///  via @ref taf_locGnss_GetReliabilityInformation
     HAS_HOR_ACCURACY_ELIP_SEMI_MAJOR,  ///< Valid elipsode semi major.
-                                       ///  via @ref taf_gnss_GetEllipticalUncertainty
+                                       ///  via @ref taf_locGnss_GetEllipticalUncertainty
     HAS_HOR_ACCURACY_ELIP_SEMI_MINOR,  ///< Valid elipsode semi minor.
-                                       ///  via @ref taf_gnss_GetEllipticalUncertainty
+                                       ///  via @ref taf_locGnss_GetEllipticalUncertainty
     HAS_HOR_ACCURACY_ELIP_AZIMUTH,     ///< Valid accuracy elipsode azimuth.
-                                       ///  via @ref taf_gnss_GetStdDeviationAzimuthInfo
+                                       ///  via @ref taf_locGnss_GetStdDeviationAzimuthInfo
     HAS_GNSS_SV_USED_DATA,             ///< Valid GNSS SV information in pos data including
                                        ///  measurement information
-                                       ///  via @ref taf_gnss_GetSvUsedInPosition.
+                                       ///  via @ref taf_locGnss_GetSvUsedInPosition.
     HAS_NAV_SOLUTION_MASK,             ///< Valid navSolutionMask.
-    HAS_POS_TECH_MASK,                 ///< Valid LocPosTechMask
-                                       ///  via @ref taf_gnss_GetPositionTechnology
+    HAS_POS_TECH_MASK,                 ///< Valid locGnssTechMask
+                                       ///  via @ref taf_locGnss_GetPositionTechnology
     HAS_SV_SOURCE_INFO,                ///< Valid LocSvInfoSource.
     HAS_POS_DYNAMICS_DATA,             ///< Valid position dynamics data.
     HAS_EXT_DOP,                       ///< Valid GDOP and TDOP.
     HAS_NORTH_STD_DEV,                 ///< Valid North standard deviation
-                                       ///  via @ref taf_gnss_GetStdDeviationAzimuthInfo
+                                       ///  via @ref taf_locGnss_GetStdDeviationAzimuthInfo
     HAS_EAST_STD_DEV,                  ///< Valid East standard deviation
-                                       ///  via @ref taf_gnss_GetStdDeviationAzimuthInfo
+                                       ///  via @ref taf_locGnss_GetStdDeviationAzimuthInfo
     HAS_NORTH_VEL,                     ///< Valid North Velocity
-                                       /// via @ref taf_gnss_GetVRPBasedVelocity
+                                       /// via @ref taf_locGnss_GetVRPBasedVelocity
     HAS_EAST_VEL,                      ///< Valid East Velocity
-                                       ///  via @ref taf_gnss_GetVRPBasedVelocity
+                                       ///  via @ref taf_locGnss_GetVRPBasedVelocity
     HAS_UP_VEL,                        ///< Valid Up Velocity
-                                       ///  via @ref taf_gnss_GetVRPBasedVelocity
+                                       ///  via @ref taf_locGnss_GetVRPBasedVelocity
     HAS_NORTH_VEL_UNC,                 ///< Valid North Velocity Uncertainty.
     HAS_EAST_VEL_UNC,                  ///< Valid East Velocity Uncertainty.
     HAS_UP_VEL_UNC,                    ///< Valid Up Velocity Uncertainty.
     HAS_LEAP_SECONDS,                  ///< Valid leap seconds information
-                                       ///  via @ref taf_gnss_GetGpsLeapSeconds
+                                       ///  via @ref taf_locGnss_GetGpsLeapSeconds
     HAS_TIME_UNC,                      ///< Valid timeUncMs
-                                       ///  via @ref taf_gnss_GetTimeAccuracy
+                                       ///  via @ref taf_locGnss_GetTimeAccuracy
     HAS_NUM_SV_USED_IN_POSITION,       ///< Valid number of SV used
-                                       ///  via @ref taf_gnss_GetSvUsedInPosition
+                                       ///  via @ref taf_locGnss_GetSvUsedInPosition
     HAS_CALIBRATION_CONFIDENCE_PERCENT,///< Valid sensor calibrationConfidencePercent
-                                       ///  via @ref taf_gnss_GetCalibrationData
+                                       ///  via @ref taf_locGnss_GetCalibrationData
     HAS_CALIBRATION_STATUS,            ///< Valid sensor calibrationConfidence
-                                       ///  via @ref taf_gnss_GetCalibrationData
+                                       ///  via @ref taf_locGnss_GetCalibrationData
     HAS_OUTPUT_ENG_TYPE,               ///< Valid output engine type
-                                       ///  via @ref taf_gnss_GetLocationOutputEngParams
+                                       ///  via @ref taf_locGnss_GetLocationOutputEngParams
     HAS_OUTPUT_ENG_MASK,               ///< Valid output engine mask.
-                                       ///  via @ref taf_gnss_GetLocationOutputEngParams
+                                       ///  via @ref taf_locGnss_GetLocationOutputEngParams
     HAS_CONFORMITY_INDEX_FIX,          ///< Valid conformity index
-                                       ///  via @ref taf_gnss_GetConformityIndex
+                                       ///  via @ref taf_locGnss_GetConformityIndex
     HAS_LLA_VRP_BASED,                 ///< Valid LLA VRP based
-                                       ///  via @ref taf_gnss_GetVRPBasedLLA
+                                       ///  via @ref taf_locGnss_GetVRPBasedLLA
     HAS_ENU_VELOCITY_VRP_BASED,        ///< Valid ENU VRP based
-                                       ///  via @ref taf_gnss_GetVRPBasedVelocity
+                                       ///  via @ref taf_locGnss_GetVRPBasedVelocity
     HAS_ALTITUDE_TYPE,                 ///< Valid altitude type
-                                       ///  via @ref taf_gnss_AltType
+                                       ///  via @ref taf_locGnss_AltType
     HAS_REPORT_STATUS,                 ///< Valid report status
-                                       ///  via @ref taf_gnss_GetReportStatus
+                                       ///  via @ref taf_locGnss_GetReportStatus
     HAS_INTEGRITY_RISK_USED,           ///< Valid integrity risk.
     HAS_PROTECT_LEVEL_ALONG_TRACK,     ///< Valid protect level along track.
     HAS_PROTECT_LEVEL_CROSS_TRACK,     ///< Valid protect level cross track.
@@ -2378,7 +2377,7 @@ STRUCT LeverArmParams
 STRUCT KinematicsData
 {
     uint64 bodyFrameDataMask; ///< The valid bits of the body frame data
-                              /// via @ref taf_gnss_GetBodyFrameData
+                              /// via @ref taf_locGnss_GetBodyFrameData
     double longAccel;         ///< Forward acceleration in body frame (meter/second^2).
     double latAccel;          ///< Sideward acceleration in body frame (meter/second^2).
     double vertAccel;         ///< Vertical acceleration in body frame (meter/second^2).
@@ -2432,11 +2431,11 @@ STRUCT SvUsedInPosition
 
 //------------------------------------------------------------------------------------------------
 /** Specify the satellite vehicle measurements that are used
- *  to calculate location in @ref taf_gnss_GetMeasurementUsageInfo.
+ *  to calculate location in @ref taf_locGnss_GetMeasurementUsageInfo.
  */
 //------------------------------------------------------------------------------------------------
 STRUCT GnssMeasurementInfo {
-  uint32 gnssSignalType;        ///< @ref taf_gnss_GetMeasurementUsageInfo
+  uint32 gnssSignalType;        ///< @ref taf_locGnss_GetMeasurementUsageInfo
   GnssSystem gnssConstellation; ///< Specifies GNSS Constellation Type
 
   uint16 gnssSvId;              ///< GNSS SV ID
@@ -2463,10 +2462,10 @@ STRUCT XtraStatusParams
                               ///  download is enabled or disabled.
     uint32 xtraDataStatus;    ///< XTRA assistance data status.
                               ///  If XTRA assistance data download is not enabled,
-                              ///  this field will be set to TAF_GNSS_XTRA_DATA_STATUS_UNKNOWN.
+                              ///  this field will be set to TAF_LOCGNSS_XTRA_DATA_STATUS_UNKNOWN.
     uint32 xtraValidForHours; ///< Number of hours that XTRA assistance data will
                               ///  remain valid. This field will be valid when xtraDataStatus
-                              ///  is set to TAF_GNSS_XTRA_DATA_STATUS_VALID. For all other
+                              ///  is set to TAF_LOCGNSS_XTRA_DATA_STATUS_VALID. For all other
                               ///  XtraDataStatus, this field will be set to 0.
 };
 
@@ -2496,9 +2495,9 @@ EVENT Nmea
  * Gets the status of the Location service.
  *
  * @return
- * - TAF_GNSS_STATE_ACTIVE   The Location service is active.
- * - TAF_GNSS_STATE_READY    The Location service is ready.
- * - TAF_GNSS_STATE_DISABLED The Location service is disabled.
+ * - TAF_LOCGNSS_STATE_ACTIVE   The Location service is active.
+ * - TAF_LOCGNSS_STATE_READY    The Location service is ready.
+ * - TAF_LOCGNSS_STATE_DISABLED The Location service is disabled.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION State GetState
@@ -2588,7 +2587,7 @@ FUNCTION le_result_t GetTtff
  *       all satellite parameters (satConst[], satSnr[], satAzim[], satElev[]) are fixed to 0.
  *
  * @note For LE_OUT_OF_RANGE returned code, invalid value depends on the field type:
- * UINT16_MAX for satId, TAF_GNSS_SV_CONSTELLATION_UNDEFINED for satConst, false for satUsed,
+ * UINT16_MAX for satId, TAF_LOCGNSS_SV_CONSTELLATION_UNDEFINED for satConst, false for satUsed,
  * UINT8_MAX for satSnr, UINT16_MAX for satAzim, and UINT8_MAX for satElev.
  *
  * @note In case the function returns LE_OUT_OF_RANGE, some of the retrieved parameters may be
@@ -2661,7 +2660,7 @@ FUNCTION le_result_t GetEpochTime
  * @return LE_FAULT            Failed.
  *
  * @note The function sets the same resolution to all DOP values returned by
- *       taf_gnss_GetDilutionOfPrecision(). The resolution setting takes effect immediately.
+ *       taf_locGnss_GetDilutionOfPrecision(). The resolution setting takes effect immediately.
  *
  * @note The resolution setting is done per client session.
  */
@@ -2682,7 +2681,7 @@ FUNCTION le_result_t SetDopResolution
  *
  *
  * @note The DOP value is given with 3 decimal places by default, i.e., DOP value 2200 = 2.200
- *       The resolution can be modified by calling the @c taf_gnss_SetDopResolution() function.
+ *       The resolution can be modified by calling the @c taf_locGnss_SetDopResolution() function.
  *
  * @note If the caller passes an invalid position sample reference to this function,
  *       it is a fatal error and the client will be killed.
@@ -2749,12 +2748,9 @@ FUNCTION le_result_t GetGpsTime
  * @return
  *  - LE_OK             Succeeded.
  *  - LE_FAULT          Failed.
- *  - LE_UNSUPPORTED    Not supported.
- *  - LE_TIMEOUT        Time-out occurred.
  *  - LE_NOT_PERMITTED  The Location service state is not ready.
  *  - LE_OUT_OF_RANGE   Acquisition rate value is equal to zero.
  *
- * @warning This function may be subject to limitations depending on the platform.
  *
  * @warning The settings are platform dependent.
  */
@@ -2817,8 +2813,8 @@ FUNCTION le_result_t ForceFactoryRestart
  *  - LE_NOT_PERMITTED The Location service state is not enabled or not started.
  *  - LE_OK            Succeeded.
  *
- * @note This API can be used to restart the Location service. It is equivalent calling taf_gnss_Stop()
- *       and taf_gnss_Start().
+ * @note This API can be used to restart the Location service. It is equivalent calling taf_locGnss_Stop()
+ *       and taf_locGnss_Start().
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ForceHotRestart
@@ -2830,7 +2826,8 @@ FUNCTION le_result_t ForceHotRestart
  * Returns a bitmask containing all satellite constellations supported on this platform.
  *
  * @return LE_OK               Succeeded.
- * @return LE_UNSUPPORTED      Not supported on this platform.
+ * @return LE_NOT_PERMITTED    The Location service state is not enabled or not started.
+ * @return LE_FAULT            Failed.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetSupportedConstellations
@@ -2846,8 +2843,8 @@ FUNCTION le_result_t GetSupportedConstellations
  * @return
  *  - LE_OK           Succeeded.
  *  - LE_FAULT        Failed.
- *  - LE_OUT_OF_RANGE The minimum elevation value is above the range.
- *  - LE_UNSUPPORTED  Not supported.
+ *  - LE_OUT_OF_RANGE The minimum elevation value is above the range[0,90].
+ *  - LE_NOT_PERMITTED The Location service state is not enabled or not started.
  *
  * @warning The settings are platform dependent.
  */
@@ -2864,7 +2861,9 @@ FUNCTION le_result_t SetMinElevation
  * @return
  *  - LE_OK           Succeeded.
  *  - LE_FAULT        Failed.
- *  - LE_UNSUPPORTED  Not supported.
+ *  - LE_BAD_PARAMETER Invalid start mode.
+ *  - LE_DUPLICATE     The Location service is already started.
+ *  - LE_NOT_PERMITTED The Location service state is not enabled or not started.
  *
  * @warning The settings are platform dependent.
  */
@@ -2882,7 +2881,7 @@ FUNCTION le_result_t StartMode
  * @return
  *  - LE_OK          Succeeded.
  *  - LE_FAULT       Failed.
- *  - LE_UNSUPPORTED Not supported.
+ *  - LE_NOT_PERMITTED The Location service state is not enabled or not started.
  *
  * @note If the caller passes n null pointer to this function, it is a fatal error and the
  *       client will be killed.
@@ -2899,7 +2898,7 @@ FUNCTION le_result_t GetMinElevation
  *
  * @return
  *  - LE_OK             Succeeded.
- *  - LE_BAD_PARAMETER  Bitmask exceeds the maximal value.
+ *  - LE_BAD_PARAMETER  Bitmask value is zero.
  *  - LE_FAULT          Failed.
  *  - LE_NOT_PERMITTED  Location service is not ready.
  *
@@ -2944,7 +2943,7 @@ FUNCTION le_result_t GetNmeaSentences
 /**
  * Sets the dead reckoning configuration parameters with default mask enabled.
  * By default all DRE parameters mask get enabled while triggering this API. To change the mask
- * taf_gnss_SetDRConfigValidity() API can be called to set particular DRE parameter mask.
+ * taf_locGnss_SetDRConfigValidity() API can be called to set particular DRE parameter mask.
  * The mask gets updated and this API can be called to configure the DRE parameters with the updated mask.
  *
  * @return
@@ -3320,7 +3319,7 @@ FUNCTION le_result_t GetSvUsedInPosition
 FUNCTION le_result_t GetSbasCorrection
 (
     Sample positionSampleRef IN,    ///< Position sample reference.
-    uint32 sbasMaskPtr OUT          ///< SBAS bit mask @ref taf_gnss_SbasBitMask.
+    uint32 sbasMaskPtr OUT          ///< SBAS bit mask @ref taf_locGnss_SbasBitMask.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -3339,7 +3338,7 @@ FUNCTION le_result_t GetSbasCorrection
 FUNCTION le_result_t GetPositionTechnology
 (
     Sample positionSampleRef IN,    ///< Position sample reference.
-    uint32 techMaskPtr OUT          ///< Technology mask @ref taf_gnss_LocationTechnologyType.
+    uint32 techMaskPtr OUT          ///< Technology mask @ref taf_locGnss_LocationTechnologyType.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -3381,7 +3380,7 @@ FUNCTION le_result_t GetLocationOutputEngParams
     Sample positionSampleRef IN,    ///< Position sample reference.
     uint16 engMaskPtr OUT,          ///< Engine type bit mask. @ref EngineMask
                                     ///  This parameter is valid only when engine
-                                    ///  type is TAF_GNSS_LOC_OUTPUT_ENGINE_FUSED.
+                                    ///  type is TAF_LOCGNSS_LOC_OUTPUT_ENGINE_FUSED.
     uint16 engTypePtr OUT           ///< Location engine type. @ref LocationAggregationType
 );
 
@@ -3495,7 +3494,7 @@ FUNCTION le_result_t GetMeasurementUsageInfo
 FUNCTION le_result_t GetReportStatus
 (
     Sample positionSampleRef IN,    ///< Position sample reference.
-    int32 reportStatus OUT          ///< Engine type bit mask @ref taf_gnss_ReportStatus.
+    int32 reportStatus OUT          ///< Engine type bit mask @ref taf_locGnss_ReportStatus.
 );
 
 //--------------------------------------------------------------------------------------------------

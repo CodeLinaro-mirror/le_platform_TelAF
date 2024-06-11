@@ -24,34 +24,146 @@
 using namespace std;
 using namespace telux::tafsvc;
 
-LE_MEM_DEFINE_STATIC_POOL(ubiDevListPool, TAF_HMS_MAX_LIST_POOL_SIZE, sizeof(taf_hms_ubiDevInfoList_t));
-LE_MEM_DEFINE_STATIC_POOL(ubiDevInfoPool, TAF_HMS_MAX_LIST_POOL_SIZE, sizeof(taf_hms_ubiDevInfo_t));
-LE_MEM_DEFINE_STATIC_POOL(ubiVolListPool, TAF_HMS_MAX_LIST_POOL_SIZE, sizeof(taf_hms_ubiVolInfoList_t));
-LE_MEM_DEFINE_STATIC_POOL(ubiVolInfoPool, TAF_HMS_MAX_LIST_POOL_SIZE, sizeof(taf_hms_ubiVolInfo_t));
-LE_MEM_DEFINE_STATIC_POOL(mtdListPool, TAF_HMS_MAX_LIST_POOL_SIZE, sizeof(taf_hms_mtdInfoList_t));
-LE_MEM_DEFINE_STATIC_POOL(mtdInfoPool, TAF_HMS_MAX_LIST_POOL_SIZE, sizeof(taf_hms_mtdInfo_t));
+le_timer_Ref_t HmsTimerRef = NULL;
+le_sem_Ref_t SemRef = NULL;
+le_thread_Ref_t ThreadRef = NULL;
+
+LE_MEM_DEFINE_STATIC_POOL(UbiDevListPool, TAF_HMS_MAX_LIST_POOL_SIZE,
+    sizeof(taf_hms_ubiDevInfoList_t));
+LE_MEM_DEFINE_STATIC_POOL(UbiDevInfoPool, TAF_HMS_MAX_LIST_POOL_SIZE,
+    sizeof(taf_hms_ubiDevInfo_t));
+LE_MEM_DEFINE_STATIC_POOL(UbiVolListPool, TAF_HMS_MAX_LIST_POOL_SIZE,
+    sizeof(taf_hms_ubiVolInfoList_t));
+LE_MEM_DEFINE_STATIC_POOL(UbiVolInfoPool, TAF_HMS_MAX_LIST_POOL_SIZE,
+    sizeof(taf_hms_ubiVolInfo_t));
+LE_MEM_DEFINE_STATIC_POOL(MtdListPool, TAF_HMS_MAX_LIST_POOL_SIZE, sizeof(taf_hms_mtdInfoList_t));
+LE_MEM_DEFINE_STATIC_POOL(MtdInfoPool, TAF_HMS_MAX_LIST_POOL_SIZE, sizeof(taf_hms_mtdInfo_t));
 
 
-LE_REF_DEFINE_STATIC_MAP(ubiDevListRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
-LE_REF_DEFINE_STATIC_MAP(ubiDevRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
-LE_REF_DEFINE_STATIC_MAP(ubiVolListRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
-LE_REF_DEFINE_STATIC_MAP(ubiVolRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
-LE_REF_DEFINE_STATIC_MAP(mtdListRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
-LE_REF_DEFINE_STATIC_MAP(mtdRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
+LE_REF_DEFINE_STATIC_MAP(UbiDevListRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
+LE_REF_DEFINE_STATIC_MAP(UbiDevRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
+LE_REF_DEFINE_STATIC_MAP(UbiVolListRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
+LE_REF_DEFINE_STATIC_MAP(UbiVolRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
+LE_REF_DEFINE_STATIC_MAP(MtdListRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
+LE_REF_DEFINE_STATIC_MAP(MtdRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
 
+
+//--------------------------------------------------------------------------------------------------
 /**
- * Returns HMS instance
+ * Returns HMS instance.
  */
+//--------------------------------------------------------------------------------------------------
 taf_Hms &taf_Hms::GetInstance()
 {
     static taf_Hms instance;
     return instance;
 }
 
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Function to read CPU usage from /proc/stat.
+ */
+//--------------------------------------------------------------------------------------------------
+static taf_hms_CPUCore_t GetCpuUsage()
+{
+    FILE *file = fopen("/proc/stat", "r");
+    if (!file)
+    {
+        LE_FATAL("Failed to fopen /proc/stat");
+    }
+
+    taf_hms_CPUCore_t usage;
+    fscanf(file, "cpu %d %d %d %d %d %d %d %d %d %d",
+        &usage.user, &usage.nice, &usage.system, &usage.idle, &usage.iowait,
+        &usage.irq, &usage.softirq, &usage.steal, &usage.guest, &usage.guest_nice);
+    fclose(file);
+    return usage;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Computes the total CPU time.
+ */
+//--------------------------------------------------------------------------------------------------
+static double GetTotalTime(const taf_hms_CPUCore_t *usage)
+{
+    return usage->user + usage->nice + usage->system + usage->idle +
+           usage->iowait + usage->irq + usage->softirq + usage->steal +
+           usage->guest + usage->guest_nice;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Computes the idle CPU time.
+ */
+//--------------------------------------------------------------------------------------------------
+static double GetIdleTime(const taf_hms_CPUCore_t *usage)
+{
+    return usage->idle + usage->iowait;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Calculates the CPU usage percentage based on the differences in CPU times.
+ */
+//--------------------------------------------------------------------------------------------------
+static double CalculateCpuUsage(const taf_hms_CPUCore_t *start, const taf_hms_CPUCore_t *end)
+{
+    float start_total = GetTotalTime(start);
+    float end_total = GetTotalTime(end);
+    float total_diff = end_total - start_total;
+
+    float start_idle = GetIdleTime(start);
+    float end_idle = GetIdleTime(end);
+    float idle_diff = end_idle - start_idle;
+
+    return 100.0 * (total_diff - idle_diff) / total_diff;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Timer handler.
+ */
+//--------------------------------------------------------------------------------------------------
+static void TimerExpiryHandler(le_timer_Ref_t timerRef)
+{
+    LE_DEBUG("Timer expired, posting semaphore");
+    le_sem_Post(SemRef);
+    le_timer_Delete(timerRef);
+    le_thread_Exit(0);
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sub thread.
+ */
+//--------------------------------------------------------------------------------------------------
+static void* SubThreadMain(void* context)
+{
+    LE_INFO("Sub-thread started, starting timer");
+
+    // Create and configure the timer
+    HmsTimerRef = le_timer_Create("hmsTimer");     //create timer
+    le_timer_SetMsInterval(HmsTimerRef, 1000);        //update every 1 seconds
+    le_timer_SetHandler(HmsTimerRef, TimerExpiryHandler);
+    le_timer_SetRepeat(HmsTimerRef, 1);                   //set no repeat
+    le_timer_Start(HmsTimerRef);
+    le_event_RunLoop();
+    return NULL;
+}
+
+
 //--------------------------------------------------------------------------------------------------
 /**
  ** Gets the total cpu usage from " /proc/stat ".
- **
+ ** Calculates the total CPU usage by measuring the difference in CPU times over a 1-second
+ **  interval.
  ** @return
  ** - LE_FAULT         Failed.
  ** - LE_OK            Succeeded.
@@ -62,38 +174,32 @@ le_result_t taf_Hms::GetCpuLoad
     double* cpuCurrentLoadPtr
 )
 {
-    FILE *file;
-    char buffer[128];
-    uint32_t user, nice, system, idle;
+    // Get CPU usage at "START" point
+    taf_hms_CPUCore_t start_usage = GetCpuUsage();
 
-    file = fopen("/proc/stat", "r");
-    if (file == NULL) {
-        LE_ERROR("Error opening /proc/stat");
-        return LE_FAULT;
-    }
+    // Create a semaphore
+    SemRef = le_sem_Create("Semaphore", 0);
 
-    // Read the first line of /proc/stat
-    if (fgets(buffer, sizeof(buffer), file) == NULL) {
-       LE_ERROR("Error reading /proc/stat");
-        fclose(file);
-        return LE_FAULT;
-    }
+    // Create and start the sub-thread
+    ThreadRef = le_thread_Create("SubThread", SubThreadMain, NULL);
+    le_thread_Start(ThreadRef);
 
-    // Parse the CPU usage information
-    sscanf(buffer, "cpu %d %d %d %d", &user, &nice, &system, &idle);
+    // Main thread waits for the semaphore to be posted
+    le_sem_Wait(SemRef);
 
-    fclose(file);
+    // Delete semaphore.
+    le_sem_Delete(SemRef);
 
-    // Calculate CPU idle time as a percentage
-    uint32_t total = user + nice + system + idle;
-    double idle_percentage = ((double)idle / total) * 100;
-    double currentCPULoad = 100.0 - idle_percentage;
+    // Get CPU usage at "END" point
+    taf_hms_CPUCore_t end_usage = GetCpuUsage();
 
-    *cpuCurrentLoadPtr = currentCPULoad;
-    LE_INFO("Current CPU Load: %.2f%%\n", currentCPULoad);
+    // Calculate and log the CPU usage difference
+    double cpu_usage = CalculateCpuUsage(&start_usage, &end_usage);
+    *cpuCurrentLoadPtr = cpu_usage;
+    LE_DEBUG("Total current CPU usage: %.2f%%\n", cpu_usage);
+
     return LE_OK;
 }
-
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -115,14 +221,17 @@ uint32_t taf_Hms::GetCpuCoreNum
 
     // Open /proc/cpuinfo file
     fp = fopen("/proc/cpuinfo", "r");
-    if (fp == NULL) {
+    if (fp == NULL)
+    {
         LE_ERROR("Error opening /proc/cpuinfo");
         return LE_FAULT;
     }
 
     // Read line by line and count the number of cores
-    while (fgets(line, sizeof(line), fp)) {
-        if (strncmp(line, "processor", 9) == 0) {
+    while (fgets(line, sizeof(line), fp))
+    {
+        if (strncmp(line, "processor", 9) == 0)
+        {
             core_count++;
         }
     }
@@ -135,8 +244,12 @@ uint32_t taf_Hms::GetCpuCoreNum
 }
 
 
-// Function to calculate total CPU usage for a core
-double calculate_core_cpu_usage(struct CPUCore core)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Function to calculate total CPU usage for a core.
+ */
+//--------------------------------------------------------------------------------------------------
+static double CalculateCoreCpuUsage(taf_hms_CPUCore_t core)
 {
     uint32_t total_non_idle = core.user + core.nice + core.system +
                          core.irq + core.softirq + core.steal + core.guest;
@@ -164,10 +277,11 @@ le_result_t taf_Hms::GetIndvCoreUsage
     FILE* fp;
     char buffer[1024];
     uint32_t cpu_count = 0;
-    struct CPUCore cpu_usage[MAX_CORES];
+    taf_hms_CPUCore_t cpu_usage[MAX_CORES];
 
     fp = fopen("/proc/stat", "r");
-    if (fp == NULL) {
+    if (fp == NULL)
+    {
         LE_ERROR("Error opening /proc/stat");
         return LE_FAULT;
     }
@@ -229,7 +343,7 @@ le_result_t taf_Hms::GetIndvCoreUsage
                     ptr++;
                 }
                 fclose(fp);
-                *cpuUsagePtr = calculate_core_cpu_usage(cpu_usage[coreID]);
+                *cpuUsagePtr = CalculateCoreCpuUsage(cpu_usage[coreID]);
                 return LE_OK;
             }
         }
@@ -297,8 +411,12 @@ le_result_t taf_Hms::GetRamMemInfo
 }
 
 
-// Function to read a file from the given path
-uint32_t read_sysfs_file(const char *path)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Function to read a file from the given path.
+ */
+//--------------------------------------------------------------------------------------------------
+static uint32_t ReadSysfsFile(const char *path)
 {
     uint32_t value = 0;
     uint32_t  rc  = 0;
@@ -311,7 +429,9 @@ uint32_t read_sysfs_file(const char *path)
     }
     fp = fopen(path, "r");
     if (NULL == fp)
+    {
         return LE_FAULT;
+    }
 
     rc = fscanf(fp, "%d\n", &value);
     UNUSED(rc);
@@ -319,8 +439,13 @@ uint32_t read_sysfs_file(const char *path)
     return value;
 }
 
-// Function to read a string from the given path
-uint32_t read_sysfs_string_file(const char *path, char *buffer, size_t length)
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Function to read a string from the given path.
+ */
+//--------------------------------------------------------------------------------------------------
+static uint32_t ReadSysfsStringFile(const char *path, char *buffer, size_t length)
 {
     FILE *file = fopen(path, "r");
     if (file == NULL)
@@ -342,8 +467,13 @@ uint32_t read_sysfs_string_file(const char *path, char *buffer, size_t length)
     return LE_OK;
 }
 
-// Function to get device count from the sys class path
-uint32_t get_ubi_device_count
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Function to get device count from the sys class path.
+ */
+//--------------------------------------------------------------------------------------------------
+static uint32_t GetUbiDeviceCount
 (
 )
 {
@@ -352,15 +482,18 @@ uint32_t get_ubi_device_count
     uint32_t count = 0;
 
     dir = opendir(UBI_CLASS_PATH);
-    if (dir == NULL) {
+    if (dir == NULL)
+    {
         LE_ERROR("Error opening UBI class path");
         return LE_FAULT;
     }
 
     // Iterate through each entry in the directory
-    while ((entry = readdir(dir)) != NULL) {
+    while ((entry = readdir(dir)) != NULL)
+    {
         // Check if the entry is a directory and its name starts with "ubi"
-        if (entry->d_type == DT_DIR && strncmp(entry->d_name, "ubi", 3) == 0) {
+        if (entry->d_type == DT_DIR && strncmp(entry->d_name, "ubi", 3) == 0)
+        {
             count++;
         }
     }
@@ -370,24 +503,6 @@ uint32_t get_ubi_device_count
     return count;
 }
 
-uint32_t get_ubi_volume_count(const char *path)
-{
-    FILE *file = fopen(path, "r");
-    if (file == NULL) {
-        perror("Failed to open sysfs file");
-        return -1;
-    }
-
-    int value;
-    if (fscanf(file, "%d", &value) != 1) {
-        perror("Failed to read value from sysfs file");
-        fclose(file);
-        return -1;
-    }
-
-    fclose(file);
-    return value;
-}
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -403,37 +518,38 @@ taf_hms_UbiDevInfoListRef_t taf_Hms::GetUbiDevInfoList
     void
 )
 {
-    taf_hms_ubiDevInfoList_t* ubiDevList = (taf_hms_ubiDevInfoList_t*)le_mem_ForceAlloc(ubiDevListPool);
+    taf_hms_ubiDevInfoList_t* ubiDevList = (taf_hms_ubiDevInfoList_t*)
+        le_mem_ForceAlloc(UbiDevListPool);
     memset(ubiDevList, 0, sizeof(taf_hms_ubiDevInfoList_t));
     ubiDevList->ubiDevInfoList = LE_SLS_LIST_INIT;
     ubiDevList->currPtr = NULL;
 
     taf_hms_ubiDevInfo_t* ubiDevInfoPtr;
 
-    uint32_t count = get_ubi_device_count();
+    uint32_t count = GetUbiDeviceCount();
     char path[MAX_PATH_LENGTH];
     if (count >= 0)
     {
         for(uint32_t i = 0; i <= count; i++)
         {
-            ubiDevInfoPtr = (taf_hms_ubiDevInfo_t*)le_mem_ForceAlloc(ubiDevInfoPool);
+            ubiDevInfoPtr = (taf_hms_ubiDevInfo_t*)le_mem_ForceAlloc(UbiDevInfoPool);
             memset(ubiDevInfoPtr, 0, sizeof(taf_hms_ubiDevInfo_t));
 
             // Get bad block count
             snprintf(path, sizeof(path), UBI_DEV_BB_COUNT_PATH, i);
-            ubiDevInfoPtr->badBlockCnt = read_sysfs_file(path);
+            ubiDevInfoPtr->badBlockCnt = ReadSysfsFile(path);
 
             // Get max erase count
             snprintf(path, sizeof(path), UBI_DEV_E_COUNT_PATH, i);
-            ubiDevInfoPtr->eraseCnt = read_sysfs_file(path);
+            ubiDevInfoPtr->eraseCnt = ReadSysfsFile(path);
 
             ubiDevInfoPtr->link = LE_SLS_LINK_INIT;
             le_sls_Queue(&(ubiDevList->ubiDevInfoList), &(ubiDevInfoPtr->link));
             ubiDevInfoPtr->ref =
-                 (taf_hms_UbiDevInfoRef_t)le_ref_CreateRef(ubiDevRefMap, (void*)ubiDevInfoPtr);
+                 (taf_hms_UbiDevInfoRef_t)le_ref_CreateRef(UbiDevRefMap, (void*)ubiDevInfoPtr);
         }
         ubiDevList->ref =
-            (taf_hms_UbiDevInfoListRef_t)le_ref_CreateRef(ubiDevListRefMap, ubiDevList);
+            (taf_hms_UbiDevInfoListRef_t)le_ref_CreateRef(UbiDevListRefMap, ubiDevList);
         return ubiDevList->ref;
     }
 }
@@ -453,8 +569,8 @@ le_result_t taf_Hms::DeleteUbiDevInfoList
     taf_hms_UbiDevInfoListRef_t ubiDevInfoListRef
 )
 {
-	taf_hms_ubiDevInfoList_t* listPtr =
-        (taf_hms_ubiDevInfoList_t*)le_ref_Lookup(ubiDevListRefMap, ubiDevInfoListRef);
+    taf_hms_ubiDevInfoList_t* listPtr =
+        (taf_hms_ubiDevInfoList_t*)le_ref_Lookup(UbiDevListRefMap, ubiDevInfoListRef);
     TAF_ERROR_IF_RET_VAL(listPtr == nullptr, LE_NOT_FOUND, "Invalid para(null reference ptr)");
     LE_DEBUG("DeleteUBIDevInfoList : %p", ubiDevInfoListRef);
     taf_hms_ubiDevInfo_t* ubiDevInfoPtr;
@@ -464,7 +580,7 @@ le_result_t taf_Hms::DeleteUbiDevInfoList
         ubiDevInfoPtr = CONTAINER_OF(linkPtr, taf_hms_ubiDevInfo_t, link);
         le_mem_Release(ubiDevInfoPtr);
     }
-    le_ref_DeleteRef(ubiDevListRefMap, ubiDevInfoListRef);
+    le_ref_DeleteRef(UbiDevListRefMap, ubiDevInfoListRef);
     le_mem_Release(listPtr);
     return LE_OK;
 }
@@ -486,7 +602,7 @@ taf_hms_UbiDevInfoRef_t taf_Hms::GetFirstUbiDevInfo
 )
 {
     taf_hms_ubiDevInfoList_t* ubiDevListPtr =
-            (taf_hms_ubiDevInfoList_t*)le_ref_Lookup(ubiDevListRefMap, ubiDevInfoListRef);
+        (taf_hms_ubiDevInfoList_t*)le_ref_Lookup(UbiDevListRefMap, ubiDevInfoListRef);
 
     TAF_ERROR_IF_RET_VAL(ubiDevListPtr == NULL, NULL, "Failed to retrieve ubi device list.");
 
@@ -517,7 +633,7 @@ taf_hms_UbiDevInfoRef_t taf_Hms::GetNextUbiDevInfo
 )
 {
     taf_hms_ubiDevInfoList_t* ubiDevListPtr =
-            (taf_hms_ubiDevInfoList_t*)le_ref_Lookup(ubiDevListRefMap, ubiDevInfoListRef);
+        (taf_hms_ubiDevInfoList_t*)le_ref_Lookup(UbiDevListRefMap, ubiDevInfoListRef);
 
     TAF_ERROR_IF_RET_VAL(ubiDevListPtr == NULL, NULL, "Failed to retrieve next ubi device list.");
 
@@ -548,10 +664,11 @@ le_result_t taf_Hms::GetUbiDevId
     uint32_t* ubiDevIdPtr
 )
 {
-    taf_hms_ubiDevInfo_t* ubiDevPtr = (taf_hms_ubiDevInfo_t*)le_ref_Lookup(ubiDevRefMap, ubiDevInfoRef);
+    taf_hms_ubiDevInfo_t* ubiDevPtr = (taf_hms_ubiDevInfo_t*)le_ref_Lookup(UbiDevRefMap,
+        ubiDevInfoRef);
 
     TAF_ERROR_IF_RET_VAL(ubiDevPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
-            ubiDevPtr);
+        ubiDevPtr);
 
     *ubiDevIdPtr = ubiDevPtr->devId;
     TAF_ERROR_IF_RET_VAL(*ubiDevIdPtr < 0, LE_FAULT, "Failed to return erase count.");
@@ -574,10 +691,11 @@ le_result_t taf_Hms::GetUbiDevMaxEraseCnt
     uint32_t* ubiEraseCntPtr
 )
 {
-    taf_hms_ubiDevInfo_t* ubiDevPtr = (taf_hms_ubiDevInfo_t*)le_ref_Lookup(ubiDevRefMap, ubiDevInfoRef);
+    taf_hms_ubiDevInfo_t* ubiDevPtr = (taf_hms_ubiDevInfo_t*)le_ref_Lookup(UbiDevRefMap,
+        ubiDevInfoRef);
 
     TAF_ERROR_IF_RET_VAL(ubiDevPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
-            ubiDevPtr);
+        ubiDevPtr);
 
     *ubiEraseCntPtr = ubiDevPtr->eraseCnt;
     TAF_ERROR_IF_RET_VAL(*ubiEraseCntPtr < 0, LE_FAULT, "Failed to return erase count.");
@@ -600,10 +718,11 @@ le_result_t taf_Hms::GetUbiDevBadBlkCnt
     uint32_t* ubiBbCntPtr
 )
 {
-    taf_hms_ubiDevInfo_t* ubiDevPtr = (taf_hms_ubiDevInfo_t*)le_ref_Lookup(ubiDevRefMap, ubiDevInfoRef);
+    taf_hms_ubiDevInfo_t* ubiDevPtr = (taf_hms_ubiDevInfo_t*)le_ref_Lookup(UbiDevRefMap,
+        ubiDevInfoRef);
 
     TAF_ERROR_IF_RET_VAL(ubiDevPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
-            ubiDevPtr);
+        ubiDevPtr);
 
     *ubiBbCntPtr = ubiDevPtr->badBlockCnt;
     TAF_ERROR_IF_RET_VAL(*ubiBbCntPtr < 0, LE_FAULT, "Failed to return bad block count.");
@@ -627,7 +746,7 @@ taf_hms_UbiVolInfoRef_t taf_Hms::GetFirstUbiVolInfo
 )
 {
     taf_hms_ubiVolInfoList_t* ubiVolListPtr =
-            (taf_hms_ubiVolInfoList_t*)le_ref_Lookup(ubiVolListRefMap, ubiDevInfoRef);
+        (taf_hms_ubiVolInfoList_t*)le_ref_Lookup(UbiVolListRefMap, ubiDevInfoRef);
 
     TAF_ERROR_IF_RET_VAL(ubiVolListPtr == NULL, NULL, "Failed to retrieve ubi device list.");
 
@@ -658,7 +777,7 @@ taf_hms_UbiVolInfoRef_t taf_Hms::GetNextUbiVolInfo
 )
 {
     taf_hms_ubiVolInfoList_t* ubiVolListPtr =
-            (taf_hms_ubiVolInfoList_t*)le_ref_Lookup(ubiVolListRefMap, ubiDevInfoRef);
+        (taf_hms_ubiVolInfoList_t*)le_ref_Lookup(UbiVolListRefMap, ubiDevInfoRef);
 
     TAF_ERROR_IF_RET_VAL(ubiVolListPtr == NULL, NULL, "Failed to retrieve next ubi device list.");
 
@@ -690,7 +809,7 @@ le_result_t taf_Hms::GetUbiVolId
 )
 {
     taf_hms_ubiVolInfo_t* ubiVolPtr =
-        (taf_hms_ubiVolInfo_t*)le_ref_Lookup(ubiVolRefMap, ubiVolInfoRef);
+        (taf_hms_ubiVolInfo_t*)le_ref_Lookup(UbiVolRefMap, ubiVolInfoRef);
 
     TAF_ERROR_IF_RET_VAL(ubiVolPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
             ubiVolPtr);
@@ -718,9 +837,9 @@ le_result_t taf_Hms::GetUbiVolName
 )
 {
     taf_hms_ubiVolInfo_t* ubiVolPtr =
-            (taf_hms_ubiVolInfo_t*)le_ref_Lookup(ubiVolRefMap, ubiVolInfoRef);
+        (taf_hms_ubiVolInfo_t*)le_ref_Lookup(UbiVolRefMap, ubiVolInfoRef);
     TAF_ERROR_IF_RET_VAL(ubiVolPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
-            ubiVolPtr);
+        ubiVolPtr);
 
     snprintf(ubiVolName, sizeof(ubiVolPtr->ubiVolumeName), "%s", ubiVolPtr->ubiVolumeName);
 
@@ -745,10 +864,10 @@ le_result_t taf_Hms::GetUbiVolSize
 )
 {
     taf_hms_ubiVolInfo_t* ubiVolPtr =
-        (taf_hms_ubiVolInfo_t*)le_ref_Lookup(ubiVolRefMap, ubiVolInfoRef);
+        (taf_hms_ubiVolInfo_t*)le_ref_Lookup(UbiVolRefMap, ubiVolInfoRef);
 
     TAF_ERROR_IF_RET_VAL(ubiVolPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
-            ubiVolPtr);
+        ubiVolPtr);
 
     *ubiVolSizePtr = ubiVolPtr->ubiVolSize;
     TAF_ERROR_IF_RET_VAL(*ubiVolSizePtr < 0, LE_FAULT, "Failed to return Ubi volume size.");
@@ -756,7 +875,12 @@ le_result_t taf_Hms::GetUbiVolSize
 }
 
 
-uint32_t get_mtd_count()
+//--------------------------------------------------------------------------------------------------
+/**
+ * Function to get MTD count from the sys class path.
+ */
+//--------------------------------------------------------------------------------------------------
+static uint32_t GetMtdCount()
 {
     DIR* dir;
     struct dirent* entry;
@@ -768,14 +892,17 @@ uint32_t get_mtd_count()
         return LE_FAULT;
     }
 
-    while ((entry = readdir(dir)) != NULL) {
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
-        continue;
-    }
-    // Check if entry->d_name starts with "mtd" (case-insensitive)
-    if (strncasecmp(entry->d_name, "mtd", 3) == 0) {
-      mtd_count++;
-      }
+    while ((entry = readdir(dir)) != NULL)
+    {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+        {
+            continue;
+        }
+        // Check if entry->d_name starts with "mtd" (case-insensitive)
+        if (strncasecmp(entry->d_name, "mtd", 3) == 0)
+        {
+            mtd_count++;
+        }
     }
 
     closedir(dir);
@@ -798,31 +925,31 @@ taf_hms_MtdDevInfoListRef_t taf_Hms::GetMtdDevInfoList
     void
 )
 {
-    taf_hms_mtdInfoList_t* mtdDevList = (taf_hms_mtdInfoList_t*)le_mem_ForceAlloc(mtdListPool);
+    taf_hms_mtdInfoList_t* mtdDevList = (taf_hms_mtdInfoList_t*)le_mem_ForceAlloc(MtdListPool);
     memset(mtdDevList, 0, sizeof(taf_hms_mtdInfoList_t));
     mtdDevList->mtdInfoList = LE_SLS_LIST_INIT;
     mtdDevList->currPtr = NULL;
 
     taf_hms_mtdInfo_t* mtdInfoPtr;
 
-    uint32_t count = get_mtd_count();
+    uint32_t count = GetMtdCount();
     char path[MAX_PATH_LENGTH];
     char buffer[BUFFER_SIZE];
     if (count >= 0)
     {
         for(uint32_t i = 0; i < count; i++)
         {
-            mtdInfoPtr = (taf_hms_mtdInfo_t*)le_mem_ForceAlloc(mtdInfoPool);
+            mtdInfoPtr = (taf_hms_mtdInfo_t*)le_mem_ForceAlloc(MtdInfoPool);
             memset(mtdInfoPtr, 0, sizeof(taf_hms_mtdInfo_t));
             mtdInfoPtr->mtdBlockCnt = count;
 
             // Get mtd block size
             snprintf(path, sizeof(path), MTD_DEV_SIZE_PATH, i);
-            mtdInfoPtr->mtdBlockSize = read_sysfs_file(path);
+            mtdInfoPtr->mtdBlockSize = ReadSysfsFile(path);
 
             // Get device name
             snprintf(path, sizeof(path), MTD_DEV_NAME_PATH, i);
-            uint8_t result = read_sysfs_string_file(path, buffer, sizeof(buffer));
+            uint8_t result = ReadSysfsStringFile(path, buffer, sizeof(buffer));
             if (result == LE_OK)
             {
                 le_utf8_Copy(mtdInfoPtr->mtdDevName, buffer, BUFFER_SIZE, NULL);
@@ -835,10 +962,10 @@ taf_hms_MtdDevInfoListRef_t taf_Hms::GetMtdDevInfoList
            mtdInfoPtr->link = LE_SLS_LINK_INIT;
            le_sls_Queue(&(mtdDevList->mtdInfoList), &(mtdInfoPtr->link));
            mtdInfoPtr->ref =
-                (taf_hms_MtdDevInfoRef_t)le_ref_CreateRef(mtdRefMap, (void*)mtdInfoPtr);
+                (taf_hms_MtdDevInfoRef_t)le_ref_CreateRef(MtdRefMap, (void*)mtdInfoPtr);
         }
         mtdDevList->ref =
-            (taf_hms_MtdDevInfoListRef_t)le_ref_CreateRef(mtdListRefMap, mtdDevList);
+            (taf_hms_MtdDevInfoListRef_t)le_ref_CreateRef(MtdListRefMap, mtdDevList);
         return mtdDevList->ref;
     }
 }
@@ -858,8 +985,8 @@ le_result_t taf_Hms::DeleteMtdDevInfoList
     taf_hms_MtdDevInfoListRef_t mtdDevInfoListRef
 )
 {
-	taf_hms_mtdInfoList_t* listPtr =
-        (taf_hms_mtdInfoList_t*)le_ref_Lookup(mtdListRefMap, mtdDevInfoListRef);
+    taf_hms_mtdInfoList_t* listPtr =
+        (taf_hms_mtdInfoList_t*)le_ref_Lookup(MtdListRefMap, mtdDevInfoListRef);
     TAF_ERROR_IF_RET_VAL(listPtr == nullptr, LE_NOT_FOUND, "Invalid para(null reference ptr)");
     LE_DEBUG("DeleteMTDInfoList : %p", mtdDevInfoListRef);
     taf_hms_mtdInfo_t* mtdInfoPtr;
@@ -869,7 +996,7 @@ le_result_t taf_Hms::DeleteMtdDevInfoList
         mtdInfoPtr = CONTAINER_OF(linkPtr, taf_hms_mtdInfo_t, link);
         le_mem_Release(mtdInfoPtr);
     }
-    le_ref_DeleteRef(mtdListRefMap, mtdDevInfoListRef);
+    le_ref_DeleteRef(MtdListRefMap, mtdDevInfoListRef);
     le_mem_Release(listPtr);
     return LE_OK;
 }
@@ -891,7 +1018,7 @@ taf_hms_MtdDevInfoRef_t taf_Hms::GetFirstMtdDevInfo
 )
 {
     taf_hms_mtdInfoList_t* mtdListPtr =
-            (taf_hms_mtdInfoList_t*)le_ref_Lookup(mtdListRefMap, mtdDevInfoListRef);
+        (taf_hms_mtdInfoList_t*)le_ref_Lookup(MtdListRefMap, mtdDevInfoListRef);
 
     TAF_ERROR_IF_RET_VAL(mtdListPtr == NULL, NULL, "Failed to retrieve ubi device list.");
 
@@ -922,7 +1049,7 @@ taf_hms_MtdDevInfoRef_t taf_Hms::GetNextMtdDevInfo
 )
 {
     taf_hms_mtdInfoList_t* mtdListPtr =
-            (taf_hms_mtdInfoList_t*)le_ref_Lookup(mtdListRefMap, mtdDevInfoListRef);
+        (taf_hms_mtdInfoList_t*)le_ref_Lookup(MtdListRefMap, mtdDevInfoListRef);
 
     TAF_ERROR_IF_RET_VAL(mtdListPtr == NULL, NULL, "Failed to retrieve next ubi device list.");
 
@@ -955,7 +1082,7 @@ le_result_t taf_Hms::GetMtdDevName
 )
 {
     taf_hms_mtdInfo_t* mtdDevPtr =
-            (taf_hms_mtdInfo_t*)le_ref_Lookup(mtdRefMap, mtdDevInfoRef);
+        (taf_hms_mtdInfo_t*)le_ref_Lookup(MtdRefMap, mtdDevInfoRef);
     TAF_ERROR_IF_RET_VAL(mtdDevPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
             mtdDevPtr);
 
@@ -982,7 +1109,7 @@ le_result_t taf_Hms::GetMtdDevBlkSize
 )
 {
     taf_hms_mtdInfo_t* mtdDevPtr =
-        (taf_hms_mtdInfo_t*)le_ref_Lookup(mtdRefMap, mtdDevInfoRef);
+        (taf_hms_mtdInfo_t*)le_ref_Lookup(MtdRefMap, mtdDevInfoRef);
 
     TAF_ERROR_IF_RET_VAL(mtdDevPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
             mtdDevPtr);
@@ -1007,7 +1134,7 @@ le_result_t taf_Hms::GetMtdDevId
 )
 {
    taf_hms_mtdInfo_t* mtdDevPtr =
-        (taf_hms_mtdInfo_t*)le_ref_Lookup(mtdRefMap, mtdDevInfoRef);
+        (taf_hms_mtdInfo_t*)le_ref_Lookup(MtdRefMap, mtdDevInfoRef);
 
     TAF_ERROR_IF_RET_VAL(mtdDevPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
             mtdDevPtr);
@@ -1032,7 +1159,7 @@ le_result_t taf_Hms::GetMtdDevBlkCnt
 )
 {
     taf_hms_mtdInfo_t* mtdDevPtr =
-        (taf_hms_mtdInfo_t*)le_ref_Lookup(mtdRefMap, mtdDevInfoRef);
+        (taf_hms_mtdInfo_t*)le_ref_Lookup(MtdRefMap, mtdDevInfoRef);
 
     TAF_ERROR_IF_RET_VAL(mtdDevPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
             mtdDevPtr);
@@ -1046,24 +1173,23 @@ void taf_Hms::Init()
 {
     LE_INFO("tafHMSvc started");
 
-    ubiDevListPool = le_mem_InitStaticPool(ubiDevListPool, TAF_HMS_MAX_LIST_POOL_SIZE,
+    UbiDevListPool = le_mem_InitStaticPool(UbiDevListPool, TAF_HMS_MAX_LIST_POOL_SIZE,
         sizeof(taf_hms_ubiDevInfoList_t));
-    ubiDevInfoPool = le_mem_InitStaticPool(ubiDevInfoPool, TAF_HMS_MAX_LIST_POOL_SIZE,
+    UbiDevInfoPool = le_mem_InitStaticPool(UbiDevInfoPool, TAF_HMS_MAX_LIST_POOL_SIZE,
         sizeof(taf_hms_ubiDevInfo_t));
-    ubiVolListPool = le_mem_InitStaticPool(ubiVolListPool, TAF_HMS_MAX_LIST_POOL_SIZE,
+    UbiVolListPool = le_mem_InitStaticPool(UbiVolListPool, TAF_HMS_MAX_LIST_POOL_SIZE,
         sizeof(taf_hms_ubiVolInfoList_t));
-    ubiVolInfoPool = le_mem_InitStaticPool(ubiVolInfoPool, TAF_HMS_MAX_LIST_POOL_SIZE,
+    UbiVolInfoPool = le_mem_InitStaticPool(UbiVolInfoPool, TAF_HMS_MAX_LIST_POOL_SIZE,
         sizeof(taf_hms_ubiVolInfo_t));
-    mtdListPool = le_mem_InitStaticPool(mtdListPool, TAF_HMS_MAX_LIST_POOL_SIZE,
+    MtdListPool = le_mem_InitStaticPool(MtdListPool, TAF_HMS_MAX_LIST_POOL_SIZE,
         sizeof(taf_hms_mtdInfoList_t));
-    mtdInfoPool = le_mem_InitStaticPool(mtdInfoPool, TAF_HMS_MAX_LIST_POOL_SIZE,
+    MtdInfoPool = le_mem_InitStaticPool(MtdInfoPool, TAF_HMS_MAX_LIST_POOL_SIZE,
         sizeof(taf_hms_mtdInfo_t));
 
-    ubiDevListRefMap = le_ref_InitStaticMap(ubiDevListRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
-    ubiDevRefMap = le_ref_InitStaticMap(ubiDevRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
-    ubiVolListRefMap = le_ref_InitStaticMap(ubiVolListRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
-    ubiVolRefMap = le_ref_InitStaticMap(ubiVolRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
-    mtdListRefMap = le_ref_InitStaticMap(mtdListRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
-    mtdRefMap = le_ref_InitStaticMap(mtdRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
-
+    UbiDevListRefMap = le_ref_InitStaticMap(UbiDevListRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
+    UbiDevRefMap = le_ref_InitStaticMap(UbiDevRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
+    UbiVolListRefMap = le_ref_InitStaticMap(UbiVolListRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
+    UbiVolRefMap = le_ref_InitStaticMap(UbiVolRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
+    MtdListRefMap = le_ref_InitStaticMap(MtdListRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
+    MtdRefMap = le_ref_InitStaticMap(MtdRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
 }

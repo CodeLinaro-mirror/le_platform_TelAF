@@ -32,107 +32,93 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-USETYPES taf_types.api;
 
 //-------------------------------------------------------------------------------------------------
 /**
- * The maximum size of the payload data in bytes.
+ * Maximum size of payload in bytes.
  */
 //-------------------------------------------------------------------------------------------------
 DEFINE MAX_PAYLOAD_SIZE = 4095;
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Diagnostic SessionControl type.
+ * Enumeration of supported logical target address types.
  */
 //-------------------------------------------------------------------------------------------------
-ENUM SessionType
+ENUM TaType
 {
-    DEFAULT = 0x01,                       ///< Default session.
-    PROGRAMMING,                          ///< Programming session.
-    EXTENDED,                             ///< Extended diagnostic session.
-    VEHICLE_MANUFACTURER_SPECIFIC = 0x40, ///< Vehicle manufacture specific session.
-    FOTA = 0x42,                          ///< FOTA session.
-    SYSTEM_SUPPLIER_SPECIFIC = 0x60       ///< System supplier specific session.
+    TA_TYPE_PHYSICAL   = 0x00,    ///< Physical addressing.
+    TA_TYPE_FUNCTIONAL = 0x01     ///< Functional addressing.
 };
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Error code for SessionControl.
- */
+* Logical address information structure in UDS communication.
+*/
 //-------------------------------------------------------------------------------------------------
-ENUM SesControlErrorCode
+STRUCT AddrInfo
 {
-    SES_CONTROL_NO_ERROR = 0,
-    SES_CONTROL_CONDITIONS_NOT_CORRECT = 0x22
+    uint16 sa;
+    uint16 ta;
+    TaType taType;
 };
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Reference to the SessionControl request message.
+* Error code for Diagnostic service.
+*/
+//-------------------------------------------------------------------------------------------------
+ENUM ErrorCode
+{
+    NO_ERROR = 0,                    ///< Success.
+    CONDITIONS_NOT_CORRECT = 0x22    ///< Condition is not correct.
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Reference to the Diagnostic received request message.
  */
 //-------------------------------------------------------------------------------------------------
-REFERENCE SesTypeCheck;
+REFERENCE DiagInf;
 
-//--------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
 /**
- * Handler for a session control type.
+ * Handler for a received service request message.
  */
-//--------------------------------------------------------------------------------------------------
-HANDLER SesTypeHandler
+//-------------------------------------------------------------------------------------------------
+HANDLER DiagHandler
 (
-    SesTypeCheck sesTypeRef  IN,    ///< Session type reference.
-    SessionType sesCtrlType  IN     ///< Session control type.
+    DiagInf ref   IN,                  ///< Service reference.
+    AddrInfo addrInfo   IN,            ///< Diagnostic message pointer.
+    uint8 serviceID     IN,            ///< Service ID.
+    uint8 msg[MAX_PAYLOAD_SIZE]  IN    ///< Data RequestMsg.
 );
 
-//--------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
 /**
- * This event provides information on Rx session control type.
+ * This event provides information about the received Service message.
  */
-//--------------------------------------------------------------------------------------------------
-EVENT SesTypeCheck
+//-------------------------------------------------------------------------------------------------
+EVENT DiagEvent
 (
-    SesTypeHandler handler    ///< Received message handler.
+    DiagHandler handler    ///< Handler
 );
 
-//--------------------------------------------------------------------------------------------------
-/**
- * Sends a response message for the condition check of session control type.
- *
- * @note This function must be called to send a response if receiving a message.
+//-------------------------------------------------------------------------------------------------
+ /**
+ * Sends a Response.
  *
  * @return
- *     - LE_OK -- Succeeded.
- *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
- *     - LE_NOT_FOUND -- Reference not found.
- *     - LE_FAULT -- Failed.
- *
- * @note The process exits if an invalid reference is passed.
+ *  - LE_OK             Function success.
+ *  - LE_BAD_PARAMETER  Invalid parameter.
+ *  - LE_COMM_ERROR     Sending message error.
  */
 //-------------------------------------------------------------------------------------------------
-FUNCTION le_result_t SendSesTypeCheckResp
+FUNCTION le_result_t SendResp
 (
-    SesTypeCheck sesTypeRef  IN,        ///< Session type reference.
-    SesControlErrorCode errCode  IN     ///< Error code type.
-);
-
-//-------------------------------------------------------------------------------------------------
-/**
- * Handler for a session control type change.
- */
-//-------------------------------------------------------------------------------------------------
-HANDLER SesChangeHandler
-(
-    SessionType previousType  IN,    ///< Previous session control type.
-    SessionType currentType   IN     ///< Current session control type.
-);
-
-//-------------------------------------------------------------------------------------------------
-/**
- * This event provides information on session control type change.
- */
-//-------------------------------------------------------------------------------------------------
-EVENT SesChange
-(
-    SesChangeHandler handler    ///< Received message handler.
+    DiagInf ref   IN,                   ///< Reference.
+    AddrInfo addrInfo IN,               ///< Diagnostic message pointer.
+    uint8 serviceID   IN,               ///< Service ID.
+    uint8 errCode  IN,                  ///< Error code type.
+    uint8 data[MAX_PAYLOAD_SIZE]  IN    ///< Data payload.
 );

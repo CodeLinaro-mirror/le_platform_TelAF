@@ -34,28 +34,28 @@
 
 //--------------------------------------------------------------------------------------------------
 /**
- * @page c_taf_mngd_audio Managed Audio Service
+ * @page c_taf_audio Audio Service
  *
- * @ref taf_mngd_audio_interface.h "API Reference"
+ * @ref taf_audio_interface.h "API Reference"
  *
  * <HR>
  *
- * The Managed Audio service APIs help to do audio operations on the NAD/TCU.
+ * The Audio service APIs help to do audio operations on the NAD/TCU.
  *
- * @section taf_mngd_audio_binding IPC interfaces binding
+ * @section taf_audio_binding IPC interfaces binding
  *
  *
- * The following example illustrates how to bind to the Managed Audio service.
+ * The following example illustrates how to bind to the Audio service.
  * @verbatim
    bindings:
    {
-       clientExe.clientComponent.taf_mngd_audio -> tafMngdAudioSvc.taf_mngd_audio
+       clientExe.clientComponent.taf_audio -> tafAudioSvc.taf_audio
    }
    @endverbatim
  *
- * @section c_taf_mngd_audio_openRoute Open/Close Route for the requested route type and mode
+ * @section c_taf_audio_openRoute Open/Close Route for the requested route type and mode
  *
- * TelAF Managed Audio Service helps the user to open the audio connection for the requested route
+ * TelAF Audio Service helps the user to open the audio connection for the requested route
  * type like ecall, non-ecall or playback/capture or playback of a playlist of audio files and
  * mode type as voice call, force open for voice call, playback, record.
  *
@@ -64,58 +64,58 @@
  * If the audio VHAL module is available, the VHAL OpenRoute will get called after the requested
  * audio route for the mode is established.
  *
- * Reference created by OpenRoute is used to close the route using taf_mngd_audio_CloseRoute() API.
+ * Reference created by OpenRoute is used to close the route using taf_audio_CloseRoute() API.
  * @subsection c_open_route_voice_call Open route for voice call audio connection
  *
  * @verbatim
 
-    taf_mngd_audio_StreamRef_t sinkRef = NULL;
-    taf_mngd_audio_StreamRef_t sourceRef = NULL;
-    taf_mngd_audio_RouteRef_t routeRef = NULL;
-    routeRef = taf_mngd_audio_OpenRoute( TAF_MNGD_AUDIO_ROUTE_0, TAF_MNGD_AUDIO_VOICE_CALL,
+    taf_audio_StreamRef_t sinkRef = NULL;
+    taf_audio_StreamRef_t sourceRef = NULL;
+    taf_audio_RouteRef_t routeRef = NULL;
+    routeRef = taf_audio_OpenRoute( TAF_AUDIO_ROUTE_1, TAF_AUDIO_VOICE_CALL,
             &sinkRef, &sourceRef);
     if(routeRef != NULL) {
         LE_INFO("OpenRoute successfull sinkRef %p sourceRef %p", sinkRef, sourceRef);
     }
 
-    taf_mngd_audio_ConnectorRef_t rxConn = taf_mngd_audio_CreateConnector();
-    taf_mngd_audio_ConnectorRef_t txConn = taf_mngd_audio_CreateConnector();
+    taf_audio_ConnectorRef_t rxConn = taf_audio_CreateConnector();
+    taf_audio_ConnectorRef_t txConn = taf_audio_CreateConnector();
 
-    taf_mngd_audio_StreamRef_t rxStreamRef = taf_mngd_audio_OpenModemVoiceRx(1);
+    taf_audio_StreamRef_t rxStreamRef = taf_audio_OpenModemVoiceRx(1);
     // true to enable ECNR configuration.
-    taf_mngd_audio_StreamRef_t txStreamRef = taf_mngd_audio_OpenModemVoiceTx(1, true);
+    taf_audio_StreamRef_t txStreamRef = taf_audio_OpenModemVoiceTx(1, true);
 
-    res = taf_mngd_audio_Connect(rxConn, sinkRef);
+    res = taf_audio_Connect(rxConn, sinkRef);
     if(res == LE_OK) {
         LE_INFO("sinkRef connected successfully to rxConn" );
     }
 
-    res = taf_mngd_audio_Connect(txConn, sourceRef);
+    res = taf_audio_Connect(txConn, sourceRef);
     if(res == LE_OK) {
         LE_INFO("sourceRef connected successfully to txConn" );
     }
 
-    res = taf_mngd_audio_Connect(rxConn, rxStreamRef);
+    res = taf_audio_Connect(rxConn, rxStreamRef);
     if(res == LE_OK) {
         LE_INFO("rxStreamRef connected successfully to rxConn" );
     }
 
-    res = taf_mngd_audio_Connect(txConn, txStreamRef);
+    res = taf_audio_Connect(txConn, txStreamRef);
     if(res == LE_OK) {
         LE_INFO("txStreamRef connected successfully to txConn" );
     }
 
-    taf_mngd_audio_Disconnect(txConn, txStreamRef);
+    taf_audio_Disconnect(txConn, txStreamRef);
 
-    taf_mngd_audio_Disconnect(rxConn, sinkRef);
+    taf_audio_Disconnect(rxConn, sinkRef);
 
-    taf_mngd_audio_Disconnect(txConn, sourceRef);
+    taf_audio_Disconnect(txConn, sourceRef);
 
-    taf_mngd_audio_Disconnect(rxConn, rxStreamRef);
+    taf_audio_Disconnect(rxConn, rxStreamRef);
 
-    res = taf_mngd_audio_CloseRoute(routeRef);
+    res = taf_audio_CloseRoute(routeRef);
     if(res == LE_OK) {
-        LE_INFO("taf_mngd_audio_CloseRoute successful" );
+        LE_INFO("taf_audio_CloseRoute successful" );
     }
 
    @endverbatim
@@ -123,16 +123,16 @@
  * @subsection c_open_route_playback Open route for local playback
  *
  * @verbatim
-    taf_mngd_audio_StreamRef_t sinkRef = NULL, sourceRef = NULL, playerRef = NULL;
-    taf_mngd_audio_RouteRef_t routeRef = NULL;
+    taf_audio_StreamRef_t sinkRef = NULL, sourceRef = NULL, playerRef = NULL;
+    taf_audio_RouteRef_t routeRef = NULL;
     const char* filePath = "/data/test.wav"
-    void* Test_taf_mngd_audio_AddHandler(void* ctxPtr)
+    void* Test_taf_audio_AddHandler(void* ctxPtr)
     {
         le_sem_Ref_t sem = NULL;
-        taf_mngd_audio_ConnectService();
+        taf_audio_ConnectService();
 
-        taf_mngd_audio_StreamRef_t streamRef = (taf_mngd_audio_StreamRef_t)ctxPtr;
-        MediaHandlerRef = taf_mngd_audio_AddMediaHandler(streamRef, MyMediaEventHandler, NULL);
+        taf_audio_StreamRef_t streamRef = (taf_audio_StreamRef_t)ctxPtr;
+        MediaHandlerRef = taf_audio_AddMediaHandler(streamRef, MyMediaEventHandler, NULL);
         if(MediaHandlerRef != NULL)
             LE_INFO("Successfully registered for media handler");
 
@@ -150,23 +150,23 @@
     }
     static void MyMediaEventHandler
     (
-        taf_mngd_audio_StreamRef_t          streamRef,
-        taf_mngd_audio_MediaEvent_t         event,
+        taf_audio_StreamRef_t          streamRef,
+        taf_audio_MediaEvent_t         event,
         void*                               contextPtr
     )
     {
         switch(event)
         {
-            case TAF_MNGD_AUDIO_MEDIA_ENDED:
+            case TAF_AUDIO_MEDIA_ENDED:
                 LE_TEST_OK(true," Playback completed");
                 break;
-            case TAF_MNGD_AUDIO_MEDIA_STOPPED:
+            case TAF_AUDIO_MEDIA_STOPPED:
                 LE_TEST_OK(true," Playback/capture stopped");
                 break;
-            case TAF_MNGD_AUDIO_MEDIA_ERROR:
+            case TAF_AUDIO_MEDIA_ERROR:
                 LE_TEST_OK(true, "File event is TAF_AUDIO_MEDIA_ERROR.");
                 break;
-            case TAF_MNGD_AUDIO_MEDIA_NO_MORE_SAMPLES:
+            case TAF_AUDIO_MEDIA_NO_MORE_SAMPLES:
                 LE_TEST_OK(true, "File event is TAF_AUDIO_MEDIA_NO_MORE_SAMPLES.");
                 break;
             default:
@@ -176,46 +176,46 @@
     }
     void TEST_PLAYBACK()
     {
-        routeRef = taf_mngd_audio_OpenRoute( TAF_MNGD_AUDIO_ROUTE_0, TAF_MNGD_AUDIO_LOCAL_PLAYBACK,
+        routeRef = taf_audio_OpenRoute( TAF_AUDIO_ROUTE_1, TAF_AUDIO_LOCAL_PLAYBACK,
                 &sinkRef, &sourceRef);
         if(routeRef != NULL)
             LE_INFO("Successfully open route for playback");
 
-        playerRef = taf_mngd_audio_OpenPlayer(TAF_MNGD_AUDIO_RX);
+        playerRef = taf_audio_OpenPlayer(TAF_AUDIO_RX);
         if(playerRef != NULL)
             LE_INFO("Successfully created player stream reference");
 
-        Player_thread_ref = le_thread_Create("taf_mngd_audio_ut_thread",
-                Test_taf_mngd_audio_AddHandler, (void*)playerRef);
+        Player_thread_ref = le_thread_Create("taf_audio_ut_thread",
+                Test_taf_audio_AddHandler, (void*)playerRef);
         le_thread_Start(Player_thread_ref);
         le_sem_Wait(tafAudioAppSem);
 
-        taf_mngd_audio_ConnectorRef_t playerConnRef = taf_mngd_audio_CreateConnector();
+        taf_audio_ConnectorRef_t playerConnRef = taf_audio_CreateConnector();
         if(playerConnRef != NULL)
             LE_INFO("Successfully created connector reference for playback");
 
-        res = taf_mngd_audio_Connect(playerConnRef, sinkRef);
+        res = taf_audio_Connect(playerConnRef, sinkRef);
         if(res == LE_OK)
             LE_INFO("Successfully connected sinkRef to playerConnRef");
 
-        res = taf_mngd_audio_Connect(playerConnRef, playerRef);
+        res = taf_audio_Connect(playerConnRef, playerRef);
         if(res == LE_OK)
             LE_INFO("Successfully connected playerRef to playerConnRef");
 
-        res = taf_mngd_audio_PlayFile(playerRef, filePath);
+        res = taf_audio_PlayFile(playerRef, filePath);
         if(res == LE_OK)
             LE_INFO("Successfully file playback has started");
 
         // To stop playback
-        res = taf_mngd_audio_Stop(playerRef);
+        res = taf_audio_Stop(playerRef);
         if(res == LE_OK)
             LE_INFO("Successfully stopped the file playback");
 
-        taf_mngd_audio_Disconnect(connRef, playerRef);
+        taf_audio_Disconnect(connRef, playerRef);
 
-        taf_mngd_audio_Close(playerRef);
+        taf_audio_Close(playerRef);
 
-        res = taf_mngd_audio_CloseRoute(routeRef);
+        res = taf_audio_CloseRoute(routeRef);
         if(res == LE_OK)
             LE_INFO("Successfully closed the playback route");
     }
@@ -224,16 +224,16 @@
  * @subsection c_open_route_playback Open route for local playback of a playlist of audio files
  *
  * @verbatim
-    taf_mngd_audio_StreamRef_t sinkRef = NULL, sourceRef = NULL, playerRef = NULL;
-    taf_mngd_audio_RouteRef_t routeRef = NULL;
+    taf_audio_StreamRef_t sinkRef = NULL, sourceRef = NULL, playerRef = NULL;
+    taf_audio_RouteRef_t routeRef = NULL;
 
-    void* Test_taf_mngd_audio_AddHandler(void* ctxPtr)
+    void* Test_taf_audio_AddHandler(void* ctxPtr)
     {
         le_sem_Ref_t sem = NULL;
-        taf_mngd_audio_ConnectService();
+        taf_audio_ConnectService();
 
-        taf_mngd_audio_StreamRef_t streamRef = (taf_mngd_audio_StreamRef_t)ctxPtr;
-        MediaHandlerRef = taf_mngd_audio_AddMediaHandler(streamRef, MyMediaEventHandler, NULL);
+        taf_audio_StreamRef_t streamRef = (taf_audio_StreamRef_t)ctxPtr;
+        MediaHandlerRef = taf_audio_AddMediaHandler(streamRef, MyMediaEventHandler, NULL);
         if(MediaHandlerRef != NULL)
             LE_INFO("Successfully registered for media handler");
 
@@ -251,23 +251,23 @@
     }
     static void MyMediaEventHandler
     (
-        taf_mngd_audio_StreamRef_t          streamRef,
-        taf_mngd_audio_MediaEvent_t         event,
+        taf_audio_StreamRef_t          streamRef,
+        taf_audio_MediaEvent_t         event,
         void*                               contextPtr
     )
     {
         switch(event)
         {
-            case TAF_MNGD_AUDIO_MEDIA_ENDED:
+            case TAF_AUDIO_MEDIA_ENDED:
                 LE_INFO(true," Playback completed");
                 break;
-            case TAF_MNGD_AUDIO_MEDIA_STOPPED:
+            case TAF_AUDIO_MEDIA_STOPPED:
                 LE_INFO(true," Playback/capture stopped");
                 break;
-            case TAF_MNGD_AUDIO_MEDIA_ERROR:
+            case TAF_AUDIO_MEDIA_ERROR:
                 LE_INFO(true, "File event is TAF_AUDIO_MEDIA_ERROR.");
                 break;
-            case TAF_MNGD_AUDIO_MEDIA_NO_MORE_SAMPLES:
+            case TAF_AUDIO_MEDIA_NO_MORE_SAMPLES:
                 LE_INFO(true, "File event is TAF_AUDIO_MEDIA_NO_MORE_SAMPLES.");
                 break;
             default:
@@ -277,61 +277,61 @@
     }
     void TEST_PLAYLIST_PLAYBACK()
     {
-        routeRef = taf_mngd_audio_OpenRoute( TAF_MNGD_AUDIO_ROUTE_0, TAF_MNGD_AUDIO_LOCAL_PLAYBACK,
+        routeRef = taf_audio_OpenRoute( TAF_AUDIO_ROUTE_1, TAF_AUDIO_LOCAL_PLAYBACK,
                 &sinkRef, &sourceRef);
         if(routeRef != NULL)
             LE_INFO("Successfully open route for playback");
 
-        playerRef = taf_mngd_audio_OpenPlayer(TAF_MNGD_AUDIO_RX);
+        playerRef = taf_audio_OpenPlayer(TAF_AUDIO_RX);
         if(playerRef != NULL)
             LE_INFO("Successfully created player stream reference");
 
-        Player_thread_ref = le_thread_Create("taf_mngd_audio_ut_thread",
-                Test_taf_mngd_audio_AddHandler, (void*)playerRef);
+        Player_thread_ref = le_thread_Create("taf_audio_ut_thread",
+                Test_taf_audio_AddHandler, (void*)playerRef);
         le_thread_Start(Player_thread_ref);
         le_sem_Wait(tafAudioAppSem);
 
-        taf_mngd_audio_ConnectorRef_t playerConnRef = taf_mngd_audio_CreateConnector();
+        taf_audio_ConnectorRef_t playerConnRef = taf_audio_CreateConnector();
         if(playerConnRef != NULL)
             LE_INFO("Successfully created connector reference for playback");
 
-        res = taf_mngd_audio_Connect(playerConnRef, sinkRef);
+        res = taf_audio_Connect(playerConnRef, sinkRef);
         if(res == LE_OK)
             LE_INFO("Successfully connected sinkRef to playerConnRef");
 
-        res = taf_mngd_audio_Connect(playerConnRef, playerRef);
+        res = taf_audio_Connect(playerConnRef, playerRef);
         if(res == LE_OK)
             LE_INFO("Successfully connected playerRef to playerConnRef");
 
-        taf_mngd_audio_PlayListRef_t playListRef = taf_mngd_audio_CreatePlayList();
+        taf_audio_PlayListRef_t playListRef = taf_audio_CreatePlayList();
         if(playListRef != NULL)
             LE_INFO("Successfully created playListRef reference for playback");
 
         string srcPath = /data/test.wav;
         int repeat = 1;
 
-        res = taf_mngd_audio_AddPlayListEntry(playListRef, srcPath.c_str(), repeat);
+        res = taf_audio_AddPlayListEntry(playListRef, srcPath.c_str(), repeat);
         if(res == LE_OK)
             LE_INFO("Successfully added file to playerListRef");
 
-        res = taf_mngd_audio_PlayFileList(playerRef, playListRef);
+        res = taf_audio_PlayFileList(playerRef, playListRef);
         if(res == LE_OK)
             LE_INFO("Successfully file list playback has started");
 
         // To stop playback
-        res = taf_mngd_audio_Stop(playerRef);
+        res = taf_audio_Stop(playerRef);
         if(res == LE_OK)
             LE_INFO("Successfully stopped the file list playback");
 
-        res = taf_mngd_audio_DeletePlayList(playListRef);
+        res = taf_audio_DeletePlayList(playListRef);
         if(res == LE_OK)
             LE_INFO("Successfully deleted playerListRef");
 
-        taf_mngd_audio_Disconnect(connRef, playerRef);
+        taf_audio_Disconnect(connRef, playerRef);
 
-        taf_mngd_audio_Close(playerRef);
+        taf_audio_Close(playerRef);
 
-        res = taf_mngd_audio_CloseRoute(routeRef);
+        res = taf_audio_CloseRoute(routeRef);
         if(res == LE_OK)
             LE_INFO("Successfully closed the playback route");
     }
@@ -340,16 +340,16 @@
  * @subsection c_open_route_record Open route for local recording
  *
  * @verbatim
-    taf_mngd_audio_StreamRef_t sinkRef = NULL, sourceRef = NULL, recorderRef = NULL;
-    taf_mngd_audio_RouteRef_t routeRef = NULL;
+    taf_audio_StreamRef_t sinkRef = NULL, sourceRef = NULL, recorderRef = NULL;
+    taf_audio_RouteRef_t routeRef = NULL;
     const char* filePath = "/data/record.wav"
-    void* Test_taf_mngd_audio_AddHandler(void* ctxPtr)
+    void* Test_taf_audio_AddHandler(void* ctxPtr)
     {
         le_sem_Ref_t sem = NULL;
-        taf_mngd_audio_ConnectService();
+        taf_audio_ConnectService();
 
-        taf_mngd_audio_StreamRef_t streamRef = (taf_mngd_audio_StreamRef_t)ctxPtr;
-        MediaHandlerRef = taf_mngd_audio_AddMediaHandler(streamRef, MyMediaEventHandler, NULL);
+        taf_audio_StreamRef_t streamRef = (taf_audio_StreamRef_t)ctxPtr;
+        MediaHandlerRef = taf_audio_AddMediaHandler(streamRef, MyMediaEventHandler, NULL);
         if(MediaHandlerRef != NULL)
             LE_INFO("Successfully registered for media handler");
 
@@ -367,23 +367,23 @@
     }
     static void MyMediaEventHandler
     (
-        taf_mngd_audio_StreamRef_t          streamRef,
-        taf_mngd_audio_MediaEvent_t         event,
+        taf_audio_StreamRef_t          streamRef,
+        taf_audio_MediaEvent_t         event,
         void*                               contextPtr
     )
     {
         switch(event)
         {
-            case TAF_MNGD_AUDIO_MEDIA_ENDED:
+            case TAF_AUDIO_MEDIA_ENDED:
                 LE_TEST_OK(true," Playback completed");
                 break;
-            case TAF_MNGD_AUDIO_MEDIA_STOPPED:
+            case TAF_AUDIO_MEDIA_STOPPED:
                 LE_TEST_OK(true," Playback/capture stopped");
                 break;
-            case TAF_MNGD_AUDIO_MEDIA_ERROR:
+            case TAF_AUDIO_MEDIA_ERROR:
                 LE_TEST_OK(true, "File event is TAF_AUDIO_MEDIA_ERROR.");
                 break;
-            case TAF_MNGD_AUDIO_MEDIA_NO_MORE_SAMPLES:
+            case TAF_AUDIO_MEDIA_NO_MORE_SAMPLES:
                 LE_TEST_OK(true, "File event is TAF_AUDIO_MEDIA_NO_MORE_SAMPLES.");
                 break;
             default:
@@ -393,83 +393,83 @@
     }
     void TEST_RECORDING()
     {
-        routeRef = taf_mngd_audio_OpenRoute( TAF_MNGD_AUDIO_ROUTE_0,
-                TAF_MNGD_AUDIO_LOCAL_RECOIRDING, &sinkRef, &sourceRef);
+        routeRef = taf_audio_OpenRoute( TAF_AUDIO_ROUTE_1,
+                TAF_AUDIO_LOCAL_RECOIRDING, &sinkRef, &sourceRef);
         if(routeRef != NULL)
             LE_INFO("Successfully open route for recording");
 
-        recorderRef = taf_mngd_audio_OpenRecorder(TAF_MNGD_AUDIO_TX);
+        recorderRef = taf_audio_OpenRecorder(TAF_AUDIO_TX);
         if(recorderRef != NULL)
             LE_INFO("Successfully created recorder stream reference");
 
-        Recorder_thread_ref = le_thread_Create("taf_mngd_audio_ut_thread",
-                Test_taf_mngd_audio_AddHandler, (void*)playerRef);
+        Recorder_thread_ref = le_thread_Create("taf_audio_ut_thread",
+                Test_taf_audio_AddHandler, (void*)playerRef);
         le_thread_Start(Recorder_thread_ref);
         le_sem_Wait(tafAudioAppSem);
 
-        taf_mngd_audio_ConnectorRef_t recorderConnRef = taf_mngd_audio_CreateConnector();
+        taf_audio_ConnectorRef_t recorderConnRef = taf_audio_CreateConnector();
         if(recorderConnRef != NULL)
             LE_INFO("Successfully created connector reference for recording");
 
-        res = taf_mngd_audio_Connect(recorderConnRef, sinkRef);
+        res = taf_audio_Connect(recorderConnRef, sinkRef);
         if(res == LE_OK)
             LE_INFO("Successfully connected sinkRef to recorderConnRef");
 
-        res = taf_mngd_audio_Connect(recorderConnRef, recorderRef);
+        res = taf_audio_Connect(recorderConnRef, recorderRef);
         if(res == LE_OK)
             LE_INFO("Successfully connected playerRef to recorderConnRef");
 
-        res = taf_mngd_audio_RecordFile(recorderRef, filePath);
+        res = taf_audio_RecordFile(recorderRef, filePath);
         if(res == LE_OK)
             LE_INFO("Successfully file playback has started");
 
         // To stop recording
-        res = taf_mngd_audio_Stop(recorderRef);
+        res = taf_audio_Stop(recorderRef);
         if(res == LE_OK)
             LE_INFO("Successfully stopped the file recording");
 
-        taf_mngd_audio_Disconnect(connRef, recorderRef);
+        taf_audio_Disconnect(connRef, recorderRef);
 
-        taf_mngd_audio_Close(recorderRef);
+        taf_audio_Close(recorderRef);
 
-        res = taf_mngd_audio_CloseRoute(routeRef);
+        res = taf_audio_CloseRoute(routeRef);
         if(res == LE_OK)
             LE_INFO("Successfully closed the recording route");
     }
 
    @endverbatim
  *
- * @section c_taf_mngd_audio_set_get_mute Manage the mute status
- * TelAF Managed Audio Service helps to set/get mute status for modem RX/TX, player and recorder.
+ * @section c_taf_audio_set_get_mute Manage the mute status
+ * TelAF Audio Service helps to set/get mute status for modem RX/TX, player and recorder.
  *
  * @subsection c_set_get_mute_voice_call Set/get the mute status of Modem RX/TX during voice call
  *
  * @verbatim
 
-    taf_mngd_audio_StreamRef_t rxStreamRef = NULL, txStreamRef = NULL;
+    taf_audio_StreamRef_t rxStreamRef = NULL, txStreamRef = NULL;
     bool isMute;
     le_result_t res;
 
-    rxStreamRef = taf_mngd_audio_OpenModemVoiceRx(1);
+    rxStreamRef = taf_audio_OpenModemVoiceRx(1);
 
-    txStreamRef = taf_mngd_audio_OpenModemVoiceTx(1, true);
+    txStreamRef = taf_audio_OpenModemVoiceTx(1, true);
 
-    res = taf_mngd_audio_SetMute(rxStreamRef, true);
+    res = taf_audio_SetMute(rxStreamRef, true);
     if (res == LE_OK) {
         LE_INFO("Successfully muted modem RX");
     }
 
-    res = taf_mngd_audio_GetMute(rxStreamRef, &isMute);
+    res = taf_audio_GetMute(rxStreamRef, &isMute);
     if (res == LE_OK) {
         LE_INFO("Successfully get the mute status of modem RX as %s", isMute ? false : true);
     }
 
-    res = taf_mngd_audio_SetMute(txStreamRef, true);
+    res = taf_audio_SetMute(txStreamRef, true);
     if (res == LE_OK) {
         LE_INFO("Successfully muted modem TX");
     }
 
-    res = taf_mngd_audio_GetMute(txStreamRef, &isMute);
+    res = taf_audio_GetMute(txStreamRef, &isMute);
     if (res == LE_OK) {
         LE_INFO("Successfully get the mute status of modem TX as %s", isMute ? false : true);
     }
@@ -479,18 +479,18 @@
  *
  * @verbatim
 
-    taf_mngd_audio_StreamRef_t  = playerRef;
+    taf_audio_StreamRef_t  = playerRef;
     bool isMute;
     le_result_t res;
 
-    playerRef = taf_mngd_audio_OpenPlayer(TAF_MNGD_AUDIO_RX);
+    playerRef = taf_audio_OpenPlayer(TAF_AUDIO_RX);
 
-    res = taf_mngd_audio_SetMute(playerRef, true);
+    res = taf_audio_SetMute(playerRef, true);
     if (res == LE_OK) {
         LE_INFO("Successfully playerRef is muted");
     }
 
-    res = taf_mngd_audio_GetMute(playerRef, &isMute);
+    res = taf_audio_GetMute(playerRef, &isMute);
     if (res == LE_OK) {
         LE_INFO("Successfully get the mute status of player as %s", isMute ? false : true);
     }
@@ -501,26 +501,26 @@
  *
  * @verbatim
 
-    taf_mngd_audio_StreamRef_t  = recorderRef;
+    taf_audio_StreamRef_t  = recorderRef;
     bool isMute;
     le_result_t res;
 
-    recorderRef = taf_mngd_audio_OpenRecorder(TAF_MNGD_AUDIO_TX);
+    recorderRef = taf_audio_OpenRecorder(TAF_AUDIO_TX);
 
-    res = taf_mngd_audio_SetMute(recorderRef, true);
+    res = taf_audio_SetMute(recorderRef, true);
     if (res == LE_OK) {
         LE_INFO("Successfully recorderRef is muted");
     }
 
-    res = taf_mngd_audio_GetMute(recorderRef, &isMute);
+    res = taf_audio_GetMute(recorderRef, &isMute);
     if (res == LE_OK) {
         LE_INFO("Successfully get the mute status of recorder as %s", isMute ? false : true);
     }
 
    @endverbatim
  *
- * @section c_taf_mngd_audio_set_get_volume Manage the volume levels
- * TelAF Managed Audio Service helps to set/get volume level for modem RX, player and recorder.
+ * @section c_taf_audio_set_get_volume Manage the volume levels
+ * TelAF Audio Service helps to set/get volume level for modem RX, player and recorder.
  * Default volume levels for all the streams will be 0, and the application needs to set the
  * required volume using SetVolume.
  *
@@ -528,20 +528,20 @@
  *
  * @verbatim
 
-    taf_mngd_audio_StreamRef_t rxStreamRef = NULL, txStreamRef = NULL;
+    taf_audio_StreamRef_t rxStreamRef = NULL, txStreamRef = NULL;
     le_result_t res;
     double volLevel = 0.5;
     double getVolLevel;
-    rxStreamRef = taf_mngd_audio_OpenModemVoiceRx(1);
+    rxStreamRef = taf_audio_OpenModemVoiceRx(1);
 
-    txStreamRef = taf_mngd_audio_OpenModemVoiceTx(1, true);
+    txStreamRef = taf_audio_OpenModemVoiceTx(1, true);
 
-    res = taf_mngd_audio_SetVolume(rxStreamRef, volLevel);
+    res = taf_audio_SetVolume(rxStreamRef, volLevel);
     if (res == LE_OK) {
         LE_INFO("Successfully set the volume for modem RX");
     }
 
-    res = taf_mngd_audio_GetVolume(rxStreamRef, &getVolLevel);
+    res = taf_audio_GetVolume(rxStreamRef, &getVolLevel);
     if (res == LE_OK) {
         LE_INFO("Successfully get the volume level of modem RX as %f", getVolLevel);
     }
@@ -552,19 +552,19 @@
  *
  * @verbatim
 
-    taf_mngd_audio_StreamRef_t  = playerRef;
+    taf_audio_StreamRef_t  = playerRef;
     double volLevel = 0.5;
     double getVolLevel;
     le_result_t res;
 
-    playerRef = taf_mngd_audio_OpenPlayer(TAF_MNGD_AUDIO_RX);
+    playerRef = taf_audio_OpenPlayer(TAF_AUDIO_RX);
 
-    res = taf_mngd_audio_SetVolume(playerRef, volLevel);
+    res = taf_audio_SetVolume(playerRef, volLevel);
     if (res == LE_OK) {
         LE_INFO("Successfully set the volume level to playerRef");
     }
 
-    res = taf_mngd_audio_GetVolume(playerRef, &getVolLevel);
+    res = taf_audio_GetVolume(playerRef, &getVolLevel);
     if (res == LE_OK) {
         LE_INFO("Successfully get the volume level of player as %f", getVolLevel);
     }
@@ -575,19 +575,19 @@
  *
  * @verbatim
 
-    taf_mngd_audio_StreamRef_t  = recorderRef;
+    taf_audio_StreamRef_t  = recorderRef;
     double volLevel = 0.5;
     double getVolLevel;
     le_result_t res;
 
-    recorderRef = taf_mngd_audio_OpenRecorder(TAF_MNGD_AUDIO_TX);
+    recorderRef = taf_audio_OpenRecorder(TAF_AUDIO_TX);
 
-    res = taf_mngd_audio_SetVolume(recorderRef, volLevel);
+    res = taf_audio_SetVolume(recorderRef, volLevel);
     if (res == LE_OK) {
         LE_INFO("Successfully set the volume level to recorderRef");
     }
 
-    res = taf_mngd_audio_GetVolume(recorderRef, &getVolLevel);
+    res = taf_audio_GetVolume(recorderRef, &getVolLevel);
     if (res == LE_OK) {
         LE_INFO("Successfully get the volume level of recorder as %f", getVolLevel);
     }
@@ -616,18 +616,18 @@ REFERENCE Route;
  */
 REFERENCE PlayList;
 
-DEFINE MAX_SRC_PATH_LEN = 50;
+DEFINE MAX_SRC_PATH_LEN = 256;
 
 /**
  * Route IDs.
  */
 ENUM RouteId
 {
-    ROUTE_0 = 0,
-    ROUTE_1,
+    ROUTE_1 = 0,
     ROUTE_2,
     ROUTE_3,
     ROUTE_4,
+    ROUTE_5,
     ROUTE_MAX
 };
 
@@ -847,6 +847,8 @@ FUNCTION Stream OpenRecorder
  *     - LE_OK                 Success.
  *     - LE_BAD_PARAMETER      Stream reference or file path is not valid.
  *     - LE_FAULT              Failure.
+ * @note Recording will be stopped automatically by the tafAudioSvc, when the recorded file size
+ * reaches the maxFileBytes defined in service adef.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t RecordFile

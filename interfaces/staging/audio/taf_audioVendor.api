@@ -34,27 +34,27 @@
 
 //--------------------------------------------------------------------------------------------------
 /**
- * @page c_taf_mngd_audioHw Managed Audio Hw Service
+ * @page c_taf_audioVendor Audio vendor Service
  *
- * @ref taf_mngd_audioHw_interface.h "API Reference"
+ * @ref taf_audioVendor_interface.h "API Reference"
  *
  * <HR>
  *
- * The Managed Audio service APIs help to do audio operations on the audio devices.
+ * The Audio vendor service APIs help to do audio operations on the audio devices.
  *
- * @section taf_mngd_audioHw_binding IPC interfaces binding
+ * @section taf_audioVendor_binding IPC interfaces binding
  *
- * The following example illustrates how to bind to the Managed Audio service.
+ * The following example illustrates how to bind to the Audio vendor service.
  * @verbatim
    bindings:
    {
-       clientExe.clientComponent.taf_mngd_audioHw -> tafMngdAudioSvc.taf_mngd_audioHw
+       clientExe.clientComponent.taf_audioVendor -> tafAudioSvc.taf_audioVendor
    }
    @endverbatim
  *
- * @section c_taf_mngd_audio_HWDevAPI HW device APIs
+ * @section c_taf_audioVendor_VENDORDevAPI HW device APIs
  *
- * TelAF Managed Audio Service helps the user to set/get audio device setting like audio device type
+ * TelAF Audio vendor Service helps the user to set/get audio device setting like audio device type
  * power state, mute state using HW device APIs. User can also set the configurations for audio
  * devices, can register for node state change events.
  *
@@ -62,7 +62,7 @@
  *
  * @verbatim
     const char* configurePath = "/data/configure.xml";
-    le_result_t res = taf_mngd_audioHw_SendVendorConfig(configPath);
+    le_result_t res = taf_audioVendor_SendVendorConfig(configPath);
     if(res == LE_OK)
         LE_INFO("Successfully sent the configuration to VHAL");
 
@@ -71,8 +71,8 @@
  * @subsection c_get_audio_device_type Get the type of audio device connected to the node
  *
  * @verbatim
-    taf_mngd_audio_NodeType_t nodeType = taf_mngd_audioHw_GetNodeType(0x1);
-    if(nodeType != TAF_MNGD_AUDIO_INVALID)
+    taf_audioVendor_NodeType_t nodeType = taf_audioVendor_GetNodeType(0x1);
+    if(nodeType != TAF_AUDIO_INVALID)
         LE_INFO("Successfully got the audio device type");
 
    @endverbatim
@@ -81,7 +81,7 @@
  *
  * @verbatim
     const char* configurePath = "/data/audioConfigure.xml";
-    le_result_t res = taf_mngd_audioHw_SendNodeVendorConfigure(configurePath);
+    le_result_t res = taf_audioVendor_SendNodeVendorConfigure(configurePath);
     if(res == LE_OK)
         LE_INFO("Successfully sent the audio device configuration to Vendor");
 
@@ -90,12 +90,12 @@
  * @subsection c_set_and_get_audio_device_power_state Set/get audio device power state
  *
  * @verbatim
-    le_result_t res = taf_mngd_audioHw_SetNodePowerState(0x1, TAF_MNGD_AUDIO_SUSPEND);
+    le_result_t res = taf_audioVendor_SetNodePowerState(0x1, TAF_AUDIO_SUSPEND);
     if(res == LE_OK)
         LE_INFO("Successfully set the audio device power state");
 
-    taf_mngd_audio_NodePowerState_t state;
-    res = taf_mngd_audioHW_GetNodePowerState(0x1, &state);
+    taf_audioVendor_NodePowerState_t state;
+    res = taf_audioVendor_GetNodePowerState(0x1, &state);
     if(res == LE_OK)
         LE_INFO("Successfully got the audio device power state %d", state);
 
@@ -104,12 +104,12 @@
  * @subsection c_set_and_get_audio_device_mute_state Set/get audio device mute state
  *
  * @verbatim
-    le_result_t res = taf_mngd_audioHw_SetNodeMuteState(0x1, true);
+    le_result_t res = taf_audioVendor_SetNodeMuteState(0x1, true);
     if(res == LE_OK)
         LE_INFO("Successfully set the audio device mute state");
 
     bool state;
-    res = taf_mngd_audioHw_GetNodeMuteState(0x1, &state);
+    res = taf_audioVendor_GetNodeMuteState(0x1, &state);
     if(res == LE_OK)
         LE_INFO("Successfully got the audio device mute state %s", state ? "true" : "false");
 
@@ -118,20 +118,20 @@
  * @subsection c_regsiter_audio_device_state_change Register/deregister audio device state change
  *
  * @verbatim
-    static void NodeStateChangeCallback(uint8_t nodeId, taf_mngd_audioHw_Event_t event,
+    static void NodeStateChangeCallback(uint8_t nodeId, taf_audioVendor_Event_t event,
     void* contextPtr)
     {
         LE_INFO("Received node state change callback for audio device %d for event %d",
         nodeId, event);
     }
 
-    taf_mngd_audio_NodeStateChangeHandlerRef_t handlerRef;
-    handlerRef = taf_mngd_audioHw_AddNodeStateChangeHandler(0x1, NodeStateChangeCallback, NULL);
+    taf_audioVendor_NodeStateChangeHandlerRef_t handlerRef;
+    handlerRef = taf_audioVendor_AddNodeStateChangeHandler(0x1, NodeStateChangeCallback, NULL);
     if(handlerRef != NULL)
         LE_INFO("Successfully registered for node state change callback");
 
     // To deregister for node state change.
-    taf_mngd_audioHw_RemoveNodeStateChangeHandler(handlerRef);
+    taf_audioVendor_RemoveNodeStateChangeHandler(handlerRef);
 
    @endverbatim
  */

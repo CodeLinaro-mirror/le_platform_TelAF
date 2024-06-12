@@ -44,6 +44,7 @@
 using namespace telux::common;
 using namespace telux::audio;
 
+#define SUBSYSTEM_TIMEOUT          5
 #define MAX_CONNECTOR              8
 #define HASHMAP_SIZE               10
 #define MAX_STREAM                 6
@@ -65,16 +66,16 @@ using namespace telux::audio;
 #define DEVICE_TYPE_SOURCE_3 260
 #define DEVICE_TYPE_SOURCE_4 261
 
-#define CHECK_OUTPUT_IF(interface)     ((interface == TAF_MNGD_AUDIO_IF_CODEC_SPEAKER_0) || \
-        (interface == TAF_MNGD_AUDIO_IF_CODEC_SPEAKER_1) || \
-        (interface == TAF_MNGD_AUDIO_IF_CODEC_SPEAKER_2) || \
-        (interface == TAF_MNGD_AUDIO_IF_CODEC_SPEAKER_3) || \
-        (interface == TAF_MNGD_AUDIO_IF_CODEC_SPEAKER_4) || \
-        (interface == TAF_MNGD_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_TX) || \
-        (interface == TAF_MNGD_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE) \
+#define CHECK_OUTPUT_IF(interface)     ((interface == TAF_AUDIO_IF_CODEC_SPEAKER_1) || \
+        (interface == TAF_AUDIO_IF_CODEC_SPEAKER_2) || \
+        (interface == TAF_AUDIO_IF_CODEC_SPEAKER_3) || \
+        (interface == TAF_AUDIO_IF_CODEC_SPEAKER_4) || \
+        (interface == TAF_AUDIO_IF_CODEC_SPEAKER_5) || \
+        (interface == TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_TX) || \
+        (interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE) \
         )
 
-#define MNGD_AUDIO_SVC_PROC_CONFIG_PATH "system:/apps/tafMngdAudioSvc/procs/tafMngdAudioSvc"
+#define AUDIO_SVC_PROC_CONFIG_PATH "system:/apps/tafAudioSvc/procs/tafAudioSvc"
 #define DEFAULT_MAX_FILE_BYTES 90112
 #define MAX_FILE_BYTES_NODE_NAME "maxFileBytes"
 
@@ -89,43 +90,43 @@ using namespace telux::audio;
 
 typedef struct StreamEventHandlerRef* StreamEventHandlerRef_t;
 
-typedef struct taf_mngd_audio_Connector {
+typedef struct taf_audio_Connector {
     le_hashmap_Ref_t              audioInList;
     le_hashmap_Ref_t              audioOutList;
     le_msg_SessionRef_t           sessionRef;
-    taf_mngd_audio_ConnectorRef_t connRef;
+    taf_audio_ConnectorRef_t connRef;
     le_dls_Link_t                 connLink;
 }
-taf_mngd_audio_Connector_t;
+taf_audio_Connector_t;
 
 typedef struct{
     le_hashmap_Ref_t    hashMapRef;
     bool                isUsed;
     le_dls_Link_t       hashMapLink;
 }
-taf_mngd_audio_hashMapList_t;
+taf_audio_hashMapList_t;
 
 typedef enum
 {
-    TAF_MNGD_AUDIO_IF_CODEC_MIC_0,
-    TAF_MNGD_AUDIO_IF_CODEC_SPEAKER_0,
-    TAF_MNGD_AUDIO_IF_CODEC_MIC_1,
-    TAF_MNGD_AUDIO_IF_CODEC_SPEAKER_1,
-    TAF_MNGD_AUDIO_IF_CODEC_MIC_2,
-    TAF_MNGD_AUDIO_IF_CODEC_SPEAKER_2,
-    TAF_MNGD_AUDIO_IF_CODEC_MIC_3,
-    TAF_MNGD_AUDIO_IF_CODEC_SPEAKER_3,
-    TAF_MNGD_AUDIO_IF_CODEC_MIC_4,
-    TAF_MNGD_AUDIO_IF_CODEC_SPEAKER_4,
-    TAF_MNGD_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX,
-    TAF_MNGD_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_TX,
-    TAF_MNGD_AUDIO_IF_DSP_FRONTEND_FILE_PLAY,
-    TAF_MNGD_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE,
-    TAF_MNGD_AUDIO_NUM_INTERFACES
+    TAF_AUDIO_IF_CODEC_MIC_1,
+    TAF_AUDIO_IF_CODEC_SPEAKER_1,
+    TAF_AUDIO_IF_CODEC_MIC_2,
+    TAF_AUDIO_IF_CODEC_SPEAKER_2,
+    TAF_AUDIO_IF_CODEC_MIC_3,
+    TAF_AUDIO_IF_CODEC_SPEAKER_3,
+    TAF_AUDIO_IF_CODEC_MIC_4,
+    TAF_AUDIO_IF_CODEC_SPEAKER_4,
+    TAF_AUDIO_IF_CODEC_MIC_5,
+    TAF_AUDIO_IF_CODEC_SPEAKER_5,
+    TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_RX,
+    TAF_AUDIO_IF_DSP_BACKEND_MODEM_VOICE_TX,
+    TAF_AUDIO_IF_DSP_FRONTEND_FILE_PLAY,
+    TAF_AUDIO_IF_DSP_FRONTEND_FILE_CAPTURE,
+    TAF_AUDIO_NUM_INTERFACES
 }
-taf_mngd_audio_If_t;
+taf_audio_If_t;
 
-typedef struct taf_mngd_audio_Stream {
+typedef struct taf_audio_Stream {
     bool             device;
     bool             playFile;
     bool echoCancellerEnabled;
@@ -133,21 +134,21 @@ typedef struct taf_mngd_audio_Stream {
     uint32_t         timeSlot;
     double           volLevel;
     bool             isMute;
-    taf_mngd_audio_If_t interface;
+    taf_audio_If_t interface;
     le_hashmap_Ref_t connList;
-    taf_mngd_audio_Direction_t direction;
-    taf_mngd_audio_StreamRef_t streamRef;
+    taf_audio_Direction_t direction;
+    taf_audio_StreamRef_t streamRef;
     le_event_Id_t    eventId;
     le_dls_List_t    streamRefWithEventHdlrList;
     le_dls_List_t    sessionRefList;
     le_dls_Link_t  streamLink;
-}taf_mngd_audio_Stream_t;
+}taf_audio_Stream_t;
 
 typedef struct
 {
-    taf_mngd_audio_If_t interface;
+    taf_audio_If_t interface;
     bool            HwDevice;
-    taf_mngd_audio_Direction_t direction;
+    taf_audio_Direction_t direction;
 }
 StreamConfig_t;
 
@@ -160,22 +161,22 @@ taf_SessionRefNode_t;
 
 typedef struct
 {
-    taf_mngd_audio_RouteId_t routeId;
-    taf_mngd_audio_Mode_t mode;
-    taf_mngd_audio_StreamRef_t sinkRef;
-    taf_mngd_audio_StreamRef_t sourceRef;
-    taf_mngd_audio_Stream* modemRxPtr;
-    taf_mngd_audio_Stream* modemTxPtr;
+    taf_audio_RouteId_t routeId;
+    taf_audio_Mode_t mode;
+    taf_audio_StreamRef_t sinkRef;
+    taf_audio_StreamRef_t sourceRef;
+    taf_audio_Stream* modemRxPtr;
+    taf_audio_Stream* modemTxPtr;
     le_msg_SessionRef_t sessionRef;
-    taf_mngd_audio_RouteRef_t routeRef;
+    taf_audio_RouteRef_t routeRef;
 }
-taf_mngd_audio_Route_t;
+taf_audio_Route_t;
 
 typedef enum
 {
-    TAF_MNGD_AUDIO_BITMASK_MEDIA_EVENT = 0x1
+    TAF_AUDIO_BITMASK_MEDIA_EVENT = 0x1
 }
-taf_mngd_audio_StreamEventBitMask_t;
+taf_audio_StreamEventBitMask_t;
 
 /**
  * Stream Event Handler Reference Node structure
@@ -184,8 +185,8 @@ typedef struct
 {
     le_event_HandlerRef_t             handlerRef;
     StreamEventHandlerRef_t           streamHandlerRef;
-    taf_mngd_audio_StreamEventBitMask_t    streamEventMask;
-    struct taf_mngd_audio_Stream*          streamPtr;
+    taf_audio_StreamEventBitMask_t    streamEventMask;
+    struct taf_audio_Stream*          streamPtr;
     void*                             userCtx;
     le_dls_Link_t                     next;
 }
@@ -193,15 +194,15 @@ EventHandlerRefNode_t;
 
 typedef struct
 {
-    taf_mngd_audio_Stream_t*            streamPtr;
-    taf_mngd_audio_StreamEventBitMask_t streamEvent;
+    taf_audio_Stream_t*            streamPtr;
+    taf_audio_StreamEventBitMask_t streamEvent;
     union
     {
-        taf_mngd_audio_MediaEvent_t     mediaEvent;
+        taf_audio_MediaEvent_t     mediaEvent;
         char                       dtmf;
     } event;
 }
-taf_mngd_audio_StreamEvent_t;
+taf_audio_StreamEvent_t;
 
 /**
  * Wave header file structure.
@@ -241,7 +242,7 @@ typedef struct
     uint32_t numOfFilesToPlay;                                 // Number of Playback files
     bool isPlaybackInProgress;
     le_msg_SessionRef_t sessionRef;
-    taf_mngd_audio_PlayListRef_t playListRef;
+    taf_audio_PlayListRef_t playListRef;
 
 }taf_PlaybackList_t;
 
@@ -250,12 +251,12 @@ typedef struct
  */
 typedef enum
 {
-    TAF_MNGD_AUDIO_FILE_WAVE,
-    TAF_MNGD_AUDIO_FILE_AMR_NB,
-    TAF_MNGD_AUDIO_FILE_AMR_WB,
-    TAF_MNGD_AUDIO_FILE_MAX
+    TAF_AUDIO_FILE_WAVE,
+    TAF_AUDIO_FILE_AMR_NB,
+    TAF_AUDIO_FILE_AMR_WB,
+    TAF_AUDIO_FILE_MAX
 }
-taf_mngd_audio_FileFormat_t;
+taf_audio_FileFormat_t;
 
 namespace telux {
 namespace tafsvc {
@@ -269,58 +270,58 @@ namespace tafsvc {
             void onPlaybackFinished() override;
     };
 
-class taf_MngdAudio : public ITafSvc
+class taf_Audio : public ITafSvc
 {
 
     public:
 
-        static taf_MngdAudio &GetInstance();
+        static taf_Audio &GetInstance();
 
-        taf_MngdAudio() {};
-        ~taf_MngdAudio() {};
+        taf_Audio() {};
+        ~taf_Audio() {};
 
         std::promise<telux::common::ErrorCode> gCallbackPromise;
         bool mIsPlaying = false;
-        taf_mngd_audio_Stream_t* playerStreamPtr;
+        taf_audio_Stream_t* playerStreamPtr;
         AudioFormat mFileFormat = AudioFormat::UNKNOWN;
-        taf_mngd_audio_PlayListRef_t currPlayListRef;
+        taf_audio_PlayListRef_t currPlayListRef;
         le_ref_MapRef_t PlaybackListRefMap = NULL;
         le_dls_List_t  EventIdList = LE_DLS_LIST_INIT;
 
         void Init(void);
 
-        taf_mngd_audio_Connector_t* CreateConnector();
-        void DeleteConnector( taf_mngd_audio_ConnectorRef_t connectorRef );
-        le_result_t Connect ( taf_mngd_audio_ConnectorRef_t connectorRef,
-                taf_mngd_audio_StreamRef_t streamRef );
-        void Disconnect ( taf_mngd_audio_ConnectorRef_t connectorRef,
-                taf_mngd_audio_StreamRef_t streamRef );
-        void Close( taf_mngd_audio_StreamRef_t streamRef );
-        taf_mngd_audio_StreamRef_t OpenModemVoiceRx(uint32_t slotId);
-        taf_mngd_audio_StreamRef_t OpenModemVoiceTx(uint32_t slotId, bool enableEcnr);
-        taf_mngd_audio_RouteRef_t OpenRoute( taf_mngd_audio_RouteId_t route,
-                taf_mngd_audio_Mode_t mode, taf_mngd_audio_StreamRef_t *sinkRef,
-                taf_mngd_audio_StreamRef_t *sourceRef);
-        le_result_t CloseRoute( taf_mngd_audio_RouteRef_t routeRef );
-        taf_mngd_audio_StreamRef_t OpenPlayer(taf_mngd_audio_Direction_t direction);
-        taf_mngd_audio_StreamRef_t OpenRecorder(taf_mngd_audio_Direction_t direction);
-        taf_mngd_audio_MediaHandlerRef_t AddMediaHandler(taf_mngd_audio_StreamRef_t streamRef,
-                taf_mngd_audio_MediaHandlerFunc_t handlerPtr, void* contextPtr);
-        void RemoveMediaHandler(taf_mngd_audio_MediaHandlerRef_t handlerRef);
-        le_result_t RecordFile( taf_mngd_audio_StreamRef_t streamRef, const char *srcPath);
-        le_result_t Stop(taf_mngd_audio_StreamRef_t streamRef);
-        le_result_t PlayFile( taf_mngd_audio_StreamRef_t streamRef, const char *srcPath);
-        le_result_t setVhalRouteStatus(taf_mngd_audio_Mode_t mode, bool status);
-        taf_mngd_audio_PlayListRef_t CreatePlayList();
-        le_result_t AddPlayListEntry(taf_mngd_audio_PlayListRef_t playListRef, const char *scrPath,
+        taf_audio_Connector_t* CreateConnector();
+        void DeleteConnector( taf_audio_ConnectorRef_t connectorRef );
+        le_result_t Connect ( taf_audio_ConnectorRef_t connectorRef,
+                taf_audio_StreamRef_t streamRef );
+        void Disconnect ( taf_audio_ConnectorRef_t connectorRef,
+                taf_audio_StreamRef_t streamRef );
+        void Close( taf_audio_StreamRef_t streamRef );
+        taf_audio_StreamRef_t OpenModemVoiceRx(uint32_t slotId);
+        taf_audio_StreamRef_t OpenModemVoiceTx(uint32_t slotId, bool enableEcnr);
+        taf_audio_RouteRef_t OpenRoute( taf_audio_RouteId_t route,
+                taf_audio_Mode_t mode, taf_audio_StreamRef_t *sinkRef,
+                taf_audio_StreamRef_t *sourceRef);
+        le_result_t CloseRoute( taf_audio_RouteRef_t routeRef );
+        taf_audio_StreamRef_t OpenPlayer(taf_audio_Direction_t direction);
+        taf_audio_StreamRef_t OpenRecorder(taf_audio_Direction_t direction);
+        taf_audio_MediaHandlerRef_t AddMediaHandler(taf_audio_StreamRef_t streamRef,
+                taf_audio_MediaHandlerFunc_t handlerPtr, void* contextPtr);
+        void RemoveMediaHandler(taf_audio_MediaHandlerRef_t handlerRef);
+        le_result_t RecordFile( taf_audio_StreamRef_t streamRef, const char *srcPath);
+        le_result_t Stop(taf_audio_StreamRef_t streamRef);
+        le_result_t PlayFile( taf_audio_StreamRef_t streamRef, const char *srcPath);
+        le_result_t setVhalRouteStatus(taf_audio_Mode_t mode, bool status);
+        taf_audio_PlayListRef_t CreatePlayList();
+        le_result_t AddPlayListEntry(taf_audio_PlayListRef_t playListRef, const char *scrPath,
                 int32_t repeat);
-        le_result_t DeletePlayList(taf_mngd_audio_PlayListRef_t playListRef);
-        le_result_t PlayFileList ( taf_mngd_audio_StreamRef_t streamRef,
-                taf_mngd_audio_PlayListRef_t playListRef);
-        le_result_t SetMute( taf_mngd_audio_StreamRef_t streamRef, bool isMute);
-        le_result_t GetMute( taf_mngd_audio_StreamRef_t streamRef, bool *isMute);
-        le_result_t SetVolume( taf_mngd_audio_StreamRef_t streamRef, double volLevel);
-        le_result_t GetVolume( taf_mngd_audio_StreamRef_t streamRef, double *volLevel);
+        le_result_t DeletePlayList(taf_audio_PlayListRef_t playListRef);
+        le_result_t PlayFileList ( taf_audio_StreamRef_t streamRef,
+                taf_audio_PlayListRef_t playListRef);
+        le_result_t SetMute( taf_audio_StreamRef_t streamRef, bool isMute);
+        le_result_t GetMute( taf_audio_StreamRef_t streamRef, bool *isMute);
+        le_result_t SetVolume( taf_audio_StreamRef_t streamRef, double volLevel);
+        le_result_t GetVolume( taf_audio_StreamRef_t streamRef, double *volLevel);
 
         private:
 
@@ -368,33 +369,33 @@ class taf_MngdAudio : public ITafSvc
         le_dls_List_t  ConnectorList = LE_DLS_LIST_INIT;
         le_dls_List_t  HashMapList = LE_DLS_LIST_INIT;
 
-        taf_mngd_audio_StreamRef_t CreateStream( StreamConfig_t* streamConfPtr );
-        void InitStream( taf_mngd_audio_Stream_t* streamPtr );
-        void CloseConnectorPaths( taf_mngd_audio_Connector_t*   connectorPtr );
-        void DisconnectConnectors(taf_mngd_audio_Stream_t* streamPtr);
-        void DeleteHashMap( taf_mngd_audio_Connector_t* connectorPtr );
+        taf_audio_StreamRef_t CreateStream( StreamConfig_t* streamConfPtr );
+        void InitStream( taf_audio_Stream_t* streamPtr );
+        void CloseConnectorPaths( taf_audio_Connector_t*   connectorPtr );
+        void DisconnectConnectors(taf_audio_Stream_t* streamPtr);
+        void DeleteHashMap( taf_audio_Connector_t* connectorPtr );
         void ClearHashMap( le_hashmap_Ref_t hashMapRef );
         le_hashmap_Ref_t GetHashMap( );
-        le_result_t ConnectStreamPaths( taf_mngd_audio_Stream_t* streamPtr,
+        le_result_t ConnectStreamPaths( taf_audio_Stream_t* streamPtr,
                 le_hashmap_Ref_t streamListPtr );
         le_result_t StartAudio( StreamConfig config );
-        le_result_t PlayWave( taf_mngd_audio_Stream_t* streamPtr, const char *srcPath);
-        le_result_t PlayAmr( taf_mngd_audio_Stream_t* streamPtr, const char *srcPath);
-        le_result_t ReadPcmHeader( taf_mngd_audio_Stream_t* streamPtr, const char *srcPath,
+        le_result_t PlayWave( taf_audio_Stream_t* streamPtr, const char *srcPath);
+        le_result_t PlayAmr( taf_audio_Stream_t* streamPtr, const char *srcPath);
+        le_result_t ReadPcmHeader( taf_audio_Stream_t* streamPtr, const char *srcPath,
                 StreamConfig &config);
-        le_result_t ReadAmrHeader( taf_mngd_audio_Stream_t* streamPtr, const char *srcPath,
+        le_result_t ReadAmrHeader( taf_audio_Stream_t* streamPtr, const char *srcPath,
                 StreamConfig &config);
         ssize_t ReadHeader( int fd, void* bufPtr, size_t bufSize);
-        le_result_t setWavHeader( FILE *mFile, taf_mngd_audio_Stream_t *config);
-        le_result_t StopAudio(taf_mngd_audio_Stream_t* streamPtr);
-        le_result_t DeleteAudioStream(taf_mngd_audio_Stream_t* streamPtr);
-        void ReleaseStream( taf_mngd_audio_Stream_t*  streamPtr, le_msg_SessionRef_t sessionRef,
+        le_result_t setWavHeader( FILE *mFile, taf_audio_Stream_t *config);
+        le_result_t StopAudio(taf_audio_Stream_t* streamPtr);
+        le_result_t DeleteAudioStream(taf_audio_Stream_t* streamPtr);
+        void ReleaseStream( taf_audio_Stream_t*  streamPtr, le_msg_SessionRef_t sessionRef,
                 bool allReferences);
-        StreamEventHandlerRef_t AddStreamEventHandler( taf_mngd_audio_Stream_t* sPtr,
+        StreamEventHandlerRef_t AddStreamEventHandler( taf_audio_Stream_t* sPtr,
                 le_event_HandlerFunc_t handlerPtr,
-                taf_mngd_audio_StreamEventBitMask_t streamEventBitMask, void* contextPtr );
+                taf_audio_StreamEventBitMask_t streamEventBitMask, void* contextPtr );
         void RemoveStreamEventHandler( StreamEventHandlerRef_t handlerRef );
-        le_result_t StopandDelete(taf_mngd_audio_Stream_t* strmPtr, le_hashmap_Ref_t strmListPtr);
+        le_result_t StopandDelete(taf_audio_Stream_t* strmPtr, le_hashmap_Ref_t strmListPtr);
 
         static void ClientSessionCloseEventHandler( le_msg_SessionRef_t sessionRef,
                             void* contextPtr);

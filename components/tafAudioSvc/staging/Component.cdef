@@ -1,16 +1,16 @@
 sources:
 {
-    tafMngdAudioSvc.cpp
-    tafMngdAudioImpl.cpp
-    tafMngdAudioVhal.cpp
+    tafAudioSvc.cpp
+    tafAudioImpl.cpp
+    tafAudioVhal.cpp
 }
 
 provides:
 {
     api:
     {
-        $TELAF_ROOT/apps/tafMngdServices/interfaces/staging/taf_mngd_audio.api
-        $TELAF_ROOT/apps/tafMngdServices/interfaces/staging/taf_mngd_audioHw.api
+        $TELAF_ROOT/interfaces/staging/audio/taf_audio.api
+        $TELAF_ROOT/interfaces/staging/audio/taf_audioVendor.api
     }
 }
 

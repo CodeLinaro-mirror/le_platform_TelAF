@@ -32,7 +32,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "tafMngdAudioVhal.hpp"
+#include "tafAudioVhal.hpp"
 #include "tafSvcIF.hpp"
 
 using namespace taf::audioVhal;
@@ -41,15 +41,15 @@ LE_MEM_DEFINE_STATIC_POOL(NodeEventHandlerRef, MAX_VENDOR_NODES,
         sizeof(NodeEventHandlerRefNode_t));
 
 /**
- * Returns managed audio vhal instance
+ * Returns audio vhal instance
  */
-taf_MngdAudioVhal &taf_MngdAudioVhal::GetInstance()
+taf_AudioVhal &taf_AudioVhal::GetInstance()
 {
-    static taf_MngdAudioVhal instance;
+    static taf_AudioVhal instance;
     return instance;
 }
 
-void taf_MngdAudioVhal::Init()
+void taf_AudioVhal::Init()
 {
     // load driver
     audioInf = (hal_audio_Inf_t *)taf_devMgr_LoadDrv(TAF_AUDIO_MODULE_NAME, nullptr);
@@ -72,21 +72,21 @@ void taf_MngdAudioVhal::Init()
     }
 }
 
-bool taf_MngdAudioVhal::isAudioDrvAvailable()
+bool taf_AudioVhal::isAudioDrvAvailable()
 {
     LE_DEBUG("isVhalLoaded : %s", isVhalLoaded ? "true" : "false");
     return isVhalLoaded;
 }
 
-le_result_t taf_MngdAudioVhal::OpenRoute(bool status, taf_mngd_audio_RouteId_t routeId,
-        taf_mngd_audio_Mode_t mode)
+le_result_t taf_AudioVhal::OpenRoute(bool status, taf_audio_RouteId_t routeId,
+        taf_audio_Mode_t mode)
 {
     LE_DEBUG("OpenRoute status %s route %d mode %d", (status ? "true" : "false"), routeId, mode);
     return audioInf->CtlSetAudioStatus(status, (uint32_t)routeId, (hal_audio_Mode_t)mode);
 }
 
-le_result_t taf_MngdAudioVhal::GetNodeType( uint8_t audioNodeId,
-        taf_mngd_audioHw_NodeType_t *nodeType )
+le_result_t taf_AudioVhal::GetNodeType( uint8_t audioNodeId,
+        taf_audioVendor_NodeType_t *nodeType )
 {
     LE_DEBUG("GetNodeType %d", audioNodeId);
     hal_audio_NodeType_t halNodeType;
@@ -94,91 +94,91 @@ le_result_t taf_MngdAudioVhal::GetNodeType( uint8_t audioNodeId,
     if(res == LE_OK)
     {
         if(halNodeType == HAL_AUDIO_NODE_TYPE_CODEC)
-            *nodeType = TAF_MNGD_AUDIOHW_AUDIO_CODEC;
+            *nodeType = TAF_AUDIOVENDOR_AUDIO_CODEC;
         else if(halNodeType == HAL_AUDIO_NODE_TYPE_PA)
-            *nodeType = TAF_MNGD_AUDIOHW_AUDIO_PA;
+            *nodeType = TAF_AUDIOVENDOR_AUDIO_PA;
         else if(halNodeType == HAL_AUDIO_NODE_TYPE_A2B)
-            *nodeType = TAF_MNGD_AUDIOHW_AUDIO_A2B;
+            *nodeType = TAF_AUDIOVENDOR_AUDIO_A2B;
         else
-            *nodeType = TAF_MNGD_AUDIOHW_INVALID;
+            *nodeType = TAF_AUDIOVENDOR_INVALID;
     }
     return res;
 }
 
-le_result_t taf_MngdAudioVhal::SendNodeVendorConfig(uint8_t audioNodeId, const char* configPath)
+le_result_t taf_AudioVhal::SendNodeVendorConfig(uint8_t audioNodeId, const char* configPath)
 {
     LE_DEBUG("SendNodeVendorConfig Node id : %d configPath : %s", audioNodeId, configPath);
     return audioInf->SendNodeVendorConfig(audioNodeId, configPath);
 }
 
-le_result_t taf_MngdAudioVhal::SetNodePowerState(uint8_t audioNodeId,
-        taf_mngd_audioHw_NodePowerState_t state)
+le_result_t taf_AudioVhal::SetNodePowerState(uint8_t audioNodeId,
+        taf_audioVendor_NodePowerState_t state)
 {
     LE_DEBUG("SetNodePowerState node id : %d state : %d", audioNodeId, state);
     return audioInf->SetNodePowerState(audioNodeId, (hal_audio_PowerState_t)state);
 }
 
-le_result_t taf_MngdAudioVhal::GetNodePowerState(uint8_t audioNodeId,
-        taf_mngd_audioHw_NodePowerState_t* state)
+le_result_t taf_AudioVhal::GetNodePowerState(uint8_t audioNodeId,
+        taf_audioVendor_NodePowerState_t* state)
 {
     LE_DEBUG("GetNodePowerState node id : %d audioInf %p", audioNodeId, audioInf);
     hal_audio_PowerState_t vhalState;
     le_result_t res = audioInf->GetNodePowerState(audioNodeId, &vhalState);
 
-    *state = (taf_mngd_audioHw_NodePowerState_t)vhalState;
+    *state = (taf_audioVendor_NodePowerState_t)vhalState;
     LE_DEBUG("state is %d", *state);
     return res;
 }
 
-le_result_t taf_MngdAudioVhal::SetNodeMuteState(uint8_t audioNodeId, bool mute)
+le_result_t taf_AudioVhal::SetNodeMuteState(uint8_t audioNodeId, bool mute)
 {
     LE_DEBUG("SetNodeMuteState node id : %d mute : %s", audioNodeId, mute ? "true" : "false");
     return audioInf->SetNodeMuteState(audioNodeId, mute);
 }
 
-le_result_t taf_MngdAudioVhal::GetNodeMuteState(uint8_t audioNodeId, bool *isMuted)
+le_result_t taf_AudioVhal::GetNodeMuteState(uint8_t audioNodeId, bool *isMuted)
 {
     LE_DEBUG("GetNodeMuteState node id : %d ", audioNodeId);
     return audioInf->GetNodeMuteState(audioNodeId, isMuted);
 }
 
-void taf_MngdAudioVhal::NodeEventHandler(void* reportPtr, void* secondLayerHandlerFunc)
+void taf_AudioVhal::NodeEventHandler(void* reportPtr, void* secondLayerHandlerFunc)
 {
-    taf_MngdAudioVhal mngdAudioVhal = taf_MngdAudioVhal::GetInstance();
+    taf_AudioVhal audioVhal = taf_AudioVhal::GetInstance();
     NodeEvent_t* eventPtr = (NodeEvent_t*)reportPtr;
     LE_DEBUG("NodeEventHandler nodeId %d event %d", eventPtr->nodeId, eventPtr->event);
     le_dls_Link_t* linkHandlerPtr = NULL;
-    linkHandlerPtr = le_dls_PeekTail(&mngdAudioVhal.NodeEventHandlerList);
+    linkHandlerPtr = le_dls_PeekTail(&audioVhal.NodeEventHandlerList);
     while(linkHandlerPtr)
     {
         NodeEventHandlerRefNode_t * handlerRefPtr = CONTAINER_OF(linkHandlerPtr,
                 NodeEventHandlerRefNode_t, next);
-        linkHandlerPtr = le_dls_PeekPrev(&mngdAudioVhal.NodeEventHandlerList, linkHandlerPtr);
+        linkHandlerPtr = le_dls_PeekPrev(&audioVhal.NodeEventHandlerList, linkHandlerPtr);
         if(handlerRefPtr->nodeId == eventPtr->nodeId)
         {
             LE_INFO("NodeId registered received the event");
-            taf_mngd_audioHw_NodeStateHandlerFunc_t clientFunc =
-                    (taf_mngd_audioHw_NodeStateHandlerFunc_t)secondLayerHandlerFunc;
+            taf_audioVendor_NodeStateHandlerFunc_t clientFunc =
+                    (taf_audioVendor_NodeStateHandlerFunc_t)secondLayerHandlerFunc;
             clientFunc(eventPtr->nodeId, eventPtr->event, handlerRefPtr->userCtx);
         }
     }
 }
 
-void taf_MngdAudioVhal::NodeEventCB(uint8_t nodeId, hal_audio_DevEvent_t event)
+void taf_AudioVhal::NodeEventCB(uint8_t nodeId, hal_audio_DevEvent_t event)
 {
     LE_DEBUG("NodeEventCB nodeId : %d event : %d", nodeId, event);
-    taf_MngdAudioVhal mngdAudioVhal = taf_MngdAudioVhal::GetInstance();
+    taf_AudioVhal audioVhal = taf_AudioVhal::GetInstance();
     NodeEvent_t nodeEvent;
     nodeEvent.nodeId = nodeId;
-    nodeEvent.event = (taf_mngd_audioHw_Event_t)event;
+    nodeEvent.event = (taf_audioVendor_Event_t)event;
     // Notify the repective callbackFunc
     le_dls_Link_t* linkHandlerPtr = NULL;
-    linkHandlerPtr = le_dls_PeekTail(&mngdAudioVhal.NodeEventHandlerList);
+    linkHandlerPtr = le_dls_PeekTail(&audioVhal.NodeEventHandlerList);
     while(linkHandlerPtr)
     {
         NodeEventHandlerRefNode_t * handlerRefPtr = CONTAINER_OF(linkHandlerPtr,
                 NodeEventHandlerRefNode_t, next);
-        linkHandlerPtr = le_dls_PeekPrev(&mngdAudioVhal.NodeEventHandlerList, linkHandlerPtr);
+        linkHandlerPtr = le_dls_PeekPrev(&audioVhal.NodeEventHandlerList, linkHandlerPtr);
         if(handlerRefPtr->nodeId == nodeId)
         {
             LE_INFO("NodeId registered received the event");
@@ -187,8 +187,8 @@ void taf_MngdAudioVhal::NodeEventCB(uint8_t nodeId, hal_audio_DevEvent_t event)
     }
 }
 
-taf_mngd_audioHw_NodeStateChangeHandlerRef_t taf_MngdAudioVhal::AddNodeStateChangeHandler(
-        uint8_t audioNodeId, taf_mngd_audioHw_NodeStateHandlerFunc_t handlerPtr, void* contextPtr)
+taf_audioVendor_NodeStateChangeHandlerRef_t taf_AudioVhal::AddNodeStateChangeHandler(
+        uint8_t audioNodeId, taf_audioVendor_NodeStateHandlerFunc_t handlerPtr, void* contextPtr)
 {
     TAF_ERROR_IF_RET_VAL(handlerPtr == NULL, NULL, "Invalid handler reference");
 
@@ -208,7 +208,7 @@ taf_mngd_audioHw_NodeStateChangeHandlerRef_t taf_MngdAudioVhal::AddNodeStateChan
     snprintf(nodeEventId, sizeof(nodeEventId), "nodeEvent-%d", audioNodeId);
     nodeHandlerRefPtr->eventId = le_event_CreateId(nodeEventId, sizeof(NodeEvent_t));
 
-    nodeHandlerRefPtr->handlerRef =(taf_mngd_audioHw_NodeStateChangeHandlerRef_t)
+    nodeHandlerRefPtr->handlerRef =(taf_audioVendor_NodeStateChangeHandlerRef_t)
             le_event_AddLayeredHandler("NodeEventHandler", nodeHandlerRefPtr->eventId,
             NodeEventHandler, (void*)handlerPtr);
 
@@ -219,8 +219,8 @@ taf_mngd_audioHw_NodeStateChangeHandlerRef_t taf_MngdAudioVhal::AddNodeStateChan
     return nodeHandlerRefPtr->handlerRef;
 }
 
-void taf_MngdAudioVhal::RemoveNodeStateChangeHandler(
-        taf_mngd_audioHw_NodeStateChangeHandlerRef_t handlerRef )
+void taf_AudioVhal::RemoveNodeStateChangeHandler(
+        taf_audioVendor_NodeStateChangeHandlerRef_t handlerRef )
 {
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 
@@ -241,13 +241,13 @@ void taf_MngdAudioVhal::RemoveNodeStateChangeHandler(
     }
 }
 
-le_result_t taf_MngdAudioVhal::SendVendorConfig(const char* configPath)
+le_result_t taf_AudioVhal::SendVendorConfig(const char* configPath)
 {
     LE_DEBUG("SendVendorConfig %s", configPath);
     return audioInf->SendVendorConfig(configPath);
 }
 
-le_result_t taf_MngdAudioVhal::CtlReportBubStatus(hal_audio_bubStatus_t bubStatus)
+le_result_t taf_AudioVhal::CtlReportBubStatus(hal_audio_bubStatus_t bubStatus)
 {
     LE_DEBUG("CtlReportBubStatus %d", bubStatus);
     return audioInf->CtlReportBubStatus(bubStatus);

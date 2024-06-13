@@ -1419,7 +1419,7 @@ FUNCTION Sample GetLastSampleRef
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the position sample's fix state.
+ * Gets the position sample's fix state per client session.
  *
  * @return
  *  - LE_OK    Succeeded.
@@ -1437,7 +1437,7 @@ FUNCTION le_result_t GetPositionState
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Releases the position sample.
+ * Releases the position sample per client session.
  *
  * @note If the caller passes an invalid position sample reference to this function,
  *       it is a fatal error and the client will be killed.
@@ -1450,7 +1450,8 @@ FUNCTION ReleaseSampleRef
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the location data (latitude, longitude, horizontal accuracy).
+ * Gets the location data (latitude, longitude, horizontal accuracy)
+ * per client session.
  *
  * @return
  *  - LE_FAULT         Failed to get the location's data
@@ -1484,8 +1485,8 @@ FUNCTION le_result_t GetLocation
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the position sample direction. Direction of movement is the direction that the vehicle or
- * person is actually moving.
+ * Gets the position sample direction as per client session. Direction of movement is the
+ * direction that the vehicle or person is actually moving.
  *
  * @return
  *  - LE_FAULT         Failed to get the location's data
@@ -1515,7 +1516,7 @@ FUNCTION le_result_t GetDirection
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the position sample's altitude.
+ * Gets the position sample's altitude per client session.
  *
  * @return
  *  - LE_FAULT         Failed to get the altitude. Invalid position reference provided.
@@ -1542,7 +1543,7 @@ FUNCTION le_result_t GetAltitude
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the position sample's horizontal speed.
+ * Gets the position sample's horizontal speed per client session.
  *
  * @returns
  * - LE_FAULT         Failed to find the positionSample.
@@ -1573,7 +1574,7 @@ FUNCTION le_result_t GetHorizontalSpeed
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the position sample's vertical speed.
+ * Gets the position sample's vertical speed per client session.
  *
  * @return
  *  - LE_FAULT         Failed to find finding the positionSample.
@@ -1605,7 +1606,7 @@ FUNCTION le_result_t GetVerticalSpeed
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the position sample's UTC leap seconds in advance.
+ * Gets the position sample's UTC leap seconds in advance per client session.
  *
  * @return
  *  - LE_FAULT         Failed to get the leap seconds.
@@ -1629,7 +1630,7 @@ FUNCTION le_result_t  GetGpsLeapSeconds
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the position sample's date.
+ * Gets the position sample's date per client session.
  *
  * @return
  *  - LE_FAULT         Failed to get the date.
@@ -1650,7 +1651,7 @@ FUNCTION le_result_t GetDate
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the position sample's time.
+ * Gets the position sample's time per client session.
  *
  * @return
  *  - LE_FAULT         Failed to get the time.
@@ -1672,7 +1673,7 @@ FUNCTION le_result_t GetTime
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Enables the Location service.
+ * Enables the Location service with GNSS state per client session.
  *
  * @return
  *  - LE_FAULT         Failed.
@@ -1689,7 +1690,7 @@ FUNCTION le_result_t Enable
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Starts the Location service.
+ * Starts a GNSS session by triggering engine reports to receive the fixes as per client.
  *
  * @return
  *  - LE_FAULT         Failed.
@@ -1737,7 +1738,7 @@ ENUM DopType
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Disables the Location service.
+ * Disables the Location service with GNSS state per client session.
  *
  * @return
  *  - LE_FAULT         Failed.
@@ -1753,7 +1754,7 @@ FUNCTION le_result_t Disable
 //--------------------------------------------------------------------------------------------------
 
 /**
- * Stops the Location service.
+ * Stops a GNSS session from receiving fixes per client.
  *
  * @return
  *  - LE_FAULT         Failed.
@@ -1768,7 +1769,7 @@ FUNCTION le_result_t Stop
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets the GNSS constellation bitmask that needs to be blacklisted.
+ * Sets the GNSS constellation bitmask that needs to be blacklisted per client session.
  *
  * @return
  *  - LE_FAULT         Failed.
@@ -1789,7 +1790,7 @@ FUNCTION le_result_t SetConstellation
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the GNSS constellation bitmask which are blacklisted.
+ * Gets the GNSS constellation bitmask which are blacklisted per client session.
  *
  * @return
  *  - LE_OK    Succeeded.
@@ -2492,11 +2493,11 @@ EVENT Nmea
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the status of the Location service.
+ * Gets the status of the Location service per client session.
  *
  * @return
- * - TAF_LOCGNSS_STATE_ACTIVE   The Location service is active.
- * - TAF_LOCGNSS_STATE_READY    The Location service is ready.
+ * - TAF_LOCGNSS_STATE_ACTIVE   The Location service is active when the GNSS session is started.
+ * - TAF_LOCGNSS_STATE_READY    The Location service is ready when the GNSS session is stopped.
  * - TAF_LOCGNSS_STATE_DISABLED The Location service is disabled.
  */
 //--------------------------------------------------------------------------------------------------
@@ -2506,7 +2507,7 @@ FUNCTION State GetState
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get Satellite Vehicle status.
+ * Get Satellite Vehicle status per client session.
  *
  * @return
  *  - LE_FAULT         Failed to find the positionSample.
@@ -2531,7 +2532,7 @@ FUNCTION le_result_t GetSatellitesStatus
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get location acquisition rate.
+ * Get location acquisition rate per client session.
  *
  * @return
  *  - LE_OK            Succeeded.
@@ -2549,7 +2550,7 @@ FUNCTION le_result_t GetAcquisitionRate
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the TTFF in milliseconds.
+ * Gets the TTFF in milliseconds per client session.
  *
  * @return
  *  - LE_BUSY          Not fixed position and TTFF cannot be measured.
@@ -2576,7 +2577,8 @@ FUNCTION le_result_t GetTtff
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the satellite's vehicle information. This API provides information about SVs in view.
+ * Gets the satellite's vehicle information per client session.
+ * This API provides information about SVs in view.
  *
  * @return
  *  - LE_FAULT         Failed in finding the positionSample.
@@ -2612,7 +2614,7 @@ FUNCTION le_result_t GetSatellitesInfo
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the position sample's time accuracy.
+ * Gets the position sample's time accuracy per client session.
  *
  * @return
  *  - LE_FAULT         Failed.
@@ -2632,7 +2634,7 @@ FUNCTION le_result_t GetTimeAccuracy
 
 //--------------------------------------------------------------------------------------------------
 /**
- *  Gets the position sample's epoch time.
+ *  Gets the position sample's epoch time per client session.
  *
  * @return
  *  - LE_FAULT         Failed to get the epoch time.
@@ -2653,7 +2655,7 @@ FUNCTION le_result_t GetEpochTime
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets the resolution for the DOP parameters.
+ * Sets the resolution for the DOP parameters per client session.
  *
  * @return LE_OK               Succeeded.
  * @return LE_BAD_PARAMETER    Invalid parameter provided.
@@ -2672,7 +2674,7 @@ FUNCTION le_result_t SetDopResolution
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the DOP parameters for the fixed position.
+ * Gets the DOP parameters for the fixed position per client session.
  *
  * @return
  *  - LE_FAULT         Failed to find the DOP value.
@@ -2696,7 +2698,7 @@ FUNCTION le_result_t GetDilutionOfPrecision
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets leap second information.
+ * Gets leap second information per client session.
  *
  * @return
  *  - LE_OK            Succeeded.
@@ -2723,7 +2725,7 @@ FUNCTION le_result_t GetLeapSeconds
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the position sample's GPS time.
+ * Gets the position sample's GPS time per client session.
  *
  * @return
  *  - LE_FAULT         Failed to get the time.
@@ -2743,7 +2745,7 @@ FUNCTION le_result_t GetGpsTime
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets the Location service acquisition rate.
+ * Sets the Location service acquisition rate per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -2762,7 +2764,7 @@ FUNCTION le_result_t SetAcquisitionRate
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Performs a warm restart of the Location service.
+ * Performs a warm restart of the Location service per client session.
  *
  * @return
  *  - LE_FAULT         Failed.
@@ -2778,7 +2780,7 @@ FUNCTION le_result_t ForceWarmRestart
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Performs a cold restart of the Location service.
+ * Performs a cold restart of the Location service per client session.
  *
  * @return
  *  - LE_FAULT         Failed.
@@ -2806,7 +2808,7 @@ FUNCTION le_result_t ForceFactoryRestart
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Performs a hot restart of the Location service.
+ * Performs a hot restart of the Location service per client session.
  *
  * @return
  *  - LE_FAULT         Failed.
@@ -2837,8 +2839,8 @@ FUNCTION le_result_t GetSupportedConstellations
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This API configures the minimum SV elevation angle setting used by the GNSS
- * standard position engine.
+ * This API configures the minimum SV elevation angle setting used by the GNSS 
+ * standard position engine per client session.
  *
  * @return
  *  - LE_OK           Succeeded.
@@ -2856,7 +2858,7 @@ FUNCTION le_result_t SetMinElevation
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Starts the Location service in the specified start mode.
+ * Starts the Location service in the specified start mode per client session.
  *
  * @return
  *  - LE_OK           Succeeded.
@@ -2876,7 +2878,7 @@ FUNCTION le_result_t StartMode
 //--------------------------------------------------------------------------------------------------
 /**
  * This API retrieves the minimum SV Elevation configuration used by the modem GNSS
- * standard position engine.
+ * standard position engine per client session.
  *
  * @return
  *  - LE_OK          Succeeded.
@@ -2894,7 +2896,7 @@ FUNCTION le_result_t GetMinElevation
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets the enabled NMEA sentences using a bitmask.
+ * Sets the enabled NMEA sentences using a bitmask per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -2918,7 +2920,7 @@ FUNCTION le_result_t SetNmeaSentences
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the bitmask for the enabled NMEA sentences.
+ * Gets the bitmask for the enabled NMEA sentences per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -2945,6 +2947,7 @@ FUNCTION le_result_t GetNmeaSentences
  * By default all DRE parameters mask get enabled while triggering this API. To change the mask
  * taf_locGnss_SetDRConfigValidity() API can be called to set particular DRE parameter mask.
  * The mask gets updated and this API can be called to configure the DRE parameters with the updated mask.
+ * This API configures Dead recokining parameters per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -2963,7 +2966,8 @@ FUNCTION le_result_t SetDRConfig
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Returns a bitmask containing all NMEA sentences supported on this platform.
+ * Returns a bitmask containing all NMEA sentences supported on this platform
+ * per client session.
  *
  * @return
  * - LE_OK               Succeeded.
@@ -2977,7 +2981,7 @@ FUNCTION le_result_t GetSupportedNmeaSentences
 );
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets the engine state for SPE/PPE/DRE/VPE engines.
+ * Sets the engine state for SPE/PPE/DRE/VPE engines per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -2997,7 +3001,7 @@ FUNCTION le_result_t ConfigureEngineState
 //--------------------------------------------------------------------------------------------------
 /**
  * This API enables/disables robust location feature and enables/disables
- * robust location while device is on E911.
+ * robust location while device is on E911 per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3017,7 +3021,7 @@ FUNCTION le_result_t ConfigureRobustLocation
 //--------------------------------------------------------------------------------------------------
 /**
  * This API retrieves the robust location settings and version information used by the
- * GNSS standard position engine.
+ * GNSS standard position engine per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3038,7 +3042,7 @@ FUNCTION le_result_t RobustLocationInformation
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets default configuration for secondary bands.
+ * Sets default configuration for secondary bands per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3055,7 +3059,7 @@ FUNCTION le_result_t DefaultSecondaryBandConstellations
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the (enabled) secondary band GNSS constellation types.
+ * Gets the (enabled) secondary band GNSS constellation types per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3073,7 +3077,7 @@ FUNCTION le_result_t RequestSecondaryBandConstellations
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Disables the given secondary band GNSS constellation types.
+ * Disables the given secondary band GNSS constellation types per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3091,7 +3095,7 @@ FUNCTION le_result_t ConfigureSecondaryBandConstellations
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the position sample's magnetic deviation.
+ * Gets the position sample's magnetic deviation per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3114,7 +3118,8 @@ FUNCTION le_result_t GetMagneticDeviation
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the semi-major and semi-minor horizontal elliptical uncertainty.
+ * Gets the semi-major and semi-minor horizontal elliptical uncertainty
+ * per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3139,7 +3144,7 @@ FUNCTION le_result_t GetEllipticalUncertainty
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets the Lever Arm configuration Parameters.
+ * Sets the Lever Arm configuration Parameters per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3158,7 +3163,7 @@ FUNCTION le_result_t SetLeverArmConfig
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Set the engine type for source of location data.
+ * Set the engine type for source of location data per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3177,7 +3182,7 @@ FUNCTION le_result_t SetEngineType
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the conformity index.
+ * Gets the conformity index per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3202,7 +3207,7 @@ FUNCTION le_result_t GetConformityIndex
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the sensor calibration status and confidence percentage.
+ * Gets the sensor calibration status and confidence percentage per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3222,7 +3227,7 @@ FUNCTION le_result_t GetCalibrationData
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the body frame data.
+ * Gets the body frame data per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3241,7 +3246,8 @@ FUNCTION le_result_t GetBodyFrameData
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets vehicle reference point based latitude, longitude, and altitude information.
+ * Gets vehicle reference point based latitude, longitude, and altitude information
+ * per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3265,7 +3271,8 @@ FUNCTION le_result_t GetVRPBasedLLA
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets vehicle reference point based east, north, and up velocity information.
+ * Gets vehicle reference point based east, north, and up velocity information
+ * per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3286,7 +3293,8 @@ FUNCTION le_result_t GetVRPBasedVelocity
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the set of satellite vehicles that are used to calculate position.
+ * Gets the set of satellite vehicles that are used to calculate position
+ * per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3305,7 +3313,8 @@ FUNCTION le_result_t GetSvUsedInPosition
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets navigation solution mask used to indicate SBAS corrections.
+ * Gets navigation solution mask used to indicate SBAS corrections
+ * per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3324,7 +3333,8 @@ FUNCTION le_result_t GetSbasCorrection
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets position technology mask to indicate which technology is used.
+ * Gets position technology mask to indicate which technology is used
+ * per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3343,7 +3353,7 @@ FUNCTION le_result_t GetPositionTechnology
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the validity of the location information.
+ * Gets the validity of the location information per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3364,7 +3374,7 @@ FUNCTION le_result_t GetLocationInfoValidity
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets the the combination of position engines and location engine type
- * used in calculating the position report.
+ * used in calculating the position report per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3386,7 +3396,8 @@ FUNCTION le_result_t GetLocationOutputEngParams
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the reliability of the horizontal and vertical positions.
+ * Gets the reliability of the horizontal and vertical positions
+ * per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3407,7 +3418,7 @@ FUNCTION le_result_t GetReliabilityInformation
 //--------------------------------------------------------------------------------------------------
 /**
  * Gets the elliptical horizontal uncertainty azimuth of orientation,
- * east and north standard deviations.
+ * east and north standard deviations per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3437,7 +3448,8 @@ FUNCTION le_result_t GetStdDeviationAzimuthInfo
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the elapsed real time and its uncertainity values in nano-second.
+ * Gets the elapsed real time and its uncertainity values in nano-second
+ * per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3457,7 +3469,7 @@ FUNCTION le_result_t GetRealTimeInformation
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the information about GNSS measurement usages.
+ * Gets the information about GNSS measurement usages per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3479,7 +3491,8 @@ FUNCTION le_result_t GetMeasurementUsageInfo
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the status of report in terms of how optimally the report was calculated by the engine.
+ * Gets the status of report in terms of how optimally the report was calculated by the engine
+ * per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3499,7 +3512,7 @@ FUNCTION le_result_t GetReportStatus
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the altitude with respect to mean sea level.
+ * Gets the altitude with respect to mean sea level per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3519,7 +3532,7 @@ FUNCTION le_result_t GetAltitudeMeanSeaLevel
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the GNSS Satellite Vehicles used in position data.
+ * Gets the GNSS Satellite Vehicles used in position data per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3541,7 +3554,8 @@ FUNCTION le_result_t GetSVIds
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the satellite's vehicle information of a given constellation.
+ * Gets the satellite's vehicle information of a given constellation
+ * per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3564,8 +3578,8 @@ FUNCTION le_result_t GetSatellitesInfoEx
 
 //------------------------------------------------------------------------------------------------
 /**
- * Sets the minimum GPS week used by the modem GNSS standard position engine (SPE). This API shall not
- * be called when GNSS state is ACTIVE.
+ * Sets the minimum GPS week used by the modem GNSS standard position engine (SPE) per client session.
+ * This API shall not be called when GNSS state is ACTIVE.
  * Behavior is not defined if client issues a second request of SetMinGpsWeek without waiting
  * for the previous SetMinGpsWeek to finish. Additionally minimum GPS week number shall NEVER
  * be in the future of the current GPS Week.
@@ -3585,12 +3599,12 @@ FUNCTION le_result_t SetMinGpsWeek
 //------------------------------------------------------------------------------------------------
 /**
  * Gets the minimum GPS week configuration used by the modem GNSS standard position
- * engine (SPE). If this API is called right after SetMinGpsWeek, the returned setting may
- * not match the one specified in SetMinGpsWeek, as the setting configured via
- * SetMinGpsWeek can not be applied to the GNSS standard position engine(SPE) when the
- * engine is in middle of a session. In poor GPS signal condition, the session may take up to 255
- * seconds to finish. If after 255 seconds of invoking SetMinGpsWeek, the returned value
- * still does not match, then the caller need to reapply the setting by invoking
+ * engine (SPE) per client session. If this API is called right after SetMinGpsWeek,
+ * the returned setting may not match the one specified in SetMinGpsWeek, as the setting
+ * configured via SetMinGpsWeek can not be applied to the GNSS standard position engine(SPE)
+ * when the engine is in middle of a session. In poor GPS signal condition, the session may
+ * take up to 255 seconds to finish. If after 255 seconds of invoking SetMinGpsWeek, the
+ * returned value still does not match, then the caller need to reapply the setting by invoking
  * SetMinGpsWeek again.
  *
  * @return
@@ -3608,7 +3622,8 @@ FUNCTION le_result_t GetMinGpsWeek
 
 //------------------------------------------------------------------------------------------------
 /**
- * Gets the GNSS capability information. To know capability bit mask @ref LocCapabilityType.
+ * Gets the GNSS capability information per client session.
+ * To know capability bit mask @ref LocCapabilityType.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3623,10 +3638,10 @@ FUNCTION le_result_t GetCapabilities
 
 //------------------------------------------------------------------------------------------------
 /**
- * Configures the required NMEA sentences. Without prior invocation to this API, all NMEA sentences supported in
- * the system will get generated and delivered to all the clients that register to receive NMEA
- * sentences. The NMEA sentence type configuration is common across all clients and it will
- * affect all clients.
+ * Configures the required NMEA sentences per client session. Without prior invocation to this API,
+ * all NMEA sentences supported in the system will get generated and delivered to all the clients that
+ * register to receive NMEA sentences. The NMEA sentence type configuration is common across all
+ * clients and it will affect all clients.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3653,7 +3668,7 @@ FUNCTION le_result_t SetNmeaConfiguration
 
 //------------------------------------------------------------------------------------------------
 /**
- * Gets the XTRA status.
+ * Gets the XTRA status per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3670,7 +3685,8 @@ FUNCTION le_result_t GetXtraStatus
 
 //------------------------------------------------------------------------------------------------
 /**
- * Gets GNSS data for data mask, jammer indication, and automatic gain control.
+ * Gets GNSS data for data mask, jammer indication, and automatic gain control
+ * per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3687,7 +3703,7 @@ FUNCTION le_result_t GetGnssData
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets the dead reckoning parameters validity mask.
+ * Sets the dead reckoning parameters validity mask per client session.
  *
  * @return
  *  - LE_OK             Succeeded.
@@ -3703,7 +3719,7 @@ FUNCTION le_result_t SetDRConfigValidity
 
 //------------------------------------------------------------------------------------------------
 /**
- * Gets Gptp time and its uncertainty.
+ * Gets Gptp time and its uncertainty per client session.
  *
  * @return
  *  - LE_OK             Succeeded.

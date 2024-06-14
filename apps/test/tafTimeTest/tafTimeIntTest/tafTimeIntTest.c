@@ -588,7 +588,7 @@ void TestGetSourceDetails
 
     le_result_t res = taf_time_GetFailedLoops(srcRef, &failedLoops, &loopIntervalSec);
     LE_ASSERT(res == LE_OK);
-    LE_INFO("The number of failed loops are %d. Loop interval is %ld",
+    LE_INFO("The number of failed loops are %d. Loop interval is  %" PRIu64 "",
     failedLoops, loopIntervalSec);
     isAvailable = taf_time_IsAvailable(srcRef);
      if (isAvailable)

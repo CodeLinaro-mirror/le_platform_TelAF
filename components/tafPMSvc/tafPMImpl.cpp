@@ -1069,7 +1069,7 @@ void tafTcuStateListener::onTcuActivityStateUpdate(TcuActivityState state, strin
     LE_INFO("onTcuActivityStateUpdate machine : %s state : %s\n", machineName.c_str(),
             tafPwrMgr.tcuStateToString(state));
     ackClientrecrd.clear();
-    LE_INFO("ackClientrecrd size is:%ld",ackClientrecrd.size());
+    LE_INFO("ackClientrecrd size is:%zu",ackClientrecrd.size());
     stateEvent_t evt;
     if(state == TcuActivityState::SUSPEND) {
         evt.state = TAF_PM_STATE_SUSPEND;
@@ -1309,7 +1309,7 @@ taf_pm_State_t state, taf_pm_NadVm_t vm_id, taf_pm_ClientAck_t ackType )
                     tcuStateToString(tcuState));
 
             ackClientrecrd.push_back((taf_pm_PowerStateRef_t)powerStateRef);
-            LE_INFO("regClientrecrd size is %ld ,ackClientrecrd size is:%ld",regClientrecrd.size(),
+            LE_INFO("regClientrecrd size is %zu ,ackClientrecrd size is:%zu",regClientrecrd.size(),
                     ackClientrecrd.size());
             //If Last acknowledged client , proceed for ack state change
             if(regClientrecrd.size() == ackClientrecrd.size())

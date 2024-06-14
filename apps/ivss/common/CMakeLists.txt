@@ -6,8 +6,8 @@ message(STATUS "PROJECT_NAME: ${PROJECT_NAME}")
 # CommonAPI
 include(FindPkgConfig)
 
-set(TELAF_ROOT $ENV{TELAF_ROOT})
-list(APPEND CMAKE_PREFIX_PATH "${TELAF_ROOT}/../recipe-sysroot/usr/lib/cmake")
+set(PKG_CONFIG_SYSROOT_DIR $ENV{PKG_CONFIG_SYSROOT_DIR})
+list(APPEND CMAKE_PREFIX_PATH "${PKG_CONFIG_SYSROOT_DIR}/usr/lib/cmake")
 
 # CommonAPI library
 find_package(vsomeip3 3.1.0 REQUIRED)

@@ -13,6 +13,8 @@ export LEGATO_BUILD := $(CURDIR)/../legato/legato-af/build
 export GEN_FILE_CONTEXTS := $(CURDIR)/security/selinux/tools/generate_telaf_file_contexts.sh
 export SELINUX_FILE_CONTEXTS := ${CURDIR}/security/selinux/sepolicy/files/file_contexts
 
+export PKG_CONFIG_SYSROOT_DIR ?= $(PKG_CONFIG_SYSROOT_DIR)
+
 SE_FILES = $(shell find $(CURDIR)/security/selinux/sepolicy/ -name *.pp -type f)
 SE_MODS = $(shell find $(CURDIR)/security/selinux/sepolicy/ -name tmp -type d)
 

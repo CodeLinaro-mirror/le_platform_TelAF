@@ -334,7 +334,7 @@ static le_result_t BackUpFileAndSELinuxContext(const char* sourcePath, const cha
         return LE_FAULT;
     }
 
-    if (stat_buf.st_size > BackupStorageCheck.maxFileSize)
+    if ((uint64_t)stat_buf.st_size > BackupStorageCheck.maxFileSize)
     {
         LE_ERROR("Failed to get file size for copying");
         close(inputFd);

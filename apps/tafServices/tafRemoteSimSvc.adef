@@ -51,6 +51,6 @@ bindings:
 }
 extern:
 {
-        tafRemoteSim.RemoteSimDaemon.taf_rsim
+        tafRemoteSim.RemoteSimDaemon.taf_simRsim
         tafSAPCard.SAPProvider.taf_sap
 }

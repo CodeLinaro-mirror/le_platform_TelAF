@@ -22,6 +22,6 @@ start: manual
 
 bindings:
 {
-    tafRSimUnitTest.tafRSimUnitTestComp.taf_rsim -> tafRemoteSimSvc.taf_rsim
+    tafRSimUnitTest.tafRSimUnitTestComp.taf_simRsim -> tafRemoteSimSvc.taf_simRsim
 }
 

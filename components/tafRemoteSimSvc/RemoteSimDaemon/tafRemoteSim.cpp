@@ -43,45 +43,45 @@ using namespace telux::tafsvc;
 COMPONENT_INIT
 {
     LE_INFO("tafRemoteSim Service Init...\n");
-    auto &rSim = taf_rsim::GetInstance();
+    auto &rSim = taf_simRsim::GetInstance();
     rSim.Init();
     LE_INFO(" Remote Sim Card service Ready...\n");
 }
 
-taf_rsim_MessageHandlerRef_t taf_rsim_AddMessageHandler
+taf_simRsim_MessageHandlerRef_t taf_simRsim_AddMessageHandler
 (
-    taf_rsim_MessageHandlerFunc_t handlerPtr,
+    taf_simRsim_MessageHandlerFunc_t handlerPtr,
     void* contextPtr
 )
 {
     le_event_HandlerRef_t handlerRef;
-    auto &rSim = taf_rsim::GetInstance();
+    auto &rSim = taf_simRsim::GetInstance();
     TAF_KILL_CLIENT_IF_RET_VAL(handlerPtr == NULL, NULL, "handlerPtr is NULL");
     handlerRef = (le_event_HandlerRef_t)rSim.AddMessageHandler(handlerPtr, contextPtr);
 
-    return (taf_rsim_MessageHandlerRef_t)(handlerRef);
+    return (taf_simRsim_MessageHandlerRef_t)(handlerRef);
 
 }
 
-void taf_rsim_RemoveMessageHandler
+void taf_simRsim_RemoveMessageHandler
 (
-    taf_rsim_MessageHandlerRef_t handlerRef
+    taf_simRsim_MessageHandlerRef_t handlerRef
 )
 {
-    auto &rSim = taf_rsim::GetInstance();
+    auto &rSim = taf_simRsim::GetInstance();
     rSim.RemoveMessageHandler(handlerRef);
 }
 
 
-le_result_t taf_rsim_SendMessage
+le_result_t taf_simRsim_SendMessage
 (
     const uint8_t* msgPtr,
     size_t messageNumElements,
-    taf_rsim_CallbackHandlerFunc_t  callback,
+    taf_simRsim_CallbackHandlerFunc_t  callback,
     void* contextPtr
 )
 {
-    auto &rSim = taf_rsim::GetInstance();
+    auto &rSim = taf_simRsim::GetInstance();
     return rSim.SendMessage(msgPtr, messageNumElements, callback, contextPtr);
 }
 

@@ -65,9 +65,9 @@
 
 //-------------------------------------------------------------------------------------------------
 /**
- * @page c_tafrsim Remote SIM
+ * @page c_tafsimRsim Remote SIM
  *
- * @ref taf_rsim_interface.h "API Reference"
+ * @ref taf_simRsim_interface.h "API Reference"
  *
  * <HR>
  *
@@ -78,19 +78,19 @@
  * A remote SIM service is needed for applications that want to communicate related to SIM I/O,
  * e.g., APDU, ATR sends a message to the SIM located at the remote side.
  *
- * @section taf_rsim_binding IPC interfaces binding
+ * @section taf_simRsim_binding IPC interfaces binding
  *
- * The functions of this API are provided by the @b tafRSIM application service.
+ * The functions of this API are provided by the @b tafRemoteSimSvc application service.
  *
- * The following example illustrates how to bind to the rSIM service.
+ * The following example illustrates how to bind to the remote SIM service.
  * @verbatim
    bindings:
    {
-       clientExe.clientComponent.taf_rsim -> tafRemoteSimSvc.taf_rsim
+       clientExe.clientComponent.taf_simRsim -> tafRemoteSimSvc.taf_simRsim
    }
    @endverbatim
  *
- * @section c_taf_rsim_SendMessage Communication
+ * @section c_taf_simRsim_SendMessage Communication
  *
  * The communication between the application and the remote SIM service uses the SIM Access Profile
  * (SAP) protocol.
@@ -124,10 +124,10 @@
  * <tr>                                             <td>MSGID_SET_TRANSPORT_PROTOCOL_RESP                                <td>Not supported
  * </table>
  *
- * A message can be sent to the service which the sends commands to the modem using @ref taf_rsim_SendMessage()
+ * A message can be sent to the service which the sends commands to the modem using @ref taf_simRsim_SendMessage()
  * with the messagePtr, messageNumElements, callbackPtr and contextPtr passed as parameters.
  * This message sending is an asynchronous process. A callback pointer can therefore be passed to
- * @ref taf_rsim_SendMessage() in order to receive the sending result for the message.
+ * @ref taf_simRsim_SendMessage() in order to receive the sending result for the message.
  * @verbatim
    static le_mem_PoolRef_t RsimMsgsPool;
    static uint8_t APDUResp[60] = { 0x06, 0x02, 0x00, 0x00, 0x02, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
@@ -141,19 +141,19 @@
    rsimPtr1->msgLength = APDURespLength;
    rsimPtr1->callback = CallbackHandler;
    rsimPtr1->contextPtr = NULL;
-   le_result_t result = taf_rsim_SendMessage(rsimPtr1->msg, rsimPtr1->msgLength, rsimPtr1->callback, rsimPtr1->contextPtr);
+   le_result_t result = taf_simRsim_SendMessage(rsimPtr1->msg, rsimPtr1->msgLength, rsimPtr1->callback, rsimPtr1->contextPtr);
    LE_ASSERT(res == LE_OK);
    @endverbatim
  *
- * Before the rSIM message sending is started, an application registers a callback handler using
- * @ref taf_rsim_AddMessageHandler().
+ * Before the tafsimRsim message sending is started, an application registers a callback handler using
+ * @ref taf_simRsim_AddMessageHandler().
  * Once the message is sent, the handler will be called indicating the sending status of the message.
  * If sending the message failed, the handler will be called with the error code.
  * @verbatim
-   taf_rsim_MessageHandlerRef_t msgHandlerRef = @ref taf_rsim_AddMessageHandler(SAPMessageHandler, NULL);
+   taf_simRsim_MessageHandlerRef_t msgHandlerRef = @ref taf_simRsim_AddMessageHandler(SAPMessageHandler, NULL);
    @endverbatim
  *
- * Applications must use @ref taf_rsim_RemoveMessageHandler() to release @ref taf_rsim_MessageHandlerRef_t message
+ * Applications must use @ref taf_simRsim_RemoveMessageHandler() to release @ref taf_simRsim_MessageHandlerRef_t message
  * handler reference object when it is no longer used.
  *
  * @warning The remote SIM service supports only one remote SIM card and can therefore be
@@ -216,7 +216,7 @@ EVENT Message
 
 //-------------------------------------------------------------------------------------------------
 /**
- * Sends a message to the rSIM service which the sends the message to the modem.
+ * Sends a message to the remote SIM service service which sends the message to the modem.
  *
  * @return
  * - LE_OK -- Successfully sent the message.

@@ -847,6 +847,8 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                     LocationData->satMeas[i].satLatency = 0;
                 }
                 LocationData->robustConformity = locationInfo->getConformityIndex();
+                LE_DEBUG("onDetailedEngineLocationUpdate LocationData->robustConformity %lf",
+                                                (float)LocationData->robustConformity);
                 LocationData->confidencePercent = locationInfo->getCalibrationConfidencePercent();
                 telux::loc::DrCalibrationStatus calibrationStatus =
                                                 locationInfo->getCalibrationStatus();

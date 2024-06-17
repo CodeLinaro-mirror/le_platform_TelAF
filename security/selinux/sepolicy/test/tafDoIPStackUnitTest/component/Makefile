@@ -2,7 +2,7 @@
 
 AWK ?= gawk
 NAME ?= $(strip $(shell $(AWK) -F= '/^SELINUXTYPE/{ print $$2 }' $(OECORE_TARGET_SYSROOT)/etc/selinux/config))
-SHAREDIR := ${TMPDIR}/work-shared/selinux/mls
+SHAREDIR := $(OECORE_TARGET_SYSROOT)/usr/share/selinux/mls
 
 ifeq ($(MLSENABLED),)
 	MLSENABLED := 1

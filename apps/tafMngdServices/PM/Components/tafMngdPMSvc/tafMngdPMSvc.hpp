@@ -53,10 +53,11 @@
 #define NODE_ID 0
 #define WAKELOCK_WITHOUT_REF 0
 #define MAX_SESSION 5
-#define TAF_WAKE_SOURCE_REF_POOL_SIZE 4
+#define TAF_REF_POOL_SIZE 32
 #define STAYAWAKE "STAYAWAKE"
 #define RELAX "RELAX"
 #define SHUTDOWN "SHUTDOWN"
+#define INFO_REPORT_MASK_BUB 1
 namespace telux {
 namespace tafsvc {
 
@@ -133,8 +134,20 @@ typedef struct
 typedef struct
 {
     taf_mngdPm_State_t currentState;
-
 }taf_stateMachine_t;
+
+typedef struct
+{
+    taf_mngdPm_InfoReportHandlerFunc_t handlerPtr;
+    le_dls_Link_t link;                     // Link to handler list
+    taf_mngdPm_InfoReportHandlerRef_t handlerRef;
+    void* infoReportHandlerCtxPtr;
+}taf_mngdPm_InfoReportCb_t;
+
+typedef struct
+{
+    int32_t status;
+}bubStatusEvent_t;
 
 class tafMngdPMSvc: public ITafSvc
 {
@@ -220,6 +233,14 @@ class tafMngdPMSvc: public ITafSvc
         static le_event_Id_t stateChange;
         static taf_mngdPm_WakeupVehicleCb_t wakeupVehicleCB;
         static le_timer_Ref_t wakeupVehicleTimerRef;
+
+        // resources to manage infoReport change handler
+        static le_event_Id_t infoReport;
+        static le_mem_PoolRef_t infoReportHandlerPool;
+        static le_dls_List_t infoReportHandlerList;
+        static le_ref_MapRef_t infoReportHandlerRefMap;
+        static void InfoReportCB(void* reportPtr);
+        static void InfoReportVhalCB(int32_t* reportPtr);
 };
 }
 }

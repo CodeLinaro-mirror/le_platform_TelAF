@@ -92,7 +92,11 @@ static void PrintUsage ()
         "--------0 -> For NAD ------------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ShutdownNode <NODE_ID>\n"
         "------------To WakeupVehicle-----------\n"
-        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- WakeupVehicle\n");
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- WakeupVehicle\n"
+        "------------To GetInfoReport-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- GetInfoReport\n"
+        "------------To AddInfoReportHandler-----------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- AddInfoReportHandler\n");
 }
 
 void RestartCallback(taf_mngdPm_RestartMode_t mode, taf_mngdPm_ResponseMode_t rspmode ,
@@ -416,6 +420,60 @@ static int WakeupVehicle()
     }
     return status;
 }
+
+static int GetInfoReport()
+{
+    LE_INFO("GetInfoReport");
+    int32_t status;
+    le_result_t res = taf_mngdPm_GetInfoReport(TAF_MNGDPM_INFO_REPORT_BUB, &status);
+    if(res == LE_OK)
+    {
+        if(status == TAF_MNGDPM_BUB_STATUS_IN_USE)
+        {
+            printf("Bub Status is TAF_MNGDPM_BUB_STATUS_IN_USE");
+        }
+        else if(status == TAF_MNGDPM_BUB_STATUS_NOT_IN_USE)
+        {
+            printf("Bub Status is TAF_MNGDPM_BUB_STATUS_NOT_IN_USE");
+        }
+        else if(status == TAF_MNGDPM_BUB_STATUS_UNKNOWN)
+        {
+            printf("Bub Status is TAF_MNGDPM_BUB_STATUS_UNKNOWN");
+        }
+        return EXIT_SUCCESS;
+    }
+    return EXIT_FAILURE;
+}
+
+void BubCallBack( int32_t status, void *contextptr)
+{
+    LE_INFO("BubCallBack is:%d", status);
+    if(status == TAF_MNGDPM_BUB_STATUS_IN_USE)
+    {
+        printf("Bub is TAF_MNGDPM_BUB_STATUS_IN_USE \n");
+    }
+    else if(status == TAF_MNGDPM_BUB_STATUS_NOT_IN_USE)
+    {
+        printf("Bub is TAF_MNGDPM_BUB_STATUS_NOT_IN_USE\n");
+    }
+    else if(status == TAF_MNGDPM_BUB_STATUS_UNKNOWN)
+    {
+        printf("Bub is TAF_MNGDPM_BUB_STATUS_UNKNOWN\n");
+    }
+}
+
+static int AddInfoReportHandler()
+{
+    LE_INFO("AddInfoReportHandler");
+    taf_mngdPm_InfoReportHandlerRef_t handlerRef;
+    handlerRef = taf_mngdPm_AddInfoReportHandler((taf_mngdPm_InfoReportBitMask_t)1, BubCallBack, NULL);
+    if(handlerRef)
+    {
+         LE_INFO("AddInfoReportHandler is success");
+         return EXIT_SUCCESS;
+    }
+    return EXIT_FAILURE;
+}
 COMPONENT_INIT
 {
     const char* testType = "";
@@ -440,6 +498,7 @@ COMPONENT_INIT
         if (testType!= NULL && strncmp(testType,"help", 4) == 0)
         {
             PrintUsage();
+            exit(EXIT_SUCCESS);
         }
         else if(strcmp(testType, "RestartSystem") == 0)
         {
@@ -487,6 +546,16 @@ COMPONENT_INIT
         else if(strcmp(testType, "WakeupVehicle") == 0)
         {
             status = WakeupVehicle();
+            exit(status);
+        }
+        else if(strcmp(testType, "GetInfoReport") == 0)
+        {
+            status = GetInfoReport();
+            exit(status);
+        }
+        else if(strcmp(testType, "AddInfoReportHandler") == 0)
+        {
+            status = AddInfoReportHandler();
             exit(status);
         }
         else

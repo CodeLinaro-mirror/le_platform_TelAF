@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -20,7 +20,7 @@ void PrintUsage(void) {
          "app runProc tafWLANIntTest wlanTest -- GetState\n"
          "app runProc tafWLANIntTest wlanTest -- GetMode\n"
          "app runProc tafWLANIntTest wlanTest -- SetMode <mode>\n"
-         "            Modes: 0-AP 1-STA 2-STA+AP 3-AP+AP\n"
+         "            Modes: 1-AP 2-STA 3-AP+STA 4-AP+AP 5-AP+AP+STA\n"
          "app runProc tafWLANIntTest wlanTest -- GetInterfaces\n"
          "\n");
 }
@@ -70,6 +70,8 @@ static void PrintMode(taf_wlan_DeviceMode_t mode) {
         LE_TEST_INFO("Mode: TAF_WLAN_MODE_STA_AP(%d)", mode);
     else if (TAF_WLAN_MODE_AP_AP == mode)
         LE_TEST_INFO("Mode: TAF_WLAN_MODE_AP_AP(%d)", mode);
+    else if (TAF_WLAN_MODE_AP_AP_STA == mode)
+        LE_TEST_INFO("Mode: TAF_WLAN_MODE_AP_AP_STA(%d)", mode);
     else {
         // Control should not reach here
         LE_TEST_INFO("*ERR* Unsupported Mode: %d", mode);

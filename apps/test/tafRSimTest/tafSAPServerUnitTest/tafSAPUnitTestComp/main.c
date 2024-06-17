@@ -30,8 +30,8 @@
 #include "interfaces.h"
 
 static le_sem_Ref_t TestSemaphoreRef;
-static taf_sap_MessageHandlerRef_t  MsgHandlerRef;
-static uint8_t ExpectedMsg[TAF_SAP_MAX_MSG_SIZE] = {0};
+static taf_simSap_MessageHandlerRef_t  MsgHandlerRef;
+static uint8_t ExpectedMsg[TAF_SIMSAP_MAX_MSG_SIZE] = {0};
 static size_t ExpectedMsgSize = 0;
 static uint8_t ConnectReqMsg[12] =
 { 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x01, 0x14, 0x00, 0x00};
@@ -108,11 +108,11 @@ static void SAPMessageHandler(const uint8_t* msgPtr,
     le_sem_Post(TestSemaphoreRef);
 }
 
-static void* Test_taf_sap_AddHandler(void* context) {
+static void* Test_taf_simSap_AddHandler(void* context) {
 
-    taf_sap_ConnectService();
+    taf_simSap_ConnectService();
 
-    MsgHandlerRef = taf_sap_AddMessageHandler(SAPMessageHandler, NULL);
+    MsgHandlerRef = taf_simSap_AddMessageHandler(SAPMessageHandler, NULL);
     LE_ASSERT(MsgHandlerRef != NULL);
     LE_INFO("Message Handler Added successfully MsgHandlerRef = %p", MsgHandlerRef);
 
@@ -120,112 +120,112 @@ static void* Test_taf_sap_AddHandler(void* context) {
     return NULL;
 }
 
-static void Test_taf_sap_Conection(void) {
+static void Test_taf_simSap_Conection(void) {
 
     //Initialize expected connect response message
     memset(ExpectedMsg, 0, sizeof(ExpectedMsg));
     memcpy(ExpectedMsg, ConnectOkRespMsg, 12);
     ExpectedMsgSize = 12;
 
-    taf_sap_SendMessage(ConnectReqMsg, ConnectReqLength);
+    taf_simSap_SendMessage(ConnectReqMsg, ConnectReqLength);
 
     le_sem_Wait(TestSemaphoreRef);
 
     LE_INFO("Connect test pass");
 }
 
-static void Test_taf_sap_ATR(void) {
+static void Test_taf_simSap_ATR(void) {
 
     //Initialize expected ATR response message
     memset(ExpectedMsg, 0, sizeof(ExpectedMsg));
     memcpy(ExpectedMsg, ATRRespMsg, ATRRespLength);
     ExpectedMsgSize = ATRRespLength;
 
-    taf_sap_SendMessage(ATRReqMsg, ATRReqLength);
+    taf_simSap_SendMessage(ATRReqMsg, ATRReqLength);
 
     le_sem_Wait(TestSemaphoreRef);
 
     LE_INFO("ATR test pass");
 }
 
-static void Test_taf_sap_PowerOn(void) {
+static void Test_taf_simSap_PowerOn(void) {
 
     //Initialize expected power ON response message
     memset(ExpectedMsg, 0, sizeof(ExpectedMsg));
     memcpy(ExpectedMsg, PowerOnResp, PowerOnRespLength);
     ExpectedMsgSize = PowerOnRespLength;
 
-    taf_sap_SendMessage(PowerOnReq, PowerOnReqLength);
+    taf_simSap_SendMessage(PowerOnReq, PowerOnReqLength);
 
     le_sem_Wait(TestSemaphoreRef);
 
     LE_INFO("Power ON done");
 }
 
-static void Test_taf_sap_PowerDown(void) {
+static void Test_taf_simSap_PowerDown(void) {
 
     //Initialize expected Power down response message
     memset(ExpectedMsg, 0, sizeof(ExpectedMsg));
     memcpy(ExpectedMsg, PowerDownResp, PowerDownRespLength);
     ExpectedMsgSize = PowerDownRespLength;
 
-    taf_sap_SendMessage(PowerDownReq, PowerDownReqLength);
+    taf_simSap_SendMessage(PowerDownReq, PowerDownReqLength);
 
     le_sem_Wait(TestSemaphoreRef);
 
     LE_INFO("Power Down done");
 }
 
-static void Test_taf_sap_TransferAPDU(void) {
+static void Test_taf_simSap_TransferAPDU(void) {
 
     //Initialize expected Power down response message
     memset(ExpectedMsg, 0, sizeof(ExpectedMsg));
     memcpy(ExpectedMsg, APDUResp, APDURespLength);
     ExpectedMsgSize = APDURespLength;
 
-    taf_sap_SendMessage(APDUReq, APDUReqLength);
+    taf_simSap_SendMessage(APDUReq, APDUReqLength);
 
     le_sem_Wait(TestSemaphoreRef);
 
     LE_INFO("Tranfer APDU test completed");
 }
 
-static void Test_taf_sap_Reset(void) {
+static void Test_taf_simSap_Reset(void) {
 
     //Initialize expected card reset response message
     memset(ExpectedMsg, 0, sizeof(ExpectedMsg));
     memcpy(ExpectedMsg, CardResetResp, CardResetRespLength);
     ExpectedMsgSize = CardResetRespLength;
 
-    taf_sap_SendMessage(CardResetReq, CardResetReqLength);
+    taf_simSap_SendMessage(CardResetReq, CardResetReqLength);
 
     le_sem_Wait(TestSemaphoreRef);
 
     LE_INFO("Card reset done");
 }
 
-static void Test_taf_sap_TransferCardReader(void) {
+static void Test_taf_simSap_TransferCardReader(void) {
 
     //Initialize expected card reader status response message
     memset(ExpectedMsg, 0, sizeof(ExpectedMsg));
     memcpy(ExpectedMsg, CardReaderResp, CardReaderRespLength);
     ExpectedMsgSize = CardReaderRespLength;
 
-    taf_sap_SendMessage(CardReaderReq, CardReaderReqLength);
+    taf_simSap_SendMessage(CardReaderReq, CardReaderReqLength);
 
     le_sem_Wait(TestSemaphoreRef);
 
     LE_INFO("Transfer card reader status test done");
 }
 
-static void Test_taf_sap_Disconnect(void) {
+static void Test_taf_simSap_Disconnect(void) {
 
     //Initialize expected disconnect response message
     memset(ExpectedMsg, 0, sizeof(ExpectedMsg));
     memcpy(ExpectedMsg, DisconnectResp, DisconnectRespLength);
     ExpectedMsgSize = DisconnectRespLength;
 
-    taf_sap_SendMessage(DisconnectReq, DisconnectReqLength);
+    taf_simSap_SendMessage(DisconnectReq, DisconnectReqLength);
 
     le_sem_Wait(TestSemaphoreRef);
 
@@ -239,34 +239,34 @@ static void StartUnitTestThread() {
     TestSemaphoreRef = le_sem_Create("SAPSem", 0);
 
     //Test handler
-    le_thread_Ref_t threadRef = le_thread_Create("taf_sap_test_thread", Test_taf_sap_AddHandler, NULL);
+    le_thread_Ref_t threadRef = le_thread_Create("taf_simSap_test_thread", Test_taf_simSap_AddHandler, NULL);
     le_thread_Start(threadRef);
 
     //Test connection
-    Test_taf_sap_Conection();
+    Test_taf_simSap_Conection();
 
     //Test ATR
-    Test_taf_sap_ATR();
+    Test_taf_simSap_ATR();
 
     //Test power down
-    Test_taf_sap_PowerDown();
+    Test_taf_simSap_PowerDown();
 
     //Test power ON
-    Test_taf_sap_PowerOn();
+    Test_taf_simSap_PowerOn();
 
     //Test APDU
-    Test_taf_sap_TransferAPDU();
+    Test_taf_simSap_TransferAPDU();
 
     //Test Card Reset
-    Test_taf_sap_Reset();
+    Test_taf_simSap_Reset();
 
     //Test Card Reader status
-    Test_taf_sap_TransferCardReader();
+    Test_taf_simSap_TransferCardReader();
 
     //Test status IND
 
     //Test disconnection
-    Test_taf_sap_Disconnect();
+    Test_taf_simSap_Disconnect();
 
     result = le_thread_Cancel(threadRef);
     LE_ASSERT(result == LE_OK);

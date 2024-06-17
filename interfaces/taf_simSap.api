@@ -65,9 +65,9 @@
 
 //------------------------------------------------------------------------------------------------
 /**
- * @page c_tafsap SIM Access Profile
+ * @page c_tafSimSap SIM Access Profile
  *
- * @ref taf_sap_interface.h "API Reference"
+ * @ref taf_simSap_interface.h "API Reference"
  *
  * <HR>
  *
@@ -78,49 +78,49 @@
  * A SAP service is needed for applications that want to communicate through RSIM service related
  * to SIM I/O e.g. APDU, ATR sends messages to the SIM which located at remote side.
  *
- * @section taf_sap_binding IPC interfaces binding
+ * @section taf_simSap_binding IPC interfaces binding
  *
- * The functions of this API are provided by the @b tafSAP application service.
+ * The functions of this API are provided by the @b tafRemoteSimSvc application service.
  *
  * The following example illustrates how to bind to the SAP service.
  * @verbatim
    bindings:
    {
-       clientExe.clientComponent.taf_sap -> tafRemoteSimSvc.taf_sap
+       clientExe.clientComponent.taf_simSap -> tafRemoteSimSvc.taf_simSap
    }
    @endverbatim
  *
- * @section c_taf_sap_SendMessage Send message from app
+ * @section c_taf_simSap_SendMessage Send message from app
  *
- * A message can be sent to the service which then sends commands to the modem using taf_sap_SendMessage()
+ * A message can be sent to the service which then sends commands to the modem using taf_simSap_SendMessage()
  * with the messagePtr and messageNumElements passed as parameters.
  * @verbatim
-   uint8_t buffer[TAF_SAP_MAX_MSG_SIZE];
+   uint8_t buffer[TAF_SIMSAP_MAX_MSG_SIZE];
    static bool daemonConnected = false;
    int bytes;
    le_result_t result = LE_FAULT;
    memset(buffer, 0, sizeof(buffer));
-   if ((bytes = read(fd, buffer, TAF_SAP_MAX_MSG_SIZE)) <= 0) {
+   if ((bytes = read(fd, buffer, TAF_SIMSAP_MAX_MSG_SIZE)) <= 0) {
        LE_ERROR("Connection closed or failed to read from daemon! %s\n", strerror(errno));
        daemonConnected = false;
    } else {
        //Send message
        LE_INFO("Read %d bytes from daemon", bytes);
-       result = taf_sap_SendMessage(buffer, bytes);
+       result = taf_simSap_SendMessage(buffer, bytes);
 
    }
    LE_ASSERT(result == LE_OK);
    @endverbatim
  *
  * Before an application starts to send message, the application needs to register a callback handler
- * using @ref taf_sap_AddMessageHandler(). Once the message is sent, the handler will be called
+ * using @ref taf_simSap_AddMessageHandler(). Once the message is sent, the handler will be called
  * indicating the sending status of the message. If the message failed to send, the handler will
  * be called with the error code.
  * @verbatim
-   taf_sap_MessageHandlerRef_t msgHandlerRef = taf_sap_AddMessageHandler(SAPMessageHandler, NULL);
+   taf_simSap_MessageHandlerRef_t msgHandlerRef = taf_simSap_AddMessageHandler(SAPMessageHandler, NULL);
    @endverbatim
  *
- * Applications must use @ref taf_sap_RemoveMessageHandler() to release the @ref taf_sap_MessageHandlerRef_t
+ * Applications must use @ref taf_simSap_RemoveMessageHandler() to release the @ref taf_simSap_MessageHandlerRef_t
  * message handler reference object when it is no longer used.
  *
  * <HR>

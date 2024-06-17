@@ -22,6 +22,6 @@ start: manual
 
 bindings:
 {
-    tafSAServerUnitTest.tafSAPUnitTestComp.taf_sap -> tafRemoteSimSvc.taf_sap
+    tafSAServerUnitTest.tafSAPUnitTestComp.taf_simSap -> tafRemoteSimSvc.taf_simSap
 }
 

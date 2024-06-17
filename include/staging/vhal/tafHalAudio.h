@@ -143,6 +143,17 @@ typedef enum
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Backup battery (BuB) states
+ */
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    HAL_AUDIO_BUB_STATUS_NOT_IN_USE,    /**<BuB not in use */
+    HAL_AUDIO_BUB_STATUS_IN_USE         /**<BuB in use */
+} hal_audio_bubStatus_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Initializes the Audio VHAL driver.
  * @param void
  *
@@ -309,10 +320,25 @@ typedef le_result_t (*TAF_HAL_AUDIO_ADDNODESTATECHANGEHANDLER)
     TAF_HAL_AUDIO_DEVSTATECHANGECALLBACK callback
 );
 
+//--------------------------------------------------------------------------------------------------
+/** Reports BuB status when audio is active and on change in BuB status.
+ * @param
+ *      bubStatus      - BuB status
+ *
+ * @return
+ *      result for reporing BuB status
+ */
+//--------------------------------------------------------------------------------------------------
+typedef le_result_t (*hal_audio_CtlReportBubStatus)
+(
+    hal_audio_bubStatus_t bubStatus
+);
+
 typedef struct
 {
     INIT InitHAL;
     TAF_HAL_CTLSETAUDIOSTATUS CtlSetAudioStatus;
+    hal_audio_CtlReportBubStatus CtlReportBubStatus;
     TAF_HAL_AUDIO_SENDVENDORCONFIG SendVendorConfig;
     TAF_HAL_AUDIO_GETNODETYPE GetNodeType;
     TAF_HAL_AUDIO_SENDNODEVENDORCONFIG SendNodeVendorConfig;

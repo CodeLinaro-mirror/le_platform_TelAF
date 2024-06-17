@@ -35,6 +35,7 @@
 #include "legato.h"
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
+#include "tafHalAudio.h"
 #include <queue>
 #include <telux/audio/AudioFactory.hpp>
 #include <telux/audio/AudioManager.hpp>
@@ -348,6 +349,7 @@ class taf_MngdAudio : public ITafSvc
         le_sem_Ref_t mSemRef;
         SlotId mRxSlotId = INVALID_SLOT_ID , mTxSlotId = INVALID_SLOT_ID;
         StreamConfig voiceStreamConfig = {};
+        taf_mngdPm_InfoReportHandlerRef_t bubHandlerRef;
 
         le_mem_PoolRef_t ConnectorPool = NULL;
         le_mem_PoolRef_t StreamPool = NULL;
@@ -408,6 +410,7 @@ class taf_MngdAudio : public ITafSvc
         static void ReadCallback(std::shared_ptr<telux::audio::IStreamBuffer> buffer,
                     telux::common::ErrorCode error);
         static void StreamMuteUnmuteCallback(ErrorCode error);
+        static void BuBStatusCB(int32_t status, void *contextPtr);
 
 };
 }

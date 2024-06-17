@@ -52,7 +52,7 @@ taf_MngdAudioVhal &taf_MngdAudioVhal::GetInstance()
 void taf_MngdAudioVhal::Init()
 {
     // load driver
-    audioInf = (audio_Inf_t *)taf_devMgr_LoadDrv(TAF_AUDIO_MODULE_NAME, nullptr);
+    audioInf = (hal_audio_Inf_t *)taf_devMgr_LoadDrv(TAF_AUDIO_MODULE_NAME, nullptr);
 
     if(audioInf == nullptr)
     {
@@ -82,22 +82,22 @@ le_result_t taf_MngdAudioVhal::OpenRoute(bool status, taf_mngd_audio_RouteId_t r
         taf_mngd_audio_Mode_t mode)
 {
     LE_DEBUG("OpenRoute status %s route %d mode %d", (status ? "true" : "false"), routeId, mode);
-    return audioInf->CtlSetAudioStatus(status, (uint32_t)routeId, (taf_hal_audio_Mode)mode);
+    return audioInf->CtlSetAudioStatus(status, (uint32_t)routeId, (hal_audio_Mode_t)mode);
 }
 
 le_result_t taf_MngdAudioVhal::GetNodeType( uint8_t audioNodeId,
         taf_mngd_audioHw_NodeType_t *nodeType )
 {
     LE_DEBUG("GetNodeType %d", audioNodeId);
-    taf_hal_audio_NodeType halNodeType;
+    hal_audio_NodeType_t halNodeType;
     le_result_t res = audioInf->GetNodeType(audioNodeId, &halNodeType);
     if(res == LE_OK)
     {
-        if(halNodeType == AUDIO_HAL_NODE_CODEC)
+        if(halNodeType == HAL_AUDIO_NODE_TYPE_CODEC)
             *nodeType = TAF_MNGD_AUDIOHW_AUDIO_CODEC;
-        else if(halNodeType == AUDIO_HAL_NODE_PA)
+        else if(halNodeType == HAL_AUDIO_NODE_TYPE_PA)
             *nodeType = TAF_MNGD_AUDIOHW_AUDIO_PA;
-        else if(halNodeType == AUDIO_HAL_NODE_A2B)
+        else if(halNodeType == HAL_AUDIO_NODE_TYPE_A2B)
             *nodeType = TAF_MNGD_AUDIOHW_AUDIO_A2B;
         else
             *nodeType = TAF_MNGD_AUDIOHW_INVALID;
@@ -115,14 +115,14 @@ le_result_t taf_MngdAudioVhal::SetNodePowerState(uint8_t audioNodeId,
         taf_mngd_audioHw_NodePowerState_t state)
 {
     LE_DEBUG("SetNodePowerState node id : %d state : %d", audioNodeId, state);
-    return audioInf->SetNodePowerState(audioNodeId, (taf_hal_audio_Powerstate)state);
+    return audioInf->SetNodePowerState(audioNodeId, (hal_audio_PowerState_t)state);
 }
 
 le_result_t taf_MngdAudioVhal::GetNodePowerState(uint8_t audioNodeId,
         taf_mngd_audioHw_NodePowerState_t* state)
 {
     LE_DEBUG("GetNodePowerState node id : %d audioInf %p", audioNodeId, audioInf);
-    taf_hal_audio_Powerstate vhalState;
+    hal_audio_PowerState_t vhalState;
     le_result_t res = audioInf->GetNodePowerState(audioNodeId, &vhalState);
 
     *state = (taf_mngd_audioHw_NodePowerState_t)vhalState;
@@ -164,7 +164,7 @@ void taf_MngdAudioVhal::NodeEventHandler(void* reportPtr, void* secondLayerHandl
     }
 }
 
-void taf_MngdAudioVhal::NodeEventCB(uint8_t nodeId, taf_hal_audio_DevEvent event)
+void taf_MngdAudioVhal::NodeEventCB(uint8_t nodeId, hal_audio_DevEvent_t event)
 {
     LE_DEBUG("NodeEventCB nodeId : %d event : %d", nodeId, event);
     taf_MngdAudioVhal mngdAudioVhal = taf_MngdAudioVhal::GetInstance();

@@ -11,7 +11,7 @@
 
 typedef struct
 {
-    TAF_HAL_AUDIO_DEVSTATECHANGECALLBACK callback;
+    hal_audio_DevStateChangeCallback_t   callback;
     le_event_HandlerRef_t                handlerRef;
     uint8_t                              nodeId;
     le_dls_Link_t                        next;
@@ -21,7 +21,7 @@ NodeEventHandlerRef_t;
 
 typedef struct {
     uint8_t nodeId;
-    taf_hal_audio_DevEvent event;
+    hal_audio_DevEvent_t event;
 }NodeEvent_t;
 
 le_mem_PoolRef_t NodeEventHandlerRefPool = NULL;
@@ -30,7 +30,7 @@ le_dls_List_t NodeEventHandlerList;
 LE_MEM_DEFINE_STATIC_POOL(NodeEventHandlerRef, MAX_NODES, sizeof(NodeEventHandlerRef_t));
 
 static le_result_t taf_hal_CtlSetAudioStatus(bool status,
-     uint32_t route, taf_hal_audio_Mode mode)
+     uint32_t route, hal_audio_Mode_t mode)
 {
     LE_DEBUG("AudioTestDrv: %s", __FUNCTION__);
     LE_DEBUG("status : %s route : %d mode : %d", status ? "true" : "false", route, mode);
@@ -50,12 +50,12 @@ static le_result_t taf_hal_SendVendorConfig
 static le_result_t taf_hal_GetNodeType
 (
     uint8_t nodeId,
-    taf_hal_audio_NodeType *nodeType
+    hal_audio_NodeType_t *nodeType
 )
 {
     LE_DEBUG("AudioTestDrv: %s", __FUNCTION__);
     LE_DEBUG("nodeId %d ",nodeId);
-    *nodeType = AUDIO_HAL_NODE_CODEC;
+    *nodeType = HAL_AUDIO_NODE_TYPE_CODEC;
     return LE_OK;
 }
 
@@ -73,7 +73,7 @@ static le_result_t taf_hal_SendNodeVendorConfig
 static le_result_t taf_hal_SetNodePowerState
 (
     uint8_t nodeId,
-    taf_hal_audio_Powerstate state
+    hal_audio_PowerState_t state
 )
 {
     LE_DEBUG("AudioTestDrv: %s", __FUNCTION__);
@@ -84,7 +84,7 @@ static le_result_t taf_hal_SetNodePowerState
 static le_result_t taf_hal_GetNodePowerState
 (
     uint8_t nodeId,
-    taf_hal_audio_Powerstate *state
+    hal_audio_PowerState_t *state
 )
 {
     LE_DEBUG("AudioTestDrv: %s", __FUNCTION__);
@@ -133,8 +133,8 @@ static void NodeEventHandler
         if(handlerRefPtr->nodeId == nodeEventPtr->nodeId)
         {
             LE_INFO("NodeId registered received the event");
-            TAF_HAL_AUDIO_DEVSTATECHANGECALLBACK cbFunc =
-                    (TAF_HAL_AUDIO_DEVSTATECHANGECALLBACK)secondLayerHandlerFunc;
+            hal_audio_DevStateChangeCallback_t cbFunc =
+                    (hal_audio_DevStateChangeCallback_t)secondLayerHandlerFunc;
             cbFunc(nodeEventPtr->nodeId, nodeEventPtr->event);
         }
     }
@@ -143,7 +143,7 @@ static void NodeEventHandler
 static le_result_t taf_hal_AddNodeStateChangeHandler
 (
     uint8_t nodeId,
-    TAF_HAL_AUDIO_DEVSTATECHANGECALLBACK callback
+    hal_audio_DevStateChangeCallback_t callback
 )
 {
     LE_DEBUG("AudioTestDrv: %s", __FUNCTION__);
@@ -228,7 +228,7 @@ static void Init(void)
     NodeEventHandlerList = LE_DLS_LIST_INIT;
 }
 
-LE_SHARED audio_InfoTab_t TAF_HAL_INFO_TAB = {
+LE_SHARED hal_audio_InfoTab_t TAF_HAL_INFO_TAB = {
     // always come first
     .mgrInf = {
         .name = TAF_AUDIO_MODULE_NAME,
@@ -236,6 +236,7 @@ LE_SHARED audio_InfoTab_t TAF_HAL_INFO_TAB = {
         .minorVer = 0,
         .vendor = "QCT",
         .moduleType = TAF_MODULETYPE_HAL,
+        .serviceMax = 1,
         .hwInitInf = taf_hal_HwInit,
         .powerOffInf = taf_hal_PowerOff,
         .powerOnInf = taf_hal_PowerOn,

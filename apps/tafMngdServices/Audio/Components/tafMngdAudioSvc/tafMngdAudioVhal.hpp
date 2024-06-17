@@ -64,7 +64,7 @@ class taf_MngdAudioVhal
 {
     public:
 
-        audio_Inf_t *audioInf = nullptr;
+        hal_audio_Inf_t *audioInf = nullptr;
 
         bool isVhalLoaded = false;
         le_mem_PoolRef_t NodeEventHandlerRefPool = NULL;
@@ -72,7 +72,7 @@ class taf_MngdAudioVhal
 
         static taf_MngdAudioVhal &GetInstance();
         static void NodeEventHandler(void* reportPtr, void* secondLayerHandlerFunc);
-        static void NodeEventCB(uint8_t nodeId, taf_hal_audio_DevEvent event);
+        static void NodeEventCB(uint8_t nodeId, hal_audio_DevEvent_t event);
         taf_MngdAudioVhal() {};
         ~taf_MngdAudioVhal() {};
 
@@ -81,9 +81,9 @@ class taf_MngdAudioVhal
         le_result_t OpenRoute(bool status, taf_mngd_audio_RouteId_t route,
                 taf_mngd_audio_Mode_t mode);
         le_result_t CtlReportBubStatus(hal_audio_bubStatus_t bubStatus);
+        le_result_t SendVendorConfig(const char* configPath);
         le_result_t GetNodeType(uint8_t audioNodeId, taf_mngd_audioHw_NodeType_t *nodeType);
         le_result_t SendNodeVendorConfig(uint8_t audioNodeId, const char* configPath);
-        le_result_t SendVendorConfig(const char* configPath);
         le_result_t SetNodePowerState(uint8_t audioNodeId, taf_mngd_audioHw_NodePowerState_t state);
         le_result_t GetNodePowerState(uint8_t audioNodeId,
                 taf_mngd_audioHw_NodePowerState_t *state);

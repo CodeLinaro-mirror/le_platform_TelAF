@@ -22,6 +22,6 @@ start: manual
 
 bindings:
 {
-    tafRSPUnitTest.tafRSPTestComp.taf_rsp -> tafSimCardSvc.taf_rsp
+    tafRSPUnitTest.tafRSPTestComp.taf_simRsp -> tafSimCardSvc.taf_simRsp
 }
 

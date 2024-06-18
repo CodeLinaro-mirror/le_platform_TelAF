@@ -65,55 +65,55 @@
 
 //-------------------------------------------------------------------------------------------------
 /**
- * @page c_tafrsp Remote SIM Profile
+ * @page c_tafSimRsp Remote SIM Profile
  *
- * @ref taf_rsp_interface.h "API Reference"
+ * @ref taf_simRsp_interface.h "API Reference"
  *
  * <HR>
  *
  * The remote SIM profile is a profile of a SIM card placed remotely. Users can manage
  * the remote SIM profile using this service and interface between the application and
- * the RSIM service based on the SIM Access Profile (SAP) specification.
+ * the SIM card service based on the SIM Access Profile (SAP) specification.
  * A remote SIM profile is needed for applications that want to add, delete, enable, or disable
  * a SIM profile locally or remotely.
  *
- * @section taf_rsp_binding IPC interfaces binding
+ * @section taf_simRsp_binding IPC interfaces binding
  *
- * The functions this API are provided by the @b tafRSP application service.
+ * The functions this API are provided by the @b tafSimCardSvc application service.
  *
  * The follwoing example illustrates how to bind to the Remote SIM Profile service.
  * @verbatim
    bindings:
    {
-       clientExe.clientComponent.taf_rsp -> tafSimCardSvc.taf_rsp
+       clientExe.clientComponent.taf_simRsp -> tafSimCardSvc.taf_simRsp
    }
    @endverbatim
  *
- * @section c_taf_rsp_AddProfile Adding a SIM profile
+ * @section c_taf_simRsp_AddProfile Adding a SIM profile
  *
- * A SIM profile can be added remotely using taf_rsp_AddProfile() with slotId, activationCode,
+ * A SIM profile can be added remotely using taf_simRsp_AddProfile() with slotId, activationCode,
  * confirmationCode and userConsentSupported passed as parameters.
  * @verbatim
    #define SLOT_ID  TAF_SIM_EXTERNAL_SLOT_1
    #define ACTIVATION_CODE "LPA:1$mc4-poc5.otlabs.fr$333353014959437" //This is for test, dummy activation code
-   le_result_t res = taf_rsp_AddProfile((taf_sim_Id_t) TAF_SIM_EXTERNAL_SLOT_1, ACTIVATION_CODE,"",false);
+   le_result_t res = taf_simRsp_AddProfile((taf_sim_Id_t) TAF_SIM_EXTERNAL_SLOT_1, ACTIVATION_CODE,"",false);
    LE_ASSERT(res == LE_OK);
    @endverbatim
  *
  * Before the SIM profile download is started, an application registers a state change handler
- * using taf_rsp_AddProfileDownloadHandler(). Once the profile download is completed, the handler
+ * using taf_simRsp_AddProfileDownloadHandler(). Once the profile download is completed, the handler
  * will be called indicating it's completed. If profile downloading failed or the downloading state
  * changed, the handler will be called with the error code or new state.
  * @verbatim
-   taf_rsp_ProfileDownloadHandlerRef_t pdHandlerRef = taf_rsp_AddProfileDownloadHandler(ProfileDownloadHandler, NULL);
+   taf_simRsp_ProfileDownloadHandlerRef_t pdHandlerRef = taf_simRsp_AddProfileDownloadHandler(ProfileDownloadHandler, NULL);
    @endverbatim
  *
- * To enable a SIM profile, an application can use @ref taf_rsp_SetProfile() with the slotId, profileId
+ * To enable a SIM profile, an application can use @ref taf_simRsp_SetProfile() with the slotId, profileId
  * and enable flag passed as parameters.
- * To delete a SIM profile, an application can use @ref taf_rsp_DeleteProfile() with the slotId and
+ * To delete a SIM profile, an application can use @ref taf_simRsp_DeleteProfile() with the slotId and
  * profileId passed as parameters.
  *
- * Applications must use @ref taf_rsp_RemoveProfileDownloadHandler() to release the @ref taf_rsp_ProfileDownloadHandlerRef_t
+ * Applications must use @ref taf_simRsp_RemoveProfileDownloadHandler() to release the @ref taf_simRsp_ProfileDownloadHandlerRef_t
  * download handler reference object when it is no longer used.
  *
  * <HR>

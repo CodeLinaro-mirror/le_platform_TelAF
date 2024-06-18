@@ -37,7 +37,7 @@
 
 
 static le_sem_Ref_t TestSemaphoreRef;
-static taf_rsp_ProfileDownloadHandlerRef_t ProfileDownloadHandlerRef;
+static taf_simRsp_ProfileDownloadHandlerRef_t ProfileDownloadHandlerRef;
 static le_thread_Ref_t ThreadRef;
 static taf_sim_Id_t SimId = TAF_SIM_EXTERNAL_SLOT_1;
 
@@ -56,13 +56,13 @@ static void PrintUsage () {
             "\n");
 }
 
-static char* DownloadStatusToString(taf_rsp_DownloadStatus_t status) {
+static char* DownloadStatusToString(taf_simRsp_DownloadStatus_t status) {
     char *downloadStatus;
     switch(status) {
-        case TAF_RSP_DOWNLOAD_ERROR:
+        case TAF_SIMRSP_DOWNLOAD_ERROR:
             downloadStatus = "DOWNLOAD_ERROR";
             break;
-        case TAF_RSP_DOWNLOAD_INSTALLATION_COMPLETE:
+        case TAF_SIMRSP_DOWNLOAD_INSTALLATION_COMPLETE:
             downloadStatus = "DOWNLOAD_INSTALLATION_COMPLETE";
             break;
         default:
@@ -72,31 +72,31 @@ static char* DownloadStatusToString(taf_rsp_DownloadStatus_t status) {
     return downloadStatus;
 }
 
-static char* DownloadErrorCauseToString(taf_rsp_DownloadErrorCause_t cause) {
+static char* DownloadErrorCauseToString(taf_simRsp_DownloadErrorCause_t cause) {
     char *errorCause;
     switch(cause) {
-        case TAF_RSP_GENERIC:
+        case TAF_SIMRSP_GENERIC:
             errorCause = "GENERIC";
             break;
-        case TAF_RSP_SIM:
+        case TAF_SIMRSP_SIM:
             errorCause = "SIM";
             break;
-        case TAF_RSP_NETWORK:
+        case TAF_SIMRSP_NETWORK:
             errorCause = "NETWORK";
             break;
-        case TAF_RSP_MEMORY:
+        case TAF_SIMRSP_MEMORY:
             errorCause = "MEMORY";
             break;
-        case TAF_RSP_UNSUPPORTED_PROFILE_CLASS:
+        case TAF_SIMRSP_UNSUPPORTED_PROFILE_CLASS:
             errorCause = "UNSUPPORTED_PROFILE_CLASS";
             break;
-        case TAF_RSP_PPR_NOT_ALLOWED:
+        case TAF_SIMRSP_PPR_NOT_ALLOWED:
             errorCause = "PPR_NOT_ALLOWED";
             break;
-        case TAF_RSP_END_USER_REJECTION:
+        case TAF_SIMRSP_END_USER_REJECTION:
             errorCause = "END_USER_REJECTION";
             break;
-        case TAF_RSP_END_USER_POSTPONED:
+        case TAF_SIMRSP_END_USER_POSTPONED:
             errorCause = "END_USER_POSTPONED";
             break;
         default:
@@ -109,8 +109,8 @@ static char* DownloadErrorCauseToString(taf_rsp_DownloadErrorCause_t cause) {
 static void ProfileDownloadHandler
 (
     taf_sim_Id_t                   slotId,
-    taf_rsp_DownloadStatus_t       downloadStatus,
-    taf_rsp_DownloadErrorCause_t   downloadErrorCause,
+    taf_simRsp_DownloadStatus_t       downloadStatus,
+    taf_simRsp_DownloadErrorCause_t   downloadErrorCause,
     void* contextPtr
 )
 {
@@ -122,10 +122,10 @@ static void ProfileDownloadHandler
 }
 
 static int GetEid() {
-    char eidPtr[TAF_RSP_EID_BYTES];
-    size_t eidLen = TAF_RSP_EID_BYTES;
+    char eidPtr[TAF_SIMRSP_EID_BYTES];
+    size_t eidLen = TAF_SIMRSP_EID_BYTES;
 
-    le_result_t result = taf_rsp_GetEID(SimId, eidPtr, eidLen);
+    le_result_t result = taf_simRsp_GetEID(SimId, eidPtr, eidLen);
     if (result != LE_OK)
     {
         return EXIT_FAILURE;
@@ -136,9 +136,9 @@ static int GetEid() {
 
 static void* AddHandler(void* context) {
 
-    taf_rsp_ConnectService();
+    taf_simRsp_ConnectService();
 
-    ProfileDownloadHandlerRef = taf_rsp_AddProfileDownloadHandler(ProfileDownloadHandler, NULL);
+    ProfileDownloadHandlerRef = taf_simRsp_AddProfileDownloadHandler(ProfileDownloadHandler, NULL);
     LE_ASSERT(ProfileDownloadHandlerRef != NULL);
     LE_INFO("Profile Download Handler Added successfully ProfileDownloadHandlerRef = %p", ProfileDownloadHandlerRef);
 
@@ -149,7 +149,7 @@ static void* AddHandler(void* context) {
 static void RemoveHandler(void* param1, void* param2) {
 
     LE_INFO("Remove Profile Downloader Handler MsgHandlerRef = %p", ProfileDownloadHandlerRef);
-    taf_rsp_RemoveProfileDownloadHandler(ProfileDownloadHandlerRef);
+    taf_simRsp_RemoveProfileDownloadHandler(ProfileDownloadHandlerRef);
 
     le_sem_Post(TestSemaphoreRef);
 }
@@ -162,7 +162,7 @@ static int AddProfile() {
         return EXIT_FAILURE;
     }
     TestSemaphoreRef = le_sem_Create("RSPSem", 0);
-    ThreadRef = le_thread_Create("taf_rsp_test_thread", AddHandler, NULL);
+    ThreadRef = le_thread_Create("taf_simRsp_test_thread", AddHandler, NULL);
     le_thread_Start(ThreadRef);
 
     const char* activationCode = le_arg_GetArg(2);
@@ -179,7 +179,7 @@ static int AddProfile() {
     if (strcmp(userConsentRequired, "true") == 0) {
         isUserConsentRequired = true;
     }
-    LE_ASSERT_OK(taf_rsp_AddProfile(SimId, activationCode, confirmationCode, isUserConsentRequired));
+    LE_ASSERT_OK(taf_simRsp_AddProfile(SimId, activationCode, confirmationCode, isUserConsentRequired));
 
     le_sem_Wait(TestSemaphoreRef);
 
@@ -202,18 +202,18 @@ static int DeleteProfile() {
     }
     const char* id = le_arg_GetArg(2);
     uint32_t profileId = atoi(id);
-    LE_ASSERT_OK(taf_rsp_DeleteProfile(SimId, profileId));
+    LE_ASSERT_OK(taf_simRsp_DeleteProfile(SimId, profileId));
     LE_INFO("DeleteProfile done");
     return EXIT_SUCCESS;
 }
 
-static char* ProfileTypeToString(taf_rsp_ProfileType_t profileType) {
+static char* ProfileTypeToString(taf_simRsp_ProfileType_t profileType) {
     char *profile_type;
     switch(profileType) {
-        case TAF_RSP_REGULAR:
+        case TAF_SIMRSP_REGULAR:
             profile_type = "REGULAR";
             break;
-        case TAF_RSP_EMERGENCY:
+        case TAF_SIMRSP_EMERGENCY:
             profile_type = "EMERGENCY";
             break;
         default:
@@ -223,16 +223,16 @@ static char* ProfileTypeToString(taf_rsp_ProfileType_t profileType) {
     return profile_type;
 }
 
-static char* ProfileClassToString(taf_rsp_ProfileClass_t profileClass) {
+static char* ProfileClassToString(taf_simRsp_ProfileClass_t profileClass) {
     char *profile_class;
     switch(profileClass) {
-        case TAF_RSP_TEST:
+        case TAF_SIMRSP_TEST:
             profile_class = "TEST";
             break;
-        case TAF_RSP_PROVISIONING:
+        case TAF_SIMRSP_PROVISIONING:
             profile_class = "PROVISIONING";
             break;
-        case TAF_RSP_OPERATIONAL:
+        case TAF_SIMRSP_OPERATIONAL:
             profile_class = "OPERATIONAL";
             break;
         default:
@@ -243,23 +243,23 @@ static char* ProfileClassToString(taf_rsp_ProfileClass_t profileClass) {
 }
 
 static int GetProfileList() {
-    taf_rsp_ProfileListNodeRef_t    profileListPtr[TAF_RSP_MAX_PROFILE];
+    taf_simRsp_ProfileListNodeRef_t    profileListPtr[TAF_SIMRSP_MAX_PROFILE];
     size_t count = 0;
     uint8_t i = 0;
     le_result_t     res;
-    char            iccid[TAF_RSP_ICCID_BYTES];
-    char            nickName[TAF_RSP_NICKNAME_BYTES];
-    char            name[TAF_RSP_NAME_BYTES];
-    char            spn[TAF_RSP_SPN_LEN];
+    char            iccid[TAF_SIMRSP_ICCID_BYTES];
+    char            nickName[TAF_SIMRSP_NICKNAME_BYTES];
+    char            name[TAF_SIMRSP_NAME_BYTES];
+    char            spn[TAF_SIMRSP_SPN_LEN];
 
-    memset(iccid, 0, TAF_RSP_ICCID_BYTES);
-    memset(nickName, 0, TAF_RSP_NICKNAME_BYTES);
-    memset(name, 0, TAF_RSP_NAME_BYTES);
-    memset(spn, 0, TAF_RSP_SPN_LEN);
+    memset(iccid, 0, TAF_SIMRSP_ICCID_BYTES);
+    memset(nickName, 0, TAF_SIMRSP_NICKNAME_BYTES);
+    memset(name, 0, TAF_SIMRSP_NAME_BYTES);
+    memset(spn, 0, TAF_SIMRSP_SPN_LEN);
 
     LE_INFO("GetProfileList: Retrieving profile list...");
 
-    res = taf_rsp_GetProfileList(SimId, profileListPtr, &count);
+    res = taf_simRsp_GetProfileList(SimId, profileListPtr, &count);
 
     LE_INFO("Get profile list: result %d, no of profiles: %" PRIuS, (int) res, count);
 
@@ -270,22 +270,22 @@ static int GetProfileList() {
 
     for (i = 0; i < count; i++) {
         if (profileListPtr[i] != NULL) {
-            res = taf_rsp_GetIccid(profileListPtr[i], iccid, sizeof(iccid));
+            res = taf_simRsp_GetIccid(profileListPtr[i], iccid, sizeof(iccid));
             LE_TEST_OK(res == LE_OK, "taf_sim_GetICCID done");
-            res = taf_rsp_GetNickName(profileListPtr[i], nickName, sizeof(nickName));
-            LE_TEST_OK(res == LE_OK, "taf_rsp_GetNickName done");
-            res = taf_rsp_GetName(profileListPtr[i], name, sizeof(name));
-            LE_TEST_OK(res == LE_OK, "taf_rsp_GetName done");
-            res = taf_rsp_GetSpn(profileListPtr[i], spn, sizeof(spn));
-            LE_TEST_OK(res == LE_OK, "taf_rsp_GetSpn done");
+            res = taf_simRsp_GetNickName(profileListPtr[i], nickName, sizeof(nickName));
+            LE_TEST_OK(res == LE_OK, "taf_simRsp_GetNickName done");
+            res = taf_simRsp_GetName(profileListPtr[i], name, sizeof(name));
+            LE_TEST_OK(res == LE_OK, "taf_simRsp_GetName done");
+            res = taf_simRsp_GetSpn(profileListPtr[i], spn, sizeof(spn));
+            LE_TEST_OK(res == LE_OK, "taf_simRsp_GetSpn done");
 
             printf("Profile# %d: \n", i+1);
             printf("ProfileId = %d,  ProfileType = %s,  iccid = %s,  isActive = %d, nickName = %s ",
-                taf_rsp_GetProfileIndex(profileListPtr[i]), ProfileTypeToString(taf_rsp_GetProfileType(profileListPtr[i])),
-                iccid, taf_rsp_GetProfileActiveStatus(profileListPtr[i]), nickName);
+                taf_simRsp_GetProfileIndex(profileListPtr[i]), ProfileTypeToString(taf_simRsp_GetProfileType(profileListPtr[i])),
+                iccid, taf_simRsp_GetProfileActiveStatus(profileListPtr[i]), nickName);
             printf(" name = %s, spn = %s,  iconType = %d,  profileClass = %s, profileMask = %d \n ",
-                name, spn,  taf_rsp_GetIconType(profileListPtr[i]),
-                ProfileClassToString(taf_rsp_GetProfileClass(profileListPtr[i])), taf_rsp_GetMask(profileListPtr[i]));
+                name, spn,  taf_simRsp_GetIconType(profileListPtr[i]),
+                ProfileClassToString(taf_simRsp_GetProfileClass(profileListPtr[i])), taf_simRsp_GetMask(profileListPtr[i]));
         }
     }
 
@@ -293,17 +293,17 @@ static int GetProfileList() {
 }
 
 static int GetProfileByIndex() {
-    taf_rsp_ProfileListNodeRef_t    profileListNodeRef;
+    taf_simRsp_ProfileListNodeRef_t    profileListNodeRef;
     le_result_t     res;
-    char            iccid[TAF_RSP_ICCID_BYTES];
-    char            nickName[TAF_RSP_NICKNAME_BYTES];
-    char            name[TAF_RSP_NAME_BYTES];
-    char            spn[TAF_RSP_SPN_LEN];
+    char            iccid[TAF_SIMRSP_ICCID_BYTES];
+    char            nickName[TAF_SIMRSP_NICKNAME_BYTES];
+    char            name[TAF_SIMRSP_NAME_BYTES];
+    char            spn[TAF_SIMRSP_SPN_LEN];
 
-    memset(iccid, 0, TAF_RSP_ICCID_BYTES);
-    memset(nickName, 0, TAF_RSP_NICKNAME_BYTES);
-    memset(name, 0, TAF_RSP_NAME_BYTES);
-    memset(spn, 0, TAF_RSP_SPN_LEN);
+    memset(iccid, 0, TAF_SIMRSP_ICCID_BYTES);
+    memset(nickName, 0, TAF_SIMRSP_NICKNAME_BYTES);
+    memset(name, 0, TAF_SIMRSP_NAME_BYTES);
+    memset(spn, 0, TAF_SIMRSP_SPN_LEN);
     if (le_arg_NumArgs() < 3) {
         PrintUsage();
         return EXIT_FAILURE;
@@ -313,24 +313,24 @@ static int GetProfileByIndex() {
 
     LE_INFO("GetProfileByIndex: Retrieving profile of index %d", profileId);
 
-    profileListNodeRef = taf_rsp_GetProfile(profileId);
+    profileListNodeRef = taf_simRsp_GetProfile(profileId);
     if (profileListNodeRef != NULL) {
-        res = taf_rsp_GetIccid(profileListNodeRef, iccid, sizeof(iccid));
+        res = taf_simRsp_GetIccid(profileListNodeRef, iccid, sizeof(iccid));
         LE_TEST_OK(res == LE_OK, "taf_sim_GetICCID done");
-        res = taf_rsp_GetNickName(profileListNodeRef, nickName, sizeof(nickName));
-        LE_TEST_OK(res == LE_OK, "taf_rsp_GetNickName done");
-        res = taf_rsp_GetName(profileListNodeRef, name, sizeof(name));
-        LE_TEST_OK(res == LE_OK, "taf_rsp_GetName done");
-        res = taf_rsp_GetSpn(profileListNodeRef, spn, sizeof(spn));
-        LE_TEST_OK(res == LE_OK, "taf_rsp_GetSpn done");
+        res = taf_simRsp_GetNickName(profileListNodeRef, nickName, sizeof(nickName));
+        LE_TEST_OK(res == LE_OK, "taf_simRsp_GetNickName done");
+        res = taf_simRsp_GetName(profileListNodeRef, name, sizeof(name));
+        LE_TEST_OK(res == LE_OK, "taf_simRsp_GetName done");
+        res = taf_simRsp_GetSpn(profileListNodeRef, spn, sizeof(spn));
+        LE_TEST_OK(res == LE_OK, "taf_simRsp_GetSpn done");
 
         printf("Profile# %d: \n", profileId);
         printf("ProfileId = %d,  ProfileType = %s,  iccid = %s,  isActive = %d, nickName = %s ",
-            taf_rsp_GetProfileIndex(profileListNodeRef), ProfileTypeToString(taf_rsp_GetProfileType(profileListNodeRef)),
-            iccid, taf_rsp_GetProfileActiveStatus(profileListNodeRef), nickName);
+            taf_simRsp_GetProfileIndex(profileListNodeRef), ProfileTypeToString(taf_simRsp_GetProfileType(profileListNodeRef)),
+            iccid, taf_simRsp_GetProfileActiveStatus(profileListNodeRef), nickName);
         printf(" name = %s, spn = %s,  iconType = %d,  profileClass = %s, profileMask = %d \n",
-            name, spn,  taf_rsp_GetIconType(profileListNodeRef),
-            ProfileClassToString(taf_rsp_GetProfileClass(profileListNodeRef)), taf_rsp_GetMask(profileListNodeRef));
+            name, spn,  taf_simRsp_GetIconType(profileListNodeRef),
+            ProfileClassToString(taf_simRsp_GetProfileClass(profileListNodeRef)), taf_simRsp_GetMask(profileListNodeRef));
     }
     LE_INFO("GetProfileByIndex tests completed.");
     return EXIT_SUCCESS;
@@ -343,7 +343,7 @@ static int EnableProfile() {
     }
     const char* id = le_arg_GetArg(2);
     uint32_t profileId = atoi(id);
-    LE_ASSERT_OK(taf_rsp_SetProfile(SimId, profileId, true));
+    LE_ASSERT_OK(taf_simRsp_SetProfile(SimId, profileId, true));
     printf("\nProfile %d enabled \n", profileId);
     return EXIT_SUCCESS;
 }
@@ -355,17 +355,17 @@ static int DisableProfile() {
     }
     const char* id = le_arg_GetArg(2);
     uint32_t profileId = atoi(id);
-    LE_ASSERT_OK(taf_rsp_SetProfile(SimId, profileId, false));
+    LE_ASSERT_OK(taf_simRsp_SetProfile(SimId, profileId, false));
     printf("\nProfile %d disabled \n", profileId);
     return EXIT_SUCCESS;
 }
 
 static int GetServerAddress() {
-    char smdpAddress[TAF_RSP_SMDP_LEN];
-    char smdsAddress[TAF_RSP_SMDP_LEN];
-     memset(smdpAddress, 0 , TAF_RSP_SMDP_LEN);
-     memset(smdsAddress, 0 , TAF_RSP_SMDP_LEN);
-    taf_rsp_GetServerAddress(SimId, smdpAddress , sizeof(smdpAddress), smdsAddress, sizeof(smdsAddress));
+    char smdpAddress[TAF_SIMRSP_SMDP_LEN];
+    char smdsAddress[TAF_SIMRSP_SMDP_LEN];
+     memset(smdpAddress, 0 , TAF_SIMRSP_SMDP_LEN);
+     memset(smdsAddress, 0 , TAF_SIMRSP_SMDP_LEN);
+    taf_simRsp_GetServerAddress(SimId, smdpAddress , sizeof(smdpAddress), smdsAddress, sizeof(smdsAddress));
     printf("GetServerAddress smdpAddress = %s\n",smdpAddress);
     printf("GetServerAddress smdsAddress = %s\n",smdsAddress);
     return EXIT_SUCCESS;
@@ -377,7 +377,7 @@ static int SetServerAddress() {
         return EXIT_FAILURE;
     }
     const char* smdpAddress = le_arg_GetArg(2);
-    LE_ASSERT_OK(taf_rsp_SetServerAddress(SimId, smdpAddress));
+    LE_ASSERT_OK(taf_simRsp_SetServerAddress(SimId, smdpAddress));
     printf("\nServer address set successfully\n");
     return EXIT_SUCCESS;
 }
@@ -390,7 +390,7 @@ static int UpdateNickName() {
     const char* id = le_arg_GetArg(2);
     uint32_t profileId = atoi(id);
     const char* nickName = le_arg_GetArg(3);
-    LE_ASSERT_OK(taf_rsp_UpdateNickName(SimId, profileId, nickName));
+    LE_ASSERT_OK(taf_simRsp_UpdateNickName(SimId, profileId, nickName));
     printf("\nNickname updated successfully\n");
     return EXIT_SUCCESS;
 }

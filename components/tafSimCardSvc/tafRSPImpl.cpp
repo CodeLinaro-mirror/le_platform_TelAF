@@ -44,20 +44,20 @@ using namespace telux::tel;
 using namespace telux::common;
 using namespace telux::tafsvc;
 
-LE_MEM_DEFINE_STATIC_POOL(tafProfileListPool, TAF_RSP_MAX_PROFILE,
-                           sizeof(taf_rsp_ProfileListNode_t));
+LE_MEM_DEFINE_STATIC_POOL(tafProfileListPool, TAF_SIMRSP_MAX_PROFILE,
+                           sizeof(taf_simRsp_ProfileListNode_t));
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 void tafRspListener::onDownloadStatus(SlotId slotId, telux::tel::DownloadStatus status,
     telux::tel::DownloadErrorCause cause) {
 
     LE_INFO("onDownloadStatus");
-    auto &rsp = taf_rsp::GetInstance();
-    taf_rsp_DownloadEvent_t profileDownloadEvent;
+    auto &rsp = taf_simRsp::GetInstance();
+    taf_simRsp_DownloadEvent_t profileDownloadEvent;
     profileDownloadEvent.slotId = (taf_sim_Id_t) slotId;
-    profileDownloadEvent.downloadStatus = (taf_rsp_DownloadStatus_t) status;
-    profileDownloadEvent.downloadErrorCause = (taf_rsp_DownloadErrorCause_t) cause;
+    profileDownloadEvent.downloadStatus = (taf_simRsp_DownloadStatus_t) status;
+    profileDownloadEvent.downloadErrorCause = (taf_simRsp_DownloadErrorCause_t) cause;
 
-    le_event_Report(rsp.ProfileDownloadEventId, &profileDownloadEvent, sizeof(taf_rsp_DownloadEvent_t));
+    le_event_Report(rsp.ProfileDownloadEventId, &profileDownloadEvent, sizeof(taf_simRsp_DownloadEvent_t));
 }
 
 
@@ -65,28 +65,28 @@ void tafRspListener::onUserDisplayInfo(SlotId slotId, bool userConsentRequired,
     telux::tel::PolicyRuleMask mask) {
 
     LE_INFO("Is user consent required:");
-    auto &rsp = taf_rsp::GetInstance();
-    taf_rsp_UserConsentEvent_t profileUserConsentEvent;
+    auto &rsp = taf_simRsp::GetInstance();
+    taf_simRsp_UserConsentEvent_t profileUserConsentEvent;
     profileUserConsentEvent.slotId = (taf_sim_Id_t) slotId;
     profileUserConsentEvent.userConsentRequired = userConsentRequired;
     profileUserConsentEvent.mask = mask.to_ulong();
-    le_event_Report(rsp.ProfileUserConsentEventId, &profileUserConsentEvent, sizeof(taf_rsp_UserConsentEvent_t));
+    le_event_Report(rsp.ProfileUserConsentEventId, &profileUserConsentEvent, sizeof(taf_simRsp_UserConsentEvent_t));
 }
 
 void tafRspListener::onConfirmationCodeRequired(SlotId slotId, std::string profileName) {
 
 
     LE_INFO(" Confirmation Code Required");
-    auto &rsp = taf_rsp::GetInstance();
-    taf_rsp_ConfirmationCodeEvent_t profileConfirmationCodeEvent;
+    auto &rsp = taf_simRsp::GetInstance();
+    taf_simRsp_ConfirmationCodeEvent_t profileConfirmationCodeEvent;
     profileConfirmationCodeEvent.slotId = (taf_sim_Id_t) slotId;
-    le_utf8_Copy(profileConfirmationCodeEvent.profileName, profileName.c_str(), TAF_RSP_NAME_BYTES, NULL);
-    le_event_Report(rsp.ProfileConfirmationCodeEventId, &profileConfirmationCodeEvent, sizeof(taf_rsp_ConfirmationCodeEvent_t));
+    le_utf8_Copy(profileConfirmationCodeEvent.profileName, profileName.c_str(), TAF_SIMRSP_NAME_BYTES, NULL);
+    le_event_Report(rsp.ProfileConfirmationCodeEventId, &profileConfirmationCodeEvent, sizeof(taf_simRsp_ConfirmationCodeEvent_t));
 }
 #endif
 
 void tafRspCallback::onEidResponse(std::string eid, telux::common::ErrorCode errorCode) {
-        auto &rsp = taf_rsp::GetInstance();
+        auto &rsp = taf_simRsp::GetInstance();
     if (errorCode == telux::common::ErrorCode::SUCCESS) {
         LE_INFO("onEidResponse Eid = %s" , eid.c_str());
     } else {
@@ -97,7 +97,7 @@ void tafRspCallback::onEidResponse(std::string eid, telux::common::ErrorCode err
 
 void tafRspCallback::onResponseCallback(telux::common::ErrorCode error) {
     le_result_t result = LE_OK;
-    auto &rsp = taf_rsp::GetInstance();
+    auto &rsp = taf_simRsp::GetInstance();
     if (error != telux::common::ErrorCode::SUCCESS) {
         LE_INFO( "Request failed with errorCode: %d " , static_cast<int>(error));
         result = LE_FAULT;
@@ -111,10 +111,10 @@ void tafRspCallback::onProfileListResponse(
         const std::vector<std::shared_ptr<telux::tel::SimProfile>> &profiles,
         telux::common::ErrorCode errorCode) {
 
-    auto &rsp = taf_rsp::GetInstance();
+    auto &rsp = taf_simRsp::GetInstance();
 
-    taf_rsp_ProfileListEvent_t profileListEvent;
-    memset(&profileListEvent, 0, sizeof(taf_rsp_ProfileListEvent_t));
+    taf_simRsp_ProfileListEvent_t profileListEvent;
+    memset(&profileListEvent, 0, sizeof(taf_simRsp_ProfileListEvent_t));
 
     if (errorCode == telux::common::ErrorCode::SUCCESS) {
         if (profiles.size() == 0) {
@@ -125,14 +125,14 @@ void tafRspCallback::onProfileListResponse(
         for (auto &profile : profiles) {
             if (profile) {
                 profileListEvent.simProfileInfo[i].profileId = profile->getProfileId();
-                profileListEvent.simProfileInfo[i].profileType =(taf_rsp_ProfileType_t) profile->getType();
+                profileListEvent.simProfileInfo[i].profileType =(taf_simRsp_ProfileType_t) profile->getType();
                 le_utf8_Copy(profileListEvent.simProfileInfo[i].iccid, profile->getIccid().c_str(), TAF_SIM_ICCID_BYTES, NULL);
                 profileListEvent.simProfileInfo[i].isActive = profile->isActive();
-                le_utf8_Copy(profileListEvent.simProfileInfo[i].nickName, profile->getNickName().c_str(), TAF_RSP_NAME_BYTES, NULL);
-                le_utf8_Copy(profileListEvent.simProfileInfo[i].name,profile->getName().c_str(), TAF_RSP_NAME_BYTES, NULL);
-                le_utf8_Copy(profileListEvent.simProfileInfo[i].spn, profile->getSPN().c_str(), TAF_RSP_SPN_LEN, NULL);
-                profileListEvent.simProfileInfo[i].iconType = (taf_rsp_IconType_t)profile->getIconType();
-                profileListEvent.simProfileInfo[i].profileClass = (taf_rsp_ProfileClass_t)profile->getClass();
+                le_utf8_Copy(profileListEvent.simProfileInfo[i].nickName, profile->getNickName().c_str(), TAF_SIMRSP_NAME_BYTES, NULL);
+                le_utf8_Copy(profileListEvent.simProfileInfo[i].name,profile->getName().c_str(), TAF_SIMRSP_NAME_BYTES, NULL);
+                le_utf8_Copy(profileListEvent.simProfileInfo[i].spn, profile->getSPN().c_str(), TAF_SIMRSP_SPN_LEN, NULL);
+                profileListEvent.simProfileInfo[i].iconType = (taf_simRsp_IconType_t)profile->getIconType();
+                profileListEvent.simProfileInfo[i].profileClass = (taf_simRsp_ProfileClass_t)profile->getClass();
                 profileListEvent.simProfileInfo[i].mask = (profile->getPolicyRule()).to_ulong();
                 i++;
             }
@@ -149,7 +149,7 @@ void tafRspCallback::onProfileListResponse(
 void tafRspCallback::onServerAddressResponse(std::string smdpAddress,
         std::string smdsAddress, telux::common::ErrorCode errorCode) {
 
-    auto &rsp = taf_rsp::GetInstance();
+    auto &rsp = taf_simRsp::GetInstance();
     le_result_t result = LE_OK;
     if (errorCode != telux::common::ErrorCode::SUCCESS) {
         LE_INFO( "Request failed with errorCode: %d " , static_cast<int>(errorCode));
@@ -162,12 +162,12 @@ void tafRspCallback::onServerAddressResponse(std::string smdpAddress,
     rsp.ProfileSyncPromise.set_value(result);
 }
 
-void* taf_rsp::ProfileAddHandlerThread(void* contextPtr)
+void* taf_simRsp::ProfileAddHandlerThread(void* contextPtr)
 {
-    auto &rsp = taf_rsp::GetInstance();
+    auto &rsp = taf_simRsp::GetInstance();
     le_sem_Ref_t semRef = (le_sem_Ref_t)contextPtr;
 
-    rsp.ProfileListEventId = le_event_CreateId("ProfileListEventId", sizeof(taf_rsp_ProfileListEvent_t));
+    rsp.ProfileListEventId = le_event_CreateId("ProfileListEventId", sizeof(taf_simRsp_ProfileListEvent_t));
     le_event_AddHandler("Profile List EventId", rsp.ProfileListEventId, UpdateProfileHandler);
 
     le_sem_Post(semRef);
@@ -178,7 +178,7 @@ void* taf_rsp::ProfileAddHandlerThread(void* contextPtr)
     return NULL;
 }
 
-void taf_rsp::Init(void)
+void taf_simRsp::Init(void)
 {
     //  Get the PhoneFactory and SimProfileManager instances.
     auto &phoneFactory = telux::tel::PhoneFactory::getInstance();
@@ -207,13 +207,13 @@ void taf_rsp::Init(void)
             }
 
             ProfileListPool = le_mem_InitStaticPool(tafProfileListPool,
-                        TAF_RSP_MAX_PROFILE, sizeof(taf_rsp_ProfileListNode_t));
-            ProfileListNodeRefMap = le_ref_CreateMap("tafRspProfileRefMap", TAF_RSP_MAX_PROFILE);
+                        TAF_SIMRSP_MAX_PROFILE, sizeof(taf_simRsp_ProfileListNode_t));
+            ProfileListNodeRefMap = le_ref_CreateMap("tafRspProfileRefMap", TAF_SIMRSP_MAX_PROFILE);
 
 
-            ProfileDownloadEventId = le_event_CreateId("ProfileDownloadEventId", sizeof(taf_rsp_DownloadEvent_t));
-            ProfileUserConsentEventId = le_event_CreateId("ProfileUserConsentEventId", sizeof(taf_rsp_UserConsentEvent_t));
-            ProfileConfirmationCodeEventId = le_event_CreateId("ProfileConfirmationCodeEventId", sizeof(taf_rsp_ConfirmationCodeEvent_t));
+            ProfileDownloadEventId = le_event_CreateId("ProfileDownloadEventId", sizeof(taf_simRsp_DownloadEvent_t));
+            ProfileUserConsentEventId = le_event_CreateId("ProfileUserConsentEventId", sizeof(taf_simRsp_UserConsentEvent_t));
+            ProfileConfirmationCodeEventId = le_event_CreateId("ProfileConfirmationCodeEventId", sizeof(taf_simRsp_ConfirmationCodeEvent_t));
 
             le_sem_Ref_t semRef = le_sem_Create("ProfileListThreadSem", 0);
             ProfileListEventThreadRef = le_thread_Create("ProfileThread", ProfileAddHandlerThread, (void*)semRef);
@@ -232,13 +232,13 @@ void taf_rsp::Init(void)
     LE_INFO(" EID = %s", eidPtr);
 }
 
-taf_rsp &taf_rsp::GetInstance()
+taf_simRsp &taf_simRsp::GetInstance()
 {
-    static taf_rsp instance;
+    static taf_simRsp instance;
     return instance;
 }
 
-le_result_t  taf_rsp::GetEID(taf_sim_Id_t slotId, char* eidPtr, size_t eidLen) {
+le_result_t  taf_simRsp::GetEID(taf_sim_Id_t slotId, char* eidPtr, size_t eidLen) {
     if(simProfileManager) {
         EidSynchronousPromise = std::promise<std::string>();
         SlotId slot = SlotId::DEFAULT_SLOT_ID;
@@ -262,7 +262,7 @@ le_result_t  taf_rsp::GetEID(taf_sim_Id_t slotId, char* eidPtr, size_t eidLen) {
     return LE_FAULT;
 }
 
-le_result_t taf_rsp::AddProfile(taf_sim_Id_t slotId, const char* activationCode, const char* confirmationCode,
+le_result_t taf_simRsp::AddProfile(taf_sim_Id_t slotId, const char* activationCode, const char* confirmationCode,
         bool userConsentSupported) {
 
     SlotId slot = (SlotId) slotId;
@@ -300,7 +300,7 @@ le_result_t taf_rsp::AddProfile(taf_sim_Id_t slotId, const char* activationCode,
     return LE_FAULT;
 }
 
-le_result_t taf_rsp::DeleteProfile( taf_sim_Id_t slotId, uint32_t profileId) {
+le_result_t taf_simRsp::DeleteProfile( taf_sim_Id_t slotId, uint32_t profileId) {
 
     SlotId slot = (SlotId) slotId;
     ProfileSyncPromise = std::promise<le_result_t>();
@@ -324,7 +324,7 @@ le_result_t taf_rsp::DeleteProfile( taf_sim_Id_t slotId, uint32_t profileId) {
     return LE_FAULT;
 }
 
-le_result_t taf_rsp::SetProfile( taf_sim_Id_t slotId, uint32_t profileId, bool enable) {
+le_result_t taf_simRsp::SetProfile( taf_sim_Id_t slotId, uint32_t profileId, bool enable) {
 
     SlotId slot = (SlotId) slotId;
     ProfileSyncPromise = std::promise<le_result_t>();
@@ -349,7 +349,7 @@ le_result_t taf_rsp::SetProfile( taf_sim_Id_t slotId, uint32_t profileId, bool e
     return LE_FAULT;
 }
 
-le_result_t taf_rsp::UpdateNickName( taf_sim_Id_t slotId, uint32_t profileId,
+le_result_t taf_simRsp::UpdateNickName( taf_sim_Id_t slotId, uint32_t profileId,
                     const char* nickName) {
 
     SlotId slot = (SlotId) slotId;
@@ -375,7 +375,7 @@ le_result_t taf_rsp::UpdateNickName( taf_sim_Id_t slotId, uint32_t profileId,
     return LE_FAULT;
 }
 
-le_result_t taf_rsp::RequestProfileList( taf_sim_Id_t slotId, taf_rsp_ProfileListNodeRef_t* profileListPtr,
+le_result_t taf_simRsp::RequestProfileList( taf_sim_Id_t slotId, taf_simRsp_ProfileListNodeRef_t* profileListPtr,
         size_t *profileCount) {
     SlotId slot = (SlotId) slotId;
     ProfileSyncPromise = std::promise<le_result_t>();
@@ -411,8 +411,8 @@ le_result_t taf_rsp::RequestProfileList( taf_sim_Id_t slotId, taf_rsp_ProfileLis
                 linkPtr = le_dls_Peek(&ProfileList);
                 while (linkPtr)
                 {
-                    taf_rsp_ProfileListNode_t* profileNode = CONTAINER_OF(linkPtr, taf_rsp_ProfileListNode_t, link);
-                    memcpy((char *)&profileListPtr[count], (const char *)&profileNode->profileListRef, sizeof(taf_rsp_ProfileListNodeRef_t));
+                    taf_simRsp_ProfileListNode_t* profileNode = CONTAINER_OF(linkPtr, taf_simRsp_ProfileListNode_t, link);
+                    memcpy((char *)&profileListPtr[count], (const char *)&profileNode->profileListRef, sizeof(taf_simRsp_ProfileListNodeRef_t));
                     count++;
                     linkPtr = le_dls_PeekNext(&ProfileList, linkPtr);
                 }
@@ -430,7 +430,7 @@ le_result_t taf_rsp::RequestProfileList( taf_sim_Id_t slotId, taf_rsp_ProfileLis
     return LE_FAULT;
 }
 
-le_result_t taf_rsp::GetServerAddress( taf_sim_Id_t slotId, char* smdpAddress, size_t smdpLength,char* smdsAddress,
+le_result_t taf_simRsp::GetServerAddress( taf_sim_Id_t slotId, char* smdpAddress, size_t smdpLength,char* smdsAddress,
         size_t smdsLength) {
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     SlotId slot = (SlotId) slotId;
@@ -462,7 +462,7 @@ le_result_t taf_rsp::GetServerAddress( taf_sim_Id_t slotId, char* smdpAddress, s
     return LE_FAULT;
 }
 
-le_result_t taf_rsp::SetServerAddress( taf_sim_Id_t slotId, const char* smdpAddress) {
+le_result_t taf_simRsp::SetServerAddress( taf_sim_Id_t slotId, const char* smdpAddress) {
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     SlotId slot = (SlotId) slotId;
     ProfileSyncPromise = std::promise<le_result_t>();
@@ -486,10 +486,10 @@ le_result_t taf_rsp::SetServerAddress( taf_sim_Id_t slotId, const char* smdpAddr
         return LE_FAULT;
 }
 
-le_result_t taf_rsp::CreateProfileListNode() {
+le_result_t taf_simRsp::CreateProfileListNode() {
 
     // Create the node.  Get the memory from a memory pool previously created.
-    taf_rsp_ProfileListNode_t* profileNodePtr = (taf_rsp_ProfileListNode_t*)le_mem_ForceAlloc(ProfileListPool);
+    taf_simRsp_ProfileListNode_t* profileNodePtr = (taf_simRsp_ProfileListNode_t*)le_mem_ForceAlloc(ProfileListPool);
 
     // Initialize the node's link.
     profileNodePtr->link = LE_DLS_LINK_INIT;
@@ -500,15 +500,15 @@ le_result_t taf_rsp::CreateProfileListNode() {
     return LE_OK;
 }
 
-void taf_rsp::UpdateProfileHandler(void *profileEvent)
+void taf_simRsp::UpdateProfileHandler(void *profileEvent)
 {
     LE_INFO("UpdateProfileHandler");
-    auto &rsp = taf_rsp::GetInstance();
-    rsp.UpdateProfileList((taf_rsp_ProfileListEvent_t*)profileEvent);
-    rsp.ProfileSyncPromise.set_value(((taf_rsp_ProfileListEvent_t*)profileEvent)->result);
+    auto &rsp = taf_simRsp::GetInstance();
+    rsp.UpdateProfileList((taf_simRsp_ProfileListEvent_t*)profileEvent);
+    rsp.ProfileSyncPromise.set_value(((taf_simRsp_ProfileListEvent_t*)profileEvent)->result);
 }
 
-void taf_rsp::UpdateProfileList(taf_rsp_ProfileListEvent_t *profileListEvent)
+void taf_simRsp::UpdateProfileList(taf_simRsp_ProfileListEvent_t *profileListEvent)
 {
     LE_INFO("UpdateProfileList");
     le_dls_Link_t* linkPtr = NULL;
@@ -519,21 +519,21 @@ void taf_rsp::UpdateProfileList(taf_rsp_ProfileListEvent_t *profileListEvent)
     uint8_t profileUpdateCount = 0;
     uint8_t profileId[profileCount] = {0};
     while (linkPtr != NULL) {
-        taf_rsp_ProfileListNode_t *profileNode = CONTAINER_OF(linkPtr, taf_rsp_ProfileListNode_t, link);
+        taf_simRsp_ProfileListNode_t *profileNode = CONTAINER_OF(linkPtr, taf_simRsp_ProfileListNode_t, link);
         for (i = 0; i < profileCount; i++) {
             if (profileNode->profileInfo.profileId == profileListEvent->simProfileInfo[i].profileId) {
                 //Update existing profile Id profile
                 profileNode->profileInfo.profileType = profileListEvent->simProfileInfo[i].profileType;
                 le_utf8_Copy(profileNode->profileInfo.iccid, profileListEvent->simProfileInfo[i].iccid, TAF_SIM_ICCID_BYTES, NULL);
                 profileNode->profileInfo.isActive = profileListEvent->simProfileInfo[i].isActive;
-                le_utf8_Copy(profileNode->profileInfo.nickName, profileListEvent->simProfileInfo[i].nickName, TAF_RSP_NAME_BYTES, NULL);
-                le_utf8_Copy(profileNode->profileInfo.name, profileListEvent->simProfileInfo[i].name, TAF_RSP_NAME_BYTES, NULL);
-                le_utf8_Copy(profileNode->profileInfo.spn, profileListEvent->simProfileInfo[i].spn, TAF_RSP_SPN_LEN, NULL);
+                le_utf8_Copy(profileNode->profileInfo.nickName, profileListEvent->simProfileInfo[i].nickName, TAF_SIMRSP_NAME_BYTES, NULL);
+                le_utf8_Copy(profileNode->profileInfo.name, profileListEvent->simProfileInfo[i].name, TAF_SIMRSP_NAME_BYTES, NULL);
+                le_utf8_Copy(profileNode->profileInfo.spn, profileListEvent->simProfileInfo[i].spn, TAF_SIMRSP_SPN_LEN, NULL);
                 profileNode->profileInfo.iconType = profileListEvent->simProfileInfo[i].iconType;
                 profileNode->profileInfo.profileClass = profileListEvent->simProfileInfo[i].profileClass;
                 profileId[profileUpdateCount] = profileNode->profileInfo.profileId;
                 le_ref_DeleteRef(ProfileListNodeRefMap, profileNode->profileListRef);
-                profileNode->profileListRef = (taf_rsp_ProfileListNodeRef_t)le_ref_CreateRef(ProfileListNodeRefMap, profileNode);
+                profileNode->profileListRef = (taf_simRsp_ProfileListNodeRef_t)le_ref_CreateRef(ProfileListNodeRefMap, profileNode);
                 profileUpdateCount++;
                 break;
             }
@@ -554,20 +554,20 @@ void taf_rsp::UpdateProfileList(taf_rsp_ProfileListEvent_t *profileListEvent)
             }
             if (j == profileUpdateCount) {
                 // Create the node.  Get the memory from a memory pool previously created.
-                taf_rsp_ProfileListNode_t* profileNode = (taf_rsp_ProfileListNode_t*)le_mem_ForceAlloc(ProfileListPool);
+                taf_simRsp_ProfileListNode_t* profileNode = (taf_simRsp_ProfileListNode_t*)le_mem_ForceAlloc(ProfileListPool);
 
                 profileNode->profileInfo.profileId = profileListEvent->simProfileInfo[i].profileId;
                 profileNode->profileInfo.profileType = profileListEvent->simProfileInfo[i].profileType;
                 le_utf8_Copy(profileNode->profileInfo.iccid, profileListEvent->simProfileInfo[i].iccid, TAF_SIM_ICCID_BYTES, NULL);
                 profileNode->profileInfo.isActive = profileListEvent->simProfileInfo[i].isActive;
-                le_utf8_Copy(profileNode->profileInfo.nickName, profileListEvent->simProfileInfo[i].nickName, TAF_RSP_NAME_BYTES, NULL);
-                le_utf8_Copy(profileNode->profileInfo.name, profileListEvent->simProfileInfo[i].name, TAF_RSP_NAME_BYTES, NULL);
-                le_utf8_Copy(profileNode->profileInfo.spn, profileListEvent->simProfileInfo[i].spn, TAF_RSP_SPN_LEN, NULL);
+                le_utf8_Copy(profileNode->profileInfo.nickName, profileListEvent->simProfileInfo[i].nickName, TAF_SIMRSP_NAME_BYTES, NULL);
+                le_utf8_Copy(profileNode->profileInfo.name, profileListEvent->simProfileInfo[i].name, TAF_SIMRSP_NAME_BYTES, NULL);
+                le_utf8_Copy(profileNode->profileInfo.spn, profileListEvent->simProfileInfo[i].spn, TAF_SIMRSP_SPN_LEN, NULL);
                 profileNode->profileInfo.iconType = profileListEvent->simProfileInfo[i].iconType;
                 profileNode->profileInfo.profileClass = profileListEvent->simProfileInfo[i].profileClass;
                 // Initialize the node's link.
                 profileNode->link = LE_DLS_LINK_INIT;
-                profileNode->profileListRef = (taf_rsp_ProfileListNodeRef_t)le_ref_CreateRef(ProfileListNodeRefMap, profileNode);
+                profileNode->profileListRef = (taf_simRsp_ProfileListNodeRef_t)le_ref_CreateRef(ProfileListNodeRefMap, profileNode);
 
                 // Add the node to the tail of the list by passing in the node's link.
                 le_dls_Queue(&ProfileList, &(profileNode->link));
@@ -577,7 +577,7 @@ void taf_rsp::UpdateProfileList(taf_rsp_ProfileListEvent_t *profileListEvent)
     }
 }
 
-taf_rsp_ProfileDownloadHandlerRef_t taf_rsp::AddProfileDownloadHandler(taf_rsp_ProfileDownloadHandlerFunc_t handlerPtr,
+taf_simRsp_ProfileDownloadHandlerRef_t taf_simRsp::AddProfileDownloadHandler(taf_simRsp_ProfileDownloadHandlerFunc_t handlerPtr,
         void* contextPtr){
 
     le_event_HandlerRef_t handlerRef;
@@ -592,29 +592,29 @@ taf_rsp_ProfileDownloadHandlerRef_t taf_rsp::AddProfileDownloadHandler(taf_rsp_P
     handlerRef = le_event_AddLayeredHandler("ProfileDownloadHandler", ProfileDownloadEventId,
             FirstLayerProfileDownloadHandler, (void*)handlerPtr);
 
-    return (taf_rsp_ProfileDownloadHandlerRef_t)(handlerRef);
+    return (taf_simRsp_ProfileDownloadHandlerRef_t)(handlerRef);
 
 }
 
-void taf_rsp::RemoveProfileDownloadHandler(taf_rsp_ProfileDownloadHandlerRef_t handlerRef) {
+void taf_simRsp::RemoveProfileDownloadHandler(taf_simRsp_ProfileDownloadHandlerRef_t handlerRef) {
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 }
 
-void taf_rsp::FirstLayerProfileDownloadHandler(void* reportPtr,
+void taf_simRsp::FirstLayerProfileDownloadHandler(void* reportPtr,
         void* secondLayerHandlerFunc)
 {
-    taf_rsp_DownloadEvent_t* downloadEventPtr = (taf_rsp_DownloadEvent_t*)reportPtr;
+    taf_simRsp_DownloadEvent_t* downloadEventPtr = (taf_simRsp_DownloadEvent_t*)reportPtr;
 
     TAF_ERROR_IF_RET_NIL(downloadEventPtr == NULL,"downloadEventPtr is NULL");
 
-    taf_rsp_ProfileDownloadHandlerFunc_t clientHandlerFunc =
-        (taf_rsp_ProfileDownloadHandlerFunc_t)secondLayerHandlerFunc;
+    taf_simRsp_ProfileDownloadHandlerFunc_t clientHandlerFunc =
+        (taf_simRsp_ProfileDownloadHandlerFunc_t)secondLayerHandlerFunc;
 
     clientHandlerFunc(downloadEventPtr->slotId, downloadEventPtr->downloadStatus,  downloadEventPtr->downloadErrorCause,
                                          le_event_GetContextPtr());
 }
 
-le_result_t taf_rsp::ProvideUserConsent(taf_sim_Id_t slotId, bool userConsent, taf_rsp_UserConsentReasonType_t reason) {
+le_result_t taf_simRsp::ProvideUserConsent(taf_sim_Id_t slotId, bool userConsent, taf_simRsp_UserConsentReasonType_t reason) {
 
     SlotId slot = (SlotId) slotId;
 
@@ -648,7 +648,7 @@ le_result_t taf_rsp::ProvideUserConsent(taf_sim_Id_t slotId, bool userConsent, t
     return LE_FAULT;
 }
 
-le_result_t taf_rsp::ProvideConfirmationCode( taf_sim_Id_t slotId, const char* code, size_t codeLength) {
+le_result_t taf_simRsp::ProvideConfirmationCode( taf_sim_Id_t slotId, const char* code, size_t codeLength) {
 
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
          SlotId slot = (SlotId) slotId;
@@ -678,7 +678,7 @@ le_result_t taf_rsp::ProvideConfirmationCode( taf_sim_Id_t slotId, const char* c
 
 }
 
-taf_rsp_ProfileUserConsentHandlerRef_t taf_rsp::AddProfileUserConsentHandler(taf_rsp_ProfileUserConsentHandlerFunc_t handlerPtr,
+taf_simRsp_ProfileUserConsentHandlerRef_t taf_simRsp::AddProfileUserConsentHandler(taf_simRsp_ProfileUserConsentHandlerFunc_t handlerPtr,
         void* contextPtr){
 
     le_event_HandlerRef_t handlerRef;
@@ -693,29 +693,29 @@ taf_rsp_ProfileUserConsentHandlerRef_t taf_rsp::AddProfileUserConsentHandler(taf
     handlerRef = le_event_AddLayeredHandler("ProfileUserConsentHandler", ProfileUserConsentEventId,
             FirstLayerProfileUserConsentHandler, (void*)handlerPtr);
 
-    return (taf_rsp_ProfileUserConsentHandlerRef_t)(handlerRef);
+    return (taf_simRsp_ProfileUserConsentHandlerRef_t)(handlerRef);
 
 }
 
-void taf_rsp::RemoveProfileUserConsentHandler(taf_rsp_ProfileUserConsentHandlerRef_t handlerRef) {
+void taf_simRsp::RemoveProfileUserConsentHandler(taf_simRsp_ProfileUserConsentHandlerRef_t handlerRef) {
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 }
 
-void taf_rsp::FirstLayerProfileUserConsentHandler(void* reportPtr,
+void taf_simRsp::FirstLayerProfileUserConsentHandler(void* reportPtr,
         void* secondLayerHandlerFunc)
 {
-    taf_rsp_UserConsentEvent_t* userConsentEventPtr = (taf_rsp_UserConsentEvent_t*)reportPtr;
+    taf_simRsp_UserConsentEvent_t* userConsentEventPtr = (taf_simRsp_UserConsentEvent_t*)reportPtr;
 
     TAF_ERROR_IF_RET_NIL(userConsentEventPtr == NULL,"UserConsentEventPtr is NULL");
 
-    taf_rsp_ProfileUserConsentHandlerFunc_t clientHandlerFunc =
-        (taf_rsp_ProfileUserConsentHandlerFunc_t)secondLayerHandlerFunc;
+    taf_simRsp_ProfileUserConsentHandlerFunc_t clientHandlerFunc =
+        (taf_simRsp_ProfileUserConsentHandlerFunc_t)secondLayerHandlerFunc;
 
     clientHandlerFunc( userConsentEventPtr->slotId,  userConsentEventPtr->userConsentRequired, userConsentEventPtr->mask,
                                          le_event_GetContextPtr());
 }
 
-taf_rsp_ProfileConfirmationCodeHandlerRef_t taf_rsp::AddProfileConfirmationCodeHandler(taf_rsp_ProfileConfirmationCodeHandlerFunc_t handlerPtr,
+taf_simRsp_ProfileConfirmationCodeHandlerRef_t taf_simRsp::AddProfileConfirmationCodeHandler(taf_simRsp_ProfileConfirmationCodeHandlerFunc_t handlerPtr,
         void* contextPtr){
 
     le_event_HandlerRef_t handlerRef;
@@ -730,29 +730,29 @@ taf_rsp_ProfileConfirmationCodeHandlerRef_t taf_rsp::AddProfileConfirmationCodeH
     handlerRef = le_event_AddLayeredHandler("ProfileConfirmationCodeHandler", ProfileConfirmationCodeEventId,
             FirstLayerProfileConfirmationCodeHandler, (void*)handlerPtr);
 
-    return (taf_rsp_ProfileConfirmationCodeHandlerRef_t)(handlerRef);
+    return (taf_simRsp_ProfileConfirmationCodeHandlerRef_t)(handlerRef);
 
 }
 
-void taf_rsp::RemoveProfileConfirmationCodeHandler(taf_rsp_ProfileConfirmationCodeHandlerRef_t handlerRef) {
+void taf_simRsp::RemoveProfileConfirmationCodeHandler(taf_simRsp_ProfileConfirmationCodeHandlerRef_t handlerRef) {
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 }
 
-void taf_rsp::FirstLayerProfileConfirmationCodeHandler(void* reportPtr,
+void taf_simRsp::FirstLayerProfileConfirmationCodeHandler(void* reportPtr,
         void* secondLayerHandlerFunc)
 {
-    taf_rsp_ConfirmationCodeEvent_t* confirmationCodeEventPtr = (taf_rsp_ConfirmationCodeEvent_t*)reportPtr;
+    taf_simRsp_ConfirmationCodeEvent_t* confirmationCodeEventPtr = (taf_simRsp_ConfirmationCodeEvent_t*)reportPtr;
 
     TAF_ERROR_IF_RET_NIL(confirmationCodeEventPtr == NULL,"confirmationCodeEventPtr is NULL");
 
-    taf_rsp_ProfileConfirmationCodeHandlerFunc_t clientHandlerFunc =
-        (taf_rsp_ProfileConfirmationCodeHandlerFunc_t)secondLayerHandlerFunc;
+    taf_simRsp_ProfileConfirmationCodeHandlerFunc_t clientHandlerFunc =
+        (taf_simRsp_ProfileConfirmationCodeHandlerFunc_t)secondLayerHandlerFunc;
 
     clientHandlerFunc( confirmationCodeEventPtr->slotId,  confirmationCodeEventPtr->profileName,
                                          le_event_GetContextPtr());
 }
 
-taf_rsp_ProfileListNodeRef_t taf_rsp::GetProfileListNodeRef(uint32_t index)
+taf_simRsp_ProfileListNodeRef_t taf_simRsp::GetProfileListNodeRef(uint32_t index)
 {
     //Use requestProfileList from telsdk to update ProfileList.
     //Traverse and look for id, if present, return the reference type pointer.
@@ -782,9 +782,9 @@ taf_rsp_ProfileListNodeRef_t taf_rsp::GetProfileListNodeRef(uint32_t index)
                 linkPtr = le_dls_Peek(&ProfileList);
                 while (linkPtr)
                 {
-                    taf_rsp_ProfileListNode_t* profileNode = CONTAINER_OF(linkPtr, taf_rsp_ProfileListNode_t, link);
+                    taf_simRsp_ProfileListNode_t* profileNode = CONTAINER_OF(linkPtr, taf_simRsp_ProfileListNode_t, link);
                     if(profileNode->profileInfo.profileId == (index)){
-                        return (taf_rsp_ProfileListNode_t*)(profileNode->profileListRef);
+                        return (taf_simRsp_ProfileListNode_t*)(profileNode->profileListRef);
                     }
                     linkPtr = le_dls_PeekNext(&ProfileList, linkPtr);
                 }
@@ -794,12 +794,12 @@ taf_rsp_ProfileListNodeRef_t taf_rsp::GetProfileListNodeRef(uint32_t index)
     return NULL;
 }
 
-uint32_t taf_rsp::GetProfileIndex
+uint32_t taf_simRsp::GetProfileIndex
 (
-    taf_rsp_ProfileListNodeRef_t profileRef
+    taf_simRsp_ProfileListNodeRef_t profileRef
 )
 {
-    taf_rsp_ProfileListNode_t* profilePtr = (taf_rsp_ProfileListNode_t*)le_ref_Lookup(ProfileListNodeRefMap, profileRef);
+    taf_simRsp_ProfileListNode_t* profilePtr = (taf_simRsp_ProfileListNode_t*)le_ref_Lookup(ProfileListNodeRefMap, profileRef);
     if(profilePtr == NULL)
     {
         LE_INFO("Profile not found");
@@ -808,28 +808,28 @@ uint32_t taf_rsp::GetProfileIndex
     return (uint32_t)(profilePtr->profileInfo.profileId);
 }
 
-taf_rsp_ProfileType_t taf_rsp::GetProfileType
+taf_simRsp_ProfileType_t taf_simRsp::GetProfileType
 (
-    taf_rsp_ProfileListNodeRef_t profileRef
+    taf_simRsp_ProfileListNodeRef_t profileRef
 )
 {
-    taf_rsp_ProfileListNode_t* profilePtr = (taf_rsp_ProfileListNode_t*)le_ref_Lookup(ProfileListNodeRefMap, profileRef);
+    taf_simRsp_ProfileListNode_t* profilePtr = (taf_simRsp_ProfileListNode_t*)le_ref_Lookup(ProfileListNodeRefMap, profileRef);
     if(profilePtr == NULL)
     {
         LE_INFO("Profile not found");
-        return (taf_rsp_ProfileType_t)(-1);
+        return (taf_simRsp_ProfileType_t)(-1);
     }
-    return (taf_rsp_ProfileType_t)(profilePtr->profileInfo.profileType);
+    return (taf_simRsp_ProfileType_t)(profilePtr->profileInfo.profileType);
 }
 
-le_result_t taf_rsp::GetIccid
+le_result_t taf_simRsp::GetIccid
 (
-    taf_rsp_ProfileListNodeRef_t profileRef,
+    taf_simRsp_ProfileListNodeRef_t profileRef,
     char* iccidPtr,
     size_t iccidLen
 )
 {
-    taf_rsp_ProfileListNode_t* profilePtr = (taf_rsp_ProfileListNode_t*)le_ref_Lookup(ProfileListNodeRefMap, profileRef);
+    taf_simRsp_ProfileListNode_t* profilePtr = (taf_simRsp_ProfileListNode_t*)le_ref_Lookup(ProfileListNodeRefMap, profileRef);
     if(profilePtr == NULL)
     {
         LE_INFO("Profile not found");
@@ -841,12 +841,12 @@ le_result_t taf_rsp::GetIccid
     return LE_OK;
 }
 
-bool taf_rsp::GetProfileActiveStatus
+bool taf_simRsp::GetProfileActiveStatus
 (
-    taf_rsp_ProfileListNodeRef_t profileRef
+    taf_simRsp_ProfileListNodeRef_t profileRef
 )
 {
-    taf_rsp_ProfileListNode_t* profilePtr = (taf_rsp_ProfileListNode_t*)le_ref_Lookup(ProfileListNodeRefMap, profileRef);
+    taf_simRsp_ProfileListNode_t* profilePtr = (taf_simRsp_ProfileListNode_t*)le_ref_Lookup(ProfileListNodeRefMap, profileRef);
     if(profilePtr == NULL)
     {
         LE_INFO("Profile not found");
@@ -855,97 +855,97 @@ bool taf_rsp::GetProfileActiveStatus
     return (bool)(profilePtr->profileInfo.isActive);
 }
 
-le_result_t taf_rsp::GetNickName
+le_result_t taf_simRsp::GetNickName
 (
-    taf_rsp_ProfileListNodeRef_t profileRef,
+    taf_simRsp_ProfileListNodeRef_t profileRef,
     char* nickNamePtr,
     size_t nickNameLen
 )
 {
-    taf_rsp_ProfileListNode_t* profilePtr = (taf_rsp_ProfileListNode_t*)le_ref_Lookup(ProfileListNodeRefMap, profileRef);
+    taf_simRsp_ProfileListNode_t* profilePtr = (taf_simRsp_ProfileListNode_t*)le_ref_Lookup(ProfileListNodeRefMap, profileRef);
     if(profilePtr == NULL)
     {
         LE_INFO("Profile not found");
         return LE_FAULT;
     }
-    if(nickNameLen != TAF_RSP_NAME_BYTES)
+    if(nickNameLen != TAF_SIMRSP_NAME_BYTES)
         return LE_FAULT;
-    le_utf8_Copy(nickNamePtr, profilePtr->profileInfo.nickName, TAF_RSP_NAME_BYTES, NULL);
+    le_utf8_Copy(nickNamePtr, profilePtr->profileInfo.nickName, TAF_SIMRSP_NAME_BYTES, NULL);
     return LE_OK;
 }
 
-le_result_t taf_rsp::GetName
+le_result_t taf_simRsp::GetName
 (
-    taf_rsp_ProfileListNodeRef_t profileRef,
+    taf_simRsp_ProfileListNodeRef_t profileRef,
     char * namePtr,
     size_t nameLen
 )
 {
-    taf_rsp_ProfileListNode_t* profilePtr = (taf_rsp_ProfileListNode_t*)le_ref_Lookup(ProfileListNodeRefMap, profileRef);
+    taf_simRsp_ProfileListNode_t* profilePtr = (taf_simRsp_ProfileListNode_t*)le_ref_Lookup(ProfileListNodeRefMap, profileRef);
     if(profilePtr == NULL)
     {
         LE_INFO("Profile not found");
         return LE_FAULT;
     }
-    if(nameLen != TAF_RSP_NAME_BYTES)
+    if(nameLen != TAF_SIMRSP_NAME_BYTES)
         return LE_FAULT;
-    le_utf8_Copy(namePtr, profilePtr->profileInfo.name, TAF_RSP_NAME_BYTES, NULL);
+    le_utf8_Copy(namePtr, profilePtr->profileInfo.name, TAF_SIMRSP_NAME_BYTES, NULL);
     return LE_OK;
 }
 
-le_result_t taf_rsp::GetSpn
+le_result_t taf_simRsp::GetSpn
 (
-    taf_rsp_ProfileListNodeRef_t profileRef,
+    taf_simRsp_ProfileListNodeRef_t profileRef,
     char * spnPtr,
     size_t spnLen
 )
 {
-    taf_rsp_ProfileListNode_t* profilePtr = (taf_rsp_ProfileListNode_t*)le_ref_Lookup(ProfileListNodeRefMap, profileRef);
+    taf_simRsp_ProfileListNode_t* profilePtr = (taf_simRsp_ProfileListNode_t*)le_ref_Lookup(ProfileListNodeRefMap, profileRef);
     if(profilePtr == NULL)
     {
         LE_INFO("Profile not found");
         return LE_FAULT;
     }
-    if(spnLen != TAF_RSP_NAME_BYTES)
+    if(spnLen != TAF_SIMRSP_NAME_BYTES)
         return LE_FAULT;
-    le_utf8_Copy(spnPtr, profilePtr->profileInfo.spn, TAF_RSP_SPN_LEN, NULL);
+    le_utf8_Copy(spnPtr, profilePtr->profileInfo.spn, TAF_SIMRSP_SPN_LEN, NULL);
     return LE_OK;
 }
 
-taf_rsp_IconType_t taf_rsp::GetIconType
+taf_simRsp_IconType_t taf_simRsp::GetIconType
 (
-    taf_rsp_ProfileListNodeRef_t profileRef
+    taf_simRsp_ProfileListNodeRef_t profileRef
 )
 {
-    taf_rsp_ProfileListNode_t* profilePtr = (taf_rsp_ProfileListNode_t*)le_ref_Lookup(ProfileListNodeRefMap, profileRef);
+    taf_simRsp_ProfileListNode_t* profilePtr = (taf_simRsp_ProfileListNode_t*)le_ref_Lookup(ProfileListNodeRefMap, profileRef);
     if(profilePtr == NULL)
     {
         LE_INFO("Profile not found");
-        return (taf_rsp_IconType_t)(-1);
+        return (taf_simRsp_IconType_t)(-1);
     }
-    return (taf_rsp_IconType_t)(profilePtr->profileInfo.iconType);
+    return (taf_simRsp_IconType_t)(profilePtr->profileInfo.iconType);
 }
 
-taf_rsp_ProfileClass_t taf_rsp::GetProfileClass
+taf_simRsp_ProfileClass_t taf_simRsp::GetProfileClass
 (
-    taf_rsp_ProfileListNodeRef_t profileRef
+    taf_simRsp_ProfileListNodeRef_t profileRef
 )
 {
-    taf_rsp_ProfileListNode_t* profilePtr = (taf_rsp_ProfileListNode_t*)le_ref_Lookup(ProfileListNodeRefMap, profileRef);
+    taf_simRsp_ProfileListNode_t* profilePtr = (taf_simRsp_ProfileListNode_t*)le_ref_Lookup(ProfileListNodeRefMap, profileRef);
     if(profilePtr == NULL)
     {
         LE_INFO("Profile not found");
-        return (taf_rsp_ProfileClass_t)(0);
+        return (taf_simRsp_ProfileClass_t)(0);
     }
-    return (taf_rsp_ProfileClass_t)(profilePtr->profileInfo.profileClass);
+    return (taf_simRsp_ProfileClass_t)(profilePtr->profileInfo.profileClass);
 }
 
-uint32_t taf_rsp::GetMask
+uint32_t taf_simRsp::GetMask
 (
-    taf_rsp_ProfileListNodeRef_t profileRef
+    taf_simRsp_ProfileListNodeRef_t profileRef
 )
 {
-    taf_rsp_ProfileListNode_t* profilePtr = (taf_rsp_ProfileListNode_t*)le_ref_Lookup(ProfileListNodeRefMap, profileRef);
+    taf_simRsp_ProfileListNode_t* profilePtr = (taf_simRsp_ProfileListNode_t*)le_ref_Lookup(ProfileListNodeRefMap, profileRef);
     if(profilePtr == NULL)
     {
         LE_INFO("Profile not found");

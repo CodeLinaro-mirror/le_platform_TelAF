@@ -13,8 +13,11 @@ apps:
     $TELAF_ROOT/apps/tafServices/tafSimCardSvc
     $TELAF_ROOT/apps/tafServices/tafRadioSvc
 #if ${TELUX_AUDIO_SUPPORTED} = y
+#if ${LE_CONFIG_REFRESH_AUDIO_SVC} = ""
     $TELAF_ROOT/apps/tafServices/tafAudioSvc
-    //$TELAF_ROOT/apps/tafServices/staging/tafAudioSvc
+#else
+    $TELAF_ROOT/apps/tafServices/staging/tafAudioSvc
+#endif
 #endif
 #if ${TELUX_LOCATION_SUPPORTED} = y
     $TELAF_ROOT/apps/tafServices/tafLocationSvc
@@ -91,9 +94,13 @@ apps:
     // $TELAF_ROOT/apps/test/tafFSCryptTest/tafFSCryptUnitTest/tafFSCryptUnitTest
     // $TELAF_ROOT/apps/test/tafSomeipGWTest/tafSomeipSvrUnitTest/tafSomeipSvrUnitTest
     // $TELAF_ROOT/apps/test/tafSomeipGWTest/tafSomeipClntUnitTest/tafSomeipClntUnitTest
+#if ${LE_CONFIG_REFRESH_AUDIO_SVC} = ""
     // $TELAF_ROOT/apps/test/tafAudioTest/tafAudioUnitTest/tafAudioUnitTest
+#else
     // $TELAF_ROOT/apps/test/tafAudioTest/tafAudioUnitTestEx/tafAudioUnitTestEx
     // $TELAF_ROOT/apps/test/ConsoleApp/tafAudioAppEx/tafAudioConsoleAppEx
+#endif
+    // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdConnIntTest/tafMngdConnIntTest
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMUnitTest/tafMngdPMUnitTest
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMIntTest/tafMngdPMIntTest
     // $TELAF_ROOT/apps/sample/diagApp/tafDiagApp

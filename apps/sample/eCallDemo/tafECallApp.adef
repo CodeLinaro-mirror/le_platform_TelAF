@@ -18,6 +18,14 @@ processes:
     }
 }
 
+bundles:
+{
+    file:
+    {
+        [r]     audio/record.wav  /
+    }
+}
+
 start: manual
 
 bindings:

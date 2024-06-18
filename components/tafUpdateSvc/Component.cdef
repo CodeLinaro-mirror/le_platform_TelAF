@@ -52,6 +52,7 @@ sources:
     tafFwUpdateSvc.cpp
     tafFwUpdateImpl.cpp
     tafFlashSvc.cpp
+    tafUpdateConfigTreeHelper.cpp
 }
 
 bundles:

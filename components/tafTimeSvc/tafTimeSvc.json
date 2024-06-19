@@ -9,6 +9,9 @@
       "The new time value will be set to the system only when the time",
       "delta between the current system time and the new value is greater",
       "than this value.",
+      "",
+      "ValidClientList:",
+      "List of Clients that can set the source validity.",
       ""
     ],
     "Sources": [
@@ -35,6 +38,7 @@
     ],
     "PollingInterval": "64",
     "ToleranceMillsec": "200",
-    "AllowOverrideAfterFail": "-1"
+    "AllowOverrideAfterFail": "-1",
+    "ValidClientList": "tafTimeIntTest tafTimeUnitTest"
   }
 }

@@ -43,6 +43,7 @@ sandboxed: false
 bindings:
 {
     tafTimeSvc.tafTimeSvc.taf_pm -> tafPMSvc.taf_pm
+    tafTimeSvc.tafTimeSvc.le_appInfo -> <root>.le_appInfo
 }
 
 extern:

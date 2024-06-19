@@ -375,6 +375,64 @@
  *
  * @endcode
  *
+ * @section taf_time_IsSourceValid Get the validity of a source
+ *
+ * When trying to get the validity of a source, the application shall first get
+ * the source reference by calling taf_time_GetSourceRef(), then call taf_time_IsSourceValid()
+ * to fetch the validity. When the reference is not needed, call taf_time_ReleaseSourceRef()
+ * to release the source reference.
+ *
+ * The following example illustrates how to get the source information.
+ *
+ * @code
+ *
+    uint8_t sourceId = TAF_TIME_SRC_NAME_NETWORK;
+    taf_time_SourceRef_t srcRef;
+    bool status;
+    srcRef = taf_time_GetSourceRef(sourceId);
+    LE_ASSERT(srcRef != NULL);
+    status = taf_time_IsSourceValid(srcRef);
+    if (status)
+    {
+        LE_INFO("Time source is valid!");
+    }
+    else
+    {
+        LE_INFO("Time source is NOT valid!");
+    }
+
+    // Release the memory for this reference.
+    res = taf_time_ReleaseSourceRef(srcRef);
+    LE_ASSERT(res == LE_OK);
+ *
+ * @endcode
+ *
+ * @section taf_time_SetValidity Set the validity of a source
+ *
+ * When trying to set the validity of a source, the application shall first get
+ * the source reference by calling taf_time_GetSourceRef(), then call taf_time_SetValidity()
+ * to set the validity. When the reference is not needed, call taf_time_ReleaseSourceRef()
+ * to release the source reference.
+ * @note Client can set validity for RTC and external application only.
+ *
+ * The following example illustrates how to set the validity of a time source.
+ *
+ * @code
+ *
+    uint8_t sourceId = TAF_TIME_SRC_NAME_RTC;
+    taf_time_SourceRef_t srcRef;
+    uint8_t validity = 0;
+    srcRef = taf_time_GetSourceRef(sourceId);
+    LE_ASSERT(srcRef != NULL);
+    status = taf_time_SetValidity(srcRef, validity);
+    LE_ASSERT(res == LE_OK);
+
+    // Release the memory for this reference.
+    res = taf_time_ReleaseSourceRef(srcRef);
+    LE_ASSERT(res == LE_OK);
+ *
+ * @endcode
+ *
  * @section taf_time_SetRtcTimeReqAsync Set the RTC time asynchronously
  *
  * With the callback function SetRTCTimeAsync() the application can set the RTC time
@@ -417,6 +475,9 @@ void* TestSetRTCAsync(void* cxtPtr)
  * With the reference object, taf_time_AddTimeValueChangeHandler() is for the application to
  * register an event handler for the time source. When the time source gets changed, the time
  * service will notify the client through that registered event handler.
+ *
+ * @note This functionality does not support RTC and external time sources.
+ *
  *
  * When the notification is not needed, taf_time_RemoveTimeValueChangeHandler() is to de-register
  * the event handler to release.
@@ -523,8 +584,9 @@ void* TestSetRTCAsync(void* cxtPtr)
  * @section c_taf_time_AddTimeSourceStatusHandler_API Time notification
  *
  * With the reference object, taf_time_AddTimeSourceStatusHandler() is for the application to
- * register an event handler for change in status of a time source. When the time source status
- * gets changed, the time service will notify the client through that registered event handler.
+ * register an event handler for change in availability and/or validity of a time source.
+ * When the time source status gets changed, the time service will notify the client through
+ * that registered event handler.
  *
  * When the notification is not needed, taf_time_RemoveTimeSourceStatusHandler() is to de-register
  * the event handler to remove it.
@@ -587,6 +649,11 @@ ENUM TimeSources{
     SRC_NAME_NETWORK2,  ///< Network time source from phone2
     SRC_NAME_UNKNOWN,    ///< No active time source
     SRC_NAME_SYSTEM = 0xFF ///< System time ID
+};
+
+ENUM StatusEventType{
+    STATUS_EVENT_AVAILABILITY = 1,
+    STATUS_EVENT_VALIDITY = 2
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -916,8 +983,8 @@ FUNCTION le_result_t GetFailedLoops
  * Gets the availability of a source.
  *
  * @return
- *  - LE_OK -- Succeeded.
- *  - LE_FAULT -- Something went wrong.
+ *  - true -- Available.
+ *  - false -- Not available.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION bool IsAvailable
@@ -942,12 +1009,15 @@ FUNCTION le_result_t GetSystemTimeSourceID
 //--------------------------------------------------------------------------------------------------
 /**
  * Handler for time soure status change event.
+ *
+ * @note The handler is not supported for getting the availability change for system time source.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER TimeSourceStatusHandler
 (
-    Source sourceRef     IN,  ///< Source reference.
-    bool isAvailable     IN   /// Time source availability.
+    Source sourceRef            IN,  ///< Source reference.
+    StatusEventType eventType   IN,  ///< Status event type. 
+    bool status                 IN   ///< Status of source as per event type.
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -958,6 +1028,7 @@ HANDLER TimeSourceStatusHandler
 EVENT TimeSourceStatus
 (
     Source sourceRef        IN,
+    StatusEventType eventType   IN,
     TimeSourceStatusHandler handler
 );
 
@@ -1000,4 +1071,35 @@ FUNCTION le_result_t GetTimeDayAdj
 (
    Source sourceRef        IN,    ///< Source reference.
    uint8 dayltSavAdj       OUT    ///< Daylight saving adjustment.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Checks whether a time source is valid.
+ *
+ * @return
+ *  - true -- valid.
+ *  - false -- Not valid.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION bool IsSourceValid
+(
+    Source sourceRef     IN    ///< Source reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the validity of a source.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_FAULT -- Something went wrong.
+ *
+ * @note - This function can be called to set validity for RTC and external application only.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetValidity
+(
+    Source sourceRef     IN,   ///< Source reference.
+    bool   validity      IN    ///< Validity to set.
 );

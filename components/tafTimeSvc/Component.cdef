@@ -29,6 +29,7 @@ requires:
     api:
     {
         taf_pm.api
+        le_appInfo.api
     }
 
     lib:

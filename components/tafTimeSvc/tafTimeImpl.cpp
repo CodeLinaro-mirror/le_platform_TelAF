@@ -367,6 +367,7 @@ le_result_t taf_Time::ReadTimeConf
     const char* value;
     long int pollingInterval, toleranceMillsec;
     int64_t allowOverrideAfterFail = -1;
+    std::vector<std::string> validClientList;
 
     itemData = json_object_get(serviceDataPtr, TAF_TIME_INTERVAL_SETTING_STR);
     if (!json_is_string(itemData))
@@ -401,6 +402,23 @@ le_result_t taf_Time::ReadTimeConf
     sscanf(value, "%ld", &allowOverrideAfterFail);
     serviceCfg.allowOverrideAfterFail = allowOverrideAfterFail;
     AllowOverrideAfterFail = allowOverrideAfterFail;
+
+    itemData = json_object_get(serviceDataPtr, TAF_TIME_VALIDCLIENTLIST_STR);
+    if (!json_is_string(itemData))
+    {
+        LE_WARN("Warning: Valid Client list was not found\n");
+        return LE_NOT_FOUND;
+    }
+
+    value = json_string_value(itemData);
+    std::stringstream ss(value);
+    std::string client;
+    while(ss >> client)
+    {
+        validClientList.push_back(client.c_str());
+    }
+
+    serviceCfg.validClientList = validClientList;
 
     return LE_OK;
 }
@@ -840,7 +858,14 @@ le_result_t taf_Time::GetNetworkTime
     taf_time_TimeSources_t sourceId
 )
 {
-    return GetTimeFromLocalCache(timeValPtr, NetworkDeltaTime, sourceId);
+    if(sourceId == TAF_TIME_SRC_NAME_NETWORK)
+    {
+        return GetTimeFromLocalCache(timeValPtr, NetworkDeltaTime, sourceId);
+    }
+    else
+    {
+        return GetTimeFromLocalCache(timeValPtr, NetworkDeltaTime2, sourceId);
+    }    
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1621,6 +1646,7 @@ le_result_t taf_Time::SetSystemTime
     bool ackTimeSvc
 )
 {
+    auto &tafTime = taf_Time::GetInstance();
     le_result_t result = LE_OK;
     int position = 0;
     taf_time_TimeSpec_t systemTime;
@@ -1694,12 +1720,21 @@ le_result_t taf_Time::SetSystemTime
     if (LatestTimeSourceInfo->systemSourceId != timeSource)
     {
         LE_INFO("Switching time source from %s to %s",
-        SourceNameIndexToStr(LatestTimeSourceInfo->systemSourceId), SourceNameIndexToStr(timeSource));
+        SourceNameIndexToStr(LatestTimeSourceInfo->systemSourceId),SourceNameIndexToStr(timeSource));
 
         TimeSourceChangeNotify(LatestTimeSourceInfo->systemSourceId, timeSource);
+        taf_SourceInf_t* sourcePtr = tafTime.SearchAvailableSourceInfList(timeSource);
         LatestTimeSourceInfo->systemSourceId = timeSource;
         LatestTimeSourceInfo->failedLoops = 0;
         AllowOverrideAfterFail = TimeSourceConf.allowOverrideAfterFail;
+
+        if (LatestTimeSourceInfo->handlerFunc != NULL && sourcePtr != NULL &&
+            LatestTimeSourceInfo->eventType == TAF_TIME_STATUS_EVENT_VALIDITY &&
+            LatestTimeSourceInfo->sourceValidity != sourcePtr->sourceValidity)
+        {
+            LatestTimeSourceInfo->sourceValidity = sourcePtr->sourceValidity;
+            ReportValidityChange(LatestTimeSourceInfo);
+        }
     }
     if (ackTimeSvc && (timeSource == TAF_TIME_SRC_NAME_EX_APP))
     {
@@ -1801,6 +1836,7 @@ void taf_Time::SourceAvailabilityUpdate(le_result_t result, taf_time_TimeSources
     taf_Time& tafTime = taf_Time::GetInstance();
     bool previousAvailablility = (tafTime.PrevSrcAvailabiltyMap >> sourceIndex) & 1;
     taf_SourceInf_t* sourcePtr = tafTime.SearchAvailableSourceInfList(sourceIndex);
+    bool oldValidity = false;
 
     if (sourcePtr != NULL)
     {
@@ -1808,11 +1844,30 @@ void taf_Time::SourceAvailabilityUpdate(le_result_t result, taf_time_TimeSources
         {
             sourcePtr->isAvailable = true;
             tafTime.PrevSrcAvailabiltyMap = tafTime.PrevSrcAvailabiltyMap | (1 << sourceIndex);
+            if
+            (
+                sourcePtr->sourceId != TAF_TIME_SRC_NAME_RTC &&
+                sourcePtr->sourceId != TAF_TIME_SRC_NAME_EX_APP
+            )
+            {
+                oldValidity = sourcePtr->sourceValidity;
+                sourcePtr->sourceValidity = true;
+            }
+
         }
         else
         {
             sourcePtr->isAvailable = false;
             tafTime.PrevSrcAvailabiltyMap = tafTime.PrevSrcAvailabiltyMap & (~(1 << sourceIndex));
+            if
+            (
+                sourcePtr->sourceId != TAF_TIME_SRC_NAME_RTC &&
+                sourcePtr->sourceId != TAF_TIME_SRC_NAME_EX_APP
+            )
+            {
+                oldValidity = sourcePtr->sourceValidity;
+                sourcePtr->sourceValidity = false;
+            }
         }
 
         LE_DEBUG("For source %s: previousAvailablility %d and currentAvailability %d ",
@@ -1822,17 +1877,42 @@ void taf_Time::SourceAvailabilityUpdate(le_result_t result, taf_time_TimeSources
         if (previousAvailablility != sourcePtr->isAvailable)
         {
             // Check if a handler is registered for the time source by user
-            if (sourcePtr->handlerFunc != NULL)
+            if
+            (
+                sourcePtr->handlerFunc != NULL &&
+                (sourcePtr->eventType & TAF_TIME_STATUS_EVENT_AVAILABILITY) != 0
+            )
             {
                 SourceStatusChange_Event_t evt;
                 evt.sourcePtr = sourcePtr;
-                evt.isAvailable = sourcePtr->isAvailable;
+                evt.status = sourcePtr->isAvailable;
+                evt.eventType = TAF_TIME_STATUS_EVENT_AVAILABILITY;
                 le_event_Report(timeSourceStatusEventId, &evt, sizeof(evt));
             }
+        }
+
+        if 
+        (
+            oldValidity != sourcePtr->sourceValidity &&
+            sourcePtr->handlerFunc != NULL &&
+            (sourcePtr->eventType & TAF_TIME_STATUS_EVENT_VALIDITY) != 0
+        )
+        {
+            ReportValidityChange(sourcePtr);
         }
     }
 }
 
+void taf_Time::ReportValidityChange(taf_SourceInf_t* sourcePtr)
+{
+    taf_Time& tafTime = taf_Time::GetInstance();
+    SourceStatusChange_Event_t evt;
+    evt.sourcePtr = sourcePtr;
+    evt.status = sourcePtr->sourceValidity;
+    evt.eventType = TAF_TIME_STATUS_EVENT_VALIDITY;
+    le_event_Report(tafTime.timeSourceStatusEventId, &evt, sizeof(evt));
+
+}
 
 void taf_Time::UpdateFailedLoops
 (
@@ -2113,6 +2193,7 @@ void *taf_Time::SyncTimeTasks(void* contextPtr)
             src->isAvailable = false;
             src->handlerRef = NULL;
             src->handlerFunc = NULL;
+            src->sourceValidity = false;
             src->sessionRef = taf_time_GetClientSessionRef();
             src->ref = (taf_time_SourceRef_t)le_ref_CreateRef(tafTime.SrcRefMap, src);
         }
@@ -3112,8 +3193,8 @@ le_result_t taf_Time::ReleaseSourceRef
         LE_ERROR("srcTimePtr is NULL.");
         return LE_BAD_PARAMETER;
     }
-    srcTimePtr->handlerRef = NULL;
-    srcTimePtr->handlerFunc = NULL;
+    //srcTimePtr->handlerRef = NULL;
+    //srcTimePtr->handlerFunc = NULL;
     return LE_OK;
 }
 
@@ -3122,7 +3203,8 @@ void timeSourceStatusHandler(void* reportPtr)
     auto& time = taf_Time::GetInstance();
     SourceStatusChange_Event_t* evt = (SourceStatusChange_Event_t*)reportPtr;
     taf_SourceInf_t* sourcePtr = evt->sourcePtr;
-    bool isAvailable = evt->isAvailable;
+    bool isAvailable = evt->status;
+    taf_time_StatusEventType_t eventType = evt->eventType;
 
     if (sourcePtr != NULL
         && sourcePtr->handlerRef != NULL
@@ -3138,7 +3220,7 @@ void timeSourceStatusHandler(void* reportPtr)
             LE_DEBUG("Time source %s is NOT Available!",
                 time.SourceNameIndexToStr(sourcePtr->sourceId));
         }
-        sourcePtr->handlerFunc(sourcePtr->ref, isAvailable, sourcePtr->context);
+        sourcePtr->handlerFunc(sourcePtr->ref, eventType, isAvailable, sourcePtr->context);
     }
     return;
 }
@@ -3146,6 +3228,7 @@ void timeSourceStatusHandler(void* reportPtr)
 taf_time_TimeSourceStatusHandlerRef_t taf_Time::AddTimeSourceStatusHandler
 (
     taf_time_SourceRef_t srcRef,
+    taf_time_StatusEventType_t statusEventType,
     taf_time_TimeSourceStatusHandlerFunc_t handlerFuncPtr,
     void* contextPtr
 )
@@ -3156,18 +3239,25 @@ taf_time_TimeSourceStatusHandlerRef_t taf_Time::AddTimeSourceStatusHandler
 
     TAF_ERROR_IF_RET_VAL(srcTimePtr == NULL, NULL, "Source Reference not found!.");
 
-    TAF_ERROR_IF_RET_VAL(srcTimePtr->sourceId == TAF_TIME_SRC_NAME_SYSTEM, NULL,
-        "Cannot register handler for source(0x%x). Not Supported", srcTimePtr->sourceId);
+    TAF_ERROR_IF_RET_VAL((srcTimePtr->sourceId == TAF_TIME_SRC_NAME_SYSTEM && statusEventType == TAF_TIME_STATUS_EVENT_AVAILABILITY),
+    NULL, "Cannot register handler for source(0x%x). Not Supported", srcTimePtr->sourceId);
 
-    //TAF_ERROR_IF_RET_VAL(srcTimePtr->handlerFunc != NULL, NULL,
-    //    "Handler for source(0x%x) is already registered.", srcTimePtr->sourceId);
-    if(srcTimePtr->handlerFunc != NULL)
+    if (statusEventType == TAF_TIME_EVENT_TYPE_LOWER_BOUND ||
+       statusEventType > TAF_TIME_EVENT_TYPE_UPPER_BOUND)
+    {
+        LE_ERROR("Please provide a valid event type.");
+        return NULL;
+    }
+
+    if (srcTimePtr->handlerFunc != NULL)
     {
         return srcTimePtr->handlerRef;
     }
 
     srcTimePtr->handlerFunc = handlerFuncPtr;
     srcTimePtr->context = contextPtr;
+    srcTimePtr->eventType = statusEventType;
+
     srcTimePtr->handlerRef =
         (taf_time_TimeSourceStatusHandlerRef_t)le_ref_CreateRef(SrcRefMap, srcTimePtr);
 
@@ -3223,11 +3313,8 @@ le_result_t taf_Time::GetTimeZone
 
     TAF_ERROR_IF_RET_VAL(sourcePtr == NULL, LE_FAULT, "Source Reference is not registered.");
 
-    if
-    (
-        sourcePtr->sourceId != TAF_TIME_SRC_NAME_NETWORK &&
-        sourcePtr->sourceId != TAF_TIME_SRC_NAME_NETWORK2
-    )
+    if (sourcePtr->sourceId != TAF_TIME_SRC_NAME_NETWORK &&
+        sourcePtr->sourceId != TAF_TIME_SRC_NAME_NETWORK2)
     {
         LE_ERROR("TimeZone is not supported for the given source reference!");
         return LE_BAD_PARAMETER;
@@ -3263,11 +3350,8 @@ le_result_t taf_Time::GetTimeDayAdj
 
     TAF_ERROR_IF_RET_VAL(sourcePtr == NULL, LE_FAULT, "Source Reference is not registered.");
 
-    if
-    (
-        sourcePtr->sourceId != TAF_TIME_SRC_NAME_NETWORK &&
-        sourcePtr->sourceId != TAF_TIME_SRC_NAME_NETWORK2
-    )
+    if (sourcePtr->sourceId != TAF_TIME_SRC_NAME_NETWORK &&
+        sourcePtr->sourceId != TAF_TIME_SRC_NAME_NETWORK2)
     {
         LE_ERROR("TimeZone is not supported for the given source reference!");
         return LE_BAD_PARAMETER;
@@ -3278,6 +3362,86 @@ le_result_t taf_Time::GetTimeDayAdj
         return LE_OK;
     }
     return LE_FAULT;
+}
+
+bool taf_Time::IsSourceValid
+(
+    taf_time_SourceRef_t sourceRef
+)
+{
+    TAF_ERROR_IF_RET_VAL(sourceRef == NULL, false, "Source Reference is NULL.");
+    taf_SourceInf_t* sourcePtr = (taf_SourceInf_t*)le_ref_Lookup(SrcRefMap, sourceRef);
+    TAF_ERROR_IF_RET_VAL(sourcePtr == NULL, false, "Source Reference is not registered.");
+    return sourcePtr->sourceValidity;
+}
+
+
+le_result_t taf_Time::CheckSetValidityPermission()
+{
+    le_msg_SessionRef_t clientSessionRef = taf_time_GetClientSessionRef();
+    pid_t pid;
+    char appName[100] = {0};
+
+    if (LE_OK != le_msg_GetClientProcessId(clientSessionRef, &pid))
+    {
+        LE_ERROR("Error, Failed to get client pid.");
+        return LE_FAULT;
+    }
+
+    if(le_appInfo_GetName(pid, appName, sizeof(appName)) == LE_OK)
+    {
+        LE_INFO("Client appName: %s", appName);
+        for(uint i = 0; i < TimeSourceConf.validClientList.size(); i++)
+        {
+            if(strcmp(appName, TimeSourceConf.validClientList[i].c_str()) == 0)
+            {
+               LE_INFO("App is in the client valid list");
+               return LE_OK;
+               break;
+            }
+        }
+    }
+    return LE_FAULT;
+}
+
+
+
+le_result_t taf_Time::SetValidity
+(
+    taf_time_SourceRef_t sourceRef,
+    bool newvalidity
+)
+{
+    TAF_ERROR_IF_RET_VAL(sourceRef == NULL, LE_FAULT, "Source Reference is NULL.");
+    taf_SourceInf_t* sourcePtr = (taf_SourceInf_t*)le_ref_Lookup(SrcRefMap, sourceRef);
+    TAF_ERROR_IF_RET_VAL(sourcePtr == NULL, LE_FAULT, "Source Reference is not registered.");
+
+    if (sourcePtr->sourceId != TAF_TIME_SRC_NAME_RTC &&
+        sourcePtr->sourceId != TAF_TIME_SRC_NAME_EX_APP )
+    {
+        LE_ERROR("Not allowed to change validity for this time source!");
+        return LE_BAD_PARAMETER;
+    }
+
+    //Check if the client can change the validity of time source or not
+
+    le_result_t isClientValid = CheckSetValidityPermission();
+    if(isClientValid != LE_OK)
+    {
+        LE_ERROR("Client is not allowed to change source validity.");
+        return LE_BAD_PARAMETER;
+    }
+    //Check if the validity is changed and trigger notification accordingly
+    bool oldValidity = sourcePtr->sourceValidity;
+    sourcePtr->sourceValidity = newvalidity;
+
+    if (oldValidity != sourcePtr->sourceValidity &&
+        sourcePtr->handlerFunc != NULL &&
+        (sourcePtr->eventType & TAF_TIME_STATUS_EVENT_VALIDITY) != 0)
+    {
+        ReportValidityChange(sourcePtr);
+    }
+    return LE_OK;
 }
 
 /*======================================================================

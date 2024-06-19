@@ -291,8 +291,9 @@ int taf_pi_da_GetSession
     if (fgets(session.target, sizeof(session.target), file) == NULL)
     {
         LE_ERROR("Fail to get download target.");
+        fclose(file);
         return -1;
-	}
+    }
 
     if (sessionRef == NULL)
     {
@@ -301,6 +302,7 @@ int taf_pi_da_GetSession
 
     *sessRef = sessionRef;
 
+    fclose(file);
     return 0;
 }
 

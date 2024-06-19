@@ -367,7 +367,7 @@ COMPONENT_INIT
     // Ensure the number of APs scanned and elements populated are equal
     LE_TEST_OK(numScanedAPs == APInfoSize,
         "num APs scanned and elements populated should be equal");
-    for (int iCount = 0; iCount < static_cast<int>(APInfoSize); iCount++)
+    for (unsigned int iCount = 0; iCount < static_cast<unsigned int>(APInfoSize); iCount++)
     {
         LE_TEST_INFO("AP Number : %d", (iCount + 1));
         PrintAPInfo(&ApInfos[iCount]);

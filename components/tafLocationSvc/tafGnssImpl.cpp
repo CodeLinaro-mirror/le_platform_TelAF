@@ -3627,7 +3627,7 @@ le_result_t taf_Gnss::GetDilutionOfPrecision
  uint16_t* dopPtr
 )
 {
-    uint32_t dop;
+    uint32_t dop = 0;
     bool dopValid = false;
     taf_gnss_PositionSampleRequest_t* posReqPtr = (taf_gnss_PositionSampleRequest_t*)le_ref_Lookup(PositionSampleMap,posRef);
     le_result_t result = CheckValidatePosition(posReqPtr);

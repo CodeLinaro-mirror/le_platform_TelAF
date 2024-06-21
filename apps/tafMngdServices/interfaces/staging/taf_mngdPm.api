@@ -304,10 +304,37 @@ ENUM BubStatus
 };
 DEFINE WSREF_MAXLEN   = (32);
 
+BITMASK NodePowerStateChangeBitMask
+{
+    NODE_STATE_BIT_MASK_SHUTDOWN_PREPARE,
+    NODE_STATE_BIT_MASK_RESTART_PREPARE,
+    NODE_STATE_BIT_MASK_SUSPEND_PREPARE,
+    NODE_STATE_BIT_MASK_RESUME
+};
+
+ENUM NodeClientAck
+{
+   CLIENT_NOT_READY = -1,
+   CLIENT_READY
+};
+
+ENUM NodePowerState
+{
+   NODE_STATE_SHUTDOWN_PREPARE,
+   NODE_STATE_RESTART_PREPARE,
+   NODE_STATE_SUSPEND_PREPARE,
+   NODE_STATE_RESUME
+};
+
 /**
  * WakeupNodeSourceRef for system wakeup.
  */
 REFERENCE ws;
+
+/**
+ * WakeupNodeSourceRef for system wakeup.
+ */
+REFERENCE nodePowerState;
 
 /**
  * Handler for async shutdown request.
@@ -384,6 +411,27 @@ EVENT InfoReport
     InfoReportBitMask infoReportMask,  ///< Bit mask for the data report.
     InfoReportHandler handler    ///< The data report handler.
 );
+
+/**
+ * Handler for node power state change.
+ */
+HANDLER NodePowerStateChangeHandler
+(
+    uint8 pmNodeId,
+    nodePowerState ref,
+    NodePowerState state
+);
+
+/**
+ * State change event.
+ */
+EVENT NodePowerStateChange
+(
+    NodePowerStateChangeHandler handler,  ///< The state change handler.
+    uint8 pmNodeId,
+    NodePowerStateChangeBitMask bitmask
+);
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Sets the targeted power mode for the node.
@@ -548,4 +596,21 @@ FUNCTION le_result_t GetInfoReport
 (
     InfoDataId reportId IN,  ///< The status report ID.
     int32 report  OUT      ///< The status report.
+);
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sends the acknowledgement for the node power state change notification.
+ *
+ * @return
+ *     - LE_OK             Successfully restarts for the given node.
+ *     - LE_BAD_PARAMETER  Invalid requested mode or handler reference.
+ *     - LE_FAULT          Failed to send the request.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SendNodePowerStateChangeAck
+(
+    uint8 pmNodeId IN,   ///< The Node ID given.
+    nodePowerState Ref,
+    NodePowerState state,
+    NodeClientAck ack
 );

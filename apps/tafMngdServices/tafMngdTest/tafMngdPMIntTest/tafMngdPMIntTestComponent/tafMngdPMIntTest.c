@@ -56,6 +56,8 @@ static void PrintUsage ()
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- help \n"
         "--------To Restart the System --------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- RestartSystem \n"
+        "--------To KeepAwakeThenRestartSystem the System --------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- KeepAwakeThenRestartSystem \n"
         "--------To trigger the Forced System Shutdown--------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- ForcedSystemShutdown \n"
         "--------To triggger the Graceful shutdown with the wake lock acquired--------\n"
@@ -99,65 +101,124 @@ static void PrintUsage ()
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- AddInfoReportHandler\n");
 }
 
+void NodePowerStateChangeHandlerCB(
+     uint8_t pmNodeId,
+     taf_mngdPm_nodePowerStateRef_t nodePowerStateRef,
+     taf_mngdPm_NodePowerState_t state,
+	 void *contextPtr)
+{
+    LE_INFO("NodePowerStateChangeHandlerFunc callback");
+    le_result_t res = LE_FAULT;
+    res = taf_mngdPm_SendNodePowerStateChangeAck(pmNodeId, nodePowerStateRef,state, TAF_MNGDPM_CLIENT_READY);
+    if(res == LE_OK)
+    {
+        LE_INFO("SendNodePowerStateChangeAck is success");
+        exit(EXIT_SUCCESS);
+    }
+    exit(EXIT_FAILURE);
+}
+
+void AddNodePowerStateChangeHandler
+(
+    const char* NodePowerStateChangeBitMask
+)
+{
+    LE_INFO("taf_mngdPm_AddNodePowerStateChangeHandler");
+    uint8_t pmNodeId = 0;
+    if(strcmp(NodePowerStateChangeBitMask, "TAF_MNGDPM_NODE_STATE_BIT_MASK_SHUTDOWN_PREPARE") == 0)
+    {
+        taf_mngdPm_NodePowerStateChangeBitMask_t stateMask = TAF_MNGDPM_NODE_STATE_BIT_MASK_SHUTDOWN_PREPARE;
+        taf_mngdPm_NodePowerStateChangeHandlerRef_t ref = NULL;
+        ref = taf_mngdPm_AddNodePowerStateChangeHandler(NodePowerStateChangeHandlerCB, NULL, pmNodeId, stateMask);
+        if(ref)
+        {
+            LE_INFO("AddNodePowerStateChangeHandler is success for TAF_MNGDPM_NODE_STATE_BIT_MASK_SHUTDOWN_PREPARE");
+        }
+    }
+    else if(strcmp(NodePowerStateChangeBitMask, "TAF_MNGDPM_NODE_STATE_BIT_MASK_RESTART_PREPARE") == 0)
+    {
+        taf_mngdPm_NodePowerStateChangeBitMask_t stateMask = TAF_MNGDPM_NODE_STATE_BIT_MASK_RESTART_PREPARE;
+        taf_mngdPm_NodePowerStateChangeHandlerRef_t ref = NULL;
+        ref = taf_mngdPm_AddNodePowerStateChangeHandler(NodePowerStateChangeHandlerCB, NULL, pmNodeId, stateMask);
+        if(ref)
+        {
+            LE_INFO("AddNodePowerStateChangeHandler is success for TAF_MNGDPM_NODE_STATE_BIT_MASK_RESTART_PREPARE");
+        }
+    }
+    else if(strcmp(NodePowerStateChangeBitMask, "TAF_MNGDPM_NODE_STATE_BIT_MASK_SUSPEND_PREPARE") == 0)
+    {
+        taf_mngdPm_NodePowerStateChangeBitMask_t stateMask = TAF_MNGDPM_NODE_STATE_BIT_MASK_SUSPEND_PREPARE;
+        taf_mngdPm_NodePowerStateChangeHandlerRef_t ref = NULL;
+        ref = taf_mngdPm_AddNodePowerStateChangeHandler(NodePowerStateChangeHandlerCB, NULL, pmNodeId, stateMask);
+        if(ref)
+        {
+            LE_INFO("AddNodePowerStateChangeHandler is success for TAF_MNGDPM_NODE_STATE_BIT_MASK_SUSPEND_PREPARE");
+        }
+    }
+    else if(strcmp(NodePowerStateChangeBitMask, "TAF_MNGDPM_NODE_STATE_BIT_MASK_RESUME") == 0)
+    {
+        taf_mngdPm_NodePowerStateChangeBitMask_t stateMask = TAF_MNGDPM_NODE_STATE_BIT_MASK_RESUME;
+        taf_mngdPm_NodePowerStateChangeHandlerRef_t ref = NULL;
+        ref = taf_mngdPm_AddNodePowerStateChangeHandler(NodePowerStateChangeHandlerCB, NULL, pmNodeId, stateMask);
+        if(ref)
+        {
+            LE_INFO("AddNodePowerStateChangeHandler is success for TAF_MNGDPM_NODE_STATE_BIT_MASK_RESUME");
+        }
+     }
+}
+
 void RestartCallback(taf_mngdPm_RestartMode_t mode, taf_mngdPm_ResponseMode_t rspmode ,
         void* contextPtr)
 {
     LE_INFO("RestartCallback response mode is %d", rspmode);
-    exit(status);
 }
 
 static void RestartSystem()
 {
     LE_INFO("----Restart System test----" );
-
+    AddNodePowerStateChangeHandler("TAF_MNGDPM_NODE_STATE_BIT_MASK_RESTART_PREPARE");
     le_result_t res = taf_mngdPm_RestartReqAsync(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON,
             RestartCallback, NULL);
 
     if(res == LE_OK)
     {
         LE_INFO("----RestartSystem success----");
-        status = EXIT_SUCCESS;
     }
     else
     {
         LE_ERROR("RestartSystem request failed");
-        status = EXIT_FAILURE;
     }
-    return ;
 }
 
 void ForcedSystemShutdownCallBack(taf_mngdPm_ShutdownMode_t mode,
     taf_mngdPm_ResponseMode_t ResponseMode, void* contextPtr)
 {
     LE_INFO("ForcedSystemShutdownCallBack response mode is %d", ResponseMode);
-    exit(status);
 }
 
 static void ForcedSystemShutdown()
 {
     LE_INFO("----ForcedSystemShutdown test----");
     le_result_t result;
+    AddNodePowerStateChangeHandler("TAF_MNGDPM_NODE_STATE_BIT_MASK_SHUTDOWN_PREPARE");
     result = taf_mngdPm_ShutdownReqAsync(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL,
             ForcedSystemShutdownCallBack, NULL);
 
     if(result == LE_OK)
     {
         LE_INFO("----ForcedSystemShutdown success----");
-        status = EXIT_SUCCESS;
     }
     else
     {
         LE_ERROR("ForcedSystemShutdown request failed");
-        status = EXIT_FAILURE;
     }
-    return;
 }
 
-static int GracefulSysShutdownWakeLock()
+void GracefulSysShutdownWakeLock()
 {
     LE_INFO("----GracefulSysShutdownWakeLock test----");
     le_result_t result =  LE_FAULT;
-
+    AddNodePowerStateChangeHandler("TAF_MNGDPM_NODE_STATE_BIT_MASK_SHUTDOWN_PREPARE");
     // Create and acquire a wakelock to get notified on last wakeup source release.
     if(ws == NULL)
         ws = taf_pm_NewWakeupSource(0, "mpms");
@@ -196,17 +257,14 @@ static int GracefulSysShutdownWakeLock()
     else
     {
         LE_ERROR("GracefulSysShutdownWakeLock request failed");
-        return EXIT_FAILURE;
     }
-
-    return EXIT_SUCCESS;
 }
 
-static int GracefulSysShutdown()
+void GracefulSysShutdown()
 {
     LE_INFO("----GracefulSysShutdown test " );
     le_result_t result =  LE_FAULT;
-
+    AddNodePowerStateChangeHandler("TAF_MNGDPM_NODE_STATE_BIT_MASK_SHUTDOWN_PREPARE");
     LE_INFO("GracefulSysShutdown without wake source");
     result = taf_mngdPm_SetNodeTargetedPowerMode(WAKELOCK_WITHOUT_REF,
             TAF_MNGDPM_SHUTDOWN);
@@ -218,10 +276,8 @@ static int GracefulSysShutdown()
     else
     {
         LE_ERROR("GracefulSysShutdown request failed");
-        return EXIT_FAILURE;
     }
 
-    return EXIT_SUCCESS;
 }
 
 static int SetModemWakeupSource(const char* wakeupSource)
@@ -249,9 +305,10 @@ static int SetModemWakeupSource(const char* wakeupSource)
     }
 }
 
-static int SuspendSystem(const char* wakeuptype)
+void SuspendSystem(const char* wakeuptype)
 {
     le_result_t res = LE_FAULT;
+    AddNodePowerStateChangeHandler("TAF_MNGDPM_NODE_STATE_BIT_MASK_SUSPEND_PREPARE");
     taf_mngdPm_wsRef_t wsRef = NULL;
     if(strcmp(wakeuptype, "0") == 0) {
         LE_INFO("NewNodeWakeupSource wakeuptype is APP_STAYAWAKE");
@@ -295,15 +352,14 @@ static int SuspendSystem(const char* wakeuptype)
     }
     else {
         LE_ERROR("SuspendSystem failed");
-        return EXIT_FAILURE;
     }
-    return res;
 }
 
-static int ResumeSystem(const char* wakeuptype)
+void ResumeSystem(const char* wakeuptype)
 {
     le_result_t res = LE_FAULT;
     taf_mngdPm_wsRef_t wsRef = NULL;
+    AddNodePowerStateChangeHandler("TAF_MNGDPM_NODE_STATE_BIT_MASK_RESUME");
     if(strcmp(wakeuptype, "0") == 0) {
         LE_INFO("NewNodeWakeupSource wakeuptype is APP_STAYAWAKE");
         wsRef = taf_mngdPm_NewNodeWakeupSource(NODE_ID, TAF_MNGDPM_APP_STAYAWAKE, vHalTag);
@@ -312,7 +368,6 @@ static int ResumeSystem(const char* wakeuptype)
             res = taf_mngdPm_StayAwakeNode(wsRef);
             if(res == LE_OK) {
                 LE_INFO("Resumed sysytem with wakeuptype APP_STAYAWAKE");
-                return EXIT_SUCCESS;
              }
         }
     }
@@ -324,7 +379,6 @@ static int ResumeSystem(const char* wakeuptype)
             res = taf_mngdPm_StayAwakeNode(wsRef);
             if(res == LE_OK) {
                 LE_INFO("Resumed sysytem with wakeuptype SMS");
-                return EXIT_SUCCESS;
              }
         }
     }
@@ -336,7 +390,6 @@ static int ResumeSystem(const char* wakeuptype)
             res = taf_mngdPm_StayAwakeNode(wsRef);
             if(res == LE_OK) {
                 LE_INFO("Resumed sysytem with wakeuptype VOICE_CALL");
-                return EXIT_SUCCESS;
              }
         }
     }
@@ -348,15 +401,12 @@ static int ResumeSystem(const char* wakeuptype)
             res = taf_mngdPm_StayAwakeNode(wsRef);
             if(res == LE_OK) {
                 LE_INFO("Resumed sysytem with wakeuptype MCU_VHAL");
-                return EXIT_SUCCESS;
              }
         }
     }
     else {
         LE_ERROR("ResumeSystem failed");
-        return EXIT_FAILURE;
    }
-   return res;
 }
 
 static int RestartNode(const char* node_id)
@@ -415,7 +465,7 @@ static int WakeupVehicle()
     }
     else
     {
-        LE_ERROR("WakeupVehicle request failed");
+        LE_ERROR("WakeupVehicle request failed, Ensure device is in resume state");
         status = EXIT_FAILURE;
     }
     return status;
@@ -460,9 +510,15 @@ void BubCallBack( int32_t status, void *contextptr)
     {
         printf("Bub is TAF_MNGDPM_BUB_STATUS_UNKNOWN\n");
     }
+    else
+    {
+        printf("Error status returned");
+        exit(EXIT_FAILURE);
+    }
+    exit(EXIT_SUCCESS);
 }
 
-static int AddInfoReportHandler()
+void AddInfoReportHandler()
 {
     LE_INFO("AddInfoReportHandler");
     taf_mngdPm_InfoReportHandlerRef_t handlerRef;
@@ -470,9 +526,7 @@ static int AddInfoReportHandler()
     if(handlerRef)
     {
          LE_INFO("AddInfoReportHandler is success");
-         return EXIT_SUCCESS;
     }
-    return EXIT_FAILURE;
 }
 
 static int KeepAwakeThenRestartSystem()
@@ -559,13 +613,11 @@ COMPONENT_INIT
         }
         else if(strcmp(testType, "GracefulSysShutdownWakeLock") == 0)
         {
-            status = GracefulSysShutdownWakeLock();
-            exit(status);
+            GracefulSysShutdownWakeLock();
         }
         else if(strcmp(testType, "GracefulSysShutdown") == 0)
         {
-            status = GracefulSysShutdown();
-            exit(status);
+            GracefulSysShutdown();
         }
         else if(strcmp(testType, "SetModemWakeupSource") == 0)
         {
@@ -574,13 +626,11 @@ COMPONENT_INIT
         }
         else if(strcmp(testType, "SuspendSystem") == 0)
         {
-            status = SuspendSystem(testPar);
-            exit(status);
+            SuspendSystem(testPar);
         }
         else if(strcmp(testType, "ResumeSystem") == 0)
         {
-            status = ResumeSystem(testPar);
-            exit(status);
+            ResumeSystem(testPar);
         }
         else if(strcmp(testType, "RestartNode") == 0)
         {
@@ -604,8 +654,7 @@ COMPONENT_INIT
         }
         else if(strcmp(testType, "AddInfoReportHandler") == 0)
         {
-            status = AddInfoReportHandler();
-            exit(status);
+            AddInfoReportHandler();
         }
         else
         {

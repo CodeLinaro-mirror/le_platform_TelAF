@@ -356,7 +356,7 @@ void tafSimUnitTest_sim_access
     // Close the logical channel
     LE_TEST_OK(LE_OK == taf_sim_CloseLogicalChannel(simId,channel), "taf_sim_CloseLogicalChannel");
     le_result_t reqStatus;
-    taf_sim_Command_t command = (taf_sim_Command_t)0xc0;
+    taf_sim_Command_t command = TAF_SIM_GET_RESPONSE;
     char fileIdentifier[5]={'2', 'f', 'e', '2', '\0'};
     uint8_t p1 = 0;
     uint8_t p2 = 0;
@@ -659,6 +659,8 @@ COMPONENT_INIT
 
         tafSimUnitTest_selection(simId);
 
+        tafSimUnitTest_fplmnList_test(simId, mcc, mnc);
+
         tafSimUnitTest_enterPin(simId,lockType,pinPtr);
 
         tafSimUnitTest_Change_pin(simId, lockType, pinPtr, newPinPtr);
@@ -680,8 +682,6 @@ COMPONENT_INIT
         LE_TEST_OK(LE_OK == taf_sim_Reset(simId), "taf_sim_Reset");
 
         tafSimUnitTest_sim_isEmergency(simId);
-
-        tafSimUnitTest_fplmnList_test(simId, mcc, mnc);
     }
     taf_sim_RemoveAuthenticationResponseHandler(AuthResponseHandlerRef);
 

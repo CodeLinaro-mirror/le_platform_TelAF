@@ -27,5 +27,5 @@ processes:
 
 bindings:
 {
-    tafMngdConnUnitTest.tafMngdConnUnitTestComponent.taf_mngd_Conn -> tafMngdConnSvc.taf_mngd_Conn
+    tafMngdConnUnitTest.tafMngdConnUnitTestComponent.taf_mngdConn -> tafMngdConnSvc.taf_mngdConn
 }

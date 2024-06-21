@@ -39,6 +39,7 @@ gen_require(`
     type telaf_devmgr_t;
     type telaf_devmgr_data_t;
     attribute telaf_app_exec_attr;
+    type mtd_block_t;
 ')
 
 type telaf_tafUpdateSvc_exec_t;
@@ -53,12 +54,10 @@ files_type(telaf_tafUpdateSvc_data_t);
 ifndef(`sa525m',`
     gen_require(`
         type ota_master_da_data_t;
-        type mtd_block_t;
     ')
     allow telaf_update_t ota_master_da_data_t:file { read };
     allow telaf_tafUpdateSvc_t ota_master_da_data_t:dir { manage_dir_perms relabelfrom };
     allow telaf_tafUpdateSvc_t ota_master_da_data_t:file { manage_file_perms };
-    allow telaf_tafUpdateSvc_t mtd_block_t:blk_file {rw_file_perms};
 ')
 ifdef(`sa525m',`
     gen_require(`
@@ -97,6 +96,7 @@ allow telaf_tafUpdateSvc_t device_t:dir { write };
 allow telaf_tafUpdateSvc_t cache_recovery_t:dir { manage_dir_perms };
 allow telaf_tafUpdateSvc_t cache_recovery_t:file { manage_file_perms };
 allow telaf_tafUpdateSvc_t mtd_device_t:chr_file { rw_file_perms };
+allow telaf_tafUpdateSvc_t mtd_block_t:blk_file { rw_file_perms };
 allow telaf_tafUpdateSvc_t self:capability2 { syslog };
 allow telaf_tafUpdateSvc_t kernel_t:system { syslog_read };
 allow telaf_tafUpdateSvc_t leprop_sock_t:sock_file { write };

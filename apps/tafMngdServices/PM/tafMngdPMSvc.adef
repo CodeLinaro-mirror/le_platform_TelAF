@@ -68,5 +68,5 @@ requires:
 
 extern:
 {
-    tafMngdPMSvc.tafMngdPMSvc.taf_mngd_pm
+    tafMngdPMSvc.tafMngdPMSvc.taf_mngdPm
 }

@@ -19,6 +19,7 @@ workstation/.simula.*
 workstation/.ssh
 workstation/diag_client_default.ini
 workstation/diag_test_38_36_37.py
+diag.sinc
 *.log
 
 *.so

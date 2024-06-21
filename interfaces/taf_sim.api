@@ -419,16 +419,17 @@ ENUM Manufacturer
 
 //--------------------------------------------------------------------------------------------------
 /**
- * SIM commands.
+ * SIM commands. Refer to TS 11.11 9.1.
  */
 //--------------------------------------------------------------------------------------------------
 ENUM Command
 {
-    READ_RECORD = 0xc0,     ///< Read a file record.
-    READ_BINARY,            ///< Read a transparent elementary file.
-    UPDATE_RECORD,          ///< Update a file record.
-    UPDATE_BINARY,          ///< Update a transparent elementary file.
-    COMMAND_MAX             ///< Indicates the last item.
+    READ_BINARY = 0xb0,            ///< Reads a transparent elementary file.
+    READ_RECORD = 0xb2,            ///< Reads a file record.
+    GET_RESPONSE = 0xc0,           ///< Gets response.
+    UPDATE_BINARY = 0xd6,          ///< Updates a transparent elementary file.
+    UPDATE_RECORD = 0xdc,          ///< Updates a file record.
+    COMMAND_MAX                    ///< Indicates the last item.
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -951,6 +952,7 @@ FUNCTION le_result_t LocalSwapToCommercialSubscription
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_FAULT -- Failed.
+ *     - LE_NOT_FOUND  -- Failed to select the SIM card.
  *     - LE_BAD_PARAMETER -- Incorrect parameter(s).
  *
  * @note For SIM power cycle operation, it must wait until the SIM state is LE_OFF

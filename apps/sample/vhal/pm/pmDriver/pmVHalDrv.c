@@ -24,9 +24,9 @@ typedef struct
     PowerRequest type;
     union
     {
-        taf_hal_pm_ShutdownMode shutdownMode;
-        taf_hal_pm_RestartMode restartMode;
-        taf_hal_pm_SuspendMode suspendMode;
+        hal_pm_ShutdownMode_t shutdownMode;
+        hal_pm_RestartMode_t restartMode;
+        hal_pm_SuspendMode_t suspendMode;
     };
 } PowerChangeReq_t;
 
@@ -40,7 +40,7 @@ static le_mem_PoolRef_t PowerRequestPoolRef;
 typedef struct
 {
     uint8_t pm_node_id;
-    taf_hal_pm_NodeState state;
+    hal_pm_NodeState_t state;
 
 } NodeStateChangeNotif_t;
 
@@ -53,8 +53,8 @@ static le_mem_PoolRef_t NodeStateChangeNotifPoolRef;
 //--------------------------------------------------------------------------------------------------
 typedef struct
 {
-    taf_hal_pm_ShutdownMode mode;
-    taf_hal_pm_RspReason reason;
+    hal_pm_ShutdownMode_t mode;
+    hal_pm_RspReason_t reason;
 } ShutdownResp_t;
 
 //--------------------------------------------------------------------------------------------------
@@ -64,8 +64,8 @@ typedef struct
 //--------------------------------------------------------------------------------------------------
 typedef struct
 {
-    taf_hal_pm_RestartMode mode;
-    taf_hal_pm_RspReason reason;
+    hal_pm_RestartMode_t mode;
+    hal_pm_RspReason_t reason;
 } RestartResp_t;
 
 //--------------------------------------------------------------------------------------------------
@@ -75,8 +75,8 @@ typedef struct
 //--------------------------------------------------------------------------------------------------
 typedef struct
 {
-    taf_hal_pm_SuspendMode mode;
-    taf_hal_pm_RspReason reason;
+    hal_pm_SuspendMode_t mode;
+    hal_pm_RspReason_t reason;
 } SuspendResp_t;
 
 //--------------------------------------------------------------------------------------------------
@@ -87,8 +87,8 @@ typedef struct
 typedef struct
 {
     uint8_t pm_node_id;
-    taf_hal_pm_NodeState state;
-    taf_hal_pm_ConfirmStatus status;
+    hal_pm_NodeState_t state;
+    hal_pm_ConfirmStatus_t status;
 } NodeStateChangeResp_t;
 
 //--------------------------------------------------------------------------------------------------
@@ -96,11 +96,12 @@ typedef struct
  * Callback functions.
  */
 //--------------------------------------------------------------------------------------------------
-static TAF_HAL_PM_SHUTDOWNRSPCALLBACK shutdownCallbackFunc = NULL;
-static TAF_HAL_PM_RESTARTRSPCALLBACK restartCallbackFunc = NULL;
-static TAF_HAL_PM_SUSPENDRSPCALLBACK suspendCallbackFunc = NULL;
-static TAF_HAL_PM_NODESTATECHANGENOTIFICATIONCONFIRMCALLBACK nodeStateChangeCallbackFunc = NULL;
-static TAF_HAL_PM_NODEEVENTCALLBACK nodeEventCallback = NULL;
+static hal_pm_WakeupVehicleRspCallbackFunc_t wakeupVehichleRspCallBack = NULL;
+static hal_pm_ShutDownRspCallbackFunc_t shutdownCallbackFunc = NULL;
+static hal_pm_RestartRspCallbackFunc_t restartCallbackFunc = NULL;
+static hal_pm_SuspendRspCallbackFunc_t suspendCallbackFunc = NULL;
+static hal_pm_NodeStateChangeNotificationConfirmCallbackFunc_t nodeStateChangeCallbackFunc = NULL;
+static hal_pm_NodeEventCallbackFunc_t nodeEventCallback = NULL;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -142,8 +143,8 @@ static void ProcessShutdownRespHandler
 {
     LE_INFO("PM_Drv: %s", __FUNCTION__);
 
-    taf_hal_pm_ShutdownMode mode = ((ShutdownResp_t*)context)->mode;
-    taf_hal_pm_RspReason reason = ((ShutdownResp_t*)context)->reason;
+    hal_pm_ShutdownMode_t mode = ((ShutdownResp_t*)context)->mode;
+    hal_pm_RspReason_t reason = ((ShutdownResp_t*)context)->reason;
 
     if(shutdownCallbackFunc)
     {
@@ -167,8 +168,8 @@ static void ProcessRestartRespHandler
 {
     LE_INFO("PM_Drv: %s", __FUNCTION__);
 
-    taf_hal_pm_RestartMode mode = ((RestartResp_t*)context)->mode;
-    taf_hal_pm_RspReason reason = ((RestartResp_t*)context)->reason;
+    hal_pm_RestartMode_t mode = ((RestartResp_t*)context)->mode;
+    hal_pm_RspReason_t reason = ((RestartResp_t*)context)->reason;
 
     if(restartCallbackFunc)
     {
@@ -192,8 +193,8 @@ static void ProcessSuspendRespHandler
 {
     LE_INFO("PM_Drv: %s", __FUNCTION__);
 
-    taf_hal_pm_SuspendMode mode = ((RestartResp_t*)context)->mode;
-    taf_hal_pm_RspReason reason = ((RestartResp_t*)context)->reason;
+    hal_pm_SuspendMode_t mode = ((RestartResp_t*)context)->mode;
+    hal_pm_RspReason_t reason = ((RestartResp_t*)context)->reason;
 
     if(suspendCallbackFunc)
     {
@@ -217,8 +218,8 @@ static void ProcessNodeStateChangeRespHandler
     LE_INFO("PM_Drv: %s", __FUNCTION__);
 
     uint8_t pm_node_id = ((NodeStateChangeResp_t*)context)->pm_node_id;
-    taf_hal_pm_NodeState state = ((NodeStateChangeResp_t*)context)->state;
-    taf_hal_pm_ConfirmStatus status = ((NodeStateChangeResp_t*)context)->status;
+    hal_pm_NodeState_t state = ((NodeStateChangeResp_t*)context)->state;
+    hal_pm_ConfirmStatus_t status = ((NodeStateChangeResp_t*)context)->status;
 
     if(nodeStateChangeCallbackFunc)
     {
@@ -286,7 +287,7 @@ static void ProcessPowerRequest
             // set up the response parameters
             ShutdownResp_t resp = {0};
             resp.mode = req->shutdownMode;
-            resp.reason = PM_HAL_RSP_READY;
+            resp.reason = HAL_PM_RSP_READY;
 
             // fire event to to trigger response process
             le_event_Report(ShutdownRespEventId, (void*)&resp, sizeof(ShutdownResp_t));
@@ -306,7 +307,7 @@ static void ProcessPowerRequest
             // set up the response parameters
             RestartResp_t resp = {0};
             resp.mode = req->restartMode;
-            resp.reason = PM_HAL_RSP_READY;
+            resp.reason = HAL_PM_RSP_READY;
 
             // fire event to to trigger response process
             le_event_Report(RestartRespEventId, (void*)&resp, sizeof(RestartResp_t));
@@ -326,7 +327,7 @@ static void ProcessPowerRequest
             // set up the response parameters
             SuspendResp_t resp = {0};
             resp.mode = req->suspendMode;
-            resp.reason = PM_HAL_RSP_READY;
+            resp.reason = HAL_PM_RSP_READY;
 
             // fire event to to trigger response process
             le_event_Report(SuspendRespEventId, (void*)&resp, sizeof(SuspendResp_t));
@@ -364,7 +365,7 @@ static void ProcessNodeStateChangeNotification
     NodeStateChangeResp_t resp = {0};
     resp.pm_node_id = notif->pm_node_id;
     resp.state = notif->state;
-    resp.status = PM_HAL_NODE_STATUS_READY;
+    resp.status = HAL_PM_NODE_STATUS_READY;
 
     // fire event to to trigger response process
     le_event_Report(NoteStateChangeRespEventId, (void*)&resp, sizeof(RestartResp_t));
@@ -374,8 +375,8 @@ static void ProcessNodeStateChangeNotification
 
 static le_result_t taf_hal_ShutdownReqAsync
 (
-    taf_hal_pm_ShutdownMode mode,
-    TAF_HAL_PM_SHUTDOWNRSPCALLBACK callback
+    hal_pm_ShutdownMode_t mode,
+    hal_pm_ShutDownRspCallbackFunc_t callback
 )
 {
     LE_INFO("PM_VHAL: %s", __FUNCTION__);
@@ -399,8 +400,8 @@ static le_result_t taf_hal_ShutdownReqAsync
 
 static le_result_t taf_hal_RestartReqAsync
 (
-    taf_hal_pm_RestartMode mode,
-    TAF_HAL_PM_RESTARTRSPCALLBACK callback
+    hal_pm_RestartMode_t mode,
+    hal_pm_RestartRspCallbackFunc_t callback
 )
 {
     LE_INFO("PM_VHAL: %s", __FUNCTION__);
@@ -421,10 +422,61 @@ static le_result_t taf_hal_RestartReqAsync
     return LE_OK;
 }
 
+static le_result_t taf_hal_WakeupVehicleReqAsync
+(
+    int32_t reason,
+    hal_pm_WakeupVehicleRspCallbackFunc_t  callback
+)
+{
+    LE_INFO("PM_VHAL: %s", __FUNCTION__);
+    wakeupVehichleRspCallBack = callback;
+    if(reason == HAL_PM_VEHICHLE_WAKEUP_REASON_DEFAULT)
+    {
+        int32_t response;
+        response = HAL_PM_VEHICHLE_WAKEUP_STATUS_AWAKE;
+        callback(reason,response);
+        return LE_OK;
+    }
+    else
+    {
+        return LE_BAD_PARAMETER;
+    }
+}
+
+static le_result_t taf_hal_NodeStateChangePrepareAsync
+(
+   uint8_t pmNodeId,
+   hal_pm_NodeState_t state,
+   hal_pm_ShutdownMode_t mode,
+   hal_pm_NodeStateChangePrepareCallbackFunc_t callback
+)
+{
+    LE_INFO("PM_VHAL: %s", __FUNCTION__);
+
+    callback(pmNodeId, state, mode, HAL_PM_RSP_READY);
+
+    return LE_OK;
+}
+
+static le_result_t taf_hal_NodeStateChangeReqAsync
+(
+   uint8_t pmNodeId,
+   hal_pm_NodeState_t state,
+   hal_pm_ShutdownMode_t mode,
+   hal_pm_NodeStateChangeReqCallbackFunc_t callback
+)
+{
+    LE_INFO("PM_VHAL: %s", __FUNCTION__);
+
+    callback(pmNodeId, state, mode);
+
+    return LE_OK;
+}
+
 static le_result_t taf_hal_SuspendReqAsync
 (
-    taf_hal_pm_SuspendMode mode,
-    TAF_HAL_PM_SUSPENDRSPCALLBACK callback
+    hal_pm_SuspendMode_t mode,
+    hal_pm_SuspendRspCallbackFunc_t callback
 )
 {
     LE_INFO("PM_VHAL: %s", __FUNCTION__);
@@ -448,8 +500,8 @@ static le_result_t taf_hal_SuspendReqAsync
 static void taf_hal_NodeStateChangeNotification
 (
     uint8_t pm_node_id,
-    taf_hal_pm_NodeState state,
-    TAF_HAL_PM_NODESTATECHANGENOTIFICATIONCONFIRMCALLBACK callback
+    hal_pm_NodeState_t state,
+    hal_pm_NodeStateChangeNotificationConfirmCallbackFunc_t callback
 )
 {
     LE_INFO("PM_VHAL: %s", __FUNCTION__);
@@ -467,13 +519,13 @@ static void taf_hal_NodeStateChangeNotification
 static void taf_hal_nodeInfoNotification
 (
     uint8_t pm_node_id,
-    taf_hal_pm_NodeInfo info,
+    hal_pm_NodeInfo_t info,
     const char* vhalTag
 )
 {
     LE_INFO("PM_VHAL: %s", __FUNCTION__);
 
-    LE_INFO("taf_hal_pm_NodeInfo: %d", info);
+    LE_INFO("hal_pm_NodeInfo_t: %d", info);
 
     LE_INFO("vhalTag: %s", vhalTag);
 }
@@ -481,7 +533,7 @@ static void taf_hal_nodeInfoNotification
 static le_result_t taf_hal_addNodeEventHanlder
 (
     uint8_t pm_node_id,
-    TAF_HAL_PM_NODEEVENTCALLBACK callback
+    hal_pm_NodeEventCallbackFunc_t callback
 )
 {
     LE_INFO("PM_VHAL: %s", __FUNCTION__);
@@ -492,6 +544,28 @@ static le_result_t taf_hal_addNodeEventHanlder
     return LE_OK;
 }
 
+static le_result_t taf_hal_AddBubStatusHandler
+(
+    hal_pm_AddBubStatusCallbackFunc_t callback
+)
+{
+    LE_INFO("PM_VHAL: %s", __FUNCTION__);
+     int32_t status = HAL_PM_BUB_STATUS_IN_USE;
+     int32_t *reportptr = &status;
+    callback(reportptr);
+    return LE_OK;
+}
+
+static le_result_t taf_hal_GetBubStatus
+(
+    int32_t *status
+)
+{
+    LE_INFO("PM_VHAL: %s", __FUNCTION__);
+    *status = HAL_PM_BUB_STATUS_IN_USE;
+    LE_INFO("status %d", *status);
+    return LE_OK;
+}
 // Initialization function
 static void Init(void)
 {
@@ -544,7 +618,7 @@ static void Init(void)
                             ProcessNodeStateChangeRespHandler);
 }
 
-LE_SHARED pm_InfoTab_t TAF_HAL_INFO_TAB = {
+LE_SHARED hal_pm_InfoTab_t TAF_HAL_INFO_TAB = {
     // management interface always comes first
     .mgrInf = {
         .name = TAF_PM_MODULE_NAME,
@@ -569,6 +643,11 @@ LE_SHARED pm_InfoTab_t TAF_HAL_INFO_TAB = {
         .nodeStateChangeNotification = taf_hal_NodeStateChangeNotification,
         .nodeInfoNotification = taf_hal_nodeInfoNotification,
         .addNodeEventHandler = taf_hal_addNodeEventHanlder,
+        .wakeupVehicleReqAsync = taf_hal_WakeupVehicleReqAsync,
+        .nodeStateChangePrepareAsync = taf_hal_NodeStateChangePrepareAsync,
+        .nodeStateChangeReqAsync = taf_hal_NodeStateChangeReqAsync,
+        .addBubStatusHandler = taf_hal_AddBubStatusHandler,
+        .getBubStatus = taf_hal_GetBubStatus
     }
 };
 

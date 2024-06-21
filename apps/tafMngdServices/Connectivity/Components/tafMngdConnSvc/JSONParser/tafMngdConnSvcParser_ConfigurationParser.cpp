@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -52,12 +52,17 @@ using telux::tafsvc::tafMngdConnSvc_ConfigurationParser;
  * Name of the configuration should be a string
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Name(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     if (MCS_JSON_DATA_TYPE_STRING != DataType)
     {
         LE_WARN("Incorrect data type");
@@ -78,12 +83,17 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Name(
  * SIM ID should be a number.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Sim_ID(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
@@ -108,12 +118,17 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Sim_ID(
  * Sim Name should be a string.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Sim_Name(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     if (MCS_JSON_DATA_TYPE_STRING != DataType)
     {
         LE_WARN("Incorrect data type");
@@ -156,12 +171,17 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Sim_Name(
  * Sim slot number should be a number.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Sim_SlotNumber(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
@@ -187,12 +207,17 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Sim_SlotNumber(
  * Network ID should be a number.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_ID(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
@@ -218,12 +243,17 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_ID(
  * Network Name should be a string.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_Name(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     //Check the JSON version to be atleast 24.03.00
     if(Configuration.Version != MCS_JSON_VERSION_24_03_00)
     {
@@ -272,12 +302,17 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_Name(
  * Network Use_Sim_ID should be a number.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_Use_SIM_ID(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
@@ -303,12 +338,17 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_Use_SIM_ID(
  *  Network Phone ID should be a number.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_PhoneID(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
@@ -341,12 +381,17 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_PhoneID(
  * Network Registration should be Auto or Manual.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_Registration(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     if (MCS_JSON_DATA_TYPE_NW_REGISTRATION != DataType)
     {
         LE_WARN("Incorrect data type");
@@ -373,7 +418,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_Registration(
  * Data ID should be a number.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_ID(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -405,12 +450,17 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_ID(
  * Data Use_Network_ID should be a number.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Use_Network_ID(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
@@ -436,12 +486,17 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Use_Network_ID(
  * Data Profile Name should be a string.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Name(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     if (MCS_JSON_DATA_TYPE_STRING != DataType)
     {
         LE_WARN("Incorrect data type");
@@ -453,10 +508,16 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Name(
         LE_WARN("Invalid Array Index");
         return false;
     }
+    //Check for max data name length
+    if(Value.size() > MCS_MAX_NAME_LEN)
+    {
+        LE_WARN("Data Name exceeded maximum length");
+        return false;
+    }
 
     //Check for Duplicates
     for (int i = 0; i <= Configuration.DataCount; i++) {
-            if (Value == Configuration.Data[i].Profile.ProfileName) {
+            if (Value == Configuration.Data[i].DataName) {
                 LE_WARN("Duplicate Data Name");
                 return false;
             }
@@ -468,9 +529,9 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Name(
 
     // Valid String.
     // Since we have already validated string length above, we can ignore return value here
-    le_utf8_Copy(Configuration.Data[Index].Profile.ProfileName,
+    le_utf8_Copy(Configuration.Data[Index].DataName,
                             Value.c_str(),
-                            MCS_MAX_PROFILE_NAME_LEN,NULL);
+                            MCS_MAX_NAME_LEN,NULL);
     return true;
 }
 
@@ -478,12 +539,17 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Name(
  * Data Profile Number should be a number.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Profile_Number(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     if (MCS_JSON_DATA_TYPE_NUMBER != DataType)
     {
         LE_WARN("Incorrect data type");
@@ -509,7 +575,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Profile_Number(
  * Data Profile APN can be a string or NULL.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Profile_APN(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -549,12 +615,17 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Profile_APN(
  * Validate Data:AutoStart
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_AutoStart(
-                                                    taf_mngd_Conn_Configuration_t &Configuration,
+                                                    taf_mngdConn_Configuration_t &Configuration,
                                                     std::string Value,
                                                     int Index)
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     if (MCS_JSON_DATA_TYPE_YES_NO != DataType)
     {
         LE_WARN("Incorrect data type");
@@ -569,7 +640,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_AutoStart(
  * Data Connection Test URL can be a string or NULL.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DataStartConnectionTest_URL(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -610,7 +681,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DataStartConnectionT
  * Data Connection Test IPv4 can be a string or NULL.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DataStartConnectionTest_IPv4(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -651,7 +722,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DataStartConnectionT
  * Data Connection Test IPv6 can be a string or NULL.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DataStartConnectionTest_IPv6(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -691,12 +762,17 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DataStartConnectionT
  * Validate DataStartRetry:Enable
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DSR_Enable(
-                                                    taf_mngd_Conn_Configuration_t &Configuration,
+                                                    taf_mngdConn_Configuration_t &Configuration,
                                                     std::string Value,
                                                     int Index)
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     //Check the JSON version to be atleast 24.03.00
     if(Configuration.Version != MCS_JSON_VERSION_24_03_00)
     {
@@ -717,13 +793,18 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DSR_Enable(
  * Validate DataStartRetry:RetryCount
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DSR_RetryCount(
-                                                    taf_mngd_Conn_Configuration_t &Configuration,
+                                                    taf_mngdConn_Configuration_t &Configuration,
                                                     std::string Value,
                                                     int Index)
 {
     LE_DEBUG("%s", Value.c_str());
 
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     //Check the JSON version to be atleast 24.03.00
     if(Configuration.Version != MCS_JSON_VERSION_24_03_00)
     {
@@ -749,12 +830,17 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DSR_RetryCount(
  * PeriodicConnectivityCheck Interval should be a number
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PeriodicConnectivityCheck_Interval(
-                                                    taf_mngd_Conn_Configuration_t &Configuration,
+                                                    taf_mngdConn_Configuration_t &Configuration,
                                                     std::string Value,
                                                     int Index)
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     //Check the JSON version to be atleast 24.03.00
     if(Configuration.Version != MCS_JSON_VERSION_24_03_00)
     {
@@ -786,13 +872,18 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PeriodicConnectivity
  * Validate PeriodicConnectivityCheck:RetryCount
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PeriodicConnectivityCheck_RetryCount(
-                                                    taf_mngd_Conn_Configuration_t &Configuration,
+                                                    taf_mngdConn_Configuration_t &Configuration,
                                                     std::string Value,
                                                     int Index)
 {
     LE_DEBUG("%s", Value.c_str());
 
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
     //Check the JSON version to be atleast 24.03.00
     if(Configuration.Version != MCS_JSON_VERSION_24_03_00)
     {
@@ -818,7 +909,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PeriodicConnectivity
  * PeriodicConnectivityCheck URL can be a string or NULL.
  */
 bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PeriodicConnectivityCheck_URL(
-                                            taf_mngd_Conn_Configuration_t &Configuration,
+                                            taf_mngdConn_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -862,12 +953,17 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PeriodicConnectivity
 }
 
 bool tafMngdConnSvc_ConfigurationParser::ValidateValue(
-                                                 taf_mngd_Conn_Configuration_t &Configuration,
+                                                 taf_mngdConn_Configuration_t &Configuration,
                                                  std::string property,
                                                  std::string Value,
                                                  int Index)
 {
     LE_DEBUG("Property: %s, Value: %s", property.c_str(), Value.c_str());
+    if(Configuration.DataCount > MCS_MAX_DATA_OBJECT_COUNT)
+    {
+        LE_ERROR("Data Count exceeded");
+        return false;
+    }
     auto iterator = ConfigurationValidationFuncMap.find(property);
     if (iterator != ConfigurationValidationFuncMap.end())
     {
@@ -880,7 +976,7 @@ bool tafMngdConnSvc_ConfigurationParser::ValidateValue(
 }
 
 bool tafMngdConnSvc_ConfigurationParser::ParseAndUpdateConfigurationJSON(
-                                                taf_mngd_Conn_Configuration_t &Configuration,
+                                                taf_mngdConn_Configuration_t &Configuration,
                                                 std::string filename)
 {
     LE_DEBUG ("Parse Configuration Function");
@@ -905,6 +1001,16 @@ bool tafMngdConnSvc_ConfigurationParser::ParseAndUpdateConfigurationJSON(
     }
 
     std::string log, JSON_Property, JSON_Value;
+
+    //  Keep track of mandatory objets. If they are absent return an error.
+    bool bSimAvailable              = false;
+    bool bNetworkAvailable          = false;
+    bool bDataIdAvailable           = false;
+    bool bDataNameAvailable         = false;
+    bool bAutoStartAvailable        = false;
+    bool bProfileAvailable          = false;
+    bool bDataStartRetryAvailable   = false;
+
     for (auto & element: tree) {
 
 
@@ -914,7 +1020,6 @@ bool tafMngdConnSvc_ConfigurationParser::ParseAndUpdateConfigurationJSON(
             LE_DEBUG ("%s", log.c_str() );
 
             for (auto & property: element.second) {
-
                 if ("Configuration" == property.first){
                     for (auto & parent: property.second) {
                         if ("Name" == parent.first){
@@ -941,12 +1046,11 @@ bool tafMngdConnSvc_ConfigurationParser::ParseAndUpdateConfigurationJSON(
                         // Sim Object
                         // Array object with the following properties
                         // ID, Name, SlotNumber
-                        if ( "Sim" == parent.first ) {
+                        else if ( "Sim" == parent.first ) {
+                            bSimAvailable = true;
                             log.clear();
                             log = "Top Element: " + parent.first;
                             LE_DEBUG ("%s", log.c_str() );
-
-
                             int ElementCount = 0;
                             // Iterate through the Array elements
                             for (auto &array_element: parent.second)
@@ -983,7 +1087,8 @@ bool tafMngdConnSvc_ConfigurationParser::ParseAndUpdateConfigurationJSON(
                         }
 
                         // Network object
-                        if ( "Network" == parent.first ) {
+                        else if ( "Network" == parent.first ) {
+                            bNetworkAvailable = true;
                             log.clear();
                             log = "Top Element: " + parent.first;
                             LE_DEBUG ("%s", log.c_str() );
@@ -1024,7 +1129,7 @@ bool tafMngdConnSvc_ConfigurationParser::ParseAndUpdateConfigurationJSON(
                         }
 
                         // Data Object
-                        if ( "Data" == parent.first ) {
+                        else if ( "Data" == parent.first ) {
                             log.clear();
                             log = "Top Element: " + parent.first;
                             LE_DEBUG ("%s", log.c_str() );
@@ -1039,11 +1144,58 @@ bool tafMngdConnSvc_ConfigurationParser::ParseAndUpdateConfigurationJSON(
                                 // Iterate through elements in each array element
                                 for (auto &iter: array_element.second)
                                 {
-                                    if ( "ID" == iter.first ||
-                                        "Name" == iter.first ||
-                                        "Use_Network_ID" == iter.first ||
+                                    if ( "ID" == iter.first )
+                                    {
+                                        bDataIdAvailable = true;
+                                        log.clear();
+                                        log = "\t\tKey: " + iter.first +
+                                        ", Value: " + iter.second.data();
+                                        LE_DEBUG("%s", log.c_str());
+
+                                        JSON_Property.clear();
+                                        JSON_Property.append (parent.first + ":" + iter.first);
+                                        JSON_Value.clear();
+                                        JSON_Value = iter.second.data();
+                                        // Validate the value and update Configuration structure.
+                                        // Data is an array, so pass element count.
+                                        if (!ValidateValue(Configuration, JSON_Property, JSON_Value,
+                                        ElementCount))
+                                        {
+                                            LE_WARN("Invalid JSON_Property Value");
+                                            LE_INFO("JSON_Property: %s, Value: %s",
+                                                JSON_Property.c_str(),
+                                                JSON_Value.c_str());
+                                            return false;
+                                        }
+                                    }
+                                    if ("Name" == iter.first)
+                                    {
+                                        bDataNameAvailable = true;
+                                        log.clear();
+                                        log = "\t\tKey: " + iter.first +
+                                        ", Value: " + iter.second.data();
+                                        LE_DEBUG("%s", log.c_str());
+
+                                        JSON_Property.clear();
+                                        JSON_Property.append (parent.first + ":" + iter.first);
+                                        JSON_Value.clear();
+                                        JSON_Value = iter.second.data();
+                                        // Validate the value and update Configuration structure.
+                                        // Data is an array, so pass element count.
+                                        if (!ValidateValue(Configuration, JSON_Property, JSON_Value,
+                                        ElementCount))
+                                        {
+                                            LE_WARN("Invalid JSON_Property Value");
+                                            LE_INFO("JSON_Property: %s, Value: %s",
+                                                JSON_Property.c_str(),
+                                                JSON_Value.c_str());
+                                            return false;
+                                        }
+                                    }
+                                    if ("Use_Network_ID" == iter.first ||
                                         "AutoStart" == iter.first )
                                     {
+                                        bAutoStartAvailable = true;
                                         log.clear();
                                         log = "\t\tKey: " + iter.first +
                                         ", Value: " + iter.second.data();
@@ -1068,6 +1220,7 @@ bool tafMngdConnSvc_ConfigurationParser::ParseAndUpdateConfigurationJSON(
                                     // Iterate through Profile object
                                     else if ("Profile" == iter.first)
                                     {
+                                        bProfileAvailable = true;
                                         log.clear();
                                         log.append("\t\t").append("Profile Node");
                                         LE_DEBUG("%s", log.c_str());
@@ -1133,6 +1286,7 @@ bool tafMngdConnSvc_ConfigurationParser::ParseAndUpdateConfigurationJSON(
                                     }
                                     else if ("DataStartRetry" == iter.first)
                                     {
+                                        bDataStartRetryAvailable   = true;
                                         log.clear();
                                         log.append("\t\t").append("DataStartRetry Node");
                                         LE_DEBUG ("%s", log.c_str() );
@@ -1208,11 +1362,50 @@ bool tafMngdConnSvc_ConfigurationParser::ParseAndUpdateConfigurationJSON(
                             }
                         }
                     }
+
                 }
             }
             LE_DEBUG ("%s", log.c_str() ); log.clear();
         }
     }
+    // Validate presence of mandatory objects
+    // The checking is done separately to return specific error logs.
+    if (!bSimAvailable)
+    {
+        LE_ERROR("Sim object is missing");
+        return false;
+    }
+    if (!bNetworkAvailable)
+    {
+        LE_ERROR("Network object is missing");
+        return false;
+    }
+    if (!bDataIdAvailable)
+    {
+        LE_ERROR("DataId object is missing");
+        return false;
+    }
+    if (!bDataNameAvailable)
+    {
+        LE_ERROR("DataName object is missing");
+        return false;
+    }
+    if (!bAutoStartAvailable)
+    {
+        LE_ERROR("AutoStart object is missing");
+        return false;
+    }
+    if (!bProfileAvailable)
+    {
+        LE_ERROR("Profile object is missing");
+        return false;
+    }
+    if (!bDataStartRetryAvailable)
+    {
+        LE_ERROR("DataStartRetry object is missing");
+        return false;
+    }
+
     return true;
 }
 
@@ -1268,7 +1461,7 @@ void tafMngdConnSvc_ConfigurationParser::UpdateValidConfigurationFuncMap(void)
 }
 
 void tafMngdConnSvc_ConfigurationParser::ResetConfigurationStructure (
-                                            taf_mngd_Conn_Configuration_t &Configuration)
+                                            taf_mngdConn_Configuration_t &Configuration)
 {
     Configuration.Name[0] = '\0';
 
@@ -1296,7 +1489,7 @@ void tafMngdConnSvc_ConfigurationParser::ResetConfigurationStructure (
         Configuration.Data[Index].ID                     = 0;
         Configuration.Data[Index].Use_Network_ID         = 0;
         Configuration.Data[Index].Profile.ProfileNumber  = 0;
-        Configuration.Data[Index].Profile.ProfileName[0] = '\0';
+        Configuration.Data[Index].DataName[0] = '\0';
         Configuration.Data[Index].Profile.APN[0]         = '\0';
         Configuration.Data[Index].DataStartConnectionTest.URL[0]        = '\0';
         Configuration.Data[Index].DataStartConnectionTest.IPv4[0]       = '\0';
@@ -1310,7 +1503,7 @@ void tafMngdConnSvc_ConfigurationParser::ResetConfigurationStructure (
 }
 
 bool tafMngdConnSvc_ConfigurationParser::GetConfiguration(
-                                                taf_mngd_Conn_Configuration_t &Configuration,
+                                                taf_mngdConn_Configuration_t &Configuration,
                                                 std::string ConfigurationFileName)
 {
     ResetConfigurationStructure(Configuration);

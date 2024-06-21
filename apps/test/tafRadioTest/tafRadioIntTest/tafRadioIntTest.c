@@ -50,6 +50,7 @@ taf_radio_ImsRegStatusChangeHandlerRef_t imsRegStatusChangeHandlerRef;
 taf_radio_OpModeChangeHandlerRef_t opModeChangeHandlerRef;
 taf_radio_NetStatusChangeHandlerRef_t netStatusChangeHandlerRef;
 taf_radio_ImsStatusChangeHandlerRef_t imsStatusChangeHandlerRef;
+taf_radio_CellInfoChangeHandlerRef_t cellInfoChangeHandlerRef;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -75,7 +76,7 @@ void PrintHelpMenu
         "    app runProc tafRadioIntTest tafRadioIntTest -- "
         "operator <phone> <add|remove|list> [<mcc>] [<mnc>] [<rat_bitmask>]\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- "
-        "signal <phone> <monitor|metrics|delta> [<time|rat>] [<signal_delta>]\n"
+        "signal <phone> <monitor|metrics|delta> [<time|rat>] [<signal_delta>] [<hysdB>]\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- serving <phone>\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- neighbor <phone>\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- scan <phone> <mode> [<rat_bitmask>]\n"
@@ -964,10 +965,18 @@ void PrintOperatingMode
 void GsmSignalConfiguration
 (
     long phoneId,  ///< [IN] Phone ID.
-    long rssiDelta ///< [IN] RSSI delta.
+    long rssiDelta, ///< [IN] RSSI delta.
+    long hysteresisDb
 )
 {
-    le_result_t result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_GSM_RSSI,
+    le_result_t result = taf_radio_SetSignalStrengthIndHysteresisTimer(5000,phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndHysteresisTimer - OK");
+
+    result = taf_radio_SetSignalStrengthIndHysteresis(TAF_RADIO_SIG_TYPE_GSM_RSSI,hysteresisDb,
+                                                      phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndHysteresis - OK");
+
+    result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_GSM_RSSI,
         -1110, -510, phoneId);
     if (result != LE_UNSUPPORTED)
     {
@@ -989,11 +998,19 @@ void GsmSignalConfiguration
 //--------------------------------------------------------------------------------------------------
 void UmtsSignalConfiguration
 (
-    long phoneId,  ///< [IN] Phone ID.
-    long rssiDelta ///< [IN] RSSI delta.
+    long phoneId,   ///< [IN] Phone ID.
+    long rssiDelta, ///< [IN] RSSI delta.
+    long hysteresisDb
 )
 {
-    le_result_t result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_UMTS_RSSI,
+    le_result_t result = taf_radio_SetSignalStrengthIndHysteresisTimer(5000,phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndHysteresisTimer - OK");
+
+    result = taf_radio_SetSignalStrengthIndHysteresis(TAF_RADIO_SIG_TYPE_UMTS_RSSI,hysteresisDb,
+                                                     phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndHysteresis - OK");
+
+    result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_UMTS_RSSI,
         -1130, -510, phoneId);
     if (result != LE_UNSUPPORTED)
     {
@@ -1014,11 +1031,19 @@ void UmtsSignalConfiguration
 //--------------------------------------------------------------------------------------------------
 void LteSignalConfiguration
 (
-    long phoneId,   ///< [IN] Phone ID.
-    long rsrpDelta  ///< [IN] RSRP delta.
+    long phoneId,    ///< [IN] Phone ID.
+    long rsrpDelta,  ///< [IN] RSRP delta.
+    long hysteresisDb
 )
 {
-    le_result_t result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_LTE_RSRP,
+    le_result_t result = taf_radio_SetSignalStrengthIndHysteresisTimer(5000,phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndHysteresisTimer - OK");
+
+    result = taf_radio_SetSignalStrengthIndHysteresis(TAF_RADIO_SIG_TYPE_LTE_RSRP,hysteresisDb,
+                                                      phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndHysteresis - OK");
+
+    result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_LTE_RSRP,
         -1400, -440, phoneId);
     if (result != LE_UNSUPPORTED)
     {
@@ -1039,11 +1064,19 @@ void LteSignalConfiguration
 //--------------------------------------------------------------------------------------------------
 void Nr5gSignalConfiguration
 (
-    long phoneId,  ///< [IN] Phone ID.
-    long rsrpDelta ///< [IN] RSRP delta.
+    long phoneId,   ///< [IN] Phone ID.
+    long rsrpDelta, ///< [IN] RSRP delta.
+    long hysteresisDb
 )
 {
-    le_result_t result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_NR5G_RSRP,
+    le_result_t result = taf_radio_SetSignalStrengthIndHysteresisTimer(5000,phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndHysteresisTimer - OK");
+
+    result = taf_radio_SetSignalStrengthIndHysteresis(TAF_RADIO_SIG_TYPE_NR5G_RSRP,hysteresisDb,
+                                                      phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndHysteresis - OK");
+
+    result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_NR5G_RSRP,
         -1400, -440, phoneId);
     if (result != LE_UNSUPPORTED)
     {
@@ -1134,6 +1167,37 @@ void GsmSsChangeHandler
 )
 {
     LE_INFO("Phone %d GSM rssi : %d dBm", phoneId, ss);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for CellInfo change status.
+ */
+//--------------------------------------------------------------------------------------------------
+void CellInfoChangeHandler
+(
+    taf_radio_CellInfoStatus_t cellStatus,
+    uint8_t phoneId, ///< [IN] Phone ID.
+    void* contextPtr ///< [IN] Handler context.
+)
+{
+    LE_INFO("Phone %d CellInfo status : %d", phoneId, cellStatus);
+
+    switch (cellStatus)
+    {
+        case TAF_RADIO_CELL_SERVING_CHANGED:
+            LE_INFO("Serving cell changed.");
+            break;
+        case TAF_RADIO_CELL_NEIGHBOR_CHANGED:
+            LE_INFO("Neighbor cell changed.");
+            break;
+        case TAF_RADIO_CELL_SERVING_AND_NEIGHBOR_CHANGED:
+            LE_INFO("Serving and neighbor changed.");
+            break;
+        default:
+            LE_INFO("CellInfo : Unknown");
+            break;
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1627,6 +1691,10 @@ void* SignalTestThread
        (taf_radio_SignalStrengthChangeHandlerFunc_t)Nr5gSsChangeHandler, NULL);
     LE_TEST_OK(nr5gSsChangeHandlerRef != NULL, "taf_radio_AddSignalStrengthChangeHandler - OK");
 
+    cellInfoChangeHandlerRef = taf_radio_AddCellInfoChangeHandler(
+       (taf_radio_CellInfoChangeHandlerFunc_t)CellInfoChangeHandler, NULL);
+    LE_TEST_OK(cellInfoChangeHandlerRef != NULL, "taf_radio_AddCellInfoChangeHandler - OK");
+
     le_sem_Post((le_sem_Ref_t)contextPtr);
     le_event_RunLoop();
 
@@ -1676,6 +1744,10 @@ void RemoveSignalTestHandler
 
     taf_radio_RemoveSignalStrengthChangeHandler(nr5gSsChangeHandlerRef);
     LE_TEST_OK(true, "taf_radio_RemoveSignalStrengthChangeHandler - OK");
+
+    taf_radio_RemoveCellInfoChangeHandler(cellInfoChangeHandlerRef);
+    LE_TEST_OK(true, "taf_radio_RemoveCellInfoChangeHandler - OK");
+
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -2117,31 +2189,32 @@ COMPONENT_INIT
         }
         else if (strncmp(op, "delta", strlen("delta")) == 0)
         {
-            CheckArgs(5);
+            CheckArgs(6);
             const char* rat = le_arg_GetArg(3);
             if (rat == NULL)
             {
                 PrintHelpMenu();
             }
+            long hysdB = strtol(le_arg_GetArg(5), NULL, 10);
             if (strncmp(rat, "gsm", strlen("gsm")) == 0)
             {
                 long rssiDelta = strtol(le_arg_GetArg(4), NULL, 10);
-                GsmSignalConfiguration(phoneId, rssiDelta);
+                GsmSignalConfiguration(phoneId, rssiDelta, hysdB);
             }
             else if (strncmp(rat, "umts", strlen("umts")) == 0)
             {
                 long rssiDelta = strtol(le_arg_GetArg(4), NULL, 10);
-                UmtsSignalConfiguration(phoneId, rssiDelta);
+                UmtsSignalConfiguration(phoneId, rssiDelta, hysdB);
             }
             else if (strncmp(rat, "lte", strlen("lte")) == 0)
             {
                 long rsrpDelta = strtol(le_arg_GetArg(4), NULL, 10);
-                LteSignalConfiguration(phoneId, rsrpDelta);
+                LteSignalConfiguration(phoneId, rsrpDelta, hysdB);
             }
             else if (strncmp(rat, "nr5g", strlen("nrg5")) == 0)
             {
                 long rsrpDelta = strtol(le_arg_GetArg(4), NULL, 10);
-                Nr5gSignalConfiguration(phoneId, rsrpDelta);
+                Nr5gSignalConfiguration(phoneId, rsrpDelta, hysdB);
             }
             else
             {

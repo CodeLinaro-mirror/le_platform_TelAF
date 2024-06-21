@@ -11,7 +11,7 @@ provides:
 {
     api:
     {
-        $TELAF_ROOT/apps/tafMngdServices/interfaces/staging/taf_mngd_pm.api
+        $TELAF_ROOT/apps/tafMngdServices/interfaces/staging/taf_mngdPm.api
     }
 }
 
@@ -41,6 +41,7 @@ cxxflags:
     -I$TELAF_ROOT/apps/tafMngdServices/PM/Components/tafMngdPMSvc/sms/tafMngdPMSms
     -I$TELAF_ROOT/components/tafHalComp
     -I${LEGATO_ROOT}/framework/liblegato
+    -I$TELAF_ROOT/include/staging/vhal
 }
 
 ldflags:

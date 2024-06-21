@@ -134,9 +134,8 @@
    {
        LE_INFO("The reference was successfully removed\n");
    }
-
  *
-   @endcode
+ * @endcode
  *
  * @section c_taf_time_Set Set the system time
  *
@@ -156,6 +155,260 @@
    {
         // Process received time.
    }
+ *
+ * @section c_taf_time_Rtc Get the RTC time
+ *
+ * - taf_time_GetRtcTime() -- Gets RTC time in the format of seconds and nanosconds.
+ *
+ * @code
+ *
+    le_result_t result;
+    taf_time_TimeSpec_t rtcTime;
+
+    result = taf_time_GetRtcTime(&rtcTime);
+    LE_INFO("RTC time is %"PRIu64".%"PRIu64, rtcTime.sec, rtcTime.nanosec);
+ *
+ * @section c_taf_time_Rtc Set the RTC time
+ *
+ * - taf_time_SetRtcTime() -- Sets RTC time in the format of seconds and nanosconds.
+ *
+ * @code
+ *
+    le_result_t result;
+    result = taf_time_SetTimeToRtc(newTime);
+    if (result == LE_OK)
+    {
+        LE_INFO("Set time %"PRIu64".%"PRIu64" to RTC\n", newTime->sec, newTime->nanosec);
+    }
+ *
+ * @endcode
+ *
+ * @section taf_time_GetRtcTimeReqAsync Get the RTC time asynchronously
+ *
+ * With the callback function given in taf_time_GetRtcTimeReqAsync(), the application gets
+ * the RTC time asynchronously. When the RTC time is available, the time service will notify
+ * the client through the registered callback function.
+ *.
+ * The following example illustrates how to register a callback function and get the
+ * time from RTC device asynchronously.
+ *
+ * @code
+
+  static void getRTCTimeAsync(const taf_time_TimeSpec_t* timeVal,
+    le_result_t responseState, void* contextPtr)
+{
+    LE_INFO("responseState: %d", responseState);
+    LE_INFO("Received async vhal RTC time is %"PRIu64".%"PRIu64, timeVal->sec, timeVal->nanosec);
+}
+
+ //Register the async callback function
+ void* TestGetRTCAsync(void* ctxPtr)
+{
+    le_result_t res = taf_time_GetRtcTimeReqAsync(getRTCTimeAsync, (void*)ctxPtr);
+
+    if (res == LE_UNSUPPORTED)
+    {
+        LE_INFO("RTC Async get time API (work with VHAL) received: Unsupported");
+    }
+    return NULL;
+}
+
+ *
+ * @endcode
+ *
+ * @section taf_time_GetSourceRef Get the source reference
+ *
+ * To get the reference of a source the following APIs can be used.
+ *
+ *  - taf_time_GetSourceRef() -- Gets the source reference.
+ *
+ * When trying to get the reference for a source, the application shall call 
+ * taf_time_GetSourceRef(). When reference is not needed, call taf_time_ReleaseSourceRef()
+ * to release the source reference.
+ *
+ * The following example illustrates how to get the source reference.
+ *
+ * @code
+ *
+    uint8_t sourceId = TAF_TIME_SRC_NAME_SYSTEM;
+     taf_time_SourceRef_t srcRef;
+
+    srcRef = taf_time_GetSourceRef(sourceId);
+    LE_ASSERT(srcRef != NULL);
+
+    // Release the memory for this reference.
+    res = taf_time_ReleaseSourceRef(srcRef);
+    LE_ASSERT(res == LE_OK);
+ *
+ * @endcode
+ *
+* @section taf_time_GetTimeZone Get the Offset from Universal time
+ *
+ * When trying to get the time zone information of a given time source, the application shall
+ * first get the source reference by calling taf_time_GetSourceRef(), then call
+ * taf_time_GetTimeZone() to fetch the Offset from Universal time i.e. the difference between
+ * local time and Universal time, in increments of 15 minutes (signed value). When the reference
+ * is not needed, call taf_time_ReleaseSourceRef() to release the source reference.
+ *
+ * The following example illustrates how to get the source information.
+ *
+ * @code
+ *
+    uint8_t sourceId = TAF_TIME_SRC_NAME_NETWORK;
+    taf_time_SourceRef_t srcRef;
+
+    srcRef = taf_time_GetSourceRef(sourceId);
+    LE_ASSERT(srcRef != NULL);
+    int8_t timeZone = 0;
+    le_result_t res = taf_time_GetTimeZone(srcRef, &timeZone);
+    LE_ASSERT(res == LE_OK);
+    LE_INFO("Time zone is:  %d", timeZone);
+
+    // Release the memory for this reference.
+    res = taf_time_ReleaseSourceRef(srcRef);
+    LE_ASSERT(res == LE_OK);
+ *
+ * @endcode
+ *
+ * @section taf_time_GetTimeDayAdj Get the daylight saving adjustment
+ *
+ * When trying to get the daylight saving adjustment for a given time source, the application
+ * shall first get the source reference by calling taf_time_GetSourceRef(), then call
+ * taf_time_GetTimeDayAdj() to fetch the daylight saving adjustment in hours. When the reference
+ * is not needed, call taf_time_ReleaseSourceRef() to release the source reference.
+ *
+ * The following example illustrates how to get the source information.
+ *
+ * @code
+ *
+    uint8_t sourceId = TAF_TIME_SRC_NAME_NETWORK;
+    taf_time_SourceRef_t srcRef;
+
+    srcRef = taf_time_GetSourceRef(sourceId);
+    LE_ASSERT(srcRef != NULL);
+    uint8_t dayltSavAdj;
+    le_result_t res = taf_time_GetTimeDayAdj(srcRef, &dayltSavAdj);
+    LE_ASSERT(res == LE_OK);
+    LE_INFO("Day Light Saving is: %d", dayltSavAdj);
+
+    // Release the memory for this reference.
+    res = taf_time_ReleaseSourceRef(srcRef);
+    LE_ASSERT(res == LE_OK);
+ *
+ * @endcode
+ *
+ * @section taf_time_GetFailedLoops Get the number of failed loops and the polling interval
+ * time for a source
+ *
+ * When trying to get the number of failed loops and the polling interval time for a source,
+ * the application shall first get the source reference by calling taf_time_GetSourceRef(),
+ * then call taf_time_GetFailedLoops() to fetch the details. When the reference is not needed,
+ * call taf_time_ReleaseSourceRef() to release the source reference.
+ *
+ * The following example illustrates how to get the source information.
+ *
+ * @code
+ *
+    uint8_t sourceId = TAF_TIME_SRC_NAME_RTC;
+    taf_time_SourceRef_t srcRef;
+    int32_t failedLoops =0;
+    int64_t loopIntervalSec = 0;
+    srcRef = taf_time_GetSourceRef(sourceId);
+    LE_ASSERT(srcRef != NULL);
+    le_result_t res = taf_time_GetFailedLoops(srcRef, &failedLoops, &loopIntervalSec);
+    LE_ASSERT(res == LE_OK);
+    LE_INFO("The number of failed loops are %d. Loop interval is %ld",
+    failedLoops, loopIntervalSec);
+
+    // Release the memory for this reference.
+    res = taf_time_ReleaseSourceRef(srcRef);
+    LE_ASSERT(res == LE_OK);
+ *
+ * @endcode
+ *
+ * @section taf_time_IsAvailable Get the availability of a source
+ *
+ * When trying to get the availability of a source, the application shall first get
+ * the source reference by calling taf_time_GetSourceRef(), then call taf_time_IsAvailable()
+ * to fetch the availability. When the reference is not needed, call taf_time_ReleaseSourceRef()
+ * to release the source reference.
+ *
+ * The following example illustrates how to get the source information.
+ *
+ * @code
+ *
+    uint8_t sourceId = TAF_TIME_SRC_NAME_RTC;
+    taf_time_SourceRef_t srcRef;
+    bool isAvailable;
+    srcRef = taf_time_GetSourceRef(sourceId);
+    LE_ASSERT(srcRef != NULL);
+    isAvailable = taf_time_IsAvailable(srcRef);
+    if (isAvailable)
+    {
+        LE_INFO("Time source is Available!");
+    }
+    else
+    {
+        LE_INFO("Time source is NOT Available!");
+    }
+
+    // Release the memory for this reference.
+    res = taf_time_ReleaseSourceRef(srcRef);
+    LE_ASSERT(res == LE_OK);
+ *
+ * @endcode
+ *
+ * @section taf_time_GetSystemTimeSourceID Get the source ID of time source to which system
+ * time is synced
+ *
+ * When trying to get the latest time source to which system is synced, call
+ * taf_time_GetSystemTimeSourceID() to fetch the source ID.
+ *
+ * The following example illustrates how to get the source information.
+ *
+ * @code
+ *
+    taf_time_TimeSources_t systemTimeSrc;
+    le_result_t res = taf_time_GetSystemTimeSourceID(&systemTimeSrc);
+    LE_ASSERT(res == LE_OK);
+    LE_INFO("The lastest system time is set by %s", SourceNameIndexToStr(systemTimeSrc));
+ *
+ * @endcode
+ *
+ * @section taf_time_SetRtcTimeReqAsync Set the RTC time asynchronously
+ *
+ * With the callback function SetRTCTimeAsync() the application can set the RTC time
+ * asynchronously. The operation result will be notified to the client through the registered
+ * callback function.
+ *.
+ * The following example illustrates how to register a callback function and set the
+ * time from RTC device asynchronously.
+ *
+ * @code
+
+void setRTCTimeAsync(le_result_t responseState, void* contextPtr)
+{
+    LE_TEST_ASSERT(responseState == LE_OK, "Test: setRTCTimeAsync response mode is LE_OK");
+}
+
+ //Register the async callback function
+void* TestSetRTCAsync(void* cxtPtr)
+{
+   static le_mem_PoolRef_t NewTimePool = NULL;
+   taf_time_TimeSpec_t* newTimePtr;
+   NewTimePool = le_mem_CreatePool("TimePool", sizeof(taf_time_TimeSpec_t));
+   newTimePtr = (taf_time_TimeSpec_t*)le_mem_ForceAlloc(NewTimePool);
+   newTimePtr->sec = 1712345678;
+   newTimePtr->nanosec = 12345678;
+   le_result_t res = taf_time_SetRtcTimeReqAsync(newTimePtr, setRTCTimeAsync, (void*)cxtPtr);
+
+   if (res == LE_UNSUPPORTED)
+   {
+       LE_INFO("RTC Async set time API (work with VHAL) received: Unsupported");
+   }
+   return NULL;
+}
+
  *
  * @endcode
  *
@@ -236,9 +489,8 @@
                               TimeValueChangeHandlerTestThread, NULL);
    // De-register the hanlder when not need.
    taf_time_RemoveTimeValueChangeHandler(TimeValueChangeHandlerRef);
-
  *
-   @endcode
+ * @endcode
  *
  * To receive the time source change notification, the following APIs should be used.
  * - taf_time_AddTimeSourceChangeHandler() -- Adds the time source changed handler.
@@ -268,6 +520,47 @@
  *
  * @endcode
  *
+ * @section c_taf_time_AddTimeSourceStatusHandler_API Time notification
+ *
+ * With the reference object, taf_time_AddTimeSourceStatusHandler() is for the application to
+ * register an event handler for change in status of a time source. When the time source status
+ * gets changed, the time service will notify the client through that registered event handler.
+ *
+ * When the notification is not needed, taf_time_RemoveTimeSourceStatusHandler() is to de-register
+ * the event handler to remove it.
+ *
+ * The following example illustrates how to register and get the time status information,
+ *
+ * @code
+   // Source status change handler function
+   void TimeSourceStatusHandler
+   (
+       bool isAvailable,
+       void* contextPtr
+   )
+   {
+       LE_INFO("Time source status is: %d", Available);
+   }
+
+  // Register the source status change handler
+
+  static taf_time_TimeSourceStatusHandlerRef_t TimeSourceStatusHandlerRef = NULL;
+  void* TimeSourceStatusHandlerTestThread
+  (
+    void* contextPtr ///< [IN] Thread context.
+  )
+  {
+      uint8_t sourceid = 0;
+      taf_time_SourceRef_t sourceRef = NULL;
+      sourceRef = taf_time_GetSourceRef(sourceid);
+      LE_ASSERT(sourceRef != NULL);
+      TimeSourceStatusHandlerRef = taf_time_AddTimeSourceStatusHandler(sourceRef,
+          (taf_time_TimeSourceStatusHandlerFunc_t)TimeSourceStatusHandler, NULL);
+      LE_ASSERT(TimeSourceStatusHandlerRef != NULL);
+  }
+
+ *
+ * @endcode
  * <HR>
  *
 */
@@ -277,7 +570,8 @@
  * Reference for a time source instance, time service uses it to maintain related information.
  */
 //--------------------------------------------------------------------------------------------------
-REFERENCE TimeSource;
+REFERENCE Time;
+REFERENCE Source;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -291,7 +585,8 @@ ENUM TimeSources{
     SRC_NAME_EX_APP,    ///< External time source
     SRC_NAME_NETWORK,   ///< Network time source from phone1
     SRC_NAME_NETWORK2,  ///< Network time source from phone2
-    SRC_NAME_UNKNOWN    ///< No active time source
+    SRC_NAME_UNKNOWN,    ///< No active time source
+    SRC_NAME_SYSTEM = 0xFF ///< System time ID
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -383,7 +678,7 @@ FUNCTION le_result_t SetSystemTime
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Handler for time soure change event.
+ * Handler for source change event for the time source that system time is sycned to.
  */
 //--------------------------------------------------------------------------------------------------
 HANDLER TimeSourceChangeHandler
@@ -394,7 +689,7 @@ HANDLER TimeSourceChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Event to report the time source change or there is no available time source.
+ * Event to report the new time source that system time is synced to.
  */
 //--------------------------------------------------------------------------------------------------
 EVENT TimeSourceChange
@@ -409,7 +704,7 @@ EVENT TimeSourceChange
 //--------------------------------------------------------------------------------------------------
 HANDLER TimeValueChangeHandler
 (
-    TimeSource  timeSrcRef  IN,    ///< Time source reference.
+    Time  timeRef  IN,    ///< Time reference.
     TimeSpec   timeVal      IN     ///< Time in seconds/nanoseconds
 );
 
@@ -433,7 +728,7 @@ EVENT TimeValueChange
  *  - LE_FAULT -- Something went wrong.
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION TimeSource GetTimeRef
+FUNCTION Time GetTimeRef
 (
     TimeSources sourceId IN  ///< Time source ID
 );
@@ -449,7 +744,7 @@ FUNCTION TimeSource GetTimeRef
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetTime
 (
-    TimeSource timeSrcRef    IN,  ///< Time source reference
+    Time timeRef    IN,  ///< Time reference
     TimeSpec timeVal         OUT  ///< Time in seconds/nanoseconds
 );
 
@@ -471,7 +766,7 @@ FUNCTION le_result_t GetTime
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetRefSystemTime
 (
-    TimeSource  timeSrcRef IN,   ///< Time source reference
+    Time  timeRef IN,   ///< Time reference
     TimeSpec  timeVal      OUT   ///< Time in seconds/nanoseconds
 );
 
@@ -493,13 +788,13 @@ FUNCTION le_result_t GetRefSystemTime
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t GetRefGptpTime
 (
-    TimeSource  timeSrcRef IN,   ///< Time source reference.
+    Time  timeSrcRef IN,   ///< Time source reference.
     TimeSpec  timeVal      OUT   ///< Time in seconds/nanoseconds
 );
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Releases a 'TimeSource' reference.
+ * Releases a 'Time' reference.
  *
  * @return
  *     - LE_OK -- Succeeded.
@@ -508,7 +803,7 @@ FUNCTION le_result_t GetRefGptpTime
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t ReleaseTimeRef
 (
-    TimeSource  timeSrcRef  IN  ///< Time source reference.
+    Time  timeSrcRef  IN  ///< Time source reference.
 );
 
 HANDLER AsyncGetTimeReqHandler
@@ -572,3 +867,137 @@ FUNCTION le_result_t SetRtcTimeReqAsync
     AsyncSetTimeReqHandler handlerRef     IN         ///< Handler
 );
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the reference object for a source.
+ *
+ * @return
+ *  - Source -- Succeeded.
+ *  - NULL -- Source is not available.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION Source GetSourceRef
+(
+    TimeSources sourceId IN    ///< Source ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Releases a 'Source' reference.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_FAULT -- Something went wrong.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ReleaseSourceRef
+(
+    Source  SrcRef  IN    ///< Source reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the number of failed loops for a source.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_FAULT -- Something went wrong.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetFailedLoops
+(
+    Source sourceRef       IN,    ///< Source reference.
+    int32 faileLoops       OUT,   ///< Number of failed loops.
+    int64 LoopIntervalSec  OUT    ///< Seconds per loop.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the availability of a source.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_FAULT -- Something went wrong.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION bool IsAvailable
+(
+    Source sourceRef     IN    ///< Source reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the name of latest time source to which system time is synced.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_FAULT -- Something went wrong.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetSystemTimeSourceID
+(
+    TimeSources timeSource    OUT   ///< Time Source.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for time soure status change event.
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER TimeSourceStatusHandler
+(
+    Source sourceRef     IN,  ///< Source reference.
+    bool isAvailable     IN   /// Time source availability.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Event to report the time source status change or there is no available time source.
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT TimeSourceStatus
+(
+    Source sourceRef        IN,
+    TimeSourceStatusHandler handler
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the Offset from Universal time i.e. the difference between local time and Universal time,
+ * in increments of 15 minutes (signed value). The time zone offset range is [-48, 48], so the
+ * range of minutes is [-720, 720].
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_FAULT -- Something went wrong.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetTimeZone
+(
+   Source sourceRef  IN,   ///< Source reference.
+   int8 timeZone     OUT   ///< Time zone.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the daylight saving adjustment in hours. Possible values for the output are 0, 1, and 2
+ * indicating following:
+ *
+ * 0: No adjustment for daylight saving.
+ *
+ * 1: +1 adjustment for daylight saving.
+ *
+ * 2: +2 adjustment for daylight saving.
+ *
+ * 3: reserved.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_FAULT -- Something went wrong.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetTimeDayAdj
+(
+   Source sourceRef        IN,    ///< Source reference.
+   uint8 dayltSavAdj       OUT    ///< Daylight saving adjustment.
+);

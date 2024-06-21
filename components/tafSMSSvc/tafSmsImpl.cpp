@@ -1691,22 +1691,31 @@ taf_Sms &taf_Sms::GetInstance()
 
 void tafSmsListener::onMemoryFull(int phoneId, telux::tel::StorageType type)
 {
-   LE_INFO("Entered %s, phoneId %d", __FUNCTION__, phoneId);
+   LE_INFO("onMemoryFull, phoneId %d", phoneId);
    auto &sms = taf_Sms::GetInstance();
-   std::string memFullMsg;
+
+   taf_sms_hlos_StorageInd_t storageInd;
+   storageInd.fullType = TAF_SMS_FULL_UNKNOWN;
+
    switch(type)
    {
-      case telux::tel::StorageType::NONE:
-         memFullMsg = "telux::tel::StorageType::NONE";
-         break;
       case telux::tel::StorageType::SIM:
-         memFullMsg = "telux::tel::StorageType::SIM";
+
+         if(phoneId == 1)
+         {
+            storageInd.fullType = TAF_SMS_FULL_SIM;
+         }
+         else
+         {
+            storageInd.fullType = TAF_SMS_FULL_SIM2;
+         }
+
+         le_event_Report(sms.StorageEvent, (void*)&storageInd, sizeof(storageInd));
          break;
+
       default:
-         memFullMsg = "telux::tel::StorageType::Unknown";
+         break;
    }
-   LE_INFO("Mempory full for StorageType %s", memFullMsg.c_str());
-   le_event_Report(sms.StorageEvent, (void*)&memFullMsg, sizeof(memFullMsg));
 }
 
 void tafSmsListener::onIncomingSms(int phoneId, std::shared_ptr<SmsMessage> smsMsg)

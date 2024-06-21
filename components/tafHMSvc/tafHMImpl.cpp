@@ -16,11 +16,28 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <chrono>
+#include <thread>
+#include <dirent.h>
 
 
 using namespace std;
 using namespace telux::tafsvc;
 
+LE_MEM_DEFINE_STATIC_POOL(ubiDevListPool, TAF_HMS_MAX_LIST_POOL_SIZE, sizeof(taf_hms_ubiDevInfoList_t));
+LE_MEM_DEFINE_STATIC_POOL(ubiDevInfoPool, TAF_HMS_MAX_LIST_POOL_SIZE, sizeof(taf_hms_ubiDevInfo_t));
+LE_MEM_DEFINE_STATIC_POOL(ubiVolListPool, TAF_HMS_MAX_LIST_POOL_SIZE, sizeof(taf_hms_ubiVolInfoList_t));
+LE_MEM_DEFINE_STATIC_POOL(ubiVolInfoPool, TAF_HMS_MAX_LIST_POOL_SIZE, sizeof(taf_hms_ubiVolInfo_t));
+LE_MEM_DEFINE_STATIC_POOL(mtdListPool, TAF_HMS_MAX_LIST_POOL_SIZE, sizeof(taf_hms_mtdInfoList_t));
+LE_MEM_DEFINE_STATIC_POOL(mtdInfoPool, TAF_HMS_MAX_LIST_POOL_SIZE, sizeof(taf_hms_mtdInfo_t));
+
+
+LE_REF_DEFINE_STATIC_MAP(ubiDevListRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
+LE_REF_DEFINE_STATIC_MAP(ubiDevRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
+LE_REF_DEFINE_STATIC_MAP(ubiVolListRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
+LE_REF_DEFINE_STATIC_MAP(ubiVolRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
+LE_REF_DEFINE_STATIC_MAP(mtdListRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
+LE_REF_DEFINE_STATIC_MAP(mtdRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
 
 /**
  * Returns HMS instance
@@ -279,8 +296,772 @@ le_result_t taf_Hms::GetRamMemInfo
 }
 
 
+// Function to read a file from the given path
+uint32_t read_sysfs_file(const char *path)
+{
+    uint32_t value = 0;
+    uint32_t  rc  = 0;
+    FILE *fp = NULL;
+
+    if(NULL == path)
+    {
+        LE_ERROR("Failed to open file\n");
+        return LE_FAULT;
+    }
+    fp = fopen(path, "r");
+    if (NULL == fp)
+        return LE_FAULT;
+
+    rc = fscanf(fp, "%d\n", &value);
+    UNUSED(rc);
+    fclose(fp);
+    return value;
+}
+
+// Function to read a string from the given path
+uint32_t read_sysfs_string_file(const char *path, char *buffer, size_t length)
+{
+    FILE *file = fopen(path, "r");
+    if (file == NULL)
+    {
+        LE_ERROR("Failed to open file");
+        return LE_FAULT;
+    }
+
+    // Clear the buffer before reading new data
+    memset(buffer, 0, length);
+
+    if (fgets(buffer, length, file) == NULL)
+    {
+        perror("Failed to read file");
+        fclose(file);
+        return LE_FAULT;
+    }
+    return LE_OK;
+}
+
+// Function to get device count from the sys class path
+uint32_t get_ubi_device_count
+(
+)
+{
+    DIR *dir;
+    struct dirent *entry;
+    uint32_t count = 0;
+
+    dir = opendir(UBI_CLASS_PATH);
+    if (dir == NULL) {
+        LE_ERROR("Error opening UBI class path");
+        return LE_FAULT;
+    }
+
+    // Iterate through each entry in the directory
+    while ((entry = readdir(dir)) != NULL) {
+        // Check if the entry is a directory and its name starts with "ubi"
+        if (entry->d_type == DT_DIR && strncmp(entry->d_name, "ubi", 3) == 0) {
+            count++;
+        }
+    }
+
+    closedir(dir);
+    LE_INFO("UBI device count: %d", count);
+    return count;
+}
+
+uint32_t get_ubi_volume_count(const char *path)
+{
+    FILE *file = fopen(path, "r");
+    if (file == NULL) {
+        perror("Failed to open sysfs file");
+        return -1;
+    }
+
+    int value;
+    if (fscanf(file, "%d", &value) != 1) {
+        perror("Failed to read value from sysfs file");
+        fclose(file);
+        return -1;
+    }
+
+    fclose(file);
+    return value;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ ** Gets the list of available UBI device information.
+ **
+ ** @return
+ *  - NULL                            No information found.
+ *  - taf_hms_ubiDevInfoListRef    The UBI device Info list object reference.
+ */
+//-------------------------------------------------------------------------------------------------
+taf_hms_UbiDevInfoListRef_t taf_Hms::GetUbiDevInfoList
+(
+    void
+)
+{
+    taf_hms_ubiDevInfoList_t* ubiDevList = (taf_hms_ubiDevInfoList_t*)le_mem_ForceAlloc(ubiDevListPool);
+    memset(ubiDevList, 0, sizeof(taf_hms_ubiDevInfoList_t));
+    ubiDevList->ubiDevInfoList = LE_SLS_LIST_INIT;
+    ubiDevList->currPtr = NULL;
+
+    taf_hms_ubiDevInfo_t* ubiDevInfoPtr;
+
+    uint32_t count = get_ubi_device_count();
+    char path[MAX_PATH_LENGTH];
+    if (count >= 0)
+    {
+        for(uint32_t i = 0; i <= count; i++)
+        {
+            ubiDevInfoPtr = (taf_hms_ubiDevInfo_t*)le_mem_ForceAlloc(ubiDevInfoPool);
+            memset(ubiDevInfoPtr, 0, sizeof(taf_hms_ubiDevInfo_t));
+
+            // Get bad block count
+            snprintf(path, sizeof(path), UBI_DEV_BB_COUNT_PATH, i);
+            ubiDevInfoPtr->badBlockCnt = read_sysfs_file(path);
+
+            // Get max erase count
+            snprintf(path, sizeof(path), UBI_DEV_E_COUNT_PATH, i);
+            ubiDevInfoPtr->eraseCnt = read_sysfs_file(path);
+
+            ubiDevInfoPtr->link = LE_SLS_LINK_INIT;
+            le_sls_Queue(&(ubiDevList->ubiDevInfoList), &(ubiDevInfoPtr->link));
+            ubiDevInfoPtr->ref =
+                 (taf_hms_UbiDevInfoRef_t)le_ref_CreateRef(ubiDevRefMap, (void*)ubiDevInfoPtr);
+        }
+        ubiDevList->ref =
+            (taf_hms_UbiDevInfoListRef_t)le_ref_CreateRef(ubiDevListRefMap, ubiDevList);
+        return ubiDevList->ref;
+    }
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ ** Deletes the UbiDevInfoList list retrieved with taf_hms_GetUbiDevInfoList().
+ **
+ ** @return
+ **  - LE_BAD_PARAMETER -- Bad parameters.
+ **  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_Hms::DeleteUbiDevInfoList
+(
+    taf_hms_UbiDevInfoListRef_t ubiDevInfoListRef
+)
+{
+	taf_hms_ubiDevInfoList_t* listPtr =
+        (taf_hms_ubiDevInfoList_t*)le_ref_Lookup(ubiDevListRefMap, ubiDevInfoListRef);
+    TAF_ERROR_IF_RET_VAL(listPtr == nullptr, LE_NOT_FOUND, "Invalid para(null reference ptr)");
+    LE_DEBUG("DeleteUBIDevInfoList : %p", ubiDevInfoListRef);
+    taf_hms_ubiDevInfo_t* ubiDevInfoPtr;
+    le_sls_Link_t* linkPtr;
+    while ((linkPtr = le_sls_Pop(&(listPtr->ubiDevInfoList))) != NULL)
+    {
+        ubiDevInfoPtr = CONTAINER_OF(linkPtr, taf_hms_ubiDevInfo_t, link);
+        le_mem_Release(ubiDevInfoPtr);
+    }
+    le_ref_DeleteRef(ubiDevListRefMap, ubiDevInfoListRef);
+    le_mem_Release(listPtr);
+    return LE_OK;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the first UBI device Info object reference in the list of the
+ * ubiDevInfoList retrieved with taf_hms_GetUBIDevInfoList().
+ *
+ * @return
+ *  - NULL                          No information found.
+ *  - taf_hms_ubiDevInfoListRef      The UBI device Info object reference.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_hms_UbiDevInfoRef_t taf_Hms::GetFirstUbiDevInfo
+(
+    taf_hms_UbiDevInfoListRef_t ubiDevInfoListRef
+)
+{
+    taf_hms_ubiDevInfoList_t* ubiDevListPtr =
+            (taf_hms_ubiDevInfoList_t*)le_ref_Lookup(ubiDevListRefMap, ubiDevInfoListRef);
+
+    TAF_ERROR_IF_RET_VAL(ubiDevListPtr == NULL, NULL, "Failed to retrieve ubi device list.");
+
+    le_sls_Link_t* ubiDevLinkPtr = le_sls_Peek(&(ubiDevListPtr->ubiDevInfoList));
+    if (ubiDevLinkPtr != NULL)
+    {
+        taf_hms_ubiDevInfo_t* ubiDevPtr = CONTAINER_OF(ubiDevLinkPtr, taf_hms_ubiDevInfo_t, link);
+        ubiDevListPtr->currPtr = ubiDevLinkPtr;
+        return ubiDevPtr->ref;
+    }
+    return NULL;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the next UBI device Info object reference in the list of the
+ * UBIInfoList retrieved with taf_hms_GetUBIInfoList().
+ *
+ * @return
+ *  - NULL                          No information found.
+ *  - taf_hms_ubiDevInfoListRef      The UBI device Info object reference.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_hms_UbiDevInfoRef_t taf_Hms::GetNextUbiDevInfo
+(
+    taf_hms_UbiDevInfoListRef_t ubiDevInfoListRef
+)
+{
+    taf_hms_ubiDevInfoList_t* ubiDevListPtr =
+            (taf_hms_ubiDevInfoList_t*)le_ref_Lookup(ubiDevListRefMap, ubiDevInfoListRef);
+
+    TAF_ERROR_IF_RET_VAL(ubiDevListPtr == NULL, NULL, "Failed to retrieve next ubi device list.");
+
+    le_sls_Link_t* ubiDevLinkPtr =
+        le_sls_PeekNext(&(ubiDevListPtr->ubiDevInfoList), ubiDevListPtr->currPtr);
+    if (ubiDevLinkPtr != NULL)
+    {
+        taf_hms_ubiDevInfo_t* ubiDevPtr = CONTAINER_OF(ubiDevLinkPtr, taf_hms_ubiDevInfo_t, link);
+        ubiDevListPtr->currPtr = ubiDevLinkPtr;
+        return ubiDevPtr->ref;
+    }
+    return NULL;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ ** Gets UBI device ID
+ **
+ ** @return
+ ** - LE_FAULT         Failed.
+ ** - LE_OK            Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_Hms::GetUbiDevId
+(
+    taf_hms_UbiDevInfoRef_t ubiDevInfoRef,
+    uint32_t* ubiDevIdPtr
+)
+{
+    taf_hms_ubiDevInfo_t* ubiDevPtr = (taf_hms_ubiDevInfo_t*)le_ref_Lookup(ubiDevRefMap, ubiDevInfoRef);
+
+    TAF_ERROR_IF_RET_VAL(ubiDevPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
+            ubiDevPtr);
+
+    *ubiDevIdPtr = ubiDevPtr->devId;
+    TAF_ERROR_IF_RET_VAL(*ubiDevIdPtr < 0, LE_FAULT, "Failed to return erase count.");
+    return LE_OK;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ ** Get UBI information for erase count from " /sys/class/ubi/ubi%d/ ".
+ **
+ ** @return
+ ** - LE_FAULT         Failed.
+ ** - LE_OK            Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_Hms::GetUbiDevMaxEraseCnt
+(
+    taf_hms_UbiDevInfoRef_t ubiDevInfoRef,
+    uint32_t* ubiEraseCntPtr
+)
+{
+    taf_hms_ubiDevInfo_t* ubiDevPtr = (taf_hms_ubiDevInfo_t*)le_ref_Lookup(ubiDevRefMap, ubiDevInfoRef);
+
+    TAF_ERROR_IF_RET_VAL(ubiDevPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
+            ubiDevPtr);
+
+    *ubiEraseCntPtr = ubiDevPtr->eraseCnt;
+    TAF_ERROR_IF_RET_VAL(*ubiEraseCntPtr < 0, LE_FAULT, "Failed to return erase count.");
+    return LE_OK;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ ** Get UBI information for bad block count from " /sys/class/ubi/ubi%d/ ".
+ **
+ ** @return
+ ** - LE_FAULT         Failed.
+ ** - LE_OK            Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_Hms::GetUbiDevBadBlkCnt
+(
+    taf_hms_UbiDevInfoRef_t ubiDevInfoRef,
+    uint32_t* ubiBbCntPtr
+)
+{
+    taf_hms_ubiDevInfo_t* ubiDevPtr = (taf_hms_ubiDevInfo_t*)le_ref_Lookup(ubiDevRefMap, ubiDevInfoRef);
+
+    TAF_ERROR_IF_RET_VAL(ubiDevPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
+            ubiDevPtr);
+
+    *ubiBbCntPtr = ubiDevPtr->badBlockCnt;
+    TAF_ERROR_IF_RET_VAL(*ubiBbCntPtr < 0, LE_FAULT, "Failed to return bad block count.");
+    return LE_OK;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the first UBI volume Info object reference in the list of the
+ * ubiVolInfoList retrieved with taf_hms_GetUbiVolInfoList().
+ *
+ * @return
+ *  - NULL                          No information found.
+ *  - taf_hms_ubiVolInfoListRef      The UBI device Info object reference.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_hms_UbiVolInfoRef_t taf_Hms::GetFirstUbiVolInfo
+(
+     taf_hms_UbiDevInfoRef_t ubiDevInfoRef
+)
+{
+    taf_hms_ubiVolInfoList_t* ubiVolListPtr =
+            (taf_hms_ubiVolInfoList_t*)le_ref_Lookup(ubiVolListRefMap, ubiDevInfoRef);
+
+    TAF_ERROR_IF_RET_VAL(ubiVolListPtr == NULL, NULL, "Failed to retrieve ubi device list.");
+
+    le_sls_Link_t* ubiVolLinkPtr = le_sls_Peek(&(ubiVolListPtr->ubiVolInfoList));
+    if (ubiVolLinkPtr != NULL)
+    {
+        taf_hms_ubiVolInfo_t* ubiVolPtr = CONTAINER_OF(ubiVolLinkPtr, taf_hms_ubiVolInfo_t, link);
+        ubiVolListPtr->currPtr = ubiVolLinkPtr;
+        return ubiVolPtr->ref;
+    }
+    return NULL;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the next UBI volume Info object reference in the list of the
+ * ubiVolInfoList retrieved with taf_hms_GetUbiVolInfoList().
+ *
+ * @return
+ *  - NULL                          No information found.
+ *  - taf_hms_ubiVolInfoListRef      The UBI volume Info object reference.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_hms_UbiVolInfoRef_t taf_Hms::GetNextUbiVolInfo
+(
+    taf_hms_UbiDevInfoRef_t ubiDevInfoRef
+)
+{
+    taf_hms_ubiVolInfoList_t* ubiVolListPtr =
+            (taf_hms_ubiVolInfoList_t*)le_ref_Lookup(ubiVolListRefMap, ubiDevInfoRef);
+
+    TAF_ERROR_IF_RET_VAL(ubiVolListPtr == NULL, NULL, "Failed to retrieve next ubi device list.");
+
+    le_sls_Link_t* ubiVolLinkPtr =
+        le_sls_PeekNext(&(ubiVolListPtr->ubiVolInfoList), ubiVolListPtr->currPtr);
+    if (ubiVolLinkPtr != NULL)
+    {
+        taf_hms_ubiVolInfo_t* ubiVolPtr = CONTAINER_OF(ubiVolLinkPtr, taf_hms_ubiVolInfo_t, link);
+        ubiVolListPtr->currPtr = ubiVolLinkPtr;
+        return ubiVolPtr->ref;
+    }
+    return NULL;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ ** Gets UBI volume ID.
+ **
+ ** @return
+ ** - LE_FAULT         Failed.
+ ** - LE_OK            Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_Hms::GetUbiVolId
+(
+    taf_hms_UbiVolInfoRef_t ubiVolInfoRef,
+    uint32_t* ubiVolIdPtr
+)
+{
+    taf_hms_ubiVolInfo_t* ubiVolPtr =
+        (taf_hms_ubiVolInfo_t*)le_ref_Lookup(ubiVolRefMap, ubiVolInfoRef);
+
+    TAF_ERROR_IF_RET_VAL(ubiVolPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
+            ubiVolPtr);
+
+    *ubiVolIdPtr = ubiVolPtr->ubiVolId;
+    TAF_ERROR_IF_RET_VAL(*ubiVolIdPtr < 0, LE_FAULT, "Failed to return Ubi volume size.");
+    return LE_OK;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ ** Get name of UBI volume.
+ **
+ ** @return
+ ** - LE_FAULT         Failed.
+ ** - LE_OK            Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_Hms::GetUbiVolName
+(
+    taf_hms_UbiVolInfoRef_t ubiVolInfoRef,
+    char* ubiVolName,
+    size_t ubiVolNameSize
+)
+{
+    taf_hms_ubiVolInfo_t* ubiVolPtr =
+            (taf_hms_ubiVolInfo_t*)le_ref_Lookup(ubiVolRefMap, ubiVolInfoRef);
+    TAF_ERROR_IF_RET_VAL(ubiVolPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
+            ubiVolPtr);
+
+    snprintf(ubiVolName, sizeof(ubiVolPtr->ubiVolumeName), "%s", ubiVolPtr->ubiVolumeName);
+
+    TAF_ERROR_IF_RET_VAL(ubiVolName == NULL, LE_FAULT, "Failed to return Ubi volume name.");
+    return LE_OK;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ ** Get size of UBI volume.
+ **
+ ** @return
+ ** - LE_FAULT         Failed.
+ ** - LE_OK            Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_Hms::GetUbiVolSize
+(
+    taf_hms_UbiVolInfoRef_t ubiVolInfoRef,
+    uint32_t* ubiVolSizePtr
+)
+{
+    taf_hms_ubiVolInfo_t* ubiVolPtr =
+        (taf_hms_ubiVolInfo_t*)le_ref_Lookup(ubiVolRefMap, ubiVolInfoRef);
+
+    TAF_ERROR_IF_RET_VAL(ubiVolPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
+            ubiVolPtr);
+
+    *ubiVolSizePtr = ubiVolPtr->ubiVolSize;
+    TAF_ERROR_IF_RET_VAL(*ubiVolSizePtr < 0, LE_FAULT, "Failed to return Ubi volume size.");
+    return LE_OK;
+}
+
+
+uint32_t get_mtd_count()
+{
+    DIR* dir;
+    struct dirent* entry;
+    int mtd_count = 0;
+
+    dir = opendir(MTD_CLASS_PATH);
+    if (dir == NULL) {
+        LE_ERROR("opendir");
+        return LE_FAULT;
+    }
+
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+        continue;
+    }
+    // Check if entry->d_name starts with "mtd" (case-insensitive)
+    if (strncasecmp(entry->d_name, "mtd", 3) == 0) {
+      mtd_count++;
+      }
+    }
+
+    closedir(dir);
+    mtd_count = mtd_count / 2;
+    LE_INFO("MTD device count: %d", mtd_count);
+    return mtd_count;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ ** Gets the list of available MTD Node.
+ **
+ ** @return
+ *  - NULL                            No information found.
+ *  - taf_hms_mtdDevInfoListRef    The mtdInfo list object reference.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_hms_MtdDevInfoListRef_t taf_Hms::GetMtdDevInfoList
+(
+    void
+)
+{
+    taf_hms_mtdInfoList_t* mtdDevList = (taf_hms_mtdInfoList_t*)le_mem_ForceAlloc(mtdListPool);
+    memset(mtdDevList, 0, sizeof(taf_hms_mtdInfoList_t));
+    mtdDevList->mtdInfoList = LE_SLS_LIST_INIT;
+    mtdDevList->currPtr = NULL;
+
+    taf_hms_mtdInfo_t* mtdInfoPtr;
+
+    uint32_t count = get_mtd_count();
+    char path[MAX_PATH_LENGTH];
+    char buffer[BUFFER_SIZE];
+    if (count >= 0)
+    {
+        for(uint32_t i = 0; i < count; i++)
+        {
+            mtdInfoPtr = (taf_hms_mtdInfo_t*)le_mem_ForceAlloc(mtdInfoPool);
+            memset(mtdInfoPtr, 0, sizeof(taf_hms_mtdInfo_t));
+            mtdInfoPtr->mtdBlockCnt = count;
+
+            // Get mtd block size
+            snprintf(path, sizeof(path), MTD_DEV_SIZE_PATH, i);
+            mtdInfoPtr->mtdBlockSize = read_sysfs_file(path);
+
+            // Get device name
+            snprintf(path, sizeof(path), MTD_DEV_NAME_PATH, i);
+            uint8_t result = read_sysfs_string_file(path, buffer, sizeof(buffer));
+            if (result == LE_OK)
+            {
+                le_utf8_Copy(mtdInfoPtr->mtdDevName, buffer, BUFFER_SIZE, NULL);
+            }
+            else
+            {
+                LE_INFO("Failed ! to read data from mtd path");
+            }
+
+           mtdInfoPtr->link = LE_SLS_LINK_INIT;
+           le_sls_Queue(&(mtdDevList->mtdInfoList), &(mtdInfoPtr->link));
+           mtdInfoPtr->ref =
+                (taf_hms_MtdDevInfoRef_t)le_ref_CreateRef(mtdRefMap, (void*)mtdInfoPtr);
+        }
+        mtdDevList->ref =
+            (taf_hms_MtdDevInfoListRef_t)le_ref_CreateRef(mtdListRefMap, mtdDevList);
+        return mtdDevList->ref;
+    }
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ ** Deletes the MtdInfoList list retrieved with taf_hms_GetMtdInfoList().
+ **
+ ** @return
+ **  - LE_BAD_PARAMETER -- Bad parameters.
+ **  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_Hms::DeleteMtdDevInfoList
+(
+    taf_hms_MtdDevInfoListRef_t mtdDevInfoListRef
+)
+{
+	taf_hms_mtdInfoList_t* listPtr =
+        (taf_hms_mtdInfoList_t*)le_ref_Lookup(mtdListRefMap, mtdDevInfoListRef);
+    TAF_ERROR_IF_RET_VAL(listPtr == nullptr, LE_NOT_FOUND, "Invalid para(null reference ptr)");
+    LE_DEBUG("DeleteMTDInfoList : %p", mtdDevInfoListRef);
+    taf_hms_mtdInfo_t* mtdInfoPtr;
+    le_sls_Link_t* linkPtr;
+    while ((linkPtr = le_sls_Pop(&(listPtr->mtdInfoList))) != NULL)
+    {
+        mtdInfoPtr = CONTAINER_OF(linkPtr, taf_hms_mtdInfo_t, link);
+        le_mem_Release(mtdInfoPtr);
+    }
+    le_ref_DeleteRef(mtdListRefMap, mtdDevInfoListRef);
+    le_mem_Release(listPtr);
+    return LE_OK;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the first mtdInfo object reference in the list of the
+ * mtdInfoList retrieved with taf_hms_GetMtdInfoList().
+ *
+ * @return
+ *  - NULL                          No information found.
+ *  - taf_hms_mtdDevInfoListRef      The mtdInfo object reference.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_hms_MtdDevInfoRef_t taf_Hms::GetFirstMtdDevInfo
+(
+    taf_hms_MtdDevInfoListRef_t mtdDevInfoListRef
+)
+{
+    taf_hms_mtdInfoList_t* mtdListPtr =
+            (taf_hms_mtdInfoList_t*)le_ref_Lookup(mtdListRefMap, mtdDevInfoListRef);
+
+    TAF_ERROR_IF_RET_VAL(mtdListPtr == NULL, NULL, "Failed to retrieve ubi device list.");
+
+    le_sls_Link_t* mtdLinkPtr = le_sls_Peek(&(mtdListPtr->mtdInfoList));
+    if (mtdLinkPtr != NULL)
+    {
+        taf_hms_mtdInfo_t* mtdDevPtr = CONTAINER_OF(mtdLinkPtr, taf_hms_mtdInfo_t, link);
+        mtdListPtr->currPtr = mtdLinkPtr;
+        return mtdDevPtr->ref;
+    }
+    return NULL;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the next mtdInfo object reference in the list of the
+ * mtdInfoList retrieved with taf_hms_GetMtdInfoList().
+ *
+ * @return
+ *  - NULL                          No information found.
+ *  - taf_hms_mtdDevInfoListRef      The mtdInfo object reference.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_hms_MtdDevInfoRef_t taf_Hms::GetNextMtdDevInfo
+(
+    taf_hms_MtdDevInfoListRef_t mtdDevInfoListRef
+)
+{
+    taf_hms_mtdInfoList_t* mtdListPtr =
+            (taf_hms_mtdInfoList_t*)le_ref_Lookup(mtdListRefMap, mtdDevInfoListRef);
+
+    TAF_ERROR_IF_RET_VAL(mtdListPtr == NULL, NULL, "Failed to retrieve next ubi device list.");
+
+    le_sls_Link_t* mtdLinkPtr =
+        le_sls_PeekNext(&(mtdListPtr->mtdInfoList), mtdListPtr->currPtr);
+    if (mtdLinkPtr != NULL)
+    {
+        taf_hms_mtdInfo_t* mtdDevPtr = CONTAINER_OF(mtdLinkPtr, taf_hms_mtdInfo_t, link);
+        mtdListPtr->currPtr = mtdLinkPtr;
+        return mtdDevPtr->ref;
+    }
+    return NULL;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ ** Get MTD information for name from " /sys/class/mtd/mtd%d/ ".
+ **
+ ** @return
+ ** - LE_FAULT         Failed.
+ ** - LE_OK            Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_Hms::GetMtdDevName
+(
+    taf_hms_MtdDevInfoRef_t mtdDevInfoRef,
+    char* mtdName,
+    size_t mtdNameSize
+)
+{
+    taf_hms_mtdInfo_t* mtdDevPtr =
+            (taf_hms_mtdInfo_t*)le_ref_Lookup(mtdRefMap, mtdDevInfoRef);
+    TAF_ERROR_IF_RET_VAL(mtdDevPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
+            mtdDevPtr);
+
+    snprintf(mtdName, sizeof(mtdDevPtr->mtdDevName), "%s", mtdDevPtr->mtdDevName);
+
+    TAF_ERROR_IF_RET_VAL(mtdName == NULL, LE_FAULT, "Failed to return MTD device name.");
+    return LE_OK;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ ** Get MTD information for block size.
+ **
+ ** @return
+ ** - LE_FAULT         Failed.
+ ** - LE_OK            Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_Hms::GetMtdDevBlkSize
+(
+    taf_hms_MtdDevInfoRef_t mtdDevInfoRef,
+    uint32_t* mtdBlkSizePtr
+)
+{
+    taf_hms_mtdInfo_t* mtdDevPtr =
+        (taf_hms_mtdInfo_t*)le_ref_Lookup(mtdRefMap, mtdDevInfoRef);
+
+    TAF_ERROR_IF_RET_VAL(mtdDevPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
+            mtdDevPtr);
+
+    *mtdBlkSizePtr = mtdDevPtr->mtdBlockSize;
+    TAF_ERROR_IF_RET_VAL(*mtdBlkSizePtr < 0, LE_FAULT, "Failed to return MTD device size.");
+    return LE_OK;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ ** Gets MTD information for device ID.
+ **
+ ** @return
+ ** - LE_FAULT         Failed.
+ ** - LE_OK            Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_Hms::GetMtdDevId
+(
+    taf_hms_MtdDevInfoRef_t mtdDevInfoRef,
+    uint32_t* mtdDevIdPtr
+)
+{
+   taf_hms_mtdInfo_t* mtdDevPtr =
+        (taf_hms_mtdInfo_t*)le_ref_Lookup(mtdRefMap, mtdDevInfoRef);
+
+    TAF_ERROR_IF_RET_VAL(mtdDevPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
+            mtdDevPtr);
+
+    *mtdDevIdPtr = mtdDevPtr->mtdDevId;
+    TAF_ERROR_IF_RET_VAL(*mtdDevIdPtr < 0, LE_FAULT, "Failed to return MTD device ID.");
+    return LE_OK;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ ** Gets MTD information for block count.
+ **
+ ** @return
+ ** - LE_FAULT         Failed.
+ ** - LE_OK            Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_Hms::GetMtdDevBlkCnt
+(
+    taf_hms_MtdDevInfoRef_t mtdDevInfoRef,
+    uint32_t* mtdBlkCntPtr
+)
+{
+    taf_hms_mtdInfo_t* mtdDevPtr =
+        (taf_hms_mtdInfo_t*)le_ref_Lookup(mtdRefMap, mtdDevInfoRef);
+
+    TAF_ERROR_IF_RET_VAL(mtdDevPtr == NULL, LE_FAULT, "Invalid reference (%p) provided!",
+            mtdDevPtr);
+
+    *mtdBlkCntPtr = mtdDevPtr->mtdBlockCnt;
+    TAF_ERROR_IF_RET_VAL(*mtdBlkCntPtr < 0, LE_FAULT, "Failed to return MTD Block size.");
+    return LE_OK;
+}
 
 void taf_Hms::Init()
 {
     LE_INFO("tafHMSvc started");
+
+    ubiDevListPool = le_mem_InitStaticPool(ubiDevListPool, TAF_HMS_MAX_LIST_POOL_SIZE,
+        sizeof(taf_hms_ubiDevInfoList_t));
+    ubiDevInfoPool = le_mem_InitStaticPool(ubiDevInfoPool, TAF_HMS_MAX_LIST_POOL_SIZE,
+        sizeof(taf_hms_ubiDevInfo_t));
+    ubiVolListPool = le_mem_InitStaticPool(ubiVolListPool, TAF_HMS_MAX_LIST_POOL_SIZE,
+        sizeof(taf_hms_ubiVolInfoList_t));
+    ubiVolInfoPool = le_mem_InitStaticPool(ubiVolInfoPool, TAF_HMS_MAX_LIST_POOL_SIZE,
+        sizeof(taf_hms_ubiVolInfo_t));
+    mtdListPool = le_mem_InitStaticPool(mtdListPool, TAF_HMS_MAX_LIST_POOL_SIZE,
+        sizeof(taf_hms_mtdInfoList_t));
+    mtdInfoPool = le_mem_InitStaticPool(mtdInfoPool, TAF_HMS_MAX_LIST_POOL_SIZE,
+        sizeof(taf_hms_mtdInfo_t));
+
+    ubiDevListRefMap = le_ref_InitStaticMap(ubiDevListRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
+    ubiDevRefMap = le_ref_InitStaticMap(ubiDevRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
+    ubiVolListRefMap = le_ref_InitStaticMap(ubiVolListRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
+    ubiVolRefMap = le_ref_InitStaticMap(ubiVolRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
+    mtdListRefMap = le_ref_InitStaticMap(mtdListRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
+    mtdRefMap = le_ref_InitStaticMap(mtdRefMap, TAF_HMS_MAX_LIST_POOL_SIZE);
+
 }

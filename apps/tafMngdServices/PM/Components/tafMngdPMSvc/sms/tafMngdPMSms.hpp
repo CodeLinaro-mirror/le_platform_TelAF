@@ -39,7 +39,7 @@
 typedef struct
 {
     char text[TAF_SMS_TEXT_BYTES];
-    taf_mngd_pm_State_t state;
+    taf_mngdPm_State_t state;
 }taf_MngdPM_Sms_t;
 
 namespace telux {
@@ -53,7 +53,7 @@ class tafMngdPMSms: public ITafSvc
 
         void Init(void) {};
         static tafMngdPMSms &GetInstance();
-        void RegisterSms(const char* text, taf_mngd_pm_State_t state);
+        void RegisterSms(const char* text, taf_mngdPm_State_t state);
         void DeregisterSms();
         static void SmsRxHandler(taf_sms_MsgRef_t msgRef, void* context);
         le_mem_PoolRef_t smsMapPool;

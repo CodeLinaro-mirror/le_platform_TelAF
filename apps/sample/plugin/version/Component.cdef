@@ -1,0 +1,11 @@
+sources:
+{
+    version.c
+}
+
+cflags:
+{
+    -DFRAMEWORK_WDOG_NAME=DevManagerWdog
+    -I $TELAF_ROOT/include
+    -I $TELAF_ROOT/include/staging/plugin
+}

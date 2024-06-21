@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -50,6 +50,7 @@
 #include <stdint.h>
 #include <map>
 #include "legato.h"
+#include "interfaces.h"
 #include "tafMngdConn_Common.hpp"
 #include "tafMngdSvcJSONParser_Helper.hpp"
 
@@ -60,36 +61,35 @@ namespace tafsvc {
     {
         uint8_t Priority;
         uint8_t Use_Data_ID;
-    } taf_mngd_Conn_Policy_DataConnection_t;
+    } taf_mngdConn_Policy_DataConnection_t;
 
     typedef struct
     {
         mcs_Yes_No_t Enable; //Yes=1, No=0
         uint8_t NumConnections;
-    } taf_mngd_Conn_Policy_MultiDataSession_t;
+    } taf_mngdConn_Policy_MultiDataSession_t;
 
     typedef struct
     {
         mcs_Policy_ConnRecoveryLevel_t Level; //L1=1, None=0
         uint8_t StartWaitTime;
-    } taf_mngd_Conn_Policy_ConnectivityRecovery_t;
+    } taf_mngdConn_Policy_ConnectivityRecovery_t;
 
     typedef struct
     {
-        mcs_Yes_No_t Fallback;  //Yes=1, No=0
         uint8_t dataConnectionCount; // Not part of the JSON. It is filled by the parser.
-        taf_mngd_Conn_Policy_DataConnection_t \
+        taf_mngdConn_Policy_DataConnection_t \
                             DataConnection[MCS_MAX_DATA_CONNECION_OBJECT_COUNT];
-        taf_mngd_Conn_Policy_MultiDataSession_t MultiDataSession;
-        taf_mngd_Conn_Policy_ConnectivityRecovery_t ConnectivityRecovery;
-    } taf_mngd_Conn_Policy_DataSession_t;
+        taf_mngdConn_Policy_MultiDataSession_t MultiDataSession;
+        taf_mngdConn_Policy_ConnectivityRecovery_t ConnectivityRecovery;
+    } taf_mngdConn_Policy_DataSession_t;
 
     typedef struct
     {
         mcs_JSON_Version_t Version; // Not part of the JSON. It is filled by the parser.
         char Name[MCS_MAX_NAME_LEN];
-        taf_mngd_Conn_Policy_DataSession_t DataSession;
-    } taf_mngd_Conn_Policy_t;
+        taf_mngdConn_Policy_DataSession_t DataSession;
+    } taf_mngdConn_Policy_t;
 
     // Class is declared here and defined later
     class tafMngdConnSvc_PolicyParser;
@@ -105,7 +105,7 @@ private:
     tafMngdConnSvc_PolicyParser(){};
 
     // Used to validate if the proprety values conform to expected types
-    typedef bool (*PolicyValidationFunction_t)(taf_mngd_Conn_Policy_t& Policy,
+    typedef bool (*PolicyValidationFunction_t)(taf_mngdConn_Policy_t& Policy,
                                                                 std::string Value,
                                                                 int Index);
 
@@ -115,43 +115,39 @@ private:
     void UpdateValidPolicyFuncMap(void);
 
     // MCSP = ManagedConnectivityServicePolicy
-    static bool Validate_MCSP_Name (taf_mngd_Conn_Policy_t &Policy,
+    static bool Validate_MCSP_Name (taf_mngdConn_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index);
 
-    // DS = DataSession
-    static bool Validate_DS_Fallback (taf_mngd_Conn_Policy_t &Policy,
-                                                        std::string Value,
-                                                        int Index);
     // DS_DC = DataSession/DataConnection
-    static bool Validate_DS_DC_Priority (taf_mngd_Conn_Policy_t &Policy,
+    static bool Validate_DS_DC_Priority (taf_mngdConn_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index);
-    static bool Validate_DS_DC_Use_Data_ID (taf_mngd_Conn_Policy_t &Policy,
+    static bool Validate_DS_DC_Use_Data_ID (taf_mngdConn_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index);
-    //DS_MDS = MultiDataSession
-    static bool Validate_DS_MDS_Enable (taf_mngd_Conn_Policy_t &Policy,
+    //DS_MDS = DataSession/MultiDataSession
+    static bool Validate_DS_MDS_Enable (taf_mngdConn_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index);
-    static bool Validate_DS_MDS_NumConnections (taf_mngd_Conn_Policy_t &Policy,
+    static bool Validate_DS_MDS_NumConnections (taf_mngdConn_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index);
-    static bool Validate_DS_MDS_Use_Data_IDs (taf_mngd_Conn_Policy_t &Policy,
+    static bool Validate_DS_MDS_Use_Data_IDs (taf_mngdConn_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index);
     //DS_CR = DataSession/ConnectionRecovery
-    static bool Validate_DS_CR_Level (taf_mngd_Conn_Policy_t &Policy,
+    static bool Validate_DS_CR_Level (taf_mngdConn_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index);
-    static bool Validate_DS_CR_StartWaitTime (taf_mngd_Conn_Policy_t &Policy,
+    static bool Validate_DS_CR_StartWaitTime (taf_mngdConn_Policy_t &Policy,
                                                         std::string Value,
                                                         int Index);
-    bool ValidateValue(taf_mngd_Conn_Policy_t &Policy,
+    bool ValidateValue(taf_mngdConn_Policy_t &Policy,
                        std::string property,
                        std::string Value,
                        int Index);
-    bool ParseAndUpdatePolicyJSON(taf_mngd_Conn_Policy_t &Policy, std::string filename);
+    bool ParseAndUpdatePolicyJSON(taf_mngdConn_Policy_t &Policy, std::string filename);
 
 public:
     // Delete copy constructor.
@@ -164,10 +160,10 @@ public:
      * \brief Reset the Policy structure
      *
      */
-    void ResetPolicyStructure(taf_mngd_Conn_Policy_t &Policy);
+    void ResetPolicyStructure(taf_mngdConn_Policy_t &Policy);
     /**
      * \brief Return a pointer to the Policy structure
      *
      */
-    bool GetPolicy(taf_mngd_Conn_Policy_t& Policy, std::string ConfigurationFileName);
+    bool GetPolicy(taf_mngdConn_Policy_t& Policy, std::string ConfigurationFileName);
 };

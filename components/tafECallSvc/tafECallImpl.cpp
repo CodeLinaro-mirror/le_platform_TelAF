@@ -61,7 +61,7 @@ void tafECallOperatingModeCallback::getECallOperatingModeResponse(
     if (error == telux::common::ErrorCode::SUCCESS) {
         LE_DEBUG("eCall operating mode request executed successfully");
     } else {
-         LE_ERROR("Request eCall Operating Mode failed, errorCode: ");
+        LE_ERROR("Request eCall Operating Mode failed, errorCode: ");
     }
     eCall.getOpModeProm.set_value(eCallMode);
 }
@@ -497,7 +497,6 @@ void taf_ecall::Init(void)
     InitializeECallPtr();
     le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateReadTxn( CFG_MODEMSERVICE_ECALL_PATH );
     int opMode = le_cfg_GetInt(iteratorRef, CFG_NODE_OPMODE, 0);
-    int numType = le_cfg_GetInt(iteratorRef, CFG_NODE_NUMTYPE, 0);
     le_cfg_CancelTxn(iteratorRef);
 
     if (opMode == TAF_ECALL_FORCED_PERSISTENT_ONLY_MODE) {
@@ -511,16 +510,6 @@ void taf_ecall::Init(void)
     if(ret!= Status::SUCCESS)
     {
         LE_CRIT("Cannot register Listern for ecall event!\n");
-    }
-
-    EcallConfig eCallConfig = {};
-    ret = CallManager->getECallConfig(eCallConfig);
-    if (ret == Status::SUCCESS) {
-        LE_INFO("Get eCall configuration successfully when init.");
-        if ((eCallConfig.numType == ECallNumType::OVERRIDDEN) || 
-            (numType == SET_PSAP_NUM_TYPE_OVERRIDDEN)) {
-            isUseUSimNum = false;
-        }
     }
 
     CallCommandCb = std::make_shared<tafCallCommandCallback>();
@@ -577,8 +566,9 @@ le_result_t taf_ecall::SetPsapNumber(const char* psapNumber)
     EcallConfig eCallConfig;
     eCallConfig.configValidityMask.set(ECALL_CONFIG_OVERRIDDEN_NUM);
     eCallConfig.overriddenNum = psapNumber;
+    eCallConfig.configValidityMask.set(ECALL_CONFIG_NUM_TYPE);
+    eCallConfig.numType = ECallNumType::OVERRIDDEN;
     Status status = CallManager->setECallConfig(eCallConfig);
-    isUseUSimNum = false;
 
     return Status::SUCCESS == status ? LE_OK : LE_FAULT;
 }
@@ -619,6 +609,7 @@ le_result_t taf_ecall::SetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t
     if (Phones.size() >= phoneId) {
         auto phone = Phones[phoneId - 1];
         if(phone) {
+            setOpModeProm = std::promise<telux::common::ErrorCode>();
             if(eCallMode == TAF_ECALL_MODE_NORMAL  || eCallMode == TAF_ECALL_MODE_ECALL) {
                 auto ret = phone->setECallOperatingMode(
                         static_cast<telux::tel::ECallMode>(eCallMode),
@@ -626,7 +617,6 @@ le_result_t taf_ecall::SetECallOperatingMode(uint8_t phoneId, taf_ecall_OpMode_t
                 if(ret == telux::common::Status::SUCCESS) {
                     LE_INFO("Set eCall operating mode %d request sent successfully in phoneId: %d\n",
                             (int) eCallMode, phoneId);
-                    setOpModeProm = std::promise<telux::common::ErrorCode>();
                     telux::common::ErrorCode error = setOpModeProm.get_future().get();
                     if (error == telux::common::ErrorCode::SUCCESS)
                     {
@@ -700,61 +690,37 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
     {
         ECallObject.msd.control.automaticActivation = false;
         ECallObject.msd.control.testCall = true;
-        if (isUseUSimNum == false)
-        {
-            if (eCallConfig.numType != ECallNumType::OVERRIDDEN)
-            {
-                eCallConfig.configValidityMask.set(ECALL_CONFIG_NUM_TYPE);
-                eCallConfig.numType = ECallNumType::OVERRIDDEN;
-                ret = CallManager->setECallConfig(eCallConfig);
-                if (ret == Status::SUCCESS)
-                {
-                    LE_INFO("Set eCall configuration with overridden number type successfully");
-                }
-            }
-        }
-    }
+    } 
     else if (( emergencyCategory == ECallCategory::VOICE_EMER_CAT_AUTO_ECALL) ||
-             ( emergencyCategory == ECallCategory::VOICE_EMER_CAT_MANUAL))
+             ( emergencyCategory == ECallCategory::VOICE_EMER_CAT_MANUAL)) 
     {
-        if (eCallConfig.numType != ECallNumType::DEFAULT)
+        ECallObject.msd.control.testCall = false;
+        if (eCallConfig.overriddenNum.empty())
         {
-            eCallConfig.configValidityMask.set(ECALL_CONFIG_NUM_TYPE);
-            eCallConfig.numType = ECallNumType::DEFAULT;
-            ret = CallManager->setECallConfig(eCallConfig);
-            if (ret == Status::SUCCESS)
-            {
-                LE_INFO("Set eCall configuration with default number type successfully");
-            }
-
-            if (isUseUSimNum == false)
-            {
-                le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn( CFG_MODEMSERVICE_ECALL_PATH );
-                le_cfg_SetInt(iteratorRef, CFG_NODE_NUMTYPE, (int) SET_PSAP_NUM_TYPE_OVERRIDDEN);
-                le_cfg_CommitTxn(iteratorRef);
-            }
-        }
-
-        if ((0 == strncmp(eCallConfig.overriddenNum.c_str(), "112", 3)) ||
-            (0 == strncmp(eCallConfig.overriddenNum.c_str(), "911", 3)) ||
-            (0 == strncmp(eCallConfig.overriddenNum.c_str(), "999", 3)))
-        {
-            ECallObject.msd.control.testCall = false;
-        }
-        else if (eCallConfig.overriddenNum.empty())
-        {
-            ECallObject.msd.control.testCall = false;
             eCallConfig.configValidityMask.set(ECALL_CONFIG_OVERRIDDEN_NUM);
             eCallConfig.overriddenNum = "112";
+            eCallConfig.configValidityMask.set(ECALL_CONFIG_NUM_TYPE);
+            eCallConfig.numType = ECallNumType::DEFAULT;
             ret = CallManager->setECallConfig(eCallConfig);
             if (ret == Status::SUCCESS)
             {
                 LE_INFO("Set eCall configuration with number 112 successfully");
             }
         }
-        else
+        else if ((0 == strncmp(eCallConfig.overriddenNum.c_str(), "112", 3)) ||
+                 (0 == strncmp(eCallConfig.overriddenNum.c_str(), "911", 3)) ||
+                 (0 == strncmp(eCallConfig.overriddenNum.c_str(), "999", 3)))
         {
-            ECallObject.msd.control.testCall = true;
+            if (eCallConfig.numType != ECallNumType::DEFAULT)
+            {
+                eCallConfig.configValidityMask.set(ECALL_CONFIG_NUM_TYPE);
+                eCallConfig.numType = ECallNumType::DEFAULT;
+                ret = CallManager->setECallConfig(eCallConfig);
+                if (ret == Status::SUCCESS)
+                {
+                    LE_INFO("Set eCall configuration with default number type successfully");
+                }
+            }
         }
 
         if ( emergencyCategory == ECallCategory::VOICE_EMER_CAT_AUTO_ECALL)
@@ -779,28 +745,22 @@ le_result_t taf_ecall::StartECall(ECallCategory emergencyCategory,
         {
             eCallMsdData.push_back(eCallPtr->msdPdu[i]);
         }
-        if (eCallVariant == ECallVariant::ECALL_TEST
-                && eCallConfig.numType == ECallNumType::OVERRIDDEN) {
-            ret = CallManager->makeECall(phoneId, eCallConfig.overriddenNum, eCallMsdData,
-                    (int)emergencyCategory, tafCallCommandCallback::makeECallResponse);
-        } else {
-            ret = CallManager->makeECall(phoneId, eCallMsdData, (int)emergencyCategory,
-                    (int)eCallVariant, tafCallCommandCallback::makeECallResponse);
-        }
+
+        ret = CallManager->makeECall(phoneId, eCallMsdData, (int)emergencyCategory,
+                (int)eCallVariant, tafCallCommandCallback::makeECallResponse);
     }
     else
     {
+        if (LE_OK != UpdateMsdInformation(ecallRef))
+        {
+            LE_ERROR("Unable to update the msd information via VHAL");
+        }
         eCallPtr->msd.messageIdentifier = 1;
         ECallMsdData eCallMsdData = (ECallMsdData) eCallPtr->msd;
 
-        if (eCallVariant == ECallVariant::ECALL_TEST
-                && eCallConfig.numType == ECallNumType::OVERRIDDEN) {
-            ret = CallManager->makeECall(phoneId, eCallConfig.overriddenNum, eCallMsdData,
-                    (int)emergencyCategory, CallCommandCb);
-        } else {
-            ret = CallManager->makeECall(phoneId, eCallMsdData, (int)emergencyCategory,
-                    (int)eCallVariant, CallCommandCb);
-        }
+
+        ret = CallManager->makeECall(phoneId, eCallMsdData, (int)emergencyCategory,
+                (int)eCallVariant, CallCommandCb);
     }
 
     if(ret == Status::SUCCESS)
@@ -1075,7 +1035,7 @@ void taf_ecall::UpdateMsd ()
         ECallObject.msd.vehicleIdentificationNumber.isovisModelyear =
                              vinStr.substr(ISOVIS_MODEL_YEAR_START, ISOVIS_MODEL_YEAR_LENGTH);
         ECallObject.msd.vehicleIdentificationNumber.isovisSeqPlant =
-                                 vinStr.substr(ISOVIS_SEQ_PLANT_START, ISOVIS_SEQ_PLANT_LENGTH);
+                             vinStr.substr(ISOVIS_SEQ_PLANT_START, ISOVIS_SEQ_PLANT_LENGTH);
     }
 
     if (le_cfg_NodeExists(iteratorRef, CFG_NODE_MSDVEHTYPE))
@@ -1462,6 +1422,11 @@ le_result_t taf_ecall::SendMsd( taf_ecall_CallRef_t ecallRef)
     }
     else
     {
+        if (LE_OK != UpdateMsdInformation(ecallRef))
+        {
+            LE_ERROR("Unable to update the msd information via VHAL");
+        }
+
         updateMsdProm = std::promise<telux::common::ErrorCode>();
         status = CallManager->updateECallMsd(phoneId, eCallPtr->msd, UpdateMsdCb);
         if (status == Status::SUCCESS) {
@@ -1557,10 +1522,6 @@ le_result_t taf_ecall::UseUSimNumbers()
     eCallConfig.numType = ECallNumType::DEFAULT;
     Status status = CallManager->setECallConfig(eCallConfig);
     LE_INFO("UseUSimNumbers: status %d", (int) status);
-    isUseUSimNum = true;
-    le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn( CFG_MODEMSERVICE_ECALL_PATH );
-    le_cfg_SetInt(iteratorRef, CFG_NODE_NUMTYPE, (int) SET_PSAP_NUM_TYPE_DEFFAULT);
-    le_cfg_CommitTxn(iteratorRef);
 
     return Status::SUCCESS == status ? LE_OK : LE_FAULT;
 }
@@ -1892,6 +1853,11 @@ le_result_t taf_ecall::GetHlapTimerState(taf_ecall_HlapTimerType_t timerType, ta
                 return LE_BAD_PARAMETER;
             }
     }
+    else if (*timerStatus == TAF_ECALL_TIMER_STATUS_UNKNOWN)
+    {
+       LE_ERROR("Wrong hlap timer type or unable to get the timer status.");
+       return LE_FAULT;
+    }
     else
     {
        *elapsedTime = 0;
@@ -1965,6 +1931,289 @@ uint16_t taf_ecall::ConvertElapsedTime(std::chrono::time_point<std::chrono::syst
     std::chrono::duration<double> duration = std::chrono::system_clock::now() - startTime;
     uint16_t elapsedTime = static_cast<uint16_t>(duration.count());
     return elapsedTime;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * The Vehicle Identification Number is defined by iso 3833 as a 17 character
+ * alphanumeric code, which includes the letters (F"A".."H"|"J".."N"|"P"|"R".."Z")
+ * and the digit ("0".."9")
+ */
+//--------------------------------------------------------------------------------------------------
+int taf_ecall::CheckVIN
+(
+    char *vin
+)
+{
+    int ret = 0;
+    char c;
+
+    while ( (*vin) && (!ret) )
+    {
+        c= (char)(*vin);
+        if (( (c >= 'A') && (c <= 'H') ) ||
+            ( (c >= 'J') && (c <= 'N') ) ||
+            ( c == 'P' ) ||
+            ( (c >= 'R') && (c <= 'Z') ) ||
+            ( (c >= '0') && (c <= '9') ) )
+        {
+            vin++;
+        }
+        else
+        {
+            ret = -1;
+            LE_ERROR("%c is not allowed", *vin);
+        }
+    }
+
+    return ret;
+}
+
+le_result_t taf_ecall::UpdateMsdVehicleInfo()
+{
+    if (isDrvPresent == true)
+    {
+        LE_INFO("Update Msd VehicleInfo via VHAL");
+        if((*(eCallInf->getVehicleInfo)) == NULL)
+        {
+            LE_ERROR("getVehicleInfo VHAL not initialized");
+            return LE_FAULT;
+        }
+
+        le_result_t result = LE_FAULT;
+        taf_hal_eCall_VehicleInfo vehInfo;
+        result = (*(eCallInf->getVehicleInfo))(&vehInfo);
+        if(result != LE_OK)
+        {
+            LE_ERROR("Unable to get vehicleInfo via VHAL");
+            return LE_FAULT;
+        }
+
+        if ((vehInfo.propulsionType & ECALL_HAL_BITMASK_PROP_TYPE_GASOLINE_TANK) == ECALL_HAL_BITMASK_PROP_TYPE_GASOLINE_TANK)
+        {
+            ECallObject.msd.vehiclePropulsionStorage.gasolineTankPresent = true;
+        } else {
+            ECallObject.msd.vehiclePropulsionStorage.gasolineTankPresent = false;
+        }
+
+        if ((vehInfo.propulsionType & ECALL_HAL_BITMASK_PROP_TYPE_DIESEL_TANK) == ECALL_HAL_BITMASK_PROP_TYPE_DIESEL_TANK)
+        {
+            ECallObject.msd.vehiclePropulsionStorage.dieselTankPresent = true;
+        } else {
+            ECallObject.msd.vehiclePropulsionStorage.dieselTankPresent = false;
+        }
+
+        if ((vehInfo.propulsionType & ECALL_HAL_BITMASK_PROP_TYPE_GASOLINE_TANK) == ECALL_HAL_BITMASK_PROP_TYPE_COMPRESSED_NATURALGAS)
+        {
+            ECallObject.msd.vehiclePropulsionStorage.compressedNaturalGas = true;
+        } else {
+            ECallObject.msd.vehiclePropulsionStorage.compressedNaturalGas = false;
+        }
+
+        if ((vehInfo.propulsionType & ECALL_HAL_BITMASK_PROP_TYPE_DIESEL_TANK) == ECALL_HAL_BITMASK_PROP_TYPE_PROPANE_GAS)
+        {
+            ECallObject.msd.vehiclePropulsionStorage.liquidPropaneGas = true;
+        } else {
+            ECallObject.msd.vehiclePropulsionStorage.liquidPropaneGas = false;
+        }
+
+        if ((vehInfo.propulsionType & ECALL_HAL_BITMASK_PROP_TYPE_DIESEL_TANK) == ECALL_HAL_BITMASK_PROP_TYPE_ELECTRIC)
+        {
+            ECallObject.msd.vehiclePropulsionStorage.electricEnergyStorage = true;
+        } else {
+            ECallObject.msd.vehiclePropulsionStorage.electricEnergyStorage = false;
+        }
+
+        if ((vehInfo.propulsionType & ECALL_HAL_BITMASK_PROP_TYPE_GASOLINE_TANK) == ECALL_HAL_BITMASK_PROP_TYPE_HYDROGEN)
+        {
+            ECallObject.msd.vehiclePropulsionStorage.hydrogenStorage = true;
+        } else {
+            ECallObject.msd.vehiclePropulsionStorage.hydrogenStorage = false;
+        }
+
+        if ((vehInfo.propulsionType & ECALL_HAL_BITMASK_PROP_TYPE_DIESEL_TANK) == ECALL_HAL_BITMASK_PROP_TYPE_OTHER)
+        {
+            ECallObject.msd.vehiclePropulsionStorage.otherStorage = true;
+        } else {
+            ECallObject.msd.vehiclePropulsionStorage.liquidPropaneGas = false;
+        }
+
+        if (CheckVIN((char *)vehInfo.vin))
+        {
+            LE_ERROR("VIN is wrong %s", vehInfo.vin);
+            ECallObject.msd.vehicleIdentificationNumber.isowmi = "000";
+            ECallObject.msd.vehicleIdentificationNumber.isovds = "000000";
+            ECallObject.msd.vehicleIdentificationNumber.isovisModelyear = "0";
+            ECallObject.msd.vehicleIdentificationNumber.isovisSeqPlant = "0000000";
+        } else {
+            std::string vinStr = vehInfo.vin;
+            ECallObject.msd.vehicleIdentificationNumber.isowmi = vinStr.substr(ISOWMI_START, ISOWMI_LENGTH );
+            ECallObject.msd.vehicleIdentificationNumber.isovds = vinStr.substr(ISOVDS_START, ISOVDS_LENGTH);
+            ECallObject.msd.vehicleIdentificationNumber.isovisModelyear =
+                                 vinStr.substr(ISOVIS_MODEL_YEAR_START, ISOVIS_MODEL_YEAR_LENGTH);
+            ECallObject.msd.vehicleIdentificationNumber.isovisSeqPlant =
+                                 vinStr.substr(ISOVIS_SEQ_PLANT_START, ISOVIS_SEQ_PLANT_LENGTH);
+        }
+
+        ECallObject.msd.control.vehicleType = (ECallVehicleType)vehInfo.vehiType;
+
+        return LE_OK;
+    } else {
+        return LE_FAULT;
+    }
+}
+
+le_result_t taf_ecall::UpdateMsdInformation(taf_ecall_CallRef_t ecallRef)
+{
+    taf_ECall_t* eCallPtr = (taf_ECall_t*)le_ref_Lookup(ECallPtrRefMap, ecallRef);
+
+    TAF_KILL_CLIENT_IF_RET_VAL(eCallPtr == NULL, LE_BAD_PARAMETER, "Invalid eCall reference");
+
+    if (isDrvPresent == true)
+    {
+        LE_INFO("Update Msd Information via Hal");
+        le_result_t result = LE_FAULT;
+
+        taf_hal_eCall_VehicleType maxVehicleType = ECALL_HAL_VEHITYPE_MOTOR_CYCLES_CLASS_L7E;
+#if defined(LE_CONFIG_ENABLE_ECALL_MSD_V3)
+        if ( ECallObject.msd.msdVersion == MSD_VERSION_THREE)
+        {
+            maxVehicleType = ECALL_HAL_VEHITYPE_OTHER_VEHICLE_CLASS;
+        }
+#endif
+
+        if ((ECallObject.msd.control.vehicleType < ECALL_HAL_VEHITYPE_PASSENGER_VEHICLE_CLASS_M1) ||
+            (ECallObject.msd.control.vehicleType > maxVehicleType))
+        {
+            LE_ERROR("VehicleType is wrong %d", ECallObject.msd.control.vehicleType);
+            ECallObject.msd.control.vehicleType = (ECallVehicleType)ECALL_HAL_VEHITYPE_PASSENGER_VEHICLE_CLASS_M1;
+        }
+
+        taf_hal_eCall_ActivateType actType;
+
+        ECallObject.msd.control.automaticActivation = false;
+        eCallPtr->msd.optionals.numberOfPassengersPresent = false;
+
+        if((*(eCallInf->getActivateType)) == NULL)
+        {
+            LE_ERROR("getActivateType VHAL not initialized");
+        } else {
+            result = (*(eCallInf->getActivateType))(&actType);
+            if(result != LE_OK)
+            {
+                LE_ERROR("Unable to get activate type via VHAL");
+            } else {
+                if (actType == ECALL_HAL_ACTTYPE_AUTOMATIC)
+                {
+                    ECallObject.msd.control.automaticActivation = true;
+                } else {
+                    ECallObject.msd.control.automaticActivation = false;
+                }
+            }
+        }
+
+        if((*(eCallInf->getPassengerCount)) == NULL)
+        {
+            LE_ERROR("getPassengerCount VHAL not initialized");
+        } else {
+
+            uint8_t passCount = 0;
+            result = (*(eCallInf->getPassengerCount))(&passCount);
+            if(result != LE_OK)
+            {
+                LE_ERROR("Unable to get passenger count via VHAL");
+            } else {
+                eCallPtr->msd.optionals.numberOfPassengersPresent = true;
+                eCallPtr->msd.numberOfPassengers = passCount;
+            }
+        }
+
+        if (actType != ECALL_HAL_ACTTYPE_AUTOMATIC)
+        {
+            if (LE_OK != ResetMsdAdditionalData(ecallRef))
+            {
+                LE_ERROR("Reset Msd additionalData failed");
+                return LE_FAULT;
+            }
+            return LE_OK;
+        } else {
+#if defined(LE_CONFIG_ENABLE_ECALL_MSD_OPTIONAL_DATA)
+            ECallObject.euroNCAPData.locationOfImpact = (taf_ecall_IILocations_t)ECALL_HAL_LOI_UNKNOWN;
+            ECallObject.euroNCAPData.rolloverDetectedPresent = false;
+            ECallObject.euroNCAPData.rangeLimit = 125;
+            ECallObject.euroNCAPData.deltaVX = -45;
+            ECallObject.euroNCAPData.deltaVY = 10;
+#endif
+        }
+
+        if((*(eCallInf->getIILocations)) == NULL)
+        {
+            LE_ERROR("getIILocations VHAL not initialized");
+        } else {
+            taf_hal_eCall_IILocations iILocations;
+            result = (*(eCallInf->getIILocations))(&iILocations);
+            if((result != LE_OK) ||
+               ((iILocations < ECALL_HAL_LOI_UNKNOWN) || (iILocations > ECALL_HAL_LOI_OTHER)))
+            {
+                LE_ERROR("Unable to get IILocations information via VHAL");
+            } else {
+#if defined(LE_CONFIG_ENABLE_ECALL_MSD_OPTIONAL_DATA)
+                ECallObject.euroNCAPData.locationOfImpact = (taf_ecall_IILocations_t)iILocations;
+#endif
+            }
+        }
+
+        if((*(eCallInf->getRolloverDetected)) == NULL)
+        {
+            LE_ERROR("getRolloverDetected VHAL not initialized");
+        } else {
+            taf_hal_eCall_RolloverDetected rollDetected;
+            result = (*(eCallInf->getRolloverDetected))(&rollDetected);
+            if(result != LE_OK)
+            {
+                LE_ERROR("Unable to get rolloverDetected information via VHAL");
+            } else {
+#if defined(LE_CONFIG_ENABLE_ECALL_MSD_OPTIONAL_DATA)
+                ECallObject.euroNCAPData.rolloverDetectedPresent = rollDetected.rolloverDetectedPresent;
+                ECallObject.euroNCAPData.rolloverDetected = rollDetected.rolloverDetected;
+#endif
+            }
+        }
+
+        if((*(eCallInf->getDeltaV)) == NULL)
+        {
+            LE_ERROR("getDeltaV VHAL not initialized");
+        } else {
+            taf_hal_eCall_DeltaV deltaV;
+            result = (*(eCallInf->getDeltaV))(&deltaV);
+            if(result != LE_OK)
+            {
+                LE_ERROR("Unable to get DeltaVHAL via VHAL");
+            } else {
+#if defined(LE_CONFIG_ENABLE_ECALL_MSD_OPTIONAL_DATA)
+                if ((deltaV.rangeLimit < 100) || (deltaV.rangeLimit > 250) ||
+                    (deltaV.deltaVX < -250) || (deltaV.deltaVX > 250) ||
+                    (deltaV.deltaVY < -250) || (deltaV.deltaVY > 250))
+                {
+                     LE_ERROR("Invalid deltaV information");
+                } else{
+                    ECallObject.euroNCAPData.rangeLimit = deltaV.rangeLimit;
+                    ECallObject.euroNCAPData.deltaVX = deltaV.deltaVX;
+                    ECallObject.euroNCAPData.deltaVY = deltaV.deltaVY;
+                }
+#endif
+            }
+        }
+
+#if defined(LE_CONFIG_ENABLE_ECALL_MSD_OPTIONAL_DATA)
+        memset(eCallPtr->oadData, 0, sizeof(eCallPtr->oadData));
+        eCallPtr->oadDataSize = (size_t)msd_EncodeOptionalDataForEuroNCAP(&ECallObject.euroNCAPData, eCallPtr->oadData);
+        SetMsdAdditionalData(ecallRef, "8.1", eCallPtr->oadData, eCallPtr->oadDataSize);
+#endif
+        return LE_OK;
+    } else {
+        return LE_FAULT;
+    }
 }
 
 taf_ecall_StateChangeHandlerRef_t taf_ecall::AddStateChangeHandler

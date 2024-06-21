@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -8,11 +8,17 @@
  * @brief      Unit test for WLAN device manager
  */
 
+#include <iostream>
+#include <string>
+#include <future>
 #include "legato.h"
 #include "interfaces.h"
 
 static le_sem_Ref_t wlanSemRef = nullptr;
 static taf_wlanSta_WlanSTARef_t wlanSTARef = nullptr;
+
+static std::promise<taf_wlanSta_State_t> connectPromise;
+static std::promise<taf_wlanSta_State_t> disconnectPromise;
 
 //static const taf_wlan_STAid_t STAid = TAF_WLAN_STA_ID1;
 //static const char* wlanIntf = "wlan0";
@@ -122,6 +128,18 @@ static void PrintAPInfo(taf_wlanSta_APInfo_t *APInfoPtr)
     return;
 }
 
+static void PrintAllAPInfoOnConsole(taf_wlanSta_APInfo_t *APInfoPtr, size_t APInfoSize)
+{
+    printf("Available APs found during Scan: \n\n");
+    printf("SSID\tWPS\tAuthMode\n");
+    for(size_t n = 0; n < APInfoSize; ++n)
+    {
+        printf("%s\t%s\t%s\n", APInfoPtr[n].SSID,
+                                   APInfoPtr[n].WPSEnabled ? "Enabled" : "Disabled",
+                                   SecAuthToStr(APInfoPtr[n].secAuthMethod));
+    }
+}
+
 static void DeviceStateHandler(taf_wlan_WlanRef_t wlanRef,
                    taf_wlan_DeviceState_t state,
                    void *CtxPtr)
@@ -138,14 +156,48 @@ static void StationEventHandler(taf_wlanSta_WlanSTARef_t wlanSTARef,
     LE_UNUSED(wlanSTARef);
     LE_UNUSED(CtxPtr);
     LE_TEST_INFO("Station Event: %s(%d)", StaEventsToStr(staState), staState);
-    if (TAF_WLANSTA_STATE_SCAN_FAILED == staState)
+    if (staState == TAF_WLANSTA_STATE_SCAN_FAILED)
     {
         LE_TEST_FATAL("WLAN STA AP scanning failed");
     }
-    if (TAF_WLANSTA_STATE_SCAN_COMPLETED == staState)
+    else if (staState == TAF_WLANSTA_STATE_SCAN_COMPLETED)
     {
         // Allow main thread to proceed.
         le_sem_Post(wlanSemRef);
+    }
+    else if (staState == TAF_WLANSTA_STATE_CONNECTING)
+    {
+        LE_TEST_INFO("AP connection is in progress...");
+    }
+    else if (staState == TAF_WLANSTA_STATE_CONNECTED)
+    {
+        LE_TEST_INFO("AP connection was successful");
+        try {
+            connectPromise.set_value(TAF_WLANSTA_STATE_CONNECTED);
+        }
+        catch (std::future_error& e) {
+            // ignore
+        }
+    }
+    else if (staState == TAF_WLANSTA_STATE_ASSOCIATION_FAILED)
+    {
+        LE_TEST_INFO("AP connection failed");
+        try {
+            connectPromise.set_value(TAF_WLANSTA_STATE_ASSOCIATION_FAILED);
+        }
+        catch (std::future_error& e) {
+            // ignore
+        }
+    }
+    else if (staState == TAF_WLANSTA_STATE_DISCONNECTED)
+    {
+        LE_TEST_INFO("AP disconnection was successful");
+        try {
+            disconnectPromise.set_value(TAF_WLANSTA_STATE_DISCONNECTED);
+        }
+        catch (std::future_error& e) {
+            // ignore
+        }
     }
 }
 
@@ -188,6 +240,10 @@ static void PrintSTAIntfInfo(taf_wlan_STAIntfInfo_t *STAIntfInfoPtr, size_t STAI
     return;
 }
 
+/*
+    Command to run this test:
+        app runProc tafWLANUnitTest wlanUnitTest
+*/
 COMPONENT_INIT
 {
     le_result_t result = LE_FAULT;
@@ -197,7 +253,7 @@ COMPONENT_INIT
     bool bRestartWLAN = false;
 
     LE_TEST_INIT;
-    LE_TEST_INFO("======== WLAN Device Manager Integration Test ========");
+    LE_TEST_INFO("======== WLAN Unit Test ========");
 
     // Register device state handler
     taf_wlan_DeviceStateHandlerRef_t devHdlrRef =
@@ -270,13 +326,13 @@ COMPONENT_INIT
 
     // Get Interface information
     LE_TEST_INFO("======== WLAN Unit Test: taf_wlan_GetIntfInfo ========");
-    taf_wlan_APIntfInfo_t APInfo[TAF_WLAN_MAX_NUM_AP] = {};
+    taf_wlan_APIntfInfo_t APIntInfos[TAF_WLAN_MAX_NUM_AP] = {};
     size_t APIntfInfoSize = TAF_WLAN_MAX_NUM_AP;
     taf_wlan_STAIntfInfo_t STAInfo[TAF_WLAN_MAX_NUM_STA] = {};
     size_t STAIntfInfoSize = TAF_WLAN_MAX_NUM_STA;
-    result = taf_wlan_GetIntfInfo(nullptr, APInfo, &APIntfInfoSize, STAInfo, &STAIntfInfoSize);
+    result = taf_wlan_GetIntfInfo(nullptr, APIntInfos, &APIntfInfoSize, STAInfo, &STAIntfInfoSize);
     LE_TEST_OK(LE_OK == result, "WLAN Unit Test: taf_wlan_GetIntfInfo");
-    PrintAPIntfInfo(APInfo, APIntfInfoSize);
+    PrintAPIntfInfo(APIntInfos, APIntfInfoSize);
     PrintSTAIntfInfo(STAInfo, STAIntfInfoSize);
 
     // Get WLAN STA Reference
@@ -302,33 +358,38 @@ COMPONENT_INIT
     LE_TEST_INFO("======== Do WLAN STA AP Get Scan Results ========");
     uint16_t numScanedAPs = 0;
     size_t APInfoSize = TAF_WLANSTA_MAX_APSCAN_RESULT_NUM;
-    taf_wlanSta_APInfo_t ApInfo[TAF_WLANSTA_MAX_APSCAN_RESULT_NUM]={0};
-    result = taf_wlanSta_GetAPScanResults(wlanSTARef, &numScanedAPs, ApInfo, &APInfoSize);
+    taf_wlanSta_APInfo_t ApInfos[TAF_WLANSTA_MAX_APSCAN_RESULT_NUM] = {0};
+    result = taf_wlanSta_GetAPScanResults(wlanSTARef, &numScanedAPs, ApInfos, &APInfoSize);
     LE_TEST_ASSERT(LE_OK == result, "WLAN Unit Test: taf_wlanSta_GetAPScanResults");
     LE_TEST_INFO("Num APs available     : %d", numScanedAPs);
     LE_TEST_INFO("Num elements populated: %" PRIuS "", APInfoSize);
 
     // Ensure the number of APs scanned and elements populated are equal
-    LE_TEST_OK(numScanedAPs==APInfoSize, "num APs scanned and elements populated should be equal");
+    LE_TEST_OK(numScanedAPs == APInfoSize,
+        "num APs scanned and elements populated should be equal");
     for (int iCount = 0; iCount < static_cast<int>(APInfoSize); iCount++)
     {
         LE_TEST_INFO("AP Number : %d", (iCount + 1));
-        PrintAPInfo(&ApInfo[iCount]);
+        PrintAPInfo(&ApInfos[iCount]);
     }
+
+    PrintAllAPInfoOnConsole(ApInfos, APInfoSize);
 
     LE_TEST_INFO("======== Do WLAN STA AP Get Scan Results(one element) ========");
     numScanedAPs = 0;
-    APInfoSize = 1;
-    memset (&ApInfo[0],0,sizeof(taf_wlanSta_APInfo_t));
-    result = taf_wlanSta_GetAPScanResults(wlanSTARef, &numScanedAPs, ApInfo, &APInfoSize);
+    size_t APInfoSizeOne = 1;
+    taf_wlanSta_APInfo_t ApInfo = {};
+    result = taf_wlanSta_GetAPScanResults(wlanSTARef, &numScanedAPs, &ApInfo, &APInfoSizeOne);
     LE_TEST_ASSERT(LE_OK == result, "WLAN Unit Test: taf_wlanSta_GetAPScanResults");
     LE_TEST_INFO("Num APs available     : %d", numScanedAPs);
-    LE_TEST_INFO("Num elements populated: %" PRIuS "", APInfoSize);
+    LE_TEST_INFO("Num elements populated: %" PRIuS "", APInfoSizeOne);
 
     // Ensure the number of APs scanned and elements populated are NOT equal
-    LE_TEST_OK(APInfoSize <= numScanedAPs, "APInfoSize is lesser than or equal to numScanedAPs");
-    LE_TEST_OK(1 == APInfoSize, "APInfoSize should be 1");
+    LE_TEST_OK(APInfoSizeOne <= numScanedAPs, "APInfoSize is lesser than or equal to numScanedAPs");
+    LE_TEST_OK(1 == APInfoSizeOne, "APInfoSizeOne should be 1");
     LE_TEST_INFO("AP Number : 1");
-    PrintAPInfo(&ApInfo[0]);
+    PrintAPInfo(&ApInfo);
+
+    LE_TEST_INFO("======== ALL WLAN UNIT TESTS PASSED ========");
     LE_TEST_EXIT;
 }

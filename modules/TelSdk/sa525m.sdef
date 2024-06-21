@@ -14,6 +14,7 @@ apps:
     $TELAF_ROOT/apps/tafServices/tafRadioSvc
 #if ${TELUX_AUDIO_SUPPORTED} = y
     $TELAF_ROOT/apps/tafServices/tafAudioSvc
+    //$TELAF_ROOT/apps/tafServices/staging/tafAudioSvc
 #endif
 #if ${TELUX_LOCATION_SUPPORTED} = y
     $TELAF_ROOT/apps/tafServices/tafLocationSvc
@@ -32,18 +33,17 @@ apps:
     $TELAF_ROOT/apps/tafServices/tafSomeipGWSvc
     $TELAF_ROOT/apps/tafMngdServices/Connectivity/tafMngdConnSvc
     $TELAF_ROOT/apps/tafMngdServices/PM/tafMngdPMSvc
-    $TELAF_ROOT/apps/tafMngdServices/Audio/tafMngdAudioSvc
     $TELAF_ROOT/apps/tafServices/tafDiagSvc
     $TELAF_ROOT/apps/tafServices/tafTimeSvc
     $TELAF_ROOT/apps/tafServices/tafHMSvc
+    $TELAF_ROOT/apps/tafServices/tafSensorSvc
     // $TELAF_ROOT/apps/tafServices/tafWlanSvc
 #if ${LE_CONFIG_DIAG_VSTACK} = y
     $TELAF_ROOT/apps/tafServices/tafDiagBackendSvc
 #endif
     // IVSS services.
-    $TELAF_ROOT/apps/ivss/service/tafIvssRadioSvc/tafIvssRadioSvc
-    $TELAF_ROOT/apps/ivss/service/tafIvssSimSvc/tafIvssSimSvc
-    $TELAF_ROOT/apps/ivss/service/tafIvssInfoSvc/tafIvssInfoSvc
+    $TELAF_ROOT/apps/ivss/service/tafIvssTelephonySvc/tafIvssTelephonySvc
+    $TELAF_ROOT/apps/ivss/service/tafIvssDataSvc/tafIvssDataSvc
 
     // RPC proxy
     $TELAF_ROOT/apps/rpc/rpcProxy/tafRpcProxy
@@ -53,6 +53,7 @@ apps:
     $TELAF_ROOT/apps/tools/tafTools
 
     // test apps
+    // $TELAF_ROOT/apps/test/tafSensorTest/tafSensorUnitTest/tafSensorUnitTest
     // $TELAF_ROOT/apps/test/tafDevInfoTest/tafDevInfoUnitTest
     // $TELAF_ROOT/apps/test/tafDevInfoTest/tafDevInfoIntTest
     $TELAF_ROOT/apps/test/tafLxcInitApp/tafLxcInitApp
@@ -92,10 +93,10 @@ apps:
     // $TELAF_ROOT/apps/test/tafSomeipGWTest/tafSomeipSvrUnitTest/tafSomeipSvrUnitTest
     // $TELAF_ROOT/apps/test/tafSomeipGWTest/tafSomeipClntUnitTest/tafSomeipClntUnitTest
     // $TELAF_ROOT/apps/test/tafAudioTest/tafAudioUnitTest/tafAudioUnitTest
+    // $TELAF_ROOT/apps/test/tafAudioTest/tafAudioUnitTestEx/tafAudioUnitTestEx
+    // $TELAF_ROOT/apps/test/ConsoleApp/tafAudioAppEx/tafAudioConsoleAppEx
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMUnitTest/tafMngdPMUnitTest
     // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdPMIntTest/tafMngdPMIntTest
-    // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdAudioUnitTest/tafMngdAudioUnitTest
-    // $TELAF_ROOT/apps/tafMngdServices/tafMngdTest/tafMngdAudioConsoleApp/tafMngdAudioConsoleApp
     // $TELAF_ROOT/apps/sample/diagApp/tafDiagApp
     // $TELAF_ROOT/apps/test/tafAdefTest/tafAdefUnitTest
     // $TELAF_ROOT/apps/test/tafTimeTest/tafTimeUnitTest

@@ -35,3 +35,6 @@ allow telaf_tafDevInfoSvc_t etc_t:file { read_file_perms };
 allow telaf_tafDevInfoSvc_t etc_t:dir { search_dir_perms };
 allow telaf_tafDevInfoSvc_t telaf_sys_t:file { read_file_perms };
 allow telaf_tafDevInfoSvc_t telaf_sys_t:dir { search_dir_perms };
+
+# Allow access to HAL component
+telaf_load_vhal_modules(telaf_tafDevInfoSvc_t)

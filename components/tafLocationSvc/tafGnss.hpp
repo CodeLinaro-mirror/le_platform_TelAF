@@ -237,6 +237,10 @@ namespace tafsvc {
         taf_gnss_GnssData_t gnssData[TAF_GNSS_NUMBER_OF_SIGNAL_TYPES_MAX];
         bool  gnssDataValid;
         le_msg_SessionRef_t*         clientSessionRefPtr;
+        bool gPtpTimeValid;
+        uint64_t gPtpTime;
+        bool gPtpTimeUncValid;
+        uint64_t gPtpTimeUnc;
         le_dls_Link_t   next;
     }
     taf_gnss_PositionSample_t;
@@ -314,9 +318,8 @@ namespace tafsvc {
         taf_gnss_State_t GnssState;
         int mAcqRate;
         LocReqEngine mEngineType;
-        bool mTtffEnabled;
+        bool mFirstFix;
         std::chrono::time_point<std::chrono::system_clock> mStartTime;
-        std::chrono::time_point<std::chrono::system_clock> mEndTime;
         std::shared_ptr<ILocationManager> locationManager;
         bool mStarted;
         std::shared_ptr<tafLocationListener> posListener;
@@ -345,6 +348,7 @@ namespace tafsvc {
         le_mutex_Ref_t mGnssMutexRef;
         bool mSvEnabled = false;
         bool mGnssSigEnabled = false;
+        taf_gnss_DRConfigValidityType_t drParamsMask;
         le_dls_Link_t               next;
     }
     taf_gnss_Client_t;
@@ -366,6 +370,7 @@ namespace tafsvc {
             static void GnssPositionHandler(void* reportPtr);
             static void CopyPositionData(taf_gnss_PositionSample_t* posSampleDataPtr,
                     taf_gnss_PositionSample_t* posDataPtr );
+            static void ConfigureAcqStartInfo(taf_gnss_Client_t* clientRequestPtr);
 
             taf_gnss_PositionHandlerRef_t AddPositionHandler(
                     taf_gnss_PositionHandlerFunc_t handlerPtr, void* contextPtr);
@@ -493,6 +498,8 @@ namespace tafsvc {
             le_result_t GetXtraStatus(taf_gnss_XtraStatusParams_t* xtraParams);
             le_result_t GetGnssData(taf_gnss_SampleRef_t positionSampleRef,taf_gnss_GnssData_t* gnssDataPtr,size_t* maxSignalTypes);
 
+            le_result_t SetDRConfigValidity(taf_gnss_DRConfigValidityType_t validMask);
+            le_result_t GetGptpTime(taf_gnss_SampleRef_t positionSampleRef,uint64_t* gPtpTime,uint64_t* gPtpTimeUnc);
             le_mem_PoolRef_t   PositionHandlerPoolRef;
             le_mem_PoolRef_t   PositionSampleRequestPoolRef;
             le_mem_PoolRef_t   PositionSamplePoolRef;

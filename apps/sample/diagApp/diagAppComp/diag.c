@@ -41,7 +41,6 @@ COMPONENT_INIT
     LE_FATAL_IF(diagSecurityAccess_Init() != LE_OK, "diagSecurityAccess_Init -> init failed");
     LE_FATAL_IF(diagRequestFileTransfer_Init() != LE_OK,
                 "diagRequestFileTransfer_Init -> init failed");
-
 #ifndef LE_CONFIG_DIAG_VSTACK
 #ifndef LE_CONFIG_TARGET_SIMULATION
     LE_FATAL_IF(diagReset_Init() != LE_OK, "diagReset_Init -> init failed");

@@ -114,9 +114,9 @@ void tafMngdConnData::SessionStateChangeHandler
             return;
     }
 
-    le_event_Report(mngdConnAdmin.StateMachineEventId, &stateMachineEvt,
+    auto &mcsAdmin = tafMngdConnAdmin::GetInstance();
+    le_event_Report(mcsAdmin.GetStateMachineEventId(), &stateMachineEvt,
                     sizeof(stateMachineEvent_t));
-
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -320,7 +320,7 @@ le_result_t tafMngdConnData::GetAllConnectionInfo(profileInfo_t *profileNumberLi
         if(dataCtxPtr == NULL)
             continue;
 
-        if(dataCtxPtr->dataState != TAF_MNGD_CONN_DATA_CONNECTED)
+        if(dataCtxPtr->dataState != TAF_MNGDCONN_DATA_CONNECTED)
             continue;
 
         profileRef = taf_dcs_GetProfileEx (dataCtxPtr->phoneId, dataCtxPtr->profileNumber);

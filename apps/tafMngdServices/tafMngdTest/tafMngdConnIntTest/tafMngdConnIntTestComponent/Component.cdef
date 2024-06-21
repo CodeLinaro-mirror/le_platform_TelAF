@@ -1,13 +1,13 @@
 sources:
 {
-    tafMngdConnIntTest.c
+    tafMngdConnIntTest.cpp
 }
 
 requires:
 {
     api:
     {
-       taf_mngd_Conn.api
+       taf_mngdConn.api
     }
 }
 

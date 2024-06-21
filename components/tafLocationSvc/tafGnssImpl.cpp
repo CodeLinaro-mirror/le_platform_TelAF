@@ -78,11 +78,14 @@ LE_MEM_DEFINE_STATIC_POOL(PositionSampleRequest, GNSS_POSITION_SAMPLE_MAX, sizeo
 LE_MEM_DEFINE_STATIC_POOL(Client, LE_CONFIG_POSITIONING_ACTIVATION_MAX, sizeof(taf_gnss_Client_t));
 LE_REF_DEFINE_STATIC_MAP(PositionSampleMap, GNSS_POSITION_SAMPLE_MAX);
 void bodyToSensorUtility(telux::loc::DREngineConfiguration& drConfig,
-        const taf_gnss_DrParams_t* drParamsPtr);
+        const taf_gnss_DrParams_t* drParamsPtr,taf_gnss_Client_t* clientRequestPtr,
+        le_result_t* sensor_Result);
 void speedScaleUtility(telux::loc::DREngineConfiguration& drConfig,
-        const taf_gnss_DrParams_t* drParamsPtr);
+        const taf_gnss_DrParams_t* drParamsPtr,taf_gnss_Client_t* clientRequestPtr,
+        le_result_t* speedScale_Result);
 void gyroScaleUtility(telux::loc::DREngineConfiguration& drConfig,
-        const taf_gnss_DrParams_t* drParamsPtr);
+        const taf_gnss_DrParams_t* drParamsPtr,taf_gnss_Client_t* clientRequestPtr,
+        le_result_t* gyroScale_Result);
 taf_Gnss &taf_Gnss::GetInstance()
 {
     static taf_Gnss instance;
@@ -468,6 +471,10 @@ void taf_Gnss::CopyPositionData
         LastDataPtr->gnssData[i].agc = CurrentDataPtr->gnssData[i].agc;
     }
     LastDataPtr->gnssDataValid = CurrentDataPtr->gnssDataValid;
+    LastDataPtr->gPtpTimeValid = CurrentDataPtr->gPtpTimeValid;
+    LastDataPtr->gPtpTime = CurrentDataPtr->gPtpTime;
+    LastDataPtr->gPtpTimeUncValid = CurrentDataPtr->gPtpTimeUncValid;
+    LastDataPtr->gPtpTimeUnc = CurrentDataPtr->gPtpTimeUnc;
     LastDataPtr->next = LE_DLS_LINK_INIT;
 
     return;
@@ -522,7 +529,7 @@ void taf_Gnss::GnssPositionHandler
         posSampleReqPtr->sessionRef = posHandlerPtr->sessionRef;
 
         if (posSampleReqPtr->sessionRef != *currentPosPtr->clientSessionRefPtr) {
-            LE_ERROR("GnssPositionHandler session ref does not match! ReqPtr.sessionRef: %p, Sample.sessionRef: %p", posSampleReqPtr->sessionRef, *currentPosPtr->clientSessionRefPtr);
+            LE_DEBUG("GnssPositionHandler session ref does not match! ReqPtr.sessionRef: %p, Sample.sessionRef: %p", posSampleReqPtr->sessionRef, *currentPosPtr->clientSessionRefPtr);
             return;
         }
         posSampleReqPtr->positionSampleRef =
@@ -542,19 +549,30 @@ void taf_Gnss::GnssPositionHandler
 void tafLocationListener::onDetailedEngineLocationUpdate(
       const std::vector<std::shared_ptr<telux::loc::ILocationInfoEx> > &locationEngineInfo) {
     auto &gnss = taf_Gnss::GetInstance();
-    LE_DEBUG("onDetailedEngineUpdate *sessionRef: %p", *clientSessionRef);
     taf_gnss_Client_t* clientRequestPtr = NULL;
     clientRequestPtr = gnss.DiscoverSessionRef(*clientSessionRef);
 
     if (NULL == clientRequestPtr) {
-        LE_DEBUG("onDetailedEngineUpdate did not find sessionRef: %p", *clientSessionRef);
         return;
     }
 
-    if (clientRequestPtr->mTtffEnabled)
-    {
-        clientRequestPtr->mEndTime = std::chrono::system_clock::now();
-        clientRequestPtr->mTtffEnabled = false;
+    for (auto locationInfo : locationEngineInfo) {
+        if ((clientRequestPtr->mFirstFix) &&
+            (locationInfo->getReportStatus() == telux::loc::ReportStatus::SUCCESS) &&
+            (locationInfo->getLatitude() != NAN) &&
+            (locationInfo->getLongitude() != NAN))
+        {
+            std::chrono::time_point<std::chrono::system_clock> mEndTime = std::chrono::system_clock::now();
+            std::chrono::duration<double> elapsedTime = mEndTime - clientRequestPtr->mStartTime;
+            clientRequestPtr->mTtffPtr = elapsedTime.count() * 1e+3;
+
+            if ((int)clientRequestPtr->mTtffPtr >= clientRequestPtr->mAcqRate)
+            {
+                clientRequestPtr->mFirstFix = false;
+            } else{
+                clientRequestPtr->mTtffPtr=  0;
+            }
+        }
     }
     le_mutex_Lock(clientRequestPtr->mGnssMutexRef);
     if(gnss.NumOfPositionHandlers )
@@ -624,6 +642,8 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 LocationData->realTimeUncValid = true;
                 LocationData->techMaskValid = true;
                 LocationData->gnssDataValid = true;
+                LocationData->gPtpTimeValid = true;
+                LocationData->gPtpTimeUncValid = true;
                 if(locationInfo->getAltitudeType() == telux::loc::AltitudeType::CALCULATED)
                 {
                     clientRequestPtr->mAltType = TAF_GNSS_ALT_TYPE_CALCULATED;
@@ -827,6 +847,8 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                     LocationData->satMeas[i].satLatency = 0;
                 }
                 LocationData->robustConformity = locationInfo->getConformityIndex();
+                LE_DEBUG("onDetailedEngineLocationUpdate LocationData->robustConformity %lf",
+                                                (float)LocationData->robustConformity);
                 LocationData->confidencePercent = locationInfo->getCalibrationConfidencePercent();
                 telux::loc::DrCalibrationStatus calibrationStatus =
                                                 locationInfo->getCalibrationStatus();
@@ -1105,6 +1127,16 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 {
                     LocationData->validityMask |= TAF_GNSS_HAS_ELAPSED_REAL_TIME_UNC_BIT;
                     LE_DEBUG("valid elapsed real time Uncertainity");
+                }
+                if((validityMask & telux::loc::HAS_GPTP_TIME_BIT))
+                {
+                    LocationData->validityMask |= TAF_GNSS_HAS_GPTP_TIME_BIT;
+                    LE_DEBUG("valid Gptp time");
+                }
+                if((validityMask & telux::loc::HAS_GPTP_TIME_UNC_BIT))
+                {
+                    LocationData->validityMask |= TAF_GNSS_HAS_GPTP_TIME_UNC_BIT;
+                    LE_DEBUG("valid Gptp time Uncertainity");
                 }
                 telux::loc::LocationInfoExValidity validityExMask =
                                                    locationInfo->getLocationInfoExValidity();
@@ -1486,6 +1518,8 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                     LocationData->gnssData[i].jammerInd = clientRequestPtr->mGnssData[i].jammerInd;
                     LocationData->gnssData[i].agc = clientRequestPtr->mGnssData[i].agc;
                 }
+                LocationData->gPtpTime = locationInfo->getElapsedGptpTime();
+                LocationData->gPtpTimeUnc = locationInfo->getElapsedGptpTimeUnc();
                 LocationData->next = LE_DLS_LINK_INIT;
 
                 le_event_ReportWithRefCounting(clientRequestPtr->positionEventId, LocationData);
@@ -1991,12 +2025,8 @@ taf_gnss_Client_t* taf_Gnss::DiscoverSessionRef
             return NULL;
         }
 
-        LE_DEBUG("gnssPtr %p, gnssPtr->sessionRef %p, sessionRef %p",
-                 gnssPtr, gnssPtr->sessionRef, sessionRef);
-
         if (sessionRef == gnssPtr->sessionRef)
         {
-             LE_DEBUG("sessionRef %p found in Client session", sessionRef);
              return gnssPtr;
         }
         result = le_ref_NextNode(iterRef);
@@ -2029,7 +2059,7 @@ void taf_Gnss::InitializeClient
     clientRequestPtr->hSpeedAccuracyResolution = TAF_GNSS_RES_ONE_DECIMAL;
     clientRequestPtr->GnssState = TAF_GNSS_STATE_READY;
     clientRequestPtr->mStarted = false;
-    clientRequestPtr->mTtffEnabled = false;
+    clientRequestPtr->mFirstFix = false;
     clientRequestPtr->mEngineType = 0; //By default set to FUSED mode
     clientRequestPtr->mTtffPtr = 0;
     clientRequestPtr->mAcqRate = 0;
@@ -2038,6 +2068,7 @@ void taf_Gnss::InitializeClient
     clientRequestPtr->mChangeEventTime = 0;
     clientRequestPtr->mLeapSeconds = 0;
     clientRequestPtr->mNextLeapSeconds = 0;
+    clientRequestPtr->drParamsMask = 0x1f;//by default enable all masks
     memset(&clientRequestPtr->mSatInfo, 0, sizeof(clientRequestPtr->mSatInfo));
     memset(&clientRequestPtr->mGnssData,0, sizeof(clientRequestPtr->mGnssData));
     clientRequestPtr->mGnssMutexRef = le_mutex_CreateRecursive("GnssMutexCl");
@@ -2116,6 +2147,14 @@ uint32_t taf_Gnss::TranslateDop
 
     LE_DEBUG("resolution %d, dopValue %" PRIu32 ", new dopValue %" PRIu16, (int)resolution, dopValue, retVal);
     return retVal;
+}
+
+void taf_Gnss::ConfigureAcqStartInfo(taf_gnss_Client_t* clientRequestPtr) {
+    clientRequestPtr->mStarted = true;
+    clientRequestPtr->GnssState = TAF_GNSS_STATE_ACTIVE;
+    clientRequestPtr->mTtffPtr = 0;
+    clientRequestPtr->mStartTime = std::chrono::system_clock::now();
+    clientRequestPtr->mFirstFix = true;
 }
 
 taf_gnss_State_t taf_Gnss::GetState
@@ -2353,12 +2392,9 @@ le_result_t taf_Gnss::Start
                 {
                     if(p.get_future().get() == LE_OK)
                     {
-                        clientRequestPtr->mStarted = true;
-                        clientRequestPtr->GnssState = TAF_GNSS_STATE_ACTIVE;
+                        ConfigureAcqStartInfo(clientRequestPtr);
                         result = LE_OK;
                         LE_DEBUG("Start() is success");
-                        clientRequestPtr->mStartTime = std::chrono::system_clock::now();
-                        clientRequestPtr->mTtffEnabled = true;
                     }
                     else
                     {
@@ -2679,19 +2715,16 @@ le_result_t taf_Gnss::GetTtff
         case TAF_GNSS_STATE_READY:
         case TAF_GNSS_STATE_ACTIVE:
         {
-// Start Detailed Engine Reports, if not already started
-
-            if(!clientRequestPtr->mTtffPtr && !clientRequestPtr->mTtffEnabled) //calculate ttff on device boot up & cold/warm/hot restart procedure
+            if(!clientRequestPtr->mTtffPtr) //calculate ttff on device boot up & cold/warm/hot restart procedure
             {
-                std::chrono::duration<double> elapsedTime = clientRequestPtr->mEndTime - clientRequestPtr->mStartTime;
-                *ttffPtr = elapsedTime.count() * 1e+3;
-                clientRequestPtr->mTtffPtr = *ttffPtr ;
+                *ttffPtr = 0;
+                return LE_BUSY;
             }
             else //fetch the first TTFF value & return back
             {
                 *ttffPtr = clientRequestPtr->mTtffPtr;
-            }
-            result = LE_OK;
+                return LE_OK;
+             }
         }
         break;
         default:
@@ -3890,12 +3923,8 @@ le_result_t taf_Gnss::ForceColdRestart
                             std::future<le_result_t> futResult = p.get_future();
                             if(futResult.get() == LE_OK)
                             {
-                                clientRequestPtr->mStarted = true;
-                                clientRequestPtr->GnssState = TAF_GNSS_STATE_ACTIVE;
+                                ConfigureAcqStartInfo(clientRequestPtr);
                                 LE_DEBUG("ForceColdRestart->Start() is success");
-                                clientRequestPtr->mTtffPtr = 0; //reset TTFF value
-                                clientRequestPtr->mStartTime = std::chrono::system_clock::now();
-                                clientRequestPtr->mTtffEnabled = true;
                             }
                             else
                             {
@@ -4054,12 +4083,8 @@ le_result_t taf_Gnss::ForceWarmRestart
                             std::future<le_result_t> futResult = p.get_future();
                             if(futResult.get() == LE_OK)
                             {
-                                clientRequestPtr->mStarted = true;
-                                clientRequestPtr->GnssState = TAF_GNSS_STATE_ACTIVE;
+                                ConfigureAcqStartInfo(clientRequestPtr);
                                 LE_DEBUG("ForceWarmRestart->Start() is success");
-                                clientRequestPtr->mTtffPtr = 0; //reset TTFF value
-                                clientRequestPtr->mStartTime = std::chrono::system_clock::now();
-                                clientRequestPtr->mTtffEnabled = true;
                             }
                             else
                             {
@@ -4176,11 +4201,7 @@ le_result_t taf_Gnss::ForceHotRestart
                         std::future<le_result_t> futResult = p.get_future();
                         if(futResult.get() == LE_OK)
                         {
-                            clientRequestPtr->mStarted = true;
-                            clientRequestPtr->GnssState = TAF_GNSS_STATE_ACTIVE;
-                            clientRequestPtr->mTtffPtr = 0; //reset TTFF value
-                            clientRequestPtr->mStartTime = std::chrono::system_clock::now();
-                            clientRequestPtr->mTtffEnabled = true;
+                            ConfigureAcqStartInfo(clientRequestPtr);
                             LE_DEBUG("ForceHotRestart->Start() is success");
                         }
                         else
@@ -4457,16 +4478,11 @@ le_result_t taf_Gnss::StartMode
                     }
                     else
                     {
-                        clientRequestPtr->mStartTime = std::chrono::system_clock::now();
                         std::future<le_result_t> futResult = p.get_future();
                         if(futResult.get() == LE_OK)
                         {
-                            clientRequestPtr->mStarted = true;
-                            clientRequestPtr->GnssState = TAF_GNSS_STATE_ACTIVE;
+                            ConfigureAcqStartInfo(clientRequestPtr);
                             LE_DEBUG("StartMode->Start() is success");
-                            clientRequestPtr->mTtffEnabled = true;
-                            clientRequestPtr->mTtffPtr = 0; //reset ttff value
-                            clientRequestPtr->mStartTime = std::chrono::system_clock::now();
                         }
                         else
                         {
@@ -4940,6 +4956,9 @@ le_result_t taf_Gnss::GetSupportedNmeaSentences
 le_result_t taf_Gnss::SetDRConfig(const taf_gnss_DrParams_t* drParamsPtr)
 {
     le_result_t result = LE_NOT_PERMITTED;
+    le_result_t sensor_Result = LE_OK;
+    le_result_t speedScale_Result = LE_OK;
+    le_result_t gyroScale_Result = LE_OK;
     telux::loc::DREngineConfiguration drConfig;
     drConfig.validMask = static_cast<telux::loc::DRConfigValidity>(0);
     TAF_KILL_CLIENT_IF_RET_VAL( NULL == drParamsPtr, LE_FAULT, "drParamsPtr is NULL");
@@ -4953,11 +4972,22 @@ le_result_t taf_Gnss::SetDRConfig(const taf_gnss_DrParams_t* drParamsPtr)
     {
         case TAF_GNSS_STATE_READY:
         {
-                //Filling the DR parameters
-            bodyToSensorUtility(drConfig,drParamsPtr);
-            speedScaleUtility(drConfig,drParamsPtr);
-            gyroScaleUtility(drConfig,drParamsPtr);
-
+            //Filling the DR parameters
+            bodyToSensorUtility(drConfig,drParamsPtr,clientRequestPtr,&sensor_Result);
+            if(sensor_Result == LE_OUT_OF_RANGE)
+            {
+                return sensor_Result;
+            }
+            speedScaleUtility(drConfig,drParamsPtr,clientRequestPtr,&speedScale_Result);
+            if(speedScale_Result == LE_OUT_OF_RANGE)
+            {
+                return speedScale_Result;
+            }
+            gyroScaleUtility(drConfig,drParamsPtr,clientRequestPtr,&gyroScale_Result);
+            if(gyroScale_Result == LE_OUT_OF_RANGE)
+            {
+                return gyroScale_Result;
+            }
             std::promise<le_result_t> p;
             auto cb = [&p](telux::common::ErrorCode error) {
                 if(error == telux::common::ErrorCode::SUCCESS) {
@@ -5007,32 +5037,140 @@ le_result_t taf_Gnss::SetDRConfig(const taf_gnss_DrParams_t* drParamsPtr)
 }
 
 void bodyToSensorUtility(telux::loc::DREngineConfiguration& drConfig,
-        const taf_gnss_DrParams_t* drParamsPtr)
+        const taf_gnss_DrParams_t* drParamsPtr,taf_gnss_Client_t* clientRequestPtr,
+        le_result_t* sensor_Result)
 {
-    drConfig.validMask |= telux::loc::DRConfigValidityType::BODY_TO_SENSOR_MOUNT_PARAMS_VALID;
-    drConfig.mountParam.rollOffset =(float) drParamsPtr->rollOffset;
-    drConfig.mountParam.yawOffset = (float) drParamsPtr->yawOffset;
-    drConfig.mountParam.pitchOffset = (float) drParamsPtr->pitchOffset;
-    drConfig.mountParam.offsetUnc = (float) drParamsPtr->offsetUnc;
+    if(clientRequestPtr->drParamsMask & TAF_GNSS_BODY_TO_SENSOR_MOUNT_PARAMS_VALID)
+    {
+        LE_DEBUG("SetDRConfig validMask is BODY_TO_SENSOR_MOUNT_PARAMS_VALID");
+        drConfig.validMask |= telux::loc::DRConfigValidityType::BODY_TO_SENSOR_MOUNT_PARAMS_VALID;
+        if((float) (drParamsPtr->rollOffset >=-180.0) && (float) (drParamsPtr->rollOffset <=180.0))
+        {
+            drConfig.mountParam.rollOffset =(float) drParamsPtr->rollOffset;
+        }
+        else
+        {
+            *sensor_Result = LE_OUT_OF_RANGE;
+             LE_ERROR("SetDRConfig -> rollOffSet out of range");
+        }
+        if((float) (drParamsPtr->yawOffset >=-180.0) && (float) (drParamsPtr->yawOffset <=180.0))
+        {
+            drConfig.mountParam.yawOffset = (float) drParamsPtr->yawOffset;
+        }
+        else
+        {
+            *sensor_Result = LE_OUT_OF_RANGE;
+             LE_ERROR("SetDRConfig -> yawOffset out of range");
+        }
+        if((float) (drParamsPtr->pitchOffset >=-180.0) && (float) (drParamsPtr->pitchOffset <=180.0))
+        {
+            drConfig.mountParam.pitchOffset = (float) drParamsPtr->pitchOffset;
+        }
+        else
+        {
+            *sensor_Result = LE_OUT_OF_RANGE;
+             LE_ERROR("SetDRConfig -> pitchOffset out of range");
+        }
+        if((float) (drParamsPtr->offsetUnc >=-180.0) && (float) (drParamsPtr->offsetUnc <=180.0))
+        {
+            drConfig.mountParam.offsetUnc = (float) drParamsPtr->offsetUnc;
+        }
+        else
+        {
+            *sensor_Result = LE_OUT_OF_RANGE;
+             LE_ERROR("SetDRConfig -> offsetUnc out of range");
+        }
+    }
+    else
+    {
+        LE_ERROR("SetDRConfig invalidMask body to sensor mount params");
+    }
 }
 
 void speedScaleUtility(telux::loc::DREngineConfiguration& drConfig,
-        const taf_gnss_DrParams_t* drParamsPtr)
+        const taf_gnss_DrParams_t* drParamsPtr,taf_gnss_Client_t* clientRequestPtr,
+        le_result_t* speedScale_Result)
 {
-    drConfig.validMask |= telux::loc::DRConfigValidityType::VEHICLE_SPEED_SCALE_FACTOR_VALID;
-    drConfig.speedFactor = (float) drParamsPtr->speedFactor;
-    drConfig.validMask |= telux::loc::DRConfigValidityType::VEHICLE_SPEED_SCALE_FACTOR_UNC_VALID;
-    drConfig.speedFactorUnc = (float) drParamsPtr->speedFactorUnc;
+    if(clientRequestPtr->drParamsMask & TAF_GNSS_VEHICLE_SPEED_SCALE_FACTOR_VALID)
+    {
+        LE_DEBUG("SetDRConfig validMask is VEHICLE_SPEED_SCALE_FACTOR_VALID");
+        drConfig.validMask |= telux::loc::DRConfigValidityType::VEHICLE_SPEED_SCALE_FACTOR_VALID;
+        if((float)(drParamsPtr->speedFactor>=0.9) && (float)(drParamsPtr->speedFactor<=1.1))
+        {
+            drConfig.speedFactor = (float) drParamsPtr->speedFactor;
+        }
+        else
+        {
+            *speedScale_Result = LE_OUT_OF_RANGE;
+            LE_DEBUG("SetDRConfig -> speed scale factor out of range");
+        }
+    }
+    else
+    {
+        LE_DEBUG("SetDRConfig invalidMask vechile speed scale factor");
+    }
+    if(clientRequestPtr->drParamsMask & TAF_GNSS_VEHICLE_SPEED_SCALE_FACTOR_UNC_VALID)
+    {
+        LE_DEBUG("SetDRConfig validMask is VEHICLE_SPEED_SCALE_FACTOR_UNC_VALID");
+        drConfig.validMask |= telux::loc::DRConfigValidityType::VEHICLE_SPEED_SCALE_FACTOR_UNC_VALID;
+        if((float)(drParamsPtr->speedFactorUnc>=0.0) && (float)(drParamsPtr->speedFactorUnc<=0.1))
+        {
+            drConfig.speedFactorUnc = (float) drParamsPtr->speedFactorUnc;
+        }
+        else
+        {
+            *speedScale_Result = LE_OUT_OF_RANGE;
+            LE_DEBUG("SetDRConfig -> speed scale unc factor out of range");
+        }
+    }
+    else
+    {
+        LE_DEBUG("SetDRConfig invalidMask vechile speed scale unc factor");
+    }
 }
 
 void gyroScaleUtility(telux::loc::DREngineConfiguration& drConfig,
-        const taf_gnss_DrParams_t* drParamsPtr)
+        const taf_gnss_DrParams_t* drParamsPtr,taf_gnss_Client_t* clientRequestPtr,
+        le_result_t* gyroScale_Result)
 {
-    drConfig.validMask |= telux::loc::DRConfigValidityType::GYRO_SCALE_FACTOR_VALID;
-    drConfig.gyroFactor = (float) drParamsPtr->gyroFactor;
-    drConfig.validMask |= telux::loc::DRConfigValidityType::GYRO_SCALE_FACTOR_UNC_VALID;
-    drConfig.gyroFactorUnc = (float) drParamsPtr->gyroFactorUnc;
+    if(clientRequestPtr->drParamsMask & TAF_GNSS_GYRO_SCALE_FACTOR_VALID)
+    {
+        LE_DEBUG("SetDRConfig validMask is GYRO_SCALE_FACTOR_VALID");
+        drConfig.validMask |= telux::loc::DRConfigValidityType::GYRO_SCALE_FACTOR_VALID;
+        if((float)(drParamsPtr->gyroFactor>=0.9) && (float)(drParamsPtr->gyroFactor<=1.1))
+        {
+            drConfig.gyroFactor = (float) drParamsPtr->gyroFactor;
+        }
+        else
+        {
+            *gyroScale_Result = LE_OUT_OF_RANGE;
+            LE_DEBUG("SetDRConfig -> gyro factor out of range");
+        }
+    }
+    else
+    {
+         LE_DEBUG("SetDRConfig InvalidMask gyro scale factor");
+    }
+    if(clientRequestPtr->drParamsMask & TAF_GNSS_GYRO_SCALE_FACTOR_UNC_VALID)
+    {
+        LE_DEBUG("SetDRConfig validMask is GYRO_SCALE_FACTOR_UNC_VALID");
+        drConfig.validMask |= telux::loc::DRConfigValidityType::GYRO_SCALE_FACTOR_UNC_VALID;
+        if((float)(drParamsPtr->gyroFactorUnc>=0.0) && (float)(drParamsPtr->gyroFactorUnc<=0.1))
+        {
+            drConfig.gyroFactorUnc = (float) drParamsPtr->gyroFactorUnc;
+        }
+        else
+        {
+            *gyroScale_Result = LE_OUT_OF_RANGE;
+            LE_DEBUG("SetDRConfig -> gyro factor unc out of range");
+        }
+    }
+    else
+    {
+         LE_DEBUG("SetDRConfig InvalidMask gyro scale unc factor");
+    }
 }
+
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 le_result_t taf_Gnss::ConfigureEngineState
 (
@@ -6984,6 +7122,42 @@ le_result_t taf_Gnss::GetGnssData
     return result;
 }
 
+le_result_t taf_Gnss::GetGptpTime
+(
+    taf_gnss_SampleRef_t positionSampleRef,
+    uint64_t* gPtpTime,
+    uint64_t* gPtpTimeUnc
+)
+{
+    le_result_t result = LE_OK;
+    TAF_KILL_CLIENT_IF_RET_VAL(((NULL == gPtpTime) || (NULL == gPtpTimeUnc)), LE_FAULT, "Invalid reference");
+    taf_gnss_PositionSampleRequest_t* posSampleReqPtr
+                                            = (taf_gnss_PositionSampleRequest_t*)le_ref_Lookup(PositionSampleMap,positionSampleRef);
+
+    result = CheckValidatePosition(posSampleReqPtr);
+    if (LE_OK != result)
+    {
+        return result;
+    }
+
+    if (posSampleReqPtr->positionSampleNodePtr->gPtpTimeValid)
+    {
+        *gPtpTime = posSampleReqPtr->positionSampleNodePtr->gPtpTime;
+    }
+    else
+    {
+        LE_ERROR("taf_gnss_GetGptpTime time is invalid");
+    }
+    if (posSampleReqPtr->positionSampleNodePtr->gPtpTimeUncValid)
+    {
+        *gPtpTimeUnc = posSampleReqPtr->positionSampleNodePtr->gPtpTimeUnc;
+    }
+    else
+    {
+        LE_ERROR("taf_gnss_GetGptpTime timeUnc is invalid");
+    }
+    return result;
+}
 void taf_Gnss::RemovePositionHandler
 (
     taf_gnss_PositionHandlerRef_t handlerRef
@@ -7209,4 +7383,39 @@ void taf_Gnss::Init()
     le_msg_AddServiceCloseHandler(msgService, CloseEventHandler, NULL);
 
     return;
+}
+le_result_t taf_Gnss::SetDRConfigValidity(taf_gnss_DRConfigValidityType_t validMask)
+{
+    le_result_t result = LE_NOT_PERMITTED;
+    taf_gnss_Client_t* clientRequestPtr = NULL;
+    clientRequestPtr = AcquireSessionRef();
+
+    TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
+
+ // Check the GNSS device state
+    switch (clientRequestPtr->GnssState)
+    {
+        case TAF_GNSS_STATE_READY:
+        {
+            clientRequestPtr->drParamsMask = validMask;
+            LE_DEBUG("SetDRConfigValidity clientRequestPtr->drParamsMask:%d",clientRequestPtr->drParamsMask);
+            result = LE_OK;
+        }
+        break;
+        case TAF_GNSS_STATE_UNINITIALIZED:
+        case TAF_GNSS_STATE_ACTIVE:
+        case TAF_GNSS_STATE_DISABLED:
+        {
+            LE_ERROR("Bad state for that request [%d]", clientRequestPtr->GnssState);
+            result = LE_NOT_PERMITTED;
+        }
+        break;
+        default:
+        {
+            LE_ERROR("Unknown GNSS state %d", clientRequestPtr->GnssState);
+            result = LE_FAULT;
+        }
+        break;
+    }
+    return result;
 }

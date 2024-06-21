@@ -58,7 +58,9 @@ taf_FlashAccess &taf_FlashAccess::GetInstance
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Intialize MTD partitions.
+ * Intialize MTD partitions. This function will traverse all mtd partitions in the /proc directory
+ * and store the corresponding mtd partition name and size, erasable block size, device path and 
+ * other information.
  */
 //--------------------------------------------------------------------------------------------------
 void taf_FlashAccess::InitMtdPartitions
@@ -148,7 +150,7 @@ void taf_FlashAccess::InitMtdPartitions
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get UBI device and volume ID.
+ * Get UBI device and volume ID from the device path.
  */
 //--------------------------------------------------------------------------------------------------
 void taf_FlashAccess::GetUbiID
@@ -189,7 +191,9 @@ void taf_FlashAccess::GetUbiID
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Intialize UBI volumes.
+ * Intialize UBI volumes, This function will traverse all ubi volumes in the /sys/class/ directory,
+ * and store the corresponding ubi volume name and size, device id and volume id, number of lebs
+ * and available lebs, as well as device path and other information.
  */
 //--------------------------------------------------------------------------------------------------
 void taf_FlashAccess::InitUbiVolumes
@@ -304,7 +308,11 @@ void taf_FlashAccess::GetNumFromFile
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get instance of flash access.
+ * Check if a block is bad block of MTD partition.
+ *
+ * @return
+ *      - LE_OK            On success
+ *      - LE_FAULT         On other error
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_FlashAccess::IsMtdBadBlock

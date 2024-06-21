@@ -1,0 +1,32 @@
+externalBuild:
+{
+    "capicxx-core-gen -sk $TELAF_ROOT/apps/ivss/fidl/RadioSvc/RadioSvc.fidl"
+    "capicxx-core-gen -sk $TELAF_ROOT/apps/ivss/fidl/RadioSvc/RadioSvc.fdepl"
+    "capicxx-someip-gen $TELAF_ROOT/apps/ivss/fidl/RadioSvc/RadioSvc.fdepl"
+
+    "capicxx-core-gen -sk $TELAF_ROOT/apps/ivss/fidl/SimSvc/SimSvc.fidl"
+    "capicxx-core-gen -sk $TELAF_ROOT/apps/ivss/fidl/SimSvc/SimSvc.fdepl"
+    "capicxx-someip-gen $TELAF_ROOT/apps/ivss/fidl/SimSvc/SimSvc.fdepl"
+
+    "capicxx-core-gen -sk $TELAF_ROOT/apps/ivss/fidl/InfoSvc/InfoSvc.fidl"
+    "capicxx-core-gen -sk $TELAF_ROOT/apps/ivss/fidl/InfoSvc/InfoSvc.fdepl"
+    "capicxx-someip-gen $TELAF_ROOT/apps/ivss/fidl/InfoSvc/InfoSvc.fdepl"
+
+    "bash $TELAF_ROOT/apps/ivss/common/make.sh Telephony"
+}
+
+bundles:
+{
+    file:
+    {
+        $BUILDDIR/build/libTelephony-someip.so   /lib/
+    }
+}
+
+provides:
+{
+    headerDir:
+    {
+        $BUILDDIR/src-gen
+    }
+}

@@ -1,0 +1,49 @@
+maxThreads: 600
+sandboxed: false
+
+start: manual
+
+username: telaf
+
+capability:
+{
+    CAP_WAKE_ALARM
+    CAP_NET_RAW
+    CAP_IPC_LOCK
+    CAP_SYS_NICE
+    CAP_SYS_RESOURCE
+    CAP_NET_ADMIN
+    CAP_BLOCK_SUSPEND
+
+#if ${LE_CONFIG_TEST_COVERAGE} = y
+    CAP_DAC_READ_SEARCH
+    CAP_DAC_OVERRIDE
+#endif
+}
+
+executables:
+{
+    tafIvssTelephonySvc = ( telephonySvc )
+}
+
+processes:
+{
+    envVars:
+    {
+        VSOMEIP_CONFIGURATION = vsomeipRef.json
+        COMMONAPI_CONFIG = commonapiRef.ini
+    }
+
+    run:
+    {
+        ( tafIvssTelephonySvc )
+    }
+    maxFileBytes: 8192K
+}
+
+bindings:
+{
+    tafIvssTelephonySvc.telephonySvc.taf_radio -> tafRadioSvc.taf_radio
+    tafIvssTelephonySvc.telephonySvc.taf_sim -> tafSimCardSvc.taf_sim
+    tafIvssTelephonySvc.telephonySvc.taf_info -> tafDevInfoSvc.taf_info
+}

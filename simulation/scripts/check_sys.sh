@@ -131,6 +131,7 @@ total_packages_checking="
     fakeroot
     file
     libcap-dev
+    libpython2.7-dev
 "
 
 if [ $OS_VERSION = "20.04" ]; then

@@ -1,0 +1,13 @@
+externalBuild:
+{
+    "make -f ${CURDIR}/Makefile -C ${CURDIR}/ clean"
+    "make -f ${CURDIR}/Makefile -C ${CURDIR}/"
+}
+
+bundles:
+{
+    file:
+    {
+        [r] ${CURDIR}/tafIvssTelephonySvc.pp /
+    }
+}

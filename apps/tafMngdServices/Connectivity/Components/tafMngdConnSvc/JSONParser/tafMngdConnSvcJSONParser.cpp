@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -65,13 +65,19 @@ static const char *JSON_Version_24_03_00 = "24.03.00";
  * Validate ManagedConnectivityService:Version
  * Check for supported versions and set the Version to correct mcs_JSON_Version_t value.
  */
-static bool Validate_MCS_Version(taf_mngd_Conn_Policy_t &Policy,
-                                                taf_mngd_Conn_Configuration_t &Configuration,
+static bool Validate_MCS_Version(taf_mngdConn_Policy_t &Policy,
+                                                taf_mngdConn_Configuration_t &Configuration,
                                                 std::string Value,
                                                 int Index)
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
+
+    if (MCS_JSON_DATA_TYPE_NULL == DataType)
+    {
+        LE_WARN("Null value");
+        return false;
+    }
 
     // Value should be a string
     if (MCS_JSON_DATA_TYPE_STRING != DataType)
@@ -108,8 +114,8 @@ static bool Validate_MCS_Version(taf_mngd_Conn_Policy_t &Policy,
     return false;
 }
 
-static bool ValidateValue(taf_mngd_Conn_Policy_t& Policy,
-                                taf_mngd_Conn_Configuration_t &Configuration,
+static bool ValidateValue(taf_mngdConn_Policy_t& Policy,
+                                taf_mngdConn_Configuration_t &Configuration,
                                 std::string property,
                                 std::string Value,
                                 int Index)
@@ -127,8 +133,8 @@ static bool ValidateValue(taf_mngd_Conn_Policy_t& Policy,
 }
 
 bool telux::tafsvc::tafMngdConnSvc_GetPolicyAndConfiguration(
-    taf_mngd_Conn_Policy_t &PolicyStructRef,
-    taf_mngd_Conn_Configuration_t &ConfigurationStructRef,
+    taf_mngdConn_Policy_t &PolicyStructRef,
+    taf_mngdConn_Configuration_t &ConfigurationStructRef,
     std::string ConfigurationFileName)
 {
     std::string newConfFileName;
@@ -191,7 +197,7 @@ bool telux::tafsvc::tafMngdConnSvc_GetPolicyAndConfiguration(
             }
         }
 
-          //Name
+        //Name
         if ("Name" == element.first ) {
             // Mark presence of Name
             bNameAvailable = true;

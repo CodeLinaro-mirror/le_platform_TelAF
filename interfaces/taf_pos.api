@@ -147,7 +147,7 @@
    }
    @endverbatim
  *
- * The @c taf_pos_GetMotion() function gets motion's data (horizontal speed and accuracy; 
+ * The @c taf_pos_GetMotion() function gets motion's data (horizontal speed and accuracy;
  * verticial speed and accuracy).
  * @verbatim
    uint32_t hSpeed, hAccuracy;
@@ -207,7 +207,7 @@
  * the object when done with it.
  *
  * The accessor functions are:
- * - taf_pos_sample_Get2DLocation -- Triggered inside NavigationHandler() function to get 
+ * - taf_pos_sample_Get2DLocation() -- Triggered inside NavigationHandler() function to get
  *   positionSampleRef.
  *
  * @verbatim
@@ -218,7 +218,7 @@
    }
    @endverbatim
  *
- * - taf_pos_sample_GetTime() -- Triggered inside NavigationHandler() function to get 
+ * - taf_pos_sample_GetTime() -- Triggered inside NavigationHandler() function to get
  *   positionSampleRef.
  *
  * @verbatim
@@ -229,7 +229,7 @@
    }
    @endverbatim
  *
- * - taf_pos_sample_GetDate() -- Triggered inside NavigationHandler() function to get 
+ * - taf_pos_sample_GetDate() -- Triggered inside NavigationHandler() function to get
  *   positionSampleRef.
  *
  * @verbatim
@@ -240,7 +240,7 @@
    }
    @endverbatim
  *
- * - taf_pos_sample_GetAltitude() -- Triggered inside NavigationHandler() function to get 
+ * - taf_pos_sample_GetAltitude() -- Triggered inside NavigationHandler() function to get
  *   positionSampleRef.
  *
  * @verbatim
@@ -251,7 +251,7 @@
    }
    @endverbatim
  *
- * - taf_pos_sample_GetHorizontalSpeed() -- Triggered inside NavigationHandler() function to get 
+ * - taf_pos_sample_GetHorizontalSpeed() -- Triggered inside NavigationHandler() function to get
  *   positionSampleRef.
  *
  * @verbatim
@@ -262,7 +262,7 @@
    }
    @endverbatim
  *
- * - taf_pos_sample_GetVerticalSpeed() -- Triggered inside NavigationHandler() function to get 
+ * - taf_pos_sample_GetVerticalSpeed() -- Triggered inside NavigationHandler() function to get
  *   positionSampleRef.
  *
  * @verbatim
@@ -273,7 +273,7 @@
    }
    @endverbatim
  *
- * - taf_pos_sample_GetDirection() -- Triggered inside NavigationHandler() function to get 
+ * - taf_pos_sample_GetDirection() -- Triggered inside NavigationHandler() function to get
  *   positionSampleRef.
  *
  * @verbatim
@@ -373,7 +373,7 @@ EVENT Movement
 /**
  * Gets the 2D location data (latitude, longitude, horizontal accuracy).
  *
- * @return 
+ * @return
  * - LE_FAULT         Failed to get the 2D location data.
  * - LE_OUT_OF_RANGE  One, or more, retrieved parameters is invalid.
  * - LE_OK            Succeeded.
@@ -392,7 +392,7 @@ FUNCTION le_result_t Get2DLocation
 /**
  * Gets the date of the last updated location.
  *
- * @return 
+ * @return
  * - LE_FAULT         Failed to get the date.
  * - LE_OUT_OF_RANGE  The retrieved date is invalid.
  * - LE_OK            Succeeded.
@@ -412,7 +412,7 @@ FUNCTION le_result_t GetDate
 /**
  * Gets the position fix state.
  *
- * @return 
+ * @return
  * - LE_FAULT         Failed to get the position fix state.
  * - LE_OK            Succeeded.
  *
@@ -430,7 +430,7 @@ FUNCTION le_result_t GetFixState
  * Gets the motion data (horizontal speed, horizontal speed
  * accuracy, vertical speed, and vertical speed accuracy).
  *
- * @return 
+ * @return
  * - LE_FAULT         Failed to get the motion data.
  * - LE_OUT_OF_RANGE  One, or more, of the retrieved parameters is invalid (set to INT32_MAX,
  *                    UINT32_MAX).
@@ -474,7 +474,7 @@ FUNCTION le_result_t GetDirection
 /**
  * Gets the position sample's time.
  *
- * @return 
+ * @return
  * - LE_FAULT         Failed to get the time.
  * - LE_OUT_OF_RANGE  The retrieved time is invalid.
  * - LE_OK            Succeeded.
@@ -547,7 +547,7 @@ ENUM Resolution
  * Gets the 3D location data (latitude, longitude, altitude,
  * horizontal accuracy, vertical accuracy)
  *
- * @return 
+ * @return
  * - LE_FAULT         Failed to get the 3D location data.
  * - LE_OUT_OF_RANGE  One, or more, of the retrieved parameters is invalid.
  * - LE_OK            Succeeded.
@@ -570,7 +570,7 @@ FUNCTION le_result_t Get3DLocation
  * Gets the position sample's 2D location (latitude, longitude,
  * horizontal accuracy)
  *
- * @return 
+ * @return
  * - LE_FAULT         Failed to find the positionSample.
  * - LE_OUT_OF_RANGE  One, or more, of the retrieved parameters is invalid.
  * - LE_OK            Suceeded.
@@ -593,7 +593,7 @@ FUNCTION le_result_t sample_Get2DLocation
 /**
  * Gets the position sample's altitude.
  *
- * @return 
+ * @return
  * - LE_FAULT         Failed to find the positionSample.
  * - LE_OUT_OF_RANGE  One, or more, of the retrieved parameters is invalid.
  * - LE_OK            Suceeded.
@@ -615,7 +615,7 @@ FUNCTION le_result_t sample_GetAltitude
 /**
  * Gets the position sample's time.
  *
- * @return 
+ * @return
  * - LE_FAULT         Failed to get the time.
  * - LE_OUT_OF_RANGE  The retrieved time is invalid.
  * - LE_OK            Succeeded.
@@ -634,7 +634,7 @@ FUNCTION le_result_t sample_GetTime
 /**
  * Gets the position sample's horizontal speed.
  *
- * @return 
+ * @return
  * - LE_FAULT         Failed to find the positionSample.
  * - LE_OUT_OF_RANGE  One, or more, of the retrieved parameters is invalid.
  * - LE_OK            Suceeded.
@@ -656,7 +656,7 @@ FUNCTION le_result_t sample_GetHorizontalSpeed
 /**
  * Get the position sample's direction
  *
- * @return 
+ * @return
  * - LE_FAULT         Failed to find the positionSample.
  * - LE_OUT_OF_RANGE  One of the retrieved parameter is invalid.
  * - LE_OK            Suceeded.
@@ -681,7 +681,7 @@ FUNCTION le_result_t sample_GetDirection
 /**
  * Gets the position sample's vertical speed.
  *
- * @return 
+ * @return
  * - LE_FAULT         Failed to find the positionSample.
  * - LE_OUT_OF_RANGE  One, or more, of the retrieved parameters is not valid.
  * - LE_OK            Suceeded.
@@ -703,7 +703,7 @@ FUNCTION le_result_t sample_GetVerticalSpeed
 /**
  * Sets the resolution for the positioning distance values.
  *
- * @return 
+ * @return
  * - LE_OK               Suceeded.
  * - LE_BAD_PARAMETER    Invalid parameter provided.
  *
@@ -722,7 +722,7 @@ FUNCTION le_result_t SetDistanceResolution
 /**
  * Gets the position sample's fix state.
  *
- * @return 
+ * @return
  * - LE_FAULT         Failed to get the position sample's fix state.
  * - LE_OK            Suceeded.
  *
@@ -740,7 +740,7 @@ FUNCTION le_result_t sample_GetFixState
 /**
  * Gets the position sample date.
  *
- * @return 
+ * @return
  * - LE_FAULT         Failed to get the date.
  * - LE_OUT_OF_RANGE  The retrieved date is invalid.
  * - LE_OK            Suceeded.

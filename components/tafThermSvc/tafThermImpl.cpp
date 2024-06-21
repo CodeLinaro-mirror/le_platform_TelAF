@@ -1457,6 +1457,7 @@ le_result_t taf_Therm::ReleaseTripEventRef(taf_therm_TripPointRef_t tripEventRef
     TAF_ERROR_IF_RET_VAL(tripPointPtr == NULL, LE_BAD_PARAMETER, "Reference is NULL");
 
     le_ref_DeleteRef(tafTherm.tripPointRefMap, tripEventRef);
+    le_mem_Release(tripPointPtr);
     return LE_OK;
 }
 
@@ -1464,10 +1465,47 @@ le_result_t taf_Therm::ReleaseCoolingDeviceRef(taf_therm_CoolingDeviceRef_t cDev
 {
     auto& tafTherm = taf_Therm::GetInstance();
     taf_CoolingDevice_t* cDevPtr =
-            (taf_CoolingDevice_t*)le_ref_Lookup(tafTherm.cDevRefMap, cDevRef);
+        (taf_CoolingDevice_t*)le_ref_Lookup(tafTherm.cDevRefMap, cDevRef);
 
-    TAF_ERROR_IF_RET_VAL(cDevPtr == NULL, LE_BAD_PARAMETER, "Reference is NULL");
-
+    TAF_ERROR_IF_RET_VAL(cDevPtr == NULL, LE_BAD_PARAMETER, "Reference is NULL")
+    
     le_ref_DeleteRef(tafTherm.cDevRefMap, cDevRef);
+    le_mem_Release(cDevPtr);
+    return LE_OK;
+}
+
+le_result_t taf_Therm::ReleaseThermalZoneRef(taf_therm_ThermalZoneRef_t tZoneRef)
+{
+    auto& tafTherm = taf_Therm::GetInstance();
+    taf_ThermalZone_t* tZonePtr =
+        (taf_ThermalZone_t*)le_ref_Lookup(tafTherm.tZoneRefMap, tZoneRef);
+    TAF_ERROR_IF_RET_VAL(tZonePtr == nullptr, LE_BAD_PARAMETER, "Null reference(tZonePtr)");
+    taf_TripPoint_t* tripPointPtr;
+    taf_BoundCoolingDevice_t* boundCDPtr;
+    taf_TripPoint_t* boundTripPointPtr;
+    le_sls_Link_t* tripPointLinkPtr;
+    le_sls_Link_t* boundCDLinkPtr;
+    le_sls_Link_t* boundTripPointLinkPtr;
+
+    while ((tripPointLinkPtr = le_sls_Pop(&(tZonePtr->TripPointList))) != NULL)
+    {
+        tripPointPtr = CONTAINER_OF(tripPointLinkPtr, taf_TripPoint_t, link);
+        le_ref_DeleteRef(tripPointRefMap, tripPointPtr->ref);
+        le_mem_Release(tripPointPtr);
+    }
+    while ((boundCDLinkPtr = le_sls_Pop(&(tZonePtr->BoundCoolingDeviceList))) != NULL)
+    {
+        boundCDPtr = CONTAINER_OF(boundCDLinkPtr, taf_BoundCoolingDevice_t, link);
+        while ((boundTripPointLinkPtr = le_sls_Pop(&(boundCDPtr->TripPointList))) != NULL)
+        {
+            boundTripPointPtr = CONTAINER_OF(boundTripPointLinkPtr, taf_TripPoint_t, link);
+            le_ref_DeleteRef(boundTripPointRefMap, boundTripPointPtr->ref);
+            le_mem_Release(boundTripPointPtr);
+        }
+        le_ref_DeleteRef(boundCDRefMap, boundCDPtr->ref);
+        le_mem_Release(boundCDPtr);
+    }
+    le_ref_DeleteRef(tZoneRefMap, tZonePtr->ref);
+    le_mem_Release(tZonePtr);
     return LE_OK;
 }

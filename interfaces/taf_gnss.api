@@ -215,6 +215,7 @@
      // Process after successfully getting the time of computing the first GNSS fix
    }
    @endverbatim
+ *
  * The GNSS fix position is calculated by the GNSS engine. Its state can be retrieved with the
  * taf_gnss_GetPositionState() function. The GNSS fix position states are given by the taf_gnss_FixState_t
  * enum. The API is triggered inside the PositionHandlerFunction() function to get fix state
@@ -395,7 +396,8 @@
      // Process after successfully getting the status.
    }
    @endverbatim
- * - taf_gnss_GetPositionState() -- Triggered inside PositionHandlerFunction() function 
+ *
+ * - taf_gnss_GetPositionState() -- Triggered inside PositionHandlerFunction() function
  *   to get fix state from the position sample reference.
  * @verbatim
    taf_gnss_FixState_t state;
@@ -404,6 +406,7 @@
      // Process after successfully getting fix state.
    }
    @endverbatim
+ *
  * - taf_gnss_GetLocation() -- Triggered inside PositionHandlerFunction() function
  *   to get longitude, latitude, and horizontal accuracy from the position sample reference.
  * @verbatim
@@ -415,6 +418,7 @@
      // Process after successfully getting the location information.
    }
    @endverbatim
+ *
  * - taf_gnss_GetAltitude() -- Triggered inside PositionHandlerFunction() function
  *   to get altitude and vertical accuracy from the position sample reference.
  * @verbatim
@@ -425,6 +429,7 @@
      // Process after successfully getting the altitude.
    }
    @endverbatim
+ *
  * - taf_gnss_GetDate() -- Triggered inside PositionHandlerFunction() function
  *   to get date information from the position sample reference.
  * @verbatim
@@ -436,6 +441,7 @@
      // Process after successfully getting the date information.
    }
    @endverbatim
+ *
  * - taf_gnss_GetTime() -- Triggered inside PositionHandlerFunction() function
  *   to get time information from the position sample reference.
  * @verbatim
@@ -448,6 +454,7 @@
      // Process after successfully getting the time information.
    }
    @endverbatim
+ *
  * - taf_gnss_GetGpsTime() -- Triggered inside PositionHandlerFunction() function
  *   to get GPS time from the position sample reference.
  * @verbatim
@@ -458,6 +465,7 @@
      // Process after successfully getting the GPS time information.
    }
    @endverbatim
+ *
  * - taf_gnss_GetGpsLeapSeconds() -- Triggered inside PositionHandlerFunction() function
  *   to get GPS leap seconds from the position sample reference.
  * @verbatim
@@ -477,6 +485,7 @@
      // Process after successfully getting the Epoch time.
    }
    @endverbatim
+ *
  * - taf_gnss_GetTimeAccuracy() -- Triggered inside PositionHandlerFunction() function
  *   to get time accuracy from the position sample reference.
  * @verbatim
@@ -486,6 +495,7 @@
      // Process after successfully getting the time accuracy.
    }
    @endverbatim
+ *
  * - taf_gnss_GetHorizontalSpeed() -- Triggered inside PositionHandlerFunction() function
  *   to get horizontal speed and its accuracy from the position sample reference.
  * @verbatim
@@ -518,6 +528,7 @@
      // Process after successfully getting the direction information.
    }
    @endverbatim
+ *
  * - taf_gnss_GetSatellitesInfo() -- Triggered inside PositionHandlerFunction() function
  *   to get satellites information from the position sample reference.
  * @verbatim
@@ -543,6 +554,7 @@
      // Process after successfully getting the satellite information.
    }
    @endverbatim
+ *
  * - taf_gnss_GetSatellitesStatus() -- Triggered inside PositionHandlerFunction() function
  *   to get satellites status from the position sample reference.
  * @verbatim
@@ -554,6 +566,7 @@
      // Process after successfully getting the satellite status information.
    }
    @endverbatim
+ *
  * - taf_gnss_ConfigureEngineState() -- Triggered to set the engine state for the given engine type.
  * @verbatim
    if(taf_gnss_ConfigureEngineState(TAF_GNSS_ENGINE_TYPE_SPE,TAF_GNSS_ENGINE_STATE_SUSPENDED) == LE_OK)
@@ -561,6 +574,7 @@
      // Process after successfully configuring Engine state for the given Engine type
    }
    @endverbatim
+ *
  * - taf_gnss_ConfigureRobustLocation() -- Triggered to enable or disable robust location while device is on E911.
  * @verbatim
    int enable = (1<<(TAF_GNSS_SB_CONSTELLATION_GPS-1));
@@ -570,6 +584,7 @@
      // Process after successfully configuring configuring robust location.
    }
    @endverbatim
+ *
  * - taf_gnss_RobustLocationInformation() -- Get robust location status and version.
  * @verbatim
    uint8_t enable;
@@ -581,6 +596,7 @@
      // Process after successfully getting Robust location information for Enable/Disable, 911 enable or disable, major and minor version numbers
    }
    @endverbatim
+ *
  * - taf_gnss_DefaultSecondaryBandConstellations() -- Triggered to set the default secondary band constellations.
  * @verbatim
    if(taf_gnss_DefaultSecondaryBandConstellations() == LE_OK)
@@ -588,6 +604,7 @@
      // Process after successfully setting default secondary Band constellations
    }
    @endverbatim
+ *
  * - taf_gnss_RequestSecondaryBandConstellations() -- Triggered to get the secondary band constellations set.
  * @verbatim
    int32_t constellationSb=0;
@@ -596,6 +613,7 @@
      // Process after successfully getting secondary band constellations set
    }
    @endverbatim
+ *
  * - taf_gnss_ConfigureSecondaryBandConstellations() -- Triggered to set the secondary band constellation using a bitmask.
  * @verbatim
    uint32_t constellationSb = 1;
@@ -604,6 +622,7 @@
      // Process after successfully configuring secondary Band constellations
    }
    @endverbatim
+ *
  * - taf_gnss_GetDilutionOfPrecision() -- Triggered inside PositionHandlerFunction() function
  *   to get DOP from the position sample reference.
  * @verbatim
@@ -614,6 +633,7 @@
      // Process after successfully getting the dilute of precision for dilute of precision type.
    }
    @endverbatim
+ *
  * - taf_gnss_GetMagneticDeviation() -- Triggered inside the PositionHandlerFunction() function to
  *                                       get magnetic deviation from the position sample reference.
  * @verbatim
@@ -623,6 +643,7 @@
      // Process after successfully getting the magnetic deviation.
    }
    @endverbatim
+ *
  * - taf_gnss_GetEllipticalUncertainty() -- Triggered inside the PositionHandlerFunction()
  *                                          function to get semi major and semi minor from positionSampleRef.
  * @verbatim
@@ -633,7 +654,9 @@
      // Process after successfully getting the elliptical uncertainty values.
    }
    @endverbatim
+ *
  * - taf_gnss_SetDRConfig() -- Triggered to configure the dead reckoning parameters.
+ *                             By default all DRE parameters mask get enabled.
  * @verbatim
    taf_gnss_DrParams_t *drParamsPtr;
    static le_mem_PoolRef_t DrFramePool = NULL;
@@ -649,9 +672,11 @@
    drParamsPtr->gyroFactorUnc = 0.0;
    if(taf_gnss_SetDRConfig(drParamsPtr) == LE_OK)
    {
-     // Process after successfully configuring the dead reckoning parameters.
+     // Process after successfully configuring the dead reckoning parameters with the default mask enabled.
    }
    le_mem_Release(drParamsPtr);
+   @endverbatim
+ *
  * - taf_gnss_SetLeverArmConfig() -- Triggered to configure the lever arm parameters.
  * @verbatim
    taf_gnss_LeverArmParams_t *leverArmParamsPtr;
@@ -667,6 +692,8 @@
      // Process after successfully configuring the lever arm parameters.
    }
    le_mem_Release(leverArmParamsPtr);
+   @endverbatim
+ *
  * - taf_gnss_SetEngineType() -- Triggered to set an engine type.
  * @verbatim
    taf_gnss_EngineReportsType_t EngineType;
@@ -675,6 +702,8 @@
    {
      // Process after successfully setting an engine type.
    }
+   @endverbatim
+ *
  * - taf_gnss_GetConformityIndex() -- Triggered inside the PositionHandlerFunction()
  *                                    function to get conformity index from the position sample reference.
  * @verbatim
@@ -684,6 +713,7 @@
      // Process after successfully getting the conformity index.
    }
    @endverbatim
+ *
  * - taf_gnss_GetCalibrationData() -- Triggered inside the PositionHandlerFunction()
  *                                    function to get calibration data from the position sample reference.
  * @verbatim
@@ -694,6 +724,7 @@
      // Process after successfully getting the calibration status and confidence percentage.
    }
    @endverbatim
+ *
  * - taf_gnss_GetBodyFrameData() -- Triggered inside the PositionHandlerFunction()
  *                                  function to get body frame data from the positionSampleRef.
  * @verbatim
@@ -706,6 +737,7 @@
      // Process after successfully getting the body frame parameters.
    }
    @endverbatim
+ *
  * - taf_gnss_GetVRPBasedLLA() -- Triggered inside the PositionHandlerFunction()
  *                                function to get VRP based LLA from the position sample reference.
  * @verbatim
@@ -717,6 +749,7 @@
      // Process after successfully getting VRP based latitude, longitude, and altitude information.
    }
    @endverbatim
+ *
  * - taf_gnss_GetVRPBasedVelocity() -- Triggered inside the PositionHandlerFunction()
  *                                     function to get VRP based velocity from the position sample reference.
  * @verbatim
@@ -728,6 +761,7 @@
      // Process after successfully getting VRP based east, north, and up velocity information.
    }
    @endverbatim
+ *
  * - taf_gnss_GetSvUsedInPosition() -- Triggered inside the PositionHandlerFunction()
  *                                     function to get SV used in position from the position sample reference.
  * @verbatim
@@ -740,6 +774,7 @@
      // Process after successfully getting set of SVs that are used to calculate position.
    }
    @endverbatim
+ *
  * - taf_gnss_GetSbasCorrection() -- Triggered inside the PositionHandlerFunction()
  *                                   function to get SBAS correction from the position sample reference.
  * @verbatim
@@ -749,6 +784,7 @@
      // Process after successfully getting the mask used to indicate SBAS corrections.
    }
    @endverbatim
+ *
  * - taf_gnss_GetPositionTechnology() -- Triggered inside the PositionHandlerFunction()
  *                                       function to get position technology from the position sample reference.
  * @verbatim
@@ -758,6 +794,7 @@
      // Process after successfully getting position tech mask
    }
    @endverbatim
+ *
  * - taf_gnss_GetLocationInfoValidity() -- Triggered inside the PositionHandlerFunction()
  *                                         function to get location information validity from the position sample reference.
  * @verbatim
@@ -768,6 +805,7 @@
      // Process after successfully getting the validity information
    }
    @endverbatim
+ *
  * - taf_gnss_GetLocationOutputEngParams() -- Triggered inside the PositionHandlerFunction()
  *                                           function to get engine output parameters from the position sample reference.
  * @verbatim
@@ -778,6 +816,7 @@
      // Process after successfully getting the location engine mask and engine type parameters.
    }
    @endverbatim
+ *
  * - taf_gnss_GetReliabilityInformation() -- Triggered inside the PositionHandlerFunction()
  *                                           function to get reliablity information from the position sample reference.
  * @verbatim
@@ -788,6 +827,7 @@
      // Process after successfully getting the horizontal and vertical reliability information.
    }
    @endverbatim
+ *
  * - taf_gnss_GetStdDeviationAzimuthInfo() -- Triggered inside the PositionHandlerFunction()
  *                                            function to get standard deviation and azimuth information
  *                                            from the position sample reference.
@@ -800,6 +840,7 @@
      // Process after successfully getting the azimuth, east, and north deviation information.
    }
    @endverbatim
+ *
  * - taf_gnss_GetRealTimeInformation() -- Triggered inside the PositionHandlerFunction()
  *                                        function to get real time information from the position sample reference.
  * @verbatim
@@ -810,6 +851,7 @@
      // Process after successfully getting elapsed real time and its uncertainity.
    }
    @endverbatim
+ *
  * - taf_gnss_GetMeasurementUsageInfo() -- Triggered inside the PositionHandlerFunction()
  *                                         function to get GNSS measurement usage information
  *                                         from the position sample reference.
@@ -821,6 +863,7 @@
      // Process after successfully getting GNSS measurement information.
    }
    @endverbatim
+ *
  * - taf_gnss_GetReportStatus() -- Triggered inside the PositionHandlerFunction()
  *                                 function to get status of report in terms of how optimally
  *                                 the report was calculated by the engine from the position sample reference.
@@ -831,6 +874,7 @@
      // Process after successfully getting the report status.
    }
    @endverbatim
+ *
  * - taf_gnss_GetAltitudeMeanSeaLevel() -- Triggered inside the PositionHandlerFunction() function
  *                                         to get altitude with respect to mean sea level in meters
  *                                         from the position sample reference.
@@ -841,6 +885,7 @@
      // Process after successfully getting the mean sea level.
    }
    @endverbatim
+ *
  * - taf_gnss_GetSVIds() -- Triggered inside the PositionHandlerFunction() function
  *                          to get GNSS Satellite Vehicles used in position data from the position sample reference.
  * @verbatim
@@ -851,7 +896,8 @@
      // Process after successfully getting the GNSS Satellite Vehicles used in position data.
    }
    @endverbatim
- * taf_gnss_GetDilutionOfPrecision() -- Gets the Dilution of Precision (DOP) paramters with a
+ *
+ * - taf_gnss_GetDilutionOfPrecision() -- Gets the Dilution of Precision (DOP) paramters with a
  * resolution of 3 decimal places by default. This resolution can be modified by calling the
  * @c taf_gnss_SetDopResolution() function first.
  *
@@ -863,6 +909,7 @@
      // Process after successfully setting the dilute of precision resolution
    }
    @endverbatim
+ *
  * taf_gnss_SetDopResolution() and @c taf_gnss_GetDilutionOfPrecision() functions should be called
  * in the same thread or client session.
  *
@@ -973,6 +1020,48 @@
    }
    @endverbatim
  *
+ *
+ * - taf_gnss_SetDRConfigValidity() -- Sets the dead reckoning parameters validity mask.
+ * @verbatim
+   taf_gnss_DRConfigValidityType_t drParamsMask;
+   taf_gnss_DrParams_t *drParamsPtr;
+   drParamsMask |= TAF_GNSS_BODY_TO_SENSOR_MOUNT_PARAMS_VALID;
+   drParamsMask |= TAF_GNSS_VEHICLE_SPEED_SCALE_FACTOR_VALID;
+   drParamsMask |= TAF_GNSS_VEHICLE_SPEED_SCALE_FACTOR_UNC_VALID;
+   drParamsMask |= TAF_GNSS_GYRO_SCALE_FACTOR_VALID;
+   drParamsMask |= TAF_GNSS_GYRO_SCALE_FACTOR_UNC_VALID;
+   static le_mem_PoolRef_t DrFramePool = NULL;
+   DrFramePool = le_mem_CreatePool("DrframePool", sizeof(taf_gnss_DrParams_t));
+   drParamsPtr = (taf_gnss_DrParams_t*) le_mem_ForceAlloc(DrFramePool);
+   drParamsPtr->rollOffset = 1.2;
+   drParamsPtr->yawOffset = 2.3;
+   drParamsPtr->pitchOffset = 3.4;
+   drParamsPtr->offsetUnc = 180.0;
+   drParamsPtr->speedFactor = 1.0;
+   drParamsPtr->speedFactorUnc = 0.0;
+   drParamsPtr->gyroFactor = 1.0;
+   drParamsPtr->gyroFactorUnc = 0.0;
+   if(taf_gnss_SetDRConfigValidity(drParamsMask) == LE_OK)
+   {
+     // Process after successfully setting the dead reckoning parameters validity mask.
+   }
+   if(taf_gnss_SetDRConfig(drParamsPtr) == LE_OK)
+   {
+     // Process after successfully configuring the dead reckoning parameters with the mask enabled.
+   }
+   le_mem_Release(drParamsPtr);
+   @endverbatim
+ *
+ * - taf_gnss_GetGptpTime() -- Gets Gptp time and its uncertainty
+ *
+ * @verbatim
+   uint64_t gPtpTime;
+   uint64_t gPtpTimeUnc;
+   if(taf_gnss_GetGptpTime(positionSampleRef,&gPtpTime,&gPtpTimeUnc))
+   {
+     // Process after successfully getting Gptp time information.
+   }
+   @endverbatim
  *
  * @subsection taf_gnss_GetLeapSeconds Get leap seconds event information
  *
@@ -1173,7 +1262,7 @@ ENUM AltType
 {
     ALT_TYPE_UNKNOWN,          ///< Unknown altitude type.
     ALT_TYPE_CALCULATED,       ///< Altitude is calculated.
-    ALT_TYPE_ASSUMED           ///< Altitude is assumed as there may not be enough satellites to 
+    ALT_TYPE_ASSUMED           ///< Altitude is assumed as there may not be enough satellites to
                                ///  determine the precise altitude.
 };
 
@@ -1961,8 +2050,10 @@ BITMASK LocationInfoValidity
     HAS_HEADING_ACCURACY_BIT,     ///< Valid heading accuracy via @ref taf_gnss_GetDirection
     HAS_TIMESTAMP_BIT,            ///< Valid timestamp  via @ref taf_gnss_GetEpochTime
     HAS_ELAPSED_REAL_TIME_BIT,    ///< Valid elapsed real time via @ref taf_gnss_GetRealTimeInformation
-    HAS_ELAPSED_REAL_TIME_UNC_BIT ///< Valid elapsed real time uncertainty via
+    HAS_ELAPSED_REAL_TIME_UNC_BIT,///< Valid elapsed real time uncertainty via
                                   ///  @ref taf_gnss_GetRealTimeInformation
+    HAS_GPTP_TIME_BIT,            ///< Valid gptp time via @ref taf_gnss_GetGptpTime
+    HAS_GPTP_TIME_UNC_BIT         ///< Valid gptp time uncertainity via @ref taf_gnss_GetGptpTime
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -2205,6 +2296,20 @@ ENUM XtraDataStatus
     XTRA_DATA_STATUS_NOT_VALID, ///< If XTRA feature is enabled, but XTRA data is not valid.
     XTRA_DATA_STATUS_VALID      ///< If XTRA feature is enabled, XTRA data has been downloaded,
                                 ///  and is currently valid.
+};
+
+//------------------------------------------------------------------------------------------------
+/**
+ * Specify the valid mask for the configuration parameters of dead reckoning position engine.
+ */
+//------------------------------------------------------------------------------------------------
+BITMASK DRConfigValidityType
+{
+    BODY_TO_SENSOR_MOUNT_PARAMS_VALID,    ///< Validity of body to sensor mount parameters.
+    VEHICLE_SPEED_SCALE_FACTOR_VALID,     ///< Validity of vehicle speed scale factor.
+    VEHICLE_SPEED_SCALE_FACTOR_UNC_VALID, ///< Validity of vehicle speed scale factor uncertainty.
+    GYRO_SCALE_FACTOR_VALID,              ///< Validity of gyro scale factor.
+    GYRO_SCALE_FACTOR_UNC_VALID           ///< Validity of gyro scale factor uncertainty.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -2452,6 +2557,14 @@ FUNCTION le_result_t GetAcquisitionRate
  *  - LE_NOT_PERMITTED The Location service state is not enabled or not started.
  *  - LE_OK            Succeeded.
  *  - LE_FAULT         Failed.
+ *
+ * @note In case of cold start and warm start, the aiding data for the GNSS engine is deleted and
+ *       the TTFF in these cases would be precise. The TTFF accuracy is lower with higher
+ *       acquisition rate and is the most precise acquisition at 100ms (10Hz).
+ *
+ *       In case of start and hot start, the TTFF only represents the time between starting or
+ *       restarting to receive the reports and receiving first fix reports since these APIs do not
+ *       restart the underlying GNSS engine.
  *
  * @note If the caller passes a null pointer to this function, it is a fatal error and the
  *       client will be killed.
@@ -2727,7 +2840,7 @@ FUNCTION le_result_t GetSupportedConstellations
 
 //--------------------------------------------------------------------------------------------------
 /**
- * This API configures the minimum SV elevation angle setting used by the GNSS 
+ * This API configures the minimum SV elevation angle setting used by the GNSS
  * standard position engine.
  *
  * @return
@@ -2829,13 +2942,15 @@ FUNCTION le_result_t GetNmeaSentences
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets the dead reckoning configuration parameters.
+ * Sets the dead reckoning configuration parameters with default mask enabled.
+ * By default all DRE parameters mask get enabled while triggering this API. To change the mask
+ * taf_gnss_SetDRConfigValidity() API can be called to set particular DRE parameter mask.
+ * The mask gets updated and this API can be called to configure the DRE parameters with the updated mask.
  *
  * @return
  *  - LE_OK             Succeeded.
  *  - LE_FAULT          Failed.
- *  - LE_BUSY           Service is busy.
- *  - LE_TIMEOUT        Timeout occurred.
+ *  - LE_OUT_OF_RANGE   Dead reckoning parameters out of range.
  *  - LE_NOT_PERMITTED  Location service is not ready.
  *
  * @note If the caller passes a null pointer to this function, it is a fatal error, the
@@ -2851,7 +2966,7 @@ FUNCTION le_result_t SetDRConfig
 /**
  * Returns a bitmask containing all NMEA sentences supported on this platform.
  *
- * @return 
+ * @return
  * - LE_OK               Succeeded.
  * - LE_NOT_PERMITTED    Location service is not ready.
  * - LE_FAULT            Failed.
@@ -2964,7 +3079,7 @@ FUNCTION le_result_t RequestSecondaryBandConstellations
  * @return
  *  - LE_OK             Succeeded.
  *  - LE_FAULT          Failed.
- *  - LE_NOT_PERMITTED  Location service is not ready. 
+ *  - LE_NOT_PERMITTED  Location service is not ready.
  *
  * @note If the caller passes a null pointer to this function, it is a fatal error and the
  *       client will be killed.
@@ -3265,7 +3380,9 @@ FUNCTION le_result_t GetLocationOutputEngParams
 (
     Sample positionSampleRef IN,    ///< Position sample reference.
     uint16 engMaskPtr OUT,          ///< Engine type bit mask. @ref EngineMask
-    uint16 engTypePtr OUT           ///< Location engine type. @ref EngineType
+                                    ///  This parameter is valid only when engine
+                                    ///  type is TAF_GNSS_LOC_OUTPUT_ENGINE_FUSED.
+    uint16 engTypePtr OUT           ///< Location engine type. @ref LocationAggregationType
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -3567,4 +3684,40 @@ FUNCTION le_result_t GetGnssData
 (
     Sample positionSampleRef                         IN, ///< Position sample reference
     GnssData gnssDataPtr[NUMBER_OF_SIGNAL_TYPES_MAX] OUT ///< GNSS data in Jammer indication and AGC.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the dead reckoning parameters validity mask.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *  - LE_NOT_PERMITTED  Location service is not ready.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetDRConfigValidity
+(
+    DRConfigValidityType validMask   IN ///< Validity mask for dead reckoning parameters.
+);
+
+//------------------------------------------------------------------------------------------------
+/**
+ * Gets Gptp time and its uncertainty.
+ *
+ * @return
+ *  - LE_OK             Succeeded.
+ *  - LE_FAULT          Failed.
+ *
+ * @note If the caller passes a null pointer to this function, it is a fatal error
+ * and the client will be killed.
+ */
+
+//------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetGptpTime
+(
+    Sample positionSampleRef IN, ///< Position sample reference.
+    uint64 gPtpTime OUT,         ///< Gptp time stamp in nanoseconds.
+    uint64 gPtpTimeUnc OUT       ///< Gptp time stamp uncertainty in nanoseconds.
 );

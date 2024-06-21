@@ -1,0 +1,551 @@
+/*
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * @page c_taf_mngdPm Managed Power Management Service
+ *
+ * @ref taf_mngdPm_interface.h "API Reference"
+ *
+ * <HR>
+ *
+ * The Managed Power Management service APIs help to manage power on the NAD/TCU.
+ *
+ * @section taf_mngdPm_binding IPC interfaces binding
+ *
+ *
+ * The following example illustrates how to bind to the Managed Power Management service.
+ * @verbatim
+   bindings:
+   {
+       clientExe.clientComponent.taf_mngdPm -> tafMngdPMSvc.taf_mngdPm
+   }
+   @endverbatim
+ *
+ * @section taf_mngdPm Configuration
+ *
+ * Before starting the service, the user should place a JSON file named
+ * tafMngdPMConfig.json into /data/ManagedServices directory. This JSON file contains the
+ * configurations for trigger sources, e.g., CAN, SMS, and GPIO.
+ *
+ * The default configuration file is available at
+ * /legato/systems/current/appsWriteable/tafMngdPMSvc/tafMngdPMConfig.json
+ *
+ * @section taf_mngdPm_shutdown Shutdown the system forcefully
+ *
+ * TelAF Power Management Service's client calls taf_mngdPm_ShutdownReqAsync() to shut down the
+ * system forcefully.
+ * This function returns le_result_t and updates the results through callback function reference
+ * provided in the function call. This API will collaborate with the PM VHAL.
+ * @verbatim
+
+    void ForcedSystemShutdownCallBack(taf_mngdPm_ShutdownMode_t mode,
+        taf_mngdPm_ResponseMode_t ResponseMode, void* contextPtr)
+    {
+        LE_INFO("ForcedSystemShutdownCallBack ");
+    }
+
+    void ForcedSystemShutdown()
+    {
+        le_result_t result = taf_mngdPm_ShutdownReqAsync(TAF_MNGDPM_SYSTEM_FORCEFUL_SHUTDOWN,
+                ForcedSystemShutdownCallBack, NULL);
+
+        if(result == LE_OK) {
+            LE_INFO("Forcefull shutdown request sent successfully");
+        }
+    }
+
+   @endverbatim
+ *
+ * @section taf_mngdPm_restart Restart the system forcefully
+ *
+ * TelAF Power Management Service's client calls taf_mngdPm_RestartReqAsync() to restart the
+ * system forcefully.
+ * This function returns le_result_t and updates the results through callback function reference
+ * provided in the function call. This function also provides the ability to shut down the NAD on
+ * receiving this restart request in case customer wants to wake up the NAD after power off. This
+ * API will collaborate with the PM VHAL.
+ * @verbatim
+
+    void RestartCallback(taf_mngdPm_RestartMode_t mode, taf_mngdPm_ResponseMode_t rspmode,
+            void* contextPtr)
+    {
+        LE_INFO(" RestartCallback ");
+    }
+
+    void RestartSystem()
+    {
+        le_result_t res = taf_mngdPm_RestartReqAsync(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON,
+                RestartCallback, NULL);
+        if(result == LE_OK) {
+            LE_INFO("Forcefull restart request sent successfully");
+        }
+    }
+   @endverbatim
+ * @section taf_mngdPm_setTargetedMode Set the targeted power mode to the node
+ *
+ * TelAF Power Management Service's client calls taf_mngdPm_SetNodeTargetedPowerMode() to set the
+ * power mode of the node.
+ * This function returns le_result_t and sets the targeted power mode of the node requested once
+ * all the wake sources are released. This API will collaborate with the PM VHAL.
+ * @verbatim
+
+    // To set the targeted power mode of NAD to SHUT DOWN.
+    void SetTargetedPowerMode()
+    {
+        result = taf_mngdPm_SetNodeTargetedPowerMode(0,TAF_MNGDPM_SHUTDOWN);
+        if(result == LE_OK)
+            LE_INFO("taf_mngdPm_GracefulSysShutdownWakeLock triggered successfully");
+    }
+   @endverbatim
+ *
+ * @section taf_mngdPm_SetModemWakeupSource Configure the allowed Modem wakeup source type
+ *
+ * The API of taf_mngdPm_SetModemWakeupSource() is used to configure the allowed Modem wakeup source type.
+ * The input parameter is taken as the bitmap to set to the service.
+ * The service takes the union of multiple API calls to set the allowed wakeup sources.
+ * Bit 0 is for SMS, bit 1 is for incoming call, bit 2 is for MCU_VHAL.
+ * @verbatim
+
+    void SetModemWakeupSource()
+    {
+        le_result_t result = taf_mngdPm_SetModemWakeupSource(uint32_t wakeupSource);
+        if(result == LE_OK)
+            LE_INFO("taf_mngdPm_SetModemWakeupSource set successfully");
+    }
+   @endverbatim
+ *
+ * @section taf_mngdPm_NewNodeWakeupSource Acquire a wake source
+ *
+ * TelAF Managed Power Management Service's client calls taf_mngdPm_NewNodeWakeupSource() and
+ * taf_mngdPm_StayAwakeNode() to acquire a wake source to keep the system awake.
+ * The vhalTag parameter in taf_mngdPm_NewNodeWakeupSource() is used as an indication for the service to decide
+ * whether a notification is needed to be sent to the VHAL for the actions of taf_mngdPm_StayAwakeNode() and
+ * taf_mngdPm_RelaxNode().
+ * If the vhalTag is null, no notification will be sent to VHAL. Otherwise, the corresponding notification will be sent
+ * to the VHAL with the tag.
+ * @verbatim
+
+    void NewNodeWakeupSource()
+    {
+        const char* vHalTag = "vehichle_on";
+        uint8_t pmNodeId = 0;
+        taf_mngdPm_wsRef_t ref = taf_mngdPm_NewNodeWakeupSource(pmNodeId, TAF_MNGDPM_SMS, vHalTag);
+        if(ref != NULL)
+            LE_INFO("taf_mngdPm_NewNodeWakeupSource acquired a wake source successfully");
+    }
+    void StayAwakeNode()
+    {
+        le_result_t result = = taf_mngdPm_StayAwakeNode(ref);
+        if(result == LE_OK)
+            LE_INFO("taf_mngdPm_StayAwakeNode successfully acquire a wake source to keep the system awake");
+    }
+   @endverbatim
+ *
+ * @section taf_mngdPm_RelaxNode Release an acquired wake source
+ *
+ * TelAF Managed Power Management Service's client calls taf_mngdPm_RelaxNode() to request
+ * MPMS to release the acquired wake lock.
+ * This function returns le_result_t.
+ * @verbatim
+    void RelaxNode()
+    {
+        le_result_t result = = taf_mngdPm_RelaxNode(ref);
+        if(result == LE_OK)
+            LE_INFO("taf_mngdPm_RelaxNode successfully released a acquired wake lock");
+    }
+   @endverbatim
+ *
+  * @section taf_mngdPm_WakeupVehicleReqAsync Wake up the vehichle
+ *
+ * TelAF Managed Power Management Service's client calls WakeupVehicleReqAsync() to request
+ * MPMS to wake up the vehichle.
+ * This function returns le_result_t.
+ * @verbatim
+ void wakeupVehicleCB(taf_mngdPm_RestartMode_t mode, taf_mngdPm_ResponseMode_t rspmode,
+            void* contextPtr)
+    {
+        LE_INFO(" wakeupVehicleCB ");
+    }
+
+    void WakeupVehicleReqAsync()
+    {
+        le_result_t result = = taf_mngdPm_WakeupVehicleReqAsync(VEHICHLE_WAKEUP_REASON_DEFAULT,
+                 wakeupVehicleCB,NULL);
+        if(result == LE_OK) {
+            LE_INFO("WakeupVehicleReqAsync request sent successfully");
+        }
+    }
+   @endverbatim
+ *
+ *<HR>
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+
+/**
+ * Maximum string length for the Virtual Machine name.
+ */
+DEFINE MACHINE_NAME_LEN = 32;
+
+/*
+ * ENUM for NADs.
+ */
+ENUM Nad{
+    NAD1
+};
+
+/**
+ * System power states.
+ */
+ENUM State
+{
+    STATE_UNKNOWN,                  ///< Power state is unknown.
+    STATE_RESUME,                   ///< Power state is resume.
+    STATE_SUSPEND,                  ///< Power state is suspend.
+    STATE_SHUTDOWN,                 ///< Power state is shutdown.
+    STATE_RELEASING_WAKE_SOURCE,    ///< Power state is releasing wake source.
+    STATE_SUSPENDING,               ///< Power state is suspending.
+    STATE_SHUTTING_DOWN,            ///< Power state is shutting down.
+    STATE_WAKING_UP                 ///< Power state is waking up.
+};
+
+/**
+ * Targeted power modes.
+ */
+ENUM TargetedPowerMode
+{
+    RESUME,            ///< Power mode is resume.
+    SUSPEND,           ///< Power mode is suspend.
+    SHUTDOWN           ///< Power mode is shutdown.
+};
+
+/**
+ * Response mode for async requests.
+ */
+ENUM ResponseMode
+{
+    READY,           ///< The request is accepted.
+    NOT_READY,       ///< The request is rejected.
+    TIMEOUT          ///< The request to get the response is timed out.
+};
+
+/**
+ * Forceful shutdown request mode.
+ */
+ENUM ShutdownMode
+{
+    SHUTDOWN_MODE_NORMAL     ///< System forceful shutdown.
+};
+
+/**
+ * Wakeup type for system wakeup.
+ */
+ENUM WakeupType
+{
+    APP_STAYAWAKE,  ///< The wakeup type is to keep the system awake.
+    SMS,            ///< The wakeup type is SMS for system wakeup.
+    VOICE_CALL,     ///< The wakeup type is VOICE_CALL for system wakeup.
+    MCU_VHAL        ///< The wakeup type is  MCU / VHAL for system wakeup.
+};
+/**
+ * Information data report ID.
+ */
+ENUM InfoDataId
+{
+    INFO_REPORT_BUB    ///< Info report for BUB.
+};
+/**
+ * Bit Mask for the information data report.
+ */
+BITMASK InfoReportBitMask
+{
+    INFO_REPORT_BIT_MASK_BUB_STATUS
+};
+/**
+ * Bub Status for INFO_REPORT_BUB_STATUS InfoDataId.
+ */
+ENUM BubStatus
+{
+    BUB_STATUS_UNKNOWN =  -1,
+    BUB_STATUS_NOT_IN_USE,
+    BUB_STATUS_IN_USE
+};
+DEFINE WSREF_MAXLEN   = (32);
+
+/**
+ * WakeupNodeSourceRef for system wakeup.
+ */
+REFERENCE ws;
+
+/**
+ * Handler for async shutdown request.
+ */
+HANDLER AsyncShutdownReqHandler
+(
+    ShutdownMode requestedMode IN,   ///< Requested mode.
+    ResponseMode responseMode  IN    ///< Request response.
+);
+
+/**
+ * Restart request mode.
+ */
+ENUM RestartMode
+{
+    RESTART_SYSTEM_OFF_ON    ///< Restart System.
+};
+
+/**
+ * Handler for async restart request.
+ */
+HANDLER AsyncRestartReqHandler
+(
+    RestartMode restartMode   IN,    ///< Restart mode.
+    ResponseMode responseMode IN     ///< Request response.
+);
+
+/**
+ * Handler for async Wake up Vehicle request.
+ */
+HANDLER AsyncWakeupVehicleReqHandler
+(
+    int32 reason IN,    ///< WakeupVehicleReason reason.
+    int32 status IN     ///< Response status.
+);
+
+/**
+ * State indication structure.
+ */
+STRUCT StateInd
+{
+    State state;    ///< Power state.
+};
+
+/**
+ * Handler for state change.
+ */
+HANDLER StateChangeHandler
+(
+    StateInd stateInd IN  ///< The system state indication.
+);
+
+/**
+ * State change event.
+ */
+EVENT StateChange
+(
+    StateChangeHandler handler  ///< The state change handler.
+);
+
+/**
+ * Handler for information report.
+ */
+HANDLER InfoReportHandler
+(
+    int32 report     IN  ///< The status report.
+);
+
+/**
+ * Information data report event.
+ */
+EVENT InfoReport
+(
+    InfoReportBitMask infoReportMask,  ///< Bit mask for the data report.
+    InfoReportHandler handler    ///< The data report handler.
+);
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the targeted power mode for the node.
+ * Node will initiate the requested power state once all wake sources are released.
+ * @return
+ *     - LE_OK             Successfully sets the targeted power mode.
+ *     - LE_BAD_PARAMETER  The given pmNodeId is invalid.
+ *     - LE_FAULT          Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetNodeTargetedPowerMode
+(
+    uint8 pmNodeId IN,               ///< The Node ID given.
+    TargetedPowerMode powerMode IN   ///< The power mode to be set.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Forcefully shuts down the system.
+ *
+ * @return
+ *     - LE_OK             Successfully sent the request.
+ *     - LE_BAD_PARAMETER  Invalid requested mode or handler reference.
+ *     - LE_FAULT          Failed to send the request.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ShutdownReqAsync
+(
+    ShutdownMode              requstedMode  IN,   ///< Requested mode.
+    AsyncShutdownReqHandler   handlerRef    IN    ///< Handler Reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Forcefully restarts the system.
+ *
+ * @return
+ *     - LE_OK             Successfully sent the request.
+ *     - LE_BAD_PARAMETER  Invalid requested mode or handler reference.
+ *     - LE_FAULT          Failed to send the request.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t RestartReqAsync
+(
+    RestartMode             restartMode  IN,   ///< Restart mode.
+    AsyncRestartReqHandler  handlerRef   IN    ///< Handler reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Request for the vehichle wakeup with wake up reason.
+ *
+ * @return
+ *     - LE_OK             Successfully sent the request.
+ *     - LE_BAD_PARAMETER  Invalid requested mode or handler reference.
+ *     - LE_FAULT          Failed to send the request.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t WakeupVehicleReqAsync
+(
+    int32           reason  IN,   ///< WakeupVehicle Reason.
+    AsyncWakeupVehicleReqHandler  handlerRef   IN    ///< AsyncWakeupVehicleReq Handler reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Creates a new wake lock reference.
+ *
+ * @return
+ *     - LE_OK             Successfully sent the request.
+ *     - LE_BAD_PARAMETER  Invalid requested mode or handler reference.
+ *     - LE_FAULT          Failed to send the request.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION ws NewNodeWakeupSource (
+    uint8 pmNodeId IN,               ///< The Node ID given.
+    WakeupType  wakeupType IN,       ///< The wakeup type given.
+    string vhalTag[WSREF_MAXLEN] IN  ///< The HAL tag information.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the allowed Modem wakeup source type.
+ * Currently the SMS, incoming call, and MCU_VHAL sources are supported to be set.
+ *
+ * @return
+ *     - LE_OK             Successfully sent the request.
+ *     - LE_BAD_PARAMETER  Invalid wakeupSource type.
+ *     - LE_FAULT          Failed to send the request.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetModemWakeupSource (
+    uint32 wakeupSource IN       ///< The allowed wakeup sources bit map.
+                                 ///< Bit 0 is for SMS, bit 1 is for incoming call, bit 2 is for MCU_VHAL.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Releases the acquired wake source.
+ *
+ * @return
+ *     - LE_OK             Successfully sent the request.
+ *     - LE_FAULT          Failed to send the request.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t RelaxNode (
+    ws wsRef IN    ///< The wakesource reference ID given.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Acquires the wake source to keep the node awake.
+ *
+ * @return
+ *     - LE_OK             Successfully sent the request.
+ *     - LE_FAULT          Failed to send the request.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t StayAwakeNode(
+    ws wsRef IN     ///< The wakesource reference ID given.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Initiates the forceful shutdown for the given node.
+ * @return
+ *     - LE_OK             Successfully shuts down for the given node.
+ *     - LE_BAD_PARAMETER  The given pmNodeId is invalid.
+ *     - LE_FAULT          Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ShutdownNode
+(
+    uint8 pmNodeId IN   ///< The Node ID given.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Initiates the forceful restart for the given node.
+ *
+ * @return
+ *     - LE_OK             Successfully restarts for the given node.
+ *     - LE_BAD_PARAMETER  Invalid requested mode or handler reference.
+ *     - LE_FAULT          Failed to send the request.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t RestartNode
+(
+    uint8 pmNodeId IN   ///< The Node ID given.
+);
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the status information report based on the given report ID.
+ *
+ * @return
+ *     - LE_OK             Succeed.
+ *     - LE_BAD_PARAMETER  Invalid report ID.
+ *     - LE_FAULT          No VHAL module detected.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetInfoReport
+(
+    InfoDataId reportId IN,  ///< The status report ID.
+    int32 report  OUT      ///< The status report.
+);

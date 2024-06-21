@@ -37,6 +37,7 @@
 
 static taf_time_TimeSourceChangeHandlerRef_t TimeSourceChangeHandlerRef = NULL;
 static taf_time_TimeValueChangeHandlerRef_t TimeValueChangeHandlerRef = NULL;
+static taf_time_TimeSourceStatusHandlerRef_t TimeSourceStatusHandlerRef = NULL;
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -65,6 +66,11 @@ void TimePrintHelpMenu
         "    app runProc tafTimeIntTest tafTimeIntTest -- timeChaHandler 65 3\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- set time 1688998899 1000\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- set timeLoop 1688998899 1000 33\n"
+        "    app runProc tafTimeIntTest tafTimeIntTest -- timeSourceStatusHandler 1 40\n"
+        "    app runProc tafTimeIntTest tafTimeIntTest -- get GetSourceDetails 1\n"
+        "    app runProc tafTimeIntTest tafTimeIntTest -- get GetSystemTimeSourceID\n"
+        "    app runProc tafTimeIntTest tafTimeIntTest -- get DayAdj 3\n"
+        "    app runProc tafTimeIntTest tafTimeIntTest -- get TimeZone 3\n"
         "\n"
         "DESCRIPTION:\n"
         "    app runProc tafTimeIntTest tafTimeIntTest -- help\n"
@@ -96,6 +102,23 @@ void TimePrintHelpMenu
         "    app runProc tafTimeIntTest tafTimeIntTest -- set timeLoop 'sec' 'nanos' 'WiatSec'\n"
         "       Set system time with 'seconds' + 'nanosec' + 'interval' as in put, this"
         "       command will set the system time in a loop according to its paramtere."
+        "\n"
+        "    app runProc tafTimeIntTest tafTimeIntTest -- timeSourceStatusHandler sourceId WaitSeconds\n"
+        "       Monitor the availability status of 'sourceId' time source for 'WaitSeconds',"
+        "       will receive a notification when the status of the source changes."
+        "\n"
+        "    app runProc tafTimeIntTest tafTimeIntTest -- get GetSourceDetails sourceId\n"
+        "       Get source reference of 'sourceId' and will return reference which can be used\n"
+        "       to get other time source information that this 'sourceId' time was created.\n"
+        "\n"
+         "    app runProc tafTimeIntTest tafTimeIntTest -- get GetSystemTimeSourceID\n"
+        "       Get time source that has set the system time most recently\n"
+        "\n"
+        "    app runProc tafTimeIntTest tafTimeIntTest -- get DayAdj sourceId\n"
+        "       Get daylight adjustment for the given source Id.\n"
+        "\n"
+        "    app runProc tafTimeIntTest tafTimeIntTest -- get TimeZone sourceId\n"
+        "       Get TimeZone for the given source Id.\n"
         "\n"
     );
 
@@ -151,7 +174,7 @@ void TimeSourceChangeHandler
  //------------------------------------------------------------------------------------------------
 void TimeValueChangeHandler
 (
-    taf_time_TimeSourceRef_t timeSrcRef,
+    taf_time_TimeRef_t timeSrcRef,
     taf_time_TimeSpec_t* sourceTime,
     void* contextPtr
 )
@@ -308,7 +331,7 @@ void TestGetTimeRef
     le_result_t result;
     taf_time_TimeSpec_t time;
     uint8_t sourceId = strtol(le_arg_GetArg(2), NULL, 10);
-    taf_time_TimeSourceRef_t timeSrcRef;
+    taf_time_TimeRef_t timeSrcRef;
 
     timeSrcRef = taf_time_GetTimeRef(sourceId);
     LE_TEST_ASSERT(timeSrcRef != NULL, "taf_time_GetTimeRef() API.");
@@ -543,6 +566,133 @@ void AsyncGetCmdTest(void)
     }
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Get the information related to a time source.
+ */
+ //--------------------------------------------------------------------------------------------------
+
+void TestGetSourceDetails
+(
+    void
+)
+{
+    uint8_t sourceId = strtol(le_arg_GetArg(2), NULL, 10);
+    taf_time_SourceRef_t srcRef;
+
+    srcRef = taf_time_GetSourceRef(sourceId);
+    LE_ASSERT(srcRef != NULL);
+    int32_t failedLoops =0;
+    int64_t loopIntervalSec = 0;
+    bool isAvailable;
+
+    le_result_t res = taf_time_GetFailedLoops(srcRef, &failedLoops, &loopIntervalSec);
+    LE_ASSERT(res == LE_OK);
+    LE_INFO("The number of failed loops are %d. Loop interval is %ld",
+    failedLoops, loopIntervalSec);
+    isAvailable = taf_time_IsAvailable(srcRef);
+     if (isAvailable)
+    {
+        LE_INFO("Time source is Available!");
+    }
+    else
+    {
+        LE_INFO("Time source is NOT Available!");
+    }
+
+    // Release the memory for this reference.
+    res = taf_time_ReleaseSourceRef(srcRef);
+    LE_ASSERT(res == LE_OK);
+}
+
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Covert time source index name to string.
+ */
+//--------------------------------------------------------------------------------------------------
+const char* SourceNameIndexToStr
+(
+    taf_time_TimeSources_t sourceName
+)
+{
+    switch (sourceName)
+    {
+        case TAF_TIME_SRC_NAME_RTC:
+            return "RTC";
+
+        case TAF_TIME_SRC_NAME_GNSS:
+            return "GNSS";
+
+        case TAF_TIME_SRC_NAME_EX_APP:
+            return "ExAPP";
+
+        case TAF_TIME_SRC_NAME_NETWORK:
+            return "NETWORK";
+
+        case TAF_TIME_SRC_NAME_NETWORK2:
+            return "NETWORK2";
+
+        /* Add new time source here */
+
+        case TAF_TIME_SRC_NAME_UNKNOWN:
+            return "UNKNOWN";
+
+        case TAF_TIME_SRC_NAME_SYSTEM:
+            return "SYSTEM";
+
+    }
+    return "unknown";
+}
+
+void TestGetSystemTimeSourceID()
+{
+    taf_time_TimeSources_t systemTimeSrc;
+    le_result_t res = taf_time_GetSystemTimeSourceID(&systemTimeSrc);
+    LE_ASSERT(res == LE_OK);
+    LE_INFO("The lastest system time is set by %s", SourceNameIndexToStr(systemTimeSrc));
+}
+
+void TestGetTimeZone
+(
+    void
+)
+{
+    uint8_t sourceId = strtol(le_arg_GetArg(2), NULL, 10);
+    taf_time_SourceRef_t srcRef;
+
+    srcRef = taf_time_GetSourceRef(sourceId);
+    LE_ASSERT(srcRef != NULL);
+    int8_t timeZone = 0;
+    le_result_t res = taf_time_GetTimeZone(srcRef, &timeZone);
+    LE_ASSERT(res == LE_OK);
+    LE_INFO("Time zone is:  %d", timeZone);
+
+    // Release the memory for this reference.
+    le_result_t result = taf_time_ReleaseSourceRef(srcRef);
+    LE_ASSERT(result == LE_OK);
+}
+
+void TestGetDayAdj
+(
+    void
+)
+{
+    uint8_t sourceId = strtol(le_arg_GetArg(2), NULL, 10);
+    taf_time_SourceRef_t srcRef;
+
+    srcRef = taf_time_GetSourceRef(sourceId);
+    LE_ASSERT(srcRef != NULL);
+    uint8_t dayltSavAdj;
+    le_result_t res = taf_time_GetTimeDayAdj(srcRef, &dayltSavAdj);
+    LE_ASSERT(res == LE_OK);
+    LE_INFO("Day Light Saving is: %d", dayltSavAdj);
+
+    // Release the memory for this reference.
+    le_result_t result = taf_time_ReleaseSourceRef(srcRef);
+    LE_ASSERT(result == LE_OK);
+}
+
 
 void TimeGetCmdTest(void)
 {
@@ -565,6 +715,26 @@ void TimeGetCmdTest(void)
     {
         TimeCheckArgs(3);
         TestGetTimeRef();
+    }
+    else if (strncmp(cmd, "GetSourceDetails", strlen(cmd)) == 0)
+    {
+        TimeCheckArgs(3);
+        TestGetSourceDetails();
+    }
+    else if (strncmp(cmd, "GetSystemTimeSourceID", strlen(cmd)) == 0)
+    {
+        TimeCheckArgs(2);
+        TestGetSystemTimeSourceID();
+    }
+    else if (strncmp(cmd, "TimeZone", strlen(cmd)) == 0)
+    {
+        TimeCheckArgs(3);
+        TestGetTimeZone();
+    }
+    else if (strncmp(cmd, "DayAdj", strlen(cmd)) == 0)
+    {
+        TimeCheckArgs(3);
+        TestGetDayAdj();
     }
 }
 void TimeSetCmdTest(void)
@@ -718,11 +888,100 @@ void AsyncSetCmdTest(void)
     }
 }
 
+//-------------------------------------------------------------------------------------------------
+/**
+ * Handler for time source change that used by system.
+ */
+ //-------------------------------------------------------------------------------------------------
+void TimeSourceStatusHandler
+(
+    taf_time_SourceRef_t sourceRef,
+    bool isAvailable,
+    void* contextPtr
+)
+{
+    LE_ASSERT(sourceRef != NULL);
+    if (isAvailable)
+    {
+        LE_INFO("Time source is Available!");
+    }
+    else
+    {
+        LE_INFO("Time source is NOT Available!");
+    }
+}
+
+void* TimeSourceStatusHandlerTestThread(
+    void* contextPtr ///< [IN] Thread context.
+)
+{
+    // Connect to service.
+    taf_time_ConnectService();
+    uint8_t sourceid = strtol(le_arg_GetArg(1), NULL, 10);
+    taf_time_SourceRef_t sourceRef = NULL;
+    sourceRef = taf_time_GetSourceRef(sourceid);
+
+    LE_ASSERT(sourceRef != NULL);
+
+    TimeSourceStatusHandlerRef = taf_time_AddTimeSourceStatusHandler(sourceRef,
+        (taf_time_TimeSourceStatusHandlerFunc_t)TimeSourceStatusHandler, NULL);
+
+    LE_ASSERT(TimeSourceStatusHandlerRef != NULL);
+    LE_INFO("Handler registered successfully!.");
+    le_sem_Post((le_sem_Ref_t)contextPtr);
+    le_event_RunLoop();
+
+    // Release the memory for this reference.
+    le_result_t result = taf_time_ReleaseSourceRef(sourceRef);
+    LE_ASSERT(result == LE_OK);
+
+    return NULL;
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Remove handlers for reference time source.
+ */
+ //------------------------------------------------------------------------------------------------
+void RemoveRefTimeSourceStatusTestHandler
+(
+    void
+)
+{
+    // Remove handler
+    taf_time_RemoveTimeSourceStatusHandler(TimeSourceStatusHandlerRef);
+    LE_TEST_OK(true, "taf_time_RemoveTimeSourceStatusHandler -OK");
+}
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Create thread for test handler.
+ */
+ //------------------------------------------------------------------------------------------------
+
+void TimeSourceStatusHandlerTest(void)
+{
+    TimeCheckArgs(3);
+    LE_TEST_INFO("======== Time Source Status Change Handler Test ========\n");
+
+    long time = strtol(le_arg_GetArg(2), NULL, 10);
+    le_sem_Ref_t semaphore = le_sem_Create("timeSourceStatusSemaphore", 0);
+    le_thread_Ref_t threadRef = le_thread_Create("TimeSourceStatusThread",
+        TimeSourceStatusHandlerTestThread, (void*)semaphore);
+    le_thread_Start(threadRef);
+
+    le_thread_Sleep(time);
+    le_sem_Wait(semaphore);
+    le_sem_Delete(semaphore);
+
+    RemoveRefTimeSourceStatusTestHandler();
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Component initialization.
  */
-//--------------------------------------------------------------------------------------------------
+ //-------------------------------------------------------------------------------------------------
 COMPONENT_INIT
 {
     LE_INFO("*** Checking for Console args ***");
@@ -756,6 +1015,10 @@ COMPONENT_INIT
     else if (strncmp(cmd, "asyncSet", strlen(cmd)) == 0)
     {
         AsyncSetCmdTest();
+    }
+    else if (strncmp(cmd, "timeSourceStatusHandler", strlen(cmd)) == 0)
+    {
+        TimeSourceStatusHandlerTest();
     }
     else
     {

@@ -17,8 +17,10 @@ else
 endif
 
 TELUX_PC := $(PKG_CONFIG_SYSROOT_DIR)/usr/lib/pkgconfig/telux.pc
-TELUX_VERSION := $(shell grep '^Version:' $(TELUX_PC) | awk '{print $$2}')
-$(info TELUX_VERSION: $(TELUX_VERSION))
+TELUX_VERSION := $(shell find $(TELUX_PC) 2> /dev/null | xargs -r grep '^Version:' | awk '{print $$2}')
+ifneq ($(TELUX_VERSION),)
+    $(info TELUX_VERSION: $(TELUX_VERSION))
+endif
 TELUX_VERSION_AUDIO_MULTI_FORMAT_PB_SUPPORTED := 1.66.2
 DEFAULT_GT_OR_EQ := $(shell awk -v ver1=$(TELUX_VERSION) -v ver2=$(TELUX_VERSION_AUDIO_MULTI_FORMAT_PB_SUPPORTED) 'BEGIN { if (ver1 >= ver2) print "y"; else print "n" }')
 

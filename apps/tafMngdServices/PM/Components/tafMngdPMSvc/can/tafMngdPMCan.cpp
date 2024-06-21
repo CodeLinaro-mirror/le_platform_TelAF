@@ -63,19 +63,19 @@ void tafMngdPMCan::CanEventCallback(taf_can_CanInterfaceRef_t canInfRef, bool is
             LE_INFO("canFrame 0x%X with msg %s initiate %s state", canFramePtr->canFrameId,
                     canFramePtr->msg, tafMngdPMSvc::TafStateToString(canFramePtr->state));
 
-            taf_mngd_pm_State_t requestedState;
+            taf_mngdPm_State_t requestedState;
             switch((taf_pm_State_t)canFramePtr->state)
             {
                 case TAF_PM_STATE_SUSPEND:
-                    requestedState = TAF_MNGD_PM_STATE_SUSPENDING;
+                    requestedState = TAF_MNGDPM_STATE_SUSPENDING;
                     break;
 
                 case TAF_PM_STATE_SHUTDOWN:
-                    requestedState = TAF_MNGD_PM_STATE_SHUTTING_DOWN;
+                    requestedState = TAF_MNGDPM_STATE_SHUTTING_DOWN;
                     break;
 
                 case TAF_PM_STATE_RESUME:
-                    requestedState = TAF_MNGD_PM_STATE_WAKING_UP;
+                    requestedState = TAF_MNGDPM_STATE_WAKING_UP;
                     break;
 
                 default:
@@ -94,7 +94,7 @@ void tafMngdPMCan::CanEventCallback(taf_can_CanInterfaceRef_t canInfRef, bool is
     }
 }
 
-void tafMngdPMCan::RegisterCanEvents(uint32_t canFrameId, taf_mngd_pm_State_t state, const char* msg)
+void tafMngdPMCan::RegisterCanEvents(uint32_t canFrameId, taf_mngdPm_State_t state, const char* msg)
 {
     LE_DEBUG("RegisterCanEvents canFrameId 0x%X", canFrameId);
     if(canMapPool == nullptr) {
@@ -102,7 +102,7 @@ void tafMngdPMCan::RegisterCanEvents(uint32_t canFrameId, taf_mngd_pm_State_t st
     }
 
     if(canPMMap == nullptr) {
-        canPMMap =  le_hashmap_Create("tafMngdPMCanMap", TAF_MNGD_PM_MAX_TRIGGER_REGISTERS,
+        canPMMap =  le_hashmap_Create("tafMngdPMCanMap", TAF_MNGDPM_MAX_TRIGGER_REGISTERS,
                 le_hashmap_HashString, le_hashmap_EqualsString);
     }
 

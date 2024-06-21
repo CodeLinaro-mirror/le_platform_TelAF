@@ -36,13 +36,14 @@
 #include "interfaces.h"
 
 #define NODE_ID 0
+#define VEHICHLE_WAKEUP_REASON_DEFAULT 0
 
 const char* wakeuptype = "";
 static le_sem_Ref_t semRef = NULL, queueSemRef = NULL;
 static le_thread_Ref_t threadRef = NULL;
 taf_pm_StateChangeHandlerRef_t handlerRef;
 taf_pm_StateChangeExHandlerRef_t handlerExRef;
-taf_mngd_pm_StateChangeHandlerRef_t mpmsHanlerRef;
+taf_mngdPm_StateChangeHandlerRef_t mpmsHanlerRef;
 le_clk_Time_t Timeout = { 3 , 0 };
 int status = EXIT_SUCCESS;
 const char* vHalTag = "vehichle_on";
@@ -88,15 +89,15 @@ static void PrintUsage
     exit(EXIT_SUCCESS);
 }
 
-static char * StateToString(taf_mngd_pm_State_t *state)
+static char * StateToString(taf_mngdPm_State_t *state)
 {
     switch (*state)
     {
-        case TAF_MNGD_PM_STATE_RESUME:
+        case TAF_MNGDPM_STATE_RESUME:
             return "RESUME";
-        case TAF_MNGD_PM_STATE_SUSPEND:
+        case TAF_MNGDPM_STATE_SUSPEND:
             return "SUSPEND";
-        case TAF_MNGD_PM_STATE_SHUTDOWN:
+        case TAF_MNGDPM_STATE_SHUTDOWN:
             return "SHUTDOWN";
         default:
             LE_ERROR("unknown state");
@@ -149,45 +150,45 @@ void TestStateChangeExHandler(taf_pm_PowerStateRef_t powerStateRef,
 }
 
 // function called on MPMS power state change
-void TestMPMSStateChangeHandler(taf_mngd_pm_StateInd_t* indication, void* contextPtr)
+void TestMPMSStateChangeHandler(taf_mngdPm_StateInd_t* indication, void* contextPtr)
 {
-    taf_mngd_pm_State_t state;
+    taf_mngdPm_State_t state;
     switch(indication->state)
     {
-        case TAF_MNGD_PM_STATE_RESUME:
-            state = TAF_MNGD_PM_STATE_RESUME;
+        case TAF_MNGDPM_STATE_RESUME:
+            state = TAF_MNGDPM_STATE_RESUME;
             LE_TEST_INFO("MPMS state change to %s\n", StateToString(&state));
-            printf("\nMPMS state change to %s\n", "TAF_MNGD_PM_STATE_RESUME");
+            printf("\nMPMS state change to %s\n", "TAF_MNGDPM_STATE_RESUME");
             break;
 
-        case TAF_MNGD_PM_STATE_SUSPEND:
-            LE_TEST_INFO("MPMS state change to %s\n", "TAF_MNGD_PM_STATE_SUSPEND");
-            printf("\nMPMS state change to %s\n", "TAF_MNGD_PM_STATE_SUSPEND");
+        case TAF_MNGDPM_STATE_SUSPEND:
+            LE_TEST_INFO("MPMS state change to %s\n", "TAF_MNGDPM_STATE_SUSPEND");
+            printf("\nMPMS state change to %s\n", "TAF_MNGDPM_STATE_SUSPEND");
             break;
 
-        case TAF_MNGD_PM_STATE_SHUTDOWN:
-            LE_TEST_INFO("MPMS state change to %s\n", "TAF_MNGD_PM_STATE_SHUTDOWN");
-            printf("\nMPMS state change to %s\n", "TAF_MNGD_PM_STATE_SHUTDOWN");
+        case TAF_MNGDPM_STATE_SHUTDOWN:
+            LE_TEST_INFO("MPMS state change to %s\n", "TAF_MNGDPM_STATE_SHUTDOWN");
+            printf("\nMPMS state change to %s\n", "TAF_MNGDPM_STATE_SHUTDOWN");
             break;
 
-        case TAF_MNGD_PM_STATE_RELEASING_WAKE_SOURCE:
-            LE_TEST_INFO("MPMS state change to %s\n", "TAF_MNGD_PM_STATE_RELEASING_WAKE_SOURCE");
-            printf("\nMPMS state change to %s\n", "TAF_MNGD_PM_STATE_RELEASING_WAKE_SOURCE");
+        case TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE:
+            LE_TEST_INFO("MPMS state change to %s\n", "TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE");
+            printf("\nMPMS state change to %s\n", "TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE");
             break;
 
-        case TAF_MNGD_PM_STATE_SUSPENDING:
-            LE_TEST_INFO("MPMS state change to %s\n", "TAF_MNGD_PM_STATE_SUSPENDING");
-            printf("\nMPMS state change to %s\n", "TAF_MNGD_PM_STATE_SUSPENDING");
+        case TAF_MNGDPM_STATE_SUSPENDING:
+            LE_TEST_INFO("MPMS state change to %s\n", "TAF_MNGDPM_STATE_SUSPENDING");
+            printf("\nMPMS state change to %s\n", "TAF_MNGDPM_STATE_SUSPENDING");
             break;
 
-        case TAF_MNGD_PM_STATE_SHUTTING_DOWN:
-            LE_TEST_INFO("MPMS state change to %s\n", "TAF_MNGD_PM_STATE_SHUTTING_DOWN");
-            printf("\nMPMS state change to %s\n", "TAF_MNGD_PM_STATE_SHUTTING_DOWN");
+        case TAF_MNGDPM_STATE_SHUTTING_DOWN:
+            LE_TEST_INFO("MPMS state change to %s\n", "TAF_MNGDPM_STATE_SHUTTING_DOWN");
+            printf("\nMPMS state change to %s\n", "TAF_MNGDPM_STATE_SHUTTING_DOWN");
             break;
 
-        case TAF_MNGD_PM_STATE_WAKING_UP:
-            LE_TEST_INFO("MPMS state change to %s\n", "TAF_MNGD_PM_STATE_WAKING_UP");
-            printf("\nMPMS state change to %s\n", "TAF_MNGD_PM_STATE_WAKING_UP");
+        case TAF_MNGDPM_STATE_WAKING_UP:
+            LE_TEST_INFO("MPMS state change to %s\n", "TAF_MNGDPM_STATE_WAKING_UP");
+            printf("\nMPMS state change to %s\n", "TAF_MNGDPM_STATE_WAKING_UP");
             break;
 
         default:
@@ -198,7 +199,7 @@ void TestMPMSStateChangeHandler(taf_mngd_pm_StateInd_t* indication, void* contex
 static void* test_stateChangeHandler(void* ctxPtr)
 {
     taf_pm_ConnectService();
-    taf_mngd_pm_ConnectService();
+    taf_mngdPm_ConnectService();
 
     LE_TEST_INFO("Testing taf_pm_AddStateChangeHandler on valid handler reference");
     handlerRef = taf_pm_AddStateChangeHandler(TestStateChangeHandler, NULL);
@@ -208,9 +209,9 @@ static void* test_stateChangeHandler(void* ctxPtr)
     handlerExRef = taf_pm_AddStateChangeExHandler(TestStateChangeExHandler, NULL);
     LE_TEST_OK(handlerExRef != NULL,"Register state change handler is successfull");
 
-    LE_TEST_INFO("Testing taf_mngd_pm_AddStateChangeHandler on valid handler reference");
-    mpmsHanlerRef = taf_mngd_pm_AddStateChangeHandler(
-                    (taf_mngd_pm_StateChangeHandlerFunc_t)TestMPMSStateChangeHandler,
+    LE_TEST_INFO("Testing taf_mngdPm_AddStateChangeHandler on valid handler reference");
+    mpmsHanlerRef = taf_mngdPm_AddStateChangeHandler(
+                    (taf_mngdPm_StateChangeHandlerFunc_t)TestMPMSStateChangeHandler,
                     NULL);
     LE_TEST_OK(handlerExRef != NULL,"Register MPMS state change handler is successfull");
 
@@ -232,7 +233,7 @@ le_result_t SetModemWakeupSource(const char* wakeupSource)
     printf("String: %s\nConverted to uint32_t: %u\n", wakeupSource, uintResult);
 
     le_result_t res = LE_FAULT;
-    res = taf_mngd_pm_SetModemWakeupSource(uintResult);
+    res = taf_mngdPm_SetModemWakeupSource(uintResult);
     if(res == LE_OK) {
         return res;
     }
@@ -246,33 +247,33 @@ le_result_t SetModemWakeupSource(const char* wakeupSource)
 le_result_t SuspendSystem(const char* wakeuptype)
 {
     le_result_t res = LE_FAULT;
-    taf_mngd_pm_wsRef_t wsRef = NULL;
+    taf_mngdPm_wsRef_t wsRef = NULL;
     if(strcmp(wakeuptype, "1") == 0) {
         LE_INFO("NewNodeWakeupSource wakeuptype is SMS");
-        wsRef = taf_mngd_pm_NewNodeWakeupSource(NODE_ID, TAF_MNGD_PM_SMS, vHalTag);
+        wsRef = taf_mngdPm_NewNodeWakeupSource(NODE_ID, TAF_MNGDPM_SMS, vHalTag);
         if(wsRef != NULL) {
             LE_INFO("NewNodeWakeupSource ref is created for SMS");
-            res = taf_mngd_pm_RelaxNode(wsRef);
+            res = taf_mngdPm_RelaxNode(wsRef);
             if(res == LE_OK)
                 LE_INFO("suspended system with wakeuptype SMS");
         }
     }
     else if(strcmp(wakeuptype, "2") == 0) {
         LE_INFO("NewNodeWakeupSource wakeuptype is VOICE_CALL");
-        wsRef = taf_mngd_pm_NewNodeWakeupSource(NODE_ID, TAF_MNGD_PM_VOICE_CALL, vHalTag);
+        wsRef = taf_mngdPm_NewNodeWakeupSource(NODE_ID, TAF_MNGDPM_VOICE_CALL, vHalTag);
         if(wsRef != NULL) {
             LE_INFO("NewNodeWakeupSource ref is created for VOICE_CALL");
-            res = taf_mngd_pm_RelaxNode(wsRef);
+            res = taf_mngdPm_RelaxNode(wsRef);
             if(res == LE_OK)
                 LE_INFO("suspended sysytem with wakeuptype VOICE_CALL");
         }
     }
     else if(strcmp(wakeuptype, "3") == 0) {
         LE_INFO("NewNodeWakeupSource wakeuptype is SMS");
-        wsRef = taf_mngd_pm_NewNodeWakeupSource(NODE_ID, TAF_MNGD_PM_MCU_VHAL, vHalTag);
+        wsRef = taf_mngdPm_NewNodeWakeupSource(NODE_ID, TAF_MNGDPM_MCU_VHAL, vHalTag);
         if(wsRef != NULL) {
             LE_INFO("NewNodeWakeupSource ref is created for MCU_VHAL");
-            res = taf_mngd_pm_RelaxNode(wsRef);
+            res = taf_mngdPm_RelaxNode(wsRef);
             if(res == LE_OK)
                 LE_INFO("suspended sysytem with wakeuptype MCU_VHAL");
         }
@@ -287,13 +288,13 @@ le_result_t SuspendSystem(const char* wakeuptype)
 le_result_t ResumeSystem(const char* wakeuptype)
 {
     le_result_t res = LE_FAULT;
-    taf_mngd_pm_wsRef_t wsRef = NULL;
+    taf_mngdPm_wsRef_t wsRef = NULL;
     if(strcmp(wakeuptype, "1") == 0) {
         LE_INFO("NewNodeWakeupSource wakeuptype is SMS");
-        wsRef = taf_mngd_pm_NewNodeWakeupSource(NODE_ID, TAF_MNGD_PM_SMS, vHalTag);
+        wsRef = taf_mngdPm_NewNodeWakeupSource(NODE_ID, TAF_MNGDPM_SMS, vHalTag);
         if(wsRef != NULL) {
             LE_INFO("NewNodeWakeupSource ref is created for SMS");
-            res = taf_mngd_pm_StayAwakeNode(wsRef);
+            res = taf_mngdPm_StayAwakeNode(wsRef);
             if(res == LE_OK) {
                 LE_INFO("Resumed sysytem with wakeuptype SMS");
              }
@@ -301,10 +302,10 @@ le_result_t ResumeSystem(const char* wakeuptype)
     }
     else if(strcmp(wakeuptype, "2") == 0) {
         LE_INFO("NewNodeWakeupSource wakeuptype is VOICE_CALL");
-        wsRef = taf_mngd_pm_NewNodeWakeupSource(NODE_ID, TAF_MNGD_PM_VOICE_CALL, vHalTag);
+        wsRef = taf_mngdPm_NewNodeWakeupSource(NODE_ID, TAF_MNGDPM_VOICE_CALL, vHalTag);
         if(wsRef != NULL) {
             LE_INFO("NewNodeWakeupSource ref is created for VOICE_CALL");
-            res = taf_mngd_pm_StayAwakeNode(wsRef);
+            res = taf_mngdPm_StayAwakeNode(wsRef);
             if(res == LE_OK) {
                 LE_INFO("Resumed sysytem with wakeuptype VOICE_CALL");
              }
@@ -312,10 +313,10 @@ le_result_t ResumeSystem(const char* wakeuptype)
     }
     else if(strcmp(wakeuptype, "3") == 0) {
         LE_INFO("NewNodeWakeupSource wakeuptype is SMS");
-        wsRef = taf_mngd_pm_NewNodeWakeupSource(NODE_ID, TAF_MNGD_PM_MCU_VHAL, vHalTag);
+        wsRef = taf_mngdPm_NewNodeWakeupSource(NODE_ID, TAF_MNGDPM_MCU_VHAL, vHalTag);
         if(wsRef != NULL) {
             LE_INFO("NewNodeWakeupSource ref is created for MCU_VHAL");
-            res = taf_mngd_pm_StayAwakeNode(wsRef);
+            res = taf_mngdPm_StayAwakeNode(wsRef);
             if(res == LE_OK) {
                 LE_INFO("Resumed sysytem with wakeuptype MCU_VHAL");
              }
@@ -403,7 +404,7 @@ static int GracefulSystemShutdown()
     LE_TEST_INFO("To test GracefulSystemShutdown!");
     le_result_t result =  LE_FAULT;
 
-    result = taf_mngd_pm_SetNodeTargetedPowerMode(NODE_ID, TAF_MNGD_PM_SHUTDOWN);
+    result = taf_mngdPm_SetNodeTargetedPowerMode(NODE_ID, TAF_MNGDPM_SHUTDOWN);
     if(result != LE_OK)
     {
         LE_ERROR("GracefulSysShutdown request failed");
@@ -414,7 +415,7 @@ static int GracefulSystemShutdown()
     return EXIT_SUCCESS;
 }
 
-void RestartCallback(taf_mngd_pm_RestartMode_t mode, taf_mngd_pm_ResponseMode_t rspmode ,
+void RestartCallback(taf_mngdPm_RestartMode_t mode, taf_mngdPm_ResponseMode_t rspmode ,
         void* contextPtr)
 {
     LE_INFO("RestartCallback response mode is %d", rspmode);
@@ -425,7 +426,7 @@ static int RestartSystem()
 {
     LE_TEST_INFO("To test RestartSystem!" );
 
-    le_result_t res = taf_mngd_pm_RestartReqAsync(TAF_MNGD_PM_RESTART_SYSTEM_OFF_ON,
+    le_result_t res = taf_mngdPm_RestartReqAsync(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON,
             RestartCallback, NULL);
 
     if(res == LE_OK)
@@ -437,8 +438,8 @@ static int RestartSystem()
     return EXIT_SUCCESS;
 }
 
-void ForcedSystemShutdownCallBack(taf_mngd_pm_ShutdownMode_t mode,
-    taf_mngd_pm_ResponseMode_t ResponseMode, void* contextPtr)
+void ForcedSystemShutdownCallBack(taf_mngdPm_ShutdownMode_t mode,
+    taf_mngdPm_ResponseMode_t ResponseMode, void* contextPtr)
 {
     LE_INFO("ForcedSystemShutdownCallBack response mode is %d", ResponseMode);
     exit(status);
@@ -449,7 +450,7 @@ static int ForcedSystemShutdown()
     LE_TEST_INFO("To test ForcedSystemShutdown!");
     le_result_t result;
 
-    result = taf_mngd_pm_ShutdownReqAsync(TAF_MNGD_PM_SYSTEM_FORCEFUL_SHUTDOWN,
+    result = taf_mngdPm_ShutdownReqAsync(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL,
             ForcedSystemShutdownCallBack, NULL);
     if(result != LE_OK)
     {
@@ -465,7 +466,7 @@ static int ShutdownNode()
     LE_TEST_INFO("To test ShutdownNode!");
     le_result_t result;
 
-    result = taf_mngd_pm_ShutdownNode(NODE_ID);
+    result = taf_mngdPm_ShutdownNode(NODE_ID);
     if(result != LE_OK)
     {
 
@@ -481,7 +482,7 @@ static int RestartNode()
     LE_TEST_INFO("To test RestartNode!");
     le_result_t result;
 
-    result = taf_mngd_pm_RestartNode(NODE_ID);
+    result = taf_mngdPm_RestartNode(NODE_ID);
     if(result != LE_OK)
     {
         LE_ERROR("RestartNode request failed");
@@ -491,6 +492,31 @@ static int RestartNode()
     return EXIT_SUCCESS;
 }
 
+void WakeupVehicleback(int32_t reason, int32_t rspmode ,
+        void* contextPtr)
+{
+    LE_INFO("WakeupVehicleback response is %d", rspmode);
+    exit(status);
+}
+
+static int WakeupVehicle()
+{
+    LE_INFO("WakeupVehicle");
+    le_result_t res = taf_mngdPm_WakeupVehicleReqAsync(VEHICHLE_WAKEUP_REASON_DEFAULT,
+            WakeupVehicleback, NULL);
+
+    if(res == LE_OK)
+    {
+        LE_INFO("----WakeupVehicle success----");
+        status = EXIT_SUCCESS;
+    }
+    else
+    {
+        LE_ERROR("WakeupVehicle request failed");
+        status = EXIT_FAILURE;
+    }
+    return status;
+}
 static int TestMngdPMUnitTest()
 {
     LE_INFO("TestMngdPMUnitTest start");
@@ -568,6 +594,11 @@ COMPONENT_INIT
     else if (arg!= NULL && strncmp(arg, "RestartNode", 11) == 0)
     {
         status = RestartNode();
+        exit(status);
+    }
+    else if (arg!= NULL && strncmp(arg, "WakeupVehicle", 13) == 0)
+    {
+        status = WakeupVehicle();
         exit(status);
     }
 }

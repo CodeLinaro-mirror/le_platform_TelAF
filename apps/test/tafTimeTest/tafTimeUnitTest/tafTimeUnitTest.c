@@ -37,6 +37,7 @@
 
 static taf_time_TimeSourceChangeHandlerRef_t TimeSourceChangeHandlerRef = NULL;
 static taf_time_TimeValueChangeHandlerRef_t TimeValueChangeHandlerRef = NULL;
+static taf_time_TimeSourceStatusHandlerRef_t TimeSourceStatusHandlerRef = NULL;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -87,7 +88,7 @@ void TimeSourceChangeHandler
 //--------------------------------------------------------------------------------------------------
 void TimeValueChangeHandler
 (
-    taf_time_TimeSourceRef_t timeSrcRef,
+    taf_time_TimeRef_t timeSrcRef,
     taf_time_TimeSpec_t* sourceTime,
     void* contextPtr
 )
@@ -115,6 +116,27 @@ void TimeValueChangeHandler
         LE_INFO("Reference gptp time is %"PRIu64".%"PRIu64, time.sec, time.nanosec);
     }
     return;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for source status change which is using source reference and registered to time service.
+ */
+ //--------------------------------------------------------------------------------------------------
+void TimeSourceStatusHandler
+(
+    bool isAvailable,
+    void* contextPtr
+)
+{
+    if (isAvailable)
+    {
+        LE_INFO("Time source is Available!");
+    }
+    else
+    {
+        LE_INFO("Time source is NOT Available!");
+    }
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -226,7 +248,7 @@ void TestGetTimeRef
     le_result_t result;
     taf_time_TimeSpec_t time;
     uint8_t sourceId = 1;
-    taf_time_TimeSourceRef_t timeSrcRef;
+    taf_time_TimeRef_t timeSrcRef;
 
     timeSrcRef = taf_time_GetTimeRef(sourceId);
     LE_TEST_ASSERT(timeSrcRef != NULL, "taf_time_GetTimeRef() API.");
@@ -284,7 +306,7 @@ void TimeValueChangeHandlerTest
     uint8_t sourceId = 3;
 
     taf_time_TimeSpec_t timeVal;
-    taf_time_TimeSourceRef_t timeSrcRef;
+    taf_time_TimeRef_t timeSrcRef;
 
     timeSrcRef = taf_time_GetTimeRef(sourceId);
     LE_TEST_ASSERT(timeSrcRef != NULL, "taf_time_GetTimeRef() API.");
@@ -309,6 +331,29 @@ void TimeValueChangeHandlerTest
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * This thread is created for adding handlers for testing source status change notification.
+ */
+ //--------------------------------------------------------------------------------------------------
+void TimeSourceStatusHandlerTest(
+)
+{
+    uint8_t sourceid = 1;
+    taf_time_SourceRef_t sourceRef = NULL;
+
+    //Get the reference for specific source
+    sourceRef = taf_time_GetSourceRef(sourceid);
+
+    LE_TEST_ASSERT(sourceRef != NULL, "taf_time_GetSourceRef sourceRef - OK");
+
+    //Register handler for source status change
+    TimeSourceStatusHandlerRef = taf_time_AddTimeSourceStatusHandler(sourceRef,
+        (taf_time_TimeSourceStatusHandlerFunc_t)TimeSourceStatusHandler, NULL);
+
+    LE_TEST_ASSERT(TimeSourceStatusHandlerRef != NULL, "taf_time_AddTimeSourceStatusHandler() - OK");
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Register handler for time related information change.
  */
 //--------------------------------------------------------------------------------------------------
@@ -323,12 +368,16 @@ void TestTimeRegistrationHandler
     LE_TEST_OK(TimeSourceChangeHandlerRef != NULL, "taf_time_AddTimeSourceChangeHandler - OK");
 
     TimeValueChangeHandlerTest();
+    TimeSourceStatusHandlerTest();
 
     taf_time_RemoveTimeSourceChangeHandler(TimeSourceChangeHandlerRef);
     LE_TEST_OK(true, "taf_time_RemoveTimeSourceChangeHandler - void");
 
     taf_time_RemoveTimeValueChangeHandler(TimeValueChangeHandlerRef);
     LE_TEST_OK(true, "taf_time_RemoveTimeValueChangeHandler - OK");
+
+    taf_time_RemoveTimeSourceStatusHandler(TimeSourceStatusHandlerRef);
+    LE_TEST_OK(true, "taf_time_RemoveTimeSourceStatusHandler - OK");
 }
 //--------------------------------------------------------------------------------------------------
 /**
@@ -376,6 +425,40 @@ void TestRtcVhalAsyncGetTime
 
     le_sem_Wait(semAGetRtcVhal);
     le_sem_Delete(semAGetRtcVhal);
+}
+
+const char* SourceNameIndexToStr
+(
+    taf_time_TimeSources_t sourceName
+)
+{
+    switch (sourceName)
+    {
+        case TAF_TIME_SRC_NAME_RTC:
+            return "RTC";
+
+        case TAF_TIME_SRC_NAME_GNSS:
+            return "GNSS";
+
+        case TAF_TIME_SRC_NAME_EX_APP:
+            return "ExAPP";
+
+        case TAF_TIME_SRC_NAME_NETWORK:
+            return "NETWORK";
+
+        case TAF_TIME_SRC_NAME_NETWORK2:
+            return "NETWORK2";
+
+        /* Add new time source here */
+
+        case TAF_TIME_SRC_NAME_UNKNOWN:
+            return "UNKNOWN";
+
+        case TAF_TIME_SRC_NAME_SYSTEM:
+            return "SYSTEM";
+
+    }
+    return "unknown";
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -430,6 +513,107 @@ void TestRtcVhalAsyncSetTime
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Get source reference through source ID and get source related attributes from the reference.
+ */
+ //--------------------------------------------------------------------------------------------------
+void TestGetSourceRef
+(
+    void
+)
+{
+    uint8_t sourceId = 0xFF;
+    taf_time_SourceRef_t srcRef;
+
+    srcRef = taf_time_GetSourceRef(sourceId);
+    LE_TEST_ASSERT(srcRef != NULL, "taf_time_GetSourceRef() API - OK.");
+
+    // Release the memory for this reference.
+    le_result_t res = taf_time_ReleaseSourceRef(srcRef);
+    LE_ASSERT(res == LE_OK);
+}
+
+void TestGetSystemTimeSourceID()
+{
+    taf_time_TimeSources_t systemTimeSrc;
+    le_result_t res = taf_time_GetSystemTimeSourceID(&systemTimeSrc);
+    LE_ASSERT(res == LE_OK);
+    LE_INFO("The lastest system time is set by %s", SourceNameIndexToStr(systemTimeSrc));
+}
+
+void TestGetTimeZone()
+{
+    uint8_t sourceId = 3;
+    taf_time_SourceRef_t srcRef;
+
+    srcRef = taf_time_GetSourceRef(sourceId);
+    LE_ASSERT(srcRef != NULL);
+    int8_t timeZone = 0;
+    le_result_t res = taf_time_GetTimeZone(srcRef, &timeZone);
+    LE_TEST_ASSERT(res == LE_OK, "taf_time_GetTimeZone - OK. TimeZone is %d", timeZone);
+
+    // Release the memory for this reference.
+    res = taf_time_ReleaseSourceRef(srcRef);
+    LE_ASSERT(res == LE_OK);
+}
+
+void TestGetDayAdj()
+{
+    uint8_t sourceId = 3;
+    taf_time_SourceRef_t srcRef;
+
+    srcRef = taf_time_GetSourceRef(sourceId);
+    LE_ASSERT(srcRef != NULL);
+    uint8_t dayltSavAdj;
+    le_result_t res = taf_time_GetTimeDayAdj(srcRef, &dayltSavAdj);
+    LE_TEST_ASSERT(res == LE_OK, "taf_time_GetTimeDayAdj - OK. Day Light Saving is %d", dayltSavAdj);
+
+    // Release the memory for this reference.
+    res = taf_time_ReleaseSourceRef(srcRef);
+    LE_ASSERT(res == LE_OK);
+}
+
+void TestFailedLoops()
+{
+    uint8_t sourceId = 0;
+    taf_time_SourceRef_t srcRef;
+    int32_t failedLoops =0;
+    int64_t loopIntervalSec = 0;
+    srcRef = taf_time_GetSourceRef(sourceId);
+    LE_ASSERT(srcRef != NULL);
+    le_result_t res = taf_time_GetFailedLoops(srcRef, &failedLoops, &loopIntervalSec);
+    LE_ASSERT(res == LE_OK);
+    LE_INFO("The number of failed loops are %d. Loop interval is %ld",
+    failedLoops, loopIntervalSec);
+
+    // Release the memory for this reference.
+    res = taf_time_ReleaseSourceRef(srcRef);
+    LE_ASSERT(res == LE_OK);
+}
+
+void TestGetSourceAvailability()
+{
+    uint8_t sourceId = 3;
+    taf_time_SourceRef_t srcRef;
+    bool isAvailable;
+    srcRef = taf_time_GetSourceRef(sourceId);
+    LE_ASSERT(srcRef != NULL);
+    isAvailable = taf_time_IsAvailable(srcRef);
+    if (isAvailable)
+    {
+        LE_INFO("Time source is Available!");
+    }
+    else
+    {
+        LE_INFO("Time source is NOT Available!");
+    }
+
+    // Release the memory for this reference.
+    le_result_t res = taf_time_ReleaseSourceRef(srcRef);
+    LE_ASSERT(res == LE_OK);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Component initialization.
  */
 //--------------------------------------------------------------------------------------------------
@@ -449,6 +633,12 @@ COMPONENT_INIT
     TestGetRtcTime();
 
     TestGetTimeRef();
+    TestGetSourceRef();
+    TestGetSystemTimeSourceID();
+    TestGetTimeZone();
+    TestGetDayAdj();
+    TestFailedLoops();
+    TestGetSourceAvailability();
 
     TestRtcVhalAsyncSetTime();
     TestRtcVhalAsyncGetTime();

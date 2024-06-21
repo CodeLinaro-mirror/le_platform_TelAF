@@ -145,6 +145,7 @@ namespace telux {
             std::map <std::string, int> zoneNameToIdMap;
             std::map <std::string, int> CDevNameToIdMap;
 
+            le_result_t ReleaseThermalZoneRef(taf_therm_ThermalZoneRef_t tZoneRef);
             le_result_t ReleaseTripEventRef(taf_therm_TripPointRef_t tripEventRef);
             le_result_t ReleaseCoolingDeviceRef(taf_therm_CoolingDeviceRef_t cDevRef);
 

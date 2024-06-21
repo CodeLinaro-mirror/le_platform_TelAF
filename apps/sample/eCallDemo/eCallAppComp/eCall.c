@@ -184,6 +184,11 @@ static void PositionHandlerFunction
         LE_TEST_INFO("Failed to get position direction information\n");
     }
 
+    //Remove the handler assigned
+    taf_gnss_RemovePositionHandler(PositionHandlerRef);
+
+    //Stop receiving GNSS reports
+    taf_gnss_Stop();
 }
 
 static void* SamplePositionThread
@@ -220,18 +225,12 @@ static void fetchLocationInfo
     LE_INFO("fetchLocationInfo positionThreadRef :%p", positionThreadRef);
     le_thread_Start(positionThreadRef);
 
-    //Wait for 1 second to trigger PositionHandlerFunction callback
-    LE_TEST_INFO("Wait for 1 second");
-    le_thread_Sleep(1);
-
-    //Remove the handler assigned
-    taf_gnss_RemovePositionHandler(PositionHandlerRef);
+    //Wait for 2 seconds to init client session and trigger PositionHandlerFunction callback
+    LE_TEST_INFO("Wait for 2 seconds");
+    le_thread_Sleep(2);
 
     //cancel the running thread
     le_thread_Cancel(positionThreadRef);
-
-    //Stop receiving GNSS reports
-    taf_gnss_Stop();
 }
 
 char* getCurrentTime() {
@@ -336,6 +335,7 @@ static void* CommandInput(void* contextPtr)
             printf("\th - Hangup the eCall\n");
             printf("\tt - Terminate registration\n");
             printf("\ts - Import and send MSD\n");
+            printf("\tu - Send MSD\n");
             printf("\tg - Get hlap timer state\n");
             printf("\tq - Quit test\n");
             printf("-------------------------------------------------\n");
@@ -377,8 +377,7 @@ static void* CommandInput(void* contextPtr)
                             byte = msd[j] - 'a' + 10;
                         } else if (msd[j] >= 'A' && msd[j] <= 'F'){
                             byte = msd[j] - 'A' + 10;
-                        }
-                        else {
+                        } else {
                             printf("User input wrong\n");
                             res = -1;
                             break;
@@ -395,12 +394,25 @@ static void* CommandInput(void* contextPtr)
                     LE_INFO("CommandInput: send MSD, res: %d\n", res);
                 }
             }
+        } else if (p != NULL && input_str[0]=='u') {
+            uint8_t msdRawDataExport[TAF_ECALL_MAX_MSD_LENGTH];
+            size_t msdLengthExport = TAF_ECALL_MAX_MSD_LENGTH;
+            le_result_t result = LE_FAULT;
+            result = taf_ecall_ExportMsd(ECallRef, msdRawDataExport, &msdLengthExport);
+            if (LE_NOT_FOUND == result)
+            {
+                printf("User input: %c, so send MSD by SetMsdxxx...\n", input_str[0]);
+                int res = taf_ecall_SendMsd(ECallRef);
+                LE_INFO("CommandInput: send MSD, res: %d\n", res);
+            } else if (LE_OK == result) {
+                printf("User input: %c, so send MSD by ImportMsd...\n", input_str[0]);
+            }
         } else if (p != NULL && input_str[0]=='g') {
             printf("User input: %c, so enter the hlap timer type eg: 2...\n", input_str[0]);
             p = fgets(input_str,sizeof(input_str),stdin);
             taf_ecall_HlapTimerType_t timerType;
             taf_ecall_HlapTimerStatus_t timerStatus;
-            uint16_t remainTime;
+            uint16_t elapsedTime;
             if (p != NULL && input_str[0]=='2')
             {
                timerType = TAF_ECALL_TIMER_TYPE_T2;
@@ -411,9 +423,9 @@ static void* CommandInput(void* contextPtr)
             } else {
                timerType = TAF_ECALL_TIMER_TYPE_UNKNOWN;
             }
-            le_result_t result = taf_ecall_GetHlapTimerState(timerType, &timerStatus, &remainTime);
-            printf("Get hlap timer state %s\n", result == LE_OK ? "success." : "failed!!"); 
-            printf("Hlap timer status is %d and the remaining time is %d\n", timerStatus, remainTime);
+            le_result_t result = taf_ecall_GetHlapTimerState(timerType, &timerStatus, &elapsedTime);
+            printf("Get hlap timer state %s\n", result == LE_OK ? "success." : "failed!!");
+            printf("Hlap timer status is %d and the elapsed time is %d\n", timerStatus, elapsedTime);
         }else if (p != NULL && input_str[0]=='q') {
             exitApp = true;
             le_thread_Cancel(ECallCmdThreadRef);

@@ -31,11 +31,9 @@ bindings:
     tafDiagApp.diagAppComp.taf_diagReset -> tafDiagSvc.taf_diagReset
     tafDiagApp.diagAppComp.taf_diagRoutineCtrl -> tafDiagSvc.taf_diagRoutineCtrl
     tafDiagApp.diagAppComp.taf_diagUpdate -> tafDiagSvc.taf_diagUpdate
-#if ${LE_CONFIG_TARGET_SIMULATION} = ""
     tafDiagApp.diagAppComp.taf_update -> tafUpdateSvc.taf_update
     tafDiagApp.diagAppComp.taf_appMgmt -> tafUpdateSvc.taf_appMgmt
     tafDiagApp.diagAppComp.taf_fwupdate -> tafUpdateSvc.taf_fwupdate
-#endif
 #endif
 }
 

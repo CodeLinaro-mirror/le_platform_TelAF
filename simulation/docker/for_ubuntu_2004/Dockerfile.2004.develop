@@ -41,7 +41,8 @@ RUN python3 -m pip install Jinja2==3.0.3
 
 RUN apt-get -y --no-install-recommends install pkg-config
 RUN apt-get -y --no-install-recommends install libsqlite3-dev
-
+RUN apt-get -y --no-install-recommends install libasound2-dev
+RUN apt-get -y --no-install-recommends install nano
 
 ARG DEVELOPER_UID=1000
 ARG DEVELOPER_GID=1000

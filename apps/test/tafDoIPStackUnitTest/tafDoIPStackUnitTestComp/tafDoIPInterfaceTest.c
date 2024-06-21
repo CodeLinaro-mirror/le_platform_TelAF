@@ -46,7 +46,7 @@ static le_result_t DoipServerInit()
         DoipEntityRef = CreateDoipEntityRef();
     }
 
-    if (taf_doip_SetVin(DoipEntityRef, DOIP_TEST_VIN) != LE_OK)
+    if (taf_doip_SetVin(DOIP_TEST_VIN) != LE_OK)
     {
         LE_ERROR("Failed to set vin");
         return LE_FAULT;

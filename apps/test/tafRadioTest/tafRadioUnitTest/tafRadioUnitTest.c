@@ -217,6 +217,37 @@ void Nr5gSsChangeHandler
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Handler for CellInfo change status.
+ */
+//--------------------------------------------------------------------------------------------------
+void CellInfoChangeHandler
+(
+    taf_radio_CellInfoStatus_t cellStatus,
+    uint8_t phoneId, ///< [IN] Phone ID.
+    void* contextPtr ///< [IN] Handler context.
+)
+{
+    LE_INFO("Phone %d CellInfo status : %d", phoneId, cellStatus);
+
+    switch (cellStatus)
+    {
+        case TAF_RADIO_CELL_SERVING_CHANGED:
+            LE_INFO("Serving cell changed.");
+            break;
+        case TAF_RADIO_CELL_NEIGHBOR_CHANGED:
+            LE_INFO("Neighbor cell changed.");
+            break;
+        case TAF_RADIO_CELL_SERVING_AND_NEIGHBOR_CHANGED:
+            LE_INFO("Serving and neighbor changed.");
+            break;
+        default:
+            LE_INFO("CellInfo : Unknown");
+            break;
+    }
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Configurations on GSM signal indication.
  */
 //--------------------------------------------------------------------------------------------------
@@ -225,7 +256,13 @@ void GsmSignalConfiguration
     long phoneId ///< [IN] Phone ID.
 )
 {
-    le_result_t result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_GSM_RSSI,
+    le_result_t result = taf_radio_SetSignalStrengthIndHysteresisTimer(5000,phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndHysteresisTimer - OK");
+
+    result = taf_radio_SetSignalStrengthIndHysteresis(TAF_RADIO_SIG_TYPE_GSM_RSSI,100,phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndHysteresis - OK");
+
+    result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_GSM_RSSI,
         -1110, -510, phoneId);
     if (result != LE_UNSUPPORTED)
     {
@@ -249,7 +286,13 @@ void UmtsSignalConfiguration
     long phoneId ///< [IN] Phone ID.
 )
 {
-    le_result_t result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_UMTS_RSSI,
+    le_result_t result = taf_radio_SetSignalStrengthIndHysteresisTimer(5000,phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndHysteresisTimer - OK");
+
+    result = taf_radio_SetSignalStrengthIndHysteresis(TAF_RADIO_SIG_TYPE_UMTS_RSSI,100,phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndHysteresis - OK");
+
+    result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_UMTS_RSSI,
         -1130, -510, phoneId);
     if (result != LE_UNSUPPORTED)
     {
@@ -273,7 +316,13 @@ void LteSignalConfiguration
     long phoneId ///< [IN] Phone ID.
 )
 {
-    le_result_t result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_LTE_RSRP,
+    le_result_t result = taf_radio_SetSignalStrengthIndHysteresisTimer(5000,phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndHysteresisTimer - OK");
+
+    result = taf_radio_SetSignalStrengthIndHysteresis(TAF_RADIO_SIG_TYPE_LTE_RSRP,100,phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndHysteresis - OK");
+
+    result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_LTE_RSRP,
         -1400, -440, phoneId);
     if (result != LE_UNSUPPORTED)
     {
@@ -297,7 +346,13 @@ void Nr5gSignalConfiguration
     long phoneId ///< [IN] Phone ID.
 )
 {
-    le_result_t result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_NR5G_RSRP,
+    le_result_t result = taf_radio_SetSignalStrengthIndHysteresisTimer(5000,phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndHysteresisTimer - OK");
+
+    result = taf_radio_SetSignalStrengthIndHysteresis(TAF_RADIO_SIG_TYPE_NR5G_RSRP,100,phoneId);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetSignalStrengthIndHysteresis - OK");
+
+    result = taf_radio_SetSignalStrengthIndThresholds(TAF_RADIO_SIG_TYPE_NR5G_RSRP,
         -1400, -440, phoneId);
     if (result != LE_UNSUPPORTED)
     {
@@ -734,6 +789,11 @@ void TestTafRadioServingStatus
     char longOperatorStr[TAF_RADIO_NETWORK_NAME_MAX_LEN] = {0};
     char shortOperatorStr[TAF_RADIO_NETWORK_NAME_MAX_LEN] = {0};
 
+    taf_radio_CellInfoChangeHandlerRef_t cellInfoChangeHandlerRef =
+        taf_radio_AddCellInfoChangeHandler(
+       (taf_radio_CellInfoChangeHandlerFunc_t)CellInfoChangeHandler, NULL);
+    LE_TEST_OK(cellInfoChangeHandlerRef != NULL, "taf_radio_AddCellInfoChangeHandler - OK");
+
     taf_radio_Rat_t rat;
     result = taf_radio_GetRadioAccessTechInUse(&rat, DEFAULT_PHONE_ID);
     LE_TEST_OK(result == LE_OK, "taf_radio_GetRadioAccessTechInUse - LE_OK");
@@ -829,6 +889,9 @@ void TestTafRadioServingStatus
     result = taf_radio_GetNrDualConnectivityStatus(&endcStatus,&dcnrStatus,
             DEFAULT_PHONE_ID);
     LE_TEST_OK(result == LE_OK, "taf_radio_GetNrDualConnectivityStatus - LE_OK");
+
+    taf_radio_RemoveCellInfoChangeHandler(cellInfoChangeHandlerRef);
+    LE_TEST_OK(true, "taf_radio_RemoveCellInfoChangeHandler - OK");
 }
 
 //--------------------------------------------------------------------------------------------------

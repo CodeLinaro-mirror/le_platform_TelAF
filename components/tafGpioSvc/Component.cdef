@@ -20,6 +20,7 @@ cxxflags:
     -I$TELAF_ROOT/include
     -ltelux_common
     -I$TELAF_ROOT/components/tafHalComp
+    -I$TELAF_ROOT/include/staging/vhal
 }
 
 cflags:

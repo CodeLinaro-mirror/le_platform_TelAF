@@ -836,6 +836,7 @@ le_result_t taf_sim::UnlockCardByPin(taf_sim_Id_t  simId,
                         tafAuthenticationResponseCallback::unlockCardByPinResponseCb);
                 if(ret == telux::common::Status::SUCCESS) {
                     LE_INFO("Unlock card by pin request sent successfully\n");
+                    return LE_OK;
                 } else {
                     LE_INFO("Unlock card by pin request failed\n");
                     return LE_FAULT;
@@ -846,7 +847,7 @@ le_result_t taf_sim::UnlockCardByPin(taf_sim_Id_t  simId,
         LE_INFO("Unlock card by PIN request failed\n");
         return LE_FAULT;
     }
-    return LE_OK;
+    return LE_FAULT;
 }
 
 le_result_t taf_sim::ChangeCardPin( taf_sim_Id_t simId, taf_sim_LockType_t lockType,
@@ -881,6 +882,7 @@ le_result_t taf_sim::ChangeCardPin( taf_sim_Id_t simId, taf_sim_LockType_t lockT
                             tafAuthenticationResponseCallback::ChangeCardPinResponseCb);
                 if(ret == telux::common::Status::SUCCESS) {
                     LE_INFO( "Change card PIN request sent successfully\n");
+                    return LE_OK;
                 } else {
                     LE_INFO( "Change card PIN request failed\n");
                     return LE_FAULT;
@@ -891,7 +893,7 @@ le_result_t taf_sim::ChangeCardPin( taf_sim_Id_t simId, taf_sim_LockType_t lockT
         LE_INFO("Change card PIN request failed");
         return LE_FAULT;
     }
-    return LE_OK;
+    return LE_FAULT;
 }
 
 le_result_t taf_sim::UnlockCardByPuk(taf_sim_Id_t  simId, taf_sim_LockType_t lockType,
@@ -922,6 +924,7 @@ le_result_t taf_sim::UnlockCardByPuk(taf_sim_Id_t  simId, taf_sim_LockType_t loc
                             tafAuthenticationResponseCallback::unlockCardByPukResponseCb);
                     if(ret == telux::common::Status::SUCCESS) {
                         LE_INFO("Unlock card by PUK request sent successfully\n");
+                        return LE_OK;
                     } else {
                         LE_INFO("Unlock card by PUK request failed\n");
                         return LE_FAULT;
@@ -936,7 +939,7 @@ le_result_t taf_sim::UnlockCardByPuk(taf_sim_Id_t  simId, taf_sim_LockType_t loc
         LE_INFO("Unlock card by PUK request failed\n");
         return LE_FAULT;
     }
-    return LE_OK;
+    return LE_FAULT;
 }
 
 
@@ -967,6 +970,7 @@ le_result_t taf_sim::SetCardLock(taf_sim_Id_t  simId, taf_sim_LockType_t lockTyp
                         tafAuthenticationResponseCallback::setCardLockResponseCb);
                 if(ret == telux::common::Status::SUCCESS) {
                     LE_INFO("Set card lock request sent successfully\n");
+                    return LE_OK;
                 } else {
                     LE_INFO("Set card lock request failed\n");
                     return LE_FAULT;
@@ -977,7 +981,7 @@ le_result_t taf_sim::SetCardLock(taf_sim_Id_t  simId, taf_sim_LockType_t lockTyp
         LE_INFO("Set card lock request failed\n");
         return LE_FAULT;
     }
-    return LE_OK;
+    return LE_FAULT;
 }
 
 int32_t taf_sim::GetRemainingPINTries(taf_sim_Id_t simId) {
@@ -995,7 +999,7 @@ le_result_t taf_sim::GetRemainingPukTries(taf_sim_Id_t simId, uint32_t* remainin
         return LE_BAD_PARAMETER;
     }
     simPtr = GetSimContext(simId);
-    remainingPukTriesPtr = &simPtr->pukTryCount;
+    *remainingPukTriesPtr = simPtr->pukTryCount;
     return LE_OK;
 }
 
@@ -1286,6 +1290,12 @@ le_result_t taf_sim::SetPower(taf_sim_Id_t simId, le_onoff_t powerState)
     telux::common::Status status;
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
     auto ICard = cardManager->getCard(simId, &status);
+
+    if (ICard == nullptr) {
+        LE_ERROR("Card not found so set power failed!");
+        return LE_NOT_FOUND;
+    }
+
     SlotId slotId_for_card = SlotId(ICard->getSlotId());
     std::promise<telux::common::ErrorCode> p;
     telux::common::ResponseCallback setPowerResponseCb = [&p]

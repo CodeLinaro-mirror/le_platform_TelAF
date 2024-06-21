@@ -61,8 +61,6 @@ void tafMngdConnSim::SimStateHandler
     void* contextPtr
 )
 {
-    auto &mngdConnAdmin = tafMngdConnAdmin::GetInstance();
-
     if(simId != TAF_SIM_SLOT_ID_1 && simId != TAF_SIM_SLOT_ID_2)
         return;
 
@@ -75,7 +73,8 @@ void tafMngdConnSim::SimStateHandler
 
     stateMachineEvt.slotId = (uint8_t)simId;
 
-    le_event_Report(mngdConnAdmin.StateMachineEventId, &stateMachineEvt,
+    auto &mcsAdmin = tafMngdConnAdmin::GetInstance();
+    le_event_Report(mcsAdmin.GetStateMachineEventId(), &stateMachineEvt,
                     sizeof(stateMachineEvent_t));
 }
 

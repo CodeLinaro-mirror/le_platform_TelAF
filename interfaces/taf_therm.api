@@ -275,7 +275,13 @@
      }
 
    @endverbatim
- *
+
+* The application needs to release the thermal zone object after processing it
+* by calling taf_therm_ReleaseThermalZoneRef().
+* @verbatim
+   taf_therm_ReleaseThermalZoneRef(tZone);
+  @endverbatim
+
  * @section taf_therm_GetCoolingDeviceByName Get specified cooling device information
  *
  * TelAF Thermal Manager Service provides APIs to get information of cooling device by name present
@@ -303,8 +309,14 @@
    }
    @endverbatim
 
+* The application needs to release the cooling device object after processing it
+* by calling taf_therm_ReleaseCoolingDeviceRef().
+* @verbatim
+   taf_therm_ReleaseCoolingDeviceRef(tripEventSampleRef);
+  @endverbatim
+
  * An application may register and deregister a trip event handler to be notified when the trip
- * points trip with taf_therm_AddTripEventChangeHandler() and taf_therm_RemoveTripEventHandler().
+ * points trip with taf_therm_AddTripEventHandler() and taf_therm_RemoveTripEventHandler().
  * When a trip event is triggered, the handler is called.
  * @verbatim
 
@@ -327,7 +339,7 @@
      taf_therm_ReleaseTripEventRef(tripPoint);
  }
 
- handlerRef = taf_therm_AddTripEventChangeHandler
+ handlerRef = taf_therm_AddTripEventHandler
  ((taf_therm_TripEventHandlerFunc_t) TripEventHandler, NULL);
  LE_ASSERT(handlerRef != NULL);
  taf_therm_RemoveTripEventHandler(handlerRef);
@@ -1065,7 +1077,7 @@ FUNCTION le_result_t GetCDevID
 FUNCTION le_result_t GetCDevDescription
 (
     CoolingDevice CDevListRef               IN,   ///< Cooling device reference
-    string Description[TYPE_MAX_SIZE]       OUT   ///< The cooling device description associated 
+    string Description[TYPE_MAX_SIZE]       OUT   ///< The cooling device description associated
                                                  /// with input cooling device object reference
 );
 
@@ -1170,4 +1182,18 @@ FUNCTION le_result_t ReleaseTripEventRef
 FUNCTION le_result_t ReleaseCoolingDeviceRef
 (
     CoolingDevice coolingDeviceRef    IN        ///< Cooling device sample reference
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Releases the thermal zone reference.
+ *
+  * @return
+ * - LE_BAD_PARAMETER      Invalid reference passed.
+ * - LE_OK                 Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ReleaseThermalZoneRef
+(
+    ThermalZone thermalZoneeRef    IN        ///< Thermal zone reference
 );

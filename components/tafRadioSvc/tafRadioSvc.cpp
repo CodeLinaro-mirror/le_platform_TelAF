@@ -1904,16 +1904,17 @@ uint32_t taf_radio_GetServingCellId(uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, UINT32_MAX,
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
-    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(taf_RadioCellInfoCallback::cellInfoListResponse);
+    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
+        taf_RadioCellInfoCallback::cellInfoListResponse);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, UINT32_MAX,
-        "Call sdk function failed");
+            "Call sdk function failed");
 
     le_clk_Time_t timeToWait = {1, 0};
     le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
     TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT32_MAX, "Wait semaphore timeout");
 
     TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::result != LE_OK,
-        UINT32_MAX, "Fail to get cell information.");
+            UINT32_MAX, "Fail to get cell information.");
 
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT32_MAX,
         "No serving cell.");
@@ -1961,19 +1962,21 @@ uint32_t taf_radio_GetServingCellLocAreaCode(uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, UINT32_MAX,
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
-    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(taf_RadioCellInfoCallback::cellInfoListResponse);
+    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
+        taf_RadioCellInfoCallback::cellInfoListResponse);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, UINT32_MAX,
-        "Call sdk function failed");
+            "Call sdk function failed");
 
     le_clk_Time_t timeToWait = {1, 0};
     le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
     TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT32_MAX, "Wait semaphore timeout");
 
     TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::result != LE_OK,
-        UINT32_MAX, "Fail to get cell information.");
+            UINT32_MAX, "Fail to get cell information.");
 
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT32_MAX,
-        "No serving cell.");
+           "No serving cell.");
+
 
     switch (taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->rat)
     {
@@ -2016,16 +2019,18 @@ uint16_t taf_radio_GetServingCellLteTracAreaCode(uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, UINT16_MAX,
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
-    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(taf_RadioCellInfoCallback::cellInfoListResponse);
+    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
+        taf_RadioCellInfoCallback::cellInfoListResponse);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, UINT16_MAX,
-        "Call sdk function failed");
+            "Call sdk function failed");
 
     le_clk_Time_t timeToWait = {1, 0};
     le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
     TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT16_MAX, "Wait semaphore timeout");
 
     TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::result != LE_OK,
-        UINT16_MAX, "Fail to get cell information.");
+            UINT16_MAX, "Fail to get cell information.");
+
 
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT16_MAX,
         "No serving cell.");
@@ -2062,16 +2067,18 @@ uint32_t taf_radio_GetServingCellEarfcn(uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, UINT32_MAX,
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
-    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(taf_RadioCellInfoCallback::cellInfoListResponse);
+    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
+        taf_RadioCellInfoCallback::cellInfoListResponse);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, UINT32_MAX,
-        "Call sdk function failed");
+            "Call sdk function failed");
 
     le_clk_Time_t timeToWait = {1, 0};
     le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
     TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT32_MAX, "Wait semaphore timeout");
 
     TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::result != LE_OK,
-        UINT32_MAX, "Fail to get cell information.");
+            UINT32_MAX, "Fail to get cell information.");
+
 
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT32_MAX,
         "No serving cell.");
@@ -2108,16 +2115,18 @@ uint32_t taf_radio_GetServingCellTimingAdvance(uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, UINT32_MAX,
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
-    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(taf_RadioCellInfoCallback::cellInfoListResponse);
+    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
+        taf_RadioCellInfoCallback::cellInfoListResponse);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, UINT32_MAX,
-        "Call sdk function failed");
+            "Call sdk function failed");
 
     le_clk_Time_t timeToWait = {1, 0};
     le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT32_MAX, "Wait semaphore timeout");
+        TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT32_MAX, "Wait semaphore timeout");
 
     TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::result != LE_OK,
-        UINT32_MAX, "Fail to get cell information.");
+            UINT32_MAX, "Fail to get cell information.");
+
 
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT32_MAX,
         "No serving cell.");
@@ -2161,16 +2170,18 @@ uint16_t taf_radio_GetPhysicalServingLteCellId(uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, UINT16_MAX,
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
-    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(taf_RadioCellInfoCallback::cellInfoListResponse);
+    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
+        taf_RadioCellInfoCallback::cellInfoListResponse);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, UINT16_MAX,
-        "Call sdk function failed");
+            "Call sdk function failed");
 
     le_clk_Time_t timeToWait = {1, 0};
     le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT16_MAX, "Wait semaphore timeout");
+        TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT16_MAX, "Wait semaphore timeout");
 
     TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::result != LE_OK,
-        UINT16_MAX, "Fail to get cell information.");
+            UINT16_MAX, "Fail to get cell information.");
+
 
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT16_MAX,
         "No serving cell.");
@@ -2212,16 +2223,18 @@ le_result_t taf_radio_GetServingCellGsmBsic(uint8_t* bsicPtr, uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, LE_FAULT,
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
-    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(taf_RadioCellInfoCallback::cellInfoListResponse);
+    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
+        taf_RadioCellInfoCallback::cellInfoListResponse);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
-        "Call sdk function failed");
+            "Call sdk function failed");
 
     le_clk_Time_t timeToWait = {1, 0};
     le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
+        TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
 
     TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::result != LE_OK,
-        taf_RadioCellInfoCallback::result, "Fail to get cell information.");
+            taf_RadioCellInfoCallback::result, "Fail to get cell information.");
+
 
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), LE_FAULT,
         "No serving cell.");
@@ -2260,16 +2273,18 @@ uint16_t taf_radio_GetServingCellScramblingCode(uint8_t phoneId)
     TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, UINT16_MAX,
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
-    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(taf_RadioCellInfoCallback::cellInfoListResponse);
+    auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
+        taf_RadioCellInfoCallback::cellInfoListResponse);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, UINT16_MAX,
-        "Call sdk function failed");
+            "Call sdk function failed");
 
     le_clk_Time_t timeToWait = {1, 0};
     le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT16_MAX, "Wait semaphore timeout");
+        TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT16_MAX, "Wait semaphore timeout");
 
     TAF_ERROR_IF_RET_VAL(taf_RadioCellInfoCallback::result != LE_OK,
-        UINT16_MAX, "Fail to get cell information.");
+            UINT16_MAX, "Fail to get cell information.");
+
 
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT16_MAX,
         "No serving cell.");
@@ -2280,35 +2295,24 @@ uint16_t taf_radio_GetServingCellScramblingCode(uint8_t phoneId)
     return (uint16_t)taf_RadioCellInfoCallback::cellListInfo.servingCell[0]->umts.psc;
 }
 
-/*======================================================================
-
- FUNCTION        taf_radio_GetCurrentNetworkName
-
- DESCRIPTION     Get current network's short name.
-
- DEPENDENCIES    Initialization of the radio service.
-
- PARAMETERS      [OUT] char* nameStr:     Current network name.
-                 [IN] size_t nameStrSize: The network name length.
-                 [IN] uint8_t phoneId:    The phone id.
-
- RETURN VALUE    le_result_t
-                     LE_BAD_PARAMETER: Invalid parameters.
-                     LE_FAULT:         Fail.
-                     LE_OK:            Success.
-                     LE_TIMEOUT        Time out.
-
- SIDE EFFECTS
-
-======================================================================*/
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Get current network name.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *  - LE_TIMEOUT -- Time out.
+ */
+//--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetCurrentNetworkName
 (
     char* shortNamePtr,      ///< [OUT] Short network name.
-    size_t shortNamePtrSize, 
-    uint8_t phoneId          ///< [IN] Phone id
+    size_t shortNamePtrSize, ///< [IN] The size of short network name.
+    uint8_t phoneId          ///< [IN] Phone id.
 )
 {
-    
     auto &tafRadio = taf_Radio::GetInstance();
 
     TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), LE_BAD_PARAMETER,
@@ -2320,11 +2324,6 @@ le_result_t taf_radio_GetCurrentNetworkName
 
     TAF_ERROR_IF_RET_VAL(shortNamePtr == nullptr, LE_BAD_PARAMETER,
         "Null ptr(statePtr)");
-
-    TAF_ERROR_IF_RET_VAL(shortNamePtrSize < TAF_RADIO_NETWORK_NAME_MAX_LEN,
-        LE_BAD_PARAMETER,
-        "Invalid para(shortNamePtrSize: %" PRIuS " < %d)", shortNamePtrSize,
-        TAF_RADIO_NETWORK_NAME_MAX_LEN);
 
     auto opNameStatusCb = [&tafRadio](std::string operatorLongName,
                                     std::string operatorShortName,
@@ -2360,6 +2359,14 @@ le_result_t taf_radio_GetCurrentNetworkName
 
     TAF_ERROR_IF_RET_VAL(tafRadio.opNameCb.result != LE_OK,
         tafRadio.opNameCb.result, "Fail to get short network name.");
+
+    if (shortNamePtrSize > TAF_RADIO_NETWORK_NAME_MAX_LEN)
+    {
+        shortNamePtrSize = TAF_RADIO_NETWORK_NAME_MAX_LEN;
+    }
+    size_t opNameSize = strlen(tafRadio.opNameCb.shortOpNamePtr);
+    TAF_ERROR_IF_RET_VAL(opNameSize >= shortNamePtrSize, LE_BAD_PARAMETER,
+        "No enough memory to store the network name.");
 
     le_utf8_Copy(shortNamePtr, tafRadio.opNameCb.shortOpNamePtr,
         shortNamePtrSize, NULL);
@@ -2951,33 +2958,54 @@ le_result_t taf_radio_SetSignalStrengthIndThresholds
     TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, LE_BAD_PARAMETER,
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
-    std::vector<telux::tel::SignalStrengthConfig> sigStrengthConfigList = {};
+    std::vector<telux::tel::SignalStrengthConfigEx> sigStrengthConfigList = {};
+    std::vector<telux::tel::SignalStrengthConfigData> sigConfigDataList = {};
+    std::vector<int32_t> thresholdList = {};
 
-    telux::tel::SignalStrengthConfig sigStrengthConfig = {};
-    sigStrengthConfig.configType = telux::tel::SignalStrengthConfigType::THRESHOLD;
+    telux::tel::SignalStrengthConfigEx sigStrengthConfig = {};
+    telux::tel::SignalStrengthConfigData sigConfigData = {};
+    sigStrengthConfig.configTypeMask.set(telux::tel::SignalStrengthConfigExType::THRESHOLD);
+    for (auto hys : tafRadio.hysteresisConfigs)
+    {
+        if(hys.sigType == sigType && hys.phoneId == phoneId)
+        {
+            sigStrengthConfig.configTypeMask.set(
+                   telux::tel::SignalStrengthConfigExType::HYSTERESIS_DB);
+            sigConfigData.hysteresisDb = hys.hysteresisdB;
+            LE_DEBUG("SigType is %d hysteresisdB is %d", hys.sigType,hys.hysteresisdB);
+            break;
+        }
+    }
     switch (sigType)
     {
         case TAF_RADIO_SIG_TYPE_GSM_RSSI:
-            sigStrengthConfig.ratSigType = telux::tel::RadioSignalStrengthType::GSM_RSSI;
+            sigStrengthConfig.radioTech  = telux::tel::RadioTechnology::RADIO_TECH_GSM;
+            sigConfigData.sigMeasType = telux::tel::SignalStrengthMeasurementType::RSSI;
             break;
         case TAF_RADIO_SIG_TYPE_UMTS_RSSI:
-            sigStrengthConfig.ratSigType = telux::tel::RadioSignalStrengthType::WCDMA_RSSI;
+            sigStrengthConfig.radioTech  = telux::tel::RadioTechnology::RADIO_TECH_UMTS;
+            sigConfigData.sigMeasType = telux::tel::SignalStrengthMeasurementType::RSSI;
             break;
         case TAF_RADIO_SIG_TYPE_LTE_RSRP:
-            sigStrengthConfig.ratSigType = telux::tel::RadioSignalStrengthType::LTE_RSRP;
+            sigStrengthConfig.radioTech  = telux::tel::RadioTechnology::RADIO_TECH_LTE;
+            sigConfigData.sigMeasType = telux::tel::SignalStrengthMeasurementType::RSRP;
             break;
         case TAF_RADIO_SIG_TYPE_NR5G_RSRP:
-            sigStrengthConfig.ratSigType = telux::tel::RadioSignalStrengthType::NR5G_RSRP;
+            sigStrengthConfig.radioTech  = telux::tel::RadioTechnology::RADIO_TECH_NR5G;
+            sigConfigData.sigMeasType = telux::tel::SignalStrengthMeasurementType::RSRP;
             break;
         default:
             LE_ERROR("Unsupported signal type : %d.", sigType);
             return LE_UNSUPPORTED;
     }
-    sigStrengthConfig.threshold.lowerRangeThreshold = lowerRangeThreshold;
-    sigStrengthConfig.threshold.upperRangeThreshold = upperRangeThreshold;
+    sigConfigData.thresholdList[0] = lowerRangeThreshold;
+    sigConfigData.thresholdList[1] = upperRangeThreshold;
 
+    sigConfigDataList.emplace_back(sigConfigData);
+    sigStrengthConfig.sigConfigData = sigConfigDataList;
     sigStrengthConfigList.emplace_back(sigStrengthConfig);
     auto ret = tafRadio.phones[phoneId - 1]->configureSignalStrength(sigStrengthConfigList,
+        tafRadio.hysteresisTimer[phoneId - 1],
         taf_RadioConfigureSignalStrengthCallback::configureSignalStrengthResponse);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
         "Call sdk function failed");
@@ -3023,32 +3051,42 @@ le_result_t taf_radio_SetSignalStrengthIndDelta
     TAF_ERROR_IF_RET_VAL(tafRadio.phones[phoneId - 1] == nullptr, LE_BAD_PARAMETER,
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
-    std::vector<telux::tel::SignalStrengthConfig> sigStrengthConfigList = {};
+    std::vector<telux::tel::SignalStrengthConfigEx> sigStrengthConfigList = {};
+    std::vector<telux::tel::SignalStrengthConfigData> sigConfigDataList = {};
 
-    telux::tel::SignalStrengthConfig sigStrengthConfig = {};
-    sigStrengthConfig.configType = telux::tel::SignalStrengthConfigType::DELTA;
+    telux::tel::SignalStrengthConfigEx sigStrengthConfig = {};
+    telux::tel::SignalStrengthConfigData sigConfigData = {};
+
+    sigStrengthConfig.configTypeMask.set(telux::tel::SignalStrengthConfigExType::DELTA);
     switch (sigType)
     {
         case TAF_RADIO_SIG_TYPE_GSM_RSSI:
-            sigStrengthConfig.ratSigType = telux::tel::RadioSignalStrengthType::GSM_RSSI;
+            sigStrengthConfig.radioTech  = telux::tel::RadioTechnology::RADIO_TECH_GSM;
+            sigConfigData.sigMeasType = telux::tel::SignalStrengthMeasurementType::RSSI;
             break;
         case TAF_RADIO_SIG_TYPE_UMTS_RSSI:
-            sigStrengthConfig.ratSigType = telux::tel::RadioSignalStrengthType::WCDMA_RSSI;
+            sigStrengthConfig.radioTech  = telux::tel::RadioTechnology::RADIO_TECH_UMTS;
+            sigConfigData.sigMeasType = telux::tel::SignalStrengthMeasurementType::RSSI;
             break;
         case TAF_RADIO_SIG_TYPE_LTE_RSRP:
-            sigStrengthConfig.ratSigType = telux::tel::RadioSignalStrengthType::LTE_RSRP;
+            sigStrengthConfig.radioTech  = telux::tel::RadioTechnology::RADIO_TECH_LTE;
+            sigConfigData.sigMeasType = telux::tel::SignalStrengthMeasurementType::RSRP;
             break;
         case TAF_RADIO_SIG_TYPE_NR5G_RSRP:
-            sigStrengthConfig.ratSigType = telux::tel::RadioSignalStrengthType::NR5G_RSRP;
+            sigStrengthConfig.radioTech  = telux::tel::RadioTechnology::RADIO_TECH_NR5G;
+            sigConfigData.sigMeasType = telux::tel::SignalStrengthMeasurementType::RSRP;
             break;
         default:
             LE_ERROR("Unsupported signal type : %d.", sigType);
             return LE_UNSUPPORTED;
     }
-    sigStrengthConfig.delta = delta;
+    sigConfigData.delta = delta;
 
+    sigConfigDataList.emplace_back(sigConfigData);
+    sigStrengthConfig.sigConfigData = sigConfigDataList;
     sigStrengthConfigList.emplace_back(sigStrengthConfig);
     auto ret = tafRadio.phones[phoneId - 1]->configureSignalStrength(sigStrengthConfigList,
+        tafRadio.hysteresisTimer[phoneId - 1],
         taf_RadioConfigureSignalStrengthCallback::configureSignalStrengthResponse);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
         "Call sdk function failed");
@@ -3089,13 +3127,13 @@ uint64_t taf_radio_GetServingNrCellId
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
     auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
-        taf_RadioCellInfoCallback::cellInfoListResponse);
+            taf_RadioCellInfoCallback::cellInfoListResponse);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, UINT64_MAX,
-        "Call sdk function failed");
+            "Call sdk function failed");
 
     le_clk_Time_t timeToWait = {1, 0};
     le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
-    TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT64_MAX, "Wait semaphore timeout");
+        TAF_ERROR_IF_RET_VAL(res != LE_OK, UINT64_MAX, "Wait semaphore timeout");
 
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), UINT64_MAX,
         "No serving cell.");
@@ -3128,13 +3166,14 @@ int32_t taf_radio_GetServingCellNrTracAreaCode
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
     auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
-        taf_RadioCellInfoCallback::cellInfoListResponse);
+           taf_RadioCellInfoCallback::cellInfoListResponse);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, INT32_MAX,
-        "Call sdk function failed");
+            "Call sdk function failed");
 
     le_clk_Time_t timeToWait = {1, 0};
     le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
     TAF_ERROR_IF_RET_VAL(res != LE_OK, INT32_MAX, "Wait semaphore timeout");
+
 
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), INT32_MAX,
         "No serving cell.");
@@ -3168,13 +3207,14 @@ int32_t taf_radio_GetServingCellNrArfcn
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
     auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
-        taf_RadioCellInfoCallback::cellInfoListResponse);
+            taf_RadioCellInfoCallback::cellInfoListResponse);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, INT32_MAX,
-        "Call sdk function failed");
+            "Call sdk function failed");
 
     le_clk_Time_t timeToWait = {1, 0};
     le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
     TAF_ERROR_IF_RET_VAL(res != LE_OK, INT32_MAX, "Wait semaphore timeout");
+
 
     TAF_ERROR_IF_RET_VAL(!taf_RadioCellInfoCallback::cellListInfo.servingCell.size(), INT32_MAX,
         "No serving cell.");
@@ -3210,9 +3250,9 @@ uint32_t taf_radio_GetPhysicalServingNrCellId
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
     auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
-        taf_RadioCellInfoCallback::cellInfoListResponse);
+            taf_RadioCellInfoCallback::cellInfoListResponse);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, UINT32_MAX,
-        "Call sdk function failed");
+            "Call sdk function failed");
 
     le_clk_Time_t timeToWait = {1, 0};
     le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
@@ -3287,9 +3327,9 @@ taf_radio_NeighborCellsRef_t taf_radio_GetNeighborCellsInfo
         "Invalid para(null ptr, phoneId:%d)", phoneId);
 
     auto ret = tafRadio.phones[phoneId - 1]->requestCellInfo(
-        taf_RadioCellInfoCallback::cellInfoListResponse);
+            taf_RadioCellInfoCallback::cellInfoListResponse);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, NULL,
-        "Call sdk function failed");
+            "Call sdk function failed");
 
     le_clk_Time_t timeToWait = {1, 0};
     le_result_t res = le_sem_WaitWithTimeOut(taf_RadioCellInfoCallback::semaphore, timeToWait);
@@ -4839,7 +4879,7 @@ le_result_t taf_radio_GetNrDualConnectivityStatus
 le_result_t taf_radio_GetCurrentNetworkLongName
 (
     char* longNamePtr,              ///< [OUT] Long operator name.
-    size_t longNamePtrSize,
+    size_t longNamePtrSize,         ///< [IN] The size of long operator name.
     uint8_t phoneId                 ///< [IN] Phone id.
 )
 {
@@ -4853,10 +4893,6 @@ le_result_t taf_radio_GetCurrentNetworkLongName
 
     TAF_ERROR_IF_RET_VAL(longNamePtr == nullptr, LE_BAD_PARAMETER,
         "Null ptr(statePtr)");
-    TAF_ERROR_IF_RET_VAL(longNamePtrSize < TAF_RADIO_NETWORK_NAME_MAX_LEN,
-        LE_BAD_PARAMETER,
-        "Invalid para(longNamePtrSize: %" PRIuS " < %d)", longNamePtrSize,
-        TAF_RADIO_NETWORK_NAME_MAX_LEN);
 
     auto opNameStatusCb = [&tafRadio](std::string operatorLongName,
                                     std::string operatorShortName,
@@ -4894,9 +4930,16 @@ le_result_t taf_radio_GetCurrentNetworkLongName
     TAF_ERROR_IF_RET_VAL(tafRadio.opNameCb.result != LE_OK,
         tafRadio.opNameCb.result, "Fail to get Operator name.");
 
+    if (longNamePtrSize > TAF_RADIO_NETWORK_NAME_MAX_LEN)
+    {
+        longNamePtrSize = TAF_RADIO_NETWORK_NAME_MAX_LEN;
+    }
+    size_t opNameSize = strlen(tafRadio.opNameCb.longOpNamePtr);
+    TAF_ERROR_IF_RET_VAL(opNameSize >= longNamePtrSize, LE_BAD_PARAMETER,
+        "No enough memory to store the network name.");
+
     le_utf8_Copy(longNamePtr, tafRadio.opNameCb.longOpNamePtr,
         longNamePtrSize, NULL);
-
 
     return LE_OK;
 }
@@ -5133,4 +5176,112 @@ le_result_t taf_radio_GetHardwareSimRatCapabilities
 
     return LE_OK;
 }
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler for CellInfo changes.
+ *
+ * @return
+ *  - taf_radio_CellInfoChangeHandlerRef_t Handler reference.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_CellInfoChangeHandlerRef_t taf_radio_AddCellInfoChangeHandler
+(
+    taf_radio_CellInfoChangeHandlerFunc_t handlerPtr,
+        ///< [IN] Handler function for Cell Info changes.
+    void* contextPtr
+        ///< [IN] Handler context.
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+
+    le_event_HandlerRef_t handlerRef = le_event_AddLayeredHandler("CellInfoChangeHandler",
+        tafRadio.cellInfoChangeEvId, taf_Radio::taf_radio_LayerCellInfoHandler,
+        (void*)handlerPtr);
+
+    le_event_SetContextPtr(handlerRef, contextPtr);
+
+    return (taf_radio_CellInfoChangeHandlerRef_t)(handlerRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler for cell info changes.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_radio_RemoveCellInfoChangeHandler
+(
+    taf_radio_CellInfoChangeHandlerRef_t handlerRef ///< [IN] Handler reference.
+)
+{
+    le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Sets the hysteresis db for signal strength criteria.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_OK -- Succeeded.
+  */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_SetSignalStrengthIndHysteresis
+(
+    taf_radio_SigType_t sigType,    ///< Signal type.
+    uint16_t hysteresisdB,          ///< Hysteresis dBm in units of 0.1 dBm.
+    uint8_t phoneId                 ///< Phone ID.
+)
+{
+   auto &tafRadio = taf_Radio::GetInstance();
+
+   TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), LE_BAD_PARAMETER,
+        "Invalid para(phoneId:%d)", phoneId);
+
+   for (auto& hys : tafRadio.hysteresisConfigs)
+    {
+        if((hys.sigType == sigType) && (hys.phoneId == phoneId))
+        {
+            hys.hysteresisdB = hysteresisdB;
+            //TBD optimize this to use optimal hysteresis value.
+            return LE_OK;
+        }
+    }
+
+    //Add a new element.
+    taf_RadioHysteresisConfig_t hysteresisNew;
+    hysteresisNew.sigType = sigType;
+    hysteresisNew.phoneId = phoneId;
+    hysteresisNew.hysteresisdB = hysteresisdB;
+    tafRadio.hysteresisConfigs.emplace_back(hysteresisNew);
+    LE_DEBUG("SigType is %d hysteresisdB is %d", sigType,hysteresisdB);
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Sets the hysteresis time for signal strength criteria.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_OK -- Succeeded.
+  */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_SetSignalStrengthIndHysteresisTimer
+(
+    uint16_t hysteresisTimer,     ///< Hysteresis time in milliseconds.
+    uint8_t phoneId               ///< Phone ID.
+)
+{
+   auto &tafRadio = taf_Radio::GetInstance();
+
+   TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.phones.size(), LE_BAD_PARAMETER,
+        "Invalid para(phoneId:%d)", phoneId);
+
+   tafRadio.hysteresisTimer[phoneId - 1] =  hysteresisTimer;
+   LE_DEBUG("Hysteresis timer %d phoneId %d", hysteresisTimer,phoneId);
+   return LE_OK;
+}
+
 

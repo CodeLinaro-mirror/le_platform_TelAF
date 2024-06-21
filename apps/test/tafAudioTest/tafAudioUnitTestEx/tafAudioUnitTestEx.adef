@@ -1,0 +1,32 @@
+maxThreads: 600
+sandboxed: false
+
+executables:
+{
+    tafAudioUnitTestEx =
+            ($TELAF_ROOT/apps/test/tafAudioTest/tafAudioUnitTestEx/tafAudioUnitTestExComp)
+}
+
+start: manual
+
+processes:
+{
+    run:
+    {
+        (tafAudioUnitTestEx)
+    }
+
+    faultAction: stopApp
+
+    #if ${LE_CONFIG_SERVICES_WATCHDOG} = y
+        maxWatchdogTimeout: 100000
+    #else
+        watchdogTimeout: never
+    #endif
+}
+
+bindings:
+{
+    tafAudioUnitTestEx.tafAudioUnitTestExComp.taf_audio -> tafAudioSvc.taf_audio
+    tafAudioUnitTestEx.tafAudioUnitTestExComp.taf_audioVendor -> tafAudioSvc.taf_audioVendor
+}

@@ -25,7 +25,7 @@ COMPONENT_INIT
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Intiates flash access.
+ * Intiates MTD partitions and UBI volumes for flash access.
  */
 //--------------------------------------------------------------------------------------------------
 void taf_flash_Init
@@ -41,7 +41,13 @@ void taf_flash_Init
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Open MTD partition.
+ * Open MTD partition, read, write and get information operation can be done with a MTD partition
+ * reference.
+ *
+ * @return
+ *      - LE_OK            On success
+ *      - LE_BAD_PARAMETER If a parameter is invalid
+ *      - LE_FAULT         On other error
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_flash_MtdOpen
@@ -77,7 +83,12 @@ le_result_t taf_flash_MtdOpen
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Close MTD partition.
+ * Close a MTD partition.
+ *
+ * @return
+ *      - LE_OK            On success
+ *      - LE_BAD_PARAMETER If a parameter is invalid
+ *      - LE_NOT_FOUND     If a partition reference is not found.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_flash_MtdClose
@@ -104,16 +115,23 @@ le_result_t taf_flash_MtdClose
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get MTD information.
+ * Get MTD information, including the total number of erasable blocks, the number of bad blocks,
+ * the size of a block and the size of a page.
+ *
+ * @return
+ *      - LE_OK            On success
+ *      - LE_BAD_PARAMETER If a parameter is invalid
+ *      - LE_NOT_FOUND     If a partition reference is not found.
+ *      - LE_FAULT         On other error
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_flash_MtdInformation
 (
     taf_flash_PartitionRef_t partitionRef, ///< [IN] The reference of MTD partition.
-    uint32_t* blocksNumber,                ///< [OUT] Total blocks number.
-    uint32_t* badBlocksNumber,             ///< [OUT] Bad blocks number.
-    uint32_t* blockSize,                   ///< [OUT] Block size.
-    uint32_t* pageSize                     ///< [OUT] Page size.
+    uint32_t* blocksNumber,                ///< [OUT] Total number of erasable blocks
+    uint32_t* badBlocksNumber,             ///< [OUT] Number of bad blocks.
+    uint32_t* blockSize,                   ///< [OUT] The size of a block.
+    uint32_t* pageSize                     ///< [OUT] The size of a page.
 )
 {
     TAF_ERROR_IF_RET_VAL(partitionRef == NULL, LE_BAD_PARAMETER, "Null ptr(partitionRef)");
@@ -162,7 +180,13 @@ le_result_t taf_flash_MtdInformation
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Erase MTD block.
+ * Erase a block in MTD partition.
+ *
+ * @return
+ *      - LE_OK            On success
+ *      - LE_BAD_PARAMETER If a parameter is invalid
+ *      - LE_NOT_FOUND     If a partition reference is not found.
+ *      - LE_FAULT         On other error
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_flash_MtdEraseBlock
@@ -195,7 +219,13 @@ le_result_t taf_flash_MtdEraseBlock
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Read MTD page.
+ * Read data from a MTD page.
+ *
+ * @return
+ *      - LE_OK            On success
+ *      - LE_BAD_PARAMETER If a parameter is invalid
+ *      - LE_NOT_FOUND     If a partition reference is not found.
+ *      - LE_FAULT         On other error
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_flash_MtdReadPage
@@ -237,7 +267,13 @@ le_result_t taf_flash_MtdReadPage
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Read MTD partition.
+ * Read data from a MTD partition.
+ *
+ * @return
+ *      - LE_OK            On success
+ *      - LE_BAD_PARAMETER If a parameter is invalid
+ *      - LE_NOT_FOUND     If a partition reference is not found.
+ *      - LE_FAULT         On other error
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_flash_MtdRead
@@ -276,7 +312,13 @@ le_result_t taf_flash_MtdRead
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Write MTD page.
+ * Write data to a MTD page.
+ *
+ * @return
+ *      - LE_OK            On success
+ *      - LE_BAD_PARAMETER If a parameter is invalid
+ *      - LE_NOT_FOUND     If a partition reference is not found.
+ *      - LE_FAULT         On other error
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_flash_MtdWritePage
@@ -315,7 +357,13 @@ le_result_t taf_flash_MtdWritePage
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Write MTD.
+ * Write data to a MTD partition.
+ *
+ * @return
+ *      - LE_OK            On success
+ *      - LE_BAD_PARAMETER If a parameter is invalid
+ *      - LE_NOT_FOUND     If a partition reference is not found.
+ *      - LE_FAULT         On other error
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_flash_MtdWrite
@@ -345,7 +393,11 @@ le_result_t taf_flash_MtdWrite
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Check good block.
+ * Check if a block is good block in MTD partition.
+ *
+ * @return
+ *      - ture             Good block
+ *      - false            Bad block or other error
  */
 //--------------------------------------------------------------------------------------------------
 bool taf_flash_MtdIsBlockGood
@@ -369,7 +421,14 @@ bool taf_flash_MtdIsBlockGood
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Open UBI volume.
+ * Open UBI volume, read, write and get information operation can be done with a UBI volume
+ * reference.
+ *
+ * @return
+ *      - LE_OK            On success
+ *      - LE_BAD_PARAMETER If a parameter is invalid
+ *      - LE_NOT_FOUND     If a volume reference is not found.
+ *      - LE_FAULT         On other error
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_flash_UbiOpen
@@ -423,6 +482,11 @@ le_result_t taf_flash_UbiOpen
 //--------------------------------------------------------------------------------------------------
 /**
  * Close UBI volume.
+ *
+ * @return
+ *      - LE_OK            On success
+ *      - LE_BAD_PARAMETER If a parameter is invalid
+ *      - LE_NOT_FOUND     If a volume reference is not found.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_flash_UbiClose
@@ -449,7 +513,13 @@ le_result_t taf_flash_UbiClose
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Get UBI volume information.
+ * Get UBI information, including the total number of lebs (logical erase blocks), the number of
+ * free lebs and the size of the volume.
+ *
+ * @return
+ *      - LE_OK            On success
+ *      - LE_BAD_PARAMETER If a parameter is invalid
+ *      - LE_NOT_FOUND     If a volume reference is not found.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_flash_UbiInformation
@@ -483,7 +553,13 @@ le_result_t taf_flash_UbiInformation
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Read UBI volume.
+ * Read data from a UBI volume.
+ *
+ * @return
+ *      - LE_OK            On success
+ *      - LE_BAD_PARAMETER If a parameter is invalid
+ *      - LE_NOT_FOUND     If a volume reference is not found.
+ *      - LE_FAULT         On other error
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_flash_UbiRead
@@ -521,7 +597,15 @@ le_result_t taf_flash_UbiRead
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Initiate for writing UBI volume.
+ * Set the writable data length of a UBI volume.
+ *
+ * @note This function should be called once before writting a UBI volume.
+ *
+ * @return
+ *      - LE_OK            On success
+ *      - LE_BAD_PARAMETER If a parameter is invalid
+ *      - LE_NOT_FOUND     If a volume reference is not found.
+ *      - LE_FAULT         On other error
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_flash_UbiInitWrite
@@ -546,7 +630,15 @@ le_result_t taf_flash_UbiInitWrite
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Write UBI volume.
+ * Write data to a UBI volume.
+ *
+ * @note User should aware of the context when writing data to a UBI volume.
+ *
+ * @return
+ *      - LE_OK            On success
+ *      - LE_BAD_PARAMETER If a parameter is invalid
+ *      - LE_NOT_FOUND     If a volume reference is not found.
+ *      - LE_FAULT         On other error
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_flash_UbiWrite

@@ -69,9 +69,11 @@ typedef enum
 {
     RFS_ERR_UNKNOWN,
     RFS_ERR_NO_MEMORY,
+    RFS_ERR_FILE_TOO_LARGE,
     RFS_ERR_BACKUP,
     RFS_ERR_GET_HASH,
-    RFS_ERR_SET_HASH
+    RFS_ERR_SET_HASH,
+    RFS_ERR_RESTORE
 } taf_rfs_Error_t;
 
 //--------------------------------------------------------------------------------------------------
@@ -105,6 +107,23 @@ LE_SHARED le_result_t taf_rfs_Init
 (
     bool enableBackup,
     taf_rfs_ErrorHandler_t handlerFunc
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets backup storage for RFS component.
+ * @param
+ *      filePathPtr - The path name of backup storage
+ *
+ * @return
+ *      Result for the setup
+ */
+//--------------------------------------------------------------------------------------------------
+LE_SHARED le_result_t taf_rfs_SetBackupStorage
+(
+    const char *filePathPtr,
+    uint32_t maxFileSize,
+    uint16_t maxFileCount
 );
 
 //--------------------------------------------------------------------------------------------------

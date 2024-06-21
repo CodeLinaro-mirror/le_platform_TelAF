@@ -6,12 +6,7 @@
 #include "legato.h"
 #include "interfaces.h"
 
-
-//Threshold value for CPU Load
-#define CPU_THRESHOLD_VALUE 30.0
-
-//Threshold value for Free MEM
-#define FREE_MEM_THRESHOLD_VALUE 20
+#define NAME_SIZE 32
 
 /*======================================================================
  FUNCTION        TestGetCPULoad
@@ -103,6 +98,82 @@ void TestGetMemInfo()
 }
 
 
+/*======================================================================
+ FUNCTION        TestUbiDevInfo
+ DESCRIPTION     To test UBI device Info
+ PARAMETERS      void
+ RETURN VALUE    void
+======================================================================*/
+void Test_taf_Hms_UbiDevInfo()
+{
+    le_result_t result;
+    LE_TEST_INFO("=====Testing UBI Device Information =====");
+    taf_hms_UbiDevInfoListRef_t ubiDevListRef = taf_hms_GetUbiDevInfoList();
+
+    LE_TEST_OK((ubiDevListRef != NULL), "taf_hms_GetUbiDevInfoList - LE_OK");
+
+    if(ubiDevListRef != NULL)
+    {
+        taf_hms_UbiDevInfoRef_t ubiDevInfo = taf_hms_GetFirstUbiDevInfo(ubiDevListRef);
+        LE_TEST_OK((ubiDevInfo != NULL), "taf_hms_GetFirstUbiDevInfo - LE_OK");
+
+        while (ubiDevInfo != NULL)
+        {
+            LE_TEST_INFO("Test get UBI device bad block count");
+            uint32_t ubiBadblock;
+            result = taf_hms_GetUbiDevBadBlkCnt(ubiDevInfo, &ubiBadblock);
+            LE_TEST_OK(result == LE_OK, "taf_hms_GetUbiDevBadBlkCnt - LE_OK. Returned %d",
+                        ubiBadblock);
+            LE_TEST_INFO("Test get UBI device erase count");
+            uint32_t ubiEraseCount;
+            result = taf_hms_GetUbiDevMaxEraseCnt(ubiDevInfo, &ubiEraseCount);
+            LE_TEST_OK(result == LE_OK, "taf_hms_GetUbiDevMaxEraseCnt - LE_OK. Returned %d", ubiEraseCount);
+            ubiDevInfo = taf_hms_GetNextUbiDevInfo(ubiDevListRef);
+        }
+    }
+    LE_INFO("===== UnitTest Completed for UBI device information =====");
+}
+
+
+/*======================================================================
+ FUNCTION        TestMtdInfo
+ DESCRIPTION     To test MTD device Info
+ PARAMETERS      void
+ RETURN VALUE    void
+======================================================================*/
+void Test_taf_Hms_MtdDevInfo()
+{
+    le_result_t result;
+    LE_TEST_INFO("=====Testing MTD device Information =====");
+    taf_hms_MtdDevInfoListRef_t mtdListRef = taf_hms_GetMtdDevInfoList();
+
+    LE_TEST_OK((mtdListRef != NULL), "taf_hms_GetMtdDevInfoList - LE_OK");
+
+    if(mtdListRef != NULL)
+    {
+        taf_hms_MtdDevInfoRef_t mtdInfo = taf_hms_GetFirstMtdDevInfo(mtdListRef);
+        LE_TEST_OK((mtdInfo != NULL), "taf_hms_GetFirstMtdDevInfo - LE_OK");
+
+        while (mtdInfo != NULL)
+        {
+            LE_TEST_INFO("Test get MTD device name");
+            char MtdDevName[NAME_SIZE];
+            memset(MtdDevName, 0, NAME_SIZE);
+            result = taf_hms_GetMtdDevName(mtdInfo, MtdDevName, sizeof(MtdDevName));
+            LE_TEST_OK(result == LE_OK, "taf_hms_GetMtdVolName - LE_OK. Returned %s", MtdDevName);
+
+            LE_TEST_INFO("Test get MTD device block size");
+            uint32_t mtdblockSize;
+            result = taf_hms_GetMtdDevBlkSize(mtdInfo, &mtdblockSize);
+            LE_TEST_OK(result == LE_OK, "taf_hms_GetMtdDevBlkSize - LE_OK. Returned %d",
+                    mtdblockSize);
+            mtdInfo = taf_hms_GetNextMtdDevInfo(mtdListRef);
+        }
+    }
+    LE_INFO("===== UnitTest Completed for MTD device information =====");
+}
+
+
 COMPONENT_INIT
 {
     TestGetCPULoad();
@@ -110,6 +181,10 @@ COMPONENT_INIT
     TestGetIndvCoreUsage();
 
     TestGetMemInfo();
+
+    Test_taf_Hms_UbiDevInfo();
+
+    Test_taf_Hms_MtdDevInfo();
 
     LE_INFO("---------- All Tests Complete --------------------------");
     exit(EXIT_SUCCESS);

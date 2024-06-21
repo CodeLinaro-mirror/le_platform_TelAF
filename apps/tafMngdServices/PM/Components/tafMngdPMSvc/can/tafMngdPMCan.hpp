@@ -40,7 +40,7 @@ typedef struct
 {
     uint32_t canFrameId;
     char msg[32];
-    taf_mngd_pm_State_t state;
+    taf_mngdPm_State_t state;
     taf_can_CanEventHandlerRef_t handlerRef;
     le_thread_Ref_t threadRef;
 }taf_MngdPM_CanFrame_t;
@@ -56,7 +56,7 @@ class tafMngdPMCan: public ITafSvc
 
         void Init(void) {};
         static tafMngdPMCan &GetInstance();
-        void RegisterCanEvents(uint32_t canFrameId, taf_mngd_pm_State_t state, const char* msg);
+        void RegisterCanEvents(uint32_t canFrameId, taf_mngdPm_State_t state, const char* msg);
         void DeregisterCanEvents();
         static void CanEventCallback(taf_can_CanInterfaceRef_t canInfRef, bool isCanFdFrame,
                 uint32_t frameId, const uint8_t* dataPtr, size_t size, void* contextPtr);

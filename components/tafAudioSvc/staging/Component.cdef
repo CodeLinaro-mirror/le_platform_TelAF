@@ -1,0 +1,47 @@
+sources:
+{
+    tafAudioSvc.cpp
+    tafAudioImpl.cpp
+    tafAudioVhal.cpp
+}
+
+provides:
+{
+    api:
+    {
+        $TELAF_ROOT/interfaces/staging/audio/taf_audio.api
+        $TELAF_ROOT/interfaces/staging/audio/taf_audioVendor.api
+    }
+}
+
+requires:
+{
+    api:
+    {
+        le_cfg.api
+        taf_mngdPm.api
+    }
+
+    component:
+    {
+        $LEGATO_ROOT/components/watchdogChain
+        $TELAF_ROOT/components/tafHalComp
+    }
+
+    lib:
+    {
+        lib/libtelux_audio.so
+    }
+
+}
+
+cxxflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+    -I$TELAF_ROOT/include
+    -ltelux_common
+    -ltelux_audio
+    -I$TELAF_ROOT/components/tafHalComp
+    -I$TELAF_ROOT/include/staging/vhal
+    -I$LEGATO_ROOT/components/cfgEntries
+}

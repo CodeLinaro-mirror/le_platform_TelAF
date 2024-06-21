@@ -39,9 +39,8 @@ processes:
     {
         (tafMngdConnSvc)
     }
-
     maxFileBytes: 8192K
-    faultAction: stopApp
+    faultAction: restart
 }
 
 sandboxed: false
@@ -52,9 +51,12 @@ bindings:
     tafMngdConnSvc.tafMngdConnSvc.taf_radio -> tafRadioSvc.taf_radio
     tafMngdConnSvc.tafMngdConnSvc.taf_sim -> tafSimCardSvc.taf_sim
     tafMngdConnSvc.tafMngdConnSvc.le_appInfo -> <root>.le_appInfo
+#if ${LE_CONFIG_TARGET_SIMULATION} = ""
+    tafMngdConnSvc.tafMngdConnSvc.taf_net -> tafNetSvc.taf_net
+#endif
 }
 
 extern:
 {
-    tafMngdConnSvc.tafMngdConnSvc.taf_mngd_Conn
+    tafMngdConnSvc.tafMngdConnSvc.taf_mngdConn
 }

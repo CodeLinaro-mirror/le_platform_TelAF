@@ -15,16 +15,20 @@ requires:
 
 cxxflags:
 {
-    -I $TELAF_ROOT/include
-    -I $LEGATO_ROOT/framework/liblegato/
-    -I $TELAF_ROOT/include/staging
+    -I$TELAF_ROOT/include
+    -I$LEGATO_ROOT/framework/liblegato/
+    -I$TELAF_ROOT/include/staging
+    -DRFS_MAX_BACKUP_FILE_SIZE=10240
+    -DRFS_MAX_BACKUP_FILE_COUNT=100
 }
 
 cflags:
 {
-    -I $TELAF_ROOT/include
-    -I $LEGATO_ROOT/framework/liblegato/
-    -I $TELAF_ROOT/include/staging
+    -I$TELAF_ROOT/include
+    -I$LEGATO_ROOT/framework/liblegato/
+    -I$TELAF_ROOT/include/staging
+    -DRFS_MAX_BACKUP_FILE_SIZE=10240
+    -DRFS_MAX_BACKUP_FILE_COUNT=100
 }
 
 ldflags:

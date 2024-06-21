@@ -289,10 +289,11 @@ USETYPES taf_types.api;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * SMS center length.
+ * SMS center string, including size of address type is 3, size of special chars
+ * (quotes, comma, plus) is 4, maximum number of address and null terminator.
  */
 //--------------------------------------------------------------------------------------------------
-DEFINE  SMSC_ADDR_BYTES = (25);
+DEFINE  SMSC_ADDR_BYTES = (3 + 4 + 21);
 
 //--------------------------------------------------------------------------------------------------
 /**

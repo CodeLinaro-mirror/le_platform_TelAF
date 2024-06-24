@@ -582,7 +582,7 @@ void TestFailedLoops()
     LE_ASSERT(srcRef != NULL);
     le_result_t res = taf_time_GetFailedLoops(srcRef, &failedLoops, &loopIntervalSec);
     LE_ASSERT(res == LE_OK);
-    LE_INFO("The number of failed loops are %d. Loop interval is %ld",
+    LE_INFO("The number of failed loops are %d. Loop interval is  %" PRIu64 "",
     failedLoops, loopIntervalSec);
 
     // Release the memory for this reference.

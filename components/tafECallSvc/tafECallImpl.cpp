@@ -2082,8 +2082,8 @@ le_result_t taf_ecall::UpdateMsdInformation(taf_ecall_CallRef_t ecallRef)
         }
 #endif
 
-        if ((ECallObject.msd.control.vehicleType < ECALL_HAL_VEHITYPE_PASSENGER_VEHICLE_CLASS_M1) ||
-            (ECallObject.msd.control.vehicleType > maxVehicleType))
+        if ((ECallObject.msd.control.vehicleType < (ECallVehicleType)ECALL_HAL_VEHITYPE_PASSENGER_VEHICLE_CLASS_M1) ||
+            (ECallObject.msd.control.vehicleType > (ECallVehicleType)maxVehicleType))
         {
             LE_ERROR("VehicleType is wrong %d", ECallObject.msd.control.vehicleType);
             ECallObject.msd.control.vehicleType = (ECallVehicleType)ECALL_HAL_VEHITYPE_PASSENGER_VEHICLE_CLASS_M1;

@@ -59,7 +59,7 @@ bindings:
 
 extern:
 {
-        tafLocationSvc.tafLocationSvc.taf_gnss
-        tafLocationSvc.tafLocationSvc.taf_pos
-        tafLocationSvc.tafLocationSvc.taf_posCtrl
+        tafLocationSvc.tafLocationSvc.taf_locGnss
+        tafLocationSvc.tafLocationSvc.taf_locPos
+        tafLocationSvc.tafLocationSvc.taf_locPosCtrl
 }

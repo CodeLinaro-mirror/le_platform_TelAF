@@ -513,11 +513,14 @@ ifdef(`kirkstone',`
     gen_require(`
         type syslogd_runtime_t;
         type init_runtime_t;
+        type unconfined_t;
     ')
     allow telaf_app_domain syslogd_runtime_t:dir { search_dir_perms };
     allow telaf_app_domain init_runtime_t:dir { search_dir_perms };
     allow telaf_core_domain syslogd_runtime_t:dir { search_dir_perms };
     allow telaf_core_domain init_runtime_t:dir { search_dir_perms };
+    # A workaround to support .update file instsallation
+    allow telaf_update_t unconfined_t:fd { use };
 ')
 
 # Local rules

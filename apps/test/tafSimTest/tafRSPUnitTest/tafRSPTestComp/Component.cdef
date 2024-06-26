@@ -7,7 +7,7 @@ requires:
 {
     api:
     {
-        taf_rsp.api
+        taf_simRsp.api
     }
 }
 

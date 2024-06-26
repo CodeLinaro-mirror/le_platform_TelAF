@@ -48,7 +48,7 @@ COMPONENT_INIT
     sim.Init();
     LE_INFO(" Sim Card service Ready...\n");
     LE_INFO("tafRSP Service Init...\n");
-    auto &rsp = taf_rsp::GetInstance();
+    auto &rsp = taf_simRsp::GetInstance();
     rsp.Init();
     LE_INFO(" RSP service Ready...\n");
 
@@ -263,7 +263,7 @@ void taf_sim_RemoveAuthenticationResponseHandler(
 le_result_t  taf_sim_GetEID( taf_sim_Id_t slotId, char* eidPtr, size_t eidLen) {
     TAF_ERROR_IF_RET_VAL(eidPtr == NULL, LE_BAD_PARAMETER, "eidPtr is NULL");
     TAF_ERROR_IF_RET_VAL(eidLen < TAF_SIM_EID_BYTES, LE_OVERFLOW, "Incorrect buffer size");
-    auto &rsp = taf_rsp::GetInstance();
+    auto &rsp = taf_simRsp::GetInstance();
     return rsp.GetEID(slotId, eidPtr, eidLen);
 }
 

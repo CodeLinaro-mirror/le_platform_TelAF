@@ -211,8 +211,18 @@
  *  - taf_radio_GetGsmSignalMetrics() / taf_radio_GetUmtsSignalMetrics() / taf_radio_GetLteSignalMetrics() /
  *    taf_radio_GetCdmaSignalMetrics() -- Gets GSM/UMTS/LTE/CDMA signal metrics.
  *
- *  - taf_radio_AddSignalStrengthChangeHandler() / taf_radio_RemoveSignalStrengthChangeHandler() -- Adds/removes
- *    signal strength change handler.
+ *  - taf_radio_AddSignalStrengthChangeHandler() / taf_radio_RemoveSignalStrengthChangeHandler() --
+ *    Adds/removes signal strength change handler.
+ *
+ *  - taf_radio_SetSignalStrengthIndThresholds() / taf_radio_SetSignalStrengthIndDelta()
+ *    -- Sets signal strength reporting criteria. Either the threshold or delta can be set at a
+ *    time.
+ *
+ *  - taf_radio_SetSignalStrengthIndHysteresis() / taf_radio_SetSignalStrengthIndHysteresisTimer()
+ *    -- Sets the optional parameters for signal strength reporting criteria. Hysteresis is
+ *    applicable only when threshold is set. Hysteresis timer is applicable for both threshold
+ *    and delta.This API needs to be called before taf_radio_SetSignalStrengthIndThresholds() and
+ *    taf_radio_SetSignalStrengthIndDelta().
  *
  * The following example illustrates getting LTE signal metrics.
  *
@@ -230,6 +240,70 @@
  *           LE_ERROR("Fail to get LTE signal metrics.");
  *       }
  *   }
+ *
+ *   @endcode
+ *
+ *
+ * The following example illustrates setting the signal strength reporting criteria.
+ *
+ * The signal strength notifications are sent based on the configurations of delta or threshold on
+ * the RAT(s) list. Additionally, the hysteresis dB can be applied on top of the threshold list.
+ * Furthermore, time hysteresis (hysteresis ms) can be applied either on top of the delta or on the
+ * threshold list, or even on top of both the threshold list and the hysteresis dB.
+ *
+ * For NR5G and LTE only RSRP change will be notified to clients.
+ * For other RATs only RSSI change will be notified to clients.
+ *
+ * - Delta (delta): A notification is sent when the difference between the current
+ * signal strength value and the last reported signal strength value crosses the specified
+ * delta.
+ * The value should be a non-zero positive integer, in units of 0.1dBm. For example, to set a
+ * delta of 10dBm, the value should be 100.
+ *
+ * The default values for delta is as follows.
+ * Measurement type      : value
+ * RSSI_DELTA            : 50 (in dBm)
+ * RSRP_DELTA            : 60 (in dBm)
+ *
+ * - Threshold (lowerRange/upperRange): A notification is sent when the current signal strength
+ * crosses over or under any of the thresholds specified.
+ * For example, to set thresholds at -95 dBm and -80 dBm, the threshold list values are -950,
+ * -800, since the listed values are in units of 0.1 dBm.
+ *
+ * - Hysteresis dB (optional): Prevents the generation of multiple notifications when
+ * the signal strength is close to a threshold value and experiencing frequent small changes.
+ * With a non-zero hysteresis, the signal strength indicators should cross over or under by
+ * more than the hysteresis value for a notification to be sent.
+ * To apply hysteresis, the value should be a non-zero positive integer, in units of 0.1 dBm.
+ * For example, to set a hysteresis dB of 10 dBm, the value should be 100.
+ *
+ * - Hysteresis ms (optional): Time hystersis can be applied to avoid multiple
+ * notifications even when all the other criteria for a notification are met. The time
+ * hystersis can be applied on top of any other criteria (delta, threshold, threshold and
+ * hysteresis).
+ *
+ * If the hysteresis(dB or ms) value is set to 0, the signal strength notification criteria just
+ * considers the threshold or delta. Once configured, the hysteresis value for a signal strength
+ * type is retained, until explicitly reconfigured to 0 again or device reboot.
+ * This configuration is a global setting. The signal strength setting does not persist through
+ * device reboot and needs to be configured again. Default signal strength configuration is set
+ * after a device reboot.
+ *
+ *
+ * @code
+ *
+ *   // Set the optional hysteresis time parameter. Applicable to delta and threshold.
+ *   // Is a global variable and once set will be applicable to all RATs.
+ *   taf_radio_SetSignalStrengthIndHysteresisTimer(hysteresis ms,phoneId);
+ *   // Set the optional hysteresis dBm parameter. Applicable to threshold.
+ *   // Is applicable to a sigType.
+ *   taf_radio_SetSignalStrengthIndHysteresis(sigType,hysteresis dB,phoneId);
+ *
+ *   // Call below API to set the signal strength for threshold criteria.
+ *   taf_radio_SetSignalStrengthIndThresholds(sigType,lowerRange,upperRange,phoneId);
+ *   // Call below API to set the signal strength for delta criteria.
+ *   taf_radio_SetSignalStrengthIndDelta(sigType,delta,phoneId);
+ *
  *
  *   @endcode
  *
@@ -327,6 +401,38 @@
  *
  *   @endcode
  *
+ * @section c_taf_radio_ratCapability RAT Capability Information
+ *
+ * Users can get the number of SIMs and RAT capabilities in given slot.
+ *
+ *
+ *  - taf_radio_GetHardwareSimConfig() --
+ *    Gets the maximum number of SIMs that can be supported simultaneously and the maximum number
+ *    of SIMs that can be simultaneously active.If the maximum active SIM number is
+ *    less than the maximum number, any combination of the SIMs can be active and the remaining
+ *    can be in standby.
+ *
+ *  - taf_radio_GetHardwareSimRatCapabilities() --
+ *    simRatCapMask - Gets the supported SIM RAT capabilities which intersects with the device
+ *    supported RAT capabilities and the device supported RAT capabilities in given slot.
+ *    deviceRatCapMask - Gets the supported device RAT capabilities supported in given slot.
+ *
+ * The following example illustrates the API usage.
+ *
+ * @code
+ *
+ *
+ *   // Gets sim count
+ *   uint8_t totalSimCount = 0;
+ *   uint8_t maxActiveSims = 0;
+ *   le_result_t result = taf_radio_GetHardwareSimConfig(&totalSimCount,&maxActiveSims);
+ *
+ *   // Gets RAT Capabilities
+ *   taf_radio_RatBitMask_t deviceRatCapMask;
+ *   taf_radio_RatBitMask_t simRatCapMask;
+ *   result = taf_radio_GetHardwareSimRatCapabilities(&deviceRatCapMask,&simRatCapMask,phoneId);
+ *
+ *   @endcode
  * <HR>
  *
  */
@@ -595,6 +701,35 @@ taf_radio_ImsStatusChangeHandlerRef_t taf_radio_AddImsStatusChangeHandler
 void taf_radio_RemoveImsStatusChangeHandler
 (
     taf_radio_ImsStatusChangeHandlerRef_t handlerRef
+        ///< [IN]
+)
+{
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler function for EVENT 'taf_radio_CellInfoChange'
+ *
+ * Event to report cell info change.
+ */
+//--------------------------------------------------------------------------------------------------
+taf_radio_CellInfoChangeHandlerRef_t taf_radio_AddCellInfoChangeHandler
+(
+    taf_radio_CellInfoChangeHandlerFunc_t handlerPtr,
+        ///< [IN] Handler for registered cell info change.
+    void* contextPtr
+        ///< [IN]
+)
+{
+    return NULL;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove handler function for EVENT 'taf_radio_CellInfoChange'
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_radio_RemoveCellInfoChangeHandler
+(
+    taf_radio_CellInfoChangeHandlerRef_t handlerRef
         ///< [IN]
 )
 {
@@ -1593,18 +1728,19 @@ uint16_t taf_radio_GetServingCellScramblingCode
 }
 //--------------------------------------------------------------------------------------------------
 /**
- *  Gets the current network name.
+ *  Gets the current network's short name.
  *
  * @return
  *  - LE_BAD_PARAMETER -- Bad parameters.
  *  - LE_FAULT -- Failed.
+ *  - LE_TIMEOUT -- Time out.
  *  - LE_OK -- Succeeded.
  */
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_radio_GetCurrentNetworkName
 (
     char* nameStr,
-        ///< [OUT] Current network name.
+        ///< [OUT] Current network's short name.
     size_t nameStrSize,
         ///< [IN]
     uint8_t phoneId
@@ -2446,6 +2582,140 @@ le_result_t taf_radio_GetImsUserAgent
         ///< [OUT] User agent string to be sent with SIP message.
     size_t userAgentSize
         ///< [IN]
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the DCNR and ENDC mode status.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetNrDualConnectivityStatus
+(
+    taf_radio_NREndcAvailability_t* statusEndcPtr,
+        ///< [OUT] ENDC availability status.
+    taf_radio_NRDcnrRestriction_t* statusDcnrPtr,
+        ///< [OUT] DCNR restriction status.
+    uint8_t phoneId
+        ///< [IN] Phone ID.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the long name of the network.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_TIMEOUT -- Time out.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetCurrentNetworkLongName
+(
+    char* longNameStr,
+        ///< [OUT] Long network name.
+    size_t longNameStrSize,
+        ///< [IN]
+    uint8_t phoneId
+        ///< [IN] Phone ID.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the details of the total SIM count and maximum active SIM count.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *  - LE_TIMEOUT -- Time out.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetHardwareSimConfig
+(
+    uint8_t* totalSimCountPtr,
+        ///< [OUT] The maximum number of SIMs supported simultaneously.
+    uint8_t* maxActiveSimsPtr
+        ///< [OUT] The maximum number of SIMs that can be active simultaneously.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the RAT capabilities supported by hardware and SIM based on a given phone ID.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *  - LE_TIMEOUT -- Time out.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetHardwareSimRatCapabilities
+(
+    taf_radio_RatBitMask_t* deviceRatCapMaskPtr,
+        ///< [OUT] Device RAT capability bitmask.
+    taf_radio_RatBitMask_t* simRatCapMaskPtr,
+        ///< [OUT] SIM RAT capability bitmask.
+    uint8_t phoneId
+        ///< [IN] Phone ID.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the hysteresis in units of 0.1 dBm. which is an optional parameter for signal strength
+ * indication.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameters
+ *  - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_SetSignalStrengthIndHysteresis
+(
+    taf_radio_SigType_t sigType,
+        ///< [IN] Signal type.
+    uint16_t hysteresis,
+        ///< [IN] Hysteresis dBm in units of 0.1 dBm.
+    uint8_t phoneId
+        ///< [IN] Phone ID.
+)
+{
+    return LE_NOT_IMPLEMENTED;
+}
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets the hysteresis time in milliseconds which is an optional parameter for signal strength
+ * indication.
+ *
+ * @return
+ *  - LE_OK -- Succeeded.
+ *  - LE_BAD_PARAMETER -- Bad parameters
+ *  - LE_FAULT -- Failed.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_SetSignalStrengthIndHysteresisTimer
+(
+    uint16_t hysteresisTimer,
+        ///< [IN] Hysteresis time in milliseconds.
+    uint8_t phoneId
+        ///< [IN] Phone ID.
 )
 {
     return LE_NOT_IMPLEMENTED;

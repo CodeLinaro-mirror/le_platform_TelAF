@@ -17,9 +17,9 @@ executables:
 bindings:
 {
 #if ${LE_CONFIG_LINUX} = y
-    gnss.gnss.le_gnss -> tafLocationSvc.taf_gnss
-    gnss.gnss.le_pos -> tafLocationSvc.taf_pos
-    gnss.gnss.le_posCtrl -> tafLocationSvc.taf_posCtrl
+    gnss.gnss.le_gnss -> tafLocationSvc.taf_locGnss
+    gnss.gnss.le_pos -> tafLocationSvc.taf_locPos
+    gnss.gnss.le_posCtrl -> tafLocationSvc.taf_locPosCtrl
 #endif
 
 }

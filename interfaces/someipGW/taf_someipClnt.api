@@ -141,6 +141,56 @@
  * @note The value of @b name, @b routing, and @b network in the configuration file must match the
  * file name, which is tafSomeipGWSvc_1 in this case.
  *
+ * @section c_taf_someipClnt_commonapi_service CommonAPI client configuration
+ *
+ * The TelAF SOME/IP GW service can be used as the consolidated vsomeip routing manager for both
+ * TelAF applications and commonAPI applications if they are in the same network/VLAN. Here is an
+ * example to declare a commonAPI client application in someipGWSvc_1.json:
+ * @verbatim
+   {
+    "unicast" : "192.168.226.1",
+    "device" : "eth1",
+    "logging" :
+    {
+        "level" : "error",
+        "console" : "true",
+        "file" : { "enable" : "false", "path" : "/tmp/vsomeip.log" },
+        "version" : { "enable" : "false", "interval" : "10" },
+        "dlt" : "false"
+    },
+    "applications" :
+    [
+        {
+            "name" : "tafSomeipGWSvc_1",
+            "id" : "0x0102"
+        },
+        {
+            "name" : "commonapiClientApp",
+            "id" : "0x0202"
+        }
+    ],
+    "routing" : "tafSomeipGWSvc_1",
+    "network" : "tafSomeipGWSvc_1",
+    "service-discovery" :
+    {
+        "enable" : "true",
+        "multicast" : "225.0.0.1",
+        "port" : "30490",
+        "protocol" : "udp",
+        "initial_delay_min" : "10",
+        "initial_delay_max" : "100",
+        "repetitions_base_delay" : "200",
+        "repetitions_max" : "3",
+        "ttl" : "3",
+        "cyclic_offer_delay" : "2000",
+        "request_response_delay" : "1500"
+    }
+   }
+   @endverbatim
+ *
+ * In this case, the vsomeip application(ID=0x0202) "commonapiClientApp" is a commonAPI client
+ * application requested on unicast address 192.168.226.1.
+ *
  * @section c_taf_someipClnt_client_API Client Service APIs
  *
  * Before setting up a client-service-instance, application shall first get the service reference by

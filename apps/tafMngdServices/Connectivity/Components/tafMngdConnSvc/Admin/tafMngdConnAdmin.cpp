@@ -737,6 +737,39 @@ le_result_t tafMngdConnAdmin::GetConnectionIPAddresses
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Starts the data retry mechanism. If data session is connected, the data session will be
+ * disconnected before data retry mechanism is started. This functions is asynchronous and
+ * applications should monitor data events via DataState handler.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_BAD_PARAMETER -- Bad parameter.
+ *   - Appropriate error is returned on failure.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t tafMngdConnAdmin::StartDataRetry(taf_mngdConn_DataRef_t dataRef)
+{
+    TAF_ERROR_IF_RET_VAL(nullptr == dataRef, LE_BAD_PARAMETER, "Null ptr(dataRef)");
+    mcs_DataCtx_t *dataCtxPtr = (mcs_DataCtx_t *)le_ref_Lookup(DataRefMap, (void *)dataRef);
+    TAF_ERROR_IF_RET_VAL(nullptr == dataCtxPtr, LE_NOT_FOUND, "Data reference not found");
+
+    // Data start should be called first when AutoStart: No
+    if (TAF_MNGDCONN_DATA_DISCONNECTED == dataCtxPtr->dataState && !dataCtxPtr->autoStart)
+    {
+        LE_WARN("Data start has not been called yet.");
+        return LE_NOT_PERMITTED;
+    }
+
+    // Send request to admin to handle this request
+    stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
+    stateMachineEvt.event = MCS_EVT_DATA_START_RETRY_APP_REQ;
+    stateMachineEvt.dataId = dataCtxPtr->dataId;
+    le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Cancels a scheduled L1 recovery process. This API should be called for all data references that
  * scheduled a L1 recovery.
  *
@@ -785,6 +818,63 @@ le_result_t tafMngdConnAdmin::CancelL1Recovery(taf_mngdConn_DataRef_t dataRef)
     // Inform the admin that it needs to send L1 canceled indication to clients. This shoud be sent
     // from the main thread so that apps will recieve result first followed by RecoveryStateHandler.
     stateMachineEvt.event = MCS_EVT_CONN_RECOVERY_CANCEL_L1_SEND_IND;
+    stateMachineEvt.dataId = dataCtxPtr->dataId;
+    le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
+
+    // Return result to the application
+    return result;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Cancels a scheduled L2 recovery process. This API should be called for all data references that
+ * scheduled a L2 recovery.
+ *
+ * @return
+ *   - LE_OK -- Succeeded.
+ *   - LE_NOT_POSSIBLE -- A L2 recovery process has not been scheduled.
+ *   - LE_NOT_PERMITTED -- A L2 recovery process has already started.
+ *   - Appropriate error is returned on failure.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t tafMngdConnAdmin::CancelL2Recovery(taf_mngdConn_DataRef_t dataRef)
+{
+    TAF_ERROR_IF_RET_VAL(dataRef == NULL, LE_BAD_PARAMETER, "Null ptr(dataRef)");
+
+    mcs_DataCtx_t *dataCtxPtr = (mcs_DataCtx_t *)le_ref_Lookup(DataRefMap, (void *)dataRef);
+    TAF_ERROR_IF_RET_VAL(dataCtxPtr == NULL, LE_NOT_FOUND, "Data reference not found");
+
+    if (MCS_RECOVERY_SCHEDULED_L2 != dataCtxPtr->adminState)
+    {
+        LE_INFO("L2 Recovery is not scheduled");
+        return LE_NOT_POSSIBLE;
+    }
+    if (MCS_RECOVERY_STARTED_L1 == dataCtxPtr->adminState)
+    {
+        LE_WARN("L2 Recovery is already started");
+        return LE_NOT_PERMITTED;
+    }
+
+    stateMachineEvent_t stateMachineEvt;
+    // Send event to admin to cancel L2 recovery
+    stateMachineEvt.event = MCS_EVT_CONN_RECOVERY_CANCEL_L2_SYNC;
+    stateMachineEvt.dataId = dataCtxPtr->dataId;
+    // initialize the synchronous promise
+    CmdSynchronousPromise = std::promise<le_result_t>();
+    // Send request to admin
+    le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
+
+    // wait for result from admin
+    std::future<le_result_t> futResult = CmdSynchronousPromise.get_future();
+    le_result_t result = futResult.get();
+    if (LE_OK != result)
+    {
+        LE_WARN("Cancel L2 for Data Id(%d) failed: %d", dataCtxPtr->dataId, result);
+    }
+
+    // Inform the admin that it needs to send L2 canceled indication to clients. This shoud be sent
+    // from the main thread so that apps will recieve result first followed by RecoveryStateHandler.
+    stateMachineEvt.event = MCS_EVT_CONN_RECOVERY_CANCEL_L2_SEND_IND;
     stateMachineEvt.dataId = dataCtxPtr->dataId;
     le_event_Report(StateMachineEventId, &stateMachineEvt, sizeof(stateMachineEvent_t));
 
@@ -1073,6 +1163,44 @@ le_result_t tafMngdConnAdmin::EventStartDataRetry(uint8_t dataId)
 
     // Return IN PROGRESS signalling retry timer is running.
     return LE_IN_PROGRESS;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handle the event MCS_EVT_DATA_START_RETRY_APP_REQ
+ * When this event is received, it means app has requested the service to perform data start retry.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t tafMngdConnAdmin::EventStartDataRetryAppReq(uint8_t dataId)
+{
+    // Get the context for the data ID
+    mcs_DataCtx_t *dataCtxPtr = GetDataCtx(dataId);
+
+    if (dataCtxPtr == NULL)
+    {
+        LE_ERROR("Unable to find context for data ID: %d", dataId);
+        return LE_FAULT;
+    }
+
+    // Check if a periodic connectivity check timer is active and stop it.
+    // This might be the case for data that is auto started.
+    if (le_timer_IsRunning(dataCtxPtr->periodicConnectivityTestTimerRef))
+    {
+        le_timer_Stop(dataCtxPtr->periodicConnectivityTestTimerRef);
+    }
+
+    // Start the retry procedure only in the active connected state.
+    if (MCS_DATA_CONNECTED_ACTIVE == dataCtxPtr->adminState)
+    {
+        dataCtxPtr->adminState = MCS_DATA_CONNECTED_INACTIVE_RETRYING;
+        stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
+        stateMachineEvt.event = MCS_EVT_DATA_STOP;
+        stateMachineEvt.dataId = dataCtxPtr->dataId;
+        le_event_Report(StateMachineEventId, &stateMachineEvt,
+                        sizeof(stateMachineEvent_t));
+    }
+
+    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -1685,6 +1813,10 @@ void tafMngdConnAdmin::StateMachineHandler(void* reqPtr)
             mngdConnAdmin.EventStartDataRetry(eventReq->dataId);
             break;
 
+        case MCS_EVT_DATA_START_RETRY_APP_REQ:
+            mngdConnAdmin.EventStartDataRetryAppReq(eventReq->dataId);
+            break;
+
         case MCS_EVT_DATA_STOP_SYNC:
             mngdConnAdmin.ResetDataRetryPeriodicConnCheckValues(eventReq->dataId);
             result = mngdConnAdmin.EventStopData(eventReq->dataId);
@@ -1773,6 +1905,31 @@ void tafMngdConnAdmin::StateMachineHandler(void* reqPtr)
             LE_DEBUG("L1 Connectivity Recovery Start event");
             mngdConnAdmin.EventL1ConnRecoveryStart(eventReq->dataId);
         break;
+
+        case MCS_EVT_CONN_RECOVERY_SCHEDULE_L2:
+            LE_DEBUG("L2 Connectivity Recovery Schedule event");
+            mngdConnAdmin.EventL2ConnRecoverySchedule(eventReq->dataId);
+            break;
+
+        case MCS_EVT_CONN_RECOVERY_CANCEL_L2:
+            LE_DEBUG("L2 Connectivity Recovery Cancel event");
+            mngdConnAdmin.EventL2ConnRecoveryCancel(eventReq->dataId);
+            break;
+
+        case MCS_EVT_CONN_RECOVERY_CANCEL_L2_SYNC:
+            LE_DEBUG("L2 Connectivity Recovery Cancel SYNC event");
+            mngdConnAdmin.EventL2ConnRecoveryCancelSync(eventReq->dataId);
+            break;
+
+        case MCS_EVT_CONN_RECOVERY_CANCEL_L2_SEND_IND:
+            LE_DEBUG("L2 Connectivity Recovery send indication");
+            mngdConnAdmin.EventL2ConnRecoveryCancelSendInd(eventReq->dataId);
+            break;
+
+        case MCS_EVT_CONN_RECOVERY_START_L2:
+            LE_DEBUG("L2 Connectivity Recovery Start event");
+            mngdConnAdmin.EventL2ConnRecoveryStart(eventReq->dataId);
+            break;
 
         default:
             LE_ERROR("Undefined request received.");
@@ -2508,7 +2665,7 @@ void tafMngdConnAdmin::EventDataStartConnectionTest(uint8_t dataId)
 
     if(!url.empty())
     {
-        if(DataStartConnectionTest_URL(url , interfaceName))
+        if(DataConnectivityTest_URL(url , interfaceName))
         {
             //connection is created.
             dataCtxPtr->adminState = MCS_DATA_CONNECTED_ACTIVE;
@@ -2516,7 +2673,7 @@ void tafMngdConnAdmin::EventDataStartConnectionTest(uint8_t dataId)
             //If manually started the data successfully. Set reconnection flag to true.
             dataCtxPtr->needReConn = true;
         }
-        else if(!ipv4add.empty() && DataStartConnectionTest_IPv4(ipv4add , interfaceName))
+        else if(!ipv4add.empty() && DataConnectivityTest_IPv4(ipv4add , interfaceName))
         {
             //connection is created.
             dataCtxPtr->adminState = MCS_DATA_CONNECTED_ACTIVE;
@@ -2538,7 +2695,7 @@ void tafMngdConnAdmin::EventDataStartConnectionTest(uint8_t dataId)
     }
     else if(!ipv4add.empty())
     {
-        if(DataStartConnectionTest_IPv4(ipv4add , interfaceName))
+        if(DataConnectivityTest_IPv4(ipv4add , interfaceName))
         {
             //connection is created.
             dataCtxPtr->adminState = MCS_DATA_CONNECTED_ACTIVE;
@@ -2588,7 +2745,7 @@ void tafMngdConnAdmin::EventDataPeriodicConnectivityTest(uint8_t dataId)
     if(!url.empty())
     {
 
-            if(!DataStartConnectionTest_URL(url, interfaceName))
+            if(!DataConnectivityTest_URL(url, interfaceName))
             {
                 // PeriodicConnectivitytest failed for this iteration.
                 LE_INFO("PeriodicConnectivitytest failed for dataID: %d", dataId);
@@ -2643,7 +2800,7 @@ void tafMngdConnAdmin::EventDataPeriodicConnectivityTest(uint8_t dataId)
     }
 }
 
-bool tafMngdConnAdmin::DataStartConnectionTest_URL(std::string url, std::string interfaceName)
+bool tafMngdConnAdmin::DataConnectivityTest_URL(std::string url, std::string interfaceName)
 {
     //Enable LE_CONFIG_DEBUG to get the output of curl in logs
     #if LE_CONFIG_DEBUG
@@ -2658,17 +2815,17 @@ bool tafMngdConnAdmin::DataStartConnectionTest_URL(std::string url, std::string 
     if(result == 0)
     {
         //connection is created.
-        LE_INFO("DataStartConnectionTest_URL passed for interface %s",interfaceName.c_str());
+        LE_INFO("DataConnectivityTest_URL passed for interface %s",interfaceName.c_str());
         return true;
     }
-    LE_INFO ("DataStartConnectionTest_URL failed for interface %s",interfaceName.c_str());
+    LE_INFO ("DataConnectivityTest_URL failed for interface %s",interfaceName.c_str());
     return false;
 }
 
-bool tafMngdConnAdmin::DataStartConnectionTest_IPv4(std::string ipv4, std::string interfaceName)
+bool tafMngdConnAdmin::DataConnectivityTest_IPv4(std::string ipv4, std::string interfaceName)
 {
     //Enable LE_CONFIG_DEBUG to get the output of ping in logs
-    LE_INFO("DataStartConnectionTest_IPv4 entered for interface %s",interfaceName.c_str());
+    LE_INFO("DataConnectivityTest_IPv4 entered for interface %s",interfaceName.c_str());
     #if LE_CONFIG_DEBUG
         std::string pingCommand = "ping -c 5 -I "+ interfaceName +" "+ ipv4;
         //5 is the number of ping pockets
@@ -2681,12 +2838,12 @@ bool tafMngdConnAdmin::DataStartConnectionTest_IPv4(std::string ipv4, std::strin
     if(result == 0)
     {
         //connection is created.
-        LE_INFO("DataStartConnectionTest_IPv4 passed for interface %s",interfaceName.c_str());
+        LE_INFO("DataConnectivityTest_IPv4 passed for interface %s",interfaceName.c_str());
         return true;
     }
     else
     {
-        LE_INFO("DataStartConnectionTest_IPv4 failed for interface %s",interfaceName.c_str());
+        LE_INFO("DataConnectivityTest_IPv4 failed for interface %s",interfaceName.c_str());
         return false;
     }
     return false;
@@ -2694,7 +2851,7 @@ bool tafMngdConnAdmin::DataStartConnectionTest_IPv4(std::string ipv4, std::strin
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Schedule connectivity recovery process event handler.
+ * MCS_EVT_CONN_RECOVERY_SCHEDULE_L1 event handler.
  * - Send appropriate recovery schduled notification to applications
  */
 //--------------------------------------------------------------------------------------------------
@@ -2843,7 +3000,7 @@ void tafMngdConnAdmin::EventL1ConnRecoveryCancelSendInd(uint8_t dataId)
  * - Send CONN_RECOVERY_L1_STARTED notification to applications
  * - Stop all active data sessions
  * - Mark sessions for restarting as needed
- * - Turn of radio, wait 5s and turn on radio
+ * - Turn off radio, wait 5s and turn on radio
  */
 //--------------------------------------------------------------------------------------------------
 void tafMngdConnAdmin::EventL1ConnRecoveryStart(uint8_t dataId)
@@ -2917,6 +3074,56 @@ void tafMngdConnAdmin::EventL1ConnRecoveryStart(uint8_t dataId)
     //NAD should register again and data will be based on received events
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * MCS_EVT_CONN_RECOVERY_SCHEDULE_L2 event handler.
+ * - Send appropriate recovery schduled notification to applications
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::EventL2ConnRecoverySchedule(uint8_t dataId)
+{
+    LE_UNUSED(dataId);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * MCS_EVT_CONN_RECOVERY_CANCEL_L2 event handler
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::EventL2ConnRecoveryCancel(uint8_t dataId)
+{
+    LE_UNUSED(dataId);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * MCS_EVT_CONN_RECOVERY_CANCEL_L2_SYNC event handler
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::EventL2ConnRecoveryCancelSync(uint8_t dataId)
+{
+    LE_UNUSED(dataId);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * MCS_EVT_CONN_RECOVERY_CANCEL_L2_SEND_IND event handler
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::EventL2ConnRecoveryCancelSendInd(uint8_t dataId)
+{
+    LE_UNUSED(dataId);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * MCS_EVT_CONN_RECOVERY_START_L2 event handler
+ */
+//--------------------------------------------------------------------------------------------------
+void tafMngdConnAdmin::EventL2ConnRecoveryStart(uint8_t dataId)
+{
+    LE_UNUSED(dataId);
+}
 
 const char * tafMngdConnAdmin::EventToString(mcs_EventType_t event)
 {
@@ -2942,6 +3149,8 @@ const char * tafMngdConnAdmin::EventToString(mcs_EventType_t event)
             return "MCS_EVT_DATA_START";
         case MCS_EVT_DATA_START_RETRY:
             return "MCS_EVT_DATA_START_RETRY";
+        case MCS_EVT_DATA_START_RETRY_APP_REQ:
+            return "MCS_EVT_DATA_START_RETRY_APP_REQ";
         case MCS_EVT_DATA_STOP_SYNC:
             return "MCS_EVT_DATA_STOP_SYNC";
         case MCS_EVT_DATA_STOP:
@@ -2968,6 +3177,16 @@ const char * tafMngdConnAdmin::EventToString(mcs_EventType_t event)
             return "MCS_EVT_CONN_RECOVERY_CANCEL_L1_SEND_IND";
         case MCS_EVT_CONN_RECOVERY_START_L1:
             return "MCS_EVT_CONN_RECOVERY_START_L1";
+        case MCS_EVT_CONN_RECOVERY_SCHEDULE_L2:
+            return "MCS_EVT_CONN_RECOVERY_SCHEDULE_L2";
+        case MCS_EVT_CONN_RECOVERY_CANCEL_L2:
+            return "MCS_EVT_CONN_RECOVERY_CANCEL_L2";
+        case MCS_EVT_CONN_RECOVERY_CANCEL_L2_SYNC:
+            return "MCS_EVT_CONN_RECOVERY_CANCEL_L2_SYNC";
+        case MCS_EVT_CONN_RECOVERY_CANCEL_L2_SEND_IND:
+            return "MCS_EVT_CONN_RECOVERY_CANCEL_L2_SEND_IND";
+        case MCS_EVT_CONN_RECOVERY_START_L2:
+            return "MCS_EVT_CONN_RECOVERY_START_L2";
         default:
             LE_ERROR("unknown status: %d", event);
             return "unknow status";
@@ -3024,7 +3243,7 @@ const char * tafMngdConnAdmin::StateToString(mcs_Admin_State_t state)
             return "MCS_RECOVERY_FAILED_L2";
         default:
             LE_ERROR("unknown status: %d", state);
-            return "unknow status";
+            return "unknown status";
     }
 
     return "unknow status";

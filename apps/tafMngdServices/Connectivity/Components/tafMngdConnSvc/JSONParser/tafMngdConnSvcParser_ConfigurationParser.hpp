@@ -60,39 +60,39 @@ namespace tafsvc {
     {
         mcs_Yes_No_t Enable; //Yes=1, No=0
         uint8_t RetryCount;
-    } taf_mngdConn_Policy_DataStartRetry_t;
+    } mcs_Configuration_DataStartRetry_t;
 
     typedef struct
     {
         char URL[MCS_MAX_CONNECTION_URL_LEN];
         char IPv4[MCS_MAX_IPV4_LEN];
         char IPv6[MCS_MAX_IPV6_LEN];
-    } taf_mngdConn_Configuration_Data_DataStartConnectionTest_t;
+    } mcs_Configuration_Data_DataStartConnectionTest_t;
 
     typedef struct
     {
         uint8_t Interval;
         uint8_t RetryCount;
         char URL[MCS_MAX_CONNECTION_URL_LEN];
-    } taf_mngdConn_Configuration_Data_PeriodicConnectivityCheck_t;
+    } mcs_Configuration_Data_PeriodicConnectivityCheck_t;
 
     typedef struct
     {
         uint8_t ProfileNumber;
         char APN[MCS_MAX_APN_LEN];
-    } taf_mngdConn_Configuration_Data_Profile_t;
+    } mcs_Configuration_Data_Profile_t;
 
     typedef struct
     {
         uint8_t ID;
         uint8_t Use_Network_ID;
         char DataName[MCS_MAX_NAME_LEN];
-        taf_mngdConn_Configuration_Data_Profile_t Profile;
+        mcs_Configuration_Data_Profile_t Profile;
         mcs_Yes_No_t AutoStart; //Yes=1, No=0
-        taf_mngdConn_Policy_DataStartRetry_t DataStartRetry;
-        taf_mngdConn_Configuration_Data_DataStartConnectionTest_t DataStartConnectionTest;
-        taf_mngdConn_Configuration_Data_PeriodicConnectivityCheck_t PeriodicConnectivityCheck;
-    } taf_mngdConn_Configuration_Data_t;
+        mcs_Configuration_DataStartRetry_t DataStartRetry;
+        mcs_Configuration_Data_DataStartConnectionTest_t DataStartConnectionTest;
+        mcs_Configuration_Data_PeriodicConnectivityCheck_t PeriodicConnectivityCheck;
+    } mcs_Configuration_Data_t;
 
     typedef struct
     {
@@ -101,40 +101,40 @@ namespace tafsvc {
         uint8_t Use_Sim_ID;
         uint8_t PhoneID;
         mcs_NW_Registration_Type_t Registration;
-    } taf_mngdConn_Configuration_Network_t;
+    } mcs_Configuration_Network_t;
 
     typedef struct
     {
         uint8_t ID;
         uint8_t SlotNumber;
         char Name[MCS_MAX_NAME_LEN];
-    } taf_mngdConn_Configuration_Sim_t;
+    } mcs_Configuration_Sim_t;
 
     typedef struct
     {
         mcs_JSON_Version_t Version;
         char Name[MCS_MAX_NAME_LEN];
         uint8_t SimCount;
-        taf_mngdConn_Configuration_Sim_t Sim[MCS_MAX_SIM_OBJECT_COUNT];
+        mcs_Configuration_Sim_t Sim[MCS_MAX_SIM_OBJECT_COUNT];
         uint8_t NetworkCount;
-        taf_mngdConn_Configuration_Network_t Network[MCS_MAX_NETWORK_OBJECT_COUNT];
+        mcs_Configuration_Network_t Network[MCS_MAX_NETWORK_OBJECT_COUNT];
         uint8_t DataCount;
-        taf_mngdConn_Configuration_Data_t Data[MCS_MAX_DATA_OBJECT_COUNT];
-    } taf_mngdConn_Configuration_t;
+        mcs_Configuration_Data_t Data[MCS_MAX_DATA_OBJECT_COUNT];
+    } mcs_Configuration_t;
 
     // Class is declared here and defined later
-    class tafMngdConnSvc_ConfigurationParser;
+    class mcs_ConfigurationParser;
 }
 }
 
-class telux::tafsvc::tafMngdConnSvc_ConfigurationParser
+class telux::tafsvc::mcs_ConfigurationParser
 {
 private:
     // Private constructor
-    tafMngdConnSvc_ConfigurationParser(){};
+    mcs_ConfigurationParser(){};
 
     // Used to validate if the proprety values conform to expected types
-    typedef bool (*ConfigurationValidationFunction_t)(taf_mngdConn_Configuration_t &Configuration,
+    typedef bool (*ConfigurationValidationFunction_t)(mcs_Configuration_t &Configuration,
                                                             std::string Value,
                                                             int Index);
 
@@ -144,113 +144,113 @@ private:
     void UpdateValidConfigurationFuncMap(void);
 
     // MCSC = ManagedConnectivityServiceConfiguration
-    static bool Validate_MCSC_Name(taf_mngdConn_Configuration_t &Configuration,
+    static bool Validate_MCSC_Name(mcs_Configuration_t &Configuration,
                                       std::string Value,
                                       int Index);
     // Sim
-    static bool Validate_MCSC_Sim_ID(taf_mngdConn_Configuration_t &Configuration,
+    static bool Validate_MCSC_Sim_ID(mcs_Configuration_t &Configuration,
                                       std::string Value,
                                       int Index);
-    static bool Validate_MCSC_Sim_Name(taf_mngdConn_Configuration_t &Configuration,
+    static bool Validate_MCSC_Sim_Name(mcs_Configuration_t &Configuration,
                                    std::string Value,
                                    int Index);
-    static bool Validate_MCSC_Sim_SlotNumber(taf_mngdConn_Configuration_t &Configuration,
+    static bool Validate_MCSC_Sim_SlotNumber(mcs_Configuration_t &Configuration,
                                    std::string Value,
                                    int Index);
     // Network
-    static bool Validate_MCSC_Network_Name(taf_mngdConn_Configuration_t &Configuration,
+    static bool Validate_MCSC_Network_Name(mcs_Configuration_t &Configuration,
                                    std::string Value,
                                    int Index);
-    static bool Validate_MCSC_Network_ID(taf_mngdConn_Configuration_t &Configuration,
+    static bool Validate_MCSC_Network_ID(mcs_Configuration_t &Configuration,
                                    std::string Value,
                                    int Index);
-    static bool Validate_MCSC_Network_Use_SIM_ID(taf_mngdConn_Configuration_t &Configuration,
+    static bool Validate_MCSC_Network_Use_SIM_ID(mcs_Configuration_t &Configuration,
                                        std::string Value,
                                        int Index);
-    static bool Validate_MCSC_Network_PhoneID(taf_mngdConn_Configuration_t &Configuration,
+    static bool Validate_MCSC_Network_PhoneID(mcs_Configuration_t &Configuration,
                                        std::string Value,
                                        int Index);
-    static bool Validate_MCSC_Network_Registration(taf_mngdConn_Configuration_t &Configuration,
+    static bool Validate_MCSC_Network_Registration(mcs_Configuration_t &Configuration,
                                        std::string Value,
                                        int Index);
 
     //Data
-    static bool Validate_MCSC_Data_ID(taf_mngdConn_Configuration_t &Configuration,
+    static bool Validate_MCSC_Data_ID(mcs_Configuration_t &Configuration,
                                        std::string Value,
                                        int Index);
-    static bool Validate_MCSC_Data_Use_Network_ID(taf_mngdConn_Configuration_t &Configuration,
+    static bool Validate_MCSC_Data_Use_Network_ID(mcs_Configuration_t &Configuration,
                                     std::string Value,
                                     int Index);
-    static bool Validate_MCSC_Data_Name(taf_mngdConn_Configuration_t &Configuration,
+    static bool Validate_MCSC_Data_Name(mcs_Configuration_t &Configuration,
                                     std::string Value,
                                     int Index);
-    static bool Validate_MCSC_Data_Profile_Number(taf_mngdConn_Configuration_t &Configuration,
+    static bool Validate_MCSC_Data_Profile_Number(mcs_Configuration_t &Configuration,
                                     std::string Value,
                                     int Index);
-    static bool Validate_MCSC_Data_Profile_APN(taf_mngdConn_Configuration_t &Configuration,
+    static bool Validate_MCSC_Data_Profile_APN(mcs_Configuration_t &Configuration,
                                                std::string Value,
                                                int Index);
-    static bool Validate_MCSC_Data_AutoStart(taf_mngdConn_Configuration_t &Configuration,
+    static bool Validate_MCSC_Data_AutoStart(mcs_Configuration_t &Configuration,
                                                std::string Value,
                                                int Index);
     static bool Validate_MCSC_Data_DataStartConnectionTest_URL(
-                                    taf_mngdConn_Configuration_t &Configuration,
+                                    mcs_Configuration_t &Configuration,
                                     std::string Value,
                                     int Index);
     static bool Validate_MCSC_Data_DataStartConnectionTest_IPv4(
-                                    taf_mngdConn_Configuration_t &Configuration,
+                                    mcs_Configuration_t &Configuration,
                                     std::string Value,
                                     int Index);
     static bool Validate_MCSC_Data_DataStartConnectionTest_IPv6(
-                                    taf_mngdConn_Configuration_t &Configuration,
+                                    mcs_Configuration_t &Configuration,
                                     std::string Value,
                                     int Index);
     // DSR = DataStartRetry
-    static bool Validate_MCSC_Data_DSR_Enable (taf_mngdConn_Configuration_t &Policy,
+    static bool Validate_MCSC_Data_DSR_Enable (mcs_Configuration_t &Policy,
                                                         std::string Value,
                                                         int Index);
-    static bool Validate_MCSC_Data_DSR_RetryCount (taf_mngdConn_Configuration_t &Policy,
+    static bool Validate_MCSC_Data_DSR_RetryCount (mcs_Configuration_t &Policy,
                                                         std::string Value,
                                                         int Index);
     static bool Validate_MCSC_Data_PeriodicConnectivityCheck_Interval(
-                                    taf_mngdConn_Configuration_t &Configuration,
+                                    mcs_Configuration_t &Configuration,
                                     std::string Value,
                                     int Index);
     static bool Validate_MCSC_Data_PeriodicConnectivityCheck_URL(
-                                    taf_mngdConn_Configuration_t &Configuration,
+                                    mcs_Configuration_t &Configuration,
                                     std::string Value,
                                     int Index);
 
     static bool Validate_MCSC_Data_PeriodicConnectivityCheck_RetryCount(
-                                    taf_mngdConn_Configuration_t &Configuration,
+                                    mcs_Configuration_t &Configuration,
                                     std::string Value,
                                     int Index);
 
-    bool ValidateValue(taf_mngdConn_Configuration_t &Configuration,
+    bool ValidateValue(mcs_Configuration_t &Configuration,
                        std::string property,
                        std::string Value,
                        int Index);
 
-    bool ParseAndUpdateConfigurationJSON(taf_mngdConn_Configuration_t &Configuration,
+    bool ParseAndUpdateConfigurationJSON(mcs_Configuration_t &Configuration,
                                                                         std::string filename);
 
 public:
     // Delete copy constructor.
-    tafMngdConnSvc_ConfigurationParser(tafMngdConnSvc_ConfigurationParser const &) = delete;
-    tafMngdConnSvc_ConfigurationParser &operator=(tafMngdConnSvc_ConfigurationParser const &)
+    mcs_ConfigurationParser(mcs_ConfigurationParser const &) = delete;
+    mcs_ConfigurationParser &operator=(mcs_ConfigurationParser const &)
                                                 = delete;
 
-    static tafMngdConnSvc_ConfigurationParser &getInstance();
+    static mcs_ConfigurationParser &getInstance();
 
     /**
      * \brief Reset the Configuration structure
      *
      */
-    void ResetConfigurationStructure(taf_mngdConn_Configuration_t &Configuration);
+    void ResetConfigurationStructure(mcs_Configuration_t &Configuration);
     /**
      * \brief Return a pointer to the Configuration structure
      *
      */
-    bool GetConfiguration(taf_mngdConn_Configuration_t &Configuration,
+    bool GetConfiguration(mcs_Configuration_t &Configuration,
                                                 std::string ConfigurationFileName);
 };

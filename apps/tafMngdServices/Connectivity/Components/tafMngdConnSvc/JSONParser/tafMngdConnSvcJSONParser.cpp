@@ -60,13 +60,14 @@ static std::map<std::string, ConnectivityValidationFunction_t> ConnectivityValid
 static const char *JSON_Version_23_07_00 = "23.07.00";
 static const char *JSON_Version_23_11_00 = "23.11.00";
 static const char *JSON_Version_24_03_00 = "24.03.00";
+static const char *JSON_Version_24_06_00 = "24.06.00";
 
 /**
  * Validate ManagedConnectivityService:Version
  * Check for supported versions and set the Version to correct mcs_JSON_Version_t value.
  */
-static bool Validate_MCS_Version(taf_mngdConn_Policy_t &Policy,
-                                                taf_mngdConn_Configuration_t &Configuration,
+static bool Validate_MCS_Version(mcs_Policy_t &Policy,
+                                                mcs_Configuration_t &Configuration,
                                                 std::string Value,
                                                 int Index)
 {
@@ -102,10 +103,17 @@ static bool Validate_MCS_Version(taf_mngdConn_Policy_t &Policy,
         LE_INFO("Valid JSON Version: %s", Value.c_str());
         return true;
     }
-     else if (Value == JSON_Version_24_03_00)
+    else if (Value == JSON_Version_24_03_00)
     {
         Policy.Version        = MCS_JSON_VERSION_24_03_00;
         Configuration.Version = MCS_JSON_VERSION_24_03_00;
+        LE_INFO("Valid JSON Version: %s", Value.c_str());
+        return true;
+    }
+    else if (Value == JSON_Version_24_06_00)
+    {
+        Policy.Version        = MCS_JSON_VERSION_24_06_00;
+        Configuration.Version = MCS_JSON_VERSION_24_06_00;
         LE_INFO("Valid JSON Version: %s", Value.c_str());
         return true;
     }
@@ -114,8 +122,8 @@ static bool Validate_MCS_Version(taf_mngdConn_Policy_t &Policy,
     return false;
 }
 
-static bool ValidateValue(taf_mngdConn_Policy_t& Policy,
-                                taf_mngdConn_Configuration_t &Configuration,
+static bool ValidateValue(mcs_Policy_t& Policy,
+                                mcs_Configuration_t &Configuration,
                                 std::string property,
                                 std::string Value,
                                 int Index)
@@ -133,14 +141,14 @@ static bool ValidateValue(taf_mngdConn_Policy_t& Policy,
 }
 
 bool telux::tafsvc::tafMngdConnSvc_GetPolicyAndConfiguration(
-    taf_mngdConn_Policy_t &PolicyStructRef,
-    taf_mngdConn_Configuration_t &ConfigurationStructRef,
+    mcs_Policy_t &PolicyStructRef,
+    mcs_Configuration_t &ConfigurationStructRef,
     std::string ConfigurationFileName)
 {
     std::string newConfFileName;
-    tafMngdConnSvc_PolicyParser &PolicyParserRef = tafMngdConnSvc_PolicyParser::getInstance();
-    tafMngdConnSvc_ConfigurationParser &ConfigurationParserRef =
-                                                tafMngdConnSvc_ConfigurationParser::getInstance();
+    mcs_PolicyParser &PolicyParserRef = mcs_PolicyParser::getInstance();
+    mcs_ConfigurationParser &ConfigurationParserRef =
+                                                mcs_ConfigurationParser::getInstance();
 
     newConfFileName = ConfigurationFileName;
     // Check if only Configuration file name is path or if path is also provided.

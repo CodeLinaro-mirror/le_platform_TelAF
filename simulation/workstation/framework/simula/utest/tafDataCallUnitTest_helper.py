@@ -34,9 +34,9 @@ def to_run():
         L.info("Add some profiles ...")
 
         profiles = (
-            b'6\n10\n2\n0\nprofile3\napn3\n0\n\n\n0\n4\nq\nq\nq\n',
-            b'6\n10\n2\n0\nprofile4\napn4\n0\n\n\n0\n6\nq\nq\nq\n',
-            b'6\n10\n2\n0\nprofile5\napn5\n0\n\n\n0\n10\nq\nq\nq\n'
+            b'6\n10\n2\n0\nprofile3\napn3\n0\n\n\n0\n4\n0\nq\nq\nq\n',
+            b'6\n10\n2\n0\nprofile4\napn4\n0\n\n\n0\n6\n0\nq\nq\nq\n',
+            b'6\n10\n2\n0\nprofile5\napn5\n0\n\n\n0\n10\n0\nq\nq\nq\n'
         )
 
         for profile in profiles:

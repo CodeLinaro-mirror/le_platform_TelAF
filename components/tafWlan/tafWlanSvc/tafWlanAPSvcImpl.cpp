@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -682,7 +682,7 @@ void taf_WlanAPSvcImpl::Init()
 
     APRefMap = le_ref_CreateMap("APRefMap", TAF_WLAN_MAX_NUM_AP);
 
-    for (int id = 0; id < TAF_WLAN_MAX_NUM_AP; ++id)
+    for (int id = 1; id <= TAF_WLAN_MAX_NUM_AP; ++id)
     {
         taf_wlan_AP_Ctx_t *ctxPtr = (taf_wlan_AP_Ctx_t *)le_mem_ForceAlloc(APCtxPool);
         if (ctxPtr == nullptr)

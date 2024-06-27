@@ -185,6 +185,10 @@ namespace telux
             le_event_Id_t GetStateChangeEventID();
 
         private:
+            le_result_t FillIntfInfo(taf_wlan_APIntfInfo_t *APIntfinfoPtr,
+                                     size_t *APIntfinfoSizePtr,
+                                     taf_wlan_STAIntfInfo_t *STAIntfinfoPtr,
+                                     size_t *STAIntfinfoSizePtr);
             // The WLAN Device Manager
             std::shared_ptr<telux::wlan::IWlanDeviceManager> wlanDevMgr = nullptr;
             // The WLAN Listener class object

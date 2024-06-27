@@ -7,7 +7,7 @@ requires:
 {
     api:
     {
-        taf_sap.api
+        taf_simSap.api
     }
 }
 

@@ -39,7 +39,7 @@
 #include <arpa/inet.h>
 
 #define PORT 8080
-static taf_sap_MessageHandlerRef_t  MsgHandlerRef;
+static taf_simSap_MessageHandlerRef_t  MsgHandlerRef;
 static struct sockaddr_in clientAddr;
 static int daemonConnectionFd = -1;
 static bool daemonConnected = false;
@@ -107,16 +107,16 @@ static le_result_t SetupClientConnection(const char * ipAddress) {
 }
 
 static void DaemonSocketEventHandler( int fd) {
-    uint8_t buffer[TAF_SAP_MAX_MSG_SIZE];
+    uint8_t buffer[TAF_SIMSAP_MAX_MSG_SIZE];
     int bytes;
     memset(buffer, 0, sizeof(buffer));
-    if ((bytes = read(fd, buffer, TAF_SAP_MAX_MSG_SIZE)) <= 0) {
+    if ((bytes = read(fd, buffer, TAF_SIMSAP_MAX_MSG_SIZE)) <= 0) {
         LE_ERROR("Connection closed or failed to read from daemon! %s\n", strerror(errno));
         daemonConnected = false;
     } else {
         //Send message
         LE_INFO("Read %d bytes from daemon", bytes);
-        taf_sap_SendMessage(buffer, bytes);
+        taf_simSap_SendMessage(buffer, bytes);
 
     }
 }
@@ -146,7 +146,7 @@ static le_result_t RunClientSAPProvider() {
     }
 
     //Add handler
-    MsgHandlerRef = taf_sap_AddMessageHandler(SAPMessageHandler, NULL);
+    MsgHandlerRef = taf_simSap_AddMessageHandler(SAPMessageHandler, NULL);
     if (MsgHandlerRef == NULL)
     {
         LE_ERROR("Message handler reference is NULL");
@@ -168,7 +168,7 @@ static void SignalHandler( int sigNum)
     LE_INFO("Termiante sap sample test app");
 
     //unregister the handler
-    taf_sap_RemoveMessageHandler(MsgHandlerRef);
+    taf_simSap_RemoveMessageHandler(MsgHandlerRef);
 
     if (daemonConnected) {
         close(daemonConnectionFd);

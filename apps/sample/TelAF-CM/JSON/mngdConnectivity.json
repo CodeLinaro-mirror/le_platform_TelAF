@@ -2,7 +2,7 @@
     "Product": "TelAF",
     "Name": "MngdConn",
     "ManagedConnectivityService": {
-        "Version": "24.03.00",
+        "Version": "24.06.00",
         "Configuration": {
             "Name": "Default",
             "Sim":[
@@ -91,7 +91,8 @@
                 },
                 "ConnectivityRecovery": {
                     "Level": "None",
-                    "StartWaitTime": 30
+                    "StartWaitTime": 30,
+                    "RetryWaitTime": 300
                 }
             }
         }

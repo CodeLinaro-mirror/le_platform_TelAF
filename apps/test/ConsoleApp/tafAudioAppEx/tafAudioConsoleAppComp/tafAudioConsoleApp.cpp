@@ -226,7 +226,7 @@ void Test_Audio_Playback_Stream(bool createRoute)
 
     LE_TEST_INFO("Test taf_audio_Connect to connect playerRef and playerConnRef");
     res = taf_audio_Connect(playerConnRef, playerRef);
-    LE_TEST_OK(res == LE_OK, "Successfully connected recorderRef to ConnectorRef");
+    LE_TEST_OK(res == LE_OK, "Successfully connected playerRef to ConnectorRef");
     isPbStreamCreated = true;
 }
 
@@ -281,7 +281,7 @@ void Test_Audio_PlayList_Setup( bool createRoute )
 
     LE_TEST_INFO("Test taf_audio_Connect to connect playerRef and playerConnRef");
     res = taf_audio_Connect(playerConnRef, playerRef);
-    LE_TEST_OK(res == LE_OK, "Successfully connected recorderRef to ConnectorRef");
+    LE_TEST_OK(res == LE_OK, "Successfully connected playerRef to ConnectorRef");
 
     isRpbStreamCreated = true;
 }
@@ -663,6 +663,7 @@ void ConvertToRouteId(int routeInput)
         routeId = TAF_AUDIO_ROUTE_5;
     } else
     {
+        routeId = (taf_audio_RouteId_t)routeInput;
         cout << "Invalid Route ID" << endl;
     }
 }

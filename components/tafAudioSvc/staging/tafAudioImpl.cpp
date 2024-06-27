@@ -1121,7 +1121,7 @@ taf_audio_RouteRef_t taf_Audio::OpenRoute( taf_audio_RouteId_t routeId,
 {
     LE_INFO("OpenRoute route : %d mode : %d", routeId, mode);
 
-    TAF_ERROR_IF_RET_VAL(routeId >= TAF_AUDIO_ROUTE_4, NULL,
+    TAF_ERROR_IF_RET_VAL(routeId < TAF_AUDIO_ROUTE_1 || routeId >= TAF_AUDIO_ROUTE_4, NULL,
             "Not supported or invalid Route ID!");
 
     le_ref_IterRef_t iterRef;
@@ -2910,10 +2910,6 @@ taf_audio_PlayListRef_t taf_Audio::CreatePlayList
     TAF_ERROR_IF_RET_VAL( playListptr == NULL, NULL, "playListptr is nullptr!");
 
     playListptr->isPlaybackInProgress = false;
-    //memset(playListptr->filesToPlay, 0, MAX_NUM_OF_PLAYBACK_FILES * sizeof(taf_PlaybackFile_t));
-    for (size_t i = 0; i < MAX_NUM_OF_PLAYBACK_FILES; ++i) {
-        playListptr->filesToPlay[i] = taf_PlaybackFile_t{};
-    }
 
     playListptr->numOfFilesToPlay = 0;
 
@@ -2965,6 +2961,9 @@ le_result_t taf_Audio::DeletePlayList
     //Check if playback is in progress.
     TAF_ERROR_IF_RET_VAL(playListptr->isPlaybackInProgress, LE_BUSY, "Playback is in progress");
 
+    for (size_t i = 0; i < playListptr->numOfFilesToPlay; ++i) {
+        playListptr->filesToPlay[i].absoluteFilePath.clear();
+    }
     le_ref_DeleteRef(PlaybackListRefMap, playListptr->playListRef);
     le_mem_Release(playListptr);
 

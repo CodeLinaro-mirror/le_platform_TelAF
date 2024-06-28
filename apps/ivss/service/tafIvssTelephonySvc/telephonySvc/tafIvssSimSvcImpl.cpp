@@ -32,7 +32,7 @@ void tafIvssSimSvc::GetImsiHandler
 
     taf_IvssSim_Ind_t* indPtr = (taf_IvssSim_Ind_t*)reportPtr;
     indPtr->result = taf_sim_GetIMSI(indPtr->getImsi.slotId, indPtr->getImsi.imsi,
-        TAF_SIM_IMSI_BYTES);
+        sizeof(indPtr->getImsi.imsi));
     le_sem_Post(indPtr->semRef);
 
     TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK, "taf_sim_GetIMSI fail - %s",
@@ -63,7 +63,6 @@ void tafIvssSimSvc::GetImsi(const std::shared_ptr<CommonAPI::ClientId> _client,
     le_sem_Delete(indPtr->semRef);
     le_mem_Release(indPtr);
 };
-
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -108,6 +107,52 @@ void tafIvssSimSvc::GetState(const std::shared_ptr<CommonAPI::ClientId> _client,
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Add handler function for method 'GetICCID'
+ */
+//--------------------------------------------------------------------------------------------------
+void tafIvssSimSvc::GetICCIDHandler
+(
+    void* reportPtr
+)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
+
+    taf_IvssSim_Ind_t* indPtr = (taf_IvssSim_Ind_t*)reportPtr;
+    indPtr->result = taf_sim_GetIMSI(indPtr->getICCID.slotId, indPtr->getICCID.iccid,
+        sizeof(indPtr->getICCID.iccid));
+    le_sem_Post(indPtr->semRef);
+
+    TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK, "taf_sim_GetIMSI fail - %s",
+        LE_RESULT_TXT(indPtr->result));
+
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Retrieves the SIM's ICCID.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafIvssSimSvc::GetICCID(const std::shared_ptr<CommonAPI::ClientId> _client,
+        CommonTypes::PhoneId _phoneId, GetICCIDReply_t _reply)
+{
+    // Create a generic response message object.
+    taf_IvssSim_Ind_t* indPtr = (taf_IvssSim_Ind_t*)le_mem_ForceAlloc(EventPool);
+    memset(indPtr, 0, sizeof(taf_IvssSim_Ind_t));
+    indPtr->semRef = le_sem_Create("Ivss GetICCIDSem", 0);
+    indPtr->getICCID.slotId = PhoneIdIvssToSim(_phoneId);
+
+    // Report to the common COMMONAPI msg handler in service layer.
+    le_event_ReportWithRefCounting(GetICCIDEvent, (void*)indPtr);
+    le_sem_Wait(indPtr->semRef);
+
+    _reply(ResultLeToIvss(indPtr->result), std::string(indPtr->getICCID.iccid));
+
+    le_sem_Delete(indPtr->semRef);
+    le_mem_Release(indPtr);
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Handler for Sim New State change.
  */
 //--------------------------------------------------------------------------------------------------
@@ -139,12 +184,15 @@ void tafIvssSimSvc::Init
     // Create the event.
     GetImsiEvent = le_event_CreateIdWithRefCounting("GetImsiEvent");
     GetStateEvent = le_event_CreateIdWithRefCounting("GetStateEvent");
+    GetICCIDEvent = le_event_CreateIdWithRefCounting("GetICCIDEvent");
 
     // Add event handler.
     GetImsiEventHandlerRef = le_event_AddHandler("GetImsiEvent Handler", GetImsiEvent,
         tafIvssSimSvc::GetImsiHandler);
     GetStateEventHandlerRef = le_event_AddHandler("GetStateEvent Handler", GetStateEvent,
         tafIvssSimSvc::GetStateHandler);
+    GetICCIDEventHandlerRef = le_event_AddHandler("GetICCIDEvent Handler", GetICCIDEvent,
+        tafIvssSimSvc::GetICCIDHandler);
 
     // Init commonapi event.
     NewStateHandlerRef = taf_sim_AddNewStateHandler(

@@ -1,0 +1,66 @@
+/*
+* Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+* SPDX-License-Identifier: BSD-3-Clause-Clear
+*/
+
+package com.qualcomm.qti.modem
+import com.qualcomm.qti.modem.CommonTypes.* from "../common/CommonTypes.fidl"
+
+interface MngdConnSvc
+{
+    version { major 0 minor 1 }
+
+    <** @description: Maximum number of data in the system **>
+    const UInt8 MAX_DATA_NUM = 4
+
+    <** @description: The data state. **>
+    enumeration DataState
+    {
+        DATA_DISCONNECTED       ///< Transition state to CONNECTED or FAILED.
+        DATA_CONNECTED          ///< Data connected state.
+        DATA_CONNECTION_FAILED  ///< The service is not able to reconnect data even after retries.
+        DATA_CONNECTION_STALLED ///< Transition state to CONNECTED or DISCONNECTED.
+    }
+
+    <** @description: Starts a data session for the given data name. **>
+    method StartData
+    {
+        in
+        {
+            String name         ///< The data name to use.
+        }
+        error Result            ///< return result.
+    }
+
+    <** @description: Stops a data cellular session for the given name. **>
+    method StopData
+    {
+        in
+        {
+            String name         ///< The data name to use.
+        }
+        error Result            ///< return result.
+    }
+
+    <** @description: Gets connection state information for all currently running datas. **>
+    method GetDataList
+    {
+        out
+        {
+            UInt8 dataNum                       ///< The number of data that has already started.
+            String[] name                       ///< The data name to use.
+            DataState[] dataState               ///< The data state.
+        }
+        error Result                            ///< return result.
+    }
+
+    <** @description: Events to report data state.  **>
+    broadcast DataState
+    {
+        out
+        {
+            String name             ///< The data name to use.
+            DataState dataState     ///< The data state.
+        }
+    }
+}

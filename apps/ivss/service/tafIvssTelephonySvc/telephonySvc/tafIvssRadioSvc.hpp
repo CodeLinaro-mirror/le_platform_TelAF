@@ -40,15 +40,75 @@ typedef struct
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * GSM signal metrics structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    int32_t rssi;   ///< [OUT] Received signal strength indicator in dBm.
+    uint32_t ber;   ///< [OUT] Bit error rate, valid from 0 to 7.
+}taf_IvssRadio_GsmSignalMetrics_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Umtssignal metrics structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    int32_t ss;     ///< [OUT] Signal strength in dBm.
+    uint32_t ber;   ///< [OUT] WCDMA bit error rate, valid from 0 to 7, 0x7FFFFFFF is unavailable.
+    int32_t rscp;   ///< [OUT] Receive signal channel power in dBm.
+}taf_IvssRadio_UmtsSignalMetrics_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Lte signal metrics structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    int32_t ss;     ///< [OUT] Signal strength in dBm.
+    int32_t rsrq;   ///< [OUT] Reference signal receive quality in dB.
+    int32_t rsrp;   ///< [OUT] Reference signal receive power in dBm.
+    int32_t snr;    ///< [OUT] Signal-to-noise ratio in units of 0.1 dB.
+}taf_IvssRadio_LteSignalMetrics_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Nr5g signal metrics structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    int32_t rsrq;   ///< [OUT] Reference Signal Receive Quality in dB.
+    int32_t rsrp;   ///< [OUT] Reference Signal Receive Power in dBm.
+    int32_t snr;    ///< [OUT] Signal-to-Noise Ratio in units of 0.1 dB.
+}taf_IvssRadio_Nr5gSignalMetrics_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets signal strength union
+ */
+//--------------------------------------------------------------------------------------------------
+typedef union
+{
+    taf_IvssRadio_GsmSignalMetrics_t gsm;       ///< [OUT] GSM signal metrics.
+    taf_IvssRadio_UmtsSignalMetrics_t umts;     ///< [OUT] Umts signal metrics.
+    taf_IvssRadio_LteSignalMetrics_t lte;       ///< [OUT] Lte signal metrics.
+    taf_IvssRadio_Nr5gSignalMetrics_t nr5g;     ///< [OUT] Nr5g signal metrics.
+}taf_IvssRadio_SignalMetrics_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Gets signal strength structure
  */
 //--------------------------------------------------------------------------------------------------
 typedef struct
 {
-    uint8_t phoneId;                    ///< [IN] Phone ID.
-    taf_radio_Rat_t rat;                ///< [IN] Radio Access Technology.
-    int32_t ss;                         ///< [OUT] Signal strength in dBm.
-    int32_t rsrp;                       ///< [OUT] Reference signal receive quality in dB.
+    uint8_t phoneId;                                ///< [IN] Phone ID.
+    taf_radio_Rat_t rat;                            ///< [IN] Radio Access Technology.
+    taf_IvssRadio_SignalMetrics_t strength;         ///< [OUT] Signal metrics for the current rat.
 }taf_IvssRadio_GetSignalStrength_t;
 
 //--------------------------------------------------------------------------------------------------
@@ -119,20 +179,73 @@ typedef struct
 typedef struct
 {
     uint8_t phoneId;                        ///< [IN] Phone ID.
+    taf_radio_Rat_t rat;                    ///< [OUT] RAT in use.
+    uint32_t cellId;                        ///< [OUT] Cell ID.
+    char mcc[TAF_RADIO_MCC_BYTES];          ///< [OUT] The mobile country code.
+    char mnc[TAF_RADIO_MNC_BYTES];          ///< [OUT] The mobile network code
     taf_radio_NetRegState_t netReg;         ///< [OUT] Network registration state.
 }taf_IvssRadio_GetNetRegState_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the DCNR and ENDC mode status
+ * Gets the DCNR and ENDC mode status structure
  */
 //--------------------------------------------------------------------------------------------------
 typedef struct
 {
     uint8_t phoneId;                                ///< [IN] Phone ID.
-    taf_radio_NREndcAvailability_t statusEndc;      ///< [OUT] Endc status.
     taf_radio_NRDcnrRestriction_t statusDcnr;       ///< [OUT] Dcnr status.
 }taf_IvssRadio_GetNrDualConnectivityStatus_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Signal strength indication type enum
+ */
+//--------------------------------------------------------------------------------------------------
+typedef enum
+{
+    TAF_IVSS_RADIO_SIG_THRESHOLD,       ///< [IN] Report signal strength based on threshold.
+    TAF_IVSS_RADIO_SIG_DELTA            ///< [IN] Report signal strength based on delta.
+}taf_IvssRadio_SigIndicationType_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Signal strength indication structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    taf_IvssRadio_SigIndicationType_t type;     ///< [IN] Use threshold or delta as the indication.
+    int32_t lowerRange;                         ///< [IN] Lower range threshold in 0.1 dBm.
+    int32_t upperRange;                         ///< [IN] Upper range threshold in 0.1 dBm.
+    uint16_t delta;                             ///< [IN] Delta in uints of 0.1 dBm.
+}taf_IvssRadio_SigStrengthIndication_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Signal strength reporting hysteresis structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    bool setThreshold;      ///< [IN] True if set a hysteresis threshold, false if not.
+    uint16_t threshold;     ///< [IN] Hysteresis dBm in units of 0.1 dBm, only to specify rat.
+    bool setTimer;          ///< [IN] True if set a hysteresis timer, false if not.
+    uint16_t timer;         ///< [IN] Hysteresis time in milliseconds, to all RATs.
+}taf_IvssRadio_SigStrengthHysteresis_t;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets signal reporting criteria structure
+ */
+//--------------------------------------------------------------------------------------------------
+typedef struct
+{
+    uint8_t phoneId;                                ///< [IN] Phone ID.
+    taf_radio_SigType_t sigType;                    ///< [IN] Signal type.
+    taf_IvssRadio_SigStrengthIndication_t ind;      ///< [IN] Signal strength indication..
+    taf_IvssRadio_SigStrengthHysteresis_t hyst;     ///< [IN] Signal strength hysteresis.
+}taf_IvssRadio_SetSignalStrengthReportingCriteria_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -155,6 +268,7 @@ typedef struct
         taf_IvssRadio_GetCurrentNetworkName_t getCurrentNetworkName;
         taf_IvssRadio_GetNetRegState_t getNetRegState;
         taf_IvssRadio_GetNrDualConnectivityStatus_t getNrDualConnectivityStatus;
+        taf_IvssRadio_SetSignalStrengthReportingCriteria_t setSignalStrengthReportingCriteria;
     };
 }taf_IvssRadio_Ind_t;
 
@@ -359,32 +473,6 @@ inline RadioSvc::NetRegState NetRegRadioToIvss(taf_radio_NetRegState_t netReg)
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Convert NREndc availability status type from radio to IVSS
- */
-//--------------------------------------------------------------------------------------------------
-inline RadioSvc::NREndcAvailability NREndcRadioToIvss(taf_radio_NREndcAvailability_t statusEndc)
-{
-    RadioSvc::NREndcAvailability ret = RadioSvc::NREndcAvailability::NR_ENDC_UNKNOWN;
-    switch (statusEndc)
-    {
-        case TAF_RADIO_NR_ENDC_UNKNOWN:
-            ret = RadioSvc::NREndcAvailability::NR_ENDC_UNKNOWN;
-            break;
-        case TAF_RADIO_NR_ENDC_AVAILABLE:
-            ret = RadioSvc::NREndcAvailability::NR_ENDC_AVAILABLE;
-            break;
-        case TAF_RADIO_NR_ENDC_UNAVAILABLE:
-            ret = RadioSvc::NREndcAvailability::NR_ENDC_UNAVAILABLE;
-            break;
-        default:
-            LE_ERROR("NREndcRadioToIvss : Unsupported input (%d)", static_cast<int>(statusEndc));
-            break;
-    }
-    return ret;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
  * Convert NRDcnr restriction status type from radio to IVSS
  */
 //--------------------------------------------------------------------------------------------------
@@ -441,6 +529,84 @@ inline RadioSvc::States StatesRadioToIvss(taf_radio_OpMode_t mode)
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Convert sig type from IVSS to radio
+ */
+//--------------------------------------------------------------------------------------------------
+inline taf_radio_SigType_t SigTypeIvssToRadio(RadioSvc::SigType sigType)
+{
+    taf_radio_SigType_t ret = TAF_RADIO_SIG_TYPE_GSM_RSSI;
+    switch (sigType)
+    {
+        case RadioSvc::SigType::SIG_TYPE_GSM_RSSI:
+            ret = TAF_RADIO_SIG_TYPE_GSM_RSSI;
+            break;
+        case RadioSvc::SigType::SIG_TYPE_UMTS_RSSI:
+            ret = TAF_RADIO_SIG_TYPE_UMTS_RSSI;
+            break;
+        case RadioSvc::SigType::SIG_TYPE_LTE_RSRP:
+            ret = TAF_RADIO_SIG_TYPE_LTE_RSRP;
+            break;
+        case RadioSvc::SigType::SIG_TYPE_NR5G_RSRP:
+            ret = TAF_RADIO_SIG_TYPE_NR5G_RSRP;
+            break;
+        default:
+            LE_ERROR("SigTypeIvssToRadio : Unsupported input (%d)", static_cast<int>(sigType));
+            break;
+    }
+    return ret;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Convert signal strength indication type from IVSS to radio
+ */
+//--------------------------------------------------------------------------------------------------
+inline taf_IvssRadio_SigIndicationType_t SigIndTypeIvssToRadio(RadioSvc::SigIndicationType type)
+{
+    taf_IvssRadio_SigIndicationType_t ret = TAF_IVSS_RADIO_SIG_THRESHOLD;
+    switch (type)
+    {
+        case RadioSvc::SigIndicationType::SIG_THRESHOLD:
+            ret = TAF_IVSS_RADIO_SIG_THRESHOLD;
+            break;
+        case RadioSvc::SigIndicationType::SIG_DELTA:
+            ret = TAF_IVSS_RADIO_SIG_DELTA;
+            break;
+        default:
+            LE_ERROR("SigIndTypeIvssToRadio : Unsupported input (%d)", static_cast<int>(type));
+            break;
+    }
+    return ret;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Convert Cell Info change status type from radio to IVSS
+ */
+//--------------------------------------------------------------------------------------------------
+inline RadioSvc::CellInfoStatus CellInfoRadioToIvss(taf_radio_CellInfoStatus_t status)
+{
+    RadioSvc::CellInfoStatus ret = RadioSvc::CellInfoStatus::CELL_SERVING_CHANGED;
+    switch (status)
+    {
+        case TAF_RADIO_CELL_SERVING_CHANGED:
+            ret = RadioSvc::CellInfoStatus::CELL_SERVING_CHANGED;
+            break;
+        case TAF_RADIO_CELL_NEIGHBOR_CHANGED:
+            ret = RadioSvc::CellInfoStatus::CELL_NEIGHBOR_CHANGED;
+            break;
+        case TAF_RADIO_CELL_SERVING_AND_NEIGHBOR_CHANGED:
+            ret = RadioSvc::CellInfoStatus::CELL_SERVING_AND_NEIGHBOR_CHANGED;
+            break;
+        default:
+            LE_ERROR("CellInfoRadioToIvss : Unsupported input (%d)", static_cast<int>(status));
+            break;
+    }
+    return ret;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * IVSS radio service class
  */
 //--------------------------------------------------------------------------------------------------
@@ -476,6 +642,10 @@ public:
         CommonTypes::PhoneId _phoneId, GetNetRegStateReply_t _reply);
     virtual void GetNrDualConnectivityStatus(const std::shared_ptr<CommonAPI::ClientId> _client,
         CommonTypes::PhoneId _phoneId, GetNrDualConnectivityStatusReply_t _reply);
+    virtual void SetSignalStrengthReportingCriteria(const std::shared_ptr<CommonAPI::ClientId> _client,
+        CommonTypes::PhoneId _phoneId, RadioSvc::SigType _sigType,
+        RadioSvc::SigStrengthIndication _ind, RadioSvc::SigStrengthHysteresis _hyst,
+        SetSignalStrengthReportingCriteriaReply_t _reply);
 
     // ivss method function handler.
     static void SetRadioPowerHandler(void* reportPtr);
@@ -488,13 +658,12 @@ public:
     static void GetCurrentNetworkNameHandler(void* reportPtr);
     static void GetNetRegStateHandler(void* reportPtr);
     static void GetNrDualConnectivityStatusHandler(void* reportPtr);
+    static void SetSignalStrengthReportingCriteriaHandler(void* reportPtr);
 
     // ivss event function handler.
     static void taf_ivss_radio_GsmSsChangeHandler(int32_t ss, int32_t rsrp, uint8_t phoneId,
         void* contextPtr);
     static void taf_ivss_radio_UmtsSsChangeHandler(int32_t ss, int32_t rsrp, uint8_t phoneId,
-        void* contextPtr);
-    static void taf_ivss_radio_TdscdmaSsChangeHandler(int32_t ss, int32_t rsrp, uint8_t phoneId,
         void* contextPtr);
     static void taf_ivss_radio_LteSsChangeHandler(int32_t ss, int32_t rsrp, uint8_t phoneId,
         void* contextPtr);
@@ -503,6 +672,8 @@ public:
     static void taf_ivss_radio_RatChangeHandler(taf_radio_RatChangeInd_t* ratChangeIndPtr,
         void *contextPtr);
     static void taf_ivss_radio_StateChangeHandler(taf_radio_OpMode_t mode, void *contextPtr);
+    static void taf_ivss_radio_CellInfoChangeHandler(taf_radio_CellInfoStatus_t cellStatus,
+        uint8_t phoneId, void* contextPtr);
 
     // memory pools.
     le_mem_PoolRef_t EventPool;
@@ -518,6 +689,7 @@ public:
     le_event_Id_t GetCurrentNetworkNameEvent = NULL;
     le_event_Id_t GetNetRegStateEvent = NULL;
     le_event_Id_t GetNrDualConnectivityStatusEvent = NULL;
+    le_event_Id_t SetSignalStrengthReportingCriteriaEvent = NULL;
 
     le_event_HandlerRef_t SetRadioPowerEventHandlerRef;
     le_event_HandlerRef_t GetRadioPowerEventHandlerRef;
@@ -529,15 +701,16 @@ public:
     le_event_HandlerRef_t GetCurrentNetworkNameEventHandlerRef;
     le_event_HandlerRef_t GetNetRegStateEventHandlerRef;
     le_event_HandlerRef_t GetNrDualConnectivityStatusEventHandlerRef;
+    le_event_HandlerRef_t SetSignalStrengthReportingCriteriaEventHandlerRef;
 
     // ivss event ref.
     taf_radio_RatChangeHandlerRef_t RatChangeHandlerRef;
     taf_radio_SignalStrengthChangeHandlerRef_t GsmSsChangeHandlerRef;
     taf_radio_SignalStrengthChangeHandlerRef_t UmtsSsChangeHandlerRef;
-    taf_radio_SignalStrengthChangeHandlerRef_t TdscdmaSsChangeHandlerRef;
     taf_radio_SignalStrengthChangeHandlerRef_t LteSsChangeHandlerRef;
     taf_radio_SignalStrengthChangeHandlerRef_t Nr5gSsChangeHandlerRef;
     taf_radio_OpModeChangeHandlerRef_t StateChangeHandlerRef;
+    taf_radio_CellInfoChangeHandlerRef_t CellInfoChangeHandlerRef;
 };
 
 #endif // TAFIVSSRADIOSVC_HPP_

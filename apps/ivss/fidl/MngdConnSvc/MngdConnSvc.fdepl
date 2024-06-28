@@ -1,48 +1,43 @@
 /*
-* Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
 import "platform:/plugin/org.genivi.commonapi.someip/deployment/CommonAPI-4-SOMEIP_deployment_spec.fdepl"
 import "platform:/plugin/org.genivi.commonapi.core/deployment/CommonAPI_deployment_spec.fdepl"
-import "SimSvc.fidl"
+import "MngdConnSvc.fidl"
 import "../common/CommonTypes.fdepl"
 
-define org.genivi.commonapi.core.deployment for interface com.qualcomm.qti.modem.SimSvc
+define org.genivi.commonapi.core.deployment for interface com.qualcomm.qti.modem.MngdConnSvc
 {
     DefaultEnumBackingType = UInt32
 
-    enumeration States
+    enumeration DataState
     {
         EnumBackingType = UInt32
     }
 }
 
-define org.genivi.commonapi.someip.deployment for interface com.qualcomm.qti.modem.SimSvc
+define org.genivi.commonapi.someip.deployment for interface com.qualcomm.qti.modem.MngdConnSvc
 {
-    SomeIpServiceID = 0xED81
+    SomeIpServiceID = 0xED83
 
-    enumeration States
-    {
-        SomeIpEnumWidth = 4
-    }
-
-    method GetImsi
+    method StartData
     {
         SomeIpMethodID = 30010
     }
 
-    method GetState
+    method StopData
     {
         SomeIpMethodID = 30020
     }
 
-    method GetICCID
+    method GetDataList
     {
         SomeIpMethodID = 30030
     }
 
-    broadcast SimState
+    broadcast DataState
     {
         SomeIpEventID = 33010
         SomeIpEventGroups = { 33010 }
@@ -51,9 +46,9 @@ define org.genivi.commonapi.someip.deployment for interface com.qualcomm.qti.mod
 
 define org.genivi.commonapi.someip.deployment for provider as Service
 {
-    instance com.qualcomm.qti.modem.SimSvc
+    instance com.qualcomm.qti.modem.MngdConnSvc
     {
-        InstanceId = "modem.SimSvc"
+        InstanceId = "modem.MngdConnSvc"
 
         SomeIpInstanceID = 1
     }

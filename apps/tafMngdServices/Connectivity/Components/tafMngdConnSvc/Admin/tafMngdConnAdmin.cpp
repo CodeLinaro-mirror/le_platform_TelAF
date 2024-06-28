@@ -3530,7 +3530,6 @@ void tafMngdConnAdmin::EventL2ConnRecoveryStart(uint8_t dataId)
 {
     // Send an event to all applications that L1 recovery has started.
     mcs_DataCtx_t *dataCtxPtr = GetDataCtx(dataId);
-    le_result_t result = LE_OK;
     if (nullptr == dataCtxPtr)
     {
         LE_ERROR("Unable to get reference for data id: %d", dataId);
@@ -3541,6 +3540,7 @@ void tafMngdConnAdmin::EventL2ConnRecoveryStart(uint8_t dataId)
     if (MCS_RECOVERY_STARTED_L2 == dataCtxPtr->adminState)
     {
 #ifndef LE_CONFIG_TARGET_SIMULATION
+        le_result_t result = LE_OK;
         ReportRecoveryStateEvent(TAF_MNGDCONN_RECOVERY_L2_STARTED, dataCtxPtr);
         // Call API to start NAD reboot
         result = taf_mngdPm_RestartReqAsync(TAF_MNGDPM_RESTART_SYSTEM_OFF_ON,

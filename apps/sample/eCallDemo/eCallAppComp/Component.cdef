@@ -11,8 +11,12 @@ requires:
         taf_locPos.api
         taf_locPosCtrl.api
         taf_gpio.api
-        taf_audio.api
         taf_locGnss.api
+#if ${LE_CONFIG_REFRESH_AUDIO_SVC} = y
+        $TELAF_ROOT/interfaces/staging/audio/taf_audio.api
+#else
+        taf_audio.api
+#endif
     }
 }
 

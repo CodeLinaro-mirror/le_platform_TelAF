@@ -19,6 +19,11 @@ config AUDIO_MULTI_FORMAT_PB_SUPPORTED
   bool "TelAF multi format playback supported"
   default $(b2k,$(def,$(TELUX_AUDIO_MULTI_FORMAT_PB_SUPPORTED),y))
 
+config REFRESH_AUDIO_SVC
+  bool "Telaf refresh audio service enabled"
+  default "$(b2k,$(REFRESH_AUDIO_SVC))" if !$(empty,$(REFRESH_AUDIO_SVC))
+  default n
+
 menu "apps"
 rsource "apps/KConfig"
 endmenu # end "apps"

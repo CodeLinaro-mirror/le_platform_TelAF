@@ -348,7 +348,6 @@ extern "C" LE_SHARED bool taf_devMgr_UnloadDrv(void* handle)
 
     majorVer = mgrInf->majorVer;
     minorVer = mgrInf->minorVer;
-
     if (dlclose(drvHandle) != 0)
     {
         LE_ERROR("Can not close the VHAL module");
@@ -394,7 +393,14 @@ extern "C" LE_SHARED bool taf_devMgr_UnloadDrv(void* handle)
             payloadPtr[0] = DEV_MANAGER_SERVICE_CLOSE_CMD;
             payloadPtr[1] = '\0';
 
-            char versionBuff[5] = {};
+
+
+            char versionBuff[12] = {};
+            const uint16_t maxVersion = 99;
+            if (majorVer > maxVersion || minorVer > maxVersion) {
+                LE_ERROR("Error: Version number out of range\n");
+                return false;
+            }
             snprintf(versionBuff, sizeof(versionBuff), "%u.%u", majorVer, minorVer);
 
             AppendToCommand(msgRef, drvName);

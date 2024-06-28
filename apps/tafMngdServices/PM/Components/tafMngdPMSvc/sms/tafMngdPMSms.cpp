@@ -57,7 +57,7 @@ void tafMngdPMSms::SmsRxHandler(taf_sms_MsgRef_t msgRef, void* context){
             LE_DEBUG("SMS matched with SMS registetred for %s state",
                     tafMngdPMSvc::TafStateToString(smsPtr->state));
 
-            taf_mngdPm_State_t requestedState;
+            taf_mngdPm_State_t requestedState = TAF_MNGDPM_STATE_UNKNOWN;
             switch((taf_pm_State_t)smsPtr->state)
             {
                 case TAF_PM_STATE_SUSPEND:

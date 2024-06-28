@@ -63,7 +63,7 @@ void tafMngdPMCan::CanEventCallback(taf_can_CanInterfaceRef_t canInfRef, bool is
             LE_INFO("canFrame 0x%X with msg %s initiate %s state", canFramePtr->canFrameId,
                     canFramePtr->msg, tafMngdPMSvc::TafStateToString(canFramePtr->state));
 
-            taf_mngdPm_State_t requestedState;
+            taf_mngdPm_State_t requestedState = TAF_MNGDPM_STATE_UNKNOWN;
             switch((taf_pm_State_t)canFramePtr->state)
             {
                 case TAF_PM_STATE_SUSPEND:

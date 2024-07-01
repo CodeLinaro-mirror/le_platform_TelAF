@@ -610,15 +610,9 @@ void TEST_AUDIO_VOICE_CONNECTION()
             sourceRef);
 
     LE_TEST_INFO("Test taf_audio_OpenRoute API ROUTE_1");
-    routeRef = taf_audio_OpenRoute( TAF_AUDIO_ROUTE_1, TAF_AUDIO_VOICE_CALL,
-            &sinkRef, &sourceRef);
-    LE_TEST_OK(routeRef == NULL, "OpenRoute successfull for voicecall when other route is active");
-
-    LE_TEST_INFO("Test taf_audio_OpenRoute API with FORCE mode for ROUTE_1");
-    routeRef = taf_audio_OpenRoute( TAF_AUDIO_ROUTE_1,
-            TAF_AUDIO_VOICE_CALL_FORCE_OPEN, &sinkRef, &sourceRef);
-    LE_TEST_OK(routeRef != NULL, "Force OpenRoute successfull sinkRef %p sourceRef %p", sinkRef,
-            sourceRef);
+    routeRef1 = taf_audio_OpenRoute( TAF_AUDIO_ROUTE_1, TAF_AUDIO_VOICE_CALL,
+            &sinkRef1, &sourceRef1);
+    LE_TEST_OK(routeRef1 == NULL, "OpenRoute successfull failed for voicecall when other route is active");
 
     LE_TEST_INFO("Test taf_audio_OpenRoute API with playback mode");
     routeRef1 = taf_audio_OpenRoute( TAF_AUDIO_ROUTE_1, TAF_AUDIO_LOCAL_PLAYBACK,

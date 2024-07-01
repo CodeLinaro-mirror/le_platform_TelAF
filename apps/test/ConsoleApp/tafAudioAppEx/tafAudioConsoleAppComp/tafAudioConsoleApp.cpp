@@ -404,22 +404,15 @@ void Test_Audio_Record_Delete(bool closeRoute)
     isRecordStreamCreated = false;
 }
 
-void Test_Audio_VoiceCall_Stream(bool isForceMode, bool isEcnrEnable)
+void Test_Audio_VoiceCall_Stream(bool isEcnrEnable)
 {
-    if( isForceMode )
-    {
-        LE_TEST_INFO("Test taf_audio_OpenRoute API ROUTE_1 force open");
-        routeRef = taf_audio_OpenRoute( routeId, TAF_AUDIO_VOICE_CALL_FORCE_OPEN,
-                &sinkRef, &sourceRef);
-        LE_TEST_OK(routeRef != NULL, "OpenRoute successfull sinkRef %p sourceRef %p", sinkRef,
-                sourceRef);
-    } else {
-        LE_TEST_INFO("Test taf_audio_OpenRoute API ROUTE_1");
-        routeRef = taf_audio_OpenRoute( routeId, TAF_AUDIO_VOICE_CALL,
-                &sinkRef, &sourceRef);
-        LE_TEST_OK(routeRef != NULL, "OpenRoute successfull sinkRef %p sourceRef %p", sinkRef,
-                sourceRef);
-    }
+
+    LE_TEST_INFO("Test taf_audio_OpenRoute API ROUTE_1");
+    routeRef = taf_audio_OpenRoute( routeId, TAF_AUDIO_VOICE_CALL,
+            &sinkRef, &sourceRef);
+    LE_TEST_OK(routeRef != NULL, "OpenRoute successfull sinkRef %p sourceRef %p", sinkRef,
+            sourceRef);
+
 
     if(routeRef == NULL)
     {
@@ -496,6 +489,13 @@ void Test_Audio_VoiceCall_Delete()
 {
     if(isVoiceActive)
         Test_Audio_VoiceCall_Stop();
+
+    if(isRecordStreamCreated)
+        Test_Audio_Record_Delete(false);
+
+    if(isPbStreamCreated || isRpbStreamCreated)
+        Test_Audio_Playback_Delete(false);
+
     LE_TEST_INFO("Test taf_audio_CloseRoute");
     res = taf_audio_CloseRoute(routeRef);
     LE_TEST_OK(res == LE_OK, "Successfully closed the route");
@@ -590,11 +590,10 @@ void PrintHelp()
     else
     {
         cout<<"1 - Create voice call streams"<<endl;
-        cout<<"2 - Create force voice call streams"<<endl;
-        cout<<"3 - Create playback streams"<<endl;
-        cout<<"4 - Create repeated file playback streams"<<endl;
-        cout<<"5 - Create record streams"<<endl;
-        cout<<"6 - node API testing"<<endl;
+        cout<<"2 - Create playback streams"<<endl;
+        cout<<"3 - Create repeated file playback streams"<<endl;
+        cout<<"4 - Create record streams"<<endl;
+        cout<<"5 - node API testing"<<endl;
     }
 }
 
@@ -888,22 +887,10 @@ void StartInputMonitoring
                 cout << "Enter 1 to enable or 0 to disable ECNR on modem TX :";
                 cin >> number;
                 p = fgets(inputStr, sizeof(inputStr), stdin);
-                Test_Audio_VoiceCall_Stream(false, number == 1 ? true : false);
+                Test_Audio_VoiceCall_Stream(number == 1 ? true : false);
                 //cout << endl;
             }
-            else if(strncmp(inputStr, "2", 1) == 0)
-            {
-                LE_INFO("Create force voice call stream");
-                cout << "Enter route ID :";
-                cin >> number;
-                p = fgets(inputStr, sizeof(inputStr), stdin);
-                ConvertToRouteId(number);
-                cout << "Enter 1 to enable or 0 to disable ECNR on modem TX :";
-                cin >> number;
-                p = fgets(inputStr, sizeof(inputStr), stdin);
-                Test_Audio_VoiceCall_Stream(true, number == 1 ? true : false);
-            }
-            else if(strncmp(inputStr, "3", 1) == 0
+            else if(strncmp(inputStr, "2", 1) == 0
                     || strncmp(inputStr, "Create pb stream", 16) == 0)
             {
                 LE_INFO("Create playback stream");
@@ -917,7 +904,7 @@ void StartInputMonitoring
                     Test_Audio_Playback_Stream(true);
                 }
             }
-            else if(strncmp(inputStr, "4", 1) == 0
+            else if(strncmp(inputStr, "3", 1) == 0
                     || strncmp(inputStr, "Create repeat_pb stream", 23) == 0)
             {
                 if(isVoiceStreamCreated)
@@ -931,7 +918,7 @@ void StartInputMonitoring
                     Test_Audio_PlayList_Setup(true);
                 }
             }
-            else if(strncmp(inputStr, "5", 1) == 0
+            else if(strncmp(inputStr, "4", 1) == 0
                     || strncmp(inputStr, "Create record stream", 20) == 0)
             {
                 LE_INFO("Start recording stream");
@@ -945,7 +932,7 @@ void StartInputMonitoring
                     Test_Audio_Record_Stream(true);
                 }
             }
-            else if(strncmp(inputStr, "6", 1) == 0)
+            else if(strncmp(inputStr, "5", 1) == 0)
             {
                 LE_INFO("Start node testing");
                 Test_Audio_NodeAPI();

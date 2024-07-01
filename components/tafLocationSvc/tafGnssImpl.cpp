@@ -86,6 +86,7 @@ void speedScaleUtility(telux::loc::DREngineConfiguration& drConfig,
 void gyroScaleUtility(telux::loc::DREngineConfiguration& drConfig,
         const taf_locGnss_DrParams_t* drParamsPtr,taf_locGnss_Client_t* clientRequestPtr,
         le_result_t* gyroScale_Result);
+void roundOffLocationData(double *locData, uint8_t dplace);
 taf_locGnss &taf_locGnss::GetInstance()
 {
     static taf_locGnss instance;
@@ -209,7 +210,7 @@ telux::common::Status taf_locGnss::LocationManagerInit(taf_locGnss_Client_t* cli
         clientRequestPtr->HandlerRef = le_event_AddHandler("LocUpdateEventId", clientRequestPtr->positionEventId, taf_locGnss::GnssPositionHandler);
 
         clientRequestPtr->locationManager->registerListenerEx(clientRequestPtr->posListener);
-        auto status = clientRequestPtr->locationManager->registerForSystemInfoUpdates(clientRequestPtr->posListener);//lsc
+        auto status = clientRequestPtr->locationManager->registerForSystemInfoUpdates(clientRequestPtr->posListener);
         if(telux::common::Status::SUCCESS == status)
         {
             LE_DEBUG("register a client specific listener for Location system information");
@@ -584,6 +585,7 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 taf_locGnss_PositionSample_t* LocationData =
                         (taf_locGnss_PositionSample_t*)le_mem_ForceAlloc(gnss.PositionSamplePoolRef);
                 uint8_t i;
+                double locData;
                 LocationData->clientSessionRefPtr = &clientRequestPtr->sessionRef;
                 LocationData->latitudeValid = true;
                 LocationData->longitudeValid = true;
@@ -690,11 +692,36 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
 
                 LocationData->reportStatus = (taf_locGnss_ReportStatus_t) locationInfo->getReportStatus();
                 LocationData->altMeanSeaLevel = locationInfo->getAltitudeMeanSeaLevel();
-                LocationData->latitude = locationInfo->getLatitude() * 1e+6;
-                LocationData->longitude = locationInfo->getLongitude() * 1e+6;
-                LocationData->hAccuracy = locationInfo->getHorizontalUncertainty()* 1e+2;
-                LocationData->altitude = locationInfo->getAltitude() * 1e+3;
-                LocationData->vAccuracy = locationInfo->getVerticalUncertainty() * 10;
+                locData = 0.0;
+                locData = locationInfo->getLatitude();
+                roundOffLocationData(&locData,6);//round off to 6 decimal places
+                LocationData->latitude = (int32_t)locData;
+                LE_DEBUG("locationInfo->getLatitude():%.10f ",locationInfo->getLatitude());
+                LE_DEBUG("LocationData->latitude:%d ",LocationData->latitude);
+                locData = 0.0;
+                locData = locationInfo->getLongitude();
+                roundOffLocationData(&locData,6);//round off to 6 decimal places
+                LocationData->longitude = (int32_t)locData;
+                LE_DEBUG("locationInfo->getLongitude():%.10f ",locationInfo->getLongitude());
+                LE_DEBUG("LocationData->latitude:%d ",LocationData->longitude);
+                locData = 0.0;
+                locData = locationInfo->getHorizontalUncertainty();
+                roundOffLocationData(&locData,2);//round off to 2 decimal places
+                LocationData->hAccuracy = (int32_t)locData;
+                LE_DEBUG("locationInfo->getHorizontalUncertainty():%lf ",locationInfo->getHorizontalUncertainty());
+                LE_DEBUG("LocationData->hAccuracy:%d ",LocationData->hAccuracy);
+                locData = 0.0;
+                locData = locationInfo->getAltitude();
+                roundOffLocationData(&locData,3);//round off to 3 decimal places
+                LocationData->altitude = (int32_t)locData;
+                LE_DEBUG("locationInfo->getAltitude():%.10f ",locationInfo->getAltitude());
+                LE_DEBUG("LocationData->altitude:%d ",LocationData->altitude);
+                locData = 0.0;
+                locData = locationInfo->getVerticalUncertainty();
+                roundOffLocationData(&locData,1);//round off to 1 decimal place
+                LocationData->vAccuracy = (int32_t)locData;
+                LE_DEBUG("locationInfo->getVerticalUncertainty():%.10f ",locationInfo->getVerticalUncertainty());
+                LE_DEBUG("LocationData->vAccuracy:%d ",LocationData->vAccuracy);
                 LocationData->altitudeOnWgs84 = 0;
                 LocationData->hSpeed = locationInfo->getSpeed()*100;
                 LocationData->hSpeedAccuracy = locationInfo->getSpeedUncertainty()*1e+3;
@@ -5174,6 +5201,20 @@ void gyroScaleUtility(telux::loc::DREngineConfiguration& drConfig,
     }
 }
 
+void roundOffLocationData(double *locData, uint8_t dplace)
+{
+    LE_DEBUG("roundOffLocationData locData: %lf",*locData);
+    double decimal = pow(10,(dplace + 1));
+    LE_DEBUG("roundOffLocationData decimal: %lf",decimal);
+    if(*locData <0)
+    {
+        *locData = ((*locData*decimal)-5)/10;
+    }
+    else
+    {
+        *locData = ((*locData*decimal)+5)/10;
+    }
+}
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
 le_result_t taf_locGnss::ConfigureEngineState
 (

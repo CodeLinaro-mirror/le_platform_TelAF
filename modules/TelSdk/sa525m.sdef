@@ -46,6 +46,7 @@ apps:
 #if ${LE_CONFIG_DIAG_VSTACK} = y
     $TELAF_ROOT/apps/tafServices/tafDiagBackendSvc
 #endif
+    $TELAF_ROOT/apps/tafServices/tafDidStoreSvc
 
     // IVSS services.
     $TELAF_ROOT/apps/ivss/service/tafIvssTelephonySvc/tafIvssTelephonySvc

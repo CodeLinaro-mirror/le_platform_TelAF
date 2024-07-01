@@ -135,6 +135,12 @@ void taf_DiagBackend::IntIndicationHandler
         return;
     }
 
+    if (msgPtr == NULL)
+    {
+        LE_ERROR("MessagePtr is NULL");
+        return;
+    }
+
     auto elem = backend.svcMap.find(serviceID);
     if (elem == backend.svcMap.end())
     {

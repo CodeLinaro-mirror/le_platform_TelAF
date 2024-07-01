@@ -15,8 +15,6 @@ le_result_t diagRequestFileTransfer_Init(void);
 #ifndef LE_CONFIG_DIAG_VSTACK
 le_result_t diagReset_Init(void);
 le_result_t diagRoutineControl_Init(void);
-#endif
-
 le_result_t diagIOControl_Init(void);
 le_result_t diagDoIP_Init(void);
 #endif

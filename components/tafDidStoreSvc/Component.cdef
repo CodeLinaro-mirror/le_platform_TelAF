@@ -1,0 +1,39 @@
+provides:
+{
+    api:
+    {
+        taf_diagDidStore.api
+    }
+}
+
+requires:
+{
+    component:
+    {
+        $TELAF_ROOT/components/tafHalComp
+    }
+    api:
+    {
+        taf_diagDataID.api
+    }
+}
+
+cxxflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+    -I$TELAF_ROOT/include
+    -I$TELAF_ROOT/components/tafHalComp
+    -I$TELAF_ROOT/include/staging/plugin
+}
+
+cflags:
+{
+    -I$LEGATO_ROOT/components/watchdogChain
+    -I$TELAF_ROOT/include
+}
+
+sources:
+{
+        tafDidStoreSvc.cpp
+        tafDidStoreImpl.cpp
+}

@@ -38,9 +38,7 @@
 #include "legato.h"
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
-#ifndef LE_CONFIG_DIAG_VSTACK
 #include "tafDiagBackend.hpp"
-#endif
 
 #define DEFAULT_SVC_REF_CNT 16
 #define DEFAULT_RX_MSG_REF_CNT 16
@@ -76,14 +74,8 @@ typedef struct
 typedef struct
 {
     taf_diagSecurity_RxSesTypeCheckRef_t rxSesTypeRef; ///< Own reference.
-#ifdef LE_CONFIG_DIAG_VSTACK
-    taf_diagSecBackend_SesTypeCheckRef_t rxMsgRef;     ///< Received msg reference.
-    taf_diagSecBackend_SessionType_t sessionType;
-#endif
-#ifndef LE_CONFIG_DIAG_VSTACK
     taf_uds_AddrInfo_t addrInfo;                       ///< Rx logical address.
     uint8_t sesType;                                   ///< Rx subFunction.
-#endif
     le_dls_Link_t link;                                ///< Link to the Rx msg list.
 }taf_SesTypeRxMsg_t;
 
@@ -108,15 +100,9 @@ typedef struct
 typedef struct
 {
     taf_diagSecurity_SesChangeRef_t sesChangeRef;    ///< Own reference.
-#ifdef LE_CONFIG_DIAG_VSTACK
-    taf_diagSecBackend_SessionType_t previousSessionType;
-    taf_diagSecBackend_SessionType_t currentSessionType;
-#endif
-#ifndef LE_CONFIG_DIAG_VSTACK
     taf_uds_AddrInfo_t addrInfo;                     ///< logical address.
     uint8_t previousSesType;  ///< Previous session type.
     uint8_t currentSesType;   ///< Current active session type.
-#endif
     le_dls_Link_t link;                              ///< Link to the Rx msg list.
 }taf_SesChangeMsg_t;
 
@@ -141,9 +127,7 @@ typedef struct
 typedef struct
 {
     taf_diagSecurity_RxSecAccessMsgRef_t rxMsgRef;                 ///< Own reference.
-#ifndef LE_CONFIG_DIAG_VSTACK
     taf_uds_AddrInfo_t addrInfo;                                   ///< Rx logical address.
-#endif
     uint8_t subFunc;                                               ///< Rx subFunction.
     uint16_t PayloadLen;                                           ///< Rx payload length.
     uint8_t Payload[TAF_DIAGSECURITY_MAX_SEC_ACCESS_PAYLOAD_SIZE]; ///< Rx payload.
@@ -166,12 +150,7 @@ typedef struct
 // Security access service class
 namespace telux {
     namespace tafsvc {
-        class taf_SecuritySvr
-        #ifndef LE_CONFIG_DIAG_VSTACK
-            : public ITafSvc, public taf_UDSInterface
-        #else
-            : public ITafSvc
-         #endif
+        class taf_SecuritySvr : public ITafSvc, public taf_UDSInterface
         {
             public:
                 taf_SecuritySvr() {};
@@ -181,17 +160,11 @@ namespace telux {
 
                 static void OnClientDisconnection(le_msg_SessionRef_t sessionRef,
                         void *contextPtr);
-#ifndef LE_CONFIG_DIAG_VSTACK
-                // UDS message handler.
+                
+		// UDS message handler.
                 void UDSMsgHandler(const taf_uds_AddrInfo_t* addrPtr, uint8_t sid, uint8_t* msgPtr,
                         size_t msgLen) override;
-#endif
-#ifdef LE_CONFIG_DIAG_VSTACK
-                static void SessionControlEventHandler(taf_diagSecBackend_SesTypeCheckRef_t sesTypeRef,
-                        taf_diagSecBackend_SessionType_t sesType, void* contextPtr);
-                static void sesChangeMsgHandler(taf_diagSecBackend_SessionType_t prev_session,
-                        taf_diagSecBackend_SessionType_t current_session, void* contextPtr);
-#endif
+                
                 taf_diagSecurity_ServiceRef_t GetService();
 
                 // SessionControl 0x10
@@ -241,11 +214,11 @@ namespace telux {
             private:
                 // Internal search function.
                 taf_SecuritySvc_t* GetServiceObj();
-#ifndef LE_CONFIG_DIAG_VSTACK
+                
                 // Send NRC response msg.
                 le_result_t SendNRCResp(uint8_t sid, taf_uds_AddrInfo_t*  addrInfoPtr,
                         uint8_t errCode);
-#endif
+                
                 //Send session control positive response internally.
                 le_result_t SendSesPositiveResp(taf_SesTypeRxMsg_t* rxSesTypePtr);
 

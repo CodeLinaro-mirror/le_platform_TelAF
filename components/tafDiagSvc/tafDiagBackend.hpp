@@ -92,7 +92,6 @@ namespace tafsvc {
 
             static taf_DiagBackend& GetInstance();
             void Init();
-
 #ifndef LE_CONFIG_DIAG_VSTACK
             // Registered to UDS stack for reception message.
             static void UdsIndicationHanler(const taf_uds_AddrInfo_t*         addrInfoPtr,

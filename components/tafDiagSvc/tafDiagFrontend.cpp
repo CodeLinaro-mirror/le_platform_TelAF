@@ -7,10 +7,7 @@
 #include "interfaces.h"
 #include "tafDataIDSvr.hpp"
 #include "tafSecuritySvr.hpp"
-#ifndef LE_CONFIG_DIAG_VSTACK
 #include "tafDiagBackend.hpp"
-#include "tafDataIDSvr.hpp"
-#include "tafSecuritySvr.hpp"
 
 #ifndef LE_CONFIG_DIAG_VSTACK
 #include "tafRoutineCtrlSvr.hpp"

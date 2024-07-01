@@ -1,0 +1,49 @@
+# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+policy_module(tafDidStoreSvc, 1.0)
+
+gen_require(`
+  type node_t;
+  type unreserved_port_t;
+  type telaf_update_t;
+  type load_policy_t;
+  type proc_t;
+  type telaf_devmgr_data_t;
+  type telaf_devmgr_t;
+')
+
+# Framework definition for telaf
+type telaf_tafDidStoreSvc_exec_t;
+files_type(telaf_tafDidStoreSvc_exec_t);
+
+type telaf_tafDidStoreSvc_t;
+
+type telaf_tafDidStoreSvc_data_t;
+files_type(telaf_tafDidStoreSvc_data_t);
+
+init_telaf_app_domain(telaf_tafDidStoreSvc_t,telaf_tafDidStoreSvc_exec_t)
+
+# Allow update daemon to install/uninstall this service
+telaf_admin_manage_all_files_perms(telaf_tafDidStoreSvc_data_t)
+telaf_admin_manage_all_files_perms(telaf_tafDidStoreSvc_exec_t)
+telaf_admin_file_perms(telaf_tafDidStoreSvc_t,telaf_tafDidStoreSvc_data_t)
+
+allow telaf_tafDidStoreSvc_t node_t:udp_socket { node_bind };
+allow telaf_tafDidStoreSvc_t unreserved_port_t:udp_socket { name_bind };
+allow telaf_tafDidStoreSvc_t unreserved_port_t:tcp_socket { name_bind };
+allow load_policy_t telaf_update_t:unix_stream_socket { read write };
+allow telaf_tafDidStoreSvc_t telaf_tafDidStoreSvc_t:netlink_route_socket *;
+allow telaf_tafDidStoreSvc_t telaf_tafDidStoreSvc_t:udp_socket *;
+allow telaf_tafDidStoreSvc_t telaf_tafDidStoreSvc_t:tcp_socket *;
+allow telaf_tafDidStoreSvc_t node_t:tcp_socket { node_bind };
+# /proc/filesystems
+allow telaf_tafDidStoreSvc_t proc_t:file {read_file_perms};
+# /data/diag
+allow telaf_tafDidStoreSvc_t data_t:dir {relabelfrom};
+
+allow telaf_tafDidStoreSvc_t telaf_devmgr_data_t:file { execute map open read };
+allow telaf_devmgr_t telaf_tafDidStoreSvc_t:lnk_file read;
+allow telaf_tafDidStoreSvc_t telaf_devmgr_data_t:dir search;
+allow telaf_tafDidStoreSvc_t telaf_devmgr_data_t:file getattr;
+

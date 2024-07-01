@@ -38,10 +38,7 @@
 #include "legato.h"
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
-
-#ifndef LE_CONFIG_DIAG_VSTACK
 #include "tafDiagBackend.hpp"
-#endif
 
 #define DEFAULT_SVC_REF_CNT 16
 #define DEFAULT_RX_MSG_REF_CNT 16
@@ -55,8 +52,6 @@
 #define reqWriteDIDSvcId 0x2E  // WriteDID request service ID.
 #define respWriteDIDSvcId 0x6E // WriteDID response service ID.
 #define DID_NRC_RANGE_LOW_VALUE 0x80U
-
-#define DID_LEN 2
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -81,15 +76,10 @@ typedef struct
 typedef struct
 {
     taf_diagDataID_RxReadDIDMsgRef_t readDIDRxMsgRef;   ///< Own reference.
-#ifdef LE_CONFIG_DIAG_VSTACK
-    taf_diagDIDBackend_ReadDIDRef_t rxMsgRef;           ///< Received msg reference.
-#endif
     uint8_t serviceId;                                  ///< Service Identifier.
     uint16_t readDID[TAF_DIAGDATAID_MAX_READ_DID_SIZE]; ///< Read DID.
     uint16_t readDIDLen;                                ///< Read DID length.
-#ifndef LE_CONFIG_DIAG_VSTACK
     taf_uds_AddrInfo_t addrInfo;                        ///< Rx logical address information struct.
-#endif
     le_dls_Link_t link;                                 ///< Link to the Rx message list.
 }taf_ReadDIDRxMsg_t;
 
@@ -118,9 +108,7 @@ typedef struct
     uint16_t writeDID;                                        ///< Write data identifier.
     uint16_t dataRecLen;                                      ///< Rx dataRec length.
     uint8_t dataRec[TAF_DIAGDATAID_MAX_DID_DATA_RECORD_SIZE]; ///< Data record.
-#ifndef LE_CONFIG_DIAG_VSTACK
     taf_uds_AddrInfo_t addrInfo;                              ///< Rx logical address information.
-#endif
     le_dls_Link_t link;                                       ///< Link to the Rx message list.
 }taf_WriteDIDRxMsg_t;
 
@@ -147,12 +135,7 @@ namespace telux
 {
     namespace tafsvc
     {
-        class taf_DataIDSvr
-        #ifndef LE_CONFIG_DIAG_VSTACK
-            : public ITafSvc, public taf_UDSInterface
-        #else
-            : public ITafSvc
-         #endif
+        class taf_DataIDSvr : public ITafSvc, public taf_UDSInterface
         {
             public:
                 taf_DataIDSvr() {};
@@ -162,16 +145,10 @@ namespace telux
 
                 static void OnClientDisconnection(le_msg_SessionRef_t sessionRef,
                         void *contextPtr);
-#ifndef LE_CONFIG_DIAG_VSTACK
+                
                 // UDS message handler.
                 void UDSMsgHandler(const taf_uds_AddrInfo_t* addrPtr, uint8_t sid, uint8_t* msgPtr,
                         size_t msgLen) override;
-#endif
-                // Vendor stack handler.
-#ifdef LE_CONFIG_DIAG_VSTACK
-                static void readDIDMsgHandler( taf_diagDIDBackend_ReadDIDRef_t rxMsgRef,
-                        uint16_t dataId, void* contextPtr);
-#endif
 
                 taf_diagDataID_ServiceRef_t GetService();
 
@@ -205,11 +182,11 @@ namespace telux
             private:
                 // Internal search function.
                 taf_DataIDSvc_t* GetServiceObj();
-#ifndef LE_CONFIG_DIAG_VSTACK
+                
                 // Send NRC response msg.
                 le_result_t SendNRCResp(uint8_t sid, taf_uds_AddrInfo_t*  addrInfoPtr,
                         uint8_t errCode);
-#endif
+                
                 // To clear message list.
                 void ClearReadDIDMsgList(taf_DataIDSvc_t* servicePtr);
                 void ClearWriteDIDMsgList(taf_DataIDSvc_t* servicePtr);

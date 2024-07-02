@@ -1347,6 +1347,12 @@ le_result_t taf_radio_GetPacketSwitchedState
     TAF_ERROR_IF_RET_VAL(tafRadio.dataInfoCb.result != LE_OK,
         tafRadio.dataInfoCb.result, "Fail to get data service state.");
 
+    if (tafRadio.dataInfoCb.psState == TAF_RADIO_NET_REG_STATE_NONE)
+    {
+        *statePtr = TAF_RADIO_NET_REG_STATE_NONE;
+        return LE_OK;
+    }
+
     ret = tafRadio.dataServSysManagers[slotId]->requestRoamingStatus(roamingStatusCb);
     TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
         "Call sdk function failed");

@@ -313,8 +313,8 @@ static void *wlanThreadHdlr(void *contextPtr)
 
 static taf_wlanSta_WlanSTARef_t getSTARef(const char *staIntfNameStr)
 {
-    taf_wlan_APIntfInfo_t APIntf[TAF_WLAN_MAX_NUM_AP] = {0};
-    taf_wlan_STAIntfInfo_t STAIntf[TAF_WLAN_MAX_NUM_STA] = {0};
+    taf_wlan_APIntfInfo_t APIntf[TAF_WLAN_MAX_NUM_AP] = {};
+    taf_wlan_STAIntfInfo_t STAIntf[TAF_WLAN_MAX_NUM_STA] = {};
     size_t APIntfSize = TAF_WLAN_MAX_NUM_AP, STAIntfSize = TAF_WLAN_MAX_NUM_STA;
     le_result_t status = taf_wlan_GetIntfInfo(NULL, APIntf, &APIntfSize, STAIntf, &STAIntfSize);
     if (LE_OK != status)

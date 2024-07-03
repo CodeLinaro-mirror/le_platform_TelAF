@@ -247,6 +247,7 @@ namespace tafsvc
             le_result_t ReleaseRxXferExitMsg(taf_diagUpdate_RxXferExitMsgRef_t rxMsgRef);
 
             le_result_t RemoveUpdateSvc(taf_diagUpdate_ServiceRef_t svcRef);
+            void programmingInterrupt(void);
 
         private:
             // Internal search functions.

@@ -10,6 +10,7 @@ provides:
         taf_diagReset.api
         taf_diagEvent.api
         taf_diagDTC.api
+        taf_diagIOCtrl.api
         taf_diagDoIP.api
 #endif
     }
@@ -79,5 +80,7 @@ sources:
         tafSnapshotSvc.cpp
         tafDiagDoIPSvc.cpp
         tafDiagDoIPSvrImpl.cpp
+        tafIOCtrlSvc.cpp
+        tafIOCtrlSvrImpl.cpp
 #endif
 }

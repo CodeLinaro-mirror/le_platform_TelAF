@@ -177,6 +177,8 @@ void taf_DataIDSvr::UDSMsgHandler
             LE_DEBUG("Message length(%" PRIuS ") is not in correct format", msgLen - msgPos);
             errCode = TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
             SendNRCResp(sid, &addrInfo, errCode);
+            le_mem_Release(rxReadDIDMsgPtr);
+            return;
         }
 
         for (size_t i = 0; i < (msgLen-msgPos)/sizeof(uint16_t); i++)
@@ -211,6 +213,8 @@ void taf_DataIDSvr::UDSMsgHandler
             LE_DEBUG("Message length(%" PRIuS ") is not correct", msgLen - msgPos);
             errCode = TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
             SendNRCResp(sid, &addrInfo, errCode);
+            le_mem_Release(rxWriteDIDMsgPtr);
+            return;
         }
 
         //rxWriteDIDMsgPtr->writeDID = ntohs(*((uint16_t*)(msgPtr + msgPos)));
@@ -223,6 +227,8 @@ void taf_DataIDSvr::UDSMsgHandler
             LE_DEBUG("Message length(%" PRIuS ") is not correct", msgLen - msgPos);
             errCode = TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
             SendNRCResp(sid, &addrInfo, errCode);
+            le_mem_Release(rxWriteDIDMsgPtr);
+            return;
         }
         memcpy(rxWriteDIDMsgPtr->dataRec, msgPtr + msgPos, msgLen - msgPos);
         rxWriteDIDMsgPtr->dataRecLen = msgLen - msgPos;
@@ -471,7 +477,7 @@ void taf_DataIDSvr::RemoveRxReadDIDMsgHandler
 le_result_t taf_DataIDSvr::SendReadDIDResp
 (
     taf_diagDataID_RxReadDIDMsgRef_t rxMsgRef,
-    taf_diagDataID_ReadDIDErrorCode_t errCode,
+    uint8_t errCode,
     const uint8_t* dataPtr,
     size_t dataSize
 )
@@ -480,6 +486,18 @@ le_result_t taf_DataIDSvr::SendReadDIDResp
 
     TAF_ERROR_IF_RET_VAL(rxMsgRef == NULL, LE_BAD_PARAMETER, "Invalid rxMsgRef");
     TAF_ERROR_IF_RET_VAL(dataPtr == NULL, LE_BAD_PARAMETER, "Invalid dataPtr");
+
+    //Check errCode range
+    if(errCode != TAF_DIAGDATAID_READ_DID_NO_ERROR &&
+            errCode != TAF_DIAGDATAID_READ_DID_RESPONSE_TOO_LONG &&
+            errCode != TAF_DIAGDATAID_READ_DID_BUSY_REPEAT_REQ &&
+            errCode != TAF_DIAGDATAID_READ_DID_CONDITIONS_NOT_CORRECT &&
+            errCode != TAF_DIAGDATAID_READ_DID_REQUEST_OUT_OF_RANGE &&
+            errCode < DID_NRC_RANGE_LOW_VALUE)
+    {
+        LE_ERROR("error code(%d) is invalid", errCode);
+        return LE_BAD_PARAMETER;
+    }
 
     le_result_t ret = LE_OK;
 
@@ -736,13 +754,24 @@ le_result_t taf_DataIDSvr::GetWriteDataRecord
 le_result_t taf_DataIDSvr::SendWriteDIDResp
 (
     taf_diagDataID_RxWriteDIDMsgRef_t rxMsgRef,
-    taf_diagDataID_WriteDIDErrorCode_t errCode,
+    uint8_t errCode,
     uint16_t dataId
 )
 {
     LE_DEBUG("SendWriteDIDResp");
 
     TAF_ERROR_IF_RET_VAL(rxMsgRef == NULL, LE_BAD_PARAMETER, "Invalid rxMsgRef");
+    //Check errCode range
+    if(errCode != TAF_DIAGDATAID_WRITE_DID_NO_ERROR &&
+            errCode != TAF_DIAGDATAID_WRITE_DID_BUSY_REPEAT_REQ &&
+            errCode != TAF_DIAGDATAID_WRITE_DID_CONDITIONS_NOT_CORRECT &&
+            errCode != TAF_DIAGDATAID_WRITE_DID_REQUEST_OUT_OF_RANGE &&
+            errCode != TAF_DIAGDATAID_WRITE_DID_GENERAL_PROGRAMMING_FAILURE &&
+            errCode < DID_NRC_RANGE_LOW_VALUE)
+    {
+        LE_ERROR("error code(%d) is invalid", errCode);
+        return LE_BAD_PARAMETER;
+    }
 
     le_result_t ret = LE_OK;
 

@@ -36,6 +36,7 @@
 #include "tafRoutineCtrlSvr.hpp"
 #include "tafDiagBackend.hpp"
 #include <arpa/inet.h>
+#include "configuration.hpp"
 
 using namespace telux::tafsvc;
 
@@ -178,6 +179,7 @@ void taf_RoutinCtrlSvr::RxReqEventHandler
     {
         LE_WARN("Not found registered service(identifier:0x%x) for this request",
             msgPtr->routineId);
+        rc.SendNRCResp(rc.svcId, &(msgPtr->addrInfo), TAF_DIAG_REQUEST_OUT_OF_RANGE);
         le_ref_DeleteRef(rc.reqMsgRefMap, msgPtr->ref);
         le_mem_Release(msgPtr);
         return;
@@ -187,6 +189,7 @@ void taf_RoutinCtrlSvr::RxReqEventHandler
     {
         LE_WARN("Did not register handler for service(identifier:0x%x)",
             msgPtr->routineId);
+        rc.SendNRCResp(rc.svcId, &(msgPtr->addrInfo), TAF_DIAG_REQUEST_OUT_OF_RANGE);
         le_ref_DeleteRef(rc.reqMsgRefMap, msgPtr->ref);
         le_mem_Release(msgPtr);
         return;
@@ -198,6 +201,7 @@ void taf_RoutinCtrlSvr::RxReqEventHandler
     if (handlerObjPtr == NULL || handlerObjPtr->func == NULL)
     {
         LE_ERROR("Can not find routine control handler object!");
+        rc.SendNRCResp(rc.svcId, &(msgPtr->addrInfo), TAF_DIAG_REQUEST_OUT_OF_RANGE);
         le_ref_DeleteRef(rc.reqMsgRefMap, msgPtr->ref);
         le_mem_Release(msgPtr);
         return;
@@ -218,6 +222,7 @@ void taf_RoutinCtrlSvr::RxReqEventHandler
     else
     {
         LE_ERROR("Unknow SubFunction(0x%x)", msgPtr->subFunc);
+        rc.SendNRCResp(rc.svcId, &(msgPtr->addrInfo), TAF_DIAG_SUBFUNCTION_NOT_SUPPORTED);
         le_ref_DeleteRef(rc.reqMsgRefMap, msgPtr->ref);
         le_mem_Release(msgPtr);
         return;
@@ -312,6 +317,18 @@ le_result_t taf_RoutinCtrlSvr::SendRoutineCtrlResp
         return LE_NOT_FOUND;
     }
 
+    // Check errCode range.
+    if (nrc < TAF_DIAG_ROUTINE_CTRL_NRC_RANGE_LOW_VALUE
+        && nrc != TAF_DIAGROUTINECTRL_NO_ERROR
+        && nrc != TAF_DIAGROUTINECTRL_BUSY_REPEAT_REQ
+        && nrc != TAF_DIAGROUTINECTRL_CONDITIONS_NOT_CORRECT
+        && nrc != TAF_DIAGROUTINECTRL_REQUEST_SEQUENCE_ERROR
+        && nrc != TAF_DIAGROUTINECTRL_GENERAL_PROGRAMMING_FAILURE)
+    {
+        LE_ERROR("Error code is invalid.");
+        return LE_BAD_PARAMETER;
+    }
+
     LE_ASSERT(reqMsgPtr->ref == reqMsgRef);
 
     // Call UDS function to send the response message.
@@ -368,6 +385,28 @@ le_result_t taf_RoutinCtrlSvr::SendRoutineCtrlResp
     return LE_OK;
 }
 
+le_result_t taf_RoutinCtrlSvr::SendNRCResp
+(
+    uint8_t sid,
+    const taf_uds_AddrInfo_t*  addrInfoPtr,
+    uint8_t errCode
+)
+{
+    LE_DEBUG("SendNRCResp");
+
+    TAF_ERROR_IF_RET_VAL(addrInfoPtr == NULL, LE_BAD_PARAMETER, "Invalid addrInfoPtr");
+
+    // Call UDS function to send the response message.
+    auto &backend = taf_DiagBackend::GetInstance();
+
+    taf_uds_AddrInfo_t addrInfo;
+    addrInfo.sa = addrInfoPtr->ta;
+    addrInfo.ta = addrInfoPtr->sa;
+    addrInfo.taType = addrInfoPtr->taType;
+
+    return backend.RespDiagNegative(sid, &addrInfo, errCode);
+}
+
 le_result_t taf_RoutinCtrlSvr::ReleaseRoutineCtrlMsg
 (
     taf_diagRoutineCtrl_RxMsgRef_t reqMsgRef
@@ -415,12 +454,15 @@ taf_diagRoutineCtrl_ServiceRef_t taf_RoutinCtrlSvr::FindOrCreateService
 {
     LE_DEBUG("Enter routine control FindOrCreateService");
 
-    // Verify the identifier which is defined by Table F.1 in ISO14229-1.
-    if (((identifier >= 0x0000) && (identifier <= 0x00FF))
-        || ((identifier >= 0xE300) && (identifier <= 0xEFFF))
-        || ((identifier >= 0xFF02) && (identifier <= 0xFFFF)))
+    // Verify the identifier which is defined in configuration file.
+    try
     {
-        LE_ERROR("The identifier(0x%x) is in the range of ISOSAEReserved.", identifier);
+        // Check if RID supported in active session.
+        cfg::top_routines_all<uint16_t>("identifier", identifier);
+    }
+    catch (const std::exception& e)
+    {
+        LE_ERROR("The RID(0x%x) is not defined in configuration file", identifier);
         return NULL;
     }
 

@@ -123,6 +123,7 @@ void routineCtrl_0246_MsgHandler
     void* contextPtr
 )
 {
+    static bool active = false;
     LE_TEST_INFO("Received routine control req id 0x%x, type = %s",
                  identifier, tafRoutineCtrlTypeToString(routineCtrlType));
 
@@ -144,7 +145,26 @@ void routineCtrl_0246_MsgHandler
             {
                 LE_ERROR("Pre download check is failed");
                 if(taf_diagRoutineCtrl_SendResp( rxMsgRef,
-                        TAF_DIAGROUTINECTRL_GENERAL_PROGRAMMING_FAILURE, NULL, 0 ) != LE_OK)
+                        TAF_DIAGROUTINECTRL_CONDITIONS_NOT_CORRECT, NULL, 0 ) != LE_OK)
+                {
+                    LE_ERROR("Send response error");
+                }
+            }
+            active = true;
+            break;
+        case TAF_DIAGROUTINECTRL_STOP_ROUTINE:
+            if (active)
+            {
+                if(taf_diagRoutineCtrl_SendResp( rxMsgRef, TAF_DIAGROUTINECTRL_NO_ERROR,
+                        NULL, 0 ) != LE_OK)
+                {
+                    LE_ERROR("Send response error");
+                }
+            }
+            else
+            {
+                if(taf_diagRoutineCtrl_SendResp( rxMsgRef, 
+                    TAF_DIAGROUTINECTRL_REQUEST_SEQUENCE_ERROR, NULL, 0 ) != LE_OK)
                 {
                     LE_ERROR("Send response error");
                 }
@@ -212,7 +232,7 @@ void routineCtrl_0247_MsgHandler
             {
                 LE_ERROR("Post download check is failed");
                 if(taf_diagRoutineCtrl_SendResp( rxMsgRef,
-                        TAF_DIAGROUTINECTRL_GENERAL_PROGRAMMING_FAILURE, NULL, 0 ) != LE_OK)
+                        TAF_DIAGROUTINECTRL_BUSY_REPEAT_REQ, NULL, 0 ) != LE_OK)
                 {
                     LE_ERROR("Send response error");
                 }

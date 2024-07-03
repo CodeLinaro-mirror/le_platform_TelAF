@@ -266,7 +266,7 @@ void taf_ResetSvr::RxReqEventHandler
         {
             LE_WARN("Not found registered ECU reset service type: 0x%x for this request",
                     rxMsgPtr->subFunc);
-
+            reset.SendNRCResp(&(rxMsgPtr->addrInfo), TAF_DIAG_SUBFUNCTION_NOT_SUPPORTED);
             le_ref_DeleteRef(reset.RxMsgRefMap, rxMsgPtr->rxMsgRef);
             LE_DEBUG("1 Call RxReqEventHandler");
             le_mem_Release(rxMsgPtr);
@@ -279,6 +279,7 @@ void taf_ResetSvr::RxReqEventHandler
     {
         LE_WARN("Did not register handler for ECU reset service type: 0x%x",
                 rxMsgPtr->subFunc);
+        reset.SendNRCResp(&(rxMsgPtr->addrInfo), TAF_DIAG_SUBFUNCTION_NOT_SUPPORTED);
         le_ref_DeleteRef(reset.RxMsgRefMap, rxMsgPtr->rxMsgRef);
         le_mem_Release(rxMsgPtr);
         return;
@@ -289,6 +290,7 @@ void taf_ResetSvr::RxReqEventHandler
             (taf_ResetReqHandler_t*)le_ref_Lookup(reset.ReqHandlerRefMap, servicePtr->handlerRef);
     if (handlerObjPtr == NULL || handlerObjPtr->func == NULL)
     {
+        reset.SendNRCResp(&(rxMsgPtr->addrInfo), TAF_DIAG_SUBFUNCTION_NOT_SUPPORTED);
         le_ref_DeleteRef(reset.RxMsgRefMap, rxMsgPtr->rxMsgRef);
         le_mem_Release(rxMsgPtr);
         return;
@@ -417,12 +419,21 @@ le_result_t taf_ResetSvr::SendNRCResp
 le_result_t taf_ResetSvr::SendResp
 (
     taf_diagReset_RxMsgRef_t rxMsgRef,
-    taf_diagReset_ErrorCode_t errCode
+    uint8_t errCode
 )
 {
     LE_DEBUG("SendResp");
 
     TAF_ERROR_IF_RET_VAL(rxMsgRef == NULL, LE_BAD_PARAMETER, "Invalid rxMsgRef");
+
+    //Check errCode range
+    if(errCode != TAF_DIAGRESET_NO_ERROR && errCode != TAF_DIAGRESET_BUSY_REPEAT_REQ &&
+            errCode != TAF_DIAGRESET_CONDITIONS_NOT_CORRECT &&
+            errCode < ECURESET_NRC_RANGE_LOW_VALUE)
+    {
+        LE_ERROR("error code(%d) is invalid", errCode);
+        return LE_BAD_PARAMETER;
+    }
 
     le_result_t ret;
 

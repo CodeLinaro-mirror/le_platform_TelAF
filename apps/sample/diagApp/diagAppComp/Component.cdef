@@ -7,6 +7,7 @@ sources:
 #if ${LE_CONFIG_DIAG_VSTACK} = ""
     diagReset.c
     diagRoutineControl.c
+    diagIOCtrl.c
     diagDoIP.c
 #endif
 }
@@ -22,6 +23,7 @@ requires:
         taf_diagReset.api
         taf_diagRoutineCtrl.api
         taf_diagUpdate.api
+        taf_diagIOCtrl.api
         taf_update.api
         taf_appMgmt.api
         taf_fwupdate.api

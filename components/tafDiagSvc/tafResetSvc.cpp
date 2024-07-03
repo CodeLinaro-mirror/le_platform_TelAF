@@ -117,7 +117,7 @@ void taf_diagReset_RemoveRxMsgHandler
 le_result_t taf_diagReset_SendResp
 (
     taf_diagReset_RxMsgRef_t rxMsgRef,
-    taf_diagReset_ErrorCode_t errCode
+    uint8_t errCode
 )
 {
     LE_DEBUG("taf_diagReset_SendResp");

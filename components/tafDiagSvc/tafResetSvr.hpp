@@ -49,6 +49,7 @@
 #define DEFAULT_SVC_REF_CNT 16
 #define DEFAULT_RX_MSG_REF_CNT 16
 #define DEFAULT_RX_HANDLER_REF_CNT 16
+#define ECURESET_NRC_RANGE_LOW_VALUE 0x80U
 
 //-------------------------------------------------------------------------------------------------
 /**
@@ -115,8 +116,7 @@ namespace telux {
                         taf_diagReset_RxMsgHandlerFunc_t handlerPtr, void* contextPtr);
                 void RemoveRxMsgHandler(taf_diagReset_RxMsgHandlerRef_t handlerRef);
 
-                le_result_t SendResp(taf_diagReset_RxMsgRef_t rxMsgRef,
-                        taf_diagReset_ErrorCode_t errCode);
+                le_result_t SendResp(taf_diagReset_RxMsgRef_t rxMsgRef, uint8_t errCode);
 
                 le_result_t RemoveSvc(taf_diagReset_ServiceRef_t svcRef);
 

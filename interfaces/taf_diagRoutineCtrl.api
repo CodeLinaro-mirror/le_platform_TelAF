@@ -133,7 +133,9 @@ ENUM Type
 ENUM ErrorCode
 {
     NO_ERROR = 0,                       ///< Success.
+    BUSY_REPEAT_REQ = 0x21,             ///< Resouce is temporarily busy.
     CONDITIONS_NOT_CORRECT = 0x22,      ///< Condition is not correct.
+    REQUEST_SEQUENCE_ERROR = 0x24,      ///< Sequence error.
     GENERAL_PROGRAMMING_FAILURE = 0x72  ///< Programming failure.
 };
 
@@ -227,7 +229,7 @@ FUNCTION le_result_t GetRoutineCtrlRec
 FUNCTION le_result_t SendResp
 (
     RxMsg rxMsgRef  IN,                  ///< Received message reference.
-    ErrorCode errCode  IN,               ///< Error code type.
+    uint8 errCode  IN,               ///< Error code type.
     uint8 data[MAX_PAYLOAD_SIZE]  IN     ///< Payload data.
 );
 

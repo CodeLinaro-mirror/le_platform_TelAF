@@ -63,13 +63,14 @@ void taf_DiagBackend::UdsIndicationHanler
 )
 {
     uint8_t sid;
+    taf_uds_AddrInfo_t addrInfo;
     taf_DiagBackend& backend = taf_DiagBackend::GetInstance();
 
     LE_DEBUG("Enter UdsIndicationHanler");
 
     if (addrInfoPtr == NULL || diagMsgPtr == NULL)
     {
-        LE_ERROR("Bad parameter");
+        LE_ERROR("Bad parameter, invalid indication.");
         return;
     }
 
@@ -82,6 +83,10 @@ void taf_DiagBackend::UdsIndicationHanler
     if (diagMsgPtr->dataLen == 0)
     {
         LE_ERROR("Message length%" PRIuS " is insufficient.", diagMsgPtr->dataLen);
+        addrInfo.sa = addrInfoPtr->ta;
+        addrInfo.ta = addrInfoPtr->sa;
+        addrInfo.taType = addrInfoPtr->taType;
+        backend.RespDiagNegative(sid, &addrInfo, TAF_DIAG_SERVICE_NOT_SUPPORTED);
         return;
     }
 
@@ -92,6 +97,10 @@ void taf_DiagBackend::UdsIndicationHanler
     if (elem == backend.svcMap.end())
     {
         LE_ERROR("This service(%d) handler is unregistered", sid);
+        addrInfo.sa = addrInfoPtr->ta;
+        addrInfo.ta = addrInfoPtr->sa;
+        addrInfo.taType = addrInfoPtr->taType;
+        backend.RespDiagNegative(sid, &addrInfo, TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT);
         return;
     }
 
@@ -100,6 +109,8 @@ void taf_DiagBackend::UdsIndicationHanler
     {
         inf->UDSMsgHandler(addrInfoPtr, sid, diagMsgPtr->dataPtr, diagMsgPtr->dataLen);
     }
+
+    return;
 }
 #endif
 

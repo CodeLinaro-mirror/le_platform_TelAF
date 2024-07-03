@@ -1,4 +1,4 @@
- # Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ # Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  #
  # Redistribution and use in source and binary forms, with or without
  # modification, are permitted (subject to the limitations in the
@@ -39,10 +39,12 @@ from udsoncan.common import *
 import udsoncan
 import os
 from udsoncan import DidCodec, AsciiCodec
+from udsoncan import IOValues
 import udsoncan.configs
 import logging
 import time
 import threading
+import struct
 
 #logging.basicConfig(level=logging.DEBUG)
 
@@ -71,6 +73,29 @@ config['data_identifiers'] = {
    0xF0D2: AsciiCodec(6),
    0xEF01: AsciiCodec(5),
    0xF401: AsciiCodec(1)
+}
+
+class LedEcallCodec(DidCodec):
+    def encode(self, Led_Ecall):
+        return struct.pack('>B', Led_Ecall)
+
+    def decode(self, payload):
+        vals = struct.unpack('>B', payload)
+        return {
+            'Led_Ecall': vals[0]
+        }
+
+    def __len__(self):
+        return 1
+
+config["input_output"] = {
+    0x9006: {
+        'codec': LedEcallCodec,
+        'mask': {
+            'Led_Ecall': 0x80
+        },
+        'mask_size': 1
+    }
 }
 
 config['request_timeout'] = None
@@ -153,11 +178,20 @@ def update_workflow():
             response = uds_client.send_key(0x02, key)
             print(response)
 
-            # Step10: Write digest(WriteDataByIdentifier): 2E xx xx
+            # Step10: InputOutputControl--Short Term Adjustment: 2F 90 06 03 xx xx
+            ioctrlvalues = {'Led_Ecall': 0x3C}
+            response = uds_client.io_control(control_param=3, did=0x9006, values=ioctrlvalues)
+            print('dataId:%#x'%response.service_data.did_echo)
+
+            # Step11. InputOutputControl--returnControlToECU: 2F 90 06 00
+            response = uds_client.io_control(control_param=0, did=0x9006)
+            print(response)
+
+            # Step12: Write digest(WriteDataByIdentifier): 2E xx xx
             response = uds_client.write_data_by_identifier(did=digest_did2, value=digest_data)
             print(response)
 
-            # Step11: Read data(ReadDataByIdentifier): 22 xx xx
+            # Step13: Read data(ReadDataByIdentifier): 22 xx xx
             response = uds_client.read_data_by_identifier(didlist=digest_did2)
             values = response.service_data.values
 
@@ -166,7 +200,7 @@ def update_workflow():
                 eof = f.tell()
 
                 print(eof)
-                # Step12: RequestFileTransfer(0x38)
+                # Step14.1: RequestFileTransfer(0x38)
                 response = uds_client.request_file_transfer(moop=1, path = restore_file, filesize=eof)
                 print(response)
                 print("Max length: %d" % response.service_data.max_length)
@@ -176,7 +210,7 @@ def update_workflow():
                 print("bytes_per_pack=%d" % bytes_per_pack)
                 f.seek(0, 0)
                 sq = 1
-                # Step13: Transfer Data(TransferData). 36
+                # Step14.2: Transfer Data(TransferData). 36
                 while f.tell() < eof:
                     bs = f.read(bytes_per_pack)
                     #response = uds_client.transfer_data(sq, bs)
@@ -187,15 +221,30 @@ def update_workflow():
                         sq = 0
                 f.close()
 
-            # Step14: Transter Exit(RequestTransferExit). 37
+            # Step14.3: Transter Exit(RequestTransferExit). 37
             response = uds_client.request_transfer_exit()
             print(response)
 
-            # Step15: Routine Control RUNDTCTEST(RoutineControl). 31 01 02 47 start to update
+            # Step15: Switch to extended session(Perform ECU Reset). 10 03
+            response = uds_client.change_session(DiagnosticSessionControl.Session.extendedDiagnosticSession)
+            print(response)
+
+            # Session change, do security access again #1-Request seed(SecurityAccess). 27 01
+            response = uds_client.request_seed(0x01)
+            seed = response.service_data.seed
+
+            # Calculate key via seed.
+            key = dummy_send2key(level=0x01, seed=seed)
+
+            # Security access #2-Send key(SecurityAccess). 27 02
+            response = uds_client.send_key(0x02, key)
+            print(response)
+
+            # Step16: Routine Control RUNDTCTEST(RoutineControl). 31 01 02 47 start to update
             response = uds_client.routine_control(routine_id=0x0247, control_type=0x01)
             print(response)
 
-            # Step16: Routine Control RUNDTCTEST(RoutineControl). 31 03 02 47 request update status
+            # Step17: Routine Control RUNDTCTEST(RoutineControl). 31 03 02 47 request update status
             for i in range(100):
                 time.sleep(3)
                 response = uds_client.routine_control(routine_id=0x0247, control_type=0x03)
@@ -208,10 +257,6 @@ def update_workflow():
 
             print(update_state)
 
-            # Step17: Switch to extended session(Perform ECU Reset). 10 03
-            response = uds_client.change_session(DiagnosticSessionControl.Session.extendedDiagnosticSession)
-            print(response)
-
             # Step18: Send tester present to maintain the current session. 3E 00
             def sendPresent():
                 uds_client.tester_present()
@@ -222,7 +267,7 @@ def update_workflow():
                 tr.start()
                 tr.join()
 
-            # Step19: Send ECU Reset if the condition is met.
+            # Step21: Send ECU Reset if the condition is met.
             if update_state == b'\x06':
                 response = uds_client.ecu_reset(reset_type=1) # Hard reset
                 print(response)

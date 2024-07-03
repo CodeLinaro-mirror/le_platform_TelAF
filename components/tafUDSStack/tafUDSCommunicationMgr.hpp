@@ -38,6 +38,9 @@
 #include "tafDoIPStack.h"
 #include "legato.h"
 #include "interfaces.h"
+#include "configuration.hpp"
+
+using namespace telux::tafsvc;
 
 namespace taf{
 namespace uds{
@@ -105,6 +108,10 @@ namespace uds{
     #define UDS_WRITE_DID_REQ_MIN_LEN 4
     #define UDS_WRITE_DID_REQ_BASE_LEN 3  // Service ID(1) + DID (2)
     #define UDS_WRITE_DID_RESP_LEN 3
+
+    // InputOutputControlByIdentifier service (0x2F)
+    #define UDS_IOCBID_REQ_MIN_LEN 4  // SI+DID+IOCP
+    #define UDS_IOCBID_RESP_MIN_LEN 4
 
     // Routine control service (0x31)
     #define UDS_ROUTINE_CTRL_REQ_MIN_LEN 4
@@ -178,6 +185,7 @@ namespace uds{
         READ_DID_REQUEST_ID = 0x22,
         SECURITY_ACCESS_REQUEST_ID = 0x27,
         WRITE_DID_REQUEST_ID = 0x2E,
+        INPUT_OUTPUT_CONTROL_REQUEST_ID = 0x2F,
         ROUTINE_CONTROL_REQUEST_ID = 0x31,
         TRANSFER_DATA_REQUEST_ID = 0x36,
         REQUEST_TRANSFER_EXIT_REQUEST_ID = 0x37,
@@ -196,6 +204,7 @@ namespace uds{
         READ_DID_RESPONSE_ID = 0x62,
         SECURITY_ACCESS_RESPONSE_ID = 0x67,
         WRITE_DID_RESPONSE_ID = 0x6E,
+        IOCBID_RESPONSE_ID = 0x6F,
         ROUTINE_CONTROL_RESPONSE_ID = 0x71,
         TRANSFER_DATA_RESPONSE_ID = 0x76,
         REQUEST_TRANSFER_EXIT_RESPONSE_ID = 0x77,
@@ -212,6 +221,7 @@ namespace uds{
         SUBFUNCTION_NOT_SUPPORTED = 0x12,
         INCORRECT_MSG_LEN_OR_INVALID_FORMAT = 0x13,
         RESP_TOO_LONG = 0x14,
+        BUSY_REPEAT_REQ = 0x21,
         CONDITIONS_NOT_CORRECT = 0x22,
         REQ_SEQUENCE_ERROR = 0x24,
         REQ_OUT_OF_RANGE = 0x31,
@@ -284,12 +294,14 @@ namespace uds{
                     bool* isInternalHandle);    // SessionCtrl service (0x10).
             le_result_t IndicateECUResetReq(taf_doip_AddrInfo_t* addrInfoPtr,
                     bool* isInternalHandle);    // ECUReset service (0x11).
-            le_result_t IndicateReadDIDResp(taf_doip_AddrInfo_t* addrInfoPtr,
+            le_result_t IndicateReadDIDReq(taf_doip_AddrInfo_t* addrInfoPtr,
                     bool* isInternalHandle);    // ReadDID service (0x22).
-            le_result_t IndicateWriteDIDResp(taf_doip_AddrInfo_t* addrInfoPtr,
+            le_result_t IndicateWriteDIDReq(taf_doip_AddrInfo_t* addrInfoPtr,
                     bool* isInternalHandle);    // WriteDID service (0x2E).
             le_result_t IndicateSecAccessReq(taf_doip_AddrInfo_t* addrInfoPtr,
                     bool* isInternalHandle);    // SecurrityAccess service (0x27).
+            le_result_t IndicateIOCBIDReq(taf_doip_AddrInfo_t* addrInfoPtr,
+                    bool* isInternalHandle);    // InputOutputControlByIdentifier service (0x2F).
             le_result_t IndicateRoutinrCtrlReq(taf_doip_AddrInfo_t* addrInfoPtr,
                     bool* isInternalHandle);    // RoutineControl service (0x31).
             le_result_t IndicateRxFileXferReq(taf_doip_AddrInfo_t* addrInfoPtr,
@@ -320,6 +332,8 @@ namespace uds{
             le_result_t WriteDIDResp(uint8_t serviceId, uint8_t err);
             le_result_t SecurityAccessResp(uint8_t serviceId, const uint8_t* dataPtr,
                     uint16_t dataSize, uint8_t err);
+            le_result_t IOCBIDResp(uint8_t serviceId, const uint8_t* dataPtr, uint16_t dataSize,
+                    uint8_t err);
             le_result_t RoutineCtrlResp(uint8_t serviceId, const uint8_t* dataPtr,
                     uint16_t dataSize, uint8_t err);
             le_result_t XferDataResp(uint8_t serviceId, const uint8_t* dataPtr,
@@ -337,6 +351,10 @@ namespace uds{
             static void* UdsTimerThread(void* ctxPtr);
             static void UdsTimerHandler(void* reqPtr);
             void UdsTimerEventReport(taf_UDSTimer_EventType_t timerEvent, uint32_t interval);
+            bool IsSessTypeMatched(cfg::Node& node);
+            bool IsSecurityAccessMatched(cfg::Node& node);
+            bool IsRequestSubFuncSupported(cfg::Node& node, uint8_t subFunc);
+
             // update status parameter.
             bool isXferActive = false;
 

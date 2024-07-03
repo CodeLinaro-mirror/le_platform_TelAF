@@ -51,6 +51,7 @@
 #define respReadDIDSvcId 0x62  // ReadDID response service ID.
 #define reqWriteDIDSvcId 0x2E  // WriteDID request service ID.
 #define respWriteDIDSvcId 0x6E // WriteDID response service ID.
+#define DID_NRC_RANGE_LOW_VALUE 0x80U
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -158,8 +159,7 @@ namespace telux
                                         void* contextPtr);
                 void RemoveRxReadDIDMsgHandler(taf_diagDataID_RxReadDIDMsgHandlerRef_t handlerRef);
                 le_result_t SendReadDIDResp(taf_diagDataID_RxReadDIDMsgRef_t rxMsgRef,
-                        taf_diagDataID_ReadDIDErrorCode_t errCode, const uint8_t* dataPtr,
-                                size_t dataSize);
+                        uint8_t errCode, const uint8_t* dataPtr, size_t dataSize);
 
                 static void RxWriteDIDEventHandler(void* reportPtr);
                 taf_diagDataID_RxWriteDIDMsgHandlerRef_t AddRxWriteDIDMsgHandler(
@@ -171,7 +171,7 @@ namespace telux
                 le_result_t GetWriteDataRecord(taf_diagDataID_RxWriteDIDMsgRef_t rxMsgRef,
                         uint8_t* dataRecordPtr, size_t* dataRecordSizePtr);
                 le_result_t SendWriteDIDResp(taf_diagDataID_RxWriteDIDMsgRef_t rxMsgRef,
-                        taf_diagDataID_WriteDIDErrorCode_t errCode, uint16_t dataId);
+                        uint8_t errCode, uint16_t dataId);
 
                 le_result_t RemoveSvc(taf_diagDataID_ServiceRef_t svcRef);
 

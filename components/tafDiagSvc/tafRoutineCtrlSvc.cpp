@@ -146,7 +146,7 @@ le_result_t taf_diagRoutineCtrl_SendResp
 (
     taf_diagRoutineCtrl_RxMsgRef_t rxMsgRef,
         ///< [IN] Received message reference.
-    taf_diagRoutineCtrl_ErrorCode_t errCode,
+    uint8_t errCode,
         ///< [IN] Error code type.
     const uint8_t* dataPtr,
         ///< [IN] Payload data.
@@ -156,7 +156,7 @@ le_result_t taf_diagRoutineCtrl_SendResp
 {
     auto& tafRCS = taf_RoutinCtrlSvr::GetInstance();
 
-    return tafRCS.SendRoutineCtrlResp(rxMsgRef, (uint8_t)errCode, dataPtr, dataSize);
+    return tafRCS.SendRoutineCtrlResp(rxMsgRef, errCode, dataPtr, dataSize);
 }
 
 //--------------------------------------------------------------------------------------------------

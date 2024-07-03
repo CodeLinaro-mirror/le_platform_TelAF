@@ -330,6 +330,13 @@ void taf_UpdateSvr::UDSMsgHandler
     uint8_t nrc = 0;
     uint8_t dataPtrPos = 1;  // Skip sid
 
+    /* moopDirection Usage:
+     * 0 - Download direction (moop: 01/03/06)
+     * 1 - Upload direction (moop: 04/05)
+     * 2 - No direction (moop: 02)
+    */
+    static int moopDirection = 2;
+
     TAF_ERROR_IF_RET_NIL(msgPtr == NULL, "Invalid dataPtr");
 
     if (sid == SID_REQUEST_FILE_TRANSFER)  // RequestFileTransfer service of UDS
@@ -341,6 +348,7 @@ void taf_UpdateSvr::UDSMsgHandler
         if (moo == 0 || moo > TAF_DIAG_UPDATE_RESUME_FILE)
         {
             LE_DEBUG("Mode of operation(0x%x) is out of range", moo);
+            // UDS_0x38_NRC_31: Invalid Moop
             nrc = TAF_DIAG_REQUEST_OUT_OF_RANGE;
             goto errOut;
         }
@@ -351,6 +359,7 @@ void taf_UpdateSvr::UDSMsgHandler
         if (fileNameLen >= TAF_DIAGUPDATE_MAX_PATH_AND_NAME_SIZE)
         {
             LE_DEBUG("File name length(%d) is invalid", fileNameLen);
+            // UDS_0x38_NRC_13: Invalid file name len
             nrc = TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
             goto errOut;
         }
@@ -419,6 +428,22 @@ void taf_UpdateSvr::UDSMsgHandler
 
         // Report the request message to message handler in service layer.
         le_event_ReportWithRefCounting(FileXferEvent, rxFileXferMsgPtr);
+
+        if (moo == TAF_DIAG_UPDATE_ADD_FILE
+        ||  moo == TAF_DIAG_UPDATE_REPLACE_FILE
+        ||  moo == TAF_DIAG_UPDATE_RESUME_FILE)
+        {
+            moopDirection = 0; // Download
+        }
+        else if (moo == TAF_DIAG_UPDATE_READ_FILE
+        ||       moo == TAF_DIAG_UPDATE_READ_DIR)
+        {
+            moopDirection = 1; // Upload
+        }
+        else // moo == TAF_DIAG_UPDATE_DELETE_FILE
+        {
+            moopDirection = 2; // No direction
+        }
     }
     else if (sid == SID_TRANSFER_DATA)  // TransferData service of UDS
     {
@@ -433,8 +458,36 @@ void taf_UpdateSvr::UDSMsgHandler
         if ((msgLen - dataPtrPos) > TAF_DIAGUPDATE_MAX_XFER_PARAM_REC_SIZE)
         {
             LE_DEBUG("Message length(%" PRIuS ") is out of range", msgLen - dataPtrPos);
+            // UDS_0x36_NRC_13: Block parameter record is overflow
             nrc = TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
             goto errOut;
+        }
+
+        if (moopDirection == 0) // Download direction
+        {
+            // 3 = SID + BSC + minimum TRPR_
+            if (msgLen + 1 < 3) // Plus 'SID' size first
+            {
+                LE_ERROR("Record size less 3 in download direction");
+                // UDS_0x36_NRC_13: Record size less 3 in download direction
+                nrc = TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
+                goto errOut;
+            }
+        }
+        else if (moopDirection == 1) // Upload direction
+        {
+            // 2 = SID + BSC
+            if (msgLen + 1 < 2) // Plus 'SID' size first
+            {
+                LE_ERROR("Record size less 2 in upload direction");
+                // UDS_0x36_NRC_13: Record size less 2 in upload direction
+                nrc = TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
+                goto errOut;
+            }
+        }
+        else
+        {
+            // Never be here for TAF_DIAG_UPDATE_DELETE_FILE
         }
 
         // Create the incoming Rx message from UDS stack.
@@ -464,6 +517,7 @@ void taf_UpdateSvr::UDSMsgHandler
         if ((msgLen - dataPtrPos) > TAF_DIAGUPDATE_MAX_XFER_PARAM_REC_SIZE)
         {
             LE_DEBUG("Message length(%" PRIuS ") is out of range", msgLen - dataPtrPos);
+            // UDS_0x37_NRC_13: Block parameter record is overflow
             nrc = TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
             goto errOut;
         }
@@ -778,6 +832,21 @@ void taf_UpdateSvr::RemoveRxXferExitReqHandler
     le_mem_Release(handlerCtxPtr);
 }
 
+
+/*
+ * Get the programming session interruption indication
+**/
+void taf_UpdateSvr::programmingInterrupt(void)
+{
+    taf_UpdateSvr& update = taf_UpdateSvr::GetInstance();
+
+    taf_UpdateSvc_t* svcPtr = update.FindSvcInList();
+    if (svcPtr != NULL)
+    {
+        svcPtr->state = TAF_DIAG_UPDATE_INIT; // reset the state-machine
+    }
+}
+
 void taf_UpdateSvr::RxFileXferEventHandler
 (
     void* reportPtr
@@ -799,14 +868,16 @@ void taf_UpdateSvr::RxFileXferEventHandler
     svcPtr = update.FindSvcInList();
     if (svcPtr == NULL)
     {
-        LE_DEBUG("Not found registered update service for this request");
+        LE_ERROR("Not found registered update service for this request");
+        // UDS_0x38_NRC_22: Not found registered diag update svc
         nrc = TAF_DIAG_CONDITION_NOT_CORRECT;  // conditionsNotCorrect
         goto errOut;
     }
 
     if (svcPtr->fileXferRef == NULL)
     {
-        LE_DEBUG("Did not register RequestFileTransfer handler for update service");
+        LE_ERROR("Did not register RequestFileTransfer handler for update service");
+        // UDS_0x38_NRC_22: Bad svc ref
         nrc = TAF_DIAG_CONDITION_NOT_CORRECT;  // conditionsNotCorrect
         goto errOut;
     }
@@ -816,7 +887,8 @@ void taf_UpdateSvr::RxFileXferEventHandler
         le_ref_Lookup(update.RxFileXferHandlerRefMap, svcPtr->fileXferRef);
     if (handlerCtxPtr == NULL || handlerCtxPtr->func == NULL)
     {
-        LE_DEBUG("Can not find RequestFileTransfer handler object!");
+        LE_ERROR("Can not find RequestFileTransfer handler object!");
+        // UDS_0x38_NRC_22: Bad callback fn
         nrc = TAF_DIAG_CONDITION_NOT_CORRECT;  // conditionsNotCorrect
         goto errOut;
     }
@@ -837,6 +909,13 @@ void taf_UpdateSvr::RxFileXferEventHandler
         if (svcPtr->state != TAF_DIAG_UPDATE_TRANS)
         {
             svcPtr->state = TAF_DIAG_UPDATE_REQ;
+        }
+        else
+        {
+            LE_ERROR("Trsnsfer is in progress");
+            // UDS_0x38_NRC_22: Transfer is in progress
+            nrc = TAF_DIAG_CONDITION_NOT_CORRECT;
+            goto errOut;
         }
     }
 
@@ -874,6 +953,7 @@ void taf_UpdateSvr::RxXferDataEventHandler
     if (svcPtr == NULL)
     {
         LE_DEBUG("Not found registered update service for this request");
+        // UDS_0x36_NRC_22: Not found svc
         nrc = TAF_DIAG_CONDITION_NOT_CORRECT;  // conditionsNotCorrect
         goto errOut;
     }
@@ -882,6 +962,7 @@ void taf_UpdateSvr::RxXferDataEventHandler
         || svcPtr->state == TAF_DIAG_UPDATE_EXIT)
     {
         LE_DEBUG("The update state(0x%x) is incorrect", svcPtr->state);
+        // UDS_0x36_NRC_24: Transfer is NOT in progress (again)
         nrc = TAF_DIAG_REQUEST_SEQUENCE_ERROR;  // requestSequenceError
         goto errOut;
     }
@@ -889,6 +970,7 @@ void taf_UpdateSvr::RxXferDataEventHandler
     if (svcPtr->xferDataRef == NULL)
     {
         LE_DEBUG("Did not register TransferData handler for update service");
+        // UDS_0x36_NRC_22: Invalid handler ref
         nrc = TAF_DIAG_CONDITION_NOT_CORRECT;  // conditionsNotCorrect
         goto errOut;
     }
@@ -899,6 +981,7 @@ void taf_UpdateSvr::RxXferDataEventHandler
     if (handlerCtxPtr == NULL || handlerCtxPtr->func == NULL)
     {
         LE_DEBUG("Can not find TransferData handler object!");
+        // UDS_0x36_NRC_22: Invalid handler callback
         nrc = TAF_DIAG_CONDITION_NOT_CORRECT;  // conditionsNotCorrect
         goto errOut;
     }
@@ -948,6 +1031,7 @@ void taf_UpdateSvr::RxXferExitEventHandler
     if (svcPtr == NULL)
     {
         LE_DEBUG("Not found registered update service for this request");
+        // UDS_0x37_NRC_22: Not found registered svc
         nrc = TAF_DIAG_CONDITION_NOT_CORRECT;  // conditionsNotCorrect
         goto errOut;
     }
@@ -956,6 +1040,7 @@ void taf_UpdateSvr::RxXferExitEventHandler
         || svcPtr->state == TAF_DIAG_UPDATE_EXIT)
     {
         LE_DEBUG("The update state(0x%x) is incorrect", svcPtr->state);
+        // UDS_0x37_NRC_24: Transfer is not active (again)
         nrc = TAF_DIAG_REQUEST_SEQUENCE_ERROR;  // requestSequenceError
         goto errOut;
     }
@@ -963,6 +1048,7 @@ void taf_UpdateSvr::RxXferExitEventHandler
     if (svcPtr->xferExitRef == NULL)
     {
         LE_DEBUG("Did not register RequestTransferExit handler for update service");
+        // UDS_0x37_NRC_22: Invalid svc ref
         nrc = TAF_DIAG_CONDITION_NOT_CORRECT;  // conditionsNotCorrect
         goto errOut;
     }
@@ -973,6 +1059,7 @@ void taf_UpdateSvr::RxXferExitEventHandler
     if (handlerCtxPtr == NULL || handlerCtxPtr->func == NULL)
     {
         LE_DEBUG("Can not find RequestTransferExit handler object!");
+        // UDS_0x37_NRC_22: Invalid callback handler
         nrc = TAF_DIAG_CONDITION_NOT_CORRECT;  // conditionsNotCorrect
         goto errOut;
     }

@@ -85,11 +85,6 @@ void VehicleManager::ParseJsonConfig
         LE_ERROR("configPathPtr is null!");
     }
 
-    // Create a root
-    pt::ptree root;
-    // Load the json file in this ptree
-    pt::read_json(configPathPtr, root);
-
     auto &vehicleMgr = VehicleManager::GetInstance();
 
     if (vehicleMgr.tafDoipConfigPool == NULL)
@@ -103,6 +98,12 @@ void VehicleManager::ParseJsonConfig
 
     // Read json config file
     try{
+        // Create a root
+        pt::ptree root;
+
+        // Load the json file in this ptree
+        pt::read_json(configPathPtr, root);
+
         std::string vin = root.get<std::string>("vehicleInfo.VIN");
         le_utf8_Copy(vehicleMgr.doipConfigPtr->vin, vin.c_str(), TAF_DOIP_VIN_SIZE + 1, NULL);
         LE_INFO("Parsed VIN: %s", vehicleMgr.doipConfigPtr->vin);
@@ -177,7 +178,7 @@ void VehicleManager::ParseJsonConfig
     }
     catch (std::exception const& exp)
     {
-        LE_ERROR("Exception caught while reading json file: %s", exp.what());
+        LE_FATAL("Exception caught while reading json file: %s", exp.what());
     }
 
 }

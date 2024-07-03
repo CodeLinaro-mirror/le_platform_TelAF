@@ -149,6 +149,7 @@ ENUM Type
 ENUM ErrorCode
 {
     NO_ERROR = 0,
+    BUSY_REPEAT_REQ = 0x21,
     CONDITIONS_NOT_CORRECT = 0x22
 };
 
@@ -222,7 +223,7 @@ EVENT RxMsg
 FUNCTION le_result_t SendResp
 (
     RxMsg rxMsgRef  IN,      ///< Received message reference.
-    ErrorCode errCode  IN    ///< Error code type.
+    uint8 errCode  IN    ///< Error code type.
 );
 
 //--------------------------------------------------------------------------------------------------

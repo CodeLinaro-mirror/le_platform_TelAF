@@ -595,11 +595,13 @@ le_result_t DemDataHandler::DeleteData
     {
         vector<uint16_t> eid_list = cfg::get_event_ids(dtc);
         for (auto &eid : eid_list)
-        ret = tafEventDao.ClearEventRecord(static_cast<int32_t>(eid));
-        if (ret != LE_OK)
         {
-            LE_ERROR("Failed to delete all data of EVENT. ret=%d", (int32_t)ret);
-            return ret;
+            ret = tafEventDao.ClearEventRecord(static_cast<int32_t>(eid));
+            if (ret != LE_OK)
+            {
+                LE_ERROR("Failed to delete all data of EVENT. ret=%d", (int32_t)ret);
+                return ret;
+            }
         }
     }
     catch (const std::exception& e)

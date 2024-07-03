@@ -1,40 +1,12 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include "legato.h"
 #include "interfaces.h"
 #include "tafSecuritySvr.hpp"
+#include "tafUpdateSvr.hpp"
 
 using namespace telux::tafsvc;
 
@@ -187,6 +159,7 @@ void taf_SecuritySvr::UDSMsgHandler
                 LE_DEBUG("Requested session type is not supported");
                 errCode = TAF_DIAG_SUBFUNCTION_NOT_SUPPORTED;
                 SendNRCResp(sid, &addrInfo, errCode);
+                le_mem_Release(rxSesTypePtr);
                 return;
         }
 
@@ -225,6 +198,12 @@ void taf_SecuritySvr::UDSMsgHandler
         LE_DEBUG("Previous session type: %X and Current session type: %x",
                 sesChangePtr->previousSesType, sesChangePtr->currentSesType);
 
+        if (sesChangePtr->previousSesType == TAF_DIAGSECURITY_PROGRAMMING
+        &&  sesChangePtr->currentSesType  == TAF_DIAGSECURITY_DEFAULT)
+        {
+            taf_UpdateSvr::GetInstance().programmingInterrupt();
+        }
+
         // Report the session control request message to message handler in service layer.
         le_event_ReportWithRefCounting(SesChangeEvent, sesChangePtr);
     }
@@ -247,6 +226,8 @@ void taf_SecuritySvr::UDSMsgHandler
             LE_DEBUG("Message length(%" PRIuS ") is out of range", msgLen - msgPos);
             errCode = TAF_DIAG_INCORRECT_MSG_LEN_OR_INVALID_FORMAT;
             SendNRCResp(sid, &addrInfo, errCode);
+            le_mem_Release(rxSecAccessMsgPtr);
+            return;
         }
 
         memcpy(rxSecAccessMsgPtr->Payload, msgPtr + msgPos, msgLen - msgPos);

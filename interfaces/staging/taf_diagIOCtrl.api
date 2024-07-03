@@ -1,0 +1,266 @@
+/*
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * @page c_tafDiagIOCtrl Diag IO control Service
+ *
+ * @ref taf_diagIOCtrl_interface.h "API Reference"
+ *
+ * <HR>
+ *
+ * The diag IOControl service APIs are part of the diagnostic service. The
+ * InputOutputControlByIdentifier(0x2F) service is used by the client to substitute a value for an
+ * input signal, internal server function and/or force control to a value for an output (actuator)
+ * of an electronic system. The client request message contains a dataIdentifier to reference the
+ * input signal, internal server function, and/or output signal(s) of the server. The
+ * controlOptionRecord parameter shall include all information required by the server's input
+ * signal(s), internal function(s) and/or output signal(s).
+ *
+ * @section taf_diagIOCtrl_binding IPC interfaces binding
+ *
+ * The functions of this API are provided by the @b tafDiagSvc platform service.
+ *
+ * The following example illustrates how to bind to the diag IOControl service.
+ *
+ * @verbatim
+   bindings:
+   {
+        clientExe.clientComponent.taf_diagIOCtrl -> tafDiagSvc.taf_diagIOCtrl
+   }
+   @endverbatim
+ *
+ * @section c_taf_diagIOCtrl_server_API Server Service APIs
+ *
+ * A diag IOControl service reference should be got using taf_diagIOCtrl_GetService()
+ * with the data identifier passed as a parameter. Use the returned reference for
+ * subsequent operations.
+ *
+ * The following example illustrates how to set up a diag IOControl server-service-instance.
+ *
+ * @code
+   taf_diagIOCtrl_ServiceRef_t svcRef;    // Service reference
+
+   // Get the service reference.
+   svcRef = taf_diagIOCtrl_GetService(dataId);
+   LE_ASSERT(svcRef != NULL);
+   @endcode
+ *
+ * @section c_taf_diag_input_output_control_by_identifier InputOutputControlByIdentifier(0x2F)
+ * service
+ *
+ * After getting the service reference, an application can call
+ * taf_diagIOCtrl_AddRxMsgHandler() to register a message handler for
+ * InputOutputControlByIdentifier(0x2F) service. Once an IOControl service request message is
+ * received, the handler will be called with the message reference, dataId and
+ * inputOutputControlParameter passed as input parameters. The application will get the
+ * controlState and controlEnableMaskRecord using taf_diagIOCtrl_GetCtrlState() and
+ * taf_diagIOCtrl_GetCtrlEnableMaskRecd() function respectively and uses the message reference
+ * to send a response message using taf_diagIOCtrl_SendResp().
+ *
+ * @code
+   // Rx message handler function.
+   void RxIOCtrlEventHandler
+   (
+        taf_diagIOCtrl_RxMsgRef_t rxMsgRef,
+        uint16_t dataId,
+        uint8_t ioCtrlParameter,
+        void* contextPtr
+   )
+   {
+        // Process after succesfully receiving message
+   }
+
+   // Register the message handler.
+   taf_diagIOCtrl_RxMsgHandlerRef_t handlerRef =
+       taf_diagIOCtrl_AddRxMsgHandler(svcRef,
+            (taf_diagIOCtrl_RxMsgHandlerFunc_t)RxIOCtrlEventHandler, NULL);
+   LE_ASSERT(handlerRef != NULL);
+
+   // To remove the handler function, when it is not needed.
+   taf_diagIOCtrl_RemoveRxMsgHandler(handlerRef);
+
+   // To get the controlState.
+   taf_diagIOCtrl_GetCtrlState(): Gets the controlState.
+
+   // To get the controlEnableMaskRecord.
+   taf_diagIOCtrl_GetCtrlEnableMaskRecd(): Gets the controlEnableMaskRecord.
+
+   // To send IOControl response.
+   uint8_t controlState[TAF_DIAGIOCTRL_MAX_PAYLOAD_SIZE];
+   le_result_t result = taf_diagIOCtrl_SendResp(rxMsgRef,
+            TAF_DIAGIOCTRL_NO_ERROR, controlState, sizeof(controlState));
+   if (result != LE_OK)
+   {
+      LE_ERROR("Fail to send response.");
+      return result;
+   }
+   @endcode
+ *
+ * An application can remove the IOControl server service by calling taf_diagIOCtrl_RemoveSvc().
+ *
+ * @code
+   le_result_t result = taf_diagIOCtrl_RemoveSvc(svcRef);
+   LE_ASSERT(result == LE_OK);
+   @endcode
+ *
+ * <HR>
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+
+USETYPES taf_types.api;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * The maximum size of the payload in bytes.
+ */
+//-------------------------------------------------------------------------------------------------
+DEFINE MAX_PAYLOAD_SIZE = 4091;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * The maximum size of the controlState or controlMask record in bytes.
+ */
+//-------------------------------------------------------------------------------------------------
+DEFINE MAX_CONTROL_RECORD_SIZE = 4091;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Error code for InputOutputControlByIdentifier.
+ */
+//-------------------------------------------------------------------------------------------------
+ENUM ErrorCode
+{
+    NO_ERROR = 0,                    ///< Success.
+    BUSY_REPEAT_REQ = 0x21,          ///< Resouce is temporarily busy.
+    CONDITIONS_NOT_CORRECT = 0x22    ///< Condition is not correct.
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Reference to the InputOutputControlByIdentifier service.
+ */
+//-------------------------------------------------------------------------------------------------
+REFERENCE Service;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Reference to the InputOutputControlByIdentifier received request message.
+ */
+//-------------------------------------------------------------------------------------------------
+REFERENCE RxMsg;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the reference to a InputOutputControlByIdentifier service, if there is no
+ * InputOutputControlByIdentifier service, a new one will be created.
+ *
+ * @return
+ *     - Reference to the service instance.
+ *     - NULL if not allowed to create the service.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION Service GetService
+(
+    uint16 dataId   ///< Data identifier.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Handler for a Rx InputOutputControlByIdentifier message.
+ */
+//-------------------------------------------------------------------------------------------------
+HANDLER RxMsgHandler
+(
+    RxMsg rxMsgRef  IN,          ///< Received message reference.
+    uint16 dataId  IN,           ///< Data identifier.
+    uint8 ioCtrlParameter  IN    ///< Input output control parameter.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * This event provides information on Rx InputOutputControlByIdentifier message.
+ */
+//-------------------------------------------------------------------------------------------------
+EVENT RxMsg
+(
+    Service svcRef IN,      ///< Service reference.
+    RxMsgHandler handler
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the control state of the Rx input output control parameter.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetCtrlState
+(
+    RxMsg rxMsgRef  IN,                                 ///< Received message reference.
+    uint8 controlState[MAX_CONTROL_RECORD_SIZE]  OUT    ///< Control state.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the control enable mask record of the Rx InputOutputControlByIdentifier message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetCtrlEnableMaskRecd
+(
+    RxMsg rxMsgRef  IN,                               ///< Received message reference.
+    uint8 maskRecord[MAX_CONTROL_RECORD_SIZE]  OUT    ///< Control enable mask record.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Sends a response message for the Rx InputOutputControlByIdentifier message.
+ *
+ * @note This function must be called to send a response if receiving a message.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid rxMsgRef.
+ *     - LE_NOT_FOUND -- Reference not found.
+ *     - LE_FAULT -- Failed.
+ *
+ * @note The process exits if an invalid reference is passed.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SendResp
+(
+    RxMsg rxMsgRef  IN,                 ///< Received message reference.
+    uint8 errCode  IN,                  ///< Error code type.
+    uint8 data[MAX_PAYLOAD_SIZE]  IN    ///< Control state data.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Removes the InputOutputControlByIdentifier server service.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Invalid svcRef.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t RemoveSvc
+(
+    Service svcRef  IN    ///< Service reference.
+);

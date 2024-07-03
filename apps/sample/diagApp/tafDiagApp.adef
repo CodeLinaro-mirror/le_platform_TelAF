@@ -34,6 +34,7 @@ bindings:
     tafDiagApp.diagAppComp.taf_update -> tafUpdateSvc.taf_update
     tafDiagApp.diagAppComp.taf_appMgmt -> tafUpdateSvc.taf_appMgmt
     tafDiagApp.diagAppComp.taf_fwupdate -> tafUpdateSvc.taf_fwupdate
+    tafDiagApp.diagAppComp.taf_diagDoIP -> tafDiagSvc.taf_diagDoIP
 #endif
 }
 

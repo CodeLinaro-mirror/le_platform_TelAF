@@ -69,7 +69,8 @@ DtcEntityDao &DtcEntityDao::GetInstance
 
 void DtcEntityDao::Init
 (
-    const char *dbName
+    const char *dbName,
+    int expectedVer
 )
 {
     auto &factory = IOFactory::GetInstance();
@@ -84,7 +85,19 @@ void DtcEntityDao::Init
     dtcStatusPool = le_mem_CreatePool("DTCStatusPool", sizeof(taf_DataAccess_DTCStatus_t));
     fdcPool = le_mem_CreatePool("FDCPool", sizeof(taf_DataAccess_FDCInfo_t));
 
-    CreateTable(handler, true);
+    if (handler->CheckTableExist())
+    {
+        LE_DEBUG("Table exist. check if need upgrade");
+        int currentVer = 0;
+
+        handler->GetVersion(currentVer);
+        UpdateTable(handler, currentVer, expectedVer);
+    }
+    else
+    {
+        LE_DEBUG("Table does not exist. creat the table");
+        CreateTable(handler, true);
+    }
 
     // Store the column name information.
     pkList.push_back("DTC");
@@ -93,6 +106,8 @@ void DtcEntityDao::Init
     columnList.push_back("Fault_Occurence_Counter");
     columnList.push_back("Aging_Counter");
     columnList.push_back("Aged_Counter");
+    columnList.push_back("Activation");     // Added in version=1
+    columnList.push_back("Suppression");    // Added in version=1
     columnList.push_back("Creation_Time");
     columnList.push_back("Update_Time");
     columnList.push_back("Test_Failed_Time");
@@ -112,10 +127,12 @@ le_result_t DtcEntityDao::CreateTable
         "Fault_Occurence_Counter INTEGER," +    // Row-2: Fault Occurence Counter.
         "Aging_Counter INTEGER," +              // Row-3: Aging Counter.
         "Aged_Counter INTEGER," +               // Row-4: Aged Counter.
-        "Creation_Time TEXT," +                 // Row-5: Creation Time.
-        "Update_Time TEXT," +                   // Row-6: Update Time.
-        "Test_Failed_Time TEXT," +              // Row-7: Test Failed Time.
-        "Confirmed_Time TEXT)";                 // Row-8: Confirmed Time.
+        "Activation INTEGER," +                 // Row-5: Activation status.
+        "Suppression INTEGER," +                // Row-6: Suppression status.
+        "Creation_Time TEXT," +                 // Row-7: Creation Time.
+        "Update_Time TEXT," +                   // Row-8: Update Time.
+        "Test_Failed_Time TEXT," +              // Row-9: Test Failed Time.
+        "Confirmed_Time TEXT)";                 // Row-10: Confirmed Time.
 
     le_result_t ret = handler->ExecRaw(sql);
     if (ret != LE_OK)
@@ -137,6 +154,73 @@ le_result_t DtcEntityDao::DropTable
     std::string sql = "DROP TABLE " + constraint + DTC_TABLE_NAME;
 
     return handler->ExecRaw(sql);
+}
+
+le_result_t DtcEntityDao::UpdateTable
+(
+    std::shared_ptr<IOHandler<DtcEntity, int32_t>> handler,
+    int currentVer,
+    int expectedVer
+)
+{
+    std::string createSql = std::string("CREATE TABLE ") + DTC_TABLE_NAME + " (" +
+        "DTC INTEGER PRIMARY KEY," +            // Row-0: dtc.
+        "Status INTEGER," +                     // Row-1: status.
+        "Fault_Occurence_Counter INTEGER," +    // Row-2: Fault Occurence Counter.
+        "Aging_Counter INTEGER," +              // Row-3: Aging Counter.
+        "Aged_Counter INTEGER," +               // Row-4: Aged Counter.
+        "Activation INTEGER," +                 // Row-5: Activation status.
+        "Suppression INTEGER," +                // Row-6: Suppression status.
+        "Creation_Time TEXT," +                 // Row-7: Creation Time.
+        "Update_Time TEXT," +                   // Row-8: Update Time.
+        "Test_Failed_Time TEXT," +              // Row-9: Test Failed Time.
+        "Confirmed_Time TEXT);";                 // Row-10: Confirmed Time.
+
+    std::string upgrade[] = {
+        // Version0
+        "",
+
+        // Version1
+        std::string("BEGIN TRANSACTION;") +
+        "ALTER TABLE " + DTC_TABLE_NAME + " RENAME TO _temp_" + DTC_TABLE_NAME + ";" +
+        createSql +
+        "INSERT INTO " + DTC_TABLE_NAME + " SELECT DTC, Status, Fault_Occurence_Counter, " +
+        "Aging_Counter, Aged_Counter, 1, 0, Creation_Time, Update_Time, Test_Failed_Time, " +
+        "Confirmed_Time FROM _temp_" + DTC_TABLE_NAME + ";" +
+        "DROP TABLE _temp_" + DTC_TABLE_NAME + ";" +
+        "END TRANSACTION;"
+    };
+
+    if (currentVer < expectedVer)
+    {
+        // Upgrade
+        int num = sizeof(upgrade) / sizeof(upgrade[0]);
+
+        for (int i = currentVer + 1; i <= expectedVer && i < num; i++)
+        {
+            if (upgrade[i].empty())
+            {
+                continue;
+            }
+
+            le_result_t ret = handler->ExecRaw(upgrade[i]);
+            if (ret != LE_OK)
+            {
+                LE_ERROR("Update table(%s) failed.", DTC_TABLE_NAME);
+                return ret;
+            }
+        }
+        return LE_OK;
+    }
+    else if (expectedVer < currentVer)
+    {
+        // Downgrade
+        return LE_UNSUPPORTED;
+    }
+    else
+    {
+        return LE_OK;
+    }
 }
 
 void DtcEntityDao::BindValues
@@ -181,6 +265,18 @@ void DtcEntityDao::BindValues
         statement.BindValue(5, aged);
     }
 
+    int32_t activation = entity.GetActivation();
+    if (activation != -1)
+    {
+        statement.BindValue(6, activation);
+    }
+
+    int32_t suppression = entity.GetSuppression();
+    if (suppression != -1)
+    {
+        statement.BindValue(7, suppression);
+    }
+
     std::time_t create = entity.GetCreateTime();
     if (create != 0)
     {
@@ -188,7 +284,7 @@ void DtcEntityDao::BindValues
         tmPtr = std::localtime(&create);
         std::strftime(buf, DTC_TIME_BUF_SIZE, "%Y-%m-%d %H:%M:%S", tmPtr);
 
-        statement.BindValue(6, static_cast<const char *>(buf));
+        statement.BindValue(8, static_cast<const char *>(buf));
     }
 
     std::time_t update = entity.GetUpdateTime();
@@ -198,7 +294,7 @@ void DtcEntityDao::BindValues
         tmPtr = std::localtime(&update);
         std::strftime(buf, DTC_TIME_BUF_SIZE, "%Y-%m-%d %H:%M:%S", tmPtr);
 
-        statement.BindValue(7, static_cast<const char *>(buf));
+        statement.BindValue(9, static_cast<const char *>(buf));
     }
 
     std::time_t testFailed = entity.GetTestFailedTime();
@@ -208,7 +304,7 @@ void DtcEntityDao::BindValues
         tmPtr = std::localtime(&testFailed);
         std::strftime(buf, DTC_TIME_BUF_SIZE, "%Y-%m-%d %H:%M:%S", tmPtr);
 
-        statement.BindValue(8, static_cast<const char *>(buf));
+        statement.BindValue(10, static_cast<const char *>(buf));
     }
 
     std::time_t confirmed = entity.GetConfirmedTime();
@@ -218,7 +314,7 @@ void DtcEntityDao::BindValues
         tmPtr = std::localtime(&confirmed);
         std::strftime(buf, DTC_TIME_BUF_SIZE, "%Y-%m-%d %H:%M:%S", tmPtr);
 
-        statement.BindValue(9, static_cast<const char *>(buf));
+        statement.BindValue(11, static_cast<const char *>(buf));
     }
 }
 
@@ -259,8 +355,10 @@ void DtcEntityDao::ReadEntity
     entity.SetFaultOccurenceCounter(statement.GetColumnInt(2));
     entity.SetAgingCounter(statement.GetColumnInt(3));
     entity.SetAgedCounter(statement.GetColumnInt(4));
+    entity.SetActivation(statement.GetColumnInt(5));
+    entity.SetSuppression(statement.GetColumnInt(6));
 
-    auto createTimePtr = reinterpret_cast<const char*>(statement.GetColumnText(5, nullptr));
+    auto createTimePtr = reinterpret_cast<const char*>(statement.GetColumnText(7, nullptr));
     if (createTimePtr == nullptr)
     {
         entity.SetCreateTime(0);
@@ -270,7 +368,7 @@ void DtcEntityDao::ReadEntity
         entity.SetCreateTime(String2Time(createTimePtr));
     }
 
-    auto updateTimePtr = reinterpret_cast<const char*>(statement.GetColumnText(6, nullptr));
+    auto updateTimePtr = reinterpret_cast<const char*>(statement.GetColumnText(8, nullptr));
     if (updateTimePtr == nullptr)
     {
         entity.SetUpdateTime(0);
@@ -280,7 +378,7 @@ void DtcEntityDao::ReadEntity
         entity.SetUpdateTime(String2Time(updateTimePtr));
     }
 
-    auto failedTimePtr = reinterpret_cast<const char*>(statement.GetColumnText(7, nullptr));
+    auto failedTimePtr = reinterpret_cast<const char*>(statement.GetColumnText(9, nullptr));
     if (failedTimePtr == nullptr)
     {
         entity.SetTestFailedTime(0);
@@ -290,7 +388,7 @@ void DtcEntityDao::ReadEntity
         entity.SetTestFailedTime(String2Time(failedTimePtr));
     }
 
-    auto confirmedTimePtr = reinterpret_cast<const char*>(statement.GetColumnText(8, nullptr));
+    auto confirmedTimePtr = reinterpret_cast<const char*>(statement.GetColumnText(10, nullptr));
     if (confirmedTimePtr == nullptr)
     {
         entity.SetConfirmedTime(0);
@@ -349,7 +447,26 @@ int32_t DtcEntityDao::ReadDtcCountByDtc
     ss << "WHERE " << mFileName << "." << "DTC=" << "'" << dtc << "'";
 
     std::string where = ss.str();
-    LE_DEBUG("ReadDtcCountByStatus: where is %s", where.c_str());
+    LE_DEBUG("ReadDtcCountByDtc: where is %s", where.c_str());
+
+    DataStatement statement(QueryCount(where));
+    (void)statement.ExecuteRowStep();  // Cannot return false as this query always return a result.
+
+    return statement.GetColumnInt(0);
+}
+
+int32_t DtcEntityDao::ReadDtcCountByDtcWithSuppress
+(
+    int32_t dtc
+)
+{
+    std::stringstream ss;
+
+    ss << "WHERE " << mFileName << "." << "DTC=" << "'" << dtc << "'";
+    ss << " AND Suppression != 1";
+
+    std::string where = ss.str();
+    LE_DEBUG("ReadDtcCountByDtcWithSuppress: where is %s", where.c_str());
 
     DataStatement statement(QueryCount(where));
     (void)statement.ExecuteRowStep();  // Cannot return false as this query always return a result.
@@ -375,6 +492,25 @@ int32_t DtcEntityDao::ReadDtcCountByStatus
     return statement.GetColumnInt(0);
 }
 
+int32_t DtcEntityDao::ReadDtcCountByStatusWithSuppress
+(
+    int32_t status
+)
+{
+    std::stringstream ss;
+
+    ss << "WHERE " << mFileName << "." << "Status & " << status << " != 0";
+    ss << " AND Suppression != 1";
+
+    std::string where = ss.str();
+    LE_DEBUG("ReadDtcCountByStatus: where is %s", where.c_str());
+
+    DataStatement statement(QueryCount(where));
+    (void)statement.ExecuteRowStep();  // Cannot return false as this query always return a result.
+
+    return statement.GetColumnInt(0);
+}
+
 le_result_t DtcEntityDao::ReadDtcByStatus
 (
     int32_t status,
@@ -386,6 +522,7 @@ le_result_t DtcEntityDao::ReadDtcByStatus
     uint8_t available = taf_DataAccess_GetAvailableStatusMask();
 
     ss << "WHERE " << mFileName << "." << "Status & " << status << " != 0";
+    ss << " AND Suppression != 1";
 
     std::string where = ss.str();
     LE_DEBUG("ReadDtcByStatus: where is %s", where.c_str());
@@ -476,6 +613,43 @@ le_result_t DtcEntityDao::ReadStatusByDtc
     return LE_OK;
 }
 
+le_result_t DtcEntityDao::ReadStatusByDtc
+(
+    int32_t dtc,
+    int32_t& status,
+    int32_t& occurCounter,
+    int32_t& activation,
+    int32_t& suppression
+)
+{
+    le_result_t ret;
+    DtcEntity entity;
+
+    entity.SetDtc(dtc);
+    ret = QueryByKey(entity);
+    if (ret != LE_OK)
+    {
+        if (ret == LE_NOT_FOUND)
+        {
+            status = 0;
+            occurCounter = 0;
+        }
+        else
+        {
+            LE_ERROR("Failed to query entity by key. ret=%d", (int32_t)ret);
+        }
+        return ret;
+    }
+
+    LE_DEBUG("ReadStatusByDtc: Get status(0x%x) for DTC0x%x", entity.GetStatus(), dtc);
+    status = entity.GetStatus();
+    occurCounter = entity.GetFaultOccurenceCounter();
+    activation = entity.GetActivation();
+    suppression = entity.GetSuppression();
+
+    return LE_OK;
+}
+
 le_result_t DtcEntityDao::ReadFaultDetectionCounter
 (
     taf_DataAccess_FDCInfoRec_t *fdcInfoRecPtr
@@ -515,7 +689,9 @@ le_result_t DtcEntityDao::WriteStatusByDtc
     le_result_t ret;
     DtcEntity entity;
 
-    if (ReadDtcCountByDtc(dtc) == 0)  // Not record
+    entity.SetDtc(dtc);
+    ret = QueryByKey(entity);
+    if (ret != LE_OK)  // Not record
     {
         // Insert.
         entity.SetDtc(dtc);
@@ -523,6 +699,8 @@ le_result_t DtcEntityDao::WriteStatusByDtc
         entity.SetFaultOccurenceCounter(0);
         entity.SetAgingCounter(0);
         entity.SetAgedCounter(0);
+        entity.SetActivation(1);
+        entity.SetSuppression(0);
         std::time_t now = std::time(nullptr);
         entity.SetCreateTime(now);
         entity.SetUpdateTime(now);
@@ -565,7 +743,9 @@ le_result_t DtcEntityDao::WriteStatusByDtc
     le_result_t ret;
     DtcEntity entity;
 
-    if (ReadDtcCountByDtc(dtc) == 0)  // Not record
+    entity.SetDtc(dtc);
+    ret = QueryByKey(entity);
+    if (ret != LE_OK)  // Not record
     {
         // Insert.
         entity.SetDtc(dtc);
@@ -573,6 +753,8 @@ le_result_t DtcEntityDao::WriteStatusByDtc
         entity.SetFaultOccurenceCounter(occurCounter);
         entity.SetAgingCounter(0);
         entity.SetAgedCounter(0);
+        entity.SetActivation(1);
+        entity.SetSuppression(0);
         std::time_t now = std::time(nullptr);
         entity.SetCreateTime(now);
         entity.SetUpdateTime(now);
@@ -615,7 +797,9 @@ le_result_t DtcEntityDao::WriteFaultDetectionCounterByDtc
     le_result_t ret;
     DtcEntity entity;
 
-    if (ReadDtcCountByDtc(dtc) == 0)
+    entity.SetDtc(dtc);
+    ret = QueryByKey(entity);
+    if (ret != LE_OK)  // Not found.
     {
         // Insert.
         entity.SetDtc(dtc);
@@ -623,6 +807,8 @@ le_result_t DtcEntityDao::WriteFaultDetectionCounterByDtc
         entity.SetFaultOccurenceCounter(fdc);
         entity.SetAgingCounter(0);
         entity.SetAgedCounter(0);
+        entity.SetActivation(1);
+        entity.SetSuppression(0);
         std::time_t now = std::time(nullptr);
         entity.SetCreateTime(now);
         entity.SetUpdateTime(now);
@@ -691,4 +877,240 @@ le_result_t DtcEntityDao::ClearDtcRecord
     }
 
     return LE_OK;
+}
+
+le_result_t DtcEntityDao::ReadActivationByDtc
+(
+    int32_t dtc,
+    int32_t& activation
+)
+{
+    le_result_t ret;
+    DtcEntity entity;
+
+    entity.SetDtc(dtc);
+    ret = QueryByKey(entity);
+    if (ret != LE_OK)
+    {
+        if (ret == LE_NOT_FOUND)
+        {
+            activation = 1;  // Default value is 1.
+        }
+        else
+        {
+            LE_ERROR("Failed to query entity by key. ret=%d", (int32_t)ret);
+        }
+        return ret;
+    }
+
+    LE_DEBUG("ReadStatusByDtc: Get activation(0x%x) for DTC0x%x", entity.GetActivation(), dtc);
+    activation = entity.GetActivation();
+
+    return LE_OK;
+}
+
+le_result_t DtcEntityDao::WriteActivationByDtc
+(
+    int32_t dtc,
+    int32_t activation
+)
+{
+    le_result_t ret;
+    DtcEntity entity;
+
+    entity.SetDtc(dtc);
+    ret = QueryByKey(entity);
+    if (ret != LE_OK)  // Not record
+    {
+        // Insert.
+        entity.SetDtc(dtc);
+        entity.SetStatus(0);
+        entity.SetFaultOccurenceCounter(0);
+        entity.SetAgingCounter(0);
+        entity.SetAgedCounter(0);
+        entity.SetActivation(activation);
+        entity.SetSuppression(0);
+        std::time_t now = std::time(nullptr);
+        entity.SetCreateTime(now);
+        entity.SetUpdateTime(now);
+
+        ret = Add(entity);
+        if (ret != LE_OK)
+        {
+            LE_ERROR("Failed to insert dtc0x%x with activation%x. ret=%d",
+                dtc, activation, (int32_t)ret);
+            return ret;
+        }
+    }
+    else
+    {
+        // Update.
+        entity.SetDtc(dtc);
+        entity.SetActivation(activation);
+        std::time_t now = std::time(nullptr);
+        entity.SetUpdateTime(now);
+
+        ret = Update(entity);
+        if (ret != LE_OK)
+        {
+            LE_ERROR("Failed to update dtc0x%x with activation%x. ret=%d",
+                dtc, activation, (int32_t)ret);
+            return ret;
+        }
+    }
+
+    return LE_OK;
+}
+
+le_result_t DtcEntityDao::ReadSuppressionByDtc
+(
+    int32_t dtc,
+    int32_t& suppression
+)
+{
+    le_result_t ret;
+    DtcEntity entity;
+
+    entity.SetDtc(dtc);
+    ret = QueryByKey(entity);
+    if (ret != LE_OK)
+    {
+        if (ret == LE_NOT_FOUND)
+        {
+            suppression = 0;  // Default value is 0.
+        }
+        else
+        {
+            LE_ERROR("Failed to query entity by key. ret=%d", (int32_t)ret);
+        }
+        return ret;
+    }
+
+    LE_DEBUG("ReadStatusByDtc: Get suppression(0x%x) for DTC0x%x", entity.GetSuppression(), dtc);
+    suppression = entity.GetSuppression();
+
+    return LE_OK;
+}
+
+le_result_t DtcEntityDao::WriteSuppressionByDtc
+(
+    int32_t dtc,
+    int32_t suppression
+)
+{
+    le_result_t ret;
+    DtcEntity entity;
+
+    entity.SetDtc(dtc);
+    ret = QueryByKey(entity);
+    if (ret != LE_OK)  // Not record
+    {
+        // Insert.
+        entity.SetDtc(dtc);
+        entity.SetStatus(0);
+        entity.SetFaultOccurenceCounter(0);
+        entity.SetAgingCounter(0);
+        entity.SetAgedCounter(0);
+        entity.SetActivation(1);
+        entity.SetSuppression(suppression);
+        std::time_t now = std::time(nullptr);
+        entity.SetCreateTime(now);
+        entity.SetUpdateTime(now);
+
+        ret = Add(entity);
+        if (ret != LE_OK)
+        {
+            LE_ERROR("Failed to insert dtc0x%x with suppression%x. ret=%d",
+                dtc, suppression, (int32_t)ret);
+            return ret;
+        }
+    }
+    else
+    {
+        // Update.
+        entity.SetDtc(dtc);
+        entity.SetSuppression(suppression);
+        std::time_t now = std::time(nullptr);
+        entity.SetUpdateTime(now);
+
+        ret = Update(entity);
+        if (ret != LE_OK)
+        {
+            LE_ERROR("Failed to update dtc0x%x with suppression0x%x. ret=%d",
+                dtc, suppression, (int32_t)ret);
+            return ret;
+        }
+    }
+
+    return LE_OK;
+}
+
+le_result_t DtcEntityDao::WriteAllSuppression
+(
+    int32_t suppression
+)
+{
+    std::stringstream ss;
+    ss << "UPDATE " << mFileName << " SET Suppression = " << suppression;
+    ss << " WHERE Suppression != " << suppression << ";";
+    std::string sql = ss.str();
+
+    le_result_t ret = mHandler->ExecRaw(sql);
+    if (ret != LE_OK)
+    {
+        LE_ERROR("Update suppression to %d failed.", suppression);
+        return ret;
+    }
+
+    return LE_OK;
+}
+
+std::vector<int32_t> DtcEntityDao::GetDTCWithUnsuppress
+(
+)
+{
+    std::stringstream ss;
+    std::vector<int32_t> dtcs;
+
+    ss << "WHERE " << mFileName << "." << "Suppression = " << 0;
+
+    std::string where = ss.str();
+    LE_DEBUG("GetDTCWithUnsuppress: where is %s", where.c_str());
+
+    DataStatement statement(Query(where));
+
+    while (statement.ExecuteRowStep())
+    {
+        int32_t dtc;
+
+        dtc = statement.GetColumnInt(0);
+        dtcs.push_back(dtc);
+    }
+
+    return dtcs;
+}
+
+std::vector<int32_t> DtcEntityDao::GetDTCWithSuppress
+(
+)
+{
+    std::stringstream ss;
+    std::vector<int32_t> dtcs;
+
+    ss << "WHERE " << mFileName << "." << "Suppression = " << 1;
+
+    std::string where = ss.str();
+    LE_DEBUG("GetDTCWithSuppress: where is %s", where.c_str());
+
+    DataStatement statement(Query(where));
+
+    while (statement.ExecuteRowStep())
+    {
+        int32_t dtc;
+
+        dtc = statement.GetColumnInt(0);
+        dtcs.push_back(dtc);
+    }
+
+    return dtcs;
 }

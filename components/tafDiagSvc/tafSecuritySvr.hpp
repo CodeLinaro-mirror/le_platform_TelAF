@@ -188,6 +188,9 @@ namespace telux {
                 le_result_t GetCurrentSesType(taf_diagSecurity_ServiceRef_t svcRef,
                         taf_diagSecurity_SessionType_t* currentTypePtr);
 
+                // internal function to get current session
+                le_result_t GetCurrentSession(uint8_t* currentSesPtr);
+
                 // SecurityAccess 0x11
                 static void RxSecAccessEventHandler(void* reportPtr);
                 taf_diagSecurity_RxSecAccessMsgHandlerRef_t AddRxSecAccessMsgHandler(
@@ -214,6 +217,9 @@ namespace telux {
                 // Send NRC response msg.
                 le_result_t SendNRCResp(uint8_t sid, taf_uds_AddrInfo_t*  addrInfoPtr,
                         uint8_t errCode);
+
+                //Send session control positive response internally.
+                le_result_t SendSesPositiveResp(taf_SesTypeRxMsg_t* rxSesTypePtr);
 
                 uint16_t logAddr;                   // Service logic address.
 

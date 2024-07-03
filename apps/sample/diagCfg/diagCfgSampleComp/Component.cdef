@@ -1,0 +1,12 @@
+sources:
+{
+    diagCfgSample.cpp
+}
+
+requires:
+{
+    component:
+    {
+        $TELAF_ROOT/components/tafDiagSvc/tafDiagCfg
+    }
+}

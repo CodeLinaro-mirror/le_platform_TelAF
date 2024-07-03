@@ -170,7 +170,6 @@ void EventEntityDao::BindValues
     std::time_t create = entity.GetCreateTime();
     if (create != 0)
     {
-
         tmPtr = std::localtime(&create);
         std::strftime(buf, EVENT_TIME_BUF_SIZE, "%Y-%m-%d %H:%M:%S", tmPtr);
 
@@ -225,7 +224,7 @@ void EventEntityDao::ReadEntity
     entity.SetEventStatus(statement.GetColumnInt(2));
     entity.SetTestFailedCounter(statement.GetColumnInt(3));
 
-    auto createTimePtr = reinterpret_cast<const char*>(statement.GetColumnText(5, nullptr));
+    auto createTimePtr = reinterpret_cast<const char*>(statement.GetColumnText(4, nullptr));
     if (createTimePtr == nullptr)
     {
         entity.SetCreateTime(0);
@@ -235,7 +234,7 @@ void EventEntityDao::ReadEntity
         entity.SetCreateTime(String2Time(createTimePtr));
     }
 
-    auto updateTimePtr = reinterpret_cast<const char*>(statement.GetColumnText(6, nullptr));
+    auto updateTimePtr = reinterpret_cast<const char*>(statement.GetColumnText(5, nullptr));
     if (updateTimePtr == nullptr)
     {
         entity.SetUpdateTime(0);
@@ -309,7 +308,7 @@ int32_t EventEntityDao::ReadEventCountByDtc
     ss << "WHERE " << mFileName << "." << "DTC=" << "'" << dtc << "'";
 
     std::string where = ss.str();
-    LE_DEBUG("ReadDtcCountByStatus: where is %s", where.c_str());
+    LE_DEBUG("ReadEventCountByDtc: where is %s", where.c_str());
 
     DataStatement statement(QueryCount(where));
     (void)statement.ExecuteRowStep();  // Cannot return false as this query always return a result.
@@ -569,14 +568,24 @@ le_result_t EventEntityDao::ClearEventRecordByDtc
 {
     le_result_t ret;
     EventEntity entity;
+    std::stringstream ss;
 
-    entity.SetEventDtc(dtc);
-    ret = Remove(entity);
-    if (ret != LE_OK)
+    ss << "WHERE " << mFileName << "." << "DTC=" << "'" << dtc << "'";
+
+    std::string where = ss.str();
+    LE_DEBUG("ClearEventRecordByDtc: where is %s", where.c_str());
+
+    DataStatement statement(Query(where));
+    while (statement.ExecuteRowStep())
     {
-        LE_ERROR("Failed to delete dtc0x%x record from event table. ret=%d",
-            dtc, (int32_t)ret);
-        return ret;
+        ReadEntity(statement, entity);
+        ret = Remove(entity);
+        if (ret != LE_OK)
+        {
+            LE_ERROR("Failed to delete dtc0x%x record from event table. ret=%d",
+                dtc, (int32_t)ret);
+            return ret;
+        }
     }
 
     return LE_OK;

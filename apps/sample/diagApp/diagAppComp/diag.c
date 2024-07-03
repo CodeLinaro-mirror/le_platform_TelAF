@@ -48,5 +48,6 @@ COMPONENT_INIT
     LE_FATAL_IF(diagRoutineControl_Init() != LE_OK, "diagRoutineControl_Init -> init failed");
 #endif
 
+    LE_FATAL_IF(diagDoIP_Init() != LE_OK, "diagDoIP_Init -> init failed");
     LE_INFO("%s [done]", __FUNCTION__);
 }

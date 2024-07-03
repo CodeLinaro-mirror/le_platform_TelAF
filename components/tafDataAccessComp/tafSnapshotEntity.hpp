@@ -31,70 +31,56 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef TAF_DTC_ENTITY_HPP
-#define TAF_DTC_ENTITY_HPP
+#ifndef TAF_SNAPSHOT_ENTITY_HPP
+#define TAF_SNAPSHOT_ENTITY_HPP
 #include <ctime>
 
 #include "legato.h"
 #include "interfaces.h"
+#include "tafDataAccessComp.h"
 
 namespace taf{
 namespace dataAccess{
 
-    class DtcEntity {
+    class SnapshotEntity {
         public:
-            DtcEntity();
-            DtcEntity(int32_t dtc);
-            DtcEntity(int32_t dtc, int32_t status, int32_t faultOccurCounter,
-                    int32_t agingCounter, int32_t agedCounter, std::time_t createTime,
-                    std::time_t updateTime, std::time_t testFailedTime, std::time_t confirmedTime);
-            ~DtcEntity() {};
+            SnapshotEntity();
+            SnapshotEntity(int32_t id);
+            SnapshotEntity(int32_t id, int32_t dtc, int32_t did, uint8_t didVal[],
+                    int32_t didValLen, int32_t recNum, std::time_t createTime,
+                    std::time_t updateTime);
+            ~SnapshotEntity() {};
+
+            int32_t GetId();
+            void SetId(int32_t id);
 
             int32_t GetDtc();
             void SetDtc(int32_t dtc);
 
-            int32_t GetStatus();
-            void SetStatus(int32_t status);
+            int32_t GetDid();
+            void SetDid(int32_t did);
 
-            int32_t GetFaultOccurenceCounter();
-            void SetFaultOccurenceCounter(int32_t counter);
+            void GetDidValue(uint8_t *didVal, int32_t &didValLen);
+            void SetDidValue(const uint8_t didVal[], int32_t didValLen);
 
-            int32_t GetAgingCounter();
-            void SetAgingCounter(int32_t counter);
-
-            int32_t GetAgedCounter();
-            void SetAgedCounter(int32_t counter);
-
-            int32_t GetActivation();
-            void SetActivation(int32_t activation);
-
-            int32_t GetSuppression();
-            void SetSuppression(int32_t suppression);
+            int32_t GetRecordNum();
+            void SetRecordNum(int32_t recNum);
 
             std::time_t GetCreateTime();
             void SetCreateTime(std::time_t time);
 
             std::time_t GetUpdateTime();
             void SetUpdateTime(std::time_t time);
-
-            std::time_t GetTestFailedTime();
-            void SetTestFailedTime(std::time_t time);
-
-            std::time_t GetConfirmedTime();
-            void SetConfirmedTime(std::time_t time);
         private:
-            // DTC entity table content.
-            int32_t mDtc = -1;  // Primary key.
-            int32_t mStatus = -1;
-            int32_t mFaultOccurCounter = -1;
-            int32_t mAgingCounter = -1;
-            int32_t mAgedCounter = -1;
-            int32_t mActivation = -1;
-            int32_t mSuppression = -1;
+            // Snapshot entity table content.
+            int32_t mId = -1;  // Primary key.
+            int32_t mDtc = -1;
+            int32_t mDid = -1;
+            uint8_t mDidVal[DATA_ACCESS_DID_DATA_SIZE_MAX];
+            int32_t mDidValLen = 0;
+            int32_t mRecNum = -1;
             std::time_t mCreateTime = 0;
             std::time_t mUpdateTime = 0;
-            std::time_t mTestFailedTime = 0;
-            std::time_t mConfirmedTime = 0;
     };
 }
 }

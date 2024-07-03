@@ -3058,6 +3058,8 @@ void tafMngdConnAdmin::EventL1ConnRecoverySchedule (uint8_t dataId)
         LE_INFO("Marking L1 recovery as interrupted and informing admin");
         // Set the internal state to data recovery canceled
         dataCtxPtr->adminState = MCS_RECOVERY_CANCELED_L1;
+        // Set the reconnected needed flag to TRUE
+        dataCtxPtr->needReConn = true;
         // Inform admin that L1 recovery is interrupted and to inform clients
         stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
         stateMachineEvt.dataId = dataCtxPtr->dataId;
@@ -3092,6 +3094,9 @@ void tafMngdConnAdmin::EventL1ConnRecoveryCancel(uint8_t dataId)
 
     // Set the internal state to data recovery failed
     dataCtxPtr->adminState = MCS_RECOVERY_CANCELED_L1;
+
+    // Set the reconnected needed flag to TRUE
+    dataCtxPtr->needReConn = true;
 
     // Inform admin that L1 recovery is interrupted and to inform clients
     stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
@@ -3132,6 +3137,9 @@ void tafMngdConnAdmin::EventL1ConnRecoveryCancelSync(uint8_t dataId)
 
     // Set the internal state to data recovery failed
     dataCtxPtr->adminState = MCS_RECOVERY_CANCELED_L1;
+
+    // Set the reconnected needed flag to TRUE
+    dataCtxPtr->needReConn = true;
 
     // Unblock the waiting API
     mngdConnAdmin.CmdSynchronousPromise.set_value(result);
@@ -3237,6 +3245,7 @@ void tafMngdConnAdmin::EventL1ConnRecoveryStart(uint8_t dataId)
     dataCtxPtr->isConnectivityRecoveryScheduled = false;
     // Mark that connectivity recovery was tried
     dataCtxPtr->wasL1ConnectivityRecoveryDone = true;
+
     // Set the reconnected needed flag to TRUE
     dataCtxPtr->needReConn = true;
 
@@ -3369,6 +3378,9 @@ void tafMngdConnAdmin::EventL2ConnRecoveryCancel(uint8_t dataId)
     // Set the internal state to data recovery failed
     dataCtxPtr->adminState = MCS_RECOVERY_CANCELED_L2;
 
+    // Set the reconnected needed flag to TRUE
+    dataCtxPtr->needReConn = true;
+
     // Inform admin that L1 recovery is interrupted and to inform clients
     stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
     stateMachineEvt.dataId = dataCtxPtr->dataId;
@@ -3408,6 +3420,9 @@ void tafMngdConnAdmin::EventL2ConnRecoveryCancelSync(uint8_t dataId)
 
     // Set the internal state to data recovery failed
     dataCtxPtr->adminState = MCS_RECOVERY_CANCELED_L2;
+
+    // Set the reconnected needed flag to TRUE
+    dataCtxPtr->needReConn = true;
 
     // Unblock the waiting API
     mngdConnAdmin.CmdSynchronousPromise.set_value(result);
@@ -3556,6 +3571,8 @@ void tafMngdConnAdmin::EventL2ConnRecoveryStart(uint8_t dataId)
             LE_WARN("Restart NAD request failed: %d", result);
             // Update admin state that L2 recovery has failed
             dataCtxPtr->adminState = MCS_RECOVERY_FAILED_L2;
+            // Set the reconnected needed flag to TRUE
+            dataCtxPtr->needReConn = true;
             // Inform admin that L2 recovery is interrupted
             stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
             stateMachineEvt.dataId = dataCtxPtr->dataId;
@@ -3579,6 +3596,8 @@ void tafMngdConnAdmin::EventL2ConnRecoveryStart(uint8_t dataId)
         LE_INFO("Mark L2 recovery as interrupted and inform admin");
         // Update admin state that L2 recovery has failed
         dataCtxPtr->adminState = MCS_RECOVERY_FAILED_L2;
+        // Set the reconnected needed flag to TRUE
+        dataCtxPtr->needReConn = true;
         // Inform admin that L2 recovery is interrupted
         stateMachineEvent_t stateMachineEvt = {MCS_EVT_INIT, 0};
         stateMachineEvt.dataId = dataCtxPtr->dataId;

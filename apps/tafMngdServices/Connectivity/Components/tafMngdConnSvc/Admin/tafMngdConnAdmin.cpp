@@ -1671,13 +1671,15 @@ void tafMngdConnAdmin::EventDataConnectedActive(uint8_t dataId)
         return;
     }
     dataCtxPtr->wasL1ConnectivityRecoveryDone = false;
-
-    // Start the Periodic Connection Test timer
-    LE_INFO("Periodic Connection Test Interval: %d ms",
-                dataCtxPtr->conn_periodic_test_interval*1000);
-    le_timer_SetMsInterval(dataCtxPtr->periodicConnectivityTestTimerRef,
-                dataCtxPtr->conn_periodic_test_interval*1000);
-    le_timer_Start(dataCtxPtr->periodicConnectivityTestTimerRef);
+    // Start the Periodic Connection Test timer if URL is not null
+    if(dataCtxPtr->conn_periodic_test_url[0] != '\0')
+    {
+        LE_INFO("Periodic Connection Test Interval: %d ms",
+                    dataCtxPtr->conn_periodic_test_interval*1000);
+        le_timer_SetMsInterval(dataCtxPtr->periodicConnectivityTestTimerRef,
+                    dataCtxPtr->conn_periodic_test_interval*1000);
+        le_timer_Start(dataCtxPtr->periodicConnectivityTestTimerRef);
+    }
 
 }
 
@@ -2459,22 +2461,20 @@ le_result_t tafMngdConnAdmin::InitializeStates()
             dataId = Configuration.Data[dataIdx].ID;
             autoStart = Configuration.Data[dataIdx].AutoStart;
             profileNumber = Configuration.Data[dataIdx].Profile.ProfileNumber;
-            if(Configuration.Data[dataIdx].DataName != NULL)
+            LE_DEBUG("The data name is %s", Configuration.Data[dataIdx].DataName);
+            le_utf8_Copy(dataName,Configuration.Data[dataIdx].DataName,
+                         MCS_MAX_NAME_LEN,NULL);
+
+            if(Configuration.Data[dataIdx].DataStartConnectionTest.URL[0] != '\0')
             {
-                LE_DEBUG("The data name is %s", Configuration.Data[dataIdx].DataName);
-                le_utf8_Copy(dataName,Configuration.Data[dataIdx].DataName,
-                             MCS_MAX_NAME_LEN,NULL);
-            }
-            if(Configuration.Data[dataIdx].DataStartConnectionTest.URL != NULL)
-            {
-                LE_INFO("Setting the url for testing");
+                LE_DEBUG("Setting the url for testing");
                 le_utf8_Copy(conn_test_url,Configuration.Data[dataIdx].DataStartConnectionTest.URL,
                     MCS_MAX_CONNECTION_URL_LEN,NULL);
             }
 
             if(Configuration.Data[dataIdx].DataStartConnectionTest.IPv4[0] != '\0')
             {
-                LE_INFO("Setting the ipv4 for testing");
+                LE_DEBUG("Setting the ipv4 for testing");
                 le_utf8_Copy(conn_test_ipv4Addr,
                             Configuration.Data[dataIdx].DataStartConnectionTest.IPv4,
                             MCS_MAX_IPV4_LEN,NULL);
@@ -2572,9 +2572,12 @@ le_result_t tafMngdConnAdmin::InitializeStates()
             dataCtxPtr->maxdataRetryCount = Configuration.Data[dataIdx].DataStartRetry.RetryCount;
             dataCtxPtr->dataRetry = Configuration.Data[dataIdx].DataStartRetry.Enable;
 
-            le_utf8_Copy(dataCtxPtr->conn_periodic_test_url,
-                    Configuration.Data[dataIdx].PeriodicConnectivityCheck.URL,
-                    MCS_MAX_CONNECTION_URL_LEN,NULL);
+            if(Configuration.Data[dataIdx].PeriodicConnectivityCheck.URL[0] != '\0')
+            {
+                le_utf8_Copy(dataCtxPtr->conn_periodic_test_url,
+                Configuration.Data[dataIdx].PeriodicConnectivityCheck.URL,
+                MCS_MAX_CONNECTION_URL_LEN,NULL);
+            }
 
             dataCtxPtr->conn_periodic_test_interval =
                                 Configuration.Data[dataIdx].PeriodicConnectivityCheck.Interval;

@@ -62,9 +62,19 @@
  *
  * @section c_taf_ks_key_management Key management
  *
- * A new key can be created using taf_ks_CreateKey() with the desired key name and key usage passed
- * as input parameters. A key reference output parameter is returned to the client for subsequent
+ * The key is identified by key ID which is a unique string within an application. Key ID shall follow
+ * POSIX portable file name format, that is only characters in [A-Za-z0-9._-] are allowed to be used.
+ *
+ * A new key can be created using API taf_ks_CreateKey() with the desired key ID and key usage as
+ * input parameters. A key reference is then returned to the calling application for subsequent
  * operations.
+ *
+ * The key name passed to API taf_ks_GetKey() shall follow the format of "[appName::]<keyId>", where
+ * the "[appName::]" is optional and only needed when the calling application wants to get another
+ * application's key if the key owner application has shared that key to the calling application.
+ * For example, if the calling application gets its own key ID "myKey1", the key name is "myKey1".
+ * If the calling application gets the Key ID "myKey2" of application "app2", then the key name is
+ * "app2::myKey2".
  *
  * New keys initially have no value and cannot be used for any cryptographic operations. Applications
  * shall call taf_ks_ProvisionXXX() API to provision or import the key value and save the key into backend
@@ -91,23 +101,6 @@
  *
  * @note A key only allows one-shot provisioning after creation.
  *
- * Optionally, application can call taf_ks_SetKeyXXX() to set the attribute of key access control
- * before key provisioning. The following key access control APIs are supported.
- * - taf_ks_SetKeyMaxUsesPerBoot() -- Sets the maximum number of times that a key can be used per
- *   system boot.
- * - taf_ks_SetKeyMinSecondsBetweenOps() -- Sets the minimum amount of time that elapses between
- *   allowed cryptographic operations using a key.
- * - taf_ks_SetKeyActiveDateTime() -- Sets the date and time at which the key becomes active. Prior to
- *   this time any attempt to use the key will fail.
- * - taf_ks_SetKeyOriginationExpireDateTime() -- Sets the date and time at which the key expires for
- *   signing and encryption. After this time any attempt to use a key for signing or encryption will
- *   fail.
- * - taf_ks_SetKeyUsageExpireDateTime() -- Sets the date and time at which the key expires for
- *   verification and decryption. After this time any attempt to use a key for verification and
- *   decryption will fail.
- *
- * @note The key access control APIs are not currently implemented.
- *
  * Call taf_ks_GetKey() to get a key reference by the key name and call taf_ks_GetKeyUsage() to get the key
  * usage by the key reference.
  *
@@ -120,7 +113,7 @@
  * @section c_taf_ks_crypto_operation Cryptographic operation
  *
  * The typical use cases are data encryption/decryption and message signing/verification. Each
- * cryptographic operation must be processed within a context. A cryptographic session bound to the 
+ * cryptographic operation must be processed within a context. A cryptographic session bound to the
  * context must be created to use a key for certain cryptographic operations.
  *
  * @subsection c_taf_ks_create_session Create and start context session
@@ -131,7 +124,7 @@
  *
  * Call taf_ks_CryptoSessionStart() to start the session.
  *
- * The following example illustrates how to create a cryptographic session and start the session for 
+ * The following example illustrates how to create a cryptographic session and start the session for
  * data encryption.
  * @code
    taf_ks_CryptoSessionRef_t sessionRef;
@@ -225,6 +218,18 @@ DEFINE MAX_AES_NONCE_SIZE = 16;
 //--------------------------------------------------------------------------------------------------
 DEFINE MIN_HMAC_KEY_SIZE = 8;
 DEFINE MAX_HMAC_KEY_SIZE = 128;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Key sharing state enum
+ */
+//--------------------------------------------------------------------------------------------------
+ENUM SharingState
+{
+    SHARING_DISABLED,  ///< Key sharing is disabled.
+    SHARING_ENABLED,   ///< key sharing is enabled.
+    SHARING_UPDATED,   ///< key sharing is updated.
+};
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -410,7 +415,7 @@ REFERENCE CryptoSession;
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t CreateKey
 (
-    string   keyName[MAX_KEY_ID_SIZE] IN, ///< Key name.
+    string   keyId[MAX_KEY_ID_SIZE]   IN, ///< Key ID.
     KeyUsage keyUsage                 IN, ///< Key usage.
     Key      keyRef                   OUT ///< Key reference.
 );
@@ -422,7 +427,8 @@ FUNCTION le_result_t CreateKey
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Bad parameters.
- *     - LE_NOT_FOUND -- The key does not exist or is not provisioned.
+ *     - LE_NOT_FOUND -- The key does not exist, is not provisioned or is not shared to the
+ *       calling application.
  *     - LE_FAULT -- Error.
  */
 //--------------------------------------------------------------------------------------------------
@@ -439,7 +445,8 @@ FUNCTION le_result_t GetKey
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_NOT_FOUND -- Key does not exist.
- *     - LE_NOT_PERMITTED -- Key has a running cryptography session.
+ *     - LE_NOT_PERMITTED -- Key has running cryptography sessions or calling application is not
+ *       the key owner.
  *     - LE_FAULT -- Error.
  */
 //--------------------------------------------------------------------------------------------------
@@ -452,10 +459,15 @@ FUNCTION le_result_t DeleteKey
 /**
  * Gets a key's usage.
  *
+ * For the calling application's own key, returns the real key usage. For shared key from another
+ * application, returns the key capability that is shared to the calling application.
+ *
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Bad parameters.
  *     - LE_NOT_FOUND -- Key does not exist.
+ *     - LE_NOT_PERMITTED -- Calling application is not the key owner or the key is not shared to
+ *       the calling application.
  *     - LE_FAULT -- Error.
  */
 //--------------------------------------------------------------------------------------------------
@@ -468,6 +480,8 @@ FUNCTION le_result_t GetKeyUsage
 //--------------------------------------------------------------------------------------------------
 /**
  * Sets the maximum number of times a key may be used between system reboots.
+ *
+ * This API is not implemented yet.
  *
  * @return
  *     - LE_OK -- Succeeded.
@@ -485,6 +499,8 @@ FUNCTION le_result_t SetKeyMaxUsesPerBoot
 /**
  * Sets the minimum amount of time that elapses between allowed operations using a key.
  *
+ * This API is not implemented yet.
+ *
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_NOT_FOUND -- Key does not exist.
@@ -500,6 +516,8 @@ FUNCTION le_result_t SetKeyMinSecondsBetweenOps
 //--------------------------------------------------------------------------------------------------
 /**
  * Sets application data to the key.
+ *
+ * This API is not implemented yet.
  *
  * When this attribute is provided to the key, the same data must be also provided through
  * taf_ks_CryptoSessionSetAppData() for each cryptographic operation using the key.
@@ -519,8 +537,10 @@ FUNCTION le_result_t SetKeyAppData
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets the date and time at which the key becomes active. Any attempt to use the key 
+ * Sets the date and time at which the key becomes active. Any attempt to use the key
  * prior to this time will fail.
+ *
+ * This API is not implemented yet.
  *
  * @return
  *     - LE_OK -- Succeeded.
@@ -536,8 +556,10 @@ FUNCTION le_result_t SetKeyActiveDateTime
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets the date and time at which the key expires for signing and encryption. Any attempt to use 
+ * Sets the date and time at which the key expires for signing and encryption. Any attempt to use
  * a key for signing or encryption after this time will fail.
+ *
+ * This API is not implemented yet.
  *
  * @return
  *     - LE_OK -- Succeeded.
@@ -553,8 +575,10 @@ FUNCTION le_result_t SetKeyOriginationExpireDateTime
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets the date and time at which the key expires for verification and decryption. 
+ * Sets the date and time at which the key expires for verification and decryption.
  * Any attempt to use a key for verification and decryption after this time will fail.
+ *
+ * This API is not implemented yet.
  *
  * @return
  *     - LE_OK -- Succeeded.
@@ -579,7 +603,7 @@ FUNCTION le_result_t SetKeyUsageExpireDateTime
  *     - LE_BAD_PARAMETER -- Bad parameters.
  *     - LE_NOT_FOUND -- Key does not exist.
  *     - LE_NOT_PERMITTED -- Key is already provisioned, is not suitable for this
- *       provision, or is not created by the client.
+ *       provision or calling application is not the key owner.
  *     - LE_FAULT -- Error.
  */
 //--------------------------------------------------------------------------------------------------
@@ -603,7 +627,7 @@ FUNCTION le_result_t ProvisionRsaEncKeyValue
  *     - LE_BAD_PARAMETER -- Bad parameters.
  *     - LE_NOT_FOUND -- Key does not exist.
  *     - LE_NOT_PERMITTED -- Key is already provisioned, is not suitable for this
- *       provision, or is not created by the client.
+ *       provision or calling application is not the key owner.
  *     - LE_FAULT -- Error.
  */
 //--------------------------------------------------------------------------------------------------
@@ -627,7 +651,7 @@ FUNCTION le_result_t ProvisionRsaSigKeyValue
  *     - LE_BAD_PARAMETER -- Bad parameters.
  *     - LE_NOT_FOUND -- Key does not exist.
  *     - LE_NOT_PERMITTED -- Key is already provisioned, is not suitable for this
- *       provision, or is not created by the client.
+ *       provision or calling application is not the key owner.
  *     - LE_FAULT -- Error.
  */
 //--------------------------------------------------------------------------------------------------
@@ -651,7 +675,7 @@ FUNCTION le_result_t ProvisionEcdsaKeyValue
  *     - LE_BAD_PARAMETER -- Bad parameters.
  *     - LE_NOT_FOUND -- Key does not exist.
  *     - LE_NOT_PERMITTED -- Key is already provisioned, is not suitable for this
- *       provision, or is not created by the client.
+ *       provision or calling application is not the key owner.
  *     - LE_FAULT -- Error.
  */
 //--------------------------------------------------------------------------------------------------
@@ -675,7 +699,7 @@ FUNCTION le_result_t ProvisionAesKeyValue
  *     - LE_BAD_PARAMETER -- Bad parameters.
  *     - LE_NOT_FOUND -- Key does not exist.
  *     - LE_NOT_PERMITTED -- Key is already provisioned, is not suitable for this
- *       provision, or is not created by the client.
+ *       provision or calling application is not the key owner.
  *     - LE_FAULT -- Error.
  */
 //--------------------------------------------------------------------------------------------------
@@ -699,7 +723,8 @@ FUNCTION le_result_t ProvisionHmacKeyValue
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Bad parameter(s).
  *     - LE_NOT_FOUND -- Key does not exist.
- *     - LE_NOT_PERMITTED -- Key is not provisioned or the key is not created by the client.
+ *     - LE_NOT_PERMITTED -- Key is not provisioned, is not shared to the calling application or
+ *       calling application is not the key owner.
  *     - LE_FAULT -- Error.
  */
 //--------------------------------------------------------------------------------------------------
@@ -712,13 +737,130 @@ FUNCTION le_result_t ExportKey
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Shares a key to another application to use. Key sharing is persistent until cancelled by API
+ * taf_ks_CancelKeySharing().
+ *
+ * The keyCap provides the key capability that is shared to use. It must match the real key usage
+ * of the key. For example if real key usage is "TAF_KS_RSA_ENCRYPT_DECRYPT", then the capability
+ * of "TAF_KS_RSA_ENCRYPT_DECRYPT", "TAF_KS_RSA_ENCRYPT_ONLY" or "TAF_KS_RSA_DECRYPT_ONLY"
+ * is allowed to share. If the real key usage is "TAF_KS_RSA_DECRYPT_ONLY", then only capability
+ * "TAF_KS_RSA_DECRYPT_ONLY" is allowed to share.
+ *
+ * Only the key owner app can share the key after provisioning. One key can be shared to at most
+ * 5 applications to use.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Bad parameter(s).
+ *     - LE_NOT_FOUND -- Key does not exist.
+ *     - LE_NOT_PERMITTED -- Key is not provisioned or calling application is not the key owner.
+ *     - LE_FAULT -- Error.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ShareKey
+(
+    Key    keyRef                         IN, ///< Key reference.
+    KeyUsage keyCap                       IN, ///< key capability shared to use.
+    string appName[le_limit.APP_NAME_LEN] IN  ///< Name of the app that the key is shared to.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Cancels the key sharing. Only the key owner app can cancel the key sharing.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Bad parameter(s).
+ *     - LE_NOT_FOUND -- Key does not exist.
+ *     - LE_NOT_PERMITTED -- Key is not provisioned, is not shared to the given application before,
+ *       calling application is not the key owner, or the shared application has running crypto
+ *       sessions for the key.
+ *     - LE_FAULT -- Error.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t CancelKeySharing
+(
+    Key    keyRef                         IN, ///< Key reference.
+    string appName[le_limit.APP_NAME_LEN] IN  ///< Name of the app that the key is shared to before.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the first application that the given key is shared to.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Bad parameter(s).
+ *     - LE_NOT_FOUND -- Key does not exist.
+ *     - LE_NOT_PERMITTED -- Key is not provisioned or calling application is not the key owner.
+ *     - LE_FAULT -- Error.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetFirstSharedApp
+(
+    Key    keyRef                         IN, ///< Key reference.
+    string appName[le_limit.APP_NAME_LEN] OUT ///< Name of the app that the key is shared to.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Gets the next application that the given key is shared to.
+ *
+ * @return
+ *     - LE_OK -- Succeeded.
+ *     - LE_BAD_PARAMETER -- Bad parameter(s).
+ *     - LE_NOT_FOUND -- Key does not exist.
+ *     - LE_NOT_PERMITTED -- Key is not provisioned or calling application is not the key owner.
+ *     - LE_FAULT -- Error.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetNextSharedApp
+(
+    Key    keyRef                         IN, ///< Key reference.
+    string appName[le_limit.APP_NAME_LEN] OUT ///< Name of the app that the key is shared to.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for key sharing assignment.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+HANDLER KeySharingHandler
+(
+    string keyId[MAX_KEY_ID_SIZE]          IN, ///< Key ID.
+    string appName[le_limit.APP_NAME_LEN]  IN, ///< Key owner application name.
+    SharingState state                     IN  ///< Sharing state.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * This event provides information when a key of another application is shared to the calling
+ * application.
+ *
+ * The handler will be also triggered on registration if the required key is already shared to the
+ * calling application before or the key capability shared is updated.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+EVENT KeySharing
+(
+    string keyId[MAX_KEY_ID_SIZE]          IN,  ///< Key ID.
+    string appName[le_limit.APP_NAME_LEN]  IN,  ///< Key owner app.
+    KeySharingHandler handler              IN   ///< Handler is called when the required key of the
+                                                ///< application shared to the calling application.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Creates a cryptographic operation session for a key.
  *
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Bad parameters.
  *     - LE_NOT_FOUND -- Key does not exist.
- *     - LE_NOT_PERMITTED -- Key is not provisioned.
+ *     - LE_NOT_PERMITTED -- Key is not provisioned, is not shared to the calling application or
+ *       calling application is not key owner.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t CryptoSessionCreate
@@ -729,15 +871,16 @@ FUNCTION le_result_t CryptoSessionCreate
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Sets the nonce or IVs for AES GCM, CBC, CTR for a cryptographic session. For AES GCM the nonce 
+ * Sets the nonce or IVs for AES GCM, CBC, CTR for a cryptographic session. For AES GCM the nonce
  * size must be 12 bytes, for AES CBC, CTR the IV must be 16 bytes.
+ *
+ * This API must be called before taf_ks_CryptoSessionStart().
  *
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Bad parameters.
- *     - LE_NOT_FOUND -- Session or key does not exist.
- *     - LE_NOT_PERMITTED -- Key is not provisioned or the session is not created by the
- *       client.
+ *     - LE_NOT_FOUND -- Session does not exist.
+ *     - LE_NOT_PERMITTED -- Session is already started or calling application is not session owner.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t CryptoSessionSetAesNonce
@@ -753,12 +896,13 @@ FUNCTION le_result_t CryptoSessionSetAesNonce
  * This API must be called before taf_ks_CryptoSessionStart() if the key has set the attribute of
  * application data by taf_ks_SetKeyAppData().
  *
+ * This API is not implemented yet.
+ *
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Bad parameters.
- *     - LE_NOT_FOUND -- Session or key does not exist.
- *     - LE_NOT_PERMITTED -- Key is not provisioned or the session is not created by the
- *       client.
+ *     - LE_NOT_FOUND -- Session does not exist.
+ *     - LE_NOT_PERMITTED -- Session is already started or calling application is not session owner.
  */
 //--------------------------------------------------------------------------------------------------
 FUNCTION le_result_t CryptoSessionSetAppData
@@ -775,9 +919,8 @@ FUNCTION le_result_t CryptoSessionSetAppData
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Bad parameters.
- *     - LE_NOT_FOUND -- Session or key does not exist.
- *     - LE_NOT_PERMITTED -- Key is not provisioned or the session is not created by the
- *       client.
+ *     - LE_NOT_FOUND -- Session does not exist.
+ *     - LE_NOT_PERMITTED -- Calling application is not session owner.
  *     - LE_DUPLICATE -- Session is already started.
  *     - LE_FAULT -- Error.
  */
@@ -797,9 +940,8 @@ FUNCTION le_result_t CryptoSessionStart
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Bad parameters.
- *     - LE_NOT_FOUND -- Session or key does not exist.
- *     - LE_NOT_PERMITTED -- Key is not provisioned, the session is not created by the
- *       client, or the session is not started.
+ *     - LE_NOT_FOUND -- Session does not exist.
+ *     - LE_NOT_PERMITTED -- Session is not started or calling application is not session owner.
  *     - LE_FAULT -- Error.
  */
 //--------------------------------------------------------------------------------------------------
@@ -818,9 +960,8 @@ FUNCTION le_result_t CryptoSessionProcessAead
  * @return
  *     - LE_OK -- Succeeded.
  *     - LE_BAD_PARAMETER -- Bad parameters.
- *     - LE_NOT_FOUND -- Session or the key does not exist.
- *     - LE_NOT_PERMITTED -- Key is not provisioned, the session is not created by the
- *       client, or the session is not started.
+ *     - LE_NOT_FOUND -- Session does not exist.
+ *     - LE_NOT_PERMITTED -- Session is not started or calling application is not session owner.
  *     - LE_FAULT -- Error.
  */
 //--------------------------------------------------------------------------------------------------
@@ -841,15 +982,14 @@ FUNCTION le_result_t CryptoSessionProcess
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Finalizes the cryptographic session started with taf_ks_CryptoSessionStart(). 
+ * Finalizes the cryptographic session started with taf_ks_CryptoSessionStart().
  * This API shall be called once all input data is processed by taf_ks_CryptoSessionProcess().
  * The cryptographic session will be deleted automatically.
  *
  * @return
  *     - LE_OK -- Succeeded.
- *     - LE_NOT_FOUND -- Session or key does not exist.
- *     - LE_NOT_PERMITTED -- Key is not provisioned, the session is not created by the
- *       client, or the session is not started.
+ *     - LE_NOT_FOUND -- Session does not exist.
+ *     - LE_NOT_PERMITTED -- Session is not started or calling application is not session owner.
  *     - LE_FAULT -- Error.
  */
 //--------------------------------------------------------------------------------------------------
@@ -872,9 +1012,8 @@ FUNCTION le_result_t CryptoSessionEnd
  *
  * @return
  *     - LE_OK -- Succeeded.
- *     - LE_NOT_FOUND -- Session or key does not exist.
- *     - LE_NOT_PERMITTED -- Key is not provisioned, the session is not created by the
- *       client, or the session is not started.
+ *     - LE_NOT_FOUND -- Session does not exist.
+ *     - LE_NOT_PERMITTED -- Session is not started or calling application is not session owner.
  *     - LE_FAULT -- Error.
  */
 //--------------------------------------------------------------------------------------------------

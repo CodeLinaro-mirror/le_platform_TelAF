@@ -486,8 +486,6 @@ void tafMngdPMSvc::NodeEventCB
     const char* pm_node_event_info
 )
 {
-    auto &mpms = tafMngdPMSvc::GetInstance();
-
     LE_INFO("NodeEventCB for node %d with node info %s", pm_node_id, pm_node_event_info);
     le_result_t res = LE_FAULT;
     if(strncmp(pm_node_event_info, RELAX, strlen(RELAX)) == 0)
@@ -497,14 +495,11 @@ void tafMngdPMSvc::NodeEventCB
             return;
         }
 
-        if(mpms.wsCount > 0) {
-            mpms.wsCount--;
-            res = tafMngdPMSvc::ReleaseWakeLock();
-            if(res == LE_OK)
-            {
-                LE_INFO(" ReleaseWakeLock successfull");
-                tafMngdPMSvc::ProcessStateChange(TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE);
-            }
+        res = tafMngdPMSvc::ReleaseWakeLock();
+        if(res == LE_OK)
+        {
+            LE_INFO(" ReleaseWakeLock successfull");
+            tafMngdPMSvc::ProcessStateChange(TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE);
         }
     }
     else if(strncmp(pm_node_event_info, STAYAWAKE, strlen(STAYAWAKE)) == 0)
@@ -514,7 +509,6 @@ void tafMngdPMSvc::NodeEventCB
             return;
         }
 
-        mpms.wsCount++;
         res = tafMngdPMSvc::AcquireWakeLock();
         if(res == LE_OK)
         {
@@ -702,7 +696,7 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
             }
         }
     }
-    else if (state == TAF_PM_STATE_ALL_ACKED)
+    else if ((state == TAF_PM_STATE_ALL_ACKED) && (pmInf) && (pmInf->nodeStateChangeReqAsync))
     {
         if(powerMode.isGraceful)
         {
@@ -731,7 +725,7 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
         powerStateChange.state = TAF_MNGDPM_NODE_STATE_SUSPEND_PREPARE;
         le_event_Report(nodePowerStateChange, &powerStateChange, sizeof(taf_mngdPm_NodePowerStateChange_t));
 
-        if(pmInf)
+        if(pmInf && pmInf->nodeStateChangeNotification)
         {
             LE_DEBUG("Send state change notification %d", HAL_PM_NODE_STATE_SUSPEND);
             (*(pmInf->nodeStateChangeNotification))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_SUSPEND,
@@ -745,7 +739,7 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
         {
              powerStateChange.state = TAF_MNGDPM_NODE_STATE_RESTART_PREPARE;
              le_event_Report(nodePowerStateChange, &powerStateChange, sizeof(taf_mngdPm_NodePowerStateChange_t));
-             if(pmInf)
+             if(pmInf && pmInf->nodeStateChangeNotification)
              {
                  LE_DEBUG("Send state change notification %d", HAL_PM_NODE_STATE_RESTART);
                  (*(pmInf->nodeStateChangeNotification))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_RESTART,
@@ -756,7 +750,7 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
         {
              powerStateChange.state = TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE;
              le_event_Report(nodePowerStateChange, &powerStateChange, sizeof(taf_mngdPm_NodePowerStateChange_t));
-             if(pmInf)
+             if(pmInf && pmInf->nodeStateChangeNotification)
              {
                  LE_DEBUG("Send state change notification %d", HAL_PM_NODE_STATE_SHUTDOWN);
                  (*(pmInf->nodeStateChangeNotification))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_SHUTDOWN,
@@ -770,7 +764,7 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
         powerStateChange.state = TAF_MNGDPM_NODE_STATE_RESUME;
         le_event_Report(nodePowerStateChange, &powerStateChange, sizeof(taf_mngdPm_NodePowerStateChange_t));
 
-        if(pmInf)
+        if(pmInf && pmInf->nodeStateChangeNotification)
         {
             LE_DEBUG("Send state change notification %d", HAL_PM_NODE_STATE_RESUME);
             (*(pmInf->nodeStateChangeNotification))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_RESUME,
@@ -838,7 +832,6 @@ void tafMngdPMSvc::WaitWakeSourceTimer()
     le_timer_SetMsInterval(wakeSourceTimerRef, VHAL_WAKESOURCE_TIMEOUT);
     le_timer_SetHandler(wakeSourceTimerRef, WakeSourceTimerHandler);
     //acquire wakesource
-    wsCount++;
     res = AcquireWakeLock();
     if(res == LE_OK) {
         LE_INFO("acquired wake lock after init");
@@ -853,13 +846,9 @@ void tafMngdPMSvc::WaitWakeSourceTimer()
 void tafMngdPMSvc::WakeSourceTimerHandler(le_timer_Ref_t timerRef)
 {
     LE_INFO("Timer Expired for WakeSourceTimerHandler");
-    wsCount--;
-    if(wsCount == 0)
-    {
-        le_result_t res = ReleaseWakeLock();
-        if(res == LE_OK)
-            LE_INFO("Triggered suspend after 10sec wait to acquire wakesource from apps");
-    }
+    le_result_t res = ReleaseWakeLock();
+    if(res == LE_OK)
+        LE_INFO("Triggered suspend after 10sec wait to acquire wakesource from apps");
 }
 
 /**
@@ -905,8 +894,8 @@ le_result_t tafMngdPMSvc::AcquireWakeLock()
         LE_INFO("acquired wake source when timer is running");
         return LE_OK;
     }
-    le_result_t res;
-    if(wsCount > 0 ) {
+    le_result_t res = LE_FAULT;
+    if(wsCount == 0) {
         if(ws == nullptr)
             ws = taf_pm_NewWakeupSource(WAKELOCK_WITHOUT_REF, "mpms");
         if (ws != nullptr && !powerMode.isWsAcquired)
@@ -915,17 +904,25 @@ le_result_t tafMngdPMSvc::AcquireWakeLock()
             if(res == LE_OK) {
                 LE_INFO("Wake source from PM acquired successfully");
                 powerMode.isWsAcquired = true;
-                return res;
+                wsCount++;
             }
             else
+            {
                 LE_INFO("failed to acquire ws");
+            }
         }
         else
         {
             LE_ERROR("Failed to create wakeup source!");
         }
     }
-    return LE_FAULT;
+    else
+    {
+        LE_INFO("Wake source from PM acquired successfully");
+        wsCount++;
+        res = LE_OK;
+    }
+    return res;
 }
 
 /**
@@ -936,20 +933,33 @@ le_result_t tafMngdPMSvc::ReleaseWakeLock()
     LE_INFO("ReleaseWakeLock wsCount:%d", wsCount);
 
     le_result_t res = LE_FAULT;
-    if(wsCount == 0 ) {
-        if (ws != nullptr && powerMode.isWsAcquired)
+    if(wsCount > 0 )
+    {
+        LE_INFO("Wake source released successfully");
+        wsCount--;
+        res = LE_OK;
+        if(wsCount == 0 )
         {
-            res = taf_pm_Relax(ws);
-            if(res == LE_OK) {
-                LE_INFO("Wake source released successfully");
-                powerMode.isWsAcquired = false;
+            if (ws != nullptr && powerMode.isWsAcquired)
+            {
+                res = taf_pm_Relax(ws);
+                if(res == LE_OK) {
+                    LE_INFO("Wake source released successfully");
+                    powerMode.isWsAcquired = false;
+                }
+            }
+            else
+            {
+                LE_ERROR("Failed to release wakeup lock!");
+                res = LE_FAULT;
             }
         }
-        else
-        {
-            LE_ERROR("Failed to release wakeup lock!");
-        }
     }
+    else
+    {
+        LE_ERROR("No wakeup lock acquired to release !");
+    }
+
     return res;
 }
 

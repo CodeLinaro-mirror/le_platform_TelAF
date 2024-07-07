@@ -94,6 +94,23 @@ le_result_t taf_flash_MtdOpen
 
     TAF_ERROR_IF_RET_VAL(partitionRef == NULL, LE_BAD_PARAMETER, "Null ptr(partitionRef)");
 
+    mode_t openMode = 0;
+    switch (mode)
+    {
+        case TAF_FLASH_READ_ONLY:
+            openMode = O_RDONLY;
+            break;
+        case TAF_FLASH_WRITE_ONLY:
+            openMode = O_WRONLY;
+            break;
+        case TAF_FLASH_READ_WRITE:
+            openMode = O_RDWR;
+            break;
+        default:
+            LE_ERROR("Unable to open with mode 0x%04x.", openMode);
+            return LE_BAD_PARAMETER;
+    }
+
     string partitionStr(partitionNameStr);
     auto &tafFlashAccess = taf_FlashAccess::GetInstance();
     auto it = tafFlashAccess.partitionMap.find(partitionStr);
@@ -101,7 +118,7 @@ le_result_t taf_flash_MtdOpen
         "Invalid partition name %s.", partitionNameStr);
 
     le_result_t result = taf_lib_flash_OpenPartition(
-        &tafFlashAccess.partitionList.partition[it->second], O_RDWR);
+        &tafFlashAccess.partitionList.partition[it->second], openMode);
     TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to open partition %s", partitionNameStr);
 
     *partitionRef = (taf_flash_PartitionRef_t)le_ref_CreateRef(tafFlashAccess.partitionRefMap,
@@ -457,6 +474,23 @@ le_result_t taf_flash_UbiOpen
 
     TAF_ERROR_IF_RET_VAL(volumeRef == NULL, LE_BAD_PARAMETER, "Null ptr(volumeRef)");
 
+    mode_t openMode = 0;
+    switch (mode)
+    {
+        case TAF_FLASH_READ_ONLY:
+            openMode = O_RDONLY;
+            break;
+        case TAF_FLASH_WRITE_ONLY:
+            openMode = O_WRONLY;
+            break;
+        case TAF_FLASH_READ_WRITE:
+            openMode = O_RDWR;
+            break;
+        default:
+            LE_ERROR("Unable to open with mode 0x%04x.", openMode);
+            return LE_BAD_PARAMETER;
+    }
+
     string partitionStr(volumeNameStr);
     auto &tafFlashAccess = taf_FlashAccess::GetInstance();
     auto it = tafFlashAccess.partitionMap.find(partitionStr);
@@ -464,7 +498,7 @@ le_result_t taf_flash_UbiOpen
         "Invalid volume name %s.", volumeNameStr);
 
     le_result_t result = taf_lib_flash_OpenPartition(
-        &tafFlashAccess.partitionList.partition[it->second], O_RDWR);
+        &tafFlashAccess.partitionList.partition[it->second], openMode);
     TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to open volume %s", volumeNameStr);
 
     *volumeRef = (taf_flash_VolumeRef_t)le_ref_CreateRef(tafFlashAccess.partitionRefMap,
@@ -634,4 +668,32 @@ le_result_t taf_flash_UbiWrite
     TAF_ERROR_IF_RET_VAL(partition == NULL, LE_NOT_FOUND, "Invalid para(null reference ptr)");
 
     return taf_lib_flash_WritePartition(partition, 0, writeData, size);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Erase UBI volume.
+ *
+ * @return
+ *      - LE_OK            On success
+ *      - LE_BAD_PARAMETER If a parameter is invalid
+ *      - LE_NOT_FOUND     If a volume reference is not found.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_flash_UbiErase
+(
+    taf_flash_VolumeRef_t volumeRef ///< [IN] The reference of UBI volume.
+)
+{
+    TAF_ERROR_IF_RET_VAL(volumeRef == NULL, LE_BAD_PARAMETER, "Null ptr(volumeRef)");
+
+    auto &tafFlashAccess = taf_FlashAccess::GetInstance();
+    taf_lib_flash_Partition_t* partition = (taf_lib_flash_Partition_t*)le_ref_Lookup(
+        tafFlashAccess.partitionRefMap, volumeRef);
+    TAF_ERROR_IF_RET_VAL(partition == NULL, LE_NOT_FOUND, "Invalid para(null reference ptr)");
+
+    le_result_t result = taf_lib_flash_EraseUbiVol(partition);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to erase volume.");
+
+    return LE_OK;
 }

@@ -223,7 +223,8 @@ ENUM Error
     INTERNAL_ERROR,    ///< Internal error.
     SECURITY_FAILURE,  ///< Security check failure.
     PACKAGE_NOT_FOUND, ///< Package not found.
-    APP_NOT_RUNNING    ///< App is not in running state.
+    APP_NOT_RUNNING,   ///< App is not in running state.
+    IMAGE_NOT_VERFIED  ///< Image not verifed.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -471,6 +472,22 @@ FUNCTION le_result_t GetActiveBank
 (
     Session session IN, ///< Installation session reference.
     Bank bank OUT       ///< The active bank.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Erases a bank.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ * - LE_UNSUPPORTED -- Unsupported.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t EraseBank
+(
+    Session session IN, ///< Installation session reference.
+    Bank bank IN        ///< The bank to be erased.
 );
 
 //--------------------------------------------------------------------------------------------------

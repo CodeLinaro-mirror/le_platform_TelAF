@@ -501,3 +501,18 @@ FUNCTION le_result_t UbiWrite
     Volume volumeRef IN,                   ///< The UBI volume reference.
     uint8 writeData[UBI_MAX_WRITE_SIZE] IN ///< Buffer to be written to UBI volume.
 );
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Erases UBI volume.
+ *
+ * @return
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t UbiErase
+(
+    Volume volumeRef IN ///< The UBI volume reference.
+);

@@ -267,7 +267,7 @@ void GetUbiInfo(const char* volume)
     le_result_t result;
 
     // Open UBI Test
-    result = taf_flash_UbiOpen(volume, TAF_FLASH_READ_WRITE, &volumeRef);
+    result = taf_flash_UbiOpen(volume, TAF_FLASH_READ_ONLY, &volumeRef);
     LE_TEST_OK((result == LE_OK), "taf_flash_UbiOpen - LE_OK");
 
     // UBI Information Test
@@ -436,6 +436,32 @@ void WriteUbiLeb(const char* volume)
     LE_TEST_OK((result == LE_OK), "taf_flash_UbiClose - LE_OK");
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Erase LEB in UBI volume.
+ */
+//--------------------------------------------------------------------------------------------------
+void EraseUbiLeb
+(
+    const char* volume ///< [IN] UBI volume.
+)
+{
+    taf_flash_VolumeRef_t volumeRef;
+    le_result_t result;
+
+    // Open UBI Test
+    result = taf_flash_UbiOpen(volume, TAF_FLASH_READ_WRITE, &volumeRef);
+    LE_TEST_OK((result == LE_OK), "taf_flash_UbiOpen - LE_OK");
+
+    // Erase UBI Leb Test
+    result = taf_flash_UbiErase(volumeRef);
+    LE_TEST_OK((result == LE_OK), "taf_flash_UbiErase - LE_OK");
+
+    // Close UBI Test
+    result = taf_flash_UbiClose(volumeRef);
+    LE_TEST_OK((result == LE_OK), "taf_flash_UbiClose - LE_OK");
+}
+
 /*======================================================================
  FUNCTION        COMPONENT_INIT
  DESCRIPTION     Component initialization
@@ -499,6 +525,11 @@ COMPONENT_INIT
             {
                 LE_TEST_INFO("======== UBI Write Test ========");
                 WriteUbiLeb(volume);
+            }
+            else if (strncmp(cmd, "erase", strlen("erase")) == 0)
+            {
+                LE_TEST_INFO("======== UBI Erase Test ========");
+                EraseUbiLeb(volume);
             }
         }
     }

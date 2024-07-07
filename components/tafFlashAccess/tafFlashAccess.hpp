@@ -76,8 +76,11 @@ typedef struct
 {
     uint32_t index;                                  ///< Partition index.
     char name[TAF_LIB_FLASH_PARTITION_NAME_MAX_LEN]; ///< Partition name.
-    char devPath[TAF_LIB_FLASH_DEV_PATH_LEN];        ///< Device path.
-    int fd;                                          ///< File descriptor.
+    char mtdDevPath[TAF_LIB_FLASH_DEV_PATH_LEN];     ///< MTD device path.
+    char ubiDevPath[TAF_LIB_FLASH_DEV_PATH_LEN];     ///< UBI device path.
+    int mtdFd;                                       ///< File descriptor for MTD device.
+    int ubiFd;                                       ///< File descriptor for UBI device.
+    mode_t mode;                                     ///< Device open mode.
     taf_lib_flash_Bank_t bank;                       ///< The bank of partition.
     uint32_t mirrorIndex;                            ///< Mirror partition index, valid for
                                                      ///  dual bank.
@@ -319,8 +322,23 @@ le_result_t taf_lib_flash_GetUbiAvailLebNum
 //--------------------------------------------------------------------------------------------------
 le_result_t taf_lib_flash_SetUbiVolUpSize
 (
-    taf_lib_flash_Partition_t *partitionPtr, ///< [INOUT] Volume.
+    taf_lib_flash_Partition_t *partitionPtr, ///< [IN] Volume.
     int64_t size                             ///< [IN] Volume update size.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Erase UBI volume.
+ *
+ * @return
+ *      - LE_OK            On success.
+ *      - LE_BAD_PARAMETER If partition is NULL.
+ *      - LE_FAULT         On failure.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_lib_flash_EraseUbiVol
+(
+    taf_lib_flash_Partition_t *partitionPtr ///< [IN] Volume.
 );
 
 #ifdef __cplusplus

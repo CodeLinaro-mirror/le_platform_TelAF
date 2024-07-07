@@ -22,6 +22,7 @@ gen_require(`
     type leprop_sock_t;
     type kernel_t;
     type kmsg_device_t;
+    type mbim_device_t;
     type mtd_device_t;
     type power_unit_t;
     type proc_t;
@@ -128,6 +129,7 @@ allow telaf_tafUpdateSvc_t cgroup_t:dir { manage_dir_perms };
 systemd_start_power_units(telaf_tafUpdateSvc_t)
 
 # flash access
+allow telaf_tafUpdateSvc_t mbim_device_t:chr_file { rw_file_perms };
 allow telaf_tafUpdateSvc_t ubi_device_t:chr_file { rw_file_perms };
 
 # device manager

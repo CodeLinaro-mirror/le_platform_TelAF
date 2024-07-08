@@ -1,0 +1,54 @@
+maxThreads: 600
+
+username: telaf
+
+capability:
+{
+        CAP_WAKE_ALARM
+        CAP_NET_ADMIN
+        CAP_BLOCK_SUSPEND
+        CAP_DAC_READ_SEARCH
+        CAP_DAC_OVERRIDE
+        CAP_FOWNER
+        CAP_SYS_ADMIN
+}
+
+groups:
+{
+        system
+        diag
+        radio
+        inet
+        locclient
+}
+
+executables:
+{
+        tafMngdStorageSvc = ( $TELAF_ROOT/apps/tafMngdServices/Storage/Components/tafMngdStorageSvc )
+}
+
+start: manual
+
+processes:
+{
+        run:
+        {
+                (tafMngdStorageSvc)
+        }
+
+        maxFileBytes: 8192K
+        faultAction: stopApp
+}
+
+sandboxed: false
+
+bindings:
+{
+    tafMngdStorageSvc.tafMngdStorageSvc.taf_ks -> tafKeyStoreSvc.taf_ks
+    tafMngdStorageSvc.tafMngdStorageSvc.le_appInfo -> <root>.le_appInfo
+}
+
+extern:
+{
+    tafMngdStorageSvc.tafMngdStorageSvc.taf_mngdSecStore
+}

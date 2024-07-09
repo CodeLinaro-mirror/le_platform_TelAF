@@ -266,6 +266,12 @@
    {
      // Process after successfully blacklisting SBAS and BEIDOU.
    }
+
+   constellationMask = TAF_LOCGNSS_CONSTELLATION_DEFAULT;
+   if(taf_locGnss_SetConstellation(constellationMask)== LE_OK)
+   {
+     // Process after successfully configuring constellations to device default.
+   }
    @endverbatim
  *
  *
@@ -1712,6 +1718,9 @@ FUNCTION le_result_t Start
 //--------------------------------------------------------------------------------------------------
 BITMASK ConstellationBitMask
 {
+    CONSTELLATION_DEFAULT,                  ///< Reset the constellation configuration
+                                            ///  to device default,which means constellations
+                                            ///  get enabled based on the MBN configuration.
     CONSTELLATION_GPS,                      ///< Global Positioning System constellation.
     CONSTELLATION_GLONASS,                  ///< GLONASS constellation.
     CONSTELLATION_BEIDOU,                   ///< BEIDOU constellation.

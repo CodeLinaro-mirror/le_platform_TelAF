@@ -703,7 +703,7 @@ void tafLocationListener::onDetailedEngineLocationUpdate(
                 roundOffLocationData(&locData,6);//round off to 6 decimal places
                 LocationData->longitude = (int32_t)locData;
                 LE_DEBUG("locationInfo->getLongitude():%.10f ",locationInfo->getLongitude());
-                LE_DEBUG("LocationData->latitude:%d ",LocationData->longitude);
+                LE_DEBUG("LocationData->longitude:%d ",LocationData->longitude);
                 locData = 0.0;
                 locData = locationInfo->getHorizontalUncertainty();
                 roundOffLocationData(&locData,2);//round off to 2 decimal places
@@ -1689,8 +1689,7 @@ void tafLocationListener::onGnssSignalInfo(
     le_mutex_Lock(clientRequestPtr->mGnssMutexRef);
     if(gnss.NumOfPositionHandlers ) {
         LE_DEBUG("**** Gnss Signal Information ****" );
-        for(int sig = 0; sig < static_cast<int>(
-            telux::loc::GnssDataSignalTypes::GNSS_DATA_MAX_NUMBER_OF_SIGNAL_TYPES);sig++)
+        for(int sig = 0; sig < TAF_LOCGNSS_NUMBER_OF_SIGNAL_TYPES_MAX; sig++)
         {
             LE_DEBUG("onGnssSignalInfo Signal Type : %d",sig);
             LE_DEBUG("onGnssSignalInfo gnssDataMask: %d",gnssDatainfo->getGnssData().gnssDataMask[sig]);
@@ -2262,50 +2261,111 @@ le_result_t taf_locGnss::SetConstellation
     TAF_ERROR_IF_RET_VAL( NULL == clientRequestPtr, LE_FAULT, "clientRequestPtr is NULL");
 
     LE_DEBUG("SetConstellation constellationMask is 0x%02X",constellationMask);
-    if( constellationMask & TAF_LOCGNSS_CONSTELLATION_GPS)
+    if( constellationMask & TAF_LOCGNSS_CONSTELLATION_DEFAULT)
     {
-        LE_DEBUG("constellation type GPS is not supported");
+        LE_DEBUG("constellation type is Default");
+        deviceReset = true;
+        constellationMask -= TAF_LOCGNSS_CONSTELLATION_DEFAULT;
+        if( constellationMask & TAF_LOCGNSS_CONSTELLATION_GPS)
+        {
+            constellationMask -= TAF_LOCGNSS_CONSTELLATION_GPS;
+            LE_DEBUG("constellation type GPS is not supported");
+        }
+        if( constellationMask & TAF_LOCGNSS_CONSTELLATION_GLONASS)
+        {
+            deviceReset = false;
+            blackListInfo.constellation = telux::loc::GnssConstellationType::GLONASS;
+            svBlackList.push_back(blackListInfo);
+            LE_DEBUG("constellation type is GLONASS");
+        }
+        if( constellationMask & TAF_LOCGNSS_CONSTELLATION_BEIDOU)
+        {
+            deviceReset = false;
+            blackListInfo.constellation = telux::loc::GnssConstellationType::BDS;
+            svBlackList.push_back(blackListInfo);
+            LE_DEBUG("constellation type is BEIDOU");
+        }
+        if( constellationMask & TAF_LOCGNSS_CONSTELLATION_GALILEO)
+        {
+            deviceReset = false;
+            blackListInfo.constellation = telux::loc::GnssConstellationType::GALILEO;
+            svBlackList.push_back(blackListInfo);
+            LE_DEBUG("constellation type is GALILEO");
+        }
+        if( constellationMask & TAF_LOCGNSS_CONSTELLATION_SBAS)
+        {
+            deviceReset = false;
+            blackListInfo.constellation = telux::loc::GnssConstellationType::SBAS;
+            svBlackList.push_back(blackListInfo);
+            LE_DEBUG("constellation type is SBAS");
+        }
+        if( constellationMask & TAF_LOCGNSS_CONSTELLATION_QZSS)
+        {
+            deviceReset = false;
+            blackListInfo.constellation = telux::loc::GnssConstellationType::QZSS;
+            svBlackList.push_back(blackListInfo);
+            LE_DEBUG("constellation type is QZSS");
+        }
+        if( constellationMask & TAF_LOCGNSS_CONSTELLATION_NAVIC)
+        {
+            deviceReset = false;
+            blackListInfo.constellation = telux::loc::GnssConstellationType::NAVIC;
+            svBlackList.push_back(blackListInfo);
+            LE_DEBUG("constellation type is NAVIC");
+        }
+        if (blackListInfo.constellation == telux::loc::GnssConstellationType::UNKNOWN)
+        {
+            LE_DEBUG("constellation type is UNKNOWN");
+        }
     }
-    if( constellationMask & TAF_LOCGNSS_CONSTELLATION_GLONASS)
+    else
     {
-        blackListInfo.constellation = telux::loc::GnssConstellationType::GLONASS;
-        svBlackList.push_back(blackListInfo);
-        LE_DEBUG("constellation type is GLONASS");
-    }
-    if( constellationMask & TAF_LOCGNSS_CONSTELLATION_BEIDOU)
-    {
-        blackListInfo.constellation = telux::loc::GnssConstellationType::BDS;
-        svBlackList.push_back(blackListInfo);
-        LE_DEBUG("constellation type is BEIDOU");
-    }
-    if( constellationMask & TAF_LOCGNSS_CONSTELLATION_GALILEO)
-    {
-        blackListInfo.constellation = telux::loc::GnssConstellationType::GALILEO;
-        svBlackList.push_back(blackListInfo);
-        LE_DEBUG("constellation type is GALILEO");
-    }
-    if( constellationMask & TAF_LOCGNSS_CONSTELLATION_SBAS)
-    {
-        blackListInfo.constellation = telux::loc::GnssConstellationType::SBAS;
-        svBlackList.push_back(blackListInfo);
-        LE_DEBUG("constellation type is SBAS");
-    }
-    if( constellationMask & TAF_LOCGNSS_CONSTELLATION_QZSS)
-    {
-        blackListInfo.constellation = telux::loc::GnssConstellationType::QZSS;
-        svBlackList.push_back(blackListInfo);
-        LE_DEBUG("constellation type is QZSS");
-    }
-    if( constellationMask & TAF_LOCGNSS_CONSTELLATION_NAVIC)
-    {
-        blackListInfo.constellation = telux::loc::GnssConstellationType::NAVIC;
-        svBlackList.push_back(blackListInfo);
-        LE_DEBUG("constellation type is NAVIC");
-    }
-    if (blackListInfo.constellation == telux::loc::GnssConstellationType::UNKNOWN)
-    {
-        svBlackList.push_back(blackListInfo);
-        LE_DEBUG("constellation type is UNKNOWN");
+        if( constellationMask & TAF_LOCGNSS_CONSTELLATION_GPS)
+        {
+            constellationMask -= TAF_LOCGNSS_CONSTELLATION_GPS;
+            LE_DEBUG("constellation type GPS is not supported");
+        }
+        if( constellationMask & TAF_LOCGNSS_CONSTELLATION_GLONASS)
+        {
+            blackListInfo.constellation = telux::loc::GnssConstellationType::GLONASS;
+            svBlackList.push_back(blackListInfo);
+            LE_DEBUG("constellation type is GLONASS");
+        }
+        if( constellationMask & TAF_LOCGNSS_CONSTELLATION_BEIDOU)
+        {
+            blackListInfo.constellation = telux::loc::GnssConstellationType::BDS;
+            svBlackList.push_back(blackListInfo);
+            LE_DEBUG("constellation type is BEIDOU");
+        }
+        if( constellationMask & TAF_LOCGNSS_CONSTELLATION_GALILEO)
+        {
+            blackListInfo.constellation = telux::loc::GnssConstellationType::GALILEO;
+            svBlackList.push_back(blackListInfo);
+            LE_DEBUG("constellation type is GALILEO");
+        }
+        if( constellationMask & TAF_LOCGNSS_CONSTELLATION_SBAS)
+        {
+            blackListInfo.constellation = telux::loc::GnssConstellationType::SBAS;
+            svBlackList.push_back(blackListInfo);
+            LE_DEBUG("constellation type is SBAS");
+        }
+        if( constellationMask & TAF_LOCGNSS_CONSTELLATION_QZSS)
+        {
+            blackListInfo.constellation = telux::loc::GnssConstellationType::QZSS;
+            svBlackList.push_back(blackListInfo);
+            LE_DEBUG("constellation type is QZSS");
+        }
+        if( constellationMask & TAF_LOCGNSS_CONSTELLATION_NAVIC)
+        {
+            blackListInfo.constellation = telux::loc::GnssConstellationType::NAVIC;
+            svBlackList.push_back(blackListInfo);
+            LE_DEBUG("constellation type is NAVIC");
+        }
+        if (blackListInfo.constellation == telux::loc::GnssConstellationType::UNKNOWN)
+        {
+            svBlackList.push_back(blackListInfo);
+            LE_DEBUG("constellation type is UNKNOWN");
+        }
     }
 
     switch (clientRequestPtr->GnssState)
@@ -2336,6 +2396,7 @@ le_result_t taf_locGnss::SetConstellation
             if(telux::common::Status::SUCCESS != status)
             {
                 result = LE_FAULT;
+                LE_DEBUG("SetConstellation is failed");
             }
             else
             {
@@ -2348,6 +2409,7 @@ le_result_t taf_locGnss::SetConstellation
                 else
                 {
                     result = LE_FAULT;
+                    LE_DEBUG("SetConstellation is failed");
                 }
             }
         }
@@ -2910,6 +2972,7 @@ le_result_t taf_locGnss::GetConstellation
         case TAF_LOCGNSS_STATE_ACTIVE:
             {
                 // Get GNSS constellation
+                LE_DEBUG("GetConstellation constellationMask is 0x%02X",mConstellationMask);
                 if(mConstellationMask & TAF_LOCGNSS_CONSTELLATION_GPS)
                 {
                     *constellationMaskPtr |= TAF_LOCGNSS_CONSTELLATION_GPS;
@@ -4277,6 +4340,7 @@ le_result_t taf_locGnss::GetSupportedConstellations
             *constellationMaskPtr |= TAF_LOCGNSS_CONSTELLATION_GALILEO;
             *constellationMaskPtr |= TAF_LOCGNSS_CONSTELLATION_SBAS;
             *constellationMaskPtr |= TAF_LOCGNSS_CONSTELLATION_QZSS;
+            *constellationMaskPtr |= TAF_LOCGNSS_CONSTELLATION_NAVIC;
             result = LE_OK;
         }
         break;

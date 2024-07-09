@@ -2424,9 +2424,15 @@ static void TestTafGnssConstellations
     result = taf_locGnss_Stop();
     LE_TEST_OK(result == LE_OK, "taf_locGnss_Stop-LE_OK");
 
-   //31.SetConstellation-GPS -LE_OK
+   //31.SetConstellation-GALILEO -LE_OK
     constellationMask = TAF_LOCGNSS_CONSTELLATION_GALILEO;
-    LE_TEST_INFO("taf_locGnss_SetConstellation() API is called to set GPS constellation type");
+    LE_TEST_INFO("taf_locGnss_SetConstellation() API is called to set GALILEO constellation type");
+    result = taf_locGnss_SetConstellation(constellationMask);
+    LE_TEST_OK(result == LE_OK,"taf_locGnss_SetConstellation-LE_OK");
+
+   //SetConstellation-DEFAULT -LE_OK
+    constellationMask = TAF_LOCGNSS_CONSTELLATION_DEFAULT;
+    LE_TEST_INFO("taf_locGnss_SetConstellation() API is called to set Default constellation type");
     result = taf_locGnss_SetConstellation(constellationMask);
     LE_TEST_OK(result == LE_OK,"taf_locGnss_SetConstellation-LE_OK");
 

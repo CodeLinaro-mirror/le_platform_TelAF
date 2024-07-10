@@ -230,6 +230,18 @@ extern "C" LE_SHARED void* taf_devMgr_LoadDrv(const char* drvName, const char* d
 
     if (drvVer != nullptr)
     {
+        if (strlen(drvVer) != 5)
+        {
+            return nullptr;
+        }
+
+        if (!isdigit(drvVer[0]) || !isdigit(drvVer[1]) ||
+            drvVer[2] != '.' ||
+            !isdigit(drvVer[3]) || !isdigit(drvVer[4]))
+        {
+            return nullptr;
+        }
+
         AppendToCommand(msgRef, (const char*)drvVer);
     }
     else
@@ -393,15 +405,13 @@ extern "C" LE_SHARED bool taf_devMgr_UnloadDrv(void* handle)
             payloadPtr[0] = DEV_MANAGER_SERVICE_CLOSE_CMD;
             payloadPtr[1] = '\0';
 
-
-
-            char versionBuff[12] = {};
+            char versionBuff[6] = {};
             const uint16_t maxVersion = 99;
             if (majorVer > maxVersion || minorVer > maxVersion) {
                 LE_ERROR("Error: Version number out of range\n");
                 return false;
             }
-            snprintf(versionBuff, sizeof(versionBuff), "%u.%u", majorVer, minorVer);
+            snprintf(versionBuff, sizeof(versionBuff), "%.02u.%02u", majorVer, minorVer);
 
             AppendToCommand(msgRef, drvName);
             AppendToCommand(msgRef, ":");

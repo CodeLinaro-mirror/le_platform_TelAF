@@ -34,12 +34,20 @@
 
 #include <iostream>
 #include <string>
+#include <limits>
 
 #include "legato.h"
 #include "interfaces.h"
 
 #define MAX_NUMBER_OF_INPUT     10
 #define MAX_LEN_OF_EACH_INPUT     28
+#define IS_CIN_FAILURE                                                     \
+        if(cin.fail()){                                                    \
+            cout << "InValidInput" << endl;                                \
+            cin.clear();                                                   \
+            cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); \
+            continue;                                                      \
+        }
 
 using namespace std;
 
@@ -55,11 +63,10 @@ taf_audio_StreamRef_t sinkRef = NULL, recorderRef = NULL, playerRef = NULL;
 taf_audio_StreamRef_t sourceRef = NULL, rxStreamRef = NULL, txStreamRef = NULL;
 taf_audio_RouteRef_t routeRef = NULL;
 taf_audio_ConnectorRef_t rxConn = NULL, txConn = NULL, playerConnRef = NULL, connRef = NULL;
-taf_audio_PlayListRef_t playListRef = NULL;
 taf_audioVendor_NodeStateChangeHandlerRef_t handlerRef;
 le_result_t res;
 static le_thread_Ref_t Player_thread_ref, Recorder_thread_ref, node_thread_ref;
-taf_audio_RouteId_t routeId;
+taf_audio_RouteId_t routeId = (taf_audio_RouteId_t)-1;
 bool isVoiceActive = false, isPbActive = false, isRpbActive = false, isRecordingActive = false;
 bool isVoiceStreamCreated = false, isPbStreamCreated = false, isRecordStreamCreated = false,
         isRpbStreamCreated = false;
@@ -78,13 +85,6 @@ static void MyMediaEventHandler
             cout<<"****Playback completed***"<<endl;
             isPbActive = false;
             le_sem_Post(tafAudioAppSem);
-            if(playListRef)
-            {
-                LE_TEST_INFO("Test taf_audio_DeletePlayList to delete playerListRef");
-                res = taf_audio_DeletePlayList(playListRef);
-                LE_TEST_OK(res == LE_OK, "Successfully deleted playerListRef");
-                playListRef = NULL;
-            }
             break;
         case TAF_AUDIO_MEDIA_STOPPED:
             LE_INFO(" Playback/capture stopped");
@@ -348,13 +348,6 @@ void Test_Audio_Playback_Stop()
 
     le_sem_WaitWithTimeOut(tafAudioAppSem, Timeout);
 
-    if(playListRef)
-    {
-        LE_TEST_INFO("Test taf_audio_DeletePlayList to delete playerListRef");
-        res = taf_audio_DeletePlayList(playListRef);
-        LE_TEST_OK(res == LE_OK, "Successfully deleted playerListRef");
-        playListRef = NULL;
-    }
     isPbActive = false;
     isRpbActive = false;
 }
@@ -597,22 +590,10 @@ void PrintHelp()
     }
 }
 
-void Test_Audio_Add_File(string srcPath, int32_t repeat){
-    if(!playListRef) {
-        LE_TEST_INFO("Test taf_audio_CreatePlayList to create playerListRef");
-        playListRef = taf_audio_CreatePlayList();
-        LE_TEST_OK(res == LE_OK, "Successfully create playerListRef");
-    }
-
-    LE_TEST_INFO("Test taf_audio_AddPlayListEntry to add a playback file");
-    res = taf_audio_AddPlayListEntry(playListRef, srcPath.c_str(), repeat);
-    LE_TEST_OK(res == LE_OK, "Successfully added file to playerListRef");
-}
-
-void Test_Audio_Start_PlayFileList(){
-
-    LE_TEST_INFO("Test taf_audio_PlayFileList to play a file list");
-    res = taf_audio_PlayFileList(playerRef, playListRef);
+void Test_Mngd_Audio_Start_PlayFileList(taf_audio_PlayFileConfig_t* fileConfig, size_t listSize)
+{
+    LE_TEST_INFO("Test taf_mngd_audio_PlayFileList to play a file list");
+    res = taf_audio_PlayFileList(playerRef, fileConfig, listSize);
     LE_TEST_OK(res == LE_OK, "Successfully started the file list playback");
 
     if(res != LE_OK)
@@ -882,13 +863,14 @@ void StartInputMonitoring
                 LE_INFO("Create voice call stream");
                 cout << "Enter route ID :";
                 cin >> number;
+                IS_CIN_FAILURE;
                 p = fgets(inputStr, sizeof(inputStr), stdin);
                 ConvertToRouteId(number);
                 cout << "Enter 1 to enable or 0 to disable ECNR on modem TX :";
                 cin >> number;
+                IS_CIN_FAILURE;
                 p = fgets(inputStr, sizeof(inputStr), stdin);
                 Test_Audio_VoiceCall_Stream(number == 1 ? true : false);
-                //cout << endl;
             }
             else if(strncmp(inputStr, "2", 1) == 0
                     || strncmp(inputStr, "Create pb stream", 16) == 0)
@@ -899,6 +881,7 @@ void StartInputMonitoring
                 else {
                     cout << "Enter route ID:";
                     cin >> number;
+                    IS_CIN_FAILURE;
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     ConvertToRouteId(number);
                     Test_Audio_Playback_Stream(true);
@@ -913,6 +896,7 @@ void StartInputMonitoring
                     LE_INFO("Start repeated file playback");
                     cout << "Enter route ID:";
                     cin >> number;
+                    IS_CIN_FAILURE;
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     ConvertToRouteId(number);
                     Test_Audio_PlayList_Setup(true);
@@ -927,6 +911,7 @@ void StartInputMonitoring
                 else {
                     cout << "Enter route ID:";
                     cin >> number;
+                    IS_CIN_FAILURE;
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     ConvertToRouteId(number);
                     Test_Audio_Record_Stream(true);
@@ -943,6 +928,7 @@ void StartInputMonitoring
                 double volLevel;
                 cout << "Enter volume range from 0.0 to 1.0:";
                 cin >> volLevel;
+                IS_CIN_FAILURE;
                 p = fgets(inputStr, sizeof(inputStr), stdin);
                 if (isVoiceStreamCreated
                         && (isPbStreamCreated || isRpbStreamCreated) && isRecordStreamCreated)
@@ -952,6 +938,7 @@ void StartInputMonitoring
                     cout << "3 - recorder:" << endl;
                     cout << "Enter input:";
                     cin >> number;
+                    IS_CIN_FAILURE;
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     if(number == 1)
                     {
@@ -976,6 +963,7 @@ void StartInputMonitoring
                     cout << "2 - player" << endl;
                     cout << "Enter input:";
                     cin >> number;
+                    IS_CIN_FAILURE;
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     if (number == 2)
                     {
@@ -997,6 +985,7 @@ void StartInputMonitoring
                     cout << "2 - recorder:" << endl;
                     cout << "Enter input:";
                     cin >> number;
+                    IS_CIN_FAILURE;
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     if (number == 2)
                     {
@@ -1045,6 +1034,7 @@ void StartInputMonitoring
                     cout << "3 - recorder:" << endl;
                     cout << "Enter input:";
                     cin >> number;
+                    IS_CIN_FAILURE;
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     if(number == 1)
                     {
@@ -1072,6 +1062,7 @@ void StartInputMonitoring
                     cout << "2 - player" << endl;
                     cout << "Enter input:";
                     cin >> number;
+                    IS_CIN_FAILURE;
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     if (number == 2)
                     {
@@ -1094,6 +1085,7 @@ void StartInputMonitoring
                     cout << "2 - recorder:" << endl;
                     cout << "Enter input:";
                     cin >> number;
+                    IS_CIN_FAILURE;
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     if (number == 2)
                     {
@@ -1139,6 +1131,7 @@ void StartInputMonitoring
                 bool isMute;
                 cout << "Enter 1 to mute and 0 to unmute:";
                 cin >> number;
+                IS_CIN_FAILURE;
                 isMute = number==1 ? true : false;
                 p = fgets(inputStr, sizeof(inputStr), stdin);
                 if (isVoiceStreamCreated
@@ -1150,6 +1143,7 @@ void StartInputMonitoring
                     cout << "4 - recorder:" << endl;
                     cout << "Enter input:";
                     cin >> number;
+                    IS_CIN_FAILURE;
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     if (number == 1)
                     {
@@ -1183,6 +1177,7 @@ void StartInputMonitoring
                     cout << "3 - player" << endl;
                     cout << "Enter input:";
                     cin >> number;
+                    IS_CIN_FAILURE;
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     if (number == 1)
                     {
@@ -1210,6 +1205,7 @@ void StartInputMonitoring
                     cout << "3 - recorder:" << endl;
                     cout << "Enter input:";
                     cin >> number;
+                    IS_CIN_FAILURE;
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     if (number == 1)
                     {
@@ -1247,6 +1243,7 @@ void StartInputMonitoring
                     cout << "1 - modem RX" << endl;
                     cout << "2 - modem TX" << endl;
                     cin >> number;
+                    IS_CIN_FAILURE;
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     if (number == 1) {
                         LE_TEST_INFO("Test taf_audio_SetMute to mute modem voice RX");
@@ -1273,6 +1270,7 @@ void StartInputMonitoring
                     cout << "4 - recorder:" << endl;
                     cout << "Enter input:";
                     cin >> number;
+                    IS_CIN_FAILURE;
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     if (number == 1)
                     {
@@ -1306,6 +1304,7 @@ void StartInputMonitoring
                     cout << "3 - player" << endl;
                     cout << "Enter input:";
                     cin >> number;
+                    IS_CIN_FAILURE;
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     if (number == 1)
                     {
@@ -1333,6 +1332,7 @@ void StartInputMonitoring
                     cout << "3 - recorder:" << endl;
                     cout << "Enter input:";
                     cin >> number;
+                    IS_CIN_FAILURE;
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     if (number == 1)
                     {
@@ -1370,6 +1370,7 @@ void StartInputMonitoring
                     cout << "1 - modem RX" << endl;
                     cout << "2 - modem TX" << endl;
                     cin >> number;
+                    IS_CIN_FAILURE;
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     if (number == 1) {
                         LE_TEST_INFO("Test taf_audio_GetMute of modem voice RX");
@@ -1393,6 +1394,7 @@ void StartInputMonitoring
             {
                 cout << "Enter file path:";
                 cin >> fileName;
+                IS_CIN_FAILURE;
                 p = fgets(inputStr, sizeof(inputStr), stdin);
                 Test_Audio_Playback_Start(fileName);
             }
@@ -1400,6 +1402,7 @@ void StartInputMonitoring
             {
                 cout << "Enter file path:";
                 cin >> fileName;
+                IS_CIN_FAILURE;
                 p = fgets(inputStr, sizeof(inputStr), stdin);
                 Test_Audio_Record_Start(fileName);
             }
@@ -1420,19 +1423,32 @@ void StartInputMonitoring
                 int numFiles = 0;
                 cout << "Enter the number of files: ";
                 cin >> numFiles;
+                IS_CIN_FAILURE;
+                LE_INFO("numFile is %d", numFiles);
                 p = fgets(inputStr, sizeof(inputStr), stdin);
+                if(numFiles <= 0 || numFiles > 8 )
+                {
+                    cout << "Invalid input!!" << endl;
+                    continue;
+                }
+                taf_audio_PlayFileConfig_t playFileConfig[numFiles] = {0};
                 for(int i = 0; i<numFiles;i++){
                     cout << "Enter the file source path: ";
-                    cin >> fileName;
+                    cin >> playFileConfig[i].srcPath;
                     p = fgets(inputStr, sizeof(inputStr), stdin);
                     cout << "Enter the 0 to play once(repeat 0 times), enter x to play x+1 time(repeat x time)";
                     cout << "Enter the repeat count: ";
-                    cin >> number;
+                    cin >> playFileConfig[i].repeat;
+                    if(cin.fail()){
+                        cout << "InValidInput" << endl;
+                        cin.clear();
+                        cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                        i--;
+                        continue;
+                    }
                     p = fgets(inputStr, sizeof(inputStr), stdin);
-                    Test_Audio_Add_File(fileName, number);
                 }
-
-                Test_Audio_Start_PlayFileList();
+                Test_Mngd_Audio_Start_PlayFileList(playFileConfig, numFiles);
             }
             else if (strncmp(inputStr, "Delete player stream", 20) == 0)
             {

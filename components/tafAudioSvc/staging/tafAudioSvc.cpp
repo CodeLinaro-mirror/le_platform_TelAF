@@ -289,71 +289,6 @@ void taf_audio_RemoveMediaHandler
     return audio.RemoveMediaHandler(handlerRef);
 }
 
-/**
-* FUNCTION     : CreatePlayList
-* DESCRIPTION  : Creates an audio playList reference.
-* DEPENDECY    :
-* PARAMETERS   :
-* RETURN VALUES: PlayList reference.
-*/
-taf_audio_PlayListRef_t taf_audio_CreatePlayList
-(
-)
-{
-    auto &audio = taf_Audio::GetInstance();
-    return audio.CreatePlayList();
-}
-
-/**
-* FUNCTION     : AddPlayListEntry
-* DESCRIPTION  : Adds an audio file to playList reference.
-* DEPENDECY    :
-* PARAMETERS   : PlayList reference, file source path, repeat count.
-* RETURN VALUES: LE_OK on success and LE_FAULT on failure.
-*/
-le_result_t taf_audio_AddPlayListEntry
-(
- taf_audio_PlayListRef_t playListRef,
- const char *scrPath,
- int32_t repeat
-)
-{
-    auto &audio = taf_Audio::GetInstance();
-    return audio.AddPlayListEntry(playListRef, scrPath, repeat);
-}
-
-/**
-* FUNCTION     : DeletePlayList
-* DESCRIPTION  : Deletes playList reference.
-* DEPENDECY    :
-* PARAMETERS   : PlayList reference.
-* RETURN VALUES: LE_OK on success and LE_FAULT on failure.
-*/
-le_result_t taf_audio_DeletePlayList
-(
- taf_audio_PlayListRef_t playListRef
-)
-{
-    auto &audio = taf_Audio::GetInstance();
-    return audio.DeletePlayList(playListRef);
-}
-
-/**
-* FUNCTION     : PlayFile
-* DESCRIPTION  : Plays the audio file list.
-* DEPENDECY    :
-* PARAMETERS   : Player stream reference and playList reference
-* RETURN VALUES: LE_OK on success and LE_FAULT on failure.
-*/
-le_result_t taf_audio_PlayFileList
-(
- taf_audio_StreamRef_t streamRef, taf_audio_PlayListRef_t playListRef
-)
-{
-    auto &audio = taf_Audio::GetInstance();
-    return audio.PlayFileList(streamRef, playListRef);
-}
-
 le_result_t taf_audioVendor_GetNodeType
 (
     uint8_t audioNodeId,
@@ -534,6 +469,26 @@ le_result_t taf_audio_GetVolume
     LE_DEBUG("taf_audio_GetVolume");
     auto &audio = taf_Audio::GetInstance();
     return audio.GetVolume(streamRef, volumeLevel);
+}
+
+/**
+* FUNCTION     : PlayFileList
+* DESCRIPTION  : Plays all the audio file in the list as per the configuration.
+* DEPENDECY    :
+* PARAMETERS   : Player stream reference, address of PlayFileConfig and size of play list.
+* RETURN VALUES: LE_OK on success, LE_BUSY when other playback is active,
+*                LE_BAD_PARAMETER on invalid stream reference and LE_FAULT on failure.
+*/
+le_result_t taf_audio_PlayFileList
+(
+    taf_audio_StreamRef_t streamRef,
+    const taf_audio_PlayFileConfig_t*  playFileConfigPtr,
+    size_t playFileConfigSize
+)
+{
+    LE_INFO("taf_mngd_audio_PlayFileList");
+    auto &audio = taf_Audio::GetInstance();
+    return audio.PlayList(streamRef, playFileConfigPtr, playFileConfigSize);
 }
 
 COMPONENT_INIT

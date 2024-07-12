@@ -303,29 +303,21 @@
         if(res == LE_OK)
             LE_INFO("Successfully connected playerRef to playerConnRef");
 
-        taf_audio_PlayListRef_t playListRef = taf_audio_CreatePlayList();
-        if(playListRef != NULL)
-            LE_INFO("Successfully created playListRef reference for playback");
-
-        string srcPath = /data/test.wav;
+        const char* srcPath = "/data/test.wav";
         int repeat = 1;
+        taf_audio_PlayFileConfig_t playFileConfig[1] = {0};
+        snprintf(playFileConfig[0].srcPath, sizeof(playFileConfig[0].srcPath), srcPath);
+        playFileConfig[0].repeat = repeat;
 
-        res = taf_audio_AddPlayListEntry(playListRef, srcPath.c_str(), repeat);
+        res = taf_audio_PlayFileList(playerRef, playFileConfig,
+                sizeof(playFileConfig)/sizeof(taf_audio_PlayFileConfig_t));
         if(res == LE_OK)
-            LE_INFO("Successfully added file to playerListRef");
-
-        res = taf_audio_PlayFileList(playerRef, playListRef);
-        if(res == LE_OK)
-            LE_INFO("Successfully file list playback has started");
+            LE_INFO(res == LE_OK, "Successfully started the file list playback");
 
         // To stop playback
         res = taf_audio_Stop(playerRef);
         if(res == LE_OK)
             LE_INFO("Successfully stopped the file list playback");
-
-        res = taf_audio_DeletePlayList(playListRef);
-        if(res == LE_OK)
-            LE_INFO("Successfully deleted playerListRef");
 
         taf_audio_Disconnect(connRef, playerRef);
 
@@ -611,12 +603,9 @@ REFERENCE Connector;
  */
 REFERENCE Route;
 
-/**
- * Reference type for the playback list.
- */
-REFERENCE PlayList;
-
 DEFINE MAX_SRC_PATH_LEN = 256;
+
+DEFINE MAX_NUM_OF_PLAYBACK_FILES  = 8;
 
 /**
  * Route IDs.
@@ -890,57 +879,28 @@ EVENT Media
 );
 
 /**
- * Creates an audio playback list reference.
- *
- * @return Reference to the audio playback list, NULL on error.
+ * Audio file configuration.
  */
-FUNCTION PlayList CreatePlayList
-(
-);
+STRUCT PlayFileConfig
+{
+    string srcPath[MAX_SRC_PATH_LEN];  ///< The absolute audio file path.
+    int32  repeat;                     ///< -1 to play infinite loop, 0 to play once
+                                       ///  and x to play x+1 times.
+};
 
 /**
- * Adds an audio playback file to the playback list using reference.
- *
- * @return
- * - LE_FAULT         Failure.
- * - LE_BAD_PARAMETER Invalid playlist reference.
- * - LE_BUSY          Playback corresponding to playlist reference is active.
- * - LE_OK            Success.
- */
-FUNCTION le_result_t AddPlayListEntry
-(
-    PlayList playListRef IN,
-    string scrPath[MAX_SRC_PATH_LEN] IN,
-    int32 count IN
-);
-
-/**
- * Deletes the reference of playback list.
- *
- * @return
- * - LE_FAULT         Failure.
- * - LE_BAD_PARAMETER Invalid playlist reference.
- * - LE_BUSY          Playback corresponding to playlist reference is active.
- * - LE_OK            Success.
- */
-FUNCTION le_result_t DeletePlayList
-(
-    PlayList playListRef     ///< Play list reference.
-);
-
-/**
- * Plays the audio files in the play list reference.
+ * Plays the audio files in the play list.
  *
  * @return
  *     - LE_OK                 Success.
- *     - LE_BUSY               Playback corresponding to playlist reference is active.
+ *     - LE_BUSY               Another playback is active.
  *     - LE_BAD_PARAMETER      Stream or playlist reference is not valid.
  *     - LE_FAULT              Failure.
  */
 FUNCTION le_result_t PlayFileList
 (
-    Stream   streamRef  IN,    ///< Audio stream reference.
-    PlayList playListRef       ///< Play list reference to be played.
+    Stream streamRef   IN,                                    ///< Audio stream reference.
+    PlayFileConfig fileConfig[MAX_NUM_OF_PLAYBACK_FILES] IN   ///< Array of PlayFileConfig.
 );
 
 /**

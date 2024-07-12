@@ -187,6 +187,7 @@ class tafMngdPMSvc: public ITafSvc
         static le_result_t InitVHalModule();
         static void StateChangeExHandler(taf_pm_PowerStateRef_t powerStateRef,
                 taf_pm_NadVm_t vm_id, taf_pm_State_t state, void* contextPtr);
+
         static void VhalAckTimerHandler(le_timer_Ref_t timerRef);
         static void WakeSourceTimerHandler(le_timer_Ref_t timerRef);
         static void WaitWakeSourceTimer();
@@ -275,6 +276,7 @@ class tafMngdPMSvc: public ITafSvc
         static int8_t clientSize;
         static void SendAckToPms(taf_mngdPm_NodePowerState_t state, taf_pm_ClientAck_t ackType);
         bool IsSameAsCurrentState(taf_mngdPm_NodePowerState_t nodeState, taf_mngdPm_State_t tafState);
+        bool IsConfiguredBitMask(taf_mngdPm_NodePowerState_t state, taf_mngdPm_NodePowerStateChangeBitMask_t stateMask);
 };
 }
 }

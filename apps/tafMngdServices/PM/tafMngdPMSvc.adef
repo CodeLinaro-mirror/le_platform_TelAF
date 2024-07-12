@@ -47,6 +47,7 @@ bindings:
     tafMngdPMSvc.tafMngdPMSvc.taf_can -> tafCanSvc.taf_can
     tafMngdPMSvc.tafMngdPMSvc.taf_sms -> tafSMSSvc.taf_sms
     tafMngdPMSvc.tafMngdPMSvc.le_appInfo -> <root>.le_appInfo
+    tafMngdPMSvc.tafMngdPMSvc.taf_rpcPm -> <telaf>.rpcServer_102_telaf_taf_pm
 }
 
 bundles:

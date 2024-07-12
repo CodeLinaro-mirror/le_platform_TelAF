@@ -37,6 +37,7 @@
 #include "can/tafMngdPMCan.hpp"
 #include "sms/tafMngdPMSms.hpp"
 #include "gpio/tafMngdPMGpio.hpp"
+#include "rpcPm/tafMngdRpcPm.hpp"
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
@@ -58,32 +59,43 @@ le_result_t taf_mngdPm_SetNodeTargetedPowerMode(uint8_t pm_node_id,
     {
         return LE_UNSUPPORTED;
     }
-
-    if(targetPowerMode == TAF_MNGDPM_SUSPEND || targetPowerMode == TAF_MNGDPM_SHUTDOWN)
+    if(pm_node_id == 1)
     {
-        le_result_t res = tafMngdPMSvc::RequestStateChange(TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE);
-        if(res != LE_OK)
-        {
-            return res;
-        }
-    }
-
-    mpms.targetedPowerMode = targetPowerMode;
-    mpms.powerMode.isGraceful = true;
-
-    // Acquire a wakelock to get notified on last wakeup source release.
-    if (mpms.ws != nullptr)
-    {
-        le_result_t res = tafMngdPMSvc::AcquireWakeLock();
+        auto &rpcPm = tafMngdRpcPm::GetInstance();
+        rpcPm.rpcTargetedPowerMode = targetPowerMode;
+        le_result_t res = tafMngdRpcPm::AcquireRpcNodeWakeLock();
         if(res == LE_OK)
             LE_INFO("Wake source acquired successfully");
-        res = tafMngdPMSvc::ReleaseWakeLock();
+        res = tafMngdRpcPm::ReleaseRpcNodeWakeLock();
         if(res == LE_OK)
             LE_INFO("Wake source released successfully");
     }
     else
     {
-        LE_ERROR("Failed to create wakeup source!");
+        mpms.targetedPowerMode = targetPowerMode;
+        if(targetPowerMode == TAF_MNGDPM_SUSPEND || targetPowerMode == TAF_MNGDPM_SHUTDOWN)
+        {
+            le_result_t res = tafMngdPMSvc::RequestStateChange(TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE);
+            if(res != LE_OK)
+            {
+                return res;
+            }
+            mpms.powerMode.isGraceful = true;
+        }
+        // Acquire a wakelock to get notified on last wakeup source release.
+        if (mpms.ws != nullptr)
+        {
+            le_result_t res = tafMngdPMSvc::AcquireWakeLock();
+            if(res == LE_OK)
+                LE_INFO("Wake source acquired successfully");
+            res = tafMngdPMSvc::ReleaseWakeLock();
+            if(res == LE_OK)
+                LE_INFO("Wake source released successfully");
+        }
+        else
+        {
+            LE_ERROR("Failed to create wakeup source!");
+        }
     }
     return LE_OK;
 }
@@ -279,6 +291,21 @@ taf_mngdPm_wsRef_t taf_mngdPm_NewNodeWakeupSource( uint8_t pmNodeId,
     }
     if(inThewsWhiteList)
     {
+        if(pmNodeId == 1)
+        {
+            LE_INFO("RPC NewNodeWakeupSource");
+            auto &rpcPm = tafMngdRpcPm::GetInstance();
+	        taf_mngdPm_wsRef_t wsRef = rpcPm.NewRpcNodeWakeupSource(pmNodeId, wakeupType);
+            if(wsRef) {
+                LE_INFO("NewRpcNodeWakeupSource triggered from MPMS");
+                return wsRef;
+            }
+            else
+            {
+                LE_ERROR("Failed RPC StayAwakeNode!");
+                return NULL;
+            }
+        }
         taf_wsRefCtx_t * wsCtxPtr =
                 (taf_wsRefCtx_t *)le_mem_ForceAlloc(mpms.wsRefPool);
         wsCtxPtr->wsRef = (taf_mngdPm_wsRef_t)le_ref_CreateRef(
@@ -312,12 +339,6 @@ le_result_t taf_mngdPm_StayAwakeNode(taf_mngdPm_wsRef_t wsRef)
     le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(mpms.wsRefList));
     bool ispresent = false;
 
-    res = tafMngdPMSvc::RequestStateChange(TAF_MNGDPM_STATE_WAKING_UP);
-    if(res != LE_OK)
-    {
-        return res;
-    }
-
     while (linkHandlerPtr)
     {
         taf_wsRefCtx_t * wsRefCtxPtr =
@@ -325,6 +346,11 @@ le_result_t taf_mngdPm_StayAwakeNode(taf_mngdPm_wsRef_t wsRef)
         linkHandlerPtr = le_dls_PeekPrev(&(mpms.wsRefList), linkHandlerPtr);
         if(wsRefCtxPtr->wakeupType == TAF_MNGDPM_APP_STAYAWAKE)
         {
+            res = tafMngdPMSvc::RequestStateChange(TAF_MNGDPM_STATE_WAKING_UP);
+            if(res != LE_OK)
+            {
+                return res;
+            }
             ispresent = true;
             LE_INFO("WakeupType is TAF_MNGDPM_APP_STAYAWAKE");
             res = tafMngdPMSvc::AcquireWakeLock();
@@ -342,6 +368,11 @@ le_result_t taf_mngdPm_StayAwakeNode(taf_mngdPm_wsRef_t wsRef)
             for (auto it = mpms.wsWhiteList.begin(); it != mpms.wsWhiteList.end(); ++it ) {
                 if (*it == wsRefCtxPtr->wakeupType)
                 {
+                    res = tafMngdPMSvc::RequestStateChange(TAF_MNGDPM_STATE_WAKING_UP);
+                    if(res != LE_OK)
+                    {
+                        return res;
+                    }
                     ispresent = true;
                     LE_INFO("WakeupType matched with whitelisting wakeup_source");
                     res = tafMngdPMSvc::AcquireWakeLock();
@@ -363,7 +394,16 @@ le_result_t taf_mngdPm_StayAwakeNode(taf_mngdPm_wsRef_t wsRef)
         return res;
     }
     else
-        return LE_FAULT;
+    {
+        LE_INFO("RPC StayAwakeNode");
+        auto &rpcPm = tafMngdRpcPm::GetInstance();
+        le_result_t res = rpcPm.StayAwakeRpcNode(wsRef);
+        if(res == LE_OK) {
+            LE_INFO("RPC StayAwakeNode triggered from MPMS");
+            return res;
+        }
+    }
+    return LE_FAULT;
 }
 
 /**
@@ -372,29 +412,26 @@ le_result_t taf_mngdPm_StayAwakeNode(taf_mngdPm_wsRef_t wsRef)
 le_result_t taf_mngdPm_RelaxNode(taf_mngdPm_wsRef_t wsRef)
 {
     LE_INFO("taf_mngdPm_RelaxNode");
-
     auto &mpms = tafMngdPMSvc::GetInstance();
 
     le_result_t res = LE_FAULT;
     le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(mpms.wsRefList));
     bool ispresent = false;
 
-    res = tafMngdPMSvc::RequestStateChange(TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE);
-    if(res != LE_OK)
-    {
-        return res;
-    }
-
     while (linkHandlerPtr)
     {
         taf_wsRefCtx_t * wsRefCtxPtr =
                 CONTAINER_OF(linkHandlerPtr, taf_wsRefCtx_t, link);
         linkHandlerPtr = le_dls_PeekPrev(&(mpms.wsRefList), linkHandlerPtr);
-        if ((wsRefCtxPtr->wakeupType == TAF_MNGDPM_APP_STAYAWAKE) ||
-                ((wsRefCtxPtr) && wsRef && (wsRefCtxPtr->wsRef == wsRef)))
+        if ((wsRefCtxPtr) && wsRef && (wsRefCtxPtr->wsRef == wsRef))
         {
             ispresent = true;
             LE_INFO("WakeupType matched with whitelisting wakeup_source");
+            res = tafMngdPMSvc::RequestStateChange(TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE);
+            if(res != LE_OK)
+            {
+                return res;
+            }
             //sending notification to VHAL
             if((wsRefCtxPtr->vhalTag != NULL) && (mpms.pmInf) && (mpms.pmInf->nodeInfoNotification))
             {
@@ -412,7 +449,16 @@ le_result_t taf_mngdPm_RelaxNode(taf_mngdPm_wsRef_t wsRef)
         return res;
     }
     else
-        return LE_FAULT;
+    {
+        LE_INFO("RPC RelaxNode");
+        auto &rpcPm = tafMngdRpcPm::GetInstance();
+        le_result_t res = rpcPm.RelaxRpcNode(wsRef);
+        if(res == LE_OK) {
+            LE_INFO("RPC RelaxNode triggered from MPMS");
+            return res;
+        }
+    }
+    return LE_FAULT;
 }
 
 /**
@@ -421,12 +467,22 @@ le_result_t taf_mngdPm_RelaxNode(taf_mngdPm_wsRef_t wsRef)
 le_result_t taf_mngdPm_ShutdownNode (uint8_t pmNodeId)
 {
     LE_DEBUG("taf_mngdPm_ShutdownNode pmNodeId : %d", pmNodeId);
-
     auto &mpms = tafMngdPMSvc::GetInstance();
     if(tafMngdPMSvc::IsClientValid() == false)
     {
         return LE_UNSUPPORTED;
     }
+    if(pmNodeId == 1)
+    {
+        auto &rpcPm = tafMngdRpcPm::GetInstance();
+        le_result_t res = rpcPm.ShutdownRpcNAD();
+        if(res == LE_OK)
+        {
+            LE_INFO("RPC ShutdownNAD is successful");
+        }
+        return res;
+    }
+
     le_result_t res = mpms.ShutdownNAD();
     return res;
 }
@@ -542,6 +598,13 @@ taf_mngdPm_NodePowerStateChangeHandlerRef_t taf_mngdPm_AddNodePowerStateChangeHa
 )
 {
     LE_INFO("taf_mngdPm_AddNodePowerStateChangeHandler");
+    if(pmNodeId == 1)
+    {
+        auto &rpcPm = tafMngdRpcPm::GetInstance();
+        taf_mngdPm_NodePowerStateChangeHandlerRef_t ref =
+             rpcPm.AddRpcNodePowerStateChangeHandler(handlerFuncPtr, contextPtr, pmNodeId, stateMask);
+        return ref;
+    }
     auto &mpms = tafMngdPMSvc::GetInstance();
     //save handlerref according to bitmask
     TAF_ERROR_IF_RET_VAL(handlerFuncPtr == NULL, NULL, "INVALID handler reference.");
@@ -565,6 +628,7 @@ taf_mngdPm_NodePowerStateChangeHandlerRef_t taf_mngdPm_AddNodePowerStateChangeHa
 void taf_mngdPm_RemoveNodePowerStateChangeHandler(taf_mngdPm_NodePowerStateChangeHandlerRef_t handlerRef)
 {
     LE_INFO("RemoveNodePowerStateHandler");
+    bool isPmsNodeChangeRef = false;
     auto &mpms = tafMngdPMSvc::GetInstance();
     le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(mpms.nodePowerStateHandlerList));
     while (linkHandlerPtr)
@@ -577,7 +641,14 @@ void taf_mngdPm_RemoveNodePowerStateChangeHandler(taf_mngdPm_NodePowerStateChang
             le_ref_DeleteRef(mpms.nodePowerStateHandlerMap, handlerRef);
             le_dls_Remove(&(mpms.nodePowerStateHandlerList), &handlerCtxPtr->link);
             le_mem_Release((void*)handlerCtxPtr);
+            isPmsNodeChangeRef = true;
         }
+    }
+    if(!isPmsNodeChangeRef)
+    {
+        auto &rpcPm = tafMngdRpcPm::GetInstance();
+        rpcPm.RemoveRpcNodePowerStateChangeHandler(handlerRef);
+        return;
     }
 }
 
@@ -607,13 +678,19 @@ le_result_t taf_mngdPm_GetInfoReport(taf_mngdPm_InfoDataId_t infoReportId, int32
 }
 
 /**
- * Initiates the forceful shutdown for the given node.
+ * SendNodePowerStateChangeAck for the given node.
  */
 le_result_t taf_mngdPm_SendNodePowerStateChangeAck (uint8_t pmNodeId,
         taf_mngdPm_nodePowerStateRef_t Ref, taf_mngdPm_NodePowerState_t state, taf_mngdPm_NodeClientAck_t ack)
 {
     LE_INFO("taf_mngdPm_SendNodePowerStateChangeAck");
     auto &mpms = tafMngdPMSvc::GetInstance();
+    if(pmNodeId == 1)
+    {
+        auto &rpcPm = tafMngdRpcPm::GetInstance();
+        le_result_t res = rpcPm.SendRpcNodePowerStateChangeAck(pmNodeId, Ref, state, ack);
+        return res;
+	}
     // validate client record existed in state change registered clients
     for (auto it = mpms.regClientrecrd.begin(); it != mpms.regClientrecrd.end(); ++it ) {
         if (*it == (taf_mngdPm_nodePowerStateRef_t)Ref) {
@@ -636,7 +713,6 @@ le_result_t taf_mngdPm_SendNodePowerStateChangeAck (uint8_t pmNodeId,
         else
         {
             LE_INFO("Received ACK from client");
-
             mpms.ackClientrecrd.push_back((taf_mngdPm_nodePowerStateRef_t)Ref);
             LE_INFO("regClientrecrd size is %zu ,ackClientrecrd size is:%zu",mpms.regClientrecrd.size(),
                     mpms.ackClientrecrd.size());
@@ -669,6 +745,10 @@ COMPONENT_INIT
 
     mpms.Init();
 
+    auto &rpcPm = tafMngdRpcPm::GetInstance();
+
+    rpcPm.Init();
+
     mpms.mngdPmClientInfo.SessionNodePool = le_mem_InitStaticPool(SessionCtx,
                                         MAX_SESSION,
                                         sizeof(taf_mngdPm_SessionNode_t));
@@ -699,8 +779,7 @@ COMPONENT_INIT
     mpms.nodePowerStateHandlerPool = le_mem_CreatePool("nodePowerStateHandlerList",
         sizeof(taf_mngdPm_NodePowerStateCtxt_t));
     mpms.nodePowerStateHandlerList = LE_DLS_LIST_INIT;
-    mpms.nodePowerStateHandlerMap = le_ref_CreateMap("tafNodePowerStateHandler",
-        TAF_REF_POOL_SIZE);
+
 
     try
     {

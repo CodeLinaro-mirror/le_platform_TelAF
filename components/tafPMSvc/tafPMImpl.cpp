@@ -600,7 +600,7 @@ taf_pm_StateChangeExHandlerRef_t taf_PM::AddStateChangeExHandler
     pClient = taf_PM::to_taf_Client_t(le_hashmap_Get(pm_recrd.clients,
             taf_pm_GetClientSessionRef()));
     LE_INFO("Client is %s", pClient->name);
-    if(strncmp(pClient->name, "tafMngdPMSvc", 12) == 0)
+    if(strncmp(pClient->name, "tafMngdPMSvc", 12) == 0 || strncmp(pClient->name, "tafRpcProxy", 11) == 0)
     {
         LE_INFO("Client is MPM");
         handlerCtxPtr->ismpm = true;

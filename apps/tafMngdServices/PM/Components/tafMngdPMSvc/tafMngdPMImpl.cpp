@@ -272,6 +272,7 @@ le_result_t tafMngdPMSvc::ShutdownNAD()
  */
 le_result_t tafMngdPMSvc::SuspendNAD()
 {
+    LE_INFO("SuspendNAD");
     le_result_t res = taf_pm_SetAllVMPowerState(TAF_PM_STATE_SUSPEND);
     if(res != LE_OK)
     {
@@ -1108,7 +1109,7 @@ void tafMngdPMSvc::DeleteNodePowerStateRefs()
 
 bool tafMngdPMSvc::IsSameAsCurrentState(taf_mngdPm_NodePowerState_t nodeState, taf_mngdPm_State_t tafState)
 {
-    LE_INFO("CheckPowerStateBitmask");
+    LE_INFO("IsSameAsCurrentState");
     if((nodeState == TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE) && (tafState == TAF_MNGDPM_STATE_SHUTDOWN))
     {
         return true;
@@ -1131,7 +1132,7 @@ bool tafMngdPMSvc::IsSameAsCurrentState(taf_mngdPm_NodePowerState_t nodeState, t
     }
 }
 
-bool IsConfiguredBitMask(taf_mngdPm_NodePowerState_t state, taf_mngdPm_NodePowerStateChangeBitMask_t stateMask)
+bool tafMngdPMSvc::IsConfiguredBitMask(taf_mngdPm_NodePowerState_t state, taf_mngdPm_NodePowerStateChangeBitMask_t stateMask)
 {
     LE_INFO("IsConfiguredBitMask");
     bool isSameBitMask = false;
@@ -1145,6 +1146,7 @@ bool IsConfiguredBitMask(taf_mngdPm_NodePowerState_t state, taf_mngdPm_NodePower
     }
     else if(state == TAF_MNGDPM_NODE_STATE_SUSPEND_PREPARE && (stateMask & (1 << 2)) !=0)
     {
+       LE_INFO("IsConfiguredBitMask");
         isSameBitMask = true;
     }
     else if(state == TAF_MNGDPM_NODE_STATE_RESUME && (stateMask & (1 << 3)) !=0)
@@ -1153,6 +1155,7 @@ bool IsConfiguredBitMask(taf_mngdPm_NodePowerState_t state, taf_mngdPm_NodePower
     }
     else
     {
+        LE_INFO("IsConfiguredBitMask");
         isSameBitMask = false;
     }
     return isSameBitMask;
@@ -1200,7 +1203,7 @@ void tafMngdPMSvc::CallNodePowerStateHandlerFunc(taf_mngdPm_NodePowerState_t sta
         if (handlerCtxPtr->handlerPtr)
         {
             LE_INFO("Client found");
-            if(IsConfiguredBitMask(state, handlerCtxPtr->powerStateMask))
+            if(mpms.IsConfiguredBitMask(state, handlerCtxPtr->powerStateMask))
             {
                 taf_NodePowerStateRef_t* nodeStateListPtr =
                         (taf_NodePowerStateRef_t*)le_mem_ForceAlloc(mpms.nodePowerStateRefPool);

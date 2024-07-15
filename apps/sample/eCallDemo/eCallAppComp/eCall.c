@@ -55,7 +55,7 @@ static taf_audio_StreamRef_t FeOutRef = NULL;
 static taf_audio_ConnectorRef_t AudioInputConnectorRef;
 static taf_audio_ConnectorRef_t AudioOutputConnectorRef;
 static taf_audio_MediaHandlerRef_t MediaHandlerRef = NULL;
-static char AudioFilePath[] = "/legato/systems/current/appsWriteable/tafECallApp/record.wav";
+static char AudioFilePath[] = "/data/record.wav";
 le_result_t res;
 #endif
 

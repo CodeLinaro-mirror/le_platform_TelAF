@@ -831,7 +831,8 @@ le_result_t taf_sim::UnlockCardByPin(taf_sim_Id_t  simId,
     applications = card->getApplications();
     if(applications.size() != 0)  {
         for(auto cardApp : applications) {
-            if(cardApp->getAppType() == telux::tel::AppType::APPTYPE_USIM) {
+            if(cardApp->getAppType() == telux::tel::AppType::APPTYPE_USIM
+                    && cardApp->getAppState() == telux::tel::AppState::APPSTATE_PIN) {
                 auto ret = cardApp->unlockCardByPin(cardLockType, newPin,
                         tafAuthenticationResponseCallback::unlockCardByPinResponseCb);
                 if(ret == telux::common::Status::SUCCESS) {

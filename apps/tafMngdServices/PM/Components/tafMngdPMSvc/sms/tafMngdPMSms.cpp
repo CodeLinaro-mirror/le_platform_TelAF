@@ -44,7 +44,33 @@ void tafMngdPMSms::SmsRxHandler(taf_sms_MsgRef_t msgRef, void* context){
     char text[TAF_SMS_TEXT_BYTES];
     taf_sms_GetText(msgRef, text, sizeof(text));
     LE_INFO("Received SMS %s", text);
-
+    taf_mngdPm_WakeupType_t wakeupType = TAF_MNGDPM_SMS;
+    bool isWhiteListed = false;
+    if(tafMngdPMSvc::wsWhiteList.size() > 0) {
+        for (auto it = tafMngdPMSvc::wsWhiteList.begin(); it != tafMngdPMSvc::wsWhiteList.end(); ++it )
+        {
+            if (*it == wakeupType)
+            {
+                LE_INFO("wakeupType in wsWhiteList");
+                isWhiteListed = true;
+                break;
+            }
+            else
+            {
+                LE_INFO("wakeupType not in wsWhiteList");
+            }
+        }
+    }
+    if(isWhiteListed)
+    {
+        LE_INFO("Continue for state change request");
+    }
+    else
+    {
+        isWhiteListed = false;
+        LE_INFO("Failed for state change request");
+        return;
+    }
     le_hashmap_It_Ref_t iteratorRef = le_hashmap_GetIterator(smsPMMap);
     while (le_hashmap_NextNode(iteratorRef) == LE_OK)
     {

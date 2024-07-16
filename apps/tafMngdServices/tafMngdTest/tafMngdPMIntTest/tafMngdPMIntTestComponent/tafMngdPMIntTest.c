@@ -64,6 +64,10 @@ static void PrintUsage ()
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- GracefulSysShutdownWakeLock\n"
         "--------To trigger the Graceful shutdown without wake lock acquired--------\n"
         "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- GracefulSysShutdown\n"
+        "--------To triggger the Graceful suspend with the wake lock acquired--------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- GracefulSysSuspendWakeLock\n"
+        "--------To trigger the Graceful suspend without wake lock acquired--------\n"
+        "app runProc tafMngdPMIntTest --exe=tafMngdPMIntTest -- GracefulSysSuspend\n"
         "------------To set the modem wakeuptypes-----------\n"
         "--------1 -> For SMS wakeuptype------------\n"
         "--------2 -> For VOICE_CALL wakeuptype------------\n"
@@ -259,6 +263,51 @@ void GracefulSysShutdownWakeLock()
         LE_ERROR("GracefulSysShutdownWakeLock request failed");
     }
 }
+void GracefulSysSuspendWakeLock()
+{
+    LE_INFO("----GracefulSysSuspendWakeLock test----");
+    le_result_t result =  LE_FAULT;
+    AddNodePowerStateChangeHandler("TAF_MNGDPM_NODE_STATE_BIT_MASK_SUSPEND_PREPARE");
+    // Create and acquire a wakelock to get notified on last wakeup source release.
+    if(ws == NULL)
+        ws = taf_pm_NewWakeupSource(0, "mpms");
+
+    if (ws != NULL) {
+        result = taf_pm_StayAwake(ws);
+        if(result == LE_OK) {
+            LE_INFO("Wake source acquired successfully");
+
+            result = taf_mngdPm_SetNodeTargetedPowerMode(WAKELOCK_WITHOUT_REF,
+                    TAF_MNGDPM_SUSPEND);
+            if(result == LE_OK)
+                LE_INFO("GracefulSysSuspendWakeLock triggered successfully");
+
+            tafMpmAppSem = le_sem_Create("tafMpmAppSem", 0);
+            le_sem_WaitWithTimeOut(tafMpmAppSem, Timeout);
+            LE_INFO("wake lock timer expired");
+            le_sem_Delete(tafMpmAppSem);
+
+            result = taf_pm_Relax(ws);
+            if(result == LE_OK)
+                LE_INFO("Wake source released successfully");
+        }
+        else {
+            LE_INFO("Failed to acquire Wake source");
+        }
+    }
+    else {
+        LE_ERROR("Failed to create wakeup source!");
+    }
+
+    if(result == LE_OK)
+    {
+        LE_INFO("----GracefulSysSuspendWakeLock success----");
+    }
+    else
+    {
+        LE_ERROR("GracefulSysSuspendWakeLock request failed");
+    }
+}
 
 void GracefulSysShutdown()
 {
@@ -276,6 +325,25 @@ void GracefulSysShutdown()
     else
     {
         LE_ERROR("GracefulSysShutdown request failed");
+    }
+
+}
+
+void GracefulSysSuspend()
+{
+    LE_INFO("----GracefulSysSuspend test " );
+    le_result_t result =  LE_FAULT;
+    AddNodePowerStateChangeHandler("TAF_MNGDPM_NODE_STATE_BIT_MASK_SUSPEND_PREPARE");
+    LE_INFO("GracefulSysSuspend without wake source");
+    result = taf_mngdPm_SetNodeTargetedPowerMode(WAKELOCK_WITHOUT_REF,
+            TAF_MNGDPM_SUSPEND);
+    if(result == LE_OK)
+    {
+        LE_INFO("----GracefulSysSuspend success----");
+    }
+    else
+    {
+        LE_ERROR("GracefulSysSuspend request failed");
     }
 
 }
@@ -618,6 +686,14 @@ COMPONENT_INIT
         else if(strcmp(testType, "GracefulSysShutdown") == 0)
         {
             GracefulSysShutdown();
+        }
+        else if(strcmp(testType, "GracefulSysSuspendWakeLock") == 0)
+        {
+            GracefulSysSuspendWakeLock();
+        }
+        else if(strcmp(testType, "GracefulSysSuspend") == 0)
+        {
+            GracefulSysSuspend();
         }
         else if(strcmp(testType, "SetModemWakeupSource") == 0)
         {

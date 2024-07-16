@@ -74,12 +74,12 @@ le_result_t taf_mngdPm_SetNodeTargetedPowerMode(uint8_t pm_node_id,
     // Acquire a wakelock to get notified on last wakeup source release.
     if (mpms.ws != nullptr)
     {
-        le_result_t res = taf_pm_StayAwake(mpms.ws);
+        le_result_t res = tafMngdPMSvc::AcquireWakeLock();
         if(res == LE_OK)
-            LE_DEBUG("Wake source acquired successfully");
-        res = taf_pm_Relax(mpms.ws);
+            LE_INFO("Wake source acquired successfully");
+        res = tafMngdPMSvc::ReleaseWakeLock();
         if(res == LE_OK)
-            LE_DEBUG("Wake source released successfully");
+            LE_INFO("Wake source released successfully");
     }
     else
     {
@@ -102,7 +102,7 @@ le_result_t taf_mngdPm_ShutdownReqAsync(taf_mngdPm_ShutdownMode_t mode,
     TAF_ERROR_IF_RET_VAL(!handlerPtr, LE_BAD_PARAMETER, "invalid handlerRef");
 
     auto &mpms = tafMngdPMSvc::GetInstance();
-    if(mpms.pmInf)
+    if(mpms.pmInf && mpms.pmInf->nodeStateChangePrepareAsync)
     {
         LE_INFO("Send shutdownReqAsync %d", HAL_PM_SHUTDOWN_MODE_NORMAL);
         (*(mpms.pmInf->nodeStateChangePrepareAsync))(NODE_ID, HAL_PM_NODE_STATE_SHUTDOWN,
@@ -147,7 +147,7 @@ le_result_t taf_mngdPm_RestartReqAsync(taf_mngdPm_RestartMode_t mode,
 
     if(mode == TAF_MNGDPM_RESTART_SYSTEM_OFF_ON)
     {
-        if(mpms.pmInf)
+        if(mpms.pmInf && mpms.pmInf->nodeStateChangePrepareAsync)
         {
             LE_INFO("Send restartReqAsync %d", HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF);
             (*(mpms.pmInf->nodeStateChangePrepareAsync))(NODE_ID, HAL_PM_NODE_STATE_RESTART, HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF, tafMngdPMSvc::RestartPrepareRespCB);
@@ -190,7 +190,7 @@ le_result_t taf_mngdPm_WakeupVehicleReqAsync(int32_t reason,
 
     if(reason == VEHICHLE_WAKEUP_REASON_DEFAULT)
     {
-        if(mpms.pmInf)
+        if(mpms.pmInf && mpms.pmInf->wakeupVehicleReqAsync)
         {
             LE_INFO("Send wakeupVehicleReqAsync %d", HAL_PM_VEHICHLE_WAKEUP_STATUS_AWAKE);
             if(mpms.stateMachine.currentState != TAF_MNGDPM_STATE_RESUME)
@@ -327,10 +327,9 @@ le_result_t taf_mngdPm_StayAwakeNode(taf_mngdPm_wsRef_t wsRef)
         {
             ispresent = true;
             LE_INFO("WakeupType is TAF_MNGDPM_APP_STAYAWAKE");
-            mpms.wsCount++;
             res = tafMngdPMSvc::AcquireWakeLock();
             //sending notification to VHAL
-            if(res == LE_OK && wsRefCtxPtr->vhalTag != NULL && mpms.pmInf)
+            if((res == LE_OK) && (wsRefCtxPtr->vhalTag != NULL) && (mpms.pmInf) && (mpms.pmInf->nodeInfoNotification))
             {
                 LE_INFO("send nodeInfoNotification for vhalTag:%s", wsRefCtxPtr->vhalTag);
                 (*(mpms.pmInf->nodeInfoNotification))(wsRefCtxPtr->pmNodeId,
@@ -345,10 +344,9 @@ le_result_t taf_mngdPm_StayAwakeNode(taf_mngdPm_wsRef_t wsRef)
                 {
                     ispresent = true;
                     LE_INFO("WakeupType matched with whitelisting wakeup_source");
-                    mpms.wsCount++;
                     res = tafMngdPMSvc::AcquireWakeLock();
                     //sending notification to VHAL
-                    if(res == LE_OK && wsRefCtxPtr->vhalTag != NULL && mpms.pmInf)
+                    if((res == LE_OK) && (wsRefCtxPtr->vhalTag != NULL) && (mpms.pmInf) && (mpms.pmInf->nodeInfoNotification))
                     {
                         LE_INFO("send nodeInfoNotification for vhalTag:%s", wsRefCtxPtr->vhalTag);
                         (*(mpms.pmInf->nodeInfoNotification))(wsRefCtxPtr->pmNodeId,
@@ -398,15 +396,11 @@ le_result_t taf_mngdPm_RelaxNode(taf_mngdPm_wsRef_t wsRef)
             ispresent = true;
             LE_INFO("WakeupType matched with whitelisting wakeup_source");
             //sending notification to VHAL
-            if(wsRefCtxPtr->vhalTag != NULL && mpms.pmInf)
+            if((wsRefCtxPtr->vhalTag != NULL) && (mpms.pmInf) && (mpms.pmInf->nodeInfoNotification))
             {
                 LE_INFO("nodeInfoNotification for vhalTag: %s", wsRefCtxPtr->vhalTag);
                 (*(mpms.pmInf->nodeInfoNotification))(wsRefCtxPtr->pmNodeId, HAL_PM_NODE_INFO_LOCK_RELEASED,
                     wsRefCtxPtr->vhalTag);
-            }
-            if(mpms.wsCount > 0)
-            {
-                mpms.wsCount--;
             }
             res = tafMngdPMSvc::ReleaseWakeLock();
         }
@@ -491,7 +485,7 @@ taf_mngdPm_InfoReportHandlerRef_t taf_mngdPm_AddInfoReportHandler(taf_mngdPm_Inf
 {
     LE_DEBUG("AddInfoReportHandler");
     auto &mpms = tafMngdPMSvc::GetInstance();
-    if(!mpms.pmInf)
+    if((!mpms.pmInf) || (mpms.pmInf->addBubStatusHandler == NULL) )
     {
         LE_INFO("Ignore the AddInfoReportHandler when no VHAL present");
         return NULL;
@@ -510,11 +504,10 @@ taf_mngdPm_InfoReportHandlerRef_t taf_mngdPm_AddInfoReportHandler(taf_mngdPm_Inf
     handlerCtxPtr->link = LE_DLS_LINK_INIT;
     handlerCtxPtr->infoReportHandlerCtxPtr = contextPtr;
     le_dls_Queue((&(mpms.infoReportHandlerList)), &handlerCtxPtr->link);
-    if(mpms.pmInf)
-    {
-        LE_INFO("Send addBubStatusHandler request to VHAL");
-        (*(mpms.pmInf->addBubStatusHandler))(mpms.InfoReportVhalCB);
-    }
+
+    LE_INFO("Send addBubStatusHandler request to VHAL");
+    (*(mpms.pmInf->addBubStatusHandler))(mpms.InfoReportVhalCB);
+
     return handlerCtxPtr->handlerRef;
 }
 
@@ -596,7 +589,7 @@ le_result_t taf_mngdPm_GetInfoReport(taf_mngdPm_InfoDataId_t infoReportId, int32
     LE_INFO("taf_mngdPm_GetInfoReport");
     le_result_t res = LE_FAULT ;
     auto &mpms = tafMngdPMSvc::GetInstance();
-    if(!mpms.pmInf)
+    if((!mpms.pmInf) || (mpms.pmInf->getBubStatus == NULL))
     {
         LE_INFO("Ignore the GetInfoReport when no VHAL present");
         return LE_FAULT;
@@ -758,7 +751,7 @@ COMPONENT_INIT
     mpms.stateMachine.currentState = TAF_MNGDPM_STATE_RESUME;
 
     res = tafMngdPMSvc::InitVHalModule();
-    if((res == LE_OK) && (mpms.pmInf))
+    if((res == LE_OK) && (mpms.pmInf) && (mpms.pmInf->addNodeEventHandler))
     {
         LE_INFO("addNodeEventHanlder for node %d", NODE_ID);
         (*(mpms.pmInf->addNodeEventHandler))(NODE_ID, tafMngdPMSvc::NodeEventCB);

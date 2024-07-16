@@ -3,7 +3,7 @@ provides:
 {
     api:
     {
-        taf_sensor.api
+        taf_imuSensor.api
     }
 }
 requires:
@@ -30,6 +30,6 @@ cflags:
 }
 sources:
 {
-    tafSensorImpl.cpp
-    tafSensorSvc.cpp
+    tafImuSensorImpl.cpp
+    tafImuSensorSvc.cpp
 }

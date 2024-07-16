@@ -6,7 +6,7 @@
 #include "legato.h"
 #include "interfaces.h"
 #include <telux/sensor/SensorManager.hpp>
-#include "tafSensor.hpp"
+#include "tafImuSensor.hpp"
 #include "tafSvcIF.hpp"
 
 using namespace telux::tafsvc;
@@ -25,13 +25,13 @@ COMPONENT_INIT
 
 /*======================================================================
 
- FUNCTION       taf_sensor_GetSensorList
+ FUNCTION       taf_imuSensor_GetSensorList
 
  DESCRIPTION    Get list of all available sensors.
 
  DEPENDENCIES   Initialization of sensor service
 
- RETURN VALUE   taf_sensor_SensorListRef_t
+ RETURN VALUE   taf_imuSensor_SensorListRef_t
                 nullptr:     Fail
                 non-nullptr: Success
 
@@ -39,7 +39,7 @@ COMPONENT_INIT
 
 ======================================================================*/
 
-taf_sensor_SensorListRef_t taf_sensor_GetSensorList
+taf_imuSensor_SensorListRef_t taf_imuSensor_GetSensorList
 (
     void
 )
@@ -50,13 +50,13 @@ taf_sensor_SensorListRef_t taf_sensor_GetSensorList
 
 /*======================================================================
 
- FUNCTION       taf_sensor_DeleteSensorList
+ FUNCTION       taf_imuSensor_DeleteSensorList
 
  DESCRIPTION    Delete a reference of sensor list.
 
  DEPENDENCIES   Initialization of SensorList
 
- PARAMETERS      [IN] taf_sensor_SensorListRef_t sensorListRef: reference to SensorList.
+ PARAMETERS      [IN] taf_imuSensor_SensorListRef_t sensorListRef: reference to SensorList.
 
  RETURN VALUE   le_result_t
                 LE_NOT_FOUND: Fail
@@ -66,9 +66,9 @@ taf_sensor_SensorListRef_t taf_sensor_GetSensorList
 
 ======================================================================*/
 
-le_result_t taf_sensor_DeleteSensorList
+le_result_t taf_imuSensor_DeleteSensorList
 (
-    taf_sensor_SensorListRef_t sensorListRef
+    taf_imuSensor_SensorListRef_t sensorListRef
 )
 {
     auto& sensorMngr = taf_Sensor::GetInstance();
@@ -77,15 +77,15 @@ le_result_t taf_sensor_DeleteSensorList
 
 /*======================================================================
 
- FUNCTION       taf_sensor_GetFirstSensor
+ FUNCTION       taf_imuSensor_GetFirstSensor
 
  DESCRIPTION    Get first sensor reference from available sensors list.
 
  DEPENDENCIES   Initialization of SensorList
 
- PARAMETERS      [IN] taf_sensor_SensorListRef_t sensorListRef: reference to SensorList.
+ PARAMETERS      [IN] taf_imuSensor_SensorListRef_t sensorListRef: reference to SensorList.
 
- RETURN VALUE   taf_sensor_SensorRef_t
+ RETURN VALUE   taf_imuSensor_SensorRef_t
                 nullptr:     Fail
                 non-nullptr: Success
 
@@ -93,9 +93,9 @@ le_result_t taf_sensor_DeleteSensorList
 
 ======================================================================*/
 
-taf_sensor_SensorRef_t taf_sensor_GetFirstSensor
+taf_imuSensor_SensorRef_t taf_imuSensor_GetFirstSensor
 (
-    taf_sensor_SensorListRef_t sensorListRef
+    taf_imuSensor_SensorListRef_t sensorListRef
 )
 {
     auto& sensorMngr = taf_Sensor::GetInstance();
@@ -104,15 +104,15 @@ taf_sensor_SensorRef_t taf_sensor_GetFirstSensor
 
 /*======================================================================
 
- FUNCTION       taf_sensor_GetNextSensor
+ FUNCTION       taf_imuSensor_GetNextSensor
 
  DESCRIPTION    Get next sensor reference from available sensors list.
 
  DEPENDENCIES   Initialization of SensorList
 
- PARAMETERS      [IN] taf_sensor_SensorListRef_t sensorListRef: reference to SensorList.
+ PARAMETERS      [IN] taf_imuSensor_SensorListRef_t sensorListRef: reference to SensorList.
 
- RETURN VALUE   taf_sensor_SensorRef_t
+ RETURN VALUE   taf_imuSensor_SensorRef_t
                 nullptr:     Fail
                 non-nullptr: Success
 
@@ -120,9 +120,9 @@ taf_sensor_SensorRef_t taf_sensor_GetFirstSensor
 
 ======================================================================*/
 
-taf_sensor_SensorRef_t taf_sensor_GetNextSensor
+taf_imuSensor_SensorRef_t taf_imuSensor_GetNextSensor
 (
-    taf_sensor_SensorListRef_t sensorListRef
+    taf_imuSensor_SensorListRef_t sensorListRef
 )
 {
     auto& sensorMngr = taf_Sensor::GetInstance();
@@ -131,13 +131,13 @@ taf_sensor_SensorRef_t taf_sensor_GetNextSensor
 
 /*======================================================================
 
- FUNCTION       taf_sensor_GetId
+ FUNCTION       taf_imuSensor_GetId
 
  DESCRIPTION    Gets the id of sensor.
 
  DEPENDENCIES   Initialization of sensor list.
 
- PARAMETERS      [IN] taf_sensor_SensorRef_t sensorRef: reference to sensor.
+ PARAMETERS      [IN] taf_imuSensor_SensorRef_t sensorRef: reference to sensor.
 
  RETURN VALUE   le_result_t
                 LE_FAULT: Fail
@@ -147,9 +147,9 @@ taf_sensor_SensorRef_t taf_sensor_GetNextSensor
 
 ======================================================================*/
 
-le_result_t taf_sensor_GetId
+le_result_t taf_imuSensor_GetId
 (
-    taf_sensor_SensorRef_t sensorRef,
+    taf_imuSensor_SensorRef_t sensorRef,
     uint32_t* sensorIdPtr
 )
 {
@@ -159,13 +159,13 @@ le_result_t taf_sensor_GetId
 
 /*======================================================================
 
- FUNCTION       taf_sensor_GetName
+ FUNCTION       taf_imuSensor_GetName
 
  DESCRIPTION    Gets the name of the sensor.
 
  DEPENDENCIES   Initialization of sensor list.
 
- PARAMETERS      [IN] taf_sensor_SensorRef_t sensorRef: reference to sensor.
+ PARAMETERS      [IN] taf_imuSensor_SensorRef_t sensorRef: reference to sensor.
 
  RETURN VALUE   le_result_t
                 LE_FAULT: Fail
@@ -175,9 +175,9 @@ le_result_t taf_sensor_GetId
 
 ======================================================================*/
 
-le_result_t taf_sensor_GetName
+le_result_t taf_imuSensor_GetName
 (
-    taf_sensor_SensorRef_t sensorRef,
+    taf_imuSensor_SensorRef_t sensorRef,
     char* sensorName,
     size_t sensorNameSize
 )
@@ -188,13 +188,13 @@ le_result_t taf_sensor_GetName
 
 /*======================================================================
 
- FUNCTION       taf_sensor_GetVendorName
+ FUNCTION       taf_imuSensor_GetVendorName
 
  DESCRIPTION    Gets the vendor name of sensor.
 
  DEPENDENCIES   Initialization of sensor list.
 
- PARAMETERS      [IN] taf_sensor_SensorRef_t sensorRef: reference to sensor.
+ PARAMETERS      [IN] taf_imuSensor_SensorRef_t sensorRef: reference to sensor.
 
  RETURN VALUE   le_result_t
                 LE_FAULT: Fail
@@ -204,9 +204,9 @@ le_result_t taf_sensor_GetName
 
 ======================================================================*/
 
-le_result_t taf_sensor_GetVendorName
+le_result_t taf_imuSensor_GetVendorName
 (
-    taf_sensor_SensorRef_t sensorRef,
+    taf_imuSensor_SensorRef_t sensorRef,
     char* sensorVendorName,
     size_t sensorVendorNameSize
 )
@@ -217,13 +217,13 @@ le_result_t taf_sensor_GetVendorName
 
 /*======================================================================
 
- FUNCTION       taf_sensor_GetType
+ FUNCTION       taf_imuSensor_GetType
 
  DESCRIPTION    Gets the type of sensor.
 
  DEPENDENCIES   Initialization of sensor list.
 
- PARAMETERS      [IN] taf_sensor_SensorRef_t sensorRef: reference to sensor.
+ PARAMETERS      [IN] taf_imuSensor_SensorRef_t sensorRef: reference to sensor.
 
  RETURN VALUE   le_result_t
                 LE_FAULT: Fail
@@ -233,10 +233,10 @@ le_result_t taf_sensor_GetVendorName
 
 ======================================================================*/
 
-le_result_t taf_sensor_GetType
+le_result_t taf_imuSensor_GetType
 (
-    taf_sensor_SensorRef_t sensorRef,
-    taf_sensor_SensorType_t* sensorTypePtr
+    taf_imuSensor_SensorRef_t sensorRef,
+    taf_imuSensor_SensorType_t* sensorTypePtr
 )
 {
      auto& sensorMngr = taf_Sensor::GetInstance();
@@ -245,13 +245,13 @@ le_result_t taf_sensor_GetType
 
 /*======================================================================
 
- FUNCTION       taf_sensor_GetVersion
+ FUNCTION       taf_imuSensor_GetVersion
 
  DESCRIPTION    Gets the version of sensor.
 
  DEPENDENCIES   Initialization of sensor list
 
- PARAMETERS      [IN] taf_sensor_SensorRef_t sensorRef: reference to sensor.
+ PARAMETERS      [IN] taf_imuSensor_SensorRef_t sensorRef: reference to sensor.
 
  RETURN VALUE   le_result_t
                 LE_FAULT: Fail
@@ -261,9 +261,9 @@ le_result_t taf_sensor_GetType
 
 ======================================================================*/
 
-le_result_t taf_sensor_GetVersion
+le_result_t taf_imuSensor_GetVersion
 (
-    taf_sensor_SensorRef_t sensorRef,
+    taf_imuSensor_SensorRef_t sensorRef,
     char* version,
     size_t versionSize
 )
@@ -274,13 +274,13 @@ le_result_t taf_sensor_GetVersion
 
 /*======================================================================
 
- FUNCTION       taf_sensor_GetSensorSamplingRateInfo
+ FUNCTION       taf_imuSensor_GetSupportedSamplingRate
 
  DESCRIPTION    Gets info of sensor like supported sampling rates.
 
  DEPENDENCIES   Initialization of sensor list
 
- PARAMETERS      [IN] taf_sensor_SensorRef_t sensorRef: reference to sensor.
+ PARAMETERS      [IN] taf_imuSensor_SensorRef_t sensorRef: reference to sensor.
 
  RETURN VALUE   le_result_t
                 LE_FAULT: Fail
@@ -290,9 +290,9 @@ le_result_t taf_sensor_GetVersion
 
 ======================================================================*/
 
-le_result_t taf_sensor_GetSamplingRateInfo
+le_result_t taf_imuSensor_GetSupportedSamplingRate
 (
-    taf_sensor_SensorRef_t sensorRef,
+    taf_imuSensor_SensorRef_t sensorRef,
     double* samplingRatesListPtr,
     size_t* samplingRatesListSizePtr
 )
@@ -304,13 +304,13 @@ le_result_t taf_sensor_GetSamplingRateInfo
 
 /*======================================================================
 
- FUNCTION       taf_sensor_GetSensorBatchingInfo
+ FUNCTION       taf_imuSensor_GetSupportedBatchCount
 
  DESCRIPTION    Gets info of sensor like min and max batch count supported.
 
  DEPENDENCIES   Initialization of sensor list
 
- PARAMETERS      [IN] taf_sensor_SensorRef_t sensorRef: reference to sensor.
+ PARAMETERS      [IN] taf_imuSensor_SensorRef_t sensorRef: reference to sensor.
 
  RETURN VALUE   le_result_t
                 LE_FAULT: Fail
@@ -320,9 +320,9 @@ le_result_t taf_sensor_GetSamplingRateInfo
 
 ======================================================================*/
 
-le_result_t taf_sensor_GetBatchingInfo
+le_result_t taf_imuSensor_GetSupportedBatchCount
 (
-    taf_sensor_SensorRef_t sensorRef,
+    taf_imuSensor_SensorRef_t sensorRef,
     uint32_t* maxBatchCountSupportedPtr,
     uint32_t* minBatchCountSupportedPtr
 )
@@ -334,13 +334,13 @@ le_result_t taf_sensor_GetBatchingInfo
 
 /*======================================================================
 
- FUNCTION       taf_sensor_GetSensorRangeInfo
+ FUNCTION       taf_imuSensor_GetSensorRangeInfo
 
  DESCRIPTION    Gets Info of sensor like range.
 
  DEPENDENCIES   Initialization of sensor list
 
- PARAMETERS      [IN] taf_sensor_SensorRef_t sensorRef: reference to Sensor.
+ PARAMETERS      [IN] taf_imuSensor_SensorRef_t sensorRef: reference to Sensor.
 
  RETURN VALUE   le_result_t
                 LE_FAULT: Fail
@@ -350,9 +350,9 @@ le_result_t taf_sensor_GetBatchingInfo
 
 ======================================================================*/
 
-le_result_t taf_sensor_GetRange
+le_result_t taf_imuSensor_GetRange
 (
-    taf_sensor_SensorRef_t sensorRef,
+    taf_imuSensor_SensorRef_t sensorRef,
     double* rangePtr
 )
 {
@@ -362,13 +362,13 @@ le_result_t taf_sensor_GetRange
 
 /*======================================================================
 
- FUNCTION       taf_sensor_GetSensorResolution
+ FUNCTION       taf_imuSensor_GetSensorResolution
 
  DESCRIPTION    Gets info of sensor resolution.
 
  DEPENDENCIES   Initialization of sensor list.
 
- PARAMETERS      [IN] taf_sensor_SensorRef_t sensorRef: reference to Sensor.
+ PARAMETERS      [IN] taf_imuSensor_SensorRef_t sensorRef: reference to Sensor.
 
  RETURN VALUE   le_result_t
                 LE_FAULT: Fail
@@ -378,9 +378,9 @@ le_result_t taf_sensor_GetRange
 
 ======================================================================*/
 
-le_result_t taf_sensor_GetResolution
+le_result_t taf_imuSensor_GetResolution
 (
-    taf_sensor_SensorRef_t sensorRef,
+    taf_imuSensor_SensorRef_t sensorRef,
     double* resolutionPtr
 )
 {
@@ -390,13 +390,13 @@ le_result_t taf_sensor_GetResolution
 
 /*======================================================================
 
- FUNCTION       taf_sensor_SetEulerAngle
+ FUNCTION       taf_imuSensor_SetRefCoordinateByEulerAngle
 
  DESCRIPTION    Sets the euler angle to get rotated sensor data.
 
  DEPENDENCIES   Initialization of sensor service.
 
- PARAMETERS
+ PARAMETERS     [IN] taf_imuSensor_SensorRef_t sensorRef: reference to Sensor.
 
  RETURN VALUE   le_result_t
                 LE_FAULT: Fail
@@ -406,9 +406,9 @@ le_result_t taf_sensor_GetResolution
 
 ======================================================================*/
 
-le_result_t taf_sensor_SetEulerAngle
+le_result_t taf_imuSensor_SetRefCoordinateByEulerAngle
 (
-    taf_sensor_SensorRef_t sensorRef,
+    taf_imuSensor_SensorRef_t sensorRef,
     double pitch,
     double roll,
     double yaw
@@ -416,4 +416,171 @@ le_result_t taf_sensor_SetEulerAngle
 {
     auto& sensorMngr = taf_Sensor::GetInstance();
     return sensorMngr.SetEulerAngle(pitch,roll,yaw);
+}
+
+/*======================================================================
+
+ FUNCTION       taf_imuSensor_Activate
+
+ DESCRIPTION    Activate the sensor to get sensor data.
+
+ DEPENDENCIES   Initialization of sensor service.
+
+ PARAMETERS     [IN] taf_imuSensor_SensorRef_t sensorRef: reference to Sensor.
+
+ RETURN VALUE   le_result_t
+                LE_UNSUPPORTED: if Sampling rate or batch count not supported.
+                LE_FAULT: Fail
+                LE_OK:    Success
+
+ SIDE EFFECTS
+
+======================================================================*/
+
+le_result_t taf_imuSensor_Activate
+(
+    taf_imuSensor_SensorRef_t sensorRef,
+    double samplingRate,
+    uint32_t batchCount
+)
+{
+    auto& sensorMngr = taf_Sensor::GetInstance();
+    return sensorMngr.Activate(sensorRef,samplingRate,batchCount);
+}
+
+/*======================================================================
+
+ FUNCTION       taf_imuSensor_Deactivate
+
+ DESCRIPTION    Deactivate the sensor to stop getting sensor data.
+
+ DEPENDENCIES   Initialization of sensor service.
+
+ PARAMETERS     [IN] taf_imuSensor_SensorRef_t sensorRef: reference to Sensor.
+
+ RETURN VALUE   le_result_t
+                LE_FAULT: Fail
+                LE_OK:    Success
+
+ SIDE EFFECTS
+
+======================================================================*/
+
+le_result_t taf_imuSensor_Deactivate
+(
+    taf_imuSensor_SensorRef_t sensorRef
+)
+{
+    auto& sensorMngr = taf_Sensor::GetInstance();
+    return sensorMngr.Deactivate(sensorRef);
+}
+
+/*======================================================================
+
+ FUNCTION       taf_imuSensor_AddDataHandler
+
+ DESCRIPTION    Sends sensor data event notification.
+
+ DEPENDENCIES   Initialization of sensor service.
+
+ PARAMETERS     Data event handler function.
+
+ RETURN VALUE   taf_imuSensor_DataHandlerRef_t if registered successfully else NULL.
+
+ SIDE EFFECTS
+
+======================================================================*/
+
+taf_imuSensor_DataHandlerRef_t taf_imuSensor_AddDataHandler
+(
+    taf_imuSensor_SensorRef_t sensorRef,
+    taf_imuSensor_DataHandlerFunc_t handlerPtr,
+    void* contextPtr
+)
+{
+    auto& sensorMngr = taf_Sensor::GetInstance();
+    return sensorMngr.AddDataHandler(sensorRef,handlerPtr,contextPtr);
+}
+
+/*======================================================================
+
+ FUNCTION       taf_imuSensor_RemoveDataHandler
+
+ DESCRIPTION    Removes sensor OnEvent handler.
+
+ DEPENDENCIES   Initialization of sensor service.
+
+ PARAMETERS     Data event handler reference.
+
+ RETURN VALUE
+
+ SIDE EFFECTS
+
+======================================================================*/
+
+void taf_imuSensor_RemoveDataHandler
+(
+    taf_imuSensor_DataHandlerRef_t  handlerRef
+)
+{
+    auto& sensorMngr = taf_Sensor::GetInstance();
+    return sensorMngr.RemoveDataHandler(handlerRef);
+}
+
+/*======================================================================
+
+ FUNCTION       taf_imuSensor_GetRotatedData
+
+ DESCRIPTION    Gets the raw data and bias for sensor sample list.
+
+ DEPENDENCIES   Initialization of sensor service.
+
+ PARAMETERS     [IN] taf_imuSensor_SampleRef_t sampleRef: reference to SampleRef.
+
+ RETURN VALUE   le_result_t
+                LE_FAULT: Fail
+                LE_OK:    Success
+
+ SIDE EFFECTS
+
+======================================================================*/
+
+le_result_t taf_imuSensor_GetRotatedData
+(
+    taf_imuSensor_SampleRef_t sampleRef,
+    taf_imuSensor_DataValue_t* RawDataPtr,
+    size_t* RawDataSizePtr,
+    taf_imuSensor_DataValue_t* BiasDataPtr,
+    size_t* BiasDataSizePtr
+)
+{
+    auto& sensorMngr = taf_Sensor::GetInstance();
+    return sensorMngr.GetData(sampleRef,RawDataPtr, RawDataSizePtr,BiasDataPtr,BiasDataSizePtr);
+}
+
+/*======================================================================
+
+ FUNCTION       taf_imuSensor_DeleteData
+
+ DESCRIPTION    Delete the list of sensor samples.
+
+ DEPENDENCIES   Initialization of sensor service.
+
+ PARAMETERS     [IN] taf_imuSensor_SampleListRef_t sampleList: reference to SampleList.
+
+ RETURN VALUE   le_result_t
+                LE_BAD_PARAMETER: Fail
+                LE_OK:    Success
+
+ SIDE EFFECTS
+
+======================================================================*/
+
+le_result_t taf_imuSensor_DeleteData
+(
+    taf_imuSensor_SampleRef_t sampleRef
+)
+{
+    auto& sensorMngr = taf_Sensor::GetInstance();
+    return sensorMngr.DeleteData(sampleRef);
 }

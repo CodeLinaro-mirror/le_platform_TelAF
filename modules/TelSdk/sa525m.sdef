@@ -40,7 +40,7 @@ apps:
     $TELAF_ROOT/apps/tafServices/tafDiagSvc
     $TELAF_ROOT/apps/tafServices/tafTimeSvc
     $TELAF_ROOT/apps/tafServices/tafHMSvc
-    $TELAF_ROOT/apps/tafServices/tafSensorSvc
+    $TELAF_ROOT/apps/tafServices/tafImuSensorSvc
     // $TELAF_ROOT/apps/tafServices/tafWlanSvc
     // $TELAF_ROOT/apps/tafServices/tafDiagBackendSvc
 
@@ -57,6 +57,7 @@ apps:
 
     // test apps
     // $TELAF_ROOT/apps/test/tafSensorTest/tafSensorUnitTest/tafSensorUnitTest
+    // $TELAF_ROOT/apps/test/tafSensorTest/tafSensorIntTest/tafSensorIntTest
     // $TELAF_ROOT/apps/test/tafDevInfoTest/tafDevInfoUnitTest
     // $TELAF_ROOT/apps/test/tafDevInfoTest/tafDevInfoIntTest
     $TELAF_ROOT/apps/test/tafLxcInitApp/tafLxcInitApp

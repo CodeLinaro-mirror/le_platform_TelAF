@@ -1,6 +1,6 @@
 sources:
 {
-    tafSensorUnitTest.c
+    tafSensorIntTest.c
 }
 requires:
 {

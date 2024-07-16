@@ -1,13 +1,12 @@
 sources:
 {
-    diag.c
+    diagApp.c
 }
 
 requires:
 {
     api:
     {
-        taf_diagDIDBackend.api
-        taf_diagSecBackend.api
+        taf_diagBackend.api
     }
 }

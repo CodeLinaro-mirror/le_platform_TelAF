@@ -24,6 +24,5 @@ start: manual
 
 bindings:
 {
-    tafDiagBackendApp.diagBackendAppComp.taf_diagDIDBackend -> tafDiagBackendSvc.taf_diagDIDBackend
-    tafDiagBackendApp.diagBackendAppComp.taf_diagSecBackend -> tafDiagBackendSvc.taf_diagSecBackend
+    tafDiagBackendApp.diagBackendAppComp.taf_diagBackend -> tafDiagBackendSvc.taf_diagBackend
 }

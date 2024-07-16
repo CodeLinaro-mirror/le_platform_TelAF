@@ -629,36 +629,21 @@ namespace telux
                 // Response event thread
                 static void* RespEventThread(void* contextPtr);
 
-                // Read DID response event-handler
-                le_event_Id_t ReadDIDRespEvtId;
-                static void ReadDIDRespEvtHandler(void* RespPtr);
-
-                // Write DID event-handler
-                le_event_Id_t WriteDIDRespEvtId;
-                static void WriteDIDRespEvtHandler(void* RespPtr);
-
-                // SessionCtrl response event-handler
-                le_event_Id_t SesCtrlRespEvtId;
-                static void SesCtrlRespEvtHandler(void* RespPtr);
+                // Diag Event response event-handler
+                le_event_Id_t DiagEventRespEvtId;
+                static void DiagEventRespEvtHandler(void* RespPtr);
 
             private:
                 le_thread_Ref_t RespEvtThreadRef = NULL;
 
-                le_mem_PoolRef_t ReadDIDMsgPool;
-                le_ref_MapRef_t ReadDIDMsgRefMap;
-
-                le_mem_PoolRef_t SesChangeMsgPool;
-
-                le_mem_PoolRef_t SesCtrlMsgPool;
-                le_ref_MapRef_t DSCMsgRefMap;
-
-                le_dls_List_t readDIDList;
-                le_dls_List_t DSCList;
+                le_mem_PoolRef_t DiagMsgPool;
+                le_ref_MapRef_t DiagMsgRefMap;
+                le_dls_List_t diagMsgList;
 
                 std::mutex ResponseStatusMtx;
                 En_ResponseStatus ResponseStatus;
 
-                uint8_t data[TAF_DIAGDIDBACKEND_READ_DID_PAYLOAD_SIZE];
+                uint8_t data[TAF_DIAGBACKEND_MAX_PAYLOAD_SIZE];
                 uint16_t dataLen;
 
                 unsigned char nrcValue;  // NRC handling.

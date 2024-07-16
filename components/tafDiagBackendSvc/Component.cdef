@@ -2,8 +2,7 @@ provides:
 {
     api:
     {
-        taf_diagDIDBackend.api
-        taf_diagSecBackend.api
+        taf_diagBackend.api
     }
 }
 
@@ -36,9 +35,7 @@ cflags:
 sources:
 {
         tafDiagStackInf.cpp
-        tafDIDBackendSvc.cpp
-        tafDIDBackendSvrImpl.cpp
-        tafSecBackendSvc.cpp
-        tafSecBackendSvrImpl.cpp
+        tafDiagBackendSvc.cpp
+        tafDiagBackendSvrImpl.cpp
         tafDiagMain.cpp
 }

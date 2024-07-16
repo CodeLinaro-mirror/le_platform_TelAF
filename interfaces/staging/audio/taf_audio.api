@@ -57,7 +57,7 @@
  *
  * TelAF Audio Service helps the user to open the audio connection for the requested route
  * type like ecall, non-ecall or playback/capture or playback of a playlist of audio files and
- * mode type as voice call, force open for voice call, playback, record.
+ * mode type as voice call, playback, record.
  *
  * Once route is opened, connect the sink reference and source reference to the
  * respective Rx/Tx connectors in case of voice call.
@@ -637,7 +637,6 @@ ENUM RouteId
 ENUM Mode
 {
     VOICE_CALL,             ///< Voice calls.
-    VOICE_CALL_FORCE_OPEN,  ///< Force open for calls.
     LOCAL_PLAYBACK,         ///< Downlink playback.
     LOCAL_RECORDING,        ///< Downlink recording.
     LOCAL_LOOPBACK          ///< For factory testing.

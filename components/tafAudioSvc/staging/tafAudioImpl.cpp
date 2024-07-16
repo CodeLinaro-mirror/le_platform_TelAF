@@ -1131,23 +1131,15 @@ taf_audio_RouteRef_t taf_Audio::OpenRoute( taf_audio_RouteId_t routeId,
     {
         routePtr = (taf_audio_Route_t*) le_ref_GetValue(iterRef);
         TAF_ERROR_IF_RET_VAL(routePtr == NULL, NULL, "Invalid routePtr!");
-        if(mode == TAF_AUDIO_VOICE_CALL_FORCE_OPEN)
-        {
-            LE_INFO("Force close the previous opened route");
-            CloseRoute(routePtr->routeRef);
-            break;
-        }
-        else
-        {
-            LE_ERROR("Another route is already active set true");
-            return NULL;
-        }
+
+        LE_ERROR("Another route is already active set true");
+        return NULL;
     }
     routePtr = (taf_audio_Route_t*)le_mem_ForceAlloc(RoutePool);
     routePtr->routeId = routeId;
     routePtr->sessionRef = taf_audio_GetClientSessionRef();
 
-    if(mode == TAF_AUDIO_VOICE_CALL || mode == TAF_AUDIO_VOICE_CALL_FORCE_OPEN)
+    if(mode == TAF_AUDIO_VOICE_CALL)
     {
         routePtr->mode = TAF_AUDIO_VOICE_CALL;
 
@@ -1238,8 +1230,7 @@ le_result_t taf_Audio::CloseRoute( taf_audio_RouteRef_t routeRef )
             (taf_audio_Route_t*)le_ref_Lookup(RouteRefMap, routeRef);
     TAF_ERROR_IF_RET_VAL(routePtr == NULL, LE_BAD_PARAMETER, "Invalid Route ref!");
 
-    if (routePtr->mode == TAF_AUDIO_VOICE_CALL
-            || routePtr->mode == TAF_AUDIO_VOICE_CALL_FORCE_OPEN) {
+    if (routePtr->mode == TAF_AUDIO_VOICE_CALL) {
         // Set ctl status to VHAL before stoping voice call audio.
         setVhalRouteStatus(routePtr->mode, false);
 

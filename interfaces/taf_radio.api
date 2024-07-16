@@ -154,6 +154,41 @@
  *
    @endcode
  *
+ * @section c_taf_radio_service_domain Service Domain
+ *
+ * Users can get the registration domain for the current serving RAT.
+ *
+ *  - taf_radio_GetServiceDomain() -- Get the registration domain for the current serving RAT.
+ *
+ *  - taf_radio_SetServiceDomainPreferences() -- Sets the service domain preferences.
+ *
+ *  - taf_radio_GetServiceDomainPreferences() -- Gets the network register mode.
+ *
+ * The following example illustrates getting service domain.
+ *
+ * @code
+ *
+    taf_radio_ServiceDomainState_t domain;
+    le_result_t result = taf_radio_GetServiceDomainPreferences(&domain, phoneId);
+    if (result != LE_OK)
+       LE_ERROR("Fail to get service domain.");
+    switch (domain)
+    {
+        case TAF_RADIO_SERVICE_DOMAIN_STATE_CS_ONLY:
+            LE_INFO("Domain : CS Only");
+            break;
+        case TAF_RADIO_SERVICE_DOMAIN_STATE_PS_ONLY:
+            LE_INFO("Domain : PS Only");
+            break;
+        case TAF_RADIO_SERVICE_DOMAIN_STATE_CS_AND_PS:
+            LE_INFO("Domain : CS and PS");
+            break;
+        default:
+            LE_ERROR("Domain : Unknown");
+    }
+ *
+   @endcode
+ *
  * @section c_taf_radio_preferred_operator Preferred Operators
  *
  * Users can configure the preferences of operators and get the configuration details
@@ -809,9 +844,11 @@ ENUM NetRegState
 ENUM ServiceDomainState
 {
     SERVICE_DOMAIN_STATE_UNKNOWN = -1, ///< Unknown state.
+    SERVICE_DOMAIN_STATE_NO_SVC,       ///< No service.
     SERVICE_DOMAIN_STATE_CS_ONLY,      ///< CS only.
     SERVICE_DOMAIN_STATE_PS_ONLY,      ///< PS only.
-    SERVICE_DOMAIN_STATE_CS_AND_PS     ///< CS and PS.
+    SERVICE_DOMAIN_STATE_CS_AND_PS,    ///< CS and PS.
+    SERVICE_DOMAIN_STATE_CAMPED        ///< Camped on the network but not registered.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -1727,6 +1764,56 @@ FUNCTION le_result_t GetPacketSwitchedState
 (
     NetRegState state OUT, ///< Packet switch state.
     uint8 phoneId IN       ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the registration domain for the current serving RAT.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetServiceDomain
+(
+    ServiceDomainState domain OUT, ///< Service domain.
+    uint8 phoneId IN               ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Sets the service domain preferences.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response timed out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetServiceDomainPreferences
+(
+    ServiceDomainState domain IN, ///< Service domain preferences.
+    uint8 phoneId IN              ///< Phone ID.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Gets the service domain preferences.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_TIMEOUT -- Response timed out.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetServiceDomainPreferences
+(
+    ServiceDomainState domainPtr OUT, ///< Service domain preferences.
+    uint8 phoneId IN                  ///< Phone ID.
 );
 
 //--------------------------------------------------------------------------------------------------

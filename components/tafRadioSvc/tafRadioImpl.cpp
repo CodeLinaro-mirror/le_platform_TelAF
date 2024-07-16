@@ -957,6 +957,53 @@ void taf_RadioRatPreferenceResponseCallback::ratPreferenceResponse
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Semaphore for getting service domain preference.
+ */
+//--------------------------------------------------------------------------------------------------
+le_sem_Ref_t taf_RadioServiceDomainPreferenceResponseCallback::semaphore = NULL;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Result of getting service domain preference.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_RadioServiceDomainPreferenceResponseCallback::result = LE_OK;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Service domain preference.
+ */
+//--------------------------------------------------------------------------------------------------
+telux::tel::ServiceDomainPreference taf_RadioServiceDomainPreferenceResponseCallback::domainPref
+    = telux::tel::ServiceDomainPreference::UNKNOWN;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Response for getting service domain preference.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_RadioServiceDomainPreferenceResponseCallback::serviceDomainPrefResponse
+(
+    telux::tel::ServiceDomainPreference preference, ///< [IN] Service domain preference.
+    telux::common::ErrorCode error                  ///< [IN] Error code.
+)
+{
+    if (error != telux::common::ErrorCode::SUCCESS)
+    {
+        LE_ERROR("Error(%d)", (int)error);
+        result = LE_FAULT;
+    }
+    else
+    {
+        domainPref = preference;
+        result = LE_OK;
+    }
+
+    le_sem_Post(semaphore);
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Semaphore for getting cell list information.
  */
 //--------------------------------------------------------------------------------------------------
@@ -2046,6 +2093,8 @@ void taf_Radio::Init(void)
     taf_RadioServingSystemResponseCallback::semaphore = le_sem_Create("taf_RadioSrvSysSem", 0);
     taf_RadioRatPreferenceResponseCallback::semaphore =
         le_sem_Create("taf_RadioRatPrefRespCbSem", 0);
+    taf_RadioServiceDomainPreferenceResponseCallback::semaphore =
+        le_sem_Create("taf_RadioServiceDomainPrefRespCbSem", 0);
     taf_RadioCellInfoCallback::semaphore = le_sem_Create("taf_RadioCellInfoCbSem", 0);
     taf_RadioPerformNetworkScanCallback::semaphore = le_sem_Create("taf_RadioPerfNetScanCbSem", 0);
     taf_RadioImsServSysCallback::semaphore = le_sem_Create("taf_RadioImsServSysCbSem", 0);

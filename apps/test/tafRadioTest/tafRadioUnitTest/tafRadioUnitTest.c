@@ -689,6 +689,28 @@ void TestTafRadioAccessTechnoloy
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Test service domain, including getting current service domain, getting/setting service domain
+ * preferences.
+ */
+//--------------------------------------------------------------------------------------------------
+void TestTafRadioServiceDomain
+(
+    void
+)
+{
+    taf_radio_ServiceDomainState_t domain = TAF_RADIO_SERVICE_DOMAIN_STATE_UNKNOWN;
+    le_result_t result = taf_radio_GetServiceDomainPreferences(&domain, DEFAULT_PHONE_ID);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetServiceDomainPreferences - LE_OK");
+
+    result = taf_radio_SetServiceDomainPreferences(domain, DEFAULT_PHONE_ID);
+    LE_TEST_OK(result == LE_OK, "taf_radio_SetServiceDomainPreferences - LE_OK");
+
+    result = taf_radio_GetServiceDomain(&domain, DEFAULT_PHONE_ID);
+    LE_TEST_OK(result == LE_OK, "taf_radio_GetServiceDomain - LE_OK");
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Test band, including getting/setting band preferences, and getting band capabilities.
  */
 //--------------------------------------------------------------------------------------------------
@@ -1384,6 +1406,8 @@ COMPONENT_INIT
     TestTafRadioNetworkRegistration();
     LE_TEST_INFO("======== Radio Access Technology Test ========");
     TestTafRadioAccessTechnoloy();
+    LE_TEST_INFO("======== Radio Service Domain Test ========");
+    TestTafRadioServiceDomain();
     LE_TEST_INFO("======== Radio Band Test ========");
     TestTafRadioBand();
     LE_TEST_INFO("======== Radio Operator Preferences Test ========");

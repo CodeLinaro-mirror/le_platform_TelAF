@@ -1398,6 +1398,174 @@ void taf_radio_RemovePacketSwitchedChangeHandler
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 }
 
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Get service domain.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServiceDomain
+(
+    taf_radio_ServiceDomainState_t* domainPtr, ///< [OUT] Service domain.
+    uint8_t phoneId                            ///< [IN] Phone ID.
+)
+{
+    TAF_ERROR_IF_RET_VAL(domainPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(domainPtr)");
+
+    auto &tafRadio = taf_Radio::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(), LE_BAD_PARAMETER,
+        "Invalid para(phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
+        "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+    telux::tel::ServingSystemInfo sysInfo;
+    auto status = tafRadio.servingSystemManagers[phoneId - 1]->getSystemInfo(sysInfo);
+    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT, "Call sdk function failed");
+
+    switch (sysInfo.domain)
+    {
+        case telux::tel::ServiceDomain::NO_SRV:
+            *domainPtr = TAF_RADIO_SERVICE_DOMAIN_STATE_NO_SVC;
+            break;
+        case telux::tel::ServiceDomain::CS_ONLY:
+            *domainPtr = TAF_RADIO_SERVICE_DOMAIN_STATE_CS_ONLY;
+            break;
+        case telux::tel::ServiceDomain::PS_ONLY:
+            *domainPtr = TAF_RADIO_SERVICE_DOMAIN_STATE_PS_ONLY;
+            break;
+        case telux::tel::ServiceDomain::CS_PS:
+            *domainPtr = TAF_RADIO_SERVICE_DOMAIN_STATE_CS_AND_PS;
+            break;
+        case telux::tel::ServiceDomain::CAMPED:
+            *domainPtr = TAF_RADIO_SERVICE_DOMAIN_STATE_CAMPED;
+            break;
+        default:
+            *domainPtr = TAF_RADIO_SERVICE_DOMAIN_STATE_UNKNOWN;
+            break;
+    }
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Get service domain preferences.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *  - LE_TIMEOUT -- Time out.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_GetServiceDomainPreferences
+(
+    taf_radio_ServiceDomainState_t* domainPtr, ///< [OUT] Service domain preference.
+    uint8_t phoneId                            ///< [IN] Phone ID.
+)
+{
+    TAF_ERROR_IF_RET_VAL(domainPtr == nullptr, LE_BAD_PARAMETER, "Null ptr(domainPtr)");
+
+    auto &tafRadio = taf_Radio::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(), LE_BAD_PARAMETER,
+        "Invalid para(phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
+        "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+    auto status = tafRadio.servingSystemManagers[phoneId - 1]->requestServiceDomainPreference(
+        taf_RadioServiceDomainPreferenceResponseCallback::serviceDomainPrefResponse);
+    TAF_ERROR_IF_RET_VAL(status != telux::common::Status::SUCCESS, LE_FAULT, "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(
+        taf_RadioServiceDomainPreferenceResponseCallback::semaphore, timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, res, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(taf_RadioServiceDomainPreferenceResponseCallback::result != LE_OK,
+        taf_RadioServiceDomainPreferenceResponseCallback::result, "Fail to get domain preference.");
+
+    switch (taf_RadioServiceDomainPreferenceResponseCallback::domainPref)
+    {
+        case telux::tel::ServiceDomainPreference::CS_ONLY:
+            *domainPtr = TAF_RADIO_SERVICE_DOMAIN_STATE_CS_ONLY;
+            break;
+        case telux::tel::ServiceDomainPreference::PS_ONLY:
+            *domainPtr = TAF_RADIO_SERVICE_DOMAIN_STATE_PS_ONLY;
+            break;
+        case telux::tel::ServiceDomainPreference::CS_PS:
+            *domainPtr = TAF_RADIO_SERVICE_DOMAIN_STATE_CS_AND_PS;
+            break;
+        default:
+            *domainPtr = TAF_RADIO_SERVICE_DOMAIN_STATE_UNKNOWN;
+            break;
+    }
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ *  Set service domain preferences.
+ *
+ * @return
+ *  - LE_BAD_PARAMETER -- Bad parameters.
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *  - LE_TIMEOUT -- Time out.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_radio_SetServiceDomainPreferences
+(
+    taf_radio_ServiceDomainState_t domain, ///< [IN] Service domain preference.
+    uint8_t phoneId                        ///< [IN] Phone ID.
+)
+{
+    auto &tafRadio = taf_Radio::GetInstance();
+    TAF_ERROR_IF_RET_VAL(!phoneId || phoneId > tafRadio.servingSystemManagers.size(),
+        LE_BAD_PARAMETER, "Invalid para(phoneId:%d)", phoneId);
+
+    TAF_ERROR_IF_RET_VAL(tafRadio.servingSystemManagers[phoneId - 1] == nullptr, LE_FAULT,
+        "Invalid para(null ptr, phoneId:%d)", phoneId);
+
+    telux::tel::ServiceDomainPreference domainPref;
+    switch (domain)
+    {
+        case TAF_RADIO_SERVICE_DOMAIN_STATE_CS_ONLY:
+            domainPref = telux::tel::ServiceDomainPreference::CS_ONLY;
+            break;
+        case TAF_RADIO_SERVICE_DOMAIN_STATE_PS_ONLY:
+            domainPref = telux::tel::ServiceDomainPreference::PS_ONLY;
+            break;
+        case TAF_RADIO_SERVICE_DOMAIN_STATE_CS_AND_PS:
+            domainPref = telux::tel::ServiceDomainPreference::CS_PS;
+            break;
+        default:
+            LE_ERROR("Invalid domain(%d)", domain);
+            return LE_BAD_PARAMETER;
+    }
+
+    auto ret = tafRadio.servingSystemManagers[phoneId - 1]->setServiceDomainPreference(domainPref,
+        taf_RadioServingSystemResponseCallback::servingSystemResponse);
+    TAF_ERROR_IF_RET_VAL(ret != telux::common::Status::SUCCESS, LE_FAULT,
+        "Call sdk function failed");
+
+    le_clk_Time_t timeToWait = {1, 0};
+    le_result_t res = le_sem_WaitWithTimeOut(taf_RadioServingSystemResponseCallback::semaphore,
+        timeToWait);
+    TAF_ERROR_IF_RET_VAL(res != LE_OK, LE_FAULT, "Wait semaphore timeout");
+
+    TAF_ERROR_IF_RET_VAL(taf_RadioServingSystemResponseCallback::result != LE_OK,
+        taf_RadioServingSystemResponseCallback::result, "Fail to set rat preference.");
+
+    return LE_OK;
+}
+
 /*======================================================================
 
  FUNCTION        taf_radio_GetSignalQual

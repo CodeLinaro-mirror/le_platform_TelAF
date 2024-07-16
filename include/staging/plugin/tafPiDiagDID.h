@@ -117,10 +117,11 @@ typedef void (*TAF_PI_DIAGDID_DATACHANGECALLBACK)
     size_t len
 );
 
-
 //--------------------------------------------------------------------------------------------------
 /**
  * Add data change handler to hal module.
+ * (To specify by default, no DID changes will be notified until service calls this API to add the
+ * DID in the whitelist.)
  * @param
  *      callback    - callback function pointer for notification
  * @return
@@ -132,6 +133,34 @@ typedef le_result_t (*TAF_PI_DIAGDID_ADDDATACHANGEHANDLER)
     TAF_PI_DIAGDID_DATACHANGECALLBACK callback
 );
 
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add DID for data change notification
+ * @param
+ *      dataID      - the specified DID that is added for notification
+ * @return
+ *      result for adding the DID for notification
+ */
+//--------------------------------------------------------------------------------------------------
+typedef le_result_t (*TAF_PI_DIAGDID_ADDDATACHANGENOTIFICATION)
+(
+    uint16_t dataID
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Remove DID for data change notification
+ * @param
+ *      dataID      - the specified DID that is removed for notification
+ * @return
+ *      result for removing the DID for notification
+ */
+//--------------------------------------------------------------------------------------------------
+typedef le_result_t (*TAF_PI_DIAGDID_REMOVEDATACHANGENOTIFICATION)
+(
+    uint16_t dataID
+);
+
 typedef struct
 {
     INIT init;
@@ -141,6 +170,10 @@ typedef struct
     TAF_PI_DIAGDID_SETASYNC diagDIDSetAsync;
 
     TAF_PI_DIAGDID_ADDDATACHANGEHANDLER addDataChangeHandler;
+
+    TAF_PI_DIAGDID_ADDDATACHANGENOTIFICATION diagDIDAddDataChangeNotification;
+
+    TAF_PI_DIAGDID_REMOVEDATACHANGENOTIFICATION diagDIDRemoveDataChangeNotification;
 
 } diagDID_Inf_t;
 

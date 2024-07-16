@@ -107,8 +107,10 @@ extern "C" LE_SHARED le_result_t taf_lib_flash_GetPartitionList
         if (token != NULL)
         {
             token[strlen(token) - 1] = '\0';
-            le_utf8_Copy(listPtr->partition[i].devPath, "/dev/", TAF_LIB_FLASH_DEV_PATH_LEN, NULL);
-            le_utf8_Append(listPtr->partition[i].devPath, token, TAF_LIB_FLASH_DEV_PATH_LEN, NULL);
+            le_utf8_Copy(listPtr->partition[i].mtdDevPath, "/dev/",
+                TAF_LIB_FLASH_DEV_PATH_LEN, NULL);
+            le_utf8_Append(listPtr->partition[i].mtdDevPath, token,
+                TAF_LIB_FLASH_DEV_PATH_LEN, NULL);
         }
 
         token = strtok_r(NULL, " ", &saveptr);
@@ -121,18 +123,15 @@ extern "C" LE_SHARED le_result_t taf_lib_flash_GetPartitionList
         if (token != NULL)
         {
             listPtr->partition[i].eraseSize = strtol(token, NULL, 16);
-            if (listPtr->partition[i].eraseSize == TAF_LIB_FLASH_MTD_BLOCK_SIZE)
+            token = strtok_r(NULL, " ", &saveptr);
+            if (token != NULL)
             {
-                token = strtok_r(NULL, " ", &saveptr);
-                if (token != NULL)
-                {
-                    listPtr->partition[i].index = i;
-                    token[strlen(token) - 2] = '\0';
-                        le_utf8_Copy(listPtr->partition[i].name, token + 1,
-                        TAF_LIB_FLASH_PARTITION_NAME_MAX_LEN, NULL);
+                listPtr->partition[i].index = i;
+                token[strlen(token) - 2] = '\0';
+                le_utf8_Copy(listPtr->partition[i].name, token + 1,
+                    TAF_LIB_FLASH_PARTITION_NAME_MAX_LEN, NULL);
 
-                    i++;
-                }
+                i++;
             }
         }
     }
@@ -143,6 +142,7 @@ extern "C" LE_SHARED le_result_t taf_lib_flash_GetPartitionList
     FTS* ftsPtr = fts_open(pathArrayPtr, FTS_PHYSICAL, NULL);
     FTSENT* entPtr;
     char* baseName;
+    uint32_t j;
     while ((entPtr = fts_read(ftsPtr)) != NULL)
     {
         switch (entPtr->fts_info)
@@ -160,39 +160,39 @@ extern "C" LE_SHARED le_result_t taf_lib_flash_GetPartitionList
                     {
                         if (fgets(line, sizeof(line), fp) != NULL)
                         {
-                            if (i >= TAF_LIB_FLASH_PARTITION_MAX_NUM)
+                            line[strlen(line) - 1] = '\0';
+                            for (j = 0; j < i; j++)
                             {
-                                LE_ERROR("Exceed partition number limit.");
+                                if (strncmp(line, listPtr->partition[j].name, strlen(line)) == 0)
+                                    break;
+                            }
+
+                            if (j >= i)
+                            {
+                                LE_ERROR("Can not find MTD device for UBI volume %s.", line);
                                 fclose(fp);
                                 fts_close(ftsPtr);
                                 return LE_FAULT;
                             }
 
-                            listPtr->partition[i].index = i;
-                            line[strlen(line) - 1] = '\0';
-                            le_utf8_Copy(listPtr->partition[i].name, line,
-                                TAF_LIB_FLASH_PARTITION_NAME_MAX_LEN, NULL);
-
                             char dirName[TAF_LIB_FLASH_UBI_DEV_INFO_PATH_LEN] = "";
                             le_path_GetDir(entPtr->fts_path, "/", dirName, sizeof(dirName));
                             dirName[strlen(dirName) - 1] = '\0';
                             char* ubiBase = le_path_GetBasenamePtr(dirName, "/");
-                            le_utf8_Copy(listPtr->partition[i].devPath, "/dev/",
+                            le_utf8_Copy(listPtr->partition[j].ubiDevPath, "/dev/",
                                 TAF_LIB_FLASH_DEV_PATH_LEN, NULL);
-                            le_utf8_Append(listPtr->partition[i].devPath, ubiBase,
+                            le_utf8_Append(listPtr->partition[j].ubiDevPath, ubiBase,
                                 TAF_LIB_FLASH_DEV_PATH_LEN, NULL);
 
                             char infoFile[TAF_LIB_FLASH_UBI_DEV_INFO_PATH_LEN] = "";
                             le_utf8_Copy(infoFile, dirName, sizeof(infoFile), NULL);
                             le_utf8_Append(infoFile, "/usable_eb_size", sizeof(infoFile), NULL);
                             taf_lib_flash_GetNumFromFile(infoFile,
-                                &listPtr->partition[i].eraseSize);
+                                &listPtr->partition[j].eraseSize);
 
                             le_utf8_Copy(infoFile, dirName, sizeof(infoFile), NULL);
                             le_utf8_Append(infoFile, "/data_bytes", sizeof(infoFile), NULL);
-                            taf_lib_flash_GetNumFromFile(infoFile, &listPtr->partition[i].size);
-
-                            i++;
+                            taf_lib_flash_GetNumFromFile(infoFile, &listPtr->partition[j].size);
                         }
 
                         fclose(fp);
@@ -220,10 +220,10 @@ extern "C" LE_SHARED le_result_t taf_lib_flash_GetPartitionList
     fts_close(ftsPtr);
 
     listPtr->number = i;
-    uint32_t j;
     for (i = 0; i < listPtr->number; i++)
     {
-        listPtr->partition[i].fd = -1;
+        listPtr->partition[i].mtdFd = -1;
+        listPtr->partition[i].ubiFd = -1;
         listPtr->partition[i].mirrorIndex = TAF_LIB_FLASH_PARTITION_MAX_NUM;
 
         if (taf_lib_flash_HasSuffix(listPtr->partition[i].name, "_b"))
@@ -277,17 +277,37 @@ extern "C" LE_SHARED le_result_t taf_lib_flash_OpenPartition
         return LE_BAD_PARAMETER;
     }
 
-    if (partitionPtr->fd >= 0)
+    if (partitionPtr->eraseSize == TAF_LIB_FLASH_MTD_BLOCK_SIZE)
     {
-        LE_WARN("Partition is openned.");
-        return LE_OK;
-    }
+        if (partitionPtr->mtdFd >= 0)
+        {
+            LE_WARN("MTD partition %s is openned.", partitionPtr->name);
+            return LE_OK;
+        }
 
-    partitionPtr->fd = open(partitionPtr->devPath, mode);
-    if (partitionPtr->fd < 0)
+        partitionPtr->mtdFd = open(partitionPtr->mtdDevPath, mode);
+        partitionPtr->mode = mode;
+        if (partitionPtr->mtdFd < 0)
+        {
+            LE_ERROR("Fail to open %s.", partitionPtr->mtdDevPath);
+            return LE_FAULT;
+        }
+    }
+    else
     {
-        LE_ERROR("Fail to open %s.", partitionPtr->devPath);
-        return LE_FAULT;
+        if (partitionPtr->ubiFd >= 0)
+        {
+            LE_WARN("UBI volume %s is openned.", partitionPtr->name);
+            return LE_OK;
+        }
+
+        partitionPtr->ubiFd = open(partitionPtr->ubiDevPath, mode);
+        partitionPtr->mode = mode;
+        if (partitionPtr->ubiFd < 0)
+        {
+            LE_ERROR("Fail to open %s.", partitionPtr->ubiDevPath);
+            return LE_FAULT;
+        }
     }
 
     return LE_OK;
@@ -314,14 +334,30 @@ extern "C" LE_SHARED le_result_t taf_lib_flash_ClosePartition
         return LE_BAD_PARAMETER;
     }
 
-    if (partitionPtr->fd < 0)
+    if (partitionPtr->eraseSize == TAF_LIB_FLASH_MTD_BLOCK_SIZE)
     {
-        LE_WARN("Partition is closed.");
-        return LE_OK;
+        if (partitionPtr->mtdFd < 0)
+        {
+            LE_WARN("MTD partition %s is closed.", partitionPtr->name);
+        }
+        else
+        {
+            close(partitionPtr->mtdFd);
+            partitionPtr->mtdFd = -1;
+        }
     }
-
-    close(partitionPtr->fd);
-    partitionPtr->fd = -1;
+    else
+    {
+        if (partitionPtr->ubiFd < 0)
+        {
+            LE_WARN("UBI volume %s is closed.", partitionPtr->name);
+        }
+        else
+        {
+            close(partitionPtr->ubiFd);
+            partitionPtr->ubiFd = -1;
+        }
+    }
 
     return LE_OK;
 }
@@ -354,17 +390,17 @@ extern "C" LE_SHARED le_result_t taf_lib_flash_GetMtdWriteSize
         return LE_BAD_PARAMETER;
     }
 
-    if (partitionPtr->fd < 0)
+    if (partitionPtr->mtdFd < 0)
     {
         LE_ERROR("Partition is closed.");
         return LE_FAULT;
     }
 
     mtd_info_t mtdInfo;
-    int ret = ioctl(partitionPtr->fd, MEMGETINFO, &mtdInfo);
+    int ret = ioctl(partitionPtr->mtdFd, MEMGETINFO, &mtdInfo);
     if (ret)
     {
-        LE_ERROR("Fail to iotcl(MEMGETINFO) with fd%d,", partitionPtr->fd);
+        LE_ERROR("Fail to iotcl(MEMGETINFO) with fd%d,", partitionPtr->mtdFd);
         return LE_FAULT;
     }
 
@@ -401,17 +437,17 @@ extern "C" LE_SHARED le_result_t taf_lib_flash_GetMtdEraseSize
         return LE_BAD_PARAMETER;
     }
 
-    if (partitionPtr->fd < 0)
+    if (partitionPtr->mtdFd < 0)
     {
         LE_ERROR("Partition is closed.");
         return LE_FAULT;
     }
 
     mtd_info_t mtdInfo;
-    int ret = ioctl(partitionPtr->fd, MEMGETINFO, &mtdInfo);
+    int ret = ioctl(partitionPtr->mtdFd, MEMGETINFO, &mtdInfo);
     if (ret)
     {
-        LE_ERROR("Fail to iotcl(MEMGETINFO) with fd%d,", partitionPtr->fd);
+        LE_ERROR("Fail to iotcl(MEMGETINFO) with fd%d,", partitionPtr->mtdFd);
         return LE_FAULT;
     }
 
@@ -448,17 +484,17 @@ extern "C" LE_SHARED le_result_t taf_lib_flash_GetMtdSize
         return LE_BAD_PARAMETER;
     }
 
-    if (partitionPtr->fd < 0)
+    if (partitionPtr->mtdFd < 0)
     {
         LE_ERROR("Partition is closed.");
         return LE_FAULT;
     }
 
     mtd_info_t mtdInfo;
-    int ret = ioctl(partitionPtr->fd, MEMGETINFO, &mtdInfo);
+    int ret = ioctl(partitionPtr->mtdFd, MEMGETINFO, &mtdInfo);
     if (ret)
     {
-        LE_ERROR("Fail to iotcl(MEMGETINFO) with fd%d,", partitionPtr->fd);
+        LE_ERROR("Fail to iotcl(MEMGETINFO) with fd%d,", partitionPtr->mtdFd);
         return LE_FAULT;
     }
 
@@ -490,14 +526,14 @@ extern "C" LE_SHARED le_result_t taf_lib_flash_IsMtdBadBlock
         return LE_BAD_PARAMETER;
     }
 
-    if (partitionPtr->fd < 0)
+    if (partitionPtr->mtdFd < 0)
     {
         LE_ERROR("Partition is closed.");
         return LE_FAULT;
     }
 
     loff_t page = (loff_t)(blockIndex * partitionPtr->eraseSize);
-    int ret = ioctl(partitionPtr->fd, MEMGETBADBLOCK, &page);
+    int ret = ioctl(partitionPtr->mtdFd, MEMGETBADBLOCK, &page);
     if (ret != 0 && !(ret == -1 && errno == EOPNOTSUPP))
     {
         *isBadBlock = true;
@@ -532,7 +568,7 @@ extern "C" LE_SHARED le_result_t taf_lib_flash_EraseMtdBlock
         return LE_BAD_PARAMETER;
     }
 
-    if (partitionPtr->fd < 0)
+    if (partitionPtr->mtdFd < 0)
     {
         LE_ERROR("Partition is closed.");
         return LE_FAULT;
@@ -542,10 +578,10 @@ extern "C" LE_SHARED le_result_t taf_lib_flash_EraseMtdBlock
     memset(&eraseInfo, 0, sizeof(erase_info_t));
     eraseInfo.start = blockIndex * partitionPtr->eraseSize;
     eraseInfo.length = partitionPtr->eraseSize;
-    int ret = ioctl(partitionPtr->fd, MEMERASE, &eraseInfo);
+    int ret = ioctl(partitionPtr->mtdFd, MEMERASE, &eraseInfo);
     if (ret < 0)
     {
-        LE_ERROR("Fail to iotcl(MEMERASE) with fd%d,", partitionPtr->fd);
+        LE_ERROR("Fail to iotcl(MEMERASE) with fd%d,", partitionPtr->mtdFd);
         return LE_FAULT;
     }
 
@@ -588,17 +624,27 @@ extern "C" LE_SHARED le_result_t taf_lib_flash_ReadPartition
         return LE_BAD_PARAMETER;
     }
 
-    if (partitionPtr->fd < 0)
+    int fd = -1;
+    if (partitionPtr->eraseSize == TAF_LIB_FLASH_MTD_BLOCK_SIZE)
+    {
+        fd = partitionPtr->mtdFd;
+    }
+    else
+    {
+        fd = partitionPtr->ubiFd;
+    }
+
+    if (fd < 0)
     {
         LE_ERROR("Partition is closed.");
         return LE_FAULT;
     }
 
-    lseek(partitionPtr->fd, offset, SEEK_SET);
-    int ret = read(partitionPtr->fd, dataPtr, *sizePtr);
+    lseek(fd, offset, SEEK_SET);
+    int ret = read(fd, dataPtr, *sizePtr);
     if (ret < 0)
     {
-        LE_ERROR("Fail to read with fd%d,", partitionPtr->fd);
+        LE_ERROR("Fail to read with fd%d,", fd);
         return LE_FAULT;
     }
 
@@ -641,19 +687,31 @@ extern "C" LE_SHARED le_result_t taf_lib_flash_WritePartition
         return LE_BAD_PARAMETER;
     }
 
-    if (partitionPtr->fd < 0)
-    {
-        LE_ERROR("Partition is closed.");
-        return LE_FAULT;
-    }
-
+    int fd = -1;
     if (partitionPtr->eraseSize == TAF_LIB_FLASH_MTD_BLOCK_SIZE)
-        lseek(partitionPtr->fd, offset, SEEK_SET);
+    {
+        if (partitionPtr->mtdFd < 0)
+        {
+            LE_ERROR("MTD partition %s is closed.", partitionPtr->name);
+            return LE_FAULT;
+        }
+        fd = partitionPtr->mtdFd;
+        lseek(partitionPtr->mtdFd, offset, SEEK_SET);
+    }
+    else
+    {
+        if (partitionPtr->ubiFd < 0)
+        {
+            LE_ERROR("UBI volume %s is closed.", partitionPtr->name);
+            return LE_FAULT;
+        }
+        fd = partitionPtr->ubiFd;
+    }  
 
-    int ret = write(partitionPtr->fd, dataPtr, size);
+    int ret = write(fd, dataPtr, size);
     if (ret < 0)
     {
-        LE_ERROR("Fail to write with fd%d,", partitionPtr->fd);
+        LE_ERROR("Fail to write with fd%d,", fd);
         return LE_FAULT;
     }
 
@@ -688,10 +746,10 @@ extern "C" LE_SHARED le_result_t taf_lib_flash_GetUbiVolSize
         return LE_BAD_PARAMETER;
     }
 
-    char *ubiBase = le_path_GetBasenamePtr(partitionPtr->devPath, "/");
+    char *ubiBase = le_path_GetBasenamePtr(partitionPtr->ubiDevPath, "/");
     if (ubiBase == NULL)
     {
-        LE_ERROR("Can not get UBI device base name from %s.", partitionPtr->devPath);
+        LE_ERROR("Can not get UBI device base name from %s.", partitionPtr->ubiDevPath);
         return LE_FAULT;
     }
 
@@ -726,10 +784,10 @@ extern "C" LE_SHARED le_result_t taf_lib_flash_GetUbiVolResvLebNum
         return LE_BAD_PARAMETER;
     }
 
-    char *ubiBase = le_path_GetBasenamePtr(partitionPtr->devPath, "/");
+    char *ubiBase = le_path_GetBasenamePtr(partitionPtr->ubiDevPath, "/");
     if (ubiBase == NULL)
     {
-        LE_ERROR("Can not get UBI device base name from %s.", partitionPtr->devPath);
+        LE_ERROR("Can not get UBI device base name from %s.", partitionPtr->ubiDevPath);
         return LE_FAULT;
     }
 
@@ -763,10 +821,10 @@ extern "C" LE_SHARED le_result_t taf_lib_flash_GetUbiAvailLebNum
         return LE_BAD_PARAMETER;
     }
 
-    char *ubiBase = le_path_GetBasenamePtr(partitionPtr->devPath, "/");
+    char *ubiBase = le_path_GetBasenamePtr(partitionPtr->ubiDevPath, "/");
     if (ubiBase == NULL)
     {
-        LE_ERROR("Can not get UBI device base name from %s.", partitionPtr->devPath);
+        LE_ERROR("Can not get UBI device base name from %s.", partitionPtr->ubiDevPath);
         return LE_FAULT;
     }
 
@@ -790,7 +848,7 @@ extern "C" LE_SHARED le_result_t taf_lib_flash_GetUbiAvailLebNum
 //--------------------------------------------------------------------------------------------------
 extern "C" LE_SHARED le_result_t taf_lib_flash_SetUbiVolUpSize
 (
-    taf_lib_flash_Partition_t *partitionPtr, ///< [INOUT] Volume.
+    taf_lib_flash_Partition_t *partitionPtr, ///< [IN] Volume.
     int64_t size                             ///< [IN] Volume update size.
 )
 {
@@ -800,17 +858,89 @@ extern "C" LE_SHARED le_result_t taf_lib_flash_SetUbiVolUpSize
         return LE_BAD_PARAMETER;
     }
 
-    if (partitionPtr->fd < 0)
+    if (partitionPtr->ubiFd < 0)
     {
         LE_ERROR("Partition is closed.");
         return LE_FAULT;
     }
 
-    int ret = ioctl(partitionPtr->fd, UBI_IOCVOLUP, &size);
+    int ret = ioctl(partitionPtr->ubiFd, UBI_IOCVOLUP, &size);
     if (ret)
     {
-        LE_ERROR("Fail to iotcl(UBI_IOCVOLUP) with fd%d,", partitionPtr->fd);
+        LE_ERROR("Fail to iotcl(UBI_IOCVOLUP) with fd%d,", partitionPtr->ubiFd);
         return LE_FAULT;
+    }
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Erase UBI volume.
+ *
+ * @return
+ *      - LE_OK            On success.
+ *      - LE_BAD_PARAMETER If partition is NULL.
+ *      - LE_FAULT         On failure.
+ */
+//--------------------------------------------------------------------------------------------------
+extern "C" LE_SHARED le_result_t taf_lib_flash_EraseUbiVol
+(
+    taf_lib_flash_Partition_t *partitionPtr ///< [IN] Volume.
+)
+{
+    if (partitionPtr == NULL)
+    {
+        LE_ERROR("Partition is NULL.");
+        return LE_BAD_PARAMETER;
+    }
+
+    if (partitionPtr->eraseSize == TAF_LIB_FLASH_MTD_BLOCK_SIZE ||
+        partitionPtr->eraseSize == 0)
+    {
+        LE_ERROR("Not UBI volume.");
+        return LE_FAULT;
+    }
+
+    bool isUbiOpen = false;
+    if (partitionPtr->ubiFd > 0)
+    {
+        isUbiOpen = true;
+        close(partitionPtr->ubiFd);
+        partitionPtr->ubiFd = -1;
+    }
+
+    partitionPtr->mtdFd = open(partitionPtr->mtdDevPath, O_RDWR);
+    if (partitionPtr->mtdFd < 0)
+    {
+        LE_ERROR("Fail to open %s.", partitionPtr->mtdDevPath);
+        if (partitionPtr->ubiFd > 0)
+        {
+            partitionPtr->ubiFd = open(partitionPtr->ubiDevPath, partitionPtr->mode);
+        }
+        return LE_FAULT;
+    }
+
+    uint32_t i;
+    int ret;
+    struct erase_info_user64 eraseInfo;
+    for (i = 0; i < partitionPtr->size / partitionPtr->eraseSize; i++)
+    {
+        eraseInfo.start = (uint64_t)i * partitionPtr->eraseSize;
+        eraseInfo.length = (uint64_t)partitionPtr->eraseSize;
+        ret = ioctl(partitionPtr->mtdFd, MEMERASE64, &eraseInfo);
+        if (ret)
+        {
+            LE_ERROR("Fail to iotcl(MEMERASE64) at leb %d with fd%d,", i, partitionPtr->mtdFd);
+        }
+    }
+
+    close(partitionPtr->mtdFd);
+    partitionPtr->mtdFd = -1;
+
+    if (isUbiOpen)
+    {
+        partitionPtr->ubiFd = open(partitionPtr->ubiDevPath, partitionPtr->mode);
     }
 
     return LE_OK;

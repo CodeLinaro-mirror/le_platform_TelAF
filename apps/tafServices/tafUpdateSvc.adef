@@ -62,7 +62,6 @@ processes:
 
 bindings:
 {
-    tafUpdateSvc.tafUpdateSvc.taf_mrc -> tafMRCSvc.taf_mrc
     tafUpdateSvc.tafUpdateSvc.le_update -> <root>.le_update
     tafUpdateSvc.tafUpdateSvc.le_cfg -> <root>.le_cfg
     tafUpdateSvc.tafUpdateSvc.le_appCtrl -> <root>.le_appCtrl

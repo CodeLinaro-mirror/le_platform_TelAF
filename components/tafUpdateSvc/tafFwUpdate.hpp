@@ -46,11 +46,6 @@
 // Data proccessing rate is about 3.84 MB/s.
 #define TAF_FWUPDATE_PROC_DATA_RATE 4035394
 
-// 33s for OTA start message and 17s for OTA end message.
-#define TAF_FWUPDATE_PROC_MRC_TIME 50
-// 111s for OTA sync message.
-#define TAF_FWUPDATE_MRC_SYNC_TIME 111
-
 #define TAF_FIRMWARE_VERSION_LINE_NUM 16
 #define TAF_TELAF_VERSION_LEN 21
 
@@ -63,11 +58,20 @@
 #define TAF_FIRMWARE_VERSION_FILE "/firmware/image/Ver_Info.txt"
 
 #define TAF_FWUPDATE_FOTA_STATE "/data/le_fs/fotaState"
+#define TAF_FWUPDATE_PREVIOUS_BANK "/data/le_fs/bank"
 #define TAF_FWUPDATE_LOCAL_PACAKAGE_PATH "/data/images/firmware"
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Flash page size.
+ */
+//--------------------------------------------------------------------------------------------------
+#define TAF_FWUPDATE_FLASH_PAGE_SIZE 0x1000
 
 // Firmware update event
 typedef enum {
     TAF_FWUPDATE_EV_INSTALL,
+    TAF_FWUPDATE_EV_INSTALL_POST_CHECK,
     TAF_FWUPDATE_EV_REBOOT_TO_ACTIVE,
     TAF_FWUPDATE_EV_VERIFY_ACTIVATION,
     TAF_FWUPDATE_EV_SYNC,
@@ -77,9 +81,7 @@ typedef enum {
 // Timer options
 typedef enum {
     TAF_FWUPDATE_TIMER_OP_INST_START,
-    TAF_FWUPDATE_TIMER_OP_INST_STOP,
-    TAF_FWUPDATE_TIMER_OP_SYNC_START,
-    TAF_FWUPDATE_TIMER_OP_SYNC_STOP
+    TAF_FWUPDATE_TIMER_OP_INST_STOP
 } taf_FwUpdateTimerOp_t;
 
 // Firmware update request
@@ -102,10 +104,9 @@ namespace tafsvc {
         taf_update_State_t GetState();
         void SetState(taf_update_State_t state);
 
-        void ReportStatus(taf_update_State_t state, uint32_t percent);
+        void ReportStatus(taf_update_State_t state, uint32_t percent, taf_update_Error_t error);
         void UpdateProgress(taf_update_State_t state);
 
-        static void SyncTimerHandler(le_timer_Ref_t timerRef);
         static void InstallTimerHandler(le_timer_Ref_t timerRef);
 
         void GetRootfsVersion(char* version);
@@ -116,7 +117,12 @@ namespace tafsvc {
         void InstallFirmware(const char* filePath);
         le_result_t InstallPostCheck(const char* filePath);
 
+        bool IsBankSwitched(void);
         le_result_t GetActiveBank(taf_update_Bank_t* bankPtr);
+        le_result_t SetActiveBank(taf_update_Bank_t bank);
+        le_result_t EraseBank(taf_update_Bank_t bank);
+        le_result_t PerformBankSync(void);
+        le_result_t Rollback(void);
         le_result_t VerifyActivation(const char* manifest);
 
         void Init(void);
@@ -130,11 +136,11 @@ namespace tafsvc {
         static le_event_Id_t fwUpdateEvId;
         static le_event_Id_t fwTimerEvId;
 
-        le_timer_Ref_t syncTimerRef;
         le_timer_Ref_t instTimerRef;
 
         uint32_t percent = 0;
         uint32_t totalTime = 0;
+        taf_update_Error_t error = TAF_UPDATE_NONE;
     };
 }
 }

@@ -95,19 +95,57 @@ taf_update_State_t taf_FwUpdate::GetState
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Check if bank is swicthed.
+ */
+//--------------------------------------------------------------------------------------------------
+bool taf_FwUpdate::IsBankSwitched
+(
+    void
+)
+{
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+
+    taf_update_Bank_t bootBank = TAF_UPDATE_BANK_UNKNOWN;
+    tafFwUpdate.GetActiveBank(&bootBank);
+
+    if (access(TAF_FWUPDATE_PREVIOUS_BANK, F_OK) == 0)
+    {
+        taf_update_Bank_t previousBank = TAF_UPDATE_BANK_UNKNOWN;
+        FILE* fp = fopen(TAF_FWUPDATE_PREVIOUS_BANK, "r");
+        fread(&previousBank, sizeof(taf_update_Bank_t), 1, fp);
+        fclose(fp);
+
+        if (previousBank != bootBank)
+            return true;
+    }
+    else
+    {
+        FILE* fp = fopen(TAF_FWUPDATE_PREVIOUS_BANK, "w");
+        fwrite(&bootBank, sizeof(taf_update_Bank_t), 1, fp);
+        fflush(fp);
+        fclose(fp);
+    }
+
+    return false;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Report Status.
  */
 //--------------------------------------------------------------------------------------------------
 void taf_FwUpdate::ReportStatus
 (
     taf_update_State_t state, ///< [IN] Update state.
-    uint32_t percent          ///< [IN] Update percent.
+    uint32_t percent,         ///< [IN] Update percent.
+    taf_update_Error_t error  ///< [IN] Update error.
 )
 {
     auto &tafUpdate = taf_Update::GetInstance();
     taf_update_StateInd_t report;
     report.percent = percent;
     report.state = state;
+    report.error = error;
     le_utf8_Copy(report.name, "firmware update session", TAF_UPDATE_SESSION_NAME_LEN, NULL);
     le_event_Report(tafUpdate.stateEvId, &report, sizeof(taf_update_StateInd_t));
 }
@@ -135,14 +173,6 @@ void taf_FwUpdate::UpdateProgress
             LE_INFO("Install failed.");
             timerOp = TAF_FWUPDATE_TIMER_OP_INST_STOP;
             le_event_Report(taf_FwUpdate::fwTimerEvId, &timerOp, sizeof(taf_FwUpdateTimerOp_t));
-            if (taf_mrc_SendOtaEndMsg(TAF_MRC_OTA_OP_STATUS_FAILURE) != LE_OK)
-            {
-                LE_ERROR("Fail to send OTA end message to MRC daemon.");
-            }
-            if (taf_mrc_SendOtaAbsyncMsg() != LE_OK)
-            {
-                LE_ERROR("Fail to send OTA sync message to MRC daemon.");
-            }
             tafFwUpdate.SetState(TAF_UPDATE_IDLE);
             break;
         case TAF_UPDATE_INSTALL_SUCCESS:
@@ -150,10 +180,11 @@ void taf_FwUpdate::UpdateProgress
             timerOp = TAF_FWUPDATE_TIMER_OP_INST_STOP;
             le_event_Report(taf_FwUpdate::fwTimerEvId, &timerOp, sizeof(taf_FwUpdateTimerOp_t));
             tafFwUpdate.SetState(TAF_UPDATE_INSTALL_SUCCESS);
+            tafFwUpdate.error = TAF_UPDATE_IMAGE_NOT_VERFIED;
             break;
         case TAF_UPDATE_PROBATION_SUCCESS:
             LE_INFO("Probation success.");
-            tafFwUpdate.SetState(TAF_UPDATE_PROBATION_SUCCESS);
+            tafFwUpdate.SetState(TAF_UPDATE_IDLE);
             break;
         case TAF_UPDATE_PROBATION_FAIL:
             LE_INFO("Probation failed.");
@@ -161,18 +192,15 @@ void taf_FwUpdate::UpdateProgress
             break;
         case TAF_UPDATE_SYNCHRONIZING:
             LE_INFO("Synchronizing %d%%...", tafFwUpdate.percent);
+            tafFwUpdate.SetState(TAF_UPDATE_SYNCHRONIZING);
             break;
         case TAF_UPDATE_SYNC_SUCCESS:
             LE_INFO("Sync success.");
-            timerOp = TAF_FWUPDATE_TIMER_OP_SYNC_STOP;
-            le_event_Report(taf_FwUpdate::fwTimerEvId, &timerOp, sizeof(taf_FwUpdateTimerOp_t));
             tafFwUpdate.SetState(TAF_UPDATE_IDLE);
             break;
         case TAF_UPDATE_SYNC_FAIL:
             LE_INFO("Sync failed.");
-            timerOp = TAF_FWUPDATE_TIMER_OP_SYNC_STOP;
-            le_event_Report(taf_FwUpdate::fwTimerEvId, &timerOp, sizeof(taf_FwUpdateTimerOp_t));
-            tafFwUpdate.SetState(TAF_UPDATE_SYNC_FAIL);
+            tafFwUpdate.SetState(TAF_UPDATE_IDLE);
             break;
         case TAF_UPDATE_ROLLBACK_SUCCESS:
             LE_INFO("Rollback success.");
@@ -187,7 +215,7 @@ void taf_FwUpdate::UpdateProgress
     }
 
     // 2. Report current status to user.
-    tafFwUpdate.ReportStatus(state, tafFwUpdate.percent);
+    tafFwUpdate.ReportStatus(state, tafFwUpdate.percent, tafFwUpdate.error);
 }
 
 /*======================================================================
@@ -210,31 +238,6 @@ le_result_t taf_FwUpdate::SendPipeCmd(const char* cmd, const char* mod)
     TAF_ERROR_IF_RET_VAL(res != 0, LE_FAULT, "pclose errno(%d), result(%d).", errno, res);
 
     return LE_OK;
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Sync timer handler.
- */
-//--------------------------------------------------------------------------------------------------
-void taf_FwUpdate::SyncTimerHandler
-(
-    le_timer_Ref_t timerRef ///< [IN] Timer reference.
-)
-{
-    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
-
-    uint32_t time = le_timer_GetExpiryCount(timerRef);
-
-    tafFwUpdate.percent = time * 100 / TAF_FWUPDATE_MRC_SYNC_TIME;
-
-    if (tafFwUpdate.percent > 100)
-    {
-        tafFwUpdate.percent = 100;
-        LE_INFO("Waiting to complete the synchronization...");
-    }
-
-    tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNCHRONIZING);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -477,8 +480,7 @@ void taf_FwUpdate::InstallFirmware
     // 3. Evaluate time for installation.
     ifstream infile(filePath);
     infile.seekg (0, ios::end);
-    tafFwUpdate.totalTime = (uint32_t)(infile.tellg() / TAF_FWUPDATE_PROC_DATA_RATE)
-        + TAF_FWUPDATE_PROC_MRC_TIME;
+    tafFwUpdate.totalTime = (uint32_t)(infile.tellg() / TAF_FWUPDATE_PROC_DATA_RATE);
     LE_INFO("Estimate to complete installation in %d s.", tafFwUpdate.totalTime);
     infile.close();
 
@@ -486,16 +488,7 @@ void taf_FwUpdate::InstallFirmware
     taf_FwUpdateTimerOp_t timerOp = TAF_FWUPDATE_TIMER_OP_INST_START;
     le_event_Report(taf_FwUpdate::fwTimerEvId, &timerOp, sizeof(taf_FwUpdateTimerOp_t));
 
-    // 5. Send OTA start message.
-    LE_INFO("Sending OTA start message to MRC darmon.");
-    if (taf_mrc_SendOtaStartMsg() != LE_OK)
-   {
-        LE_ERROR("Fail to send OTA start message to MRC daemon.");
-        tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
-        return;
-    }
-
-    // 6. Install pacackeg with recovery client.
+    // 5. Install pacackeg with recovery client.
     LE_INFO("recovery client installing.");
     char instCmd[TAF_FWUPDATE_INSTALL_CMD_LEN];
     snprintf(instCmd, sizeof(instCmd), "recovery --update_package=%s", filePath);
@@ -506,7 +499,7 @@ void taf_FwUpdate::InstallFirmware
         return;
     }
 
-    // 7. Check log after installation.
+    // 6. Check log after installation.
     LE_INFO("Checking recovery log.");
     ifstream fin(TAF_FWUPDATE_RECOVERY_LOG_FILE);
     string strline;
@@ -535,19 +528,10 @@ void taf_FwUpdate::InstallFirmware
         return;
     }
 
-    // 8. Send OTA end message.
-    LE_INFO("Sending OTA end message to MRC darmon.");
-    if (taf_mrc_SendOtaEndMsg(TAF_MRC_OTA_OP_STATUS_SUCCESS) != LE_OK)
-    {
-        LE_ERROR("Fail to send OTA end message to MRC daemon.");
-        tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
-        return;
-    }
-
-    // 9. Install successfully.
+    // 7. Install successfully.
     tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_SUCCESS);
 
-    // 10. Synchronize state to storage.
+    // 8. Synchronize state to storage.
     if (tafFwUpdate.SendPipeCmd("sync", "w") != LE_OK)
     {
         LE_ERROR("Fail to send sync cmd.");
@@ -643,6 +627,308 @@ le_result_t taf_FwUpdate::GetActiveBank
     pclose(fp);
 
     return result;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Set active bank.
+ *
+ * @return
+ *  - LE_FAULT On failure.
+ *  - LE_OK    On success.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_FwUpdate::SetActiveBank
+(
+    taf_update_Bank_t bank ///< [IN] The bank to be activated.
+)
+{
+    FILE* fp = NULL;
+    if (bank == TAF_UPDATE_BANK_A)
+    {
+        fp = popen("/usr/bin/nad-abctl --set_acvtive 0", "r");
+    }
+    else if (bank == TAF_UPDATE_BANK_B)
+    {
+        fp = popen("/usr/bin/nad-abctl --set_acvtive 1", "r");
+    }
+    else
+    {
+        LE_ERROR("Invalid bank to set acvtive.");
+        return LE_FAULT;
+    }
+    TAF_ERROR_IF_RET_VAL(fp == NULL, LE_FAULT, "popen failed.");
+
+    pclose(fp);
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Erase bank.
+ *
+ * @return
+ *  - LE_FAULT On failure.
+ *  - LE_OK    On success.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_FwUpdate::EraseBank
+(
+    taf_update_Bank_t bank ///< [IN] The bank to be erased.
+)
+{
+
+    taf_lib_flash_PartitionList_t partitionList;
+    taf_lib_flash_Bank_t eraseBank = NOT_DUAL_BANK;
+
+    switch (bank)
+    {
+        case TAF_UPDATE_BANK_A:
+            eraseBank = DUAL_BANK_A;
+            break;
+        case TAF_UPDATE_BANK_B:
+            eraseBank = DUAL_BANK_B;
+            break;
+        default:
+            LE_ERROR("Invalid bank.");
+            return LE_BAD_PARAMETER;
+    }
+
+    le_result_t result = taf_lib_flash_GetPartitionList(&partitionList);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Can not get partition list.");
+
+    for (uint32_t i = 0; i < partitionList.number; i++)
+    {
+        if (partitionList.partition[i].bank == eraseBank)
+        {
+            if (partitionList.partition[i].eraseSize == TAF_LIB_FLASH_MTD_BLOCK_SIZE)
+            {
+                LE_INFO("Erasing MTD %s...", partitionList.partition[i].name);
+
+                result = taf_lib_flash_OpenPartition(&partitionList.partition[i], O_RDWR);
+                TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to open MTD partition.");
+
+                uint32_t blockSize = 0;
+                result = taf_lib_flash_GetMtdEraseSize(&partitionList.partition[i], &blockSize);
+                TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to get MTD erase size.");
+                TAF_ERROR_IF_RET_VAL(blockSize == 0, LE_FAULT, "Invalid para(block size is 0)");
+
+                uint32_t size = 0;
+                result = taf_lib_flash_GetMtdSize(&partitionList.partition[i], &size);
+                TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to get MTD partition size.");
+
+                uint32_t blockNum = size / blockSize;
+                bool isBad = false;
+                for (uint32_t j = 0; j < blockNum; j++)
+                {
+                    result = taf_lib_flash_IsMtdBadBlock(&partitionList.partition[i], j, &isBad);
+                    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
+                        "Fail to get block %d status.", j);
+
+                    if (isBad)
+                    {
+                        LE_DEBUG("Detect bad block at %d.", j);
+                    }
+                    else
+                    {
+                        result = taf_lib_flash_EraseMtdBlock(&partitionList.partition[i], j);
+                        TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
+                            "Fail to erase block %d.", j);
+                    }
+                }
+
+                result = taf_lib_flash_ClosePartition(&partitionList.partition[i]);
+                TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to close MTD partition.");
+            }
+            else
+            {
+                LE_INFO("Erasing UBI %s...", partitionList.partition[i].name);
+                result = taf_lib_flash_EraseUbiVol(&partitionList.partition[i]);
+                TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to erase UBI volume.");
+            }
+        }
+    }
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * PerformBankSync.
+ *
+ * @return
+ *  - LE_FAULT On failure.
+ *  - LE_OK    On success.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_FwUpdate::PerformBankSync
+(
+    void
+)
+{
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+
+    taf_update_Bank_t bootBank = TAF_UPDATE_BANK_UNKNOWN;
+    taf_lib_flash_PartitionList_t partitionList;
+    taf_lib_flash_Bank_t srcBank = NOT_DUAL_BANK;
+
+    if (tafFwUpdate.GetActiveBank(&bootBank) != LE_OK)
+    {
+        LE_ERROR("Fail to get active bank.");
+        return LE_FAULT;
+    }
+
+    switch (bootBank)
+    {
+        case TAF_UPDATE_BANK_A:
+            srcBank = DUAL_BANK_A;
+            break;
+        case TAF_UPDATE_BANK_B:
+            srcBank = DUAL_BANK_B;
+            break;
+        default:
+            LE_ERROR("Invalid bank.");
+            return LE_BAD_PARAMETER;
+    }
+
+    le_result_t result = taf_lib_flash_GetPartitionList(&partitionList);
+    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Can not get partition list.");
+
+    for (uint32_t i = 0; i < partitionList.number; i++)
+    {
+        if (partitionList.partition[i].bank == srcBank)
+        {
+            uint32_t j = partitionList.partition[i].mirrorIndex;
+            if (partitionList.partition[i].eraseSize == TAF_LIB_FLASH_MTD_BLOCK_SIZE)
+            {
+                LE_INFO("Perform sync from MTD %s to %s...",
+                    partitionList.partition[i].name, partitionList.partition[j].name);
+
+                result = taf_lib_flash_OpenPartition(&partitionList.partition[i], O_RDWR);
+                TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to open MTD partition.");
+
+                result = taf_lib_flash_OpenPartition(&partitionList.partition[j], O_RDWR);
+                TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to open MTD partition.");
+
+                uint32_t blockNum = partitionList.partition[j].size / TAF_LIB_FLASH_MTD_BLOCK_SIZE;
+                uint32_t pageNum = partitionList.partition[j].size / TAF_FWUPDATE_FLASH_PAGE_SIZE;
+                for (uint32_t k = 0; k < blockNum; k++)
+                {
+                    result = taf_lib_flash_EraseMtdBlock(&partitionList.partition[j], k);
+                    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
+                        "Fail to erase block %d.", k);
+                }
+                for (uint32_t k = 0; k < pageNum; k++)
+                {
+                    uint8_t data[TAF_FWUPDATE_FLASH_PAGE_SIZE];
+                    size_t rdSize = TAF_FWUPDATE_FLASH_PAGE_SIZE;
+                    result = taf_lib_flash_ReadPartition(&partitionList.partition[i],
+                        k * TAF_FWUPDATE_FLASH_PAGE_SIZE, data, &rdSize);
+                    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
+                        "Fail to read page %d.", k);
+
+                    result = taf_lib_flash_WritePartition(&partitionList.partition[j],
+                        k * TAF_FWUPDATE_FLASH_PAGE_SIZE, data, rdSize);
+                    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT,
+                        "Fail to write page %d.", k);
+                }
+
+                result = taf_lib_flash_ClosePartition(&partitionList.partition[i]);
+                TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to close MTD partition.");
+
+                result = taf_lib_flash_ClosePartition(&partitionList.partition[j]);
+                TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to close MTD partition.");
+            }
+            else
+            {
+                LE_INFO("Perform sync from UBI %s to %s...",
+                    partitionList.partition[i].name, partitionList.partition[j].name);
+
+                result = taf_lib_flash_OpenPartition(&partitionList.partition[i], O_RDWR);
+                TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to open UBI volume.");
+
+                result = taf_lib_flash_OpenPartition(&partitionList.partition[j], O_RDWR);
+                TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to open UBI volume.");
+
+                uint32_t pageNum = partitionList.partition[j].size / TAF_FWUPDATE_FLASH_PAGE_SIZE;
+                result = taf_lib_flash_SetUbiVolUpSize(&partitionList.partition[j],
+                    partitionList.partition[j].size);
+                TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to set UBI upgrade size.");
+
+                for (uint32_t k = 0; k < pageNum; k++)
+                {
+                    uint8_t data[TAF_FWUPDATE_FLASH_PAGE_SIZE];
+                    size_t rdSize = TAF_FWUPDATE_FLASH_PAGE_SIZE;
+                    result = taf_lib_flash_ReadPartition(&partitionList.partition[i],
+                        k * TAF_FWUPDATE_FLASH_PAGE_SIZE, data, &rdSize);
+                    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to read page %d.", k);
+
+                    result = taf_lib_flash_WritePartition(&partitionList.partition[j],
+                        k * TAF_FWUPDATE_FLASH_PAGE_SIZE, data, rdSize);
+                    TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to write page %d.", k);
+                }
+
+                result = taf_lib_flash_ClosePartition(&partitionList.partition[i]);
+                TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to close MTD partition.");
+
+                result = taf_lib_flash_ClosePartition(&partitionList.partition[j]);
+                TAF_ERROR_IF_RET_VAL(result != LE_OK, LE_FAULT, "Fail to close MTD partition.");
+            }
+        }
+    }
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Rollback.
+ *
+ * @return
+ *  - LE_FAULT On failure.
+ *  - LE_OK    On success.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_FwUpdate::Rollback
+(
+    void
+)
+{
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+
+    taf_update_Bank_t bootBank = TAF_UPDATE_BANK_UNKNOWN;
+    if (tafFwUpdate.GetActiveBank(&bootBank) != LE_OK)
+    {
+        LE_ERROR("Fail to get active bank.");
+        return LE_FAULT;
+    }
+
+    if (access(TAF_FWUPDATE_PREVIOUS_BANK, F_OK) == 0)
+    {
+        FILE* fp = fopen(TAF_FWUPDATE_PREVIOUS_BANK, "w");
+        fwrite(&bootBank, sizeof(taf_update_Bank_t), 1, fp);
+        fflush(fp);
+        fclose(fp);
+    }
+    else
+    {
+        LE_ERROR("Fail to get the previous bank.");
+        return LE_FAULT;
+    }
+
+    if (bootBank == TAF_UPDATE_BANK_A)
+        bootBank = TAF_UPDATE_BANK_B;
+    else if (bootBank == TAF_UPDATE_BANK_B)
+        bootBank = TAF_UPDATE_BANK_A;
+
+    if (tafFwUpdate.SetActiveBank(bootBank) != LE_OK)
+    {
+        LE_ERROR("Fail to set active bank.");
+        return LE_FAULT;
+    }
+
+    return LE_OK;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -759,12 +1045,6 @@ void taf_FwUpdate::TimerOpHandler
         case TAF_FWUPDATE_TIMER_OP_INST_STOP:
             le_timer_Stop(tafFwUpdate.instTimerRef);
             break;
-        case TAF_FWUPDATE_TIMER_OP_SYNC_START:
-            le_timer_Start(tafFwUpdate.syncTimerRef);
-            break;
-        case TAF_FWUPDATE_TIMER_OP_SYNC_STOP:
-            le_timer_Stop(tafFwUpdate.syncTimerRef);
-            break;
         default:
             LE_ERROR("Invalid timer option (%d).", *op);
     }
@@ -780,22 +1060,15 @@ void* taf_FwUpdate::TimerThread
     void* contextPtr ///< [IN] Context.
 )
 {
-    taf_mrc_ConnectService();
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
 
-    // 1. Create probation timer.
-    tafFwUpdate.syncTimerRef = le_timer_Create("Firmware Sync Timer");
-    le_timer_SetMsInterval(tafFwUpdate.syncTimerRef, 1000);
-    le_timer_SetRepeat(tafFwUpdate.syncTimerRef, 0);
-    le_timer_SetHandler(tafFwUpdate.syncTimerRef, SyncTimerHandler);
-
-    // 2. Create install timer.
+    // 1. Create install timer.
     tafFwUpdate.instTimerRef = le_timer_Create("Firmware Install Timer");
     le_timer_SetMsInterval(tafFwUpdate.instTimerRef, 1000);
     le_timer_SetRepeat(tafFwUpdate.instTimerRef, 0);
     le_timer_SetHandler(tafFwUpdate.instTimerRef, InstallTimerHandler);
 
-    // 3. Add handler for timer options.
+    // 2. Add handler for timer options.
     le_event_AddHandler("timerOpHandler", fwTimerEvId, TimerOpHandler);
     le_sem_Post((le_sem_Ref_t)contextPtr);
 
@@ -803,13 +1076,15 @@ void* taf_FwUpdate::TimerThread
     return NULL;
 }
 
-/*======================================================================
- FUNCTION        taf_FwUpdate::FwUpdateHandler
- DESCRIPTION     Firmware update handler
- PARAMETERS      [IN] reqPtr: firmware update request
- RETURN VALUE    void
-======================================================================*/
-void taf_FwUpdate::FwUpdateHandler(void* reqPtr)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Firmware unpdate handler.
+ */
+//--------------------------------------------------------------------------------------------------
+void taf_FwUpdate::FwUpdateHandler
+(
+    void* reqPtr
+)
 {
     taf_FwUpdateReq_t* updateReq = (taf_FwUpdateReq_t*)reqPtr;
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
@@ -820,8 +1095,24 @@ void taf_FwUpdate::FwUpdateHandler(void* reqPtr)
         case TAF_UPDATE_IDLE:
             if (updateReq->event == TAF_FWUPDATE_EV_INSTALL)
             {
-                LE_INFO("FOTA start.");
+                LE_INFO("NAD update start.");
+                tafFwUpdate.error = TAF_UPDATE_NONE;
                 tafFwUpdate.InstallFirmware(updateReq->filePath);
+            }
+            else if (updateReq->event == TAF_FWUPDATE_EV_SYNC)
+            {
+                LE_INFO("NAD bank sync start.");
+                tafFwUpdate.error = TAF_UPDATE_NONE;
+                if (tafFwUpdate.PerformBankSync() != LE_OK)
+                {
+                    LE_ERROR("Fail to perform bank sync.");
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
+                }
+                else
+                {
+                    LE_INFO("Perform bank sync successfully.");
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_SUCCESS);
+                }
             }
             else
             {
@@ -831,7 +1122,22 @@ void taf_FwUpdate::FwUpdateHandler(void* reqPtr)
         case TAF_UPDATE_INSTALL_SUCCESS:
             if (updateReq->event == TAF_FWUPDATE_EV_REBOOT_TO_ACTIVE)
             {
-                LE_INFO("Reboot to active slot.");
+                if (tafFwUpdate.IsBankSwitched())
+                {
+                    LE_WARN("Bank is swicthed.");
+                }
+                else
+                {
+                    LE_INFO("Reboot to active bank.");
+
+                    taf_update_Bank_t bank = TAF_UPDATE_BANK_UNKNOWN;
+                    tafFwUpdate.GetActiveBank(&bank);
+                    if (bank == TAF_UPDATE_BANK_A && !tafFwUpdate.IsBankSwitched())
+                        tafFwUpdate.SetActiveBank(TAF_UPDATE_BANK_B);
+                    else if (bank == TAF_UPDATE_BANK_B)
+                        tafFwUpdate.SetActiveBank(TAF_UPDATE_BANK_A);
+                }
+
                 if (reboot(RB_AUTOBOOT) == -1)
                 {
                     LE_FATAL("Fail to reboot. Errno = %s.", LE_ERRNO_TXT(errno));
@@ -840,14 +1146,49 @@ void taf_FwUpdate::FwUpdateHandler(void* reqPtr)
             else if (updateReq->event == TAF_FWUPDATE_EV_VERIFY_ACTIVATION)
             {
                 LE_INFO("Activation verification.");
-
                 if (tafFwUpdate.VerifyActivation(updateReq->filePath) != LE_OK)
-                {
                     tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION_FAIL);
+                else
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION_SUCCESS);
+
+                taf_update_Bank_t bootBank = TAF_UPDATE_BANK_UNKNOWN;
+                tafFwUpdate.GetActiveBank(&bootBank);
+
+                if (access(TAF_FWUPDATE_PREVIOUS_BANK, F_OK) == 0)
+                {
+                    FILE* fp = fopen(TAF_FWUPDATE_PREVIOUS_BANK, "w");
+                    fwrite(&bootBank, sizeof(taf_update_Bank_t), 1, fp);
+                    fflush(fp);
+                    fclose(fp);
+                }
+            }
+            else if (updateReq->event == TAF_FWUPDATE_EV_INSTALL_POST_CHECK)
+            {
+                LE_INFO("Installation post check.");
+                if (tafFwUpdate.InstallPostCheck(updateReq->filePath) != LE_OK)
+                {
+                    tafFwUpdate.error = TAF_UPDATE_SECURITY_FAILURE;
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_FAIL);
                 }
                 else
                 {
-                    tafFwUpdate.UpdateProgress(TAF_UPDATE_PROBATION_SUCCESS);
+                    tafFwUpdate.error = TAF_UPDATE_NONE;
+                    tafFwUpdate.UpdateProgress(TAF_UPDATE_INSTALL_SUCCESS);
+                }
+            }
+            else if (updateReq->event == TAF_FWUPDATE_EV_ROLLBACK)
+            {
+                if (!tafFwUpdate.IsBankSwitched())
+                {
+                    LE_ERROR("Bank is not swicthed.");
+                }
+                else
+                {
+                    LE_INFO("Start rollback before activation.");
+                    if (tafFwUpdate.Rollback() != LE_OK)
+                        tafFwUpdate.UpdateProgress(TAF_UPDATE_ROLLBACK_FAIL);
+                    else
+                        tafFwUpdate.UpdateProgress(TAF_UPDATE_ROLLBACK_SUCCESS);
                 }
             }
             else
@@ -855,95 +1196,41 @@ void taf_FwUpdate::FwUpdateHandler(void* reqPtr)
                 LE_ERROR("Invalid operation (%d) for install success state.", updateReq->event);
             }
             break;
-        case TAF_UPDATE_PROBATION_SUCCESS:
-            if (updateReq->event == TAF_FWUPDATE_EV_SYNC)
-            {
-                LE_INFO("Start bank synchronization.");
-                tafFwUpdate.SetState(TAF_UPDATE_SYNCHRONIZING);
-
-                taf_FwUpdateTimerOp_t timerOp = TAF_FWUPDATE_TIMER_OP_SYNC_START;
-                le_event_Report(taf_FwUpdate::fwTimerEvId, &timerOp, sizeof(taf_FwUpdateTimerOp_t));
-
-                if (taf_mrc_SendOtaAbsyncMsg() != LE_OK)
-                {
-                    LE_ERROR("Fail to send OTA AB Sync message to MRC daemon.");
-                    tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
-                }
-                else
-                {
-                    LE_INFO("Send OTA AB Sync message to MRC daemon successfully.");
-                    tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_SUCCESS);
-                }
-            }
-            else
-            {
-                LE_ERROR("Invalid operation (%d) for probation success state.", updateReq->event);
-            }
-            break;
         case TAF_UPDATE_PROBATION_FAIL:
             if (updateReq->event == TAF_FWUPDATE_EV_ROLLBACK)
             {
-                LE_INFO("Start rollback.");
-
-                if (access(updateReq->filePath, 0))
-                {
-                    LE_ERROR("%s not exists.", updateReq->filePath);
+                LE_INFO("Start rollback after activation.");
+                if (tafFwUpdate.Rollback() != LE_OK)
                     tafFwUpdate.UpdateProgress(TAF_UPDATE_ROLLBACK_FAIL);
-                }
                 else
-                {
-                    remove(updateReq->filePath);
                     tafFwUpdate.UpdateProgress(TAF_UPDATE_ROLLBACK_SUCCESS);
-                }
             }
             else
             {
-                LE_ERROR("Invalid operation (%d) for probation success state.", updateReq->event);
+                LE_ERROR("Invalid operation (%d) for probation fail state.", updateReq->event);
             }
             break;
         case TAF_UPDATE_SYNCHRONIZING:
             LE_ERROR("Invalid operation for synchronizing state.");
             break;
-        case TAF_UPDATE_SYNC_FAIL:
-            if (updateReq->event == TAF_FWUPDATE_EV_SYNC)
-            {
-                LE_INFO("Retry bank synchronization.");
-
-                // Start timer to report progress.
-                taf_FwUpdateTimerOp_t timerOp = TAF_FWUPDATE_TIMER_OP_SYNC_START;
-                le_event_Report(taf_FwUpdate::fwTimerEvId, &timerOp, sizeof(taf_FwUpdateTimerOp_t));
-
-                if (taf_mrc_SendOtaAbsyncMsg() != LE_OK)
-                {
-                    LE_ERROR("Fail to send OTA AB Sync message to MRC daemon.");
-                    tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_FAIL);
-                }
-                else
-                {
-                    LE_ERROR("Send OTA AB Sync message to MRC daemon successfully.");
-                    tafFwUpdate.UpdateProgress(TAF_UPDATE_SYNC_SUCCESS);
-                }
-            }
-            else
-            {
-                LE_ERROR("Invalid operation (%d) for sync fail state.", updateReq->event);
-            }
+        case TAF_UPDATE_INSTALLING:
+            LE_ERROR("Invalid operation for installing state.");
             break;
         default:
             LE_ERROR("Invalid state (%d).", state);
     }
 }
 
-/*======================================================================
- FUNCTION        taf_FwUpdate::FwUpdateThread
- DESCRIPTION     Thread for handling FOTA
- PARAMETERS      [IN] contextPtr: Context of the calling thread
- RETURN VALUE    void*: NULL
-======================================================================*/
-void* taf_FwUpdate::FwUpdateThread(void* contextPtr)
+//--------------------------------------------------------------------------------------------------
+/**
+ * Firmware unpdate thread.
+ */
+//--------------------------------------------------------------------------------------------------
+void* taf_FwUpdate::FwUpdateThread
+(
+    void* contextPtr ///< [IN] Context
+)
 {
-    taf_mrc_ConnectService();
-
     le_event_AddHandler("fwUpdateHandler", fwUpdateEvId, FwUpdateHandler);
     le_sem_Post((le_sem_Ref_t)contextPtr);
 
@@ -995,8 +1282,6 @@ void taf_FwUpdate::Init
         case TAF_UPDATE_INSTALL_SUCCESS:
             LE_INFO("Install success.");
             break;
-        case TAF_UPDATE_SYNCHRONIZING:
-            UpdateProgress(TAF_UPDATE_SYNC_FAIL);
         default:
             LE_ERROR("FOTA invalid state(%d), reset to idle.", state);
             SetState(TAF_UPDATE_IDLE);

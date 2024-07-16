@@ -66,6 +66,7 @@ void PrintHelpMenu()
     LE_INFO("activation              : Activation verification on image versions after bank switch.");
     LE_INFO("rollback                : Perform rollback.");
     LE_INFO("bank-sync               : Bank synchronization.");
+    LE_INFO("bank-erase [bank]       : Erase bank.");
     LE_INFO("version firmware        : Show firmware version.");
     LE_INFO("version [app]           : Show app version.");
     LE_INFO("reboot                  : Reboot to active slot.");
@@ -311,6 +312,25 @@ COMPONENT_INIT
 
         result = taf_update_Sync(sessRef);
         LE_TEST_OK(result == LE_OK, "taf_update_Sync - OK");
+    }
+    else if (strncmp(cmd, "bank-erase", strlen("bank-erase")) == 0)
+    {
+        LE_TEST_INFO("======== Bank Erase Test ========");
+        result = taf_update_GetInstallationSession(TAF_UPDATE_PACKAGE_TYPE_NAD_ZIP,
+            SESSION_CONF_FILE, &sessRef);
+        LE_TEST_OK(result == LE_OK, "taf_update_GetInstallationSession - OK");
+
+        const char* bank = le_arg_GetArg(1);
+        if (strncmp(bank, "A", strlen("A")) == 0)
+        {
+            result = taf_update_EraseBank(sessRef, TAF_UPDATE_BANK_A);
+            LE_TEST_OK(result == LE_OK, "taf_update_EraseBank - OK");
+        }
+        else if (strncmp(bank, "B", strlen("B")) == 0)
+        {
+            result = taf_update_EraseBank(sessRef, TAF_UPDATE_BANK_B);
+            LE_TEST_OK(result == LE_OK, "taf_update_EraseBank - OK");
+        }
     }
     else if (strncmp(cmd, "rollback", strlen("rollback")) == 0)
     {

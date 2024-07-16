@@ -67,6 +67,9 @@ void PrintHelpMenu()
     LE_INFO("rollback                : Perform rollback.");
     LE_INFO("bank-sync               : Bank synchronization.");
     LE_INFO("bank-erase [bank]       : Erase bank.");
+    LE_INFO("start-bank-sync         : Start Bank synchronization.");
+    LE_INFO("pause-bank-sync         : Pause Bank synchronization.");
+    LE_INFO("resume-bank-sync        : Resume Bank synchronization.");
     LE_INFO("version firmware        : Show firmware version.");
     LE_INFO("version [app]           : Show app version.");
     LE_INFO("reboot                  : Reboot to active slot.");
@@ -113,7 +116,22 @@ void StateHandler(taf_update_StateInd_t* indication, taf_update_SessionRef_t ses
             LE_INFO("Probation.");
             break;
         case TAF_UPDATE_IDLE:
-            LE_INFO("Indle.");
+            LE_INFO("Idle.");
+            break;
+        case TAF_UPDATE_SYNCHRONIZING:
+            LE_DEBUG("AB Sync in progress, Percentage completed: %u", indication->percent);
+            break;
+        case TAF_UPDATE_SYNC_SUCCESS:
+            printf("\n\nAB Sync was successful\n\n");
+            le_sem_Post(semaphore);
+            break;
+        case TAF_UPDATE_SYNC_PAUSED:
+            printf("\n\nAB Sync was paused\n");
+            le_sem_Post(semaphore);
+            break;
+        case TAF_UPDATE_SYNC_FAIL:
+            printf("\n\nAB Sync failed\n");
+            le_sem_Post(semaphore);
             break;
         default:
             break;
@@ -223,6 +241,30 @@ COMPONENT_INIT
         le_sem_Wait(semaphore);
         taf_update_RemoveStateHandler(handlerRef);
         LE_TEST_OK(true, "taf_update_RemoveStateHandler - OK");
+    }
+    else if (strncmp(cmd, "start-bank-sync", strlen("start-bank-sync")) == 0) {
+        LE_TEST_INFO("======== Start Bank Sync Test ========");
+        result = taf_update_GetInstallationSession(
+            TAF_UPDATE_PACKAGE_TYPE_NAD_ZIP, SESSION_CONF_FILE, &sessRef);
+        LE_TEST_OK(result == LE_OK, "taf_update_GetInstallationSession - OK");
+        result = taf_update_StartSync(sessRef);
+        LE_TEST_OK(result == LE_OK, "taf_update_StartSync - OK");
+    }
+    else if (strncmp(cmd, "pause-bank-sync", strlen("pause-bank-sync")) == 0) {
+        LE_TEST_INFO("======== Pause Bank Sync Test ========");
+        result = taf_update_GetInstallationSession(
+            TAF_UPDATE_PACKAGE_TYPE_NAD_ZIP, SESSION_CONF_FILE, &sessRef);
+        LE_TEST_OK(result == LE_OK, "taf_update_GetInstallationSession - OK");
+        result = taf_update_PauseSync(sessRef);
+        LE_TEST_OK(result == LE_OK, "taf_update_PauseSync - OK");
+    }
+    else if (strncmp(cmd, "resume-bank-sync", strlen("resume-bank-sync")) == 0) {
+        LE_TEST_INFO("======== Resume Bank Sync Test ========");
+        result = taf_update_GetInstallationSession(
+            TAF_UPDATE_PACKAGE_TYPE_NAD_ZIP, SESSION_CONF_FILE, &sessRef);
+        LE_TEST_OK(result == LE_OK, "taf_update_GetInstallationSession - OK");
+        result = taf_update_ResumeSync(sessRef);
+        LE_TEST_OK(result == LE_OK, "taf_update_ResumeSync - OK");
     }
     else if (strncmp(cmd, "install-precheck", strlen("install-precheck")) == 0)
     {

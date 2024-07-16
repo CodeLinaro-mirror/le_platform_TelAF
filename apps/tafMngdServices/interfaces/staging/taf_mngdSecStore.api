@@ -55,13 +55,14 @@
  *
  * @section taf_mngdSecStore Manage secure storage
  *
- * TelAF Managed Storage Service's client calls taf_mngdSecStore_Create() to create the secure storage
- * which is allocated to the client, so that the client can create, read and write data under the storage.
- * This function returns the result to indicate the status of creating secure storage.
+ * The client is allocated the secure storage when it connects to the service. When it calls
+ * taf_mngdSecStore_CreateData() to create a data item, the client uses the storage to create,
+ * read and write its own data.
+ * This function returns the data reference when the client creats secure data item with data name.
  *
  * @code
 
-    taf_mngdSecStore_Create();
+    taf_mngdSecStore_CreateData("DataLabel");
 
  * @endcode
  *
@@ -80,7 +81,7 @@
  * @code
 
     taf_mngdSecStore_DataRef_t dataRef
-        = taf_mngdSecStore_GetDataRef("DataName");
+        = taf_mngdSecStore_GetDataRef("DataLabel");
 
     if(dataRef)
     {
@@ -89,7 +90,7 @@
     else
     {
         taf_mngdSecStore_DataRef_t dataRef
-            = taf_mngdSecStore_CreateDataRef("DataName");
+            = taf_mngdSecStore_CreateData("DataLabel");
 
         if(dataRef)
         {
@@ -151,7 +152,7 @@
 
     // use the read data from the data buffer
 
-    while(reaLen > 0 && res == LE_OK)
+    while(readLen > 0 && res == LE_OK)
     {
         res = taf_mngdSecStore_ReadDataNextChunk(dataRef, dataBuff, &readLen);
 
@@ -165,6 +166,8 @@
  */
 //--------------------------------------------------------------------------------------------------
 
+USETYPES taf_ks.api;
+
 /**
  * Maximum number of characters and bytes for a secure storage data label.
  */
@@ -174,7 +177,7 @@ DEFINE MAX_DATA_LABLE_BYTES = (MAX_DATA_LABLE_SIZE + 1);
 /**
  * Maximum number of bytes for each data chunk in secure storage.
  */
-DEFINE MAX_DATA_CHUNK_SIZE = 8192;
+DEFINE MAX_DATA_CHUNK_SIZE = taf_ks.MAX_PACKET_SIZE;
 
 
 /**
@@ -188,7 +191,7 @@ REFERENCE Data;
  *
  * @return
  *     - LE_OK             Successfully sent the request.
- *     - LE_BAD_PARAMETER  Invalid size buffer or storage reference.
+ *     - LE_BAD_PARAMETER  Invalid size buffer.
  *     - LE_FAULT          Failed to send the request.
  */
 //--------------------------------------------------------------------------------------------------
@@ -203,7 +206,7 @@ FUNCTION le_result_t GetUsedSize
  *
  * @return
  *     - LE_OK             Successfully sent the request.
- *     - LE_BAD_PARAMETER  Invalid size buffer or storage reference.
+ *     - LE_BAD_PARAMETER  Invalid size buffer.
  *     - LE_FAULT          Failed to send the request.
  */
 //--------------------------------------------------------------------------------------------------
@@ -214,7 +217,8 @@ FUNCTION le_result_t GetFreeSize
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Creates a data label with empty data and returns the reference to the data label.
+ * Creates a data label with empty data and returns the reference to the data label. The label name
+ * shall follow POSIX portable file name convention.
  *
  * @return
  *     - Date       New data reference.
@@ -228,7 +232,8 @@ FUNCTION Data CreateData
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Gets the data reference for the data label.
+ * Gets the data reference for the data label. The label name shall follow POSIX portable file name
+ * convention.
  *
  * @return
  *     - Date       Data reference.
@@ -297,7 +302,7 @@ FUNCTION le_result_t WriteDataEnd
  *     - LE_FAULT          Failed.
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t ReadDataFirstChunk()
+FUNCTION le_result_t ReadDataFirstChunk
 (
     Data dataRef                      IN,   ///< Data reference.
     uint8 buffer[MAX_DATA_CHUNK_SIZE] OUT   ///< Data buffer.
@@ -314,7 +319,7 @@ FUNCTION le_result_t ReadDataFirstChunk()
  *     - LE_FAULT          Failed.
  */
 //--------------------------------------------------------------------------------------------------
-FUNCTION le_result_t ReadDataNextChunk()
+FUNCTION le_result_t ReadDataNextChunk
 (
     Data dataRef                      IN,   ///< Data reference.
     uint8 buffer[MAX_DATA_CHUNK_SIZE] OUT   ///< Data buffer.

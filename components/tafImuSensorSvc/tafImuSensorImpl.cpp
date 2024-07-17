@@ -60,15 +60,23 @@ void ConvertSensorType(taf_SensorInfo_t* sensorInfoPtr,SensorInfo info)
     }
 }
 
-le_result_t IntializeSensorClient(taf_SensorClient_t* clientRequestPtr,const char* name){
-    std::shared_ptr<ISensorClient> sensorclient;
-    Status status = telux::common::Status::FAILED;
-    status = clientRequestPtr->mSensorManager->getSensorClient(sensorclient,name);
-    if(status != telux::common::Status::SUCCESS){
-        LE_FATAL("unable to create sensor client for %s",name);
+le_result_t taf_Sensor::InitializeSensorClient(taf_SensorClient_t* clientRequestPtr){
+    auto& sensorMngr = taf_Sensor::GetInstance();
+    telux::common::Status status = telux::common::Status::FAILED;
+    if(clientRequestPtr->mSensorManager != nullptr && sensorMngr.sList.size() == 0){
+        status = clientRequestPtr->mSensorManager->getAvailableSensorInfo(sensorMngr.sList);
     }
-    clientRequestPtr->mSensorClient.push_back(sensorclient);
-    LE_INFO("sensorclient vector size %zu",clientRequestPtr->mSensorClient.size());
+    for(size_t i=0;i<sensorMngr.sList.size();i++){
+        std::shared_ptr<ISensorClient> sensorclient;
+        status = telux::common::Status::FAILED;
+        status = clientRequestPtr->mSensorManager->getSensorClient(sensorclient,
+            sensorMngr.sList[i].name.c_str());
+        if(status != telux::common::Status::SUCCESS){
+            LE_FATAL("unable to create sensor client for %s",sensorMngr.sList[i].name.c_str());
+        }
+        clientRequestPtr->mSensorClient.push_back(sensorclient);
+        LE_INFO("sensorclient vector size %lu",clientRequestPtr->mSensorClient.size());
+    }
     return LE_OK;
 }
 
@@ -109,13 +117,9 @@ telux::common::ServiceStatus taf_Sensor::SensorManagerInit(taf_SensorClient_t* c
     clientRequestPtr->SensorOnEventId = le_event_CreateIdWithRefCounting("sensorOnEventId");
     clientRequestPtr->HandlerRef = le_event_AddHandler("SensorEventId",
         clientRequestPtr->SensorOnEventId, taf_Sensor::DataEventHandler);
-    le_result_t result = IntializeSensorClient(clientRequestPtr,"Accel");
-    if(result == LE_OK){
-        LE_INFO("Accel sensor created successfully");
-    }
-    result = IntializeSensorClient(clientRequestPtr,"Gyro");
-    if(result == LE_OK){
-        LE_INFO("Gyro sensor created successfully");
+    le_result_t result = InitializeSensorClient(clientRequestPtr);
+    if(result != LE_OK){
+        LE_INFO("SensorClients created succesfully");
     }
     }else{
         LE_INFO("Sensor manager already initialized");
@@ -225,12 +229,8 @@ taf_imuSensor_SensorListRef_t taf_Sensor::GetAvailableSensors()
     sensorListPtr->SensorsList = LE_SLS_LIST_INIT;
     sensorListPtr->currPtr = NULL;
     sensorListPtr->sessionRef  = taf_imuSensor_GetClientSessionRef();
-    std::vector<SensorInfo> info;
-    telux::common::Status status = telux::common::Status::FAILED;
-    if(clientRequestPtr->mSensorManager != nullptr){
-        status = clientRequestPtr->mSensorManager->getAvailableSensorInfo(info);
-    }
-    if(status != telux::common::Status::SUCCESS){
+    std::vector<SensorInfo> info(sensorMngr.sList);
+    if(sensorMngr.sList.size()==0){
         LE_INFO("Not able to get Available Sensor List");
         return NULL;
     }

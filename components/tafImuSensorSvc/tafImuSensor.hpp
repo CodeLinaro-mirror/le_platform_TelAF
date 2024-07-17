@@ -133,6 +133,7 @@ namespace tafsvc {
             static taf_Sensor &GetInstance();
             le_result_t SetEulerAngle(double,double,double);
             static void InitializeClient(taf_SensorClient_t* clientRequestPtr);
+            le_result_t InitializeSensorClient(taf_SensorClient_t* clientRequestPtr);
             static taf_SensorClient_t* DiscoverSessionRef(le_msg_SessionRef_t sessionRef);
             static taf_SensorClient_t* AcquireSessionRef(void);
             void ReleaseClientRef(void* RefPtr);
@@ -166,6 +167,7 @@ namespace tafsvc {
         private:
             le_mem_PoolRef_t ClientPoolRef;
             le_ref_MapRef_t ClientRequestRefMap;
+            std::vector<telux::sensor::SensorInfo> sList;
             telux::common::ServiceStatus SensorManagerInit(taf_SensorClient_t* clientRequestPtr);
     };
 }

@@ -1,0 +1,24 @@
+# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+
+policy_module(tafTimeIntTest, 1.0)
+
+gen_require(`
+  type telaf_admin_t;
+  type data_t;
+')
+
+type telaf_tafTimeIntTest_data_t;
+files_type(telaf_tafTimeIntTest_data_t);
+
+type telaf_tafTimeIntTest_exec_t;
+files_type(telaf_tafTimeIntTest_exec_t);
+
+type telaf_tafTimeIntTest_t;
+
+init_telaf_app_domain(telaf_tafTimeIntTest_t,telaf_tafTimeIntTest_exec_t)
+
+# tafTimeIntTest component necessary rules
+
+gptp_rw_qgptp_device(telaf_tafTimeIntTest_t);
+allow telaf_admin_t telaf_tafTimeIntTest_exec_t:lnk_file { read };

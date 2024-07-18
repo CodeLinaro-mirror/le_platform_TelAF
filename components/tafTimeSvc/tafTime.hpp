@@ -38,6 +38,7 @@
 #include "legato.h"
 #include "interfaces.h"
 #include "tafSvcIF.hpp"
+#include "taf_gptpTime.h"
 
 // For reading json configuration file
 #include "jansson.h"
@@ -78,6 +79,7 @@
 #define TAF_TIME_TOLERANCES_SETTING_STR    "ToleranceMillsec"
 #define TAF_TIME_ALLOWOVERRIDE_STR         "AllowOverrideAfterFail"
 #define TAF_TIME_VALIDCLIENTLIST_STR       "ValidClientList"
+#define TAF_TIME_GPTPDEVICENAME_STR        "GptpDeviceName"
 #define TAF_TIME_SERVICE_SOURCE_STR        "Sources"
 
 #define TAF_TIME_RTC_DEV_NAME "/dev/rtc0"
@@ -335,6 +337,7 @@ namespace telux
             long int toleranceMillsec;
             int64_t allowOverrideAfterFail;
             std::vector<std::string> validClientList;
+            std::string gptpDeviceName;
             int sourceArrySize;
             int sourceVectorSize;
 
@@ -429,6 +432,10 @@ namespace telux
 
                 for (auto item : validClientList) {
                     LE_INFO("Client: %s\n", item.c_str());
+                }
+                if(!gptpDeviceName.empty())
+                {
+                    LE_INFO("GptpDeviceName: %s\n", gptpDeviceName.c_str());
                 }
 
                 LE_INFO("Time source size: %ld\n", source.size());
@@ -667,6 +674,7 @@ namespace telux
                 TimeTypeMask SupportTimeMask;
                 int64_t AllowOverrideAfterFail = -1;
                 pthread_mutex_t ProtectlocalTime_mutex;
+                taf_gptpTime_Ref_t gptpTimeRef = NULL;
         };
     }
 }

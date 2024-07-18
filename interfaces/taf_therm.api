@@ -276,11 +276,11 @@
 
    @endverbatim
 
-* The application needs to release the thermal zone object after processing it
-* by calling taf_therm_ReleaseThermalZoneRef().
-* @verbatim
+ * The application needs to release the thermal zone object after processing it
+ * by calling taf_therm_ReleaseThermalZoneRef().
+ * @verbatim
    taf_therm_ReleaseThermalZoneRef(tZone);
-  @endverbatim
+   @endverbatim
 
  * @section taf_therm_GetCoolingDeviceByName Get specified cooling device information
  *
@@ -309,9 +309,9 @@
    }
    @endverbatim
 
-* The application needs to release the cooling device object after processing it
-* by calling taf_therm_ReleaseCoolingDeviceRef().
-* @verbatim
+ * The application needs to release the cooling device object after processing it
+ * by calling taf_therm_ReleaseCoolingDeviceRef().
+ * @verbatim
    taf_therm_ReleaseCoolingDeviceRef(tripEventSampleRef);
   @endverbatim
 

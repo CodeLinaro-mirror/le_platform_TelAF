@@ -2,93 +2,94 @@
 * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 **/
+
 //------------------------------------------------------------------------------------------------
 /**
-* @page c_tafhms Health Monitor Service
-*
-* @ref taf_hms_interface.h "API Reference"
-*
-* <HR>
-*
-* Components need access to the TelAF Health Monitor to get information about CPU
-* usage and RAM usage.
-*
-* @section taf_hms_binding IPC interfaces binding
-*
-* The functions of this API are provided by the @b tafHMSSvc application service.
-*
-* The following example illustrates how to bind to TelAF Health Monitor services.
-*
-* @verbatim
-  bindings:
-  {
-      clientExe.clientComponent.taf_hms -> tafHMSvc.taf_hms
-  }
-  @endverbatim
-*
-* @section taf_hms_GetCpuLoad Get the total CPU usage
-* The API of taf_hms_GetCpuLoad() provides the current total CPU usage in percentage.
-* @verbatim
-  le_result_t result;
-  double cpuLoadValue;
-  result = taf_hms_GetCpuLoad(&cpuLoadValue);
-  if(result == LE_OK)
-  {
-      LE_INFO("CPU Load Idle Percentage: %.2f%%\n",cpuLoadValue);
-  }
-  else
-  {
-      LE_INFO("Failed ! to get CPU Load information");
-  }
-  @endverbatim
-*
-* @section taf_hms_GetCpuCoreNum Get the total number of CPU core
-* The API of taf_hms_GetCpuCoreNum() provides the total number of CPU core.
-* @verbatim
-  uint32_t cpuCoreNum = taf_hms_GetCpuCoreNum(&cpuCoreNum);
-  @endverbatim
-*
-* @section taf_hms_GetIndvCoreUsage Get the individual CPU core usage
-* The API of taf_hms_GetIndvCoreUsage() provides the total CPU usage of individual core.
-* @verbatim
-  le_result_t result;
-  uint32_t core_id = 0;
-  result = taf_hms_GetIndvCoreUsage(core_id, &cpuUsage);
-  if (result == LE_OK)
-  {
-    LE_INFO("CPU Usage for core %d %d\n", core_id, cpuUsage);
-  }
-  @endverbatim
-*
-* @section taf_hms_GetRamMemInfo Get the memory information
-* The API of taf_hms_GetRamMemInfo() provides the current RAM in total, used and free memory information.
-* @verbatim
-  le_result_t result;
-  uint32_t ramTotalMem, ramUsedMem, ramFreeMem;
-  result = taf_hms_GetRamMemInfo( &ramTotalMem, &ramUsedMem, &ramFreeMem);
-  if(result == LE_OK)
-  {
-      LE_INFO(" Total Memory: %d kB\n", ramTotalMem);
-      LE_INFO(" Used Memory: %d kB\n", ramUsedMem);
-      LE_INFO(" Free Memory: %d kB\n", ramFreeMem);
-  }
-  else
-  {
-      LE_INFO("Failed ! to get RAM information");
-  }
-  @endverbatim
-*
-*
-*
-*  @section taf_hms_GetUbiDevInfoList Get the UBI device information
-* The following APIs are provided for UBI device information
-* taf_hms_GetUbiDevInfoList()   Gets the list of available UBI device information.
-* taf_hms_DeleteUbiDevInfoList() Deletes the UBI list reference.
-* taf_hms_GetFirstUbiDevInfo()  Gets the first UBI device Info object reference in the list.
-* taf_hms_GetNextUbiDevInfo()  Gets the next UBI device Info object reference in the list.
-* taf_hms_GetUbiDevMaxEraseCnt()    Gets UBI information for current maximum erase count.
-* taf_hms_GetUbiDevBadBlkCnt()   Gets UBI information for bad block count.
-* taf_hms_GetUbiDevId() Gets UBI device ID.
+ * @page c_tafhms Health Monitor Service
+ *
+ * @ref taf_hms_interface.h "API Reference"
+ *
+ * <HR>
+ *
+ * Components need access to the TelAF Health Monitor to get information about CPU
+ * usage and RAM usage.
+ *
+ * @section taf_hms_binding IPC interfaces binding
+ *
+ * The functions of this API are provided by the @b tafHMSSvc application service.
+ *
+ * The following example illustrates how to bind to TelAF Health Monitor services.
+ *
+ * @verbatim
+   bindings:
+   {
+       clientExe.clientComponent.taf_hms -> tafHMSvc.taf_hms
+   }
+   @endverbatim
+ *
+ * @section taf_hms_GetCpuLoad Get the total CPU usage
+ * The API of taf_hms_GetCpuLoad() provides the current total CPU usage in percentage.
+ * @verbatim
+   le_result_t result;
+   double cpuLoadValue;
+   result = taf_hms_GetCpuLoad(&cpuLoadValue);
+   if(result == LE_OK)
+   {
+       LE_INFO("CPU Load Idle Percentage: %.2f%%\n",cpuLoadValue);
+   }
+   else
+   {
+       LE_INFO("Failed ! to get CPU Load information");
+   }
+   @endverbatim
+ *
+ * @section taf_hms_GetCpuCoreNum Get the total number of CPU core
+ * The API of taf_hms_GetCpuCoreNum() provides the total number of CPU core.
+ * @verbatim
+   uint32_t cpuCoreNum = taf_hms_GetCpuCoreNum(&cpuCoreNum);
+   @endverbatim
+ *
+ * @section taf_hms_GetIndvCoreUsage Get the individual CPU core usage
+ * The API of taf_hms_GetIndvCoreUsage() provides the total CPU usage of individual core.
+ * @verbatim
+   le_result_t result;
+   uint32_t core_id = 0;
+   result = taf_hms_GetIndvCoreUsage(core_id, &cpuUsage);
+   if (result == LE_OK)
+   {
+     LE_INFO("CPU Usage for core %d %d\n", core_id, cpuUsage);
+   }
+   @endverbatim
+ *
+ * @section taf_hms_GetRamMemInfo Get the memory information
+ * The API of taf_hms_GetRamMemInfo() provides the current RAM in total, used and free memory information.
+ * @verbatim
+   le_result_t result;
+   uint32_t ramTotalMem, ramUsedMem, ramFreeMem;
+   result = taf_hms_GetRamMemInfo( &ramTotalMem, &ramUsedMem, &ramFreeMem);
+   if(result == LE_OK)
+   {
+       LE_INFO(" Total Memory: %d kB\n", ramTotalMem);
+       LE_INFO(" Used Memory: %d kB\n", ramUsedMem);
+       LE_INFO(" Free Memory: %d kB\n", ramFreeMem);
+   }
+   else
+   {
+       LE_INFO("Failed ! to get RAM information");
+   }
+   @endverbatim
+ *
+ *
+ *
+ *  @section taf_hms_GetUbiDevInfoList Get the UBI device information
+ * The following APIs are provided for UBI device information
+ * taf_hms_GetUbiDevInfoList()   Gets the list of available UBI device information.
+ * taf_hms_DeleteUbiDevInfoList() Deletes the UBI list reference.
+ * taf_hms_GetFirstUbiDevInfo()  Gets the first UBI device Info object reference in the list.
+ * taf_hms_GetNextUbiDevInfo()  Gets the next UBI device Info object reference in the list.
+ * taf_hms_GetUbiDevMaxEraseCnt()    Gets UBI information for current maximum erase count.
+ * taf_hms_GetUbiDevBadBlkCnt()   Gets UBI information for bad block count.
+ * taf_hms_GetUbiDevId() Gets UBI device ID.
  * @verbatim
     taf_hms_UbiDevInfoListRef_t ubiDevListRef = taf_hms_GetUbiDevInfoList();
     taf_hms_UbiDevInfoRef_t UbiDevInfo = taf_hms_GetFirstUbiDevInfo(ubiDevListRef);
@@ -107,17 +108,17 @@
         }
     }
   @endverbatim
-*
-* @section taf_hms_GetUbiVolInfoList  Get the UBI volume information
-* The following APIs are provided for UBI volume information
-* taf_hms_GetFirstUbiVolInfo()  Gets the first UBI volume Info object reference in the list.
-* taf_hms_GetNextUbiVolInfo() Gets the next UBI volume Info object reference in the list.
-* taf_hms_GetUbiVolName() Gets name of UBI volume.
-* taf_hms_GetUbiVolSize() Gets size of UBI volume.
-* taf_hms_GetUbiVolId() Gets UBI volume ID.
-*
-* @verbatim
-  taf_hms_UbiVolInfoListRef_t ubiVolListRef = taf_hms_GetUbiVolInfoList();
+ *
+ * @section taf_hms_GetUbiVolInfoList  Get the UBI volume information
+ * The following APIs are provided for UBI volume information
+ * taf_hms_GetFirstUbiVolInfo()  Gets the first UBI volume Info object reference in the list.
+ * taf_hms_GetNextUbiVolInfo() Gets the next UBI volume Info object reference in the list.
+ * taf_hms_GetUbiVolName() Gets name of UBI volume.
+ * taf_hms_GetUbiVolSize() Gets size of UBI volume.
+ * taf_hms_GetUbiVolId() Gets UBI volume ID.
+ *
+ * @verbatim
+    taf_hms_UbiVolInfoListRef_t ubiVolListRef = taf_hms_GetUbiVolInfoList();
     taf_hms_UbiVolInfoRef_t UbiVolInfo = taf_hms_GetFirstUbiVolInfo(ubiVolListRef);
     uint32_t ubiVolumeListSize;
     result = taf_hms_GetUbiVolInfoListSize(ubiVolListRef, &ubiVolumeListSize);
@@ -134,19 +135,19 @@
             UbiVolInfo = taf_hms_GetNextUbiVolInfo(ubiVolListRef);
         }
     }
-   @endverbatim
-*
-* @section taf_hms_GetMtdInfoList Get the MTD device information
-* The following APIs are provided for MTD device information
-* taf_hms_GetMtdInfoList() Gets the list of available MTD information.
-* taf_hms_DeleteMtdInfoList() Deletes the MTD list reference.
-* taf_hms_GetFirstMtdInfo() Gets the first MtdInfo object reference in the list.
-* taf_hms_GetNextMtdInfo() Gets the next MtdInfo object reference in the list.
-* taf_hms_GetMtdDevName()  Gets MTD device name.
-* taf_hms_GetMtdDevBlkSize() Gets MTD information for block size.
-* taf_hms_GetMtdDevId() Gets MTD device ID.
-* taf_hms_GetMtdDevBlkCnt() Gets MTD block count.
-*@verbatim
+    @endverbatim
+ *
+ * @section taf_hms_GetMtdInfoList Get the MTD device information
+ * The following APIs are provided for MTD device information
+ * taf_hms_GetMtdInfoList() Gets the list of available MTD information.
+ * taf_hms_DeleteMtdInfoList() Deletes the MTD list reference.
+ * taf_hms_GetFirstMtdInfo() Gets the first MtdInfo object reference in the list.
+ * taf_hms_GetNextMtdInfo() Gets the next MtdInfo object reference in the list.
+ * taf_hms_GetMtdDevName()  Gets MTD device name.
+ * taf_hms_GetMtdDevBlkSize() Gets MTD information for block size.
+ * taf_hms_GetMtdDevId() Gets MTD device ID.
+ * taf_hms_GetMtdDevBlkCnt() Gets MTD block count.
+ * @verbatim
     taf_hms_MtdInfoListRef_t mtdListRef = taf_hms_GetMtdInfoList();
     taf_hms_MtdInfoRef_t MtdInfo = taf_hms_GetFirstMtdInfo(mtdListRef);
     uint32_t mtdDevListSize;
@@ -162,10 +163,10 @@
         }
     }
     @endverbatim
-*
-* <HR>
-*
-*/
+ *
+ * <HR>
+ *
+ */
 
 
 //--------------------------------------------------------------------------------------------------

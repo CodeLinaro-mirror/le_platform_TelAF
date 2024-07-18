@@ -64,19 +64,12 @@
 
 const size_t kPageSize = 4 * 1024; //4k
 
-const uint32_t kMTDEraseSize = 0x40000;
-const uint32_t kUBIEraseSize = 0x3e000;
-
 const std::string kAreBlocksErased = "ARE_BLOCKS_ERASED";
 const std::string kIsMTDSynced = "IS_MTD_SYNCED";
 const std::string kIsUBISynced = "IS_UBI_SYNCED";
 const std::string kState = "STATE";
-const std::string kCurrPageIdxMTD = "CURR_PAGE_INDEX_MTD";
-const std::string kCurrPageIdxUBI = "CURR_PAGE_INDEX_UBI";
 const std::string kPagesSynced = "PAGES_SYNCED";
 const std::string kTotalPages = "TOTAL_PAGES";
-const std::string kIsUBIOpen = "IS_UBI_OPEN";
-const std::string kIsUBIVolUpSizeSet = "IS_UBI_INIT";
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -151,6 +144,8 @@ namespace tafsvc {
         void Init(void);
 
         le_result_t CalculateTotalPages(void);
+
+        std::string FwUpdateStateToString(taf_update_State_t state);
 
         static void FwUpdateHandler(void* reqPtr);
         static void FwSyncHandler(void* reqPtr);

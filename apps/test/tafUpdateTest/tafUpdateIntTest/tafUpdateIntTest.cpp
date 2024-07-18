@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -33,10 +33,11 @@
  */
 
 /*
- * @file       tafUpdateIntTest.c
+ * @file       tafUpdateIntTest.cpp
  * @brief      This file implements integration test for Update Service.
  */
 
+#include <iostream>
 #include "legato.h"
 #include "interfaces.h"
 
@@ -54,30 +55,31 @@ taf_update_StateHandlerRef_t handlerRef;
 ======================================================================*/
 void PrintHelpMenu()
 {
-    LE_INFO("Please run \"app runProc tafUpdateIntTest tafUpdateIntTest -- [option]\"");
-    LE_INFO("Description:");
-    LE_INFO("help                    : Print help menu.");
-    LE_INFO("download                : Download OTA package.");
-    LE_INFO("install-precheck        : Install precheck with image versions.");
-    LE_INFO("install firmware [path] : Install firmware.");
-    LE_INFO("install-postcheck       : Install postcheck on partition md5.");
-    LE_INFO("install [appBundlePath] : Install application.");
-    LE_INFO("get-active-bank         : Get active bank.");
-    LE_INFO("activation              : Activation verification on image versions after bank switch.");
-    LE_INFO("rollback                : Perform rollback.");
-    LE_INFO("bank-sync               : Bank synchronization.");
-    LE_INFO("bank-erase [bank]       : Erase bank.");
-    LE_INFO("start-bank-sync         : Start Bank synchronization.");
-    LE_INFO("pause-bank-sync         : Pause Bank synchronization.");
-    LE_INFO("resume-bank-sync        : Resume Bank synchronization.");
-    LE_INFO("version firmware        : Show firmware version.");
-    LE_INFO("version [app]           : Show app version.");
-    LE_INFO("reboot                  : Reboot to active slot.");
-    LE_INFO("start [app]             : Start application.");
-    LE_INFO("stop [app]              : Stop application.");
-    LE_INFO("uninstall [app]         : Uninstall application.");
-    LE_INFO("appState [app]          : Show app running state.");
-    LE_INFO("appInfo                 : Show app information.");
+    printf("Please run \"app runProc tafUpdateIntTest tafUpdateIntTest -- [option]\"\n");
+    printf("Description:\n");
+    printf("help                    : Print help menu.\n");
+    printf("download                : Download OTA package.");
+    printf("install-precheck        : Install precheck with image versions.\n");
+    printf("install firmware [path] : Install firmware.\n");
+    printf("install-postcheck       : Install postcheck on partition md5.\n");
+    printf("install [appBundlePath] : Install application.\n");
+    printf("get-active-bank         : Get active bank.\n");
+    printf("activation              : Activation verification on image versions after bank switch.\n");
+    printf("rollback                : Perform rollback.\n");
+    printf("bank-sync               : Bank synchronization.\n");
+    printf("bank-erase [bank]       : Erase bank.\n");
+    printf("start-bank-sync         : Start Bank synchronization.\n");
+    printf("pause-bank-sync         : Pause Bank synchronization.\n");
+    printf("resume-bank-sync        : Resume Bank synchronization.\n");
+    printf("sync-console            : Perform sync operations with notifications.\n");
+    printf("version firmware        : Show firmware version.\n");
+    printf("version [app]           : Show app version.\n");
+    printf("reboot                  : Reboot to active slot.\n");
+    printf("start [app]             : Start application.\n");
+    printf("stop [app]              : Stop application.\n");
+    printf("uninstall [app]         : Uninstall application.\n");
+    printf("appState [app]          : Show app running state.\n");
+    printf("appInfo                 : Show app information.\n");
 }
 
 /*======================================================================
@@ -89,7 +91,15 @@ void PrintHelpMenu()
 ======================================================================*/
 void StateHandler(taf_update_StateInd_t* indication, taf_update_SessionRef_t sessRef, void* contextPtr)
 {
-    switch (indication->state) {
+    if(indication->error == TAF_UPDATE_INVALID_OPERATION)
+    {
+        printf("Invalid operation requested\n");
+        le_sem_Post(semaphore);
+        return;
+    }
+
+    switch (indication->state)
+    {
         case TAF_UPDATE_DOWNLOAD_FAIL:
             LE_TEST_OK(false, "taf_update_Download - Fail");
             le_sem_Post(semaphore);
@@ -119,7 +129,7 @@ void StateHandler(taf_update_StateInd_t* indication, taf_update_SessionRef_t ses
             LE_INFO("Idle.");
             break;
         case TAF_UPDATE_SYNCHRONIZING:
-            LE_DEBUG("AB Sync in progress, Percentage completed: %u", indication->percent);
+            printf("AB Sync in progress, %u%% completed\n", indication->percent);
             break;
         case TAF_UPDATE_SYNC_SUCCESS:
             printf("\n\nAB Sync was successful\n\n");
@@ -149,14 +159,14 @@ void* StateHandlerThread(void* contextPtr)
     taf_update_ConnectService();
 
     handlerRef = taf_update_AddStateHandler(
-        (taf_update_StateHandlerFunc_t)StateHandler, NULL);
+        (taf_update_StateHandlerFunc_t)StateHandler, nullptr);
 
-    LE_TEST_OK(handlerRef != NULL, "taf_update_AddStateHandler - OK");
+    LE_TEST_OK(handlerRef != nullptr, "taf_update_AddStateHandler - OK");
 
     le_sem_Post((le_sem_Ref_t)contextPtr);
     le_event_RunLoop();
 
-    return NULL;
+    return nullptr;
 }
 
 /*======================================================================
@@ -186,10 +196,10 @@ void CreateHandlerThread(void)
 void GetAppInfo(le_sem_Ref_t sem)
 {
     taf_appMgmt_AppListRef_t listRef = taf_appMgmt_CreateAppList();
-    LE_ASSERT(listRef != NULL);
+    LE_ASSERT(listRef != nullptr);
     taf_appMgmt_AppInfo_t info;
     taf_appMgmt_AppRef_t appRef = taf_appMgmt_GetFirstApp(listRef);
-    while (appRef != NULL) {
+    while (appRef != nullptr) {
         taf_appMgmt_GetAppDetails(appRef, &info);
         LE_INFO("-------------------------------------");
         LE_INFO("name:    %s", info.name);
@@ -227,10 +237,16 @@ COMPONENT_INIT
 {
     LE_TEST_PLAN(LE_TEST_NO_PLAN);
 
+    if(le_arg_NumArgs() == 0) {
+        printf("No arguments provided\n");
+        PrintHelpMenu();
+        LE_TEST_EXIT;
+    }
+
     const char* cmd = le_arg_GetArg(0);
     semaphore = le_sem_Create("semaphore", 0);
     le_result_t result;
-    taf_update_SessionRef_t sessRef = NULL;
+    taf_update_SessionRef_t sessRef = nullptr;
     if (strncmp(cmd, "download", strlen("download")) == 0) {
         LE_TEST_INFO("======== Download Test ========");
         CreateHandlerThread();
@@ -266,6 +282,55 @@ COMPONENT_INIT
         result = taf_update_ResumeSync(sessRef);
         LE_TEST_OK(result == LE_OK, "taf_update_ResumeSync - OK");
     }
+    else if (strncmp(cmd, "sync-console", strlen("sync-console")) == 0) {
+        printf("A-B bank sync menu:\n");
+        printf("Enter s to start A-B sync operation\n");
+        printf("Enter p to pause A-B sync operation\n");
+        printf("Enter r to resume A-B sync operation\n");
+        printf("Enter e to exit\n");
+
+        CreateHandlerThread();
+
+        le_result_t result;
+        taf_update_SessionRef_t sessRef = nullptr;
+        result = taf_update_GetInstallationSession(
+            TAF_UPDATE_PACKAGE_TYPE_NAD_ZIP, SESSION_CONF_FILE, &sessRef);
+        LE_TEST_OK(result == LE_OK, "taf_update_GetInstallationSession - OK");
+        while(true)
+        {
+            char input;
+            std::cin >> input;
+            if(input == 's')
+            {
+                printf("\nStarting AB Sync..\n");
+                result = taf_update_StartSync(sessRef);
+                LE_TEST_OK(result == LE_OK, "taf_update_StartSync - OK");
+            }
+            else if(input == 'p')
+            {
+                printf("\nPausing AB Sync..\n");
+                result = taf_update_PauseSync(sessRef);
+                LE_TEST_OK(result == LE_OK, "taf_update_PauseSync - OK");
+                le_sem_Wait(semaphore);
+            }
+            else if(input == 'r')
+            {
+                printf("\nResuming AB Sync..\n");
+                result = taf_update_ResumeSync(sessRef);
+                LE_TEST_OK(result == LE_OK, "taf_update_ResumeSync - OK");
+            }
+            else if(input == 'e')
+            {
+                printf("Exiting..\n");
+                break;
+            }
+            else
+            {
+                printf("Wrong input, try again\n");
+            }
+        }
+        taf_update_RemoveStateHandler(handlerRef);
+    }
     else if (strncmp(cmd, "install-precheck", strlen("install-precheck")) == 0)
     {
         LE_TEST_INFO("======== Install Pre-Check Test ========");
@@ -295,13 +360,13 @@ COMPONENT_INIT
                 SESSION_CONF_FILE, &sessRef);
             LE_TEST_OK(result == LE_OK, "taf_update_GetInstallationSession - OK");
             const char* path = le_arg_GetArg(2);
-            if (path != NULL)
+            if (path != nullptr)
             {
                 result = taf_update_StartInstall(sessRef, path);
                 LE_TEST_OK(result == LE_OK, "taf_update_StartInstall - OK");
             }
             le_sem_Wait(semaphore);
-        } else if (name != NULL) {
+        } else if (name != nullptr) {
             result = taf_update_GetInstallationSession(TAF_UPDATE_PACKAGE_TYPE_TELAF_APP,
                 SESSION_CONF_FILE, &sessRef);
             LE_TEST_OK(result == LE_OK, "taf_update_GetInstallationSession - OK");
@@ -392,7 +457,7 @@ COMPONENT_INIT
             result = taf_fwupdate_GetFirmwareVersion(version, sizeof(version));
             LE_INFO("firmware version: %s", version);
             LE_TEST_OK(result == LE_OK, "taf_fwupdate_GetFirmwareVersion - OK");
-        } else if (name != NULL) {
+        } else if (name != nullptr) {
             char version[TAF_APPMGMT_APP_VERSION_BYTES];
             result = taf_appMgmt_GetVersion(name, version, sizeof(version));
             LE_INFO("app(%s) version:: %s", name, version);

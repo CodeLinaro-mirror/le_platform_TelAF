@@ -1,6 +1,6 @@
 sources:
 {
-    tafUpdateIntTest.c
+    tafUpdateIntTest.cpp
 }
 
 requires:

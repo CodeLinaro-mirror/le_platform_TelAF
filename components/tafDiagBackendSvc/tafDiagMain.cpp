@@ -34,9 +34,8 @@
 
 #include "legato.h"
 #include "interfaces.h"
-#include "tafDIDBackendSvr.hpp"
-#include "tafSecBackendSvr.hpp"
 #include "tafDiagStackInf.hpp"
+#include "tafDiagBackendSvr.hpp"
 
 using namespace telux::tafsvc;
 
@@ -54,13 +53,9 @@ COMPONENT_INIT
     diagStack.Init();
     LE_DEBUG("Diag stack interface Initialization completed!");
 
-    LE_DEBUG("DID Backend service Initialization started!");
-    auto &didBackend = taf_DIDBackend::GetInstance();
-    didBackend.Init();
-    LE_DEBUG("DID Backend service Initialization completed!");
+    LE_DEBUG("Backend service Initialization started!");
+    auto &diagBackend = taf_DiagBackend::GetInstance();
+    diagBackend.Init();
+    LE_DEBUG("Backend service Initialization completed!");
 
-    LE_DEBUG("SesControl Backend service Initialization started!");
-    auto &secBackend = taf_SecBackend::GetInstance();
-    secBackend.Init();
-    LE_DEBUG("SesControl Backend service Initialization completed!");
 }

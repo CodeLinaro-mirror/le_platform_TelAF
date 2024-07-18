@@ -237,6 +237,7 @@ le_result_t taf_Hms::GetIndvCoreUsage
 
     // Core ID not found
     LE_ERROR("Error: Core ID %d not found\n", coreID);
+    fclose(fp);
     return LE_FAULT;
 }
 
@@ -337,6 +338,7 @@ uint32_t read_sysfs_string_file(const char *path, char *buffer, size_t length)
         fclose(file);
         return LE_FAULT;
     }
+    fclose(file);
     return LE_OK;
 }
 

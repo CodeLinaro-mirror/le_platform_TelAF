@@ -39,7 +39,7 @@
 
 #define PORT 8080
 
-static taf_rsim_MessageHandlerRef_t  MsgHandlerRef;
+static taf_simRsim_MessageHandlerRef_t  MsgHandlerRef;
 static int clientConnectionFd = -1;
 static bool ClientConnected = false;
 
@@ -74,15 +74,15 @@ static void CallbackHandler( uint8_t messageId, le_result_t result, void* contex
 }
 
 static void SocketEventHandler (int fd) {
-    uint8_t buffer[TAF_RSIM_MAX_MSG_SIZE];
+    uint8_t buffer[TAF_SIMRSIM_MAX_MSG_SIZE];
     int bytes;
     memset(buffer, 0, sizeof(buffer));
-    bytes = read(fd, buffer, TAF_RSIM_MAX_MSG_SIZE);
+    bytes = read(fd, buffer, TAF_SIMRSIM_MAX_MSG_SIZE);
     if (bytes <= 0) {
         LE_ERROR("Connection closed or failed to read from client! %m\n" );
     } else {
         //Send message
-        taf_rsim_SendMessage(buffer, bytes, CallbackHandler, NULL);
+        taf_simRsim_SendMessage(buffer, bytes, CallbackHandler, NULL);
     }
 }
 
@@ -101,7 +101,7 @@ static void SignalHandler( int sigNum)
     LE_INFO("End remote sim sample test app");
 
     //unregister the handler
-    taf_rsim_RemoveMessageHandler(MsgHandlerRef);
+    taf_simRsim_RemoveMessageHandler(MsgHandlerRef);
 
     if (ClientConnected) {
         close(clientConnectionFd);
@@ -171,7 +171,7 @@ COMPONENT_INIT
     ClientConnected = true;
 
     //Add message handler
-    MsgHandlerRef = taf_rsim_AddMessageHandler(SAPMessageHandler, NULL);
+    MsgHandlerRef = taf_simRsim_AddMessageHandler(SAPMessageHandler, NULL);
     LE_ASSERT(MsgHandlerRef != NULL);
     LE_INFO("Message Handler Added successfully MsgHandlerRef = %p", MsgHandlerRef);
 

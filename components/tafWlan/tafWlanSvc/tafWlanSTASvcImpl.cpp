@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1254,7 +1254,7 @@ void taf_WlanSTASvcImpl::Init()
     StaCtx_t *staCtxPtr = NULL;
     taf_wlanSta_WlanSTARef_t staRef = NULL;
     std::string eventName;
-    for (int iCount = 0; iCount < TAF_WLAN_MAX_NUM_STA; iCount++)
+    for (int iCount = 1; iCount <= TAF_WLAN_MAX_NUM_STA; iCount++)
     {
         staCtxPtr = NULL;
         staRef = NULL;

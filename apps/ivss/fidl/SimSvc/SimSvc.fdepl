@@ -37,6 +37,11 @@ define org.genivi.commonapi.someip.deployment for interface com.qualcomm.qti.mod
         SomeIpMethodID = 30020
     }
 
+    method GetICCID
+    {
+        SomeIpMethodID = 30030
+    }
+
     broadcast SimState
     {
         SomeIpEventID = 33010

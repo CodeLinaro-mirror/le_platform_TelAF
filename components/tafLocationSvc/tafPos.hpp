@@ -50,7 +50,7 @@
 using namespace telux::loc;
 using namespace telux::common;
 
-#define TAF_POS_MAX_OBJ 1
+#define TAF_LOCPOS_MAX_OBJ 1
 #define POSITIONING_SAMPLE_MAX       1
 #define HIGH_POS_HANDLER_COUNT       1
 #define SUPPOSED_AVERAGE_SPEED       50
@@ -75,9 +75,9 @@ namespace tafsvc {
         }
         PositionParam_t;
 
-        typedef struct taf_pos_Sample
+        typedef struct taf_locPos_Sample
         {
-            taf_gnss_FixState_t fixState;
+            taf_locGnss_FixState_t fixState;
 
             bool      latitudeValid;
             bool      longitudeValid;
@@ -119,11 +119,11 @@ namespace tafsvc {
 
             le_dls_Link_t   next;
         }
-        taf_pos_Sample_t;
+        taf_locPos_Sample_t;
 
         typedef struct
         {
-            taf_posCtrl_ActivationRef_t  posCtrlActivationRef;
+            taf_locPosCtrl_ActivationRef_t  posCtrlActivationRef;
             le_msg_SessionRef_t          sessionRef;
             le_dls_Link_t                next;
         }
@@ -131,17 +131,17 @@ namespace tafsvc {
 
         typedef struct
         {
-            taf_pos_SampleRef_t   positionSampleRef;
-            taf_pos_Sample_t*     posSampleNodePtr;
+            taf_locPos_SampleRef_t   positionSampleRef;
+            taf_locPos_Sample_t*     posSampleNodePtr;
             le_msg_SessionRef_t   sessionRef;
             le_dls_Link_t         next;
         }
         PosSampleRequest_t;
 
-        typedef struct taf_pos_SampleHandler
+        typedef struct taf_locPos_SampleHandler
         {
-            taf_pos_MovementHandlerFunc_t handlerFuncPtr;
-            taf_pos_MovementHandlerRef_t handlerRef;
+            taf_locPos_MovementHandlerFunc_t handlerFuncPtr;
+            taf_locPos_MovementHandlerRef_t handlerRef;
             void*                        handlerContextPtr;
             uint32_t                     acquisitionRate;
             uint32_t                     verticalMagnitude;
@@ -152,7 +152,7 @@ namespace tafsvc {
             le_msg_SessionRef_t          sessionRef;
             le_dls_Link_t                next;
         }
-        taf_pos_SampleHandler_t;
+        taf_locPos_SampleHandler_t;
 
         typedef enum
         {
@@ -160,34 +160,34 @@ namespace tafsvc {
             H_ACCURACY,
             V_ACCURACY
         }
-        taf_pos_DistanceValueType_t;
+        taf_locPos_DistanceValueType_t;
 
-        class taf_Pos: public ITafSvc
+        class taf_locPos: public ITafSvc
         {
             public:
-                taf_Pos() {};
-                ~taf_Pos() {};
+                taf_locPos() {};
+                ~taf_locPos() {};
                 void Init();
-                static taf_Pos &GetInstance();
+                static taf_locPos &GetInstance();
                 le_result_t SetAcquisitionRate(uint32_t acquisitionRate);
                 uint32_t GetAcquisitionRate();
-                le_result_t GetFixState(taf_gnss_FixState_t* statePtr);
-                taf_pos_MovementHandlerRef_t AddMovementHandler(uint32_t hMagnitude,uint32_t vMagnitude,
-                        taf_pos_MovementHandlerFunc_t handlerPtr, void* contextPtr);
-                void RemoveMovementHandler(taf_pos_MovementHandlerRef_t handlerRef);
+                le_result_t GetFixState(taf_locGnss_FixState_t* statePtr);
+                taf_locPos_MovementHandlerRef_t AddMovementHandler(uint32_t hMagnitude,uint32_t vMagnitude,
+                        taf_locPos_MovementHandlerFunc_t handlerPtr, void* contextPtr);
+                void RemoveMovementHandler(taf_locPos_MovementHandlerRef_t handlerRef);
                 uint32_t ComputeCommonSmallestRate(uint32_t rate);
                 uint32_t CalculateAcquisitionRate(uint32_t averageSpeed,uint32_t horizontalMagnitude,uint32_t verticalMagnitude);
-                static void PositionHandler(taf_gnss_SampleRef_t positionSampleRef, void* contextPtr);
+                static void PositionHandler(taf_locGnss_SampleRef_t positionSampleRef, void* contextPtr);
                 static void PosCloseSessionEventHandler(le_msg_SessionRef_t sessionRef, void* contextPtr);
                 static void PosCtrlCloseSessionEventHandler(le_msg_SessionRef_t sessionRef, void* contextPtr);
-                static le_result_t CalculateMove(taf_pos_SampleHandler_t *posSampleHandlerNodePtr, const PositionParam_t  *posParamPtr,
+                static le_result_t CalculateMove(taf_locPos_SampleHandler_t *posSampleHandlerNodePtr, const PositionParam_t  *posParamPtr,
                         bool *hflagPtr, bool *vflagPtr);
-                static int32_t TransformDistance( int32_t value, taf_pos_DistanceValueType_t type);
+                static int32_t TransformDistance( int32_t value, taf_locPos_DistanceValueType_t type);
                 static bool IsBeyondMagnitude( uint32_t magnitude, uint32_t move, uint32_t accuracy);
                 static uint32_t CalculateDistance(uint32_t latitude1, uint32_t longitude1, uint32_t latitude2, uint32_t longitude2);
-                void Release(taf_pos_SampleRef_t positionSampleRef);
-                void posCtrl_Release( taf_posCtrl_ActivationRef_t ref);
-                taf_posCtrl_ActivationRef_t posCtrl_Request( void);
+                void Release(taf_locPos_SampleRef_t positionSampleRef);
+                void locPosCtrl_Release( taf_locPosCtrl_ActivationRef_t ref);
+                taf_locPosCtrl_ActivationRef_t locPosCtrl_Request( void);
                 le_result_t GetTime( uint16_t* hoursPtr, uint16_t* minutesPtr, uint16_t* secondsPtr, uint16_t* millisecondsPtr);
                 le_result_t GetDate( uint16_t* yearPtr, uint16_t* monthPtr, uint16_t* dayPtr);
                 le_result_t Get2DLocation(int32_t* latitudePtr, int32_t* longitudePtr, int32_t* hAccuracyPtr);
@@ -196,18 +196,18 @@ namespace tafsvc {
                         int32_t* vSpeedAccuracy);
                 le_result_t Get3DLocation( int32_t* latitudePtr, int32_t* longitudePtr, int32_t* hAccuracyPtr, int32_t* altitudePtr,
                         int32_t* vAccuracyPtr);
-                le_result_t sample_Get2DLocation(taf_pos_SampleRef_t positionSampleRef, int32_t* latitudePtr, int32_t* longitudePtr,
+                le_result_t sample_Get2DLocation(taf_locPos_SampleRef_t positionSampleRef, int32_t* latitudePtr, int32_t* longitudePtr,
                         int32_t* horizontalAccuracyPtr);
-                le_result_t sample_GetAltitude(taf_pos_SampleRef_t positionSampleRef, int32_t* altitudePtr, int32_t* altitudeAccuracyPtr);
-                le_result_t sample_GetTime( taf_pos_SampleRef_t  positionSampleRef,
+                le_result_t sample_GetAltitude(taf_locPos_SampleRef_t positionSampleRef, int32_t* altitudePtr, int32_t* altitudeAccuracyPtr);
+                le_result_t sample_GetTime( taf_locPos_SampleRef_t  positionSampleRef,
                         uint16_t* hoursPtr, uint16_t* minutesPtr, uint16_t* secondsPtr, uint16_t* millisecondsPtr);
-                le_result_t sample_GetDate(taf_pos_SampleRef_t  positionSampleRef,
+                le_result_t sample_GetDate(taf_locPos_SampleRef_t  positionSampleRef,
                         uint16_t* yearPtr, uint16_t* monthPtr, uint16_t* dayPtr);
-                le_result_t sample_GetHorizontalSpeed(taf_pos_SampleRef_t positionSampleRef, uint32_t* hSpeedPtr, uint32_t* hSpeedAccuracyPtr);
-                le_result_t sample_GetDirection(taf_pos_SampleRef_t  positionSampleRef, uint32_t* directionPtr, uint32_t* directionAccuracyPtr);
-                le_result_t sample_GetVerticalSpeed( taf_pos_SampleRef_t  positionSampleRef, int32_t* vSpeedPtr, int32_t* vSpeedAccuracyPtr);
-                le_result_t SetDistanceResolution(taf_pos_Resolution_t resolution);
-                le_result_t sample_GetFixState(taf_pos_SampleRef_t  positionSampleRef,taf_gnss_FixState_t*  statePtr);
+                le_result_t sample_GetHorizontalSpeed(taf_locPos_SampleRef_t positionSampleRef, uint32_t* hSpeedPtr, uint32_t* hSpeedAccuracyPtr);
+                le_result_t sample_GetDirection(taf_locPos_SampleRef_t  positionSampleRef, uint32_t* directionPtr, uint32_t* directionAccuracyPtr);
+                le_result_t sample_GetVerticalSpeed( taf_locPos_SampleRef_t  positionSampleRef, int32_t* vSpeedPtr, int32_t* vSpeedAccuracyPtr);
+                le_result_t SetDistanceResolution(taf_locPos_Resolution_t resolution);
+                le_result_t sample_GetFixState(taf_locPos_SampleRef_t  positionSampleRef,taf_locGnss_FixState_t*  statePtr);
 
             private:
                 le_mem_PoolRef_t  PosPoolRef;
@@ -219,8 +219,8 @@ namespace tafsvc {
                 le_ref_MapRef_t MovementHandlerRefMap;
                 le_msg_ServiceRef_t posMsgService;
                 le_msg_ServiceRef_t posCtrlMsgService;
-                taf_pos_Resolution_t DistanceResolution;
-                taf_gnss_PositionHandlerRef_t GnssHandlerRef;
+                taf_locPos_Resolution_t DistanceResolution;
+                taf_locGnss_PositionHandlerRef_t GnssHandlerRef;
                 uint32_t AcqRate;
                 int32_t NumOfHandlers;
                 int CurrentActivationsCount;

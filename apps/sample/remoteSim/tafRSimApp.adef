@@ -22,6 +22,6 @@ start: manual
 
 bindings:
 {
-    tafRSimApp.remoteSimComp.taf_rsim -> tafRemoteSimSvc.taf_rsim
+    tafRSimApp.remoteSimComp.taf_simRsim -> tafRemoteSimSvc.taf_simRsim
 }
 

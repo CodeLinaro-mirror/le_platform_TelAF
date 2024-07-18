@@ -55,7 +55,7 @@ void tafMngdPMGpio::GpioChangeCallback(uint8_t pinNum, bool state, void *ctx){
             LE_INFO("Gpio %d matched for state registered for %s", gpioPtr->pinNum,
                     tafMngdPMSvc::TafStateToString(gpioPtr->state));
 
-            taf_mngdPm_State_t requestedState;
+            taf_mngdPm_State_t requestedState = TAF_MNGDPM_STATE_UNKNOWN;
             switch((taf_pm_State_t)gpioPtr->state)
             {
                 case TAF_PM_STATE_SUSPEND:

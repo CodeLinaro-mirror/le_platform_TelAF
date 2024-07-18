@@ -47,7 +47,6 @@ static le_thread_Ref_t Player_thread_ref, Recorder_thread_ref;
 taf_audio_StreamRef_t recorderRef = NULL, playerRef = NULL, playerRef1 = NULL,
         recorderRef1 = NULL, sinkRef = NULL, sourceRef = NULL, rxStreamRef = NULL,
         txStreamRef = NULL, sinkRef1 = NULL, sourceRef1 = NULL;
-taf_audio_PlayListRef_t playListRef = NULL;
 taf_audio_RouteRef_t routeRef = NULL, routeRef1 = NULL;
 taf_audio_ConnectorRef_t rxConn = NULL, txConn = NULL, connRef = NULL;
 
@@ -393,16 +392,14 @@ void TEST_AUDIO_PLAYBACK_FILE_LIST()
     res = taf_audio_Connect(playerConnRef, playerRef);
     LE_TEST_OK(res == LE_OK, "Successfully connected playerRef to playerConnRef");
 
-    LE_TEST_INFO("Test taf_audio_CreatePlayList to create playerListRef");
-    playListRef = taf_audio_CreatePlayList();
-    LE_TEST_OK(res == LE_OK, "Successfully create playerListRef");
+    taf_audio_PlayFileConfig_t playFileConfig[1] = {0};
+    snprintf(playFileConfig[0].srcPath, sizeof(playFileConfig[0].srcPath), wavfilePath);
+    playFileConfig[0].repeat = repeat;
 
-    LE_TEST_INFO("Test taf_audio_AddPlayListEntry to add a playback file");
-    res = taf_audio_AddPlayListEntry(playListRef, wavfilePath, repeat);
-    LE_TEST_OK(res == LE_OK, "Successfully added file to playerListRef");
-
-    LE_TEST_INFO("Test taf_audio_PlayFileList to play a file list");
-    res = taf_audio_PlayFileList(playerRef, playListRef);
+    LE_TEST_INFO("Test taf_mngd_audio_PlayFileList to play a file list size %ld",
+            sizeof(playFileConfig)/sizeof(taf_audio_PlayFileConfig_t));
+    res = taf_audio_PlayFileList(playerRef, playFileConfig,
+            sizeof(playFileConfig)/sizeof(taf_audio_PlayFileConfig_t));
     LE_TEST_OK(res == LE_OK, "Successfully started the file list playback");
 
     le_sem_WaitWithTimeOut(tafAudioAppSem, Timeout);
@@ -413,20 +410,13 @@ void TEST_AUDIO_PLAYBACK_FILE_LIST()
 
     le_sem_Wait(tafAudioAppSem);
 
-    LE_TEST_INFO("Test taf_audio_DeletePlayList to delete playerListRef");
-    res = taf_audio_DeletePlayList(playListRef);
-    LE_TEST_OK(res == LE_OK, "Successfully deleted playerListRef");
+    snprintf(playFileConfig[0].srcPath, sizeof(playFileConfig[0].srcPath), amrfilePath);
+    playFileConfig[0].repeat = repeat;
 
-    LE_TEST_INFO("Test taf_audio_CreatePlayList to create playerListRef");
-    playListRef = taf_audio_CreatePlayList();
-    LE_TEST_OK(res == LE_OK, "Successfully create playerListRef");
-
-    LE_TEST_INFO("Test taf_audio_AddPlayListEntry to add a playback file");
-    res = taf_audio_AddPlayListEntry(playListRef, amrfilePath, repeat);
-    LE_TEST_OK(res == LE_OK, "Successfully added file to playerListRef");
-
-    LE_TEST_INFO("Test taf_audio_PlayFileList to play a file list");
-    res = taf_audio_PlayFileList(playerRef, playListRef);
+    LE_TEST_INFO("Test taf_mngd_audio_PlayFileList to play a file list size %ld",
+            sizeof(playFileConfig)/sizeof(taf_audio_PlayFileConfig_t));
+    res = taf_audio_PlayFileList(playerRef, playFileConfig,
+            sizeof(playFileConfig)/sizeof(taf_audio_PlayFileConfig_t));
     LE_TEST_OK(res == LE_OK, "Successfully started the file list playback");
 
     le_sem_WaitWithTimeOut(tafAudioAppSem, Timeout);
@@ -436,10 +426,6 @@ void TEST_AUDIO_PLAYBACK_FILE_LIST()
     LE_TEST_OK(res == LE_OK, "Successfully stopped the file playback");
 
     le_sem_WaitWithTimeOut(tafAudioAppSem, Timeout);
-
-    LE_TEST_INFO("Test taf_audio_DeletePlayList to delete playerListRef");
-    res = taf_audio_DeletePlayList(playListRef);
-    LE_TEST_OK(res == LE_OK, "Successfully deleted playerListRef");
 
     LE_TEST_INFO("Test taf_audio_Disconnect to disconnect playerRef from connRef");
     taf_audio_Disconnect(connRef, playerRef);
@@ -610,15 +596,9 @@ void TEST_AUDIO_VOICE_CONNECTION()
             sourceRef);
 
     LE_TEST_INFO("Test taf_audio_OpenRoute API ROUTE_1");
-    routeRef = taf_audio_OpenRoute( TAF_AUDIO_ROUTE_1, TAF_AUDIO_VOICE_CALL,
-            &sinkRef, &sourceRef);
-    LE_TEST_OK(routeRef == NULL, "OpenRoute successfull for voicecall when other route is active");
-
-    LE_TEST_INFO("Test taf_audio_OpenRoute API with FORCE mode for ROUTE_1");
-    routeRef = taf_audio_OpenRoute( TAF_AUDIO_ROUTE_1,
-            TAF_AUDIO_VOICE_CALL_FORCE_OPEN, &sinkRef, &sourceRef);
-    LE_TEST_OK(routeRef != NULL, "Force OpenRoute successfull sinkRef %p sourceRef %p", sinkRef,
-            sourceRef);
+    routeRef1 = taf_audio_OpenRoute( TAF_AUDIO_ROUTE_1, TAF_AUDIO_VOICE_CALL,
+            &sinkRef1, &sourceRef1);
+    LE_TEST_OK(routeRef1 == NULL, "OpenRoute successfull failed for voicecall when other route is active");
 
     LE_TEST_INFO("Test taf_audio_OpenRoute API with playback mode");
     routeRef1 = taf_audio_OpenRoute( TAF_AUDIO_ROUTE_1, TAF_AUDIO_LOCAL_PLAYBACK,

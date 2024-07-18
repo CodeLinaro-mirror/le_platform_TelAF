@@ -45,19 +45,65 @@
 #define MAX_PATH_LEN 256
 #define MCS_MAX_NAME_LEN 32
 
-taf_mngdConn_DataStateHandlerRef_t statHandlerRef = NULL;
-
+/**
+ * To run unit test, use the "app" command
+ * Synopsis: app runProc <appName> [<procName>]
+ * Example:  app runProc tafMngdConnIntTest tafMngdConnIntTest
+ *
+ * For multi client tests, set AutoStart:No and start the app with different procName(s)
+ */
 static void PrintUsage ()
 {
-    std::cout << "1 -> StartData  "<< std::endl
-              << "2 -> StopData  "<< std::endl
-              << "3 -> GetConnState  "<< std::endl
-              << "4 -> GetIpAddr  "<< std::endl
-              << "5 -> CancelL1Recovery "<< std::endl
-              << "6 -> Monitor "<< std::endl
-              << "For testing multi client, set AutoStart:No and start the app" << std::endl
-              << "with a different ProcessName"
+    std::cout << "0 -> Exit  " << std::endl
+              << "1 -> StartData  " << std::endl
+              << "2 -> StopData  " << std::endl
+              << "3 -> GetConnState  " << std::endl
+              << "4 -> GetIpAddr  " << std::endl
+              << "5 -> StartDataRetry  " << std::endl
+              << "6 -> CancelL1Recovery " << std::endl
+              << "7 -> CancelL2Recovery " << std::endl
+              << "8 -> Monitor " << std::endl
               << std::endl;
+}
+
+static std::string DataStateToString(taf_mngdConn_DataState_t state)
+{
+    switch (state)
+    {
+    case TAF_MNGDCONN_DATA_DISCONNECTED:
+        return "TAF_MNGDCONN_DATA_DISCONNECTED";
+    case TAF_MNGDCONN_DATA_CONNECTED:
+        return "TAF_MNGDCONN_DATA_CONNECTED";
+    case TAF_MNGDCONN_DATA_CONNECTION_STALLED:
+        return "TAF_MNGDCONN_DATA_CONNECTION_STALLED";
+    case TAF_MNGDCONN_DATA_CONNECTION_FAILED:
+        return "TAF_MNGDCONN_DATA_CONNECTION_FAILED";
+    default:
+        LE_TEST_INFO("unknown data state: %d", static_cast<int>(state));
+    }
+    return "unknown data state";
+}
+
+static std::string RecoveryStateToString(taf_mngdConn_RecoveryState_t state)
+{
+    switch (state)
+    {
+    case TAF_MNGDCONN_RECOVERY_L1_SCHEDULED:
+        return "TAF_MNGDCONN_RECOVERY_L1_SCHEDULED";
+    case TAF_MNGDCONN_RECOVERY_L1_STARTED:
+        return "TAF_MNGDCONN_RECOVERY_L1_STARTED";
+    case TAF_MNGDCONN_RECOVERY_L1_CANCELED:
+        return "TAF_MNGDCONN_RECOVERY_L1_CANCELED";
+    case TAF_MNGDCONN_RECOVERY_L2_SCHEDULED:
+        return "TAF_MNGDCONN_RECOVERY_L2_SCHEDULED";
+    case TAF_MNGDCONN_RECOVERY_L2_STARTED:
+        return "TAF_MNGDCONN_RECOVERY_L2_STARTED";
+    case TAF_MNGDCONN_RECOVERY_L2_CANCELED:
+        return "TAF_MNGDCONN_RECOVERY_L2_CANCELED";
+    default:
+        LE_TEST_INFO("unknown recovery state: %d", static_cast<int>(state));
+    }
+    return "unknown recovery state";
 }
 
 static le_result_t startData(taf_mngdConn_DataRef_t dataRef)
@@ -97,22 +143,16 @@ static le_result_t cancelL1Recovery(taf_mngdConn_DataRef_t dataRef)
     return result;
 }
 
-static std::string StateToString(taf_mngdConn_DataState_t state)
+static le_result_t cancelL2Recovery(taf_mngdConn_DataRef_t dataRef)
 {
-    switch (state)
+    LE_TEST_INFO("----CancelL2Recovery test ");
+    le_result_t result = LE_FAULT;
+    result = taf_mngdConn_CancelL2Recovery(dataRef);
+    if (result != LE_OK)
     {
-        case TAF_MNGDCONN_DATA_DISCONNECTED:
-            return "TAF_MNGDCONN_DATA_DISCONNECTED";
-        case TAF_MNGDCONN_DATA_CONNECTED:
-            return "TAF_MNGDCONN_DATA_CONNECTED";
-        case TAF_MNGDCONN_DATA_CONNECTION_STALLED:
-            return "TAF_MNGDCONN_DATA_CONNECTION_STALLED";
-        case TAF_MNGDCONN_DATA_CONNECTION_FAILED:
-            return "TAF_MNGDCONN_DATA_CONNECTION_FAILED";
-    default:
-        LE_TEST_INFO("unknown status: %d", (int)state);
+        LE_TEST_INFO("taf_mngdConn_CancelL2Recovery failed: %d ", result);
     }
-    return "unknow status";
+    return result;
 }
 
 static le_result_t getConnState(taf_mngdConn_DataRef_t dataRef)
@@ -125,7 +165,7 @@ static le_result_t getConnState(taf_mngdConn_DataRef_t dataRef)
     if(result !=LE_OK)
         return result;
 
-    LE_TEST_INFO("----state=%s ", StateToString(state).c_str());
+    LE_TEST_INFO("----state=%s ", DataStateToString(state).c_str());
 
     return result;
 }
@@ -152,50 +192,45 @@ static le_result_t getConnIpAddr(taf_mngdConn_DataRef_t dataRef)
     return result;
 }
 
-static void RecoveryStateHandler(taf_mngdConn_RecoveryState_t state,
+static le_result_t startDataRetryAsync(taf_mngdConn_DataRef_t dataRef)
+{
+    LE_TEST_INFO("----StartDataRetry test ");
+    le_result_t result = LE_FAULT;
+
+    result = taf_mngdConn_StartDataRetry(dataRef);
+
+    LE_TEST_INFO("----result=%d", result);
+
+    return result;
+}
+
+static void RecoveryStateHandler(taf_mngdConn_RecoveryState_t recoveryState,
                                  taf_mngdConn_DataRef_t dataRef,
                                  void *contextPtr)
 {
     uint8_t dataId;
     char dataName[MCS_MAX_NAME_LEN];
     size_t dataNameSize = MCS_MAX_NAME_LEN;
+    LE_UNUSED(contextPtr);
+
     le_result_t result = taf_mngdConn_GetDataIdByRef(dataRef, &dataId);
     if (LE_OK != result)
     {
         LE_TEST_INFO("Failed to get Data ID");
     }
-    else
-        LE_TEST_INFO("Data ID: %d", dataId);
 
     result = taf_mngdConn_GetDataNameByRef(dataRef, dataName, dataNameSize);
     if (LE_OK != result)
     {
         LE_TEST_INFO("Failed to get Data Name");
     }
-    else
-        LE_TEST_INFO("Data Name: %s", dataName);
+    LE_TEST_INFO("---data id : %d, name: %s, State : %s", dataId, dataName,
+                                                RecoveryStateToString(recoveryState).c_str());
 
-    switch (state)
-    {
-    case TAF_MNGDCONN_RECOVERY_L1_SCHEDULED:
-        LE_TEST_INFO ("TAF_MNGDCONN_RECOVERY_L1_SCHEDULED");
-        break;
-    case TAF_MNGDCONN_RECOVERY_L1_STARTED:
-        LE_TEST_INFO ("TAF_MNGDCONN_RECOVERY_L1_STARTED");
-        break;
-    case TAF_MNGDCONN_RECOVERY_L1_CANCELED:
-        LE_TEST_INFO ("TAF_MNGDCONN_RECOVERY_L1_CANCELED");
-        break;
-    default:
-        LE_TEST_INFO("unknown state: %d", (int)state);
-        break;
-    };
-
-    LE_UNUSED(contextPtr);
     return;
 }
 
-static void ConnectionStateHandler
+static void DataStateHandler
 (
     taf_mngdConn_DataRef_t dataRef,
     taf_mngdConn_DataState_t dataState,
@@ -203,26 +238,51 @@ static void ConnectionStateHandler
 )
 {
     uint8_t dataId;
+    char dataName[MCS_MAX_NAME_LEN];
+    size_t dataNameSize = MCS_MAX_NAME_LEN;
+    LE_UNUSED(contextPtr);
+
     le_result_t result = taf_mngdConn_GetDataIdByRef(dataRef, &dataId);
     if (LE_OK != result)
     {
         LE_TEST_INFO("Failed to get Data ID");
     }
-    LE_TEST_INFO("---data id : %d, Connection State : %s", dataId,
-                 StateToString(dataState).c_str());
+    result = taf_mngdConn_GetDataNameByRef(dataRef, dataName, dataNameSize);
+    if (LE_OK != result)
+    {
+        LE_TEST_INFO("Failed to get Data Name");
+    }
+
+    LE_TEST_INFO("---data id : %d, name: %s, State : %s", dataId, dataName,
+                                                        DataStateToString(dataState).c_str());
 }
 
 static void* HandlerThread(void* contextPtr)
 {
-    //  connect service in thread.
+
+    taf_mngdConn_DataStateHandlerRef_t     stateHandlerRef    = nullptr;
+    taf_mngdConn_RecoveryStateHandlerRef_t recoveryHandlerRef = nullptr;
+
     taf_mngdConn_DataRef_t dataRef = (taf_mngdConn_DataRef_t)contextPtr;
+
+    //  connect service in thread.
+
     taf_mngdConn_ConnectService();
 
-    statHandlerRef = taf_mngdConn_AddDataStateHandler(dataRef,
-                        (taf_mngdConn_DataStateHandlerFunc_t)ConnectionStateHandler, NULL);
+    // Register data state handler
+    stateHandlerRef =  taf_mngdConn_AddDataStateHandler(dataRef,
+                                   (taf_mngdConn_DataStateHandlerFunc_t)DataStateHandler, NULL);
+    if (nullptr == stateHandlerRef)
+    {
+        LE_TEST_FATAL("Unable to register for data state events");
+    }
 
     // Register recovery state handler
-    taf_mngdConn_AddRecoveryStateHandler(RecoveryStateHandler, NULL);
+    recoveryHandlerRef = taf_mngdConn_AddRecoveryStateHandler(RecoveryStateHandler, NULL);
+    if (nullptr == recoveryHandlerRef)
+    {
+        LE_TEST_FATAL("Unable to register for recovery state events");
+    }
 
     le_event_RunLoop();
     return NULL;
@@ -245,99 +305,117 @@ static le_result_t monitorState(taf_mngdConn_DataRef_t dataRef)
 
     le_thread_Start(le_thread_Create(threadName, HandlerThread, (void*)dataRef));
 
-    // spin here
-    do
-    {
-        sleep(1);
-    } while (true);
-
     return LE_OK;
+}
+
+static taf_mngdConn_DataRef_t getDataRef(void)
+{
+    int option = 0;
+    taf_mngdConn_DataRef_t dataRef = NULL;
+    std::cout << "Do you want to run the test for dataId or dataName" << std::endl;
+    std::cout << "1 -> DataId  " << std::endl
+              << "2 -> DataName  " << std::endl;
+    std::cin >> option;
+    if (option == 1)
+    {
+        int dataId = 0;
+        std::cout << "Enter the DataId" << std::endl;
+        std::cin >> dataId;
+        dataRef = taf_mngdConn_GetData(dataId);
+        if (dataRef == NULL)
+        {
+            LE_TEST_FATAL("Unable to get data ref for data ID %d", dataId);
+        }
+    }
+    else if (option == 2)
+    {
+        char dataName[MCS_MAX_NAME_LEN];
+        std::cout << "Enter the DataName" << std::endl;
+        std::cin >> dataName;
+        dataRef = taf_mngdConn_GetDataByName(dataName);
+        if (dataRef == NULL)
+        {
+            LE_TEST_FATAL("Unable to get data ref for data Name %s", dataName);
+        }
+    }
+    else
+    {
+        std::cerr << "You entered an invalid option";
+        LE_TEST_FATAL("Invalid test command %d", option);
+    }
+    return dataRef;
 }
 
 COMPONENT_INIT
 {
     le_result_t status = LE_OK;
+    int option = 0;
     LE_TEST_INIT;
+
+    std::cout << "For testing multi client, set AutoStart:No and start the app" << std::endl
+              << "with a different ProcessName"
+              << std::endl;
     while(1){
-
-        std::cout << "Enter the option for the test"<< std::endl;
         PrintUsage();
-        int option1, option2 = 0;
-        taf_mngdConn_DataRef_t dataRef = NULL;
-        std::cin >> option1;
-        std::cout << "Do you want to run the test for dataId or dataName"<< std::endl;
-        std::cout << "1 -> DataId  "<< std::endl
-                  << "2 -> DataName  "<< std::endl;
-        std::cin >> option2;
-        if(option2 == 1)
+        std::cout << "Enter the option for the test" << std::endl;
+        std::cin >> option;
+        switch (option)
         {
-            int dataId = 0;
-            std::cout << "Enter the DataId"<< std::endl;
-            std::cin >> dataId;
-            dataRef = taf_mngdConn_GetData(dataId);
-            if(dataRef == NULL)
+            case 0:
             {
-                LE_TEST_FATAL("Unable to get data ref for data ID %d", dataId);
+                LE_TEST_EXIT;
             }
-        }
-        else if(option2 == 2)
-        {
-            char dataName[MCS_MAX_NAME_LEN];
-            std::cout << "Enter the DataName"<< std::endl;
-            std::cin >> dataName;
-            dataRef = taf_mngdConn_GetDataByName(dataName);
-            if(dataRef == NULL)
-            {
-                LE_TEST_FATAL("Unable to get data ref for data Name %s", dataName);
-            }
-        }
-        else
-        {
-            std::cerr << "You entered an invalid option";
-            LE_TEST_FATAL("Invalid test command %d", option2);
-        }
-
-        switch (option1)
-        {
             case 1 :
             {
-                status=startData(dataRef);
+                status = startData(getDataRef());
                 LE_TEST_OK(LE_OK == status, "startdata");
             }
             break;
             case 2 :
             {
-                status=stopData(dataRef);
+                status = stopData(getDataRef());
                 LE_TEST_OK(LE_OK == status, "stopData");
             }
             break;
             case 3 :
             {
-                status=getConnState(dataRef);
+                status = getConnState(getDataRef());
                 LE_TEST_OK(LE_OK == status, "getconnstate");
             }
             break;
             case 4 :
             {
-                status=getConnIpAddr(dataRef);
+                status = getConnIpAddr(getDataRef());
                 LE_TEST_OK(LE_OK == status, "getipaddr");
             }
             break;
-            case 5 :
+            case 5:
             {
-                status=cancelL1Recovery(dataRef);
-                LE_TEST_OK(LE_OK == status, "cancelL1Recovery");
+                status = startDataRetryAsync(getDataRef());
+                LE_TEST_OK(LE_OK == status, "startDataRetryAsync");
             }
             break;
             case 6 :
             {
-                status=monitorState(dataRef);
+                status = cancelL1Recovery(getDataRef());
+                LE_TEST_OK(LE_OK == status, "cancelL1Recovery");
+            }
+            break;
+            case 7 :
+            {
+                status = cancelL2Recovery(getDataRef());
+                LE_TEST_OK(LE_OK == status, "cancelL2Recovery");
+            }
+            break;
+            case 8 :
+            {
+                status = monitorState(getDataRef());
                 LE_TEST_OK(LE_OK == status, "MCS Test: Monitor");
             }
             break;
             default:
                 std::cerr << "You entered an invalid option";
-                LE_TEST_FATAL("Invalid test command %d", option1);
+                LE_TEST_FATAL("Invalid test command %d", option);
                 break;
         }
     }

@@ -17,6 +17,10 @@ capicxx-core-gen -sk ../../fidl/InfoSvc/InfoSvc.fidl
 capicxx-core-gen -sk ../../fidl/InfoSvc/InfoSvc.fdepl
 capicxx-someip-gen ../../fidl/InfoSvc/InfoSvc.fdepl
 
+capicxx-core-gen -sk ../../fidl/MngdConnSvc/MngdConnSvc.fidl
+capicxx-core-gen -sk ../../fidl/MngdConnSvc/MngdConnSvc.fdepl
+capicxx-someip-gen ../../fidl/MngdConnSvc/MngdConnSvc.fdepl
+
 rm -rf build
 if [ ! -d build ];then
     mkdir build

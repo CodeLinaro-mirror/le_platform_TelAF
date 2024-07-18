@@ -46,13 +46,13 @@ using std::to_string;
 using namespace telux::tafsvc;
 
 namespace pt = boost::property_tree;
-using telux::tafsvc::tafMngdConnSvc_ConfigurationParser;
+using telux::tafsvc::mcs_ConfigurationParser;
 
 /**
  * Name of the configuration should be a string
  */
-bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Name(
-                                            taf_mngdConn_Configuration_t &Configuration,
+bool mcs_ConfigurationParser::Validate_MCSC_Name(
+                                            mcs_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -82,8 +82,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Name(
 /**
  * SIM ID should be a number.
  */
-bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Sim_ID(
-                                            taf_mngdConn_Configuration_t &Configuration,
+bool mcs_ConfigurationParser::Validate_MCSC_Sim_ID(
+                                            mcs_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -117,8 +117,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Sim_ID(
 /**
  * Sim Name should be a string.
  */
-bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Sim_Name(
-                                            taf_mngdConn_Configuration_t &Configuration,
+bool mcs_ConfigurationParser::Validate_MCSC_Sim_Name(
+                                            mcs_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -170,8 +170,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Sim_Name(
 /**
  * Sim slot number should be a number.
  */
-bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Sim_SlotNumber(
-                                            taf_mngdConn_Configuration_t &Configuration,
+bool mcs_ConfigurationParser::Validate_MCSC_Sim_SlotNumber(
+                                            mcs_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -206,8 +206,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Sim_SlotNumber(
 /**
  * Network ID should be a number.
  */
-bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_ID(
-                                            taf_mngdConn_Configuration_t &Configuration,
+bool mcs_ConfigurationParser::Validate_MCSC_Network_ID(
+                                            mcs_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -242,8 +242,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_ID(
 /**
  * Network Name should be a string.
  */
-bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_Name(
-                                            taf_mngdConn_Configuration_t &Configuration,
+bool mcs_ConfigurationParser::Validate_MCSC_Network_Name(
+                                            mcs_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -255,7 +255,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_Name(
         return false;
     }
     //Check the JSON version to be atleast 24.03.00
-    if(Configuration.Version != MCS_JSON_VERSION_24_03_00)
+    if(Configuration.Version < MCS_JSON_VERSION_24_03_00)
     {
         LE_WARN("Invalid JSON version");
         return false;
@@ -301,8 +301,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_Name(
 /**
  * Network Use_Sim_ID should be a number.
  */
-bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_Use_SIM_ID(
-                                            taf_mngdConn_Configuration_t &Configuration,
+bool mcs_ConfigurationParser::Validate_MCSC_Network_Use_SIM_ID(
+                                            mcs_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -337,8 +337,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_Use_SIM_ID(
 /**
  *  Network Phone ID should be a number.
  */
-bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_PhoneID(
-                                            taf_mngdConn_Configuration_t &Configuration,
+bool mcs_ConfigurationParser::Validate_MCSC_Network_PhoneID(
+                                            mcs_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -380,8 +380,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_PhoneID(
 /**
  * Network Registration should be Auto or Manual.
  */
-bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_Registration(
-                                            taf_mngdConn_Configuration_t &Configuration,
+bool mcs_ConfigurationParser::Validate_MCSC_Network_Registration(
+                                            mcs_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -417,8 +417,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Network_Registration(
 /**
  * Data ID should be a number.
  */
-bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_ID(
-                                            taf_mngdConn_Configuration_t &Configuration,
+bool mcs_ConfigurationParser::Validate_MCSC_Data_ID(
+                                            mcs_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -449,8 +449,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_ID(
 /**
  * Data Use_Network_ID should be a number.
  */
-bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Use_Network_ID(
-                                            taf_mngdConn_Configuration_t &Configuration,
+bool mcs_ConfigurationParser::Validate_MCSC_Data_Use_Network_ID(
+                                            mcs_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -485,8 +485,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Use_Network_ID(
 /**
  * Data Profile Name should be a string.
  */
-bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Name(
-                                            taf_mngdConn_Configuration_t &Configuration,
+bool mcs_ConfigurationParser::Validate_MCSC_Data_Name(
+                                            mcs_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -538,8 +538,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Name(
 /**
  * Data Profile Number should be a number.
  */
-bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Profile_Number(
-                                            taf_mngdConn_Configuration_t &Configuration,
+bool mcs_ConfigurationParser::Validate_MCSC_Data_Profile_Number(
+                                            mcs_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -574,8 +574,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Profile_Number(
 /**
  * Data Profile APN can be a string or NULL.
  */
-bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Profile_APN(
-                                            taf_mngdConn_Configuration_t &Configuration,
+bool mcs_ConfigurationParser::Validate_MCSC_Data_Profile_APN(
+                                            mcs_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -614,8 +614,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_Profile_APN(
 /**
  * Validate Data:AutoStart
  */
-bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_AutoStart(
-                                                    taf_mngdConn_Configuration_t &Configuration,
+bool mcs_ConfigurationParser::Validate_MCSC_Data_AutoStart(
+                                                    mcs_Configuration_t &Configuration,
                                                     std::string Value,
                                                     int Index)
 {
@@ -639,8 +639,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_AutoStart(
 /**
  * Data Connection Test URL can be a string or NULL.
  */
-bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DataStartConnectionTest_URL(
-                                            taf_mngdConn_Configuration_t &Configuration,
+bool mcs_ConfigurationParser::Validate_MCSC_Data_DataStartConnectionTest_URL(
+                                            mcs_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -680,8 +680,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DataStartConnectionT
 /**
  * Data Connection Test IPv4 can be a string or NULL.
  */
-bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DataStartConnectionTest_IPv4(
-                                            taf_mngdConn_Configuration_t &Configuration,
+bool mcs_ConfigurationParser::Validate_MCSC_Data_DataStartConnectionTest_IPv4(
+                                            mcs_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -721,8 +721,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DataStartConnectionT
 /**
  * Data Connection Test IPv6 can be a string or NULL.
  */
-bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DataStartConnectionTest_IPv6(
-                                            taf_mngdConn_Configuration_t &Configuration,
+bool mcs_ConfigurationParser::Validate_MCSC_Data_DataStartConnectionTest_IPv6(
+                                            mcs_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
@@ -761,8 +761,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DataStartConnectionT
 /**
  * Validate DataStartRetry:Enable
  */
-bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DSR_Enable(
-                                                    taf_mngdConn_Configuration_t &Configuration,
+bool mcs_ConfigurationParser::Validate_MCSC_Data_DSR_Enable(
+                                                    mcs_Configuration_t &Configuration,
                                                     std::string Value,
                                                     int Index)
 {
@@ -774,7 +774,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DSR_Enable(
         return false;
     }
     //Check the JSON version to be atleast 24.03.00
-    if(Configuration.Version != MCS_JSON_VERSION_24_03_00)
+    if(Configuration.Version < MCS_JSON_VERSION_24_03_00)
     {
         LE_WARN("Invalid JSON version");
         return false;
@@ -792,8 +792,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DSR_Enable(
 /**
  * Validate DataStartRetry:RetryCount
  */
-bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DSR_RetryCount(
-                                                    taf_mngdConn_Configuration_t &Configuration,
+bool mcs_ConfigurationParser::Validate_MCSC_Data_DSR_RetryCount(
+                                                    mcs_Configuration_t &Configuration,
                                                     std::string Value,
                                                     int Index)
 {
@@ -806,7 +806,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DSR_RetryCount(
         return false;
     }
     //Check the JSON version to be atleast 24.03.00
-    if(Configuration.Version != MCS_JSON_VERSION_24_03_00)
+    if(Configuration.Version < MCS_JSON_VERSION_24_03_00)
     {
         LE_WARN("Invalid JSON version");
         return false;
@@ -829,8 +829,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_DSR_RetryCount(
 /**
  * PeriodicConnectivityCheck Interval should be a number
  */
-bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PeriodicConnectivityCheck_Interval(
-                                                    taf_mngdConn_Configuration_t &Configuration,
+bool mcs_ConfigurationParser::Validate_MCSC_Data_PeriodicConnectivityCheck_Interval(
+                                                    mcs_Configuration_t &Configuration,
                                                     std::string Value,
                                                     int Index)
 {
@@ -842,7 +842,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PeriodicConnectivity
         return false;
     }
     //Check the JSON version to be atleast 24.03.00
-    if(Configuration.Version != MCS_JSON_VERSION_24_03_00)
+    if(Configuration.Version < MCS_JSON_VERSION_24_03_00)
     {
         LE_WARN("Invalid JSON version");
         return false;
@@ -871,8 +871,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PeriodicConnectivity
 /**
  * Validate PeriodicConnectivityCheck:RetryCount
  */
-bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PeriodicConnectivityCheck_RetryCount(
-                                                    taf_mngdConn_Configuration_t &Configuration,
+bool mcs_ConfigurationParser::Validate_MCSC_Data_PeriodicConnectivityCheck_RetryCount(
+                                                    mcs_Configuration_t &Configuration,
                                                     std::string Value,
                                                     int Index)
 {
@@ -885,7 +885,7 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PeriodicConnectivity
         return false;
     }
     //Check the JSON version to be atleast 24.03.00
-    if(Configuration.Version != MCS_JSON_VERSION_24_03_00)
+    if(Configuration.Version < MCS_JSON_VERSION_24_03_00)
     {
         LE_WARN("Invalid JSON version");
         return false;
@@ -908,15 +908,15 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PeriodicConnectivity
 /**
  * PeriodicConnectivityCheck URL can be a string or NULL.
  */
-bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PeriodicConnectivityCheck_URL(
-                                            taf_mngdConn_Configuration_t &Configuration,
+bool mcs_ConfigurationParser::Validate_MCSC_Data_PeriodicConnectivityCheck_URL(
+                                            mcs_Configuration_t &Configuration,
                                             std::string Value,
                                             int Index)
 {
     LE_DEBUG("%s", Value.c_str());
     mcs_JSON_Data_Types_t DataType = mcs_GetDataType(Value);
     //Check the JSON version to be atleast 24.03.00
-    if(Configuration.Version != MCS_JSON_VERSION_24_03_00)
+    if(Configuration.Version < MCS_JSON_VERSION_24_03_00)
     {
         LE_WARN("Invalid JSON version");
         return false;
@@ -952,8 +952,8 @@ bool tafMngdConnSvc_ConfigurationParser::Validate_MCSC_Data_PeriodicConnectivity
     return true;
 }
 
-bool tafMngdConnSvc_ConfigurationParser::ValidateValue(
-                                                 taf_mngdConn_Configuration_t &Configuration,
+bool mcs_ConfigurationParser::ValidateValue(
+                                                 mcs_Configuration_t &Configuration,
                                                  std::string property,
                                                  std::string Value,
                                                  int Index)
@@ -975,8 +975,8 @@ bool tafMngdConnSvc_ConfigurationParser::ValidateValue(
     return false;
 }
 
-bool tafMngdConnSvc_ConfigurationParser::ParseAndUpdateConfigurationJSON(
-                                                taf_mngdConn_Configuration_t &Configuration,
+bool mcs_ConfigurationParser::ParseAndUpdateConfigurationJSON(
+                                                mcs_Configuration_t &Configuration,
                                                 std::string filename)
 {
     LE_DEBUG ("Parse Configuration Function");
@@ -1412,7 +1412,7 @@ bool tafMngdConnSvc_ConfigurationParser::ParseAndUpdateConfigurationJSON(
 /**
  * Match the JSON element with the validation function.
  */
-void tafMngdConnSvc_ConfigurationParser::UpdateValidConfigurationFuncMap(void)
+void mcs_ConfigurationParser::UpdateValidConfigurationFuncMap(void)
 {
     ConfigurationValidationFuncMap["Configuration:Name"]
                                                             = &Validate_MCSC_Name;
@@ -1460,8 +1460,8 @@ void tafMngdConnSvc_ConfigurationParser::UpdateValidConfigurationFuncMap(void)
 
 }
 
-void tafMngdConnSvc_ConfigurationParser::ResetConfigurationStructure (
-                                            taf_mngdConn_Configuration_t &Configuration)
+void mcs_ConfigurationParser::ResetConfigurationStructure (
+                                            mcs_Configuration_t &Configuration)
 {
     Configuration.Name[0] = '\0';
 
@@ -1502,8 +1502,8 @@ void tafMngdConnSvc_ConfigurationParser::ResetConfigurationStructure (
     }
 }
 
-bool tafMngdConnSvc_ConfigurationParser::GetConfiguration(
-                                                taf_mngdConn_Configuration_t &Configuration,
+bool mcs_ConfigurationParser::GetConfiguration(
+                                                mcs_Configuration_t &Configuration,
                                                 std::string ConfigurationFileName)
 {
     ResetConfigurationStructure(Configuration);
@@ -1520,9 +1520,9 @@ bool tafMngdConnSvc_ConfigurationParser::GetConfiguration(
 /**
  * Provide the single instance of the Configuration object
  */
-tafMngdConnSvc_ConfigurationParser& tafMngdConnSvc_ConfigurationParser::getInstance()
+mcs_ConfigurationParser& mcs_ConfigurationParser::getInstance()
 {
-    static tafMngdConnSvc_ConfigurationParser instance;
+    static mcs_ConfigurationParser instance;
 
     // Update the properties and validation functions map
     instance.UpdateValidConfigurationFuncMap();

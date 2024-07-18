@@ -184,7 +184,7 @@ namespace telux {
     namespace tafsvc {
         typedef struct
         {
-            uint8_t msg[TAF_SAP_MAX_MSG_SIZE];
+            uint8_t msg[TAF_SIMSAP_MAX_MSG_SIZE];
             size_t  msgSize;
         } taf_SapMsg_t;
 
@@ -239,17 +239,17 @@ namespace telux {
                 void cardReaderResponse(CardReaderStatus cardReaderStatus, telux::common::ErrorCode error) override;
         };
 
-        class taf_sap :public ITafSvc {
+        class taf_simSap :public ITafSvc {
             public:
-                taf_sap() {};
-                ~taf_sap() {};
+                taf_simSap() {};
+                ~taf_simSap() {};
                 void Init(void);
-                static taf_sap &GetInstance();
+                static taf_simSap &GetInstance();
                 bool cardConnected = false;
                 bool cardpoweredOn = true;
-                taf_sap_MessageHandlerRef_t AddMessageHandler(taf_sap_MessageHandlerFunc_t handlerPtr,
+                taf_simSap_MessageHandlerRef_t AddMessageHandler(taf_simSap_MessageHandlerFunc_t handlerPtr,
                         void* contextPtr);
-                void RemoveMessageHandler( taf_sap_MessageHandlerRef_t handlerRef);
+                void RemoveMessageHandler( taf_simSap_MessageHandlerRef_t handlerRef);
                 le_result_t ProcessSAPRequestMessages(const uint8_t *buf, size_t msgLength);
 
                 void SendConnectResponse(ErrorCode errorCode, uint8_t connectStatus);

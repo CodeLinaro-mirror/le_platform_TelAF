@@ -74,6 +74,8 @@ void PrintHelpMenu
         "    app runProc tafRadioIntTest tafRadioIntTest -- "
         "rat <phone> <prefer|status> [<rat_bitmask>]\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- "
+        "domain <phone> <prefer|status> [<cs|ps|all>]\n"
+        "    app runProc tafRadioIntTest tafRadioIntTest -- "
         "operator <phone> <add|remove|list> [<mcc>] [<mnc>] [<rat_bitmask>]\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- "
         "signal <phone> <monitor|metrics|delta> [<time|rat>] [<signal_delta>] [<hysdB>]\n"
@@ -115,6 +117,14 @@ void PrintHelpMenu
         "           LTE     : 0x10.\n"
         "           NR5G    : 0x20.\n"
         "           ALL     : 0x40.\n"
+        "\n"
+        "    app runProc tafRadioIntTest tafRadioIntTest -- "
+        "domain <phone> <prefer|status> [<cs|ps|all>]\n"
+        "       phone : '1' or '2'.\n"
+        "       Set service domain preferences with 'prefer', or show current service domain and "
+        "peferences 'status'.\n"
+        "       'cs' for Circuit-Switched, 'ps' for Packet-Switched, and 'all' for both, required "
+        "with 'prefer' option.\n"
         "\n"
         "    app runProc tafRadioIntTest tafRadioIntTest -- "
         "operator <phone> <add|remove|list> [<mcc>] [<mnc>] [<rat_bitmask>]\n"
@@ -335,11 +345,17 @@ void PrintSrvDomain
 {
     switch (domain)
     {
+        case TAF_RADIO_SERVICE_DOMAIN_STATE_NO_SVC:
+            LE_INFO("Domain : No Service");
+            break;
+        case TAF_RADIO_SERVICE_DOMAIN_STATE_CAMPED:
+            LE_INFO("Domain : Camped");
+            break;
         case TAF_RADIO_SERVICE_DOMAIN_STATE_CS_ONLY:
             LE_INFO("Domain : CS Only");
             break;
         case TAF_RADIO_SERVICE_DOMAIN_STATE_PS_ONLY:
-            LE_INFO("Domain : PS_Only");
+            LE_INFO("Domain : PS Only");
             break;
         case TAF_RADIO_SERVICE_DOMAIN_STATE_CS_AND_PS:
             LE_INFO("Domain : CS and PS");
@@ -2113,10 +2129,66 @@ COMPONENT_INIT
                 PrintCsCap(cap);
             }
 
-            taf_radio_RatSvcStatus_t svcStatus = TAF_RADIO_RAT_SVC_STATUS_UNKNOWN; 
+            taf_radio_RatSvcStatus_t svcStatus = TAF_RADIO_RAT_SVC_STATUS_UNKNOWN;
             result = taf_radio_GetRatSvcStatus(netRef, &svcStatus);
             LE_TEST_OK(result == LE_OK, "taf_radio_GetRatSvcStatus - OK");
             PrintRatSvcStatus(svcStatus);
+        }
+        else
+        {
+            PrintHelpMenu();
+        }
+    }
+    else if (strncmp(cmd, "domain", strlen("domain")) == 0)
+    {
+        CheckArgs(3);
+        LE_TEST_INFO("======== Radio Service Domain Test ========");
+
+        const char* phone = le_arg_GetArg(1);
+        const char* op = le_arg_GetArg(2);
+        if (phone == NULL || op == NULL)
+        {
+            PrintHelpMenu();
+        }
+        long phoneId = strtol(phone, NULL, 10);
+
+        if (strncmp(op, "prefer", strlen("prefer")) == 0)
+        {
+            CheckArgs(4);
+            const char* dm = le_arg_GetArg(3);
+            if (strncmp(dm, "cs", strlen("cs")) == 0)
+            {
+                result = taf_radio_SetServiceDomainPreferences(
+                    TAF_RADIO_SERVICE_DOMAIN_STATE_CS_ONLY, phoneId);
+                LE_TEST_OK(result == LE_OK, "taf_radio_SetServiceDomainPreferences - OK");
+            }
+            else if (strncmp(dm, "ps", strlen("ps")) == 0)
+            {
+                result = taf_radio_SetServiceDomainPreferences(
+                    TAF_RADIO_SERVICE_DOMAIN_STATE_PS_ONLY, phoneId);
+                LE_TEST_OK(result == LE_OK, "taf_radio_SetServiceDomainPreferences - OK");
+            }
+            else if (strncmp(dm, "all", strlen("all")) == 0)
+            {
+                result = taf_radio_SetServiceDomainPreferences(
+                    TAF_RADIO_SERVICE_DOMAIN_STATE_CS_AND_PS, phoneId);
+                LE_TEST_OK(result == LE_OK, "taf_radio_SetServiceDomainPreferences - OK");
+            }
+            else
+            {
+                PrintHelpMenu();
+            }
+        }
+        else if (strncmp(op, "status", strlen("status")) == 0)
+        {
+            taf_radio_ServiceDomainState_t domain = TAF_RADIO_SERVICE_DOMAIN_STATE_UNKNOWN;
+            result = taf_radio_GetServiceDomainPreferences(&domain, phoneId);
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetServiceDomainPreferences - OK");
+            PrintSrvDomain(domain);
+
+            result = taf_radio_GetServiceDomain(&domain, phoneId);
+            LE_TEST_OK(result == LE_OK, "taf_radio_GetServiceDomain - OK");
+            PrintSrvDomain(domain);
         }
         else
         {

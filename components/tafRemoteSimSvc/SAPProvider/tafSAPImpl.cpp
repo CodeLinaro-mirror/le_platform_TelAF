@@ -36,7 +36,7 @@ void tafOpenConnectionCallback::commandResponse(ErrorCode errorCode)
     LE_DEBUG("Received open connection response from modem with errorcode %d",
             static_cast<int>(errorCode));
 
-    auto &sap = taf_sap::GetInstance();
+    auto &sap = taf_simSap::GetInstance();
     uint8_t connectStatus = CONNSTATUS_SERVER_NOK;
     if (errorCode == ErrorCode::SUCCESS) {
         sap.cardConnected = true;
@@ -54,7 +54,7 @@ void tafCloseConnectionCallback::commandResponse(ErrorCode errorCode)
 {
     LE_DEBUG("Received close connection response from modem with errorcode %d.",
          static_cast<int>(errorCode));
-        auto &sap = taf_sap::GetInstance();
+        auto &sap = taf_simSap::GetInstance();
     if (errorCode == ErrorCode::SUCCESS) {
         sap.cardConnected = false;
     }
@@ -66,7 +66,7 @@ void tafPowerOnCallback::commandResponse(ErrorCode errorCode)
     LE_DEBUG("Received power on response from modem with errorcode %d.",
                  static_cast<int>(errorCode));
 
-        auto &sap = taf_sap::GetInstance();
+        auto &sap = taf_simSap::GetInstance();
     if (errorCode == ErrorCode::SUCCESS) {
         sap.cardpoweredOn = true;
     }
@@ -78,7 +78,7 @@ void tafPowerOffCallback::commandResponse(ErrorCode errorCode)
     LE_DEBUG("Received power off response from modem with errorcode %d.\n",
                 static_cast<int>(errorCode));
     //Send power OFF response
-    auto &sap = taf_sap::GetInstance();
+    auto &sap = taf_simSap::GetInstance();
     if (errorCode == ErrorCode::SUCCESS) {
         sap.cardpoweredOn = false;
     }
@@ -90,7 +90,7 @@ void tafResetCallback::commandResponse(ErrorCode errorCode)
     LE_DEBUG("Received reset response from modem with errorcode %d.\n",
          static_cast<int>(errorCode));
 
-    auto &sap = taf_sap::GetInstance();
+    auto &sap = taf_simSap::GetInstance();
     sap.SendCardResetResponse(errorCode);
 }
 
@@ -103,7 +103,7 @@ void tafApduResponseCallback::onResponse(IccResult result, ErrorCode errorCode)
 {
     LE_DEBUG("Received APDU response from modem with errorcode %d.\n", static_cast<int>(errorCode));
 
-    auto &sap = taf_sap::GetInstance();
+    auto &sap = taf_simSap::GetInstance();
     sap.SendAPDUResponse(result.data, apduId, errorCode);
     sap.EraseFromApduRespCbMap(apduId);
 }
@@ -111,20 +111,20 @@ void tafApduResponseCallback::onResponse(IccResult result, ErrorCode errorCode)
 void tafAtrResponseCallback::atrResponse(std::vector<int> responseAtr, ErrorCode errorCode)
 {
     LE_DEBUG("Received AtR response from modem with errorcode %d.\n", static_cast<int>(errorCode));
-    auto &sap = taf_sap::GetInstance();
+    auto &sap = taf_simSap::GetInstance();
     sap.SendATRResponse(responseAtr, errorCode);
 }
 
 void tafCardReaderCallback::cardReaderResponse(CardReaderStatus readerStatus,
         ErrorCode errorCode) {
-    auto &sap = taf_sap::GetInstance();
+    auto &sap = taf_simSap::GetInstance();
     sap.SendCardReaderResponse(errorCode, readerStatus);
 }
 
-void taf_sap::NewSimStateHandler( taf_sim_Id_t simId, taf_sim_States_t simState,
+void taf_simSap::NewSimStateHandler( taf_sim_Id_t simId, taf_sim_States_t simState,
                                 void* contextPtr) {
     LE_DEBUG("New SIM event for SIM card: %d", simId);
-    auto &sap = taf_sap::GetInstance();
+    auto &sap = taf_simSap::GetInstance();
     if (sap.cardConnected) {
         if (simState == TAF_SIM_ABSENT) {
             sap.SendStatusInd(STATUSCHANGE_CARD_REMOVED);
@@ -134,7 +134,7 @@ void taf_sap::NewSimStateHandler( taf_sim_Id_t simId, taf_sim_States_t simState,
     }
 }
 
-void taf_sap:: Init(void) {
+void taf_simSap:: Init(void) {
     slotId = taf_sim_GetSelectedCard();
     sapCardMgr = PhoneFactory::getInstance().getSapCardManager(slotId);
     if (!sapCardMgr) {
@@ -163,13 +163,13 @@ void taf_sap:: Init(void) {
     taf_sim_AddNewStateHandler(NewSimStateHandler, NULL);
 }
 
-taf_sap &taf_sap::GetInstance()
+taf_simSap &taf_simSap::GetInstance()
 {
-    static taf_sap instance;
+    static taf_simSap instance;
     return instance;
 }
 
-taf_sap_MessageHandlerRef_t taf_sap::AddMessageHandler(taf_sap_MessageHandlerFunc_t handlerPtr,
+taf_simSap_MessageHandlerRef_t taf_simSap::AddMessageHandler(taf_simSap_MessageHandlerFunc_t handlerPtr,
     void* contextPtr) {
     le_event_HandlerRef_t handlerRef;
 
@@ -180,23 +180,23 @@ taf_sap_MessageHandlerRef_t taf_sap::AddMessageHandler(taf_sap_MessageHandlerFun
                                             (void*)handlerPtr);
     le_event_SetContextPtr(handlerRef, contextPtr);
 
-    return (taf_sap_MessageHandlerRef_t)(handlerRef);
+    return (taf_simSap_MessageHandlerRef_t)(handlerRef);
 }
 
-void taf_sap::RemoveMessageHandler( taf_sap_MessageHandlerRef_t handlerRef) {
+void taf_simSap::RemoveMessageHandler( taf_simSap_MessageHandlerRef_t handlerRef) {
 
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
 }
 
-void taf_sap::FirstLayerMessageHandler( void* reportPtr, void* secondLayerHandlerFunc) {
+void taf_simSap::FirstLayerMessageHandler( void* reportPtr, void* secondLayerHandlerFunc) {
     taf_SapMsg_t* messageEvent = (taf_SapMsg_t*)reportPtr;
 
-    taf_sap_MessageHandlerFunc_t clientHandlerFunc = (taf_sap_MessageHandlerFunc_t)secondLayerHandlerFunc;
+    taf_simSap_MessageHandlerFunc_t clientHandlerFunc = (taf_simSap_MessageHandlerFunc_t)secondLayerHandlerFunc;
 
     clientHandlerFunc(messageEvent->msg, messageEvent->msgSize, le_event_GetContextPtr());
 }
 
-le_result_t taf_sap::ProcessSAPRequestMessages(const uint8_t *buf, size_t msgLength)
+le_result_t taf_simSap::ProcessSAPRequestMessages(const uint8_t *buf, size_t msgLength)
 {
     le_result_t result = LE_FAULT;
     switch (buf[0]) {
@@ -235,7 +235,7 @@ le_result_t taf_sap::ProcessSAPRequestMessages(const uint8_t *buf, size_t msgLen
     return result;
 }
 
-le_result_t taf_sap::OpenSAPConnection(const uint8_t* msg, uint8_t msgLength) {
+le_result_t taf_simSap::OpenSAPConnection(const uint8_t* msg, uint8_t msgLength) {
     if (VerifyConnectRequest(msg, msgLength) !=LE_OK || (!taf_sim_IsPresent(slotId))) {
         LE_ERROR("Cannot open connection, card is not present!");
         SendConnectResponse((ErrorCode)-1, (uint8_t)CONNSTATUS_SERVER_NOK);
@@ -245,12 +245,12 @@ le_result_t taf_sap::OpenSAPConnection(const uint8_t* msg, uint8_t msgLength) {
     //Check Max msg size in message buffer
     uint8_t maxMsgSizeByte = 8;
     uint16_t maxMsgSizeValue = (uint16_t)(((uint16_t)(msg[maxMsgSizeByte] << MSB_SHIFT)) | msg[maxMsgSizeByte + 1]);
-    if (maxMsgSizeValue > TAF_SAP_MAX_MSG_SIZE) {
+    if (maxMsgSizeValue > TAF_SIMSAP_MAX_MSG_SIZE) {
         LE_ERROR("Cannot open connection, Server doesnot support maximum message size");
         SendConnectResponse((ErrorCode)-1, (uint8_t)CONNSTATUS_MAXMSGSIZE_NOK);
         return LE_FAULT;
     }
-    if (maxMsgSizeValue < (uint16_t)TAF_SAP_MIN_MSG_SIZE) {
+    if (maxMsgSizeValue < (uint16_t)TAF_SIMSAP_MIN_MSG_SIZE) {
         LE_ERROR("Cannot open connection, Maximum message size by client is too small maxMsgSizeValue = %d",maxMsgSizeValue);
         SendConnectResponse((ErrorCode)-1, (uint8_t)CONNSTATUS_SMALL_MAXMSGSIZE);
         return LE_FAULT;
@@ -266,7 +266,7 @@ le_result_t taf_sap::OpenSAPConnection(const uint8_t* msg, uint8_t msgLength) {
     return LE_OK;
 }
 
-le_result_t taf_sap::DisconnectFromCard()
+le_result_t taf_simSap::DisconnectFromCard()
 {
     if (!cardConnected) {
         LE_ERROR("Cannot close connection - card is already not connected!");
@@ -280,7 +280,7 @@ le_result_t taf_sap::DisconnectFromCard()
     return LE_OK;
 }
 
-le_result_t taf_sap::RequestPowerOn()
+le_result_t taf_simSap::RequestPowerOn()
 {
     if (!cardConnected) {
         LE_ERROR("Cannot  power up card - no open connection to card!\n");
@@ -311,7 +311,7 @@ le_result_t taf_sap::RequestPowerOn()
 }
 
 
-le_result_t taf_sap::RequestPowerOff()
+le_result_t taf_simSap::RequestPowerOff()
 {
  if (!cardConnected) {
         LE_ERROR("Cannot  power down card - no open connection to card!\n");
@@ -341,7 +341,7 @@ le_result_t taf_sap::RequestPowerOff()
     return LE_OK;
 }
 
-le_result_t taf_sap::ResetCard()
+le_result_t taf_simSap::ResetCard()
 {
     if (!cardConnected) {
         LE_ERROR("Cannot reset card - no open connection to card!\n");
@@ -371,7 +371,7 @@ le_result_t taf_sap::ResetCard()
     return LE_OK;
 }
 
-le_result_t taf_sap::SendApduToSim(const uint8_t *buf, int bytes)
+le_result_t taf_simSap::SendApduToSim(const uint8_t *buf, int bytes)
 {
     /* APDU message format - ETSI TS 102 221 specification, section 10.1
      *
@@ -452,7 +452,7 @@ le_result_t taf_sap::SendApduToSim(const uint8_t *buf, int bytes)
     return LE_OK;
 }
 
-le_result_t taf_sap::RequestAtrAfterReset()
+le_result_t taf_simSap::RequestAtrAfterReset()
 {
 
     if (taf_sim_GetState(slotId) == TAF_SIM_ABSENT) {
@@ -475,7 +475,7 @@ le_result_t taf_sap::RequestAtrAfterReset()
     return LE_OK;
 }
 
-le_result_t taf_sap:: RequestCardReaderStatus()
+le_result_t taf_simSap:: RequestCardReaderStatus()
 {
     if (sapCardMgr->requestCardReaderStatus(cardReaderCb) != Status::SUCCESS) {
         LE_ERROR("Failed to send AtR request to the modem!\n");
@@ -485,7 +485,7 @@ le_result_t taf_sap:: RequestCardReaderStatus()
     return LE_OK;
 }
 
-void taf_sap:: SendConnectResponse(ErrorCode errorCode, uint8_t connectionStatus) {
+void taf_simSap:: SendConnectResponse(ErrorCode errorCode, uint8_t connectionStatus) {
     LE_DEBUG(" Send connect response connectionStatus = %d", connectionStatus);
     taf_SapMsg_t SapMsg;
     memset(&SapMsg, 0, sizeof(taf_SapMsg_t));
@@ -516,8 +516,8 @@ void taf_sap:: SendConnectResponse(ErrorCode errorCode, uint8_t connectionStatus
             SapMsg.msg[14] = 0x00;
             SapMsg.msg[15] = LENGTH_MAX_MSG_SIZE;
 
-            SapMsg.msg[16] = (TAF_SAP_MAX_MSG_SIZE & 0xFF00U) >> MSB_SHIFT;
-            SapMsg.msg[17] = (TAF_SAP_MAX_MSG_SIZE & 0x00FF);
+            SapMsg.msg[16] = (TAF_SIMSAP_MAX_MSG_SIZE & 0xFF00U) >> MSB_SHIFT;
+            SapMsg.msg[17] = (TAF_SIMSAP_MAX_MSG_SIZE & 0x00FF);
             SapMsg.msg[18] = 0x00;
             SapMsg.msg[19] = 0x00;
             SapMsg.msgSize = 20;
@@ -528,7 +528,7 @@ void taf_sap:: SendConnectResponse(ErrorCode errorCode, uint8_t connectionStatus
     le_event_Report(MessageEventId, &(SapMsg), sizeof(SapMsg));
 }
 
-void taf_sap:: SendDisconnectInd() {
+void taf_simSap:: SendDisconnectInd() {
     uint8_t paramCount = 0;
     taf_SapMsg_t SapMsg;
     memset(&SapMsg, 0, sizeof(taf_SapMsg_t));
@@ -552,7 +552,7 @@ void taf_sap:: SendDisconnectInd() {
 
 }
 
-void taf_sap:: SendDisconnectResponse(ErrorCode errorCode) {
+void taf_simSap:: SendDisconnectResponse(ErrorCode errorCode) {
     SapState sapState;
     taf_SapMsg_t SapMsg;
     memset(&SapMsg, 0, sizeof(taf_SapMsg_t));
@@ -570,7 +570,7 @@ void taf_sap:: SendDisconnectResponse(ErrorCode errorCode) {
 
 }
 
-void taf_sap::SendPowerOnResponse(ErrorCode errorCode) {
+void taf_simSap::SendPowerOnResponse(ErrorCode errorCode) {
     SapState sapState;
     taf_SapMsg_t SapMsg;
     memset(&SapMsg, 0, sizeof(taf_SapMsg_t));
@@ -603,7 +603,7 @@ void taf_sap::SendPowerOnResponse(ErrorCode errorCode) {
 
 }
 
-void taf_sap::SendPowerDownResponse(ErrorCode errorCode) {
+void taf_simSap::SendPowerDownResponse(ErrorCode errorCode) {
     taf_SapMsg_t SapMsg;
     memset(&SapMsg, 0, sizeof(taf_SapMsg_t));
     uint8_t paramCount = 0;
@@ -628,7 +628,7 @@ void taf_sap::SendPowerDownResponse(ErrorCode errorCode) {
     le_event_Report(MessageEventId, &(SapMsg), sizeof(SapMsg));
 }
 
-void taf_sap::SendStatusInd(uint8_t status) {
+void taf_simSap::SendStatusInd(uint8_t status) {
     taf_SapMsg_t SapMsg;
     memset(&SapMsg, 0, sizeof(taf_SapMsg_t));
     SapMsg.msg[0]  = MSGID_STATUS_IND;
@@ -645,7 +645,7 @@ void taf_sap::SendStatusInd(uint8_t status) {
     le_event_Report(MessageEventId, &(SapMsg), sizeof(SapMsg));
 }
 
-void taf_sap::SendErrorResponse() {
+void taf_simSap::SendErrorResponse() {
     taf_SapMsg_t SapMsg;
     memset(&SapMsg, 0, sizeof(taf_SapMsg_t));
     SapMsg.msg[0]  = MSGID_ERROR_RESP;
@@ -655,7 +655,7 @@ void taf_sap::SendErrorResponse() {
     le_event_Report(MessageEventId, &(SapMsg), sizeof(SapMsg));
 }
 
-void taf_sap::SendAPDUResponse(const std::vector<int> &data, uint8_t apduId, ErrorCode errorCode) {
+void taf_simSap::SendAPDUResponse(const std::vector<int> &data, uint8_t apduId, ErrorCode errorCode) {
 
     taf_SapMsg_t SapMsg;
     memset(&SapMsg, 0, sizeof(taf_SapMsg_t));
@@ -698,7 +698,7 @@ void taf_sap::SendAPDUResponse(const std::vector<int> &data, uint8_t apduId, Err
     le_event_Report(MessageEventId, &(SapMsg), sizeof(SapMsg));
 }
 
-void taf_sap::SendResultCodeResponse(uint8_t msgId, uint8_t resultStatus) {
+void taf_simSap::SendResultCodeResponse(uint8_t msgId, uint8_t resultStatus) {
     taf_SapMsg_t SapMsg;
     memset(&SapMsg, 0, sizeof(taf_SapMsg_t));
     SapMsg.msg[0]  = msgId;
@@ -715,7 +715,7 @@ void taf_sap::SendResultCodeResponse(uint8_t msgId, uint8_t resultStatus) {
     le_event_Report(MessageEventId, &(SapMsg), sizeof(SapMsg));
 }
 
-void taf_sap::SendATRResponse(const std::vector<int> &responseAtr, ErrorCode errorCode) {
+void taf_simSap::SendATRResponse(const std::vector<int> &responseAtr, ErrorCode errorCode) {
     SapState sapState;
     taf_SapMsg_t SapMsg;
     memset(&SapMsg, 0, sizeof(taf_SapMsg_t));
@@ -762,7 +762,7 @@ void taf_sap::SendATRResponse(const std::vector<int> &responseAtr, ErrorCode err
     le_event_Report(MessageEventId, &(SapMsg), sizeof(SapMsg));
 }
 
-void taf_sap::SendCardResetResponse(ErrorCode errorCode) {
+void taf_simSap::SendCardResetResponse(ErrorCode errorCode) {
     taf_SapMsg_t SapMsg;
     memset(&SapMsg, 0, sizeof(taf_SapMsg_t));
     SapMsg.msg[0]  = MSGID_RESET_SIM_RESP;
@@ -783,7 +783,7 @@ void taf_sap::SendCardResetResponse(ErrorCode errorCode) {
     le_event_Report(MessageEventId, &(SapMsg), sizeof(SapMsg));
 }
 
-void taf_sap::SendCardReaderResponse(ErrorCode errorCode, CardReaderStatus readerStatus) {
+void taf_simSap::SendCardReaderResponse(ErrorCode errorCode, CardReaderStatus readerStatus) {
 
     SapState sapState;
     taf_SapMsg_t SapMsg;
@@ -826,7 +826,7 @@ void taf_sap::SendCardReaderResponse(ErrorCode errorCode, CardReaderStatus reade
 
 }
 
-uint8_t taf_sap::GetCardReaderStatus(CardReaderStatus readerStatus) {
+uint8_t taf_simSap::GetCardReaderStatus(CardReaderStatus readerStatus) {
     uint8_t id =  readerStatus.id;
     uint8_t isRemovable =  readerStatus.isRemovable;
     uint8_t isPresent =  readerStatus.isPresent;
@@ -840,20 +840,20 @@ uint8_t taf_sap::GetCardReaderStatus(CardReaderStatus readerStatus) {
     return cardReaderStatus;
 }
 
-le_result_t taf_sap::VerifyMessageLength(const uint8_t* buf, size_t size, uint8_t numberOfParam){
+le_result_t taf_simSap::VerifyMessageLength(const uint8_t* buf, size_t size, uint8_t numberOfParam){
     uint8_t minMsgLength =  LENGTH_SAP_HEADER + numberOfParam * LENGTH_PARAM;
     TAF_ERROR_IF_RET_VAL(size < minMsgLength, LE_FAULT,
             " Msg length is too short!\n");
     return LE_OK;
 }
 
-le_result_t taf_sap::VerifyParameterCount(const uint8_t* buf, uint8_t numberOfParam){
+le_result_t taf_simSap::VerifyParameterCount(const uint8_t* buf, uint8_t numberOfParam){
     TAF_ERROR_IF_RET_VAL(buf[1] < numberOfParam, LE_FAULT,
             " Number of parameters are less!\n");
     return LE_OK;
 }
 
-le_result_t taf_sap::VerifyParamId(const uint8_t* buf,uint8_t paramId, uint8_t parameter) {
+le_result_t taf_simSap::VerifyParamId(const uint8_t* buf,uint8_t paramId, uint8_t parameter) {
 
     int paramIdByte = LENGTH_SAP_HEADER + (parameter - 1) * LENGTH_PARAM;
     uint8_t Id = buf[paramIdByte];
@@ -863,7 +863,7 @@ le_result_t taf_sap::VerifyParamId(const uint8_t* buf,uint8_t paramId, uint8_t p
 
 }
 
-le_result_t taf_sap::VerifyParamLength(const uint8_t* buf, uint16_t paramLength, uint8_t parameter) {
+le_result_t taf_simSap::VerifyParamLength(const uint8_t* buf, uint16_t paramLength, uint8_t parameter) {
 
     uint8_t lengthByte1 = LENGTH_SAP_HEADER + 2 + ((parameter-1) * LENGTH_PARAM);
     uint8_t lengthByte2 = lengthByte1 + 1;
@@ -873,7 +873,7 @@ le_result_t taf_sap::VerifyParamLength(const uint8_t* buf, uint16_t paramLength,
     return LE_OK;
 }
 
-le_result_t taf_sap::VerifyMaxMsgSizeParameter(const uint8_t* buf, size_t size) {
+le_result_t taf_simSap::VerifyMaxMsgSizeParameter(const uint8_t* buf, size_t size) {
     uint8_t paramId = PARAMID_MAX_MSG_SIZE;
     uint8_t paramLength = LENGTH_MAX_MSG_SIZE;
     uint8_t nParam = 1;
@@ -883,7 +883,7 @@ le_result_t taf_sap::VerifyMaxMsgSizeParameter(const uint8_t* buf, size_t size) 
     return VerifyParamLength(buf, paramLength, nParam);
 }
 
-le_result_t taf_sap::VerifyConnectRequest(const uint8_t* msg, uint8_t msgLength) {
+le_result_t taf_simSap::VerifyConnectRequest(const uint8_t* msg, uint8_t msgLength) {
     //Check message length
     if(VerifyMessageLength(msg, msgLength, 1) != LE_OK) {
         return LE_FAULT;
@@ -903,7 +903,7 @@ le_result_t taf_sap::VerifyConnectRequest(const uint8_t* msg, uint8_t msgLength)
 
 }
 
-void taf_sap::EraseFromApduRespCbMap(uint8_t apduId)
+void taf_simSap::EraseFromApduRespCbMap(uint8_t apduId)
 {
     apduRespCbMap.erase(apduId);
 }

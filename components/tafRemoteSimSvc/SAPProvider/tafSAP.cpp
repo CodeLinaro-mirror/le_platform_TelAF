@@ -37,45 +37,45 @@ using namespace telux::tafsvc;
 COMPONENT_INIT
 {
     LE_INFO("tafSAPProvider Service Init...\n");
-    auto &sap = taf_sap::GetInstance();
+    auto &sap = taf_simSap::GetInstance();
     sap.Init();
     LE_INFO(" SAP Card service Ready...\n");
 
 }
 
-taf_sap_MessageHandlerRef_t taf_sap_AddMessageHandler
+taf_simSap_MessageHandlerRef_t taf_simSap_AddMessageHandler
 (
-    taf_sap_MessageHandlerFunc_t handlerPtr,
+    taf_simSap_MessageHandlerFunc_t handlerPtr,
     void* contextPtr
 )
 {
 
     le_event_HandlerRef_t handlerRef;
-    auto &sap = taf_sap::GetInstance();
+    auto &sap = taf_simSap::GetInstance();
     TAF_KILL_CLIENT_IF_RET_VAL(handlerPtr == NULL, NULL, "handlerPtr is NULL");
     handlerRef = (le_event_HandlerRef_t)sap.AddMessageHandler(handlerPtr, contextPtr);
 
-    return (taf_sap_MessageHandlerRef_t)(handlerRef);
+    return (taf_simSap_MessageHandlerRef_t)(handlerRef);
 
 }
 
-void taf_sap_RemoveMessageHandler
+void taf_simSap_RemoveMessageHandler
 (
-    taf_sap_MessageHandlerRef_t handlerRef
+    taf_simSap_MessageHandlerRef_t handlerRef
 )
 {
-    auto &sap = taf_sap::GetInstance();
+    auto &sap = taf_simSap::GetInstance();
     sap.RemoveMessageHandler(handlerRef);
 }
 
-le_result_t taf_sap_SendMessage
+le_result_t taf_simSap_SendMessage
 (
     const uint8_t* msgPtr,
     size_t messageNumElements
 )
 {
     LE_INFO("SendMessage ");
-    auto &sap = taf_sap::GetInstance();
+    auto &sap = taf_simSap::GetInstance();
     return sap.ProcessSAPRequestMessages(msgPtr, messageNumElements);
 }
 

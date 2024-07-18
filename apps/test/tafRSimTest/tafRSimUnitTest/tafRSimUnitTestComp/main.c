@@ -31,10 +31,10 @@
 
 #define EVENTS_POOL_SIZE   2
 static le_sem_Ref_t TestSemaphoreRef;
-static taf_rsim_MessageHandlerRef_t  MsgHandlerRef;
+static taf_simRsim_MessageHandlerRef_t  MsgHandlerRef;
 static le_thread_Ref_t ThreadRef;
 static le_mem_PoolRef_t RsimMsgsPool;
-static uint8_t ExpectedMsg[TAF_RSIM_MAX_MSG_SIZE] = {0};
+static uint8_t ExpectedMsg[TAF_SIMRSIM_MAX_MSG_SIZE] = {0};
 static size_t ExpectedMsgSize = 0;
 static uint8_t ConnectReqMsg[12] =
 { 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x01, 0x14, 0x00, 0x00};
@@ -86,9 +86,9 @@ static uint8_t DisconnectRespLength = 4;
 
 typedef struct
 {
-    uint8_t msg[TAF_RSIM_MAX_MSG_SIZE];
+    uint8_t msg[TAF_SIMRSIM_MAX_MSG_SIZE];
     size_t  msgLength;
-    taf_rsim_CallbackHandlerFunc_t callback;
+    taf_simRsim_CallbackHandlerFunc_t callback;
     void*   contextPtr;
 }
 RsimMsg_t;
@@ -109,11 +109,11 @@ static void SAPMessageHandler(const uint8_t* msgPtr,
     le_sem_Post(TestSemaphoreRef);
 }
 
-static void* Test_taf_rsim_AddHandler(void* context) {
+static void* Test_taf_simRsim_AddHandler(void* context) {
 
-    taf_rsim_ConnectService();
+    taf_simRsim_ConnectService();
 
-    MsgHandlerRef = taf_rsim_AddMessageHandler(SAPMessageHandler, NULL);
+    MsgHandlerRef = taf_simRsim_AddMessageHandler(SAPMessageHandler, NULL);
     LE_ASSERT(MsgHandlerRef != NULL);
     LE_INFO("Message Handler Added successfully MsgHandlerRef = %p", MsgHandlerRef);
 
@@ -121,10 +121,10 @@ static void* Test_taf_rsim_AddHandler(void* context) {
     return NULL;
 }
 
-static void Test_taf_rsim_RemoveHandler(void* param1, void* param2) {
+static void Test_taf_simRsim_RemoveHandler(void* param1, void* param2) {
 
     LE_INFO("Remove Message Handler MsgHandlerRef = %p", MsgHandlerRef);
-    taf_rsim_RemoveMessageHandler(MsgHandlerRef);
+    taf_simRsim_RemoveMessageHandler(MsgHandlerRef);
     LE_ASSERT(MsgHandlerRef != NULL);
 
     le_sem_Post(TestSemaphoreRef);
@@ -140,14 +140,14 @@ static void CallbackHandler( uint8_t messageId, le_result_t result, void* contex
 static void SendMessage(void * paramPtr1,void * paramPtr2 ) {
 
     RsimMsg_t* messagePtr = (RsimMsg_t*) paramPtr1;
-    le_result_t result = taf_rsim_SendMessage(messagePtr->msg,
+    le_result_t result = taf_simRsim_SendMessage(messagePtr->msg,
                                 messagePtr->msgLength, messagePtr->callback,
                                 messagePtr->contextPtr);
     LE_ASSERT(result == LE_OK);
     le_mem_Release(messagePtr);
 }
 
-static void Test_taf_rsim_ConnectPowerOffON() {
+static void Test_taf_simRsim_ConnectPowerOffON() {
     memset(ExpectedMsg, 0, sizeof(ExpectedMsg));
     memcpy(ExpectedMsg, PowerDownReq, PowerDownReqLength);
     ExpectedMsgSize = PowerDownReqLength;
@@ -177,7 +177,7 @@ static void Test_taf_rsim_ConnectPowerOffON() {
     le_sem_Wait(TestSemaphoreRef);
 }
 
-static void Test_taf_rsim_ATR(void) {
+static void Test_taf_simRsim_ATR(void) {
     memset(ExpectedMsg, 0, sizeof(ExpectedMsg));
     memcpy(ExpectedMsg, ATRReqMsg, ATRReqLength);
     ExpectedMsgSize = ATRReqLength;
@@ -206,7 +206,7 @@ static void Test_taf_rsim_ATR(void) {
     le_sem_Wait(TestSemaphoreRef);
 }
 
-static void Test_taf_rsim_APDU(void) {
+static void Test_taf_simRsim_APDU(void) {
     RsimMsg_t* rsimPtr1 = le_mem_ForceAlloc(RsimMsgsPool);
     memcpy(rsimPtr1->msg ,APDUResp, APDURespLength);
     rsimPtr1->msgLength = APDURespLength;
@@ -216,7 +216,7 @@ static void Test_taf_rsim_APDU(void) {
     le_sem_Wait(TestSemaphoreRef);
 }
 
-static void Test_taf_rsim_Disconnect(void) {
+static void Test_taf_simRsim_Disconnect(void) {
     memset(ExpectedMsg, 0, sizeof(ExpectedMsg));
     memcpy(ExpectedMsg, DisconnectReq, DisconnectReqLength);
     ExpectedMsgSize = DisconnectReqLength;
@@ -246,22 +246,22 @@ static void StartUnitTestThread(void) {
     memcpy(ExpectedMsg, ConnectReqMsg, ConnectReqLength);
     ExpectedMsgSize = ConnectReqLength;
 
-    ThreadRef = le_thread_Create("taf_rsim_test_thread", Test_taf_rsim_AddHandler, NULL);
+    ThreadRef = le_thread_Create("taf_simRsim_test_thread", Test_taf_simRsim_AddHandler, NULL);
     le_thread_Start(ThreadRef);
 
     le_sem_Wait(TestSemaphoreRef);
 
-    Test_taf_rsim_ConnectPowerOffON();
+    Test_taf_simRsim_ConnectPowerOffON();
     le_sem_Wait(TestSemaphoreRef);
 
-    Test_taf_rsim_ATR();
+    Test_taf_simRsim_ATR();
     le_sem_Wait(TestSemaphoreRef);
 
-    Test_taf_rsim_APDU();
+    Test_taf_simRsim_APDU();
 
-    Test_taf_rsim_Disconnect();
+    Test_taf_simRsim_Disconnect();
 
-    le_event_QueueFunctionToThread(ThreadRef, Test_taf_rsim_RemoveHandler, NULL, NULL);
+    le_event_QueueFunctionToThread(ThreadRef, Test_taf_simRsim_RemoveHandler, NULL, NULL);
     LE_INFO("***RSIM Unit test done***");
 
     result = le_thread_Cancel(ThreadRef);

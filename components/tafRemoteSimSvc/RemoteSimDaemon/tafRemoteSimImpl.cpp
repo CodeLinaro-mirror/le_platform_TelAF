@@ -36,42 +36,42 @@ LE_MEM_DEFINE_STATIC_POOL(RsimMsgs, MSG_POOL_SIZE, sizeof(taf_RsimMsg_Client_t))
 
 void tafRemoteSimListener::onApduTransfer(const unsigned int id, const std::vector<uint8_t> &apdu) {
     LE_INFO("Received Apdu transfer notification from modem.\n");
-    auto &rSim = taf_rsim::GetInstance();
+    auto &rSim = taf_simRsim::GetInstance();
     rSim.SendApduRequest(id, apdu);
 }
 
 void tafRemoteSimListener::onCardConnect() {
     LE_INFO("Received Card Connect notification from modem.\n");
-    auto &rSim = taf_rsim::GetInstance();
+    auto &rSim = taf_simRsim::GetInstance();
     rSim.SendCardConnectRequest();
 }
 
 void tafRemoteSimListener::onCardDisconnect() {
     LE_INFO("Received Card Disconnect notification from modem.\n");
-    auto &rSim = taf_rsim::GetInstance();
+    auto &rSim = taf_simRsim::GetInstance();
     rSim.SendCardDisconnectRequest();
 }
 
 void tafRemoteSimListener::onCardPowerUp() {
     LE_INFO("Received Card Power Up notification from modem.\n");
-    auto &rSim = taf_rsim::GetInstance();
+    auto &rSim = taf_simRsim::GetInstance();
     rSim.SendCardPowerUpRequest();
 }
 
 void tafRemoteSimListener::onCardPowerDown() {
     LE_INFO("Received Card Power Down notification from modem.\n");
-    auto &rSim = taf_rsim::GetInstance();
+    auto &rSim = taf_simRsim::GetInstance();
     rSim.SendCardPowerDownRequest();
 }
 
 void tafRemoteSimListener::onCardReset() {
     LE_INFO("Received Card Reset notification from modem.\n");
-    auto &rSim = taf_rsim::GetInstance();
+    auto &rSim = taf_simRsim::GetInstance();
     rSim.SendCardResetRequest();
 }
 
 void tafRemoteSimListener::onServiceStatusChange(ServiceStatus status) {
-    auto &rSim = taf_rsim::GetInstance();
+    auto &rSim = taf_simRsim::GetInstance();
     if (status == ServiceStatus::SERVICE_UNAVAILABLE) {
         LE_INFO("Received Service Unavailable notification.\n");
         rSim.NotifyConnectionUnavailable();
@@ -83,7 +83,7 @@ void tafRemoteSimListener::onServiceStatusChange(ServiceStatus status) {
     }
 }
 
-void taf_rsim:: Init(void) {
+void taf_simRsim:: Init(void) {
     remoteSimMgr = PhoneFactory::getInstance().getRemoteSimManager(DEFAULT_SLOT_ID);
     listener = std::make_shared<tafRemoteSimListener>();
     if (remoteSimMgr != nullptr) {
@@ -111,7 +111,7 @@ void taf_rsim:: Init(void) {
         RsimObj.handlerRef = NULL;
         RsimObj.sapState = SAP_STATE_NOT_CONNECTED;
         RsimObj.sapSubState = SAP_CONNECTED_IDLE;
-        RsimObj.maxMsgSize = TAF_RSIM_MAX_MSG_SIZE;
+        RsimObj.maxMsgSize = TAF_SIMRSIM_MAX_MSG_SIZE;
 
         RSimMsgPool = le_mem_InitStaticPool(RsimMsgs, MSG_POOL_SIZE,
                                              sizeof(taf_RsimMsg_Client_t));
@@ -120,13 +120,13 @@ void taf_rsim:: Init(void) {
 
 }
 
-taf_rsim &taf_rsim::GetInstance()
+taf_simRsim &taf_simRsim::GetInstance()
 {
-    static taf_rsim instance;
+    static taf_simRsim instance;
     return instance;
 }
 
-taf_rsim_MessageHandlerRef_t taf_rsim::AddMessageHandler(taf_rsim_MessageHandlerFunc_t handlerPtr,
+taf_simRsim_MessageHandlerRef_t taf_simRsim::AddMessageHandler(taf_simRsim_MessageHandlerFunc_t handlerPtr,
     void* contextPtr) {
     le_event_HandlerRef_t handlerRef;
 
@@ -145,12 +145,12 @@ taf_rsim_MessageHandlerRef_t taf_rsim::AddMessageHandler(taf_rsim_MessageHandler
         }
     }
 
-    RsimObj.handlerRef = (taf_rsim_MessageHandlerRef_t)handlerRef;
+    RsimObj.handlerRef = (taf_simRsim_MessageHandlerRef_t)handlerRef;
 
-    return (taf_rsim_MessageHandlerRef_t)(handlerRef);
+    return (taf_simRsim_MessageHandlerRef_t)(handlerRef);
 }
 
-void taf_rsim::RemoveMessageHandler( taf_rsim_MessageHandlerRef_t handlerRef) {
+void taf_simRsim::RemoveMessageHandler( taf_simRsim_MessageHandlerRef_t handlerRef) {
 
     le_event_RemoveHandler((le_event_HandlerRef_t)handlerRef);
     if (remoteSimMgr != nullptr) {
@@ -163,7 +163,7 @@ void taf_rsim::RemoveMessageHandler( taf_rsim_MessageHandlerRef_t handlerRef) {
     RsimObj.handlerRef = NULL;
 }
 
-le_result_t taf_rsim::SendApduRequest(const unsigned int id, const std::vector<uint8_t> &apdu)
+le_result_t taf_simRsim::SendApduRequest(const unsigned int id, const std::vector<uint8_t> &apdu)
 {
     taf_RsimMsg_t RsimMsg;
     size_t length = 0;
@@ -201,7 +201,7 @@ le_result_t taf_rsim::SendApduRequest(const unsigned int id, const std::vector<u
 
 }
 
-le_result_t taf_rsim::SendATRRequest(taf_SapSubState_t subState)
+le_result_t taf_simRsim::SendATRRequest(taf_SapSubState_t subState)
 {
     taf_RsimMsg_t RsimMsg;
     memset(&RsimMsg, 0, sizeof(taf_RsimMsg_t));
@@ -217,7 +217,7 @@ le_result_t taf_rsim::SendATRRequest(taf_SapSubState_t subState)
     return LE_OK;
 }
 
-le_result_t taf_rsim::SendCardConnectRequest()
+le_result_t taf_simRsim::SendCardConnectRequest()
 {
     TAF_ERROR_IF_RET_VAL(SAP_STATE_CONNECTED == RsimObj.sapState,
                          LE_FAULT,
@@ -247,7 +247,7 @@ le_result_t taf_rsim::SendCardConnectRequest()
     return LE_OK;
 }
 
-le_result_t taf_rsim::SendCardDisconnectRequest() {
+le_result_t taf_simRsim::SendCardDisconnectRequest() {
 
     taf_RsimMsg_t RsimMsg;
     memset(&RsimMsg, 0, sizeof(taf_RsimMsg_t));
@@ -263,7 +263,7 @@ le_result_t taf_rsim::SendCardDisconnectRequest() {
     return LE_OK;
 }
 
-le_result_t taf_rsim::SendCardPowerUpRequest() {
+le_result_t taf_simRsim::SendCardPowerUpRequest() {
 
     TAF_ERROR_IF_RET_VAL(RsimObj.sapState != SAP_STATE_CONNECTED
                             || RsimObj.sapSubState != SAP_CONNECTED_IDLE, LE_FAULT,
@@ -282,7 +282,7 @@ le_result_t taf_rsim::SendCardPowerUpRequest() {
     return LE_OK;
 }
 
-le_result_t taf_rsim::SendCardPowerDownRequest() {
+le_result_t taf_simRsim::SendCardPowerDownRequest() {
 
     TAF_ERROR_IF_RET_VAL(SAP_STATE_CONNECTED != RsimObj.sapState || RsimObj.sapSubState != SAP_CONNECTED_IDLE,
                          LE_FAULT,
@@ -301,7 +301,7 @@ le_result_t taf_rsim::SendCardPowerDownRequest() {
     return LE_OK;
 }
 
-le_result_t taf_rsim::SendCardResetRequest() {
+le_result_t taf_simRsim::SendCardResetRequest() {
 
     TAF_ERROR_IF_RET_VAL(RsimObj.sapState != SAP_STATE_CONNECTED
                             || RsimObj.sapSubState == SAP_CONNECTED_POWER_ON
@@ -321,20 +321,20 @@ le_result_t taf_rsim::SendCardResetRequest() {
     return LE_OK;
 }
 
-void taf_rsim::FirstLayerMessageHandler( void* reportPtr, void* secondLayerHandlerFunc) {
+void taf_simRsim::FirstLayerMessageHandler( void* reportPtr, void* secondLayerHandlerFunc) {
     taf_RsimMsg_t* messageEvent = (taf_RsimMsg_t*)reportPtr;
 
-    taf_rsim_MessageHandlerFunc_t clientHandlerFunc = (taf_rsim_MessageHandlerFunc_t)secondLayerHandlerFunc;
+    taf_simRsim_MessageHandlerFunc_t clientHandlerFunc = (taf_simRsim_MessageHandlerFunc_t)secondLayerHandlerFunc;
 
     clientHandlerFunc(messageEvent->msg, messageEvent->msgSize, le_event_GetContextPtr());
 }
 
-void taf_rsim::eventCallback(ErrorCode errorCode) {
+void taf_simRsim::eventCallback(ErrorCode errorCode) {
     LE_INFO("Received event response with errorcode %d.\n", static_cast<int>(errorCode));
 }
 
-le_result_t taf_rsim::SendMessage(const uint8_t* messagePtr, size_t messageNumElements,
-    taf_rsim_CallbackHandlerFunc_t callbackPtr, void* contextPtr) {
+le_result_t taf_simRsim::SendMessage(const uint8_t* messagePtr, size_t messageNumElements,
+    taf_simRsim_CallbackHandlerFunc_t callbackPtr, void* contextPtr) {
 
     TAF_ERROR_IF_RET_VAL(RsimObj.maxMsgSize < messageNumElements, LE_BAD_PARAMETER,
             "SAP message length is long");
@@ -351,7 +351,7 @@ le_result_t taf_rsim::SendMessage(const uint8_t* messagePtr, size_t messageNumEl
     return LE_OK;
 }
 
-le_result_t taf_rsim::VerifyConnectionParameter(const uint8_t* buf, size_t size) {
+le_result_t taf_simRsim::VerifyConnectionParameter(const uint8_t* buf, size_t size) {
     uint8_t paramId = PARAMID_CONNECTION_STATUS;
     uint8_t paramLength = LENGTH_CONNECTION_STATUS;
     uint8_t nParam = 1;
@@ -362,7 +362,7 @@ le_result_t taf_rsim::VerifyConnectionParameter(const uint8_t* buf, size_t size)
     return VerifyParamLength(buf, paramLength, nParam);
 }
 
-le_result_t taf_rsim::VerifyMaxMsgSizeParameter(const uint8_t* buf, size_t size) {
+le_result_t taf_simRsim::VerifyMaxMsgSizeParameter(const uint8_t* buf, size_t size) {
     uint8_t paramId = PARAMID_MAX_MSG_SIZE;
     uint8_t paramLength = LENGTH_MAX_MSG_SIZE;
     uint8_t nParam = 2;
@@ -372,20 +372,20 @@ le_result_t taf_rsim::VerifyMaxMsgSizeParameter(const uint8_t* buf, size_t size)
     return VerifyParamLength(buf, paramLength, nParam);
 }
 
-le_result_t taf_rsim::VerifyParameterCount(const uint8_t* buf, uint8_t numberOfParam){
+le_result_t taf_simRsim::VerifyParameterCount(const uint8_t* buf, uint8_t numberOfParam){
     TAF_ERROR_IF_RET_VAL(buf[1] < numberOfParam, LE_FAULT,
             " Number of parameters are less!\n");
     return LE_OK;
 }
 
-le_result_t taf_rsim::VerifyMessageLength(const uint8_t* buf, size_t size, uint8_t numberOfParam){
+le_result_t taf_simRsim::VerifyMessageLength(const uint8_t* buf, size_t size, uint8_t numberOfParam){
     uint8_t minMsgLength =  LENGTH_SAP_HEADER + numberOfParam * LENGTH_PARAM;
     TAF_ERROR_IF_RET_VAL(size < minMsgLength, LE_FAULT,
             " Msg length is too short!\n");
     return LE_OK;
 }
 
-le_result_t taf_rsim::VerifyResultCodeParameter(const uint8_t* buf, size_t size) {
+le_result_t taf_simRsim::VerifyResultCodeParameter(const uint8_t* buf, size_t size) {
     uint8_t paramId = PARAMID_RESULT_CODE;
     uint8_t paramLength = LENGTH_RESULT_CODE;
     uint8_t nParam = 1;
@@ -395,7 +395,7 @@ le_result_t taf_rsim::VerifyResultCodeParameter(const uint8_t* buf, size_t size)
     return VerifyParamLength(buf, paramLength, nParam);
 }
 
-le_result_t taf_rsim::VerifyDisconnectParameter(const uint8_t* buf, size_t size) {
+le_result_t taf_simRsim::VerifyDisconnectParameter(const uint8_t* buf, size_t size) {
     uint8_t paramId = PARAMID_DISCONNECTION_TYPE;
     uint8_t paramLength = LENGTH_DISCONNECTION_TYPE;
     uint8_t nParam = 1;
@@ -405,13 +405,13 @@ le_result_t taf_rsim::VerifyDisconnectParameter(const uint8_t* buf, size_t size)
     return VerifyParamLength(buf, paramLength, nParam);
 }
 
-le_result_t taf_rsim::VerifyAPDUParameter(const uint8_t* buf, size_t size) {
+le_result_t taf_simRsim::VerifyAPDUParameter(const uint8_t* buf, size_t size) {
     uint8_t paramId = PARAMID_COMMAND_APDU;
     uint8_t nParam = 2;
     return VerifyParamId(buf, paramId, nParam);
 }
 
-le_result_t taf_rsim::VerifyStatusChangeParameter(const uint8_t* buf, size_t size) {
+le_result_t taf_simRsim::VerifyStatusChangeParameter(const uint8_t* buf, size_t size) {
     uint8_t paramId = PARAMID_STATUS_CHANGE;
     uint8_t paramLength = LENGTH_STATUS_CHANGE;
     uint8_t nParam = 1;
@@ -421,13 +421,13 @@ le_result_t taf_rsim::VerifyStatusChangeParameter(const uint8_t* buf, size_t siz
     return VerifyParamLength(buf, paramLength, nParam);
 }
 
-le_result_t taf_rsim::VerifyATRParameter(const uint8_t* buf, size_t size) {
+le_result_t taf_simRsim::VerifyATRParameter(const uint8_t* buf, size_t size) {
     uint8_t paramId = PARAMID_ATR;
     uint8_t nParam = 2;
     return VerifyParamId(buf, paramId, nParam);
 }
 
-le_result_t taf_rsim::VerifyParamId(const uint8_t* buf,uint8_t paramId, uint8_t parameter) {
+le_result_t taf_simRsim::VerifyParamId(const uint8_t* buf,uint8_t paramId, uint8_t parameter) {
 
     int paramIdByte = LENGTH_SAP_HEADER + (parameter - 1) * LENGTH_PARAM;
     uint8_t Id = buf[paramIdByte];
@@ -437,7 +437,7 @@ le_result_t taf_rsim::VerifyParamId(const uint8_t* buf,uint8_t paramId, uint8_t 
 
 }
 
-le_result_t taf_rsim::VerifyParamLength(const uint8_t* buf, uint16_t paramLength, uint8_t parameter) {
+le_result_t taf_simRsim::VerifyParamLength(const uint8_t* buf, uint16_t paramLength, uint8_t parameter) {
 
     uint8_t lengthByte1 = LENGTH_SAP_HEADER + 2 + ((parameter-1) * LENGTH_PARAM);
     uint8_t lengthByte2 = lengthByte1 + 1;
@@ -447,15 +447,15 @@ le_result_t taf_rsim::VerifyParamLength(const uint8_t* buf, uint16_t paramLength
     return LE_OK;
 }
 
-void taf_rsim::HandleClientMsg(void* param1Ptr, void* param2Ptr) {
+void taf_simRsim::HandleClientMsg(void* param1Ptr, void* param2Ptr) {
 
     le_result_t result = LE_OK;
     taf_RsimMsg_Client_t* rsimMsgPtr = (taf_RsimMsg_Client_t*) param1Ptr;
     uint8_t* messagePtr = rsimMsgPtr->message.msg;
-    taf_rsim_CallbackHandlerFunc_t callbackRef = rsimMsgPtr->callbackRef;
+    taf_simRsim_CallbackHandlerFunc_t callbackRef = rsimMsgPtr->callbackRef;
     size_t msgSize = rsimMsgPtr->message.msgSize;
     uint8_t msgId = messagePtr[0];
-    auto &rSim = taf_rsim::GetInstance();
+    auto &rSim = taf_simRsim::GetInstance();
     switch (msgId)
     {
         case MSGID_TRANSFER_APDU_RESP:
@@ -518,7 +518,7 @@ void taf_rsim::HandleClientMsg(void* param1Ptr, void* param2Ptr) {
     le_mem_Release(rsimMsgPtr);
 }
 
-le_result_t taf_rsim::HandleApduTransfer(const uint8_t* msgPtr, size_t msgSize) {
+le_result_t taf_simRsim::HandleApduTransfer(const uint8_t* msgPtr, size_t msgSize) {
     LE_DEBUG("Received APDU transfer response msg sap state = %d Sap subState = %d", RsimObj.sapState, RsimObj.sapSubState );
     if ((SAP_STATE_CONNECTED != RsimObj.sapState) || (SAP_CONNECTED_APDU != RsimObj.sapSubState))
     {
@@ -559,7 +559,7 @@ le_result_t taf_rsim::HandleApduTransfer(const uint8_t* msgPtr, size_t msgSize) 
     return result;
 }
 
-le_result_t taf_rsim::SendApduResp(const uint8_t* msgPtr, size_t msgSize) {
+le_result_t taf_simRsim::SendApduResp(const uint8_t* msgPtr, size_t msgSize) {
 
     if (VerifyMessageLength(msgPtr, msgSize, 1) != LE_OK
             ||(VerifyParameterCount( msgPtr, 1) != LE_OK)) {
@@ -587,7 +587,7 @@ le_result_t taf_rsim::SendApduResp(const uint8_t* msgPtr, size_t msgSize) {
    return LE_OK;
 }
 
-le_result_t taf_rsim::HandleCardConnect(const uint8_t* msgPtr, size_t messageNumElements)
+le_result_t taf_simRsim::HandleCardConnect(const uint8_t* msgPtr, size_t messageNumElements)
 {
     LE_INFO("Received Card Connect msg response\n");
     TAF_ERROR_IF_RET_VAL(SAP_STATE_CONNECTING != RsimObj.sapState,
@@ -623,9 +623,9 @@ le_result_t taf_rsim::HandleCardConnect(const uint8_t* msgPtr, size_t messageNum
                 uint16_t serverMaxMsgSize = (uint16_t)(((uint16_t)(msgPtr[sizeByte1] << MSB_SHIFT))
                       | msgPtr[sizeByte2]);
 
-                if (serverMaxMsgSize > TAF_RSIM_MAX_MSG_SIZE) {
+                if (serverMaxMsgSize > TAF_SIMRSIM_MAX_MSG_SIZE) {
                     LE_DEBUG("Proposed message size is too big");
-                } else if (serverMaxMsgSize < TAF_RSIM_MIN_MSG_SIZE) {
+                } else if (serverMaxMsgSize < TAF_SIMRSIM_MIN_MSG_SIZE) {
                     LE_DEBUG("Proposed message size is too small");
                 } else {
                     RsimObj.maxMsgSize = serverMaxMsgSize;
@@ -652,7 +652,7 @@ le_result_t taf_rsim::HandleCardConnect(const uint8_t* msgPtr, size_t messageNum
     return result;
 }
 
-le_result_t taf_rsim::HandleStatusInd(const uint8_t* msgPtr, size_t messageNumElements)
+le_result_t taf_simRsim::HandleStatusInd(const uint8_t* msgPtr, size_t messageNumElements)
 {
     if ((SAP_STATE_CONNECTED != RsimObj.sapState)) {
         LE_ERROR("Received status Indication in invalid state ");
@@ -694,7 +694,7 @@ le_result_t taf_rsim::HandleStatusInd(const uint8_t* msgPtr, size_t messageNumEl
     return result;
 }
 
-le_result_t taf_rsim::HandleCardDisconnectInd(const uint8_t* msgPtr, size_t msgSize)
+le_result_t taf_simRsim::HandleCardDisconnectInd(const uint8_t* msgPtr, size_t msgSize)
 {
     TAF_ERROR_IF_RET_VAL(RsimObj.sapState != SAP_STATE_CONNECTED, LE_FAULT,
             "Received disconnect ind in invalid state");
@@ -720,7 +720,7 @@ le_result_t taf_rsim::HandleCardDisconnectInd(const uint8_t* msgPtr, size_t msgS
     return LE_OK;
 }
 
-le_result_t taf_rsim::HandleCardDisconnectResp(const uint8_t* messagePtr, size_t messageNumElements)
+le_result_t taf_simRsim::HandleCardDisconnectResp(const uint8_t* messagePtr, size_t messageNumElements)
 {
     LE_DEBUG("Received Card Disconnect msg response from client.\n");
     if ((SAP_STATE_CONNECTED != RsimObj.sapState)
@@ -734,12 +734,12 @@ le_result_t taf_rsim::HandleCardDisconnectResp(const uint8_t* messagePtr, size_t
 
     RsimObj.sapState = SAP_STATE_NOT_CONNECTED;
     RsimObj.sapSubState = SAP_CONNECTED_IDLE;
-    RsimObj.maxMsgSize = TAF_RSIM_MAX_MSG_SIZE;
+    RsimObj.maxMsgSize = TAF_SIMRSIM_MAX_MSG_SIZE;
 
     return LE_OK;
 }
 
-le_result_t taf_rsim::HandleCardPowerDown(const uint8_t* msgPtr, size_t messageNumElements)
+le_result_t taf_simRsim::HandleCardPowerDown(const uint8_t* msgPtr, size_t messageNumElements)
 {
     LE_DEBUG("Received Card Power down msg response\n");
     if ((SAP_STATE_CONNECTED != RsimObj.sapState) || (SAP_CONNECTED_POWER_OFF != RsimObj.sapSubState))
@@ -782,7 +782,7 @@ le_result_t taf_rsim::HandleCardPowerDown(const uint8_t* msgPtr, size_t messageN
     return result;
 }
 
-le_result_t taf_rsim::HandleCardPowerUp(const uint8_t* msgPtr, size_t messageNumElements)
+le_result_t taf_simRsim::HandleCardPowerUp(const uint8_t* msgPtr, size_t messageNumElements)
 {
     LE_DEBUG("Received Card Power up msg response \n");
     if ((SAP_STATE_CONNECTED != RsimObj.sapState) || (SAP_CONNECTED_POWER_ON != RsimObj.sapSubState))
@@ -827,7 +827,7 @@ le_result_t taf_rsim::HandleCardPowerUp(const uint8_t* msgPtr, size_t messageNum
     return result;
 }
 
-le_result_t taf_rsim::HandleResetResponse(const uint8_t* msgPtr, size_t msgLength)
+le_result_t taf_simRsim::HandleResetResponse(const uint8_t* msgPtr, size_t msgLength)
 {
     LE_DEBUG("Received reset response\n");
 
@@ -868,7 +868,7 @@ le_result_t taf_rsim::HandleResetResponse(const uint8_t* msgPtr, size_t msgLengt
     return result;
 }
 
-le_result_t taf_rsim::HandleATRResponse(const uint8_t* msgPtr, size_t msgLength)
+le_result_t taf_simRsim::HandleATRResponse(const uint8_t* msgPtr, size_t msgLength)
 {
     LE_DEBUG("Received ATR response\n");
 
@@ -926,7 +926,7 @@ le_result_t taf_rsim::HandleATRResponse(const uint8_t* msgPtr, size_t msgLength)
     return result;
 }
 
-le_result_t taf_rsim::HandleCardReset(const uint8_t* messagePtr, size_t messageNumElements)
+le_result_t taf_simRsim::HandleCardReset(const uint8_t* messagePtr, size_t messageNumElements)
 {
     LE_DEBUG("Received Card Reset msg");
 
@@ -948,7 +948,7 @@ le_result_t taf_rsim::HandleCardReset(const uint8_t* messagePtr, size_t messageN
         return LE_OK;
 }
 
-le_result_t taf_rsim::HandleErrorResp()
+le_result_t taf_simRsim::HandleErrorResp()
 {
     le_result_t result = LE_OK;
 
@@ -973,7 +973,7 @@ le_result_t taf_rsim::HandleErrorResp()
     return result;
 }
 
-le_result_t taf_rsim::HandleCardInserted(const uint8_t* messagePtr, size_t messageNumElements)
+le_result_t taf_simRsim::HandleCardInserted(const uint8_t* messagePtr, size_t messageNumElements)
 {
     LE_DEBUG("Received Card Inserted msg from client.\n");
 
@@ -997,7 +997,7 @@ le_result_t taf_rsim::HandleCardInserted(const uint8_t* messagePtr, size_t messa
     return LE_OK;
 }
 
-le_result_t taf_rsim::HandleCardRemoved()
+le_result_t taf_simRsim::HandleCardRemoved()
 {
     LE_DEBUG("Received Card Removed msg from client.\n");
 
@@ -1008,7 +1008,7 @@ le_result_t taf_rsim::HandleCardRemoved()
     return LE_OK;
 }
 
-le_result_t taf_rsim::HandleCardError(CardErrorCause cardError)
+le_result_t taf_simRsim::HandleCardError(CardErrorCause cardError)
 {
     if (remoteSimMgr->sendCardError(cardError, eventCallback) != Status::SUCCESS) {
         LE_ERROR("Failed to send card error event request to the modem!");
@@ -1017,7 +1017,7 @@ le_result_t taf_rsim::HandleCardError(CardErrorCause cardError)
     return LE_OK;
 }
 
-le_result_t taf_rsim::HandleCardWakeUp()
+le_result_t taf_simRsim::HandleCardWakeUp()
 {
     LE_DEBUG("Received Card Wake Up");
     if (remoteSimMgr->sendCardWakeup(eventCallback) != Status::SUCCESS) {
@@ -1026,13 +1026,13 @@ le_result_t taf_rsim::HandleCardWakeUp()
     }
     return LE_OK;
 }
-void taf_rsim::NotifyConnectionAvailable() {
+void taf_simRsim::NotifyConnectionAvailable() {
     if (remoteSimMgr->sendConnectionAvailable(eventCallback) != Status::SUCCESS) {
         LE_KILL_CLIENT("Failed to send connection available event request to the modem!\n");
     }
 }
 
-void taf_rsim::NotifyConnectionUnavailable() {
+void taf_simRsim::NotifyConnectionUnavailable() {
     if (remoteSimMgr->sendConnectionUnavailable(eventCallback) != Status::SUCCESS) {
         LE_KILL_CLIENT("Failed to send connection available event request to the modem!\n");
     }

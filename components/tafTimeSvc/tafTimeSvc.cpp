@@ -727,12 +727,13 @@ void taf_time_service_int(void)
 taf_time_TimeSourceStatusHandlerRef_t taf_time_AddTimeSourceStatusHandler
 (
     taf_time_SourceRef_t srcRef,
+    taf_time_StatusEventType_t eventType,
     taf_time_TimeSourceStatusHandlerFunc_t handlerPtr,
     void* contextPtr
 )
 {
     auto& time = taf_Time::GetInstance();
-    return time.AddTimeSourceStatusHandler(srcRef, handlerPtr, contextPtr);
+    return time.AddTimeSourceStatusHandler(srcRef, eventType, handlerPtr, contextPtr);
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -747,6 +748,63 @@ void taf_time_RemoveTimeSourceStatusHandler
 {
     auto& time = taf_Time::GetInstance();
     return time.RemoveTimeSourceStatusHandler(handlerRef);
+}
+
+/*======================================================================
+
+ FUNCTION        taf_time_IsSourceValid
+
+ DESCRIPTION     Gets the validity of a source.
+
+ DEPENDENCIES    Initialization of Time Service.
+
+ PARAMETERS      [IN] taf_time_SourceRef_t sourceRef: Source ref
+                 [OUT] Validity of given source
+
+
+ RETURN VALUE
+                - true if valid.
+                - false if not invalid.
+
+ SIDE EFFECTS
+
+======================================================================*/
+bool taf_time_IsSourceValid
+(
+    taf_time_SourceRef_t sourceRef
+)
+{
+    auto& tafTime = taf_Time::GetInstance();
+    return tafTime.IsSourceValid(sourceRef);
+}
+
+/*======================================================================
+
+ FUNCTION        taf_time_SetValidity
+
+ DESCRIPTION     Sets the validity of a source.
+
+ DEPENDENCIES    Initialization of Time Service.
+
+ PARAMETERS      [IN] taf_time_SourceRef_t sourceRef: Source ref
+                 [IN] Validity to set given source
+
+
+ RETURN VALUE
+                - LE_OK if successful.
+                - LE_FAULT if any error occurs.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_time_SetValidity
+(
+    taf_time_SourceRef_t sourceRef,
+    bool validity
+)
+{
+    auto& tafTime = taf_Time::GetInstance();
+    return tafTime.SetValidity(sourceRef, validity);
 }
 
 /**

@@ -36,8 +36,7 @@
 #include "interfaces.h"
 
 #include "tafDiagStackInf.hpp"
-#include "tafDIDBackendSvr.hpp"
-#include "tafSecBackendSvr.hpp"
+#include "tafDiagBackendSvr.hpp"
 
 #include "DiagNode.h"
 #include "ecu_types.h"
@@ -74,14 +73,8 @@ void taf_DiagStack::Init(void)
     ecu1.Start(cb,"Gateway",false);
     ecu1.Run(true);
 
-    // Create memory pools for request.
-    ReadDIDMsgPool = le_mem_CreatePool("ReadDIDMsgPool", sizeof(taf_ReadDIDReqMsg_t));
-    SesCtrlMsgPool = le_mem_CreatePool("SesCtrlMsgPool", sizeof(taf_SesCtrlReqMsg_t));
-    SesChangeMsgPool = le_mem_CreatePool("SesChangeMsgPool", sizeof(taf_SesCtrlChangeMsg_t));
-
-    // Create reference maps
-    ReadDIDMsgRefMap = le_ref_CreateMap("ReadDIDMsgRefMap", DEFAULT_MSG_REF_CNT);
-    DSCMsgRefMap = le_ref_CreateMap("DSCMsgRefMap", DEFAULT_MSG_REF_CNT);
+    DiagMsgPool = le_mem_CreatePool("DiagMsgPool", sizeof(taf_DiagReqMsg_t));
+    DiagMsgRefMap = le_ref_CreateMap("DiagMsgRefMap", DEFAULT_MSG_REF_CNT);
 
     //Create the semaphore
     le_sem_Ref_t semRef = le_sem_Create("SmThreadSem", 0);
@@ -108,19 +101,14 @@ void* taf_DiagStack::RespEventThread
 
     le_sem_Ref_t semRef = (le_sem_Ref_t)contextPtr;
 
-    // Create Internal event for readDID to report request msg.
-    diagStack.ReadDIDRespEvtId = le_event_CreateIdWithRefCounting("ReadDIDResponseEvent");
-    le_event_AddHandler("ReadDID response Event Handler", diagStack.ReadDIDRespEvtId,
-            ReadDIDRespEvtHandler);
-
-    // Create Internal event for sessionCtrl to report request msg.
-    diagStack.SesCtrlRespEvtId = le_event_CreateIdWithRefCounting("SesCtrlResponseEvent");
-    le_event_AddHandler("Session ctrl response Event Handler", diagStack.SesCtrlRespEvtId,
-            SesCtrlRespEvtHandler);
+    // Create Internal event for given service to report request msg.
+    diagStack.DiagEventRespEvtId = le_event_CreateIdWithRefCounting("DiagEventResponseEvent");
+    le_event_AddHandler("DiagEvent response Event Handler", diagStack.DiagEventRespEvtId,
+            DiagEventRespEvtHandler);
 
     le_sem_Post(semRef);
 
-    LE_DEBUG("Create event loop for DID event");
+    LE_DEBUG("Create event loop for Diag event");
     le_event_RunLoop();
 
     return NULL;
@@ -140,29 +128,39 @@ Tdd_DG_Status taf_DiagStack::AP_ReadWriteDataByID
 )
 {
     LE_INFO("AP_ReadWriteDataByID callback!");
-    auto &didBackend = taf_DIDBackend::GetInstance();
+    auto &diagBackend = taf_DiagBackend::GetInstance();
 
-    if (Luc_AP_ServiceId == 0x22)
+    if (Luc_AP_ServiceId == SID_READ_DATA_BY_IDENTIFIER)
     {
         std::lock_guard<std::mutex> lock(ResponseStatusMtx);
         if (ResponseStatus == READYFORNEWREQ)
         {
-            taf_ReadDIDReqMsg_t *readDIDReqMsgPtr = NULL;
-            readDIDReqMsgPtr = (taf_ReadDIDReqMsg_t*)le_mem_ForceAlloc(ReadDIDMsgPool);
-            memset(readDIDReqMsgPtr, 0, sizeof(taf_ReadDIDReqMsg_t));
-            LE_DEBUG("AP_ReadWriteDataByID readDIDReqMsgPtr address: %p", readDIDReqMsgPtr);
+            taf_DiagReqMsg_t *diagReqMsgPtr = NULL;
+            diagReqMsgPtr = (taf_DiagReqMsg_t*)le_mem_ForceAlloc(DiagMsgPool);
+            memset(diagReqMsgPtr, 0, sizeof(taf_DiagReqMsg_t));
+            LE_DEBUG("AP_ReadWriteDataByID diagReqMsgPtr address: %p", diagReqMsgPtr);
 
-            // Fill the readDID data request msg and report to requestEventID
-            readDIDReqMsgPtr->svcId = Luc_AP_ServiceId;
-            readDIDReqMsgPtr->readDID = Lus_AP_RecordID;
-            readDIDReqMsgPtr->link = LE_DLS_LINK_INIT;
-            readDIDReqMsgPtr->readDIDRef = (taf_diagDIDBackend_ReadDIDRef_t)le_ref_CreateRef(
-                    ReadDIDMsgRefMap, readDIDReqMsgPtr);
+            LE_DEBUG("Requested DID: %hu",Lus_AP_RecordID);
+            LE_DEBUG("Parameter given size : %hu",Size);
+            LE_DEBUG("Parameter Position: %x",Position);
+            diagReqMsgPtr->svcId = Luc_AP_ServiceId;
+            diagReqMsgPtr->data[0] = Luc_AP_ServiceId;
+            diagReqMsgPtr->data[1] = (Lus_AP_RecordID & 0xff00) >> 8;
+            diagReqMsgPtr->data[2] = (Lus_AP_RecordID & 0xff);
+            diagReqMsgPtr->dataLen = READ_DID_REQ_BASE_LEN;
+            diagReqMsgPtr->ref = (taf_diagBackend_DiagInfRef_t)le_ref_CreateRef(
+                    DiagMsgRefMap, diagReqMsgPtr);
+            diagReqMsgPtr->link = LE_DLS_LINK_INIT;
 
-            le_dls_Queue(&readDIDList, &readDIDReqMsgPtr->link);
+            LE_DEBUG("Pushed data:");
+            LE_DEBUG("diagReqMsgPtr->dataLen: %ld", sizeof(data));
+            LE_DEBUG("1:%x",diagReqMsgPtr->data[1]);
+            LE_DEBUG("2:%x",diagReqMsgPtr->data[2]);
+
+            le_dls_Queue(&diagMsgList, &diagReqMsgPtr->link);
 
             // Report readDID request event.
-            le_event_ReportWithRefCounting(didBackend.ReadDIDReqEvtId, readDIDReqMsgPtr);
+            le_event_ReportWithRefCounting(diagBackend.DiagEventReqEvtId, diagReqMsgPtr);
             LE_INFO("AP_ReadWriteDataByID callback reported");
 
             //
@@ -177,6 +175,8 @@ Tdd_DG_Status taf_DiagStack::AP_ReadWriteDataByID
         {
             // write buffer
             Callbacks::api->DG_Write_Buffer(data, dataLen);
+            memset(data, 0, dataLen);
+            dataLen = 0;
             ResponseStatus = READYFORNEWREQ;
             return DG_OK;
         }
@@ -187,10 +187,80 @@ Tdd_DG_Status taf_DiagStack::AP_ReadWriteDataByID
             return DG_NOT_OK;
         }
     }
-    else if (Luc_AP_ServiceId == 0x2E)
+    else if (Luc_AP_ServiceId == SID_WRITE_DATA_BY_IDENTIFIER)
     {
-        // Not implemented.
-        return DG_NOT_OK;
+        // Fill writeDID data request msg and report to requestEventID
+        std::lock_guard<std::mutex> lock(ResponseStatusMtx);
+        if (ResponseStatus == READYFORNEWREQ)
+        {
+            taf_DiagReqMsg_t *diagReqMsgPtr = NULL;
+            diagReqMsgPtr = (taf_DiagReqMsg_t*)le_mem_ForceAlloc(DiagMsgPool);
+            memset(diagReqMsgPtr, 0, sizeof(taf_DiagReqMsg_t));
+            LE_INFO("AP_ReadWriteDataByID diagReqMsgPtr address: %p", diagReqMsgPtr);
+            
+            LE_DEBUG("Received write request");
+            LE_DEBUG("DID :0x%X, Size : %d", Lus_AP_RecordID, Size);
+            LE_DEBUG("Requested DID: %hu",Lus_AP_RecordID);
+            LE_DEBUG("Parameter given size : %hu",Size);
+            LE_DEBUG("Parameter Position: %x",Position);
+
+            C_UBYTE dataptr[DATA_RECORD_REQ_MAX_SIZE];
+
+            Tdd_DG_Status Ldd_DG_Status =  Callbacks::api->DG_Read_Buffer(dataptr, 3, Size);
+            
+            if(Ldd_DG_Status == DG_OK) {
+                // Fill the readDID data request msg and report to requestEventID
+                diagReqMsgPtr->svcId = Luc_AP_ServiceId;
+                diagReqMsgPtr->data[0] = Luc_AP_ServiceId;
+                diagReqMsgPtr->data[1] = (Lus_AP_RecordID & 0xff00) >> 8;
+                diagReqMsgPtr->data[2] = (Lus_AP_RecordID & 0xff);
+                size_t dataRecLen = WRITE_DID_REQ_BASE_LEN;
+
+                for (int i = 0; i < Size; i++)
+                {
+                    LE_DEBUG("received data");
+                    diagReqMsgPtr->data[i + WRITE_DID_REQ_BASE_LEN] = dataptr[i];
+                    dataRecLen++; 
+                    LE_DEBUG("received write DID data:%x",dataptr[i]);
+                    LE_DEBUG("received write DID data:%d",int(dataptr[i]));
+                }
+                LE_DEBUG("dataLen:%d", int(dataRecLen));
+                diagReqMsgPtr->dataLen = dataRecLen;
+                diagReqMsgPtr->link = LE_DLS_LINK_INIT;
+
+                diagReqMsgPtr->ref = (taf_diagBackend_DiagInfRef_t)le_ref_CreateRef(
+                    DiagMsgRefMap, diagReqMsgPtr);
+
+                le_dls_Queue(&diagMsgList, &diagReqMsgPtr->link);
+
+                // Report readDID request event.
+                le_event_ReportWithRefCounting(diagBackend.DiagEventReqEvtId, diagReqMsgPtr);
+                LE_INFO("AP_ReadWriteDataByID callback reported");
+
+                ResponseStatus = PROCESSING;
+                return DG_RESP_PEND;
+            }else{
+                LE_INFO("Read Failed");
+                return DG_NOT_OK;
+            }
+
+        }
+        else if (ResponseStatus == PROCESSING)
+        {
+            return DG_RESP_PEND;
+        }
+        else if (ResponseStatus == FINISHED)
+        {
+            memset(data, 0, dataLen);
+            dataLen = 0;
+            ResponseStatus = READYFORNEWREQ;
+            return DG_OK;
+        }
+        else
+        {
+            ResponseStatus = READYFORNEWREQ;
+            return DG_NOT_OK;
+        }
     }
 
     return DG_OK;
@@ -207,26 +277,29 @@ Tdd_DG_Status taf_DiagStack::AP_Condition_For_DiagSess
 )
 {
     LE_INFO("AP_Condition_For_DiagSess callback!");
-    auto &SecBackend = taf_SecBackend::GetInstance();
+    auto &diagBackend = taf_DiagBackend::GetInstance();
 
     std::lock_guard<std::mutex> lock(ResponseStatusMtx);
     if (ResponseStatus == READYFORNEWREQ)
     {
-        taf_SesCtrlReqMsg_t *sesCtrlReqMsgPtr = NULL;
-        sesCtrlReqMsgPtr = (taf_SesCtrlReqMsg_t *)le_mem_ForceAlloc(SesCtrlMsgPool);
-        memset(sesCtrlReqMsgPtr, 0, sizeof(taf_SesCtrlReqMsg_t));
+        taf_DiagReqMsg_t *diagReqMsgPtr = NULL;
+        diagReqMsgPtr = (taf_DiagReqMsg_t *)le_mem_ForceAlloc(DiagMsgPool);
+        memset(diagReqMsgPtr, 0, sizeof(taf_DiagReqMsg_t));
 
-        sesCtrlReqMsgPtr->svcId = 0x10;
-        sesCtrlReqMsgPtr->sesType = (taf_diagSecBackend_SessionType_t)Luc_DG_DiagSess;
-        sesCtrlReqMsgPtr->link = LE_DLS_LINK_INIT;
-        sesCtrlReqMsgPtr->sesTypeRef = (taf_diagSecBackend_SesTypeCheckRef_t)le_ref_CreateRef(
-            DSCMsgRefMap, sesCtrlReqMsgPtr);
+        diagReqMsgPtr->svcId = SID_DIAGNOSTIC_SESSION_CONTROL;
+        diagReqMsgPtr->data[0] = SID_DIAGNOSTIC_SESSION_CONTROL;
+        diagReqMsgPtr->data[1] = Luc_DG_DiagSess;
+        diagReqMsgPtr->dataLen = SES_CONTROL_REQ_BASE_LEN;
+        diagReqMsgPtr->ref = (taf_diagBackend_DiagInfRef_t)le_ref_CreateRef(
+            DiagMsgRefMap, diagReqMsgPtr);
+        diagReqMsgPtr->link = LE_DLS_LINK_INIT;
 
-        le_dls_Queue(&DSCList, &sesCtrlReqMsgPtr->link);
-
-        // Report readDID request event.
-        le_event_ReportWithRefCounting(SecBackend.SesCtrlReqEvtId, sesCtrlReqMsgPtr);
-        LE_DEBUG("AP_Condition_For_DiagSess callback reported");
+        le_dls_Queue(&diagMsgList, &diagReqMsgPtr->link);
+        
+        // Report session chnage notification event.
+        le_event_ReportWithRefCounting(diagBackend.DiagEventReqEvtId, diagReqMsgPtr);
+        
+	LE_DEBUG("AP_Condition_For_DiagSess callback reported");
 
         ResponseStatus = PROCESSING;
         return DG_RESP_PEND;
@@ -237,6 +310,8 @@ Tdd_DG_Status taf_DiagStack::AP_Condition_For_DiagSess
     }
     else if (ResponseStatus == FINISHED)
     {
+        memset(data, 0, dataLen);
+	dataLen = 0;
         ResponseStatus = READYFORNEWREQ;
         return DG_OK;
     }
@@ -261,39 +336,46 @@ void taf_DiagStack::AP_SessionChange
 )
 {
     LE_INFO("AP_SessionChange callback!");
-    auto &SecBackend = taf_SecBackend::GetInstance();
+    auto &diagBackend = taf_DiagBackend::GetInstance();
 
-    taf_SesCtrlChangeMsg_t *sesChanegeMsgPtr = NULL;
-    sesChanegeMsgPtr = (taf_SesCtrlChangeMsg_t *)le_mem_ForceAlloc(SesChangeMsgPool);
-    memset(sesChanegeMsgPtr, 0, sizeof(taf_SesCtrlChangeMsg_t));
+    taf_DiagReqMsg_t *diagReqMsgPtr = NULL;
+    diagReqMsgPtr = (taf_DiagReqMsg_t *)le_mem_ForceAlloc(DiagMsgPool);
+    memset(diagReqMsgPtr, 0, sizeof(taf_DiagReqMsg_t));
 
-    // Fill the previous and current seesion type
-    sesChanegeMsgPtr->prev_session = (taf_diagSecBackend_SessionType_t)prevLuc_DG_DiagSess;
-    sesChanegeMsgPtr->current_session = (taf_diagSecBackend_SessionType_t)Luc_DG_DiagSess;
+    diagReqMsgPtr->svcId = SID_DIAGNOSTIC_SESSION_CHANGE;
+    diagReqMsgPtr->data[0] = SID_DIAGNOSTIC_SESSION_CHANGE;
+    diagReqMsgPtr->data[1] = prevLuc_DG_DiagSess;
+    diagReqMsgPtr->data[2] = Luc_DG_DiagSess;
+    diagReqMsgPtr->dataLen = SES_CHANGE_REQ_BASE_LEN;
+    diagReqMsgPtr->ref = (taf_diagBackend_DiagInfRef_t)le_ref_CreateRef(
+        DiagMsgRefMap, diagReqMsgPtr);
+    diagReqMsgPtr->link = LE_DLS_LINK_INIT;
 
+    le_dls_Queue(&diagMsgList, &diagReqMsgPtr->link);
+    
     // Report session chnage notification event.
-    le_event_ReportWithRefCounting(SecBackend.SesChangeEvtId, sesChanegeMsgPtr);
+    le_event_ReportWithRefCounting(diagBackend.DiagEventReqEvtId, diagReqMsgPtr);
 }
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Read DID response handler.
+ * Diag Event response handler.
  */
 //--------------------------------------------------------------------------------------------------
-void taf_DiagStack::ReadDIDRespEvtHandler
+void taf_DiagStack::DiagEventRespEvtHandler
 (
     void* reqPtr
 )
 {
-    LE_INFO("ReadDIDRespEvtHandler!");
+    LE_INFO("DiagEventRespEvtHandler!");
 
-    taf_ReadDIDRespMsg_t* readDIDRespMsgPtr = (taf_ReadDIDRespMsg_t *)reqPtr;
+    taf_DiagRespMsg_t* diagEventRespMsgPtr = (taf_DiagRespMsg_t *)reqPtr;
     auto &cb = taf_DiagStack::GetInstance();
 
     // Check the reference to find the previous request.
-    taf_ReadDIDReqMsg_t *readDIDReqMsgPtr =
-            (taf_ReadDIDReqMsg_t*)le_ref_Lookup(cb.ReadDIDMsgRefMap, readDIDRespMsgPtr->readDIDRef);
-    if (readDIDReqMsgPtr == NULL)
+    taf_DiagReqMsg_t *diagEventReqMsgPtr =
+            (taf_DiagReqMsg_t*)le_ref_Lookup(cb.DiagMsgRefMap, diagEventRespMsgPtr->ref);
+    if (diagEventRespMsgPtr == NULL)
     {
         std::lock_guard<std::mutex> lock(cb.ResponseStatusMtx);
         cb.ResponseStatus = FAILED;
@@ -302,13 +384,18 @@ void taf_DiagStack::ReadDIDRespEvtHandler
     }
 
     // Send the response data
-    if (readDIDRespMsgPtr->errCode == 0)
+    if (diagEventRespMsgPtr->errCode == 0)
     {
         LE_DEBUG("Send Positive response");
         // Get response data and send positive response.
-        std::memcpy(cb.data, readDIDRespMsgPtr->dataRec, sizeof(readDIDRespMsgPtr->dataRec));
-        cb.dataLen = readDIDRespMsgPtr->dataRecLen;
-        std::lock_guard<std::mutex> lock(cb.ResponseStatusMtx);
+        if(diagEventRespMsgPtr->dataRec != nullptr && diagEventRespMsgPtr->dataLen != 0){
+            std::memcpy(cb.data, diagEventRespMsgPtr->dataRec, sizeof(diagEventRespMsgPtr->dataRec));
+            cb.dataLen = diagEventRespMsgPtr->dataLen;
+            for(int k=0; k < int(cb.dataLen); k++){
+                LE_DEBUG("cb.data[%d]: %x",k,cb.data[k]);
+            }
+        }
+	std::lock_guard<std::mutex> lock(cb.ResponseStatusMtx);
         cb.ResponseStatus = FINISHED;
         LE_DEBUG("Positive response sent");
     }
@@ -317,77 +404,21 @@ void taf_DiagStack::ReadDIDRespEvtHandler
         LE_DEBUG("Send NRC response");
         //Negative response.
         std::lock_guard<std::mutex> lock(cb.ResponseStatusMtx);
-        cb.nrcValue = readDIDRespMsgPtr->errCode;
+        cb.nrcValue = diagEventRespMsgPtr->errCode;
         cb.ResponseStatus = FAILED;
         LE_DEBUG("NRC response Sent");
     }
 
     // Remove the message from the list.
-    le_dls_Remove(&(cb.readDIDList), &(readDIDReqMsgPtr->link));
+    le_dls_Remove(&(cb.diagMsgList), &(diagEventReqMsgPtr->link));
 
     // Free the message
-    le_ref_DeleteRef(cb.ReadDIDMsgRefMap, readDIDReqMsgPtr->readDIDRef);
+    le_ref_DeleteRef(cb.DiagMsgRefMap, diagEventReqMsgPtr->ref);
 
-    le_mem_Release(readDIDReqMsgPtr);
+    le_mem_Release(diagEventReqMsgPtr);
 
-    readDIDRespMsgPtr->readDIDRef = NULL;
-    le_mem_Release(readDIDRespMsgPtr);
-
-    LE_DEBUG("sent and allocated memory freed!");
-}
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Session control response handler.
- */
-//--------------------------------------------------------------------------------------------------
-void taf_DiagStack::SesCtrlRespEvtHandler
-(
-    void* reqPtr
-)
-{
-    LE_INFO("SesCtrlRespEvtHandler!");
-
-    taf_SesCtrlRespMsg_t *sesCrtlRespMsgPtr = (taf_SesCtrlRespMsg_t *)reqPtr;
-    auto &cb = taf_DiagStack::GetInstance();
-
-    // Check the reference to find the previous request.
-    taf_SesCtrlReqMsg_t *sesCtrlReqMsgPtr =
-        (taf_SesCtrlReqMsg_t *)le_ref_Lookup(cb.DSCMsgRefMap, sesCrtlRespMsgPtr->sesTypeRef);
-    if (sesCtrlReqMsgPtr == NULL)
-    {
-        std::lock_guard<std::mutex> lock(cb.ResponseStatusMtx);
-        cb.ResponseStatus = FAILED;
-        LE_ERROR("Cannot find the reqMsgRef");
-        return ;
-    }
-
-    if (sesCrtlRespMsgPtr->errCode == 0)
-    {
-        LE_DEBUG("Send Positive response");
-        // Send positive response
-        std::lock_guard<std::mutex> lock(cb.ResponseStatusMtx);
-        cb.ResponseStatus = FINISHED;
-        LE_DEBUG("Positive response sent");
-    }
-    else
-    {
-        LE_DEBUG("Send NRC response");
-        std::lock_guard<std::mutex> lock(cb.ResponseStatusMtx);
-        cb.nrcValue = sesCrtlRespMsgPtr->errCode;
-        cb.ResponseStatus = FAILED;
-    }
-
-    // Remove the message from the list.
-    le_dls_Remove(&(cb.DSCList), &(sesCtrlReqMsgPtr->link));
-
-    // Free the message
-    le_ref_DeleteRef(cb.DSCMsgRefMap, sesCtrlReqMsgPtr->sesTypeRef);
-
-    le_mem_Release(sesCtrlReqMsgPtr);
-
-    sesCrtlRespMsgPtr->sesTypeRef = NULL;
-    le_mem_Release(sesCrtlRespMsgPtr);
+    diagEventRespMsgPtr->ref = NULL;
+    le_mem_Release(diagEventRespMsgPtr);
 
     LE_DEBUG("sent and allocated memory freed!");
 }

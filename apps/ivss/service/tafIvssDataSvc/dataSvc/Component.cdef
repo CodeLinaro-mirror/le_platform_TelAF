@@ -14,7 +14,7 @@ requires:
 sources:
 {
     tafIvssDataSvc.cpp
-    tafIvssMngdSvcImpl.cpp
+    tafIvssMngdConnSvcImpl.cpp
 }
 
 cxxflags:

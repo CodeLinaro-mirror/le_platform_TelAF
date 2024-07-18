@@ -43,6 +43,5 @@ bindings:
 
 extern:
 {
-    tafDiagBackendSvc.tafDiagBackendSvc.taf_diagDIDBackend
-    tafDiagBackendSvc.tafDiagBackendSvc.taf_diagSecBackend
+    tafDiagBackendSvc.tafDiagBackendSvc.taf_diagBackend
 }

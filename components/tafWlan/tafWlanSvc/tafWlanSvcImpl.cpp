@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -194,6 +194,10 @@ le_result_t taf_WlanSvcImpl::SetMode
         numAP = 2;
         numSTA = 0;
         break;
+    case TAF_WLAN_MODE_AP_AP_STA:
+        numAP = 2;
+        numSTA = 1;
+        break;
     // Unsupported modes
     case TAF_WLAN_MODE_UNKNOWN:
     default:
@@ -266,6 +270,11 @@ le_result_t taf_WlanSvcImpl::GetMode
         // AP + AP
         *wlanModePtr = TAF_WLAN_MODE_AP_AP;
     }
+    else if (2 == numOfAP && 1 == numOfSTA)
+    {
+        // AP + AP
+        *wlanModePtr = TAF_WLAN_MODE_AP_AP_STA;
+    }
     else
     {
         // Unsupported mode
@@ -274,6 +283,155 @@ le_result_t taf_WlanSvcImpl::GetMode
         return LE_UNSUPPORTED;
     }
 
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Fill active WLAN interface(s) information for GetIntfInfo() in case it is possible to get the
+ * information from TelSDK.
+ * This API is used only within the service and not exposed to application. Applications should use
+ * taf_wlan_GetIntfInfo()
+ *
+ * The implementaiton can be improved to read the interface names directly from the wpa_supplicant
+ * or hostapd conf files.
+ *
+ * @return
+ * - LE_OK            Succeeded.
+ * - Appropriate error is returned on failure.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_WlanSvcImpl::FillIntfInfo(
+    taf_wlan_APIntfInfo_t *APIntfinfoPtr,
+    ///< [OUT] The WLAN AP interfaces information.
+    size_t *APIntfinfoSizePtr,
+    ///< [INOUT]
+    taf_wlan_STAIntfInfo_t *STAIntfinfoPtr,
+    ///< [OUT] The WLAN STA interfaces information.
+    size_t *STAIntfinfoSizePtr
+    ///< [INOUT]
+)
+{
+    le_result_t ret = LE_OK;
+    taf_wlan_DeviceMode_t wlanMode;
+    // Initialize size to 0
+    *APIntfinfoSizePtr  = 0;
+    *STAIntfinfoSizePtr = 0;
+
+    // Get current WLAN mode
+    ret = GetMode(&wlanMode);
+    if (LE_OK != ret)
+    {
+        LE_WARN("Failed to get WLAN mode");
+        return ret;
+    }
+    LE_DEBUG("Wlan Mode: %d", wlanMode);
+    switch (wlanMode)
+    {
+    // AP only
+    case TAF_WLAN_MODE_AP:
+        LE_INFO("Wlan Mode: TAF_WLAN_MODE_AP");
+
+        *APIntfinfoSizePtr = 1;
+        *STAIntfinfoSizePtr = 0;
+        APIntfinfoPtr[0].id = TAF_WLAN_AP_ID1;
+        ret = le_utf8_Copy(APIntfinfoPtr[0].IntfName, "wlan0",
+                           TAF_NET_INTERFACE_NAME_MAX_LEN + 1, NULL);
+        if (LE_OK != ret)
+        {
+            LE_WARN("IntfName copy error: %d", ret);
+        }
+        break;
+    // STA only
+    case TAF_WLAN_MODE_STA:
+        LE_INFO("Wlan Mode: TAF_WLAN_MODE_STA");
+        *APIntfinfoSizePtr  = 0;
+        *STAIntfinfoSizePtr = 1;
+        STAIntfinfoPtr[0].id = TAF_WLAN_STA_ID1;
+        ret = le_utf8_Copy(STAIntfinfoPtr[0].IntfName, "wlan0",
+                           TAF_NET_INTERFACE_NAME_MAX_LEN + 1, NULL);
+        if (LE_OK != ret)
+        {
+            LE_WARN("IntfName copy error: %d", ret);
+        }
+        break;
+    // STA + AP
+    case TAF_WLAN_MODE_STA_AP:
+        LE_INFO("Wlan Mode: TAF_WLAN_MODE_STA_AP");
+        *APIntfinfoSizePtr  = 1;
+        *STAIntfinfoSizePtr = 1;
+        STAIntfinfoPtr[0].id = TAF_WLAN_STA_ID1;
+        ret = le_utf8_Copy(STAIntfinfoPtr[0].IntfName, "wlan0",
+                           TAF_NET_INTERFACE_NAME_MAX_LEN + 1, NULL);
+        if (LE_OK != ret)
+        {
+            LE_WARN("IntfName copy error: %d", ret);
+        }
+        APIntfinfoPtr[0].id = TAF_WLAN_AP_ID1;
+        ret = le_utf8_Copy(APIntfinfoPtr[0].IntfName, "wlan1",
+                           TAF_NET_INTERFACE_NAME_MAX_LEN + 1, NULL);
+        if (LE_OK != ret)
+        {
+            LE_WARN("IntfName copy error: %d", ret);
+        }
+        break;
+    // AP + AP
+    case TAF_WLAN_MODE_AP_AP:
+        LE_INFO("Wlan Mode: TAF_WLAN_MODE_AP_AP");
+        *APIntfinfoSizePtr = 2;
+        *STAIntfinfoSizePtr = 0;
+        APIntfinfoPtr[0].id = TAF_WLAN_AP_ID1;
+        ret = le_utf8_Copy(APIntfinfoPtr[0].IntfName, "wlan0",
+                           TAF_NET_INTERFACE_NAME_MAX_LEN + 1, NULL);
+        if (LE_OK != ret)
+        {
+            LE_WARN("IntfName copy error: %d", ret);
+        }
+        APIntfinfoPtr[1].id = TAF_WLAN_AP_ID2;
+        ret = le_utf8_Copy(APIntfinfoPtr[1].IntfName, "wlan1",
+                           TAF_NET_INTERFACE_NAME_MAX_LEN + 1, NULL);
+        if (LE_OK != ret)
+        {
+            LE_WARN("IntfName copy error: %d", ret);
+        }
+        break;
+        // AP + AP + STA
+    case TAF_WLAN_MODE_AP_AP_STA:
+        LE_INFO("Wlan Mode: TAF_WLAN_MODE_AP_AP_STA");
+        *APIntfinfoSizePtr = 2;
+        *STAIntfinfoSizePtr = 1;
+
+        STAIntfinfoPtr[0].id = TAF_WLAN_STA_ID1;
+        ret = le_utf8_Copy(STAIntfinfoPtr[0].IntfName, "wlan0",
+                           TAF_NET_INTERFACE_NAME_MAX_LEN + 1, NULL);
+        if (LE_OK != ret)
+        {
+            LE_WARN("IntfName copy error: %d", ret);
+        }
+
+        APIntfinfoPtr[0].id = TAF_WLAN_AP_ID1;
+        ret = le_utf8_Copy(APIntfinfoPtr[0].IntfName, "wlan1",
+                           TAF_NET_INTERFACE_NAME_MAX_LEN + 1, NULL);
+        if (LE_OK != ret)
+        {
+            LE_WARN("IntfName copy error: %d", ret);
+        }
+        APIntfinfoPtr[1].id = TAF_WLAN_AP_ID2;
+        ret = le_utf8_Copy(APIntfinfoPtr[1].IntfName, "wlan2",
+                           TAF_NET_INTERFACE_NAME_MAX_LEN + 1, NULL);
+        if (LE_OK != ret)
+        {
+            LE_WARN("IntfName copy error: %d", ret);
+        }
+
+        break;
+
+    default:
+        LE_WARN("Unknown mode");
+        return LE_FAULT;
+        break;
+    }
     return LE_OK;
 }
 
@@ -300,94 +458,14 @@ le_result_t taf_WlanSvcImpl::GetIntfInfo
         ///< [INOUT]
 )
 {
-    std::vector<telux::wlan::InterfaceStatus> status;
-    bool isEnabled;
-    int iCount = 0;
-    size_t APSize = 0, STASize = 0;
     if (nullptr == wlanDevMgr)
     {
         LE_WARN("WLAN Device not initialized");
         return LE_NOT_PERMITTED;
     }
-    telux::common::ErrorCode errCode = wlanDevMgr->getStatus(isEnabled, status);
-    if (telux::common::ErrorCode::SUCCESS != errCode)
-    {
-        LE_WARN("WLAN getStatus failed: %d", (int)errCode);
-        return LE_FAULT;
-    }
-
-    // Do not get interface information if WLAN is disabled
-    if (!isEnabled)
-    {
-        LE_WARN("WLAN is disabled");
-        *APIntfinfoSizePtr = 0;
-        *STAIntfinfoSizePtr = 0;
-        return LE_OK;
-    }
-
-    LE_DEBUG("Sizeof(InterfaceStatus) %ld", sizeof(status));
-    // Even though InterfaceStatus is a vector, we will use only the first element.
-
-    // Get AP interface information
-    APSize = status[0].apStatus.size();
-    if (APSize > *APIntfinfoSizePtr)
-    {
-        LE_WARN("APIntfinfoSize[%ld] smaller than number of APs[%ld]", *APIntfinfoSizePtr, APSize);
-        // Populate only up to APIntfinfoSize
-        APSize = *APIntfinfoSizePtr;
-    }
-    else
-    {
-        *APIntfinfoSizePtr = APSize;
-    }
-    LE_DEBUG("Num APs %ld", *APIntfinfoSizePtr);
-    for (auto &ap : status[0].apStatus)
-    {
-        le_result_t ret = LE_OK;
-        APIntfinfoPtr[iCount].id = taf_WlanHelper::TeluxIdtoTAFAPId(ap.id);
-        LE_DEBUG("AP[%d] Id       : %d", iCount, APIntfinfoPtr[iCount].id);
-        LE_DEBUG("AP[%d] Intf Name: %s", iCount, ap.name.c_str());
-        ret = le_utf8_Copy(APIntfinfoPtr[iCount].IntfName, ap.name.c_str(),
-                           TAF_NET_INTERFACE_NAME_MAX_LEN + 1, NULL);
-        if (LE_OK != ret)
-        {
-            LE_WARN("IntfName copy error: %d", ret);
-        }
-        iCount++;
-    }
-
-    STASize = status[0].staStatus.size();
-    if (STASize > *STAIntfinfoSizePtr)
-    {
-        LE_WARN("STAIntfinfoSize[%ld] smaller than number of STAs[%ld]", *STAIntfinfoSizePtr, STASize);
-        // Populate only up to STAIntfinfoSize
-        STASize = *STAIntfinfoSizePtr;
-    }
-    else
-    {
-        *STAIntfinfoSizePtr = STASize;
-    }
-    LE_DEBUG("Num STAs %ld", *STAIntfinfoSizePtr);
-
-    // Reset iCount
-    iCount = 0;
-    for (auto &sta : status[0].staStatus)
-    {
-        le_result_t ret = LE_OK;
-
-        STAIntfinfoPtr[iCount].id = taf_WlanHelper::TeluxIdtoTAFSTAId(sta.id);
-        LE_DEBUG("STA[%d] Id       : %d", iCount, STAIntfinfoPtr[iCount].id);
-        LE_DEBUG("STA[%d] Intf Name: %s", iCount, sta.name.c_str());
-        ret = le_utf8_Copy(STAIntfinfoPtr[iCount].IntfName, sta.name.c_str(),
-                           TAF_NET_INTERFACE_NAME_MAX_LEN + 1, NULL);
-        if (LE_OK != ret)
-        {
-            LE_WARN("IntfName copy error: %d", ret);
-        }
-        iCount++;
-    }
-
-    return LE_OK;
+    // Fill in the interface names in TelAF as TelSDK will not provide the interface names in all
+    // scenarios.
+    return FillIntfInfo(APIntfinfoPtr, APIntfinfoSizePtr, STAIntfinfoPtr, STAIntfinfoSizePtr);
 }
 
 //--------------------------------------------------------------------------------------------------

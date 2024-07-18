@@ -2,9 +2,9 @@ provides:
 {
     api:
     {
-        taf_gnss.api
-        taf_pos.api
-        taf_posCtrl.api
+        taf_locGnss.api
+        taf_locPos.api
+        taf_locPosCtrl.api
     }
 }
 

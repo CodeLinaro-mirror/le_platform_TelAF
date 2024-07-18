@@ -73,11 +73,12 @@
 #define TAF_TIME_THREAD_STACK_SIZE 0x20000
 #define TAF_TIME_SERVICE_CONF_FILE       "tafTimeSvc.json"
 
-#define TAF_TIME_SERVICE_HEADER_STR      "TimeService"
-#define TAF_TIME_INTERVAL_SETTING_STR    "PollingInterval"
-#define TAF_TIME_TOLERANCES_SETTING_STR  "ToleranceMillsec"
-#define TAF_TIME_ALLOWOVERRIDE_STR      "AllowOverrideAfterFail"
-#define TAF_TIME_SERVICE_SOURCE_STR      "Sources"
+#define TAF_TIME_SERVICE_HEADER_STR        "TimeService"
+#define TAF_TIME_INTERVAL_SETTING_STR      "PollingInterval"
+#define TAF_TIME_TOLERANCES_SETTING_STR    "ToleranceMillsec"
+#define TAF_TIME_ALLOWOVERRIDE_STR         "AllowOverrideAfterFail"
+#define TAF_TIME_VALIDCLIENTLIST_STR       "ValidClientList"
+#define TAF_TIME_SERVICE_SOURCE_STR        "Sources"
 
 #define TAF_TIME_RTC_DEV_NAME "/dev/rtc0"
 //-------------------------------------------------------------------------------------------------
@@ -105,6 +106,14 @@
 #define NITZ_STR_BUF_MAX           60
 #define DEFAULT_TSR_EVENT_CNT      16
 #define DEFAULT_TSR_HANDLER_CNT    TAF_TIME_SRC_NAME_UNKNOWN
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Macro definition for valid status event type range.
+ */
+//-------------------------------------------------------------------------------------------------
+#define TAF_TIME_EVENT_TYPE_LOWER_BOUND 0
+#define TAF_TIME_EVENT_TYPE_UPPER_BOUND 3
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -250,6 +259,8 @@ typedef struct
     uint8_t dstAdj = 0;                      ///< Daylight saving adjustment in hours to obtain
                                              ///  local time. Possible values: 0, 1, and 2.
     le_msg_SessionRef_t sessionRef;          ///< Client that connected to the service.
+    taf_time_StatusEventType_t eventType;    ///< Type of event to which client want to
+                                             /// subscribe for.
     taf_time_TimeSourceStatusHandlerRef_t handlerRef = NULL;      ///< Handler reference.
     taf_time_TimeSourceStatusHandlerFunc_t handlerFunc = NULL;    ///< Handler function.
     void* context;                                                ///< Handler context.
@@ -266,7 +277,8 @@ typedef struct
     taf_time_SourceRef_t sourceRef;
     taf_SourceInf_t* sourcePtr;
     void* ref;
-    bool isAvailable;
+    bool status;
+    taf_time_StatusEventType_t eventType;
 }SourceStatusChange_Event_t;
 
 typedef struct
@@ -322,6 +334,7 @@ namespace telux
             long int pollingInterval;
             long int toleranceMillsec;
             int64_t allowOverrideAfterFail;
+            std::vector<std::string> validClientList;
             int sourceArrySize;
             int sourceVectorSize;
 
@@ -413,6 +426,11 @@ namespace telux
                     LE_INFO("ToleranceMillsec: %ld\n", toleranceMillsec);
                 }
                 LE_INFO("allowOverrideAfterFail: %ld\n", allowOverrideAfterFail);
+
+                for (auto item : validClientList) {
+                    LE_INFO("Client: %s\n", item.c_str());
+                }
+
                 LE_INFO("Time source size: %ld\n", source.size());
             }
         };
@@ -615,8 +633,8 @@ namespace telux
 
                 le_event_Id_t timeSourceStatusEventId;
                 taf_time_TimeSourceStatusHandlerRef_t AddTimeSourceStatusHandler(
-                    taf_time_SourceRef_t SrcRef,taf_time_TimeSourceStatusHandlerFunc_t handlerPtr,
-                    void* contextPtr);
+                    taf_time_SourceRef_t SrcRef, taf_time_StatusEventType_t eventType,
+                    taf_time_TimeSourceStatusHandlerFunc_t handlerPtr, void* contextPtr);
                 taf_time_SourceRef_t GetSourceRef(taf_time_TimeSources_t sourceId);
                 taf_SourceInf_t* SearchAvailableSourceInfList(taf_time_TimeSources_t sourceId);
                 void printSourceInfo();
@@ -635,6 +653,11 @@ namespace telux
                 void UpdateFailedLoops(taf_time_TimeSources_t sourceIndex,
                     taf_TimeFailLoopAction_t action);
                 void InitializeSystemTimeAttr();
+                bool IsSourceValid(taf_time_SourceRef_t sourceRef);
+                le_result_t SetValidity(taf_time_SourceRef_t sourceRef, bool validity);
+                le_result_t CheckSetValidityPermission();
+                void ReportValidityChange(taf_SourceInf_t* sourcePtr);
+
                 uint64_t PrevSrcAvailabiltyMap = 0x0;
                 struct SetTimeStatus* SetTimeSt = NULL;
 

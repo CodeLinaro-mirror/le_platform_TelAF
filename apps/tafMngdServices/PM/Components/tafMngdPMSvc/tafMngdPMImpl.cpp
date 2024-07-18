@@ -295,76 +295,20 @@ le_result_t tafMngdPMSvc::SuspendNAD()
 }
 
 /**
- * Shutdown response callback function for VHAL module
+ * NodeStateChange request callback function for VHAL module
  */
-void tafMngdPMSvc::ShutdownRespCB
-(
-    hal_pm_ShutdownMode_t mode,
-    hal_pm_RspReason_t reason
-)
-{
-    LE_INFO("***** %s *****", __FUNCTION__);
-    LE_INFO("hal_pm_ShutdownMode_t: %d", mode);
-    LE_INFO("hal_pm_RspReason_t: %d", reason);
-    if(le_timer_IsRunning(vhalAckTimerRef))
-    {
-        LE_DEBUG("Stop the timer");
-        le_timer_Stop(vhalAckTimerRef);
-    }
-    if (mode == HAL_PM_SHUTDOWN_MODE_GRACEFUL && reason == HAL_PM_RSP_READY)
-    {
-        taf_pm_SendStateChangeAck(powerStateRef, TAF_PM_STATE_ALL_ACKED, TAF_PM_PVM, TAF_PM_READY);
-    }
-    else if (mode == HAL_PM_SHUTDOWN_MODE_GRACEFUL && reason == HAL_PM_RSP_NOT_READY)
-    {
-        taf_pm_SendStateChangeAck(powerStateRef, TAF_PM_STATE_ALL_ACKED, TAF_PM_PVM,
-                TAF_PM_NOT_READY);
-    }
-    else if (mode == HAL_PM_SHUTDOWN_MODE_NORMAL && reason == HAL_PM_RSP_READY)
-    {
-        if(RequestStateChange(TAF_MNGDPM_STATE_SHUTTING_DOWN) != LE_OK)
-        {
-            return;
-        }
-
-        if(shutdownCB.shutdownCallbackFunc)
-        {
-            shutdownCB.shutdownCallbackFunc(TAF_MNGDPM_SHUTDOWN_MODE_NORMAL, TAF_MNGDPM_READY,
-                    shutdownCB.shutdownCBCtxPtr);
-        }
-        le_result_t res = ShutdownNAD();
-        if(res == LE_OK)
-        {
-            powerMode.isGraceful = false;
-        }
-    }
-    else if (mode == HAL_PM_SHUTDOWN_MODE_NORMAL && reason == HAL_PM_RSP_NOT_READY)
-    {
-        if(shutdownCB.shutdownCallbackFunc)
-        {
-            shutdownCB.shutdownCallbackFunc(
-                TAF_MNGDPM_SHUTDOWN_MODE_NORMAL,
-                TAF_MNGDPM_NOT_READY,
-                shutdownCB.shutdownCBCtxPtr);
-        }
-    }
-    shutdownCB.shutdownCallbackFunc = nullptr;
-}
-
-/**
- * Shutdown request callback function for VHAL module
- */
-void tafMngdPMSvc::ShutdownChangeReqRespCB
+void tafMngdPMSvc::NodeStateChangeReqRespCB
 (
     uint8_t pmNodeId,
     hal_pm_NodeState_t state,
-    hal_pm_ShutdownMode_t mode
+    hal_pm_PowerMode_t mode
 )
 {
     LE_INFO("***** %s *****", __FUNCTION__);
     LE_INFO("pmNodeId: %d", pmNodeId);
     LE_INFO("hal_pm_NodeState_t: %d", state);
-    LE_INFO("hal_pm_ShutdownMode_t: %d", mode);
+    LE_INFO("hal_pm_PowerMode_t: %d", mode);
+
     taf_pm_SendStateChangeAck(powerStateRef, TAF_PM_STATE_ALL_ACKED, TAF_PM_PVM,
             TAF_PM_READY);
 }
@@ -376,14 +320,14 @@ void tafMngdPMSvc::ShutdownPrepareRespCB
 (
     uint8_t pmNodeId,
     hal_pm_NodeState_t state,
-    hal_pm_ShutdownMode_t mode,
+    hal_pm_PowerMode_t mode,
     hal_pm_RspReason_t reason
 )
 {
     LE_INFO("***** %s *****", __FUNCTION__);
     LE_INFO("pmNodeId: %d", pmNodeId);
     LE_INFO("hal_pm_NodeState_t: %d", state);
-    LE_INFO("hal_pm_ShutdownMode_t: %d", mode);
+    LE_INFO("hal_pm_PowerMode_t: %d", mode);
     LE_INFO("hal_pm_RspReason_t: %d", reason);
     if(le_timer_IsRunning(vhalAckTimerRef))
     {
@@ -430,66 +374,20 @@ void tafMngdPMSvc::ShutdownPrepareRespCB
 }
 
 /**
- * Shutdown last response callback function from VHAL
- */
-void tafMngdPMSvc::ShutdownCmdCB
-(
-    hal_pm_ShutdownMode_t mode,
-    hal_pm_RspReason_t reason
-)
-{
-    LE_INFO("***** %s *****", __FUNCTION__);
-    LE_INFO("hal_pm_ShutdownMode_t: %d", mode);
-    LE_INFO("hal_pm_RspReason_t: %d", reason);
-    powerMode.isRestart = false;
-    if (mode == HAL_PM_SHUTDOWN_MODE_NORMAL && reason == HAL_PM_RSP_READY)
-    {
-        taf_pm_SendStateChangeAck(powerStateRef, TAF_PM_STATE_ALL_ACKED, TAF_PM_PVM,
-                TAF_PM_READY);
-    }
-    else if (mode == HAL_PM_SHUTDOWN_MODE_NORMAL && reason == HAL_PM_RSP_NOT_READY)
-    {
-        taf_pm_SendStateChangeAck(powerStateRef, TAF_PM_STATE_ALL_ACKED, TAF_PM_PVM,
-                TAF_PM_NOT_READY);
-    }
-}
-
-/**
- * Suspend response callback function for VHAL module
- */
-void tafMngdPMSvc::SuspendRespCB
-(
-    hal_pm_SuspendMode_t mode,
-    hal_pm_RspReason_t reason
-)
-{
-    LE_INFO("***** %s *****", __FUNCTION__);
-    LE_INFO("hal_pm_SuspendMode_t: %d", mode);
-    LE_INFO("hal_pm_RspReason_t: %d", reason);
-    powerMode.isSuspend = false;
-    if (mode == HAL_PM_SUSPEND_MODE_FULL && reason == HAL_PM_RSP_READY)
-    {
-        taf_pm_SendStateChangeAck(powerStateRef, TAF_PM_STATE_ALL_ACKED, TAF_PM_PVM,
-                TAF_PM_READY);
-    }
-    else if (mode == HAL_PM_SUSPEND_MODE_FULL && reason == HAL_PM_RSP_NOT_READY)
-    {
-        taf_pm_SendStateChangeAck(powerStateRef, TAF_PM_STATE_ALL_ACKED, TAF_PM_PVM,
-                TAF_PM_NOT_READY);
-    }
-}
-
-/**
  * Restart response callback function for VHAL module
  */
-void tafMngdPMSvc::RestartRespCB
+void tafMngdPMSvc::RestartPrepareRespCB
 (
-    hal_pm_RestartMode_t mode,
+    uint8_t pmNodeId,
+    hal_pm_NodeState_t state,
+    hal_pm_PowerMode_t mode,
     hal_pm_RspReason_t reason
 )
 {
     LE_INFO("***** %s *****", __FUNCTION__);
-    LE_INFO("hal_pm_RestartMode_t: %d", mode);
+    LE_INFO("pmNodeId: %d", pmNodeId);
+    LE_INFO("hal_pm_NodeState_t: %d", state);
+    LE_INFO("hal_pm_PowerMode_t: %d", mode);
     LE_INFO("hal_pm_RspReason_t: %d", reason);
     if(le_timer_IsRunning(vhalAckTimerRef))
     {
@@ -578,39 +476,6 @@ void tafMngdPMSvc::WakeupVehicleCB
     }
     wakeupVehicleCB.wakeupVehicleCallbackFunc = nullptr;
 }
-/**
- * Node state change callback function for VHAL module
- */
-void tafMngdPMSvc::NodeStateChangeNotificationCB
-(
-    uint8_t pm_node_id,
-    hal_pm_NodeState_t state,
-    hal_pm_ConfirmStatus_t status
-)
-{
-    LE_INFO("***** %s *****", __FUNCTION__);
-    LE_INFO("pm_node_id: %d", pm_node_id);
-    LE_INFO("hal_pm_NodeState_t: %d", state);
-    LE_INFO("hal_pm_ConfirmStatus_t: %d", status);
-    if (state == HAL_PM_NODE_STATE_SHUTDOWN && status == HAL_PM_NODE_STATUS_READY)
-    {
-        taf_pm_SendStateChangeAck(powerStateRef, TAF_PM_STATE_SHUTDOWN, TAF_PM_PVM, TAF_PM_READY);
-    }
-    else if (state == HAL_PM_NODE_STATE_SHUTDOWN && status == HAL_PM_NODE_STATUS_NOT_READY)
-    {
-        taf_pm_SendStateChangeAck(powerStateRef, TAF_PM_STATE_SHUTDOWN, TAF_PM_PVM,
-                TAF_PM_NOT_READY);
-    }
-    else if (state == HAL_PM_NODE_STATE_SUSPEND && status == HAL_PM_NODE_STATUS_READY)
-    {
-        taf_pm_SendStateChangeAck(powerStateRef, TAF_PM_STATE_SUSPEND, TAF_PM_PVM, TAF_PM_READY);
-    }
-    else if (state == HAL_PM_NODE_STATE_SUSPEND && status == HAL_PM_NODE_STATUS_NOT_READY)
-    {
-        taf_pm_SendStateChangeAck(powerStateRef, TAF_PM_STATE_SUSPEND, TAF_PM_PVM,
-                TAF_PM_NOT_READY);
-    }
-}
 
 /**
  * Node event callback function for VHAL module
@@ -621,8 +486,6 @@ void tafMngdPMSvc::NodeEventCB
     const char* pm_node_event_info
 )
 {
-    auto &mpms = tafMngdPMSvc::GetInstance();
-
     LE_INFO("NodeEventCB for node %d with node info %s", pm_node_id, pm_node_event_info);
     le_result_t res = LE_FAULT;
     if(strncmp(pm_node_event_info, RELAX, strlen(RELAX)) == 0)
@@ -632,14 +495,11 @@ void tafMngdPMSvc::NodeEventCB
             return;
         }
 
-        if(mpms.wsCount > 0) {
-            mpms.wsCount--;
-            res = tafMngdPMSvc::ReleaseWakeLock();
-            if(res == LE_OK)
-            {
-                LE_INFO(" ReleaseWakeLock successfull");
-                tafMngdPMSvc::ProcessStateChange(TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE);
-            }
+        res = tafMngdPMSvc::ReleaseWakeLock();
+        if(res == LE_OK)
+        {
+            LE_INFO(" ReleaseWakeLock successfull");
+            tafMngdPMSvc::ProcessStateChange(TAF_MNGDPM_STATE_RELEASING_WAKE_SOURCE);
         }
     }
     else if(strncmp(pm_node_event_info, STAYAWAKE, strlen(STAYAWAKE)) == 0)
@@ -649,7 +509,6 @@ void tafMngdPMSvc::NodeEventCB
             return;
         }
 
-        mpms.wsCount++;
         res = tafMngdPMSvc::AcquireWakeLock();
         if(res == LE_OK)
         {
@@ -808,22 +667,9 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
 {
     LE_INFO("State change triggered in StateChangeExHandler");
     powerStateRef = psRef;
-    if(state != TAF_PM_STATE_ALL_WAKELOCKS_RELEASED && !pmInf)
+    taf_mngdPm_NodePowerStateChange_t powerStateChange;
+    if(state == TAF_PM_STATE_ALL_ACKED && !pmInf)
     {
-        if(state == TAF_PM_STATE_SUSPEND)
-        {
-            ProcessStateChange(TAF_MNGDPM_STATE_SUSPEND);
-        }
-        else if(state == TAF_PM_STATE_SHUTDOWN)
-        {
-            ProcessStateChange(TAF_MNGDPM_STATE_SHUTDOWN);
-        }
-        else if(state == TAF_PM_STATE_RESUME)
-        {
-            ProcessStateChange(TAF_MNGDPM_STATE_RESUME);
-        }
-
-        // Send ACK if no VHAL driver is available.
         LE_DEBUG("Send ACK if there is no driver loaded");
         taf_pm_SendStateChangeAck(powerStateRef, state, vm_id, TAF_PM_READY);
         return;
@@ -850,52 +696,80 @@ void tafMngdPMSvc::StateChangeExHandler(taf_pm_PowerStateRef_t psRef,
             }
         }
     }
-    else if (state == TAF_PM_STATE_ALL_ACKED)
+    else if ((state == TAF_PM_STATE_ALL_ACKED) && (pmInf) && (pmInf->nodeStateChangeReqAsync))
     {
         if(powerMode.isGraceful)
         {
             LE_DEBUG("Send shutdownReqAsync %d", HAL_PM_SHUTDOWN_MODE_GRACEFUL);
-            (*(pmInf->shutdownReqAsync))(HAL_PM_SHUTDOWN_MODE_GRACEFUL, ShutdownRespCB);
+            (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_SHUTDOWN, HAL_PM_SHUTDOWN_MODE_GRACEFUL, tafMngdPMSvc::NodeStateChangeReqRespCB);
         }
         else if(powerMode.isRestart)
         {
-            LE_DEBUG("Send shutdownReqAsync %d", HAL_PM_SHUTDOWN_MODE_NORMAL);
-            (*(pmInf->shutdownReqAsync))(HAL_PM_SHUTDOWN_MODE_NORMAL, ShutdownCmdCB);
+            LE_DEBUG("Send shutdownReqAsync %d", HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF);
+            (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_RESTART, HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF, tafMngdPMSvc::NodeStateChangeReqRespCB);
         }
         else if(powerMode.isSuspend)
         {
             LE_DEBUG("Send SuspendReqAsync %d", HAL_PM_SUSPEND_MODE_FULL);
-            (*(pmInf->suspendReqAsync))(HAL_PM_SUSPEND_MODE_FULL, SuspendRespCB);
+            (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_SUSPEND, HAL_PM_SUSPEND_MODE_FULL, tafMngdPMSvc::NodeStateChangeReqRespCB);
         }
         else
         {
             LE_INFO("nodeStateChangeReqAsync triggered to VHAL on forceful shutdown");
-            (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_SHUTDOWN, HAL_PM_SHUTDOWN_MODE_NORMAL, tafMngdPMSvc::ShutdownChangeReqRespCB);
+            (*(pmInf->nodeStateChangeReqAsync))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_SHUTDOWN, HAL_PM_SHUTDOWN_MODE_NORMAL, tafMngdPMSvc::NodeStateChangeReqRespCB);
         }
     }
     else if(state == TAF_PM_STATE_SUSPEND)
     {
         ProcessStateChange(TAF_MNGDPM_STATE_SUSPEND);
+        powerStateChange.state = TAF_MNGDPM_NODE_STATE_SUSPEND_PREPARE;
+        le_event_Report(nodePowerStateChange, &powerStateChange, sizeof(taf_mngdPm_NodePowerStateChange_t));
 
-        LE_DEBUG("Send state change notification %d", HAL_PM_NODE_STATE_SUSPEND);
-        (*(pmInf->nodeStateChangeNotification))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_SUSPEND,
-                NodeStateChangeNotificationCB);
+        if(pmInf && pmInf->nodeStateChangeNotification)
+        {
+            LE_DEBUG("Send state change notification %d", HAL_PM_NODE_STATE_SUSPEND);
+            (*(pmInf->nodeStateChangeNotification))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_SUSPEND,
+                    NULL);
+        }
     }
     else if(state == TAF_PM_STATE_SHUTDOWN)
     {
         ProcessStateChange(TAF_MNGDPM_STATE_SHUTDOWN);
-
-        LE_DEBUG("Send state change notification %d", HAL_PM_NODE_STATE_SHUTDOWN);
-        (*(pmInf->nodeStateChangeNotification))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_SHUTDOWN,
-                NodeStateChangeNotificationCB);
+        if(powerMode.isRestart)
+        {
+             powerStateChange.state = TAF_MNGDPM_NODE_STATE_RESTART_PREPARE;
+             le_event_Report(nodePowerStateChange, &powerStateChange, sizeof(taf_mngdPm_NodePowerStateChange_t));
+             if(pmInf && pmInf->nodeStateChangeNotification)
+             {
+                 LE_DEBUG("Send state change notification %d", HAL_PM_NODE_STATE_RESTART);
+                 (*(pmInf->nodeStateChangeNotification))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_RESTART,
+                         NULL);
+             }
+        }
+        else
+        {
+             powerStateChange.state = TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE;
+             le_event_Report(nodePowerStateChange, &powerStateChange, sizeof(taf_mngdPm_NodePowerStateChange_t));
+             if(pmInf && pmInf->nodeStateChangeNotification)
+             {
+                 LE_DEBUG("Send state change notification %d", HAL_PM_NODE_STATE_SHUTDOWN);
+                 (*(pmInf->nodeStateChangeNotification))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_SHUTDOWN,
+                         NULL);
+             }
+        }
     }
     else if(state == TAF_PM_STATE_RESUME)
     {
         ProcessStateChange(TAF_MNGDPM_STATE_RESUME);
+        powerStateChange.state = TAF_MNGDPM_NODE_STATE_RESUME;
+        le_event_Report(nodePowerStateChange, &powerStateChange, sizeof(taf_mngdPm_NodePowerStateChange_t));
 
-        LE_DEBUG("Send state change notification %d", HAL_PM_NODE_STATE_RESUME);
-        (*(pmInf->nodeStateChangeNotification))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_RESUME,
-                NodeStateChangeNotificationCB);
+        if(pmInf && pmInf->nodeStateChangeNotification)
+        {
+            LE_DEBUG("Send state change notification %d", HAL_PM_NODE_STATE_RESUME);
+            (*(pmInf->nodeStateChangeNotification))(NODE_PRIMARY_NAD, HAL_PM_NODE_STATE_RESUME,
+                    NULL);
+        }
     }
 }
 
@@ -958,7 +832,6 @@ void tafMngdPMSvc::WaitWakeSourceTimer()
     le_timer_SetMsInterval(wakeSourceTimerRef, VHAL_WAKESOURCE_TIMEOUT);
     le_timer_SetHandler(wakeSourceTimerRef, WakeSourceTimerHandler);
     //acquire wakesource
-    wsCount++;
     res = AcquireWakeLock();
     if(res == LE_OK) {
         LE_INFO("acquired wake lock after init");
@@ -973,13 +846,9 @@ void tafMngdPMSvc::WaitWakeSourceTimer()
 void tafMngdPMSvc::WakeSourceTimerHandler(le_timer_Ref_t timerRef)
 {
     LE_INFO("Timer Expired for WakeSourceTimerHandler");
-    wsCount--;
-    if(wsCount == 0)
-    {
-        le_result_t res = ReleaseWakeLock();
-        if(res == LE_OK)
-            LE_INFO("Triggered suspend after 10sec wait to acquire wakesource from apps");
-    }
+    le_result_t res = ReleaseWakeLock();
+    if(res == LE_OK)
+        LE_INFO("Triggered suspend after 10sec wait to acquire wakesource from apps");
 }
 
 /**
@@ -1025,8 +894,8 @@ le_result_t tafMngdPMSvc::AcquireWakeLock()
         LE_INFO("acquired wake source when timer is running");
         return LE_OK;
     }
-    le_result_t res;
-    if(wsCount > 0 ) {
+    le_result_t res = LE_FAULT;
+    if(wsCount == 0) {
         if(ws == nullptr)
             ws = taf_pm_NewWakeupSource(WAKELOCK_WITHOUT_REF, "mpms");
         if (ws != nullptr && !powerMode.isWsAcquired)
@@ -1035,17 +904,25 @@ le_result_t tafMngdPMSvc::AcquireWakeLock()
             if(res == LE_OK) {
                 LE_INFO("Wake source from PM acquired successfully");
                 powerMode.isWsAcquired = true;
-                return res;
+                wsCount++;
             }
             else
+            {
                 LE_INFO("failed to acquire ws");
+            }
         }
         else
         {
             LE_ERROR("Failed to create wakeup source!");
         }
     }
-    return LE_FAULT;
+    else
+    {
+        LE_INFO("Wake source from PM acquired successfully");
+        wsCount++;
+        res = LE_OK;
+    }
+    return res;
 }
 
 /**
@@ -1056,20 +933,33 @@ le_result_t tafMngdPMSvc::ReleaseWakeLock()
     LE_INFO("ReleaseWakeLock wsCount:%d", wsCount);
 
     le_result_t res = LE_FAULT;
-    if(wsCount == 0 ) {
-        if (ws != nullptr && powerMode.isWsAcquired)
+    if(wsCount > 0 )
+    {
+        LE_INFO("Wake source released successfully");
+        wsCount--;
+        res = LE_OK;
+        if(wsCount == 0 )
         {
-            res = taf_pm_Relax(ws);
-            if(res == LE_OK) {
-                LE_INFO("Wake source released successfully");
-                powerMode.isWsAcquired = false;
+            if (ws != nullptr && powerMode.isWsAcquired)
+            {
+                res = taf_pm_Relax(ws);
+                if(res == LE_OK) {
+                    LE_INFO("Wake source released successfully");
+                    powerMode.isWsAcquired = false;
+                }
+            }
+            else
+            {
+                LE_ERROR("Failed to release wakeup lock!");
+                res = LE_FAULT;
             }
         }
-        else
-        {
-            LE_ERROR("Failed to release wakeup lock!");
-        }
     }
+    else
+    {
+        LE_ERROR("No wakeup lock acquired to release !");
+    }
+
     return res;
 }
 
@@ -1204,6 +1094,166 @@ void tafMngdPMSvc::StateLayeredHandler(void* reportPtr, void* layerHandlerFunc)
     handlerFunc((taf_mngdPm_StateInd_t*)reportPtr, le_event_GetContextPtr());
 }
 
+void tafMngdPMSvc::DeleteNodePowerStateRefs()
+{
+    LE_INFO("DeleteNodePowerStateRefs");
+    auto &mpms = tafMngdPMSvc::GetInstance();
+    for (auto it = mpms.regClientrecrd.begin(); it != mpms.regClientrecrd.end(); ++it) {
+        if (*it != NULL)
+        {
+            le_ref_DeleteRef(nodePowerStateRefMap, *it);
+        }
+    }
+}
+
+bool tafMngdPMSvc::IsSameAsCurrentState(taf_mngdPm_NodePowerState_t nodeState, taf_mngdPm_State_t tafState)
+{
+    LE_INFO("CheckPowerStateBitmask");
+    if((nodeState == TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE) && (tafState == TAF_MNGDPM_STATE_SHUTDOWN))
+    {
+        return true;
+    }
+    else if((nodeState == TAF_MNGDPM_NODE_STATE_RESTART_PREPARE) && (tafState == TAF_MNGDPM_STATE_SHUTDOWN))
+    {
+        return true;
+    }
+    else if((nodeState == TAF_MNGDPM_NODE_STATE_SUSPEND_PREPARE) && (tafState == TAF_MNGDPM_STATE_SUSPEND))
+    {
+        return true;
+    }
+    else if((nodeState == TAF_MNGDPM_NODE_STATE_RESUME) && (tafState == TAF_MNGDPM_STATE_RESUME))
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+bool IsConfiguredBitMask(taf_mngdPm_NodePowerState_t state, taf_mngdPm_NodePowerStateChangeBitMask_t stateMask)
+{
+    LE_INFO("IsConfiguredBitMask");
+    bool isSameBitMask = false;
+    if(state == TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE && (stateMask & (1)) !=0)
+    {
+        isSameBitMask = true;
+    }
+    else if(state == TAF_MNGDPM_NODE_STATE_RESTART_PREPARE && (stateMask & (1 << 1)) !=0)
+    {
+        isSameBitMask = true;
+    }
+    else if(state == TAF_MNGDPM_NODE_STATE_SUSPEND_PREPARE && (stateMask & (1 << 2)) !=0)
+    {
+        isSameBitMask = true;
+    }
+    else if(state == TAF_MNGDPM_NODE_STATE_RESUME && (stateMask & (1 << 3)) !=0)
+    {
+        isSameBitMask = true;
+    }
+    else
+    {
+        isSameBitMask = false;
+    }
+    return isSameBitMask;
+}
+
+void tafMngdPMSvc::SendAckToPms(taf_mngdPm_NodePowerState_t state, taf_pm_ClientAck_t ackType)
+{
+    LE_INFO("SendAckToPms");
+    auto &mpms = tafMngdPMSvc::GetInstance();
+    if ((state == TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE) ||(state== TAF_MNGDPM_NODE_STATE_RESTART_PREPARE))
+    {
+        LE_INFO("TAF_PM_STATE_SHUTDOWN");
+        taf_pm_SendStateChangeAck(mpms.powerStateRef, TAF_PM_STATE_SHUTDOWN, TAF_PM_PVM, ackType);
+    }
+    else if (state == TAF_MNGDPM_NODE_STATE_SUSPEND_PREPARE)
+    {
+        LE_INFO("TAF_PM_STATE_SUSPEND");
+        taf_pm_SendStateChangeAck(mpms.powerStateRef, TAF_PM_STATE_SUSPEND, TAF_PM_PVM, ackType);
+    }
+    else if (state == TAF_MNGDPM_NODE_STATE_RESUME)
+    {
+        LE_INFO("TAF_PM_STATE_RESUME");
+        taf_pm_SendStateChangeAck(mpms.powerStateRef, TAF_PM_STATE_RESUME, TAF_PM_PVM,
+                ackType);
+    }
+}
+
+/**
+ * To Call Clients for Extend power state change notification
+ */
+void tafMngdPMSvc::CallNodePowerStateHandlerFunc(taf_mngdPm_NodePowerState_t state)
+{
+    LE_INFO("CallNodePowerStateHandlerFunc");
+    auto &mpms = tafMngdPMSvc::GetInstance();
+    le_dls_Link_t* linkHandlerPtr = le_dls_PeekTail(&(mpms.nodePowerStateHandlerList));
+    //clearing the previous references for new state notification
+    DeleteNodePowerStateRefs();
+    mpms.regClientrecrd.clear();
+    mpms.ackClientrecrd.clear();
+    while (linkHandlerPtr)
+    {
+        taf_mngdPm_NodePowerStateCtxt_t * handlerCtxPtr =
+                CONTAINER_OF(linkHandlerPtr, taf_mngdPm_NodePowerStateCtxt_t, link);
+        linkHandlerPtr = le_dls_PeekPrev(&(mpms.nodePowerStateHandlerList), linkHandlerPtr);
+        if (handlerCtxPtr->handlerPtr)
+        {
+            LE_INFO("Client found");
+            if(IsConfiguredBitMask(state, handlerCtxPtr->powerStateMask))
+            {
+                taf_NodePowerStateRef_t* nodeStateListPtr =
+                        (taf_NodePowerStateRef_t*)le_mem_ForceAlloc(mpms.nodePowerStateRefPool);
+                nodeStateListPtr->nodeStateRef =
+                        (taf_mngdPm_nodePowerStateRef_t)le_ref_CreateRef(mpms.nodePowerStateRefMap, nodeStateListPtr);
+                mpms.regClientrecrd.push_back(nodeStateListPtr->nodeStateRef);
+                handlerCtxPtr->handlerPtr(handlerCtxPtr->pmNodeId, nodeStateListPtr->nodeStateRef, state,
+                        handlerCtxPtr->nodePowerStateHandlerCtxPtr);
+                LE_INFO("Notified to Client");
+            }
+            else {
+                continue;
+            }
+            mpms.clientSize++;
+        }
+    }
+    if(mpms.clientSize == 0)
+    {
+        LE_INFO("No client registered in MPMS, ack to PMS immediately for state:%d", state);
+        mpms.SendAckToPms(state, TAF_PM_READY);
+    }
+}
+
+/**
+ * State change layered handler function
+ */
+void tafMngdPMSvc::NodePowerStateChanged(void* reportPtr)
+{
+    LE_INFO("NodePowerStateChanged");
+    TAF_ERROR_IF_RET_NIL(reportPtr == nullptr, "Null ptr(reportPtr)");
+    taf_mngdPm_NodePowerStateChange_t* powerStateChange =(taf_mngdPm_NodePowerStateChange_t*)reportPtr;
+    if(powerStateChange->state == TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE)
+    {
+        CallNodePowerStateHandlerFunc(TAF_MNGDPM_NODE_STATE_SHUTDOWN_PREPARE);
+    }
+    else if(powerStateChange->state == TAF_MNGDPM_NODE_STATE_RESTART_PREPARE)
+    {
+        CallNodePowerStateHandlerFunc(TAF_MNGDPM_NODE_STATE_RESTART_PREPARE);
+    }
+    else if(powerStateChange->state == TAF_MNGDPM_NODE_STATE_SUSPEND_PREPARE)
+    {
+        CallNodePowerStateHandlerFunc(powerStateChange->state);
+    }
+    else if(powerStateChange->state == TAF_MNGDPM_NODE_STATE_RESUME)
+    {
+        CallNodePowerStateHandlerFunc(powerStateChange->state);
+    }
+    else
+    {
+        LE_INFO("Invalid state");
+    }
+}
+
 /**
  * Call Clients for Bub Status Event notification
  */
@@ -1236,6 +1286,7 @@ void tafMngdPMSvc::InfoReportVhalCB(int32_t* reportPtr)
     bubStatusEvent.status = (taf_mngdPm_BubStatus_t)bubStatus;
     le_event_Report(infoReport, &bubStatusEvent, sizeof(bubStatusEvent_t));
 }
+
 /**
  * Get MPMS instance
  */
@@ -1287,7 +1338,15 @@ const char* tafMngdPMSvc::clientWhiteList[] = {"tafMngdPMIntTest","tafMngdPMUnit
 le_event_Id_t tafMngdPMSvc::stateChange;
 taf_mngdPm_WakeupVehicleCb_t tafMngdPMSvc::wakeupVehicleCB;
 
- le_mem_PoolRef_t tafMngdPMSvc::infoReportHandlerPool;
- le_dls_List_t tafMngdPMSvc::infoReportHandlerList;
- le_ref_MapRef_t tafMngdPMSvc::infoReportHandlerRefMap;
- le_event_Id_t tafMngdPMSvc::infoReport;
+le_mem_PoolRef_t tafMngdPMSvc::infoReportHandlerPool;
+le_dls_List_t tafMngdPMSvc::infoReportHandlerList;
+le_ref_MapRef_t tafMngdPMSvc::infoReportHandlerRefMap;
+le_event_Id_t tafMngdPMSvc::infoReport;
+//Node Power State change handler
+le_event_Id_t tafMngdPMSvc::nodePowerStateChange;
+le_mem_PoolRef_t tafMngdPMSvc::nodePowerStateHandlerPool;
+le_dls_List_t tafMngdPMSvc::nodePowerStateHandlerList;
+le_ref_MapRef_t tafMngdPMSvc::nodePowerStateHandlerMap;
+le_mem_PoolRef_t tafMngdPMSvc::nodePowerStateRefPool;
+le_ref_MapRef_t tafMngdPMSvc::nodePowerStateRefMap;
+int8_t tafMngdPMSvc::clientSize;

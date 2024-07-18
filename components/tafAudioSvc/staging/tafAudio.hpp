@@ -234,6 +234,8 @@ typedef struct
     std::string absoluteFilePath; //Absolute path of the file
     int32_t  repeat; // Defines how a file should be played. -1 = infinite loop, 0 = play once,
                      // x = repeat X times.
+    StreamConfig config;
+    taf_audio_Stream* streamPtr;
 }taf_PlaybackFile_t;
 
 typedef struct
@@ -242,9 +244,8 @@ typedef struct
     uint32_t numOfFilesToPlay;                                 // Number of Playback files
     bool isPlaybackInProgress;
     le_msg_SessionRef_t sessionRef;
-    taf_audio_PlayListRef_t playListRef;
-
-}taf_PlaybackList_t;
+    le_sem_Ref_t semRef;
+}taf_PbList_t;
 
 /**
  * Audio format.
@@ -270,6 +271,12 @@ namespace tafsvc {
             void onPlaybackFinished() override;
     };
 
+    class tafPlayListener : public telux::audio::IPlayListener {
+        public:
+            void onReadyForWrite() override;
+            void onPlayStopped() override;
+    };
+
 class taf_Audio : public ITafSvc
 {
 
@@ -280,12 +287,14 @@ class taf_Audio : public ITafSvc
         taf_Audio() {};
         ~taf_Audio() {};
 
-        std::promise<telux::common::ErrorCode> gCallbackPromise;
+        std::promise<telux::common::ErrorCode> gCallbackPromise, gDelCbPromise;
         bool mIsPlaying = false;
+        bool mEmptyPipeline = false;
+        bool isPbMuteSet = false, isRecMuteSet = false;
         taf_audio_Stream_t* playerStreamPtr;
-        AudioFormat mFileFormat = AudioFormat::UNKNOWN;
-        taf_audio_PlayListRef_t currPlayListRef;
-        le_ref_MapRef_t PlaybackListRefMap = NULL;
+        AudioFormat mPbFileFormat = AudioFormat::UNKNOWN;
+        AudioFormat mRecFileFormat = AudioFormat::UNKNOWN;
+        le_sem_Ref_t mPlaySemRef;
         le_dls_List_t  EventIdList = LE_DLS_LIST_INIT;
 
         void Init(void);
@@ -312,12 +321,8 @@ class taf_Audio : public ITafSvc
         le_result_t Stop(taf_audio_StreamRef_t streamRef);
         le_result_t PlayFile( taf_audio_StreamRef_t streamRef, const char *srcPath);
         le_result_t setVhalRouteStatus(taf_audio_Mode_t mode, bool status);
-        taf_audio_PlayListRef_t CreatePlayList();
-        le_result_t AddPlayListEntry(taf_audio_PlayListRef_t playListRef, const char *scrPath,
-                int32_t repeat);
-        le_result_t DeletePlayList(taf_audio_PlayListRef_t playListRef);
-        le_result_t PlayFileList ( taf_audio_StreamRef_t streamRef,
-                taf_audio_PlayListRef_t playListRef);
+        le_result_t PlayList( taf_audio_StreamRef_t streamRef,
+                const taf_audio_PlayFileConfig_t*  playFileConfigPtr, size_t playFileConfigSize);
         le_result_t SetMute( taf_audio_StreamRef_t streamRef, bool isMute);
         le_result_t GetMute( taf_audio_StreamRef_t streamRef, bool *isMute);
         le_result_t SetVolume( taf_audio_StreamRef_t streamRef, double volLevel);
@@ -328,10 +333,12 @@ class taf_Audio : public ITafSvc
         std::shared_ptr<telux::audio::IAudioManager> mAudioManager;
         std::shared_ptr<telux::audio::IAudioVoiceStream> mAudioVoiceStream;
         std::shared_ptr<telux::audio::IAudioCaptureStream> mAudioCaptureStream;
-        std::shared_ptr<telux::audio::IStreamBuffer> mStreamBuffer;
+        std::shared_ptr<telux::audio::IAudioPlayStream> mAudioPlayStream;
+        std::shared_ptr<telux::audio::IStreamBuffer> mPbStreamBuffer, mRecStreamBuffer;
         std::shared_ptr<telux::audio::IAudioPlayer> mAudioPlayer;
+        std::shared_ptr<telux::audio::IPlayListener> mPlayListener;
         std::shared_ptr<telux::audio::IPlayListListener> repeatedPlayerStatusListener;
-        std::queue<std::shared_ptr<telux::audio::IStreamBuffer>> mFreeBuffers;
+        std::queue<std::shared_ptr<telux::audio::IStreamBuffer>> mPbFreeBuffers, mRecFreeBuffers;
 
         bool isVhalAvailable = false;
         bool isEcnrEnabled = false;
@@ -342,14 +349,16 @@ class taf_Audio : public ITafSvc
         bool mModemTx = false;
         bool mMic = false;
         bool mIsCaptureStreamCreated = false;
+        bool mIsPlayStreamCreated = false;
         bool mIsRecording = false;
-        bool mEmptyPipeline = false;
         uint32_t mBufferRecordedTillNow;
         uint32_t maxFileBytes;
         FILE *mFile;
-        le_sem_Ref_t mSemRef;
+        FILE *mPlayFile;
+        le_sem_Ref_t mRecordSemRef;
         SlotId mRxSlotId = INVALID_SLOT_ID , mTxSlotId = INVALID_SLOT_ID;
         StreamConfig voiceStreamConfig = {};
+        taf_PbList_t pbList;
         taf_mngdPm_InfoReportHandlerRef_t bubHandlerRef;
 
         le_mem_PoolRef_t ConnectorPool = NULL;
@@ -408,8 +417,12 @@ class taf_Audio : public ITafSvc
         static void FirstLayerEventHandler( void* reportPtr, void* secondLayerHandlerFunc );
         static le_event_Id_t CreateEventId();
         static void* Record( void* ctxPtr);
+        static void* PlayList( void* ctxPtr);
+        static void* PlayAudioFile( void* ctxPtr);
         static void ReadCallback(std::shared_ptr<telux::audio::IStreamBuffer> buffer,
                     telux::common::ErrorCode error);
+        static void WriteCallback(std::shared_ptr<telux::audio::IStreamBuffer> buffer, uint32_t bytes,
+                telux::common::ErrorCode error);
         static void StreamMuteUnmuteCallback(ErrorCode error);
         static void BuBStatusCB(int32_t status, void *contextPtr);
 

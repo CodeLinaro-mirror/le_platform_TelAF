@@ -16,14 +16,14 @@ import socket, fcntl, struct
 from ..core.logger import L
 from .helper import quick_run, check_returncode
 
-# No external packages and no need to connect other nodes
 def get_ip_address(ifname):
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    return socket.inet_ntoa(fcntl.ioctl(
+    ip = fcntl.ioctl(
         s.fileno(),
         0x8915,  # SIOCGIFADDR
-        struct.pack('256s', ifname[:15])
-    )[20:24])
+        struct.pack('256s', bytes(ifname[:15], 'utf-8'))
+    )[20:24]
+    return socket.inet_ntoa(ip)
 
 def to_run():
 
@@ -45,12 +45,12 @@ def to_run():
     find_me = re.compile(r'"unicast"\s*:\s*"(\d+\.\d+\.\d+\.\d+)"')
     try:
         conf_location = "/legato/systems/current/appsWriteable/tafSomeipGWSvc/tafSomeipGWSvc.json"
+        local_ip = get_ip_address('eth0') # In container, we fix the ifname to 'eth0'
         with fileinput.input(conf_location, inplace=True) as jfile:
             for line in jfile:
                 match = find_me.search(line)
                 if match:
                     original_ip = match.group(1)
-                    local_ip = get_ip_address('eth0') # In container, we fix the ifname to 'eth0'
                     mline = line.replace(original_ip, local_ip)
                     L.info("Change IP [{}] -> [{}]".format(original_ip, local_ip))
                 else:

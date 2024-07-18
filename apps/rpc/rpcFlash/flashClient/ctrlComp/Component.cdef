@@ -1,0 +1,12 @@
+sources:
+{
+    ctrlComp.c
+}
+
+requires:
+{
+    api:
+    {
+        ctrlFlash.api
+    }
+}

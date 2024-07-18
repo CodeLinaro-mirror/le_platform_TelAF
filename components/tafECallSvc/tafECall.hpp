@@ -75,6 +75,7 @@ using namespace std;
 #define SET_PSAP_NUM_TYPE_OVERRIDDEN 1
 #define MAX_EU_MSD_LENGTH 140
 #define MAX_INIT_TIMEOUT 5
+#define MAX_DESTINATION_LEN 50
 
 namespace telux {
     namespace tafsvc {
@@ -88,7 +89,8 @@ namespace telux {
             ECALL_ACTIVE,
             ECALL_COMPLETED,
             ECALL_NOT_CONNECTED,
-            ECALL_ENDED
+            ECALL_ENDED,
+            ECALL_INCOMING
         }
         tafECallSession_t;
 
@@ -119,6 +121,7 @@ namespace telux {
             size_t                              oadDataSize;
             bool                                isPrieCallOngoing;
             taf_ecall_Type_t                    type;
+            std::shared_ptr<telux::tel::ICall>  iCall;
         }
         taf_ECall_t;
 
@@ -126,6 +129,8 @@ namespace telux {
         {
             taf_ecall_CallRef_t  eCallRef;
             taf_ecall_State_t    state;
+            int8_t               phoneId;
+            char                 dest[MAX_DESTINATION_LEN];
         }StateChangeEvent_t;
 
         class tafECallOperatingModeCallback {
@@ -159,6 +164,16 @@ namespace telux {
                 void commandResponse(telux::common::ErrorCode error) override;
         };
 
+        class tafRejectCommandCallback : public telux::common::ICommandResponseCallback {
+            public:
+                void commandResponse(telux::common::ErrorCode error) override;
+        };
+
+        class tafAnswerCommandCallback : public telux::common::ICommandResponseCallback {
+            public:
+                void commandResponse(telux::common::ErrorCode error) override;
+        };
+
         class tafECallListener : public telux::tel::ICallListener {
             void onIncomingCall(std::shared_ptr<telux::tel::ICall> call) override;
             void onCallInfoChange(std::shared_ptr<telux::tel::ICall> call) override;
@@ -187,6 +202,7 @@ namespace telux {
                 le_result_t StartECall(ECallCategory emergencyCategory, ECallVariant eCallvariant, taf_ecall_CallRef_t ecallRef);
                 le_result_t StartPrivate(taf_ecall_CallRef_t ecallRef, const char * psapNumber, const char * contentType, const char * acceptInfo);
                 le_result_t StopECall(taf_ecall_CallRef_t ecallRef);
+                le_result_t AnswerECall(taf_ecall_CallRef_t ecallRef);
                 le_result_t SetMsdPosition (taf_ecall_CallRef_t ecallRef, bool isTrusted, int32_t latitude,
                     int32_t longitude, int32_t direction);
                 le_result_t SetMsdPositionN1 (taf_ecall_CallRef_t ecallRef,int32_t latitudeDeltaN1,int32_t longitudeDeltaN1);
@@ -245,6 +261,9 @@ namespace telux {
                 std::promise<telux::tel::ECallMode> getOpModeProm;
                 std::promise<telux::common::ErrorCode> setOpModeProm;
                 std::promise<telux::common::ErrorCode> updateMsdProm;
+                std::promise<telux::common::ErrorCode> hangupProm;
+                std::promise<telux::common::ErrorCode> rejectProm;
+                std::promise<telux::common::ErrorCode> answerProm;
                 std::promise<telux::common::ErrorCode> makeEcallProm;
                 std::promise<telux::common::ErrorCode> makePrieCallProm;
                 CallEndCause CallEndError = telux::tel::CallEndCause::NORMAL;
@@ -259,17 +278,20 @@ namespace telux {
                 eCall_Inf_t *eCallInf = nullptr;
                 bool isDrvPresent = false;
 
+                std::shared_ptr<telux::tel::ICallManager> CallManager;
+                le_ref_MapRef_t ECallPtrRefMap = NULL;
+
             private:
                 std::shared_ptr<telux::tel::IPhoneManager> PhoneManager;
-                std::shared_ptr<telux::tel::ICallManager> CallManager;
                 std::shared_ptr<tafECallListener> ECallListener;
                 std::shared_ptr<tafCallCommandCallback> CallCommandCb;
                 std::shared_ptr<tafUpdateMsdCommandCallback> UpdateMsdCb;
                 std::shared_ptr<tafHangupCommandCallback> HangupCb;
+                std::shared_ptr<tafRejectCommandCallback> RejectCb;
+                std::shared_ptr<tafAnswerCommandCallback> AnswerCb;
                 std::vector<std::shared_ptr<telux::tel::IPhone>> Phones;
 
                 taf_ECall_t ECallObject;
-                le_ref_MapRef_t ECallPtrRefMap = NULL;
                 void InitializeECallPtr();
 
         };

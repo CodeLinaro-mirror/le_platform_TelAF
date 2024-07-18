@@ -61,6 +61,11 @@
             "name" : "taf_posCtrl",
             "user" : "telaf",
             "offer_systems" : [ "SERVER" ]
+        },
+        {
+            "name" : "taf_flash",
+            "user" : "telaf",
+            "offer_systems" : [ "SERVER" ]
         }
     ]
 }

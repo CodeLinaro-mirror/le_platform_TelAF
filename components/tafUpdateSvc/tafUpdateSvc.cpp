@@ -33,6 +33,7 @@
  */
 
 #include "tafUpdate.hpp"
+#include "tafFlash.hpp"
 #include "tafFwUpdate.hpp"
 #include "tafAppMgmt.hpp"
 
@@ -51,6 +52,10 @@ COMPONENT_INIT
     auto &tafUpdate = taf_Update::GetInstance();
     tafUpdate.Init();
     LE_INFO("tafUpdate Component Ready...\n");
+    LE_INFO("tafFlashAccess Component Init...\n");
+    auto &tafFlashAccess = taf_FlashAccess::GetInstance();
+    tafFlashAccess.Init();
+    LE_INFO("tafFlashAccess Component Ready...\n");
     LE_INFO("tafAppMgmt Component Init...\n");
     auto &tafAppMgmt = taf_AppMgmt::GetInstance();
     tafAppMgmt.Init();
@@ -278,6 +283,94 @@ le_result_t taf_update_CancelDownload
     dlReq.sessPtr = &sessPtr->dlSess;
     le_event_Report(tafUpdate.downloadEvId, &dlReq, sizeof(taf_UpdateDlReq_t));
 
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Start AB Sync.
+ *
+ * @return
+ *  - LE_FAULT       On failure.
+ *  - LE_OK          On success.
+ *  - LE_UNSUPPORTED Unsupported.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_update_StartSync
+(
+    taf_update_SessionRef_t sessionRef ///< [IN] Sync session reference.
+)
+{
+    auto &tafUpdate = taf_Update::GetInstance();
+
+    taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
+        sessionRef);
+    TAF_ERROR_IF_RET_VAL(sessPtr == nullptr, LE_FAULT, "Fail to look up installtion session.");
+
+    TAF_ERROR_IF_RET_VAL(sessPtr->sessType != TAF_UPDATE_SESSION_TYPE_FW_UPDATE, LE_UNSUPPORTED,
+        "Unsupported session type (%d) for bank synchronization.", sessPtr->sessType);
+
+    taf_FwUpdateEvent_t fwReq = TAF_FWUPDATE_EV_START_SYNC;
+    le_event_Report(taf_FwUpdate::fwSyncHandlerEvId, &fwReq, sizeof(taf_FwUpdateEvent_t));
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Pauses AB sync.
+ *
+ * @return
+ *  - LE_FAULT       On failure.
+ *  - LE_OK          On success.
+ *  - LE_UNSUPPORTED Unsupported.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_update_PauseSync
+(
+    taf_update_SessionRef_t sessionRef ///< [IN] Sync session reference.
+)
+{
+    auto &tafUpdate = taf_Update::GetInstance();
+
+    taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
+        sessionRef);
+    TAF_ERROR_IF_RET_VAL(sessPtr == nullptr, LE_FAULT, "Fail to look up installtion session.");
+
+    TAF_ERROR_IF_RET_VAL(sessPtr->sessType != TAF_UPDATE_SESSION_TYPE_FW_UPDATE, LE_UNSUPPORTED,
+        "Unsupported session type (%d) for bank synchronization.", sessPtr->sessType);
+
+    taf_FwUpdateEvent_t fwReq = TAF_FWUPDATE_EV_PAUSE_SYNC;
+    le_event_Report(taf_FwUpdate::fwSyncHandlerEvId, &fwReq, sizeof(taf_FwUpdateEvent_t));
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Resumes AB Sync.
+ *
+ * @return
+ *  - LE_FAULT       On failure.
+ *  - LE_OK          On success.
+ *  - LE_UNSUPPORTED Unsupported.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_update_ResumeSync
+(
+    taf_update_SessionRef_t sessionRef ///< [IN] Sync session reference.
+)
+{
+    auto &tafUpdate = taf_Update::GetInstance();
+
+    taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
+        sessionRef);
+    TAF_ERROR_IF_RET_VAL(sessPtr == nullptr, LE_FAULT, "Fail to look up installtion session.");
+
+    TAF_ERROR_IF_RET_VAL(sessPtr->sessType != TAF_UPDATE_SESSION_TYPE_FW_UPDATE, LE_UNSUPPORTED,
+        "Unsupported session type (%d) for bank synchronization.", sessPtr->sessType);
+
+    taf_FwUpdateEvent_t fwReq = TAF_FWUPDATE_EV_RESUME_SYNC;
+    le_event_Report(taf_FwUpdate::fwSyncHandlerEvId, &fwReq, sizeof(taf_FwUpdateEvent_t));
     return LE_OK;
 }
 
@@ -547,11 +640,12 @@ le_result_t taf_update_InstallPostCheck
 
     auto &tafFwUpdate = taf_FwUpdate::GetInstance();
 
-    if (tafFwUpdate.InstallPostCheck(sessPtr->fwSess.filePath) != LE_OK)
-    {
-        LE_ERROR("Post-check failure on fimware installation.");
-        return LE_FAULT;
-    }
+    TAF_ERROR_IF_RET_VAL(tafFwUpdate.IsBankSwitched(), LE_FAULT, "Bank is swictched.");
+
+    taf_FwUpdateReq_t fwReq;
+    fwReq.event = TAF_FWUPDATE_EV_INSTALL_POST_CHECK;
+    le_utf8_Copy(fwReq.filePath, sessPtr->fwSess.filePath, TAF_UPDATE_FILE_PATH_LEN, NULL);
+    le_event_Report(taf_FwUpdate::fwUpdateEvId, &fwReq, sizeof(taf_FwUpdateReq_t));
 
     return LE_OK;
 }
@@ -616,6 +710,10 @@ le_result_t taf_update_VerifyActivation
 
     TAF_ERROR_IF_RET_VAL(sessPtr->sessType != TAF_UPDATE_SESSION_TYPE_FW_UPDATE, LE_UNSUPPORTED,
         "Unsupported session type (%d) for activation verification.", sessPtr->sessType);
+
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+
+    TAF_ERROR_IF_RET_VAL(!tafFwUpdate.IsBankSwitched(), LE_FAULT, "Bank is not swictched.");
 
     taf_FwUpdateReq_t fwReq;
     fwReq.event = TAF_FWUPDATE_EV_VERIFY_ACTIVATION;
@@ -684,6 +782,50 @@ le_result_t taf_update_Sync
     taf_FwUpdateReq_t fwReq;
     fwReq.event = TAF_FWUPDATE_EV_SYNC;
     le_event_Report(taf_FwUpdate::fwUpdateEvId, &fwReq, sizeof(taf_FwUpdateReq_t));
+
+    return LE_OK;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Erases a bank.
+ *
+ * @return
+ *  - LE_FAULT       On failure.
+ *  - LE_OK          On success.
+ *  - LE_UNSUPPORTED Unsupported.
+ */
+//--------------------------------------------------------------------------------------------------
+le_result_t taf_update_EraseBank
+(
+    taf_update_SessionRef_t sessionRef, ///< [IN] Installation session reference.
+    taf_update_Bank_t bank              ///< [IN] The bank to be erased.
+)
+{
+    auto &tafUpdate = taf_Update::GetInstance();
+
+    taf_UpdateSession_t* sessPtr = (taf_UpdateSession_t*)le_ref_Lookup(tafUpdate.sessionMap,
+        sessionRef);
+    TAF_ERROR_IF_RET_VAL(sessPtr == NULL, LE_FAULT, "Fail to look up installtion session.");
+
+    TAF_ERROR_IF_RET_VAL(sessPtr->sessType != TAF_UPDATE_SESSION_TYPE_FW_UPDATE, LE_UNSUPPORTED,
+        "Unsupported session type (%d) for getting active bank.", sessPtr->sessType);
+
+    auto &tafFwUpdate = taf_FwUpdate::GetInstance();
+
+    taf_update_Bank_t activeBank = TAF_UPDATE_BANK_UNKNOWN;
+    if (tafFwUpdate.GetActiveBank(&activeBank) != LE_OK)
+    {
+        LE_ERROR("Fail to get active bank.");
+        return LE_FAULT;
+    }
+    TAF_ERROR_IF_RET_VAL(activeBank == bank, LE_UNSUPPORTED, "Can not erase the active bank.");
+
+    if (tafFwUpdate.EraseBank(bank) != LE_OK)
+    {
+        LE_ERROR("Fail to erase inactive bank.");
+        return LE_FAULT;
+    }
 
     return LE_OK;
 }

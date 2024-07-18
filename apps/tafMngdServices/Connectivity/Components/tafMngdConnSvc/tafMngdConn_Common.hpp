@@ -187,8 +187,9 @@ namespace tafsvc {
 
     typedef enum
     {
-        MCS_CONNECTIONRECOVERY_TYPE_NONE = 0, /**<  DISABLED value. 0 */
-        MCS_CONNECTIONRECOVERY_TYPE_L1 = 1  /**<  L1 Value. 1 */
+        MCS_CONNECTIONRECOVERY_LEVEL_NONE = 0, /**<  DISABLED value. 0 */
+        MCS_CONNECTIONRECOVERY_LEVEL_L1 = 1,   /**<  L1 Value. 1 */
+        MCS_CONNECTIONRECOVERY_LEVEL_L2 = 2    /**<  L2 Value. 2 */
     } mcs_Policy_ConnRecoveryLevel_t;
 
     /**
@@ -207,7 +208,8 @@ namespace tafsvc {
     {
         MCS_JSON_VERSION_23_07_00 = 230700, //"TAF_23.07.00"
         MCS_JSON_VERSION_23_11_00 = 231100, //"TAF_23.11.00"
-        MCS_JSON_VERSION_24_03_00 = 240300  //"TAF_24.03.00"
+        MCS_JSON_VERSION_24_03_00 = 240300, //"TAF_24.03.00"
+        MCS_JSON_VERSION_24_06_00 = 240600  //"TAF_24.06.00"
     } mcs_JSON_Version_t;
 
     // Constant Strings

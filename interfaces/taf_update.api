@@ -194,12 +194,12 @@ ENUM State
     DOWNLOAD_SUCCESS,  ///< Download success state, OTA package downloaded successfully.
     DOWNLOAD_FAIL,     ///< Download fail state, user can retry the download.
     INSTALLING,        ///< Installing state, user can query installation progress.
-    INSTALL_SUCCESS,   ///< Install success state, user can reboot to active if firmware installed 
+    INSTALL_SUCCESS,   ///< Install success state, user can reboot to active if firmware installed
                        ///  or start probation if app installed.
     INSTALL_FAIL,      ///< Install fail state, update service drives to idle state later.
-    PROBATION,         ///< Probation state, during probation, update service checks if newly installed 
+    PROBATION,         ///< Probation state, during probation, update service checks if newly installed
                        ///  firmware or app is stable and drives to idle state later.
-    PROBATION_SUCCESS, ///< Probation success state, application or firmware is working properly 
+    PROBATION_SUCCESS, ///< Probation success state, application or firmware is working properly
                        ///  without errors.
     PROBATION_FAIL,    ///< Probation fail state, update service drives to idle state later.
     ROLLBACK,          ///< Rollback state, rollback to the original system.
@@ -207,6 +207,7 @@ ENUM State
     ROLLBACK_FAIL,     ///< Rollback fail state, rollback to the original system failed.
     SYNCHRONIZING,     ///< Bank synchronization is ongoing.
     SYNC_SUCCESS,      ///< Bank synchronization is successful.
+    SYNC_PAUSED,       ///< Bank synchronization is paused.
     SYNC_FAIL,         ///< Bank synchronization is failed.
     REPORTING          ///< Reporting state, update service is reporting state to server.
 };
@@ -223,7 +224,8 @@ ENUM Error
     INTERNAL_ERROR,    ///< Internal error.
     SECURITY_FAILURE,  ///< Security check failure.
     PACKAGE_NOT_FOUND, ///< Package not found.
-    APP_NOT_RUNNING    ///< App is not in running state.
+    APP_NOT_RUNNING,   ///< App is not in running state.
+    IMAGE_NOT_VERFIED  ///< Image not verifed.
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -475,6 +477,22 @@ FUNCTION le_result_t GetActiveBank
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Erases a bank.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ * - LE_UNSUPPORTED -- Unsupported.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t EraseBank
+(
+    Session session IN, ///< Installation session reference.
+    Bank bank IN        ///< The bank to be erased.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Activation verification, check if each component has the updated version.
  *
  * @return
@@ -514,4 +532,46 @@ FUNCTION le_result_t Rollback
 FUNCTION le_result_t Sync
 (
     Session session IN ///< Installation session reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Starts AB sync.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t StartSync
+(
+    Session session IN ///< Sync session reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Pauses AB sync.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t PauseSync
+(
+    Session session IN ///< Sync session reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Resumes AB sync.
+ *
+ * @return
+ * - LE_FAULT -- Failed.
+ * - LE_OK -- Succeeded.
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ResumeSync
+(
+    Session session IN ///< Sync session reference.
 );

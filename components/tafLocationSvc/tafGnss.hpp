@@ -91,10 +91,10 @@ const int DEFAULT_UNKNOWN = 0;
 
 enum DataType
 {
-    TAF_GNSS_DATA_VACCURACY,
-    TAF_GNSS_DATA_VSPEEDACCURACY,
-    TAF_GNSS_DATA_HSPEEDACCURACY,
-    TAF_GNSS_DATA_UNKNOWN
+    TAF_LOCGNSS_DATA_VACCURACY,
+    TAF_LOCGNSS_DATA_VSPEEDACCURACY,
+    TAF_LOCGNSS_DATA_HSPEEDACCURACY,
+    TAF_LOCGNSS_DATA_UNKNOWN
 };
 
 namespace telux {
@@ -104,11 +104,11 @@ namespace tafsvc {
         uint16_t satId;
         int32_t  satLatency;
     }
-    taf_gnss_SvMeas_t;
+    taf_locGnss_SvMeas_t;
 
-    typedef struct taf_gnss_PositionSample
+    typedef struct taf_locGnss_PositionSample
     {
-        taf_gnss_FixState_t fixState;
+        taf_locGnss_FixState_t fixState;
         bool      latitudeValid;
         bool      longitudeValid;
         bool      hAccuracyValid;
@@ -141,11 +141,11 @@ namespace tafsvc {
         bool      satsUsedCountValid;
         bool      satInfoValid;
         bool      satMeasValid;
-        taf_gnss_GnssMeasurementInfo_t measInfo[TAF_GNSS_MEASUREMENT_INFO_MAX];
+        taf_locGnss_GnssMeasurementInfo_t measInfo[TAF_LOCGNSS_MEASUREMENT_INFO_MAX];
         uint8_t   measInfoCount;
-        uint16_t SVIds[TAF_GNSS_MEASUREMENT_INFO_MAX];
+        uint16_t SVIds[TAF_LOCGNSS_MEASUREMENT_INFO_MAX];
         uint8_t   SVIdsCount;
-        taf_gnss_ReportStatus_t reportStatus;
+        taf_locGnss_ReportStatus_t reportStatus;
         int32_t   latitude;
         int32_t   longitude;
         int32_t   hAccuracy;
@@ -183,15 +183,15 @@ namespace tafsvc {
         uint8_t   satsInViewCount;
         uint8_t   satsTrackingCount;
         uint8_t   satsUsedCount;
-        taf_gnss_SvInfo_t  satInfo[TAF_GNSS_SV_INFO_MAX_LEN];
-        taf_gnss_SvMeas_t  satMeas[TAF_GNSS_SV_INFO_MAX_LEN];
+        taf_locGnss_SvInfo_t  satInfo[TAF_LOCGNSS_SV_INFO_MAX_LEN];
+        taf_locGnss_SvMeas_t  satMeas[TAF_LOCGNSS_SV_INFO_MAX_LEN];
         float    robustConformity;
         bool     conformityValid;
         uint8_t  confidencePercent;
         bool     confidencePercentValid;
         uint8_t  calibrationStatus;
         uint8_t  calibrationStatusValid;
-        taf_gnss_KinematicsData_t GnssKinematicsData;
+        taf_locGnss_KinematicsData_t GnssKinematicsData;
         bool     GnssKinematicsDataValid;
         double   vrpLatitude;
         bool     vrpLatitudeValid;
@@ -205,7 +205,7 @@ namespace tafsvc {
         bool     northVelValid;
         double   upVel;
         bool     upVelValid;
-        taf_gnss_SvUsedInPosition_t svData;
+        taf_locGnss_SvUsedInPosition_t svData;
         bool     svDataValid;
         uint32_t sbasMask;
         bool     sbasMaskValid;
@@ -234,7 +234,7 @@ namespace tafsvc {
         uint32_t techMask;
         uint32_t techMaskValid;
         double   altMeanSeaLevel;
-        taf_gnss_GnssData_t gnssData[TAF_GNSS_NUMBER_OF_SIGNAL_TYPES_MAX];
+        taf_locGnss_GnssData_t gnssData[TAF_LOCGNSS_NUMBER_OF_SIGNAL_TYPES_MAX];
         bool  gnssDataValid;
         le_msg_SessionRef_t*         clientSessionRefPtr;
         bool gPtpTimeValid;
@@ -243,39 +243,39 @@ namespace tafsvc {
         uint64_t gPtpTimeUnc;
         le_dls_Link_t   next;
     }
-    taf_gnss_PositionSample_t;
+    taf_locGnss_PositionSample_t;
 
-    typedef struct taf_gnss_PositionHandler
+    typedef struct taf_locGnss_PositionHandler
     {
-        taf_gnss_PositionHandlerRef_t handlerRef;
-        taf_gnss_PositionHandlerFunc_t handlerFuncPtr;
+        taf_locGnss_PositionHandlerRef_t handlerRef;
+        taf_locGnss_PositionHandlerFunc_t handlerFuncPtr;
         void*                         handlerContextPtr;
         le_msg_SessionRef_t           sessionRef;
         le_dls_Link_t                 next;
     }
-    taf_gnss_PositionHandler_t;
+    taf_locGnss_PositionHandler_t;
 
     typedef struct
     {
-        taf_gnss_LocCapabilityType_t locCapability;
+        taf_locGnss_LocCapabilityType_t locCapability;
     }
     CapabilityChangeEvent_t;
 
     typedef struct
     {
         uint64_t timestamp;
-        char nmeaMask[TAF_GNSS_NMEA_STRING_MAX];
+        char nmeaMask[TAF_LOCGNSS_NMEA_STRING_MAX];
     }
     NmeaInfoEvent_t;
 
     typedef struct
     {
-        taf_gnss_SampleRef_t             positionSampleRef;
-        taf_gnss_PositionSample_t*       positionSampleNodePtr;
+        taf_locGnss_SampleRef_t             positionSampleRef;
+        taf_locGnss_PositionSample_t*       positionSampleNodePtr;
         le_msg_SessionRef_t             sessionRef;
         le_dls_Link_t                   next;
     }
-    taf_gnss_PositionSampleRequest_t;
+    taf_locGnss_PositionSampleRequest_t;
 
     class tafLocationListener : public telux::loc::ILocationListener,
     public telux::loc::ILocationConfigListener,public telux::loc::ILocationSystemInfoListener {
@@ -311,11 +311,11 @@ namespace tafsvc {
     {
         void*                       clientRefPtr;
         le_msg_SessionRef_t         sessionRef;
-        taf_gnss_Resolution_t        dopResolution;
-        taf_gnss_Resolution_t        vAccuracyResolution;
-        taf_gnss_Resolution_t        vSpeedAccuracyResolution;
-        taf_gnss_Resolution_t        hSpeedAccuracyResolution;
-        taf_gnss_State_t GnssState;
+        taf_locGnss_Resolution_t        dopResolution;
+        taf_locGnss_Resolution_t        vAccuracyResolution;
+        taf_locGnss_Resolution_t        vSpeedAccuracyResolution;
+        taf_locGnss_Resolution_t        hSpeedAccuracyResolution;
+        taf_locGnss_State_t GnssState;
         int mAcqRate;
         LocReqEngine mEngineType;
         bool mFirstFix;
@@ -327,9 +327,9 @@ namespace tafsvc {
         le_event_Id_t positionEventId;
         le_event_Id_t locCapabilityEventId;
         le_event_Id_t nmeaEventId;
-        taf_gnss_PositionSample_t   LastPositionSample;
+        taf_locGnss_PositionSample_t   LastPositionSample;
         le_ref_MapRef_t PositionHandlerRefMap;
-        taf_gnss_PositionSample_t mSatParams;
+        taf_locGnss_PositionSample_t mSatParams;
         std::vector<float> mVerticalSpeed;
         std::vector<float> mVerticalSpeedAccuracy;
         uint32_t mTtffPtr;
@@ -340,111 +340,111 @@ namespace tafsvc {
         uint8_t mLeapSeconds;
         int32_t mNextLeapSeconds;
         le_dls_List_t    SvInfoList;
-        taf_gnss_SvInfo_t  mSatInfo[TAF_GNSS_SV_INFO_MAX_LEN];
-        taf_gnss_GnssData_t mGnssData[TAF_GNSS_NUMBER_OF_SIGNAL_TYPES_MAX];
-        taf_gnss_SvMeas_t  mSatMeas;
-        taf_gnss_AltType_t mAltType;
+        taf_locGnss_SvInfo_t  mSatInfo[TAF_LOCGNSS_SV_INFO_MAX_LEN];
+        taf_locGnss_GnssData_t mGnssData[TAF_LOCGNSS_NUMBER_OF_SIGNAL_TYPES_MAX];
+        taf_locGnss_SvMeas_t  mSatMeas;
+        taf_locGnss_AltType_t mAltType;
         std::mutex mMutex;
         le_mutex_Ref_t mGnssMutexRef;
         bool mSvEnabled = false;
         bool mGnssSigEnabled = false;
-        taf_gnss_DRConfigValidityType_t drParamsMask;
+        taf_locGnss_DRConfigValidityType_t drParamsMask;
         le_dls_Link_t               next;
     }
-    taf_gnss_Client_t;
+    taf_locGnss_Client_t;
 
-    class taf_Gnss: public ITafSvc
+    class taf_locGnss: public ITafSvc
     {
         public:
-            taf_Gnss() {};
-            ~taf_Gnss();
+            taf_locGnss() {};
+            ~taf_locGnss();
             void Init();
-            static taf_Gnss &GetInstance();
+            static taf_locGnss &GetInstance();
             static le_result_t CheckValidatePosition(
-                    taf_gnss_PositionSampleRequest_t* positionSampleRequestNodePtr);
+                    taf_locGnss_PositionSampleRequest_t* positionSampleRequestNodePtr);
             static le_result_t PositionDataCoversion(int32_t value, int8_t dataType,int32_t* valuePtr);
             static uint32_t TranslateDop(uint32_t dopValue);
-            static void InitializeClient(taf_gnss_Client_t* clientRequestPtr);
-            static taf_gnss_Client_t* DiscoverSessionRef( le_msg_SessionRef_t sessionRef);
-            static taf_gnss_Client_t* AcquireSessionRef(void);
+            static void InitializeClient(taf_locGnss_Client_t* clientRequestPtr);
+            static taf_locGnss_Client_t* DiscoverSessionRef( le_msg_SessionRef_t sessionRef);
+            static taf_locGnss_Client_t* AcquireSessionRef(void);
             static void GnssPositionHandler(void* reportPtr);
-            static void CopyPositionData(taf_gnss_PositionSample_t* posSampleDataPtr,
-                    taf_gnss_PositionSample_t* posDataPtr );
-            static void ConfigureAcqStartInfo(taf_gnss_Client_t* clientRequestPtr);
+            static void CopyPositionData(taf_locGnss_PositionSample_t* posSampleDataPtr,
+                    taf_locGnss_PositionSample_t* posDataPtr );
+            static void ConfigureAcqStartInfo(taf_locGnss_Client_t* clientRequestPtr);
 
-            taf_gnss_PositionHandlerRef_t AddPositionHandler(
-                    taf_gnss_PositionHandlerFunc_t handlerPtr, void* contextPtr);
-            void RemovePositionHandler(taf_gnss_PositionHandlerRef_t handlerRef);
+            taf_locGnss_PositionHandlerRef_t AddPositionHandler(
+                    taf_locGnss_PositionHandlerFunc_t handlerPtr, void* contextPtr);
+            void RemovePositionHandler(taf_locGnss_PositionHandlerRef_t handlerRef);
 
-            taf_gnss_CapabilityChangeHandlerRef_t AddCapabilityHandler(
-                    taf_gnss_CapabilityChangeHandlerFunc_t handlerPtr, void* contextPtr);
+            taf_locGnss_CapabilityChangeHandlerRef_t AddCapabilityHandler(
+                    taf_locGnss_CapabilityChangeHandlerFunc_t handlerPtr, void* contextPtr);
             static void FirstLayerCapabilityHandler(void* reportPtr, void* secondLayerHandlerFunc);
-            void RemoveCapabilityHandler(taf_gnss_CapabilityChangeHandlerRef_t handlerRef);
-            taf_gnss_NmeaHandlerRef_t AddNmeaHandler(taf_gnss_NmeaHandlerFunc_t handlerPtr, void* contextPtr);
-            void RemoveNmeaHandler(taf_gnss_NmeaHandlerRef_t handlerRef);
+            void RemoveCapabilityHandler(taf_locGnss_CapabilityChangeHandlerRef_t handlerRef);
+            taf_locGnss_NmeaHandlerRef_t AddNmeaHandler(taf_locGnss_NmeaHandlerFunc_t handlerPtr, void* contextPtr);
+            void RemoveNmeaHandler(taf_locGnss_NmeaHandlerRef_t handlerRef);
             static void FirstLayerNmeaHandler(void* reportPtr, void* secondLayerHandlerFunc);
 
-            taf_gnss_SampleRef_t GetLastSampleRef(void);
+            taf_locGnss_SampleRef_t GetLastSampleRef(void);
             void ReleaseClientRef( void* RefPtr);
             static void CloseEventHandler(le_msg_SessionRef_t sessionRef, void* contextPtr);
             static void OpenEventHandler(le_msg_SessionRef_t sessionRef, void* contextPtr);
-            le_result_t GetPositionState( taf_gnss_SampleRef_t positionSampleRef,
-                    taf_gnss_FixState_t* statePtr);
-            void ReleaseSampleRef(taf_gnss_SampleRef_t positionSampleRef);
-            le_result_t GetDate( taf_gnss_SampleRef_t positionSampleRef, uint16_t* yearPtr,
+            le_result_t GetPositionState( taf_locGnss_SampleRef_t positionSampleRef,
+                    taf_locGnss_FixState_t* statePtr);
+            void ReleaseSampleRef(taf_locGnss_SampleRef_t positionSampleRef);
+            le_result_t GetDate( taf_locGnss_SampleRef_t positionSampleRef, uint16_t* yearPtr,
                     uint16_t* monthPtr, uint16_t* dayPtr);
-            le_result_t GetTime( taf_gnss_SampleRef_t positionSampleRef, uint16_t* hoursPtr,
+            le_result_t GetTime( taf_locGnss_SampleRef_t positionSampleRef, uint16_t* hoursPtr,
                     uint16_t* minutesPtr, uint16_t* secondsPtr, uint16_t* millisecondsPtr );
-            le_result_t GetLocation( taf_gnss_SampleRef_t positionSampleRef, int32_t* latitudePtr,
+            le_result_t GetLocation( taf_locGnss_SampleRef_t positionSampleRef, int32_t* latitudePtr,
                     int32_t* longitudePtr, int32_t* hAccuracyPtr);
-            le_result_t GetDirection( taf_gnss_SampleRef_t positionSampleRef, uint32_t* directionPtr, uint32_t* directionAccuracyPtr);
+            le_result_t GetDirection( taf_locGnss_SampleRef_t positionSampleRef, uint32_t* directionPtr, uint32_t* directionAccuracyPtr);
 
-            le_result_t GetAltitude( taf_gnss_SampleRef_t positionSampleRef, int32_t* altitudePtr,
+            le_result_t GetAltitude( taf_locGnss_SampleRef_t positionSampleRef, int32_t* altitudePtr,
                     int32_t* vAccuracyPtr );
-            le_result_t GetHorizontalSpeed( taf_gnss_SampleRef_t positionSampleRef, uint32_t* hspeedPtr,
+            le_result_t GetHorizontalSpeed( taf_locGnss_SampleRef_t positionSampleRef, uint32_t* hspeedPtr,
                     uint32_t* hspeedAccuracyPtr );
-            le_result_t GetVerticalSpeed( taf_gnss_SampleRef_t positionSampleRef, int32_t* vspeedPtr,
+            le_result_t GetVerticalSpeed( taf_locGnss_SampleRef_t positionSampleRef, int32_t* vspeedPtr,
                     int32_t* vspeedAccuracyPtr );
-            le_result_t GetGpsLeapSeconds( taf_gnss_SampleRef_t positionSampleRef, uint8_t* leapSecondsPtr);
+            le_result_t GetGpsLeapSeconds( taf_locGnss_SampleRef_t positionSampleRef, uint8_t* leapSecondsPtr);
 
             le_result_t Enable(void);
-            le_result_t SetConstellation(taf_gnss_ConstellationBitMask_t constellationMask);
+            le_result_t SetConstellation(taf_locGnss_ConstellationBitMask_t constellationMask);
             le_result_t Start(void);
-            le_result_t GetConstellation( taf_gnss_ConstellationBitMask_t *constellationMaskPtr);
+            le_result_t GetConstellation( taf_locGnss_ConstellationBitMask_t *constellationMaskPtr);
             le_result_t Disable(void);
             le_result_t Stop(void);
-            taf_gnss_State_t GetState( void);
+            taf_locGnss_State_t GetState( void);
 
-            le_result_t GetSatellitesStatus( taf_gnss_SampleRef_t positionSampleRef, uint8_t* satsInViewCountPtr,
+            le_result_t GetSatellitesStatus( taf_locGnss_SampleRef_t positionSampleRef, uint8_t* satsInViewCountPtr,
                     uint8_t* satsTrackingCountPtr, uint8_t* satsUsedCountPtr);
             le_result_t GetAcquisitionRate( uint32_t* ratePtr);
             le_result_t GetTtff( uint32_t* ttffPtr);
-            le_result_t GetSatellitesInfo(taf_gnss_SampleRef_t positionSampleRef, uint16_t* satIdPtr,
-                    size_t* satIdNumElementsPtr, taf_gnss_Constellation_t* satConstPtr,
+            le_result_t GetSatellitesInfo(taf_locGnss_SampleRef_t positionSampleRef, uint16_t* satIdPtr,
+                    size_t* satIdNumElementsPtr, taf_locGnss_Constellation_t* satConstPtr,
                     size_t* satConstNumElementsPtr, bool* satUsedPtr, size_t* satUsedNumElementsPtr,
                     uint8_t* satSnrPtr,size_t* satSnrNumElementsPtr,  uint16_t* satAzimPtr,
                     size_t* satAzimNumElementsPtr, uint8_t* satElevPtr, size_t* satElevNumElementsPtr);
-            le_result_t GetTimeAccuracy( taf_gnss_SampleRef_t positionSampleRef, uint32_t* timeAccuracyPtr);
-            le_result_t GetEpochTime( taf_gnss_SampleRef_t positionSampleRef, uint64_t* millisecondsPtr);
-            le_result_t SetDopResolution(taf_gnss_Resolution_t resolution);
-            le_result_t GetDilutionOfPrecision( taf_gnss_SampleRef_t positionSampleRef, taf_gnss_DopType_t dopType, uint16_t* dopPtr);
-            le_result_t GetGpsTime(taf_gnss_SampleRef_t positionSampleRef, uint32_t* gpsWeek, uint32_t* gpsTimeOfWeek);
+            le_result_t GetTimeAccuracy( taf_locGnss_SampleRef_t positionSampleRef, uint32_t* timeAccuracyPtr);
+            le_result_t GetEpochTime( taf_locGnss_SampleRef_t positionSampleRef, uint64_t* millisecondsPtr);
+            le_result_t SetDopResolution(taf_locGnss_Resolution_t resolution);
+            le_result_t GetDilutionOfPrecision( taf_locGnss_SampleRef_t positionSampleRef, taf_locGnss_DopType_t dopType, uint16_t* dopPtr);
+            le_result_t GetGpsTime(taf_locGnss_SampleRef_t positionSampleRef, uint32_t* gpsWeek, uint32_t* gpsTimeOfWeek);
             le_result_t GetLeapSeconds( uint64_t* gpsTime, int32_t* currentLeapSeconds, uint64_t* changeEventTime,int32_t*  nextLeapSeconds);
             le_result_t SetAcquisitionRate( uint32_t ratePtr);
             le_result_t ForceColdRestart();
             le_result_t ForceWarmRestart();
             le_result_t ForceHotRestart();
-            le_result_t GetSupportedConstellations(taf_gnss_ConstellationBitMask_t* constellationMaskPtr);
+            le_result_t GetSupportedConstellations(taf_locGnss_ConstellationBitMask_t* constellationMaskPtr);
             le_result_t SetMinElevation( uint8_t  minElevation);
-            le_result_t StartMode(taf_gnss_StartMode_t mode);
+            le_result_t StartMode(taf_locGnss_StartMode_t mode);
             le_result_t GetMinElevation( uint8_t*  minElevationPtr);
-            le_result_t SetNmeaSentences(taf_gnss_NmeaBitMask_t nmeaMask);
-            le_result_t GetNmeaSentences(taf_gnss_NmeaBitMask_t* nmeaMaskPtr);
-            le_result_t GetSupportedNmeaSentences(taf_gnss_NmeaBitMask_t* nmeaMaskPtr);
-            le_result_t SetDRConfig(const taf_gnss_DrParams_t* drParamsPtr);
+            le_result_t SetNmeaSentences(taf_locGnss_NmeaBitMask_t nmeaMask);
+            le_result_t GetNmeaSentences(taf_locGnss_NmeaBitMask_t* nmeaMaskPtr);
+            le_result_t GetSupportedNmeaSentences(taf_locGnss_NmeaBitMask_t* nmeaMaskPtr);
+            le_result_t SetDRConfig(const taf_locGnss_DrParams_t* drParamsPtr);
 #if defined(TARGET_SA515M) || defined(TARGET_SA525M)
-            le_result_t ConfigureEngineState(taf_gnss_EngineType_t engtype,
-                    taf_gnss_EngineState_t engState);
+            le_result_t ConfigureEngineState(taf_locGnss_EngineType_t engtype,
+                    taf_locGnss_EngineState_t engState);
 #endif
             le_result_t ConfigureRobustLocation(uint8_t enable,uint8_t enabled911);
             le_result_t RobustLocationInformation(uint8_t* enable, uint8_t* enabled911,
@@ -454,52 +454,52 @@ namespace tafsvc {
             le_result_t RequestSecondaryBandConstellations(uint32_t* constellationSb);
             le_result_t ConfigureSecondaryBandConstellations(uint32_t constellationSb);
 #endif
-            le_result_t GetMagneticDeviation(taf_gnss_SampleRef_t positionSampleRef,
+            le_result_t GetMagneticDeviation(taf_locGnss_SampleRef_t positionSampleRef,
                     int32_t* magneticDeviationPtr);
-            le_result_t GetEllipticalUncertainty(taf_gnss_SampleRef_t positionSampleRef,
+            le_result_t GetEllipticalUncertainty(taf_locGnss_SampleRef_t positionSampleRef,
                     uint32_t* horUncEllipseSemiMajorPtr,uint32_t* horUncEllipseSemiMinorPtr,
                     uint8_t*  horConfidencePtr);
-            le_result_t SetLeverArmConfig(const taf_gnss_LeverArmParams_t* LeverArmParamsPtr);
-            le_result_t SetEngineType(taf_gnss_EngineReportsType_t EngineType);
-            le_result_t GetConformityIndex(taf_gnss_SampleRef_t positionSampleRef,double* indexPtr);
-            le_result_t GetCalibrationData(taf_gnss_SampleRef_t positionSampleRef,
+            le_result_t SetLeverArmConfig(const taf_locGnss_LeverArmParams_t* LeverArmParamsPtr);
+            le_result_t SetEngineType(taf_locGnss_EngineReportsType_t EngineType);
+            le_result_t GetConformityIndex(taf_locGnss_SampleRef_t positionSampleRef,double* indexPtr);
+            le_result_t GetCalibrationData(taf_locGnss_SampleRef_t positionSampleRef,
                     uint32_t* calibPtr,uint8_t* percentPtr);
-            le_result_t GetBodyFrameData(taf_gnss_SampleRef_t positionSampleRef,
-                    taf_gnss_KinematicsData_t* bodyDataPtr);
-            le_result_t GetVRPBasedLLA(taf_gnss_SampleRef_t positionSampleRef,
+            le_result_t GetBodyFrameData(taf_locGnss_SampleRef_t positionSampleRef,
+                    taf_locGnss_KinematicsData_t* bodyDataPtr);
+            le_result_t GetVRPBasedLLA(taf_locGnss_SampleRef_t positionSampleRef,
                     double* vrpLatitudePtr, double* vrpLongitudePtr,double* vrpAttitudePtr);
-            le_result_t GetVRPBasedVelocity(taf_gnss_SampleRef_t positionSampleRef,
+            le_result_t GetVRPBasedVelocity(taf_locGnss_SampleRef_t positionSampleRef,
                     double* eastVelPtr, double* northVelPtr, double* upVelPtr);
-            le_result_t GetSvUsedInPosition(taf_gnss_SampleRef_t positionSampleRef,
-                    taf_gnss_SvUsedInPosition_t* svDataPtr);
-            le_result_t GetSbasCorrection(taf_gnss_SampleRef_t positionSampleRef,
+            le_result_t GetSvUsedInPosition(taf_locGnss_SampleRef_t positionSampleRef,
+                    taf_locGnss_SvUsedInPosition_t* svDataPtr);
+            le_result_t GetSbasCorrection(taf_locGnss_SampleRef_t positionSampleRef,
                     uint32_t* sbasMaskPtr);
-            le_result_t GetPositionTechnology(taf_gnss_SampleRef_t positionSampleRef,
+            le_result_t GetPositionTechnology(taf_locGnss_SampleRef_t positionSampleRef,
                     uint32_t* techMaskPtr);
-            le_result_t GetLocationInfoValidity(taf_gnss_SampleRef_t positionSampleRef,
+            le_result_t GetLocationInfoValidity(taf_locGnss_SampleRef_t positionSampleRef,
                     uint32_t* validityMaskPtr,uint64_t* validityExMaskPtr);
-            le_result_t GetLocationOutputEngParams(taf_gnss_SampleRef_t positionSampleRef,
+            le_result_t GetLocationOutputEngParams(taf_locGnss_SampleRef_t positionSampleRef,
                     uint16_t* engMaskPtr, uint16_t* locationEngTypePtr);
-            le_result_t GetReliabilityInformation(taf_gnss_SampleRef_t positionSampleRef,
+            le_result_t GetReliabilityInformation(taf_locGnss_SampleRef_t positionSampleRef,
                     uint16_t* horiReliblityPtr, uint16_t* vertReliblityPtr);
-            le_result_t GetStdDeviationAzimuthInfo(taf_gnss_SampleRef_t positionSampleRef,
+            le_result_t GetStdDeviationAzimuthInfo(taf_locGnss_SampleRef_t positionSampleRef,
                     double* azimuthPtr,double* eastDevPtr, double* northDevPtr);
-            le_result_t GetRealTimeInformation(taf_gnss_SampleRef_t positionSampleRef,
+            le_result_t GetRealTimeInformation(taf_locGnss_SampleRef_t positionSampleRef,
                     uint64_t* realTimePtr,uint64_t* realTimeUncPtr);
-            le_result_t GetMeasurementUsageInfo(taf_gnss_SampleRef_t positionSampleRef, taf_gnss_GnssMeasurementInfo_t* measInfoPtr, size_t* measInfoLen);
-            le_result_t GetReportStatus(taf_gnss_SampleRef_t positionSampleRef, int32_t* reportStatusPtr);
-            le_result_t GetAltitudeMeanSeaLevel(taf_gnss_SampleRef_t positionSampleRef, double* altMeanSeaLevelPtr);
-            le_result_t GetSVIds(taf_gnss_SampleRef_t positionSampleRef, uint16_t* sVIdsPtr, size_t* sVIdsLen);
-            le_result_t GetSatellitesInfoEx(taf_gnss_SampleRef_t positionSampleRef, taf_gnss_Constellation_t constellation, taf_gnss_SvInfo_t* svInfoPtr, size_t* svInfoLen);
+            le_result_t GetMeasurementUsageInfo(taf_locGnss_SampleRef_t positionSampleRef, taf_locGnss_GnssMeasurementInfo_t* measInfoPtr, size_t* measInfoLen);
+            le_result_t GetReportStatus(taf_locGnss_SampleRef_t positionSampleRef, int32_t* reportStatusPtr);
+            le_result_t GetAltitudeMeanSeaLevel(taf_locGnss_SampleRef_t positionSampleRef, double* altMeanSeaLevelPtr);
+            le_result_t GetSVIds(taf_locGnss_SampleRef_t positionSampleRef, uint16_t* sVIdsPtr, size_t* sVIdsLen);
+            le_result_t GetSatellitesInfoEx(taf_locGnss_SampleRef_t positionSampleRef, taf_locGnss_Constellation_t constellation, taf_locGnss_SvInfo_t* svInfoPtr, size_t* svInfoLen);
             le_result_t SetMinGpsWeek(uint16_t minGpsWeek);
             le_result_t GetMinGpsWeek(uint16_t* minGpsWeekPtr);
             le_result_t GetCapabilities(uint64_t* locCapabilityPtr);
-            le_result_t SetNmeaConfiguration(taf_gnss_NmeaBitMask_t nmeaMask, taf_gnss_GeodeticDatumType_t datumType, taf_gnss_LocEngineType_t engineType);
-            le_result_t GetXtraStatus(taf_gnss_XtraStatusParams_t* xtraParams);
-            le_result_t GetGnssData(taf_gnss_SampleRef_t positionSampleRef,taf_gnss_GnssData_t* gnssDataPtr,size_t* maxSignalTypes);
+            le_result_t SetNmeaConfiguration(taf_locGnss_NmeaBitMask_t nmeaMask, taf_locGnss_GeodeticDatumType_t datumType, taf_locGnss_LocEngineType_t engineType);
+            le_result_t GetXtraStatus(taf_locGnss_XtraStatusParams_t* xtraParams);
+            le_result_t GetGnssData(taf_locGnss_SampleRef_t positionSampleRef,taf_locGnss_GnssData_t* gnssDataPtr,size_t* maxSignalTypes);
 
-            le_result_t SetDRConfigValidity(taf_gnss_DRConfigValidityType_t validMask);
-            le_result_t GetGptpTime(taf_gnss_SampleRef_t positionSampleRef,uint64_t* gPtpTime,uint64_t* gPtpTimeUnc);
+            le_result_t SetDRConfigValidity(taf_locGnss_DRConfigValidityType_t validMask);
+            le_result_t GetGptpTime(taf_locGnss_SampleRef_t positionSampleRef,uint64_t* gPtpTime,uint64_t* gPtpTimeUnc);
             le_mem_PoolRef_t   PositionHandlerPoolRef;
             le_mem_PoolRef_t   PositionSampleRequestPoolRef;
             le_mem_PoolRef_t   PositionSamplePoolRef;
@@ -519,15 +519,15 @@ namespace tafsvc {
             uint32_t mXtraValidForHours;
             uint32_t mXtraDataStatus;
 
-            taf_gnss_ConstellationBitMask_t mConstellationMask;
-            taf_gnss_NmeaBitMask_t mNmeaMask = 0;
+            taf_locGnss_ConstellationBitMask_t mConstellationMask;
+            taf_locGnss_NmeaBitMask_t mNmeaMask = 0;
             uint8_t mMinSvEle;
 
         private:
             std::shared_ptr<ILocationConfigurator> mLocationConfigurator = nullptr;
             std::shared_ptr<IDgnssManager> mDgnssManager = nullptr;
             telux::common::Status LocationConfiguratorInit();
-            telux::common::Status LocationManagerInit(taf_gnss_Client_t* clientRequestPtr);
+            telux::common::Status LocationManagerInit(taf_locGnss_Client_t* clientRequestPtr);
             telux::common::Status DgnssManagerInit();
             le_mem_PoolRef_t   ClientPoolRef;
             le_ref_MapRef_t PositionSampleMap;

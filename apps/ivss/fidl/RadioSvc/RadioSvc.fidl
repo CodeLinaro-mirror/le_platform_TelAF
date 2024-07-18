@@ -51,14 +51,6 @@ interface RadioSvc
         NET_REG_STATE_EMERGENCY_AVAILABLE       ///< Not registered and not searching,
     }
 
-    <** @description: ENDC(Enhanced Dual Connectivity) Availability status on 5G NR**>
-    enumeration NREndcAvailability
-    {
-        NR_ENDC_UNKNOWN       ///< NR ENDC Status unknown.
-        NR_ENDC_AVAILABLE     ///< NR ENDC is Available
-        NR_ENDC_UNAVAILABLE   ///< NR ENDC is not Available
-    }
-
     <** @description: DCNR(Dual Connectivity with NR) Restriction status on 5G NR **>
     enumeration NRDcnrRestriction
     {
@@ -73,6 +65,89 @@ interface RadioSvc
         OFF             ///< Radio explictly powered off
         UNAVAILABLE     ///< Radio unavailable
         ON              ///< Radio is on
+    }
+
+    <** @description: Cell Info change status enum **>
+    enumeration CellInfoStatus
+    {
+        CELL_SERVING_CHANGED                    ///< Serving Cell info changed.
+        CELL_NEIGHBOR_CHANGED                   ///< NeighborCells info changed.
+        CELL_SERVING_AND_NEIGHBOR_CHANGED       ///< Serving and neighbor changed.
+    }
+
+    <** @description: Signal type enum **>
+    enumeration SigType
+    {
+        SIG_TYPE_GSM_RSSI           ///< GSM Received Signal Strength Indicator.
+        SIG_TYPE_UMTS_RSSI          ///< UMTS Received Signal Strength Indicator.
+        SIG_TYPE_LTE_RSRP           ///< LTE Reference Signal Receiving Power.
+        SIG_TYPE_NR5G_RSRP          ///< NR5G Reference Signal Receiving Power.
+    }
+
+    <** @description: Signal strength indication type enum **>
+    enumeration SigIndicationType
+    {
+        SIG_THRESHOLD       ///< Report signal strength based on threshold.
+        SIG_DELTA           ///< Report signal strength based on delta.
+    }
+
+    <** @description: GSM signal metrics. **>
+    struct GsmSignalMetrics
+    {
+        Int32 rssi      ///< Received signal strength indicator in dBm.
+        UInt32 ber      ///< Bit error rate, valid from 0 to 7.
+    }
+
+    <** @description: Umts signal metrics. **>
+    struct UmtsSignalMetrics
+    {
+        Int32 ss        ///< Signal strength in dBm.
+        UInt32 ber      ///< WCDMA bit error rate, valid from 0 to 7, 0x7FFFFFFF is unavailable.
+        Int32 rscp      ///< Receive signal channel power in dBm.
+    }
+
+    <** @description: Lte signal metrics. **>
+    struct LteSignalMetrics
+    {
+        Int32 ss        ///< Signal strength in dBm.
+        Int32 rsrq      ///< Reference signal receive quality in dB.
+        Int32 rsrp      ///< Reference signal receive power in dBm.
+        Int32 snr       ///< Signal-to-noise ratio in units of 0.1 dB.
+    }
+
+    <** @description: Nr5g signal metrics. **>
+    struct Nr5gSignalMetrics
+    {
+        Int32 rsrq      ///< Reference Signal Receive Quality in dB.
+        Int32 rsrp      ///< Reference Signal Receive Power in dBm.
+        Int32 snr       ///< Signal-to-Noise Ratio in units of 0.1 dB.
+    }
+
+    <** @description: Signal strength indication structure. **>
+    struct SigStrengthIndication
+    {
+        SigIndicationType type          ///< Use threshold or delta as the indication.
+        Int32 lowerRange                ///< Lower range threshold in 0.1 dBm.
+        Int32 upperRange                ///< Upper range threshold in 0.1 dBm.
+        UInt16 delta                    ///< Delta in uints of 0.1 dBm.
+    }
+
+    <** @description: Signal strength reporting hysteresis structure. **>
+    struct SigStrengthHysteresis
+    {
+        Boolean setThreshold        ///< True if set a hysteresis threshold, false if not.
+        UInt16 threshold            ///< Hysteresis dBm in units of 0.1 dBm, only to specify rat.
+        Boolean setTimer            ///< True if set a hysteresis timer, false if not.
+        UInt16 timer                ///< Hysteresis time in milliseconds, to all RATs.
+    }
+
+    <** @description: Signal metrics for each rat **>
+    union SignalMetrics
+    {
+        GsmSignalMetrics gsm        ///< GSM signal metrics.
+        UmtsSignalMetrics umts      ///< Umts signal metrics.
+        LteSignalMetrics lte        ///< Lte signal metrics.
+        Nr5gSignalMetrics nr5g      ///< Nr5g signal metrics.
     }
 
     <** @description: Set power state of the Radio **>
@@ -105,16 +180,14 @@ interface RadioSvc
     {
         in
         {
-            PhoneId phoneId     ///< Phone ID.
-            Rat rat             ///< Radio Access Technology.
+            PhoneId phoneId                 ///< Phone ID.
+            Rat rat                         ///< Radio Access Technology.
         }
-
         out
         {
-            Int32 ss            ///< Signal strength in dBm.
-            Int32 rsrp          ///< Reference signal receive power in dBm.
+            SignalMetrics signalStrength    ///< Signal metrics for the current rat.
         }
-        error Result            ///< return result.
+        error Result                        ///< return result.
     }
 
     <** @description: Get the network registration mode **>
@@ -191,7 +264,7 @@ interface RadioSvc
         error Result            ///< return result.
     }
 
-    <** @description: Gets the network registration state **>
+    <** @description: Gets the current registration state **>
     method GetNetRegState
     {
         in
@@ -200,6 +273,10 @@ interface RadioSvc
         }
         out
         {
+            Rat rat             ///< RAT in use.
+            UInt32 cellId       ///< Cell ID.
+            String mcc          ///< The mobile country code.
+            String mnc          ///< The mobile network code.
             NetRegState netReg  ///< Network registration state.
         }
         error Result            ///< return result.
@@ -214,10 +291,22 @@ interface RadioSvc
         }
         out
         {
-            NREndcAvailability statusEndc   ///< ENDC availability status.
             NRDcnrRestriction statusDcnr    ///< DCNR restriction status.
         }
         error Result                        ///< return result.
+    }
+
+    <** @description: Sets signal reporting criteria. **>
+    method SetSignalStrengthReportingCriteria
+    {
+        in
+        {
+            PhoneId phoneId                 ///< Phone ID.
+            SigType sigType                 ///< Signal type.
+            SigStrengthIndication ind       ///< Signal strength indication.
+            SigStrengthHysteresis hyst      ///< Signal strength hysteresis.
+        }
+        error Result                    ///< return result.
     }
 
     <** @description: Event to report signal strength change  **>
@@ -225,10 +314,10 @@ interface RadioSvc
     {
         out
         {
+            PhoneId phoneId     ///< Phone ID.
             Rat rat             ///< Radio Access Technology.
             Int32 ss            ///< Signal strength in dBm.
             Int32 rsrp          ///< Reference signal receive power in dBm.
-            PhoneId phoneId     ///< Phone ID.
         }
     }
 
@@ -237,8 +326,8 @@ interface RadioSvc
     {
         out
         {
-            Rat rat             ///< Radio Access Technology.
             PhoneId phoneId     ///< Phone ID.
+            Rat rat             ///< Radio Access Technology.
         }
     }
 
@@ -248,6 +337,16 @@ interface RadioSvc
         out
         {
             States radioState   ///< Radio state.
+        }
+    }
+
+    <** @description: Event to report cell info change  **>
+    broadcast CellInfo
+    {
+        out
+        {
+            PhoneId phoneId         ///< Phone ID.
+            CellInfoStatus status   ///< Cell change enum for serving / neighbor / both.
         }
     }
 }

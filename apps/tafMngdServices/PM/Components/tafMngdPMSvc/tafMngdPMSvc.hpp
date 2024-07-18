@@ -104,15 +104,13 @@ typedef struct
 {
    le_msg_SessionRef_t sessionRef;
    pid_t               pid;
-}
-taf_mngdPm_SessionNode_t;
+}taf_mngdPm_SessionNode_t;
 
 typedef struct
 {
     le_hashmap_Ref_t    clients;
     le_mem_PoolRef_t    SessionNodePool = NULL;
-}
-taf_mngdPm_Client_t;
+}taf_mngdPm_Client_t;
 
 typedef struct
 {
@@ -121,7 +119,7 @@ typedef struct
     uint8_t pmNodeId;                       // NodeId given
     taf_mngdPm_WakeupType_t wakeupType;    // WakeupType for the wake source
     le_dls_Link_t link;                     // Link to handler list
-} taf_wsRefCtx_t;
+}taf_wsRefCtx_t;
 
 typedef struct
 {
@@ -149,6 +147,29 @@ typedef struct
     int32_t status;
 }bubStatusEvent_t;
 
+typedef struct
+{
+    taf_mngdPm_NodePowerStateChangeHandlerFunc_t handlerPtr;
+    uint8_t pmNodeId;
+    le_dls_Link_t link;               // Link to handler list
+    taf_mngdPm_NodePowerStateChangeBitMask_t powerStateMask;
+    taf_mngdPm_NodePowerStateChangeHandlerRef_t handlerRef;
+    void* nodePowerStateHandlerCtxPtr;
+}taf_mngdPm_NodePowerStateCtxt_t;
+
+typedef struct
+{
+    taf_mngdPm_NodePowerState_t state;
+}taf_mngdPm_NodePowerStateChange_t;
+
+/*
+ * @brief The struct of Power state Ref list.
+ */
+typedef struct
+{
+    taf_mngdPm_nodePowerStateRef_t nodeStateRef;
+} taf_NodePowerStateRef_t;
+
 class tafMngdPMSvc: public ITafSvc
 {
     public:
@@ -174,14 +195,11 @@ class tafMngdPMSvc: public ITafSvc
         static le_result_t ShutdownNAD();
         static le_result_t SuspendNAD();
         static void ShutdownPrepareRespCB(uint8_t pmNodeId, hal_pm_NodeState_t state,
-                hal_pm_ShutdownMode_t mode, hal_pm_RspReason_t reason);
-        static void ShutdownChangeReqRespCB(uint8_t pmNodeId, hal_pm_NodeState_t state,
-                hal_pm_ShutdownMode_t mode);
-        static void ShutdownRespCB(hal_pm_ShutdownMode_t mode, hal_pm_RspReason_t reason);
-
-        static void ShutdownCmdCB(hal_pm_ShutdownMode_t mode, hal_pm_RspReason_t reason);
-        static void SuspendRespCB(hal_pm_SuspendMode_t mode, hal_pm_RspReason_t reason);
-        static void RestartRespCB(hal_pm_RestartMode_t mode, hal_pm_RspReason_t reason);
+                hal_pm_PowerMode_t mode, hal_pm_RspReason_t reason);
+        static void NodeStateChangeReqRespCB(uint8_t pmNodeId, hal_pm_NodeState_t state,
+                hal_pm_PowerMode_t mode);
+        static void RestartPrepareRespCB(uint8_t pmNodeId, hal_pm_NodeState_t state,
+                hal_pm_PowerMode_t mode, hal_pm_RspReason_t reason);;
         static void WakeupVehicleCB(int32_t reason, int32_t response);
 
         static void NodeStateChangeNotificationCB(uint8_t pm_node_id,
@@ -241,6 +259,22 @@ class tafMngdPMSvc: public ITafSvc
         static le_ref_MapRef_t infoReportHandlerRefMap;
         static void InfoReportCB(void* reportPtr);
         static void InfoReportVhalCB(int32_t* reportPtr);
+
+        //Node Power State change handler
+        static void NodePowerStateChanged(void* reportPtr);
+        static le_event_Id_t nodePowerStateChange;
+        static le_mem_PoolRef_t nodePowerStateHandlerPool;
+        static le_dls_List_t nodePowerStateHandlerList;
+        static le_ref_MapRef_t nodePowerStateHandlerMap;
+        static void CallNodePowerStateHandlerFunc(taf_mngdPm_NodePowerState_t state);
+        static le_mem_PoolRef_t nodePowerStateRefPool;
+        static le_ref_MapRef_t nodePowerStateRefMap;
+        static void DeleteNodePowerStateRefs();
+        std::vector<taf_mngdPm_nodePowerStateRef_t>ackClientrecrd;
+        std::vector<taf_mngdPm_nodePowerStateRef_t>regClientrecrd;
+        static int8_t clientSize;
+        static void SendAckToPms(taf_mngdPm_NodePowerState_t state, taf_pm_ClientAck_t ackType);
+        bool IsSameAsCurrentState(taf_mngdPm_NodePowerState_t nodeState, taf_mngdPm_State_t tafState);
 };
 }
 }

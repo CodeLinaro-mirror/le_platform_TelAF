@@ -1,0 +1,124 @@
+/*
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Maximum size of payload in bytes.
+ */
+//-------------------------------------------------------------------------------------------------
+DEFINE MAX_PAYLOAD_SIZE = 4095;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Enumeration of supported logical target address types.
+ */
+//-------------------------------------------------------------------------------------------------
+ENUM TaType
+{
+    TA_TYPE_PHYSICAL   = 0x00,    ///< Physical addressing.
+    TA_TYPE_FUNCTIONAL = 0x01     ///< Functional addressing.
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
+* Logical address information structure in UDS communication.
+*/
+//-------------------------------------------------------------------------------------------------
+STRUCT AddrInfo
+{
+    uint16 sa;
+    uint16 ta;
+    TaType taType;
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
+* Error code for Diagnostic service.
+*/
+//-------------------------------------------------------------------------------------------------
+ENUM ErrorCode
+{
+    NO_ERROR = 0,                    ///< Success.
+    CONDITIONS_NOT_CORRECT = 0x22    ///< Condition is not correct.
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Reference to the Diagnostic received request message.
+ */
+//-------------------------------------------------------------------------------------------------
+REFERENCE DiagInf;
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Handler for a received service request message.
+ */
+//-------------------------------------------------------------------------------------------------
+HANDLER DiagHandler
+(
+    DiagInf ref   IN,                  ///< Service reference.
+    AddrInfo addrInfo   IN,            ///< Diagnostic message pointer.
+    uint8 serviceID     IN,            ///< Service ID.
+    uint8 msg[MAX_PAYLOAD_SIZE]  IN    ///< Data RequestMsg.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * This event provides information about the received Service message.
+ */
+//-------------------------------------------------------------------------------------------------
+EVENT DiagEvent
+(
+    DiagHandler handler    ///< Handler
+);
+
+//-------------------------------------------------------------------------------------------------
+ /**
+ * Sends a Response.
+ *
+ * @return
+ *  - LE_OK             Function success.
+ *  - LE_BAD_PARAMETER  Invalid parameter.
+ *  - LE_COMM_ERROR     Sending message error.
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SendResp
+(
+    DiagInf ref   IN,                   ///< Reference.
+    AddrInfo addrInfo IN,               ///< Diagnostic message pointer.
+    uint8 serviceID   IN,               ///< Service ID.
+    uint8 errCode  IN,                  ///< Error code type.
+    uint8 data[MAX_PAYLOAD_SIZE]  IN    ///< Data payload.
+);

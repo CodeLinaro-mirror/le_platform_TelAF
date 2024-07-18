@@ -66,7 +66,7 @@ static uint8_t msdRawData[43] = {2, 41, 68, 6, 128, 227, 10, 81, 67, 158, 41, 85
         32, 19, 198, 68, 0, 0, 48, 20};
 static uint8_t msdLength = 43;
 
-static taf_gnss_PositionHandlerRef_t PositionHandlerRef;
+static taf_locGnss_PositionHandlerRef_t PositionHandlerRef;
 static int32_t latitude = INT32_MAX, longitude = INT32_MAX, hAccuracy = INT32_MAX;
 static uint32_t direction = UINT32_MAX, dirAccuracy = UINT32_MAX;
 
@@ -229,14 +229,14 @@ void report(le_result_t expected_result, le_result_t actual_result, string API_N
 
 static void PositionHandlerFunction
 (
-    taf_gnss_SampleRef_t positionSampleRef,
+    taf_locGnss_SampleRef_t positionSampleRef,
     void* contextPtr
 )
 {
     le_result_t result;
 
     //Get 2D location
-    result = taf_gnss_GetLocation(positionSampleRef,
+    result = taf_locGnss_GetLocation(positionSampleRef,
                                   &latitude,
                                   &longitude,
                                   &hAccuracy);
@@ -260,7 +260,7 @@ static void PositionHandlerFunction
     }
 
     //Get direction
-    result = taf_gnss_GetDirection(positionSampleRef,
+    result = taf_locGnss_GetDirection(positionSampleRef,
                                    &direction,
                                    &dirAccuracy);
 
@@ -281,10 +281,10 @@ static void PositionHandlerFunction
     }
 
     //Remove the handler assigned
-    taf_gnss_RemovePositionHandler(PositionHandlerRef);
+    taf_locGnss_RemovePositionHandler(PositionHandlerRef);
 
     //Stop receiving GNSS reports
-    taf_gnss_Stop();
+    taf_locGnss_Stop();
 }
 
 static void* SamplePositionThread
@@ -293,14 +293,14 @@ static void* SamplePositionThread
 )
 {
     //connect the position service to the current running thread
-    taf_gnss_ConnectService();
+    taf_locGnss_ConnectService();
 
-    le_result_t result = taf_gnss_Start();
+    le_result_t result = taf_locGnss_Start();
 
     LE_INFO("Result of gnss start: %d", (int)result);
 
     //Position Handler
-    PositionHandlerRef = taf_gnss_AddPositionHandler(PositionHandlerFunction, NULL);
+    PositionHandlerRef = taf_locGnss_AddPositionHandler(PositionHandlerFunction, NULL);
     if(PositionHandlerRef != NULL) {
         LE_INFO("Confirm position handler was added successfully");
     }

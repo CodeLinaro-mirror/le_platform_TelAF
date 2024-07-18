@@ -49,6 +49,20 @@ interface SimSvc
         error Result            ///< return result.
     }
 
+    <** @description: Retrieves the SIM's ICCID **>
+    method GetICCID
+    {
+        in
+        {
+            PhoneId phoneId     ///< Phone ID.
+        }
+        out
+        {
+            String iccid        ///< ICC ID as output.
+        }
+        error Result            ///< return result.
+    }
+
     <** @description: SIM card state change event **>
     broadcast SimState
     {

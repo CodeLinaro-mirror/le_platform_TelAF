@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -23,7 +23,7 @@ void PrintUsage(void) {
          "app runProc tafWLANAPIntTest wlanAPTest -- SetSecurityConfig <AP>\n"
          "app runProc tafWLANAPIntTest wlanAPTest -- GetSecurityConfig <AP>\n"
          "app runProc tafWLANAPIntTest wlanAPTest -- GetConnectedDevices <AP>\n"
-         "\n        AP options: wlan0 wlan1\n"
+         "\n AP: AP interface obtained from taf_wlan_GetIntfInfo\n"
          "\n");
 }
 
@@ -224,6 +224,44 @@ inline void CheckNumArgs(size_t NumArgs, size_t ExpectedNumArgs) {
     }
 }
 
+static taf_wlanAp_WlanAPRef_t getAPRef(const char *apIntfNameStr)
+{
+    taf_wlan_APIntfInfo_t APIntf[TAF_WLAN_MAX_NUM_AP] = {0};
+    taf_wlan_STAIntfInfo_t STAIntf[TAF_WLAN_MAX_NUM_STA] = {0};
+    size_t APIntfSize = TAF_WLAN_MAX_NUM_AP, STAIntfSize = TAF_WLAN_MAX_NUM_STA;
+    le_result_t status = taf_wlan_GetIntfInfo(NULL, APIntf, &APIntfSize, STAIntf, &STAIntfSize);
+    if (LE_OK != status)
+    {
+        LE_TEST_FATAL("taf_wlan_GetIntfInfo failed %d", status);
+    }
+
+    if (0==APIntfSize)
+    {
+        LE_TEST_FATAL("AP is not enabled");
+    }
+    int APIdx = -1;
+    for (int i = 0; i < APIntfSize; i++)
+    {
+        if (strncasecmp(apIntfNameStr, APIntf[i].IntfName, strlen(apIntfNameStr)) == 0)
+        {
+            APIdx = i;
+            break;
+        }
+    }
+    if (-1 == APIdx)
+    {
+        PrintUsage();
+        LE_TEST_FATAL("Invalid AP interface name: %s", apIntfNameStr);
+    }
+
+    taf_wlanAp_WlanAPRef_t apRef = taf_wlanAp_GetWlanAP(APIntf[APIdx].id, APIntf[APIdx].IntfName);
+    if (apRef == NULL)
+    {
+        LE_TEST_FATAL("taf_wlanAp_GetWlanAPReference failed");
+    }
+    return apRef;
+}
+
 COMPONENT_INIT {
     LE_TEST_INIT;
 
@@ -235,61 +273,49 @@ COMPONENT_INIT {
     const char* testType = le_arg_GetArg(0);
     const char* apIntfName = le_arg_GetArg(1);
 
-    taf_wlan_APid_t wlanApId = TAF_WLAN_AP_ID1;
-
     LE_TEST_INFO("======== WLAN Access Point Integration Test ========");
-
-    if (strncasecmp(apIntfName, "wlan0", strlen("wlan0")) == 0) {
-        wlanApId = TAF_WLAN_AP_ID1;
-    } else if (strncasecmp(apIntfName, "wlan1", strlen("wlan1")) == 0) {
-        wlanApId = TAF_WLAN_AP_ID2;
-    } else {
+    if (NULL == apIntfName)
+    {
         PrintUsage();
-        LE_TEST_FATAL("Invalid AP id %s", apIntfName);
+        LE_TEST_FATAL("Invalid AP interface name is NULL");
     }
-
-    LE_TEST_INFO("AP: %s", apIntfName);
-
-    taf_wlanAp_WlanAPRef_t apRef = taf_wlanAp_GetWlanAP(wlanApId, apIntfName);
-    if (apRef == NULL) {
-        LE_TEST_FATAL("taf_wlanAp_GetWlanAPReference failed");
-    }
+    LE_TEST_INFO("AP Interface to use: %s", apIntfName);
 
     if (strncasecmp(testType, "Start", strlen("Start")) == 0) {
         LE_TEST_INFO("======== WLAN AP Test: Start ========");
-        status = wlanAPTestStart(apRef);
+        status = wlanAPTestStart(getAPRef(apIntfName));
         LE_TEST_OK(LE_OK == status, "WLAN AP Test: Start");
     } else if (strncasecmp(testType, "Stop", strlen("Stop")) == 0) {
         LE_TEST_INFO("======== WLAN Test: Stop ========");
-        status = wlanAPTestStop(apRef);
+        status = wlanAPTestStop(getAPRef(apIntfName));
         LE_TEST_OK(LE_OK == status, "WLAN Test: Stop");
     } else if (strncasecmp(testType, "Restart", strlen("Restart")) == 0) {
         LE_TEST_INFO("======== WLAN Test: Restart ========");
-        status = wlanAPTestRestart(apRef);
+        status = wlanAPTestRestart(getAPRef(apIntfName));
         LE_TEST_OK(LE_OK == status, "WLAN Test: Restart");
     } else if (strncasecmp(testType, "GetStatus", strlen("GetStatus")) == 0) {
         LE_TEST_INFO("======== WLAN Test: GetStatus ========");
-        status = wlanAPTestGetStatus(apRef);
+        status = wlanAPTestGetStatus(getAPRef(apIntfName));
         LE_TEST_OK(LE_OK == status, "WLAN Test: GetStatus");
     } else if (strncasecmp(testType, "GetConfig", strlen("GetConfig")) == 0) {
         LE_TEST_INFO("======== WLAN Test: GetConfig ========");
-        status = wlanAPTestGetConfig(apRef);
+        status = wlanAPTestGetConfig(getAPRef(apIntfName));
         LE_TEST_OK(LE_OK == status, "WLAN Test: GetConfig");
     } else if (strncasecmp(testType, "SetConfig", strlen("SetConfig")) == 0) {
         LE_TEST_INFO("======== WLAN Test: SetConfig ========");
-        status = wlanAPTestSetConfig(apRef);
+        status = wlanAPTestSetConfig(getAPRef(apIntfName));
         LE_TEST_OK(LE_OK == status, "WLAN Test: SetConfig");
     } else if (strncasecmp(testType, "GetSecurityConfig", strlen("GetSecurityConfig")) == 0) {
         LE_TEST_INFO("======== WLAN Test: GetSecurityConfig ========");
-        status = wlanAPTestGetSecurityConfig(apRef);
+        status = wlanAPTestGetSecurityConfig(getAPRef(apIntfName));
         LE_TEST_OK(LE_OK == status, "WLAN Test: GetSecurityConfig");
     } else if (strncasecmp(testType, "SetSecurityConfig", strlen("SetSecurityConfig")) == 0) {
         LE_TEST_INFO("======== WLAN Test: SetSecurityConfig ========");
-        status = wlanAPTestSetSecurityConfig(apRef);
+        status = wlanAPTestSetSecurityConfig(getAPRef(apIntfName));
         LE_TEST_OK(LE_OK == status, "WLAN Test: SetSecurityConfig");
     } else if (strncasecmp(testType, "GetConnectedDevices", strlen("GetConnectedDevices")) == 0) {
         LE_TEST_INFO("======== WLAN Test: GetConnectedDevices ========");
-        status = wlanAPTestGetConnectedDevices(apRef);
+        status = wlanAPTestGetConnectedDevices(getAPRef(apIntfName));
         LE_TEST_OK(LE_OK == status, "WLAN Test: GetConnectedDevices");
     } else {
         PrintUsage();

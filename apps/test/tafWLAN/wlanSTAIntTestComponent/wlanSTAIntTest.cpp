@@ -16,64 +16,41 @@
 
 #define MAX_SYSTEM_CMD_LENGTH 200
 
-/**
- * With current releases, only 1 STA is supported. So hardcode the following
- * STA ID = TAF_WLAN_STA_ID1
- * STA Interface = wlan0
- */
-static const taf_wlan_STAid_t g_StaID = TAF_WLAN_STA_ID1;
-static const char* g_StaIntf = "wlan0";
-// TBD: Make STA ID and Interface user provided values. as done for "GetRef".
-
 static le_sem_Ref_t wlanSemRef = nullptr;
-static taf_wlanSta_WlanSTARef_t wlanSTARef = nullptr;
 static std::promise<taf_wlanSta_State_t> connectPromise;
 static std::promise<taf_wlanSta_State_t> disconnectPromise;
 
 void PrintUsage() {
     printf("\n"
-           "app runProc tafWLANSTAIntTest wlanSTATest -- GetRef <STA ID> <Interface>\n"
-           "app runProc tafWLANSTAIntTest wlanSTATest -- Restart\n"
-           "app runProc tafWLANSTAIntTest wlanSTATest -- GetStatus\n"
-           "app runProc tafWLANSTAIntTest wlanSTATest -- GetMode\n"
-           "app runProc tafWLANSTAIntTest wlanSTATest -- GetIPConfig\n"
-           "app runProc tafWLANSTAIntTest wlanSTATest -- SetMode <Station Mode>\n"
-           "app runProc tafWLANSTAIntTest wlanSTATest -- DoAPScan\n"
-           "app runProc tafWLANSTAIntTest wlanSTATest -- GetAPScanResults\n"
-           "app runProc tafWLANSTAIntTest wlanSTATest -- SetWpa2Psk <SSID> <psk>\n"
-           "app runProc tafWLANSTAIntTest wlanSTATest -- Connect <SSID>\n"
-           "app runProc tafWLANSTAIntTest wlanSTATest -- Disconnect <SSID>\n"
+           "app runProc tafWLANSTAIntTest wlanSTATest -- Start <STA>\n"
+           "app runProc tafWLANSTAIntTest wlanSTATest -- Stop <STA>\n"
+           "app runProc tafWLANSTAIntTest wlanSTATest -- Restart <STA>\n"
+           "app runProc tafWLANSTAIntTest wlanSTATest -- GetStatus <STA>\n"
+           "app runProc tafWLANSTAIntTest wlanSTATest -- GetMode <STA>\n"
+           "app runProc tafWLANSTAIntTest wlanSTATest -- GetIPConfig <STA>\n"
+           "app runProc tafWLANSTAIntTest wlanSTATest -- SetMode  <STA> <Station Mode>\n"
+           "app runProc tafWLANSTAIntTest wlanSTATest -- DoAPScan <STA>\n"
+           "app runProc tafWLANSTAIntTest wlanSTATest -- GetAPScanResults <STA>\n"
+           "\n STA: STA interface obtained from taf_wlan_GetIntfInfo\n"
            "\n");
 }
 
-static le_result_t wlanSTATestStart() {
-    taf_wlanSta_WlanSTARef_t staRef = taf_wlanSta_GetWlanSTA(g_StaID, g_StaIntf);
-    if (!staRef) {
-        fprintf(stderr, "taf_wlanSta_GetWlanSTA failed\n");
-        return LE_FAULT;
-    }
+static le_result_t wlanSTATestStart(taf_wlanSta_WlanSTARef_t staRef)
+{
     le_result_t result = taf_wlanSta_Start(staRef);
     fprintf(stderr, "taf_wlanSta_Start Return:%d\n", result);
     return result;
 }
 
-static le_result_t wlanSTATestStop() {
-    taf_wlanSta_WlanSTARef_t staRef = taf_wlanSta_GetWlanSTA(g_StaID, g_StaIntf);
-    if (!staRef) {
-        fprintf(stderr, "taf_wlanSta_GetWlanSTA failed\n");
-        return LE_FAULT;
-    }
+static le_result_t wlanSTATestStop(taf_wlanSta_WlanSTARef_t staRef)
+{
     le_result_t result = taf_wlanSta_Stop(staRef);
     fprintf(stderr, "taf_wlanSta_Stop Return:%d\n", result);
     return result;
 }
 
-static le_result_t wlanSTATestRestart() {
-    taf_wlanSta_WlanSTARef_t staRef = taf_wlanSta_GetWlanSTA(g_StaID, g_StaIntf);
-    if (!staRef) {
-        fprintf(stderr, "taf_wlanSta_GetWlanSTA failed\n");
-        return LE_FAULT;
-    }
+static le_result_t wlanSTATestRestart(taf_wlanSta_WlanSTARef_t staRef)
+{
     le_result_t result = taf_wlanSta_Restart(staRef);
     fprintf(stderr, "taf_wlanSta_Restart Return:%d\n", result);
     return result;
@@ -112,12 +89,8 @@ static void PrintStaState(taf_wlanSta_State_t State) {
     }
 }
 
-static le_result_t wlanSTATestGetStatus() {
-    taf_wlanSta_WlanSTARef_t staRef = taf_wlanSta_GetWlanSTA(g_StaID, g_StaIntf);
-    if (!staRef) {
-        fprintf(stderr, "taf_wlanSta_GetWlanSTA failed\n");
-        return LE_FAULT;
-    }
+static le_result_t wlanSTATestGetStatus(taf_wlanSta_WlanSTARef_t staRef)
+{
     taf_wlanSta_State_t State;
     char IntfName[TAF_NET_INTERFACE_NAME_MAX_LEN] = { 0 };
     char IPv4Address[TAF_NET_IPV4_ADDR_MAX_LEN] = { 0 };
@@ -159,12 +132,8 @@ static void PrintStaMode(taf_wlanSta_Mode_t StaMode) {
     }
 }
 
-static le_result_t wlanSTATestGetMode() {
-    taf_wlanSta_WlanSTARef_t staRef = taf_wlanSta_GetWlanSTA(g_StaID, g_StaIntf);
-    if (!staRef) {
-        fprintf(stderr, "taf_wlanSta_GetWlanSTA failed\n");
-        return LE_FAULT;
-    }
+static le_result_t wlanSTATestGetMode(taf_wlanSta_WlanSTARef_t staRef)
+{
     taf_wlanSta_Mode_t Mode;
     le_result_t result = taf_wlanSta_GetMode(staRef, &Mode);
     fprintf(stderr, "taf_wlanSta_GetMode Return:%d\n", result);
@@ -197,12 +166,8 @@ static void PrintStaIPConfig(taf_wlanSta_IPType_t IPType) {
     }
 }
 
-static le_result_t wlanSTATestGetIPConfig() {
-    taf_wlanSta_WlanSTARef_t staRef = taf_wlanSta_GetWlanSTA(g_StaID, g_StaIntf);
-    if (!staRef) {
-        fprintf(stderr, "taf_wlanSta_GetWlanSTA failed\n");
-        return LE_FAULT;
-    }
+static le_result_t wlanSTATestGetIPConfig(taf_wlanSta_WlanSTARef_t staRef)
+{
     taf_wlanSta_IPType_t IPType;
     taf_wlanSta_IPConfig_t StaStaticIPConfig = { { 0 }, { 0 }, { 0 }, { 0 } };
     le_result_t result = taf_wlanSta_GetIPConfig(staRef, &IPType, &StaStaticIPConfig);
@@ -219,12 +184,8 @@ static le_result_t wlanSTATestGetIPConfig() {
     return result;
 }
 
-static le_result_t wlanSTATestSetMode() {
-    taf_wlanSta_WlanSTARef_t staRef = taf_wlanSta_GetWlanSTA(g_StaID, g_StaIntf);
-    if (!staRef) {
-        fprintf(stderr, "taf_wlanSta_GetWlanSTA failed\n");
-        return LE_FAULT;
-    }
+static le_result_t wlanSTATestSetMode(taf_wlanSta_WlanSTARef_t staRef)
+{
     taf_wlanSta_Mode_t StaMode
         = (taf_wlanSta_Mode_t)strtol((const char*)le_arg_GetArg(1), nullptr, 10);
 
@@ -237,12 +198,8 @@ static le_result_t wlanSTATestSetMode() {
     return result;
 }
 
-static le_result_t wlanSTATestDoAPScan() {
-    taf_wlanSta_WlanSTARef_t staRef = taf_wlanSta_GetWlanSTA(g_StaID, g_StaIntf);
-    if (!staRef) {
-        fprintf(stderr, "taf_wlanSta_GetWlanSTA failed\n");
-        return LE_FAULT;
-    }
+static le_result_t wlanSTATestDoAPScan(taf_wlanSta_WlanSTARef_t staRef)
+{
     le_result_t result = taf_wlanSta_DoAPScan(staRef);
     fprintf(stderr, "taf_wlanSta_DoAPScan Return: %d\n", result);
     return result;
@@ -256,12 +213,8 @@ static void PrintAllAPInfoOnConsole(taf_wlanSta_APInfo_t* APInfoPtr, size_t APIn
     }
 }
 
-static le_result_t wlanSTATestGetAPScanResults() {
-    taf_wlanSta_WlanSTARef_t staRef = taf_wlanSta_GetWlanSTA(g_StaID, g_StaIntf);
-    if (!staRef) {
-        fprintf(stderr, "taf_wlanSta_GetWlanSTA failed\n");
-        return LE_FAULT;
-    }
+static le_result_t wlanSTATestGetAPScanResults(taf_wlanSta_WlanSTARef_t staRef)
+{
     uint16_t numScanedAPs = 0;
     size_t APInfoSize = TAF_WLANSTA_MAX_APSCAN_RESULT_NUM;
     taf_wlanSta_APInfo_t ApInfo[TAF_WLANSTA_MAX_APSCAN_RESULT_NUM] = { 0 };
@@ -272,17 +225,6 @@ static le_result_t wlanSTATestGetAPScanResults() {
 
     PrintAllAPInfoOnConsole(ApInfo, APInfoSize);
     return result;
-}
-
-static le_result_t wlanSTATestGetRef() {
-    taf_wlan_STAid_t staID = (taf_wlan_STAid_t)strtol((const char*)le_arg_GetArg(1), nullptr, 10);
-    LE_TEST_INFO("Getting Ref for ID: %d, Intf: %s", staID, le_arg_GetArg(2));
-    taf_wlanSta_WlanSTARef_t staRef = taf_wlanSta_GetWlanSTA(staID, (const char*)le_arg_GetArg(2));
-    if (!staRef) {
-        fprintf(stderr, "taf_wlanSta_GetWlanSTA failed\n");
-        return LE_FAULT;
-    }
-    return LE_OK;
 }
 
 inline void CheckNumArgs(size_t NumArgs, size_t ExpectedNumArgs) {
@@ -354,7 +296,7 @@ static void *wlanThreadHdlr(void *contextPtr)
     taf_wlan_STAIntfInfo_t STAInfo[TAF_WLAN_MAX_NUM_STA] = {};
     size_t STAIntfInfoSize = TAF_WLAN_MAX_NUM_STA;
     taf_wlan_GetIntfInfo(nullptr, APIntInfos, &APIntfInfoSize, STAInfo, &STAIntfInfoSize);
-    wlanSTARef = taf_wlanSta_GetWlanSTA(STAInfo[0].id, STAInfo[0].IntfName);
+    taf_wlanSta_WlanSTARef_t wlanSTARef = (taf_wlanSta_WlanSTARef_t) contextPtr;
 
     taf_wlanSta_EventHandlerRef_t staHdlrRef =
         taf_wlanSta_AddEventHandler(wlanSTARef, StationEventHandler, nullptr);
@@ -369,6 +311,44 @@ static void *wlanThreadHdlr(void *contextPtr)
     return nullptr;
 }
 
+static taf_wlanSta_WlanSTARef_t getSTARef(const char *staIntfNameStr)
+{
+    taf_wlan_APIntfInfo_t APIntf[TAF_WLAN_MAX_NUM_AP] = {};
+    taf_wlan_STAIntfInfo_t STAIntf[TAF_WLAN_MAX_NUM_STA] = {};
+    size_t APIntfSize = TAF_WLAN_MAX_NUM_AP, STAIntfSize = TAF_WLAN_MAX_NUM_STA;
+    le_result_t status = taf_wlan_GetIntfInfo(NULL, APIntf, &APIntfSize, STAIntf, &STAIntfSize);
+    if (LE_OK != status)
+    {
+        LE_TEST_FATAL("taf_wlan_GetIntfInfo failed %d", status);
+    }
+    if (0 == STAIntfSize)
+    {
+        LE_TEST_FATAL("STA is not enabled");
+    }
+    int STAIdx = -1;
+    for (int i = 0; i < static_cast<int>(STAIntfSize); i++)
+    {
+        if (strncasecmp(staIntfNameStr, STAIntf[i].IntfName, strlen(staIntfNameStr)) == 0)
+        {
+            STAIdx = i;
+            break;
+        }
+    }
+    if (-1 == STAIdx)
+    {
+        PrintUsage();
+        LE_TEST_FATAL("Invalid STA interface name: %s", staIntfNameStr);
+    }
+
+    taf_wlanSta_WlanSTARef_t staRef = taf_wlanSta_GetWlanSTA(STAIntf[STAIdx].id,
+                                                            STAIntf[STAIdx].IntfName);
+    if (staRef == NULL)
+    {
+        LE_TEST_FATAL("taf_wlanSta_GetWlanSTA failed");
+    }
+    return staRef;
+}
+
 COMPONENT_INIT {
     le_result_t status = LE_FAULT;
 
@@ -379,66 +359,70 @@ COMPONENT_INIT {
     }
 
     const char* testType = le_arg_GetArg(0);
+    const char *staIntfName = le_arg_GetArg(1);
 
     LE_TEST_INFO("======== WLAN Station Integration Test ========");
     LE_TEST_INIT;
 
+    if (NULL == staIntfName)
+    {
+        PrintUsage();
+        LE_TEST_FATAL("Invalid STA interface name is NULL");
+    }
+    LE_TEST_INFO("STA Interface to use: %s", staIntfName);
+
     // Register for events
     LE_TEST_INFO("======== Register for events ========");
     wlanSemRef = le_sem_Create("wlanSem", 0);
-    le_thread_Ref_t wlanThreadRef = le_thread_Create("wlanThread", wlanThreadHdlr, nullptr);
+    le_thread_Ref_t wlanThreadRef = le_thread_Create("wlanThread", wlanThreadHdlr,
+                                                     (void *)getSTARef(staIntfName));
     le_thread_Start(wlanThreadRef);
     le_sem_Wait(wlanSemRef);
 
-    if (strncasecmp(testType, "GetRef", strlen("GetRef")) == 0) {
-        LE_TEST_INFO("======== WLAN AP Test: GetRef ========");
-        CheckNumArgs(numArgs, 3);
-        status = wlanSTATestGetRef();
-        LE_TEST_OK(LE_OK == status, "WLAN AP Test: GetRef");
-    } else if (strncasecmp(testType, "Start", strlen("Start")) == 0) {
-        LE_TEST_INFO("======== WLAN AP Test: Start ========");
-        CheckNumArgs(numArgs, 1);
-        status = wlanSTATestStart();
-        LE_TEST_OK(LE_OK == status, "WLAN AP Test: Start");
+    if (strncasecmp(testType, "Start", strlen("Start")) == 0) {
+        LE_TEST_INFO("======== WLAN STA Test: Start ========");
+        CheckNumArgs(numArgs, 2);
+        status = wlanSTATestStart(getSTARef(staIntfName));
+        LE_TEST_OK(LE_OK == status, "WLAN STA Test: Start");
     } else if (strncasecmp(testType, "Stop", strlen("Stop")) == 0) {
         LE_TEST_INFO("======== WLAN Test: Stop ========");
-        CheckNumArgs(numArgs, 1);
-        status = wlanSTATestStop();
+        CheckNumArgs(numArgs, 2);
+        status = wlanSTATestStop(getSTARef(staIntfName));
         LE_TEST_OK(LE_OK == status, "WLAN Test: Stop");
     } else if (strncasecmp(testType, "Restart", strlen("Restart")) == 0) {
         LE_TEST_INFO("======== WLAN Test: Restart ========");
-        CheckNumArgs(numArgs, 1);
-        status = wlanSTATestRestart();
+        CheckNumArgs(numArgs, 2);
+        status = wlanSTATestRestart(getSTARef(staIntfName));
         LE_TEST_OK(LE_OK == status, "WLAN Test: Restart");
     } else if (strncasecmp(testType, "GetStatus", strlen("GetStatus")) == 0) {
         LE_TEST_INFO("======== WLAN Test: GetStatus ========");
-        CheckNumArgs(numArgs, 1);
-        status = wlanSTATestGetStatus();
+        CheckNumArgs(numArgs, 2);
+        status = wlanSTATestGetStatus(getSTARef(staIntfName));
         LE_TEST_OK(LE_OK == status, "WLAN Test: GetStatus");
     } else if (strncasecmp(testType, "GetMode", strlen("GetMode")) == 0) {
         LE_TEST_INFO("======== WLAN Test: GetMode ========");
-        CheckNumArgs(numArgs, 1);
-        status = wlanSTATestGetMode();
+        CheckNumArgs(numArgs, 2);
+        status = wlanSTATestGetMode(getSTARef(staIntfName));
         LE_TEST_OK(LE_OK == status, "WLAN Test: GetMode");
     } else if (strncasecmp(testType, "GetIPConfig", strlen("GetIPConfig")) == 0) {
         LE_TEST_INFO("======== WLAN Test: GetIPConfig ========");
-        CheckNumArgs(numArgs, 1);
-        status = wlanSTATestGetIPConfig();
+        CheckNumArgs(numArgs, 2);
+        status = wlanSTATestGetIPConfig(getSTARef(staIntfName));
         LE_TEST_OK(LE_OK == status, "WLAN Test: GetIPConfig");
     } else if (strncasecmp(testType, "SetMode", strlen("SetMode")) == 0) {
         LE_TEST_INFO("======== WLAN Test: SetMode ========");
-        CheckNumArgs(numArgs, 2);
-        status = wlanSTATestSetMode();
+        CheckNumArgs(numArgs, 3);
+        status = wlanSTATestSetMode(getSTARef(staIntfName));
         LE_TEST_OK(LE_OK == status, "WLAN Test: SetMode");
     } else if (strncasecmp(testType, "DoAPScan", strlen("DoAPScan")) == 0) {
         LE_TEST_INFO("======== WLAN Test: DoAPScan ========");
-        CheckNumArgs(numArgs, 1);
-        status = wlanSTATestDoAPScan();
+        CheckNumArgs(numArgs, 2);
+        status = wlanSTATestDoAPScan(getSTARef(staIntfName));
         LE_TEST_OK(LE_OK == status, "WLAN Test: DoAPScan");
     } else if (strncasecmp(testType, "GetAPScanResults", strlen("GetAPScanResults")) == 0) {
         LE_TEST_INFO("======== WLAN Test: GetAPScanResults ========");
-        CheckNumArgs(numArgs, 1);
-        status = wlanSTATestGetAPScanResults();
+        CheckNumArgs(numArgs, 2);
+        status = wlanSTATestGetAPScanResults(getSTARef(staIntfName));
         LE_TEST_OK(LE_OK == status, "WLAN Test: GetAPScanResults");
     } else {
         PrintUsage();

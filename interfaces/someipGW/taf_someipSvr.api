@@ -140,6 +140,74 @@
  * @note The value of @b name, @b routing, and @b network in configuration file must match the file
  * name, which is tafSomeipGWSvc_1 in this case.
  *
+ * @section c_taf_someipSvr_commonapi_service CommonAPI server configuration
+ *
+ * The TelAF SOME/IP GW service can be used as the consolidated vsomeip routing manager for both
+ * TelAF applications and commonAPI applications if they are in the same network/VLAN. Here is an
+ * example to declare a commonAPI server application and add its services in someipGWSvc_1.json:
+ * @verbatim
+   {
+    "unicast" : "192.168.226.1",
+    "device" : "eth1",
+    "logging" :
+    {
+        "level" : "error",
+        "console" : "true",
+        "file" : { "enable" : "false", "path" : "/tmp/vsomeip.log" },
+        "version" : { "enable" : "false", "interval" : "10" },
+        "dlt" : "false"
+    },
+    "applications" :
+    [
+        {
+            "name" : "tafSomeipGWSvc_1",
+            "id" : "0x0102"
+        },
+        {
+            "name" : "commonapiServerApp",
+            "id" : "0x0112"
+        }
+    ],
+    "services" :
+    [
+        {
+            "service" : "0xED80",
+            "instance" : "0x0001",
+            "unreliable" : "31000"
+        },
+        {
+            "service" : "0xED81",
+            "instance" : "0x0001",
+            "unreliable" : "31000"
+        }
+    ],
+    "routing" : "tafSomeipGWSvc_1",
+    "network" : "tafSomeipGWSvc_1",
+    "service-discovery" :
+    {
+        "enable" : "true",
+        "multicast" : "225.0.0.1",
+        "port" : "30490",
+        "protocol" : "udp",
+        "initial_delay_min" : "10",
+        "initial_delay_max" : "100",
+        "repetitions_base_delay" : "200",
+        "repetitions_max" : "3",
+        "ttl" : "3",
+        "cyclic_offer_delay" : "2000",
+        "request_response_delay" : "1500"
+    }
+   }
+   @endverbatim
+ *
+ * In this case, the vsomeip application(ID=0x0112) "commonapiServerApp" is a commonAPI server
+ * application that offers two services(0xED80/0x0001 and 0xED81/0x0001) on UDP port 31000 of
+ * unicast address 192.168.226.1.
+ *
+ * @note Once a commonAPI server service is declared in the JSON file, it means that service is
+ * offered by the commonAPI application. Do not call any taf_someipSvr() APIs to offer that service
+ * again in a TelAF application, otherwise it will cause unexpected result.
+ *
  * @section c_taf_someipSvr_server_API Server Service APIs
  *
  * Before setting up a server-service-instance, application shall first get the service reference by

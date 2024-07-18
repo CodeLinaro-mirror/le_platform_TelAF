@@ -286,6 +286,7 @@ le_result_t UbiRead
         if (ret < 0)
         {
             LE_ERROR("Read UBI failed, ret = %d errno=%d", ret, errno);
+            fclose(fp);
             return LE_FAULT;
         }
 
@@ -293,6 +294,7 @@ le_result_t UbiRead
         if (ret != PAGE_SIZE)
         {
             LE_ERROR("Write UBI data page error, ret = %d", ret);
+            fclose(fp);
             return LE_FAULT;
         }
     }
@@ -345,6 +347,7 @@ le_result_t UbiWrite
         if (ret != PAGE_SIZE)
         {
             LE_ERROR("Read UBI data page error, ret = %d", ret);
+            fclose(fp);
             return LE_FAULT;
         }
 
@@ -352,6 +355,7 @@ le_result_t UbiWrite
         if (ret <= 0)
         {
             LE_ERROR("Fail to write fd = %d.", fd);
+            fclose(fp);
             return LE_FAULT;
         }
     }
@@ -648,8 +652,9 @@ int taf_pi_ua_GetSession
     if (fgets(session.deltaPath, sizeof(session.deltaPath), file) == NULL)
     {
         LE_ERROR("Fail to get delta decoder.");
+        fclose(file);
         return -1;
-	}
+    }
 
     if (sessionRef == NULL)
     {
@@ -657,6 +662,7 @@ int taf_pi_ua_GetSession
     }
 
     *sessRef = sessionRef;
+    fclose(file);
 
     return 0;
 }

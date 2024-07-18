@@ -156,6 +156,7 @@ __attribute__((unused)) static void Test_Read()
     LE_TEST_ASSERT(memcmp(buffer, data, TEST_DATA_SIZE) == 0, "Test file integrity");
 
     free(buffer);
+    free(data);
 }
 
 __attribute__((unused)) static void Test_Delete()

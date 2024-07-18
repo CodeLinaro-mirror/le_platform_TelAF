@@ -30,7 +30,7 @@ groups:
 
 executables:
 {
-        tafLocationSvc = ( $TELAF_ROOT/simulation/bypass/telsdk/sdkLocationSvcBypass $TELAF_ROOT/components/tafLocationSvc )
+        tafLocationSvc = ( $TELAF_ROOT/components/tafLocationSvc )
 }
 
 start: auto
@@ -44,7 +44,7 @@ processes:
 
         envVars:
         {
-            LD_PRELOAD = /legato/systems/current/appsWriteable/tafLocationSvc/lib/ReportReaderBypass.so
+            // LD_PRELOAD = /legato/systems/current/appsWriteable/tafLocationSvc/lib/ReportReaderBypass.so
         }
 
         maxFileBytes: 8192K
@@ -59,7 +59,7 @@ bindings:
 
 extern:
 {
-        tafLocationSvc.tafLocationSvc.taf_gnss
-        tafLocationSvc.tafLocationSvc.taf_pos
-        tafLocationSvc.tafLocationSvc.taf_posCtrl
+        tafLocationSvc.tafLocationSvc.taf_locGnss
+        tafLocationSvc.tafLocationSvc.taf_locPos
+        tafLocationSvc.tafLocationSvc.taf_locPosCtrl
 }

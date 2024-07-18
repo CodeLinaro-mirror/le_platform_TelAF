@@ -337,8 +337,9 @@ void TimeValueChangeHandlerTest
 void TimeSourceStatusHandlerTest(
 )
 {
-    uint8_t sourceid = 1;
+    uint8_t sourceid = TAF_TIME_SRC_NAME_RTC;
     taf_time_SourceRef_t sourceRef = NULL;
+    uint8_t eventType = 2;
 
     //Get the reference for specific source
     sourceRef = taf_time_GetSourceRef(sourceid);
@@ -346,9 +347,8 @@ void TimeSourceStatusHandlerTest(
     LE_TEST_ASSERT(sourceRef != NULL, "taf_time_GetSourceRef sourceRef - OK");
 
     //Register handler for source status change
-    TimeSourceStatusHandlerRef = taf_time_AddTimeSourceStatusHandler(sourceRef,
+     TimeSourceStatusHandlerRef = taf_time_AddTimeSourceStatusHandler(sourceRef, eventType,
         (taf_time_TimeSourceStatusHandlerFunc_t)TimeSourceStatusHandler, NULL);
-
     LE_TEST_ASSERT(TimeSourceStatusHandlerRef != NULL, "taf_time_AddTimeSourceStatusHandler() - OK");
 }
 
@@ -612,6 +612,46 @@ void TestGetSourceAvailability()
     LE_ASSERT(res == LE_OK);
 }
 
+void TestGetSourceValidity()
+{
+    uint8_t sourceId = TAF_TIME_SRC_NAME_NETWORK;
+    taf_time_SourceRef_t srcRef;
+    bool validity;
+    srcRef = taf_time_GetSourceRef(sourceId);
+    LE_ASSERT(srcRef != NULL);
+    validity = taf_time_IsSourceValid(srcRef);
+    if (validity)
+    {
+        LE_INFO("Time source is valid!");
+    }
+    else
+    {
+        LE_INFO("Time source is NOT valid!");
+    }
+
+    // Release the memory for this reference.
+    le_result_t res = taf_time_ReleaseSourceRef(srcRef);
+    LE_ASSERT(res == LE_OK);
+}
+
+void TestSetSourceValidity()
+{
+    uint8_t sourceId = TAF_TIME_SRC_NAME_RTC;
+    bool validityFlag = false;
+    taf_time_SourceRef_t srcRef;
+
+    srcRef = taf_time_GetSourceRef(sourceId);
+
+    LE_ASSERT(srcRef != NULL);
+    le_result_t res = taf_time_SetValidity(srcRef, validityFlag);
+    LE_ASSERT(res == LE_OK);
+    LE_INFO("taf_time_SetValidity - LE_OK");
+
+    // Release the memory for this reference.
+    le_result_t result = taf_time_ReleaseSourceRef(srcRef);
+    LE_ASSERT(result == LE_OK);
+}
+
 //--------------------------------------------------------------------------------------------------
 /**
  * Component initialization.
@@ -639,6 +679,8 @@ COMPONENT_INIT
     TestGetDayAdj();
     TestFailedLoops();
     TestGetSourceAvailability();
+    TestGetSourceValidity();
+    TestSetSourceValidity();
 
     TestRtcVhalAsyncSetTime();
     TestRtcVhalAsyncGetTime();

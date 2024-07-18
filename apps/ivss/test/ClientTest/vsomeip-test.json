@@ -21,6 +21,10 @@
         {
             "name" : "InfoSvcTest",
             "id" : "0x1401"
+        },
+        {
+            "name" : "MngdConnSvcTest",
+            "id" : "0x1501"
         }
     ],
     "routing" : "radioSvcTest",

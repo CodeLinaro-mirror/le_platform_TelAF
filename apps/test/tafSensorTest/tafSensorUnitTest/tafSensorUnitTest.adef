@@ -14,5 +14,5 @@ processes:
 start: manual
 bindings:
 {
-   tafSensorUnitTest.tafSensorUnitTestComp.taf_sensor -> tafSensorSvc.taf_sensor
+   tafSensorUnitTest.tafSensorUnitTestComp.taf_imuSensor -> tafImuSensorSvc.taf_imuSensor
 }

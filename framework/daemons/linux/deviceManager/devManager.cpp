@@ -364,7 +364,7 @@ static void ListDrivers
         char driverName[DEV_MANAGER_DRIVER_NAME_MAX_LEN] = {};
 
         int n = snprintf(driverName, DEV_MANAGER_DRIVER_NAME_MAX_LEN,
-                         "%s %u.%u\n", drvPtr->name, drvPtr->majorVer, drvPtr->minorVer);
+                         "%s %.02u.%.02u\n", drvPtr->name, drvPtr->majorVer, drvPtr->minorVer);
         snprintf(buffer + offset, bufferSize - offset, "%s", driverName);
 
         offset += n;
@@ -691,8 +691,8 @@ static bool ParseDrvInfo
     }
     else
     {
-        char majorVerBuf[2] = {};
-        char minorVerBuf[2] = {};
+        char majorVerBuf[3] = {};
+        char minorVerBuf[3] = {};
         int majorInt, minorInt;
 
         // copy major version

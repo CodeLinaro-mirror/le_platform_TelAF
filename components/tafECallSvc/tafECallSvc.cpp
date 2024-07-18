@@ -199,7 +199,7 @@ le_result_t taf_ecall_ForceOnlyMode
     auto &ecall = taf_ecall::GetInstance();
 
     le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn( CFG_MODEMSERVICE_ECALL_PATH );
-    le_cfg_SetInt(iteratorRef, CFG_NODE_OPMODE, (int) TAF_ECALL_MODE_NORMAL);
+    le_cfg_SetInt(iteratorRef, CFG_NODE_OPMODE, (int) TAF_ECALL_MODE_ECALL);
     le_cfg_CommitTxn(iteratorRef);
 
     return ecall.SetECallOperatingMode(phoneId, TAF_ECALL_MODE_ECALL);
@@ -232,7 +232,7 @@ le_result_t taf_ecall_ForcePersistentOnlyMode
     auto &ecall = taf_ecall::GetInstance();
 
     le_cfg_IteratorRef_t iteratorRef = le_cfg_CreateWriteTxn( CFG_MODEMSERVICE_ECALL_PATH );
-    le_cfg_SetInt(iteratorRef, CFG_NODE_OPMODE, (int) TAF_ECALL_MODE_ECALL);
+    le_cfg_SetInt(iteratorRef, CFG_NODE_OPMODE, (int) TAF_ECALL_MODE_FORCED_PERSISTENT_ONLY);
     le_cfg_CommitTxn(iteratorRef);
 
     return ecall.SetECallOperatingMode(phoneId, TAF_ECALL_MODE_ECALL);
@@ -1402,6 +1402,32 @@ le_result_t taf_ecall_End
     return ecall.StopECall(ecallRef);
 }
 
+/*======================================================================
+
+ FUNCTION        taf_ecall_Answer
+
+ DESCRIPTION     Answer the incoming ecall.
+
+ DEPENDENCIES   Initialization of ECall service
+
+ PARAMETERS      [IN] ecallRef: Reference
+
+ RETURN VALUE    le_result_t
+                     LE_BAD_PARAMETER:     Invalid parameters.
+                     LE_FAULT:             Fail.
+                     LE_OK:                Success.
+
+ SIDE EFFECTS
+
+======================================================================*/
+le_result_t taf_ecall_Answer
+(
+    taf_ecall_CallRef_t ecallRef
+)
+{
+    auto &ecall = taf_ecall::GetInstance();
+    return ecall.AnswerECall(ecallRef);
+}
 
 /*======================================================================
 

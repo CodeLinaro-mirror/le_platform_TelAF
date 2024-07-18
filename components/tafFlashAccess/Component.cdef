@@ -1,8 +1,8 @@
 provides:
 {
-    api:
+    headerDir:
     {
-        taf_flash.api
+       $CURDIR
     }
 }
 

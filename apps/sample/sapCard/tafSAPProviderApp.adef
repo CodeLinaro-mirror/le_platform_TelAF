@@ -18,6 +18,6 @@ start: manual
 
 bindings:
 {
-    tafSAPProviderApp.sapCardComp.taf_sap -> tafRemoteSimSvc.taf_sap
+    tafSAPProviderApp.sapCardComp.taf_simSap -> tafRemoteSimSvc.taf_simSap
 }
 

@@ -47,10 +47,13 @@ le_result_t isLxcRootfsDirectoryEmpty() {
     struct dirent *entry;
     while ((entry = readdir(dir)) != NULL) {
         // Ignore "." and ".." directories
-        if (entry->d_type != DT_DIR && entry->d_type != DT_REG) {
-            closedir(dir);
-            return LE_OK;
+        if ((strlen(entry->d_name) == 1 && strncmp(".", entry->d_name, 1) == 0 )
+        ||  (strlen(entry->d_name) == 2 && strncmp("..", entry->d_name, 2) == 0))
+        {
+            continue;
         }
+        closedir(dir);
+        return LE_OK;
     }
     closedir(dir);
     return LE_NOT_FOUND;
@@ -76,7 +79,7 @@ le_result_t isLxcFlavour(const char *filename, const char *searchString) {
      fclose(file);
      return LE_NOT_FOUND;
 }
-static void SignalHandler( int sigNum)
+static void SignalHandler(int sigNum)
 {
     int status;
     LE_INFO("Stopping the LXC container on tafLxcInit app termination");

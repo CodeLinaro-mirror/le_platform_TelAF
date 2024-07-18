@@ -57,18 +57,18 @@ namespace tafsvc {
 
     /*
         * This function will take Managed Connectivity JSON filename along with references to
-        * taf_mngdConn_Policy_t and taf_mngdConn_Configuration_t. The function will
+        * mcs_Policy_t and mcs_Configuration_t. The function will
         * parse and validate the JSON. If the JSON is valid, then the references will be
         * updated.
         *
-        * @param [in] taf_mngdConn_Policy_t        Refernce to Policy
-        * @param [in] taf_mngdConn_Configuration_t Refernce to Configuration
+        * @param [in] mcs_Policy_t        Refernce to Policy
+        * @param [in] mcs_Configuration_t Refernce to Configuration
         * @param [in] ConfigurationFileName         Configuration JSON file name
         *
         * @return true on success, false on failure
         */
-    bool tafMngdConnSvc_GetPolicyAndConfiguration(taf_mngdConn_Policy_t &PolicyRef,
-                                    taf_mngdConn_Configuration_t &ConfigurationRef,
+    bool tafMngdConnSvc_GetPolicyAndConfiguration(mcs_Policy_t &PolicyRef,
+                                    mcs_Configuration_t &ConfigurationRef,
                                     std::string ConfigurationFileName);
 
     // Validate received values via callback
@@ -76,8 +76,8 @@ namespace tafsvc {
 
     // Used to validate if the proprety values conform to expected types
 
-    typedef bool (*ConnectivityValidationFunction_t)(taf_mngdConn_Policy_t& Policy,
-                                                taf_mngdConn_Configuration_t &Configuration,
+    typedef bool (*ConnectivityValidationFunction_t)(mcs_Policy_t& Policy,
+                                                mcs_Configuration_t &Configuration,
                                                 std::string Value,
                                                 int Index);
 }

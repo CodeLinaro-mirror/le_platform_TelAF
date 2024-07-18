@@ -195,13 +195,13 @@ namespace telux {
 
         typedef struct
         {
-            uint8_t msg[TAF_RSIM_MAX_MSG_SIZE];
+            uint8_t msg[TAF_SIMRSIM_MAX_MSG_SIZE];
             size_t  msgSize;
         } taf_RsimMsg_t;
 
         typedef struct
         {
-            taf_rsim_MessageHandlerRef_t  handlerRef;
+            taf_simRsim_MessageHandlerRef_t  handlerRef;
             taf_SapState_t                sapState;
             taf_SapSubState_t             sapSubState;
             uint16_t                      maxMsgSize;
@@ -210,7 +210,7 @@ namespace telux {
         typedef struct
         {
             taf_RsimMsg_t message;
-            taf_rsim_CallbackHandlerFunc_t callbackRef;
+            taf_simRsim_CallbackHandlerFunc_t callbackRef;
             void* context;
         } taf_RsimMsg_Client_t;
 
@@ -231,17 +231,17 @@ namespace telux {
                 void onServiceStatusChange(telux::common::ServiceStatus status) override;
         };
 
-        class taf_rsim :public ITafSvc {
+        class taf_simRsim :public ITafSvc {
             public:
-                taf_rsim() {};
-                ~taf_rsim() {};
+                taf_simRsim() {};
+                ~taf_simRsim() {};
                 void Init(void);
-                static taf_rsim &GetInstance();
-                taf_rsim_MessageHandlerRef_t AddMessageHandler(taf_rsim_MessageHandlerFunc_t handlerPtr,
+                static taf_simRsim &GetInstance();
+                taf_simRsim_MessageHandlerRef_t AddMessageHandler(taf_simRsim_MessageHandlerFunc_t handlerPtr,
                         void* contextPtr);
-                void RemoveMessageHandler( taf_rsim_MessageHandlerRef_t handlerRef);
+                void RemoveMessageHandler( taf_simRsim_MessageHandlerRef_t handlerRef);
                 le_result_t SendMessage(const uint8_t* messagePtr, size_t messageNumElements,
-                        taf_rsim_CallbackHandlerFunc_t callbackPtr, void* contextPtr);
+                        taf_simRsim_CallbackHandlerFunc_t callbackPtr, void* contextPtr);
 
                 le_result_t SendApduRequest(const unsigned int id, const std::vector<uint8_t> &apdu);
                 le_result_t SendCardConnectRequest();

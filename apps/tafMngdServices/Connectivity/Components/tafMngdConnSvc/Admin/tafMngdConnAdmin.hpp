@@ -77,10 +77,12 @@ namespace tafsvc {
         MCS_DATA_START_CONNECTIONTEST_FAILED,     ///< DataStartConnectionTest failed
         MCS_RECOVERY_SCHEDULED_L1,                ///< L1 connectivity recovery scheduled.
         MCS_RECOVERY_STARTED_L1,                  ///< L1 connectivity recovery started.
-        MCS_RECOVERY_FAILED_L1,
+        MCS_RECOVERY_CANCELED_L1,                 ///< L1 connectivity recovery canceled.
+        MCS_RECOVERY_FAILED_L1,                   ///< L1 connectivity recovery failed.
         MCS_RECOVERY_SCHEDULED_L2,                ///< L2 connectivity recovery scheduled.
         MCS_RECOVERY_STARTED_L2,                  ///< L2 connectivity recovery started.
-        MCS_RECOVERY_FAILED_L2
+        MCS_RECOVERY_CANCELED_L2,                 ///< L2 connectivity recovery canceled.
+        MCS_RECOVERY_FAILED_L2                    ///< L2 connectivity recovery failed.
     } mcs_Admin_State_t;
 
     /**
@@ -100,6 +102,7 @@ namespace tafsvc {
         MCS_EVT_DATA_START,
         MCS_EVT_DATA_START_SYNC,
         MCS_EVT_DATA_START_RETRY,
+        MCS_EVT_DATA_START_RETRY_APP_REQ,
         MCS_EVT_DATA_STOP_SYNC,
         MCS_EVT_DATA_STOP,
         MCS_EVT_DATA_CONNECTION_CONNECTED,
@@ -112,7 +115,15 @@ namespace tafsvc {
         MCS_EVT_CONN_RECOVERY_CANCEL_L1,
         MCS_EVT_CONN_RECOVERY_CANCEL_L1_SYNC,
         MCS_EVT_CONN_RECOVERY_CANCEL_L1_SEND_IND,
-        MCS_EVT_CONN_RECOVERY_START_L1
+        MCS_EVT_CONN_RECOVERY_INTERRUPTED_L1,
+        MCS_EVT_CONN_RECOVERY_START_L1,
+        MCS_EVT_CONN_RECOVERY_SCHEDULE_L2, // Schedule L2 connectivity recovery
+        MCS_EVT_CONN_RECOVERY_CANCEL_L2,
+        MCS_EVT_CONN_RECOVERY_CANCEL_L2_SYNC,
+        MCS_EVT_CONN_RECOVERY_CANCEL_L2_SEND_IND,
+        MCS_EVT_CONN_RECOVERY_INTERRUPTED_L2,
+        MCS_EVT_CONN_RECOVERY_START_L2
+
     } mcs_EventType_t;
 
     /**
@@ -191,10 +202,11 @@ namespace tafsvc {
         le_dls_Link_t                 link;                   // Link to data list
         mcs_Admin_State_t             adminState;               // Internal MCS state
         taf_mngdConn_DataState_t      dataState;              // The data state for notification
+        le_timer_Ref_t periodicConnectivityTestTimerRef;
+                                                // periodicConnectivityTestTimerRef timer reference
         le_timer_Ref_t                dataStartRetryTimerRef; // Data start retry timer reference
         le_timer_Ref_t                recoveryScheduleTimerRef; // Recovery schedule timer reference
-        le_timer_Ref_t                periodicConnectivityTestTimerRef;
-                                                 // periodicConnectivityTestTimerRef timer reference
+        le_timer_Ref_t                recoveryRetryTimerRef; // Recovery schedule timer reference
         le_event_Id_t                 dataStateEvent;         //Data state event
         taf_dcs_Pdp_t                 ipType;                 // Ip type
         taf_mngdConn_DataRef_t        dataRef;
@@ -216,7 +228,7 @@ namespace tafsvc {
         uint8_t                       conn_periodic_test_retryCount;
                                       //PeriodicConnectivityTest MaxRetryCount
         uint8_t                       conn_periodic_test_maxRetryCount;
-	    bool                          wasConnectivityRecoveryDone;
+	    bool                          wasL1ConnectivityRecoveryDone;
         // Clients that have called Data Start
         std::set<le_msg_SessionRef_t> clients;
     } mcs_DataCtx_t;
@@ -241,7 +253,9 @@ namespace tafsvc {
             le_result_t GetConnectionIPAddresses( taf_mngdConn_DataRef_t dataRef,
                                                   char *ipv4AddrPtr, size_t ipv4AddrSize,
                                                   char *ipv6AddrPtr, size_t ipv6AddrSize);
-            le_result_t CancelL1Recovery( taf_mngdConn_DataRef_t dataRef);
+            le_result_t StartDataRetry(taf_mngdConn_DataRef_t dataRef);
+            le_result_t CancelL1Recovery(taf_mngdConn_DataRef_t dataRef);
+            le_result_t CancelL2Recovery(taf_mngdConn_DataRef_t dataRef);
 
             taf_mngdConn_DataStateHandlerRef_t AddDataStateHandler(
                 taf_mngdConn_DataRef_t dataRef,
@@ -261,42 +275,15 @@ namespace tafsvc {
 
             le_thread_Ref_t tafMngd_event_thread=NULL;
             le_thread_Ref_t StateMachineEventThreadRef = NULL;
-            void EventInit();
-            le_result_t EventSetPolicyConfigJSONs(const char* ConfigFileNamePtr);
-            void EventSetRadioPowerOn();
-            le_result_t EventStartData(uint8_t dataId);
-            le_result_t EventStartDataRetry(uint8_t dataId);
-            le_result_t EventStopData(uint8_t dataId);
-            le_result_t EventGetConnectionInfo(uint8_t dataId);
-            le_result_t EventSimReadyState(uint8_t slotId);
-            le_result_t EventSimNotReadyState(uint8_t slotId);
-            le_result_t EventNetworkRegState(uint8_t phoneId);
-            le_result_t EventNetworkUnregState(uint8_t phoneId);
-            le_result_t SetPolicyConfigurationJSONs(const char *ConfigFileNamePtr);
 
-            le_event_Id_t GetDataStateEvent(taf_mngdConn_DataRef_t dataRef);
+            // Policy and Configuration to use
+            mcs_Policy_t Policy;
+            mcs_Configuration_t Configuration;
 
-            void EventDataConnected(uint8_t dataId);
-            void EventDataConnectedActive(uint8_t dataId);
-            void EventDataDisconnected(uint8_t dataId);
-            static void DataRetryTimerHandler(le_timer_Ref_t timerRef);
-            static void RecoveryScheduleTimerHandler(le_timer_Ref_t timerRef);
-            static void PeriodicConnectivityTestTimerHandler(le_timer_Ref_t timerRef);
-            static void OnClientConnect(le_msg_SessionRef_t sessionRef, void *ctxPtr);
-            static void OnClientDisconnect(le_msg_SessionRef_t sessionRef, void *ctxPtr);
-            static void FirstLayerDataStateHandler(void *reportPtr, void *secondLayerHandlerFunc);
-            static void FirstLayerRecoveryStateHandler( void *reportPtr,
-                                                        void *secondLayerHandlerFunc);
-            static void *callback_thread(void *contextPtr);
-            static void *StateMachineEventThread(void *contextPtr);
-            static void StateMachineHandler(void *reqPtr);
+            // Config file name
+            char ConfigFileName[MCS_MAX_FILE_PATH_LEN];
 
-            void ReportAndUpdateDataState(mcs_DataCtx_t *dataCtxPtr,
-                                          taf_mngdConn_DataState_t newstate);
-            void ReportRecoveryStateEvent(taf_mngdConn_RecoveryState_t recoveryState,
-                                          mcs_DataCtx_t *dataCtxPtr);
-            le_result_t InitializeStates();
-
+            bool IsJsonValid = false;
 
             le_mem_PoolRef_t dataStatePool;
             std::promise<le_result_t> CmdSynchronousPromise;
@@ -312,6 +299,31 @@ namespace tafsvc {
             // resources for multi-client management
             static mcs_Clients_t ConnectedClients;
 
+            void EventInit();
+            le_result_t EventSetPolicyConfigJSONs(const char* ConfigFileNamePtr);
+            void EventSetRadioPowerOn();
+            le_result_t EventStartData(uint8_t dataId);
+            le_result_t EventStartDataRetry(uint8_t dataId);
+            le_result_t EventStartDataRetryAppReq(uint8_t dataId);
+            le_result_t EventStopData(uint8_t dataId);
+            le_result_t EventGetConnectionInfo(uint8_t dataId);
+            le_result_t EventSimReadyState(uint8_t slotId);
+            le_result_t EventSimNotReadyState(uint8_t slotId);
+            le_result_t EventNetworkRegState(uint8_t phoneId);
+            le_result_t EventNetworkUnregState(uint8_t phoneId);
+            le_result_t SetPolicyConfigurationJSONs(const char *ConfigFileNamePtr);
+
+            void EventDataConnected(uint8_t dataId);
+            void EventDataConnectedActive(uint8_t dataId);
+            void EventDataDisconnected(uint8_t dataId);
+
+
+            void ReportAndUpdateDataState(mcs_DataCtx_t *dataCtxPtr,
+                                          taf_mngdConn_DataState_t newstate);
+            void ReportRecoveryStateEvent(taf_mngdConn_RecoveryState_t recoveryState,
+                                          mcs_DataCtx_t *dataCtxPtr);
+            le_result_t InitializeStates();
+            le_event_Id_t GetDataStateEvent(taf_mngdConn_DataRef_t dataRef);
             mcs_DataCtx_t* GetDataCtx(uint8_t dataId);
             mcs_DataCtx_t *GetDataCtx(const char *dataName);
             mcs_DataCtx_t* CreateDataCtx(uint8_t dataId, uint8_t slotId, uint8_t phoneId,
@@ -329,29 +341,60 @@ namespace tafsvc {
             //Connectiontest
             void EventDataStartConnectionTest(uint8_t dataId);
             void EventDataPeriodicConnectivityTest(uint8_t dataId);
-            bool DataStartConnectionTest_URL(std::string url, std::string interfaceName);
-            bool DataStartConnectionTest_IPv4(std::string ipv4, std::string interfaceName);
+            bool DataConnectivityTest_URL(std::string url, std::string interfaceName);
+            bool DataConnectivityTest_IPv4(std::string ipv4, std::string interfaceName);
 
-            // Connectivity Recovery
+            // L1 Connectivity Recovery
             void EventL1ConnRecoverySchedule(uint8_t dataId);
             void EventL1ConnRecoveryCancel(uint8_t dataId);
             void EventL1ConnRecoveryCancelSync(uint8_t dataId);
             void EventL1ConnRecoveryCancelSendInd(uint8_t dataId);
+            void EventL1ConnRecoveryInterrupted(uint8_t dataId);
             void EventL1ConnRecoveryStart(uint8_t dataId);
 
-            // Policy and Configuration to use
-            taf_mngdConn_Policy_t Policy;
-            taf_mngdConn_Configuration_t Configuration;
+            // L2 Connectivity Recovery
+            void EventL2ConnRecoverySchedule(uint8_t dataId);
+            void EventL2ConnRecoveryCancel(uint8_t dataId);
+            void EventL2ConnRecoveryCancelSync(uint8_t dataId);
+            void EventL2ConnRecoveryCancelSendInd(uint8_t dataId);
+            void EventL2ConnRecoveryInterrupted(uint8_t dataId);
+            void EventL2ConnRecoveryStart(uint8_t dataId);
 
-            //Config file name
-            char ConfigFileName[MCS_MAX_FILE_PATH_LEN];
-
-            bool ReadJSONFileNamesFromConfigTree (char *ConfigurationFileNamePtr);
-
-            const char * EventToString(mcs_EventType_t event);
-            const char * StateToString(mcs_Admin_State_t state);
+            const char *EventToString(mcs_EventType_t event);
+            const char *StateToString(mcs_Admin_State_t state);
             const char *DataStateToString(taf_mngdConn_DataState_t state);
-            bool IsJsonValid = false;
+
+            bool ReadJSONFileNamesFromConfigTree(char *ConfigurationFileNamePtr);
+
+
+            // TelAF event handler and callback functions
+            // Entry function for thread that receives events from TelAF services.
+            static void *callback_thread_func(void *contextPtr);
+            // State machine thread entry function
+            static void *StateMachineEventThreadFunc(void *contextPtr);
+            // State machine event handler function
+            static void StateMachineEvtHandlerFunc(void *reqPtr);
+
+            // Timer handler
+            static void PeriodicConnectivityTestTimerHandler(le_timer_Ref_t timerRef);
+            static void DataRetryTimerHandler(le_timer_Ref_t timerRef);
+            static void RecoveryScheduleTimerHandler(le_timer_Ref_t timerRef);
+            static void RecoveryRetryTimerHandler(le_timer_Ref_t timerRef);
+
+            // Client connect/disconnect handlers
+            static void OnClientConnect(le_msg_SessionRef_t sessionRef, void *ctxPtr);
+            static void OnClientDisconnect(le_msg_SessionRef_t sessionRef, void *ctxPtr);
+
+            // Layered handlers to send events to applications
+            static void FirstLayerDataStateHandler(void *reportPtr, void *secondLayerHandlerFunc);
+            static void FirstLayerRecoveryStateHandler(void *reportPtr,
+                                                       void *secondLayerHandlerFunc);
+#ifndef LE_CONFIG_TARGET_SIMULATION
+            //Async APIs callback handler
+            static void RestartReqAsyncCallBack(taf_mngdPm_RestartMode_t RestartMode,
+                                                taf_mngdPm_ResponseMode_t ResponseMode,
+                                                void *contextPtr);
+#endif // LE_CONFIG_TARGET_SIMULATION
     };
 }
 }

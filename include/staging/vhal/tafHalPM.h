@@ -96,36 +96,19 @@
 #define HAL_PM_BUB_STATUS_UNKNOWN -1
 #define HAL_PM_BUB_STATUS_NOT_IN_USE 0
 #define HAL_PM_BUB_STATUS_IN_USE 1
-//--------------------------------------------------------------------------------------------------
-/**
- * PM shutdown mode for request from service
- */
-//--------------------------------------------------------------------------------------------------
-typedef enum
-{
-    HAL_PM_SHUTDOWN_MODE_NORMAL, /**<Normal shutdown */
-    HAL_PM_SHUTDOWN_MODE_GRACEFUL  /**<Graceful shutdown */
-} hal_pm_ShutdownMode_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
- * PM restart mode for request from service
+ * Power Mode request from service
  */
 //--------------------------------------------------------------------------------------------------
 typedef enum
 {
-    HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF /**<NAD shutdown for system restart */
-} hal_pm_RestartMode_t;
-
-//--------------------------------------------------------------------------------------------------
-/**
- * PM suspend mode for request from service
- */
-//--------------------------------------------------------------------------------------------------
-typedef enum
-{
-    HAL_PM_SUSPEND_MODE_FULL /**<Full suspend */
-} hal_pm_SuspendMode_t;
+    HAL_PM_SHUTDOWN_MODE_NORMAL,               /**<Normal shutdown */
+    HAL_PM_SHUTDOWN_MODE_GRACEFUL,             /**<Graceful shutdown */
+    HAL_PM_RESTART_MODE_SYSTEM_OFF_ON_NAD_OFF, /**<NAD shutdown for system restart */
+    HAL_PM_SUSPEND_MODE_FULL                   /**<Full suspend */
+} hal_pm_PowerMode_t;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -188,38 +171,6 @@ typedef void (*INIT)(void);
 
 //--------------------------------------------------------------------------------------------------
 /**
- * Callback for response of shutdown request.
- * @param
- *      mode    - corresonding shutdown mode to respond
- *      reason  - response to the request
- *
- * @return
- */
-//--------------------------------------------------------------------------------------------------
-typedef void (*hal_pm_ShutDownRspCallbackFunc_t)
-(
-    hal_pm_ShutdownMode_t mode,
-    hal_pm_RspReason_t reason
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Shutdown request to the VHAL hardware component.
- * @param
- *      mode        - shutdown mode request to the VHAL compoment
- *      callback    - the callback function to response the request
- *
- * @return
- *      result for sending the request
- */
-//--------------------------------------------------------------------------------------------------
-typedef le_result_t (*hal_pm_ShutDownReqAsyncFunc_t)
-(
-    hal_pm_ShutdownMode_t mode,
-    hal_pm_ShutDownRspCallbackFunc_t callback
-);
-//--------------------------------------------------------------------------------------------------
-/**
  * Callback for response of NodeStateChangePrepare request.
  * @param
  *      pmNodeId    - nodeid for a given node
@@ -232,10 +183,10 @@ typedef le_result_t (*hal_pm_ShutDownReqAsyncFunc_t)
 //--------------------------------------------------------------------------------------------------
 typedef void (*hal_pm_NodeStateChangePrepareCallbackFunc_t)
 (
-uint8_t pmNodeId,
-hal_pm_NodeState_t state,
-hal_pm_ShutdownMode_t mode,
-hal_pm_RspReason_t reason
+    uint8_t pmNodeId,
+    hal_pm_NodeState_t state,
+    hal_pm_PowerMode_t mode,
+    hal_pm_RspReason_t reason
 );
 //--------------------------------------------------------------------------------------------------
 /**
@@ -253,7 +204,7 @@ hal_pm_RspReason_t reason
 typedef le_result_t (*hal_pm_NodeStateChangePrepareAsync)(
    uint8_t pmNodeId,
    hal_pm_NodeState_t state,
-   hal_pm_ShutdownMode_t mode,
+   hal_pm_PowerMode_t mode,
    hal_pm_NodeStateChangePrepareCallbackFunc_t callback
 );
 //--------------------------------------------------------------------------------------------------
@@ -271,7 +222,7 @@ typedef void (*hal_pm_NodeStateChangeReqCallbackFunc_t)
 (
 uint8_t pmNodeId,
 hal_pm_NodeState_t state,
-hal_pm_ShutdownMode_t mode
+hal_pm_PowerMode_t mode
 );
 //--------------------------------------------------------------------------------------------------
 /**
@@ -292,58 +243,10 @@ typedef le_result_t (*hal_pm_NodeStateChangeReqAsync)(
 
    hal_pm_NodeState_t state,
 
-   hal_pm_ShutdownMode_t mode,
+   hal_pm_PowerMode_t mode,
 
    hal_pm_NodeStateChangeReqCallbackFunc_t callback
 
-);
-//--------------------------------------------------------------------------------------------------
-/**
- * Restart response callback function.
- * @param
- *      mode    - corresonding restart mode to respond
- *      reason  - response to the request
- *
- * @return void
- */
-//--------------------------------------------------------------------------------------------------
-typedef void (*hal_pm_RestartRspCallbackFunc_t)
-(
-    hal_pm_RestartMode_t mode,
-    hal_pm_RspReason_t reason
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Restart request to the VHAL hardware component asynchronously.
- * @param
- *      mode        - restart mode request to the VHAL compoment
- *      callback    - the callback function to response the request
- *
- * @return
- *      result for sending the request
- */
-//--------------------------------------------------------------------------------------------------
-typedef le_result_t (*hal_pm_RestartReqAsyncFunc_t)
-(
-    hal_pm_RestartMode_t mode,
-    hal_pm_RestartRspCallbackFunc_t callback
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Suspend response callback function.
- * @param
- *      mode    - corresonding suspend mode to respond
- *      reason  - response to the request
- *
- * @return void
- */
-//--------------------------------------------------------------------------------------------------
-typedef void (*hal_pm_SuspendRspCallbackFunc_t)
-(
-    hal_pm_SuspendMode_t mode,
-    hal_pm_RspReason_t reason
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -360,23 +263,6 @@ typedef void (*hal_pm_WakeupVehicleRspCallbackFunc_t)
 (
     int32_t reason,
     int32_t response
-);
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Suspend request to the VHAL hardware component asynchronously.
- * @param
- *      mode        - suspend mode request to the VHAL compoment
- *      callback    - the callback function to response the request
- *
- * @return
- *      result for sending the request
- */
-//--------------------------------------------------------------------------------------------------
-typedef le_result_t (*hal_pm_SuspendReqAsyncFunc_t)
-(
-    hal_pm_SuspendMode_t mode,
-    hal_pm_SuspendRspCallbackFunc_t  callback
 );
 
 //--------------------------------------------------------------------------------------------------
@@ -490,7 +376,7 @@ typedef le_result_t (*hal_pm_AddNodeEventHandlerFunc_t)
  */
 //--------------------------------------------------------------------------------------------------
 typedef void (*hal_pm_AddBubStatusCallbackFunc_t)
-(  
+(
    int32_t *status
 );
 //--------------------------------------------------------------------------------------------------
@@ -524,12 +410,6 @@ typedef le_result_t (*hal_pm_GetBubStatusFunc_t)
 typedef struct
 {
     INIT InitHAL;
-
-    hal_pm_ShutDownReqAsyncFunc_t shutdownReqAsync;
-
-    hal_pm_RestartReqAsyncFunc_t restartReqAsync;
-
-    hal_pm_SuspendReqAsyncFunc_t suspendReqAsync;
 
     hal_pm_NodeStateChangeNotificationFunc_t nodeStateChangeNotification;
 

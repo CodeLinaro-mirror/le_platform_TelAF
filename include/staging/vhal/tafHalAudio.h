@@ -98,7 +98,6 @@
 typedef enum
 {
     HAL_AUDIO_MODE_VOICE_CALL, /**<Voice call */
-    HAL_AUDIO_MODE_RESERVED,   /**<Reserved */
     HAL_AUDIO_MODE_PLAYBACK,   /**<Playback */
     HAL_AUDIO_MODE_RECORDING,  /**<Recording */
     HAL_AUDIO_MODE_LOOPBACK    /**<Loopback */

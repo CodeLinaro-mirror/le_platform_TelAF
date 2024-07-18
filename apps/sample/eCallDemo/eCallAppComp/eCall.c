@@ -44,12 +44,23 @@ static taf_ecall_StateChangeHandlerRef_t HandlerRef;
 static le_thread_Ref_t ECallCmdThreadRef;
 static taf_ecall_CallRef_t ECallRef = NULL;
 
-static taf_audio_StreamRef_t ModemRxAudioReference;
-static taf_audio_StreamRef_t SpeakerAudioRef;
-static taf_audio_ConnectorRef_t  AudioOutConnectorRef;
+#ifdef LE_CONFIG_REFRESH_AUDIO_SVC
+static taf_audio_RouteRef_t routeRef;
+static taf_audio_StreamRef_t MdmRxAudioRef;
+static taf_audio_StreamRef_t MdmTxAudioRef;
+static taf_audio_StreamRef_t playerRef;
+static taf_audio_ConnectorRef_t playerConnectorRef;
+static taf_audio_StreamRef_t FeInRef = NULL;
+static taf_audio_StreamRef_t FeOutRef = NULL;
+static taf_audio_ConnectorRef_t AudioInputConnectorRef;
+static taf_audio_ConnectorRef_t AudioOutputConnectorRef;
+static taf_audio_MediaHandlerRef_t MediaHandlerRef = NULL;
+static char AudioFilePath[] = "/data/record.wav";
+le_result_t res;
+#endif
 
 static taf_gpio_ChangeEventHandlerRef_t GpioHandlerRef;
-static taf_gnss_PositionHandlerRef_t PositionHandlerRef;
+static taf_locGnss_PositionHandlerRef_t PositionHandlerRef;
 static int32_t latitude = INT32_MAX, longitude = INT32_MAX, hAccuracy = INT32_MAX;
 static uint32_t direction = UINT32_MAX, dirAccuracy = UINT32_MAX;
 static bool exitApp = true;
@@ -133,14 +144,14 @@ static uint8_t msdLength = 39;
 
 static void PositionHandlerFunction
 (
-    taf_gnss_SampleRef_t positionSampleRef,
+    taf_locGnss_SampleRef_t positionSampleRef,
     void* contextPtr
 )
 {
     le_result_t result;
 
     //Get 2D location
-    result = taf_gnss_GetLocation(positionSampleRef,
+    result = taf_locGnss_GetLocation(positionSampleRef,
                                   &latitude,
                                   &longitude,
                                   &hAccuracy);
@@ -164,7 +175,7 @@ static void PositionHandlerFunction
     }
 
     //Get direction
-    result = taf_gnss_GetDirection(positionSampleRef,
+    result = taf_locGnss_GetDirection(positionSampleRef,
                                    &direction,
                                    &dirAccuracy);
 
@@ -185,10 +196,10 @@ static void PositionHandlerFunction
     }
 
     //Remove the handler assigned
-    taf_gnss_RemovePositionHandler(PositionHandlerRef);
+    taf_locGnss_RemovePositionHandler(PositionHandlerRef);
 
     //Stop receiving GNSS reports
-    taf_gnss_Stop();
+    taf_locGnss_Stop();
 }
 
 static void* SamplePositionThread
@@ -197,14 +208,14 @@ static void* SamplePositionThread
 )
 {
     //connect the position service to the current running thread
-    taf_gnss_ConnectService();
+    taf_locGnss_ConnectService();
 
-    le_result_t result = taf_gnss_Start();
+    le_result_t result = taf_locGnss_Start();
 
     LE_INFO("Result of gnss start: %d", (int)result);
 
     //Position Handler
-    PositionHandlerRef = taf_gnss_AddPositionHandler(PositionHandlerFunction, NULL);
+    PositionHandlerRef = taf_locGnss_AddPositionHandler(PositionHandlerFunction, NULL);
     if(PositionHandlerRef != NULL) {
         LE_INFO("Confirm position handler was added successfully");
     }
@@ -239,73 +250,222 @@ char* getCurrentTime() {
    return ctime(&tm);
 }
 
-static void OpenAudio() {
-    le_result_t result;
-
-    ModemRxAudioReference = taf_audio_OpenModemVoiceRx(1);
-
-    LE_ERROR_IF((ModemRxAudioReference==NULL), " ModemRxAudioReference NULL");
-
-    SpeakerAudioRef = taf_audio_OpenSpeaker();
-
-    LE_ERROR_IF((SpeakerAudioRef == NULL), " open speaker reference is NULL");
-
-    AudioOutConnectorRef = taf_audio_CreateConnector();
-
-    LE_ERROR_IF((AudioOutConnectorRef == NULL), "Audio output connector ref is NULL");
-
-    if (ModemRxAudioReference && SpeakerAudioRef  && AudioOutConnectorRef)
+#ifdef LE_CONFIG_REFRESH_AUDIO_SVC
+static void MyMediaEventHandler
+(
+    taf_audio_StreamRef_t          streamRef,
+    taf_audio_MediaEvent_t         event,
+    void*                         contextPtr
+    )
+{
+    switch(event)
     {
-        result = taf_audio_Connect(AudioOutConnectorRef, SpeakerAudioRef);
+        case TAF_AUDIO_MEDIA_STOPPED:
+        LE_INFO("File event is TAF_AUDIO_MEDIA_STOPPED.");
+        break;
 
-        LE_ERROR_IF((result != LE_OK), "Connect speaker to output connector failed ");
+        case TAF_AUDIO_MEDIA_ENDED:
+        LE_INFO("File event is taf_audio_MEDIA_ENDED.");
+        res = taf_audio_PlayFile(playerRef, AudioFilePath);
+        LE_ERROR_IF((res!=LE_OK), "Failed to play the file!");
+        if(res == LE_OK)
+            LE_INFO("Successfully started file playback");
 
-        result = taf_audio_Connect(AudioOutConnectorRef, ModemRxAudioReference);
+        break;
 
-        LE_ERROR_IF((result != LE_OK), "Connect modem Rx to output connector failed");
-    }
+        case TAF_AUDIO_MEDIA_ERROR:
+        LE_INFO("File event is taf_audio_MEDIA_ERROR.");
+        break;
 
-}
+        case TAF_AUDIO_MEDIA_NO_MORE_SAMPLES:
+        LE_INFO("File event is taf_audio_MEDIA_NO_MORE_SAMPLES.");
+        break;
 
-static void CloseAudio() {
-    if(AudioOutConnectorRef)
-    {
-        if(SpeakerAudioRef)
-        {
-            taf_audio_Disconnect(AudioOutConnectorRef, SpeakerAudioRef);
-        }
-        if(ModemRxAudioReference)
-        {
-            taf_audio_Disconnect(AudioOutConnectorRef, ModemRxAudioReference);
-        }
-    }
-
-    if(AudioOutConnectorRef)
-    {
-        taf_audio_DeleteConnector(AudioOutConnectorRef);
-        AudioOutConnectorRef = NULL;
-    }
-
-    if(AudioOutConnectorRef)
-    {
-        if(SpeakerAudioRef)
-        {
-            taf_audio_Disconnect(AudioOutConnectorRef, SpeakerAudioRef);
-        }
-    }
-
-    if(SpeakerAudioRef)
-    {
-        taf_audio_Close(SpeakerAudioRef);
-        SpeakerAudioRef = NULL;
-    }
-
-    if(ModemRxAudioReference)
-    {
-        taf_audio_Close(ModemRxAudioReference);
-        ModemRxAudioReference = NULL;
+        default:
+        LE_INFO("File event is %d", event);
+        break;
     }
 }
+
+static void DisconnectAllAudio()
+{
+    LE_INFO("DisconnectAllAudio");
+
+    if(MediaHandlerRef)
+    {
+        taf_audio_RemoveMediaHandler(MediaHandlerRef);
+        MediaHandlerRef = NULL;
+    }
+    if (AudioInputConnectorRef)
+    {
+        LE_INFO("Disconnect %p from connector.%p", FeInRef, AudioInputConnectorRef);
+        if (FeInRef)
+        {
+            LE_INFO("Disconnect %p from connector.%p", FeInRef, AudioInputConnectorRef);
+            taf_audio_Disconnect(AudioInputConnectorRef, FeInRef);
+        }
+        if(MdmTxAudioRef)
+        {
+            LE_INFO("Disconnect %p from connector.%p", MdmTxAudioRef, AudioInputConnectorRef);
+            taf_audio_Disconnect(AudioInputConnectorRef, MdmTxAudioRef);
+        }
+    }
+    if(AudioOutputConnectorRef)
+    {
+        LE_INFO("taf_audio_Disconnect %p from connector.%p", MdmTxAudioRef, AudioOutputConnectorRef);
+        if(FeOutRef)
+        {
+            LE_INFO("Disconnect %p from connector.%p", FeOutRef, AudioOutputConnectorRef);
+            taf_audio_Disconnect(AudioOutputConnectorRef, FeOutRef);
+        }
+        if(MdmRxAudioRef)
+        {
+            LE_INFO("Disconnect %p from connector.%p", MdmRxAudioRef, AudioOutputConnectorRef);
+            taf_audio_Disconnect(AudioOutputConnectorRef, MdmRxAudioRef);
+        }
+    }
+
+    if(playerConnectorRef)
+    {
+        if(playerRef)
+        {
+            LE_INFO("Disconnect %p from connector.%p", playerRef, playerConnectorRef);
+            taf_audio_Disconnect(playerConnectorRef, playerRef);
+        }
+    }
+
+    if(AudioInputConnectorRef)
+    {
+        taf_audio_DeleteConnector(AudioInputConnectorRef);
+        AudioInputConnectorRef = NULL;
+    }
+
+    if(AudioOutputConnectorRef)
+    {
+        taf_audio_DeleteConnector(AudioOutputConnectorRef);
+        AudioOutputConnectorRef = NULL;
+    }
+
+    if(playerConnectorRef)
+    {
+        taf_audio_DeleteConnector(playerConnectorRef);
+        playerConnectorRef = NULL;
+    }
+
+    if(MdmRxAudioRef)
+    {
+        taf_audio_Close(MdmRxAudioRef);
+        MdmRxAudioRef = NULL;
+    }
+    if(MdmTxAudioRef)
+    {
+        taf_audio_Close(MdmTxAudioRef);
+        MdmTxAudioRef = NULL;
+    }
+    if(playerRef)
+    {
+        taf_audio_Close(playerRef);
+        playerRef = NULL;
+    }
+    if(routeRef)
+    {
+        le_result_t res = taf_audio_CloseRoute(routeRef);
+        LE_TEST_OK(res == LE_OK, "Successfully closed the voice call route");
+        routeRef = NULL;
+    }
+}
+
+static void OpenVoiceAudio()
+{
+    LE_INFO("OpenVoiceAudio");
+
+    MdmRxAudioRef = taf_audio_OpenModemVoiceRx(1); // SlotId input param
+    LE_ERROR_IF((MdmRxAudioRef==NULL), "taf_audio_OpenModemVoiceRx returns NULL!");
+    LE_DEBUG("OpenAudio MdmRxAudioRef %p", MdmRxAudioRef);
+    LE_INFO("Connect Speaker");
+
+    AudioOutputConnectorRef = taf_audio_CreateConnector();
+    LE_ERROR_IF((AudioOutputConnectorRef==NULL), "AudioOutputConnectorRef is NULL!");
+
+#if LE_CONFIG_TARGET_SA525M
+    MdmTxAudioRef =  taf_audio_OpenModemVoiceTx(1, false);
+    LE_ERROR_IF((MdmTxAudioRef==NULL), "taf_audio_OpenModemVoiceTx returns NULL!");
+    LE_DEBUG("OpenAudio MdmTxAudioRef %p", MdmTxAudioRef);
+
+    AudioInputConnectorRef = taf_audio_CreateConnector();
+    LE_ERROR_IF((AudioInputConnectorRef==NULL), "AudioInputConnectorRef is NULL!");
+
+    if (MdmTxAudioRef && FeInRef && AudioInputConnectorRef)
+    {
+        res = taf_audio_Connect(AudioInputConnectorRef, FeInRef);
+        LE_ERROR_IF((res!=LE_OK), "Failed to connect RX on Input connector!");
+        res = taf_audio_Connect(AudioInputConnectorRef, MdmTxAudioRef);
+        LE_ERROR_IF((res!=LE_OK), "Failed to connect mdmTx on Input connector!");
+    }
+#endif
+    if (MdmRxAudioRef && FeOutRef  && AudioOutputConnectorRef)
+    {
+        res = taf_audio_Connect(AudioOutputConnectorRef, FeOutRef);
+        LE_ERROR_IF((res!=LE_OK), "Failed to connect TX on Output connector!");
+        res = taf_audio_Connect(AudioOutputConnectorRef, MdmRxAudioRef);
+        LE_ERROR_IF((res!=LE_OK), "Failed to connect mdmRx on Output connector!");
+    }
+    LE_INFO("Set volume to modem RX");
+    res = taf_audio_SetVolume(MdmRxAudioRef, 1);
+    LE_ERROR_IF((res!=LE_OK), "Failed to set volume on modem RX!");
+    if(res == LE_OK)
+        LE_INFO("Successfully set the volume to modem RX");
+    LE_INFO("Set mute to modem RX");
+    res = taf_audio_SetMute(MdmRxAudioRef, true);
+    LE_ERROR_IF((res!=LE_OK), "Failed to mute modem RX!");
+    if(res == LE_OK)
+        LE_INFO("Successfully muted modem RX");
+    LE_INFO("Set mute to modem TX");
+    res = taf_audio_SetMute(MdmTxAudioRef, true);
+    LE_ERROR_IF((res!=LE_OK), "Failed to mute modem TX!");
+    if(res == LE_OK)
+        LE_INFO("Successfully muted modem TX");
+
+    return;
+}
+
+static void ConnectAudio()
+{
+    LE_INFO("ConnectAudio");
+
+    routeRef = taf_audio_OpenRoute(TAF_AUDIO_ROUTE_1, TAF_AUDIO_VOICE_CALL, &FeOutRef, &FeInRef);
+    LE_ERROR_IF((routeRef == NULL), "routeRef  is NULL!");
+
+    //Open player ConnectorRef
+    playerConnectorRef  = taf_audio_CreateConnector();
+    LE_ERROR_IF((playerConnectorRef ==NULL), "playerConnectorRef  is NULL!");
+    //Open playerRef
+    playerRef = taf_audio_OpenPlayer(TAF_AUDIO_RX);
+    LE_ERROR_IF((playerRef==NULL), "OpenFilePlayback returns NULL!");
+    //Add playerRef to AddMediaHandler to get the audio playback callbacks.
+    MediaHandlerRef = taf_audio_AddMediaHandler(playerRef, MyMediaEventHandler, NULL);
+
+    if (FeOutRef && playerConnectorRef && playerRef )
+    {
+        //connect both speaker and playerref to player connectorRef
+        res = taf_audio_Connect(playerConnectorRef, FeOutRef);
+        LE_ERROR_IF((res!=LE_OK), "Failed to connect Speaker on Output connector (res %s)!",
+                    LE_RESULT_TXT(res));
+        res = taf_audio_Connect(playerConnectorRef , playerRef);
+        LE_ERROR_IF((res!=LE_OK), "Failed to connect FilePlayback on input connector!");
+
+        //To playfile audio file after connecting connectors
+        res = taf_audio_PlayFile(playerRef, AudioFilePath);
+        LE_ERROR_IF((res!=LE_OK), "Failed to play the file!");
+        res = taf_audio_SetVolume(playerRef, 1);
+        LE_ERROR_IF((res!=LE_OK), "Failed to set volume on player!");
+        if(res == LE_OK)
+            LE_INFO("Successfully set the volume to player");
+    }
+
+    OpenVoiceAudio();
+}
+#endif
 
 static int terminateRegistration()
 {
@@ -334,6 +494,7 @@ static void* CommandInput(void* contextPtr)
             printf("-------------------------------------------------\n");
             printf("\th - Hangup the eCall\n");
             printf("\tt - Terminate registration\n");
+            printf("\ta - Answer the eCall\n");
             printf("\ts - Import and send MSD\n");
             printf("\tu - Send MSD\n");
             printf("\tg - Get hlap timer state\n");
@@ -353,6 +514,11 @@ static void* CommandInput(void* contextPtr)
             printf("User input: %c, so terminate registration...\n", input_str[0]);
             int res = terminateRegistration();
             LE_INFO("CommandInput: terminate registration, res: %d\n", res);
+        } else if (p != NULL && input_str[0]=='a') {
+            printf("User input: %c, so answer the call...\n", input_str[0]);
+            le_result_t result =  ECallRef != NULL ? taf_ecall_Answer(ECallRef) : LE_FAULT;
+            printf("Answer %s\n", result == LE_OK ? "success." : "failed!!");
+            LE_INFO("CommandInput: answering the call, result %d\n", (int) result);
         } else if (p != NULL && input_str[0]=='s') {
             printf("User input: %c, so import MSD eg:02251C0680E30A51439E2955D43800800837F80C9FD707F09A94BDD30E55E080000001FFFFE040\n", input_str[0]);
             char msd[2*TAF_ECALL_MAX_MSD_LENGTH+1];
@@ -426,7 +592,7 @@ static void* CommandInput(void* contextPtr)
             le_result_t result = taf_ecall_GetHlapTimerState(timerType, &timerStatus, &elapsedTime);
             printf("Get hlap timer state %s\n", result == LE_OK ? "success." : "failed!!");
             printf("Hlap timer status is %d and the elapsed time is %d\n", timerStatus, elapsedTime);
-        }else if (p != NULL && input_str[0]=='q') {
+        } else if (p != NULL && input_str[0]=='q') {
             exitApp = true;
             le_thread_Cancel(ECallCmdThreadRef);
             ECallCmdThreadRef = NULL;
@@ -454,7 +620,7 @@ static void SignalHandler (int sigNum)
         taf_gpio_RemoveChangeEventHandler(GpioHandlerRef);
     }
 
-    taf_gnss_Stop();
+    taf_locGnss_Stop();
     exit(EXIT_SUCCESS);
 }
 
@@ -480,7 +646,6 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         case TAF_ECALL_STATE_ALERTING:
         {
             printf("TAF_ECALL_STATE_ALERTING");
-            OpenAudio();
             break;
         }
         case TAF_ECALL_STATE_ACTIVE:
@@ -522,11 +687,25 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         case TAF_ECALL_STATE_MSD_TRANSMISSION_SUCCESS:
         {
             printf("TAF_ECALL_STATE_MSD_TRANSMISSION_SUCCESS");
+#ifdef LE_CONFIG_REFRESH_AUDIO_SVC
+            taf_audio_Stop(playerRef);
+            res = taf_audio_SetMute(MdmRxAudioRef, false);
+            LE_ERROR_IF((res!=LE_OK), "Failed to unmute modem RX!");
+            res = taf_audio_SetMute(MdmTxAudioRef, false);
+            LE_ERROR_IF((res!=LE_OK), "Failed to unmute modem TX!");
+#endif
             break;
         }
         case TAF_ECALL_STATE_MSD_TRANSMISSION_FAILED:
         {
             printf("TAF_ECALL_STATE_MSD_TRANSMISSION_FAILED");
+#ifdef LE_CONFIG_REFRESH_AUDIO_SVC
+            taf_audio_Stop(playerRef);
+            res = taf_audio_SetMute(MdmRxAudioRef, false);
+            LE_ERROR_IF((res!=LE_OK), "Failed to unmute modem RX!");
+            res = taf_audio_SetMute(MdmTxAudioRef, false);
+            LE_ERROR_IF((res!=LE_OK), "Failed to unmute modem TX!");
+#endif
             break;
         }
         case TAF_ECALL_STATE_ALACK_RECEIVED_POSITIVE:
@@ -553,7 +732,9 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
                 LE_INFO("ECall ENDed, terminate reason  = %d", lcf );
                 printf("Call Termination reason: %d", lcf);
             }
-            CloseAudio();
+#ifdef LE_CONFIG_REFRESH_AUDIO_SVC
+            DisconnectAllAudio();
+#endif
             break;
         }
         case TAF_ECALL_STATE_RESET:
@@ -635,11 +816,25 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
         case TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_SUCCESS:
         {
             printf("TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_SUCCESS");
+#ifdef LE_CONFIG_REFRESH_AUDIO_SVC
+            taf_audio_Stop(playerRef);
+            res = taf_audio_SetMute(MdmRxAudioRef, false);
+            LE_ERROR_IF((res!=LE_OK), "Failed to unmute modem RX!");
+            res = taf_audio_SetMute(MdmTxAudioRef, false);
+            LE_ERROR_IF((res!=LE_OK), "Failed to unmute modem TX!");
+#endif
             break;
         }
         case TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_FAILURE:
         {
             printf("TAF_ECALL_STATE_OUTBAND_MSD_TRANSMISSION_FAILURE");
+#ifdef LE_CONFIG_REFRESH_AUDIO_SVC
+            taf_audio_Stop(playerRef);
+            res = taf_audio_SetMute(MdmRxAudioRef, false);
+            LE_ERROR_IF((res!=LE_OK), "Failed to unmute modem RX!");
+            res = taf_audio_SetMute(MdmTxAudioRef, false);
+            LE_ERROR_IF((res!=LE_OK), "Failed to unmute modem TX!");
+#endif
             break;
         }
         case TAF_ECALL_STATE_T2_STARTED:
@@ -702,6 +897,11 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
             printf("TAF_ECALL_STATE_T10_STOPPED");
             break;
         }
+        case TAF_ECALL_STATE_INCOMING:
+        {
+            printf("TAF_ECALL_STATE_INCOMING");
+            break;
+        }
         default:
         {
             printf("Unknown state");
@@ -723,7 +923,7 @@ static void tafECallStateHandler( taf_ecall_CallRef_t eCallReference,
 static void PrintUsage ()
 {
     puts("\n"
-            "tafECallApp -- setOpMode <NORMAL/ECALL_ONLY> <SLOT1/SLOT2>\n"
+            "tafECallApp -- setOpMode <NORMAL/ECALL_ONLY/PERSISTENT_ECALL_ONLY> <SLOT1/SLOT2>\n"
             "tafECallApp -- getOpMode <SLOT1/SLOT2>\n"
             "tafECallApp -- setPsapNumber <NUMBER>\n"
             "tafECallApp -- getPsapNumber\n"
@@ -742,6 +942,7 @@ static void PrintUsage ()
             "tafECallApp -- start <AUTO/MANUAL/TEST>\n"
             "tafECallApp -- start <PRIVATE> <NUMBER> [contentType] [acceptInfo]\n"
             "tafECallApp -- end\n"
+            "tafECallApp -- answer\n"
             "tafECallApp -- terminateReg\n"
             "tafECallApp -- gpio <PIN>\n"
             "tafECallApp -- getHlapTimerState <hlap timer type>\n"
@@ -1002,6 +1203,10 @@ static int setOpMode()
     }
     else if (strcmp(opMode, "ECALL_ONLY") == 0)
     {
+        result = taf_ecall_ForceOnlyMode(phoneId);
+    }
+    else if (strcmp(opMode, "PERSISTENT_ECALL_ONLY") == 0)
+    {
         result = taf_ecall_ForcePersistentOnlyMode(phoneId);
     }
     else
@@ -1054,8 +1259,8 @@ static int getOpMode()
             case TAF_ECALL_MODE_ECALL:
                 printf("TAF_ECALL_MODE_ECALL\n");
                 break;
-            case TAF_ECALL_NONE:
-                printf("TAF_ECALL_MODE_NONE\n");
+            case TAF_ECALL_MODE_FORCED_PERSISTENT_ONLY:
+                printf("TAF_ECALL_MODE_FORCED_PERSISTENT_ONLY\n");
                 break;
             default:
                 printf("Unknown mode\n");
@@ -1208,15 +1413,24 @@ static int startECall()
     {
         taf_ecall_SetMsdEuroNCAPLocationOfImpact(ECallRef, TAF_ECALL_LOI_FRONT);
         taf_ecall_SetMsdEuroNCAPIIDeltaV(ECallRef, 125, -45, 10);
+#ifdef LE_CONFIG_REFRESH_AUDIO_SVC
+        ConnectAudio();
+#endif
         taf_ecall_StartAutomatic(ECallRef);
     }
     else if (strcmp(eCallType, "MANUAL") == 0)
     {
         taf_ecall_ResetMsdAdditionalData(ECallRef);
+#ifdef LE_CONFIG_REFRESH_AUDIO_SVC
+        ConnectAudio();
+#endif
         taf_ecall_StartManual(ECallRef);
     }
     else if (strcmp(eCallType, "TEST") == 0)
     {
+#ifdef LE_CONFIG_REFRESH_AUDIO_SVC
+        ConnectAudio();
+#endif
         taf_ecall_StartTest(ECallRef);
     }
     else if (strcmp(eCallType, "PRIVATE") == 0)
@@ -1258,6 +1472,9 @@ static int startECall()
             PrintUsage();
             return EXIT_FAILURE;
         }
+#ifdef LE_CONFIG_REFRESH_AUDIO_SVC
+        ConnectAudio();
+#endif
         taf_ecall_StartPrivate(ECallRef, psapNumber, contentType, acceptInfo);
     }
     else
@@ -1287,6 +1504,9 @@ static void StartAutoECall()
 
     taf_ecall_SetMsdPassengersCount(ECallRef, 2);
 
+#ifdef LE_CONFIG_REFRESH_AUDIO_SVC
+    ConnectAudio();
+#endif
     taf_ecall_StartAutomatic(ECallRef);
 
 }
@@ -1428,6 +1648,17 @@ COMPONENT_INIT
             result = taf_ecall_End(ECallRef);
         }
         printf("Hangup %s\n", result == LE_OK ? "success." : "failed!!" );
+        isMsgPrinted = true;
+        status = result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+        exitApp = result == LE_OK ? false : true;
+    }
+    else if (strcmp(command, "answer") == 0)
+    {
+        ECallRef = taf_ecall_Create();
+        if (ECallRef) {
+            result = taf_ecall_Answer(ECallRef);
+        }
+        printf("Answer %s\n", result == LE_OK ? "success." : "failed!!" );
         isMsgPrinted = true;
         status = result == LE_OK ? EXIT_SUCCESS : EXIT_FAILURE;
         exitApp = result == LE_OK ? false : true;

@@ -267,7 +267,7 @@ void GetUbiInfo(const char* volume)
     le_result_t result;
 
     // Open UBI Test
-    result = taf_flash_UbiOpen(volume, TAF_FLASH_READ_WRITE, &volumeRef);
+    result = taf_flash_UbiOpen(volume, TAF_FLASH_READ_ONLY, &volumeRef);
     LE_TEST_OK((result == LE_OK), "taf_flash_UbiOpen - LE_OK");
 
     // UBI Information Test
@@ -311,19 +311,19 @@ void ReadUbiLeb(const char* volume)
         volumeRef, &lebNumber, &freeLebNumber, &volumeSize);
     LE_TEST_OK((result == LE_OK), "taf_flash_UbiInformation - LE_OK");
 
+    snprintf(file, sizeof(file), "/%s.ubi_data", volume);
+
+    result = le_fs_Open(file, LE_FS_CREAT | LE_FS_WRONLY, &fileRef);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Fail to open file %s.", file);
+    }
+
     // Read UBI Leb Test
-    for (i = 0; i < lebNumber; i++)
+    for (i = 0; i < volumeSize / TAF_FLASH_UBI_MAX_READ_SIZE; i++)
     {
         result = taf_flash_UbiRead(volumeRef, i * blockSize, block, &blockSize);
         LE_TEST_OK((result == LE_OK), "taf_flash_UbiRead - LE_OK");
-
-        snprintf(file, sizeof(file), "/%s_%d.bdat", volume, i);
-
-        result = le_fs_Open(file, LE_FS_CREAT | LE_FS_WRONLY, &fileRef);
-        if (result != LE_OK)
-        {
-            LE_ERROR("Fail to open file %s.", file);
-        }
 
         result = le_fs_Write(fileRef, block, blockSize);
         if (result != LE_OK)
@@ -332,6 +332,25 @@ void ReadUbiLeb(const char* volume)
         }
 
         LE_INFO("Read leb %d and write to %s with size %" PRIuS, i, file, blockSize);
+    }
+
+    blockSize = volumeSize % TAF_FLASH_UBI_MAX_READ_SIZE;
+    if (blockSize != 0)
+    {
+        result = taf_flash_UbiRead(volumeRef, volumeSize - blockSize, block, &blockSize);
+        LE_TEST_OK((result == LE_OK), "taf_flash_UbiRead - LE_OK");
+
+        result = le_fs_Write(fileRef, block, blockSize);
+        if (result != LE_OK)
+        {
+            LE_ERROR("Fail to write file %s.", file);
+        }
+    }
+
+    result = le_fs_Close(fileRef);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Fail to close file %s.", file);
     }
 
     // Close UBI Test
@@ -369,16 +388,17 @@ void WriteUbiLeb(const char* volume)
     result = taf_flash_UbiInitWrite(volumeRef, volumeSize);
     LE_TEST_OK((result == LE_OK), "taf_flash_UbiInitWrite - LE_OK");
 
-    for (i = 0; i < lebNumber; i++)
+    snprintf(file, sizeof(file), "/%s.ubi_data", volume);
+    result = le_fs_Open(file, LE_FS_RDONLY, &fileRef);
+    if (result != LE_OK)
     {
-        snprintf(file, sizeof(file), "/%s_%d.bdat", volume, i);
+        LE_ERROR("Fail to open file %s.", file);
+    }
 
-        result = le_fs_Open(file, LE_FS_RDONLY, &fileRef);
-        if (result != LE_OK)
-        {
-            LE_ERROR("Fail to open file %s.", file);
-        }
-
+    for (i = 0; i < volumeSize / TAF_FLASH_UBI_MAX_WRITE_SIZE; i++)
+    {
+        blockSize = TAF_FLASH_UBI_MAX_WRITE_SIZE;
+        memset(block, 0xFF, blockSize);
         result = le_fs_Read(fileRef, block, &blockSize);
         if (result != LE_OK)
         {
@@ -390,6 +410,52 @@ void WriteUbiLeb(const char* volume)
 
         LE_INFO("Read %s and write to block %d with size %" PRIuS, file, i, blockSize);
     }
+
+    blockSize = volumeSize % TAF_FLASH_UBI_MAX_WRITE_SIZE;
+    if (blockSize != 0)
+    {
+        memset(block, 0xFF, blockSize);
+        result = le_fs_Read(fileRef, block, &blockSize);
+        if (result != LE_OK)
+        {
+            LE_ERROR("Fail to read file %s.", file);
+        }
+
+        result = taf_flash_UbiWrite(volumeRef, block, blockSize);
+        LE_TEST_OK((result == LE_OK), "taf_flash_UbiWrite - LE_OK");
+    }
+
+    result = le_fs_Close(fileRef);
+    if (result != LE_OK)
+    {
+        LE_ERROR("Fail to close file %s.", file);
+    }
+
+    // Close UBI Test
+    result = taf_flash_UbiClose(volumeRef);
+    LE_TEST_OK((result == LE_OK), "taf_flash_UbiClose - LE_OK");
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Erase LEB in UBI volume.
+ */
+//--------------------------------------------------------------------------------------------------
+void EraseUbiLeb
+(
+    const char* volume ///< [IN] UBI volume.
+)
+{
+    taf_flash_VolumeRef_t volumeRef;
+    le_result_t result;
+
+    // Open UBI Test
+    result = taf_flash_UbiOpen(volume, TAF_FLASH_READ_WRITE, &volumeRef);
+    LE_TEST_OK((result == LE_OK), "taf_flash_UbiOpen - LE_OK");
+
+    // Erase UBI Leb Test
+    result = taf_flash_UbiErase(volumeRef);
+    LE_TEST_OK((result == LE_OK), "taf_flash_UbiErase - LE_OK");
 
     // Close UBI Test
     result = taf_flash_UbiClose(volumeRef);
@@ -459,6 +525,11 @@ COMPONENT_INIT
             {
                 LE_TEST_INFO("======== UBI Write Test ========");
                 WriteUbiLeb(volume);
+            }
+            else if (strncmp(cmd, "erase", strlen("erase")) == 0)
+            {
+                LE_TEST_INFO("======== UBI Erase Test ========");
+                EraseUbiLeb(volume);
             }
         }
     }

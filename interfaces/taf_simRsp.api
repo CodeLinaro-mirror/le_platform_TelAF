@@ -1,0 +1,618 @@
+/*
+ *  Copyright (c) 2021 The Linux Foundation. All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions are
+ *  met:
+ *    * Redistributions of source code must retain the above copyright
+ *      notice, this list of conditions and the following disclaimer.
+ *    * Redistributions in binary form must reproduce the above
+ *      copyright notice, this list of conditions and the following
+ *      disclaimer in the documentation and/or other materials provided
+ *      with the distribution.
+ *    * Neither the name of The Linux Foundation nor the names of its
+ *      contributors may be used to endorse or promote products derived
+ *      from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ *  WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ *  ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ *  BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ *  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ *  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ *  BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ *  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ *  OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/*
+ *  Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ *  Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted (subject to the limitations in the
+ *  disclaimer below) provided that the following conditions are met:
+ *
+ *      * Redistributions of source code must retain the above copyright
+ *        notice, this list of conditions and the following disclaimer.
+ *
+ *      * Redistributions in binary form must reproduce the above
+ *        copyright notice, this list of conditions and the following
+ *        disclaimer in the documentation and/or other materials provided
+ *        with the distribution.
+ *
+ *      * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *        contributors may be used to endorse or promote products derived
+ *        from this software without specific prior written permission.
+ *
+ *  NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ *  GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ *  HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ *  WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ *  IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ *  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ *  DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ *  GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ *  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ *  IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ *  OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ *  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * @page c_tafSimRsp Remote SIM Profile
+ *
+ * @ref taf_simRsp_interface.h "API Reference"
+ *
+ * <HR>
+ *
+ * The remote SIM profile is a profile of a SIM card placed remotely. Users can manage
+ * the remote SIM profile using this service and interface between the application and
+ * the SIM card service based on the SIM Access Profile (SAP) specification.
+ * A remote SIM profile is needed for applications that want to add, delete, enable, or disable
+ * a SIM profile locally or remotely.
+ *
+ * @section taf_simRsp_binding IPC interfaces binding
+ *
+ * The functions this API are provided by the @b tafSimCardSvc application service.
+ *
+ * The follwoing example illustrates how to bind to the Remote SIM Profile service.
+ * @verbatim
+   bindings:
+   {
+       clientExe.clientComponent.taf_simRsp -> tafSimCardSvc.taf_simRsp
+   }
+   @endverbatim
+ *
+ * @section c_taf_simRsp_AddProfile Adding a SIM profile
+ *
+ * A SIM profile can be added remotely using taf_simRsp_AddProfile() with slotId, activationCode,
+ * confirmationCode and userConsentSupported passed as parameters.
+ * @verbatim
+   #define SLOT_ID  TAF_SIM_EXTERNAL_SLOT_1
+   #define ACTIVATION_CODE "LPA:1$mc4-poc5.otlabs.fr$333353014959437" //This is for test, dummy activation code
+   le_result_t res = taf_simRsp_AddProfile((taf_sim_Id_t) TAF_SIM_EXTERNAL_SLOT_1, ACTIVATION_CODE,"",false);
+   LE_ASSERT(res == LE_OK);
+   @endverbatim
+ *
+ * Before the SIM profile download is started, an application registers a state change handler
+ * using taf_simRsp_AddProfileDownloadHandler(). Once the profile download is completed, the handler
+ * will be called indicating it's completed. If profile downloading failed or the downloading state
+ * changed, the handler will be called with the error code or new state.
+ * @verbatim
+   taf_simRsp_ProfileDownloadHandlerRef_t pdHandlerRef = taf_simRsp_AddProfileDownloadHandler(ProfileDownloadHandler, NULL);
+   @endverbatim
+ *
+ * To enable a SIM profile, an application can use @ref taf_simRsp_SetProfile() with the slotId, profileId
+ * and enable flag passed as parameters.
+ * To delete a SIM profile, an application can use @ref taf_simRsp_DeleteProfile() with the slotId and
+ * profileId passed as parameters.
+ *
+ * Applications must use @ref taf_simRsp_RemoveProfileDownloadHandler() to release the @ref taf_simRsp_ProfileDownloadHandlerRef_t
+ * download handler reference object when it is no longer used.
+ *
+ * <HR>
+ *
+ */
+//------------------------------------------------------------------------------------------------
+
+
+USETYPES taf_sim.api;
+REFERENCE ProfileListNode;
+
+DEFINE  EID_LEN    = (32);
+DEFINE  EID_BYTES  = (EID_LEN+1);
+DEFINE  MAX_PROFILE = (32);
+DEFINE  NAME_LEN    = (64);
+DEFINE  NAME_BYTES  = (NAME_LEN+1);
+DEFINE  SPN_LEN    = (32);
+DEFINE  SMDP_LEN   = (1024);
+DEFINE  ICCID_LEN    = (20);
+DEFINE  ICCID_BYTES  = (ICCID_LEN+1);
+DEFINE  NICKNAME_LEN    = (64);
+DEFINE  NICKNAME_BYTES  = (NICKNAME_LEN+1);
+DEFINE  ACTIVATION_CODE_LEN    = (256);
+DEFINE  ACTIVATION_CODE_BYTES  = (ACTIVATION_CODE_LEN+1);
+DEFINE  CODE_LEN    = (256);
+DEFINE  CODE_BYTES  = (CODE_LEN+1);
+
+
+/**
+ * Indicates card's profile type.
+ */
+ENUM ProfileType
+{
+    UNKNOWN = -1,
+    REGULAR = 0,    ///< Regular profile.
+    EMERGENCY,      ///< Emergency profile.
+};
+
+/**
+ * Indicates the profile's icon type.
+ */
+ENUM IconType
+{
+    NONE = 0,       ///< No icon information.
+    JPEG,           ///< JPEG icon.
+    PNG,            ///< PNG icon.
+};
+
+/**
+ * Indicates the profile's class.
+ */
+ENUM ProfileClass
+{
+    TEST = 0,        ///< Test profile.
+    PROVISIONING,    ///< Provisioning profile.
+    OPERATIONAL      ///< Operational  profile.
+};
+
+/**
+ * Defines profile policy rules (PPR). Each value represents
+ * the corresponding bit for the PprMask bitset.
+ */
+ENUM PolicyRuleType
+{
+    PROFILE_DISABLE_NOT_ALLOWED,     ///< Disabling the profile is not allowed.
+    PROFILE_DELETE_NOT_ALLOWED,      ///< Deletion of the profile is not allowed.
+    PROFILE_DELETE_ON_DISABLE,       ///< Deletion of the profile is required when it is successfully disabled.
+};
+
+/**
+ * Indicates the profile download status.
+ */
+ENUM DownloadStatus
+{
+    DOWNLOAD_ERROR = 0,                  ///< Profile download error.
+    DOWNLOAD_INSTALLATION_COMPLETE,      ///< Profile download and installation is complete.
+};
+
+/**
+ * Indicates the profile download error cause.
+ */
+ENUM DownloadErrorCause
+{
+    GENERIC = 1,                      ///< Generic error.
+    SIM,                              ///< Error from the SIM card.
+    NETWORK,                          ///< Error from the network.
+    MEMORY,                           ///< Error due to no memory.
+    UNSUPPORTED_PROFILE_CLASS,        ///< Unsupported profile class.
+    PPR_NOT_ALLOWED,                  ///< Profile policy rules not allowed.
+    END_USER_REJECTION,               ///< End user rejection.
+    END_USER_POSTPONED,               ///< End user postponed.
+};
+
+/**
+ * Indicates the user consent reason type.
+ */
+ENUM UserConsentReasonType
+{
+    USER_REJECTION = 0,          ///< End user rejection.
+    USER_POSTPONED               ///< End user postponed.
+};
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Handler for profile download.
+ */
+//-------------------------------------------------------------------------------------------------
+HANDLER  ProfileDownloadHandler
+(
+    taf_sim.Id         slotId  IN,            ///< SIM slot ID.
+    DownloadStatus     downloadStatus IN,     ///< Download status.
+    DownloadErrorCause errorCause IN          ///< Download error cause.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Event for profile download.
+ */
+//-------------------------------------------------------------------------------------------------
+EVENT  ProfileDownload
+(
+    ProfileDownloadHandler handler    ///< Handler for profile download.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Handler for consent of profile management.
+ */
+//-------------------------------------------------------------------------------------------------
+HANDLER  ProfileUserConsentHandler
+(
+    taf_sim.Id         slotId  IN,              ///< SIM slot ID.
+    bool               userConsentRequired IN,  ///< Whether user consent is required or not.
+    uint8              mask                     ///< Mask.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * User consent of profile management.
+ */
+//-------------------------------------------------------------------------------------------------
+EVENT  ProfileUserConsent
+(
+    ProfileUserConsentHandler handler    ///< Handler of user consent.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Handler for confirmation code of profile.
+ */
+//-------------------------------------------------------------------------------------------------
+HANDLER  ProfileConfirmationCodeHandler
+(
+    taf_sim.Id         slotId  IN,            ///< SIM slot ID.
+    string             profileName[NAME_LEN]  ///< Profile name.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Event for confirmation code of profile.
+ */
+//-------------------------------------------------------------------------------------------------
+EVENT  ProfileConfirmationCode
+(
+    ProfileConfirmationCodeHandler handler    ///< Handler of profile confirmation code.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Request eUICC identifier (EID) for the slot.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - LE_FAULT -- Failed.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetEID
+(
+    taf_sim.Id       slotId IN,                 ///< SIM slot ID.
+    string           eid[EID_LEN] OUT           ///< EID as output.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Adds a new profile to the eUICC card and downloads and installs the profile on the eUICC.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - LE_FAULT -- Failed.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t AddProfile
+(
+    taf_sim.Id       slotId IN,                                 ///< SIM slot ID.
+    string           activationCode[ACTIVATION_CODE_LEN] IN,    ///< Activation code.
+    string           confirmationCode[CODE_LEN] IN,             ///< Confirmation code.
+    bool             userConsentSupported IN                    ///< Whether user consent is
+                                                                ///  supported or not.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ *  Deletes a profile from the eUICC card.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - LE_FAULT -- Failed.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t DeleteProfile
+(
+    taf_sim.Id       slotId IN,      ///< SIM slot ID.
+    uint32           profileId IN    ///< Profile ID.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Enables or disables the profile which allows switching another profile on the eUICC card.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - LE_FAULT -- Failed.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetProfile
+(
+    taf_sim.Id       slotId IN,     ///< SIM slot ID.
+    uint32           profileId IN,  ///< Profile ID.
+    bool             enable    IN   ///< Enabled or not; true if enabling, false if disabling.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Updates the profile's nick name.
+ *
+ * @return
+ *      - LE_OK -- Succeeded.
+ *      - LE_FAULT -- Failed.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t UpdateNickName
+(
+    taf_sim.Id       slotId IN,                  ///< SIM slot ID.
+    uint32           profileId IN,               ///< Profile ID.
+    string           nickName[NICKNAME_LEN] IN   ///< Nick name.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Requests a list of profiles supported by the eUICC card.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - LE_FAULT-- Failed.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetProfileList
+(
+    taf_sim.Id        slotId IN,                      ///< SIM slot ID.
+    ProfileListNode   profileList[MAX_PROFILE] OUT    ///< Profile list as output.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Sets the Subscription Manager Data Preparation (SM-DP+) address on the eUICC. If the SM-DP+
+ * address length is zero then the existing SM-DP+ address on the eUICC is removed.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - LE_FAULT -- Failed.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t SetServerAddress
+(
+    taf_sim.Id       slotId IN,                ///< SIM slot ID.
+    string           smdpAdress[SMDP_LEN] IN   ///< SM-DP+ address.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the SM-DP+ address and the Subscription Manager Discovery Server (SMDS) address configured
+ * on the eUICC.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - LE_FAULT -- Failed.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetServerAddress
+(
+    taf_sim.Id           slotId IN,                   ///< SIM slot ID.
+    string               smdpAdress[SMDP_LEN]  OUT,   ///< SM-DP+ address.
+    string               smdsdress[SMDP_LEN] OUT      ///< SMDS address.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Provides user consent required for downloading and installing a profile.
+ * This API should be called in response to a ProfileUserConsent event.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - LE_FAULT -- Failed.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ProvideUserConsent
+(
+    taf_sim.Id              slotId IN,       ///< SIM slot ID.
+    bool                    userConsent IN,  ///< User consent.
+    UserConsentReasonType   reason           ///< User consent reason.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Provides the confirmation code required for downloading and installing the profile.
+ * This API should be called in response to a ProfileConfirmationCode event.
+ *
+ * @return
+ * - LE_OK -- Succeeded.
+ * - LE_FAULT -- Failed.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t ProvideConfirmationCode
+(
+    taf_sim.Id              slotId IN,          ///< SIM slot ID.
+    string                  code[CODE_LEN] IN   ///< Confirmation code.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Returns the opaque type (ProfileListNode) reference for a profile, specified using the profile index.
+ *
+ * @return
+ * - ProfileListNode type reference -- Succeeded.
+ * - NULL -- Failed.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION ProfileListNode GetProfile
+(
+    uint32 index ///< Profile index.
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Returns profileIndex for a profile, specified using the ProfileListNode type reference.
+ *
+ * @return
+ * - uint32_t type profile index.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION uint32 GetProfileIndex
+(
+    ProfileListNode profileRef
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Returns the profile type for a profile, specified using the ProfileListNode type reference.
+ *
+ * @return
+ * - ProfileType type.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION ProfileType GetProfileType
+(
+    ProfileListNode profileRef
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the ICCID for a profile, specified using the ProfileListNode type reference.
+ *
+ * @return
+ * - LE_OK -- Successful in getting ICCID.
+ * - LE_FAULT -- Failure in getting the ICCID.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetIccid
+(
+    ProfileListNode profileRef IN,
+    string          iccid[taf_sim.ICCID_LEN] OUT
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Returns whether or not the specified profile is active.
+ *
+ * @return
+ * - True -- Profile is active.
+ * - FaLSE -- Profile is inactive or not found.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION bool GetProfileActiveStatus
+(
+    ProfileListNode profileRef
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the nickname for the specified profile.
+ *
+ * @return
+ * - LE_OK -- Successful.
+ * - LE_FAULT -- Error occurred while getting the nickname.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetNickName
+(
+    ProfileListNode profileRef IN,
+    string          nickName[NICKNAME_LEN] OUT
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the name for the specified profile.
+ *
+ * @return
+ * - LE_OK -- Successful.
+ * - LE_FAULT -- Error occurred while getting the name.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetName
+(
+    ProfileListNode profileRef IN,
+    string          name[NAME_LEN] OUT
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the SPN for the specified profile.
+ *
+ * @return
+ * - LE_OK - Successful
+ * - LE_FAULT - Error occurred while getting the SPN.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION le_result_t GetSpn
+(
+    ProfileListNode profileRef IN,
+    string          spn[SPN_LEN] OUT
+);
+
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the Icon type for the specified profile.
+ *
+ * @return
+ * - IconType
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION IconType GetIconType
+(
+    ProfileListNode profileRef IN
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the ProfileClass for the specified profile.
+ *
+ * @return
+ * - ProfileClass
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION ProfileClass GetProfileClass
+(
+    ProfileListNode profileRef IN
+);
+
+//-------------------------------------------------------------------------------------------------
+/**
+ * Gets the Mask for the specified profile.
+ *
+ * @return
+ * - uint32 -- Mask for the profile specified.
+ *
+ */
+//-------------------------------------------------------------------------------------------------
+FUNCTION uint32 GetMask
+(
+    ProfileListNode profileRef IN
+);

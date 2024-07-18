@@ -149,25 +149,28 @@ void tafIvssRadioSvc::GetSignalStrengthHandler
     switch (indPtr->getSignalStrength.rat)
     {
         case TAF_RADIO_RAT_GSM:
-            uint32_t ber;
-            indPtr->result = taf_radio_GetGsmSignalMetrics(metrics, &indPtr->getSignalStrength.ss,
-                &ber);
+            indPtr->result = taf_radio_GetGsmSignalMetrics(metrics,
+                &indPtr->getSignalStrength.strength.gsm.rssi,
+                &indPtr->getSignalStrength.strength.gsm.ber);
             break;
         case TAF_RADIO_RAT_UMTS:
-            uint32_t bler;
-            int32_t rscp;
-            indPtr->result = taf_radio_GetUmtsSignalMetrics(metrics, &indPtr->getSignalStrength.ss,
-                &bler, &rscp);
+            indPtr->result = taf_radio_GetUmtsSignalMetrics(metrics,
+                &indPtr->getSignalStrength.strength.umts.ss,
+                &indPtr->getSignalStrength.strength.umts.ber,
+                &indPtr->getSignalStrength.strength.umts.rscp);
             break;
         case TAF_RADIO_RAT_LTE:
-            int32_t rsrq;
-            int32_t snr;
-            indPtr->result = taf_radio_GetLteSignalMetrics(metrics, &indPtr->getSignalStrength.ss,
-                &rsrq, &indPtr->getSignalStrength.rsrp, &snr);
+            indPtr->result = taf_radio_GetLteSignalMetrics(metrics,
+                &indPtr->getSignalStrength.strength.lte.ss,
+                &indPtr->getSignalStrength.strength.lte.rsrq,
+                &indPtr->getSignalStrength.strength.lte.rsrp,
+                &indPtr->getSignalStrength.strength.lte.snr);
             break;
         case TAF_RADIO_RAT_NR5G:
-            indPtr->result = taf_radio_GetNr5gSignalMetrics(metrics, &rsrq,
-                &indPtr->getSignalStrength.rsrp, &snr);
+            indPtr->result = taf_radio_GetNr5gSignalMetrics(metrics,
+                &indPtr->getSignalStrength.strength.nr5g.rsrq,
+                &indPtr->getSignalStrength.strength.nr5g.rsrp,
+                &indPtr->getSignalStrength.strength.nr5g.snr);
             break;
         default:
             indPtr->result = LE_BAD_PARAMETER;
@@ -204,8 +207,37 @@ void tafIvssRadioSvc::GetSignalStrength
     // Report to the common COMMONAPI msg handler in service layer.
     le_event_ReportWithRefCounting(GetSignalStrengthEvent, (void*)indPtr);
     le_sem_Wait(indPtr->semRef);
-    _reply(ResultLeToIvss(indPtr->result), indPtr->getSignalStrength.ss,
-        indPtr->getSignalStrength.rsrp);
+
+    RadioSvc::SignalMetrics signalStrength;
+    switch (indPtr->getSignalStrength.rat)
+    {
+        case TAF_RADIO_RAT_GSM:
+            signalStrength = RadioSvc::GsmSignalMetrics{indPtr->getSignalStrength.strength.gsm.rssi,
+                indPtr->getSignalStrength.strength.gsm.ber};
+            break;
+        case TAF_RADIO_RAT_UMTS:
+            signalStrength = RadioSvc::UmtsSignalMetrics{indPtr->getSignalStrength.strength.umts.ss,
+                indPtr->getSignalStrength.strength.umts.ber,
+                indPtr->getSignalStrength.strength.umts.rscp};
+            break;
+        case TAF_RADIO_RAT_LTE:
+            signalStrength = RadioSvc::LteSignalMetrics{indPtr->getSignalStrength.strength.lte.ss,
+                indPtr->getSignalStrength.strength.lte.rsrq,
+                indPtr->getSignalStrength.strength.lte.rsrp,
+                indPtr->getSignalStrength.strength.lte.snr};
+            break;
+        case TAF_RADIO_RAT_NR5G:
+            signalStrength = RadioSvc::Nr5gSignalMetrics{
+                indPtr->getSignalStrength.strength.nr5g.rsrq,
+                indPtr->getSignalStrength.strength.nr5g.rsrq,
+                indPtr->getSignalStrength.strength.nr5g.rsrp};
+            break;
+        default:
+            indPtr->result = LE_BAD_PARAMETER;
+            LE_ERROR("Invalid rat(%d) type", (int32_t)indPtr->getSignalStrength.rat);
+            break;
+    }   
+    _reply(ResultLeToIvss(indPtr->result), signalStrength);
 
     le_sem_Delete(indPtr->semRef);
     le_mem_Release(indPtr);
@@ -225,8 +257,9 @@ void tafIvssRadioSvc::GetRegisterModeHandler
 
     taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)reportPtr;
     indPtr->result = taf_radio_GetRegisterMode(&indPtr->getRegisterMode.isManual,
-        indPtr->getRegisterMode.mcc, TAF_RADIO_MCC_BYTES,
-        indPtr->getRegisterMode.mnc, TAF_RADIO_MNC_BYTES, indPtr->getRegisterMode.phoneId);
+        indPtr->getRegisterMode.mcc, sizeof(indPtr->getRegisterMode.mcc),
+        indPtr->getRegisterMode.mnc, sizeof(indPtr->getRegisterMode.mnc),
+        indPtr->getRegisterMode.phoneId);
     le_sem_Post(indPtr->semRef);
 
     TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK, "taf_radio_GetRegisterMode fail - %s",
@@ -490,6 +523,32 @@ void tafIvssRadioSvc::GetNetRegStateHandler
     TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
 
     taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)reportPtr;
+    indPtr->result = taf_radio_GetRadioAccessTechInUse(&indPtr->getNetRegState.rat,
+        indPtr->getNetRegState.phoneId);
+    if (indPtr->result != LE_OK)
+    {
+        le_sem_Post(indPtr->semRef);
+        TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK,
+            "taf_radio_GetRadioAccessTechInUse fail - %s", LE_RESULT_TXT(indPtr->result));
+    }
+
+    indPtr->getNetRegState.cellId = taf_radio_GetServingCellId(indPtr->getNetRegState.phoneId);
+    if (indPtr->getNetRegState.cellId == UINT32_MAX)
+    {
+        le_sem_Post(indPtr->semRef);
+        LE_ERROR("taf_radio_GetServingCellId fail");
+    }
+
+    indPtr->result = taf_radio_GetCurrentNetworkMccMnc(indPtr->getNetRegState.mcc,
+        sizeof(indPtr->getNetRegState.mcc), indPtr->getNetRegState.mnc,
+        sizeof(indPtr->getNetRegState.mnc), indPtr->getNetRegState.phoneId);
+    if (indPtr->result != LE_OK)
+    {
+        le_sem_Post(indPtr->semRef);
+        TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK,
+            "taf_radio_GetCurrentNetworkMccMnc fail - %s", LE_RESULT_TXT(indPtr->result));
+    }
+
     indPtr->result = taf_radio_GetNetRegState(&indPtr->getNetRegState.netReg,
         indPtr->getNetRegState.phoneId);
     le_sem_Post(indPtr->semRef);
@@ -519,7 +578,9 @@ void tafIvssRadioSvc::GetNetRegState
     // Report to the common COMMONAPI msg handler in service layer.
     le_event_ReportWithRefCounting(GetNetRegStateEvent, (void*)indPtr);
     le_sem_Wait(indPtr->semRef);
-    _reply(ResultLeToIvss(indPtr->result), NetRegRadioToIvss(indPtr->getNetRegState.netReg));
+    _reply(ResultLeToIvss(indPtr->result), RatRadioToIvss(indPtr->getNetRegState.rat),
+        indPtr->getNetRegState.cellId, std::string(indPtr->getNetRegState.mcc),
+        std::string(indPtr->getNetRegState.mnc), NetRegRadioToIvss(indPtr->getNetRegState.netReg));
 
     le_sem_Delete(indPtr->semRef);
     le_mem_Release(indPtr);
@@ -538,8 +599,9 @@ void tafIvssRadioSvc::GetNrDualConnectivityStatusHandler
     TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
 
     taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)reportPtr;
+    taf_radio_NREndcAvailability_t endcStatus;
     indPtr->result = taf_radio_GetNrDualConnectivityStatus(
-        &indPtr->getNrDualConnectivityStatus.statusEndc,
+        &endcStatus,
         &indPtr->getNrDualConnectivityStatus.statusDcnr,
         indPtr->getNrDualConnectivityStatus.phoneId);
     le_sem_Post(indPtr->semRef);
@@ -570,8 +632,127 @@ void tafIvssRadioSvc::GetNrDualConnectivityStatus
     le_event_ReportWithRefCounting(GetNrDualConnectivityStatusEvent, (void*)indPtr);
     le_sem_Wait(indPtr->semRef);
     _reply(ResultLeToIvss(indPtr->result),
-        NREndcRadioToIvss(indPtr->getNrDualConnectivityStatus.statusEndc),
         NRDcnrRadioToIvss(indPtr->getNrDualConnectivityStatus.statusDcnr));
+
+    le_sem_Delete(indPtr->semRef);
+    le_mem_Release(indPtr);
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Add handler function for method 'SetSignalStrengthReportingCriteria'
+ */
+//--------------------------------------------------------------------------------------------------
+void tafIvssRadioSvc::SetSignalStrengthReportingCriteriaHandler
+(
+    void* reportPtr
+)
+{
+    TAF_ERROR_IF_RET_NIL(reportPtr == NULL, "Null ptr(reportPtr)");
+
+    taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)reportPtr;
+    switch (indPtr->setSignalStrengthReportingCriteria.ind.type)
+    {
+        case TAF_IVSS_RADIO_SIG_THRESHOLD:
+            indPtr->result = taf_radio_SetSignalStrengthIndThresholds(
+                indPtr->setSignalStrengthReportingCriteria.sigType,
+                indPtr->setSignalStrengthReportingCriteria.ind.lowerRange,
+                indPtr->setSignalStrengthReportingCriteria.ind.upperRange,
+                indPtr->setSignalStrengthReportingCriteria.phoneId);
+            if (indPtr->result != LE_OK)
+            {
+                le_sem_Post(indPtr->semRef);
+                TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK,
+                    "taf_radio_SetSignalStrengthIndThresholds fail - %s",
+                    LE_RESULT_TXT(indPtr->result));
+            }
+            break;
+        case TAF_IVSS_RADIO_SIG_DELTA:
+            indPtr->result = taf_radio_SetSignalStrengthIndDelta(
+                indPtr->setSignalStrengthReportingCriteria.sigType,
+                indPtr->setSignalStrengthReportingCriteria.ind.delta,
+                indPtr->setSignalStrengthReportingCriteria.phoneId);
+            if (indPtr->result != LE_OK)
+            {
+                le_sem_Post(indPtr->semRef);
+                TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK,
+                    "taf_radio_SetSignalStrengthIndDelta fail - %s", LE_RESULT_TXT(indPtr->result));
+            }
+            break;
+        default:
+            indPtr->result = LE_UNSUPPORTED;
+            le_sem_Post(indPtr->semRef);
+            LE_ERROR("Unsupported signal type : %d.",
+                (int32_t)indPtr->setSignalStrengthReportingCriteria.sigType);
+            return;
+    }
+
+    if (indPtr->setSignalStrengthReportingCriteria.hyst.setThreshold)
+    {
+        indPtr->result = taf_radio_SetSignalStrengthIndHysteresis(
+            indPtr->setSignalStrengthReportingCriteria.sigType,
+            indPtr->setSignalStrengthReportingCriteria.hyst.threshold,
+            indPtr->setSignalStrengthReportingCriteria.phoneId);
+        if (indPtr->result != LE_OK)
+        {
+            le_sem_Post(indPtr->semRef);
+            TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK,
+                "taf_radio_SetSignalStrengthIndHysteresis fail - %s",
+                LE_RESULT_TXT(indPtr->result));
+        }
+    }
+
+    if (indPtr->setSignalStrengthReportingCriteria.hyst.setTimer)
+    {
+        indPtr->result = taf_radio_SetSignalStrengthIndHysteresisTimer(
+            indPtr->setSignalStrengthReportingCriteria.hyst.timer,
+            indPtr->setSignalStrengthReportingCriteria.phoneId);
+        if (indPtr->result != LE_OK)
+        {
+            le_sem_Post(indPtr->semRef);
+            TAF_ERROR_IF_RET_NIL(indPtr->result != LE_OK,
+                "taf_radio_SetSignalStrengthIndHysteresisTimer fail - %s",
+                LE_RESULT_TXT(indPtr->result));
+        }
+    }
+
+    le_sem_Post(indPtr->semRef);;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Sets signal reporting criteria.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafIvssRadioSvc::SetSignalStrengthReportingCriteria
+(
+    const std::shared_ptr<CommonAPI::ClientId> _client,
+    CommonTypes::PhoneId _phoneId,
+    RadioSvc::SigType _sigType,
+    RadioSvc::SigStrengthIndication _ind,
+    RadioSvc::SigStrengthHysteresis _hyst,
+    SetSignalStrengthReportingCriteriaReply_t _reply
+)
+{
+    // Create a generic response message object.
+    taf_IvssRadio_Ind_t* indPtr = (taf_IvssRadio_Ind_t*)le_mem_ForceAlloc(EventPool);
+    memset(indPtr, 0, sizeof(taf_IvssRadio_Ind_t));
+    indPtr->semRef = le_sem_Create("Ivss SetSignalStrengthReportingCriteriaSem", 0);
+    indPtr->setSignalStrengthReportingCriteria.phoneId = PhoneIdIvssToUint8(_phoneId);
+    indPtr->setSignalStrengthReportingCriteria.sigType = SigTypeIvssToRadio(_sigType);
+    indPtr->setSignalStrengthReportingCriteria.ind.type = SigIndTypeIvssToRadio(_ind.getType());
+    indPtr->setSignalStrengthReportingCriteria.ind.lowerRange = _ind.getLowerRange();
+    indPtr->setSignalStrengthReportingCriteria.ind.upperRange = _ind.getUpperRange();
+    indPtr->setSignalStrengthReportingCriteria.ind.delta = _ind.getDelta();
+    indPtr->setSignalStrengthReportingCriteria.hyst.setThreshold = _hyst.getSetThreshold();
+    indPtr->setSignalStrengthReportingCriteria.hyst.threshold = _hyst.getThreshold();
+    indPtr->setSignalStrengthReportingCriteria.hyst.setTimer = _hyst.getSetTimer();
+    indPtr->setSignalStrengthReportingCriteria.hyst.timer = _hyst.getTimer();
+
+    // Report to the common COMMONAPI msg handler in service layer.
+    le_event_ReportWithRefCounting(SetSignalStrengthReportingCriteriaEvent, (void*)indPtr);
+    le_sem_Wait(indPtr->semRef);
+    _reply(ResultLeToIvss(indPtr->result));
 
     le_sem_Delete(indPtr->semRef);
     le_mem_Release(indPtr);
@@ -591,8 +772,8 @@ void tafIvssRadioSvc::taf_ivss_radio_GsmSsChangeHandler
 )
 {
     auto ivssRadio = tafIvssRadioSvc::GetInstance();
-    ivssRadio->fireSignalStrengthEvent(RadioSvc::Rat::RAT_GSM, ss, rsrp,
-        PhoneIdUint8ToIvss(phoneId));
+    ivssRadio->fireSignalStrengthEvent(PhoneIdUint8ToIvss(phoneId), RadioSvc::Rat::RAT_GSM, ss,
+        rsrp);
     LE_DEBUG("tafIvssRadioSvc GsmSsChange Event");
 };
 
@@ -610,28 +791,9 @@ void tafIvssRadioSvc::taf_ivss_radio_UmtsSsChangeHandler
 )
 {
     auto ivssRadio = tafIvssRadioSvc::GetInstance();
-    ivssRadio->fireSignalStrengthEvent(RadioSvc::Rat::RAT_UMTS, ss, rsrp,
-        PhoneIdUint8ToIvss(phoneId));
+    ivssRadio->fireSignalStrengthEvent(PhoneIdUint8ToIvss(phoneId), RadioSvc::Rat::RAT_UMTS, ss,
+        rsrp);
     LE_DEBUG("tafIvssRadioSvc UmtsSsChange Event");
-};
-
-//--------------------------------------------------------------------------------------------------
-/**
- * Handler for TDSCDMA signal strength changes.
- */
-//--------------------------------------------------------------------------------------------------
-void tafIvssRadioSvc::taf_ivss_radio_TdscdmaSsChangeHandler
-(
-    int32_t ss,      ///< [IN] Signal strength in dBm.
-    int32_t rsrp,    ///< [IN] Reference signal receive quality in dB.
-    uint8_t phoneId, ///< [IN] Phone ID.
-    void* contextPtr ///< [IN] Handler context.
-)
-{
-    auto ivssRadio = tafIvssRadioSvc::GetInstance();
-    ivssRadio->fireSignalStrengthEvent(RadioSvc::Rat::RAT_TDSCDMA, ss, rsrp,
-        PhoneIdUint8ToIvss(phoneId));
-    LE_DEBUG("tafIvssRadioSvc TdscdmaSsChange Event");
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -648,8 +810,8 @@ void tafIvssRadioSvc::taf_ivss_radio_LteSsChangeHandler
 )
 {
     auto ivssRadio = tafIvssRadioSvc::GetInstance();
-    ivssRadio->fireSignalStrengthEvent(RadioSvc::Rat::RAT_LTE, ss, rsrp,
-        PhoneIdUint8ToIvss(phoneId));
+    ivssRadio->fireSignalStrengthEvent(PhoneIdUint8ToIvss(phoneId), RadioSvc::Rat::RAT_LTE, ss,
+        rsrp);
     LE_DEBUG("tafIvssRadioSvc LteSsChange Event");
 };
 
@@ -667,8 +829,8 @@ void tafIvssRadioSvc::taf_ivss_radio_Nr5gSsChangeHandler
 )
 {
     auto ivssRadio = tafIvssRadioSvc::GetInstance();
-    ivssRadio->fireSignalStrengthEvent(RadioSvc::Rat::RAT_NR5G, ss, rsrp,
-        PhoneIdUint8ToIvss(phoneId));
+    ivssRadio->fireSignalStrengthEvent(PhoneIdUint8ToIvss(phoneId), RadioSvc::Rat::RAT_NR5G, ss,
+        rsrp);
     LE_DEBUG("tafIvssRadioSvc Nr5gSsChange Event");
 };
 
@@ -684,8 +846,8 @@ void tafIvssRadioSvc::taf_ivss_radio_RatChangeHandler
 )
 {
     auto ivssRadio = tafIvssRadioSvc::GetInstance();
-    ivssRadio->fireRadioRatEvent(RatRadioToIvss(ratChangeIndPtr->rat),
-        PhoneIdUint8ToIvss(ratChangeIndPtr->phoneId));
+    ivssRadio->fireRadioRatEvent(PhoneIdUint8ToIvss(ratChangeIndPtr->phoneId),
+        RatRadioToIvss(ratChangeIndPtr->rat));
     LE_DEBUG("tafIvssRadioSvc RatChange Event");
 };
 
@@ -696,13 +858,30 @@ void tafIvssRadioSvc::taf_ivss_radio_RatChangeHandler
 //--------------------------------------------------------------------------------------------------
 void tafIvssRadioSvc::taf_ivss_radio_StateChangeHandler
 (
-    taf_radio_OpMode_t mode,    ///< [IN] Operating mode.
-    void* contextPtr            ///< [IN] Handler context.
+    taf_radio_OpMode_t mode, ///< [IN] Operating mode.
+    void* contextPtr         ///< [IN] Handler context.
 )
 {
     auto ivssRadio = tafIvssRadioSvc::GetInstance();
     ivssRadio->fireRadioStateEvent(StatesRadioToIvss(mode));
     LE_DEBUG("tafIvssRadioSvc StateChange Event");
+};
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Handler for CellInfo changes.
+ */
+//--------------------------------------------------------------------------------------------------
+void tafIvssRadioSvc::taf_ivss_radio_CellInfoChangeHandler
+(
+    taf_radio_CellInfoStatus_t cellStatus, ///< [IN] Cell change enum for serving / neighbor / both.
+    uint8_t phoneId,                       ///< [IN] Phone ID.
+    void* contextPtr                       ///< [IN] Handler context.
+)
+{
+    auto ivssRadio = tafIvssRadioSvc::GetInstance();
+    ivssRadio->fireCellInfoEvent(PhoneIdUint8ToIvss(phoneId), CellInfoRadioToIvss(cellStatus));
+    LE_DEBUG("tafIvssRadioSvc CellInfo Event");
 };
 
 //--------------------------------------------------------------------------------------------------
@@ -731,6 +910,8 @@ void tafIvssRadioSvc::Init
     GetNetRegStateEvent = le_event_CreateIdWithRefCounting("GetNetRegStateEvent");
     GetNrDualConnectivityStatusEvent = le_event_CreateIdWithRefCounting(
         "GetNrDualConnectivityStatusEvent");
+    SetSignalStrengthReportingCriteriaEvent = le_event_CreateIdWithRefCounting(
+        "SetSignalStrengthReportingCriteriaEvent");
 
     // Init event handler.
     SetRadioPowerEventHandlerRef = le_event_AddHandler("SetRadioPowerEvent Handler",
@@ -755,6 +936,9 @@ void tafIvssRadioSvc::Init
     GetNrDualConnectivityStatusEventHandlerRef = le_event_AddHandler(
         "GetNrDualConnectivityStatusEvent Handler", GetNrDualConnectivityStatusEvent,
         tafIvssRadioSvc::GetNrDualConnectivityStatusHandler);
+    SetSignalStrengthReportingCriteriaEventHandlerRef = le_event_AddHandler(
+        "SetSignalStrengthReportingCriteriaEvent Handler", SetSignalStrengthReportingCriteriaEvent,
+        tafIvssRadioSvc::SetSignalStrengthReportingCriteriaHandler);
 
     // Init commonapi event.
     RatChangeHandlerRef = taf_radio_AddRatChangeHandler(
@@ -763,14 +947,14 @@ void tafIvssRadioSvc::Init
         (taf_radio_SignalStrengthChangeHandlerFunc_t)taf_ivss_radio_GsmSsChangeHandler, NULL);
     UmtsSsChangeHandlerRef = taf_radio_AddSignalStrengthChangeHandler(TAF_RADIO_RAT_UMTS,
         (taf_radio_SignalStrengthChangeHandlerFunc_t)taf_ivss_radio_UmtsSsChangeHandler, NULL);
-    TdscdmaSsChangeHandlerRef = taf_radio_AddSignalStrengthChangeHandler(TAF_RADIO_RAT_TDSCDMA,
-        (taf_radio_SignalStrengthChangeHandlerFunc_t)taf_ivss_radio_TdscdmaSsChangeHandler, NULL);
     LteSsChangeHandlerRef = taf_radio_AddSignalStrengthChangeHandler(TAF_RADIO_RAT_LTE,
         (taf_radio_SignalStrengthChangeHandlerFunc_t)taf_ivss_radio_LteSsChangeHandler, NULL);
     Nr5gSsChangeHandlerRef = taf_radio_AddSignalStrengthChangeHandler(TAF_RADIO_RAT_NR5G,
         (taf_radio_SignalStrengthChangeHandlerFunc_t)taf_ivss_radio_Nr5gSsChangeHandler, NULL);
     StateChangeHandlerRef = taf_radio_AddOpModeChangeHandler(
         (taf_radio_OpModeChangeHandlerFunc_t)taf_ivss_radio_StateChangeHandler, NULL);
+    CellInfoChangeHandlerRef = taf_radio_AddCellInfoChangeHandler(
+        (taf_radio_CellInfoChangeHandlerFunc_t)taf_ivss_radio_CellInfoChangeHandler, NULL);
 
     LE_INFO("tafIvssRadioSvc Service initialized");
 };

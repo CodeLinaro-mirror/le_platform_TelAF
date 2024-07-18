@@ -2,7 +2,7 @@ provides:
 {
     api:
     {
-        taf_rsim.api
+        taf_simRsim.api
     }
 }
 

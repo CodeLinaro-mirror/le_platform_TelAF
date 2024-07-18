@@ -151,6 +151,20 @@ DEFINE MTD_PAGE_MAX_READ_SIZE = 4 * 1024;
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Maximum byte size for buffer to read data from MTD partition.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MTD_MAX_READ_SIZE = 16 * 1024;
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Maximum byte size for buffer to write data to MTD partition.
+ */
+//--------------------------------------------------------------------------------------------------
+DEFINE MTD_MAX_WRITE_SIZE = 16 * 1024;
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Maximum volume name length with null character(s).
  */
 //--------------------------------------------------------------------------------------------------
@@ -168,14 +182,14 @@ DEFINE VOLUME_TYPE_MAX_BYTES = 128;
  * Maximum byte size for buffer to read data from UBI volume.
  */
 //--------------------------------------------------------------------------------------------------
-DEFINE UBI_MAX_READ_SIZE = 4 * 1024;
+DEFINE UBI_MAX_READ_SIZE = 16 * 1024;
 
 //--------------------------------------------------------------------------------------------------
 /**
  * Maximum byte size for buffer to write data to UBI volume.
  */
 //--------------------------------------------------------------------------------------------------
-DEFINE UBI_MAX_WRITE_SIZE = 4 * 1024;
+DEFINE UBI_MAX_WRITE_SIZE = 16 * 1024;
 
 //--------------------------------------------------------------------------------------------------
 /**
@@ -322,6 +336,55 @@ FUNCTION le_result_t MtdWritePage
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Reads an MTD partition.
+ *
+ * @return
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t MtdRead
+(
+    Partition partitionRef IN,            ///< The MTD partition reference.
+    uint32 offset IN,                     ///< The MTD partition offset.
+    uint8 readData[MTD_MAX_READ_SIZE] OUT ///< Buffer read from the MTD page.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Writes MTD partition.
+ *
+ * @return
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t MtdWrite
+(
+    Partition partitionRef IN,             ///< The MTD partition reference.
+    uint32 offset IN,                      ///< The MTD partition offset.
+    uint8 writeData[MTD_MAX_WRITE_SIZE] IN ///< Buffer to be written to the MTD block.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Erases MTD partition.
+ *
+ * @return
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t MtdErase
+(
+    Partition partitionRef IN ///< The MTD partition reference.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Checks if an MTD block is good.
  *
  * @return
@@ -437,4 +500,19 @@ FUNCTION le_result_t UbiWrite
 (
     Volume volumeRef IN,                   ///< The UBI volume reference.
     uint8 writeData[UBI_MAX_WRITE_SIZE] IN ///< Buffer to be written to UBI volume.
+);
+
+//--------------------------------------------------------------------------------------------------
+/**
+ * Erases UBI volume.
+ *
+ * @return
+ *  - LE_FAULT -- Failed.
+ *  - LE_OK -- Succeeded.
+ *
+ */
+//--------------------------------------------------------------------------------------------------
+FUNCTION le_result_t UbiErase
+(
+    Volume volumeRef IN ///< The UBI volume reference.
 );

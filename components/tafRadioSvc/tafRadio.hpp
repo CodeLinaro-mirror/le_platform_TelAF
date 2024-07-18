@@ -618,6 +618,17 @@ namespace tafsvc {
         static void ratPreferenceResponse(telux::tel::RatPreference preference, telux::common::ErrorCode error);
     };
 
+    class taf_RadioServiceDomainPreferenceResponseCallback
+    {
+        public:
+            static le_sem_Ref_t semaphore;
+            static le_result_t result;
+            static telux::tel::ServiceDomainPreference domainPref;
+
+            static void serviceDomainPrefResponse(telux::tel::ServiceDomainPreference preference,
+                telux::common::ErrorCode error);
+    };
+
     /*
      * @brief A cell information callback class must be provided when requesting cell information.
      */

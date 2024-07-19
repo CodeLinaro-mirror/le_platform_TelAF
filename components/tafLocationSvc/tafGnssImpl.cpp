@@ -2270,6 +2270,7 @@ le_result_t taf_locGnss::SetConstellation
         {
             constellationMask -= TAF_LOCGNSS_CONSTELLATION_GPS;
             LE_DEBUG("constellation type GPS is not supported");
+            return LE_FAULT;
         }
         if( constellationMask & TAF_LOCGNSS_CONSTELLATION_GLONASS)
         {
@@ -2324,6 +2325,7 @@ le_result_t taf_locGnss::SetConstellation
         {
             constellationMask -= TAF_LOCGNSS_CONSTELLATION_GPS;
             LE_DEBUG("constellation type GPS is not supported");
+            return LE_FAULT;
         }
         if( constellationMask & TAF_LOCGNSS_CONSTELLATION_GLONASS)
         {
@@ -3096,7 +3098,6 @@ le_result_t taf_locGnss::GetPositionState
         LE_ERROR("GetPositionState did not find sessionRef: %p", posSampleReqPtr->sessionRef);
         return LE_FAULT;
     }
-
     if (posSampleReqPtr->positionSampleNodePtr->altitudeValid == true)
     {
         posSampleReqPtr->positionSampleNodePtr->fixState = TAF_LOCGNSS_STATE_FIX_3D;
@@ -3861,8 +3862,8 @@ le_result_t taf_locGnss::SetAcquisitionRate
             // Set the GNSS device acquisition rate
             if(rate < 100)
             {
-                rate = 100;
-                LE_DEBUG("SetAcquisitionRate -> mAcqRate is less than 100ms, so set default to 100ms");
+                LE_ERROR("SetAcquisitionRate -> mAcqRate is less than 100ms, return LE_OUT_OF_RANGE");
+                return LE_OUT_OF_RANGE;
             }
             clientRequestPtr->mAcqRate = rate;
             result = LE_OK;

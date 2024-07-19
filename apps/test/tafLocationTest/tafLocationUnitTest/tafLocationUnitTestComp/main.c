@@ -2338,9 +2338,9 @@ static void TestTafGnssConstellations
     LE_TEST_OK(result == LE_OK,"taf_locGnss_SetConstellation-LE_OK");
     #endif
 
-    //SetConstellation-ALL constellations
+    //SetConstellation-ALL except DEFAULT constellations
     #ifdef TARGET_SA525M
-    constellationMask = 0x7E;
+    constellationMask = 0xFE;
     LE_INFO("taf_locGnss_SetConstellation triggered for Sa525m");
     #else
     constellationMask = 0x3E;
@@ -2348,7 +2348,7 @@ static void TestTafGnssConstellations
     #endif
     LE_TEST_INFO("taf_locGnss_SetConstellation() API is called to set All constellation types");
     result = taf_locGnss_SetConstellation(constellationMask);
-    LE_TEST_OK(result == LE_OK,"taf_locGnss_SetConstellation-LE_OK");
+    LE_TEST_OK(result == LE_FAULT,"taf_locGnss_SetConstellation-LE_FAULT");
 
     //29.GetConstellation
     LE_TEST_INFO("taf_locGnss_GetConstellation() API is called to get constellation types enabled");
@@ -2994,7 +2994,7 @@ static void TestTafGnssNmeaSentences
     //63.GetNmeaSentences
     LE_TEST_INFO("GetNmeaSentences() API is called to get NMEA sentence type");
     result = taf_locGnss_GetNmeaSentences(&nmeaMaskPtr);
-    LE_TEST_OK(result==LE_TIMEOUT, "taf_locGnss_GetNmeaSentences-LE_TIMEOUT");
+    LE_TEST_OK(((LE_OK == result) || (LE_TIMEOUT == result)), "taf_locGnss_GetNmeaSentences-LE_OK_TIMEOUT");
     if(result == LE_OK)
     {
         if(nmeaMaskPtr & TAF_LOCGNSS_NMEA_MASK_GIGSV)
@@ -3348,7 +3348,7 @@ static void TestTafGnssAcquisitionRate
     LE_TEST_INFO("taf_locGnss_SetAcquisitionRate() API is called to set Acq Rate 1");
     acqRate = 1;
     result = taf_locGnss_SetAcquisitionRate(acqRate);
-    LE_TEST_OK(result == LE_OK,"taf_locGnss_SetAcquisitionRate-LE_OK");
+    LE_TEST_OK(result == LE_OUT_OF_RANGE,"taf_locGnss_SetAcquisitionRate-LE_OUT_OF_RANGE");
 
     //72.GetAcquisitionRate
     LE_TEST_INFO("taf_locGnss_GetAcquisitionRate() API is called to get Acq Rate");

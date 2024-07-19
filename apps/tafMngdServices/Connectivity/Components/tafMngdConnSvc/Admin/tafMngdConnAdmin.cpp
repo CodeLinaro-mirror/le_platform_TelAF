@@ -1136,6 +1136,42 @@ le_result_t tafMngdConnAdmin::EventStartData(uint8_t dataId)
 
 //--------------------------------------------------------------------------------------------------
 /**
+ * Return the back off time interval
+ */
+//--------------------------------------------------------------------------------------------------
+uint32_t tafMngdConnAdmin::CalculateBackOffInterval(uint16_t IntervalInSec,
+                                                    uint8_t step,
+                                                    uint8_t retryCount)
+{
+    LE_INFO("Interval    : %d sec", IntervalInSec);
+    LE_INFO("Step        : %d", step);
+    LE_INFO("Retry Count : %d", retryCount);
+    uint32_t intervalInMilliSec = 0;
+    if (1 == step || 1 == retryCount)
+    {
+        // Interval is always the same
+        intervalInMilliSec = IntervalInSec * 1000;
+    }
+    else if (2 ==step)
+    {
+        if (2 == retryCount)
+            intervalInMilliSec = 60 * 1000;
+        else if (3 == retryCount)
+            intervalInMilliSec = 120 * 1000;
+        else if (4 == retryCount)
+            intervalInMilliSec = 240 * 1000;
+        else if (5 == retryCount)
+            intervalInMilliSec = 480 * 1000;
+        else
+            intervalInMilliSec = 480 * 1000;
+    }
+
+    LE_INFO("Back off interval = %d ms", intervalInMilliSec);
+    return intervalInMilliSec;
+}
+
+//--------------------------------------------------------------------------------------------------
+/**
  * Handle the event MCS_EVT_DATA_START_RETRY
  * When this event is received, it means that data start failed or data disconnected after it was
  * started. From here, a retry timer will be started, with appropriate back-off.
@@ -1188,33 +1224,10 @@ le_result_t tafMngdConnAdmin::EventStartDataRetry(uint8_t dataId)
     dataCtxPtr->dataStartRetryCount = (dataCtxPtr->dataStartRetryCount) + 1;
 
     // Set the retry count back off period
-    switch (dataCtxPtr->dataStartRetryCount)
-    {
-        case 1:
-            le_timer_SetMsInterval(dataCtxPtr->dataStartRetryTimerRef,
-                                                                MCS_RETRY_INTERVAL_1);
-            break;
-        case 2:
-            le_timer_SetMsInterval(dataCtxPtr->dataStartRetryTimerRef,
-                                                                MCS_RETRY_INTERVAL_2);
-            break;
-        case 3:
-            le_timer_SetMsInterval(dataCtxPtr->dataStartRetryTimerRef,
-                                                                MCS_RETRY_INTERVAL_3);
-            break;
-        case 4:
-            le_timer_SetMsInterval(dataCtxPtr->dataStartRetryTimerRef,
-                                                                MCS_RETRY_INTERVAL_4);
-            break;
-        case 5:
-            le_timer_SetMsInterval(dataCtxPtr->dataStartRetryTimerRef,
-                                                                MCS_RETRY_INTERVAL_LAST);
-            break;
-        default:
-            le_timer_SetMsInterval(dataCtxPtr->dataStartRetryTimerRef,
-                                                                MCS_RETRY_INTERVAL_LAST);
-            break;
-    };
+    le_timer_SetMsInterval(dataCtxPtr->dataStartRetryTimerRef,
+                           CalculateBackOffInterval(dataCtxPtr->dataRetryBackoffIntervalInSec,
+                                                    dataCtxPtr->dataRetryBackoffIntervalStep,
+                                                    dataCtxPtr->dataStartRetryCount));
 
     // Start the data start retry timer
     le_timer_Start(dataCtxPtr->dataStartRetryTimerRef);
@@ -2571,6 +2584,11 @@ le_result_t tafMngdConnAdmin::InitializeStates()
 
             dataCtxPtr->maxdataRetryCount = Configuration.Data[dataIdx].DataStartRetry.RetryCount;
             dataCtxPtr->dataRetry = Configuration.Data[dataIdx].DataStartRetry.Enable;
+            // JSON has backoff interval in seconds. Convert it to milliseconds
+            dataCtxPtr->dataRetryBackoffIntervalInSec =
+                                        Configuration.Data[dataIdx].DataStartRetry.BackoffInterval;
+            dataCtxPtr->dataRetryBackoffIntervalStep =
+                                    Configuration.Data[dataIdx].DataStartRetry.BackoffIntervalStep;
 
             if(Configuration.Data[dataIdx].PeriodicConnectivityCheck.URL[0] != '\0')
             {
@@ -3295,7 +3313,9 @@ void tafMngdConnAdmin::EventL1ConnRecoveryStart(uint8_t dataId)
         LE_WARN ("Radio power off failed: %d", result);
     }
     LE_INFO("Radio turned off");
-    sleep(MCS_L1_RECOVERY_RADIO_OFF_TIME);
+    LE_INFO("Wait %ds before turning radio back on.",
+                                   Policy.DataSession.ConnectivityRecovery.L1RadioOffOnInterval);
+    sleep(Policy.DataSession.ConnectivityRecovery.L1RadioOffOnInterval);
     result = radio.PowerOn(dataCtxPtr->phoneId);
     if (LE_OK != result)
     {

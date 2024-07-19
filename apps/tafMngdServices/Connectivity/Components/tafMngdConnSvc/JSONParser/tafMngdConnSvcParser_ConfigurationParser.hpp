@@ -59,20 +59,21 @@ namespace tafsvc {
     typedef struct
     {
         mcs_Yes_No_t Enable; //Yes=1, No=0
-        uint8_t RetryCount;
+        uint8_t      RetryCount;
+        uint16_t     BackoffInterval;
+        uint8_t      BackoffIntervalStep;
     } mcs_Configuration_DataStartRetry_t;
 
     typedef struct
     {
         char URL[MCS_MAX_CONNECTION_URL_LEN];
         char IPv4[MCS_MAX_IPV4_LEN];
-        char IPv6[MCS_MAX_IPV6_LEN];
     } mcs_Configuration_Data_DataStartConnectionTest_t;
 
     typedef struct
     {
-        uint8_t Interval;
-        uint8_t RetryCount;
+        uint16_t Interval;
+        uint8_t  RetryCount;
         char URL[MCS_MAX_CONNECTION_URL_LEN];
     } mcs_Configuration_Data_PeriodicConnectivityCheck_t;
 
@@ -201,17 +202,21 @@ private:
                                     mcs_Configuration_t &Configuration,
                                     std::string Value,
                                     int Index);
-    static bool Validate_MCSC_Data_DataStartConnectionTest_IPv6(
-                                    mcs_Configuration_t &Configuration,
-                                    std::string Value,
-                                    int Index);
     // DSR = DataStartRetry
-    static bool Validate_MCSC_Data_DSR_Enable (mcs_Configuration_t &Policy,
+    static bool Validate_MCSC_Data_DSR_Enable (mcs_Configuration_t &Configuration,
                                                         std::string Value,
                                                         int Index);
-    static bool Validate_MCSC_Data_DSR_RetryCount (mcs_Configuration_t &Policy,
+    static bool Validate_MCSC_Data_DSR_RetryCount (mcs_Configuration_t &Configuration,
                                                         std::string Value,
                                                         int Index);
+    static bool Validate_MCSC_Data_DSR_BackoffInterval (mcs_Configuration_t &Configuration,
+                                                        std::string Value,
+                                                        int Index);
+    static bool Validate_MCSC_Data_DSR_BackoffIntervalStep (mcs_Configuration_t &Configuration,
+                                                            std::string Value,
+                                                            int Index);
+
+    // Periodic Connectivity Check
     static bool Validate_MCSC_Data_PeriodicConnectivityCheck_Interval(
                                     mcs_Configuration_t &Configuration,
                                     std::string Value,

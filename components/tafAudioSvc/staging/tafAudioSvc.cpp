@@ -449,7 +449,7 @@ le_result_t taf_audio_SetVolume
 {
     LE_DEBUG("taf_audio_SetVolume: %f", volumeLevel);
     auto &audio = taf_Audio::GetInstance();
-    return audio.SetVolume(streamRef, volumeLevel);
+    return audio.SetVolume(streamRef, volumeLevel, true);
 }
 
 /**

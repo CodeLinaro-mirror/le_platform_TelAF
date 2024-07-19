@@ -1427,7 +1427,8 @@ le_result_t taf_Audio::ConnectStreamPaths( taf_audio_Stream_t* streamPtr,
                     if ( routePtr && routePtr->sessionRef == taf_audio_GetClientSessionRef()
                             && routePtr->mode == TAF_AUDIO_VOICE_CALL)
                     {
-                        SetVolume(routePtr->modemRxPtr->streamRef, routePtr->modemRxPtr->volLevel);
+                        SetVolume(routePtr->modemRxPtr->streamRef, routePtr->modemRxPtr->volLevel,
+                                false);
                         if(routePtr->modemRxPtr->isMute)
                             SetMute(routePtr->modemRxPtr->streamRef, true);
                         if(routePtr->modemTxPtr->isMute)
@@ -1837,16 +1838,21 @@ le_result_t taf_Audio::RecordFile
             fseek(mFile, 0, SEEK_SET);
             if(setWavHeader(mFile, streamPtr) == LE_OK)
             {
-                le_result_t res = SetVolume(streamRef, streamPtr->volLevel);
+                le_result_t res = SetVolume(streamRef, streamPtr->volLevel, false);
                 if (res == LE_OK)
                 {
                     LE_INFO("Successfully set the vol level to recorder stream");
                 }
                 else
                 {
-                    LE_INFO("Failed to set the vol level to recorder stream");
+                    LE_ERROR("Failed to set the vol level to recorder stream");
                 }
+                mRecStartedSemRef = le_sem_Create("tafRecStartedSemRef", 0);
                 le_thread_Start(le_thread_Create("RecordThread", Record, streamPtr));
+                // Wait for record to start successfully
+                le_sem_Wait(mRecStartedSemRef);
+                le_sem_Delete(mRecStartedSemRef);
+                mRecStartedSemRef = nullptr;
             }
             else
                 return LE_FAULT;
@@ -1931,6 +1937,7 @@ void* taf_Audio::Record( void* ctxPtr) {
                 fclose(audio.mFile);
                 audio.mFile = NULL;
                 streamPtr->fd = -1;
+                le_sem_Post(audio.mRecStartedSemRef);
                 return NULL;
             }
         }
@@ -1964,8 +1971,8 @@ void* taf_Audio::Record( void* ctxPtr) {
             // Set the mute status of the stream.
             if (!audio.isRecMuteSet && streamPtr->isMute)
             {
-                le_result_t res = audio.SetMute(streamPtr->streamRef, streamPtr->isMute);
                 audio.isRecMuteSet = true;
+                le_result_t res = audio.SetMute(streamPtr->streamRef, streamPtr->isMute);
                 if (res == LE_OK)
                 {
                     LE_INFO("Successfully set the mute status to recorder stream");
@@ -1974,6 +1981,12 @@ void* taf_Audio::Record( void* ctxPtr) {
                 {
                     LE_INFO("Failed to set the mute status to recorder stream");
                 }
+            }
+            // Notify record started successfully
+            if(audio.mRecStartedSemRef)
+            {
+                audio.isRecMuteSet = true;
+                le_sem_Post(audio.mRecStartedSemRef);
             }
         }
         int waitTime = (8*(audio.mRecStreamBuffer->getMaxSize())*1000)/
@@ -2622,17 +2635,19 @@ void* taf_Audio::PlayAudioFile( void* ctxPtr) {
     {
         audio.playerStreamPtr = nullptr;
         LE_ERROR("Config failed");
+        audio.pbList.pbRes = LE_FAULT;
+        le_sem_Post(audio.mPbStartedSemRef);
         return NULL;
     } else {
         res = audio.SetVolume(pbFilePtr->streamPtr->streamRef,
-                pbFilePtr->streamPtr->volLevel);
+                pbFilePtr->streamPtr->volLevel, false);
         if (res == LE_OK)
         {
             LE_INFO("Successfully set the vol level to player stream");
         }
         else
         {
-            LE_INFO("Failed to set the vol level to player stream");
+            LE_ERROR("Failed to set the vol level to player stream");
         }
     }
     audio.mPlaySemRef = le_sem_Create("tafPlaySemRef", 0);
@@ -2648,6 +2663,8 @@ void* taf_Audio::PlayAudioFile( void* ctxPtr) {
             fseek(audio.mPlayFile, 0, SEEK_SET);
         } else {
             LE_ERROR("Unable to read file");
+            audio.pbList.pbRes = LE_FAULT;
+            le_sem_Post(audio.mPbStartedSemRef);
             return NULL;
         }
 
@@ -2665,6 +2682,8 @@ void* taf_Audio::PlayAudioFile( void* ctxPtr) {
                 LE_DEBUG( "Failed to get Stream Buffer ");
                 fclose(audio.mPlayFile);
                 audio.mPlayFile = NULL;
+                audio.pbList.pbRes = LE_FAULT;
+                le_sem_Post(audio.mPbStartedSemRef);
                 return NULL;
             }
         }
@@ -2718,17 +2737,23 @@ void* taf_Audio::PlayAudioFile( void* ctxPtr) {
             // Set the mute status of the stream.
             if(!audio.isPbMuteSet && pbFilePtr->streamPtr->isMute)
             {
+                audio.isPbMuteSet = true;
                 res = audio.SetMute(pbFilePtr->streamPtr->streamRef,
                         pbFilePtr->streamPtr->isMute);
-                audio.isPbMuteSet = true;
                 if (res == LE_OK)
                 {
                     LE_INFO("Successfully set the mute status to player stream");
                 }
                 else
                 {
-                    LE_INFO("Failed to set mute status to player stream");
+                    LE_ERROR("Failed to set mute status to player stream");
                 }
+            }
+            // Notify playback started successfully
+            if(audio.mPbStartedSemRef){
+                audio.isPbMuteSet = true;
+                audio.pbList.pbRes = LE_OK;
+                le_sem_Post(audio.mPbStartedSemRef);
             }
         }
 
@@ -2858,9 +2883,11 @@ le_result_t taf_Audio::PlayList
     playerStreamPtr = streamPtr;
 
     le_result_t res = LE_FAULT;
+    pbList.pbRes = LE_FAULT;
     for(size_t i = 0; i < playFileConfigSize; i++)
     {
         pbList.filesToPlay[i].absoluteFilePath = playFileConfigPtr[i].srcPath;
+        pbList.filesToPlay[i].config = {};
         LE_INFO("file path : %s", playFileConfigPtr[i].srcPath);
         int AudioFileFd;
         if((AudioFileFd=open(pbList.filesToPlay[i].absoluteFilePath.c_str(), O_RDONLY)) == -1)
@@ -2918,11 +2945,42 @@ le_result_t taf_Audio::PlayList
         return LE_FAULT;
     }
     mIsPlaying = true;
+    // Set volume and mute status of stream to player
+    res = SetVolume(streamRef, streamPtr->volLevel, false);
+    if (res == LE_OK)
+    {
+        LE_INFO("Successfully set the vol level to player stream");
+    }
+    else
+    {
+        LE_ERROR("Failed to set the vol level to player stream");
+    }
+    if(streamPtr->isMute)
+    {
+        res = SetMute(streamRef, streamPtr->isMute);
+        if (res == LE_OK)
+        {
+            LE_INFO("Successfully set the mute status to player stream");
+        }
+        else
+        {
+            LE_ERROR("Failed to set mute status to player stream");
+        }
+    }
 #else
+    mPbStartedSemRef = le_sem_Create("tafPbStartedSemRef", 0);
     le_thread_Start(le_thread_Create("PlayListThread", PlayList, NULL));
+    // Wait for playback to start successfully
+    le_sem_Wait(mPbStartedSemRef);
+    le_sem_Delete(mPbStartedSemRef);
+    mPbStartedSemRef = nullptr;
     playerStreamPtr = nullptr;
+    LE_DEBUG("pbList.pbRes is %d", pbList.pbRes);
+    if(pbList.pbRes == LE_FAULT)
+        res = LE_FAULT;
 #endif
-    setVhalRouteStatus(TAF_AUDIO_LOCAL_PLAYBACK, true);
+    if(res == LE_OK)
+        setVhalRouteStatus(TAF_AUDIO_LOCAL_PLAYBACK, true);
     return res;
 }
 
@@ -3164,13 +3222,21 @@ le_result_t taf_Audio::GetMute
 le_result_t taf_Audio::SetVolume
 (
     taf_audio_StreamRef_t streamRef,
-    double volLevel
+    double volLevel,
+    bool isClient
 )
 {
     taf_audio_Stream_t* streamPtr = (taf_audio_Stream_t*)le_ref_Lookup(StreamRefMap,
             streamRef);
     TAF_ERROR_IF_RET_VAL((streamPtr == NULL), LE_FAULT, "Invalid reference");
     TAF_ERROR_IF_RET_VAL( volLevel < 0 || volLevel > 1, LE_BAD_PARAMETER, "Invalid volume level");
+
+    // To change the mute status to false on voulme change request from client
+    if(isClient && streamPtr->isMute)
+    {
+        LE_INFO("Unmute the stream on volume change request");
+        SetMute(streamRef, false);
+    }
 
     auto status = Status::FAILED;
     std::promise<bool> p;
@@ -3184,12 +3250,6 @@ le_result_t taf_Audio::SetVolume
     rightChannelVol.channelType = ChannelType::RIGHT;
     streamVol.volume.emplace_back(leftChannelVol);
     streamVol.volume.emplace_back(rightChannelVol);
-
-    /*if(streamPtr->isMute)
-    {
-        LE_INFO("Disable the mute status on change request for volume");
-        SetMute(streamRef, false);
-    }*/
 
     if(streamPtr->interface == TAF_AUDIO_IF_DSP_FRONTEND_FILE_PLAY
             && streamPtr->direction == TAF_AUDIO_RX)

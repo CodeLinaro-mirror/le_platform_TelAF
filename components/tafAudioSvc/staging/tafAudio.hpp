@@ -245,6 +245,7 @@ typedef struct
     bool isPlaybackInProgress;
     le_msg_SessionRef_t sessionRef;
     le_sem_Ref_t semRef;
+    le_result_t pbRes;
 }taf_PbList_t;
 
 /**
@@ -325,7 +326,7 @@ class taf_Audio : public ITafSvc
                 const taf_audio_PlayFileConfig_t*  playFileConfigPtr, size_t playFileConfigSize);
         le_result_t SetMute( taf_audio_StreamRef_t streamRef, bool isMute);
         le_result_t GetMute( taf_audio_StreamRef_t streamRef, bool *isMute);
-        le_result_t SetVolume( taf_audio_StreamRef_t streamRef, double volLevel);
+        le_result_t SetVolume( taf_audio_StreamRef_t streamRef, double volLevel, bool isClient);
         le_result_t GetVolume( taf_audio_StreamRef_t streamRef, double *volLevel);
 
         private:
@@ -355,7 +356,7 @@ class taf_Audio : public ITafSvc
         uint32_t maxFileBytes;
         FILE *mFile;
         FILE *mPlayFile;
-        le_sem_Ref_t mRecordSemRef;
+        le_sem_Ref_t mRecordSemRef, mPbStartedSemRef, mRecStartedSemRef;
         SlotId mRxSlotId = INVALID_SLOT_ID , mTxSlotId = INVALID_SLOT_ID;
         StreamConfig voiceStreamConfig = {};
         taf_PbList_t pbList;

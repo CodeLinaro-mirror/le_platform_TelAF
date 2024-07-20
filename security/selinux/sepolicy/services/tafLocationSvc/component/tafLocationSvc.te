@@ -22,6 +22,7 @@ init_telaf_app_domain(telaf_tafLocationSvc_t,telaf_tafLocationSvc_exec_t)
 ifdef(`sa525m',`
 telux_allow_loc(telaf_tafLocationSvc_t)
 location_access_loc_bootkpi(telaf_tafLocationSvc_t)
+leprop_rw_props(telaf_tafLocationSvc_t)
 ')
 
 # Allow tafLocationSvc to search dir in debugfs
